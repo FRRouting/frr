@@ -51,11 +51,15 @@ static int bfd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg);
 /*
  * Control socket
  */
-int bfd_control_init(void)
+int bfd_control_init(const char *path)
 {
 	struct sockaddr_un sun = {.sun_family = AF_UNIX,
 				  .sun_path = BFD_CONTROL_SOCK_PATH};
 	int sd;
+
+	if (path) {
+		strlcpy(sun.sun_path, path, sizeof(sun.sun_path));
+	}
 
 	sd = socket(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
 	if (sd == -1) {
@@ -284,7 +288,7 @@ static int bfd_adapter_reinit(struct thread *thread)
 
 	bac->bac_thinit = NULL;
 
-	csock = bfd_control_init();
+	csock = bfd_control_init(bac->bac_ctlpath);
 	if (csock == -1) {
 		thread_add_timer_msec(bac->bac_master, bfd_adapter_reinit, bac,
 				      BFDD_ADAPTER_CSOCK_TIMEOUT,

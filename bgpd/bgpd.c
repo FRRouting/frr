@@ -7689,11 +7689,6 @@ void bgp_init(void)
 	/* BFD init */
 	bgp_bfd_init();
 
-#ifdef HAVE_BFDD
-	/* Initialize BFDd adapter code. */
-	bfdd_vty_init(bm->master);
-#endif /* HAVE_BFDD */
-
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
 }
 

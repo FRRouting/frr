@@ -43,7 +43,7 @@
 typedef int (*bfd_control_recv_cb)(struct bfd_control_msg *, bool *, void *);
 typedef int (*bfd_reconfigure_cb)(int, void *);
 
-int bfd_control_init(void);
+int bfd_control_init(const char *path);
 uint16_t bfd_control_send(int sd, enum bc_msg_type bmt, const void *data,
 			  size_t datalen);
 int bfd_control_recv(int sd, bfd_control_recv_cb cb, void *arg);
@@ -51,6 +51,7 @@ int bfd_control_recv(int sd, bfd_control_recv_cb cb, void *arg);
 /* Client-side API (for BGP/OSPF/etc...) */
 struct bfdd_adapter_ctx {
 	/* BFD daemon control socket. */
+	char bac_ctlpath[256];
 	int bac_csock;
 	struct thread *bac_threcv;
 	struct thread *bac_thinit;

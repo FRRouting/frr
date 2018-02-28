@@ -1723,7 +1723,7 @@ extern void bgp_update_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
 extern struct peer *peer_new(struct bgp *bgp);
 
 /* bgp_bfdd.c */
-void bfdd_vty_init(struct thread_master *master);
+void bfdd_vty_init(struct thread_master *master, const char *bfdctl);
 void bfdd_print_config(struct vty *vty, const char *addr, struct peer *p);
 int bfdd_unmonitor_peer(struct peer *peer);
 

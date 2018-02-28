@@ -667,13 +667,20 @@ void bfdd_print_config(struct vty *vty, const char *addr, struct peer *p)
 }
 
 /* vtysh initialization code. */
-void bfdd_vty_init(struct thread_master *master)
+void bfdd_vty_init(struct thread_master *master, const char *bfdctl)
 {
 	install_element(BGP_NODE, &bfd_monitor_peer_cmd);
 	install_element(BGP_NODE, &bfd_monitor_peer_label_cmd);
 	install_element(BGP_NODE, &bfd_unmonitor_peer_cmd);
 
 	TAILQ_INIT(&bbc.bbc_bpnlist);
+
+	if (bfdctl) {
+		strlcpy(bac.bac_ctlpath, bfdctl, sizeof(bac.bac_ctlpath));
+	} else {
+		strlcpy(bac.bac_ctlpath, BFD_CONTROL_SOCK_PATH,
+			sizeof(bac.bac_ctlpath));
+	}
 	bac.bac_master = master;
 	bfd_adapter_init(&bac);
 }

@@ -96,6 +96,13 @@ FRR_DAEMON_INFO(
 	.privs = &bfdd_privs
 )
 
+#define OPTION_CTLSOCK 1001
+static struct option longopts[] =
+{
+	{ "bfdctl",  required_argument, NULL, OPTION_CTLSOCK },
+	{ 0 }
+};
+
 DEFINE_QOBJ_TYPE(bpc_node);
 
 
@@ -157,9 +164,12 @@ struct bfdd_adapter_ctx bac = {
 
 int main(int argc, char *argv[])
 {
+	const char *ctl_path = BFD_CONTROL_SOCK_PATH;
 	int opt;
 
 	frr_preinit(&bfdd_di, argc, argv);
+	frr_opt_add("", longopts,
+		"      --bfdctl       Specify bfdd control socket\n");
 
 	while (true) {
 		opt = frr_getopt(argc, argv, NULL);
@@ -167,11 +177,18 @@ int main(int argc, char *argv[])
 			break;
 
 		switch (opt) {
+		case OPTION_CTLSOCK:
+			ctl_path = optarg;
+			break;
+
 		default:
 			frr_help_exit(1);
 			break;
 		}
 	}
+
+	/* Configure the control socket path. */
+	strlcpy(bac.bac_ctlpath, ctl_path, sizeof(bac.bac_ctlpath));
 
 	openzlog(bfdd_di.progname, "BFD", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
 		 LOG_DAEMON);
