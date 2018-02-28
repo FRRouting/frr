@@ -618,7 +618,8 @@ class Router(Node):
         self.routertype = 'frr'
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0,
-                        'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0, 'staticd': 0}
+                        'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0, 'staticd': 0,
+                        'bfdd': 0}
         self.daemons_options = {'zebra': ''}
         self.reportCores = True
         self.version = None
@@ -821,6 +822,12 @@ class Router(Node):
                 logger.info("EIGRP Test, but no eigrpd compiled or installed")
                 return "EIGRP Test, but no eigrpd compiled or installed"
 
+        if self.daemons['bfdd'] == 1:
+            bfdd_path = os.path.join(self.daemondir, 'bfdd')
+            if not os.path.isfile(bfdd_path):
+                logger.info("BFD Test, but no bfdd compiled or installed")
+                return "BFD Test, but no bfdd compiled or installed"
+
         self.restartRouter()
         return ""
 
@@ -863,9 +870,7 @@ class Router(Node):
             if self.daemons[daemon] == 0 or daemon == 'zebra' or daemon == 'staticd':
                 continue
             daemon_path = os.path.join(self.daemondir, daemon)
-            self.cmd('{0} > {3}.out 2> {3}.err &'.format(
-                daemon_path, self.logdir, self.name, daemon
-            ))
+            self.cmd('{0} > {1}.out 2> {1}.err &'.format(daemon_path, daemon))
             self.waitOutput()
             logger.debug('{}: {} {} started'.format(self, self.routertype, daemon))
     def getStdErr(self, daemon):
