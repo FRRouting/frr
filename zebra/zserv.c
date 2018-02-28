@@ -1158,12 +1158,12 @@ static int zread_route_add(struct zserv *client, u_short length,
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_IFINDEX:
 				nexthop = route_entry_nexthop_ifindex_add(
-					re, api_nh->ifindex, re->vrf_id);
+					re, api_nh->ifindex, api_nh->vrf_id);
 				break;
 			case NEXTHOP_TYPE_IPV4:
 				nexthop = route_entry_nexthop_ipv4_add(
 					re, &api_nh->gate.ipv4, NULL,
-					re->vrf_id);
+					api_nh->vrf_id);
 				break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX: {
 
@@ -1180,7 +1180,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 
 				nexthop = route_entry_nexthop_ipv4_ifindex_add(
 					re, &api_nh->gate.ipv4, NULL, ifindex,
-					re->vrf_id);
+					api_nh->vrf_id);
 
 				/* if this an EVPN route entry,
 				   program the nh as neigh */
@@ -1202,12 +1202,12 @@ static int zread_route_add(struct zserv *client, u_short length,
 			}
 			case NEXTHOP_TYPE_IPV6:
 				nexthop = route_entry_nexthop_ipv6_add(
-					re, &api_nh->gate.ipv6, re->vrf_id);
+					re, &api_nh->gate.ipv6, api_nh->vrf_id);
 				break;
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				nexthop = route_entry_nexthop_ipv6_ifindex_add(
 					re, &api_nh->gate.ipv6, api_nh->ifindex,
-					re->vrf_id);
+					api_nh->vrf_id);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				nexthop = route_entry_nexthop_blackhole_add(
