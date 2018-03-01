@@ -27,6 +27,9 @@ MULTIPATH ?= 256
 WANT_FRR_USER ?= frr
 WANT_FRR_VTY_GROUP ?= frrvty
 
+# Don't build PDF docs by default
+GENERATE_PDF ?= 0
+
 #
 ####################################
 
