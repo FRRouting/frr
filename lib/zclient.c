@@ -1266,6 +1266,8 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 		break;
 	}
 
+	STREAM_GETC(s, nhr->type);
+	STREAM_GETW(s, nhr->instance);
 	STREAM_GETC(s, nhr->distance);
 	STREAM_GETL(s, nhr->metric);
 	STREAM_GETC(s, nhr->nexthop_num);
