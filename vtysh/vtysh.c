@@ -975,8 +975,8 @@ static struct cmd_node pw_node = {
 	PW_NODE, "%s(config-pw)# ",
 };
 
-static struct cmd_node ns_node = {
-	NS_NODE, "%s(config-logical-router)# ",
+static struct cmd_node logicalrouter_node = {
+	LOGICALROUTER_NODE, "%s(config-logical-router)# ",
 };
 
 static struct cmd_node vrf_node = {
@@ -1446,7 +1446,7 @@ DEFUNSH(VTYSH_LDPD, ldp_member_pseudowire_ifname,
 DEFUNSH(VTYSH_ISISD, router_isis, router_isis_cmd, "router isis WORD",
 	ROUTER_STR
 	"ISO IS-IS\n"
-	"ISO Routing area tag")
+	"ISO Routing area tag\n")
 {
 	vty->node = ISIS_NODE;
 	return CMD_SUCCESS;
@@ -1508,7 +1508,7 @@ static int vtysh_exit(struct vty *vty)
 		break;
 	case INTERFACE_NODE:
 	case PW_NODE:
-	case NS_NODE:
+	case LOGICALROUTER_NODE:
 	case VRF_NODE:
 	case ZEBRA_NODE:
 	case BGP_NODE:
@@ -1782,15 +1782,24 @@ DEFSH(VTYSH_ZEBRA, vtysh_no_interface_vrf_cmd, "no interface IFNAME vrf NAME",
       "Delete a pseudo interface's configuration\n"
       "Interface's name\n" VRF_CMD_HELP_STR)
 
-DEFUNSH(VTYSH_NS, vtysh_ns, vtysh_ns_cmd, "logical-router (1-65535) ns NAME",
+DEFUNSH(VTYSH_ZEBRA, vtysh_logicalrouter, vtysh_logicalrouter_cmd,
+	"logical-router (1-65535) ns NAME",
 	"Enable a logical-router\n"
 	"Specify the logical-router indentifier\n"
 	"The Name Space\n"
 	"The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
-	vty->node = NS_NODE;
+	vty->node = LOGICALROUTER_NODE;
 	return CMD_SUCCESS;
 }
+
+DEFSH(VTYSH_ZEBRA, vtysh_no_logicalrouter_cmd,
+	"no logical-router (1-65535) ns NAME",
+	NO_STR
+	"Enable a Logical-Router\n"
+	"Specify the Logical-Router identifier\n"
+	"The Name Space\n"
+	"The file name in " NS_RUN_DIR ", or a full pathname\n")
 
 DEFUNSH(VTYSH_VRF, vtysh_vrf, vtysh_vrf_cmd, "vrf NAME",
 	"Select a VRF to configure\n"
@@ -1804,16 +1813,18 @@ DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_cmd, "no vrf NAME", NO_STR
       "Delete a pseudo vrf's configuration\n"
       "VRF's name\n")
 
-DEFUNSH(VTYSH_NS, vtysh_exit_ns, vtysh_exit_ns_cmd, "exit",
+DEFUNSH(VTYSH_NS, vtysh_exit_logicalrouter,
+	vtysh_exit_logicalrouter_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_NS, vtysh_quit_ns, vtysh_quit_ns_cmd, "quit",
+DEFUNSH(VTYSH_NS, vtysh_quit_logicalrouter,
+	vtysh_quit_logicalrouter_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
-	return vtysh_exit_ns(self, vty, argc, argv);
+	return vtysh_exit_logicalrouter(self, vty, argc, argv);
 }
 
 DEFUNSH(VTYSH_VRF, vtysh_exit_vrf, vtysh_exit_vrf_cmd, "exit",
@@ -2628,6 +2639,19 @@ ALIAS(vtysh_traceroute, vtysh_traceroute_ip_cmd, "traceroute ip WORD",
       "IP trace\n"
       "Trace route to destination address or hostname\n")
 
+DEFUN (vtysh_mtrace,
+       vtysh_mtrace_cmd,
+       "mtrace WORD",
+       "Multicast trace route to multicast source\n"
+       "Multicast trace route to multicast source address\n")
+{
+	int idx = 1;
+
+	argv_find(argv, argc, "WORD", &idx);
+	execute_command("mtracebis", 1, argv[idx]->arg, NULL);
+	return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_ping6,
        vtysh_ping6_cmd,
        "ping ipv6 WORD",
@@ -3042,7 +3066,7 @@ void vtysh_init_vty(void)
 	install_node(&interface_node, NULL);
 	install_node(&pw_node, NULL);
 	install_node(&link_params_node, NULL);
-	install_node(&ns_node, NULL);
+	install_node(&logicalrouter_node, NULL);
 	install_node(&vrf_node, NULL);
 	install_node(&rmap_node, NULL);
 	install_node(&zebra_node, NULL);
@@ -3220,11 +3244,14 @@ void vtysh_init_vty(void)
 	install_element(PW_NODE, &vtysh_exit_interface_cmd);
 	install_element(PW_NODE, &vtysh_quit_interface_cmd);
 
-	install_element(NS_NODE, &vtysh_end_all_cmd);
+	install_element(LOGICALROUTER_NODE, &vtysh_end_all_cmd);
 
-	install_element(CONFIG_NODE, &vtysh_ns_cmd);
-	install_element(NS_NODE, &vtysh_exit_ns_cmd);
-	install_element(NS_NODE, &vtysh_quit_ns_cmd);
+	install_element(CONFIG_NODE, &vtysh_logicalrouter_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_logicalrouter_cmd);
+	install_element(LOGICALROUTER_NODE,
+			&vtysh_exit_logicalrouter_cmd);
+	install_element(LOGICALROUTER_NODE,
+			&vtysh_quit_logicalrouter_cmd);
 
 	install_element(VRF_NODE, &vtysh_end_all_cmd);
 	install_element(VRF_NODE, &vtysh_exit_vrf_cmd);
@@ -3327,6 +3354,7 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_ping_ip_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_ip_cmd);
+	install_element(VIEW_NODE, &vtysh_mtrace_cmd);
 	install_element(VIEW_NODE, &vtysh_ping6_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute6_cmd);
 #if defined(HAVE_SHELL_ACCESS)

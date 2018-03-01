@@ -2,6 +2,7 @@
 Makefile.in
 libpim.a
 pimd
+mtracebis
 test_igmpv3_join
 tags
 TAGS

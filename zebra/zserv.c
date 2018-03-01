@@ -20,6 +20,8 @@
 
 #include <zebra.h>
 #include <sys/un.h>
+/* for basename */
+#include <libgen.h>
 
 #include "prefix.h"
 #include "command.h"
@@ -182,13 +184,19 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 {
 	struct vrf_data data;
+	const char *netns_name = zvrf_ns_name(zvrf);
 
 	data.l.table_id = zvrf->table_id;
-	/* Pass the tableid */
+
+	if (netns_name)
+		strlcpy(data.l.netns_name,
+			basename((char *)netns_name), NS_NAMSIZ);
+	else
+		memset(data.l.netns_name, 0, NS_NAMSIZ);
+	/* Pass the tableid and the netns NAME */
 	stream_put(s, &data, sizeof(struct vrf_data));
 	/* Interface information. */
 	stream_put(s, zvrf_name(zvrf), VRF_NAMSIZ);
-
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 }
@@ -978,29 +986,38 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	return zebra_server_send_message(client);
 }
 
-int zsend_route_notify_owner(u_char proto, u_short instance,
-			     vrf_id_t vrf_id, struct prefix *p,
+int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 			     enum zapi_route_notify_owner note)
 {
 	struct zserv *client;
 	struct stream *s;
 	uint8_t blen;
 
-	client = zebra_find_client(proto, instance);
+	client = zebra_find_client(re->type, re->instance);
 	if (!client || !client->notify_owner) {
 		if (IS_ZEBRA_DEBUG_PACKET) {
 			char buff[PREFIX_STRLEN];
 
-			zlog_debug("Not Notifying Owner: %u about prefix %s",
-				   proto, prefix2str(p, buff, sizeof(buff)));
+			zlog_debug(
+				"Not Notifying Owner: %u about prefix %s(%u) %d",
+				re->type, prefix2str(p, buff, sizeof(buff)),
+				re->table, note);
 		}
 		return 0;
+	}
+
+	if (IS_ZEBRA_DEBUG_PACKET) {
+		char buff[PREFIX_STRLEN];
+
+		zlog_debug("Notifying Owner: %u about prefix %s(%u) %d",
+			   re->type, prefix2str(p, buff, sizeof(buff)),
+			   re->table, note);
 	}
 
 	s = client->obuf;
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);
+	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, re->vrf_id);
 
 	stream_put(s, &note, sizeof(note));
 
@@ -1009,6 +1026,8 @@ int zsend_route_notify_owner(u_char proto, u_short instance,
 	blen = prefix_blen(p);
 	stream_putc(s, p->prefixlen);
 	stream_put(s, &p->u.prefix, blen);
+
+	stream_putl(s, re->table);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -2486,23 +2505,27 @@ stream_failure:
 	return 1;
 }
 
+
 static void zread_vrf_label(struct zserv *client,
 			    struct zebra_vrf *zvrf)
 {
 	struct interface *ifp;
 	mpls_label_t nlabel;
+	afi_t afi;
 	struct stream *s;
 	struct zebra_vrf *def_zvrf;
 	enum lsp_types_t ltype;
 
 	s = client->ibuf;
 	STREAM_GETL(s, nlabel);
-	if (nlabel == zvrf->label) {
+	STREAM_GETC(s, afi);
+	if (nlabel == zvrf->label[afi]) {
 		/*
 		 * Nothing to do here move along
 		 */
 		return;
 	}
+
 	STREAM_GETC(s, ltype);
 
 	if (zvrf->vrf->vrf_id != VRF_DEFAULT)
@@ -2518,15 +2541,35 @@ static void zread_vrf_label(struct zserv *client,
 
 	def_zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
-	if (zvrf->label != MPLS_LABEL_NONE)
-		mpls_lsp_uninstall(def_zvrf, ltype, zvrf->label,
-				   NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
+	if (zvrf->label[afi] != MPLS_LABEL_NONE) {
+		afi_t scrubber;
+		bool really_remove;
+
+		really_remove = true;
+		for (scrubber = AFI_IP; scrubber < AFI_MAX ; scrubber++) {
+			if (scrubber == afi)
+				continue;
+
+			if (zvrf->label[scrubber] == MPLS_LABEL_NONE)
+				continue;
+
+			if (zvrf->label[afi] == zvrf->label[scrubber]) {
+				really_remove = false;
+				break;
+			}
+		}
+
+		if (really_remove)
+			mpls_lsp_uninstall(def_zvrf, ltype, zvrf->label[afi],
+					   NEXTHOP_TYPE_IFINDEX, NULL,
+					   ifp->ifindex);
+	}
 
 	if (nlabel != MPLS_LABEL_NONE)
 		mpls_lsp_install(def_zvrf, ltype, nlabel, MPLS_LABEL_IMPLICIT_NULL,
 				 NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
 
-	zvrf->label = nlabel;
+	zvrf->label[afi] = nlabel;
 stream_failure:
 	return;
 }

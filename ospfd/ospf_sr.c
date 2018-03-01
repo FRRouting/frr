@@ -149,14 +149,6 @@ static struct sr_node *sr_node_new(struct in_addr *rid)
 	new->ext_link->del = del_sr_link;
 	new->ext_prefix->del = del_sr_pref;
 
-	/* Check if list are correctly created */
-	if (new->ext_link == NULL || new->ext_prefix == NULL) {
-		list_delete_original(new->ext_link);
-		list_delete_original(new->ext_prefix);
-		XFREE(MTYPE_OSPF_SR_PARAMS, new);
-		return NULL;
-	}
-
 	IPV4_ADDR_COPY(&new->adv_router, rid);
 	new->neighbor = NULL;
 	new->instance = 0;
@@ -440,7 +432,7 @@ static struct ospf_path *get_nexthop_by_addr(struct ospf *top,
 	struct route_node *rn;
 
 	/* Sanity Check */
-	if ((top == NULL) && (top->new_table))
+	if (top == NULL)
 		return NULL;
 
 	if (IS_DEBUG_OSPF_SR)
@@ -498,6 +490,12 @@ static int compute_link_nhlfe(struct sr_link *srl)
 	/* Set ifindex for this neighbor */
 	srl->nhlfe[0].ifindex = nh->oi->ifp->ifindex;
 	srl->nhlfe[1].ifindex = nh->oi->ifp->ifindex;
+
+	/* Update neighbor address for LAN_ADJ_SID */
+	if (srl->type == LAN_ADJ_SID) {
+		IPV4_ADDR_COPY(&srl->nhlfe[0].nexthop, &nh->src);
+		IPV4_ADDR_COPY(&srl->nhlfe[1].nexthop, &nh->src);
+	}
 
 	/* Set Input & Output Label */
 	if (CHECK_FLAG(srl->flags[0], EXT_SUBTLV_LINK_ADJ_SID_VFLG))

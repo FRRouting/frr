@@ -1007,8 +1007,13 @@ int zebra_ptm_bfd_client_register(struct zserv *client,
 	return 0;
 
 stream_failure:
-	if (out_ctxt)
-		ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
+	/*
+	 * IF we ever add more STREAM_GETXXX functions after the out_ctxt
+	 * is allocated then we need to add this code back in
+	 *
+	 * if (out_ctxt)
+	 *	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
+	 */
 	return 0;
 }
 

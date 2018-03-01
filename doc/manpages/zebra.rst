@@ -37,6 +37,11 @@ OPTIONS available for the |DAEMON| command:
 
    Note that this affects Linux only.
 
+
+.. option:: -n, --vrfwnetns
+
+   Enable namespace VRF backend. By default, the VRF backend relies on VRF-lite support from the Linux kernel. This option permits discovering Linux named network namespaces and mapping it to FRR VRF contexts.
+
 FILES
 =====
 

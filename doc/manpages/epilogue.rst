@@ -8,7 +8,7 @@ The daemon may log to standard output, to a VTY, to a log file, or through syslo
 
 SEE ALSO
 ========
-zebra(8), vtysh(1), ripd(8), ripngd(8), ospfd(8), ospf6d(8), bgpd(8), isisd(8), babeld(8), nhrpd(8), pimd(8), ldpd(8), eigrpd(8)
+|seealso-programs|
 |PACKAGE_URL|
 
 BUGS

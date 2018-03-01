@@ -175,7 +175,7 @@ void ospf_ext_term(void)
 {
 
 	if ((OspfEXT.scope != OSPF_OPAQUE_AREA_LSA)
-	    || (OspfEXT.scope != OSPF_OPAQUE_AS_LSA))
+	    && (OspfEXT.scope != OSPF_OPAQUE_AS_LSA))
 		zlog_warn(
 			"EXT: Unable to unregister Extended Prefix "
 			"Opaque LSA functions: Wrong scope!");
@@ -334,10 +334,12 @@ static void set_prefix_sid(struct ext_itf *exti, uint8_t algorithm,
 
 	/* Set Label or Index value */
 	if (value_type == SID_LABEL) {
-		TLV_LEN(exti->node_sid) = htons(SID_LABEL_SIZE);
+		TLV_LEN(exti->node_sid) =
+			htons(SID_LABEL_SIZE(EXT_SUBTLV_PREFIX_SID_SIZE));
 		exti->node_sid.value = htonl(SET_LABEL(value));
 	} else {
-		TLV_LEN(exti->node_sid) = htons(SID_INDEX_SIZE);
+		TLV_LEN(exti->node_sid) =
+			htons(SID_INDEX_SIZE(EXT_SUBTLV_PREFIX_SID_SIZE));
 		exti->node_sid.value = htonl(value);
 	}
 
@@ -370,11 +372,13 @@ static void set_adj_sid(struct ext_itf *exti, bool backup, uint32_t value,
 	/* Adjust Length, Flags and Value depending on the type of Label */
 	if (value_type == SID_LABEL) {
 		SET_FLAG(flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG);
-		TLV_LEN(exti->adj_sid[index]) = htons(SID_LABEL_SIZE);
+		TLV_LEN(exti->adj_sid[index]) =
+			htons(SID_LABEL_SIZE(EXT_SUBTLV_ADJ_SID_SIZE));
 		exti->adj_sid[index].value = htonl(SET_LABEL(value));
 	} else {
 		UNSET_FLAG(flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG);
-		TLV_LEN(exti->adj_sid[index]) = htons(SID_INDEX_SIZE);
+		TLV_LEN(exti->adj_sid[index]) =
+			htons(SID_INDEX_SIZE(EXT_SUBTLV_ADJ_SID_SIZE));
 		exti->adj_sid[index].value = htonl(value);
 	}
 
@@ -402,7 +406,7 @@ static void set_lan_adj_sid(struct ext_itf *exti, bool backup, uint32_t value,
 	}
 
 	/* Set Header */
-	TLV_TYPE(exti->lan_sid[index]) = htons(EXT_SUBTLV_ADJ_SID);
+	TLV_TYPE(exti->lan_sid[index]) = htons(EXT_SUBTLV_LAN_ADJ_SID);
 
 	/* Only Local ADJ-SID is supported for the moment */
 	SET_FLAG(flags, EXT_SUBTLV_LINK_ADJ_SID_LFLG);
@@ -410,11 +414,13 @@ static void set_lan_adj_sid(struct ext_itf *exti, bool backup, uint32_t value,
 	/* Adjust Length, Flags and Value depending on the type of Label */
 	if (value_type == SID_LABEL) {
 		SET_FLAG(flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG);
-		TLV_LEN(exti->lan_sid[index]) = htons(SID_LABEL_SIZE);
+		TLV_LEN(exti->lan_sid[index]) =
+			htons(SID_LABEL_SIZE(EXT_SUBTLV_PREFIX_RANGE_SIZE));
 		exti->lan_sid[index].value = htonl(SET_LABEL(value));
 	} else {
 		UNSET_FLAG(flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG);
-		TLV_LEN(exti->lan_sid[index]) = htons(SID_INDEX_SIZE);
+		TLV_LEN(exti->lan_sid[index]) =
+			htons(SID_INDEX_SIZE(EXT_SUBTLV_PREFIX_RANGE_SIZE));
 		exti->lan_sid[index].value = htonl(value);
 	}
 
@@ -906,7 +912,7 @@ static void ospf_ext_link_lsa_body_set(struct stream *s, struct ext_itf *exti)
 		/* Build LSA body for an Extended Link TLV with Adj. SID */
 		build_tlv_header(s, &exti->link.header);
 		stream_put(s, TLV_DATA(&exti->link.header), EXT_TLV_LINK_SIZE);
-		/* then add Ajacency SubTLVs */
+		/* then add Adjacency SubTLVs */
 		build_tlv(s, &exti->adj_sid[1].header);
 		build_tlv(s, &exti->adj_sid[0].header);
 
@@ -921,8 +927,8 @@ static void ospf_ext_link_lsa_body_set(struct stream *s, struct ext_itf *exti)
 
 		/* Build LSA body for an Extended Link TLV with LAN SID */
 		build_tlv_header(s, &exti->link.header);
-		stream_put(s, &exti->link.header, EXT_TLV_LINK_SIZE);
-		/* then add LAN-Ajacency SubTLVs */
+		stream_put(s, TLV_DATA(&exti->link.header), EXT_TLV_LINK_SIZE);
+		/* then add LAN-Adjacency SubTLVs */
 		build_tlv(s, &exti->lan_sid[1].header);
 		build_tlv(s, &exti->lan_sid[0].header);
 	}
@@ -1671,8 +1677,9 @@ static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 	vty_out(vty,
 		"  LAN-Adj-SID Sub-TLV: Length %u\n\tFlags: "
 		"0x%x\n\tMT-ID:0x%x\n\tWeight: 0x%x\n\tNeighbor ID: "
-		"%s\n\tLabel: %u\n",
+		"%s\n\t%s: %u\n",
 		ntohs(top->header.length), top->flags, top->mtid, top->weight,
+		inet_ntoa(top->neighbor_id),
 		CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG) ? "Label"
 								     : "Index",
 		CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)

@@ -1,5 +1,6 @@
 etc/frr/
 usr/bin/vtysh
+usr/bin/mtracebis
 usr/include/frr/
 usr/lib/
 tools/frr usr/lib/frr

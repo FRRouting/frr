@@ -1475,18 +1475,23 @@ l2vpn_del_api(struct ldpd_conf *conf, struct l2vpn *l2vpn)
 	struct l2vpn_if		*lif;
 	struct l2vpn_pw		*pw;
 
-	while ((lif = RB_ROOT(l2vpn_if_head, &l2vpn->if_tree)) != NULL) {
+	while (!RB_EMPTY(l2vpn_if_head, &l2vpn->if_tree)) {
+		lif = RB_ROOT(l2vpn_if_head, &l2vpn->if_tree);
+
 		QOBJ_UNREG(lif);
 		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
 		free(lif);
 	}
-	while ((pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree)) != NULL) {
+	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_tree)) {
+		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree);
+
 		QOBJ_UNREG(pw);
 		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
 		free(pw);
 	}
-	while ((pw = RB_ROOT(l2vpn_pw_head,
-	    &l2vpn->pw_inactive_tree)) != NULL) {
+	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_inactive_tree)) {
+		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
+
 		QOBJ_UNREG(pw);
 		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 		free(pw);

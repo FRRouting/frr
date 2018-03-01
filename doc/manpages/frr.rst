@@ -2,6 +2,8 @@
 FRR
 ***
 
+.. include:: defines.rst
+
 SYNOPSIS
 ========
 frr [ start ]

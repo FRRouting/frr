@@ -45,10 +45,19 @@ echo $mod
 if [ -z "$mod" ]; then
   echo "There doesn't seem to be any changes."
 else
-  cp $tree/$mod /tmp/f1/
+  echo "Copying source to temp directory..."
+  for file in $mod; do
+    echo "$tree/$file --> /tmp/f1/$file"
+    cp $tree/$file /tmp/f1/
+  done
   git -C $tree reset --hard
   git -C $tree clean -fd
-  cp $tree/$mod /tmp/f2/
+  for file in $mod; do
+    if [ -f $tree/$file ]; then
+      echo "$tree/$file --> /tmp/f2/$file"
+      cp $tree/$file /tmp/f2/
+    fi
+  done
   echo "Running style checks..."
   for file in /tmp/f1/*; do
     echo "$checkpatch $file > $file _cp"
@@ -60,15 +69,20 @@ else
   done
   echo "Done."
   for file in /tmp/f1/*_cp; do
-    echo "Report for $(basename $file _cp)"
-    echo "==============================================="
     if [ -a /tmp/f2/$(basename $file) ]; then
-      diff $file /tmp/f2/$(basename $file) | grep -v "normally be const" | grep -A3 "ERROR\|WARNING"
+      result=$(diff $file /tmp/f2/$(basename $file) | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 '/tmp/f1')
     else
-      cat $file | grep -v "normally be const" | grep -A3 "ERROR\|WARNING"
+      result=$(cat $file | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 '/tmp/f1')
     fi
     if [ "$?" -eq "0" ]; then
-      stat=1
+      echo "Report for $(basename $file _cp)" 1>&2
+      echo "===============================================" 1>&2
+      echo "$result" 1>&2
+      if echo $result | grep -q "ERROR"; then
+        stat=2
+      elif [ "$stat" -eq "0" ]; then
+        stat=1
+      fi
     fi
   done
 fi

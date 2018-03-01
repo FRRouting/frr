@@ -11,6 +11,7 @@ man_MANS = $(MANPAGE_BUILDDIR)/frr.1
 
 if PIMD
 man_MANS += $(MANPAGE_BUILDDIR)/pimd.8
+man_MANS += $(MANPAGE_BUILDDIR)/mtracebis.8
 endif
 
 if BGPD
@@ -108,6 +109,7 @@ EXTRA_DIST = manpages/defines.rst \
 	manpages/vtysh.rst \
 	manpages/nhrpd.rst \
 	manpages/pimd.rst \
+	manpages/mtracebis.rst \
 	manpages/ripngd.rst \
 	manpages/frr.rst \
 	manpages/conf.py \

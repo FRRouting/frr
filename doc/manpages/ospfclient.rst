@@ -2,6 +2,8 @@
 OSPFCLIENT
 **********
 
+.. include:: defines.rst
+
 SYNOPSIS
 ========
 ospfclient <ospfd> <lsatype> <opaquetype> <opaqueid> <ifaddr> <areaid>

@@ -41,6 +41,7 @@
 #include "vrf.h"
 #include "bfd.h"
 #include "libfrr.h"
+#include "ns.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -57,6 +58,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_keepalives.h"
+#include "bgpd/bgp_network.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -259,6 +261,7 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		/* We have instance configured, link to VRF and make it "up". */
 		bgp_vrf_link(bgp, vrf);
 
+		bgp_handle_socket(bgp, vrf, old_vrf_id, true);
 		/* Update any redistribute vrf bitmaps if the vrf_id changed */
 		if (old_vrf_id != bgp->vrf_id)
 			bgp_update_redist_vrf_bitmaps(bgp, old_vrf_id);
@@ -282,6 +285,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp) {
 		old_vrf_id = bgp->vrf_id;
+		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 		/* We have instance configured, unlink from VRF and make it
 		 * "down". */
 		bgp_vrf_unlink(bgp, vrf);

@@ -436,6 +436,7 @@ struct bgp {
 #define BGP_VRF_IMPORT_RT_CFGD              (1 << 3)
 #define BGP_VRF_EXPORT_RT_CFGD              (1 << 4)
 #define BGP_VRF_RD_CFGD                     (1 << 5)
+#define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 6)
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
@@ -451,6 +452,9 @@ struct bgp {
 
 	/* list of corresponding l2vnis (struct bgpevpn) */
 	struct list *l2vnis;
+
+	/* route map for advertise ipv4/ipv6 unicast (type-5 routes) */
+	struct bgp_rmap adv_cmd_rmap[AFI_MAX][SAFI_MAX];
 
 	QOBJ_FIELDS
 };
@@ -683,7 +687,6 @@ struct peer {
 	time_t readtime;     /* Last read time */
 	time_t resettime;    /* Last reset time */
 
-	ifindex_t ifindex;     /* ifindex of the BGP connection. */
 	char *conf_if;	 /* neighbor interface config name. */
 	struct interface *ifp; /* corresponding interface */
 	char *ifname;	  /* bind interface name. */
@@ -1350,6 +1353,9 @@ extern int bgp_get(struct bgp **, as_t *, const char *, enum bgp_instance_type);
 extern void bgp_instance_up(struct bgp *);
 extern void bgp_instance_down(struct bgp *);
 extern int bgp_delete(struct bgp *);
+
+extern int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
+			     vrf_id_t old_vrf_id, bool create);
 
 extern int bgp_flag_set(struct bgp *, int);
 extern int bgp_flag_unset(struct bgp *, int);

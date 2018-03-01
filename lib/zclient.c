@@ -363,7 +363,7 @@ static int zebra_hello_send(struct zclient *zclient)
 	return 0;
 }
 
-void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
+void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 			    mpls_label_t label, enum lsp_types_t ltype)
 {
 	struct stream *s;
@@ -373,6 +373,7 @@ void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
 
 	zclient_create_header(s, ZEBRA_VRF_LABEL, vrf_id);
 	stream_putl(s, label);
+	stream_putc(s, afi);
 	stream_putc(s, ltype);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
@@ -1209,14 +1210,20 @@ stream_failure:
 }
 
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
+			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note)
 {
+	uint32_t t;
+
 	STREAM_GET(note, s, sizeof(*note));
 
 	STREAM_GETC(s, p->family);
 	STREAM_GETC(s, p->prefixlen);
 	STREAM_GET(&p->u.prefix, s,
-		   PSIZE(p->prefixlen));
+		   prefix_blen(p));
+	STREAM_GETL(s, t);
+
+	*tableid = t;
 
 	return true;
 
@@ -1401,8 +1408,8 @@ static void zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Lookup/create vrf by vrf_id. */
 	vrf = vrf_get(vrf_id, vrfname_tmp);
-	vrf->data = data;
-
+	vrf->data.l.table_id = data.l.table_id;
+	memcpy(vrf->data.l.netns_name, data.l.netns_name, NS_NAMSIZ);
 	vrf_enable(vrf);
 }
 
@@ -2362,9 +2369,9 @@ static int zclient_read(struct thread *thread)
 						     vrf_id);
 		break;
 	case ZEBRA_ROUTE_NOTIFY_OWNER:
-		if (zclient->notify_owner)
-			(*zclient->notify_owner)(command, zclient,
-						 length, vrf_id);
+		if (zclient->route_notify_owner)
+			(*zclient->route_notify_owner)(command, zclient, length,
+						       vrf_id);
 		break;
 	default:
 		break;

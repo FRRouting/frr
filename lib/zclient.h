@@ -213,8 +213,8 @@ struct zclient {
 	int (*local_macip_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*pw_status_update)(int, struct zclient *, uint16_t, vrf_id_t);
-	int (*notify_owner)(int command, struct zclient *zclient,
-			    uint16_t length, vrf_id_t vrf_id);
+	int (*route_notify_owner)(int command, struct zclient *zclient,
+				  uint16_t length, vrf_id_t vrf_id);
 };
 
 /* Zebra API message flag. */
@@ -390,9 +390,15 @@ extern void redist_del_instance(struct redist_proto *, u_short);
  * label for lookup.  If you pass in MPLS_LABEL_NONE
  * we will cause a delete action and remove this label pop
  * operation.
+ *
+ * The underlying AF_MPLS doesn't care about afi's
+ * but we can make the zebra_vrf keep track of what
+ * we have installed and play some special games
+ * to get them both installed.
  */
 extern void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
-				   mpls_label_t label, enum lsp_types_t ltype);
+				   afi_t afi, mpls_label_t label,
+				   enum lsp_types_t ltype);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
@@ -507,6 +513,7 @@ extern int zclient_send_rnh(struct zclient *zclient, int command,
 extern int zapi_route_encode(u_char, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
+			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note);
 extern struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh);
 extern bool zapi_nexthop_update_decode(struct stream *s,

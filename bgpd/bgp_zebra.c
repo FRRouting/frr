@@ -1026,14 +1026,14 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
 	    || info->sub_type == BGP_ROUTE_AGGREGATE) {
 		SET_FLAG(api.flags, ZEBRA_FLAG_IBGP);
-		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	}
 
 	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
 	    || bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 
-		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
@@ -1265,14 +1265,14 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 
 	if (peer->sort == BGP_PEER_IBGP) {
-		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 		SET_FLAG(api.flags, ZEBRA_FLAG_IBGP);
 	}
 
 	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
 	    || bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
 	if (bgp_debug_zebra(p)) {
 		char buf[PREFIX_STRLEN];
@@ -1726,6 +1726,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
 					 zebra_size_t length, vrf_id_t vrf_id)
 {
+	int filter = 0;
 	char buf[ETHER_ADDR_STRLEN];
 	vni_t l3vni = 0;
 	struct ethaddr rmac;
@@ -1739,16 +1740,20 @@ static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
 	if (cmd == ZEBRA_L3VNI_ADD) {
 		stream_get(&rmac, s, sizeof(struct ethaddr));
 		originator_ip.s_addr = stream_get_ipv4(s);
+		stream_get(&filter, s, sizeof(int));
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx L3-VNI %s VRF %s VNI %u RMAC %s",
+		zlog_debug("Rx L3-VNI %s VRF %s VNI %u RMAC %s filter %s",
 			   (cmd == ZEBRA_L3VNI_ADD) ? "add" : "del",
-			   vrf_id_to_name(vrf_id), l3vni,
-			   prefix_mac2str(&rmac, buf, sizeof(buf)));
+			   vrf_id_to_name(vrf_id),
+			   l3vni,
+			   prefix_mac2str(&rmac, buf, sizeof(buf)),
+			   filter ? "prefix-routes-only" : "none");
 
 	if (cmd == ZEBRA_L3VNI_ADD)
-		bgp_evpn_local_l3vni_add(l3vni, vrf_id, &rmac, originator_ip);
+		bgp_evpn_local_l3vni_add(l3vni, vrf_id, &rmac, originator_ip,
+					 filter);
 	else
 		bgp_evpn_local_l3vni_del(l3vni, vrf_id);
 

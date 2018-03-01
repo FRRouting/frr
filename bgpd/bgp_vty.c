@@ -3395,7 +3395,7 @@ DEFUN (no_neighbor_set_peer_group,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = peer_group_unbind(bgp, peer, group);
+	ret = peer_delete(peer);
 
 	return bgp_vty_return(vty, ret);
 }
@@ -7278,8 +7278,7 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 				safi = SAFI_MAX;
 		}
 		afi++;
-		if (!afi_wildcard
-		    || afi == AFI_L2VPN) /* special case, not handled yet */
+		if (!afi_wildcard)
 			afi = AFI_MAX;
 	}
 
