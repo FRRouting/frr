@@ -7,6 +7,16 @@ in redhat/README.rpm\_build.md on how to build a rpm package)
 
 Instructions are tested with ``CentOS 6.8`` on ``x86_64`` platform
 
+Warning:
+--------
+``CentOS 6`` is very old and not fully supported by the FRR community
+anymore. Building FRR takes multiple manual steps to update the build
+system with newer packages than what's available from the archives.
+However, the built packages can still be installed afterwards on
+a standard ``CentOS 6`` without any special packages.
+
+Support for CentOS 6 is now on a best-effort base by the community.
+
 CentOS 6 restrictions:
 ----------------------
 
@@ -20,6 +30,10 @@ CentOS 6 restrictions:
 -  frr\_reload.py will not work, as this requires Python 2.7, and CentOS
    6 only has 2.6. You can install Python 2.7 via IUS, but it won't work
    properly unless you compile and install the ipaddr package for it.
+-  Building the package requires Sphinx >= 1.1. Only a non-standard
+   package provides a newer sphinx and requires manual installation
+   (see below)
+
 
 Install required packages
 -------------------------
@@ -31,7 +45,7 @@ Add packages:
     sudo yum install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel flex epel-release perl-XML-LibXML \
-      c-ares-devel python-sphinx10
+      c-ares-devel
 
 Install newer version of bison (CentOS 6 package source is too old) from
 CentOS 7
@@ -79,6 +93,24 @@ install EPEL (``epel-release`` as above). Then install current
 Please note that ``CentOS 6`` needs to keep python pointing to version
 2.6 for ``yum`` to keep working, so don't create a symlink for python2.7
 to python
+
+Install newer ``Sphinx-Build`` based on ``Python 2.7``
+
+::
+    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-babel-0.9.6-2.sdl6.1.noarch.rpm
+    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-jinja2-2.7.2-2.sdl6.noarch.rpm
+    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-markupsafe-0.11-4.puias6.x86_64.rpm
+    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-pygments-1.4-4.sdl6.1.noarch.rpm
+    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-docutils-0.8.1-3.sdl6.2.noarch.rpm
+    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-imaging-1.1.7-6.puias6.x86_64.rpm
+    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-sphinx-1.1.3-1.sdl6.1.noarch.rpm 
+    sudo yum install ./python27-markupsafe-0.11-4.puias6.x86_64.rpm \
+      ./python27-babel-0.9.6-2.sdl6.1.noarch.rpm \
+      ./python27-jinja2-2.7.2-2.sdl6.noarch.rpm \
+      ./python27-pygments-1.4-4.sdl6.1.noarch.rpm \
+      ./python27-docutils-0.8.1-3.sdl6.2.noarch.rpm \
+      ./python27-imaging-1.1.7-6.puias6.x86_64.rpm \
+      ./python27-sphinx-1.1.3-1.sdl6.1.noarch.rpm 
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -133,9 +165,9 @@ an example.)
         --enable-babeld \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion
-    make
-    make check PYTHON=/usr/bin/python2.7
-    sudo make install
+    make SPHINXBUILD=sphinx-build2.7
+    make check PYTHON=/usr/bin/python2.7 SPHINXBUILD=sphinx-build2.7
+    sudo make SPHINXBUILD=sphinx-build2.7 install
 
 Create empty FRR configuration files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
