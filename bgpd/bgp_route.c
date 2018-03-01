@@ -1312,6 +1312,8 @@ static void subgroup_announce_reset_nhop(u_char family, struct attr *attr)
 		attr->nexthop.s_addr = 0;
 	if (family == AF_INET6)
 		memset(&attr->mp_nexthop_global, 0, IPV6_MAX_BYTELEN);
+	if (family == AF_EVPN)
+		memset(&attr->mp_nexthop_global_in, 0, BGP_ATTR_NHLEN_IPV4);
 }
 
 int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
