@@ -568,7 +568,6 @@ static int vrf_config_write(struct vty *vty)
 						? " prefix-routes-only"
 						: "");
 			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
-			vty_out(vty, "!\n");
 		}
 
 		static_config(vty, zvrf, AFI_IP, SAFI_UNICAST, "ip route");
