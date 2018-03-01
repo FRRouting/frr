@@ -446,6 +446,8 @@ DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 extern void zebra_vty_init(void);
 extern int static_config(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
 			 safi_t safi, const char *cmd);
+extern void static_config_install_delayed_routes(struct zebra_vrf *zvrf);
+
 extern pid_t pid;
 
 #endif /*_ZEBRA_RIB_H */

@@ -161,6 +161,12 @@ static int zebra_vrf_enable(struct vrf *vrf)
 				}
 		}
 
+	/*
+	 * We may have static routes that are now possible to
+	 * insert into the appropriate tables
+	 */
+	static_config_install_delayed_routes(zvrf);
+
 	/* Kick off any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_enable(zvrf);
 
