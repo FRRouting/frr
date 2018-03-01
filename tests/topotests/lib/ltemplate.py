@@ -93,6 +93,9 @@ class LTemplate():
             config = os.path.join(self.testdir, '{}/bgpd.conf'.format(rname))
             if os.path.exists(config):
                 router.load_config(TopoRouter.RD_BGP, config)
+            config = os.path.join(self.testdir, '{}/isisd.conf'.format(rname))
+            if os.path.exists(config):
+                router.load_config(TopoRouter.RD_ISIS, config)
 
         # After loading the configurations, this function loads configured daemons.
         logger.info('Starting routers')
