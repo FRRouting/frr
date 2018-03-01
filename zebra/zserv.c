@@ -1190,7 +1190,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 					re->vrf_id);
 
 				/* if this an EVPN route entry,
-				   program the nh as neigh
+				 * program the nh as neigh
 				 */
 				if (CHECK_FLAG(api.flags,
 					       ZEBRA_FLAG_EVPN_ROUTE)) {
@@ -1226,7 +1226,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 					re->vrf_id);
 
 				/* if this an EVPN route entry,
-				   program the nh as neigh
+				 * program the nh as neigh
 				 */
 				if (CHECK_FLAG(api.flags,
 					       ZEBRA_FLAG_EVPN_ROUTE)) {
