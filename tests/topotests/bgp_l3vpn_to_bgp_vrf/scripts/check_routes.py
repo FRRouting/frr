@@ -87,22 +87,45 @@ luCommand('r4','vtysh -c "show bgp ipv4 uni"','No BGP prefixes displayed','pass'
 # PE routers: local ce-originated routes are leaked to vpn
 ########################################################################
 
-luCommand('r1','vtysh -c "show bgp ipv4 vpn"','Distinguisher:  *10:1.*5.1.0.0/24 *1.1.1.1 .*5.1.1.0/24 *1.1.1.1 .*99.0.0.1/32 *1.1.1.1 ','pass','vrf->vpn routes')
+# nhzero is for the new code that sets nh of locally-leaked routes to 0
+nhzero = 1
+#nhzero = 0
 
-luCommand('r3','vtysh -c "show bgp ipv4 vpn"','Distinguisher:  *10:3.*5.1.0.0/24 *3.3.3.3 .*5.1.1.0/24 *3.3.3.3 .*99.0.0.2/32 *3.3.3.3 ','pass','vrf->vpn routes')
+if nhzero:
+    luCommand('r1','vtysh -c "show bgp ipv4 vpn"',
+	'Distinguisher:  *10:1.*5.1.0.0/24 *0.0.0.0 .*5.1.1.0/24 *0.0.0.0 .*99.0.0.1/32 *0.0.0.0 ',
+	'pass','vrf->vpn routes')
+    luCommand('r3','vtysh -c "show bgp ipv4 vpn"',
+	'Distinguisher:  *10:3.*5.1.0.0/24 *0.0.0.0 .*5.1.1.0/24 *0.0.0.0 .*99.0.0.2/32 *0.0.0.0 ',
+	'pass','vrf->vpn routes')
+    want = [
+	{'rd':'10:41', 'p':'5.1.2.0/24', 'n':'0.0.0.0'},
+	{'rd':'10:41', 'p':'5.1.3.0/24', 'n':'0.0.0.0'},
+	{'rd':'10:41', 'p':'99.0.0.3/32', 'n':'0.0.0.0'},
 
-#luCommand('r4','vtysh -c "show bgp ipv4 vpn"','Distinguisher:  *10:4.*5.1.2.0/24 *4.4.4.4 .*5.1.3.0/24 *4.4.4.4 .*5.4.2.0/24 *4.4.4.4 .*5.4.3.0/24 *4.4.4.4 .*99.0.0.3/32  *4.4.4.4 .*99.0.0.4/32 *4.4.4.4 ','pass','vrf->vpn routes')
+	{'rd':'10:42', 'p':'5.4.2.0/24', 'n':'0.0.0.0'},
+	{'rd':'10:42', 'p':'5.4.3.0/24', 'n':'0.0.0.0'},
+	{'rd':'10:42', 'p':'99.0.0.4/32', 'n':'0.0.0.0'},
+    ]
+    bgpribRequireVpnRoutes('r4','vrf->vpn routes',want)
 
-want = [
-    {'rd':'10:41', 'p':'5.1.2.0/24', 'n':'4.4.4.4'},
-    {'rd':'10:41', 'p':'5.1.3.0/24', 'n':'4.4.4.4'},
-    {'rd':'10:41', 'p':'99.0.0.3/32', 'n':'4.4.4.4'},
+else:
+    luCommand('r1','vtysh -c "show bgp ipv4 vpn"',
+	'Distinguisher:  *10:1.*5.1.0.0/24 *1.1.1.1 .*5.1.1.0/24 *1.1.1.1 .*99.0.0.1/32 *1.1.1.1 ',
+	'pass','vrf->vpn routes')
+    luCommand('r3','vtysh -c "show bgp ipv4 vpn"',
+	'Distinguisher:  *10:3.*5.1.0.0/24 *3.3.3.3 .*5.1.1.0/24 *3.3.3.3 .*99.0.0.2/32 *3.3.3.3 ',
+	'pass','vrf->vpn routes')
+    want = [
+	{'rd':'10:41', 'p':'5.1.2.0/24', 'n':'4.4.4.4'},
+	{'rd':'10:41', 'p':'5.1.3.0/24', 'n':'4.4.4.4'},
+	{'rd':'10:41', 'p':'99.0.0.3/32', 'n':'4.4.4.4'},
 
-    {'rd':'10:42', 'p':'5.4.2.0/24', 'n':'4.4.4.4'},
-    {'rd':'10:42', 'p':'5.4.3.0/24', 'n':'4.4.4.4'},
-    {'rd':'10:42', 'p':'99.0.0.4/32', 'n':'4.4.4.4'},
-]
-bgpribRequireVpnRoutes('r4','vrf->vpn routes',want)
+	{'rd':'10:42', 'p':'5.4.2.0/24', 'n':'4.4.4.4'},
+	{'rd':'10:42', 'p':'5.4.3.0/24', 'n':'4.4.4.4'},
+	{'rd':'10:42', 'p':'99.0.0.4/32', 'n':'4.4.4.4'},
+    ]
+    bgpribRequireVpnRoutes('r4','vrf->vpn routes',want)
 
 ########################################################################
 # PE routers: exporting vrfs set MPLS vrf labels in kernel
