@@ -5551,7 +5551,8 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 
 	/* MPLS-VPN aggregation is not yet supported. */
 	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
-	    || (safi == SAFI_EVPN))
+	    || (safi == SAFI_EVPN)
+	    || (safi == SAFI_FLOWSPEC))
 		return;
 
 	table = bgp->aggregate[afi][safi];
@@ -5589,7 +5590,8 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 
 	/* MPLS-VPN aggregation is not yet supported. */
 	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
-	    || (safi == SAFI_EVPN))
+	    || (safi == SAFI_EVPN)
+	    || (safi == SAFI_FLOWSPEC))
 		return;
 
 	table = bgp->aggregate[afi][safi];
@@ -5817,6 +5819,9 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	struct bgp_node *rn;
 	struct bgp_aggregate *aggregate;
 
+	if (safi == SAFI_FLOWSPEC)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
 	if (!ret) {
@@ -5859,6 +5864,9 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	struct prefix p;
 	struct bgp_node *rn;
 	struct bgp_aggregate *aggregate;
+
+	if (safi == SAFI_FLOWSPEC)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
