@@ -1019,6 +1019,8 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		break;
 	}
 	if (re) {
+		stream_putc(s, re->type);
+		stream_putw(s, re->instance);
 		stream_putc(s, re->distance);
 		stream_putl(s, re->metric);
 		num = 0;
@@ -1054,6 +1056,8 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 			}
 		stream_putc_at(s, nump, num);
 	} else {
+		stream_putc(s, 0); // type
+		stream_putw(s, 0); // instance
 		stream_putc(s, 0); // distance
 		stream_putl(s, 0); // metric
 		stream_putc(s, 0); // nexthops
