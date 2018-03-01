@@ -26,7 +26,65 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_flowspec.h"
+#include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_flowspec_private.h"
+
+static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len)
+{
+	uint32_t offset = 0;
+	int type;
+	int ret = 0, error = 0;
+
+	while (offset < len-1) {
+		type = nlri_content[offset];
+		offset++;
+		switch (type) {
+		case FLOWSPEC_DEST_PREFIX:
+		case FLOWSPEC_SRC_PREFIX:
+			ret = bgp_flowspec_ip_address(
+						BGP_FLOWSPEC_VALIDATE_ONLY,
+						nlri_content + offset,
+						len - offset, NULL, &error);
+			break;
+		case FLOWSPEC_IP_PROTOCOL:
+		case FLOWSPEC_PORT:
+		case FLOWSPEC_DEST_PORT:
+		case FLOWSPEC_SRC_PORT:
+		case FLOWSPEC_ICMP_TYPE:
+		case FLOWSPEC_ICMP_CODE:
+			ret = bgp_flowspec_op_decode(BGP_FLOWSPEC_VALIDATE_ONLY,
+						   nlri_content + offset,
+						   len - offset, NULL, &error);
+			break;
+		case FLOWSPEC_TCP_FLAGS:
+			ret = bgp_flowspec_tcpflags_decode(
+						   BGP_FLOWSPEC_VALIDATE_ONLY,
+						   nlri_content + offset,
+						   len - offset, NULL, &error);
+			break;
+		case FLOWSPEC_PKT_LEN:
+		case FLOWSPEC_DSCP:
+			ret = bgp_flowspec_op_decode(
+						BGP_FLOWSPEC_VALIDATE_ONLY,
+						nlri_content + offset,
+						len - offset, NULL, &error);
+			break;
+		case FLOWSPEC_FRAGMENT:
+			ret = bgp_flowspec_fragment_type_decode(
+						BGP_FLOWSPEC_VALIDATE_ONLY,
+						nlri_content + offset,
+						len - offset, NULL, &error);
+			break;
+		default:
+			error = -1;
+			break;
+		}
+		offset += ret;
+		if (error < 0)
+			break;
+	}
+	return error;
+}
 
 int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 			    struct bgp_nlri *packet, int withdraw)
@@ -34,14 +92,18 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	uint8_t *pnt;
 	uint8_t *lim;
 	afi_t afi;
+	safi_t safi;
 	int psize = 0;
 	uint8_t rlen;
 	struct prefix p;
+	int ret;
+	void *temp;
 
 	/* Start processing the NLRI - there may be multiple in the MP_REACH */
 	pnt = packet->nlri;
 	lim = pnt + packet->length;
 	afi = packet->afi;
+	safi = packet->safi;
 
 	if (afi == AFI_IP6) {
 		zlog_err("BGP flowspec IPv6 not supported");
@@ -70,9 +132,33 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 				 psize);
 			return -1;
 		}
-		/* TODO: validate prefix
-		 * and add to FIB
-		 */
+		if (bgp_fs_nlri_validate(pnt, psize) < 0) {
+			zlog_err("Bad flowspec format or NLRI options not supported");
+			return -1;
+		}
+		p.family = AF_FLOWSPEC;
+		p.prefixlen = 0;
+		/* Flowspec encoding is in bytes */
+		p.u.prefix_flowspec.prefixlen = psize;
+		temp = XCALLOC(MTYPE_TMP, psize);
+		memcpy(temp, pnt, psize);
+		p.u.prefix_flowspec.ptr = (uintptr_t) temp;
+		/* Process the route. */
+		if (!withdraw)
+			ret = bgp_update(peer, &p, 0, attr,
+					 afi, safi,
+					 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
+					 NULL, NULL, 0, 0, NULL);
+		else
+			ret = bgp_withdraw(peer, &p, 0, attr,
+					   afi, safi,
+					   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
+					   NULL, NULL, 0, NULL);
+		if (ret) {
+			zlog_err("Flowspec NLRI failed to be %s.",
+				 attr ? "added" : "withdrawn");
+			return -1;
+		}
 	}
 	return 0;
 }
