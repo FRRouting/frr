@@ -306,7 +306,8 @@ int ospf_sr_init(void)
 {
 	int rc = -1;
 
-	zlog_info("SR (%s): Initialize SR Data Base", __func__);
+	if (IS_DEBUG_OSPF_SR)
+		zlog_info("SR (%s): Initialize SR Data Base", __func__);
 
 	memset(&OspfSR, 0, sizeof(struct ospf_sr_db));
 	OspfSR.enabled = false;
@@ -1616,11 +1617,11 @@ static int ospf_sr_update_schedule(struct thread *t)
 
 	monotime(&stop_time);
 
-	zlog_info(
-		"SR (%s): SPF Processing Time(usecs): %lld\n",
-		__func__,
-		(stop_time.tv_sec - start_time.tv_sec) * 1000000LL
-			+ (stop_time.tv_usec - start_time.tv_usec));
+	if (IS_DEBUG_OSPF_SR)
+		zlog_debug("SR (%s): SPF Processing Time(usecs): %lld\n",
+			   __func__,
+			   (stop_time.tv_sec - start_time.tv_sec) * 1000000LL
+			   + (stop_time.tv_usec - start_time.tv_usec));
 
 	OspfSR.update = false;
 	return 1;
