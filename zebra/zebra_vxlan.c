@@ -6582,7 +6582,7 @@ int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
 
 	s = client->ibuf;
 	STREAM_GETC(s, advertise);
-	STREAM_GET(&vni, s, 3);
+	STREAM_GETL(s, vni);
 
 	if (!vni) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
