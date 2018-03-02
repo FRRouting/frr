@@ -6684,7 +6684,7 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	STREAM_GETC(s, advertise);
-	STREAM_GET(&vni, s, 3);
+	STREAM_GETL(s, vni);
 
 	if (!vni) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
