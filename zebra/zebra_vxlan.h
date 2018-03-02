@@ -112,12 +112,12 @@ extern int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
 extern int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if);
 extern int zebra_vxlan_svi_down(struct interface *ifp,
 				struct interface *link_if);
-extern int zebra_vxlan_local_neigh_add_update(
+extern int zebra_vxlan_handle_kernel_neigh_update(
 	struct interface *ifp, struct interface *link_if, struct ipaddr *ip,
 	struct ethaddr *macaddr, u_int16_t state, u_char ext_learned);
-extern int zebra_vxlan_local_neigh_del(struct interface *ifp,
-				       struct interface *link_if,
-				       struct ipaddr *ip);
+extern int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
+					       struct interface *link_if,
+					       struct ipaddr *ip);
 extern int zebra_vxlan_remote_macip_add(struct zserv *client,
 					u_short length, struct zebra_vrf *zvrf);
 extern int zebra_vxlan_remote_macip_del(struct zserv *client,
