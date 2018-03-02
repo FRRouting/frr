@@ -6413,11 +6413,16 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
 {
-	int idx_safi = 3;
-	int idx_ipv6_prefixlen = 5;
+	int idx_safi = 0;
+	int idx_ipv6_prefix = 0;
+	safi_t safi = SAFI_UNICAST;
+	char *prefix = argv_find(argv, argc, "X:X::X:X/M", &idx_ipv6_prefix) ?
+		argv[idx_ipv6_prefix]->arg : NULL;
+
+	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
 	return bgp_clear_prefix(
-		vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
-		bgp_vty_safi_from_str(argv[idx_safi]->text), NULL);
+		vty, NULL, prefix, AFI_IP6,
+		safi, NULL);
 }
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
@@ -6433,11 +6438,20 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        "IPv6 prefix\n")
 {
 	int idx_word = 3;
-	int idx_safi = 5;
-	int idx_ipv6_prefixlen = 7;
+	int idx_safi = 0;
+	int idx_ipv6_prefix = 0;
+	safi_t safi = SAFI_UNICAST;
+	char *prefix = argv_find(argv, argc, "X:X::X:X/M", &idx_ipv6_prefix) ?
+		argv[idx_ipv6_prefix]->arg : NULL;
+	/* [<view|vrf> VIEWVRFNAME] */
+	char *vrfview = argv_find(argv, argc, "VIEWVRFNAME", &idx_word) ?
+		argv[idx_word]->arg : NULL;
+
+	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
+
 	return bgp_clear_prefix(
-		vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg,
-		AFI_IP6, bgp_vty_safi_from_str(argv[idx_safi]->text), NULL);
+		vty, vrfview, prefix,
+		AFI_IP6, safi, NULL);
 }
 
 DEFUN (show_bgp_views,
