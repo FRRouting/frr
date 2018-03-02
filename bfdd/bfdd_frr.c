@@ -192,6 +192,9 @@ void bfdd_config_notification(struct json_object *notification)
 		} else if (strcmp(key, "shutdown") == 0) {
 			bn->bn_bpc.bpc_shutdown =
 				json_object_get_boolean(jo_val);
+		} else if (strcmp(key, "echo-mode") == 0) {
+			bn->bn_bpc.bpc_echo =
+				json_object_get_boolean(jo_val);
 		} else if (strcmp(key, "label") == 0) {
 			strlcpy(bn->bn_bpc.bpc_label,
 				json_object_get_string(jo_val),

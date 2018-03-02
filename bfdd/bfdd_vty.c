@@ -159,6 +159,22 @@ DEFPY(bfd_peer_txinterval, bfd_peer_txinterval_cmd,
 	return bfdd_update_peer(vty, &bn->bn_bpc);
 }
 
+DEFPY(bfd_peer_echointerval, bfd_peer_echointerval_cmd,
+      "echo-interval (10-60000)$interval",
+      "Configure peer echo interval\n"
+      "Configure peer echo interval value in milliseconds\n")
+{
+	struct bpc_node *bn;
+
+	bn = VTY_GET_CONTEXT(bpc_node);
+	if (bpc_set_echointerval(&bn->bn_bpc, interval)) {
+		vty_out(vty, "%% Invalid interval configuration\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return bfdd_update_peer(vty, &bn->bn_bpc);
+}
+
 DEFPY(bfd_peer_shutdown, bfd_peer_shutdown_cmd,
       "[no] shutdown",
       NO_STR
@@ -168,6 +184,19 @@ DEFPY(bfd_peer_shutdown, bfd_peer_shutdown_cmd,
 
 	bn = VTY_GET_CONTEXT(bpc_node);
 	bn->bn_bpc.bpc_shutdown = no ? false : true;
+
+	return bfdd_update_peer(vty, &bn->bn_bpc);
+}
+
+DEFPY(bfd_peer_echo, bfd_peer_echo_cmd,
+      "[no] echo-mode",
+      NO_STR
+      "Configure echo mode\n")
+{
+	struct bpc_node *bn;
+
+	bn = VTY_GET_CONTEXT(bpc_node);
+	bn->bn_bpc.bpc_echo = no ? false : true;
 
 	return bfdd_update_peer(vty, &bn->bn_bpc);
 }
@@ -470,8 +499,15 @@ int bfdd_peer_write_config(struct vty *vty)
 			vty_out(vty, "  transmit-interval %lu\n",
 				bpc->bpc_txinterval);
 		}
+		if (bpc->bpc_has_echointerval) {
+			vty_out(vty, "  echo-interval %lu\n",
+				bpc->bpc_echointerval);
+		}
 		if (bpc->bpc_has_label) {
 			vty_out(vty, "  label %s\n", bpc->bpc_label);
+		}
+		if (bpc->bpc_echo) {
+			vty_out(vty, "  echo-mode\n");
 		}
 
 		vty_out(vty, "  %sshutdown\n", bpc->bpc_shutdown ? "" : "no ");
@@ -508,6 +544,8 @@ void bfdd_vty_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_detectmultiplier_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_recvinterval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_txinterval_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_echointerval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_shutdown_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_echo_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_label_cmd);
 }

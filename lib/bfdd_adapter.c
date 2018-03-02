@@ -414,6 +414,11 @@ static void _bfd_ctrl_add_peer(struct json_object *msg,
 				    bpc->bpc_txinterval);
 	}
 
+	if (bpc->bpc_has_echointerval)
+		json_object_add_int(peer_jo, "echo-interval",
+				    bpc->bpc_echointerval);
+
+	json_object_add_bool(peer_jo, "echo-mode", bpc->bpc_echo);
 	json_object_add_bool(peer_jo, "create-only", bpc->bpc_createonly);
 	json_object_add_bool(peer_jo, "shutdown", bpc->bpc_shutdown);
 
