@@ -101,6 +101,7 @@ struct ospf6_area {
 	struct timeval ts_spf; /* SPF calculation time stamp. */
 
 	uint32_t full_nbrs; /* Fully adjacent neighbors. */
+	uint8_t intra_prefix_originate; /* Force intra_prefix lsa originate */
 };
 
 #define OSPF6_AREA_ENABLE     0x01

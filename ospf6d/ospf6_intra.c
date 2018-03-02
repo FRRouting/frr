@@ -1015,6 +1015,20 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 		return 0;
 	}
 
+	/* Neighbor change to FULL, if INTRA-AREA-PREFIX LSA
+	 * has not change, Flush old LSA and Re-Originate INP,
+	 * as ospf6_flood() checks if LSA is same as DB,
+	 * it won't be updated to neighbor's DB.
+	 */
+	if (oa->intra_prefix_originate) {
+		if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+			zlog_debug("%s: Re-originate intra prefix LSA, Current full nbrs %u",
+				   __PRETTY_FUNCTION__, oa->full_nbrs);
+		if (old)
+			ospf6_lsa_purge_multi_ls_id(oa, old);
+		oa->intra_prefix_originate = 0;
+	}
+
 	/* put prefixes to advertise */
 	prefix_num = 0;
 	op = (struct ospf6_prefix *)((caddr_t)intra_prefix_lsa

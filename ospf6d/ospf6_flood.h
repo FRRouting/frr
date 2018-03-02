@@ -41,6 +41,9 @@ extern void ospf6_lsa_originate_interface(struct ospf6_lsa *lsa,
 					  struct ospf6_interface *oi);
 extern void ospf6_lsa_purge(struct ospf6_lsa *lsa);
 
+extern void ospf6_lsa_purge_multi_ls_id(struct ospf6_area *oa,
+					struct ospf6_lsa *lsa);
+
 /* access method to retrans_count */
 extern void ospf6_increment_retrans_count(struct ospf6_lsa *lsa);
 extern void ospf6_decrement_retrans_count(struct ospf6_lsa *lsa);

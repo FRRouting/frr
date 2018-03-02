@@ -156,6 +156,28 @@ void ospf6_lsa_purge(struct ospf6_lsa *lsa)
 	ospf6_lsa_premature_aging(lsa);
 }
 
+/* Puring Multi Link-State IDs LSAs:
+ * Same Advertising Router with Multiple Link-State IDs
+ * LSAs, purging require to traverse all Link-State IDs
+ */
+void ospf6_lsa_purge_multi_ls_id(struct ospf6_area *oa, struct ospf6_lsa *lsa)
+{
+	int ls_id = 0;
+	struct ospf6_lsa *lsa_next;
+	uint16_t type;
+
+	type = lsa->header->type;
+
+	ospf6_lsa_purge(lsa);
+
+	lsa_next = ospf6_lsdb_lookup(type, htonl(++ls_id),
+				     oa->ospf6->router_id, oa->lsdb);
+	while (lsa_next) {
+		ospf6_lsa_purge(lsa_next);
+		lsa_next = ospf6_lsdb_lookup(type, htonl(++ls_id),
+					     oa->ospf6->router_id, oa->lsdb);
+	}
+}
 
 void ospf6_increment_retrans_count(struct ospf6_lsa *lsa)
 {
