@@ -254,8 +254,8 @@ void isis_redist_add(int type, struct prefix *p, u_char distance,
 	char debug_buf[BUFSIZ];
 	prefix2str(p, debug_buf, sizeof(debug_buf));
 
-	zlog_debug("%s: New route %s from %s.", __func__, debug_buf,
-		   zebra_route_string(type));
+	zlog_debug("%s: New route %s from %s: distance %d.", __func__,
+		   debug_buf, zebra_route_string(type), distance);
 
 	if (!ei_table) {
 		zlog_warn("%s: External information table not initialized.",
