@@ -2143,10 +2143,10 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	if (tnl_type == PMSI_TNLTYPE_INGR_REPL) {
 		if (length != 9) {
 			zlog_err("Bad PMSI tunnel attribute length %d for IR",
-			         length);
-			return bgp_attr_malformed(args,
-						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-						  args->total);
+				 length);
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				args->total);
 		}
 	}
 
