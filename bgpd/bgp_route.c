@@ -81,7 +81,6 @@
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
-extern const char *pmsi_tnltype_str[];
 
 struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 				  safi_t safi, struct prefix *p,

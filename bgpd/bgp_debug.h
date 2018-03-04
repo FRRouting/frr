@@ -136,6 +136,7 @@ struct bgp_debug_filter {
 #define CONF_BGP_DEBUG(a, b)    (conf_bgp_debug_ ## a & BGP_DEBUG_ ## b)
 
 extern const char *bgp_type_str[];
+extern const char *pmsi_tnltype_str[];
 
 extern int bgp_dump_attr(struct attr *, char *, size_t);
 extern int bgp_debug_peer_updout_enabled(char *host);
