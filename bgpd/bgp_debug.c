@@ -159,6 +159,9 @@ static const struct message bgp_notify_capability_msg[] = {
 /* Origin strings. */
 const char *bgp_origin_str[] = {"i", "e", "?"};
 const char *bgp_origin_long_str[] = {"IGP", "EGP", "incomplete"};
+const char *pmsi_tnltype_str[] = {"No info", "RSVP-TE P2MP", "mLDP P2MP",
+				  "PIM-SSM", "PIM-SM", "PIM-BIDIR",
+				  "Ingress Replication", "mLDP MP2MP"};
 
 
 /* Given a string return a pointer the corresponding peer structure */
@@ -414,6 +417,10 @@ int bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			snprintf(buf + strlen(buf), size - strlen(buf), " %s",
 				 inet_ntoa(attr->cluster->list[i]));
 	}
+
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)))
+		snprintf(buf + strlen(buf), size - strlen(buf), ", pmsi tnltype %u",
+			 attr->pmsi_tnl_type);
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH)))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", path %s",

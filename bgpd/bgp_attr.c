@@ -2114,6 +2114,51 @@ bgp_attr_prefix_sid(struct bgp_attr_parser_args *args,
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
+/* PMSI tunnel attribute (RFC 6514)
+ * Basic validation checks done here.
+ */
+static bgp_attr_parse_ret_t
+bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	const bgp_size_t length = args->length;
+	u_int8_t tnl_type;
+
+	/* Verify that the receiver is expecting "ingress replication" as we
+	 * can only support that.
+	 */
+	if (length < 2) {
+		zlog_err("Bad PMSI tunnel attribute length %d", length);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+	stream_getc(peer->curr); /* Flags */
+	tnl_type = stream_getc(peer->curr);
+	if (tnl_type > PMSI_TNLTYPE_MAX) {
+		zlog_err("Invalid PMSI tunnel attribute type %d", tnl_type);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+					  args->total);
+	}
+	if (tnl_type == PMSI_TNLTYPE_INGR_REPL) {
+		if (length != 9) {
+			zlog_err("Bad PMSI tunnel attribute length %d for IR",
+			         length);
+			return bgp_attr_malformed(args,
+						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+						  args->total);
+		}
+	}
+
+	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
+	attr->pmsi_tnl_type = tnl_type;
+
+	/* Forward read pointer of input stream. */
+	stream_forward_getp(peer->curr, length - 2);
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* BGP unknown attribute treatment. */
 static bgp_attr_parse_ret_t bgp_attr_unknown(struct bgp_attr_parser_args *args)
 {
@@ -2446,6 +2491,9 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			break;
 		case BGP_ATTR_PREFIX_SID:
 			ret = bgp_attr_prefix_sid(&attr_args, mp_update);
+			break;
+		case BGP_ATTR_PMSI_TUNNEL:
+			ret = bgp_attr_pmsi_tunnel(&attr_args);
 			break;
 		default:
 			ret = bgp_attr_unknown(&attr_args);
@@ -3263,7 +3311,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
 		stream_putc(s, 9); // Length
 		stream_putc(s, 0); // Flags
-		stream_putc(s, 6); // Tunnel type: Ingress Replication (6)
+		stream_putc(s, PMSI_TNLTYPE_INGR_REPL); // IR (6)
 		stream_put(s, &(attr->label), BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
 		stream_put_ipv4(s, attr->nexthop.s_addr); // Unicast tunnel endpoint IP address
 	}

@@ -2932,6 +2932,20 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 		return -1;
 	}
 
+	/* If PMSI is present, log if it is anything other than IR.
+	 * Note: We just simply ignore the values as it is not clear if
+	 * doing anything else is better.
+	 */
+	if (attr &&
+	    (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
+		if (attr->pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL) {
+			zlog_warn("%u:%s - Rx EVPN Type-3 NLRI with "
+				  "unsupported PTA %d",
+				  peer->bgp->vrf_id, peer->host,
+				  attr->pmsi_tnl_type);
+		}
+	}
+
 	/* Make prefix_rd */
 	prd.family = AF_UNSPEC;
 	prd.prefixlen = 64;
