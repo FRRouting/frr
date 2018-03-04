@@ -26,6 +26,7 @@
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_bgp_vnc:       %global  with_bgp_vnc       0 }
 %{!?with_pimd:          %global  with_pimd          1 }
+%{!?with_rpki:          %global  with_rpki          0 }
 
 # path defines
 %define     _sysconfdir   /etc/frr
@@ -148,6 +149,10 @@ Requires:       ncurses json-c initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 Requires:       pam
+%endif
+%if %{with_rpki}
+BuildRequires:  librtr-devel >= 0.5
+Requires:       librtr >= 0.5
 %endif
 %if "%{initsystem}" == "systemd"
 BuildRequires:      systemd systemd-devel
@@ -298,6 +303,9 @@ developing OSPF-API and frr applications.
     --enable-systemd=yes \
 %endif
     --enable-poll=yes
+%if %{with_rpki}
+    --enable-rpki
+%endif
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
@@ -602,7 +610,10 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Sun Mar  4 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Add option to build with RPKI (default: disabled)
+
+* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org>
 - Fix script location for watchfrr restart functions in daemon config
 - Fix postun script to restart frr during upgrade
 
