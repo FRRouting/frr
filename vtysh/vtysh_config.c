@@ -398,7 +398,7 @@ static int vtysh_read_file(FILE *confp)
 	int ret;
 
 	vty = vty_new();
-	vty->fd = 0; /* stdout */
+	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_TERM;
 	vty->node = CONFIG_NODE;
 

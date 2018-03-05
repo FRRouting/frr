@@ -539,7 +539,7 @@ int vtysh_mark_file(const char *filename)
 	}
 
 	vty = vty_new();
-	vty->fd = 0; /* stdout */
+	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_TERM;
 	vty->node = CONFIG_NODE;
 
