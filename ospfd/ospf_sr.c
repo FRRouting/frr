@@ -676,6 +676,7 @@ static int ospf_zebra_send_mpls_ftn(int cmd, struct sr_nhlfe nhlfe)
 		SET_FLAG(api.message, ZAPI_MESSAGE_LABEL);
 		api_nh->labels[0] = nhlfe.label_out;
 		api_nh->label_num = 1;
+		api_nh->vrf_id = VRF_DEFAULT;
 		api.nexthop_num = 1;
 	}
 
