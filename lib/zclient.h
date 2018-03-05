@@ -132,6 +132,9 @@ typedef enum {
 	ZEBRA_RULE_ADD,
 	ZEBRA_RULE_DELETE,
 	ZEBRA_RULE_NOTIFY_OWNER,
+	ZEBRA_TABLE_MANAGER_CONNECT,
+	ZEBRA_GET_TABLE_CHUNK,
+	ZEBRA_RELEASE_TABLE_CHUNK,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -538,6 +541,12 @@ extern int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 			      uint32_t *end);
 extern int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
+extern int tm_table_manager_connect(struct zclient *zclient);
+extern int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
+			      uint32_t *start, uint32_t *end);
+extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
+				  uint32_t end);
+
 extern int zebra_send_pw(struct zclient *zclient, int command,
 			 struct zapi_pw *pw);
 extern void zebra_read_pw_status_update(int command, struct zclient *zclient,

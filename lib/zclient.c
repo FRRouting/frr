@@ -2123,6 +2123,168 @@ int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 	return 0;
 }
 
+/**
+ * Connect to table manager in a syncronous way
+ *
+ * It first writes the request to zcient output buffer and then
+ * immediately reads the answer from the input buffer.
+ *
+ * @param zclient Zclient used to connect to table manager (zebra)
+ * @result Result of response
+ */
+int tm_table_manager_connect(struct zclient *zclient)
+{
+	int ret;
+	struct stream *s;
+	uint8_t result;
+
+	if (zclient_debug)
+		zlog_debug("Connecting to Table Manager");
+
+	if (zclient->sock < 0)
+		return -1;
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_TABLE_MANAGER_CONNECT, VRF_DEFAULT);
+
+	/* proto */
+	stream_putc(s, zclient->redist_default);
+	/* instance */
+	stream_putw(s, zclient->instance);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = zclient_send_message(zclient);
+	if (ret < 0)
+		return -1;
+
+	if (zclient_debug)
+		zlog_debug("%s: Table manager connect request sent",
+			   __func__);
+
+	/* read response */
+	if (zclient_read_sync_response(zclient, ZEBRA_TABLE_MANAGER_CONNECT)
+	    != 0)
+		return -1;
+
+	/* result */
+	s = zclient->ibuf;
+	STREAM_GETC(s, result);
+	if (zclient_debug)
+		zlog_debug(
+			"%s: Table Manager connect response received, result %u",
+			__func__, result);
+
+	return (int)result;
+stream_failure:
+	return 0;
+}
+
+/**
+ * Function to request a table chunk in a syncronous way
+ *
+ * It first writes the request to zclient output buffer and then
+ * immediately reads the answer from the input buffer.
+ *
+ * @param zclient Zclient used to connect to table manager (zebra)
+ * @param chunk_size Amount of table requested
+ * @param start to write first assigned chunk table RT ID to
+ * @param end To write last assigned chunk table RT ID to
+ * @result 0 on success, -1 otherwise
+ */
+int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
+		       uint32_t *start, uint32_t *end)
+{
+	int ret;
+	struct stream *s;
+
+	if (zclient_debug)
+		zlog_debug("Getting Table Chunk");
+
+	if (zclient->sock < 0)
+		return -1;
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_GET_TABLE_CHUNK, VRF_DEFAULT);
+	/* chunk size */
+	stream_putl(s, chunk_size);
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	ret = writen(zclient->sock, s->data, stream_get_endp(s));
+	if (ret < 0) {
+		zlog_err("%s: can't write to zclient->sock", __func__);
+		close(zclient->sock);
+		zclient->sock = -1;
+		return -1;
+	}
+	if (ret == 0) {
+		zlog_err("%s: zclient->sock connection closed", __func__);
+		close(zclient->sock);
+		zclient->sock = -1;
+		return -1;
+	}
+	if (zclient_debug)
+		zlog_debug("%s: Table chunk request (%d bytes) sent", __func__,
+			   ret);
+
+	/* read response */
+	if (zclient_read_sync_response(zclient, ZEBRA_GET_TABLE_CHUNK) != 0)
+		return -1;
+
+	s = zclient->ibuf;
+	/* start and end table IDs */
+	STREAM_GETL(s, *start);
+	STREAM_GETL(s, *end);
+
+	if (zclient_debug)
+		zlog_debug("Table Chunk assign: %u - %u ", *start, *end);
+
+stream_failure:
+	return 0;
+}
+
+/**
+ * Function to release a table chunk
+ *
+ * @param zclient Zclient used to connect to table manager (zebra)
+ * @param start First label of table
+ * @param end Last label of chunk
+ * @result 0 on success, -1 otherwise
+ */
+int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
+			   uint32_t end)
+{
+	struct stream *s;
+
+	if (zclient_debug)
+		zlog_debug("Releasing Table Chunk");
+
+	if (zclient->sock < 0)
+		return -1;
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_RELEASE_TABLE_CHUNK, VRF_DEFAULT);
+
+	/* start */
+	stream_putl(s, start);
+	/* end */
+	stream_putl(s, end);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+
 int zebra_send_pw(struct zclient *zclient, int command, struct zapi_pw *pw)
 {
 	struct stream *s;
