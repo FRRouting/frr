@@ -415,7 +415,7 @@ static int process_p2p_hello(struct iih_info *iih)
 	if (isis->debugs & DEBUG_ADJ_PACKETS) {
 		zlog_debug(
 			"ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s,"
-			" cir id %02d, length %d",
+			" cir id %hhu, length %" PRIu16,
 			iih->circuit->area->area_tag,
 			iih->circuit->interface->name,
 			circuit_t2string(iih->circuit->is_type),

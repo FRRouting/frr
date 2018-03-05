@@ -53,7 +53,7 @@ struct isis {
 	u_int32_t debugs;		  /* bitmap for debug */
 	time_t uptime;			  /* when did we start */
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
-	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 0 through 255 */
+	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
 

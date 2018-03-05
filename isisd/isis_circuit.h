@@ -32,8 +32,6 @@
 #include "isis_constants.h"
 #include "isis_common.h"
 
-#define CIRCUIT_MAX 255
-
 struct isis_lsp;
 
 struct password {
