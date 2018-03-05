@@ -343,7 +343,6 @@ static void initializer()
 	pthread_key_create(&thread_current, NULL);
 }
 
-/* Allocate new thread master.  */
 struct thread_master *thread_master_create(const char *name)
 {
 	struct thread_master *rv;
@@ -425,6 +424,17 @@ struct thread_master *thread_master_create(const char *name)
 	pthread_mutex_unlock(&masters_mtx);
 
 	return rv;
+}
+
+void thread_master_set_name(struct thread_master *master, const char *name)
+{
+	pthread_mutex_lock(&master->mtx);
+	{
+		if (master->name)
+			XFREE(MTYPE_THREAD_MASTER, master->name);
+		master->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
+	}
+	pthread_mutex_unlock(&master->mtx);
 }
 
 /* Add a new thread to the list.  */
