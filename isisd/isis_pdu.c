@@ -1560,7 +1560,8 @@ int send_hello(struct isis_circuit *circuit, int level)
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		isis_tlvs_add_lan_neighbors(
 			tlvs, circuit->u.bc.lan_neighs[level - 1]);
-	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
+	} else if (circuit->circ_type == CIRCUIT_T_P2P
+		   && !circuit->disable_threeway_adj) {
 		uint32_t ext_circuit_id = circuit->idx;
 		if (circuit->u.p2p.neighbor) {
 			isis_tlvs_add_threeway_adj(tlvs,

@@ -1040,6 +1040,11 @@ int isis_interface_config_write(struct vty *vty)
 				write++;
 			}
 
+			if (circuit->disable_threeway_adj) {
+				vty_out(vty, " no isis three-way-handshake\n");
+				write++;
+			}
+
 			/* ISIS - Hello interval */
 			if (circuit->hello_interval[0]
 			    == circuit->hello_interval[1]) {

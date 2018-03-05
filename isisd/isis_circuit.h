@@ -134,6 +134,7 @@ struct isis_circuit {
 	u_int16_t upadjcount[2];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
 	u_char flags;
+	bool disable_threeway_adj;
 	/*
 	 * Counters as in 10589--11.2.5.9
 	 */
