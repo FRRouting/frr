@@ -2203,7 +2203,8 @@ static int zsend_table_manager_connect_response(struct zserv *client,
 }
 
 /* Send response to a table manager connect request to client */
-static void zread_table_manager_connect(struct zserv *client, struct stream *msg,
+static void zread_table_manager_connect(struct zserv *client,
+					struct stream *msg,
 					vrf_id_t vrf_id)
 {
 	struct stream *s;

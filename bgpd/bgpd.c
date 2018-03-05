@@ -1973,6 +1973,10 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 		bgp_recalculate_afi_safi_bestpaths(bgp, afi, SAFI_UNICAST);
 	}
 
+	if (safi == SAFI_FLOWSPEC) {
+		/* connect to table manager */
+		bgp_zebra_init_tm_connect();
+	}
 	return ret;
 }
 

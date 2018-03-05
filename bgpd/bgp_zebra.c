@@ -970,6 +970,64 @@ static int bgp_table_map_apply(struct route_map *map, struct prefix *p,
 	return 0;
 }
 
+static struct thread *bgp_tm_thread_connect;
+static bool bgp_tm_status_connected;
+
+static int bgp_zebra_tm_connect(struct thread *t)
+{
+	struct zclient *zclient;
+	int delay = 10, ret = 0;
+
+	zclient = THREAD_ARG(t);
+	if (bgp_tm_status_connected && zclient->sock > 0)
+		delay = 60;
+	else {
+		bgp_tm_status_connected = false;
+		ret = tm_table_manager_connect(zclient);
+	}
+	if (ret < 0) {
+		zlog_warn("Error connecting to table manager!");
+		bgp_tm_status_connected = false;
+	} else {
+		if (!bgp_tm_status_connected)
+			zlog_debug("Connecting to table manager. Success");
+		bgp_tm_status_connected = true;
+	}
+	thread_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
+			 &bgp_tm_thread_connect);
+	return 0;
+}
+
+void bgp_zebra_init_tm_connect(void)
+{
+	int delay = 1;
+
+	/* if already set, do nothing
+	 */
+	if (bgp_tm_thread_connect != NULL)
+		return;
+	bgp_tm_status_connected = false;
+	thread_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
+			 &bgp_tm_thread_connect);
+}
+
+int bgp_zebra_get_table_range(uint32_t chunk_size,
+			      uint32_t *start, uint32_t *end)
+{
+	int ret;
+
+	if (!bgp_tm_status_connected)
+		return -1;
+	ret = tm_get_table_chunk(zclient, chunk_size, start, end);
+	if (ret < 0) {
+		zlog_err("BGP: Error getting table chunk %u", chunk_size);
+		return -1;
+	}
+	zlog_info("BGP: Table Manager returns range from chunk %u is [%u %u]",
+		 chunk_size, *start, *end);
+	return 0;
+}
+
 void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			struct bgp_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)

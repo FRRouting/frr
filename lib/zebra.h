@@ -433,7 +433,8 @@ typedef enum {
 	SAFI_ENCAP = 4,
 	SAFI_EVPN = 5,
 	SAFI_LABELED_UNICAST = 6,
-	SAFI_MAX = 7
+	SAFI_FLOWSPEC = 7,
+	SAFI_MAX = 8
 } safi_t;
 
 /*
