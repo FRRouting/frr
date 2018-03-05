@@ -38,6 +38,7 @@
 #include "zebra_netns_id.h"
 #include "zebra_pbr.h"
 #include "rib.h"
+#include "table_manager.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -146,6 +147,9 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	kernel_init(zns);
 	interface_list(zns);
 	route_read(zns);
+
+	/* Initiate Table Manager per ZNS */
+	table_manager_enable(ns_id);
 
 	return 0;
 }
@@ -258,6 +262,8 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 #endif
 
 	kernel_terminate(zns);
+
+	table_manager_disable(zns->ns_id);
 
 	zns->ns_id = NS_DEFAULT;
 

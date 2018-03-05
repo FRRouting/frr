@@ -363,7 +363,7 @@ int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
  * @param instance Instance, to identify the owner
  * @return Number of chunks released
  */
-int release_daemon_chunks(uint8_t proto, unsigned short instance)
+int release_daemon_label_chunks(uint8_t proto, unsigned short instance)
 {
 	struct listnode *node;
 	struct label_manager_chunk *lmc;

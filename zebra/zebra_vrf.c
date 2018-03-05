@@ -122,8 +122,8 @@ static int zebra_vrf_enable(struct vrf *vrf)
 	/* Inform clients that the VRF is now active. This is an
 	 * add for the clients.
 	 */
-	zebra_vrf_add_update(zvrf);
 
+	zebra_vrf_add_update(zvrf);
 	/* Allocate tables */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
