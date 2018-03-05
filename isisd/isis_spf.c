@@ -332,12 +332,12 @@ static void remove_excess_adjs(struct list *adjs)
 		if (comp < 0)
 			continue;
 
-		if (candidate->circuit->circuit_id > adj->circuit->circuit_id) {
+		if (candidate->circuit->idx > adj->circuit->idx) {
 			excess = node;
 			continue;
 		}
 
-		if (candidate->circuit->circuit_id < adj->circuit->circuit_id)
+		if (candidate->circuit->idx < adj->circuit->idx)
 			continue;
 
 		comp = memcmp(candidate->snpa, adj->snpa, ETH_ALEN);

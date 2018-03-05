@@ -377,7 +377,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 	return;
 }
 
-static uint8_t isis_circuit_id_gen(struct interface *ifp)
+static uint8_t isis_circuit_id_gen(struct isis *isis, struct interface *ifp)
 {
 	/* Circuit ids MUST be unique for any broadcast circuits. Otherwise,
 	 * Pseudo-Node LSPs cannot be generated correctly.
@@ -402,6 +402,7 @@ static uint8_t isis_circuit_id_gen(struct interface *ifp)
 		return 0;
 	}
 
+	_ISIS_SET_FLAG(isis->circuit_ids_used, id);
 	return id;
 }
 
@@ -410,11 +411,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct connected *conn;
 
-	circuit->circuit_id = isis_circuit_id_gen(ifp);
-	_ISIS_SET_FLAG(isis->circuit_ids_used, circuit->circuit_id);
-
 	isis_circuit_if_bind(circuit, ifp);
-	/*  isis_circuit_update_addrs (circuit, ifp); */
 
 	if (if_is_broadcast(ifp)) {
 		if (circuit->circ_type_config == CIRCUIT_T_P2P)
@@ -439,8 +436,6 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_add_addr(circuit, conn);
-
-	return;
 }
 
 void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
@@ -470,10 +465,6 @@ void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 	}
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
-	_ISIS_CLEAR_FLAG(isis->circuit_ids_used, circuit->circuit_id);
-	circuit->circuit_id = 0;
-
-	return;
 }
 
 void isis_circuit_if_bind(struct isis_circuit *circuit, struct interface *ifp)
@@ -587,6 +578,12 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+		circuit->circuit_id = isis_circuit_id_gen(isis, circuit->interface);
+		if (!circuit->circuit_id) {
+			zlog_err("There are already 255 broadcast circuits active!");
+			return ISIS_ERROR;
+		}
+
 		/*
 		 * Get the Hardware Address
 		 */
@@ -731,6 +728,9 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[1]);
 		circuit->lsp_regenerate_pending[0] = 0;
 		circuit->lsp_regenerate_pending[1] = 0;
+
+		_ISIS_CLEAR_FLAG(isis->circuit_ids_used, circuit->circuit_id);
+		circuit->circuit_id = 0;
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		isis_delete_adj(circuit->u.p2p.neighbor);
 		circuit->u.p2p.neighbor = NULL;
