@@ -1034,7 +1034,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			break;
 		case CIRCUIT_T_P2P: {
 			struct isis_adjacency *nei = circuit->u.p2p.neighbor;
-			if (nei && (level & nei->circuit_t)) {
+			if (nei && nei->adj_state == ISIS_ADJ_UP
+			    && (level & nei->circuit_t)) {
 				uint8_t ne_id[7];
 				memcpy(ne_id, nei->sysid, ISIS_SYS_ID_LEN);
 				LSP_PSEUDO_ID(ne_id) = 0;
