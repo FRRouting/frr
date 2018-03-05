@@ -169,7 +169,7 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 {
 	enum isis_threeway_state next_tw_state = ISIS_THREEWAY_DOWN;
 
-	if (tw_adj) {
+	if (tw_adj && !adj->circuit->disable_threeway_adj) {
 		if (tw_adj->state == ISIS_THREEWAY_DOWN) {
 			next_tw_state = ISIS_THREEWAY_INITIALIZING;
 		} else if (tw_adj->state == ISIS_THREEWAY_INITIALIZING) {
