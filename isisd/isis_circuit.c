@@ -234,8 +234,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 #ifdef EXTREME_DEBUG
 		prefix2str(connected->address, buf, sizeof(buf));
-		zlog_debug("Added IP address %s to circuit %d", buf,
-			   circuit->circuit_id);
+		zlog_debug("Added IP address %s to circuit %s", buf,
+			   circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 	if (connected->address->family == AF_INET6) {
@@ -265,8 +265,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 #ifdef EXTREME_DEBUG
 		prefix2str(connected->address, buf, sizeof(buf));
-		zlog_debug("Added IPv6 address %s to circuit %d", buf,
-			   circuit->circuit_id);
+		zlog_debug("Added IPv6 address %s to circuit %s", buf,
+			   circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 	return;
@@ -300,9 +300,9 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		} else {
 			prefix2str(connected->address, buf, sizeof(buf));
 			zlog_warn(
-				"Nonexistant ip address %s removal attempt from \
-                      circuit %d",
-				buf, circuit->circuit_id);
+				"Nonexistent ip address %s removal attempt from \
+                      circuit %s",
+				buf, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
@@ -349,9 +349,9 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		if (!found) {
 			prefix2str(connected->address, buf, sizeof(buf));
 			zlog_warn(
-				"Nonexitant ip address %s removal attempt from \
-		      circuit %d",
-				buf, circuit->circuit_id);
+				"Nonexistent ip address %s removal attempt from \
+		      circuit %s",
+				buf, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
@@ -457,19 +457,16 @@ void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 	if (circuit->ip_addrs) {
 		assert(listcount(circuit->ip_addrs) == 0);
 		list_delete_and_null(&circuit->ip_addrs);
-		circuit->ip_addrs = NULL;
 	}
 
 	if (circuit->ipv6_link) {
 		assert(listcount(circuit->ipv6_link) == 0);
 		list_delete_and_null(&circuit->ipv6_link);
-		circuit->ipv6_link = NULL;
 	}
 
 	if (circuit->ipv6_non_link) {
 		assert(listcount(circuit->ipv6_non_link) == 0);
 		list_delete_and_null(&circuit->ipv6_non_link);
-		circuit->ipv6_non_link = NULL;
 	}
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
