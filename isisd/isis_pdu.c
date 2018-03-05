@@ -120,6 +120,32 @@ struct iih_info {
 
 static int process_p2p_hello(struct iih_info *iih)
 {
+	struct isis_threeway_adj *tw_adj = iih->tlvs->threeway_adj;
+	if (tw_adj) {
+		if (tw_adj->state > ISIS_THREEWAY_DOWN) {
+			if (isis->debugs & DEBUG_ADJ_PACKETS) {
+				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) with invalid three-way state: %d\n",
+					   iih->circuit->area->area_tag,
+					   iih->circuit->interface->name,
+					   tw_adj->state);
+			}
+			return ISIS_WARNING;
+		}
+
+		if (tw_adj->neighbor_set
+		    && (memcmp(tw_adj->neighbor_id, isis->sysid, ISIS_SYS_ID_LEN)
+			|| tw_adj->neighbor_circuit_id != (uint32_t) iih->circuit->idx)) {
+
+			if (isis->debugs & DEBUG_ADJ_PACKETS) {
+				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) which lists IS/Circuit different from us as neighbor.\n",
+					   iih->circuit->area->area_tag,
+					   iih->circuit->interface->name);
+			}
+
+			return ISIS_WARNING;
+		}
+	}
+
 	/*
 	 * My interpertation of the ISO, if no adj exists we will create one for
 	 * the circuit
@@ -155,6 +181,9 @@ static int process_p2p_hello(struct iih_info *iih)
 		adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
 	}
 
+	if (tw_adj && adj->threeway_state == ISIS_THREEWAY_DOWN)
+		adj->ext_circuit_id = tw_adj->local_circuit_id;
+
 	/* 8.2.6 Monitoring point-to-point adjacencies */
 	adj->hold_time = iih->holdtime;
 	adj->last_upd = time(NULL);
@@ -183,14 +212,10 @@ static int process_p2p_hello(struct iih_info *iih)
 			switch (iih->circ_type) {
 			case IS_LEVEL_1:
 			case IS_LEVEL_1_AND_2:
-				if (adj->adj_state != ISIS_ADJ_UP) {
-					/* (4) adj state up */
-					isis_adj_state_change(adj, ISIS_ADJ_UP,
-							      NULL);
-					/* (5) adj usage level 1 */
-					adj->adj_usage = ISIS_ADJ_LEVEL1;
-				} else if (adj->adj_usage == ISIS_ADJ_LEVEL1) {
-					; /* accept */
+				if (adj->adj_state != ISIS_ADJ_UP
+				    || adj->adj_usage == ISIS_ADJ_LEVEL1) {
+					isis_adj_process_threeway(adj, tw_adj,
+								  ISIS_ADJ_LEVEL1);
 				}
 				break;
 			case IS_LEVEL_2:
@@ -213,14 +238,10 @@ static int process_p2p_hello(struct iih_info *iih)
 		if (iih->circuit->area->is_type == IS_LEVEL_1_AND_2) {
 			switch (iih->circ_type) {
 			case IS_LEVEL_1:
-				if (adj->adj_state != ISIS_ADJ_UP) {
-					/* (6) adj state up */
-					isis_adj_state_change(adj, ISIS_ADJ_UP,
-							      NULL);
-					/* (7) adj usage level 1 */
-					adj->adj_usage = ISIS_ADJ_LEVEL1;
-				} else if (adj->adj_usage == ISIS_ADJ_LEVEL1) {
-					; /* accept */
+				if (adj->adj_state != ISIS_ADJ_UP
+				    || adj->adj_usage == ISIS_ADJ_LEVEL1) {
+					isis_adj_process_threeway(adj, tw_adj,
+								  ISIS_ADJ_LEVEL1);
 				} else if ((adj->adj_usage
 					    == ISIS_ADJ_LEVEL1AND2)
 					   || (adj->adj_usage
@@ -232,12 +253,10 @@ static int process_p2p_hello(struct iih_info *iih)
 				}
 				break;
 			case IS_LEVEL_2:
-				if (adj->adj_state != ISIS_ADJ_UP) {
-					/* (6) adj state up */
-					isis_adj_state_change(adj, ISIS_ADJ_UP,
-							      NULL);
-					/* (9) adj usage level 2 */
-					adj->adj_usage = ISIS_ADJ_LEVEL2;
+				if (adj->adj_state != ISIS_ADJ_UP
+				    || adj->adj_usage == ISIS_ADJ_LEVEL2) {
+					isis_adj_process_threeway(adj, tw_adj,
+								  ISIS_ADJ_LEVEL2);
 				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL1AND2)) {
@@ -245,17 +264,13 @@ static int process_p2p_hello(struct iih_info *iih)
 					isis_adj_state_change(adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
-				} else if (adj->adj_usage == ISIS_ADJ_LEVEL2) {
-					; /* Accept */
 				}
 				break;
 			case IS_LEVEL_1_AND_2:
-				if (adj->adj_state != ISIS_ADJ_UP) {
-					/* (6) adj state up */
-					isis_adj_state_change(adj, ISIS_ADJ_UP,
-							      NULL);
-					/* (10) adj usage level 1 */
-					adj->adj_usage = ISIS_ADJ_LEVEL1AND2;
+				if (adj->adj_state != ISIS_ADJ_UP
+				    || adj->adj_usage == ISIS_ADJ_LEVEL1AND2) {
+					isis_adj_process_threeway(adj, tw_adj,
+								  ISIS_ADJ_LEVEL1AND2);
 				} else if ((adj->adj_usage == ISIS_ADJ_LEVEL1)
 					   || (adj->adj_usage
 					       == ISIS_ADJ_LEVEL2)) {
@@ -263,9 +278,6 @@ static int process_p2p_hello(struct iih_info *iih)
 					isis_adj_state_change(adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
-				} else if (adj->adj_usage
-					   == ISIS_ADJ_LEVEL1AND2) {
-					; /* Accept */
 				}
 				break;
 			}
@@ -292,20 +304,16 @@ static int process_p2p_hello(struct iih_info *iih)
 				break;
 			case IS_LEVEL_1_AND_2:
 			case IS_LEVEL_2:
-				if (adj->adj_state != ISIS_ADJ_UP) {
-					/* (7) adj state up */
-					isis_adj_state_change(adj, ISIS_ADJ_UP,
-							      NULL);
-					/* (8) adj usage level 2 */
-					adj->adj_usage = ISIS_ADJ_LEVEL2;
+				if (adj->adj_state != ISIS_ADJ_UP
+				    || adj->adj_usage == ISIS_ADJ_LEVEL2) {
+					isis_adj_process_threeway(adj, tw_adj,
+								  ISIS_ADJ_LEVEL2);
 				} else if (adj->adj_usage
 					   == ISIS_ADJ_LEVEL1AND2) {
 					/* (6) down - wrong system */
 					isis_adj_state_change(adj,
 							      ISIS_ADJ_DOWN,
 							      "Wrong System");
-				} else if (adj->adj_usage == ISIS_ADJ_LEVEL2) {
-					; /* Accept */
 				}
 				break;
 			}
@@ -350,12 +358,10 @@ static int process_p2p_hello(struct iih_info *iih)
 				break;
 			case IS_LEVEL_1_AND_2:
 			case IS_LEVEL_2:
-				if (adj->adj_state != ISIS_ADJ_UP) {
-					/* (8) adj state up */
-					isis_adj_state_change(adj, ISIS_ADJ_UP,
-							      NULL);
-					/* (9) adj usage level 2 */
-					adj->adj_usage = ISIS_ADJ_LEVEL2;
+				if (adj->adj_state != ISIS_ADJ_UP
+				    || adj->adj_usage == ISIS_ADJ_LEVEL2) {
+					isis_adj_process_threeway(adj, tw_adj,
+								  ISIS_ADJ_LEVEL2);
 				} else if (adj->adj_usage == ISIS_ADJ_LEVEL1) {
 					/* (7) down - wrong system */
 					isis_adj_state_change(adj,
@@ -374,8 +380,6 @@ static int process_p2p_hello(struct iih_info *iih)
 							adj, ISIS_ADJ_DOWN,
 							"Area Mismatch");
 					}
-				} else if (adj->adj_usage == ISIS_ADJ_LEVEL2) {
-					; /* Accept */
 				}
 				break;
 			}
@@ -1553,9 +1557,24 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	isis_tlvs_add_area_addresses(tlvs, circuit->area->area_addrs);
 
-	if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		isis_tlvs_add_lan_neighbors(
 			tlvs, circuit->u.bc.lan_neighs[level - 1]);
+	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
+		uint32_t ext_circuit_id = circuit->idx;
+		if (circuit->u.p2p.neighbor) {
+			isis_tlvs_add_threeway_adj(tlvs,
+					circuit->u.p2p.neighbor->threeway_state,
+					ext_circuit_id,
+					circuit->u.p2p.neighbor->sysid,
+					circuit->u.p2p.neighbor->ext_circuit_id);
+		} else {
+			isis_tlvs_add_threeway_adj(tlvs,
+					ISIS_THREEWAY_DOWN,
+					ext_circuit_id,
+					NULL, 0);
+		}
+	}
 
 	isis_tlvs_set_protocols_supported(tlvs, &circuit->nlpids);
 
