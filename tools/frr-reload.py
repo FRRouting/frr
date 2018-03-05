@@ -398,7 +398,7 @@ end
                 ctx_keys = []
                 current_context_lines = []
 
-            elif line == "exit-address-family" or line == "exit":
+            elif line in ["exit-address-family", "exit", "exit-vnc"]:
                 # if this exit is for address-family ipv4 unicast, ignore the pop
                 if main_ctx_key:
                     self.save_contexts(ctx_keys, current_context_lines)
@@ -419,7 +419,10 @@ end
                 new_ctx = False
                 log.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
 
-            elif "address-family " in line:
+            elif (line.startswith("address-family ") or
+                  line.startswith("vnc defaults") or
+                  line.startswith("vnc l2-group") or
+                  line.startswith("vnc nve-group")):
                 main_ctx_key = []
 
                 # Save old context first
