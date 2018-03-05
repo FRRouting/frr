@@ -413,7 +413,7 @@ end
                 ctx_keys = []
                 current_context_lines = []
 
-            elif line == "exit-address-family" or line == "exit" or line == "exit-vni":
+            elif line in ["exit-address-family", "exit", "exit-vnc", "exit-vni"]:
                 # if this exit is for address-family ipv4 unicast, ignore the pop
                 if main_ctx_key:
                     self.save_contexts(ctx_keys, current_context_lines)
@@ -433,26 +433,14 @@ end
                 current_context_lines = []
                 new_ctx = False
                 log.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
-
-            # The 'vni' keyword under 'router bgp X/address-family l2vpn evpn' creates
-            # a sub-context but the 'vni' keyword in other places (such as 'vrf BLUE')
-            # does not.
-            elif ("vni " in line and
-                len(ctx_keys) == 2 and
-                ctx_keys[0].startswith('router bgp') and
-                ctx_keys[1] == 'address-family l2vpn evpn'):
-
-                main_ctx_key = []
-
-                # Save old context first
-                self.save_contexts(ctx_keys, current_context_lines)
-                current_context_lines = []
-                main_ctx_key = copy.deepcopy(ctx_keys)
-                log.debug('LINE %-50s: entering sub-context, append to ctx_keys', line)
-
-                ctx_keys.append(line)
-
-            elif "address-family " in line:
+            elif (line.startswith("address-family ") or
+                  line.startswith("vnc defaults") or
+                  line.startswith("vnc l2-group") or
+                  line.startswith("vnc nve-group") or
+                  (line.startswith("vni ") and
+                   len(ctx_keys) == 2 and
+                   ctx_keys[0].startswith('router bgp') and
+                   ctx_keys[1] == 'address-family l2vpn evpn')):
                 main_ctx_key = []
 
                 # Save old context first
