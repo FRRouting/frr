@@ -100,26 +100,6 @@ static int nexthoplookup(struct list *nexthops, struct in_addr *ip,
 	return 0;
 }
 
-#ifdef EXTREME_DEBUG
-static void nexthop_print(struct isis_nexthop *nh)
-{
-	u_char buf[BUFSIZ];
-
-	inet_ntop(AF_INET, &nh->ip, (char *)buf, BUFSIZ);
-
-	zlog_debug("      %s %u", buf, nh->ifindex);
-}
-
-static void nexthops_print(struct list *nhs)
-{
-	struct listnode *node;
-	struct isis_nexthop *nh;
-
-	for (ALL_LIST_ELEMENTS_RO(nhs, node, nh))
-		nexthop_print(nh);
-}
-#endif /* EXTREME_DEBUG */
-
 static struct isis_nexthop6 *isis_nexthop6_new(struct in6_addr *ip6,
 					       ifindex_t ifindex)
 {
@@ -183,26 +163,6 @@ static int nexthop6lookup(struct list *nexthops6, struct in6_addr *ip6,
 
 	return 0;
 }
-
-#ifdef EXTREME_DEBUG
-static void nexthop6_print(struct isis_nexthop6 *nh6)
-{
-	u_char buf[BUFSIZ];
-
-	inet_ntop(AF_INET6, &nh6->ip6, (char *)buf, BUFSIZ);
-
-	zlog_debug("      %s %u", buf, nh6->ifindex);
-}
-
-static void nexthops6_print(struct list *nhs6)
-{
-	struct listnode *node;
-	struct isis_nexthop6 *nh6;
-
-	for (ALL_LIST_ELEMENTS_RO(nhs6, node, nh6))
-		nexthop6_print(nh6);
-}
-#endif /* EXTREME_DEBUG */
 
 static void adjinfo2nexthop(struct list *nexthops, struct isis_adjacency *adj)
 {
