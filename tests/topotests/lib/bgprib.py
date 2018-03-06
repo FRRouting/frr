@@ -20,6 +20,7 @@
 
 from lutil import luCommand,luResult
 import json
+import re
 
 # gpz: get rib in json form and compare against desired routes
 class BgpRib:
@@ -55,6 +56,12 @@ class BgpRib:
     def RequireVpnRoutes(self, target, title, wantroutes, debug=0):
 	import json
 	ret = luCommand(target,'vtysh -c "show bgp ipv4 vpn json"','.*','None','Get VPN RIB')
+        if re.search(r'^\s*$', ret):
+            # degenerate case: empty json means no routes
+            if len(wantroutes) > 0:
+                luResult(target, False, title)
+                return
+            luResult(target, True, title)
 	rib = json.loads(ret)
 	rds = rib['routes']['routeDistinguishers']
 	for want in wantroutes:
@@ -87,6 +94,12 @@ class BgpRib:
 	str = 'show bgp %s %s unicast json' % (vrfstr, afi)
 	cmd = 'vtysh -c "%s"' % str
 	ret = luCommand(target,cmd,'.*','None','Get %s %s RIB' % (vrfstr, afi))
+        if re.search(r'^\s*$', ret):
+            # degenerate case: empty json means no routes
+            if len(wantroutes) > 0:
+                luResult(target, False, title)
+                return
+            luResult(target, True, title)
 	rib = json.loads(ret)
 	table = rib['routes']
 	for want in wantroutes:
