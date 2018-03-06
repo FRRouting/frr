@@ -114,3 +114,6 @@ EXTRA_DIST += \
 ACLOCAL_AMFLAGS = -I m4
 
 noinst_HEADERS += defaults.h
+
+indent:
+	tools/indent.py `find sharpd bgpd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
