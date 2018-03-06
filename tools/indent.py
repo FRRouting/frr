@@ -13,7 +13,7 @@ define_re = re.compile(
         re.M | re.S)
 # find clang-format control that we just inserted
 clean_re = re.compile(
-        r'^/\* \$FRR indent\$ \*/\s*\n\s*/\* clang-format (on|off) \*/\s*\n',
+        r'^.*/\* \$FRR indent\$ \*/\s*\n\s*/\* clang-format (on|off) \*/\s*\n',
         re.M)
 
 def wrap_file(fn):
