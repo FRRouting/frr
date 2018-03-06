@@ -229,7 +229,7 @@ void frr_pthread_stop_all()
 	pthread_mutex_unlock(&frr_pthread_hash_mtx);
 }
 
-uint32_t frr_pthread_get_id()
+uint32_t frr_pthread_get_id(void)
 {
 	_Atomic uint32_t nxid;
 	nxid = atomic_fetch_add_explicit(&next_id, 1, memory_order_seq_cst);
@@ -259,6 +259,7 @@ static int fpt_dummy(struct thread *thread)
 static int fpt_finish(struct thread *thread)
 {
 	struct frr_pthread *fpt = THREAD_ARG(thread);
+
 	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
 	return 0;
 }
