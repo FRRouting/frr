@@ -6078,8 +6078,8 @@ DEFUN (interface_ip_igmp_version,
 		PIM_IF_DO_IGMP(pim_ifp->options);
 		pim_if_addr_add_all(ifp);
 		pim_if_membership_refresh(ifp);
-		old_version = igmp_version; // avoid refreshing membership
-					    // again.
+		old_version = igmp_version;
+		// avoid refreshing membership again.
 	}
 	/* Current and new version is different refresh existing
 	   membership. Going from 3 -> 2 or 2 -> 3. */
