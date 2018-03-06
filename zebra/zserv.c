@@ -2681,10 +2681,31 @@ stream_failure:
 	return;
 }
 
+/*
+ * Reads header from zmsg stream.
+ *
+ * Note this advances the stream getp by the size of the header.
+ */
+static bool zserv_read_header(struct stream *msg, struct zmsghdr *hdr)
+{
+	STREAM_GETW(msg, hdr->length);
+	STREAM_GETC(msg, hdr->marker);
+	STREAM_GETC(msg, hdr->version);
+	STREAM_GETL(msg, hdr->vrf_id);
+	STREAM_GETW(msg, hdr->command);
+	return true;
+stream_failure:
+	return false;
+}
+
 static inline void zserv_handle_commands(struct zserv *client, uint16_t command,
 					 uint16_t length,
 					 struct zebra_vrf *zvrf)
 {
+	struct zmsghdr hdr;
+	stream_set_getp(client->ibuf, 0);
+	zserv_read_header(client->ibuf, &hdr);
+
 	switch (command) {
 	case ZEBRA_ROUTER_ID_ADD:
 		zread_router_id_add(client, length, zvrf);

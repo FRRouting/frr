@@ -129,6 +129,15 @@ struct zserv {
 	int last_write_cmd;
 };
 
+/* ZAPI protocol message header */
+struct zmsghdr {
+	uint16_t length;
+	uint8_t marker;
+	uint8_t version;
+	uint32_t vrf_id;
+	uint16_t command;
+};
+
 /* Zebra instance */
 struct zebra_t {
 	/* Thread master */
