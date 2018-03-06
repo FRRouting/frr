@@ -114,7 +114,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 		SET_FLAG(api.flags, ZEBRA_FLAG_FIB_OVERRIDE);
 		break;
 	}
-	SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	api.nexthop_num = 1;

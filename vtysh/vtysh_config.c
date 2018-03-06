@@ -398,7 +398,7 @@ static int vtysh_read_file(FILE *confp)
 	int ret;
 
 	vty = vty_new();
-	vty->fd = 0; /* stdout */
+	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_TERM;
 	vty->node = CONFIG_NODE;
 
@@ -446,6 +446,11 @@ void vtysh_config_write()
 
 	if (cmd_hostname_get()) {
 		sprintf(line, "hostname %s", cmd_hostname_get());
+		vtysh_config_parse_line(NULL, line);
+	}
+
+	if (cmd_domainname_get()) {
+		sprintf(line, "domainname %s", cmd_domainname_get());
 		vtysh_config_parse_line(NULL, line);
 	}
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)

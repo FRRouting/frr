@@ -2228,10 +2228,13 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 	/* advertise/withdraw type-5 routes */
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
-		if (advertise_type5_routes(bgp, afi) && new_select)
-			bgp_evpn_advertise_type5_route(
-				bgp, &rn->p, new_select->attr, afi, safi);
-		else if (advertise_type5_routes(bgp, afi) && old_select)
+		if (advertise_type5_routes(bgp, afi) && new_select &&
+		    (!new_select->extra || !new_select->extra->parent))
+			bgp_evpn_advertise_type5_route(bgp, &rn->p,
+						       new_select->attr,
+						       afi, safi);
+		else if (advertise_type5_routes(bgp, afi) && old_select &&
+		         (!old_select->extra || !old_select->extra->parent))
 			bgp_evpn_withdraw_type5_route(bgp, &rn->p, afi, safi);
 	}
 

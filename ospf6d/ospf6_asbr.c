@@ -204,26 +204,142 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 {
 	struct ospf6_route *old_route;
 	struct ospf6_path *ecmp_path, *o_path = NULL;
-	struct listnode *anode;
+	struct listnode *anode, *anext;
 	struct listnode *nnode, *rnode, *rnext;
 	struct ospf6_nexthop *nh, *rnh;
 	char buf[PREFIX2STR_BUFFER];
 	bool route_found = false;
 
+	/* check for old entry match with new route origin,
+	 * delete old entry.
+	 */
 	for (old_route = old; old_route; old_route = old_route->next) {
-		if (ospf6_route_is_same(old_route, route) &&
-			(old_route->path.type == route->path.type) &&
-			(old_route->path.cost == route->path.cost) &&
-			(old_route->path.u.cost_e2 == route->path.u.cost_e2)) {
+		bool route_updated = false;
+
+		if (!ospf6_route_is_same(old_route, route) ||
+			(old_route->path.type != route->path.type))
+			continue;
+
+		/* Current and New route has same origin,
+		 * delete old entry.
+		 */
+		for (ALL_LIST_ELEMENTS(old_route->paths, anode, anext,
+						  o_path)) {
+			/* Check old route path and route has same
+			 * origin.
+			 */
+			if (o_path->area_id != route->path.area_id ||
+			    (memcmp(&(o_path)->origin, &(route)->path.origin,
+				   sizeof(struct ospf6_ls_origin)) != 0))
+				continue;
+
+			/* Cost is not same then delete current path */
+			if ((o_path->cost == route->path.cost) &&
+			    (o_path->u.cost_e2 == route->path.u.cost_e2))
+				continue;
 
 			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
 				prefix2str(&old_route->prefix, buf,
 					   sizeof(buf));
-				zlog_debug("%s: old route %s path  cost %u [%u]",
+				zlog_debug("%s: route %s cost old %u new %u is not same, replace route",
+					   __PRETTY_FUNCTION__, buf,
+					   o_path->cost, route->path.cost);
+			}
+
+			/* Remove selected current rout path's nh from
+			 * effective nh list.
+			 */
+			for (ALL_LIST_ELEMENTS_RO(o_path->nh_list, nnode, nh)) {
+				for (ALL_LIST_ELEMENTS(old_route->nh_list,
+							rnode, rnext, rnh)) {
+					if (!ospf6_nexthop_is_same(rnh, nh))
+						continue;
+					listnode_delete(old_route->nh_list,
+								rnh);
+					ospf6_nexthop_delete(rnh);
+					route_updated = true;
+				}
+			}
+
+			listnode_delete(old_route->paths, o_path);
+			ospf6_path_free(o_path);
+
+			/* Current route's path (adv_router info) is similar
+			 * to route being added.
+			 * Replace current route's path with paths list head.
+			 * Update FIB with effective NHs.
+			 */
+			if (listcount(old_route->paths)) {
+				if (old_route->path.origin.id ==
+					route->path.origin.id &&
+					old_route->path.origin.adv_router ==
+						route->path.origin.adv_router) {
+					struct ospf6_path *h_path;
+
+					h_path = (struct ospf6_path *)
+					listgetdata(listhead(old_route->paths));
+					old_route->path.origin.type =
+						h_path->origin.type;
+					old_route->path.origin.id =
+						h_path->origin.id;
+					old_route->path.origin.adv_router =
+						h_path->origin.adv_router;
+				}
+
+				if (route_updated) {
+					for (ALL_LIST_ELEMENTS(old_route->paths,
+							anode, anext, o_path)) {
+						ospf6_merge_nexthops(
+							old_route->nh_list,
+							o_path->nh_list);
+					}
+					/* Update RIB/FIB with effective
+					 * nh_list
+					 */
+					if (ospf6->route_table->hook_add)
+						(*ospf6->route_table->hook_add)
+							(old_route);
+					break;
+				}
+			} else {
+				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+					prefix2str(&old_route->prefix, buf,
+						   sizeof(buf));
+					zlog_debug("%s: route %s old cost %u new cost %u, delete old entry.",
+						   __PRETTY_FUNCTION__, buf,
+						   old_route->path.cost,
+						   route->path.cost);
+				}
+				ospf6_route_remove(old_route,
+						   ospf6->route_table);
+				break;
+			}
+		}
+		if (route_updated)
+			break;
+	}
+
+	/* Add new route */
+	for (old_route = old; old_route; old_route = old_route->next) {
+
+		/* Current and New Route prefix or route type
+		 * is not same skip this current node.
+		 */
+		if (!ospf6_route_is_same(old_route, route) ||
+			(old_route->path.type != route->path.type))
+			continue;
+
+		/* Old Route and New Route have Equal Cost, Merge NHs */
+		if ((old_route->path.cost == route->path.cost) &&
+		    (old_route->path.u.cost_e2 == route->path.u.cost_e2)) {
+
+			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+				prefix2str(&old_route->prefix, buf,
+					   sizeof(buf));
+				zlog_debug("%s: old route %s path  cost %u e2 %u",
 					   __PRETTY_FUNCTION__, buf,
 					   old_route->path.cost,
-					   ospf6_route_is_same(old_route,
-							       route));
+					   old_route->path.u.cost_e2);
 			}
 			route_found = true;
 			/* check if this path exists already in
@@ -232,9 +348,10 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 			 */
 			for (ALL_LIST_ELEMENTS_RO(old_route->paths, anode,
 						  o_path)) {
-				if ((o_path->origin.id == route->path.origin.id)
-					&& (o_path->origin.adv_router ==
-						route->path.origin.adv_router))
+				if (o_path->area_id == route->path.area_id &&
+				    (memcmp(&(o_path)->origin,
+					&(route)->path.origin,
+					sizeof(struct ospf6_ls_origin)) == 0))
 					break;
 			}
 			/* If path is not found in old_route paths's list,
@@ -262,12 +379,13 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
 					prefix2str(&route->prefix, buf,
 						   sizeof(buf));
-					zlog_debug("%s: route %s another path added with nh %u, Paths %u",
+					zlog_debug("%s: route %s another path added with nh %u, effective paths %u nh %u",
 						__PRETTY_FUNCTION__, buf,
 						listcount(ecmp_path->nh_list),
 						old_route->paths ?
 						listcount(old_route->paths)
-						: 0);
+						: 0,
+						listcount(old_route->nh_list));
 				}
 			} else {
 				for (ALL_LIST_ELEMENTS_RO(o_path->nh_list,
@@ -313,6 +431,7 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 			 * route.
 			 */
 			ospf6_route_delete(route);
+
 			break;
 		}
 	}
@@ -426,11 +545,12 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 
 }
 
-void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa)
+void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
+			   struct ospf6_route *asbr_entry)
 {
 	struct ospf6_as_external_lsa *external;
 	struct prefix prefix;
-	struct ospf6_route *route, *nroute;
+	struct ospf6_route *route, *nroute, *route_to_del;
 	char buf[PREFIX2STR_BUFFER];
 
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
@@ -443,6 +563,35 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa)
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
 			zlog_debug("Ignore self-originated AS-External-LSA");
 		return;
+	}
+
+	route_to_del = ospf6_route_create();
+	route_to_del->type = OSPF6_DEST_TYPE_NETWORK;
+	route_to_del->prefix.family = AF_INET6;
+	route_to_del->prefix.prefixlen = external->prefix.prefix_length;
+	ospf6_prefix_in6_addr(&route_to_del->prefix.u.prefix6,
+			      &external->prefix);
+
+	route_to_del->path.origin.type = lsa->header->type;
+	route_to_del->path.origin.id = lsa->header->id;
+	route_to_del->path.origin.adv_router = lsa->header->adv_router;
+
+	if (asbr_entry) {
+		route_to_del->path.area_id = asbr_entry->path.area_id;
+		if (CHECK_FLAG(external->bits_metric, OSPF6_ASBR_BIT_E)) {
+			route_to_del->path.type = OSPF6_PATH_TYPE_EXTERNAL2;
+			route_to_del->path.metric_type = 2;
+			route_to_del->path.cost = asbr_entry->path.cost;
+			route_to_del->path.u.cost_e2 =
+				OSPF6_ASBR_METRIC(external);
+		} else {
+			route_to_del->path.type = OSPF6_PATH_TYPE_EXTERNAL1;
+			route_to_del->path.metric_type = 1;
+			route_to_del->path.cost =
+				asbr_entry->path.cost +
+				OSPF6_ASBR_METRIC(external);
+			route_to_del->path.u.cost_e2 = 0;
+		}
 	}
 
 	memset(&prefix, 0, sizeof(struct prefix));
@@ -459,14 +608,25 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa)
 		return;
 	}
 
-	for (ospf6_route_lock(route);
-	     route && ospf6_route_is_prefix(&prefix, route); route = nroute) {
+	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+		prefix2str(&prefix, buf, sizeof(buf));
+		zlog_debug("%s: Current route %s cost %u e2 %u, route to del cost %u e2 %u",
+			   __PRETTY_FUNCTION__, buf, route->path.cost,
+			   route->path.u.cost_e2,
+			   route_to_del->path.cost,
+			   route_to_del->path.u.cost_e2);
+	}
+
+	for (ospf6_route_lock(route); route &&
+	     ospf6_route_is_prefix(&prefix, route); route = nroute) {
 		nroute = ospf6_route_next(route);
+
 		if (route->type != OSPF6_DEST_TYPE_NETWORK)
 			continue;
 
-		/* Route has multiple ECMP paths remove,
-		 * matching path and update effective route's  nh list.
+		/* Route has multiple ECMP paths, remove matching
+		 * path. Update current route's effective nh list
+		 * after removal of one of the path.
 		 */
 		if (listcount(route->paths) > 1) {
 			struct listnode *anode, *anext;
@@ -481,18 +641,36 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa)
 			 */
 			for (ALL_LIST_ELEMENTS(route->paths, anode, anext,
 						  o_path)) {
-				if (o_path->origin.type != lsa->header->type)
+				if ((o_path->origin.type != lsa->header->type)
+				    || (o_path->origin.adv_router !=
+					lsa->header->adv_router) ||
+				    (o_path->origin.id != lsa->header->id))
 					continue;
-				if (o_path->origin.id != lsa->header->id)
+
+				/* Compare LSA cost with current
+				 * route info.
+				 */
+				if (!asbr_entry && (o_path->cost !=
+						route_to_del->path.cost ||
+						o_path->u.cost_e2 !=
+						route_to_del->path.u.cost_e2)) {
+					if (IS_OSPF6_DEBUG_EXAMIN(
+							AS_EXTERNAL)) {
+						prefix2str(&prefix, buf,
+							   sizeof(buf));
+						zlog_debug(
+						"%s: route %s to delete is not same, cost %u del cost %u. skip",
+						__PRETTY_FUNCTION__, buf,
+						route->path.cost,
+						route_to_del->path.cost);
+					}
 					continue;
-				if (o_path->origin.adv_router !=
-					lsa->header->adv_router)
-					continue;
+				}
 
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))  {
 					prefix2str(&prefix, buf, sizeof(buf));
 					zlog_debug(
-						"%s: route %s path found with nh %u",
+						"%s: route %s path found with nh %u to remove.",
 						__PRETTY_FUNCTION__, buf,
 						listcount(o_path->nh_list));
 				}
@@ -542,13 +720,13 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa)
 						   listcount(route->nh_list));
 				}
 
-				/* Update RIB/FIB w/ effective nh_list */
+				/* Update RIB/FIB with effective nh_list */
 				if (ospf6->route_table->hook_add)
 					(*ospf6->route_table->hook_add)(route);
 
-				/* route's path is similar to lsa header,
-				 * replace route's path with route's
-				 * paths list head.
+				/* route's primary path is similar to LSA,
+				 * replace route's primary path with
+				 * route's paths list head.
 				 */
 				if (route->path.origin.id == lsa->header->id &&
 				    route->path.origin.adv_router ==
@@ -568,12 +746,29 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa)
 			continue;
 
 		} else {
-			if (route->path.origin.type != lsa->header->type)
+			/* Compare LSA origin and cost with current route info.
+			 * if any check fails skip del this route node.
+			 */
+			if (asbr_entry && (!ospf6_route_is_same_origin(route,
+							route_to_del) ||
+			    (route->path.type != route_to_del->path.type) ||
+			    (route->path.cost != route_to_del->path.cost) ||
+			    (route->path.u.cost_e2 !=
+			     route_to_del->path.u.cost_e2))) {
+				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+					prefix2str(&prefix, buf, sizeof(buf));
+					zlog_debug("%s: route %s to delete is not same, cost %u del cost %u. skip",
+					__PRETTY_FUNCTION__, buf,
+					route->path.cost,
+					route_to_del->path.cost);
+				}
 				continue;
-			if (route->path.origin.id != lsa->header->id)
-				continue;
-			if (route->path.origin.adv_router !=
-					lsa->header->adv_router)
+			}
+
+			if ((route->path.origin.type != lsa->header->type) ||
+			    (route->path.origin.adv_router !=
+					lsa->header->adv_router) ||
+			    (route->path.origin.id != lsa->header->id))
 				continue;
 		}
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
@@ -589,6 +784,8 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa)
 	}
 	if (route != NULL)
 		ospf6_route_unlock(route);
+
+	ospf6_route_delete(route_to_del);
 }
 
 void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry)
@@ -622,7 +819,7 @@ void ospf6_asbr_lsentry_remove(struct ospf6_route *asbr_entry)
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 	router = ospf6_linkstate_prefix_adv_router(&asbr_entry->prefix);
 	for (ALL_LSDB_TYPED_ADVRTR(ospf6->lsdb, type, router, lsa))
-		ospf6_asbr_lsa_remove(lsa);
+		ospf6_asbr_lsa_remove(lsa, asbr_entry);
 }
 
 

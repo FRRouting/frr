@@ -71,7 +71,8 @@ struct ospf6_as_external_lsa {
 	}
 
 extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa);
-extern void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa);
+extern void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
+				  struct ospf6_route *asbr_entry);
 extern void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry);
 extern void ospf6_asbr_lsentry_remove(struct ospf6_route *asbr_entry);
 

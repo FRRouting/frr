@@ -402,7 +402,7 @@ extern const char *zserv_command_string(unsigned int command);
 #define strmatch(a,b) (!strcmp((a), (b)))
 
 /* Zebra message flags */
-#define ZEBRA_FLAG_INTERNAL           0x01
+#define ZEBRA_FLAG_ALLOW_RECURSION    0x01
 #define ZEBRA_FLAG_SELFROUTE          0x02
 #define ZEBRA_FLAG_IBGP               0x08
 #define ZEBRA_FLAG_SELECTED           0x10
