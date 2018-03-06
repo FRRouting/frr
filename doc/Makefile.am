@@ -2,7 +2,6 @@
 
 # Tell Automake to invoke 'make' in the manpages directory with argument 'man'
 SUBDIRS = manpages
-AM_MAKEFLAGS = man
 
 MANPAGE_BUILDDIR = manpages/_build/man
 
