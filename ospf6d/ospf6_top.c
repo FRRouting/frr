@@ -72,7 +72,7 @@ static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa *lsa)
 {
 	switch (ntohs(lsa->header->type)) {
 	case OSPF6_LSTYPE_AS_EXTERNAL:
-		ospf6_asbr_lsa_remove(lsa);
+		ospf6_asbr_lsa_remove(lsa, NULL);
 		break;
 
 	default:
@@ -96,11 +96,16 @@ static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 {
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-		char buf[PREFIX2STR_BUFFER];
+		uint32_t brouter_id;
+		char brouter_name[16];
 
-		prefix2str(&route->prefix, buf, sizeof(buf));
-		zlog_debug("%s: brouter %s add with nh count %u",
-			   __PRETTY_FUNCTION__, buf, listcount(route->nh_list));
+		brouter_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
+		inet_ntop(AF_INET, &brouter_id, brouter_name,
+			  sizeof(brouter_name));
+		zlog_debug("%s: brouter %s add with adv router %x nh count %u",
+			   __PRETTY_FUNCTION__, brouter_name,
+			   route->path.origin.adv_router,
+			   listcount(route->nh_list));
 	}
 	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix));
 	ospf6_asbr_lsentry_add(route);
@@ -110,11 +115,15 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 {
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-		char buf[PREFIX2STR_BUFFER];
+		uint32_t brouter_id;
+		char brouter_name[16];
 
-		prefix2str(&route->prefix, buf, sizeof(buf));
+		brouter_id = ADV_ROUTER_IN_PREFIX(&route->prefix);
+		inet_ntop(AF_INET, &brouter_id, brouter_name,
+			  sizeof(brouter_name));
 		zlog_debug("%s: brouter %s del with nh count %u",
-			   __PRETTY_FUNCTION__, buf, listcount(route->nh_list));
+			   __PRETTY_FUNCTION__, brouter_name,
+			   listcount(route->nh_list));
 	}
 	route->flag |= OSPF6_ROUTE_REMOVE;
 	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix));
