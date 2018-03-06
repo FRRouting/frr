@@ -32,8 +32,8 @@
 #include "zebra/rt.h"
 #include "zebra/debug.h"
 
-int zebra_ipmr_route_stats(struct zserv *client, u_short length,
-			   struct zebra_vrf *zvrf)
+void zebra_ipmr_route_stats(struct zserv *client, u_short length,
+			    struct zebra_vrf *zvrf)
 {
 	struct mcast_route_data mroute;
 	struct stream *s;
@@ -69,5 +69,4 @@ stream_failure:
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zebra_server_send_message(client);
-	return 0;
 }

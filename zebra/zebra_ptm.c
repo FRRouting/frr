@@ -661,8 +661,8 @@ int zebra_ptm_sock_read(struct thread *thread)
 }
 
 /* BFD peer/dst register/update */
-int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
-			       int command, struct zebra_vrf *zvrf)
+void zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
+				int command, struct zebra_vrf *zvrf)
 {
 	struct stream *s;
 	struct prefix src_p;
@@ -693,7 +693,7 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return -1;
+		return;
 	}
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
@@ -816,16 +816,16 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 			   ptm_cb.out_data);
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
-	return 0;
+	return;
 
 stream_failure:
 	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
-	return 0;
+	return;
 }
 
 /* BFD peer/dst deregister */
-int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
-				 struct zebra_vrf *zvrf)
+void zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
+				  struct zebra_vrf *zvrf)
 {
 	struct stream *s;
 	struct prefix src_p;
@@ -849,7 +849,7 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return -1;
+		return;
 	}
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
@@ -948,15 +948,15 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
-	return 0;
+	return;
 
 stream_failure:
 	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
-	return 0;
+	return;
 }
 
 /* BFD client register */
-int zebra_ptm_bfd_client_register(struct zserv *client, u_short length)
+void zebra_ptm_bfd_client_register(struct zserv *client, u_short length)
 {
 	struct stream *s;
 	unsigned int pid;
@@ -977,7 +977,7 @@ int zebra_ptm_bfd_client_register(struct zserv *client, u_short length)
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return -1;
+		return;
 	}
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
@@ -1003,7 +1003,7 @@ int zebra_ptm_bfd_client_register(struct zserv *client, u_short length)
 	SET_FLAG(ptm_cb.client_flags[client->proto],
 		 ZEBRA_PTM_BFD_CLIENT_FLAG_REG);
 
-	return 0;
+	return;
 
 stream_failure:
 	/*
@@ -1013,7 +1013,7 @@ stream_failure:
 	 * if (out_ctxt)
 	 *	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
 	 */
-	return 0;
+	return;
 }
 
 /* BFD client deregister */
