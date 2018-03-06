@@ -22,13 +22,13 @@
 #ifndef _ZEBRA_PTM_H
 #define _ZEBRA_PTM_H
 
-#include "zebra/zserv.h"
-
 extern const char ZEBRA_PTM_SOCK_NAME[];
 #define ZEBRA_PTM_MAX_SOCKBUF 3200 /* 25B *128 ports */
 #define ZEBRA_PTM_SEND_MAX_SOCKBUF 512
 
 #define ZEBRA_PTM_BFD_CLIENT_FLAG_REG   (1 << 1) /* client registered with BFD */
+
+#include "zebra/zserv.h"
 
 /* Zebra ptm context block */
 struct zebra_ptm_cb {
@@ -64,6 +64,7 @@ int zebra_ptm_connect(struct thread *t);
 void zebra_ptm_write(struct vty *vty);
 int zebra_ptm_get_enable_state(void);
 
+/* ZAPI message handlers */
 void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS);
 void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS);
 void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS);

@@ -455,8 +455,7 @@ static int fec_send(zebra_fec_t *fec, struct zserv *client)
 	rn = fec->rn;
 
 	/* Get output stream. */
-	s = client->obuf;
-	stream_reset(s);
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_FEC_UPDATE, VRF_DEFAULT);
 
@@ -464,7 +463,7 @@ static int fec_send(zebra_fec_t *fec, struct zserv *client)
 	stream_put_prefix(s, &rn->p);
 	stream_putl(s, fec->label);
 	stream_putw_at(s, 0, stream_get_endp(s));
-	return zebra_server_send_message(client);
+	return zebra_server_send_message(client, s);
 }
 
 /*

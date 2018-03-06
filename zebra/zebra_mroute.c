@@ -31,7 +31,6 @@
 #include "zebra/zebra_mroute.h"
 #include "zebra/rt.h"
 #include "zebra/debug.h"
-#include "zebra/zserv.h"
 
 void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS)
 {
@@ -40,9 +39,9 @@ void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS)
 	int suc = -1;
 
 	memset(&mroute, 0, sizeof(mroute));
-	STREAM_GET(&mroute.sg.src, client->ibuf, 4);
-	STREAM_GET(&mroute.sg.grp, client->ibuf, 4);
-	STREAM_GETL(client->ibuf, mroute.ifindex);
+	STREAM_GET(&mroute.sg.src, msg, 4);
+	STREAM_GET(&mroute.sg.grp, msg, 4);
+	STREAM_GETL(msg, mroute.ifindex);
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char sbuf[40];
@@ -57,7 +56,7 @@ void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS)
 	suc = kernel_get_ipmr_sg_stats(zvrf, &mroute);
 
 stream_failure:
-	s = client->obuf;
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	stream_reset(s);
 
@@ -68,5 +67,5 @@ stream_failure:
 	stream_putl(s, suc);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zebra_server_send_message(client);
+	zebra_server_send_message(client, s);
 }

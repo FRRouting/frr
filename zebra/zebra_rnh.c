@@ -995,8 +995,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 	re = rnh->state;
 
 	/* Get output stream. */
-	s = client->obuf;
-	stream_reset(s);
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, cmd, vrf_id);
 
@@ -1063,7 +1062,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 
 	client->nh_last_upd_time = monotime(NULL);
 	client->last_write_cmd = cmd;
-	return zebra_server_send_message(client);
+	return zebra_server_send_message(client, s);
 }
 
 static void print_nh(struct nexthop *nexthop, struct vty *vty)

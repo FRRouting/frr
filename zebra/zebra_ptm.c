@@ -702,7 +702,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
-	s = client->ibuf;
+	s = msg;
 
 	STREAM_GETL(s, pid);
 	sprintf(tmp_buf, "%d", pid);
@@ -819,7 +819,6 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 
 stream_failure:
 	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
-	return;
 }
 
 /* BFD peer/dst deregister */
@@ -859,7 +858,7 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
-	s = client->ibuf;
+	s = msg;
 
 	STREAM_GETL(s, pid);
 	sprintf(tmp_buf, "%d", pid);
@@ -950,7 +949,6 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 
 stream_failure:
 	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
-	return;
 }
 
 /* BFD client register */
@@ -968,7 +966,7 @@ void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
 		zlog_debug("bfd_client_register msg from client %s: length=%d",
 			   zebra_route_string(client->proto), hdr->length);
 
-	s = client->ibuf;
+	s = msg;
 	STREAM_GETL(s, pid);
 
 	if (ptm_cb.ptm_sock == -1) {

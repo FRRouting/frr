@@ -46,7 +46,6 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_l2.h"
-#include "zebra/zserv.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZVNI, "VNI hash");
@@ -1158,8 +1157,7 @@ static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 	if (!client)
 		return 0;
 
-	s = client->obuf;
-	stream_reset(s);
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_putl(s, vni);
@@ -1196,7 +1194,7 @@ static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 	else
 		client->macipdel_cnt++;
 
-	return zebra_server_send_message(client);
+	return zebra_server_send_message(client, s);
 }
 
 /*
@@ -2566,8 +2564,7 @@ static int zvni_send_add_to_client(zebra_vni_t *zvni)
 	if (!client)
 		return 0;
 
-	s = client->obuf;
-	stream_reset(s);
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_VNI_ADD, VRF_DEFAULT);
 	stream_putl(s, zvni->vni);
@@ -2584,7 +2581,7 @@ static int zvni_send_add_to_client(zebra_vni_t *zvni)
 			   zebra_route_string(client->proto));
 
 	client->vniadd_cnt++;
-	return zebra_server_send_message(client);
+	return zebra_server_send_message(client, s);
 }
 
 /*
@@ -2600,7 +2597,7 @@ static int zvni_send_del_to_client(vni_t vni)
 	if (!client)
 		return 0;
 
-	s = client->obuf;
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_VNI_DEL, VRF_DEFAULT);
@@ -2614,7 +2611,7 @@ static int zvni_send_del_to_client(vni_t vni)
 			   zebra_route_string(client->proto));
 
 	client->vnidel_cnt++;
-	return zebra_server_send_message(client);
+	return zebra_server_send_message(client, s);
 }
 
 /*
@@ -3551,8 +3548,7 @@ static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
 	memset(&rmac, 0, sizeof(struct ethaddr));
 	zl3vni_get_rmac(zl3vni, &rmac);
 
-	s = client->obuf;
-	stream_reset(s);
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_L3VNI_ADD, zl3vni_vrf_id(zl3vni));
 	stream_putl(s, zl3vni->vni);
@@ -3575,7 +3571,7 @@ static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
 			zebra_route_string(client->proto));
 
 	client->l3vniadd_cnt++;
-	return zebra_server_send_message(client);
+	return zebra_server_send_message(client, s);
 }
 
 /*
@@ -3591,8 +3587,7 @@ static int zl3vni_send_del_to_client(zebra_l3vni_t *zl3vni)
 	if (!client)
 		return 0;
 
-	s = client->obuf;
-	stream_reset(s);
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_L3VNI_DEL, zl3vni_vrf_id(zl3vni));
 	stream_putl(s, zl3vni->vni);
@@ -3606,7 +3601,7 @@ static int zl3vni_send_del_to_client(zebra_l3vni_t *zl3vni)
 			   zebra_route_string(client->proto));
 
 	client->l3vnidel_cnt++;
-	return zebra_server_send_message(client);
+	return zebra_server_send_message(client, s);
 }
 
 static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
@@ -3724,8 +3719,7 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 	if (!client)
 		return 0;
 
-	s = client->obuf;
-	stream_reset(s);
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, cmd, vrf_id);
 	stream_put(s, p, sizeof(struct prefix));
@@ -3744,7 +3738,7 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 	else
 		client->prefixdel_cnt++;
 
-	return zebra_server_send_message(client);
+	return zebra_server_send_message(client, s);
 }
 
 /* re-add remote rmac if needed */
@@ -4884,7 +4878,7 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 	memset(&ip, 0, sizeof(struct ipaddr));
 	memset(&vtep_ip, 0, sizeof(struct in_addr));
 
-	s = client->ibuf;
+	s = msg;
 
 	while (l < hdr->length) {
 		/* Obtain each remote MACIP and process. */
@@ -5047,7 +5041,7 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	s = client->ibuf;
+	s = msg;
 
 	while (l < hdr->length) {
 		/* Obtain each remote MACIP and process. */
@@ -5566,7 +5560,7 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	s = client->ibuf;
+	s = msg;
 
 	while (l < hdr->length) {
 		/* Obtain each remote VTEP and process. */
@@ -5650,7 +5644,7 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	s = client->ibuf;
+	s = msg;
 
 	while (l < hdr->length) {
 		/* Obtain each remote VTEP and process. */
@@ -6526,7 +6520,7 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	s = client->ibuf;
+	s = msg;
 	advertise = stream_getc(s);
 	vni = stream_get3(s);
 
@@ -6566,8 +6560,6 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 		zvni_advertise_subnet(zvni, vlan_if, 1);
 	else
 		zvni_advertise_subnet(zvni, vlan_if, 0);
-
-	return;
 }
 
 /*
@@ -6588,7 +6580,7 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	s = client->ibuf;
+	s = msg;
 	STREAM_GETC(s, advertise);
 	STREAM_GET(&vni, s, 3);
 
@@ -6620,7 +6612,7 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 
 		zvni = zvni_lookup(vni);
 		if (!zvni)
-			return;
+			return 0;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
@@ -6682,7 +6674,6 @@ stream_failure:
  * uninstalled from the kernel.
  */
 void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
-
 {
 	struct stream *s = NULL;
 	int advertise = 0;
@@ -6693,7 +6684,7 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	s = client->ibuf;
+	s = msg;
 	STREAM_GETC(s, advertise);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)

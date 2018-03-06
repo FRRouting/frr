@@ -249,9 +249,9 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 	int type = 0;
 	u_short instance;
 
-	STREAM_GETC(client->ibuf, afi);
-	STREAM_GETC(client->ibuf, type);
-	STREAM_GETW(client->ibuf, instance);
+	STREAM_GETC(msg, afi);
+	STREAM_GETC(msg, type);
+	STREAM_GETW(msg, instance);
 
 	if (afi == 0 || afi > AFI_MAX) {
 		zlog_warn("%s: Specified afi %d does not exist",
@@ -292,9 +292,9 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 	int type = 0;
 	u_short instance;
 
-	STREAM_GETC(client->ibuf, afi);
-	STREAM_GETC(client->ibuf, type);
-	STREAM_GETW(client->ibuf, instance);
+	STREAM_GETC(msg, afi);
+	STREAM_GETC(msg, type);
+	STREAM_GETW(msg, instance);
 
 	if (afi == 0 || afi > AFI_MAX) {
 		zlog_warn("%s: Specified afi %d does not exist",

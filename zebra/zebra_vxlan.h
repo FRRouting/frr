@@ -52,7 +52,7 @@ static inline int is_evpn_enabled()
 
 #define VNI_STR_LEN 32
 
-/* zserv handlers */
+/* ZAPI message handlers */
 extern void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS);
@@ -60,7 +60,6 @@ extern void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS);
-
 
 extern int is_l3vni_for_prefix_routes_only(vni_t vni);
 extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
