@@ -16,8 +16,10 @@ WANT_CUMULUS_MODE ?= 0
 WANT_MULTIPATH ?= 1
 WANT_SNMP ?= 0
 
+# NOTES:
+#
 # If multipath is enabled (WANT_MULTIPATH=1), then set number of multipaths here
-# Please be aware that 0 is NOT disabled, but treated as unlimited
+#    Please be aware that 0 is NOT disabled, but treated as unlimited
 
 MULTIPATH ?= 256
 
