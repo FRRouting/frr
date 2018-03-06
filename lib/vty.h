@@ -174,8 +174,8 @@ static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
 	struct structname *ptr = VTY_GET_CONTEXT_SUB(structname);              \
 	VTY_CHECK_CONTEXT(ptr);
 #define VTY_DECLVAR_INSTANCE_CONTEXT(structname, ptr)                          \
-	if (vty->qobj_index == 0)					       \
-		return CMD_NOT_MY_INSTANCE;				       \
+	if (vty->qobj_index == 0)                                              \
+		return CMD_NOT_MY_INSTANCE;                                    \
 	struct structname *ptr = VTY_GET_CONTEXT(structname);                  \
 	VTY_CHECK_CONTEXT(ptr);
 

@@ -249,9 +249,10 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[PREFIX_STRLEN];
 
-		zlog_debug("%u: IF %s address %s add/up, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name,
-			   prefix2str(&p, buf, sizeof(buf)));
+		zlog_debug(
+			"%u: IF %s address %s add/up, scheduling RIB processing",
+			ifp->vrf_id, ifp->name,
+			prefix2str(&p, buf, sizeof(buf)));
 	}
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
@@ -260,9 +261,10 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_debug("%u: IF %s IP %s address add/up, scheduling MPLS processing",
-				   ifp->vrf_id, ifp->name,
-				   prefix2str(&p, buf, sizeof(buf)));
+			zlog_debug(
+				"%u: IF %s IP %s address add/up, scheduling MPLS processing",
+				ifp->vrf_id, ifp->name,
+				prefix2str(&p, buf, sizeof(buf)));
 		}
 		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
 	}
@@ -402,15 +404,16 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	rib_delete(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
 		   &p, NULL, &nh, 0, 0, false, NULL);
 
-	rib_delete(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		   0, &p, NULL, &nh, 0, 0, false, NULL);
+	rib_delete(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
+		   &p, NULL, &nh, 0, 0, false, NULL);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[PREFIX_STRLEN];
 
-		zlog_debug("%u: IF %s IP %s address down, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name,
-			   prefix2str(&p, buf, sizeof(buf)));
+		zlog_debug(
+			"%u: IF %s IP %s address down, scheduling RIB processing",
+			ifp->vrf_id, ifp->name,
+			prefix2str(&p, buf, sizeof(buf)));
 	}
 
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
@@ -420,9 +423,10 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_debug("%u: IF %s IP %s address down, scheduling MPLS processing",
-				   ifp->vrf_id, ifp->name,
-				   prefix2str(&p, buf, sizeof(buf)));
+			zlog_debug(
+				"%u: IF %s IP %s address down, scheduling MPLS processing",
+				ifp->vrf_id, ifp->name,
+				prefix2str(&p, buf, sizeof(buf)));
 		}
 		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
 	}
@@ -441,9 +445,10 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[PREFIX_STRLEN];
 
-		zlog_debug("%u: IF %s IP %s address del, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name,
-			   prefix2str(p, buf, sizeof(buf)));
+		zlog_debug(
+			"%u: IF %s IP %s address del, scheduling RIB processing",
+			ifp->vrf_id, ifp->name,
+			prefix2str(p, buf, sizeof(buf)));
 	}
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
@@ -452,9 +457,10 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_debug("%u: IF %s IP %s address delete, scheduling MPLS processing",
-				   ifp->vrf_id, ifp->name,
-				   prefix2str(p, buf, sizeof(buf)));
+			zlog_debug(
+				"%u: IF %s IP %s address delete, scheduling MPLS processing",
+				ifp->vrf_id, ifp->name,
+				prefix2str(p, buf, sizeof(buf)));
 		}
 		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
 	}

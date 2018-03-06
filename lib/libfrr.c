@@ -168,7 +168,7 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			break;
 		case '6':
 			path++;
-			/* fallthrough */
+		/* fallthrough */
 		default:
 			af = AF_INET6;
 			break;
@@ -629,7 +629,7 @@ static void frr_daemon_wait(int fd)
 
 		rcvd_signal = 0;
 
-#if   defined(HAVE_PPOLL)
+#if defined(HAVE_PPOLL)
 		ret = ppoll(pfd, 1, NULL, &prevsigs);
 #elif defined(HAVE_POLLTS)
 		ret = pollts(pfd, 1, NULL, &prevsigs);
@@ -811,18 +811,18 @@ static int frr_daemon_ctl(struct thread *t)
 		return 0;
 
 	switch (buf[0]) {
-	case 'S':	/* SIGTSTP */
+	case 'S': /* SIGTSTP */
 		vty_stdio_suspend();
 		send(daemon_ctl_sock, "s", 1, 0);
 		break;
-	case 'R':	/* SIGTCNT [implicit] */
+	case 'R': /* SIGTCNT [implicit] */
 		vty_stdio_resume();
 		break;
-	case 'I':	/* SIGINT */
+	case 'I': /* SIGINT */
 		di->daemon_mode = false;
 		raise(SIGINT);
 		break;
-	case 'Q':	/* SIGQUIT */
+	case 'Q': /* SIGQUIT */
 		di->daemon_mode = true;
 		vty_stdio_close();
 		break;
@@ -914,10 +914,8 @@ void frr_fini(void)
 	if (!have_leftovers)
 		return;
 
-	snprintf(filename, sizeof(filename),
-		 "/tmp/frr-memstats-%s-%llu-%llu",
-		 di->name,
-		 (unsigned long long)getpid(),
+	snprintf(filename, sizeof(filename), "/tmp/frr-memstats-%s-%llu-%llu",
+		 di->name, (unsigned long long)getpid(),
 		 (unsigned long long)time(NULL));
 
 	fp = fopen(filename, "w");

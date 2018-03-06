@@ -215,10 +215,8 @@ struct transit {
 
 /* "(void) 0" will generate a compiler error.  this is a safety check to
  * ensure we're not using a value that exceeds the bit size of attr->flag. */
-#define ATTR_FLAG_BIT(X) \
-	__builtin_choose_expr((X) >= 1 && (X) <= 64, \
-			      1ULL << ((X) - 1), \
-			      (void) 0)
+#define ATTR_FLAG_BIT(X)                                                       \
+	__builtin_choose_expr((X) >= 1 && (X) <= 64, 1ULL << ((X)-1), (void)0)
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
 	(((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))                 \
@@ -260,8 +258,8 @@ extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *,
 				       struct bpacket_attr_vec_arr *vecarr,
 				       struct prefix *, afi_t, safi_t,
 				       struct peer *, struct prefix_rd *,
-				       mpls_label_t *, u_int32_t,
-				       int, u_int32_t);
+				       mpls_label_t *, u_int32_t, int,
+				       u_int32_t);
 extern void bgp_dump_routes_attr(struct stream *, struct attr *,
 				 struct prefix *);
 extern int attrhash_cmp(const void *, const void *);
@@ -320,9 +318,9 @@ extern size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi,
 					 safi_t safi);
 extern void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p,
 					afi_t afi, safi_t safi,
-					struct prefix_rd *prd,
-					mpls_label_t *, u_int32_t,
-					int, u_int32_t, struct attr *);
+					struct prefix_rd *prd, mpls_label_t *,
+					u_int32_t, int, u_int32_t,
+					struct attr *);
 extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 
 static inline int bgp_rmap_nhop_changed(u_int32_t out_rmap_flags,

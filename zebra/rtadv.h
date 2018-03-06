@@ -103,8 +103,7 @@ typedef enum {
 extern void rtadv_init(struct zebra_ns *);
 extern void rtadv_terminate(struct zebra_ns *);
 extern void rtadv_cmd_init(void);
-extern void zebra_interface_radv_set(struct zserv *client,
-				     u_short length, struct zebra_vrf *zvrf,
-				     int enable);
+extern void zebra_interface_radv_set(struct zserv *client, u_short length,
+				     struct zebra_vrf *zvrf, int enable);
 
 #endif /* _ZEBRA_RTADV_H */

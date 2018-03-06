@@ -222,7 +222,8 @@ static void set_community_string(struct community *com, bool make_json)
 
 		if (make_json) {
 			json_object_string_add(com->json, "string", "");
-			json_object_object_add(com->json, "list", json_community_list);
+			json_object_object_add(com->json, "list",
+					       json_community_list);
 		}
 		com->str = str;
 		return;
@@ -277,24 +278,30 @@ static void set_community_string(struct community *com, bool make_json)
 			strcpy(pnt, "internet");
 			pnt += strlen("internet");
 			if (make_json) {
-				json_string = json_object_new_string("internet");
-				json_object_array_add(json_community_list, json_string);
+				json_string =
+					json_object_new_string("internet");
+				json_object_array_add(json_community_list,
+						      json_string);
 			}
 			break;
 		case COMMUNITY_NO_EXPORT:
 			strcpy(pnt, "no-export");
 			pnt += strlen("no-export");
 			if (make_json) {
-				json_string = json_object_new_string("noExport");
-				json_object_array_add(json_community_list, json_string);
+				json_string =
+					json_object_new_string("noExport");
+				json_object_array_add(json_community_list,
+						      json_string);
 			}
 			break;
 		case COMMUNITY_NO_ADVERTISE:
 			strcpy(pnt, "no-advertise");
 			pnt += strlen("no-advertise");
 			if (make_json) {
-				json_string = json_object_new_string("noAdvertise");
-				json_object_array_add(json_community_list, json_string);
+				json_string =
+					json_object_new_string("noAdvertise");
+				json_object_array_add(json_community_list,
+						      json_string);
 			}
 			break;
 		case COMMUNITY_LOCAL_AS:
@@ -302,15 +309,18 @@ static void set_community_string(struct community *com, bool make_json)
 			pnt += strlen("local-AS");
 			if (make_json) {
 				json_string = json_object_new_string("localAs");
-				json_object_array_add(json_community_list, json_string);
+				json_object_array_add(json_community_list,
+						      json_string);
 			}
 			break;
 		case COMMUNITY_GSHUT:
 			strcpy(pnt, "graceful-shutdown");
 			pnt += strlen("graceful-shutdown");
 			if (make_json) {
-				json_string = json_object_new_string("gracefulShutdown");
-				json_object_array_add(json_community_list, json_string);
+				json_string = json_object_new_string(
+					"gracefulShutdown");
+				json_object_array_add(json_community_list,
+						      json_string);
 			}
 			break;
 		default:
@@ -319,7 +329,8 @@ static void set_community_string(struct community *com, bool make_json)
 			sprintf(pnt, "%u:%d", as, val);
 			if (make_json) {
 				json_string = json_object_new_string(pnt);
-				json_object_array_add(json_community_list, json_string);
+				json_object_array_add(json_community_list,
+						      json_string);
 			}
 			pnt += strlen(pnt);
 			break;
@@ -545,7 +556,8 @@ community_gettoken(const char *buf, enum community_token *token, u_int32_t *val)
 			p += strlen("local-AS");
 			return p;
 		}
-		if (strncmp(p, "graceful-shutdown", strlen("graceful-shutdown")) == 0) {
+		if (strncmp(p, "graceful-shutdown", strlen("graceful-shutdown"))
+		    == 0) {
 			*val = COMMUNITY_GSHUT;
 			*token = community_token_gshut;
 			p += strlen("graceful-shutdown");
@@ -662,10 +674,10 @@ struct hash *community_hash(void)
 /* Initialize comminity related hash. */
 void community_init(void)
 {
-	comhash = hash_create(
-		(unsigned int (*)(void *))community_hash_make,
-		(int (*)(const void *, const void *))community_cmp,
-		"BGP Community Hash");
+	comhash =
+		hash_create((unsigned int (*)(void *))community_hash_make,
+			    (int (*)(const void *, const void *))community_cmp,
+			    "BGP Community Hash");
 }
 
 void community_finish(void)

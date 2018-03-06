@@ -546,14 +546,14 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 		return;
 
 	p = &(bnc->node->p);
-	if ((command == ZEBRA_NEXTHOP_REGISTER ||
-	     command == ZEBRA_IMPORT_ROUTE_REGISTER) &&
-	    (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
-	     || CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH)))
+	if ((command == ZEBRA_NEXTHOP_REGISTER
+	     || command == ZEBRA_IMPORT_ROUTE_REGISTER)
+	    && (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
+		|| CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH)))
 		exact_match = true;
 
-	ret = zclient_send_rnh(zclient, command, p,
-			       exact_match, bnc->bgp->vrf_id);
+	ret = zclient_send_rnh(zclient, command, p, exact_match,
+			       bnc->bgp->vrf_id);
 	/* TBD: handle the failure */
 	if (ret < 0)
 		zlog_warn("sendmsg_nexthop: zclient_send_message() failed");

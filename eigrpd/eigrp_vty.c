@@ -109,8 +109,7 @@ static int config_write_interfaces(struct vty *vty, struct eigrp *eigrp)
 		if (ei->params.auth_keychain) {
 			vty_out(vty,
 				" ip authentication key-chain eigrp %d %s\n",
-				eigrp->AS,
-				ei->params.auth_keychain);
+				eigrp->AS, ei->params.auth_keychain);
 		}
 
 		if (ei->params.v_hello != EIGRP_HELLO_INTERVAL_DEFAULT) {
@@ -147,8 +146,7 @@ static int eigrp_write_interface(struct vty *vty)
 			vty_out(vty, " description %s\n", ifp->desc);
 
 		if (ei->params.bandwidth != EIGRP_BANDWIDTH_DEFAULT)
-			vty_out(vty, " bandwidth %u\n",
-				ei->params.bandwidth);
+			vty_out(vty, " bandwidth %u\n", ei->params.bandwidth);
 		if (ei->params.delay != EIGRP_DELAY_DEFAULT)
 			vty_out(vty, " delay %u\n", ei->params.delay);
 		if (ei->params.v_hello != EIGRP_HELLO_INTERVAL_DEFAULT)
@@ -495,7 +493,7 @@ DEFUN (show_ip_eigrp_topology,
 				     & EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG)
 				    == EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG))) {
 				show_ip_eigrp_nexthop_entry(vty, eigrp, te,
-							     &first);
+							    &first);
 				first = 0;
 			}
 		}
@@ -777,8 +775,7 @@ DEFUN (no_eigrp_if_ip_hellointerval,
 	ei->params.v_hello = EIGRP_HELLO_INTERVAL_DEFAULT;
 
 	THREAD_TIMER_OFF(ei->t_hello);
-	thread_add_timer(master, eigrp_hello_timer, ei, 1,
-			 &ei->t_hello);
+	thread_add_timer(master, eigrp_hello_timer, ei, 1, &ei->t_hello);
 
 	return CMD_SUCCESS;
 }
@@ -1008,11 +1005,9 @@ DEFUN (eigrp_authentication_keychain,
 	if (keychain != NULL) {
 		if (ei->params.auth_keychain) {
 			free(ei->params.auth_keychain);
-			ei->params.auth_keychain =
-				strdup(keychain->name);
+			ei->params.auth_keychain = strdup(keychain->name);
 		} else
-			ei->params.auth_keychain =
-				strdup(keychain->name);
+			ei->params.auth_keychain = strdup(keychain->name);
 	} else
 		vty_out(vty, "Key chain with specified name not found\n");
 
@@ -1339,8 +1334,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP,
 	struct in_addr nbr_addr;
 
 	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
-		vty_out(vty, "Unable to parse %s",
-			argv[4]->arg);
+		vty_out(vty, "Unable to parse %s", argv[4]->arg);
 		return CMD_WARNING;
 	}
 
@@ -1446,8 +1440,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP_soft,
 	struct in_addr nbr_addr;
 
 	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
-		vty_out(vty, "Unable to parse: %s",
-			argv[4]->arg);
+		vty_out(vty, "Unable to parse: %s", argv[4]->arg);
 		return CMD_WARNING;
 	}
 

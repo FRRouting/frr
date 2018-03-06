@@ -19,15 +19,15 @@ DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry")
 
 unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 
-const char * const nhrp_cache_type_str[] = {
-	[NHRP_CACHE_INVALID]	= "invalid",
-	[NHRP_CACHE_INCOMPLETE]	= "incomplete",
-	[NHRP_CACHE_NEGATIVE]	= "negative",
-	[NHRP_CACHE_CACHED]	= "cached",
-	[NHRP_CACHE_DYNAMIC]	= "dynamic",
-	[NHRP_CACHE_NHS]	= "nhs",
-	[NHRP_CACHE_STATIC]	= "static",
-	[NHRP_CACHE_LOCAL]	= "local",
+const char *const nhrp_cache_type_str[] = {
+		[NHRP_CACHE_INVALID] = "invalid",
+		[NHRP_CACHE_INCOMPLETE] = "incomplete",
+		[NHRP_CACHE_NEGATIVE] = "negative",
+		[NHRP_CACHE_CACHED] = "cached",
+		[NHRP_CACHE_DYNAMIC] = "dynamic",
+		[NHRP_CACHE_NHS] = "nhs",
+		[NHRP_CACHE_STATIC] = "static",
+		[NHRP_CACHE_LOCAL] = "local",
 };
 
 static unsigned int nhrp_cache_protocol_key(void *peer_data)
@@ -49,12 +49,13 @@ static void *nhrp_cache_alloc(void *data)
 
 	p = XMALLOC(MTYPE_NHRP_CACHE, sizeof(struct nhrp_cache));
 	if (p) {
-		*p = (struct nhrp_cache) {
+		*p = (struct nhrp_cache){
 			.cur.type = NHRP_CACHE_INVALID,
 			.new.type = NHRP_CACHE_INVALID,
 			.remote_addr = key->remote_addr,
 			.ifp = key->ifp,
-			.notifier_list = NOTIFIER_LIST_INITIALIZER(&p->notifier_list),
+			.notifier_list =
+				NOTIFIER_LIST_INITIALIZER(&p->notifier_list),
 		};
 		nhrp_cache_counts[p->cur.type]++;
 	}
@@ -75,15 +76,16 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 	XFREE(MTYPE_NHRP_CACHE, c);
 }
 
-struct nhrp_cache *nhrp_cache_get(struct interface *ifp, union sockunion *remote_addr, int create)
+struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
+				  union sockunion *remote_addr, int create)
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_cache key;
 
 	if (!nifp->cache_hash) {
-		nifp->cache_hash = hash_create(nhrp_cache_protocol_key,
-					       nhrp_cache_protocol_cmp,
-					       "NHRP Cache");
+		nifp->cache_hash =
+			hash_create(nhrp_cache_protocol_key,
+				    nhrp_cache_protocol_cmp, "NHRP Cache");
 		if (!nifp->cache_hash)
 			return NULL;
 	}
@@ -91,7 +93,8 @@ struct nhrp_cache *nhrp_cache_get(struct interface *ifp, union sockunion *remote
 	key.remote_addr = *remote_addr;
 	key.ifp = ifp;
 
-	return hash_get(nifp->cache_hash, &key, create ? nhrp_cache_alloc : NULL);
+	return hash_get(nifp->cache_hash, &key,
+			create ? nhrp_cache_alloc : NULL);
 }
 
 static int nhrp_cache_do_free(struct thread *t)
@@ -119,8 +122,10 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 	sockunion2hostprefix(&c->remote_addr, &pfx);
 
 	if (p && nhrp_peer_check(p, 1)) {
-		netlink_update_binding(p->ifp, &c->remote_addr, &p->vc->remote.nbma);
-		nhrp_route_announce(1, c->cur.type, &pfx, c->ifp, NULL, c->cur.mtu);
+		netlink_update_binding(p->ifp, &c->remote_addr,
+				       &p->vc->remote.nbma);
+		nhrp_route_announce(1, c->cur.type, &pfx, c->ifp, NULL,
+				    c->cur.mtu);
 		if (c->cur.type >= NHRP_CACHE_DYNAMIC) {
 			nhrp_route_update_nhrp(&pfx, c->ifp);
 			c->nhrp_route_installed = 1;
@@ -140,15 +145,18 @@ static void nhrp_cache_update_route(struct nhrp_cache *c)
 		if (c->route_installed) {
 			sockunion2hostprefix(&c->remote_addr, &pfx);
 			notifier_call(&c->notifier_list, NOTIFY_CACHE_DOWN);
-			nhrp_route_announce(0, c->cur.type, &pfx, NULL, NULL, 0);
+			nhrp_route_announce(0, c->cur.type, &pfx, NULL, NULL,
+					    0);
 			c->route_installed = 0;
 		}
 	}
 }
 
-static void nhrp_cache_peer_notifier(struct notifier_block *n, unsigned long cmd)
+static void nhrp_cache_peer_notifier(struct notifier_block *n,
+				     unsigned long cmd)
 {
-	struct nhrp_cache *c = container_of(n, struct nhrp_cache, peer_notifier);
+	struct nhrp_cache *c =
+		container_of(n, struct nhrp_cache, peer_notifier);
 
 	switch (cmd) {
 	case NOTIFY_PEER_UP:
@@ -183,8 +191,8 @@ static void nhrp_cache_update_timers(struct nhrp_cache *c)
 	switch (c->cur.type) {
 	case NHRP_CACHE_INVALID:
 		if (!c->t_auth)
-			thread_add_timer_msec(master, nhrp_cache_do_free, c,
-					      10, &c->t_timeout);
+			thread_add_timer_msec(master, nhrp_cache_do_free, c, 10,
+					      &c->t_timeout);
 		break;
 	default:
 		if (c->cur.expires)
@@ -200,15 +208,16 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 	struct nhrp_cache *c = container_of(r, struct nhrp_cache, eventid);
 	char buf[SU_ADDRSTRLEN];
 
-	debugf(NHRP_DEBUG_COMMON, "cache: %s %s: %s",
-		c->ifp->name, sockunion2str(&c->remote_addr, buf, sizeof buf),
-		(const char *) arg);
+	debugf(NHRP_DEBUG_COMMON, "cache: %s %s: %s", c->ifp->name,
+	       sockunion2str(&c->remote_addr, buf, sizeof buf),
+	       (const char *)arg);
 
 	nhrp_reqid_free(&nhrp_event_reqid, r);
 
 	if (arg && strcmp(arg, "accept") == 0) {
 		if (c->cur.peer) {
-			netlink_update_binding(c->cur.peer->ifp, &c->remote_addr, NULL);
+			netlink_update_binding(c->cur.peer->ifp,
+					       &c->remote_addr, NULL);
 			nhrp_peer_notify_del(c->cur.peer, &c->peer_notifier);
 			nhrp_peer_unref(c->cur.peer);
 		}
@@ -218,7 +227,8 @@ static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
 		c->cur.peer = nhrp_peer_ref(c->cur.peer);
 		nhrp_cache_reset_new(c);
 		if (c->cur.peer)
-			nhrp_peer_notify_add(c->cur.peer, &c->peer_notifier, nhrp_cache_peer_notifier);
+			nhrp_peer_notify_add(c->cur.peer, &c->peer_notifier,
+					     nhrp_cache_peer_notifier);
 		nhrp_cache_update_route(c);
 		notifier_call(&c->notifier_list, NOTIFY_CACHE_BINDING_CHANGE);
 	} else {
@@ -232,20 +242,23 @@ static int nhrp_cache_do_auth_timeout(struct thread *t)
 {
 	struct nhrp_cache *c = THREAD_ARG(t);
 	c->t_auth = NULL;
-	nhrp_cache_authorize_binding(&c->eventid, (void *) "timeout");
+	nhrp_cache_authorize_binding(&c->eventid, (void *)"timeout");
 	return 0;
 }
 
-static void nhrp_cache_newpeer_notifier(struct notifier_block *n, unsigned long cmd)
+static void nhrp_cache_newpeer_notifier(struct notifier_block *n,
+					unsigned long cmd)
 {
-	struct nhrp_cache *c = container_of(n, struct nhrp_cache, newpeer_notifier);
+	struct nhrp_cache *c =
+		container_of(n, struct nhrp_cache, newpeer_notifier);
 
 	switch (cmd) {
 	case NOTIFY_PEER_UP:
 		if (nhrp_peer_check(c->new.peer, 1)) {
-			evmgr_notify("authorize-binding", c, nhrp_cache_authorize_binding);
-			thread_add_timer(master, nhrp_cache_do_auth_timeout,
-					 c, 10, &c->t_auth);
+			evmgr_notify("authorize-binding", c,
+				     nhrp_cache_authorize_binding);
+			thread_add_timer(master, nhrp_cache_do_auth_timeout, c,
+					 10, &c->t_auth);
 		}
 		break;
 	case NOTIFY_PEER_DOWN:
@@ -255,7 +268,9 @@ static void nhrp_cache_newpeer_notifier(struct notifier_block *n, unsigned long 
 	}
 }
 
-int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type, int holding_time, struct nhrp_peer *p, uint32_t mtu, union sockunion *nbma_oa)
+int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
+			      int holding_time, struct nhrp_peer *p,
+			      uint32_t mtu, union sockunion *nbma_oa)
 {
 	if (c->cur.type > type || c->new.type > type) {
 		nhrp_peer_unref(p);
@@ -269,7 +284,8 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type, i
 			mtu = 0;
 		/* Opennhrp announces nbma mtu, but we use protocol mtu.
 		 * This heuristic tries to fix up it. */
-		if (mtu > 1420) mtu = (mtu & -16) - 80;
+		if (mtu > 1420)
+			mtu = (mtu & -16) - 80;
 		break;
 	default:
 		mtu = 0;
@@ -278,30 +294,37 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type, i
 
 	nhrp_cache_reset_new(c);
 	if (c->cur.type == type && c->cur.peer == p && c->cur.mtu == mtu) {
-		if (holding_time > 0) c->cur.expires = monotime(NULL) + holding_time;
-		if (nbma_oa) c->cur.remote_nbma_natoa = *nbma_oa;
-		else memset(&c->cur.remote_nbma_natoa, 0, sizeof c->cur.remote_nbma_natoa);
+		if (holding_time > 0)
+			c->cur.expires = monotime(NULL) + holding_time;
+		if (nbma_oa)
+			c->cur.remote_nbma_natoa = *nbma_oa;
+		else
+			memset(&c->cur.remote_nbma_natoa, 0,
+			       sizeof c->cur.remote_nbma_natoa);
 		nhrp_peer_unref(p);
 	} else {
 		c->new.type = type;
 		c->new.peer = p;
 		c->new.mtu = mtu;
-		if (nbma_oa) c->new.remote_nbma_natoa = *nbma_oa;
+		if (nbma_oa)
+			c->new.remote_nbma_natoa = *nbma_oa;
 
 		if (holding_time > 0)
 			c->new.expires = monotime(NULL) + holding_time;
 		else if (holding_time < 0)
 			nhrp_cache_reset_new(c);
 
-		if (c->new.type == NHRP_CACHE_INVALID ||
-		    c->new.type >= NHRP_CACHE_STATIC ||
-		    c->map) {
-			nhrp_cache_authorize_binding(&c->eventid, (void *) "accept");
+		if (c->new.type == NHRP_CACHE_INVALID
+		    || c->new.type >= NHRP_CACHE_STATIC || c->map) {
+			nhrp_cache_authorize_binding(&c->eventid,
+						     (void *)"accept");
 		} else {
-			nhrp_peer_notify_add(c->new.peer, &c->newpeer_notifier, nhrp_cache_newpeer_notifier);
-			nhrp_cache_newpeer_notifier(&c->newpeer_notifier, NOTIFY_PEER_UP);
-			thread_add_timer(master, nhrp_cache_do_auth_timeout,
-					 c, 60, &c->t_auth);
+			nhrp_peer_notify_add(c->new.peer, &c->newpeer_notifier,
+					     nhrp_cache_newpeer_notifier);
+			nhrp_cache_newpeer_notifier(&c->newpeer_notifier,
+						    NOTIFY_PEER_UP);
+			thread_add_timer(master, nhrp_cache_do_auth_timeout, c,
+					 60, &c->t_auth);
 		}
 	}
 	nhrp_cache_update_timers(c);
@@ -327,19 +350,20 @@ static void nhrp_cache_iterator(struct hash_backet *b, void *ctx)
 	ic->cb(b->data, ic->ctx);
 }
 
-void nhrp_cache_foreach(struct interface *ifp, void (*cb)(struct nhrp_cache *, void *), void *ctx)
+void nhrp_cache_foreach(struct interface *ifp,
+			void (*cb)(struct nhrp_cache *, void *), void *ctx)
 {
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_cache_iterator_ctx ic = {
-		.cb = cb,
-		.ctx = ctx,
+		.cb = cb, .ctx = ctx,
 	};
 
 	if (nifp->cache_hash)
 		hash_iterate(nifp->cache_hash, nhrp_cache_iterator, &ic);
 }
 
-void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *n, notifier_fn_t fn)
+void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *n,
+			   notifier_fn_t fn)
 {
 	notifier_add(n, &c->notifier_list, fn);
 }

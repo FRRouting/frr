@@ -1163,8 +1163,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		 * print that on the next line
 		 */
 
-		if (bi->extra
-		    && bi->extra->vnc.import.aux_prefix.family) {
+		if (bi->extra && bi->extra->vnc.import.aux_prefix.family) {
 			const char *sp;
 
 			sp = rfapi_ntop(
@@ -4630,7 +4629,7 @@ notcfg:
  ************************************************************************/
 void vnc_add_vrf_opener(struct bgp *bgp, struct rfapi_nve_group_cfg *rfg)
 {
-	if (rfg->rfd == NULL) {	/* need new rfapi_handle */
+	if (rfg->rfd == NULL) { /* need new rfapi_handle */
 		/* based on rfapi_open */
 		struct rfapi_descriptor *rfd;
 

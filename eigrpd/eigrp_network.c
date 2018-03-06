@@ -280,8 +280,7 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 		if (CHECK_FLAG(co->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 
-		if (p->family == co->address->family
-		    && !ifp->info
+		if (p->family == co->address->family && !ifp->info
 		    && eigrp_network_match_iface(co, p)) {
 
 			ei = eigrp_if_new(eigrp, ifp, co->address);
@@ -408,17 +407,17 @@ u_int32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
 	struct eigrp_interface *ei = entry->ei;
 
 	entry->total_metric = entry->reported_metric;
-	uint64_t temp_delay = (uint64_t)entry->total_metric.delay
-			      + (uint64_t)eigrp_delay_to_scaled(ei->params.delay);
+	uint64_t temp_delay =
+		(uint64_t)entry->total_metric.delay
+		+ (uint64_t)eigrp_delay_to_scaled(ei->params.delay);
 	entry->total_metric.delay = temp_delay > EIGRP_MAX_METRIC
 					    ? EIGRP_MAX_METRIC
 					    : (u_int32_t)temp_delay;
 
-	u_int32_t bw =
-		eigrp_bandwidth_to_scaled(ei->params.bandwidth);
+	u_int32_t bw = eigrp_bandwidth_to_scaled(ei->params.bandwidth);
 	entry->total_metric.bandwidth = entry->total_metric.bandwidth > bw
-					       ? bw
-					       : entry->total_metric.bandwidth;
+						? bw
+						: entry->total_metric.bandwidth;
 
 	return eigrp_calculate_metrics(eigrp, entry->total_metric);
 }

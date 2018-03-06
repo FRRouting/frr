@@ -842,9 +842,9 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 		SET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
 		if (ra_interval
-			&& (ra_interval * 1000) < zif->rtadv.MaxRtrAdvInterval
-			&& !CHECK_FLAG(zif->rtadv.ra_configured,
-				VTY_RA_INTERVAL_CONFIGURED))
+		    && (ra_interval * 1000) < zif->rtadv.MaxRtrAdvInterval
+		    && !CHECK_FLAG(zif->rtadv.ra_configured,
+				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
 	} else {
 		UNSET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);

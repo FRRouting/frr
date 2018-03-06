@@ -337,8 +337,8 @@ DECLARE_QOBJ_TYPE(interface)
  * can use 1000+ so they run after the daemon has initialised daemon-specific
  * interface data
  */
-DECLARE_HOOK(if_add, (struct interface *ifp), (ifp))
-DECLARE_KOOH(if_del, (struct interface *ifp), (ifp))
+DECLARE_HOOK(if_add, (struct interface * ifp), (ifp))
+DECLARE_KOOH(if_del, (struct interface * ifp), (ifp))
 
 /* Connected address structure. */
 struct connected {
@@ -460,7 +460,7 @@ extern int if_cmp_name_func(char *, char *);
  * else think before you use VRF_UNKNOWN
  */
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
-extern struct interface *if_create(const char *name,  vrf_id_t vrf_id);
+extern struct interface *if_create(const char *name, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_exact_address(void *matchaddr, int family,
 						 vrf_id_t vrf_id);

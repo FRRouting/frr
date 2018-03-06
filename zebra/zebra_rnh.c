@@ -373,12 +373,10 @@ static int zebra_rnh_apply_nht_rmap(int family, struct route_node *prn,
  * Determine appropriate route (RE entry) resolving a tracked BGP route
  * for BGP route for import.
  */
-static
-struct route_entry *zebra_rnh_resolve_import_entry(vrf_id_t vrfid,
-						   int family,
-						   struct route_node *nrn,
-						   struct rnh *rnh,
-						   struct route_node **prn)
+static struct route_entry *
+zebra_rnh_resolve_import_entry(vrf_id_t vrfid, int family,
+			       struct route_node *nrn, struct rnh *rnh,
+			       struct route_node **prn)
 {
 	struct route_table *route_table;
 	struct route_node *rn;
@@ -397,15 +395,15 @@ struct route_entry *zebra_rnh_resolve_import_entry(vrf_id_t vrfid,
 	/* Unlock route node - we don't need to lock when walking the tree. */
 	route_unlock_node(rn);
 
-	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH) &&
-	     !prefix_same(&nrn->p, &rn->p))
+	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH)
+	    && !prefix_same(&nrn->p, &rn->p))
 		return NULL;
 
 	/* Identify appropriate route entry. */
-	RNODE_FOREACH_RE(rn, re) {
-		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) &&
-		    CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) &&
-		    (re->type != ZEBRA_ROUTE_BGP))
+	RNODE_FOREACH_RE (rn, re) {
+		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)
+		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)
+		    && (re->type != ZEBRA_ROUTE_BGP))
 			break;
 	}
 
@@ -628,11 +626,10 @@ static void zebra_rnh_process_static_routes(vrf_id_t vrfid, int family,
  * Determine appropriate route (route entry) resolving a tracked
  * nexthop.
  */
-static struct route_entry *zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid,
-						     int family,
-						     struct route_node *nrn,
-						     struct rnh *rnh,
-						     struct route_node **prn)
+static struct route_entry *
+zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid, int family,
+				struct route_node *nrn, struct rnh *rnh,
+				struct route_node **prn)
 {
 	struct route_table *route_table;
 	struct route_node *rn;
@@ -658,12 +655,12 @@ static struct route_entry *zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid,
 		/* Do not resolve over default route unless allowed &&
 		 * match route to be exact if so specified
 		 */
-		if (is_default_prefix(&rn->p) &&
-		    !rnh_resolve_via_default(rn->p.family))
+		if (is_default_prefix(&rn->p)
+		    && !rnh_resolve_via_default(rn->p.family))
 			return NULL;
 
 		/* Identify appropriate route entry. */
-		RNODE_FOREACH_RE(rn, re) {
+		RNODE_FOREACH_RE (rn, re) {
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 				continue;
 			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
@@ -676,11 +673,10 @@ static struct route_entry *zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid,
 				if (re->type == ZEBRA_ROUTE_NHRP) {
 					struct nexthop *nexthop;
 
-					for (nexthop = re->nexthop;
-					     nexthop;
+					for (nexthop = re->nexthop; nexthop;
 					     nexthop = nexthop->next)
 						if (nexthop->type
-						     == NEXTHOP_TYPE_IFINDEX)
+						    == NEXTHOP_TYPE_IFINDEX)
 							break;
 					if (nexthop)
 						break;
@@ -779,8 +775,8 @@ static void zebra_rnh_evaluate_entry(vrf_id_t vrfid, int family, int force,
 
 	/* Identify route entry (RE) resolving this tracked entry. */
 	if (type == RNH_IMPORT_CHECK_TYPE)
-		re = zebra_rnh_resolve_import_entry(vrfid, family, nrn,
-						    rnh, &prn);
+		re = zebra_rnh_resolve_import_entry(vrfid, family, nrn, rnh,
+						    &prn);
 	else
 		re = zebra_rnh_resolve_nexthop_entry(vrfid, family, nrn, rnh,
 						     &prn);
@@ -820,8 +816,8 @@ static void zebra_rnh_clear_nhc_flag(vrf_id_t vrfid, int family,
 
 	/* Identify route entry (RIB) resolving this tracked entry. */
 	if (type == RNH_IMPORT_CHECK_TYPE)
-		re = zebra_rnh_resolve_import_entry(vrfid, family, nrn,
-						    rnh, &prn);
+		re = zebra_rnh_resolve_import_entry(vrfid, family, nrn, rnh,
+						    &prn);
 	else
 		re = zebra_rnh_resolve_nexthop_entry(vrfid, family, nrn, rnh,
 						     &prn);

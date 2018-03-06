@@ -107,11 +107,9 @@ static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
 	pnc->rp_list->cmp = pim_rp_list_cmp;
 
 	snprintf(hash_name, 64, "PNC %s(%s) Upstream Hash",
-		 prefix2str(&pnc->rpf.rpf_addr, buf1, 64),
-		 pim->vrf->name);
+		 prefix2str(&pnc->rpf.rpf_addr, buf1, 64), pim->vrf->name);
 	pnc->upstream_hash = hash_create_size(8192, pim_upstream_hash_key,
-					      pim_upstream_equal,
-					      hash_name);
+					      pim_upstream_equal, hash_name);
 
 	return pnc;
 }
@@ -234,10 +232,9 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 			continue;
 
 		// Compute PIM RPF using cached nexthop
-		pim_ecmp_nexthop_search(pim, pnc,
-					&rp_info->rp.source_nexthop,
-					&rp_info->rp.rpf_addr,
-					&rp_info->group, 1);
+		pim_ecmp_nexthop_search(pim, pnc, &rp_info->rp.source_nexthop,
+					&rp_info->rp.rpf_addr, &rp_info->group,
+					1);
 	}
 }
 
@@ -327,8 +324,7 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 		 * We have detected a case where we might need to rescan
 		 * the inherited o_list so do it.
 		 */
-		if (up->channel_oil
-		    && up->channel_oil->oil_inherited_rescan) {
+		if (up->channel_oil && up->channel_oil->oil_inherited_rescan) {
 			pim_upstream_inherited_olist_decide(pim, up);
 			up->channel_oil->oil_inherited_rescan = 0;
 		}
@@ -339,8 +335,7 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 			 * where the mroute has not been installed
 			 * so install it.
 			 */
-			if (up->channel_oil
-			    && !up->channel_oil->installed)
+			if (up->channel_oil && !up->channel_oil->installed)
 				pim_mroute_add(up->channel_oil,
 					       __PRETTY_FUNCTION__);
 
@@ -627,8 +622,9 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
 		if (PIM_DEBUG_PIM_NHT)
-			zlog_debug("%s: Decode of nexthop update from zebra failed",
-				   __PRETTY_FUNCTION__);
+			zlog_debug(
+				"%s: Decode of nexthop update from zebra failed",
+				__PRETTY_FUNCTION__);
 		return 0;
 	}
 
@@ -760,8 +756,7 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 			"%s: NHT Update for %s(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
 			__PRETTY_FUNCTION__, buf, pim->vrf->name,
 			nhr.nexthop_num, pnc->nexthop_num, vrf_id,
-			pnc->upstream_hash->count,
-			listcount(pnc->rp_list));
+			pnc->upstream_hash->count, listcount(pnc->rp_list));
 	}
 
 	pim_rpf_set_refresh_time();
@@ -803,11 +798,11 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	if (num_ifindex < 1) {
 		if (PIM_DEBUG_PIM_NHT) {
 			char addr_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+			pim_inet4_dump("<addr?>", addr, addr_str,
+				       sizeof(addr_str));
 			zlog_warn(
 				"%s: could not find nexthop ifindex for address %s(%s)",
-				__PRETTY_FUNCTION__, addr_str,
-				pim->vrf->name);
+				__PRETTY_FUNCTION__, addr_str, pim->vrf->name);
 		}
 		return 0;
 	}

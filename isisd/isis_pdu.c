@@ -887,11 +887,10 @@ dontcheckadj:
 					lsp_set_all_srmflags(lsp);
 					/* v */
 					ISIS_FLAGS_CLEAR_ALL(
-						lsp
-							->SSNflags); /* FIXME:
-									OTHER
-									than c
-									*/
+						lsp->SSNflags); /* FIXME:
+								   OTHER
+								   than c
+								   */
 
 					/* For the case of lsp confusion, flood
 					 * the purge back to its
@@ -1185,7 +1184,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		     entry = entry->next) {
 			zlog_debug(
 				"ISIS-Snp (%s):         %cSNP entry %s, seq 0x%08" PRIx32
-				", cksum 0x%04" PRIx16 ", lifetime %" PRIu16 "s",
+				", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
+				"s",
 				circuit->area->area_tag, typechar,
 				rawlspid_print(entry->id), entry->seqno,
 				entry->checksum, entry->rem_lifetime);
@@ -1244,10 +1244,12 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 					       ISIS_SYS_ID_LEN + 1);
 					LSP_FRAGMENT(lspid) = 0;
 					lsp0 = lsp_search(
-						  lspid,
-						  circuit->area->lspdb[level - 1]);
+						lspid,
+						circuit->area
+							->lspdb[level - 1]);
 					if (!lsp0) {
-						zlog_debug("Got lsp frag in snp, while zero not in database");
+						zlog_debug(
+							"Got lsp frag in snp, while zero not in database");
 						continue;
 					}
 				}

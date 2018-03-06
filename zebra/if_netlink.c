@@ -367,8 +367,8 @@ static int get_iflink_speed(struct interface *interface)
 	/* use ioctl to get IP address of an interface */
 	if (zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
-	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
-			interface->vrf_id, NULL);
+	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP, interface->vrf_id,
+			NULL);
 	if (sd < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Failure to read interface %s speed: %d %s",
@@ -856,14 +856,14 @@ int kernel_address_delete_ipv4(struct interface *ifp, struct connected *ifc)
 	return netlink_address(RTM_DELADDR, AF_INET, ifp, ifc);
 }
 
-int kernel_address_add_ipv6 (struct interface *ifp, struct connected *ifc)
+int kernel_address_add_ipv6(struct interface *ifp, struct connected *ifc)
 {
-  return netlink_address (RTM_NEWADDR, AF_INET6, ifp, ifc);
+	return netlink_address(RTM_NEWADDR, AF_INET6, ifp, ifc);
 }
 
-int kernel_address_delete_ipv6 (struct interface *ifp, struct connected *ifc)
+int kernel_address_delete_ipv6(struct interface *ifp, struct connected *ifc)
 {
-  return netlink_address (RTM_DELADDR, AF_INET6, ifp, ifc);
+	return netlink_address(RTM_DELADDR, AF_INET6, ifp, ifc);
 }
 
 int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,

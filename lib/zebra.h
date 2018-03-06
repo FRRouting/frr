@@ -127,10 +127,10 @@ typedef unsigned char u_int8_t;
 #endif
 
 #ifndef HAVE_LIBCRYPT
-#   ifdef HAVE_LIBCRYPTO
-#      include <openssl/des.h>
+#ifdef HAVE_LIBCRYPTO
+#include <openssl/des.h>
 #      define crypt DES_crypt
-#   endif
+#endif
 #endif
 
 #include "openbsd-tree.h"

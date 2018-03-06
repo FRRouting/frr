@@ -175,9 +175,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			    == 0) {
 				config_add_line(config->line, line);
 				config->index = LINK_PARAMS_NODE;
-			} else if (strncmp(line,
-					   " ip multicast boundary",
-					   strlen(" ip multicast boundary")) == 0) {
+			} else if (strncmp(line, " ip multicast boundary",
+					   strlen(" ip multicast boundary"))
+				   == 0) {
 				config_add_line_end(config->line, line);
 			} else if (config->index == LINK_PARAMS_NODE
 				   && strncmp(line, "  exit-link-params",
@@ -263,10 +263,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				 == 0
 			 || strncmp(line, "ip extcommunity-list",
 				    strlen("ip extcommunity-list"))
-				 == 0
+				    == 0
 			 || strncmp(line, "ip large-community-list",
 				    strlen("ip large-community-list"))
-				 == 0)
+				    == 0)
 			config = config_get(COMMUNITY_LIST_NODE, line);
 		else if (strncmp(line, "ip route", strlen("ip route")) == 0)
 			config = config_get(IP_NODE, line);
