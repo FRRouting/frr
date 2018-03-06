@@ -71,10 +71,15 @@ adding a new backport.
     Or change some options:
     (see `rules` file for available options)
 
-        export WANT_BGP_VNC=1
-        export WANT_CUMULUS_MODE=1
-        debuild -b -uc -us
+        debuild --set-envvar=WANT_BGP_VNC=1 --set-envvar=WANT_CUMULUS_MODE=1 -b -uc -us
 
+    To build with RPKI, download the librtr packages from
+	https://ci1.netdef.org/browse/RPKI-RTRLIB/latestSuccessful/artifact
+    install librtr-dev on the build server and build the packages as
+        debuild --set-envvar=WANT_RPKI=1 -b -uc -us
+    RPKI packages have an additonal dependency of librtr0 which can be
+    found at the same URL
+    
 DONE.
 
 If all works correctly, then you should end up with the Debian packages under 

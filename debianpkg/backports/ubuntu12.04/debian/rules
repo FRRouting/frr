@@ -14,6 +14,15 @@
 #   export WANT_BGP_VNC=0
 #   export WANT_CUMULUS_MODE=0
 #   export WANT_MULTIPATH=1
+#   export WANT_RPKI=0
+#
+# NOTE: If you use WANT_RPKI, then there is a new dependency for librtr0 package
+#    and a build dependency of the librtr-dev package.
+#    While the librtr0 is added to the depenencies automatically, the build dependency
+#    can't be changed dynamically and building will fail if the librtr-dev isn't
+#    installed during package build
+#    Tested versions of both packages can be found at
+#    https://ci1.netdef.org/browse/RPKI-RTRLIB/latestSuccessful/artifact
 #
 # If multipath is enabled (WANT_MULTIPATH=1), then set number of multipaths here
 # Please be aware that 0 is NOT disabled, but treated as unlimited
@@ -95,6 +104,12 @@ else
   USE_CUMULUS=--enable-cumulus=no
 endif
 
+ifeq ($(WANT_RPKI), 1)
+  USE_RPKI=--enable-rpki
+else
+  USE_RPKI=--disable-rpki
+endif
+
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
   DEBIAN_JOBS := $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
 endif
@@ -105,6 +120,11 @@ endif
 
 %:
 	dh $@ --with=autoreconf --parallel --dbg-package=frr-dbg --list-missing
+
+override_dh_gencontrol:
+ifeq ($(WANT_RPKI), 1)
+	dh_gencontrol -- -Vdist:Depends="librtr0 (>= 0.5)"
+endif
 
 override_dh_auto_configure:
 	# Frr needs /proc to check some BSD vs Linux specific stuff.
@@ -138,6 +158,7 @@ override_dh_auto_configure:
 		$(USE_PIM) \
 		--enable-dependency-tracking \
 		$(USE_BGP_VNC) \
+		$(USE_RPKI) \
 		$(shell dpkg-buildflags --export=configure); \
 	fi
 
