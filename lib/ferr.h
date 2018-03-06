@@ -166,14 +166,15 @@ void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...);
 #define CMD_FERR_GOTO(func, label, ...) \
 	CMD_FERR_DO(func, goto label, __VA_ARGS__)
 
-/* example:
-
+/* example: uses bogus #define to keep indent.py happy */
+#ifdef THIS_IS_AN_EXAMPLE
 ferr_r foo_bar_set(struct object *obj, int bar)
 {
 	if (bar < 1 || bar >= 100)
-		return ferr_config_invalid("bar setting (%d) must be 0<x<100", bar);
+		return ferr_config_invalid("bar setting (%d) must be 0<x<100",
+					   bar);
 	obj->bar = bar;
-	if (ioctl (obj->fd, bar))
+	if (ioctl(obj->fd, bar))
 		return ferr_system_errno("couldn't set bar to %d", bar);
 
 	return ferr_ok();
@@ -186,6 +187,6 @@ DEFUN("bla")
 	return CMD_SUCCESS;
 }
 
-*/
+#endif /* THIS_IS_AN_EXAMPLE */
 
 #endif /* _FERR_H */
