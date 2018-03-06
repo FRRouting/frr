@@ -31,9 +31,9 @@
 #include "zebra/zebra_mroute.h"
 #include "zebra/rt.h"
 #include "zebra/debug.h"
+#include "zebra/zserv.h"
 
-void zebra_ipmr_route_stats(struct zserv *client, u_short length,
-			    struct zebra_vrf *zvrf)
+void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS)
 {
 	struct mcast_route_data mroute;
 	struct stream *s;

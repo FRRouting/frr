@@ -243,8 +243,7 @@ void redistribute_delete(struct prefix *p, struct prefix *src_p,
 	}
 }
 
-void zebra_redistribute_add(int command, struct zserv *client, int length,
-			    struct zebra_vrf *zvrf)
+void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 {
 	afi_t afi = 0;
 	int type = 0;
@@ -287,8 +286,7 @@ stream_failure:
 	return;
 }
 
-void zebra_redistribute_delete(int command, struct zserv *client, int length,
-			       struct zebra_vrf *zvrf)
+void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 {
 	afi_t afi = 0;
 	int type = 0;
@@ -325,15 +323,13 @@ stream_failure:
 	return;
 }
 
-void zebra_redistribute_default_add(int command, struct zserv *client,
-				    int length, struct zebra_vrf *zvrf)
+void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS)
 {
 	vrf_bitmap_set(client->redist_default, zvrf_id(zvrf));
 	zebra_redistribute_default(client, zvrf_id(zvrf));
 }
 
-void zebra_redistribute_default_delete(int command, struct zserv *client,
-				       int length, struct zebra_vrf *zvrf)
+void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS)
 {
 	vrf_bitmap_unset(client->redist_default, zvrf_id(zvrf));
 }

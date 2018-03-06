@@ -138,6 +138,9 @@ struct zmsghdr {
 	uint16_t command;
 };
 
+#define ZAPI_HANDLER_ARGS                                                      \
+	struct zserv *client, struct zmsghdr *hdr, struct zebra_vrf *zvrf
+
 /* Zebra instance */
 struct zebra_t {
 	/* Thread master */

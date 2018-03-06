@@ -43,6 +43,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/zserv.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -801,8 +802,7 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
  * if the operator has explicitly enabled RA. The enable request can also
  * specify a RA interval (in seconds).
  */
-void zebra_interface_radv_set(struct zserv *client, u_short length,
-			      struct zebra_vrf *zvrf, int enable)
+void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int set)
 {
 	struct stream *s;
 	ifindex_t ifindex;
@@ -818,27 +818,26 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("%u: IF %u RA %s from client %s, interval %ds",
-			   zvrf_id(zvrf), ifindex,
-			   enable ? "enable" : "disable",
+			   zvrf_id(zvrf), ifindex, set ? "enable" : "disable",
 			   zebra_route_string(client->proto), ra_interval);
 
 	/* Locate interface and check VRF match. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifindex);
 	if (!ifp) {
 		zlog_warn("%u: IF %u RA %s client %s - interface unknown",
-			  zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
+			  zvrf_id(zvrf), ifindex, set ? "enable" : "disable",
 			  zebra_route_string(client->proto));
 		return;
 	}
 	if (ifp->vrf_id != zvrf_id(zvrf)) {
 		zlog_warn("%u: IF %u RA %s client %s - VRF mismatch, IF VRF %u",
-			  zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
+			  zvrf_id(zvrf), ifindex, set ? "enable" : "disable",
 			  zebra_route_string(client->proto), ifp->vrf_id);
 		return;
 	}
 
 	zif = ifp->info;
-	if (enable) {
+	if (set) {
 		SET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
 		if (ra_interval
@@ -857,6 +856,16 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 	}
 stream_failure:
 	return;
+}
+
+void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
+{
+	zebra_interface_radv_set(client, hdr, zvrf, 0);
+}
+
+void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
+{
+	zebra_interface_radv_set(client, hdr, zvrf, 1);
 }
 
 DEFUN (ipv6_nd_suppress_ra,
