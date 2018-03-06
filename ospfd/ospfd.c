@@ -707,6 +707,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	OSPF_TIMER_OFF(ospf->t_read);
 	OSPF_TIMER_OFF(ospf->t_write);
 	OSPF_TIMER_OFF(ospf->t_opaque_lsa_self);
+	OSPF_TIMER_OFF(ospf->t_sr_update);
 
 	close(ospf->fd);
 	stream_free(ospf->ibuf);
