@@ -122,6 +122,8 @@ endif
 override_dh_gencontrol:
 ifeq ($(WANT_RPKI), 1)
 	dh_gencontrol -- -Vdist:Depends="librtr0 (>= 0.5)"
+else
+	dh_gencontrol
 endif
 
 override_dh_auto_configure:
