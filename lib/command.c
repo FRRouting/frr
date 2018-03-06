@@ -500,6 +500,9 @@ static int config_write_host(struct vty *vty)
 	if (cmd_hostname_get())
 		vty_out(vty, "hostname %s\n", cmd_hostname_get());
 
+	if (cmd_domainname_get())
+		vty_out(vty, "domainname %s\n", cmd_domainname_get());
+
 	if (host.encrypt) {
 		if (host.password_encrypt)
 			vty_out(vty, "password 8 %s\n", host.password_encrypt);

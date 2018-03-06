@@ -520,7 +520,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					nexthop->ifindex = newhop->ifindex;
 			}
 			return 1;
-		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_INTERNAL)) {
+		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
 			resolved = 0;
 			for (ALL_NEXTHOPS(match->nexthop, newhop)) {
 				if (!CHECK_FLAG(newhop->flags,

@@ -86,6 +86,12 @@ static inline char *ipaddr2str(struct ipaddr *ip, char *buf, int size)
 	return buf;
 }
 
+/*
+ * Convert IPv4 address to IPv4-mapped IPv6 address which is of the
+ * form ::FFFF:<IPv4 address> (RFC 4291). This IPv6 address can then
+ * be used to represent the IPv4 address, wherever only an IPv6 address
+ * is required.
+ */
 static inline void ipv4_to_ipv4_mapped_ipv6(struct in6_addr *in6,
 					    struct in_addr in)
 {
