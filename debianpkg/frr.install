@@ -19,4 +19,5 @@ usr/share/man/man8/frr-args.8
 usr/share/snmp/mibs/
 tools/etc/* etc/
 tools/*.service    lib/systemd/system
+tools/frr-reload   usr/lib/frr/
 debian/frr.conf  usr/lib/tmpfiles.d
