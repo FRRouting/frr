@@ -108,7 +108,8 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
 	struct listnode *bgpnode, *nbgpnode;
 	struct bgp *bgp_temp;
 
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF &&
+	    vrf_is_mapped_on_netns(bgp->vrf_id))
 		return 0;
 	if (create == true) {
 		if (bgp_server_main_created)
