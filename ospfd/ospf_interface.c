@@ -459,7 +459,7 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 			continue;
 
-		if (if_is_loopback(oi->ifp))
+		if (if_is_loopback(oi->ifp) || if_is_vrf(oi->ifp))
 			continue;
 
 		if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
@@ -703,7 +703,7 @@ static int ospf_if_delete_hook(struct interface *ifp)
 
 int ospf_if_is_enable(struct ospf_interface *oi)
 {
-	if (!if_is_loopback(oi->ifp))
+	if (!(if_is_loopback(oi->ifp) || if_is_vrf(oi->ifp)))
 		if (if_is_up(oi->ifp))
 			return 1;
 
@@ -1205,7 +1205,7 @@ u_char ospf_default_iftype(struct interface *ifp)
 {
 	if (if_is_pointopoint(ifp))
 		return OSPF_IFTYPE_POINTOPOINT;
-	else if (if_is_loopback(ifp))
+	else if (if_is_loopback(ifp) || if_is_vrf(ifp))
 		return OSPF_IFTYPE_LOOPBACK;
 	else
 		return OSPF_IFTYPE_BROADCAST;

@@ -288,6 +288,7 @@ struct interface {
 
 	QOBJ_FIELDS
 };
+
 RB_HEAD(if_name_head, interface);
 RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func);
 RB_HEAD(if_index_head, interface);
@@ -491,6 +492,7 @@ extern int if_is_running(struct interface *);
 extern int if_is_operative(struct interface *);
 extern int if_is_no_ptm_operative(struct interface *);
 extern int if_is_loopback(struct interface *);
+extern int if_is_vrf(struct interface *ifp);
 extern int if_is_broadcast(struct interface *);
 extern int if_is_pointopoint(struct interface *);
 extern int if_is_multicast(struct interface *);

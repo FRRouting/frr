@@ -477,6 +477,12 @@ int if_is_loopback(struct interface *ifp)
 	return (ifp->flags & (IFF_LOOPBACK | IFF_NOXMIT | IFF_VIRTUAL));
 }
 
+/* Check interface is VRF */
+int if_is_vrf(struct interface *ifp)
+{
+	return CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
+}
+
 /* Does this interface support broadcast ? */
 int if_is_broadcast(struct interface *ifp)
 {
