@@ -1035,20 +1035,18 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 
 					iattr = bgp_attr_intern(&hattr);
 					bgp_attr_flush(&hattr);
-
-					bgp_update(irfd->peer,
-						   &rn->p, /* prefix */
-						   0,      /* addpath_id */
-						   iattr,  /* bgp_update copies
-							      it */
-						   afi, SAFI_UNICAST,
-						   ZEBRA_ROUTE_VNC_DIRECT,
-						   BGP_ROUTE_REDISTRIBUTE,
-						   NULL,     /* RD not used for
-								unicast */
-						   NULL,     /* tag not used for
-								unicast */
-						   0, 0, NULL); /* EVPN not used */
+					bgp_update(
+						irfd->peer, &rn->p, /* prefix */
+						0,     /* addpath_id */
+						iattr, /* bgp_update copies
+							  it */
+						afi, SAFI_UNICAST,
+						ZEBRA_ROUTE_VNC_DIRECT,
+						BGP_ROUTE_REDISTRIBUTE, NULL,
+						/* RD not used for unicast */
+						NULL,
+						/* tag not used for unicast */
+						0, 0, NULL); /* EVPN not used */
 
 					bgp_attr_unintern(&iattr);
 				}
@@ -1952,20 +1950,20 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 						"%s: calling bgp_update",
 						__func__);
 
-					bgp_update(ri->peer,
-						   &rn->p, /* prefix */
-						   0,      /* addpath_id */
-						   iattr,  /* bgp_update copies
-							      it */
-						   AFI_IP, SAFI_UNICAST,
-						   ZEBRA_ROUTE_VNC_DIRECT_RH,
-						   BGP_ROUTE_REDISTRIBUTE,
-						   NULL,     /* RD not used for
-								unicast */
-						   NULL,     /* tag not used for
-								unicast, EVPN
-								neither */
-						   0, 0, NULL); /* EVPN not used */
+					bgp_update(
+						ri->peer, &rn->p, /* prefix */
+						0,     /* addpath_id */
+						iattr, /* bgp_update copies
+							  it */
+						AFI_IP, SAFI_UNICAST,
+						ZEBRA_ROUTE_VNC_DIRECT_RH,
+						BGP_ROUTE_REDISTRIBUTE, NULL,
+						/* RD not used for unicast */
+						NULL,
+						/* tag not used for unicast,
+						   or EVPN */
+						0, 0, NULL); /* EVPN not used */
+
 					bgp_attr_unintern(&iattr);
 				}
 			}
