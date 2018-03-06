@@ -5,6 +5,26 @@ This is an EXPERIMENTAL support of draft
 `draft-ietf-ospf-segment-routing-extensions-24`.
 DON'T use it for production network.
 
+Supported Features
+------------------
+
+* Automatic computation of Primary and Backup Adjacency SID with
+  Cisco experimental remote IP address
+* SRGB configuration
+* Prefix configuration for Node SID with optional NO-PHP flag (Linux
+  kernel support both mode)
+* Node MSD configuration (with Linux Kernel >= 4.10 a maximum of 32 labels
+  could be stack)
+* Automatic provisioning of MPLS table
+* Static route configuration with label stack up to 32 labels
+
+Interoperability
+----------------
+
+* Tested on various topology including point-to-point and LAN interfaces
+  in a mix of Free Range Routing instance and Cisco IOS-XR 6.0.x
+* Check OSPF LSA conformity with latest wireshark release 2.5.0-rc
+
 Implementation details
 ----------------------
 
@@ -176,17 +196,17 @@ yourself:
 
 ::
 
-	modprobe mpls_router
-	modprobe mpls_gso
-	modprobe mpls_iptunnel
+   modprobe mpls_router
+   modprobe mpls_gso
+   modprobe mpls_iptunnel
 
 Then, you must activate MPLS on the interface you would used:
 
 ::
 
-	sysctl -w net.mpls.conf.enp0s9.input=1
-	sysctl -w net.mpls.conf.lo.input=1
-	sysctl -w net.mpls.platform_labels=1048575
+   sysctl -w net.mpls.conf.enp0s9.input=1
+   sysctl -w net.mpls.conf.lo.input=1
+   sysctl -w net.mpls.platform_labels=1048575
 
 The last line fix the maximum MPLS label value.
 
@@ -195,8 +215,8 @@ enable with:
 
 ::
 
-	ip -M route
-	ip route
+   ip -M route
+   ip route
 
 The first command show the MPLS LFIB table while the second show the FIB
 table which contains route with MPLS label encapsulation.
@@ -207,8 +227,8 @@ especially the `lo` one. For that purpose, disable RP filtering with:
 
 ::
 
-	systcl -w net.ipv4.conf.all.rp_filter=0
-	sysctl -w net.ipv4.conf.lo.rp_filter=0
+   systcl -w net.ipv4.conf.all.rp_filter=0
+   sysctl -w net.ipv4.conf.lo.rp_filter=0
 
 OSPFd
 ~~~~~
@@ -220,16 +240,16 @@ Routing.
 
 ::
 
-	router ospf
-	 ospf router-id 192.168.1.11
-	 capability opaque
-	  mpls-te on
-	  mpls-te router-address 192.168.1.11
-	 router-info area 0.0.0.0
-	 segment-routing on
-	 segment-routing global-block 10000 19999
-	 segment-routing node-msd 8
-	 segment-routing prefix 192.168.1.11/32 index 1100
+   router ospf
+    ospf router-id 192.168.1.11
+    capability opaque
+     mpls-te on
+     mpls-te router-address 192.168.1.11
+    router-info area 0.0.0.0
+    segment-routing on
+    segment-routing global-block 10000 19999
+    segment-routing node-msd 8
+    segment-routing prefix 192.168.1.11/32 index 1100
 
 The first segment-routing statement enable it. The Second one set the SRGB,
 third line the MSD and finally, set the Prefix SID index for a given prefix.
@@ -248,9 +268,6 @@ Known limitations
 * MPLS table are not flush at startup. Thus, restarting zebra process is
   mandatory to remove old MPLS entries in the data plane after a crash of
   ospfd daemon
-* Due to a bug in OSPF Opaque, LSA are not flood when enable Segment Routing
-  through CLI once OSPFd started. You must configure Segment Routing within
-  configuration file before launching OSPFd
 * With NO Penultimate Hop Popping, it is not possible to express a Segment
   Path with an Adjacency SID due to the impossibility for the Linux Kernel to
   perform double POP instruction.
@@ -265,5 +282,4 @@ Credits
 This work has been performed in the framework of the H2020-ICT-2014
 project 5GEx (Grant Agreement no. 671636), which is partially funded
 by the European Commission.
-
 

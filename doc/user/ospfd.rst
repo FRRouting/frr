@@ -1033,11 +1033,12 @@ This is an EXPERIMENTAL support of Segment Routing as per draft
    currently supported. The 'no-php-flag' means NO Penultimate Hop Popping that
    allows SR node to request to its neighbor to not pop the label.
 
-.. index:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate>
-.. clicmd:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate>
+.. index:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]
+.. clicmd:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]
 
    Show Segment Routing Data Base, all SR nodes, specific advertized router or
-   self router.
+   self router. Optional JSON output can be obtained by appending 'json' to the
+   end of the command.
 
 Debugging OSPF
 ==============
