@@ -1760,8 +1760,10 @@ static int delete_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 }
 
 /*
- * There is a tunnel endpoint IP address change for this VNI,
- * need to re-advertise routes with the new nexthop.
+ * There is a tunnel endpoint IP address change for this VNI, delete
+ * prior type-3 route (if needed) and update.
+ * Note: Route re-advertisement happens elsewhere after other processing
+ * other changes.
  */
 static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 				   struct in_addr originator_ip)
@@ -1789,7 +1791,7 @@ static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Update the tunnel IP and re-advertise all routes for this VNI. */
 	vpn->originator_ip = originator_ip;
-	return update_routes_for_vni(bgp, vpn);
+	return 0;
 }
 
 /*
@@ -3245,15 +3247,25 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf,
 {
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
+	struct bgp_info *ri;
 
 	/* Bail out early if we don't have to advertise type-5 routes. */
 	if (!advertise_type5_routes(bgp_vrf, afi))
 		return;
 
 	table = bgp_vrf->rib[afi][safi];
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		bgp_evpn_withdraw_type5_route(bgp_vrf, &rn->p, afi, safi);
-
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+		/* Only care about "selected" routes - non-imported. */
+		/* TODO: Support for AddPath for EVPN. */
+		for (ri = rn->info; ri; ri = ri->next) {
+			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED) &&
+			    (!ri->extra || !ri->extra->parent)) {
+				bgp_evpn_withdraw_type5_route(bgp_vrf, &rn->p,
+							      afi, safi);
+				break;
+			}
+		}
+	}
 }
 
 /*
@@ -3272,10 +3284,6 @@ void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 
 	/* NOTE: Check needed as this is called per-route also. */
 	if (!advertise_type5_routes(bgp_vrf, afi))
-		return;
-
-	/* only advertise subnet routes as type-5 */
-	if (is_host_route(p))
 		return;
 
 	build_type5_prefix_from_ip_prefix(&evp, p);
@@ -3305,11 +3313,12 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf,
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 		/* Need to identify the "selected" route entry to use its
-		 * attribute.
+		 * attribute. Also, we only consider "non-imported" routes.
 		 * TODO: Support for AddPath for EVPN.
 		 */
 		for (ri = rn->info; ri; ri = ri->next) {
-			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)) {
+			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED) &&
+			    (!ri->extra || !ri->extra->parent)) {
 
 				/* apply the route-map */
 				if (bgp_vrf->adv_cmd_rmap[afi][safi].map) {
@@ -3322,7 +3331,6 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf,
 					if (ret == RMAP_DENYMATCH)
 						continue;
 				}
-
 				bgp_evpn_advertise_type5_route(bgp_vrf, &rn->p,
 							       ri->attr,
 							       afi, safi);
@@ -4449,8 +4457,8 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 }
 
 /*
- * Handle add (or update) of a local VNI. The only VNI change we care
- * about is change to local-tunnel-ip.
+ * Handle add (or update) of a local VNI. The VNI changes we care
+ * about are for the local-tunnel-ip and the (tenant) VRF.
  */
 int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 			   struct in_addr originator_ip,
@@ -4468,24 +4476,31 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (vpn) {
 
-		/* update tenant_vrf_id if required */
-		if (vpn->tenant_vrf_id != tenant_vrf_id) {
-			bgpevpn_unlink_from_l3vni(vpn);
-			vpn->tenant_vrf_id = tenant_vrf_id;
-			bgpevpn_link_to_l3vni(vpn);
-
-			/* update all routes with new export RT for VRFs */
-			update_routes_for_vni(bgp, vpn);
-		}
-
 		if (is_vni_live(vpn)
-		    && IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
+		    && IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip)
+		    && vpn->tenant_vrf_id == tenant_vrf_id)
 			/* Probably some other param has changed that we don't
 			 * care about. */
 			return 0;
 
-		/* Local tunnel endpoint IP address has changed */
-		handle_tunnel_ip_change(bgp, vpn, originator_ip);
+		/* Update tenant_vrf_id if it has changed. */
+		if (vpn->tenant_vrf_id != tenant_vrf_id) {
+			bgpevpn_unlink_from_l3vni(vpn);
+			vpn->tenant_vrf_id = tenant_vrf_id;
+			bgpevpn_link_to_l3vni(vpn);
+		}
+
+		/* If tunnel endpoint IP has changed, update (and delete prior
+		 * type-3 route, if needed.)
+		 */
+		if (!IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
+			handle_tunnel_ip_change(bgp, vpn, originator_ip);
+
+		/* Update all routes with new endpoint IP and/or export RT
+		 * for VRFs
+		 */
+		if (is_vni_live(vpn))
+			update_routes_for_vni(bgp, vpn);
 	}
 
 	/* Create or update as appropriate. */

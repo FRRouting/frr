@@ -448,6 +448,11 @@ void vtysh_config_write()
 		sprintf(line, "hostname %s", cmd_hostname_get());
 		vtysh_config_parse_line(NULL, line);
 	}
+
+	if (cmd_domainname_get()) {
+		sprintf(line, "domainname %s", cmd_domainname_get());
+		vtysh_config_parse_line(NULL, line);
+	}
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)
 		vtysh_config_parse_line(NULL,
 					"no service integrated-vtysh-config");
