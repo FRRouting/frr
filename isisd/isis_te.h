@@ -309,7 +309,8 @@ struct mpls_te_circuit {
 void isis_mpls_te_init(void);
 struct mpls_te_circuit *mpls_te_circuit_new(void);
 struct sbuf;
-void mpls_te_print_detail(struct sbuf *buf, int indent, uint8_t *subtlvs, uint8_t subtlv_len);
+void mpls_te_print_detail(struct sbuf *buf, int indent, uint8_t *subtlvs,
+			  uint8_t subtlv_len);
 void set_circuitparams_local_ipaddr(struct mpls_te_circuit *, struct in_addr);
 void set_circuitparams_rmt_ipaddr(struct mpls_te_circuit *, struct in_addr);
 uint8_t subtlvs_len(struct mpls_te_circuit *);

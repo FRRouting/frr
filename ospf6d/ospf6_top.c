@@ -403,21 +403,15 @@ DEFUN(no_ospf6_router_id,
 #if CONFDATE > 20180828
 CPP_NOTICE("ospf6: `router-id A.B.C.D` deprecated 2017/08/28")
 #endif
-ALIAS_HIDDEN(ospf6_router_id,
-	     ospf6_router_id_hdn_cmd,
-	     "router-id A.B.C.D",
-	     "Configure OSPF6 Router-ID\n"
-	     V4NOTATION_STR)
+ALIAS_HIDDEN(ospf6_router_id, ospf6_router_id_hdn_cmd, "router-id A.B.C.D",
+	     "Configure OSPF6 Router-ID\n" V4NOTATION_STR)
 
 #if CONFDATE > 20180828
 CPP_NOTICE("ospf6: `no router-id A.B.C.D` deprecated 2017/08/28")
 #endif
-ALIAS_HIDDEN(no_ospf6_router_id,
-	     no_ospf6_router_id_hdn_cmd,
+ALIAS_HIDDEN(no_ospf6_router_id, no_ospf6_router_id_hdn_cmd,
 	     "no router-id [A.B.C.D]",
-	     NO_STR
-	     "Configure OSPF6 Router-ID\n"
-	     V4NOTATION_STR)
+	     NO_STR "Configure OSPF6 Router-ID\n" V4NOTATION_STR)
 
 DEFUN (ospf6_log_adjacency_changes,
        ospf6_log_adjacency_changes_cmd,

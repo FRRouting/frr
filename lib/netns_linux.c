@@ -176,7 +176,7 @@ static struct ns *ns_get_created_internal(struct ns *ns, char *name,
 			zlog_info("NS %s is created.", ns->name);
 	}
 	if (ns_master.ns_new_hook)
-		(*ns_master.ns_new_hook) (ns);
+		(*ns_master.ns_new_hook)(ns);
 	return ns;
 }
 
@@ -250,8 +250,7 @@ static void ns_disable_internal(struct ns *ns)
 {
 	if (ns_is_enabled(ns)) {
 		if (ns_debug)
-			zlog_info("NS %u is to be disabled.",
-				  ns->ns_id);
+			zlog_info("NS %u is to be disabled.", ns->ns_id);
 
 		if (ns_master.ns_disable_hook)
 			(*ns_master.ns_disable_hook)(ns);
@@ -298,8 +297,7 @@ void ns_delete(struct ns *ns)
 }
 
 /* Look up the data pointer of the specified VRF. */
-void *
-ns_info_lookup(ns_id_t ns_id)
+void *ns_info_lookup(ns_id_t ns_id)
 {
 	struct ns *ns = ns_lookup_internal(ns_id);
 
@@ -388,18 +386,17 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 			vty_out(vty, "Invalid pathname: %s\n",
 				safe_strerror(errno));
 		else
-			zlog_warn("Invalid pathname: %s",
-				  safe_strerror(errno));
+			zlog_warn("Invalid pathname: %s", safe_strerror(errno));
 		return NULL;
 	}
 	check_base = basename(pathname);
 	if (check_base != NULL && strlen(check_base) + 1 > NS_NAMSIZ) {
 		if (vty)
 			vty_out(vty, "NS name (%s) invalid: too long (>%d)\n",
-				check_base, NS_NAMSIZ-1);
+				check_base, NS_NAMSIZ - 1);
 		else
 			zlog_warn("NS name (%s) invalid: too long (>%d)",
-				  check_base, NS_NAMSIZ-1);
+				  check_base, NS_NAMSIZ - 1);
 		return NULL;
 	}
 	return pathname;
@@ -440,8 +437,7 @@ void ns_init_management(ns_id_t default_ns_id)
 	ns_init();
 	default_ns = ns_get_created_internal(NULL, NULL, default_ns_id);
 	if (!default_ns) {
-		zlog_err("%s: failed to create the default NS!",
-			 __func__);
+		zlog_err("%s: failed to create the default NS!", __func__);
 		exit(1);
 	}
 	if (have_netns()) {
@@ -451,13 +447,12 @@ void ns_init_management(ns_id_t default_ns_id)
 	/* Set the default NS name. */
 	default_ns->name = XSTRDUP(MTYPE_NS_NAME, NS_DEFAULT_NAME);
 	if (ns_debug)
-		zlog_info("%s: default NSID is %u",
-			  __func__, default_ns->ns_id);
+		zlog_info("%s: default NSID is %u", __func__,
+			  default_ns->ns_id);
 
 	/* Enable the default NS. */
 	if (!ns_enable(default_ns, NULL)) {
-		zlog_err("%s: failed to enable the default NS!",
-			 __func__);
+		zlog_err("%s: failed to enable the default NS!", __func__);
 		exit(1);
 	}
 }
@@ -541,4 +536,3 @@ ns_id_t ns_get_default_id(void)
 		return default_ns->ns_id;
 	return NS_DEFAULT_INTERNAL;
 }
-

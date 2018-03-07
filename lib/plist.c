@@ -1230,8 +1230,8 @@ static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,
 				match = 1;
 
 		if (type == longer_display) {
-			if ((p.family == pentry->prefix.family) &&
-			    (prefix_match(&p, &pentry->prefix)))
+			if ((p.family == pentry->prefix.family)
+			    && (prefix_match(&p, &pentry->prefix)))
 				match = 1;
 		}
 
@@ -1310,8 +1310,8 @@ static int vty_clear_prefix_list(struct vty *vty, afi_t afi, const char *name,
 
 		for (pentry = plist->head; pentry; pentry = pentry->next) {
 			if (prefix) {
-				if (pentry->prefix.family == p.family &&
-				    prefix_match(&pentry->prefix, &p))
+				if (pentry->prefix.family == p.family
+				    && prefix_match(&pentry->prefix, &p))
 					pentry->hitcnt = 0;
 			} else
 				pentry->hitcnt = 0;

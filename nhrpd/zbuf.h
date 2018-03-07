@@ -77,7 +77,8 @@ static inline void *__zbuf_pull(struct zbuf *zb, size_t size, int error)
 {
 	void *head = zb->head;
 	if (size > zbuf_used(zb)) {
-		if (error) zbuf_set_rerror(zb);
+		if (error)
+			zbuf_set_rerror(zb);
 		return NULL;
 	}
 	zb->head += size;
@@ -94,13 +95,15 @@ void *zbuf_may_pull_until(struct zbuf *zb, const char *sep, struct zbuf *msg);
 static inline void zbuf_get(struct zbuf *zb, void *dst, size_t len)
 {
 	void *src = zbuf_pulln(zb, len);
-	if (src) memcpy(dst, src, len);
+	if (src)
+		memcpy(dst, src, len);
 }
 
 static inline uint8_t zbuf_get8(struct zbuf *zb)
 {
 	uint8_t *src = zbuf_pull(zb, uint8_t);
-	if (src) return *src;
+	if (src)
+		return *src;
 	return 0;
 }
 
@@ -111,7 +114,8 @@ static inline uint32_t zbuf_get32(struct zbuf *zb)
 	} __attribute__((packed));
 
 	struct unaligned32 *v = zbuf_pull(zb, struct unaligned32);
-	if (v) return v->value;
+	if (v)
+		return v->value;
 	return 0;
 }
 
@@ -122,7 +126,8 @@ static inline uint16_t zbuf_get_be16(struct zbuf *zb)
 	} __attribute__((packed));
 
 	struct unaligned16 *v = zbuf_pull(zb, struct unaligned16);
-	if (v) return be16toh(v->value);
+	if (v)
+		return be16toh(v->value);
 	return 0;
 }
 
@@ -135,7 +140,8 @@ static inline void *__zbuf_push(struct zbuf *zb, size_t size, int error)
 {
 	void *tail = zb->tail;
 	if (size > zbuf_tailroom(zb)) {
-		if (error) zbuf_set_werror(zb);
+		if (error)
+			zbuf_set_werror(zb);
 		return NULL;
 	}
 	zb->tail += size;
@@ -150,13 +156,15 @@ static inline void *__zbuf_push(struct zbuf *zb, size_t size, int error)
 static inline void zbuf_put(struct zbuf *zb, const void *src, size_t len)
 {
 	void *dst = zbuf_pushn(zb, len);
-	if (dst) memcpy(dst, src, len);
+	if (dst)
+		memcpy(dst, src, len);
 }
 
 static inline void zbuf_put8(struct zbuf *zb, uint8_t val)
 {
 	uint8_t *dst = zbuf_push(zb, uint8_t);
-	if (dst) *dst = val;
+	if (dst)
+		*dst = val;
 }
 
 static inline void zbuf_put_be16(struct zbuf *zb, uint16_t val)
@@ -166,7 +174,8 @@ static inline void zbuf_put_be16(struct zbuf *zb, uint16_t val)
 	} __attribute__((packed));
 
 	struct unaligned16 *v = zbuf_push(zb, struct unaligned16);
-	if (v) v->value = htobe16(val);
+	if (v)
+		v->value = htobe16(val);
 }
 
 static inline void zbuf_put_be32(struct zbuf *zb, uint32_t val)
@@ -176,7 +185,8 @@ static inline void zbuf_put_be32(struct zbuf *zb, uint32_t val)
 	} __attribute__((packed));
 
 	struct unaligned32 *v = zbuf_push(zb, struct unaligned32);
-	if (v) v->value = htobe32(val);
+	if (v)
+		v->value = htobe32(val);
 }
 
 void zbuf_copy(struct zbuf *zb, struct zbuf *src, size_t len);

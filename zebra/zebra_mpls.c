@@ -411,8 +411,8 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, zebra_fec_t *fec,
 	afi_t afi;
 
 	/* Uninstall label forwarding entry, if previously installed. */
-	if (old_label != MPLS_INVALID_LABEL &&
-	    old_label != MPLS_LABEL_IMPLICIT_NULL)
+	if (old_label != MPLS_INVALID_LABEL
+	    && old_label != MPLS_LABEL_IMPLICIT_NULL)
 		lsp_uninstall(zvrf, old_label);
 
 	/* Install label forwarding entry corr. to new label, if needed. */
@@ -937,16 +937,16 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 			 * Any NHLFE that was installed but is not
 			 * selected now needs to have its flags updated.
 			 */
-			for (nhlfe = lsp->nhlfe_list;
-			     nhlfe; nhlfe = nhlfe->next) {
+			for (nhlfe = lsp->nhlfe_list; nhlfe;
+			     nhlfe = nhlfe->next) {
 				nexthop = nhlfe->nexthop;
 				if (!nexthop)
 					continue;
 
 				if (CHECK_FLAG(nhlfe->flags,
-					       NHLFE_FLAG_INSTALLED) &&
-				    !CHECK_FLAG(nhlfe->flags,
-						NHLFE_FLAG_SELECTED)) {
+					       NHLFE_FLAG_INSTALLED)
+				    && !CHECK_FLAG(nhlfe->flags,
+						   NHLFE_FLAG_SELECTED)) {
 					UNSET_FLAG(nhlfe->flags,
 						   NHLFE_FLAG_INSTALLED);
 					UNSET_FLAG(nexthop->flags,
@@ -1398,9 +1398,9 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 	default:
 		break;
 	}
-	vty_out(vty, "%s", CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)
-				   ? " (installed)"
-				   : "");
+	vty_out(vty, "%s",
+		CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED) ? " (installed)"
+							       : "");
 	vty_out(vty, "\n");
 }
 
@@ -1688,8 +1688,7 @@ static int mpls_processq_init(struct zebra_t *zebra)
 
 /* Public functions */
 
-void kernel_lsp_pass_fail(zebra_lsp_t *lsp,
-			  enum southbound_results res)
+void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum southbound_results res)
 {
 	struct nexthop *nexthop;
 	zebra_nhlfe_t *nhlfe;
@@ -2793,8 +2792,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 				nexthop = nhlfe->nexthop;
 
 				switch (nexthop->type) {
-				case NEXTHOP_TYPE_IFINDEX:
-				{
+				case NEXTHOP_TYPE_IFINDEX: {
 					struct interface *ifp;
 
 					ifp = if_lookup_by_index(
@@ -2955,12 +2953,9 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
 {
 	if (!zvrf)
 		return;
-	zvrf->slsp_table = hash_create(label_hash,
-				       label_cmp,
-				       "ZEBRA SLSP table");
-	zvrf->lsp_table = hash_create(label_hash,
-				      label_cmp,
-				      "ZEBRA LSP table");
+	zvrf->slsp_table =
+		hash_create(label_hash, label_cmp, "ZEBRA SLSP table");
+	zvrf->lsp_table = hash_create(label_hash, label_cmp, "ZEBRA LSP table");
 	zvrf->fec_table[AFI_IP] = route_table_init();
 	zvrf->fec_table[AFI_IP6] = route_table_init();
 	zvrf->mpls_flags = 0;

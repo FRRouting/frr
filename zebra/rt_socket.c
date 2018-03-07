@@ -135,8 +135,7 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 		 * but this if statement seems overly cautious - what about
 		 * other than ADD and DELETE?
 		 */
-		if ((cmd == RTM_ADD
-		     && NEXTHOP_IS_ACTIVE(nexthop->flags))
+		if ((cmd == RTM_ADD && NEXTHOP_IS_ACTIVE(nexthop->flags))
 		    || (cmd == RTM_DELETE
 			&& CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))) {
 			if (nexthop->type == NEXTHOP_TYPE_IPV4
@@ -310,8 +309,7 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 
 		gate = 0;
 
-		if ((cmd == RTM_ADD
-		     && NEXTHOP_IS_ACTIVE(nexthop->flags))
+		if ((cmd == RTM_ADD && NEXTHOP_IS_ACTIVE(nexthop->flags))
 		    || (cmd == RTM_DELETE)) {
 			if (nexthop->type == NEXTHOP_TYPE_IPV6
 			    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
@@ -411,15 +409,15 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 		zlog_err("Can't lower privileges");
 
 	if (new) {
-		kernel_route_rib_pass_fail(rn, p, new,
-					   (!route) ?
-					   SOUTHBOUND_INSTALL_SUCCESS :
-					   SOUTHBOUND_INSTALL_FAILURE);
+		kernel_route_rib_pass_fail(
+			rn, p, new,
+			(!route) ? SOUTHBOUND_INSTALL_SUCCESS
+				 : SOUTHBOUND_INSTALL_FAILURE);
 	} else {
 		kernel_route_rib_pass_fail(rn, p, old,
-					   (!route) ?
-					   SOUTHBOUND_DELETE_SUCCESS :
-					   SOUTHBOUND_DELETE_FAILURE);
+					   (!route)
+						   ? SOUTHBOUND_DELETE_SUCCESS
+						   : SOUTHBOUND_DELETE_FAILURE);
 	}
 }
 

@@ -61,7 +61,8 @@ static void ospf6_area_lsdb_hook_add(struct ospf6_lsa *lsa)
 	case OSPF6_LSTYPE_ROUTER:
 	case OSPF6_LSTYPE_NETWORK:
 		if (IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type)) {
-			zlog_debug("%s Examin LSA %s", __PRETTY_FUNCTION__, lsa->name);
+			zlog_debug("%s Examin LSA %s", __PRETTY_FUNCTION__,
+				   lsa->name);
 			zlog_debug(" Schedule SPF Calculation for %s",
 				   OSPF6_AREA(lsa->lsdb->data)->name);
 		}
@@ -587,14 +588,14 @@ DEFUN (area_filter_list,
 	if (strmatch(inout, "in")) {
 		PREFIX_LIST_IN(area) = plist;
 		XFREE(MTYPE_OSPF6_PLISTNAME, PREFIX_NAME_IN(area));
-		PREFIX_NAME_IN(area) = XSTRDUP(MTYPE_OSPF6_PLISTNAME,
-					       plistname);
+		PREFIX_NAME_IN(area) =
+			XSTRDUP(MTYPE_OSPF6_PLISTNAME, plistname);
 		ospf6_abr_reimport(area);
 	} else {
 		PREFIX_LIST_OUT(area) = plist;
 		XFREE(MTYPE_OSPF6_PLISTNAME, PREFIX_NAME_OUT(area));
-		PREFIX_NAME_OUT(area) = XSTRDUP(MTYPE_OSPF6_PLISTNAME,
-						plistname);
+		PREFIX_NAME_OUT(area) =
+			XSTRDUP(MTYPE_OSPF6_PLISTNAME, plistname);
 		ospf6_abr_enable_area(area);
 	}
 

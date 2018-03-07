@@ -849,8 +849,9 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): creating pseudo zebra interface vrf id %u",
-			   ospf->vrf_id);
+		zlog_debug(
+			"ospf_vl_new(): creating pseudo zebra interface vrf id %u",
+			ospf->vrf_id);
 
 	snprintf(ifname, sizeof(ifname), "VLINK%d", vlink_count);
 	vi = if_create(ifname, ospf->vrf_id);

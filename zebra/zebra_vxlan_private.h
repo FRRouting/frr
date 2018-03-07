@@ -180,10 +180,9 @@ static inline const char *zl3vni_rmac2str(zebra_l3vni_t *zl3vni, char *buf,
  */
 static inline int is_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 {
-	return (is_evpn_enabled() && zl3vni &&
-		(zl3vni->vrf_id != VRF_UNKNOWN) &&
-		zl3vni->vxlan_if && if_is_operative(zl3vni->vxlan_if) &&
-		zl3vni->svi_if && if_is_operative(zl3vni->svi_if));
+	return (is_evpn_enabled() && zl3vni && (zl3vni->vrf_id != VRF_UNKNOWN)
+		&& zl3vni->vxlan_if && if_is_operative(zl3vni->vxlan_if)
+		&& zl3vni->svi_if && if_is_operative(zl3vni->svi_if));
 }
 
 static inline const char *zl3vni_state2str(zebra_l3vni_t *zl3vni)
@@ -204,8 +203,7 @@ static inline vrf_id_t zl3vni_vrf_id(zebra_l3vni_t *zl3vni)
 	return zl3vni->vrf_id;
 }
 
-static inline void zl3vni_get_rmac(zebra_l3vni_t *zl3vni,
-				   struct ethaddr *rmac)
+static inline void zl3vni_get_rmac(zebra_l3vni_t *zl3vni, struct ethaddr *rmac)
 {
 	if (!zl3vni)
 		return;

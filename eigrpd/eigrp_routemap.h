@@ -11,8 +11,7 @@
 #include "if_rmap.h"
 
 extern bool eigrp_routemap_prefix_apply(struct eigrp *eigrp,
-					struct eigrp_interface *ei,
-					int in,
+					struct eigrp_interface *ei, int in,
 					struct prefix *prefix);
 extern void eigrp_route_map_update(const char *);
 extern void eigrp_route_map_init();

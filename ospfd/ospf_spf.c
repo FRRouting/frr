@@ -781,8 +781,7 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
  * path is found to a vertex already on the candidate list, store the new cost.
  */
 static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
-			  struct ospf_area *area,
-			  struct pqueue *candidate)
+			  struct ospf_area *area, struct pqueue *candidate)
 {
 	struct ospf_lsa *w_lsa = NULL;
 	u_char *p;
@@ -1341,10 +1340,10 @@ static int ospf_spf_calculate_timer(struct thread *thread)
 	ospf_ase_calculate_timer_add(ospf);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: ospf install new route, vrf %s id %u new_table count %lu",
-			   __PRETTY_FUNCTION__,
-			   ospf_vrf_id_to_name(ospf->vrf_id),
-			   ospf->vrf_id, new_table->count);
+		zlog_debug(
+			"%s: ospf install new route, vrf %s id %u new_table count %lu",
+			__PRETTY_FUNCTION__, ospf_vrf_id_to_name(ospf->vrf_id),
+			ospf->vrf_id, new_table->count);
 	/* Update routing table. */
 	monotime(&start_time);
 	ospf_route_install(ospf, new_table);

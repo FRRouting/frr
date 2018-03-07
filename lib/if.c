@@ -48,8 +48,8 @@ RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
 
 DEFINE_QOBJ_TYPE(interface)
 
-DEFINE_HOOK(if_add, (struct interface *ifp), (ifp))
-DEFINE_KOOH(if_del, (struct interface *ifp), (ifp))
+DEFINE_HOOK(if_add, (struct interface * ifp), (ifp))
+DEFINE_KOOH(if_del, (struct interface * ifp), (ifp))
 
 /* List of interfaces in only the default VRF */
 int ptm_enable = 0;
@@ -152,7 +152,7 @@ struct interface *if_create(const char *name, vrf_id_t vrf_id)
 	SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
 
 	QOBJ_REG(ifp, interface);
-        hook_call(if_add, ifp);
+	hook_call(if_add, ifp);
 	return ifp;
 }
 
@@ -181,7 +181,7 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 /* Delete interface structure. */
 void if_delete_retain(struct interface *ifp)
 {
-        hook_call(if_del, ifp);
+	hook_call(if_del, ifp);
 	QOBJ_UNREG(ifp);
 
 	/* Free connected address list */
@@ -225,7 +225,7 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 	if (vrf_id == VRF_UNKNOWN) {
 		struct interface *ifp;
 
-		RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id) {
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 			ifp = if_lookup_by_index(ifindex, vrf->vrf_id);
 			if (ifp)
 				return ifp;
@@ -404,8 +404,7 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 	 * this should not be considered as an update
 	 * then create the new interface
 	 */
-	if (ifp->vrf_id != vrf_id &&
-	    vrf_is_mapped_on_netns(vrf_id))
+	if (ifp->vrf_id != vrf_id && vrf_is_mapped_on_netns(vrf_id))
 		return if_create(name, vrf_id);
 	/* If it came from the kernel
 	 * or by way of zclient, believe it and update

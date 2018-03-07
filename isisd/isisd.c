@@ -764,7 +764,7 @@ DEFUN_NOSH (show_debugging,
 	    "State of each debugging option\n"
 	    ISIS_STR)
 {
-	vty_out (vty, "IS-IS debugging status:\n");
+	vty_out(vty, "IS-IS debugging status:\n");
 
 	if (isis->debugs)
 		print_debug(vty, isis->debugs, 1);

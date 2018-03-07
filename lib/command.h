@@ -85,7 +85,7 @@ enum node_type {
 	AAA_NODE,		/* AAA node. */
 	KEYCHAIN_NODE,		/* Key-chain node. */
 	KEYCHAIN_KEY_NODE,      /* Key-chain key node. */
-	LOGICALROUTER_NODE,	/* Logical-Router node. */
+	LOGICALROUTER_NODE,     /* Logical-Router node. */
 	VRF_NODE,		/* VRF mode node. */
 	INTERFACE_NODE,		/* Interface mode node. */
 	ZEBRA_NODE,		/* zebra connection node. */
@@ -139,8 +139,9 @@ enum node_type {
 	VTY_NODE,		/* Vty node. */
 	LINK_PARAMS_NODE,       /* Link-parameters node */
 	BGP_EVPN_VNI_NODE,      /* BGP EVPN VNI */
-	RPKI_NODE,		/* RPKI node for configuration of RPKI cache server connections.*/
-	NODE_TYPE_MAX,		/* maximum */
+	RPKI_NODE,     /* RPKI node for configuration of RPKI cache server
+			  connections.*/
+	NODE_TYPE_MAX, /* maximum */
 };
 
 extern vector cmdvec;

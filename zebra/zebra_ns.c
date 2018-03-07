@@ -41,18 +41,16 @@ extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 
-static inline int
-zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
-			     const struct zebra_ns_table *e2);
+static inline int zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
+					       const struct zebra_ns_table *e2);
 
 RB_GENERATE(zebra_ns_table_head, zebra_ns_table, zebra_ns_table_entry,
 	    zebra_ns_table_entry_compare);
 
 static struct zebra_ns *dzns;
 
-static inline int
-zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
-			     const struct zebra_ns_table *e2)
+static inline int zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
+					       const struct zebra_ns_table *e2)
 {
 	if (e1->tableid == e2->tableid)
 		return (e1->afi - e2->afi);
@@ -96,7 +94,7 @@ static int zebra_ns_new(struct ns *ns)
 
 static int zebra_ns_delete(struct ns *ns)
 {
-	struct zebra_ns *zns = (struct zebra_ns *) ns->info;
+	struct zebra_ns *zns = (struct zebra_ns *)ns->info;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_info("ZNS %s with id %u (deleted)", ns->name, ns->ns_id);
@@ -146,8 +144,8 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	return 0;
 }
 
-struct route_table *zebra_ns_find_table(struct zebra_ns *zns,
-					uint32_t tableid, afi_t afi)
+struct route_table *zebra_ns_find_table(struct zebra_ns *zns, uint32_t tableid,
+					afi_t afi)
 {
 	struct zebra_ns_table finder;
 	struct zebra_ns_table *znst;
@@ -275,7 +273,7 @@ static int logicalrouter_config_write(struct vty *vty)
 	struct ns *ns;
 	int write = 0;
 
-	RB_FOREACH(ns, ns_head, &ns_tree) {
+	RB_FOREACH (ns, ns_head, &ns_tree) {
 		if (ns->ns_id == NS_DEFAULT || ns->name == NULL)
 			continue;
 		vty_out(vty, "logical-router %u netns %s\n", ns->ns_id,

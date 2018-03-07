@@ -32,15 +32,13 @@ struct thread_master *master;
 struct timeval current_time;
 
 /* nhrpd options. */
-struct option longopts[] = {
-	{ 0 }
-};
+struct option longopts[] = {{0}};
 
 /* nhrpd privileges */
-static zebra_capabilities_t _caps_p [] = {
-	ZCAP_NET_RAW,
-	ZCAP_NET_ADMIN,
-	ZCAP_DAC_OVERRIDE,	/* for now needed to write to /proc/sys/net/ipv4/<if>/send_redirect */
+static zebra_capabilities_t _caps_p[] = {
+	ZCAP_NET_RAW, ZCAP_NET_ADMIN,
+	ZCAP_DAC_OVERRIDE, /* for now needed to write to
+			      /proc/sys/net/ipv4/<if>/send_redirect */
 };
 
 struct zebra_privs_t nhrpd_privs = {
@@ -61,7 +59,8 @@ static void parse_arguments(int argc, char **argv)
 
 	while (1) {
 		opt = frr_getopt(argc, argv, 0);
-		if(opt < 0) break;
+		if (opt < 0)
+			break;
 
 		switch (opt) {
 		case 0:
@@ -98,21 +97,27 @@ static void nhrp_request_stop(void)
 }
 
 static struct quagga_signal_t sighandlers[] = {
-	{ .signal = SIGUSR1, .handler = &nhrp_sigusr1, },
-	{ .signal = SIGINT,  .handler = &nhrp_request_stop, },
-	{ .signal = SIGTERM, .handler = &nhrp_request_stop, },
+	{
+		.signal = SIGUSR1,
+		.handler = &nhrp_sigusr1,
+	},
+	{
+		.signal = SIGINT,
+		.handler = &nhrp_request_stop,
+	},
+	{
+		.signal = SIGTERM,
+		.handler = &nhrp_request_stop,
+	},
 };
 
-FRR_DAEMON_INFO(nhrpd, NHRP,
-	.vty_port = NHRP_VTY_PORT,
+FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
 
-	.proghelp = "Implementation of the NHRP routing protocol.",
+		.proghelp = "Implementation of the NHRP routing protocol.",
 
-	.signals = sighandlers,
-	.n_signals = array_size(sighandlers),
+		.signals = sighandlers, .n_signals = array_size(sighandlers),
 
-	.privs = &nhrpd_privs,
-)
+		.privs = &nhrpd_privs, )
 
 int main(int argc, char **argv)
 {

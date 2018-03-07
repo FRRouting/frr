@@ -417,10 +417,12 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		    || (SwitchToSptDesired(pim_ifp->pim, &sg))) {
 			if (sentRegisterStop) {
 				pim_upstream_keep_alive_timer_start(
-					upstream, pim_ifp->pim->rp_keep_alive_time);
+					upstream,
+					pim_ifp->pim->rp_keep_alive_time);
 			} else {
 				pim_upstream_keep_alive_timer_start(
-					upstream, pim_ifp->pim->keep_alive_time);
+					upstream,
+					pim_ifp->pim->keep_alive_time);
 			}
 		}
 

@@ -1056,8 +1056,8 @@ int bgp_stop(struct peer *peer)
 			UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
 			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST;
-				     safi <= SAFI_MPLS_VPN; safi++)
+				for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN;
+				     safi++)
 					peer->nsf[afi][safi] = 0;
 		}
 
@@ -1377,12 +1377,11 @@ int bgp_start(struct peer *peer)
 		return 0;
 	}
 
-	if (peer->bgp &&
-	    peer->bgp->vrf_id == VRF_UNKNOWN) {
+	if (peer->bgp && peer->bgp->vrf_id == VRF_UNKNOWN) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_err(
-				 "%s [FSM] In a VRF that is not initialised yet",
-				 peer->host);
+				"%s [FSM] In a VRF that is not initialised yet",
+				peer->host);
 		return -1;
 	}
 
@@ -1518,9 +1517,8 @@ static int bgp_establish(struct peer *peer)
 	}
 
 	if (other == peer)
-		ret =
-			1; /* bgp_establish specific code when xfer_conn
-			      happens. */
+		ret = 1; /* bgp_establish specific code when xfer_conn
+			    happens. */
 
 	/* Reset capability open status flag. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN))

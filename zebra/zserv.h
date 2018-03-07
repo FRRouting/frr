@@ -137,15 +137,15 @@ struct zebra_t {
 	/* default table */
 	u_int32_t rtm_table_default;
 
-	/* rib work queue */
-	#define ZEBRA_RIB_PROCESS_HOLD_TIME 10
+/* rib work queue */
+#define ZEBRA_RIB_PROCESS_HOLD_TIME 10
 	struct work_queue *ribq;
 	struct meta_queue *mq;
 
 	/* LSP work queue */
 	struct work_queue *lsp_process_q;
 
-	#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 10
+#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 10
 	u_int32_t packets_to_process;
 };
 extern struct zebra_t zebrad;
