@@ -156,7 +156,7 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 					       p.u.prefix_flowspec.ptr,
 					       p.u.prefix_flowspec.prefixlen,
 					       return_string,
-					       NLRI_STRING_FORMAT_MIN);
+					       NLRI_STRING_FORMAT_MIN, NULL);
 			snprintf(ec_string, BGP_FLOWSPEC_NLRI_STRING_MAX,
 				 "EC{none}");
 			if (attr && attr->ecommunity) {

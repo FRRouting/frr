@@ -2223,7 +2223,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 		bgp_fs_nlri_get_string((unsigned char *)fs->prefix.ptr,
 				       fs->prefix.prefixlen,
 				       return_string,
-				       NLRI_STRING_FORMAT_DEBUG);
+				       NLRI_STRING_FORMAT_DEBUG, NULL);
 		snprintf(str, size, "FS %s Match{%s}", afi2str(afi),
 			 return_string);
 	} else

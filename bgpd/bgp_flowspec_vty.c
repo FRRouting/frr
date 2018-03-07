@@ -79,7 +79,8 @@ static const struct message bgp_flowspec_display_min[] = {
 
 /* Parse FLOWSPEC NLRI*/
 void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
-			    char *return_string, int format)
+			    char *return_string, int format,
+			    json_object *json_path)
 {
 	uint32_t offset = 0;
 	int type;
@@ -90,6 +91,7 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 	char extra[2] = "";
 	char pre_extra[2] = "";
 	const struct message *bgp_flowspec_display;
+	enum bgp_flowspec_util_nlri_t type_util;
 
 	if (format == NLRI_STRING_FORMAT_LARGE) {
 		snprintf(pre_extra, sizeof(pre_extra), "\t");
@@ -97,6 +99,8 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 		bgp_flowspec_display = bgp_flowspec_display_large;
 	} else
 		bgp_flowspec_display = bgp_flowspec_display_min;
+	/* if needed. type_util can be set to other values */
+	type_util = BGP_FLOWSPEC_RETURN_STRING;
 	error = 0;
 	while (offset < len-1 && error >= 0) {
 		type = nlri_content[offset];
@@ -105,12 +109,18 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 		case FLOWSPEC_DEST_PREFIX:
 		case FLOWSPEC_SRC_PREFIX:
 			ret = bgp_flowspec_ip_address(
-						BGP_FLOWSPEC_RETURN_STRING,
+						type_util,
 						nlri_content+offset,
 						len - offset,
 						local_string, &error);
 			if (ret <= 0)
 				break;
+			if (json_path) {
+				json_object_string_add(json_path,
+				     lookup_msg(bgp_flowspec_display, type, ""),
+				     local_string);
+				break;
+			}
 			FS_STRING_UPDATE(count, ptr, format);
 			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
 				     lookup_msg(bgp_flowspec_display, type, ""),
@@ -122,12 +132,18 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 		case FLOWSPEC_SRC_PORT:
 		case FLOWSPEC_ICMP_TYPE:
 		case FLOWSPEC_ICMP_CODE:
-			ret = bgp_flowspec_op_decode(BGP_FLOWSPEC_RETURN_STRING,
+			ret = bgp_flowspec_op_decode(type_util,
 						     nlri_content+offset,
 						     len - offset,
 						     local_string, &error);
 			if (ret <= 0)
 				break;
+			if (json_path) {
+				json_object_string_add(json_path,
+				     lookup_msg(bgp_flowspec_display, type, ""),
+				     local_string);
+				break;
+			}
 			FS_STRING_UPDATE(count, ptr, format);
 			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
 				     lookup_msg(bgp_flowspec_display,
@@ -136,12 +152,18 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 			break;
 		case FLOWSPEC_TCP_FLAGS:
 			ret = bgp_flowspec_tcpflags_decode(
-					      BGP_FLOWSPEC_RETURN_STRING,
+					      type_util,
 					      nlri_content+offset,
 					      len - offset,
 					      local_string, &error);
 			if (ret <= 0)
 				break;
+			if (json_path) {
+				json_object_string_add(json_path,
+				     lookup_msg(bgp_flowspec_display, type, ""),
+				     local_string);
+				break;
+			}
 			FS_STRING_UPDATE(count, ptr, format);
 			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
 				     lookup_msg(bgp_flowspec_display, type, ""),
@@ -150,12 +172,18 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 		case FLOWSPEC_PKT_LEN:
 		case FLOWSPEC_DSCP:
 			ret = bgp_flowspec_op_decode(
-						BGP_FLOWSPEC_RETURN_STRING,
+						type_util,
 						nlri_content + offset,
 						len - offset, local_string,
 						&error);
 			if (ret <= 0)
 				break;
+			if (json_path) {
+				json_object_string_add(json_path,
+				    lookup_msg(bgp_flowspec_display, type, ""),
+				    local_string);
+				break;
+			}
 			FS_STRING_UPDATE(count, ptr, format);
 			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
 				     lookup_msg(bgp_flowspec_display,
@@ -164,12 +192,19 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 			break;
 		case FLOWSPEC_FRAGMENT:
 			ret = bgp_flowspec_fragment_type_decode(
-						BGP_FLOWSPEC_RETURN_STRING,
+						type_util,
 						nlri_content + offset,
 						len - offset, local_string,
 						&error);
 			if (ret <= 0)
 				break;
+			if (json_path) {
+				json_object_string_add(json_path,
+				    lookup_msg(bgp_flowspec_display,
+					       type, ""),
+				    local_string);
+				break;
+			}
 			FS_STRING_UPDATE(count, ptr, format);
 			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
 				     lookup_msg(bgp_flowspec_display,
@@ -191,11 +226,21 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 	struct attr *attr;
 	char return_string[BGP_FLOWSPEC_STRING_DISPLAY_MAX];
 	char *s;
+	json_object *json_nlri_path = NULL;
+	json_object *json_ecom_path = NULL;
+	json_object *json_time_path = NULL;
+	char timebuf[BGP_UPTIME_LEN];
 
 	/* Print prefix */
 	if (p != NULL) {
 		if (p->family != AF_FLOWSPEC)
 			return;
+		if (json_paths) {
+			if (display == NLRI_STRING_FORMAT_JSON)
+				json_nlri_path = json_object_new_object();
+			else
+				json_nlri_path = json_paths;
+		}
 		if (display == NLRI_STRING_FORMAT_LARGE)
 			vty_out(vty, "BGP flowspec entry: (flags 0x%x)\n",
 				binfo->flags);
@@ -203,13 +248,16 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 				       p->u.prefix_flowspec.ptr,
 				       p->u.prefix_flowspec.prefixlen,
 				       return_string,
-				       display);
+				       display,
+				       json_nlri_path);
 		if (display == NLRI_STRING_FORMAT_LARGE)
 			vty_out(vty, "%s", return_string);
 		else if (display == NLRI_STRING_FORMAT_DEBUG)
 			vty_out(vty, "%s", return_string);
-		else
+		else if (display == NLRI_STRING_FORMAT_MIN)
 			vty_out(vty, " %-30s", return_string);
+		else if (json_paths && display == NLRI_STRING_FORMAT_JSON)
+			json_object_array_add(json_paths, json_nlri_path);
 	}
 	if (!binfo)
 		return;
@@ -222,16 +270,27 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			return;
 		if (display == NLRI_STRING_FORMAT_LARGE)
 			vty_out(vty, "\t%s\n", s);
-		else
+		else if (display == NLRI_STRING_FORMAT_MIN)
 			vty_out(vty, "%s", s);
+		else if (json_paths) {
+			json_ecom_path = json_object_new_object();
+			json_object_string_add(json_ecom_path,
+				       "ecomlist", s);
+			if (display == NLRI_STRING_FORMAT_JSON)
+				json_object_array_add(json_paths,
+						      json_ecom_path);
+		}
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
-	if (display == NLRI_STRING_FORMAT_LARGE) {
-		char timebuf[BGP_UPTIME_LEN];
-
-		vty_out(vty, "\tup for %8s\n",
-			peer_uptime(binfo->uptime, timebuf, BGP_UPTIME_LEN,
-				    0, NULL));
+	peer_uptime(binfo->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);
+	if (display == NLRI_STRING_FORMAT_LARGE)
+		vty_out(vty, "\tup for %8s\n", timebuf);
+	else if (json_paths) {
+		json_time_path = json_object_new_object();
+		json_object_string_add(json_time_path,
+				       "time", timebuf);
+		if (display == NLRI_STRING_FORMAT_JSON)
+			json_object_array_add(json_paths, json_time_path);
 	}
 
 }
@@ -246,17 +305,18 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 	struct bgp_node *rn;
 	unsigned long total_count = 0;
 	json_object *json_paths = NULL;
-	int display;
+	int display = NLRI_STRING_FORMAT_LARGE;
 
 	if (type != bgp_show_type_detail)
 		return CMD_SUCCESS;
 
-	display = NLRI_STRING_FORMAT_LARGE;
-	if (use_json) /* XXX */
-		return CMD_SUCCESS;
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 		if (rn->info == NULL)
 			continue;
+		if (use_json) {
+			json_paths = json_object_new_array();
+			display = NLRI_STRING_FORMAT_JSON;
+		}
 		for (ri = rn->info; ri; ri = ri->next) {
 			total_count++;
 			route_vty_out_flowspec(vty, &rn->p,
@@ -264,8 +324,16 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 					       json_paths);
 
 		}
+		if (use_json) {
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(
+						json_paths,
+						JSON_C_TO_STRING_PRETTY));
+			json_object_free(json_paths);
+			json_paths = NULL;
+		}
 	}
-	if (total_count)
+	if (total_count && !use_json)
 		vty_out(vty,
 			"\nDisplayed  %ld flowspec entries\n",
 			total_count);

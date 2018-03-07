@@ -6319,7 +6319,9 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 #endif
 	} else if (p->family == AF_FLOWSPEC) {
 		route_vty_out_flowspec(vty, p, NULL,
-				       NLRI_STRING_FORMAT_MIN, json);
+			       json ?
+			       NLRI_STRING_FORMAT_JSON_SIMPLE :
+			       NLRI_STRING_FORMAT_MIN, json);
 	} else {
 		if (!json)
 			len = vty_out(
@@ -6511,9 +6513,10 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 						     "used");
 		} else
 			vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
-	}
+	} else if (safi == SAFI_FLOWSPEC) {
+		/* already done */
 	/* IPv4 Next Hop */
-	else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
+	} else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
 

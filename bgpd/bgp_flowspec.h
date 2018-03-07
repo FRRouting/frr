@@ -19,9 +19,11 @@
 #ifndef _FRR_BGP_FLOWSPEC_H
 #define _FRR_BGP_FLOWSPEC_H
 
-#define NLRI_STRING_FORMAT_LARGE 0
-#define NLRI_STRING_FORMAT_DEBUG 1
-#define NLRI_STRING_FORMAT_MIN   2
+#define NLRI_STRING_FORMAT_LARGE        0
+#define NLRI_STRING_FORMAT_DEBUG        1
+#define NLRI_STRING_FORMAT_MIN          2
+#define NLRI_STRING_FORMAT_JSON         3
+#define NLRI_STRING_FORMAT_JSON_SIMPLE  4
 
 #define BGP_FLOWSPEC_NLRI_STRING_MAX 512
 
@@ -39,7 +41,8 @@ extern int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 				   unsigned long *total_cum);
 
 extern void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
-				    char *return_string, int format);
+				   char *return_string, int format,
+				   json_object *json_path);
 
 extern void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 				   struct bgp_info *binfo,
