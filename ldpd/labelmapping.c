@@ -318,11 +318,11 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 				memcpy(&labelbuf, buf, sizeof(labelbuf));
 				label = ntohl(labelbuf);
 				/* do not accept invalid labels */
-				if (label > MPLS_LABEL_MAX ||
-				    (label <= MPLS_LABEL_RESERVED_MAX &&
-				     label != MPLS_LABEL_IPV4NULL &&
-				     label != MPLS_LABEL_IPV6NULL &&
-				     label != MPLS_LABEL_IMPLNULL)) {
+				if (label > MPLS_LABEL_MAX
+				    || (label <= MPLS_LABEL_RESERVED_MAX
+					&& label != MPLS_LABEL_IPV4_EXPLICIT_NULL
+					&& label != MPLS_LABEL_IPV6_EXPLICIT_NULL
+					&& label != MPLS_LABEL_IMPLICIT_NULL)) {
 					session_shutdown(nbr, S_BAD_TLV_VAL,
 					    msg.id, msg.type);
 					goto err;
@@ -396,7 +396,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 		case MAP_TYPE_PREFIX:
 			switch (me->map.fec.prefix.af) {
 			case AF_INET:
-				if (label == MPLS_LABEL_IPV6NULL) {
+				if (label == MPLS_LABEL_IPV6_EXPLICIT_NULL) {
 					session_shutdown(nbr, S_BAD_TLV_VAL,
 					    msg.id, msg.type);
 					goto err;
@@ -405,7 +405,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 					goto next;
 				break;
 			case AF_INET6:
-				if (label == MPLS_LABEL_IPV4NULL) {
+				if (label == MPLS_LABEL_IPV4_EXPLICIT_NULL) {
 					session_shutdown(nbr, S_BAD_TLV_VAL,
 					    msg.id, msg.type);
 					goto err;
