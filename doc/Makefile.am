@@ -10,7 +10,7 @@
 # never built as part of a regular build. They are only built when explicitly
 # asked for. See comment further down.
 SUBDIRS = manpages user
-AM_MAKEFLAGS = DESTDIR=${DESTDIR} infodir=${infodir}
+AM_MAKEFLAGS = DESTDIR=${DESTDIR} infodir=${infodir} doczdir=${abs_srcdir}
 
 MANPAGE_BUILDDIR = manpages/_build/man
 
@@ -117,7 +117,8 @@ developer-html:
 # $ make help
 
 # dist tarballs want doc sources
-EXTRA_DIST = manpages/defines.rst \
+EXTRA_DIST = frr-sphinx.mk \
+	manpages/defines.rst \
 	manpages/ldpd.rst \
 	manpages/index.rst \
 	manpages/bgpd.rst \
