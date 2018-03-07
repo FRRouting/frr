@@ -309,7 +309,7 @@ developing OSPF-API and frr applications.
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split" SPHINXBUILD=%{sphinx}
 
 pushd doc
-make SPHINXBUILD=%{sphinx} frr.info
+make SPHINXBUILD=%{sphinx} info
 popd
 
 %install
