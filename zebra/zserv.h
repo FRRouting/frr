@@ -188,8 +188,16 @@ extern int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 				    enum zapi_route_notify_owner note);
 
 struct zebra_pbr_rule;
+struct zebra_pbr_ipset;
+struct zebra_pbr_ipset_entry;
 extern void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 				    enum zapi_rule_notify_owner note);
+extern void zsend_ipset_notify_owner(
+			struct zebra_pbr_ipset *ipset,
+			enum zapi_ipset_notify_owner note);
+extern void zsend_ipset_entry_notify_owner(
+			struct zebra_pbr_ipset_entry *ipset,
+			enum zapi_ipset_entry_notify_owner note);
 
 extern void zserv_nexthop_num_warn(const char *, const struct prefix *,
 				   const unsigned int);

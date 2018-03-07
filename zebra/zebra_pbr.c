@@ -141,9 +141,9 @@ void zebra_pbr_ipset_free(void *arg)
 uint32_t zebra_pbr_ipset_hash_key(void *arg)
 {
 	struct zebra_pbr_ipset *ipset = (struct zebra_pbr_ipset *)arg;
-	uint32_t *pnt = (uint32_t *)ipset->ipset_name;
+	uint32_t *pnt = (uint32_t *)&ipset->ipset_name;
 
-	return jhash2(pnt, ZEBRA_IPSET_NAME_SIZE, 0x63ab42de);
+	return jhash2(pnt, ZEBRA_IPSET_NAME_HASH_SIZE, 0x63ab42de);
 }
 
 int zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2)
@@ -319,7 +319,7 @@ void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
 	if (lookup)
 		XFREE(MTYPE_TMP, lookup);
 	else
-		zlog_warn("%s: IPSet being deleted we know nothing about",
+		zlog_warn("%s: IPSet Entry being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
 }
 
@@ -363,7 +363,7 @@ void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
 {
 	struct zebra_pbr_ipset_entry *lookup;
 
-	lookup = hash_lookup(zns->ipset_hash, ipset);
+	lookup = hash_lookup(zns->ipset_entry_hash, ipset);
 	/* TODO:
 	 * - Netlink destroy
 	 * - detach from ipset list
@@ -392,6 +392,49 @@ void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
 	case SOUTHBOUND_DELETE_SUCCESS:
 		break;
 	case SOUTHBOUND_DELETE_FAILURE:
+		break;
+	}
+}
+
+/*
+ * Handle success or failure of ipset (un)install in the kernel.
+ */
+void kernel_pbr_ipset_add_del_status(struct zebra_pbr_ipset *ipset,
+				    enum southbound_results res)
+{
+	switch (res) {
+	case SOUTHBOUND_INSTALL_SUCCESS:
+		zsend_ipset_notify_owner(ipset, ZAPI_IPSET_INSTALLED);
+		break;
+	case SOUTHBOUND_INSTALL_FAILURE:
+		zsend_ipset_notify_owner(ipset, ZAPI_IPSET_FAIL_INSTALL);
+		break;
+	case SOUTHBOUND_DELETE_SUCCESS:
+	case SOUTHBOUND_DELETE_FAILURE:
+		/* TODO : handling of delete event */
+		break;
+	}
+}
+
+/*
+ * Handle success or failure of ipset (un)install in the kernel.
+ */
+void kernel_pbr_ipset_entry_add_del_status(
+			struct zebra_pbr_ipset_entry *ipset,
+			enum southbound_results res)
+{
+	switch (res) {
+	case SOUTHBOUND_INSTALL_SUCCESS:
+		zsend_ipset_entry_notify_owner(ipset,
+					       ZAPI_IPSET_ENTRY_INSTALLED);
+		break;
+	case SOUTHBOUND_INSTALL_FAILURE:
+		zsend_ipset_entry_notify_owner(ipset,
+					       ZAPI_IPSET_ENTRY_FAIL_INSTALL);
+		break;
+	case SOUTHBOUND_DELETE_SUCCESS:
+	case SOUTHBOUND_DELETE_FAILURE:
+		/* TODO : handling of delete event */
 		break;
 	}
 }

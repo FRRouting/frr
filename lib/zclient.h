@@ -144,6 +144,8 @@ typedef enum {
 	ZEBRA_IPSET_DESTROY,
 	ZEBRA_IPSET_ENTRY_ADD,
 	ZEBRA_IPSET_ENTRY_DELETE,
+	ZEBRA_IPSET_NOTIFY_OWNER,
+	ZEBRA_IPSET_ENTRY_NOTIFY_OWNER,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -234,6 +236,12 @@ struct zclient {
 				 uint16_t length, vrf_id_t vrf_id);
 	void (*label_chunk)(int command, struct zclient *zclient,
 				uint16_t length, vrf_id_t vrf_id);
+	int (*ipset_notify_owner)(int command, struct zclient *zclient,
+				 uint16_t length, vrf_id_t vrf_id);
+	int (*ipset_entry_notify_owner)(int command,
+				       struct zclient *zclient,
+				       uint16_t length,
+				       vrf_id_t vrf_id);
 };
 
 /* Zebra API message flag. */
@@ -387,6 +395,18 @@ enum zapi_rule_notify_owner {
 	ZAPI_RULE_FAIL_INSTALL,
 	ZAPI_RULE_INSTALLED,
 	ZAPI_RULE_REMOVED,
+};
+
+enum zapi_ipset_notify_owner {
+	ZAPI_IPSET_FAIL_INSTALL,
+	ZAPI_IPSET_INSTALLED,
+	ZAPI_IPSET_REMOVED,
+};
+
+enum zapi_ipset_entry_notify_owner {
+	ZAPI_IPSET_ENTRY_FAIL_INSTALL,
+	ZAPI_IPSET_ENTRY_INSTALLED,
+	ZAPI_IPSET_ENTRY_REMOVED,
 };
 
 /* Zebra MAC types */
@@ -628,6 +648,17 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 			     uint32_t *priority, uint32_t *unique,
 			     ifindex_t *ifindex,
 			     enum zapi_rule_notify_owner *note);
+bool zapi_ipset_notify_decode(struct stream *s,
+			      uint32_t *unique,
+			     enum zapi_ipset_notify_owner *note);
+
+#define ZEBRA_IPSET_NAME_SIZE   32
+
+bool zapi_ipset_entry_notify_decode(struct stream *s,
+	    uint32_t *unique,
+	    char *ipset_name,
+	    enum zapi_ipset_entry_notify_owner *note);
+
 extern struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);

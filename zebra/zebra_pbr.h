@@ -183,6 +183,16 @@ extern void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
 					   enum southbound_results res);
 
 /*
+ * Handle success or failure of ipset kinds (un)install in the kernel.
+ */
+extern void kernel_pbr_ipset_add_del_status(struct zebra_pbr_ipset *ipset,
+					   enum southbound_results res);
+
+extern void kernel_pbr_ipset_entry_add_del_status(
+				struct zebra_pbr_ipset_entry *ipset,
+				enum southbound_results res);
+
+/*
  * Handle rule delete notification from kernel.
  */
 extern int kernel_pbr_rule_del(struct zebra_pbr_rule *rule);
@@ -192,6 +202,11 @@ extern void zebra_pbr_client_close_cleanup(int sock);
 extern void zebra_pbr_rules_free(void *arg);
 extern uint32_t zebra_pbr_rules_hash_key(void *arg);
 extern int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2);
+
+/* has operates on 32bit pointer
+ * and field is a string of 8bit
+ */
+#define ZEBRA_IPSET_NAME_HASH_SIZE (ZEBRA_IPSET_NAME_SIZE / 4)
 
 extern void zebra_pbr_ipset_free(void *arg);
 extern uint32_t zebra_pbr_ipset_hash_key(void *arg);

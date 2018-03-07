@@ -1279,6 +1279,50 @@ stream_failure:
 	return false;
 }
 
+bool zapi_ipset_notify_decode(struct stream *s,
+			      uint32_t *unique,
+			     enum zapi_ipset_notify_owner *note)
+{
+	uint32_t uni;
+
+	STREAM_GET(note, s, sizeof(*note));
+
+	STREAM_GETL(s, uni);
+
+	if (zclient_debug)
+		zlog_debug("%s: %u", __PRETTY_FUNCTION__, uni);
+	*unique = uni;
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
+bool zapi_ipset_entry_notify_decode(struct stream *s,
+		uint32_t *unique,
+		char *ipset_name,
+		enum zapi_ipset_entry_notify_owner *note)
+{
+	uint32_t uni;
+
+	STREAM_GET(note, s, sizeof(*note));
+
+	STREAM_GETL(s, uni);
+
+	STREAM_GET(ipset_name, s,
+		   ZEBRA_IPSET_NAME_SIZE);
+
+	if (zclient_debug)
+		zlog_debug("%s: %u", __PRETTY_FUNCTION__, uni);
+	*unique = uni;
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
 struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
 {
 	struct nexthop *n = nexthop_new();

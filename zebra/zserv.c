@@ -725,10 +725,9 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 	struct zserv *client;
 	struct stream *s;
 
-	if (IS_ZEBRA_DEBUG_PACKET) {
+	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
 			   rule->unique);
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
 		if (rule->sock == client->sock)
@@ -739,7 +738,6 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 		return;
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
-	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER, VRF_DEFAULT);
 	stream_put(s, &note, sizeof(note));
@@ -751,6 +749,69 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 	else
 		stream_putl(s, 0);
 
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zebra_server_send_message(client, s);
+}
+
+void zsend_ipset_notify_owner(struct zebra_pbr_ipset *ipset,
+			     enum zapi_ipset_notify_owner note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
+			   ipset->unique);
+
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		if (ipset->sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_IPSET_NOTIFY_OWNER, VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, ipset->unique);
+	stream_put(s, ipset->ipset_name, ZEBRA_IPSET_NAME_SIZE);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zebra_server_send_message(client, s);
+}
+
+void zsend_ipset_entry_notify_owner(
+			struct zebra_pbr_ipset_entry *ipset,
+			enum zapi_ipset_entry_notify_owner note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
+			   ipset->unique);
+
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		if (ipset->sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_IPSET_ENTRY_NOTIFY_OWNER,
+			      VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, ipset->unique);
+	stream_put(s, ipset->backpointer->ipset_name,
+		   ZEBRA_IPSET_NAME_SIZE);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zebra_server_send_message(client, s);
