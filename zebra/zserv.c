@@ -2685,7 +2685,7 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		zpr.ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
 		if (!zpr.ifp) {
-			zlog_debug("FAiled to lookup ifindex: %u", ifindex);
+			zlog_debug("Failed to lookup ifindex: %u", ifindex);
 			return;
 		}
 
@@ -2710,6 +2710,82 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 stream_failure:
 	return;
 }
+
+
+static inline void zread_ipset(ZAPI_HANDLER_ARGS)
+{
+	struct zebra_pbr_ipset zpi;
+	struct stream *s;
+	uint32_t total, i;
+
+	s = msg;
+	STREAM_GETL(s, total);
+
+	for (i = 0; i < total; i++) {
+		memset(&zpi, 0, sizeof(zpi));
+
+		zpi.sock = client->sock;
+		STREAM_GETL(s, zpi.unique);
+		STREAM_GETL(s, zpi.type);
+		STREAM_GET(&zpi.ipset_name, s,
+			   ZEBRA_IPSET_NAME_SIZE);
+
+		if (hdr->command == ZEBRA_IPSET_CREATE)
+			zebra_pbr_create_ipset(zvrf->zns, &zpi);
+		else
+			zebra_pbr_destroy_ipset(zvrf->zns, &zpi);
+	}
+
+stream_failure:
+	return;
+}
+
+static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
+{
+	struct zebra_pbr_ipset_entry zpi;
+	struct zebra_pbr_ipset ipset;
+	struct stream *s;
+	uint32_t total, i;
+
+	s = msg;
+	STREAM_GETL(s, total);
+
+	for (i = 0; i < total; i++) {
+		memset(&zpi, 0, sizeof(zpi));
+		memset(&ipset, 0, sizeof(ipset));
+
+		zpi.sock = client->sock;
+		STREAM_GETL(s, zpi.unique);
+		STREAM_GET(&ipset.ipset_name, s,
+			   ZEBRA_IPSET_NAME_SIZE);
+		STREAM_GETC(s, zpi.src.family);
+		STREAM_GETC(s, zpi.src.prefixlen);
+		STREAM_GET(&zpi.src.u.prefix, s,
+			   prefix_blen(&zpi.src));
+		STREAM_GETC(s, zpi.dst.family);
+		STREAM_GETC(s, zpi.dst.prefixlen);
+		STREAM_GET(&zpi.dst.u.prefix, s,
+			   prefix_blen(&zpi.dst));
+
+		if (!is_default_prefix(&zpi.src))
+			zpi.filter_bm |= PBR_FILTER_SRC_IP;
+
+		if (!is_default_prefix(&zpi.dst))
+			zpi.filter_bm |= PBR_FILTER_DST_IP;
+
+		/* calculate backpointer */
+		zpi.backpointer = zebra_pbr_lookup_ipset_pername(zvrf->zns,
+							 ipset.ipset_name);
+		if (hdr->command == ZEBRA_IPSET_ENTRY_ADD)
+			zebra_pbr_add_ipset_entry(zvrf->zns, &zpi);
+		else
+			zebra_pbr_del_ipset_entry(zvrf->zns, &zpi);
+	}
+
+stream_failure:
+	return;
+}
+
 
 void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
@@ -2771,6 +2847,10 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TABLE_MANAGER_CONNECT] = zread_table_manager_request,
 	[ZEBRA_GET_TABLE_CHUNK] = zread_table_manager_request,
 	[ZEBRA_RELEASE_TABLE_CHUNK] = zread_table_manager_request,
+	[ZEBRA_IPSET_CREATE] = zread_ipset,
+	[ZEBRA_IPSET_DESTROY] = zread_ipset,
+	[ZEBRA_IPSET_ENTRY_ADD] = zread_ipset_entry,
+	[ZEBRA_IPSET_ENTRY_DELETE] = zread_ipset_entry,
 };
 
 static inline void zserv_handle_commands(struct zserv *client,

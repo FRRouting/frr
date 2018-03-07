@@ -150,6 +150,8 @@ void zebra_pbr_create_ipset(struct zebra_ns *zns,
 			    struct zebra_pbr_ipset *ipset);
 void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
 			     struct zebra_pbr_ipset *ipset);
+struct zebra_pbr_ipset *zebra_pbr_lookup_ipset_pername(struct zebra_ns *zns,
+						       char *ipsetname);
 void zebra_pbr_add_ipset_entry(struct zebra_ns *zns,
 			       struct zebra_pbr_ipset_entry *ipset);
 void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,

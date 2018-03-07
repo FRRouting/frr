@@ -283,6 +283,20 @@ static void *pbr_ipset_alloc_intern(void *arg)
 	return new;
 }
 
+static struct zebra_pbr_ipset *zpi_found;
+
+static int zebra_pbr_ipset_pername_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct zebra_pbr_ipset  *zpi = (struct zebra_pbr_ipset *)backet->data;
+	char *ipset_name = (char *)arg;
+
+	if (!strncmp(ipset_name, zpi->ipset_name, ZEBRA_IPSET_NAME_SIZE)) {
+		zpi_found = zpi;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
 void zebra_pbr_create_ipset(struct zebra_ns *zns,
 			    struct zebra_pbr_ipset *ipset)
 {
@@ -307,6 +321,16 @@ void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
 	else
 		zlog_warn("%s: IPSet being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
+}
+
+struct zebra_pbr_ipset *zebra_pbr_lookup_ipset_pername(struct zebra_ns *zns,
+						       char *ipsetname)
+{
+	if (!ipsetname)
+		return NULL;
+	zpi_found = NULL;
+	hash_walk(zns->ipset_hash, zebra_pbr_ipset_pername_walkcb, ipsetname);
+	return zpi_found;
 }
 
 static void *pbr_ipset_entry_alloc_intern(void *arg)
