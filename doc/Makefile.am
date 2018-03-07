@@ -1,11 +1,20 @@
 ## Process this file with automake to produce Makefile.in.
 
-# Tell Automake to invoke 'make' in the manpages directory with argument 'man'
-SUBDIRS = manpages
+# Pass down make invocation to each subdirectory.
+#
+# Each of these directories contains a Sphinx-generated Makefile that has been
+# modified to implement all the targets required by Automake, as documented in
+# the 'Third-Party Makefiles' section of the Automake docs.
+#
+# Note the absence of the 'developer' directory here; development docs are
+# never built as part of a regular build. They are only built when explicitly
+# asked for. See comment further down.
+SUBDIRS = manpages user
+AM_MAKEFLAGS = DESTDIR=${DESTDIR} infodir=${infodir}
 
 MANPAGE_BUILDDIR = manpages/_build/man
 
-# Once that is done these will all exist
+# This is a hack, see comment further down.
 man_MANS = $(MANPAGE_BUILDDIR)/frr.1
 
 if PIMD
@@ -65,32 +74,49 @@ if EIGRPD
 man_MANS += $(MANPAGE_BUILDDIR)/eigrpd.8
 endif
 
-# handled by subdir target
-man: ;
+# Automake is particular about manpages. It is aware of them and has some
+# special facilities for handling them, but it assumes that manpages are always
+# given in groff source and so these facilities are limited to simply
+# specifying the path to the groff sources in a special variable. There is no
+# target for building manpages that can be extended, as there are for pdf,
+# html, dvi, etc. Unfortunately this leaves us with hijacking the
+# 'install-data' and 'all' targets in the 3rd-party Makefile in manpages/ to
+# make sure manpages are always built, and then using the special Automake
+# variable defined above in order to take advantage of automatic installation.
+#
+# However, it is conceivable that someone may want to build just the manpages,
+# so here's an explicit target for that.
+man:
+	$(MAKE) -C manpages man
 
-# explicit targets
-frr.info:
-	$(MAKE) -C user info
+# Automake automatically defines targets for various document formats. All of
+# the child 3rd-party Makefiles are aware of all Automake targets and implement
+# the ones we are interested in.
+#
+# The SUBDIRS variable at the top of this Makefile.am causes the following
+# implicit Automake targets to only build user documentation, and not developer
+# documentation:
+# - info
+# - html
+# - pdf
+#
+# If you wish to build developer documentation, use these targets:
+developer-info:
+	$(MAKE) -C developer info
 
-user.pdf:
-	$(MAKE) -C user latexpdf
-
-user.html:
-	$(MAKE) -C user html
-
-developer.pdf:
+developer-pdf:
 	$(MAKE) -C developer latexpdf
 
-developer.html:
+developer-html:
 	$(MAKE) -C developer html
 
-# info target, handled by automake installation
-install-data-local: frr.info
-	install -d ${DESTDIR}${infodir}
-	gzip < user/_build/texinfo/frr.info > ${DESTDIR}${infodir}/frr.info.gz
-	install-info user/_build/texinfo/frr.info ${DESTDIR}${infodir}/dir
+# If you want to build the developer's docs in other formats, try the
+# following:
+#
+# $ cd developer
+# $ make help
 
-# include sources for shipped docs
+# dist tarballs want doc sources
 EXTRA_DIST = manpages/defines.rst \
 	manpages/ldpd.rst \
 	manpages/index.rst \

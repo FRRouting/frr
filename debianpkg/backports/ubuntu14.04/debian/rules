@@ -143,10 +143,10 @@ override_dh_auto_build:
 
 	# doc/ is a bit crazy
 ifeq ($(GENERATE_PDF), 1)
-	dh_auto_build -- -C doc user.pdf
+	dh_auto_build -- -C doc pdf
 endif
 	rm -vf doc/_build/texinfo/frr.info
-	dh_auto_build -- -C doc frr.info
+	dh_auto_build -- -C doc info
 
 override_dh_auto_test:
 
