@@ -6612,7 +6612,7 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 
 		zvni = zvni_lookup(vni);
 		if (!zvni)
-			return 0;
+			return;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(

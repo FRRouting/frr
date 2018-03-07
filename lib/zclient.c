@@ -322,6 +322,18 @@ stream_failure:
 	return 0;
 }
 
+bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr)
+{
+	STREAM_GETW(zmsg, hdr->length);
+	STREAM_GETC(zmsg, hdr->marker);
+	STREAM_GETC(zmsg, hdr->version);
+	STREAM_GETC(zmsg, hdr->vrf_id);
+	STREAM_GETW(zmsg, hdr->command);
+	return true;
+stream_failure:
+	return false;
+}
+
 /* Send simple Zebra message. */
 static int zebra_message_send(struct zclient *zclient, int command,
 			      vrf_id_t vrf_id)

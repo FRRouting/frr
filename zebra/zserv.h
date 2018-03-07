@@ -133,15 +133,6 @@ struct zserv {
 	int last_write_cmd;
 };
 
-/* ZAPI protocol structs */
-struct zmsghdr {
-	uint16_t length;
-	uint8_t marker;
-	uint8_t version;
-	uint32_t vrf_id;
-	uint16_t command;
-};
-
 #define ZAPI_HANDLER_ARGS                                                      \
 	struct zserv *client, struct zmsghdr *hdr, struct stream *msg,         \
 		struct zebra_vrf *zvrf
