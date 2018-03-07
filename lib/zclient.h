@@ -241,8 +241,7 @@ struct zclient {
 /* Zserv protocol message header */
 struct zmsghdr {
 	uint16_t length;
-	/* corresponds to command field in old zserv
-	 * always set to 255 in new zserv. */
+	/* Always set to 255 in new zserv */
 	uint8_t marker;
 	uint8_t version;
 	vrf_id_t vrf_id;
@@ -380,9 +379,11 @@ struct zclient_options {
 /* Prototypes of zebra client service functions. */
 extern struct zclient *zclient_new(struct thread_master *);
 
+/* clang-format off */
 #if CONFDATE > 20181101
 CPP_NOTICE("zclient_new_notify can take over or zclient_new now");
 #endif
+/* clang-format on */
 
 extern struct zclient_options zclient_options_default;
 
@@ -517,9 +518,11 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
+/* clang-format off */
 #if CONFDATE > 20180823
 CPP_NOTICE("zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as well as the zapi_ipv4 and zapi_ipv6 data structures should be removed now");
 #endif
+/* clang-format on */
 
 extern int zapi_ipv4_route(u_char, struct zclient *, struct prefix_ipv4 *,
 			   struct zapi_ipv4 *) __attribute__((deprecated));
