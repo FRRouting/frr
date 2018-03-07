@@ -129,6 +129,81 @@ static struct zebra_pbr_rule *pbr_rule_lookup_unique(struct zebra_ns *zns,
 	return pul.rule;
 }
 
+void zebra_pbr_ipset_free(void *arg)
+{
+	struct zebra_pbr_ipset *ipset;
+
+	ipset = (struct zebra_pbr_ipset *)arg;
+
+	XFREE(MTYPE_TMP, ipset);
+}
+
+uint32_t zebra_pbr_ipset_hash_key(void *arg)
+{
+	struct zebra_pbr_ipset *ipset = (struct zebra_pbr_ipset *)arg;
+	uint32_t *pnt = (uint32_t *)ipset->ipset_name;
+
+	return jhash2(pnt, ZEBRA_IPSET_NAME_SIZE, 0x63ab42de);
+}
+
+int zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct zebra_pbr_ipset *r1, *r2;
+
+	r1 = (const struct zebra_pbr_ipset *)arg1;
+	r2 = (const struct zebra_pbr_ipset *)arg2;
+
+	if (r1->type != r2->type)
+		return 0;
+	if (r1->unique != r2->unique)
+		return 0;
+	if (strncmp(r1->ipset_name, r2->ipset_name,
+		    ZEBRA_IPSET_NAME_SIZE))
+		return 0;
+	return 1;
+}
+
+void zebra_pbr_ipset_entry_free(void *arg)
+{
+	struct zebra_pbr_ipset_entry *ipset;
+
+	ipset = (struct zebra_pbr_ipset_entry *)arg;
+
+	XFREE(MTYPE_TMP, ipset);
+}
+
+uint32_t zebra_pbr_ipset_entry_hash_key(void *arg)
+{
+	struct zebra_pbr_ipset_entry *ipset;
+	uint32_t key;
+
+	ipset = (struct zebra_pbr_ipset_entry *)arg;
+	key = prefix_hash_key(&ipset->src);
+	key = jhash_1word(ipset->unique, key);
+	key = jhash_1word(prefix_hash_key(&ipset->dst), key);
+
+	return key;
+}
+
+int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct zebra_pbr_ipset_entry *r1, *r2;
+
+	r1 = (const struct zebra_pbr_ipset_entry *)arg1;
+	r2 = (const struct zebra_pbr_ipset_entry *)arg2;
+
+	if (r1->unique != r2->unique)
+		return 0;
+
+	if (!prefix_same(&r1->src, &r2->src))
+		return 0;
+
+	if (!prefix_same(&r1->dst, &r2->dst))
+		return 0;
+
+	return 1;
+}
+
 static void *pbr_rule_alloc_intern(void *arg)
 {
 	struct zebra_pbr_rule *zpr;
@@ -192,6 +267,89 @@ void zebra_pbr_client_close_cleanup(int sock)
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 
 	hash_iterate(zns->rules_hash, zebra_pbr_cleanup_rules, &sock);
+}
+
+static void *pbr_ipset_alloc_intern(void *arg)
+{
+	struct zebra_pbr_ipset *zpi;
+	struct zebra_pbr_ipset *new;
+
+	zpi = (struct zebra_pbr_ipset *)arg;
+
+	new = XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_ipset));
+
+	memcpy(new, zpi, sizeof(*zpi));
+
+	return new;
+}
+
+void zebra_pbr_create_ipset(struct zebra_ns *zns,
+			    struct zebra_pbr_ipset *ipset)
+{
+	(void)hash_get(zns->ipset_hash, ipset, pbr_ipset_alloc_intern);
+	/* TODO:
+	 * - Netlink call
+	 */
+}
+
+void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
+			     struct zebra_pbr_ipset *ipset)
+{
+	struct zebra_pbr_ipset *lookup;
+
+	lookup = hash_lookup(zns->ipset_hash, ipset);
+	/* TODO:
+	 * - Netlink destroy from kernel
+	 * - ?? destroy ipset entries before
+	 */
+	if (lookup)
+		XFREE(MTYPE_TMP, lookup);
+	else
+		zlog_warn("%s: IPSet being deleted we know nothing about",
+			  __PRETTY_FUNCTION__);
+}
+
+static void *pbr_ipset_entry_alloc_intern(void *arg)
+{
+	struct zebra_pbr_ipset_entry *zpi;
+	struct zebra_pbr_ipset_entry *new;
+
+	zpi = (struct zebra_pbr_ipset_entry *)arg;
+
+	new = XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_ipset_entry));
+
+	memcpy(new, zpi, sizeof(*zpi));
+
+	return new;
+}
+
+void zebra_pbr_add_ipset_entry(struct zebra_ns *zns,
+			       struct zebra_pbr_ipset_entry *ipset)
+{
+	(void)hash_get(zns->ipset_entry_hash, ipset,
+		       pbr_ipset_entry_alloc_intern);
+	/* TODO:
+	 * - attach to ipset list
+	 * - Netlink add to kernel
+	 */
+}
+
+void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
+			       struct zebra_pbr_ipset_entry *ipset)
+{
+	struct zebra_pbr_ipset_entry *lookup;
+
+	lookup = hash_lookup(zns->ipset_hash, ipset);
+	/* TODO:
+	 * - Netlink destroy
+	 * - detach from ipset list
+	 * - ?? if no more entres, delete ipset
+	 */
+	if (lookup)
+		XFREE(MTYPE_TMP, lookup);
+	else
+		zlog_warn("%s: IPSet being deleted we know nothing about",
+			  __PRETTY_FUNCTION__);
 }
 
 /*

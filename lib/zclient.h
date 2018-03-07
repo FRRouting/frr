@@ -47,6 +47,11 @@
  */
 #define ZAPI_TCP_PATHNAME             "@tcp"
 
+/* IPset size name stands for the name of the ipset entry
+ * that can be created by using some zapi interfaces
+ */
+#define ZEBRA_IPSET_NAME_SIZE   32
+
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
 
@@ -365,6 +370,13 @@ enum zapi_route_notify_owner {
 	ZAPI_ROUTE_INSTALLED,
 	ZAPI_ROUTE_REMOVED,
 	ZAPI_ROUTE_REMOVE_FAIL,
+};
+
+enum ipset_type {
+	IPSET_NET_NET = 1,
+	IPSET_NET_PORT_NET,
+	IPSET_NET_PORT,
+	IPSET_NET
 };
 
 enum zapi_rule_notify_owner {

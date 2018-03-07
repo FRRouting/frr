@@ -31,6 +31,7 @@
 
 #include "rt.h"
 
+
 /*
  * A PBR filter
  *
@@ -99,8 +100,60 @@ struct zebra_pbr_rule {
 	struct zebra_pbr_action action;
 };
 
+
+/*
+ * An IPSet Entry Filter
+ *
+ * This is a filter mapped on ipset entries
+ */
+struct zebra_pbr_ipset {
+	/*
+	 * Originating zclient sock fd, so we can know who to send
+	 * back to.
+	 */
+	int sock;
+
+	uint32_t unique;
+
+	/* type is encoded as uint32_t
+	 * but value is an enum ipset_type
+	 */
+	uint32_t type;
+	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
+};
+
+/*
+ * An IPSet Entry Filter
+ *
+ * This is a filter mapped on ipset entries
+ */
+struct zebra_pbr_ipset_entry {
+	/*
+	 * Originating zclient sock fd, so we can know who to send
+	 * back to.
+	 */
+	int sock;
+
+	uint32_t unique;
+
+	struct prefix src;
+	struct prefix dst;
+
+	uint32_t filter_bm;
+
+	struct zebra_pbr_ipset *backpointer;
+};
+
 void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
 void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
+void zebra_pbr_create_ipset(struct zebra_ns *zns,
+			    struct zebra_pbr_ipset *ipset);
+void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
+			     struct zebra_pbr_ipset *ipset);
+void zebra_pbr_add_ipset_entry(struct zebra_ns *zns,
+			       struct zebra_pbr_ipset_entry *ipset);
+void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
+			       struct zebra_pbr_ipset_entry *ipset);
 
 /*
  * Install specified rule for a specific interface.
@@ -137,5 +190,13 @@ extern void zebra_pbr_client_close_cleanup(int sock);
 extern void zebra_pbr_rules_free(void *arg);
 extern uint32_t zebra_pbr_rules_hash_key(void *arg);
 extern int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2);
+
+extern void zebra_pbr_ipset_free(void *arg);
+extern uint32_t zebra_pbr_ipset_hash_key(void *arg);
+extern int zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2);
+
+extern void zebra_pbr_ipset_entry_free(void *arg);
+extern uint32_t zebra_pbr_ipset_entry_hash_key(void *arg);
+extern int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2);
 
 #endif /* _ZEBRA_PBR_H */

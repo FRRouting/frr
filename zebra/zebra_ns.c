@@ -140,6 +140,14 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 		hash_create_size(8, zebra_pbr_rules_hash_key,
 				 zebra_pbr_rules_hash_equal, "Rules Hash");
 
+	zns->ipset_hash =
+		hash_create_size(8, zebra_pbr_ipset_hash_key,
+				 zebra_pbr_ipset_hash_equal, "IPset Hash");
+
+	zns->ipset_entry_hash =
+		hash_create_size(8, zebra_pbr_ipset_entry_hash_key,
+				 zebra_pbr_ipset_entry_hash_equal,
+				 "IPset Hash Entry");
 #if defined(HAVE_RTADV)
 	rtadv_init(zns);
 #endif
@@ -248,6 +256,12 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 
 	hash_clean(zns->rules_hash, zebra_pbr_rules_free);
 	hash_free(zns->rules_hash);
+	hash_clean(zns->ipset_hash, zebra_pbr_ipset_free);
+	hash_free(zns->ipset_hash);
+	hash_clean(zns->ipset_entry_hash,
+		   zebra_pbr_ipset_entry_free),
+	hash_free(zns->ipset_entry_hash);
+
 	while (!RB_EMPTY(zebra_ns_table_head, &zns->ns_tables)) {
 		znst = RB_ROOT(zebra_ns_table_head, &zns->ns_tables);
 
