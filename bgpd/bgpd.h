@@ -400,6 +400,25 @@ struct bgp {
 	/* Allocate MPLS labels */
 	uint8_t allocate_mpls_labels[AFI_MAX][SAFI_MAX];
 
+	/* Allocate hash entries to store policy routing information
+	 * The hash are used to host pbr rules somewhere.
+	 * Actually, pbr will only be used by flowspec
+	 * those hash elements will have relationship together as
+	 * illustrated in below diagram:
+	 *
+	 *  pbr_action a <----- pbr_match i <--- pbr_match_entry 1..n
+	 *              <----- pbr_match j <--- pbr_match_entry 1..m
+	 *
+	 * - here in BGP structure, the list of match and actions will
+	 * stand for the list of ipset sets, and table_ids in the kernel
+	 * - the arrow above between pbr_match and pbr_action indicate
+	 * that a backpointer permits match to find the action
+	 * - the arrow betwen match_entry and match is a hash list
+	 * contained in match, that lists the whole set of entries
+	 */
+	struct hash *pbr_match_hash;
+	struct hash *pbr_action_hash;
+
 	/* timer to re-evaluate neighbor default-originate route-maps */
 	struct thread *t_rmap_def_originate_eval;
 #define RMAP_DEFAULT_ORIGINATE_EVAL_TIMER 5
