@@ -241,4 +241,11 @@ extern int bgp_pbr_match_hash_equal(const void *arg1,
 
 void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api);
 
+struct bgp_node;
+struct bgp_info;
+extern void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
+				 struct bgp_info *new_select,
+				afi_t afi, safi_t safi,
+				bool nlri_update);
+
 #endif /* __BGP_PBR_H__ */
