@@ -32,6 +32,7 @@ struct bgp_pbr_match {
 	uint32_t unique;
 
 	bool installed;
+	bool install_in_progress;
 };
 
 struct bgp_pbr_match_entry {

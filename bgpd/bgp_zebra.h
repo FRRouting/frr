@@ -70,4 +70,14 @@ extern int bgp_zebra_advertise_all_vni(struct bgp *, int);
 
 extern int bgp_zebra_num_connects(void);
 
+struct bgp_pbr_action;
+struct bgp_pbr_match;
+struct bgp_pbr_match_entry;
+extern void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
+				bool install);
+extern void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim,
+				     bool install);
+extern void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
+				    bool install);
+
 #endif /* _QUAGGA_BGP_ZEBRA_H */
