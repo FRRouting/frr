@@ -37,7 +37,7 @@
 #include "pw.h"
 
 /* For input/output buffer to zebra. */
-#define ZEBRA_MAX_PACKET_SIZ          4096
+#define ZEBRA_MAX_PACKET_SIZ          16384
 
 /* Zebra header size. */
 #define ZEBRA_HEADER_SIZE             10
