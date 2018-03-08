@@ -34,6 +34,7 @@
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_flowspec_private.h"
+#include "bgpd/bgp_pbr.h"
 
 /* struct used to dump the rate contained in FS set traffic-rate EC */
 union traffic_rate {
@@ -930,4 +931,53 @@ int ecommunity_del_val(struct ecommunity *ecom, struct ecommunity_val *eval)
 	XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
 	ecom->val = p;
 	return 1;
+}
+
+int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
+			       struct bgp_pbr_entry_action *api)
+{
+	if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_RATE) {
+		api->action = ACTION_TRAFFICRATE;
+		api->u.r.rate_info[3] = ecom_eval->val[4];
+		api->u.r.rate_info[2] = ecom_eval->val[5];
+		api->u.r.rate_info[1] = ecom_eval->val[6];
+		api->u.r.rate_info[0] = ecom_eval->val[7];
+	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_ACTION) {
+		api->action = ACTION_TRAFFIC_ACTION;
+		/* else distribute code is set by default */
+		if (ecom_eval->val[5] & (1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL))
+			api->u.za.filter |= TRAFFIC_ACTION_TERMINATE;
+		else
+			api->u.za.filter |= TRAFFIC_ACTION_DISTRIBUTE;
+		if (ecom_eval->val[5] == 1 << FLOWSPEC_TRAFFIC_ACTION_SAMPLE)
+			api->u.za.filter |= TRAFFIC_ACTION_SAMPLE;
+
+	} else if (ecom_eval->val[1] == ECOMMUNITY_TRAFFIC_MARKING) {
+		api->action = ACTION_MARKING;
+		api->u.marking_dscp = ecom_eval->val[7];
+	} else if (ecom_eval->val[1] == ECOMMUNITY_REDIRECT_VRF) {
+		/* must use external function */
+		return 0;
+	} else if (ecom_eval->val[1] == ECOMMUNITY_REDIRECT_IP_NH) {
+		/* see draft-ietf-idr-flowspec-redirect-ip-02
+		 * Q1: how come a ext. community can host ipv6 address
+		 * Q2 : from cisco documentation:
+		 * Announces the reachability of one or more flowspec NLRI.
+		 * When a BGP speaker receives an UPDATE message with the
+		 * redirect-to-IP extended community, it is expected to
+		 * create a traffic filtering rule for every flow-spec
+		 * NLRI in the message that has this path as its best
+		 * path. The filter entry matches the IP packets
+		 * described in the NLRI field and redirects them or
+		 * copies them towards the IPv4 or IPv6 address specified
+		 * in the 'Network Address of Next- Hop'
+		 * field of the associated MP_REACH_NLRI.
+		 */
+		struct ecommunity_ip *ip_ecom = (struct ecommunity_ip *)
+			ecom_eval + 2;
+
+		api->u.zr.redirect_ip_v4 = ip_ecom->ip;
+	} else
+		return -1;
+	return 0;
 }
