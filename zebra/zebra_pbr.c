@@ -57,6 +57,10 @@ uint32_t zebra_pbr_rules_hash_key(void *arg)
 	else
 		key = jhash_1word(0, key);
 
+	if (rule->filter.fwmark)
+		key = jhash_1word(rule->filter.fwmark, key);
+	else
+		key = jhash_1word(0, key);
 	return jhash_3words(rule->filter.src_port, rule->filter.dst_port,
 			    prefix_hash_key(&rule->filter.dst_ip),
 			    jhash_1word(rule->unique, key));
@@ -85,6 +89,9 @@ int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 		return 0;
 
 	if (r1->filter.dst_port != r2->filter.dst_port)
+		return 0;
+
+	if (r1->filter.fwmark != r2->filter.fwmark)
 		return 0;
 
 	if (!prefix_same(&r1->filter.src_ip, &r2->filter.src_ip))

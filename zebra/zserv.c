@@ -2527,13 +2527,16 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GET(&zpr.filter.dst_ip.u.prefix, s,
 			   prefix_blen(&zpr.filter.dst_ip));
 		STREAM_GETW(s, zpr.filter.dst_port);
+		STREAM_GETL(s, zpr.filter.fwmark);
 		STREAM_GETL(s, zpr.action.table);
 		STREAM_GETL(s, ifindex);
 
-		zpr.ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
-		if (!zpr.ifp) {
-			zlog_debug("FAiled to lookup ifindex: %u", ifindex);
-			return;
+		if (ifindex) {
+			zpr.ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
+			if (!zpr.ifp) {
+				zlog_debug("Failed to lookup ifindex: %u", ifindex);
+				return;
+			}
 		}
 
 		if (!is_default_prefix(&zpr.filter.src_ip))
@@ -2547,6 +2550,9 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		if (zpr.filter.dst_port)
 			zpr.filter.filter_bm |= PBR_FILTER_DST_PORT;
+
+		if (zpr.filter.fwmark)
+			zpr.filter.filter_bm |= PBR_FILTER_FWMARK;
 
 		if (hdr->command == ZEBRA_RULE_ADD)
 			zebra_pbr_add_rule(zvrf->zns, &zpr);
