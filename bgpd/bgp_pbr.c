@@ -24,6 +24,69 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_debug.h"
+
+static int sprintf_bgp_pbr_match_val(char *str, struct bgp_pbr_match_val *mval,
+				     const char *prepend)
+{
+	char *ptr = str;
+
+	if (prepend)
+		ptr += sprintf(ptr, "%s", prepend);
+	else {
+		if (mval->unary_operator & OPERATOR_UNARY_OR)
+			ptr += sprintf(ptr, ", or ");
+		if (mval->unary_operator & OPERATOR_UNARY_AND)
+			ptr += sprintf(ptr, ", and ");
+	}
+	if (mval->compare_operator & OPERATOR_COMPARE_LESS_THAN)
+		ptr += sprintf(ptr, "<");
+	if (mval->compare_operator & OPERATOR_COMPARE_GREATER_THAN)
+		ptr += sprintf(ptr, ">");
+	if (mval->compare_operator & OPERATOR_COMPARE_EQUAL_TO)
+		ptr += sprintf(ptr, "=");
+	if (mval->compare_operator & OPERATOR_COMPARE_EXACT_MATCH)
+		ptr += sprintf(ptr, "match");
+	ptr += sprintf(ptr, " %u", mval->value);
+	return (int)(ptr - str);
+}
+
+#define INCREMENT_DISPLAY(_ptr, _cnt) do { \
+		if (_cnt) \
+			(_ptr) += sprintf((_ptr), "; "); \
+		_cnt++; \
+	} while (0)
+
+/* return 1 if OK, 0 if validation should stop) */
+static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
+{
+	/* because bgp pbr entry may contain unsupported
+	 * combinations, a message will be displayed here if
+	 * not supported.
+	 * for now, only match/set supported is
+	 * - combination src/dst => redirect nexthop [ + rate]
+	 * - combination src/dst => redirect VRF [ + rate]
+	 * - combination src/dst => drop
+	 */
+	if (api->match_src_port_num || api->match_dst_port_num
+	    || api->match_port_num || api->match_protocol_num
+	    || api->match_icmp_type_num || api->match_icmp_type_num
+	    || api->match_packet_length_num || api->match_dscp_num
+	    || api->match_tcpflags_num) {
+		if (BGP_DEBUG(pbr, PBR))
+			bgp_pbr_print_policy_route(api);
+		zlog_err("BGP: some SET actions not supported by Zebra. ignoring.");
+		return 0;
+	}
+	if (!(api->match_bitmask & PREFIX_SRC_PRESENT) &&
+	    !(api->match_bitmask & PREFIX_DST_PRESENT)) {
+		if (BGP_DEBUG(pbr, PBR))
+			bgp_pbr_print_policy_route(api);
+		zlog_err("BGP: SET actions without src or dst address can not operate. ignoring.");
+		return 0;
+	}
+	return 1;
+}
 
 uint32_t bgp_pbr_match_hash_key(void *arg)
 {
@@ -155,4 +218,139 @@ void bgp_pbr_init(struct bgp *bgp)
 		hash_create_size(8, bgp_pbr_action_hash_key,
 				 bgp_pbr_action_hash_equal,
 				 "Match Hash Entry");
+}
+
+void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
+{
+	int i = 0;
+	char return_string[512];
+	char *ptr = return_string;
+	char buff[64];
+	int nb_items = 0;
+
+	ptr += sprintf(ptr, "MATCH : ");
+	if (api->match_bitmask & PREFIX_SRC_PRESENT) {
+		struct prefix *p = &(api->src_prefix);
+
+		ptr += sprintf(ptr, "@src %s", prefix2str(p, buff, 64));
+		INCREMENT_DISPLAY(ptr, nb_items);
+	}
+	if (api->match_bitmask & PREFIX_DST_PRESENT) {
+		struct prefix *p = &(api->dst_prefix);
+
+		INCREMENT_DISPLAY(ptr, nb_items);
+		ptr += sprintf(ptr, "@dst %s", prefix2str(p, buff, 64));
+	}
+
+	if (api->match_protocol_num)
+		INCREMENT_DISPLAY(ptr, nb_items);
+	for (i = 0; i < api->match_protocol_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->protocol[i],
+					i > 0 ? NULL : "@proto ");
+
+	if (api->match_src_port_num)
+		INCREMENT_DISPLAY(ptr, nb_items);
+	for (i = 0; i < api->match_src_port_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->src_port[i],
+					i > 0 ? NULL : "@srcport ");
+
+	if (api->match_dst_port_num)
+		INCREMENT_DISPLAY(ptr, nb_items);
+	for (i = 0; i < api->match_dst_port_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->dst_port[i],
+					 i > 0 ? NULL : "@dstport ");
+
+	if (api->match_port_num)
+		INCREMENT_DISPLAY(ptr, nb_items);
+	for (i = 0; i < api->match_port_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->port[i],
+					 i > 0 ? NULL : "@port ");
+
+	if (api->match_icmp_type_num)
+		INCREMENT_DISPLAY(ptr, nb_items);
+	for (i = 0; i < api->match_icmp_type_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->icmp_type[i],
+					 i > 0 ? NULL : "@icmptype ");
+
+	if (api->match_icmp_code_num)
+		INCREMENT_DISPLAY(ptr, nb_items);
+	for (i = 0; i < api->match_icmp_code_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->icmp_code[i],
+					 i > 0 ? NULL : "@icmpcode ");
+
+	if (api->match_packet_length_num)
+		INCREMENT_DISPLAY(ptr, nb_items);
+	for (i = 0; i < api->match_packet_length_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->packet_length[i],
+					 i > 0 ? NULL : "@plen ");
+
+	if (api->match_dscp_num)
+		INCREMENT_DISPLAY(ptr, nb_items);
+	for (i = 0; i < api->match_dscp_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->dscp[i],
+					i > 0 ? NULL : "@dscp ");
+
+	if (api->match_tcpflags_num)
+		INCREMENT_DISPLAY(ptr, nb_items);
+	for (i = 0; i < api->match_tcpflags_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->tcpflags[i],
+					 i > 0 ? NULL : "@tcpflags ");
+
+	if (api->match_bitmask & FRAGMENT_PRESENT) {
+		INCREMENT_DISPLAY(ptr, nb_items);
+		ptr += sprintf(ptr, "@fragment %u", api->fragment.bitmask);
+	}
+	if (!nb_items)
+		ptr = return_string;
+	else
+		ptr += sprintf(ptr, "; ");
+	if (api->action_num)
+		ptr += sprintf(ptr, "SET : ");
+	nb_items = 0;
+	for (i = 0; i < api->action_num; i++) {
+		switch (api->actions[i].action) {
+		case ACTION_TRAFFICRATE:
+			INCREMENT_DISPLAY(ptr, nb_items);
+			ptr += sprintf(ptr, "@set rate %f",
+				       api->actions[i].u.r.rate);
+			break;
+		case ACTION_TRAFFIC_ACTION:
+			INCREMENT_DISPLAY(ptr, nb_items);
+			ptr += sprintf(ptr, "@action ");
+			if (api->actions[i].u.za.filter
+			    & TRAFFIC_ACTION_TERMINATE)
+				ptr += sprintf(ptr,
+					       " terminate (apply filter(s))");
+			if (api->actions[i].u.za.filter
+			    & TRAFFIC_ACTION_DISTRIBUTE)
+				ptr += sprintf(ptr, " distribute");
+			if (api->actions[i].u.za.filter
+			    & TRAFFIC_ACTION_SAMPLE)
+				ptr += sprintf(ptr, " sample");
+			break;
+		case ACTION_REDIRECT_IP:
+			INCREMENT_DISPLAY(ptr, nb_items);
+			char local_buff[INET_ADDRSTRLEN];
+
+			if (inet_ntop(AF_INET,
+				      &api->actions[i].u.zr.redirect_ip_v4,
+				      local_buff, INET_ADDRSTRLEN) != NULL)
+				ptr += sprintf(ptr,
+					  "@redirect ip nh %s", local_buff);
+			break;
+		case ACTION_REDIRECT:
+			INCREMENT_DISPLAY(ptr, nb_items);
+			ptr += sprintf(ptr, "@redirect vrf %u",
+				       api->actions[i].u.redirect_vrf);
+			break;
+		case ACTION_MARKING:
+			INCREMENT_DISPLAY(ptr, nb_items);
+			ptr += sprintf(ptr, "@set dscp %u",
+				  api->actions[i].u.marking_dscp);
+			break;
+		default:
+			break;
+		}
+	}
+	zlog_info("%s", return_string);
 }
