@@ -56,6 +56,7 @@
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_labelpool.h"
+#include "bgpd/bgp_pbr.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -1908,6 +1909,204 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	return zclient_send_message(zclient);
 }
 
+static int rule_notify_owner(int command, struct zclient *zclient,
+			     zebra_size_t length, vrf_id_t vrf_id)
+{
+	uint32_t seqno, priority, unique;
+	enum zapi_rule_notify_owner note;
+	struct bgp_pbr_action *bgp_pbra;
+	ifindex_t ifi;
+
+	if (!zapi_rule_notify_decode(zclient->ibuf, &seqno, &priority, &unique,
+				     &ifi, &note))
+		return -1;
+
+	bgp_pbra = bgp_pbr_action_rule_lookup(unique);
+	if (!bgp_pbra) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Fail to look BGP rule (%u)",
+				   __PRETTY_FUNCTION__, unique);
+		return 0;
+	}
+
+	switch (note) {
+	case ZAPI_RULE_FAIL_INSTALL:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received RULE_FAIL_INSTALL",
+				   __PRETTY_FUNCTION__);
+		bgp_pbra->installed = false;
+		bgp_pbra->install_in_progress = false;
+		break;
+	case ZAPI_RULE_INSTALLED:
+		bgp_pbra->installed = true;
+		bgp_pbra->install_in_progress = false;
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received RULE_INSTALLED",
+				   __PRETTY_FUNCTION__);
+		break;
+	case ZAPI_RULE_REMOVED:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received RULE REMOVED",
+				   __PRETTY_FUNCTION__);
+		break;
+	}
+
+	return 0;
+}
+
+static int ipset_notify_owner(int command, struct zclient *zclient,
+			     zebra_size_t length, vrf_id_t vrf_id)
+{
+	uint32_t unique;
+	enum zapi_ipset_notify_owner note;
+	struct bgp_pbr_match *bgp_pbim;
+
+	if (!zapi_ipset_notify_decode(zclient->ibuf,
+				      &unique,
+				      &note))
+		return -1;
+
+	bgp_pbim = bgp_pbr_match_ipset_lookup(vrf_id, unique);
+	if (!bgp_pbim) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Fail to look BGP match (%u)",
+				   __PRETTY_FUNCTION__, unique);
+		return 0;
+	}
+
+	switch (note) {
+	case ZAPI_IPSET_FAIL_INSTALL:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPSET_FAIL_INSTALL",
+				   __PRETTY_FUNCTION__);
+		bgp_pbim->installed = false;
+		bgp_pbim->install_in_progress = false;
+		break;
+	case ZAPI_IPSET_INSTALLED:
+		bgp_pbim->installed = true;
+		bgp_pbim->install_in_progress = false;
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPSET_INSTALLED",
+				   __PRETTY_FUNCTION__);
+		break;
+	case ZAPI_IPSET_REMOVED:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPSET REMOVED",
+				   __PRETTY_FUNCTION__);
+		break;
+	}
+
+	return 0;
+}
+
+static int ipset_entry_notify_owner(int command, struct zclient *zclient,
+				    zebra_size_t length, vrf_id_t vrf_id)
+{
+	uint32_t unique;
+	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
+	enum zapi_ipset_entry_notify_owner note;
+	struct bgp_pbr_match_entry *bgp_pbime;
+
+	if (!zapi_ipset_entry_notify_decode(
+				zclient->ibuf,
+				&unique,
+				ipset_name,
+				&note))
+		return -1;
+	bgp_pbime = bgp_pbr_match_ipset_entry_lookup(vrf_id,
+						     ipset_name,
+						     unique);
+	if (!bgp_pbime) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Fail to look BGP match entry (%u)",
+				   __PRETTY_FUNCTION__, unique);
+		return 0;
+	}
+
+	switch (note) {
+	case ZAPI_IPSET_ENTRY_FAIL_INSTALL:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPSET_ENTRY_FAIL_INSTALL",
+				   __PRETTY_FUNCTION__);
+		bgp_pbime->installed = false;
+		bgp_pbime->install_in_progress = false;
+		break;
+	case ZAPI_IPSET_ENTRY_INSTALLED:
+		bgp_pbime->installed = true;
+		bgp_pbime->install_in_progress = false;
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPSET_ENTRY_INSTALLED",
+				   __PRETTY_FUNCTION__);
+		break;
+	case ZAPI_IPSET_ENTRY_REMOVED:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPSET_ENTRY_REMOVED",
+				   __PRETTY_FUNCTION__);
+		break;
+	}
+	return 0;
+}
+
+static void bgp_encode_pbr_rule_action(struct stream *s,
+				  struct bgp_pbr_action *pbra)
+{
+	struct prefix any;
+
+	stream_putl(s, 0); /* seqno unused */
+	stream_putl(s, 0); /* ruleno unused */
+
+	stream_putl(s, pbra->unique);
+
+	memset(&any, 0, sizeof(any));
+	any.family = AF_INET;
+	stream_putc(s, any.family);
+	stream_putc(s, any.prefixlen);
+	stream_put(s, &any.u.prefix, prefix_blen(&any));
+
+	stream_putw(s, 0);  /* src port */
+
+	stream_putc(s, any.family);
+	stream_putc(s, any.prefixlen);
+	stream_put(s, &any.u.prefix, prefix_blen(&any));
+
+	stream_putw(s, 0);  /* dst port */
+
+	stream_putl(s, pbra->fwmark);  /* fwmark */
+
+	stream_putl(s, pbra->table_id);
+
+	stream_putl(s, 0); /* ifindex unused */
+}
+
+static void bgp_encode_pbr_ipset_match(struct stream *s,
+				  struct bgp_pbr_match *pbim)
+{
+	stream_putl(s, pbim->unique);
+	stream_putl(s, pbim->type);
+
+	stream_put(s, pbim->ipset_name,
+		   ZEBRA_IPSET_NAME_SIZE);
+
+
+}
+
+static void bgp_encode_pbr_ipset_entry_match(struct stream *s,
+				  struct bgp_pbr_match_entry *pbime)
+{
+	stream_putl(s, pbime->unique);
+	/* check that back pointer is not null */
+	stream_put(s, pbime->backpointer->ipset_name,
+		   ZEBRA_IPSET_NAME_SIZE);
+
+	stream_putc(s, pbime->src.family);
+	stream_putc(s, pbime->src.prefixlen);
+	stream_put(s, &pbime->src.u.prefix, prefix_blen(&pbime->src));
+
+	stream_putc(s, pbime->dst.family);
+	stream_putc(s, pbime->dst.prefixlen);
+	stream_put(s, &pbime->dst.u.prefix, prefix_blen(&pbime->dst));
+}
+
 /* BGP has established connection with Zebra. */
 static void bgp_zebra_connected(struct zclient *zclient)
 {
@@ -2167,6 +2366,9 @@ void bgp_zebra_init(struct thread_master *master)
 	zclient->local_ip_prefix_add = bgp_zebra_process_local_ip_prefix;
 	zclient->local_ip_prefix_del = bgp_zebra_process_local_ip_prefix;
 	zclient->label_chunk = bgp_zebra_process_label_chunk;
+	zclient->rule_notify_owner = rule_notify_owner;
+	zclient->ipset_notify_owner = ipset_notify_owner;
+	zclient->ipset_entry_notify_owner = ipset_entry_notify_owner;
 }
 
 void bgp_zebra_destroy(void)
@@ -2181,4 +2383,79 @@ void bgp_zebra_destroy(void)
 int bgp_zebra_num_connects(void)
 {
 	return zclient_num_connects;
+}
+
+void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra, bool install)
+{
+	struct stream *s;
+
+	if (pbra->install_in_progress)
+		return;
+	zlog_debug("%s: table %d fwmark %d %d", __PRETTY_FUNCTION__,
+		   pbra->table_id, pbra->fwmark, install);
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s,
+			      install ? ZEBRA_RULE_ADD : ZEBRA_RULE_DELETE,
+			      VRF_DEFAULT);
+	stream_putl(s, 1); /* send one pbr action */
+
+	bgp_encode_pbr_rule_action(s, pbra);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	if (!zclient_send_message(zclient) && install)
+		pbra->install_in_progress = true;
+}
+
+void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim, bool install)
+{
+	struct stream *s;
+
+	if (pbrim->install_in_progress)
+		return;
+	zlog_debug("%s: name %s type %d %d", __PRETTY_FUNCTION__,
+		   pbrim->ipset_name, pbrim->type, install);
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s,
+			      install ? ZEBRA_IPSET_CREATE :
+			      ZEBRA_IPSET_DESTROY,
+			      VRF_DEFAULT);
+
+	stream_putl(s, 1); /* send one pbr action */
+
+	bgp_encode_pbr_ipset_match(s, pbrim);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	if (!zclient_send_message(zclient) && install)
+		pbrim->install_in_progress = true;
+}
+
+void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
+				    bool install)
+{
+	struct stream *s;
+
+	if (pbrime->install_in_progress)
+		return;
+	zlog_debug("%s: name %s %d %d", __PRETTY_FUNCTION__,
+		   pbrime->backpointer->ipset_name,
+		   pbrime->unique, install);
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s,
+			      install ? ZEBRA_IPSET_ENTRY_ADD :
+			      ZEBRA_IPSET_ENTRY_DELETE,
+			      VRF_DEFAULT);
+
+	stream_putl(s, 1); /* send one pbr action */
+
+	bgp_encode_pbr_ipset_entry_match(s, pbrime);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	if (!zclient_send_message(zclient) && install)
+		pbrime->install_in_progress = true;
 }
