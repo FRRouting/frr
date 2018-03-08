@@ -25,6 +25,7 @@
 #include "bgp_table.h"
 #include "bgp_flowspec_util.h"
 #include "bgp_flowspec_private.h"
+#include "bgp_pbr.h"
 
 static void hex2bin(uint8_t *hex, int *bin)
 {
@@ -50,310 +51,27 @@ static int hexstr2num(uint8_t *hexstr, int len)
 	return num;
 }
 
-
-/*
- * handle the flowspec address src/dst or generic address NLRI
- * return number of bytes analysed ( >= 0).
+/* call bgp_flowspec_op_decode
+ * returns offset
  */
-int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
-			    uint8_t *nlri_ptr,
-			    uint32_t max_len,
-			    void *result, int *error)
+static int bgp_flowspec_call_non_opaque_decode(uint8_t *nlri_content, int len,
+					       struct bgp_pbr_match_val *mval,
+					       uint8_t *match_num, int *error)
 {
-	char *display = (char *)result; /* for return_string */
-	struct prefix *prefix = (struct prefix *)result;
-	uint32_t offset = 0;
-	struct prefix prefix_local;
-	int psize;
+	int ret;
 
-	*error = 0;
-	memset(&prefix_local, 0, sizeof(struct prefix));
-	/* read the prefix length */
-	prefix_local.prefixlen = nlri_ptr[offset];
-	psize = PSIZE(prefix_local.prefixlen);
-	offset++;
-	/* TODO Flowspec IPv6 Support */
-	prefix_local.family = AF_INET;
-	/* Prefix length check. */
-	if (prefix_local.prefixlen > prefix_blen(&prefix_local) * 8)
-		*error = -1;
-	/* When packet overflow occur return immediately. */
-	if (psize + offset > max_len)
-		*error = -1;
-	/* Defensive coding, double-check
-	 * the psize fits in a struct prefix
-	 */
-	if (psize > (ssize_t)sizeof(prefix_local.u))
-		*error = -1;
-	memcpy(&prefix_local.u.prefix, &nlri_ptr[offset], psize);
-	offset += psize;
-	switch (type) {
-	case BGP_FLOWSPEC_RETURN_STRING:
-		prefix2str(&prefix_local, display,
-			   BGP_FLOWSPEC_STRING_DISPLAY_MAX);
-		break;
-	case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
-		PREFIX_COPY_IPV4(prefix, &prefix_local)
-		break;
-	case BGP_FLOWSPEC_VALIDATE_ONLY:
-	default:
-		break;
-	}
-	return offset;
+	ret = bgp_flowspec_op_decode(
+			     BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
+			     nlri_content,
+			     len,
+			     mval, error);
+	if (*error < 0)
+		zlog_err("%s: flowspec_op_decode error %d",
+			 __func__, *error);
+	else
+		*match_num = *error;
+	return ret;
 }
-
-/*
- * handle the flowspec operator NLRI
- * return number of bytes analysed
- * if there is an error, the passed error param is used to give error:
- * -1 if decoding error,
- * if result is a string, its assumed length
- *  is BGP_FLOWSPEC_STRING_DISPLAY_MAX
- */
-int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
-			   uint8_t *nlri_ptr,
-			   uint32_t max_len,
-			   void *result, int *error)
-{
-	int op[8];
-	int len, value, value_size;
-	int loop = 0;
-	char *ptr = (char *)result; /* for return_string */
-	uint32_t offset = 0;
-	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
-	int len_written;
-
-	*error = 0;
-	do {
-		hex2bin(&nlri_ptr[offset], op);
-		offset++;
-		len = 2*op[2]+op[3];
-		value_size = 1 << len;
-		value = hexstr2num(&nlri_ptr[offset], value_size);
-		/* can not be < and > at the same time */
-		if (op[5] == 1 && op[6] == 1)
-			*error = -1;
-		/* if first element, AND bit can not be set */
-		if (op[1] == 1 && loop == 0)
-			*error = -1;
-		switch (type) {
-		case BGP_FLOWSPEC_RETURN_STRING:
-			if (loop) {
-				len_written = snprintf(ptr, len_string,
-						      ", ");
-				len_string -= len_written;
-				ptr += len_written;
-			}
-			if (op[5] == 1) {
-				len_written = snprintf(ptr, len_string,
-						       "<");
-				len_string -= len_written;
-				ptr += len_written;
-			}
-			if (op[6] == 1) {
-				len_written = snprintf(ptr, len_string,
-						      ">");
-				len_string -= len_written;
-				ptr += len_written;
-			}
-			if (op[7] == 1) {
-				len_written = snprintf(ptr, len_string,
-						       "=");
-				len_string -= len_written;
-				ptr += len_written;
-			}
-			len_written = snprintf(ptr, len_string,
-					       " %d ", value);
-			len_string -= len_written;
-			ptr += len_written;
-			break;
-		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
-			/* TODO : FS OPAQUE */
-			break;
-		case BGP_FLOWSPEC_VALIDATE_ONLY:
-		default:
-			/* no action */
-			break;
-		}
-		offset += value_size;
-		loop++;
-	} while (op[0] == 0 && offset < max_len - 1);
-	if (offset > max_len)
-		*error = -1;
-	/* use error parameter to count the number of entries */
-	if (*error == 0)
-		*error = loop;
-	return offset;
-}
-
-
-/*
- * handle the flowspec tcpflags field
- * return number of bytes analysed
- * if there is an error, the passed error param is used to give error:
- * -1 if decoding error,
- * if result is a string, its assumed length
- *  is BGP_FLOWSPEC_STRING_DISPLAY_MAX
- */
-int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
-				 uint8_t *nlri_ptr,
-				 uint32_t max_len,
-				 void *result, int *error)
-{
-	int op[8];
-	int len, value_size, loop = 0, value;
-	char *ptr = (char *)result; /* for return_string */
-	uint32_t offset = 0;
-	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
-	int len_written;
-
-	*error = 0;
-	do {
-		hex2bin(&nlri_ptr[offset], op);
-		/* if first element, AND bit can not be set */
-		if (op[1] == 1 && loop == 0)
-			*error = -1;
-		offset++;
-		len = 2 * op[2] + op[3];
-		value_size = 1 << len;
-		value = hexstr2num(&nlri_ptr[offset], value_size);
-		switch (type) {
-		case BGP_FLOWSPEC_RETURN_STRING:
-			if (op[1] == 1 && loop != 0) {
-				len_written = snprintf(ptr, len_string,
-						       ", and ");
-				len_string -= len_written;
-				ptr += len_written;
-			} else if (op[1] == 0 && loop != 0) {
-				len_written = snprintf(ptr, len_string,
-						      ", or ");
-				len_string -= len_written;
-				ptr += len_written;
-			}
-			len_written = snprintf(ptr, len_string,
-					       "tcp flags is ");
-			len_string -= len_written;
-			ptr += len_written;
-			if (op[6] == 1) {
-				ptr += snprintf(ptr, len_string,
-					       "not ");
-				len_string -= len_written;
-				ptr += len_written;
-			}
-			if (op[7] == 1) {
-				ptr += snprintf(ptr, len_string,
-					       "exactly match ");
-				len_string -= len_written;
-				ptr += len_written;
-			}
-			ptr += snprintf(ptr, len_string,
-				       "%d", value);
-			len_string -= len_written;
-			ptr += len_written;
-			break;
-		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
-			/* TODO : FS OPAQUE */
-			break;
-		case BGP_FLOWSPEC_VALIDATE_ONLY:
-		default:
-			/* no action */
-			break;
-		}
-		offset += value_size;
-		loop++;
-	} while (op[0] == 0 && offset < max_len - 1);
-	if (offset > max_len)
-		*error = -1;
-	/* use error parameter to count the number of entries */
-	if (*error == 0)
-		*error = loop;
-	return offset;
-}
-
-/*
- * handle the flowspec fragment type field
- * return error (returned values are invalid) or number of bytes analysed
- * -1 if error in decoding
- * >= 0 : number of bytes analysed (ok).
- */
-int bgp_flowspec_fragment_type_decode(enum bgp_flowspec_util_nlri_t type,
-				      uint8_t *nlri_ptr,
-				      uint32_t max_len,
-				      void *result, int *error)
-{
-	int op[8];
-	int len, value, value_size, loop = 0;
-	char *ptr = (char *)result; /* for return_string */
-	uint32_t offset = 0;
-	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
-	int len_written;
-
-	*error = 0;
-	do {
-		hex2bin(&nlri_ptr[offset], op);
-		offset++;
-		len = 2 * op[2] + op[3];
-		value_size = 1 << len;
-		value = hexstr2num(&nlri_ptr[offset], value_size);
-		if (value != 1 && value != 2 && value != 4 && value != 8)
-			*error = -1;
-		offset += value_size;
-		/* TODO : as per RFC5574 : first Fragment bits are Reserved
-		 * does that mean that it is not possible
-		 * to handle multiple occurences ?
-		 * as of today, we only grab the first TCP fragment
-		 */
-		if (loop) {
-			*error = -2;
-			loop++;
-			continue;
-		}
-		switch (type) {
-		case BGP_FLOWSPEC_RETURN_STRING:
-			switch (value) {
-			case 1:
-				len_written = snprintf(ptr, len_string,
-						       "dont-fragment");
-				len_string -= len_written;
-				ptr += len_written;
-				break;
-			case 2:
-				len_written = snprintf(ptr, len_string,
-						      "is-fragment");
-				len_string -= len_written;
-				ptr += len_written;
-				break;
-			case 4:
-				len_written = snprintf(ptr, len_string,
-						       "first-fragment");
-				len_string -= len_written;
-				ptr += len_written;
-				break;
-			case 8:
-				len_written = snprintf(ptr, len_string,
-						       "last-fragment");
-				len_string -= len_written;
-				ptr += len_written;
-				break;
-			default:
-				{}
-			}
-			break;
-		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
-			/* TODO : FS OPAQUE */
-			break;
-		case BGP_FLOWSPEC_VALIDATE_ONLY:
-		default:
-			/* no action */
-			break;
-		}
-		loop++;
-	} while (op[0] == 0 && offset < max_len - 1);
-	if (offset > max_len)
-		*error = -1;
-	return offset;
-}
-
 
 static bool bgp_flowspec_contains_prefix(struct prefix *pfs,
 					 struct prefix *input,
@@ -436,6 +154,508 @@ static bool bgp_flowspec_contains_prefix(struct prefix *pfs,
 	}
 	return false;
 }
+
+/*
+ * handle the flowspec address src/dst or generic address NLRI
+ * return number of bytes analysed ( >= 0).
+ */
+int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
+			    uint8_t *nlri_ptr,
+			    uint32_t max_len,
+			    void *result, int *error)
+{
+	char *display = (char *)result; /* for return_string */
+	struct prefix *prefix = (struct prefix *)result;
+	uint32_t offset = 0;
+	struct prefix prefix_local;
+	int psize;
+
+	*error = 0;
+	memset(&prefix_local, 0, sizeof(struct prefix));
+	/* read the prefix length */
+	prefix_local.prefixlen = nlri_ptr[offset];
+	psize = PSIZE(prefix_local.prefixlen);
+	offset++;
+	/* TODO Flowspec IPv6 Support */
+	prefix_local.family = AF_INET;
+	/* Prefix length check. */
+	if (prefix_local.prefixlen > prefix_blen(&prefix_local) * 8)
+		*error = -1;
+	/* When packet overflow occur return immediately. */
+	if (psize + offset > max_len)
+		*error = -1;
+	/* Defensive coding, double-check
+	 * the psize fits in a struct prefix
+	 */
+	if (psize > (ssize_t)sizeof(prefix_local.u))
+		*error = -1;
+	memcpy(&prefix_local.u.prefix, &nlri_ptr[offset], psize);
+	offset += psize;
+	switch (type) {
+	case BGP_FLOWSPEC_RETURN_STRING:
+		prefix2str(&prefix_local, display,
+			   BGP_FLOWSPEC_STRING_DISPLAY_MAX);
+		break;
+	case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
+		PREFIX_COPY_IPV4(prefix, &prefix_local)
+		break;
+	case BGP_FLOWSPEC_VALIDATE_ONLY:
+	default:
+		break;
+	}
+	return offset;
+}
+
+/*
+ * handle the flowspec operator NLRI
+ * return number of bytes analysed
+ * if there is an error, the passed error param is used to give error:
+ * -1 if decoding error,
+ * if result is a string, its assumed length
+ *  is BGP_FLOWSPEC_STRING_DISPLAY_MAX
+ */
+int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
+			   uint8_t *nlri_ptr,
+			   uint32_t max_len,
+			   void *result, int *error)
+{
+	int op[8];
+	int len, value, value_size;
+	int loop = 0;
+	char *ptr = (char *)result; /* for return_string */
+	uint32_t offset = 0;
+	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
+	int len_written;
+	struct bgp_pbr_match_val *mval = (struct bgp_pbr_match_val *)result;
+
+	*error = 0;
+	do {
+		if (loop > BGP_PBR_MATCH_VAL_MAX)
+			*error = -2;
+		hex2bin(&nlri_ptr[offset], op);
+		offset++;
+		len = 2*op[2]+op[3];
+		value_size = 1 << len;
+		value = hexstr2num(&nlri_ptr[offset], value_size);
+		/* can not be < and > at the same time */
+		if (op[5] == 1 && op[6] == 1)
+			*error = -1;
+		/* if first element, AND bit can not be set */
+		if (op[1] == 1 && loop == 0)
+			*error = -1;
+		switch (type) {
+		case BGP_FLOWSPEC_RETURN_STRING:
+			if (loop) {
+				len_written = snprintf(ptr, len_string,
+						      ", ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			if (op[5] == 1) {
+				len_written = snprintf(ptr, len_string,
+						       "<");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			if (op[6] == 1) {
+				len_written = snprintf(ptr, len_string,
+						      ">");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			if (op[7] == 1) {
+				len_written = snprintf(ptr, len_string,
+						       "=");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			len_written = snprintf(ptr, len_string,
+					       " %d ", value);
+			len_string -= len_written;
+			ptr += len_written;
+			break;
+		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
+			/* limitation: stop converting */
+			if (*error == -2)
+				break;
+			mval->value = value;
+			if (op[5] == 1)
+				mval->compare_operator |=
+					OPERATOR_COMPARE_LESS_THAN;
+			if (op[6] == 1)
+				mval->compare_operator |=
+					OPERATOR_COMPARE_GREATER_THAN;
+			if (op[7] == 1)
+				mval->compare_operator |=
+					OPERATOR_COMPARE_EQUAL_TO;
+			if (op[1] == 1)
+				mval->unary_operator = OPERATOR_UNARY_AND;
+			else
+				mval->unary_operator = OPERATOR_UNARY_OR;
+			mval++;
+			break;
+		case BGP_FLOWSPEC_VALIDATE_ONLY:
+		default:
+			/* no action */
+			break;
+		}
+		offset += value_size;
+		loop++;
+	} while (op[0] == 0 && offset < max_len - 1);
+	if (offset > max_len)
+		*error = -1;
+	/* use error parameter to count the number of entries */
+	if (*error == 0)
+		*error = loop;
+	return offset;
+}
+
+
+/*
+ * handle the flowspec tcpflags field
+ * return number of bytes analysed
+ * if there is an error, the passed error param is used to give error:
+ * -1 if decoding error,
+ * if result is a string, its assumed length
+ *  is BGP_FLOWSPEC_STRING_DISPLAY_MAX
+ */
+int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
+				 uint8_t *nlri_ptr,
+				 uint32_t max_len,
+				 void *result, int *error)
+{
+	int op[8];
+	int len, value_size, loop = 0, value;
+	char *ptr = (char *)result; /* for return_string */
+	struct bgp_pbr_match_val *mval = (struct bgp_pbr_match_val *)result;
+	uint32_t offset = 0;
+	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
+	int len_written;
+
+	*error = 0;
+	do {
+		if (loop > BGP_PBR_MATCH_VAL_MAX)
+			*error = -2;
+		hex2bin(&nlri_ptr[offset], op);
+		/* if first element, AND bit can not be set */
+		if (op[1] == 1 && loop == 0)
+			*error = -1;
+		offset++;
+		len = 2 * op[2] + op[3];
+		value_size = 1 << len;
+		value = hexstr2num(&nlri_ptr[offset], value_size);
+		switch (type) {
+		case BGP_FLOWSPEC_RETURN_STRING:
+			if (op[1] == 1 && loop != 0) {
+				len_written = snprintf(ptr, len_string,
+						       ", and ");
+				len_string -= len_written;
+				ptr += len_written;
+			} else if (op[1] == 0 && loop != 0) {
+				len_written = snprintf(ptr, len_string,
+						      ", or ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			len_written = snprintf(ptr, len_string,
+					       "tcp flags is ");
+			len_string -= len_written;
+			ptr += len_written;
+			if (op[6] == 1) {
+				ptr += snprintf(ptr, len_string,
+					       "not ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			if (op[7] == 1) {
+				ptr += snprintf(ptr, len_string,
+					       "exactly match ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			ptr += snprintf(ptr, len_string,
+				       "%d", value);
+			len_string -= len_written;
+			ptr += len_written;
+			break;
+		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
+			/* limitation: stop converting */
+			if (*error == -2)
+				break;
+			mval->value = value;
+			if (op[6] == 1) {
+				/* different from */
+				mval->compare_operator |=
+					OPERATOR_COMPARE_LESS_THAN;
+				mval->compare_operator |=
+					OPERATOR_COMPARE_GREATER_THAN;
+			} else
+				mval->compare_operator |=
+					OPERATOR_COMPARE_EQUAL_TO;
+			if (op[7] == 1)
+				mval->compare_operator |=
+					OPERATOR_COMPARE_EXACT_MATCH;
+			if (op[1] == 1)
+				mval->unary_operator =
+					OPERATOR_UNARY_AND;
+			else
+				mval->unary_operator =
+					OPERATOR_UNARY_OR;
+			mval++;
+			break;
+		case BGP_FLOWSPEC_VALIDATE_ONLY:
+		default:
+			/* no action */
+			break;
+		}
+		offset += value_size;
+		loop++;
+	} while (op[0] == 0 && offset < max_len - 1);
+	if (offset > max_len)
+		*error = -1;
+	/* use error parameter to count the number of entries */
+	if (*error == 0)
+		*error = loop;
+	return offset;
+}
+
+/*
+ * handle the flowspec fragment type field
+ * return error (returned values are invalid) or number of bytes analysed
+ * -1 if error in decoding
+ * >= 0 : number of bytes analysed (ok).
+ */
+int bgp_flowspec_fragment_type_decode(enum bgp_flowspec_util_nlri_t type,
+				      uint8_t *nlri_ptr,
+				      uint32_t max_len,
+				      void *result, int *error)
+{
+	int op[8];
+	int len, value, value_size, loop = 0;
+	char *ptr = (char *)result; /* for return_string */
+	struct bgp_pbr_fragment_val *mval =
+		(struct bgp_pbr_fragment_val *)result;
+	uint32_t offset = 0;
+	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
+	int len_written;
+
+	*error = 0;
+	do {
+		hex2bin(&nlri_ptr[offset], op);
+		offset++;
+		len = 2 * op[2] + op[3];
+		value_size = 1 << len;
+		value = hexstr2num(&nlri_ptr[offset], value_size);
+		if (value != 1 && value != 2 && value != 4 && value != 8)
+			*error = -1;
+		offset += value_size;
+		/* TODO : as per RFC5574 : first Fragment bits are Reserved
+		 * does that mean that it is not possible
+		 * to handle multiple occurences ?
+		 * as of today, we only grab the first TCP fragment
+		 */
+		if (loop) {
+			*error = -2;
+			loop++;
+			continue;
+		}
+		switch (type) {
+		case BGP_FLOWSPEC_RETURN_STRING:
+			switch (value) {
+			case 1:
+				len_written = snprintf(ptr, len_string,
+						       "dont-fragment");
+				len_string -= len_written;
+				ptr += len_written;
+				break;
+			case 2:
+				len_written = snprintf(ptr, len_string,
+						      "is-fragment");
+				len_string -= len_written;
+				ptr += len_written;
+				break;
+			case 4:
+				len_written = snprintf(ptr, len_string,
+						       "first-fragment");
+				len_string -= len_written;
+				ptr += len_written;
+				break;
+			case 8:
+				len_written = snprintf(ptr, len_string,
+						       "last-fragment");
+				len_string -= len_written;
+				ptr += len_written;
+				break;
+			default:
+				{}
+			}
+			break;
+		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
+			mval->bitmask = (uint8_t)value;
+			break;
+		case BGP_FLOWSPEC_VALIDATE_ONLY:
+		default:
+			/* no action */
+			break;
+		}
+		loop++;
+	} while (op[0] == 0 && offset < max_len - 1);
+	if (offset > max_len)
+		*error = -1;
+	return offset;
+}
+
+int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
+				  struct bgp_pbr_entry_main *bpem)
+{
+	int offset = 0, error = 0;
+	struct prefix *prefix;
+	struct bgp_pbr_match_val *mval;
+	uint8_t *match_num;
+	uint8_t bitmask = 0;
+	int ret = 0, type;
+
+	while (offset < len - 1 && error >= 0) {
+		type = nlri_content[offset];
+		offset++;
+		switch (type) {
+		case FLOWSPEC_DEST_PREFIX:
+		case FLOWSPEC_SRC_PREFIX:
+			bitmask = 0;
+			if (type == FLOWSPEC_DEST_PREFIX) {
+				bitmask |= PREFIX_DST_PRESENT;
+				prefix = &bpem->dst_prefix;
+			} else {
+				bitmask |= PREFIX_SRC_PRESENT;
+				prefix = &bpem->src_prefix;
+			}
+			ret = bgp_flowspec_ip_address(
+					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
+					nlri_content + offset,
+					len - offset,
+					prefix, &error);
+			if (error < 0)
+				zlog_err("%s: flowspec_ip_address error %d",
+					 __func__, error);
+			else
+				bpem->match_bitmask |= bitmask;
+			offset += ret;
+			break;
+		case FLOWSPEC_IP_PROTOCOL:
+			match_num = &(bpem->match_protocol_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->protocol);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
+			break;
+		case FLOWSPEC_PORT:
+			match_num = &(bpem->match_port_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->port);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
+			break;
+		case FLOWSPEC_DEST_PORT:
+			match_num = &(bpem->match_dst_port_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->dst_port);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
+			break;
+		case FLOWSPEC_SRC_PORT:
+			match_num = &(bpem->match_src_port_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->src_port);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
+			break;
+		case FLOWSPEC_ICMP_TYPE:
+			match_num = &(bpem->match_icmp_type_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->icmp_type);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
+			break;
+		case FLOWSPEC_ICMP_CODE:
+			match_num = &(bpem->match_icmp_code_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->icmp_code);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
+			break;
+		case FLOWSPEC_PKT_LEN:
+			match_num =
+				&(bpem->match_packet_length_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->packet_length);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
+			break;
+		case FLOWSPEC_DSCP:
+			match_num = &(bpem->match_dscp_num);
+			mval = (struct bgp_pbr_match_val *)
+				&(bpem->dscp);
+			offset += bgp_flowspec_call_non_opaque_decode(
+							nlri_content + offset,
+							len - offset,
+							mval, match_num,
+							&error);
+			break;
+		case FLOWSPEC_TCP_FLAGS:
+			ret = bgp_flowspec_tcpflags_decode(
+					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
+					nlri_content + offset,
+					len - offset,
+					&bpem->tcpflags, &error);
+			if (error < 0)
+				zlog_err("%s: flowspec_tcpflags_decode error %d",
+					 __func__, error);
+			else
+				bpem->match_tcpflags_num = error;
+			/* contains the number of slots used */
+			offset += ret;
+			break;
+		case FLOWSPEC_FRAGMENT:
+			ret = bgp_flowspec_fragment_type_decode(
+					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
+					nlri_content + offset,
+					len - offset, &bpem->fragment,
+					&error);
+			if (error < 0)
+				zlog_err("%s: flowspec_fragment_type_decode error %d",
+					 __func__, error);
+			else
+				bpem->match_bitmask |= FRAGMENT_PRESENT;
+			offset += ret;
+			break;
+		default:
+			zlog_err("%s: unknown type %d\n", __func__, type);
+		}
+	}
+	return error;
+}
+
 
 struct bgp_node *bgp_flowspec_get_match_per_ip(afi_t afi,
 					       struct bgp_table *rib,
