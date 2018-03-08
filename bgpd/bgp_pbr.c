@@ -25,6 +25,10 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_flowspec_util.h"
+#include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_route.h"
+#include "bgpd/bgp_attr.h"
 
 static int sprintf_bgp_pbr_match_val(char *str, struct bgp_pbr_match_val *mval,
 				     const char *prepend)
@@ -86,6 +90,108 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 		return 0;
 	}
 	return 1;
+}
+
+/* return -1 if build or validation failed */
+static int bgp_pbr_build_and_validate_entry(struct prefix *p,
+					    struct bgp_info *info,
+					    struct bgp_pbr_entry_main *api)
+{
+	int ret;
+	int i, action_count = 0;
+	struct ecommunity *ecom;
+	struct ecommunity_val *ecom_eval;
+	struct bgp_pbr_entry_action *api_action;
+	struct prefix *src = NULL, *dst = NULL;
+	int valid_prefix = 0;
+	afi_t afi = AFI_IP;
+
+	/* extract match from flowspec entries */
+	ret = bgp_flowspec_match_rules_fill((uint8_t *)p->u.prefix_flowspec.ptr,
+				     p->u.prefix_flowspec.prefixlen, api);
+	if (ret < 0)
+		return -1;
+	/* extract actiosn from flowspec ecom list */
+	if (info && info->attr && info->attr->ecommunity) {
+		ecom = info->attr->ecommunity;
+		for (i = 0; i < ecom->size; i++) {
+			ecom_eval = (struct ecommunity_val *)
+				ecom->val + (i * ECOMMUNITY_SIZE);
+
+			if (action_count > ACTIONS_MAX_NUM) {
+				zlog_err("%s: flowspec actions exceeds limit (max %u)",
+					 __func__, action_count);
+				break;
+			}
+			api_action = &api->actions[action_count];
+
+			if ((ecom_eval->val[1] ==
+			     (char)ECOMMUNITY_REDIRECT_VRF) &&
+			    (ecom_eval->val[0] ==
+			     (char)ECOMMUNITY_ENCODE_TRANS_EXP ||
+			     ecom_eval->val[0] ==
+			     (char)ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
+			     ecom_eval->val[0] ==
+			     (char)ECOMMUNITY_EXTENDED_COMMUNITY_PART_3)) {
+				struct ecommunity *eckey = ecommunity_new();
+				struct ecommunity_val ecom_copy;
+
+				memcpy(&ecom_copy, ecom_eval,
+				       sizeof(struct ecommunity_val));
+				ecom_copy.val[0] &=
+					~ECOMMUNITY_ENCODE_TRANS_EXP;
+				ecom_copy.val[1] = ECOMMUNITY_ROUTE_TARGET;
+				ecommunity_add_val(eckey, &ecom_copy);
+
+				api_action->action = ACTION_REDIRECT;
+				api_action->u.redirect_vrf =
+					get_first_vrf_for_redirect_with_rt(
+								eckey);
+				ecommunity_free(&eckey);
+			} else if ((ecom_eval->val[0] ==
+				    (char)ECOMMUNITY_ENCODE_REDIRECT_IP_NH) &&
+				   (ecom_eval->val[1] ==
+				    (char)ECOMMUNITY_REDIRECT_IP_NH)) {
+				api_action->action = ACTION_REDIRECT_IP;
+				api_action->u.zr.redirect_ip_v4.s_addr =
+					info->attr->nexthop.s_addr;
+				api_action->u.zr.duplicate = ecom_eval->val[7];
+			} else {
+				if (ecom_eval->val[0] !=
+				    (char)ECOMMUNITY_ENCODE_TRANS_EXP)
+					continue;
+				ret = ecommunity_fill_pbr_action(ecom_eval,
+								 api_action);
+				if (ret != 0)
+					continue;
+			}
+			api->action_num++;
+		}
+	}
+
+	/* validate if incoming matc/action is compatible
+	 * with our policy routing engine
+	 */
+	if (!bgp_pbr_validate_policy_route(api))
+		return -1;
+
+	/* check inconsistency in the match rule */
+	if (api->match_bitmask & PREFIX_SRC_PRESENT) {
+		src = &api->src_prefix;
+		afi = family2afi(src->family);
+		valid_prefix = 1;
+	}
+	if (api->match_bitmask & PREFIX_DST_PRESENT) {
+		dst = &api->dst_prefix;
+		if (valid_prefix && afi != family2afi(dst->family)) {
+			if (BGP_DEBUG(pbr, PBR))
+				bgp_pbr_print_policy_route(api);
+			zlog_err("%s: inconsistency:  no match for afi src and dst (%u/%u)",
+				 __func__, afi, family2afi(dst->family));
+			return -1;
+		}
+	}
+	return 0;
 }
 
 uint32_t bgp_pbr_match_hash_key(void *arg)
@@ -354,3 +460,27 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 	}
 	zlog_info("%s", return_string);
 }
+
+void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
+			 struct bgp_info *info, afi_t afi, safi_t safi,
+			 bool nlri_update)
+{
+	struct bgp_pbr_entry_main api;
+
+	if (afi == AFI_IP6)
+		return; /* IPv6 not supported */
+	if (safi != SAFI_FLOWSPEC)
+		return; /* not supported */
+	/* Make Zebra API structure. */
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = bgp->vrf_id;
+	api.afi = afi;
+
+	if (bgp_pbr_build_and_validate_entry(p, info, &api) < 0) {
+		zlog_err("%s: cancel updating entry in bgp pbr",
+			 __func__);
+		return;
+	}
+	/* TODO. update prefix and pbr hash contexts */
+}
+

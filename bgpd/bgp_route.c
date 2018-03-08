@@ -75,6 +75,7 @@
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
+#include "bgpd/bgp_pbr.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_route_clippy.c"
@@ -2229,7 +2230,6 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.
 	 */
-
 	if (old_select && old_select == new_select
 	    && !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR)
 	    && !CHECK_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED)
