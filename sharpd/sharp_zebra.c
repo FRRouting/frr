@@ -130,6 +130,7 @@ static int interface_state_down(int command, struct zclient *zclient,
 
 extern uint32_t total_routes;
 extern uint32_t installed_routes;
+extern uint32_t removed_routes;
 
 static int route_notify_owner(int command, struct zclient *zclient,
 			      zebra_size_t length, vrf_id_t vrf_id)
@@ -141,10 +142,27 @@ static int route_notify_owner(int command, struct zclient *zclient,
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note))
 		return -1;
 
-	installed_routes++;
-
-	if (total_routes == installed_routes)
-		zlog_debug("Installed All Items");
+	switch (note) {
+	case ZAPI_ROUTE_INSTALLED:
+		installed_routes++;
+		if (total_routes == installed_routes)
+			zlog_debug("Installed All Items");
+		break;
+	case ZAPI_ROUTE_FAIL_INSTALL:
+		zlog_debug("Failed install of route");
+		break;
+	case ZAPI_ROUTE_BETTER_ADMIN_WON:
+		zlog_debug("Better Admin Distance won over us");
+		break;
+	case ZAPI_ROUTE_REMOVED:
+		removed_routes++;
+		if (total_routes == removed_routes)
+			zlog_debug("Removed all Items");
+		break;
+	case ZAPI_ROUTE_REMOVE_FAIL:
+		zlog_debug("Route removal Failure");
+		break;
+	}
 	return 0;
 }
 
