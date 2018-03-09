@@ -152,7 +152,7 @@ void frr_pthread_set_name(struct frr_pthread *fpt, const char *name)
 	thread_master_set_name(fpt->master, name);
 }
 
-struct frr_pthread *frr_pthread_get(unsigned int id)
+struct frr_pthread *frr_pthread_get(uint32_t id)
 {
 	static struct frr_pthread holder = {};
 	struct frr_pthread *fpt;
@@ -234,7 +234,7 @@ uint32_t frr_pthread_get_id(void)
 	_Atomic uint32_t nxid;
 	nxid = atomic_fetch_add_explicit(&next_id, 1, memory_order_seq_cst);
 	/* just a sanity check, this should never happen */
-	assert(nxid <= (INT_MAX - 1));
+	assert(nxid <= (UINT32_MAX - 1));
 	return nxid;
 }
 
