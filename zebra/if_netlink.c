@@ -30,6 +30,7 @@
  */
 #define _LINUX_IN6_H
 
+#include <netinet/if_ether.h>
 #include <linux/if_bridge.h>
 #include <linux/if_link.h>
 #include <net/if_arp.h>
@@ -362,7 +363,7 @@ static int get_iflink_speed(struct interface *interface)
 	/* initialize ethtool interface */
 	memset(&ecmd, 0, sizeof(ecmd));
 	ecmd.cmd = ETHTOOL_GSET; /* ETHTOOL_GLINK */
-	ifdata.ifr_data = (__caddr_t)&ecmd;
+	ifdata.ifr_data = (caddr_t)&ecmd;
 
 	/* use ioctl to get IP address of an interface */
 	if (zserv_privs.change(ZPRIVS_RAISE))
