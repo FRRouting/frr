@@ -40,7 +40,7 @@
 # Long description:     Full description, but should try fit on a line.
 ####
 #
-# If you add a new routing protocol here, make sure you go update
+# If you add a new routing protocol here, make sure you also update
 # meta_queue_map in zebra_rib.c
 #
 ##  type                cname      daemon  C    4  6  short help
@@ -76,6 +76,7 @@ ZEBRA_ROUTE_VNC_DIRECT_RH, vnc-rn, NULL,   'V', 0, 0, "VNC-RN"
 ZEBRA_ROUTE_BGP_DIRECT, bgp-direct, NULL,  'b', 0, 0, "BGP-Direct"
 #  bgp unicast -> vnc 
 ZEBRA_ROUTE_BGP_DIRECT_EXT, bgp-direct-to-nve-groups, NULL, 'e', 0, 0, "BGP2VNC"
+ZEBRA_ROUTE_BGP_VPN,    vpn,       NULL,   'c', 1, 1, "VPN", bgpd
 ZEBRA_ROUTE_BABEL,      babel,     babeld, 'A', 1, 1, "Babel"
 ZEBRA_ROUTE_SHARP,    sharp,     sharpd, 'D', 1, 1, "SHARP"
 ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, "-"
@@ -101,5 +102,6 @@ ZEBRA_ROUTE_OLSR,   "Optimised Link State Routing (OLSR)"
 ZEBRA_ROUTE_TABLE,  "Non-main Kernel Routing Table"
 ZEBRA_ROUTE_LDP,    "Label Distribution Protocol (LDP)"
 ZEBRA_ROUTE_VNC_DIRECT,    "VNC direct (not via zebra) routes"
+ZEBRA_ROUTE_BGP_VPN, "BGP VPN routes"
 ZEBRA_ROUTE_BABEL,  "Babel routing protocol (Babel)"
 ZEBRA_ROUTE_SHARP, "Super Happy Advanced Routing Protocol (sharpd)"
