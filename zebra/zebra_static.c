@@ -300,7 +300,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 	}
 
 	/* Lookup nexthop. */
-	for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
+	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
 		if (static_nexthop_same(nexthop, si))
 			break;
 

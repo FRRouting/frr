@@ -355,7 +355,8 @@ static int zebra_rnh_apply_nht_rmap(int family, struct route_node *prn,
 	rmap_family = (family == AF_INET) ? AFI_IP : AFI_IP6;
 
 	if (prn && re) {
-		for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next) {
+		for (nexthop = re->ng.nexthop; nexthop;
+		     nexthop = nexthop->next) {
 			ret = zebra_nht_route_map_check(rmap_family, proto,
 							&prn->p, re, nexthop);
 			if (ret != RMAP_DENYMATCH) {
@@ -428,7 +429,7 @@ static void zebra_rnh_eval_import_check_entry(vrf_id_t vrfid, int family,
 	struct nexthop *nexthop;
 
 	if (re && (rnh->state == NULL)) {
-		for (ALL_NEXTHOPS(re->nexthop, nexthop))
+		for (ALL_NEXTHOPS(re->ng, nexthop))
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)) {
 				state_changed = 1;
 				break;
@@ -559,7 +560,7 @@ static void zebra_rnh_process_static_routes(vrf_id_t vrfid, int family,
 			 * be having multiple. We care here only about
 			 * registered nexthops.
 			 */
-			for (nexthop = sre->nexthop; nexthop;
+			for (nexthop = sre->ng.nexthop; nexthop;
 			     nexthop = nexthop->next) {
 				switch (nexthop->type) {
 				case NEXTHOP_TYPE_IPV4:
@@ -673,7 +674,7 @@ zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid, int family,
 				if (re->type == ZEBRA_ROUTE_NHRP) {
 					struct nexthop *nexthop;
 
-					for (nexthop = re->nexthop; nexthop;
+					for (nexthop = re->ng.nexthop; nexthop;
 					     nexthop = nexthop->next)
 						if (nexthop->type
 						    == NEXTHOP_TYPE_IFINDEX)
@@ -925,8 +926,8 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		return;
 
 	/* free RE and nexthops */
-	zebra_deregister_rnh_static_nexthops(vrf_id, re->nexthop, rn);
-	nexthops_free(re->nexthop);
+	zebra_deregister_rnh_static_nexthops(vrf_id, re->ng.nexthop, rn);
+	nexthops_free(re->ng.nexthop);
 	XFREE(MTYPE_RE, re);
 }
 
@@ -949,7 +950,7 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 	state->metric = re->metric;
 	state->vrf_id = re->vrf_id;
 
-	route_entry_copy_nexthops(state, re->nexthop);
+	route_entry_copy_nexthops(state, re->ng.nexthop);
 	rnh->state = state;
 }
 
@@ -1022,7 +1023,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		num = 0;
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
-		for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
+		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
 			if ((CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
 			     || CHECK_FLAG(nexthop->flags,
 					   NEXTHOP_FLAG_RECURSIVE))
@@ -1115,7 +1116,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty)
 	if (rnh->state) {
 		vty_out(vty, " resolved via %s\n",
 			zebra_route_string(rnh->state->type));
-		for (nexthop = rnh->state->nexthop; nexthop;
+		for (nexthop = rnh->state->ng.nexthop; nexthop;
 		     nexthop = nexthop->next)
 			print_nh(nexthop, vty);
 	} else

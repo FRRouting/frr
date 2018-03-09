@@ -170,7 +170,7 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 	 * Figure out the set of nexthops to be added to the message.
 	 */
 	num_nhs = 0;
-	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+	for (ALL_NEXTHOPS(re->ng, nexthop)) {
 		if (num_nhs >= multipath_num)
 			break;
 

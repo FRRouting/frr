@@ -31,6 +31,7 @@
 
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_pw.h"
+//#include "zebra/zebra_pbr.h"
 
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
@@ -177,6 +178,10 @@ extern int zsend_pw_update(struct zserv *, struct zebra_pw *);
 
 extern int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 				    enum zapi_route_notify_owner note);
+
+struct zebra_pbr_rule;
+extern void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
+				    enum zapi_rule_notify_owner note);
 
 extern void zserv_nexthop_num_warn(const char *, const struct prefix *,
 				   const unsigned int);

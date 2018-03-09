@@ -29,6 +29,7 @@
 #include "table.h"
 #include "queue.h"
 #include "nexthop.h"
+#include "nexthop_group.h"
 #include "vrf.h"
 #include "if.h"
 #include "mpls.h"
@@ -43,7 +44,7 @@ struct route_entry {
 	struct route_entry *prev;
 
 	/* Nexthop structure */
-	struct nexthop *nexthop;
+	struct nexthop_group ng;
 
 	/* Tag */
 	route_tag_t tag;

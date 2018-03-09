@@ -129,6 +129,9 @@ typedef enum {
 	ZEBRA_PW_SET,
 	ZEBRA_PW_UNSET,
 	ZEBRA_PW_STATUS_UPDATE,
+	ZEBRA_RULE_ADD,
+	ZEBRA_RULE_DELETE,
+	ZEBRA_RULE_NOTIFY_OWNER,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -215,6 +218,8 @@ struct zclient {
 	int (*pw_status_update)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*route_notify_owner)(int command, struct zclient *zclient,
 				  uint16_t length, vrf_id_t vrf_id);
+	int (*rule_notify_owner)(int command, struct zclient *zclient,
+				 uint16_t length, vrf_id_t vrf_id);
 };
 
 /* Zebra API message flag. */
@@ -225,6 +230,12 @@ struct zclient {
 #define ZAPI_MESSAGE_MTU      0x10
 #define ZAPI_MESSAGE_SRCPFX   0x20
 #define ZAPI_MESSAGE_LABEL    0x40
+/*
+ * This should only be used by a DAEMON that needs to communicate
+ * the table being used is not in the VRF.  You must pass the
+ * default vrf, else this will be ignored.
+ */
+#define ZAPI_MESSAGE_TABLEID  0x80
 
 /* Zserv protocol message header */
 struct zserv_header {
@@ -289,6 +300,8 @@ struct zapi_route {
 
 	vrf_id_t vrf_id;
 
+	uint32_t tableid;
+
 	struct ethaddr rmac;
 };
 
@@ -348,6 +361,12 @@ enum zapi_route_notify_owner {
 	ZAPI_ROUTE_INSTALLED,
 	ZAPI_ROUTE_REMOVED,
 	ZAPI_ROUTE_REMOVE_FAIL,
+};
+
+enum zapi_rule_notify_owner {
+	ZAPI_RULE_FAIL_INSTALL,
+	ZAPI_RULE_INSTALLED,
+	ZAPI_RULE_REMOVED,
 };
 
 /* Zebra MAC types */
@@ -520,6 +539,10 @@ extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note);
+bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
+			     uint32_t *priority, uint32_t *unique,
+			     ifindex_t *ifindex,
+			     enum zapi_rule_notify_owner *note);
 extern struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);

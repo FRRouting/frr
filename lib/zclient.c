@@ -1058,6 +1058,8 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 		stream_putl(s, api->tag);
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_MTU))
 		stream_putl(s, api->mtu);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+		stream_putl(s, api->tableid);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -1207,6 +1209,8 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		STREAM_GETL(s, api->tag);
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_MTU))
 		STREAM_GETL(s, api->mtu);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+		STREAM_GETL(s, api->tableid);
 
 stream_failure:
 	return 0;
@@ -1226,6 +1230,35 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 	STREAM_GETL(s, t);
 
 	*tableid = t;
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
+bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
+			     uint32_t *priority, uint32_t *unique,
+			     ifindex_t *ifindex,
+			     enum zapi_rule_notify_owner *note)
+{
+	uint32_t prio, seq, uni;
+	ifindex_t ifi;
+
+	STREAM_GET(note, s, sizeof(*note));
+
+	STREAM_GETL(s, seq);
+	STREAM_GETL(s, prio);
+	STREAM_GETL(s, uni);
+	STREAM_GETL(s, ifi);
+
+	if (zclient_debug)
+		zlog_debug("%s: %u %u %u %u", __PRETTY_FUNCTION__,
+			   seq, prio, uni, ifi);
+	*seqno = seq;
+	*priority = prio;
+	*unique = uni;
+	*ifindex = ifi;
 
 	return true;
 
@@ -2377,6 +2410,10 @@ static int zclient_read(struct thread *thread)
 			(*zclient->route_notify_owner)(command, zclient, length,
 						       vrf_id);
 		break;
+	case ZEBRA_RULE_NOTIFY_OWNER:
+		if (zclient->rule_notify_owner)
+			(*zclient->rule_notify_owner)(command, zclient, length,
+						      vrf_id);
 	default:
 		break;
 	}

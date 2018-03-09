@@ -45,6 +45,7 @@ lib_libfrr_la_SOURCES = \
 	lib/nexthop.c \
 	lib/netns_linux.c \
 	lib/netns_other.c \
+	lib/nexthop_group.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
 	lib/plist.c \
@@ -81,6 +82,8 @@ lib_libfrr_la_SOURCES = \
 
 lib/plist_clippy.c: $(CLIPPY_DEPS)
 lib/plist.lo: lib/plist_clippy.c
+lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
+lib/nexthop_group.lo: lib/nexthop_group_clippy.c
 
 pkginclude_HEADERS += \
 	lib/bfd.h \
@@ -124,6 +127,7 @@ pkginclude_HEADERS += \
 	lib/mpls.h \
 	lib/network.h \
 	lib/nexthop.h \
+	lib/nexthop_group.h \
 	lib/ns.h \
 	lib/openbsd-queue.h \
 	lib/openbsd-tree.h \

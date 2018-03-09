@@ -1079,10 +1079,8 @@ static void peer_free(struct peer *peer)
 		XFREE(MTYPE_TMP, peer->notify.data);
 	memset(&peer->notify, 0, sizeof(struct bgp_notify));
 
-	if (peer->clear_node_queue) {
-		work_queue_free(peer->clear_node_queue);
-		peer->clear_node_queue = NULL;
-	}
+	if (peer->clear_node_queue)
+		work_queue_free_and_null(&peer->clear_node_queue);
 
 	bgp_sync_delete(peer);
 
@@ -7639,10 +7637,8 @@ void bgp_terminate(void)
 				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_PEER_UNCONFIG);
 
-	if (bm->process_main_queue) {
-		work_queue_free(bm->process_main_queue);
-		bm->process_main_queue = NULL;
-	}
+	if (bm->process_main_queue)
+		work_queue_free_and_null(&bm->process_main_queue);
 
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);
