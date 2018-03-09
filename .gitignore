@@ -82,3 +82,6 @@ GPATH
 *.lo
 compile_commands.json
 .dirstamp
+
+# clippy generated source
+*_clippy.c
