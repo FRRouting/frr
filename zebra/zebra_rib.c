@@ -1860,6 +1860,7 @@ static const u_char meta_queue_map[ZEBRA_ROUTE_MAX] = {
 		[ZEBRA_ROUTE_VNC_DIRECT_RH] = 3,
 		[ZEBRA_ROUTE_BGP_DIRECT] = 3,
 		[ZEBRA_ROUTE_BGP_DIRECT_EXT] = 3,
+		[ZEBRA_ROUTE_BGP_VPN] = 3,
 		[ZEBRA_ROUTE_BABEL] = 2,
 		[ZEBRA_ROUTE_ALL] = 4, // Shouldn't happen but for safety
 };
