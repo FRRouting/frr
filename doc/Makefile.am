@@ -9,6 +9,10 @@
 # Note the absence of the 'developer' directory here; development docs are
 # never built as part of a regular build. They are only built when explicitly
 # asked for. See comment further down.
+
+# Sphinx is not designed to be invoked multiple times against the same toctree.
+.NOTPARALLEL:
+
 SUBDIRS = manpages user
 AM_MAKEFLAGS = DESTDIR=${DESTDIR} infodir=${infodir} doczdir=${abs_srcdir}
 

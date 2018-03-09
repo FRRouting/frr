@@ -1,6 +1,9 @@
 # Makefile for Sphinx documentation
 #
 
+# Sphinx is not designed to be invoked multiple times against the same toctree.
+.NOTPARALLEL:
+
 # You can set these variables from the command line.
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
