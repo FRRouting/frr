@@ -1058,6 +1058,8 @@ void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
 			dest->selected_fib = NULL;
 		for (ALL_NEXTHOPS(re->nexthop, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+		zsend_route_notify_owner(re, p, ZAPI_ROUTE_REMOVED);
 		break;
 	case SOUTHBOUND_DELETE_FAILURE:
 		/*
@@ -1067,6 +1069,8 @@ void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
 		dest->selected_fib = NULL;
 		zlog_warn("%u:%s: Route Deletion failure", re->vrf_id,
 			  prefix2str(p, buf, sizeof(buf)));
+
+		zsend_route_notify_owner(re, p, ZAPI_ROUTE_REMOVE_FAIL);
 		break;
 	}
 }
