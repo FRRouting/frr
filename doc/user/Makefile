@@ -37,7 +37,7 @@ $(EMPTY_AUTOMAKE_TARGETS):
 # readable in its own right, but we'll also build info and html because those
 # offer sequentially better reading experiences. PDF is not built by default
 # because it takes quite a while.
-all: info html
+all: info
 
 # info and html already have built-in sphinx rules; pdf goes to latexpdf
 pdf: latexpdf
