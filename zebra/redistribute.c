@@ -115,11 +115,12 @@ static void zebra_redistribute(struct zserv *client, int type, u_short instance,
 
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
-					"%s: checking: selected=%d, type=%d, distance=%d, "
+					"%s: client %s vrf %d checking: selected=%d, type=%d, distance=%d, "
 					"zebra_check_addr=%d",
 					__func__,
-					CHECK_FLAG(newre->flags,
-						   ZEBRA_FLAG_SELECTED),
+					zebra_route_string(client->proto),
+					vrf_id, CHECK_FLAG(newre->flags,
+							   ZEBRA_FLAG_SELECTED),
 					newre->type, newre->distance,
 					zebra_check_addr(dst_p));
 
@@ -254,6 +255,12 @@ void zebra_redistribute_add(int command, struct zserv *client, int length,
 	STREAM_GETC(client->ibuf, type);
 	STREAM_GETW(client->ibuf, instance);
 
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug(
+			"%s: client proto %s afi=%d, wants %s, vrf %d, instance=%d",
+			__func__, zebra_route_string(client->proto), afi,
+			zebra_route_string(type), zvrf_id(zvrf), instance);
+
 	if (afi == 0 || afi > AFI_MAX) {
 		zlog_warn("%s: Specified afi %d does not exist",
 			  __PRETTY_FUNCTION__, afi);
@@ -277,6 +284,9 @@ void zebra_redistribute_add(int command, struct zserv *client, int length,
 	} else {
 		if (!vrf_bitmap_check(client->redist[afi][type],
 				      zvrf_id(zvrf))) {
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("%s: setting vrf %d redist bitmap",
+					   __func__, zvrf_id(zvrf));
 			vrf_bitmap_set(client->redist[afi][type],
 				       zvrf_id(zvrf));
 			zebra_redistribute(client, type, 0, zvrf_id(zvrf), afi);
