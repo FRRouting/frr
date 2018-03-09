@@ -149,7 +149,7 @@ void frr_pthread_destroy(struct frr_pthread *fpt);
  *
  * @return frr_thread associated with the provided id, or NULL on error
  */
-struct frr_pthread *frr_pthread_get(unsigned int id);
+struct frr_pthread *frr_pthread_get(uint32_t id);
 
 /*
  * Creates a new pthread and binds it to a frr_pthread.
