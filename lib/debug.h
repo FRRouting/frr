@@ -104,76 +104,77 @@ struct debug_callbacks {
  *
  * MT-Safe
  */
-#define DEBUG_MODE_CHECK(name, type)                                           \
-	CHECK_FLAG_ATOMIC(&(name)->flags, (type)&DEBUG_MODE_ALL)
+#define DEBUG_MODE_CHECK(name, mode)                                           \
+	CHECK_FLAG_ATOMIC(&(name)->flags, (mode)&DEBUG_MODE_ALL)
 
 /*
  * Check if an option bit is set for a debug.
  *
  * MT-Safe
  */
-#define DEBUG_OPT_CHECK(name, type)                                            \
-	CHECK_FLAG_ATOMIC(&(name)->flags, (type)&DEBUG_OPT_ALL)
+#define DEBUG_OPT_CHECK(name, opt)                                             \
+	CHECK_FLAG_ATOMIC(&(name)->flags, (opt)&DEBUG_OPT_ALL)
 
 /*
  * Check if bits are set for a debug.
  *
  * MT-Safe
  */
-#define DEBUG_FLAGS_CHECK(name, type) CHECK_FLAG_ATOMIC(&(name)->flags, (type))
-
-/*
- * Check if any mode is on for a debug.
- *
- * MT-Safe
- */
-#define DEBUG(name) DEBUG_MODE_CHECK((name), DEBUG_MODE_ALL)
+#define DEBUG_FLAGS_CHECK(name, fl) CHECK_FLAG_ATOMIC(&(name)->flags, (fl))
 
 /*
  * Set modes on a debug.
  *
  * MT-Safe
  */
-#define DEBUG_MODE_SET(name, type)                                             \
-	SET_FLAG_ATOMIC(&(name)->flags, (type)&DEBUG_MODE_ALL)
+#define DEBUG_MODE_SET(name, mode, onoff)                                      \
+	do {                                                                   \
+		if (onoff)                                                     \
+			SET_FLAG_ATOMIC(&(name)->flags,                        \
+					(mode)&DEBUG_MODE_ALL);                \
+		else                                                           \
+			UNSET_FLAG_ATOMIC(&(name)->flags,                      \
+					  (mode)&DEBUG_MODE_ALL);              \
+	} while (0)
 
-/*
- * Unset modes on a debug.
- *
- * MT-Safe
- */
-#define DEBUG_MODE_UNSET(name, type)                                           \
-	UNSET_FLAG_ATOMIC(&(name)->flags, (type)&DEBUG_MODE_ALL)
+/* Convenience macros for specific set operations. */
+#define DEBUG_MODE_ON(name, mode) DEBUG_MODE_SET(name, mode, true)
+#define DEBUG_MODE_OFF(name, mode) DEBUG_MODE_SET(name, mode, false)
 
 /*
  * Set options on a debug.
  *
  * MT-Safe
  */
-#define DEBUG_OPT_SET(name, type)                                              \
-	SET_FLAG_ATOMIC(&(name)->flags, (type)&DEBUG_OPT_ALL)
+#define DEBUG_OPT_SET(name, opt, onoff)                                        \
+	do {                                                                   \
+		if (onoff)                                                     \
+			SET_FLAG_ATOMIC(&(name)->flags, (opt)&DEBUG_OPT_ALL);  \
+		else                                                           \
+			UNSET_FLAG_ATOMIC(&(name)->flags,                      \
+					  (opt)&DEBUG_OPT_ALL);                \
+	} while (0)
 
-/*
- * Unset options on a debug.
- *
- * MT-Safe
- */
-#define DEBUG_OPT_UNSET(name, type)                                            \
-	UNSET_FLAG_ATOMIC(&(name)->flags, (type)&DEBUG_OPT_ALL)
+/* Convenience macros for specific set operations. */
+#define DEBUG_OPT_ON(name, opt) DEBUG_OPT_SET(name, opt, true)
+#define DEBUG_OPT_OFF(name, opt) DEBUG_OPT_SET(name, opt, true)
 
 /*
  * Set bits on a debug.
  *
  * MT-Safe
  */
-#define DEBUG_FLAGS_SET(name, type) SET_FLAG_ATOMIC(&(name)->flags, (type))
+#define DEBUG_FLAGS_SET(name, fl, onoff)                                       \
+	do {                                                                   \
+		if (onoff)                                                     \
+			SET_FLAG_ATOMIC(&(name)->flags, (fl));                 \
+		else                                                           \
+			UNSET_FLAG_ATOMIC(&(name)->flags, (fl));               \
+	} while (0)
 
-/*
- * Unset bits on a debug.
- *
- * MT-Safe
- */
-#define DEBUG_FLAGS_UNSET(name, type) UNSET_FLAG_ATOMIC(&(name)->flags, (type))
+/* Convenience macros for specific set operations. */
+#define DEBUG_FLAGS_ON(name, fl) DEBUG_FLAGS_SET(&(name)->flags, (type), true)
+#define DEBUG_FLAGS_OFF(name, fl) DEBUG_FLAGS_SET(&(name)->flags, (type), false)
 
 /*
  * Unset all modes and options on a debug.
@@ -201,6 +202,23 @@ struct debug_callbacks {
 #define DEBUG_NODE2MODE(vtynode)                                               \
 	(((vtynode) == CONFIG_NODE) ? DEBUG_MODE_ALL : DEBUG_MODE_TERM)
 
+/*
+ * Debug at the given level to the default logging destination.
+ *
+ * MT-Safe
+ */
+#define DEBUG(level, name, fmt, ...)                                           \
+	do {                                                                   \
+		if (DEBUG_MODE_CHECK(name, DEBUG_MODE_ALL))                    \
+			zlog_##level(fmt, ##__VA_ARGS__);                      \
+	} while (0)
+
+/* Convenience macros for the various levels. */
+#define DEBUGE(name, fmt, ...) DEBUG(err, name, fmt, ##__VA_ARGS__)
+#define DEBUGW(name, fmt, ...) DEBUG(warn, name, fmt, ##__VA_ARGS__)
+#define DEBUGI(name, fmt, ...) DEBUG(info, name, fmt, ##__VA_ARGS__)
+#define DEBUGN(name, fmt, ...) DEBUG(notice, name, fmt, ##__VA_ARGS__)
+#define DEBUGD(name, fmt, ...) DEBUG(debug, name, fmt, ##__VA_ARGS__)
 
 /*
  * Optional initializer for debugging. Highly recommended.
