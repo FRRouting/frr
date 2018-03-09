@@ -1913,8 +1913,8 @@ int lm_get_label_chunk(struct zclient *zclient, u_char keep,
 			__func__, *start, *end, keep, response_keep);
 	}
 	/* sanity */
-	if (*start > *end || *start < MPLS_MIN_UNRESERVED_LABEL
-	    || *end > MPLS_MAX_UNRESERVED_LABEL) {
+	if (*start > *end || *start < MPLS_LABEL_UNRESERVED_MIN
+	    || *end > MPLS_LABEL_UNRESERVED_MAX) {
 		zlog_err("%s: Invalid Label chunk: %u - %u", __func__, *start,
 			 *end);
 		return -1;

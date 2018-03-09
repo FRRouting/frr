@@ -411,12 +411,13 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, zebra_fec_t *fec,
 	afi_t afi;
 
 	/* Uninstall label forwarding entry, if previously installed. */
-	if (old_label != MPLS_INVALID_LABEL && old_label != MPLS_IMP_NULL_LABEL)
+	if (old_label != MPLS_INVALID_LABEL
+	    && old_label != MPLS_LABEL_IMPLICIT_NULL)
 		lsp_uninstall(zvrf, old_label);
 
 	/* Install label forwarding entry corr. to new label, if needed. */
 	if (fec->label == MPLS_INVALID_LABEL
-	    || fec->label == MPLS_IMP_NULL_LABEL)
+	    || fec->label == MPLS_LABEL_IMPLICIT_NULL)
 		return 0;
 
 	afi = family2afi(PREFIX_FAMILY(&fec->rn->p));
@@ -1793,7 +1794,7 @@ int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 	/* We cannot install a label forwarding entry if local label is the
 	 * implicit-null label.
 	 */
-	if (fec->label == MPLS_IMP_NULL_LABEL)
+	if (fec->label == MPLS_LABEL_IMPLICIT_NULL)
 		return 0;
 
 	if (lsp_install(zvrf, fec->label, rn, re))
@@ -2537,8 +2538,8 @@ int zebra_mpls_lsp_label_consistent(struct zebra_vrf *zvrf,
 			int cur_op, new_op;
 
 			cur_op = (slsp->snhlfe_list->out_label
-				  == MPLS_IMP_NULL_LABEL);
-			new_op = (out_label == MPLS_IMP_NULL_LABEL);
+				  == MPLS_LABEL_IMPLICIT_NULL);
+			new_op = (out_label == MPLS_LABEL_IMPLICIT_NULL);
 			if (cur_op != new_op)
 				return 0;
 		}
@@ -2810,11 +2811,11 @@ int zebra_mpls_write_lsp_config(struct vty *vty, struct zebra_vrf *zvrf)
 
 			snhlfe2str(snhlfe, buf, sizeof(buf));
 			switch (snhlfe->out_label) {
-			case MPLS_V4_EXP_NULL_LABEL:
-			case MPLS_V6_EXP_NULL_LABEL:
+			case MPLS_LABEL_IPV4_EXPLICIT_NULL:
+			case MPLS_LABEL_IPV6_EXPLICIT_NULL:
 				strlcpy(lstr, "explicit-null", sizeof(lstr));
 				break;
-			case MPLS_IMP_NULL_LABEL:
+			case MPLS_LABEL_IMPLICIT_NULL:
 				strlcpy(lstr, "implicit-null", sizeof(lstr));
 				break;
 			default:

@@ -852,7 +852,7 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 		char label_buf1[20];
 
 		for (i = 0; i < nh_label->num_labels; i++) {
-			if (nh_label->label[i] != MPLS_IMP_NULL_LABEL) {
+			if (nh_label->label[i] != MPLS_LABEL_IMPLICIT_NULL) {
 				bos = ((i == (nh_label->num_labels - 1)) ? 1
 									 : 0);
 				out_lse[i] = mpls_lse_encode(nh_label->label[i],
@@ -1062,7 +1062,7 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 		char label_buf1[20];
 
 		for (i = 0; i < nh_label->num_labels; i++) {
-			if (nh_label->label[i] != MPLS_IMP_NULL_LABEL) {
+			if (nh_label->label[i] != MPLS_LABEL_IMPLICIT_NULL) {
 				bos = ((i == (nh_label->num_labels - 1)) ? 1
 									 : 0);
 				out_lse[i] = mpls_lse_encode(nh_label->label[i],
