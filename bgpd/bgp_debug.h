@@ -72,6 +72,7 @@ extern unsigned long conf_bgp_debug_zebra;
 extern unsigned long conf_bgp_debug_allow_martians;
 extern unsigned long conf_bgp_debug_nht;
 extern unsigned long conf_bgp_debug_update_groups;
+extern unsigned long conf_bgp_debug_vpn;
 
 extern unsigned long term_bgp_debug_as4;
 extern unsigned long term_bgp_debug_neighbor_events;
@@ -83,6 +84,7 @@ extern unsigned long term_bgp_debug_zebra;
 extern unsigned long term_bgp_debug_allow_martians;
 extern unsigned long term_bgp_debug_nht;
 extern unsigned long term_bgp_debug_update_groups;
+extern unsigned long term_bgp_debug_vpn;
 
 extern struct list *bgp_debug_neighbor_events_peers;
 extern struct list *bgp_debug_keepalive_peers;
@@ -111,6 +113,10 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_ALLOW_MARTIANS      0x01
 #define BGP_DEBUG_NHT                 0x01
 #define BGP_DEBUG_UPDATE_GROUPS       0x01
+#define BGP_DEBUG_VPN_LEAK_FROM_VRF   0x01
+#define BGP_DEBUG_VPN_LEAK_TO_VRF     0x02
+#define BGP_DEBUG_VPN_LEAK_RMAP_EVENT 0x04
+#define BGP_DEBUG_VPN_LEAK_LABEL      0x08
 
 #define BGP_DEBUG_PACKET_SEND         0x01
 #define BGP_DEBUG_PACKET_SEND_DETAIL  0x02

@@ -71,4 +71,5 @@ extern int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 					       safi_t *safi, struct bgp **bgp);
 extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 				safi_t safi, u_char use_json);
+extern void bgp_vpn_policy_config_write(struct vty *vty, struct bgp *bgp);
 #endif /* _QUAGGA_BGP_VTY_H */
