@@ -2850,11 +2850,6 @@ static int zserv_read(struct thread *thread)
 #else
 	int packets = zebrad.packets_to_process;
 #endif
-	struct zmsghdr hdr;
-	ssize_t nb;
-	bool hdrvalid;
-	char errmsg[256];
-
 	/* Get thread data.  Reset reading thread because I'm running. */
 	sock = THREAD_FD(thread);
 	client = THREAD_ARG(thread);
@@ -2865,6 +2860,11 @@ static int zserv_read(struct thread *thread)
 	}
 
 	while (packets) {
+		struct zmsghdr hdr;
+		ssize_t nb;
+		bool hdrvalid;
+		char errmsg[256];
+
 		already = stream_get_endp(client->ibuf_work);
 
 		/* Read length and command (if we don't have it already). */
