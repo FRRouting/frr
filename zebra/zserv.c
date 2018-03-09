@@ -636,7 +636,7 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 		 * chain of nexthops. */
 		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-				num += zsend_write_nexthop(s, nexthop);
+				num += zserv_encode_nexthop(s, nexthop);
 
 		stream_putc_at(s, nump, num); /* store nexthop_num */
 	} else {
@@ -706,8 +706,8 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 	struct stream *s;
 
 	if (IS_ZEBRA_DEBUG_PACKET) {
-		zlog_debug("%s: Notifying %u",
-			   __PRETTY_FUNCTION__, rule->unique);
+		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
+			   rule->unique);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
@@ -1089,7 +1089,6 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 stream_failure:
 	return;
 }
-
 
 
 /*

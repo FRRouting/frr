@@ -237,7 +237,7 @@ struct zclient {
  */
 #define ZAPI_MESSAGE_TABLEID  0x80
 
-#define ZSERV_VERSION	5
+#define ZSERV_VERSION 5
 /* Zserv protocol message header */
 struct zmsghdr {
 	uint16_t length;
