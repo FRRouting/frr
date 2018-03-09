@@ -13,4 +13,3 @@ TAGS
 .arch-ids
 *~
 *.loT
-zebra_vty_clippy.c

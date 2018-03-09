@@ -13,6 +13,5 @@ TAGS
 .arch-ids
 *~
 *.loT
-*clippy.c
 sharpd
 sharpd.conf
