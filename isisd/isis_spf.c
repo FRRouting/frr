@@ -85,10 +85,10 @@ struct isis_vertex {
 		struct prefix prefix;
 	} N;
 
-	u_int32_t d_N;	/* d(N) Distance from this IS      */
-	u_int16_t depth;      /* The depth in the imaginary tree */
-	struct list *Adj_N;   /* {Adj(N)} next hop or neighbor list */
-	struct list *parents; /* list of parents for ECMP */
+	u_int32_t d_N;	       /* d(N) Distance from this IS      */
+	u_int16_t depth;       /* The depth in the imaginary tree */
+	struct list *Adj_N;    /* {Adj(N)} next hop or neighbor list */
+	struct list *parents;  /* list of parents for ECMP */
 	uint64_t insert_counter;
 };
 
@@ -276,12 +276,11 @@ static void isis_vertex_queue_delete(struct isis_vertex_queue *queue,
 struct isis_spftree {
 	struct isis_vertex_queue paths; /* the SPT */
 	struct isis_vertex_queue tents; /* TENT */
-	struct isis_area *area;		/* back pointer to area */
-	unsigned int runcount;		/* number of runs since uptime */
-	time_t last_run_timestamp;      /* last run timestamp as wall time for
-					   display */
-	time_t last_run_monotime; /* last run as monotime for scheduling */
-	time_t last_run_duration; /* last run duration in msec */
+	struct isis_area *area;    /* back pointer to area */
+	unsigned int runcount;     /* number of runs since uptime */
+	time_t last_run_timestamp; /* last run timestamp as wall time for display */
+	time_t last_run_monotime;  /* last run as monotime for scheduling */
+	time_t last_run_duration;  /* last run duration in msec */
 
 	uint16_t mtid;
 	int family;
@@ -831,10 +830,10 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 		return ISIS_OK;
 
 	/* RFC3787 section 4 SHOULD ignore overload bit in pseudo LSPs */
-	bool no_overload =
-		(pseudo_lsp || (spftree->mtid == ISIS_MT_IPV4_UNICAST
+	bool no_overload = (pseudo_lsp
+			    || (spftree->mtid == ISIS_MT_IPV4_UNICAST
 				&& !ISIS_MASK_LSP_OL_BIT(lsp->hdr.lsp_bits))
-		 || (mt_router_info && !mt_router_info->overload));
+			    || (mt_router_info && !mt_router_info->overload));
 
 lspfragloop:
 	if (lsp->hdr.seqno == 0) {
@@ -1430,8 +1429,7 @@ int isis_spf_schedule(struct isis_area *area, int level)
 	/* wait configured min_spf_interval before doing the SPF */
 	long timer;
 	if (diff >= area->min_spf_interval[level - 1]) {
-		/* Last run is more than min interval ago, schedule immediate
-		 * run */
+		/* Last run is more than min interval ago, schedule immediate run */
 		timer = 0;
 	} else {
 		timer = area->min_spf_interval[level - 1] - diff;
@@ -1549,9 +1547,7 @@ DEFUN (show_isis_topology,
 				continue;
 
 			if (area->ip_circuits > 0 && area->spftree[level - 1]
-			    && isis_vertex_queue_count(
-				       &area->spftree[level - 1]->paths)
-				       > 0) {
+			    && isis_vertex_queue_count(&area->spftree[level - 1]->paths) > 0) {
 				vty_out(vty,
 					"IS-IS paths to level-%d routers that speak IP\n",
 					level);
@@ -1561,9 +1557,7 @@ DEFUN (show_isis_topology,
 				vty_out(vty, "\n");
 			}
 			if (area->ipv6_circuits > 0 && area->spftree6[level - 1]
-			    && isis_vertex_queue_count(
-				       &area->spftree6[level - 1]->paths)
-				       > 0) {
+			    && isis_vertex_queue_count(&area->spftree6[level - 1]->paths) > 0) {
 				vty_out(vty,
 					"IS-IS paths to level-%d routers that speak IPv6\n",
 					level);

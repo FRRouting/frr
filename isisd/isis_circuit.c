@@ -382,12 +382,10 @@ static uint8_t isis_circuit_id_gen(struct interface *ifp)
 	/* Circuit ids MUST be unique for any broadcast circuits. Otherwise,
 	 * Pseudo-Node LSPs cannot be generated correctly.
 	 *
-	 * Currently, allocate one circuit ID for any circuit, limiting the
-	 * total
+	 * Currently, allocate one circuit ID for any circuit, limiting the total
 	 * numer of circuits IS-IS can run on to 255.
 	 *
-	 * We should revisit this when implementing 3-way adjacencies for p2p,
-	 * since
+	 * We should revisit this when implementing 3-way adjacencies for p2p, since
 	 * we then have extended interface IDs available.
 	 */
 	uint8_t id = ifp->ifindex;

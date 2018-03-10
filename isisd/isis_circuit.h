@@ -82,9 +82,8 @@ struct isis_circuit {
 	struct thread *t_send_csnp[2];
 	struct thread *t_send_psnp[2];
 	struct thread *t_send_lsp;
-	struct list *lsp_queue; /* LSPs to be txed (both levels) */
-	struct isis_lsp_hash
-		*lsp_hash; /* Hashtable synchronized with lsp_queue */
+	struct list *lsp_queue;	/* LSPs to be txed (both levels) */
+	struct isis_lsp_hash *lsp_hash; /* Hashtable synchronized with lsp_queue */
 	time_t lsp_queue_last_push[2]; /* timestamp used to enforce transmit
 					* interval;
 					* for scalability, use one timestamp per

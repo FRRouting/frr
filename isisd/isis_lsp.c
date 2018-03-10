@@ -1875,15 +1875,12 @@ int lsp_tick(struct thread *thread)
 					if (!circuit->lsp_queue)
 						continue;
 
-					if (now
-						    - circuit->lsp_queue_last_push
-							      [level]
+					if (now - circuit->lsp_queue_last_push[level]
 					    < MIN_LSP_RETRANS_INTERVAL) {
 						continue;
 					}
 
-					circuit->lsp_queue_last_push[level] =
-						now;
+					circuit->lsp_queue_last_push[level] = now;
 
 					for (ALL_LIST_ELEMENTS_RO(
 						     lsp_list, lspnode, lsp)) {
