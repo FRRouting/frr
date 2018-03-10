@@ -85,4 +85,7 @@ void nexthop_group_init(
 
 extern struct nexthop *nexthop_exists(struct nexthop_group *nhg,
 				      struct nexthop *nh);
+
+extern struct nexthop_group_cmd *nhgc_find(const char *name);
+
 #endif
