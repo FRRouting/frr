@@ -574,7 +574,11 @@ void pim_if_addr_add(struct connected *ifc)
 			/* if addr new, add IGMP socket */
 			if (ifc->address->family == AF_INET)
 				pim_igmp_sock_add(pim_ifp->igmp_socket_list,
-						  ifaddr, ifp);
+						  ifaddr, ifp, false);
+		} else if (igmp->mtrace_only) {
+			igmp_sock_delete(igmp);
+			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
+					  ifp, false);
 		}
 
 		/* Replay Static IGMP groups */
@@ -611,6 +615,20 @@ void pim_if_addr_add(struct connected *ifc)
 			}
 		}
 	} /* igmp */
+	else {
+		struct igmp_sock *igmp;
+
+		/* lookup IGMP socket */
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
+						   ifaddr);
+		if (ifc->address->family == AF_INET) {
+			if (igmp)
+				igmp_sock_delete(igmp);
+			/* if addr new, add IGMP socket */
+			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
+					  ifp, true);
+		}
+	} /* igmp mtrace only */
 
 	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
 
