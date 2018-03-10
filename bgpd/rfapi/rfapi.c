@@ -383,9 +383,8 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 
 	vnc_zlog_debug_verbose(
 		"%s: peer=%p, prefix=%s, prd=%s afi=%d, safi=%d bn=%p, bn->info=%p",
-		__func__, peer, buf,
-		prefix_rd2str(prd, buf2, sizeof(buf2)), afi, safi, bn,
-		(bn ? bn->info : NULL));
+		__func__, peer, buf, prefix_rd2str(prd, buf2, sizeof(buf2)),
+		afi, safi, bn, (bn ? bn->info : NULL));
 
 	for (bi = (bn ? bn->info : NULL); bi; bi = bi->next) {
 
@@ -749,9 +748,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	if (lifetime && *lifetime != RFAPI_INFINITE_LIFETIME) {
 		uint32_t lt;
 
-		encaptlv =
-			XCALLOC(MTYPE_ENCAP_TLV,
-				sizeof(struct bgp_attr_encap_subtlv) + 4);
+		encaptlv = XCALLOC(MTYPE_ENCAP_TLV,
+				   sizeof(struct bgp_attr_encap_subtlv) + 4);
 		assert(encaptlv);
 		encaptlv->type =
 			BGP_VNC_SUBTLV_TYPE_LIFETIME; /* prefix lifetime */
@@ -795,8 +793,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 				 */
 				encaptlv = XCALLOC(
 					MTYPE_ENCAP_TLV,
-					sizeof(struct bgp_attr_encap_subtlv)
-					+ 2 + hop->length);
+					sizeof(struct bgp_attr_encap_subtlv) + 2
+						+ hop->length);
 				assert(encaptlv);
 				encaptlv->type =
 					BGP_VNC_SUBTLV_TYPE_RFPOPTION; /* RFP

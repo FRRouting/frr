@@ -45,17 +45,16 @@
 #include "privs.h"
 
 /* tcpdump -i eth0 'isis' -dd */
-static struct sock_filter isisfilter[] =
-	{
-		/* NB: we're in SOCK_DGRAM, so src/dst mac + length are stripped
-		 * off!
-		 * (OTOH it's a bit more lower-layer agnostic and might work
-		 * over GRE?) */
-		/*	{ 0x28, 0, 0, 0x0000000c - 14 }, */
-		/*	{ 0x25, 5, 0, 0x000005dc }, */
-		{0x28, 0, 0, 0x0000000e - 14}, {0x15, 0, 3, 0x0000fefe},
-		{0x30, 0, 0, 0x00000011 - 14}, {0x15, 0, 1, 0x00000083},
-		{0x6, 0, 0, 0x00040000},       {0x6, 0, 0, 0x00000000},
+static struct sock_filter isisfilter[] = {
+	/* NB: we're in SOCK_DGRAM, so src/dst mac + length are stripped
+	 * off!
+	 * (OTOH it's a bit more lower-layer agnostic and might work
+	 * over GRE?) */
+	/*	{ 0x28, 0, 0, 0x0000000c - 14 }, */
+	/*	{ 0x25, 5, 0, 0x000005dc }, */
+	{0x28, 0, 0, 0x0000000e - 14}, {0x15, 0, 3, 0x0000fefe},
+	{0x30, 0, 0, 0x00000011 - 14}, {0x15, 0, 1, 0x00000083},
+	{0x6, 0, 0, 0x00040000},       {0x6, 0, 0, 0x00000000},
 };
 
 static struct sock_fprog bpf = {

@@ -248,8 +248,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
 		     bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
 	stream_set_getp(circuit->rcv_stream, 0);
 
-	memcpy(ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETH_ALEN,
-	       ETH_ALEN);
+	memcpy(ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETH_ALEN, ETH_ALEN);
 
 	if (ioctl(circuit->fd, BIOCFLUSH, &one) < 0)
 		zlog_warn("Flushing failed: %s", safe_strerror(errno));

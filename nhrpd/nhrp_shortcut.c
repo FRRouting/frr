@@ -28,7 +28,7 @@ static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
 
 	if (s->expiring && s->cache && s->cache->used) {
 		debugf(NHRP_DEBUG_ROUTE, "Shortcut %s used and expiring",
-			prefix2str(s->p, buf, sizeof buf));
+		       prefix2str(s->p, buf, sizeof buf));
 		nhrp_shortcut_send_resolution_req(s);
 	}
 }
@@ -38,22 +38,25 @@ static int nhrp_shortcut_do_expire(struct thread *t)
 	struct nhrp_shortcut *s = THREAD_ARG(t);
 
 	s->t_timer = NULL;
-	thread_add_timer(master, nhrp_shortcut_do_purge, s,
-			 s->holding_time / 3, &s->t_timer);
+	thread_add_timer(master, nhrp_shortcut_do_purge, s, s->holding_time / 3,
+			 &s->t_timer);
 	s->expiring = 1;
 	nhrp_shortcut_check_use(s);
 
 	return 0;
 }
 
-static void nhrp_shortcut_cache_notify(struct notifier_block *n, unsigned long cmd)
+static void nhrp_shortcut_cache_notify(struct notifier_block *n,
+				       unsigned long cmd)
 {
-	struct nhrp_shortcut *s = container_of(n, struct nhrp_shortcut, cache_notifier);
+	struct nhrp_shortcut *s =
+		container_of(n, struct nhrp_shortcut, cache_notifier);
 
 	switch (cmd) {
 	case NOTIFY_CACHE_UP:
 		if (!s->route_installed) {
-			nhrp_route_announce(1, s->type, s->p, NULL, &s->cache->remote_addr, 0);
+			nhrp_route_announce(1, s->type, s->p, NULL,
+					    &s->cache->remote_addr, 0);
 			s->route_installed = 1;
 		}
 		break;
@@ -63,7 +66,8 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n, unsigned long c
 	case NOTIFY_CACHE_DOWN:
 	case NOTIFY_CACHE_DELETE:
 		if (s->route_installed) {
-			nhrp_route_announce(0, NHRP_CACHE_INVALID, s->p, NULL, NULL, 0);
+			nhrp_route_announce(0, NHRP_CACHE_INVALID, s->p, NULL,
+					    NULL, 0);
 			s->route_installed = 0;
 		}
 		if (cmd == NOTIFY_CACHE_DELETE)
@@ -72,7 +76,9 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n, unsigned long c
 	}
 }
 
-static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s, enum nhrp_cache_type type, struct nhrp_cache *c, int holding_time)
+static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
+					 enum nhrp_cache_type type,
+					 struct nhrp_cache *c, int holding_time)
 {
 	s->type = type;
 	if (c != s->cache) {
@@ -82,15 +88,19 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s, enum nhrp_cach
 		}
 		s->cache = c;
 		if (s->cache) {
-			nhrp_cache_notify_add(s->cache, &s->cache_notifier, nhrp_shortcut_cache_notify);
+			nhrp_cache_notify_add(s->cache, &s->cache_notifier,
+					      nhrp_shortcut_cache_notify);
 			if (s->cache->route_installed) {
-				/* Force renewal of Zebra announce on prefix change */
+				/* Force renewal of Zebra announce on prefix
+				 * change */
 				s->route_installed = 0;
-				nhrp_shortcut_cache_notify(&s->cache_notifier, NOTIFY_CACHE_UP);
+				nhrp_shortcut_cache_notify(&s->cache_notifier,
+							   NOTIFY_CACHE_UP);
 			}
 		}
 		if (!s->cache || !s->cache->route_installed)
-			nhrp_shortcut_cache_notify(&s->cache_notifier, NOTIFY_CACHE_DOWN);
+			nhrp_shortcut_cache_notify(&s->cache_notifier,
+						   NOTIFY_CACHE_DOWN);
 	}
 	if (s->type == NHRP_CACHE_NEGATIVE && !s->route_installed) {
 		nhrp_route_announce(1, s->type, s->p, NULL, NULL, 0);
@@ -119,7 +129,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s)
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	debugf(NHRP_DEBUG_ROUTE, "Shortcut %s purged",
-		prefix2str(s->p, buf, sizeof buf));
+	       prefix2str(s->p, buf, sizeof buf));
 
 	nhrp_shortcut_update_binding(s, NHRP_CACHE_INVALID, NULL, 0);
 
@@ -153,12 +163,13 @@ static struct nhrp_shortcut *nhrp_shortcut_get(struct prefix *p)
 
 	rn = route_node_get(shortcut_rib[afi], p);
 	if (!rn->info) {
-		s = rn->info = XCALLOC(MTYPE_NHRP_SHORTCUT, sizeof(struct nhrp_shortcut));
+		s = rn->info = XCALLOC(MTYPE_NHRP_SHORTCUT,
+				       sizeof(struct nhrp_shortcut));
 		s->type = NHRP_CACHE_INVALID;
 		s->p = &rn->p;
 
 		debugf(NHRP_DEBUG_ROUTE, "Shortcut %s created",
-			prefix2str(s->p, buf, sizeof buf));
+		       prefix2str(s->p, buf, sizeof buf));
 	} else {
 		s = rn->info;
 		route_unlock_node(rn);
@@ -166,15 +177,18 @@ static struct nhrp_shortcut *nhrp_shortcut_get(struct prefix *p)
 	return s;
 }
 
-static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid, void *arg)
+static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
+					      void *arg)
 {
 	struct nhrp_packet_parser *pp = arg;
-	struct nhrp_shortcut *s = container_of(reqid, struct nhrp_shortcut, reqid);
+	struct nhrp_shortcut *s =
+		container_of(reqid, struct nhrp_shortcut, reqid);
 	struct nhrp_shortcut *ps;
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
 	struct nhrp_cache *c = NULL;
-	union sockunion *proto, cie_proto, *nbma, *nbma_natoa, cie_nbma, nat_nbma;
+	union sockunion *proto, cie_proto, *nbma, *nbma_natoa, cie_nbma,
+		nat_nbma;
 	struct prefix prefix, route_prefix;
 	struct zbuf extpl;
 	char bufp[PREFIX_STRLEN], buf[3][SU_ADDRSTRLEN];
@@ -185,12 +199,16 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid, void *ar
 	thread_add_timer(master, nhrp_shortcut_do_purge, s, 1, &s->t_timer);
 
 	if (pp->hdr->type != NHRP_PACKET_RESOLUTION_REPLY) {
-		if (pp->hdr->type == NHRP_PACKET_ERROR_INDICATION &&
-		    pp->hdr->u.error.code == NHRP_ERROR_PROTOCOL_ADDRESS_UNREACHABLE) {
-			debugf(NHRP_DEBUG_COMMON, "Shortcut: Resolution: Protocol address unreachable");
-			nhrp_shortcut_update_binding(s, NHRP_CACHE_NEGATIVE, NULL, holding_time);
+		if (pp->hdr->type == NHRP_PACKET_ERROR_INDICATION
+		    && pp->hdr->u.error.code
+			       == NHRP_ERROR_PROTOCOL_ADDRESS_UNREACHABLE) {
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: Resolution: Protocol address unreachable");
+			nhrp_shortcut_update_binding(s, NHRP_CACHE_NEGATIVE,
+						     NULL, holding_time);
 		} else {
-			debugf(NHRP_DEBUG_COMMON, "Shortcut: Resolution failed");
+			debugf(NHRP_DEBUG_COMMON,
+			       "Shortcut: Resolution failed");
 		}
 		return;
 	}
@@ -208,19 +226,22 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid, void *ar
 	/* Minor sanity check */
 	prefix2sockunion(s->p, &cie_proto);
 	if (!sockunion_same(&cie_proto, &pp->dst_proto)) {
-		debugf(NHRP_DEBUG_COMMON, "Shortcut: Warning dst_proto altered from %s to %s",
-			sockunion2str(&cie_proto, buf[0], sizeof buf[0]),
-			sockunion2str(&pp->dst_proto, buf[1], sizeof buf[1]));
+		debugf(NHRP_DEBUG_COMMON,
+		       "Shortcut: Warning dst_proto altered from %s to %s",
+		       sockunion2str(&cie_proto, buf[0], sizeof buf[0]),
+		       sockunion2str(&pp->dst_proto, buf[1], sizeof buf[1]));
 	}
 
 	/* One or more CIEs should be given as reply, we support only one */
 	cie = nhrp_cie_pull(&pp->payload, pp->hdr, &cie_nbma, &cie_proto);
 	if (!cie || cie->code != NHRP_CODE_SUCCESS) {
-		debugf(NHRP_DEBUG_COMMON, "Shortcut: CIE code %d", cie ? cie->code : -1);
+		debugf(NHRP_DEBUG_COMMON, "Shortcut: CIE code %d",
+		       cie ? cie->code : -1);
 		return;
 	}
 
-	proto = sockunion_family(&cie_proto) != AF_UNSPEC ? &cie_proto : &pp->dst_proto;
+	proto = sockunion_family(&cie_proto) != AF_UNSPEC ? &cie_proto
+							  : &pp->dst_proto;
 	if (cie->holding_time)
 		holding_time = htons(cie->holding_time);
 
@@ -228,19 +249,22 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid, void *ar
 	prefix.prefixlen = cie->prefix_length;
 
 	/* Sanity check prefix length */
-	if (prefix.prefixlen >= 8*prefix_blen(&prefix) || prefix.prefixlen == 0) {
-		prefix.prefixlen = 8*prefix_blen(&prefix);
-	} else if (nhrp_route_address(NULL, &pp->dst_proto, &route_prefix, NULL) == NHRP_ROUTE_NBMA_NEXTHOP) {
+	if (prefix.prefixlen >= 8 * prefix_blen(&prefix)
+	    || prefix.prefixlen == 0) {
+		prefix.prefixlen = 8 * prefix_blen(&prefix);
+	} else if (nhrp_route_address(NULL, &pp->dst_proto, &route_prefix, NULL)
+		   == NHRP_ROUTE_NBMA_NEXTHOP) {
 		if (prefix.prefixlen < route_prefix.prefixlen)
 			prefix.prefixlen = route_prefix.prefixlen;
 	}
 
-	debugf(NHRP_DEBUG_COMMON, "Shortcut: %s is at proto %s cie-nbma %s nat-nbma %s cie-holdtime %d",
-		prefix2str(&prefix, bufp, sizeof bufp),
-		sockunion2str(proto, buf[0], sizeof buf[0]),
-		sockunion2str(&cie_nbma, buf[1], sizeof buf[1]),
-		sockunion2str(&nat_nbma, buf[2], sizeof buf[2]),
-		htons(cie->holding_time));
+	debugf(NHRP_DEBUG_COMMON,
+	       "Shortcut: %s is at proto %s cie-nbma %s nat-nbma %s cie-holdtime %d",
+	       prefix2str(&prefix, bufp, sizeof bufp),
+	       sockunion2str(proto, buf[0], sizeof buf[0]),
+	       sockunion2str(&cie_nbma, buf[1], sizeof buf[1]),
+	       sockunion2str(&nat_nbma, buf[2], sizeof buf[2]),
+	       htons(cie->holding_time));
 
 	/* Update cache entry for the protocol to nbma binding */
 	if (sockunion_family(&nat_nbma) != AF_UNSPEC) {
@@ -253,10 +277,10 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid, void *ar
 	if (sockunion_family(nbma)) {
 		c = nhrp_cache_get(pp->ifp, proto, 1);
 		if (c) {
-			nhrp_cache_update_binding(
-					c, NHRP_CACHE_CACHED, holding_time,
-					nhrp_peer_get(pp->ifp, nbma),
-					htons(cie->mtu), nbma_natoa);
+			nhrp_cache_update_binding(c, NHRP_CACHE_CACHED,
+						  holding_time,
+						  nhrp_peer_get(pp->ifp, nbma),
+						  htons(cie->mtu), nbma_natoa);
 		}
 	}
 
@@ -265,7 +289,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid, void *ar
 		ps = nhrp_shortcut_get(&prefix);
 		if (ps) {
 			ps->addr = s->addr;
-			nhrp_shortcut_update_binding(ps, NHRP_CACHE_CACHED, c, holding_time);
+			nhrp_shortcut_update_binding(ps, NHRP_CACHE_CACHED, c,
+						     holding_time);
 		}
 	}
 
@@ -280,7 +305,8 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 	struct nhrp_interface *nifp;
 	struct nhrp_peer *peer;
 
-	if (nhrp_route_address(NULL, &s->addr, NULL, &peer) != NHRP_ROUTE_NBMA_NEXTHOP)
+	if (nhrp_route_address(NULL, &s->addr, NULL, &peer)
+	    != NHRP_ROUTE_NBMA_NEXTHOP)
 		return;
 
 	if (s->type == NHRP_CACHE_INVALID || s->type == NHRP_CACHE_NEGATIVE)
@@ -291,12 +317,16 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s)
 
 	/* Create request */
 	zb = zbuf_alloc(1500);
-	hdr = nhrp_packet_push(zb, NHRP_PACKET_RESOLUTION_REQUEST,
-		&nifp->nbma, &nifp->afi[family2afi(sockunion_family(&s->addr))].addr, &s->addr);
-	hdr->u.request_id = htonl(nhrp_reqid_alloc(&nhrp_packet_reqid, &s->reqid, nhrp_shortcut_recv_resolution_rep));
-	hdr->flags = htons(NHRP_FLAG_RESOLUTION_SOURCE_IS_ROUTER |
-			   NHRP_FLAG_RESOLUTION_AUTHORATIVE |
-			   NHRP_FLAG_RESOLUTION_SOURCE_STABLE);
+	hdr = nhrp_packet_push(
+		zb, NHRP_PACKET_RESOLUTION_REQUEST, &nifp->nbma,
+		&nifp->afi[family2afi(sockunion_family(&s->addr))].addr,
+		&s->addr);
+	hdr->u.request_id =
+		htonl(nhrp_reqid_alloc(&nhrp_packet_reqid, &s->reqid,
+				       nhrp_shortcut_recv_resolution_rep));
+	hdr->flags = htons(NHRP_FLAG_RESOLUTION_SOURCE_IS_ROUTER
+			   | NHRP_FLAG_RESOLUTION_AUTHORATIVE
+			   | NHRP_FLAG_RESOLUTION_SOURCE_STABLE);
 
 	/* RFC2332 - One or zero CIEs, if CIE is present contains:
 	 *  - Prefix length: widest acceptable prefix we accept (if U set, 0xff)
@@ -346,17 +376,21 @@ void nhrp_shortcut_terminate(void)
 	route_table_finish(shortcut_rib[AFI_IP6]);
 }
 
-void nhrp_shortcut_foreach(afi_t afi, void (*cb)(struct nhrp_shortcut *, void *), void *ctx)
+void nhrp_shortcut_foreach(afi_t afi,
+			   void (*cb)(struct nhrp_shortcut *, void *),
+			   void *ctx)
 {
 	struct route_table *rt = shortcut_rib[afi];
 	struct route_node *rn;
 	route_table_iter_t iter;
 
-	if (!rt) return;
+	if (!rt)
+		return;
 
 	route_table_iter_init(&iter, rt);
 	while ((rn = route_table_iter_next(&iter)) != NULL) {
-		if (rn->info) cb(rn->info, ctx);
+		if (rn->info)
+			cb(rn->info, ctx);
 	}
 	route_table_iter_cleanup(&iter);
 }
@@ -401,9 +435,8 @@ static void nhrp_shortcut_purge_prefix(struct nhrp_shortcut *s, void *ctx)
 void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted)
 {
 	struct purge_ctx pctx = {
-		.p = p,
-		.deleted = deleted,
+		.p = p, .deleted = deleted,
 	};
-	nhrp_shortcut_foreach(family2afi(PREFIX_FAMILY(p)), nhrp_shortcut_purge_prefix, &pctx);
+	nhrp_shortcut_foreach(family2afi(PREFIX_FAMILY(p)),
+			      nhrp_shortcut_purge_prefix, &pctx);
 }
-

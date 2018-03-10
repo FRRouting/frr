@@ -185,13 +185,11 @@ struct ospf6_intra_prefix_lsa {
 				0, &(oi)->thread_intra_prefix_lsa);            \
 	} while (0)
 
-#define OSPF6_AS_EXTERN_LSA_SCHEDULE(oi)				       \
+#define OSPF6_AS_EXTERN_LSA_SCHEDULE(oi)                                       \
 	do {                                                                   \
 		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
-			thread_add_event(                                      \
-				master,                                        \
-				ospf6_orig_as_external_lsa, oi,		       \
-				0, &(oi)->thread_as_extern_lsa);               \
+			thread_add_event(master, ospf6_orig_as_external_lsa,   \
+					 oi, 0, &(oi)->thread_as_extern_lsa);  \
 	} while (0)
 
 #define OSPF6_NETWORK_LSA_EXECUTE(oi)                                          \

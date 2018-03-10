@@ -451,9 +451,8 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 		/* Get back the object */
 		rte->nexthop = newinfo.nexthop_out;
 		rte->tag = htons(newinfo.tag_out); /* XXX */
-		rte->metric =
-			newinfo.metric_out; /* XXX: the routemap uses the
-					       metric_out field */
+		rte->metric = newinfo.metric_out;  /* XXX: the routemap uses the
+						      metric_out field */
 	}
 
 	/* Once the entry has been validated, update the metric by
@@ -1463,9 +1462,8 @@ static int rip_send_packet(u_char *buf, int size, struct sockaddr_in *to,
 
 /* Add redistributed route to RIP table. */
 void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
-			  struct nexthop *nh,
-			  unsigned int metric, unsigned char distance,
-			  route_tag_t tag)
+			  struct nexthop *nh, unsigned int metric,
+			  unsigned char distance, route_tag_t tag)
 {
 	int ret;
 	struct route_node *rp = NULL;
@@ -1518,9 +1516,8 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 		(void)rip_ecmp_add(&newinfo);
 
 	if (IS_RIP_DEBUG_EVENT) {
-		zlog_debug(
-			"Redistribute new prefix %s/%d",
-			inet_ntoa(p->prefix), p->prefixlen);
+		zlog_debug("Redistribute new prefix %s/%d",
+			   inet_ntoa(p->prefix), p->prefixlen);
 	}
 
 	rip_event(RIP_TRIGGERED_UPDATE, 0);
@@ -2319,15 +2316,14 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 							  tmp_rinfo))
 					if (tmp_rinfo->type == ZEBRA_ROUTE_RIP
 					    && tmp_rinfo->nh.ifindex
-					    == ifc->ifp->ifindex)
+						       == ifc->ifp->ifindex)
 						tmp_rinfo->metric_out =
 							RIP_METRIC_INFINITY;
 
 				if (rinfo->type == ZEBRA_ROUTE_CONNECT
 				    && prefix_match((struct prefix *)p,
 						    ifc->address))
-					rinfo->metric_out =
-						RIP_METRIC_INFINITY;
+					rinfo->metric_out = RIP_METRIC_INFINITY;
 			}
 
 			/* Prepare preamble, auth headers, if needs be */
@@ -2881,8 +2877,8 @@ DEFUN (rip_route,
 
 	node->info = (void *)1;
 
-	rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, &nh, 0,
-			     0, 0);
+	rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, &nh, 0, 0,
+			     0);
 
 	return CMD_SUCCESS;
 }
@@ -3453,7 +3449,7 @@ DEFUN (show_ip_rip,
 				if (len > 0)
 					vty_out(vty, "%*s", len, " ");
 
-				switch(rinfo->nh.type) {
+				switch (rinfo->nh.type) {
 				case NEXTHOP_TYPE_IPV4:
 				case NEXTHOP_TYPE_IPV4_IFINDEX:
 					vty_out(vty, "%-20s %2d ",

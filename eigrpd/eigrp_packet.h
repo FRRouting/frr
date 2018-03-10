@@ -41,9 +41,8 @@ extern struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *,
 						   struct eigrp_neighbor *);
 extern void eigrp_packet_free(struct eigrp_packet *);
 extern void eigrp_packet_delete(struct eigrp_interface *);
-extern void eigrp_packet_header_init(int, struct eigrp *,
-				     struct stream *, u_int32_t, u_int32_t,
-				     u_int32_t);
+extern void eigrp_packet_header_init(int, struct eigrp *, struct stream *,
+				     u_int32_t, u_int32_t, u_int32_t);
 extern void eigrp_packet_checksum(struct eigrp_interface *, struct stream *,
 				  u_int16_t);
 
@@ -84,8 +83,7 @@ extern int eigrp_hello_timer(struct thread *);
  * These externs are found in eigrp_update.c
  */
 extern bool eigrp_update_prefix_apply(struct eigrp *eigrp,
-				      struct eigrp_interface *ei,
-				      int in,
+				      struct eigrp_interface *ei, int in,
 				      struct prefix *prefix);
 extern void eigrp_update_send(struct eigrp_interface *);
 extern void eigrp_update_receive(struct eigrp *, struct ip *,

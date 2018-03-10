@@ -377,7 +377,7 @@ struct ospf6_path *ospf6_path_dup(struct ospf6_path *path)
 	memcpy(new, path, sizeof(struct ospf6_path));
 	new->nh_list = list_new();
 	new->nh_list->cmp = (int (*)(void *, void *))ospf6_nexthop_cmp;
-	new->nh_list->del = (void (*) (void *))ospf6_nexthop_delete;
+	new->nh_list->del = (void (*)(void *))ospf6_nexthop_delete;
 
 	return new;
 }
@@ -388,10 +388,10 @@ struct ospf6_route *ospf6_route_create(void)
 	route = XCALLOC(MTYPE_OSPF6_ROUTE, sizeof(struct ospf6_route));
 	route->nh_list = list_new();
 	route->nh_list->cmp = (int (*)(void *, void *))ospf6_nexthop_cmp;
-	route->nh_list->del = (void (*) (void *))ospf6_nexthop_delete;
+	route->nh_list->del = (void (*)(void *))ospf6_nexthop_delete;
 	route->paths = list_new();
 	route->paths->cmp = (int (*)(void *, void *))ospf6_path_cmp;
-	route->paths->del =  (void (*)(void *))ospf6_path_free;
+	route->paths->del = (void (*)(void *))ospf6_path_free;
 	return route;
 }
 
@@ -502,13 +502,14 @@ ospf6_route_lookup_identical(struct ospf6_route *route,
 
 	for (target = ospf6_route_lookup(&route->prefix, table); target;
 	     target = target->next) {
-		if (target->type == route->type &&
-		    (memcmp(&target->prefix, &route->prefix,
-			   sizeof(struct prefix)) == 0) &&
-		    target->path.type == route->path.type &&
-		    target->path.cost == route->path.cost &&
-		    target->path.u.cost_e2 == route->path.u.cost_e2 &&
-		    ospf6_route_cmp_nexthops(target, route) == 0)
+		if (target->type == route->type
+		    && (memcmp(&target->prefix, &route->prefix,
+			       sizeof(struct prefix))
+			== 0)
+		    && target->path.type == route->path.type
+		    && target->path.cost == route->path.cost
+		    && target->path.u.cost_e2 == route->path.u.cost_e2
+		    && ospf6_route_cmp_nexthops(target, route) == 0)
 			return target;
 	}
 	return NULL;
@@ -647,10 +648,11 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 		}
 
 		if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-			zlog_debug("%s %p: route add %p cost %u: update of %p old cost %u",
-				   ospf6_route_table_name(table), (void *)table,
-				   (void *)route, route->path.cost, (void *)old,
-				   old->path.cost);
+			zlog_debug(
+				"%s %p: route add %p cost %u: update of %p old cost %u",
+				ospf6_route_table_name(table), (void *)table,
+				(void *)route, route->path.cost, (void *)old,
+				old->path.cost);
 		else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 			zlog_debug("%s: route add: update",
 				   ospf6_route_table_name(table));

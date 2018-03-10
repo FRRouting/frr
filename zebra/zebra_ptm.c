@@ -956,8 +956,7 @@ stream_failure:
 }
 
 /* BFD client register */
-int zebra_ptm_bfd_client_register(struct zserv *client,
-				  u_short length)
+int zebra_ptm_bfd_client_register(struct zserv *client, u_short length)
 {
 	struct stream *s;
 	unsigned int pid;

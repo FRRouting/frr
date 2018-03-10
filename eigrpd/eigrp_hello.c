@@ -96,8 +96,8 @@ int eigrp_hello_timer(struct thread *thread)
 
 	/* Hello timer set. */
 	ei->t_hello = NULL;
-	thread_add_timer(master, eigrp_hello_timer, ei,
-			 ei->params.v_hello, &ei->t_hello);
+	thread_add_timer(master, eigrp_hello_timer, ei, ei->params.v_hello,
+			 &ei->t_hello);
 
 	return 0;
 }
@@ -443,7 +443,7 @@ static u_int16_t eigrp_sw_version_encode(struct stream *s)
 	stream_putw(s, EIGRP_TLV_SW_VERSION);
 	stream_putw(s, length);
 
-	stream_putc(s, FRR_MAJOR);  //!< major os version
+	stream_putc(s, FRR_MAJOR); //!< major os version
 	stream_putc(s, FRR_MINOR); //!< minor os version
 
 	/* and the core eigrp version */
@@ -634,14 +634,14 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
 
 	if (ep) {
 		// encode common header feilds
-		eigrp_packet_header_init(EIGRP_OPC_HELLO, ei->eigrp, ep->s, 0, 0, ack);
+		eigrp_packet_header_init(EIGRP_OPC_HELLO, ei->eigrp, ep->s, 0,
+					 0, ack);
 
 		// encode Authentication TLV
 		if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
 		    && (ei->params.auth_keychain != NULL)) {
 			length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
-		} else if ((ei->params.auth_type
-			    == EIGRP_AUTH_TYPE_SHA256)
+		} else if ((ei->params.auth_type == EIGRP_AUTH_TYPE_SHA256)
 			   && (ei->params.auth_keychain != NULL)) {
 			length += eigrp_add_authTLV_SHA256_to_stream(ep->s, ei);
 		}
@@ -680,8 +680,7 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
 		    && (ei->params.auth_keychain != NULL)) {
 			eigrp_make_md5_digest(ei, ep->s,
 					      EIGRP_AUTH_BASIC_HELLO_FLAG);
-		} else if ((ei->params.auth_type
-			    == EIGRP_AUTH_TYPE_SHA256)
+		} else if ((ei->params.auth_type == EIGRP_AUTH_TYPE_SHA256)
 			   && (ei->params.auth_keychain != NULL)) {
 			eigrp_make_sha256_digest(ei, ep->s,
 						 EIGRP_AUTH_BASIC_HELLO_FLAG);

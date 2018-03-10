@@ -318,11 +318,12 @@ static int pim_bfd_nbr_replay(int command, struct zclient *zclient,
 					char str[INET_ADDRSTRLEN];
 
 					pim_inet4_dump("<bfd_nbr?>",
-						       neigh->source_addr,
-						       str, sizeof(str));
-					zlog_debug("%s: Replaying Pim Neigh %s to BFD vrf_id %u",
-						   __PRETTY_FUNCTION__, str,
-						   vrf->vrf_id);
+						       neigh->source_addr, str,
+						       sizeof(str));
+					zlog_debug(
+						"%s: Replaying Pim Neigh %s to BFD vrf_id %u",
+						__PRETTY_FUNCTION__, str,
+						vrf->vrf_id);
 				}
 				pim_bfd_reg_dereg_nbr(neigh,
 						      ZEBRA_BFD_DEST_UPDATE);

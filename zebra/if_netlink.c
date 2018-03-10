@@ -367,8 +367,8 @@ static int get_iflink_speed(struct interface *interface)
 	/* use ioctl to get IP address of an interface */
 	if (zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
-	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
-			interface->vrf_id, NULL);
+	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP, interface->vrf_id,
+			NULL);
 	if (sd < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Failure to read interface %s speed: %d %s",
@@ -649,8 +649,6 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	ifp = if_get_by_name(name, vrf_id, 0);
 	set_ifindex(ifp, ifi->ifi_index, zns);
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
-	if (IS_ZEBRA_IF_VRF(ifp))
-		SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
 	ifp->metric = 0;
 	ifp->speed = get_iflink_speed(ifp);
@@ -661,6 +659,8 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	/* Set zebra interface type */
 	zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
+	if (IS_ZEBRA_IF_VRF(ifp))
+		SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
 	/* Update link. */
 	zebra_if_update_link(ifp, link_ifindex);
@@ -856,14 +856,14 @@ int kernel_address_delete_ipv4(struct interface *ifp, struct connected *ifc)
 	return netlink_address(RTM_DELADDR, AF_INET, ifp, ifc);
 }
 
-int kernel_address_add_ipv6 (struct interface *ifp, struct connected *ifc)
+int kernel_address_add_ipv6(struct interface *ifp, struct connected *ifc)
 {
-  return netlink_address (RTM_NEWADDR, AF_INET6, ifp, ifc);
+	return netlink_address(RTM_NEWADDR, AF_INET6, ifp, ifc);
 }
 
-int kernel_address_delete_ipv6 (struct interface *ifp, struct connected *ifc)
+int kernel_address_delete_ipv6(struct interface *ifp, struct connected *ifc)
 {
-  return netlink_address (RTM_DELADDR, AF_INET6, ifp, ifc);
+	return netlink_address(RTM_DELADDR, AF_INET6, ifp, ifc);
 }
 
 int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,
@@ -1143,15 +1143,15 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			/* Update interface information. */
 			set_ifindex(ifp, ifi->ifi_index, zns);
 			ifp->flags = ifi->ifi_flags & 0x0000fffff;
-			if (IS_ZEBRA_IF_VRF(ifp))
-				SET_FLAG(ifp->status,
-					 ZEBRA_INTERFACE_VRF_LOOPBACK);
 			ifp->mtu6 = ifp->mtu = *(int *)RTA_DATA(tb[IFLA_MTU]);
 			ifp->metric = 0;
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
 			/* Set interface type */
 			zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
+			if (IS_ZEBRA_IF_VRF(ifp))
+				SET_FLAG(ifp->status,
+					 ZEBRA_INTERFACE_VRF_LOOPBACK);
 
 			/* Update link. */
 			zebra_if_update_link(ifp, link_ifindex);

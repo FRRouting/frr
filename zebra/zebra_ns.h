@@ -23,6 +23,7 @@
 #define __ZEBRA_NS_H__
 
 #include <lib/ns.h>
+#include <lib/vrf.h>
 
 #ifdef HAVE_NETLINK
 /* Socket interface to kernel */
@@ -69,6 +70,8 @@ struct zebra_ns {
 #endif /* HAVE_RTADV */
 
 	struct zebra_ns_table_head ns_tables;
+
+	struct hash *rules_hash;
 
 	/* Back pointer */
 	struct ns *ns;

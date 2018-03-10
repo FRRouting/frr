@@ -21,25 +21,25 @@
  *   void prototype(void) __attribute__((_CONSTRUCTOR(100)));
  */
 #if defined(__clang__)
-# if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 5)
+#if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 5)
 #  define _RET_NONNULL    , returns_nonnull
-# endif
+#endif
 # define _CONSTRUCTOR(x)  constructor(x)
 #elif defined(__GNUC__)
-# if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9)
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9)
 #  define _RET_NONNULL    , returns_nonnull
-# endif
-# if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+#endif
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
 #  define _CONSTRUCTOR(x) constructor(x)
 #  define _DESTRUCTOR(x)  destructor(x)
 #  define _ALLOC_SIZE(x)  alloc_size(x)
-# endif
+#endif
 #endif
 
 #ifdef __sun
 /* Solaris doesn't do constructor priorities due to linker restrictions */
-# undef _CONSTRUCTOR
-# undef _DESTRUCTOR
+#undef _CONSTRUCTOR
+#undef _DESTRUCTOR
 #endif
 
 /* fallback versions */

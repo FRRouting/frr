@@ -1573,9 +1573,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	 * Non-MP IPv4/Unicast EoR is a completely empty UPDATE
 	 * and MP EoR should have only an empty MP_UNREACH
 	 */
-	if ((!update_len && !withdraw_len &&
-	     nlris[NLRI_MP_UPDATE].length == 0) ||
-	    (attr_parse_ret == BGP_ATTR_PARSE_EOR)) {
+	if ((!update_len && !withdraw_len && nlris[NLRI_MP_UPDATE].length == 0)
+	    || (attr_parse_ret == BGP_ATTR_PARSE_EOR)) {
 		afi_t afi = 0;
 		safi_t safi;
 

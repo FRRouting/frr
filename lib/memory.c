@@ -132,7 +132,7 @@ static int qmem_exit_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 
 int log_memstats(FILE *fp, const char *prefix)
 {
-	struct exit_dump_args eda = { .fp = fp, .prefix = prefix, .error = 0 };
+	struct exit_dump_args eda = {.fp = fp, .prefix = prefix, .error = 0};
 	qmem_walk(qmem_exit_walker, &eda);
 	return eda.error;
 }

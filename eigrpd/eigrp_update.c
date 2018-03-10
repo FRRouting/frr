@@ -63,8 +63,7 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_memory.h"
 
-bool eigrp_update_prefix_apply(struct eigrp *eigrp,
-			       struct eigrp_interface *ei,
+bool eigrp_update_prefix_apply(struct eigrp *eigrp, struct eigrp_interface *ei,
 			       int in, struct prefix *prefix)
 {
 	struct access_list *alist;
@@ -143,9 +142,9 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 	/* iterate over all prefixes which weren't advertised by neighbor */
 	for (ALL_LIST_ELEMENTS_RO(nbr_prefixes, node1, prefix)) {
 		char buffer[PREFIX_STRLEN];
-		zlog_debug("GR receive: Neighbor not advertised %s",
-			   prefix2str(prefix->destination,
-				      buffer, PREFIX_STRLEN));
+		zlog_debug(
+			"GR receive: Neighbor not advertised %s",
+			prefix2str(prefix->destination, buffer, PREFIX_STRLEN));
 
 		fsm_msg.metrics = prefix->reported_metric;
 		/* set delay to MAX */
@@ -335,9 +334,9 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				/*Here comes topology information save*/
 				pe = eigrp_prefix_entry_new();
 				pe->serno = eigrp->serno;
-				pe->destination = (struct prefix *)prefix_ipv4_new();
-				prefix_copy(pe->destination,
-					    &dest_addr);
+				pe->destination =
+					(struct prefix *)prefix_ipv4_new();
+				prefix_copy(pe->destination, &dest_addr);
 				pe->af = AF_INET;
 				pe->state = EIGRP_FSM_STATE_PASSIVE;
 				pe->nt = EIGRP_TOPOLOGY_TYPE_REMOTE;
@@ -354,7 +353,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				if (eigrp_update_prefix_apply(eigrp, ei,
 							      EIGRP_FILTER_IN,
 							      &dest_addr))
-					ne->reported_metric.delay = EIGRP_MAX_METRIC;
+					ne->reported_metric.delay =
+						EIGRP_MAX_METRIC;
 
 				ne->distance = eigrp_calculate_total_metrics(
 					eigrp, ne);
@@ -381,13 +381,13 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 			break;
 
 		case EIGRP_TLV_IPv4_EXT:
-			/* DVS: processing of external routes needs packet and fsm work.
-			 *      for now, lets just not creash the box
-			 */
+		/* DVS: processing of external routes needs packet and fsm work.
+		 *      for now, lets just not creash the box
+		 */
 		default:
 			length = stream_getw(s);
 			// -2 for type, -2 for len
-			for (length-=4; length ; length--) {
+			for (length -= 4; length; length--) {
 				(void)stream_getc(s);
 			}
 		}
@@ -428,10 +428,9 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 			   nbr->ei->eigrp->sequence_number,
 			   nbr->recv_sequence_number);
 
-	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei->eigrp,
-				 ep->s, EIGRP_INIT_FLAG,
-				 nbr->ei->eigrp->sequence_number,
-				 nbr->recv_sequence_number);
+	eigrp_packet_header_init(
+		EIGRP_OPC_UPDATE, nbr->ei->eigrp, ep->s, EIGRP_INIT_FLAG,
+		nbr->ei->eigrp->sequence_number, nbr->recv_sequence_number);
 
 	// encode Authentication TLV, if needed
 	if ((nbr->ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
@@ -464,12 +463,11 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 
 static void eigrp_update_place_on_nbr_queue(struct eigrp_neighbor *nbr,
 					    struct eigrp_packet *ep,
-					    u_int32_t seq_no,
-					    int length)
+					    u_int32_t seq_no, int length)
 {
-	if((nbr->ei->params.auth_type == EIGRP_AUTH_TYPE_MD5) &&
-	   (nbr->ei->params.auth_keychain != NULL)) {
-		eigrp_make_md5_digest(nbr->ei,ep->s, EIGRP_AUTH_UPDATE_FLAG);
+	if ((nbr->ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (nbr->ei->params.auth_keychain != NULL)) {
+		eigrp_make_md5_digest(nbr->ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
 	}
 
 	/* EIGRP Checksum */
@@ -541,14 +539,13 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	ep = eigrp_packet_new(mtu, nbr);
 
 	/* Prepare EIGRP EOT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
-				 ep->s, EIGRP_EOT_FLAG,
+	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp, ep->s, EIGRP_EOT_FLAG,
 				 seq_no, nbr->recv_sequence_number);
 
 	// encode Authentication TLV, if needed
-	if((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5) &&
-	   (ei->params.auth_keychain != NULL)) {
-		length += eigrp_add_authTLV_MD5_to_stream(ep->s,ei);
+	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (ei->params.auth_keychain != NULL)) {
+		length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
 	}
 
 	for (rn = route_top(eigrp->topology_table); rn; rn = route_next(rn)) {
@@ -561,38 +558,40 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 				continue;
 
 			if ((length + EIGRP_TLV_MAX_IPV4_BYTE) > mtu) {
-				eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
+				eigrp_update_place_on_nbr_queue(nbr, ep, seq_no,
+								length);
 				seq_no++;
 
 				length = EIGRP_HEADER_LEN;
 				ep = eigrp_packet_new(mtu, nbr);
-				eigrp_packet_header_init(EIGRP_OPC_UPDATE,
-							 nbr->ei->eigrp,
-							 ep->s, EIGRP_EOT_FLAG,
-							 seq_no,
-							 nbr->recv_sequence_number);
+				eigrp_packet_header_init(
+					EIGRP_OPC_UPDATE, nbr->ei->eigrp, ep->s,
+					EIGRP_EOT_FLAG, seq_no,
+					nbr->recv_sequence_number);
 
-				if((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5) &&
-				   (ei->params.auth_keychain != NULL))
-				{
-					length += eigrp_add_authTLV_MD5_to_stream(ep->s,ei);
+				if ((ei->params.auth_type
+				     == EIGRP_AUTH_TYPE_MD5)
+				    && (ei->params.auth_keychain != NULL)) {
+					length +=
+						eigrp_add_authTLV_MD5_to_stream(
+							ep->s, ei);
 				}
 			}
 			/* Get destination address from prefix */
 			dest_addr = pe->destination;
 
 			/* Check if any list fits */
-			if (eigrp_update_prefix_apply(eigrp, ei,
-						      EIGRP_FILTER_OUT,
-						      dest_addr))
+			if (eigrp_update_prefix_apply(
+				    eigrp, ei, EIGRP_FILTER_OUT, dest_addr))
 				continue;
 			else {
-				length += eigrp_add_internalTLV_to_stream(ep->s, pe);
+				length += eigrp_add_internalTLV_to_stream(ep->s,
+									  pe);
 			}
 		}
 	}
 
-	eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
+	eigrp_update_place_on_nbr_queue(nbr, ep, seq_no, length);
 	eigrp->sequence_number = seq_no++;
 }
 
@@ -614,8 +613,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
 	/* Prepare EIGRP INIT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
-				 ep->s, 0, seq_no, 0);
+	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp, ep->s, 0, seq_no, 0);
 
 	// encode Authentication TLV, if needed
 	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
@@ -635,11 +633,12 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		if (eigrp_nbr_split_horizon_check(ne, ei))
 			continue;
 
-		if ((length + EIGRP_TLV_MAX_IPV4_BYTE) >
-		    (u_int16_t)ei->ifp->mtu) {
+		if ((length + EIGRP_TLV_MAX_IPV4_BYTE)
+		    > (u_int16_t)ei->ifp->mtu) {
 			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
 			    && (ei->params.auth_keychain != NULL)) {
-				eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
+				eigrp_make_md5_digest(ei, ep->s,
+						      EIGRP_AUTH_UPDATE_FLAG);
 			}
 
 			eigrp_packet_checksum(ei, ep->s, length);
@@ -653,25 +652,24 @@ void eigrp_update_send(struct eigrp_interface *ei)
 
 			length = EIGRP_HEADER_LEN;
 			ep = eigrp_packet_new(ei->ifp->mtu, NULL);
-			eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
-						 ep->s, 0, seq_no, 0);
+			eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp, ep->s,
+						 0, seq_no, 0);
 			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
 			    && (ei->params.auth_keychain != NULL)) {
-				length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
+				length += eigrp_add_authTLV_MD5_to_stream(ep->s,
+									  ei);
 			}
 			has_tlv = 0;
 		}
 		/* Get destination address from prefix */
 		dest_addr = pe->destination;
 
-		if (eigrp_update_prefix_apply(eigrp, ei,
-					      EIGRP_FILTER_OUT,
+		if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT,
 					      dest_addr)) {
 			// pe->reported_metric.delay = EIGRP_MAX_METRIC;
 			continue;
 		} else {
-			length += eigrp_add_internalTLV_to_stream(ep->s,
-								  pe);
+			length += eigrp_add_internalTLV_to_stream(ep->s, pe);
 			has_tlv = 1;
 		}
 	}
@@ -729,7 +727,8 @@ void eigrp_update_send_all(struct eigrp *eigrp,
 /**
  * @fn eigrp_update_send_GR_part
  *
- * @param[in]		nbr		contains neighbor who would receive Graceful
+ * @param[in]		nbr		contains neighbor who would receive
+ * Graceful
  * restart
  *
  * @return void
@@ -814,8 +813,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		 */
 		dest_addr = pe->destination;
 
-		if (eigrp_update_prefix_apply(eigrp, ei,
-					      EIGRP_FILTER_OUT,
+		if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT,
 					      dest_addr)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s won't be sent out.",
@@ -830,8 +828,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		 * This makes no sense, Filter out then filter in???
 		 * Look into this more - DBS
 		 */
-		if (eigrp_update_prefix_apply(eigrp, ei,
-					      EIGRP_FILTER_IN,
+		if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_IN,
 					      dest_addr)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s will be removed.",
@@ -942,7 +939,8 @@ int eigrp_update_send_GR_thread(struct thread *thread)
 /**
  * @fn eigrp_update_send_GR
  *
- * @param[in]		nbr			Neighbor who would receive Graceful
+ * @param[in]		nbr			Neighbor who would receive
+ * Graceful
  * restart
  * @param[in]		gr_type 	Who executed Graceful restart
  * @param[in]		vty 		Virtual terminal for log output
@@ -980,8 +978,7 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 			vty_out(vty,
 				"Neighbor %s (%s) is resync: manually cleared\n",
 				inet_ntoa(nbr->src),
-				ifindex2ifname(ei->ifp->ifindex,
-					       VRF_DEFAULT));
+				ifindex2ifname(ei->ifp->ifindex, VRF_DEFAULT));
 		}
 	}
 
@@ -1007,7 +1004,9 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 /**
  * @fn eigrp_update_send_interface_GR
  *
- * @param[in]		ei			Interface to neighbors of which the GR
+ * @param[in]		ei			Interface to neighbors of which
+ * the
+ * GR
  * is sent
  * @param[in]		gr_type 	Who executed Graceful restart
  * @param[in]		vty 		Virtual terminal for log output

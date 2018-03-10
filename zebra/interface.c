@@ -52,10 +52,10 @@
 
 #define ZEBRA_PTM_SUPPORT
 
-DEFINE_HOOK(zebra_if_extra_info, (struct vty *vty, struct interface *ifp),
-				 (vty, ifp))
-DEFINE_HOOK(zebra_if_config_wr, (struct vty *vty, struct interface *ifp),
-				(vty, ifp))
+DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
+	    (vty, ifp))
+DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
+	    (vty, ifp))
 
 
 static void if_down_del_nbr_connected(struct interface *ifp);
@@ -71,8 +71,8 @@ static int if_zebra_speed_update(struct thread *thread)
 	new_speed = kernel_get_speed(ifp);
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u",
-			  __PRETTY_FUNCTION__, ifp->name,
-			  ifp->speed, new_speed);
+			  __PRETTY_FUNCTION__, ifp->name, ifp->speed,
+			  new_speed);
 		ifp->speed = new_speed;
 		if_add_update(ifp);
 	}
@@ -148,8 +148,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	 * of seconds and ask again.  Hopefully it's all settled
 	 * down upon startup.
 	 */
-	thread_add_timer(zebrad.master, if_zebra_speed_update,
-			 ifp, 15, &zebra_if->speed_update);
+	thread_add_timer(zebrad.master, if_zebra_speed_update, ifp, 15,
+			 &zebra_if->speed_update);
 	return 0;
 }
 
@@ -608,16 +608,14 @@ static void if_delete_connected(struct interface *ifp)
 	if (!ifp->connected)
 		return;
 
-	while ((node = (last ? last->next
-			: listhead(ifp->connected)))) {
+	while ((node = (last ? last->next : listhead(ifp->connected)))) {
 		ifc = listgetdata(node);
 
 		cp = *CONNECTED_PREFIX(ifc);
 		apply_mask(&cp);
 
 		if (cp.family == AF_INET
-		    && (rn = route_node_lookup(zebra_if->ipv4_subnets,
-					       &cp))) {
+		    && (rn = route_node_lookup(zebra_if->ipv4_subnets, &cp))) {
 			struct listnode *anode;
 			struct listnode *next;
 			struct listnode *first;
@@ -1529,7 +1527,7 @@ DEFUN (show_interface_desc_vrf_all,
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		if (!RB_EMPTY (if_name_head, &vrf->ifaces_by_name)) {
+		if (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 			vty_out(vty, "\n\tVRF %u\n\n", vrf->vrf_id);
 			if_show_description(vty, vrf->vrf_id);
 		}

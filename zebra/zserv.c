@@ -60,6 +60,7 @@
 #include "zebra/label_manager.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_pbr.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -189,8 +190,8 @@ static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 	data.l.table_id = zvrf->table_id;
 
 	if (netns_name)
-		strlcpy(data.l.netns_name,
-			basename((char *)netns_name), NS_NAMSIZ);
+		strlcpy(data.l.netns_name, basename((char *)netns_name),
+			NS_NAMSIZ);
 	else
 		memset(data.l.netns_name, 0, NS_NAMSIZ);
 	/* Pass the tableid and the netns NAME */
@@ -616,7 +617,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 		api.nexthop_num = re->nexthop_active_num;
 	}
-	for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next) {
+	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next) {
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
@@ -718,16 +719,18 @@ static int zserv_rnh_register(struct zserv *client, u_short length,
 		l += 4;
 		if (p.family == AF_INET) {
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
-				zlog_warn("%s: Specified prefix length %d is too large for a v4 address",
-					  __PRETTY_FUNCTION__, p.prefixlen);
+				zlog_warn(
+					"%s: Specified prefix length %d is too large for a v4 address",
+					__PRETTY_FUNCTION__, p.prefixlen);
 				return -1;
 			}
 			STREAM_GET(&p.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
 			l += IPV4_MAX_BYTELEN;
 		} else if (p.family == AF_INET6) {
 			if (p.prefixlen > IPV6_MAX_BITLEN) {
-				zlog_warn("%s: Specified prefix length %d is to large for a v6 address",
-					  __PRETTY_FUNCTION__, p.prefixlen);
+				zlog_warn(
+					"%s: Specified prefix length %d is to large for a v6 address",
+					__PRETTY_FUNCTION__, p.prefixlen);
 				return -1;
 			}
 			STREAM_GET(&p.u.prefix6, s, IPV6_MAX_BYTELEN);
@@ -791,16 +794,18 @@ static int zserv_rnh_unregister(struct zserv *client, u_short length,
 		l += 4;
 		if (p.family == AF_INET) {
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
-				zlog_warn("%s: Specified prefix length %d is to large for a v4 address",
-					  __PRETTY_FUNCTION__, p.prefixlen);
+				zlog_warn(
+					"%s: Specified prefix length %d is to large for a v4 address",
+					__PRETTY_FUNCTION__, p.prefixlen);
 				return -1;
 			}
 			STREAM_GET(&p.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
 			l += IPV4_MAX_BYTELEN;
 		} else if (p.family == AF_INET6) {
 			if (p.prefixlen > IPV6_MAX_BITLEN) {
-				zlog_warn("%s: Specified prefix length %d is to large for a v6 address",
-					  __PRETTY_FUNCTION__, p.prefixlen);
+				zlog_warn(
+					"%s: Specified prefix length %d is to large for a v6 address",
+					__PRETTY_FUNCTION__, p.prefixlen);
 				return -1;
 			}
 			STREAM_GET(&p.u.prefix6, s, IPV6_MAX_BYTELEN);
@@ -860,10 +865,12 @@ static int zserv_fec_register(struct zserv *client, u_short length)
 			return -1;
 		}
 		STREAM_GETC(s, p.prefixlen);
-		if ((p.family == AF_INET && p.prefixlen > IPV4_MAX_BITLEN) ||
-		    (p.family == AF_INET6 && p.prefixlen > IPV6_MAX_BITLEN)) {
-			zlog_warn("%s: Specified prefix length: %d is to long for %d",
-				  __PRETTY_FUNCTION__, p.prefixlen, p.family);
+		if ((p.family == AF_INET && p.prefixlen > IPV4_MAX_BITLEN)
+		    || (p.family == AF_INET6
+			&& p.prefixlen > IPV6_MAX_BITLEN)) {
+			zlog_warn(
+				"%s: Specified prefix length: %d is to long for %d",
+				__PRETTY_FUNCTION__, p.prefixlen, p.family);
 			return -1;
 		}
 		l += 5;
@@ -920,10 +927,12 @@ static int zserv_fec_unregister(struct zserv *client, u_short length)
 			return -1;
 		}
 		STREAM_GETC(s, p.prefixlen);
-		if ((p.family == AF_INET && p.prefixlen > IPV4_MAX_BITLEN) ||
-		    (p.family == AF_INET6 && p.prefixlen > IPV6_MAX_BITLEN)) {
-			zlog_warn("%s: Received prefix length %d which is greater than %d can support",
-				  __PRETTY_FUNCTION__, p.prefixlen, p.family);
+		if ((p.family == AF_INET && p.prefixlen > IPV4_MAX_BITLEN)
+		    || (p.family == AF_INET6
+			&& p.prefixlen > IPV6_MAX_BITLEN)) {
+			zlog_warn(
+				"%s: Received prefix length %d which is greater than %d can support",
+				__PRETTY_FUNCTION__, p.prefixlen, p.family);
 			return -1;
 		}
 		l += 5;
@@ -970,7 +979,7 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 		 * we
 		 * are looking up. Therefore, we will just iterate over the top
 		 * chain of nexthops. */
-		for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
+		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 				num += zsend_write_nexthop(s, nexthop);
 
@@ -1032,6 +1041,44 @@ int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zebra_server_send_message(client);
+}
+
+void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
+			     enum zapi_rule_notify_owner note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+
+	if (IS_ZEBRA_DEBUG_PACKET) {
+		zlog_debug("%s: Notifying %u",
+			   __PRETTY_FUNCTION__, rule->unique);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		if (rule->sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER, VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, rule->seq);
+	stream_putl(s, rule->priority);
+	stream_putl(s, rule->unique);
+	if (rule->ifp)
+		stream_putl(s, rule->ifp->ifindex);
+	else
+		stream_putl(s, 0);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zebra_server_send_message(client);
 }
 
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
@@ -1157,7 +1204,10 @@ static int zread_route_add(struct zserv *client, u_short length,
 	re->flags = api.flags;
 	re->uptime = time(NULL);
 	re->vrf_id = vrf_id;
-	re->table = zvrf->table_id;
+	if (api.tableid && vrf_id == VRF_DEFAULT)
+		re->table = api.tableid;
+	else
+		re->table = zvrf->table_id;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
 		for (i = 0; i < api.nexthop_num; i++) {
@@ -1179,8 +1229,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 				memset(&vtep_ip, 0, sizeof(struct ipaddr));
 				if (CHECK_FLAG(api.flags,
 					       ZEBRA_FLAG_EVPN_ROUTE)) {
-					ifindex =
-						get_l3vni_svi_ifindex(vrf_id);
+					ifindex = get_l3vni_svi_ifindex(vrf_id);
 				} else {
 					ifindex = api_nh->ifindex;
 				}
@@ -1201,10 +1250,8 @@ static int zread_route_add(struct zserv *client, u_short length,
 					       &(api_nh->gate.ipv4),
 					       sizeof(struct in_addr));
 					zebra_vxlan_evpn_vrf_route_add(
-								vrf_id,
-								&api.rmac,
-								&vtep_ip,
-								&api.prefix);
+						vrf_id, &api.rmac, &vtep_ip,
+						&api.prefix);
 				}
 				break;
 			case NEXTHOP_TYPE_IPV6:
@@ -1250,9 +1297,10 @@ static int zread_route_add(struct zserv *client, u_short length,
 			}
 
 			if (!nexthop) {
-				zlog_warn("%s: Nexthops Specified: %d but we failed to properly create one",
-					  __PRETTY_FUNCTION__, api.nexthop_num);
-				nexthops_free(re->nexthop);
+				zlog_warn(
+					"%s: Nexthops Specified: %d but we failed to properly create one",
+					__PRETTY_FUNCTION__, api.nexthop_num);
+				nexthops_free(re->ng.nexthop);
 				XFREE(MTYPE_RE, re);
 				return -1;
 			}
@@ -1284,7 +1332,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
 		zlog_warn("%s: Received SRC Prefix but afi is not v6",
 			  __PRETTY_FUNCTION__);
-		nexthops_free(re->nexthop);
+		nexthops_free(re->ng.nexthop);
 		XFREE(MTYPE_RE, re);
 		return -1;
 	}
@@ -1399,8 +1447,9 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 	p.family = AF_INET;
 	STREAM_GETC(s, p.prefixlen);
 	if (p.prefixlen > IPV4_MAX_BITLEN) {
-		zlog_warn("%s: Specified prefix length %d is greater than what v4 can be",
-			  __PRETTY_FUNCTION__, p.prefixlen);
+		zlog_warn(
+			"%s: Specified prefix length %d is greater than what v4 can be",
+			__PRETTY_FUNCTION__, p.prefixlen);
 		XFREE(MTYPE_RE, re);
 		return -1;
 	}
@@ -1449,9 +1498,10 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 					re->vrf_id);
 				break;
 			case NEXTHOP_TYPE_IPV6:
-				zlog_warn("%s: Please use ZEBRA_ROUTE_ADD if you want to pass v6 nexthops",
-					  __PRETTY_FUNCTION__);
-				nexthops_free(re->nexthop);
+				zlog_warn(
+					"%s: Please use ZEBRA_ROUTE_ADD if you want to pass v6 nexthops",
+					__PRETTY_FUNCTION__);
+				nexthops_free(re->ng.nexthop);
 				XFREE(MTYPE_RE, re);
 				return -1;
 				break;
@@ -1459,9 +1509,10 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 				route_entry_nexthop_blackhole_add(re, bh_type);
 				break;
 			default:
-				zlog_warn("%s: Specified nexthop type: %d does not exist",
-					  __PRETTY_FUNCTION__, nexthop_type);
-				nexthops_free(re->nexthop);
+				zlog_warn(
+					"%s: Specified nexthop type: %d does not exist",
+					__PRETTY_FUNCTION__, nexthop_type);
+				nexthops_free(re->ng.nexthop);
 				XFREE(MTYPE_RE, re);
 				return -1;
 			}
@@ -1501,7 +1552,7 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 	return 0;
 
 stream_failure:
-	nexthops_free(re->nexthop);
+	nexthops_free(re->ng.nexthop);
 	XFREE(MTYPE_RE, re);
 	return -1;
 }
@@ -1610,8 +1661,9 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 	p.family = AF_INET;
 	STREAM_GETC(s, p.prefixlen);
 	if (p.prefixlen > IPV4_MAX_BITLEN) {
-		zlog_warn("%s: Prefix Length %d is greater than what a v4 address can use",
-			  __PRETTY_FUNCTION__, p.prefixlen);
+		zlog_warn(
+			"%s: Prefix Length %d is greater than what a v4 address can use",
+			__PRETTY_FUNCTION__, p.prefixlen);
 		XFREE(MTYPE_RE, re);
 		return -1;
 	}
@@ -1663,9 +1715,10 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 				route_entry_nexthop_blackhole_add(re, bh_type);
 				break;
 			default:
-				zlog_warn("%s: Please use ZEBRA_ROUTE_ADD if you want to pass non v6 nexthops",
-					  __PRETTY_FUNCTION__);
-				nexthops_free(re->nexthop);
+				zlog_warn(
+					"%s: Please use ZEBRA_ROUTE_ADD if you want to pass non v6 nexthops",
+					__PRETTY_FUNCTION__);
+				nexthops_free(re->ng.nexthop);
 				XFREE(MTYPE_RE, re);
 				return -1;
 			}
@@ -1728,7 +1781,7 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 	return 0;
 
 stream_failure:
-	nexthops_free(re->nexthop);
+	nexthops_free(re->ng.nexthop);
 	XFREE(MTYPE_RE, re);
 	return -1;
 }
@@ -1783,8 +1836,9 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 	p.family = AF_INET6;
 	STREAM_GETC(s, p.prefixlen);
 	if (p.prefixlen > IPV6_MAX_BITLEN) {
-		zlog_warn("%s: Specified prefix length %d is to large for v6 prefix",
-			  __PRETTY_FUNCTION__, p.prefixlen);
+		zlog_warn(
+			"%s: Specified prefix length %d is to large for v6 prefix",
+			__PRETTY_FUNCTION__, p.prefixlen);
 		XFREE(MTYPE_RE, re);
 		return -1;
 	}
@@ -1795,8 +1849,9 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 		src_p.family = AF_INET6;
 		STREAM_GETC(s, src_p.prefixlen);
 		if (src_p.prefixlen > IPV6_MAX_BITLEN) {
-			zlog_warn("%s: Specified src prefix length %d is to large for v6 prefix",
-				  __PRETTY_FUNCTION__, src_p.prefixlen);
+			zlog_warn(
+				"%s: Specified src prefix length %d is to large for v6 prefix",
+				__PRETTY_FUNCTION__, src_p.prefixlen);
 			XFREE(MTYPE_RE, re);
 			return -1;
 		}
@@ -1856,9 +1911,10 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 				route_entry_nexthop_blackhole_add(re, bh_type);
 				break;
 			default:
-				zlog_warn("%s: Please use ZEBRA_ROUTE_ADD if you want to pass non v6 nexthops",
-					  __PRETTY_FUNCTION__);
-				nexthops_free(re->nexthop);
+				zlog_warn(
+					"%s: Please use ZEBRA_ROUTE_ADD if you want to pass non v6 nexthops",
+					__PRETTY_FUNCTION__);
+				nexthops_free(re->ng.nexthop);
 				XFREE(MTYPE_RE, re);
 				return -1;
 			}
@@ -1919,7 +1975,7 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 	return 0;
 
 stream_failure:
-	nexthops_free(re->nexthop);
+	nexthops_free(re->ng.nexthop);
 	XFREE(MTYPE_RE, re);
 
 	return -1;
@@ -2060,9 +2116,9 @@ static void zread_mpls_labels(int command, struct zserv *client, u_short length,
 		STREAM_GET(&prefix.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
 		STREAM_GETC(s, prefix.prefixlen);
 		if (prefix.prefixlen > IPV4_MAX_BITLEN) {
-			zlog_warn("%s: Specified prefix length %d is greater than a v4 address can support",
-				  __PRETTY_FUNCTION__,
-				  prefix.prefixlen);
+			zlog_warn(
+				"%s: Specified prefix length %d is greater than a v4 address can support",
+				__PRETTY_FUNCTION__, prefix.prefixlen);
 			return;
 		}
 		STREAM_GET(&gate.ipv4.s_addr, s, IPV4_MAX_BYTELEN);
@@ -2071,9 +2127,9 @@ static void zread_mpls_labels(int command, struct zserv *client, u_short length,
 		STREAM_GET(&prefix.u.prefix6, s, 16);
 		STREAM_GETC(s, prefix.prefixlen);
 		if (prefix.prefixlen > IPV6_MAX_BITLEN) {
-			zlog_warn("%s: Specified prefix length %d is greater than a v6 address can support",
-				  __PRETTY_FUNCTION__,
-				  prefix.prefixlen);
+			zlog_warn(
+				"%s: Specified prefix length %d is greater than a v6 address can support",
+				__PRETTY_FUNCTION__, prefix.prefixlen);
 			return;
 		}
 		STREAM_GET(&gate.ipv6, s, 16);
@@ -2262,13 +2318,11 @@ static void zread_label_manager_request(int cmd, struct zserv *client,
 
 	/* external label manager */
 	if (lm_is_external)
-		zread_relay_label_manager_request(cmd, client,
-						  zvrf_id(zvrf));
+		zread_relay_label_manager_request(cmd, client, zvrf_id(zvrf));
 	/* this is a label manager */
 	else {
 		if (cmd == ZEBRA_LABEL_MANAGER_CONNECT)
-			zread_label_manager_connect(client,
-						    zvrf_id(zvrf));
+			zread_label_manager_connect(client, zvrf_id(zvrf));
 		else {
 			/* Sanity: don't allow 'unidentified' requests */
 			if (!client->proto) {
@@ -2277,8 +2331,7 @@ static void zread_label_manager_request(int cmd, struct zserv *client,
 				return;
 			}
 			if (cmd == ZEBRA_GET_LABEL_CHUNK)
-				zread_get_label_chunk(client,
-						      zvrf_id(zvrf));
+				zread_get_label_chunk(client, zvrf_id(zvrf));
 			else if (cmd == ZEBRA_RELEASE_LABEL_CHUNK)
 				zread_release_label_chunk(client);
 		}
@@ -2504,8 +2557,7 @@ static void zebra_client_create(int sock)
 	zebra_vrf_update_all(client);
 }
 
-static int zread_interface_set_master(struct zserv *client,
-				      u_short length)
+static int zread_interface_set_master(struct zserv *client, u_short length)
 {
 	struct interface *master;
 	struct interface *slave;
@@ -2531,8 +2583,7 @@ stream_failure:
 }
 
 
-static void zread_vrf_label(struct zserv *client,
-			    struct zebra_vrf *zvrf)
+static void zread_vrf_label(struct zserv *client, struct zebra_vrf *zvrf)
 {
 	struct interface *ifp;
 	mpls_label_t nlabel;
@@ -2571,7 +2622,7 @@ static void zread_vrf_label(struct zserv *client,
 		bool really_remove;
 
 		really_remove = true;
-		for (scrubber = AFI_IP; scrubber < AFI_MAX ; scrubber++) {
+		for (scrubber = AFI_IP; scrubber < AFI_MAX; scrubber++) {
 			if (scrubber == afi)
 				continue;
 
@@ -2591,16 +2642,75 @@ static void zread_vrf_label(struct zserv *client,
 	}
 
 	if (nlabel != MPLS_LABEL_NONE)
-		mpls_lsp_install(def_zvrf, ltype, nlabel, MPLS_LABEL_IMPLICIT_NULL,
-				 NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
+		mpls_lsp_install(def_zvrf, ltype, nlabel,
+				 MPLS_LABEL_IMPLICIT_NULL, NEXTHOP_TYPE_IFINDEX,
+				 NULL, ifp->ifindex);
 
 	zvrf->label[afi] = nlabel;
 stream_failure:
 	return;
 }
 
-static inline void zserv_handle_commands(struct zserv *client,
-					 uint16_t command,
+static inline void zread_rule(uint16_t command, struct zserv *client,
+			      uint16_t length, struct zebra_vrf *zvrf)
+{
+	struct zebra_pbr_rule zpr;
+	struct stream *s;
+	uint32_t total, i;
+	ifindex_t ifindex;
+
+	s = client->ibuf;
+	STREAM_GETL(s, total);
+
+	for (i = 0; i < total; i++) {
+		memset(&zpr, 0, sizeof(zpr));
+
+		zpr.sock = client->sock;
+		STREAM_GETL(s, zpr.seq);
+		STREAM_GETL(s, zpr.priority);
+		STREAM_GETL(s, zpr.unique);
+		STREAM_GETC(s, zpr.filter.src_ip.family);
+		STREAM_GETC(s, zpr.filter.src_ip.prefixlen);
+		STREAM_GET(&zpr.filter.src_ip.u.prefix, s,
+			   prefix_blen(&zpr.filter.src_ip));
+		STREAM_GETW(s, zpr.filter.src_port);
+		STREAM_GETC(s, zpr.filter.dst_ip.family);
+		STREAM_GETC(s, zpr.filter.dst_ip.prefixlen);
+		STREAM_GET(&zpr.filter.dst_ip.u.prefix, s,
+			   prefix_blen(&zpr.filter.dst_ip));
+		STREAM_GETW(s, zpr.filter.dst_port);
+		STREAM_GETL(s, zpr.action.table);
+		STREAM_GETL(s, ifindex);
+
+		zpr.ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
+		if (!zpr.ifp) {
+			zlog_debug("FAiled to lookup ifindex: %u", ifindex);
+			return;
+		}
+
+		if (!is_default_prefix(&zpr.filter.src_ip))
+			zpr.filter.filter_bm |= PBR_FILTER_SRC_IP;
+
+		if (!is_default_prefix(&zpr.filter.dst_ip))
+			zpr.filter.filter_bm |= PBR_FILTER_DST_IP;
+
+		if (zpr.filter.src_port)
+			zpr.filter.filter_bm |= PBR_FILTER_SRC_PORT;
+
+		if (zpr.filter.dst_port)
+			zpr.filter.filter_bm |= PBR_FILTER_DST_PORT;
+
+		if (command == ZEBRA_RULE_ADD)
+			zebra_pbr_add_rule(zvrf->zns, &zpr);
+		else
+			zebra_pbr_del_rule(zvrf->zns, &zpr);
+	}
+
+stream_failure:
+	return;
+}
+
+static inline void zserv_handle_commands(struct zserv *client, uint16_t command,
 					 uint16_t length,
 					 struct zebra_vrf *zvrf)
 {
@@ -2658,20 +2768,17 @@ static inline void zserv_handle_commands(struct zserv *client,
 		zread_hello(client);
 		break;
 	case ZEBRA_NEXTHOP_REGISTER:
-		zserv_rnh_register(client, length, RNH_NEXTHOP_TYPE,
-				   zvrf);
+		zserv_rnh_register(client, length, RNH_NEXTHOP_TYPE, zvrf);
 		break;
 	case ZEBRA_NEXTHOP_UNREGISTER:
-		zserv_rnh_unregister(client, length, RNH_NEXTHOP_TYPE,
-				     zvrf);
+		zserv_rnh_unregister(client, length, RNH_NEXTHOP_TYPE, zvrf);
 		break;
 	case ZEBRA_IMPORT_ROUTE_REGISTER:
-		zserv_rnh_register(client, length, RNH_IMPORT_CHECK_TYPE,
-				   zvrf);
+		zserv_rnh_register(client, length, RNH_IMPORT_CHECK_TYPE, zvrf);
 		break;
 	case ZEBRA_IMPORT_ROUTE_UNREGISTER:
-		zserv_rnh_unregister(client, length,
-				     RNH_IMPORT_CHECK_TYPE, zvrf);
+		zserv_rnh_unregister(client, length, RNH_IMPORT_CHECK_TYPE,
+				     zvrf);
 		break;
 	case ZEBRA_BFD_DEST_UPDATE:
 	case ZEBRA_BFD_DEST_REGISTER:
@@ -2747,6 +2854,10 @@ static inline void zserv_handle_commands(struct zserv *client,
 	case ZEBRA_PW_UNSET:
 		zread_pseudowire(command, client, length, zvrf);
 		break;
+	case ZEBRA_RULE_ADD:
+	case ZEBRA_RULE_DELETE:
+		zread_rule(command, client, length, zvrf);
+		break;
 	default:
 		zlog_info("Zebra received unknown command %d", command);
 		break;
@@ -2804,14 +2915,15 @@ static int zebra_client_read(struct thread *thread)
 		if ((already = stream_get_endp(client->ibuf))
 		    < ZEBRA_HEADER_SIZE) {
 			ssize_t nbyte;
-			if (((nbyte =
-			      stream_read_try(client->ibuf, sock,
-					      ZEBRA_HEADER_SIZE - already))
+			if (((nbyte = stream_read_try(client->ibuf, sock,
+						      ZEBRA_HEADER_SIZE
+							      - already))
 			     == 0)
 			    || (nbyte == -1)) {
 				if (IS_ZEBRA_DEBUG_EVENT)
-					zlog_debug("connection closed socket [%d]",
-						   sock);
+					zlog_debug(
+						"connection closed socket [%d]",
+						sock);
 				zebra_client_close(client);
 				return -1;
 			}
@@ -2884,11 +2996,13 @@ static int zebra_client_read(struct thread *thread)
 
 		/* Debug packet information. */
 		if (IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("zebra message comes from socket [%d]", sock);
+			zlog_debug("zebra message comes from socket [%d]",
+				   sock);
 
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("zebra message received [%s] %d in VRF %u",
-				   zserv_command_string(command), length, vrf_id);
+				   zserv_command_string(command), length,
+				   vrf_id);
 
 		client->last_read_time = monotime(NULL);
 		client->last_read_cmd = command;
@@ -2896,14 +3010,16 @@ static int zebra_client_read(struct thread *thread)
 		zvrf = zebra_vrf_lookup_by_id(vrf_id);
 		if (!zvrf) {
 			if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("zebra received unknown VRF[%u]", vrf_id);
+				zlog_debug("zebra received unknown VRF[%u]",
+					   vrf_id);
 			goto zclient_read_out;
 		}
 
 		zserv_handle_commands(client, command, length, zvrf);
 
 		if (client->t_suicide) {
-			/* No need to wait for thread callback, just kill immediately.
+			/* No need to wait for thread callback, just kill
+			 * immediately.
 			 */
 			zebra_client_close(client);
 			return -1;
@@ -3161,8 +3277,7 @@ struct zserv *zebra_find_client(u_char proto, u_short instance)
 	struct zserv *client;
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
-		if (client->proto == proto &&
-		    client->instance == instance)
+		if (client->proto == proto && client->instance == instance)
 			return client;
 	}
 
@@ -3221,7 +3336,7 @@ void zserv_read_file(char *input)
 	client = zebrad.client_list->head->data;
 	t.arg = client;
 
-	fd = open(input, O_RDONLY|O_NONBLOCK);
+	fd = open(input, O_RDONLY | O_NONBLOCK);
 	t.u.fd = fd;
 
 	zebra_client_read(&t);

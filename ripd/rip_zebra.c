@@ -139,8 +139,7 @@ static int rip_zebra_read_route(int command, struct zclient *zclient,
 	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		rip_redistribute_add(api.type, RIP_ROUTE_REDISTRIBUTE,
 				     (struct prefix_ipv4 *)&api.prefix, &nh,
-				     api.metric, api.distance,
-				     api.tag);
+				     api.metric, api.distance, api.tag);
 	else if (command == ZEBRA_REDISTRIBUTE_ROUTE_DEL)
 		rip_redistribute_delete(api.type, RIP_ROUTE_REDISTRIBUTE,
 					(struct prefix_ipv4 *)&api.prefix,

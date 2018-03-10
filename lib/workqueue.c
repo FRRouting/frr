@@ -101,7 +101,7 @@ struct work_queue *work_queue_new(struct thread_master *m,
 	return new;
 }
 
-void work_queue_free(struct work_queue *wq)
+void work_queue_free_original(struct work_queue *wq)
 {
 	if (wq->thread != NULL)
 		thread_cancel(wq->thread);
@@ -119,6 +119,12 @@ void work_queue_free(struct work_queue *wq)
 	return;
 }
 
+void work_queue_free_and_null(struct work_queue **wq)
+{
+	work_queue_free_original(*wq);
+	*wq = NULL;
+}
+
 bool work_queue_is_scheduled(struct work_queue *wq)
 {
 	return (wq->thread != NULL);
@@ -127,8 +133,8 @@ bool work_queue_is_scheduled(struct work_queue *wq)
 static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 {
 	/* if appropriate, schedule work queue thread */
-	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) && (wq->thread == NULL) &&
-	    !work_queue_empty(wq)) {
+	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) && (wq->thread == NULL)
+	    && !work_queue_empty(wq)) {
 		wq->thread = NULL;
 		thread_add_timer_msec(wq->master, work_queue_run, wq, delay,
 				      &wq->thread);
@@ -159,7 +165,8 @@ void work_queue_add(struct work_queue *wq, void *data)
 	return;
 }
 
-static void work_queue_item_requeue(struct work_queue *wq, struct work_queue_item *item)
+static void work_queue_item_requeue(struct work_queue *wq,
+				    struct work_queue_item *item)
 {
 	work_queue_item_dequeue(wq, item);
 

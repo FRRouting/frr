@@ -498,7 +498,8 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 	if (!as->segments) {
 		if (make_json) {
 			json_object_string_add(as->json, "string", "Local");
-			json_object_object_add(as->json, "segments", jaspath_segments);
+			json_object_object_add(as->json, "segments",
+					       jaspath_segments);
 			json_object_int_add(as->json, "length", 0);
 		}
 		as->str = XMALLOC(MTYPE_AS_STR, 1);
@@ -575,8 +576,9 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 		/* write out the ASNs, with their seperators, bar the last one*/
 		for (i = 0; i < seg->length; i++) {
 			if (make_json)
-				json_object_array_add(jseg_list,
-						      json_object_new_int(seg->as[i]));
+				json_object_array_add(
+					jseg_list,
+					json_object_new_int(seg->as[i]));
 
 			len += snprintf(str_buf + len, str_size - len, "%u",
 					seg->as[i]);
@@ -588,8 +590,9 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 		if (make_json) {
 			jseg = json_object_new_object();
-			json_object_string_add(jseg, "type",
-					       aspath_segment_type_str[seg->type]);
+			json_object_string_add(
+				jseg, "type",
+				aspath_segment_type_str[seg->type]);
 			json_object_object_add(jseg, "list", jseg_list);
 			json_object_array_add(jaspath_segments, jseg);
 		}
@@ -904,7 +907,8 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 				assegment_data_put(s, seg->as, AS_SEGMENT_MAX,
 						   use32bit);
 				written += AS_SEGMENT_MAX;
-				bytes += ASSEGMENT_SIZE(AS_SEGMENT_MAX, use32bit);
+				bytes += ASSEGMENT_SIZE(AS_SEGMENT_MAX,
+							use32bit);
 			}
 
 			/* write the final segment, probably is also the first
@@ -2032,9 +2036,7 @@ int aspath_cmp(const void *arg1, const void *arg2)
 /* AS path hash initialize. */
 void aspath_init(void)
 {
-	ashash = hash_create_size(32768,
-				  aspath_key_make,
-				  aspath_cmp,
+	ashash = hash_create_size(32768, aspath_key_make, aspath_cmp,
 				  "BGP AS Path");
 }
 
