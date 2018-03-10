@@ -33,9 +33,11 @@ struct nexthop_group {
 	struct nexthop *nexthop;
 };
 
-void nexthop_group_init(void);
+struct nexthop_group *nexthop_group_new(void);
+void nexthop_group_delete(struct nexthop_group **nhg);
 
 void nexthop_add(struct nexthop **target, struct nexthop *nexthop);
+void nexthop_del(struct nexthop_group *nhg, struct nexthop *nexthop);
 void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 		   struct nexthop *rparent);
 
@@ -51,4 +53,36 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 	(nhop) = (head.nexthop);					\
 	(nhop);								\
 	(nhop) = nexthop_next(nhop)
+
+struct nexthop_group_cmd {
+
+	RB_ENTRY(nexthop_group_cmd) nhgc_entry;
+
+	char name[80];
+
+	struct nexthop_group nhg;
+
+	QOBJ_FIELDS
+};
+RB_HEAD(nhgc_entry_head, nexthp_group_cmd);
+RB_PROTOTYPE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
+	     nexthop_group_cmd_compare)
+DECLARE_QOBJ_TYPE(nexthop_group_cmd)
+
+/*
+ * Initialize nexthop_groups.  If you are interested in when
+ * a nexthop_group is added/deleted/modified, then set the
+ * appropriate callback functions to handle it in your
+ * code
+ */
+void nexthop_group_init(
+	void (*new)(const char *name),
+	void (*add_nexthop)(const struct nexthop_group_cmd *nhgc,
+			    const struct nexthop *nhop),
+	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
+			    const struct nexthop *nhop),
+	void (*delete)(const char *name));
+
+extern struct nexthop *nexthop_exists(struct nexthop_group *nhg,
+				      struct nexthop *nh);
 #endif
