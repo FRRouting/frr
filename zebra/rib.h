@@ -29,6 +29,7 @@
 #include "table.h"
 #include "queue.h"
 #include "nexthop.h"
+#include "nexthop_group.h"
 #include "vrf.h"
 #include "if.h"
 #include "mpls.h"
@@ -43,7 +44,7 @@ struct route_entry {
 	struct route_entry *prev;
 
 	/* Nexthop structure */
-	struct nexthop *nexthop;
+	struct nexthop_group ng;
 
 	/* Tag */
 	route_tag_t tag;
@@ -170,10 +171,10 @@ typedef struct rib_dest_t_ {
 	     (re) && ((next) = (re)->next, 1); (re) = (next))
 
 #define RNODE_FOREACH_RE(rn, re)                                               \
-	RE_DEST_FOREACH_ROUTE(rib_dest_from_rnode(rn), re)
+	RE_DEST_FOREACH_ROUTE (rib_dest_from_rnode(rn), re)
 
 #define RNODE_FOREACH_RE_SAFE(rn, re, next)                                    \
-	RE_DEST_FOREACH_ROUTE_SAFE(rib_dest_from_rnode(rn), re, next)
+	RE_DEST_FOREACH_ROUTE_SAFE (rib_dest_from_rnode(rn), re, next)
 
 #if defined(HAVE_RTADV)
 /* Structure which hold status of router advertisement. */
@@ -444,8 +445,8 @@ DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 
 
 extern void zebra_vty_init(void);
-extern int static_config(struct vty *vty, struct zebra_vrf *zvrf,
-			 afi_t afi, safi_t safi, const char *cmd);
+extern int static_config(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
+			 safi_t safi, const char *cmd);
 extern pid_t pid;
 
 #endif /*_ZEBRA_RIB_H */

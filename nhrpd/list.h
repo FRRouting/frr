@@ -25,9 +25,11 @@
 #endif
 
 #ifndef container_of
-#define container_of(ptr, type, member) ({                      \
-        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
-        (type *)( (char *)__mptr - offsetof(type,member) );})
+#define container_of(ptr, type, member)                                        \
+	({                                                                     \
+		const typeof(((type *)0)->member) *__mptr = (ptr);             \
+		(type *)((char *)__mptr - offsetof(type, member));             \
+	})
 #endif
 
 struct hlist_head {
@@ -73,7 +75,8 @@ static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)
 	h->first = n;
 }
 
-static inline void hlist_add_after(struct hlist_node *n, struct hlist_node *prev)
+static inline void hlist_add_after(struct hlist_node *n,
+				   struct hlist_node *prev)
 {
 	n->next = prev->next;
 	n->pprev = &prev->next;
@@ -92,21 +95,34 @@ static inline struct hlist_node **hlist_tail_ptr(struct hlist_head *h)
 
 #define hlist_entry(ptr, type, member) container_of(ptr,type,member)
 
-#define hlist_for_each(pos, head) \
+#define hlist_for_each(pos, head)                                              \
 	for (pos = (head)->first; pos; pos = pos->next)
 
-#define hlist_for_each_safe(pos, n, head) \
-	for (pos = (head)->first; pos && ({ n = pos->next; 1; }); pos = n)
+#define hlist_for_each_safe(pos, n, head)                                      \
+	for (pos = (head)->first; pos && ({                                    \
+					  n = pos->next;                       \
+					  1;                                   \
+				  });                                          \
+	     pos = n)
 
-#define hlist_for_each_entry(tpos, pos, head, member)			 \
-	for (pos = (head)->first; pos && 				 \
-		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1;}); \
+#define hlist_for_each_entry(tpos, pos, head, member)                          \
+	for (pos = (head)->first;                                              \
+	     pos && ({                                                         \
+		     tpos = hlist_entry(pos, typeof(*tpos), member);           \
+		     1;                                                        \
+	     });                                                               \
 	     pos = pos->next)
 
-#define hlist_for_each_entry_safe(tpos, pos, n, head, member) 		 \
-	for (pos = (head)->first;					 \
-	     pos && ({ n = pos->next; 1; }) &&				 \
-		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1;}); \
+#define hlist_for_each_entry_safe(tpos, pos, n, head, member)                  \
+	for (pos = (head)->first;                                              \
+	     pos && ({                                                         \
+		     n = pos->next;                                            \
+		     1;                                                        \
+	     })                                                                \
+	     && ({                                                             \
+			tpos = hlist_entry(pos, typeof(*tpos), member);        \
+			1;                                                     \
+		});                                                            \
 	     pos = n)
 
 
@@ -122,8 +138,7 @@ static inline void list_init(struct list_head *list)
 	list->prev = list;
 }
 
-static inline void __list_add(struct list_head *new,
-			      struct list_head *prev,
+static inline void __list_add(struct list_head *new, struct list_head *prev,
 			      struct list_head *next)
 {
 	next->prev = new;
@@ -142,7 +157,7 @@ static inline void list_add_tail(struct list_head *new, struct list_head *head)
 	__list_add(new, head->prev, head);
 }
 
-static inline void __list_del(struct list_head * prev, struct list_head * next)
+static inline void __list_del(struct list_head *prev, struct list_head *next)
 {
 	next->prev = prev;
 	prev->next = next;
@@ -165,27 +180,27 @@ static inline int list_empty(const struct list_head *n)
 	return !list_hashed(n);
 }
 
-#define list_next(ptr, type, member) \
-	(list_hashed(ptr) ? container_of((ptr)->next,type,member) : NULL)
+#define list_next(ptr, type, member)                                           \
+	(list_hashed(ptr) ? container_of((ptr)->next, type, member) : NULL)
 
 #define list_entry(ptr, type, member) container_of(ptr,type,member)
 
-#define list_for_each(pos, head) \
+#define list_for_each(pos, head)                                               \
 	for (pos = (head)->next; pos != (head); pos = pos->next)
 
-#define list_for_each_safe(pos, n, head) \
-	for (pos = (head)->next, n = pos->next; pos != (head); \
-		pos = n, n = pos->next)
+#define list_for_each_safe(pos, n, head)                                       \
+	for (pos = (head)->next, n = pos->next; pos != (head);                 \
+	     pos = n, n = pos->next)
 
-#define list_for_each_entry(pos, head, member)				\
-	for (pos = list_entry((head)->next, typeof(*pos), member);	\
-	     &pos->member != (head); 					\
+#define list_for_each_entry(pos, head, member)                                 \
+	for (pos = list_entry((head)->next, typeof(*pos), member);             \
+	     &pos->member != (head);                                           \
 	     pos = list_entry(pos->member.next, typeof(*pos), member))
 
-#define list_for_each_entry_safe(pos, n, head, member)			\
-	for (pos = list_entry((head)->next, typeof(*pos), member),	\
-		n = list_entry(pos->member.next, typeof(*pos), member);	\
-	     &pos->member != (head); 					\
+#define list_for_each_entry_safe(pos, n, head, member)                         \
+	for (pos = list_entry((head)->next, typeof(*pos), member),             \
+	    n = list_entry(pos->member.next, typeof(*pos), member);            \
+	     &pos->member != (head);                                           \
 	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
 
 #endif

@@ -89,10 +89,12 @@ CPP_NOTICE("list_delete without double pointer is deprecated, please fixup")
 #endif
 extern void list_delete_and_null(struct list **);
 extern void list_delete_original(struct list *);
-#define list_delete(X) list_delete_original((X))			\
-	CPP_WARN("Please transition to using list_delete_and_null")
-#define list_free(X) list_delete_original((X))				\
-	CPP_WARN("Please transition tousing list_delete_and_null")
+#define list_delete(X)                                                         \
+	list_delete_original((X))                                              \
+		CPP_WARN("Please transition to using list_delete_and_null")
+#define list_free(X)                                                           \
+	list_delete_original((X))                                              \
+		CPP_WARN("Please transition tousing list_delete_and_null")
 
 extern void list_delete_all_node(struct list *);
 

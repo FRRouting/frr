@@ -53,6 +53,8 @@ DEFINE_QOBJ_TYPE(ospf6)
 
 /* global ospf6d variable */
 struct ospf6 *ospf6;
+static struct ospf6_master ospf6_master;
+struct ospf6_master *om6;
 
 static void ospf6_disable(struct ospf6 *o);
 
@@ -239,6 +241,13 @@ static void ospf6_disable(struct ospf6 *o)
 	}
 }
 
+void ospf6_master_init(void)
+{
+	memset(&ospf6_master, 0, sizeof(struct ospf6_master));
+
+	om6 = &ospf6_master;
+}
+
 static int ospf6_maxage_remover(struct thread *thread)
 {
 	struct ospf6 *o = (struct ospf6 *)THREAD_ARG(thread);
@@ -294,6 +303,17 @@ void ospf6_maxage_remove(struct ospf6 *o)
 				 &o->maxage_remover);
 }
 
+void ospf6_router_id_update(void)
+{
+	if (!ospf6)
+		return;
+
+	if (ospf6->router_id_static != 0)
+		ospf6->router_id = ospf6->router_id_static;
+	else
+		ospf6->router_id = om6->zebra_router_id;
+}
+
 /* start ospf6 */
 DEFUN_NOSH (router_ospf6,
        router_ospf6_cmd,
@@ -301,9 +321,11 @@ DEFUN_NOSH (router_ospf6,
        ROUTER_STR
        OSPF6_STR)
 {
-	if (ospf6 == NULL)
+	if (ospf6 == NULL) {
 		ospf6 = ospf6_create();
-
+		if (ospf6->router_id == 0)
+			ospf6_router_id_update();
+	}
 	/* set current ospf point. */
 	VTY_PUSH_CONTEXT(OSPF6_NODE, ospf6);
 
@@ -403,21 +425,15 @@ DEFUN(no_ospf6_router_id,
 #if CONFDATE > 20180828
 CPP_NOTICE("ospf6: `router-id A.B.C.D` deprecated 2017/08/28")
 #endif
-ALIAS_HIDDEN(ospf6_router_id,
-	     ospf6_router_id_hdn_cmd,
-	     "router-id A.B.C.D",
-	     "Configure OSPF6 Router-ID\n"
-	     V4NOTATION_STR)
+ALIAS_HIDDEN(ospf6_router_id, ospf6_router_id_hdn_cmd, "router-id A.B.C.D",
+	     "Configure OSPF6 Router-ID\n" V4NOTATION_STR)
 
 #if CONFDATE > 20180828
 CPP_NOTICE("ospf6: `no router-id A.B.C.D` deprecated 2017/08/28")
 #endif
-ALIAS_HIDDEN(no_ospf6_router_id,
-	     no_ospf6_router_id_hdn_cmd,
+ALIAS_HIDDEN(no_ospf6_router_id, no_ospf6_router_id_hdn_cmd,
 	     "no router-id [A.B.C.D]",
-	     NO_STR
-	     "Configure OSPF6 Router-ID\n"
-	     V4NOTATION_STR)
+	     NO_STR "Configure OSPF6 Router-ID\n" V4NOTATION_STR)
 
 DEFUN (ospf6_log_adjacency_changes,
        ospf6_log_adjacency_changes_cmd,

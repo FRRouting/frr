@@ -60,7 +60,7 @@ static void str_appendf(char **buf, const char *format, ...)
  * and its expected representation */
 struct nexthop_chain {
 	/* Head of the chain */
-	struct nexthop *head;
+	struct nexthop_group head;
 	/* Last nexthop in top chain */
 	struct nexthop *current_top;
 	/* Last nexthop in current recursive chain */
@@ -85,12 +85,12 @@ static void nexthop_chain_add_top(struct nexthop_chain *nc)
 	nh = calloc(sizeof(*nh), 1);
 	assert(nh);
 
-	if (nc->head) {
+	if (nc->head.nexthop) {
 		nc->current_top->next = nh;
 		nh->prev = nc->current_top;
 		nc->current_top = nh;
 	} else {
-		nc->head = nc->current_top = nh;
+		nc->head.nexthop = nc->current_top = nh;
 	}
 	nc->current_recursive = NULL;
 	str_appendf(&nc->repr, "%p\n", nh);
@@ -166,8 +166,8 @@ static void nexthop_clear_recursive(struct nexthop *tcur)
 }
 static void nexthop_chain_clear(struct nexthop_chain *nc)
 {
-	nexthop_clear_recursive(nc->head);
-	nc->head = nc->current_top = nc->current_recursive = NULL;
+	nexthop_clear_recursive(nc->head.nexthop);
+	nc->head.nexthop = nc->current_top = nc->current_recursive = NULL;
 	free(nc->repr);
 	nc->repr = NULL;
 }

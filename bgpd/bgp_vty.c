@@ -832,8 +832,7 @@ DEFUN_NOSH (router_bgp,
 		}
 
 		if (listcount(bm->bgp) > 1) {
-			vty_out(vty,
-				"%% Multiple BGP processes are configured\n");
+			vty_out(vty, "%% Please specify ASN and VRF\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -908,8 +907,7 @@ DEFUN (no_router_bgp,
 		}
 
 		if (listcount(bm->bgp) > 1) {
-			vty_out(vty,
-				"%% Multiple BGP processes are configured\n");
+			vty_out(vty, "%% Please specify ASN and VRF\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
@@ -1540,8 +1538,7 @@ DEFUN (no_bgp_maxpaths,
 }
 
 ALIAS_HIDDEN(no_bgp_maxpaths, no_bgp_maxpaths_hidden_cmd,
-	     "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
-	     NO_STR
+	     "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]", NO_STR
 	     "Forward packets over multiple paths\n"
 	     "Number of paths\n")
 
@@ -6413,11 +6410,16 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
 {
-	int idx_safi = 3;
-	int idx_ipv6_prefixlen = 5;
+	int idx_safi = 0;
+	int idx_ipv6_prefix = 0;
+	safi_t safi = SAFI_UNICAST;
+	char *prefix = argv_find(argv, argc, "X:X::X:X/M", &idx_ipv6_prefix) ?
+		argv[idx_ipv6_prefix]->arg : NULL;
+
+	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
 	return bgp_clear_prefix(
-		vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
-		bgp_vty_safi_from_str(argv[idx_safi]->text), NULL);
+		vty, NULL, prefix, AFI_IP6,
+		safi, NULL);
 }
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
@@ -6433,11 +6435,20 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        "IPv6 prefix\n")
 {
 	int idx_word = 3;
-	int idx_safi = 5;
-	int idx_ipv6_prefixlen = 7;
+	int idx_safi = 0;
+	int idx_ipv6_prefix = 0;
+	safi_t safi = SAFI_UNICAST;
+	char *prefix = argv_find(argv, argc, "X:X::X:X/M", &idx_ipv6_prefix) ?
+		argv[idx_ipv6_prefix]->arg : NULL;
+	/* [<view|vrf> VIEWVRFNAME] */
+	char *vrfview = argv_find(argv, argc, "VIEWVRFNAME", &idx_word) ?
+		argv[idx_word]->arg : NULL;
+
+	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
+
 	return bgp_clear_prefix(
-		vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg,
-		AFI_IP6, bgp_vty_safi_from_str(argv[idx_safi]->text), NULL);
+		vty, vrfview, prefix,
+		AFI_IP6, safi, NULL);
 }
 
 DEFUN (show_bgp_views,
@@ -6571,9 +6582,8 @@ DEFUN (show_bgp_vrfs,
 
 		json_object_int_add(json, "totalVrfs", count);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		if (count)
@@ -6722,20 +6732,17 @@ DEFUN (show_bgp_memory,
 	/* Other attributes */
 	if ((count = community_count()))
 		vty_out(vty, "%ld BGP community entries, using %s of memory\n",
-			count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct community)));
+			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
+					    count * sizeof(struct community)));
 	if ((count = mtype_stats_alloc(MTYPE_ECOMMUNITY)))
 		vty_out(vty, "%ld BGP community entries, using %s of memory\n",
-			count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct ecommunity)));
+			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
+					    count * sizeof(struct ecommunity)));
 	if ((count = mtype_stats_alloc(MTYPE_LCOMMUNITY)))
 		vty_out(vty,
 			"%ld BGP large-community entries, using %s of memory\n",
-			count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct lcommunity)));
+			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
+					    count * sizeof(struct lcommunity)));
 
 	if ((count = mtype_stats_alloc(MTYPE_CLUSTER)))
 		vty_out(vty, "%ld Cluster lists, using %s of memory\n", count,
@@ -6764,9 +6771,8 @@ DEFUN (show_bgp_memory,
 				     count * sizeof(struct hash_backet)));
 	if ((count = mtype_stats_alloc(MTYPE_BGP_REGEXP)))
 		vty_out(vty, "%ld compiled regexes, using %s of memory\n",
-			count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(regex_t)));
+			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
+					    count * sizeof(regex_t)));
 	return CMD_SUCCESS;
 }
 
@@ -7018,9 +7024,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						json, "peerGroupCount", ents);
 					json_object_int_add(
 						json, "peerGroupMemory",
-						ents
-							* sizeof(struct
-								 peer_group));
+						ents * sizeof(struct
+							      peer_group));
 				}
 
 				if (CHECK_FLAG(bgp->af_flags[afi][safi],
@@ -7043,11 +7048,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				vty_out(vty,
 					"RIB entries %ld, using %s of memory\n",
 					ents,
-					mtype_memstr(
-						memstrbuf, sizeof(memstrbuf),
-						ents
-							* sizeof(struct
-								 bgp_node)));
+					mtype_memstr(memstrbuf,
+						     sizeof(memstrbuf),
+						     ents * sizeof(struct
+								   bgp_node)));
 
 				/* Peer related usage */
 				ents = listcount(bgp->peer);
@@ -7064,9 +7068,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						mtype_memstr(
 							memstrbuf,
 							sizeof(memstrbuf),
-							ents
-								* sizeof(struct
-									 peer_group)));
+							ents * sizeof(struct
+								      peer_group)));
 
 				if (CHECK_FLAG(bgp->af_flags[afi][safi],
 					       BGP_CONFIG_DAMPENING))
@@ -7199,9 +7202,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 		bgp_show_bestpath_json(bgp, json);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		if (count)
@@ -7836,9 +7838,8 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 
 		paf = peer_af_find(p, afi, safi);
 		if (paf && PAF_SUBGRP(paf)) {
-			vty_out(vty,
-				"  Update group %" PRIu64 ", subgroup %" PRIu64
-				"\n",
+			vty_out(vty, "  Update group %" PRIu64
+				     ", subgroup %" PRIu64 "\n",
 				PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id);
 			vty_out(vty, "  Packet Queue length %d\n",
 				bpacket_queue_virtual_length(paf));
@@ -9638,9 +9639,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 			} else
 				vty_out(vty,
 					"  Reduce the no. of prefix from %s, will restart in %ld seconds\n",
-					p->host,
-					thread_timer_remain_second(
-						p->t_pmax_restart));
+					p->host, thread_timer_remain_second(
+							 p->t_pmax_restart));
 		} else {
 			if (use_json)
 				json_object_boolean_true_add(
@@ -9884,9 +9884,8 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		vty_out(vty, "\n");
@@ -10300,226 +10299,42 @@ static void show_bgp_updgrps_adj_info_aux(struct vty *vty, const char *name,
 	}
 }
 
-DEFUN (show_ip_bgp_updgrps_adj,
-       show_ip_bgp_updgrps_adj_cmd,
-       "show [ip] bgp update-groups <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Detailed info about dynamic update groups\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
+DEFPY(show_ip_bgp_instance_updgrps_adj_s,
+      show_ip_bgp_instance_updgrps_adj_s_cmd,
+      "show [ip]$ip bgp [<view|vrf> VIEWVRFNAME$vrf] [<ipv4|ipv6>$afi <unicast|multicast|vpn>$safi] update-groups [SUBGROUP-ID]$sgid <advertise-queue|advertised-routes|packet-queue>$rtq",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
+	      BGP_SAFI_HELP_STR
+      "Detailed info about dynamic update groups\n"
+      "Specific subgroup to display info for\n"
+      "Advertisement queue\n"
+      "Announced routes\n"
+      "Packet queue\n")
 {
-	int idx_type = 4;
-	show_bgp_updgrps_adj_info_aux(vty, NULL, AFI_IP, SAFI_UNICAST,
-				      argv[idx_type]->arg, 0);
+	uint64_t subgrp_id = 0;
+	afi_t afiz;
+	safi_t safiz;
+	if (sgid)
+		subgrp_id = strtoull(sgid, NULL, 10);
+
+	if (!ip && !afi)
+		afiz = AFI_IP6;
+	if (!ip && afi)
+		afiz = bgp_vty_afi_from_str(afi);
+	if (ip && !afi)
+		afiz = AFI_IP;
+	if (ip && afi) {
+		afiz = bgp_vty_afi_from_str(afi);
+		if (afiz != AFI_IP)
+			vty_out(vty,
+				"%% Cannot specify both 'ip' and 'ipv6'\n");
+		return CMD_WARNING;
+	}
+
+	safiz = safi ? bgp_vty_safi_from_str(safi) : SAFI_UNICAST;
+
+	show_bgp_updgrps_adj_info_aux(vty, vrf, afiz, safiz, rtq, subgrp_id);
 	return CMD_SUCCESS;
 }
-
-DEFUN (show_ip_bgp_instance_updgrps_adj,
-       show_ip_bgp_instance_updgrps_adj_cmd,
-       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Detailed info about dynamic update groups\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-	int idx_word = 4;
-	int idx_type = 6;
-	show_bgp_updgrps_adj_info_aux(vty, argv[idx_word]->arg, AFI_IP,
-				      SAFI_UNICAST, argv[idx_type]->arg, 0);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_updgrps_afi_adj,
-       show_bgp_updgrps_afi_adj_cmd,
-       "show [ip] bgp "BGP_AFI_SAFI_CMD_STR" update-groups <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_AFI_SAFI_HELP_STR
-       "Detailed info about dynamic update groups\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-	int idx_afi = 2;
-	int idx_safi = 3;
-	int idx_type = 5;
-	show_bgp_updgrps_adj_info_aux(
-		vty, NULL, bgp_vty_afi_from_str(argv[idx_afi]->text),
-		bgp_vty_safi_from_str(argv[idx_safi]->text),
-		argv[idx_type]->arg, 0);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_updgrps_adj,
-       show_bgp_updgrps_adj_cmd,
-       "show [ip] bgp update-groups <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Detailed info about dynamic update groups\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-	int idx_type = 3;
-	show_bgp_updgrps_adj_info_aux(vty, NULL, AFI_IP6, SAFI_UNICAST,
-				      argv[idx_type]->arg, 0);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_instance_updgrps_adj,
-       show_bgp_instance_updgrps_adj_cmd,
-       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Detailed info about dynamic update groups\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-	int idx_word = 3;
-	int idx_type = 5;
-	show_bgp_updgrps_adj_info_aux(vty, argv[idx_word]->arg, AFI_IP6,
-				      SAFI_UNICAST, argv[idx_type]->arg, 0);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_bgp_updgrps_adj_s,
-       show_ip_bgp_updgrps_adj_s_cmd,
-       "show [ip] bgp update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Detailed info about dynamic update groups\n"
-       "Specific subgroup to display info for\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-	int idx_subgroup_id = 4;
-	int idx_type = 5;
-	uint64_t subgrp_id;
-
-	subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
-
-	show_bgp_updgrps_adj_info_aux(vty, NULL, AFI_IP, SAFI_UNICAST,
-				      argv[idx_type]->arg, subgrp_id);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_bgp_instance_updgrps_adj_s,
-       show_ip_bgp_instance_updgrps_adj_s_cmd,
-       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Detailed info about dynamic update groups\n"
-       "Specific subgroup to display info for\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-	int idx_vrf = 4;
-	int idx_subgroup_id = 6;
-	int idx_type = 7;
-	uint64_t subgrp_id;
-
-	subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
-
-	show_bgp_updgrps_adj_info_aux(vty, argv[idx_vrf]->arg, AFI_IP,
-				      SAFI_UNICAST, argv[idx_type]->arg,
-				      subgrp_id);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_updgrps_afi_adj_s,
-       show_bgp_updgrps_afi_adj_s_cmd,
-       "show [ip] bgp "BGP_AFI_SAFI_CMD_STR" update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_AFI_SAFI_HELP_STR
-       "Detailed info about dynamic update groups\n"
-       "Specific subgroup to display info for\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-	int idx_afi = 2;
-	int idx_safi = 3;
-	int idx_subgroup_id = 5;
-	int idx_type = 6;
-	uint64_t subgrp_id;
-
-	subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
-
-	show_bgp_updgrps_adj_info_aux(
-		vty, NULL, bgp_vty_afi_from_str(argv[idx_afi]->text),
-		bgp_vty_safi_from_str(argv[idx_safi]->text),
-		argv[idx_type]->arg, subgrp_id);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_updgrps_adj_s,
-       show_bgp_updgrps_adj_s_cmd,
-       "show [ip] bgp update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "Detailed info about dynamic update groups\n"
-       "Specific subgroup to display info for\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-	int idx_subgroup_id = 3;
-	int idx_type = 4;
-	uint64_t subgrp_id;
-
-	subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
-
-	show_bgp_updgrps_adj_info_aux(vty, NULL, AFI_IP6, SAFI_UNICAST,
-				      argv[idx_type]->arg, subgrp_id);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_bgp_instance_updgrps_adj_s,
-       show_bgp_instance_updgrps_adj_s_cmd,
-       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       BGP_INSTANCE_HELP_STR
-       "Detailed info about dynamic update groups\n"
-       "Specific subgroup to display info for\n"
-       "Advertisement queue\n"
-       "Announced routes\n"
-       "Packet queue\n")
-{
-	int idx_vrf = 3;
-	int idx_subgroup_id = 5;
-	int idx_type = 6;
-	uint64_t subgrp_id;
-
-	subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
-
-	show_bgp_updgrps_adj_info_aux(vty, argv[idx_vrf]->arg, AFI_IP6,
-				      SAFI_UNICAST, argv[idx_type]->arg,
-				      subgrp_id);
-	return CMD_SUCCESS;
-}
-
 
 static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 {
@@ -12435,19 +12250,10 @@ void bgp_vty_init(void)
 
 	/* "show [ip] bgp summary" commands. */
 	install_element(VIEW_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
-	install_element(VIEW_NODE, &show_bgp_instance_updgrps_adj_cmd);
-	install_element(VIEW_NODE, &show_bgp_instance_updgrps_adj_s_cmd);
 	install_element(VIEW_NODE, &show_bgp_instance_updgrps_stats_cmd);
-	install_element(VIEW_NODE, &show_bgp_updgrps_adj_cmd);
-	install_element(VIEW_NODE, &show_bgp_updgrps_adj_s_cmd);
-	install_element(VIEW_NODE, &show_bgp_updgrps_afi_adj_cmd);
-	install_element(VIEW_NODE, &show_bgp_updgrps_afi_adj_s_cmd);
 	install_element(VIEW_NODE, &show_bgp_updgrps_stats_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_s_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_summary_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_updgrps_adj_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_updgrps_adj_s_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_updgrps_cmd);
 
 	/* "show [ip] bgp neighbors" commands. */

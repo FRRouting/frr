@@ -65,19 +65,19 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 		assert(ENDP_VALID(S, (S)->endp));                              \
 	} while (0)
 
-#define STREAM_BOUND_WARN(S, WHAT)					\
-	do {								\
-		zlog_warn("%s: Attempt to %s out of bounds", __func__,	\
-			  (WHAT));					\
-		STREAM_WARN_OFFSETS(S);					\
-		assert(0);						\
+#define STREAM_BOUND_WARN(S, WHAT)                                             \
+	do {                                                                   \
+		zlog_warn("%s: Attempt to %s out of bounds", __func__,         \
+			  (WHAT));                                             \
+		STREAM_WARN_OFFSETS(S);                                        \
+		assert(0);                                                     \
 	} while (0)
 
-#define STREAM_BOUND_WARN2(S, WHAT)					\
-	do {								\
-		zlog_warn("%s: Attempt to %s out of bounds", __func__,	\
-			  (WHAT));					\
-		STREAM_WARN_OFFSETS(S);					\
+#define STREAM_BOUND_WARN2(S, WHAT)                                            \
+	do {                                                                   \
+		zlog_warn("%s: Attempt to %s out of bounds", __func__,         \
+			  (WHAT));                                             \
+		STREAM_WARN_OFFSETS(S);                                        \
 	} while (0)
 
 /* XXX: Deprecated macro: do not use */
@@ -353,7 +353,7 @@ inline bool stream_getw2(struct stream *s, uint16_t *word)
 		return false;
 	}
 
-	*word  = s->data[s->getp++] << 8;
+	*word = s->data[s->getp++] << 8;
 	*word |= s->data[s->getp++];
 
 	return true;
@@ -474,13 +474,12 @@ inline bool stream_getl2(struct stream *s, uint32_t *l)
 		return false;
 	}
 
-	*l  = (unsigned int)(s->data[s->getp++]) << 24;
+	*l = (unsigned int)(s->data[s->getp++]) << 24;
 	*l |= s->data[s->getp++] << 16;
 	*l |= s->data[s->getp++] << 8;
 	*l |= s->data[s->getp++];
 
 	return true;
-
 }
 
 u_int32_t stream_getl(struct stream *s)

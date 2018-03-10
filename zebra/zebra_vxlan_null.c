@@ -87,19 +87,19 @@ void zebra_vxlan_print_evpn(struct vty *vty, u_char uj)
 {
 }
 
-void zebra_vxlan_print_rmacs_l3vni(struct vty*, vni_t, u_char)
+void zebra_vxlan_print_rmacs_l3vni(struct vty *, vni_t, u_char)
 {
 }
 
-void zebra_vxlan_print_rmacs_all_l3vni(struct vty*, u_char)
+void zebra_vxlan_print_rmacs_all_l3vni(struct vty *, u_char)
 {
 }
 
-void zebra_vxlan_print_nh_l3vni(struct vty*, vni_t, u_char)
+void zebra_vxlan_print_nh_l3vni(struct vty *, vni_t, u_char)
 {
 }
 
-void zebra_vxlan_print_nh_all_l3vni(struct vty*, u_char)
+void zebra_vxlan_print_nh_all_l3vni(struct vty *, u_char)
 {
 }
 

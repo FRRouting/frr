@@ -294,9 +294,7 @@ void if_rmap_reset()
 
 void if_rmap_init(int node)
 {
-	ifrmaphash = hash_create_size(4,
-				      if_rmap_hash_make,
-				      if_rmap_hash_cmp,
+	ifrmaphash = hash_create_size(4, if_rmap_hash_make, if_rmap_hash_cmp,
 				      "Interface Route-Map Hash");
 	if (node == RIPNG_NODE) {
 	} else if (node == RIP_NODE) {

@@ -447,8 +447,8 @@ static char *bgp_get_bound_name(struct peer *peer)
 {
 	char *name = NULL;
 
-	if ((peer->bgp->vrf_id == VRF_DEFAULT) &&
-	    !peer->ifname && !peer->conf_if)
+	if ((peer->bgp->vrf_id == VRF_DEFAULT) && !peer->ifname
+	    && !peer->conf_if)
 		return NULL;
 
 	if (peer->su.sa.sa_family != AF_INET
@@ -673,8 +673,7 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	listener->fd = sock;
 
 	/* this socket needs a change of ns. record bgp back pointer */
-	if (bgp->vrf_id != VRF_DEFAULT &&
-	    vrf_is_mapped_on_netns(bgp->vrf_id))
+	if (bgp->vrf_id != VRF_DEFAULT && vrf_is_mapped_on_netns(bgp->vrf_id))
 		listener->bgp = bgp;
 
 	memcpy(&listener->su, sa, salen);
@@ -704,8 +703,8 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 
 	if (bgpd_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
-	ret = vrf_getaddrinfo(address, port_str, &req,
-			      &ainfo_save, bgp->vrf_id);
+	ret = vrf_getaddrinfo(address, port_str, &req, &ainfo_save,
+			      bgp->vrf_id);
 	if (bgpd_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
 	if (ret != 0) {
@@ -723,8 +722,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 		if (bgpd_privs.change(ZPRIVS_RAISE))
 			zlog_err("Can't raise privileges");
 		sock = vrf_socket(ainfo->ai_family, ainfo->ai_socktype,
-				  ainfo->ai_protocol, bgp->vrf_id,
-				  NULL);
+				  ainfo->ai_protocol, bgp->vrf_id, NULL);
 		if (bgpd_privs.change(ZPRIVS_LOWER))
 			zlog_err("Can't lower privileges");
 		if (sock < 0) {
@@ -736,8 +734,8 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 		 * ttl=255 */
 		sockopt_ttl(ainfo->ai_family, sock, MAXTTL);
 
-		ret = bgp_listener(sock, ainfo->ai_addr,
-				   ainfo->ai_addrlen, bgp);
+		ret = bgp_listener(sock, ainfo->ai_addr, ainfo->ai_addrlen,
+				   bgp);
 		if (ret == 0)
 			++count;
 		else
@@ -745,8 +743,9 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 	}
 	freeaddrinfo(ainfo_save);
 	if (count == 0) {
-		zlog_err("%s: no usable addresses please check other programs usage of specified port %d",
-			 __func__, port);
+		zlog_err(
+			"%s: no usable addresses please check other programs usage of specified port %d",
+			__func__, port);
 		zlog_err("%s: Program cannot continue", __func__);
 		exit(-1);
 	}

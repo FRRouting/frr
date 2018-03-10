@@ -54,9 +54,8 @@
 #include "ospfd/ospf_bfd.h"
 
 /* ospfd privileges */
-zebra_capabilities_t _caps_p[] = {
-	ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
-};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
+				  ZCAP_SYS_ADMIN};
 
 struct zebra_privs_t ospfd_privs = {
 #if defined(FRR_USER) && defined(FRR_GROUP)

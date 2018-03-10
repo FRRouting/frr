@@ -46,6 +46,8 @@
 #define atomic_exchange_explicit __atomic_exchange_n
 #define atomic_fetch_add_explicit __atomic_fetch_add
 #define atomic_fetch_sub_explicit __atomic_fetch_sub
+#define atomic_fetch_and_explicit __atomic_fetch_and
+#define atomic_fetch_or_explicit __atomic_fetch_or
 
 #define atomic_compare_exchange_weak_explicit(atom, expect, desire, mem1,      \
 					      mem2)                            \
@@ -134,6 +136,20 @@
 		bool ret = (rval == *_expect);                                 \
 		*_expect = rval;                                               \
 		ret;                                                           \
+	})
+#define atomic_fetch_and_explicit(ptr, val, mem)                               \
+	({                                                                     \
+		__sync_synchronize();                                          \
+		typeof(*ptr) rval = __sync_fetch_and_and(ptr, val);            \
+		__sync_synchronize();                                          \
+		rval;                                                          \
+	})
+#define atomic_fetch_or_explicit(ptr, val, mem)                                \
+	({                                                                     \
+		__sync_synchronize();                                          \
+		typeof(*ptr) rval = __sync_fetch_and_or(ptr, val);             \
+		__sync_synchronize();                                          \
+		rval;                                                          \
 	})
 
 #else /* !HAVE___ATOMIC && !HAVE_STDATOMIC_H */

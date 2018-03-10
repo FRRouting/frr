@@ -99,7 +99,7 @@ static void mtrace_debug(struct pim_interface *pim_ifp,
 			if (PIM_DEBUG_MTRACE)
 				zlog_debug(
 					"Mtrace response block of wrong"
-					 " length");
+					" length");
 
 		responses = responses / sizeof(struct igmp_mtrace_rsp);
 

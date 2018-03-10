@@ -1054,6 +1054,9 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		else
 			continue;
 
+		api_nh = &api.nexthops[valid_nh_count];
+		api_nh->vrf_id = bgp->vrf_id;
+
 		if (nh_family == AF_INET) {
 			struct in_addr *nexthop;
 
@@ -1078,9 +1081,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 			nexthop = &mpinfo_cp->attr->nexthop;
 
-			api_nh = &api.nexthops[valid_nh_count];
 			api_nh->gate.ipv4 = *nexthop;
-			api_nh->vrf_id = bgp->vrf_id;
 			/* EVPN type-2 routes are
 			   programmed as onlink on l3-vni SVI
 			 */
@@ -1135,7 +1136,6 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			if (ifindex == 0)
 				continue;
 
-			api_nh = &api.nexthops[valid_nh_count];
 			api_nh->gate.ipv6 = *nexthop;
 			api_nh->ifindex = ifindex;
 			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
@@ -1746,8 +1746,7 @@ static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx L3-VNI %s VRF %s VNI %u RMAC %s filter %s",
 			   (cmd == ZEBRA_L3VNI_ADD) ? "add" : "del",
-			   vrf_id_to_name(vrf_id),
-			   l3vni,
+			   vrf_id_to_name(vrf_id), l3vni,
 			   prefix_mac2str(&rmac, buf, sizeof(buf)),
 			   filter ? "prefix-routes-only" : "none");
 

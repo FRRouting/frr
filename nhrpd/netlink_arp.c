@@ -27,23 +27,27 @@ static int netlink_listen_fd = -1;
 
 typedef void (*netlink_dispatch_f)(struct nlmsghdr *msg, struct zbuf *zb);
 
-void netlink_update_binding(struct interface *ifp, union sockunion *proto, union sockunion *nbma)
+void netlink_update_binding(struct interface *ifp, union sockunion *proto,
+			    union sockunion *nbma)
 {
 	struct nlmsghdr *n;
 	struct ndmsg *ndm;
 	struct zbuf *zb = zbuf_alloc(512);
 
-	n = znl_nlmsg_push(zb, nbma ? RTM_NEWNEIGH : RTM_DELNEIGH, NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
+	n = znl_nlmsg_push(zb, nbma ? RTM_NEWNEIGH : RTM_DELNEIGH,
+			   NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_CREATE);
 	ndm = znl_push(zb, sizeof(*ndm));
-	*ndm = (struct ndmsg) {
+	*ndm = (struct ndmsg){
 		.ndm_family = sockunion_family(proto),
 		.ndm_ifindex = ifp->ifindex,
 		.ndm_type = RTN_UNICAST,
 		.ndm_state = nbma ? NUD_REACHABLE : NUD_FAILED,
 	};
-	znl_rta_push(zb, NDA_DST, sockunion_get_addr(proto), family2addrsize(sockunion_family(proto)));
+	znl_rta_push(zb, NDA_DST, sockunion_get_addr(proto),
+		     family2addrsize(sockunion_family(proto)));
 	if (nbma)
-		znl_rta_push(zb, NDA_LLADDR, sockunion_get_addr(nbma), family2addrsize(sockunion_family(nbma)));
+		znl_rta_push(zb, NDA_LLADDR, sockunion_get_addr(nbma),
+			     family2addrsize(sockunion_family(nbma)));
 	znl_nlmsg_complete(zb, n);
 	zbuf_send(zb, netlink_req_fd);
 	zbuf_recv(zb, netlink_req_fd);
@@ -63,14 +67,16 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 	int state;
 
 	ndm = znl_pull(zb, sizeof(*ndm));
-	if (!ndm) return;
+	if (!ndm)
+		return;
 
 	sockunion_family(&addr) = AF_UNSPEC;
 	while ((rta = znl_rta_pull(zb, &payload)) != NULL) {
 		len = zbuf_used(&payload);
 		switch (rta->rta_type) {
 		case NDA_DST:
-			sockunion_set(&addr, ndm->ndm_family, zbuf_pulln(&payload, len), len);
+			sockunion_set(&addr, ndm->ndm_family,
+				      zbuf_pulln(&payload, len), len);
 			break;
 		}
 	}
@@ -85,19 +91,20 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 
 	if (msg->nlmsg_type == RTM_GETNEIGH) {
 		debugf(NHRP_DEBUG_KERNEL, "Netlink: who-has %s dev %s",
-			sockunion2str(&addr, buf, sizeof buf),
-			ifp->name);
+		       sockunion2str(&addr, buf, sizeof buf), ifp->name);
 
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
-			netlink_update_binding(ifp, &addr, &c->cur.peer->vc->remote.nbma);
+			netlink_update_binding(ifp, &addr,
+					       &c->cur.peer->vc->remote.nbma);
 		}
 	} else {
 		debugf(NHRP_DEBUG_KERNEL, "Netlink: update %s dev %s nud %x",
-			sockunion2str(&addr, buf, sizeof buf),
-			ifp->name, ndm->ndm_state);
+		       sockunion2str(&addr, buf, sizeof buf), ifp->name,
+		       ndm->ndm_state);
 
-		state = (msg->nlmsg_type == RTM_NEWNEIGH) ? ndm->ndm_state : NUD_FAILED;
+		state = (msg->nlmsg_type == RTM_NEWNEIGH) ? ndm->ndm_state
+							  : NUD_FAILED;
 		nhrp_cache_set_used(c, state == NUD_REACHABLE);
 	}
 }
@@ -112,8 +119,9 @@ static int netlink_route_recv(struct thread *t)
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
 		while ((n = znl_nlmsg_pull(&zb, &payload)) != 0) {
-			debugf(NHRP_DEBUG_KERNEL, "Netlink: Received msg_type %u, msg_flags %u",
-				n->nlmsg_type, n->nlmsg_flags);
+			debugf(NHRP_DEBUG_KERNEL,
+			       "Netlink: Received msg_type %u, msg_flags %u",
+			       n->nlmsg_type, n->nlmsg_flags);
 			switch (n->nlmsg_type) {
 			case RTM_GETNEIGH:
 			case RTM_NEWNEIGH:
@@ -136,9 +144,10 @@ static void netlink_log_register(int fd, int group)
 	struct nfulnl_msg_config_cmd cmd;
 	struct zbuf *zb = zbuf_alloc(512);
 
-	n = znl_nlmsg_push(zb, (NFNL_SUBSYS_ULOG<<8) | NFULNL_MSG_CONFIG, NLM_F_REQUEST | NLM_F_ACK);
+	n = znl_nlmsg_push(zb, (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_CONFIG,
+			   NLM_F_REQUEST | NLM_F_ACK);
 	nf = znl_push(zb, sizeof(*nf));
-	*nf = (struct nfgenmsg) {
+	*nf = (struct nfgenmsg){
 		.nfgen_family = AF_UNSPEC,
 		.version = NFNETLINK_V0,
 		.res_id = htons(group),
@@ -161,7 +170,8 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	uint32_t *in_ndx = NULL;
 
 	nf = znl_pull(zb, sizeof(*nf));
-	if (!nf) return;
+	if (!nf)
+		return;
 
 	memset(&pktpl, 0, sizeof(pktpl));
 	while ((rta = znl_rta_pull(zb, &rtapl)) != NULL) {
@@ -175,10 +185,10 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 		case NFULA_PAYLOAD:
 			pktpl = rtapl;
 			break;
-		/* NFULA_HWHDR exists and is supposed to contain source
-		 * hardware address. However, for ip_gre it seems to be
-		 * the nexthop destination address if the packet matches
-		 * route. */
+			/* NFULA_HWHDR exists and is supposed to contain source
+			 * hardware address. However, for ip_gre it seems to be
+			 * the nexthop destination address if the packet matches
+			 * route. */
 		}
 	}
 
@@ -204,10 +214,11 @@ static int netlink_log_recv(struct thread *t)
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
 		while ((n = znl_nlmsg_pull(&zb, &payload)) != 0) {
-			debugf(NHRP_DEBUG_KERNEL, "Netlink-log: Received msg_type %u, msg_flags %u",
-				n->nlmsg_type, n->nlmsg_flags);
+			debugf(NHRP_DEBUG_KERNEL,
+			       "Netlink-log: Received msg_type %u, msg_flags %u",
+			       n->nlmsg_type, n->nlmsg_flags);
 			switch (n->nlmsg_type) {
-			case (NFNL_SUBSYS_ULOG<<8) | NFULNL_MSG_PACKET:
+			case (NFNL_SUBSYS_ULOG << 8) | NFULNL_MSG_PACKET:
 				netlink_log_indication(n, &payload);
 				break;
 			}
@@ -229,7 +240,7 @@ void netlink_set_nflog_group(int nlgroup)
 	}
 	netlink_nflog_group = nlgroup;
 	if (nlgroup) {
-		netlink_log_fd = znl_open(NETLINK_NETFILTER,  0);
+		netlink_log_fd = znl_open(NETLINK_NETFILTER, 0);
 		if (netlink_log_fd < 0)
 			return;
 
@@ -249,8 +260,7 @@ void netlink_init(void)
 	if (netlink_listen_fd < 0)
 		return;
 
-	thread_add_read(master, netlink_route_recv, 0, netlink_listen_fd,
-			NULL);
+	thread_add_read(master, netlink_route_recv, 0, netlink_listen_fd, NULL);
 }
 
 int netlink_configure_arp(unsigned int ifindex, int pf)
@@ -263,11 +273,12 @@ int netlink_configure_arp(unsigned int ifindex, int pf)
 
 	n = znl_nlmsg_push(zb, RTM_SETNEIGHTBL, NLM_F_REQUEST | NLM_F_REPLACE);
 	ndtm = znl_push(zb, sizeof(*ndtm));
-	*ndtm = (struct ndtmsg) {
+	*ndtm = (struct ndtmsg){
 		.ndtm_family = pf,
 	};
 
-	znl_rta_push(zb, NDTA_NAME, pf == AF_INET ? "arp_cache" : "ndisc_cache", 10);
+	znl_rta_push(zb, NDTA_NAME, pf == AF_INET ? "arp_cache" : "ndisc_cache",
+		     10);
 
 	rta = znl_rta_nested_push(zb, NDTA_PARMS);
 	znl_rta_push_u32(zb, NDTPA_IFINDEX, ifindex);

@@ -353,9 +353,5 @@ static int irdp_module_init(void)
 	return 0;
 }
 
-FRR_MODULE_SETUP(
-	.name = "zebra_irdp",
-	.version = FRR_VERSION,
-	.description = "zebra IRDP module",
-	.init = irdp_module_init,
-)
+FRR_MODULE_SETUP(.name = "zebra_irdp", .version = FRR_VERSION,
+		 .description = "zebra IRDP module", .init = irdp_module_init, )

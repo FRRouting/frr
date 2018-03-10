@@ -501,14 +501,14 @@ struct in6_ifreq {
 int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
 {
 #ifdef HAVE_NETLINK
-	return kernel_address_add_ipv6 (ifp, ifc);
+	return kernel_address_add_ipv6(ifp, ifc);
 #endif /* HAVE_NETLINK */
 }
 
 int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 {
 #ifdef HAVE_NETLINK
-	return kernel_address_delete_ipv6 (ifp, ifc);
+	return kernel_address_delete_ipv6(ifp, ifc);
 #endif /* HAVE_NETLINK */
 }
 #else /* LINUX_IPV6 */

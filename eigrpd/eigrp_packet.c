@@ -194,8 +194,9 @@ int eigrp_check_md5_digest(struct stream *s,
 		key = key_lookup_for_send(keychain);
 
 	if (!key) {
-		zlog_warn("Interface %s: Expected key value not found in config",
-			  nbr->ei->ifp->name);
+		zlog_warn(
+			"Interface %s: Expected key value not found in config",
+			nbr->ei->ifp->name);
 		return 0;
 	}
 
@@ -270,8 +271,9 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 		key = key_lookup_for_send(keychain);
 
 	if (!key) {
-		zlog_warn("Interface %s: Expected key value not found in config",
-			  ei->ifp->name);
+		zlog_warn(
+			"Interface %s: Expected key value not found in config",
+			ei->ifp->name);
 		eigrp_authTLV_SHA256_free(auth_TLV);
 		return 0;
 	}
@@ -325,8 +327,6 @@ int eigrp_write(struct thread *thread)
 #ifdef WANT_EIGRP_WRITE_FRAGMENT
 	static u_int16_t ipid = 0;
 #endif /* WANT_EIGRP_WRITE_FRAGMENT */
-       /* $FRR indent$ */
-/* clang-format off */
 #define EIGRP_WRITE_IPHL_SHIFT 2
 
 	eigrp->t_write = NULL;
@@ -350,8 +350,7 @@ int eigrp_write(struct thread *thread)
 		goto out;
 	}
 	if (ep->length < EIGRP_HEADER_LEN) {
-		zlog_err("%s: Packet just has a header?",
-			 __PRETTY_FUNCTION__);
+		zlog_err("%s: Packet just has a header?", __PRETTY_FUNCTION__);
 		eigrp_header_dump((struct eigrp_header *)ep->s->data);
 		eigrp_packet_delete(ei);
 		goto out;
@@ -435,10 +434,10 @@ int eigrp_write(struct thread *thread)
 
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, SEND)) {
 		eigrph = (struct eigrp_header *)STREAM_DATA(ep->s);
-		zlog_debug("Sending [%s][%d/%d] to [%s] via [%s] ret [%d].",
-			   lookup_msg(eigrp_packet_type_str, eigrph->opcode, NULL),
-			   seqno, ack,
-			   inet_ntoa(ep->dst), IF_NAME(ei), ret);
+		zlog_debug(
+			"Sending [%s][%d/%d] to [%s] via [%s] ret [%d].",
+			lookup_msg(eigrp_packet_type_str, eigrph->opcode, NULL),
+			seqno, ack, inet_ntoa(ep->dst), IF_NAME(ei), ret);
 	}
 
 	if (ret < 0)
@@ -615,10 +614,11 @@ int eigrp_read(struct thread *thread)
 
 		strlcpy(src, inet_ntoa(iph->ip_src), sizeof(src));
 		strlcpy(dst, inet_ntoa(iph->ip_dst), sizeof(dst));
-		zlog_debug("Received [%s][%d/%d] length [%u] via [%s] src [%s] dst [%s]",
-			   lookup_msg(eigrp_packet_type_str, opcode, NULL),
-			   ntohl(eigrph->sequence), ntohl(eigrph->ack), length,
-			   IF_NAME(ei), src, dst);
+		zlog_debug(
+			"Received [%s][%d/%d] length [%u] via [%s] src [%s] dst [%s]",
+			lookup_msg(eigrp_packet_type_str, opcode, NULL),
+			ntohl(eigrph->sequence), ntohl(eigrph->ack), length,
+			IF_NAME(ei), src, dst);
 	}
 
 	/* Read rest of the packet and call each sort of packet routine. */
@@ -639,7 +639,8 @@ int eigrp_read(struct thread *thread)
 			eigrp_packet_free(ep);
 
 			if ((nbr->state == EIGRP_NEIGHBOR_PENDING)
-			    && (ntohl(eigrph->ack) == nbr->init_sequence_number)) {
+			    && (ntohl(eigrph->ack)
+				== nbr->init_sequence_number)) {
 				eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_UP);
 				zlog_info("Neighbor(%s) adjacency became full",
 					  inet_ntoa(nbr->src));
@@ -647,8 +648,7 @@ int eigrp_read(struct thread *thread)
 				nbr->recv_sequence_number =
 					ntohl(eigrph->sequence);
 				eigrp_update_send_EOT(nbr);
-			}
-			else
+			} else
 				eigrp_send_packet_reliably(nbr);
 		}
 		ep = eigrp_fifo_next(nbr->multicast_queue);
@@ -875,9 +875,9 @@ void eigrp_packet_checksum(struct eigrp_interface *ei, struct stream *s,
 }
 
 /* Make EIGRP header. */
-void eigrp_packet_header_init(int type, struct eigrp *eigrp,
-			      struct stream *s, u_int32_t flags,
-			      u_int32_t sequence, u_int32_t ack)
+void eigrp_packet_header_init(int type, struct eigrp *eigrp, struct stream *s,
+			      u_int32_t flags, u_int32_t sequence,
+			      u_int32_t ack)
 {
 	struct eigrp_header *eigrph;
 
@@ -1234,8 +1234,7 @@ u_int16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 
 	stream_putc(s, pe->destination->u.prefix4.s_addr & 0xFF);
 	if (pe->destination->prefixlen > 8)
-		stream_putc(s,
-			    (pe->destination->u.prefix4.s_addr >> 8) & 0xFF);
+		stream_putc(s, (pe->destination->u.prefix4.s_addr >> 8) & 0xFF);
 	if (pe->destination->prefixlen > 16)
 		stream_putc(s,
 			    (pe->destination->u.prefix4.s_addr >> 16) & 0xFF);

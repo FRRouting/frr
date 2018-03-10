@@ -290,8 +290,8 @@ static uint16_t bgp_write(struct peer *peer)
 	uint16_t status = 0;
 	uint32_t wpkt_quanta_old;
 
-	wpkt_quanta_old =
-	    atomic_load_explicit(&peer->bgp->wpkt_quanta, memory_order_relaxed);
+	wpkt_quanta_old = atomic_load_explicit(&peer->bgp->wpkt_quanta,
+					       memory_order_relaxed);
 
 	while (count < wpkt_quanta_old && (s = stream_fifo_head(peer->obuf))) {
 		int writenum;
@@ -402,7 +402,7 @@ static uint16_t bgp_read(struct peer *peer)
 	/* EAGAIN or EWOULDBLOCK; come back later */
 	if (nbytes < 0 && ERRNO_IO_RETRY(errno)) {
 		SET_FLAG(status, BGP_IO_TRANS_ERR);
-	/* Fatal error; tear down session */
+		/* Fatal error; tear down session */
 	} else if (nbytes < 0) {
 		zlog_err("%s [Error] bgp_read_packet error: %s", peer->host,
 			 safe_strerror(errno));
@@ -417,7 +417,7 @@ static uint16_t bgp_read(struct peer *peer)
 
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
 		SET_FLAG(status, BGP_IO_FATAL_ERR);
-	/* Received EOF / TCP session closed */
+		/* Received EOF / TCP session closed */
 	} else if (nbytes == 0) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [Event] BGP connection closed fd %d",
@@ -485,8 +485,8 @@ static bool validate_header(struct peer *peer)
 				   type);
 
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
-					  BGP_NOTIFY_HEADER_BAD_MESTYPE,
-					  &type, 1);
+					  BGP_NOTIFY_HEADER_BAD_MESTYPE, &type,
+					  1);
 		return false;
 	}
 
@@ -506,14 +506,14 @@ static bool validate_header(struct peer *peer)
 			zlog_debug("%s bad message length - %d for %s",
 				   peer->host, size,
 				   type == 128 ? "ROUTE-REFRESH"
-					       : bgp_type_str[(int) type]);
+					       : bgp_type_str[(int)type]);
 		}
 
 		uint16_t nsize = htons(size);
 
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
 					  BGP_NOTIFY_HEADER_BAD_MESLEN,
-					  (unsigned char *) &nsize, 2);
+					  (unsigned char *)&nsize, 2);
 		return false;
 	}
 

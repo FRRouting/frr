@@ -390,10 +390,10 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		if (prefix_list_apply(PREFIX_LIST_OUT(area), &route->prefix)
 		    != PREFIX_PERMIT) {
 			if (is_debug) {
-				inet_ntop(AF_INET,
-					  &(ADV_ROUTER_IN_PREFIX(
-						  &route->prefix)),
-					  buf, sizeof(buf));
+				inet_ntop(
+					AF_INET,
+					&(ADV_ROUTER_IN_PREFIX(&route->prefix)),
+					buf, sizeof(buf));
 				zlog_debug(
 					"prefix %s was denied by filter-list out",
 					buf);
@@ -870,8 +870,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if (prefix_list_apply(PREFIX_LIST_IN(oa), &prefix)
 		    != PREFIX_PERMIT) {
 			if (is_debug)
-				zlog_debug(
-					"Prefix was denied by prefix-list");
+				zlog_debug("Prefix was denied by prefix-list");
 			if (old)
 				ospf6_route_remove(old, table);
 			return;
@@ -914,8 +913,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 
 		if (is_debug)
 			zlog_debug("%s: Update route: %s nh count %u",
-				__PRETTY_FUNCTION__,
-				buf, listcount(route->nh_list));
+				   __PRETTY_FUNCTION__, buf,
+				   listcount(route->nh_list));
 
 		/* Update RIB/FIB */
 		if (table->hook_add)
@@ -925,8 +924,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		ospf6_route_delete(route);
 	} else {
 		if (is_debug)
-			zlog_debug("Install route: %s nh count %u",
-				   buf, listcount(route->nh_list));
+			zlog_debug("Install route: %s nh count %u", buf,
+				   listcount(route->nh_list));
 		/* ospf6_ia_add_nw_route (table, &prefix, route); */
 		ospf6_route_add(route, table);
 	}
@@ -1123,8 +1122,7 @@ struct ospf6_lsa_handler inter_prefix_handler = {
 	.lh_short_name = "IAP",
 	.lh_show = ospf6_inter_area_prefix_lsa_show,
 	.lh_get_prefix_str = ospf6_inter_area_prefix_lsa_get_prefix_str,
-	.lh_debug = 0
-};
+	.lh_debug = 0};
 
 struct ospf6_lsa_handler inter_router_handler = {
 	.lh_type = OSPF6_LSTYPE_INTER_ROUTER,
@@ -1132,8 +1130,7 @@ struct ospf6_lsa_handler inter_router_handler = {
 	.lh_short_name = "IAR",
 	.lh_show = ospf6_inter_area_router_lsa_show,
 	.lh_get_prefix_str = ospf6_inter_area_router_lsa_get_prefix_str,
-	.lh_debug = 0
-};
+	.lh_debug = 0};
 
 void ospf6_abr_init(void)
 {

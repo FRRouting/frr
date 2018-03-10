@@ -125,10 +125,9 @@ struct list *eigrp_iflist;
 void eigrp_if_init()
 {
 	/* Initialize Zebra interface data structure. */
-	//hook_register_prio(if_add, 0, eigrp_if_new);
+	// hook_register_prio(if_add, 0, eigrp_if_new);
 	hook_register_prio(if_del, 0, eigrp_if_delete_hook);
 }
-
 
 
 void eigrp_del_if_params(struct eigrp_if_params *eip)
@@ -160,8 +159,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	thread_add_event(master, eigrp_hello_timer, ei, (1), NULL);
 
 	/*Prepare metrics*/
-	metric.bandwidth =
-		eigrp_bandwidth_to_scaled(ei->params.bandwidth);
+	metric.bandwidth = eigrp_bandwidth_to_scaled(ei->params.bandwidth);
 	metric.delay = eigrp_delay_to_scaled(ei->params.delay);
 	metric.load = ei->params.load;
 	metric.reliability = ei->params.reliability;
@@ -310,8 +308,7 @@ void eigrp_if_set_multicast(struct eigrp_interface *ei)
 		 * group. */
 		if (ei->member_allrouters) {
 			/* Only actually drop if this is the last reference */
-			eigrp_if_drop_allspfrouters(ei->eigrp,
-						    ei->address,
+			eigrp_if_drop_allspfrouters(ei->eigrp, ei->address,
 						    ei->ifp->ifindex);
 			/* Unset the flag regardless of whether the system call
 			   to leave
@@ -333,8 +330,7 @@ u_char eigrp_default_iftype(struct interface *ifp)
 		return EIGRP_IFTYPE_BROADCAST;
 }
 
-void eigrp_if_free(struct eigrp_interface *ei,
-		   int source)
+void eigrp_if_free(struct eigrp_interface *ei, int source)
 {
 	struct prefix dest_addr;
 	struct eigrp_prefix_entry *pe;

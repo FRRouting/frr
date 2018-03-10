@@ -249,7 +249,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	ri->rtm_type = RTN_UNICAST;
 	ri->metric = &re->metric;
 
-	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+	for (ALL_NEXTHOPS(re->ng, nexthop)) {
 		if (ri->num_nhs >= multipath_num)
 			break;
 

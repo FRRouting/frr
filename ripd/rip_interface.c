@@ -907,19 +907,17 @@ static void rip_connect_set(struct interface *ifp, int set)
 			 * "network IF_OR_PREF" one */
 			if ((rip_enable_if_lookup(connected->ifp->name) >= 0)
 			    || (rip_enable_network_lookup2(connected) >= 0))
-				rip_redistribute_add(
-					ZEBRA_ROUTE_CONNECT,
-					RIP_ROUTE_INTERFACE, &address,
-					&nh, 0, 0, 0);
+				rip_redistribute_add(ZEBRA_ROUTE_CONNECT,
+						     RIP_ROUTE_INTERFACE,
+						     &address, &nh, 0, 0, 0);
 		} else {
 			rip_redistribute_delete(ZEBRA_ROUTE_CONNECT,
 						RIP_ROUTE_INTERFACE, &address,
 						connected->ifp->ifindex);
 			if (rip_redistribute_check(ZEBRA_ROUTE_CONNECT))
-				rip_redistribute_add(
-					ZEBRA_ROUTE_CONNECT,
-					RIP_ROUTE_REDISTRIBUTE, &address,
-					&nh, 0, 0, 0);
+				rip_redistribute_add(ZEBRA_ROUTE_CONNECT,
+						     RIP_ROUTE_REDISTRIBUTE,
+						     &address, &nh, 0, 0, 0);
 		}
 	}
 }

@@ -20,7 +20,8 @@
 #include "netlink.h"
 #include "znl.h"
 
-static int __netlink_gre_get_data(struct zbuf *zb, struct zbuf *data, int ifindex)
+static int __netlink_gre_get_data(struct zbuf *zb, struct zbuf *data,
+				  int ifindex)
 {
 	struct nlmsghdr *n;
 	struct ifinfomsg *ifi;
@@ -31,17 +32,18 @@ static int __netlink_gre_get_data(struct zbuf *zb, struct zbuf *data, int ifinde
 
 	n = znl_nlmsg_push(zb, RTM_GETLINK, NLM_F_REQUEST);
 	ifi = znl_push(zb, sizeof(*ifi));
-	*ifi = (struct ifinfomsg) {
+	*ifi = (struct ifinfomsg){
 		.ifi_index = ifindex,
 	};
 	znl_nlmsg_complete(zb, n);
 
-	if (zbuf_send(zb, netlink_req_fd) < 0 ||
-	    zbuf_recv(zb, netlink_req_fd) < 0)
+	if (zbuf_send(zb, netlink_req_fd) < 0
+	    || zbuf_recv(zb, netlink_req_fd) < 0)
 		return -1;
 
 	n = znl_nlmsg_pull(zb, &payload);
-	if (!n) return -1;
+	if (!n)
+		return -1;
 
 	if (n->nlmsg_type != RTM_NEWLINK)
 		return -1;
@@ -50,8 +52,9 @@ static int __netlink_gre_get_data(struct zbuf *zb, struct zbuf *data, int ifinde
 	if (!ifi)
 		return -1;
 
-	debugf(NHRP_DEBUG_KERNEL, "netlink-link-gre: ifindex %u, receive msg_type %u, msg_flags %u",
-		ifi->ifi_index, n->nlmsg_type, n->nlmsg_flags);
+	debugf(NHRP_DEBUG_KERNEL,
+	       "netlink-link-gre: ifindex %u, receive msg_type %u, msg_flags %u",
+	       ifi->ifi_index, n->nlmsg_type, n->nlmsg_flags);
 
 	if (ifi->ifi_index != ifindex)
 		return -1;
@@ -59,19 +62,22 @@ static int __netlink_gre_get_data(struct zbuf *zb, struct zbuf *data, int ifinde
 	while ((rta = znl_rta_pull(&payload, &rtapayload)) != NULL)
 		if (rta->rta_type == IFLA_LINKINFO)
 			break;
-	if (!rta) return -1;
+	if (!rta)
+		return -1;
 
 	payload = rtapayload;
 	while ((rta = znl_rta_pull(&payload, &rtapayload)) != NULL)
 		if (rta->rta_type == IFLA_INFO_DATA)
 			break;
-	if (!rta) return -1;
+	if (!rta)
+		return -1;
 
 	*data = rtapayload;
 	return 0;
 }
 
-void netlink_gre_get_info(unsigned int ifindex, uint32_t *gre_key, unsigned int *link_index, struct in_addr *saddr)
+void netlink_gre_get_info(unsigned int ifindex, uint32_t *gre_key,
+			  unsigned int *link_index, struct in_addr *saddr)
 {
 	struct zbuf *zb = zbuf_alloc(8192), data, rtapl;
 	struct rtattr *rta;
@@ -115,7 +121,7 @@ void netlink_gre_set_link(unsigned int ifindex, unsigned int link_index)
 
 	n = znl_nlmsg_push(zb, RTM_NEWLINK, NLM_F_REQUEST);
 	ifi = znl_push(zb, sizeof(*ifi));
-	*ifi = (struct ifinfomsg) {
+	*ifi = (struct ifinfomsg){
 		.ifi_index = ifindex,
 	};
 	rta_info = znl_rta_nested_push(zb, IFLA_LINKINFO);
