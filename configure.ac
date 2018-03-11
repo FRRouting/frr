@@ -396,6 +396,8 @@ AC_ARG_ENABLE(rpki,
   AS_HELP_STRING([--enable-rpki], [enable RPKI prefix validation support]))
 AC_ARG_ENABLE([clippy-only],
   AS_HELP_STRING([--enable-clippy-only], [Only build clippy]))
+AC_ARG_ENABLE([numeric_version],
+  AS_HELP_STRING([--enable-numeric-version], [Only numeric digits allowed in version (for Alpine)]))
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
@@ -646,6 +648,14 @@ esac
 AC_DEFINE_UNQUOTED(MULTIPATH_NUM, $MPATH_NUM, Maximum number of paths for a route)
 
 AC_DEFINE_UNQUOTED(VTYSH_PAGER, "$VTYSH_PAGER", [What pager to use])
+
+dnl ------------------------------------
+dnl Alpine only accepts numeric versions
+dnl ------------------------------------
+if test "x${enable_numeric_version}" != "x" ; then
+  VERSION="`echo ${VERSION} | tr -c -d '[[.0-9]]'`"
+  PACKAGE_VERSION="`echo ${PACKAGE_VERSION} | tr -c -d '[[.0-9]]'`"
+fi
 
 dnl -----------------------------------
 dnl Add extra version string to package
@@ -1872,6 +1882,7 @@ AC_CONFIG_FILES([Makefile
 	  redhat/frr.spec
 	  debianpkg/Makefile
 	  debianpkg/changelog
+	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
 	  tests/lib/cli/test_cli.refout

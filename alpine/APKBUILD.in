@@ -1,0 +1,36 @@
+# Maintainer: Arthur Jones <arthur.jones@riverbed.com>
+pkgname=frr
+pkgver=@VERSION@
+pkgrel=0
+pkgdesc="Free Range Routing is a fork of quagga"
+url="https://frrouting.org/"
+arch="all"
+license="GPL-2.0"
+depends="iproute2 json-c c-ares ipsec-tools iproute2"
+makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
+    acct autoconf automake bash
+    binutils binutils-libs bison bsd-compat-headers build-base
+    c-ares c-ares-dev ca-certificates cryptsetup-libs curl
+    device-mapper-libs expat fakeroot flex fortify-headers gdbm
+    git gmp isl json-c-dev kmod lddtree libacl libatomic libattr
+    libblkid libburn libbz2 libc-dev libcap libcurl libedit libffi libgcc
+    libgomp libisoburn libisofs libltdl libressl libssh2
+    libstdc++ libtool libuuid linux-headers lzip lzo m4 make mkinitfs mpc1
+    mpfr3 mtools musl-dev ncurses-libs ncurses-terminfo ncurses-terminfo-base
+    patch pax-utils pcre perl pkgconf python2 python2-dev readline
+    readline-dev sqlite-libs squashfs-tools sudo tar texinfo xorriso xz-libs"
+subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
+source="$pkgname-$pkgver.tar.gz"
+
+builddir="$srcdir"/$pkgname-$pkgver
+
+build() {
+	cd "$builddir"
+	./configure --prefix=/usr || return 1
+	make || return 1
+}
+
+package() {
+	cd "$builddir"
+	make DESTDIR="$pkgdir" install || return 1
+}
