@@ -5,6 +5,7 @@ Building FRR
    :maxdepth: 2
 
    Building_FRR_on_LEDE-OpenWRT
+   Building_FRR_on_Alpine
    Building_FRR_on_CentOS6
    Building_FRR_on_CentOS7
    Building_FRR_on_Debian8

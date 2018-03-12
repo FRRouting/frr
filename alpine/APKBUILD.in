@@ -18,7 +18,8 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     libstdc++ libtool libuuid linux-headers lzip lzo m4 make mkinitfs mpc1
     mpfr3 mtools musl-dev ncurses-libs ncurses-terminfo ncurses-terminfo-base
     patch pax-utils pcre perl pkgconf python2 python2-dev readline
-    readline-dev sqlite-libs squashfs-tools sudo tar texinfo xorriso xz-libs"
+    readline-dev sqlite-libs squashfs-tools sudo tar texinfo xorriso xz-libs
+    py-sphinx"
 subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
 source="$pkgname-$pkgver.tar.gz"
 
