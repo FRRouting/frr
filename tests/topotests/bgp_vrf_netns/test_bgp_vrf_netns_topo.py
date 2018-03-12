@@ -103,13 +103,17 @@ def setup_module(module):
 
     # create VRF r1-cust1
     # move r1-eth0 to VRF r1-cust1
-    cmds = ['ip netns add {0}-cust1',
+    cmds = ['if [ -e /var/run/netns/{0}-cust1 ] ; then ip netns del {0}-cust1 ; fi',
+            'ip netns add {0}-cust1',
             'ip link set dev {0}-eth0 netns {0}-cust1',
             'ip netns exec {0}-cust1 ifconfig {0}-eth0 up']
     for cmd in cmds:
+        cmd = cmd.format('r1')
+        logger.info('cmd: '+cmd);
         output = router.run(cmd.format('r1'))
         if output != None and len(output) > 0:
-            logger.info('unexpected output: cmd="{}" output=\n{}'.format(cmd, output))
+            logger.info('Aborting due to unexpected output: cmd="{}" output=\n{}'.format(cmd, output))
+            return pytest.skip('Skipping BGP VRF NETNS Test. Unexpected output to command: '+cmd)
     #run daemons
     router.load_config(
         TopoRouter.RD_ZEBRA,
