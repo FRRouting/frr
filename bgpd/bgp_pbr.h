@@ -226,6 +226,8 @@ extern struct bgp_pbr_match *bgp_pbr_match_ipset_lookup(vrf_id_t vrf_id,
 extern struct bgp_pbr_match_entry *bgp_pbr_match_ipset_entry_lookup(
 					    vrf_id_t vrf_id, char *name,
 					    uint32_t unique);
+extern struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
+							  uint32_t unique);
 
 extern void bgp_pbr_init(struct bgp *bgp);
 
