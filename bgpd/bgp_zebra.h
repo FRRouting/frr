@@ -79,5 +79,8 @@ extern void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim,
 				     bool install);
 extern void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 				    bool install);
+extern void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
+			  struct bgp_pbr_match *pbm,
+			  bool install);
 
 #endif /* _QUAGGA_BGP_ZEBRA_H */
