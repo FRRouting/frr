@@ -2577,10 +2577,12 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 {
 	/* delete all ipv4 routes and withdraw from peers */
-	bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
+	if (advertise_type5_routes(bgp_vrf, AFI_IP))
+		bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
 
 	/* delete all ipv6 routes and withdraw from peers */
-	bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
+	if (advertise_type5_routes(bgp_vrf, AFI_IP6))
+		bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
 }
 
 /* update and advertise all ipv4 and ipv6 routes in thr vrf table as type-5
@@ -2588,10 +2590,12 @@ static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 static void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 {
 	/* update all ipv4 routes */
-	bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
+	if (advertise_type5_routes(bgp_vrf, AFI_IP))
+		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
 
 	/* update all ipv6 routes */
-	bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
+	if (advertise_type5_routes(bgp_vrf, AFI_IP6))
+		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
 }
 
 /*
@@ -3214,10 +3218,6 @@ void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 	struct prefix_evpn evp;
 	char buf[PREFIX_STRLEN];
 
-	/* NOTE: Check needed as this is called per-route also. */
-	if (!advertise_type5_routes(bgp_vrf, afi))
-		return;
-
 	build_type5_prefix_from_ip_prefix(&evp, p);
 	ret = delete_evpn_type5_route(bgp_vrf, &evp);
 	if (ret) {
@@ -3234,10 +3234,6 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
 	struct bgp_info *ri;
-
-	/* Bail out early if we don't have to advertise type-5 routes. */
-	if (!advertise_type5_routes(bgp_vrf, afi))
-		return;
 
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
@@ -3267,11 +3263,7 @@ void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 	int ret = 0;
 	struct prefix_evpn evp;
 	char buf[PREFIX_STRLEN];
-
-	/* NOTE: Check needed as this is called per-route also. */
-	if (!advertise_type5_routes(bgp_vrf, afi))
-		return;
-
+  
 	build_type5_prefix_from_ip_prefix(&evp, p);
 	ret = update_evpn_type5_route(bgp_vrf, &evp, src_attr);
 	if (ret)
@@ -3289,10 +3281,6 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
 	struct bgp_info *ri;
-
-	/* Bail out early if we don't have to advertise type-5 routes. */
-	if (!advertise_type5_routes(bgp_vrf, afi))
-		return;
 
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {

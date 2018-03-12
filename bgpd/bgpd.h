@@ -312,6 +312,13 @@ struct bgp {
 	u_int16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING              (1 << 0)
 
+/* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
+#define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST      (1 << 1)
+#define BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST      (1 << 2)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4	   (1 << 3)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6	   (1 << 4)
+
+
 	/* Route table for next-hop lookup cache. */
 	struct bgp_table *nexthop_cache_table[AFI_MAX];
 
@@ -423,12 +430,11 @@ struct bgp {
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO                        (1 << 0)
-#define BGP_VRF_ADVERTISE_IPV4_IN_EVPN      (1 << 1)
-#define BGP_VRF_ADVERTISE_IPV6_IN_EVPN      (1 << 2)
-#define BGP_VRF_IMPORT_RT_CFGD              (1 << 3)
-#define BGP_VRF_EXPORT_RT_CFGD              (1 << 4)
-#define BGP_VRF_RD_CFGD                     (1 << 5)
-#define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 6)
+#define BGP_VRF_IMPORT_RT_CFGD              (1 << 1)
+#define BGP_VRF_EXPORT_RT_CFGD              (1 << 2)
+#define BGP_VRF_RD_CFGD                     (1 << 3)
+#define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 4)
+
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
