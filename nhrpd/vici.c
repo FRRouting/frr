@@ -27,13 +27,15 @@ struct blob {
 
 static int blob_equal(const struct blob *b, const char *str)
 {
-	if (!b || b->len != (int) strlen(str)) return 0;
+	if (!b || b->len != (int)strlen(str))
+		return 0;
 	return memcmp(b->ptr, str, b->len) == 0;
 }
 
 static int blob2buf(const struct blob *b, char *buf, size_t n)
 {
-	if (!b || b->len >= (int) n) return 0;
+	if (!b || b->len >= (int)n)
+		return 0;
 	memcpy(buf, b->ptr, b->len);
 	buf[b->len] = 0;
 	return 1;
@@ -76,21 +78,24 @@ static void vici_connection_error(struct vici_conn *vici)
 	thread_add_timer(master, vici_reconnect, vici, 2, &vici->t_reconnect);
 }
 
-static void vici_parse_message(
-	struct vici_conn *vici, struct zbuf *msg,
-	void (*parser)(struct vici_message_ctx *ctx, enum vici_type_t msgtype, const struct blob *key, const struct blob *val),
-	struct vici_message_ctx *ctx)
+static void vici_parse_message(struct vici_conn *vici, struct zbuf *msg,
+			       void (*parser)(struct vici_message_ctx *ctx,
+					      enum vici_type_t msgtype,
+					      const struct blob *key,
+					      const struct blob *val),
+			       struct vici_message_ctx *ctx)
 {
 	uint8_t *type;
-	struct blob key = { 0 };
-	struct blob val = { 0 };
+	struct blob key = {0};
+	struct blob val = {0};
 
 	while ((type = zbuf_may_pull(msg, uint8_t)) != NULL) {
 		switch (*type) {
 		case VICI_SECTION_START:
 			key.len = zbuf_get8(msg);
 			key.ptr = zbuf_pulln(msg, key.len);
-			debugf(NHRP_DEBUG_VICI, "VICI: Section start '%.*s'", key.len, key.ptr);
+			debugf(NHRP_DEBUG_VICI, "VICI: Section start '%.*s'",
+			       key.len, key.ptr);
 			parser(ctx, *type, &key, NULL);
 			ctx->nsections++;
 			break;
@@ -104,25 +109,30 @@ static void vici_parse_message(
 			key.ptr = zbuf_pulln(msg, key.len);
 			val.len = zbuf_get_be16(msg);
 			val.ptr = zbuf_pulln(msg, val.len);
-			debugf(NHRP_DEBUG_VICI, "VICI: Key '%.*s'='%.*s'", key.len, key.ptr, val.len, val.ptr);
+			debugf(NHRP_DEBUG_VICI, "VICI: Key '%.*s'='%.*s'",
+			       key.len, key.ptr, val.len, val.ptr);
 			parser(ctx, *type, &key, &val);
 			break;
 		case VICI_LIST_START:
 			key.len = zbuf_get8(msg);
 			key.ptr = zbuf_pulln(msg, key.len);
-			debugf(NHRP_DEBUG_VICI, "VICI: List start '%.*s'", key.len, key.ptr);
+			debugf(NHRP_DEBUG_VICI, "VICI: List start '%.*s'",
+			       key.len, key.ptr);
 			break;
 		case VICI_LIST_ITEM:
 			val.len = zbuf_get_be16(msg);
 			val.ptr = zbuf_pulln(msg, val.len);
-			debugf(NHRP_DEBUG_VICI, "VICI: List item: '%.*s'", val.len, val.ptr);
+			debugf(NHRP_DEBUG_VICI, "VICI: List item: '%.*s'",
+			       val.len, val.ptr);
 			parser(ctx, *type, &key, &val);
 			break;
 		case VICI_LIST_END:
 			debugf(NHRP_DEBUG_VICI, "VICI: List end");
 			break;
 		default:
-			debugf(NHRP_DEBUG_VICI, "VICI: Unsupported message component type %d", *type);
+			debugf(NHRP_DEBUG_VICI,
+			       "VICI: Unsupported message component type %d",
+			       *type);
 			return;
 		}
 	}
@@ -140,12 +150,12 @@ struct handle_sa_ctx {
 	} local, remote;
 };
 
-static void parse_sa_message(
-	struct vici_message_ctx *ctx,
-	enum vici_type_t msgtype,
-	const struct blob *key, const struct blob *val)
+static void parse_sa_message(struct vici_message_ctx *ctx,
+			     enum vici_type_t msgtype, const struct blob *key,
+			     const struct blob *val)
 {
-	struct handle_sa_ctx *sactx = container_of(ctx, struct handle_sa_ctx, msgctx);
+	struct handle_sa_ctx *sactx =
+		container_of(ctx, struct handle_sa_ctx, msgctx);
 	struct nhrp_vc *vc;
 	char buf[512];
 
@@ -162,15 +172,28 @@ static void parse_sa_message(
 			/* End of child-sa section, update nhrp_vc */
 			int up = sactx->child_ok || sactx->event == 1;
 			if (up) {
-				vc = nhrp_vc_get(&sactx->local.host, &sactx->remote.host, up);
+				vc = nhrp_vc_get(&sactx->local.host,
+						 &sactx->remote.host, up);
 				if (vc) {
-					blob2buf(&sactx->local.id, vc->local.id, sizeof(vc->local.id));
-					if (blob2buf(&sactx->local.cert, (char*)vc->local.cert, sizeof(vc->local.cert)))
-						vc->local.certlen = sactx->local.cert.len;
-					blob2buf(&sactx->remote.id, vc->remote.id, sizeof(vc->remote.id));
-					if (blob2buf(&sactx->remote.cert, (char*)vc->remote.cert, sizeof(vc->remote.cert)))
-						vc->remote.certlen = sactx->remote.cert.len;
-					sactx->kill_ikesa |= nhrp_vc_ipsec_updown(sactx->child_uniqueid, vc);
+					blob2buf(&sactx->local.id, vc->local.id,
+						 sizeof(vc->local.id));
+					if (blob2buf(&sactx->local.cert,
+						     (char *)vc->local.cert,
+						     sizeof(vc->local.cert)))
+						vc->local.certlen =
+							sactx->local.cert.len;
+					blob2buf(&sactx->remote.id,
+						 vc->remote.id,
+						 sizeof(vc->remote.id));
+					if (blob2buf(&sactx->remote.cert,
+						     (char *)vc->remote.cert,
+						     sizeof(vc->remote.cert)))
+						vc->remote.certlen =
+							sactx->remote.cert.len;
+					sactx->kill_ikesa |=
+						nhrp_vc_ipsec_updown(
+							sactx->child_uniqueid,
+							vc);
 				}
 			} else {
 				nhrp_vc_ipsec_updown(sactx->child_uniqueid, 0);
@@ -183,41 +206,58 @@ static void parse_sa_message(
 
 		switch (key->ptr[0]) {
 		case 'l':
-			if (blob_equal(key, "local-host") && ctx->nsections == 1) {
+			if (blob_equal(key, "local-host")
+			    && ctx->nsections == 1) {
 				if (blob2buf(val, buf, sizeof(buf)))
-					if (str2sockunion(buf, &sactx->local.host) < 0)
-						zlog_err("VICI: bad strongSwan local-host: %s", buf);
-			} else if (blob_equal(key, "local-id") && ctx->nsections == 1) {
+					if (str2sockunion(buf,
+							  &sactx->local.host)
+					    < 0)
+						zlog_err(
+							"VICI: bad strongSwan local-host: %s",
+							buf);
+			} else if (blob_equal(key, "local-id")
+				   && ctx->nsections == 1) {
 				sactx->local.id = *val;
-			} else if (blob_equal(key, "local-cert-data") && ctx->nsections == 1) {
+			} else if (blob_equal(key, "local-cert-data")
+				   && ctx->nsections == 1) {
 				sactx->local.cert = *val;
 			}
 			break;
 		case 'r':
-			if (blob_equal(key, "remote-host") && ctx->nsections == 1) {
+			if (blob_equal(key, "remote-host")
+			    && ctx->nsections == 1) {
 				if (blob2buf(val, buf, sizeof(buf)))
-					if (str2sockunion(buf, &sactx->remote.host) < 0)
-						zlog_err("VICI: bad strongSwan remote-host: %s", buf);
-			} else if (blob_equal(key, "remote-id") && ctx->nsections == 1) {
+					if (str2sockunion(buf,
+							  &sactx->remote.host)
+					    < 0)
+						zlog_err(
+							"VICI: bad strongSwan remote-host: %s",
+							buf);
+			} else if (blob_equal(key, "remote-id")
+				   && ctx->nsections == 1) {
 				sactx->remote.id = *val;
-			} else if (blob_equal(key, "remote-cert-data") && ctx->nsections == 1) {
+			} else if (blob_equal(key, "remote-cert-data")
+				   && ctx->nsections == 1) {
 				sactx->remote.cert = *val;
 			}
 			break;
 		case 'u':
-			if (blob_equal(key, "uniqueid") && blob2buf(val, buf, sizeof(buf))) {
+			if (blob_equal(key, "uniqueid")
+			    && blob2buf(val, buf, sizeof(buf))) {
 				if (ctx->nsections == 3)
-					sactx->child_uniqueid = strtoul(buf, NULL, 0);
+					sactx->child_uniqueid =
+						strtoul(buf, NULL, 0);
 				else if (ctx->nsections == 1)
-					sactx->ike_uniqueid = strtoul(buf, NULL, 0);
+					sactx->ike_uniqueid =
+						strtoul(buf, NULL, 0);
 			}
 			break;
 		case 's':
 			if (blob_equal(key, "state") && ctx->nsections == 3) {
 				sactx->child_ok =
-					(sactx->event == 0 &&
-					 (blob_equal(val, "INSTALLED") ||
-					  blob_equal(val, "REKEYED")));
+					(sactx->event == 0
+					 && (blob_equal(val, "INSTALLED")
+					     || blob_equal(val, "REKEYED")));
 			}
 			break;
 		}
@@ -225,16 +265,16 @@ static void parse_sa_message(
 	}
 }
 
-static void parse_cmd_response(
-	struct vici_message_ctx *ctx,
-	enum vici_type_t msgtype,
-	const struct blob *key, const struct blob *val)
+static void parse_cmd_response(struct vici_message_ctx *ctx,
+			       enum vici_type_t msgtype, const struct blob *key,
+			       const struct blob *val)
 {
 	char buf[512];
 
 	switch (msgtype) {
 	case VICI_KEY_VALUE:
-		if (blob_equal(key, "errmsg") && blob2buf(val, buf, sizeof(buf)))
+		if (blob_equal(key, "errmsg")
+		    && blob2buf(val, buf, sizeof(buf)))
 			zlog_err("VICI: strongSwan: %s", buf);
 		break;
 	default:
@@ -252,12 +292,11 @@ static void vici_recv_sa(struct vici_conn *vici, struct zbuf *msg, int event)
 	vici_parse_message(vici, msg, parse_sa_message, &ctx.msgctx);
 
 	if (ctx.kill_ikesa && ctx.ike_uniqueid) {
-		debugf(NHRP_DEBUG_COMMON, "VICI: Deleting IKE_SA %u", ctx.ike_uniqueid);
+		debugf(NHRP_DEBUG_COMMON, "VICI: Deleting IKE_SA %u",
+		       ctx.ike_uniqueid);
 		snprintf(buf, sizeof buf, "%u", ctx.ike_uniqueid);
-		vici_submit_request(
-			vici, "terminate",
-			VICI_KEY_VALUE, "ike-id", strlen(buf), buf,
-			VICI_END);
+		vici_submit_request(vici, "terminate", VICI_KEY_VALUE, "ike-id",
+				    strlen(buf), buf, VICI_END);
 	}
 }
 
@@ -277,13 +316,14 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 		name.len = zbuf_get8(msg);
 		name.ptr = zbuf_pulln(msg, name.len);
 
-		debugf(NHRP_DEBUG_VICI, "VICI: Event '%.*s'", name.len, name.ptr);
-		if (blob_equal(&name, "list-sa") ||
-		    blob_equal(&name, "child-updown") ||
-		    blob_equal(&name, "child-rekey"))
+		debugf(NHRP_DEBUG_VICI, "VICI: Event '%.*s'", name.len,
+		       name.ptr);
+		if (blob_equal(&name, "list-sa")
+		    || blob_equal(&name, "child-updown")
+		    || blob_equal(&name, "child-rekey"))
 			vici_recv_sa(vici, msg, 0);
-		else if (blob_equal(&name, "child-state-installed") ||
-			 blob_equal(&name, "child-state-rekeyed"))
+		else if (blob_equal(&name, "child-state-installed")
+			 || blob_equal(&name, "child-state-rekeyed"))
 			vici_recv_sa(vici, msg, 1);
 		else if (blob_equal(&name, "child-state-destroying"))
 			vici_recv_sa(vici, msg, 2);
@@ -293,7 +333,8 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 		break;
 	case VICI_EVENT_UNKNOWN:
 	case VICI_CMD_UNKNOWN:
-		zlog_err("VICI: StrongSwan does not support mandatory events (unpatched?)");
+		zlog_err(
+			"VICI: StrongSwan does not support mandatory events (unpatched?)");
 		break;
 	case VICI_EVENT_CONFIRM:
 		break;
@@ -310,7 +351,7 @@ static int vici_read(struct thread *t)
 	struct zbuf pktbuf;
 
 	vici->t_read = NULL;
-	if (zbuf_read(ibuf, vici->fd, (size_t) -1) < 0) {
+	if (zbuf_read(ibuf, vici->fd, (size_t)-1) < 0) {
 		vici_connection_error(vici);
 		return 0;
 	}
@@ -326,7 +367,8 @@ static int vici_read(struct thread *t)
 		}
 
 		/* Handle packet */
-		zbuf_init(&pktbuf, hdrlen, htonl(*hdrlen)+4, htonl(*hdrlen)+4);
+		zbuf_init(&pktbuf, hdrlen, htonl(*hdrlen) + 4,
+			  htonl(*hdrlen) + 4);
 		vici_recv_message(vici, &pktbuf);
 	} while (1);
 
@@ -371,7 +413,8 @@ static void vici_submit_request(struct vici_conn *vici, const char *name, ...)
 	int type;
 
 	obuf = zbuf_alloc(256);
-	if (!obuf) return;
+	if (!obuf)
+		return;
 
 	hdrlen = zbuf_push(obuf, uint32_t);
 	zbuf_put8(obuf, VICI_CMD_REQUEST);
@@ -404,7 +447,8 @@ static void vici_register_event(struct vici_conn *vici, const char *name)
 
 	namelen = strlen(name);
 	obuf = zbuf_alloc(4 + 1 + 1 + namelen);
-	if (!obuf) return;
+	if (!obuf)
+		return;
 
 	hdrlen = zbuf_push(obuf, uint32_t);
 	zbuf_put8(obuf, VICI_EVENT_REGISTER);
@@ -421,12 +465,14 @@ static int vici_reconnect(struct thread *t)
 	int fd;
 
 	vici->t_reconnect = NULL;
-	if (vici->fd >= 0) return 0;
+	if (vici->fd >= 0)
+		return 0;
 
 	fd = sock_open_unix("/var/run/charon.vici");
 	if (fd < 0) {
-		debugf(NHRP_DEBUG_VICI, "%s: failure connecting VICI socket: %s",
-			__PRETTY_FUNCTION__, strerror(errno));
+		debugf(NHRP_DEBUG_VICI,
+		       "%s: failure connecting VICI socket: %s",
+		       __PRETTY_FUNCTION__, strerror(errno));
 		thread_add_timer(master, vici_reconnect, vici, 2,
 				 &vici->t_reconnect);
 		return 0;
@@ -437,8 +483,8 @@ static int vici_reconnect(struct thread *t)
 	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 
 	/* Send event subscribtions */
-	//vici_register_event(vici, "child-updown");
-	//vici_register_event(vici, "child-rekey");
+	// vici_register_event(vici, "child-updown");
+	// vici_register_event(vici, "child-rekey");
 	vici_register_event(vici, "child-state-installed");
 	vici_register_event(vici, "child-state-rekeyed");
 	vici_register_event(vici, "child-state-destroying");
@@ -465,7 +511,8 @@ void vici_terminate(void)
 {
 }
 
-void vici_request_vc(const char *profile, union sockunion *src, union sockunion *dst, int prio)
+void vici_request_vc(const char *profile, union sockunion *src,
+		     union sockunion *dst, int prio)
 {
 	struct vici_conn *vici = &vici_connection;
 	char buf[2][SU_ADDRSTRLEN];
@@ -473,15 +520,13 @@ void vici_request_vc(const char *profile, union sockunion *src, union sockunion 
 	sockunion2str(src, buf[0], sizeof buf[0]);
 	sockunion2str(dst, buf[1], sizeof buf[1]);
 
-	vici_submit_request(
-		vici, "initiate",
-		VICI_KEY_VALUE, "child", strlen(profile), profile,
-		VICI_KEY_VALUE, "timeout", (size_t) 2, "-1",
-		VICI_KEY_VALUE, "async", (size_t) 1, "1",
-		VICI_KEY_VALUE, "init-limits", (size_t) 1, prio ? "0" : "1",
-		VICI_KEY_VALUE, "my-host", strlen(buf[0]), buf[0],
-		VICI_KEY_VALUE, "other-host", strlen(buf[1]), buf[1],
-		VICI_END);
+	vici_submit_request(vici, "initiate", VICI_KEY_VALUE, "child",
+			    strlen(profile), profile, VICI_KEY_VALUE, "timeout",
+			    (size_t)2, "-1", VICI_KEY_VALUE, "async", (size_t)1,
+			    "1", VICI_KEY_VALUE, "init-limits", (size_t)1,
+			    prio ? "0" : "1", VICI_KEY_VALUE, "my-host",
+			    strlen(buf[0]), buf[0], VICI_KEY_VALUE,
+			    "other-host", strlen(buf[1]), buf[1], VICI_END);
 }
 
 int sock_open_unix(const char *path)
@@ -493,11 +538,12 @@ int sock_open_unix(const char *path)
 	if (fd < 0)
 		return -1;
 
-	memset(&addr, 0, sizeof (struct sockaddr_un));
+	memset(&addr, 0, sizeof(struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
 	strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
-	ret = connect(fd, (struct sockaddr *) &addr, sizeof(addr.sun_family) + strlen(addr.sun_path));
+	ret = connect(fd, (struct sockaddr *)&addr,
+		      sizeof(addr.sun_family) + strlen(addr.sun_path));
 	if (ret < 0) {
 		close(fd);
 		return -1;

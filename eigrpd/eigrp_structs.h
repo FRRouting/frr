@@ -104,9 +104,8 @@ struct eigrp {
 
 	uint64_t serno; /* Global serial number counter for topology entry
 			   changes*/
-	uint64_t
-		serno_last_update; /* Highest serial number of information send
-				      by last update*/
+	uint64_t serno_last_update; /* Highest serial number of information send
+				       by last update*/
 	struct list *topology_changes_internalIPV4;
 	struct list *topology_changes_externalIPV4;
 
@@ -140,14 +139,14 @@ struct eigrp_if_params {
 	u_char passive_interface;
 	u_int32_t v_hello;
 	u_int16_t v_wait;
-	u_char type;      /* type of interface */
+	u_char type; /* type of interface */
 	u_int32_t bandwidth;
 	u_int32_t delay;
 	u_char reliability;
 	u_char load;
 
 	char *auth_keychain; /* Associated keychain with interface*/
-	int auth_type; /* EIGRP authentication type */
+	int auth_type;       /* EIGRP authentication type */
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -160,7 +159,7 @@ struct eigrp_interface {
 
 	/*multicast group refcnts */
 	bool member_allrouters;
-	
+
 	/* This interface's parent eigrp instance. */
 	struct eigrp *eigrp;
 

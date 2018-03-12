@@ -281,34 +281,34 @@ static inline uint8_t *ptr_get_be32(uint8_t *ptr, uint32_t *out)
  * the stream functions but we need a transition
  * plan.
  */
-#define STREAM_GETC(S, P)			\
-	do {					\
-		uint8_t	_pval;			\
-		if (!stream_getc2((S), &_pval))	\
-			goto stream_failure;	\
-		(P) = _pval;			\
+#define STREAM_GETC(S, P)                                                      \
+	do {                                                                   \
+		uint8_t _pval;                                                 \
+		if (!stream_getc2((S), &_pval))                                \
+			goto stream_failure;                                   \
+		(P) = _pval;                                                   \
 	} while (0)
 
-#define STREAM_GETW(S, P)			\
-	do {					\
-		uint16_t _pval;			\
-		if (!stream_getw2((S), &_pval))	\
-			goto stream_failure;	\
-		(P) = _pval;			\
+#define STREAM_GETW(S, P)                                                      \
+	do {                                                                   \
+		uint16_t _pval;                                                \
+		if (!stream_getw2((S), &_pval))                                \
+			goto stream_failure;                                   \
+		(P) = _pval;                                                   \
 	} while (0)
 
-#define STREAM_GETL(S, P)				\
-	do {						\
-		uint32_t _pval;				\
-		if (!stream_getl2((S), &_pval))		\
-			goto stream_failure;		\
-		(P) = _pval;				\
+#define STREAM_GETL(S, P)                                                      \
+	do {                                                                   \
+		uint32_t _pval;                                                \
+		if (!stream_getl2((S), &_pval))                                \
+			goto stream_failure;                                   \
+		(P) = _pval;                                                   \
 	} while (0)
 
-#define STREAM_GET(P, STR, SIZE)			\
-	do {						\
-		if (!stream_get2((P), (STR), (SIZE)))	\
-			goto stream_failure;		\
+#define STREAM_GET(P, STR, SIZE)                                               \
+	do {                                                                   \
+		if (!stream_get2((P), (STR), (SIZE)))                          \
+			goto stream_failure;                                   \
 	} while (0)
 
 #endif /* _ZEBRA_STREAM_H */

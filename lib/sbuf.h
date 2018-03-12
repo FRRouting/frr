@@ -53,8 +53,10 @@
  *         return 1;
  * }
  *
- * In this case, sbuf_example uses a string buffer with undefined size, which will
- * be allocated on the heap by sbuf. The caller of sbuf_example is expected to free
+ * In this case, sbuf_example uses a string buffer with undefined size, which
+ * will
+ * be allocated on the heap by sbuf. The caller of sbuf_example is expected to
+ * free
  * the string returned in parser_log.
  */
 

@@ -79,51 +79,51 @@
 /* NHRP Packet Structures */
 struct nhrp_packet_header {
 	/* Fixed header */
-	uint16_t	afnum;
-	uint16_t	protocol_type;
-	uint8_t		snap[5];
-	uint8_t		hop_count;
-	uint16_t	packet_size;
-	uint16_t	checksum;
-	uint16_t	extension_offset;
-	uint8_t		version;
-	uint8_t		type;
-	uint8_t		src_nbma_address_len;
-	uint8_t		src_nbma_subaddress_len;
+	uint16_t afnum;
+	uint16_t protocol_type;
+	uint8_t snap[5];
+	uint8_t hop_count;
+	uint16_t packet_size;
+	uint16_t checksum;
+	uint16_t extension_offset;
+	uint8_t version;
+	uint8_t type;
+	uint8_t src_nbma_address_len;
+	uint8_t src_nbma_subaddress_len;
 
 	/* Mandatory header */
-	uint8_t		src_protocol_address_len;
-	uint8_t		dst_protocol_address_len;
-	uint16_t	flags;
+	uint8_t src_protocol_address_len;
+	uint8_t dst_protocol_address_len;
+	uint16_t flags;
 	union {
-		uint32_t		request_id;
+		uint32_t request_id;
 		struct {
-			uint16_t	code;
-			uint16_t	offset;
+			uint16_t code;
+			uint16_t offset;
 		} error;
 	} u;
 } __attribute__((packed));
 
 struct nhrp_cie_header {
-	uint8_t		code;
-	uint8_t		prefix_length;
-	uint16_t	unused;
-	uint16_t	mtu;
-	uint16_t	holding_time;
-	uint8_t		nbma_address_len;
-	uint8_t		nbma_subaddress_len;
-	uint8_t		protocol_address_len;
-	uint8_t		preference;
+	uint8_t code;
+	uint8_t prefix_length;
+	uint16_t unused;
+	uint16_t mtu;
+	uint16_t holding_time;
+	uint8_t nbma_address_len;
+	uint8_t nbma_subaddress_len;
+	uint8_t protocol_address_len;
+	uint8_t preference;
 } __attribute__((packed));
 
 struct nhrp_extension_header {
-	uint16_t	type;
-	uint16_t	length;
+	uint16_t type;
+	uint16_t length;
 } __attribute__((packed));
 
 struct nhrp_cisco_authentication_extension {
-	uint32_t	type;
-	uint8_t		secret[8];
+	uint32_t type;
+	uint8_t secret[8];
 } __attribute__((packed));
 
 #endif

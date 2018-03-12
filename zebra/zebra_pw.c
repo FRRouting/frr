@@ -256,7 +256,7 @@ static int zebra_pw_check_reachability(struct zebra_pw *pw)
 	 * Need to ensure that there's a label binding for all nexthops.
 	 * Otherwise, ECMP for this route could render the pseudowire unusable.
 	 */
-	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+	for (ALL_NEXTHOPS(re->ng, nexthop)) {
 		if (!nexthop->nh_label) {
 			if (IS_ZEBRA_DEBUG_PW)
 				zlog_warn("%s: unlabeled route for %s",

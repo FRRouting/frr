@@ -31,16 +31,17 @@ static int nhrp_socket_fd = -1;
 int os_socket(void)
 {
 	if (nhrp_socket_fd < 0)
-		nhrp_socket_fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_NHRP));
+		nhrp_socket_fd =
+			socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_NHRP));
 	return nhrp_socket_fd;
 }
 
-int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr, size_t addrlen)
+int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
+	       size_t addrlen)
 {
 	struct sockaddr_ll lladdr;
 	struct iovec iov = {
-		.iov_base = (void*) buf,
-		.iov_len = len,
+		.iov_base = (void *)buf, .iov_len = len,
 	};
 	struct msghdr msg = {
 		.msg_name = &lladdr,
@@ -67,12 +68,12 @@ int os_sendmsg(const uint8_t *buf, size_t len, int ifindex, const uint8_t *addr,
 	return 0;
 }
 
-int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr, size_t *addrlen)
+int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr,
+	       size_t *addrlen)
 {
 	struct sockaddr_ll lladdr;
 	struct iovec iov = {
-		.iov_base = buf,
-		.iov_len = *len,
+		.iov_base = buf, .iov_len = *len,
 	};
 	struct msghdr msg = {
 		.msg_name = &lladdr,
@@ -89,7 +90,7 @@ int os_recvmsg(uint8_t *buf, size_t *len, int *ifindex, uint8_t *addr, size_t *a
 	*len = r;
 	*ifindex = lladdr.sll_ifindex;
 
-	if (*addrlen <= (size_t) lladdr.sll_addr) {
+	if (*addrlen <= (size_t)lladdr.sll_addr) {
 		if (memcmp(lladdr.sll_addr, "\x00\x00\x00\x00", 4) != 0) {
 			memcpy(addr, lladdr.sll_addr, lladdr.sll_halen);
 			*addrlen = lladdr.sll_halen;

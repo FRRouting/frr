@@ -542,7 +542,7 @@ static const char *bgp_get_reuse_time(unsigned int penalty, char *buf,
 	} else
 		reuse_time = 0;
 
-/* Making formatted timer strings. */
+	/* Making formatted timer strings. */
 	if (reuse_time == 0) {
 		if (use_json)
 			json_object_int_add(json, "reuseTimerMsecs", 0);

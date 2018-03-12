@@ -1312,27 +1312,27 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 		if (i) {
 			/* Check msg type. */
 			if (mask & Power2[OSPF_ROUTER_LSA])
-				LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
+				LSDB_LOOP (ROUTER_LSDB(area), rn, lsa)
 					apiserver_sync_callback(
 						lsa, (void *)&param, seqnum);
 			if (mask & Power2[OSPF_NETWORK_LSA])
-				LSDB_LOOP(NETWORK_LSDB(area), rn, lsa)
+				LSDB_LOOP (NETWORK_LSDB(area), rn, lsa)
 					apiserver_sync_callback(
 						lsa, (void *)&param, seqnum);
 			if (mask & Power2[OSPF_SUMMARY_LSA])
-				LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
+				LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
 					apiserver_sync_callback(
 						lsa, (void *)&param, seqnum);
 			if (mask & Power2[OSPF_ASBR_SUMMARY_LSA])
-				LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
+				LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
 					apiserver_sync_callback(
 						lsa, (void *)&param, seqnum);
 			if (mask & Power2[OSPF_OPAQUE_LINK_LSA])
-				LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
+				LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
 					apiserver_sync_callback(
 						lsa, (void *)&param, seqnum);
 			if (mask & Power2[OSPF_OPAQUE_AREA_LSA])
-				LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
+				LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
 					apiserver_sync_callback(
 						lsa, (void *)&param, seqnum);
 		}
@@ -1341,7 +1341,7 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 	/* For AS-external LSAs */
 	if (ospf->lsdb) {
 		if (mask & Power2[OSPF_AS_EXTERNAL_LSA])
-			LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
+			LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
 				apiserver_sync_callback(lsa, (void *)&param,
 							seqnum);
 	}
@@ -1349,7 +1349,7 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 	/* For AS-external opaque LSAs */
 	if (ospf->lsdb) {
 		if (mask & Power2[OSPF_OPAQUE_AS_LSA])
-			LSDB_LOOP(OPAQUE_AS_LSDB(ospf), rn, lsa)
+			LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 				apiserver_sync_callback(lsa, (void *)&param,
 							seqnum);
 	}
@@ -1952,18 +1952,18 @@ void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 
 	case OSPF_OPAQUE_LINK_LSA:
 		for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
-			LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
+			LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
 				apiserver_flush_opaque_type_callback(
 					lsa, (void *)&param, 0);
 		break;
 	case OSPF_OPAQUE_AREA_LSA:
 		for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
-			LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
+			LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
 				apiserver_flush_opaque_type_callback(
 					lsa, (void *)&param, 0);
 		break;
 	case OSPF_OPAQUE_AS_LSA:
-		LSDB_LOOP(OPAQUE_LINK_LSDB(ospf), rn, lsa)
+		LSDB_LOOP (OPAQUE_LINK_LSDB(ospf), rn, lsa)
 			apiserver_flush_opaque_type_callback(lsa,
 							     (void *)&param, 0);
 		break;

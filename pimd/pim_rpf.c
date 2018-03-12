@@ -241,9 +241,10 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	} else {
 		if (!pim_ecmp_nexthop_lookup(
 			    pim, &rpf->source_nexthop, up->upstream_addr, &src,
-			    &grp, !PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)
-					  && !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(
-						     up->flags)))
+			    &grp,
+			    !PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)
+				    && !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(
+					       up->flags)))
 			return PIM_RPF_FAILURE;
 	}
 

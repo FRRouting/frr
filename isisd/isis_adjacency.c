@@ -437,10 +437,10 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			for (unsigned int i = 0; i < adj->area_address_count;
 			     i++) {
 				vty_out(vty, "      %s\n",
-					  isonet_print(adj->area_addresses[i]
-							       .area_addr,
-						       adj->area_addresses[i]
-							       .addr_len));
+					isonet_print(adj->area_addresses[i]
+							     .area_addr,
+						     adj->area_addresses[i]
+							     .addr_len));
 			}
 		}
 		if (adj->ipv4_address_count) {
@@ -448,7 +448,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			for (unsigned int i = 0; i < adj->ipv4_address_count;
 			     i++)
 				vty_out(vty, "      %s\n",
-					  inet_ntoa(adj->ipv4_addresses[i]));
+					inet_ntoa(adj->ipv4_addresses[i]));
 		}
 		if (adj->ipv6_address_count) {
 			vty_out(vty, "    IPv6 Address(es):\n");

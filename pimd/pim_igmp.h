@@ -90,6 +90,8 @@ struct igmp_sock {
 	int querier_robustness_variable; /* QRV */
 	int startup_query_count;
 
+	bool mtrace_only;
+
 	struct list *igmp_group_list; /* list of struct igmp_group */
 	struct hash *igmp_group_hash;
 };
@@ -99,7 +101,8 @@ struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 struct igmp_sock *igmp_sock_lookup_by_fd(struct list *igmp_sock_list, int fd);
 struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 				    struct in_addr ifaddr,
-				    struct interface *ifp);
+				    struct interface *ifp,
+				    bool mtrace_only);
 void igmp_sock_delete(struct igmp_sock *igmp);
 void igmp_sock_free(struct igmp_sock *igmp);
 void igmp_sock_delete_all(struct interface *ifp);

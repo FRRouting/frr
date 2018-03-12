@@ -20,23 +20,24 @@ extern unsigned int debug_flags;
 
 #if defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
 
-#define debugf(level, ...) \
-	do {						\
-		if (unlikely(debug_flags & level))	\
-			zlog_debug(__VA_ARGS__);	\
-	} while(0)
+#define debugf(level, ...)                                                     \
+	do {                                                                   \
+		if (unlikely(debug_flags & level))                             \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
 
 #elif defined __GNUC__
 
-#define debugf(level, _args...)				\
-	do {						\
-		if (unlikely(debug_flags & level))	\
-			zlog_debug(_args);		\
-	} while(0)
+#define debugf(level, _args...)                                                \
+	do {                                                                   \
+		if (unlikely(debug_flags & level))                             \
+			zlog_debug(_args);                                     \
+	} while (0)
 
 #else
 
-static inline void debugf(int level, const char *format, ...) { }
+static inline void debugf(int level, const char *format, ...)
+{
+}
 
 #endif
-

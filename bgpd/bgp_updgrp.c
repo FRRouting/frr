@@ -85,9 +85,8 @@ static void sync_init(struct update_subgroup *subgrp)
 	BGP_ADV_FIFO_INIT(&subgrp->sync->update);
 	BGP_ADV_FIFO_INIT(&subgrp->sync->withdraw);
 	BGP_ADV_FIFO_INIT(&subgrp->sync->withdraw_low);
-	subgrp->hash = hash_create(baa_hash_key,
-				   baa_hash_cmp,
-				   "BGP SubGroup Hash");
+	subgrp->hash =
+		hash_create(baa_hash_key, baa_hash_cmp, "BGP SubGroup Hash");
 
 	/* We use a larger buffer for subgrp->work in the event that:
 	 * - We RX a BGP_UPDATE where the attributes alone are just
@@ -1545,8 +1544,7 @@ void update_bgp_group_init(struct bgp *bgp)
 
 	AF_FOREACH (afid)
 		bgp->update_groups[afid] =
-			hash_create(updgrp_hash_key_make,
-				    updgrp_hash_cmp,
+			hash_create(updgrp_hash_key_make, updgrp_hash_cmp,
 				    "BGP Update Group Hash");
 }
 
@@ -1877,11 +1875,12 @@ void subgroup_trigger_write(struct update_subgroup *subgrp)
 	 * the subgroup output queue into their own output queue. This action
 	 * will trigger a write job on the I/O thread.
 	 */
-	SUBGRP_FOREACH_PEER(subgrp, paf)
-	if (paf->peer->status == Established)
-		thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets,
-				      paf->peer, 0,
-				      &paf->peer->t_generate_updgrp_packets);
+	SUBGRP_FOREACH_PEER (subgrp, paf)
+		if (paf->peer->status == Established)
+			thread_add_timer_msec(
+				bm->master, bgp_generate_updgrp_packets,
+				paf->peer, 0,
+				&paf->peer->t_generate_updgrp_packets);
 }
 
 int update_group_clear_update_dbg(struct update_group *updgrp, void *arg)

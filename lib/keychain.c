@@ -1083,8 +1083,7 @@ void keychain_init()
 			&accept_lifetime_duration_day_month_cmd);
 	install_element(KEYCHAIN_KEY_NODE,
 			&accept_lifetime_duration_month_day_cmd);
-	install_element(KEYCHAIN_KEY_NODE,
-			&no_accept_lifetime_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &no_accept_lifetime_cmd);
 
 	install_element(KEYCHAIN_KEY_NODE,
 			&send_lifetime_day_month_day_month_cmd);
@@ -1102,6 +1101,5 @@ void keychain_init()
 			&send_lifetime_duration_day_month_cmd);
 	install_element(KEYCHAIN_KEY_NODE,
 			&send_lifetime_duration_month_day_cmd);
-	install_element(KEYCHAIN_KEY_NODE,
-			&no_send_lifetime_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &no_send_lifetime_cmd);
 }

@@ -98,9 +98,7 @@ void qobj_init(void)
 {
 	if (!nodes) {
 		pthread_rwlock_init(&nodes_lock, NULL);
-		nodes = hash_create_size(16, qobj_key,
-					 qobj_cmp,
-					 "QOBJ Hash");
+		nodes = hash_create_size(16, qobj_key, qobj_cmp, "QOBJ Hash");
 	}
 }
 

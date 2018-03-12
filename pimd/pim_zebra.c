@@ -185,9 +185,9 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 					vrf->name, vrf->vrf_id);
 
 				if (!master) {
-					zlog_debug("%s: Unable to find Master interface for %s",
-						   __PRETTY_FUNCTION__,
-						   vrf->name);
+					zlog_debug(
+						"%s: Unable to find Master interface for %s",
+						__PRETTY_FUNCTION__, vrf->name);
 					return 0;
 				}
 				zclient_interface_set_master(zclient, master,
@@ -295,9 +295,10 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 		prefix2str(p, buf, BUFSIZ);
 		zlog_debug("%s: %s(%u) connected IP address %s flags %u %s",
 			   __PRETTY_FUNCTION__, c->ifp->name, vrf_id, buf,
-			   c->flags, CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
-					     ? "secondary"
-					     : "primary");
+			   c->flags,
+			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
+				   ? "secondary"
+				   : "primary");
 
 #ifdef PIM_DEBUG_IFADDR_DUMP
 		dump_if_address(c->ifp);

@@ -108,7 +108,8 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
 	struct listnode *bgpnode, *nbgpnode;
 	struct bgp *bgp_temp;
 
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF &&
+	    vrf_is_mapped_on_netns(bgp->vrf_id))
 		return 0;
 	if (create == true) {
 		if (bgp_server_main_created)
@@ -1078,10 +1079,8 @@ static void peer_free(struct peer *peer)
 		XFREE(MTYPE_TMP, peer->notify.data);
 	memset(&peer->notify, 0, sizeof(struct bgp_notify));
 
-	if (peer->clear_node_queue) {
-		work_queue_free(peer->clear_node_queue);
-		peer->clear_node_queue = NULL;
-	}
+	if (peer->clear_node_queue)
+		work_queue_free_and_null(&peer->clear_node_queue);
 
 	bgp_sync_delete(peer);
 
@@ -3019,17 +3018,15 @@ struct bgp *bgp_lookup_by_vrf_id(vrf_id_t vrf_id)
 /* handle socket creation or deletion, if necessary
  * this is called for all new BGP instances
  */
-int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
-			  vrf_id_t old_vrf_id, bool create)
+int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
+		      bool create)
 {
 	int ret = 0;
 
 	/* Create BGP server socket, if listen mode not disabled */
 	if (!bgp || bgp_option_check(BGP_OPT_NO_LISTEN))
 		return 0;
-	if (bgp->name
-	    && bgp->inst_type == BGP_INSTANCE_TYPE_VRF
-	    && vrf) {
+	if (bgp->name && bgp->inst_type == BGP_INSTANCE_TYPE_VRF && vrf) {
 		/*
 		 * suppress vrf socket
 		 */
@@ -3425,8 +3422,8 @@ struct peer *peer_lookup(struct bgp *bgp, union sockunion *su)
 			 * invoked without an instance
 			 * when examining VRFs.
 			 */
-			if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF) &&
-			    !vrf_is_mapped_on_netns(bgp->vrf_id))
+			if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+			    && !vrf_is_mapped_on_netns(bgp->vrf_id))
 				continue;
 
 			peer = hash_lookup(bgp->peerhash, &tmp_peer);
@@ -4070,9 +4067,8 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	}
 
 	/* Track if addpath TX is in use */
-	if (flag
-	    & (PEER_FLAG_ADDPATH_TX_ALL_PATHS
-	       | PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
+	if (flag & (PEER_FLAG_ADDPATH_TX_ALL_PATHS
+		    | PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
 		bgp = peer->bgp;
 		addpath_tx_used = 0;
 
@@ -6885,9 +6881,8 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	} else {
 		if (!peer_af_flag_check(peer, afi, safi,
 					PEER_FLAG_SEND_COMMUNITY)
-		    && (!g_peer
-			|| peer_af_flag_check(g_peer, afi, safi,
-					      PEER_FLAG_SEND_COMMUNITY))
+		    && (!g_peer || peer_af_flag_check(g_peer, afi, safi,
+						      PEER_FLAG_SEND_COMMUNITY))
 		    && !peer_af_flag_check(peer, afi, safi,
 					   PEER_FLAG_SEND_EXT_COMMUNITY)
 		    && (!g_peer
@@ -6895,10 +6890,9 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 					      PEER_FLAG_SEND_EXT_COMMUNITY))
 		    && !peer_af_flag_check(peer, afi, safi,
 					   PEER_FLAG_SEND_LARGE_COMMUNITY)
-		    && (!g_peer
-			|| peer_af_flag_check(
-				   g_peer, afi, safi,
-				   PEER_FLAG_SEND_LARGE_COMMUNITY))) {
+		    && (!g_peer || peer_af_flag_check(
+					   g_peer, afi, safi,
+					   PEER_FLAG_SEND_LARGE_COMMUNITY))) {
 			vty_out(vty, "  no neighbor %s send-community all\n",
 				addr);
 		} else {
@@ -6926,10 +6920,9 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 			if (!peer_af_flag_check(peer, afi, safi,
 						PEER_FLAG_SEND_COMMUNITY)
-			    && (!g_peer
-				|| peer_af_flag_check(
-					   g_peer, afi, safi,
-					   PEER_FLAG_SEND_COMMUNITY))) {
+			    && (!g_peer || peer_af_flag_check(
+						   g_peer, afi, safi,
+						   PEER_FLAG_SEND_COMMUNITY))) {
 				vty_out(vty,
 					"  no neighbor %s send-community\n",
 					addr);
@@ -7644,10 +7637,8 @@ void bgp_terminate(void)
 				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 						BGP_NOTIFY_CEASE_PEER_UNCONFIG);
 
-	if (bm->process_main_queue) {
-		work_queue_free(bm->process_main_queue);
-		bm->process_main_queue = NULL;
-	}
+	if (bm->process_main_queue)
+		work_queue_free_and_null(&bm->process_main_queue);
 
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);

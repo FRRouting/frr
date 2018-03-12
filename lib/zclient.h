@@ -37,7 +37,7 @@
 #include "pw.h"
 
 /* For input/output buffer to zebra. */
-#define ZEBRA_MAX_PACKET_SIZ          4096
+#define ZEBRA_MAX_PACKET_SIZ          16384
 
 /* Zebra header size. */
 #define ZEBRA_HEADER_SIZE             10
@@ -129,6 +129,9 @@ typedef enum {
 	ZEBRA_PW_SET,
 	ZEBRA_PW_UNSET,
 	ZEBRA_PW_STATUS_UPDATE,
+	ZEBRA_RULE_ADD,
+	ZEBRA_RULE_DELETE,
+	ZEBRA_RULE_NOTIFY_OWNER,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -215,6 +218,8 @@ struct zclient {
 	int (*pw_status_update)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*route_notify_owner)(int command, struct zclient *zclient,
 				  uint16_t length, vrf_id_t vrf_id);
+	int (*rule_notify_owner)(int command, struct zclient *zclient,
+				 uint16_t length, vrf_id_t vrf_id);
 };
 
 /* Zebra API message flag. */
@@ -225,6 +230,12 @@ struct zclient {
 #define ZAPI_MESSAGE_MTU      0x10
 #define ZAPI_MESSAGE_SRCPFX   0x20
 #define ZAPI_MESSAGE_LABEL    0x40
+/*
+ * This should only be used by a DAEMON that needs to communicate
+ * the table being used is not in the VRF.  You must pass the
+ * default vrf, else this will be ignored.
+ */
+#define ZAPI_MESSAGE_TABLEID  0x80
 
 /* Zserv protocol message header */
 struct zserv_header {
@@ -290,6 +301,8 @@ struct zapi_route {
 	u_int32_t mtu;
 
 	vrf_id_t vrf_id;
+
+	uint32_t tableid;
 };
 
 /* Zebra IPv4 route message API. */
@@ -346,6 +359,14 @@ enum zapi_route_notify_owner {
 	ZAPI_ROUTE_FAIL_INSTALL,
 	ZAPI_ROUTE_BETTER_ADMIN_WON,
 	ZAPI_ROUTE_INSTALLED,
+	ZAPI_ROUTE_REMOVED,
+	ZAPI_ROUTE_REMOVE_FAIL,
+};
+
+enum zapi_rule_notify_owner {
+	ZAPI_RULE_FAIL_INSTALL,
+	ZAPI_RULE_INSTALLED,
+	ZAPI_RULE_REMOVED,
 };
 
 /* Zebra MAC types */
@@ -368,10 +389,12 @@ extern struct zclient_options zclient_options_default;
 extern struct zclient *zclient_new_notify(struct thread_master *m,
 					  struct zclient_options *opt);
 
-#define zclient_new(A) zclient_new_notify((A), &zclient_options_default); \
+#define zclient_new(A)                                                         \
+	zclient_new_notify((A), &zclient_options_default);                     \
 	CPP_WARN("Please transition to using zclient_new_notify");
 
-extern void zclient_init(struct zclient *, int, u_short, struct zebra_privs_t *privs);
+extern void zclient_init(struct zclient *, int, u_short,
+			 struct zebra_privs_t *privs);
 extern int zclient_start(struct zclient *);
 extern void zclient_stop(struct zclient *);
 extern void zclient_reset(struct zclient *);
@@ -446,7 +469,8 @@ extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
 #if CONFDATE > 20180823
-CPP_NOTICE("zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as well as the zapi_ipv4 and zapi_ipv6 data structures should be removed now");
+CPP_NOTICE(
+	"zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as well as the zapi_ipv4 and zapi_ipv6 data structures should be removed now");
 #endif
 
 extern int zapi_ipv4_route(u_char, struct zclient *, struct prefix_ipv4 *,
@@ -515,6 +539,10 @@ extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note);
+bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
+			     uint32_t *priority, uint32_t *unique,
+			     ifindex_t *ifindex,
+			     enum zapi_rule_notify_owner *note);
 extern struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
 				       struct zapi_route *nhr);

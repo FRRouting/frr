@@ -216,8 +216,7 @@ void show_ip_eigrp_interface_sub(struct vty *vty, struct eigrp *eigrp,
 	vty_out(vty, "%u %c %-10u", 0, '/',
 		eigrp_neighbor_packet_queue_sum(ei));
 	vty_out(vty, "%-7u %-14u %-12u %-8u", 0, 0, 0, 0);
-	vty_out(vty, "%-8u %-8u \n", ei->params.v_hello,
-		ei->params.v_wait);
+	vty_out(vty, "%-8u %-8u \n", ei->params.v_hello, ei->params.v_wait);
 }
 
 void show_ip_eigrp_interface_detail(struct vty *vty, struct eigrp *eigrp,
@@ -253,7 +252,8 @@ void show_ip_eigrp_neighbor_sub(struct vty *vty, struct eigrp_neighbor *nbr,
 	vty_out(vty, "%-3u %-17s %-21s", 0, eigrp_neigh_ip_string(nbr),
 		eigrp_if_name_string(nbr->ei));
 	if (nbr->t_holddown)
-		vty_out(vty, "%-7lu", thread_timer_remain_second(nbr->t_holddown));
+		vty_out(vty, "%-7lu",
+			thread_timer_remain_second(nbr->t_holddown));
 	else
 		vty_out(vty, "-      ");
 	vty_out(vty, "%-8u %-6u %-5u", 0, 0, EIGRP_PACKET_RETRANS_TIME);
@@ -295,8 +295,7 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 
 	vty_out(vty, "%s, ",
 		prefix2str(tn->destination, buffer, PREFIX_STRLEN));
-	vty_out(vty, "%u successors, ",
-		(successors) ? successors->count : 0);
+	vty_out(vty, "%u successors, ", (successors) ? successors->count : 0);
 	vty_out(vty, "FD is %u, serno: %" PRIu64 " \n", tn->fdistance,
 		tn->serno);
 
@@ -305,7 +304,7 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 }
 
 void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
-				  struct eigrp_nexthop_entry *te, int *first)
+				 struct eigrp_nexthop_entry *te, int *first)
 {
 	if (te->reported_distance == EIGRP_MAX_METRIC)
 		return;

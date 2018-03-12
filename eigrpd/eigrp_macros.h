@@ -28,7 +28,6 @@
 #ifndef _ZEBRA_EIGRP_MACROS_H_
 #define _ZEBRA_EIGRP_MACROS_H_
 
-
 //--------------------------------------------------------------------------
 
 #define EIGRP_IF_STRING_MAXLEN  40

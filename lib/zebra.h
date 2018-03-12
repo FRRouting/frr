@@ -127,10 +127,10 @@ typedef unsigned char u_int8_t;
 #endif
 
 #ifndef HAVE_LIBCRYPT
-#   ifdef HAVE_LIBCRYPTO
-#      include <openssl/des.h>
+#ifdef HAVE_LIBCRYPTO
+#include <openssl/des.h>
 #      define crypt DES_crypt
-#   endif
+#endif
 #endif
 
 #include "openbsd-tree.h"
@@ -480,6 +480,16 @@ typedef enum {
 #define SET_FLAG(V,F)        (V) |= (F)
 #define UNSET_FLAG(V,F)      (V) &= ~(F)
 #define RESET_FLAG(V)        (V) = 0
+
+/* Atomic flag manipulation macros. */
+#define CHECK_FLAG_ATOMIC(PV, F)                                               \
+	((atomic_load_explicit(PV, memory_order_seq_cst)) & (F))
+#define SET_FLAG_ATOMIC(PV, F)                                                 \
+	((atomic_fetch_or_explicit(PV, (F), memory_order_seq_cst)))
+#define UNSET_FLAG_ATOMIC(PV, F)                                               \
+	((atomic_fetch_and_explicit(PV, ~(F), memory_order_seq_cst)))
+#define RESET_FLAG_ATOMIC(PV)                                                  \
+	((atomic_store_explicit(PV, 0, memory_order_seq_cst)))
 
 /* Zebra types. Used in Zserv message header. */
 typedef u_int16_t zebra_size_t;
