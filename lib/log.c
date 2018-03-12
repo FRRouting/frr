@@ -1092,14 +1092,16 @@ void zlog_hexdump(const void *mem, unsigned int len)
 	unsigned long i = 0;
 	unsigned int j = 0;
 	unsigned int columns = 8;
-	/* 19 bytes for 0xADDRESS: */
-	/* 24 bytes for data; 2 chars plus a space per data byte */
-	/*  1 byte for space */
-	/*  8 bytes for ASCII representation */
-	/*  1 byte for a newline */
-	/* ===================== */
-	/* 53 bytes per 8 bytes of data */
-	/*  1 byte for null term */
+	/*
+	 * 19 bytes for 0xADDRESS:
+	 * 24 bytes for data; 2 chars plus a space per data byte
+	 *  1 byte for space
+	 *  8 bytes for ASCII representation
+	 *  1 byte for a newline
+	 * =====================
+	 * 53 bytes per 8 bytes of data
+	 *  1 byte for null term
+	 */
 	size_t bs = ((len / 8) + 1) * 53 + 1;
 	char buf[bs];
 	char *s = buf;
