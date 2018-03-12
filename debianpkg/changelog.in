@@ -1,5 +1,21 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
+  * ISIS-MT - https://tools.ietf.org/html/rfc5120
+  * BGP - RPKI (RFC 6810)
+  * BGP - v4 labeled unicast as per RFC 3107
+  * BGP/Zebra - Type 2 and 3 EVPN with symmetric and asymmetric routing
+  * EIGRP - https://tools.ietf.org/html/rfc7868
+  * FRR - Tab completion for iface names, prefix-lists, route-maps, BGP peers
+  * BABEL - https://tools.ietf.org/html/rfc6126
+  * PIM VRF - Added the ability to work with VRF’s to PIM
+  * OSPFv2 VRF - Added the ability to work with VRF’s to OSPFv2
+  * OSPFv2 Experimental SR - draft-ietf-ospf-segment-routing-extensions-24
+  * ZEBRA - Add ability to create a static route that leaks across VRF’s.
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Sun, 11 Mar 2018 17:22:20 -0700
+
+frr (3.0.3-1) RELEASED; urgency=medium
+
   * New Enabled: PIM draft Unnumbered
 
  -- FRRouting-Dev <dev@lists.frrouting.org>  Wed, 18 Oct 2017 17:01:42 -0700
