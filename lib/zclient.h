@@ -261,6 +261,8 @@ struct zapi_nexthop {
 	/* MPLS labels for BGP-LU or Segment Routing */
 	uint8_t label_num;
 	mpls_label_t labels[MPLS_MAX_LABELS];
+
+	struct ethaddr rmac;
 };
 
 /*
@@ -301,8 +303,6 @@ struct zapi_route {
 	vrf_id_t vrf_id;
 
 	uint32_t tableid;
-
-	struct ethaddr rmac;
 };
 
 /* Zebra IPv4 route message API. */
