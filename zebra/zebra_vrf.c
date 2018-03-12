@@ -88,7 +88,7 @@ static int zebra_vrf_new(struct vrf *vrf)
 	struct zebra_vrf *zvrf;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_info("VRF %s created, id %u", vrf->name, vrf->vrf_id);
+		zlog_info("VRF %s created, id %llu", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
 	vrf->info = zvrf;
@@ -111,7 +111,7 @@ static int zebra_vrf_enable(struct vrf *vrf)
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("VRF %s id %u is now active", zvrf_name(zvrf),
+		zlog_debug("VRF %s id %llu is now active", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
 	if (vrf_is_backend_netns())
@@ -182,7 +182,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("VRF %s id %u is now inactive", zvrf_name(zvrf),
+		zlog_debug("VRF %s id %llu is now inactive", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
 	/* Uninstall any static routes configured for this VRF. */
@@ -274,7 +274,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("VRF %s id %u deleted", zvrf_name(zvrf),
+		zlog_debug("VRF %s id %llu deleted", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
 	/* clean-up work queues */

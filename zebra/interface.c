@@ -539,7 +539,7 @@ void if_add_update(struct interface *ifp)
 		if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"interface %s vrf %u index %d is shutdown. "
+					"interface %s vrf %llu index %d is shutdown. "
 					"Won't wake it up.",
 					ifp->name, ifp->vrf_id, ifp->ifindex);
 			return;
@@ -549,13 +549,13 @@ void if_add_update(struct interface *ifp)
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"interface %s vrf %u index %d becomes active.",
+				"interface %s vrf %llu index %d becomes active.",
 				ifp->name, ifp->vrf_id, ifp->ifindex);
 
 		static_ifindex_update(ifp, true);
 	} else {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("interface %s vrf %u index %d is added.",
+			zlog_debug("interface %s vrf %llu index %d is added.",
 				   ifp->name, ifp->vrf_id, ifp->ifindex);
 	}
 }
@@ -696,7 +696,7 @@ void if_delete_update(struct interface *ifp)
 
 	if (if_is_up(ifp)) {
 		zlog_err(
-			"interface %s vrf %u index %d is still up while being deleted.",
+			"interface %s vrf %llu index %d is still up while being deleted.",
 			ifp->name, ifp->vrf_id, ifp->ifindex);
 		return;
 	}
@@ -705,7 +705,7 @@ void if_delete_update(struct interface *ifp)
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("interface %s vrf %u index %d is now inactive.",
+		zlog_debug("interface %s vrf %llu index %d is now inactive.",
 			   ifp->name, ifp->vrf_id, ifp->ifindex);
 
 	static_ifindex_update(ifp, false);
@@ -781,7 +781,7 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	 * and new VRF.
 	 */
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%u: IF %s VRF change, scheduling RIB processing",
+		zlog_debug("%llu: IF %s VRF change, scheduling RIB processing",
 			   ifp->vrf_id, ifp->name);
 	rib_update(old_vrf_id, RIB_UPDATE_IF_CHANGE);
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
@@ -895,7 +895,7 @@ void if_up(struct interface *ifp)
 	if_install_connected(ifp);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%u: IF %s up, scheduling RIB processing",
+		zlog_debug("%llu: IF %s up, scheduling RIB processing",
 			   ifp->vrf_id, ifp->name);
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
@@ -952,7 +952,7 @@ void if_down(struct interface *ifp)
 	if_uninstall_connected(ifp);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%u: IF %s down, scheduling RIB processing",
+		zlog_debug("%llu: IF %s down, scheduling RIB processing",
 			   ifp->vrf_id, ifp->name);
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
@@ -1528,7 +1528,7 @@ DEFUN (show_interface_desc_vrf_all,
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		if (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
-			vty_out(vty, "\n\tVRF %u\n\n", vrf->vrf_id);
+			vty_out(vty, "\n\tVRF %llu\n\n", vrf->vrf_id);
 			if_show_description(vty, vrf->vrf_id);
 		}
 

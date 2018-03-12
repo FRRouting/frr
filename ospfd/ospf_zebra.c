@@ -75,7 +75,7 @@ static int ospf_router_id_update_zebra(int command, struct zclient *zclient,
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE)) {
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&router_id, buf, sizeof(buf));
-		zlog_debug("Zebra rcvd: router id update %s vrf %s id %u", buf,
+		zlog_debug("Zebra rcvd: router id update %s vrf %s id %llu", buf,
 			   ospf_vrf_id_to_name(vrf_id), vrf_id);
 	}
 
@@ -90,7 +90,7 @@ static int ospf_router_id_update_zebra(int command, struct zclient *zclient,
 
 			prefix2str(&router_id, buf, sizeof(buf));
 			zlog_debug(
-				"%s: ospf instance not found for vrf %s id %u router_id %s",
+				"%s: ospf instance not found for vrf %s id %llu router_id %s",
 				__PRETTY_FUNCTION__,
 				ospf_vrf_id_to_name(vrf_id), vrf_id, buf);
 		}
@@ -111,7 +111,7 @@ static int ospf_interface_add(int command, struct zclient *zclient,
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
-			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
+			"Zebra: interface add %s vrf %s[%llu] index %d flags %llx metric %d mtu %d",
 			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
 			ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
@@ -154,7 +154,7 @@ static int ospf_interface_delete(int command, struct zclient *zclient,
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
-			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
+			"Zebra: interface delete %s vrf %s[%llu] index %d flags %llx metric %d mtu %d",
 			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
 			ifp->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
@@ -278,7 +278,7 @@ static int ospf_interface_address_add(int command, struct zclient *zclient,
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE)) {
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(c->address, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s address add %s vrf %s id %u",
+		zlog_debug("Zebra: interface %s address add %s vrf %s id %llu",
 			   c->ifp->name, buf, ospf_vrf_id_to_name(vrf_id),
 			   vrf_id);
 	}
@@ -369,7 +369,7 @@ static int ospf_interface_vrf_update(int command, struct zclient *zclient,
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"%s: Rx Interface %s VRF change vrf_id %u New vrf %s id %u",
+			"%s: Rx Interface %s VRF change vrf_id %llu New vrf %s id %llu",
 			__PRETTY_FUNCTION__, ifp->name, vrf_id,
 			ospf_vrf_id_to_name(new_vrf_id), new_vrf_id);
 
@@ -697,7 +697,7 @@ int ospf_redistribute_set(struct ospf *ospf, int type, u_short instance,
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug(
-			"Redistribute[%s][%d] vrf id %u: Start  Type[%d], Metric[%d]",
+			"Redistribute[%s][%d] vrf id %llu: Start  Type[%d], Metric[%d]",
 			ospf_redist_string(type), instance, ospf->vrf_id,
 			metric_type(ospf, type, instance),
 			metric_value(ospf, type, instance));
@@ -719,7 +719,7 @@ int ospf_redistribute_unset(struct ospf *ospf, int type, u_short instance)
 			     instance, ospf->vrf_id);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("Redistribute[%s][%d] vrf id %u: Stop",
+		zlog_debug("Redistribute[%s][%d] vrf id %llu: Stop",
 			   ospf_redist_string(type), instance, ospf->vrf_id);
 
 	ospf_redist_del(ospf, type, instance);
@@ -1085,7 +1085,7 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		zlog_debug(
-			"%s: ospf distribute-list update arg_type %d vrf %s id %d",
+			"%s: ospf distribute-list update arg_type %d vrf %s id %lld",
 			__PRETTY_FUNCTION__, arg_type,
 			ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id);
 	}
@@ -1451,7 +1451,7 @@ void ospf_zebra_vrf_register(struct ospf *ospf)
 
 	if (ospf->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: Register VRF %s id %u",
+			zlog_debug("%s: Register VRF %s id %llu",
 				   __PRETTY_FUNCTION__,
 				   ospf_vrf_id_to_name(ospf->vrf_id),
 				   ospf->vrf_id);
@@ -1468,7 +1468,7 @@ void ospf_zebra_vrf_deregister(struct ospf *ospf)
 
 	if (ospf->vrf_id != VRF_DEFAULT && ospf->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: De-Register VRF %s id %u to Zebra.",
+			zlog_debug("%s: De-Register VRF %s id %llu to Zebra.",
 				   __PRETTY_FUNCTION__,
 				   ospf_vrf_id_to_name(ospf->vrf_id),
 				   ospf->vrf_id);

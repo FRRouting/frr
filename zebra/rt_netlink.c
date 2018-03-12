@@ -367,7 +367,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	if (rtm->rtm_src_len != 0) {
 		char buf[PREFIX_STRLEN];
 		zlog_warn(
-			"unsupported IPv[4|6] sourcedest route (dest %s vrf %u)",
+			"unsupported IPv[4|6] sourcedest route (dest %s vrf %llu)",
 			prefix2str(&p, buf, sizeof(buf)), vrf_id);
 		return 0;
 	}
@@ -397,7 +397,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char buf[PREFIX_STRLEN];
 		char buf2[PREFIX_STRLEN];
-		zlog_debug("%s %s%s%s vrf %u metric: %d Admin Distance: %d",
+		zlog_debug("%s %s%s%s vrf %llu metric: %d Admin Distance: %d",
 			   nl_msg_type_to_str(h->nlmsg_type),
 			   prefix2str(&p, buf, sizeof(buf)),
 			   src_p.prefixlen ? " from " : "",
@@ -683,7 +683,7 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf);
 		ifp = if_lookup_by_index(iif, vrf);
 		zlog_debug(
-			"MCAST VRF: %s(%d) %s (%s,%s) IIF: %s OIF: %s jiffies: %lld",
+			"MCAST VRF: %s(%lld) %s (%s,%s) IIF: %s OIF: %s jiffies: %lld",
 			zvrf->vrf->name, vrf, nl_msg_type_to_str(h->nlmsg_type),
 			sbuf, gbuf, ifp->name, oif_list, m->lastused);
 	}
@@ -1265,7 +1265,7 @@ static void _netlink_route_debug(int cmd, struct prefix *p,
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char buf[PREFIX_STRLEN];
 		zlog_debug(
-			"netlink_route_multipath() (%s): %s %s vrf %u type %s",
+			"netlink_route_multipath() (%s): %s %s vrf %llu type %s",
 			routedesc, nl_msg_type_to_str(cmd),
 			prefix2str(p, buf, sizeof(buf)), zvrf_id(zvrf),
 			(nexthop) ? nexthop_type_to_str(nexthop->type) : "UNK");

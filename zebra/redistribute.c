@@ -153,7 +153,7 @@ void redistribute_update(struct prefix *p, struct prefix *src_p,
 	if (IS_ZEBRA_DEBUG_RIB) {
 		inet_ntop(p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
 		zlog_debug(
-			"%u:%s/%d: Redist update re %p (type %d), old %p (type %d)",
+			"%llu:%s/%d: Redist update re %p (type %d), old %p (type %d)",
 			re->vrf_id, buf, p->prefixlen, re, re->type, prev_re,
 			prev_re ? prev_re->type : -1);
 	}
@@ -211,7 +211,7 @@ void redistribute_delete(struct prefix *p, struct prefix *src_p,
 
 	if (IS_ZEBRA_DEBUG_RIB) {
 		inet_ntop(p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
-		zlog_debug("%u:%s/%d: Redist delete re %p (type %d)",
+		zlog_debug("%llu:%s/%d: Redist delete re %p (type %d)",
 			   re->vrf_id, buf, p->prefixlen, re, re->type);
 	}
 
@@ -378,7 +378,7 @@ void zebra_interface_add_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADD %s[%d]", ifp->name,
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADD %s[%lld]", ifp->name,
 			   ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
@@ -473,7 +473,7 @@ void zebra_interface_vrf_update_del(struct interface *ifp, vrf_id_t new_vrf_id)
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/DEL %s VRF Id %u -> %u",
+			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/DEL %s VRF Id %llu -> %llu",
 			ifp->name, ifp->vrf_id, new_vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
@@ -496,7 +496,7 @@ void zebra_interface_vrf_update_add(struct interface *ifp, vrf_id_t old_vrf_id)
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/ADD %s VRF Id %u -> %u",
+			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/ADD %s VRF Id %llu -> %llu",
 			ifp->name, old_vrf_id, ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {

@@ -155,7 +155,7 @@ ospf_external_info_add(struct ospf *ospf, u_char type, u_short instance,
 			inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
 				  INET6_BUFSIZ);
 			zlog_warn(
-				"Redistribute[%s][%d][%u]: %s/%d discarding old info with NH %s.",
+				"Redistribute[%s][%d][%llu]: %s/%d discarding old info with NH %s.",
 				ospf_redist_string(type), instance,
 				ospf->vrf_id, inet_ntoa(p.prefix), p.prefixlen,
 				inetbuf);
@@ -178,7 +178,7 @@ ospf_external_info_add(struct ospf *ospf, u_char type, u_short instance,
 		inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
 			  INET6_BUFSIZ);
 		zlog_debug(
-			"Redistribute[%s][%u]: %s/%d external info created, with NH %s",
+			"Redistribute[%s][%llu]: %s/%d external info created, with NH %s",
 			ospf_redist_string(type), ospf->vrf_id,
 			inet_ntoa(p.prefix), p.prefixlen, inetbuf);
 	}

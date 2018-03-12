@@ -1828,7 +1828,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 	/* only need to delete the entry from bgp if we sent it before */
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s del to BGP",
+			"%llu:SVI %s(%u) VNI %u, sending GW MAC %s IP %s del to BGP",
 			ifp->vrf_id, ifp->name, ifp->ifindex, zvni->vni,
 			prefix_mac2str(&(n->emac), NULL, ETHER_ADDR_STRLEN),
 			ipaddr2str(ip, buf2, sizeof(buf2)));
@@ -4970,7 +4970,7 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, u_short length,
 		if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
 		    && CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW)) {
 			zlog_err(
-				"%u: Ignore Del for  MAC %s neigh %s on VNI %u as it is configured as a default gateway",
+				"%llu: Ignore Del for  MAC %s neigh %s on VNI %u as it is configured as a default gateway",
 				zvrf_id(zvrf),
 				prefix_mac2str(&macaddr, buf, sizeof(buf)),
 				ipaddr2str(&ip, buf1, sizeof(buf1)), vni);
@@ -5131,7 +5131,7 @@ int zebra_vxlan_remote_macip_add(struct zserv *client, u_short length,
 		    && CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW)) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"%u:Ignore MAC %s IP %s on VNI %u as MAC is already configured as gateway mac",
+					"%llu:Ignore MAC %s IP %s on VNI %u as MAC is already configured as gateway mac",
 					zvrf_id(zvrf),
 					prefix_mac2str(&macaddr, buf,
 						       sizeof(buf)),
@@ -5563,7 +5563,7 @@ int zebra_vxlan_remote_vtep_del(struct zserv *client, u_short length,
 	}
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_err("Recv MACIP DEL for non-default VRF %u",
+		zlog_err("Recv MACIP DEL for non-default VRF %llu",
 			 zvrf_id(zvrf));
 		return -1;
 	}
@@ -5648,7 +5648,7 @@ int zebra_vxlan_remote_vtep_add(struct zserv *client, u_short length,
 	}
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_err("Recv MACIP ADD for non-default VRF %u",
+		zlog_err("Recv MACIP ADD for non-default VRF %llu",
 			 zvrf_id(zvrf));
 		return -1;
 	}
@@ -6525,7 +6525,7 @@ int zebra_vxlan_advertise_subnet(struct zserv *client, u_short length,
 	struct interface *vlan_if = NULL;
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_err("EVPN GW-MACIP Adv for non-default VRF %u",
+		zlog_err("EVPN GW-MACIP Adv for non-default VRF %llu",
 			 zvrf_id(zvrf));
 		return -1;
 	}
@@ -6588,7 +6588,7 @@ int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
 	struct interface *ifp = NULL;
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_err("EVPN GW-MACIP Adv for non-default VRF %u",
+		zlog_err("EVPN GW-MACIP Adv for non-default VRF %llu",
 			 zvrf_id(zvrf));
 		return -1;
 	}
@@ -6694,7 +6694,7 @@ int zebra_vxlan_advertise_all_vni(struct zserv *client, u_short length,
 	struct zebra_ns *zns = NULL;
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_err("EVPN VNI Adv for non-default VRF %u", zvrf_id(zvrf));
+		zlog_err("EVPN VNI Adv for non-default VRF %llu", zvrf_id(zvrf));
 		return -1;
 	}
 

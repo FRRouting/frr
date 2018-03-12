@@ -552,7 +552,7 @@ static void if_dump(const struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, c))
 		zlog_info(
-			"Interface %s vrf %u index %d metric %d mtu %d "
+			"Interface %s vrf %llu index %d metric %d mtu %d "
 			"mtu6 %d %s",
 			ifp->name, ifp->vrf_id, ifp->ifindex, ifp->metric,
 			ifp->mtu, ifp->mtu6, if_flag_dump(ifp->flags));
@@ -799,7 +799,7 @@ DEFUN (show_address_vrf_all,
       if (RB_EMPTY (if_name_head, &vrf->ifaces_by_name))
         continue;
 
-      vty_out (vty, "\nVRF %u\n\n", vrf->vrf_id);
+      vty_out (vty, "\nVRF %llu\n\n", vrf->vrf_id);
 
       FOR_ALL_INTERFACES (vrf, ifp)
         {
@@ -878,7 +878,7 @@ connected_log(struct connected *connected, char *str)
 	ifp = connected->ifp;
 	p = connected->address;
 
-	snprintf(logbuf, BUFSIZ, "%s interface %s vrf %u %s %s/%d ", str,
+	snprintf(logbuf, BUFSIZ, "%s interface %s vrf %llu %s %s/%d ", str,
 		 ifp->name, ifp->vrf_id, prefix_family_str(p),
 		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
 

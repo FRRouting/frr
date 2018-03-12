@@ -2345,10 +2345,10 @@ DEFUN (show_vrf,
 		if (zvrf_id(zvrf) == VRF_UNKNOWN || !zvrf_is_active(zvrf))
 			vty_out(vty, "inactive");
 		else if (zvrf_ns_name(zvrf))
-			vty_out(vty, "id %u netns %s", zvrf_id(zvrf),
+			vty_out(vty, "id %llu netns %s", zvrf_id(zvrf),
 				zvrf_ns_name(zvrf));
 		else
-			vty_out(vty, "id %u table %u", zvrf_id(zvrf),
+			vty_out(vty, "id %llu table %u", zvrf_id(zvrf),
 				zvrf->table_id);
 		if (vrf_is_user_cfged(vrf))
 			vty_out(vty, " (configured)");

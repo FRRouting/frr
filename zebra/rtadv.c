@@ -817,7 +817,7 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 	STREAM_GETL(s, ra_interval);
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("%u: IF %u RA %s from client %s, interval %ds",
+		zlog_debug("%llu: IF %u RA %s from client %s, interval %ds",
 			   zvrf_id(zvrf), ifindex,
 			   enable ? "enable" : "disable",
 			   zebra_route_string(client->proto), ra_interval);
@@ -825,13 +825,13 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 	/* Locate interface and check VRF match. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifindex);
 	if (!ifp) {
-		zlog_warn("%u: IF %u RA %s client %s - interface unknown",
+		zlog_warn("%llu: IF %u RA %s client %s - interface unknown",
 			  zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
 			  zebra_route_string(client->proto));
 		return;
 	}
 	if (ifp->vrf_id != zvrf_id(zvrf)) {
-		zlog_warn("%u: IF %u RA %s client %s - VRF mismatch, IF VRF %u",
+		zlog_warn("%llu: IF %u RA %s client %s - VRF mismatch, IF VRF %llu",
 			  zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
 			  zebra_route_string(client->proto), ifp->vrf_id);
 		return;

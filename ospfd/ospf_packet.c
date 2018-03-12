@@ -3542,7 +3542,7 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 	if (IS_DEBUG_OSPF_EVENT) {
 		if (oi->ospf->vrf_id)
 			zlog_debug(
-				"%s: Hello Tx interface %s ospf vrf %s id %u",
+				"%s: Hello Tx interface %s ospf vrf %s id %llu",
 				__PRETTY_FUNCTION__, oi->ifp->name,
 				ospf_vrf_id_to_name(oi->ospf->vrf_id),
 				oi->ospf->vrf_id);

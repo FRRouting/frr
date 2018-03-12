@@ -105,12 +105,12 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		prefix2str(p, buf, sizeof(buf));
-		zlog_debug("%u: Add RNH %s type %d", vrfid, buf, type);
+		zlog_debug("%llu: Add RNH %s type %d", vrfid, buf, type);
 	}
 	table = get_rnh_table(vrfid, PREFIX_FAMILY(p), type);
 	if (!table) {
 		prefix2str(p, buf, sizeof(buf));
-		zlog_warn("%u: Add RNH %s type %d - table not found", vrfid,
+		zlog_warn("%llu: Add RNH %s type %d - table not found", vrfid,
 			  buf, type);
 		return NULL;
 	}
@@ -176,7 +176,7 @@ void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("%u: Del RNH %s type %d", rnh->vrf_id,
+		zlog_debug("%llu: Del RNH %s type %d", rnh->vrf_id,
 			   rnh_str(rnh, buf, sizeof(buf)), type);
 	}
 
@@ -190,7 +190,7 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
 		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("%u: Client %s registers for RNH %s type %d", vrf_id,
+		zlog_debug("%llu: Client %s registers for RNH %s type %d", vrf_id,
 			   zebra_route_string(client->proto),
 			   rnh_str(rnh, buf, sizeof(buf)), type);
 	}
@@ -443,7 +443,7 @@ static void zebra_rnh_eval_import_check_entry(vrf_id_t vrfid, int family,
 	if (state_changed || force) {
 		if (IS_ZEBRA_DEBUG_NHT) {
 			prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: Route import check %s %s\n", vrfid,
+			zlog_debug("%llu:%s: Route import check %s %s\n", vrfid,
 				   bufn, rnh->state ? "passed" : "failed",
 				   state_changed ? "(state changed)" : "");
 		}
@@ -473,10 +473,10 @@ static void zebra_rnh_notify_protocol_clients(vrf_id_t vrfid, int family,
 		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
 		if (prn && re) {
 			prefix2str(&prn->p, bufp, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: NH resolved over route %s", vrfid,
+			zlog_debug("%llu:%s: NH resolved over route %s", vrfid,
 				   bufn, bufp);
 		} else
-			zlog_debug("%u:%s: NH has become unresolved", vrfid,
+			zlog_debug("%llu:%s: NH has become unresolved", vrfid,
 				   bufn);
 	}
 
@@ -495,7 +495,7 @@ static void zebra_rnh_notify_protocol_clients(vrf_id_t vrfid, int family,
 
 			if (IS_ZEBRA_DEBUG_NHT)
 				zlog_debug(
-					"%u:%s: Notifying client %s about NH %s",
+					"%llu:%s: Notifying client %s about NH %s",
 					vrfid, bufn,
 					zebra_route_string(client->proto),
 					num_resolving_nh
@@ -505,7 +505,7 @@ static void zebra_rnh_notify_protocol_clients(vrf_id_t vrfid, int family,
 			rnh->filtered[client->proto] = 0;
 			if (IS_ZEBRA_DEBUG_NHT)
 				zlog_debug(
-					"%u:%s: Notifying client %s about NH (unreachable)",
+					"%llu:%s: Notifying client %s about NH (unreachable)",
 					vrfid, bufn,
 					zebra_route_string(client->proto));
 		}
@@ -603,7 +603,7 @@ static void zebra_rnh_process_static_routes(vrf_id_t vrfid, int family,
 					   INET6_ADDRSTRLEN);
 				if (prn && re)
 					zlog_debug(
-						"%u:%s: NH change %s, scheduling static route %s",
+						"%llu:%s: NH change %s, scheduling static route %s",
 						vrfid, bufn,
 						num_resolving_nh
 							? ""
@@ -611,7 +611,7 @@ static void zebra_rnh_process_static_routes(vrf_id_t vrfid, int family,
 						bufs);
 				else
 					zlog_debug(
-						"%u:%s: NH unreachable, scheduling static route %s",
+						"%llu:%s: NH unreachable, scheduling static route %s",
 						vrfid, bufn, bufs);
 			}
 
@@ -768,7 +768,7 @@ static void zebra_rnh_evaluate_entry(vrf_id_t vrfid, int family, int force,
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-		zlog_debug("%u:%s: Evaluate RNH, type %d %s", vrfid, bufn, type,
+		zlog_debug("%llu:%s: Evaluate RNH, type %d %s", vrfid, bufn, type,
 			   force ? "(force)" : "");
 	}
 
@@ -895,7 +895,7 @@ int zebra_cleanup_rnh_client(vrf_id_t vrf_id, int family, struct zserv *client,
 	struct rnh *rnh;
 
 	if (IS_ZEBRA_DEBUG_NHT)
-		zlog_debug("%u: Client %s RNH cleanup for family %d type %d",
+		zlog_debug("%llu: Client %s RNH cleanup for family %d type %d",
 			   vrf_id, zebra_route_string(client->proto), family,
 			   type);
 
