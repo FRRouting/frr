@@ -890,7 +890,10 @@ class TopoExaBGP(TopoHost):
         self.run('chmod 644 /etc/exabgp/*')
         self.run('chmod a+x /etc/exabgp/*.py')
         self.run('chown -R exabgp:exabgp /etc/exabgp')
-        self.run('exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg')
+        output = self.run('exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg')
+        if output == None or len(output) == 0:
+            output = '<none>'
+        logger.info('{} exabgp started, output={}'.format(self.name, output))
 
     def stop(self, wait=True):
         "Stop ExaBGP peer and kill the daemon"
