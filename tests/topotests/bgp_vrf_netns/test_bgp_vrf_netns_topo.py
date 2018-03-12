@@ -107,8 +107,9 @@ def setup_module(module):
             'ip link set dev {0}-eth0 netns {0}-cust1',
             'ip netns exec {0}-cust1 ifconfig {0}-eth0 up']
     for cmd in cmds:
-        router.run(cmd.format('r1'))
-
+        output = router.run(cmd.format('r1'))
+        if output != None and len(output) > 0:
+            logger.info('unexpected output: cmd="{}" output=\n{}'.format(cmd, output))
     #run daemons
     router.load_config(
         TopoRouter.RD_ZEBRA,
@@ -124,12 +125,12 @@ def setup_module(module):
     # BGP and ZEBRA start without underlying VRF
     router.start()
     # Starting Hosts and init ExaBGP on each of them
-    topotest.sleep(10, 'starting BGP on peer')
+    logger.info('starting exaBGP on peer1')
     peer_list = tgen.exabgp_peers()
     for pname, peer in peer_list.iteritems():
         peer_dir = os.path.join(CWD, pname)
         env_file = os.path.join(CWD, 'exabgp.env')
-        topotest.sleep(1, 'Running ExaBGP peer')
+        logger.info('Running ExaBGP peer')
         peer.start(peer_dir, env_file)
         logger.info(pname)
 
@@ -170,7 +171,7 @@ def test_bgp_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    topotest.sleep(20, 'waiting for bgp convergence')
+    logger.info('waiting for bgp convergence')
 
     # Expected result
     router = tgen.gears['r1']
@@ -186,7 +187,7 @@ def test_bgp_convergence():
         output = router.vtysh_cmd('show bgp vrf r1-cust1 summary json', isjson=True)
         return topotest.json_cmp(output, expected)
 
-    _, res = topotest.run_and_expect(_convergence_test, None, count=10, wait=1)
+    _, res = topotest.run_and_expect(_convergence_test, None, count=90, wait=1)
     assertmsg = 'BGP router network did not converge'
     assert res is None, assertmsg
 
