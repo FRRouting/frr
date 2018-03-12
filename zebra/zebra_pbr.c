@@ -211,6 +211,51 @@ int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2)
 	return 1;
 }
 
+void zebra_pbr_iptable_free(void *arg)
+{
+	struct zebra_pbr_iptable *iptable;
+
+	iptable = (struct zebra_pbr_iptable *)arg;
+
+	XFREE(MTYPE_TMP, iptable);
+}
+
+uint32_t zebra_pbr_iptable_hash_key(void *arg)
+{
+	struct zebra_pbr_iptable *iptable = (struct zebra_pbr_iptable *)arg;
+	uint32_t *pnt = (uint32_t *)&(iptable->ipset_name);
+	uint32_t key;
+
+	key = jhash2(pnt, ZEBRA_IPSET_NAME_HASH_SIZE,
+		     0x63ab42de);
+	key = jhash_1word(iptable->fwmark, key);
+	return jhash_3words(iptable->filter_bm, iptable->type,
+			    iptable->unique, key);
+}
+
+int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct zebra_pbr_iptable *r1, *r2;
+
+	r1 = (const struct zebra_pbr_iptable *)arg1;
+	r2 = (const struct zebra_pbr_iptable *)arg2;
+
+	if (r1->type != r2->type)
+		return 0;
+	if (r1->unique != r2->unique)
+		return 0;
+	if (r1->filter_bm != r2->filter_bm)
+		return 0;
+	if (r1->fwmark != r2->fwmark)
+		return 0;
+	if (r1->action != r2->action)
+		return 0;
+	if (strncmp(r1->ipset_name, r2->ipset_name,
+		    ZEBRA_IPSET_NAME_SIZE))
+		return 0;
+	return 1;
+}
+
 static void *pbr_rule_alloc_intern(void *arg)
 {
 	struct zebra_pbr_rule *zpr;
@@ -383,6 +428,45 @@ void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
 			  __PRETTY_FUNCTION__);
 }
 
+static void *pbr_iptable_alloc_intern(void *arg)
+{
+	struct zebra_pbr_iptable *zpi;
+	struct zebra_pbr_iptable *new;
+
+	zpi = (struct zebra_pbr_iptable *)arg;
+
+	new = XCALLOC(MTYPE_TMP, sizeof(struct zebra_pbr_iptable));
+
+	memcpy(new, zpi, sizeof(*zpi));
+
+	return new;
+}
+
+void zebra_pbr_add_iptable(struct zebra_ns *zns,
+			   struct zebra_pbr_iptable *iptable)
+{
+	(void)hash_get(zns->iptable_hash, iptable,
+		       pbr_iptable_alloc_intern);
+	/* TODO call netlink layer */
+}
+
+void zebra_pbr_del_iptable(struct zebra_ns *zns,
+			   struct zebra_pbr_iptable *iptable)
+{
+	struct zebra_pbr_ipset_entry *lookup;
+
+	lookup = hash_lookup(zns->iptable_hash, iptable);
+	/* TODO:
+	 * - call netlink layer
+	 * - detach from iptable list
+	 */
+	if (lookup)
+		XFREE(MTYPE_TMP, lookup);
+	else
+		zlog_warn("%s: IPTable being deleted we know nothing about",
+			  __PRETTY_FUNCTION__);
+}
+
 /*
  * Handle success or failure of rule (un)install in the kernel.
  */
@@ -438,6 +522,26 @@ void kernel_pbr_ipset_entry_add_del_status(
 	case SOUTHBOUND_INSTALL_FAILURE:
 		zsend_ipset_entry_notify_owner(ipset,
 					       ZAPI_IPSET_ENTRY_FAIL_INSTALL);
+		break;
+	case SOUTHBOUND_DELETE_SUCCESS:
+	case SOUTHBOUND_DELETE_FAILURE:
+		/* TODO : handling of delete event */
+		break;
+	}
+}
+
+/*
+ * Handle success or failure of ipset (un)install in the kernel.
+ */
+void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
+				       enum southbound_results res)
+{
+	switch (res) {
+	case SOUTHBOUND_INSTALL_SUCCESS:
+		zsend_iptable_notify_owner(iptable, ZAPI_IPTABLE_INSTALLED);
+		break;
+	case SOUTHBOUND_INSTALL_FAILURE:
+		zsend_iptable_notify_owner(iptable, ZAPI_IPTABLE_FAIL_INSTALL);
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
 	case SOUTHBOUND_DELETE_FAILURE:

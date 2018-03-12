@@ -817,6 +817,35 @@ void zsend_ipset_entry_notify_owner(
 	zebra_server_send_message(client, s);
 }
 
+void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
+			     enum zapi_iptable_notify_owner note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
+			   iptable->unique);
+
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		if (iptable->sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_IPTABLE_NOTIFY_OWNER, VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, iptable->unique);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zebra_server_send_message(client, s);
+}
+
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
 int zsend_router_id_update(struct zserv *client, struct prefix *p,
 			   vrf_id_t vrf_id)
@@ -2854,6 +2883,31 @@ stream_failure:
 	return;
 }
 
+static inline void zread_iptable(ZAPI_HANDLER_ARGS)
+{
+	struct zebra_pbr_iptable zpi;
+	struct stream *s;
+
+	s = msg;
+
+	memset(&zpi, 0, sizeof(zpi));
+
+	zpi.sock = client->sock;
+	STREAM_GETL(s, zpi.unique);
+	STREAM_GETL(s, zpi.type);
+	STREAM_GETL(s, zpi.filter_bm);
+	STREAM_GETL(s, zpi.action);
+	STREAM_GETL(s, zpi.fwmark);
+	STREAM_GET(&zpi.ipset_name, s,
+		   ZEBRA_IPSET_NAME_SIZE);
+
+	if (hdr->command == ZEBRA_IPTABLE_ADD)
+		zebra_pbr_add_iptable(zvrf->zns, &zpi);
+	else
+		zebra_pbr_del_iptable(zvrf->zns, &zpi);
+stream_failure:
+	return;
+}
 
 void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
@@ -2919,6 +2973,8 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_IPSET_DESTROY] = zread_ipset,
 	[ZEBRA_IPSET_ENTRY_ADD] = zread_ipset_entry,
 	[ZEBRA_IPSET_ENTRY_DELETE] = zread_ipset_entry,
+	[ZEBRA_IPTABLE_ADD] = zread_iptable,
+	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
 };
 
 static inline void zserv_handle_commands(struct zserv *client,

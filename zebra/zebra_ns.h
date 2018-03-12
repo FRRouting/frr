@@ -77,6 +77,8 @@ struct zebra_ns {
 
 	struct hash *ipset_entry_hash;
 
+	struct hash *iptable_hash;
+
 	/* Back pointer */
 	struct ns *ns;
 };

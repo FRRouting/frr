@@ -148,6 +148,35 @@ struct zebra_pbr_ipset_entry {
 	struct zebra_pbr_ipset *backpointer;
 };
 
+/*
+ * An IPTables Action
+ *
+ * This is a filter mapped on ipset entries
+ */
+struct zebra_pbr_iptable {
+	/*
+	 * Originating zclient sock fd, so we can know who to send
+	 * back to.
+	 */
+	int sock;
+
+	uint32_t unique;
+
+	/* include ipset type
+	 */
+	uint32_t type;
+
+	/* include which IP is to be filtered
+	 */
+	uint32_t filter_bm;
+
+	uint32_t fwmark;
+
+	uint32_t action;
+
+	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
+};
+
 void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
 void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
 void zebra_pbr_create_ipset(struct zebra_ns *zns,
@@ -160,6 +189,11 @@ void zebra_pbr_add_ipset_entry(struct zebra_ns *zns,
 			       struct zebra_pbr_ipset_entry *ipset);
 void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
 			       struct zebra_pbr_ipset_entry *ipset);
+
+void zebra_pbr_add_iptable(struct zebra_ns *zns,
+			   struct zebra_pbr_iptable *iptable);
+void zebra_pbr_del_iptable(struct zebra_ns *zns,
+			   struct zebra_pbr_iptable *iptable);
 
 /*
  * Install specified rule for a specific interface.
@@ -196,6 +230,9 @@ extern void kernel_pbr_ipset_entry_add_del_status(
 				struct zebra_pbr_ipset_entry *ipset,
 				enum southbound_results res);
 
+extern void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
+			      enum southbound_results res);
+
 /*
  * Handle rule delete notification from kernel.
  */
@@ -219,5 +256,9 @@ extern int zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2);
 extern void zebra_pbr_ipset_entry_free(void *arg);
 extern uint32_t zebra_pbr_ipset_entry_hash_key(void *arg);
 extern int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2);
+
+extern void zebra_pbr_iptable_free(void *arg);
+extern uint32_t zebra_pbr_iptable_hash_key(void *arg);
+extern int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
 
 #endif /* _ZEBRA_PBR_H */

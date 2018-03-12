@@ -52,6 +52,12 @@
  */
 #define ZEBRA_IPSET_NAME_SIZE   32
 
+/* IPTable action is defined by two values: either
+ * forward or drop
+ */
+#define ZEBRA_IPTABLES_FORWARD 0
+#define ZEBRA_IPTABLES_DROP    1
+
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
 
@@ -146,6 +152,9 @@ typedef enum {
 	ZEBRA_IPSET_ENTRY_DELETE,
 	ZEBRA_IPSET_NOTIFY_OWNER,
 	ZEBRA_IPSET_ENTRY_NOTIFY_OWNER,
+	ZEBRA_IPTABLE_ADD,
+	ZEBRA_IPTABLE_DELETE,
+	ZEBRA_IPTABLE_NOTIFY_OWNER,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -407,6 +416,12 @@ enum zapi_ipset_entry_notify_owner {
 	ZAPI_IPSET_ENTRY_FAIL_INSTALL,
 	ZAPI_IPSET_ENTRY_INSTALLED,
 	ZAPI_IPSET_ENTRY_REMOVED,
+};
+
+enum zapi_iptable_notify_owner {
+	ZAPI_IPTABLE_FAIL_INSTALL,
+	ZAPI_IPTABLE_INSTALLED,
+	ZAPI_IPTABLE_REMOVED,
 };
 
 /* Zebra MAC types */
