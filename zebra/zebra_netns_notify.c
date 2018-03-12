@@ -83,8 +83,9 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	/* if VRF with NS ID already present */
 	vrf = vrf_lookup_by_id((vrf_id_t)ns_id);
 	if (vrf) {
-		zlog_warn("NS notify : same NSID used by VRF %s. Ignore NS %s creation",
-			  vrf->name, netnspath);
+		zlog_warn(
+			"NS notify : same NSID used by VRF %s. Ignore NS %s creation",
+			vrf->name, netnspath);
 		return;
 	}
 	if (vrf_handler_create(NULL, name, &vrf) != CMD_SUCCESS) {
@@ -96,8 +97,7 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 		zlog_warn("NS notify : failed to create NS %s", netnspath);
 		return;
 	}
-	zlog_info("NS notify : created VRF %s NS %s",
-		   name, netnspath);
+	zlog_info("NS notify : created VRF %s NS %s", name, netnspath);
 }
 
 static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
@@ -111,8 +111,8 @@ static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
 		return 0;
 	}
 	thread_add_timer_msec(zebrad.master, zebra_ns_ready_read,
-			      (void *)zns_info,
-			      ZEBRA_NS_POLLING_INTERVAL_MSEC, NULL);
+			      (void *)zns_info, ZEBRA_NS_POLLING_INTERVAL_MSEC,
+			      NULL);
 	return 0;
 }
 
@@ -160,19 +160,17 @@ static int zebra_ns_notify_read(struct thread *t)
 	char buf[BUFSIZ];
 	ssize_t len;
 
-	zebra_netns_notify_current = thread_add_read(zebrad.master,
-						     zebra_ns_notify_read,
-						     NULL, fd_monitor, NULL);
+	zebra_netns_notify_current = thread_add_read(
+		zebrad.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
 	len = read(fd_monitor, buf, sizeof(buf));
 	if (len < 0) {
 		zlog_warn("NS notify read: failed to read (%s)",
 			  safe_strerror(errno));
 		return 0;
 	}
-	for (event = (struct inotify_event *)buf;
-	     (char *)event < &buf[len];
-	     event = (struct inotify_event *)((char *)event +
-					      sizeof(*event) + event->len)) {
+	for (event = (struct inotify_event *)buf; (char *)event < &buf[len];
+	     event = (struct inotify_event *)((char *)event + sizeof(*event)
+					      + event->len)) {
 		char *netnspath;
 		struct zebra_netns_info *netnsinfo;
 
@@ -187,7 +185,7 @@ static int zebra_ns_notify_read(struct thread *t)
 		netnsinfo->retries = ZEBRA_NS_POLLING_MAX_RETRIES;
 		netnsinfo->netnspath = netnspath;
 		thread_add_timer_msec(zebrad.master, zebra_ns_ready_read,
-				       (void *)netnsinfo, 0, NULL);
+				      (void *)netnsinfo, 0, NULL);
 	}
 	return 0;
 }
@@ -205,7 +203,7 @@ void zebra_ns_notify_parse(void)
 		struct stat st;
 
 		if (strcmp(dent->d_name, ".") == 0
-		   || strcmp(dent->d_name, "..") == 0)
+		    || strcmp(dent->d_name, "..") == 0)
 			continue;
 		if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
 			zlog_warn("NS parsing init: failed to parse entry %s",
@@ -236,9 +234,8 @@ void zebra_ns_notify_init(void)
 		zlog_warn("NS notify watch: failed to add watch (%s)",
 			  safe_strerror(errno));
 	}
-	zebra_netns_notify_current = thread_add_read(zebrad.master,
-						     zebra_ns_notify_read,
-						     NULL, fd_monitor, NULL);
+	zebra_netns_notify_current = thread_add_read(
+		zebrad.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
 }
 
 void zebra_ns_notify_close(void)

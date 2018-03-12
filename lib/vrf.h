@@ -206,19 +206,18 @@ extern void vrf_terminate(void);
  */
 
 /* Create a socket serving for the given VRF */
-extern int vrf_socket(int domain, int type,
-		      int protocol, vrf_id_t vrf_id,
+extern int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 		      char *name);
 
-extern int vrf_sockunion_socket(const union sockunion *su,
-				vrf_id_t vrf_id, char *name);
+extern int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
+				char *name);
 
 extern int vrf_bind(vrf_id_t vrf_id, int fd, char *name);
 
 /* VRF ioctl operations */
 extern int vrf_getaddrinfo(const char *node, const char *service,
-		    const struct addrinfo *hints,
-		    struct addrinfo **res, vrf_id_t vrf_id);
+			   const struct addrinfo *hints, struct addrinfo **res,
+			   vrf_id_t vrf_id);
 
 extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
 
@@ -264,8 +263,7 @@ extern int vrf_is_backend_netns(void);
 /* API to create a VRF. either from vty
  * or through discovery
  */
-extern int vrf_handler_create(struct vty *vty,
-			      const char *name,
+extern int vrf_handler_create(struct vty *vty, const char *name,
 			      struct vrf **vrf);
 
 /* API to associate a VRF with a NETNS.
@@ -273,7 +271,7 @@ extern int vrf_handler_create(struct vty *vty,
  * should be called from zebra only
  */
 extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
-			     char *pathname, ns_id_t ns_id);
+				    char *pathname, ns_id_t ns_id);
 
 /* used internally to enable or disable VRF.
  * Notify a change in the VRF ID of the VRF

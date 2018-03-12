@@ -140,7 +140,7 @@ static void sigint(void)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);
 		}
 	if (zebrad.lsp_process_q)
-		work_queue_free(zebrad.lsp_process_q);
+		work_queue_free_and_null(&zebrad.lsp_process_q);
 	vrf_terminate();
 
 	ns_walk_func(zebra_ns_disabled);
@@ -151,7 +151,7 @@ static void sigint(void)
 	route_map_finish();
 
 	list_delete_and_null(&zebrad.client_list);
-	work_queue_free(zebrad.ribq);
+	work_queue_free_and_null(&zebrad.ribq);
 	meta_queue_free(zebrad.mq);
 
 	frr_fini();
@@ -208,8 +208,7 @@ int main(int argc, char **argv)
 #endif
 
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
-	logicalrouter_configure_backend(
-			 LOGICALROUTER_BACKEND_NETNS);
+	logicalrouter_configure_backend(LOGICALROUTER_BACKEND_NETNS);
 
 	frr_preinit(&zebra_di, argc, argv);
 
@@ -289,7 +288,7 @@ int main(int argc, char **argv)
 		case 'n':
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			logicalrouter_configure_backend(
-					LOGICALROUTER_BACKEND_OFF);
+				LOGICALROUTER_BACKEND_OFF);
 			break;
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)
@@ -333,8 +332,8 @@ int main(int argc, char **argv)
 	zebra_mpls_vty_init();
 	zebra_pw_vty_init();
 
-	/* For debug purpose. */
-	/* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
+/* For debug purpose. */
+/* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
 #if defined(HANDLE_ZAPI_FUZZING)
 	if (fuzzing) {

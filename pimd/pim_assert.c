@@ -405,9 +405,9 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 	}
 
 	/* Metric preference */
-	pim_write_uint32(pim_msg_curr, rpt_bit_flag
-					       ? metric_preference | 0x80000000
-					       : metric_preference);
+	pim_write_uint32(pim_msg_curr,
+			 rpt_bit_flag ? metric_preference | 0x80000000
+				      : metric_preference);
 	pim_msg_curr += 4;
 
 	/* Route metric */

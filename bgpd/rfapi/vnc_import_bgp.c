@@ -2557,7 +2557,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 				if (bi->extra) {
 					prd = &bi->extra->vnc.import.rd;
 					label = decode_label(
-							&bi->extra->label[0]);
+						&bi->extra->label[0]);
 				} else
 					prd = NULL;
 

@@ -104,10 +104,8 @@ struct bgp_info_extra {
 				struct in6_addr addr6;
 			} un; /* cached un address */
 			time_t create_time;
-			struct
-				prefix
-					aux_prefix; /* AFI_L2VPN: the IP addr,
-						       if family set */
+			struct prefix aux_prefix; /* AFI_L2VPN: the IP addr,
+						     if family set */
 		} import;
 
 	} vnc;

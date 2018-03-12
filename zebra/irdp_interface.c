@@ -63,14 +63,14 @@ extern int irdp_sock;
 
 DEFINE_MTYPE_STATIC(ZEBRA, IRDP_IF, "IRDP interface data")
 
-#define IRDP_CONFIGED							\
-	do {								\
-		if (!irdp) {						\
-			vty_out(vty, "Please Configure IRDP before using this command\n"); \
-			return CMD_WARNING_CONFIG_FAILED;		\
-		}							\
-	}								\
-	while (0)
+#define IRDP_CONFIGED                                                                 \
+	do {                                                                          \
+		if (!irdp) {                                                          \
+			vty_out(vty,                                                  \
+				"Please Configure IRDP before using this command\n"); \
+			return CMD_WARNING_CONFIG_FAILED;                             \
+		}                                                                     \
+	} while (0)
 
 static struct irdp_interface *irdp_if_get(struct interface *ifp)
 {

@@ -42,10 +42,11 @@ static struct frrmod_info frrmod_default_info = {
 	.description = "libfrr core module",
 };
 union _frrmod_runtime_u frrmod_default = {
-	.r = {
-		.info = &frrmod_default_info,
-		.finished_loading = 1,
-	},
+	.r =
+		{
+			.info = &frrmod_default_info,
+			.finished_loading = 1,
+		},
 };
 
 // if defined(HAVE_SYS_WEAK_ALIAS_ATTRIBUTE)

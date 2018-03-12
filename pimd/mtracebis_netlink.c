@@ -52,12 +52,14 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
 		return -1;
 	}
 
-	if (setsockopt(rth->fd,SOL_SOCKET,SO_SNDBUF,&sndbuf,sizeof(sndbuf)) < 0) {
+	if (setsockopt(rth->fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf))
+	    < 0) {
 		perror("SO_SNDBUF");
 		return -1;
 	}
 
-	if (setsockopt(rth->fd,SOL_SOCKET,SO_RCVBUF,&rcvbuf,sizeof(rcvbuf)) < 0) {
+	if (setsockopt(rth->fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf))
+	    < 0) {
 		perror("SO_RCVBUF");
 		return -1;
 	}
@@ -66,12 +68,14 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
 	rth->local.nl_family = AF_NETLINK;
 	rth->local.nl_groups = subscriptions;
 
-	if (bind(rth->fd, (struct sockaddr*)&rth->local, sizeof(rth->local)) < 0) {
+	if (bind(rth->fd, (struct sockaddr *)&rth->local, sizeof(rth->local))
+	    < 0) {
 		perror("Cannot bind netlink socket");
 		return -1;
 	}
 	addr_len = sizeof(rth->local);
-	if (getsockname(rth->fd, (struct sockaddr*)&rth->local, &addr_len) < 0) {
+	if (getsockname(rth->fd, (struct sockaddr *)&rth->local, &addr_len)
+	    < 0) {
 		perror("Cannot getsockname");
 		return -1;
 	}
@@ -80,7 +84,8 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
 		return -1;
 	}
 	if (rth->local.nl_family != AF_NETLINK) {
-		fprintf(stderr, "Wrong address family %d\n", rth->local.nl_family);
+		fprintf(stderr, "Wrong address family %d\n",
+			rth->local.nl_family);
 		return -1;
 	}
 	rth->seq = time(NULL);
@@ -102,12 +107,12 @@ int rtnl_wilddump_request(struct rtnl_handle *rth, int family, int type)
 	memset(&req, 0, sizeof(req));
 	req.nlh.nlmsg_len = sizeof(req);
 	req.nlh.nlmsg_type = type;
-	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+	req.nlh.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
 	req.nlh.nlmsg_pid = 0;
 	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
 	req.g.rtgen_family = family;
 
-	return send(rth->fd, (void*)&req, sizeof(req), 0);
+	return send(rth->fd, (void *)&req, sizeof(req), 0);
 }
 
 int rtnl_send(struct rtnl_handle *rth, const char *buf, int len)
@@ -126,7 +131,7 @@ int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int len)
 		return status;
 
 	/* Check for immediate errors */
-	status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT|MSG_PEEK);
+	status = recv(rth->fd, resp, sizeof(resp), MSG_DONTWAIT | MSG_PEEK);
 	if (status < 0) {
 		if (errno == EAGAIN)
 			return 0;
@@ -136,8 +141,9 @@ int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int len)
 	for (h = (struct nlmsghdr *)resp; NLMSG_OK(h, (uint32_t)status);
 	     h = NLMSG_NEXT(h, status)) {
 		if (h->nlmsg_type == NLMSG_ERROR) {
-			struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
-			if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
+			struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
+			if (h->nlmsg_len
+			    < NLMSG_LENGTH(sizeof(struct nlmsgerr)))
 				fprintf(stderr, "ERROR truncated\n");
 			else
 				errno = -err->error;
@@ -152,13 +158,11 @@ int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, int len)
 {
 	struct nlmsghdr nlh;
 	struct sockaddr_nl nladdr;
-	struct iovec iov[2] = {
-		{ .iov_base = &nlh, .iov_len = sizeof(nlh) },
-		{ .iov_base = req, .iov_len = len }
-	};
+	struct iovec iov[2] = {{.iov_base = &nlh, .iov_len = sizeof(nlh)},
+			       {.iov_base = req, .iov_len = len}};
 	struct msghdr msg = {
 		.msg_name = &nladdr,
-		.msg_namelen = 	sizeof(nladdr),
+		.msg_namelen = sizeof(nladdr),
 		.msg_iov = iov,
 		.msg_iovlen = 2,
 	};
@@ -168,7 +172,7 @@ int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, int len)
 
 	nlh.nlmsg_len = NLMSG_LENGTH(len);
 	nlh.nlmsg_type = type;
-	nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+	nlh.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
 	nlh.nlmsg_pid = 0;
 	nlh.nlmsg_seq = rth->dump = ++rth->seq;
 
@@ -212,15 +216,15 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 		}
 
 		for (a = arg; a->filter; a++) {
-			struct nlmsghdr *h = (struct nlmsghdr*)buf;
+			struct nlmsghdr *h = (struct nlmsghdr *)buf;
 			msglen = status;
 
 			while (NLMSG_OK(h, (uint32_t)msglen)) {
 				int err;
 
-				if (nladdr.nl_pid != 0 ||
-				    h->nlmsg_pid != rth->local.nl_pid ||
-				    h->nlmsg_seq != rth->dump) {
+				if (nladdr.nl_pid != 0
+				    || h->nlmsg_pid != rth->local.nl_pid
+				    || h->nlmsg_seq != rth->dump) {
 					if (a->junk) {
 						err = a->junk(&nladdr, h,
 							      a->arg2);
@@ -235,8 +239,12 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 					break; /* process next filter */
 				}
 				if (h->nlmsg_type == NLMSG_ERROR) {
-					struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
-					if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+					struct nlmsgerr *err =
+						(struct nlmsgerr *)NLMSG_DATA(
+							h);
+					if (h->nlmsg_len
+					    < NLMSG_LENGTH(sizeof(
+						      struct nlmsgerr))) {
 						fprintf(stderr,
 							"ERROR truncated\n");
 					} else {
@@ -249,7 +257,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 				if (err < 0)
 					return err;
 
-skip_it:
+			skip_it:
 				h = NLMSG_NEXT(h, msglen);
 			}
 		}
@@ -268,40 +276,32 @@ skip_it:
 	}
 }
 
-int rtnl_dump_filter(struct rtnl_handle *rth,
-		     rtnl_filter_t filter,
-		     void *arg1,
-		     rtnl_filter_t junk,
-		     void *arg2)
+int rtnl_dump_filter(struct rtnl_handle *rth, rtnl_filter_t filter, void *arg1,
+		     rtnl_filter_t junk, void *arg2)
 {
 	const struct rtnl_dump_filter_arg a[2] = {
-		{ .filter = filter, .arg1 = arg1, .junk = junk, .arg2 = arg2 },
-		{ .filter = NULL,   .arg1 = NULL, .junk = NULL, .arg2 = NULL }
-	};
+		{.filter = filter, .arg1 = arg1, .junk = junk, .arg2 = arg2},
+		{.filter = NULL, .arg1 = NULL, .junk = NULL, .arg2 = NULL}};
 
 	return rtnl_dump_filter_l(rth, a);
 }
 
 int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
-	      unsigned groups, struct nlmsghdr *answer,
-	      rtnl_filter_t junk,
+	      unsigned groups, struct nlmsghdr *answer, rtnl_filter_t junk,
 	      void *jarg)
 {
 	int status;
 	unsigned seq;
 	struct nlmsghdr *h;
 	struct sockaddr_nl nladdr;
-	struct iovec iov = {
-		.iov_base = (void*) n,
-		.iov_len = n->nlmsg_len
-	};
+	struct iovec iov = {.iov_base = (void *)n, .iov_len = n->nlmsg_len};
 	struct msghdr msg = {
 		.msg_name = &nladdr,
 		.msg_namelen = sizeof(nladdr),
 		.msg_iov = &iov,
 		.msg_iovlen = 1,
 	};
-	char   buf[16384];
+	char buf[16384];
 
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family = AF_NETLINK;
@@ -320,7 +320,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 		return -1;
 	}
 
-	memset(buf,0,sizeof(buf));
+	memset(buf, 0, sizeof(buf));
 
 	iov.iov_base = buf;
 
@@ -340,26 +340,28 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 			return -1;
 		}
 		if (msg.msg_namelen != sizeof(nladdr)) {
-			fprintf(stderr, "sender address length == %d\n", msg.msg_namelen);
+			fprintf(stderr, "sender address length == %d\n",
+				msg.msg_namelen);
 			exit(1);
 		}
-		for (h = (struct nlmsghdr*)buf; status >= (int)sizeof(*h); ) {
+		for (h = (struct nlmsghdr *)buf; status >= (int)sizeof(*h);) {
 			int err;
 			int len = h->nlmsg_len;
 			int l = len - sizeof(*h);
 
-			if (l<0 || len>status) {
+			if (l < 0 || len > status) {
 				if (msg.msg_flags & MSG_TRUNC) {
 					fprintf(stderr, "Truncated message\n");
 					return -1;
 				}
-				fprintf(stderr, "!!!malformed message: len=%d\n", len);
+				fprintf(stderr,
+					"!!!malformed message: len=%d\n", len);
 				exit(1);
 			}
 
-			if ((int)nladdr.nl_pid != peer ||
-			    h->nlmsg_pid != rtnl->local.nl_pid ||
-			    h->nlmsg_seq != seq) {
+			if ((int)nladdr.nl_pid != peer
+			    || h->nlmsg_pid != rtnl->local.nl_pid
+			    || h->nlmsg_seq != seq) {
 				if (junk) {
 					err = junk(&nladdr, h, jarg);
 					if (err < 0)
@@ -367,19 +369,22 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 				}
 				/* Don't forget to skip that message. */
 				status -= NLMSG_ALIGN(len);
-				h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));
+				h = (struct nlmsghdr *)((char *)h
+							+ NLMSG_ALIGN(len));
 				continue;
 			}
 
 			if (h->nlmsg_type == NLMSG_ERROR) {
-				struct nlmsgerr *err = (struct nlmsgerr*)NLMSG_DATA(h);
+				struct nlmsgerr *err =
+					(struct nlmsgerr *)NLMSG_DATA(h);
 				if (l < (int)sizeof(struct nlmsgerr)) {
 					fprintf(stderr, "ERROR truncated\n");
 				} else {
 					errno = -err->error;
 					if (errno == 0) {
 						if (answer)
-							memcpy(answer, h, h->nlmsg_len);
+							memcpy(answer, h,
+							       h->nlmsg_len);
 						return 0;
 					}
 					perror("RTNETLINK answers");
@@ -394,7 +399,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 			fprintf(stderr, "Unexpected reply!!!\n");
 
 			status -= NLMSG_ALIGN(len);
-			h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));
+			h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
 		}
 		if (msg.msg_flags & MSG_TRUNC) {
 			fprintf(stderr, "Message truncated\n");
@@ -407,9 +412,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 	}
 }
 
-int rtnl_listen(struct rtnl_handle *rtnl,
-		rtnl_filter_t handler,
-		void *jarg)
+int rtnl_listen(struct rtnl_handle *rtnl, rtnl_filter_t handler, void *jarg)
 {
 	int status;
 	struct nlmsghdr *h;
@@ -421,7 +424,7 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 		.msg_iov = &iov,
 		.msg_iovlen = 1,
 	};
-	char   buf[8192];
+	char buf[8192];
 
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family = AF_NETLINK;
@@ -447,20 +450,22 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 			return -1;
 		}
 		if (msg.msg_namelen != sizeof(nladdr)) {
-			fprintf(stderr, "Sender address length == %d\n", msg.msg_namelen);
+			fprintf(stderr, "Sender address length == %d\n",
+				msg.msg_namelen);
 			exit(1);
 		}
-		for (h =(struct nlmsghdr*)buf; status >= (int)sizeof(*h); ) {
+		for (h = (struct nlmsghdr *)buf; status >= (int)sizeof(*h);) {
 			int err;
 			int len = h->nlmsg_len;
 			int l = len - sizeof(*h);
 
-			if (l<0 || len>status) {
+			if (l < 0 || len > status) {
 				if (msg.msg_flags & MSG_TRUNC) {
 					fprintf(stderr, "Truncated message\n");
 					return -1;
 				}
-				fprintf(stderr, "!!!malformed message: len=%d\n", len);
+				fprintf(stderr,
+					"!!!malformed message: len=%d\n", len);
 				exit(1);
 			}
 
@@ -469,7 +474,7 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 				return err;
 
 			status -= NLMSG_ALIGN(len);
-			h = (struct nlmsghdr*)((char*)h + NLMSG_ALIGN(len));
+			h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
 		}
 		if (msg.msg_flags & MSG_TRUNC) {
 			fprintf(stderr, "Message truncated\n");
@@ -482,13 +487,12 @@ int rtnl_listen(struct rtnl_handle *rtnl,
 	}
 }
 
-int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler,
-		   void *jarg)
+int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler, void *jarg)
 {
 	int status;
 	struct sockaddr_nl nladdr;
-	char   buf[8192];
-	struct nlmsghdr *h = (void*)buf;
+	char buf[8192];
+	struct nlmsghdr *h = (void *)buf;
 
 	memset(&nladdr, 0, sizeof(nladdr));
 	nladdr.nl_family = AF_NETLINK;
@@ -513,7 +517,7 @@ int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler,
 		len = h->nlmsg_len;
 		l = len - sizeof(*h);
 
-		if (l<0 || len>(int)sizeof(buf)) {
+		if (l < 0 || len > (int)sizeof(buf)) {
 			fprintf(stderr, "!!!malformed message: len=%d @%lu\n",
 				len, ftell(rtnl));
 			return -1;
@@ -541,7 +545,9 @@ int addattr32(struct nlmsghdr *n, int maxlen, int type, __u32 data)
 	int len = RTA_LENGTH(4);
 	struct rtattr *rta;
 	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + len) > maxlen) {
-		fprintf(stderr,"addattr32: Error! max allowed bound %d exceeded\n",maxlen);
+		fprintf(stderr,
+			"addattr32: Error! max allowed bound %d exceeded\n",
+			maxlen);
 		return -1;
 	}
 	rta = NLMSG_TAIL(n);
@@ -559,7 +565,9 @@ int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
 	struct rtattr *rta;
 
 	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len)) > maxlen) {
-		fprintf(stderr, "addattr_l ERROR: message exceeded bound of %d\n",maxlen);
+		fprintf(stderr,
+			"addattr_l ERROR: message exceeded bound of %d\n",
+			maxlen);
 		return -1;
 	}
 	rta = NLMSG_TAIL(n);
@@ -578,12 +586,14 @@ int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
 int addraw_l(struct nlmsghdr *n, int maxlen, const void *data, int len)
 {
 	if ((int)(NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len)) > maxlen) {
-		fprintf(stderr, "addraw_l ERROR: message exceeded bound of %d\n",maxlen);
+		fprintf(stderr,
+			"addraw_l ERROR: message exceeded bound of %d\n",
+			maxlen);
 		return -1;
 	}
 
 	memcpy(NLMSG_TAIL(n), data, len);
-	memset((uint8_t *) NLMSG_TAIL(n) + len, 0, NLMSG_ALIGN(len) - len);
+	memset((uint8_t *)NLMSG_TAIL(n) + len, 0, NLMSG_ALIGN(len) - len);
 	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + NLMSG_ALIGN(len);
 	return 0;
 }
@@ -627,10 +637,12 @@ int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data)
 	struct rtattr *subrta;
 
 	if ((int)(RTA_ALIGN(rta->rta_len) + len) > maxlen) {
-		fprintf(stderr,"rta_addattr32: Error! max allowed bound %d exceeded\n",maxlen);
+		fprintf(stderr,
+			"rta_addattr32: Error! max allowed bound %d exceeded\n",
+			maxlen);
 		return -1;
 	}
-	subrta = (struct rtattr*)(((char*)rta) + RTA_ALIGN(rta->rta_len));
+	subrta = (struct rtattr *)(((char *)rta) + RTA_ALIGN(rta->rta_len));
 	subrta->rta_type = type;
 	subrta->rta_len = len;
 	memcpy(RTA_DATA(subrta), &data, 4);
@@ -638,17 +650,19 @@ int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data)
 	return 0;
 }
 
-int rta_addattr_l(struct rtattr *rta, int maxlen, int type,
-		  const void *data, int alen)
+int rta_addattr_l(struct rtattr *rta, int maxlen, int type, const void *data,
+		  int alen)
 {
 	struct rtattr *subrta;
 	int len = RTA_LENGTH(alen);
 
 	if ((int)(RTA_ALIGN(rta->rta_len) + RTA_ALIGN(len)) > maxlen) {
-		fprintf(stderr,"rta_addattr_l: Error! max allowed bound %d exceeded\n",maxlen);
+		fprintf(stderr,
+			"rta_addattr_l: Error! max allowed bound %d exceeded\n",
+			maxlen);
 		return -1;
 	}
-	subrta = (struct rtattr*)(((char*)rta) + RTA_ALIGN(rta->rta_len));
+	subrta = (struct rtattr *)(((char *)rta) + RTA_ALIGN(rta->rta_len));
 	subrta->rta_type = type;
 	subrta->rta_len = len;
 	memcpy(RTA_DATA(subrta), data, alen);
@@ -662,14 +676,16 @@ int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
 	while (RTA_OK(rta, len)) {
 		if ((rta->rta_type <= max) && (!tb[rta->rta_type]))
 			tb[rta->rta_type] = rta;
-		rta = RTA_NEXT(rta,len);
+		rta = RTA_NEXT(rta, len);
 	}
 	if (len)
-		fprintf(stderr, "!!!Deficit %d, rta_len=%d\n", len, rta->rta_len);
+		fprintf(stderr, "!!!Deficit %d, rta_len=%d\n", len,
+			rta->rta_len);
 	return 0;
 }
 
-int parse_rtattr_byindex(struct rtattr *tb[], int max, struct rtattr *rta, int len)
+int parse_rtattr_byindex(struct rtattr *tb[], int max, struct rtattr *rta,
+			 int len)
 {
 	int i = 0;
 
@@ -677,20 +693,22 @@ int parse_rtattr_byindex(struct rtattr *tb[], int max, struct rtattr *rta, int l
 	while (RTA_OK(rta, len)) {
 		if (rta->rta_type <= max && i < max)
 			tb[i++] = rta;
-		rta = RTA_NEXT(rta,len);
+		rta = RTA_NEXT(rta, len);
 	}
 	if (len)
-		fprintf(stderr, "!!!Deficit %d, rta_len=%d\n", len, rta->rta_len);
+		fprintf(stderr, "!!!Deficit %d, rta_len=%d\n", len,
+			rta->rta_len);
 	return i;
 }
 
-int __parse_rtattr_nested_compat(struct rtattr *tb[], int max, struct rtattr *rta,
-			         int len)
+int __parse_rtattr_nested_compat(struct rtattr *tb[], int max,
+				 struct rtattr *rta, int len)
 {
 	if ((int)RTA_PAYLOAD(rta) < len)
 		return -1;
 	if (RTA_PAYLOAD(rta) >= RTA_ALIGN(len) + sizeof(struct rtattr)) {
-		rta = (struct rtattr *)(uint8_t *)RTA_DATA(rta)+RTA_ALIGN(len);
+		rta = (struct rtattr *)(uint8_t *)RTA_DATA(rta)
+		      + RTA_ALIGN(len);
 		return parse_rtattr_nested(tb, max, rta);
 	}
 	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));

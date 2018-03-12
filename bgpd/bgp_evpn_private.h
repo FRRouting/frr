@@ -66,29 +66,34 @@ struct bgpevpn {
 
 	struct bgp *bgp_vrf; /* back pointer to the vrf instance */
 
-	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
-	u_int8_t advertise_gw_macip;
+					   /* Flag to indicate if we are
+					    * advertising the g/w mac ip for
+					    * this VNI*/
+					   u_int8_t advertise_gw_macip;
 
-	/* Flag to indicate if we are advertising subnet for this VNI */
-	u_int8_t advertise_subnet;
+					   /* Flag to indicate if we are
+					    * advertising subnet for this VNI */
+					   u_int8_t advertise_subnet;
 
-	/* Id for deriving the RD automatically for this VNI */
-	u_int16_t rd_id;
+					   /* Id for deriving the RD
+					    * automatically for this VNI */
+					   u_int16_t rd_id;
 
-	/* RD for this VNI. */
-	struct prefix_rd prd;
+					   /* RD for this VNI. */
+					   struct prefix_rd prd;
 
-	/* Route type 3 field */
-	struct in_addr originator_ip;
+					   /* Route type 3 field */
+					   struct in_addr originator_ip;
 
-	/* Import and Export RTs. */
-	struct list *import_rtl;
-	struct list *export_rtl;
+					   /* Import and Export RTs. */
+					   struct list *import_rtl;
+					   struct list *export_rtl;
 
-	/* Route table for EVPN routes for this VNI. */
-	struct bgp_table *route_table;
+					   /* Route table for EVPN routes for
+					    * this VNI. */
+					   struct bgp_table *route_table;
 
-	QOBJ_FIELDS
+					   QOBJ_FIELDS
 };
 
 DECLARE_QOBJ_TYPE(bgpevpn)
@@ -124,8 +129,7 @@ struct vrf_irt_node {
 
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
 {
-	return (CHECK_FLAG(bgp_vrf->vrf_flags,
-			   BGP_VRF_RD_CFGD));
+	return (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD));
 }
 
 static inline int bgp_evpn_vrf_rd_matches_existing(struct bgp *bgp_vrf,
@@ -168,10 +172,10 @@ static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 	/* bail if vpn is not associated to bgp_vrf */
 	if (!vpn->bgp_vrf)
 		return;
-  
+
 	UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 	listnode_delete(vpn->bgp_vrf->l2vnis, vpn);
-  
+
 	/* remove the backpointer to the vrf instance */
 	vpn->bgp_vrf = NULL;
 }
@@ -193,8 +197,7 @@ static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 	listnode_add_sort(bgp_vrf->l2vnis, vpn);
 
 	/* check if we are advertising two labels for this vpn */
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags,
-		       BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
 		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 }
 
@@ -272,14 +275,12 @@ static inline void ip_prefix_from_type5_prefix(struct prefix_evpn *evp,
 	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
 		ip->family = AF_INET;
 		ip->prefixlen = evp->prefix.ip_prefix_length;
-		memcpy(&(ip->u.prefix4),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix4), &(evp->prefix.ip.ip),
 		       IPV4_MAX_BYTELEN);
 	} else if (IS_EVPN_PREFIX_IPADDR_V6(evp)) {
 		ip->family = AF_INET6;
 		ip->prefixlen = evp->prefix.ip_prefix_length;
-		memcpy(&(ip->u.prefix6),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix6), &(evp->prefix.ip.ip),
 		       IPV6_MAX_BYTELEN);
 	}
 }
@@ -299,14 +300,12 @@ static inline void ip_prefix_from_type2_prefix(struct prefix_evpn *evp,
 	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
 		ip->family = AF_INET;
 		ip->prefixlen = IPV4_MAX_BITLEN;
-		memcpy(&(ip->u.prefix4),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix4), &(evp->prefix.ip.ip),
 		       IPV4_MAX_BYTELEN);
 	} else if (IS_EVPN_PREFIX_IPADDR_V6(evp)) {
 		ip->family = AF_INET6;
 		ip->prefixlen = IPV6_MAX_BITLEN;
-		memcpy(&(ip->u.prefix6),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix6), &(evp->prefix.ip.ip),
 		       IPV6_MAX_BYTELEN);
 	}
 }
@@ -375,7 +374,7 @@ static inline int evpn_default_originate_set(struct bgp *bgp, afi_t afi,
 	return 0;
 }
 
-extern void evpn_rt_delete_auto(struct bgp*, vni_t, struct list*);
+extern void evpn_rt_delete_auto(struct bgp *, vni_t, struct list *);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct ecommunity *ecomadd);
 extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,

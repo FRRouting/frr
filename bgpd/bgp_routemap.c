@@ -760,8 +760,7 @@ static void route_match_evpn_route_type_free(void *rule)
 /* Route map commands for evpn route-type  matching. */
 struct route_map_rule_cmd route_match_evpn_route_type_cmd = {
 	"evpn route-type", route_match_evpn_route_type,
-	route_match_evpn_route_type_compile,
-	route_match_evpn_route_type_free};
+	route_match_evpn_route_type_compile, route_match_evpn_route_type_free};
 
 /* `match local-preference LOCAL-PREF' */
 
@@ -3097,12 +3096,13 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 	/* for type5 command route-maps */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (bgp->adv_cmd_rmap[afi][safi].name &&
-		    strcmp(rmap_name, bgp->adv_cmd_rmap[afi][safi].name) == 0) {
+		if (bgp->adv_cmd_rmap[afi][safi].name
+		    && strcmp(rmap_name, bgp->adv_cmd_rmap[afi][safi].name)
+			       == 0) {
 			if (BGP_DEBUG(zebra, ZEBRA))
 				zlog_debug(
-					   "Processing route_map %s update on advertise type5 route command",
-					   rmap_name);
+					"Processing route_map %s update on advertise type5 route command",
+					rmap_name);
 			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
 			bgp_evpn_advertise_type5_routes(bgp, afi, safi);
 		}

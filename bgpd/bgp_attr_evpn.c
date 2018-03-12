@@ -106,8 +106,7 @@ char *ecom_mac2str(char *ecom_mac)
 }
 
 /* Fetch router-mac from extended community */
-void bgp_attr_rmac(struct attr *attr,
-		   struct ethaddr *rmac)
+void bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 {
 	int i = 0;
 	struct ecommunity *ecom;
@@ -126,8 +125,8 @@ void bgp_attr_rmac(struct attr *attr,
 		type = *pnt++;
 		sub_type = *pnt++;
 
-		if (!(type == ECOMMUNITY_ENCODE_EVPN &&
-		     sub_type == ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC))
+		if (!(type == ECOMMUNITY_ENCODE_EVPN
+		      && sub_type == ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC))
 			continue;
 
 		memcpy(rmac, pnt, ETH_ALEN);
@@ -139,8 +138,8 @@ void bgp_attr_rmac(struct attr *attr,
  */
 uint8_t bgp_attr_default_gw(struct attr *attr)
 {
-	struct ecommunity	*ecom;
-	int			i;
+	struct ecommunity *ecom;
+	int i;
 
 	ecom = attr->ecommunity;
 	if (!ecom || !ecom->size)
@@ -149,15 +148,15 @@ uint8_t bgp_attr_default_gw(struct attr *attr)
 	/* If there is a default gw extendd community return true otherwise
 	 * return 0 */
 	for (i = 0; i < ecom->size; i++) {
-		u_char		*pnt;
-		u_char		type, sub_type;
+		u_char *pnt;
+		u_char type, sub_type;
 
 		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
 		type = *pnt++;
 		sub_type = *pnt++;
 
 		if ((type == ECOMMUNITY_ENCODE_OPAQUE
-		      && sub_type == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW))
+		     && sub_type == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW))
 			return 1;
 	}
 

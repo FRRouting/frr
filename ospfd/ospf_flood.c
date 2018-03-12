@@ -218,7 +218,7 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 		break;
 	case OSPF_OPAQUE_AS_LSA:
 		ospf_opaque_lsa_refresh(new);
-			/* Reconsideration may needed. */ /* XXX */
+		/* Reconsideration may needed. */ /* XXX */
 		break;
 	default:
 		break;
