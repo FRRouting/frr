@@ -109,6 +109,10 @@ of grammar sandbox.
 Turn on some compile options to allow you to run fuzzing tools
 against the system.  This tools is intended as a developer
 only tool and should not be used for normal operations
+@item --enable-numeric-version
+Alpine Linux does not allow non-numeric characters in the version
+string.  With this option, we provide a way to strip out these
+characters for apk dev package builds.
 @end table
 
 You may specify any combination of the above options to the configure
