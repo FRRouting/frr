@@ -179,6 +179,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	developer/OSPF-API.md \
 	developer/workflow.rst \
 	developer/Building_FRR_on_Ubuntu1404.rst \
+	developer/Building_FRR_on_Alpine.rst \
 	user/ospf_fundamentals.rst \
 	user/routemap.rst \
 	user/index.rst \
