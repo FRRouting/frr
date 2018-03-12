@@ -2047,6 +2047,49 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 	return 0;
 }
 
+static int iptable_notify_owner(int command, struct zclient *zclient,
+				zebra_size_t length, vrf_id_t vrf_id)
+{
+	uint32_t unique;
+	enum zapi_iptable_notify_owner note;
+	struct bgp_pbr_match *bgpm;
+
+	if (!zapi_iptable_notify_decode(
+					zclient->ibuf,
+					&unique,
+					&note))
+		return -1;
+	bgpm = bgp_pbr_match_iptable_lookup(vrf_id, unique);
+	if (!bgpm) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Fail to look BGP iptable (%u)",
+				   __PRETTY_FUNCTION__, unique);
+		return 0;
+	}
+	switch (note) {
+	case ZAPI_IPTABLE_FAIL_INSTALL:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPTABLE_FAIL_INSTALL",
+				   __PRETTY_FUNCTION__);
+		bgpm->installed_in_iptable = false;
+		bgpm->install_iptable_in_progress = false;
+		break;
+	case ZAPI_IPTABLE_INSTALLED:
+		bgpm->installed_in_iptable = true;
+		bgpm->install_iptable_in_progress = false;
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPTABLE_INSTALLED",
+				   __PRETTY_FUNCTION__);
+		break;
+	case ZAPI_IPTABLE_REMOVED:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPTABLE REMOVED",
+				   __PRETTY_FUNCTION__);
+		break;
+	}
+	return 0;
+}
+
 static void bgp_encode_pbr_rule_action(struct stream *s,
 				  struct bgp_pbr_action *pbra)
 {
@@ -2105,6 +2148,29 @@ static void bgp_encode_pbr_ipset_entry_match(struct stream *s,
 	stream_putc(s, pbime->dst.family);
 	stream_putc(s, pbime->dst.prefixlen);
 	stream_put(s, &pbime->dst.u.prefix, prefix_blen(&pbime->dst));
+}
+
+static void bgp_encode_pbr_iptable_match(struct stream *s,
+					 struct bgp_pbr_action *bpa,
+					 struct bgp_pbr_match *pbm)
+{
+	stream_putl(s, pbm->unique2);
+
+	stream_putl(s, pbm->type);
+
+	stream_putl(s, pbm->flags);
+
+	/* TODO: correlate with what is contained
+	 * into bgp_pbr_action.
+	 * currently only forward supported
+	 */
+	if (bpa->nh.type == NEXTHOP_TYPE_BLACKHOLE)
+		stream_putl(s, ZEBRA_IPTABLES_DROP);
+	else
+		stream_putl(s, ZEBRA_IPTABLES_FORWARD);
+	stream_putl(s, bpa->fwmark);
+	stream_put(s, pbm->ipset_name,
+		   ZEBRA_IPSET_NAME_SIZE);
 }
 
 /* BGP has established connection with Zebra. */
@@ -2369,6 +2435,7 @@ void bgp_zebra_init(struct thread_master *master)
 	zclient->rule_notify_owner = rule_notify_owner;
 	zclient->ipset_notify_owner = ipset_notify_owner;
 	zclient->ipset_entry_notify_owner = ipset_entry_notify_owner;
+	zclient->iptable_notify_owner = iptable_notify_owner;
 }
 
 void bgp_zebra_destroy(void)
@@ -2458,4 +2525,29 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	if (!zclient_send_message(zclient) && install)
 		pbrime->install_in_progress = true;
+}
+
+void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
+			  struct bgp_pbr_match *pbm,
+			  bool install)
+{
+	struct stream *s;
+
+	if (pbm->install_iptable_in_progress)
+		return;
+	zlog_debug("%s: name %s type %d mark %d %d", __PRETTY_FUNCTION__,
+		   pbm->ipset_name, pbm->type, pba->fwmark, install);
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s,
+			      install ? ZEBRA_IPTABLE_ADD :
+			      ZEBRA_IPTABLE_DELETE,
+			      VRF_DEFAULT);
+
+	bgp_encode_pbr_iptable_match(s, pba, pbm);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	if (!zclient_send_message(zclient) && install)
+		pbm->install_iptable_in_progress = true;
 }
