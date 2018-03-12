@@ -45,6 +45,46 @@ struct bgp_pbr_match_iptable_unique {
 	struct bgp_pbr_match *bpm_found;
 };
 
+struct bgp_pbr_match_entry_unique {
+	uint32_t unique;
+	struct bgp_pbr_match_entry *bpme_found;
+};
+
+static int bgp_pbr_match_entry_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct bgp_pbr_match_entry *bpme =
+		(struct bgp_pbr_match_entry *)backet->data;
+	struct bgp_pbr_match_entry_unique *bpmeu =
+		(struct bgp_pbr_match_entry_unique *)arg;
+	uint32_t unique = bpmeu->unique;
+
+	if (bpme->unique == unique) {
+		bpmeu->bpme_found = bpme;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
+struct bgp_pbr_match_ipsetname {
+	char *ipsetname;
+	struct bgp_pbr_match *bpm_found;
+};
+
+static int bgp_pbr_match_pername_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_match_ipsetname *bpmi =
+		(struct bgp_pbr_match_ipsetname *)arg;
+	char *ipset_name = bpmi->ipsetname;
+
+	if (!strncmp(ipset_name, bpm->ipset_name,
+		     ZEBRA_IPSET_NAME_SIZE)) {
+		bpmi->bpm_found = bpm;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
 static int bgp_pbr_match_iptable_walkcb(struct hash_backet *backet, void *arg)
 {
 	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
@@ -54,6 +94,25 @@ static int bgp_pbr_match_iptable_walkcb(struct hash_backet *backet, void *arg)
 
 	if (bpm->unique2 == unique) {
 		bpmiu->bpm_found = bpm;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
+struct bgp_pbr_match_unique {
+	uint32_t unique;
+	struct bgp_pbr_match *bpm_found;
+};
+
+static int bgp_pbr_match_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_match_unique *bpmu = (struct bgp_pbr_match_unique *)
+		arg;
+	uint32_t unique = bpmu->unique;
+
+	if (bpm->unique == unique) {
+		bpmu->bpm_found = bpm;
 		return HASHWALK_ABORT;
 	}
 	return HASHWALK_CONTINUE;
@@ -371,14 +430,39 @@ struct bgp_pbr_action *bgp_pbr_action_rule_lookup(uint32_t unique)
 struct bgp_pbr_match *bgp_pbr_match_ipset_lookup(vrf_id_t vrf_id,
 						 uint32_t unique)
 {
-	return NULL;
+	struct bgp *bgp = bgp_lookup_by_vrf_id(vrf_id);
+	struct bgp_pbr_match_unique bpmu;
+
+	if (!bgp || unique == 0)
+		return NULL;
+	bpmu.unique = unique;
+	bpmu.bpm_found = NULL;
+	hash_walk(bgp->pbr_match_hash, bgp_pbr_match_walkcb, &bpmu);
+	return bpmu.bpm_found;
 }
 
 struct bgp_pbr_match_entry *bgp_pbr_match_ipset_entry_lookup(vrf_id_t vrf_id,
 						       char *ipset_name,
 						       uint32_t unique)
 {
-	return NULL;
+	struct bgp *bgp = bgp_lookup_by_vrf_id(vrf_id);
+	struct bgp_pbr_match_entry_unique bpmeu;
+	struct bgp_pbr_match_ipsetname bpmi;
+
+	if (!bgp || unique == 0)
+		return NULL;
+	bpmi.ipsetname = XCALLOC(MTYPE_TMP, ZEBRA_IPSET_NAME_SIZE);
+	snprintf(bpmi.ipsetname, ZEBRA_IPSET_NAME_SIZE, "%s", ipset_name);
+	bpmi.bpm_found = NULL;
+	hash_walk(bgp->pbr_match_hash, bgp_pbr_match_pername_walkcb, &bpmi);
+	XFREE(MTYPE_TMP, bpmi.ipsetname);
+	if (!bpmi.bpm_found)
+		return NULL;
+	bpmeu.bpme_found = NULL;
+	bpmeu.unique = unique;
+	hash_walk(bpmi.bpm_found->entry_hash,
+		  bgp_pbr_match_entry_walkcb, &bpmeu);
+	return bpmeu.bpme_found;
 }
 
 struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
