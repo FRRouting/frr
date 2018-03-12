@@ -1921,7 +1921,7 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 				     &ifi, &note))
 		return -1;
 
-	bgp_pbra = bgp_pbr_action_rule_lookup(unique);
+	bgp_pbra = bgp_pbr_action_rule_lookup(vrf_id, unique);
 	if (!bgp_pbra) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Fail to look BGP rule (%u)",
