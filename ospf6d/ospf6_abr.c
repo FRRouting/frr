@@ -912,8 +912,9 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		ospf6_route_merge_nexthops(old, route);
 
 		if (is_debug)
-			zlog_debug("%s: Update route: %s nh count %u",
-				   __PRETTY_FUNCTION__, buf,
+			zlog_debug("%s: Update route: %s old cost %u new cost %u nh count %u",
+				   __PRETTY_FUNCTION__,
+				   buf, old->path.cost, route->path.cost,
 				   listcount(route->nh_list));
 
 		/* Update RIB/FIB */
@@ -924,7 +925,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		ospf6_route_delete(route);
 	} else {
 		if (is_debug)
-			zlog_debug("Install route: %s nh count %u", buf,
+			zlog_debug("%s: Install route: %s cost %u nh count %u",
+				   __PRETTY_FUNCTION__, buf, route->path.cost,
 				   listcount(route->nh_list));
 		/* ospf6_ia_add_nw_route (table, &prefix, route); */
 		ospf6_route_add(route, table);
