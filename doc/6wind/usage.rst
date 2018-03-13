@@ -46,7 +46,7 @@ be started.
 
 .. seealso::
 
-   For more information about |frrouting| daemons startup, see the `online
+   For more information about |frr| daemons startup, see the `online
    documentation`__.
 
 __ https://frrouting.org/user-guide/
