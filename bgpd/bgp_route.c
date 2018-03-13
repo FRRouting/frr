@@ -94,7 +94,8 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 	{PMSI_TNLTYPE_PIM_BIDIR, "PIM-BIDIR"},
 	{PMSI_TNLTYPE_INGR_REPL, "Ingress Replication"},
 	{PMSI_TNLTYPE_MLDP_MP2MP, "mLDP MP2MP"},
-	{0}};
+	{0}
+};
 
 struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 				  safi_t safi, struct prefix *p,
