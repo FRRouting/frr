@@ -260,8 +260,7 @@ int ecommunity_cmp(const void *arg1, const void *arg2)
 /* Initialize Extended Comminities related hash. */
 void ecommunity_init(void)
 {
-	ecomhash = hash_create(ecommunity_hash_make,
-			       ecommunity_cmp,
+	ecomhash = hash_create(ecommunity_hash_make, ecommunity_cmp,
 			       "BGP ecommunity hash");
 }
 
@@ -690,7 +689,7 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				tunneltype = ntohs(tunneltype);
 				len = sprintf(str_buf + str_pnt, "ET:%d",
 					      tunneltype);
-			}  else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
+			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
 				len = sprintf(str_buf + str_pnt,
 					      "Default Gateway");
 			} else

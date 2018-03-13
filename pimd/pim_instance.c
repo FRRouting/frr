@@ -87,8 +87,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_msdp_init(pim, master);
 
 	snprintf(hash_name, 64, "PIM %s RPF Hash", vrf->name);
-	pim->rpf_hash =	hash_create_size(256, pim_rpf_hash_key,
-					 pim_rpf_equal, hash_name);
+	pim->rpf_hash = hash_create_size(256, pim_rpf_hash_key, pim_rpf_equal,
+					 hash_name);
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%s: NHT rpf hash init ", __PRETTY_FUNCTION__);

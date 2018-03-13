@@ -1636,9 +1636,8 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 	idx += 2; /* skip afi and keyword */
 
 	if (is_bgp) {
-		if (idx == argc
-		    || strmatch(argv[idx]->arg,
-				rfg->plist_export_bgp_name[afi])) {
+		if (idx == argc || strmatch(argv[idx]->arg,
+					    rfg->plist_export_bgp_name[afi])) {
 			if (rfg->plist_export_bgp_name[afi])
 				free(rfg->plist_export_bgp_name[afi]);
 			rfg->plist_export_bgp_name[afi] = NULL;
@@ -1768,9 +1767,8 @@ DEFUN (vnc_nve_group_export_no_routemap,
 	}
 
 	if (is_bgp) {
-		if (idx == argc
-		    || strmatch(argv[idx]->arg,
-				rfg->routemap_export_bgp_name)) {
+		if (idx == argc || strmatch(argv[idx]->arg,
+					    rfg->routemap_export_bgp_name)) {
 			if (rfg->routemap_export_bgp_name)
 				free(rfg->routemap_export_bgp_name);
 			rfg->routemap_export_bgp_name = NULL;
@@ -1780,9 +1778,8 @@ DEFUN (vnc_nve_group_export_no_routemap,
 			vnc_direct_bgp_reexport_group_afi(bgp, rfg, AFI_IP6);
 		}
 	} else {
-		if (idx == argc
-		    || strmatch(argv[idx]->arg,
-				rfg->routemap_export_zebra_name)) {
+		if (idx == argc || strmatch(argv[idx]->arg,
+					    rfg->routemap_export_zebra_name)) {
 			if (rfg->routemap_export_zebra_name)
 				free(rfg->routemap_export_zebra_name);
 			rfg->routemap_export_zebra_name = NULL;
@@ -2978,7 +2975,8 @@ DEFUN_NOSH (vnc_vrf_policy,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
-		vty_out(vty, "Can't configure vrf-policy within a BGP VRF instance\n");
+		vty_out(vty,
+			"Can't configure vrf-policy within a BGP VRF instance\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 

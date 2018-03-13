@@ -17,56 +17,53 @@
 #include "netlink.h"
 
 static struct cmd_node zebra_node = {
-	.node   = ZEBRA_NODE,
+	.node = ZEBRA_NODE,
 	.prompt = "%s(config-router)# ",
-	.vtysh  = 1,
+	.vtysh = 1,
 };
 
 static struct cmd_node nhrp_interface_node = {
-	.node   = INTERFACE_NODE,
+	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
-	.vtysh  = 1,
+	.vtysh = 1,
 };
 
 #define NHRP_DEBUG_FLAGS_CMD "<all|common|event|interface|kernel|route|vici>"
 
-#define NHRP_DEBUG_FLAGS_STR		\
-	"All messages\n"		\
-	"Common messages (default)\n"	\
-	"Event manager messages\n"	\
-	"Interface messages\n"		\
-	"Kernel messages\n"		\
-	"Route messages\n"		\
+#define NHRP_DEBUG_FLAGS_STR                                                   \
+	"All messages\n"                                                       \
+	"Common messages (default)\n"                                          \
+	"Event manager messages\n"                                             \
+	"Interface messages\n"                                                 \
+	"Kernel messages\n"                                                    \
+	"Route messages\n"                                                     \
 	"VICI messages\n"
 
 static const struct message debug_flags_desc[] = {
-	{ NHRP_DEBUG_ALL, "all" },
-	{ NHRP_DEBUG_COMMON, "common" },
-	{ NHRP_DEBUG_IF, "interface" },
-	{ NHRP_DEBUG_KERNEL, "kernel" },
-	{ NHRP_DEBUG_ROUTE, "route" },
-	{ NHRP_DEBUG_VICI, "vici" },
-	{ NHRP_DEBUG_EVENT, "event" },
-	{ 0 }
-};
+	{NHRP_DEBUG_ALL, "all"},      {NHRP_DEBUG_COMMON, "common"},
+	{NHRP_DEBUG_IF, "interface"}, {NHRP_DEBUG_KERNEL, "kernel"},
+	{NHRP_DEBUG_ROUTE, "route"},  {NHRP_DEBUG_VICI, "vici"},
+	{NHRP_DEBUG_EVENT, "event"},  {0}};
 
 static const struct message interface_flags_desc[] = {
-	{ NHRP_IFF_SHORTCUT, "shortcut" },
-	{ NHRP_IFF_REDIRECT, "redirect" },
-	{ NHRP_IFF_REG_NO_UNIQUE, "registration no-unique" },
-	{ 0 }
-};
+	{NHRP_IFF_SHORTCUT, "shortcut"},
+	{NHRP_IFF_REDIRECT, "redirect"},
+	{NHRP_IFF_REG_NO_UNIQUE, "registration no-unique"},
+	{0}};
 
 static int nhrp_vty_return(struct vty *vty, int ret)
 {
-	static const char * const errmsgs[] = {
-		[NHRP_ERR_FAIL]				= "Command failed",
-		[NHRP_ERR_NO_MEMORY]			= "Out of memory",
-		[NHRP_ERR_UNSUPPORTED_INTERFACE]	= "NHRP not supported on this interface",
-		[NHRP_ERR_NHRP_NOT_ENABLED]		= "NHRP not enabled (set 'nhrp network-id' first)",
-		[NHRP_ERR_ENTRY_EXISTS]			= "Entry exists already",
-		[NHRP_ERR_ENTRY_NOT_FOUND]		= "Entry not found",
-		[NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH]	= "Protocol address family does not match command (ip/ipv6 mismatch)",
+	static const char *const errmsgs[] = {
+			[NHRP_ERR_FAIL] = "Command failed",
+			[NHRP_ERR_NO_MEMORY] = "Out of memory",
+			[NHRP_ERR_UNSUPPORTED_INTERFACE] =
+				"NHRP not supported on this interface",
+			[NHRP_ERR_NHRP_NOT_ENABLED] =
+				"NHRP not enabled (set 'nhrp network-id' first)",
+			[NHRP_ERR_ENTRY_EXISTS] = "Entry exists already",
+			[NHRP_ERR_ENTRY_NOT_FOUND] = "Entry not found",
+			[NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH] =
+				"Protocol address family does not match command (ip/ipv6 mismatch)",
 	};
 	const char *str = NULL;
 	char buf[256];
@@ -83,14 +80,14 @@ static int nhrp_vty_return(struct vty *vty, int ret)
 		snprintf(buf, sizeof(buf), "Unknown error %d", ret);
 	}
 
-	vty_out (vty, "%% %s\n", str);
+	vty_out(vty, "%% %s\n", str);
 
-	return CMD_WARNING_CONFIG_FAILED;;
+	return CMD_WARNING_CONFIG_FAILED;
+	;
 }
 
-static int toggle_flag(
-	struct vty *vty, const struct message *flag_desc,
-	const char *name, int on_off, unsigned *flags)
+static int toggle_flag(struct vty *vty, const struct message *flag_desc,
+		       const char *name, int on_off, unsigned *flags)
 {
 	int i;
 
@@ -104,8 +101,9 @@ static int toggle_flag(
 		return CMD_SUCCESS;
 	}
 
-	vty_out (vty, "%% Invalid value %s\n", name);
-	return CMD_WARNING_CONFIG_FAILED;;
+	vty_out(vty, "%% Invalid value %s\n", name);
+	return CMD_WARNING_CONFIG_FAILED;
+	;
 }
 
 #ifndef NO_DEBUG
@@ -118,7 +116,7 @@ DEFUN_NOSH(show_debugging_nhrp, show_debugging_nhrp_cmd,
 {
 	int i;
 
-	vty_out (vty, "NHRP debugging status:\n");
+	vty_out(vty, "NHRP debugging status:\n");
 
 	for (i = 0; debug_flags_desc[i].str != NULL; i++) {
 		if (debug_flags_desc[i].key == NHRP_DEBUG_ALL)
@@ -126,7 +124,7 @@ DEFUN_NOSH(show_debugging_nhrp, show_debugging_nhrp_cmd,
 		if (!(debug_flags_desc[i].key & debug_flags))
 			continue;
 
-		vty_out (vty, "  NHRP %s debugging is on\n",
+		vty_out(vty, "  NHRP %s debugging is on\n",
 			debug_flags_desc[i].str);
 	}
 
@@ -139,7 +137,8 @@ DEFUN(debug_nhrp, debug_nhrp_cmd,
 	"NHRP information\n"
 	NHRP_DEBUG_FLAGS_STR)
 {
-	return toggle_flag(vty, debug_flags_desc, argv[2]->text, 1, &debug_flags);
+	return toggle_flag(vty, debug_flags_desc, argv[2]->text, 1,
+			   &debug_flags);
 }
 
 DEFUN(no_debug_nhrp, no_debug_nhrp_cmd,
@@ -149,7 +148,8 @@ DEFUN(no_debug_nhrp, no_debug_nhrp_cmd,
 	"NHRP information\n"
 	NHRP_DEBUG_FLAGS_STR)
 {
-	return toggle_flag(vty, debug_flags_desc, argv[3]->text, 0, &debug_flags);
+	return toggle_flag(vty, debug_flags_desc, argv[3]->text, 0,
+			   &debug_flags);
 }
 
 #endif /* NO_DEBUG */
@@ -158,7 +158,7 @@ static int nhrp_config_write(struct vty *vty)
 {
 #ifndef NO_DEBUG
 	if (debug_flags == NHRP_DEBUG_ALL) {
-		vty_out (vty, "debug nhrp all\n");
+		vty_out(vty, "debug nhrp all\n");
 	} else {
 		int i;
 
@@ -167,20 +167,18 @@ static int nhrp_config_write(struct vty *vty)
 				continue;
 			if (!(debug_flags & debug_flags_desc[i].key))
 				continue;
-			vty_out (vty, "debug nhrp %s\n",
-				  debug_flags_desc[i].str);
+			vty_out(vty, "debug nhrp %s\n",
+				debug_flags_desc[i].str);
 		}
 	}
-	vty_out (vty, "!\n");
+	vty_out(vty, "!\n");
 #endif /* NO_DEBUG */
 
 	if (nhrp_event_socket_path) {
-		vty_out (vty, "nhrp event socket %s\n",
-			nhrp_event_socket_path);
+		vty_out(vty, "nhrp event socket %s\n", nhrp_event_socket_path);
 	}
 	if (netlink_nflog_group) {
-		vty_out (vty, "nhrp nflog-group %d\n",
-			netlink_nflog_group);
+		vty_out(vty, "nhrp nflog-group %d\n", netlink_nflog_group);
 	}
 
 	return 0;
@@ -199,7 +197,8 @@ static afi_t cmd_to_afi(const struct cmd_token *tok)
 
 static const char *afi_to_cmd(afi_t afi)
 {
-	if (afi == AFI_IP6) return "ipv6";
+	if (afi == AFI_IP6)
+		return "ipv6";
 	return "ip";
 }
 
@@ -264,7 +263,7 @@ DEFUN(tunnel_protection, tunnel_protection_cmd,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	nhrp_interface_set_protection(ifp, argv[4]->arg,
-			argc > 6 ? argv[6]->arg : NULL);
+				      argc > 6 ? argv[6]->arg : NULL);
 	return CMD_SUCCESS;
 }
 
@@ -348,7 +347,8 @@ DEFUN(if_nhrp_flags, if_nhrp_flags_cmd,
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[0]);
 
-	return toggle_flag(vty, interface_flags_desc, argv[2]->text, 1, &nifp->afi[afi].flags);
+	return toggle_flag(vty, interface_flags_desc, argv[2]->text, 1,
+			   &nifp->afi[afi].flags);
 }
 
 DEFUN(if_no_nhrp_flags, if_no_nhrp_flags_cmd,
@@ -363,7 +363,8 @@ DEFUN(if_no_nhrp_flags, if_no_nhrp_flags_cmd,
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[1]);
 
-	return toggle_flag(vty, interface_flags_desc, argv[3]->text, 0, &nifp->afi[afi].flags);
+	return toggle_flag(vty, interface_flags_desc, argv[3]->text, 0,
+			   &nifp->afi[afi].flags);
 }
 
 DEFUN(if_nhrp_reg_flags, if_nhrp_reg_flags_cmd,
@@ -378,7 +379,8 @@ DEFUN(if_nhrp_reg_flags, if_nhrp_reg_flags_cmd,
 	afi_t afi = cmd_to_afi(argv[0]);
 	char name[256];
 	snprintf(name, sizeof(name), "registration %s", argv[3]->text);
-	return toggle_flag(vty, interface_flags_desc, name, 1, &nifp->afi[afi].flags);
+	return toggle_flag(vty, interface_flags_desc, name, 1,
+			   &nifp->afi[afi].flags);
 }
 
 DEFUN(if_no_nhrp_reg_flags, if_no_nhrp_reg_flags_cmd,
@@ -394,7 +396,8 @@ DEFUN(if_no_nhrp_reg_flags, if_no_nhrp_reg_flags_cmd,
 	afi_t afi = cmd_to_afi(argv[1]);
 	char name[256];
 	snprintf(name, sizeof(name), "registration %s", argv[4]->text);
-	return toggle_flag(vty, interface_flags_desc, name, 0, &nifp->afi[afi].flags);
+	return toggle_flag(vty, interface_flags_desc, name, 0,
+			   &nifp->afi[afi].flags);
 }
 
 DEFUN(if_nhrp_holdtime, if_nhrp_holdtime_cmd,
@@ -446,8 +449,8 @@ DEFUN(if_nhrp_mtu, if_nhrp_mtu_cmd,
 	if (argv[3]->arg[0] == 'o') {
 		nifp->afi[AFI_IP].configured_mtu = -1;
 	} else {
-		nifp->afi[AFI_IP].configured_mtu = strtoul(argv[3]->arg, NULL,
-							   10);
+		nifp->afi[AFI_IP].configured_mtu =
+			strtoul(argv[3]->arg, NULL, 10);
 	}
 	nhrp_interface_update_mtu(ifp, AFI_IP);
 
@@ -486,8 +489,8 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 	union sockunion proto_addr, nbma_addr;
 	struct nhrp_cache *c;
 
-	if (str2sockunion(argv[3]->arg, &proto_addr) < 0 ||
-	    afi2family(afi) != sockunion_family(&proto_addr))
+	if (str2sockunion(argv[3]->arg, &proto_addr) < 0
+	    || afi2family(afi) != sockunion_family(&proto_addr))
 		return nhrp_vty_return(vty, NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH);
 
 	c = nhrp_cache_get(ifp, &proto_addr, 1);
@@ -496,12 +499,14 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 
 	c->map = 1;
 	if (strmatch(argv[4]->text, "local")) {
-		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0, NULL);
-	} else{
+		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0,
+					  NULL);
+	} else {
 		if (str2sockunion(argv[4]->arg, &nbma_addr) < 0)
 			return nhrp_vty_return(vty, NHRP_ERR_FAIL);
 		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0,
-			nhrp_peer_get(ifp, &nbma_addr), 0, NULL);
+					  nhrp_peer_get(ifp, &nbma_addr), 0,
+					  NULL);
 	}
 
 	return CMD_SUCCESS;
@@ -516,13 +521,13 @@ DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
 	"IPv4 protocol address\n"
 	"IPv6 protocol address\n")
 {
-	VTY_DECLVAR_CONTEXT(interface,ifp);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 	afi_t afi = cmd_to_afi(argv[1]);
 	union sockunion proto_addr;
 	struct nhrp_cache *c;
 
-	if (str2sockunion(argv[4]->arg, &proto_addr) < 0 ||
-	    afi2family(afi) != sockunion_family(&proto_addr))
+	if (str2sockunion(argv[4]->arg, &proto_addr) < 0
+	    || afi2family(afi) != sockunion_family(&proto_addr))
 		return nhrp_vty_return(vty, NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH);
 
 	c = nhrp_cache_get(ifp, &proto_addr, 0);
@@ -598,50 +603,41 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		return;
 
 	if (!ctx->count) {
-		vty_out (vty, "%-8s %-8s %-24s %-24s %-6s %s\n",
-			"Iface",
-			"Type",
-			"Protocol",
-			"NBMA",
-			"Flags",
-			"Identity");
+		vty_out(vty, "%-8s %-8s %-24s %-24s %-6s %s\n", "Iface", "Type",
+			"Protocol", "NBMA", "Flags", "Identity");
 	}
 	ctx->count++;
 
-	vty_out(ctx->vty, "%-8s %-8s %-24s %-24s %c%c%c    %s\n",
-		c->ifp->name,
+	vty_out(ctx->vty, "%-8s %-8s %-24s %-24s %c%c%c    %s\n", c->ifp->name,
 		nhrp_cache_type_str[c->cur.type],
 		sockunion2str(&c->remote_addr, buf[0], sizeof buf[0]),
-		c->cur.peer ? sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1], sizeof buf[1]) : "-",
-		c->used ? 'U' : ' ',
-		c->t_timeout ? 'T' : ' ',
+		c->cur.peer ? sockunion2str(&c->cur.peer->vc->remote.nbma,
+					    buf[1], sizeof buf[1])
+			    : "-",
+		c->used ? 'U' : ' ', c->t_timeout ? 'T' : ' ',
 		c->t_auth ? 'A' : ' ',
 		c->cur.peer ? c->cur.peer->vc->remote.id : "-");
 }
 
-static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg, void *pctx)
+static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg,
+			     void *pctx)
 {
 	struct info_ctx *ctx = pctx;
 	struct vty *vty = ctx->vty;
 	char buf[2][SU_ADDRSTRLEN];
 
 	if (!ctx->count) {
-		vty_out (vty, "%-8s %-24s %-16s %-16s\n",
-			"Iface",
-			"FQDN",
-			"NBMA",
-			"Protocol");
+		vty_out(vty, "%-8s %-24s %-16s %-16s\n", "Iface", "FQDN",
+			"NBMA", "Protocol");
 	}
 	ctx->count++;
 
-	vty_out (vty, "%-8s %-24s %-16s %-16s\n",
-		   n->ifp->name,
-		   n->nbma_fqdn,
-		   (reg && reg->peer) ? sockunion2str(&reg->peer->vc->remote.nbma,
-		     				      buf[0], sizeof buf[0])
-		   		      : "-",
-		   sockunion2str(reg ? &reg->proto_addr : &n->proto_addr,
-		     		 buf[1], sizeof buf[1]));
+	vty_out(vty, "%-8s %-24s %-16s %-16s\n", n->ifp->name, n->nbma_fqdn,
+		(reg && reg->peer) ? sockunion2str(&reg->peer->vc->remote.nbma,
+						   buf[0], sizeof buf[0])
+				   : "-",
+		sockunion2str(reg ? &reg->proto_addr : &n->proto_addr, buf[1],
+			      sizeof buf[1]));
 }
 
 static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
@@ -652,17 +648,13 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
 
 	if (!ctx->count) {
-		vty_out (vty, "%-8s %-24s %-24s %s\n",
-			"Type",
-			"Prefix",
-			"Via",
+		vty_out(vty, "%-8s %-24s %-24s %s\n", "Type", "Prefix", "Via",
 			"Identity");
 	}
 	ctx->count++;
 
 	c = s->cache;
-	vty_out(ctx->vty, "%-8s %-24s %-24s %s\n",
-		nhrp_cache_type_str[s->type],
+	vty_out(ctx->vty, "%-8s %-24s %-24s %s\n", nhrp_cache_type_str[s->type],
 		prefix2str(s->p, buf1, sizeof buf1),
 		c ? sockunion2str(&c->remote_addr, buf2, sizeof buf2) : "",
 		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "");
@@ -677,26 +669,25 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 		return;
 
 	vty_out(ctx->vty,
-		  "Type: %s\n"
-		  "Flags:%s%s\n"
-		  "Protocol-Address: %s/%zu\n",
-		  nhrp_cache_type_str[c->cur.type],
-		  (c->cur.peer && c->cur.peer->online) ? " up": "",
-		  c->used ? " used": "",
-		  sockunion2str(&c->remote_addr, buf, sizeof buf),
-		  8 * family2addrsize(sockunion_family(&c->remote_addr)));
+		"Type: %s\n"
+		"Flags:%s%s\n"
+		"Protocol-Address: %s/%zu\n",
+		nhrp_cache_type_str[c->cur.type],
+		(c->cur.peer && c->cur.peer->online) ? " up" : "",
+		c->used ? " used" : "",
+		sockunion2str(&c->remote_addr, buf, sizeof buf),
+		8 * family2addrsize(sockunion_family(&c->remote_addr)));
 
 	if (c->cur.peer) {
-		vty_out(ctx->vty,
-			  "NBMA-Address: %s\n",
-			  sockunion2str(&c->cur.peer->vc->remote.nbma,
-			    		buf, sizeof buf));
+		vty_out(ctx->vty, "NBMA-Address: %s\n",
+			sockunion2str(&c->cur.peer->vc->remote.nbma, buf,
+				      sizeof buf));
 	}
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
-		vty_out(ctx->vty,
-			"NBMA-NAT-OA-Address: %s\n",
-			sockunion2str(&c->cur.remote_nbma_natoa, buf, sizeof buf));
+		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n",
+			sockunion2str(&c->cur.remote_nbma_natoa, buf,
+				      sizeof buf));
 	}
 
 	vty_out(ctx->vty, "\n\n");
@@ -715,8 +706,7 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct info_ctx ctx = {
-		.vty = vty,
-		.afi = cmd_to_afi(argv[1]),
+		.vty = vty, .afi = cmd_to_afi(argv[1]),
 	};
 
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
@@ -728,14 +718,14 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	} else if (argv[3]->text[0] == 's') {
 		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
 	} else {
-		vty_out (vty, "Status: ok\n\n");
+		vty_out(vty, "Status: ok\n\n");
 		ctx.count++;
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}
 
 	if (!ctx.count) {
-		vty_out (vty, "%% No entries\n");
+		vty_out(vty, "%% No entries\n");
 		return CMD_WARNING;
 	}
 
@@ -747,11 +737,10 @@ static void show_dmvpn_entry(struct nhrp_vc *vc, void *ctx)
 	struct vty *vty = ctx;
 	char buf[2][SU_ADDRSTRLEN];
 
-	vty_out (vty, "%-24s %-24s %c      %-4d %-24s\n",
+	vty_out(vty, "%-24s %-24s %c      %-4d %-24s\n",
 		sockunion2str(&vc->local.nbma, buf[0], sizeof buf[0]),
 		sockunion2str(&vc->remote.nbma, buf[1], sizeof buf[1]),
-		notifier_active(&vc->notifier_list) ? 'n' : ' ',
-		vc->ipsec,
+		notifier_active(&vc->notifier_list) ? 'n' : ' ', vc->ipsec,
 		vc->remote.id);
 }
 
@@ -760,12 +749,8 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 	SHOW_STR
 	"DMVPN information\n")
 {
-	vty_out (vty, "%-24s %-24s %-6s %-4s %-24s\n",
-		"Src",
-		"Dst",
-		"Flags",
-		"SAs",
-		"Identity");
+	vty_out(vty, "%-24s %-24s %-6s %-4s %-24s\n", "Src", "Dst", "Flags",
+		"SAs", "Identity");
 
 	nhrp_vc_foreach(show_dmvpn_entry, vty);
 
@@ -799,9 +784,7 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct info_ctx ctx = {
-		.vty = vty,
-		.afi = cmd_to_afi(argv[1]),
-		.count = 0,
+		.vty = vty, .afi = cmd_to_afi(argv[1]), .count = 0,
 	};
 
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
@@ -812,11 +795,11 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 	}
 
 	if (!ctx.count) {
-		vty_out (vty, "%% No entries\n");
+		vty_out(vty, "%% No entries\n");
 		return CMD_WARNING;
 	}
 
-	vty_out (vty, "%% %d entries cleared\n", ctx.count);
+	vty_out(vty, "%% %d entries cleared\n", ctx.count);
 	return CMD_SUCCESS;
 }
 
@@ -832,13 +815,17 @@ static void interface_config_write_nhrp_map(struct nhrp_cache *c, void *data)
 	struct vty *vty = ctx->vty;
 	char buf[2][SU_ADDRSTRLEN];
 
-	if (!c->map) return;
-	if (sockunion_family(&c->remote_addr) != ctx->family) return;
+	if (!c->map)
+		return;
+	if (sockunion_family(&c->remote_addr) != ctx->family)
+		return;
 
-	vty_out (vty, " %s nhrp map %s %s\n",
-		ctx->aficmd,
+	vty_out(vty, " %s nhrp map %s %s\n", ctx->aficmd,
 		sockunion2str(&c->remote_addr, buf[0], sizeof buf[0]),
-		c->cur.type == NHRP_CACHE_LOCAL ? "local" : sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1], sizeof buf[1]));
+		c->cur.type == NHRP_CACHE_LOCAL
+			? "local"
+			: sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
+					sizeof buf[1]));
 }
 
 static int interface_config_write(struct vty *vty)
@@ -856,7 +843,7 @@ static int interface_config_write(struct vty *vty)
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		vty_frame(vty, "interface %s\n", ifp->name);
 		if (ifp->desc)
-			vty_out (vty, " description %s\n", ifp->desc);
+			vty_out(vty, " description %s\n", ifp->desc);
 
 		nifp = ifp->info;
 		if (nifp->ipsec_profile) {
@@ -865,11 +852,10 @@ static int interface_config_write(struct vty *vty)
 			if (nifp->ipsec_fallback_profile)
 				vty_out(vty, " fallback-profile %s",
 					nifp->ipsec_fallback_profile);
-			vty_out (vty, "\n");
+			vty_out(vty, "\n");
 		}
 		if (nifp->source)
-			vty_out (vty, " tunnel source %s\n",
-				nifp->source);
+			vty_out(vty, " tunnel source %s\n", nifp->source);
 
 		for (afi = 0; afi < AFI_MAX; afi++) {
 			struct nhrp_afi_data *ad = &nifp->afi[afi];
@@ -877,38 +863,45 @@ static int interface_config_write(struct vty *vty)
 			aficmd = afi_to_cmd(afi);
 
 			if (ad->network_id)
-				vty_out (vty, " %s nhrp network-id %u\n",
-					aficmd,ad->network_id);
+				vty_out(vty, " %s nhrp network-id %u\n", aficmd,
+					ad->network_id);
 
 			if (ad->holdtime != NHRPD_DEFAULT_HOLDTIME)
-				vty_out (vty, " %s nhrp holdtime %u\n",
-					aficmd,ad->holdtime);
+				vty_out(vty, " %s nhrp holdtime %u\n", aficmd,
+					ad->holdtime);
 
 			if (ad->configured_mtu < 0)
-				vty_out (vty, " %s nhrp mtu opennhrp\n",
-					aficmd);
+				vty_out(vty, " %s nhrp mtu opennhrp\n", aficmd);
 			else if (ad->configured_mtu)
-				vty_out (vty, " %s nhrp mtu %u\n",
-					aficmd,ad->configured_mtu);
+				vty_out(vty, " %s nhrp mtu %u\n", aficmd,
+					ad->configured_mtu);
 
 			for (i = 0; interface_flags_desc[i].str != NULL; i++) {
 				if (!(ad->flags & interface_flags_desc[i].key))
 					continue;
-				vty_out (vty, " %s nhrp %s\n",
-					aficmd, interface_flags_desc[i].str);
+				vty_out(vty, " %s nhrp %s\n", aficmd,
+					interface_flags_desc[i].str);
 			}
 
-			mapctx = (struct write_map_ctx) {
+			mapctx = (struct write_map_ctx){
 				.vty = vty,
 				.family = afi2family(afi),
 				.aficmd = aficmd,
 			};
-			nhrp_cache_foreach(ifp, interface_config_write_nhrp_map, &mapctx);
+			nhrp_cache_foreach(ifp, interface_config_write_nhrp_map,
+					   &mapctx);
 
-			list_for_each_entry(nhs, &ad->nhslist_head, nhslist_entry) {
-				vty_out (vty, " %s nhrp nhs %s nbma %s\n",
+			list_for_each_entry(nhs, &ad->nhslist_head,
+					    nhslist_entry)
+			{
+				vty_out(vty, " %s nhrp nhs %s nbma %s\n",
 					aficmd,
-					sockunion_family(&nhs->proto_addr) == AF_UNSPEC ? "dynamic" : sockunion2str(&nhs->proto_addr, buf, sizeof buf),
+					sockunion_family(&nhs->proto_addr)
+							== AF_UNSPEC
+						? "dynamic"
+						: sockunion2str(
+							  &nhs->proto_addr, buf,
+							  sizeof buf),
 					nhs->nbma_fqdn);
 			}
 		}
@@ -925,7 +918,7 @@ void nhrp_config_init(void)
 	install_default(ZEBRA_NODE);
 
 	/* access-list commands */
-	access_list_init ();
+	access_list_init();
 
 	/* global commands */
 	install_element(VIEW_NODE, &show_debugging_nhrp_cmd);

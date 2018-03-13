@@ -142,8 +142,8 @@ struct ospf6_lsa_handler {
 		const char *name;
 		const char *short_name;
 		int (*show)(struct vty *, struct ospf6_lsa *);
-		char *(*get_prefix_str)(struct ospf6_lsa *, char *buf, int buflen,
-					int pos);
+		char *(*get_prefix_str)(struct ospf6_lsa *, char *buf,
+					int buflen, int pos);
 	} s;
 #define lh_type       s.type
 #define lh_name       s.name

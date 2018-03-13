@@ -40,8 +40,7 @@
 	(SIMPLEQ_EMPTY((head))                                                 \
 		 ? NULL                                                        \
 		 : ((struct type *)(void *)((char *)((head)->sqh_last)         \
-					    - offsetof(struct type,            \
-							 field))))
+					    - offsetof(struct type, field))))
 #define STAILQ_NEXT(elm, field)				SIMPLEQ_NEXT(elm, field)
 #define STAILQ_REMOVE(head, elm, type, field)                                  \
 	do {                                                                   \

@@ -26,17 +26,15 @@ DECLARE_MGROUP(NHRPD)
 
 extern struct thread_master *master;
 
-enum {
-	NHRP_OK = 0,
-	NHRP_ERR_FAIL,
-	NHRP_ERR_NO_MEMORY,
-	NHRP_ERR_UNSUPPORTED_INTERFACE,
-	NHRP_ERR_NHRP_NOT_ENABLED,
-	NHRP_ERR_ENTRY_EXISTS,
-	NHRP_ERR_ENTRY_NOT_FOUND,
-	NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH,
-	__NHRP_ERR_MAX
-};
+enum { NHRP_OK = 0,
+       NHRP_ERR_FAIL,
+       NHRP_ERR_NO_MEMORY,
+       NHRP_ERR_UNSUPPORTED_INTERFACE,
+       NHRP_ERR_NHRP_NOT_ENABLED,
+       NHRP_ERR_ENTRY_EXISTS,
+       NHRP_ERR_ENTRY_NOT_FOUND,
+       NHRP_ERR_PROTOCOL_ADDRESS_MISMATCH,
+       __NHRP_ERR_MAX };
 #define NHRP_ERR_MAX		(__NHRP_ERR_MAX - 1)
 
 struct notifier_block;
@@ -52,15 +50,18 @@ struct notifier_list {
 	struct list_head notifier_head;
 };
 
-#define NOTIFIER_LIST_INITIALIZER(l) \
-	{ .notifier_head = LIST_INITIALIZER((l)->notifier_head) }
+#define NOTIFIER_LIST_INITIALIZER(l)                                           \
+	{                                                                      \
+		.notifier_head = LIST_INITIALIZER((l)->notifier_head)          \
+	}
 
 static inline void notifier_init(struct notifier_list *l)
 {
 	list_init(&l->notifier_head);
 }
 
-static inline void notifier_add(struct notifier_block *n, struct notifier_list *l, notifier_fn_t action)
+static inline void notifier_add(struct notifier_block *n,
+				struct notifier_list *l, notifier_fn_t action)
 {
 	n->action = action;
 	list_add_tail(&n->notifier_entry, &l->notifier_head);
@@ -88,7 +89,9 @@ struct resolver_query {
 };
 
 void resolver_init(void);
-void resolver_resolve(struct resolver_query *query, int af, const char *hostname, void (*cb)(struct resolver_query *, int, union sockunion *));
+void resolver_resolve(struct resolver_query *query, int af,
+		      const char *hostname, void (*cb)(struct resolver_query *,
+						       int, union sockunion *));
 
 void nhrp_zebra_init(void);
 void nhrp_zebra_terminate(void);
@@ -198,7 +201,7 @@ enum nhrp_cache_type {
 	NHRP_CACHE_NUM_TYPES
 };
 
-extern const char * const nhrp_cache_type_str[];
+extern const char *const nhrp_cache_type_str[];
 extern unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
 
 struct nhrp_cache {
@@ -249,7 +252,7 @@ struct nhrp_nhs {
 	unsigned hub : 1;
 	afi_t afi;
 	union sockunion proto_addr;
-	const char *nbma_fqdn;			/* IP-address or FQDN */
+	const char *nbma_fqdn; /* IP-address or FQDN */
 
 	struct thread *t_resolve;
 	struct resolver_query dns_resolve;
@@ -311,107 +314,141 @@ void nhrp_interface_init(void);
 void nhrp_interface_update(struct interface *ifp);
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi);
 
-int nhrp_interface_add(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_delete(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_up(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_down(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_address_add(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_address_delete(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
+int nhrp_interface_add(int cmd, struct zclient *client, zebra_size_t length,
+		       vrf_id_t vrf_id);
+int nhrp_interface_delete(int cmd, struct zclient *client, zebra_size_t length,
+			  vrf_id_t vrf_id);
+int nhrp_interface_up(int cmd, struct zclient *client, zebra_size_t length,
+		      vrf_id_t vrf_id);
+int nhrp_interface_down(int cmd, struct zclient *client, zebra_size_t length,
+			vrf_id_t vrf_id);
+int nhrp_interface_address_add(int cmd, struct zclient *client,
+			       zebra_size_t length, vrf_id_t vrf_id);
+int nhrp_interface_address_delete(int cmd, struct zclient *client,
+				  zebra_size_t length, vrf_id_t vrf_id);
 
-void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n, notifier_fn_t fn);
+void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
+			       notifier_fn_t fn);
 void nhrp_interface_notify_del(struct interface *ifp, struct notifier_block *n);
-void nhrp_interface_set_protection(struct interface *ifp, const char *profile, const char *fallback_profile);
+void nhrp_interface_set_protection(struct interface *ifp, const char *profile,
+				   const char *fallback_profile);
 void nhrp_interface_set_source(struct interface *ifp, const char *ifname);
 
-int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr, const char *nbma_fqdn);
-int nhrp_nhs_del(struct interface *ifp, afi_t afi, union sockunion *proto_addr, const char *nbma_fqdn);
+int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
+		 const char *nbma_fqdn);
+int nhrp_nhs_del(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
+		 const char *nbma_fqdn);
 int nhrp_nhs_free(struct nhrp_nhs *nhs);
 void nhrp_nhs_terminate(void);
-void nhrp_nhs_foreach(struct interface *ifp, afi_t afi, void (*cb)(struct nhrp_nhs *, struct nhrp_registration *, void *), void *ctx);
+void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
+		      void (*cb)(struct nhrp_nhs *, struct nhrp_registration *,
+				 void *),
+		      void *ctx);
 
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp);
-void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix *p, struct interface *ifp, const union sockunion *nexthop, uint32_t mtu);
-int nhrp_route_read(int command, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p, union sockunion *via, struct interface **ifp);
-enum nhrp_route_type nhrp_route_address(struct interface *in_ifp, union sockunion *addr, struct prefix *p, struct nhrp_peer **peer);
+void nhrp_route_announce(int add, enum nhrp_cache_type type,
+			 const struct prefix *p, struct interface *ifp,
+			 const union sockunion *nexthop, uint32_t mtu);
+int nhrp_route_read(int command, struct zclient *zclient, zebra_size_t length,
+		    vrf_id_t vrf_id);
+int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
+			   union sockunion *via, struct interface **ifp);
+enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,
+					union sockunion *addr, struct prefix *p,
+					struct nhrp_peer **peer);
 
 void nhrp_config_init(void);
 
 void nhrp_shortcut_init(void);
 void nhrp_shortcut_terminate(void);
 void nhrp_shortcut_initiate(union sockunion *addr);
-void nhrp_shortcut_foreach(afi_t afi, void (*cb)(struct nhrp_shortcut *, void *), void *ctx);
+void nhrp_shortcut_foreach(afi_t afi,
+			   void (*cb)(struct nhrp_shortcut *, void *),
+			   void *ctx);
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force);
 void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted);
 
-struct nhrp_cache *nhrp_cache_get(struct interface *ifp, union sockunion *remote_addr, int create);
-void nhrp_cache_foreach(struct interface *ifp, void (*cb)(struct nhrp_cache *, void *), void *ctx);
+struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
+				  union sockunion *remote_addr, int create);
+void nhrp_cache_foreach(struct interface *ifp,
+			void (*cb)(struct nhrp_cache *, void *), void *ctx);
 void nhrp_cache_set_used(struct nhrp_cache *, int);
-int nhrp_cache_update_binding(struct nhrp_cache *, enum nhrp_cache_type type, int holding_time, struct nhrp_peer *p, uint32_t mtu, union sockunion *nbma_natoa);
-void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *, notifier_fn_t);
+int nhrp_cache_update_binding(struct nhrp_cache *, enum nhrp_cache_type type,
+			      int holding_time, struct nhrp_peer *p,
+			      uint32_t mtu, union sockunion *nbma_natoa);
+void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *,
+			   notifier_fn_t);
 void nhrp_cache_notify_del(struct nhrp_cache *c, struct notifier_block *);
 
 void nhrp_vc_init(void);
 void nhrp_vc_terminate(void);
-struct nhrp_vc *nhrp_vc_get(const union sockunion *src, const union sockunion *dst, int create);
+struct nhrp_vc *nhrp_vc_get(const union sockunion *src,
+			    const union sockunion *dst, int create);
 int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc);
-void nhrp_vc_notify_add(struct nhrp_vc *, struct notifier_block *, notifier_fn_t);
+void nhrp_vc_notify_add(struct nhrp_vc *, struct notifier_block *,
+			notifier_fn_t);
 void nhrp_vc_notify_del(struct nhrp_vc *, struct notifier_block *);
 void nhrp_vc_foreach(void (*cb)(struct nhrp_vc *, void *), void *ctx);
 void nhrp_vc_reset(void);
 
 void vici_init(void);
 void vici_terminate(void);
-void vici_request_vc(const char *profile, union sockunion *src, union sockunion *dst, int prio);
+void vici_request_vc(const char *profile, union sockunion *src,
+		     union sockunion *dst, int prio);
 
 extern const char *nhrp_event_socket_path;
 
 void evmgr_init(void);
 void evmgr_terminate(void);
 void evmgr_set_socket(const char *socket);
-void evmgr_notify(const char *name, struct nhrp_cache *c, void (*cb)(struct nhrp_reqid *, void *));
+void evmgr_notify(const char *name, struct nhrp_cache *c,
+		  void (*cb)(struct nhrp_reqid *, void *));
 
-struct nhrp_packet_header *nhrp_packet_push(
-	struct zbuf *zb, uint8_t type,
-	const union sockunion *src_nbma,
-	const union sockunion *src_proto,
-	const union sockunion *dst_proto);
+struct nhrp_packet_header *nhrp_packet_push(struct zbuf *zb, uint8_t type,
+					    const union sockunion *src_nbma,
+					    const union sockunion *src_proto,
+					    const union sockunion *dst_proto);
 void nhrp_packet_complete(struct zbuf *zb, struct nhrp_packet_header *hdr);
 uint16_t nhrp_packet_calculate_checksum(const uint8_t *pdu, uint16_t len);
 
-struct nhrp_packet_header *nhrp_packet_pull(
-	struct zbuf *zb,
-	union sockunion *src_nbma,
-	union sockunion *src_proto,
-	union sockunion *dst_proto);
+struct nhrp_packet_header *nhrp_packet_pull(struct zbuf *zb,
+					    union sockunion *src_nbma,
+					    union sockunion *src_proto,
+					    union sockunion *dst_proto);
 
-struct nhrp_cie_header *nhrp_cie_push(
-	struct zbuf *zb, uint8_t code,
-	const union sockunion *nbma,
-	const union sockunion *proto);
-struct nhrp_cie_header *nhrp_cie_pull(
-	struct zbuf *zb,
-	struct nhrp_packet_header *hdr,
-	union sockunion *nbma,
-	union sockunion *proto);
+struct nhrp_cie_header *nhrp_cie_push(struct zbuf *zb, uint8_t code,
+				      const union sockunion *nbma,
+				      const union sockunion *proto);
+struct nhrp_cie_header *nhrp_cie_pull(struct zbuf *zb,
+				      struct nhrp_packet_header *hdr,
+				      union sockunion *nbma,
+				      union sockunion *proto);
 
-struct nhrp_extension_header *nhrp_ext_push(struct zbuf *zb, struct nhrp_packet_header *hdr, uint16_t type);
+struct nhrp_extension_header *
+nhrp_ext_push(struct zbuf *zb, struct nhrp_packet_header *hdr, uint16_t type);
 void nhrp_ext_complete(struct zbuf *zb, struct nhrp_extension_header *ext);
-struct nhrp_extension_header *nhrp_ext_pull(struct zbuf *zb, struct zbuf *payload);
-void nhrp_ext_request(struct zbuf *zb, struct nhrp_packet_header *hdr, struct interface *);
-int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr, struct interface *ifp, struct nhrp_extension_header *ext, struct zbuf *extpayload);
+struct nhrp_extension_header *nhrp_ext_pull(struct zbuf *zb,
+					    struct zbuf *payload);
+void nhrp_ext_request(struct zbuf *zb, struct nhrp_packet_header *hdr,
+		      struct interface *);
+int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr,
+		   struct interface *ifp, struct nhrp_extension_header *ext,
+		   struct zbuf *extpayload);
 
-uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *, struct nhrp_reqid *r, void (*cb)(struct nhrp_reqid *, void *));
+uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *, struct nhrp_reqid *r,
+			  void (*cb)(struct nhrp_reqid *, void *));
 void nhrp_reqid_free(struct nhrp_reqid_pool *, struct nhrp_reqid *r);
 struct nhrp_reqid *nhrp_reqid_lookup(struct nhrp_reqid_pool *, uint32_t reqid);
 
 int nhrp_packet_init(void);
 
-struct nhrp_peer *nhrp_peer_get(struct interface *ifp, const union sockunion *remote_nbma);
+struct nhrp_peer *nhrp_peer_get(struct interface *ifp,
+				const union sockunion *remote_nbma);
 struct nhrp_peer *nhrp_peer_ref(struct nhrp_peer *p);
 void nhrp_peer_unref(struct nhrp_peer *p);
 int nhrp_peer_check(struct nhrp_peer *p, int establish);
-void nhrp_peer_notify_add(struct nhrp_peer *p, struct notifier_block *, notifier_fn_t);
+void nhrp_peer_notify_add(struct nhrp_peer *p, struct notifier_block *,
+			  notifier_fn_t);
 void nhrp_peer_notify_del(struct nhrp_peer *p, struct notifier_block *);
 void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb);
 void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb);

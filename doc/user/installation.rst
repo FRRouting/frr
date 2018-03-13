@@ -170,6 +170,12 @@ customize the build to include or exclude specific features and dependencies.
 
    Build with FPM module support.
 
+.. option:: --enable-numeric-version
+
+   Alpine Linux does not allow non-numeric characters in the version string.
+   With this option, we provide a way to strip out these characters for apk dev
+   package builds.
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`

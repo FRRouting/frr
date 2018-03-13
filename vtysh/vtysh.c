@@ -77,7 +77,7 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "nhrpd", .flag = VTYSH_NHRPD, .next = NULL},
 	{.fd = -1, .name = "eigrpd", .flag = VTYSH_EIGRPD, .next = NULL},
 	{.fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .next = NULL},
-        {.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
+	{.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
 	{.fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
 };
 
@@ -539,7 +539,7 @@ int vtysh_mark_file(const char *filename)
 	}
 
 	vty = vty_new();
-	vty->fd = 0; /* stdout */
+	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_TERM;
 	vty->node = CONFIG_NODE;
 
@@ -748,9 +748,8 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 		case CMD_ERR_NO_MATCH:
 			fprintf(stderr, "line %d: %% Unknown command[%d]: %s",
 				lineno, vty->node, vty->buf);
-			retcode =
-				CMD_ERR_NO_MATCH; /* once we have an error, we
-						     remember & return that */
+			retcode = CMD_ERR_NO_MATCH; /* once we have an error, we
+						       remember & return that */
 			break;
 		case CMD_ERR_INCOMPLETE:
 			fprintf(stderr,
@@ -1206,30 +1205,21 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_labeled_unicast,
 }
 
 #if defined(HAVE_RPKI)
-DEFUNSH(VTYSH_BGPD,
-	rpki,
-	rpki_cmd,
-	"rpki",
+DEFUNSH(VTYSH_BGPD, rpki, rpki_cmd, "rpki",
 	"Enable rpki and enter rpki configuration mode\n")
 {
 	vty->node = RPKI_NODE;
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BGPD,
-	rpki_exit,
-	rpki_exit_cmd,
-	"exit",
+DEFUNSH(VTYSH_BGPD, rpki_exit, rpki_exit_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
 	vty->node = CONFIG_NODE;
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BGPD,
-	rpki_quit,
-	rpki_quit_cmd,
-	"quit",
+DEFUNSH(VTYSH_BGPD, rpki_quit, rpki_quit_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return rpki_exit(self, vty, argc, argv);
@@ -1336,8 +1326,7 @@ DEFUNSH(VTYSH_OSPFD, router_ospf, router_ospf_cmd,
 	"router ospf [(1-65535)] [vrf NAME]",
 	"Enable a routing process\n"
 	"Start OSPF configuration\n"
-	"Instance ID\n"
-	VRF_CMD_HELP_STR)
+	"Instance ID\n" VRF_CMD_HELP_STR)
 {
 	vty->node = OSPF_NODE;
 	return CMD_SUCCESS;
@@ -1510,6 +1499,7 @@ static int vtysh_exit(struct vty *vty)
 	case PW_NODE:
 	case LOGICALROUTER_NODE:
 	case VRF_NODE:
+	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
 	case BGP_NODE:
 	case RIP_NODE:
@@ -1794,12 +1784,11 @@ DEFUNSH(VTYSH_ZEBRA, vtysh_logicalrouter, vtysh_logicalrouter_cmd,
 }
 
 DEFSH(VTYSH_ZEBRA, vtysh_no_logicalrouter_cmd,
-	"no logical-router (1-65535) ns NAME",
-	NO_STR
-	"Enable a Logical-Router\n"
-	"Specify the Logical-Router identifier\n"
-	"The Name Space\n"
-	"The file name in " NS_RUN_DIR ", or a full pathname\n")
+      "no logical-router (1-65535) ns NAME", NO_STR
+      "Enable a Logical-Router\n"
+      "Specify the Logical-Router identifier\n"
+      "The Name Space\n"
+      "The file name in " NS_RUN_DIR ", or a full pathname\n")
 
 DEFUNSH(VTYSH_VRF, vtysh_vrf, vtysh_vrf_cmd, "vrf NAME",
 	"Select a VRF to configure\n"
@@ -1813,16 +1802,14 @@ DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_cmd, "no vrf NAME", NO_STR
       "Delete a pseudo vrf's configuration\n"
       "VRF's name\n")
 
-DEFUNSH(VTYSH_NS, vtysh_exit_logicalrouter,
-	vtysh_exit_logicalrouter_cmd, "exit",
-	"Exit current mode and down to previous mode\n")
+DEFUNSH(VTYSH_NS, vtysh_exit_logicalrouter, vtysh_exit_logicalrouter_cmd,
+	"exit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_NS, vtysh_quit_logicalrouter,
-	vtysh_quit_logicalrouter_cmd, "quit",
-	"Exit current mode and down to previous mode\n")
+DEFUNSH(VTYSH_NS, vtysh_quit_logicalrouter, vtysh_quit_logicalrouter_cmd,
+	"quit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_logicalrouter(self, vty, argc, argv);
 }
@@ -1971,14 +1958,24 @@ static int show_per_daemon(const char *line, const char *headline)
 	return ret;
 }
 
+DEFUNSH_HIDDEN (0x00,
+                vtysh_debug_all,
+                vtysh_debug_all_cmd,
+                "[no] debug all",
+                NO_STR
+                DEBUG_STR
+                "Toggle all debugs on or off\n")
+{
+	return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_show_debugging,
        vtysh_show_debugging_cmd,
        "show debugging",
        SHOW_STR
        DEBUG_STR)
 {
-	return show_per_daemon("do show debugging\n",
-			       "");
+	return show_per_daemon("do show debugging\n", "");
 }
 
 DEFUN (vtysh_show_debugging_hashtable,
@@ -2011,8 +2008,7 @@ DEFUN (vtysh_show_memory,
        SHOW_STR
        "Memory statistics\n")
 {
-	return show_per_daemon("show memory\n",
-			       "Memory statistics for %s:\n");
+	return show_per_daemon("show memory\n", "Memory statistics for %s:\n");
 }
 
 DEFUN (vtysh_show_modules,
@@ -2563,8 +2559,8 @@ DEFUN (vtysh_show_daemons,
 }
 
 /* Execute command in child process. */
-static void execute_command(const char *command, int argc,
-			    const char *arg1, const char *arg2)
+static void execute_command(const char *command, int argc, const char *arg1,
+			    const char *arg2)
 {
 	pid_t pid;
 	int status;
@@ -3248,10 +3244,8 @@ void vtysh_init_vty(void)
 
 	install_element(CONFIG_NODE, &vtysh_logicalrouter_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_logicalrouter_cmd);
-	install_element(LOGICALROUTER_NODE,
-			&vtysh_exit_logicalrouter_cmd);
-	install_element(LOGICALROUTER_NODE,
-			&vtysh_quit_logicalrouter_cmd);
+	install_element(LOGICALROUTER_NODE, &vtysh_exit_logicalrouter_cmd);
+	install_element(LOGICALROUTER_NODE, &vtysh_quit_logicalrouter_cmd);
 
 	install_element(VRF_NODE, &vtysh_end_all_cmd);
 	install_element(VRF_NODE, &vtysh_exit_vrf_cmd);
@@ -3368,14 +3362,17 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_start_zsh_cmd);
 #endif
 
+	/* debugging */
 	install_element(VIEW_NODE, &vtysh_show_debugging_cmd);
 	install_element(VIEW_NODE, &vtysh_show_debugging_hashtable_cmd);
+	install_element(VIEW_NODE, &vtysh_debug_all_cmd);
+	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
+
+	/* misc lib show commands */
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
-
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
-
 	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
 
 	/* Logging */

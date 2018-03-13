@@ -661,8 +661,7 @@ int zebra_ptm_sock_read(struct thread *thread)
 }
 
 /* BFD peer/dst register/update */
-int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
-			       int command, struct zebra_vrf *zvrf)
+void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct prefix src_p;
@@ -680,20 +679,20 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 	int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
 	unsigned int pid;
 
-	if (command == ZEBRA_BFD_DEST_UPDATE)
+	if (hdr->command == ZEBRA_BFD_DEST_UPDATE)
 		client->bfd_peer_upd8_cnt++;
 	else
 		client->bfd_peer_add_cnt++;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("bfd_dst_register msg from client %s: length=%d",
-			   zebra_route_string(client->proto), length);
+			   zebra_route_string(client->proto), hdr->length);
 
 	if (ptm_cb.ptm_sock == -1) {
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return -1;
+		return;
 	}
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
@@ -703,7 +702,7 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
-	s = client->ibuf;
+	s = msg;
 
 	STREAM_GETL(s, pid);
 	sprintf(tmp_buf, "%d", pid);
@@ -816,16 +815,14 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 			   ptm_cb.out_data);
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
-	return 0;
+	return;
 
 stream_failure:
 	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
-	return 0;
 }
 
 /* BFD peer/dst deregister */
-int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
-				 struct zebra_vrf *zvrf)
+void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	struct prefix src_p;
@@ -843,13 +840,13 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("bfd_dst_deregister msg from client %s: length=%d",
-			   zebra_route_string(client->proto), length);
+			   zebra_route_string(client->proto), hdr->length);
 
 	if (ptm_cb.ptm_sock == -1) {
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return -1;
+		return;
 	}
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
@@ -861,7 +858,7 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
-	s = client->ibuf;
+	s = msg;
 
 	STREAM_GETL(s, pid);
 	sprintf(tmp_buf, "%d", pid);
@@ -948,16 +945,14 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
-	return 0;
+	return;
 
 stream_failure:
 	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
-	return 0;
 }
 
 /* BFD client register */
-int zebra_ptm_bfd_client_register(struct zserv *client,
-				  u_short length)
+void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
 	unsigned int pid;
@@ -969,16 +964,16 @@ int zebra_ptm_bfd_client_register(struct zserv *client,
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("bfd_client_register msg from client %s: length=%d",
-			   zebra_route_string(client->proto), length);
+			   zebra_route_string(client->proto), hdr->length);
 
-	s = client->ibuf;
+	s = msg;
 	STREAM_GETL(s, pid);
 
 	if (ptm_cb.ptm_sock == -1) {
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return -1;
+		return;
 	}
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
@@ -1004,7 +999,7 @@ int zebra_ptm_bfd_client_register(struct zserv *client,
 	SET_FLAG(ptm_cb.client_flags[client->proto],
 		 ZEBRA_PTM_BFD_CLIENT_FLAG_REG);
 
-	return 0;
+	return;
 
 stream_failure:
 	/*
@@ -1014,7 +1009,7 @@ stream_failure:
 	 * if (out_ctxt)
 	 *	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
 	 */
-	return 0;
+	return;
 }
 
 /* BFD client deregister */

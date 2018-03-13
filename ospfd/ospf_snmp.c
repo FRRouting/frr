@@ -739,8 +739,6 @@ static u_char *ospfAreaEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(0);
 		break;
 	case OSPFAREASUMMARY: /* 9 */
-			      /* $FRR indent$ */
-			      /* clang-format off */
 #define OSPF_noAreaSummary   1
 #define OSPF_sendAreaSummary 2
 		if (area->no_summary)
@@ -872,7 +870,7 @@ static u_char *ospfStubAreaEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(SNMP_VALID);
 		break;
 	case OSPFSTUBMETRICTYPE: /* 5 */
-/* OSPF Metric type. */
+				 /* OSPF Metric type. */
 #define OSPF_ospfMetric     1
 #define OSPF_comparableCost 2
 #define OSPF_nonComparable  3
@@ -1269,8 +1267,6 @@ static u_char *ospfAreaRangeEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(SNMP_VALID);
 		break;
 	case OSPFAREARANGEEFFECT: /* 5 */
-				  /* $FRR indent$ */
-				  /* clang-format off */
 #define OSPF_advertiseMatching      1
 #define OSPF_doNotAdvertiseMatching 2
 		return SNMP_INTEGER(OSPF_advertiseMatching);
@@ -1744,8 +1740,6 @@ static u_char *ospfIfEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(SNMP_VALID);
 		break;
 	case OSPFIFMULTICASTFORWARDING: /* 18 */
-					/* $FRR indent$ */
-					/* clang-format off */
 #define ospf_snmp_multiforward_blocked    1
 #define ospf_snmp_multiforward_multicast  2
 #define ospf_snmp_multiforward_unicast    3

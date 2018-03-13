@@ -17,8 +17,10 @@ extern int netlink_req_fd;
 
 void netlink_init(void);
 int netlink_configure_arp(unsigned int ifindex, int pf);
-void netlink_update_binding(struct interface *ifp, union sockunion *proto, union sockunion *nbma);
+void netlink_update_binding(struct interface *ifp, union sockunion *proto,
+			    union sockunion *nbma);
 void netlink_set_nflog_group(int nlgroup);
 
-void netlink_gre_get_info(unsigned int ifindex, uint32_t *gre_key, unsigned int *link_index, struct in_addr *saddr);
+void netlink_gre_get_info(unsigned int ifindex, uint32_t *gre_key,
+			  unsigned int *link_index, struct in_addr *saddr);
 void netlink_gre_set_link(unsigned int ifindex, unsigned int link_index);

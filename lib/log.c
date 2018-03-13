@@ -177,9 +177,8 @@ static void time_print(FILE *fp, struct timestamp_control *ctl)
 
 
 static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
-		       const char *proto_str, int record_priority,
-		       int priority, FILE *fp, const char *format,
-		       va_list args)
+		       const char *proto_str, int record_priority, int priority,
+		       FILE *fp, const char *format, va_list args)
 {
 	va_list ac;
 
@@ -237,8 +236,8 @@ void vzlog(int priority, const char *format, va_list args)
 
 	/* File output. */
 	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
-		vzlog_file(zl, &tsctl, proto_str, zl->record_priority,
-				priority, zl->fp, format, args);
+		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
+			   zl->fp, format, args);
 
 	/* fixed-config logging to stderr while we're stating up & haven't
 	 * daemonized / reached mainloop yet
@@ -246,11 +245,11 @@ void vzlog(int priority, const char *format, va_list args)
 	 * note the "else" on stdout output -- we don't want to print the same
 	 * message to both stderr and stdout. */
 	if (zlog_startup_stderr && priority <= LOG_WARNING)
-		vzlog_file(zl, &tsctl, proto_str, 1,
-				priority, stderr, format, args);
+		vzlog_file(zl, &tsctl, proto_str, 1, priority, stderr, format,
+			   args);
 	else if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
-		vzlog_file(zl, &tsctl, proto_str, zl->record_priority,
-				priority, stdout, format, args);
+		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
+			   stdout, format, args);
 
 	/* Terminal monitor. */
 	if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
@@ -962,6 +961,9 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_PW_SET),
 	DESC_ENTRY(ZEBRA_PW_UNSET),
 	DESC_ENTRY(ZEBRA_PW_STATUS_UPDATE),
+	DESC_ENTRY(ZEBRA_RULE_ADD),
+	DESC_ENTRY(ZEBRA_RULE_DELETE),
+	DESC_ENTRY(ZEBRA_RULE_NOTIFY_OWNER),
 };
 #undef DESC_ENTRY
 
@@ -1090,42 +1092,52 @@ void zlog_hexdump(const void *mem, unsigned int len)
 	unsigned long i = 0;
 	unsigned int j = 0;
 	unsigned int columns = 8;
-	char buf[(len * 4) + ((len / 4) * 20) + 30];
+	/*
+	 * 19 bytes for 0xADDRESS:
+	 * 24 bytes for data; 2 chars plus a space per data byte
+	 *  1 byte for space
+	 *  8 bytes for ASCII representation
+	 *  1 byte for a newline
+	 * =====================
+	 * 53 bytes per 8 bytes of data
+	 *  1 byte for null term
+	 */
+	size_t bs = ((len / 8) + 1) * 53 + 1;
+	char buf[bs];
 	char *s = buf;
+
+	memset(buf, 0, sizeof(buf));
 
 	for (i = 0; i < len + ((len % columns) ? (columns - len % columns) : 0);
 	     i++) {
 		/* print offset */
 		if (i % columns == 0)
-			s += sprintf(s, "0x%016lx: ", (unsigned long)mem + i);
+			s += snprintf(s, bs - (s - buf),
+				      "0x%016lx: ", (unsigned long)mem + i);
 
 		/* print hex data */
 		if (i < len)
-			s += sprintf(s, "%02x ", 0xFF & ((const char *)mem)[i]);
+			s += snprintf(s, bs - (s - buf), "%02x ",
+				      0xFF & ((const char *)mem)[i]);
 
 		/* end of block, just aligning for ASCII dump */
 		else
-			s += sprintf(s, "   ");
+			s += snprintf(s, bs - (s - buf), "   ");
 
 		/* print ASCII dump */
 		if (i % columns == (columns - 1)) {
 			for (j = i - (columns - 1); j <= i; j++) {
-				if (j >= len) /* end of block, not really
-						 printing */
-					s += sprintf(s, " ");
-
-				else if (
-					isprint((int)((const char *)mem)
-							[j])) /* printable char
-								 */
-					s += sprintf(
-						s, "%c",
+				/* end of block not really printing */
+				if (j >= len)
+					s += snprintf(s, bs - (s - buf), " ");
+				else if (isprint((int)((const char *)mem)[j]))
+					s += snprintf(
+						s, bs - (s - buf), "%c",
 						0xFF & ((const char *)mem)[j]);
-
 				else /* other char */
-					s += sprintf(s, ".");
+					s += snprintf(s, bs - (s - buf), ".");
 			}
-			s += sprintf(s, "\n");
+			s += snprintf(s, bs - (s - buf), "\n");
 		}
 	}
 	zlog_debug("\n%s", buf);

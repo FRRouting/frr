@@ -103,8 +103,8 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 				re, si->ifindex, si->nh_vrf_id);
 			break;
 		case STATIC_BLACKHOLE:
-			nexthop = route_entry_nexthop_blackhole_add(
-				re, bh_type);
+			nexthop =
+				route_entry_nexthop_blackhole_add(re, bh_type);
 			break;
 		case STATIC_IPV6_GATEWAY:
 			nexthop = route_entry_nexthop_ipv6_add(
@@ -182,8 +182,8 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 				re, si->ifindex, si->nh_vrf_id);
 			break;
 		case STATIC_BLACKHOLE:
-			nexthop = route_entry_nexthop_blackhole_add(
-				re, bh_type);
+			nexthop =
+				route_entry_nexthop_blackhole_add(re, bh_type);
 			break;
 		case STATIC_IPV6_GATEWAY:
 			nexthop = route_entry_nexthop_ipv6_add(
@@ -300,7 +300,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 	}
 
 	/* Lookup nexthop. */
-	for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
+	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
 		if (static_nexthop_same(nexthop, si))
 			break;
 
@@ -393,16 +393,14 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	if (!stable)
 		return -1;
 
-	if (!gate
-	    && (type == STATIC_IPV4_GATEWAY
-		|| type == STATIC_IPV4_GATEWAY_IFNAME
-		|| type == STATIC_IPV6_GATEWAY
-		|| type == STATIC_IPV6_GATEWAY_IFNAME))
+	if (!gate && (type == STATIC_IPV4_GATEWAY
+		      || type == STATIC_IPV4_GATEWAY_IFNAME
+		      || type == STATIC_IPV6_GATEWAY
+		      || type == STATIC_IPV6_GATEWAY_IFNAME))
 		return -1;
 
 	if (!ifname
-	    && (type == STATIC_IFNAME
-		|| type == STATIC_IPV4_GATEWAY_IFNAME
+	    && (type == STATIC_IFNAME || type == STATIC_IPV4_GATEWAY_IFNAME
 		|| type == STATIC_IPV6_GATEWAY_IFNAME))
 		return -1;
 
@@ -412,11 +410,12 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	/* Do nothing if there is a same static route.  */
 	for (si = rn->info; si; si = si->next) {
 		if (type == si->type
-		    && (!gate || ((afi == AFI_IP
-				   && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
-				  || (afi == AFI_IP6
-				      && IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
-		    && (!strcmp (ifname ? ifname : "", si->ifname))) {
+		    && (!gate
+			|| ((afi == AFI_IP
+			     && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
+			    || (afi == AFI_IP6
+				&& IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
+		    && (!strcmp(ifname ? ifname : "", si->ifname))) {
 			if ((distance == si->distance) && (tag == si->tag)
 			    && !memcmp(&si->snh_label, snh_label,
 				       sizeof(struct static_nh_label))
@@ -531,10 +530,11 @@ int static_delete_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	/* Find same static route is the tree */
 	for (si = rn->info; si; si = si->next)
 		if (type == si->type
-		    && (!gate || ((afi == AFI_IP
-				   && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
-				  || (afi == AFI_IP6
-				      && IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
+		    && (!gate
+			|| ((afi == AFI_IP
+			     && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
+			    || (afi == AFI_IP6
+				&& IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
 		    && (!strcmp(ifname ? ifname : "", si->ifname))
 		    && (!tag || (tag == si->tag))
 		    && (!snh_label->num_labels
@@ -569,8 +569,8 @@ int static_delete_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	return 1;
 }
 
-static void static_ifindex_update_af(struct interface *ifp, bool up,
-				     afi_t afi, safi_t safi)
+static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
+				     safi_t safi)
 {
 	struct route_table *stable;
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
@@ -598,8 +598,7 @@ static void static_ifindex_update_af(struct interface *ifp, bool up,
 			} else {
 				if (si->ifindex != ifp->ifindex)
 					continue;
-				static_uninstall_route(afi, safi, p, src_p,
-						       si);
+				static_uninstall_route(afi, safi, p, src_p, si);
 				si->ifindex = IFINDEX_INTERNAL;
 			}
 		}

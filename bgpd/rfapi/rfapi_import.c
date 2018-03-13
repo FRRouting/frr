@@ -1083,9 +1083,8 @@ int rfapiEcommunityGetEthernetTag(struct ecommunity *ecom, uint16_t *tag_id)
 				} else if (encode == ECOMMUNITY_ENCODE_AS) {
 					as = (*p++ << 8);
 					as |= (*p++);
-					p +=
-						2; /* skip next two, tag/vid
-						      always in lowest bytes */
+					p += 2; /* skip next two, tag/vid
+						   always in lowest bytes */
 				}
 				if (as == bgp->as) {
 					*tag_id = *p++ << 8;
@@ -1221,8 +1220,7 @@ static int rfapiVpnBiSamePtUn(struct bgp_info *bi1, struct bgp_info *bi2)
 
 	switch (pfx_un1.family) {
 	case AF_INET:
-		if (!IPV4_ADDR_SAME(&pfx_un1.u.prefix4,
-				    &pfx_un2.u.prefix4))
+		if (!IPV4_ADDR_SAME(&pfx_un1.u.prefix4, &pfx_un2.u.prefix4))
 			return 0;
 		break;
 	case AF_INET6:
@@ -2235,9 +2233,9 @@ static struct bgp_info *rfapiItBiIndexSearch(
 
 				vnc_zlog_debug_verbose(
 					"%s: bi has prd=%s, peer=%p", __func__,
-					prefix_rd2str(&bi_result->extra->vnc.import.rd,
-						      buf,
-						      sizeof(buf)),
+					prefix_rd2str(&bi_result->extra->vnc
+							       .import.rd,
+						      buf, sizeof(buf)),
 					bi_result->peer);
 			}
 #endif
@@ -4338,7 +4336,7 @@ void bgp_rfapi_destroy(struct bgp *bgp, struct rfapi *h)
 		h->import_mac = NULL;
 	}
 
-	work_queue_free(h->deferred_close_q);
+	work_queue_free_and_null(&h->deferred_close_q);
 
 	if (h->rfp != NULL)
 		rfp_stop(h->rfp);

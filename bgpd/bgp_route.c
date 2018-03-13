@@ -1967,9 +1967,8 @@ int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 						 : NULL);
 
 	/* First update is deferred until ORF or ROUTE-REFRESH is received */
-	if (onlypeer
-	    && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
-			  PEER_STATUS_ORF_WAIT_REFRESH))
+	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
+				   PEER_STATUS_ORF_WAIT_REFRESH))
 		return 0;
 
 	memset(&attr, 0, sizeof(struct attr));
@@ -2228,10 +2227,13 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 	/* advertise/withdraw type-5 routes */
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
-		if (new_select)
-			bgp_evpn_advertise_type5_route(
-				bgp, &rn->p, new_select->attr, afi, safi);
-		else if (old_select)
+		if (advertise_type5_routes(bgp, afi) && new_select &&
+		    (!new_select->extra || !new_select->extra->parent))
+			bgp_evpn_advertise_type5_route(bgp, &rn->p,
+						       new_select->attr,
+						       afi, safi);
+		else if (advertise_type5_routes(bgp, afi) && old_select &&
+		         (!old_select->extra || !old_select->extra->parent))
 			bgp_evpn_withdraw_type5_route(bgp, &rn->p, afi, safi);
 	}
 
@@ -6839,10 +6841,9 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 		bgp_damp_reuse_time_vty(vty, binfo, timebuf, BGP_UPTIME_LEN,
 					use_json, json);
 	else
-		vty_out(vty, "%s ",
-			bgp_damp_reuse_time_vty(vty, binfo, timebuf,
-						BGP_UPTIME_LEN, use_json,
-						json));
+		vty_out(vty, "%s ", bgp_damp_reuse_time_vty(vty, binfo, timebuf,
+							    BGP_UPTIME_LEN,
+							    use_json, json));
 
 	/* Print attribute */
 	attr = binfo->attr;
@@ -6921,9 +6922,8 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 		peer_uptime(bdi->start_time, timebuf, BGP_UPTIME_LEN, use_json,
 			    json);
 	else
-		vty_out(vty, "%s ",
-			peer_uptime(bdi->start_time, timebuf, BGP_UPTIME_LEN, 0,
-				    NULL));
+		vty_out(vty, "%s ", peer_uptime(bdi->start_time, timebuf,
+						BGP_UPTIME_LEN, 0, NULL));
 
 	if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED)
 	    && !CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY)) {
@@ -8029,9 +8029,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			}
 
 			if (!use_json && header) {
-				vty_out(vty,
-					"BGP table version is %" PRIu64
-					", local router ID is %s\n",
+				vty_out(vty, "BGP table version is %" PRIu64
+					     ", local router ID is %s\n",
 					table->version,
 					inet_ntoa(bgp->router_id));
 				vty_out(vty, BGP_SHOW_SCODE_HEADER);
@@ -8513,9 +8512,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 		if (display)
 			json_object_object_add(json, "paths", json_paths);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		if (!display) {
@@ -9590,9 +9588,8 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 				json, "recommended",
 				"Please report this bug, with the above command output");
 		}
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 
@@ -9826,9 +9823,8 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					       "bgpOriginatingDefaultNetwork",
 					       "0.0.0.0");
 		} else {
-			vty_out(vty,
-				"BGP table version is %" PRIu64
-				", local router ID is %s\n",
+			vty_out(vty, "BGP table version is %" PRIu64
+				     ", local router ID is %s\n",
 				table->version, inet_ntoa(bgp->router_id));
 			vty_out(vty, BGP_SHOW_SCODE_HEADER);
 			vty_out(vty, BGP_SHOW_OCODE_HEADER);
@@ -9971,9 +9967,8 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				output_count);
 	}
 	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }

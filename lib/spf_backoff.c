@@ -227,7 +227,8 @@ void spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
 		struct timeval remain =
 			thread_timer_remain(backoff->t_holddown);
 		vty_out(vty, "%s                   Still runs for %lld msec\n",
-			prefix, (long long)remain.tv_sec * 1000
+			prefix,
+			(long long)remain.tv_sec * 1000
 				+ remain.tv_usec / 1000);
 	} else {
 		vty_out(vty, "%s                   Inactive\n", prefix);
@@ -239,7 +240,8 @@ void spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
 		struct timeval remain =
 			thread_timer_remain(backoff->t_timetolearn);
 		vty_out(vty, "%s                   Still runs for %lld msec\n",
-			prefix, (long long)remain.tv_sec * 1000
+			prefix,
+			(long long)remain.tv_sec * 1000
 				+ remain.tv_usec / 1000);
 	} else {
 		vty_out(vty, "%s                   Inactive\n", prefix);

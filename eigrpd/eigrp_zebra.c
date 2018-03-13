@@ -114,7 +114,7 @@ static void eigrp_zebra_connected(struct zclient *zclient)
 
 void eigrp_zebra_init(void)
 {
-	struct zclient_options opt = { .receive_notify = false };
+	struct zclient_options opt = {.receive_notify = false};
 
 	zclient = zclient_new_notify(master, &opt);
 
@@ -205,8 +205,7 @@ static int eigrp_interface_delete(int command, struct zclient *zclient,
 			ifp->metric, ifp->mtu);
 
 	if (ifp->info)
-		eigrp_if_free(ifp->info,
-			      INTERFACE_DOWN_BY_ZEBRA);
+		eigrp_if_free(ifp->info, INTERFACE_DOWN_BY_ZEBRA);
 
 	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;

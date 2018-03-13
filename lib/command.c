@@ -62,9 +62,10 @@ const char *node_names[] = {
 	"aaa",			    // AAA_NODE,
 	"keychain",		    // KEYCHAIN_NODE,
 	"keychain key",		    // KEYCHAIN_KEY_NODE,
-	"logical-router",	    // LOGICALROUTER_NODE,
+	"logical-router",	   // LOGICALROUTER_NODE,
 	"vrf",			    // VRF_NODE,
 	"interface",		    // INTERFACE_NODE,
+	"nexthop-group",            // NH_GROUP_NODE,
 	"zebra",		    // ZEBRA_NODE,
 	"table",		    // TABLE_NODE,
 	"rip",			    // RIP_NODE,
@@ -74,14 +75,14 @@ const char *node_names[] = {
 	"bgp",			    // BGP_NODE,
 	"bgp vpnv4",		    // BGP_VPNV4_NODE,
 	"bgp vpnv6",		    // BGP_VPNV6_NODE,
-	"bgp ipv4 unicast",         // BGP_IPV4_NODE,
+	"bgp ipv4 unicast",	 // BGP_IPV4_NODE,
 	"bgp ipv4 multicast",       // BGP_IPV4M_NODE,
 	"bgp ipv4 labeled unicast", // BGP_IPV4L_NODE,
 	"bgp ipv6",		    // BGP_IPV6_NODE,
 	"bgp ipv6 multicast",       // BGP_IPV6M_NODE,
 	"bgp ipv6 labeled unicast", // BGP_IPV6L_NODE,
-	"bgp vrf policy",	    // BGP_VRF_POLICY_NODE,
-	"bgp vnc defaults",         // BGP_VNC_DEFAULTS_NODE,
+	"bgp vrf policy",	   // BGP_VRF_POLICY_NODE,
+	"bgp vnc defaults",	 // BGP_VNC_DEFAULTS_NODE,
 	"bgp vnc nve",		    // BGP_VNC_NVE_GROUP_NODE,
 	"bgp vnc l2",		    // BGP_VNC_L2_GROUP_NODE,
 	"rfp defaults",		    // RFP_DEFAULTS_NODE,
@@ -99,13 +100,13 @@ const char *node_names[] = {
 	"masc",			    // MASC_NODE,
 	"irdp",			    // IRDP_NODE,
 	"static ip",		    // IP_NODE,
-	"ipv4 access list",         // ACCESS_NODE,
-	"ipv4 prefix list",         // PREFIX_NODE,
-	"ipv6 access list",         // ACCESS_IPV6_NODE,
-	"MAC access list",          // ACCESS_MAC_NODE,
-	"ipv6 prefix list",         // PREFIX_IPV6_NODE,
+	"ipv4 access list",	 // ACCESS_NODE,
+	"ipv4 prefix list",	 // PREFIX_NODE,
+	"ipv6 access list",	 // ACCESS_IPV6_NODE,
+	"MAC access list",	  // ACCESS_MAC_NODE,
+	"ipv6 prefix list",	 // PREFIX_IPV6_NODE,
 	"as list",		    // AS_LIST_NODE,
-	"community list",	    // COMMUNITY_LIST_NODE,
+	"community list",	   // COMMUNITY_LIST_NODE,
 	"routemap",		    // RMAP_NODE,
 	"smux",			    // SMUX_NODE,
 	"dump",			    // DUMP_NODE,
@@ -301,8 +302,7 @@ void install_node(struct cmd_node *node, int (*func)(struct vty *))
 		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
 	graph_new_node(node->cmdgraph, token,
 		       (void (*)(void *)) & cmd_token_del);
-	node->cmd_hash = hash_create_size(16, cmd_hash_key,
-					  cmd_hash_cmp,
+	node->cmd_hash = hash_create_size(16, cmd_hash_key, cmd_hash_cmp,
 					  "Command Hash");
 }
 
@@ -499,6 +499,9 @@ static int config_write_host(struct vty *vty)
 {
 	if (cmd_hostname_get())
 		vty_out(vty, "hostname %s\n", cmd_hostname_get());
+
+	if (cmd_domainname_get())
+		vty_out(vty, "domainname %s\n", cmd_domainname_get());
 
 	if (host.encrypt) {
 		if (host.password_encrypt)
@@ -1167,8 +1170,7 @@ int command_config_read_one_line(struct vty *vty,
 	if (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
 	    && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 	    && ret != CMD_SUCCESS && ret != CMD_WARNING
-	    && ret != CMD_NOT_MY_INSTANCE
-	    && ret != CMD_WARNING_CONFIG_FAILED
+	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	    && vty->node != CONFIG_NODE) {
 
 		saved_node = vty->node;
@@ -1293,6 +1295,7 @@ void cmd_exit(struct vty *vty)
 	case PW_NODE:
 	case LOGICALROUTER_NODE:
 	case VRF_NODE:
+	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
 	case BGP_NODE:
 	case RIP_NODE:
@@ -1378,6 +1381,7 @@ DEFUN (config_end,
 	case PW_NODE:
 	case LOGICALROUTER_NODE:
 	case VRF_NODE:
+	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
 	case RIP_NODE:
 	case RIPNG_NODE:

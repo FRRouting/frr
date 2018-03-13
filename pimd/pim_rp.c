@@ -147,8 +147,9 @@ void pim_rp_init(struct pim_instance *pim)
 
 	rn->info = rp_info;
 	if (PIM_DEBUG_TRACE)
-		zlog_debug("Allocated: %p for rp_info: %p(224.0.0.0/4) Lock: %d",
-			   rn, rp_info, rn->lock);
+		zlog_debug(
+			"Allocated: %p for rp_info: %p(224.0.0.0/4) Lock: %d",
+			rn, rp_info, rn->lock);
 }
 
 void pim_rp_free(struct pim_instance *pim)
@@ -232,7 +233,8 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 		if (rp_info->plist) {
 			plist = prefix_list_lookup(AFI_IP, rp_info->plist);
 
-			if (prefix_list_apply_which_prefix(plist, &p, group) == PREFIX_DENY)
+			if (prefix_list_apply_which_prefix(plist, &p, group)
+			    == PREFIX_DENY)
 				continue;
 
 			if (!best) {
@@ -250,8 +252,9 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 
 	rn = route_node_match(pim->rp_table, group);
 	if (!rn) {
-		zlog_err("%s: BUG We should have found default group information\n",
-			 __PRETTY_FUNCTION__);
+		zlog_err(
+			"%s: BUG We should have found default group information\n",
+			__PRETTY_FUNCTION__);
 		return best;
 	}
 
@@ -260,8 +263,8 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 		char buf[PREFIX_STRLEN];
 
 		route_unlock_node(rn);
-		zlog_debug("Lookedup: %p for rp_info: %p(%s) Lock: %d",
-			   rn, rp_info,
+		zlog_debug("Lookedup: %p for rp_info: %p(%s) Lock: %d", rn,
+			   rp_info,
 			   prefix2str(&rp_info->group, buf, sizeof(buf)),
 			   rn->lock);
 	}
@@ -542,8 +545,8 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 	if (PIM_DEBUG_TRACE) {
 		char buf[PREFIX_STRLEN];
 
-		zlog_debug("Allocated: %p for rp_info: %p(%s) Lock: %d",
-			   rn, rp_info,
+		zlog_debug("Allocated: %p for rp_info: %p(%s) Lock: %d", rn,
+			   rp_info,
 			   prefix2str(&rp_info->group, buf, sizeof(buf)),
 			   rn->lock);
 	}
@@ -653,11 +656,12 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 			if (PIM_DEBUG_TRACE) {
 				char buf[PREFIX_STRLEN];
 
-				zlog_debug("%s:Found for Freeing: %p for rp_info: %p(%s) Lock: %d",
-					   __PRETTY_FUNCTION__,
-					   rn, rp_info,
-					   prefix2str(&rp_info->group, buf, sizeof(buf)),
-					   rn->lock);
+				zlog_debug(
+					"%s:Found for Freeing: %p for rp_info: %p(%s) Lock: %d",
+					__PRETTY_FUNCTION__, rn, rp_info,
+					prefix2str(&rp_info->group, buf,
+						   sizeof(buf)),
+					rn->lock);
 			}
 			rn->info = NULL;
 			route_unlock_node(rn);

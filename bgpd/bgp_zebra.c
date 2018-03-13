@@ -1746,8 +1746,7 @@ static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx L3-VNI %s VRF %s VNI %u RMAC %s filter %s",
 			   (cmd == ZEBRA_L3VNI_ADD) ? "add" : "del",
-			   vrf_id_to_name(vrf_id),
-			   l3vni,
+			   vrf_id_to_name(vrf_id), l3vni,
 			   prefix_mac2str(&rmac, buf, sizeof(buf)),
 			   filter ? "prefix-routes-only" : "none");
 

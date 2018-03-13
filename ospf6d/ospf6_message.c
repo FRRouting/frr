@@ -1997,9 +1997,9 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 	if (on) {
 		on->ospf6_if->ls_upd_out++;
 
-		if ((on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT) ||
-		    (on->ospf6_if->state == OSPF6_INTERFACE_DR) ||
-		    (on->ospf6_if->state == OSPF6_INTERFACE_BDR)) {
+		if ((on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT)
+		    || (on->ospf6_if->state == OSPF6_INTERFACE_DR)
+		    || (on->ospf6_if->state == OSPF6_INTERFACE_BDR)) {
 			ospf6_send(on->ospf6_if->linklocal_addr,
 				   &allspfrouters6, on->ospf6_if, oh);
 		} else {
@@ -2010,9 +2010,9 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 
 		oi->ls_upd_out++;
 
-		if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT) ||
-		    (oi->state == OSPF6_INTERFACE_DR) ||
-		    (oi->state == OSPF6_INTERFACE_BDR)) {
+		if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT)
+		    || (oi->state == OSPF6_INTERFACE_DR)
+		    || (oi->state == OSPF6_INTERFACE_BDR)) {
 			ospf6_send(oi->linklocal_addr, &allspfrouters6, oi, oh);
 		} else {
 			ospf6_send(oi->linklocal_addr, &alldrouters6, oi, oh);
@@ -2065,8 +2065,10 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 
 				memset(sendbuf, 0, iobuflen);
 				oh = (struct ospf6_header *)sendbuf;
-				lsupdate = (struct ospf6_lsupdate *)((caddr_t)oh
-					     + sizeof(struct ospf6_header));
+				lsupdate = (struct ospf6_lsupdate
+						    *)((caddr_t)oh
+						       + sizeof(struct
+								ospf6_header));
 
 				p = (u_char *)((caddr_t)lsupdate
 					       + sizeof(struct ospf6_lsupdate));
@@ -2110,8 +2112,8 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 				oh->length = htons(p - sendbuf);
 				lsupdate->lsa_number = htonl(lsa_cnt);
 
-				if (on->ospf6_if->state ==
-				    OSPF6_INTERFACE_POINTTOPOINT) {
+				if (on->ospf6_if->state
+				    == OSPF6_INTERFACE_POINTTOPOINT) {
 					ospf6_send(on->ospf6_if->linklocal_addr,
 						   &allspfrouters6,
 						   on->ospf6_if, oh);
@@ -2123,10 +2125,12 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 
 				memset(sendbuf, 0, iobuflen);
 				oh = (struct ospf6_header *)sendbuf;
-				lsupdate = (struct ospf6_lsupdate *)((caddr_t)oh
-					     + sizeof(struct ospf6_header));
-				p = (u_char *)((caddr_t)lsupdate +
-					       sizeof(struct ospf6_lsupdate));
+				lsupdate = (struct ospf6_lsupdate
+						    *)((caddr_t)oh
+						       + sizeof(struct
+								ospf6_header));
+				p = (u_char *)((caddr_t)lsupdate
+					       + sizeof(struct ospf6_lsupdate));
 				lsa_cnt = 0;
 			}
 		}
@@ -2186,11 +2190,11 @@ int ospf6_lsupdate_send_neighbor_now(struct ospf6_neighbor *on,
 	oh->length = htons(p - sendbuf);
 	lsupdate->lsa_number = htonl(lsa_cnt);
 
-	if (IS_OSPF6_DEBUG_FLOODING ||
-	    IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
+	if (IS_OSPF6_DEBUG_FLOODING
+	    || IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
 		zlog_debug("%s: Send lsupdate with lsa %s (age %u)",
-		   __PRETTY_FUNCTION__, lsa->name,
-		   ntohs(lsa->header->age));
+			   __PRETTY_FUNCTION__, lsa->name,
+			   ntohs(lsa->header->age));
 
 	ospf6_send_lsupdate(on, NULL, oh);
 
@@ -2241,18 +2245,20 @@ int ospf6_lsupdate_send_interface(struct thread *thread)
 
 				ospf6_send_lsupdate(NULL, oi, oh);
 				if (IS_OSPF6_DEBUG_MESSAGE(
-					OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
+					    OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
 					zlog_debug("%s: LSUpdate length %d",
 						   __PRETTY_FUNCTION__,
 						   ntohs(oh->length));
 
 				memset(sendbuf, 0, iobuflen);
 				oh = (struct ospf6_header *)sendbuf;
-				lsupdate = (struct ospf6_lsupdate *)((caddr_t)oh
-						+ sizeof(struct ospf6_header));
+				lsupdate = (struct ospf6_lsupdate
+						    *)((caddr_t)oh
+						       + sizeof(struct
+								ospf6_header));
 
 				p = (u_char *)((caddr_t)lsupdate
-					+ sizeof(struct ospf6_lsupdate));
+					       + sizeof(struct ospf6_lsupdate));
 				lsa_cnt = 0;
 			}
 		}
@@ -2324,13 +2330,13 @@ int ospf6_lsack_send_neighbor(struct thread *thread)
 				on->ospf6_if->ls_ack_out++;
 
 				ospf6_send(on->ospf6_if->linklocal_addr,
-					   &on->linklocal_addr,
-					   on->ospf6_if, oh);
+					   &on->linklocal_addr, on->ospf6_if,
+					   oh);
 
 				memset(sendbuf, 0, iobuflen);
 				oh = (struct ospf6_header *)sendbuf;
-				p = (u_char *)((caddr_t)oh +
-					       sizeof(struct ospf6_header));
+				p = (u_char *)((caddr_t)oh
+					       + sizeof(struct ospf6_header));
 				lsa_cnt = 0;
 			}
 		}

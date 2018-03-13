@@ -238,8 +238,8 @@ DEFUN (match_ipv6_address_prefix_len,
        "Match prefix length of ipv6 address\n"
        "Prefix length\n")
 {
-	return zebra_route_match_add(vty, "ipv6 address prefix-len", argv[4]->arg,
-				     RMAP_EVENT_MATCH_ADDED);
+	return zebra_route_match_add(vty, "ipv6 address prefix-len",
+				     argv[4]->arg, RMAP_EVENT_MATCH_ADDED);
 }
 
 DEFUN (no_match_ipv6_address_prefix_len,

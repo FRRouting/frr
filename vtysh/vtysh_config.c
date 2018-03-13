@@ -175,9 +175,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			    == 0) {
 				config_add_line(config->line, line);
 				config->index = LINK_PARAMS_NODE;
-			} else if (strncmp(line,
-					   " ip multicast boundary",
-					   strlen(" ip multicast boundary")) == 0) {
+			} else if (strncmp(line, " ip multicast boundary",
+					   strlen(" ip multicast boundary"))
+				   == 0) {
 				config_add_line_end(config->line, line);
 			} else if (config->index == LINK_PARAMS_NODE
 				   && strncmp(line, "  exit-link-params",
@@ -263,10 +263,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				 == 0
 			 || strncmp(line, "ip extcommunity-list",
 				    strlen("ip extcommunity-list"))
-				 == 0
+				    == 0
 			 || strncmp(line, "ip large-community-list",
 				    strlen("ip large-community-list"))
-				 == 0)
+				    == 0)
 			config = config_get(COMMUNITY_LIST_NODE, line);
 		else if (strncmp(line, "ip route", strlen("ip route")) == 0)
 			config = config_get(IP_NODE, line);
@@ -398,7 +398,7 @@ static int vtysh_read_file(FILE *confp)
 	int ret;
 
 	vty = vty_new();
-	vty->fd = 0; /* stdout */
+	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_TERM;
 	vty->node = CONFIG_NODE;
 
@@ -446,6 +446,11 @@ void vtysh_config_write()
 
 	if (cmd_hostname_get()) {
 		sprintf(line, "hostname %s", cmd_hostname_get());
+		vtysh_config_parse_line(NULL, line);
+	}
+
+	if (cmd_domainname_get()) {
+		sprintf(line, "domainname %s", cmd_domainname_get());
 		vtysh_config_parse_line(NULL, line);
 	}
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)

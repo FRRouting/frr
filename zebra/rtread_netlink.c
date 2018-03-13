@@ -25,7 +25,9 @@
 
 #include "vty.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_pbr.h"
 #include "zebra/rt_netlink.h"
+#include "zebra/rule_netlink.h"
 
 void route_read(struct zebra_ns *zns)
 {
@@ -51,6 +53,11 @@ void neigh_read(struct zebra_ns *zns)
 void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 {
 	netlink_neigh_read_for_vlan(zns, vlan_if);
+}
+
+void kernel_read_pbr_rules(struct zebra_ns *zns)
+{
+	netlink_rules_read(zns);
 }
 
 #endif /* GNU_LINUX */

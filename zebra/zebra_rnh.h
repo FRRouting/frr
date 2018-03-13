@@ -39,9 +39,9 @@ struct rnh {
 	struct route_entry *state;
 	struct prefix resolved_route;
 	struct list *client_list;
-	struct list *
-		zebra_static_route_list; /* static routes dependent on this NH
-					    */
+	struct list
+		*zebra_static_route_list; /* static routes dependent on this NH
+					     */
 	struct list
 		*zebra_pseudowire_list; /* pseudowires dependent on this NH */
 	struct route_node *node;
