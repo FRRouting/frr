@@ -389,7 +389,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 		return;
 
 	if (zclient_debug)
-		zlog_debug("%s: send register messages for VRF %u", __func__,
+		zlog_debug("%s: send register messages for VRF %llu", __func__,
 			   vrf_id);
 
 	/* We need router-id information. */
@@ -454,8 +454,8 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 		return;
 
 	if (zclient_debug)
-		zlog_debug("%s: send deregister messages for VRF %u", __func__,
-			   vrf_id);
+		zlog_debug("%s: send deregister messages for VRF %llu",
+			   __func__, vrf_id);
 
 	/* We need router-id information. */
 	zebra_message_send(zclient, ZEBRA_ROUTER_ID_DELETE, vrf_id);
@@ -1502,7 +1502,7 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 	/* Lookup this by interface index. */
 	ifp = if_lookup_by_name(ifname_tmp, vrf_id);
 	if (ifp == NULL) {
-		zlog_warn("INTERFACE_STATE: Cannot find IF %s in VRF %d",
+		zlog_warn("INTERFACE_STATE: Cannot find IF %s in VRF %llu",
 			  ifname_tmp, vrf_id);
 		return NULL;
 	}
@@ -1706,7 +1706,7 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 	/* Lookup index. */
 	ifp = if_lookup_by_index(ifindex, vrf_id);
 	if (ifp == NULL) {
-		zlog_warn("INTERFACE_ADDRESS_%s: Cannot find IF %u in VRF %d",
+		zlog_warn("INTERFACE_ADDRESS_%s: Cannot find IF %u in VRF %llu",
 			  (type == ZEBRA_INTERFACE_ADDRESS_ADD) ? "ADD" : "DEL",
 			  ifindex, vrf_id);
 		return NULL;
@@ -1797,7 +1797,7 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 	/* Lookup index. */
 	ifp = if_lookup_by_index(ifindex, vrf_id);
 	if (ifp == NULL) {
-		zlog_warn("INTERFACE_NBR_%s: Cannot find IF %u in VRF %d",
+		zlog_warn("INTERFACE_NBR_%s: Cannot find IF %u in VRF %llu",
 			  (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD) ? "ADD"
 								    : "DELETE",
 			  ifindex, vrf_id);
@@ -1846,7 +1846,7 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 	/* Lookup interface. */
 	ifp = if_lookup_by_index(ifindex, vrf_id);
 	if (ifp == NULL) {
-		zlog_warn("INTERFACE_VRF_UPDATE: Cannot find IF %u in VRF %d",
+		zlog_warn("INTERFACE_VRF_UPDATE: Cannot find IF %u in VRF %llu",
 			  ifindex, vrf_id);
 		return NULL;
 	}
@@ -2255,7 +2255,7 @@ static int zclient_read(struct thread *thread)
 	length -= ZEBRA_HEADER_SIZE;
 
 	if (zclient_debug)
-		zlog_debug("zclient 0x%p command 0x%x VRF %u\n",
+		zlog_debug("zclient 0x%p command 0x%x VRF %llu\n",
 			   (void *)zclient, command, vrf_id);
 
 	switch (command) {

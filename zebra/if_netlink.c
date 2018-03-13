@@ -1126,7 +1126,7 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			/* Add interface notification from kernel */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"RTM_NEWLINK ADD for %s(%u) vrf_id %u type %d "
+					"RTM_NEWLINK ADD for %s(%u) vrf_id %llu type %d "
 					"sl_type %d master %u flags 0x%x",
 					name, ifi->ifi_index, vrf_id, zif_type,
 					zif_slave_type, bridge_ifindex,
@@ -1174,7 +1174,7 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
 					"RTM_NEWLINK vrf-change for %s(%u) "
-					"vrf_id %u -> %u flags 0x%x",
+					"vrf_id %llu -> %llu flags 0x%x",
 					name, ifp->ifindex, ifp->vrf_id, vrf_id,
 					ifi->ifi_flags);
 

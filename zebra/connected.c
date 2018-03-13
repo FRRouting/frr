@@ -251,7 +251,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug(
-			"%u: IF %s address %s add/up, scheduling RIB processing",
+			"%llu: IF %s address %s add/up, scheduling RIB processing",
 			ifp->vrf_id, ifp->name,
 			prefix2str(&p, buf, sizeof(buf)));
 	}
@@ -263,7 +263,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			char buf[PREFIX_STRLEN];
 
 			zlog_debug(
-				"%u: IF %s IP %s address add/up, scheduling MPLS processing",
+				"%llu: IF %s IP %s address add/up, scheduling MPLS processing",
 				ifp->vrf_id, ifp->name,
 				prefix2str(&p, buf, sizeof(buf)));
 		}
@@ -412,7 +412,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug(
-			"%u: IF %s IP %s address down, scheduling RIB processing",
+			"%llu: IF %s IP %s address down, scheduling RIB processing",
 			ifp->vrf_id, ifp->name,
 			prefix2str(&p, buf, sizeof(buf)));
 	}
@@ -425,7 +425,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 			char buf[PREFIX_STRLEN];
 
 			zlog_debug(
-				"%u: IF %s IP %s address down, scheduling MPLS processing",
+				"%llu: IF %s IP %s address down, scheduling MPLS processing",
 				ifp->vrf_id, ifp->name,
 				prefix2str(&p, buf, sizeof(buf)));
 		}
@@ -447,7 +447,7 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug(
-			"%u: IF %s IP %s address del, scheduling RIB processing",
+			"%llu: IF %s IP %s address del, scheduling RIB processing",
 			ifp->vrf_id, ifp->name,
 			prefix2str(p, buf, sizeof(buf)));
 	}
@@ -459,7 +459,7 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 			char buf[PREFIX_STRLEN];
 
 			zlog_debug(
-				"%u: IF %s IP %s address delete, scheduling MPLS processing",
+				"%llu: IF %s IP %s address delete, scheduling MPLS processing",
 				ifp->vrf_id, ifp->name,
 				prefix2str(p, buf, sizeof(buf)));
 		}

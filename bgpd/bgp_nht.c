@@ -333,7 +333,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp) {
 		zlog_err(
-			"parse nexthop update: instance not found for vrf_id %u",
+			"parse nexthop update: instance not found for vrf_id %llu",
 			vrf_id);
 		return;
 	}
@@ -376,7 +376,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&nhr.prefix, buf, sizeof(buf));
 		zlog_debug(
-			"%u: Rcvd NH update %s - metric %d/%d #nhops %d/%d flags 0x%x",
+			"%llu: Rcvd NH update %s - metric %d/%d #nhops %d/%d flags 0x%x",
 			vrf_id, buf, nhr.metric, bnc->metric, nhr.nexthop_num,
 			bnc->nexthop_num, bnc->flags);
 	}

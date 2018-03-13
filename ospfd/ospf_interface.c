@@ -266,7 +266,7 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	QOBJ_REG(oi, ospf_interface);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: ospf interface %s vrf %s id %u created",
+		zlog_debug("%s: ospf interface %s vrf %s id %llu created",
 			   __PRETTY_FUNCTION__, ifp->name,
 			   ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id);
 
@@ -341,7 +341,7 @@ void ospf_if_free(struct ospf_interface *oi)
 	list_delete_and_null(&oi->ls_ack_direct.ls_ack);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
+		zlog_debug("%s: ospf interface %s vrf %s id %llu deleted",
 			   __PRETTY_FUNCTION__, oi->ifp->name,
 			   ospf_vrf_id_to_name(oi->ifp->vrf_id),
 			   oi->ifp->vrf_id);
@@ -850,7 +850,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"ospf_vl_new(): creating pseudo zebra interface vrf id %u",
+			"ospf_vl_new(): creating pseudo zebra interface vrf id %llu",
 			ospf->vrf_id);
 
 	snprintf(ifname, sizeof(ifname), "VLINK%d", vlink_count);

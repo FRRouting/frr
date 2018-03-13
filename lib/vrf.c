@@ -124,7 +124,7 @@ int vrf_switch_to_netns(vrf_id_t vrf_id)
 		return 0;
 	name = ns_netns_pathname(NULL, vrf->data.l.netns_name);
 	if (debug_vrf)
-		zlog_debug("VRF_SWITCH: %s(%u)", name, vrf->vrf_id);
+		zlog_debug("VRF_SWITCH: %s(%llu)", name, vrf->vrf_id);
 	return ns_switch_to_netns(name);
 }
 
@@ -150,7 +150,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	int new = 0;
 
 	if (debug_vrf)
-		zlog_debug("VRF_GET: %s(%u)", name == NULL ? "(NULL)" : name,
+		zlog_debug("VRF_GET: %s(%llu)", name == NULL ? "(NULL)" : name,
 			   vrf_id);
 
 	/* Nothing to see, move along here */
@@ -170,7 +170,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 		new = 1;
 
 		if (debug_vrf)
-			zlog_debug("VRF(%u) %s is created.", vrf_id,
+			zlog_debug("VRF(%llu) %s is created.", vrf_id,
 				   (name) ? name : "(NULL)");
 	}
 
@@ -201,7 +201,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 void vrf_delete(struct vrf *vrf)
 {
 	if (debug_vrf)
-		zlog_debug("VRF %u is to be deleted.", vrf->vrf_id);
+		zlog_debug("VRF %llu is to be deleted.", vrf->vrf_id);
 
 	if (vrf_is_enabled(vrf))
 		vrf_disable(vrf);
@@ -258,7 +258,7 @@ int vrf_enable(struct vrf *vrf)
 		return 1;
 
 	if (debug_vrf)
-		zlog_debug("VRF %u is enabled.", vrf->vrf_id);
+		zlog_debug("VRF %llu is enabled.", vrf->vrf_id);
 
 	SET_FLAG(vrf->status, VRF_ACTIVE);
 
@@ -281,7 +281,7 @@ void vrf_disable(struct vrf *vrf)
 	UNSET_FLAG(vrf->status, VRF_ACTIVE);
 
 	if (debug_vrf)
-		zlog_debug("VRF %u is to be disabled.", vrf->vrf_id);
+		zlog_debug("VRF %llu is to be disabled.", vrf->vrf_id);
 
 	/* Till now, nothing to be done for the default VRF. */
 	// Pending: see why this statement.
@@ -500,13 +500,13 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0)
-		zlog_err("%s: Can't switch to VRF %u (%s)", __func__, vrf_id,
+		zlog_err("%s: Can't switch to VRF %llu (%s)", __func__, vrf_id,
 			 safe_strerror(errno));
 	ret = socket(domain, type, protocol);
 	save_errno = errno;
 	ret2 = vrf_switchback_to_initial();
 	if (ret2 < 0)
-		zlog_err("%s: Can't switchback from VRF %u (%s)", __func__,
+		zlog_err("%s: Can't switchback from VRF %llu (%s)", __func__,
 			 vrf_id, safe_strerror(errno));
 	errno = save_errno;
 	if (ret <= 0)
@@ -570,11 +570,12 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	if (vrf->vrf_id != VRF_UNKNOWN && vrf->ns_ctxt == NULL) {
 		if (vty)
 			vty_out(vty,
-				"VRF %u is already configured with VRF %s\n",
+				"VRF %llu is already configured with VRF %s\n",
 				vrf->vrf_id, vrf->name);
 		else
-			zlog_warn("VRF %u is already configured with VRF %s\n",
-				  vrf->vrf_id, vrf->name);
+			zlog_warn(
+				"VRF %llu is already configured with VRF %s\n",
+				vrf->vrf_id, vrf->name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (vrf->ns_ctxt != NULL) {
@@ -582,11 +583,11 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 		if (ns && 0 != strcmp(ns->name, pathname)) {
 			if (vty)
 				vty_out(vty,
-					"VRF %u already configured with NETNS %s\n",
+					"VRF %llu already configured with NETNS %s\n",
 					vrf->vrf_id, ns->name);
 			else
 				zlog_warn(
-					"VRF %u already configured with NETNS %s",
+					"VRF %llu already configured with NETNS %s",
 					vrf->vrf_id, ns->name);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
@@ -600,11 +601,12 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 		if (vty)
 			vty_out(vty,
 				"NS %s is already configured"
-				" with VRF %u(%s)\n",
+				" with VRF %llu(%s)\n",
 				ns->name, vrf2->vrf_id, vrf2->name);
 		else
-			zlog_warn("NS %s is already configured with VRF %u(%s)",
-				  ns->name, vrf2->vrf_id, vrf2->name);
+			zlog_warn(
+				"NS %s is already configured with VRF %llu(%s)",
+				ns->name, vrf2->vrf_id, vrf2->name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	ns = ns_get_created(ns, pathname, ns_id);
@@ -716,7 +718,7 @@ DEFUN (no_vrf_netns,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (!vrf->ns_ctxt) {
-		vty_out(vty, "VRF %s(%u) is not configured with NetNS\n",
+		vty_out(vty, "VRF %s(%llu) is not configured with NetNS\n",
 			vrf->name, vrf->vrf_id);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -828,13 +830,13 @@ int vrf_getaddrinfo(const char *node, const char *service,
 
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0)
-		zlog_err("%s: Can't switch to VRF %u (%s)", __func__, vrf_id,
+		zlog_err("%s: Can't switch to VRF %llu (%s)", __func__, vrf_id,
 			 safe_strerror(errno));
 	ret = getaddrinfo(node, service, hints, res);
 	save_errno = errno;
 	ret2 = vrf_switchback_to_initial();
 	if (ret2 < 0)
-		zlog_err("%s: Can't switchback from VRF %u (%s)", __func__,
+		zlog_err("%s: Can't switchback from VRF %llu (%s)", __func__,
 			 vrf_id, safe_strerror(errno));
 	errno = save_errno;
 	return ret;
@@ -846,7 +848,7 @@ int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *params)
 
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0) {
-		zlog_err("%s: Can't switch to VRF %u (%s)", __func__, vrf_id,
+		zlog_err("%s: Can't switch to VRF %llu (%s)", __func__, vrf_id,
 			 safe_strerror(errno));
 		return 0;
 	}
@@ -854,7 +856,7 @@ int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *params)
 	saved_errno = errno;
 	ret = vrf_switchback_to_initial();
 	if (ret < 0)
-		zlog_err("%s: Can't switchback from VRF %u (%s)", __func__,
+		zlog_err("%s: Can't switchback from VRF %llu (%s)", __func__,
 			 vrf_id, safe_strerror(errno));
 	errno = saved_errno;
 	return rc;
@@ -867,13 +869,13 @@ int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 
 	ret = vrf_switch_to_netns(vrf_id);
 	if (ret < 0)
-		zlog_err("%s: Can't switch to VRF %u (%s)", __func__, vrf_id,
+		zlog_err("%s: Can't switch to VRF %llu (%s)", __func__, vrf_id,
 			 safe_strerror(errno));
 	ret = sockunion_socket(su);
 	save_errno = errno;
 	ret2 = vrf_switchback_to_initial();
 	if (ret2 < 0)
-		zlog_err("%s: Can't switchback from VRF %u (%s)", __func__,
+		zlog_err("%s: Can't switchback from VRF %llu (%s)", __func__,
 			 vrf_id, safe_strerror(errno));
 	errno = save_errno;
 

@@ -117,7 +117,7 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 		snprintf(buf, sizeof(buf), "{(route_node *) NULL}");
 	}
 
-	zlog(priority, "%s: %d:%s: %s", _func, vrf_id, buf, msgbuf);
+	zlog(priority, "%s: %lld:%s: %s", _func, vrf_id, buf, msgbuf);
 }
 
 #define rnode_debug(node, vrf_id, ...)                                         \
@@ -928,7 +928,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		if (IS_ZEBRA_DEBUG_RIB) {
 			srcdest_rnode2str(rn, buf, sizeof(buf));
 			zlog_debug(
-				"%u:%s: Filtering out with NH out %s due to route map",
+				"%llu:%s: Filtering out with NH out %s due to route map",
 				re->vrf_id, buf,
 				ifindex2ifname(nexthop->ifindex,
 					       nexthop->vrf_id));
@@ -1043,7 +1043,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
 		dest->selected_fib = re;
 
 		zsend_route_notify_owner(re, p, ZAPI_ROUTE_FAIL_INSTALL);
-		zlog_warn("%u:%s: Route install failed", re->vrf_id,
+		zlog_warn("%llu:%s: Route install failed", re->vrf_id,
 			  prefix2str(p, buf, sizeof(buf)));
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
@@ -1067,7 +1067,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
 		 * delete fails?
 		 */
 		dest->selected_fib = NULL;
-		zlog_warn("%u:%s: Route Deletion failure", re->vrf_id,
+		zlog_warn("%llu:%s: Route Deletion failure", re->vrf_id,
 			  prefix2str(p, buf, sizeof(buf)));
 
 		zsend_route_notify_owner(re, p, ZAPI_ROUTE_REMOVE_FAIL);
@@ -1258,7 +1258,7 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (IS_ZEBRA_DEBUG_RIB) {
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rn, buf, sizeof(buf));
-		zlog_debug("%u:%s: Adding route rn %p, re %p (type %d)",
+		zlog_debug("%llu:%s: Adding route rn %p, re %p (type %d)",
 			   zvrf_id(zvrf), buf, rn, new, new->type);
 	}
 
@@ -1284,7 +1284,7 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (IS_ZEBRA_DEBUG_RIB) {
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rn, buf, sizeof(buf));
-		zlog_debug("%u:%s: Deleting route rn %p, re %p (type %d)",
+		zlog_debug("%llu:%s: Deleting route rn %p, re %p (type %d)",
 			   zvrf_id(zvrf), buf, rn, old, old->type);
 	}
 
@@ -1344,13 +1344,13 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 				srcdest_rnode2str(rn, buf, sizeof(buf));
 				if (new != old)
 					zlog_debug(
-						"%u:%s: Updating route rn %p, re %p (type %d) "
+						"%llu:%s: Updating route rn %p, re %p (type %d) "
 						"old %p (type %d)",
 						zvrf_id(zvrf), buf, rn, new,
 						new->type, old, old->type);
 				else
 					zlog_debug(
-						"%u:%s: Updating route rn %p, re %p (type %d)",
+						"%llu:%s: Updating route rn %p, re %p (type %d)",
 						zvrf_id(zvrf), buf, rn, new,
 						new->type);
 			}
@@ -1407,7 +1407,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 				srcdest_rnode2str(rn, buf, sizeof(buf));
 				if (new != old)
 					zlog_debug(
-						"%u:%s: Deleting route rn %p, re %p (type %d) "
+						"%llu:%s: Deleting route rn %p, re %p (type %d) "
 						"old %p (type %d) - %s",
 						zvrf_id(zvrf), buf, rn, new,
 						new->type, old, old->type,
@@ -1415,7 +1415,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 							  : "nexthop inactive");
 				else
 					zlog_debug(
-						"%u:%s: Deleting route rn %p, re %p (type %d) - %s",
+						"%llu:%s: Deleting route rn %p, re %p (type %d) - %s",
 						zvrf_id(zvrf), buf, rn, new,
 						new->type,
 						nh_active ? "install failed"
@@ -1536,7 +1536,7 @@ static void rib_process(struct route_node *rn)
 		srcdest_rnode2str(rn, buf, sizeof(buf));
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%u:%s: Processing rn %p", vrf_id, buf, rn);
+		zlog_debug("%llu:%s: Processing rn %p", vrf_id, buf, rn);
 
 	/*
 	 * we can have rn's that have a NULL info pointer
@@ -1550,7 +1550,7 @@ static void rib_process(struct route_node *rn)
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
-				"%u:%s: Examine re %p (type %d) status %x flags %x "
+				"%llu:%s: Examine re %p (type %d) status %x flags %x "
 				"dist %d metric %d",
 				vrf_id, buf, re, re->type, re->status,
 				re->flags, re->distance, re->metric);
@@ -1656,7 +1656,7 @@ static void rib_process(struct route_node *rn)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		zlog_debug(
-			"%u:%s: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
+			"%llu:%s: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
 			vrf_id, buf, (void *)old_selected, (void *)new_selected,
 			(void *)old_fib, (void *)new_fib);
 	}
@@ -1754,7 +1754,7 @@ static unsigned int process_subq(struct list *subq, u_char qindex)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rnode, buf, sizeof(buf));
-		zlog_debug("%u:%s: rn %p dequeued from sub-queue %u",
+		zlog_debug("%llu:%s: rn %p dequeued from sub-queue %u",
 			   zvrf ? zvrf_id(zvrf) : 0, buf, rnode, qindex);
 	}
 
@@ -1809,7 +1809,7 @@ static void meta_queue_process_complete(struct work_queue *dummy)
 	if (mpls_should_lsps_be_processed(zvrf)) {
 		if (IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug(
-				"%u: Scheduling all LSPs upon RIB completion",
+				"%llu: Scheduling all LSPs upon RIB completion",
 				zvrf_id(zvrf));
 		zebra_mpls_lsp_schedule(zvrf);
 		mpls_unmark_lsps_for_processing(zvrf);
@@ -2144,7 +2144,7 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 			char buf[SRCDEST2STR_BUFFER];
 			srcdest_rnode2str(rn, buf, sizeof(buf));
 			zlog_debug(
-				"%u:%s: Freeing route rn %p, re %p (type %d)",
+				"%llu:%s: Freeing route rn %p, re %p (type %d)",
 				re->vrf_id, buf, rn, re, re->type);
 		}
 
@@ -2170,7 +2170,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	char srcaddr[PREFIX_STRLEN];
 	struct nexthop *nexthop;
 
-	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %u", func,
+	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %llu", func,
 		   (const void *)re, prefix2str(pp, straddr, sizeof(straddr)),
 		   is_srcdst ? " from " : "",
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
@@ -2287,7 +2287,7 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 		if (IS_ZEBRA_DEBUG_RIB) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_debug("%u:%s: freeing way for connected prefix",
+			zlog_debug("%llu:%s: freeing way for connected prefix",
 				   dest->selected_fib->vrf_id,
 				   prefix2str(&rn->p, buf, sizeof(buf)));
 			route_entry_dump(&rn->p, NULL, dest->selected_fib);
@@ -2425,7 +2425,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			src_buf[0] = '\0';
 
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("%u:%s%s%s doesn't exist in rib", vrf_id,
+			zlog_debug("%llu:%s%s%s doesn't exist in rib", vrf_id,
 				   dst_buf,
 				   (src_buf[0] != '\0') ? " from " : "",
 				   src_buf);

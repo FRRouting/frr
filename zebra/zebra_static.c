@@ -131,7 +131,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 				inet_ntop(p->family, &p->u.prefix, buf,
 					  INET6_ADDRSTRLEN);
 				zlog_debug(
-					"%u:%s/%d: Modifying route rn %p, re %p (type %d)",
+					"%llu:%s/%d: Modifying route rn %p, re %p (type %d)",
 					si->vrf_id, buf, p->prefixlen, rn, re,
 					re->type);
 			}
@@ -210,7 +210,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 				inet_ntop(p->family, &p->u.prefix, buf,
 					  INET6_ADDRSTRLEN);
 				zlog_debug(
-					"%u:%s/%d: Inserting route rn %p, re %p (type %d)",
+					"%llu:%s/%d: Inserting route rn %p, re %p (type %d)",
 					si->vrf_id, buf, p->prefixlen, rn, re,
 					re->type);
 			}
@@ -326,7 +326,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 				inet_ntop(p->family, &p->u.prefix, buf,
 					  INET6_ADDRSTRLEN);
 				zlog_debug(
-					"%u:%s/%d: Modifying route rn %p, re %p (type %d)",
+					"%llu:%s/%d: Modifying route rn %p, re %p (type %d)",
 					si->vrf_id, buf, p->prefixlen, rn, re,
 					re->type);
 			}

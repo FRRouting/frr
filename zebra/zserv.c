@@ -2975,7 +2975,7 @@ static int zebra_client_read(struct thread *thread)
 				   sock);
 
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("zebra message received [%s] %d in VRF %u",
+			zlog_debug("zebra message received [%s] %d in VRF %llu",
 				   zserv_command_string(command), length,
 				   vrf_id);
 
@@ -2985,7 +2985,7 @@ static int zebra_client_read(struct thread *thread)
 		zvrf = zebra_vrf_lookup_by_id(vrf_id);
 		if (!zvrf) {
 			if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("zebra received unknown VRF[%u]",
+				zlog_debug("zebra received unknown VRF[%llu]",
 					   vrf_id);
 			goto zclient_read_out;
 		}

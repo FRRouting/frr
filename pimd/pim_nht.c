@@ -753,7 +753,7 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&nhr.prefix, buf, sizeof(buf));
 		zlog_debug(
-			"%s: NHT Update for %s(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
+			"%s: NHT Update for %s(%s) num_nh %d num_pim_nh %d vrf:%llu up %ld rp %d",
 			__PRETTY_FUNCTION__, buf, pim->vrf->name,
 			nhr.nexthop_num, pnc->nexthop_num, vrf_id,
 			pnc->upstream_hash->count, listcount(pnc->rp_list));

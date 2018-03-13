@@ -478,7 +478,7 @@ DEFUN (ip_protocol,
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
-			"%u: IPv4 Routemap config for protocol %s, scheduling RIB processing",
+			"%llu: IPv4 Routemap config for protocol %s, scheduling RIB processing",
 			VRF_DEFAULT, proto);
 
 	rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
@@ -518,7 +518,7 @@ DEFUN (no_ip_protocol,
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
-				"%u: IPv4 Routemap unconfig for protocol %s, scheduling RIB processing",
+				"%llu: IPv4 Routemap unconfig for protocol %s, scheduling RIB processing",
 				VRF_DEFAULT, proto);
 		rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
 	}
@@ -582,7 +582,7 @@ DEFUN (ipv6_protocol,
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
-			"%u: IPv6 Routemap config for protocol %s, scheduling RIB processing",
+			"%llu: IPv6 Routemap config for protocol %s, scheduling RIB processing",
 			VRF_DEFAULT, proto);
 
 	rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
@@ -620,7 +620,7 @@ DEFUN (no_ipv6_protocol,
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
-				"%u: IPv6 Routemap unconfig for protocol %s, scheduling RIB processing",
+				"%llu: IPv6 Routemap unconfig for protocol %s, scheduling RIB processing",
 				VRF_DEFAULT, proto);
 
 		rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
@@ -1221,7 +1221,7 @@ static int zebra_route_map_update_timer(struct thread *thread)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
-			"%u: Routemap update-timer fired, scheduling RIB processing",
+			"%llu: Routemap update-timer fired, scheduling RIB processing",
 			VRF_DEFAULT);
 
 	zebra_import_table_rm_update();

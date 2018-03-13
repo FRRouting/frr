@@ -1341,7 +1341,7 @@ static int ospf_spf_calculate_timer(struct thread *thread)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"%s: ospf install new route, vrf %s id %u new_table count %lu",
+			"%s: ospf install new route, vrf %s id %llu new_table count %lu",
 			__PRETTY_FUNCTION__, ospf_vrf_id_to_name(ospf->vrf_id),
 			ospf->vrf_id, new_table->count);
 	/* Update routing table. */

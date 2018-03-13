@@ -65,7 +65,7 @@ struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 	struct zebra_pw *pw;
 
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: adding pseudowire %s protocol %s",
+		zlog_debug("%llu: adding pseudowire %s protocol %s",
 			   zvrf_id(zvrf), ifname, zebra_route_string(protocol));
 
 	pw = XCALLOC(MTYPE_PW, sizeof(*pw));
@@ -90,8 +90,9 @@ struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 {
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: deleting pseudowire %s protocol %s", pw->vrf_id,
-			   pw->ifname, zebra_route_string(pw->protocol));
+		zlog_debug("%llu: deleting pseudowire %s protocol %s",
+			   pw->vrf_id, pw->ifname,
+			   zebra_route_string(pw->protocol));
 
 	/* remove nexthop tracking */
 	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
@@ -166,7 +167,7 @@ void zebra_pw_update(struct zebra_pw *pw)
 static void zebra_pw_install(struct zebra_pw *pw)
 {
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: installing pseudowire %s protocol %s",
+		zlog_debug("%llu: installing pseudowire %s protocol %s",
 			   pw->vrf_id, pw->ifname,
 			   zebra_route_string(pw->protocol));
 
@@ -185,7 +186,7 @@ static void zebra_pw_uninstall(struct zebra_pw *pw)
 		return;
 
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: uninstalling pseudowire %s protocol %s",
+		zlog_debug("%llu: uninstalling pseudowire %s protocol %s",
 			   pw->vrf_id, pw->ifname,
 			   zebra_route_string(pw->protocol));
 
@@ -206,7 +207,7 @@ void zebra_pw_install_failure(struct zebra_pw *pw)
 {
 	if (IS_ZEBRA_DEBUG_PW)
 		zlog_debug(
-			"%u: failed installing pseudowire %s, "
+			"%llu: failed installing pseudowire %s, "
 			"scheduling retry in %u seconds",
 			pw->vrf_id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
 

@@ -321,7 +321,7 @@ static int pim_bfd_nbr_replay(int command, struct zclient *zclient,
 						       neigh->source_addr, str,
 						       sizeof(str));
 					zlog_debug(
-						"%s: Replaying Pim Neigh %s to BFD vrf_id %u",
+						"%s: Replaying Pim Neigh %s to BFD vrf_id %llu",
 						__PRETTY_FUNCTION__, str,
 						vrf->vrf_id);
 				}
