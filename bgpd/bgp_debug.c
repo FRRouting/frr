@@ -159,10 +159,6 @@ static const struct message bgp_notify_capability_msg[] = {
 /* Origin strings. */
 const char *bgp_origin_str[] = {"i", "e", "?"};
 const char *bgp_origin_long_str[] = {"IGP", "EGP", "incomplete"};
-const char *pmsi_tnltype_str[] = {"No info", "RSVP-TE P2MP", "mLDP P2MP",
-				  "PIM-SSM", "PIM-SM", "PIM-BIDIR",
-				  "Ingress Replication", "mLDP MP2MP"};
-
 
 /* Given a string return a pointer the corresponding peer structure */
 static struct peer *bgp_find_peer(struct vty *vty, const char *peer_str)
