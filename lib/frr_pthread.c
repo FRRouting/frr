@@ -1,6 +1,6 @@
 /*
  * Utilities and interfaces for managing POSIX threads within FRR.
- * Copyright (C) 2017  Cumulus Networks
+ * Copyright (C) 2017  Cumulus Networks, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ DEFINE_MTYPE(LIB, FRR_PTHREAD, "FRR POSIX Thread");
 DEFINE_MTYPE(LIB, PTHREAD_PRIM, "POSIX synchronization primitives");
 
 /* id for next created pthread */
-static unsigned int next_id = 0;
+static _Atomic uint32_t next_id = 0;
 
 /* default frr_pthread start/stop routine prototypes */
 static void *fpt_run(void *arg);
@@ -40,7 +40,6 @@ struct frr_pthread_attr frr_pthread_attr_default = {
 	.id = 0,
 	.start = fpt_run,
 	.stop = fpt_halt,
-	.name = "Anonymous",
 };
 
 /* hash table to keep track of all frr_pthreads */
@@ -85,9 +84,10 @@ void frr_pthread_finish()
 	pthread_mutex_unlock(&frr_pthread_hash_mtx);
 }
 
-struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr)
+struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
+				    const char *name)
 {
-	static struct frr_pthread holder = {0};
+	static struct frr_pthread holder = {};
 	struct frr_pthread *fpt = NULL;
 
 	attr = attr ? attr : &frr_pthread_attr_default;
@@ -99,10 +99,14 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr)
 		if (!hash_lookup(frr_pthread_hash, &holder)) {
 			fpt = XCALLOC(MTYPE_FRR_PTHREAD,
 				      sizeof(struct frr_pthread));
+			/* initialize mutex */
+			pthread_mutex_init(&fpt->mtx, NULL);
 			/* create new thread master */
-			fpt->master = thread_master_create(attr->name);
+			fpt->master = thread_master_create(name);
 			/* set attributes */
 			fpt->attr = *attr;
+			name = (name ? name : "Anonymous thread");
+			fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
 			if (attr == &frr_pthread_attr_default)
 				fpt->attr.id = frr_pthread_get_id();
 			/* initialize startup synchronization primitives */
@@ -126,16 +130,31 @@ void frr_pthread_destroy(struct frr_pthread *fpt)
 {
 	thread_master_free(fpt->master);
 
+	pthread_mutex_destroy(&fpt->mtx);
 	pthread_mutex_destroy(fpt->running_cond_mtx);
 	pthread_cond_destroy(fpt->running_cond);
+	if (fpt->name)
+		XFREE(MTYPE_FRR_PTHREAD, fpt->name);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond_mtx);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond);
 	XFREE(MTYPE_FRR_PTHREAD, fpt);
 }
 
-struct frr_pthread *frr_pthread_get(unsigned int id)
+void frr_pthread_set_name(struct frr_pthread *fpt, const char *name)
 {
-	static struct frr_pthread holder = {0};
+	pthread_mutex_lock(&fpt->mtx);
+	{
+		if (fpt->name)
+			XFREE(MTYPE_FRR_PTHREAD, fpt->name);
+		fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
+	}
+	pthread_mutex_unlock(&fpt->mtx);
+	thread_master_set_name(fpt->master, name);
+}
+
+struct frr_pthread *frr_pthread_get(uint32_t id)
+{
+	static struct frr_pthread holder = {};
 	struct frr_pthread *fpt;
 
 	pthread_mutex_lock(&frr_pthread_hash_mtx);
@@ -210,11 +229,13 @@ void frr_pthread_stop_all()
 	pthread_mutex_unlock(&frr_pthread_hash_mtx);
 }
 
-unsigned int frr_pthread_get_id()
+uint32_t frr_pthread_get_id(void)
 {
+	_Atomic uint32_t nxid;
+	nxid = atomic_fetch_add_explicit(&next_id, 1, memory_order_seq_cst);
 	/* just a sanity check, this should never happen */
-	assert(next_id <= INT_MAX - 1);
-	return next_id++;
+	assert(nxid <= (UINT32_MAX - 1));
+	return nxid;
 }
 
 void frr_pthread_yield(void)
@@ -238,6 +259,7 @@ static int fpt_dummy(struct thread *thread)
 static int fpt_finish(struct thread *thread)
 {
 	struct frr_pthread *fpt = THREAD_ARG(thread);
+
 	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
 	return 0;
 }
