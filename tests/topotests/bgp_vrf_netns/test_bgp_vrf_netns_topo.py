@@ -97,10 +97,6 @@ def setup_module(module):
             return  pytest.skip('Skipping BGP VRF NETNS Test. VRF NETNS backend not available on FRR')
         if os.system('ip netns list') != 0:
             return  pytest.skip('Skipping BGP VRF NETNS Test. NETNS not available on System')
-        osbased = router.run('uname -m').rstrip()
-        osrestriction = ['i686','i386']
-        if osbased in osrestriction:
-            return  pytest.skip('Skipping BGP VRF NETNS Test. NETNS not available on 32 bit machines')
     # retrieve VRF backend kind
     if CustomizeVrfWithNetns == True:
         logger.info('Testing with VRF Namespace support')
@@ -195,7 +191,7 @@ def test_bgp_convergence():
         output = router.vtysh_cmd('show bgp vrf r1-cust1 summary json', isjson=True)
         return topotest.json_cmp(output, expected)
 
-    _, res = topotest.run_and_expect(_convergence_test, None, count=120, wait=1)
+    _, res = topotest.run_and_expect(_convergence_test, None, count=90, wait=1)
     assertmsg = 'BGP router network did not converge'
     assert res is None, assertmsg
 
