@@ -243,16 +243,15 @@ void redistribute_delete(struct prefix *p, struct prefix *src_p,
 	}
 }
 
-void zebra_redistribute_add(int command, struct zserv *client, int length,
-			    struct zebra_vrf *zvrf)
+void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 {
 	afi_t afi = 0;
 	int type = 0;
 	u_short instance;
 
-	STREAM_GETC(client->ibuf, afi);
-	STREAM_GETC(client->ibuf, type);
-	STREAM_GETW(client->ibuf, instance);
+	STREAM_GETC(msg, afi);
+	STREAM_GETC(msg, type);
+	STREAM_GETW(msg, instance);
 
 	if (afi == 0 || afi > AFI_MAX) {
 		zlog_warn("%s: Specified afi %d does not exist",
@@ -287,16 +286,15 @@ stream_failure:
 	return;
 }
 
-void zebra_redistribute_delete(int command, struct zserv *client, int length,
-			       struct zebra_vrf *zvrf)
+void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 {
 	afi_t afi = 0;
 	int type = 0;
 	u_short instance;
 
-	STREAM_GETC(client->ibuf, afi);
-	STREAM_GETC(client->ibuf, type);
-	STREAM_GETW(client->ibuf, instance);
+	STREAM_GETC(msg, afi);
+	STREAM_GETC(msg, type);
+	STREAM_GETW(msg, instance);
 
 	if (afi == 0 || afi > AFI_MAX) {
 		zlog_warn("%s: Specified afi %d does not exist",
@@ -325,15 +323,13 @@ stream_failure:
 	return;
 }
 
-void zebra_redistribute_default_add(int command, struct zserv *client,
-				    int length, struct zebra_vrf *zvrf)
+void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS)
 {
 	vrf_bitmap_set(client->redist_default, zvrf_id(zvrf));
 	zebra_redistribute_default(client, zvrf_id(zvrf));
 }
 
-void zebra_redistribute_default_delete(int command, struct zserv *client,
-				       int length, struct zebra_vrf *zvrf)
+void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS)
 {
 	vrf_bitmap_unset(client->redist_default, zvrf_id(zvrf));
 }

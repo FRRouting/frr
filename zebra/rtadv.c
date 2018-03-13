@@ -801,8 +801,7 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
  * if the operator has explicitly enabled RA. The enable request can also
  * specify a RA interval (in seconds).
  */
-void zebra_interface_radv_set(struct zserv *client, u_short length,
-			      struct zebra_vrf *zvrf, int enable)
+static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 {
 	struct stream *s;
 	ifindex_t ifindex;
@@ -810,7 +809,7 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 	struct zebra_if *zif;
 	int ra_interval;
 
-	s = client->ibuf;
+	s = msg;
 
 	/* Get interface index and RA interval. */
 	STREAM_GETL(s, ifindex);
@@ -857,6 +856,15 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 	}
 stream_failure:
 	return;
+}
+
+void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
+{
+	zebra_interface_radv_set(client, hdr, msg, zvrf, 0);
+}
+void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
+{
+	zebra_interface_radv_set(client, hdr, msg, zvrf, 1);
 }
 
 DEFUN (ipv6_nd_suppress_ra,

@@ -33,6 +33,7 @@
 
 #include "lib/json.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/zserv.h"
 
 /* Is EVPN enabled? */
 #define EVPN_ENABLED(zvrf)  (zvrf)->advertise_all_vni
@@ -50,6 +51,15 @@ static inline int is_evpn_enabled()
 #define ZEBRA_VXLIF_VLAN_CHANGE         0x4
 
 #define VNI_STR_LEN 32
+
+/* ZAPI message handlers */
+extern void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS);
 
 extern int is_l3vni_for_prefix_routes_only(vni_t vni);
 extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
@@ -117,10 +127,6 @@ extern int zebra_vxlan_local_neigh_add_update(
 extern int zebra_vxlan_local_neigh_del(struct interface *ifp,
 				       struct interface *link_if,
 				       struct ipaddr *ip);
-extern int zebra_vxlan_remote_macip_add(struct zserv *client, u_short length,
-					struct zebra_vrf *zvrf);
-extern int zebra_vxlan_remote_macip_del(struct zserv *client, u_short length,
-					struct zebra_vrf *zvrf);
 extern int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 					    struct interface *br_if,
 					    struct ethaddr *mac, vlanid_t vid,
@@ -140,16 +146,6 @@ extern int zebra_vxlan_if_down(struct interface *ifp);
 extern int zebra_vxlan_if_add(struct interface *ifp);
 extern int zebra_vxlan_if_update(struct interface *ifp, u_int16_t chgflags);
 extern int zebra_vxlan_if_del(struct interface *ifp);
-extern int zebra_vxlan_remote_vtep_add(struct zserv *client, u_short length,
-				       struct zebra_vrf *zvrf);
-extern int zebra_vxlan_remote_vtep_del(struct zserv *client, u_short length,
-				       struct zebra_vrf *zvrf);
-extern int zebra_vxlan_advertise_subnet(struct zserv *client, u_short length,
-					struct zebra_vrf *zvrf);
-extern int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
-					  struct zebra_vrf *zvrf);
-extern int zebra_vxlan_advertise_all_vni(struct zserv *client, u_short length,
-					 struct zebra_vrf *zvrf);
 extern int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 					   char *err, int err_str_sz,
 					   int filter, int add);

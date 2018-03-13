@@ -22,13 +22,14 @@
 #ifndef __ZEBRA_MROUTE_H__
 #define __ZEBRA_MROUTE_H__
 
+#include "zebra/zserv.h"
+
 struct mcast_route_data {
 	struct prefix_sg sg;
 	unsigned int ifindex;
 	unsigned long long lastused;
 };
 
-int zebra_ipmr_route_stats(struct zserv *client, u_short length,
-			   struct zebra_vrf *zvf);
+void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS);
 
 #endif
