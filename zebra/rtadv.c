@@ -831,9 +831,10 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 		return;
 	}
 	if (ifp->vrf_id != zvrf_id(zvrf)) {
-		zlog_warn("%llu: IF %u RA %s client %s - VRF mismatch, IF VRF %llu",
-			  zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
-			  zebra_route_string(client->proto), ifp->vrf_id);
+		zlog_warn(
+			"%llu: IF %u RA %s client %s - VRF mismatch, IF VRF %llu",
+			zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
+			zebra_route_string(client->proto), ifp->vrf_id);
 		return;
 	}
 

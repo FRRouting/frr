@@ -573,8 +573,9 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 				"VRF %llu is already configured with VRF %s\n",
 				vrf->vrf_id, vrf->name);
 		else
-			zlog_warn("VRF %llu is already configured with VRF %s\n",
-				  vrf->vrf_id, vrf->name);
+			zlog_warn(
+				"VRF %llu is already configured with VRF %s\n",
+				vrf->vrf_id, vrf->name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (vrf->ns_ctxt != NULL) {
@@ -603,8 +604,9 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 				" with VRF %llu(%s)\n",
 				ns->name, vrf2->vrf_id, vrf2->name);
 		else
-			zlog_warn("NS %s is already configured with VRF %llu(%s)",
-				  ns->name, vrf2->vrf_id, vrf2->name);
+			zlog_warn(
+				"NS %s is already configured with VRF %llu(%s)",
+				ns->name, vrf2->vrf_id, vrf2->name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	ns = ns_get_created(ns, pathname, ns_id);

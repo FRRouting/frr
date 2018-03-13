@@ -454,8 +454,8 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 		return;
 
 	if (zclient_debug)
-		zlog_debug("%s: send deregister messages for VRF %llu", __func__,
-			   vrf_id);
+		zlog_debug("%s: send deregister messages for VRF %llu",
+			   __func__, vrf_id);
 
 	/* We need router-id information. */
 	zebra_message_send(zclient, ZEBRA_ROUTER_ID_DELETE, vrf_id);

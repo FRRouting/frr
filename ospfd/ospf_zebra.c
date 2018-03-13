@@ -75,8 +75,8 @@ static int ospf_router_id_update_zebra(int command, struct zclient *zclient,
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE)) {
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&router_id, buf, sizeof(buf));
-		zlog_debug("Zebra rcvd: router id update %s vrf %s id %llu", buf,
-			   ospf_vrf_id_to_name(vrf_id), vrf_id);
+		zlog_debug("Zebra rcvd: router id update %s vrf %s id %llu",
+			   buf, ospf_vrf_id_to_name(vrf_id), vrf_id);
 	}
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);

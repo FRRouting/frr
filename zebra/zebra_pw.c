@@ -90,8 +90,9 @@ struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 {
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%llu: deleting pseudowire %s protocol %s", pw->vrf_id,
-			   pw->ifname, zebra_route_string(pw->protocol));
+		zlog_debug("%llu: deleting pseudowire %s protocol %s",
+			   pw->vrf_id, pw->ifname,
+			   zebra_route_string(pw->protocol));
 
 	/* remove nexthop tracking */
 	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);

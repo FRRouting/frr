@@ -6694,7 +6694,8 @@ int zebra_vxlan_advertise_all_vni(struct zserv *client, u_short length,
 	struct zebra_ns *zns = NULL;
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_err("EVPN VNI Adv for non-default VRF %llu", zvrf_id(zvrf));
+		zlog_err("EVPN VNI Adv for non-default VRF %llu",
+			 zvrf_id(zvrf));
 		return -1;
 	}
 

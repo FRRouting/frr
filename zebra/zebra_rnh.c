@@ -190,8 +190,8 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
 		char buf[PREFIX2STR_BUFFER];
-		zlog_debug("%llu: Client %s registers for RNH %s type %d", vrf_id,
-			   zebra_route_string(client->proto),
+		zlog_debug("%llu: Client %s registers for RNH %s type %d",
+			   vrf_id, zebra_route_string(client->proto),
 			   rnh_str(rnh, buf, sizeof(buf)), type);
 	}
 	if (!listnode_lookup(rnh->client_list, client)) {
@@ -768,8 +768,8 @@ static void zebra_rnh_evaluate_entry(vrf_id_t vrfid, int family, int force,
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-		zlog_debug("%llu:%s: Evaluate RNH, type %d %s", vrfid, bufn, type,
-			   force ? "(force)" : "");
+		zlog_debug("%llu:%s: Evaluate RNH, type %d %s", vrfid, bufn,
+			   type, force ? "(force)" : "");
 	}
 
 	rnh = nrn->info;
