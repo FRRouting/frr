@@ -97,6 +97,10 @@ def setup_module(module):
             return  pytest.skip('Skipping BGP VRF NETNS Test. VRF NETNS backend not available on FRR')
         if os.system('ip netns list') != 0:
             return  pytest.skip('Skipping BGP VRF NETNS Test. NETNS not available on System')
+        osbased = router.run('uname -m').rstrip()
+        osrestriction = ['i686','i386']
+        if osbased in osrestriction:
+            return  pytest.skip('Skipping BGP VRF NETNS Test. NETNS not available on 32 bit machines')
     # retrieve VRF backend kind
     if CustomizeVrfWithNetns == True:
         logger.info('Testing with VRF Namespace support')
