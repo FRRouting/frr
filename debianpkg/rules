@@ -27,6 +27,9 @@ MULTIPATH ?= 256
 WANT_FRR_USER ?= frr
 WANT_FRR_VTY_GROUP ?= frrvty
 
+# Don't build PDF docs by default
+GENERATE_PDF ?= 0
+
 #
 ####################################
 
@@ -136,18 +139,12 @@ override_dh_auto_configure:
 	fi
 
 override_dh_auto_build:
-	#dh_auto_build
-	$(MAKE)
-	dh_auto_build -- -C doc draft-zebra-00.txt
-
-
 	# doc/ is a bit crazy
 ifeq ($(GENERATE_PDF), 1)
-	dh_auto_build -- -C doc frr.pdf || true # pdfetex fails with exit code 1 but still produces a good looking .pdf
+	dh_auto_build -- -C doc pdf
 endif
-	rm -vf doc/frr.info
-	dh_auto_build -- -C doc frr.info
-	rm -vf doc/frr.info.html*
+	rm -vf doc/user/_build/texinfo/frr.info
+	dh_auto_build -- -C doc info
 
 override_dh_auto_test:
 

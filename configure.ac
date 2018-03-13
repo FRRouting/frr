@@ -1886,24 +1886,6 @@ AC_CONFIG_FILES([Makefile
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
 	  tests/lib/cli/test_cli.refout
-	  doc/defines.texi
-	  doc/bgpd.8
-	  doc/isisd.8
-	  doc/ospf6d.8
-	  doc/ospfclient.8
-	  doc/ospfd.8
-	  doc/ldpd.8
-	  doc/ripd.8
-	  doc/eigrpd.8
-	  doc/ripngd.8
-	  doc/pimd.8
-	  doc/mtracebis.8
-	  doc/nhrpd.8
-	  doc/vtysh.1
-	  doc/watchfrr.8
-	  doc/zebra.8
-	  doc/frr.1
-	  doc/frr-args.8
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
 	  pkgsrc/eigrpd.sh])

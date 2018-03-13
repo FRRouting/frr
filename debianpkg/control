@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Nobody <nobody@frrouting.org>
 Uploaders: Nobody <nobody@frrouting.org>
 XSBC-Original-Maintainer: <maintainers@frrouting.org>
-Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, autotools-dev, libpcre3-dev, gawk, chrpath, libsnmp-dev, git, dh-autoreconf, libjson-c-dev, libjson-c2 | libjson-c3, dh-systemd, libsystemd-dev, bison, flex, libc-ares-dev, pkg-config, python (>= 2.7), python-ipaddr
+Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), autotools-dev, libpcre3-dev, gawk, chrpath, libsnmp-dev, git, dh-autoreconf, libjson-c-dev, libjson-c2 | libjson-c3, dh-systemd, libsystemd-dev, bison, flex, libc-ares-dev, pkg-config, python (>= 2.7), python-ipaddr, python-sphinx
 Standards-Version: 3.9.6
 Homepage: http://www.frrouting.org/
 
