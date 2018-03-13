@@ -1764,11 +1764,11 @@ static int ospf_sr_enabled(struct vty *vty)
 
 DEFUN (sr_sid_label_range,
        sr_sid_label_range_cmd,
-       "segment-routing global-block (0-1048575) (0-1048575)",
+       "segment-routing global-block (8000-1048575) (13000-1048575)",
        SR_STR
        "Segment Routing Global Block label range\n"
-       "Lower-bound range in decimal (0-1048575)\n"
-       "Upper-bound range in decimal (0-1048575)\n")
+       "Lower-bound range in decimal (8000-1048575)\n"
+       "Upper-bound range in decimal (13000-1048575)\n")
 {
 	uint32_t upper;
 	uint32_t lower;
@@ -1829,12 +1829,12 @@ DEFUN (sr_sid_label_range,
 
 DEFUN (no_sr_sid_label_range,
 	no_sr_sid_label_range_cmd,
-	"no segment-routing global-block [(0-1048575) (0-1048575)]",
+	"no segment-routing global-block [(8000-1048575) (13000-1048575)]",
 	NO_STR
 	SR_STR
 	"Segment Routing Global Block label range\n"
-	"Lower-bound range in decimal (0-1048575)\n"
-	"Upper-bound range in decimal (0-1048575)\n")
+	"Lower-bound range in decimal (8000-1048575)\n"
+	"Upper-bound range in decimal (13000-1048575)\n")
 {
 
 	if (!ospf_sr_enabled(vty))
@@ -1861,10 +1861,10 @@ DEFUN (no_sr_sid_label_range,
 
 DEFUN (sr_node_msd,
        sr_node_msd_cmd,
-       "segment-routing node-msd (1-16)",
+       "segment-routing node-msd (1-32)",
        SR_STR
        "Maximum Stack Depth for this router\n"
-       "Maximum number of label that could be stack (1-16)\n")
+       "Maximum number of label that could be stack (1-32)\n")
 {
 	uint32_t msd;
 	int idx = 1;
@@ -1873,7 +1873,7 @@ DEFUN (sr_node_msd,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Get MSD */
-	argv_find(argv, argc, "(1-16)", &idx);
+	argv_find(argv, argc, "(1-32)", &idx);
 	msd = strtoul(argv[idx]->arg, NULL, 10);
 	if (msd < 1 || msd > MPLS_MAX_LABELS) {
 		vty_out(vty, "MSD must be comprise between 1 and %u\n",
@@ -1898,7 +1898,7 @@ DEFUN (sr_node_msd,
 
 DEFUN (no_sr_node_msd,
 	no_sr_node_msd_cmd,
-	"no segment-routing node-msd [(1-16)]",
+	"no segment-routing node-msd [(1-32)]",
 	NO_STR
 	SR_STR
 	"Maximum Stack Depth for this router\n"

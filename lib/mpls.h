@@ -54,12 +54,12 @@
  * 8000 we could deal with both Cisco and Juniper.
  */
 #define MPLS_DEFAULT_MIN_SRGB_LABEL        8000
-#define MPLS_DEFAULT_MAX_SRGB_LABEL        50000
+#define MPLS_DEFAULT_MAX_SRGB_LABEL        1048575
 #define MPLS_DEFAULT_MIN_SRGB_SIZE         5000
-#define MPLS_DEFAULT_MAX_SRGB_SIZE         20000
+#define MPLS_DEFAULT_MAX_SRGB_SIZE         65535
 
 /* Maximum # labels that can be pushed. */
-#define MPLS_MAX_LABELS                    16
+#define MPLS_MAX_LABELS                    32
 
 #define IS_MPLS_RESERVED_LABEL(label)                                          \
 	(label >= MPLS_LABEL_RESERVED_MIN && label <= MPLS_LABEL_RESERVED_MAX)
