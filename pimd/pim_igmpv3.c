@@ -1874,6 +1874,9 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	int local_ncb = 0;
 	struct pim_interface *pim_ifp;
 
+	if (igmp->mtrace_only)
+		return 0;
+
 	pim_ifp = igmp->interface->info;
 
 	if (igmp_msg_len < IGMP_V3_MSG_MIN_SIZE) {

@@ -604,11 +604,18 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				json_object_object_add(json, ifp->name,
 						       json_row);
 
+				if (igmp->mtrace_only) {
+					json_object_boolean_true_add(
+						json_row, "mtraceOnly");
+				}
 			} else {
 				vty_out(vty,
 					"%-9s  %5s  %15s  %d  %7s  %11s  %8s\n",
 					ifp->name,
-					if_is_up(ifp) ? "up" : "down",
+					if_is_up(ifp)
+						? (igmp->mtrace_only ? "mtrc"
+								     : "up")
+						: "down",
 					inet_ntoa(igmp->ifaddr),
 					pim_ifp->igmp_version,
 					igmp->t_igmp_query_timer ? "local"
@@ -758,10 +765,17 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				json_object_object_add(json, ifp->name,
 						       json_row);
 
+				if (igmp->mtrace_only) {
+					json_object_boolean_true_add(
+						json_row, "mtraceOnly");
+				}
 			} else {
 				vty_out(vty, "Interface : %s\n", ifp->name);
 				vty_out(vty, "State     : %s\n",
-					if_is_up(ifp) ? "up" : "down");
+					if_is_up(ifp)
+						? (igmp->mtrace_only ? "mtrace"
+								     : "up")
+						: "down");
 				vty_out(vty, "Address   : %s\n",
 					inet_ntoa(pim_ifp->primary_address));
 				vty_out(vty, "Uptime    : %s\n", uptime);

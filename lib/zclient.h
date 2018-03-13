@@ -237,14 +237,13 @@ struct zclient {
  */
 #define ZAPI_MESSAGE_TABLEID  0x80
 
+#define ZSERV_VERSION 5
 /* Zserv protocol message header */
-struct zserv_header {
+struct zmsghdr {
 	uint16_t length;
-	uint8_t marker; /* corresponds to command field in old zserv
-			 * always set to 255 in new zserv.
-			 */
+	/* Always set to 255 in new zserv */
+	uint8_t marker;
 	uint8_t version;
-#define ZSERV_VERSION	5
 	vrf_id_t vrf_id;
 	uint16_t command;
 };
@@ -380,9 +379,11 @@ struct zclient_options {
 /* Prototypes of zebra client service functions. */
 extern struct zclient *zclient_new(struct thread_master *);
 
+/* clang-format off */
 #if CONFDATE > 20181101
 CPP_NOTICE("zclient_new_notify can take over or zclient_new now");
 #endif
+/* clang-format on */
 
 extern struct zclient_options zclient_options_default;
 
@@ -449,9 +450,58 @@ extern int zclient_send_message(struct zclient *);
 
 /* create header for command, length to be filled in by user later */
 extern void zclient_create_header(struct stream *, uint16_t, vrf_id_t);
+/*
+ * Read sizeof(struct zmsghdr) bytes from the provided socket and parse the
+ * received data into the specified fields. If this is successful, read the
+ * rest of the packet into the provided stream.
+ *
+ * s
+ *    The stream to read into
+ *
+ * sock
+ *    The socket to read from
+ *
+ * size
+ *    Parsed message size will be placed in the pointed-at integer
+ *
+ * marker
+ *    Parsed marker will be placed in the pointed-at byte
+ *
+ * version
+ *    Parsed version will be placed in the pointed-at byte
+ *
+ * vrf_id
+ *    Parsed VRF ID will be placed in the pointed-at vrf_id_t
+ *
+ * cmd
+ *    Parsed command number will be placed in the pointed-at integer
+ *
+ * Returns:
+ *    -1 if:
+ *    - insufficient data for header was read
+ *    - a version mismatch was detected
+ *    - a marker mismatch was detected
+ *    - header size field specified more data than could be read
+ */
 extern int zclient_read_header(struct stream *s, int sock, u_int16_t *size,
 			       u_char *marker, u_char *version,
 			       vrf_id_t *vrf_id, u_int16_t *cmd);
+/*
+ * Parse header from ZAPI message stream into struct zmsghdr.
+ * This function assumes the stream getp points at the first byte of the header.
+ * If the function is successful then the stream getp will point to the byte
+ * immediately after the last byte of the header.
+ *
+ * zmsg
+ *    The stream containing the header
+ *
+ * hdr
+ *    The header struct to parse into.
+ *
+ * Returns:
+ *    true if parsing succeeded, false otherwise
+ */
+extern bool zapi_parse_header(struct stream *zmsg, struct zmsghdr *hdr);
 
 extern void zclient_interface_set_master(struct zclient *client,
 					 struct interface *master,
@@ -468,10 +518,11 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
+/* clang-format off */
 #if CONFDATE > 20180823
-CPP_NOTICE(
-	"zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as well as the zapi_ipv4 and zapi_ipv6 data structures should be removed now");
+CPP_NOTICE("zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as well as the zapi_ipv4 and zapi_ipv6 data structures should be removed now");
 #endif
+/* clang-format on */
 
 extern int zapi_ipv4_route(u_char, struct zclient *, struct prefix_ipv4 *,
 			   struct zapi_ipv4 *) __attribute__((deprecated));
