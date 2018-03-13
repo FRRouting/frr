@@ -96,21 +96,27 @@ to python
 
 Install newer ``Sphinx-Build`` based on ``Python 2.7``
 
+Create a new repo ``/etc/yum.repos.d/puias6.repo`` with the following contents:
+
 ::
-    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-babel-0.9.6-2.sdl6.1.noarch.rpm
-    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-jinja2-2.7.2-2.sdl6.noarch.rpm
-    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-markupsafe-0.11-4.puias6.x86_64.rpm
-    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-pygments-1.4-4.sdl6.1.noarch.rpm
-    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-docutils-0.8.1-3.sdl6.2.noarch.rpm
-    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-imaging-1.1.7-6.puias6.x86_64.rpm
-    curl -O http://springdale.math.ias.edu/data/puias/computational/6/x86_64/python27-sphinx-1.1.3-1.sdl6.1.noarch.rpm 
-    sudo yum install ./python27-markupsafe-0.11-4.puias6.x86_64.rpm \
-      ./python27-babel-0.9.6-2.sdl6.1.noarch.rpm \
-      ./python27-jinja2-2.7.2-2.sdl6.noarch.rpm \
-      ./python27-pygments-1.4-4.sdl6.1.noarch.rpm \
-      ./python27-docutils-0.8.1-3.sdl6.2.noarch.rpm \
-      ./python27-imaging-1.1.7-6.puias6.x86_64.rpm \
-      ./python27-sphinx-1.1.3-1.sdl6.1.noarch.rpm 
+
+    ### Name: RPM Repository for RHEL 6 - PUIAS (used for Sphinx-Build)
+    ### URL: http://springdale.math.ias.edu/data/puias/computational
+    [puias-computational]
+    name = RPM Repository for RHEL 6 - Sphinx-Build
+    baseurl = http://springdale.math.ias.edu/data/puias/computational/$releasever/$basearch
+    #mirrorlist = 
+    enabled = 1
+    protect = 0
+    gpgkey = 
+    gpgcheck = 0
+
+Update rpm database & Install newer sphinx
+
+::
+
+    sudo yum update
+    sudo yum install python27-sphinx
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
