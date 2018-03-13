@@ -105,10 +105,10 @@ Create a new repo ``/etc/yum.repos.d/puias6.repo`` with the following contents:
     [puias-computational]
     name = RPM Repository for RHEL 6 - Sphinx-Build
     baseurl = http://springdale.math.ias.edu/data/puias/computational/$releasever/$basearch
-    #mirrorlist = 
+    #mirrorlist =
     enabled = 1
     protect = 0
-    gpgkey = 
+    gpgkey =
     gpgcheck = 0
 
 Update rpm database & Install newer sphinx
