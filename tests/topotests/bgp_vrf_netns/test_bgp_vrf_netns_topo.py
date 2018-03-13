@@ -195,7 +195,7 @@ def test_bgp_convergence():
         output = router.vtysh_cmd('show bgp vrf r1-cust1 summary json', isjson=True)
         return topotest.json_cmp(output, expected)
 
-    _, res = topotest.run_and_expect(_convergence_test, None, count=90, wait=1)
+    _, res = topotest.run_and_expect(_convergence_test, None, count=120, wait=1)
     assertmsg = 'BGP router network did not converge'
     assert res is None, assertmsg
 
