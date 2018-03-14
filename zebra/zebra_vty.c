@@ -29,6 +29,7 @@
 #include "rib.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "linklist.h"
 #include "mpls.h"
 #include "routemap.h"
 #include "srcdest_table.h"
@@ -76,7 +77,186 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 /* VNI range as per RFC 7432 */
 #define CMD_VNI_RANGE "(1-16777215)"
 
+struct static_hold_route {
+	char *vrf_name;
+	char *nhvrf_name;
+	afi_t afi;
+	safi_t safi;
+	char *dest_str;
+	char *mask_str;
+	char *src_str;
+	char *gate_str;
+	char *ifname;
+	char *flag_str;
+	char *tag_str;
+	char *distance_str;
+	char *label_str;
+};
+
+static struct list *static_list;
+
+static int static_list_compare_helper(const char *s1, const char *s2)
+{
+	/* Are Both NULL */
+	if (s1 == s2)
+		return 0;
+
+	if (!s1 && s2)
+		return -1;
+
+	if (s1 && !s2)
+		return 1;
+
+	return strcmp(s1, s2);
+}
+
+static void static_list_delete(struct static_hold_route *shr)
+{
+	if (shr->vrf_name)
+		XFREE(MTYPE_STATIC_ROUTE, shr->vrf_name);
+	if (shr->nhvrf_name)
+		XFREE(MTYPE_STATIC_ROUTE, shr->nhvrf_name);
+	if (shr->dest_str)
+		XFREE(MTYPE_STATIC_ROUTE, shr->dest_str);
+	if (shr->mask_str)
+		XFREE(MTYPE_STATIC_ROUTE, shr->mask_str);
+	if (shr->src_str)
+		XFREE(MTYPE_STATIC_ROUTE, shr->src_str);
+	if (shr->gate_str)
+		XFREE(MTYPE_STATIC_ROUTE, shr->gate_str);
+	if (shr->ifname)
+		XFREE(MTYPE_STATIC_ROUTE, shr->ifname);
+	if (shr->flag_str)
+		XFREE(MTYPE_STATIC_ROUTE, shr->flag_str);
+	if (shr->tag_str)
+		XFREE(MTYPE_STATIC_ROUTE, shr->tag_str);
+	if (shr->distance_str)
+		XFREE(MTYPE_STATIC_ROUTE, shr->distance_str);
+	if (shr->label_str)
+		XFREE(MTYPE_STATIC_ROUTE, shr->label_str);
+
+	XFREE(MTYPE_STATIC_ROUTE, shr);
+}
+
+static int static_list_compare(void *arg1, void *arg2)
+{
+	struct static_hold_route *shr1 = arg1;
+	struct static_hold_route *shr2 = arg2;
+	int ret;
+
+	ret = strcmp(shr1->vrf_name, shr2->vrf_name);
+	if (ret)
+		return ret;
+
+	ret = strcmp(shr2->nhvrf_name, shr2->nhvrf_name);
+	if (ret)
+		return ret;
+
+	ret = shr1->afi - shr2->afi;
+	if (ret)
+		return ret;
+
+	ret = shr1->safi - shr2->afi;
+	if (ret)
+		return ret;
+
+	ret = static_list_compare_helper(shr1->dest_str, shr2->dest_str);
+	if (ret)
+		return ret;
+
+	ret = static_list_compare_helper(shr1->mask_str, shr2->mask_str);
+	if (ret)
+		return ret;
+
+	ret = static_list_compare_helper(shr1->src_str, shr2->src_str);
+	if (ret)
+		return ret;
+
+	ret = static_list_compare_helper(shr1->gate_str, shr2->gate_str);
+	if (ret)
+		return ret;
+
+	ret = static_list_compare_helper(shr1->ifname, shr2->ifname);
+	if (ret)
+		return ret;
+
+	ret = static_list_compare_helper(shr1->flag_str, shr2->flag_str);
+	if (ret)
+		return ret;
+
+	ret = static_list_compare_helper(shr1->tag_str, shr2->tag_str);
+	if (ret)
+		return ret;
+
+	ret = static_list_compare_helper(shr1->distance_str,
+					 shr2->distance_str);
+	if (ret)
+		return ret;
+
+	return static_list_compare_helper(shr1->label_str, shr2->label_str);
+}
+
+
 /* General function for static route. */
+static int zebra_static_route_holdem(struct zebra_vrf *zvrf,
+				     struct zebra_vrf *nh_zvrf,
+				     afi_t afi, safi_t safi,
+				     const char *negate, const char *dest_str,
+				     const char *mask_str, const char *src_str,
+				     const char *gate_str, const char *ifname,
+				     const char *flag_str, const char *tag_str,
+				     const char *distance_str,
+				     const char *label_str)
+{
+	struct static_hold_route *shr, *lookup;
+	struct listnode *node;
+
+	shr = XCALLOC(MTYPE_STATIC_ROUTE, sizeof(*shr));
+	shr->vrf_name = XSTRDUP(MTYPE_STATIC_ROUTE, zvrf->vrf->name);
+	shr->nhvrf_name = XSTRDUP(MTYPE_STATIC_ROUTE, nh_zvrf->vrf->name);
+	shr->afi = afi;
+	shr->safi = safi;
+	if (dest_str)
+		shr->dest_str = XSTRDUP(MTYPE_STATIC_ROUTE, dest_str);
+	if (mask_str)
+		shr->mask_str = XSTRDUP(MTYPE_STATIC_ROUTE, mask_str);
+	if (src_str)
+		shr->src_str = XSTRDUP(MTYPE_STATIC_ROUTE, src_str);
+	if (gate_str)
+		shr->gate_str = XSTRDUP(MTYPE_STATIC_ROUTE, gate_str);
+	if (ifname)
+		shr->ifname = XSTRDUP(MTYPE_STATIC_ROUTE, ifname);
+	if (flag_str)
+		shr->flag_str = XSTRDUP(MTYPE_STATIC_ROUTE, flag_str);
+	if (tag_str)
+		shr->tag_str = XSTRDUP(MTYPE_STATIC_ROUTE, tag_str);
+	if (distance_str)
+		shr->distance_str = XSTRDUP(MTYPE_STATIC_ROUTE, distance_str);
+	if (label_str)
+		shr->label_str = XSTRDUP(MTYPE_STATIC_ROUTE, label_str);
+
+	for (ALL_LIST_ELEMENTS_RO(static_list, node, lookup)) {
+		if (static_list_compare(shr, lookup) == 0)
+			break;
+	}
+
+	if (lookup) {
+		if (negate) {
+			listnode_delete(static_list, lookup);
+			static_list_delete(shr);
+			static_list_delete(lookup);
+
+			return CMD_SUCCESS;
+		}
+
+		assert(!"We should not have found a duplicate and not remove it");
+	}
+
+	listnode_add_sort(static_list, shr);
+
+	return CMD_SUCCESS;
+}
+
 static int zebra_static_route_leak(
 	struct vty *vty, struct zebra_vrf *zvrf, struct zebra_vrf *nh_zvrf,
 	afi_t afi, safi_t safi, const char *negate, const char *dest_str,
@@ -98,17 +278,34 @@ static int zebra_static_route_leak(
 
 	ret = str2prefix(dest_str, &p);
 	if (ret <= 0) {
-		vty_out(vty, "%% Malformed address\n");
+		if (vty)
+			vty_out(vty, "%% Malformed address\n");
+		else
+			zlog_warn("%s: Malformed address: %s",
+				  __PRETTY_FUNCTION__, dest_str);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (zvrf->vrf->vrf_id == VRF_UNKNOWN
+	    || nh_zvrf->vrf->vrf_id == VRF_UNKNOWN) {
+		vrf_set_user_cfged(zvrf->vrf);
+		return zebra_static_route_holdem(
+			zvrf, nh_zvrf, afi, safi, negate, dest_str, mask_str,
+			src_str, gate_str, ifname, flag_str, tag_str,
+			distance_str, label_str);
+	}
 	switch (afi) {
 	case AFI_IP:
 		/* Cisco like mask notation. */
 		if (mask_str) {
 			ret = inet_aton(mask_str, &mask);
 			if (ret == 0) {
-				vty_out(vty, "%% Malformed address\n");
+				if (vty)
+					vty_out(vty, "%% Malformed address\n");
+				else
+					zlog_warn("%s: Malformed address: %s",
+						  __PRETTY_FUNCTION__,
+						  mask_str);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			p.prefixlen = ip_masklen(mask);
@@ -119,7 +316,13 @@ static int zebra_static_route_leak(
 		if (src_str) {
 			ret = str2prefix(src_str, &src);
 			if (ret <= 0 || src.family != AF_INET6) {
-				vty_out(vty, "%% Malformed source address\n");
+				if (vty)
+					vty_out(vty,
+						"%% Malformed source address\n");
+				else
+					zlog_warn(
+						"%s: Malformed Source address: %s",
+						__PRETTY_FUNCTION__, src_str);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			src_p = (struct prefix_ipv6 *)&src;
@@ -146,8 +349,13 @@ static int zebra_static_route_leak(
 	memset(&snh_label, 0, sizeof(struct static_nh_label));
 	if (label_str) {
 		if (!mpls_enabled) {
-			vty_out(vty,
-				"%% MPLS not turned on in kernel, ignoring command\n");
+			if (vty)
+				vty_out(vty,
+					"%% MPLS not turned on in kernel, ignoring command\n");
+			else
+				zlog_warn(
+					"%s: MPLS not turned on in kernel ignoring static route to %s",
+					__PRETTY_FUNCTION__, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		int rc = mpls_str2label(label_str, &snh_label.num_labels,
@@ -155,18 +363,37 @@ static int zebra_static_route_leak(
 		if (rc < 0) {
 			switch (rc) {
 			case -1:
-				vty_out(vty, "%% Malformed label(s)\n");
+				if (vty)
+					vty_out(vty, "%% Malformed label(s)\n");
+				else
+					zlog_warn(
+						"%s: Malformed labels specified for route %s",
+						__PRETTY_FUNCTION__, dest_str);
 				break;
 			case -2:
-				vty_out(vty,
-					"%% Cannot use reserved label(s) (%d-%d)\n",
-					MPLS_LABEL_RESERVED_MIN,
-					MPLS_LABEL_RESERVED_MAX);
+				if (vty)
+					vty_out(vty,
+						"%% Cannot use reserved label(s) (%d-%d)\n",
+						MPLS_LABEL_RESERVED_MIN,
+						MPLS_LABEL_RESERVED_MAX);
+				else
+					zlog_warn(
+						"%s: Cannot use reserved labels (%d-%d) for %s",
+						__PRETTY_FUNCTION__,
+						MPLS_LABEL_RESERVED_MIN,
+						MPLS_LABEL_RESERVED_MAX,
+						dest_str);
 				break;
 			case -3:
-				vty_out(vty,
-					"%% Too many labels. Enter %d or fewer\n",
-					MPLS_MAX_LABELS);
+				if (vty)
+					vty_out(vty,
+						"%% Too many labels. Enter %d or fewer\n",
+						MPLS_MAX_LABELS);
+				else
+					zlog_warn(
+						"%s: Too many labels, Enter %d or fewer for %s",
+						__PRETTY_FUNCTION__,
+						MPLS_MAX_LABELS, dest_str);
 				break;
 			}
 			return CMD_WARNING_CONFIG_FAILED;
@@ -178,8 +405,13 @@ static int zebra_static_route_leak(
 		if (strncasecmp(ifname, "Null0", strlen(ifname)) == 0
 		    || strncasecmp(ifname, "reject", strlen(ifname)) == 0
 		    || strncasecmp(ifname, "blackhole", strlen(ifname)) == 0) {
-			vty_out(vty,
-				"%% Nexthop interface cannot be Null0, reject or blackhole\n");
+			if (vty)
+				vty_out(vty,
+					"%% Nexthop interface cannot be Null0, reject or blackhole\n");
+			else
+				zlog_warn(
+					"%s: Nexthop interface cannot be Null0, reject or blackhole for %s",
+					__PRETTY_FUNCTION__, dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -197,15 +429,28 @@ static int zebra_static_route_leak(
 			bh_type = STATIC_BLACKHOLE_NULL;
 			break;
 		default:
-			vty_out(vty, "%% Malformed flag %s \n", flag_str);
+			if (vty)
+				vty_out(vty, "%% Malformed flag %s \n",
+					flag_str);
+			else
+				zlog_warn("%s: Malformed flag %s for %s",
+					  __PRETTY_FUNCTION__, flag_str,
+					  dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
 
 	if (gate_str) {
 		if (inet_pton(afi2family(afi), gate_str, &gate) != 1) {
-			vty_out(vty, "%% Malformed nexthop address %s\n",
-				gate_str);
+			if (vty)
+				vty_out(vty,
+					"%% Malformed nexthop address %s\n",
+					gate_str);
+			else
+				zlog_warn(
+					"%s: Malformed nexthop address %s for %s",
+					__PRETTY_FUNCTION__, gate_str,
+					dest_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		gatep = &gate;
@@ -287,7 +532,38 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 		gate_str, ifname, flag_str, tag_str, distance_str, label_str);
 }
 
+void static_config_install_delayed_routes(struct zebra_vrf *zvrf)
+{
+	struct listnode *node, *nnode;
+	struct static_hold_route *shr;
+	struct zebra_vrf *ozvrf, *nh_zvrf;
+	int installed;
 
+	for (ALL_LIST_ELEMENTS(static_list, node, nnode, shr)) {
+		ozvrf = zebra_vrf_lookup_by_name(shr->vrf_name);
+		nh_zvrf = zebra_vrf_lookup_by_name(shr->nhvrf_name);
+
+		if (ozvrf != zvrf && nh_zvrf != zvrf)
+			continue;
+
+		if (ozvrf->vrf->vrf_id == VRF_UNKNOWN
+		    || nh_zvrf->vrf->vrf_id == VRF_UNKNOWN)
+			continue;
+
+		installed = zebra_static_route_leak(
+			NULL, ozvrf, nh_zvrf, shr->afi, shr->safi, NULL,
+			shr->dest_str, shr->mask_str, shr->src_str,
+			shr->gate_str, shr->ifname, shr->flag_str, shr->tag_str,
+			shr->distance_str, shr->label_str);
+
+		if (installed != CMD_SUCCESS)
+			zlog_debug(
+				"%s: Attempt to install %s as a route and it was rejected",
+				__PRETTY_FUNCTION__, shr->dest_str);
+		listnode_delete(static_list, shr);
+		static_list_delete(shr);
+	}
+}
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY (ip_mroute_dist,
        ip_mroute_dist_cmd,
@@ -1894,6 +2170,8 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 int static_config(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
 		  safi_t safi, const char *cmd)
 {
+	struct static_hold_route *shr;
+	struct listnode *node;
 	char spacing[100];
 	struct route_node *rn;
 	struct static_route *si;
@@ -1906,6 +2184,40 @@ int static_config(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
 
 	sprintf(spacing, "%s%s", (zvrf->vrf->vrf_id == VRF_DEFAULT) ? "" : " ",
 		cmd);
+
+	/*
+	 * Static routes for vrfs not fully inited
+	 */
+	for (ALL_LIST_ELEMENTS_RO(static_list, node, shr)) {
+		if (shr->afi != afi || shr->safi != safi)
+			continue;
+
+		if (strcmp(zvrf->vrf->name, shr->vrf_name) != 0)
+			continue;
+
+		vty_out(vty, "%s ", spacing);
+		if (shr->dest_str)
+			vty_out(vty, "%s ", shr->dest_str);
+		if (shr->mask_str)
+			vty_out(vty, "%s ", shr->mask_str);
+		if (shr->src_str)
+			vty_out(vty, "from %s ", shr->src_str);
+		if (shr->gate_str)
+			vty_out(vty, "%s ", shr->gate_str);
+		if (shr->ifname)
+			vty_out(vty, "%s ", shr->ifname);
+		if (shr->flag_str)
+			vty_out(vty, "%s ", shr->flag_str);
+		if (shr->tag_str)
+			vty_out(vty, "tag %s", shr->tag_str);
+		if (shr->distance_str)
+			vty_out(vty, "%s ", shr->distance_str);
+		if (shr->label_str)
+			vty_out(vty, "label %s ", shr->label_str);
+		if (strcmp(shr->vrf_name, shr->nhvrf_name) != 0)
+			vty_out(vty, "nexthop-vrf %s", shr->nhvrf_name);
+		vty_out(vty, "\n");
+	}
 
 	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn))
 		for (si = rn->info; si; si = si->next) {
@@ -3409,4 +3721,8 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_default_vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &no_vrf_vni_mapping_cmd);
+
+	static_list = list_new();
+	static_list->cmp = (int (*)(void *, void *))static_list_compare;
+	static_list->del = (void (*)(void *))static_list_delete;
 }
