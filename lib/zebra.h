@@ -232,10 +232,12 @@ typedef unsigned char u_int8_t;
 #include "zassert.h"
 
 #ifndef HAVE_STRLCAT
-size_t strlcat(char *__restrict dest, const char *__restrict src, size_t size);
+size_t strlcat(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
 #endif
 #ifndef HAVE_STRLCPY
-size_t strlcpy(char *__restrict dest, const char *__restrict src, size_t size);
+size_t strlcpy(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
 #endif
 
 #ifdef HAVE_BROKEN_CMSG_FIRSTHDR
