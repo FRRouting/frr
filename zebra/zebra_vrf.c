@@ -39,6 +39,7 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_netns_notify.h"
 
 extern struct zebra_t zebrad;
 
@@ -587,5 +588,5 @@ void zebra_vrf_init(void)
 	vrf_init(zebra_vrf_new, zebra_vrf_enable, zebra_vrf_disable,
 		 zebra_vrf_delete);
 
-	vrf_cmd_init(vrf_config_write);
+	vrf_cmd_init(vrf_config_write, &zserv_privs);
 }
