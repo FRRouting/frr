@@ -253,7 +253,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
 		ETHER_ADDR_LEN);
 
 		err = isis_handle_pdu(circuit, ssnpa);
-		stream_reset(circuit, ssnpa);
+		stream_reset(circuit->rcv_stream);
 		buff_ptr += BPF_WORDALIGN(bpf_hdr->bh_hdrlen + bpf_hdr->bh_datalen);
 	}
 
