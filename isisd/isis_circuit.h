@@ -32,8 +32,6 @@
 #include "isis_constants.h"
 #include "isis_common.h"
 
-#define CIRCUIT_MAX 255
-
 struct isis_lsp;
 
 struct password {
@@ -69,7 +67,7 @@ struct isis_p2p_info {
 
 struct isis_circuit {
 	int state;
-	u_char circuit_id;	   /* l1/l2 p2p/bcast CircuitID */
+	u_char circuit_id;	     /* l1/l2 bcast CircuitID */
 	struct isis_area *area;      /* back pointer to the area */
 	struct interface *interface; /* interface info from z */
 	int fd;			     /* IS-IS l1/2 socket */
@@ -82,9 +80,8 @@ struct isis_circuit {
 	struct thread *t_send_csnp[2];
 	struct thread *t_send_psnp[2];
 	struct thread *t_send_lsp;
-	struct list *lsp_queue; /* LSPs to be txed (both levels) */
-	struct isis_lsp_hash
-		*lsp_hash; /* Hashtable synchronized with lsp_queue */
+	struct list *lsp_queue;	/* LSPs to be txed (both levels) */
+	struct isis_lsp_hash *lsp_hash; /* Hashtable synchronized with lsp_queue */
 	time_t lsp_queue_last_push[2]; /* timestamp used to enforce transmit
 					* interval;
 					* for scalability, use one timestamp per
@@ -135,6 +132,7 @@ struct isis_circuit {
 	u_int16_t upadjcount[2];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
 	u_char flags;
+	bool disable_threeway_adj;
 	/*
 	 * Counters as in 10589--11.2.5.9
 	 */

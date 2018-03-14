@@ -1034,7 +1034,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			break;
 		case CIRCUIT_T_P2P: {
 			struct isis_adjacency *nei = circuit->u.p2p.neighbor;
-			if (nei && (level & nei->circuit_t)) {
+			if (nei && nei->adj_state == ISIS_ADJ_UP
+			    && (level & nei->circuit_t)) {
 				uint8_t ne_id[7];
 				memcpy(ne_id, nei->sysid, ISIS_SYS_ID_LEN);
 				LSP_PSEUDO_ID(ne_id) = 0;
@@ -1875,15 +1876,12 @@ int lsp_tick(struct thread *thread)
 					if (!circuit->lsp_queue)
 						continue;
 
-					if (now
-						    - circuit->lsp_queue_last_push
-							      [level]
+					if (now - circuit->lsp_queue_last_push[level]
 					    < MIN_LSP_RETRANS_INTERVAL) {
 						continue;
 					}
 
-					circuit->lsp_queue_last_push[level] =
-						now;
+					circuit->lsp_queue_last_push[level] = now;
 
 					for (ALL_LIST_ELEMENTS_RO(
 						     lsp_list, lspnode, lsp)) {
