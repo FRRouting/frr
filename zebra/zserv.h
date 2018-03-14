@@ -50,11 +50,16 @@
 
 /* Client structure. */
 struct zserv {
+	/* Client pthread */
+	struct frr_pthread *pthread;
+
 	/* Client file descriptor. */
 	int sock;
 
 	/* Input/output buffer to the client. */
+	pthread_mutex_t ibuf_mtx;
 	struct stream_fifo *ibuf_fifo;
+	pthread_mutex_t obuf_mtx;
 	struct stream_fifo *obuf_fifo;
 
 	/* Private I/O buffers */
