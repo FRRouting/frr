@@ -82,6 +82,21 @@
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
 
+/* PMSI strings. */
+#define PMSI_TNLTYPE_STR_NO_INFO "No info"
+#define PMSI_TNLTYPE_STR_DEFAULT PMSI_TNLTYPE_STR_NO_INFO
+static const struct message bgp_pmsi_tnltype_str[] = {
+	{PMSI_TNLTYPE_NO_INFO, PMSI_TNLTYPE_STR_NO_INFO},
+	{PMSI_TNLTYPE_RSVP_TE_P2MP, "RSVP-TE P2MP"},
+	{PMSI_TNLTYPE_MLDP_P2MP, "mLDP P2MP"},
+	{PMSI_TNLTYPE_PIM_SSM, "PIM-SSM"},
+	{PMSI_TNLTYPE_PIM_SM, "PIM-SM"},
+	{PMSI_TNLTYPE_PIM_BIDIR, "PIM-BIDIR"},
+	{PMSI_TNLTYPE_INGR_REPL, "Ingress Replication"},
+	{PMSI_TNLTYPE_MLDP_MP2MP, "mLDP MP2MP"},
+	{0}
+};
+
 struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 				  safi_t safi, struct prefix *p,
 				  struct prefix_rd *prd)
@@ -7035,6 +7050,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 	json_object *json_ext_community = NULL;
 	json_object *json_lcommunity = NULL;
 	json_object *json_last_update = NULL;
+	json_object *json_pmsi = NULL;
 	json_object *json_nexthop_global = NULL;
 	json_object *json_nexthop_ll = NULL;
 	json_object *json_nexthops = NULL;
@@ -7787,6 +7803,24 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 					       json_last_update);
 		} else
 			vty_out(vty, "      Last update: %s", ctime(&tbuf));
+
+		/* Line 10 display PMSI tunnel attribute, if present */
+		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {
+			const char *str = lookup_msg(bgp_pmsi_tnltype_str,
+						     attr->pmsi_tnl_type,
+						     PMSI_TNLTYPE_STR_DEFAULT);
+
+			if (json_paths) {
+				json_pmsi = json_object_new_object();
+				json_object_string_add(json_pmsi,
+						       "tunnelType", str);
+				json_object_object_add(json_path, "pmsi",
+						       json_pmsi);
+			} else
+				vty_out(vty, "      PMSI Tunnel Type: %s\n",
+					str);
+		}
+
 	}
 
 	/* We've constructed the json object for this path, add it to the json
