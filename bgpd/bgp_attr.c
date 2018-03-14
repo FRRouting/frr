@@ -2736,9 +2736,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		}
 		break;
 	default:
-		zlog_err(
-			"Bad nexthop when sening to %s, AFI %u SAFI %u nhlen %d",
-			peer->host, afi, safi, attr->mp_nexthop_len);
+		if (safi != SAFI_FLOWSPEC)
+			zlog_err(
+				 "Bad nexthop when sending to %s, AFI %u SAFI %u nhlen %d",
+				 peer->host, afi, safi, attr->mp_nexthop_len);
 		break;
 	}
 
