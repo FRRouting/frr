@@ -3,21 +3,20 @@
  *                             PDU processing
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
+ *                           Tampere University of Technology      
  *                           Institute of Communications Engineering
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
+ * This program is free software; you can redistribute it and/or modify it 
+ * under the terms of the GNU General Public Licenseas published by the Free 
+ * Software Foundation; either version 2 of the License, or (at your option) 
  * any later version.
  *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * This program is distributed in the hope that it will be useful,but WITHOUT 
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
  * more details.
-
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
+ * You should have received a copy of the GNU General Public License along 
+ * with this program; if not, write to the Free Software Foundation, Inc., 
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
@@ -69,19 +68,19 @@ struct esis_fixed_hdr
 /*
  *                       IS to IS Fixed Header
  *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |         Intradomain Routeing Protocol Discriminator           |
+ *  |         Intradomain Routeing Protocol Discriminator           | 
  *  +-------+-------+-------+-------+-------+-------+-------+-------+
  *  |                       Length Indicator                        |
  *  +-------+-------+-------+-------+-------+-------+-------+-------+
  *  |                  Version/Protocol ID extension                |
  *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |   R   |   R   |   R   |              PDU Type                 |
+ *  |   R   |   R   |   R   |              PDU Type                 |      
  *  +-------+-------+-------+-------+-------+-------+-------+-------+
  *  |                            Version                            |
  *  +-------+-------+-------+-------+-------+-------+-------+-------+
  *  |                            Reserved                           |
  *  +-------+-------+-------+-------+-------+-------+-------+-------+
- *  |                       Maximum Area Addresses                  |
+ *  |                       Maximum Area Addresses                  |      
  *  +-------+-------+-------+-------+-------+-------+-------+-------+
  */
 
@@ -110,11 +109,11 @@ struct isis_fixed_hdr
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * |                       Reserved                | Circuit Type  | 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * +                        Source ID                              + id_len
+ * +                        Source ID                              + id_len   
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * |                        Holding  Time                          | 2
+ * |                        Holding  Time                          | 2     
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * |                        PDU Length                             | 2
+ * |                        PDU Length                             | 2    
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * |   R   |                Priority                               | 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -138,11 +137,11 @@ struct isis_lan_hello_hdr
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * |                        Reserved               | Circuit Type  | 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * +                        Source ID                              + id_len
+ * +                        Source ID                              + id_len   
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * +                        Holding  Time                          + 2
+ * +                        Holding  Time                          + 2     
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * +                        PDU Length                             + 2
+ * +                        PDU Length                             + 2    
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * |                        Local Circuit ID                       | 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -164,7 +163,7 @@ struct isis_p2p_hello_hdr
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * +                        PDU Length                             + 2
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * +                        Remaining Lifetime                     + 2
+ * +                        Remaining Lifetime                     + 2 
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * |                        LSP ID                                 | id_len + 2
  * +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -191,7 +190,7 @@ struct isis_link_state_hdr
  * entry is LSP_ENTRIES_LEN (16) bytes long, the maximum number of LSP entries
  * can be accomodated in a TLV is
  * 255 / 16 = 15.
- *
+ * 
  * Therefore, the maximum length of the LSP Entries TLV is
  * 16 * 15 + 2 (header) = 242 bytes.
  */
@@ -202,7 +201,7 @@ struct isis_link_state_hdr
 /*
  *      L1 and L2 IS to IS complete sequence numbers PDU header
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * +                        PDU Length                             + 2
+ * +                        PDU Length                             + 2    
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * +                        Source ID                              + id_len + 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -267,8 +266,9 @@ int send_l1_psnp (struct thread *thread);
 int send_l2_psnp (struct thread *thread);
 int send_lsp (struct thread *thread);
 int ack_lsp (struct isis_link_state_hdr *hdr,
-	     struct isis_circuit *circuit, int level);
+       struct isis_circuit *circuit, int level);
 void fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type);
 int send_hello (struct isis_circuit *circuit, int level);
 int isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa);
+
 #endif /* _ZEBRA_ISIS_PDU_H */
