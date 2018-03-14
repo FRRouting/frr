@@ -1,8 +1,10 @@
-.. _zebra-protocol:
+.. _zebra:
 
-**************
-Zebra Protocol
-**************
+*****
+Zebra
+*****
+
+.. _zebra-protocol:
 
 Overview of the Zebra Protocol
 ==============================

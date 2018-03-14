@@ -14,7 +14,6 @@ Welcome to FRR's documentation!
    kernel
    snmp
    zebra
-   protocol
    bgp
    babeld
    eigrpd
