@@ -15,7 +15,6 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
  * more details.
-
  * You should have received a copy of the GNU General Public License along 
  * with this program; if not, write to the Free Software Foundation, Inc., 
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
@@ -267,8 +266,9 @@ int send_l1_psnp (struct thread *thread);
 int send_l2_psnp (struct thread *thread);
 int send_lsp (struct thread *thread);
 int ack_lsp (struct isis_link_state_hdr *hdr,
-	     struct isis_circuit *circuit, int level);
+       struct isis_circuit *circuit, int level);
 void fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type);
 int send_hello (struct isis_circuit *circuit, int level);
+int isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa);
 
 #endif /* _ZEBRA_ISIS_PDU_H */

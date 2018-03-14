@@ -14,7 +14,6 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
  * more details.
-
  * You should have received a copy of the GNU General Public License along 
  * with this program; if not, write to the Free Software Foundation, Inc., 
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
@@ -236,7 +235,8 @@ end:
 int
 isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 {
-  int bytesread = 0, bytestoread, offset, one = 1;
+  int bytesread = 0, bytestoread, offset, one = 1, err = ISIS_OK;
+  u_char *buff_ptr;
   struct bpf_hdr *bpf_hdr;
 
   assert (circuit->fd > 0);
@@ -260,19 +260,27 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
   if (bytesread == 0)
     return ISIS_WARNING;
 
-  bpf_hdr = (struct bpf_hdr *) readbuff;
+  buff_ptr = (u_char *) readbuff;
+  while (buff_ptr < ((u_char*) readbuff) + bytesread)
+    {
+      bpf_hdr = (struct bpf_hdr *) buff_ptr;
 
-  assert (bpf_hdr->bh_caplen == bpf_hdr->bh_datalen);
+      assert (bpf_hdr->bh_caplen == bpf_hdr->bh_datalen);
 
-  offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETHER_HDR_LEN;
+      offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETHER_HDR_LEN;
 
-  /* then we lose the BPF, LLC and ethernet headers */
-  stream_write (circuit->rcv_stream, readbuff + offset, 
-                bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
-  stream_set_getp (circuit->rcv_stream, 0);
+      /* then we lose the BPF, LLC and ethernet headers */
+      stream_write (circuit->rcv_stream, buff_ptr + offset, 
+                    bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
+      stream_set_getp (circuit->rcv_stream, 0);
 
-  memcpy (ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
-	  ETHER_ADDR_LEN);
+      memcpy (ssnpa, buff_ptr + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
+	      ETHER_ADDR_LEN);
+      err = isis_handle_pdu (circuit, ssnpa);
+      stream_reset(circuit->rcv_stream);
+      buff_ptr += BPF_WORDALIGN(bpf_hdr->bh_hdrlen + bpf_hdr->bh_datalen);
+
+    }
 
   if (ioctl (circuit->fd, BIOCFLUSH, &one) < 0)
     zlog_warn ("Flushing failed: %s", safe_strerror (errno));
