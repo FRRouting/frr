@@ -27,23 +27,26 @@
 #ifndef HAVE_STRLCPY
 #undef strlcpy
 
-size_t strlcpy(char *__restrict dest, const char *__restrict src, size_t size);
+size_t strlcpy(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
 
-size_t strlcpy(char *__restrict dest, const char *__restrict src, size_t size)
+size_t strlcpy(char *__restrict dest,
+	       const char *__restrict src, size_t destsize)
 {
 	size_t src_length = strlen(src);
 
-	if (__builtin_expect(src_length >= size, 0)) {
-		if (size > 0) {
-			/* Copy the leading portion of the string.  The last
-			   character is subsequently overwritten with the NUL
-			   terminator, but the destination size is usually a
-			   multiple of a small power of two, so writing it twice
-			   should be more efficient than copying an odd number
-			   of
-			   bytes.  */
-			memcpy(dest, src, size);
-			dest[size - 1] = '\0';
+	if (__builtin_expect(src_length >= destsize, 0)) {
+		if (destsize > 0) {
+			/*
+			 * Copy the leading portion of the string.  The last
+			 * character is subsequently overwritten with the NUL
+			 * terminator, but the destination destsize is usually
+			 * a multiple of a small power of two, so writing it
+			 * twice should be more efficient than copying an odd
+			 * number of bytes.
+			 */
+			memcpy(dest, src, destsize);
+			dest[destsize - 1] = '\0';
 		}
 	} else
 		/* Copy the string and its terminating NUL character.  */

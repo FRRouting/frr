@@ -28,23 +28,25 @@
 #ifndef HAVE_STRLCAT
 #undef strlcat
 
-size_t strlcat(char *__restrict dest, const char *__restrict src, size_t size);
+size_t strlcat(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
 
-size_t strlcat(char *__restrict dest, const char *__restrict src, size_t size)
+size_t strlcat(char *__restrict dest,
+	       const char *__restrict src, size_t destsize)
 {
 	size_t src_length = strlen(src);
 
 	/* Our implementation strlcat supports dest == NULL if size == 0
 	   (for consistency with snprintf and strlcpy), but strnlen does
 	   not, so we have to cover this case explicitly.  */
-	if (size == 0)
+	if (destsize == 0)
 		return src_length;
 
-	size_t dest_length = strnlen(dest, size);
-	if (dest_length != size) {
+	size_t dest_length = strnlen(dest, destsize);
+	if (dest_length != destsize) {
 		/* Copy at most the remaining number of characters in the
 		   destination buffer.  Leave for the NUL terminator.  */
-		size_t to_copy = size - dest_length - 1;
+		size_t to_copy = destsize - dest_length - 1;
 		/* But not more than what is available in the source string.  */
 		if (to_copy > src_length)
 			to_copy = src_length;
