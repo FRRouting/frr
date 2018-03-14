@@ -471,6 +471,14 @@ checkpatch.sh
    When convenient it is preferred that these be cleaned up inline, but this is
    not required.
 
+   In general, a developer should heed the information reported by checkpatch.
+   However, some flexibility is needed for cases where human judgement yields
+   better clarity than the script. Accordingly, it may be appropriate to
+   ignore some checkpatch.sh warnings per discussion among the submitter(s)
+   and reviewer(s) of a change. Misreporting of errors by the script is
+   possible. When this occurs, a patch for checkpatch should be added to
+   the pull request to correct the false error report.
+
    If the script finds one or more WARNINGs it will exit with 1. If it finds
    one or more ERRORs it will exit with 2.
 
@@ -479,6 +487,12 @@ Please remember that while FRR provides these tools for your convenience,
 responsibility for properly formatting your code ultimately lies on the
 shoulders of the submitter. As such, it is recommended to double-check the
 results of these tools to avoid delays in merging your submission.
+
+In some cases, these tools modify or flag the format in ways that go beyond or
+even conflict [#tool_style_conflicts]_ with the canonical documented Linux
+kernel style. In these cases, the Linux kernel style takes priority;
+non-canonical issues flagged by the tools are not compulsory but rather are
+opportunities for discussion among the submitter(s) and reviewer(s) of a change.
 
 **Whitespace changes in untouched parts of the code are not acceptable
 in patches that change actual code.** To change/fix formatting issues,
@@ -875,3 +889,10 @@ particular command does.
 
 .. _GitHub: https://github.com/frrouting/frr
 .. _GitHub issues: https://github.com/frrouting/frr/issues
+
+.. rubric:: Footnotes
+
+.. [#tool_style_conflicts] For example, lines over 80 characters are allowed
+   for text strings to make it possible to search the code for them: please
+   see `Linux kernel style (breaking long lines and strings) <https://www.kernel.org/doc/html/v4.10/process/coding-style.html#breaking-long-lines-and-strings>`_
+   and `Issue #1794 <https://github.com/FRRouting/frr/issues/1794>`_.
