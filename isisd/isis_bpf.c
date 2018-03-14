@@ -265,18 +265,18 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 
   while (buff_ptr < ((u_char*) readbuff) + bytesread)
     {
-      bpf_hdr = (struct bpf_hdr *) readbuff;
+      bpf_hdr = (struct bpf_hdr *) buff_ptr;
 
       assert (bpf_hdr->bh_caplen == bpf_hdr->bh_datalen);
 
       offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETHER_HDR_LEN;
 
       /* then we lose the BPF, LLC and ethernet headers */
-      stream_write (circuit->rcv_stream, readbuff + offset, 
+      stream_write (circuit->rcv_stream, buff_ptr + offset, 
                     bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
       stream_set_getp (circuit->rcv_stream, 0);
 
-      memcpy (ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
+      memcpy (ssnpa, buff_ptr + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
         ETHER_ADDR_LEN);
 
       err = isis_handle_pdu (circuit, ssnpa);
