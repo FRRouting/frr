@@ -5,4 +5,5 @@ BGPD
    :maxdepth: 2
 
    next-hop-tracking
+   bgp-typecodes
 
