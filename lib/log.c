@@ -1096,41 +1096,52 @@ void zlog_hexdump(const void *mem, unsigned int len)
 	unsigned long i = 0;
 	unsigned int j = 0;
 	unsigned int columns = 8;
-	char buf[(len * 4) + ((len / 4) * 20) + 30];
+	/*
+	 * 19 bytes for 0xADDRESS:
+	 * 24 bytes for data; 2 chars plus a space per data byte
+	 *  1 byte for space
+	 *  8 bytes for ASCII representation
+	 *  1 byte for a newline
+	 * =====================
+	 * 53 bytes per 8 bytes of data
+	 *  1 byte for null term
+	 */
+	size_t bs = ((len / 8) + 1) * 53 + 1;
+	char buf[bs];
 	char *s = buf;
+
+	memset(buf, 0, sizeof(buf));
 
 	for (i = 0; i < len + ((len % columns) ? (columns - len % columns) : 0);
 	     i++) {
 		/* print offset */
 		if (i % columns == 0)
-			s += sprintf(s, "0x%016lx: ", (unsigned long)mem + i);
+			s += snprintf(s, bs - (s - buf),
+				      "0x%016lx: ", (unsigned long)mem + i);
 
 		/* print hex data */
 		if (i < len)
-			s += sprintf(s, "%02x ", 0xFF & ((const char *)mem)[i]);
+			s += snprintf(s, bs - (s - buf), "%02x ",
+				      0xFF & ((const char *)mem)[i]);
 
 		/* end of block, just aligning for ASCII dump */
 		else
-			s += sprintf(s, "   ");
+			s += snprintf(s, bs - (s - buf), "   ");
 
 		/* print ASCII dump */
 		if (i % columns == (columns - 1)) {
 			for (j = i - (columns - 1); j <= i; j++) {
-				if (j >= len) /* end of block, not really
-						 printing */
-					s += sprintf(s, " ");
-
-				else if (isprint((int)((const char *)mem)
-							 [j])) /* printable char
-								  */
-					s += sprintf(
-						s, "%c",
+				/* end of block not really printing */
+				if (j >= len)
+					s += snprintf(s, bs - (s - buf), " ");
+				else if (isprint((int)((const char *)mem)[j]))
+					s += snprintf(
+						s, bs - (s - buf), "%c",
 						0xFF & ((const char *)mem)[j]);
-
 				else /* other char */
-					s += sprintf(s, ".");
+					s += snprintf(s, bs - (s - buf), ".");
 			}
-			s += sprintf(s, "\n");
+			s += snprintf(s, bs - (s - buf), "\n");
 		}
 	}
 	zlog_debug("\n%s", buf);

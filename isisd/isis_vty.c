@@ -927,6 +927,21 @@ DEFUN (no_isis_hello_padding,
 	return CMD_SUCCESS;
 }
 
+DEFUN (isis_threeway_adj,
+       isis_threeway_adj_cmd,
+       "[no] isis three-way-handshake",
+       NO_STR
+       "IS-IS commands\n"
+       "Enable/Disable three-way handshake\n")
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	circuit->disable_threeway_adj = !strcmp(argv[0]->text, "no");
+	return CMD_SUCCESS;
+}
+
 DEFUN (csnp_interval,
        csnp_interval_cmd,
        "isis csnp-interval (1-600)",
@@ -2084,6 +2099,8 @@ void isis_vty_init(void)
 
 	install_element(INTERFACE_NODE, &isis_hello_padding_cmd);
 	install_element(INTERFACE_NODE, &no_isis_hello_padding_cmd);
+
+	install_element(INTERFACE_NODE, &isis_threeway_adj_cmd);
 
 	install_element(INTERFACE_NODE, &csnp_interval_cmd);
 	install_element(INTERFACE_NODE, &no_csnp_interval_cmd);

@@ -2,7 +2,5 @@ AUTHORS
 NEWS
 README
 REPORTING-BUGS
-doc/BGP-TypeCode
-doc/draft-zebra-00.txt
-doc/mpls/
-bgpd/BGP4-MIB.txt
+doc/user/*.rst
+doc/figures/*.png

@@ -595,6 +595,24 @@ struct route_map_rule_cmd route_match_ip_route_source_prefix_list_cmd = {
 	route_match_ip_route_source_prefix_list_compile,
 	route_match_ip_route_source_prefix_list_free};
 
+/* `match evpn default-route' */
+
+/* Match function should return 1 if match is success else 0 */
+static route_map_result_t route_match_evpn_default_route(void *rule,
+							 struct prefix *p,
+							 route_map_object_t
+							 type, void *object)
+{
+	if (type == RMAP_BGP && is_evpn_prefix_default(p))
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+/* Route map commands for default-route matching. */
+struct route_map_rule_cmd route_match_evpn_default_route_cmd = {
+	"evpn default-route", route_match_evpn_default_route, NULL, NULL};
+
 /* `match mac address MAC_ACCESS_LIST' */
 
 /* Match function should return 1 if match is success else return
@@ -3254,6 +3272,29 @@ DEFUN (no_match_evpn_vni,
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
+DEFUN (match_evpn_default_route,
+       match_evpn_default_route_cmd,
+       "match evpn default-route",
+       MATCH_STR
+       EVPN_HELP_STR
+       "default EVPN type-5 route\n")
+{
+	return bgp_route_match_add(vty, "evpn default-route", NULL,
+				   RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFUN (no_match_evpn_default_route,
+       no_match_evpn_default_route_cmd,
+       "no match evpn default-route",
+       NO_STR
+       MATCH_STR
+       EVPN_HELP_STR
+       "default EVPN type-5 route\n")
+{
+	return bgp_route_match_delete(vty, "evpn default-route", NULL,
+				      RMAP_EVENT_MATCH_DELETED);
+}
+
 DEFUN (match_peer,
        match_peer_cmd,
        "match peer <A.B.C.D|X:X::X:X|WORD>",
@@ -4633,6 +4674,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_mac_address_cmd);
 	route_map_install_match(&route_match_evpn_vni_cmd);
 	route_map_install_match(&route_match_evpn_route_type_cmd);
+	route_map_install_match(&route_match_evpn_default_route_cmd);
 
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
@@ -4669,6 +4711,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_match_evpn_vni_cmd);
 	install_element(RMAP_NODE, &match_evpn_route_type_cmd);
 	install_element(RMAP_NODE, &no_match_evpn_route_type_cmd);
+	install_element(RMAP_NODE, &match_evpn_default_route_cmd);
+	install_element(RMAP_NODE, &no_match_evpn_default_route_cmd);
 
 	install_element(RMAP_NODE, &match_aspath_cmd);
 	install_element(RMAP_NODE, &no_match_aspath_cmd);

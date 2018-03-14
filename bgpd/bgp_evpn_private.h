@@ -285,6 +285,14 @@ static inline void ip_prefix_from_type5_prefix(struct prefix_evpn *evp,
 	}
 }
 
+static inline int is_evpn_prefix_default(struct prefix *evp)
+{
+	if (evp->family != AF_EVPN)
+		return 0;
+
+	return ((evp->u.prefix_evpn.ip_prefix_length  == 0) ? 1 : 0);
+}
+
 static inline void ip_prefix_from_type2_prefix(struct prefix_evpn *evp,
 					       struct prefix *ip)
 {
@@ -352,19 +360,17 @@ static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
 	p->prefix.ip.ipaddr_v4 = originator_ip;
 }
 
-static inline int advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi)
+static inline int evpn_default_originate_set(struct bgp *bgp, afi_t afi,
+					     safi_t safi)
 {
-	if (!bgp_vrf->l3vni)
-		return 0;
-
-	if (afi == AFI_IP
-	    && CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
+	if (afi == AFI_IP &&
+	    CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4))
 		return 1;
-
-	if (afi == AFI_IP6
-	    && CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
+	else if (afi == AFI_IP6 &&
+		 CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+			    BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6))
 		return 1;
-
 	return 0;
 }
 

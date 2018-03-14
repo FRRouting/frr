@@ -39,6 +39,7 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_netns_notify.h"
 
 extern struct zebra_t zebrad;
 
@@ -160,6 +161,12 @@ static int zebra_vrf_enable(struct vrf *vrf)
 							     NULL, si);
 				}
 		}
+
+	/*
+	 * We may have static routes that are now possible to
+	 * insert into the appropriate tables
+	 */
+	static_config_install_delayed_routes(zvrf);
 
 	/* Kick off any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_enable(zvrf);
@@ -568,7 +575,6 @@ static int vrf_config_write(struct vty *vty)
 						? " prefix-routes-only"
 						: "");
 			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
-			vty_out(vty, "!\n");
 		}
 
 		static_config(vty, zvrf, AFI_IP, SAFI_UNICAST, "ip route");
@@ -587,5 +593,5 @@ void zebra_vrf_init(void)
 	vrf_init(zebra_vrf_new, zebra_vrf_enable, zebra_vrf_disable,
 		 zebra_vrf_delete);
 
-	vrf_cmd_init(vrf_config_write);
+	vrf_cmd_init(vrf_config_write, &zserv_privs);
 }

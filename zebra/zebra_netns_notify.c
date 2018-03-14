@@ -92,7 +92,11 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 		zlog_warn("NS notify : failed to create VRF %s", name);
 		return;
 	}
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges");
 	ret = vrf_netns_handler_create(NULL, vrf, netnspath, ns_id);
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges");
 	if (ret != CMD_SUCCESS) {
 		zlog_warn("NS notify : failed to create NS %s", netnspath);
 		return;

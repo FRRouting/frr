@@ -242,7 +242,8 @@ extern int vrf_switchback_to_initial(void);
 
 /* VRF vty command initialisation
  */
-extern void vrf_cmd_init(int (*writefunc)(struct vty *vty));
+extern void vrf_cmd_init(int (*writefunc)(struct vty *vty),
+			 struct zebra_privs_t *daemon_priv);
 
 /* VRF vty debugging
  */

@@ -27,15 +27,12 @@
 #include "vty.h"
 #include "vrf.h"
 
-extern void zebra_redistribute_add(int, struct zserv *, int,
-				   struct zebra_vrf *zvrf);
-extern void zebra_redistribute_delete(int, struct zserv *, int,
-				      struct zebra_vrf *zvrf);
-
-extern void zebra_redistribute_default_add(int, struct zserv *, int,
-					   struct zebra_vrf *zvrf);
-extern void zebra_redistribute_default_delete(int, struct zserv *, int,
-					      struct zebra_vrf *zvrf);
+/* ZAPI command handlers */
+extern void zebra_redistribute_add(ZAPI_HANDLER_ARGS);
+extern void zebra_redistribute_delete(ZAPI_HANDLER_ARGS);
+extern void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS);
+extern void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS);
+/* ----------------- */
 
 extern void redistribute_update(struct prefix *, struct prefix *,
 				struct route_entry *, struct route_entry *);

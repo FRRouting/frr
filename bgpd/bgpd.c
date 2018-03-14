@@ -7534,16 +7534,14 @@ static void bgp_pthreads_init()
 		.id = PTHREAD_IO,
 		.start = frr_pthread_attr_default.start,
 		.stop = frr_pthread_attr_default.stop,
-		.name = "BGP I/O thread",
 	};
 	struct frr_pthread_attr ka = {
 		.id = PTHREAD_KEEPALIVES,
 		.start = bgp_keepalives_start,
 		.stop = bgp_keepalives_stop,
-		.name = "BGP Keepalives thread",
 	};
-	frr_pthread_new(&io);
-	frr_pthread_new(&ka);
+	frr_pthread_new(&io, "BGP I/O thread");
+	frr_pthread_new(&ka, "BGP Keepalives thread");
 }
 
 void bgp_pthreads_run()

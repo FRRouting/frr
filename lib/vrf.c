@@ -33,6 +33,7 @@
 #include "memory.h"
 #include "command.h"
 #include "ns.h"
+#include "privs.h"
 
 /* default VRF ID value used when VRF backend is not NETNS */
 #define VRF_DEFAULT_INTERNAL 0
@@ -52,6 +53,7 @@ struct vrf_id_head vrfs_by_id = RB_INITIALIZER(&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 
 static int vrf_backend;
+static struct zebra_privs_t *vrf_daemon_privs;
 
 /*
  * Turn on/off debug code
@@ -690,14 +692,24 @@ DEFUN_NOSH (vrf_netns,
 	    "Attach VRF to a Namespace\n"
 	    "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
-	int idx_name = 1;
+	int idx_name = 1, ret;
 	char *pathname = ns_netns_pathname(vty, argv[idx_name]->arg);
 
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 
 	if (!pathname)
 		return CMD_WARNING_CONFIG_FAILED;
-	return vrf_netns_handler_create(vty, vrf, pathname, NS_UNKNOWN);
+
+	if (vrf_daemon_privs &&
+	    vrf_daemon_privs->change(ZPRIVS_RAISE))
+		zlog_err("%s: Can't raise privileges", __func__);
+
+	ret = vrf_netns_handler_create(vty, vrf, pathname, NS_UNKNOWN);
+
+	if (vrf_daemon_privs &&
+	    vrf_daemon_privs->change(ZPRIVS_LOWER))
+		zlog_err("%s: Can't lower privileges", __func__);
+	return ret;
 }
 
 DEFUN (no_vrf_netns,
@@ -779,7 +791,8 @@ void vrf_install_commands(void)
 	install_element(ENABLE_NODE, &no_vrf_debug_cmd);
 }
 
-void vrf_cmd_init(int (*writefunc)(struct vty *vty))
+void vrf_cmd_init(int (*writefunc)(struct vty *vty),
+		  struct zebra_privs_t *daemon_privs)
 {
 	install_element(CONFIG_NODE, &vrf_cmd);
 	install_element(CONFIG_NODE, &no_vrf_cmd);
@@ -787,6 +800,7 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 	install_default(VRF_NODE);
 	if (vrf_is_backend_netns() && ns_have_netns()) {
 		/* Install NS commands. */
+		vrf_daemon_privs = daemon_privs;
 		install_element(VRF_NODE, &vrf_netns_cmd);
 		install_element(VRF_NODE, &no_vrf_netns_cmd);
 	}

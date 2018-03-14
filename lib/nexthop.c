@@ -163,6 +163,57 @@ void nexthops_free(struct nexthop *nexthop)
 	}
 }
 
+bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
+{
+	if (nh1 && !nh2)
+		return false;
+
+	if (!nh1 && nh2)
+		return false;
+
+	if (nh1 == nh2)
+		return true;
+
+	if (nh1->vrf_id != nh2->vrf_id)
+		return false;
+
+	if (nh1->type != nh2->type)
+		return false;
+
+	switch (nh1->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		if (nh1->ifindex != nh2->ifindex)
+			return false;
+		break;
+	case NEXTHOP_TYPE_IPV4:
+		if (nh1->gate.ipv4.s_addr != nh2->gate.ipv4.s_addr)
+			return false;
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		if (nh1->gate.ipv4.s_addr != nh2->gate.ipv4.s_addr)
+			return false;
+		if (nh1->ifindex != nh2->ifindex)
+			return false;
+		break;
+	case NEXTHOP_TYPE_IPV6:
+		if (memcmp(&nh1->gate.ipv6, &nh2->gate.ipv6, 16))
+			return false;
+		break;
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (memcmp(&nh1->gate.ipv6, &nh2->gate.ipv6, 16))
+			return false;
+		if (nh1->ifindex != nh2->ifindex)
+			return false;
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		if (nh1->bh_type != nh2->bh_type)
+			return false;
+		break;
+	}
+
+	return true;
+}
+
 /* Update nexthop with label information. */
 void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
 			u_int8_t num_labels, mpls_label_t *label)

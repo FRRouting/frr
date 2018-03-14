@@ -103,6 +103,20 @@ struct isis_protocols_supported {
 	uint8_t *protocols;
 };
 
+enum isis_threeway_state {
+	ISIS_THREEWAY_DOWN = 2,
+	ISIS_THREEWAY_INITIALIZING = 1,
+	ISIS_THREEWAY_UP = 0
+};
+
+struct isis_threeway_adj {
+	enum isis_threeway_state state;
+	uint32_t local_circuit_id;
+	bool neighbor_set;
+	uint8_t neighbor_id[6];
+	uint32_t neighbor_circuit_id;
+};
+
 struct isis_item;
 struct isis_item {
 	struct isis_item *next;
@@ -190,6 +204,7 @@ struct isis_tlvs {
 	char *hostname;
 	struct isis_item_list ipv6_reach;
 	struct isis_mt_item_list mt_ipv6_reach;
+	struct isis_threeway_adj *threeway_adj;
 };
 
 struct isis_subtlvs {
@@ -227,6 +242,7 @@ enum isis_tlv_type {
 	ISIS_TLV_MT_IP_REACH = 235,
 	ISIS_TLV_IPV6_REACH = 236,
 	ISIS_TLV_MT_IPV6_REACH = 237,
+	ISIS_TLV_THREE_WAY_ADJ = 240,
 	ISIS_TLV_MAX = 256,
 
 	ISIS_SUBTLV_IPV6_SOURCE_PREFIX = 22
@@ -302,6 +318,14 @@ void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id,
 void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 				  uint8_t *id, uint32_t metric,
 				  uint8_t *subtlvs, uint8_t subtlv_len);
+
+const char *isis_threeway_state_name(enum isis_threeway_state state);
+
+void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs,
+				enum isis_threeway_state state,
+				uint32_t local_circuit_id,
+				const uint8_t *neighbor_id,
+				uint32_t neighbor_circuit_id);
 
 struct isis_mt_router_info *
 isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);

@@ -118,6 +118,8 @@ void nexthop_add_labels(struct nexthop *, enum lsp_types_t, u_int8_t,
 			mpls_label_t *);
 void nexthop_del_labels(struct nexthop *);
 
+extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
+
 extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
 extern int nexthop_same_no_recurse(const struct nexthop *next1,
 				   const struct nexthop *next2);

@@ -174,6 +174,7 @@ struct cpu_thread_history {
 
 /* Prototypes. */
 extern struct thread_master *thread_master_create(const char *);
+void thread_master_set_name(struct thread_master *master, const char *name);
 extern void thread_master_free(struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 

@@ -1573,7 +1573,8 @@ int ospf6_receive(struct thread *thread)
 	oi = ospf6_interface_lookup_by_ifindex(ifindex);
 	if (oi == NULL || oi->area == NULL
 	    || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
-		zlog_debug("Message received on disabled interface");
+		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+			zlog_debug("Message received on disabled interface");
 		return 0;
 	}
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)) {
