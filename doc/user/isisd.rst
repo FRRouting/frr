@@ -337,6 +337,15 @@ ISIS interface
    Set PSNP interval in seconds globally, for an area (level-1) or a domain
    (level-2).
 
+.. index:: isis three-way-handshake
+.. clicmd:: isis three-way-handshake
+
+.. index:: no isis three-way-handshake
+.. clicmd:: no isis three-way-handshake
+
+   Enable or disable :rfc:`5303` Three-Way Handshake for P2P adjacencies.
+   Three-Way Handshake is enabled by default.
+
 .. _showing-isis-information:
 
 Showing ISIS information
