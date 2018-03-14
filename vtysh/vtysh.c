@@ -1205,21 +1205,30 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_labeled_unicast,
 }
 
 #if defined(HAVE_RPKI)
-DEFUNSH(VTYSH_BGPD, rpki, rpki_cmd, "rpki",
+DEFUNSH(VTYSH_BGPD,
+	rpki,
+	rpki_cmd,
+	"rpki",
 	"Enable rpki and enter rpki configuration mode\n")
 {
 	vty->node = RPKI_NODE;
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BGPD, rpki_exit, rpki_exit_cmd, "exit",
+DEFUNSH(VTYSH_BGPD,
+	rpki_exit,
+	rpki_exit_cmd,
+	"exit",
 	"Exit current mode and down to previous mode\n")
 {
 	vty->node = CONFIG_NODE;
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BGPD, rpki_quit, rpki_quit_cmd, "quit",
+DEFUNSH(VTYSH_BGPD,
+	rpki_quit,
+	rpki_quit_cmd,
+	"quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return rpki_exit(self, vty, argc, argv);
@@ -1326,7 +1335,8 @@ DEFUNSH(VTYSH_OSPFD, router_ospf, router_ospf_cmd,
 	"router ospf [(1-65535)] [vrf NAME]",
 	"Enable a routing process\n"
 	"Start OSPF configuration\n"
-	"Instance ID\n" VRF_CMD_HELP_STR)
+	"Instance ID\n"
+	VRF_CMD_HELP_STR)
 {
 	vty->node = OSPF_NODE;
 	return CMD_SUCCESS;
@@ -1802,14 +1812,16 @@ DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_cmd, "no vrf NAME", NO_STR
       "Delete a pseudo vrf's configuration\n"
       "VRF's name\n")
 
-DEFUNSH(VTYSH_NS, vtysh_exit_logicalrouter, vtysh_exit_logicalrouter_cmd,
-	"exit", "Exit current mode and down to previous mode\n")
+DEFUNSH(VTYSH_NS, vtysh_exit_logicalrouter,
+	vtysh_exit_logicalrouter_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_NS, vtysh_quit_logicalrouter, vtysh_quit_logicalrouter_cmd,
-	"quit", "Exit current mode and down to previous mode\n")
+DEFUNSH(VTYSH_NS, vtysh_quit_logicalrouter,
+	vtysh_quit_logicalrouter_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_logicalrouter(self, vty, argc, argv);
 }
@@ -2121,7 +2133,6 @@ DEFUNSH(VTYSH_ALL, vtysh_log_facility, vtysh_log_facility_cmd,
 	"log facility <kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>",
 	"Logging control\n"
 	"Facility parameter for syslog messages\n" LOG_FACILITY_DESC)
-
 {
 	return CMD_SUCCESS;
 }
@@ -2131,7 +2142,6 @@ DEFUNSH(VTYSH_ALL, no_vtysh_log_facility, no_vtysh_log_facility_cmd,
 	"Logging control\n"
 	"Reset syslog facility to default (daemon)\n"
 	"Syslog facility\n")
-
 {
 	return CMD_SUCCESS;
 }
@@ -2141,7 +2151,6 @@ DEFUNSH_DEPRECATED(
 	"log trap <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
 	"Logging control\n"
 	"(Deprecated) Set logging level and default for all destinations\n" LOG_LEVEL_DESC)
-
 {
 	return CMD_SUCCESS;
 }
