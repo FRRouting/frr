@@ -1,23 +1,23 @@
 /*
- * IS-IS Rout(e)ing protocol - isis_pdu.c   
+ * IS-IS Rout(e)ing protocol - isis_pdu.c
  *                             PDU processing
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology      
+ *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  *
- * This program is free software; you can redistribute it and/or modify it 
- * under the terms of the GNU General Public Licenseas published by the Free 
- * Software Foundation; either version 2 of the License, or (at your option) 
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public Licenseas published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * This program is distributed in the hope that it will be useful,but WITHOUT 
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+ * This program is distributed in the hope that it will be useful,but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
 
- * You should have received a copy of the GNU General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
@@ -140,7 +140,7 @@ ip_match (struct list *left, struct list *right)
 
   if ((left == NULL) || (right == NULL))
     return 0;
-  
+
   for (ALL_LIST_ELEMENTS_RO (left, node1, ip1))
   {
     for (ALL_LIST_ELEMENTS_RO (right, node2, ip2))
@@ -156,7 +156,7 @@ ip_match (struct list *left, struct list *right)
 }
 
 /*
- * Checks whether we should accept a PDU of given level 
+ * Checks whether we should accept a PDU of given level
  */
 static int
 accept_level (int level, int circuit_t)
@@ -384,7 +384,7 @@ tlvs_to_adj_ipv6_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 #endif /* HAVE_IPV6 */
 
 /*
- *  RECEIVE SIDE                           
+ *  RECEIVE SIDE
  */
 
 /*
@@ -1102,8 +1102,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, const u_char *ssnpa)
       goto out;
     }
 
-  /* 
-   * it's own IIH PDU - discard silently 
+  /*
+   * it's own IIH PDU - discard silently
    */
   if (!memcmp (circuit->u.bc.snpa, ssnpa, ETH_ALEN))
     {
@@ -1577,7 +1577,7 @@ dontcheckadj:
 	}
       return retval;
     }
-  /* 7.3.15.1 c) - If this is our own lsp and we don't have it initiate a 
+  /* 7.3.15.1 c) - If this is our own lsp and we don't have it initiate a
    * purge */
   if (memcmp (hdr->lsp_id, isis->sysid, ISIS_SYS_ID_LEN) == 0)
     {
@@ -1917,7 +1917,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	  }
 	else
 	  {
-	    /* 7.3.15.2 b) 5) if it was not found, and all of those are not 0, 
+	    /* 7.3.15.2 b) 5) if it was not found, and all of those are not 0,
 	     * insert it and set SSN on it */
 	    if (entry->rem_lifetime && entry->checksum && entry->seq_num &&
 		memcmp (entry->lsp_id, isis->sysid, ISIS_SYS_ID_LEN))
@@ -2022,7 +2022,7 @@ process_psnp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
  * PDU Dispatcher
  */
 
-static int
+int
 isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
 {
   struct isis_fixed_hdr *hdr;
@@ -2142,7 +2142,7 @@ isis_receive (struct thread *thread)
   int retval;
 
   /*
-   * Get the circuit 
+   * Get the circuit
    */
   circuit = THREAD_ARG (thread);
   assert (circuit);
@@ -2153,11 +2153,8 @@ isis_receive (struct thread *thread)
 
   retval = circuit->rx (circuit, ssnpa);
 
-  if (retval == ISIS_OK)
-    retval = isis_handle_pdu (circuit, ssnpa);
-
-  /* 
-   * prepare for next packet. 
+  /*
+   * prepare for next packet.
    */
   if (!circuit->is_passive)
     isis_circuit_prepare (circuit);
@@ -2207,7 +2204,7 @@ fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type)
 }
 
 /*
- * SEND SIDE                             
+ * SEND SIDE
  */
 static void
 fill_fixed_hdr_andstream (struct isis_fixed_hdr *hdr, u_char pdu_type,
