@@ -455,7 +455,7 @@ As a working example, here is the graph of the following command: ::
 
    show [ip] bgp neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]
 
-.. figure:: ../figures/cligraph.svg
+.. figure:: ../figures/cligraph.png
    :align: center
 
    Graph of example CLI command
