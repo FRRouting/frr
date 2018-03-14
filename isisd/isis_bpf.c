@@ -236,7 +236,8 @@ end:
 int
 isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 {
-  int bytesread = 0, bytestoread, offset, one = 1;
+  int bytesread = 0, bytestoread, offset, one = 1, err = ISIS_OK;
+  u_char* buff_ptr;
   struct bpf_hdr *bpf_hdr;
 
   assert (circuit->fd > 0);
@@ -260,24 +261,33 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
   if (bytesread == 0)
     return ISIS_WARNING;
 
-  bpf_hdr = (struct bpf_hdr *) readbuff;
+  buff_ptr = (u_char*) readbuff;
 
-  assert (bpf_hdr->bh_caplen == bpf_hdr->bh_datalen);
+  while (buff_ptr < ((u_char*) readbuff) + bytesread)
+    {
+      bpf_hdr = (struct bpf_hdr *) readbuff;
 
-  offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETHER_HDR_LEN;
+      assert (bpf_hdr->bh_caplen == bpf_hdr->bh_datalen);
 
-  /* then we lose the BPF, LLC and ethernet headers */
-  stream_write (circuit->rcv_stream, readbuff + offset, 
-                bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
-  stream_set_getp (circuit->rcv_stream, 0);
+      offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETHER_HDR_LEN;
 
-  memcpy (ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
-	  ETHER_ADDR_LEN);
+      /* then we lose the BPF, LLC and ethernet headers */
+      stream_write (circuit->rcv_stream, readbuff + offset, 
+                    bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
+      stream_set_getp (circuit->rcv_stream, 0);
+
+      memcpy (ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
+        ETHER_ADDR_LEN);
+
+      err = isis_handle_pdu (circuit, ssnpa);
+      stream_reset (circuit->rcv_stream);
+      buff_ptr += BPF_WORDALIGN(bpf_hdr->bh_hdrlen + bpf_hdr->bh_datalen);
+    }
 
   if (ioctl (circuit->fd, BIOCFLUSH, &one) < 0)
     zlog_warn ("Flushing failed: %s", safe_strerror (errno));
 
-  return ISIS_OK;
+  return err;
 }
 
 int

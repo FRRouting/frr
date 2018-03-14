@@ -270,5 +270,5 @@ int ack_lsp (struct isis_link_state_hdr *hdr,
 	     struct isis_circuit *circuit, int level);
 void fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type);
 int send_hello (struct isis_circuit *circuit, int level);
-
+int isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa);
 #endif /* _ZEBRA_ISIS_PDU_H */

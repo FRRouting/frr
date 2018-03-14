@@ -2022,7 +2022,7 @@ process_psnp (int level, struct isis_circuit *circuit, const u_char *ssnpa)
  * PDU Dispatcher
  */
 
-static int
+int
 isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
 {
   struct isis_fixed_hdr *hdr;
@@ -2152,9 +2152,6 @@ isis_receive (struct thread *thread)
   isis_circuit_stream(circuit, &circuit->rcv_stream);
 
   retval = circuit->rx (circuit, ssnpa);
-
-  if (retval == ISIS_OK)
-    retval = isis_handle_pdu (circuit, ssnpa);
 
   /* 
    * prepare for next packet. 
