@@ -43,8 +43,8 @@ DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_INTERFACE, "PBR Map Interface")
 
 static uint32_t pbr_map_sequence_unique;
 
-static __inline int pbr_map_compare(const struct pbr_map *pbrmap1,
-				    const struct pbr_map *pbrmap2);
+static inline int pbr_map_compare(const struct pbr_map *pbrmap1,
+				  const struct pbr_map *pbrmap2);
 
 RB_GENERATE(pbr_map_entry_head, pbr_map, pbr_map_entry, pbr_map_compare)
 
@@ -52,8 +52,8 @@ struct pbr_map_entry_head pbr_maps = RB_INITIALIZER(&pbr_maps);
 
 DEFINE_QOBJ_TYPE(pbr_map_sequence)
 
-static __inline int pbr_map_compare(const struct pbr_map *pbrmap1,
-				    const struct pbr_map *pbrmap2)
+static inline int pbr_map_compare(const struct pbr_map *pbrmap1,
+				  const struct pbr_map *pbrmap2)
 {
 	return strcmp(pbrmap1->name, pbrmap2->name);
 }
@@ -205,8 +205,8 @@ extern void pbr_map_delete(const char *name, uint32_t seqno)
 	}
 }
 
-extern struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique,
-						    ifindex_t ifindex)
+struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique,
+					     ifindex_t ifindex)
 {
 	struct pbr_map_sequence *pbrms;
 	struct listnode *snode, *inode;
@@ -232,7 +232,7 @@ extern struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique,
 	return NULL;
 }
 
-extern struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
+struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 {
 	struct pbr_map *pbrm;
 	struct pbr_map_sequence *pbrms;
@@ -356,7 +356,7 @@ static bool pbr_map_check_valid_internal(struct pbr_map *pbrm)
  * valid config or not.  If so note that it is and return
  * that we are valid.
  */
-extern bool pbr_map_check_valid(const char *name)
+bool pbr_map_check_valid(const char *name)
 {
 	struct pbr_map *pbrm;
 
@@ -372,7 +372,7 @@ extern bool pbr_map_check_valid(const char *name)
 	return pbrm->valid;
 }
 
-extern void pbr_map_schedule_policy_from_nhg(const char *nh_group)
+void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 {
 	struct pbr_map_sequence *pbrms;
 	struct pbr_event *pbre;
@@ -412,7 +412,7 @@ extern void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 	}
 }
 
-extern void pbr_map_policy_install(const char *name)
+void pbr_map_policy_install(const char *name)
 {
 	struct pbr_map_sequence *pbrms;
 	struct pbr_map *pbrm;
@@ -440,7 +440,7 @@ extern void pbr_map_policy_install(const char *name)
 	}
 }
 
-extern void pbr_map_policy_delete(const char *ifname)
+void pbr_map_policy_delete(const char *ifname)
 {
 	struct listnode *node, *nnode;
 	struct pbr_map_interface *pmi;
@@ -467,7 +467,7 @@ extern void pbr_map_policy_delete(const char *ifname)
  * valid for usage.  If we are valid then schedule the installation/deletion
  * of the pbr-policy.
  */
-extern void pbr_map_check_nh_group_change(const char *nh_group)
+void pbr_map_check_nh_group_change(const char *nh_group)
 {
 	struct pbr_map_sequence *pbrms;
 	struct pbr_map *pbrm;
@@ -487,8 +487,6 @@ extern void pbr_map_check_nh_group_change(const char *nh_group)
 
 			if (found_name) {
 				bool original = pbrm->valid;
-				zlog_warn("*** %s pbrm->valid is %u ***",
-					  __func__, pbrm->valid);
 
 				pbr_map_check_valid_internal(pbrm);
 
@@ -505,7 +503,7 @@ extern void pbr_map_check_nh_group_change(const char *nh_group)
 	}
 }
 
-extern void pbr_map_check(const char *name, uint32_t seqno)
+void pbr_map_check(const char *name, uint32_t seqno)
 {
 	struct pbr_map_sequence *pbrms;
 	struct listnode *node;
@@ -554,7 +552,7 @@ extern void pbr_map_check(const char *name, uint32_t seqno)
 	}
 }
 
-extern void pbr_map_install(const char *name)
+void pbr_map_install(const char *name)
 {
 	struct pbr_map *pbrm;
 
@@ -573,7 +571,7 @@ extern void pbr_map_install(const char *name)
 	pbrm->installed = true;
 }
 
-extern void pbr_map_add_interfaces(const char *name)
+void pbr_map_add_interfaces(const char *name)
 {
 	struct pbr_map *pbrm;
 	struct interface *ifp;
@@ -589,7 +587,7 @@ extern void pbr_map_add_interfaces(const char *name)
 	}
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-                FOR_ALL_INTERFACES (vrf, ifp) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (ifp->info) {
 				pbr_ifp = ifp->info;
 				if (strcmp(name, pbr_ifp->mapname) == 0)
@@ -599,8 +597,7 @@ extern void pbr_map_add_interfaces(const char *name)
 	}
 }
 
-
-extern void pbr_map_check_policy_change(const char *name)
+void pbr_map_check_policy_change(const char *name)
 {
 	struct pbr_map *pbrm;
 
@@ -622,7 +619,7 @@ extern void pbr_map_check_policy_change(const char *name)
 	}
 }
 
-extern void pbr_map_init(void)
+void pbr_map_init(void)
 {
 	RB_INIT(pbr_map_entry_head, &pbr_maps);
 

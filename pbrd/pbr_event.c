@@ -40,7 +40,7 @@ struct work_queue *pbr_event_wq;
 static const char *pbr_event_wqentry2str(struct pbr_event *pbre,
 					 char *buffer, size_t buflen)
 {
-	switch(pbre->event) {
+	switch (pbre->event) {
 	case PBR_NHG_NEW:
 		snprintf(buffer, buflen, "Nexthop Group Added %s",
 			 pbre->name);
@@ -197,6 +197,7 @@ void pbr_event_enqueue(struct pbr_event *pbre)
 struct pbr_event *pbr_event_new(enum pbr_events ev, const char *name)
 {
 	struct pbr_event *event;
+
 	event = XCALLOC(MTYPE_PBR_EVENT, sizeof(struct pbr_event));
 	event->event = ev;
 	if (name)

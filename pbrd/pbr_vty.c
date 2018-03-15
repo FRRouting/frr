@@ -495,7 +495,7 @@ DEFPY (show_pbr_interface,
 	"PBR Interface Name\n"
 	JSON_STR)
 {
-        struct interface *ifp;
+	struct interface *ifp;
 	struct vrf *vrf;
 	struct pbr_interface *pbr_ifp;
 
@@ -558,16 +558,16 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 {
 	char buff[PREFIX_STRLEN];
 
-	vty_out (vty, "pbr-map %s seq %u\n",
-		 pbrm->name, pbrms->seqno);
+	vty_out(vty, "pbr-map %s seq %u\n",
+		pbrm->name, pbrms->seqno);
 
 	if (pbrms->src)
 		vty_out(vty, "  match src-ip %s\n",
-			prefix2str(pbrms->src, buff, sizeof buff));
+			prefix2str(pbrms->src, buff, sizeof(buff)));
 
 	if (pbrms->dst)
 		vty_out(vty, "  match dst-ip %s\n",
-			prefix2str(pbrms->dst, buff, sizeof buff));
+			prefix2str(pbrms->dst, buff, sizeof(buff)));
 
 	if (pbrms->nhgrp_name)
 		vty_out(vty, "  set nexthop-group %s\n", pbrms->nhgrp_name);
@@ -577,7 +577,7 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 		nexthop_group_write_nexthop(vty, pbrms->nhg->nexthop);
 	}
 
-	vty_out (vty, "!\n");
+	vty_out(vty, "!\n");
 	return 1;
 }
 
@@ -592,9 +592,8 @@ static int pbr_vty_map_config_write(struct vty *vty)
 		struct pbr_map_sequence *pbrms;
 		struct listnode *node;
 
-		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
+		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 			pbr_vty_map_config_write_sequence(vty, pbrm, pbrms);
-		}
 	}
 
 	return 1;
@@ -626,6 +625,4 @@ void pbr_vty_init(void)
 	install_element(VIEW_NODE, &show_pbr_nexthop_group_cmd);
 
 	pbr_debug_init_vty();
-
-	return;
 }

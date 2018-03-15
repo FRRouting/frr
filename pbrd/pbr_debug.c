@@ -75,6 +75,7 @@ static void pbr_debug_set_all(uint32_t flags, bool set)
 static uint32_t pbr_debug_check_all(uint32_t flags)
 {
 	uint32_t mode = DEBUG_MODE_ALL;
+
 	for (unsigned int i = 0; i < array_size(pbr_debugs); i++)
 		mode &= DEBUG_MODE_CHECK(pbr_debugs[i], flags);
 	return mode;
@@ -118,6 +119,7 @@ DEFPY(debug_pbr,
       "Events\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+
 	if (map)
 		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
 	if (zebra)

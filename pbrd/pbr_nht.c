@@ -220,6 +220,7 @@ static afi_t pbr_nht_which_afi(struct nexthop_group nhg)
 	struct nexthop *nexthop;
 	afi_t install_afi = AFI_MAX;
 	bool v6, v4, bh;
+
 	v6 = v4 = bh = false;
 
 	for (ALL_NEXTHOPS(nhg, nexthop)) {
@@ -639,9 +640,8 @@ bool pbr_nht_get_installed(const char *name)
 
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 
-	if (!pnhgc) {
+	if (!pnhgc)
 		return false;
-	}
 
 	return pnhgc->installed;
 }

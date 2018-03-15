@@ -66,7 +66,7 @@ struct zebra_privs_t pbr_privs = {
 	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
-struct option longopts[] = {{0}};
+struct option longopts[] = { { 0 } };
 
 /* Master of threads. */
 struct thread_master *master;
@@ -120,7 +120,7 @@ FRR_DAEMON_INFO(pbrd, PBR, .vty_port = PBR_VTY_PORT,
 		.signals = pbr_signals,
 		.n_signals = array_size(pbr_signals),
 
-		.privs = &pbr_privs, )
+		.privs = &pbr_privs,)
 
 int main(int argc, char **argv, char **envp)
 {
