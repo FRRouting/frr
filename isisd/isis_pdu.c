@@ -1460,7 +1460,7 @@ int isis_receive(struct thread *thread)
 	retval = circuit->rx(circuit, ssnpa);
 
 #if ISIS_METHOD == ISIS_METHOD_DLPI
-	if(retval == ISIS_OK)
+	if (retval == ISIS_OK)
 		retval = isis_handle_pdu(circuit, ssnpa);
 #endif //ISIS_METHOD == ISIS_METHOD_DLPI
 
