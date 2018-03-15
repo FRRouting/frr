@@ -572,6 +572,7 @@ rm -rf %{buildroot}
 %endif
 %config(noreplace) /etc/pam.d/frr
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
+%{_sbindir}/frr-reload
 
 %files contrib
 %defattr(-,root,root)

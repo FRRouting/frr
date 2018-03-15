@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if test -e /usr/lib/frr/frr-reload.py; then
+   exec /usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf
+fi
+>&2 echo "Please install frr-pythontools package. Required for reload"
+exit 1
