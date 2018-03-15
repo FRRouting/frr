@@ -61,7 +61,7 @@ static char history_file[MAXPATHLEN];
 int execute_flag = 0;
 
 /* Flag to indicate if in user/unprivileged mode. */
-int user_mode = 0;
+int user_mode;
 
 /* For sigsetjmp() & siglongjmp(). */
 static sigjmp_buf jmpbuf;
@@ -315,6 +315,8 @@ int main(int argc, char **argv, char **env)
 	realgid = getgid();
 	suid_off();
 
+	user_mode = 0;		/* may be set in options processing */
+
 	/* Preserve name of myself. */
 	progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
 
@@ -323,7 +325,8 @@ int main(int argc, char **argv, char **env)
 
 	/* Option handling. */
 	while (1) {
-		opt = getopt_long(argc, argv, "be:c:d:nf:mEhCwN:u", longopts, 0);
+		opt = getopt_long(argc, argv, "be:c:d:nf:mEhCwN:u",
+				  longopts, 0);
 
 		if (opt == EOF)
 			break;

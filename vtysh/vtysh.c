@@ -305,7 +305,6 @@ static int vtysh_execute_func(const char *line, int pager)
 	int closepager = 0;
 	int tried = 0;
 	int saved_ret, saved_node;
-	extern int user_mode;
 
 	/* Split readline string up into the vector. */
 	vline = cmd_make_strvec(line);
