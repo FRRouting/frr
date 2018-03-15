@@ -21,7 +21,10 @@
 #include "zebra.h"
 
 #include "prefix.h"
+
+#include "bgp_table.h"
 #include "bgp_flowspec_util.h"
+#include "bgp_flowspec_private.h"
 
 static void hex2bin(uint8_t *hex, int *bin)
 {
@@ -287,4 +290,107 @@ int bgp_flowspec_fragment_type_decode(enum bgp_flowspec_util_nlri_t type,
 	if (offset > max_len)
 		*error = -1;
 	return offset;
+}
+
+
+static bool bgp_flowspec_contains_prefix(struct prefix *pfs,
+					 struct prefix *input,
+					 int prefix_check)
+{
+	uint32_t offset = 0;
+	int type;
+	int ret = 0, error = 0;
+	uint8_t *nlri_content = (uint8_t *)pfs->u.prefix_flowspec.ptr;
+	size_t len = pfs->u.prefix_flowspec.prefixlen;
+	struct prefix compare;
+
+	error = 0;
+	while (offset < len-1 && error >= 0) {
+		type = nlri_content[offset];
+		offset++;
+		switch (type) {
+		case FLOWSPEC_DEST_PREFIX:
+		case FLOWSPEC_SRC_PREFIX:
+			memset(&compare, 0, sizeof(struct prefix));
+			ret = bgp_flowspec_ip_address(
+					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
+					nlri_content+offset,
+					len - offset,
+					&compare, &error);
+			if (ret <= 0)
+				break;
+			if (prefix_check &&
+			    compare.prefixlen != input->prefixlen)
+				break;
+			if (compare.family != input->family)
+				break;
+			if ((input->family == AF_INET) &&
+			    IPV4_ADDR_SAME(&input->u.prefix4,
+					   &compare.u.prefix4))
+				return true;
+			if ((input->family == AF_INET6) &&
+			    IPV6_ADDR_SAME(&input->u.prefix6.s6_addr,
+					   &compare.u.prefix6.s6_addr))
+				return true;
+			break;
+		case FLOWSPEC_IP_PROTOCOL:
+		case FLOWSPEC_PORT:
+		case FLOWSPEC_DEST_PORT:
+		case FLOWSPEC_SRC_PORT:
+		case FLOWSPEC_ICMP_TYPE:
+		case FLOWSPEC_ICMP_CODE:
+			ret = bgp_flowspec_op_decode(BGP_FLOWSPEC_VALIDATE_ONLY,
+						     nlri_content+offset,
+						     len - offset,
+						     NULL, &error);
+			break;
+		case FLOWSPEC_TCP_FLAGS:
+			ret = bgp_flowspec_tcpflags_decode(
+						BGP_FLOWSPEC_VALIDATE_ONLY,
+						nlri_content+offset,
+						len - offset,
+						NULL, &error);
+			break;
+		case FLOWSPEC_PKT_LEN:
+		case FLOWSPEC_DSCP:
+			ret = bgp_flowspec_op_decode(
+						BGP_FLOWSPEC_VALIDATE_ONLY,
+						nlri_content + offset,
+						len - offset, NULL,
+						&error);
+			break;
+		case FLOWSPEC_FRAGMENT:
+			ret = bgp_flowspec_fragment_type_decode(
+						BGP_FLOWSPEC_VALIDATE_ONLY,
+						nlri_content + offset,
+						len - offset, NULL,
+						&error);
+			break;
+		default:
+			error = -1;
+			break;
+		}
+		offset += ret;
+	}
+	return false;
+}
+
+struct bgp_node *bgp_flowspec_get_match_per_ip(afi_t afi,
+					       struct bgp_table *rib,
+					       struct prefix *match,
+					       int prefix_check)
+{
+	struct bgp_node *rn;
+	struct prefix *prefix;
+
+	for (rn = bgp_table_top(rib); rn; rn = bgp_route_next(rn)) {
+		prefix = &rn->p;
+
+		if (prefix->family != AF_FLOWSPEC)
+			continue;
+
+		if (bgp_flowspec_contains_prefix(prefix, match, prefix_check))
+			return rn;
+	}
+	return NULL;
 }
