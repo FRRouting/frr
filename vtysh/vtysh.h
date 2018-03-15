@@ -100,4 +100,6 @@ extern int execute_flag;
 
 extern struct vty *vty;
 
+extern int user_mode;
+
 #endif /* VTYSH_H */
