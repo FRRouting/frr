@@ -128,7 +128,7 @@ DEFPY(bfd_peer_detectmultiplier, bfd_peer_detectmultiplier_cmd,
 }
 
 DEFPY(bfd_peer_recvinterval, bfd_peer_recvinterval_cmd,
-      "receive-interval (50-60000)$interval",
+      "receive-interval (10-60000)$interval",
       "Configure peer receive interval\n"
       "Configure peer receive interval value in milliseconds\n")
 {
@@ -144,7 +144,7 @@ DEFPY(bfd_peer_recvinterval, bfd_peer_recvinterval_cmd,
 }
 
 DEFPY(bfd_peer_txinterval, bfd_peer_txinterval_cmd,
-      "transmit-interval (50-60000)$interval",
+      "transmit-interval (10-60000)$interval",
       "Configure peer transmit interval\n"
       "Configure peer transmit interval value in milliseconds\n")
 {

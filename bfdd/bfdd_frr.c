@@ -453,7 +453,7 @@ int bpc_set_detectmultiplier(struct bfd_peer_cfg *bpc, uint8_t detectmultiplier)
 
 int bpc_set_recvinterval(struct bfd_peer_cfg *bpc, uint64_t recvinterval)
 {
-	if (recvinterval < 50 || recvinterval > 60000)
+	if (recvinterval < 10 || recvinterval > 60000)
 		return -1;
 
 	if (recvinterval == BPC_DEF_RECEIVEINTERVAL) {
@@ -469,7 +469,7 @@ int bpc_set_recvinterval(struct bfd_peer_cfg *bpc, uint64_t recvinterval)
 
 int bpc_set_txinterval(struct bfd_peer_cfg *bpc, uint64_t txinterval)
 {
-	if (txinterval < 50 || txinterval > 60000)
+	if (txinterval < 10 || txinterval > 60000)
 		return -1;
 
 	if (txinterval == BPC_DEF_TRANSMITINTERVAL) {
