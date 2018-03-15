@@ -17,6 +17,6 @@ Restart=on-abnormal
 LimitNOFILE=1024
 ExecStart=/usr/lib/frr/frr start
 ExecStop=/usr/lib/frr/frr stop
-ExecReload=/usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf
+ExecReload=/usr/lib/frr/frr-reload
 [Install]
 WantedBy=network-online.target
