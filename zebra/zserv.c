@@ -597,6 +597,17 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 	/* Encode route and send. */
 	if (zapi_route_encode(cmd, s, &api) < 0)
 		return -1;
+
+	if (IS_ZEBRA_DEBUG_SEND) {
+		char buf_prefix[PREFIX_STRLEN];
+		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
+
+		zlog_debug("%s: %s to client %s: type %s, vrf_id %d, p %s",
+			   __func__, zserv_command_string(cmd),
+			   zebra_route_string(client->proto),
+			   zebra_route_string(api.type), api.vrf_id,
+			   buf_prefix);
+	}
 	return zebra_server_send_message(client, s);
 }
 
@@ -1151,6 +1162,16 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	s = msg;
 	zapi_route_decode(s, &api);
 
+	if (IS_ZEBRA_DEBUG_RECV) {
+		char buf_prefix[PREFIX_STRLEN];
+		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
+		zlog_debug("%s: p=%s, ZAPI_MESSAGE_LABEL: %sset, flags=0x%x",
+			   __func__, buf_prefix,
+			   (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL) ? ""
+									: "un"),
+			   api.flags);
+	}
+
 	/* Allocate new route. */
 	vrf_id = zvrf_id(zvrf);
 	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
@@ -1164,10 +1185,19 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	else
 		re->table = zvrf->table_id;
 
+	/*
+	 * TBD should _all_ of the nexthop add operations use
+	 * api_nh->vrf_id instead of re->vrf_id ? I only changed
+	 * for cases NEXTHOP_TYPE_IPV4 and NEXTHOP_TYPE_IPV6.
+	 */
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
 			ifindex_t ifindex = 0;
+
+			if (IS_ZEBRA_DEBUG_RECV) {
+				zlog_debug("nh type %d", api_nh->type);
+			}
 
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_IFINDEX:
@@ -1175,6 +1205,14 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 					re, api_nh->ifindex, api_nh->vrf_id);
 				break;
 			case NEXTHOP_TYPE_IPV4:
+				if (IS_ZEBRA_DEBUG_RECV) {
+					char nhbuf[INET6_ADDRSTRLEN] = {0};
+					inet_ntop(AF_INET, &api_nh->gate.ipv4,
+						  nhbuf, INET6_ADDRSTRLEN);
+					zlog_debug("%s: nh=%s, vrf_id=%d",
+						   __func__, nhbuf,
+						   api_nh->vrf_id);
+				}
 				nexthop = route_entry_nexthop_ipv4_add(
 					re, &api_nh->gate.ipv4, NULL,
 					api_nh->vrf_id);
@@ -1189,6 +1227,15 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 					ifindex = api_nh->ifindex;
 				}
 
+				if (IS_ZEBRA_DEBUG_RECV) {
+					char nhbuf[INET6_ADDRSTRLEN] = {0};
+					inet_ntop(AF_INET, &api_nh->gate.ipv4,
+						  nhbuf, INET6_ADDRSTRLEN);
+					zlog_debug(
+						"%s: nh=%s, vrf_id=%d (re->vrf_id=%d), ifindex=%d",
+						__func__, nhbuf, api_nh->vrf_id,
+						re->vrf_id, ifindex);
+				}
 				nexthop = route_entry_nexthop_ipv4_ifindex_add(
 					re, &api_nh->gate.ipv4, NULL, ifindex,
 					api_nh->vrf_id);
@@ -1267,6 +1314,14 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 				label_type =
 					lsp_type_from_re_type(client->proto);
+
+				if (IS_ZEBRA_DEBUG_RECV) {
+					zlog_debug(
+						"%s: adding %d labels of type %d (1st=%u)",
+						__func__, api_nh->label_num,
+						label_type, api_nh->labels[0]);
+				}
+
 				nexthop_add_labels(nexthop, label_type,
 						   api_nh->label_num,
 						   &api_nh->labels[0]);

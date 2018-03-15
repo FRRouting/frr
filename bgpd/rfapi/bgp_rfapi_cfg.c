@@ -2182,6 +2182,7 @@ void vnc_routemap_update(struct bgp *bgp, const char *unused)
 	vnc_zlog_debug_verbose("%s done", __func__);
 }
 
+#if 0 /* superseded */
 static void vnc_routemap_event(route_map_event_t type, /* ignored */
 			       const char *rmap_name)  /* ignored */
 {
@@ -2197,6 +2198,7 @@ static void vnc_routemap_event(route_map_event_t type, /* ignored */
 
 	vnc_zlog_debug_verbose("%s: done", __func__);
 }
+#endif
 
 /*-------------------------------------------------------------------------
  *			nve-group
@@ -3673,7 +3675,8 @@ bgp_rfapi_get_ecommunity_by_lni_label(struct bgp *bgp, uint32_t is_import,
 void bgp_rfapi_cfg_init(void)
 {
 	/* main bgpd code does not use this hook, but vnc does */
-	route_map_event_hook(vnc_routemap_event);
+	/* superseded by bgp_route_map_process_update_cb() */
+	/* bgp_route_map_event_hook_add(vnc_routemap_event); */
 
 	install_node(&bgp_vnc_defaults_node, NULL);
 	install_node(&bgp_vnc_nve_group_node, NULL);

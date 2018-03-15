@@ -360,7 +360,9 @@ static int vtysh_execute_func(const char *line, int pager)
 		} else if ((saved_node == KEYCHAIN_KEY_NODE
 			    || saved_node == LDP_PSEUDOWIRE_NODE
 			    || saved_node == LDP_IPV4_IFACE_NODE
-			    || saved_node == LDP_IPV6_IFACE_NODE)
+			    || saved_node == LDP_IPV6_IFACE_NODE
+			    || saved_node == BGP_VPNPOLICY_IPV4_NODE
+			    || saved_node == BGP_VPNPOLICY_IPV6_NODE)
 			   && (tried == 1)) {
 			vtysh_execute("exit");
 		} else if (tried) {
@@ -632,7 +634,9 @@ int vtysh_mark_file(const char *filename)
 			} else if ((prev_node == BGP_EVPN_VNI_NODE)
 				   && (tried == 1)) {
 				fprintf(outputfile, "exit-vni\n");
-			} else if ((prev_node == KEYCHAIN_KEY_NODE)
+			} else if ((prev_node == KEYCHAIN_KEY_NODE
+				    || prev_node == BGP_VPNPOLICY_IPV4_NODE
+				    || prev_node == BGP_VPNPOLICY_IPV6_NODE)
 				   && (tried == 1)) {
 				fprintf(outputfile, "exit\n");
 			} else if (tried) {
@@ -1013,6 +1017,12 @@ static struct cmd_node bgp_evpn_node = {BGP_EVPN_NODE,
 static struct cmd_node bgp_evpn_vni_node = {BGP_EVPN_VNI_NODE,
 					    "%s(config-router-af-vni)# "};
 
+static struct cmd_node bgp_vpn_policy_ipv4_node = {
+	BGP_VPNPOLICY_IPV4_NODE, "%s(config-router-vpn-policy-ipv4)# ", 1};
+
+static struct cmd_node bgp_vpn_policy_ipv6_node = {
+	BGP_VPNPOLICY_IPV6_NODE, "%s(config-router-vpn-policy-ipv6)# ", 1};
+
 static struct cmd_node bgp_ipv6l_node = {BGP_IPV6L_NODE,
 					 "%s(config-router-af)# "};
 
@@ -1263,6 +1273,20 @@ DEFUNSH(VTYSH_BGPD, bgp_evpn_vni, bgp_evpn_vni_cmd, "vni (1-16777215)",
 	vty->node = BGP_EVPN_VNI_NODE;
 	return CMD_SUCCESS;
 }
+
+DEFUNSH(VTYSH_BGPD, vpn_policy_afi, vpn_policy_afi_cmd, "vpn-policy <ipv4|ipv6>",
+	"Configure a VPN policy\n"
+	BGP_AFI_HELP_STR)
+{
+	int idx = 1;
+
+	if (argv_find(argv, argc, "ipv4", &idx))
+		vty->node = BGP_VPNPOLICY_IPV4_NODE;
+	else
+		vty->node = BGP_VPNPOLICY_IPV6_NODE;
+	return CMD_SUCCESS;
+}
+
 
 #if defined(ENABLE_BGP_VNC)
 DEFUNSH(VTYSH_BGPD, vnc_defaults, vnc_defaults_cmd, "vnc defaults",
@@ -1538,6 +1562,8 @@ static int vtysh_exit(struct vty *vty)
 	case BGP_IPV6M_NODE:
 	case BGP_IPV6L_NODE:
 	case BGP_VRF_POLICY_NODE:
+	case BGP_VPNPOLICY_IPV4_NODE:
+	case BGP_VPNPOLICY_IPV6_NODE:
 	case BGP_EVPN_NODE:
 	case BGP_VNC_DEFAULTS_NODE:
 	case BGP_VNC_NVE_GROUP_NODE:
@@ -3086,6 +3112,8 @@ void vtysh_init_vty(void)
 	install_node(&bgp_vrf_policy_node, NULL);
 	install_node(&bgp_evpn_node, NULL);
 	install_node(&bgp_evpn_vni_node, NULL);
+	install_node(&bgp_vpn_policy_ipv4_node, NULL);
+	install_node(&bgp_vpn_policy_ipv6_node, NULL);
 	install_node(&bgp_vnc_defaults_node, NULL);
 	install_node(&bgp_vnc_nve_group_node, NULL);
 	install_node(&bgp_vnc_l2_group_node, NULL);
@@ -3178,6 +3206,10 @@ void vtysh_init_vty(void)
 	install_element(BGP_EVPN_VNI_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_IPV6L_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_IPV6L_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_VPNPOLICY_IPV4_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_VPNPOLICY_IPV4_NODE, &vtysh_quit_bgpd_cmd);
+	install_element(BGP_VPNPOLICY_IPV6_NODE, &vtysh_exit_bgpd_cmd);
+	install_element(BGP_VPNPOLICY_IPV6_NODE, &vtysh_quit_bgpd_cmd);
 #if defined(ENABLE_BGP_VNC)
 	install_element(BGP_VRF_POLICY_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vtysh_quit_bgpd_cmd);
@@ -3230,6 +3262,8 @@ void vtysh_init_vty(void)
 	install_element(BGP_VNC_DEFAULTS_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_VNC_NVE_GROUP_NODE, &vtysh_end_all_cmd);
 	install_element(BGP_VNC_L2_GROUP_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_VPNPOLICY_IPV4_NODE, &vtysh_end_all_cmd);
+	install_element(BGP_VPNPOLICY_IPV6_NODE, &vtysh_end_all_cmd);
 	install_element(ISIS_NODE, &vtysh_end_all_cmd);
 	install_element(KEYCHAIN_NODE, &vtysh_end_all_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &vtysh_end_all_cmd);
@@ -3279,6 +3313,7 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &router_bgp_cmd);
 	install_element(BGP_NODE, &address_family_vpnv4_cmd);
 	install_element(BGP_NODE, &address_family_vpnv6_cmd);
+	install_element(BGP_NODE, &vpn_policy_afi_cmd);
 #if defined(ENABLE_BGP_VNC)
 	install_element(BGP_NODE, &vnc_vrf_policy_cmd);
 	install_element(BGP_NODE, &vnc_defaults_cmd);
