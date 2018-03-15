@@ -72,6 +72,7 @@ int bpc_set_detectmultiplier(struct bfd_peer_cfg *bpc,
 			     uint8_t detectmultiplier);
 int bpc_set_recvinterval(struct bfd_peer_cfg *bpc, uint64_t recvinterval);
 int bpc_set_txinterval(struct bfd_peer_cfg *bpc, uint64_t txinterval);
+int bpc_set_echointerval(struct bfd_peer_cfg *bpc, uint64_t echointerval);
 
 struct bpc_node *bn_find(struct bnlist *bnlist, struct bfd_peer_cfg *bpc);
 struct bpc_node *bn_new(struct bnlist *bnlist, struct bfd_peer_cfg *bpc);

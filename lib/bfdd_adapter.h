@@ -88,6 +88,8 @@ void bfd_ctrl_add_peer_bylabel(struct json_object *msg,
 const char *satostr(struct sockaddr_any *sa);
 int strtosa(const char *addr, struct sockaddr_any *sa);
 int sa_cmp(const struct sockaddr_any *sa, const struct sockaddr_any *san);
+void integer2timestr(uint64_t time, char *buf, size_t buflen);
+const char *diag2str(uint8_t diag);
 
 
 /*

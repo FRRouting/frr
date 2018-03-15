@@ -108,6 +108,15 @@ void bfdd_peer_notification(struct json_object *notification)
 			} else if (strcmp(sval, "init") == 0) {
 				bn->bn_bpc.bpc_bps = BPS_INIT;
 			}
+		} else if (strcmp(key, "diagnostics") == 0) {
+			bn->bn_bpc.bpc_diag = json_object_get_int64(jo_val);
+		} else if (strcmp(key, "remote-diagnostics") == 0) {
+			bn->bn_bpc.bpc_remotediag =
+				json_object_get_int64(jo_val);
+		} else if (strcmp(key, "uptime") == 0
+			|| strcmp(key, "downtime") == 0) {
+			bn->bn_bpc.bpc_lastevent =
+				monotime(NULL) - json_object_get_int64(jo_val);
 		}
 	}
 }
@@ -177,6 +186,9 @@ void bfdd_config_notification(struct json_object *notification)
 		} else if (strcmp(key, "transmit-interval") == 0) {
 			bpc_set_txinterval(&bn->bn_bpc,
 					   json_object_get_int64(jo_val));
+		} else if (strcmp(key, "echo-interval") == 0) {
+			bpc_set_echointerval(&bn->bn_bpc,
+					   json_object_get_int64(jo_val));
 		} else if (strcmp(key, "shutdown") == 0) {
 			bn->bn_bpc.bpc_shutdown =
 				json_object_get_boolean(jo_val);
@@ -185,6 +197,18 @@ void bfdd_config_notification(struct json_object *notification)
 				json_object_get_string(jo_val),
 				sizeof(bn->bn_bpc.bpc_label));
 			bn->bn_bpc.bpc_has_label = true;
+		} else if (strcmp(key, "remote-detect-multiplier") == 0) {
+			bn->bn_bpc.bpc_remote_detectmultiplier =
+				json_object_get_int64(jo_val);
+		} else if (strcmp(key, "remote-receive-interval") == 0) {
+			bn->bn_bpc.bpc_remote_recvinterval =
+				json_object_get_int64(jo_val);
+		} else if (strcmp(key, "remote-transmit-interval") == 0) {
+			bn->bn_bpc.bpc_remote_txinterval =
+				json_object_get_int64(jo_val);
+		} else if (strcmp(key, "remote-echo-interval") == 0) {
+			bn->bn_bpc.bpc_remote_echointerval =
+				json_object_get_int64(jo_val);
 		}
 	}
 }
@@ -453,6 +477,22 @@ int bpc_set_txinterval(struct bfd_peer_cfg *bpc, uint64_t txinterval)
 
 	bpc->bpc_has_txinterval = true;
 	bpc->bpc_txinterval = txinterval;
+	return 0;
+}
+
+int bpc_set_echointerval(struct bfd_peer_cfg *bpc, uint64_t echointerval)
+{
+	if (echointerval < 10 || echointerval > 60000)
+		return -1;
+
+	if (echointerval == BPC_DEF_ECHOINTERVAL) {
+		bpc->bpc_has_echointerval = false;
+		bpc->bpc_echointerval = echointerval;
+		return 0;
+	}
+
+	bpc->bpc_has_echointerval = true;
+	bpc->bpc_echointerval = echointerval;
 	return 0;
 }
 

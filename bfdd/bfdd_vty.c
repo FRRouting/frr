@@ -253,6 +253,9 @@ DEFPY(bfd_no_peer, bfd_no_peer_cmd,
 
 static void _display_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 {
+	char buf[256];
+	time_t now;
+
 	vty_out(vty, "\tpeer %s", satostr(&bpc->bpc_peer));
 	if (bpc->bpc_has_localif) {
 		vty_out(vty, " interface %s", bpc->bpc_localif);
@@ -290,6 +293,37 @@ static void _display_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 		vty_out(vty, "unknown\n");
 		break;
 	}
+
+	if (bpc->bpc_bps == BPS_DOWN) {
+		now = monotime(NULL);
+		integer2timestr(now - bpc->bpc_lastevent, buf, sizeof(buf));
+		vty_out(vty, "\t\tDowntime: %s\n", buf);
+	}
+	if (bpc->bpc_bps == BPS_UP) {
+		now = monotime(NULL);
+		integer2timestr(now - bpc->bpc_lastevent, buf, sizeof(buf));
+		vty_out(vty, "\t\tUptime: %s\n", buf);
+	}
+
+	vty_out(vty, "\t\tDiagnostics: %s\n", diag2str(bpc->bpc_diag));
+	vty_out(vty, "\t\tRemote diagnostics: %s\n",
+		diag2str(bpc->bpc_remotediag));
+
+	vty_out(vty, "\t\tLocal timers:\n");
+	vty_out(vty, "\t\t\tReceive interval: %lu\n",
+		bpc->bpc_recvinterval);
+	vty_out(vty, "\t\t\tTransmission interval: %lu\n",
+		bpc->bpc_txinterval);
+	vty_out(vty, "\t\t\tEcho transmission interval: %lu\n",
+		bpc->bpc_echointerval);
+
+	vty_out(vty, "\t\tRemote timers:\n");
+	vty_out(vty, "\t\t\tReceive interval: %u\n",
+		bpc->bpc_remote_recvinterval);
+	vty_out(vty, "\t\t\tTransmission interval: %u\n",
+		bpc->bpc_remote_txinterval);
+	vty_out(vty, "\t\t\tEcho transmission interval: %u\n",
+		bpc->bpc_remote_echointerval);
 
 	vty_out(vty, "\n");
 }

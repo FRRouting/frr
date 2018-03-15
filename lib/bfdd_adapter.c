@@ -597,6 +597,89 @@ int sa_cmp(const struct sockaddr_any *sa, const struct sockaddr_any *san)
 	return 0;
 }
 
+void integer2timestr(uint64_t time, char *buf, size_t buflen)
+{
+	unsigned int year, month, day, hour, minute, second;
+	int rv;
+
+	year = month = day = hour = minute = second = 0;
+
+#define MINUTES (60)
+#define HOURS (24 * MINUTES)
+#define DAYS (30 * HOURS)
+#define MONTHS (12 * DAYS)
+#define YEARS (MONTHS)
+	if (time >= YEARS) {
+		year = time / YEARS;
+		time -= year * YEARS;
+
+		rv = snprintf(buf, buflen, "%u year(s), ", year);
+		buf += rv;
+		buflen -= rv;
+	}
+	if (time >= MONTHS) {
+		month = time / MONTHS;
+		time -= month * MONTHS;
+
+		rv = snprintf(buf, buflen, "%u month(s), ", month);
+		buf += rv;
+		buflen -= rv;
+	}
+	if (time >= DAYS) {
+		day = time / DAYS;
+		time -= day * DAYS;
+
+		rv = snprintf(buf, buflen, "%u day(s), ", day);
+		buf += rv;
+		buflen -= rv;
+	}
+	if (time >= HOURS) {
+		hour = time / HOURS;
+		time -= hour * HOURS;
+
+		rv = snprintf(buf, buflen, "%u hour(s), ", hour);
+		buf += rv;
+		buflen -= rv;
+	}
+	if (time >= MINUTES) {
+		minute = time / MINUTES;
+		time -= minute * MINUTES;
+
+		rv = snprintf(buf, buflen, "%u minute(s), ", minute);
+		buf += rv;
+		buflen -= rv;
+	}
+	second = time % MINUTES;
+	snprintf(buf, buflen, "%u second(s)", second);
+}
+
+const char *diag2str(uint8_t diag)
+{
+	switch (diag) {
+	case 0:
+		return "ok";
+	case 1:
+		return "control detection time expired";
+	case 2:
+		return "echo function failed";
+	case 3:
+		return "neighbor signaled session down";
+	case 4:
+		return "forwarding plane reset";
+	case 5:
+		return "path down";
+	case 6:
+		return "concatenated path down";
+	case 7:
+		return "administratively down";
+	case 8:
+		return "reverse concatenated path down";
+	default:
+		return "unknown";
+	}
+}
+
+
 /*
  * bfd_receive_id: callback to wait for an specific ID, otherwise dispatch to
  * the appropriated callback.
