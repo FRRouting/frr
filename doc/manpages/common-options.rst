@@ -122,6 +122,7 @@ These following options control the daemon's VTY (interactive command line) inte
       pimd            2611
       ldpd            2612
       eigrpd          2613
+      pbrd            2615
 
    Port 2607 is used for ospfd's Opaque LSA API, while port 2600 is used for the (insecure) TCP-ZEBRA interface.
 

@@ -18,6 +18,7 @@ Welcome to FRR's documentation!
    ospfclient
    ospfd
    pimd
+   pbrd
    mtracebis
    ripd
    ripngd
