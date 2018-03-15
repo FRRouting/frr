@@ -611,32 +611,6 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 	return zebra_server_send_message(client, s);
 }
 
-static int zsend_write_nexthop(struct stream *s, struct nexthop *nexthop)
-{
-	stream_putc(s, nexthop->type);
-	switch (nexthop->type) {
-	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		stream_put_in_addr(s, &nexthop->gate.ipv4);
-		stream_putl(s, nexthop->ifindex);
-		break;
-	case NEXTHOP_TYPE_IPV6:
-		stream_put(s, &nexthop->gate.ipv6, 16);
-		break;
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		stream_put(s, &nexthop->gate.ipv6, 16);
-		stream_putl(s, nexthop->ifindex);
-		break;
-	case NEXTHOP_TYPE_IFINDEX:
-		stream_putl(s, nexthop->ifindex);
-		break;
-	default:
-		/* do nothing */
-		break;
-	}
-	return 1;
-}
-
 /*
  * Modified version of zsend_ipv4_nexthop_lookup(): Query unicast rib if
  * nexthop is not found on mrib. Returns both route metric and protocol
