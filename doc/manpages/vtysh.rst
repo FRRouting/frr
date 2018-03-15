@@ -3,7 +3,7 @@ VTYSH
 *****
 
 .. include:: defines.rst
-.. |DAEMON| replace:: eigrpd
+.. |DAEMON| replace:: vtysh
 
 SYNOPSIS
 ========
@@ -40,6 +40,18 @@ OPTIONS available for the vtysh command:
 .. option:: -E, --echo
 
    When the -c option is being used, this flag will cause the standard vtysh prompt and command to be echoed prior to displaying the results. This is particularly useful to separate the results when executing multiple commands.
+
+.. option:: -C, --dryrun
+
+   When the -C option is being used, this flag will check the config for syntatic validity.
+
+.. option:: -m, --markfile
+
+   Mark the input file with context ends, useful for cleanup of a config file that has a lot of extraneous space and end markers
+
+.. option:: -n, --noerror
+
+   When executing cli that does not invoke a vtysh shell, if an error ocurrs ignore it for purposes of return codes from vtysh.
 
 .. option:: -h, --help
 
