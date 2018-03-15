@@ -608,7 +608,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 			   zebra_route_string(api.type), api.vrf_id,
 			   buf_prefix);
 	}
-	return zebra_server_send_message(client);
+	return zebra_server_send_message(client, s);
 }
 
 static int zsend_write_nexthop(struct stream *s, struct nexthop *nexthop)
