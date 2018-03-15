@@ -1459,10 +1459,10 @@ int isis_receive(struct thread *thread)
 
 	retval = circuit->rx(circuit, ssnpa);
 
-#if ISIS_METHOD == ISIS_METHOD_DLPI
+#if ISIS_METHOD != ISIS_METHOD_BPF
 	if (retval == ISIS_OK)
 		retval = isis_handle_pdu(circuit, ssnpa);
-#endif //ISIS_METHOD == ISIS_METHOD_DLPI
+#endif //ISIS_METHOD != ISIS_METHOD_BPF
 
 	/*
 	 * prepare for next packet.
