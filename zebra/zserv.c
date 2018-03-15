@@ -663,9 +663,9 @@ int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 			char buff[PREFIX_STRLEN];
 
 			zlog_debug(
-				"Not Notifying Owner: %u about prefix %s(%u) %d",
+				"Not Notifying Owner: %u about prefix %s(%u) %d vrf: %u",
 				re->type, prefix2str(p, buff, sizeof(buff)),
-				re->table, note);
+				re->table, note, re->vrf_id);
 		}
 		return 0;
 	}
@@ -673,9 +673,9 @@ int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 	if (IS_ZEBRA_DEBUG_PACKET) {
 		char buff[PREFIX_STRLEN];
 
-		zlog_debug("Notifying Owner: %u about prefix %s(%u) %d",
+		zlog_debug("Notifying Owner: %u about prefix %s(%u) %d vrf: %u",
 			   re->type, prefix2str(p, buff, sizeof(buff)),
-			   re->table, note);
+			   re->table, note, re->vrf_id);
 	}
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -849,9 +849,10 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
-			"rnh_register msg from client %s: hdr->length=%d, type=%s\n",
+			"rnh_register msg from client %s: hdr->length=%d, type=%s vrf=%u\n",
 			zebra_route_string(client->proto), hdr->length,
-			(type == RNH_NEXTHOP_TYPE) ? "nexthop" : "route");
+			(type == RNH_NEXTHOP_TYPE) ? "nexthop" : "route",
+			zvrf->vrf->vrf_id);
 
 	s = msg;
 
@@ -924,8 +925,9 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
-			"rnh_unregister msg from client %s: hdr->length=%d\n",
-			zebra_route_string(client->proto), hdr->length);
+			"rnh_unregister msg from client %s: hdr->length=%d vrf: %u\n",
+			zebra_route_string(client->proto), hdr->length,
+			zvrf->vrf->vrf_id);
 
 	s = msg;
 
@@ -1997,8 +1999,9 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 	/* accept only dynamic routing protocols */
 	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_STATIC)) {
 		zlog_notice(
-			"client %d says hello and bids fair to announce only %s routes",
-			client->sock, zebra_route_string(proto));
+			"client %d says hello and bids fair to announce only %s routes vrf=%u",
+			client->sock, zebra_route_string(proto),
+			zvrf->vrf->vrf_id);
 		if (instance)
 			zlog_notice("client protocol instance %d", instance);
 
@@ -2130,8 +2133,8 @@ static void zread_label_manager_connect(struct zserv *client,
 		zsend_label_manager_connect_response(client, vrf_id, 1);
 		return;
 	}
-	zlog_notice("client %d with instance %u connected as %s", client->sock,
-		    instance, zebra_route_string(proto));
+	zlog_notice("client %d with vrf %u instance %u connected as %s",
+		    client->sock, vrf_id, instance, zebra_route_string(proto));
 	client->proto = proto;
 	client->instance = instance;
 
@@ -2142,8 +2145,8 @@ static void zread_label_manager_connect(struct zserv *client,
 	release_daemon_chunks(proto, instance);
 
 	zlog_debug(
-		" Label Manager client connected: sock %d, proto %s, instance %u",
-		client->sock, zebra_route_string(proto), instance);
+		" Label Manager client connected: sock %d, proto %s, vrf %u instance %u",
+		client->sock, zebra_route_string(proto), vrf_id, instance);
 	/* send response back */
 	zsend_label_manager_connect_response(client, vrf_id, 0);
 

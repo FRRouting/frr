@@ -685,7 +685,8 @@ struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 		char buf[BUFSIZ];
 		inet_ntop(AF_INET, &addr, buf, BUFSIZ);
 
-		zlog_debug("%s: %s: found %s, using %s", __func__, buf,
+		zlog_debug("%s: %s: vrf: %u found %s, using %s",
+			   __func__, buf, vrf_id,
 			   mre ? (ure ? "MRIB+URIB" : "MRIB")
 			       : ure ? "URIB" : "nothing",
 			   re == ure ? "URIB" : re == mre ? "MRIB" : "none");
@@ -1608,9 +1609,9 @@ static void rib_process(struct route_node *rn)
 				if (re != old_selected) {
 					if (IS_ZEBRA_DEBUG_RIB)
 						zlog_debug(
-							"%s: %s: imported via import-table but denied "
+							"%s: %u:%s: imported via import-table but denied "
 							"by the ip protocol table route-map",
-							__func__, buf);
+							__func__, vrf_id, buf);
 					rib_unlink(rn, re);
 				} else
 					SET_FLAG(re->status,
@@ -2191,9 +2192,9 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 
 	for (ALL_NEXTHOPS(re->ng, nexthop)) {
 		inet_ntop(p->family, &nexthop->gate, straddr, INET6_ADDRSTRLEN);
-		zlog_debug("%s: %s %s[%u] with flags %s%s%s", func,
+		zlog_debug("%s: %s %s[%u] vrf %u with flags %s%s%s", func,
 			   (nexthop->rparent ? "  NH" : "NH"), straddr,
-			   nexthop->ifindex,
+			   nexthop->ifindex, nexthop->vrf_id,
 			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
 				    ? "ACTIVE "
 				    : ""),
@@ -2221,7 +2222,8 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	/* Lookup table.  */
 	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
 	if (!table) {
-		zlog_err("%s: zebra_vrf_table() returned NULL", __func__);
+		zlog_err("%s:%u zebra_vrf_table() returned NULL",
+			 __func__, vrf_id);
 		return;
 	}
 
@@ -2230,7 +2232,7 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 
 	/* No route for this prefix. */
 	if (!rn) {
-		zlog_debug("%s: lookup failed for %s", __func__,
+		zlog_debug("%s:%u lookup failed for %s", __func__, vrf_id,
 			   prefix2str((struct prefix *)p, prefix_buf,
 				      sizeof(prefix_buf)));
 		return;
@@ -2241,8 +2243,9 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 
 	/* let's go */
 	RNODE_FOREACH_RE (rn, re) {
-		zlog_debug("%s: rn %p, re %p: %s, %s", __func__, (void *)rn,
-			   (void *)re,
+		zlog_debug("%s:%u rn %p, re %p: %s, %s",
+			   __func__, vrf_id,
+			   (void *)rn, (void *)re,
 			   (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)
 				    ? "removed"
 				    : "NOT removed"),
@@ -2266,7 +2269,8 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	rib_dest_t *dest;
 
 	if (NULL == (table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id))) {
-		zlog_err("%s: zebra_vrf_table() returned NULL", __func__);
+		zlog_err("%s:%u zebra_vrf_table() returned NULL",
+			 __func__, vrf_id);
 		return;
 	}
 
