@@ -27,6 +27,7 @@
 %{!?with_bgp_vnc:       %global  with_bgp_vnc       0 }
 %{!?with_pimd:          %global  with_pimd          1 }
 %{!?with_rpki:          %global  with_rpki          0 }
+%{!?with_pbrd:          %global  with_pbrd          1 }
 
 # path defines
 %define     _sysconfdir   /etc/frr
@@ -100,6 +101,12 @@
 %define     daemon_pimd ""
 %endif
 
+%if %{with_pbrd}
+%define     daemon_pbrd pbrd
+%else
+%define     daemon_pbrd ""
+%endif
+
 %if %{with_nhrpd}
 %define         daemon_nhrpd	nhrpd
 %else
@@ -124,7 +131,7 @@
 %define     daemon_watchfrr ""
 %endif
 
-%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr}
+%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd}
 
 # allow build dir to be kept
 %{!?keep_build:         %global  keep_build         0 }
@@ -182,7 +189,7 @@ protocol. It takes multi-server and multi-thread approach to resolve
 the current complexity of the Internet.
 
 FRRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM, LDP
-NHRP, Babel and EIGRP.
+NHRP, Babel, PBR and EIGRP.
 
 FRRouting is a fork of Quagga.
 
@@ -265,6 +272,11 @@ developing OSPF-API and frr applications.
     --enable-pimd \
 %else
     --disable-pimd \
+%endif
+%if %{with_pbrd}
+    --enable-pbrd \
+%else
+    --disable-pbrd \
 %endif
 %if %{with_nhrpd}
 	--enable-nhrpd \
@@ -414,6 +426,9 @@ zebra_spec_add_service nhrpd    2610/tcp "NHRPd vty"
 %if %{with_pimd}
 zebra_spec_add_service pimd     2611/tcp "PIMd vty"
 %endif
+%if %{with_pbrd}
+zebra_spec_add_service pbrd     2615/tcp "PBRd vty"
+%endif
 %if %{with_ldpd}
 zebra_spec_add_service ldpd     2612/tcp "LDPd vty"
 %endif
@@ -546,6 +561,9 @@ rm -rf %{buildroot}
 %{_sbindir}/ospf6d
 %if %{with_pimd}
     %{_sbindir}/pimd
+%endif
+%if %{with_pbrd}
+    %{_sbindir}/pbrd
 %endif
 %{_sbindir}/isisd
 %if %{with_ldpd}
