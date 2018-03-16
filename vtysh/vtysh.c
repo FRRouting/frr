@@ -1274,16 +1274,19 @@ DEFUNSH(VTYSH_BGPD, bgp_evpn_vni, bgp_evpn_vni_cmd, "vni (1-16777215)",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BGPD, vpn_policy_afi, vpn_policy_afi_cmd, "vpn-policy <ipv4|ipv6>",
+DEFUNSH(VTYSH_BGPD, vpn_policy_v4, vpn_policy_v4_cmd, "vpn-policy ipv4",
 	"Configure a VPN policy\n"
-	BGP_AFI_HELP_STR)
+	"Address Family\n")
 {
-	int idx = 1;
+	vty->node = BGP_VPNPOLICY_IPV4_NODE;
+	return CMD_SUCCESS;
+}
 
-	if (argv_find(argv, argc, "ipv4", &idx))
-		vty->node = BGP_VPNPOLICY_IPV4_NODE;
-	else
-		vty->node = BGP_VPNPOLICY_IPV6_NODE;
+DEFUNSH(VTYSH_BGPD, vpn_policy_v6, vpn_policy_v6_cmd, "vpn-policy ipv6",
+	"Configure a VPN policy\n"
+	"Address Family\n")
+{
+	vty->node = BGP_VPNPOLICY_IPV6_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -3313,7 +3316,8 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &router_bgp_cmd);
 	install_element(BGP_NODE, &address_family_vpnv4_cmd);
 	install_element(BGP_NODE, &address_family_vpnv6_cmd);
-	install_element(BGP_NODE, &vpn_policy_afi_cmd);
+	install_element(BGP_NODE, &vpn_policy_v4_cmd);
+	install_element(BGP_NODE, &vpn_policy_v6_cmd);
 #if defined(ENABLE_BGP_VNC)
 	install_element(BGP_NODE, &vnc_vrf_policy_cmd);
 	install_element(BGP_NODE, &vnc_defaults_cmd);
