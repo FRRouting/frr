@@ -212,10 +212,6 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	mpls_label_t label = MPLS_INVALID_LABEL;
 	u_char llen;
 
-	/* Check peer status. */
-	if (peer->status != Established)
-		return 0;
-
 	pnt = packet->nlri;
 	lim = pnt + packet->length;
 	afi = packet->afi;
