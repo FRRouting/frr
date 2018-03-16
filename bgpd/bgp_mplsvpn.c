@@ -28,8 +28,8 @@
 #include "queue.h"
 #include "filter.h"
 #include "mpls.h"
-#include "lib/json.h"
-#include "lib/zclient.h"
+#include "json.h"
+#include "zclient.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_debug.h"
@@ -824,7 +824,6 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 	struct prefix *p = &info_vpn->net->p;
 	afi_t afi = family2afi(p->family);
 
-	struct bgp_redist *red;
 	struct attr static_attr = {0};
 	struct attr *new_attr = NULL;
 	struct bgp_node *bn;
@@ -836,7 +835,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
-	if (!vpn_leak_from_vpn_active(bgp_vrf, afi, &debugmsg, &red)) {
+	if (!vpn_leak_from_vpn_active(bgp_vrf, afi, &debugmsg)) {
 		if (debug)
 			zlog_debug("%s: skipping: %s", __func__, debugmsg);
 		return;
@@ -893,28 +892,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 
 	/*
 	 * route map handling
-	 * For now, we apply two route maps: the "redist" route map and the
-	 * vpn-policy route map. Once we finalize CLI syntax, one of these
-	 * route maps will probably go away.
 	 */
-	if (red->rmap.map) {
-		struct bgp_info info;
-		route_map_result_t ret;
-
-		memset(&info, 0, sizeof(info));
-		info.peer = bgp_vrf->peer_self;
-		info.attr = &static_attr;
-		ret = route_map_apply(red->rmap.map, p, RMAP_BGP, &info);
-		if (RMAP_DENYMATCH == ret) {
-			bgp_attr_flush(&static_attr); /* free any added parts */
-			if (debug)
-				zlog_debug(
-					"%s: vrf %s redist route map \"%s\" says DENY, skipping",
-					__func__, bgp_vrf->name,
-					red->rmap.name);
-			return;
-		}
-	}
 	if (bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_FROMVPN]) {
 		struct bgp_info info;
 		route_map_result_t ret;
@@ -994,7 +972,6 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,       /* from */
 	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp;
 	struct listnode *mnode, *mnnode;
-	struct bgp_redist *red;
 	struct bgp_node *bn;
 	struct bgp_info *bi;
 	const char *debugmsg;
@@ -1007,7 +984,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,       /* from */
 
 	/* Loop over VRFs */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
-		if (!vpn_leak_from_vpn_active(bgp, afi, &debugmsg, &red)) {
+		if (!vpn_leak_from_vpn_active(bgp, afi, &debugmsg)) {
 			if (debug)
 				zlog_debug("%s: skipping: %s", __func__,
 					   debugmsg);
@@ -1164,36 +1141,27 @@ static void vpn_policy_routemap_update(struct bgp *bgp, const char *rmap_name)
 					   __func__);
 		}
 
-		/*
-		 * vpn -> vrf leaking currently can have two route-maps:
-		 * 1. the vpn-policy tovpn route-map
-		 * 2. the (per-afi) redistribute vpn route-map
-		 */
-		char *mapname_vpn_policy =
-			bgp->vpn_policy[afi]
-				.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN];
-		struct bgp_redist *red = NULL;
+		char *mapname = bgp->vpn_policy[afi]
+			.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN];
 
-		if (vpn_leak_from_vpn_active(bgp, afi, NULL, &red)
-		    && ((mapname_vpn_policy
-			 && !strcmp(rmap_name, mapname_vpn_policy))
-			|| (red && red->rmap.name
-			    && !strcmp(red->rmap.name, rmap_name)))) {
+		if (vpn_leak_from_vpn_active(bgp, afi, NULL) && 
+			mapname &&
+			!strcmp(rmap_name, mapname))  {
 
-			if (debug)
-				zlog_debug(
-					"%s: rmap \"%s\" matches vrf-policy fromvpn"
-					" for as %d afi %s",
+			if (debug) {
+				zlog_debug("%s: rmap \"%s\" matches vrf-policy fromvpn for as %d afi %s",
 					__func__, rmap_name, bgp->as,
 					afi2str(afi));
+			}
 
 			vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, afi,
 					   bgp_get_default(), bgp);
 
-			if (!rmap)
+			if (!rmap) {
 				bgp->vpn_policy[afi]
 					.rmap[BGP_VPN_POLICY_DIR_FROMVPN] =
 					NULL;
+			}
 
 			vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, afi,
 					    bgp_get_default(), bgp);

@@ -1451,27 +1451,7 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type, u_short instance)
 		}
 #endif
 
-		/* vpn -> vrf (happens within bgp but we hijack redist bits */
-		if ((bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-		     || bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-		    && type == ZEBRA_ROUTE_BGP_VPN) {
-
-			/* leak update all */
-			vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, afi,
-					   bgp_get_default(), bgp);
-		}
-
 		vrf_bitmap_set(zclient->redist[afi][type], bgp->vrf_id);
-
-		/* vpn -> vrf (happens within bgp but we hijack redist bits */
-		if ((bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-		     || bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-		    && type == ZEBRA_ROUTE_BGP_VPN) {
-
-			/* leak update all */
-			vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, afi,
-					    bgp_get_default(), bgp);
-		}
 	}
 
 	/*
@@ -1625,15 +1605,6 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
 		vnc_export_bgp_disable(bgp, afi);
 	}
 #endif
-	/* vpn -> vrf (happend within bgp but we hijack redist bits */
-	if ((bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-	     || bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-	    && type == ZEBRA_ROUTE_BGP_VPN) {
-
-		/* leak withdraw all */
-		vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, afi,
-				   bgp_get_default(), bgp);
-	}
 
 	red = bgp_redist_lookup(bgp, afi, type, instance);
 	if (!red)

@@ -107,11 +107,8 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 }
 
 static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
-					   const char **pmsg,
-					   struct bgp_redist **pred)
+					   const char **pmsg)
 {
-	struct bgp_redist *red;
-
 	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF
 	    && bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
 
@@ -120,14 +117,11 @@ static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 
-	/* Hijack zebra redist bits for this route type */
-	red = bgp_redist_lookup(bgp_vrf, afi, ZEBRA_ROUTE_BGP_VPN, 0);
-	if (red) {
-		if (pred)
-			*pred = red;
-	} else {
+	/* Is vrf configured to import from vpn? */
+	if (!CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
+			BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
 		if (pmsg)
-			*pmsg = "redist not set";
+			*pmsg = "import not set";
 		return 0;
 	}
 	if (!bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_FROMVPN]) {

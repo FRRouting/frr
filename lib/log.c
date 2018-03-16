@@ -1055,8 +1055,6 @@ int proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_BABEL;
 		else if (strmatch(s, "sharp"))
 			return ZEBRA_ROUTE_SHARP;
-		else if (strmatch(s, "vpn"))
-			return ZEBRA_ROUTE_BGP_VPN;
 	}
 	if (afi == AFI_IP6) {
 		if (strmatch(s, "kernel"))
@@ -1085,8 +1083,6 @@ int proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_BABEL;
 		else if (strmatch(s, "sharp"))
 			return ZEBRA_ROUTE_SHARP;
-		else if (strmatch(s, "vpn"))
-			return ZEBRA_ROUTE_BGP_VPN;
 	}
 	return -1;
 }
