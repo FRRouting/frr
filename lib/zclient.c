@@ -1340,6 +1340,16 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 		case NEXTHOP_TYPE_BLACKHOLE:
 			break;
 		}
+		STREAM_GETC(s, nhr->nexthops[i].label_num);
+		if (nhr->nexthops[i].label_num > MPLS_MAX_LABELS) {
+			zlog_warn("%s: invalid number of MPLS labels (%u)",
+				  __func__, nhr->nexthops[i].label_num);
+			return false;
+		}
+		if (nhr->nexthops[i].label_num)
+			STREAM_GET(&nhr->nexthops[i].labels[0], s,
+				   nhr->nexthops[i].label_num
+				   * sizeof(mpls_label_t));
 	}
 
 	return true;
