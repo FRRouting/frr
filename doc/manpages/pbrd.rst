@@ -31,8 +31,7 @@ FILES
    The default location of the |DAEMON| config file.
 
 $(PWD)/|DAEMON|.log
-   If the |DAEMON| process is configured to output logs to a file, then you
-   will find this file in the directory where you started |DAEMON|.
+   If the |DAEMON| process is configured to output logs to a file, then you will find this file in the directory where you started |DAEMON|.
 
 .. include:: epilogue.rst
 
