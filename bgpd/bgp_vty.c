@@ -6220,11 +6220,12 @@ DEFUN (vpn_policy_rd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (vpn_policy_no_rd,
-       vpn_policy_no_rd_cmd,
-       "no rd",
+DEFUN (no_vpn_policy_rd,
+       no_vpn_policy_rd_cmd,
+       "no rd [ASN:NN_OR_IP-ADDRESS:NN]",
        NO_STR
-       "Specify route distinguisher\n")
+       "Specify route distinguisher\n"
+       "Route Distinguisher (<as-number>:<number> | <ip-address>:<number>)\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
@@ -6258,52 +6259,26 @@ DEFUN (vpn_policy_no_rd,
 
 DEFUN (vpn_policy_label,
        vpn_policy_label_cmd,
-       "label (0-1048575)",
-       "label value for VRF\n"
-       "Label Value <0-1048575>\n")
+       "[no] label [(0-1048575)]",
+       NO_STR
+       "Label value for VRF\n"
+       "Label value (0-1048575)\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	mpls_label_t label;
+	mpls_label_t label = 0;
 	int doafi[AFI_MAX] = {0};
 	afi_t afi;
 	int ret;
+	int idx = 0;
+	bool no = strmatch(argv[0]->text, "no");
 
-	label = strtoul(argv[1]->arg, NULL, 10);
-
-	ret = vpn_policy_afis(vty, doafi);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	for (afi = 0; afi < AFI_MAX; ++afi) {
-		if (!doafi[afi])
-			continue;
-
-		/* pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-		 */
-		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-				   bgp_get_default(), bgp);
-
-		bgp->vpn_policy[afi].tovpn_label = label;
-
-		/* post-change: re-export vpn routes */
-		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-				    bgp_get_default(), bgp);
+	if (!no && argv_find(argv, argc, "(0-1048575)", &idx))
+		label = strtoul(argv[idx]->arg, NULL, 10);
+	else if (!no) {
+		vty_out(vty, "%% Please specify a label\n");
+		return CMD_WARNING;
 	}
 
-	return CMD_SUCCESS;
-}
-
-DEFUN (vpn_policy_no_label,
-       vpn_policy_no_label_cmd,
-       "no label",
-       "Negate a command or set its defaults\n"
-       "label value for VRF\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int doafi[AFI_MAX] = {0};
-	afi_t afi;
-	int ret;
-
 	ret = vpn_policy_afis(vty, doafi);
 	if (ret != CMD_SUCCESS)
 		return ret;
@@ -6317,7 +6292,8 @@ DEFUN (vpn_policy_no_label,
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 				   bgp_get_default(), bgp);
 
-		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
+		bgp->vpn_policy[afi].tovpn_label =
+			!no ? label : MPLS_LABEL_NONE;
 
 		/* post-change: re-export vpn routes */
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
@@ -6329,7 +6305,8 @@ DEFUN (vpn_policy_no_label,
 
 DEFPY (vpn_policy_nexthop,
        vpn_policy_nexthop_cmd,
-       "nexthop <A.B.C.D|X:X::X:X>$nexthop",
+       "[no] nexthop <A.B.C.D|X:X::X:X>$nexthop",
+       NO_STR
        "Specify next hop to use for VRF advertised prefixes\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n")
@@ -6371,9 +6348,11 @@ DEFPY (vpn_policy_nexthop,
 
 DEFUN (vpn_policy_no_nexthop,
        vpn_policy_no_nexthop_cmd,
-       "no nexthop",
+       "no nexthop [A.B.C.D|X:X::X:X]",
        NO_STR
-       "Specify next hop to use for VRF advertised prefixes\n")
+       "Specify next hop to use for VRF advertised prefixes\n"
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int doafi[AFI_MAX] = {0};
@@ -6490,8 +6469,8 @@ DEFUN (vpn_policy_rt,
 	return CMD_SUCCESS;
 }
 
-DEFUN (vpn_policy_no_rt,
-       vpn_policy_no_rt_cmd,
+DEFUN (no_vpn_policy_rt,
+       no_vpn_policy_rt_cmd,
        "no rt <fromvpn|tovpn|both>",
        NO_STR
        "Specify route target list\n"
@@ -6586,13 +6565,14 @@ DEFUN (vpn_policy_route_map,
 	return CMD_SUCCESS;
 }
 
-DEFUN (vpn_policy_no_route_map,
-       vpn_policy_no_route_map_cmd,
-       "no route-map <fromvpn|tovpn>",
+DEFUN (no_vpn_policy_route_map,
+       no_vpn_policy_route_map_cmd,
+       "no route-map <fromvpn|tovpn> [WORD]",
        NO_STR
        "Specify route map\n"
        "fromvpn: core vpn -> this vrf\n"
-       "tovpn: this vrf -> core vpn\n")
+       "tovpn: this vrf -> core vpn\n"
+       "name of route-map\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
@@ -13039,16 +13019,14 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNPOLICY_IPV4_NODE, &vpn_policy_route_map_cmd);
 	install_element(BGP_VPNPOLICY_IPV6_NODE, &vpn_policy_route_map_cmd);
 
-	install_element(BGP_VPNPOLICY_IPV4_NODE, &vpn_policy_no_rd_cmd);
-	install_element(BGP_VPNPOLICY_IPV6_NODE, &vpn_policy_no_rd_cmd);
-	install_element(BGP_VPNPOLICY_IPV4_NODE, &vpn_policy_no_label_cmd);
-	install_element(BGP_VPNPOLICY_IPV6_NODE, &vpn_policy_no_label_cmd);
+	install_element(BGP_VPNPOLICY_IPV4_NODE, &no_vpn_policy_rd_cmd);
+	install_element(BGP_VPNPOLICY_IPV6_NODE, &no_vpn_policy_rd_cmd);
 	install_element(BGP_VPNPOLICY_IPV4_NODE, &vpn_policy_no_nexthop_cmd);
 	install_element(BGP_VPNPOLICY_IPV6_NODE, &vpn_policy_no_nexthop_cmd);
-	install_element(BGP_VPNPOLICY_IPV4_NODE, &vpn_policy_no_rt_cmd);
-	install_element(BGP_VPNPOLICY_IPV6_NODE, &vpn_policy_no_rt_cmd);
-	install_element(BGP_VPNPOLICY_IPV4_NODE, &vpn_policy_no_route_map_cmd);
-	install_element(BGP_VPNPOLICY_IPV6_NODE, &vpn_policy_no_route_map_cmd);
+	install_element(BGP_VPNPOLICY_IPV4_NODE, &no_vpn_policy_rt_cmd);
+	install_element(BGP_VPNPOLICY_IPV6_NODE, &no_vpn_policy_rt_cmd);
+	install_element(BGP_VPNPOLICY_IPV4_NODE, &no_vpn_policy_route_map_cmd);
+	install_element(BGP_VPNPOLICY_IPV6_NODE, &no_vpn_policy_route_map_cmd);
 }
 
 #include "memory.h"
