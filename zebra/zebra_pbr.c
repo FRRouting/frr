@@ -133,6 +133,25 @@ void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 			  __PRETTY_FUNCTION__);
 }
 
+static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_rule *rule = b->data;
+	int *sock = data;
+
+	if (rule->sock == *sock) {
+		kernel_del_pbr_rule(rule);
+		hash_release(zns->rules_hash, rule);
+	}
+}
+
+void zebra_pbr_client_close_cleanup(int sock)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+	hash_iterate(zns->rules_hash, zebra_pbr_cleanup_rules, &sock);
+}
+
 /*
  * Handle success or failure of rule (un)install in the kernel.
  */

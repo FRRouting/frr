@@ -132,7 +132,10 @@ extern void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
  */
 extern int kernel_pbr_rule_del(struct zebra_pbr_rule *rule);
 
+extern void zebra_pbr_client_close_cleanup(int sock);
+
 extern void zebra_pbr_rules_free(void *arg);
 extern uint32_t zebra_pbr_rules_hash_key(void *arg);
 extern int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2);
+
 #endif /* _ZEBRA_PBR_H */
