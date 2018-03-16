@@ -557,7 +557,8 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 	 *  - BGP_ROUTE_AGGREGATE
 	 *  - BGP_ROUTE_REDISTRIBUTE
 	 */
-	if (!(new->sub_type == BGP_ROUTE_NORMAL)) {
+	if (!(new->sub_type == BGP_ROUTE_NORMAL ||
+	      new->sub_type == BGP_ROUTE_IMPORTED)) {
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to preferred BGP_ROUTE type",
@@ -565,7 +566,8 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 		return 1;
 	}
 
-	if (!(exist->sub_type == BGP_ROUTE_NORMAL)) {
+	if (!(exist->sub_type == BGP_ROUTE_NORMAL ||
+	      new->sub_type == BGP_ROUTE_IMPORTED)) {
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to preferred BGP_ROUTE type",
