@@ -351,9 +351,6 @@ int main(int argc, char **argv)
 	*/
 	frr_config_fork();
 
-	/* Clean up rib -- before fork (?) */
-	/* rib_weed_tables (); */
-
 	/* After we have successfully acquired the pidfile, we can be sure
 	*  about being the only copy of zebra process, which is submitting
 	*  changes to the FIB.

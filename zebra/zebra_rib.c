@@ -2703,38 +2703,6 @@ void rib_update(vrf_id_t vrf_id, rib_update_event_t event)
 		rib_update_table(table, event);
 }
 
-/* Remove all routes which comes from non main table.  */
-static void rib_weed_table(struct route_table *table)
-{
-	struct route_node *rn;
-	struct route_entry *re;
-	struct route_entry *next;
-
-	if (table)
-		for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-			RNODE_FOREACH_RE_SAFE (rn, re, next) {
-				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
-					continue;
-
-				if (re->table != zebrad.rtm_table_default
-				    && re->table != RT_TABLE_MAIN)
-					rib_delnode(rn, re);
-			}
-}
-
-/* Delete all routes from non main table. */
-void rib_weed_tables(void)
-{
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-		if ((zvrf = vrf->info) != NULL) {
-			rib_weed_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
-			rib_weed_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
-		}
-}
-
 /* Delete self installed routes after zebra is relaunched.  */
 void rib_sweep_table(struct route_table *table)
 {

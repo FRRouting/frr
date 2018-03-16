@@ -324,7 +324,6 @@ extern struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *, vrf_id_t);
 
 extern void rib_update(vrf_id_t, rib_update_event_t);
-extern void rib_weed_tables(void);
 extern void rib_sweep_route(void);
 extern void rib_sweep_table(struct route_table *);
 extern void rib_close_table(struct route_table *);
