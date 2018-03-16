@@ -798,7 +798,7 @@ DEFPY(ip_route_address_interface,
 		ifname = NULL;
 	}
 
-	zvrf = zebra_vrf_lookup_by_name(vrf);
+	zvrf = zebra_vty_get_unknown_vrf(vty, vrf);
 	if (!zvrf) {
 		vty_out(vty, "%% vrf %s is not defined\n", vrf);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -905,7 +905,7 @@ DEFPY(ip_route,
 		ifname = NULL;
 	}
 
-	zvrf = zebra_vrf_lookup_by_name(vrf);
+	zvrf = zebra_vty_get_unknown_vrf(vty, vrf);
 	if (!zvrf) {
 		vty_out(vty, "%% vrf %s is not defined\n", vrf);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2409,7 +2409,7 @@ DEFPY(ipv6_route_address_interface,
 	struct zebra_vrf *zvrf;
 	struct zebra_vrf *nh_zvrf;
 
-	zvrf = zebra_vrf_lookup_by_name(vrf);
+	zvrf = zebra_vty_get_unknown_vrf(vty, vrf);
 	if (!zvrf) {
 		vty_out(vty, "%% vrf %s is not defined\n", vrf);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2503,7 +2503,7 @@ DEFPY(ipv6_route,
 	struct zebra_vrf *zvrf;
 	struct zebra_vrf *nh_zvrf;
 
-	zvrf = zebra_vrf_lookup_by_name(vrf);
+	zvrf = zebra_vty_get_unknown_vrf(vty, vrf);
 	if (!zvrf) {
 		vty_out(vty, "%% vrf %s is not defined\n", vrf);
 		return CMD_WARNING_CONFIG_FAILED;
