@@ -2254,6 +2254,19 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
 	fec_print(rn->info, vty);
 }
 
+static bool mpls_ftn_update_nexthop(int add, struct nexthop *nexthop,
+				    enum lsp_types_t type, mpls_label_t label)
+{
+	if (add && nexthop->nh_label_type == ZEBRA_LSP_NONE)
+		nexthop_add_labels(nexthop, type, 1, &label);
+	else if (!add && nexthop->nh_label_type == type)
+		nexthop_del_labels(nexthop);
+	else
+		return false;
+
+	return true;
+}
+
 /*
  * Install/uninstall a FEC-To-NHLFE (FTN) binding.
  */
@@ -2266,6 +2279,7 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 	struct route_node *rn;
 	struct route_entry *re;
 	struct nexthop *nexthop;
+	bool found;
 
 	/* Lookup table.  */
 	table = zebra_vrf_table(family2afi(prefix->family), SAFI_UNICAST,
@@ -2285,6 +2299,7 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 	if (re == NULL)
 		return -1;
 
+	found = false;
 	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next) {
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV4:
@@ -2297,7 +2312,11 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 			if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
 			    && nexthop->ifindex != ifindex)
 				continue;
-			goto found;
+			if (!mpls_ftn_update_nexthop(add, nexthop, type,
+						     out_label))
+				return 0;
+			found = true;
+			break;
 		case NEXTHOP_TYPE_IPV6:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			if (gtype != NEXTHOP_TYPE_IPV6
@@ -2308,21 +2327,18 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 			if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
 			    && nexthop->ifindex != ifindex)
 				continue;
-			goto found;
+			if (!mpls_ftn_update_nexthop(add, nexthop, type,
+						     out_label))
+				return 0;
+			found = true;
+			break;
 		default:
 			break;
 		}
 	}
-	/* nexthop not found */
-	return -1;
 
-found:
-	if (add && nexthop->nh_label_type == ZEBRA_LSP_NONE)
-		nexthop_add_labels(nexthop, type, 1, &out_label);
-	else if (!add && nexthop->nh_label_type == type)
-		nexthop_del_labels(nexthop);
-	else
-		return 0;
+	if (!found)
+		return -1;
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	SET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
