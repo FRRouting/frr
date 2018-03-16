@@ -249,7 +249,11 @@ static int zebra_static_route_holdem(struct zebra_vrf *zvrf,
 			return CMD_SUCCESS;
 		}
 
-		assert(!"We should not have found a duplicate and not remove it");
+		/*
+		 * If a person enters the same line again
+		 * we need to silently accept it
+		 */
+		return CMD_SUCCESS;
 	}
 
 	listnode_add_sort(static_list, shr);
