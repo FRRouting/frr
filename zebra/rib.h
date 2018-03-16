@@ -230,23 +230,24 @@ typedef enum {
 	RIB_UPDATE_OTHER
 } rib_update_event_t;
 
-extern struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *,
-						       ifindex_t,
+extern struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *re,
+						       ifindex_t ifindex,
 						       vrf_id_t nh_vrf_id);
-extern struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *,
-							 enum blackhole_type);
-extern struct nexthop *route_entry_nexthop_ipv4_add(struct route_entry *,
-						    struct in_addr *,
-						    struct in_addr *,
+extern struct nexthop *
+route_entry_nexthop_blackhole_add(struct route_entry *re,
+				  enum blackhole_type bh_type);
+extern struct nexthop *route_entry_nexthop_ipv4_add(struct route_entry *re,
+						    struct in_addr *ipv4,
+						    struct in_addr *src,
 						    vrf_id_t nh_vrf_id);
 extern struct nexthop *
-route_entry_nexthop_ipv4_ifindex_add(struct route_entry *, struct in_addr *,
-				     struct in_addr *, ifindex_t,
-				     vrf_id_t nh_vrf_id);
+route_entry_nexthop_ipv4_ifindex_add(struct route_entry *re,
+				     struct in_addr *ipv4, struct in_addr *src,
+				     ifindex_t ifindex, vrf_id_t nh_vrf_id);
 extern void route_entry_nexthop_delete(struct route_entry *re,
 				       struct nexthop *nexthop);
-extern struct nexthop *route_entry_nexthop_ipv6_add(struct route_entry *,
-						    struct in6_addr *,
+extern struct nexthop *route_entry_nexthop_ipv6_add(struct route_entry *re,
+						    struct in6_addr *ipv6,
 						    vrf_id_t nh_vrf_id);
 extern struct nexthop *
 route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
@@ -258,8 +259,9 @@ extern void route_entry_copy_nexthops(struct route_entry *re,
 				      struct nexthop *nh);
 
 #define route_entry_dump(prefix, src, re) _route_entry_dump(__func__, prefix, src, re)
-extern void _route_entry_dump(const char *, union prefixconstptr,
-			      union prefixconstptr, const struct route_entry *);
+extern void _route_entry_dump(const char *func, union prefixconstptr pp,
+			      union prefixconstptr src_pp,
+			      const struct route_entry *re);
 /* RPF lookup behaviour */
 enum multicast_mode {
 	MCAST_NO_CONFIG = 0,  /* MIX_MRIB_FIRST, but no show in config write */
@@ -274,11 +276,11 @@ enum multicast_mode {
 extern void multicast_mode_ipv4_set(enum multicast_mode mode);
 extern enum multicast_mode multicast_mode_ipv4_get(void);
 
-extern void rib_lookup_and_dump(struct prefix_ipv4 *, vrf_id_t);
-extern void rib_lookup_and_pushup(struct prefix_ipv4 *, vrf_id_t);
+extern void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id);
+extern void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id);
 
-extern int rib_lookup_ipv4_route(struct prefix_ipv4 *, union sockunion *,
-				 vrf_id_t);
+extern int rib_lookup_ipv4_route(struct prefix_ipv4 *p, union sockunion *qgate,
+				 vrf_id_t vrf_id);
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0
 #define ZEBRA_RIB_FOUND_NOGATE 1
@@ -305,8 +307,8 @@ extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		   u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
 		   uint8_t distance, route_tag_t tag);
 
-extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *,
-			     struct prefix_ipv6 *src_p, struct route_entry *);
+extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
+			     struct prefix_ipv6 *src_p, struct route_entry *re);
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       u_short instance, int flags, struct prefix *p,
@@ -314,19 +316,20 @@ extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       u_int32_t table_id, u_int32_t metric, bool fromkernel,
 		       struct ethaddr *rmac);
 
-extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t,
-				     union g_addr *,
+extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
+				     union g_addr *addr,
 				     struct route_node **rn_out);
 extern struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 						    struct in_addr addr,
 						    struct route_node **rn_out);
 
-extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *, vrf_id_t);
+extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
+					   vrf_id_t vrf_id);
 
-extern void rib_update(vrf_id_t, rib_update_event_t);
+extern void rib_update(vrf_id_t vrf_id, rib_update_event_t event);
 extern void rib_sweep_route(void);
-extern void rib_sweep_table(struct route_table *);
-extern void rib_close_table(struct route_table *);
+extern void rib_sweep_table(struct route_table *table);
+extern void rib_close_table(struct route_table *table);
 extern void rib_init(void);
 extern unsigned long rib_score_proto(u_char proto, u_short instance);
 extern unsigned long rib_score_proto_table(u_char proto, u_short instance,
@@ -336,7 +339,7 @@ extern void meta_queue_free(struct meta_queue *mq);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
 extern struct route_table *rib_table_ipv6;
 
-extern void rib_unlink(struct route_node *, struct route_entry *);
+extern void rib_unlink(struct route_node *rn, struct route_entry *re);
 extern int rib_gc_dest(struct route_node *rn);
 extern struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter);
 
