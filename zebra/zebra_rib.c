@@ -139,9 +139,6 @@ uint8_t route_distance(int type)
 
 int is_zebra_valid_kernel_table(u_int32_t table_id)
 {
-	if ((table_id > ZEBRA_KERNEL_TABLE_MAX))
-		return 0;
-
 #ifdef linux
 	if ((table_id == RT_TABLE_UNSPEC) || (table_id == RT_TABLE_LOCAL)
 	    || (table_id == RT_TABLE_COMPAT))
@@ -2739,7 +2736,7 @@ void rib_weed_tables(void)
 }
 
 /* Delete self installed routes after zebra is relaunched.  */
-static void rib_sweep_table(struct route_table *table)
+void rib_sweep_table(struct route_table *table)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -2800,6 +2797,8 @@ void rib_sweep_route(void)
 		rib_sweep_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
 		rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
 	}
+
+	zebra_ns_sweep_route();
 }
 
 /* Remove specific by protocol routes from 'table'. */

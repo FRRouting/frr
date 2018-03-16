@@ -58,7 +58,8 @@ int is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
 	if (afi == AFI_MAX)
 		return 0;
 
-	if (is_zebra_valid_kernel_table(table_id))
+	if (is_zebra_valid_kernel_table(table_id) &&
+	    table_id < ZEBRA_KERNEL_TABLE_MAX)
 		return zebra_import_table_used[afi][table_id];
 	return 0;
 }

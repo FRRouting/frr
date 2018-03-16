@@ -92,4 +92,5 @@ extern struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
 int zebra_ns_config_write(struct vty *vty, struct ns *ns);
 
 unsigned long zebra_ns_score_proto(u_char proto, u_short instance);
+void zebra_ns_sweep_route(void);
 #endif

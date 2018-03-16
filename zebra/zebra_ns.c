@@ -177,6 +177,17 @@ unsigned long zebra_ns_score_proto(u_char proto, u_short instance)
 	return cnt;
 }
 
+void zebra_ns_sweep_route(void)
+{
+	struct zebra_ns_table *znst;
+	struct zebra_ns *zns;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+
+	RB_FOREACH (znst, zebra_ns_table_head, &zns->ns_tables)
+		rib_sweep_table(znst->table);
+}
+
 struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
 				       struct zebra_vrf *zvrf, uint32_t tableid,
 				       afi_t afi)
