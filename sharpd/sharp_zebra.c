@@ -214,6 +214,65 @@ void route_delete(struct prefix *p)
 	return;
 }
 
+void sharp_zebra_nexthop_watch(struct prefix *p, bool watch)
+{
+	int command = ZEBRA_NEXTHOP_REGISTER;
+
+	if (!watch)
+		command = ZEBRA_NEXTHOP_UNREGISTER;
+
+	zclient_send_rnh(zclient, command, p, true, VRF_DEFAULT);
+}
+
+static int sharp_nexthop_update(int command, struct zclient *zclient,
+				zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct zapi_route nhr;
+	char buf[PREFIX_STRLEN];
+	int i;
+
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+		zlog_warn("%s: Decode of update failed", __PRETTY_FUNCTION__);
+
+		return 0;
+	}
+
+	zlog_debug("Received update for %s",
+		   prefix2str(&nhr.prefix, buf, sizeof(buf)));
+	for (i = 0; i < nhr.nexthop_num; i++) {
+		struct zapi_nexthop *znh = &nhr.nexthops[i];
+
+		switch (znh->type) {
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+		case NEXTHOP_TYPE_IPV4:
+			zlog_debug(
+				"\tNexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				inet_ntop(AF_INET, &znh->gate.ipv4.s_addr, buf,
+					  sizeof(buf)),
+				znh->type, znh->ifindex, znh->vrf_id,
+				znh->label_num);
+			break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+		case NEXTHOP_TYPE_IPV6:
+			zlog_debug(
+				"\tNexthop %s, type: %d, ifindex: %d, vrf: %d, label_num: %d",
+				inet_ntop(AF_INET6, &znh->gate.ipv6, buf,
+					  sizeof(buf)),
+				znh->type, znh->ifindex, znh->vrf_id,
+				znh->label_num);
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			zlog_debug("\tNexthop IFINDEX: %d, ifindex: %d",
+				   znh->type, znh->ifindex);
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			zlog_debug("\tNexthop blackhole");
+			break;
+		}
+	}
+	return 0;
+}
+
 extern struct zebra_privs_t sharp_privs;
 
 void sharp_zebra_init(void)
@@ -231,4 +290,5 @@ void sharp_zebra_init(void)
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;
+	zclient->nexthop_update = sharp_nexthop_update;
 }

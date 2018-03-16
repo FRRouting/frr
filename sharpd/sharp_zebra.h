@@ -27,4 +27,5 @@ extern void sharp_zebra_init(void);
 extern void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label);
 extern void route_add(struct prefix *p, struct nexthop *nh);
 extern void route_delete(struct prefix *p);
+extern void sharp_zebra_nexthop_watch(struct prefix *p, bool watch);
 #endif
