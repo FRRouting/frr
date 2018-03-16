@@ -252,6 +252,30 @@ struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns,
 	return NULL;
 }
 
+/* this function must be used only if the vrf backend
+ * is a netns backend
+ */
+struct interface *if_lookup_by_name_not_ns(ns_id_t ns_id,
+					   const char *ifname)
+{
+	struct interface *ifp;
+	struct ns *ns;
+
+	RB_FOREACH (ns, ns_head, &ns_tree) {
+		if (ns->ns_id == ns_id)
+			continue;
+		/* if_delete_update has removed interface
+		 * from zns->if_table
+		 * so to look for interface, use the vrf list
+		 */
+		ifp = if_lookup_by_name(ifname, (vrf_id_t)ns->ns_id);
+		if (!ifp)
+			continue;
+		return ifp;
+	}
+	return NULL;
+}
+
 const char *ifindex2ifname_per_ns(struct zebra_ns *zns, unsigned int ifindex)
 {
 	struct interface *ifp;
