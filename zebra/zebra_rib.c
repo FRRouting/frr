@@ -2803,8 +2803,8 @@ void rib_sweep_route(void)
 }
 
 /* Remove specific by protocol routes from 'table'. */
-static unsigned long rib_score_proto_table(u_char proto, u_short instance,
-					   struct route_table *table)
+unsigned long rib_score_proto_table(u_char proto, u_short instance,
+				    struct route_table *table)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -2840,6 +2840,8 @@ unsigned long rib_score_proto(u_char proto, u_short instance)
 			       + rib_score_proto_table(
 					 proto, instance,
 					 zvrf->table[AFI_IP6][SAFI_UNICAST]);
+
+	cnt += zebra_ns_score_proto(proto, instance);
 
 	return cnt;
 }

@@ -329,6 +329,8 @@ extern void rib_sweep_route(void);
 extern void rib_close_table(struct route_table *);
 extern void rib_init(void);
 extern unsigned long rib_score_proto(u_char proto, u_short instance);
+extern unsigned long rib_score_proto_table(u_char proto, u_short instance,
+					   struct route_table *table);
 extern void rib_queue_add(struct route_node *rn);
 extern void meta_queue_free(struct meta_queue *mq);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);

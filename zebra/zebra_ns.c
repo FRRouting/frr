@@ -37,6 +37,7 @@
 #include "zebra_netns_notify.h"
 #include "zebra_netns_id.h"
 #include "zebra_pbr.h"
+#include "rib.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -160,6 +161,20 @@ struct route_table *zebra_ns_find_table(struct zebra_ns *zns, uint32_t tableid,
 		return znst->table;
 	else
 		return NULL;
+}
+
+unsigned long zebra_ns_score_proto(u_char proto, u_short instance)
+{
+	struct zebra_ns *zns;
+	struct zebra_ns_table *znst;
+	unsigned long cnt = 0;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+
+	RB_FOREACH (znst, zebra_ns_table_head, &zns->ns_tables)
+		cnt += rib_score_proto_table(proto, instance, znst->table);
+
+	return cnt;
 }
 
 struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
