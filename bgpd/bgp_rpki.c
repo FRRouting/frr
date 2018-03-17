@@ -746,7 +746,7 @@ DEFPY (rpki_expire_interval,
        "Set expire interval\n"
        "Expire interval value\n")
 {
-	if (tmp >= polling_period) {
+	if ((unsigned int)tmp >= polling_period) {
 		expire_interval = tmp;
 		return CMD_SUCCESS;
 	}
