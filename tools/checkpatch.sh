@@ -8,6 +8,8 @@ ignore="ldpd\|babeld"
 cwd=${PWD##*/}
 dirty=0
 stat=0
+tmp1=/tmp/f1-$$
+tmp2=/tmp/f2-$$
 
 if [[ -z "$1" || -z "$2" ]]; then
   echo "$usage"
@@ -15,7 +17,7 @@ if [[ -z "$1" || -z "$2" ]]; then
 fi
 
 # remove temp directories
-rm -rf /tmp/f1 /tmp/f2
+rm -rf ${tmp1} ${tmp2}
 
 # save working tree
 if git -C $tree status --porcelain | egrep --silent '^(\?\?|.[DM])'; then
@@ -38,7 +40,7 @@ fi
 
 git -C $tree reset --hard
 git -C $tree apply < $patch
-mkdir -p /tmp/f1 /tmp/f2
+mkdir -p ${tmp1} ${tmp2}
 mod=$(git -C $tree ls-files -m | grep ".*\.[ch]" | grep -v $ignore)
 mod+=" $(git -C $tree ls-files --others --exclude-standard | grep '.*\.[ch]' | grep -v $ignore)"
 echo $mod
@@ -47,32 +49,32 @@ if [ -z "$mod" ]; then
 else
   echo "Copying source to temp directory..."
   for file in $mod; do
-    echo "$tree/$file --> /tmp/f1/$file"
-    cp $tree/$file /tmp/f1/
+    echo "$tree/$file --> ${tmp1}/$file"
+    cp $tree/$file ${tmp1}/
   done
   git -C $tree reset --hard
   git -C $tree clean -fd
   for file in $mod; do
     if [ -f $tree/$file ]; then
-      echo "$tree/$file --> /tmp/f2/$file"
-      cp $tree/$file /tmp/f2/
+      echo "$tree/$file --> ${tmp2}/$file"
+      cp $tree/$file ${tmp2}/
     fi
   done
   echo "Running style checks..."
-  for file in /tmp/f1/*; do
+  for file in ${tmp1}/*; do
     echo "$checkpatch $file > $file _cp"
     $checkpatch $file > "$file"_cp 2> /dev/null
   done
-  for file in /tmp/f2/*; do
+  for file in ${tmp2}/*; do
     echo "$checkpatch $file > $file _cp"
     $checkpatch $file > "$file"_cp 2> /dev/null
   done
   echo "Done."
-  for file in /tmp/f1/*_cp; do
-    if [ -a /tmp/f2/$(basename $file) ]; then
-      result=$(diff $file /tmp/f2/$(basename $file) | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 '/tmp/f1')
+  for file in ${tmp1}/*_cp; do
+    if [ -a ${tmp2}/$(basename $file) ]; then
+      result=$(diff $file ${tmp2}/$(basename $file) | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 "${tmp1}")
     else
-      result=$(cat $file | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 '/tmp/f1')
+      result=$(cat $file | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 "${tmp1}")
     fi
     if [ "$?" -eq "0" ]; then
       echo "Report for $(basename $file _cp)" 1>&2
@@ -97,5 +99,8 @@ if [ $dirty -eq 1 ]; then
   fi
   git -C $tree config --unset gc.auto;
 fi
+
+# remove temp directories
+rm -rf ${tmp1} ${tmp2}
 
 exit $stat
