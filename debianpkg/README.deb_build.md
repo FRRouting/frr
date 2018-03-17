@@ -1,6 +1,6 @@
 Building your own FRRouting Debian Package
 ==========================================
-(Tested on Ubuntu 12.04, 14.04, 16.04, 17.10, Debian 8 and 9)
+(Tested on Ubuntu 12.04, 14.04, 16.04, 17.10, 18.04, Debian 8 and 9)
 
 **Note:**  If you try to build for a different distro, then it will most likely
 fail because of the missing backport. See debianpkg/backports/README about
@@ -102,7 +102,7 @@ allowed.
 
             sudo update-rc.d frr defaults
 
-    - On `systemd` based systems (Debian 8, 9, Ubuntu 14.04, 16.04, 17.10)
+    - On `systemd` based systems (Debian 8 and later, Ubuntu 14.04 and later)
 
             sudo systemctl enable frr
 
@@ -112,7 +112,7 @@ allowed.
 
             sudo invoke-rc.d frr start
 
-    - on `systemd` based systems (Debian 8, 9, Ubuntu 14.04, 16.04, 17.10)
+    - on `systemd` based systems (Debian 8 and later, Ubuntu 14.04 and later)
 
             sudo systemctl start frr
 
