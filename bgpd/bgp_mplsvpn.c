@@ -738,7 +738,6 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn, /* to */
 	safi_t safi = SAFI_MPLS_VPN;
 
 	/*
-	 * Walk vpn table, delete bi with parent == bgp_vrf
 	 * Walk vpn table, delete bi with bgp_orig == bgp_vrf
 	 */
 	for (prn = bgp_table_top(bgp_vpn->rib[afi][safi]); prn;
@@ -1144,7 +1143,7 @@ static void vpn_policy_routemap_update(struct bgp *bgp, const char *rmap_name)
 		char *mapname = bgp->vpn_policy[afi]
 			.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN];
 
-		if (vpn_leak_from_vpn_active(bgp, afi, NULL) && 
+		if (vpn_leak_from_vpn_active(bgp, afi, NULL) &&
 			mapname &&
 			!strcmp(rmap_name, mapname))  {
 

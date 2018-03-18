@@ -6180,7 +6180,7 @@ DEFPY (af_rd_vpn_export,
 	int yes = 1;
 
 	if (argv_find(argv, argc, "no", &idx))
-	    yes = 0;
+		yes = 0;
 
 	if (yes) {
 		ret = str2prefix_rd(rd_str, &prd);
@@ -6247,7 +6247,7 @@ DEFPY (af_label_vpn_export,
 	int yes = 1;
 
 	if (argv_find(argv, argc, "no", &idx))
-	    yes = 0;
+		yes = 0;
 
 	if (yes)
 		label = label_val; /* rely on parser to force unsigned */
@@ -6303,7 +6303,7 @@ DEFPY (af_nexthop_vpn_export,
 	int yes = 1;
 
 	if (argv_find(argv, argc, "no", &idx))
-	    yes = 0;
+		yes = 0;
 
 	if (yes) {
 		if (!sockunion2hostprefix(nexthop_str, &p))
@@ -6388,7 +6388,7 @@ DEFPY (af_rt_vpn_imexport,
 	int yes = 1;
 
 	if (argv_find(argv, argc, "no", &idx))
-	    yes = 0;
+		yes = 0;
 
 	ret = vpn_policy_getafi(vty, doafi);
 	if (ret != CMD_SUCCESS)
@@ -6434,7 +6434,8 @@ DEFPY (af_rt_vpn_imexport,
 			vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 		}
 	}
-	ecommunity_free(&ecom);
+	if (ecom)
+		ecommunity_free(&ecom);
 
 	return CMD_SUCCESS;
 }
@@ -6471,7 +6472,7 @@ DEFPY (af_route_map_vpn_imexport,
 	int yes = 1;
 
 	if (argv_find(argv, argc, "no", &idx))
-	    yes = 0;
+		yes = 0;
 
 	ret = vpn_policy_getafi(vty, doafi);
 	if (ret != CMD_SUCCESS)
@@ -6539,7 +6540,7 @@ DEFPY (bgp_imexport_vpn,
 	vpn_policy_direction_t dir;
 
 	if (argv_find(argv, argc, "no", &idx))
-	    yes = 0;
+		yes = 0;
 
 	if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type &&
 		BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {

@@ -81,6 +81,14 @@ extern void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi);
 static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 					 const char **pmsg)
 {
+	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF
+		&& bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+
+		if (pmsg)
+			*pmsg = "source bgp instance neither vrf nor default";
+		return 0;
+	}
+
 	/* Is vrf configured to export to vpn? */
 	if (!CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
 			BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)) {
@@ -110,7 +118,7 @@ static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 					   const char **pmsg)
 {
 	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF
-	    && bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+		&& bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
 
 		if (pmsg)
 			*pmsg = "destination bgp instance neither vrf nor default";
@@ -136,10 +144,16 @@ static inline void vpn_leak_prechange(vpn_policy_direction_t direction,
 				      afi_t afi, struct bgp *bgp_vpn,
 				      struct bgp *bgp_vrf)
 {
-	if (direction == BGP_VPN_POLICY_DIR_FROMVPN)
+	if ((direction == BGP_VPN_POLICY_DIR_FROMVPN) &&
+		vpn_leak_from_vpn_active(bgp_vrf, afi, NULL)) {
+
 		vpn_leak_to_vrf_withdraw_all(bgp_vrf, afi);
-	if (direction == BGP_VPN_POLICY_DIR_TOVPN)
+	}
+	if ((direction == BGP_VPN_POLICY_DIR_TOVPN) &&
+		vpn_leak_to_vpn_active(bgp_vrf, afi, NULL)) {
+
 		vpn_leak_from_vrf_withdraw_all(bgp_vpn, bgp_vrf, afi);
+	}
 }
 
 static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
@@ -150,16 +164,14 @@ static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
 		vpn_leak_to_vrf_update_all(bgp_vrf, bgp_vpn, afi);
 	if (direction == BGP_VPN_POLICY_DIR_TOVPN) {
 
-		if (bgp_vrf->vpn_policy[afi].tovpn_label
-		    != bgp_vrf->vpn_policy[afi]
+		if (bgp_vrf->vpn_policy[afi].tovpn_label !=
+			bgp_vrf->vpn_policy[afi]
 			       .tovpn_zebra_vrf_label_last_sent) {
 			vpn_leak_zebra_vrf_label_update(bgp_vrf, afi);
 		}
 
 		vpn_leak_from_vrf_update_all(bgp_vpn, bgp_vrf, afi);
 	}
-	if (direction == BGP_VPN_POLICY_DIR_TOVPN)
-		vpn_leak_from_vrf_update_all(bgp_vpn, bgp_vrf, afi);
 }
 
 extern void vpn_policy_routemap_event(const char *rmap_name);
