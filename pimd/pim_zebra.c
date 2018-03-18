@@ -393,133 +393,105 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 	return 0;
 }
 
-static void scan_upstream_rpf_cache()
+static void scan_upstream_rpf_cache(struct pim_instance *pim)
 {
 	struct listnode *up_node;
 	struct listnode *up_nextnode;
 	struct listnode *node;
 	struct pim_upstream *up;
 	struct interface *ifp;
-	struct vrf *vrf;
-	struct pim_instance *pim;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		pim = vrf->info;
-		if (!pim)
+	for (ALL_LIST_ELEMENTS(pim->upstream_list, up_node, up_nextnode, up)) {
+		enum pim_rpf_result rpf_result;
+		struct pim_rpf old;
+		struct prefix nht_p;
+
+		nht_p.family = AF_INET;
+		nht_p.prefixlen = IPV4_MAX_BITLEN;
+		nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
+		pim_resolve_upstream_nh(pim, &nht_p);
+
+		old.source_nexthop.interface = up->rpf.source_nexthop.interface;
+		old.source_nexthop.nbr = up->rpf.source_nexthop.nbr;
+		rpf_result = pim_rpf_update(pim, up, &old, 0);
+
+		if (rpf_result == PIM_RPF_FAILURE)
 			continue;
 
-		for (ALL_LIST_ELEMENTS(pim->upstream_list, up_node, up_nextnode,
-				       up)) {
-			enum pim_rpf_result rpf_result;
-			struct pim_rpf old;
-			struct prefix nht_p;
+		if (rpf_result == PIM_RPF_CHANGED) {
+			struct pim_neighbor *nbr;
 
-			nht_p.family = AF_INET;
-			nht_p.prefixlen = IPV4_MAX_BITLEN;
-			nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
-			pim_resolve_upstream_nh(pim, &nht_p);
+			nbr = pim_neighbor_find(old.source_nexthop.interface,
+						old.rpf_addr.u.prefix4);
+			if (nbr)
+				pim_jp_agg_remove_group(nbr->upstream_jp_agg,
+							up);
 
-			old.source_nexthop.interface =
-				up->rpf.source_nexthop.interface;
-			old.source_nexthop.nbr = up->rpf.source_nexthop.nbr;
-			rpf_result = pim_rpf_update(pim, up, &old, 0);
+			/*
+			 * We have detected a case where we might need
+			 * to rescan
+			 * the inherited o_list so do it.
+			 */
+			if (up->channel_oil->oil_inherited_rescan) {
+				pim_upstream_inherited_olist_decide(pim, up);
+				up->channel_oil->oil_inherited_rescan = 0;
+			}
 
-			if (rpf_result == PIM_RPF_FAILURE)
-				continue;
-
-			if (rpf_result == PIM_RPF_CHANGED) {
-				struct pim_neighbor *nbr;
-
-				nbr = pim_neighbor_find(
-					old.source_nexthop.interface,
-					old.rpf_addr.u.prefix4);
-				if (nbr)
-					pim_jp_agg_remove_group(
-						nbr->upstream_jp_agg, up);
+			if (up->join_state == PIM_UPSTREAM_JOINED) {
+				/*
+				 * If we come up real fast we can be here
+				 * where the mroute has not been installed
+				 * so install it.
+				 */
+				if (!up->channel_oil->installed)
+					pim_mroute_add(up->channel_oil,
+						       __PRETTY_FUNCTION__);
 
 				/*
-				 * We have detected a case where we might need
-				 * to rescan
-				 * the inherited o_list so do it.
+				 * RFC 4601: 4.5.7.  Sending (S,G)
+				 * Join/Prune Messages
+				 *
+				 * Transitions from Joined State
+				 *
+				 * RPF'(S,G) changes not due to an Assert
+				 *
+				 * The upstream (S,G) state machine remains
+				 * in Joined state. Send Join(S,G) to the new
+				 * upstream neighbor, which is the new value
+				 * of RPF'(S,G).  Send Prune(S,G) to the old
+				 * upstream neighbor, which is the old value
+				 * of RPF'(S,G).  Set the Join Timer (JT) to
+				 * expire after t_periodic seconds.
 				 */
-				if (up->channel_oil->oil_inherited_rescan) {
-					pim_upstream_inherited_olist_decide(pim,
-									    up);
-					up->channel_oil->oil_inherited_rescan =
-						0;
-				}
+				pim_jp_agg_switch_interface(&old, &up->rpf, up);
 
-				if (up->join_state == PIM_UPSTREAM_JOINED) {
-					/*
-					 * If we come up real fast we can be
-					 * here
-					 * where the mroute has not been
-					 * installed
-					 * so install it.
-					 */
-					if (!up->channel_oil->installed)
-						pim_mroute_add(
-							up->channel_oil,
-							__PRETTY_FUNCTION__);
+				pim_upstream_join_timer_restart(up, &old);
+			} /* up->join_state == PIM_UPSTREAM_JOINED */
 
-					/*
-					 * RFC 4601: 4.5.7.  Sending (S,G)
-					 * Join/Prune Messages
-					 *
-					 * Transitions from Joined State
-					 *
-					 * RPF'(S,G) changes not due to an
-					 * Assert
-					 *
-					 * The upstream (S,G) state machine
-					 * remains in Joined
-					 * state. Send Join(S,G) to the new
-					 * upstream neighbor, which is
-					 * the new value of RPF'(S,G).  Send
-					 * Prune(S,G) to the old
-					 * upstream neighbor, which is the old
-					 * value of RPF'(S,G).  Set
-					 * the Join Timer (JT) to expire after
-					 * t_periodic seconds.
-					 */
-					pim_jp_agg_switch_interface(
-						&old, &up->rpf, up);
+			/* FIXME can join_desired actually be changed by
+			   pim_rpf_update()
+			   returning PIM_RPF_CHANGED ? */
+			pim_upstream_update_join_desired(pim, up);
 
-					pim_upstream_join_timer_restart(up,
-									&old);
-				} /* up->join_state == PIM_UPSTREAM_JOINED */
+		} /* PIM_RPF_CHANGED */
 
-				/* FIXME can join_desired actually be changed by
-				   pim_rpf_update()
-				   returning PIM_RPF_CHANGED ? */
-				pim_upstream_update_join_desired(pim, up);
+	} /* for (qpim_upstream_list) */
 
-			} /* PIM_RPF_CHANGED */
+	FOR_ALL_INTERFACES (pim->vrf, ifp)
+		if (ifp->info) {
+			struct pim_interface *pim_ifp = ifp->info;
+			struct pim_iface_upstream_switch *us;
 
-		} /* for (qpim_upstream_list) */
-	}
+			for (ALL_LIST_ELEMENTS_RO(pim_ifp->upstream_switch_list,
+						  node, us)) {
+				struct pim_rpf rpf;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		pim = vrf->info;
-		if (!pim)
-			continue;
-
-		FOR_ALL_INTERFACES (pim->vrf, ifp)
-			if (ifp->info) {
-				struct pim_interface *pim_ifp = ifp->info;
-				struct pim_iface_upstream_switch *us;
-
-				for (ALL_LIST_ELEMENTS_RO(
-					     pim_ifp->upstream_switch_list,
-					     node, us)) {
-					struct pim_rpf rpf;
-					rpf.source_nexthop.interface = ifp;
-					rpf.rpf_addr.u.prefix4 = us->address;
-					pim_joinprune_send(&rpf, us->us);
-					pim_jp_agg_clear_group(us->us);
-				}
+				rpf.source_nexthop.interface = ifp;
+				rpf.rpf_addr.u.prefix4 = us->address;
+				pim_joinprune_send(&rpf, us->us);
+				pim_jp_agg_clear_group(us->us);
 			}
-	}
+		}
 }
 
 void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
@@ -656,53 +628,41 @@ void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
 	}
 }
 
-void pim_scan_oil(struct pim_instance *pim_matcher)
+void pim_scan_oil(struct pim_instance *pim)
 {
 	struct listnode *node;
 	struct listnode *nextnode;
 	struct channel_oil *c_oil;
 	ifindex_t ifindex;
 	int vif_index = 0;
-	struct vrf *vrf;
-	struct pim_instance *pim;
 
 	qpim_scan_oil_last = pim_time_monotonic_sec();
 	++qpim_scan_oil_events;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		pim = vrf->info;
-		if (!pim)
-			continue;
-
-		if (pim_matcher && pim != pim_matcher)
-			continue;
-
-		for (ALL_LIST_ELEMENTS(pim->channel_oil_list, node, nextnode,
-				       c_oil)) {
-			if (c_oil->up
-			    && c_oil->up->rpf.source_nexthop.interface) {
-				ifindex = c_oil->up->rpf.source_nexthop
-						  .interface->ifindex;
-				vif_index = pim_if_find_vifindex_by_ifindex(
-					pim, ifindex);
-				/* Pass Current selected NH vif index to mroute
-				 * download */
-				if (vif_index)
-					pim_scan_individual_oil(c_oil,
-								vif_index);
-			} else
-				pim_scan_individual_oil(c_oil, 0);
-		}
+	for (ALL_LIST_ELEMENTS(pim->channel_oil_list, node, nextnode, c_oil)) {
+		if (c_oil->up && c_oil->up->rpf.source_nexthop.interface) {
+			ifindex = c_oil->up->rpf.source_nexthop
+					  .interface->ifindex;
+			vif_index =
+				pim_if_find_vifindex_by_ifindex(pim, ifindex);
+			/* Pass Current selected NH vif index to mroute
+			 * download */
+			if (vif_index)
+				pim_scan_individual_oil(c_oil, vif_index);
+		} else
+			pim_scan_individual_oil(c_oil, 0);
 	}
 }
 
 static int on_rpf_cache_refresh(struct thread *t)
 {
+	struct pim_instance *pim = THREAD_ARG(t);
+
 	/* update PIM protocol state */
-	scan_upstream_rpf_cache();
+	scan_upstream_rpf_cache(pim);
 
 	/* update kernel multicast forwarding cache (MFC) */
-	pim_scan_oil(NULL);
+	pim_scan_oil(pim);
 
 	qpim_rpf_cache_refresh_last = pim_time_monotonic_sec();
 	++qpim_rpf_cache_refresh_events;
@@ -712,13 +672,13 @@ static int on_rpf_cache_refresh(struct thread *t)
 	return 0;
 }
 
-void sched_rpf_cache_refresh(void)
+void sched_rpf_cache_refresh(struct pim_instance *pim)
 {
 	++qpim_rpf_cache_refresh_requests;
 
 	pim_rpf_set_refresh_time();
 
-	if (qpim_rpf_cache_refresher) {
+	if (pim->rpf_cache_refresher) {
 		/* Refresh timer is already running */
 		return;
 	}
@@ -730,9 +690,9 @@ void sched_rpf_cache_refresh(void)
 			   qpim_rpf_cache_refresh_delay_msec);
 	}
 
-	thread_add_timer_msec(master, on_rpf_cache_refresh, 0,
+	thread_add_timer_msec(master, on_rpf_cache_refresh, pim,
 			      qpim_rpf_cache_refresh_delay_msec,
-			      &qpim_rpf_cache_refresher);
+			      &pim->rpf_cache_refresher);
 }
 
 static void pim_zebra_connected(struct zclient *zclient)

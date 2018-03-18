@@ -545,7 +545,7 @@ pim_neighbor_add(struct interface *ifp, struct in_addr source_addr,
 
 	pim_rp_setup(pim_ifp->pim);
 
-	sched_rpf_cache_refresh();
+	sched_rpf_cache_refresh(pim_ifp->pim);
 	return neigh;
 }
 
@@ -667,7 +667,7 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 
 	pim_neighbor_free(neigh);
 
-	sched_rpf_cache_refresh();
+	sched_rpf_cache_refresh(pim_ifp->pim);
 }
 
 void pim_neighbor_delete_all(struct interface *ifp, const char *delete_message)

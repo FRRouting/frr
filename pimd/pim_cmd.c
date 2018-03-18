@@ -2600,8 +2600,8 @@ static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
-static void show_rpf_refresh_stats(struct vty *vty, time_t now,
-				   json_object *json)
+static void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
+				   time_t now, json_object *json)
 {
 	char refresh_uptime[10];
 
@@ -2613,7 +2613,7 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now,
 				    qpim_rpf_cache_refresh_delay_msec);
 		json_object_int_add(
 			json, "rpfCacheRefreshTimer",
-			pim_time_timer_remain_msec(qpim_rpf_cache_refresher));
+			pim_time_timer_remain_msec(pim->rpf_cache_refresher));
 		json_object_int_add(json, "rpfCacheRefreshRequests",
 				    qpim_rpf_cache_refresh_requests);
 		json_object_int_add(json, "rpfCacheRefreshEvents",
@@ -2634,7 +2634,7 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now,
 			"Nexthop Lookups:            %lld\n"
 			"Nexthop Lookups Avoided:    %lld\n",
 			qpim_rpf_cache_refresh_delay_msec,
-			pim_time_timer_remain_msec(qpim_rpf_cache_refresher),
+			pim_time_timer_remain_msec(pim->rpf_cache_refresher),
 			(long long)qpim_rpf_cache_refresh_requests,
 			(long long)qpim_rpf_cache_refresh_events,
 			refresh_uptime, (long long)qpim_nexthop_lookups,
@@ -2676,9 +2676,9 @@ static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, u_char uj)
 
 	if (uj) {
 		json = json_object_new_object();
-		show_rpf_refresh_stats(vty, now, json);
+		show_rpf_refresh_stats(vty, pim, now, json);
 	} else {
-		show_rpf_refresh_stats(vty, now, json);
+		show_rpf_refresh_stats(vty, pim, now, json);
 		vty_out(vty, "\n");
 		vty_out(vty,
 			"Source          Group           RpfIface RpfAddress      RibNextHop      Metric Pref\n");
@@ -4370,7 +4370,7 @@ static void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 
 	vty_out(vty, "\n");
 
-	show_rpf_refresh_stats(vty, now, NULL);
+	show_rpf_refresh_stats(vty, pim, now, NULL);
 
 	vty_out(vty, "\n");
 

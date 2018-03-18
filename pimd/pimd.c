@@ -52,7 +52,6 @@ int qpim_t_periodic =
 	PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
 struct pim_assert_metric qpim_infinite_assert_metric;
 long qpim_rpf_cache_refresh_delay_msec = 50;
-struct thread *qpim_rpf_cache_refresher = NULL;
 int64_t qpim_rpf_cache_refresh_requests = 0;
 int64_t qpim_rpf_cache_refresh_events = 0;
 int64_t qpim_rpf_cache_refresh_last = 0;
