@@ -823,48 +823,40 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 	}
 }
 
-void igmp_source_forward_reevaluate_all(void)
+void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 {
 	struct interface *ifp;
-	struct vrf *vrf;
-	struct pim_instance *pim;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		pim = vrf->info;
-		if (!pim)
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+		struct listnode *sock_node;
+		struct igmp_sock *igmp;
+
+		if (!pim_ifp)
 			continue;
 
-		FOR_ALL_INTERFACES (pim->vrf, ifp) {
-			struct pim_interface *pim_ifp = ifp->info;
-			struct listnode *sock_node;
-			struct igmp_sock *igmp;
+		/* scan igmp sockets */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
+					  igmp)) {
+			struct listnode *grpnode;
+			struct igmp_group *grp;
 
-			if (!pim_ifp)
-				continue;
+			/* scan igmp groups */
+			for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list,
+						  grpnode, grp)) {
+				struct listnode *srcnode;
+				struct igmp_source *src;
 
-			/* scan igmp sockets */
-			for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list,
-						  sock_node, igmp)) {
-				struct listnode *grpnode;
-				struct igmp_group *grp;
-
-				/* scan igmp groups */
-				for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list,
-							  grpnode, grp)) {
-					struct listnode *srcnode;
-					struct igmp_source *src;
-
-					/* scan group sources */
-					for (ALL_LIST_ELEMENTS_RO(
-						     grp->group_source_list,
-						     srcnode, src)) {
-						igmp_source_forward_reevaluate_one(
-							pim, src);
-					} /* scan group sources */
-				}	 /* scan igmp groups */
-			}		  /* scan igmp sockets */
-		}			  /* scan interfaces */
-	}
+				/* scan group sources */
+				for (ALL_LIST_ELEMENTS_RO(
+					     grp->group_source_list, srcnode,
+					     src)) {
+					igmp_source_forward_reevaluate_one(pim,
+									   src);
+				} /* scan group sources */
+			}	 /* scan igmp groups */
+		}		  /* scan igmp sockets */
+	}			  /* scan interfaces */
 }
 
 void igmp_source_forward_start(struct pim_instance *pim,
