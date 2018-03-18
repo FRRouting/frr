@@ -94,6 +94,9 @@ struct pim_instance {
 
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
+
+	/* If we need to rescan all our upstreams */
+	struct thread *rpf_cache_refresher;
 };
 
 void pim_vrf_init(void);

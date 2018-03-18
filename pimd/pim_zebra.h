@@ -44,6 +44,6 @@ void igmp_source_forward_reevaluate_all(void);
 void pim_forward_start(struct pim_ifchannel *ch);
 void pim_forward_stop(struct pim_ifchannel *ch, bool install_it);
 
-void sched_rpf_cache_refresh(void);
+void sched_rpf_cache_refresh(struct pim_instance *pim);
 struct zclient *pim_zebra_zclient_get(void);
 #endif /* PIM_ZEBRA_H */
