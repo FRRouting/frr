@@ -2606,7 +2606,7 @@ static void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 	char refresh_uptime[10];
 
 	pim_time_uptime_begin(refresh_uptime, sizeof(refresh_uptime), now,
-			      qpim_rpf_cache_refresh_last);
+			      pim->rpf_cache_refresh_last);
 
 	if (json) {
 		json_object_int_add(json, "rpfCacheRefreshDelayMsecs",
@@ -2615,15 +2615,15 @@ static void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 			json, "rpfCacheRefreshTimer",
 			pim_time_timer_remain_msec(pim->rpf_cache_refresher));
 		json_object_int_add(json, "rpfCacheRefreshRequests",
-				    qpim_rpf_cache_refresh_requests);
+				    pim->rpf_cache_refresh_requests);
 		json_object_int_add(json, "rpfCacheRefreshEvents",
-				    qpim_rpf_cache_refresh_events);
+				    pim->rpf_cache_refresh_events);
 		json_object_string_add(json, "rpfCacheRefreshLast",
 				       refresh_uptime);
 		json_object_int_add(json, "nexthopLookups",
-				    qpim_nexthop_lookups);
+				    pim->nexthop_lookups);
 		json_object_int_add(json, "nexthopLookupsAvoided",
-				    nexthop_lookups_avoided);
+				    pim->nexthop_lookups_avoided);
 	} else {
 		vty_out(vty,
 			"RPF Cache Refresh Delay:    %ld msecs\n"
@@ -2635,10 +2635,10 @@ static void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 			"Nexthop Lookups Avoided:    %lld\n",
 			qpim_rpf_cache_refresh_delay_msec,
 			pim_time_timer_remain_msec(pim->rpf_cache_refresher),
-			(long long)qpim_rpf_cache_refresh_requests,
-			(long long)qpim_rpf_cache_refresh_events,
-			refresh_uptime, (long long)qpim_nexthop_lookups,
-			(long long)nexthop_lookups_avoided);
+			(long long)pim->rpf_cache_refresh_requests,
+			(long long)pim->rpf_cache_refresh_events,
+			refresh_uptime, (long long)pim->nexthop_lookups,
+			(long long)pim->nexthop_lookups_avoided);
 	}
 }
 
@@ -2650,7 +2650,7 @@ static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 	char uptime_mroute_del[10];
 
 	pim_time_uptime_begin(uptime_scan_oil, sizeof(uptime_scan_oil), now,
-			      qpim_scan_oil_last);
+			      pim->scan_oil_last);
 	pim_time_uptime_begin(uptime_mroute_add, sizeof(uptime_mroute_add), now,
 			      pim->mroute_add_last);
 	pim_time_uptime_begin(uptime_mroute_del, sizeof(uptime_mroute_del), now,
@@ -2660,7 +2660,7 @@ static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 		"Scan OIL - Last: %s  Events: %lld\n"
 		"MFC Add  - Last: %s  Events: %lld\n"
 		"MFC Del  - Last: %s  Events: %lld\n",
-		uptime_scan_oil, (long long)qpim_scan_oil_events,
+		uptime_scan_oil, (long long)pim->scan_oil_events,
 		uptime_mroute_add, (long long)pim->mroute_add_events,
 		uptime_mroute_del, (long long)pim->mroute_del_events);
 }

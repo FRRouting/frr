@@ -636,8 +636,8 @@ void pim_scan_oil(struct pim_instance *pim)
 	ifindex_t ifindex;
 	int vif_index = 0;
 
-	qpim_scan_oil_last = pim_time_monotonic_sec();
-	++qpim_scan_oil_events;
+	pim->scan_oil_last = pim_time_monotonic_sec();
+	++pim->scan_oil_events;
 
 	for (ALL_LIST_ELEMENTS(pim->channel_oil_list, node, nextnode, c_oil)) {
 		if (c_oil->up && c_oil->up->rpf.source_nexthop.interface) {
@@ -664,8 +664,8 @@ static int on_rpf_cache_refresh(struct thread *t)
 	/* update kernel multicast forwarding cache (MFC) */
 	pim_scan_oil(pim);
 
-	qpim_rpf_cache_refresh_last = pim_time_monotonic_sec();
-	++qpim_rpf_cache_refresh_events;
+	pim->rpf_cache_refresh_last = pim_time_monotonic_sec();
+	++pim->rpf_cache_refresh_events;
 
 	// It is called as part of pim_neighbor_add
 	// pim_rp_setup ();
@@ -674,9 +674,9 @@ static int on_rpf_cache_refresh(struct thread *t)
 
 void sched_rpf_cache_refresh(struct pim_instance *pim)
 {
-	++qpim_rpf_cache_refresh_requests;
+	++pim->rpf_cache_refresh_requests;
 
-	pim_rpf_set_refresh_time();
+	pim_rpf_set_refresh_time(pim);
 
 	if (pim->rpf_cache_refresher) {
 		/* Refresh timer is already running */

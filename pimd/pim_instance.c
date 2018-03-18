@@ -119,6 +119,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim_upstream_init(pim);
 
+	pim->last_route_change_time = -1;
 	return pim;
 }
 

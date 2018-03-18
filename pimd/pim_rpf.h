@@ -56,8 +56,6 @@ enum pim_rpf_result { PIM_RPF_OK = 0, PIM_RPF_CHANGED, PIM_RPF_FAILURE };
 
 struct pim_upstream;
 
-extern long long nexthop_lookups_avoided;
-
 unsigned int pim_rpf_hash_key(void *arg);
 int pim_rpf_equal(const void *arg1, const void *arg2);
 
@@ -71,5 +69,5 @@ int pim_rpf_addr_is_inaddr_none(struct pim_rpf *rpf);
 int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf);
 
 int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2);
-void pim_rpf_set_refresh_time(void);
+void pim_rpf_set_refresh_time(struct pim_instance *pim);
 #endif /* PIM_RPF_H */

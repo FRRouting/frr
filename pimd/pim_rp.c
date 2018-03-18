@@ -864,7 +864,7 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
 					"%s: Nexthop cache not found for RP %s grp %s register with Zebra",
 					__PRETTY_FUNCTION__, buf, buf1);
 			}
-			pim_rpf_set_refresh_time();
+			pim_rpf_set_refresh_time(pim);
 			pim_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
 					   rp_info->rp.rpf_addr.u.prefix4, 1);
 		}
