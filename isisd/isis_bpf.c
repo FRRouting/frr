@@ -238,8 +238,8 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
 	if (bytesread == 0)
 		return ISIS_WARNING;
 
-	buff_ptr = (u_char *) readbuff;
-	while (buff_ptr < ((u_char *) readbuff) + bytesread) {
+	buff_ptr = readbuff;
+	while (buff_ptr < readbuff + bytesread) {
 		bpf_hdr = (struct bpf_hdr *) buff_ptr;
 		assert(bpf_hdr->bh_caplen == bpf_hdr->bh_datalen);
 		offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETHER_HDR_LEN;
