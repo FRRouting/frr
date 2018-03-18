@@ -759,7 +759,7 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 			pnc->upstream_hash->count, listcount(pnc->rp_list));
 	}
 
-	pim_rpf_set_refresh_time();
+	pim_rpf_set_refresh_time(pim);
 
 	if (listcount(pnc->rp_list))
 		pim_update_rp_nh(pim, pnc);
