@@ -48,7 +48,7 @@ static void pim_ssm_range_reevaluate(struct pim_instance *pim)
 	 * disappear in time for SSM groups.
 	 */
 	pim_upstream_register_reevaluate(pim);
-	igmp_source_forward_reevaluate_all();
+	igmp_source_forward_reevaluate_all(pim);
 }
 
 void pim_ssm_prefix_list_update(struct pim_instance *pim,
