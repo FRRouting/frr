@@ -627,14 +627,12 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 		&static_attr);	/* hashed refcounted everything */
 	bgp_attr_flush(&static_attr); /* free locally-allocated parts */
 
-	if (debug) {
-		const char *s = "";
+	if (debug && new_attr->ecommunity) {
+		char *s = ecommunity_ecom2str(new_attr->ecommunity,
+					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
-		if (new_attr->ecommunity) {
-			s = ecommunity_ecom2str(new_attr->ecommunity,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		}
 		zlog_debug("%s: new_attr->ecommunity{%s}", __func__, s);
+		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
 	/* Now new_attr is an allocated interned attr */
