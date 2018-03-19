@@ -222,11 +222,15 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	/* Check this client need interface information. */
-	if (!client->ifinfo)
+	if (!client->ifinfo) {
+		stream_free(s);
 		return 0;
+	}
 
-	if (!ifp->link_params)
+	if (!ifp->link_params) {
+		stream_free(s);
 		return 0;
+	}
 
 	zclient_create_header(s, ZEBRA_INTERFACE_LINK_PARAMS, ifp->vrf_id);
 
@@ -234,8 +238,10 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 	stream_putl(s, ifp->ifindex);
 
 	/* Then TE Link Parameters */
-	if (zebra_interface_link_params_write(s, ifp) == 0)
+	if (zebra_interface_link_params_write(s, ifp) == 0) {
+		stream_free(s);
 		return 0;
+	}
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -595,8 +601,10 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	/* Encode route and send. */
-	if (zapi_route_encode(cmd, s, &api) < 0)
+	if (zapi_route_encode(cmd, s, &api) < 0) {
+		stream_free(s);
 		return -1;
+	}
 
 	if (IS_ZEBRA_DEBUG_SEND) {
 		char buf_prefix[PREFIX_STRLEN];
