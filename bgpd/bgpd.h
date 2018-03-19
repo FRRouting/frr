@@ -188,6 +188,10 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_LABEL_AUTO        (1 << 0)
 #define BGP_VPN_POLICY_TOVPN_RD_SET            (1 << 1)
 #define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
+
+	/* If we are importing a vrf -> vrf keep a list of vrf names */
+	struct list *import_vrf;
+	struct list *export_vrf;
 };
 
 /*
@@ -345,6 +349,8 @@ struct bgp {
 #define BGP_CONFIG_DAMPENING              (1 << 0)
 #define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT  (1 << 1)
 #define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT  (1 << 2)
+#define BGP_CONFIG_VRF_TO_VRF_IMPORT      (1 << 3)
+#define BGP_CONFIG_VRF_TO_VRF_EXPORT      (1 << 4)
 
 /* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
 #define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST      (1 << 1)

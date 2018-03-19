@@ -2956,6 +2956,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
 		bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent =
 			MPLS_LABEL_NONE;
+
+		bgp->vpn_policy[afi].import_vrf = list_new();
+		bgp->vpn_policy[afi].export_vrf = list_new();
 	}
 	if (name) {
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
@@ -7193,6 +7196,16 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 			       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
 
 			vty_out(vty, "  import vpn\n");
+		}
+		if (CHECK_FLAG(bgp->af_flags[afi][safi],
+			       BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
+			struct listnode *node;
+			char *name;
+
+			for (ALL_LIST_ELEMENTS_RO(
+				     bgp->vpn_policy[afi].import_vrf, node,
+				     name))
+				vty_out(vty, "  import vrf %s\n", name);
 		}
 	}
 

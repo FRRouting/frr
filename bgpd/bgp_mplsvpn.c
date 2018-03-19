@@ -640,8 +640,8 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 		char *s = ecommunity_ecom2str(info_vrf->attr->ecommunity,
 					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
-		zlog_debug("%s: info_vrf->type=%d, EC{%s}", __func__,
-			   info_vrf->type, s);
+		zlog_debug("%s: %s info_vrf->type=%d, EC{%s}", __func__,
+			   bgp_vrf->name, info_vrf->type, s);
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
@@ -661,7 +661,8 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 
 	if (!vpn_leak_to_vpn_active(bgp_vrf, afi, &debugmsg)) {
 		if (debug)
-			zlog_debug("%s: skipping: %s", __func__, debugmsg);
+			zlog_debug("%s: %s skipping: %s", __func__,
+				   bgp_vrf->name, debugmsg);
 		return;
 	}
 
@@ -737,9 +738,9 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 	/* if policy nexthop not set, use 0 */
 	if (CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
 		       BGP_VPN_POLICY_TOVPN_NEXTHOP_SET)) {
-
 		struct prefix *nexthop =
 			&bgp_vrf->vpn_policy[afi].tovpn_nexthop;
+
 		switch (nexthop->family) {
 		case AF_INET:
 			/* prevent mp_nexthop_global_in <- self in bgp_route.c
@@ -759,12 +760,31 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 			assert(0);
 		}
 	} else {
-		if (afi == AFI_IP) {
-			/* For ipv4, copy to multiprotocol nexthop field */
-			static_attr.mp_nexthop_global_in = static_attr.nexthop;
-			static_attr.mp_nexthop_len = 4;
-			/* XXX Leave static_attr.nexthop intact for NHT */
-			static_attr.flag &= ~ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		if (!CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
+				BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
+			if (afi == AFI_IP) {
+				/* For ipv4, copy to multiprotocol nexthop field */
+				static_attr.mp_nexthop_global_in = static_attr.nexthop;
+				static_attr.mp_nexthop_len = 4;
+				/* XXX Leave static_attr.nexthop intact for NHT */
+				static_attr.flag &= ~ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+			}
+		} else {
+			switch (afi) {
+			case AFI_IP:
+				static_attr.mp_nexthop_global_in.s_addr =
+					static_attr.nexthop.s_addr;
+				static_attr.mp_nexthop_len = 4;
+				static_attr.flag |=
+					ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+				break;
+			case AFI_IP6:
+				break;
+			case AFI_L2VPN:
+			case AFI_MAX:
+				assert(!"Unexpected AFI to process");
+				break;
+			}
 		}
 		nexthop_self_flag = 1;
 	}
@@ -1036,21 +1056,35 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 	nexthop_orig.family = nhfamily;
 
 	switch (nhfamily) {
-
 	case AF_INET:
 		/* save */
 		nexthop_orig.u.prefix4 = info_vpn->attr->mp_nexthop_global_in;
 		nexthop_orig.prefixlen = 32;
+
+		if (CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
+			       BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
+			static_attr.nexthop.s_addr =
+				nexthop_orig.u.prefix4.s_addr;
+
+			static_attr.mp_nexthop_global_in =
+				info_vpn->attr->mp_nexthop_global_in;
+			static_attr.mp_nexthop_len =
+				info_vpn->attr->mp_nexthop_len;
+		}
 		static_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 		break;
-
 	case AF_INET6:
 		/* save */
 		nexthop_orig.u.prefix6 = info_vpn->attr->mp_nexthop_global;
 		nexthop_orig.prefixlen = 128;
+
+		if (CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
+			       BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
+			static_attr.mp_nexthop_global = nexthop_orig.u.prefix6;
+			static_attr.mp_nexthop_len = 16;
+		}
 		break;
 	}
-
 
 	/*
 	 * route map handling
@@ -1101,28 +1135,34 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 	 * labels for these routes enables the non-labeled nexthops
 	 * from the originating VRF to be considered valid for this route.
 	 */
+	if (!CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
+			BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
+		/* work back to original route */
+		for (bi_ultimate = info_vpn;
+		     bi_ultimate->extra && bi_ultimate->extra->parent;
+		     bi_ultimate = bi_ultimate->extra->parent)
+			;
 
-	/* work back to original route */
-	for (bi_ultimate = info_vpn;
-		bi_ultimate->extra && bi_ultimate->extra->parent;
-		bi_ultimate = bi_ultimate->extra->parent)
-		;
+		/*
+		 * if original route was unicast,
+		 * then it did not arrive over vpn
+		 */
+		if (bi_ultimate->net) {
+			struct bgp_table *table;
 
-	/* if original route was unicast, then it did not arrive over vpn */
-	if (bi_ultimate->net) {
-		struct bgp_table *table;
+			table = bgp_node_table(bi_ultimate->net);
+			if (table && (table->safi == SAFI_UNICAST))
+				origin_local = 1;
+		}
 
-		table = bgp_node_table(bi_ultimate->net);
-		if (table && (table->safi == SAFI_UNICAST))
-			origin_local = 1;
-	}
-
-	/* copy labels */
-	if (!origin_local && info_vpn->extra && info_vpn->extra->num_labels) {
-		num_labels = info_vpn->extra->num_labels;
-		if (num_labels > BGP_MAX_LABELS)
-			num_labels = BGP_MAX_LABELS;
-		pLabels = info_vpn->extra->label;
+		/* copy labels */
+		if (!origin_local &&
+		    info_vpn->extra && info_vpn->extra->num_labels) {
+			num_labels = info_vpn->extra->num_labels;
+			if (num_labels > BGP_MAX_LABELS)
+				num_labels = BGP_MAX_LABELS;
+			pLabels = info_vpn->extra->label;
+		}
 	}
 
 	if (debug) {
