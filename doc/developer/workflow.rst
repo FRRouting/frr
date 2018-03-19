@@ -496,6 +496,35 @@ For GNU coding style, use ``indent`` with the following invocation:
 
     indent -nut -nfc1 file_for_submission.c
 
+
+Historically, FRR used fixed-width integral types that do not exist in any
+standard but were defined by most platforms at some point. Officially these
+types are not guaranteed to exist. Therefore, please use the fixed-width
+integral types introduced in the C99 standard when contributing new code to
+FRR. If you need to convert a large amount of code to use the correct types,
+there is a shell script in :file:`tools/convert-fixedwidth.sh` that will do the
+necessary replacements.
+
++-----------+--------------------------+
+| Incorrect | Correct                  |
++===========+==========================+
+| u_int8_t  | uint8_t                  |
++-----------+--------------------------+
+| u_int16_t | uint16_t                 |
++-----------+--------------------------+
+| u_int32_t | uint32_t                 |
++-----------+--------------------------+
+| u_int64_t | uint64_t                 |
++-----------+--------------------------+
+| u_char    | uint8_t or unsigned char |
++-----------+--------------------------+
+| u_short   | unsigned short           |
++-----------+--------------------------+
+| u_int     | unsigned int             |
++-----------+--------------------------+
+| u_long    | unsigned long            |
++-----------+--------------------------+
+
 Exceptions
 ^^^^^^^^^^
 
