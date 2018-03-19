@@ -199,6 +199,7 @@ EXTRA_DIST = manpages/defines.rst \
 	figures/fig-vnc-redundant-route-reflectors.txt \
 	figures/fig-vnc-commercial-route-reflector.png \
 	figures/fig-vnc-gw.png \
+	figures/cligraph.png \
 	figures/fig_topologies_rs.png \
 	figures/fig_topologies_full.txt \
 	figures/fig-vnc-frr-route-reflector.txt \
@@ -209,6 +210,7 @@ EXTRA_DIST = manpages/defines.rst \
 	figures/fig-vnc-redundant-route-reflectors.dia \
 	figures/fig-normal-processing.png \
 	figures/fig-rs-processing.dia \
+	figures/cligraph.svg \
 	figures/ospf_api_msgs2.png \
 	figures/fig-vnc-gw.dia \
 	figures/fig-rs-processing.txt \
