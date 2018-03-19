@@ -11,7 +11,13 @@ adding a new backport.
 
 2. Install the following additional packages:
 
+   on Ubuntu 12.04, 14.04, 16.04, 17.10, Debian 8 and 9:
+
         apt-get install realpath equivs groff fakeroot debhelper devscripts
+
+   on Ubuntu 18.04: (realpath is now part of preinstalled by coreutils)
+
+        apt-get install equivs groff fakeroot debhelper devscripts
 
 3. Checkout FRR under a **unpriviledged** user account
 
