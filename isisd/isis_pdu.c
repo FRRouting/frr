@@ -1334,7 +1334,7 @@ static int pdu_size(uint8_t pdu_type, uint8_t *size)
  * PDU Dispatcher
  */
 
-static int isis_handle_pdu(struct isis_circuit *circuit, u_char *ssnpa)
+int isis_handle_pdu(struct isis_circuit *circuit, u_char *ssnpa)
 {
 	int retval = ISIS_OK;
 
@@ -1457,8 +1457,10 @@ int isis_receive(struct thread *thread)
 
 	retval = circuit->rx(circuit, ssnpa);
 
+#if ISIS_METHOD != ISIS_METHOD_BPF
 	if (retval == ISIS_OK)
 		retval = isis_handle_pdu(circuit, ssnpa);
+#endif //ISIS_METHOD != ISIS_METHOD_BPF
 
 	/*
 	 * prepare for next packet.
