@@ -46,7 +46,6 @@
 #include "pbr_nht.h"
 #include "pbr_map.h"
 #include "pbr_zebra.h"
-#include "pbr_event.h"
 #include "pbr_vty.h"
 #include "pbr_debug.h"
 
@@ -82,7 +81,6 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
-	pbr_event_stop();
 	exit(0);
 }
 
@@ -154,7 +152,6 @@ int main(int argc, char **argv, char **envp)
 			   pbr_nhgroup_del_nexthop_cb,
 			   pbr_nhgroup_delete_cb);
 
-	pbr_event_init();
 	pbr_nht_init();
 	pbr_map_init();
 	pbr_zebra_init();

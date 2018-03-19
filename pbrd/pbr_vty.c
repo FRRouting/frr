@@ -33,7 +33,6 @@
 #include "pbrd/pbr_map.h"
 #include "pbrd/pbr_zebra.h"
 #include "pbrd/pbr_vty.h"
-#include "pbrd/pbr_event.h"
 #include "pbrd/pbr_debug.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "pbrd/pbr_vty_clippy.c"
@@ -65,7 +64,6 @@ DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map WORD [seq (1-65535)]",
 	const char *pbrm_name = argv[2]->arg;
 	uint32_t seqno = 0;
 	struct pbr_map *pbrm = pbrm_find(pbrm_name);
-	struct pbr_event *pbre;
 	struct pbr_map_sequence *pbrms;
 	struct listnode *node, *next_node;
 
@@ -77,20 +75,12 @@ DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map WORD [seq (1-65535)]",
 		return CMD_SUCCESS;
 	}
 
-	if (seqno) {
-		pbrms = pbrms_get(pbrm->name, seqno);
-		pbrms->reason |= PBR_MAP_DEL_SEQUENCE_NUMBER;
-	} else {
-		for (ALL_LIST_ELEMENTS(pbrm->seqnumbers, node, next_node,
-				       pbrms)) {
-			if (pbrms)
-				pbrms->reason |= PBR_MAP_DEL_SEQUENCE_NUMBER;
-		}
-	}
+	for (ALL_LIST_ELEMENTS(pbrm->seqnumbers, node, next_node, pbrms)) {
+		if (seqno && pbrms->seqno != seqno)
+			continue;
 
-	pbre = pbr_event_new(PBR_MAP_DELETE, pbrm_name);
-	pbre->seqno = seqno;
-	pbr_event_enqueue(pbre);
+		pbr_map_delete(pbrms);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -104,7 +94,6 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 	"v6 Prefix\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
-	struct pbr_event *pbre;
 
 	if (!no) {
 		if (!pbrms->src)
@@ -115,9 +104,7 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 		pbrms->src = 0;
 	}
 
-	pbre = pbr_event_new(PBR_MAP_MODIFY, pbrms->parent->name);
-	pbre->seqno = pbrms->seqno;
-	pbr_event_enqueue(pbre);
+	pbr_map_check(pbrms);
 
 	return CMD_SUCCESS;
 }
@@ -131,7 +118,6 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	"v6 Prefix\n")
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
-	struct pbr_event *pbre;
 
 	if (!no) {
 		if (!pbrms->dst)
@@ -139,12 +125,10 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 		prefix_copy(pbrms->dst, prefix);
 	} else {
 		prefix_free(pbrms->dst);
-		pbrms->dst = 0;
+		pbrms->dst = NULL;
 	}
 
-	pbre = pbr_event_new(PBR_MAP_MODIFY, pbrms->parent->name);
-	pbre->seqno = pbrms->seqno;
-	pbr_event_enqueue(pbre);
+	pbr_map_check(pbrms);
 
 	return CMD_SUCCESS;
 }
@@ -158,7 +142,6 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 {
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 	struct nexthop_group_cmd *nhgc;
-	struct pbr_event *pbre;
 
 	nhgc = nhgc_find(name);
 	if (!nhgc) {
@@ -169,8 +152,7 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 
 	if (no) {
 		if (pbrms->nhgrp_name && strcmp(name, pbrms->nhgrp_name) == 0)
-			pbre = pbr_event_new(PBR_MAP_NHG_DELETE,
-					     pbrms->parent->name);
+			pbr_map_delete_nexthop_group(pbrms);
 		else {
 			vty_out(vty,
 				"Nexthop Group specified: %s does not exist to remove",
@@ -188,11 +170,8 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 			return CMD_SUCCESS;
 		}
 		pbrms->nhgrp_name = XSTRDUP(MTYPE_TMP, name);
-		pbre = pbr_event_new(PBR_MAP_NHG_ADD, pbrms->parent->name);
+		pbr_map_check(pbrms);
 	}
-
-	pbre->seqno = pbrms->seqno;
-	pbr_event_enqueue(pbre);
 
 	return CMD_SUCCESS;
 }
@@ -212,7 +191,6 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	struct vrf *vrf;
 	struct nexthop nhop;
 	struct nexthop *nh;
-	struct pbr_event *pbre;
 
 	if (pbrms->nhgrp_name) {
 		vty_out(vty,
@@ -282,14 +260,8 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	}
 
 	if (no) {
-		if (nh) {
-			// nexthop_del(pbrms->nhg, nh);
-			// nexthop_free(nh);
-			pbre = pbr_event_new(PBR_MAP_NEXTHOP_DELETE,
-					     pbrms->parent->name);
-			pbre->seqno = pbrms->seqno;
-			pbr_event_enqueue(pbre);
-		}
+		if (nh)
+			pbr_nht_delete_individual_nexthop(pbrms);
 	} else if (!nh) {
 
 		if (pbrms->nhg->nexthop) {
@@ -304,9 +276,8 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		memcpy(nh, &nhop, sizeof(nhop));
 		nexthop_add(&pbrms->nhg->nexthop, nh);
 
-		pbre = pbr_event_new(PBR_MAP_NEXTHOP_ADD, pbrms->parent->name);
-		pbre->seqno = pbrms->seqno;
-		pbr_event_enqueue(pbre);
+		pbr_nht_add_individual_nexthop(pbrms);
+		pbr_map_check(pbrms);
 	}
 
 	return CMD_SUCCESS;
@@ -362,6 +333,14 @@ DEFPY (pbr_policy,
 	struct pbr_interface *pbr_ifp = ifp->info;
 
 	pbrm = pbrm_find(mapname);
+
+	if (!pbr_ifp) {
+		/*
+		 * Some one could have fat fingered the interface
+		 * name
+		 */
+		pbr_ifp = pbr_if_new(ifp);
+	}
 
 	if (no) {
 		if (strcmp(pbr_ifp->mapname, mapname) == 0) {

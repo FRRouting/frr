@@ -26,10 +26,10 @@
 #include <jhash.h>
 #include <vty.h>
 #include <zclient.h>
+#include <debug.h>
 
 #include "pbrd/pbr_nht.h"
 #include "pbrd/pbr_map.h"
-#include "pbrd/pbr_event.h"
 #include "pbrd/pbr_zebra.h"
 #include "pbrd/pbr_memory.h"
 #include "pbrd/pbr_debug.h"
@@ -37,6 +37,7 @@
 DEFINE_MTYPE_STATIC(PBRD, PBR_NHG, "PBR Nexthop Groups")
 
 static struct hash *pbr_nhg_hash;
+static struct hash *pbr_nhrc_hash;
 
 static uint32_t pbr_nhg_low_table;
 static uint32_t pbr_nhg_high_table;
@@ -44,18 +45,55 @@ static uint32_t pbr_nhg_low_rule;
 static uint32_t pbr_nhg_high_rule;
 static bool nhg_tableid[65535];
 
+static void pbr_nht_install_nexthop_group(struct pbr_nexthop_group_cache *pnhgc,
+					  struct nexthop_group nhg);
+
+/*
+ * Nexthop refcount.
+ */
+struct nhrc {
+	struct nexthop nexthop;
+	unsigned int refcount;
+};
+
+/* Hash functions for pbr_nhrc_hash ---------------------------------------- */
+
+static void *pbr_nhrc_hash_alloc(void *p)
+{
+	struct nhrc *nhrc = XCALLOC(MTYPE_PBR_NHG, sizeof(struct nhrc));
+	nhrc->nexthop = *(struct nexthop *)p;
+	return nhrc;
+}
+
+static int pbr_nhrc_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct nexthop *nh1, *nh2;
+
+	nh1 = arg1;
+	nh2 = arg2;
+
+	return nexthop_same(nh1, nh2);
+}
+
+/* ------------------------------------------------------------------------- */
+
 static void *pbr_nh_alloc(void *p)
 {
 	struct pbr_nexthop_cache *new;
 	struct pbr_nexthop_cache *pnhc = (struct pbr_nexthop_cache *)p;
+	struct nhrc *nhrc;
 
 	new = XCALLOC(MTYPE_PBR_NHG, sizeof(*new));
-	memcpy(&new->nexthop, &pnhc->nexthop, sizeof(struct nexthop));
+	nhrc = hash_get(pbr_nhrc_hash, pnhc->nexthop, pbr_nhrc_hash_alloc);
+	new->nexthop = &nhrc->nexthop;
+
+	/* Decremented again in pbr_nh_delete */
+	++nhrc->refcount;
 
 	DEBUGD(&pbr_dbg_nht, "%s: Sending nexthop to Zebra",
 	       __PRETTY_FUNCTION__);
 
-	pbr_send_rnh(&new->nexthop, true);
+	pbr_send_rnh(new->nexthop, true);
 
 	new->valid = false;
 	return new;
@@ -63,9 +101,28 @@ static void *pbr_nh_alloc(void *p)
 
 static void pbr_nh_delete(struct pbr_nexthop_cache **pnhc)
 {
-	pbr_send_rnh(&(*pnhc)->nexthop, false);
+	struct nhrc *nhrc;
+
+	nhrc = hash_lookup(pbr_nhrc_hash, (*pnhc)->nexthop);
+
+	if (nhrc)
+		--nhrc->refcount;
+	if (!nhrc || nhrc->refcount == 0) {
+		DEBUGD(&pbr_dbg_nht, "%s: Removing nexthop from Zebra",
+		       __PRETTY_FUNCTION__);
+		pbr_send_rnh((*pnhc)->nexthop, false);
+	}
+	if (nhrc && nhrc->refcount == 0) {
+		hash_release(pbr_nhrc_hash, nhrc);
+		XFREE(MTYPE_PBR_NHG, nhrc);
+	}
 
 	XFREE(MTYPE_PBR_NHG, *pnhc);
+}
+
+static void pbr_nh_delete_iterate(struct hash_backet *b, void *p)
+{
+	pbr_nh_delete((struct pbr_nexthop_cache **)&b->data);
 }
 
 static uint32_t pbr_nh_hash_key(void *arg)
@@ -73,10 +130,7 @@ static uint32_t pbr_nh_hash_key(void *arg)
 	uint32_t key;
 	struct pbr_nexthop_cache *pbrnc = (struct pbr_nexthop_cache *)arg;
 
-	key = jhash_1word(pbrnc->nexthop.vrf_id, 0x45afe398);
-	key = jhash_1word(pbrnc->nexthop.ifindex, key);
-	key = jhash_1word(pbrnc->nexthop.type, key);
-	key = jhash(&pbrnc->nexthop.gate, sizeof(union g_addr), key);
+	key = nexthop_hash(pbrnc->nexthop);
 
 	return key;
 }
@@ -88,28 +142,28 @@ static int pbr_nh_hash_equal(const void *arg1, const void *arg2)
 	const struct pbr_nexthop_cache *pbrnc2 =
 		(const struct pbr_nexthop_cache *)arg2;
 
-	if (pbrnc1->nexthop.vrf_id != pbrnc2->nexthop.vrf_id)
+	if (pbrnc1->nexthop->vrf_id != pbrnc2->nexthop->vrf_id)
 		return 0;
 
-	if (pbrnc1->nexthop.ifindex != pbrnc2->nexthop.ifindex)
+	if (pbrnc1->nexthop->ifindex != pbrnc2->nexthop->ifindex)
 		return 0;
 
-	if (pbrnc1->nexthop.type != pbrnc2->nexthop.type)
+	if (pbrnc1->nexthop->type != pbrnc2->nexthop->type)
 		return 0;
 
-	switch (pbrnc1->nexthop.type) {
+	switch (pbrnc1->nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		return 1;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
-		return pbrnc1->nexthop.gate.ipv4.s_addr
-		       == pbrnc2->nexthop.gate.ipv4.s_addr;
+		return pbrnc1->nexthop->gate.ipv4.s_addr
+		       == pbrnc2->nexthop->gate.ipv4.s_addr;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 	case NEXTHOP_TYPE_IPV6:
-		return !memcmp(&pbrnc1->nexthop.gate.ipv6,
-			       &pbrnc2->nexthop.gate.ipv6, 16);
+		return !memcmp(&pbrnc1->nexthop->gate.ipv6,
+			       &pbrnc2->nexthop->gate.ipv6, 16);
 	case NEXTHOP_TYPE_BLACKHOLE:
-		return pbrnc1->nexthop.bh_type == pbrnc2->nexthop.bh_type;
+		return pbrnc1->nexthop->bh_type == pbrnc2->nexthop->bh_type;
 	}
 
 	/*
@@ -118,50 +172,118 @@ static int pbr_nh_hash_equal(const void *arg1, const void *arg2)
 	return 0;
 }
 
+static void pbr_nhgc_delete(struct pbr_nexthop_group_cache *p)
+{
+	hash_iterate(p->nhh, pbr_nh_delete_iterate, NULL);
+	hash_free(p->nhh);
+	XFREE(MTYPE_PBR_NHG, p);
+}
+
+static void *pbr_nhgc_alloc(void *p)
+{
+	struct pbr_nexthop_group_cache *new;
+	struct pbr_nexthop_group_cache *pnhgc =
+		(struct pbr_nexthop_group_cache *)p;
+
+	new = XCALLOC(MTYPE_PBR_NHG, sizeof(*new));
+
+	strcpy(new->name, pnhgc->name);
+	new->table_id = pbr_nht_get_next_tableid();
+
+	DEBUGD(&pbr_dbg_nht, "%s: NHT: %s assigned Table ID: %u",
+	       __PRETTY_FUNCTION__, new->name, new->table_id);
+
+	new->nhh = hash_create_size(8, pbr_nh_hash_key, pbr_nh_hash_equal,
+				    "PBR NH Cache Hash");
+	return new;
+}
+
+
 void pbr_nhgroup_add_cb(const char *name)
 {
-	struct pbr_event *pbre;
+	struct pbr_nexthop_group_cache *pnhgc;
+	struct nexthop_group_cmd *nhgc;
 
-	pbre = pbr_event_new(PBR_NHG_NEW, name);
+	nhgc = nhgc_find(name);
+	pnhgc = pbr_nht_add_group(name);
 
-	pbr_event_enqueue(pbre);
-	DEBUGD(&pbr_dbg_nht, "%s: Received ADD cb for %s", __PRETTY_FUNCTION__,
+	DEBUGD(&pbr_dbg_nht, "%s: Added nexthop-group %s", __PRETTY_FUNCTION__,
 	       name);
+
+	pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
+	pbr_map_check_nh_group_change(name);
 }
 
-void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhg,
+void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 				const struct nexthop *nhop)
 {
-	struct pbr_event *pbre;
+	char debugstr[256];
+	struct pbr_nexthop_group_cache pnhgc_find = {};
+	struct pbr_nexthop_group_cache *pnhgc;
+	struct pbr_nexthop_cache pnhc_find = {};
+	struct pbr_nexthop_cache *pnhc;
 
-	pbre = pbr_event_new(PBR_NHG_ADD_NEXTHOP, nhg->name);
+	/* find pnhgc by name */
+	strlcpy(pnhgc_find.name, nhgc->name, sizeof(pnhgc_find.name));
+	pnhgc = hash_get(pbr_nhg_hash, &pnhgc_find, pbr_nhgc_alloc);
 
-	pbr_event_enqueue(pbre);
-	DEBUGD(&pbr_dbg_nht, "%s: Received NEXTHOP_ADD cb for %s",
-	       __PRETTY_FUNCTION__, nhg->name);
+	/* create & insert new pnhc into pnhgc->nhh */
+	pnhc_find.nexthop = (struct nexthop *)nhop;
+	pnhc = hash_get(pnhgc->nhh, &pnhc_find, pbr_nh_alloc);
+	pnhc_find.nexthop = NULL;
+
+	/* set parent pnhgc */
+	pnhc->parent = pnhgc;
+
+	if (DEBUG_MODE_CHECK(&pbr_dbg_nht, DEBUG_MODE_ALL)) {
+		nexthop2str(nhop, debugstr, sizeof(debugstr));
+		DEBUGD(&pbr_dbg_nht, "%s: Added %s to nexthop-group %s",
+		       __PRETTY_FUNCTION__, debugstr, nhgc->name);
+	}
+
+	pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
+	pbr_map_check_nh_group_change(nhgc->name);
 }
 
-void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhg,
+void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 				const struct nexthop *nhop)
 {
-	struct pbr_event *pbre;
+	char debugstr[256];
+	struct pbr_nexthop_group_cache pnhgc_find = {};
+	struct pbr_nexthop_group_cache *pnhgc;
+	struct pbr_nexthop_cache pnhc_find = {};
+	struct pbr_nexthop_cache *pnhc;
 
-	pbre = pbr_event_new(PBR_NHG_DEL_NEXTHOP, nhg->name);
+	/* find pnhgc by name */
+	strlcpy(pnhgc_find.name, nhgc->name, sizeof(pnhgc_find.name));
+	pnhgc = hash_get(pbr_nhg_hash, &pnhgc_find, pbr_nhgc_alloc);
 
-	pbr_event_enqueue(pbre);
-	DEBUGD(&pbr_dbg_nht, "%s: Received NEXTHOP_DEL cb for %s",
-	       __PRETTY_FUNCTION__, nhg->name);
+	/* delete pnhc from pnhgc->nhh */
+	pnhc_find.nexthop = (struct nexthop *)nhop;
+	pnhc = hash_release(pnhgc->nhh, &pnhc_find);
+
+	/* delete pnhc */
+	pbr_nh_delete(&pnhc);
+
+	if (DEBUG_MODE_CHECK(&pbr_dbg_nht, DEBUG_MODE_ALL)) {
+		nexthop2str(nhop, debugstr, sizeof(debugstr));
+		DEBUGD(&pbr_dbg_nht, "%s: Removed %s from nexthop-group %s",
+		       __PRETTY_FUNCTION__, debugstr, nhgc->name);
+	}
+
+	pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
+	pbr_map_check_nh_group_change(nhgc->name);
 }
 
 void pbr_nhgroup_delete_cb(const char *name)
 {
-	struct pbr_event *pbre;
+	/* delete group from all pbrms's */
+	pbr_nht_delete_group(name);
 
-	pbre = pbr_event_new(PBR_NHG_DELETE, name);
-
-	pbr_event_enqueue(pbre);
-	DEBUGD(&pbr_dbg_nht, "%s: Received DELETE cb for %s",
+	DEBUGD(&pbr_dbg_nht, "%s: Removed nexthop-group %s",
 	       __PRETTY_FUNCTION__, name);
+
+	pbr_map_check_nh_group_change(name);
 }
 
 #if 0
@@ -307,7 +429,7 @@ void pbr_nht_change_group(const char *name)
 		struct pbr_nexthop_cache lookup;
 		struct pbr_nexthop_cache *pnhc;
 
-		memcpy(&lookup.nexthop, nhop, sizeof(*nhop));
+		lookup.nexthop = nhop;
 		pnhc = hash_lookup(pnhgc->nhh, &lookup);
 		if (!pnhc) {
 			pnhc = hash_get(pnhgc->nhh, &lookup, pbr_nh_alloc);
@@ -324,34 +446,12 @@ char *pbr_nht_nexthop_make_name(char *name, size_t l,
 	return buffer;
 }
 
-static void *pbr_nhgc_alloc(void *p)
-{
-	struct pbr_nexthop_group_cache *new;
-	struct pbr_nexthop_group_cache *pnhgc =
-		(struct pbr_nexthop_group_cache *)p;
-
-	new = XCALLOC(MTYPE_PBR_NHG, sizeof(*new));
-
-	strcpy(new->name, pnhgc->name);
-	new->table_id = pbr_nht_get_next_tableid();
-
-	DEBUGD(&pbr_dbg_nht, "%s: NHT: %s assigned Table ID: %u",
-	       __PRETTY_FUNCTION__, new->name, new->table_id);
-
-	new->nhh = hash_create_size(8, pbr_nh_hash_key, pbr_nh_hash_equal,
-				    "PBR NH Cache Hash");
-	return new;
-}
-
-void pbr_nht_add_individual_nexthop(const char *name, uint32_t seqno)
+void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms)
 {
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache find;
 	struct pbr_nexthop_cache *pnhc;
-	struct pbr_map_sequence *pbrms;
 	struct pbr_nexthop_cache lookup;
-
-	pbrms = pbrms_get(name, seqno);
 
 	memset(&find, 0, sizeof(find));
 	pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_MAP_NAMELEN,
@@ -361,29 +461,39 @@ void pbr_nht_add_individual_nexthop(const char *name, uint32_t seqno)
 
 	pnhgc = hash_get(pbr_nhg_hash, &find, pbr_nhgc_alloc);
 
-	memcpy(&lookup.nexthop, pbrms->nhg->nexthop, sizeof(struct nexthop));
+	lookup.nexthop = pbrms->nhg->nexthop;
 	pnhc = hash_get(pnhgc->nhh, &lookup, pbr_nh_alloc);
 	pnhc->parent = pnhgc;
 	pbr_nht_install_nexthop_group(pnhgc, *pbrms->nhg);
 }
 
-void pbr_nht_delete_individual_nexthop(const char *name, uint32_t seqno)
+void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 {
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache find;
 	struct pbr_nexthop_cache *pnhc;
 	struct pbr_nexthop_cache lup;
-	struct pbr_map_sequence *pbrms;
+	struct pbr_map *pbrm = pbrms->parent;
+	struct listnode *node;
+	struct pbr_map_interface *pmi;
 	struct nexthop *nh;
 
-	pbrms = pbrms_get(name, seqno);
+	if (pbrm->valid && pbrms->nhs_installed && pbrm->incoming->count) {
+		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, node, pmi))
+			pbr_send_pbr_map(pbrms, pmi, false);
+	}
+
+	pbrm->valid = false;
+	pbrms->nhs_installed = false;
+	pbrms->installed = false;
+	pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
 
 	memset(&find, 0, sizeof(find));
 	strcpy(&find.name[0], pbrms->internal_nhg_name);
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 
 	nh = pbrms->nhg->nexthop;
-	memcpy(&lup.nexthop, nh, sizeof(struct nexthop));
+	lup.nexthop = nh;
 	pnhc = hash_lookup(pnhgc->nhh, &lup);
 	pnhc->parent = NULL;
 	hash_release(pnhgc->nhh, pnhc);
@@ -398,7 +508,7 @@ void pbr_nht_delete_individual_nexthop(const char *name, uint32_t seqno)
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
 }
 
-void pbr_nht_add_group(const char *name)
+struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 {
 	struct nexthop *nhop;
 	struct nexthop_group_cmd *nhgc;
@@ -410,7 +520,7 @@ void pbr_nht_add_group(const char *name)
 	if (!nhgc) {
 		zlog_warn("%s: Could not find group %s to add",
 			  __PRETTY_FUNCTION__, name);
-		return;
+		return NULL;
 	}
 
 	strcpy(lookup.name, name);
@@ -422,13 +532,15 @@ void pbr_nht_add_group(const char *name)
 		struct pbr_nexthop_cache lookup;
 		struct pbr_nexthop_cache *pnhc;
 
-		memcpy(&lookup.nexthop, nhop, sizeof(*nhop));
+		lookup.nexthop = nhop;
 		pnhc = hash_lookup(pnhgc->nhh, &lookup);
 		if (!pnhc) {
 			pnhc = hash_get(pnhgc->nhh, &lookup, pbr_nh_alloc);
 			pnhc->parent = pnhgc;
 		}
 	}
+
+	return pnhgc;
 }
 
 void pbr_nht_delete_group(const char *name)
@@ -436,16 +548,25 @@ void pbr_nht_delete_group(const char *name)
 	struct pbr_map_sequence *pbrms;
 	struct listnode *snode;
 	struct pbr_map *pbrm;
+	struct pbr_nexthop_group_cache pnhgc_find;
+	struct pbr_nexthop_group_cache *pnhgc;
 
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, snode, pbrms)) {
 			if (pbrms->nhgrp_name
-			    && strcmp(pbrms->nhgrp_name, name) == 0) {
+			    && strmatch(pbrms->nhgrp_name, name)) {
 				pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
+				nexthop_group_delete(&pbrms->nhg);
+				pbrms->nhg = NULL;
+				pbrms->internal_nhg_name = NULL;
 				pbrm->valid = false;
 			}
 		}
 	}
+
+	strlcpy(pnhgc_find.name, name, sizeof(pnhgc_find.name));
+	pnhgc = hash_release(pbr_nhg_hash, &pnhgc_find);
+	pbr_nhgc_delete(pnhgc);
 }
 
 bool pbr_nht_nexthop_valid(struct nexthop_group *nhg)
@@ -491,13 +612,14 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_backet *b,
 
 	switch (pnhi->nhr->prefix.family) {
 	case AF_INET:
-		if (pnhc->nexthop.gate.ipv4.s_addr
+		if (pnhc->nexthop->gate.ipv4.s_addr
 		    == pnhi->nhr->prefix.u.prefix4.s_addr)
 			pnhc->valid = !!pnhi->nhr->nexthop_num;
 		break;
 	case AF_INET6:
-		if (memcmp(&pnhc->nexthop.gate.ipv6,
-			   &pnhi->nhr->prefix.u.prefix6, 16) == 0)
+		if (memcmp(&pnhc->nexthop->gate.ipv6,
+			   &pnhi->nhr->prefix.u.prefix6, 16)
+		    == 0)
 			pnhc->valid = !!pnhi->nhr->nexthop_num;
 		break;
 	}
@@ -505,14 +627,6 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_backet *b,
 	DEBUGD(&pbr_dbg_nht, "\tFound %s: old: %d new: %d",
 	       prefix2str(&pnhi->nhr->prefix, buf, sizeof(buf)), old_valid,
 	       pnhc->valid);
-
-	if (old_valid != pnhc->valid) {
-		struct pbr_event *pbre;
-
-		pbre = pbr_event_new(PBR_NH_CHANGED, pnhc->parent->name);
-
-		pbr_event_enqueue(pbre);
-	}
 
 	if (pnhc->valid)
 		pnhi->valid += 1;
@@ -522,6 +636,9 @@ static void pbr_nht_nexthop_update_lookup(struct hash_backet *b, void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc = b->data;
 	struct pbr_nht_individual pnhi;
+	bool old_valid;
+
+	old_valid = pnhgc->valid;
 
 	pnhi.nhr = (struct zapi_route *)data;
 	pnhi.valid = 0;
@@ -532,6 +649,9 @@ static void pbr_nht_nexthop_update_lookup(struct hash_backet *b, void *data)
 	 * If any of the specified nexthops are valid we are valid
 	 */
 	pnhgc->valid = !!pnhi.valid;
+
+	if (old_valid != pnhgc->valid)
+		pbr_map_check_nh_group_change(pnhgc->name);
 }
 
 void pbr_nht_nexthop_update(struct zapi_route *nhr)
@@ -652,7 +772,7 @@ static void pbr_nht_show_nhg_nexthops(struct hash_backet *b, void *data)
 	struct vty *vty = data;
 
 	vty_out(vty, "\tValid: %d", pnhc->valid);
-	nexthop_group_write_nexthop(vty, &pnhc->nexthop);
+	nexthop_group_write_nexthop(vty, pnhc->nexthop);
 }
 
 struct pbr_nht_show {
@@ -690,6 +810,9 @@ void pbr_nht_init(void)
 {
 	pbr_nhg_hash = hash_create_size(
 		16, pbr_nhg_hash_key, pbr_nhg_hash_equal, "PBR NHG Cache Hash");
+	pbr_nhrc_hash =
+		hash_create_size(16, (unsigned int (*)(void *))nexthop_hash,
+				 pbr_nhrc_hash_equal, "PBR NH Hash");
 
 	pbr_nhg_low_table = PBR_NHT_DEFAULT_LOW_TABLEID;
 	pbr_nhg_high_table = PBR_NHT_DEFAULT_HIGH_TABLEID;

@@ -56,7 +56,7 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
 }
 
-static struct pbr_interface *pbr_if_new(struct interface *ifp)
+struct pbr_interface *pbr_if_new(struct interface *ifp)
 {
 	struct pbr_interface *pbr_ifp;
 
@@ -497,14 +497,11 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putl(s, ifp->ifindex);
 }
 
-void pbr_send_pbr_map(struct pbr_map *pbrm, bool install)
+void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
+		      struct pbr_map_interface *pmi, bool install)
 {
-	struct listnode *inode, *snode;
-	struct pbr_map_sequence *pbrms;
-	struct pbr_map_interface *pmi;
+	struct pbr_map *pbrm = pbrms->parent;
 	struct stream *s;
-	uint32_t total;
-	ssize_t tspot;
 
 	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d", __PRETTY_FUNCTION__, pbrm->name,
 	       install);
@@ -516,59 +513,18 @@ void pbr_send_pbr_map(struct pbr_map *pbrm, bool install)
 			      install ? ZEBRA_RULE_ADD : ZEBRA_RULE_DELETE,
 			      VRF_DEFAULT);
 
-	total = 0;
-	tspot = stream_get_endp(s);
-	stream_putl(s, 0);
-	for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi)) {
+	/*
+	 * We are sending one item at a time at the moment
+	 */
+	stream_putl(s, 1);
 
-		DEBUGD(&pbr_dbg_zebra, "%s: \t%s %s %d %s %u",
-		       __PRETTY_FUNCTION__, install ? "Installing" : "Deleting",
-		       pbrm->name, install, pmi->ifp->name, pmi->delete);
+	DEBUGD(&pbr_dbg_zebra, "%s: \t%s %s %d %s %u",
+	       __PRETTY_FUNCTION__, install ? "Installing" : "Deleting",
+	       pbrm->name, install, pmi->ifp->name, pmi->delete);
 
-		if (!install && pmi->delete) {
-			for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, snode,
-						  pbrms)) {
-				pbr_encode_pbr_map_sequence(s,
-							    pbrms, pmi->ifp);
-				total++;
-			}
-			continue;
-		}
+	pbr_encode_pbr_map_sequence(s, pbrms, pmi->ifp);
 
-		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, snode, pbrms)) {
-
-			DEBUGD(&pbr_dbg_zebra, "%s: \tSeqno: %u %" PRIu64 " valid %u",
-			       __PRETTY_FUNCTION__, pbrms->seqno, pbrms->reason,
-			       pbrm->valid);
-
-			if (!install &&
-			    !(pbrms->reason & PBR_MAP_DEL_SEQUENCE_NUMBER))
-				continue;
-
-			if (!install && !pbrms->installed)
-				continue;
-
-			if (install && pbrms->installed)
-				continue;
-
-			DEBUGD(&pbr_dbg_zebra, "%s: \t Seq: %u ifp %s",
-			       __PRETTY_FUNCTION__, pbrms->seqno,
-			       pmi->ifp->name);
-
-			pbr_encode_pbr_map_sequence(s, pbrms, pmi->ifp);
-			total++;
-		}
-	}
-
-	DEBUGD(&pbr_dbg_zebra, "%s: Putting %u at %zu ", __PRETTY_FUNCTION__,
-	       total, tspot);
-
-	stream_putl_at(s, tspot, total);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	if (!total) {
-		stream_reset(s);
-		return;
-	}
 	zclient_send_message(zclient);
 }

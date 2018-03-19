@@ -14,12 +14,10 @@ pbrd_libpbr_a_SOURCES = \
 	pbrd/pbr_map.c \
 	pbrd/pbr_memory.c \
 	pbrd/pbr_nht.c \
-	pbrd/pbr_event.c \
 	pbrd/pbr_debug.c \
 	# end
 
 noinst_HEADERS += \
-	pbrd/pbr_event.h \
 	pbrd/pbr_map.h \
 	pbrd/pbr_memory.h \
 	pbrd/pbr_nht.h \
