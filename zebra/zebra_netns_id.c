@@ -172,6 +172,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 	if (sock < 0) {
 		zlog_err("netlink( %u) socket() error: %s", sock,
 			 safe_strerror(errno));
+		close(fd);
 		return NS_UNKNOWN;
 	}
 	memset(&snl, 0, sizeof(snl));
