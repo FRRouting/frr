@@ -986,7 +986,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 	struct route_entry *re;
 	unsigned long nump;
 	u_char num;
-	struct nexthop *nexthop;
+	struct nexthop *nh;
 	struct route_node *rn;
 	int cmd = (type == RNH_IMPORT_CHECK_TYPE) ? ZEBRA_IMPORT_CHECK_UPDATE
 						  : ZEBRA_NEXTHOP_UPDATE;
@@ -1022,32 +1022,40 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		num = 0;
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
-		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
-			if ((CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-			     || CHECK_FLAG(nexthop->flags,
-					   NEXTHOP_FLAG_RECURSIVE))
-			    && CHECK_FLAG(nexthop->flags,
-					  NEXTHOP_FLAG_ACTIVE)) {
-				stream_putc(s, nexthop->type);
-				switch (nexthop->type) {
+		for (nh = re->ng.nexthop; nh; nh = nh->next)
+			if ((CHECK_FLAG(nh->flags, NEXTHOP_FLAG_FIB)
+			     || CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
+			    && CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)) {
+				stream_putc(s, nh->type);
+				switch (nh->type) {
 				case NEXTHOP_TYPE_IPV4:
 				case NEXTHOP_TYPE_IPV4_IFINDEX:
-					stream_put_in_addr(s,
-							   &nexthop->gate.ipv4);
-					stream_putl(s, nexthop->ifindex);
+					stream_put_in_addr(s, &nh->gate.ipv4);
+					stream_putl(s, nh->ifindex);
 					break;
 				case NEXTHOP_TYPE_IFINDEX:
-					stream_putl(s, nexthop->ifindex);
+					stream_putl(s, nh->ifindex);
 					break;
 				case NEXTHOP_TYPE_IPV6:
 				case NEXTHOP_TYPE_IPV6_IFINDEX:
-					stream_put(s, &nexthop->gate.ipv6, 16);
-					stream_putl(s, nexthop->ifindex);
+					stream_put(s, &nh->gate.ipv6, 16);
+					stream_putl(s, nh->ifindex);
 					break;
 				default:
 					/* do nothing */
 					break;
 				}
+				if (nh->nh_label) {
+					stream_putc(s,
+						    nh->nh_label->num_labels);
+					if (nh->nh_label->num_labels)
+						stream_put(
+							s,
+							&nh->nh_label->label[0],
+							nh->nh_label->num_labels
+								* sizeof(mpls_label_t));
+				} else
+					stream_putc(s, 0);
 				num++;
 			}
 		stream_putc_at(s, nump, num);

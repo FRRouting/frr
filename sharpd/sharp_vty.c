@@ -39,6 +39,46 @@ extern uint32_t total_routes;
 extern uint32_t installed_routes;
 extern uint32_t removed_routes;
 
+DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
+      "sharp watch nexthop X:X::X:X$nhop",
+      "Sharp routing Protocol\n"
+      "Watch for changes\n"
+      "Watch for nexthop changes\n"
+      "The v6 nexthop to signal for watching\n")
+{
+	struct prefix p;
+
+	memset(&p, 0, sizeof(p));
+
+	p.prefixlen = 128;
+	memcpy(&p.u.prefix6, &nhop, 16);
+	p.family = AF_INET6;
+
+	sharp_zebra_nexthop_watch(&p, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
+      "sharp watch nexthop A.B.C.D$nhop",
+      "Sharp routing Protocol\n"
+      "Watch for changes\n"
+      "Watch for nexthop changes\n"
+      "The v4 nexthop to signal for watching\n")
+{
+	struct prefix p;
+
+	memset(&p, 0, sizeof(p));
+
+	p.prefixlen = 32;
+	p.u.prefix4 = nhop;
+	p.family = AF_INET;
+
+	sharp_zebra_nexthop_watch(&p, true);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (install_routes,
        install_routes_cmd,
        "sharp install routes A.B.C.D$start nexthop A.B.C.D$nexthop (1-1000000)$routes",
@@ -147,5 +187,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &install_routes_cmd);
 	install_element(ENABLE_NODE, &remove_routes_cmd);
 	install_element(ENABLE_NODE, &vrf_label_cmd);
+	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
+	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
 	return;
 }
