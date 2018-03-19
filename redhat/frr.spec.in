@@ -146,6 +146,7 @@ Requires(post): /sbin/install-info
 BuildRequires:  gcc patch libcap-devel
 BuildRequires:  readline readline-devel ncurses ncurses-devel
 BuildRequires:  json-c-devel bison >= 2.7 flex make
+BuildRequires:  c-ares-devel texinfo
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel python27-sphinx
