@@ -3754,13 +3754,6 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 	u_char rlen;
 	struct prefix p;
 
-	/* Check peer status. */
-	if (peer->status != Established) {
-		zlog_err("%u:%s - EVPN update received in state %d",
-			 peer->bgp->vrf_id, peer->host, peer->status);
-		return -1;
-	}
-
 	/* Start processing the NLRI - there may be multiple in the MP_REACH */
 	pnt = packet->nlri;
 	lim = pnt + packet->length;

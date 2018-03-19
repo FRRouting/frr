@@ -109,10 +109,6 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	int addpath_encoded;
 	u_int32_t addpath_id;
 
-	/* Check peer status. */
-	if (peer->status != Established)
-		return 0;
-
 	/* Make prefix_rd */
 	prd.family = AF_UNSPEC;
 	prd.prefixlen = 64;
