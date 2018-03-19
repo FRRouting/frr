@@ -256,9 +256,11 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	pim_socket_ip_hdr(fd);
 
 	if (interface == NULL) {
+		memset(&nexthop, 0, sizeof(nexthop));
 		ret = pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0);
 
 		if (ret != 0) {
+			close(fd);
 			if (PIM_DEBUG_MTRACE)
 				zlog_warn(
 					"Dropping mtrace packet, "
@@ -434,6 +436,7 @@ static int mtrace_send_response(struct pim_instance *pim,
 		if (PIM_DEBUG_MTRACE)
 			zlog_debug("mtrace response to RP");
 	} else {
+		memset(&nexthop, 0, sizeof(nexthop));
 		/* TODO: should use unicast rib lookup */
 		ret = pim_nexthop_lookup(pim, &nexthop, mtracep->rsp_addr, 1);
 
@@ -613,6 +616,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	nh_addr.s_addr = 0;
 
+	memset(&nexthop, 0, sizeof(nexthop));
 	ret = pim_nexthop_lookup(pim, &nexthop, mtracep->src_addr, 1);
 
 	if (ret == 0) {
