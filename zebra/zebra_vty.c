@@ -2230,7 +2230,7 @@ int static_config(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
 		if (shr->flag_str)
 			vty_out(vty, "%s ", shr->flag_str);
 		if (shr->tag_str)
-			vty_out(vty, "tag %s", shr->tag_str);
+			vty_out(vty, "tag %s ", shr->tag_str);
 		if (shr->distance_str)
 			vty_out(vty, "%s ", shr->distance_str);
 		if (shr->label_str)
