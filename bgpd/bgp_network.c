@@ -447,6 +447,9 @@ static char *bgp_get_bound_name(struct peer *peer)
 {
 	char *name = NULL;
 
+	if (!peer)
+		return NULL;
+
 	if ((peer->bgp->vrf_id == VRF_DEFAULT) && !peer->ifname
 	    && !peer->conf_if)
 		return NULL;
@@ -455,8 +458,6 @@ static char *bgp_get_bound_name(struct peer *peer)
 	    && peer->su.sa.sa_family != AF_INET6)
 		return NULL; // unexpected
 
-	if (!peer)
-		return name;
 	/* For IPv6 peering, interface (unnumbered or link-local with interface)
 	 * takes precedence over VRF. For IPv4 peering, explicit interface or
 	 * VRF are the situations to bind.
