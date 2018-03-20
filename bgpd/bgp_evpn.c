@@ -367,15 +367,12 @@ static void map_vrf_to_rt(struct bgp *bgp_vrf, struct ecommunity_val *eval)
 		mask_ecom_global_admin(&eval_tmp, eval);
 
 	irt = lookup_vrf_import_rt(&eval_tmp);
-	if (irt && irt->vrfs)
-		if (is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
-			/* Already mapped. */
-			return;
+	if (irt && is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
+		/* Already mapped. */
+		return;
 
-	if (!irt) {
+	if (!irt)
 		irt = vrf_import_rt_new(&eval_tmp);
-		assert(irt);
-	}
 
 	/* Add VRF to the list for this RT. */
 	listnode_add(irt->vrfs, bgp_vrf);
