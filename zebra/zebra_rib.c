@@ -139,9 +139,6 @@ uint8_t route_distance(int type)
 
 int is_zebra_valid_kernel_table(u_int32_t table_id)
 {
-	if ((table_id > ZEBRA_KERNEL_TABLE_MAX))
-		return 0;
-
 #ifdef linux
 	if ((table_id == RT_TABLE_UNSPEC) || (table_id == RT_TABLE_LOCAL)
 	    || (table_id == RT_TABLE_COMPAT))
@@ -2706,40 +2703,8 @@ void rib_update(vrf_id_t vrf_id, rib_update_event_t event)
 		rib_update_table(table, event);
 }
 
-/* Remove all routes which comes from non main table.  */
-static void rib_weed_table(struct route_table *table)
-{
-	struct route_node *rn;
-	struct route_entry *re;
-	struct route_entry *next;
-
-	if (table)
-		for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-			RNODE_FOREACH_RE_SAFE (rn, re, next) {
-				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
-					continue;
-
-				if (re->table != zebrad.rtm_table_default
-				    && re->table != RT_TABLE_MAIN)
-					rib_delnode(rn, re);
-			}
-}
-
-/* Delete all routes from non main table. */
-void rib_weed_tables(void)
-{
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-		if ((zvrf = vrf->info) != NULL) {
-			rib_weed_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
-			rib_weed_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
-		}
-}
-
 /* Delete self installed routes after zebra is relaunched.  */
-static void rib_sweep_table(struct route_table *table)
+void rib_sweep_table(struct route_table *table)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -2800,11 +2765,13 @@ void rib_sweep_route(void)
 		rib_sweep_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
 		rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
 	}
+
+	zebra_ns_sweep_route();
 }
 
 /* Remove specific by protocol routes from 'table'. */
-static unsigned long rib_score_proto_table(u_char proto, u_short instance,
-					   struct route_table *table)
+unsigned long rib_score_proto_table(u_char proto, u_short instance,
+				    struct route_table *table)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -2840,6 +2807,8 @@ unsigned long rib_score_proto(u_char proto, u_short instance)
 			       + rib_score_proto_table(
 					 proto, instance,
 					 zvrf->table[AFI_IP6][SAFI_UNICAST]);
+
+	cnt += zebra_ns_score_proto(proto, instance);
 
 	return cnt;
 }

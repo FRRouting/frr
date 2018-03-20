@@ -2639,6 +2639,9 @@ static void zebra_client_free(struct zserv *client)
 	/* Send client de-registration to BFD */
 	zebra_ptm_bfd_client_deregister(client->proto);
 
+	/* Cleanup any rules installed from this client */
+	zebra_pbr_client_close_cleanup(client->sock);
+
 	/* Cleanup any registered nexthops - across all VRFs. */
 	zebra_client_close_cleanup_rnh(client);
 
