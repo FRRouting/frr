@@ -318,6 +318,7 @@ struct bgp {
 	u_int16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING              (1 << 0)
 #define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT  (1 << 1)
+#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT  (1 << 2)
 
 /* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
 #define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST      (1 << 1)
@@ -471,7 +472,7 @@ struct bgp {
 		uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
 		uint32_t tovpn_zebra_vrf_label_last_sent;
 		struct prefix_rd tovpn_rd;
-		struct prefix tovpn_nexthop; /* unset => set to router id */
+		struct prefix tovpn_nexthop; /* unset => set to 0 */
 		uint32_t flags;
 #define BGP_VPN_POLICY_TOVPN_RD_SET            0x00000004
 #define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       0x00000008

@@ -87,8 +87,6 @@ const char *node_names[] = {
 	"bgp vnc l2",		    // BGP_VNC_L2_GROUP_NODE,
 	"rfp defaults",		    // RFP_DEFAULTS_NODE,
 	"bgp evpn",		    // BGP_EVPN_NODE,
-	"bgp vpn policy ipv4",      // BGP_VPNPOLICY_IPV4_NODE
-	"bgp vpn policy ipv6",      // BGP_VPNPOLICY_IPV6_NODE
 	"ospf",			    // OSPF_NODE,
 	"ospf6",		    // OSPF6_NODE,
 	"ldp",			    // LDP_NODE,
@@ -951,8 +949,6 @@ enum node_type node_parent(enum node_type node)
 	case BGP_VPNV4_NODE:
 	case BGP_VPNV6_NODE:
 	case BGP_VRF_POLICY_NODE:
-	case BGP_VPNPOLICY_IPV4_NODE:
-	case BGP_VPNPOLICY_IPV6_NODE:
 	case BGP_VNC_DEFAULTS_NODE:
 	case BGP_VNC_NVE_GROUP_NODE:
 	case BGP_VNC_L2_GROUP_NODE:
@@ -1323,8 +1319,6 @@ void cmd_exit(struct vty *vty)
 	case BGP_VPNV4_NODE:
 	case BGP_VPNV6_NODE:
 	case BGP_VRF_POLICY_NODE:
-	case BGP_VPNPOLICY_IPV4_NODE:
-	case BGP_VPNPOLICY_IPV6_NODE:
 	case BGP_VNC_DEFAULTS_NODE:
 	case BGP_VNC_NVE_GROUP_NODE:
 	case BGP_VNC_L2_GROUP_NODE:
@@ -1395,8 +1389,6 @@ DEFUN (config_end,
 	case BABEL_NODE:
 	case BGP_NODE:
 	case BGP_VRF_POLICY_NODE:
-	case BGP_VPNPOLICY_IPV4_NODE:
-	case BGP_VPNPOLICY_IPV6_NODE:
 	case BGP_VNC_DEFAULTS_NODE:
 	case BGP_VNC_NVE_GROUP_NODE:
 	case BGP_VNC_L2_GROUP_NODE:

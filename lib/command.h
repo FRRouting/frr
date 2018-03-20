@@ -110,8 +110,6 @@ enum node_type {
 	BGP_VNC_L2_GROUP_NODE,   /* BGP VNC L2 group */
 	RFP_DEFAULTS_NODE,       /* RFP defaults node */
 	BGP_EVPN_NODE,		 /* BGP EVPN node. */
-	BGP_VPNPOLICY_IPV4_NODE, /* BGP VPN IPv6 policy */
-	BGP_VPNPOLICY_IPV6_NODE, /* BGP VPN IPv6 policy */
 	OSPF_NODE,		 /* OSPF protocol mode */
 	OSPF6_NODE,		 /* OSPF protocol for IPv6 mode */
 	LDP_NODE,		 /* LDP protocol mode */

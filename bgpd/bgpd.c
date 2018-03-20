@@ -7132,10 +7132,18 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (safi == SAFI_EVPN)
 		bgp_config_write_evpn_info(vty, bgp, afi, safi);
 
-	if (CHECK_FLAG(bgp->af_flags[afi][safi],
-		       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)) {
+	if (safi == SAFI_UNICAST) {
+		bgp_vpn_policy_config_write_afi(vty, bgp, afi);
+		if (CHECK_FLAG(bgp->af_flags[afi][safi],
+			       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)) {
 
-		vty_out(vty, "  export vpn\n");
+			vty_out(vty, "  export vpn\n");
+		}
+		if (CHECK_FLAG(bgp->af_flags[afi][safi],
+			       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
+
+			vty_out(vty, "  import vpn\n");
+		}
 	}
 
 	vty_endframe(vty, " exit-address-family\n");
@@ -7403,8 +7411,6 @@ int bgp_config_write(struct vty *vty)
 		/* No auto-summary */
 		if (bgp_option_check(BGP_OPT_CONFIG_CISCO))
 			vty_out(vty, " no auto-summary\n");
-
-		bgp_vpn_policy_config_write(vty, bgp);
 
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
