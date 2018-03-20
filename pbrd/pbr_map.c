@@ -161,7 +161,8 @@ void pbr_map_write_interfaces(struct vty *vty, struct interface *ifp)
 {
 	struct pbr_interface *pbr_ifp = ifp->info;
 
-	if (!(strcmp(pbr_ifp->mapname, "") == 0))
+	if (pbr_ifp
+	    && strncmp(pbr_ifp->mapname, "", sizeof(pbr_ifp->mapname)) != 0)
 		vty_out(vty, " pbr-policy %s\n", pbr_ifp->mapname);
 }
 
