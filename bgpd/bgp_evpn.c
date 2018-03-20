@@ -3980,7 +3980,7 @@ void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp)
 	bgp->vrf_prd.family = AF_UNSPEC;
 	bgp->vrf_prd.prefixlen = 64;
 	sprintf(buf, "%s:%hu", inet_ntoa(bgp->router_id), bgp->vrf_rd_id);
-	str2prefix_rd(buf, &bgp->vrf_prd);
+	(void)str2prefix_rd(buf, &bgp->vrf_prd);
 }
 
 /*
