@@ -320,7 +320,7 @@ void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh)
 	char buf[100];
 	struct vrf *vrf;
 
-	vty_out(vty, "  nexthop ");
+	vty_out(vty, "nexthop ");
 
 	switch (nh->type) {
 	case NEXTHOP_TYPE_IFINDEX:

@@ -543,8 +543,7 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 {
 	char buff[PREFIX_STRLEN];
 
-	vty_out(vty, "pbr-map %s seq %u\n",
-		pbrm->name, pbrms->seqno);
+	vty_frame(vty, "pbr-map %s seq %u\n", pbrm->name, pbrms->seqno);
 
 	if (pbrms->src)
 		vty_out(vty, "  match src-ip %s\n",
@@ -558,11 +557,11 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 		vty_out(vty, "  set nexthop-group %s\n", pbrms->nhgrp_name);
 
 	if (pbrms->nhg) {
-		vty_out(vty, "  set");
+		vty_out(vty, "  set ");
 		nexthop_group_write_nexthop(vty, pbrms->nhg->nexthop);
 	}
 
-	vty_out(vty, "!\n");
+	vty_endframe(vty, "!\n");
 	return 1;
 }
 

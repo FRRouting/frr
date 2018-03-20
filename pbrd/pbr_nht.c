@@ -771,7 +771,7 @@ static void pbr_nht_show_nhg_nexthops(struct hash_backet *b, void *data)
 	struct pbr_nexthop_cache *pnhc = b->data;
 	struct vty *vty = data;
 
-	vty_out(vty, "\tValid: %d", pnhc->valid);
+	vty_out(vty, "\tValid: %d ", pnhc->valid);
 	nexthop_group_write_nexthop(vty, pnhc->nexthop);
 }
 
