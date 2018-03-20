@@ -143,6 +143,12 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 	struct nexthop_group_cmd *nhgc;
 
+	if (pbrms->nhg) {
+		vty_out(vty,
+			"A `set nexthop XX` command already exists, please remove that first\n");
+		return CMD_WARNING;
+	}
+
 	nhgc = nhgc_find(name);
 	if (!nhgc) {
 		vty_out(vty, "Specified nexthop-group %s does not exist\n",
