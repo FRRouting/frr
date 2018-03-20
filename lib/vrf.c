@@ -159,11 +159,13 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	if (!name && vrf_id == VRF_UNKNOWN)
 		return NULL;
 
-	/* Try to find VRF both by ID and name */
-	if (vrf_id != VRF_UNKNOWN)
-		vrf = vrf_lookup_by_id(vrf_id);
-	if (!vrf && name)
+	/* attempt to find already available VRF
+	 */
+	if (name)
 		vrf = vrf_lookup_by_name(name);
+	/* Try to find VRF both by ID and name */
+	if (!vrf && vrf_id != VRF_UNKNOWN)
+		vrf = vrf_lookup_by_id(vrf_id);
 
 	if (vrf == NULL) {
 		vrf = XCALLOC(MTYPE_VRF, sizeof(struct vrf));
