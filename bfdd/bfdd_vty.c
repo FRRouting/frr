@@ -82,17 +82,14 @@ DEFUN_NOSH(
 	/* Gather all provided information. */
 	peer = argv[1]->arg;
 
-	if (argv_find(argv, argc, "interface", &idx)) {
+	if (argv_find(argv, argc, "interface", &idx))
 		ifname = argv[idx + 1]->arg;
-	}
 
-	if (argv_find(argv, argc, "local-address", &idx)) {
+	if (argv_find(argv, argc, "local-address", &idx))
 		local = argv[idx + 1]->arg;
-	}
 
-	if (argv_find(argv, argc, "vrf", &idx)) {
+	if (argv_find(argv, argc, "vrf", &idx))
 		vrfname = argv[idx + 1]->arg;
-	}
 
 	strtosa(peer, &psa);
 	if (local) {
@@ -175,10 +172,8 @@ DEFPY(bfd_peer_echointerval, bfd_peer_echointerval_cmd,
 	return bfdd_update_peer(vty, &bn->bn_bpc);
 }
 
-DEFPY(bfd_peer_shutdown, bfd_peer_shutdown_cmd,
-      "[no] shutdown",
-      NO_STR
-      "Disable BFD peer")
+DEFPY(bfd_peer_shutdown, bfd_peer_shutdown_cmd, "[no] shutdown",
+      NO_STR "Disable BFD peer")
 {
 	struct bpc_node *bn;
 
@@ -188,10 +183,8 @@ DEFPY(bfd_peer_shutdown, bfd_peer_shutdown_cmd,
 	return bfdd_update_peer(vty, &bn->bn_bpc);
 }
 
-DEFPY(bfd_peer_echo, bfd_peer_echo_cmd,
-      "[no] echo-mode",
-      NO_STR
-      "Configure echo mode\n")
+DEFPY(bfd_peer_echo, bfd_peer_echo_cmd, "[no] echo-mode",
+      NO_STR "Configure echo mode\n")
 {
 	struct bpc_node *bn;
 
@@ -201,8 +194,7 @@ DEFPY(bfd_peer_echo, bfd_peer_echo_cmd,
 	return bfdd_update_peer(vty, &bn->bn_bpc);
 }
 
-DEFPY(bfd_peer_label, bfd_peer_label_cmd,
-      "label WORD$label",
+DEFPY(bfd_peer_label, bfd_peer_label_cmd, "label WORD$label",
       "Register peer label\n"
       "Register peer label identification\n")
 {
@@ -221,9 +213,8 @@ DEFPY(bfd_peer_label, bfd_peer_label_cmd,
 	bpc = &bn->bn_bpc;
 
 	/* Save the old label if any. */
-	if (bpc->bpc_has_label) {
+	if (bpc->bpc_has_label)
 		strlcpy(oldlabel, bpc->bpc_label, sizeof(oldlabel));
-	}
 
 	/* Apply configuration and test. */
 	bpc->bpc_has_label = true;
@@ -286,20 +277,16 @@ static void _display_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	time_t now;
 
 	vty_out(vty, "\tpeer %s", satostr(&bpc->bpc_peer));
-	if (bpc->bpc_has_localif) {
+	if (bpc->bpc_has_localif)
 		vty_out(vty, " interface %s", bpc->bpc_localif);
-	}
-	if (bpc->bpc_local.sa_sin.sin_family != 0) {
+	if (bpc->bpc_local.sa_sin.sin_family != 0)
 		vty_out(vty, " local-address %s", satostr(&bpc->bpc_local));
-	}
-	if (bpc->bpc_has_vrfname) {
+	if (bpc->bpc_has_vrfname)
 		vty_out(vty, " vrf %s", bpc->bpc_vrfname);
-	}
 	vty_out(vty, "\n");
 
-	if (bpc->bpc_has_label) {
+	if (bpc->bpc_has_label)
 		vty_out(vty, "\t\tlabel: %s\n", bpc->bpc_label);
-	}
 	vty_out(vty, "\t\tID: %u\n", bpc->bpc_id);
 	vty_out(vty, "\t\tRemote ID: %u\n", bpc->bpc_remoteid);
 
@@ -339,10 +326,8 @@ static void _display_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 		diag2str(bpc->bpc_remotediag));
 
 	vty_out(vty, "\t\tLocal timers:\n");
-	vty_out(vty, "\t\t\tReceive interval: %lu\n",
-		bpc->bpc_recvinterval);
-	vty_out(vty, "\t\t\tTransmission interval: %lu\n",
-		bpc->bpc_txinterval);
+	vty_out(vty, "\t\t\tReceive interval: %lu\n", bpc->bpc_recvinterval);
+	vty_out(vty, "\t\t\tTransmission interval: %lu\n", bpc->bpc_txinterval);
 	vty_out(vty, "\t\t\tEcho transmission interval: %lu\n",
 		bpc->bpc_echointerval);
 
@@ -357,9 +342,7 @@ static void _display_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	vty_out(vty, "\n");
 }
 
-DEFPY(bfd_show_peers, bfd_show_peers_cmd,
-      "show bfd peers",
-      SHOW_STR
+DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd peers", SHOW_STR
       "Bidirection Forwarding Detection\n"
       "BFD peers status\n")
 {
@@ -383,8 +366,7 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
       "BFD peers status\n"
       "Peer label\n"
       "IPv4 peer address\n"
-      "IPv6 peer address\n"
-      INTERFACE_STR
+      "IPv6 peer address\n" INTERFACE_STR
       "Configure interface name to use\n"
       "Configure local address (enables multihop)\n"
       "IPv4 local address\n"
@@ -403,18 +385,16 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 		TAILQ_FOREACH (bn, &bc.bc_bnlist, bn_entry) {
 			bpcp = &bn->bn_bpc;
 
-			if (strcmp(bpcp->bpc_label, label) == 0) {
+			if (strcmp(bpcp->bpc_label, label) == 0)
 				break;
-			}
 		}
 	} else {
 		strtosa(peer_str, &psa);
 		if (local) {
 			strtosa(local_str, &lsa);
 			lsap = &lsa;
-		} else {
+		} else
 			lsap = NULL;
-		}
 
 		if (bfd_configure_peer(&bpc, &psa, lsap, ifname, vrfname,
 				       errormsg, sizeof(errormsg))
@@ -431,15 +411,12 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 	if (bn == NULL) {
 		vty_out(vty, "%% Unable to find 'peer %s",
 			label ? label : peer_str);
-		if (ifname) {
+		if (ifname)
 			vty_out(vty, " interface %s", ifname);
-		}
-		if (local) {
+		if (local)
 			vty_out(vty, " local-address %s", local_str);
-		}
-		if (vrfname) {
+		if (vrfname)
 			vty_out(vty, " vrf %s", vrfname);
-		}
 		vty_out(vty, "'\n");
 
 		return CMD_SUCCESS;
@@ -455,9 +432,8 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 /* Init function */
 int bfdd_write_config(struct vty *vty)
 {
-	if (TAILQ_EMPTY(&bc.bc_bnlist)) {
+	if (TAILQ_EMPTY(&bc.bc_bnlist))
 		return 1;
-	}
 
 	vty_out(vty, "bfd\n");
 	vty_out(vty, "!\n");
@@ -475,40 +451,31 @@ int bfdd_peer_write_config(struct vty *vty)
 
 		/* Print node header. */
 		vty_out(vty, " peer %s", satostr(&bpc->bpc_peer));
-		if (bpc->bpc_has_localif) {
+		if (bpc->bpc_has_localif)
 			vty_out(vty, " interface %s", bpc->bpc_localif);
-		}
-		if (bpc->bpc_local.sa_sin.sin_family != 0) {
+		if (bpc->bpc_local.sa_sin.sin_family != 0)
 			vty_out(vty, " local-address %s",
 				satostr(&bpc->bpc_local));
-		}
-		if (bpc->bpc_has_vrfname) {
+		if (bpc->bpc_has_vrfname)
 			vty_out(vty, " vrf %s", bpc->bpc_vrfname);
-		}
 		vty_out(vty, "\n");
 
-		if (bpc->bpc_has_detectmultiplier) {
+		if (bpc->bpc_has_detectmultiplier)
 			vty_out(vty, "  detect-multiplier %d\n",
 				bpc->bpc_detectmultiplier);
-		}
-		if (bpc->bpc_has_recvinterval) {
+		if (bpc->bpc_has_recvinterval)
 			vty_out(vty, "  receive-interval %lu\n",
 				bpc->bpc_recvinterval);
-		}
-		if (bpc->bpc_has_txinterval) {
+		if (bpc->bpc_has_txinterval)
 			vty_out(vty, "  transmit-interval %lu\n",
 				bpc->bpc_txinterval);
-		}
-		if (bpc->bpc_has_echointerval) {
+		if (bpc->bpc_has_echointerval)
 			vty_out(vty, "  echo-interval %lu\n",
 				bpc->bpc_echointerval);
-		}
-		if (bpc->bpc_has_label) {
+		if (bpc->bpc_has_label)
 			vty_out(vty, "  label %s\n", bpc->bpc_label);
-		}
-		if (bpc->bpc_echo) {
+		if (bpc->bpc_echo)
 			vty_out(vty, "  echo-mode\n");
-		}
 
 		vty_out(vty, "  %sshutdown\n", bpc->bpc_shutdown ? "" : "no ");
 

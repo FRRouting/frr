@@ -83,8 +83,8 @@ void bfdd_peer_notification(struct json_object *notification)
 	/* Find peer to update its status. */
 	bn = bfdd_peer_notification_find(notification);
 	if (bn == NULL) {
-		zlog_debug("%s:%d unable to find notification peer",
-			   __FUNCTION__, __LINE__);
+		zlog_debug("%s:%d unable to find notification peer", __func__,
+			   __LINE__);
 		return;
 	}
 
@@ -99,22 +99,21 @@ void bfdd_peer_notification(struct json_object *notification)
 			bn->bn_bpc.bpc_remoteid = json_object_get_int64(jo_val);
 		} else if (strcmp(key, "state") == 0) {
 			sval = json_object_get_string(jo_val);
-			if (strcmp(sval, "up") == 0) {
+			if (strcmp(sval, "up") == 0)
 				bn->bn_bpc.bpc_bps = BPS_UP;
-			} else if (strcmp(sval, "adm-down") == 0) {
+			else if (strcmp(sval, "adm-down") == 0)
 				bn->bn_bpc.bpc_bps = BPS_SHUTDOWN;
-			} else if (strcmp(sval, "down") == 0) {
+			else if (strcmp(sval, "down") == 0)
 				bn->bn_bpc.bpc_bps = BPS_DOWN;
-			} else if (strcmp(sval, "init") == 0) {
+			else if (strcmp(sval, "init") == 0)
 				bn->bn_bpc.bpc_bps = BPS_INIT;
-			}
 		} else if (strcmp(key, "diagnostics") == 0) {
 			bn->bn_bpc.bpc_diag = json_object_get_int64(jo_val);
 		} else if (strcmp(key, "remote-diagnostics") == 0) {
 			bn->bn_bpc.bpc_remotediag =
 				json_object_get_int64(jo_val);
 		} else if (strcmp(key, "uptime") == 0
-			|| strcmp(key, "downtime") == 0) {
+			   || strcmp(key, "downtime") == 0) {
 			bn->bn_bpc.bpc_lastevent =
 				monotime(NULL) - json_object_get_int64(jo_val);
 		}
@@ -161,13 +160,13 @@ void bfdd_config_notification(struct json_object *notification)
 
 		if (result != 0) {
 			zlog_debug("%s:%d: bfd_configure_peer: failed",
-				   __FUNCTION__, __LINE__);
+				   __func__, __LINE__);
 			return;
 		}
 
 		bn = bn_new(&bc.bc_bnlist, &bpc);
 		if (bn == NULL) {
-			zlog_debug("%s:%d: bn_new", __FUNCTION__, __LINE__);
+			zlog_debug("%s:%d: bn_new", __func__, __LINE__);
 			return;
 		}
 	}
@@ -188,13 +187,12 @@ void bfdd_config_notification(struct json_object *notification)
 					   json_object_get_int64(jo_val));
 		} else if (strcmp(key, "echo-interval") == 0) {
 			bpc_set_echointerval(&bn->bn_bpc,
-					   json_object_get_int64(jo_val));
+					     json_object_get_int64(jo_val));
 		} else if (strcmp(key, "shutdown") == 0) {
 			bn->bn_bpc.bpc_shutdown =
 				json_object_get_boolean(jo_val);
 		} else if (strcmp(key, "echo-mode") == 0) {
-			bn->bn_bpc.bpc_echo =
-				json_object_get_boolean(jo_val);
+			bn->bn_bpc.bpc_echo = json_object_get_boolean(jo_val);
 		} else if (strcmp(key, "label") == 0) {
 			strlcpy(bn->bn_bpc.bpc_label,
 				json_object_get_string(jo_val),
@@ -227,13 +225,13 @@ void bfdd_receive_debug(struct bfd_control_msg *bcm)
 	switch (bcm->bcm_type) {
 	case BMT_RESPONSE:
 		zlog_debug("%s: id: %d, type %s, length: %u, data: %s",
-			   __FUNCTION__, ntohs(bcm->bcm_id), "RESPONSE",
+			   __func__, ntohs(bcm->bcm_id), "RESPONSE",
 			   ntohl(bcm->bcm_length), bcm->bcm_data);
 		break;
 
 	case BMT_NOTIFY:
 		zlog_debug("%s: id: %d, type %s, length: %u, data: %s",
-			   __FUNCTION__, ntohs(bcm->bcm_id), "NOTIFY",
+			   __func__, ntohs(bcm->bcm_id), "NOTIFY",
 			   ntohl(bcm->bcm_length), bcm->bcm_data);
 		break;
 
@@ -242,7 +240,7 @@ void bfdd_receive_debug(struct bfd_control_msg *bcm)
 	case BMT_REQUEST_ADD:
 	case BMT_REQUEST_DEL:
 	default:
-		zlog_debug("%s: invalid response type (%d)\n", __FUNCTION__,
+		zlog_debug("%s: invalid response type (%d)\n", __func__,
 			   bcm->bcm_type);
 	}
 }
@@ -261,23 +259,22 @@ int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,
 		break;
 
 	default:
-		zlog_debug("%s:%d: received unsupported version: %d",
-			   __FUNCTION__, __LINE__, bcm->bcm_ver);
+		zlog_debug("%s:%d: received unsupported version: %d", __func__,
+			   __LINE__, bcm->bcm_ver);
 		break;
 	}
 
 	/* This is not the response we are waiting. */
 	if (ntohs(bcm->bcm_id) != 0 || bcm->bcm_type != BMT_NOTIFY) {
-		zlog_debug("%s:%d: received non-notification packet",
-			   __FUNCTION__, __LINE__);
+		zlog_debug("%s:%d: received non-notification packet", __func__,
+			   __LINE__);
 		bfdd_receive_debug(bcm);
 		return 0;
 	}
 
 	notification = json_tokener_parse((const char *)bcm->bcm_data);
 	if (json_object_object_get_ex(notification, "op", &jo_val) == false) {
-		zlog_debug("%s:%d: no operation described", __FUNCTION__,
-			   __LINE__);
+		zlog_debug("%s:%d: no operation described", __func__, __LINE__);
 		return 0;
 	}
 
@@ -313,7 +310,7 @@ void prefix2sa(const struct prefix *p, struct sockaddr_any *sa)
 		break;
 
 	default:
-		zlog_err("%s: translation failed\n", __FUNCTION__);
+		zlog_err("%s: translation failed\n", __func__);
 		break;
 	}
 }
@@ -343,9 +340,8 @@ int bfd_configure_peer(struct bfd_peer_cfg *bpc,
 	bpc->bpc_txinterval = BPC_DEF_TRANSMITINTERVAL;
 
 	/* Safety check: when no error buf is provided len must be zero. */
-	if (ebuf == NULL) {
+	if (ebuf == NULL)
 		ebuflen = 0;
-	}
 
 	/* Peer is always mandatory. */
 	if (peer == NULL) {
@@ -557,11 +553,10 @@ int _bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc, bool use_label)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (use_label) {
+	if (use_label)
 		bfd_ctrl_add_peer_bylabel(jo, bpc);
-	} else {
+	else
 		bfd_ctrl_add_peer(jo, bpc);
-	}
 
 	jsonstr = json_object_to_json_string_ext(jo, BFDD_JSON_CONV_OPTIONS);
 
@@ -612,9 +607,8 @@ int bfdd_delete_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	 * above.
 	 */
 	bn = bn_find(&bc.bc_bnlist, bpc);
-	if (bn != NULL) {
+	if (bn != NULL)
 		bn_free(bn, &bc.bc_bnlist);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -641,9 +635,8 @@ struct bpc_node *bn_new(struct bnlist *bnlist, struct bfd_peer_cfg *bpc)
 	if (bpc != NULL)
 		bn->bn_bpc = *bpc;
 
-	if (bnlist) {
+	if (bnlist)
 		TAILQ_INSERT_HEAD(bnlist, bn, bn_entry);
-	}
 
 	QOBJ_REG(bn, bpc_node);
 
@@ -652,9 +645,8 @@ struct bpc_node *bn_new(struct bnlist *bnlist, struct bfd_peer_cfg *bpc)
 
 void bn_free(struct bpc_node *bn, struct bnlist *bnlist)
 {
-	if (bnlist) {
+	if (bnlist)
 		TAILQ_REMOVE(bnlist, bn, bn_entry);
-	}
 
 	QOBJ_UNREG(bn);
 	free(bn);

@@ -49,9 +49,7 @@ struct thread_master *master;
 static struct frr_daemon_info bfdd_di;
 
 /* BFDd privileges */
-static zebra_capabilities_t _caps_p[] = {
-	ZCAP_BIND
-};
+static zebra_capabilities_t _caps_p[] = {ZCAP_BIND};
 
 struct zebra_privs_t bfdd_privs = {
 #if defined(FRR_USER) && defined(FRR_GROUP)
@@ -63,8 +61,7 @@ struct zebra_privs_t bfdd_privs = {
 #endif
 	.caps_p = _caps_p,
 	.cap_num_p = array_size(_caps_p),
-	.cap_num_i = 0
-};
+	.cap_num_i = 0};
 
 static void sigpipe_handler(void)
 {
@@ -87,20 +84,15 @@ static struct quagga_signal_t bfd_signals[] = {
 	},
 };
 
-FRR_DAEMON_INFO(
-	bfdd, BFD,
-	.vty_port = 2613,
-	.proghelp = "Implementation of the BFD protocol.",
-	.signals = bfd_signals,
-	.n_signals = array_size(bfd_signals),
-	.privs = &bfdd_privs
-)
+FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2613,
+		.proghelp = "Implementation of the BFD protocol.",
+		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
+		.privs = &bfdd_privs)
 
 #define OPTION_CTLSOCK 1001
-static struct option longopts[] =
-{
-	{ "bfdctl",  required_argument, NULL, OPTION_CTLSOCK },
-	{ 0 }
+static struct option longopts[] = {
+	{"bfdctl", required_argument, NULL, OPTION_CTLSOCK},
+	{0}
 };
 
 DEFINE_QOBJ_TYPE(bpc_node);
@@ -135,7 +127,7 @@ static int bfdd_reconfigure(int csock, void *arg)
 		/* Create the request data and send. */
 		jo = bfd_ctrl_new_json();
 		if (jo == NULL) {
-			zlog_err("%s:%d: not enough memory", __FUNCTION__,
+			zlog_err("%s:%d: not enough memory", __func__,
 				 __LINE__);
 			return -1;
 		}
@@ -147,9 +139,8 @@ static int bfdd_reconfigure(int csock, void *arg)
 		rv = bfd_control_call(&bac, BMT_REQUEST_ADD, jsonstr,
 				      strlen(jsonstr));
 		json_object_put(jo);
-		if (rv == -1) {
+		if (rv == -1)
 			return -1;
-		}
 	}
 
 	return 0;
@@ -169,7 +160,7 @@ int main(int argc, char *argv[])
 
 	frr_preinit(&bfdd_di, argc, argv);
 	frr_opt_add("", longopts,
-		"      --bfdctl       Specify bfdd control socket\n");
+		    "      --bfdctl       Specify bfdd control socket\n");
 
 	while (true) {
 		opt = frr_getopt(argc, argv, NULL);

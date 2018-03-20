@@ -6606,9 +6606,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			bgp_bfd_peer_config_write(vty, peer, addr);
 		}
 	}
-	if (peer->bpc) {
+	if (peer->bpc)
 		bfdd_print_config(vty, addr, peer);
-	}
 
 	/* password */
 	if (peer->password) {

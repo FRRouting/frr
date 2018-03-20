@@ -86,12 +86,12 @@ static int peer2bpc(struct peer *peer, struct bfd_peer_cfg *bpc, bool multihop)
 		bpc->bpc_ipv4 = false;
 		bpc->bpc_peer.sa_sin6 = peer->su.sin6;
 	} else {
-		zlog_debug("%s:%d: peer family", __FUNCTION__, __LINE__);
+		zlog_debug("%s:%d: peer family", __func__, __LINE__);
 		return -1;
 	}
 
 	if (multihop && peer->su_local == NULL) {
-		zlog_debug("%s:%d: multihop but no local address", __FUNCTION__,
+		zlog_debug("%s:%d: multihop but no local address", __func__,
 			   __LINE__);
 		return -1;
 	}
@@ -99,30 +99,29 @@ static int peer2bpc(struct peer *peer, struct bfd_peer_cfg *bpc, bool multihop)
 	if (peer->su_local) {
 		if (bpc->bpc_ipv4
 		    && peer->su_local->sin.sin_family != AF_INET) {
-			zlog_debug("%s:%d: local family != AF_INET",
-				   __FUNCTION__, __LINE__);
+			zlog_debug("%s:%d: local family != AF_INET", __func__,
+				   __LINE__);
 			return -1;
 		} else if (!bpc->bpc_ipv4
 			   && peer->su_local->sin.sin_family != AF_INET6) {
-			zlog_debug("%s:%d: local family != AF_INET6",
-				   __FUNCTION__, __LINE__);
+			zlog_debug("%s:%d: local family != AF_INET6", __func__,
+				   __LINE__);
 			return -1;
 		}
 
-		if (peer->su_local->sin.sin_family == AF_INET) {
+		if (peer->su_local->sin.sin_family == AF_INET)
 			bpc->bpc_local.sa_sin = peer->su_local->sin;
-		} else if (peer->su_local->sin.sin_family == AF_INET6) {
+		else if (peer->su_local->sin.sin_family == AF_INET6)
 			bpc->bpc_local.sa_sin6 = peer->su_local->sin6;
-		}
 	}
 
 	if (peer->nexthop.ifp) {
 		if (strlcpy(bpc->bpc_localif, peer->nexthop.ifp->name,
 			    sizeof(bpc->bpc_localif))
-		    > sizeof(bpc->bpc_localif)) {
+		    > sizeof(bpc->bpc_localif))
 			zlog_debug("%s:%d: nexthop if name (truncated)",
-				   __FUNCTION__, __LINE__);
-		}
+				   __func__, __LINE__);
+
 		bpc->bpc_has_localif = true;
 	}
 
@@ -138,20 +137,17 @@ static const char *bpc2str(struct bfd_peer_cfg *bpc, char *buf, size_t buflen)
 	memset(buf, 0, buflen);
 
 	sp = snprintf(buf, buflen, "peer %s", satostr(&bpc->bpc_peer));
-	if (bpc->bpc_has_label) {
-		sp += snprintf(buf + sp, buflen - sp, " label %s", bpc->bpc_label);
-	}
-	if (bpc->bpc_mhop) {
+	if (bpc->bpc_has_label)
+		sp += snprintf(buf + sp, buflen - sp, " label %s",
+			       bpc->bpc_label);
+	if (bpc->bpc_mhop)
 		sp += snprintf(buf + sp, buflen - sp, " multihop");
-	}
-	if (bpc->bpc_local.sa_sin.sin_family != 0) {
+	if (bpc->bpc_local.sa_sin.sin_family != 0)
 		sp += snprintf(buf + sp, buflen - sp, " local %s",
 			       satostr(&bpc->bpc_local));
-	}
-	if (bpc->bpc_has_localif) {
+	if (bpc->bpc_has_localif)
 		sp += snprintf(buf + sp, buflen - sp, " interface %s",
 			       bpc->bpc_localif);
-	}
 
 	/* TODO: add support for vrf. */
 
@@ -165,14 +161,13 @@ static int _bfdd_unmonitor_peer(struct peer *peer)
 	struct json_object *msg;
 	int rv;
 
-	if (peer->bpc == NULL) {
+	if (peer->bpc == NULL)
 		goto save_and_return;
-	}
 
 	/* Create the message and ask to not be notified anymore. */
 	msg = bfd_ctrl_new_json();
 	if (msg == NULL) {
-		zlog_debug("%s:%d: not enough memory", __FUNCTION__, __LINE__);
+		zlog_debug("%s:%d: not enough memory", __func__, __LINE__);
 		return -1;
 	}
 
@@ -183,8 +178,7 @@ static int _bfdd_unmonitor_peer(struct peer *peer)
 	json_object_put(msg);
 
 	if (rv == -1) {
-		zlog_debug("%s:%d: monitor delete failure", __FUNCTION__,
-			   __LINE__);
+		zlog_debug("%s:%d: monitor delete failure", __func__, __LINE__);
 		return -1;
 	}
 
@@ -195,9 +189,8 @@ static int _bfdd_unmonitor_peer(struct peer *peer)
 save_and_return:
 	/* Save notification configuration. */
 	bpn = bpn_find(peer);
-	if (bpn) {
+	if (bpn)
 		bpn_free(bpn);
-	}
 
 	return 0;
 }
@@ -211,18 +204,15 @@ int bfdd_unmonitor_peer(struct peer *peer)
 
 	/* Save notification configuration. */
 	bpn = bpn_find(peer);
-	if (bpn) {
+	if (bpn)
 		bpn_free(bpn);
-	}
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		group = peer->group;
-		for (ALL_LIST_ELEMENTS_RO(group->peer, node, peer)) {
+		for (ALL_LIST_ELEMENTS_RO(group->peer, node, peer))
 			error |= _bfdd_unmonitor_peer(peer);
-		}
-	} else {
+	} else
 		error = _bfdd_unmonitor_peer(peer);
-	}
 
 	return error;
 }
@@ -244,13 +234,12 @@ static int _bfdd_monitor_peer(struct peer *peer, const char *label,
 	}
 
 	/* Remove previously installed monitor. */
-	if (peer->bpc && bfdd_unmonitor_peer(peer) != 0) {
+	if (peer->bpc && bfdd_unmonitor_peer(peer) != 0)
 		return -1;
-	}
 
 	peer->bpc = calloc(1, sizeof(*peer->bpc));
 	if (peer->bpc == NULL) {
-		zlog_debug("%s:%d: calloc: %s", __FUNCTION__, __LINE__,
+		zlog_debug("%s:%d: calloc: %s", __func__, __LINE__,
 			   strerror(errno));
 		return -1;
 	}
@@ -282,8 +271,7 @@ static int _bfdd_monitor_peer(struct peer *peer, const char *label,
 	json_object_put(msg);
 
 	if (rv == -1) {
-		zlog_debug("%s:%d: monitor add failure", __FUNCTION__,
-			   __LINE__);
+		zlog_debug("%s:%d: monitor add failure", __func__, __LINE__);
 		return -1;
 	}
 
@@ -308,12 +296,10 @@ static int bfdd_monitor_peer(struct peer *peer, const char *label,
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		group = peer->group;
-		for (ALL_LIST_ELEMENTS_RO(group->peer, node, peer)) {
+		for (ALL_LIST_ELEMENTS_RO(group->peer, node, peer))
 			error |= _bfdd_monitor_peer(peer, label, multihop);
-		}
-	} else {
+	} else
 		error = _bfdd_monitor_peer(peer, label, multihop);
-	}
 
 	return error;
 }
@@ -335,17 +321,15 @@ static int use_multihop(const int argc, struct cmd_token *argv[])
 
 DEFUN(bfd_monitor_peer, bfd_monitor_peer_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD> bfdd [multihop]",
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
       "Enable BFD support\n"
       "Use multihop\n")
 {
 	struct peer *peer;
 
 	peer = peer_and_group_lookup_vty(vty, argv[1]->arg);
-	if (peer == NULL) {
+	if (peer == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (bfdd_monitor_peer(peer, NULL, use_multihop(argc, argv)) != 0) {
 		vty_out(vty, "%% Failed to configure BFD peer notification.\n");
@@ -357,8 +341,7 @@ DEFUN(bfd_monitor_peer, bfd_monitor_peer_cmd,
 
 DEFUN(bfd_monitor_peer_label, bfd_monitor_peer_label_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD> bfdd label WORD",
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
       "Enable BFD support\n"
       "Use BFD peer with label\n"
       "Peer label\n")
@@ -366,9 +349,8 @@ DEFUN(bfd_monitor_peer_label, bfd_monitor_peer_label_cmd,
 	struct peer *peer;
 
 	peer = peer_and_group_lookup_vty(vty, argv[1]->arg);
-	if (peer == NULL) {
+	if (peer == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (bfdd_monitor_peer(peer, argv[4]->arg, false) != 0) {
 		vty_out(vty, "%% Failed to configure BFD peer notification.\n");
@@ -380,17 +362,14 @@ DEFUN(bfd_monitor_peer_label, bfd_monitor_peer_label_cmd,
 
 DEFUN(bfd_unmonitor_peer, bfd_unmonitor_peer_cmd,
       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfdd",
-      NO_STR
-      NEIGHBOR_STR
-      NEIGHBOR_ADDR_STR2
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
       "Configure Bidirectional Forwarding Detection\n")
 {
 	struct peer *peer;
 
 	peer = peer_and_group_lookup_vty(vty, argv[2]->arg);
-	if (peer == NULL) {
+	if (peer == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	if (bfdd_unmonitor_peer(peer) != 0) {
 		vty_out(vty, "%% Failed to configure BFD peer notification.\n");
@@ -409,9 +388,8 @@ static struct bgp_peer_notification *bpn_new(struct peer *p)
 	struct bgp_peer_notification *bpn;
 
 	bpn = calloc(1, sizeof(*bpn));
-	if (bpn == NULL) {
+	if (bpn == NULL)
 		return NULL;
-	}
 
 	bpn->bpn_p = p;
 	TAILQ_INSERT_HEAD(&bbc.bbc_bpnlist, bpn, bpn_entry);
@@ -474,30 +452,25 @@ bpn_notification_find(struct json_object *notification)
 	TAILQ_FOREACH (bpn, &bbc.bbc_bpnlist, bpn_entry) {
 		bpc = bpn->bpn_p->bpc;
 		if (bpc == NULL) {
-			zlog_debug("%s:%d: failed to find peer bpc",
-				   __FUNCTION__, __LINE__);
+			zlog_debug("%s:%d: failed to find peer bpc", __func__,
+				   __LINE__);
 			continue;
 		}
 		if (label && bpc->bpc_has_label) {
-			if (strcmp(bpc->bpc_label, label) == 0) {
+			if (strcmp(bpc->bpc_label, label) == 0)
 				break;
-			}
 		}
 
-		if (psap && sa_cmp(&psa, &bpc->bpc_peer) != 0) {
+		if (psap && sa_cmp(&psa, &bpc->bpc_peer) != 0)
 			continue;
-		}
-		if (lsap && sa_cmp(lsap, &bpc->bpc_local) != 0) {
+		if (lsap && sa_cmp(lsap, &bpc->bpc_local) != 0)
 			continue;
-		}
 		if (interface && bpc->bpc_has_localif
-		    && strcmp(interface, bpc->bpc_localif) == 0) {
+		    && strcmp(interface, bpc->bpc_localif) == 0)
 			continue;
-		}
 		if (vrf && bpc->bpc_has_vrfname
-		    && strcmp(vrf, bpc->bpc_vrfname) == 0) {
+		    && strcmp(vrf, bpc->bpc_vrfname) == 0)
 			continue;
-		}
 
 		break;
 	}
@@ -515,14 +488,14 @@ static void bfdd_peer_notify_handle(struct peer *p, enum bfd_peer_status bps)
 
 	switch (bps) {
 	case BPS_DOWN:
-		zlog_debug("%s:%d: %s: event down", __FUNCTION__, __LINE__,
+		zlog_debug("%s:%d: %s: event down", __func__, __LINE__,
 			   bpc2str(bpc, buf, sizeof(buf)));
 		BGP_EVENT_ADD(p, BGP_Stop);
 		p->last_reset = PEER_DOWN_IF_DOWN;
 		break;
 
 	case BPS_UP:
-		zlog_debug("%s:%d: %s: event up", __FUNCTION__, __LINE__,
+		zlog_debug("%s:%d: %s: event up", __func__, __LINE__,
 			   bpc2str(bpc, buf, sizeof(buf)));
 		BGP_EVENT_ADD(p, BGP_Start);
 		break;
@@ -544,8 +517,8 @@ static void bfdd_peer_notification(struct json_object *notification)
 
 	bpn = bpn_notification_find(notification);
 	if (bpn == NULL) {
-		zlog_debug("%s:%d: unable to find notification peer",
-			   __FUNCTION__, __LINE__);
+		zlog_debug("%s:%d: unable to find notification peer", __func__,
+			   __LINE__);
 		return;
 	}
 
@@ -562,15 +535,14 @@ static void bfdd_peer_notification(struct json_object *notification)
 			bpc->bpc_remoteid = json_object_get_int64(jo_val);
 		} else if (strcmp(key, "state") == 0) {
 			sval = json_object_get_string(jo_val);
-			if (strcmp(sval, "up") == 0) {
+			if (strcmp(sval, "up") == 0)
 				bpc->bpc_bps = BPS_UP;
-			} else if (strcmp(sval, "adm-down") == 0) {
+			else if (strcmp(sval, "adm-down") == 0)
 				bpc->bpc_bps = BPS_SHUTDOWN;
-			} else if (strcmp(sval, "down") == 0) {
+			else if (strcmp(sval, "down") == 0)
 				bpc->bpc_bps = BPS_DOWN;
-			} else if (strcmp(sval, "init") == 0) {
+			else if (strcmp(sval, "init") == 0)
 				bpc->bpc_bps = BPS_INIT;
-			}
 		}
 	}
 
@@ -590,29 +562,27 @@ static int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,
 		break;
 
 	default:
-		zlog_debug("%s:%d: received unsupported version: %d",
-			   __FUNCTION__, __LINE__, bcm->bcm_ver);
+		zlog_debug("%s:%d: received unsupported version: %d", __func__,
+			   __LINE__, bcm->bcm_ver);
 		break;
 	}
 
 	/* This is not the response we are waiting. */
 	if (ntohs(bcm->bcm_id) != 0 || bcm->bcm_type != BMT_NOTIFY) {
-		zlog_debug("%s:%d: received non-notification packet",
-			   __FUNCTION__, __LINE__);
+		zlog_debug("%s:%d: received non-notification packet", __func__,
+			   __LINE__);
 		return 0;
 	}
 
 	notification = json_tokener_parse((const char *)bcm->bcm_data);
 	if (json_object_object_get_ex(notification, "op", &jo_val) == false) {
-		zlog_debug("%s:%d: no operation described", __FUNCTION__,
-			   __LINE__);
+		zlog_debug("%s:%d: no operation described", __func__, __LINE__);
 		return 0;
 	}
 
 	sval = json_object_get_string(jo_val);
-	if (strcmp(sval, BCM_NOTIFY_PEER_STATUS) == 0) {
+	if (strcmp(sval, BCM_NOTIFY_PEER_STATUS) == 0)
 		bfdd_peer_notification(notification);
-	}
 
 	json_object_put(notification);
 
@@ -653,9 +623,8 @@ static int bfdd_reconfigure(int csock, void *arg)
 
 void bfdd_print_config(struct vty *vty, const char *addr, struct peer *p)
 {
-	if (p->bpc == NULL) {
+	if (p->bpc == NULL)
 		return;
-	}
 
 	if (p->bpc->bpc_has_label) {
 		vty_out(vty, " neighbor %s bfdd label %s\n", addr,
@@ -675,12 +644,12 @@ void bfdd_vty_init(struct thread_master *master, const char *bfdctl)
 
 	TAILQ_INIT(&bbc.bbc_bpnlist);
 
-	if (bfdctl) {
+	if (bfdctl)
 		strlcpy(bac.bac_ctlpath, bfdctl, sizeof(bac.bac_ctlpath));
-	} else {
+	else
 		strlcpy(bac.bac_ctlpath, BFD_CONTROL_SOCK_PATH,
 			sizeof(bac.bac_ctlpath));
-	}
+
 	bac.bac_master = master;
 	bfd_adapter_init(&bac);
 }

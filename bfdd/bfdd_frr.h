@@ -36,8 +36,10 @@
 struct bpc_node {
 	TAILQ_ENTRY(bpc_node) bn_entry;
 	struct bfd_peer_cfg bn_bpc;
+
 	QOBJ_FIELDS
 };
+
 TAILQ_HEAD(bnlist, bpc_node);
 DECLARE_QOBJ_TYPE(bpc_node);
 

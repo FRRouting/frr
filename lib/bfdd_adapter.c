@@ -57,18 +57,17 @@ int bfd_control_init(const char *path)
 				  .sun_path = BFD_CONTROL_SOCK_PATH};
 	int sd;
 
-	if (path) {
+	if (path)
 		strlcpy(sun.sun_path, path, sizeof(sun.sun_path));
-	}
 
 	sd = socket(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
 	if (sd == -1) {
-		zlog_err("%s: socket: %s\n", __FUNCTION__, strerror(errno));
+		zlog_err("%s: socket: %s\n", __func__, strerror(errno));
 		return -1;
 	}
 
 	if (connect(sd, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
-		zlog_err("%s: connect: %s\n", __FUNCTION__, strerror(errno));
+		zlog_err("%s: connect: %s\n", __func__, strerror(errno));
 		return -1;
 	}
 
@@ -78,7 +77,7 @@ int bfd_control_init(const char *path)
 uint16_t bfd_control_send(int sd, enum bc_msg_type bmt, const void *data,
 			  size_t datalen)
 {
-	static uint16_t id = 0;
+	static uint16_t id;
 	const uint8_t *dataptr = data;
 	ssize_t sent;
 	size_t cur = 0;
@@ -89,24 +88,23 @@ uint16_t bfd_control_send(int sd, enum bc_msg_type bmt, const void *data,
 		.bcm_id = htons(++id),
 	};
 	/* Don't use special notification ID. */
-	if (bcm.bcm_id == ntohs(BCM_NOTIFY_ID)) {
+	if (bcm.bcm_id == ntohs(BCM_NOTIFY_ID))
 		bcm.bcm_id = htons(++id);
-	}
 
 	sent = write(sd, &bcm, sizeof(bcm));
 	if (sent == 0) {
-		zlog_err("%s: bfdd closed connection\n", __FUNCTION__);
+		zlog_err("%s: bfdd closed connection\n", __func__);
 		return 0;
 	}
 	if (sent < 0) {
-		zlog_err("%s: write: %s\n", __FUNCTION__, strerror(errno));
+		zlog_err("%s: write: %s\n", __func__, strerror(errno));
 		return 0;
 	}
 
 	while (datalen > 0) {
 		sent = write(sd, &dataptr[cur], datalen);
 		if (sent == 0) {
-			zlog_err("%s: bfdd closed connection\n", __FUNCTION__);
+			zlog_err("%s: bfdd closed connection\n", __func__);
 			return 0;
 		}
 		if (sent < 0) {
@@ -114,8 +112,7 @@ uint16_t bfd_control_send(int sd, enum bc_msg_type bmt, const void *data,
 			    || errno == EINTR)
 				continue;
 
-			zlog_err("%s: write: %s\n", __FUNCTION__,
-				 strerror(errno));
+			zlog_err("%s: write: %s\n", __func__, strerror(errno));
 			return 0;
 		}
 
@@ -139,16 +136,16 @@ read_next:
 
 	bread = read(sd, &bcmh, sizeof(bcmh));
 	if (bread == 0) {
-		zlog_err("%s: bfdd closed connection\n", __FUNCTION__);
+		zlog_err("%s: bfdd closed connection\n", __func__);
 		return -1;
 	}
 	if (bread < 0) {
-		zlog_err("%s: read: %s\n", __FUNCTION__, strerror(errno));
+		zlog_err("%s: read: %s\n", __func__, strerror(errno));
 		return -1;
 	}
 
 	if (bcmh.bcm_ver != BMV_VERSION_1) {
-		zlog_err("%s: wrong protocol version (%d)\n", __FUNCTION__,
+		zlog_err("%s: wrong protocol version (%d)\n", __func__,
 			 bcmh.bcm_ver);
 		return -1;
 	}
@@ -158,8 +155,7 @@ read_next:
 		/* Allocate the space for NULL byte as well. */
 		bcm = malloc(sizeof(bcmh) + plen + 1);
 		if (bcm == NULL) {
-			zlog_err("%s: malloc: %s\n", __FUNCTION__,
-				 strerror(errno));
+			zlog_err("%s: malloc: %s\n", __func__, strerror(errno));
 			return -1;
 		}
 
@@ -175,7 +171,7 @@ read_next:
 	while (bufremaining > 0) {
 		bread = read(sd, &bcm->bcm_data[bufpos], bufremaining);
 		if (bread == 0) {
-			zlog_err("%s: bfdd closed connection\n", __FUNCTION__);
+			zlog_err("%s: bfdd closed connection\n", __func__);
 			ret = -1;
 			repeat = false;
 			goto skip_and_return;
@@ -185,8 +181,7 @@ read_next:
 			    || errno == EINTR)
 				continue;
 
-			zlog_err("%s: read: %s\n", __FUNCTION__,
-				 strerror(errno));
+			zlog_err("%s: read: %s\n", __func__, strerror(errno));
 			ret = -1;
 			repeat = false;
 			goto skip_and_return;
@@ -234,21 +229,18 @@ int bfd_control_call(struct bfdd_adapter_ctx *bac, enum bc_msg_type bmt,
 	struct bfd_receive_ctx brc;
 
 	/* Always allow configuration when the daemon is not running. */
-	if (bac->bac_csock == -1) {
+	if (bac->bac_csock == -1)
 		return 0;
-	}
 
 	brc.brc_reqid = bfd_control_send(bac->bac_csock, bmt, data, datalen);
-	if (brc.brc_reqid == 0) {
+	if (brc.brc_reqid == 0)
 		return -1;
-	}
 
 	brc.brc_dispatch = bac->bac_read;
 	brc.brc_dispatch_arg = bac->bac_read_arg;
 	if (bfd_control_recv(bac->bac_csock, bfd_receive_id, &brc.brc_reqid)
-	    != 0) {
+	    != 0)
 		return -1;
-	}
 
 	return 0;
 }
@@ -302,9 +294,8 @@ static int bfd_adapter_reinit(struct thread *thread)
 	}
 
 	bac->bac_csock = csock;
-	if (bac->bac_reconfigure(csock, bac->bac_reconfigure_arg) != 0) {
+	if (bac->bac_reconfigure(csock, bac->bac_reconfigure_arg) != 0)
 		goto close_and_retry;
-	}
 
 	thread_add_read(bac->bac_master, bfd_adapter_read, bac, bac->bac_csock,
 			&bac->bac_threcv);
@@ -377,42 +368,36 @@ static void _bfd_ctrl_add_peer(struct json_object *msg,
 	if (peer_jo == NULL)
 		return;
 
-	if (bpc->bpc_has_label) {
+	if (bpc->bpc_has_label)
 		json_object_add_string(peer_jo, "label", bpc->bpc_label);
-	}
 
 	/* If using labels, don't add the keys as they are redundant. */
 	if (!use_label || !bpc->bpc_has_label) {
 		json_object_add_bool(peer_jo, "multihop", bpc->bpc_mhop);
 
-		if (bpc->bpc_mhop) {
+		if (bpc->bpc_mhop)
 			json_object_add_string(peer_jo, "local-address",
 					       satostr(&bpc->bpc_local));
-		}
 
 		json_object_add_string(peer_jo, "peer-address",
 				       satostr(&bpc->bpc_peer));
 
-		if (bpc->bpc_has_localif) {
+		if (bpc->bpc_has_localif)
 			json_object_add_string(peer_jo, "local-interface",
 					       bpc->bpc_localif);
-		}
 	}
 
-	if (bpc->bpc_has_detectmultiplier) {
+	if (bpc->bpc_has_detectmultiplier)
 		json_object_add_int(peer_jo, "detect-multiplier",
 				    bpc->bpc_detectmultiplier);
-	}
 
-	if (bpc->bpc_has_recvinterval) {
+	if (bpc->bpc_has_recvinterval)
 		json_object_add_int(peer_jo, "receive-interval",
 				    bpc->bpc_recvinterval);
-	}
 
-	if (bpc->bpc_has_txinterval) {
+	if (bpc->bpc_has_txinterval)
 		json_object_add_int(peer_jo, "transmit-interval",
 				    bpc->bpc_txinterval);
-	}
 
 	if (bpc->bpc_has_echointerval)
 		json_object_add_int(peer_jo, "echo-interval",
@@ -423,13 +408,12 @@ static void _bfd_ctrl_add_peer(struct json_object *msg,
 	json_object_add_bool(peer_jo, "shutdown", bpc->bpc_shutdown);
 
 	/* Select the appropriated peer list and add the peer to it. */
-	if (use_label && bpc->bpc_has_label) {
+	if (use_label && bpc->bpc_has_label)
 		json_object_object_get_ex(msg, "label", &plist);
-	} else if (bpc->bpc_ipv4) {
+	else if (bpc->bpc_ipv4)
 		json_object_object_get_ex(msg, "ipv4", &plist);
-	} else {
+	else
 		json_object_object_get_ex(msg, "ipv6", &plist);
-	}
 
 	json_object_array_add(plist, peer_jo);
 }
@@ -460,9 +444,8 @@ int bfd_response_parse(const char *json, struct bfdd_response *br)
 	memset(br, 0, sizeof(*br));
 
 	jo = json_tokener_parse(json);
-	if (jo == NULL) {
+	if (jo == NULL)
 		return -1;
-	}
 
 	if (!json_object_object_get_ex(jo, "status", &status)) {
 		json_object_put(jo);
@@ -470,11 +453,10 @@ int bfd_response_parse(const char *json, struct bfdd_response *br)
 	}
 
 	sval = json_object_get_string(status);
-	if (strcmp(sval, BCM_RESPONSE_OK) == 0) {
+	if (strcmp(sval, BCM_RESPONSE_OK) == 0)
 		br->br_status = BRS_OK;
-	} else if (strcmp(sval, BCM_RESPONSE_ERROR) == 0) {
+	else if (strcmp(sval, BCM_RESPONSE_ERROR) == 0)
 		br->br_status = BRS_ERROR;
-	}
 
 	if (json_object_object_get_ex(jo, "error", &message)) {
 		sval = json_object_get_string(status);
@@ -541,7 +523,7 @@ const char *satostr(struct sockaddr_any *sa)
 {
 #define INETSTR_BUFCOUNT 8
 	static char buf[INETSTR_BUFCOUNT][INET6_ADDRSTRLEN];
-	static int bufidx = 0;
+	static int bufidx;
 	struct sockaddr_in *sin = &sa->sa_sin;
 	struct sockaddr_in6 *sin6;
 
@@ -701,16 +683,14 @@ static int bfd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg)
 		return 0;
 	}
 
-	if (bcm->bcm_type != BMT_RESPONSE) {
+	if (bcm->bcm_type != BMT_RESPONSE)
 		return -1;
-	}
 
 	if (bfd_response_parse((const char *)bcm->bcm_data, &br) == 0) {
-		if (br.br_status == BRS_OK) {
+		if (br.br_status == BRS_OK)
 			return 0;
-		} else {
+		else
 			return -1;
-		}
 	}
 
 	return 0;
