@@ -6527,8 +6527,10 @@ ALIAS (af_route_map_vpn_imexport,
 DEFPY (bgp_imexport_vpn,
        bgp_imexport_vpn_cmd,
        "[no] <import|export>$direction_str vpn",
-       "Export routes to another routing protocol\n"
-       "to VPN RIB per vpn-policy")
+       NO_STR
+       "Import routes to this address-family\n"
+       "Export routes from this address-family\n"
+       "to/from default instance VPN RIB\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int previous_state;
