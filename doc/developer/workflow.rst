@@ -42,6 +42,41 @@ updates, as appropriate, to code (i.e., merges), `Github issues`_, and for
 governance or process changes, updates to the Development list and either this
 file or information posted at https://frrouting.org/.
 
+Release Process & Schedule
+==========================
+
+FRR employs a <MAJOR>.<MINOR>.<BUGFIX> versioning scheme.
+
+MAJOR
+   Significant new features or multiple minor features. The addition of a new
+   routing protocol or daemon would fall under this class.
+
+MINOR
+   Small features, e.g. options for automatic BGP shutdown.
+
+BUGFIX
+   Fixes for actual bugs and/or security issues.
+
+We will pull a new development branch for the next release every 4 months.  The
+current schedule is Feb/June/October 1. The decision for a MAJOR/MINOR release
+is made at the time of branch pull based on what has been received the previous
+4 months. The branch name will be dev/MAJOR.MINOR. At this point in time the
+master branch, :file:`configure.ac`, documentation and packaging systems will
+be updated to reflect the next possible release name to allow for easy
+distinguishing. Additionally the new dev branch will have these files updated
+too.
+
+After one month the development branch will be renamed to stable/MAJOR.MINOR.
+This process is not held up unless a crash or security issue has been found and
+needs to be addressed. Issues being fixed will not cause a delay.
+
+Bugfix releases are made as needed at 1 month intervals until the next
+MAJOR.MINOR relese branch is pulled. Depending on the severity of the bugs,
+bugfix releases may occur sooner.
+
+Bugfixes are applied to the two most recent releases. Security fixes are
+backported to all releases less than or equal to one year old. Security fixes
+may also be backported to older releases depending on severity.
 
 Changelog
 =========
