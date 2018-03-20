@@ -605,6 +605,8 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 			prefix2str(&prefix, buf, sizeof(buf));
 			zlog_debug("AS-External route %s not found", buf);
 		}
+
+		ospf6_route_delete(route_to_del);
 		return;
 	}
 
