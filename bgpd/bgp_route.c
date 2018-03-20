@@ -2095,6 +2095,25 @@ struct bgp_process_queue {
 	unsigned int queued;
 };
 
+/*
+ * old_select = The old best path
+ * new_select = the new best path
+ *
+ * if (!old_select && new_select)
+ *     We are sending new information on.
+ *
+ * if (old_select && new_select) {
+ *         if (new_select != old_select)
+ *                 We have a new best path send a change
+ *         else
+ *                 We've received a update with new attributes that needs
+ *                 to be passed on.
+ * }
+ *
+ * if (old_select && !new_select)
+ *     We have no eligible route that we can announce or the rn
+ *     is being removed.
+ */
 static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 				 afi_t afi, safi_t safi)
 {
@@ -3664,10 +3683,12 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 	struct bgp_node *rn = cnq->rn;
 	struct peer *peer = wq->spec.data;
 	struct bgp_info *ri;
+	struct bgp *bgp;
 	afi_t afi = bgp_node_table(rn)->afi;
 	safi_t safi = bgp_node_table(rn)->safi;
 
 	assert(rn && peer);
+	bgp = peer->bgp;
 
 	/* It is possible that we have multiple paths for a prefix from a peer
 	 * if that peer is using AddPath.
@@ -3686,8 +3707,18 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 			/* If this is an EVPN route, process for
 			 * un-import. */
 			if (safi == SAFI_EVPN)
-				bgp_evpn_unimport_route(peer->bgp, afi, safi,
+				bgp_evpn_unimport_route(bgp, afi, safi,
 							&rn->p, ri);
+			/* Handle withdraw for VRF route-leaking and L3VPN */
+			if (SAFI_UNICAST == safi
+			    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+				bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+				vpn_leak_from_vrf_withdraw(bgp_get_default(),
+							   bgp, ri);
+			if (SAFI_MPLS_VPN == safi &&
+			    bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+				vpn_leak_to_vrf_withdraw(bgp, ri);
+
 			bgp_rib_remove(rn, ri, peer, afi, safi);
 		}
 	}
