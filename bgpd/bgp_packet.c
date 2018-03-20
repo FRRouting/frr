@@ -389,7 +389,7 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 	if (peer->status != Established)
 		return 0;
 
-	if (peer->bgp && peer->bgp->main_peers_update_hold)
+	if (peer->bgp->main_peers_update_hold)
 		return 0;
 
 	do {
