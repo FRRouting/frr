@@ -1529,6 +1529,140 @@ BGP Large Communities in Route Map
    large-community list. The third will add a large-community value without
    overwriting other values. Multiple large-community values can be specified.
 
+
+.. _bgp-vrfs:
+
+BGP VRFs
+========
+
+Bgpd supports multiple VRF instances via the  *router bgp* command:
+
+.. index:: router bgp ASN vrf VRFNAME
+.. clicmd:: router bgp ASN vrf VRFNAME
+
+VRFNAME is matched against VRFs configured in the kernel. When no
+*vrf VRFNAME* is specified, the BGP protocol process belongs to
+the default VRF.
+
+BGP routes may be leaked (i.e., copied) between a unicast VRF RIB
+and the VPN safi RIB of the default VRF (leaking is also permitted
+between the unicast RIB of the default VRF and VPN).  A common
+application of this feature is to connect a customer's private
+routing domain to a provider's VPN service. Leaking is configured
+from the point of view of an individual VRF: ``import`` refers to
+routes leaked from VPN to a unicast VRF, whereas ``export`` refers
+to routes leaked from a unicast VRF to VPN.
+
+Required Parameters
+-------------------
+
+Routes exported from a unicast VRF to the VPN RIB must be augmented
+by two parameters:
+a route-distinguisher (RD) and a route-target list (RTLIST).
+Configuration for these exported routes must, at a minimum, specify
+these two parameters.
+
+Routes imported from the VPN RIB to a unicast VRF are selected
+according to their RTLISTs.
+Routes whose RTLIST contains at least one route-target in common with
+the configured import RTLIST are leaked.
+Configuration for these imported routes must specify an RTLIST to be matched.
+
+The RD, which carries no semantic value, is intended to make the
+route unique in the VPN RIB among all routes of its prefix that
+originate from all the customers and sites that are attached
+to the provider's VPN service. Accordingly, each site of each customer
+is typically assigned an RD that is unique across the entire provider
+network.
+
+The RTLIST is a set of route-target extended community values whose
+purpose is to specify route-leaking policy. Typically, a customer
+is assigned a single route-target value for import and export to be
+used at all customer sites. This configuration specifies a simple
+topology wherein a customer has a single routing domain which is
+shared across all its sites. More complex routing topologies are possible
+through use of additional route-targets to augment the leaking of
+sets of routes in various ways.
+
+Configuration
+-------------
+
+Configuration of route leaking between a unicast VRF RIB and the
+VPN safi RIB of the default VRF is accomplished via commands in the
+context of a VRF address-family:
+
+.. index:: rd vpn export AS:NN|IP:nn
+.. clicmd:: rd vpn export AS:NN|IP:nn
+
+   Specifies the route distinguisher to be added to a route exported
+   from the current unicast VRF to VPN.
+
+.. index:: no rd vpn export [AS:NN|IP:nn]
+.. clicmd:: no rd vpn export [AS:NN|IP:nn]
+
+   Deletes any previously-configured export route distinguisher.
+
+.. index:: rt vpn import|export|both RTLIST...
+.. clicmd:: rt vpn import|export|both RTLIST...
+
+   Specifies the route-target list to be attached to a route (export)
+   or the route-target list to match against (import) when
+   exporting/importing between the current unicast VRF and VPN.
+
+   The RTLIST is a space-separated list of route-targets, which are
+   BGP extended community values as described in
+   :ref:`bgp-extended-communities-attribute`.
+
+.. index:: no rt vpn import|export|both [RTLIST...]
+.. clicmd:: no rt vpn import|export|both [RTLIST...]
+
+   Deletes any previously-configured import or export route-target list.
+
+.. index:: label vpn export (0..1048575)
+.. clicmd:: label vpn export (0..1048575)
+
+   Specifies an optional MPLS label to be attached to a route exported
+   from the current unicast VRF to VPN.
+
+.. index:: no label vpn export [(0..1048575)]
+.. clicmd:: no label vpn export [(0..1048575)]
+
+   Deletes any previously-configured export label.
+
+.. index:: nexthop vpn export A.B.C.D|X:X::X:X
+.. clicmd:: nexthop vpn export A.B.C.D|X:X::X:X
+
+   Specifies an optional nexthop value to be assigned to a route exported
+   from the current unicast VRF to VPN. If left unspecified, the nexthop
+   will be set to 0.0.0.0 or 0:0::0:0 (self).
+
+.. index:: no nexthop vpn export [A.B.C.D|X:X::X:X]
+.. clicmd:: no nexthop vpn export [A.B.C.D|X:X::X:X]
+
+   Deletes any previously-configured export nexthop.
+
+.. index:: route-map vpn import|export MAP
+.. clicmd:: route-map vpn import|export MAP
+
+   Specifies an optional route-map to be applied to routes imported
+   or exported betwen the current unicast VRF and VPN.
+
+.. index:: no route-map vpn import|export [MAP]
+.. clicmd:: no route-map vpn import|export [MAP]
+
+   Deletes any previously-configured import or export route-map.
+
+.. index:: import|export vpn
+.. clicmd:: import|export vpn
+
+   Enables import or export of routes betwen the current unicast VRF and VPN.
+
+.. index:: no import|export vpn
+.. clicmd:: no import|export vpn
+
+   Disables import or export of routes betwen the current unicast VRF and VPN.
+
+
 .. _displaying-bgp-information:
 
 Displaying BGP information
