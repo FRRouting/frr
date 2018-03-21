@@ -320,11 +320,54 @@ static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
 	}
 }
 
-void zebra_pbr_client_close_cleanup(int sock)
+static void zebra_pbr_cleanup_ipset(struct hash_backet *b, void *data)
 {
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_ipset *ipset = b->data;
+	int *sock = data;
+
+	if (ipset->sock == *sock)
+		hash_release(zns->ipset_hash, ipset);
+}
+
+static void zebra_pbr_cleanup_ipset_entry(struct hash_backet *b, void *data)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_ipset_entry *ipset = b->data;
+	int *sock = data;
+
+	if (ipset->sock == *sock)
+		hash_release(zns->ipset_entry_hash, ipset);
+}
+
+static void zebra_pbr_cleanup_iptable(struct hash_backet *b, void *data)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_iptable *iptable = b->data;
+	int *sock = data;
+
+	if (iptable->sock == *sock)
+		hash_release(zns->iptable_hash, iptable);
+}
+
+static int zebra_pbr_client_close_cleanup(struct zserv *client)
+{
+	int sock = client->sock;
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 
 	hash_iterate(zns->rules_hash, zebra_pbr_cleanup_rules, &sock);
+	hash_iterate(zns->iptable_hash,
+		     zebra_pbr_cleanup_iptable, &sock);
+	hash_iterate(zns->ipset_entry_hash,
+		     zebra_pbr_cleanup_ipset_entry, &sock);
+	hash_iterate(zns->ipset_hash,
+		     zebra_pbr_cleanup_ipset, &sock);
+	return 1;
+}
+
+void zebra_pbr_init(void)
+{
+	hook_register(zapi_client_close, zebra_pbr_client_close_cleanup);
 }
 
 static void *pbr_ipset_alloc_intern(void *arg)
