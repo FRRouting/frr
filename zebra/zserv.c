@@ -727,7 +727,7 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
-			   rule->unique);
+			   rule->rule.unique);
 
 	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
 		if (rule->sock == client->sock)
@@ -741,9 +741,9 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 
 	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER, VRF_DEFAULT);
 	stream_put(s, &note, sizeof(note));
-	stream_putl(s, rule->seq);
-	stream_putl(s, rule->priority);
-	stream_putl(s, rule->unique);
+	stream_putl(s, rule->rule.seq);
+	stream_putl(s, rule->rule.priority);
+	stream_putl(s, rule->rule.unique);
 	if (rule->ifp)
 		stream_putl(s, rule->ifp->ifindex);
 	else
@@ -2757,21 +2757,22 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		memset(&zpr, 0, sizeof(zpr));
 
 		zpr.sock = client->sock;
-		STREAM_GETL(s, zpr.seq);
-		STREAM_GETL(s, zpr.priority);
-		STREAM_GETL(s, zpr.unique);
-		STREAM_GETC(s, zpr.filter.src_ip.family);
-		STREAM_GETC(s, zpr.filter.src_ip.prefixlen);
-		STREAM_GET(&zpr.filter.src_ip.u.prefix, s,
-			   prefix_blen(&zpr.filter.src_ip));
-		STREAM_GETW(s, zpr.filter.src_port);
-		STREAM_GETC(s, zpr.filter.dst_ip.family);
-		STREAM_GETC(s, zpr.filter.dst_ip.prefixlen);
-		STREAM_GET(&zpr.filter.dst_ip.u.prefix, s,
-			   prefix_blen(&zpr.filter.dst_ip));
-		STREAM_GETW(s, zpr.filter.dst_port);
-		STREAM_GETL(s, zpr.filter.fwmark);
-		STREAM_GETL(s, zpr.action.table);
+		zpr.rule.vrf_id = hdr->vrf_id;
+		STREAM_GETL(s, zpr.rule.seq);
+		STREAM_GETL(s, zpr.rule.priority);
+		STREAM_GETL(s, zpr.rule.unique);
+		STREAM_GETC(s, zpr.rule.filter.src_ip.family);
+		STREAM_GETC(s, zpr.rule.filter.src_ip.prefixlen);
+		STREAM_GET(&zpr.rule.filter.src_ip.u.prefix, s,
+			   prefix_blen(&zpr.rule.filter.src_ip));
+		STREAM_GETW(s, zpr.rule.filter.src_port);
+		STREAM_GETC(s, zpr.rule.filter.dst_ip.family);
+		STREAM_GETC(s, zpr.rule.filter.dst_ip.prefixlen);
+		STREAM_GET(&zpr.rule.filter.dst_ip.u.prefix, s,
+			   prefix_blen(&zpr.rule.filter.dst_ip));
+		STREAM_GETW(s, zpr.rule.filter.dst_port);
+		STREAM_GETL(s, zpr.rule.filter.fwmark);
+		STREAM_GETL(s, zpr.rule.action.table);
 		STREAM_GETL(s, ifindex);
 
 		if (ifindex) {
@@ -2783,20 +2784,20 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 			}
 		}
 
-		if (!is_default_prefix(&zpr.filter.src_ip))
-			zpr.filter.filter_bm |= PBR_FILTER_SRC_IP;
+		if (!is_default_prefix(&zpr.rule.filter.src_ip))
+			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
 
-		if (!is_default_prefix(&zpr.filter.dst_ip))
-			zpr.filter.filter_bm |= PBR_FILTER_DST_IP;
+		if (!is_default_prefix(&zpr.rule.filter.dst_ip))
+			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
 
-		if (zpr.filter.src_port)
-			zpr.filter.filter_bm |= PBR_FILTER_SRC_PORT;
+		if (zpr.rule.filter.src_port)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_PORT;
 
-		if (zpr.filter.dst_port)
-			zpr.filter.filter_bm |= PBR_FILTER_DST_PORT;
+		if (zpr.rule.filter.dst_port)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_PORT;
 
-		if (zpr.filter.fwmark)
-			zpr.filter.filter_bm |= PBR_FILTER_FWMARK;
+		if (zpr.rule.filter.fwmark)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
 
 		if (hdr->command == ZEBRA_RULE_ADD)
 			zebra_pbr_add_rule(zvrf->zns, &zpr);

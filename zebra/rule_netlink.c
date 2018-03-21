@@ -66,7 +66,7 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 	char buf2[PREFIX_STRLEN];
 
 	memset(&req, 0, sizeof(req) - NL_PKT_BUF_SIZE);
-	family = PREFIX_FAMILY(&rule->filter.src_ip);
+	family = PREFIX_FAMILY(&rule->rule.filter.src_ip);
 	bytelen = (family == AF_INET ? 4 : 16);
 
 	req.n.nlmsg_type = cmd;
@@ -78,7 +78,7 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 	req.frh.action = FR_ACT_TO_TBL;
 
 	/* rule's pref # */
-	addattr32(&req.n, sizeof(req), FRA_PRIORITY, rule->priority);
+	addattr32(&req.n, sizeof(req), FRA_PRIORITY, rule->rule.priority);
 
 	/* interface on which applied */
 	if (rule->ifp)
@@ -87,24 +87,24 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 
 	/* source IP, if specified */
 	if (IS_RULE_FILTERING_ON_SRC_IP(rule)) {
-		req.frh.src_len = rule->filter.src_ip.prefixlen;
+		req.frh.src_len = rule->rule.filter.src_ip.prefixlen;
 		addattr_l(&req.n, sizeof(req), FRA_SRC,
-			  &rule->filter.src_ip.u.prefix, bytelen);
+			  &rule->rule.filter.src_ip.u.prefix, bytelen);
 	}
 	/* destination IP, if specified */
 	if (IS_RULE_FILTERING_ON_DST_IP(rule)) {
-		req.frh.dst_len = rule->filter.dst_ip.prefixlen;
+		req.frh.dst_len = rule->rule.filter.dst_ip.prefixlen;
 		addattr_l(&req.n, sizeof(req), FRA_DST,
-			  &rule->filter.dst_ip.u.prefix, bytelen);
+			  &rule->rule.filter.dst_ip.u.prefix, bytelen);
 	}
 
 	/* Route table to use to forward, if filter criteria matches. */
-	if (rule->action.table < 256)
-		req.frh.table = rule->action.table;
+	if (rule->rule.action.table < 256)
+		req.frh.table = rule->rule.action.table;
 	else {
 		req.frh.table = RT_TABLE_UNSPEC;
 		addattr32(&req.n, sizeof(req), FRA_TABLE,
-			  rule->action.table);
+			  rule->rule.action.table);
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -112,10 +112,12 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 			"Tx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
 			rule->ifp ? rule->ifp->name : "Unknown",
-			rule->ifp ? rule->ifp->ifindex : 0, rule->priority,
-			prefix2str(&rule->filter.src_ip, buf1, sizeof(buf1)),
-			prefix2str(&rule->filter.dst_ip, buf2, sizeof(buf2)),
-			rule->action.table);
+			rule->ifp ? rule->ifp->ifindex : 0, rule->rule.priority,
+			prefix2str(&rule->rule.filter.src_ip, buf1,
+				   sizeof(buf1)),
+			prefix2str(&rule->rule.filter.dst_ip, buf2,
+				   sizeof(buf2)),
+			rule->rule.action.table);
 
 	/* Ship off the message.
 	 * Note: Currently, netlink_talk() is a blocking call which returns
@@ -210,44 +212,46 @@ int netlink_rule_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	memset(&rule, 0, sizeof(rule));
 	if (tb[FRA_PRIORITY])
-		rule.priority = *(uint32_t *)RTA_DATA(tb[FRA_PRIORITY]);
+		rule.rule.priority = *(uint32_t *)RTA_DATA(tb[FRA_PRIORITY]);
 
 	if (tb[FRA_SRC]) {
 		if (frh->family == AF_INET)
-			memcpy(&rule.filter.src_ip.u.prefix4,
+			memcpy(&rule.rule.filter.src_ip.u.prefix4,
 			       RTA_DATA(tb[FRA_SRC]), 4);
 		else
-			memcpy(&rule.filter.src_ip.u.prefix6,
+			memcpy(&rule.rule.filter.src_ip.u.prefix6,
 			       RTA_DATA(tb[FRA_SRC]), 16);
-		rule.filter.src_ip.prefixlen = frh->src_len;
-		rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
+		rule.rule.filter.src_ip.prefixlen = frh->src_len;
+		rule.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
 	}
 
 	if (tb[FRA_DST]) {
 		if (frh->family == AF_INET)
-			memcpy(&rule.filter.dst_ip.u.prefix4,
+			memcpy(&rule.rule.filter.dst_ip.u.prefix4,
 			       RTA_DATA(tb[FRA_DST]), 4);
 		else
-			memcpy(&rule.filter.dst_ip.u.prefix6,
+			memcpy(&rule.rule.filter.dst_ip.u.prefix6,
 			       RTA_DATA(tb[FRA_DST]), 16);
-		rule.filter.dst_ip.prefixlen = frh->dst_len;
-		rule.filter.filter_bm |= PBR_FILTER_DST_IP;
+		rule.rule.filter.dst_ip.prefixlen = frh->dst_len;
+		rule.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
 	}
 
 	if (tb[FRA_TABLE])
-		rule.action.table = *(uint32_t *)RTA_DATA(tb[FRA_TABLE]);
+		rule.rule.action.table = *(uint32_t *)RTA_DATA(tb[FRA_TABLE]);
 	else
-		rule.action.table = frh->table;
+		rule.rule.action.table = frh->table;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
 			"Rx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
 			nl_msg_type_to_str(h->nlmsg_type),
 			nl_family_to_str(frh->family), rule.ifp->name,
-			rule.ifp->ifindex, rule.priority,
-			prefix2str(&rule.filter.src_ip, buf1, sizeof(buf1)),
-			prefix2str(&rule.filter.dst_ip, buf2, sizeof(buf2)),
-			rule.action.table);
+			rule.ifp->ifindex, rule.rule.priority,
+			prefix2str(&rule.rule.filter.src_ip, buf1,
+				   sizeof(buf1)),
+			prefix2str(&rule.rule.filter.dst_ip, buf2,
+				   sizeof(buf2)),
+			rule.rule.action.table);
 
 	return kernel_pbr_rule_del(&rule);
 }

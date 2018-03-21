@@ -50,20 +50,22 @@ uint32_t zebra_pbr_rules_hash_key(void *arg)
 	uint32_t key;
 
 	rule = (struct zebra_pbr_rule *)arg;
-	key = jhash_3words(rule->seq, rule->priority, rule->action.table,
-			   prefix_hash_key(&rule->filter.src_ip));
+	key = jhash_3words(rule->rule.seq, rule->rule.priority,
+			   rule->rule.action.table,
+			   prefix_hash_key(&rule->rule.filter.src_ip));
 	if (rule->ifp)
 		key = jhash_1word(rule->ifp->ifindex, key);
 	else
 		key = jhash_1word(0, key);
 
-	if (rule->filter.fwmark)
-		key = jhash_1word(rule->filter.fwmark, key);
+	if (rule->rule.filter.fwmark)
+		key = jhash_1word(rule->rule.filter.fwmark, key);
 	else
 		key = jhash_1word(0, key);
-	return jhash_3words(rule->filter.src_port, rule->filter.dst_port,
-			    prefix_hash_key(&rule->filter.dst_ip),
-			    jhash_1word(rule->unique, key));
+	return jhash_3words(rule->rule.filter.src_port,
+			    rule->rule.filter.dst_port,
+			    prefix_hash_key(&rule->rule.filter.dst_ip),
+			    jhash_1word(rule->rule.unique, key));
 }
 
 int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
@@ -73,31 +75,31 @@ int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 	r1 = (const struct zebra_pbr_rule *)arg1;
 	r2 = (const struct zebra_pbr_rule *)arg2;
 
-	if (r1->seq != r2->seq)
+	if (r1->rule.seq != r2->rule.seq)
 		return 0;
 
-	if (r1->priority != r2->priority)
+	if (r1->rule.priority != r2->rule.priority)
 		return 0;
 
-	if (r1->unique != r2->unique)
+	if (r1->rule.unique != r2->rule.unique)
 		return 0;
 
-	if (r1->action.table != r2->action.table)
+	if (r1->rule.action.table != r2->rule.action.table)
 		return 0;
 
-	if (r1->filter.src_port != r2->filter.src_port)
+	if (r1->rule.filter.src_port != r2->rule.filter.src_port)
 		return 0;
 
-	if (r1->filter.dst_port != r2->filter.dst_port)
+	if (r1->rule.filter.dst_port != r2->rule.filter.dst_port)
 		return 0;
 
-	if (r1->filter.fwmark != r2->filter.fwmark)
+	if (r1->rule.filter.fwmark != r2->rule.filter.fwmark)
 		return 0;
 
-	if (!prefix_same(&r1->filter.src_ip, &r2->filter.src_ip))
+	if (!prefix_same(&r1->rule.filter.src_ip, &r2->rule.filter.src_ip))
 		return 0;
 
-	if (!prefix_same(&r1->filter.dst_ip, &r2->filter.dst_ip))
+	if (!prefix_same(&r1->rule.filter.dst_ip, &r2->rule.filter.dst_ip))
 		return 0;
 
 	if (r1->ifp != r2->ifp)
@@ -116,7 +118,7 @@ static int pbr_rule_lookup_unique_walker(struct hash_backet *b, void *data)
 	struct pbr_unique_lookup *pul = data;
 	struct zebra_pbr_rule *rule = b->data;
 
-	if (pul->unique == rule->unique) {
+	if (pul->unique == rule->rule.unique) {
 		pul->rule = rule;
 		return HASHWALK_ABORT;
 	}
@@ -273,7 +275,7 @@ static void *pbr_rule_alloc_intern(void *arg)
 void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 {
 	struct zebra_pbr_rule *unique =
-		pbr_rule_lookup_unique(zns, rule->unique);
+		pbr_rule_lookup_unique(zns, rule->rule.unique);
 
 	(void)hash_get(zns->rules_hash, rule, pbr_rule_alloc_intern);
 	kernel_add_pbr_rule(rule);
