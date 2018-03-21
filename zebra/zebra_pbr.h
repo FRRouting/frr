@@ -45,6 +45,7 @@ struct zebra_pbr_filter {
 #define PBR_FILTER_DST_IP     (1 << 1)
 #define PBR_FILTER_SRC_PORT   (1 << 2)
 #define PBR_FILTER_DST_PORT   (1 << 3)
+#define PBR_FILTER_FWMARK     (1 << 4)
 
 	/* Source and Destination IP address with masks. */
 	struct prefix src_ip;
@@ -53,6 +54,9 @@ struct zebra_pbr_filter {
 	/* Source and Destination higher-layer (TCP/UDP) port numbers. */
 	uint16_t src_port;
 	uint16_t dst_port;
+
+	/* Filter with fwmark */
+	uint32_t fwmark;
 };
 
 #define IS_RULE_FILTERING_ON_SRC_IP(r) \
