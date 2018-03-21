@@ -374,13 +374,111 @@ Code formatting
 FRR uses Linux kernel style except where noted below. Code which does
 not comply with these style guidelines will not be accepted.
 
-To assist with compliance, in the project root there is a .clang-format
-configuration file which can be used with the ``clang-format`` tool from
-the LLVM project. In the ``tools/`` directory there is a Python script
-named ``indent.py`` that wraps clang-format and handles some edge cases
-specific to FRR. If you are submitting a new file, it is recommended to
-run that script over the new file after ensuring that the latest stable
-release of ``clang-format`` is in your PATH.
+The project provides multiple tools to allow you to correctly style your code
+as painlessly as possible, primarily built around ``clang-format``.
+
+clang-format
+   In the project root there is a :file:`.clang-format` configuration file
+   which can be used with the ``clang-format`` source formatter tool from the
+   LLVM project. Most of the time, this is the easiest and smartest tool to
+   use. It can be run in a variety of ways. If you point it at a C source file
+   or directory of source files, it will format all of them. In the LLVM source
+   tree there are scripts that allow you to integrate it with ``git``, ``vim``
+   and ``emacs``, and there are third-party plugins for other editors. The
+   ``git`` integration is particularly useful; suppose you have some changes in
+   your git index. Then, with the integration installed, you can do the
+   following:
+
+   ::
+
+      git clang-format
+
+   This will format *only* the changes present in your index. If you have just
+   made a few commits and would like to correctly style only the changes made
+   in those commits, you can use the following syntax:
+
+   ::
+
+      git clang-format HEAD~X
+
+   Where X is one more than the number of commits back from the tip of your
+   branch you would like ``clang-format`` to look at (similar to specifying the
+   target for a rebase).
+
+   The ``vim`` plugin is particularly useful. It allows you to select lines in
+   visual line mode and press a key binding to invoke ``clang-format`` on only
+   those lines.
+
+   When using ``clang-format``, it is recommended to use the latest version.
+   Each consecutive version generally has better handling of various edge
+   cases. You may notice on occasion that two consecutive runs of
+   ``clang-format`` over the same code may result in changes being made on the
+   second run. This is an unfortunate artifact of the tool. Please check with
+   the kernel style guide if in doubt.
+
+   One stylistic problem with the FRR codebase is the use of ``DEFUN`` macros
+   for defining CLI commands. ``clang-format`` will happily format these macro
+   invocations, but the result is often unsightly and difficult to read.
+   Consequently, FRR takes a more relaxed position with how these are
+   formatted. In general you should lean towards using the style exemplified in
+   the section on :ref:`command-line-interface`. Because ``clang-format``
+   mangles this style, there is a Python script named ``tools/indent.py`` that
+   wraps ``clang-format`` and handles ``DEFUN`` macros as well as some other
+   edge cases specific to FRR. If you are submitting a new file, it is
+   recommended to run that script over the new file, preferably after ensuring
+   that the latest stable release of ``clang-format`` is in your ``PATH``.
+
+   Documentation on ``clang-format`` and its various integrations is maintained
+   on the LLVM website.
+
+   https://clang.llvm.org/docs/ClangFormat.html
+
+checkpatch.sh
+   In the Linux kernel source tree there is a Perl script used to check
+   incoming patches for style errors. FRR uses an adapted version of this
+   script for the same purpose. It can be found at
+   :file:`tools/checkpatch.sh`. This script takes a git-formatted diff or
+   patch file, applies it to a clean FRR tree, and inspects the result to catch
+   potential style errors. Running this script on your patches before
+   submission is highly recommended. The CI system runs this script as well and
+   will comment on the PR with the results if style errors are found.
+
+   It is run like this:
+
+   ::
+
+      checkpatch.sh <patch> <tree>
+
+   Reports are generated on ``stderr`` and the exit code indicates whether
+   issues were found (2, 1) or not (0).
+
+   Where ``<patch>`` is the path to the diff or patch file and ``<tree>`` is
+   the path to your FRR source tree. The tree should be on the branch that you
+   intend to submit the patch against. The script will make a best-effort
+   attempt to save the state of your working tree and index before applying the
+   patch, and to restore it when it is done, but it is still recommended that
+   you have a clean working tree as the script does perform a hard reset on
+   your tree during its run.
+
+   The script reports two classes of issues, namely WARNINGs and ERRORs. Please
+   pay attention to both of them. The script will generally report WARNINGs
+   where it cannot be 100% sure that a particular issue is real. In most cases
+   WARNINGs indicate an issue that needs to be fixed. Sometimes the script will
+   report false positives; these will be handled in code review on a
+   case-by-case basis. Since the script only looks at changed lines,
+   occasionally changing one part of a line can cause the script to report a
+   style issue already present on that line that is unrelated to the change.
+   When convenient it is preferred that these be cleaned up inline, but this is
+   not required.
+
+   If the script finds one or more WARNINGs it will exit with 1. If it finds
+   one or more ERRORs it will exit with 2.
+
+
+Please remember that while FRR provides these tools for your convenience,
+responsibility for properly formatting your code ultimately lies on the
+shoulders of the submitter. As such, it is recommended to double-check the
+results of these tools to avoid delays in merging your submission.
 
 **Whitespace changes in untouched parts of the code are not acceptable
 in patches that change actual code.** To change/fix formatting issues,
