@@ -2186,6 +2186,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				 */
 				int suppress = 0;
 				struct rip_info *tmp_rinfo = NULL;
+				struct connected *tmp_ifc = NULL;
 
 				for (ALL_LIST_ELEMENTS_RO(list, listnode,
 							  tmp_rinfo))
@@ -2197,10 +2198,17 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					}
 
 				if (!suppress
-				    && rinfo->type == ZEBRA_ROUTE_CONNECT
-				    && prefix_match((struct prefix *)p,
-						    ifc->address))
-					suppress = 1;
+				    && rinfo->type == ZEBRA_ROUTE_CONNECT) {
+					for (ALL_LIST_ELEMENTS_RO(
+						     ifc->ifp->connected,
+						     listnode, tmp_ifc))
+						if (prefix_match(
+							    (struct prefix *)p,
+							    tmp_ifc->address)) {
+							suppress = 1;
+							break;
+						}
+				}
 
 				if (suppress)
 					continue;
@@ -2311,19 +2319,29 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				 * configured on the same interface).
 				 */
 				struct rip_info *tmp_rinfo = NULL;
+				struct connected *tmp_ifc = NULL;
 
 				for (ALL_LIST_ELEMENTS_RO(list, listnode,
 							  tmp_rinfo))
 					if (tmp_rinfo->type == ZEBRA_ROUTE_RIP
 					    && tmp_rinfo->nh.ifindex
 						       == ifc->ifp->ifindex)
-						tmp_rinfo->metric_out =
+						rinfo->metric_out =
 							RIP_METRIC_INFINITY;
 
-				if (rinfo->type == ZEBRA_ROUTE_CONNECT
-				    && prefix_match((struct prefix *)p,
-						    ifc->address))
-					rinfo->metric_out = RIP_METRIC_INFINITY;
+				if (rinfo->metric_out != RIP_METRIC_INFINITY
+				    && rinfo->type == ZEBRA_ROUTE_CONNECT) {
+					for (ALL_LIST_ELEMENTS_RO(
+						     ifc->ifp->connected,
+						     listnode, tmp_ifc))
+						if (prefix_match(
+							    (struct prefix *)p,
+							    tmp_ifc->address)) {
+							rinfo->metric_out =
+								RIP_METRIC_INFINITY;
+							break;
+						}
+				}
 			}
 
 			/* Prepare preamble, auth headers, if needs be */
