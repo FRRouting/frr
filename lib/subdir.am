@@ -167,6 +167,7 @@ pkginclude_HEADERS += \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/logicalrouter.h \
+	lib/pbr.h \
 	# end
 
 nodist_pkginclude_HEADERS += \

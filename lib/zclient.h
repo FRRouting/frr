@@ -393,17 +393,17 @@ enum zapi_route_notify_owner {
 	ZAPI_ROUTE_REMOVE_FAIL,
 };
 
+enum zapi_rule_notify_owner {
+	ZAPI_RULE_FAIL_INSTALL,
+	ZAPI_RULE_INSTALLED,
+	ZAPI_RULE_REMOVED,
+};
+
 enum ipset_type {
 	IPSET_NET_NET = 1,
 	IPSET_NET_PORT_NET,
 	IPSET_NET_PORT,
 	IPSET_NET
-};
-
-enum zapi_rule_notify_owner {
-	ZAPI_RULE_FAIL_INSTALL,
-	ZAPI_RULE_INSTALLED,
-	ZAPI_RULE_REMOVED,
 };
 
 enum zapi_ipset_notify_owner {
