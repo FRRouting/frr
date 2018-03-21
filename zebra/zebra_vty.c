@@ -148,7 +148,7 @@ static int static_list_compare(void *arg1, void *arg2)
 	if (ret)
 		return ret;
 
-	ret = strcmp(shr2->nhvrf_name, shr2->nhvrf_name);
+	ret = strcmp(shr1->nhvrf_name, shr2->nhvrf_name);
 	if (ret)
 		return ret;
 
@@ -249,6 +249,9 @@ static int zebra_static_route_holdem(struct zebra_vrf *zvrf,
 			return CMD_SUCCESS;
 		}
 
+		XFREE(MTYPE_STATIC_ROUTE, shr->nhvrf_name);
+		XFREE(MTYPE_STATIC_ROUTE, shr->vrf_name);
+		XFREE(MTYPE_STATIC_ROUTE, shr);
 		/*
 		 * If a person enters the same line again
 		 * we need to silently accept it

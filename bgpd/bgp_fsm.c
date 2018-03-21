@@ -1377,7 +1377,7 @@ int bgp_start(struct peer *peer)
 		return 0;
 	}
 
-	if (peer->bgp && peer->bgp->vrf_id == VRF_UNKNOWN) {
+	if (peer->bgp->vrf_id == VRF_UNKNOWN) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_err(
 				"%s [FSM] In a VRF that is not initialised yet",

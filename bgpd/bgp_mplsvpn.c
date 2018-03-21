@@ -457,16 +457,13 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 	struct bgp_node *bn;
 	const char *debugmsg;
 
-	if (debug) {
-		const char *s = "";
-
-		if (info_vrf->attr && info_vrf->attr->ecommunity) {
-			s = ecommunity_ecom2str(info_vrf->attr->ecommunity,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		}
+	if (debug && info_vrf->attr->ecommunity) {
+		char *s = ecommunity_ecom2str(info_vrf->attr->ecommunity,
+					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		zlog_debug("%s: info_vrf->type=%d, EC{%s}", __func__,
 			   info_vrf->type, s);
+		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
 	if (!bgp_vpn)
@@ -517,15 +514,13 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 		}
 	}
 
-	if (debug) {
-		const char *s = "";
+	if (debug && static_attr.ecommunity) {
+		char *s = ecommunity_ecom2str(static_attr.ecommunity,
+					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
-		if (static_attr.ecommunity) {
-			s = ecommunity_ecom2str(static_attr.ecommunity,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		}
 		zlog_debug("%s: post route map static_attr.ecommunity{%s}",
 			   __func__, s);
+		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
 	/*
@@ -550,15 +545,13 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 	static_attr.ecommunity = new_ecom;
 	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 
-	if (debug) {
-		const char *s = "";
+	if (debug && static_attr.ecommunity) {
+		char *s = ecommunity_ecom2str(static_attr.ecommunity,
+					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
-		if (static_attr.ecommunity) {
-			s = ecommunity_ecom2str(static_attr.ecommunity,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		}
 		zlog_debug("%s: post merge static_attr.ecommunity{%s}",
 			   __func__, s);
+		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
 	/* Nexthop */

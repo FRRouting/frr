@@ -101,7 +101,7 @@ static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 
 	bfd_info = (struct bfd_info *)peer->bfd_info;
 
-	if (peer->bgp && (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VRF))
+	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
 		vrf_id = peer->bgp->vrf_id;
 
 	if (command == ZEBRA_BFD_DEST_DEREGISTER) {

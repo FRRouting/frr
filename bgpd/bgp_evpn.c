@@ -367,15 +367,12 @@ static void map_vrf_to_rt(struct bgp *bgp_vrf, struct ecommunity_val *eval)
 		mask_ecom_global_admin(&eval_tmp, eval);
 
 	irt = lookup_vrf_import_rt(&eval_tmp);
-	if (irt && irt->vrfs)
-		if (is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
-			/* Already mapped. */
-			return;
+	if (irt && is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
+		/* Already mapped. */
+		return;
 
-	if (!irt) {
+	if (!irt)
 		irt = vrf_import_rt_new(&eval_tmp);
-		assert(irt);
-	}
 
 	/* Add VRF to the list for this RT. */
 	listnode_add(irt->vrfs, bgp_vrf);
@@ -3983,7 +3980,7 @@ void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp)
 	bgp->vrf_prd.family = AF_UNSPEC;
 	bgp->vrf_prd.prefixlen = 64;
 	sprintf(buf, "%s:%hu", inet_ntoa(bgp->router_id), bgp->vrf_rd_id);
-	str2prefix_rd(buf, &bgp->vrf_prd);
+	(void)str2prefix_rd(buf, &bgp->vrf_prd);
 }
 
 /*

@@ -1168,7 +1168,12 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	struct ipaddr vtep_ip;
 
 	s = msg;
-	zapi_route_decode(s, &api);
+	if (zapi_route_decode(s, &api) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_route sent",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
 
 	if (IS_ZEBRA_DEBUG_RECV) {
 		char buf_prefix[PREFIX_STRLEN];

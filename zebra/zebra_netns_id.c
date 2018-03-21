@@ -349,8 +349,10 @@ ns_id_t zebra_ns_id_get_default(void)
 
 	if (fd == -1)
 		return NS_DEFAULT_INTERNAL;
-	if (!vrf_is_backend_netns())
+	if (!vrf_is_backend_netns()) {
+		close(fd);
 		return NS_DEFAULT_INTERNAL;
+	}
 	close(fd);
 	return zebra_ns_id_get((char *)NS_DEFAULT_NAME);
 #else  /* HAVE_NETNS */
