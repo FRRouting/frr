@@ -402,7 +402,7 @@ checkpatch.sh
    In the Linux kernel source tree there is a Perl script used to check
    incoming patches for style errors. FRR uses an adapted version of this
    script for the same purpose. It can be found at
-   :file:``tools/checkpatch.sh``. This script takes a git-formatted diff or
+   :file:`tools/checkpatch.sh`. This script takes a git-formatted diff or
    patch file, applies it to a clean FRR tree, and inspects the result to catch
    potential style errors. Running this script on your patches before
    submission is highly recommended. The CI system runs this script as well and
