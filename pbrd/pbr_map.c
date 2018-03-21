@@ -476,10 +476,10 @@ void pbr_map_check_nh_group_change(const char *nh_group)
 {
 	struct pbr_map_sequence *pbrms;
 	struct pbr_map *pbrm;
-	struct listnode *node;
+	struct listnode *node, *inode;
+	struct pbr_map_interface *pmi;
 	bool found_name;
 
-	zlog_warn("*** %s for %s ***", __func__, nh_group);
 	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
 		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
 			found_name = false;
@@ -495,9 +495,15 @@ void pbr_map_check_nh_group_change(const char *nh_group)
 
 				pbr_map_check_valid_internal(pbrm);
 
-				if (original != pbrm->valid)
+				if (pbrm->valid && (original != pbrm->valid))
 					pbr_map_install(pbrm);
-				break;
+
+				if (pbrm->valid == false)
+					for (ALL_LIST_ELEMENTS_RO(
+						     pbrm->incoming, inode,
+						     pmi))
+						pbr_send_pbr_map(pbrms, pmi,
+								 false);
 			}
 		}
 	}
