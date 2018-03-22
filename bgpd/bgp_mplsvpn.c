@@ -953,8 +953,8 @@ void vpn_leak_to_vrf_update(struct bgp *bgp_vpn,       /* from */
 void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,       /* from */
 			      struct bgp_info *info_vpn) /* route */
 {
-	struct prefix *p = &info_vpn->net->p;
-	afi_t afi = family2afi(p->family);
+	struct prefix *p;
+	afi_t afi;
 	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp;
 	struct listnode *mnode, *mnnode;
@@ -967,6 +967,23 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,       /* from */
 	if (debug)
 		zlog_debug("%s: start (info_vpn=%p)", __func__, info_vpn);
 
+	if (!info_vpn->net) {
+#if ENABLE_BGP_VNC
+		/* BGP_ROUTE_RFP routes do not have info_vpn->net set (yet) */
+		if (info_vpn->type == ZEBRA_ROUTE_BGP &&
+			info_vpn->sub_type == BGP_ROUTE_RFP) {
+
+			return;
+		}
+#endif
+		if (debug)
+			zlog_debug("%s: info_vpn->net unexpectedly NULL, no prefix, bailing",
+				__func__);
+		return;
+	}
+
+	p = &info_vpn->net->p;
+	afi = family2afi(p->family);
 
 	/* Loop over VRFs */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
