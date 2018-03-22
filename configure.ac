@@ -185,6 +185,17 @@ CC="${CC% -std=c99}"
 
 AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
+dnl AddressSanitizer support
+AC_ARG_ENABLE([address-sanitizer], AS_HELP_STRING([--enable-address-sanitizer], \
+              [enabled AddressSanitizer support for detecting a wide variety of \
+               memory allocation and deallocation errors]), \
+              [AC_DEFINE(HAVE_ADDRESS_SANITIZER, 1, [enable AddressSanitizer])
+              CFLAGS="$CFLAGS -fsanitize=address"
+              CXXFLAGS="$CXXFLAGS -fsanitize=address"
+              AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Address Sanitizer Enabled])],
+                                                 [AC_MSG_ERROR([Address Sanitizer not available])])
+              ])
+
 dnl if the user has specified any CFLAGS, override our settings
 if test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)
