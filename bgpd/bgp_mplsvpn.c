@@ -968,12 +968,14 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,       /* from */
 		zlog_debug("%s: start (info_vpn=%p)", __func__, info_vpn);
 
 	if (!info_vpn->net) {
+#if ENABLE_BGP_VNC
 		/* BGP_ROUTE_RFP routes do not have info_vpn->net set (yet) */
 		if (info_vpn->type == ZEBRA_ROUTE_BGP &&
 			info_vpn->sub_type == BGP_ROUTE_RFP) {
 
 			return;
 		}
+#endif
 		if (debug)
 			zlog_debug("%s: info_vpn->net unexpectedly NULL, no prefix, bailing",
 				__func__);
