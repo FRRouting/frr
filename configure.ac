@@ -196,6 +196,26 @@ AC_ARG_ENABLE([address-sanitizer], AS_HELP_STRING([--enable-address-sanitizer], 
                                                  [AC_MSG_ERROR([Address Sanitizer not available])])
               ])
 
+dnl ThreadSanitizer support
+AC_ARG_ENABLE([thread-sanitizer], AS_HELP_STRING([--enable-thread-sanitizer], \
+              [enabled ThreadSanitizer support for detecting data races]), \
+              [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable ThreadSanitizer])
+              CFLAGS="$CFLAGS -fsanitize=thread"
+              CXXFLAGS="$CXXFLAGS -fsanitize=thread"
+              AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Thread Sanitizer Enabled])],
+                                                 [AC_MSG_ERROR([Thread Sanitizer not available])])
+              ])
+
+dnl MemorySanitizer support
+AC_ARG_ENABLE([memory-sanitizer], AS_HELP_STRING([--enable-memory-sanitizer], \
+              [enabled MemorySanitizer support for detecting uninitialized memory reads]), \
+              [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable MemorySanitizer])
+              CFLAGS="$CFLAGS -fsanitize=memory -fPIE -pie"
+              CXXFLAGS="$CXXFLAGS -fsanitize=memory -fPIE -pie"
+              AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Memory Sanitizer Enabled])],
+                                                 [AC_MSG_ERROR([Memory Sanitizer not available])])
+              ])
+
 dnl if the user has specified any CFLAGS, override our settings
 if test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)
