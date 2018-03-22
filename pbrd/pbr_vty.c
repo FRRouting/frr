@@ -494,6 +494,9 @@ DEFPY (show_pbr_interface,
 		FOR_ALL_INTERFACES(vrf, ifp) {
 			struct pbr_map *pbrm;
 
+			if (!ifp->info)
+				continue;
+
 			if (name && strcmp(ifp->name, name) != 0)
 				continue;
 
