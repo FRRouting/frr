@@ -8,6 +8,12 @@ sbin_PROGRAMS += isisd/isisd
 dist_examples_DATA += isisd/isisd.conf.sample
 endif
 
+if FABRICD
+noinst_LIBRARIES += isisd/libfabric.a
+sbin_PROGRAMS += isisd/fabricd
+dist_examples_DATA += isisd/fabricd.conf.sample
+endif
+
 isisd_libisis_a_SOURCES = \
 	isisd/dict.c \
 	isisd/isis_adjacency.c \
@@ -73,3 +79,12 @@ isisd_isisd_SOURCES = \
 	isisd/isis_main.c \
 	isisd/isis_pfpacket.c \
 	# end
+
+FABRICD_CPPFLAGS = -DFABRICD=1 $(AM_CPPFLAGS)
+
+isisd_libfabric_a_SOURCES = $(isisd_libisis_a_SOURCES)
+isisd_libfabric_a_CPPFLAGS = $(FABRICD_CPPFLAGS)
+
+isisd_fabricd_LDADD = isisd/libfabric.a lib/libfrr.la @LIBCAP@
+isisd_fabricd_SOURCES = $(isisd_isisd_SOURCES)
+isisd_fabricd_CPPFLAGS = $(FABRICD_CPPFLAGS)

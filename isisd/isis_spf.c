@@ -1617,9 +1617,9 @@ static void isis_print_spftree(struct vty *vty, int level,
 
 DEFUN (show_isis_topology,
        show_isis_topology_cmd,
-       "show isis topology [<level-1|level-2>]",
+       "show " PROTO_NAME " topology [<level-1|level-2>]",
        SHOW_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS paths to Intermediate Systems\n"
        "Paths to all level-1 routers in the area\n"
        "Paths to all level-2 routers in the domain\n")

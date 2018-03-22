@@ -311,7 +311,7 @@ int circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty)
 	for (ALL_LIST_ELEMENTS_RO(circuit->mt_settings, node, setting)) {
 		const char *name = isis_mtid2str(setting->mtid);
 		if (name && !setting->enabled) {
-			vty_out(vty, " no isis topology %s\n", name);
+			vty_out(vty, " no " PROTO_NAME " topology %s\n", name);
 			written++;
 		}
 	}

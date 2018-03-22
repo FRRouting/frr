@@ -59,6 +59,7 @@
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
 /* Default vty port */
 #define ISISD_VTY_PORT       2608
+#define FABRICD_VTY_PORT     2618
 
 /* isisd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
@@ -145,9 +146,15 @@ struct quagga_signal_t isisd_signals[] = {
 	},
 };
 
+#ifdef FABRICD
+FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
+
+		.proghelp = "Implementation of the OpenFabric routing protocol.",
+#else
 FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
 
 		.proghelp = "Implementation of the IS-IS routing protocol.",
+#endif
 		.copyright =
 			"Copyright (c) 2001-2002 Sampo Saaristo,"
 			" Ofer Wald and Hannes Gredler",
@@ -164,7 +171,11 @@ int main(int argc, char **argv, char **envp)
 {
 	int opt;
 
+#ifdef FABRICD
+	frr_preinit(&fabricd_di, argc, argv);
+#else
 	frr_preinit(&isisd_di, argc, argv);
+#endif
 	frr_opt_add("", longopts, "");
 
 	/* Command line argument treatment. */

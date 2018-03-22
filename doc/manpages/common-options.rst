@@ -125,6 +125,7 @@ These following options control the daemon's VTY (interactive command line) inte
       pbrd            2615
       staticd         2616
       bfdd            2617
+      fabricd         2618
 
    Port 2607 is used for ospfd's Opaque LSA API.
 

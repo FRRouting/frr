@@ -33,6 +33,24 @@
 #include "isis_memory.h"
 #include "qobj.h"
 
+#ifdef FABRICD
+static const bool fabricd = true;
+#define PROTO_TYPE ZEBRA_ROUTE_OPENFABRIC
+#define PROTO_NAME "openfabric"
+#define PROTO_HELP "OpenFabric routing protocol\n"
+#define PROTO_REDIST_STR FRR_REDIST_STR_FABRICD
+#define PROTO_REDIST_HELP FRR_REDIST_HELP_STR_FABRICD
+#define ROUTER_NODE OPENFABRIC_NODE
+#else
+static const bool fabricd = false;
+#define PROTO_TYPE ZEBRA_ROUTE_ISIS
+#define PROTO_NAME "isis"
+#define PROTO_HELP "IS-IS routing protocol\n"
+#define PROTO_REDIST_STR FRR_REDIST_STR_ISISD
+#define PROTO_REDIST_HELP FRR_REDIST_HELP_STR_ISISD
+#define ROUTER_NODE ISIS_NODE
+#endif
+
 extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */

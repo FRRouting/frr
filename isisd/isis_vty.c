@@ -53,10 +53,10 @@ static struct isis_circuit *isis_circuit_lookup(struct vty *vty)
 
 DEFUN (ip_router_isis,
        ip_router_isis_cmd,
-       "ip router isis WORD",
+       "ip router " PROTO_NAME " WORD",
        "Interface Internet Protocol config commands\n"
        "IP router interface commands\n"
-       "IS-IS Routing for IP\n"
+       PROTO_HELP
        "Routing process tag\n")
 {
 	int idx_afi = 0;
@@ -104,10 +104,10 @@ DEFUN (ip_router_isis,
 
 DEFUN (ip6_router_isis,
        ip6_router_isis_cmd,
-       "ipv6 router isis WORD",
+       "ipv6 router " PROTO_NAME " WORD",
        "Interface Internet Protocol config commands\n"
        "IP router interface commands\n"
-       "IS-IS Routing for IP\n"
+       PROTO_HELP
        "Routing process tag\n")
 {
 	return ip_router_isis(self, vty, argc, argv);
@@ -115,12 +115,12 @@ DEFUN (ip6_router_isis,
 
 DEFUN (no_ip_router_isis,
        no_ip_router_isis_cmd,
-       "no <ip|ipv6> router isis WORD",
+       "no <ip|ipv6> router " PROTO_NAME " WORD",
        NO_STR
        "Interface Internet Protocol config commands\n"
        "IP router interface commands\n"
        "IP router interface commands\n"
-       "IS-IS Routing for IP\n"
+       PROTO_HELP
        "Routing process tag\n")
 {
 	int idx_afi = 1;
@@ -156,8 +156,8 @@ DEFUN (no_ip_router_isis,
 
 DEFUN (isis_passive,
        isis_passive_cmd,
-       "isis passive",
-       "IS-IS commands\n"
+       PROTO_NAME " passive",
+       PROTO_HELP
        "Configure the passive mode for interface\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
@@ -171,9 +171,9 @@ DEFUN (isis_passive,
 
 DEFUN (no_isis_passive,
        no_isis_passive_cmd,
-       "no isis passive",
+       "no " PROTO_NAME " passive",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Configure the passive mode for interface\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
@@ -187,8 +187,8 @@ DEFUN (no_isis_passive,
 
 DEFUN (isis_circuit_type,
        isis_circuit_type_cmd,
-       "isis circuit-type <level-1|level-1-2|level-2-only>",
-       "IS-IS commands\n"
+       PROTO_NAME " circuit-type <level-1|level-1-2|level-2-only>",
+       PROTO_HELP
        "Configure circuit type for interface\n"
        "Level-1 only adjacencies are formed\n"
        "Level-1-2 adjacencies are formed\n"
@@ -220,9 +220,9 @@ DEFUN (isis_circuit_type,
 
 DEFUN (no_isis_circuit_type,
        no_isis_circuit_type_cmd,
-       "no isis circuit-type <level-1|level-1-2|level-2-only>",
+       "no " PROTO_NAME " circuit-type <level-1|level-1-2|level-2-only>",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Configure circuit type for interface\n"
        "Level-1 only adjacencies are formed\n"
        "Level-1-2 adjacencies are formed\n"
@@ -247,8 +247,8 @@ DEFUN (no_isis_circuit_type,
 
 DEFUN (isis_network,
        isis_network_cmd,
-       "isis network point-to-point",
-       "IS-IS commands\n"
+       PROTO_NAME " network point-to-point",
+       PROTO_HELP
        "Set network type\n"
        "point-to-point network type\n")
 {
@@ -258,7 +258,7 @@ DEFUN (isis_network,
 
 	if (isis_circuit_circ_type_set(circuit, CIRCUIT_T_P2P)) {
 		vty_out(vty,
-			"isis network point-to-point is valid only on broadcast interfaces\n");
+			PROTO_NAME " network point-to-point is valid only on broadcast interfaces\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -267,9 +267,9 @@ DEFUN (isis_network,
 
 DEFUN (no_isis_network,
        no_isis_network_cmd,
-       "no isis network point-to-point",
+       "no " PROTO_NAME " network point-to-point",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set network type for circuit\n"
        "point-to-point network type\n")
 {
@@ -279,7 +279,7 @@ DEFUN (no_isis_network,
 
 	if (isis_circuit_circ_type_set(circuit, CIRCUIT_T_BROADCAST)) {
 		vty_out(vty,
-			"isis network point-to-point is valid only on broadcast interfaces\n");
+			PROTO_NAME " network point-to-point is valid only on broadcast interfaces\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -288,8 +288,8 @@ DEFUN (no_isis_network,
 
 DEFUN (isis_passwd,
        isis_passwd_cmd,
-       "isis password <md5|clear> WORD",
-       "IS-IS commands\n"
+       PROTO_NAME " password <md5|clear> WORD",
+       PROTO_HELP
        "Configure the authentication password for a circuit\n"
        "HMAC-MD5 authentication\n"
        "Cleartext password\n"
@@ -316,9 +316,9 @@ DEFUN (isis_passwd,
 
 DEFUN (no_isis_passwd,
        no_isis_passwd_cmd,
-       "no isis password [<md5|clear> WORD]",
+       "no " PROTO_NAME " password [<md5|clear> WORD]",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Configure the authentication password for a circuit\n"
        "HMAC-MD5 authentication\n"
        "Cleartext password\n"
@@ -336,8 +336,8 @@ DEFUN (no_isis_passwd,
 
 DEFUN (isis_priority,
        isis_priority_cmd,
-       "isis priority (0-127)",
-       "IS-IS commands\n"
+       PROTO_NAME " priority (0-127)",
+       PROTO_HELP
        "Set priority for Designated Router election\n"
        "Priority value\n")
 {
@@ -361,9 +361,9 @@ DEFUN (isis_priority,
 
 DEFUN (no_isis_priority,
        no_isis_priority_cmd,
-       "no isis priority [(0-127)]",
+       "no " PROTO_NAME " priority [(0-127)]",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set priority for Designated Router election\n"
        "Priority value\n")
 {
@@ -380,8 +380,8 @@ DEFUN (no_isis_priority,
 
 DEFUN (isis_priority_l1,
        isis_priority_l1_cmd,
-       "isis priority (0-127) level-1",
-       "IS-IS commands\n"
+       PROTO_NAME " priority (0-127) level-1",
+       PROTO_HELP
        "Set priority for Designated Router election\n"
        "Priority value\n"
        "Specify priority for level-1 routing\n")
@@ -405,9 +405,9 @@ DEFUN (isis_priority_l1,
 
 DEFUN (no_isis_priority_l1,
        no_isis_priority_l1_cmd,
-       "no isis priority [(0-127)] level-1",
+       "no " PROTO_NAME " priority [(0-127)] level-1",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set priority for Designated Router election\n"
        "Priority value\n"
        "Specify priority for level-1 routing\n")
@@ -424,8 +424,8 @@ DEFUN (no_isis_priority_l1,
 
 DEFUN (isis_priority_l2,
        isis_priority_l2_cmd,
-       "isis priority (0-127) level-2",
-       "IS-IS commands\n"
+       PROTO_NAME " priority (0-127) level-2",
+       PROTO_HELP
        "Set priority for Designated Router election\n"
        "Priority value\n"
        "Specify priority for level-2 routing\n")
@@ -449,9 +449,9 @@ DEFUN (isis_priority_l2,
 
 DEFUN (no_isis_priority_l2,
        no_isis_priority_l2_cmd,
-       "no isis priority [(0-127)] level-2",
+       "no " PROTO_NAME " priority [(0-127)] level-2",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set priority for Designated Router election\n"
        "Priority value\n"
        "Specify priority for level-2 routing\n")
@@ -469,8 +469,8 @@ DEFUN (no_isis_priority_l2,
 /* Metric command */
 DEFUN (isis_metric,
        isis_metric_cmd,
-       "isis metric (0-16777215)",
-       "IS-IS commands\n"
+       PROTO_NAME " metric (0-16777215)",
+       PROTO_HELP
        "Set default metric for circuit\n"
        "Default metric value\n")
 {
@@ -512,9 +512,9 @@ DEFUN (isis_metric,
 
 DEFUN (no_isis_metric,
        no_isis_metric_cmd,
-       "no isis metric [(0-16777215)]",
+       "no " PROTO_NAME " metric [(0-16777215)]",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set default metric for circuit\n"
        "Default metric value\n")
 {
@@ -534,8 +534,8 @@ DEFUN (no_isis_metric,
 
 DEFUN (isis_metric_l1,
        isis_metric_l1_cmd,
-       "isis metric (0-16777215) level-1",
-       "IS-IS commands\n"
+       PROTO_NAME " metric (0-16777215) level-1",
+       PROTO_HELP
        "Set default metric for circuit\n"
        "Default metric value\n"
        "Specify metric for level-1 routing\n")
@@ -555,9 +555,9 @@ DEFUN (isis_metric_l1,
 
 DEFUN (no_isis_metric_l1,
        no_isis_metric_l1_cmd,
-       "no isis metric [(0-16777215)] level-1",
+       "no " PROTO_NAME " metric [(0-16777215)] level-1",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set default metric for circuit\n"
        "Default metric value\n"
        "Specify metric for level-1 routing\n")
@@ -575,8 +575,8 @@ DEFUN (no_isis_metric_l1,
 
 DEFUN (isis_metric_l2,
        isis_metric_l2_cmd,
-       "isis metric (0-16777215) level-2",
-       "IS-IS commands\n"
+       PROTO_NAME " metric (0-16777215) level-2",
+       PROTO_HELP
        "Set default metric for circuit\n"
        "Default metric value\n"
        "Specify metric for level-2 routing\n")
@@ -596,9 +596,9 @@ DEFUN (isis_metric_l2,
 
 DEFUN (no_isis_metric_l2,
        no_isis_metric_l2_cmd,
-       "no isis metric [(0-16777215)] level-2",
+       "no " PROTO_NAME " metric [(0-16777215)] level-2",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set default metric for circuit\n"
        "Default metric value\n"
        "Specify metric for level-2 routing\n")
@@ -617,8 +617,8 @@ DEFUN (no_isis_metric_l2,
 
 DEFUN (isis_hello_interval,
        isis_hello_interval_cmd,
-       "isis hello-interval (1-600)",
-       "IS-IS commands\n"
+       PROTO_NAME " hello-interval (1-600)",
+       PROTO_HELP
        "Set Hello interval\n"
        "Holdtime 1 seconds, interval depends on multiplier\n")
 {
@@ -644,9 +644,9 @@ DEFUN (isis_hello_interval,
 
 DEFUN (no_isis_hello_interval,
        no_isis_hello_interval_cmd,
-       "no isis hello-interval [(1-600)]",
+       "no " PROTO_NAME " hello-interval [(1-600)]",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set Hello interval\n"
        "Holdtime 1 second, interval depends on multiplier\n")
 {
@@ -663,8 +663,8 @@ DEFUN (no_isis_hello_interval,
 
 DEFUN (isis_hello_interval_l1,
        isis_hello_interval_l1_cmd,
-       "isis hello-interval (1-600) level-1",
-       "IS-IS commands\n"
+       PROTO_NAME " hello-interval (1-600) level-1",
+       PROTO_HELP
        "Set Hello interval\n"
        "Holdtime 1 second, interval depends on multiplier\n"
        "Specify hello-interval for level-1 IIHs\n")
@@ -690,9 +690,9 @@ DEFUN (isis_hello_interval_l1,
 
 DEFUN (no_isis_hello_interval_l1,
        no_isis_hello_interval_l1_cmd,
-       "no isis hello-interval [(1-600)] level-1",
+       "no " PROTO_NAME " hello-interval [(1-600)] level-1",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set Hello interval\n"
        "Holdtime 1 second, interval depends on multiplier\n"
        "Specify hello-interval for level-1 IIHs\n")
@@ -709,8 +709,8 @@ DEFUN (no_isis_hello_interval_l1,
 
 DEFUN (isis_hello_interval_l2,
        isis_hello_interval_l2_cmd,
-       "isis hello-interval (1-600) level-2",
-       "IS-IS commands\n"
+       PROTO_NAME " hello-interval (1-600) level-2",
+       PROTO_HELP
        "Set Hello interval\n"
        "Holdtime 1 second, interval depends on multiplier\n"
        "Specify hello-interval for level-2 IIHs\n")
@@ -736,9 +736,9 @@ DEFUN (isis_hello_interval_l2,
 
 DEFUN (no_isis_hello_interval_l2,
        no_isis_hello_interval_l2_cmd,
-       "no isis hello-interval [(1-600)] level-2",
+       "no " PROTO_NAME " hello-interval [(1-600)] level-2",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set Hello interval\n"
        "Holdtime 1 second, interval depends on multiplier\n"
        "Specify hello-interval for level-2 IIHs\n")
@@ -755,8 +755,8 @@ DEFUN (no_isis_hello_interval_l2,
 
 DEFUN (isis_hello_multiplier,
        isis_hello_multiplier_cmd,
-       "isis hello-multiplier (2-100)",
-       "IS-IS commands\n"
+       PROTO_NAME " hello-multiplier (2-100)",
+       PROTO_HELP
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n")
 {
@@ -783,9 +783,9 @@ DEFUN (isis_hello_multiplier,
 
 DEFUN (no_isis_hello_multiplier,
        no_isis_hello_multiplier_cmd,
-       "no isis hello-multiplier [(2-100)]",
+       "no " PROTO_NAME " hello-multiplier [(2-100)]",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n")
 {
@@ -802,8 +802,8 @@ DEFUN (no_isis_hello_multiplier,
 
 DEFUN (isis_hello_multiplier_l1,
        isis_hello_multiplier_l1_cmd,
-       "isis hello-multiplier (2-100) level-1",
-       "IS-IS commands\n"
+       PROTO_NAME " hello-multiplier (2-100) level-1",
+       PROTO_HELP
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n"
        "Specify hello multiplier for level-1 IIHs\n")
@@ -830,9 +830,9 @@ DEFUN (isis_hello_multiplier_l1,
 
 DEFUN (no_isis_hello_multiplier_l1,
        no_isis_hello_multiplier_l1_cmd,
-       "no isis hello-multiplier [(2-100)] level-1",
+       "no " PROTO_NAME " hello-multiplier [(2-100)] level-1",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n"
        "Specify hello multiplier for level-1 IIHs\n")
@@ -849,8 +849,8 @@ DEFUN (no_isis_hello_multiplier_l1,
 
 DEFUN (isis_hello_multiplier_l2,
        isis_hello_multiplier_l2_cmd,
-       "isis hello-multiplier (2-100) level-2",
-       "IS-IS commands\n"
+       PROTO_NAME " hello-multiplier (2-100) level-2",
+       PROTO_HELP
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n"
        "Specify hello multiplier for level-2 IIHs\n")
@@ -877,9 +877,9 @@ DEFUN (isis_hello_multiplier_l2,
 
 DEFUN (no_isis_hello_multiplier_l2,
        no_isis_hello_multiplier_l2_cmd,
-       "no isis hello-multiplier [(2-100)] level-2",
+       "no " PROTO_NAME " hello-multiplier [(2-100)] level-2",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n"
        "Specify hello multiplier for level-2 IIHs\n")
@@ -896,8 +896,8 @@ DEFUN (no_isis_hello_multiplier_l2,
 
 DEFUN (isis_hello_padding,
        isis_hello_padding_cmd,
-       "isis hello padding",
-       "IS-IS commands\n"
+       PROTO_NAME " hello padding",
+       PROTO_HELP
        "Add padding to IS-IS hello packets\n"
        "Pad hello packets\n")
 {
@@ -912,9 +912,9 @@ DEFUN (isis_hello_padding,
 
 DEFUN (no_isis_hello_padding,
        no_isis_hello_padding_cmd,
-       "no isis hello padding",
+       "no " PROTO_NAME " hello padding",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Add padding to IS-IS hello packets\n"
        "Pad hello packets\n")
 {
@@ -944,8 +944,8 @@ DEFUN (isis_threeway_adj,
 
 DEFUN (csnp_interval,
        csnp_interval_cmd,
-       "isis csnp-interval (1-600)",
-       "IS-IS commands\n"
+       PROTO_NAME " csnp-interval (1-600)",
+       PROTO_HELP
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n")
 {
@@ -971,9 +971,9 @@ DEFUN (csnp_interval,
 
 DEFUN (no_csnp_interval,
        no_csnp_interval_cmd,
-       "no isis csnp-interval [(1-600)]",
+       "no " PROTO_NAME " csnp-interval [(1-600)]",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n")
 {
@@ -990,8 +990,8 @@ DEFUN (no_csnp_interval,
 
 DEFUN (csnp_interval_l1,
        csnp_interval_l1_cmd,
-       "isis csnp-interval (1-600) level-1",
-       "IS-IS commands\n"
+       PROTO_NAME " csnp-interval (1-600) level-1",
+       PROTO_HELP
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n"
        "Specify interval for level-1 CSNPs\n")
@@ -1017,9 +1017,9 @@ DEFUN (csnp_interval_l1,
 
 DEFUN (no_csnp_interval_l1,
        no_csnp_interval_l1_cmd,
-       "no isis csnp-interval [(1-600)] level-1",
+       "no " PROTO_NAME " csnp-interval [(1-600)] level-1",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n"
        "Specify interval for level-1 CSNPs\n")
@@ -1036,8 +1036,8 @@ DEFUN (no_csnp_interval_l1,
 
 DEFUN (csnp_interval_l2,
        csnp_interval_l2_cmd,
-       "isis csnp-interval (1-600) level-2",
-       "IS-IS commands\n"
+       PROTO_NAME " csnp-interval (1-600) level-2",
+       PROTO_HELP
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n"
        "Specify interval for level-2 CSNPs\n")
@@ -1063,9 +1063,9 @@ DEFUN (csnp_interval_l2,
 
 DEFUN (no_csnp_interval_l2,
        no_csnp_interval_l2_cmd,
-       "no isis csnp-interval [(1-600)] level-2",
+       "no " PROTO_NAME " csnp-interval [(1-600)] level-2",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n"
        "Specify interval for level-2 CSNPs\n")
@@ -1082,8 +1082,8 @@ DEFUN (no_csnp_interval_l2,
 
 DEFUN (psnp_interval,
        psnp_interval_cmd,
-       "isis psnp-interval (1-120)",
-       "IS-IS commands\n"
+       PROTO_NAME " psnp-interval (1-120)",
+       PROTO_HELP
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n")
 {
@@ -1109,9 +1109,9 @@ DEFUN (psnp_interval,
 
 DEFUN (no_psnp_interval,
        no_psnp_interval_cmd,
-       "no isis psnp-interval [(1-120)]",
+       "no " PROTO_NAME " psnp-interval [(1-120)]",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n")
 {
@@ -1128,8 +1128,8 @@ DEFUN (no_psnp_interval,
 
 DEFUN (psnp_interval_l1,
        psnp_interval_l1_cmd,
-       "isis psnp-interval (1-120) level-1",
-       "IS-IS commands\n"
+       PROTO_NAME " psnp-interval (1-120) level-1",
+       PROTO_HELP
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n"
        "Specify interval for level-1 PSNPs\n")
@@ -1155,9 +1155,9 @@ DEFUN (psnp_interval_l1,
 
 DEFUN (no_psnp_interval_l1,
        no_psnp_interval_l1_cmd,
-       "no isis psnp-interval [(1-120)] level-1",
+       "no " PROTO_NAME " psnp-interval [(1-120)] level-1",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n"
        "Specify interval for level-1 PSNPs\n")
@@ -1174,8 +1174,8 @@ DEFUN (no_psnp_interval_l1,
 
 DEFUN (psnp_interval_l2,
        psnp_interval_l2_cmd,
-       "isis psnp-interval (1-120) level-2",
-       "IS-IS commands\n"
+       PROTO_NAME " psnp-interval (1-120) level-2",
+       PROTO_HELP
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n"
        "Specify interval for level-2 PSNPs\n")
@@ -1201,9 +1201,9 @@ DEFUN (psnp_interval_l2,
 
 DEFUN (no_psnp_interval_l2,
        no_psnp_interval_l2_cmd,
-       "no isis psnp-interval [(1-120)] level-2",
+       "no " PROTO_NAME " psnp-interval [(1-120)] level-2",
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n"
        "Specify interval for level-2 PSNPs\n")
@@ -1219,8 +1219,8 @@ DEFUN (no_psnp_interval_l2,
 
 DEFUN (circuit_topology,
        circuit_topology_cmd,
-       "isis topology " ISIS_MT_NAMES,
-       "IS-IS commands\n"
+       PROTO_NAME " topology " ISIS_MT_NAMES,
+       PROTO_HELP
        "Configure interface IS-IS topologies\n"
        ISIS_MT_DESCRIPTIONS)
 {
@@ -1246,9 +1246,9 @@ DEFUN (circuit_topology,
 
 DEFUN (no_circuit_topology,
        no_circuit_topology_cmd,
-       "no isis topology " ISIS_MT_NAMES,
+       "no " PROTO_NAME " topology " ISIS_MT_NAMES,
        NO_STR
-       "IS-IS commands\n"
+       PROTO_HELP
        "Configure interface IS-IS topologies\n"
        ISIS_MT_DESCRIPTIONS)
 {
@@ -2120,46 +2120,46 @@ void isis_vty_init(void)
 	install_element(INTERFACE_NODE, &circuit_topology_cmd);
 	install_element(INTERFACE_NODE, &no_circuit_topology_cmd);
 
-	install_element(ISIS_NODE, &metric_style_cmd);
-	install_element(ISIS_NODE, &no_metric_style_cmd);
+	install_element(ROUTER_NODE, &metric_style_cmd);
+	install_element(ROUTER_NODE, &no_metric_style_cmd);
 
-	install_element(ISIS_NODE, &set_overload_bit_cmd);
-	install_element(ISIS_NODE, &no_set_overload_bit_cmd);
+	install_element(ROUTER_NODE, &set_overload_bit_cmd);
+	install_element(ROUTER_NODE, &no_set_overload_bit_cmd);
 
-	install_element(ISIS_NODE, &set_attached_bit_cmd);
-	install_element(ISIS_NODE, &no_set_attached_bit_cmd);
+	install_element(ROUTER_NODE, &set_attached_bit_cmd);
+	install_element(ROUTER_NODE, &no_set_attached_bit_cmd);
 
-	install_element(ISIS_NODE, &dynamic_hostname_cmd);
-	install_element(ISIS_NODE, &no_dynamic_hostname_cmd);
+	install_element(ROUTER_NODE, &dynamic_hostname_cmd);
+	install_element(ROUTER_NODE, &no_dynamic_hostname_cmd);
 
-	install_element(ISIS_NODE, &area_lsp_mtu_cmd);
-	install_element(ISIS_NODE, &no_area_lsp_mtu_cmd);
+	install_element(ROUTER_NODE, &area_lsp_mtu_cmd);
+	install_element(ROUTER_NODE, &no_area_lsp_mtu_cmd);
 
-	install_element(ISIS_NODE, &is_type_cmd);
-	install_element(ISIS_NODE, &no_is_type_cmd);
+	install_element(ROUTER_NODE, &is_type_cmd);
+	install_element(ROUTER_NODE, &no_is_type_cmd);
 
-	install_element(ISIS_NODE, &lsp_gen_interval_cmd);
-	install_element(ISIS_NODE, &no_lsp_gen_interval_cmd);
+	install_element(ROUTER_NODE, &lsp_gen_interval_cmd);
+	install_element(ROUTER_NODE, &no_lsp_gen_interval_cmd);
 
-	install_element(ISIS_NODE, &spf_interval_cmd);
-	install_element(ISIS_NODE, &no_spf_interval_cmd);
-	install_element(ISIS_NODE, &spf_interval_l1_cmd);
-	install_element(ISIS_NODE, &no_spf_interval_l1_cmd);
-	install_element(ISIS_NODE, &spf_interval_l2_cmd);
-	install_element(ISIS_NODE, &no_spf_interval_l2_cmd);
+	install_element(ROUTER_NODE, &spf_interval_cmd);
+	install_element(ROUTER_NODE, &no_spf_interval_cmd);
+	install_element(ROUTER_NODE, &spf_interval_l1_cmd);
+	install_element(ROUTER_NODE, &no_spf_interval_l1_cmd);
+	install_element(ROUTER_NODE, &spf_interval_l2_cmd);
+	install_element(ROUTER_NODE, &no_spf_interval_l2_cmd);
 
-	install_element(ISIS_NODE, &max_lsp_lifetime_cmd);
-	install_element(ISIS_NODE, &no_max_lsp_lifetime_cmd);
+	install_element(ROUTER_NODE, &max_lsp_lifetime_cmd);
+	install_element(ROUTER_NODE, &no_max_lsp_lifetime_cmd);
 
-	install_element(ISIS_NODE, &lsp_refresh_interval_cmd);
-	install_element(ISIS_NODE, &no_lsp_refresh_interval_cmd);
+	install_element(ROUTER_NODE, &lsp_refresh_interval_cmd);
+	install_element(ROUTER_NODE, &no_lsp_refresh_interval_cmd);
 
-	install_element(ISIS_NODE, &area_passwd_md5_cmd);
-	install_element(ISIS_NODE, &area_passwd_clear_cmd);
-	install_element(ISIS_NODE, &domain_passwd_md5_cmd);
-	install_element(ISIS_NODE, &domain_passwd_clear_cmd);
-	install_element(ISIS_NODE, &no_area_passwd_cmd);
+	install_element(ROUTER_NODE, &area_passwd_md5_cmd);
+	install_element(ROUTER_NODE, &area_passwd_clear_cmd);
+	install_element(ROUTER_NODE, &domain_passwd_md5_cmd);
+	install_element(ROUTER_NODE, &domain_passwd_clear_cmd);
+	install_element(ROUTER_NODE, &no_area_passwd_cmd);
 
-	install_element(ISIS_NODE, &spf_delay_ietf_cmd);
-	install_element(ISIS_NODE, &no_spf_delay_ietf_cmd);
+	install_element(ROUTER_NODE, &spf_delay_ietf_cmd);
+	install_element(ROUTER_NODE, &no_spf_delay_ietf_cmd);
 }

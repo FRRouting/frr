@@ -811,6 +811,7 @@ static void vty_end_config(struct vty *vty)
 	case LDP_L2VPN_NODE:
 	case LDP_PSEUDOWIRE_NODE:
 	case ISIS_NODE:
+	case OPENFABRIC_NODE:
 	case KEYCHAIN_NODE:
 	case KEYCHAIN_KEY_NODE:
 	case VTY_NODE:
@@ -1210,6 +1211,7 @@ static void vty_stop_input(struct vty *vty)
 	case LDP_L2VPN_NODE:
 	case LDP_PSEUDOWIRE_NODE:
 	case ISIS_NODE:
+	case OPENFABRIC_NODE:
 	case KEYCHAIN_NODE:
 	case KEYCHAIN_KEY_NODE:
 	case VTY_NODE:

@@ -179,7 +179,7 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 	area = isis_area_lookup(area_tag);
 
 	if (area) {
-		VTY_PUSH_CONTEXT(ISIS_NODE, area);
+		VTY_PUSH_CONTEXT(ROUTER_NODE, area);
 		return CMD_SUCCESS;
 	}
 
@@ -188,7 +188,7 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 	if (isis->debugs & DEBUG_EVENTS)
 		zlog_debug("New IS-IS area instance %s", area->area_tag);
 
-	VTY_PUSH_CONTEXT(ISIS_NODE, area);
+	VTY_PUSH_CONTEXT(ROUTER_NODE, area);
 
 	return CMD_SUCCESS;
 }
@@ -463,9 +463,9 @@ int show_isis_interface_common(struct vty *vty, const char *ifname, char detail)
 
 DEFUN (show_isis_interface,
        show_isis_interface_cmd,
-       "show isis interface",
+       "show " PROTO_NAME " interface",
        SHOW_STR
-       "ISIS network information\n"
+       PROTO_HELP
        "ISIS interface\n")
 {
 	return show_isis_interface_common(vty, NULL, ISIS_UI_LEVEL_BRIEF);
@@ -473,9 +473,9 @@ DEFUN (show_isis_interface,
 
 DEFUN (show_isis_interface_detail,
        show_isis_interface_detail_cmd,
-       "show isis interface detail",
+       "show " PROTO_NAME " interface detail",
        SHOW_STR
-       "ISIS network information\n"
+       PROTO_HELP
        "ISIS interface\n"
        "show detailed information\n")
 {
@@ -484,9 +484,9 @@ DEFUN (show_isis_interface_detail,
 
 DEFUN (show_isis_interface_arg,
        show_isis_interface_arg_cmd,
-       "show isis interface WORD",
+       "show " PROTO_NAME " interface WORD",
        SHOW_STR
-       "ISIS network information\n"
+       PROTO_HELP
        "ISIS interface\n"
        "ISIS interface name\n")
 {
@@ -634,9 +634,9 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id)
 
 DEFUN (show_isis_neighbor,
        show_isis_neighbor_cmd,
-       "show isis neighbor",
+       "show " PROTO_NAME " neighbor",
        SHOW_STR
-       "ISIS network information\n"
+       PROTO_HELP
        "ISIS neighbor adjacencies\n")
 {
 	return show_isis_neighbor_common(vty, NULL, ISIS_UI_LEVEL_BRIEF);
@@ -644,9 +644,9 @@ DEFUN (show_isis_neighbor,
 
 DEFUN (show_isis_neighbor_detail,
        show_isis_neighbor_detail_cmd,
-       "show isis neighbor detail",
+       "show " PROTO_NAME " neighbor detail",
        SHOW_STR
-       "ISIS network information\n"
+       PROTO_HELP
        "ISIS neighbor adjacencies\n"
        "show detailed information\n")
 {
@@ -655,9 +655,9 @@ DEFUN (show_isis_neighbor_detail,
 
 DEFUN (show_isis_neighbor_arg,
        show_isis_neighbor_arg_cmd,
-       "show isis neighbor WORD",
+       "show " PROTO_NAME " neighbor WORD",
        SHOW_STR
-       "ISIS network information\n"
+       PROTO_HELP
        "ISIS neighbor adjacencies\n"
        "System id\n")
 {
@@ -668,19 +668,19 @@ DEFUN (show_isis_neighbor_arg,
 
 DEFUN (clear_isis_neighbor,
        clear_isis_neighbor_cmd,
-       "clear isis neighbor",
+       "clear " PROTO_NAME " neighbor",
        CLEAR_STR
-       "Reset ISIS network information\n"
-       "Reset ISIS neighbor adjacencies\n")
+       PROTO_HELP
+       "ISIS neighbor adjacencies\n")
 {
 	return clear_isis_neighbor_common(vty, NULL);
 }
 
 DEFUN (clear_isis_neighbor_arg,
        clear_isis_neighbor_arg_cmd,
-       "clear isis neighbor WORD",
+       "clear " PROTO_NAME " neighbor WORD",
        CLEAR_STR
-       "ISIS network information\n"
+       PROTO_HELP
        "ISIS neighbor adjacencies\n"
        "System id\n")
 {
@@ -738,12 +738,12 @@ void print_debug(struct vty *vty, int flags, int onoff)
 
 DEFUN_NOSH (show_debugging,
 	    show_debugging_isis_cmd,
-	    "show debugging [isis]",
+	    "show debugging [" PROTO_NAME "]",
 	    SHOW_STR
 	    "State of each debugging option\n"
-	    ISIS_STR)
+	    PROTO_HELP)
 {
-	vty_out(vty, "IS-IS debugging status:\n");
+	vty_out(vty, PROTO_NAME " debugging status:\n");
 
 	if (isis->debugs)
 		print_debug(vty, isis->debugs, 1);
@@ -760,59 +760,59 @@ static int config_write_debug(struct vty *vty)
 	int flags = isis->debugs;
 
 	if (flags & DEBUG_ADJ_PACKETS) {
-		vty_out(vty, "debug isis adj-packets\n");
+		vty_out(vty, "debug " PROTO_NAME " adj-packets\n");
 		write++;
 	}
 	if (flags & DEBUG_CHECKSUM_ERRORS) {
-		vty_out(vty, "debug isis checksum-errors\n");
+		vty_out(vty, "debug " PROTO_NAME " checksum-errors\n");
 		write++;
 	}
 	if (flags & DEBUG_LOCAL_UPDATES) {
-		vty_out(vty, "debug isis local-updates\n");
+		vty_out(vty, "debug " PROTO_NAME " local-updates\n");
 		write++;
 	}
 	if (flags & DEBUG_PROTOCOL_ERRORS) {
-		vty_out(vty, "debug isis protocol-errors\n");
+		vty_out(vty, "debug " PROTO_NAME " protocol-errors\n");
 		write++;
 	}
 	if (flags & DEBUG_SNP_PACKETS) {
-		vty_out(vty, "debug isis snp-packets\n");
+		vty_out(vty, "debug " PROTO_NAME " snp-packets\n");
 		write++;
 	}
 	if (flags & DEBUG_SPF_EVENTS) {
-		vty_out(vty, "debug isis spf-events\n");
+		vty_out(vty, "debug " PROTO_NAME " spf-events\n");
 		write++;
 	}
 	if (flags & DEBUG_SPF_STATS) {
-		vty_out(vty, "debug isis spf-statistics\n");
+		vty_out(vty, "debug " PROTO_NAME " spf-statistics\n");
 		write++;
 	}
 	if (flags & DEBUG_SPF_TRIGGERS) {
-		vty_out(vty, "debug isis spf-triggers\n");
+		vty_out(vty, "debug " PROTO_NAME " spf-triggers\n");
 		write++;
 	}
 	if (flags & DEBUG_UPDATE_PACKETS) {
-		vty_out(vty, "debug isis update-packets\n");
+		vty_out(vty, "debug " PROTO_NAME " update-packets\n");
 		write++;
 	}
 	if (flags & DEBUG_RTE_EVENTS) {
-		vty_out(vty, "debug isis route-events\n");
+		vty_out(vty, "debug " PROTO_NAME " route-events\n");
 		write++;
 	}
 	if (flags & DEBUG_EVENTS) {
-		vty_out(vty, "debug isis events\n");
+		vty_out(vty, "debug " PROTO_NAME " events\n");
 		write++;
 	}
 	if (flags & DEBUG_PACKET_DUMP) {
-		vty_out(vty, "debug isis packet-dump\n");
+		vty_out(vty, "debug " PROTO_NAME " packet-dump\n");
 		write++;
 	}
 	if (flags & DEBUG_LSP_GEN) {
-		vty_out(vty, "debug isis lsp-gen\n");
+		vty_out(vty, "debug " PROTO_NAME " lsp-gen\n");
 		write++;
 	}
 	if (flags & DEBUG_LSP_SCHED) {
-		vty_out(vty, "debug isis lsp-sched\n");
+		vty_out(vty, "debug " PROTO_NAME " lsp-sched\n");
 		write++;
 	}
 	write += spf_backoff_write_config(vty);
@@ -822,9 +822,9 @@ static int config_write_debug(struct vty *vty)
 
 DEFUN (debug_isis_adj,
        debug_isis_adj_cmd,
-       "debug isis adj-packets",
+       "debug " PROTO_NAME " adj-packets",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Adjacency related packets\n")
 {
 	isis->debugs |= DEBUG_ADJ_PACKETS;
@@ -835,10 +835,10 @@ DEFUN (debug_isis_adj,
 
 DEFUN (no_debug_isis_adj,
        no_debug_isis_adj_cmd,
-       "no debug isis adj-packets",
+       "no debug " PROTO_NAME " adj-packets",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Adjacency related packets\n")
 {
 	isis->debugs &= ~DEBUG_ADJ_PACKETS;
@@ -849,9 +849,9 @@ DEFUN (no_debug_isis_adj,
 
 DEFUN (debug_isis_csum,
        debug_isis_csum_cmd,
-       "debug isis checksum-errors",
+       "debug " PROTO_NAME " checksum-errors",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS LSP checksum errors\n")
 {
 	isis->debugs |= DEBUG_CHECKSUM_ERRORS;
@@ -862,10 +862,10 @@ DEFUN (debug_isis_csum,
 
 DEFUN (no_debug_isis_csum,
        no_debug_isis_csum_cmd,
-       "no debug isis checksum-errors",
+       "no debug " PROTO_NAME " checksum-errors",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS LSP checksum errors\n")
 {
 	isis->debugs &= ~DEBUG_CHECKSUM_ERRORS;
@@ -876,9 +876,9 @@ DEFUN (no_debug_isis_csum,
 
 DEFUN (debug_isis_lupd,
        debug_isis_lupd_cmd,
-       "debug isis local-updates",
+       "debug " PROTO_NAME " local-updates",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS local update packets\n")
 {
 	isis->debugs |= DEBUG_LOCAL_UPDATES;
@@ -889,10 +889,10 @@ DEFUN (debug_isis_lupd,
 
 DEFUN (no_debug_isis_lupd,
        no_debug_isis_lupd_cmd,
-       "no debug isis local-updates",
+       "no debug " PROTO_NAME " local-updates",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS local update packets\n")
 {
 	isis->debugs &= ~DEBUG_LOCAL_UPDATES;
@@ -903,9 +903,9 @@ DEFUN (no_debug_isis_lupd,
 
 DEFUN (debug_isis_err,
        debug_isis_err_cmd,
-       "debug isis protocol-errors",
+       "debug " PROTO_NAME " protocol-errors",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS LSP protocol errors\n")
 {
 	isis->debugs |= DEBUG_PROTOCOL_ERRORS;
@@ -916,10 +916,10 @@ DEFUN (debug_isis_err,
 
 DEFUN (no_debug_isis_err,
        no_debug_isis_err_cmd,
-       "no debug isis protocol-errors",
+       "no debug " PROTO_NAME " protocol-errors",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS LSP protocol errors\n")
 {
 	isis->debugs &= ~DEBUG_PROTOCOL_ERRORS;
@@ -930,9 +930,9 @@ DEFUN (no_debug_isis_err,
 
 DEFUN (debug_isis_snp,
        debug_isis_snp_cmd,
-       "debug isis snp-packets",
+       "debug " PROTO_NAME " snp-packets",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS CSNP/PSNP packets\n")
 {
 	isis->debugs |= DEBUG_SNP_PACKETS;
@@ -943,10 +943,10 @@ DEFUN (debug_isis_snp,
 
 DEFUN (no_debug_isis_snp,
        no_debug_isis_snp_cmd,
-       "no debug isis snp-packets",
+       "no debug " PROTO_NAME " snp-packets",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS CSNP/PSNP packets\n")
 {
 	isis->debugs &= ~DEBUG_SNP_PACKETS;
@@ -957,9 +957,9 @@ DEFUN (no_debug_isis_snp,
 
 DEFUN (debug_isis_upd,
        debug_isis_upd_cmd,
-       "debug isis update-packets",
+       "debug " PROTO_NAME " update-packets",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Update related packets\n")
 {
 	isis->debugs |= DEBUG_UPDATE_PACKETS;
@@ -970,10 +970,10 @@ DEFUN (debug_isis_upd,
 
 DEFUN (no_debug_isis_upd,
        no_debug_isis_upd_cmd,
-       "no debug isis update-packets",
+       "no debug " PROTO_NAME " update-packets",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Update related packets\n")
 {
 	isis->debugs &= ~DEBUG_UPDATE_PACKETS;
@@ -984,9 +984,9 @@ DEFUN (no_debug_isis_upd,
 
 DEFUN (debug_isis_spfevents,
        debug_isis_spfevents_cmd,
-       "debug isis spf-events",
+       "debug " PROTO_NAME " spf-events",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Shortest Path First Events\n")
 {
 	isis->debugs |= DEBUG_SPF_EVENTS;
@@ -997,10 +997,10 @@ DEFUN (debug_isis_spfevents,
 
 DEFUN (no_debug_isis_spfevents,
        no_debug_isis_spfevents_cmd,
-       "no debug isis spf-events",
+       "no debug " PROTO_NAME " spf-events",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Shortest Path First Events\n")
 {
 	isis->debugs &= ~DEBUG_SPF_EVENTS;
@@ -1011,9 +1011,9 @@ DEFUN (no_debug_isis_spfevents,
 
 DEFUN (debug_isis_spfstats,
        debug_isis_spfstats_cmd,
-       "debug isis spf-statistics ",
+       "debug " PROTO_NAME " spf-statistics ",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS SPF Timing and Statistic Data\n")
 {
 	isis->debugs |= DEBUG_SPF_STATS;
@@ -1024,10 +1024,10 @@ DEFUN (debug_isis_spfstats,
 
 DEFUN (no_debug_isis_spfstats,
        no_debug_isis_spfstats_cmd,
-       "no debug isis spf-statistics",
+       "no debug " PROTO_NAME " spf-statistics",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS SPF Timing and Statistic Data\n")
 {
 	isis->debugs &= ~DEBUG_SPF_STATS;
@@ -1038,9 +1038,9 @@ DEFUN (no_debug_isis_spfstats,
 
 DEFUN (debug_isis_spftrigg,
        debug_isis_spftrigg_cmd,
-       "debug isis spf-triggers",
+       "debug " PROTO_NAME " spf-triggers",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS SPF triggering events\n")
 {
 	isis->debugs |= DEBUG_SPF_TRIGGERS;
@@ -1051,10 +1051,10 @@ DEFUN (debug_isis_spftrigg,
 
 DEFUN (no_debug_isis_spftrigg,
        no_debug_isis_spftrigg_cmd,
-       "no debug isis spf-triggers",
+       "no debug " PROTO_NAME " spf-triggers",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS SPF triggering events\n")
 {
 	isis->debugs &= ~DEBUG_SPF_TRIGGERS;
@@ -1065,9 +1065,9 @@ DEFUN (no_debug_isis_spftrigg,
 
 DEFUN (debug_isis_rtevents,
        debug_isis_rtevents_cmd,
-       "debug isis route-events",
+       "debug " PROTO_NAME " route-events",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Route related events\n")
 {
 	isis->debugs |= DEBUG_RTE_EVENTS;
@@ -1078,10 +1078,10 @@ DEFUN (debug_isis_rtevents,
 
 DEFUN (no_debug_isis_rtevents,
        no_debug_isis_rtevents_cmd,
-       "no debug isis route-events",
+       "no debug " PROTO_NAME " route-events",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Route related events\n")
 {
 	isis->debugs &= ~DEBUG_RTE_EVENTS;
@@ -1092,9 +1092,9 @@ DEFUN (no_debug_isis_rtevents,
 
 DEFUN (debug_isis_events,
        debug_isis_events_cmd,
-       "debug isis events",
+       "debug " PROTO_NAME " events",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Events\n")
 {
 	isis->debugs |= DEBUG_EVENTS;
@@ -1105,10 +1105,10 @@ DEFUN (debug_isis_events,
 
 DEFUN (no_debug_isis_events,
        no_debug_isis_events_cmd,
-       "no debug isis events",
+       "no debug " PROTO_NAME " events",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Events\n")
 {
 	isis->debugs &= ~DEBUG_EVENTS;
@@ -1119,9 +1119,9 @@ DEFUN (no_debug_isis_events,
 
 DEFUN (debug_isis_packet_dump,
        debug_isis_packet_dump_cmd,
-       "debug isis packet-dump",
+       "debug " PROTO_NAME " packet-dump",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS packet dump\n")
 {
 	isis->debugs |= DEBUG_PACKET_DUMP;
@@ -1132,10 +1132,10 @@ DEFUN (debug_isis_packet_dump,
 
 DEFUN (no_debug_isis_packet_dump,
        no_debug_isis_packet_dump_cmd,
-       "no debug isis packet-dump",
+       "no debug " PROTO_NAME " packet-dump",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS packet dump\n")
 {
 	isis->debugs &= ~DEBUG_PACKET_DUMP;
@@ -1146,9 +1146,9 @@ DEFUN (no_debug_isis_packet_dump,
 
 DEFUN (debug_isis_lsp_gen,
        debug_isis_lsp_gen_cmd,
-       "debug isis lsp-gen",
+       "debug " PROTO_NAME " lsp-gen",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS generation of own LSPs\n")
 {
 	isis->debugs |= DEBUG_LSP_GEN;
@@ -1159,10 +1159,10 @@ DEFUN (debug_isis_lsp_gen,
 
 DEFUN (no_debug_isis_lsp_gen,
        no_debug_isis_lsp_gen_cmd,
-       "no debug isis lsp-gen",
+       "no debug " PROTO_NAME " lsp-gen",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS generation of own LSPs\n")
 {
 	isis->debugs &= ~DEBUG_LSP_GEN;
@@ -1173,9 +1173,9 @@ DEFUN (no_debug_isis_lsp_gen,
 
 DEFUN (debug_isis_lsp_sched,
        debug_isis_lsp_sched_cmd,
-       "debug isis lsp-sched",
+       "debug " PROTO_NAME " lsp-sched",
        DEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS scheduling of LSP generation\n")
 {
 	isis->debugs |= DEBUG_LSP_SCHED;
@@ -1186,10 +1186,10 @@ DEFUN (debug_isis_lsp_sched,
 
 DEFUN (no_debug_isis_lsp_sched,
        no_debug_isis_lsp_sched_cmd,
-       "no debug isis lsp-sched",
+       "no debug " PROTO_NAME " lsp-sched",
        NO_STR
        UNDEBUG_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS scheduling of LSP generation\n")
 {
 	isis->debugs &= ~DEBUG_LSP_SCHED;
@@ -1200,9 +1200,9 @@ DEFUN (no_debug_isis_lsp_sched,
 
 DEFUN (show_hostname,
        show_hostname_cmd,
-       "show isis hostname",
+       "show " PROTO_NAME " hostname",
        SHOW_STR
-       "IS-IS information\n"
+       PROTO_HELP
        "IS-IS Dynamic hostname mapping\n")
 {
 	dynhn_print_all(vty);
@@ -1212,10 +1212,10 @@ DEFUN (show_hostname,
 
 DEFUN (show_isis_spf_ietf,
        show_isis_spf_ietf_cmd,
-       "show isis spf-delay-ietf",
+       "show " PROTO_NAME " spf-delay-ietf",
        SHOW_STR
-       "IS-IS information\n"
-       "IS-IS SPF delay IETF information\n")
+       PROTO_HELP
+       "SPF delay IETF information\n")
 {
 	if (!isis) {
 		vty_out(vty, "ISIS is not running\n");
@@ -1261,15 +1261,15 @@ DEFUN (show_isis_spf_ietf,
 
 DEFUN (show_isis_summary,
        show_isis_summary_cmd,
-       "show isis summary",
-       SHOW_STR "IS-IS information\n" "IS-IS summary\n")
+       "show " PROTO_NAME " summary",
+       SHOW_STR PROTO_HELP "summary\n")
 {
 	struct listnode *node, *node2;
 	struct isis_area *area;
 	int level;
 
 	if (isis == NULL) {
-		vty_out(vty, "ISIS is not running\n");
+		vty_out(vty, PROTO_NAME " is not running\n");
 		return CMD_SUCCESS;
 	}
 
@@ -1471,10 +1471,10 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 
 DEFUN (show_database,
        show_database_cmd,
-       "show isis database [detail] [WORD]",
+       "show " PROTO_NAME " database [detail] [WORD]",
        SHOW_STR
-       "IS-IS information\n"
-       "IS-IS link state database\n"
+       PROTO_HELP
+       "Link state database\n"
        "Detailed information\n"
        "LSP ID\n")
 {
@@ -1491,9 +1491,9 @@ DEFUN (show_database,
  */
 DEFUN_NOSH (router_isis,
        router_isis_cmd,
-       "router isis WORD",
+       "router " PROTO_NAME " WORD",
        ROUTER_STR
-       "ISO IS-IS\n"
+       PROTO_HELP
        "ISO Routing area tag\n")
 {
 	int idx_word = 2;
@@ -1505,8 +1505,11 @@ DEFUN_NOSH (router_isis,
  */
 DEFUN (no_router_isis,
        no_router_isis_cmd,
-       "no router isis WORD",
-       "no\n" ROUTER_STR "ISO IS-IS\n" "ISO Routing area tag\n")
+       "no router " PROTO_NAME " WORD",
+       NO_STR
+       ROUTER_STR
+       PROTO_HELP
+       "ISO Routing area tag\n")
 {
 	int idx_word = 3;
 	return isis_area_destroy(vty, argv[idx_word]->arg);
@@ -1869,7 +1872,7 @@ int isis_config_write(struct vty *vty)
 
 		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 			/* ISIS - Area name */
-			vty_out(vty, "router isis %s\n", area->area_tag);
+			vty_out(vty, "router " PROTO_NAME " %s\n", area->area_tag);
 			write++;
 			/* ISIS - Net */
 			if (listcount(area->area_addrs) > 0) {
@@ -2123,12 +2126,12 @@ int isis_config_write(struct vty *vty)
 	return write;
 }
 
-struct cmd_node isis_node = {ISIS_NODE, "%s(config-router)# ", 1};
+struct cmd_node router_node = {ROUTER_NODE, "%s(config-router)# ", 1};
 
 void isis_init()
 {
 	/* Install IS-IS top node */
-	install_node(&isis_node, isis_config_write);
+	install_node(&router_node, isis_config_write);
 
 	install_element(VIEW_NODE, &show_isis_summary_cmd);
 
@@ -2212,16 +2215,16 @@ void isis_init()
 	install_element(CONFIG_NODE, &router_isis_cmd);
 	install_element(CONFIG_NODE, &no_router_isis_cmd);
 
-	install_default(ISIS_NODE);
+	install_default(ROUTER_NODE);
 
-	install_element(ISIS_NODE, &net_cmd);
-	install_element(ISIS_NODE, &no_net_cmd);
+	install_element(ROUTER_NODE, &net_cmd);
+	install_element(ROUTER_NODE, &no_net_cmd);
 
-	install_element(ISIS_NODE, &isis_topology_cmd);
-	install_element(ISIS_NODE, &no_isis_topology_cmd);
+	install_element(ROUTER_NODE, &isis_topology_cmd);
+	install_element(ROUTER_NODE, &no_isis_topology_cmd);
 
-	install_element(ISIS_NODE, &log_adj_changes_cmd);
-	install_element(ISIS_NODE, &no_log_adj_changes_cmd);
+	install_element(ROUTER_NODE, &log_adj_changes_cmd);
+	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
 
 	spf_backoff_cmd_init();
 }

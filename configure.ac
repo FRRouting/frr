@@ -381,6 +381,8 @@ AC_ARG_ENABLE(sharpd,
   AS_HELP_STRING([--enable-sharpd], [build sharpd]))
 AC_ARG_ENABLE(staticd,
   AS_HELP_STRING([--disable-staticd], [do not build staticd]))
+AC_ARG_ENABLE(fabricd,
+  AS_HELP_STRING([--disable-fabricd], [do not build fabricd]))
 AC_ARG_ENABLE(bgp-announce,
   AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
 AC_ARG_ENABLE(bgp-vnc,
@@ -1197,11 +1199,12 @@ case "$host_os" in
     if test $ac_cv_header_net_bpf_h = no; then
       if test $ac_cv_header_sys_dlpi_h = no; then
         AC_MSG_RESULT(none)
-        if test "${enable_isisd}" = yes; then
+        if test "${enable_isisd}" = yes -o "${enable_fabricd}" = yes; then
           AC_MSG_FAILURE([IS-IS support requested but no packet backend found])
         fi
         AC_MSG_WARN([*** IS-IS support will not be built ***])
         enable_isisd="no"
+        enable_fabricd="no"
       else
         AC_MSG_RESULT(DLPI)
       fi
@@ -1429,6 +1432,7 @@ AM_CONDITIONAL(PIMD, test "${enable_pimd}" != "no")
 AM_CONDITIONAL(PBRD, test "${enable_pbrd}" != "no")
 AM_CONDITIONAL(SHARPD, test "${enable_sharpd}" = "yes")
 AM_CONDITIONAL(STATICD, test "${enable_staticd}" != "no")
+AM_CONDITIONAL(FABRICD, test "${enable_fabricd}" != "no")
 
 if test "${enable_bgp_announce}" = "no";then
   AC_DEFINE(DISABLE_BGP_ANNOUNCE,1,Disable BGP installation to zebra)

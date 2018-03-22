@@ -1223,9 +1223,9 @@ DEFUN (no_isis_mpls_te_inter_as,
 
 DEFUN (show_isis_mpls_te_router,
        show_isis_mpls_te_router_cmd,
-       "show isis mpls-te router",
+       "show " PROTO_NAME " mpls-te router",
        SHOW_STR
-       ISIS_STR
+       PROTO_HELP
        MPLS_TE_STR
        "Router information\n")
 {
@@ -1314,9 +1314,9 @@ static void show_mpls_te_sub(struct vty *vty, struct interface *ifp)
 
 DEFUN (show_isis_mpls_te_interface,
        show_isis_mpls_te_interface_cmd,
-       "show isis mpls-te interface [INTERFACE]",
+       "show " PROTO_NAME " mpls-te interface [INTERFACE]",
        SHOW_STR
-       ISIS_STR
+       PROTO_HELP
        MPLS_TE_STR
        "Interface information\n"
        "Interface name\n")
@@ -1361,11 +1361,11 @@ void isis_mpls_te_init(void)
 	install_element(VIEW_NODE, &show_isis_mpls_te_router_cmd);
 	install_element(VIEW_NODE, &show_isis_mpls_te_interface_cmd);
 
-	install_element(ISIS_NODE, &isis_mpls_te_on_cmd);
-	install_element(ISIS_NODE, &no_isis_mpls_te_on_cmd);
-	install_element(ISIS_NODE, &isis_mpls_te_router_addr_cmd);
-	install_element(ISIS_NODE, &isis_mpls_te_inter_as_cmd);
-	install_element(ISIS_NODE, &no_isis_mpls_te_inter_as_cmd);
+	install_element(ROUTER_NODE, &isis_mpls_te_on_cmd);
+	install_element(ROUTER_NODE, &no_isis_mpls_te_on_cmd);
+	install_element(ROUTER_NODE, &isis_mpls_te_router_addr_cmd);
+	install_element(ROUTER_NODE, &isis_mpls_te_inter_as_cmd);
+	install_element(ROUTER_NODE, &no_isis_mpls_te_inter_as_cmd);
 
 	return;
 }

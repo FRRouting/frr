@@ -377,7 +377,7 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 			 * routes to Zebra and has nothing to do with
 			 * redistribution,
 			 * so skip it. */
-			if (type == ZEBRA_ROUTE_ISIS)
+			if (type == PROTO_TYPE)
 				continue;
 
 			afi_t afi = afi_for_redist_protocol(protocol);
@@ -515,11 +515,11 @@ void isis_redist_area_finish(struct isis_area *area)
 
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
-       "redistribute <ipv4|ipv6> " FRR_REDIST_STR_ISISD " <level-1|level-2> [<metric (0-16777215)|route-map WORD>]",
+       "redistribute <ipv4|ipv6> " PROTO_REDIST_STR " <level-1|level-2> [<metric (0-16777215)|route-map WORD>]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
-       FRR_REDIST_HELP_STR_ISISD
+       PROTO_REDIST_HELP
        "Redistribute into level-1\n"
        "Redistribute into level-2\n"
        "Metric for redistributed routes\n"
@@ -585,12 +585,12 @@ DEFUN (isis_redistribute,
 
 DEFUN (no_isis_redistribute,
        no_isis_redistribute_cmd,
-       "no redistribute <ipv4|ipv6> " FRR_REDIST_STR_ISISD " <level-1|level-2>",
+       "no redistribute <ipv4|ipv6> " PROTO_REDIST_STR " <level-1|level-2>",
        NO_STR
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
-       FRR_REDIST_HELP_STR_ISISD
+       PROTO_REDIST_HELP
        "Redistribute into level-1\n"
        "Redistribute into level-2\n")
 {
@@ -732,7 +732,7 @@ int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 		return 0;
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
-		if (type == ZEBRA_ROUTE_ISIS)
+		if (type == PROTO_TYPE)
 			continue;
 
 		for (level = 1; level <= ISIS_LEVELS; level++) {
@@ -772,8 +772,8 @@ int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 
 void isis_redist_init(void)
 {
-	install_element(ISIS_NODE, &isis_redistribute_cmd);
-	install_element(ISIS_NODE, &no_isis_redistribute_cmd);
-	install_element(ISIS_NODE, &isis_default_originate_cmd);
-	install_element(ISIS_NODE, &no_isis_default_originate_cmd);
+	install_element(ROUTER_NODE, &isis_redistribute_cmd);
+	install_element(ROUTER_NODE, &no_isis_redistribute_cmd);
+	install_element(ROUTER_NODE, &isis_default_originate_cmd);
+	install_element(ROUTER_NODE, &no_isis_default_originate_cmd);
 }
