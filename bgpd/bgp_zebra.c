@@ -1303,7 +1303,8 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 						   safi);
 }
 
-void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
+void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info,
+			struct bgp *bgp, safi_t safi)
 {
 	struct zapi_route api;
 	struct peer *peer;
@@ -1329,12 +1330,12 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
 	 */
-	if (!bgp_install_info_to_zebra(peer->bgp))
+	if (!bgp_install_info_to_zebra(bgp))
 		return;
 
 	memset(&api, 0, sizeof(api));
 	memcpy(&api.rmac, &(info->attr->rmac), sizeof(struct ethaddr));
-	api.vrf_id = peer->bgp->vrf_id;
+	api.vrf_id = bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
 	api.safi = safi;
 	api.prefix = *p;
@@ -1353,14 +1354,14 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 
 	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
-	    || bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+	    || bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
 	if (bgp_debug_zebra(p)) {
 		char buf[PREFIX_STRLEN];
 
 		prefix2str(&api.prefix, buf, sizeof(buf));
-		zlog_debug("Tx route delete VRF %u %s", peer->bgp->vrf_id, buf);
+		zlog_debug("Tx route delete VRF %u %s", bgp->vrf_id, buf);
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);

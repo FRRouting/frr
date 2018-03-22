@@ -33,7 +33,8 @@ extern void bgp_config_write_redistribute(struct vty *, struct bgp *, afi_t,
 extern void bgp_zebra_announce(struct bgp_node *, struct prefix *,
 			       struct bgp_info *, struct bgp *, afi_t, safi_t);
 extern void bgp_zebra_announce_table(struct bgp *, afi_t, safi_t);
-extern void bgp_zebra_withdraw(struct prefix *, struct bgp_info *, safi_t);
+extern void bgp_zebra_withdraw(struct prefix *, struct bgp_info *,
+			       struct bgp *, safi_t);
 
 extern void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer);
 extern void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer);
