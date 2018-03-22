@@ -96,6 +96,9 @@ DEFPY(pbr_map_match_src, pbr_map_match_src_cmd,
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!no) {
+		if (prefix_same(pbrms->src, prefix))
+			return CMD_SUCCESS;
+
 		if (!pbrms->src)
 			pbrms->src = prefix_new();
 		prefix_copy(pbrms->src, prefix);
@@ -120,6 +123,9 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 	if (!no) {
+		if (prefix_same(pbrms->dst, prefix))
+			return CMD_SUCCESS;
+
 		if (!pbrms->dst)
 			pbrms->dst = prefix_new();
 		prefix_copy(pbrms->dst, prefix);
