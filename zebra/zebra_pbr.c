@@ -166,9 +166,10 @@ void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 	lookup = hash_lookup(zns->rules_hash, rule);
 	kernel_del_pbr_rule(rule);
 
-	if (lookup)
+	if (lookup) {
+		hash_release(zns->rules_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
-	else
+	} else
 		zlog_warn("%s: Rule being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
 }
@@ -182,6 +183,7 @@ static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
 	if (rule->sock == *sock) {
 		kernel_del_pbr_rule(rule);
 		hash_release(zns->rules_hash, rule);
+		XFREE(MTYPE_TMP, rule);
 	}
 }
 
