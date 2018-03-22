@@ -35,10 +35,12 @@ EOF
 
 my $cli_stomp = 0;
 
-foreach (@ARGV) {
-    $file = $_;
+sub scan_file {
+    my ( $file, $fabricd) = @_;
 
-    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/bgpd -I@top_srcdir@/@LIBRFP@ -I@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $file |");
+    $cppadd = $fabricd ? "-DFABRICD=1" : "";
+
+    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/bgpd -I@top_srcdir@/@LIBRFP@ -I@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $cppadd $file |");
     local $/; undef $/;
     $line = <FH>;
     close (FH);
@@ -77,6 +79,10 @@ foreach (@ARGV) {
         $cmd =~ s/^\s+//g;
         $cmd =~ s/\s+$//g;
 
+        if ($fabricd) {
+            $cmd = "fabricd_" . $cmd;
+        }
+
         # $protocol is VTYSH_PROTO format for redirection of user input
         if ($file =~ /lib\/keychain\.c$/) {
             $protocol = "VTYSH_RIPD";
@@ -107,9 +113,9 @@ foreach (@ARGV) {
 	}
         elsif ($file =~ /lib\/plist\.c$/) {
             if ($defun_array[1] =~ m/ipv6/) {
-                $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_BABELD|VTYSH_ISISD";
+                $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD";
             } else {
-                $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_ISISD";
+                $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD";
             }
         }
         elsif ($file =~ /lib\/distribute\.c$/) {
@@ -131,6 +137,9 @@ foreach (@ARGV) {
         }
         elsif ($file =~ /librfp\/.*\.c$/ || $file =~ /rfapi\/.*\.c$/) {
            $protocol = "VTYSH_BGPD";
+        }
+        elsif ($fabricd) {
+           $protocol = "VTYSH_FABRICD";
         }
         else {
            ($protocol) = ($file =~ /^.*\/([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
@@ -170,6 +179,10 @@ foreach (@ARGV) {
         $ecmd =~ s/^\s+//g;
         $ecmd =~ s/\s+$//g;
 
+        if ($fabricd) {
+            $ecmd = "fabricd_" . $ecmd;
+        }
+
         # Register $ecmd
         if (defined ($cmd2str{$ecmd})) {
             my ($key);
@@ -184,6 +197,13 @@ foreach (@ARGV) {
             }
             push (@{$oproto{$key}}, $cmd2proto{$ecmd});
         }
+    }
+}
+
+foreach (@ARGV) {
+    scan_file($_, 0);
+    if (/\/isisd\//) {
+        scan_file($_, 1);
     }
 }
 
