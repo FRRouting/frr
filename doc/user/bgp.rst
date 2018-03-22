@@ -100,74 +100,59 @@ BGP decision process
 
 The decision process FRR BGP uses to select routes is as follows:
 
-1. Weight check
-
-
+1. *Weight check*
    Prefer higher local weight routes to lower routes.
 
-2. Local preference check
-
-
+2. *Local preference check*
    Prefer higher local preference routes to lower.
 
-3. Local route check
-
+3. *Local route check*
    Prefer local routes (statics, aggregates, redistributed) to received routes.
 
-4. AS path length check
-
+4. *AS path length check*
    Prefer shortest hop-count AS_PATHs.
 
-5. Origin check
-
+5. *Origin check*
    Prefer the lowest origin type route. That is, prefer IGP origin routes to
    EGP, to Incomplete routes.
 
-6. MED check
-
+6. *MED check*
    Where routes with a MED were received from the same AS, prefer the route
    with the lowest MED. :ref:`bgp-med`.
 
-7. External check
-
+7. *External check*
    Prefer the route received from an external, eBGP peer over routes received
    from other types of peers.
 
-8. IGP cost check
-
+8. *IGP cost check*
    Prefer the route with the lower IGP cost.
 
-9. Multi-path check
-
+9. *Multi-path check*
    If multi-pathing is enabled, then check whether the routes not yet
    distinguished in preference may be considered equal. If
    :clicmd:`bgp bestpath as-path multipath-relax` is set, all such routes are
    considered equal, otherwise routes received via iBGP with identical AS_PATHs
    or routes received from eBGP neighbours in the same AS are considered equal.
 
-10. Already-selected external check
+10. *Already-selected external check*
+    Where both routes were received from eBGP peers, then prefer the route
+    which is already selected. Note that this check is not applied if
+    :clicmd:`bgp bestpath compare-routerid` is configured. This check can
+    prevent some cases of oscillation.
 
-   Where both routes were received from eBGP peers, then prefer the route
-   which is already selected. Note that this check is not applied if
-   :clicmd:`bgp bestpath compare-routerid` is configured. This check can
-   prevent some cases of oscillation.
+11. *Router-ID check*
+    Prefer the route with the lowest `router-ID`. If the route has an
+    `ORIGINATOR_ID` attribute, through iBGP reflection, then that router ID is
+    used, otherwise the `router-ID` of the peer the route was received from is
+    used.
 
-11. Router-ID check
+12. *Cluster-List length check*
+    The route with the shortest cluster-list length is used. The cluster-list
+    reflects the iBGP reflection path the route has taken.
 
-   Prefer the route with the lowest `router-ID`. If the route has an
-   `ORIGINATOR_ID` attribute, through iBGP reflection, then that router ID is
-   used, otherwise the `router-ID` of the peer the route was received from is
-   used.
-
-12. Cluster-List length check
-
-   The route with the shortest cluster-list length is used. The cluster-list
-   reflects the iBGP reflection path the route has taken.
-
-13. Peer address
-
-   Prefer the route received from the peer with the higher transport layer
-   address, as a last-resort tie-breaker.
+13. *Peer address*
+    Prefer the route received from the peer with the higher transport layer
+    address, as a last-resort tie-breaker.
 
 
 .. index:: bgp bestpath as-path confed
