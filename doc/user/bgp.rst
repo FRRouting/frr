@@ -100,75 +100,59 @@ BGP decision process
 
 The decision process FRR BGP uses to select routes is as follows:
 
-1. Weight check
-
-
+1. *Weight check*
    Prefer higher local weight routes to lower routes.
 
-2. Local preference check
-
-
+2. *Local preference check*
    Prefer higher local preference routes to lower.
 
-3. Local route check
-
+3. *Local route check*
    Prefer local routes (statics, aggregates, redistributed) to received routes.
 
-4. AS path length check
-
+4. *AS path length check*
    Prefer shortest hop-count AS_PATHs.
 
-5. Origin check
-
+5. *Origin check*
    Prefer the lowest origin type route. That is, prefer IGP origin routes to
    EGP, to Incomplete routes.
 
-6. MED check
-
+6. *MED check*
    Where routes with a MED were received from the same AS, prefer the route
    with the lowest MED. :ref:`bgp-med`.
 
-7. External check
-
+7. *External check*
    Prefer the route received from an external, eBGP peer over routes received
    from other types of peers.
 
-8. IGP cost check
-
+8. *IGP cost check*
    Prefer the route with the lower IGP cost.
 
-9. Multi-path check
-
+9. *Multi-path check*
    If multi-pathing is enabled, then check whether the routes not yet
    distinguished in preference may be considered equal. If
    :clicmd:`bgp bestpath as-path multipath-relax` is set, all such routes are
    considered equal, otherwise routes received via iBGP with identical AS_PATHs
    or routes received from eBGP neighbours in the same AS are considered equal.
 
-10. Already-selected external check
-
+10. *Already-selected external check*
     Where both routes were received from eBGP peers, then prefer the route
     which is already selected. Note that this check is not applied if
     :clicmd:`bgp bestpath compare-routerid` is configured. This check can
     prevent some cases of oscillation.
 
-11. Router-ID check
-
+11. *Router-ID check*
     Prefer the route with the lowest `router-ID`. If the route has an
     `ORIGINATOR_ID` attribute, through iBGP reflection, then that router ID is
     used, otherwise the `router-ID` of the peer the route was received from is
     used.
 
-12. Cluster-List length check
-
+12. *Cluster-List length check*
     The route with the shortest cluster-list length is used. The cluster-list
     reflects the iBGP reflection path the route has taken.
 
-
-13. Peer address
-
-    Prefer the route received from the peer with the higher
-    transport layer address, as a last-resort tie-breaker.
+13. *Peer address*
+    Prefer the route received from the peer with the higher transport layer
+    address, as a last-resort tie-breaker.
 
 
 .. index:: bgp bestpath as-path confed
@@ -213,9 +197,7 @@ BGP route flap dampening
 
 .. clicmd:: bgp dampening (1-45) (1-20000) (1-20000) (1-255)
 
-
    This command enables BGP route-flap dampening and specifies dampening parameters.
-
 
    half-life
       Half-life time for the penalty
@@ -675,13 +657,12 @@ required.
 .. index:: neighbor PEER version VERSION
 .. clicmd:: neighbor PEER version VERSION
 
-   Set up the neighbor's BGP version. `version` can be `4`,
-   `4+` or `4-`. BGP version `4` is the default value used for
-   BGP peering. BGP version `4+` means that the neighbor supports
-   Multiprotocol Extensions for BGP-4. BGP version `4-` is similar but
-   the neighbor speaks the old Internet-Draft revision 00's Multiprotocol
-   Extensions for BGP-4. Some routing software is still using this
-   version.
+   Set up the neighbor's BGP version. `version` can be `4`, `4+` or `4-`. BGP
+   version `4` is the default value used for BGP peering. BGP version `4+`
+   means that the neighbor supports Multiprotocol Extensions for BGP-4. BGP
+   version `4-` is similar but the neighbor speaks the old Internet-Draft
+   revision 00's Multiprotocol Extensions for BGP-4. Some routing software is
+   still using this version.
 
 .. index:: neighbor PEER interface IFNAME
 .. clicmd:: neighbor PEER interface IFNAME
@@ -733,9 +714,9 @@ required.
 .. index:: no neighbor PEER default-originate
 .. clicmd:: no neighbor PEER default-originate
 
-   *bgpd*'s default is to not announce the default route (0.0.0.0/0) even it
-   is in routing table. When you want to announce default routes to the
-   peer, use this command.
+   *bgpd*'s default is to not announce the default route (0.0.0.0/0) even if it
+   is in routing table. When you want to announce default routes to the peer,
+   use this command.
 
 .. index:: neighbor PEER port PORT
 .. clicmd:: neighbor PEER port PORT
@@ -1351,23 +1332,22 @@ Lists.
 .. index:: ip extcommunity-list standard NAME permit|deny EXTCOMMUNITY
 .. clicmd:: ip extcommunity-list standard NAME permit|deny EXTCOMMUNITY
 
-   This command defines a new standard extcommunity-list.
-   `extcommunity` is extended communities value. The
-   `extcommunity` is compiled into extended community structure. We
-   can define multiple extcommunity-list under same name. In that case
-   match will happen user defined order. Once the extcommunity-list
-   matches to extended communities attribute in BGP updates it return
-   permit or deny based upon the extcommunity-list definition. When
-   there is no matched entry, deny will be returned. When
-   `extcommunity` is empty it matches to any routes.
+   This command defines a new standard extcommunity-list. `extcommunity` is
+   extended communities value. The `extcommunity` is compiled into extended
+   community structure. We can define multiple extcommunity-list under same
+   name. In that case match will happen user defined order. Once the
+   extcommunity-list matches to extended communities attribute in BGP updates
+   it return permit or deny based upon the extcommunity-list definition. When
+   there is no matched entry, deny will be returned. When `extcommunity` is
+   empty it matches to any routes.
 
 .. index:: ip extcommunity-list expanded NAME permit|deny LINE
 .. clicmd:: ip extcommunity-list expanded NAME permit|deny LINE
 
-   This command defines a new expanded extcommunity-list. `line` is
-   a string expression of extended communities attribute. `line` can
-   be a regular expression (:ref:`bgp-regular-expressions`) to match an
-   extended communities attribute in BGP updates.
+   This command defines a new expanded extcommunity-list. `line` is a string
+   expression of extended communities attribute. `line` can be a regular
+   expression (:ref:`bgp-regular-expressions`) to match an extended communities
+   attribute in BGP updates.
 
 .. index:: no ip extcommunity-list NAME
 .. clicmd:: no ip extcommunity-list NAME
@@ -1378,10 +1358,9 @@ Lists.
 .. index:: no ip extcommunity-list expanded NAME
 .. clicmd:: no ip extcommunity-list expanded NAME
 
-   These commands delete extended community lists specified by
-   `name`. All of extended community lists shares a single name
-   space. So extended community lists can be removed simpley specifying
-   the name.
+   These commands delete extended community lists specified by `name`. All of
+   extended community lists shares a single name space. So extended community
+   lists can be removed simpley specifying the name.
 
 .. index:: show ip extcommunity-list
 .. clicmd:: show ip extcommunity-list
@@ -1389,8 +1368,8 @@ Lists.
 .. index:: show ip extcommunity-list NAME
 .. clicmd:: show ip extcommunity-list NAME
 
-   This command displays current extcommunity-list information. When
-   `name` is specified the community list's information is shown.
+   This command displays current extcommunity-list information. When `name` is
+   specified the community list's information is shown.
 
 ::
 
@@ -1456,23 +1435,22 @@ Two types of large community lists are supported, namely `standard` and
 .. index:: ip large-community-list standard NAME permit|deny LARGE-COMMUNITY
 .. clicmd:: ip large-community-list standard NAME permit|deny LARGE-COMMUNITY
 
-   This command defines a new standard large-community-list.
-   `large-community` is the Large Community value. We
-   can add multiple large communities under same name. In that case
-   the match will happen in the user defined order. Once the large-community-list
-   matches the Large Communities attribute in BGP updates it will return
-   permit or deny based upon the large-community-list definition. When
-   there is no matched entry, a deny will be returned. When `large-community`
-   is empty it matches any routes.
+   This command defines a new standard large-community-list.  `large-community`
+   is the Large Community value. We can add multiple large communities under
+   same name. In that case the match will happen in the user defined order.
+   Once the large-community-list matches the Large Communities attribute in BGP
+   updates it will return permit or deny based upon the large-community-list
+   definition. When there is no matched entry, a deny will be returned. When
+   `large-community` is empty it matches any routes.
 
 .. index:: ip large-community-list expanded NAME permit|deny LINE
 .. clicmd:: ip large-community-list expanded NAME permit|deny LINE
 
-   This command defines a new expanded large-community-list. Where `line` is
-   a string matching expression, it will be compared to the entire Large Communities
-   attribute as a string, with each large-community in order from lowest to highest.
-   `line` can also be a regular expression which matches this Large
-   Community attribute.
+   This command defines a new expanded large-community-list. Where `line` is a
+   string matching expression, it will be compared to the entire Large
+   Communities attribute as a string, with each large-community in order from
+   lowest to highest.  `line` can also be a regular expression which matches
+   this Large Community attribute.
 
 .. index:: no ip large-community-list NAME
 .. clicmd:: no ip large-community-list NAME
@@ -1483,9 +1461,9 @@ Two types of large community lists are supported, namely `standard` and
 .. index:: no ip large-community-list expanded NAME
 .. clicmd:: no ip large-community-list expanded NAME
 
-   These commands delete Large Community lists specified by
-   `name`. All Large Community lists share a single namespace.
-   This means Large Community lists can be removed by simply specifying the name.
+   These commands delete Large Community lists specified by `name`. All Large
+   Community lists share a single namespace.  This means Large Community lists
+   can be removed by simply specifying the name.
 
 .. index:: show ip large-community-list
 .. clicmd:: show ip large-community-list
@@ -1509,8 +1487,8 @@ BGP Large Communities in Route Map
 .. index:: match large-community LINE
 .. clicmd:: match large-community LINE
 
-   Where `line` can be a simple string to match, or a regular expression.
-   It is very important to note that this match occurs on the entire
+   Where `line` can be a simple string to match, or a regular expression. It
+   is very important to note that this match occurs on the entire
    large-community string as a whole, where each large-community is ordered
    from lowest to highest.
 
@@ -1535,67 +1513,65 @@ BGP Large Communities in Route Map
 BGP VRFs
 ========
 
-Bgpd supports multiple VRF instances via the  *router bgp* command:
+Bgpd supports multiple VRF instances via the *router bgp* command:
 
 .. index:: router bgp ASN vrf VRFNAME
 .. clicmd:: router bgp ASN vrf VRFNAME
 
-VRFNAME is matched against VRFs configured in the kernel. When no
-*vrf VRFNAME* is specified, the BGP protocol process belongs to
-the default VRF.
+VRFNAME is matched against VRFs configured in the kernel. When no *vrf VRFNAME*
+is specified, the BGP protocol process belongs to the default VRF.
 
-BGP routes may be leaked (i.e., copied) between a unicast VRF RIB
-and the VPN safi RIB of the default VRF (leaking is also permitted
-between the unicast RIB of the default VRF and VPN).  A common
-application of this feature is to connect a customer's private
-routing domain to a provider's VPN service. Leaking is configured
-from the point of view of an individual VRF: ``import`` refers to
-routes leaked from VPN to a unicast VRF, whereas ``export`` refers
-to routes leaked from a unicast VRF to VPN.
+BGP routes may be leaked (i.e., copied) between a unicast VRF RIB and the VPN
+safi RIB of the default VRF (leaking is also permitted between the unicast RIB
+of the default VRF and VPN).  A common application of this feature is to
+connect a customer's private routing domain to a provider's VPN service.
+Leaking is configured from the point of view of an individual VRF: ``import``
+refers to routes leaked from VPN to a unicast VRF, whereas ``export`` refers to
+routes leaked from a unicast VRF to VPN.
 
 Required Parameters
 -------------------
 
-Routes exported from a unicast VRF to the VPN RIB must be augmented
-by two parameters:
-a route-distinguisher (RD) and a route-target list (RTLIST).
-Configuration for these exported routes must, at a minimum, specify
-these two parameters.
+Routes exported from a unicast VRF to the VPN RIB must be augmented by two
+parameters:
 
-Routes imported from the VPN RIB to a unicast VRF are selected
-according to their RTLISTs.
-Routes whose RTLIST contains at least one route-target in common with
-the configured import RTLIST are leaked.
-Configuration for these imported routes must specify an RTLIST to be matched.
+- an :abbr:`RD (Route Distinguisher)`
+- an :abbr:`RTLIST (Route-target List)`
 
-The RD, which carries no semantic value, is intended to make the
-route unique in the VPN RIB among all routes of its prefix that
-originate from all the customers and sites that are attached
-to the provider's VPN service. Accordingly, each site of each customer
-is typically assigned an RD that is unique across the entire provider
-network.
+Configuration for these exported routes must, at a minimum, specify these two
+parameters.
 
-The RTLIST is a set of route-target extended community values whose
-purpose is to specify route-leaking policy. Typically, a customer
-is assigned a single route-target value for import and export to be
-used at all customer sites. This configuration specifies a simple
-topology wherein a customer has a single routing domain which is
-shared across all its sites. More complex routing topologies are possible
-through use of additional route-targets to augment the leaking of
-sets of routes in various ways.
+Routes imported from the VPN RIB to a unicast VRF are selected according to
+their RTLISTs.  Routes whose RTLIST contains at least one route-target in
+common with the configured import RTLIST are leaked.  Configuration for these
+imported routes must specify an RTLIST to be matched.
+
+The RD, which carries no semantic value, is intended to make the route unique
+in the VPN RIB among all routes of its prefix that originate from all the
+customers and sites that are attached to the provider's VPN service.
+Accordingly, each site of each customer is typically assigned an RD that is
+unique across the entire provider network.
+
+The RTLIST is a set of route-target extended community values whose purpose is
+to specify route-leaking policy. Typically, a customer is assigned a single
+route-target value for import and export to be used at all customer sites. This
+configuration specifies a simple topology wherein a customer has a single
+routing domain which is shared across all its sites. More complex routing
+topologies are possible through use of additional route-targets to augment the
+leaking of sets of routes in various ways.
 
 Configuration
 -------------
 
-Configuration of route leaking between a unicast VRF RIB and the
-VPN safi RIB of the default VRF is accomplished via commands in the
-context of a VRF address-family:
+Configuration of route leaking between a unicast VRF RIB and the VPN safi RIB
+of the default VRF is accomplished via commands in the context of a VRF
+address-family:
 
 .. index:: rd vpn export AS:NN|IP:nn
 .. clicmd:: rd vpn export AS:NN|IP:nn
 
-   Specifies the route distinguisher to be added to a route exported
-   from the current unicast VRF to VPN.
+   Specifies the route distinguisher to be added to a route exported from the
+   current unicast VRF to VPN.
 
 .. index:: no rd vpn export [AS:NN|IP:nn]
 .. clicmd:: no rd vpn export [AS:NN|IP:nn]
@@ -1605,12 +1581,12 @@ context of a VRF address-family:
 .. index:: rt vpn import|export|both RTLIST...
 .. clicmd:: rt vpn import|export|both RTLIST...
 
-   Specifies the route-target list to be attached to a route (export)
-   or the route-target list to match against (import) when
-   exporting/importing between the current unicast VRF and VPN.
+   Specifies the route-target list to be attached to a route (export) or the
+   route-target list to match against (import) when exporting/importing between
+   the current unicast VRF and VPN.
 
-   The RTLIST is a space-separated list of route-targets, which are
-   BGP extended community values as described in
+   The RTLIST is a space-separated list of route-targets, which are BGP
+   extended community values as described in
    :ref:`bgp-extended-communities-attribute`.
 
 .. index:: no rt vpn import|export|both [RTLIST...]
@@ -1621,8 +1597,8 @@ context of a VRF address-family:
 .. index:: label vpn export (0..1048575)
 .. clicmd:: label vpn export (0..1048575)
 
-   Specifies an optional MPLS label to be attached to a route exported
-   from the current unicast VRF to VPN.
+   Specifies an optional MPLS label to be attached to a route exported from the
+   current unicast VRF to VPN.
 
 .. index:: no label vpn export [(0..1048575)]
 .. clicmd:: no label vpn export [(0..1048575)]
@@ -1632,9 +1608,9 @@ context of a VRF address-family:
 .. index:: nexthop vpn export A.B.C.D|X:X::X:X
 .. clicmd:: nexthop vpn export A.B.C.D|X:X::X:X
 
-   Specifies an optional nexthop value to be assigned to a route exported
-   from the current unicast VRF to VPN. If left unspecified, the nexthop
-   will be set to 0.0.0.0 or 0:0::0:0 (self).
+   Specifies an optional nexthop value to be assigned to a route exported from
+   the current unicast VRF to VPN. If left unspecified, the nexthop will be set
+   to 0.0.0.0 or 0:0::0:0 (self).
 
 .. index:: no nexthop vpn export [A.B.C.D|X:X::X:X]
 .. clicmd:: no nexthop vpn export [A.B.C.D|X:X::X:X]
@@ -1644,8 +1620,8 @@ context of a VRF address-family:
 .. index:: route-map vpn import|export MAP
 .. clicmd:: route-map vpn import|export MAP
 
-   Specifies an optional route-map to be applied to routes imported
-   or exported betwen the current unicast VRF and VPN.
+   Specifies an optional route-map to be applied to routes imported or exported
+   betwen the current unicast VRF and VPN.
 
 .. index:: no route-map vpn import|export [MAP]
 .. clicmd:: no route-map vpn import|export [MAP]
@@ -1710,7 +1686,8 @@ Showing BGP information
 .. index:: show ip bgp community COMMUNITY exact-match
 .. clicmd:: show ip bgp community COMMUNITY exact-match
 
-   This command displays BGP routes using `community` (:ref:`display-bgp-routes-by-community`).
+   This command displays BGP routes using `community`
+   (:ref:`display-bgp-routes-by-community`).
 
 .. index:: show ip bgp community-list WORD
 .. clicmd:: show ip bgp community-list WORD
@@ -1718,7 +1695,8 @@ Showing BGP information
 .. index:: show ip bgp community-list WORD exact-match
 .. clicmd:: show ip bgp community-list WORD exact-match
 
-   This command displays BGP routes using community list (:ref:`display-bgp-routes-by-community`).
+   This command displays BGP routes using community list
+   (:ref:`display-bgp-routes-by-community`).
 
 .. index:: show bgp ipv4|ipv6 summary
 .. clicmd:: show bgp ipv4|ipv6 summary
@@ -1788,31 +1766,30 @@ Capability Negotiation
 ======================
 
 When adding IPv6 routing information exchange feature to BGP. There were some
-proposals. :abbr:`IETF (Internet Engineering Task Force)` :abbr:`IDR ( Inter
-Domain Routing)` :abbr:`IDR ( Inter Domain Routing)` adopted a proposal called
-Multiprotocol Extension for BGP. The specification is described in :rfc:`2283`.
-The protocol does not define new protocols. It defines new attributes to
-existing BGP. When it is used exchanging IPv6 routing information it is called
-BGP-4+. When it is used for exchanging multicast routing information it is
-called MBGP.
+proposals. :abbr:`IETF (Internet Engineering Task Force)`
+:abbr:`IDR (Inter Domain Routing)` adopted a proposal called Multiprotocol
+Extension for BGP. The specification is described in :rfc:`2283`. The protocol
+does not define new protocols. It defines new attributes to existing BGP. When
+it is used exchanging IPv6 routing information it is called BGP-4+. When it is
+used for exchanging multicast routing information it is called MBGP.
 
-*bgpd* supports Multiprotocol Extension for BGP. So if remote peer supports the
-protocol, *bgpd* can exchange IPv6 and/or multicast routing information.
+*bgpd* supports Multiprotocol Extension for BGP. So if a remote peer supports
+the protocol, *bgpd* can exchange IPv6 and/or multicast routing information.
 
-Traditional BGP did not have the feature to detect remote peer's capabilities,
-e.g. whether it can handle prefix types other than IPv4 unicast routes. This
-was a big problem using Multiprotocol Extension for BGP to operational network.
-:rfc:`2842` adopted a feature called Capability Negotiation. *bgpd* use this
-Capability Negotiation to detect the remote peer's capabilities. If the peer is
-only configured as IPv4 unicast neighbor, *bgpd* does not send these Capability
-Negotiation packets (at least not unless other optional BGP features require
-capability negotation).
+Traditional BGP did not have the feature to detect a remote peer's
+capabilities, e.g. whether it can handle prefix types other than IPv4 unicast
+routes. This was a big problem using Multiprotocol Extension for BGP in an
+operational network. :rfc:`2842` adopted a feature called Capability
+Negotiation. *bgpd* use this Capability Negotiation to detect the remote peer's
+capabilities. If a peer is only configured as an IPv4 unicast neighbor, *bgpd*
+does not send these Capability Negotiation packets (at least not unless other
+optional BGP features require capability negotation).
 
 By default, FRR will bring up peering with minimal common capability for the
-both sides. For example, local router has unicast and multicast capabilitie and
-remote router has unicast capability. In this case, the local router will
-establish the connection with unicast only capability. When there are no common
-capabilities, FRR sends Unsupported Capability error and then resets the
+both sides. For example, if the local router has unicast and multicast
+capabilities and the remote router only has unicast capability the local router
+will establish the connection with unicast only capability. When there are no
+common capabilities, FRR sends Unsupported Capability error and then resets the
 connection.
 
 If you want to completely match capabilities with remote peer. Please use
@@ -1824,13 +1801,14 @@ If you want to completely match capabilities with remote peer. Please use
 .. index:: no neighbor PEER strict-capability-match
 .. clicmd:: no neighbor PEER strict-capability-match
 
-   Strictly compares remote capabilities and local capabilities. If capabilities
-   are different, send Unsupported Capability error then reset connection.
+   Strictly compares remote capabilities and local capabilities. If
+   capabilities are different, send Unsupported Capability error then reset
+   connection.
 
-   You may want to disable sending Capability Negotiation OPEN message
-   optional parameter to the peer when remote peer does not implement
-   Capability Negotiation. Please use *dont-capability-negotiate*
-   command to disable the feature.
+   You may want to disable sending Capability Negotiation OPEN message optional
+   parameter to the peer when remote peer does not implement Capability
+   Negotiation. Please use *dont-capability-negotiate* command to disable the
+   feature.
 
 .. index:: neighbor PEER dont-capability-negotiate
 .. clicmd:: neighbor PEER dont-capability-negotiate
@@ -1838,19 +1816,18 @@ If you want to completely match capabilities with remote peer. Please use
 .. index:: no neighbor PEER dont-capability-negotiate
 .. clicmd:: no neighbor PEER dont-capability-negotiate
 
-   Suppress sending Capability Negotiation as OPEN message optional
-   parameter to the peer. This command only affects the peer is configured
-   other than IPv4 unicast configuration.
+   Suppress sending Capability Negotiation as OPEN message optional parameter
+   to the peer. This command only affects the peer is configured other than
+   IPv4 unicast configuration.
 
-   When remote peer does not have capability negotiation feature, remote
-   peer will not send any capabilities at all. In that case, bgp
-   configures the peer with configured capabilities.
+   When remote peer does not have capability negotiation feature, remote peer
+   will not send any capabilities at all. In that case, bgp configures the peer
+   with configured capabilities.
 
    You may prefer locally configured capabilities more than the negotiated
-   capabilities even though remote peer sends capabilities. If the peer
-   is configured by *override-capability*, *bgpd* ignores
-   received capabilities then override negotiated capabilities with
-   configured values.
+   capabilities even though remote peer sends capabilities. If the peer is
+   configured by *override-capability*, *bgpd* ignores received capabilities
+   then override negotiated capabilities with configured values.
 
 .. index:: neighbor PEER override-capability
 .. clicmd:: neighbor PEER override-capability
@@ -1882,16 +1859,15 @@ Route Server
 ============
 
 At an Internet Exchange point, many ISPs are connected to each other by the
-"full mesh method". As with internal BGP full mesh formation,
-
-this method has a scaling problem.
+"full mesh method". As with internal BGP full mesh formation, this method has a
+scaling problem.
 
 This scaling problem is well known. Route Server is a method to resolve the
 problem. Each ISP's BGP router only peers to Route Server. Route Server serves
 as BGP information exchange to other BGP routers. By applying this method,
 numbers of BGP connections is reduced from O(n*(n-1)/2) to O(n).
 
-Unlike normal BGP router, Route Server must have several routing tables for
+Unlike a normal BGP router, Route Server must have several routing tables for
 managing different routing policies for each BGP speaker. We call the routing
 tables as different "views". *bgpd* can work as normal BGP router or Route
 Server or both at the same time.
@@ -1925,25 +1901,26 @@ When you want to make configuration more Cisco like one,
 
 When bgp config-type cisco is specified,
 
-'no synchronization' is displayed.
-'no auto-summary' is displayed.
+``no synchronization`` is displayed.
+``no auto-summary`` is displayed.
 
-'network' and 'aggregate-address' argument is displayed as
-'A.B.C.D M.M.M.M'
+The ``network`` and ``aggregate-address`` arguments are displayed as::
 
-FRR: network 10.0.0.0/8
-Cisco: network 10.0.0.0
+   A.B.C.D M.M.M.M
 
-FRR: aggregate-address 192.168.0.0/24
-Cisco: aggregate-address 192.168.0.0 255.255.255.0
+   FRR: network 10.0.0.0/8
+   Cisco: network 10.0.0.0
 
-Community attribute handling is also different. If there is no
-configuration is specified community attribute and extended community
-attribute are sent to neighbor. When user manually disable the
-feature community attribute is not sent to the neighbor. In case of
-*bgp config-type cisco* is specified, community attribute is not
-sent to the neighbor by default. To send community attribute user has
-to specify *neighbor A.B.C.D send-community* command.::
+   FRR: aggregate-address 192.168.0.0/24
+   Cisco: aggregate-address 192.168.0.0 255.255.255.0
+
+Community attribute handling is also different. If no configuration is
+specified community attribute and extended community attribute are sent to the
+neighbor. If a user manually disables the feature, the community attribute is
+not sent to the neighbor. When ``bgp config-type cisco`` is specified, the
+community attribute is not sent to the neighbor by default. To send the
+community attribute user has to specify *neighbor A.B.C.D send-community*
+command.::
 
    !
    router bgp 1
@@ -1970,14 +1947,14 @@ to specify *neighbor A.B.C.D send-community* command.::
 BGP instance and view
 ---------------------
 
-BGP instance is a normal BGP process. The result of route selection
-goes to the kernel routing table. You can setup different AS at the
-same time when BGP multiple instance feature is enabled.
+BGP instance is a normal BGP process. The result of route selection goes to the
+kernel routing table. You can setup different AS at the same time when BGP
+multiple instance feature is enabled.
 
 .. index:: router bgp AS-NUMBER
 .. clicmd:: router bgp AS-NUMBER
 
-   Make a new BGP instance. You can use arbitrary word for the `name`.
+   Make a new BGP instance. You can use an arbitrary word for the `name`.
 
   ::
 
@@ -1992,9 +1969,9 @@ same time when BGP multiple instance feature is enabled.
       neighbor 10.0.0.4 remote-as 5
 
 
-BGP view is almost same as normal BGP process. The result of
-route selection does not go to the kernel routing table. BGP view is
-only for exchanging BGP routing information.
+BGP view is almost same as normal BGP process. The result of route selection
+does not go to the kernel routing table. BGP view is only for exchanging BGP
+routing information.
 
 .. index:: router bgp AS-NUMBER view NAME
 .. clicmd:: router bgp AS-NUMBER view NAME
@@ -2022,8 +1999,8 @@ only for exchanging BGP routing information.
 Routing policy
 --------------
 
-You can set different routing policy for a peer. For example, you can
-set different filter for a peer.::
+You can set different routing policy for a peer. For example, you can set
+different filter for a peer.::
 
    bgp multiple-instance
    !
@@ -2040,10 +2017,10 @@ set different filter for a peer.::
     exit-address-family
 
 
-This means BGP update from a peer 10.0.0.1 goes to both BGP view 1 and view
-2. When the update is inserted into view 1, distribute-list 1 is
-applied. On the other hand, when the update is inserted into view 2,
-distribute-list 2 is applied.
+This means BGP update from a peer 10.0.0.1 goes to both BGP view 1 and view 2.
+When the update is inserted into view 1, distribute-list 1 is applied. On the
+other hand, when the update is inserted into view 2, distribute-list 2 is
+applied.
 
 .. _viewing-the-view:
 
@@ -2062,10 +2039,9 @@ To display routing table of BGP view, you must specify view name.
 BGP Regular Expressions
 =======================
 
-BGP regular expressions are based on `POSIX 1003.2` regular
-expressions. The following description is just a quick subset of the
-`POSIX` regular expressions. Adding to that, the special character
-'_' is added.
+BGP regular expressions are based on `POSIX 1003.2` regular expressions. The
+following description is just a quick subset of the `POSIX` regular
+expressions. Adding to that, the special character '_' is added.
 
 
 .*
@@ -2157,10 +2133,10 @@ Dump BGP packets and table
 .. clicmd:: no dump bgp all [PATH] [INTERVAL]
 
    Dump all BGP packet and events to `path` file.
-   If `interval` is set, a new file will be created for echo `interval` of seconds.
-   The path `path` can be set with date and time formatting (strftime).
-   The type ‘all-et’ enables support for Extended Timestamp Header (:ref:`packet-binary-dump-format`).
-   (:ref:`packet-binary-dump-format`)
+   If `interval` is set, a new file will be created for echo `interval` of
+   seconds.  The path `path` can be set with date and time formatting
+   (strftime).  The type ‘all-et’ enables support for Extended Timestamp Header
+   (:ref:`packet-binary-dump-format`).
 
 .. index:: dump bgp updates PATH [INTERVAL]
 .. clicmd:: dump bgp updates PATH [INTERVAL]
@@ -2172,9 +2148,10 @@ Dump BGP packets and table
 .. clicmd:: no dump bgp updates [PATH] [INTERVAL]
 
    Dump only BGP updates messages to `path` file.
-   If `interval` is set, a new file will be created for echo `interval` of seconds.
-   The path `path` can be set with date and time formatting (strftime).
-   The type ‘updates-et’ enables support for Extended Timestamp Header (:ref:`packet-binary-dump-format`).
+   If `interval` is set, a new file will be created for echo `interval` of
+   seconds.  The path `path` can be set with date and time formatting
+   (strftime).  The type ‘updates-et’ enables support for Extended Timestamp
+   Header (:ref:`packet-binary-dump-format`).
 
 .. index:: dump bgp routes-mrt PATH
 .. clicmd:: dump bgp routes-mrt PATH
@@ -2185,9 +2162,9 @@ Dump BGP packets and table
 .. index:: no dump bgp route-mrt [PATH] [INTERVAL]
 .. clicmd:: no dump bgp route-mrt [PATH] [INTERVAL]
 
-   Dump whole BGP routing table to `path`. This is heavy process.
-   The path `path` can be set with date and time formatting (strftime).
-   If `interval` is set, a new file will be created for echo `interval` of seconds.
+   Dump whole BGP routing table to `path`. This is heavy process. The path
+   `path` can be set with date and time formatting (strftime). If `interval` is
+   set, a new file will be created for echo `interval` of seconds.
 
    Note: the interval variable can also be set using hours and minutes: 04h20m00.
 
@@ -2214,13 +2191,12 @@ Example of a session to an upstream, advertising only one prefix to it.::
    ip prefix-list pl-allowed-adv seq 5 permit 82.195.133.0/25
    ip prefix-list pl-allowed-adv seq 10 deny any
 
-A more complex example. With upstream, peer and customer sessions.
-Advertising global prefixes and NO_EXPORT prefixes and providing
-actions for customer routes based on community values. Extensive use of
-route-maps and the 'call' feature to support selective advertising of
-prefixes. This example is intended as guidance only, it has NOT been
-tested and almost certainly containts silly mistakes, if not serious
-flaws.
+A more complex example. With upstream, peer and customer sessions.  Advertising
+global prefixes and NO_EXPORT prefixes and providing actions for customer
+routes based on community values. Extensive use of route-maps and the 'call'
+feature to support selective advertising of prefixes. This example is intended
+as guidance only, it has NOT been tested and almost certainly containts silly
+mistakes, if not serious flaws.
 
 ::
 

@@ -122,138 +122,139 @@ developer-html:
 
 # dist tarballs want doc sources
 EXTRA_DIST = frr-sphinx.mk \
-	manpages/defines.rst \
-	manpages/ldpd.rst \
-	manpages/index.rst \
 	manpages/bgpd.rst \
-	manpages/watchfrr.rst \
-	manpages/ospfclient.rst \
-	manpages/ripd.rst \
-	manpages/zebra.rst \
-	manpages/epilogue.rst \
-	manpages/eigrpd.rst \
-	manpages/isisd.rst \
-	manpages/ospf6d.rst \
 	manpages/common-options.rst \
-	manpages/ospfd.rst \
-	manpages/vtysh.rst \
-	manpages/nhrpd.rst \
-	manpages/pimd.rst \
-	manpages/mtracebis.rst \
-	manpages/ripngd.rst \
-	manpages/frr.rst \
 	manpages/conf.py \
+	manpages/defines.rst \
+	manpages/eigrpd.rst \
+	manpages/epilogue.rst \
+	manpages/frr.rst \
+	manpages/index.rst \
+	manpages/isisd.rst \
+	manpages/ldpd.rst \
 	manpages/Makefile \
-	developer/Building_FRR_on_NetBSD7.rst \
-	developer/ldpd-basic-test-setup.md \
-	developer/cli.rst \
-	developer/index.rst \
-	developer/library.rst \
-	developer/memtypes.rst \
+	manpages/mtracebis.rst \
+	manpages/nhrpd.rst \
+	manpages/ospf6d.rst \
+	manpages/ospfclient.rst \
+	manpages/ospfd.rst \
+	manpages/pimd.rst \
+	manpages/ripd.rst \
+	manpages/ripngd.rst \
+	manpages/vtysh.rst \
+	manpages/watchfrr.rst \
+	manpages/zebra.rst \
 	developer/bgpd.rst \
-	developer/draft-zebra-00.ms \
-	developer/dev-modules.md \
-	developer/conf.py \
-	developer/next-hop-tracking.rst \
-	developer/Building_FRR_on_FreeBSD11.rst \
+	developer/bgp-typecodes.rst \
+	developer/building-frr-on-alpine.rst \
+	developer/building-frr-on-centos6.rst \
+	developer/building-frr-on-centos7.rst \
+	developer/building-frr-on-debian8.rst \
+	developer/building-frr-on-debian9.rst \
+	developer/building-frr-on-fedora24.rst \
+	developer/building-frr-on-freebsd10.rst \
+	developer/building-frr-on-freebsd11.rst \
+	developer/building-frr-on-freebsd9.rst \
+	developer/building-frr-on-lede-openwrt.rst \
+	developer/building-frr-on-netbsd6.rst \
+	developer/building-frr-on-netbsd7.rst \
+	developer/building-frr-on-omnios.rst \
+	developer/building-frr-on-openbsd6.rst \
+	developer/building-frr-on-ubuntu1204.rst \
+	developer/building-frr-on-ubuntu1404.rst \
+	developer/building-frr-on-ubuntu1604.rst \
 	developer/building.rst \
-	developer/Building_FRR_on_CentOS6.rst \
-	developer/Building_FRR_on_Ubuntu1604.rst \
-	developer/ospf-api.rst \
-	developer/ospf-sr.rst \
-	developer/Building_FRR_on_OpenBSD6.rst \
-	developer/Building_FRR_on_Debian8.rst \
-	developer/Building_FRR_on_NetBSD6.rst \
-	developer/Building_FRR_on_Debian9.rst \
-	developer/Building_FRR_on_LEDE-OpenWRT.rst \
-	developer/modules.rst \
-	developer/Building_FRR_on_FreeBSD10.rst \
-	developer/Building_FRR_on_Ubuntu1204.rst \
-	developer/Building_FRR_on_Fedora24.rst \
-	developer/Makefile \
-	developer/Building_FRR_on_FreeBSD9.rst \
-	developer/BGP-TypeCode \
-	developer/Building_FRR_on_OmniOS.rst \
-	developer/Building_FRR_on_CentOS7.rst \
+	developer/cli.rst \
+	developer/conf.py \
+	developer/draft-zebra-00.ms \
 	developer/hooks.rst \
-	developer/OSPF-API.md \
+	developer/index.rst \
+	developer/ldpd-basic-test-setup.md \
+	developer/library.rst \
+	developer/Makefile \
+	developer/memtypes.rst \
+	developer/modules.rst \
+	developer/next-hop-tracking.rst \
+	developer/ospf-api.rst \
+	developer/ospf.rst \
+	developer/ospf-sr.rst \
 	developer/workflow.rst \
-	developer/Building_FRR_on_Ubuntu1404.rst \
-	developer/Building_FRR_on_Alpine.rst \
-	user/ospf_fundamentals.rst \
-	user/routemap.rst \
-	user/index.rst \
-	user/conf.py \
-	user/ipv6.rst \
-	user/ripd.rst \
-	user/vnc.rst \
-	user/zebra.rst \
-	user/installation.rst \
-	user/overview.rst \
-	user/protocol.rst \
-	user/eigrpd.rst \
-	user/rpki.rst \
-	user/kernel.rst \
-	user/isisd.rst \
-	user/ospf6d.rst \
-	user/Useful_Sysctl_Settings.md \
-	user/basic.rst \
-	user/ospfd.rst \
-	user/vtysh.rst \
-	user/filter.rst \
-	user/nhrpd.rst \
-	user/Makefile \
-	user/routeserver.rst \
+	developer/zebra.rst \
 	user/appendix.rst \
-	user/bgp.rst \
 	user/babeld.rst \
-	user/snmp.rst \
-	user/pim.rst \
-	user/ripngd.rst \
-	user/snmptrap.rst \
+	user/basic.rst \
+	user/bgp.rst \
+	user/conf.py \
+	user/eigrpd.rst \
+	user/filter.rst \
 	user/glossary.rst \
+	user/index.rst \
+	user/installation.rst \
+	user/ipv6.rst \
+	user/isisd.rst \
+	user/kernel.rst \
+	user/Makefile \
+	user/nhrpd.rst \
+	user/ospf6d.rst \
+	user/ospfd.rst \
+	user/ospf_fundamentals.rst \
+	user/overview.rst \
+	user/pim.rst \
+	user/ripd.rst \
+	user/ripngd.rst \
+	user/routemap.rst \
+	user/routeserver.rst \
+	user/rpki.rst \
+	user/snmp.rst \
+	user/snmptrap.rst \
+	user/Useful_Sysctl_Settings.md \
+	user/vnc.rst \
+	user/vtysh.rst \
+	user/zebra.rst \
 	mpls/ChangeLog.opaque.txt \
 	mpls/ospfd.conf \
 	mpls/cli_summary.txt \
 	mpls/opaque_lsa.txt \
-	figures/frr-logo.png \
-	figures/fig-vnc-commercial-route-reflector.dia \
-	figures/ospf_api_msghdr.png \
-	figures/fig-normal-processing.txt \
-	figures/fig-vnc-gw-rr.txt \
-	figures/fig-vnc-mesh.dia \
-	figures/frr-logo-medium.png \
-	figures/git_branches.svg \
-	figures/fig-vnc-commercial-route-reflector.txt \
-	figures/fig_topologies_rs.txt \
-	figures/git_branches.png \
-	figures/fig-vnc-mesh.txt \
-	figures/ospf_api_msgs1.png \
-	figures/fig-vnc-redundant-route-reflectors.txt \
-	figures/fig-vnc-commercial-route-reflector.png \
-	figures/fig-vnc-gw.png \
-	figures/fig_topologies_rs.png \
-	figures/fig_topologies_full.txt \
-	figures/fig-vnc-frr-route-reflector.txt \
+	figures/cligraph.png \
+	figures/cligraph.svg \
 	figures/fig-normal-processing.dia \
-	figures/fig-vnc-redundant-route-reflectors.png \
-	figures/fig-vnc-frr-route-reflector.dia \
-	figures/fig_topologies_full.png \
-	figures/fig-vnc-redundant-route-reflectors.dia \
 	figures/fig-normal-processing.png \
+	figures/fig-normal-processing.txt \
 	figures/fig-rs-processing.dia \
-	figures/ospf_api_msgs2.png \
-	figures/fig-vnc-gw.dia \
-	figures/fig-rs-processing.txt \
-	figures/frr-logo-icon.png \
-	figures/ospf_api_architecture.png \
-	figures/fig-vnc-gw.txt \
 	figures/fig-rs-processing.png \
-	figures/frr-icon.svg \
-	figures/fig_topologies_rs.dia \
-	figures/fig-vnc-frr-route-reflector.png \
-	figures/fig-vnc-gw-rr.png \
-	figures/fig-vnc-gw-rr.dia \
+	figures/fig-rs-processing.txt \
 	figures/fig_topologies_full.dia \
+	figures/fig_topologies_full.png \
+	figures/fig_topologies_full.txt \
+	figures/fig_topologies_rs.dia \
+	figures/fig_topologies_rs.png \
+	figures/fig_topologies_rs.txt \
+	figures/fig-vnc-commercial-route-reflector.dia \
+	figures/fig-vnc-commercial-route-reflector.png \
+	figures/fig-vnc-commercial-route-reflector.txt \
+	figures/fig-vnc-frr-route-reflector.dia \
+	figures/fig-vnc-frr-route-reflector.png \
+	figures/fig-vnc-frr-route-reflector.txt \
+	figures/fig-vnc-gw.dia \
+	figures/fig-vnc-gw.png \
+	figures/fig-vnc-gw-rr.dia \
+	figures/fig-vnc-gw-rr.png \
+	figures/fig-vnc-gw-rr.txt \
+	figures/fig-vnc-gw.txt \
+	figures/fig-vnc-mesh.dia \
+	figures/fig-vnc-mesh.png \
+	figures/fig-vnc-mesh.txt \
+	figures/fig-vnc-redundant-route-reflectors.dia \
+	figures/fig-vnc-redundant-route-reflectors.png \
+	figures/fig-vnc-redundant-route-reflectors.txt \
+	figures/frr-icon.svg \
+	figures/frr-logo-icon.png \
+	figures/frr-logo-medium.png \
+	figures/frr-logo.png \
 	figures/frr-logo-small.png \
-	figures/fig-vnc-mesh.png
+	figures/git_branches.png \
+	figures/git_branches.svg \
+	figures/ospf_api_architecture.png \
+	figures/ospf_api_msghdr.png \
+	figures/ospf_api_msgs1.png \
+	figures/ospf_api_msgs2.png

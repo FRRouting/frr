@@ -5,9 +5,8 @@ Welcome to FRR's documentation!
    :maxdepth: 2
 
    workflow
+   building
    library
    bgpd
-   building
-   ospf-api
-   ospf-sr
-
+   ospf
+   zebra
