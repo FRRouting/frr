@@ -73,6 +73,13 @@ static void mtrace_debug(struct pim_interface *pim_ifp,
 	char dst_str[INET_ADDRSTRLEN];
 	char rsp_str[INET_ADDRSTRLEN];
 
+	struct in_addr ga, sa, da, ra;
+
+	ga = mtracep->grp_addr;
+	sa = mtracep->src_addr;
+	da = mtracep->dst_addr;
+	ra = mtracep->rsp_addr;
+
 	zlog_debug(
 		"Rx mtrace packet incoming on %s: "
 		"hops=%d type=%d size=%d, grp=%s, src=%s,"
@@ -80,13 +87,13 @@ static void mtrace_debug(struct pim_interface *pim_ifp,
 		inet_ntop(AF_INET, &(pim_ifp->primary_address), inc_str,
 			  sizeof(inc_str)),
 		mtracep->hops, mtracep->type, mtrace_len,
-		inet_ntop(AF_INET, &(mtracep->grp_addr), grp_str,
+		inet_ntop(AF_INET, &ga, grp_str,
 			  sizeof(grp_str)),
-		inet_ntop(AF_INET, &(mtracep->src_addr), src_str,
+		inet_ntop(AF_INET, &sa, src_str,
 			  sizeof(src_str)),
-		inet_ntop(AF_INET, &(mtracep->dst_addr), dst_str,
+		inet_ntop(AF_INET, &da, dst_str,
 			  sizeof(dst_str)),
-		inet_ntop(AF_INET, &(mtracep->rsp_addr), rsp_str,
+		inet_ntop(AF_INET, &ra, rsp_str,
 			  sizeof(rsp_str)),
 		mtracep->rsp_ttl, ntohl(mtracep->qry_id));
 	if (mtrace_len > (int)sizeof(struct igmp_mtrace)) {
