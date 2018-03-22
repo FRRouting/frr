@@ -412,7 +412,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	isis_circuit_if_bind(circuit, ifp);
 
 	if (if_is_broadcast(ifp)) {
-		if (circuit->circ_type_config == CIRCUIT_T_P2P)
+		if (fabricd || circuit->circ_type_config == CIRCUIT_T_P2P)
 			circuit->circ_type = CIRCUIT_T_P2P;
 		else
 			circuit->circ_type = CIRCUIT_T_BROADCAST;
@@ -976,14 +976,16 @@ int isis_interface_config_write(struct vty *vty)
 			}
 
 			/* ISIS - circuit type */
-			if (circuit->is_type == IS_LEVEL_1) {
-				vty_out(vty, " " PROTO_NAME " circuit-type level-1\n");
-				write++;
-			} else {
-				if (circuit->is_type == IS_LEVEL_2) {
-					vty_out(vty,
-						" " PROTO_NAME " circuit-type level-2-only\n");
+			if (!fabricd) {
+				if (circuit->is_type == IS_LEVEL_1) {
+					vty_out(vty, " " PROTO_NAME " circuit-type level-1\n");
 					write++;
+				} else {
+					if (circuit->is_type == IS_LEVEL_2) {
+						vty_out(vty,
+							" " PROTO_NAME " circuit-type level-2-only\n");
+						write++;
+					}
 				}
 			}
 

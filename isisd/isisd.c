@@ -105,10 +105,13 @@ struct isis_area *isis_area_create(const char *area_tag)
 	area = XCALLOC(MTYPE_ISIS_AREA, sizeof(struct isis_area));
 
 	/*
-	 * The first instance is level-1-2 rest are level-1, unless otherwise
-	 * configured
+	 * Fabricd runs only as level-2.
+	 * For IS-IS, the first instance is level-1-2 rest are level-1,
+	 * unless otherwise configured
 	 */
-	if (listcount(isis->area_list) > 0)
+	if (fabricd) {
+		area->is_type = IS_LEVEL_2;
+	} else if (listcount(isis->area_list) > 0)
 		area->is_type = IS_LEVEL_1;
 	else
 		area->is_type = IS_LEVEL_1_AND_2;
@@ -1896,16 +1899,18 @@ int isis_config_write(struct vty *vty)
 				write++;
 			}
 			/* ISIS - Metric-Style - when true displays wide */
-			if (area->newmetric) {
-				if (!area->oldmetric)
-					vty_out(vty, " metric-style wide\n");
-				else
-					vty_out(vty,
-						" metric-style transition\n");
-				write++;
-			} else {
-				vty_out(vty, " metric-style narrow\n");
-				write++;
+			if (!fabricd) {
+				if (area->newmetric) {
+					if (!area->oldmetric)
+						vty_out(vty, " metric-style wide\n");
+					else
+						vty_out(vty,
+							" metric-style transition\n");
+					write++;
+				} else {
+					vty_out(vty, " metric-style narrow\n");
+					write++;
+				}
 			}
 			/* ISIS - overload-bit */
 			if (area->overload_bit) {
@@ -1913,12 +1918,14 @@ int isis_config_write(struct vty *vty)
 				write++;
 			}
 			/* ISIS - Area is-type (level-1-2 is default) */
-			if (area->is_type == IS_LEVEL_1) {
-				vty_out(vty, " is-type level-1\n");
-				write++;
-			} else if (area->is_type == IS_LEVEL_2) {
-				vty_out(vty, " is-type level-2-only\n");
-				write++;
+			if (!fabricd) {
+				if (area->is_type == IS_LEVEL_1) {
+					vty_out(vty, " is-type level-1\n");
+					write++;
+				} else if (area->is_type == IS_LEVEL_2) {
+					vty_out(vty, " is-type level-2-only\n");
+					write++;
+				}
 			}
 			write += isis_redist_config_write(vty, area, AF_INET);
 			write += isis_redist_config_write(vty, area, AF_INET6);
