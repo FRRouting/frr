@@ -186,7 +186,6 @@ int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
-void isis_vty_init(void);
 
 /* Master of threads. */
 extern struct thread_master *master;

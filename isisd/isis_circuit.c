@@ -1343,8 +1343,6 @@ void isis_circuit_init()
 	/* Install interface node */
 	install_node(&interface_node, isis_interface_config_write);
 	if_cmd_init();
-
-	isis_vty_init();
 }
 
 void isis_circuit_schedule_lsp_send(struct isis_circuit *circuit)

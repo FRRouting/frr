@@ -515,13 +515,19 @@ void isis_redist_area_finish(struct isis_area *area)
 
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
-       "redistribute <ipv4|ipv6> " PROTO_REDIST_STR " <level-1|level-2> [<metric (0-16777215)|route-map WORD>]",
+       "redistribute <ipv4|ipv6> " PROTO_REDIST_STR
+#ifndef FABRICD
+       " <level-1|level-2>"
+#endif
+       " [<metric (0-16777215)|route-map WORD>]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
        PROTO_REDIST_HELP
+#ifndef FABRICD
        "Redistribute into level-1\n"
        "Redistribute into level-2\n"
+#endif
        "Metric for redistributed routes\n"
        "ISIS default metric\n"
        "Route map reference\n"
@@ -530,7 +536,7 @@ DEFUN (isis_redistribute,
 	int idx_afi = 1;
 	int idx_protocol = 2;
 	int idx_level = 3;
-	int idx_metric_rmap = 4;
+	int idx_metric_rmap = fabricd ? 3 : 4;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	int family;
 	int afi;
@@ -551,7 +557,9 @@ DEFUN (isis_redistribute,
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (!strcmp("level-1", argv[idx_level]->arg))
+	if (fabricd)
+		level = 2;
+	else if (!strcmp("level-1", argv[idx_level]->arg))
 		level = 1;
 	else if (!strcmp("level-2", argv[idx_level]->arg))
 		level = 2;
@@ -585,14 +593,20 @@ DEFUN (isis_redistribute,
 
 DEFUN (no_isis_redistribute,
        no_isis_redistribute_cmd,
-       "no redistribute <ipv4|ipv6> " PROTO_REDIST_STR " <level-1|level-2>",
-       NO_STR
+       "no redistribute <ipv4|ipv6> " PROTO_REDIST_STR
+#ifndef FABRICD
+       " <level-1|level-2>"
+#endif
+       , NO_STR
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
        PROTO_REDIST_HELP
+#ifndef FABRICD
        "Redistribute into level-1\n"
-       "Redistribute into level-2\n")
+       "Redistribute into level-2\n"
+#endif
+       )
 {
 	int idx_afi = 2;
 	int idx_protocol = 3;
@@ -615,7 +629,10 @@ DEFUN (no_isis_redistribute,
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	level = strmatch("level-1", argv[idx_level]->text) ? 1 : 2;
+	if (fabricd)
+		level = 2;
+	else
+		level = strmatch("level-1", argv[idx_level]->text) ? 1 : 2;
 
 	isis_redist_unset(area, level, family, type);
 	return 0;
@@ -623,13 +640,19 @@ DEFUN (no_isis_redistribute,
 
 DEFUN (isis_default_originate,
        isis_default_originate_cmd,
-       "default-information originate <ipv4|ipv6> <level-1|level-2> [always] [<metric (0-16777215)|route-map WORD>]",
+       "default-information originate <ipv4|ipv6>"
+#ifndef FABRICD
+       " <level-1|level-2>"
+#endif
+       " [always] [<metric (0-16777215)|route-map WORD>]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
        "Distribute default route for IPv6\n"
+#ifndef FABRICD
        "Distribute default route into level-1\n"
        "Distribute default route into level-2\n"
+#endif
        "Always advertise default route\n"
        "Metric for default route\n"
        "ISIS default metric\n"
@@ -638,8 +661,8 @@ DEFUN (isis_default_originate,
 {
 	int idx_afi = 2;
 	int idx_level = 3;
-	int idx_always = 4;
-	int idx_metric_rmap = 4;
+	int idx_always = fabricd ? 3 : 4;
+	int idx_metric_rmap = fabricd ? 3 : 4;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	int family;
 	int originate_type = DEFAULT_ORIGINATE;
@@ -651,7 +674,10 @@ DEFUN (isis_default_originate,
 	if (family < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	level = strmatch("level-1", argv[idx_level]->text) ? 1 : 2;
+	if (fabricd)
+		level = 2;
+	else
+		level = strmatch("level-1", argv[idx_level]->text) ? 1 : 2;
 
 	if ((area->is_type & level) != level) {
 		vty_out(vty, "Node is not a level-%d IS\n", level);
@@ -685,14 +711,20 @@ DEFUN (isis_default_originate,
 
 DEFUN (no_isis_default_originate,
        no_isis_default_originate_cmd,
-       "no default-information originate <ipv4|ipv6> <level-1|level-2>",
-       NO_STR
+       "no default-information originate <ipv4|ipv6>"
+#ifndef FABRICD
+       " <level-1|level-2>"
+#endif
+       , NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
        "Distribute default route for IPv6\n"
+#ifndef FABRICD
        "Distribute default route into level-1\n"
-       "Distribute default route into level-2\n")
+       "Distribute default route into level-2\n"
+#endif
+       )
 {
 	int idx_afi = 3;
 	int idx_level = 4;
@@ -704,7 +736,9 @@ DEFUN (no_isis_default_originate,
 	if (family < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (strmatch("level-1", argv[idx_level]->text))
+	if (fabricd)
+		level = 2;
+	else if (strmatch("level-1", argv[idx_level]->text))
 		level = 1;
 	else if (strmatch("level-2", argv[idx_level]->text))
 		level = 2;
@@ -739,8 +773,10 @@ int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 			redist = get_redist_settings(area, family, type, level);
 			if (!redist->redist)
 				continue;
-			vty_out(vty, " redistribute %s %s level-%d", family_str,
-				zebra_route_string(type), level);
+			vty_out(vty, " redistribute %s %s", family_str,
+				zebra_route_string(type));
+			if (!fabricd)
+				vty_out(vty, " level-%d", level);
 			if (redist->metric)
 				vty_out(vty, " metric %u", redist->metric);
 			if (redist->map_name)
@@ -755,8 +791,10 @@ int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 			get_redist_settings(area, family, DEFAULT_ROUTE, level);
 		if (!redist->redist)
 			continue;
-		vty_out(vty, " default-information originate %s level-%d",
-			family_str, level);
+		vty_out(vty, " default-information originate %s",
+			family_str);
+		if (!fabricd)
+			vty_out(vty, " level-%d", level);
 		if (redist->redist == DEFAULT_ORIGINATE_ALWAYS)
 			vty_out(vty, " always");
 		if (redist->metric)

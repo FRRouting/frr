@@ -67,17 +67,6 @@ const char *mode2text[] = {"Disable", "Area", "AS", "Emulate"};
  * Followings are control functions for MPLS-TE parameters management.
  *------------------------------------------------------------------------*/
 
-/* Search MPLS TE Circuit context from Interface */
-static struct mpls_te_circuit *lookup_mpls_params_by_ifp(struct interface *ifp)
-{
-	struct isis_circuit *circuit;
-
-	if ((circuit = circuit_scan_by_ifp(ifp)) == NULL)
-		return NULL;
-
-	return circuit->mtc;
-}
-
 /* Create new MPLS TE Circuit context */
 struct mpls_te_circuit *mpls_te_circuit_new()
 {
@@ -1085,6 +1074,18 @@ void isis_mpls_te_config_write_router(struct vty *vty)
 /*------------------------------------------------------------------------*
  * Followings are vty command functions.
  *------------------------------------------------------------------------*/
+#ifndef FABRICD
+
+/* Search MPLS TE Circuit context from Interface */
+static struct mpls_te_circuit *lookup_mpls_params_by_ifp(struct interface *ifp)
+{
+	struct isis_circuit *circuit;
+
+	if ((circuit = circuit_scan_by_ifp(ifp)) == NULL)
+		return NULL;
+
+	return circuit->mtc;
+}
 
 DEFUN (isis_mpls_te_on,
        isis_mpls_te_on_cmd,
@@ -1342,6 +1343,7 @@ DEFUN (show_isis_mpls_te_interface,
 
 	return CMD_SUCCESS;
 }
+#endif
 
 /* Initialize MPLS_TE */
 void isis_mpls_te_init(void)
@@ -1357,6 +1359,7 @@ void isis_mpls_te_init(void)
 	isisMplsTE.cir_list = list_new();
 	isisMplsTE.router_id.s_addr = 0;
 
+#ifndef FABRICD
 	/* Register new VTY commands */
 	install_element(VIEW_NODE, &show_isis_mpls_te_router_cmd);
 	install_element(VIEW_NODE, &show_isis_mpls_te_interface_cmd);
@@ -1366,6 +1369,7 @@ void isis_mpls_te_init(void)
 	install_element(ROUTER_NODE, &isis_mpls_te_router_addr_cmd);
 	install_element(ROUTER_NODE, &isis_mpls_te_inter_as_cmd);
 	install_element(ROUTER_NODE, &no_isis_mpls_te_inter_as_cmd);
+#endif
 
 	return;
 }

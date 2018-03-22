@@ -14,34 +14,6 @@ sbin_PROGRAMS += isisd/fabricd
 dist_examples_DATA += isisd/fabricd.conf.sample
 endif
 
-isisd_libisis_a_SOURCES = \
-	isisd/dict.c \
-	isisd/isis_adjacency.c \
-	isisd/isis_circuit.c \
-	isisd/isis_csm.c \
-	isisd/isis_dr.c \
-	isisd/isis_dynhn.c \
-	isisd/isis_errors.c \
-	isisd/isis_events.c \
-	isisd/isis_flags.c \
-	isisd/isis_lsp.c \
-	isisd/isis_lsp_hash.c \
-	isisd/isis_memory.c \
-	isisd/isis_misc.c \
-	isisd/isis_mt.c \
-	isisd/isis_pdu.c \
-	isisd/isis_redist.c \
-	isisd/isis_route.c \
-	isisd/isis_routemap.c \
-	isisd/isis_spf.c \
-	isisd/isis_te.c \
-	isisd/isis_tlvs.c \
-	isisd/isis_vty.c \
-	isisd/isis_zebra.c \
-	isisd/isisd.c \
-	isisd/iso_checksum.c \
-	# end
-
 noinst_HEADERS += \
 	isisd/dict.h \
 	isisd/isis_adjacency.h \
@@ -67,24 +39,67 @@ noinst_HEADERS += \
 	isisd/isis_spf.h \
 	isisd/isis_te.h \
 	isisd/isis_tlvs.h \
+	isisd/isis_vty_common.h \
 	isisd/isis_zebra.h \
 	isisd/isisd.h \
 	isisd/iso_checksum.h \
 	# end
 
-isisd_isisd_LDADD = isisd/libisis.a lib/libfrr.la @LIBCAP@
-isisd_isisd_SOURCES = \
+LIBISIS_SOURCES = \
+	isisd/dict.c \
+	isisd/isis_adjacency.c \
+	isisd/isis_circuit.c \
+	isisd/isis_csm.c \
+	isisd/isis_dr.c \
+	isisd/isis_dynhn.c \
+	isisd/isis_errors.c \
+	isisd/isis_events.c \
+	isisd/isis_flags.c \
+	isisd/isis_lsp.c \
+	isisd/isis_lsp_hash.c \
+	isisd/isis_memory.c \
+	isisd/isis_misc.c \
+	isisd/isis_mt.c \
+	isisd/isis_pdu.c \
+	isisd/isis_redist.c \
+	isisd/isis_route.c \
+	isisd/isis_routemap.c \
+	isisd/isis_spf.c \
+	isisd/isis_te.c \
+	isisd/isis_tlvs.c \
+	isisd/isis_vty_common.c \
+	isisd/isis_zebra.c \
+	isisd/isisd.c \
+	isisd/iso_checksum.c \
+	# end
+
+ISIS_SOURCES = \
 	isisd/isis_bpf.c \
 	isisd/isis_dlpi.c \
 	isisd/isis_main.c \
 	isisd/isis_pfpacket.c \
 	# end
 
+ISIS_LDADD_COMMON = lib/libfrr.la @LIBCAP@
+
+# Building isisd
+
+isisd_libisis_a_SOURCES = \
+	$(LIBISIS_SOURCES) \
+	isisd/isis_vty_isisd.c \
+	#end
+isisd_isisd_LDADD = isisd/libisis.a $(ISIS_LDADD_COMMON)
+isisd_isisd_SOURCES = $(ISIS_SOURCES)
+
+# Building fabricd
+
 FABRICD_CPPFLAGS = -DFABRICD=1 $(AM_CPPFLAGS)
 
-isisd_libfabric_a_SOURCES = $(isisd_libisis_a_SOURCES)
+isisd_libfabric_a_SOURCES = \
+	$(LIBISIS_SOURCES) \
+	isisd/isis_vty_fabricd.c \
+	#end
 isisd_libfabric_a_CPPFLAGS = $(FABRICD_CPPFLAGS)
-
-isisd_fabricd_LDADD = isisd/libfabric.a lib/libfrr.la @LIBCAP@
-isisd_fabricd_SOURCES = $(isisd_isisd_SOURCES)
+isisd_fabricd_LDADD = isisd/libfabric.a $(ISIS_LDADD_COMMON)
+isisd_fabricd_SOURCES = $(ISIS_SOURCES)
 isisd_fabricd_CPPFLAGS = $(FABRICD_CPPFLAGS)

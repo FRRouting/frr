@@ -201,9 +201,20 @@ sub scan_file {
 }
 
 foreach (@ARGV) {
-    scan_file($_, 0);
     if (/\/isisd\//) {
-        scan_file($_, 1);
+        # We scan all the IS-IS files twice, once for isisd,
+        # once for fabricd. Exceptions are made for the files
+        # that are not shared between the two.
+        if (/isis_vty_isisd.c/) {
+            scan_file($_, 0);
+        } elsif (/isis_vty_fabricd.c/) {
+            scan_file($_, 1);
+        } else {
+            scan_file($_, 0);
+            scan_file($_, 1);
+        }
+    } else {
+        scan_file($_, 0);
     }
 }
 

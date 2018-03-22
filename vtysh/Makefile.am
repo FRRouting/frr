@@ -64,7 +64,9 @@ if ISISD
 vtysh_scan += $(top_srcdir)/isisd/isis_redist.c
 vtysh_scan += $(top_srcdir)/isisd/isis_spf.c
 vtysh_scan += $(top_srcdir)/isisd/isis_te.c
-vtysh_scan += $(top_srcdir)/isisd/isis_vty.c
+vtysh_scan += $(top_srcdir)/isisd/isis_vty_common.c
+vtysh_scan += $(top_srcdir)/isisd/isis_vty_fabricd.c
+vtysh_scan += $(top_srcdir)/isisd/isis_vty_isisd.c
 vtysh_scan += $(top_srcdir)/isisd/isisd.c
 endif
 

@@ -114,10 +114,10 @@ struct isis_circuit {
 	struct isis_passwd passwd;     /* Circuit rx/tx password */
 	int is_type;		       /* circuit is type == level of circuit
 					* differentiated from circuit type (media) */
-	uint32_t hello_interval[2];    /* l1HelloInterval in msecs */
-	uint16_t hello_multiplier[2];  /* l1HelloMultiplier */
-	uint16_t csnp_interval[2];     /* level-1 csnp-interval in seconds */
-	uint16_t psnp_interval[2];     /* level-1 psnp-interval in seconds */
+	uint32_t hello_interval[2];   /* hello-interval in seconds */
+	uint16_t hello_multiplier[2]; /* hello-multiplier */
+	uint16_t csnp_interval[2];    /* csnp-interval in seconds */
+	uint16_t psnp_interval[2];    /* psnp-interval in seconds */
 	uint8_t metric[2];
 	uint32_t te_metric[2];
 	struct mpls_te_circuit
