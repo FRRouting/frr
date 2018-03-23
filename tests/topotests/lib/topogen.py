@@ -132,9 +132,9 @@ class Topogen(object):
 
         # Test for MPLS Kernel modules available
         self.hasmpls = False
-        if os.system('/sbin/modprobe mpls-router') != 0:
+        if not topotest.module_present('mpls-router'):
             logger.info('MPLS tests will not run (missing mpls-router kernel module)')
-        elif os.system('/sbin/modprobe mpls-iptunnel') != 0:
+        elif not topotest.module_present('mpls-iptunnel'):
             logger.info('MPLS tests will not run (missing mpls-iptunnel kernel module)')
         else:
             self.hasmpls = True
@@ -1039,9 +1039,9 @@ def diagnose_env():
         logger.info('LDPd tests will not run (have kernel "{}", but it requires 4.5)'.format(krel))
 
     # Test for MPLS Kernel modules available
-    if os.system('/sbin/modprobe -n mpls-router') != 0:
+    if not topotest.module_present('mpls-router', load=False) != 0:
         logger.info('LDPd tests will not run (missing mpls-router kernel module)')
-    if os.system('/sbin/modprobe -n mpls-iptunnel') != 0:
+    if not topotest.module_present('mpls-iptunnel', load=False) != 0:
         logger.info('LDPd tests will not run (missing mpls-iptunnel kernel module)')
 
     # TODO remove me when we start supporting exabgp >= 4

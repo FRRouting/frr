@@ -265,6 +265,22 @@ def normalize_text(text):
     text = re.sub(r'\r', '', text)
     return text
 
+def module_present(module, load=True):
+    """
+    Returns whether `module` is present.
+
+    If `load` is true, it will try to load it via modprobe.
+    """
+    with open('/proc/modules', 'r') as modules_file:
+        if module.replace('-','_') in modules_file.read():
+            return True
+    cmd = '/sbin/modprobe {}{}'.format('' if load else '-n ',
+                                       module)
+    if os.system(cmd) != 0:
+        return False
+    else:
+        return True
+
 def version_cmp(v1, v2):
     """
     Compare two version strings and returns:
@@ -673,9 +689,9 @@ class Router(Node):
             else:
                 # Test for MPLS Kernel modules available
                 self.hasmpls = False
-                if os.system('/sbin/modprobe mpls-router') != 0:
+                if not module_present('mpls-router'):
                     logger.info('MPLS tests will not run (missing mpls-router kernel module)')
-                elif os.system('/sbin/modprobe mpls-iptunnel') != 0:
+                elif not module_present('mpls-iptunnel'):
                     logger.info('MPLS tests will not run (missing mpls-iptunnel kernel module)')
                 else:
                     self.hasmpls = True
@@ -884,12 +900,12 @@ class Router(Node):
         if (daemon == 'ldpd'):
             if version_cmp(platform.release(), '4.5') < 0:
                 return False
-            if self.cmd('/sbin/modprobe -n mpls-router' ) != "":
+            if not module_present('mpls-router', load=False):
                 return False
-            if self.cmd('/sbin/modprobe -n mpls-iptunnel') != "":
+            if not module_present('mpls-iptunnel', load=False):
                 return False
-
         return True
+
     def get_routertype(self):
         "Return the type of Router (frr or quagga)"
 
