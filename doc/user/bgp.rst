@@ -604,9 +604,8 @@ Defining Peer
 .. index:: neighbor PEER remote-as ASN
 .. clicmd:: neighbor PEER remote-as ASN
 
-
    Creates a new neighbor whose remote-as is ASN. PEER can be an IPv4 address
-   or an IPv6 address.::
+   or an IPv6 address or an interface to use for the connection.::
 
       router bgp 1
        neighbor 10.0.0.1 remote-as 2
@@ -618,6 +617,19 @@ Defining Peer
 
       can't find neighbor 10.0.0.1
 
+.. index:: neighbor PEER remote-as internal
+.. clicmd:: neighbor PEER remote-as internal
+
+   Create a peer as you would when you specify an ASN, except that if the
+   peers ASN is different than mine as specified under the :clicmd:`router bgp ASN`
+   command the connection will be denied.
+
+.. index:: neighbor PEER remote-as external
+.. clicmd:: neighbor PEER remote-as external
+
+   Create a peer as you would when you specify an ASN, except that if the
+   peers ASN is the same as mine as specified under the :clicmd:`router bgp ASN`
+   command the connection will be denied.
 
 .. _bgp-peer-commands:
 
@@ -2076,18 +2088,8 @@ How to set up a 6-Bone connection
 
 ::
 
-   zebra configuration
-   ===================
-   !
-   ! Actually there is no need to configure zebra
-   !
-
    bgpd configuration
    ==================
-   !
-   ! This means that routes go through zebra and into the kernel.
-   !
-   router zebra
    !
    ! MP-BGP configuration
    !
@@ -2112,8 +2114,6 @@ How to set up a 6-Bone connection
     set ipv6 nexthop global 3ffe:1cfa:0:2:2c0:4fff:fe68:a225
     set ipv6 nexthop local fe80::2c0:4fff:fe68:a225
    !
-   ! logfile FILENAME is obsolete. Please use log file FILENAME
-
    log file bgpd.log
    !
 
