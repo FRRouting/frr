@@ -198,7 +198,42 @@ Route Map Set Command
 .. index:: set ip next-hop IPV4_ADDRESS
 .. clicmd:: set ip next-hop IPV4_ADDRESS
 
-   Set the BGP nexthop address.
+   Set the BGP nexthop address to the specified IPV4_ADDRESS.  For both
+   incoming and outgoing route-maps.
+
+.. index:: set ip next-hop peer-address
+.. clicmd:: set ip next-hop peer-address
+
+   Set the BGP nexthop address to the address of the peer.  For an incoming
+   route-map this means the ip address of our peer is used.  For an outgoing
+   route-map this means the ip address of our self is used to establish the
+   peering with our neighbor.
+
+.. index:: set ip next-hop unchanged
+.. clicmd:: set ip next-hop unchanged
+
+   Set the route-map as unchanged.  Pass the route-map through without
+   changing it's value.
+
+.. index:: set ipv6 next-hop peer-address
+.. clicmd:: set ipv6 next-hop peer-address
+
+   Set the BGP nexthop address to the address of the peer.  For an incoming
+   route-map this means the ipv6 address of our peer is used.  For an outgoing
+   route-map this means the ip address of our self is used to establish the
+   peering with our neighbor.
+
+.. index:: set ipv6 next-hop prefer-global
+.. clicmd:: set ipv6 next-hop prefer-global
+
+   For Incoming and Import Route-maps if we receive a v6 global and v6 LL
+   address for the route, then prefer to use the global address as the nexthop.
+
+.. index:: set ipv6 next-hop global IPV6_ADDRESS
+.. clicmd:: set ipv6 next-hop global IPV6_ADDRESS
+
+   Set the next-hop to the specified IPV6_ADDRESS.  For both incoming and
+   outgoing route-maps.
 
 .. index:: set local-preference LOCAL_PREF
 .. clicmd:: set local-preference LOCAL_PREF
