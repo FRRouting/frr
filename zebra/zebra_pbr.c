@@ -99,6 +99,36 @@ int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 	return 1;
 }
 
+struct pbr_unique_lookup {
+	struct zebra_pbr_rule *rule;
+	uint32_t unique;
+};
+
+static int pbr_rule_lookup_unique_walker(struct hash_backet *b, void *data)
+{
+	struct pbr_unique_lookup *pul = data;
+	struct zebra_pbr_rule *rule = b->data;
+
+	if (pul->unique == rule->unique) {
+		pul->rule = rule;
+		return HASHWALK_ABORT;
+	}
+
+	return HASHWALK_CONTINUE;
+}
+
+static struct zebra_pbr_rule *pbr_rule_lookup_unique(struct zebra_ns *zns,
+						     uint32_t unique)
+{
+	struct pbr_unique_lookup pul;
+
+	pul.unique = unique;
+	pul.rule = NULL;
+	hash_walk(zns->rules_hash, &pbr_rule_lookup_unique_walker, &pul);
+
+	return pul.rule;
+}
+
 static void *pbr_rule_alloc_intern(void *arg)
 {
 	struct zebra_pbr_rule *zpr;
@@ -115,8 +145,18 @@ static void *pbr_rule_alloc_intern(void *arg)
 
 void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 {
+	struct zebra_pbr_rule *unique =
+		pbr_rule_lookup_unique(zns, rule->unique);
+
 	(void)hash_get(zns->rules_hash, rule, pbr_rule_alloc_intern);
 	kernel_add_pbr_rule(rule);
+
+	/*
+	 * Rule Replace semantics, if we have an old, install the
+	 * new rule, look above, and then delete the old
+	 */
+	if (unique)
+		zebra_pbr_del_rule(zns, unique);
 }
 
 void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
@@ -126,9 +166,10 @@ void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 	lookup = hash_lookup(zns->rules_hash, rule);
 	kernel_del_pbr_rule(rule);
 
-	if (lookup)
+	if (lookup) {
+		hash_release(zns->rules_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
-	else
+	} else
 		zlog_warn("%s: Rule being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
 }
@@ -142,6 +183,7 @@ static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
 	if (rule->sock == *sock) {
 		kernel_del_pbr_rule(rule);
 		hash_release(zns->rules_hash, rule);
+		XFREE(MTYPE_TMP, rule);
 	}
 }
 
