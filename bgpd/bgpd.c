@@ -2905,9 +2905,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
 
 	FOREACH_AFI_SAFI (afi, safi) {
-		bgp->route[afi][safi] = bgp_table_init(afi, safi);
-		bgp->aggregate[afi][safi] = bgp_table_init(afi, safi);
-		bgp->rib[afi][safi] = bgp_table_init(afi, safi);
+		bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
+		bgp->aggregate[afi][safi] = bgp_table_init(bgp, afi, safi);
+		bgp->rib[afi][safi] = bgp_table_init(bgp, afi, safi);
 
 		/* Enable maximum-paths */
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP,

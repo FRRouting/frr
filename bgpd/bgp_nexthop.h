@@ -52,6 +52,7 @@ struct bgp_nexthop_cache {
 #define BGP_NEXTHOP_PEER_NOTIFIED     (1 << 3)
 #define BGP_STATIC_ROUTE              (1 << 4)
 #define BGP_STATIC_ROUTE_EXACT_MATCH  (1 << 5)
+#define BGP_NEXTHOP_LABELED_VALID     (1 << 6)
 
 	uint16_t change_flags;
 

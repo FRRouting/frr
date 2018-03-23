@@ -26,6 +26,9 @@
 #include "queue.h"
 
 struct bgp_table {
+	/* table belongs to this instance */
+	struct bgp *bgp;
+
 	/* afi/safi of this table */
 	afi_t afi;
 	safi_t safi;
@@ -75,7 +78,7 @@ typedef struct bgp_table_iter_t_ {
 	route_table_iter_t rt_iter;
 } bgp_table_iter_t;
 
-extern struct bgp_table *bgp_table_init(afi_t, safi_t);
+extern struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t, safi_t);
 extern void bgp_table_lock(struct bgp_table *);
 extern void bgp_table_unlock(struct bgp_table *);
 extern void bgp_table_finish(struct bgp_table **);
