@@ -206,7 +206,7 @@ static int zebra_ns_notify_read(struct thread *t)
 
 		if (!(event->mask & (IN_CREATE | IN_DELETE)))
 			continue;
-		if (event->mask & (IN_DELETE))
+		if (event->mask & IN_DELETE)
 			return zebra_ns_delete(event->name);
 		netnspath = ns_netns_pathname(NULL, event->name);
 		if (!netnspath)
