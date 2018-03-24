@@ -332,16 +332,17 @@ def test_linux_ipv6_kernel_routingTable():
             for ll in linklocals:
                 actual = actual.replace(ll[1], "fe80::__(%s)__" % ll[0])
             # Mask out protocol name or number
-            actual = re.sub(r"[ ]+proto [0-9a-z]+ ", "  proto XXXX ", actual)
+            actual = re.sub(r"[ ]+proto [0-9a-z]+ +", "  proto XXXX ", actual)
             # Remove ff00::/8 routes (seen on some kernels - not from FRR)
             actual = re.sub(r'ff00::/8.*', '', actual)
 
             # Strip empty lines
             actual = actual.lstrip()
             actual = actual.rstrip()
+            actual = re.sub(r'  +', ' ', actual)
 
             # Fix newlines (make them all the same)
-            actual = ('\n'.join(actual.splitlines())).splitlines(1)
+            actual = ('\n'.join(sorted(actual.splitlines()))).splitlines(1)
 
             # Print Actual table
             # print("Router r%s table" % i)
