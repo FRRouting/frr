@@ -6601,9 +6601,17 @@ DEFPY (bgp_imexport_vrf,
 
 	vrf_bgp = bgp_lookup_by_name(import_name);
 	if (!vrf_bgp) {
-		vty_out(vty, "VRF %s is not configured as a bgp instance\n",
-			import_name);
-		return CMD_WARNING;
+		int32_t ret;
+		as_t as = bgp->as;
+
+		/* Auto-create assuming the same AS */
+		ret = bgp_get(&vrf_bgp, &as, import_name,
+			      BGP_INSTANCE_TYPE_VRF);
+		if (ret) {
+			vty_out(vty, "VRF %s is not configured as a bgp instance\n",
+				import_name);
+			return CMD_WARNING;
+		}
 	}
 
 	export_name = bgp->name ? bgp->name : VRF_DEFAULT_NAME;
