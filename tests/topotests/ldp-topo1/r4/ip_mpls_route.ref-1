@@ -1,7 +1,7 @@
-xx  proto xx
-	nexthopvia inet 10.0.2.2  dev r4-eth0 weight 1
-	nexthopvia inet 10.0.2.3  dev r4-eth0 weight 1
-xx as to xx via inet 10.0.2.2 dev r4-eth0  proto xx
-xx via inet 10.0.2.2 dev r4-eth0  proto xx
-xx via inet 10.0.2.2 dev r4-eth0  proto xx
-xx via inet 10.0.2.3 dev r4-eth0  proto xx
+xx proto xx
+	nexthopvia inet 10.0.2.2 dev r4-eth0
+	nexthopvia inet 10.0.2.3 dev r4-eth0
+xx as to xx via inet 10.0.2.2 dev r4-eth0 proto xx
+xx via inet 10.0.2.2 dev r4-eth0 proto xx
+xx via inet 10.0.2.2 dev r4-eth0 proto xx
+xx via inet 10.0.2.3 dev r4-eth0 proto xx

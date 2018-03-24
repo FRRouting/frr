@@ -693,62 +693,32 @@ def test_linux_mpls_routes():
             expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
             # Actual output from router
-            actual = net['r%s' % i].cmd('ip -family mpls route 2> /dev/null').rstrip()
-             # Mask out label
+            actual = net['r%s' % i].cmd('ip -o -family mpls route 2> /dev/null').rstrip()
+
+            # Mask out label and protocol
             actual = re.sub(r"[0-9][0-9] via inet ", "xx via inet ", actual)
-            actual = re.sub(r"[0-9][0-9]  proto", "xx  proto", actual)
+            actual = re.sub(r"[0-9][0-9] +proto", "xx  proto", actual)
             actual = re.sub(r"[0-9][0-9] as to ", "xx as to ", actual)
             actual = re.sub(r"[ ]+proto \w+", "  proto xx", actual)
- 
-            # Fix newlines (make them all the same)
-            actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
-            # Sort lines which start with "xx via inet "
-            pattern = r'^xx via inet '
-            swapped = True
-            while swapped:
-                swapped = False
-                for j in range(1, len(actual)):
-                    if re.search(pattern, actual[j]) and re.search(pattern, actual[j-1]):
-                        if actual[j-1] > actual[j]:
-                            temp = actual[j-1]
-                            actual[j-1] = actual[j]
-                            actual[j] = temp
-                            swapped = True
+            # Sort nexthops
+            nexthop_sorted = []
+            for line in actual.splitlines():
+                tokens = re.split(r'\\\t', line.strip())
+                nexthop_sorted.append('{} {}'.format(
+                    tokens[0].strip(),
+                    ' '.join([ token.strip() for token in sorted(tokens[1:]) ])
+                ).strip())
 
-            # Sort lines which start with "        nexthopvia"
-            pattern = r'^\snexthopvia '
-            swapped = True
-            while swapped:
-                swapped = False
-                for j in range(1, len(actual)):
-                    if re.search(pattern, actual[j]) and re.search(pattern, actual[j-1]):
-                        if actual[j-1] > actual[j]:
-                            temp = actual[j-1]
-                            actual[j-1] = actual[j]
-                            actual[j] = temp
-                            swapped = True
+            # Sort lines and fixup differences between old and new iproute
+            actual = '\n'.join(sorted(nexthop_sorted))
+            actual = re.sub(r"nexthop via", "nexthopvia", actual)
+            actual = re.sub(r" nexthop as to xx via inet ", " nexthopvia inet ", actual)
+            actual = re.sub(r" weight 1", "", actual)
+            actual = re.sub(r" [ ]+", " ", actual)
 
-            # Sort Sections of "xx  proto zebra" (with all the indented lines below)
-            pattern = r'^xx via inet '
-            # Join paragraphs first
-            j = 0           
-            temp = [actual[0].rstrip()]
-            for k in range(1, len(actual)):
-                if re.search(r'^\s', actual[k]):
-                    # Continue line
-                    temp[j] += '\n' + actual[k].rstrip()
-                else:
-                    j += 1
-                    temp.append(actual[k].rstrip())
-            # sort Array
-            temp.sort()
-            # Now write sort array back
-            actual = []
-            for k in range(0, len(temp)):
-                actual.extend(temp[k].splitlines())
             # put \n back at line ends
-            actual = ('\n'.join(actual) + '\n').splitlines(1)
+            actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
             # Generate Diff
             diff = topotest.get_textdiff(actual, expected,
