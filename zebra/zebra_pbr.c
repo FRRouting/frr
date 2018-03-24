@@ -335,20 +335,6 @@ static void *pbr_ipset_alloc_intern(void *arg)
 	return new;
 }
 
-static struct zebra_pbr_ipset *zpi_found;
-
-static int zebra_pbr_ipset_pername_walkcb(struct hash_backet *backet, void *arg)
-{
-	struct zebra_pbr_ipset  *zpi = (struct zebra_pbr_ipset *)backet->data;
-	char *ipset_name = (char *)arg;
-
-	if (!strncmp(ipset_name, zpi->ipset_name, ZEBRA_IPSET_NAME_SIZE)) {
-		zpi_found = zpi;
-		return HASHWALK_ABORT;
-	}
-	return HASHWALK_CONTINUE;
-}
-
 void zebra_pbr_create_ipset(struct zebra_ns *zns,
 			    struct zebra_pbr_ipset *ipset)
 {
@@ -375,14 +361,38 @@ void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
 			  __PRETTY_FUNCTION__);
 }
 
+struct pbr_ipset_name_lookup {
+	struct zebra_pbr_ipset *ipset;
+	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
+};
+
+static int zebra_pbr_ipset_pername_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct pbr_ipset_name_lookup *pinl =
+		(struct pbr_ipset_name_lookup *)arg;
+	struct zebra_pbr_ipset *zpi = (struct zebra_pbr_ipset *)backet->data;
+
+	if (!strncmp(pinl->ipset_name, zpi->ipset_name,
+		     ZEBRA_IPSET_NAME_SIZE)) {
+		pinl->ipset = zpi;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
 struct zebra_pbr_ipset *zebra_pbr_lookup_ipset_pername(struct zebra_ns *zns,
 						       char *ipsetname)
 {
+	struct pbr_ipset_name_lookup pinl;
+	struct pbr_ipset_name_lookup *ptr = &pinl;
+
 	if (!ipsetname)
 		return NULL;
-	zpi_found = NULL;
-	hash_walk(zns->ipset_hash, zebra_pbr_ipset_pername_walkcb, ipsetname);
-	return zpi_found;
+	memset(ptr, 0, sizeof(struct pbr_ipset_name_lookup));
+	snprintf((char *)ptr->ipset_name, ZEBRA_IPSET_NAME_SIZE, "%s",
+		ipsetname);
+	hash_walk(zns->ipset_hash, zebra_pbr_ipset_pername_walkcb, ptr);
+	return ptr->ipset;
 }
 
 static void *pbr_ipset_entry_alloc_intern(void *arg)
