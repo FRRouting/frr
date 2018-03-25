@@ -314,6 +314,21 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			return;
 		}
 
+		/*
+		 * This is the only place that we get the actual kernel table_id
+		 * being used.  We need it to set the table_id of the routes
+		 * we are passing to the kernel.... And to throw some totally
+		 * awesome parties. that too.
+		 *
+		 * At this point we *must* have a zvrf because the vrf_create
+		 * callback creates one.  We *must* set the table id
+		 * before the vrf_enable because of( at the very least )
+		 * static routes being delayed for installation until
+		 * during the vrf_enable callbacks.
+		 */
+		zvrf = (struct zebra_vrf *)vrf->info;
+		zvrf->table_id = nl_table_id;
+
 		/* Enable the created VRF. */
 		if (!vrf_enable(vrf)) {
 			zlog_err("Failed to enable VRF %s id %u", name,
@@ -321,14 +336,6 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			return;
 		}
 
-		/*
-		 * This is the only place that we get the actual kernel table_id
-		 * being used.  We need it to set the table_id of the routes
-		 * we are passing to the kernel.... And to throw some totally
-		 * awesome parties. that too.
-		 */
-		zvrf = (struct zebra_vrf *)vrf->info;
-		zvrf->table_id = nl_table_id;
 	} else // h->nlmsg_type == RTM_DELLINK
 	{
 		if (IS_ZEBRA_DEBUG_KERNEL)
