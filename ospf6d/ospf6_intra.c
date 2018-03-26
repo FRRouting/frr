@@ -1631,8 +1631,10 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 		brouter_id = ADV_ROUTER_IN_PREFIX(&brouter->prefix);
 		inet_ntop(AF_INET, &brouter_id, brouter_name,
 			  sizeof(brouter_name));
+
 		if (brouter->path.area_id != oa->area_id)
 			continue;
+
 		SET_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE);
 
 		if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(brouter_id)
@@ -1651,8 +1653,10 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 
 		if (brouter->type != OSPF6_DEST_TYPE_LINKSTATE)
 			continue;
+
 		if (ospf6_linkstate_prefix_id(&brouter->prefix) != htonl(0))
 			continue;
+
 		if (!CHECK_FLAG(brouter->path.router_bits, OSPF6_ROUTER_BIT_E)
 		    && !CHECK_FLAG(brouter->path.router_bits,
 				   OSPF6_ROUTER_BIT_B))
@@ -1704,10 +1708,36 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 		if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_WAS_REMOVED))
 			continue;
 
+		/* After iterating spf_table for all routers including
+		 * intra brouter, clear mark for remove flag for
+		 * inter border router if its adv router present in
+		 * SPF table.
+		 */
+		if (brouter->path.type == OSPF6_PATH_TYPE_INTER) {
+			struct prefix adv_prefix;
+
+			ospf6_linkstate_prefix(brouter->path.origin.adv_router,
+					       htonl(0), &adv_prefix);
+
+			if (ospf6_route_lookup(&adv_prefix, oa->spf_table)) {
+				if (IS_OSPF6_DEBUG_BROUTER) {
+					zlog_debug("%s: keep inter brouter %s as adv router 0x%x found in spf",
+						   __PRETTY_FUNCTION__,
+						   brouter_name,
+					brouter->path.origin.adv_router);
+					ospf6_brouter_debug_print(brouter);
+				}
+				UNSET_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE);
+			}
+		}
+
 		if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE)
 		    && CHECK_FLAG(brouter->flag, OSPF6_ROUTE_ADD)) {
 			UNSET_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE);
 			UNSET_FLAG(brouter->flag, OSPF6_ROUTE_ADD);
+			zlog_debug("%s: EVENT unset REOUTE_REMOVE and ROUTE_ADD brouter %s",
+				   __PRETTY_FUNCTION__, brouter_name);
+			ospf6_brouter_debug_print(brouter);
 		}
 
 		if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE)) {

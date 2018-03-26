@@ -719,10 +719,11 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 			SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
 			if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
 				zlog_info(
-					"%s %p: route add %p: replacing previous best: %p",
+					"%s %p: route add %p cost %u: replacing previous best: %p cost %u",
 					ospf6_route_table_name(table),
 					(void *)table, (void *)route,
-					(void *)next);
+					route->path.cost,
+					(void *)next, next->path.cost);
 		}
 
 		route->installed = now;
@@ -743,9 +744,9 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 	/* Else, this is the brand new route regarding to the prefix */
 	if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_debug("%s %p: route add %p %s : brand new route",
+		zlog_debug("%s %p: route add %p %s cost %u: brand new route",
 			   ospf6_route_table_name(table), (void *)table,
-			   (void *)route, buf);
+			   (void *)route, buf, route->path.cost);
 	else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 		zlog_debug("%s: route add: brand new route",
 			   ospf6_route_table_name(table));
