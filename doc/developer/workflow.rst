@@ -578,6 +578,57 @@ can be turned off. FRR has the ability to turn on/off debugs from the
 CLI and it is expected that the developer will use this convention to
 allow control of their debugs.
 
+Static Analysis and Sanitizers
+------------------------------
+Clang/LLVM comes with a variety of tools that can be used to help find bugs in FRR.
+
+clang-analyze
+   This is a static analyzer that scans the source code looking for patterns
+   that are likely to be bugs. The tool is run automatically on pull requests
+   as part of CI and new static analysis warnings will be placed in the CI
+   results. FRR aims for absolutely zero static analysis errors. While the
+   project is not quite there, code that introduces new static analysis errors
+   is very unlikely to be merged.
+
+AddressSanitizer
+   This is an excellent tool that provides runtime instrumentation for
+   detecting memory errors. As part of CI FRR is built with this
+   instrumentation and run through a series of tests to look for any results.
+   Testing your own code with this tool before submission is encouraged. You
+   can enable it by passing::
+   
+      --enable-address-sanitizer
+
+   to ``configure``.
+
+ThreadSanitizer
+   Similar to AddressSanitizer, this tool provides runtime instrumentation for
+   detecting data races. If you are working on or around multithreaded code,
+   extensive testing with this instrumtation enabled is *highly* recommended.
+   You can enable it by passing::
+   
+      --enable-thread-sanitizer
+
+   to ``configure``.
+
+MemorySanitizer
+   Similar to AddressSanitizer, this tool provides runtime instrumentation for
+   detecting use of uninitialized heap memory. Testing your own code with this
+   tool before submission is encouraged. You can enable it by passing::
+   
+      --enable-memory-sanitizer
+
+   to ``configure``.
+
+All of the above tools are available in the Clang/LLVM toolchain since 3.4.
+AddressSanitizer and ThreadSanitizer are available in recent versions of GCC,
+but are no longer actively maintained. MemorySanitizer is not available in GCC.
+
+Additionally, the FRR codebase is regularly scanned with Coverity.
+Unfortunately Coverity does not have the ability to handle scanning pull
+requests, but after code is merged it will send an email notifying project
+members with Coverity access of newly introduced defects.
+
 CLI changes
 -----------
 
