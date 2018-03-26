@@ -2477,7 +2477,12 @@ DEFUN (vtysh_write_memory,
 						   "do write integrated",
 						   outputfile);
 
-		if (ret != CMD_SUCCESS) {
+		/*
+		 * If watchfrr returns CMD_WARNING_CONFIG_FAILED this means
+		 * that it could not write the config, but additionally
+		 * indicates that we should not try either
+		 */
+		if (ret != CMD_SUCCESS && ret != CMD_WARNING_CONFIG_FAILED) {
 			printf("\nWarning: attempting direct configuration write without "
 			       "watchfrr.\nFile permissions and ownership may be "
 			       "incorrect, or write may fail.\n\n");

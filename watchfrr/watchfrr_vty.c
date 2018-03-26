@@ -40,9 +40,22 @@ DEFUN(config_write_integrated,
 	pid_t child;
 	sigset_t oldmask, sigmask;
 
+	const char *e_inprog = "Configuration write already in progress.";
+	const char *e_dmn = "Not all daemons are up, cannot write config.";
+
 	if (integrated_write_pid != -1) {
-		vty_out(vty, "%% configuration write already in progress.\n");
+		vty_out(vty, "%% %s\n", e_inprog);
 		return CMD_WARNING;
+	}
+
+	/* check that all daemons are up before clobbering config */
+	if (!check_all_up()) {
+		vty_out(vty, "%% %s\n", e_dmn);
+		/*
+		 * vtysh interprets this return value to mean that it should
+		 * not try to write the config itself
+		 */
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	fflush(stdout);

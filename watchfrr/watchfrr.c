@@ -899,6 +899,16 @@ static int wakeup_send_echo(struct thread *t_wakeup)
 	return 0;
 }
 
+bool check_all_up(void)
+{
+	struct daemon *dmn;
+
+	for (dmn = gs.daemons; dmn; dmn = dmn->next)
+		if (dmn->state != DAEMON_UP)
+			return false;
+	return true;
+}
+
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
