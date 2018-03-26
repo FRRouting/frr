@@ -514,6 +514,59 @@ static void zebra_rnh_notify_protocol_clients(vrf_id_t vrfid, int family,
 	}
 }
 
+static void zebra_rnh_process_pbr_tables(int family,
+					 struct route_node *nrn,
+					 struct rnh *rnh,
+					 struct route_node *prn,
+					 struct route_entry *re)
+{
+	struct zebra_ns_table *znst;
+	struct route_entry *o_re;
+	struct route_node *o_rn;
+	struct listnode *node;
+	struct zserv *client;
+	struct zebra_ns *zns;
+	afi_t afi = AFI_IP;
+
+	if (family == AF_INET6)
+		afi = AFI_IP6;
+
+	/*
+	 * We are only concerned about nexthops that change for
+	 * anyone using PBR
+	 */
+	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
+		if (client->proto == ZEBRA_ROUTE_PBR)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	RB_FOREACH (znst, zebra_ns_table_head, &zns->ns_tables) {
+		if (afi != znst->afi)
+			continue;
+
+		for (o_rn = route_top(znst->table);
+		     o_rn; o_rn = srcdest_route_next(o_rn)) {
+			RNODE_FOREACH_RE (o_rn, o_re) {
+				if (o_re->type == ZEBRA_ROUTE_PBR)
+					break;
+
+			}
+
+			/*
+			 * If we have a PBR route and a nexthop changes
+			 * just rethink it.  Yes this is a hammer, but
+			 * a small one
+			 */
+			if (o_re)
+				rib_queue_add(o_rn);
+		}
+	}
+}
+
 static void zebra_rnh_process_static_routes(vrf_id_t vrfid, int family,
 					    struct route_node *nrn,
 					    struct rnh *rnh,
@@ -751,6 +804,9 @@ static void zebra_rnh_eval_nexthop_entry(vrf_id_t vrfid, int family, int force,
 		/* Process static routes attached to this nexthop */
 		zebra_rnh_process_static_routes(vrfid, family, nrn, rnh, prn,
 						rnh->state);
+
+		zebra_rnh_process_pbr_tables(family, nrn, rnh, prn,
+					     rnh->state);
 
 		/* Process pseudowires attached to this nexthop */
 		zebra_rnh_process_pseudowires(vrfid, rnh);
