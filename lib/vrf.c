@@ -539,7 +539,8 @@ void vrf_configure_backend(int vrf_backend_netns)
 	vrf_backend = vrf_backend_netns;
 }
 
-int vrf_handler_create(struct vty *vty, const char *vrfname, struct vrf **vrf)
+int vrf_handler_create(struct vty *vty, const char *vrfname,
+		       struct vrf **vrf)
 {
 	struct vrf *vrfp;
 
@@ -566,7 +567,7 @@ int vrf_handler_create(struct vty *vty, const char *vrfname, struct vrf **vrf)
 }
 
 int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
-			     ns_id_t ns_id)
+			     ns_id_t ns_id, ns_id_t internal_ns_id)
 {
 	struct ns *ns = NULL;
 
@@ -613,6 +614,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	ns = ns_get_created(ns, pathname, ns_id);
+	ns->internal_ns_id = internal_ns_id;
 	ns->vrf_ctxt = (void *)vrf;
 	vrf->ns_ctxt = (void *)ns;
 	/* update VRF netns NAME */
@@ -718,7 +720,8 @@ DEFUN_NOSH (vrf_netns,
 	    vrf_daemon_privs->change(ZPRIVS_RAISE))
 		zlog_err("%s: Can't raise privileges", __func__);
 
-	ret = vrf_netns_handler_create(vty, vrf, pathname, NS_UNKNOWN);
+	ret = vrf_netns_handler_create(vty, vrf, pathname,
+				       NS_UNKNOWN, NS_UNKNOWN);
 
 	if (vrf_daemon_privs &&
 	    vrf_daemon_privs->change(ZPRIVS_LOWER))
@@ -827,6 +830,9 @@ vrf_id_t vrf_get_default_id(void)
 
 	if (vrf)
 		return vrf->vrf_id;
+	/* backend netns is only known by zebra
+	 * for other daemons, we return VRF_DEFAULT_INTERNAL
+	 */
 	if (vrf_is_backend_netns())
 		return ns_get_default_id();
 	else

@@ -46,6 +46,9 @@ struct ns {
 	/* Identifier, same as the vector index */
 	ns_id_t ns_id;
 
+	/* Identifier, mapped on the NSID value */
+	ns_id_t internal_ns_id;
+
 	/* Name */
 	char *name;
 
@@ -100,7 +103,7 @@ extern void ns_terminate(void);
 /* API to initialize NETNS managerment
  * parameter is the default ns_id
  */
-extern void ns_init_management(ns_id_t ns_id);
+extern void ns_init_management(ns_id_t ns_id, ns_id_t internal_ns_idx);
 
 
 /*
@@ -132,6 +135,11 @@ extern int ns_have_netns(void);
 
 /* API to get context information of a NS */
 extern void *ns_info_lookup(ns_id_t ns_id);
+
+/* API to map internal ns id value with
+ * user friendly ns id external value
+ */
+extern ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool maporunmap);
 
 /*
  * NS init routine

@@ -59,6 +59,26 @@ static int ns_default_ns_fd;
 
 static int ns_debug;
 
+struct ns_map_nsid {
+	RB_ENTRY(ns_map_nsid) id_entry;
+	ns_id_t ns_id_external;
+	ns_id_t ns_id;
+};
+
+static __inline int ns_map_compare(const struct ns_map_nsid *a,
+				   const struct ns_map_nsid *b)
+{
+	return (a->ns_id - b->ns_id);
+}
+
+RB_HEAD(ns_map_nsid_head, ns_map_nsid);
+RB_PROTOTYPE(ns_map_nsid_head, ns_map_nsid, id_entry, ns_map_compare);
+RB_GENERATE(ns_map_nsid_head, ns_map_nsid, id_entry, ns_map_compare);
+struct ns_map_nsid_head ns_map_nsid_list = RB_INITIALIZER(&ns_map_nsid_list);
+
+static ns_id_t ns_id_external_numbering;
+
+
 #ifndef CLONE_NEWNET
 #define CLONE_NEWNET 0x40000000
 /* New network namespace (lo, device, names sockets, etc) */
@@ -262,6 +282,38 @@ static void ns_disable_internal(struct ns *ns)
 	}
 }
 
+/* VRF list existance check by name. */
+static struct ns_map_nsid *ns_map_nsid_lookup_by_nsid(ns_id_t ns_id)
+{
+	struct ns_map_nsid ns_map;
+
+	ns_map.ns_id = ns_id;
+	return (RB_FIND(ns_map_nsid_head, &ns_map_nsid_list, &ns_map));
+}
+
+ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool maporunmap)
+{
+	struct ns_map_nsid *ns_map;
+	vrf_id_t ns_id_external;
+
+	ns_map = ns_map_nsid_lookup_by_nsid(ns_id);
+	if (ns_map && !maporunmap) {
+		ns_id_external = ns_map->ns_id_external;
+		RB_REMOVE(ns_map_nsid_head, &ns_map_nsid_list, ns_map);
+		return ns_id_external;
+	}
+	if (ns_map)
+		return ns_map->ns_id_external;
+	ns_map = XCALLOC(MTYPE_NS, sizeof(struct ns_map_nsid));
+	/* increase vrf_id
+	 * default vrf is the first one : 0
+	 */
+	ns_map->ns_id_external = ns_id_external_numbering++;
+	ns_map->ns_id = ns_id;
+	RB_INSERT(ns_map_nsid_head, &ns_map_nsid_list, ns_map);
+	return ns_map->ns_id_external;
+}
+
 struct ns *ns_get_created(struct ns *ns, char *name, ns_id_t ns_id)
 {
 	return ns_get_created_internal(ns, name, ns_id);
@@ -430,7 +482,7 @@ void ns_init(void)
 }
 
 /* Initialize NS module. */
-void ns_init_management(ns_id_t default_ns_id)
+void ns_init_management(ns_id_t default_ns_id, ns_id_t internal_ns)
 {
 	int fd;
 
@@ -444,6 +496,8 @@ void ns_init_management(ns_id_t default_ns_id)
 		fd = open(NS_DEFAULT_NAME, O_RDONLY);
 		default_ns->fd = fd;
 	}
+	default_ns->internal_ns_id = internal_ns;
+
 	/* Set the default NS name. */
 	default_ns->name = XSTRDUP(MTYPE_NS_NAME, NS_DEFAULT_NAME);
 	if (ns_debug)

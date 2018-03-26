@@ -70,7 +70,7 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	char *netnspath = ns_netns_pathname(NULL, name);
 	struct vrf *vrf;
 	int ret;
-	ns_id_t ns_id;
+	ns_id_t ns_id, ns_id_external;
 
 	if (netnspath == NULL)
 		return;
@@ -80,8 +80,9 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	ns_id = zebra_ns_id_get(netnspath);
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
+	ns_id_external = ns_map_nsid_with_external(ns_id, true);
 	/* if VRF with NS ID already present */
-	vrf = vrf_lookup_by_id((vrf_id_t)ns_id);
+	vrf = vrf_lookup_by_id((vrf_id_t)ns_id_external);
 	if (vrf) {
 		zlog_warn(
 			"NS notify : same NSID used by VRF %s. Ignore NS %s creation",
@@ -90,15 +91,18 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	}
 	if (vrf_handler_create(NULL, name, &vrf) != CMD_SUCCESS) {
 		zlog_warn("NS notify : failed to create VRF %s", name);
+		ns_map_nsid_with_external(ns_id, false);
 		return;
 	}
 	if (zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
-	ret = vrf_netns_handler_create(NULL, vrf, netnspath, ns_id);
+	ret = vrf_netns_handler_create(NULL, vrf, netnspath,
+				       ns_id_external, ns_id);
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
 	if (ret != CMD_SUCCESS) {
 		zlog_warn("NS notify : failed to create NS %s", netnspath);
+		ns_map_nsid_with_external(ns_id, false);
 		return;
 	}
 	zlog_info("NS notify : created VRF %s NS %s", name, netnspath);

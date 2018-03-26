@@ -153,6 +153,11 @@ int ns_enable(struct ns *ns, int (*func)(ns_id_t, void *))
 	return 0;
 }
 
+ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool maporunmap)
+{
+	return NS_UNKNOWN;
+}
+
 struct ns *ns_get_created(struct ns *ns, char *name, ns_id_t ns_id)
 {
 	return NULL;
