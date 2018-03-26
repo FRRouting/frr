@@ -295,44 +295,6 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY (pbr_table_range,
-       pbr_table_range_cmd,
-       "[no]$no pbr table range (10000-65535)$start (11000-65535)$end",
-       NO_STR
-       "Policy based routing\n"
-       "Policy based routing table\n"
-       "Table range\n"
-       "Initial value of range\n"
-       "Final value of range\n")
-{
-	if (no)
-		pbr_nht_set_tableid_range(PBR_NHT_DEFAULT_LOW_TABLEID,
-					  PBR_NHT_DEFAULT_HIGH_TABLEID);
-	else
-		pbr_nht_set_tableid_range(start, end);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (pbr_rule_range,
-	pbr_rule_range_cmd,
-	"[no] pbr rule range (300-900)$start (400-1000)$end",
-	NO_STR
-	"Policy based routing\n"
-	"Policy based routing rule\n"
-	"Rule range\n"
-	"Initial value of range\n"
-	"Final value of range\n")
-{
-	if (no)
-		pbr_nht_set_rule_range(PBR_NHT_DEFAULT_LOW_RULE,
-				       PBR_NHT_DEFAULT_HIGH_RULE);
-	else
-		pbr_nht_set_rule_range(start, end);
-
-	return CMD_SUCCESS;
-}
-
 DEFPY (pbr_policy,
 	pbr_policy_cmd,
 	"[no] pbr-policy NAME$mapname",
@@ -606,8 +568,6 @@ void pbr_vty_init(void)
 	install_element(CONFIG_NODE, &pbr_map_cmd);
 	install_element(CONFIG_NODE, &no_pbr_map_cmd);
 	install_element(INTERFACE_NODE, &pbr_policy_cmd);
-	install_element(CONFIG_NODE, &pbr_table_range_cmd);
-	install_element(CONFIG_NODE, &pbr_rule_range_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_src_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_dst_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);
