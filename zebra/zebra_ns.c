@@ -135,6 +135,10 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 
 	zns->ns_id = ns_id;
 
+	zns->rules_hash =
+		hash_create_size(8, zebra_pbr_rules_hash_key,
+				 zebra_pbr_rules_hash_equal, "Rules Hash");
+
 #if defined(HAVE_RTADV)
 	rtadv_init(zns);
 #endif
@@ -287,9 +291,6 @@ int zebra_ns_init(void)
 	/* Default NS is activated */
 	zebra_ns_enable(ns_id, (void **)&dzns);
 
-	dzns->rules_hash =
-		hash_create_size(8, zebra_pbr_rules_hash_key,
-				 zebra_pbr_rules_hash_equal, "Rules Hash");
 	if (vrf_is_backend_netns()) {
 		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);
 		ns_add_hook(NS_ENABLE_HOOK, zebra_ns_enabled);

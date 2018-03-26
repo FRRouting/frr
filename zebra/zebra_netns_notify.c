@@ -120,6 +120,32 @@ static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
 	return 0;
 }
 
+static int zebra_ns_delete(char *name)
+{
+	struct vrf *vrf = vrf_lookup_by_name(name);
+	struct ns *ns;
+
+	if (!vrf) {
+		zlog_warn(
+			"NS notify : no VRF found using NS %s",
+			name);
+		return 0;
+	}
+	/* Clear configured flag and invoke delete. */
+	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
+	ns = (struct ns *)vrf->ns_ctxt;
+	/* the deletion order is the same
+	 * as the one used when siging signal is received
+	 */
+	vrf_delete(vrf);
+	if (ns)
+		ns_delete(ns);
+
+	zlog_info("NS notify : deleted VRF %s", name);
+	return 0;
+}
+
+
 static int zebra_ns_ready_read(struct thread *t)
 {
 	struct zebra_netns_info *zns_info = THREAD_ARG(t);
@@ -178,8 +204,10 @@ static int zebra_ns_notify_read(struct thread *t)
 		char *netnspath;
 		struct zebra_netns_info *netnsinfo;
 
-		if (!(event->mask & IN_CREATE))
+		if (!(event->mask & (IN_CREATE | IN_DELETE)))
 			continue;
+		if (event->mask & IN_DELETE)
+			return zebra_ns_delete(event->name);
 		netnspath = ns_netns_pathname(NULL, event->name);
 		if (!netnspath)
 			continue;
@@ -234,7 +262,8 @@ void zebra_ns_notify_init(void)
 		zlog_warn("NS notify init: failed to initialize inotify (%s)",
 			  safe_strerror(errno));
 	}
-	if (inotify_add_watch(fd_monitor, NS_RUN_DIR, IN_CREATE) < 0) {
+	if (inotify_add_watch(fd_monitor, NS_RUN_DIR,
+			      IN_CREATE | IN_DELETE) < 0) {
 		zlog_warn("NS notify watch: failed to add watch (%s)",
 			  safe_strerror(errno));
 	}
