@@ -1387,6 +1387,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	struct zapi_route api;
 	afi_t afi;
 	struct prefix_ipv6 *src_p = NULL;
+	uint32_t table_id;
 
 	s = msg;
 	if (zapi_route_decode(s, &api) < 0)
@@ -1401,8 +1402,13 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		src_p = &api.src_prefix;
 
+	if (api.vrf_id == VRF_DEFAULT && api.tableid != 0)
+		table_id = api.tableid;
+	else
+		table_id = zvrf->table_id;
+
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &api.prefix, src_p, NULL, zvrf->table_id,
+		   api.flags, &api.prefix, src_p, NULL, table_id,
 		   api.metric, false, &api.rmac);
 
 	/* Stats */
