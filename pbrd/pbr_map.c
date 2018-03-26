@@ -527,13 +527,6 @@ void pbr_map_check(struct pbr_map_sequence *pbrms)
 	       __PRETTY_FUNCTION__, pbrm->name, pbrms->seqno, pbrms->reason);
 
 	if (pbrms->reason == PBR_MAP_VALID_SEQUENCE_NUMBER) {
-		if (pbrms->installed) {
-			install = false;
-			for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi)) {
-				pbr_send_pbr_map(pbrms, pmi, install);
-			}
-			install = true;
-		}
 		install = true;
 		DEBUGD(&pbr_dbg_map, "%s: Installing %s(%u) reason: %" PRIu64,
 		       __PRETTY_FUNCTION__, pbrm->name, pbrms->seqno,

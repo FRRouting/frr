@@ -455,7 +455,7 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 
 static void pbr_encode_pbr_map_sequence_prefix(struct stream *s,
 					       struct prefix *p,
-					       u_char family)
+					       unsigned char  family)
 {
 	struct prefix any;
 
@@ -474,14 +474,11 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 					struct pbr_map_sequence *pbrms,
 					struct interface *ifp)
 {
-	u_char family;
+	unsigned char family;
 
 	family = AF_INET;
-	if (pbrms->src)
-		family = pbrms->src->family;
-
-	if (pbrms->dst)
-		family = pbrms->dst->family;
+	if (pbrms->family)
+		family = pbrms->family;
 
 	stream_putl(s, pbrms->seqno);
 	stream_putl(s, pbrms->ruleno);

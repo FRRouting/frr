@@ -77,9 +77,6 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 	req.frh.family = family;
 	req.frh.action = FR_ACT_TO_TBL;
 
-	if (cmd == RTM_NEWRULE)
-		req.n.nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
-
 	/* rule's pref # */
 	addattr32(&req.n, sizeof(req), FRA_PRIORITY, rule->priority);
 
