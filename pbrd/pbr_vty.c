@@ -152,7 +152,7 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 	if (pbrms->nhg) {
 		vty_out(vty,
 			"A `set nexthop XX` command already exists, please remove that first\n");
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	nhgc = nhgc_find(name);
@@ -169,14 +169,14 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 			vty_out(vty,
 				"Nexthop Group specified: %s does not exist to remove",
 				name);
-			return CMD_WARNING;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 	} else {
 		if (pbrms->nhgrp_name) {
 			if (strcmp(name, pbrms->nhgrp_name) != 0) {
 				vty_out(vty,
 					"Please delete current nexthop group before modifying current one");
-				return CMD_WARNING;
+				return CMD_WARNING_CONFIG_FAILED;
 			}
 
 			return CMD_SUCCESS;
@@ -207,7 +207,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	if (pbrms->nhgrp_name) {
 		vty_out(vty,
 			"Please unconfigure the nexthop group before adding an individual nexthop");
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (name)
@@ -217,7 +217,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 
 	if (!vrf) {
 		vty_out(vty, "Specified: %s is non-existent\n", name);
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	memset(&nhop, 0, sizeof(nhop));
@@ -232,7 +232,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 				vty_out(vty,
 					"Specified Intf %s does not exist in vrf: %s\n",
 					intf, vrf->name);
-				return CMD_WARNING;
+				return CMD_WARNING_CONFIG_FAILED;
 			}
 		} else
 			nhop.type = NEXTHOP_TYPE_IPV4;
@@ -245,7 +245,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 				vty_out(vty,
 					"Specified Intf %s does not exist in vrf: %s\n",
 					intf, vrf->name);
-				return CMD_WARNING;
+				return CMD_WARNING_CONFIG_FAILED;
 			}
 		} else
 			nhop.type = NEXTHOP_TYPE_IPV6;
@@ -258,7 +258,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 
 		if (no) {
 			vty_out(vty, "No nexthops to delete");
-			return CMD_WARNING;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 
 		pbrms->nhg = nexthop_group_new();
@@ -279,7 +279,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		if (pbrms->nhg->nexthop) {
 			vty_out(vty,
 				"If you would like more than one nexthop please use nexthop-groups");
-			return CMD_WARNING;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 
 		/* must be adding new nexthop since !no and !nexthop_exists */
