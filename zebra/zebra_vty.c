@@ -2295,11 +2295,7 @@ int static_config(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
 				vty_out(vty, " %d", si->distance);
 
 			if (si->nh_vrf_id != si->vrf_id) {
-				struct vrf *vrf;
-
-				vrf = vrf_lookup_by_id(si->nh_vrf_id);
-				vty_out(vty, " nexthop-vrf %s",
-					(vrf) ? vrf->name : "Unknown");
+				vty_out(vty, " nexthop-vrf %s", si->nh_vrfname);
 			}
 
 			/* Label information */
