@@ -46,10 +46,24 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 	struct prefix nh_p;
 	struct nexthop *nexthop = NULL;
 	enum blackhole_type bh_type = 0;
+	struct vrf *nh_vrf;
 
 	/* Lookup table.  */
 	table = zebra_vrf_table(afi, safi, si->vrf_id);
 	if (!table)
+		return;
+
+	/*
+	 * If a specific vrf is coming up and the nexthop vrf we are
+	 * looking at using hasn't been brought up yet, just don't
+	 * install the static route yet.
+	 * When the nexthop vrf comes up we will get another call
+	 * back to do the right thing.  I'm putting this check
+	 * here because we are calling static_install_route a bunch
+	 * from a bunch of different callpaths.
+	 */
+	nh_vrf = vrf_lookup_by_id(si->nh_vrf_id);
+	if (!nh_vrf)
 		return;
 
 	memset(&nh_p, 0, sizeof(nh_p));
