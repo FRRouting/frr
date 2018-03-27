@@ -834,7 +834,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 	 * because of loop checking.
 	 */
 	if (new_info)
-		vpn_leak_to_vrf_update(bgp_vrf, new_info);
+		vpn_leak_to_vrf_update(bgp_vpn, new_info);
 }
 
 void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn,       /* to */
@@ -1295,18 +1295,17 @@ void vpn_leak_to_vrf_withdraw_all(struct bgp *bgp_vrf, /* to */
 	struct bgp_info *bi;
 	safi_t safi = SAFI_UNICAST;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
-	struct bgp *bgp_vpn = bgp_get_default();
 
 	if (debug)
 		zlog_debug("%s: entry", __func__);
 	/*
-	 * Walk vrf table, delete bi with bgp_orig == bgp_vpn
+	 * Walk vrf table, delete bi with bgp_orig in a different vrf
 	 */
 	for (bn = bgp_table_top(bgp_vrf->rib[afi][safi]); bn;
 	     bn = bgp_route_next(bn)) {
 
 		for (bi = bn->info; bi; bi = bi->next) {
-			if (bi->extra && bi->extra->bgp_orig == bgp_vpn) {
+			if (bi->extra && bi->extra->bgp_orig != bgp_vrf) {
 
 				/* delete route */
 				bgp_aggregate_decrement(bgp_vrf, &bn->p, bi,
