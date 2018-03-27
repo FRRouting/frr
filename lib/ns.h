@@ -26,7 +26,7 @@
 #include "linklist.h"
 #include "vty.h"
 
-typedef u_int32_t ns_id_t;
+typedef uint32_t ns_id_t;
 
 /* the default NS ID */
 #define NS_UNKNOWN UINT32_MAX

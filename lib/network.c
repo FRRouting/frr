@@ -24,7 +24,7 @@
 #include "network.h"
 
 /* Read nbytes from fd and store into ptr. */
-int readn(int fd, u_char *ptr, int nbytes)
+int readn(int fd, uint8_t *ptr, int nbytes)
 {
 	int nleft;
 	int nread;
@@ -47,7 +47,7 @@ int readn(int fd, u_char *ptr, int nbytes)
 }
 
 /* Write nbytes from ptr to fd. */
-int writen(int fd, const u_char *ptr, int nbytes)
+int writen(int fd, const uint8_t *ptr, int nbytes)
 {
 	int nleft;
 	int nwritten;
@@ -105,12 +105,12 @@ int set_cloexec(int fd)
 
 float htonf(float host)
 {
-	u_int32_t lu1, lu2;
+	uint32_t lu1, lu2;
 	float convert;
 
-	memcpy(&lu1, &host, sizeof(u_int32_t));
+	memcpy(&lu1, &host, sizeof(uint32_t));
 	lu2 = htonl(lu1);
-	memcpy(&convert, &lu2, sizeof(u_int32_t));
+	memcpy(&convert, &lu2, sizeof(uint32_t));
 	return convert;
 }
 

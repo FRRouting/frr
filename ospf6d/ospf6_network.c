@@ -38,9 +38,9 @@ struct in6_addr alldrouters6;
 /* setsockopt MulticastLoop to off */
 static void ospf6_reset_mcastloop(void)
 {
-	u_int off = 0;
+	unsigned int off = 0;
 	if (setsockopt(ospf6_sock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &off,
-		       sizeof(u_int))
+		       sizeof(unsigned int))
 	    < 0)
 		zlog_warn("Network: reset IPV6_MULTICAST_LOOP failed: %s",
 			  safe_strerror(errno));
@@ -156,7 +156,7 @@ int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
 	struct cmsghdr *scmsgp;
 	union {
 		struct cmsghdr hdr;
-		u_char buf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+		uint8_t buf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
 	} cmsgbuf;
 	struct in6_pktinfo *pktinfo;
 	struct sockaddr_in6 dst_sin6;
@@ -212,7 +212,7 @@ int ospf6_recvmsg(struct in6_addr *src, struct in6_addr *dst,
 	int retval;
 	struct msghdr rmsghdr;
 	struct cmsghdr *rcmsgp;
-	u_char cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+	uint8_t cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
 	struct in6_pktinfo *pktinfo;
 	struct sockaddr_in6 src_sin6;
 

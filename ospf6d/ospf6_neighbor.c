@@ -62,7 +62,7 @@ int ospf6_neighbor_cmp(void *va, void *vb)
 	return (ntohl(ona->router_id) < ntohl(onb->router_id) ? -1 : 1);
 }
 
-struct ospf6_neighbor *ospf6_neighbor_lookup(u_int32_t router_id,
+struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t router_id,
 					     struct ospf6_interface *oi)
 {
 	struct listnode *n;
@@ -76,7 +76,7 @@ struct ospf6_neighbor *ospf6_neighbor_lookup(u_int32_t router_id,
 }
 
 /* create ospf6_neighbor */
-struct ospf6_neighbor *ospf6_neighbor_create(u_int32_t router_id,
+struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 					     struct ospf6_interface *oi)
 {
 	struct ospf6_neighbor *on;
@@ -147,10 +147,10 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	XFREE(MTYPE_OSPF6_NEIGHBOR, on);
 }
 
-static void ospf6_neighbor_state_change(u_char next_state,
+static void ospf6_neighbor_state_change(uint8_t next_state,
 					struct ospf6_neighbor *on, int event)
 {
-	u_char prev_state;
+	uint8_t prev_state;
 
 	prev_state = on->state;
 	on->state = next_state;
@@ -708,7 +708,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT) ? "More " : ""),
 		(CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT) ? "Master"
 								 : "Slave"),
-		(u_long)ntohl(on->dbdesc_seqnum));
+		(unsigned long)ntohl(on->dbdesc_seqnum));
 
 	vty_out(vty, "    Summary-List: %d LSAs\n", on->summary_list->count);
 	for (ALL_LSDB(on->summary_list, lsa))
@@ -826,7 +826,7 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
 	struct ospf6_area *oa;
 	struct listnode *i, *j, *k;
 	void (*showfunc)(struct vty *, struct ospf6_neighbor *);
-	u_int32_t router_id;
+	uint32_t router_id;
 
 	OSPF6_CMD_CHECK_RUNNING();
 	showfunc = ospf6_neighbor_show_detail;
@@ -909,7 +909,7 @@ DEFUN (no_debug_ospf6,
        DEBUG_STR
        OSPF6_STR)
 {
-	u_int i;
+	unsigned int i;
 	struct ospf6_lsa_handler *handler = NULL;
 
 	OSPF6_DEBUG_ABR_OFF();

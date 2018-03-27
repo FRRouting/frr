@@ -117,7 +117,7 @@ struct irdp_interface {
 	unsigned long MinAdvertInterval;
 	unsigned long Preference;
 
-	u_int32_t flags;
+	uint32_t flags;
 
 #define IF_ACTIVE               (1<<0) /* ICMP Active */
 #define IF_BROADCAST            (1<<1) /* 255.255.255.255 */
@@ -130,7 +130,7 @@ struct irdp_interface {
 	struct interface *ifp;
 	struct thread *t_advertise;
 	unsigned long irdp_sent;
-	u_int16_t Lifetime;
+	uint16_t Lifetime;
 
 	struct list *AdvPrefList;
 };
@@ -147,8 +147,8 @@ extern int irdp_send_thread(struct thread *t_advert);
 extern void irdp_advert_off(struct interface *ifp);
 extern void process_solicit(struct interface *ifp);
 extern int irdp_read_raw(struct thread *r);
-extern void send_packet(struct interface *ifp, struct stream *s, u_int32_t dst,
-			struct prefix *p, u_int32_t ttl);
+extern void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
+			struct prefix *p, uint32_t ttl);
 
 
 #endif /* _IRDP_H */

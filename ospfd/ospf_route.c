@@ -449,7 +449,7 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 			 struct vertex *v, struct ospf_area *area,
 			 int parent_is_root, int lsa_pos)
 {
-	u_int32_t cost;
+	uint32_t cost;
 	struct route_node *rn;
 	struct ospf_route * or ;
 	struct prefix_ipv4 p;
@@ -676,7 +676,7 @@ void ospf_route_table_dump(struct route_table *rt)
 static int ospf_asbr_route_cmp(struct ospf *ospf, struct ospf_route *r1,
 			       struct ospf_route *r2)
 {
-	u_char r1_type, r2_type;
+	uint8_t r1_type, r2_type;
 
 	r1_type = r1->path_type;
 	r2_type = r2->path_type;

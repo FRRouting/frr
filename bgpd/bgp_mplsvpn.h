@@ -43,14 +43,14 @@
 
 extern void bgp_mplsvpn_init(void);
 extern int bgp_nlri_parse_vpn(struct peer *, struct attr *, struct bgp_nlri *);
-extern u_int32_t decode_label(mpls_label_t *);
+extern uint32_t decode_label(mpls_label_t *);
 extern void encode_label(mpls_label_t, mpls_label_t *);
 
 extern int argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc,
 				     int *index, afi_t *afi);
 extern int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
-			     int tags, u_char use_json);
+			     int tags, uint8_t use_json);
 
 extern void vpn_leak_from_vrf_update(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 				     struct bgp_info *info_vrf);

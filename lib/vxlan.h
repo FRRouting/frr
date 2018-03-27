@@ -23,7 +23,7 @@
 #define __VXLAN_H__
 
 /* VxLAN Network Identifier - 24-bit (RFC 7348) */
-typedef u_int32_t vni_t;
+typedef uint32_t vni_t;
 #define VNI_MAX 16777215 /* (2^24 - 1) */
 
 #endif /* __VXLAN_H__ */

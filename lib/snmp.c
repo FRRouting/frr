@@ -53,12 +53,12 @@ void *oid_copy(void *dest, const void *src, size_t size)
 void oid2in_addr(oid oid[], int len, struct in_addr *addr)
 {
 	int i;
-	u_char *pnt;
+	uint8_t *pnt;
 
 	if (len == 0)
 		return;
 
-	pnt = (u_char *)addr;
+	pnt = (uint8_t *)addr;
 
 	for (i = 0; i < len; i++)
 		*pnt++ = oid[i];
@@ -67,12 +67,12 @@ void oid2in_addr(oid oid[], int len, struct in_addr *addr)
 void oid_copy_addr(oid oid[], struct in_addr *addr, int len)
 {
 	int i;
-	u_char *pnt;
+	uint8_t *pnt;
 
 	if (len == 0)
 		return;
 
-	pnt = (u_char *)addr;
+	pnt = (uint8_t *)addr;
 
 	for (i = 0; i < len; i++)
 		oid[i] = *pnt++;

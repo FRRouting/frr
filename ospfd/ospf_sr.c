@@ -888,7 +888,7 @@ static inline int sr_prefix_cmp(struct sr_prefix *srp1, struct sr_prefix *srp2)
 
 /* Update Segment Link of given Segment Routing Node */
 static void update_ext_link_sid(struct sr_node *srn, struct sr_link *srl,
-				u_char lsa_flags)
+				uint8_t lsa_flags)
 {
 	struct listnode *node;
 	struct sr_link *lk;
@@ -2313,7 +2313,7 @@ DEFUN (show_ip_opsf_srdb,
 	int idx = 0;
 	struct in_addr rid;
 	struct sr_node *srn;
-	u_char uj = use_json(argc, argv);
+	uint8_t uj = use_json(argc, argv);
 	json_object *json = NULL, *json_node_array = NULL;
 
 	if (!OspfSR.enabled) {

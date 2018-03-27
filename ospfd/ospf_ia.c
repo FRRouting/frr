@@ -196,7 +196,7 @@ static int process_summary_lsa(struct ospf_area *area, struct route_table *rt,
 	struct ospf_route *abr_or, *new_or;
 	struct summary_lsa *sl;
 	struct prefix_ipv4 p, abr;
-	u_int32_t metric;
+	uint32_t metric;
 
 	if (lsa == NULL)
 		return 0;
@@ -302,7 +302,7 @@ static void ospf_update_network_route(struct ospf *ospf, struct route_table *rt,
 	struct route_node *rn;
 	struct ospf_route * or, *abr_or, *new_or;
 	struct prefix_ipv4 abr;
-	u_int32_t cost;
+	uint32_t cost;
 
 	abr.family = AF_INET;
 	abr.prefix = lsa->header.adv_router;
@@ -427,7 +427,7 @@ static void ospf_update_router_route(struct ospf *ospf,
 {
 	struct ospf_route * or, *abr_or, *new_or;
 	struct prefix_ipv4 abr;
-	u_int32_t cost;
+	uint32_t cost;
 
 	abr.family = AF_INET;
 	abr.prefix = lsa->header.adv_router;
@@ -523,7 +523,7 @@ static int process_transit_summary_lsa(struct ospf_area *area,
 	struct ospf *ospf = area->ospf;
 	struct summary_lsa *sl;
 	struct prefix_ipv4 p;
-	u_int32_t metric;
+	uint32_t metric;
 
 	if (lsa == NULL)
 		return 0;

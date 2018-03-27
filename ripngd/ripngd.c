@@ -214,7 +214,7 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 }
 
 /* Receive UDP RIPng packet from socket. */
-static int ripng_recv_packet(int sock, u_char *buf, int bufsize,
+static int ripng_recv_packet(int sock, uint8_t *buf, int bufsize,
 			     struct sockaddr_in6 *from, ifindex_t *ifindex,
 			     int *hoplimit)
 {
@@ -1506,7 +1506,7 @@ int ripng_triggered_update(struct thread *t)
 /* Write routing table entry to the stream and return next index of
    the routing table entry in the stream. */
 int ripng_write_rte(int num, struct stream *s, struct prefix_ipv6 *p,
-		    struct in6_addr *nexthop, u_int16_t tag, u_char metric)
+		    struct in6_addr *nexthop, uint16_t tag, uint8_t metric)
 {
 	/* RIPng packet header. */
 	if (num == 0) {
@@ -1517,9 +1517,9 @@ int ripng_write_rte(int num, struct stream *s, struct prefix_ipv6 *p,
 
 	/* Write routing table entry. */
 	if (!nexthop)
-		stream_write(s, (u_char *)&p->prefix, sizeof(struct in6_addr));
+		stream_write(s, (uint8_t *)&p->prefix, sizeof(struct in6_addr));
 	else
-		stream_write(s, (u_char *)nexthop, sizeof(struct in6_addr));
+		stream_write(s, (uint8_t *)nexthop, sizeof(struct in6_addr));
 	stream_putw(s, tag);
 	if (p)
 		stream_putc(s, p->prefixlen);

@@ -59,7 +59,7 @@ struct ospf_packet {
 	struct in_addr dst;
 
 	/* OSPF packet length. */
-	u_int16_t length;
+	uint16_t length;
 };
 
 /* OSPF packet queue structure. */
@@ -72,23 +72,23 @@ struct ospf_fifo {
 
 /* OSPF packet header structure. */
 struct ospf_header {
-	u_char version;		  /* OSPF Version. */
-	u_char type;		  /* Packet Type. */
-	u_int16_t length;	 /* Packet Length. */
+	uint8_t version;	  /* OSPF Version. */
+	uint8_t type;		  /* Packet Type. */
+	uint16_t length;	  /* Packet Length. */
 	struct in_addr router_id; /* Router ID. */
 	struct in_addr area_id;   /* Area ID. */
-	u_int16_t checksum;       /* Check Sum. */
-	u_int16_t auth_type;      /* Authentication Type. */
+	uint16_t checksum;	/* Check Sum. */
+	uint16_t auth_type;       /* Authentication Type. */
 	/* Authentication Data. */
 	union {
 		/* Simple Authentication. */
-		u_char auth_data[OSPF_AUTH_SIMPLE_SIZE];
+		uint8_t auth_data[OSPF_AUTH_SIMPLE_SIZE];
 		/* Cryptographic Authentication. */
 		struct {
-			u_int16_t zero;		/* Should be 0. */
-			u_char key_id;		/* Key ID. */
-			u_char auth_data_len;   /* Auth Data Length. */
-			u_int32_t crypt_seqnum; /* Cryptographic Sequence
+			uint16_t zero;	 /* Should be 0. */
+			uint8_t key_id;	/* Key ID. */
+			uint8_t auth_data_len; /* Auth Data Length. */
+			uint32_t crypt_seqnum; /* Cryptographic Sequence
 						   Number. */
 		} crypt;
 	} u;
@@ -97,10 +97,10 @@ struct ospf_header {
 /* OSPF Hello body format. */
 struct ospf_hello {
 	struct in_addr network_mask;
-	u_int16_t hello_interval;
-	u_char options;
-	u_char priority;
-	u_int32_t dead_interval;
+	uint16_t hello_interval;
+	uint8_t options;
+	uint8_t priority;
+	uint32_t dead_interval;
 	struct in_addr d_router;
 	struct in_addr bd_router;
 	struct in_addr neighbors[1];
@@ -108,14 +108,14 @@ struct ospf_hello {
 
 /* OSPF Database Description body format. */
 struct ospf_db_desc {
-	u_int16_t mtu;
-	u_char options;
-	u_char flags;
-	u_int32_t dd_seqnum;
+	uint16_t mtu;
+	uint8_t options;
+	uint8_t flags;
+	uint32_t dd_seqnum;
 };
 
 struct ospf_ls_update {
-	u_int32_t num_lsas;
+	uint32_t num_lsas;
 };
 
 /* Macros. */

@@ -27,7 +27,7 @@
 struct zlog {
 	const char *ident; /* daemon name (first arg to openlog) */
 	const char *protoname;
-	u_short instance;
+	unsigned short instance;
 	int maxlvl[ZLOG_NUM_DESTS]; /* maximum priority to send to associated
 				       logging destination */
 	int default_lvl;	    /* maxlvl to use if none is specified */

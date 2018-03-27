@@ -199,7 +199,7 @@ static void ospf6_area_no_summary_unset(struct ospf6 *ospf6,
  * @param o - ospf6 instance
  * @param df - display format for area ID
  */
-struct ospf6_area *ospf6_area_create(u_int32_t area_id, struct ospf6 *o, int df)
+struct ospf6_area *ospf6_area_create(uint32_t area_id, struct ospf6 *o, int df)
 {
 	struct ospf6_area *oa;
 
@@ -298,7 +298,7 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	XFREE(MTYPE_OSPF6_AREA, oa);
 }
 
-struct ospf6_area *ospf6_area_lookup(u_int32_t area_id, struct ospf6 *ospf6)
+struct ospf6_area *ospf6_area_lookup(uint32_t area_id, struct ospf6 *ospf6)
 {
 	struct ospf6_area *oa;
 	struct listnode *n;
@@ -384,7 +384,7 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa)
 #define OSPF6_CMD_AREA_GET(str, oa)                                            \
 	{                                                                      \
 		char *ep;                                                      \
-		u_int32_t area_id = htonl(strtoul(str, &ep, 10));              \
+		uint32_t area_id = htonl(strtoul(str, &ep, 10));               \
 		if (*ep && inet_pton(AF_INET, str, &area_id) != 1) {           \
 			vty_out(vty, "Malformed Area-ID: %s\n", str);          \
 			return CMD_SUCCESS;                                    \
@@ -416,7 +416,7 @@ DEFUN (area_range,
 	struct ospf6_area *oa;
 	struct prefix prefix;
 	struct ospf6_route *range;
-	u_int32_t cost = OSPF_AREA_RANGE_COST_UNSPEC;
+	uint32_t cost = OSPF_AREA_RANGE_COST_UNSPEC;
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, oa);
 
@@ -810,7 +810,7 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
        "Show SPF tree\n")
 {
 	int idx_ipv4 = 4;
-	u_int32_t area_id;
+	uint32_t area_id;
 	struct ospf6_area *oa;
 	struct ospf6_vertex *root;
 	struct ospf6_route *route;
@@ -856,12 +856,12 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 {
 	int idx_ipv4 = 5;
 	int idx_ipv4_2 = 7;
-	u_int32_t area_id;
+	uint32_t area_id;
 	struct ospf6_area *oa;
 	struct ospf6_vertex *root;
 	struct ospf6_route *route;
 	struct prefix prefix;
-	u_int32_t router_id;
+	uint32_t router_id;
 	struct ospf6_route_table *spf_table;
 	unsigned char tmp_debug_ospf6_spf = 0;
 

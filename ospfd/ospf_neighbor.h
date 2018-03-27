@@ -30,16 +30,16 @@ struct ospf_neighbor {
 	struct ospf_interface *oi;
 
 	/* OSPF neighbor Information */
-	u_char state;	/* NSM status. */
-	u_char dd_flags;     /* DD bit flags. */
-	u_int32_t dd_seqnum; /* DD Sequence Number. */
+	uint8_t state;      /* NSM status. */
+	uint8_t dd_flags;   /* DD bit flags. */
+	uint32_t dd_seqnum; /* DD Sequence Number. */
 
 	/* Neighbor Information from Hello. */
 	struct prefix address; /* Neighbor Interface Address. */
 
 	struct in_addr src;       /* Src address. */
 	struct in_addr router_id; /* Router ID. */
-	u_char options;		  /* Options. */
+	uint8_t options;	  /* Options. */
 	int priority;		  /* Router Priority. */
 	struct in_addr d_router;  /* Designated Router. */
 	struct in_addr bd_router; /* Backup Designated Router. */
@@ -51,9 +51,9 @@ struct ospf_neighbor {
 
 	/* Last received Databse Description packet. */
 	struct {
-		u_char options;
-		u_char flags;
-		u_int32_t dd_seqnum;
+		uint8_t options;
+		uint8_t flags;
+		uint32_t dd_seqnum;
 	} last_recv;
 
 	/* LSA data. */
@@ -62,13 +62,13 @@ struct ospf_neighbor {
 	struct ospf_lsdb ls_req;
 	struct ospf_lsa *ls_req_last;
 
-	u_int32_t crypt_seqnum; /* Cryptographic Sequence Number. */
+	uint32_t crypt_seqnum; /* Cryptographic Sequence Number. */
 
 	/* Timer values. */
-	u_int32_t v_inactivity;
-	u_int32_t v_db_desc;
-	u_int32_t v_ls_req;
-	u_int32_t v_ls_upd;
+	uint32_t v_inactivity;
+	uint32_t v_db_desc;
+	uint32_t v_ls_req;
+	uint32_t v_ls_upd;
 
 	/* Threads. */
 	struct thread *t_inactivity;
@@ -84,7 +84,7 @@ struct ospf_neighbor {
 	struct timeval ts_last_progress; /* last advance of NSM            */
 	struct timeval ts_last_regress;  /* last regressive NSM change     */
 	const char *last_regress_str;    /* Event which last regressed NSM */
-	u_int32_t state_change;		 /* NSM state change counter       */
+	uint32_t state_change;		 /* NSM state change counter       */
 
 	/* BFD information */
 	void *bfd_info;

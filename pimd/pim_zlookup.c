@@ -144,8 +144,8 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	int num_ifindex = 0;
 	struct stream *s;
 	uint16_t length;
-	u_char marker;
-	u_char version;
+	uint8_t marker;
+	uint8_t version;
 	vrf_id_t vrf_id;
 	uint16_t command = 0;
 	struct in_addr raddr;
@@ -515,8 +515,8 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 		int err;
 		uint16_t length = 0;
 		vrf_id_t vrf_id;
-		u_char marker;
-		u_char version;
+		uint8_t marker;
+		uint8_t version;
 
 		stream_reset(s);
 		err = zclient_read_header(s, zlookup->sock, &length, &marker,

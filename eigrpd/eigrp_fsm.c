@@ -170,7 +170,7 @@ struct {
 	},
 };
 
-static const char *packet_type2str(u_char packet_type)
+static const char *packet_type2str(uint8_t packet_type)
 {
 	if (packet_type == EIGRP_OPC_UPDATE)
 		return "Update";
@@ -264,7 +264,7 @@ eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 	// struct eigrp *eigrp = msg->eigrp;
 	struct eigrp_prefix_entry *prefix = msg->prefix;
 	struct eigrp_nexthop_entry *entry = msg->entry;
-	u_char actual_state = prefix->state;
+	uint8_t actual_state = prefix->state;
 	enum metric_change change;
 
 	if (entry == NULL) {

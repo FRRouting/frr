@@ -87,14 +87,14 @@ static int eigrp_retrans_count_exceeded(struct eigrp_packet *ep,
 }
 
 int eigrp_make_md5_digest(struct eigrp_interface *ei, struct stream *s,
-			  u_char flags)
+			  uint8_t flags)
 {
 	struct key *key = NULL;
 	struct keychain *keychain;
 
 	unsigned char digest[EIGRP_AUTH_TYPE_MD5_LEN];
 	MD5_CTX ctx;
-	u_char *ibuf;
+	uint8_t *ibuf;
 	size_t backup_get, backup_end;
 	struct TLV_MD5_Authentication_Type *auth_TLV;
 
@@ -157,14 +157,14 @@ int eigrp_make_md5_digest(struct eigrp_interface *ei, struct stream *s,
 
 int eigrp_check_md5_digest(struct stream *s,
 			   struct TLV_MD5_Authentication_Type *authTLV,
-			   struct eigrp_neighbor *nbr, u_char flags)
+			   struct eigrp_neighbor *nbr, uint8_t flags)
 {
 	MD5_CTX ctx;
 	unsigned char digest[EIGRP_AUTH_TYPE_MD5_LEN];
 	unsigned char orig[EIGRP_AUTH_TYPE_MD5_LEN];
 	struct key *key = NULL;
 	struct keychain *keychain;
-	u_char *ibuf;
+	uint8_t *ibuf;
 	size_t backup_end;
 	struct TLV_MD5_Authentication_Type *auth_TLV;
 	struct eigrp_header *eigrph;
@@ -242,7 +242,7 @@ int eigrp_check_md5_digest(struct stream *s,
 }
 
 int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
-			     u_char flags)
+			     uint8_t flags)
 {
 	struct key *key = NULL;
 	struct keychain *keychain;
@@ -304,7 +304,7 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 
 int eigrp_check_sha256_digest(struct stream *s,
 			      struct TLV_SHA256_Authentication_Type *authTLV,
-			      struct eigrp_neighbor *nbr, u_char flags)
+			      struct eigrp_neighbor *nbr, uint8_t flags)
 {
 	return 1;
 }
@@ -319,13 +319,13 @@ int eigrp_write(struct thread *thread)
 	struct ip iph;
 	struct msghdr msg;
 	struct iovec iov[2];
-	u_int32_t seqno, ack;
+	uint32_t seqno, ack;
 
 	int ret;
 	int flags = 0;
 	struct listnode *node;
 #ifdef WANT_EIGRP_WRITE_FRAGMENT
-	static u_int16_t ipid = 0;
+	static uint16_t ipid = 0;
 #endif /* WANT_EIGRP_WRITE_FRAGMENT */
 #define EIGRP_WRITE_IPHL_SHIFT 2
 
@@ -479,8 +479,8 @@ int eigrp_read(struct thread *thread)
 	struct interface *ifp;
 	struct eigrp_neighbor *nbr;
 
-	u_int16_t opcode = 0;
-	u_int16_t length = 0;
+	uint16_t opcode = 0;
+	uint16_t length = 0;
 
 	/* first of all get interface pointer. */
 	eigrp = THREAD_ARG(thread);
@@ -706,7 +706,7 @@ static struct stream *eigrp_recv_packet(int fd, struct interface **ifp,
 {
 	int ret;
 	struct ip *iph;
-	u_int16_t ip_len;
+	uint16_t ip_len;
 	unsigned int ifindex = 0;
 	struct iovec iov;
 	/* Header and data both require alignment. */
@@ -729,7 +729,7 @@ static struct stream *eigrp_recv_packet(int fd, struct interface **ifp,
 		zlog_warn(
 			"eigrp_recv_packet: discarding runt packet of length %d "
 			"(ip header size is %u)",
-			ret, (u_int)sizeof(iph));
+			ret, (unsigned int)sizeof(iph));
 		return NULL;
 	}
 
@@ -864,7 +864,7 @@ void eigrp_send_packet_reliably(struct eigrp_neighbor *nbr)
 
 /* Calculate EIGRP checksum */
 void eigrp_packet_checksum(struct eigrp_interface *ei, struct stream *s,
-			   u_int16_t length)
+			   uint16_t length)
 {
 	struct eigrp_header *eigrph;
 
@@ -876,16 +876,15 @@ void eigrp_packet_checksum(struct eigrp_interface *ei, struct stream *s,
 
 /* Make EIGRP header. */
 void eigrp_packet_header_init(int type, struct eigrp *eigrp, struct stream *s,
-			      u_int32_t flags, u_int32_t sequence,
-			      u_int32_t ack)
+			      uint32_t flags, uint32_t sequence, uint32_t ack)
 {
 	struct eigrp_header *eigrph;
 
 	stream_reset(s);
 	eigrph = (struct eigrp_header *)STREAM_DATA(s);
 
-	eigrph->version = (u_char)EIGRP_HEADER_VERSION;
-	eigrph->opcode = (u_char)type;
+	eigrph->version = (uint8_t)EIGRP_HEADER_VERSION;
+	eigrph->opcode = (uint8_t)type;
 	eigrph->checksum = 0;
 
 	eigrph->vrid = htons(eigrp->vrid);
@@ -1159,10 +1158,10 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 	return tlv;
 }
 
-u_int16_t eigrp_add_internalTLV_to_stream(struct stream *s,
-					  struct eigrp_prefix_entry *pe)
+uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
+					 struct eigrp_prefix_entry *pe)
 {
-	u_int16_t length;
+	uint16_t length;
 
 	stream_putw(s, EIGRP_TLV_IPv4_INT);
 	switch (pe->destination->prefixlen) {
@@ -1245,8 +1244,8 @@ u_int16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 	return length;
 }
 
-u_int16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
-					  struct eigrp_interface *ei)
+uint16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
+					 struct eigrp_interface *ei)
 {
 	struct key *key;
 	struct keychain *keychain;
@@ -1285,8 +1284,8 @@ u_int16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
 	return 0;
 }
 
-u_int16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *s,
-					     struct eigrp_interface *ei)
+uint16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *s,
+					    struct eigrp_interface *ei)
 {
 	struct key *key;
 	struct keychain *keychain;

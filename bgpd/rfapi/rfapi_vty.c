@@ -1068,7 +1068,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
 				   BUFSIZ));
 		if (bi->extra) {
-			u_int32_t l = decode_label(&bi->extra->label[0]);
+			uint32_t l = decode_label(&bi->extra->label[0]);
 			snprintf(buf_vn, BUFSIZ, "Label: %d", l);
 		} else /* should never happen */
 		{
@@ -1180,7 +1180,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		}
 	}
 	if (tun_type != BGP_ENCAP_TYPE_MPLS && bi->extra) {
-		u_int32_t l = decode_label(&bi->extra->label[0]);
+		uint32_t l = decode_label(&bi->extra->label[0]);
 		if (!MPLS_LABEL_IS_NULL(l)) {
 			fp(out, "  Label: %d", l);
 			if (nlines == 1)
@@ -1631,7 +1631,7 @@ void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
 	}
 
 	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-		u_char family;
+		uint8_t family;
 
 		family = afi2family(afi);
 		if (!family)

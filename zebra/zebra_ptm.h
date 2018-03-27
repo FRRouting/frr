@@ -46,7 +46,7 @@ struct zebra_ptm_cb {
 
 	int ptm_enable;
 	int pid;
-	u_int8_t client_flags[ZEBRA_ROUTE_MAX];
+	uint8_t client_flags[ZEBRA_ROUTE_MAX];
 };
 
 #define ZEBRA_PTM_STATUS_DOWN 0

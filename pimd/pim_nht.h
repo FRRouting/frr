@@ -33,13 +33,13 @@
 struct pim_nexthop_cache {
 	struct pim_rpf rpf;
 	/* IGP route's metric. */
-	u_int32_t metric;
+	uint32_t metric;
 	uint32_t distance;
 	/* Nexthop number and nexthop linked list. */
-	u_char nexthop_num;
+	uint8_t nexthop_num;
 	struct nexthop *nexthop;
 	int64_t last_update;
-	u_int16_t flags;
+	uint16_t flags;
 #define PIM_NEXTHOP_VALID             (1 << 0)
 
 	struct list *rp_list;

@@ -174,7 +174,7 @@ static int mtrace_send_packet(struct interface *ifp,
 	int fd;
 	char if_str[INET_ADDRSTRLEN];
 	char rsp_str[INET_ADDRSTRLEN];
-	u_char ttl;
+	uint8_t ttl;
 
 	memset(&to, 0, sizeof(to));
 	to.sin_family = AF_INET;

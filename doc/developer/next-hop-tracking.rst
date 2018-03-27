@@ -264,19 +264,19 @@ Zebra data structure
 
 RNH table::
 
-           O
-          / \
-         O   O
-            / \
-           O   O
-
-        struct rnh
-        {
-          u_char flags;
-          struct route_entry *state;
-          struct list *client_list;
-          struct route_node *node;
-        };
+   .  O
+     / \
+    O   O
+       / \
+      O   O
+   
+   struct rnh
+   {
+     uint8_t flags;
+     struct route_entry *state;
+     struct list *client_list;
+     struct route_node *node;
+   };
 
 User interface changes
 ~~~~~~~~~~~~~~~~~~~~~~

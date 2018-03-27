@@ -81,12 +81,12 @@ struct isis_vertex {
 	enum vertextype type;
 
 	union {
-		u_char id[ISIS_SYS_ID_LEN + 1];
+		uint8_t id[ISIS_SYS_ID_LEN + 1];
 		struct prefix prefix;
 	} N;
 
-	u_int32_t d_N;	       /* d(N) Distance from this IS      */
-	u_int16_t depth;       /* The depth in the imaginary tree */
+	uint32_t d_N;	  /* d(N) Distance from this IS      */
+	uint16_t depth;	/* The depth in the imaginary tree */
 	struct list *Adj_N;    /* {Adj(N)} next hop or neighbor list */
 	struct list *parents;  /* list of parents for ECMP */
 	uint64_t insert_counter;
@@ -413,7 +413,7 @@ static void isis_vertex_id_init(struct isis_vertex *vertex, void *id,
 	vertex->type = vtype;
 
 	if (VTYPE_IS(vtype) || VTYPE_ES(vtype)) {
-		memcpy(vertex->N.id, (u_char *)id, ISIS_SYS_ID_LEN + 1);
+		memcpy(vertex->N.id, (uint8_t *)id, ISIS_SYS_ID_LEN + 1);
 	} else if (VTYPE_IP(vtype)) {
 		memcpy(&vertex->N.prefix, (struct prefix *)id,
 		       sizeof(struct prefix));
@@ -573,10 +573,10 @@ void spftree_area_adj_del(struct isis_area *area, struct isis_adjacency *adj)
  * associated with the given system ID.
  */
 static struct isis_lsp *isis_root_system_lsp(struct isis_area *area, int level,
-					     u_char *sysid)
+					     uint8_t *sysid)
 {
 	struct isis_lsp *lsp;
-	u_char lspid[ISIS_SYS_ID_LEN + 2];
+	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
 
 	memcpy(lspid, sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(lspid) = 0;
@@ -591,14 +591,14 @@ static struct isis_lsp *isis_root_system_lsp(struct isis_area *area, int level,
  * Add this IS to the root of SPT
  */
 static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
-					     u_char *sysid)
+					     uint8_t *sysid)
 {
 	struct isis_vertex *vertex;
 	struct isis_lsp *lsp;
 #ifdef EXTREME_DEBUG
 	char buff[PREFIX2STR_BUFFER];
 #endif /* EXTREME_DEBUG */
-	u_char id[ISIS_SYS_ID_LEN + 1];
+	uint8_t id[ISIS_SYS_ID_LEN + 1];
 
 	memcpy(id, sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(id) = 0;
@@ -805,14 +805,14 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
  */
 static int isis_spf_process_lsp(struct isis_spftree *spftree,
 				struct isis_lsp *lsp, uint32_t cost,
-				uint16_t depth, u_char *root_sysid,
+				uint16_t depth, uint8_t *root_sysid,
 				struct isis_vertex *parent)
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
 	struct listnode *fragnode = NULL;
 	uint32_t dist;
 	enum vertextype vtype;
-	static const u_char null_sysid[ISIS_SYS_ID_LEN];
+	static const uint8_t null_sysid[ISIS_SYS_ID_LEN];
 	struct isis_mt_router_info *mt_router_info = NULL;
 
 	if (!lsp->tlvs)
@@ -973,7 +973,8 @@ lspfragloop:
 }
 
 static int isis_spf_preload_tent(struct isis_spftree *spftree,
-				 u_char *root_sysid, struct isis_vertex *parent)
+				 uint8_t *root_sysid,
+				 struct isis_vertex *parent)
 {
 	struct isis_circuit *circuit;
 	struct listnode *cnode, *anode, *ipnode;
@@ -984,8 +985,8 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 	struct prefix_ipv4 *ipv4;
 	struct prefix prefix;
 	int retval = ISIS_OK;
-	u_char lsp_id[ISIS_SYS_ID_LEN + 2];
-	static u_char null_lsp_id[ISIS_SYS_ID_LEN + 2];
+	uint8_t lsp_id[ISIS_SYS_ID_LEN + 2];
+	static uint8_t null_lsp_id[ISIS_SYS_ID_LEN + 2];
 	struct prefix_ipv6 *ipv6;
 	struct isis_circuit_mt_setting *circuit_mt;
 
@@ -1252,13 +1253,13 @@ static void init_spt(struct isis_spftree *spftree, int mtid, int level,
 }
 
 static int isis_run_spf(struct isis_area *area, int level, int family,
-			u_char *sysid, struct timeval *nowtv)
+			uint8_t *sysid, struct timeval *nowtv)
 {
 	int retval = ISIS_OK;
 	struct isis_vertex *vertex;
 	struct isis_vertex *root_vertex;
 	struct isis_spftree *spftree = NULL;
-	u_char lsp_id[ISIS_SYS_ID_LEN + 2];
+	uint8_t lsp_id[ISIS_SYS_ID_LEN + 2];
 	struct isis_lsp *lsp;
 	struct route_table *table = NULL;
 	struct timeval time_now;
@@ -1446,7 +1447,7 @@ int isis_spf_schedule(struct isis_area *area, int level)
 }
 
 static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
-			     u_char *root_sysid)
+			     uint8_t *root_sysid)
 {
 	struct listnode *node;
 	struct isis_vertex *vertex;
@@ -1586,7 +1587,7 @@ void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)
 	vty_out(vty, "\n");
 
 	vty_out(vty, "      last run duration : %u usec\n",
-		(u_int32_t)spftree->last_run_duration);
+		(uint32_t)spftree->last_run_duration);
 
 	vty_out(vty, "      run count         : %u\n", spftree->runcount);
 }

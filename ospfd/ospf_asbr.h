@@ -30,9 +30,9 @@ struct route_map_set_values {
 /* Redistributed external information. */
 struct external_info {
 	/* Type of source protocol. */
-	u_char type;
+	uint8_t type;
 
-	u_short instance;
+	unsigned short instance;
 
 	/* Prefix. */
 	struct prefix_ipv4 p;
@@ -54,23 +54,25 @@ struct external_info {
 #define OSPF_ASBR_CHECK_DELAY 30
 
 extern void ospf_external_route_remove(struct ospf *, struct prefix_ipv4 *);
-extern struct external_info *ospf_external_info_new(u_char, u_short);
+extern struct external_info *ospf_external_info_new(uint8_t, unsigned short);
 extern void ospf_reset_route_map_set_values(struct route_map_set_values *);
 extern int ospf_route_map_set_compare(struct route_map_set_values *,
 				      struct route_map_set_values *);
-extern struct external_info *ospf_external_info_add(struct ospf *, u_char,
-						    u_short, struct prefix_ipv4,
+extern struct external_info *ospf_external_info_add(struct ospf *, uint8_t,
+						    unsigned short,
+						    struct prefix_ipv4,
 						    ifindex_t, struct in_addr,
 						    route_tag_t);
-extern void ospf_external_info_delete(struct ospf *, u_char, u_short,
+extern void ospf_external_info_delete(struct ospf *, uint8_t, unsigned short,
 				      struct prefix_ipv4);
-extern struct external_info *
-ospf_external_info_lookup(struct ospf *, u_char, u_short, struct prefix_ipv4 *);
+extern struct external_info *ospf_external_info_lookup(struct ospf *, uint8_t,
+						       unsigned short,
+						       struct prefix_ipv4 *);
 extern struct ospf_route *ospf_external_route_lookup(struct ospf *,
 						     struct prefix_ipv4 *);
-extern void ospf_asbr_status_update(struct ospf *, u_char);
+extern void ospf_asbr_status_update(struct ospf *, uint8_t);
 
-extern void ospf_redistribute_withdraw(struct ospf *, u_char, u_short);
+extern void ospf_redistribute_withdraw(struct ospf *, uint8_t, unsigned short);
 extern void ospf_asbr_check(void);
 extern void ospf_schedule_asbr_check(void);
 extern void ospf_asbr_route_install_lsa(struct ospf_lsa *);

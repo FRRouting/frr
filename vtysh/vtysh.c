@@ -298,7 +298,7 @@ void vtysh_pager_init(void)
 static int vtysh_execute_func(const char *line, int pager)
 {
 	int ret, cmd_stat;
-	u_int i;
+	unsigned int i;
 	vector vline;
 	const struct cmd_element *cmd;
 	FILE *fp = NULL;
@@ -683,7 +683,7 @@ int vtysh_mark_file(const char *filename)
 			fprintf(stdout, "%s", vty->buf);
 			break;
 		case CMD_SUCCESS_DAEMON: {
-			u_int i;
+			unsigned int i;
 			int cmd_stat = CMD_SUCCESS;
 
 			fprintf(outputfile, "%s", vty->buf);
@@ -760,7 +760,7 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 							 that */
 			break;
 		case CMD_SUCCESS_DAEMON: {
-			u_int i;
+			unsigned int i;
 			int cmd_stat = CMD_SUCCESS;
 
 			for (i = 0; i < array_size(vtysh_client); i++) {
@@ -2259,7 +2259,7 @@ DEFUN (vtysh_write_terminal,
        "For the isis daemon\n"
        "For the pim daemon\n")
 {
-	u_int i;
+	unsigned int i;
 	char line[] = "do write terminal\n";
 	FILE *fp = outputfile;
 
@@ -2353,7 +2353,7 @@ static void backup_config_file(const char *fbackup)
 
 int vtysh_write_config_integrated(void)
 {
-	u_int i;
+	unsigned int i;
 	char line[] = "do write terminal\n";
 	FILE *fp;
 	int fd;
@@ -2461,7 +2461,7 @@ DEFUN (vtysh_write_memory,
 {
 	int ret = CMD_SUCCESS;
 	char line[] = "do write memory\n";
-	u_int i;
+	unsigned int i;
 
 	fprintf(outputfile,
 		"Note: this version of vtysh never writes vtysh.conf\n");
@@ -2562,7 +2562,7 @@ DEFUN (vtysh_show_daemons,
        SHOW_STR
        "Show list of running daemons\n")
 {
-	u_int i;
+	unsigned int i;
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0)
@@ -2975,7 +2975,7 @@ static int vtysh_connect_all_instances(struct vtysh_client *head_client)
 
 int vtysh_connect_all(const char *daemon_name)
 {
-	u_int i;
+	unsigned int i;
 	int rc = 0;
 	int matches = 0;
 

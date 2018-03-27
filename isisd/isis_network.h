@@ -24,13 +24,13 @@
 #ifndef _ZEBRA_ISIS_NETWORK_H
 #define _ZEBRA_ISIS_NETWORK_H
 
-extern u_char ALL_L1_ISYSTEMS[];
-extern u_char ALL_L2_ISYSTEMS[];
+extern uint8_t ALL_L1_ISYSTEMS[];
+extern uint8_t ALL_L2_ISYSTEMS[];
 
 int isis_sock_init(struct isis_circuit *circuit);
 
-int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa);
-int isis_recv_pdu_p2p(struct isis_circuit *circuit, u_char *ssnpa);
+int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa);
+int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa);
 int isis_send_pdu_bcast(struct isis_circuit *circuit, int level);
 int isis_send_pdu_p2p(struct isis_circuit *circuit, int level);
 

@@ -73,8 +73,8 @@ extern unsigned int sockunion_hash(const union sockunion *);
 
 extern size_t family2addrsize(int family);
 extern size_t sockunion_get_addrlen(const union sockunion *);
-extern const u_char *sockunion_get_addr(const union sockunion *);
-extern void sockunion_set(union sockunion *, int family, const u_char *addr,
+extern const uint8_t *sockunion_get_addr(const union sockunion *);
+extern void sockunion_set(union sockunion *, int family, const uint8_t *addr,
 			  size_t bytes);
 
 extern union sockunion *sockunion_str2su(const char *str);

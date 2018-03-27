@@ -81,7 +81,7 @@ const struct message ospf_packet_type_str[] = {
 
 /* Minimum (besides OSPF_HEADER_SIZE) lengths for OSPF packets of
    particular types, offset is the "type" field of a packet. */
-static const u_int16_t ospf_packet_minlen[] = {
+static const uint16_t ospf_packet_minlen[] = {
 	0,
 	OSPF_HELLO_MIN_SIZE,
 	OSPF_DB_DESC_MIN_SIZE,
@@ -92,7 +92,7 @@ static const u_int16_t ospf_packet_minlen[] = {
 
 /* Minimum (besides OSPF_LSA_HEADER_SIZE) lengths for LSAs of particular
    types, offset is the "LSA type" field. */
-static const u_int16_t ospf_lsa_minlen[] = {
+static const uint16_t ospf_lsa_minlen[] = {
 	0,
 	OSPF_ROUTER_LSA_MIN_SIZE,
 	OSPF_NETWORK_LSA_MIN_SIZE,
@@ -292,7 +292,7 @@ struct ospf_packet *ospf_packet_dup(struct ospf_packet *op)
 		/* XXX size_t */
 		zlog_warn(
 			"ospf_packet_dup stream %lu ospf_packet %u size mismatch",
-			(u_long)STREAM_SIZE(op->s), op->length);
+			(unsigned long)STREAM_SIZE(op->s), op->length);
 
 	/* Reserve space for MD5 authentication that may be added later. */
 	new = ospf_packet_new(stream_get_endp(op->s) + OSPF_AUTH_MD5_SIZE);
@@ -334,7 +334,7 @@ static int ospf_check_md5_digest(struct ospf_interface *oi,
 	unsigned char digest[OSPF_AUTH_MD5_SIZE];
 	struct crypt_key *ck;
 	struct ospf_neighbor *nbr;
-	u_int16_t length = ntohs(ospfh->length);
+	uint16_t length = ntohs(ospfh->length);
 
 	/* Get secret key. */
 	ck = ospf_crypt_key_lookup(OSPF_IF_PARAM(oi, auth_crypt),
@@ -387,9 +387,9 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 	unsigned char digest[OSPF_AUTH_MD5_SIZE] = {0};
 	MD5_CTX ctx;
 	void *ibuf;
-	u_int32_t t;
+	uint32_t t;
 	struct crypt_key *ck;
-	const u_int8_t *auth_key;
+	const uint8_t *auth_key;
 
 	ibuf = STREAM_DATA(op->s);
 	ospfh = (struct ospf_header *)ibuf;
@@ -411,7 +411,7 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 
 	/* Get MD5 Authentication key from auth_key list. */
 	if (list_isempty(OSPF_IF_PARAM(oi, auth_crypt)))
-		auth_key = (const u_int8_t *)digest;
+		auth_key = (const uint8_t *)digest;
 	else {
 		ck = listgetdata(listtail(OSPF_IF_PARAM(oi, auth_crypt)));
 		auth_key = ck->auth_key;
@@ -434,7 +434,7 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 		/* XXX size_t */
 		zlog_warn(
 			"ospf_make_md5_digest: length mismatch stream %lu ospf_packet %u",
-			(u_long)stream_get_endp(op->s), op->length);
+			(unsigned long)stream_get_endp(op->s), op->length);
 
 	return OSPF_AUTH_MD5_SIZE;
 }
@@ -549,10 +549,10 @@ int ospf_ls_ack_timer(struct thread *thread)
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 			     struct msghdr *msg, unsigned int maxdatasize,
-			     unsigned int mtu, int flags, u_char type)
+			     unsigned int mtu, int flags, uint8_t type)
 {
 #define OSPF_WRITE_FRAG_SHIFT 3
-	u_int16_t offset;
+	uint16_t offset;
 	struct iovec *iovp;
 	int ret;
 
@@ -637,13 +637,13 @@ static int ospf_write(struct thread *thread)
 	struct ip iph;
 	struct msghdr msg;
 	struct iovec iov[2];
-	u_char type;
+	uint8_t type;
 	int ret;
 	int flags = 0;
 	struct listnode *node;
 #ifdef WANT_OSPF_WRITE_FRAGMENT
-	static u_int16_t ipid = 0;
-	u_int16_t maxdatasize;
+	static uint16_t ipid = 0;
+	uint16_t maxdatasize;
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 #define OSPF_WRITE_IPHL_SHIFT 2
 	int pkt_count = 0;
@@ -1109,7 +1109,7 @@ static void ospf_db_desc_save_current(struct ospf_neighbor *nbr,
 /* Process rest of DD packet. */
 static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 			      struct ospf_neighbor *nbr,
-			      struct ospf_db_desc *dd, u_int16_t size)
+			      struct ospf_db_desc *dd, uint16_t size)
 {
 	struct ospf_lsa *new, *find;
 	struct lsa_header *lsah;
@@ -1258,7 +1258,7 @@ static int ospf_db_desc_is_dup(struct ospf_db_desc *dd,
 /* OSPF Database Description message read -- RFC2328 Section 10.6. */
 static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			 struct stream *s, struct ospf_interface *oi,
-			 u_int16_t size)
+			 uint16_t size)
 {
 	struct ospf_db_desc *dd;
 	struct ospf_neighbor *nbr;
@@ -1549,10 +1549,10 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 /* OSPF Link State Request Read -- RFC2328 Section 10.7. */
 static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 			struct stream *s, struct ospf_interface *oi,
-			u_int16_t size)
+			uint16_t size)
 {
 	struct ospf_neighbor *nbr;
-	u_int32_t ls_type;
+	uint32_t ls_type;
 	struct in_addr ls_id;
 	struct in_addr adv_router;
 	struct ospf_lsa *find;
@@ -1651,8 +1651,8 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 					 struct stream *s,
 					 struct ospf_interface *oi, size_t size)
 {
-	u_int16_t count, sum;
-	u_int32_t length;
+	uint16_t count, sum;
+	uint32_t length;
 	struct lsa_header *lsah;
 	struct ospf_lsa *lsa;
 	struct list *lsas;
@@ -1789,7 +1789,7 @@ static void ospf_upd_list_clean(struct list *lsas)
 /* OSPF Link State Update message read -- RFC2328 Section 13. */
 static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			struct ospf_header *ospfh, struct stream *s,
-			struct ospf_interface *oi, u_int16_t size)
+			struct ospf_interface *oi, uint16_t size)
 {
 	struct ospf_neighbor *nbr;
 	struct list *lsas;
@@ -2190,7 +2190,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 /* OSPF Link State Acknowledgment message read -- RFC2328 Section 13.7. */
 static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 			struct stream *s, struct ospf_interface *oi,
-			u_int16_t size)
+			uint16_t size)
 {
 	struct ospf_neighbor *nbr;
 
@@ -2254,7 +2254,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 {
 	int ret;
 	struct ip *iph;
-	u_int16_t ip_len;
+	uint16_t ip_len;
 	ifindex_t ifindex = 0;
 	struct iovec iov;
 	/* Header and data both require alignment. */
@@ -2277,7 +2277,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 		zlog_warn(
 			"ospf_recv_packet: discarding runt packet of length %d "
 			"(ip header size is %u)",
-			ret, (u_int)sizeof(iph));
+			ret, (unsigned int)sizeof(iph));
 		return NULL;
 	}
 
@@ -2419,8 +2419,8 @@ static int ospf_check_network_mask(struct ospf_interface *oi,
 static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 {
 	struct crypt_key *ck;
-	u_int16_t iface_auth_type;
-	u_int16_t pkt_auth_type = ntohs(ospfh->auth_type);
+	uint16_t iface_auth_type;
+	uint16_t pkt_auth_type = ntohs(ospfh->auth_type);
 
 	switch (pkt_auth_type) {
 	case OSPF_AUTH_NULL: /* RFC2328 D.5.1 */
@@ -2513,15 +2513,15 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 
 static int ospf_check_sum(struct ospf_header *ospfh)
 {
-	u_int32_t ret;
-	u_int16_t sum;
+	uint32_t ret;
+	uint16_t sum;
 
 	/* clear auth_data for checksum. */
 	memset(ospfh->u.auth_data, 0, OSPF_AUTH_SIMPLE_SIZE);
 
 	/* keep checksum and clear. */
 	sum = ospfh->checksum;
-	memset(&ospfh->checksum, 0, sizeof(u_int16_t));
+	memset(&ospfh->checksum, 0, sizeof(uint16_t));
 
 	/* calculate checksum. */
 	ret = in_cksum(ospfh, ntohs(ospfh->length));
@@ -2538,8 +2538,8 @@ static int ospf_check_sum(struct ospf_header *ospfh)
 /* Verify, that given link/TOS records are properly sized/aligned and match
    Router-LSA "# links" and "# TOS" fields as specified in RFC2328 A.4.2. */
 static unsigned ospf_router_lsa_links_examin(struct router_lsa_link *link,
-					     u_int16_t linkbytes,
-					     const u_int16_t num_links)
+					     uint16_t linkbytes,
+					     const uint16_t num_links)
 {
 	unsigned counted_links = 0, thislinklen;
 
@@ -2567,8 +2567,8 @@ static unsigned ospf_router_lsa_links_examin(struct router_lsa_link *link,
 
 /* Verify, that the given LSA is properly sized/aligned (including type-specific
    minimum length constraint). */
-static unsigned ospf_lsa_examin(struct lsa_header *lsah, const u_int16_t lsalen,
-				const u_char headeronly)
+static unsigned ospf_lsa_examin(struct lsa_header *lsah, const uint16_t lsalen,
+				const uint8_t headeronly)
 {
 	unsigned ret;
 	struct router_lsa *rlsa;
@@ -2651,16 +2651,16 @@ static unsigned ospf_lsa_examin(struct lsa_header *lsah, const u_int16_t lsalen,
    of deeper-level checks. */
 static unsigned
 ospf_lsaseq_examin(struct lsa_header *lsah, /* start of buffered data */
-		   size_t length, const u_char headeronly,
+		   size_t length, const uint8_t headeronly,
 		   /* When declared_num_lsas is not 0, compare it to the real
 		      number of LSAs
 		      and treat the difference as an error. */
-		   const u_int32_t declared_num_lsas)
+		   const uint32_t declared_num_lsas)
 {
-	u_int32_t counted_lsas = 0;
+	uint32_t counted_lsas = 0;
 
 	while (length) {
-		u_int16_t lsalen;
+		uint16_t lsalen;
 		if (length < OSPF_LSA_HEADER_SIZE) {
 			if (IS_DEBUG_OSPF_PACKET(0, RECV))
 				zlog_debug(
@@ -2726,7 +2726,7 @@ ospf_lsaseq_examin(struct lsa_header *lsah, /* start of buffered data */
 static unsigned ospf_packet_examin(struct ospf_header *oh,
 				   const unsigned bytesonwire)
 {
-	u_int16_t bytesdeclared, bytesauth;
+	uint16_t bytesdeclared, bytesauth;
 	unsigned ret;
 	struct ospf_ls_update *lsupd;
 
@@ -2883,7 +2883,7 @@ int ospf_read(struct thread *thread)
 	struct ospf_interface *oi;
 	struct ip *iph;
 	struct ospf_header *ospfh;
-	u_int16_t length;
+	uint16_t length;
 	struct interface *ifp = NULL;
 	struct connected *c;
 
@@ -3114,8 +3114,8 @@ static void ospf_make_header(int type, struct ospf_interface *oi,
 
 	ospfh = (struct ospf_header *)STREAM_DATA(s);
 
-	ospfh->version = (u_char)OSPF_VERSION;
-	ospfh->type = (u_char)type;
+	ospfh->version = (uint8_t)OSPF_VERSION;
+	ospfh->type = (uint8_t)type;
 
 	ospfh->router_id = oi->ospf->router_id;
 
@@ -3168,7 +3168,7 @@ static int ospf_make_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 
 /* Fill rest of OSPF header. */
 static void ospf_fill_header(struct ospf_interface *oi, struct stream *s,
-			     u_int16_t length)
+			     uint16_t length)
 {
 	struct ospf_header *ospfh;
 
@@ -3191,7 +3191,7 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 {
 	struct ospf_neighbor *nbr;
 	struct route_node *rn;
-	u_int16_t length = OSPF_HELLO_MIN_SIZE;
+	uint16_t length = OSPF_HELLO_MIN_SIZE;
 	struct in_addr mask;
 	unsigned long p;
 	int flag = 0;
@@ -3279,8 +3279,8 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 			     struct ospf_neighbor *nbr, struct stream *s)
 {
 	struct ospf_lsa *lsa;
-	u_int16_t length = OSPF_DB_DESC_MIN_SIZE;
-	u_char options;
+	uint16_t length = OSPF_DB_DESC_MIN_SIZE;
+	uint8_t options;
 	unsigned long pp;
 	int i;
 	struct ospf_lsdb *lsdb;
@@ -3328,7 +3328,7 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 
 				if (!CHECK_FLAG(lsa->flags, OSPF_LSA_DISCARD)) {
 					struct lsa_header *lsah;
-					u_int16_t ls_age;
+					uint16_t ls_age;
 
 					/* DD packet overflows interface MTU. */
 					if (length + OSPF_LSA_HEADER_SIZE
@@ -3370,7 +3370,7 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 	return length;
 }
 
-static int ospf_make_ls_req_func(struct stream *s, u_int16_t *length,
+static int ospf_make_ls_req_func(struct stream *s, uint16_t *length,
 				 unsigned long delta, struct ospf_neighbor *nbr,
 				 struct ospf_lsa *lsa)
 {
@@ -3396,7 +3396,7 @@ static int ospf_make_ls_req_func(struct stream *s, u_int16_t *length,
 static int ospf_make_ls_req(struct ospf_neighbor *nbr, struct stream *s)
 {
 	struct ospf_lsa *lsa;
-	u_int16_t length = OSPF_LS_REQ_MIN_SIZE;
+	uint16_t length = OSPF_LS_REQ_MIN_SIZE;
 	unsigned long delta = stream_get_endp(s) + 12;
 	struct route_table *table;
 	struct route_node *rn;
@@ -3433,7 +3433,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 {
 	struct ospf_lsa *lsa;
 	struct listnode *node;
-	u_int16_t length = 0;
+	uint16_t length = 0;
 	unsigned int size_noauth;
 	unsigned long delta = stream_get_endp(s);
 	unsigned long pp;
@@ -3451,7 +3451,7 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 
 	while ((node = listhead(update)) != NULL) {
 		struct lsa_header *lsah;
-		u_int16_t ls_age;
+		uint16_t ls_age;
 
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("ospf_make_ls_upd: List Iteration %d",
@@ -3498,7 +3498,7 @@ static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 			    struct stream *s)
 {
 	struct listnode *node, *nnode;
-	u_int16_t length = OSPF_LS_ACK_MIN_SIZE;
+	uint16_t length = OSPF_LS_ACK_MIN_SIZE;
 	unsigned long delta = stream_get_endp(s) + 24;
 	struct ospf_lsa *lsa;
 
@@ -3521,7 +3521,7 @@ static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 {
 	struct ospf_packet *op;
-	u_int16_t length = OSPF_HEADER_SIZE;
+	uint16_t length = OSPF_HEADER_SIZE;
 
 	op = ospf_packet_new(oi->ifp->mtu);
 
@@ -3695,7 +3695,7 @@ void ospf_db_desc_send(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi;
 	struct ospf_packet *op;
-	u_int16_t length = OSPF_HEADER_SIZE;
+	uint16_t length = OSPF_HEADER_SIZE;
 
 	oi = nbr->oi;
 	op = ospf_packet_new(oi->ifp->mtu);
@@ -3751,7 +3751,7 @@ void ospf_ls_req_send(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi;
 	struct ospf_packet *op;
-	u_int16_t length = OSPF_HEADER_SIZE;
+	uint16_t length = OSPF_HEADER_SIZE;
 
 	oi = nbr->oi;
 	op = ospf_packet_new(oi->ifp->mtu);
@@ -3890,7 +3890,7 @@ static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
 				   int send_lsupd_now)
 {
 	struct ospf_packet *op;
-	u_int16_t length = OSPF_HEADER_SIZE;
+	uint16_t length = OSPF_HEADER_SIZE;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("listcount = %d, [%s]dst %s", listcount(update),
@@ -4058,7 +4058,7 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 				  struct in_addr dst)
 {
 	struct ospf_packet *op;
-	u_int16_t length = OSPF_HEADER_SIZE;
+	uint16_t length = OSPF_HEADER_SIZE;
 
 	op = ospf_packet_new(oi->ifp->mtu);
 

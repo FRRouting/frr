@@ -96,7 +96,7 @@ void eigrp_router_id_update(struct eigrp *eigrp)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	u_int32_t router_id, router_id_old;
+	uint32_t router_id, router_id_old;
 
 	router_id_old = eigrp->router_id;
 

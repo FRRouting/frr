@@ -36,7 +36,7 @@ extern unsigned char conf_debug_ospf6_spf;
 /* Transit Vertex */
 struct ospf6_vertex {
 	/* type of this vertex */
-	u_int8_t type;
+	uint8_t type;
 
 	/* Vertex Identifier */
 	struct prefix vertex_id;
@@ -51,16 +51,16 @@ struct ospf6_vertex {
 	struct ospf6_lsa *lsa;
 
 	/* Distance from Root (i.e. Cost) */
-	u_int32_t cost;
+	uint32_t cost;
 
 	/* Router hops to this node */
-	u_char hops;
+	uint8_t hops;
 
 	/* capability bits */
-	u_char capability;
+	uint8_t capability;
 
 	/* Optional capabilities */
-	u_char options[3];
+	uint8_t options[3];
 
 	/* For tree display */
 	struct ospf6_vertex *parent;
@@ -136,7 +136,7 @@ static inline unsigned int ospf6_lsremove_to_spf_reason(struct ospf6_lsa *lsa)
 }
 
 extern void ospf6_spf_table_finish(struct ospf6_route_table *result_table);
-extern void ospf6_spf_calculation(u_int32_t router_id,
+extern void ospf6_spf_calculation(uint32_t router_id,
 				  struct ospf6_route_table *result_table,
 				  struct ospf6_area *oa);
 extern void ospf6_spf_schedule(struct ospf6 *ospf, unsigned int reason);

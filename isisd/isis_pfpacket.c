@@ -67,10 +67,10 @@ static struct sock_fprog bpf = {
  * ISO 10589 - 8.4.8
  */
 
-u_char ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
-u_char ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-u_char ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-u_char ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
+uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
+uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
+uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
+uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
 
 static uint8_t discard_buff[8192];
 static uint8_t sock_buff[8192];
@@ -216,7 +216,7 @@ end:
 	return retval;
 }
 
-static inline int llc_check(u_char *llc)
+static inline int llc_check(uint8_t *llc)
 {
 	if (*llc != ISO_SAP || *(llc + 1) != ISO_SAP || *(llc + 2) != 3)
 		return 0;
@@ -224,11 +224,11 @@ static inline int llc_check(u_char *llc)
 	return 1;
 }
 
-int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
+int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 {
 	int bytesread, addr_len;
 	struct sockaddr_ll s_addr;
-	u_char llc[LLC_LEN];
+	uint8_t llc[LLC_LEN];
 
 	addr_len = sizeof(s_addr);
 
@@ -300,7 +300,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
 	return ISIS_OK;
 }
 
-int isis_recv_pdu_p2p(struct isis_circuit *circuit, u_char *ssnpa)
+int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
 {
 	int bytesread, addr_len;
 	struct sockaddr_ll s_addr;

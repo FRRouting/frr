@@ -308,7 +308,7 @@ void ospf_bfd_write_config(struct vty *vty, struct ospf_if_params *params)
  * ospf_bfd_show_info - Show BFD info structure
  */
 void ospf_bfd_show_info(struct vty *vty, void *bfd_info, json_object *json_obj,
-			u_char use_json, int param_only)
+			uint8_t use_json, int param_only)
 {
 	if (param_only)
 		bfd_show_param(vty, (struct bfd_info *)bfd_info, 1, 0, use_json,
@@ -322,7 +322,7 @@ void ospf_bfd_show_info(struct vty *vty, void *bfd_info, json_object *json_obj,
  * ospf_bfd_interface_show - Show the interface BFD configuration.
  */
 void ospf_bfd_interface_show(struct vty *vty, struct interface *ifp,
-			     json_object *json_interface_sub, u_char use_json)
+			     json_object *json_interface_sub, uint8_t use_json)
 {
 	struct ospf_if_params *params;
 
@@ -336,8 +336,8 @@ void ospf_bfd_interface_show(struct vty *vty, struct interface *ifp,
  * ospf_bfd_if_param_set - Set the configured BFD paramter values for
  *                         interface.
  */
-static void ospf_bfd_if_param_set(struct interface *ifp, u_int32_t min_rx,
-				  u_int32_t min_tx, u_int8_t detect_mult,
+static void ospf_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
+				  uint32_t min_tx, uint8_t detect_mult,
 				  int defaults)
 {
 	struct ospf_if_params *params;
@@ -387,9 +387,9 @@ DEFUN (ip_ospf_bfd_param,
 	int idx_number = 3;
 	int idx_number_2 = 4;
 	int idx_number_3 = 5;
-	u_int32_t rx_val;
-	u_int32_t tx_val;
-	u_int8_t dm_val;
+	uint32_t rx_val;
+	uint32_t tx_val;
+	uint8_t dm_val;
 	int ret;
 
 	assert(ifp);

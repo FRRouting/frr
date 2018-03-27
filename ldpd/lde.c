@@ -56,7 +56,7 @@ static void		 lde_map_free(void *);
 static int		 lde_address_add(struct lde_nbr *, struct lde_addr *);
 static int		 lde_address_del(struct lde_nbr *, struct lde_addr *);
 static void		 lde_address_list_free(struct lde_nbr *);
-static void		 zclient_sync_init(u_short instance);
+static void zclient_sync_init(unsigned short instance);
 static void		 lde_label_list_init(void);
 static int		 lde_get_label_chunk(void);
 static void		 on_get_label_chunk_response(uint32_t start, uint32_t end);
@@ -1626,8 +1626,7 @@ lde_address_list_free(struct lde_nbr *ln)
 	}
 }
 
-static void
-zclient_sync_init(u_short instance)
+static void zclient_sync_init(unsigned short instance)
 {
 	/* Initialize special zclient for synchronous message exchanges. */
 	zclient_sync = zclient_new_notify(master, &zclient_options_default);

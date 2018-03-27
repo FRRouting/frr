@@ -95,8 +95,8 @@ struct ripng {
 	int sock;
 
 	/* RIPng Parameters.*/
-	u_char command;
-	u_char version;
+	uint8_t command;
+	uint8_t version;
 	unsigned long update_time;
 	unsigned long timeout_time;
 	unsigned long garbage_time;
@@ -137,35 +137,35 @@ struct ripng {
 		char *name;
 		struct route_map *map;
 		int metric_config;
-		u_int32_t metric;
+		uint32_t metric;
 	} route_map[ZEBRA_ROUTE_MAX];
 };
 
 /* Routing table entry. */
 struct rte {
 	struct in6_addr addr; /* RIPng destination prefix */
-	u_int16_t tag;	/* RIPng tag */
-	u_char prefixlen;     /* Length of the RIPng prefix */
-	u_char metric;	/* Metric of the RIPng route */
+	uint16_t tag;	 /* RIPng tag */
+	uint8_t prefixlen;    /* Length of the RIPng prefix */
+	uint8_t metric;       /* Metric of the RIPng route */
 			      /* The nexthop is stored by the structure
 			       * ripng_nexthop within ripngd.c */
 };
 
 /* RIPNG send packet. */
 struct ripng_packet {
-	u_char command;
-	u_char version;
-	u_int16_t zero;
+	uint8_t command;
+	uint8_t version;
+	uint16_t zero;
 	struct rte rte[1];
 };
 
 /* Each route's information. */
 struct ripng_info {
 	/* This route's type.  Static, ripng or aggregate. */
-	u_char type;
+	uint8_t type;
 
 	/* Sub type for static route. */
-	u_char sub_type;
+	uint8_t sub_type;
 
 	/* RIPng specific information */
 	struct in6_addr nexthop;
@@ -175,10 +175,10 @@ struct ripng_info {
 	ifindex_t ifindex;
 
 	/* Metric of this route.  */
-	u_char metric;
+	uint8_t metric;
 
 	/* Tag field of RIPng packet.*/
-	u_int16_t tag;
+	uint16_t tag;
 
 	/* For aggregation. */
 	unsigned int suppress;
@@ -186,7 +186,7 @@ struct ripng_info {
 /* Flags of RIPng route. */
 #define RIPNG_RTF_FIB      1
 #define RIPNG_RTF_CHANGED  2
-	u_char flags;
+	uint8_t flags;
 
 	/* Garbage collect timer. */
 	struct thread *t_timeout;
@@ -194,9 +194,9 @@ struct ripng_info {
 
 	/* Route-map features - this variables can be changed. */
 	struct in6_addr nexthop_out;
-	u_char metric_set;
-	u_char metric_out;
-	u_int16_t tag_out;
+	uint8_t metric_set;
+	uint8_t metric_out;
+	uint16_t tag_out;
 
 	struct route_node *rp;
 };
@@ -207,10 +207,10 @@ struct ripng_info {
 struct ripng_tag
 {
   /* Tag value. */
-  u_int16_t tag;
+  uint16_t tag;
 
   /* Port. */
-  u_int16_t port;
+  uint16_t port;
 
   /* Multicast group. */
   struct in6_addr maddr;
@@ -222,10 +222,10 @@ struct ripng_tag
   int distance;
 
   /* Split horizon. */
-  u_char split_horizon;
+  uint8_t split_horizon;
 
   /* Poison reverse. */
-  u_char poison_reverse;
+  uint8_t poison_reverse;
 };
 #endif /* 0 */
 #endif /* not yet */
@@ -271,10 +271,10 @@ struct ripng_interface {
 #endif /* notyet */
 
 	/* Default information originate. */
-	u_char default_originate;
+	uint8_t default_originate;
 
 	/* Default information only. */
-	u_char default_only;
+	uint8_t default_only;
 
 	/* Wake up thread. */
 	struct thread *t_wakeup;
@@ -295,7 +295,7 @@ struct ripng_peer {
 	time_t uptime;
 
 	/* Peer RIP version. */
-	u_char version;
+	uint8_t version;
 
 	/* Statistics. */
 	int recv_badpackets;
@@ -351,7 +351,7 @@ extern void ripng_offset_init(void);
 extern int config_write_ripng_offset_list(struct vty *);
 
 extern void ripng_peer_init(void);
-extern void ripng_peer_update(struct sockaddr_in6 *, u_char);
+extern void ripng_peer_update(struct sockaddr_in6 *, uint8_t);
 extern void ripng_peer_bad_route(struct sockaddr_in6 *);
 extern void ripng_peer_bad_packet(struct sockaddr_in6 *);
 extern void ripng_peer_display(struct vty *);
@@ -359,9 +359,9 @@ extern struct ripng_peer *ripng_peer_lookup(struct in6_addr *);
 extern struct ripng_peer *ripng_peer_lookup_next(struct in6_addr *);
 
 extern int ripng_offset_list_apply_in(struct prefix_ipv6 *, struct interface *,
-				      u_char *);
+				      uint8_t *);
 extern int ripng_offset_list_apply_out(struct prefix_ipv6 *, struct interface *,
-				       u_char *);
+				       uint8_t *);
 extern void ripng_offset_clean(void);
 
 extern struct ripng_info *ripng_info_new(void);
@@ -385,8 +385,8 @@ extern int ripng_redistribute_check(int);
 extern void ripng_redistribute_write(struct vty *, int);
 
 extern int ripng_write_rte(int num, struct stream *s, struct prefix_ipv6 *p,
-			   struct in6_addr *nexthop, u_int16_t tag,
-			   u_char metric);
+			   struct in6_addr *nexthop, uint16_t tag,
+			   uint8_t metric);
 extern int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 			     struct interface *ifp);
 

@@ -35,7 +35,7 @@ extern void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer,
 				      char *addr);
 
 extern void bgp_bfd_show_info(struct vty *vty, struct peer *peer,
-			      u_char use_json, json_object *json_neigh);
+			      uint8_t use_json, json_object *json_neigh);
 
 extern int bgp_bfd_is_peer_multihop(struct peer *peer);
 

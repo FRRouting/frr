@@ -63,7 +63,7 @@
 void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 {
 	struct eigrp_packet *ep;
-	u_int16_t length = EIGRP_HEADER_LEN;
+	uint16_t length = EIGRP_HEADER_LEN;
 	struct eigrp_interface *ei = nbr->ei;
 	struct eigrp *eigrp = ei->eigrp;
 	struct eigrp_prefix_entry *pe2;
@@ -132,7 +132,7 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
 
-	u_int16_t type;
+	uint16_t type;
 
 	/* increment statistics. */
 	ei->reply_in++;
@@ -153,7 +153,7 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 
 		struct prefix dest_addr;
 
-		stream_set_getp(s, s->getp - sizeof(u_int16_t));
+		stream_set_getp(s, s->getp - sizeof(uint16_t));
 
 		tlv = eigrp_read_ipv4_tlv(s);
 

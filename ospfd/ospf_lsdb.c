@@ -213,7 +213,7 @@ struct ospf_lsa *ospf_lsdb_lookup(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
 	return NULL;
 }
 
-struct ospf_lsa *ospf_lsdb_lookup_by_id(struct ospf_lsdb *lsdb, u_char type,
+struct ospf_lsa *ospf_lsdb_lookup_by_id(struct ospf_lsdb *lsdb, uint8_t type,
 					struct in_addr id,
 					struct in_addr adv_router)
 {
@@ -240,7 +240,7 @@ struct ospf_lsa *ospf_lsdb_lookup_by_id(struct ospf_lsdb *lsdb, u_char type,
 }
 
 struct ospf_lsa *ospf_lsdb_lookup_by_id_next(struct ospf_lsdb *lsdb,
-					     u_char type, struct in_addr id,
+					     uint8_t type, struct in_addr id,
 					     struct in_addr adv_router,
 					     int first)
 {

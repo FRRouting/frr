@@ -41,9 +41,9 @@
 #define LSID_OPAQUE_TYPE_MASK	0xff000000	/*  8 bits */
 #define LSID_OPAQUE_ID_MASK	0x00ffffff	/* 24 bits */
 
-#define GET_OPAQUE_TYPE(lsid) (((u_int32_t)(lsid)&LSID_OPAQUE_TYPE_MASK) >> 24)
+#define GET_OPAQUE_TYPE(lsid) (((uint32_t)(lsid)&LSID_OPAQUE_TYPE_MASK) >> 24)
 
-#define GET_OPAQUE_ID(lsid) ((u_int32_t)(lsid)&LSID_OPAQUE_ID_MASK)
+#define GET_OPAQUE_ID(lsid) ((uint32_t)(lsid)&LSID_OPAQUE_ID_MASK)
 
 #define SET_OPAQUE_LSID(type, id)                                              \
 	((((unsigned)(type) << 24) & LSID_OPAQUE_TYPE_MASK)                    \
@@ -78,20 +78,20 @@
 
 #define VALID_OPAQUE_INFO_LEN(lsahdr)                                          \
 	((ntohs((lsahdr)->length) >= sizeof(struct lsa_header))                \
-	 && ((ntohs((lsahdr)->length) % sizeof(u_int32_t)) == 0))
+	 && ((ntohs((lsahdr)->length) % sizeof(uint32_t)) == 0))
 
 /*
  * Following section defines generic TLV (type, length, value) macros,
  * used for various LSA opaque usage e.g. Traffic Engineering.
  */
 struct tlv_header {
-	u_int16_t type;   /* Type of Value */
-	u_int16_t length; /* Length of Value portion only, in bytes */
+	uint16_t type;   /* Type of Value */
+	uint16_t length; /* Length of Value portion only, in bytes */
 };
 
 #define TLV_HDR_SIZE	(sizeof(struct tlv_header))
 
-#define TLV_BODY_SIZE(tlvh) (ROUNDUP(ntohs((tlvh)->length), sizeof(u_int32_t)))
+#define TLV_BODY_SIZE(tlvh) (ROUNDUP(ntohs((tlvh)->length), sizeof(uint32_t)))
 
 #define TLV_SIZE(tlvh)	(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
 
@@ -126,7 +126,7 @@ extern int ospf_opaque_type11_lsa_init(struct ospf *ospf);
 extern void ospf_opaque_type11_lsa_term(struct ospf *ospf);
 
 extern int ospf_register_opaque_functab(
-	u_char lsa_type, u_char opaque_type,
+	uint8_t lsa_type, uint8_t opaque_type,
 	int (*new_if_hook)(struct interface *ifp),
 	int (*del_if_hook)(struct interface *ifp),
 	void (*ism_change_hook)(struct ospf_interface *oi, int old_status),
@@ -139,7 +139,7 @@ extern int ospf_register_opaque_functab(
 	struct ospf_lsa *(*lsa_refresher)(struct ospf_lsa *lsa),
 	int (*new_lsa_hook)(struct ospf_lsa *lsa),
 	int (*del_lsa_hook)(struct ospf_lsa *lsa));
-extern void ospf_delete_opaque_functab(u_char lsa_type, u_char opaque_type);
+extern void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type);
 
 extern int ospf_opaque_new_if(struct interface *ifp);
 extern int ospf_opaque_del_if(struct interface *ifp);
@@ -149,7 +149,7 @@ extern void ospf_opaque_config_write_router(struct vty *vty, struct ospf *ospf);
 extern void ospf_opaque_config_write_if(struct vty *vty, struct interface *ifp);
 extern void ospf_opaque_config_write_debug(struct vty *vty);
 extern void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa);
-extern void ospf_opaque_lsa_dump(struct stream *s, u_int16_t length);
+extern void ospf_opaque_lsa_dump(struct stream *s, uint16_t length);
 
 extern void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi,
 					       int *init_delay);
@@ -158,8 +158,8 @@ extern struct ospf_lsa *ospf_opaque_lsa_install(struct ospf_lsa *lsa,
 extern struct ospf_lsa *ospf_opaque_lsa_refresh(struct ospf_lsa *lsa);
 
 extern void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
-						 u_char lsa_type,
-						 u_char opaque_type);
+						 uint8_t lsa_type,
+						 uint8_t opaque_type);
 extern void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa);
 extern void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa);
 

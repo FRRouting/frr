@@ -38,7 +38,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
 
-static u_int32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
+static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct thread *zebra_t_rmap_update = NULL;
 char *proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1]; /* "any" == ZEBRA_ROUTE_MAX */
 /* NH Tracking route map */
@@ -48,12 +48,12 @@ char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 struct nh_rmap_obj {
 	struct nexthop *nexthop;
 	vrf_id_t vrf_id;
-	u_int32_t source_protocol;
+	uint32_t source_protocol;
 	int metric;
 	route_tag_t tag;
 };
 
-static void zebra_route_map_set_delay_timer(u_int32_t value);
+static void zebra_route_map_set_delay_timer(uint32_t value);
 
 
 /* Add zebra route map rule */
@@ -424,7 +424,7 @@ DEFUN (zebra_route_map_timer,
        "0 means event-driven updates are disabled\n")
 {
 	int idx_number = 3;
-	u_int32_t rmap_delay_timer;
+	uint32_t rmap_delay_timer;
 
 	rmap_delay_timer = strtoul(argv[idx_number]->arg, NULL, 10);
 	zebra_route_map_set_delay_timer(rmap_delay_timer);
@@ -1041,7 +1041,7 @@ static route_map_result_t
 route_match_address_prefix_len(void *rule, struct prefix *prefix,
 			       route_map_object_t type, void *object)
 {
-	u_int32_t *prefixlen = (u_int32_t *)rule;
+	uint32_t *prefixlen = (uint32_t *)rule;
 
 	if (type == RMAP_ZEBRA) {
 		return ((prefix->prefixlen == *prefixlen) ? RMAP_MATCH
@@ -1052,7 +1052,7 @@ route_match_address_prefix_len(void *rule, struct prefix *prefix,
 
 static void *route_match_address_prefix_len_compile(const char *arg)
 {
-	u_int32_t *prefix_len;
+	uint32_t *prefix_len;
 	char *endptr = NULL;
 	unsigned long tmpval;
 
@@ -1065,7 +1065,7 @@ static void *route_match_address_prefix_len_compile(const char *arg)
 	if (*endptr != '\0' || errno || tmpval > UINT32_MAX)
 		return NULL;
 
-	prefix_len = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_int32_t));
+	prefix_len = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
 
 	if (!prefix_len)
 		return prefix_len;
@@ -1095,7 +1095,7 @@ static route_map_result_t
 route_match_ip_nexthop_prefix_len(void *rule, struct prefix *prefix,
 				  route_map_object_t type, void *object)
 {
-	u_int32_t *prefixlen = (u_int32_t *)rule;
+	uint32_t *prefixlen = (uint32_t *)rule;
 	struct nh_rmap_obj *nh_data;
 	struct prefix_ipv4 p;
 
@@ -1136,7 +1136,7 @@ static route_map_result_t route_match_source_protocol(void *rule,
 						      route_map_object_t type,
 						      void *object)
 {
-	u_int32_t *rib_type = (u_int32_t *)rule;
+	uint32_t *rib_type = (uint32_t *)rule;
 	struct nh_rmap_obj *nh_data;
 
 	if (type == RMAP_ZEBRA) {
@@ -1152,11 +1152,11 @@ static route_map_result_t route_match_source_protocol(void *rule,
 
 static void *route_match_source_protocol_compile(const char *arg)
 {
-	u_int32_t *rib_type;
+	uint32_t *rib_type;
 	int i;
 
 	i = proto_name2num(arg);
-	rib_type = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_int32_t));
+	rib_type = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
 
 	*rib_type = i;
 
@@ -1232,7 +1232,7 @@ static int zebra_route_map_update_timer(struct thread *thread)
 	return (0);
 }
 
-static void zebra_route_map_set_delay_timer(u_int32_t value)
+static void zebra_route_map_set_delay_timer(uint32_t value)
 {
 	zebra_rmap_update_timer = value;
 	if (!value && zebra_t_rmap_update) {

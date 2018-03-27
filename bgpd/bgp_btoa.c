@@ -68,12 +68,12 @@ enum MRT_MSG_TYPES {
 	MSG_TABLE_DUMP		  /* routing table dump */
 };
 
-static int attr_parse(struct stream *s, u_int16_t len)
+static int attr_parse(struct stream *s, uint16_t len)
 {
-	u_int flag;
-	u_int type;
-	u_int16_t length;
-	u_int16_t lim;
+	unsigned int flag;
+	unsigned int type;
+	uint16_t length;
+	uint16_t lim;
 
 	lim = s->getp + len;
 
@@ -94,7 +94,7 @@ static int attr_parse(struct stream *s, u_int16_t len)
 
 		switch (type) {
 		case BGP_ATTR_ORIGIN: {
-			u_char origin;
+			uint8_t origin;
 			origin = stream_getc(s);
 			printf("ORIGIN: %d\n", origin);
 		} break;
@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 	int family;
 	struct in_addr sip;
 	struct in_addr dip;
-	u_int16_t viewno, seq_num;
+	uint16_t viewno, seq_num;
 	struct prefix_ipv4 p;
 
 	s = stream_new(10000);
@@ -230,10 +230,10 @@ int main(int argc, char **argv)
 		/* printf ("now read %d\n", len); */
 
 		if (type == MSG_TABLE_DUMP) {
-			u_char status;
+			uint8_t status;
 			time_t originated;
 			struct in_addr peer;
-			u_int16_t attrlen;
+			uint16_t attrlen;
 
 			viewno = stream_getw(s);
 			seq_num = stream_getw(s);

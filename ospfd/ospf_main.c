@@ -132,7 +132,7 @@ FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
 /* OSPFd main routine. */
 int main(int argc, char **argv)
 {
-	u_short instance = 0;
+	unsigned short instance = 0;
 
 #ifdef SUPPORT_OSPF_API
 	/* OSPF apiserver is disabled by default. */

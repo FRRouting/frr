@@ -45,7 +45,7 @@ struct test_spec {
 static struct test_segment {
 	const char *name;
 	const char *desc;
-	const u_int8_t data[1024];
+	const uint8_t data[1024];
 	int len;
 	struct test_spec sp;
 } test_segments[] = {{/* 0 */
@@ -121,7 +121,7 @@ static void parse_test(struct test_segment *t)
 
 	printf("%s: %s\n", t->name, t->desc);
 
-	ecom = ecommunity_parse((u_int8_t *)t->data, t->len);
+	ecom = ecommunity_parse((uint8_t *)t->data, t->len);
 
 	printf("ecom: %s\nvalidating...:\n", ecommunity_str(ecom));
 

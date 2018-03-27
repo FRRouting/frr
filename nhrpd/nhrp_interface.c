@@ -134,7 +134,7 @@ static void nhrp_interface_update_nbma(struct interface *ifp)
 		debugf(NHRP_DEBUG_IF, "%s: GRE: %x %x %x", ifp->name,
 		       nifp->grekey, nifp->linkidx, saddr.s_addr);
 		if (saddr.s_addr)
-			sockunion_set(&nbma, AF_INET, (u_char *)&saddr.s_addr,
+			sockunion_set(&nbma, AF_INET, (uint8_t *)&saddr.s_addr,
 				      sizeof(saddr.s_addr));
 		else if (!nbmaifp && nifp->linkidx != IFINDEX_INTERNAL)
 			nbmaifp =

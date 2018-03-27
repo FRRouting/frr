@@ -77,7 +77,7 @@
 typedef enum { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX } bpacket_attr_vec_type;
 
 typedef struct {
-	u_int32_t flags;
+	uint32_t flags;
 	unsigned long offset;
 } bpacket_attr_vec;
 
@@ -139,19 +139,19 @@ struct update_group {
 	uint64_t id;
 	time_t uptime;
 
-	u_int32_t join_events;
-	u_int32_t prune_events;
-	u_int32_t merge_events;
-	u_int32_t updgrp_switch_events;
-	u_int32_t peer_refreshes_combined;
-	u_int32_t adj_count;
-	u_int32_t split_events;
-	u_int32_t merge_checks_triggered;
+	uint32_t join_events;
+	uint32_t prune_events;
+	uint32_t merge_events;
+	uint32_t updgrp_switch_events;
+	uint32_t peer_refreshes_combined;
+	uint32_t adj_count;
+	uint32_t split_events;
+	uint32_t merge_checks_triggered;
 
-	u_int32_t subgrps_created;
-	u_int32_t subgrps_deleted;
+	uint32_t subgrps_created;
+	uint32_t subgrps_deleted;
 
-	u_int32_t num_dbg_en_peers;
+	uint32_t num_dbg_en_peers;
 };
 
 /*
@@ -214,7 +214,7 @@ struct update_subgroup {
 	struct hash *hash;
 
 	struct thread *t_coalesce;
-	u_int32_t v_coalesce;
+	uint32_t v_coalesce;
 
 	struct thread *t_merge_check;
 
@@ -236,25 +236,25 @@ struct update_subgroup {
 		uint64_t subgroup_id;
 	} split_from;
 
-	u_int32_t join_events;
-	u_int32_t prune_events;
+	uint32_t join_events;
+	uint32_t prune_events;
 
 	/*
 	 * This is bumped up when another subgroup merges into this one.
 	 */
-	u_int32_t merge_events;
-	u_int32_t updgrp_switch_events;
-	u_int32_t peer_refreshes_combined;
-	u_int32_t adj_count;
-	u_int32_t split_events;
-	u_int32_t merge_checks_triggered;
+	uint32_t merge_events;
+	uint32_t updgrp_switch_events;
+	uint32_t peer_refreshes_combined;
+	uint32_t adj_count;
+	uint32_t split_events;
+	uint32_t merge_checks_triggered;
 
 	uint64_t id;
 
-	u_int16_t sflags;
+	uint16_t sflags;
 
 	/* Subgroup flags, see below  */
-	u_int16_t flags;
+	uint16_t flags;
 };
 
 /*
@@ -302,7 +302,7 @@ struct updwalk_context {
 	int policy_route_update;
 	updgrp_walkcb cb;
 	void *context;
-	u_int8_t flags;
+	uint8_t flags;
 
 #define UPDWALK_FLAGS_ADVQUEUE   (1 << 0)
 #define UPDWALK_FLAGS_ADVERTISED (1 << 1)
@@ -449,7 +449,7 @@ extern void update_group_announce_rrclients(struct bgp *bgp);
 extern void peer_af_announce_route(struct peer_af *paf, int combine);
 extern struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 					     struct bgp_node *rn,
-					     u_int32_t addpath_tx_id);
+					     uint32_t addpath_tx_id);
 extern void bgp_adj_out_remove_subgroup(struct bgp_node *rn,
 					struct bgp_adj_out *adj,
 					struct update_subgroup *subgrp);
@@ -458,7 +458,7 @@ extern void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 				     struct attr *attr, struct bgp_info *binfo);
 extern void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 				       struct update_subgroup *subgrp,
-				       char withdraw, u_int32_t addpath_tx_id);
+				       char withdraw, uint32_t addpath_tx_id);
 void subgroup_announce_table(struct update_subgroup *subgrp,
 			     struct bgp_table *table);
 extern void subgroup_trigger_write(struct update_subgroup *subgrp);

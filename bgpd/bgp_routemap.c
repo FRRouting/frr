@@ -122,12 +122,12 @@ o Local extensions
 #define RMAP_VALUE_SUB 2
 
 struct rmap_value {
-	u_int8_t action;
-	u_int8_t variable;
-	u_int32_t value;
+	uint8_t action;
+	uint8_t variable;
+	uint32_t value;
 };
 
-static int route_value_match(struct rmap_value *rv, u_int32_t value)
+static int route_value_match(struct rmap_value *rv, uint32_t value)
 {
 	if (rv->variable == 0 && value == rv->value)
 		return RMAP_MATCH;
@@ -135,10 +135,10 @@ static int route_value_match(struct rmap_value *rv, u_int32_t value)
 	return RMAP_NOMATCH;
 }
 
-static u_int32_t route_value_adjust(struct rmap_value *rv, u_int32_t current,
-				    struct peer *peer)
+static uint32_t route_value_adjust(struct rmap_value *rv, uint32_t current,
+				   struct peer *peer)
 {
-	u_int32_t value;
+	uint32_t value;
 
 	switch (rv->variable) {
 	case 1:
@@ -165,7 +165,7 @@ static u_int32_t route_value_adjust(struct rmap_value *rv, u_int32_t current,
 
 static void *route_value_compile(const char *arg)
 {
-	u_int8_t action = RMAP_VALUE_SET, var = 0;
+	uint8_t action = RMAP_VALUE_SET, var = 0;
 	unsigned long larg = 0;
 	char *endptr = NULL;
 	struct rmap_value *rv;
@@ -723,10 +723,10 @@ static route_map_result_t route_match_evpn_route_type(void *rule,
 						      route_map_object_t type,
 						      void *object)
 {
-	u_char route_type = 0;
+	uint8_t route_type = 0;
 
 	if (type == RMAP_BGP) {
-		route_type = *((u_char *)rule);
+		route_type = *((uint8_t *)rule);
 
 		if (route_type == prefix->u.prefix_evpn.route_type)
 			return RMAP_MATCH;
@@ -738,9 +738,9 @@ static route_map_result_t route_match_evpn_route_type(void *rule,
 /* Route map `route-type' match statement. */
 static void *route_match_evpn_route_type_compile(const char *arg)
 {
-	u_char *route_type = NULL;
+	uint8_t *route_type = NULL;
 
-	route_type = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_char));
+	route_type = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint8_t));
 
 	if (strncmp(arg, "ma", 2) == 0)
 		*route_type = BGP_EVPN_MAC_IP_ROUTE;
@@ -771,7 +771,7 @@ static route_map_result_t route_match_local_pref(void *rule,
 						 route_map_object_t type,
 						 void *object)
 {
-	u_int32_t *local_pref;
+	uint32_t *local_pref;
 	struct bgp_info *bgp_info;
 
 	if (type == RMAP_BGP) {
@@ -790,7 +790,7 @@ static route_map_result_t route_match_local_pref(void *rule,
    `arg' is local-pref value */
 static void *route_match_local_pref_compile(const char *arg)
 {
-	u_int32_t *local_pref;
+	uint32_t *local_pref;
 	char *endptr = NULL;
 	unsigned long tmpval;
 
@@ -803,7 +803,7 @@ static void *route_match_local_pref_compile(const char *arg)
 	if (*endptr != '\0' || errno || tmpval > UINT32_MAX)
 		return NULL;
 
-	local_pref = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_int32_t));
+	local_pref = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
 
 	if (!local_pref)
 		return local_pref;
@@ -1073,7 +1073,7 @@ static route_map_result_t route_match_origin(void *rule, struct prefix *prefix,
 					     route_map_object_t type,
 					     void *object)
 {
-	u_char *origin;
+	uint8_t *origin;
 	struct bgp_info *bgp_info;
 
 	if (type == RMAP_BGP) {
@@ -1089,9 +1089,9 @@ static route_map_result_t route_match_origin(void *rule, struct prefix *prefix,
 
 static void *route_match_origin_compile(const char *arg)
 {
-	u_char *origin;
+	uint8_t *origin;
 
-	origin = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_char));
+	origin = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint8_t));
 
 	if (strcmp(arg, "igp") == 0)
 		*origin = 0;
@@ -1362,7 +1362,7 @@ static route_map_result_t route_set_local_pref(void *rule,
 {
 	struct rmap_value *rv;
 	struct bgp_info *bgp_info;
-	u_int32_t locpref = 0;
+	uint32_t locpref = 0;
 
 	if (type == RMAP_BGP) {
 		/* Fetch routemap's rule information. */
@@ -1424,7 +1424,7 @@ static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
 {
 	struct rmap_value *rv;
 	struct bgp_info *bgp_info;
-	u_int32_t med = 0;
+	uint32_t med = 0;
 
 	if (type == RMAP_BGP) {
 		/* Fetch routemap's rule information. */
@@ -2035,7 +2035,7 @@ static route_map_result_t route_set_origin(void *rule, struct prefix *prefix,
 					   route_map_object_t type,
 					   void *object)
 {
-	u_char *origin;
+	uint8_t *origin;
 	struct bgp_info *bgp_info;
 
 	if (type == RMAP_BGP) {
@@ -2051,9 +2051,9 @@ static route_map_result_t route_set_origin(void *rule, struct prefix *prefix,
 /* Compile function for origin set. */
 static void *route_set_origin_compile(const char *arg)
 {
-	u_char *origin;
+	uint8_t *origin;
 
-	origin = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_char));
+	origin = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint8_t));
 
 	if (strcmp(arg, "igp") == 0)
 		*origin = 0;
@@ -2205,7 +2205,7 @@ static route_map_result_t route_set_label_index(void *rule,
 {
 	struct rmap_value *rv;
 	struct bgp_info *bgp_info;
-	u_int32_t label_index;
+	uint32_t label_index;
 
 	if (type == RMAP_BGP) {
 		/* Fetch routemap's rule information. */

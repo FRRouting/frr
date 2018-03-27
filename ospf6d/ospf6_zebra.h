@@ -34,7 +34,7 @@ extern unsigned char conf_debug_ospf6_zebra;
 /* OSPF6 distance */
 struct ospf6_distance {
 	/* Distance value for the IP source prefix */
-	u_char distance;
+	uint8_t distance;
 
 	/* Name of the access-list to be matched */
 	char *access_list;
@@ -55,7 +55,7 @@ extern void ospf6_zebra_delete_discard(struct ospf6_route *request);
 
 struct ospf6;
 extern void ospf6_distance_reset(struct ospf6 *);
-extern u_char ospf6_distance_apply(struct prefix_ipv6 *, struct ospf6_route *);
+extern uint8_t ospf6_distance_apply(struct prefix_ipv6 *, struct ospf6_route *);
 
 extern int ospf6_distance_set(struct vty *, struct ospf6 *, const char *,
 			      const char *, const char *);

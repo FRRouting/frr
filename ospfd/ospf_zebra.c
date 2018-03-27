@@ -384,7 +384,7 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	u_char distance;
+	uint8_t distance;
 	struct ospf_path *path;
 	struct listnode *node;
 	int count = 0;
@@ -522,8 +522,8 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 			   inet_ntoa(p->prefix), p->prefixlen);
 }
 
-struct ospf_external *ospf_external_lookup(struct ospf *ospf, u_char type,
-					   u_short instance)
+struct ospf_external *ospf_external_lookup(struct ospf *ospf, uint8_t type,
+					   unsigned short instance)
 {
 	struct list *ext_list;
 	struct listnode *node;
@@ -540,8 +540,8 @@ struct ospf_external *ospf_external_lookup(struct ospf *ospf, u_char type,
 	return NULL;
 }
 
-struct ospf_external *ospf_external_add(struct ospf *ospf, u_char type,
-					u_short instance)
+struct ospf_external *ospf_external_add(struct ospf *ospf, uint8_t type,
+					unsigned short instance)
 {
 	struct list *ext_list;
 	struct ospf_external *ext;
@@ -564,7 +564,7 @@ struct ospf_external *ospf_external_add(struct ospf *ospf, u_char type,
 	return ext;
 }
 
-void ospf_external_del(struct ospf *ospf, u_char type, u_short instance)
+void ospf_external_del(struct ospf *ospf, uint8_t type, unsigned short instance)
 {
 	struct ospf_external *ext;
 
@@ -583,8 +583,8 @@ void ospf_external_del(struct ospf *ospf, u_char type, u_short instance)
 	}
 }
 
-struct ospf_redist *ospf_redist_lookup(struct ospf *ospf, u_char type,
-				       u_short instance)
+struct ospf_redist *ospf_redist_lookup(struct ospf *ospf, uint8_t type,
+				       unsigned short instance)
 {
 	struct list *red_list;
 	struct listnode *node;
@@ -601,8 +601,8 @@ struct ospf_redist *ospf_redist_lookup(struct ospf *ospf, u_char type,
 	return NULL;
 }
 
-struct ospf_redist *ospf_redist_add(struct ospf *ospf, u_char type,
-				    u_short instance)
+struct ospf_redist *ospf_redist_add(struct ospf *ospf, uint8_t type,
+				    unsigned short instance)
 {
 	struct list *red_list;
 	struct ospf_redist *red;
@@ -626,7 +626,7 @@ struct ospf_redist *ospf_redist_add(struct ospf *ospf, u_char type,
 	return red;
 }
 
-void ospf_redist_del(struct ospf *ospf, u_char type, u_short instance)
+void ospf_redist_del(struct ospf *ospf, uint8_t type, unsigned short instance)
 {
 	struct ospf_redist *red;
 
@@ -643,7 +643,8 @@ void ospf_redist_del(struct ospf *ospf, u_char type, u_short instance)
 }
 
 
-int ospf_is_type_redistributed(struct ospf *ospf, int type, u_short instance)
+int ospf_is_type_redistributed(struct ospf *ospf, int type,
+			       unsigned short instance)
 {
 	return (DEFAULT_ROUTE_TYPE(type)
 			? vrf_bitmap_check(zclient->default_information,
@@ -658,7 +659,7 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type, u_short instance)
 					  ospf->vrf_id))));
 }
 
-int ospf_redistribute_set(struct ospf *ospf, int type, u_short instance,
+int ospf_redistribute_set(struct ospf *ospf, int type, unsigned short instance,
 			  int mtype, int mvalue)
 {
 	int force = 0;
@@ -707,7 +708,8 @@ int ospf_redistribute_set(struct ospf *ospf, int type, u_short instance,
 	return CMD_SUCCESS;
 }
 
-int ospf_redistribute_unset(struct ospf *ospf, int type, u_short instance)
+int ospf_redistribute_unset(struct ospf *ospf, int type,
+			    unsigned short instance)
 {
 	if (type == zclient->redist_default && instance == zclient->instance)
 		return CMD_SUCCESS;
@@ -846,8 +848,8 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 	struct route_map_set_values save_values;
 	struct prefix_ipv4 *p = &ei->p;
 	struct ospf_redist *red;
-	u_char type = is_prefix_default(&ei->p) ? DEFAULT_ROUTE : ei->type;
-	u_short instance = is_prefix_default(&ei->p) ? 0 : ei->instance;
+	uint8_t type = is_prefix_default(&ei->p) ? DEFAULT_ROUTE : ei->type;
+	unsigned short instance = is_prefix_default(&ei->p) ? 0 : ei->instance;
 
 	if (changed)
 		*changed = 0;
@@ -1136,7 +1138,8 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 }
 
 /* Update distribute-list and set timer to apply access-list. */
-void ospf_distribute_list_update(struct ospf *ospf, int type, u_short instance)
+void ospf_distribute_list_update(struct ospf *ospf, int type,
+				 unsigned short instance)
 {
 	struct route_table *rt;
 	struct ospf_external *ext;
@@ -1341,7 +1344,7 @@ int ospf_distance_set(struct vty *vty, struct ospf *ospf,
 {
 	int ret;
 	struct prefix_ipv4 p;
-	u_char distance;
+	uint8_t distance;
 	struct route_node *rn;
 	struct ospf_distance *odistance;
 
@@ -1426,8 +1429,8 @@ void ospf_distance_reset(struct ospf *ospf)
 		}
 }
 
-u_char ospf_distance_apply(struct ospf *ospf, struct prefix_ipv4 *p,
-			   struct ospf_route * or)
+uint8_t ospf_distance_apply(struct ospf *ospf, struct prefix_ipv4 *p,
+			    struct ospf_route * or)
 {
 
 	if (ospf == NULL)
@@ -1491,7 +1494,7 @@ static void ospf_zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
-void ospf_zebra_init(struct thread_master *master, u_short instance)
+void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 {
 	/* Allocate zebra structure. */
 	zclient = zclient_new_notify(master, &zclient_options_default);

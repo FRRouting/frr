@@ -303,7 +303,7 @@ int ospf_apiclient_close(struct ospf_apiclient *oclient)
 static int ospf_apiclient_send_request(struct ospf_apiclient *oclient,
 				       struct msg *msg)
 {
-	u_int32_t reqseq;
+	uint32_t reqseq;
 	struct msg_reply *msgreply;
 	int rc;
 
@@ -341,10 +341,10 @@ static int ospf_apiclient_send_request(struct ospf_apiclient *oclient,
  * -----------------------------------------------------------
  */
 
-static u_int32_t ospf_apiclient_get_seqnr(void)
+static uint32_t ospf_apiclient_get_seqnr(void)
 {
-	static u_int32_t seqnr = MIN_SEQ;
-	u_int32_t tmp;
+	static uint32_t seqnr = MIN_SEQ;
+	uint32_t tmp;
 
 	tmp = seqnr;
 	/* Increment sequence number */
@@ -364,8 +364,8 @@ static u_int32_t ospf_apiclient_get_seqnr(void)
 /*
  * Synchronous request to register opaque type.
  */
-int ospf_apiclient_register_opaque_type(struct ospf_apiclient *cl, u_char ltype,
-					u_char otype)
+int ospf_apiclient_register_opaque_type(struct ospf_apiclient *cl,
+					uint8_t ltype, uint8_t otype)
 {
 	struct msg *msg;
 	int rc;
@@ -424,15 +424,15 @@ out:
 
 int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 				 struct in_addr ifaddr, struct in_addr area_id,
-				 u_char lsa_type, u_char opaque_type,
-				 u_int32_t opaque_id, void *opaquedata,
+				 uint8_t lsa_type, uint8_t opaque_type,
+				 uint32_t opaque_id, void *opaquedata,
 				 int opaquelen)
 {
 	struct msg *msg;
 	int rc;
-	u_char buf[OSPF_MAX_LSA_SIZE];
+	uint8_t buf[OSPF_MAX_LSA_SIZE];
 	struct lsa_header *lsah;
-	u_int32_t tmp;
+	uint32_t tmp;
 
 
 	/* We can only originate opaque LSAs */
@@ -455,7 +455,7 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 	lsah->checksum = 0;
 	lsah->length = htons(sizeof(struct lsa_header) + opaquelen);
 
-	memcpy(((u_char *)lsah) + sizeof(struct lsa_header), opaquedata,
+	memcpy(((uint8_t *)lsah) + sizeof(struct lsa_header), opaquedata,
 	       opaquelen);
 
 	msg = new_msg_originate_request(ospf_apiclient_get_seqnr(), ifaddr,
@@ -470,8 +470,8 @@ int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
 }
 
 int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
-			      struct in_addr area_id, u_char lsa_type,
-			      u_char opaque_type, u_int32_t opaque_id)
+			      struct in_addr area_id, uint8_t lsa_type,
+			      uint8_t opaque_type, uint32_t opaque_id)
 {
 	struct msg *msg;
 	int rc;
@@ -655,18 +655,18 @@ static void ospf_apiclient_msghandle(struct ospf_apiclient *oclient,
 
 void ospf_apiclient_register_callback(
 	struct ospf_apiclient *oclient,
-	void (*ready_notify)(u_char lsa_type, u_char opaque_type,
+	void (*ready_notify)(uint8_t lsa_type, uint8_t opaque_type,
 			     struct in_addr addr),
 	void (*new_if)(struct in_addr ifaddr, struct in_addr area_id),
 	void (*del_if)(struct in_addr ifaddr),
 	void (*ism_change)(struct in_addr ifaddr, struct in_addr area_id,
-			   u_char status),
+			   uint8_t status),
 	void (*nsm_change)(struct in_addr ifaddr, struct in_addr nbraddr,
-			   struct in_addr router_id, u_char status),
+			   struct in_addr router_id, uint8_t status),
 	void (*update_notify)(struct in_addr ifaddr, struct in_addr area_id,
-			      u_char self_origin, struct lsa_header *lsa),
+			      uint8_t self_origin, struct lsa_header *lsa),
 	void (*delete_notify)(struct in_addr ifaddr, struct in_addr area_id,
-			      u_char self_origin, struct lsa_header *lsa))
+			      uint8_t self_origin, struct lsa_header *lsa))
 {
 	assert(oclient);
 	assert(update_notify);

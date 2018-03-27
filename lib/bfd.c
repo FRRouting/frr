@@ -84,8 +84,8 @@ void bfd_info_free(struct bfd_info **bfd_info)
  * bfd_validate_param - Validate the BFD paramter information.
  */
 int bfd_validate_param(struct vty *vty, const char *dm_str, const char *rx_str,
-		       const char *tx_str, u_int8_t *dm_val, u_int32_t *rx_val,
-		       u_int32_t *tx_val)
+		       const char *tx_str, uint8_t *dm_val, uint32_t *rx_val,
+		       uint32_t *tx_val)
 {
 	*dm_val = strtoul(dm_str, NULL, 10);
 	*rx_val = strtoul(rx_str, NULL, 10);
@@ -96,9 +96,8 @@ int bfd_validate_param(struct vty *vty, const char *dm_str, const char *rx_str,
 /*
  * bfd_set_param - Set the configured BFD paramter values
  */
-void bfd_set_param(struct bfd_info **bfd_info, u_int32_t min_rx,
-		   u_int32_t min_tx, u_int8_t detect_mult, int defaults,
-		   int *command)
+void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx, uint32_t min_tx,
+		   uint8_t detect_mult, int defaults, int *command)
 {
 	if (!*bfd_info) {
 		*bfd_info = bfd_info_create();
@@ -343,7 +342,7 @@ static void bfd_last_update(time_t last_update, char *buf, size_t len)
  * bfd_show_param - Show the BFD parameter information.
  */
 void bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
-		    int extra_space, u_char use_json, json_object *json_obj)
+		    int extra_space, uint8_t use_json, json_object *json_obj)
 {
 	json_object *json_bfd = NULL;
 
@@ -379,7 +378,7 @@ void bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
  * bfd_show_status - Show the BFD status information.
  */
 static void bfd_show_status(struct vty *vty, struct bfd_info *bfd_info,
-			    int bfd_tag, int extra_space, u_char use_json,
+			    int bfd_tag, int extra_space, uint8_t use_json,
 			    json_object *json_bfd)
 {
 	char time_buf[32];
@@ -403,7 +402,7 @@ static void bfd_show_status(struct vty *vty, struct bfd_info *bfd_info,
  * bfd_show_info - Show the BFD information.
  */
 void bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
-		   int extra_space, u_char use_json, json_object *json_obj)
+		   int extra_space, uint8_t use_json, json_object *json_obj)
 {
 	json_object *json_bfd = NULL;
 

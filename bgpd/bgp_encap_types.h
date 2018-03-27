@@ -82,7 +82,7 @@ struct bgp_tea_subtlv_color {
 
 /* per draft-rosen-idr-tunnel-encaps */
 struct bgp_tea_subtlv_remote_endpoint {
-	u_char family; /* IPv4 or IPv6 */
+	uint8_t family; /* IPv4 or IPv6 */
 	union {
 		struct in_addr v4;
 		struct in6_addr v6;

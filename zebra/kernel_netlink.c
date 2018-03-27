@@ -58,12 +58,13 @@
 
 #ifndef NLMSG_TAIL
 #define NLMSG_TAIL(nmsg)                                                       \
-	((struct rtattr *)(((u_char *)(nmsg)) + NLMSG_ALIGN((nmsg)->nlmsg_len)))
+	((struct rtattr *)(((uint8_t *)(nmsg))                                 \
+			   + NLMSG_ALIGN((nmsg)->nlmsg_len)))
 #endif
 
 #ifndef RTA_TAIL
 #define RTA_TAIL(rta)                                                          \
-	((struct rtattr *)(((u_char *)(rta)) + RTA_ALIGN((rta)->rta_len)))
+	((struct rtattr *)(((uint8_t *)(rta)) + RTA_ALIGN((rta)->rta_len)))
 #endif
 
 #ifndef RTNL_FAMILY_IP6MR
@@ -123,7 +124,7 @@ static const struct message rttype_str[] = {{RTN_UNICAST, "unicast"},
 					    {0}};
 
 extern struct thread_master *master;
-extern u_int32_t nl_rcvbufsize;
+extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -137,7 +138,7 @@ int netlink_talk_filter(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 {
-	u_int32_t oldsize;
+	uint32_t oldsize;
 	socklen_t newlen = sizeof(newsize);
 	socklen_t oldlen = sizeof(oldsize);
 	int ret;
@@ -380,14 +381,14 @@ int rta_addattr_l(struct rtattr *rta, unsigned int maxlen, int type, void *data,
 	return 0;
 }
 
-int addattr16(struct nlmsghdr *n, unsigned int maxlen, int type, u_int16_t data)
+int addattr16(struct nlmsghdr *n, unsigned int maxlen, int type, uint16_t data)
 {
-	return addattr_l(n, maxlen, type, &data, sizeof(u_int16_t));
+	return addattr_l(n, maxlen, type, &data, sizeof(uint16_t));
 }
 
 int addattr32(struct nlmsghdr *n, unsigned int maxlen, int type, int data)
 {
-	return addattr_l(n, maxlen, type, &data, sizeof(u_int32_t));
+	return addattr_l(n, maxlen, type, &data, sizeof(uint32_t));
 }
 
 struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type)
@@ -400,7 +401,7 @@ struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type)
 
 int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest)
 {
-	nest->rta_len = (u_char *)NLMSG_TAIL(n) - (u_char *)nest;
+	nest->rta_len = (uint8_t *)NLMSG_TAIL(n) - (uint8_t *)nest;
 	return n->nlmsg_len;
 }
 
@@ -414,7 +415,7 @@ struct rtattr *rta_nest(struct rtattr *rta, int maxlen, int type)
 
 int rta_nest_end(struct rtattr *rta, struct rtattr *nest)
 {
-	nest->rta_len = (u_char *)RTA_TAIL(rta) - (u_char *)nest;
+	nest->rta_len = (uint8_t *)RTA_TAIL(rta) - (uint8_t *)nest;
 	return rta->rta_len;
 }
 
@@ -423,17 +424,17 @@ const char *nl_msg_type_to_str(uint16_t msg_type)
 	return lookup_msg(nlmsg_str, msg_type, "");
 }
 
-const char *nl_rtproto_to_str(u_char rtproto)
+const char *nl_rtproto_to_str(uint8_t rtproto)
 {
 	return lookup_msg(rtproto_str, rtproto, "");
 }
 
-const char *nl_family_to_str(u_char family)
+const char *nl_family_to_str(uint8_t family)
 {
 	return lookup_msg(family_str, family, "");
 }
 
-const char *nl_rttype_to_str(u_char rttype)
+const char *nl_rttype_to_str(uint8_t rttype)
 {
 	return lookup_msg(rttype_str, rttype, "");
 }

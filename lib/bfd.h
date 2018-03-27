@@ -37,7 +37,7 @@
 
 #define BFD_GBL_FLAG_IN_SHUTDOWN (1 << 0) /* The daemon in shutdown */
 struct bfd_gbl {
-	u_int16_t flags;
+	uint16_t flags;
 };
 
 #define BFD_FLAG_PARAM_CFG (1 << 0) /* parameters have been configured */
@@ -55,12 +55,12 @@ enum bfd_sess_type {
 };
 
 struct bfd_info {
-	u_int16_t flags;
-	u_int8_t detect_mult;
-	u_int32_t desired_min_tx;
-	u_int32_t required_min_rx;
+	uint16_t flags;
+	uint8_t detect_mult;
+	uint32_t desired_min_tx;
+	uint32_t required_min_rx;
 	time_t last_update;
-	u_int8_t status;
+	uint8_t status;
 	enum bfd_sess_type type;
 };
 
@@ -70,11 +70,11 @@ extern void bfd_info_free(struct bfd_info **bfd_info);
 
 extern int bfd_validate_param(struct vty *vty, const char *dm_str,
 			      const char *rx_str, const char *tx_str,
-			      u_int8_t *dm_val, u_int32_t *rx_val,
-			      u_int32_t *tx_val);
+			      uint8_t *dm_val, uint32_t *rx_val,
+			      uint32_t *tx_val);
 
-extern void bfd_set_param(struct bfd_info **bfd_info, u_int32_t min_rx,
-			  u_int32_t min_tx, u_int8_t detect_mult, int defaults,
+extern void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx,
+			  uint32_t min_tx, uint8_t detect_mult, int defaults,
 			  int *command);
 extern void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 			     int family, void *dst_ip, void *src_ip,
@@ -90,11 +90,11 @@ extern struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 const char *bfd_get_status_str(int status);
 
 extern void bfd_show_param(struct vty *vty, struct bfd_info *bfd_info,
-			   int bfd_tag, int extra_space, u_char use_json,
+			   int bfd_tag, int extra_space, uint8_t use_json,
 			   json_object *json_obj);
 
 extern void bfd_show_info(struct vty *vty, struct bfd_info *bfd_info,
-			  int multihop, int extra_space, u_char use_json,
+			  int multihop, int extra_space, uint8_t use_json,
 			  json_object *json_obj);
 
 extern void bfd_client_sendmsg(struct zclient *zclient, int command);

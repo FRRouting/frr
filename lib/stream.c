@@ -171,7 +171,7 @@ struct stream *stream_dupcat(struct stream *s1, struct stream *s2,
 
 size_t stream_resize(struct stream *s, size_t newsize)
 {
-	u_char *newdata;
+	uint8_t *newdata;
 	STREAM_VERIFY_SANE(s);
 
 	newdata = XREALLOC(MTYPE_STREAM_DATA, s->data, newsize);
@@ -299,11 +299,11 @@ void stream_get(void *dst, struct stream *s, size_t size)
 }
 
 /* Get next character from the stream. */
-inline bool stream_getc2(struct stream *s, u_char *byte)
+inline bool stream_getc2(struct stream *s, uint8_t *byte)
 {
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_READABLE(s) < sizeof(u_char)) {
+	if (STREAM_READABLE(s) < sizeof(uint8_t)) {
 		STREAM_BOUND_WARN2(s, "get char");
 		return false;
 	}
@@ -312,13 +312,13 @@ inline bool stream_getc2(struct stream *s, u_char *byte)
 	return true;
 }
 
-u_char stream_getc(struct stream *s)
+uint8_t stream_getc(struct stream *s)
 {
-	u_char c;
+	uint8_t c;
 
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_READABLE(s) < sizeof(u_char)) {
+	if (STREAM_READABLE(s) < sizeof(uint8_t)) {
 		STREAM_BOUND_WARN(s, "get char");
 		return 0;
 	}
@@ -328,13 +328,13 @@ u_char stream_getc(struct stream *s)
 }
 
 /* Get next character from the stream. */
-u_char stream_getc_from(struct stream *s, size_t from)
+uint8_t stream_getc_from(struct stream *s, size_t from)
 {
-	u_char c;
+	uint8_t c;
 
 	STREAM_VERIFY_SANE(s);
 
-	if (!GETP_VALID(s, from + sizeof(u_char))) {
+	if (!GETP_VALID(s, from + sizeof(uint8_t))) {
 		STREAM_BOUND_WARN(s, "get char");
 		return 0;
 	}
@@ -360,13 +360,13 @@ inline bool stream_getw2(struct stream *s, uint16_t *word)
 }
 
 /* Get next word from the stream. */
-u_int16_t stream_getw(struct stream *s)
+uint16_t stream_getw(struct stream *s)
 {
-	u_int16_t w;
+	uint16_t w;
 
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_READABLE(s) < sizeof(u_int16_t)) {
+	if (STREAM_READABLE(s) < sizeof(uint16_t)) {
 		STREAM_BOUND_WARN(s, "get ");
 		return 0;
 	}
@@ -378,13 +378,13 @@ u_int16_t stream_getw(struct stream *s)
 }
 
 /* Get next word from the stream. */
-u_int16_t stream_getw_from(struct stream *s, size_t from)
+uint16_t stream_getw_from(struct stream *s, size_t from)
 {
-	u_int16_t w;
+	uint16_t w;
 
 	STREAM_VERIFY_SANE(s);
 
-	if (!GETP_VALID(s, from + sizeof(u_int16_t))) {
+	if (!GETP_VALID(s, from + sizeof(uint16_t))) {
 		STREAM_BOUND_WARN(s, "get ");
 		return 0;
 	}
@@ -396,9 +396,9 @@ u_int16_t stream_getw_from(struct stream *s, size_t from)
 }
 
 /* Get next 3-byte from the stream. */
-u_int32_t stream_get3_from(struct stream *s, size_t from)
+uint32_t stream_get3_from(struct stream *s, size_t from)
 {
-	u_int32_t l;
+	uint32_t l;
 
 	STREAM_VERIFY_SANE(s);
 
@@ -414,9 +414,9 @@ u_int32_t stream_get3_from(struct stream *s, size_t from)
 	return l;
 }
 
-u_int32_t stream_get3(struct stream *s)
+uint32_t stream_get3(struct stream *s)
 {
-	u_int32_t l;
+	uint32_t l;
 
 	STREAM_VERIFY_SANE(s);
 
@@ -433,13 +433,13 @@ u_int32_t stream_get3(struct stream *s)
 }
 
 /* Get next long word from the stream. */
-u_int32_t stream_getl_from(struct stream *s, size_t from)
+uint32_t stream_getl_from(struct stream *s, size_t from)
 {
-	u_int32_t l;
+	uint32_t l;
 
 	STREAM_VERIFY_SANE(s);
 
-	if (!GETP_VALID(s, from + sizeof(u_int32_t))) {
+	if (!GETP_VALID(s, from + sizeof(uint32_t))) {
 		STREAM_BOUND_WARN(s, "get long");
 		return 0;
 	}
@@ -482,13 +482,13 @@ inline bool stream_getl2(struct stream *s, uint32_t *l)
 	return true;
 }
 
-u_int32_t stream_getl(struct stream *s)
+uint32_t stream_getl(struct stream *s)
 {
-	u_int32_t l;
+	uint32_t l;
 
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_READABLE(s) < sizeof(u_int32_t)) {
+	if (STREAM_READABLE(s) < sizeof(uint32_t)) {
 		STREAM_BOUND_WARN(s, "get long");
 		return 0;
 	}
@@ -549,19 +549,19 @@ uint64_t stream_getq(struct stream *s)
 }
 
 /* Get next long word from the stream. */
-u_int32_t stream_get_ipv4(struct stream *s)
+uint32_t stream_get_ipv4(struct stream *s)
 {
-	u_int32_t l;
+	uint32_t l;
 
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_READABLE(s) < sizeof(u_int32_t)) {
+	if (STREAM_READABLE(s) < sizeof(uint32_t)) {
 		STREAM_BOUND_WARN(s, "get ipv4");
 		return 0;
 	}
 
-	memcpy(&l, s->data + s->getp, sizeof(u_int32_t));
-	s->getp += sizeof(u_int32_t);
+	memcpy(&l, s->data + s->getp, sizeof(uint32_t));
+	s->getp += sizeof(uint32_t);
 
 	return l;
 }
@@ -615,37 +615,37 @@ void stream_put(struct stream *s, const void *src, size_t size)
 }
 
 /* Put character to the stream. */
-int stream_putc(struct stream *s, u_char c)
+int stream_putc(struct stream *s, uint8_t c)
 {
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_WRITEABLE(s) < sizeof(u_char)) {
+	if (STREAM_WRITEABLE(s) < sizeof(uint8_t)) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
 
 	s->data[s->endp++] = c;
-	return sizeof(u_char);
+	return sizeof(uint8_t);
 }
 
 /* Put word to the stream. */
-int stream_putw(struct stream *s, u_int16_t w)
+int stream_putw(struct stream *s, uint16_t w)
 {
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_WRITEABLE(s) < sizeof(u_int16_t)) {
+	if (STREAM_WRITEABLE(s) < sizeof(uint16_t)) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
 
-	s->data[s->endp++] = (u_char)(w >> 8);
-	s->data[s->endp++] = (u_char)w;
+	s->data[s->endp++] = (uint8_t)(w >> 8);
+	s->data[s->endp++] = (uint8_t)w;
 
 	return 2;
 }
 
 /* Put long word to the stream. */
-int stream_put3(struct stream *s, u_int32_t l)
+int stream_put3(struct stream *s, uint32_t l)
 {
 	STREAM_VERIFY_SANE(s);
 
@@ -654,27 +654,27 @@ int stream_put3(struct stream *s, u_int32_t l)
 		return 0;
 	}
 
-	s->data[s->endp++] = (u_char)(l >> 16);
-	s->data[s->endp++] = (u_char)(l >> 8);
-	s->data[s->endp++] = (u_char)l;
+	s->data[s->endp++] = (uint8_t)(l >> 16);
+	s->data[s->endp++] = (uint8_t)(l >> 8);
+	s->data[s->endp++] = (uint8_t)l;
 
 	return 3;
 }
 
 /* Put long word to the stream. */
-int stream_putl(struct stream *s, u_int32_t l)
+int stream_putl(struct stream *s, uint32_t l)
 {
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_WRITEABLE(s) < sizeof(u_int32_t)) {
+	if (STREAM_WRITEABLE(s) < sizeof(uint32_t)) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
 
-	s->data[s->endp++] = (u_char)(l >> 24);
-	s->data[s->endp++] = (u_char)(l >> 16);
-	s->data[s->endp++] = (u_char)(l >> 8);
-	s->data[s->endp++] = (u_char)l;
+	s->data[s->endp++] = (uint8_t)(l >> 24);
+	s->data[s->endp++] = (uint8_t)(l >> 16);
+	s->data[s->endp++] = (uint8_t)(l >> 8);
+	s->data[s->endp++] = (uint8_t)l;
 
 	return 4;
 }
@@ -689,14 +689,14 @@ int stream_putq(struct stream *s, uint64_t q)
 		return 0;
 	}
 
-	s->data[s->endp++] = (u_char)(q >> 56);
-	s->data[s->endp++] = (u_char)(q >> 48);
-	s->data[s->endp++] = (u_char)(q >> 40);
-	s->data[s->endp++] = (u_char)(q >> 32);
-	s->data[s->endp++] = (u_char)(q >> 24);
-	s->data[s->endp++] = (u_char)(q >> 16);
-	s->data[s->endp++] = (u_char)(q >> 8);
-	s->data[s->endp++] = (u_char)q;
+	s->data[s->endp++] = (uint8_t)(q >> 56);
+	s->data[s->endp++] = (uint8_t)(q >> 48);
+	s->data[s->endp++] = (uint8_t)(q >> 40);
+	s->data[s->endp++] = (uint8_t)(q >> 32);
+	s->data[s->endp++] = (uint8_t)(q >> 24);
+	s->data[s->endp++] = (uint8_t)(q >> 16);
+	s->data[s->endp++] = (uint8_t)(q >> 8);
+	s->data[s->endp++] = (uint8_t)q;
 
 	return 8;
 }
@@ -721,11 +721,11 @@ int stream_putd(struct stream *s, double d)
 	return stream_putq(s, u.o);
 }
 
-int stream_putc_at(struct stream *s, size_t putp, u_char c)
+int stream_putc_at(struct stream *s, size_t putp, uint8_t c)
 {
 	STREAM_VERIFY_SANE(s);
 
-	if (!PUT_AT_VALID(s, putp + sizeof(u_char))) {
+	if (!PUT_AT_VALID(s, putp + sizeof(uint8_t))) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
@@ -735,22 +735,22 @@ int stream_putc_at(struct stream *s, size_t putp, u_char c)
 	return 1;
 }
 
-int stream_putw_at(struct stream *s, size_t putp, u_int16_t w)
+int stream_putw_at(struct stream *s, size_t putp, uint16_t w)
 {
 	STREAM_VERIFY_SANE(s);
 
-	if (!PUT_AT_VALID(s, putp + sizeof(u_int16_t))) {
+	if (!PUT_AT_VALID(s, putp + sizeof(uint16_t))) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
 
-	s->data[putp] = (u_char)(w >> 8);
-	s->data[putp + 1] = (u_char)w;
+	s->data[putp] = (uint8_t)(w >> 8);
+	s->data[putp + 1] = (uint8_t)w;
 
 	return 2;
 }
 
-int stream_put3_at(struct stream *s, size_t putp, u_int32_t l)
+int stream_put3_at(struct stream *s, size_t putp, uint32_t l)
 {
 	STREAM_VERIFY_SANE(s);
 
@@ -758,25 +758,25 @@ int stream_put3_at(struct stream *s, size_t putp, u_int32_t l)
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
-	s->data[putp] = (u_char)(l >> 16);
-	s->data[putp + 1] = (u_char)(l >> 8);
-	s->data[putp + 2] = (u_char)l;
+	s->data[putp] = (uint8_t)(l >> 16);
+	s->data[putp + 1] = (uint8_t)(l >> 8);
+	s->data[putp + 2] = (uint8_t)l;
 
 	return 3;
 }
 
-int stream_putl_at(struct stream *s, size_t putp, u_int32_t l)
+int stream_putl_at(struct stream *s, size_t putp, uint32_t l)
 {
 	STREAM_VERIFY_SANE(s);
 
-	if (!PUT_AT_VALID(s, putp + sizeof(u_int32_t))) {
+	if (!PUT_AT_VALID(s, putp + sizeof(uint32_t))) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
-	s->data[putp] = (u_char)(l >> 24);
-	s->data[putp + 1] = (u_char)(l >> 16);
-	s->data[putp + 2] = (u_char)(l >> 8);
-	s->data[putp + 3] = (u_char)l;
+	s->data[putp] = (uint8_t)(l >> 24);
+	s->data[putp + 1] = (uint8_t)(l >> 16);
+	s->data[putp + 2] = (uint8_t)(l >> 8);
+	s->data[putp + 3] = (uint8_t)l;
 
 	return 4;
 }
@@ -789,31 +789,31 @@ int stream_putq_at(struct stream *s, size_t putp, uint64_t q)
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
-	s->data[putp] = (u_char)(q >> 56);
-	s->data[putp + 1] = (u_char)(q >> 48);
-	s->data[putp + 2] = (u_char)(q >> 40);
-	s->data[putp + 3] = (u_char)(q >> 32);
-	s->data[putp + 4] = (u_char)(q >> 24);
-	s->data[putp + 5] = (u_char)(q >> 16);
-	s->data[putp + 6] = (u_char)(q >> 8);
-	s->data[putp + 7] = (u_char)q;
+	s->data[putp] = (uint8_t)(q >> 56);
+	s->data[putp + 1] = (uint8_t)(q >> 48);
+	s->data[putp + 2] = (uint8_t)(q >> 40);
+	s->data[putp + 3] = (uint8_t)(q >> 32);
+	s->data[putp + 4] = (uint8_t)(q >> 24);
+	s->data[putp + 5] = (uint8_t)(q >> 16);
+	s->data[putp + 6] = (uint8_t)(q >> 8);
+	s->data[putp + 7] = (uint8_t)q;
 
 	return 8;
 }
 
 /* Put long word to the stream. */
-int stream_put_ipv4(struct stream *s, u_int32_t l)
+int stream_put_ipv4(struct stream *s, uint32_t l)
 {
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_WRITEABLE(s) < sizeof(u_int32_t)) {
+	if (STREAM_WRITEABLE(s) < sizeof(uint32_t)) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
-	memcpy(s->data + s->endp, &l, sizeof(u_int32_t));
-	s->endp += sizeof(u_int32_t);
+	memcpy(s->data + s->endp, &l, sizeof(uint32_t));
+	s->endp += sizeof(uint32_t);
 
-	return sizeof(u_int32_t);
+	return sizeof(uint32_t);
 }
 
 /* Put long word to the stream. */
@@ -821,15 +821,15 @@ int stream_put_in_addr(struct stream *s, struct in_addr *addr)
 {
 	STREAM_VERIFY_SANE(s);
 
-	if (STREAM_WRITEABLE(s) < sizeof(u_int32_t)) {
+	if (STREAM_WRITEABLE(s) < sizeof(uint32_t)) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
 
-	memcpy(s->data + s->endp, addr, sizeof(u_int32_t));
-	s->endp += sizeof(u_int32_t);
+	memcpy(s->data + s->endp, addr, sizeof(uint32_t));
+	s->endp += sizeof(uint32_t);
 
-	return sizeof(u_int32_t);
+	return sizeof(uint32_t);
 }
 
 /* Put in_addr at location in the stream. */
@@ -862,7 +862,7 @@ int stream_put_in6_addr_at(struct stream *s, size_t putp, struct in6_addr *addr)
 
 /* Put prefix by nlri type format. */
 int stream_put_prefix_addpath(struct stream *s, struct prefix *p,
-			      int addpath_encode, u_int32_t addpath_tx_id)
+			      int addpath_encode, uint32_t addpath_tx_id)
 {
 	size_t psize;
 	size_t psize_with_addpath;
@@ -876,16 +876,16 @@ int stream_put_prefix_addpath(struct stream *s, struct prefix *p,
 	else
 		psize_with_addpath = psize;
 
-	if (STREAM_WRITEABLE(s) < (psize_with_addpath + sizeof(u_char))) {
+	if (STREAM_WRITEABLE(s) < (psize_with_addpath + sizeof(uint8_t))) {
 		STREAM_BOUND_WARN(s, "put");
 		return 0;
 	}
 
 	if (addpath_encode) {
-		s->data[s->endp++] = (u_char)(addpath_tx_id >> 24);
-		s->data[s->endp++] = (u_char)(addpath_tx_id >> 16);
-		s->data[s->endp++] = (u_char)(addpath_tx_id >> 8);
-		s->data[s->endp++] = (u_char)addpath_tx_id;
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 24);
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 16);
+		s->data[s->endp++] = (uint8_t)(addpath_tx_id >> 8);
+		s->data[s->endp++] = (uint8_t)addpath_tx_id;
 	}
 
 	s->data[s->endp++] = p->prefixlen;
@@ -905,7 +905,7 @@ int stream_put_labeled_prefix(struct stream *s, struct prefix *p,
 			      mpls_label_t *label)
 {
 	size_t psize;
-	u_char *label_pnt = (u_char *)label;
+	uint8_t *label_pnt = (uint8_t *)label;
 
 	STREAM_VERIFY_SANE(s);
 
@@ -1060,7 +1060,7 @@ size_t stream_write(struct stream *s, const void *ptr, size_t size)
  * Use stream_get_pnt_to if you must, but decoding streams properly
  * is preferred
  */
-u_char *stream_pnt(struct stream *s)
+uint8_t *stream_pnt(struct stream *s)
 {
 	STREAM_VERIFY_SANE(s);
 	return s->data + s->getp;

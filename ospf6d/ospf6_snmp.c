@@ -209,16 +209,16 @@ static oid ospfv3_oid[] = {OSPFv3MIB};
 static oid ospfv3_trap_oid[] = {OSPFv3MIB, 0};
 
 /* Hook functions. */
-static u_char *ospfv3GeneralGroup(struct variable *, oid *, size_t *, int,
+static uint8_t *ospfv3GeneralGroup(struct variable *, oid *, size_t *, int,
+				   size_t *, WriteMethod **);
+static uint8_t *ospfv3AreaEntry(struct variable *, oid *, size_t *, int,
+				size_t *, WriteMethod **);
+static uint8_t *ospfv3WwLsdbEntry(struct variable *, oid *, size_t *, int,
 				  size_t *, WriteMethod **);
-static u_char *ospfv3AreaEntry(struct variable *, oid *, size_t *, int,
+static uint8_t *ospfv3NbrEntry(struct variable *, oid *, size_t *, int,
 			       size_t *, WriteMethod **);
-static u_char *ospfv3WwLsdbEntry(struct variable *, oid *, size_t *, int,
-				 size_t *, WriteMethod **);
-static u_char *ospfv3NbrEntry(struct variable *, oid *, size_t *, int, size_t *,
+static uint8_t *ospfv3IfEntry(struct variable *, oid *, size_t *, int, size_t *,
 			      WriteMethod **);
-static u_char *ospfv3IfEntry(struct variable *, oid *, size_t *, int, size_t *,
-			     WriteMethod **);
 
 static struct variable ospfv3_variables[] = {
 	/* OSPF general variables */
@@ -631,12 +631,12 @@ static struct variable ospfv3_variables[] = {
 	 {1, 9, 1, 15}},
 };
 
-static u_char *ospfv3GeneralGroup(struct variable *v, oid *name, size_t *length,
-				  int exact, size_t *var_len,
-				  WriteMethod **write_method)
+static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
+				   size_t *length, int exact, size_t *var_len,
+				   WriteMethod **write_method)
 {
-	u_int16_t sum;
-	u_int32_t count;
+	uint16_t sum;
+	uint32_t count;
 	struct ospf6_lsa *lsa = NULL;
 
 	/* Check whether the instance identifier is valid */
@@ -728,15 +728,15 @@ static u_char *ospfv3GeneralGroup(struct variable *v, oid *name, size_t *length,
 	return NULL;
 }
 
-static u_char *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
-			       int exact, size_t *var_len,
-			       WriteMethod **write_method)
+static uint8_t *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
+				int exact, size_t *var_len,
+				WriteMethod **write_method)
 {
 	struct ospf6_area *oa, *area = NULL;
 	struct ospf6_lsa *lsa = NULL;
-	u_int32_t area_id = 0;
-	u_int32_t count;
-	u_int16_t sum;
+	uint32_t area_id = 0;
+	uint32_t count;
+	uint16_t sum;
 	struct listnode *node;
 	unsigned int len;
 	char a[16];
@@ -758,7 +758,7 @@ static u_char *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 
 	inet_ntop(AF_INET, &area_id, a, sizeof(a));
 	zlog_debug("SNMP access by area: %s, exact=%d len=%d length=%lu", a,
-		   exact, len, (u_long)*length);
+		   exact, len, (unsigned long)*length);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 		if (area == NULL) {
@@ -779,7 +779,7 @@ static u_char *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 
 	inet_ntop(AF_INET, &area->area_id, a, sizeof(a));
 	zlog_debug("SNMP found area: %s, exact=%d len=%d length=%lu", a, exact,
-		   len, (u_long)*length);
+		   len, (unsigned long)*length);
 
 	switch (v->magic) {
 	case OSPFv3IMPORTASEXTERN:
@@ -833,15 +833,15 @@ static int if_icmp_func(struct interface *ifp1, struct interface *ifp2)
 	return (ifp1->ifindex - ifp2->ifindex);
 }
 
-static u_char *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
-				 int exact, size_t *var_len,
-				 WriteMethod **write_method)
+static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
+				  int exact, size_t *var_len,
+				  WriteMethod **write_method)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct ospf6_lsa *lsa = NULL;
 	ifindex_t ifindex;
 	uint32_t area_id, id, instid, adv_router;
-	u_int16_t type;
+	uint16_t type;
 	int len;
 	oid *offset;
 	int offsetlen;
@@ -1027,7 +1027,7 @@ static u_char *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 		break;
 	case OSPFv3WWLSDBADVERTISEMENT:
 		*var_len = ntohs(lsa->header->length);
-		return (u_char *)lsa->header;
+		return (uint8_t *)lsa->header;
 		break;
 	case OSPFv3WWLSDBTYPEKNOWN:
 		return SNMP_INTEGER(OSPF6_LSA_IS_KNOWN(lsa->header->type)
@@ -1038,9 +1038,9 @@ static u_char *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	return NULL;
 }
 
-static u_char *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
-			     int exact, size_t *var_len,
-			     WriteMethod **write_method)
+static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
+			      int exact, size_t *var_len,
+			      WriteMethod **write_method)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	ifindex_t ifindex = 0;
@@ -1052,7 +1052,7 @@ static u_char *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 	struct list *ifslist;
 	oid *offset;
 	int offsetlen, len;
-	u_int32_t sum;
+	uint32_t sum;
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -1191,9 +1191,9 @@ static u_char *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 	return NULL;
 }
 
-static u_char *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
-			      int exact, size_t *var_len,
-			      WriteMethod **write_method)
+static uint8_t *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
+			       int exact, size_t *var_len,
+			       WriteMethod **write_method)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	ifindex_t ifindex = 0;
@@ -1301,7 +1301,7 @@ static u_char *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(2); /* IPv6 only */
 	case OSPFv3NBRADDRESS:
 		*var_len = sizeof(struct in6_addr);
-		return (u_char *)&on->linklocal_addr;
+		return (uint8_t *)&on->linklocal_addr;
 	case OSPFv3NBROPTIONS:
 		return SNMP_INTEGER(on->options[2]);
 	case OSPFv3NBRPRIORITY:

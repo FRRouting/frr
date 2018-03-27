@@ -48,9 +48,9 @@
 /* array holding redistribute info about table redistribution */
 /* bit AFI is set if that AFI is redistributing routes from this table */
 static int zebra_import_table_used[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
-static u_int32_t zebra_import_table_distance[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+static uint32_t zebra_import_table_distance[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
-int is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
+int is_zebra_import_table_enabled(afi_t afi, uint32_t table_id)
 {
 	/*
 	 * Make sure that what we are called with actualy makes sense
@@ -98,8 +98,9 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 }
 
 /* Redistribute routes. */
-static void zebra_redistribute(struct zserv *client, int type, u_short instance,
-			       vrf_id_t vrf_id, int afi)
+static void zebra_redistribute(struct zserv *client, int type,
+			       unsigned short instance, vrf_id_t vrf_id,
+			       int afi)
 {
 	struct route_entry *newre;
 	struct route_table *table;
@@ -249,7 +250,7 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 {
 	afi_t afi = 0;
 	int type = 0;
-	u_short instance;
+	unsigned short instance;
 
 	STREAM_GETC(msg, afi);
 	STREAM_GETC(msg, type);
@@ -301,7 +302,7 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 {
 	afi_t afi = 0;
 	int type = 0;
-	u_short instance;
+	unsigned short instance;
 
 	STREAM_GETC(msg, afi);
 	STREAM_GETC(msg, type);
@@ -582,7 +583,7 @@ int zebra_del_import_table_entry(struct route_node *rn, struct route_entry *re)
 }
 
 /* Assuming no one calls this with the main routing table */
-int zebra_import_table(afi_t afi, u_int32_t table_id, u_int32_t distance,
+int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
 		       const char *rmap_name, int add)
 {
 	struct route_table *table;

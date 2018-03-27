@@ -277,7 +277,7 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 		if (sockunion_family(&peer->su) == AF_INET) {
 			stream_put_in_addr(obuf, &peer->su.sin.sin_addr);
 		} else if (sockunion_family(&peer->su) == AF_INET6) {
-			stream_write(obuf, (u_char *)&peer->su.sin6.sin6_addr,
+			stream_write(obuf, (uint8_t *)&peer->su.sin6.sin6_addr,
 				     IPV6_MAX_BYTELEN);
 		}
 
@@ -329,12 +329,12 @@ static struct bgp_info *bgp_dump_route_node_record(int afi, struct bgp_node *rn,
 	if (afi == AFI_IP) {
 		/* We'll dump only the useful bits (those not 0), but have to
 		 * align on 8 bits */
-		stream_write(obuf, (u_char *)&rn->p.u.prefix4,
+		stream_write(obuf, (uint8_t *)&rn->p.u.prefix4,
 			     (rn->p.prefixlen + 7) / 8);
 	} else if (afi == AFI_IP6) {
 		/* We'll dump only the useful bits (those not 0), but have to
 		 * align on 8 bits */
-		stream_write(obuf, (u_char *)&rn->p.u.prefix6,
+		stream_write(obuf, (uint8_t *)&rn->p.u.prefix6,
 			     (rn->p.prefixlen + 7) / 8);
 	}
 

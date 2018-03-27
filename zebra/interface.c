@@ -181,7 +181,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 }
 
 /* Build the table key */
-static void if_build_key(u_int32_t ifindex, struct prefix *p)
+static void if_build_key(uint32_t ifindex, struct prefix *p)
 {
 	p->family = AF_INET;
 	p->prefixlen = IPV4_MAX_BITLEN;
@@ -221,7 +221,7 @@ void if_unlink_per_ns(struct interface *ifp)
 
 /* Look up an interface by identifier within a NS */
 struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns,
-					    u_int32_t ifindex)
+					    uint32_t ifindex)
 {
 	struct prefix p;
 	struct route_node *rn;
@@ -787,7 +787,7 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
 
-static void ipv6_ll_address_to_mac(struct in6_addr *address, u_char *mac)
+static void ipv6_ll_address_to_mac(struct in6_addr *address, uint8_t *mac)
 {
 	mac[0] = address->s6_addr[8] ^ 0x02;
 	mac[1] = address->s6_addr[9];
@@ -808,7 +808,7 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 
 	inet_pton(AF_INET, buf, &ipv4_ll);
 
-	ipv6_ll_address_to_mac(address, (u_char *)mac);
+	ipv6_ll_address_to_mac(address, (uint8_t *)mac);
 	ns_id = zvrf->zns->ns_id;
 
 	/*
@@ -1857,7 +1857,7 @@ DEFUN (link_params_metric,
 	int idx_number = 1;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct if_link_params *iflp = if_link_params_get(ifp);
-	u_int32_t metric;
+	uint32_t metric;
 
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -2045,7 +2045,7 @@ DEFUN (link_params_inter_as,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct if_link_params *iflp = if_link_params_get(ifp);
 	struct in_addr addr;
-	u_int32_t as;
+	uint32_t as;
 
 	if (!inet_aton(argv[idx_ipv4]->arg, &addr)) {
 		vty_out(vty, "Please specify Router-Addr by A.B.C.D\n");
@@ -2104,7 +2104,7 @@ DEFUN (link_params_delay,
        "Maximum delay in micro-second as decimal (0...16777215)\n")
 {
 	/* Get and Check new delay values */
-	u_int32_t delay = 0, low = 0, high = 0;
+	uint32_t delay = 0, low = 0, high = 0;
 	delay = strtoul(argv[1]->arg, NULL, 10);
 	if (argc == 6) {
 		low = strtoul(argv[3]->arg, NULL, 10);
@@ -2113,7 +2113,7 @@ DEFUN (link_params_delay,
 
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct if_link_params *iflp = if_link_params_get(ifp);
-	u_int8_t update = 0;
+	uint8_t update = 0;
 
 	if (argc == 2) {
 		/* Check new delay value against old Min and Max delays if set
@@ -2199,7 +2199,7 @@ DEFUN (link_params_delay_var,
 	int idx_number = 1;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct if_link_params *iflp = if_link_params_get(ifp);
-	u_int32_t value;
+	uint32_t value;
 
 	value = strtoul(argv[idx_number]->arg, NULL, 10);
 

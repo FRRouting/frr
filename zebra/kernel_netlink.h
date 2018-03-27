@@ -32,7 +32,7 @@ extern int addattr_l(struct nlmsghdr *n, unsigned int maxlen, int type,
 extern int rta_addattr_l(struct rtattr *rta, unsigned int maxlen, int type,
 			 void *data, unsigned int alen);
 extern int addattr16(struct nlmsghdr *n, unsigned int maxlen, int type,
-		     u_int16_t data);
+		     uint16_t data);
 extern int addattr32(struct nlmsghdr *n, unsigned int maxlen, int type,
 		     int data);
 extern struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type);
@@ -40,9 +40,9 @@ extern int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest);
 extern struct rtattr *rta_nest(struct rtattr *rta, int maxlen, int type);
 extern int rta_nest_end(struct rtattr *rta, struct rtattr *nest);
 extern const char *nl_msg_type_to_str(uint16_t msg_type);
-extern const char *nl_rtproto_to_str(u_char rtproto);
-extern const char *nl_family_to_str(u_char family);
-extern const char *nl_rttype_to_str(u_char rttype);
+extern const char *nl_rtproto_to_str(uint8_t rtproto);
+extern const char *nl_family_to_str(uint8_t family);
+extern const char *nl_rttype_to_str(uint8_t rttype);
 
 extern int netlink_parse_info(int (*filter)(struct sockaddr_nl *,
 					    struct nlmsghdr *, ns_id_t, int),

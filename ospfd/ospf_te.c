@@ -122,7 +122,7 @@ int ospf_mpls_te_init(void)
 static int ospf_mpls_te_register(enum inter_as_mode mode)
 {
 	int rc = 0;
-	u_int8_t scope;
+	uint8_t scope;
 
 	if (OspfMplsTE.inter_as != Off)
 		return rc;
@@ -149,7 +149,7 @@ static int ospf_mpls_te_register(enum inter_as_mode mode)
 
 static int ospf_mpls_te_unregister()
 {
-	u_int8_t scope;
+	uint8_t scope;
 
 	if (OspfMplsTE.inter_as == Off)
 		return 0;
@@ -197,9 +197,9 @@ static void del_mpls_te_link(void *val)
 	return;
 }
 
-static u_int32_t get_mpls_te_instance_value(void)
+static uint32_t get_mpls_te_instance_value(void)
 {
-	static u_int32_t seqno = 0;
+	static uint32_t seqno = 0;
 
 	if (seqno < MAX_LEGAL_TE_INSTANCE_NUM)
 		seqno += 1;
@@ -284,7 +284,7 @@ static void set_mpls_te_router_addr(struct in_addr ipv4)
 
 static void set_linkparams_link_header(struct mpls_te_link *lp)
 {
-	u_int16_t length = 0;
+	uint16_t length = 0;
 
 	/* TE_LINK_SUBTLV_LINK_TYPE */
 	if (ntohs(lp->link_type.header.type) != 0)
@@ -465,7 +465,7 @@ static void set_linkparams_rmtif_ipaddr(struct mpls_te_link *lp,
 }
 
 static void set_linkparams_te_metric(struct mpls_te_link *lp,
-				     u_int32_t te_metric)
+				     uint32_t te_metric)
 {
 	lp->te_metric.header.type = htons(TE_LINK_SUBTLV_TE_METRIC);
 	lp->te_metric.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
@@ -500,7 +500,7 @@ static void set_linkparams_unrsv_bw(struct mpls_te_link *lp, int priority,
 }
 
 static void set_linkparams_rsc_clsclr(struct mpls_te_link *lp,
-				      u_int32_t classcolor)
+				      uint32_t classcolor)
 {
 	lp->rsc_clsclr.header.type = htons(TE_LINK_SUBTLV_RSC_CLSCLR);
 	lp->rsc_clsclr.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
@@ -509,7 +509,7 @@ static void set_linkparams_rsc_clsclr(struct mpls_te_link *lp,
 }
 
 static void set_linkparams_inter_as(struct mpls_te_link *lp,
-				    struct in_addr addr, u_int32_t as)
+				    struct in_addr addr, uint32_t as)
 {
 
 	/* Set the Remote ASBR IP address and then the associated AS number */
@@ -535,8 +535,8 @@ static void unset_linkparams_inter_as(struct mpls_te_link *lp)
 	lp->ras.value = htonl(0);
 }
 
-void set_linkparams_llri(struct mpls_te_link *lp, u_int32_t local,
-			 u_int32_t remote)
+void set_linkparams_llri(struct mpls_te_link *lp, uint32_t local,
+			 uint32_t remote)
 {
 
 	lp->llri.header.type = htons(TE_LINK_SUBTLV_LLRI);
@@ -555,10 +555,10 @@ void set_linkparams_lrrid(struct mpls_te_link *lp, struct in_addr local,
 	lp->lrrid.remote.s_addr = remote.s_addr;
 }
 
-static void set_linkparams_av_delay(struct mpls_te_link *lp, u_int32_t delay,
-				    u_char anormal)
+static void set_linkparams_av_delay(struct mpls_te_link *lp, uint32_t delay,
+				    uint8_t anormal)
 {
-	u_int32_t tmp;
+	uint32_t tmp;
 	/* Note that TLV-length field is the size of array. */
 	lp->av_delay.header.type = htons(TE_LINK_SUBTLV_AV_DELAY);
 	lp->av_delay.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
@@ -569,10 +569,10 @@ static void set_linkparams_av_delay(struct mpls_te_link *lp, u_int32_t delay,
 	return;
 }
 
-static void set_linkparams_mm_delay(struct mpls_te_link *lp, u_int32_t low,
-				    u_int32_t high, u_char anormal)
+static void set_linkparams_mm_delay(struct mpls_te_link *lp, uint32_t low,
+				    uint32_t high, uint8_t anormal)
 {
-	u_int32_t tmp;
+	uint32_t tmp;
 	/* Note that TLV-length field is the size of array. */
 	lp->mm_delay.header.type = htons(TE_LINK_SUBTLV_MM_DELAY);
 	lp->mm_delay.header.length = htons(TE_LINK_SUBTLV_MM_DELAY_SIZE);
@@ -584,7 +584,7 @@ static void set_linkparams_mm_delay(struct mpls_te_link *lp, u_int32_t low,
 	return;
 }
 
-static void set_linkparams_delay_var(struct mpls_te_link *lp, u_int32_t jitter)
+static void set_linkparams_delay_var(struct mpls_te_link *lp, uint32_t jitter)
 {
 	/* Note that TLV-length field is the size of array. */
 	lp->delay_var.header.type = htons(TE_LINK_SUBTLV_DELAY_VAR);
@@ -593,10 +593,10 @@ static void set_linkparams_delay_var(struct mpls_te_link *lp, u_int32_t jitter)
 	return;
 }
 
-static void set_linkparams_pkt_loss(struct mpls_te_link *lp, u_int32_t loss,
-				    u_char anormal)
+static void set_linkparams_pkt_loss(struct mpls_te_link *lp, uint32_t loss,
+				    uint8_t anormal)
 {
-	u_int32_t tmp;
+	uint32_t tmp;
 	/* Note that TLV-length field is the size of array. */
 	lp->pkt_loss.header.type = htons(TE_LINK_SUBTLV_PKT_LOSS);
 	lp->pkt_loss.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
@@ -1145,10 +1145,10 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 	struct stream *s;
 	struct lsa_header *lsah;
 	struct ospf_lsa *new = NULL;
-	u_char options, lsa_type = 0;
+	uint8_t options, lsa_type = 0;
 	struct in_addr lsa_id;
-	u_int32_t tmp;
-	u_int16_t length;
+	uint32_t tmp;
+	uint16_t length;
 
 	/* Create a stream for LSA. */
 	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
@@ -1515,7 +1515,7 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 	struct ospf_lsa lsa;
 	struct lsa_header lsah;
 	struct ospf *top;
-	u_int32_t tmp;
+	uint32_t tmp;
 
 	memset(&lsa, 0, sizeof(lsa));
 	memset(&lsah, 0, sizeof(lsah));
@@ -1598,7 +1598,7 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
  * Followings are vty session control functions.
  *------------------------------------------------------------------------*/
 
-static u_int16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct te_tlv_router_addr *top = (struct te_tlv_router_addr *)tlvh;
 
@@ -1610,7 +1610,7 @@ static u_int16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct te_tlv_link *top = (struct te_tlv_link *)tlvh;
 
@@ -1624,8 +1624,8 @@ static u_int16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_HDR_SIZE; /* Here is special, not "TLV_SIZE". */
 }
 
-static u_int16_t show_vty_link_subtlv_link_type(struct vty *vty,
-						struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_link_type(struct vty *vty,
+					       struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_link_type *top;
 	const char *cp = "Unknown";
@@ -1651,8 +1651,8 @@ static u_int16_t show_vty_link_subtlv_link_type(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_link_id(struct vty *vty,
-					      struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
+					     struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_link_id *top;
 
@@ -1665,8 +1665,8 @@ static u_int16_t show_vty_link_subtlv_link_id(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
-						   struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
+						  struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_lclif_ipaddr *top;
 	int i, n;
@@ -1690,8 +1690,8 @@ static u_int16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
-						   struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
+						  struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_rmtif_ipaddr *top;
 	int i, n;
@@ -1714,24 +1714,24 @@ static u_int16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_te_metric(struct vty *vty,
-						struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_te_metric(struct vty *vty,
+					       struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_te_metric *top;
 
 	top = (struct te_link_subtlv_te_metric *)tlvh;
 	if (vty != NULL)
 		vty_out(vty, "  Traffic Engineering Metric: %u\n",
-			(u_int32_t)ntohl(top->value));
+			(uint32_t)ntohl(top->value));
 	else
 		zlog_debug("    Traffic Engineering Metric: %u",
-			   (u_int32_t)ntohl(top->value));
+			   (uint32_t)ntohl(top->value));
 
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_max_bw(struct vty *vty,
-					     struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_max_bw(struct vty *vty,
+					    struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_max_bw *top;
 	float fval;
@@ -1747,8 +1747,8 @@ static u_int16_t show_vty_link_subtlv_max_bw(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
-						 struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
+						struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_max_rsv_bw *top;
 	float fval;
@@ -1766,8 +1766,8 @@ static u_int16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
-					       struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
+					      struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_unrsv_bw *top;
 	float fval1, fval2;
@@ -1797,24 +1797,24 @@ static u_int16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
-						 struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
+						struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_rsc_clsclr *top;
 
 	top = (struct te_link_subtlv_rsc_clsclr *)tlvh;
 	if (vty != NULL)
 		vty_out(vty, "  Resource class/color: 0x%x\n",
-			(u_int32_t)ntohl(top->value));
+			(uint32_t)ntohl(top->value));
 	else
 		zlog_debug("    Resource Class/Color: 0x%x",
-			   (u_int32_t)ntohl(top->value));
+			   (uint32_t)ntohl(top->value));
 
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_lrrid(struct vty *vty,
-					    struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
+					   struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_lrrid *top;
 
@@ -1835,8 +1835,8 @@ static u_int16_t show_vty_link_subtlv_lrrid(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_llri(struct vty *vty,
-					   struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
+					  struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_llri *top;
 
@@ -1844,21 +1844,21 @@ static u_int16_t show_vty_link_subtlv_llri(struct vty *vty,
 
 	if (vty != NULL) {
 		vty_out(vty, "  Link Local  ID: %d\n",
-			(u_int32_t)ntohl(top->local));
+			(uint32_t)ntohl(top->local));
 		vty_out(vty, "  Link Remote ID: %d\n",
-			(u_int32_t)ntohl(top->remote));
+			(uint32_t)ntohl(top->remote));
 	} else {
 		zlog_debug("    Link Local  ID: %d",
-			   (u_int32_t)ntohl(top->local));
+			   (uint32_t)ntohl(top->local));
 		zlog_debug("    Link Remote ID: %d",
-			   (u_int32_t)ntohl(top->remote));
+			   (uint32_t)ntohl(top->remote));
 	}
 
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_rip(struct vty *vty,
-					  struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
+					 struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_rip *top;
 
@@ -1874,8 +1874,8 @@ static u_int16_t show_vty_link_subtlv_rip(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_ras(struct vty *vty,
-					  struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_ras(struct vty *vty,
+					 struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_ras *top;
 
@@ -1891,16 +1891,16 @@ static u_int16_t show_vty_link_subtlv_ras(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_av_delay(struct vty *vty,
-					       struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_av_delay(struct vty *vty,
+					      struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_av_delay *top;
-	u_int32_t delay;
-	u_int32_t anomalous;
+	uint32_t delay;
+	uint32_t anomalous;
 
 	top = (struct te_link_subtlv_av_delay *)tlvh;
-	delay = (u_int32_t)ntohl(top->value) & TE_EXT_MASK;
-	anomalous = (u_int32_t)ntohl(top->value) & TE_EXT_ANORMAL;
+	delay = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
+	anomalous = (uint32_t)ntohl(top->value) & TE_EXT_ANORMAL;
 
 	if (vty != NULL)
 		vty_out(vty, "  %s Average Link Delay: %d (micro-sec)\n",
@@ -1912,17 +1912,17 @@ static u_int16_t show_vty_link_subtlv_av_delay(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
-					       struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
+					      struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_mm_delay *top;
-	u_int32_t low, high;
-	u_int32_t anomalous;
+	uint32_t low, high;
+	uint32_t anomalous;
 
 	top = (struct te_link_subtlv_mm_delay *)tlvh;
-	low = (u_int32_t)ntohl(top->low) & TE_EXT_MASK;
-	anomalous = (u_int32_t)ntohl(top->low) & TE_EXT_ANORMAL;
-	high = (u_int32_t)ntohl(top->high);
+	low = (uint32_t)ntohl(top->low) & TE_EXT_MASK;
+	anomalous = (uint32_t)ntohl(top->low) & TE_EXT_ANORMAL;
+	high = (uint32_t)ntohl(top->high);
 
 	if (vty != NULL)
 		vty_out(vty, "  %s Min/Max Link Delay: %d/%d (micro-sec)\n",
@@ -1934,14 +1934,14 @@ static u_int16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_delay_var(struct vty *vty,
-						struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_delay_var(struct vty *vty,
+					       struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_delay_var *top;
-	u_int32_t jitter;
+	uint32_t jitter;
 
 	top = (struct te_link_subtlv_delay_var *)tlvh;
-	jitter = (u_int32_t)ntohl(top->value) & TE_EXT_MASK;
+	jitter = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
 
 	if (vty != NULL)
 		vty_out(vty, "  Delay Variation: %d (micro-sec)\n", jitter);
@@ -1951,18 +1951,18 @@ static u_int16_t show_vty_link_subtlv_delay_var(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
-					       struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
+					      struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_pkt_loss *top;
-	u_int32_t loss;
-	u_int32_t anomalous;
+	uint32_t loss;
+	uint32_t anomalous;
 	float fval;
 
 	top = (struct te_link_subtlv_pkt_loss *)tlvh;
-	loss = (u_int32_t)ntohl(top->value) & TE_EXT_MASK;
+	loss = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
 	fval = (float)(loss * LOSS_PRECISION);
-	anomalous = (u_int32_t)ntohl(top->value) & TE_EXT_ANORMAL;
+	anomalous = (uint32_t)ntohl(top->value) & TE_EXT_ANORMAL;
 
 	if (vty != NULL)
 		vty_out(vty, "  %s Link Loss: %g (%%)\n",
@@ -1974,8 +1974,8 @@ static u_int16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_res_bw(struct vty *vty,
-					     struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_res_bw(struct vty *vty,
+					    struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_res_bw *top;
 	float fval;
@@ -1995,8 +1995,8 @@ static u_int16_t show_vty_link_subtlv_res_bw(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
-					     struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
+					    struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_ava_bw *top;
 	float fval;
@@ -2016,8 +2016,8 @@ static u_int16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_link_subtlv_use_bw(struct vty *vty,
-					     struct tlv_header *tlvh)
+static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
+					    struct tlv_header *tlvh)
 {
 	struct te_link_subtlv_use_bw *top;
 	float fval;
@@ -2037,7 +2037,7 @@ static u_int16_t show_vty_link_subtlv_use_bw(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
 {
 	if (vty != NULL)
 		vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
@@ -2049,13 +2049,12 @@ static u_int16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
-					       struct tlv_header *tlvh0,
-					       u_int16_t subtotal,
-					       u_int16_t total)
+static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
+					      struct tlv_header *tlvh0,
+					      uint16_t subtotal, uint16_t total)
 {
 	struct tlv_header *tlvh, *next;
-	u_int16_t sum = subtotal;
+	uint16_t sum = subtotal;
 
 	for (tlvh = tlvh0; sum < total;
 	     tlvh = (next ? next : TLV_HDR_NEXT(tlvh))) {
@@ -2133,9 +2132,9 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
 	struct tlv_header *tlvh, *next;
-	u_int16_t sum, total;
-	u_int16_t (*subfunc)(struct vty * vty, struct tlv_header * tlvh,
-			     u_int16_t subtotal, u_int16_t total) = NULL;
+	uint16_t sum, total;
+	uint16_t (*subfunc)(struct vty * vty, struct tlv_header * tlvh,
+			    uint16_t subtotal, uint16_t total) = NULL;
 
 	sum = 0;
 	total = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;

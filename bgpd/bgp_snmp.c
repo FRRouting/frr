@@ -125,19 +125,19 @@ static oid bgp_trap_oid[] = {BGP4MIB, 0};
 static struct in_addr bgp_empty_addr = {.s_addr = 0};
 
 /* Hook functions. */
-static u_char *bgpVersion(struct variable *, oid[], size_t *, int, size_t *,
-			  WriteMethod **);
-static u_char *bgpLocalAs(struct variable *, oid[], size_t *, int, size_t *,
-			  WriteMethod **);
-static u_char *bgpPeerTable(struct variable *, oid[], size_t *, int, size_t *,
-			    WriteMethod **);
-static u_char *bgpRcvdPathAttrTable(struct variable *, oid[], size_t *, int,
-				    size_t *, WriteMethod **);
-static u_char *bgpIdentifier(struct variable *, oid[], size_t *, int, size_t *,
+static uint8_t *bgpVersion(struct variable *, oid[], size_t *, int, size_t *,
+			   WriteMethod **);
+static uint8_t *bgpLocalAs(struct variable *, oid[], size_t *, int, size_t *,
+			   WriteMethod **);
+static uint8_t *bgpPeerTable(struct variable *, oid[], size_t *, int, size_t *,
 			     WriteMethod **);
-static u_char *bgp4PathAttrTable(struct variable *, oid[], size_t *, int,
-				 size_t *, WriteMethod **);
-/* static u_char *bgpTraps (); */
+static uint8_t *bgpRcvdPathAttrTable(struct variable *, oid[], size_t *, int,
+				     size_t *, WriteMethod **);
+static uint8_t *bgpIdentifier(struct variable *, oid[], size_t *, int, size_t *,
+			      WriteMethod **);
+static uint8_t *bgp4PathAttrTable(struct variable *, oid[], size_t *, int,
+				  size_t *, WriteMethod **);
+/* static uint8_t *bgpTraps (); */
 
 static struct variable bgp_variables[] = {
 	/* BGP version. */
@@ -315,11 +315,11 @@ static struct variable bgp_variables[] = {
 };
 
 
-static u_char *bgpVersion(struct variable *v, oid name[], size_t *length,
-			  int exact, size_t *var_len,
-			  WriteMethod **write_method)
+static uint8_t *bgpVersion(struct variable *v, oid name[], size_t *length,
+			   int exact, size_t *var_len,
+			   WriteMethod **write_method)
 {
-	static u_char version;
+	static uint8_t version;
 
 	if (smux_header_generic(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -330,12 +330,12 @@ static u_char *bgpVersion(struct variable *v, oid name[], size_t *length,
 
 	/* Return octet string length 1. */
 	*var_len = 1;
-	return (u_char *)&version;
+	return (uint8_t *)&version;
 }
 
-static u_char *bgpLocalAs(struct variable *v, oid name[], size_t *length,
-			  int exact, size_t *var_len,
-			  WriteMethod **write_method)
+static uint8_t *bgpLocalAs(struct variable *v, oid name[], size_t *length,
+			   int exact, size_t *var_len,
+			   WriteMethod **write_method)
 {
 	struct bgp *bgp;
 
@@ -443,9 +443,9 @@ static struct peer *bgpPeerTable_lookup(struct variable *v, oid name[],
 }
 
 /* BGP write methods. */
-static int write_bgpPeerTable(int action, u_char *var_val, u_char var_val_type,
-			      size_t var_val_len, u_char *statP, oid *name,
-			      size_t length)
+static int write_bgpPeerTable(int action, uint8_t *var_val,
+			      uint8_t var_val_type, size_t var_val_len,
+			      uint8_t *statP, oid *name, size_t length)
 {
 	struct in_addr addr;
 	struct peer *peer;
@@ -506,9 +506,9 @@ static int write_bgpPeerTable(int action, u_char *var_val, u_char var_val_type,
 	return SNMP_ERR_NOERROR;
 }
 
-static u_char *bgpPeerTable(struct variable *v, oid name[], size_t *length,
-			    int exact, size_t *var_len,
-			    WriteMethod **write_method)
+static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
+			     int exact, size_t *var_len,
+			     WriteMethod **write_method)
 {
 	static struct in_addr addr;
 	struct peer *peer;
@@ -588,11 +588,11 @@ static u_char *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 		return SNMP_INTEGER(PEER_TOTAL_TX(peer));
 		break;
 	case BGPPEERLASTERROR: {
-		static u_char lasterror[2];
+		static uint8_t lasterror[2];
 		lasterror[0] = peer->notify.code;
 		lasterror[1] = peer->notify.subcode;
 		*var_len = 2;
-		return (u_char *)&lasterror;
+		return (uint8_t *)&lasterror;
 	} break;
 	case BGPPEERFSMESTABLISHEDTRANSITIONS:
 		return SNMP_INTEGER(peer->established);
@@ -644,9 +644,9 @@ static u_char *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 	return NULL;
 }
 
-static u_char *bgpIdentifier(struct variable *v, oid name[], size_t *length,
-			     int exact, size_t *var_len,
-			     WriteMethod **write_method)
+static uint8_t *bgpIdentifier(struct variable *v, oid name[], size_t *length,
+			      int exact, size_t *var_len,
+			      WriteMethod **write_method)
 {
 	struct bgp *bgp;
 
@@ -661,9 +661,9 @@ static u_char *bgpIdentifier(struct variable *v, oid name[], size_t *length,
 	return SNMP_IPADDRESS(bgp->router_id);
 }
 
-static u_char *bgpRcvdPathAttrTable(struct variable *v, oid name[],
-				    size_t *length, int exact, size_t *var_len,
-				    WriteMethod **write_method)
+static uint8_t *bgpRcvdPathAttrTable(struct variable *v, oid name[],
+				     size_t *length, int exact, size_t *var_len,
+				     WriteMethod **write_method)
 {
 	/* Received Path Attribute Table.  This table contains, one entry
 	   per path to a network, path attributes received from all peers
@@ -805,9 +805,9 @@ static struct bgp_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 	return NULL;
 }
 
-static u_char *bgp4PathAttrTable(struct variable *v, oid name[], size_t *length,
-				 int exact, size_t *var_len,
-				 WriteMethod **write_method)
+static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
+				  size_t *length, int exact, size_t *var_len,
+				  WriteMethod **write_method)
 {
 	struct bgp *bgp;
 	struct bgp_info *binfo;

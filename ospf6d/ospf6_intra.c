@@ -49,8 +49,8 @@
 #include "ospf6_spf.h"
 
 unsigned char conf_debug_ospf6_brouter = 0;
-u_int32_t conf_debug_ospf6_brouter_specific_router_id;
-u_int32_t conf_debug_ospf6_brouter_specific_area_id;
+uint32_t conf_debug_ospf6_brouter_specific_router_id;
+uint32_t conf_debug_ospf6_brouter_specific_area_id;
 
 #define MAX_LSA_PAYLOAD   (1024 + 256)
 /******************************/
@@ -189,15 +189,15 @@ int ospf6_router_lsa_originate(struct thread *thread)
 	struct ospf6_lsa_header *lsa_header;
 	struct ospf6_lsa *lsa;
 
-	u_int32_t link_state_id = 0;
+	uint32_t link_state_id = 0;
 	struct listnode *node, *nnode;
 	struct listnode *j;
 	struct ospf6_interface *oi;
 	struct ospf6_neighbor *on, *drouter = NULL;
 	struct ospf6_router_lsa *router_lsa;
 	struct ospf6_router_lsdesc *lsdesc;
-	u_int16_t type;
-	u_int32_t router;
+	uint16_t type;
+	uint32_t router;
 	int count;
 
 	oa = (struct ospf6_area *)THREAD_ARG(thread);
@@ -461,7 +461,7 @@ int ospf6_network_lsa_originate(struct thread *thread)
 	struct ospf6_neighbor *on;
 	struct ospf6_link_lsa *link_lsa;
 	struct listnode *i;
-	u_int16_t type;
+	uint16_t type;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	oi->thread_network_lsa = NULL;
@@ -1142,7 +1142,7 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 	struct ospf6_route_table *route_advertise;
 	struct ospf6_link_lsa *link_lsa;
 	char *start, *end, *current;
-	u_int16_t type;
+	uint16_t type;
 	char buf[PREFIX2STR_BUFFER];
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
@@ -1505,7 +1505,7 @@ void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa)
 void ospf6_intra_route_calculation(struct ospf6_area *oa)
 {
 	struct ospf6_route *route, *nroute;
-	u_int16_t type;
+	uint16_t type;
 	struct ospf6_lsa *lsa;
 	void (*hook_add)(struct ospf6_route *) = NULL;
 	void (*hook_remove)(struct ospf6_route *) = NULL;
@@ -1558,7 +1558,7 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 
 static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 {
-	u_int32_t brouter_id;
+	uint32_t brouter_id;
 	char brouter_name[16];
 	char area_name[16];
 	char destination[64];
@@ -1614,7 +1614,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 	struct ospf6_route *brouter, *nbrouter, *copy;
 	void (*hook_add)(struct ospf6_route *) = NULL;
 	void (*hook_remove)(struct ospf6_route *) = NULL;
-	u_int32_t brouter_id;
+	uint32_t brouter_id;
 	char brouter_name[16];
 
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(oa->area_id))
@@ -1861,7 +1861,7 @@ DEFUN (debug_ospf6_brouter_router,
       )
 {
 	int idx_ipv4 = 4;
-	u_int32_t router_id;
+	uint32_t router_id;
 	inet_pton(AF_INET, argv[idx_ipv4]->arg, &router_id);
 	OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ON(router_id);
 	return CMD_SUCCESS;
@@ -1892,7 +1892,7 @@ DEFUN (debug_ospf6_brouter_area,
       )
 {
 	int idx_ipv4 = 4;
-	u_int32_t area_id;
+	uint32_t area_id;
 	inet_pton(AF_INET, argv[idx_ipv4]->arg, &area_id);
 	OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ON(area_id);
 	return CMD_SUCCESS;

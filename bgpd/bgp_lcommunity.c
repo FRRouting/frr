@@ -66,7 +66,7 @@ static void lcommunity_hash_free(struct lcommunity *lcom)
 static int lcommunity_add_val(struct lcommunity *lcom,
 			      struct lcommunity_val *lval)
 {
-	u_int8_t *p;
+	uint8_t *p;
 	int ret;
 	int c;
 
@@ -124,7 +124,7 @@ struct lcommunity *lcommunity_uniq_sort(struct lcommunity *lcom)
 }
 
 /* Parse Large Communites Attribute in BGP packet.  */
-struct lcommunity *lcommunity_parse(u_int8_t *pnt, u_short length)
+struct lcommunity *lcommunity_parse(uint8_t *pnt, unsigned short length)
 {
 	struct lcommunity tmp;
 	struct lcommunity *new;
@@ -291,9 +291,9 @@ static const char *lcommunity_gettoken(const char *str,
 	if (isdigit((int)*p)) {
 		int separator = 0;
 		int digit = 0;
-		u_int32_t globaladmin = 0;
-		u_int32_t localdata1 = 0;
-		u_int32_t localdata2 = 0;
+		uint32_t globaladmin = 0;
+		uint32_t localdata1 = 0;
+		uint32_t localdata2 = 0;
 
 		while (isdigit((int)*p) || *p == ':') {
 			if (*p == ':') {
@@ -375,10 +375,10 @@ struct lcommunity *lcommunity_str2com(const char *str)
 	return lcom;
 }
 
-int lcommunity_include(struct lcommunity *lcom, u_char *ptr)
+int lcommunity_include(struct lcommunity *lcom, uint8_t *ptr)
 {
 	int i;
-	u_char *lcom_ptr;
+	uint8_t *lcom_ptr;
 
 	for (i = 0; i < lcom->size; i++) {
 		lcom_ptr = lcom->val + (i * LCOMMUNITY_SIZE);
@@ -394,14 +394,14 @@ int lcommunity_include(struct lcommunity *lcom, u_char *ptr)
 char *lcommunity_lcom2str(struct lcommunity *lcom, int format)
 {
 	int i;
-	u_int8_t *pnt;
+	uint8_t *pnt;
 #define LCOMMUNITY_STR_DEFAULT_LEN  40
 	int str_size;
 	int str_pnt;
 	char *str_buf;
 	int len = 0;
 	int first = 1;
-	u_int32_t globaladmin, localdata1, localdata2;
+	uint32_t globaladmin, localdata1, localdata2;
 
 	if (lcom->size == 0) {
 		str_buf = XMALLOC(MTYPE_LCOMMUNITY_STR, 1);
@@ -472,7 +472,7 @@ int lcommunity_match(const struct lcommunity *lcom1,
 }
 
 /* Delete one lcommunity. */
-void lcommunity_del_val(struct lcommunity *lcom, u_char *ptr)
+void lcommunity_del_val(struct lcommunity *lcom, uint8_t *ptr)
 {
 	int i = 0;
 	int c = 0;

@@ -139,10 +139,10 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 	v->lsa = lsa;
 
 	/* capability bits + options */
-	v->capability = *(u_char *)(OSPF6_LSA_HEADER_END(lsa->header));
-	v->options[0] = *(u_char *)(OSPF6_LSA_HEADER_END(lsa->header) + 1);
-	v->options[1] = *(u_char *)(OSPF6_LSA_HEADER_END(lsa->header) + 2);
-	v->options[2] = *(u_char *)(OSPF6_LSA_HEADER_END(lsa->header) + 3);
+	v->capability = *(uint8_t *)(OSPF6_LSA_HEADER_END(lsa->header));
+	v->options[0] = *(uint8_t *)(OSPF6_LSA_HEADER_END(lsa->header) + 1);
+	v->options[1] = *(uint8_t *)(OSPF6_LSA_HEADER_END(lsa->header) + 2);
+	v->options[2] = *(uint8_t *)(OSPF6_LSA_HEADER_END(lsa->header) + 3);
 
 	v->nh_list = list_new();
 	v->nh_list->cmp = (int (*)(void *, void *))ospf6_nexthop_cmp;
@@ -166,8 +166,8 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(caddr_t lsdesc,
 					  struct ospf6_vertex *v)
 {
 	struct ospf6_lsa *lsa = NULL;
-	u_int16_t type = 0;
-	u_int32_t id = 0, adv_router = 0;
+	uint16_t type = 0;
+	uint32_t id = 0, adv_router = 0;
 
 	if (VERTEX_IS_TYPE(NETWORK, v)) {
 		type = htons(OSPF6_LSTYPE_ROUTER);
@@ -262,8 +262,8 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 	int i;
 	ifindex_t ifindex;
 	struct ospf6_interface *oi;
-	u_int16_t type;
-	u_int32_t adv_router;
+	uint16_t type;
+	uint32_t adv_router;
 	struct ospf6_lsa *lsa;
 	struct ospf6_link_lsa *link_lsa;
 	char buf[64];
@@ -456,7 +456,7 @@ void ospf6_spf_reason_string(unsigned int reason, char *buf, int size)
 
 /* RFC2328 16.1.  Calculating the shortest-path tree for an area */
 /* RFC2740 3.8.1.  Calculating the shortest path tree for an area */
-void ospf6_spf_calculation(u_int32_t router_id,
+void ospf6_spf_calculation(uint32_t router_id,
 			   struct ospf6_route_table *result_table,
 			   struct ospf6_area *oa)
 {
@@ -966,7 +966,7 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	uint8_t *new_header = NULL;
 	const struct route_node *end = NULL;
 	uint16_t lsa_length, total_lsa_length = 0, num_lsa = 0;
-	u_int16_t type = 0;
+	uint16_t type = 0;
 	char ifbuf[16];
 	uint32_t interface_id;
 	caddr_t lsd;

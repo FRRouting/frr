@@ -83,44 +83,44 @@ struct zserv {
 	bool notify_owner;
 
 	/* client's protocol */
-	u_char proto;
-	u_short instance;
-	u_char is_synchronous;
+	uint8_t proto;
+	unsigned short instance;
+	uint8_t is_synchronous;
 
 	/* Statistics */
-	u_int32_t redist_v4_add_cnt;
-	u_int32_t redist_v4_del_cnt;
-	u_int32_t redist_v6_add_cnt;
-	u_int32_t redist_v6_del_cnt;
-	u_int32_t v4_route_add_cnt;
-	u_int32_t v4_route_upd8_cnt;
-	u_int32_t v4_route_del_cnt;
-	u_int32_t v6_route_add_cnt;
-	u_int32_t v6_route_del_cnt;
-	u_int32_t v6_route_upd8_cnt;
-	u_int32_t connected_rt_add_cnt;
-	u_int32_t connected_rt_del_cnt;
-	u_int32_t ifup_cnt;
-	u_int32_t ifdown_cnt;
-	u_int32_t ifadd_cnt;
-	u_int32_t ifdel_cnt;
-	u_int32_t if_bfd_cnt;
-	u_int32_t bfd_peer_add_cnt;
-	u_int32_t bfd_peer_upd8_cnt;
-	u_int32_t bfd_peer_del_cnt;
-	u_int32_t bfd_peer_replay_cnt;
-	u_int32_t vrfadd_cnt;
-	u_int32_t vrfdel_cnt;
-	u_int32_t if_vrfchg_cnt;
-	u_int32_t bfd_client_reg_cnt;
-	u_int32_t vniadd_cnt;
-	u_int32_t vnidel_cnt;
-	u_int32_t l3vniadd_cnt;
-	u_int32_t l3vnidel_cnt;
-	u_int32_t macipadd_cnt;
-	u_int32_t macipdel_cnt;
-	u_int32_t prefixadd_cnt;
-	u_int32_t prefixdel_cnt;
+	uint32_t redist_v4_add_cnt;
+	uint32_t redist_v4_del_cnt;
+	uint32_t redist_v6_add_cnt;
+	uint32_t redist_v6_del_cnt;
+	uint32_t v4_route_add_cnt;
+	uint32_t v4_route_upd8_cnt;
+	uint32_t v4_route_del_cnt;
+	uint32_t v6_route_add_cnt;
+	uint32_t v6_route_del_cnt;
+	uint32_t v6_route_upd8_cnt;
+	uint32_t connected_rt_add_cnt;
+	uint32_t connected_rt_del_cnt;
+	uint32_t ifup_cnt;
+	uint32_t ifdown_cnt;
+	uint32_t ifadd_cnt;
+	uint32_t ifdel_cnt;
+	uint32_t if_bfd_cnt;
+	uint32_t bfd_peer_add_cnt;
+	uint32_t bfd_peer_upd8_cnt;
+	uint32_t bfd_peer_del_cnt;
+	uint32_t bfd_peer_replay_cnt;
+	uint32_t vrfadd_cnt;
+	uint32_t vrfdel_cnt;
+	uint32_t if_vrfchg_cnt;
+	uint32_t bfd_client_reg_cnt;
+	uint32_t vniadd_cnt;
+	uint32_t vnidel_cnt;
+	uint32_t l3vniadd_cnt;
+	uint32_t l3vnidel_cnt;
+	uint32_t macipadd_cnt;
+	uint32_t macipdel_cnt;
+	uint32_t prefixadd_cnt;
+	uint32_t prefixdel_cnt;
 
 	time_t connect_time;
 	time_t last_read_time;
@@ -144,7 +144,7 @@ struct zebra_t {
 	struct list *client_list;
 
 	/* default table */
-	u_int32_t rtm_table_default;
+	uint32_t rtm_table_default;
 
 /* rib work queue */
 #define ZEBRA_RIB_PROCESS_HOLD_TIME 10
@@ -155,7 +155,7 @@ struct zebra_t {
 	struct work_queue *lsp_process_q;
 
 #define ZEBRA_ZAPI_PACKETS_TO_PROCESS 10
-	u_int32_t packets_to_process;
+	uint32_t packets_to_process;
 };
 extern struct zebra_t zebrad;
 extern unsigned int multipath_num;
@@ -195,7 +195,7 @@ extern void zserv_nexthop_num_warn(const char *, const struct prefix *,
 				   const unsigned int);
 extern int zebra_server_send_message(struct zserv *client, struct stream *msg);
 
-extern struct zserv *zebra_find_client(u_char proto, u_short instance);
+extern struct zserv *zebra_find_client(uint8_t proto, unsigned short instance);
 
 #if defined(HANDLE_ZAPI_FUZZING)
 extern void zserv_read_file(char *input);

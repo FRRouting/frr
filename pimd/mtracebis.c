@@ -251,7 +251,7 @@ static int recv_response(int fd, int *hops, struct igmp_mtrace *mtracer)
 	struct igmp_mtrace *mtrace;
 	int mtrace_len;
 	int responses;
-	u_short sum;
+	unsigned short sum;
 
 	recvd = recvfrom(fd, mtrace_buf, IP_AND_MTRACE_BUF_LEN, 0, NULL, 0);
 

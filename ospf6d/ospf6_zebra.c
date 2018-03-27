@@ -468,7 +468,7 @@ int ospf6_distance_set(struct vty *vty, struct ospf6 *o,
 {
 	int ret;
 	struct prefix_ipv6 p;
-	u_char distance;
+	uint8_t distance;
 	struct route_node *rn;
 	struct ospf6_distance *odistance;
 
@@ -553,7 +553,7 @@ void ospf6_distance_reset(struct ospf6 *o)
 		}
 }
 
-u_char ospf6_distance_apply(struct prefix_ipv6 *p, struct ospf6_route * or)
+uint8_t ospf6_distance_apply(struct prefix_ipv6 *p, struct ospf6_route * or)
 {
 	struct ospf6 *o;
 

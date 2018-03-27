@@ -38,13 +38,13 @@
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
 	/* IGP route's metric. */
-	u_int32_t metric;
+	uint32_t metric;
 
 	/* Nexthop number and nexthop linked list.*/
-	u_char nexthop_num;
+	uint8_t nexthop_num;
 	struct nexthop *nexthop;
 	time_t last_update;
-	u_int16_t flags;
+	uint16_t flags;
 
 #define BGP_NEXTHOP_VALID             (1 << 0)
 #define BGP_NEXTHOP_REGISTERED        (1 << 1)
@@ -53,7 +53,7 @@ struct bgp_nexthop_cache {
 #define BGP_STATIC_ROUTE              (1 << 4)
 #define BGP_STATIC_ROUTE_EXACT_MATCH  (1 << 5)
 
-	u_int16_t change_flags;
+	uint16_t change_flags;
 
 #define BGP_NEXTHOP_CHANGED           (1 << 0)
 #define BGP_NEXTHOP_METRIC_CHANGED    (1 << 1)

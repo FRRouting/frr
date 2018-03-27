@@ -631,7 +631,7 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 {
 	struct stream *s;
 	unsigned long nump;
-	u_char num;
+	uint8_t num;
 	struct nexthop *nexthop;
 
 	/* Get output stream. */
@@ -828,7 +828,8 @@ static int zsend_assign_label_chunk_response(struct zserv *client,
 
 /* Send response to a label manager connect request to client */
 static int zsend_label_manager_connect_response(struct zserv *client,
-						vrf_id_t vrf_id, u_short result)
+						vrf_id_t vrf_id,
+						unsigned short result)
 {
 	int ret;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -862,8 +863,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 	struct rnh *rnh;
 	struct stream *s;
 	struct prefix p;
-	u_short l = 0;
-	u_char flags = 0;
+	unsigned short l = 0;
+	uint8_t flags = 0;
 	uint16_t type = cmd2type[hdr->command];
 
 	if (IS_ZEBRA_DEBUG_NHT)
@@ -939,7 +940,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 	struct rnh *rnh;
 	struct stream *s;
 	struct prefix p;
-	u_short l = 0;
+	unsigned short l = 0;
 	uint16_t type = cmd2type[hdr->command];
 
 	if (IS_ZEBRA_DEBUG_NHT)
@@ -1000,7 +1001,7 @@ stream_failure:
 static void zread_fec_register(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	u_short l = 0;
+	unsigned short l = 0;
 	struct prefix p;
 	uint16_t flags;
 	uint32_t label_index = MPLS_INVALID_LABEL_INDEX;
@@ -1059,7 +1060,7 @@ stream_failure:
 static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
-	u_short l = 0;
+	unsigned short l = 0;
 	struct prefix p;
 	uint16_t flags;
 
@@ -1432,10 +1433,10 @@ static void zread_ipv4_add(ZAPI_HANDLER_ARGS)
 	int i;
 	struct route_entry *re;
 	struct prefix p;
-	u_char message;
+	uint8_t message;
 	struct in_addr nhop_addr;
-	u_char nexthop_num;
-	u_char nexthop_type;
+	uint8_t nexthop_num;
+	uint8_t nexthop_type;
 	struct stream *s;
 	ifindex_t ifindex;
 	safi_t safi;
@@ -1585,7 +1586,7 @@ static void zread_ipv4_delete(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	struct zapi_ipv4 api;
 	struct prefix p;
-	u_int32_t table_id;
+	uint32_t table_id;
 
 	s = msg;
 
@@ -1638,9 +1639,9 @@ static void zread_ipv4_route_ipv6_nexthop_add(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	struct in6_addr nhop_addr;
 	struct route_entry *re;
-	u_char message;
-	u_char nexthop_num;
-	u_char nexthop_type;
+	uint8_t message;
+	uint8_t nexthop_num;
+	uint8_t nexthop_type;
 	struct prefix p;
 	safi_t safi;
 	static struct in6_addr nexthops[MULTIPATH_NUM];
@@ -1810,9 +1811,9 @@ static void zread_ipv6_add(ZAPI_HANDLER_ARGS)
 	struct in6_addr nhop_addr;
 	ifindex_t ifindex;
 	struct route_entry *re;
-	u_char message;
-	u_char nexthop_num;
-	u_char nexthop_type;
+	uint8_t message;
+	uint8_t nexthop_num;
+	uint8_t nexthop_type;
 	struct prefix p;
 	struct prefix_ipv6 src_p, *src_pp;
 	safi_t safi;
@@ -2060,9 +2061,9 @@ static void zread_router_id_delete(ZAPI_HANDLER_ARGS)
 static void zread_hello(ZAPI_HANDLER_ARGS)
 {
 	/* type of protocol (lib/zebra.h) */
-	u_char proto;
-	u_short instance;
-	u_char notify;
+	uint8_t proto;
+	unsigned short instance;
+	uint8_t notify;
 
 	STREAM_GETC(msg, proto);
 	STREAM_GETW(msg, instance);
@@ -2110,7 +2111,7 @@ static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
 	union g_addr gate;
 	ifindex_t ifindex;
 	mpls_label_t in_label, out_label;
-	u_int8_t distance;
+	uint8_t distance;
 
 	/* Get input stream.  */
 	s = msg;
@@ -2190,8 +2191,8 @@ static void zread_label_manager_connect(struct zserv *client,
 {
 	struct stream *s;
 	/* type of protocol (lib/zebra.h) */
-	u_char proto;
-	u_short instance;
+	uint8_t proto;
+	unsigned short instance;
 
 	/* Get input stream.  */
 	s = msg;
@@ -2232,7 +2233,7 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 				  vrf_id_t vrf_id)
 {
 	struct stream *s;
-	u_char keep;
+	uint8_t keep;
 	uint32_t size;
 	struct label_manager_chunk *lmc;
 
@@ -3319,7 +3320,7 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		client->v6_route_del_cnt);
 }
 
-struct zserv *zebra_find_client(u_char proto, u_short instance)
+struct zserv *zebra_find_client(uint8_t proto, unsigned short instance)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;

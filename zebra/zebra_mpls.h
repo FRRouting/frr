@@ -91,7 +91,7 @@ struct zebra_nhlfe_t_ {
 	zebra_lsp_t *lsp;
 
 	/* Runtime info - flags, pointers etc. */
-	u_int32_t flags;
+	uint32_t flags;
 #define NHLFE_FLAG_CHANGED     (1 << 0)
 #define NHLFE_FLAG_SELECTED    (1 << 1)
 #define NHLFE_FLAG_MULTIPATH   (1 << 2)
@@ -100,7 +100,7 @@ struct zebra_nhlfe_t_ {
 
 	zebra_nhlfe_t *next;
 	zebra_nhlfe_t *prev;
-	u_char distance;
+	uint8_t distance;
 };
 
 /*
@@ -131,17 +131,17 @@ struct zebra_lsp_t_ {
 	/* List of NHLFE, pointer to best and num equal-cost. */
 	zebra_nhlfe_t *nhlfe_list;
 	zebra_nhlfe_t *best_nhlfe;
-	u_int32_t num_ecmp;
+	uint32_t num_ecmp;
 
 	/* Flags */
-	u_int32_t flags;
+	uint32_t flags;
 #define LSP_FLAG_SCHEDULED        (1 << 0)
 #define LSP_FLAG_INSTALLED        (1 << 1)
 #define LSP_FLAG_CHANGED          (1 << 2)
 
 	/* Address-family of NHLFE - saved here for delete. All NHLFEs */
 	/* have to be of the same AF */
-	u_char addr_family;
+	uint8_t addr_family;
 };
 
 /*
@@ -155,10 +155,10 @@ struct zebra_fec_t_ {
 	mpls_label_t label;
 
 	/* Label index (into global label block), if valid */
-	u_int32_t label_index;
+	uint32_t label_index;
 
 	/* Flags. */
-	u_int32_t flags;
+	uint32_t flags;
 #define FEC_FLAG_CONFIGURED       (1 << 0)
 
 	/* Clients interested in this FEC. */
@@ -170,20 +170,20 @@ struct zebra_fec_t_ {
 /*
  * String to label conversion, labels separated by '/'.
  */
-int mpls_str2label(const char *label_str, u_int8_t *num_labels,
+int mpls_str2label(const char *label_str, uint8_t *num_labels,
 		   mpls_label_t *labels);
 
 /*
  * Label to string conversion, labels in string separated by '/'.
  */
-char *mpls_label2str(u_int8_t num_labels, mpls_label_t *labels, char *buf,
+char *mpls_label2str(uint8_t num_labels, mpls_label_t *labels, char *buf,
 		     int len, int pretty);
 
 /*
  * Add/update global label block.
  */
-int zebra_mpls_label_block_add(struct zebra_vrf *zvrf, u_int32_t start_label,
-			       u_int32_t end_label);
+int zebra_mpls_label_block_add(struct zebra_vrf *zvrf, uint32_t start_label,
+			       uint32_t end_label);
 
 /*
  * Delete global label block.
@@ -216,7 +216,7 @@ int zebra_mpls_lsp_uninstall(struct zebra_vrf *zvrf, struct route_node *rn,
  * is acceptable.
  */
 int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
-			    u_int32_t label_index, struct zserv *client);
+			    uint32_t label_index, struct zserv *client);
 
 /*
  * Deregistration from a client for the label binding for a FEC. The FEC
@@ -284,7 +284,7 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
  */
 int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 		    struct prefix *prefix, enum nexthop_types_t gtype,
-		    union g_addr *gate, ifindex_t ifindex, u_int8_t distance,
+		    union g_addr *gate, ifindex_t ifindex, uint8_t distance,
 		    mpls_label_t out_label);
 
 /*
@@ -371,13 +371,13 @@ void zebra_mpls_lsp_schedule(struct zebra_vrf *zvrf);
  * (VTY command handler).
  */
 void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
-			  mpls_label_t label, u_char use_json);
+			  mpls_label_t label, uint8_t use_json);
 
 /*
  * Display MPLS label forwarding table (VTY command handler).
  */
 void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
-				u_char use_json);
+				uint8_t use_json);
 
 /*
  * Display MPLS LSP configuration of all static LSPs (VTY command handler).
@@ -419,7 +419,7 @@ void zebra_mpls_vty_init(void);
 /*
  * Distance (priority) definition for LSP NHLFE.
  */
-static inline u_char lsp_distance(enum lsp_types_t type)
+static inline uint8_t lsp_distance(enum lsp_types_t type)
 {
 	switch (type) {
 	case ZEBRA_LSP_STATIC:

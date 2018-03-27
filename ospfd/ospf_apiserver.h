@@ -28,8 +28,8 @@
 
 /* List of opaque types that application registered */
 struct registered_opaque_type {
-	u_char lsa_type;
-	u_char opaque_type;
+	uint8_t lsa_type;
+	uint8_t opaque_type;
 };
 
 
@@ -96,7 +96,7 @@ extern int ospf_apiserver_read(struct thread *thread);
 extern int ospf_apiserver_sync_write(struct thread *thread);
 extern int ospf_apiserver_async_write(struct thread *thread);
 extern int ospf_apiserver_send_reply(struct ospf_apiserver *apiserv,
-				     u_int32_t seqnr, u_char rc);
+				     uint32_t seqnr, uint8_t rc);
 
 /* -----------------------------------------------------------
  * Followings are message handler functions
@@ -152,11 +152,11 @@ extern int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
  */
 
 extern int ospf_apiserver_register_opaque_type(struct ospf_apiserver *apiserver,
-					       u_char lsa_type,
-					       u_char opaque_type);
+					       uint8_t lsa_type,
+					       uint8_t opaque_type);
 extern int
 ospf_apiserver_unregister_opaque_type(struct ospf_apiserver *apiserver,
-				      u_char lsa_type, u_char opaque_type);
+				      uint8_t lsa_type, uint8_t opaque_type);
 extern struct ospf_lsa *
 ospf_apiserver_opaque_lsa_new(struct ospf_area *area, struct ospf_interface *oi,
 			      struct lsa_header *protolsa);
@@ -186,8 +186,8 @@ extern void ospf_apiserver_show_info(struct vty *vty, struct ospf_lsa *lsa);
 extern int ospf_ospf_apiserver_lsa_originator(void *arg);
 extern struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa);
 extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
-					    u_char lsa_type,
-					    u_char opaque_type);
+					    uint8_t lsa_type,
+					    uint8_t opaque_type);
 
 /* -----------------------------------------------------------
  * Followings are hooks when LSAs are updated or deleted
@@ -200,7 +200,7 @@ extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 extern int ospf_apiserver_lsa_update(struct ospf_lsa *lsa);
 extern int ospf_apiserver_lsa_delete(struct ospf_lsa *lsa);
 
-extern void ospf_apiserver_clients_lsa_change_notify(u_char msgtype,
+extern void ospf_apiserver_clients_lsa_change_notify(uint8_t msgtype,
 						     struct ospf_lsa *lsa);
 
 #endif /* _OSPF_APISERVER_H */

@@ -93,7 +93,7 @@ struct rtadvconf {
 	   milliseconds (1 hour).
 
 	   Default: 0 */
-	u_int32_t AdvReachableTime;
+	uint32_t AdvReachableTime;
 #define RTADV_MAX_REACHABLE_TIME 3600000
 
 	/* The value to be placed in the Retrans Timer field in the Router
@@ -167,10 +167,10 @@ struct rtadvconf {
 	int DefaultPreference;
 #define RTADV_PREF_MEDIUM 0x0 /* Per RFC4191. */
 
-	u_char inFastRexmit; /* True if we're rexmits faster than usual */
+	uint8_t inFastRexmit; /* True if we're rexmits faster than usual */
 
 	/* Track if RA was configured by BGP or by the Operator or both */
-	u_char ra_configured;     /* Was RA configured? */
+	uint8_t ra_configured;    /* Was RA configured? */
 #define BGP_RA_CONFIGURED (1<<0)  /* BGP configured RA? */
 #define VTY_RA_CONFIGURED (1<<1)  /* Operator configured RA? */
 #define VTY_RA_INTERVAL_CONFIGURED (1<<2)  /* Operator configured RA interval */
@@ -206,13 +206,13 @@ struct irdp_interface;
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
 	/* Shutdown configuration. */
-	u_char shutdown;
+	uint8_t shutdown;
 
 	/* Multicast configuration. */
-	u_char multicast;
+	uint8_t multicast;
 
 	/* Router advertise configuration. */
-	u_char rtadv_enable;
+	uint8_t rtadv_enable;
 
 	/* Installed addresses chains tree. */
 	struct route_table *ipv4_subnets;
@@ -248,11 +248,11 @@ struct zebra_if {
 	 * down (but primary still plumbed) and primary having gone
 	 * ~IFF_UP, and all addresses gone.
 	 */
-	u_char primary_state;
+	uint8_t primary_state;
 #endif /* SUNOS_5 */
 
 	/* ptm enable configuration */
-	u_char ptm_enable;
+	uint8_t ptm_enable;
 
 	/* Zebra interface and "slave" interface type */
 	zebra_iftype_t zif_type;
@@ -314,8 +314,7 @@ static inline void zebra_if_set_ziftype(struct interface *ifp,
 
 extern void zebra_if_init(void);
 
-extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *,
-						   u_int32_t);
+extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
 extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);

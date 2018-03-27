@@ -41,25 +41,25 @@ struct ospf6_neighbor {
 	struct ospf6_interface *ospf6_if;
 
 	/* Neighbor state */
-	u_char state;
+	uint8_t state;
 
 	/* timestamp of last changing state */
-	u_int32_t state_change;
+	uint32_t state_change;
 	struct timeval last_changed;
 
 	/* Neighbor Router ID */
-	u_int32_t router_id;
+	uint32_t router_id;
 
 	/* Neighbor Interface ID */
 	ifindex_t ifindex;
 
 	/* Router Priority of this neighbor */
-	u_char priority;
+	uint8_t priority;
 
-	u_int32_t drouter;
-	u_int32_t bdrouter;
-	u_int32_t prev_drouter;
-	u_int32_t prev_bdrouter;
+	uint32_t drouter;
+	uint32_t bdrouter;
+	uint32_t prev_drouter;
+	uint32_t prev_bdrouter;
 
 	/* Options field (Capability) */
 	char options[3];
@@ -68,8 +68,8 @@ struct ospf6_neighbor {
 	struct in6_addr linklocal_addr;
 
 	/* For Database Exchange */
-	u_char dbdesc_bits;
-	u_int32_t dbdesc_seqnum;
+	uint8_t dbdesc_bits;
+	uint32_t dbdesc_seqnum;
 	/* Last received Database Description packet */
 	struct ospf6_dbdesc dbdesc_last;
 
@@ -145,9 +145,9 @@ extern const char *ospf6_neighbor_state_str[];
 int ospf6_neighbor_cmp(void *va, void *vb);
 void ospf6_neighbor_dbex_init(struct ospf6_neighbor *on);
 
-struct ospf6_neighbor *ospf6_neighbor_lookup(u_int32_t,
+struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t,
 					     struct ospf6_interface *);
-struct ospf6_neighbor *ospf6_neighbor_create(u_int32_t,
+struct ospf6_neighbor *ospf6_neighbor_create(uint32_t,
 					     struct ospf6_interface *);
 void ospf6_neighbor_delete(struct ospf6_neighbor *);
 

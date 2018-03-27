@@ -61,7 +61,7 @@ void eigrp_siareply_receive(struct eigrp *eigrp, struct ip *iph,
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
 
-	u_int16_t type;
+	uint16_t type;
 
 	/* increment statistics. */
 	ei->siaReply_in++;
@@ -79,7 +79,7 @@ void eigrp_siareply_receive(struct eigrp *eigrp, struct ip *iph,
 		if (type == EIGRP_TLV_IPv4_INT) {
 			struct prefix dest_addr;
 
-			stream_set_getp(s, s->getp - sizeof(u_int16_t));
+			stream_set_getp(s, s->getp - sizeof(uint16_t));
 
 			tlv = eigrp_read_ipv4_tlv(s);
 
@@ -116,7 +116,7 @@ void eigrp_send_siareply(struct eigrp_neighbor *nbr,
 			 struct eigrp_prefix_entry *pe)
 {
 	struct eigrp_packet *ep;
-	u_int16_t length = EIGRP_HEADER_LEN;
+	uint16_t length = EIGRP_HEADER_LEN;
 
 	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 

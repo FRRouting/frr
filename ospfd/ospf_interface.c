@@ -76,8 +76,8 @@ int ospf_interface_neighbor_count(struct ospf_interface *oi)
 int ospf_if_get_output_cost(struct ospf_interface *oi)
 {
 	/* If all else fails, use default OSPF cost */
-	u_int32_t cost;
-	u_int32_t bw, refbw;
+	uint32_t cost;
+	uint32_t bw, refbw;
 
 	/* ifp speed and bw can be 0 in some platforms, use ospf default bw
 	   if bw is configured under interface it would be used.
@@ -96,7 +96,7 @@ int ospf_if_get_output_cost(struct ospf_interface *oi)
 	/* See if a cost can be calculated from the zebra processes
 	   interface bandwidth field. */
 	else {
-		cost = (u_int32_t)((double)refbw / (double)bw + (double)0.5);
+		cost = (uint32_t)((double)refbw / (double)bw + (double)0.5);
 		if (cost < 1)
 			cost = 1;
 		else if (cost > 65535)
@@ -108,7 +108,7 @@ int ospf_if_get_output_cost(struct ospf_interface *oi)
 
 void ospf_if_recalculate_output_cost(struct interface *ifp)
 {
-	u_int32_t newcost;
+	uint32_t newcost;
 	struct route_node *rn;
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
@@ -825,7 +825,7 @@ void ospf_vl_data_free(struct ospf_vl_data *vl_data)
 	XFREE(MTYPE_OSPF_VL_DATA, vl_data);
 }
 
-u_int vlink_count = 0;
+unsigned int vlink_count = 0;
 
 struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 				   struct ospf_vl_data *vl_data)
@@ -1174,7 +1174,7 @@ void ospf_crypt_key_add(struct list *crypt, struct crypt_key *ck)
 	listnode_add(crypt, ck);
 }
 
-struct crypt_key *ospf_crypt_key_lookup(struct list *auth_crypt, u_char key_id)
+struct crypt_key *ospf_crypt_key_lookup(struct list *auth_crypt, uint8_t key_id)
 {
 	struct listnode *node;
 	struct crypt_key *ck;
@@ -1186,7 +1186,7 @@ struct crypt_key *ospf_crypt_key_lookup(struct list *auth_crypt, u_char key_id)
 	return NULL;
 }
 
-int ospf_crypt_key_delete(struct list *auth_crypt, u_char key_id)
+int ospf_crypt_key_delete(struct list *auth_crypt, uint8_t key_id)
 {
 	struct listnode *node, *nnode;
 	struct crypt_key *ck;
@@ -1202,7 +1202,7 @@ int ospf_crypt_key_delete(struct list *auth_crypt, u_char key_id)
 	return 0;
 }
 
-u_char ospf_default_iftype(struct interface *ifp)
+uint8_t ospf_default_iftype(struct interface *ifp)
 {
 	if (if_is_pointopoint(ifp))
 		return OSPF_IFTYPE_POINTOPOINT;

@@ -124,14 +124,14 @@ struct prefix_bag {
 	struct bgp_info *ubi; /* unicast route */
 };
 
-static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
-				 0xf8, 0xfc, 0xfe, 0xff};
+static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
+				  0xf8, 0xfc, 0xfe, 0xff};
 
 int vnc_prefix_cmp(void *pfx1, void *pfx2)
 {
 	int offset;
 	int shift;
-	u_char mask;
+	uint8_t mask;
 
 	struct prefix *p1 = pfx1;
 	struct prefix *p2 = pfx2;
@@ -154,8 +154,8 @@ int vnc_prefix_cmp(void *pfx1, void *pfx2)
 	}
 
 	/* Set both prefix's head pointer. */
-	const u_char *pp1 = (const u_char *)&p1->u.prefix;
-	const u_char *pp2 = (const u_char *)&p2->u.prefix;
+	const uint8_t *pp1 = (const uint8_t *)&p1->u.prefix;
+	const uint8_t *pp2 = (const uint8_t *)&p2->u.prefix;
 
 	while (offset--) {
 		if (*pp1 < *pp2)
@@ -1762,7 +1762,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 			     bi_interior = bi_interior->next) {
 				struct prefix_rd *prd;
 				struct attr new_attr;
-				u_int32_t label = 0;
+				uint32_t label = 0;
 
 				if (!is_usable_interior_route(bi_interior))
 					continue;
@@ -1941,7 +1941,7 @@ void vnc_import_bgp_exterior_del_route(
 			for (bi_interior = rn->info; bi_interior;
 			     bi_interior = bi_interior->next) {
 				struct prefix_rd *prd;
-				u_int32_t label = 0;
+				uint32_t label = 0;
 
 				if (!is_usable_interior_route(bi_interior))
 					continue;
@@ -2102,7 +2102,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			struct prefix_rd *prd;
 			struct attr new_attr;
-			u_int32_t label = 0;
+			uint32_t label = 0;
 
 
 			++count; /* debugging */
@@ -2194,7 +2194,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 				struct bgp_info *bi;
 				struct prefix_rd *prd;
 				struct attr new_attr;
-				u_int32_t label = 0;
+				uint32_t label = 0;
 
 				/* do pull-down */
 
@@ -2336,7 +2336,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			struct prefix_rd *prd;
 			struct attr new_attr;
-			u_int32_t label = 0;
+			uint32_t label = 0;
 
 			/* do pull-down */
 
@@ -2476,7 +2476,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 				&cursor)) {
 
 		struct prefix_rd *prd;
-		u_int32_t label = 0;
+		uint32_t label = 0;
 
 		if (bi_interior->extra) {
 			prd = &bi_interior->extra->vnc.import.rd;
@@ -2549,7 +2549,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 				struct prefix_rd *prd;
 				struct attr new_attr;
-				u_int32_t label = 0;
+				uint32_t label = 0;
 
 				if (bi->type == ZEBRA_ROUTE_BGP_DIRECT_EXT)
 					continue;

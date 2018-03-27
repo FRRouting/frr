@@ -126,9 +126,9 @@ static int parse_show_level(int idx_level, int argc, struct cmd_token **argv)
 	return level;
 }
 
-static u_int16_t parse_type_spec(int idx_lsa, int argc, struct cmd_token **argv)
+static uint16_t parse_type_spec(int idx_lsa, int argc, struct cmd_token **argv)
 {
-	u_int16_t type = 0;
+	uint16_t type = 0;
 
 	if (argc > idx_lsa) {
 		if (strmatch(argv[idx_lsa]->text, "router"))
@@ -220,7 +220,7 @@ DEFUN (show_ipv6_ospf6_database_type,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int16_t type = 0;
+	uint16_t type = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 
@@ -282,7 +282,7 @@ DEFUN (show_ipv6_ospf6_database_id,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int32_t id = 0;
+	uint32_t id = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 
@@ -333,7 +333,7 @@ DEFUN (show_ipv6_ospf6_database_router,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int32_t adv_router = 0;
+	uint32_t adv_router = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 	inet_pton(AF_INET, argv[idx_ipv4]->arg, &adv_router);
@@ -434,8 +434,8 @@ DEFUN (show_ipv6_ospf6_database_type_id,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int16_t type = 0;
-	u_int32_t id = 0;
+	uint16_t type = 0;
+	uint32_t id = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 
@@ -508,8 +508,8 @@ DEFUN (show_ipv6_ospf6_database_type_router,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int16_t type = 0;
-	u_int32_t adv_router = 0;
+	uint16_t type = 0;
+	uint32_t adv_router = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 
@@ -575,8 +575,8 @@ DEFUN (show_ipv6_ospf6_database_id_router,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int32_t id = 0;
-	u_int32_t adv_router = 0;
+	uint32_t id = 0;
+	uint32_t adv_router = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 	inet_pton(AF_INET, argv[idx_ls_id]->arg, &id);
@@ -628,8 +628,8 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int32_t id = 0;
-	u_int32_t adv_router = 0;
+	uint32_t id = 0;
+	uint32_t adv_router = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 	inet_pton(AF_INET, argv[idx_adv_rtr]->arg, &adv_router);
@@ -687,9 +687,9 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int16_t type = 0;
-	u_int32_t id = 0;
-	u_int32_t adv_router = 0;
+	uint16_t type = 0;
+	uint32_t id = 0;
+	uint32_t adv_router = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 
@@ -765,9 +765,9 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int16_t type = 0;
-	u_int32_t id = 0;
-	u_int32_t adv_router = 0;
+	uint16_t type = 0;
+	uint32_t id = 0;
+	uint32_t adv_router = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 
@@ -828,7 +828,7 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int32_t adv_router = 0;
+	uint32_t adv_router = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 	level = parse_show_level(idx_level, argc, argv);
@@ -884,8 +884,8 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int16_t type = 0;
-	u_int32_t adv_router = 0;
+	uint16_t type = 0;
+	uint32_t adv_router = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 
@@ -959,9 +959,9 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int16_t type = 0;
-	u_int32_t adv_router = 0;
-	u_int32_t id = 0;
+	uint16_t type = 0;
+	uint32_t adv_router = 0;
+	uint32_t id = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 
@@ -1034,9 +1034,9 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
 	struct ospf6 *o = ospf6;
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
-	u_int16_t type = 0;
-	u_int32_t adv_router = 0;
-	u_int32_t id = 0;
+	uint16_t type = 0;
+	uint32_t adv_router = 0;
+	uint32_t id = 0;
 
 	OSPF6_CMD_CHECK_RUNNING();
 
@@ -1090,7 +1090,7 @@ DEFUN (show_ipv6_ospf6_border_routers,
        "Show detailed output\n")
 {
 	int idx_ipv4 = 4;
-	u_int32_t adv_router;
+	uint32_t adv_router;
 	struct ospf6_route *ro;
 	struct prefix prefix;
 

@@ -28,9 +28,9 @@
 void pim_bfd_init(void);
 void pim_bfd_write_config(struct vty *vty, struct interface *ifp);
 void pim_bfd_show_info(struct vty *vty, void *bfd_info, json_object *json_obj,
-		       u_char use_json, int param_only);
-void pim_bfd_if_param_set(struct interface *ifp, u_int32_t min_rx,
-			  u_int32_t min_tx, u_int8_t detect_mult, int defaults);
+		       uint8_t use_json, int param_only);
+void pim_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
+			  uint32_t min_tx, uint8_t detect_mult, int defaults);
 int pim_bfd_reg_dereg_all_nbr(struct interface *ifp, int command);
 void pim_bfd_trigger_event(struct pim_interface *pim_ifp,
 			   struct pim_neighbor *nbr, uint8_t nbr_up);

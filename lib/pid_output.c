@@ -71,7 +71,8 @@ pid_t pid_output(const char *path)
 		else if (ftruncate(fd, pidsize) < 0)
 			zlog_err(
 				"Could not truncate pid_file %s to %u bytes: %s",
-				path, (u_int)pidsize, safe_strerror(errno));
+				path, (unsigned int)pidsize,
+				safe_strerror(errno));
 	}
 	return pid;
 }

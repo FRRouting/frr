@@ -45,13 +45,13 @@ void lifreq_set_name(struct lifreq *lifreq, const char *ifname)
 	strncpy(lifreq->lifr_name, ifname, IFNAMSIZ);
 }
 
-int vrf_if_ioctl(u_long request, caddr_t buffer, vrf_id_t vrf_id)
+int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
 {
 	return if_ioctl(request, buffer);
 }
 
 /* call ioctl system call */
-int if_ioctl(u_long request, caddr_t buffer)
+int if_ioctl(unsigned long request, caddr_t buffer)
 {
 	int sock;
 	int ret;
@@ -86,7 +86,7 @@ int if_ioctl(u_long request, caddr_t buffer)
 }
 
 
-int if_ioctl_ipv6(u_long request, caddr_t buffer)
+int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 {
 	int sock;
 	int ret;
@@ -155,7 +155,7 @@ void if_get_mtu(struct interface *ifp)
 {
 	struct lifreq lifreq;
 	int ret;
-	u_char changed = 0;
+	uint8_t changed = 0;
 
 	if (ifp->flags & IFF_IPV4) {
 		lifreq_set_name(&lifreq, ifp->name);

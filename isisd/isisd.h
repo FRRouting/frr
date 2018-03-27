@@ -40,17 +40,17 @@ extern struct zebra_privs_t isisd_privs;
 /* #define EXTREME_DICT_DEBUG */
 
 struct isis {
-	u_long process_id;
+	unsigned long process_id;
 	int sysid_set;
-	u_char sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
-	u_int32_t router_id;	   /* Router ID from zebra */
+	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
+	uint32_t router_id;		/* Router ID from zebra */
 	struct list *area_list;	/* list of IS-IS areas */
 	struct list *init_circ_list;
 	struct list *nexthops;		  /* IPv4 next hops from this IS */
 	struct list *nexthops6;		  /* IPv6 next hops from this IS */
-	u_char max_area_addrs;		  /* maximumAreaAdresses */
+	uint8_t max_area_addrs;		  /* maximumAreaAdresses */
 	struct area_addr *man_area_addrs; /* manualAreaAddresses */
-	u_int32_t debugs;		  /* bitmap for debug */
+	uint32_t debugs;		  /* bitmap for debug */
 	time_t uptime;			  /* when did we start */
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
@@ -103,27 +103,27 @@ struct isis_area {
 	char *area_tag;
 	/* area addresses for this area      */
 	struct list *area_addrs;
-	u_int16_t max_lsp_lifetime[ISIS_LEVELS];
+	uint16_t max_lsp_lifetime[ISIS_LEVELS];
 	char is_type; /* level-1 level-1-2 or level-2-only */
 	/* are we overloaded? */
 	char overload_bit;
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit;
-	u_int16_t lsp_refresh[ISIS_LEVELS];
+	uint16_t lsp_refresh[ISIS_LEVELS];
 	/* minimum time allowed before lsp retransmission */
-	u_int16_t lsp_gen_interval[ISIS_LEVELS];
+	uint16_t lsp_gen_interval[ISIS_LEVELS];
 	/* min interval between between consequtive SPFs */
-	u_int16_t min_spf_interval[ISIS_LEVELS];
+	uint16_t min_spf_interval[ISIS_LEVELS];
 	/* the percentage of LSP mtu size used, before generating a new frag */
 	int lsp_frag_threshold;
 	int ip_circuits;
 	/* logging adjacency changes? */
-	u_char log_adj_changes;
+	uint8_t log_adj_changes;
 	/* multi topology settings */
 	struct list *mt_settings;
 	int ipv6_circuits;
 	/* Counters */
-	u_int32_t circuit_state_changes;
+	uint32_t circuit_state_changes;
 	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
 					  [ZEBRA_ROUTE_MAX + 1][ISIS_LEVELS];
 	struct route_table *ext_reach[REDIST_PROTOCOL_COUNT][ISIS_LEVELS];
@@ -158,9 +158,9 @@ void isis_area_lsp_refresh_set(struct isis_area *area, int level,
 /* IS_LEVEL_1 sets area_passwd, IS_LEVEL_2 domain_passwd */
 int isis_area_passwd_unset(struct isis_area *area, int level);
 int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
-				   const char *passwd, u_char snp_auth);
+				   const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
-				  const char *passwd, u_char snp_auth);
+				  const char *passwd, uint8_t snp_auth);
 void isis_vty_init(void);
 
 /* Master of threads. */

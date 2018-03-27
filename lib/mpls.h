@@ -124,8 +124,8 @@ enum lsp_types_t {
 /* Encode a label stack entry from fields; convert to network byte-order as
  * the Netlink interface expects MPLS labels to be in this format.
  */
-static inline mpls_lse_t mpls_lse_encode(mpls_label_t label, u_int32_t ttl,
-					 u_int32_t exp, u_int32_t bos)
+static inline mpls_lse_t mpls_lse_encode(mpls_label_t label, uint32_t ttl,
+					 uint32_t exp, uint32_t bos)
 {
 	mpls_lse_t lse;
 	lse = htonl((label << MPLS_LS_LABEL_SHIFT) | (exp << MPLS_LS_EXP_SHIFT)
@@ -139,8 +139,7 @@ static inline mpls_lse_t mpls_lse_encode(mpls_label_t label, u_int32_t ttl,
  * Netlink interface.
  */
 static inline void mpls_lse_decode(mpls_lse_t lse, mpls_label_t *label,
-				   u_int32_t *ttl, u_int32_t *exp,
-				   u_int32_t *bos)
+				   uint32_t *ttl, uint32_t *exp, uint32_t *bos)
 {
 	mpls_lse_t local_lse;
 

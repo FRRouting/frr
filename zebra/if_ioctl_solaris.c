@@ -252,7 +252,7 @@ static int if_get_addr(struct interface *ifp, struct sockaddr *addr,
 	struct lifreq lifreq;
 	struct sockaddr_storage mask, dest;
 	char *dest_pnt = NULL;
-	u_char prefixlen = 0;
+	uint8_t prefixlen = 0;
 	afi_t af;
 	int flags = 0;
 

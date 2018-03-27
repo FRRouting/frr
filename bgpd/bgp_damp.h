@@ -53,7 +53,7 @@ struct bgp_damp_info {
 	int index;
 
 	/* Last time message type. */
-	u_char lastrecord;
+	uint8_t lastrecord;
 #define BGP_RECORD_UPDATE	1U
 #define BGP_RECORD_WITHDRAW	2U
 
@@ -141,7 +141,7 @@ extern void bgp_config_write_damp(struct vty *);
 extern void bgp_damp_info_vty(struct vty *, struct bgp_info *,
 			      json_object *json_path);
 extern const char *bgp_damp_reuse_time_vty(struct vty *, struct bgp_info *,
-					   char *, size_t, u_char,
+					   char *, size_t, uint8_t,
 					   json_object *);
 extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t);
 

@@ -59,7 +59,7 @@ struct ibuf *ibuf_dynamic(size_t len, size_t max)
 
 int ibuf_realloc(struct ibuf *buf, size_t len)
 {
-	u_char *b;
+	uint8_t *b;
 
 	/* on static buffers max is eq size and so the following fails */
 	if (buf->wpos + len > buf->max) {

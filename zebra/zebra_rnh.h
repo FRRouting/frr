@@ -27,7 +27,7 @@
 
 /* Nexthop structure. */
 struct rnh {
-	u_char flags;
+	uint8_t flags;
 
 #define ZEBRA_NHT_CONNECTED  	0x1
 #define ZEBRA_NHT_DELETED       0x2

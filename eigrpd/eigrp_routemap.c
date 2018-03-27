@@ -255,8 +255,8 @@ static route_map_result_t route_match_metric(void *rule, struct prefix *prefix,
 					     route_map_object_t type,
 					     void *object)
 {
-	//  u_int32_t *metric;
-	//  u_int32_t  check;
+	//  uint32_t *metric;
+	//  uint32_t  check;
 	//  struct rip_info *rinfo;
 	//  struct eigrp_nexthop_entry *te;
 	//  struct eigrp_prefix_entry *pe;
@@ -286,9 +286,9 @@ static route_map_result_t route_match_metric(void *rule, struct prefix *prefix,
 /* Route map `match metric' match statement. `arg' is METRIC value */
 static void *route_match_metric_compile(const char *arg)
 {
-	//  u_int32_t *metric;
+	//  uint32_t *metric;
 	//
-	//  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
+	//  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (uint32_t));
 	//  *metric = atoi (arg);
 	//
 	//  if(*metric > 0)
@@ -529,7 +529,7 @@ static struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd = {
 static route_map_result_t route_match_tag(void *rule, struct prefix *prefix,
 					  route_map_object_t type, void *object)
 {
-	//  u_short *tag;
+	//  unsigned short *tag;
 	//  struct rip_info *rinfo;
 	//
 	//  if (type == RMAP_EIGRP)
@@ -549,9 +549,9 @@ static route_map_result_t route_match_tag(void *rule, struct prefix *prefix,
 /* Route map `match tag' match statement. `arg' is TAG value */
 static void *route_match_tag_compile(const char *arg)
 {
-	//  u_short *tag;
+	//  unsigned short *tag;
 	//
-	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (unsigned short));
 	//  *tag = atoi (arg);
 	//
 	//  return tag;
@@ -721,7 +721,7 @@ static struct route_map_rule_cmd route_set_ip_nexthop_cmd = {
 static route_map_result_t route_set_tag(void *rule, struct prefix *prefix,
 					route_map_object_t type, void *object)
 {
-	//  u_short *tag;
+	//  unsigned short *tag;
 	//  struct rip_info *rinfo;
 	//
 	//  if(type == RMAP_RIP)
@@ -738,12 +738,12 @@ static route_map_result_t route_set_tag(void *rule, struct prefix *prefix,
 }
 
 /* Route map `tag' compile function.  Given string is converted
-   to u_short. */
+   to unsigned short. */
 static void *route_set_tag_compile(const char *arg)
 {
-	//  u_short *tag;
+	//  unsigned short *tag;
 	//
-	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+	//  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (unsigned short));
 	//  *tag = atoi (arg);
 	//
 	//  return tag;

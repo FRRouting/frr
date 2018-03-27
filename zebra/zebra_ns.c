@@ -167,7 +167,7 @@ struct route_table *zebra_ns_find_table(struct zebra_ns *zns, uint32_t tableid,
 		return NULL;
 }
 
-unsigned long zebra_ns_score_proto(u_char proto, u_short instance)
+unsigned long zebra_ns_score_proto(uint8_t proto, unsigned short instance)
 {
 	struct zebra_ns *zns;
 	struct zebra_ns_table *znst;

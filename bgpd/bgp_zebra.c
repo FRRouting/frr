@@ -979,10 +979,10 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	int nh_family;
 	unsigned int valid_nh_count = 0;
 	int has_valid_label = 0;
-	u_char distance;
+	uint8_t distance;
 	struct peer *peer;
 	struct bgp_info *mpinfo;
-	u_int32_t metric;
+	uint32_t metric;
 	struct attr local_attr;
 	struct bgp_info local_info;
 	struct bgp_info *mpinfo_cp = &local_info;
@@ -1367,8 +1367,8 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info,
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }
 
-struct bgp_redist *bgp_redist_lookup(struct bgp *bgp, afi_t afi, u_char type,
-				     u_short instance)
+struct bgp_redist *bgp_redist_lookup(struct bgp *bgp, afi_t afi, uint8_t type,
+				     unsigned short instance)
 {
 	struct list *red_list;
 	struct listnode *node;
@@ -1385,8 +1385,8 @@ struct bgp_redist *bgp_redist_lookup(struct bgp *bgp, afi_t afi, u_char type,
 	return NULL;
 }
 
-struct bgp_redist *bgp_redist_add(struct bgp *bgp, afi_t afi, u_char type,
-				  u_short instance)
+struct bgp_redist *bgp_redist_add(struct bgp *bgp, afi_t afi, uint8_t type,
+				  unsigned short instance)
 {
 	struct list *red_list;
 	struct bgp_redist *red;
@@ -1408,8 +1408,8 @@ struct bgp_redist *bgp_redist_add(struct bgp *bgp, afi_t afi, u_char type,
 	return red;
 }
 
-static void bgp_redist_del(struct bgp *bgp, afi_t afi, u_char type,
-			   u_short instance)
+static void bgp_redist_del(struct bgp *bgp, afi_t afi, uint8_t type,
+			   unsigned short instance)
 {
 	struct bgp_redist *red;
 
@@ -1424,7 +1424,8 @@ static void bgp_redist_del(struct bgp *bgp, afi_t afi, u_char type,
 }
 
 /* Other routes redistribution into BGP. */
-int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type, u_short instance)
+int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
+			 unsigned short instance)
 {
 
 	/* Return if already redistribute flag is set. */
@@ -1471,7 +1472,7 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type, u_short instance)
 }
 
 int bgp_redistribute_resend(struct bgp *bgp, afi_t afi, int type,
-			    u_short instance)
+			    unsigned short instance)
 {
 	/* Don't try to send if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
@@ -1509,7 +1510,7 @@ int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name)
 
 /* Redistribute with metric specification.  */
 int bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
-				afi_t afi, int type, u_int32_t metric)
+				afi_t afi, int type, uint32_t metric)
 {
 	struct bgp_node *rn;
 	struct bgp_info *ri;
@@ -1547,7 +1548,7 @@ int bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 
 /* Unset redistribution.  */
 int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
-			   u_short instance)
+			   unsigned short instance)
 {
 	struct bgp_redist *red;
 
@@ -1586,7 +1587,7 @@ int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 
 /* Unset redistribution.  */
 int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
-			   u_short instance)
+			   unsigned short instance)
 {
 	struct bgp_redist *red;
 
@@ -1893,7 +1894,7 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 	int ipa_len;
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
-	u_char flags;
+	uint8_t flags;
 
 	memset(&ip, 0, sizeof(ip));
 	s = zclient->ibuf;

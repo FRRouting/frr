@@ -650,7 +650,7 @@ struct cmd\_token
     struct cmd_token
     {
       enum cmd_token_type type;     // token type
-      u_char attr;                  // token attributes
+      uint8_t attr;                 // token attributes
       bool allowrepeat;             // matcher allowed to match token repetitively?
 
       char *text;                   // token text

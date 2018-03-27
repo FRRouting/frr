@@ -295,8 +295,8 @@ void ospf6_bfd_write_config(struct vty *vty, struct ospf6_interface *oi)
  * ospf6_bfd_if_param_set - Set the configured BFD paramter values for
  *                            interface.
  */
-static void ospf6_bfd_if_param_set(struct ospf6_interface *oi, u_int32_t min_rx,
-				   u_int32_t min_tx, u_int8_t detect_mult,
+static void ospf6_bfd_if_param_set(struct ospf6_interface *oi, uint32_t min_rx,
+				   uint32_t min_tx, uint8_t detect_mult,
 				   int defaults)
 {
 	int command = 0;
@@ -344,9 +344,9 @@ DEFUN (ipv6_ospf6_bfd_param,
 	int idx_number_2 = 4;
 	int idx_number_3 = 5;
 	struct ospf6_interface *oi;
-	u_int32_t rx_val;
-	u_int32_t tx_val;
-	u_int8_t dm_val;
+	uint32_t rx_val;
+	uint32_t tx_val;
+	uint8_t dm_val;
 	int ret;
 
 	assert(ifp);

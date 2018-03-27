@@ -209,7 +209,7 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 	struct prefix_ipv6 *ipv6;
 
 	if (connected->address->family == AF_INET) {
-		u_int32_t addr = connected->address->u.prefix4.s_addr;
+		uint32_t addr = connected->address->u.prefix4.s_addr;
 		addr = ntohl(addr);
 		if (IPV4_NET0(addr) || IPV4_NET127(addr) || IN_CLASSD(addr)
 		    || IPV4_LINKLOCAL(addr))
@@ -1235,7 +1235,7 @@ ferr_r isis_circuit_passwd_unset(struct isis_circuit *circuit)
 }
 
 static int isis_circuit_passwd_set(struct isis_circuit *circuit,
-				   u_char passwd_type, const char *passwd)
+				   uint8_t passwd_type, const char *passwd)
 {
 	int len;
 

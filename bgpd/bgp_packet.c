@@ -67,7 +67,7 @@
  * @param type the packet type
  * @return the size of the stream
  */
-int bgp_packet_set_marker(struct stream *s, u_char type)
+int bgp_packet_set_marker(struct stream *s, uint8_t type)
 {
 	int i;
 
@@ -497,7 +497,7 @@ void bgp_keepalive_send(struct peer *peer)
 void bgp_open_send(struct peer *peer)
 {
 	struct stream *s;
-	u_int16_t send_holdtime;
+	uint16_t send_holdtime;
 	as_t local_as;
 
 	if (PEER_OR_GROUP_TIMER_SET(peer))
@@ -518,9 +518,8 @@ void bgp_open_send(struct peer *peer)
 
 	/* Set open packet values. */
 	stream_putc(s, BGP_VERSION_4); /* BGP version */
-	stream_putw(s,
-		    (local_as <= BGP_AS_MAX) ? (u_int16_t)local_as
-					     : BGP_AS_TRANS);
+	stream_putw(s, (local_as <= BGP_AS_MAX) ? (uint16_t)local_as
+						: BGP_AS_TRANS);
 	stream_putw(s, send_holdtime);		/* Hold Time */
 	stream_put_in_addr(s, &peer->local_id); /* BGP Identifier */
 
@@ -560,7 +559,7 @@ void bgp_open_send(struct peer *peer)
 static int bgp_write_notify(struct peer *peer)
 {
 	int ret, val;
-	u_char type;
+	uint8_t type;
 	struct stream *s;
 
 	/* There should be at least one packet. */
@@ -643,8 +642,8 @@ static int bgp_write_notify(struct peer *peer)
  * @param data      Data portion
  * @param datalen   length of data portion
  */
-void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
-			       u_char *data, size_t datalen)
+void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
+			       uint8_t sub_code, uint8_t *data, size_t datalen)
 {
 	struct stream *s;
 	int length;
@@ -753,7 +752,7 @@ void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
  * @param code      BGP error code
  * @param sub_code  BGP error subcode
  */
-void bgp_notify_send(struct peer *peer, u_char code, u_char sub_code)
+void bgp_notify_send(struct peer *peer, uint8_t code, uint8_t sub_code)
 {
 	bgp_notify_send_with_data(peer, code, sub_code, NULL, 0);
 }
@@ -769,7 +768,8 @@ void bgp_notify_send(struct peer *peer, u_char code, u_char sub_code)
  * @param remove            Whether to remove ORF for specified AFI/SAFI
  */
 void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
-			    u_char orf_type, u_char when_to_refresh, int remove)
+			    uint8_t orf_type, uint8_t when_to_refresh,
+			    int remove)
 {
 	struct stream *s;
 	struct bgp_filter *filter;
@@ -800,7 +800,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 
 	if (orf_type == ORF_TYPE_PREFIX || orf_type == ORF_TYPE_PREFIX_OLD)
 		if (remove || filter->plist[FILTER_IN].plist) {
-			u_int16_t orf_len;
+			uint16_t orf_len;
 			unsigned long orfp;
 
 			orf_refresh = 1;
@@ -1033,24 +1033,24 @@ static int bgp_collision_detect(struct peer *new, struct in_addr remote_id)
 static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 {
 	int ret;
-	u_char version;
-	u_char optlen;
-	u_int16_t holdtime;
-	u_int16_t send_holdtime;
+	uint8_t version;
+	uint8_t optlen;
+	uint16_t holdtime;
+	uint16_t send_holdtime;
 	as_t remote_as;
 	as_t as4 = 0;
 	struct in_addr remote_id;
 	int mp_capability;
-	u_int8_t notify_data_remote_as[2];
-	u_int8_t notify_data_remote_as4[4];
-	u_int8_t notify_data_remote_id[4];
-	u_int16_t *holdtime_ptr;
+	uint8_t notify_data_remote_as[2];
+	uint8_t notify_data_remote_as4[4];
+	uint8_t notify_data_remote_id[4];
+	uint16_t *holdtime_ptr;
 
 	/* Parse open packet. */
 	version = stream_getc(peer->curr);
 	memcpy(notify_data_remote_as, stream_pnt(peer->curr), 2);
 	remote_as = stream_getw(peer->curr);
-	holdtime_ptr = (u_int16_t *)stream_pnt(peer->curr);
+	holdtime_ptr = (uint16_t *)stream_pnt(peer->curr);
 	holdtime = stream_getw(peer->curr);
 	memcpy(notify_data_remote_id, stream_pnt(peer->curr), 4);
 	remote_id.s_addr = stream_get_ipv4(peer->curr);
@@ -1158,7 +1158,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 
 	/* Peer BGP version check. */
 	if (version != BGP_VERSION_4) {
-		u_int16_t maxver = htons(BGP_VERSION_4);
+		uint16_t maxver = htons(BGP_VERSION_4);
 		/* XXX this reply may not be correct if version < 4  XXX */
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -1167,7 +1167,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		/* Data must be in network byte order here */
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
 					  BGP_NOTIFY_OPEN_UNSUP_VERSION,
-					  (u_int8_t *)&maxver, 2);
+					  (uint8_t *)&maxver, 2);
 		return BGP_Stop;
 	}
 
@@ -1225,7 +1225,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	if (holdtime < 3 && holdtime != 0) {
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
 					  BGP_NOTIFY_OPEN_UNACEP_HOLDTIME,
-					  (u_char *)holdtime_ptr, 2);
+					  (uint8_t *)holdtime_ptr, 2);
 		return BGP_Stop;
 	}
 
@@ -1367,7 +1367,7 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 {
 	int ret, nlri_ret;
-	u_char *end;
+	uint8_t *end;
 	struct stream *s;
 	struct attr attr;
 	bgp_size_t attribute_len;
@@ -1680,7 +1680,7 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 						stream_getc(peer->curr));
 					strcpy(bgp_notify.data, c);
 				}
-			bgp_notify.raw_data = (u_char *)peer->notify.data;
+			bgp_notify.raw_data = (uint8_t *)peer->notify.data;
 		}
 
 		bgp_notify_print(peer, &bgp_notify, "received");
@@ -1764,10 +1764,10 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	if (size != BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE) {
-		u_char *end;
-		u_char when_to_refresh;
-		u_char orf_type;
-		u_int16_t orf_len;
+		uint8_t *end;
+		uint8_t when_to_refresh;
+		uint8_t orf_type;
+		uint16_t orf_len;
 
 		if (size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE)
 		    < 5) {
@@ -1792,8 +1792,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 				uint8_t *p_pnt = stream_pnt(s);
 				uint8_t *p_end = stream_pnt(s) + orf_len;
 				struct orf_prefix orfp;
-				u_char common = 0;
-				u_int32_t seq;
+				uint8_t common = 0;
+				uint32_t seq;
 				int psize;
 				char name[BUFSIZ];
 				int ret = CMD_SUCCESS;
@@ -1839,12 +1839,12 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 									  name);
 						break;
 					}
-					ok = ((u_int32_t)(p_end - p_pnt)
-					      >= sizeof(u_int32_t));
+					ok = ((uint32_t)(p_end - p_pnt)
+					      >= sizeof(uint32_t));
 					if (ok) {
 						memcpy(&seq, p_pnt,
-						       sizeof(u_int32_t));
-						p_pnt += sizeof(u_int32_t);
+						       sizeof(uint32_t));
+						p_pnt += sizeof(uint32_t);
 						orfp.seq = ntohl(seq);
 					} else
 						p_pnt = p_end;
@@ -1988,13 +1988,13 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
  * @param size size of the packet
  * @return as in summary
  */
-static int bgp_capability_msg_parse(struct peer *peer, u_char *pnt,
+static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				    bgp_size_t length)
 {
-	u_char *end;
+	uint8_t *end;
 	struct capability_mp_data mpc;
 	struct capability_header *hdr;
-	u_char action;
+	uint8_t action;
 	iana_afi_t pkt_afi;
 	afi_t afi;
 	iana_safi_t pkt_safi;
@@ -2106,7 +2106,7 @@ static int bgp_capability_msg_parse(struct peer *peer, u_char *pnt,
  */
 int bgp_capability_receive(struct peer *peer, bgp_size_t size)
 {
-	u_char *pnt;
+	uint8_t *pnt;
 
 	/* Fetch pointer. */
 	pnt = stream_pnt(peer->curr);
@@ -2171,7 +2171,7 @@ int bgp_process_packet(struct thread *thread)
 	unsigned int processed = 0;
 
 	while (processed < rpkt_quanta_old) {
-		u_char type = 0;
+		uint8_t type = 0;
 		bgp_size_t size;
 		char notify_data_length[2];
 

@@ -68,13 +68,13 @@ struct community_entry {
 	struct community_entry *prev;
 
 	/* Permit or deny.  */
-	u_char direct;
+	uint8_t direct;
 
 	/* Standard or expanded.  */
-	u_char style;
+	uint8_t style;
 
 	/* Any match.  */
-	u_char any;
+	uint8_t any;
 
 	/* Community structure.  */
 	union {

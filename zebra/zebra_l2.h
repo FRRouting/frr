@@ -37,7 +37,7 @@ struct zebra_l2info_brslave {
 
 /* zebra L2 interface information - bridge interface */
 struct zebra_l2info_bridge {
-	u_char vlan_aware; /* VLAN-aware bridge? */
+	uint8_t vlan_aware; /* VLAN-aware bridge? */
 };
 
 /* zebra L2 interface information - VLAN interface */

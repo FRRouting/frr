@@ -26,10 +26,10 @@
 
 void ospf6_prefix_apply_mask(struct ospf6_prefix *op)
 {
-	u_char *pnt, mask;
+	uint8_t *pnt, mask;
 	int index, offset;
 
-	pnt = (u_char *)((caddr_t)op + sizeof(struct ospf6_prefix));
+	pnt = (uint8_t *)((caddr_t)op + sizeof(struct ospf6_prefix));
 	index = op->prefix_length / 8;
 	offset = op->prefix_length % 8;
 	mask = 0xff << (8 - offset);
@@ -48,7 +48,7 @@ void ospf6_prefix_apply_mask(struct ospf6_prefix *op)
 		pnt[index++] = 0;
 }
 
-void ospf6_prefix_options_printbuf(u_int8_t prefix_options, char *buf, int size)
+void ospf6_prefix_options_printbuf(uint8_t prefix_options, char *buf, int size)
 {
 	snprintf(buf, size, "xxx");
 }
@@ -63,7 +63,7 @@ void ospf6_capability_printbuf(char capability, char *buf, int size)
 	snprintf(buf, size, "----%c%c%c%c", w, v, e, b);
 }
 
-void ospf6_options_printbuf(u_char *options, char *buf, int size)
+void ospf6_options_printbuf(uint8_t *options, char *buf, int size)
 {
 	const char *dc, *r, *n, *mc, *e, *v6;
 	dc = (OSPF6_OPT_ISSET(options, OSPF6_OPT_DC) ? "DC" : "--");

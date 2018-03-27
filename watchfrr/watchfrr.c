@@ -138,7 +138,7 @@ struct daemon {
 	daemon_state_t state;
 	int fd;
 	struct timeval echo_sent;
-	u_int connect_tries;
+	unsigned int connect_tries;
 	struct thread *t_wakeup;
 	struct thread *t_read;
 	struct thread *t_write;
@@ -552,7 +552,7 @@ static int handle_read(struct thread *t_read)
 		snprintf(why, sizeof(why),
 			 "read returned bad echo response of %d bytes "
 			 "(expecting %u): %.*s",
-			 (int)rc, (u_int)sizeof(resp), (int)rc, buf);
+			 (int)rc, (unsigned int)sizeof(resp), (int)rc, buf);
 		daemon_down(dmn, why);
 		return 0;
 	}
@@ -888,7 +888,7 @@ static int wakeup_send_echo(struct thread *t_wakeup)
 		char why[100 + sizeof(echocmd)];
 		snprintf(why, sizeof(why),
 			 "write '%s' returned %d instead of %u", echocmd,
-			 (int)rc, (u_int)sizeof(echocmd));
+			 (int)rc, (unsigned int)sizeof(echocmd));
 		daemon_down(dmn, why);
 	} else {
 		gettimeofday(&dmn->echo_sent, NULL);
@@ -1174,7 +1174,7 @@ int main(int argc, char **argv)
 
 			if (!(dmn = (struct daemon *)calloc(1, sizeof(*dmn)))) {
 				fprintf(stderr, "calloc(1,%u) failed: %s\n",
-					(u_int)sizeof(*dmn),
+					(unsigned int)sizeof(*dmn),
 					safe_strerror(errno));
 				return 1;
 			}

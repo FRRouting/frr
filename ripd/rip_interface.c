@@ -133,7 +133,7 @@ void rip_interface_multicast_set(int sock, struct connected *connected)
 }
 
 /* Send RIP request packet to specified interface. */
-static void rip_request_interface_send(struct interface *ifp, u_char version)
+static void rip_request_interface_send(struct interface *ifp, uint8_t version)
 {
 	struct sockaddr_in to;
 

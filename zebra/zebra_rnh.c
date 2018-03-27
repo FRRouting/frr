@@ -985,7 +985,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 	struct stream *s;
 	struct route_entry *re;
 	unsigned long nump;
-	u_char num;
+	uint8_t num;
 	struct nexthop *nh;
 	struct route_node *rn;
 	int cmd = (type == RNH_IMPORT_CHECK_TYPE) ? ZEBRA_IMPORT_CHECK_UPDATE

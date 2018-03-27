@@ -342,7 +342,7 @@ static struct route_map_rule_cmd route_match_tag_cmd = {
 struct ospf_metric {
 	enum { metric_increment, metric_decrement, metric_absolute } type;
 	bool used;
-	u_int32_t metric;
+	uint32_t metric;
 };
 
 /* `set metric METRIC' */
@@ -382,7 +382,7 @@ static void *route_set_metric_compile(const char *arg)
 {
 	struct ospf_metric *metric;
 
-	metric = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_int32_t));
+	metric = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
 	metric->used = false;
 
 	if (all_digit(arg))
@@ -430,7 +430,7 @@ static route_map_result_t route_set_metric_type(void *rule,
 						route_map_object_t type,
 						void *object)
 {
-	u_int32_t *metric_type;
+	uint32_t *metric_type;
 	struct external_info *ei;
 
 	if (type == RMAP_OSPF) {
@@ -447,9 +447,9 @@ static route_map_result_t route_set_metric_type(void *rule,
 /* set metric-type compilation. */
 static void *route_set_metric_type_compile(const char *arg)
 {
-	u_int32_t *metric_type;
+	uint32_t *metric_type;
 
-	metric_type = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_int32_t));
+	metric_type = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
 	if (strcmp(arg, "type-1") == 0)
 		*metric_type = EXTERNAL_METRIC_TYPE_1;
 	else if (strcmp(arg, "type-2") == 0)

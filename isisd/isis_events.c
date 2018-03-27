@@ -256,7 +256,7 @@ int isis_event_dis_status_change(struct thread *thread)
 }
 
 void isis_event_auth_failure(char *area_tag, const char *error_string,
-			     u_char *sysid)
+			     uint8_t *sysid)
 {
 	if (isis->debugs & DEBUG_EVENTS)
 		zlog_debug("ISIS-Evt (%s) Authentication failure %s from %s",
