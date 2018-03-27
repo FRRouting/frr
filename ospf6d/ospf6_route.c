@@ -460,9 +460,6 @@ int ospf6_route_cmp(struct ospf6_route *ra, struct ospf6_route *rb)
 	if (ra->type != rb->type)
 		return (ra->type - rb->type);
 
-	if (ra->path.area_id != rb->path.area_id)
-		return (ntohl(ra->path.area_id) - ntohl(rb->path.area_id));
-
 	if (ra->path.type != rb->path.type)
 		return (ra->path.type - rb->path.type);
 
@@ -475,6 +472,9 @@ int ospf6_route_cmp(struct ospf6_route *ra, struct ospf6_route *rb)
 		if (ra->path.cost != rb->path.cost)
 			return (ra->path.cost - rb->path.cost);
 	}
+
+	if (ra->path.area_id != rb->path.area_id)
+		return (ntohl(ra->path.area_id) - ntohl(rb->path.area_id));
 
 	return 0;
 }
