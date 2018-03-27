@@ -1108,7 +1108,10 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				struct vrf *vrf =
 					vrf_lookup_by_id(nexthop->vrf_id);
 
-				vty_out(vty, "(vrf %s)", vrf->name);
+				if (vrf)
+					vty_out(vty, "(vrf %s)", vrf->name);
+				else
+					vty_out(vty, "(vrf UKNOWN)");
 			}
 
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
@@ -1468,7 +1471,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		if (nexthop->vrf_id != re->vrf_id) {
 			struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
-			vty_out(vty, "(vrf %s)", vrf->name);
+			if (vrf)
+				vty_out(vty, "(vrf %s)", vrf->name);
+			else
+				vty_out(vty, "(vrf UKNOWN)");
 		}
 
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
