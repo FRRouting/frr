@@ -39,14 +39,16 @@ if [ "$1" = "install" ]; then
   # Logfiles are group readable in case users were put into the frr group.
   d=/var/log/frr/
     mkdir -p $d
-    chown -R frr:frr $d
+    chown frr:frr $d
+    chown --quiet frr:frr $d/* | true
     chmod u=rwx,go=rx $d
     find $d -type f -print0 | xargs -0 --no-run-if-empty   chmod u=rw,g=r,o=
 
   # Strict permissions for the sockets.
   d=/var/run/frr/
     mkdir -p $d
-    chown -R frr:frr $d
+    chown frr:frr $d
+    chown --quiet frr:frr $d/* | true
     chmod u=rwx,go=rx $d
     find $d -type f -print0 | xargs -0 --no-run-if-empty   chmod u=rw,go=
 

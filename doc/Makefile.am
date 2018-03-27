@@ -163,6 +163,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	developer/building-frr-on-ubuntu1204.rst \
 	developer/building-frr-on-ubuntu1404.rst \
 	developer/building-frr-on-ubuntu1604.rst \
+	developer/building-frr-on-ubuntu1804.rst \
 	developer/building.rst \
 	developer/cli.rst \
 	developer/conf.py \
