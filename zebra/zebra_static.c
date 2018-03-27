@@ -369,7 +369,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.u.prefix6 = nexthop->gate.ipv6;
 		}
 		route_entry_nexthop_delete(re, nexthop);
-		zebra_deregister_rnh_static_nh(si->vrf_id, &nh_p, rn);
+		zebra_deregister_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 		nexthop_free(nexthop);
 	}
 	/* Unlock node. */

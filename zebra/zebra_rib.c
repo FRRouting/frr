@@ -2121,8 +2121,8 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	/* free RE and nexthops */
 	if (re->type == ZEBRA_ROUTE_STATIC)
-		zebra_deregister_rnh_static_nexthops(re->vrf_id, re->ng.nexthop,
-						     rn);
+		zebra_deregister_rnh_static_nexthops(re->ng.nexthop->vrf_id,
+						     re->ng.nexthop, rn);
 	nexthops_free(re->ng.nexthop);
 	XFREE(MTYPE_RE, re);
 }
