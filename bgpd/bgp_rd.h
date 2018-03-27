@@ -66,5 +66,7 @@ extern void decode_rd_vnc_eth(uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth);
 
 extern int str2prefix_rd(const char *, struct prefix_rd *);
 extern char *prefix_rd2str(struct prefix_rd *, char *, size_t);
+extern void form_auto_rd(struct in_addr router_id, uint16_t rd_id,
+			 struct prefix_rd *prd);
 
 #endif /* _QUAGGA_BGP_RD_H */

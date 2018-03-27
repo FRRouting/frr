@@ -480,6 +480,9 @@ struct bgp {
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
 
+	/* Automatically derived RD for this VRF */
+	struct prefix_rd vrf_prd_auto;
+
 	/* RD for this VRF */
 	struct prefix_rd vrf_prd;
 
