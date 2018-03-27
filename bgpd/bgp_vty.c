@@ -10802,6 +10802,118 @@ DEFUN (show_ip_bgp_attr_info,
 	return CMD_SUCCESS;
 }
 
+static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
+				   afi_t afi, safi_t safi)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	char *vname;
+	char buf1[INET6_ADDRSTRLEN];
+	char *ecom_str;
+	vpn_policy_direction_t dir;
+
+	if (name) {
+		bgp = bgp_lookup_by_name(name);
+		if (!bgp) {
+			vty_out(vty, "%% No such BGP instance exist\n");
+			return CMD_WARNING;
+		}
+	} else {
+		bgp = bgp_get_default();
+		if (!bgp) {
+			vty_out(vty, "%% Default BGP instance does not exist\n");
+			return CMD_WARNING;
+		}
+	}
+
+	if (!CHECK_FLAG(bgp->af_flags[afi][safi],
+			BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
+		vty_out(vty, "This VRF is not importing %s routes from any other VRF\n",
+			afi_safi_print(afi, safi));
+	} else {
+		vty_out(vty, "This VRF is importing %s routes from the following VRFs:\n",
+			afi_safi_print(afi, safi));
+		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
+					  vname)) {
+			vty_out(vty, "  %s\n", vname);
+		}
+		dir = BGP_VPN_POLICY_DIR_FROMVPN;
+		ecom_str = ecommunity_ecom2str(
+				bgp->vpn_policy[afi].rtlist[dir],
+				ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		vty_out(vty, "Import RT(s): %s\n", ecom_str);
+		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+	}
+
+	if (!CHECK_FLAG(bgp->af_flags[afi][safi],
+			BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
+		vty_out(vty, "This VRF is not exporting %s routes to any other VRF\n",
+			afi_safi_print(afi, safi));
+	} else {
+		vty_out(vty, "This VRF is exporting %s routes to the following VRFs:\n",
+			afi_safi_print(afi, safi));
+		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].export_vrf, node,
+					  vname)) {
+			vty_out(vty, "  %s\n", vname);
+		}
+		vty_out(vty, "RD: %s\n",
+			prefix_rd2str(&bgp->vpn_policy[afi].tovpn_rd,
+				      buf1, RD_ADDRSTRLEN));
+		dir = BGP_VPN_POLICY_DIR_TOVPN;
+		ecom_str = ecommunity_ecom2str(
+				bgp->vpn_policy[afi].rtlist[dir],
+				ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		vty_out(vty, "Emport RT: %s\n", ecom_str);
+		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+	}
+
+	return CMD_SUCCESS;
+}
+
+/* "show [ip] bgp route-leak" command.  */
+DEFUN (show_ip_bgp_route_leak,
+       show_ip_bgp_route_leak_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] route-leak",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
+       "Route leaking information\n")
+{
+	char *vrf = NULL;
+	afi_t afi = AFI_MAX;
+	safi_t safi = SAFI_MAX;
+
+	int idx = 0;
+
+	/* show [ip] bgp */
+	if (argv_find(argv, argc, "ip", &idx)) {
+		afi = AFI_IP;
+		safi = SAFI_UNICAST;
+	}
+	/* [vrf VIEWVRFNAME] */
+	if (argv_find(argv, argc, "view", &idx)) {
+		vty_out(vty, "%% This command is not applicable to BGP views\n");
+		return CMD_WARNING;
+	}
+
+	if (argv_find(argv, argc, "vrf", &idx))
+		vrf = argv[++idx]->arg;
+	/* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
+	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
+		argv_find_and_parse_safi(argv, argc, &idx, &safi);
+	}
+
+	if (!((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_UNICAST)) {
+		vty_out(vty, "%% This command is applicable only for unicast ipv4|ipv6\n");
+		return CMD_WARNING;
+	}
+
+	return bgp_show_route_leak_vty(vty, vrf, afi, safi);
+}
+
 static void bgp_show_all_instances_updgrps_vty(struct vty *vty, afi_t afi,
 					       safi_t safi)
 {
@@ -13079,6 +13191,8 @@ void bgp_vty_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_lcommunity_info_cmd);
 	/* "show [ip] bgp attribute-info" commands. */
 	install_element(VIEW_NODE, &show_ip_bgp_attr_info_cmd);
+	/* "show [ip] bgp route-leak" command */
+	install_element(VIEW_NODE, &show_ip_bgp_route_leak_cmd);
 
 	/* "redistribute" commands.  */
 	install_element(BGP_NODE, &bgp_redistribute_ipv4_hidden_cmd);
