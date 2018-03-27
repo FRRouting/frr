@@ -574,33 +574,39 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 				     safi_t safi)
 {
 	struct route_table *stable;
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	struct route_node *rn;
 	struct static_route *si;
 	struct prefix *p, *src_pp;
 	struct prefix_ipv6 *src_p;
+	struct vrf *vrf;
 
-	stable = zebra_vrf_static_table(afi, safi, zvrf);
-	if (!stable)
-		return;
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct zebra_vrf *zvrf;
 
-	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
-		srcdest_rnode_prefixes(rn, &p, &src_pp);
-		src_p = (struct prefix_ipv6 *)src_pp;
+		zvrf = vrf->info;
 
-		for (si = rn->info; si; si = si->next) {
-			if (!si->ifname[0])
-				continue;
-			if (up) {
-				if (strcmp(si->ifname, ifp->name))
+		stable = zebra_vrf_static_table(afi, safi, zvrf);
+		if (!stable)
+			continue;
+
+		for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
+			srcdest_rnode_prefixes(rn, &p, &src_pp);
+			src_p = (struct prefix_ipv6 *)src_pp;
+
+			for (si = rn->info; si; si = si->next) {
+				if (!si->ifname[0])
 					continue;
-				si->ifindex = ifp->ifindex;
-				static_install_route(afi, safi, p, src_p, si);
-			} else {
-				if (si->ifindex != ifp->ifindex)
-					continue;
-				static_uninstall_route(afi, safi, p, src_p, si);
-				si->ifindex = IFINDEX_INTERNAL;
+				if (up) {
+					if (strcmp(si->ifname, ifp->name))
+						continue;
+					si->ifindex = ifp->ifindex;
+					static_install_route(afi, safi, p, src_p, si);
+				} else {
+					if (si->ifindex != ifp->ifindex)
+						continue;
+					static_uninstall_route(afi, safi, p, src_p, si);
+					si->ifindex = IFINDEX_INTERNAL;
+				}
 			}
 		}
 	}
