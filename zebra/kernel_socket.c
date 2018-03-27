@@ -1384,7 +1384,8 @@ static void routing_socket(struct zebra_ns *zns)
 	if (zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("routing_socket: Can't raise privileges");
 
-	routing_sock = socket(AF_ROUTE, SOCK_RAW, 0);
+	routing_sock =
+		ns_socket(AF_ROUTE, SOCK_RAW, 0, (ns_id_t)zns->ns->ns_id);
 
 	if (routing_sock < 0) {
 		if (zserv_privs.change(ZPRIVS_LOWER))

@@ -85,9 +85,11 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
 	if (pim_ifp->sec_addr_list)
 		list_delete_and_null(&pim_ifp->sec_addr_list);
 
-	while ((ch = RB_ROOT(pim_ifchannel_rb,
-			     &pim_ifp->ifchannel_rb)) != NULL)
+	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
+		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
+
 		pim_ifchannel_delete(ch);
+	}
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
@@ -250,9 +252,11 @@ void pim_if_delete(struct interface *ifp)
 	if (pim_ifp->boundary_oil_plist)
 		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
 
-	while ((ch = RB_ROOT(pim_ifchannel_rb,
-			     &pim_ifp->ifchannel_rb)) != NULL)
+	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
+		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
+
 		pim_ifchannel_delete(ch);
+	}
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
@@ -423,8 +427,7 @@ static int pim_sec_addr_update(struct interface *ifp)
 	struct pim_secondary_addr *sec_addr;
 	int changed = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node,
-				  sec_addr)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
 		sec_addr->flags |= PIM_SEC_ADDRF_STALE;
 	}
 
@@ -571,7 +574,11 @@ void pim_if_addr_add(struct connected *ifc)
 			/* if addr new, add IGMP socket */
 			if (ifc->address->family == AF_INET)
 				pim_igmp_sock_add(pim_ifp->igmp_socket_list,
-						  ifaddr, ifp);
+						  ifaddr, ifp, false);
+		} else if (igmp->mtrace_only) {
+			igmp_sock_delete(igmp);
+			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
+					  ifp, false);
 		}
 
 		/* Replay Static IGMP groups */
@@ -608,6 +615,20 @@ void pim_if_addr_add(struct connected *ifc)
 			}
 		}
 	} /* igmp */
+	else {
+		struct igmp_sock *igmp;
+
+		/* lookup IGMP socket */
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
+						   ifaddr);
+		if (ifc->address->family == AF_INET) {
+			if (igmp)
+				igmp_sock_delete(igmp);
+			/* if addr new, add IGMP socket */
+			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
+					  ifp, true);
+		}
+	} /* igmp mtrace only */
 
 	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
 
@@ -1282,7 +1303,7 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 }
 
 ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
-			 struct in_addr source_addr)
+			    struct in_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
 	struct igmp_join *ij;

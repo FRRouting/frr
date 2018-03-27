@@ -387,8 +387,8 @@ DEFUN_HIDDEN (show_ipv6_ospf6_database_aggr_router,
 			lsdb = oa->lsdb_self;
 		else
 			lsdb = oa->lsdb;
-		if (ospf6_create_single_router_lsa(oa, lsdb,
-						   adv_router) == NULL) {
+		if (ospf6_create_single_router_lsa(oa, lsdb, adv_router)
+		    == NULL) {
 			vty_out(vty, "Adv router is not found in LSDB.");
 			return CMD_SUCCESS;
 		}

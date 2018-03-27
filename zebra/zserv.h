@@ -31,6 +31,7 @@
 
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_pw.h"
+//#include "zebra/zebra_pbr.h"
 
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
@@ -46,8 +47,12 @@ struct zserv {
 	int sock;
 
 	/* Input/output buffer to the client. */
-	struct stream *ibuf;
-	struct stream *obuf;
+	struct stream_fifo *ibuf_fifo;
+	struct stream_fifo *obuf_fifo;
+
+	/* Private I/O buffers */
+	struct stream *ibuf_work;
+	struct stream *obuf_work;
 
 	/* Buffer of data waiting to be written to client. */
 	struct buffer *wb;
@@ -128,6 +133,10 @@ struct zserv {
 	int last_write_cmd;
 };
 
+#define ZAPI_HANDLER_ARGS                                                      \
+	struct zserv *client, struct zmsghdr *hdr, struct stream *msg,         \
+		struct zebra_vrf *zvrf
+
 /* Zebra instance */
 struct zebra_t {
 	/* Thread master */
@@ -137,15 +146,15 @@ struct zebra_t {
 	/* default table */
 	u_int32_t rtm_table_default;
 
-	/* rib work queue */
-	#define ZEBRA_RIB_PROCESS_HOLD_TIME 10
+/* rib work queue */
+#define ZEBRA_RIB_PROCESS_HOLD_TIME 10
 	struct work_queue *ribq;
 	struct meta_queue *mq;
 
 	/* LSP work queue */
 	struct work_queue *lsp_process_q;
 
-	#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 10
+#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 10
 	u_int32_t packets_to_process;
 };
 extern struct zebra_t zebrad;
@@ -175,13 +184,16 @@ extern int zsend_interface_vrf_update(struct zserv *, struct interface *,
 extern int zsend_interface_link_params(struct zserv *, struct interface *);
 extern int zsend_pw_update(struct zserv *, struct zebra_pw *);
 
-extern int zsend_route_notify_owner(u_char proto, u_short instance,
-				    vrf_id_t vrf_id, struct prefix *p,
+extern int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 				    enum zapi_route_notify_owner note);
+
+struct zebra_pbr_rule;
+extern void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
+				    enum zapi_rule_notify_owner note);
 
 extern void zserv_nexthop_num_warn(const char *, const struct prefix *,
 				   const unsigned int);
-extern int zebra_server_send_message(struct zserv *client);
+extern int zebra_server_send_message(struct zserv *client, struct stream *msg);
 
 extern struct zserv *zebra_find_client(u_char proto, u_short instance);
 

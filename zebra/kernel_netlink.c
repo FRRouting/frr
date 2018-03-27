@@ -45,6 +45,7 @@
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
+#include "zebra/rule_netlink.h"
 
 #ifndef SO_RCVBUFFORCE
 #define SO_RCVBUFFORCE  (33)
@@ -85,6 +86,9 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_NEWNEIGH, "RTM_NEWNEIGH"},
 					   {RTM_DELNEIGH, "RTM_DELNEIGH"},
 					   {RTM_GETNEIGH, "RTM_GETNEIGH"},
+					   {RTM_NEWRULE, "RTM_NEWRULE"},
+					   {RTM_DELRULE, "RTM_DELRULE"},
+					   {RTM_GETRULE, "RTM_GETRULE"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
@@ -188,7 +192,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 		return -1;
 	}
 
-	sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
 	if (sock < 0) {
 		zlog_err("Can't open %s socket: %s", nl->name,
 			 safe_strerror(errno));
@@ -240,28 +244,24 @@ static int netlink_information_fetch(struct sockaddr_nl *snl,
 	switch (h->nlmsg_type) {
 	case RTM_NEWROUTE:
 		return netlink_route_change(snl, h, ns_id, startup);
-		break;
 	case RTM_DELROUTE:
 		return netlink_route_change(snl, h, ns_id, startup);
-		break;
 	case RTM_NEWLINK:
 		return netlink_link_change(snl, h, ns_id, startup);
-		break;
 	case RTM_DELLINK:
 		return netlink_link_change(snl, h, ns_id, startup);
-		break;
 	case RTM_NEWADDR:
 		return netlink_interface_addr(snl, h, ns_id, startup);
-		break;
 	case RTM_DELADDR:
 		return netlink_interface_addr(snl, h, ns_id, startup);
-		break;
 	case RTM_NEWNEIGH:
 		return netlink_neigh_change(snl, h, ns_id);
-		break;
 	case RTM_DELNEIGH:
 		return netlink_neigh_change(snl, h, ns_id);
-		break;
+	case RTM_NEWRULE:
+		return netlink_rule_change(snl, h, ns_id, startup);
+	case RTM_DELRULE:
+		return netlink_rule_change(snl, h, ns_id, startup);
 	default:
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Unknown netlink nlmsg_type %d vrf %u\n",
@@ -788,7 +788,8 @@ void kernel_init(struct zebra_ns *zns)
 	/* Initialize netlink sockets */
 	groups = RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_IFADDR
 		 | RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR | RTMGRP_IPV4_MROUTE
-		 | RTMGRP_NEIGH;
+		 | RTMGRP_NEIGH
+		 | RTNLGRP_IPV4_RULE | RTNLGRP_IPV6_RULE;
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);

@@ -38,9 +38,8 @@ void _hook_register(struct hook *hook, void *funcptr, void *arg, bool has_arg,
 	he->priority = priority;
 
 	for (pos = &hook->entries; *pos; pos = &(*pos)->next)
-		if (hook->reverse
-		    ? (*pos)->priority < priority
-		    : (*pos)->priority >= priority)
+		if (hook->reverse ? (*pos)->priority < priority
+				  : (*pos)->priority >= priority)
 			break;
 
 	he->next = *pos;

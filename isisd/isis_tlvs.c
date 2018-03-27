@@ -496,8 +496,9 @@ static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
 {
 	struct isis_lsp_entry *e = (struct isis_lsp_entry *)i;
 
-	sbuf_push(buf, indent, "LSP Entry: %s, seq 0x%08" PRIx32
-		  ", cksum 0x%04" PRIx16 ", lifetime %" PRIu16 "s\n",
+	sbuf_push(buf, indent,
+		  "LSP Entry: %s, seq 0x%08" PRIx32 ", cksum 0x%04" PRIx16
+		  ", lifetime %" PRIu16 "s\n",
 		  isis_format_id(e->id, 8), e->seqno, e->checksum,
 		  e->rem_lifetime);
 }
@@ -579,7 +580,8 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 	sbuf_push(buf, 0, "\n");
 
 	if (r->subtlv_len && r->subtlvs)
-		mpls_te_print_detail(buf, indent + 2, r->subtlvs, r->subtlv_len);
+		mpls_te_print_detail(buf, indent + 2, r->subtlvs,
+				     r->subtlv_len);
 }
 
 static void free_item_extended_reach(struct isis_item *i)
@@ -690,7 +692,8 @@ static void format_item_oldstyle_ip_reach(uint16_t mtid, struct isis_item *i,
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	sbuf_push(buf, indent, "IP Reachability: %s (Metric: %" PRIu8 ")\n",
-		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)), r->metric);
+		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)),
+		  r->metric);
 }
 
 static void free_item_oldstyle_ip_reach(struct isis_item *i)
@@ -1321,6 +1324,119 @@ static int unpack_tlv_dynamic_hostname(enum isis_tlv_context context,
 		sbuf_push(
 			log, indent,
 			"WARNING: Hostname contained non-printable/non-ascii characters.\n");
+	}
+
+	return 0;
+}
+
+/* Functions related to TLV 240 P2P Three-Way Adjacency */
+
+const char *isis_threeway_state_name(enum isis_threeway_state state)
+{
+	switch (state) {
+	case ISIS_THREEWAY_DOWN:
+		return "Down";
+	case ISIS_THREEWAY_INITIALIZING:
+		return "Initializing";
+	case ISIS_THREEWAY_UP:
+		return "Up";
+	default:
+		return "Invalid!";
+	}
+}
+
+static struct isis_threeway_adj *copy_tlv_threeway_adj(
+				const struct isis_threeway_adj *threeway_adj)
+{
+	if (!threeway_adj)
+		return NULL;
+
+	struct isis_threeway_adj *rv = XMALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+	memcpy(rv, threeway_adj, sizeof(*rv));
+
+	return rv;
+}
+
+static void format_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj,
+				     struct sbuf *buf, int indent)
+{
+	if (!threeway_adj)
+		return;
+
+	sbuf_push(buf, indent, "P2P Three-Way Adjacency:\n");
+	sbuf_push(buf, indent, "  State: %s (%d)\n",
+		  isis_threeway_state_name(threeway_adj->state),
+		  threeway_adj->state);
+	sbuf_push(buf, indent, "  Extended Local Circuit ID: %" PRIu32 "\n",
+		  threeway_adj->local_circuit_id);
+	if (!threeway_adj->neighbor_set)
+		return;
+
+	sbuf_push(buf, indent, "  Neighbor System ID: %s\n",
+		  isis_format_id(threeway_adj->neighbor_id, 6));
+	sbuf_push(buf, indent, "  Neighbor Extended Circuit ID: %" PRIu32 "\n",
+		  threeway_adj->neighbor_circuit_id);
+}
+
+static void free_tlv_threeway_adj(struct isis_threeway_adj *threeway_adj)
+{
+	XFREE(MTYPE_ISIS_TLV, threeway_adj);
+}
+
+static int pack_tlv_threeway_adj(const struct isis_threeway_adj *threeway_adj,
+				  struct stream *s)
+{
+	if (!threeway_adj)
+		return 0;
+
+	uint8_t tlv_len = (threeway_adj->neighbor_set) ? 15 : 5;
+
+	if (STREAM_WRITEABLE(s) < (unsigned)(2 + tlv_len))
+		return 1;
+
+	stream_putc(s, ISIS_TLV_THREE_WAY_ADJ);
+	stream_putc(s, tlv_len);
+	stream_putc(s, threeway_adj->state);
+	stream_putl(s, threeway_adj->local_circuit_id);
+
+	if (threeway_adj->neighbor_set) {
+		stream_put(s, threeway_adj->neighbor_id, 6);
+		stream_putl(s, threeway_adj->neighbor_circuit_id);
+	}
+
+	return 0;
+}
+
+static int unpack_tlv_threeway_adj(enum isis_tlv_context context,
+				       uint8_t tlv_type, uint8_t tlv_len,
+				       struct stream *s, struct sbuf *log,
+				       void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+
+	sbuf_push(log, indent, "Unpacking P2P Three-Way Adjacency TLV...\n");
+	if (tlv_len != 5 && tlv_len != 15) {
+		sbuf_push(log, indent, "WARNING: Unexepected TLV size\n");
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	if (tlvs->threeway_adj) {
+		sbuf_push(log, indent,
+			  "WARNING: P2P Three-Way Adjacency TLV present multiple times.\n");
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	tlvs->threeway_adj = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->threeway_adj));
+
+	tlvs->threeway_adj->state = stream_getc(s);
+	tlvs->threeway_adj->local_circuit_id = stream_getl(s);
+
+	if (tlv_len == 15) {
+		tlvs->threeway_adj->neighbor_set = true;
+		stream_get(tlvs->threeway_adj->neighbor_id, s, 6);
+		tlvs->threeway_adj->neighbor_circuit_id = stream_getl(s);
 	}
 
 	return 0;
@@ -2064,6 +2180,8 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 	copy_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH,
 		      &tlvs->mt_ipv6_reach, &rv->mt_ipv6_reach);
 
+	rv->threeway_adj = copy_tlv_threeway_adj(tlvs->threeway_adj);
+
 	return rv;
 }
 
@@ -2125,6 +2243,8 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, int indent)
 
 	format_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH,
 			&tlvs->mt_ipv6_reach, buf, indent);
+
+	format_tlv_threeway_adj(tlvs->threeway_adj, buf, indent);
 }
 
 const char *isis_format_tlvs(struct isis_tlvs *tlvs)
@@ -2175,6 +2295,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_REACH, &tlvs->ipv6_reach);
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH,
 		      &tlvs->mt_ipv6_reach);
+	free_tlv_threeway_adj(tlvs->threeway_adj);
 
 	XFREE(MTYPE_ISIS_TLV, tlvs);
 }
@@ -2284,8 +2405,9 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 	/* When fragmenting, don't add auth as it's already accounted for in the
 	 * size we are given. */
 	if (!fragment_tlvs) {
-		rv = pack_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH, &tlvs->isis_auth,
-				stream, NULL, NULL, NULL, NULL);
+		rv = pack_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH,
+				&tlvs->isis_auth, stream, NULL, NULL, NULL,
+				NULL);
 		if (rv)
 			return rv;
 	}
@@ -2343,6 +2465,14 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 	if (fragment_tlvs) {
 		fragment_tlvs->te_router_id =
 			copy_tlv_te_router_id(tlvs->te_router_id);
+	}
+
+	rv = pack_tlv_threeway_adj(tlvs->threeway_adj, stream);
+	if (rv)
+		return rv;
+	if (fragment_tlvs) {
+		fragment_tlvs->threeway_adj =
+			copy_tlv_threeway_adj(tlvs->threeway_adj);
 	}
 
 	for (size_t pack_idx = 0; pack_idx < array_size(pack_order);
@@ -2545,6 +2675,7 @@ TLV_OPS(te_router_id, "TLV 134 TE Router ID");
 ITEM_TLV_OPS(extended_ip_reach, "TLV 135 Extended IP Reachability");
 TLV_OPS(dynamic_hostname, "TLV 137 Dynamic Hostname");
 ITEM_TLV_OPS(mt_router_info, "TLV 229 MT Router Information");
+TLV_OPS(threeway_adj, "TLV 240 P2P Three-Way Adjacency");
 ITEM_TLV_OPS(ipv6_address, "TLV 232 IPv6 Interface Address");
 ITEM_TLV_OPS(ipv6_reach, "TLV 236 IPv6 Reachability");
 
@@ -2568,6 +2699,7 @@ static const struct tlv_ops *tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_MT_IP_REACH] = &tlv_extended_ip_reach_ops,
 		[ISIS_TLV_DYNAMIC_HOSTNAME] = &tlv_dynamic_hostname_ops,
 		[ISIS_TLV_MT_ROUTER_INFO] = &tlv_mt_router_info_ops,
+		[ISIS_TLV_THREE_WAY_ADJ] = &tlv_threeway_adj_ops,
 		[ISIS_TLV_IPV6_ADDRESS] = &tlv_ipv6_address_ops,
 		[ISIS_TLV_IPV6_REACH] = &tlv_ipv6_reach_ops,
 		[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
@@ -3066,6 +3198,25 @@ void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 	else
 		l = isis_get_mt_items(&tlvs->mt_reach, mtid);
 	append_item(l, (struct isis_item *)r);
+}
+
+void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs,
+				enum isis_threeway_state state,
+				uint32_t local_circuit_id,
+				const uint8_t *neighbor_id,
+				uint32_t neighbor_circuit_id)
+{
+	assert(!tlvs->threeway_adj);
+
+	tlvs->threeway_adj = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->threeway_adj));
+	tlvs->threeway_adj->state = state;
+	tlvs->threeway_adj->local_circuit_id = local_circuit_id;
+
+	if (neighbor_id) {
+		tlvs->threeway_adj->neighbor_set = true;
+		memcpy(tlvs->threeway_adj->neighbor_id, neighbor_id, 6);
+		tlvs->threeway_adj->neighbor_circuit_id = neighbor_circuit_id;
+	}
 }
 
 struct isis_mt_router_info *

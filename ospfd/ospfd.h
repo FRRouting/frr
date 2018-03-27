@@ -131,8 +131,8 @@ struct ospf {
 	struct in_addr router_id_static; /* Configured manually. */
 	struct in_addr router_id_zebra;
 
-	vrf_id_t vrf_id;  /* VRF Id */
-	char *name;       /* VRF name */
+	vrf_id_t vrf_id; /* VRF Id */
+	char *name;      /* VRF name */
 
 	/* ABR/ASBR internal flags. */
 	u_char flags;
@@ -165,8 +165,6 @@ struct ospf {
 	/* RFC3137 stub router. Configured time to stay stub / max-metric */
 	unsigned int stub_router_startup_time;  /* seconds */
 	unsigned int stub_router_shutdown_time; /* seconds */
-						/* $FRR indent$ */
-						/* clang-format off */
 #define OSPF_STUB_ROUTER_UNCONFIGURED	  0
 	u_char stub_router_admin_set;
 #define OSPF_STUB_ROUTER_ADMINISTRATIVE_SET     1
@@ -187,8 +185,6 @@ struct ospf {
 		spf_hold_multiplier; /* Adaptive multiplier for hold time */
 
 	int default_originate;	/* Default information originate. */
-				      /* $FRR indent$ */
-				      /* clang-format off */
 #define DEFAULT_ORIGINATE_NONE		0
 #define DEFAULT_ORIGINATE_ZEBRA		1
 #define DEFAULT_ORIGINATE_ALWAYS	2
@@ -343,8 +339,6 @@ struct ospf_area {
 	int external_routing;    /* ExternalRoutingCapability. */
 	int no_summary;		 /* Don't inject summaries into stub.*/
 	int shortcut_configured; /* Area configured as shortcut. */
-				 /* $FRR indent$ */
-				 /* clang-format off */
 #define OSPF_SHORTCUT_DEFAULT	0
 #define OSPF_SHORTCUT_ENABLE	1
 #define OSPF_SHORTCUT_DISABLE	2
@@ -354,21 +348,15 @@ struct ospf_area {
 
 
 	u_char NSSATranslatorRole;  /* NSSA configured role */
-				    /* $FRR indent$ */
-				    /* clang-format off */
 #define OSPF_NSSA_ROLE_NEVER     0
 #define OSPF_NSSA_ROLE_CANDIDATE 1
 #define OSPF_NSSA_ROLE_ALWAYS    2
 	u_char NSSATranslatorState; /* NSSA operational role */
-				    /* $FRR indent$ */
-				    /* clang-format off */
 #define OSPF_NSSA_TRANSLATE_DISABLED 0
 #define OSPF_NSSA_TRANSLATE_ENABLED  1
 	int NSSATranslatorStabilityInterval;
 
 	u_char transit;		    /* TransitCapability. */
-				    /* $FRR indent$ */
-				    /* clang-format off */
 #define OSPF_TRANSIT_FALSE      0
 #define OSPF_TRANSIT_TRUE       1
 	struct route_table *ranges; /* Configured Area Ranges. */

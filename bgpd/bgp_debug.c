@@ -55,6 +55,7 @@ unsigned long conf_bgp_debug_zebra;
 unsigned long conf_bgp_debug_allow_martians;
 unsigned long conf_bgp_debug_nht;
 unsigned long conf_bgp_debug_update_groups;
+unsigned long conf_bgp_debug_vpn;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -68,6 +69,7 @@ unsigned long term_bgp_debug_zebra;
 unsigned long term_bgp_debug_allow_martians;
 unsigned long term_bgp_debug_nht;
 unsigned long term_bgp_debug_update_groups;
+unsigned long term_bgp_debug_vpn;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -159,7 +161,6 @@ static const struct message bgp_notify_capability_msg[] = {
 /* Origin strings. */
 const char *bgp_origin_str[] = {"i", "e", "?"};
 const char *bgp_origin_long_str[] = {"IGP", "EGP", "incomplete"};
-
 
 /* Given a string return a pointer the corresponding peer structure */
 static struct peer *bgp_find_peer(struct vty *vty, const char *peer_str)
@@ -414,6 +415,10 @@ int bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 			snprintf(buf + strlen(buf), size - strlen(buf), " %s",
 				 inet_ntoa(attr->cluster->list[i]));
 	}
+
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)))
+		snprintf(buf + strlen(buf), size - strlen(buf),
+			 ", pmsi tnltype %u", attr->pmsi_tnl_type);
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH)))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", path %s",
@@ -1557,6 +1562,96 @@ DEFUN (no_debug_bgp_update_groups,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_bgp_vpn,
+       debug_bgp_vpn_cmd,
+       "debug bgp vpn <leak-from-vrf|leak-to-vrf|rmap-event|label>",
+       DEBUG_STR
+       BGP_STR
+       "VPN routes\n"
+       "leaked from vrf to vpn\n"
+       "leaked to vrf from vpn\n"
+       "route-map updates\n"
+       "labels\n")
+{
+	int idx = 3;
+
+	if (argv_find(argv, argc, "leak-from-vrf", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_ON(vpn, VPN_LEAK_FROM_VRF);
+		else
+			TERM_DEBUG_ON(vpn, VPN_LEAK_FROM_VRF);
+	} else if (argv_find(argv, argc, "leak-to-vrf", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_ON(vpn, VPN_LEAK_TO_VRF);
+		else
+			TERM_DEBUG_ON(vpn, VPN_LEAK_TO_VRF);
+	} else if (argv_find(argv, argc, "rmap-event", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_ON(vpn, VPN_LEAK_RMAP_EVENT);
+		else
+			TERM_DEBUG_ON(vpn, VPN_LEAK_RMAP_EVENT);
+	} else if (argv_find(argv, argc, "label", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_ON(vpn, VPN_LEAK_LABEL);
+		else
+			TERM_DEBUG_ON(vpn, VPN_LEAK_LABEL);
+	} else {
+		vty_out(vty, "%% unknown debug bgp vpn keyword\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (vty->node != CONFIG_NODE)
+		vty_out(vty, "enabled debug bgp vpn %s\n", argv[idx]->text);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bgp_vpn,
+       no_debug_bgp_vpn_cmd,
+       "no debug bgp vpn <leak-from-vrf|leak-to-vrf|rmap-event|label>",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "VPN routes\n"
+       "leaked from vrf to vpn\n"
+       "leaked to vrf from vpn\n"
+       "route-map updates\n"
+       "labels\n")
+{
+	int idx = 4;
+
+	if (argv_find(argv, argc, "leak-from-vrf", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_OFF(vpn, VPN_LEAK_FROM_VRF);
+		else
+			TERM_DEBUG_OFF(vpn, VPN_LEAK_FROM_VRF);
+
+	} else if (argv_find(argv, argc, "leak-to-vrf", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_OFF(vpn, VPN_LEAK_TO_VRF);
+		else
+			TERM_DEBUG_OFF(vpn, VPN_LEAK_TO_VRF);
+	} else if (argv_find(argv, argc, "rmap-event", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_OFF(vpn, VPN_LEAK_RMAP_EVENT);
+		else
+			TERM_DEBUG_OFF(vpn, VPN_LEAK_RMAP_EVENT);
+	} else if (argv_find(argv, argc, "label", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_OFF(vpn, VPN_LEAK_LABEL);
+		else
+			TERM_DEBUG_OFF(vpn, VPN_LEAK_LABEL);
+	} else {
+		vty_out(vty, "%% unknown debug bgp vpn keyword\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (vty->node != CONFIG_NODE)
+		vty_out(vty, "disabled debug bgp vpn %s\n", argv[idx]->text);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_bgp,
        no_debug_bgp_cmd,
        "no debug bgp",
@@ -1589,6 +1684,10 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(zebra, ZEBRA);
 	TERM_DEBUG_OFF(allow_martians, ALLOW_MARTIANS);
 	TERM_DEBUG_OFF(nht, NHT);
+	TERM_DEBUG_OFF(vpn, VPN_LEAK_FROM_VRF);
+	TERM_DEBUG_OFF(vpn, VPN_LEAK_TO_VRF);
+	TERM_DEBUG_OFF(vpn, VPN_LEAK_RMAP_EVENT);
+	TERM_DEBUG_OFF(vpn, VPN_LEAK_LABEL);
 	vty_out(vty, "All possible debugging has been turned off\n");
 
 	return CMD_SUCCESS;
@@ -1648,6 +1747,18 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	if (BGP_DEBUG(allow_martians, ALLOW_MARTIANS))
 		vty_out(vty, "  BGP allow martian next hop debugging is on\n");
+
+	if (BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF))
+		vty_out(vty,
+			"  BGP route leak from vrf to vpn debugging is on\n");
+	if (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF))
+		vty_out(vty,
+			"  BGP route leak to vrf from vpn debugging is on\n");
+	if (BGP_DEBUG(vpn, VPN_LEAK_RMAP_EVENT))
+		vty_out(vty, "  BGP vpn route-map event debugging is on\n");
+	if (BGP_DEBUG(vpn, VPN_LEAK_LABEL))
+		vty_out(vty, "  BGP vpn label event debugging is on\n");
+
 	vty_out(vty, "\n");
 	return CMD_SUCCESS;
 }
@@ -1690,6 +1801,15 @@ int bgp_debug_count(void)
 		ret++;
 
 	if (BGP_DEBUG(allow_martians, ALLOW_MARTIANS))
+		ret++;
+
+	if (BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF))
+		ret++;
+	if (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF))
+		ret++;
+	if (BGP_DEBUG(vpn, VPN_LEAK_RMAP_EVENT))
+		ret++;
+	if (BGP_DEBUG(vpn, VPN_LEAK_LABEL))
 		ret++;
 
 	return ret;
@@ -1765,6 +1885,23 @@ static int bgp_config_write_debug(struct vty *vty)
 
 	if (CONF_BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
 		vty_out(vty, "debug bgp allow-martians\n");
+		write++;
+	}
+
+	if (CONF_BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF)) {
+		vty_out(vty, "debug bgp vpn leak-from-vrf\n");
+		write++;
+	}
+	if (CONF_BGP_DEBUG(vpn, VPN_LEAK_TO_VRF)) {
+		vty_out(vty, "debug bgp vpn leak-to-vrf\n");
+		write++;
+	}
+	if (CONF_BGP_DEBUG(vpn, VPN_LEAK_RMAP_EVENT)) {
+		vty_out(vty, "debug bgp vpn rmap-event\n");
+		write++;
+	}
+	if (CONF_BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
+		vty_out(vty, "debug bgp vpn label\n");
 		write++;
 	}
 
@@ -1861,6 +1998,11 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_bgp_bestpath_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_bestpath_prefix_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_bestpath_prefix_cmd);
+
+	install_element(ENABLE_NODE, &debug_bgp_vpn_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_vpn_cmd);
+	install_element(ENABLE_NODE, &no_debug_bgp_vpn_cmd);
+	install_element(CONFIG_NODE, &no_debug_bgp_vpn_cmd);
 }
 
 /* Return true if this prefix is on the per_prefix_list of prefixes to debug

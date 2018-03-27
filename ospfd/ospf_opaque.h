@@ -47,7 +47,7 @@
 
 #define SET_OPAQUE_LSID(type, id)                                              \
 	((((unsigned)(type) << 24) & LSID_OPAQUE_TYPE_MASK)                    \
-	 | ((id) & LSID_OPAQUE_ID_MASK))
+	 | ((id)&LSID_OPAQUE_ID_MASK))
 
 /*
  * Opaque LSA types will be assigned by IANA.
@@ -85,24 +85,23 @@
  * used for various LSA opaque usage e.g. Traffic Engineering.
  */
 struct tlv_header {
-	u_int16_t type;		/* Type of Value */
-	u_int16_t length;	/* Length of Value portion only, in bytes */
+	u_int16_t type;   /* Type of Value */
+	u_int16_t length; /* Length of Value portion only, in bytes */
 };
 
 #define TLV_HDR_SIZE	(sizeof(struct tlv_header))
 
-#define TLV_BODY_SIZE(tlvh) \
-	(ROUNDUP(ntohs((tlvh)->length), sizeof(u_int32_t)))
+#define TLV_BODY_SIZE(tlvh) (ROUNDUP(ntohs((tlvh)->length), sizeof(u_int32_t)))
 
 #define TLV_SIZE(tlvh)	(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
 
-#define TLV_HDR_TOP(lsah) \
+#define TLV_HDR_TOP(lsah)                                                      \
 	(struct tlv_header *)((char *)(lsah) + OSPF_LSA_HEADER_SIZE)
 
-#define TLV_HDR_NEXT(tlvh) \
+#define TLV_HDR_NEXT(tlvh)                                                     \
 	(struct tlv_header *)((char *)(tlvh) + TLV_SIZE(tlvh))
 
-#define TLV_HDR_SUBTLV(tlvh) \
+#define TLV_HDR_SUBTLV(tlvh)                                                   \
 	(struct tlv_header *)((char *)(tlvh) + TLV_HDR_SIZE)
 
 #define TLV_DATA(tlvh)	(void *)((char *)(tlvh) + TLV_HDR_SIZE)
@@ -112,11 +111,7 @@ struct tlv_header {
 #define TLV_HDR(tlvh)	tlvh.header
 
 /* Following declaration concerns the Opaque LSA management */
-enum lsa_opcode {
-	REORIGINATE_THIS_LSA,
-	REFRESH_THIS_LSA,
-	FLUSH_THIS_LSA
-};
+enum lsa_opcode { REORIGINATE_THIS_LSA, REFRESH_THIS_LSA, FLUSH_THIS_LSA };
 
 /* Prototypes. */
 

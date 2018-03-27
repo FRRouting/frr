@@ -29,7 +29,7 @@ Building your own FRRouting RPM
         cd frr
         ./bootstrap.sh
         ./configure --with-pkg-extra-version=-MyRPMVersion
-        make dist
+        make SPHINXBUILD=sphinx-build2.7 dist
             
     Note: configure parameters are not important for the RPM building - except the `with-pkg-extra-version` if you want to give the RPM a specific name to
     mark your own unoffical build
@@ -63,10 +63,15 @@ Building your own FRRouting RPM
         %{!?with_watchfrr:      %global  with_watchfrr      1 }
         %{!?with_bgp_vnc:       %global  with_bgp_vnc       0 }
         %{!?with_pimd:          %global  with_pimd          1 }
+        %{!?with_rpki:          %global  with_rpki          0 }
 
 7. Build the RPM
 
         rpmbuild --define "_topdir `pwd`/rpmbuild" -ba rpmbuild/SPECS/frr.spec
+
+   If building with RPKI, then download and install the additional RPKI
+   packages from
+        https://ci1.netdef.org/browse/RPKI-RTRLIB/latestSuccessful/artifact
 
 DONE.
 

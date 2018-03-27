@@ -40,7 +40,7 @@
 # Long description:     Full description, but should try fit on a line.
 ####
 #
-# If you add a new routing protocol here, make sure you go update
+# If you add a new routing protocol here, make sure you also update
 # meta_queue_map in zebra_rib.c
 #
 ##  type                cname      daemon  C    4  6  short help

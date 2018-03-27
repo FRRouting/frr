@@ -2,13 +2,6 @@ Makefile
 Makefile.in
 mdate-sh
 draft-zebra-00.txt
-frr.info-*
-zebra.html
-defines.texi
-version.texi
-texinfo.tex
-frr.html
-frr.info
 *.pdf
 *.eps
 frr.ps
@@ -28,8 +21,6 @@ stamp-vti
 *.toc
 *.tp
 *.vr
-*.8
-*.1
 .arch-inventory
 .arch-ids
 *~

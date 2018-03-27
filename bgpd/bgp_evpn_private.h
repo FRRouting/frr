@@ -61,30 +61,39 @@ struct bgpevpn {
 #define VNI_FLAG_RD_CFGD           0x4  /* RD is user configured. */
 #define VNI_FLAG_IMPRT_CFGD        0x8  /* Import RT is user configured */
 #define VNI_FLAG_EXPRT_CFGD        0x10 /* Export RT is user configured */
+#define VNI_FLAG_USE_TWO_LABELS    0x20 /* Attach both L2-VNI and L3-VNI if
+					   needed for this VPN */
 
-	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
-	u_int8_t advertise_gw_macip;
+	struct bgp *bgp_vrf; /* back pointer to the vrf instance */
 
-	/* Flag to indicate if we are advertising subnet for this VNI */
-	u_int8_t advertise_subnet;
+					   /* Flag to indicate if we are
+					    * advertising the g/w mac ip for
+					    * this VNI*/
+					   u_int8_t advertise_gw_macip;
 
-	/* Id for deriving the RD automatically for this VNI */
-	u_int16_t rd_id;
+					   /* Flag to indicate if we are
+					    * advertising subnet for this VNI */
+					   u_int8_t advertise_subnet;
 
-	/* RD for this VNI. */
-	struct prefix_rd prd;
+					   /* Id for deriving the RD
+					    * automatically for this VNI */
+					   u_int16_t rd_id;
 
-	/* Route type 3 field */
-	struct in_addr originator_ip;
+					   /* RD for this VNI. */
+					   struct prefix_rd prd;
 
-	/* Import and Export RTs. */
-	struct list *import_rtl;
-	struct list *export_rtl;
+					   /* Route type 3 field */
+					   struct in_addr originator_ip;
 
-	/* Route table for EVPN routes for this VNI. */
-	struct bgp_table *route_table;
+					   /* Import and Export RTs. */
+					   struct list *import_rtl;
+					   struct list *export_rtl;
 
-	QOBJ_FIELDS
+					   /* Route table for EVPN routes for
+					    * this VNI. */
+					   struct bgp_table *route_table;
+
+					   QOBJ_FIELDS
 };
 
 DECLARE_QOBJ_TYPE(bgpevpn)
@@ -120,8 +129,7 @@ struct vrf_irt_node {
 
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
 {
-	return (CHECK_FLAG(bgp_vrf->vrf_flags,
-			   BGP_VRF_RD_CFGD));
+	return (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD));
 }
 
 static inline int bgp_evpn_vrf_rd_matches_existing(struct bgp *bgp_vrf,
@@ -132,66 +140,65 @@ static inline int bgp_evpn_vrf_rd_matches_existing(struct bgp *bgp_vrf,
 
 static inline vni_t bgpevpn_get_l3vni(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
-		return 0;
-
-	return bgp_vrf->l3vni;
+	return vpn->bgp_vrf ? vpn->bgp_vrf->l3vni : 0;
 }
 
 static inline void bgpevpn_get_rmac(struct bgpevpn *vpn, struct ethaddr *rmac)
 {
-	struct bgp *bgp_vrf = NULL;
-
 	memset(rmac, 0, sizeof(struct ethaddr));
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	if (!vpn->bgp_vrf)
 		return;
-	memcpy(rmac, &bgp_vrf->rmac, sizeof(struct ethaddr));
+	memcpy(rmac, &vpn->bgp_vrf->rmac, sizeof(struct ethaddr));
 }
 
 static inline struct list *bgpevpn_get_vrf_export_rtl(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	if (!vpn->bgp_vrf)
 		return NULL;
 
-	return bgp_vrf->vrf_export_rtl;
+	return vpn->bgp_vrf->vrf_export_rtl;
 }
 
 static inline struct list *bgpevpn_get_vrf_import_rtl(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	if (!vpn->bgp_vrf)
 		return NULL;
 
-	return bgp_vrf->vrf_import_rtl;
+	return vpn->bgp_vrf->vrf_import_rtl;
 }
 
 static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf || !bgp_vrf->l2vnis)
+	/* bail if vpn is not associated to bgp_vrf */
+	if (!vpn->bgp_vrf)
 		return;
-	listnode_delete(bgp_vrf->l2vnis, vpn);
+
+	UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
+	listnode_delete(vpn->bgp_vrf->l2vnis, vpn);
+
+	/* remove the backpointer to the vrf instance */
+	vpn->bgp_vrf = NULL;
 }
 
 static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 {
 	struct bgp *bgp_vrf = NULL;
 
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf || !bgp_vrf->l2vnis)
+	/* bail if vpn is already associated to vrf */
+	if (vpn->bgp_vrf)
 		return;
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
+	if (!bgp_vrf)
+		return;
+
+	/* associate the vpn to the bgp_vrf instance */
+	vpn->bgp_vrf = bgp_vrf;
 	listnode_add_sort(bgp_vrf->l2vnis, vpn);
+
+	/* check if we are advertising two labels for this vpn */
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
+		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 }
 
 static inline int is_vni_configured(struct bgpevpn *vpn)
@@ -268,16 +275,22 @@ static inline void ip_prefix_from_type5_prefix(struct prefix_evpn *evp,
 	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
 		ip->family = AF_INET;
 		ip->prefixlen = evp->prefix.ip_prefix_length;
-		memcpy(&(ip->u.prefix4),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix4), &(evp->prefix.ip.ip),
 		       IPV4_MAX_BYTELEN);
 	} else if (IS_EVPN_PREFIX_IPADDR_V6(evp)) {
 		ip->family = AF_INET6;
 		ip->prefixlen = evp->prefix.ip_prefix_length;
-		memcpy(&(ip->u.prefix6),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix6), &(evp->prefix.ip.ip),
 		       IPV6_MAX_BYTELEN);
 	}
+}
+
+static inline int is_evpn_prefix_default(struct prefix *evp)
+{
+	if (evp->family != AF_EVPN)
+		return 0;
+
+	return ((evp->u.prefix_evpn.ip_prefix_length  == 0) ? 1 : 0);
 }
 
 static inline void ip_prefix_from_type2_prefix(struct prefix_evpn *evp,
@@ -287,14 +300,12 @@ static inline void ip_prefix_from_type2_prefix(struct prefix_evpn *evp,
 	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
 		ip->family = AF_INET;
 		ip->prefixlen = IPV4_MAX_BITLEN;
-		memcpy(&(ip->u.prefix4),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix4), &(evp->prefix.ip.ip),
 		       IPV4_MAX_BYTELEN);
 	} else if (IS_EVPN_PREFIX_IPADDR_V6(evp)) {
 		ip->family = AF_INET6;
 		ip->prefixlen = IPV6_MAX_BITLEN;
-		memcpy(&(ip->u.prefix6),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix6), &(evp->prefix.ip.ip),
 		       IPV6_MAX_BYTELEN);
 	}
 }
@@ -349,24 +360,21 @@ static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
 	p->prefix.ip.ipaddr_v4 = originator_ip;
 }
 
-static inline int advertise_type5_routes(struct bgp *bgp_vrf,
-					 afi_t afi)
+static inline int evpn_default_originate_set(struct bgp *bgp, afi_t afi,
+					     safi_t safi)
 {
-	if (!bgp_vrf->l3vni)
-		return 0;
-
 	if (afi == AFI_IP &&
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
+	    CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4))
 		return 1;
-
-	if (afi == AFI_IP6 &&
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
+	else if (afi == AFI_IP6 &&
+		 CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+			    BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6))
 		return 1;
-
 	return 0;
 }
 
-extern void evpn_rt_delete_auto(struct bgp*, vni_t, struct list*);
+extern void evpn_rt_delete_auto(struct bgp *, vni_t, struct list *);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct ecommunity *ecomadd);
 extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,

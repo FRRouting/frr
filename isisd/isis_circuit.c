@@ -234,8 +234,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 #ifdef EXTREME_DEBUG
 		prefix2str(connected->address, buf, sizeof(buf));
-		zlog_debug("Added IP address %s to circuit %d", buf,
-			   circuit->circuit_id);
+		zlog_debug("Added IP address %s to circuit %s", buf,
+			   circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 	if (connected->address->family == AF_INET6) {
@@ -265,8 +265,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 #ifdef EXTREME_DEBUG
 		prefix2str(connected->address, buf, sizeof(buf));
-		zlog_debug("Added IPv6 address %s to circuit %d", buf,
-			   circuit->circuit_id);
+		zlog_debug("Added IPv6 address %s to circuit %s", buf,
+			   circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 	return;
@@ -300,9 +300,9 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		} else {
 			prefix2str(connected->address, buf, sizeof(buf));
 			zlog_warn(
-				"Nonexistant ip address %s removal attempt from \
-                      circuit %d",
-				buf, circuit->circuit_id);
+				"Nonexistent ip address %s removal attempt from \
+                      circuit %s",
+				buf, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
@@ -349,9 +349,9 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		if (!found) {
 			prefix2str(connected->address, buf, sizeof(buf));
 			zlog_warn(
-				"Nonexitant ip address %s removal attempt from \
-		      circuit %d",
-				buf, circuit->circuit_id);
+				"Nonexistent ip address %s removal attempt from \
+		      circuit %s",
+				buf, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
@@ -377,7 +377,7 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 	return;
 }
 
-static uint8_t isis_circuit_id_gen(struct interface *ifp)
+static uint8_t isis_circuit_id_gen(struct isis *isis, struct interface *ifp)
 {
 	/* Circuit ids MUST be unique for any broadcast circuits. Otherwise,
 	 * Pseudo-Node LSPs cannot be generated correctly.
@@ -398,10 +398,12 @@ static uint8_t isis_circuit_id_gen(struct interface *ifp)
 	}
 
 	if (i == 256) {
-		zlog_warn("Could not allocate a circuit id for '%s'", ifp->name);
+		zlog_warn("Could not allocate a circuit id for '%s'",
+			  ifp->name);
 		return 0;
 	}
 
+	_ISIS_SET_FLAG(isis->circuit_ids_used, id);
 	return id;
 }
 
@@ -410,11 +412,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct connected *conn;
 
-	circuit->circuit_id = isis_circuit_id_gen(ifp);
-	_ISIS_SET_FLAG(isis->circuit_ids_used, circuit->circuit_id);
-
 	isis_circuit_if_bind(circuit, ifp);
-	/*  isis_circuit_update_addrs (circuit, ifp); */
 
 	if (if_is_broadcast(ifp)) {
 		if (circuit->circ_type_config == CIRCUIT_T_P2P)
@@ -439,8 +437,6 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_add_addr(circuit, conn);
-
-	return;
 }
 
 void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
@@ -457,26 +453,19 @@ void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 	if (circuit->ip_addrs) {
 		assert(listcount(circuit->ip_addrs) == 0);
 		list_delete_and_null(&circuit->ip_addrs);
-		circuit->ip_addrs = NULL;
 	}
 
 	if (circuit->ipv6_link) {
 		assert(listcount(circuit->ipv6_link) == 0);
 		list_delete_and_null(&circuit->ipv6_link);
-		circuit->ipv6_link = NULL;
 	}
 
 	if (circuit->ipv6_non_link) {
 		assert(listcount(circuit->ipv6_non_link) == 0);
 		list_delete_and_null(&circuit->ipv6_non_link);
-		circuit->ipv6_non_link = NULL;
 	}
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
-	_ISIS_CLEAR_FLAG(isis->circuit_ids_used, circuit->circuit_id);
-	circuit->circuit_id = 0;
-
-	return;
 }
 
 void isis_circuit_if_bind(struct isis_circuit *circuit, struct interface *ifp)
@@ -590,6 +579,12 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	}
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+		circuit->circuit_id = isis_circuit_id_gen(isis, circuit->interface);
+		if (!circuit->circuit_id) {
+			zlog_err("There are already 255 broadcast circuits active!");
+			return ISIS_ERROR;
+		}
+
 		/*
 		 * Get the Hardware Address
 		 */
@@ -734,6 +729,9 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[1]);
 		circuit->lsp_regenerate_pending[0] = 0;
 		circuit->lsp_regenerate_pending[1] = 0;
+
+		_ISIS_CLEAR_FLAG(isis->circuit_ids_used, circuit->circuit_id);
+		circuit->circuit_id = 0;
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		isis_delete_adj(circuit->u.p2p.neighbor);
 		circuit->u.p2p.neighbor = NULL;
@@ -1043,6 +1041,11 @@ int isis_interface_config_write(struct vty *vty)
 				write++;
 			}
 
+			if (circuit->disable_threeway_adj) {
+				vty_out(vty, " no isis three-way-handshake\n");
+				write++;
+			}
+
 			/* ISIS - Hello interval */
 			if (circuit->hello_interval[0]
 			    == circuit->hello_interval[1]) {
@@ -1349,7 +1352,8 @@ void isis_circuit_schedule_lsp_send(struct isis_circuit *circuit)
 {
 	if (circuit->t_send_lsp)
 		return;
-	circuit->t_send_lsp = thread_add_event(master, send_lsp, circuit, 0, NULL);
+	circuit->t_send_lsp =
+		thread_add_event(master, send_lsp, circuit, 0, NULL);
 }
 
 void isis_circuit_queue_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp)

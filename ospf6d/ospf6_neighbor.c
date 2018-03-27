@@ -188,10 +188,13 @@ static void ospf6_neighbor_state_change(u_char next_state,
 			OSPF6_NETWORK_LSA_SCHEDULE(on->ospf6_if);
 			OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(on->ospf6_if);
 		}
+		if (next_state == OSPF6_NEIGHBOR_FULL)
+			on->ospf6_if->area->intra_prefix_originate = 1;
+
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(on->ospf6_if->area);
 
-		if (prev_state == OSPF6_NEIGHBOR_LOADING &&
-		    next_state == OSPF6_NEIGHBOR_FULL) {
+		if (prev_state == OSPF6_NEIGHBOR_LOADING
+		    && next_state == OSPF6_NEIGHBOR_FULL) {
 			OSPF6_AS_EXTERN_LSA_SCHEDULE(on->ospf6_if);
 			on->ospf6_if->area->full_nbrs++;
 		}

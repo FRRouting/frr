@@ -526,8 +526,8 @@ int main(int argc, char **argv, char **env)
 	 */
 	homedir = vtysh_get_home();
 	if (homedir) {
-		snprintf(history_file, sizeof(history_file),
-			 "%s/.history_quagga", homedir);
+		snprintf(history_file, sizeof(history_file), "%s/.history_frr",
+			 homedir);
 		if (read_history(history_file) != 0) {
 			int fp;
 

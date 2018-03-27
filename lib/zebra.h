@@ -127,10 +127,10 @@ typedef unsigned char u_int8_t;
 #endif
 
 #ifndef HAVE_LIBCRYPT
-#   ifdef HAVE_LIBCRYPTO
-#      include <openssl/des.h>
+#ifdef HAVE_LIBCRYPTO
+#include <openssl/des.h>
 #      define crypt DES_crypt
-#   endif
+#endif
 #endif
 
 #include "openbsd-tree.h"
@@ -232,10 +232,12 @@ typedef unsigned char u_int8_t;
 #include "zassert.h"
 
 #ifndef HAVE_STRLCAT
-size_t strlcat(char *__restrict dest, const char *__restrict src, size_t size);
+size_t strlcat(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
 #endif
 #ifndef HAVE_STRLCPY
-size_t strlcpy(char *__restrict dest, const char *__restrict src, size_t size);
+size_t strlcpy(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
 #endif
 
 #ifdef HAVE_BROKEN_CMSG_FIRSTHDR
@@ -402,7 +404,7 @@ extern const char *zserv_command_string(unsigned int command);
 #define strmatch(a,b) (!strcmp((a), (b)))
 
 /* Zebra message flags */
-#define ZEBRA_FLAG_INTERNAL           0x01
+#define ZEBRA_FLAG_ALLOW_RECURSION    0x01
 #define ZEBRA_FLAG_SELFROUTE          0x02
 #define ZEBRA_FLAG_IBGP               0x08
 #define ZEBRA_FLAG_SELECTED           0x10
@@ -480,6 +482,16 @@ typedef enum {
 #define SET_FLAG(V,F)        (V) |= (F)
 #define UNSET_FLAG(V,F)      (V) &= ~(F)
 #define RESET_FLAG(V)        (V) = 0
+
+/* Atomic flag manipulation macros. */
+#define CHECK_FLAG_ATOMIC(PV, F)                                               \
+	((atomic_load_explicit(PV, memory_order_seq_cst)) & (F))
+#define SET_FLAG_ATOMIC(PV, F)                                                 \
+	((atomic_fetch_or_explicit(PV, (F), memory_order_seq_cst)))
+#define UNSET_FLAG_ATOMIC(PV, F)                                               \
+	((atomic_fetch_and_explicit(PV, ~(F), memory_order_seq_cst)))
+#define RESET_FLAG_ATOMIC(PV)                                                  \
+	((atomic_store_explicit(PV, 0, memory_order_seq_cst)))
 
 /* Zebra types. Used in Zserv message header. */
 typedef u_int16_t zebra_size_t;

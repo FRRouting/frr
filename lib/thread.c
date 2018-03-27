@@ -59,7 +59,7 @@ static struct list *masters;
 /* CLI start ---------------------------------------------------------------- */
 static unsigned int cpu_record_hash_key(struct cpu_thread_history *a)
 {
-	int size = sizeof (&a->func);
+	int size = sizeof(&a->func);
 
 	return jhash(&a->func, size, 0);
 }
@@ -343,7 +343,6 @@ static void initializer()
 	pthread_key_create(&thread_current, NULL);
 }
 
-/* Allocate new thread master.  */
 struct thread_master *thread_master_create(const char *name)
 {
 	struct thread_master *rv;
@@ -380,8 +379,7 @@ struct thread_master *thread_master_create(const char *name)
 	}
 
 	rv->cpu_record = hash_create_size(
-		8,
-		(unsigned int (*)(void *))cpu_record_hash_key,
+		8, (unsigned int (*)(void *))cpu_record_hash_key,
 		(int (*)(const void *, const void *))cpu_record_hash_cmp,
 		"Thread Hash");
 
@@ -425,6 +423,17 @@ struct thread_master *thread_master_create(const char *name)
 	pthread_mutex_unlock(&masters_mtx);
 
 	return rv;
+}
+
+void thread_master_set_name(struct thread_master *master, const char *name)
+{
+	pthread_mutex_lock(&master->mtx);
+	{
+		if (master->name)
+			XFREE(MTYPE_THREAD_MASTER, master->name);
+		master->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
+	}
+	pthread_mutex_unlock(&master->mtx);
 }
 
 /* Add a new thread to the list.  */
@@ -937,7 +946,7 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state)
 		zlog_debug(
 			"[!] Received cancellation request for nonexistent rw job");
 		zlog_debug("[!] threadmaster: %s | fd: %d",
-			 master->name ? master->name : "", fd);
+			   master->name ? master->name : "", fd);
 		return;
 	}
 

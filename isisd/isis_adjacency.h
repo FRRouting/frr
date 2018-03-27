@@ -25,6 +25,8 @@
 #ifndef _ZEBRA_ISIS_ADJACENCY_H
 #define _ZEBRA_ISIS_ADJACENCY_H
 
+#include "isisd/isis_tlvs.h"
+
 enum isis_adj_usage {
 	ISIS_ADJ_NONE,
 	ISIS_ADJ_LEVEL1,
@@ -91,6 +93,8 @@ struct isis_adjacency {
 	u_int16_t hold_time;		/* entryRemainingTime */
 	u_int32_t last_upd;
 	u_int32_t last_flap;	  /* last time the adj flapped */
+	enum isis_threeway_state threeway_state;
+	uint32_t ext_circuit_id;
 	int flaps;		      /* number of adjacency flaps  */
 	struct thread *t_expire;      /* expire after hold_time  */
 	struct isis_circuit *circuit; /* back pointer */
@@ -98,12 +102,17 @@ struct isis_adjacency {
 	unsigned int mt_count; /* Number of entries in mt_set */
 };
 
+struct isis_threeway_adj;
+
 struct isis_adjacency *isis_adj_lookup(const u_char *sysid, struct list *adjdb);
 struct isis_adjacency *isis_adj_lookup_snpa(const u_char *ssnpa,
 					    struct list *adjdb);
 struct isis_adjacency *isis_new_adj(const u_char *id, const u_char *snpa,
 				    int level, struct isis_circuit *circuit);
 void isis_delete_adj(void *adj);
+void isis_adj_process_threeway(struct isis_adjacency *adj,
+			       struct isis_threeway_adj *tw_adj,
+			       enum isis_adj_usage adj_usage);
 void isis_adj_state_change(struct isis_adjacency *adj,
 			   enum isis_adj_state state, const char *reason);
 void isis_adj_print(struct isis_adjacency *adj);

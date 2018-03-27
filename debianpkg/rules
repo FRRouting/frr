@@ -15,9 +15,20 @@ WANT_BGP_VNC ?= 1
 WANT_CUMULUS_MODE ?= 0
 WANT_MULTIPATH ?= 1
 WANT_SNMP ?= 0
+WANT_RPKI ?= 0
 
+# NOTES:
+#
+# If you use WANT_RPKI, then there is a new dependency for librtr0 package
+#    and a build dependency of the librtr-dev package.
+#    While the librtr0 is added to the depenencies automatically, the build
+#    dependency can't be changed dynamically and building will fail if the
+#    librtr-dev isn't installed during package build
+#    Tested versions of both packages can be found at
+#    https://ci1.netdef.org/browse/RPKI-RTRLIB/latestSuccessful/artifact
+#
 # If multipath is enabled (WANT_MULTIPATH=1), then set number of multipaths here
-# Please be aware that 0 is NOT disabled, but treated as unlimited
+#    Please be aware that 0 is NOT disabled, but treated as unlimited
 
 MULTIPATH ?= 256
 
@@ -26,6 +37,9 @@ MULTIPATH ?= 256
 
 WANT_FRR_USER ?= frr
 WANT_FRR_VTY_GROUP ?= frrvty
+
+# Don't build PDF docs by default
+GENERATE_PDF ?= 0
 
 #
 ####################################
@@ -88,6 +102,12 @@ else
   USE_CUMULUS=--enable-cumulus=no
 endif
 
+ifeq ($(WANT_RPKI), 1)
+  USE_RPKI=--enable-rpki
+else
+  USE_RPKI=--disable-rpki
+endif
+
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
   DEBIAN_JOBS := $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
 endif
@@ -98,6 +118,13 @@ endif
 
 %:
 	dh $@ --with=systemd,autoreconf --parallel --dbg-package=frr-dbg --list-missing
+
+override_dh_gencontrol:
+ifeq ($(WANT_RPKI), 1)
+	dh_gencontrol -- -Vdist:Depends="librtr0 (>= 0.5)"
+else
+	dh_gencontrol
+endif
 
 override_dh_auto_configure:
 	# Frr needs /proc to check some BSD vs Linux specific stuff.
@@ -132,22 +159,17 @@ override_dh_auto_configure:
 		$(USE_PIM) \
 		--enable-dependency-tracking \
 		$(USE_BGP_VNC) \
+		$(USE_RPKI) \
 		$(shell dpkg-buildflags --export=configure); \
 	fi
 
 override_dh_auto_build:
-	#dh_auto_build
-	$(MAKE)
-	dh_auto_build -- -C doc draft-zebra-00.txt
-
-
 	# doc/ is a bit crazy
 ifeq ($(GENERATE_PDF), 1)
-	dh_auto_build -- -C doc frr.pdf || true # pdfetex fails with exit code 1 but still produces a good looking .pdf
+	dh_auto_build -- -C doc pdf
 endif
-	rm -vf doc/frr.info
-	dh_auto_build -- -C doc frr.info
-	rm -vf doc/frr.info.html*
+	rm -vf doc/user/_build/texinfo/frr.info
+	dh_auto_build -- -C doc info
 
 override_dh_auto_test:
 

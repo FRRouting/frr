@@ -66,6 +66,8 @@
 #define BGP_PREFIX_SID_IPV6_LENGTH            19
 #define BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH  6
 
+/* PMSI tunnel types (RFC 6514) */
+
 struct bgp_attr_encap_subtlv {
 	struct bgp_attr_encap_subtlv *next; /* for chaining */
 	/* Reference count of this attribute. */
@@ -96,6 +98,18 @@ struct overlay_index {
 	union gw_addr gw_ip;
 };
 
+enum pta_type {
+	PMSI_TNLTYPE_NO_INFO = 0,
+	PMSI_TNLTYPE_RSVP_TE_P2MP,
+	PMSI_TNLTYPE_MLDP_P2MP,
+	PMSI_TNLTYPE_PIM_SSM,
+	PMSI_TNLTYPE_PIM_SM,
+	PMSI_TNLTYPE_PIM_BIDIR,
+	PMSI_TNLTYPE_INGR_REPL,
+	PMSI_TNLTYPE_MLDP_MP2MP,
+	PMSI_TNLTYPE_MAX = PMSI_TNLTYPE_MLDP_MP2MP
+};
+
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -118,6 +132,9 @@ struct attr {
 
 	/* Path origin attribute */
 	u_char origin;
+
+	/* PMSI tunnel type (RFC 6514). */
+	enum pta_type pmsi_tnl_type;
 
 	/* has the route-map changed any attribute?
 	   Used on the peer outbound side. */
@@ -215,10 +232,8 @@ struct transit {
 
 /* "(void) 0" will generate a compiler error.  this is a safety check to
  * ensure we're not using a value that exceeds the bit size of attr->flag. */
-#define ATTR_FLAG_BIT(X) \
-	__builtin_choose_expr((X) >= 1 && (X) <= 64, \
-			      1ULL << ((X) - 1), \
-			      (void) 0)
+#define ATTR_FLAG_BIT(X)                                                       \
+	__builtin_choose_expr((X) >= 1 && (X) <= 64, 1ULL << ((X)-1), (void)0)
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
 	(((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))                 \
@@ -260,8 +275,8 @@ extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *,
 				       struct bpacket_attr_vec_arr *vecarr,
 				       struct prefix *, afi_t, safi_t,
 				       struct peer *, struct prefix_rd *,
-				       mpls_label_t *, u_int32_t,
-				       int, u_int32_t);
+				       mpls_label_t *, u_int32_t, int,
+				       u_int32_t);
 extern void bgp_dump_routes_attr(struct stream *, struct attr *,
 				 struct prefix *);
 extern int attrhash_cmp(const void *, const void *);
@@ -320,9 +335,9 @@ extern size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi,
 					 safi_t safi);
 extern void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p,
 					afi_t afi, safi_t safi,
-					struct prefix_rd *prd,
-					mpls_label_t *, u_int32_t,
-					int, u_int32_t, struct attr *);
+					struct prefix_rd *prd, mpls_label_t *,
+					u_int32_t, int, u_int32_t,
+					struct attr *);
 extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 
 static inline int bgp_rmap_nhop_changed(u_int32_t out_rmap_flags,

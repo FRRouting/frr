@@ -74,7 +74,6 @@ static inline void qpb_free(qpb_allocator_t *allocator, void *ptr)
  */
 #define QPB_ALLOC(allocator, type) (type *)qpb_alloc(allocator, sizeof(type))
 
-
 /*
  * Externs.
  */

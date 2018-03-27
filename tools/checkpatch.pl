@@ -1249,11 +1249,6 @@ sub sanitise_line {
 		$res =~ s@(\#\s*(?:error|warning)\s+).*@$1$clean@;
 	}
 
-	if ($allow_c99_comments && $res =~ m@(//.*$)@) {
-		my $match = $1;
-		$res =~ s/\Q$match\E/"$;" x length($match)/e;
-	}
-
 	return $res;
 }
 
@@ -3612,14 +3607,19 @@ sub process {
 
 # no C99 // comments
 		if ($line =~ m{//}) {
-			if (ERROR("C99_COMMENTS",
-				  "do not use C99 // comments\n" . $herecurr) &&
-			    $fix) {
-				my $line = $fixed[$fixlinenr];
-				if ($line =~ /\/\/(.*)$/) {
-					my $comment = trim($1);
-					$fixed[$fixlinenr] =~ s@\/\/(.*)$@/\* $comment \*/@;
+			if (!$allow_c99_comments) {
+				if(ERROR("C99_COMMENTS",
+					 "do not use C99 // comments\n" . $herecurr) &&
+				   $fix) {
+					my $line = $fixed[$fixlinenr];
+					if ($line =~ /\/\/(.*)$/) {
+						my $comment = trim($1);
+						$fixed[$fixlinenr] =~ s@\/\/(.*)$@/\* $comment \*/@;
+					}
 				}
+			} else {
+				WARN("C99_COMMENTS",
+				     "C99 // comments do not match recommendation\n" . $herecurr);
 			}
 		}
 		# Remove C99 comments.

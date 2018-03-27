@@ -19,8 +19,8 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#if !defined(__ZEBRA_RIB_H__)
-#define __ZEBRA_RIB_H__
+#if !defined(__ZEBRA_VRF_H__)
+#define __ZEBRA_VRF_H__
 
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
@@ -61,9 +61,6 @@ struct zebra_vrf {
 
 	/* Import check table (used mostly by BGP */
 	struct route_table *import_check_table[AFI_MAX];
-
-	/* Routing tables off of main table for redistribute table */
-	struct route_table *other_table[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 	/* 2nd pointer type used primarily to quell a warning on
 	 * ALL_LIST_ELEMENTS_RO
@@ -131,12 +128,26 @@ struct zebra_vrf {
 
 static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 {
+	if (!zvrf || !zvrf->vrf)
+		return VRF_UNKNOWN;
 	return zvrf->vrf->vrf_id;
+}
+
+static inline const char *zvrf_ns_name(struct zebra_vrf *zvrf)
+{
+	if (!zvrf->vrf || !zvrf->vrf->ns_ctxt)
+		return NULL;
+	return ns_get_name((struct ns *)zvrf->vrf->ns_ctxt);
 }
 
 static inline const char *zvrf_name(struct zebra_vrf *zvrf)
 {
 	return zvrf->vrf->name;
+}
+
+static inline bool zvrf_is_active(struct zebra_vrf *zvrf)
+{
+	return zvrf->vrf->status & VRF_ACTIVE;
 }
 
 struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
@@ -154,4 +165,7 @@ extern struct route_table *
 zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id, vrf_id_t vrf_id);
 extern int zebra_vrf_has_config(struct zebra_vrf *zvrf);
 extern void zebra_vrf_init(void);
-#endif
+
+extern void zebra_rtable_node_cleanup(struct route_table *table,
+				      struct route_node *node);
+#endif /* ZEBRA_VRF_H */

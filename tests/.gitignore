@@ -24,10 +24,12 @@ __pycache__
 /bgpd/test_ecommunity
 /bgpd/test_mp_attr
 /bgpd/test_mpath
+/bgpd/test_packet
 /isisd/test_fuzz_isis_tlv
 /isisd/test_fuzz_isis_tlv_tests.h
 /isisd/test_isis_vertex_queue
 /lib/cli/test_cli
+/lib/cli/test_cli_clippy.c
 /lib/cli/test_commands
 /lib/cli/test_commands_defun.c
 /lib/test_buffer
@@ -38,6 +40,7 @@ __pycache__
 /lib/test_memory
 /lib/test_nexthop_iter
 /lib/test_privs
+/lib/test_ringbuf
 /lib/test_srcdest_table
 /lib/test_segv
 /lib/test_sig
@@ -48,3 +51,4 @@ __pycache__
 /lib/test_ttable
 /lib/test_zmq
 /ospf6d/test_lsdb
+/ospf6d/test_lsdb_clippy.c

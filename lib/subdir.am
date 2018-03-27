@@ -15,6 +15,7 @@ lib_libfrr_la_SOURCES = \
 	lib/command_match.c \
 	lib/command_parse.y \
 	lib/csv.c \
+	lib/debug.c \
 	lib/distribute.c \
 	lib/event_counter.c \
 	lib/ferr.c \
@@ -42,7 +43,9 @@ lib_libfrr_la_SOURCES = \
 	lib/module.c \
 	lib/network.c \
 	lib/nexthop.c \
-	lib/ns.c \
+	lib/netns_linux.c \
+	lib/netns_other.c \
+	lib/nexthop_group.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
 	lib/plist.c \
@@ -74,10 +77,13 @@ lib_libfrr_la_SOURCES = \
 	lib/wheel.c \
 	lib/workqueue.c \
 	lib/zclient.c \
+	lib/logicalrouter.c \
 	# end
 
 lib/plist_clippy.c: $(CLIPPY_DEPS)
 lib/plist.lo: lib/plist_clippy.c
+lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
+lib/nexthop_group.lo: lib/nexthop_group_clippy.c
 
 pkginclude_HEADERS += \
 	lib/bfd.h \
@@ -89,6 +95,7 @@ pkginclude_HEADERS += \
 	lib/command_match.h \
 	lib/compiler.h \
 	lib/csv.h \
+	lib/debug.h \
 	lib/distribute.h \
 	lib/event_counter.h \
 	lib/ferr.h \
@@ -120,6 +127,7 @@ pkginclude_HEADERS += \
 	lib/mpls.h \
 	lib/network.h \
 	lib/nexthop.h \
+	lib/nexthop_group.h \
 	lib/ns.h \
 	lib/openbsd-queue.h \
 	lib/openbsd-tree.h \
@@ -158,6 +166,7 @@ pkginclude_HEADERS += \
 	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
+	lib/logicalrouter.h \
 	# end
 
 nodist_pkginclude_HEADERS += \

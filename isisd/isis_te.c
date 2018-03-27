@@ -549,7 +549,8 @@ void isis_link_params_update(struct isis_circuit *circuit,
 		if ((SUBTLV_TYPE(mtc->rmt_ipaddr) == 0)
 		    && (circuit->circ_type == CIRCUIT_T_P2P)) {
 			struct isis_adjacency *adj = circuit->u.p2p.neighbor;
-			if (adj->ipv4_address_count) {
+			if (adj && adj->adj_state == ISIS_ADJ_UP
+			    && adj->ipv4_address_count) {
 				set_circuitparams_rmt_ipaddr(
 					mtc, adj->ipv4_addresses[0]);
 			}
@@ -725,7 +726,8 @@ static u_char print_subtlv_max_rsv_bw(struct sbuf *buf, int indent,
 
 	fval = ntohf(tlv->value);
 
-	sbuf_push(buf, indent, "Maximum Reservable Bandwidth: %g (Bytes/sec)\n", fval);
+	sbuf_push(buf, indent, "Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
+		  fval);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -741,8 +743,9 @@ static u_char print_subtlv_unrsv_bw(struct sbuf *buf, int indent,
 	for (i = 0; i < MAX_CLASS_TYPE; i += 2) {
 		fval1 = ntohf(tlv->value[i]);
 		fval2 = ntohf(tlv->value[i + 1]);
-		sbuf_push(buf, indent + 2, "[%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
-			  i, fval1, i + 1, fval2);
+		sbuf_push(buf, indent + 2,
+			  "[%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n", i,
+			  fval1, i + 1, fval2);
 	}
 
 	return (SUBTLV_HDR_SIZE + TE_SUBTLV_UNRSV_SIZE);
@@ -786,7 +789,8 @@ static u_char print_subtlv_av_delay(struct sbuf *buf, int indent,
 	delay = (u_int32_t)ntohl(tlv->value) & TE_EXT_MASK;
 	A = (u_int32_t)ntohl(tlv->value) & TE_EXT_ANORMAL;
 
-	sbuf_push(buf, indent, "%s Average Link Delay: %" PRIu32 " (micro-sec)\n",
+	sbuf_push(buf, indent,
+		  "%s Average Link Delay: %" PRIu32 " (micro-sec)\n",
 		  A ? "Anomalous" : "Normal", delay);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
@@ -815,7 +819,8 @@ static u_char print_subtlv_delay_var(struct sbuf *buf, int indent,
 
 	jitter = (u_int32_t)ntohl(tlv->value) & TE_EXT_MASK;
 
-	sbuf_push(buf, indent, "Delay Variation: %" PRIu32 " (micro-sec)\n", jitter);
+	sbuf_push(buf, indent, "Delay Variation: %" PRIu32 " (micro-sec)\n",
+		  jitter);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -844,8 +849,8 @@ static u_char print_subtlv_res_bw(struct sbuf *buf, int indent,
 
 	fval = ntohf(tlv->value);
 
-	sbuf_push(buf, indent, "Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
-		  fval);
+	sbuf_push(buf, indent,
+		  "Unidirectional Residual Bandwidth: %g (Bytes/sec)\n", fval);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -857,8 +862,8 @@ static u_char print_subtlv_ava_bw(struct sbuf *buf, int indent,
 
 	fval = ntohf(tlv->value);
 
-	sbuf_push(buf, indent, "Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
-		  fval);
+	sbuf_push(buf, indent,
+		  "Unidirectional Available Bandwidth: %g (Bytes/sec)\n", fval);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -870,8 +875,8 @@ static u_char print_subtlv_use_bw(struct sbuf *buf, int indent,
 
 	fval = ntohf(tlv->value);
 
-	sbuf_push(buf, indent, "Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
-		  fval);
+	sbuf_push(buf, indent,
+		  "Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n", fval);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -892,8 +897,7 @@ static u_char print_unknown_tlv(struct sbuf *buf, int indent,
 			sbuf_push(buf, 0, " %#.2x", v[i]);
 			if (rtn == 8) {
 				sbuf_push(buf, 0, "\n");
-				sbuf_push(buf, indent + 8,
-					  "[%.2x]", i + 1);
+				sbuf_push(buf, indent + 8, "[%.2x]", i + 1);
 				rtn = 1;
 			} else
 				rtn++;
@@ -923,7 +927,7 @@ void mpls_te_print_detail(struct sbuf *buf, int indent,
 			break;
 		case TE_SUBTLV_LLRI:
 			sum += print_subtlv_llri(buf, indent,
-				(struct te_subtlv_llri *)tlvh);
+						 (struct te_subtlv_llri *)tlvh);
 			break;
 		case TE_SUBTLV_LOCAL_IPADDR:
 			sum += print_subtlv_local_ipaddr(buf, indent,
@@ -951,11 +955,11 @@ void mpls_te_print_detail(struct sbuf *buf, int indent,
 			break;
 		case TE_SUBTLV_RAS:
 			sum += print_subtlv_ras(buf, indent,
-				(struct te_subtlv_ras *)tlvh);
+						(struct te_subtlv_ras *)tlvh);
 			break;
 		case TE_SUBTLV_RIP:
 			sum += print_subtlv_rip(buf, indent,
-				(struct te_subtlv_rip *)tlvh);
+						(struct te_subtlv_rip *)tlvh);
 			break;
 		case TE_SUBTLV_AV_DELAY:
 			sum += print_subtlv_av_delay(buf, indent,

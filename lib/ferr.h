@@ -107,13 +107,12 @@ ferr_r ferr_clear(void);
 
 /* do NOT call these functions directly.  only for macro use! */
 ferr_r ferr_set_internal(const char *file, int line, const char *func,
-		enum ferr_kind kind, const char *text, ...);
+			 enum ferr_kind kind, const char *text, ...);
 ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
-		enum ferr_kind kind, const char *pathname, int errno_val,
-		const char *text, ...);
+			     enum ferr_kind kind, const char *pathname,
+			     int errno_val, const char *text, ...);
 
-#define ferr_ok() \
-	0
+#define ferr_ok() 0
 
 /* Report an error.
  *
@@ -122,58 +121,60 @@ ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
  *
  * Don't put a \n at the end of the error message.
  */
-#define ferr_code_bug(...) \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_CODE_BUG, \
-			__VA_ARGS__)
-#define ferr_cfg_invalid(...) \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_CONFIG_INVALID, \
-			__VA_ARGS__)
-#define ferr_cfg_reality(...) \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_CONFIG_REALITY, \
-			__VA_ARGS__)
-#define ferr_cfg_resource(...) \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_RESOURCE, \
-			__VA_ARGS__)
-#define ferr_system(...) \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_SYSTEM, \
-			__VA_ARGS__)
-#define ferr_library(...) \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_LIBRARY, \
-			__VA_ARGS__)
+#define ferr_code_bug(...)                                                     \
+	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_CODE_BUG,         \
+			  __VA_ARGS__)
+#define ferr_cfg_invalid(...)                                                  \
+	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_CONFIG_INVALID,   \
+			  __VA_ARGS__)
+#define ferr_cfg_reality(...)                                                  \
+	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_CONFIG_REALITY,   \
+			  __VA_ARGS__)
+#define ferr_cfg_resource(...)                                                 \
+	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_RESOURCE,         \
+			  __VA_ARGS__)
+#define ferr_system(...)                                                       \
+	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_SYSTEM,           \
+			  __VA_ARGS__)
+#define ferr_library(...)                                                      \
+	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_LIBRARY,          \
+			  __VA_ARGS__)
 
 /* extended information variants */
-#define ferr_system_errno(...) \
-	ferr_set_internal_ext(__FILE__, __LINE__, __func__, FERR_SYSTEM, \
-			NULL, errno, __VA_ARGS__)
-#define ferr_system_path_errno(path, ...) \
-	ferr_set_internal_ext(__FILE__, __LINE__, __func__, FERR_SYSTEM, \
-			path, errno, __VA_ARGS__)
+#define ferr_system_errno(...)                                                 \
+	ferr_set_internal_ext(__FILE__, __LINE__, __func__, FERR_SYSTEM, NULL, \
+			      errno, __VA_ARGS__)
+#define ferr_system_path_errno(path, ...)                                      \
+	ferr_set_internal_ext(__FILE__, __LINE__, __func__, FERR_SYSTEM, path, \
+			      errno, __VA_ARGS__)
 
 #include "vty.h"
 /* print error message to vty;  $ERR is replaced by the error's message */
 void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...);
 
-#define CMD_FERR_DO(func, action, ...) \
-	do { ferr_r cmd_retval = func; \
-		if (cmd_retval) { \
-			vty_print_error(vty, cmd_retval, __VA_ARGS__); \
-			action; \
-		} \
+#define CMD_FERR_DO(func, action, ...)                                         \
+	do {                                                                   \
+		ferr_r cmd_retval = func;                                      \
+		if (cmd_retval) {                                              \
+			vty_print_error(vty, cmd_retval, __VA_ARGS__);         \
+			action;                                                \
+		}                                                              \
 	} while (0)
 
-#define CMD_FERR_RETURN(func, ...) \
+#define CMD_FERR_RETURN(func, ...)                                             \
 	CMD_FERR_DO(func, return CMD_WARNING_CONFIG_FAILED, __VA_ARGS__)
-#define CMD_FERR_GOTO(func, label, ...) \
+#define CMD_FERR_GOTO(func, label, ...)                                        \
 	CMD_FERR_DO(func, goto label, __VA_ARGS__)
 
-/* example:
-
+/* example: uses bogus #define to keep indent.py happy */
+#ifdef THIS_IS_AN_EXAMPLE
 ferr_r foo_bar_set(struct object *obj, int bar)
 {
 	if (bar < 1 || bar >= 100)
-		return ferr_config_invalid("bar setting (%d) must be 0<x<100", bar);
+		return ferr_config_invalid("bar setting (%d) must be 0<x<100",
+					   bar);
 	obj->bar = bar;
-	if (ioctl (obj->fd, bar))
+	if (ioctl(obj->fd, bar))
 		return ferr_system_errno("couldn't set bar to %d", bar);
 
 	return ferr_ok();
@@ -182,10 +183,10 @@ ferr_r foo_bar_set(struct object *obj, int bar)
 DEFUN("bla")
 {
 	CMD_FERR_RETURN(foo_bar_set(obj, atoi(argv[1])),
-		"command failed: $ERR\n");
+			"command failed: $ERR\n");
 	return CMD_SUCCESS;
 }
 
-*/
+#endif /* THIS_IS_AN_EXAMPLE */
 
 #endif /* _FERR_H */

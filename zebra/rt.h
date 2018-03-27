@@ -69,16 +69,16 @@ extern void kernel_route_rib(struct route_node *rn, struct prefix *p,
  * so let's separate it out and allow the result to
  * be passed back up.
  */
-extern void kernel_route_rib_pass_fail(struct route_node *rn,
-				       struct prefix *p,
+extern void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
 				       struct route_entry *re,
 				       enum southbound_results res);
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
-extern int kernel_address_add_ipv6 (struct interface *, struct connected *);
-extern int kernel_address_delete_ipv6 (struct interface *, struct connected *);
-extern int kernel_neigh_update(int, int, uint32_t, char *, int);
+extern int kernel_address_add_ipv6(struct interface *, struct connected *);
+extern int kernel_address_delete_ipv6(struct interface *, struct connected *);
+extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
+			       int llalen, ns_id_t ns_id);
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
 
@@ -95,8 +95,7 @@ extern void kernel_del_lsp(zebra_lsp_t *lsp);
  * the install/failure to set/unset flags and to notify
  * as needed.
  */
-extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp,
-				 enum southbound_results res);
+extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum southbound_results res);
 
 extern int mpls_kernel_init(void);
 

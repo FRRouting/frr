@@ -41,6 +41,7 @@
 #include "vrf.h"
 #include "bfd.h"
 #include "libfrr.h"
+#include "ns.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -57,6 +58,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_keepalives.h"
+#include "bgpd/bgp_network.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -103,9 +105,8 @@ static struct quagga_signal_t bgp_signals[] = {
 static int retain_mode = 0;
 
 /* privileges */
-static zebra_capabilities_t _caps_p[] = {
-	ZCAP_BIND, ZCAP_NET_RAW, ZCAP_NET_ADMIN,
-};
+static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_NET_RAW,
+					 ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN};
 
 struct zebra_privs_t bgpd_privs = {
 #if defined(FRR_USER) && defined(FRR_GROUP)
@@ -259,10 +260,13 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		/* We have instance configured, link to VRF and make it "up". */
 		bgp_vrf_link(bgp, vrf);
 
+		bgp_handle_socket(bgp, vrf, old_vrf_id, true);
 		/* Update any redistribute vrf bitmaps if the vrf_id changed */
 		if (old_vrf_id != bgp->vrf_id)
 			bgp_update_redist_vrf_bitmaps(bgp, old_vrf_id);
 		bgp_instance_up(bgp);
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 	}
 
 	return 0;
@@ -281,7 +285,12 @@ static int bgp_vrf_disable(struct vrf *vrf)
 
 	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp) {
+
+		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
+		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
+
 		old_vrf_id = bgp->vrf_id;
+		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 		/* We have instance configured, unlink from VRF and make it
 		 * "down". */
 		bgp_vrf_unlink(bgp, vrf);

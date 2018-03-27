@@ -77,7 +77,7 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "nhrpd", .flag = VTYSH_NHRPD, .next = NULL},
 	{.fd = -1, .name = "eigrpd", .flag = VTYSH_EIGRPD, .next = NULL},
 	{.fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .next = NULL},
-        {.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
+	{.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
 	{.fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
 };
 
@@ -539,7 +539,7 @@ int vtysh_mark_file(const char *filename)
 	}
 
 	vty = vty_new();
-	vty->fd = 0; /* stdout */
+	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_TERM;
 	vty->node = CONFIG_NODE;
 
@@ -748,9 +748,8 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 		case CMD_ERR_NO_MATCH:
 			fprintf(stderr, "line %d: %% Unknown command[%d]: %s",
 				lineno, vty->node, vty->buf);
-			retcode =
-				CMD_ERR_NO_MATCH; /* once we have an error, we
-						     remember & return that */
+			retcode = CMD_ERR_NO_MATCH; /* once we have an error, we
+						       remember & return that */
 			break;
 		case CMD_ERR_INCOMPLETE:
 			fprintf(stderr,
@@ -975,8 +974,8 @@ static struct cmd_node pw_node = {
 	PW_NODE, "%s(config-pw)# ",
 };
 
-static struct cmd_node ns_node = {
-	NS_NODE, "%s(config-logical-router)# ",
+static struct cmd_node logicalrouter_node = {
+	LOGICALROUTER_NODE, "%s(config-logical-router)# ",
 };
 
 static struct cmd_node vrf_node = {
@@ -1446,7 +1445,7 @@ DEFUNSH(VTYSH_LDPD, ldp_member_pseudowire_ifname,
 DEFUNSH(VTYSH_ISISD, router_isis, router_isis_cmd, "router isis WORD",
 	ROUTER_STR
 	"ISO IS-IS\n"
-	"ISO Routing area tag")
+	"ISO Routing area tag\n")
 {
 	vty->node = ISIS_NODE;
 	return CMD_SUCCESS;
@@ -1508,8 +1507,9 @@ static int vtysh_exit(struct vty *vty)
 		break;
 	case INTERFACE_NODE:
 	case PW_NODE:
-	case NS_NODE:
+	case LOGICALROUTER_NODE:
 	case VRF_NODE:
+	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
 	case BGP_NODE:
 	case RIP_NODE:
@@ -1782,15 +1782,23 @@ DEFSH(VTYSH_ZEBRA, vtysh_no_interface_vrf_cmd, "no interface IFNAME vrf NAME",
       "Delete a pseudo interface's configuration\n"
       "Interface's name\n" VRF_CMD_HELP_STR)
 
-DEFUNSH(VTYSH_NS, vtysh_ns, vtysh_ns_cmd, "logical-router (1-65535) ns NAME",
+DEFUNSH(VTYSH_ZEBRA, vtysh_logicalrouter, vtysh_logicalrouter_cmd,
+	"logical-router (1-65535) ns NAME",
 	"Enable a logical-router\n"
 	"Specify the logical-router indentifier\n"
 	"The Name Space\n"
 	"The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
-	vty->node = NS_NODE;
+	vty->node = LOGICALROUTER_NODE;
 	return CMD_SUCCESS;
 }
+
+DEFSH(VTYSH_ZEBRA, vtysh_no_logicalrouter_cmd,
+      "no logical-router (1-65535) ns NAME", NO_STR
+      "Enable a Logical-Router\n"
+      "Specify the Logical-Router identifier\n"
+      "The Name Space\n"
+      "The file name in " NS_RUN_DIR ", or a full pathname\n")
 
 DEFUNSH(VTYSH_VRF, vtysh_vrf, vtysh_vrf_cmd, "vrf NAME",
 	"Select a VRF to configure\n"
@@ -1804,16 +1812,18 @@ DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_cmd, "no vrf NAME", NO_STR
       "Delete a pseudo vrf's configuration\n"
       "VRF's name\n")
 
-DEFUNSH(VTYSH_NS, vtysh_exit_ns, vtysh_exit_ns_cmd, "exit",
+DEFUNSH(VTYSH_NS, vtysh_exit_logicalrouter,
+	vtysh_exit_logicalrouter_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_NS, vtysh_quit_ns, vtysh_quit_ns_cmd, "quit",
+DEFUNSH(VTYSH_NS, vtysh_quit_logicalrouter,
+	vtysh_quit_logicalrouter_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
-	return vtysh_exit_ns(self, vty, argc, argv);
+	return vtysh_exit_logicalrouter(self, vty, argc, argv);
 }
 
 DEFUNSH(VTYSH_VRF, vtysh_exit_vrf, vtysh_exit_vrf_cmd, "exit",
@@ -1960,14 +1970,24 @@ static int show_per_daemon(const char *line, const char *headline)
 	return ret;
 }
 
+DEFUNSH_HIDDEN (0x00,
+                vtysh_debug_all,
+                vtysh_debug_all_cmd,
+                "[no] debug all",
+                NO_STR
+                DEBUG_STR
+                "Toggle all debugs on or off\n")
+{
+	return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_show_debugging,
        vtysh_show_debugging_cmd,
        "show debugging",
        SHOW_STR
        DEBUG_STR)
 {
-	return show_per_daemon("do show debugging\n",
-			       "");
+	return show_per_daemon("do show debugging\n", "");
 }
 
 DEFUN (vtysh_show_debugging_hashtable,
@@ -2000,8 +2020,7 @@ DEFUN (vtysh_show_memory,
        SHOW_STR
        "Memory statistics\n")
 {
-	return show_per_daemon("show memory\n",
-			       "Memory statistics for %s:\n");
+	return show_per_daemon("show memory\n", "Memory statistics for %s:\n");
 }
 
 DEFUN (vtysh_show_modules,
@@ -2114,7 +2133,6 @@ DEFUNSH(VTYSH_ALL, vtysh_log_facility, vtysh_log_facility_cmd,
 	"log facility <kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7>",
 	"Logging control\n"
 	"Facility parameter for syslog messages\n" LOG_FACILITY_DESC)
-
 {
 	return CMD_SUCCESS;
 }
@@ -2124,7 +2142,6 @@ DEFUNSH(VTYSH_ALL, no_vtysh_log_facility, no_vtysh_log_facility_cmd,
 	"Logging control\n"
 	"Reset syslog facility to default (daemon)\n"
 	"Syslog facility\n")
-
 {
 	return CMD_SUCCESS;
 }
@@ -2134,7 +2151,6 @@ DEFUNSH_DEPRECATED(
 	"log trap <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
 	"Logging control\n"
 	"(Deprecated) Set logging level and default for all destinations\n" LOG_LEVEL_DESC)
-
 {
 	return CMD_SUCCESS;
 }
@@ -2461,7 +2477,12 @@ DEFUN (vtysh_write_memory,
 						   "do write integrated",
 						   outputfile);
 
-		if (ret != CMD_SUCCESS) {
+		/*
+		 * If watchfrr returns CMD_WARNING_CONFIG_FAILED this means
+		 * that it could not write the config, but additionally
+		 * indicates that we should not try either
+		 */
+		if (ret != CMD_SUCCESS && ret != CMD_WARNING_CONFIG_FAILED) {
 			printf("\nWarning: attempting direct configuration write without "
 			       "watchfrr.\nFile permissions and ownership may be "
 			       "incorrect, or write may fail.\n\n");
@@ -2552,8 +2573,8 @@ DEFUN (vtysh_show_daemons,
 }
 
 /* Execute command in child process. */
-static void execute_command(const char *command, int argc,
-			    const char *arg1, const char *arg2)
+static void execute_command(const char *command, int argc, const char *arg1,
+			    const char *arg2)
 {
 	pid_t pid;
 	int status;
@@ -3055,7 +3076,7 @@ void vtysh_init_vty(void)
 	install_node(&interface_node, NULL);
 	install_node(&pw_node, NULL);
 	install_node(&link_params_node, NULL);
-	install_node(&ns_node, NULL);
+	install_node(&logicalrouter_node, NULL);
 	install_node(&vrf_node, NULL);
 	install_node(&rmap_node, NULL);
 	install_node(&zebra_node, NULL);
@@ -3233,11 +3254,12 @@ void vtysh_init_vty(void)
 	install_element(PW_NODE, &vtysh_exit_interface_cmd);
 	install_element(PW_NODE, &vtysh_quit_interface_cmd);
 
-	install_element(NS_NODE, &vtysh_end_all_cmd);
+	install_element(LOGICALROUTER_NODE, &vtysh_end_all_cmd);
 
-	install_element(CONFIG_NODE, &vtysh_ns_cmd);
-	install_element(NS_NODE, &vtysh_exit_ns_cmd);
-	install_element(NS_NODE, &vtysh_quit_ns_cmd);
+	install_element(CONFIG_NODE, &vtysh_logicalrouter_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_logicalrouter_cmd);
+	install_element(LOGICALROUTER_NODE, &vtysh_exit_logicalrouter_cmd);
+	install_element(LOGICALROUTER_NODE, &vtysh_quit_logicalrouter_cmd);
 
 	install_element(VRF_NODE, &vtysh_end_all_cmd);
 	install_element(VRF_NODE, &vtysh_exit_vrf_cmd);
@@ -3354,14 +3376,17 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_start_zsh_cmd);
 #endif
 
+	/* debugging */
 	install_element(VIEW_NODE, &vtysh_show_debugging_cmd);
 	install_element(VIEW_NODE, &vtysh_show_debugging_hashtable_cmd);
+	install_element(VIEW_NODE, &vtysh_debug_all_cmd);
+	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
+
+	/* misc lib show commands */
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
-
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
-
 	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
 
 	/* Logging */

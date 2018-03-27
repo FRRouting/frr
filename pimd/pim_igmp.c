@@ -281,6 +281,9 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 	uint16_t recv_checksum;
 	uint16_t checksum;
 
+	if (igmp->mtrace_only)
+		return 0;
+
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
 	ifp = igmp->interface;
@@ -386,6 +389,9 @@ static int igmp_v1_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	struct in_addr group_addr;
 
 	on_trace(__PRETTY_FUNCTION__, igmp->interface, from);
+
+	if (igmp->mtrace_only)
+		return 0;
 
 	if (igmp_msg_len != IGMP_V12_MSG_SIZE) {
 		zlog_warn(
@@ -510,7 +516,6 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 		return igmp_mtrace_recv_response(igmp, ip_hdr, ip_hdr->ip_src,
 						 from_str, igmp_msg,
 						 igmp_msg_len);
-		break;
 	case PIM_IGMP_MTRACE_QUERY_REQUEST:
 		return igmp_mtrace_recv_qry_req(igmp, ip_hdr, ip_hdr->ip_src,
 						from_str, igmp_msg,
@@ -819,7 +824,7 @@ static int igmp_group_hash_equal(const void *arg1, const void *arg2)
 }
 
 static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
-				       struct interface *ifp)
+				       struct interface *ifp, int mtrace_only)
 {
 	struct pim_interface *pim_ifp;
 	struct igmp_sock *igmp;
@@ -850,8 +855,7 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 
 	snprintf(hash_name, 64, "IGMP %s hash", ifp->name);
 	igmp->igmp_group_hash = hash_create(igmp_group_hash_key,
-					    igmp_group_hash_equal,
-					    hash_name);
+					    igmp_group_hash_equal, hash_name);
 
 	igmp->fd = fd;
 	igmp->interface = ifp;
@@ -862,6 +866,13 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	igmp->querier_robustness_variable =
 		pim_ifp->igmp_default_robustness_variable;
 	igmp->sock_creation = pim_time_monotonic_sec();
+
+	if (mtrace_only) {
+		igmp->mtrace_only = mtrace_only;
+		return igmp;
+	}
+
+	igmp->mtrace_only = false;
 
 	/*
 	  igmp_startup_mode_on() will reset QQI:
@@ -920,7 +931,8 @@ static void igmp_read_on(struct igmp_sock *igmp)
 
 struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 				    struct in_addr ifaddr,
-				    struct interface *ifp)
+				    struct interface *ifp,
+				    bool mtrace_only)
 {
 	struct pim_interface *pim_ifp;
 	struct igmp_sock *igmp;
@@ -935,7 +947,7 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 		return 0;
 	}
 
-	igmp = igmp_sock_new(fd, ifaddr, ifp);
+	igmp = igmp_sock_new(fd, ifaddr, ifp, mtrace_only);
 	if (!igmp) {
 		zlog_err("%s %s: igmp_sock_new() failure", __FILE__,
 			 __PRETTY_FUNCTION__);

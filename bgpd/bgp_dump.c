@@ -465,7 +465,7 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 	}
 
 	if (peer->su.sa.sa_family == AF_INET) {
-		stream_putw(obuf, peer->ifindex);
+		stream_putw(obuf, peer->ifp ? peer->ifp->ifindex : 0);
 		stream_putw(obuf, AFI_IP);
 
 		stream_put(obuf, &peer->su.sin.sin_addr, IPV4_MAX_BYTELEN);
@@ -477,7 +477,7 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 			stream_put(obuf, empty, IPV4_MAX_BYTELEN);
 	} else if (peer->su.sa.sa_family == AF_INET6) {
 		/* Interface Index and Address family. */
-		stream_putw(obuf, peer->ifindex);
+		stream_putw(obuf, peer->ifp ? peer->ifp->ifindex : 0);
 		stream_putw(obuf, AFI_IP6);
 
 		/* Source IP Address and Destination IP Address. */

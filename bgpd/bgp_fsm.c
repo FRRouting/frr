@@ -289,7 +289,8 @@ void bgp_timer_set(struct peer *peer)
 		/* First entry point of peer's finite state machine.  In Idle
 		   status start timer is on unless peer is shutdown or peer is
 		   inactive.  All other timer must be turned off */
-		if (BGP_PEER_START_SUPPRESSED(peer) || !peer_active(peer)) {
+		if (BGP_PEER_START_SUPPRESSED(peer) || !peer_active(peer)
+		    || peer->bgp->vrf_id == VRF_UNKNOWN) {
 			BGP_TIMER_OFF(peer->t_start);
 		} else {
 			BGP_TIMER_ON(peer->t_start, bgp_start_timer,
@@ -1055,8 +1056,8 @@ int bgp_stop(struct peer *peer)
 			UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
 			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST;
-				     safi <= SAFI_MPLS_VPN; safi++)
+				for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN;
+				     safi++)
 					peer->nsf[afi][safi] = 0;
 		}
 
@@ -1376,6 +1377,14 @@ int bgp_start(struct peer *peer)
 		return 0;
 	}
 
+	if (peer->bgp->vrf_id == VRF_UNKNOWN) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_err(
+				"%s [FSM] In a VRF that is not initialised yet",
+				peer->host);
+		return -1;
+	}
+
 	/* Register to be notified on peer up */
 	if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
 	    && !CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
@@ -1508,9 +1517,8 @@ static int bgp_establish(struct peer *peer)
 	}
 
 	if (other == peer)
-		ret =
-			1; /* bgp_establish specific code when xfer_conn
-			      happens. */
+		ret = 1; /* bgp_establish specific code when xfer_conn
+			    happens. */
 
 	/* Reset capability open status flag. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN))

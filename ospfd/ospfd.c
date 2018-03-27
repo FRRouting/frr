@@ -121,8 +121,7 @@ void ospf_router_id_update(struct ospf *ospf)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Router-ID[OLD:%s]: Update to %s",
-			   inet_ntoa(ospf->router_id),
-			   inet_ntoa(router_id));
+			   inet_ntoa(ospf->router_id), inet_ntoa(router_id));
 
 	if (!IPV4_ADDR_SAME(&router_id_old, &router_id)) {
 
@@ -159,7 +158,7 @@ void ospf_router_id_update(struct ospf *ospf)
 			struct route_node *rn;
 			struct ospf_lsa *lsa;
 
-			LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
+			LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
 				if (IS_LSA_SELF(lsa))
 					ospf_lsa_flush_schedule(ospf, lsa);
 		}
@@ -241,8 +240,9 @@ static struct ospf *ospf_new(u_short instance, const char *name)
 		new->name = XSTRDUP(MTYPE_OSPF_TOP, name);
 		vrf = vrf_lookup_by_name(new->name);
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: Create new ospf instance with vrf_name %s vrf_id %u",
-				   __PRETTY_FUNCTION__, name, new->vrf_id);
+			zlog_debug(
+				"%s: Create new ospf instance with vrf_name %s vrf_id %u",
+				__PRETTY_FUNCTION__, name, new->vrf_id);
 		if (vrf)
 			ospf_vrf_link(new, vrf);
 	} else {
@@ -308,12 +308,6 @@ static struct ospf *ospf_new(u_short instance, const char *name)
 			 new->lsa_refresh_interval, &new->t_lsa_refresher);
 	new->lsa_refresher_started = monotime(NULL);
 
-	if ((ospf_sock_init(new)) < 0) {
-		zlog_err(
-			"ospf_new: fatal error: ospf_sock_init was unable to open "
-			"a socket");
-		exit(1);
-	}
 	if ((new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE + 1)) == NULL) {
 		zlog_err(
 			"ospf_new: fatal error: stream_new(%u) failed allocating ibuf",
@@ -321,7 +315,6 @@ static struct ospf *ospf_new(u_short instance, const char *name)
 		exit(1);
 	}
 	new->t_read = NULL;
-	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
 	new->oi_write_q = list_new();
 	new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
 
@@ -331,6 +324,16 @@ static struct ospf *ospf_new(u_short instance, const char *name)
 #endif
 
 	QOBJ_REG(new, ospf);
+
+	new->fd = -1;
+	if ((ospf_sock_init(new)) < 0) {
+		if (new->vrf_id != VRF_UNKNOWN)
+			zlog_warn(
+				"%s: ospf_sock_init is unable to open a socket",
+				__func__);
+		return new;
+	}
+	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
 
 	return new;
 }
@@ -377,9 +380,10 @@ struct ospf *ospf_lookup_by_inst_name(u_short instance, const char *name)
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf)) {
-		if ((ospf->instance == instance) &&
-		    ((ospf->name == NULL && name == NULL) ||
-		     (ospf->name && name && strcmp(ospf->name, name) == 0)))
+		if ((ospf->instance == instance)
+		    && ((ospf->name == NULL && name == NULL)
+			|| (ospf->name && name
+			    && strcmp(ospf->name, name) == 0)))
 			return ospf;
 	}
 	return NULL;
@@ -423,9 +427,10 @@ struct ospf *ospf_get_instance(u_short instance)
 				ospf_router_id_update(ospf);
 			else {
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug("%s: ospf VRF (id %d) is not active yet, skip router id update"
-						    , __PRETTY_FUNCTION__,
-						    ospf->vrf_id);
+					zlog_debug(
+						"%s: ospf VRF (id %d) is not active yet, skip router id update",
+						__PRETTY_FUNCTION__,
+						ospf->vrf_id);
 			}
 			ospf_router_id_update(ospf);
 		}
@@ -444,7 +449,6 @@ struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id)
 	if (!vrf)
 		return NULL;
 	return (vrf->info) ? (struct ospf *)vrf->info : NULL;
-
 }
 
 /* It should only be used when processing incoming info update from zebra.
@@ -458,8 +462,8 @@ static struct ospf *ospf_lookup_by_name(const char *vrf_name)
 
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		if ((ospf->name == NULL && vrf_name == NULL)
-		    || (ospf->name && vrf_name &&
-			strcmp(ospf->name, vrf_name) == 0))
+		    || (ospf->name && vrf_name
+			&& strcmp(ospf->name, vrf_name) == 0))
 			return ospf;
 	return NULL;
 }
@@ -704,13 +708,14 @@ static void ospf_finish_final(struct ospf *ospf)
 	OSPF_TIMER_OFF(ospf->t_read);
 	OSPF_TIMER_OFF(ospf->t_write);
 	OSPF_TIMER_OFF(ospf->t_opaque_lsa_self);
+	OSPF_TIMER_OFF(ospf->t_sr_update);
 
 	close(ospf->fd);
 	stream_free(ospf->ibuf);
 
-	LSDB_LOOP(OPAQUE_AS_LSDB(ospf), rn, lsa)
+	LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
-	LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
+	LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
 		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
 
 	ospf_lsdb_delete_all(ospf->lsdb);
@@ -845,20 +850,20 @@ static void ospf_area_free(struct ospf_area *area)
 	ospf_opaque_type10_lsa_term(area);
 
 	/* Free LSDBs. */
-	LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
+	LSDB_LOOP (ROUTER_LSDB(area), rn, lsa)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
-	LSDB_LOOP(NETWORK_LSDB(area), rn, lsa)
+	LSDB_LOOP (NETWORK_LSDB(area), rn, lsa)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
-	LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
+	LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
-	LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
+	LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 
-	LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
+	LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
-	LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
+	LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
-	LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
+	LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 
 	ospf_lsdb_delete_all(area->lsdb);
@@ -995,13 +1000,12 @@ static void update_redistributed(struct ospf *ospf, int add_to_ospf)
 					continue;
 
 				if (add_to_ospf) {
-					if (ospf_external_info_find_lsa(
-						    ospf, &ei->p))
+					if (ospf_external_info_find_lsa(ospf,
+									&ei->p))
 						if (!ospf_distribute_check_connected(
 							    ospf, ei))
 							ospf_external_lsa_flush(
-								ospf,
-								ei->type,
+								ospf, ei->type,
 								&ei->p,
 								ei->ifindex /*, ei->nexthop */);
 				} else {
@@ -1010,8 +1014,7 @@ static void update_redistributed(struct ospf *ospf, int add_to_ospf)
 						if (ospf_distribute_check_connected(
 							    ospf, ei))
 							ospf_external_lsa_originate(
-								ospf,
-								ei);
+								ospf, ei);
 				}
 			}
 		}
@@ -1097,10 +1100,10 @@ int ospf_network_unset(struct ospf *ospf, struct prefix_ipv4 *p,
 	/* Find interfaces that are not configured already.  */
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
 
-	  if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-	    continue;
+		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+			continue;
 
-	  ospf_network_run_subnet(ospf, oi->connected, NULL, NULL);
+		ospf_network_run_subnet(ospf, oi->connected, NULL, NULL);
 	}
 
 	/* Update connected redistribute. */
@@ -1318,10 +1321,11 @@ void ospf_if_update(struct ospf *ospf, struct interface *ifp)
 		return;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
-			   __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id,
-			   ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
-			   inet_ntoa(ospf->router_id));
+		zlog_debug(
+			"%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
+			__PRETTY_FUNCTION__, ifp->name, ifp->vrf_id,
+			ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
+			inet_ntoa(ospf->router_id));
 
 	/* OSPF must be ready. */
 	if (!ospf_is_ready(ospf))
@@ -2045,15 +2049,33 @@ static int ospf_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
+static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf)
+{
+	int type;
+	struct list *red_list;
+
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		red_list = ospf->redist[type];
+		if (!red_list)
+			continue;
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"%s: setting redist vrf %d bitmap for type %d",
+				__func__, ospf->vrf_id, type);
+		vrf_bitmap_set(zclient->redist[AFI_IP][type], ospf->vrf_id);
+	}
+}
+
 /* Enable OSPF VRF instance */
 static int ospf_vrf_enable(struct vrf *vrf)
 {
 	struct ospf *ospf = NULL;
-	vrf_id_t old_vrf_id = VRF_DEFAULT;
+	vrf_id_t old_vrf_id;
+	int ret = 0;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF %s id %u enabled",
-			   __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
+		zlog_debug("%s: VRF %s id %u enabled", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
 
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
@@ -2061,24 +2083,37 @@ static int ospf_vrf_enable(struct vrf *vrf)
 		/* We have instance configured, link to VRF and make it "up". */
 		ospf_vrf_link(ospf, vrf);
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: ospf linked to vrf %s vrf_id %u (old id %u)",
-				   __PRETTY_FUNCTION__, vrf->name, ospf->vrf_id,
-				   old_vrf_id);
+			zlog_debug(
+				"%s: ospf linked to vrf %s vrf_id %u (old id %u)",
+				__PRETTY_FUNCTION__, vrf->name, ospf->vrf_id,
+				old_vrf_id);
 
 		if (old_vrf_id != ospf->vrf_id) {
 			if (ospfd_privs.change(ZPRIVS_RAISE)) {
-				zlog_err("ospf_sock_init: could not raise privs, %s",
-					 safe_strerror(errno));
-			}
-			if (ospf_bind_vrfdevice(ospf, ospf->fd) < 0)
-				return 0;
-			if (ospfd_privs.change(ZPRIVS_LOWER)) {
-				zlog_err("ospf_sock_init: could not lower privs, %s",
-					 safe_strerror(errno));
+				zlog_err(
+					"ospf_sock_init: could not raise privs, %s",
+					safe_strerror(errno));
 			}
 
-			ospf->oi_running = 1;
+			/* stop zebra redist to us for old vrf */
+			zclient_send_dereg_requests(zclient, old_vrf_id);
+
+			ospf_set_redist_vrf_bitmaps(ospf);
+
+			/* start zebra redist to us for new vrf */
 			ospf_zebra_vrf_register(ospf);
+
+			ret = ospf_sock_init(ospf);
+			if (ospfd_privs.change(ZPRIVS_LOWER)) {
+				zlog_err(
+					"ospf_sock_init: could not lower privs, %s",
+					safe_strerror(errno));
+			}
+			if (ret < 0 || ospf->fd <= 0)
+				return 0;
+			thread_add_read(master, ospf_read, ospf, ospf->fd,
+					&ospf->t_read);
+			ospf->oi_running = 1;
 			ospf_router_id_update(ospf);
 		}
 	}
@@ -2096,8 +2131,8 @@ static int ospf_vrf_disable(struct vrf *vrf)
 		return 0;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF %s id %d disabled.",
-			   __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
+		zlog_debug("%s: VRF %s id %d disabled.", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
 
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
@@ -2110,7 +2145,10 @@ static int ospf_vrf_disable(struct vrf *vrf)
 		ospf->oi_running = 0;
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: ospf old_vrf_id %d unlinked",
-				    __PRETTY_FUNCTION__, old_vrf_id);
+				   __PRETTY_FUNCTION__, old_vrf_id);
+		thread_cancel(ospf->t_read);
+		close(ospf->fd);
+		ospf->fd = -1;
 	}
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
@@ -2119,8 +2157,8 @@ static int ospf_vrf_disable(struct vrf *vrf)
 
 void ospf_vrf_init(void)
 {
-	vrf_init(ospf_vrf_new, ospf_vrf_enable,
-		 ospf_vrf_disable, ospf_vrf_delete);
+	vrf_init(ospf_vrf_new, ospf_vrf_enable, ospf_vrf_disable,
+		 ospf_vrf_delete);
 }
 
 void ospf_vrf_terminate(void)

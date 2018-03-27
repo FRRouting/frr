@@ -81,10 +81,9 @@ struct pim_interface {
 	struct in_addr update_source;   /* user can statically set the primary
 					 * address of the interface */
 
-	int igmp_version;		      /* IGMP version */
-	int igmp_default_robustness_variable; /* IGMPv3 QRV */
-	int
-		igmp_default_query_interval;   /* IGMPv3 secs between general
+	int igmp_version;		       /* IGMP version */
+	int igmp_default_robustness_variable;  /* IGMPv3 QRV */
+	int igmp_default_query_interval;       /* IGMPv3 secs between general
 						  queries */
 	int igmp_query_max_response_time_dsec; /* IGMPv3 Max Response Time in
 						  dsecs for general queries */

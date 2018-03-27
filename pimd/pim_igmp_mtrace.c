@@ -28,6 +28,34 @@
 #include "pim_macro.h"
 #include "pim_igmp_mtrace.h"
 
+static struct in_addr mtrace_primary_address(struct interface *ifp)
+{
+	struct connected *ifc;
+	struct listnode *node;
+	struct in_addr any;
+	struct pim_interface *pim_ifp;
+
+	if (ifp->info) {
+		pim_ifp = ifp->info;
+		return pim_ifp->primary_address;
+	}
+
+	any.s_addr = INADDR_ANY;
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		struct prefix *p = ifc->address;
+
+		if (p->family != AF_INET)
+			continue;
+
+		if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
+			return p->u.prefix4;
+		/* in case no primary found, return a secondary */
+		any = p->u.prefix4;
+	}
+	return any;
+}
+
 static void mtrace_rsp_init(struct igmp_mtrace_rsp *mtrace_rspp)
 {
 	mtrace_rspp->arrival = 0;
@@ -73,6 +101,13 @@ static void mtrace_debug(struct pim_interface *pim_ifp,
 	char dst_str[INET_ADDRSTRLEN];
 	char rsp_str[INET_ADDRSTRLEN];
 
+	struct in_addr ga, sa, da, ra;
+
+	ga = mtracep->grp_addr;
+	sa = mtracep->src_addr;
+	da = mtracep->dst_addr;
+	ra = mtracep->rsp_addr;
+
 	zlog_debug(
 		"Rx mtrace packet incoming on %s: "
 		"hops=%d type=%d size=%d, grp=%s, src=%s,"
@@ -80,13 +115,13 @@ static void mtrace_debug(struct pim_interface *pim_ifp,
 		inet_ntop(AF_INET, &(pim_ifp->primary_address), inc_str,
 			  sizeof(inc_str)),
 		mtracep->hops, mtracep->type, mtrace_len,
-		inet_ntop(AF_INET, &(mtracep->grp_addr), grp_str,
+		inet_ntop(AF_INET, &ga, grp_str,
 			  sizeof(grp_str)),
-		inet_ntop(AF_INET, &(mtracep->src_addr), src_str,
+		inet_ntop(AF_INET, &sa, src_str,
 			  sizeof(src_str)),
-		inet_ntop(AF_INET, &(mtracep->dst_addr), dst_str,
+		inet_ntop(AF_INET, &da, dst_str,
 			  sizeof(dst_str)),
-		inet_ntop(AF_INET, &(mtracep->rsp_addr), rsp_str,
+		inet_ntop(AF_INET, &ra, rsp_str,
 			  sizeof(rsp_str)),
 		mtracep->rsp_ttl, ntohl(mtracep->qry_id));
 	if (mtrace_len > (int)sizeof(struct igmp_mtrace)) {
@@ -99,7 +134,7 @@ static void mtrace_debug(struct pim_interface *pim_ifp,
 			if (PIM_DEBUG_MTRACE)
 				zlog_debug(
 					"Mtrace response block of wrong"
-					 " length");
+					" length");
 
 		responses = responses / sizeof(struct igmp_mtrace_rsp);
 
@@ -133,28 +168,29 @@ static int mtrace_send_packet(struct interface *ifp,
 			      struct in_addr group_addr)
 {
 	struct sockaddr_in to;
-	struct pim_interface *pim_ifp;
 	socklen_t tolen;
 	ssize_t sent;
 	int ret;
 	int fd;
-	char pim_str[INET_ADDRSTRLEN];
+	char if_str[INET_ADDRSTRLEN];
 	char rsp_str[INET_ADDRSTRLEN];
 	u_char ttl;
-
-	pim_ifp = ifp->info;
 
 	memset(&to, 0, sizeof(to));
 	to.sin_family = AF_INET;
 	to.sin_addr = dst_addr;
 	tolen = sizeof(to);
 
-	if (PIM_DEBUG_MTRACE)
-		zlog_debug("Sending mtrace packet to %s on %s",
-			   inet_ntop(AF_INET, &mtracep->rsp_addr, rsp_str,
-				     sizeof(rsp_str)),
-			   inet_ntop(AF_INET, &pim_ifp->primary_address,
-				     pim_str, sizeof(pim_str)));
+	if (PIM_DEBUG_MTRACE) {
+		struct in_addr if_addr;
+
+		if_addr = mtrace_primary_address(ifp);
+		zlog_debug(
+			"Sending mtrace packet to %s on %s",
+			inet_ntop(AF_INET, &mtracep->rsp_addr, rsp_str,
+				  sizeof(rsp_str)),
+			inet_ntop(AF_INET, &if_addr, if_str, sizeof(if_str)));
+	}
 
 	fd = pim_socket_raw(IPPROTO_IGMP);
 
@@ -256,9 +292,11 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 	pim_socket_ip_hdr(fd);
 
 	if (interface == NULL) {
+		memset(&nexthop, 0, sizeof(nexthop));
 		ret = pim_nexthop_lookup(pim, &nexthop, ip_hdr->ip_dst, 0);
 
 		if (ret != 0) {
+			close(fd);
 			if (PIM_DEBUG_MTRACE)
 				zlog_warn(
 					"Dropping mtrace packet, "
@@ -434,6 +472,7 @@ static int mtrace_send_response(struct pim_instance *pim,
 		if (PIM_DEBUG_MTRACE)
 			zlog_debug("mtrace response to RP");
 	} else {
+		memset(&nexthop, 0, sizeof(nexthop));
 		/* TODO: should use unicast rib lookup */
 		ret = pim_nexthop_lookup(pim, &nexthop, mtracep->rsp_addr, 1);
 
@@ -461,7 +500,6 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	struct interface *ifp;
 	struct interface *out_ifp;
 	struct pim_interface *pim_ifp;
-	struct pim_interface *pim_out_ifp;
 	struct pim_instance *pim;
 	struct igmp_mtrace *mtracep;
 	struct igmp_mtrace_rsp *rspp;
@@ -492,7 +530,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 		if (PIM_DEBUG_MTRACE)
 			zlog_warn(
 				"Recv mtrace packet from %s on %s: too short,"
-				" len=%d, min=%lu",
+				" len=%d, min=%zu",
 				from_str, ifp->name, igmp_msg_len,
 				sizeof(struct igmp_mtrace));
 		return -1;
@@ -613,6 +651,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	nh_addr.s_addr = 0;
 
+	memset(&nexthop, 0, sizeof(nexthop));
 	ret = pim_nexthop_lookup(pim, &nexthop, mtracep->src_addr, 1);
 
 	if (ret == 0) {
@@ -643,20 +682,27 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	}
 
 	out_ifp = nexthop.interface;
-	pim_out_ifp = out_ifp->info;
 
-	rspp->incoming = pim_out_ifp->primary_address;
+	rspp->incoming = mtrace_primary_address(out_ifp);
 	rspp->prev_hop = nh_addr;
 	rspp->in_count = htonl(MTRACE_UNKNOWN_COUNT);
 	rspp->total = htonl(MTRACE_UNKNOWN_COUNT);
 	rspp->rtg_proto = MTRACE_RTG_PROTO_PIM;
+	rspp->fwd_ttl = 1;
 	rspp->s = 1;
 	rspp->src_mask = 32;
 
 	if (nh_addr.s_addr == 0) {
-		/* reached source? */
-		if (pim_if_connected_to_source(out_ifp, mtracep->src_addr))
+		/* no pim? */
+		if (!out_ifp->info) {
+			rspp->fwd_code = MTRACE_FWD_CODE_NO_MULTICAST;
 			return mtrace_send_response(pim, mtracep, mtrace_len);
+		}
+		/* reached source? */
+		if (pim_if_connected_to_source(out_ifp, mtracep->src_addr)) {
+			rspp->prev_hop = mtracep->src_addr;
+			return mtrace_send_response(pim, mtracep, mtrace_len);
+		}
 		/*
 		 * 6.4 Forwarding Traceroute Requests:
 		 * Previous-hop router not known

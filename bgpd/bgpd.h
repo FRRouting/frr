@@ -133,8 +133,6 @@ struct bgp_master {
 	/* timer to dampen route map changes */
 	struct thread *t_rmap_update; /* Handle route map updates */
 	u_int32_t rmap_update_timer;  /* Route map update timer */
-				      /* $FRR indent$ */
-				      /* clang-format off */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
 	/* Id space for automatic RD derivation for an EVI/VRF */
@@ -160,6 +158,12 @@ struct bgp_redist {
 	/* BGP redistribute route-map.  */
 	struct bgp_rmap rmap;
 };
+
+typedef enum {
+	BGP_VPN_POLICY_DIR_FROMVPN = 0,
+	BGP_VPN_POLICY_DIR_TOVPN = 1,
+	BGP_VPN_POLICY_DIR_MAX = 2
+} vpn_policy_direction_t;
 
 /*
  * Type of 'struct bgp'.
@@ -249,8 +253,6 @@ struct bgp {
 		*t_startup; /* start-up timer on only once at the beginning */
 
 	u_int32_t v_maxmed_onstartup;     /* Duration of max-med on start-up */
-					  /* $FRR indent$ */
-					  /* clang-format off */
 #define BGP_MAXMED_ONSTARTUP_UNCONFIGURED  0 /* 0 means off, its the default */
 	u_int32_t maxmed_onstartup_value; /* Max-med value when active on
 					     start-up */
@@ -259,17 +261,13 @@ struct bgp {
 	u_char maxmed_onstartup_over; /* Flag to make it effective only once */
 
 	u_char v_maxmed_admin; /* 1/0 if max-med administrative is on/off */
-			       /* $FRR indent$ */
-			       /* clang-format off */
 #define BGP_MAXMED_ADMIN_UNCONFIGURED  0 /* Off by default */
 	u_int32_t maxmed_admin_value; /* Max-med value when administrative in on
 				       */
-				      /* $FRR indent$ */
-				      /* clang-format off */
 #define BGP_MAXMED_VALUE_DEFAULT  4294967294 /* Maximum by default */
 
-	u_char maxmed_active;	 /* 1/0 if max-med is active or not */
-	u_int32_t maxmed_value;       /* Max-med value when its active */
+	u_char maxmed_active;   /* 1/0 if max-med is active or not */
+	u_int32_t maxmed_value; /* Max-med value when its active */
 
 	/* BGP update delay on startup */
 	struct thread *t_update_delay;
@@ -319,6 +317,15 @@ struct bgp {
 	/* BGP Per AF flags */
 	u_int16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING              (1 << 0)
+#define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT  (1 << 1)
+#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT  (1 << 2)
+
+/* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
+#define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST      (1 << 1)
+#define BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST      (1 << 2)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4	   (1 << 3)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6	   (1 << 4)
+
 
 	/* Route table for next-hop lookup cache. */
 	struct bgp_table *nexthop_cache_table[AFI_MAX];
@@ -431,11 +438,11 @@ struct bgp {
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO                        (1 << 0)
-#define BGP_VRF_ADVERTISE_IPV4_IN_EVPN      (1 << 1)
-#define BGP_VRF_ADVERTISE_IPV6_IN_EVPN      (1 << 2)
-#define BGP_VRF_IMPORT_RT_CFGD              (1 << 3)
-#define BGP_VRF_EXPORT_RT_CFGD              (1 << 4)
-#define BGP_VRF_RD_CFGD                     (1 << 5)
+#define BGP_VRF_IMPORT_RT_CFGD              (1 << 1)
+#define BGP_VRF_EXPORT_RT_CFGD              (1 << 2)
+#define BGP_VRF_RD_CFGD                     (1 << 3)
+#define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 4)
+
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
@@ -454,6 +461,22 @@ struct bgp {
 
 	/* route map for advertise ipv4/ipv6 unicast (type-5 routes) */
 	struct bgp_rmap adv_cmd_rmap[AFI_MAX][SAFI_MAX];
+
+	/* vpn-policy */
+	struct {
+		struct ecommunity *rtlist[BGP_VPN_POLICY_DIR_MAX];
+		char *rmap_name[BGP_VPN_POLICY_DIR_MAX];
+		struct route_map *rmap[BGP_VPN_POLICY_DIR_MAX];
+
+		/* should be mpls_label_t? */
+		uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
+		uint32_t tovpn_zebra_vrf_label_last_sent;
+		struct prefix_rd tovpn_rd;
+		struct prefix tovpn_nexthop; /* unset => set to 0 */
+		uint32_t flags;
+#define BGP_VPN_POLICY_TOVPN_RD_SET            0x00000004
+#define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       0x00000008
+	} vpn_policy[AFI_MAX];
 
 	QOBJ_FIELDS
 };
@@ -679,14 +702,11 @@ struct peer {
 	unsigned short port; /* Destination port for peer */
 	char *host;	  /* Printable address of the peer. */
 	union sockunion su;  /* Sockunion address of the peer. */
-			     /* $FRR indent$ */
-			     /* clang-format off */
 #define BGP_PEER_SU_UNSPEC(peer) (peer->su.sa.sa_family == AF_UNSPEC)
 	time_t uptime;       /* Last Up/Down time */
 	time_t readtime;     /* Last read time */
 	time_t resettime;    /* Last reset time */
 
-	ifindex_t ifindex;     /* ifindex of the BGP connection. */
 	char *conf_if;	 /* neighbor interface config name. */
 	struct interface *ifp; /* corresponding interface */
 	char *ifname;	  /* bind interface name. */
@@ -898,8 +918,8 @@ struct peer {
 				       memory_order_relaxed)
 
 	/* Statistics field */
-	_Atomic uint32_t open_in;         /* Open message input count */
-	_Atomic uint32_t open_out;        /* Open message output count */
+	_Atomic uint32_t open_in;	 /* Open message input count */
+	_Atomic uint32_t open_out;	/* Open message output count */
 	_Atomic uint32_t update_in;       /* Update message input count */
 	_Atomic uint32_t update_out;      /* Update message ouput count */
 	_Atomic time_t update_time;       /* Update message received time. */
@@ -1353,6 +1373,9 @@ extern int bgp_get(struct bgp **, as_t *, const char *, enum bgp_instance_type);
 extern void bgp_instance_up(struct bgp *);
 extern void bgp_instance_down(struct bgp *);
 extern int bgp_delete(struct bgp *);
+
+extern int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
+			     vrf_id_t old_vrf_id, bool create);
 
 extern int bgp_flag_set(struct bgp *, int);
 extern int bgp_flag_unset(struct bgp *, int);

@@ -1,13 +1,13 @@
 
 enum vici_type_t {
-	VICI_START =         0,
+	VICI_START = 0,
 	VICI_SECTION_START = 1,
-	VICI_SECTION_END =   2,
-	VICI_KEY_VALUE =     3,
-	VICI_LIST_START =    4,
-	VICI_LIST_ITEM =     5,
-	VICI_LIST_END =      6,
-	VICI_END =           7
+	VICI_SECTION_END = 2,
+	VICI_KEY_VALUE = 3,
+	VICI_LIST_START = 4,
+	VICI_LIST_ITEM = 5,
+	VICI_LIST_END = 6,
+	VICI_END = 7
 };
 
 enum vici_operation_t {

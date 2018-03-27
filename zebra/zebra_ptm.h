@@ -28,6 +28,8 @@ extern const char ZEBRA_PTM_SOCK_NAME[];
 
 #define ZEBRA_PTM_BFD_CLIENT_FLAG_REG   (1 << 1) /* client registered with BFD */
 
+#include "zebra/zserv.h"
+
 /* Zebra ptm context block */
 struct zebra_ptm_cb {
 	int ptm_sock; /* ptm file descriptor. */
@@ -62,13 +64,12 @@ int zebra_ptm_connect(struct thread *t);
 void zebra_ptm_write(struct vty *vty);
 int zebra_ptm_get_enable_state(void);
 
-int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
-			       int command, struct zebra_vrf *zvrf);
-int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
-				 struct zebra_vrf *zvrf);
+/* ZAPI message handlers */
+void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS);
+void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS);
+void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS);
+
 void zebra_ptm_show_status(struct vty *vty, struct interface *ifp);
-int zebra_ptm_bfd_client_register(struct zserv *client,
-				  u_short length);
 void zebra_ptm_if_init(struct zebra_if *zebra_ifp);
 void zebra_ptm_if_set_ptm_state(struct interface *ifp,
 				struct zebra_if *zebra_ifp);

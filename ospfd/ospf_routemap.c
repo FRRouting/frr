@@ -69,15 +69,18 @@ static void ospf_route_map_update(const char *name)
 					struct route_map *old = ROUTEMAP(red);
 
 					/* Update route-map. */
-					ROUTEMAP(red) = route_map_lookup_by_name(
-										 ROUTEMAP_NAME(red));
+					ROUTEMAP(red) =
+						route_map_lookup_by_name(
+							ROUTEMAP_NAME(red));
 
-					/* No update for this distribute type. */
-					if (old == NULL && ROUTEMAP(red) == NULL)
+					/* No update for this distribute type.
+					 */
+					if (old == NULL
+					    && ROUTEMAP(red) == NULL)
 						continue;
 
-					ospf_distribute_list_update(ospf, type,
-								    red->instance);
+					ospf_distribute_list_update(
+						ospf, type, red->instance);
 				}
 			}
 		}
@@ -103,8 +106,8 @@ static void ospf_route_map_event(route_map_event_t event, const char *name)
 			for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
 				if (ROUTEMAP_NAME(red) && ROUTEMAP(red)
 				    && !strcmp(ROUTEMAP_NAME(red), name)) {
-					ospf_distribute_list_update(ospf, type,
-								red->instance);
+					ospf_distribute_list_update(
+						ospf, type, red->instance);
 				}
 			}
 		}

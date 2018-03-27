@@ -161,7 +161,8 @@ static struct skiplist *isis_vertex_queue_skiplist(void)
 	return skiplist_new(0, isis_vertex_queue_tent_cmp, NULL);
 }
 
-static void isis_vertex_queue_init(struct isis_vertex_queue *queue, const char *name, bool ordered)
+static void isis_vertex_queue_init(struct isis_vertex_queue *queue,
+				   const char *name, bool ordered)
 {
 	if (ordered) {
 		queue->insert_counter = 1;
@@ -171,8 +172,7 @@ static void isis_vertex_queue_init(struct isis_vertex_queue *queue, const char *
 		queue->l.list = list_new();
 	}
 	queue->hash = hash_create(isis_vertex_queue_hash_key,
-				  isis_vertex_queue_hash_cmp,
-				  name);
+				  isis_vertex_queue_hash_cmp, name);
 }
 
 static void isis_vertex_del(struct isis_vertex *vertex);
@@ -183,7 +183,8 @@ static void isis_vertex_queue_clear(struct isis_vertex_queue *queue)
 
 	if (queue->insert_counter) {
 		struct isis_vertex *vertex;
-		while (0 == skiplist_first(queue->l.slist, NULL, (void**)&vertex)) {
+		while (0 == skiplist_first(queue->l.slist, NULL,
+					   (void **)&vertex)) {
 			isis_vertex_del(vertex);
 			skiplist_delete_first(queue->l.slist);
 		}
@@ -241,13 +242,14 @@ static void isis_vertex_queue_insert(struct isis_vertex_queue *queue,
 	assert(inserted == vertex);
 }
 
-static struct isis_vertex *isis_vertex_queue_pop(struct isis_vertex_queue *queue)
+static struct isis_vertex *
+isis_vertex_queue_pop(struct isis_vertex_queue *queue)
 {
 	assert(queue->insert_counter);
 
 	struct isis_vertex *rv;
 
-	if (skiplist_first(queue->l.slist, NULL, (void**)&rv))
+	if (skiplist_first(queue->l.slist, NULL, (void **)&rv))
 		return NULL;
 
 	skiplist_delete_first(queue->l.slist);
@@ -265,8 +267,8 @@ static void isis_vertex_queue_delete(struct isis_vertex_queue *queue,
 	hash_release(queue->hash, vertex);
 }
 
-#define ALL_QUEUE_ELEMENTS_RO(queue, node, data) \
-		ALL_LIST_ELEMENTS_RO((queue)->l.list, node, data)
+#define ALL_QUEUE_ELEMENTS_RO(queue, node, data)                               \
+	ALL_LIST_ELEMENTS_RO((queue)->l.list, node, data)
 
 
 /* End of vertex queue definitions */
@@ -332,12 +334,12 @@ static void remove_excess_adjs(struct list *adjs)
 		if (comp < 0)
 			continue;
 
-		if (candidate->circuit->circuit_id > adj->circuit->circuit_id) {
+		if (candidate->circuit->idx > adj->circuit->idx) {
 			excess = node;
 			continue;
 		}
 
-		if (candidate->circuit->circuit_id < adj->circuit->circuit_id)
+		if (candidate->circuit->idx < adj->circuit->idx)
 			continue;
 
 		comp = memcmp(candidate->snpa, adj->snpa, ETH_ALEN);
@@ -405,7 +407,8 @@ static const char *vid2string(struct isis_vertex *vertex, char *buff, int size)
 	return "UNKNOWN";
 }
 
-static void isis_vertex_id_init(struct isis_vertex *vertex, void *id, enum vertextype vtype)
+static void isis_vertex_id_init(struct isis_vertex *vertex, void *id,
+				enum vertextype vtype)
 {
 	vertex->type = vtype;
 
@@ -621,8 +624,8 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 	return vertex;
 }
 
-static struct isis_vertex *isis_find_vertex(struct isis_vertex_queue *queue, void *id,
-					    enum vertextype vtype)
+static struct isis_vertex *isis_find_vertex(struct isis_vertex_queue *queue,
+					    void *id, enum vertextype vtype)
 {
 	struct isis_vertex querier;
 
@@ -1149,7 +1152,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 				root_sysid, parent);
 		} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 			adj = circuit->u.p2p.neighbor;
-			if (!adj)
+			if (!adj || adj->adj_state != ISIS_ADJ_UP)
 				continue;
 			if (!adj_has_mt(adj, spftree->mtid))
 				continue;
@@ -1372,10 +1375,10 @@ static int isis_run_spf_cb(struct thread *thread)
 
 	if (area->ip_circuits)
 		retval = isis_run_spf(area, level, AF_INET, isis->sysid,
-			&thread->real);
+				      &thread->real);
 	if (area->ipv6_circuits)
 		retval = isis_run_spf(area, level, AF_INET6, isis->sysid,
-			&thread->real);
+				      &thread->real);
 
 	return retval;
 }
@@ -1469,9 +1472,9 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 		vty_out(vty, "%-20s %-12s %-6u ",
 			vid2string(vertex, buff, sizeof(buff)),
 			vtype2string(vertex->type), vertex->d_N);
-		for (unsigned int i = 0;
-		     i < MAX(listcount(vertex->Adj_N),
-			     listcount(vertex->parents)); i++) {
+		for (unsigned int i = 0; i < MAX(listcount(vertex->Adj_N),
+						 listcount(vertex->parents));
+		     i++) {
 			if (anode) {
 				adj = listgetdata(anode);
 				anode = anode->next;
@@ -1502,8 +1505,7 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 					vty_out(vty, "%-20s %-9s ", "", "");
 
 				vty_out(vty, "%s(%d)",
-					vid2string(pvertex, buff,
-						   sizeof(buff)),
+					vid2string(pvertex, buff, sizeof(buff)),
 					pvertex->type);
 			}
 
@@ -1586,6 +1588,5 @@ void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)
 	vty_out(vty, "      last run duration : %u usec\n",
 		(u_int32_t)spftree->last_run_duration);
 
-	vty_out(vty, "      run count         : %u\n",
-		spftree->runcount);
+	vty_out(vty, "      run count         : %u\n", spftree->runcount);
 }

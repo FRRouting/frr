@@ -58,9 +58,8 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 
 			/* Remove route from zebra. */
 			if (or->type == OSPF_DESTINATION_NETWORK)
-				ospf_zebra_delete(ospf,
-						  (struct prefix_ipv4 *)&rn->p,
-						  or);
+				ospf_zebra_delete(
+					ospf, (struct prefix_ipv4 *)&rn->p, or);
 
 			ospf_route_free(or);
 			rn->info = NULL;
@@ -127,12 +126,10 @@ int ospf_route_map_set_compare(struct route_map_set_values *values1,
 }
 
 /* Add an External info for AS-external-LSA. */
-struct external_info *ospf_external_info_add(struct ospf *ospf, u_char type,
-					     u_short instance,
-					     struct prefix_ipv4 p,
-					     ifindex_t ifindex,
-					     struct in_addr nexthop,
-					     route_tag_t tag)
+struct external_info *
+ospf_external_info_add(struct ospf *ospf, u_char type, u_short instance,
+		       struct prefix_ipv4 p, ifindex_t ifindex,
+		       struct in_addr nexthop, route_tag_t tag)
 {
 	struct external_info *new;
 	struct route_node *rn;
@@ -160,8 +157,8 @@ struct external_info *ospf_external_info_add(struct ospf *ospf, u_char type,
 			zlog_warn(
 				"Redistribute[%s][%d][%u]: %s/%d discarding old info with NH %s.",
 				ospf_redist_string(type), instance,
-				ospf->vrf_id, inet_ntoa(p.prefix),
-				p.prefixlen, inetbuf);
+				ospf->vrf_id, inet_ntoa(p.prefix), p.prefixlen,
+				inetbuf);
 			XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
 			rn->info = NULL;
 		}

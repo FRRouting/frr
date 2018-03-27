@@ -285,8 +285,8 @@ static void check_replace(struct route_node *np2, struct route_entry *re2,
 		return;
 	}
 
-	if (in_addr_cmp((u_char *)&(*re)->nexthop->gate.ipv4,
-			(u_char *)&re2->nexthop->gate.ipv4)
+	if (in_addr_cmp((u_char *)&(*re)->ng.nexthop->gate.ipv4,
+			(u_char *)&re2->ng.nexthop->gate.ipv4)
 	    <= 0)
 		return;
 
@@ -370,9 +370,9 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 		for (*np = route_top(table); *np; *np = route_next(*np)) {
 			if (!in_addr_cmp(&(*np)->p.u.prefix, (u_char *)&dest)) {
 				RNODE_FOREACH_RE (*np, *re) {
-					if (!in_addr_cmp((u_char *)&(*re)
-								 ->nexthop->gate
-								 .ipv4,
+					if (!in_addr_cmp(
+						    (u_char *)&(*re)
+						    ->ng.nexthop->gate.ipv4,
 							 (u_char *)&nexthop))
 						if (proto
 						    == proto_trans((*re)->type))
@@ -404,9 +404,10 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 				if ((policy < policy2)
 				    || ((policy == policy2) && (proto < proto2))
 				    || ((policy == policy2) && (proto == proto2)
-					&& (in_addr_cmp((u_char *)&re2->nexthop
-								->gate.ipv4,
-							(u_char *)&nexthop)
+					&& (in_addr_cmp(
+						    (u_char *)&re2->ng.nexthop
+						    ->gate.ipv4,
+						    (u_char *)&nexthop)
 					    >= 0)))
 					check_replace(np2, re2, np, re);
 			}
@@ -430,7 +431,7 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 	{
 		struct nexthop *nexthop;
 
-		nexthop = (*re)->nexthop;
+		nexthop = (*re)->ng.nexthop;
 		if (nexthop) {
 			pnt = (u_char *)&nexthop->gate.ipv4;
 			for (i = 0; i < 4; i++)
@@ -459,7 +460,7 @@ static u_char *ipFwTable(struct variable *v, oid objid[], size_t *objid_len,
 	if (!np)
 		return NULL;
 
-	nexthop = re->nexthop;
+	nexthop = re->ng.nexthop;
 	if (!nexthop)
 		return NULL;
 

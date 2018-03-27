@@ -257,8 +257,8 @@ static const char *change2str(enum metric_change change)
  * Return number of occurred event (arrow in diagram).
  *
  */
-static enum eigrp_fsm_events eigrp_get_fsm_event(
-	struct eigrp_fsm_action_message *msg)
+static enum eigrp_fsm_events
+eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 {
 	// Loading base information from message
 	// struct eigrp *eigrp = msg->eigrp;
@@ -315,8 +315,7 @@ static enum eigrp_fsm_events eigrp_get_fsm_event(
 				return EIGRP_FSM_KEEP_STATE;
 
 			zlog_info("All reply received\n");
-			if (head->reported_distance
-			    < prefix->fdistance) {
+			if (head->reported_distance < prefix->fdistance) {
 				return EIGRP_FSM_EVENT_LR_FCS;
 			}
 
@@ -417,13 +416,12 @@ int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
 {
 	enum eigrp_fsm_events event = eigrp_get_fsm_event(msg);
 
-	zlog_info("EIGRP AS: %d State: %s Event: %s Network: %s Packet Type: %s Reply RIJ Count: %d change: %s",
-		  msg->eigrp->AS, prefix_state2str(msg->prefix->state),
-		  fsm_state2str(event),
-		  eigrp_topology_ip_string(msg->prefix),
-		  packet_type2str(msg->packet_type),
-		  msg->prefix->rij->count,
-		  change2str(msg->change));
+	zlog_info(
+		"EIGRP AS: %d State: %s Event: %s Network: %s Packet Type: %s Reply RIJ Count: %d change: %s",
+		msg->eigrp->AS, prefix_state2str(msg->prefix->state),
+		fsm_state2str(event), eigrp_topology_ip_string(msg->prefix),
+		packet_type2str(msg->packet_type), msg->prefix->rij->count,
+		change2str(msg->change));
 	(*(NSM[msg->prefix->state][event].func))(msg);
 
 	return 1;
@@ -444,8 +442,7 @@ int eigrp_fsm_event_nq_fcn(struct eigrp_fsm_action_message *msg)
 
 	ne = listnode_head(successors);
 	prefix->state = EIGRP_FSM_STATE_ACTIVE_1;
-	prefix->rdistance = prefix->distance = prefix->fdistance =
-		ne->distance;
+	prefix->rdistance = prefix->distance = prefix->fdistance = ne->distance;
 	prefix->reported_metric = ne->total_metric;
 
 	if (eigrp_nbr_count_get()) {
@@ -472,8 +469,7 @@ int eigrp_fsm_event_q_fcn(struct eigrp_fsm_action_message *msg)
 
 	ne = listnode_head(successors);
 	prefix->state = EIGRP_FSM_STATE_ACTIVE_3;
-	prefix->rdistance = prefix->distance = prefix->fdistance =
-		ne->distance;
+	prefix->rdistance = prefix->distance = prefix->fdistance = ne->distance;
 	prefix->reported_metric = ne->total_metric;
 	if (eigrp_nbr_count_get()) {
 		prefix->req_action |= EIGRP_FSM_NEED_QUERY;
@@ -498,8 +494,7 @@ int eigrp_fsm_event_keep_state(struct eigrp_fsm_action_message *msg)
 					   ne->total_metric)) {
 			prefix->rdistance = prefix->fdistance =
 				prefix->distance = ne->distance;
-			prefix->reported_metric =
-				ne->total_metric;
+			prefix->reported_metric = ne->total_metric;
 			if (msg->packet_type == EIGRP_OPC_QUERY)
 				eigrp_send_reply(msg->adv_router, prefix);
 			prefix->req_action |= EIGRP_FSM_NEED_UPDATE;
@@ -523,8 +518,7 @@ int eigrp_fsm_event_lr(struct eigrp_fsm_action_message *msg)
 	struct eigrp_prefix_entry *prefix = msg->prefix;
 	struct eigrp_nexthop_entry *ne = listnode_head(prefix->entries);
 
-	prefix->fdistance = prefix->distance = prefix->rdistance =
-		ne->distance;
+	prefix->fdistance = prefix->distance = prefix->rdistance = ne->distance;
 	prefix->reported_metric = ne->total_metric;
 
 	if (prefix->state == EIGRP_FSM_STATE_ACTIVE_3) {
@@ -533,8 +527,7 @@ int eigrp_fsm_event_lr(struct eigrp_fsm_action_message *msg)
 		assert(successors); // It's like Napolean and Waterloo
 
 		ne = listnode_head(successors);
-		eigrp_send_reply(ne->adv_router,
-				 prefix);
+		eigrp_send_reply(ne->adv_router, prefix);
 		list_delete_and_null(&successors);
 	}
 
@@ -587,8 +580,7 @@ int eigrp_fsm_event_lr_fcs(struct eigrp_fsm_action_message *msg)
 		assert(successors); // Having a spoon and all you need is a
 				    // knife
 		ne = listnode_head(successors);
-		eigrp_send_reply(ne->adv_router,
-				 prefix);
+		eigrp_send_reply(ne->adv_router, prefix);
 
 		list_delete_and_null(&successors);
 	}

@@ -175,9 +175,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			    == 0) {
 				config_add_line(config->line, line);
 				config->index = LINK_PARAMS_NODE;
-			} else if (strncmp(line,
-					   " ip multicast boundary",
-					   strlen(" ip multicast boundary")) == 0) {
+			} else if (strncmp(line, " ip multicast boundary",
+					   strlen(" ip multicast boundary"))
+				   == 0) {
 				config_add_line_end(config->line, line);
 			} else if (config->index == LINK_PARAMS_NODE
 				   && strncmp(line, "  exit-link-params",
@@ -187,7 +187,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				config->index = INTERFACE_NODE;
 			} else if (config->index == RMAP_NODE
 				   || config->index == INTERFACE_NODE
-				   || config->index == NS_NODE
+				   || config->index == LOGICALROUTER_NODE
 				   || config->index == VTY_NODE
 				   || config->index == VRF_NODE)
 				config_add_line_uniq(config->line, line);
@@ -202,7 +202,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 		else if (strncmp(line, "pseudowire", strlen("pseudowire")) == 0)
 			config = config_get(PW_NODE, line);
 		else if (strncmp(line, "logical-router", strlen("ns")) == 0)
-			config = config_get(NS_NODE, line);
+			config = config_get(LOGICALROUTER_NODE, line);
 		else if (strncmp(line, "vrf", strlen("vrf")) == 0)
 			config = config_get(VRF_NODE, line);
 		else if (strncmp(line, "router-id", strlen("router-id")) == 0)
@@ -263,10 +263,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				 == 0
 			 || strncmp(line, "ip extcommunity-list",
 				    strlen("ip extcommunity-list"))
-				 == 0
+				    == 0
 			 || strncmp(line, "ip large-community-list",
 				    strlen("ip large-community-list"))
-				 == 0)
+				    == 0)
 			config = config_get(COMMUNITY_LIST_NODE, line);
 		else if (strncmp(line, "ip route", strlen("ip route")) == 0)
 			config = config_get(IP_NODE, line);
@@ -398,7 +398,7 @@ static int vtysh_read_file(FILE *confp)
 	int ret;
 
 	vty = vty_new();
-	vty->fd = 0; /* stdout */
+	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_TERM;
 	vty->node = CONFIG_NODE;
 
@@ -446,6 +446,11 @@ void vtysh_config_write()
 
 	if (cmd_hostname_get()) {
 		sprintf(line, "hostname %s", cmd_hostname_get());
+		vtysh_config_parse_line(NULL, line);
+	}
+
+	if (cmd_domainname_get()) {
+		sprintf(line, "domainname %s", cmd_domainname_get());
 		vtysh_config_parse_line(NULL, line);
 	}
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)

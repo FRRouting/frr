@@ -93,6 +93,26 @@ int bgp_maximum_paths_unset(struct bgp *bgp, afi_t afi, safi_t safi,
 }
 
 /*
+ * bgp_interface_same
+ *
+ * Return true if ifindex for ifp1 and ifp2 are the same, else return false.
+ */
+static int bgp_interface_same(struct interface *ifp1, struct interface *ifp2)
+{
+	if (!ifp1 && !ifp2)
+		return 1;
+
+	if (!ifp1 && ifp2)
+		return 0;
+
+	if (ifp1 && !ifp2)
+		return 0;
+
+	return (ifp1->ifindex == ifp2->ifindex);
+}
+
+
+/*
  * bgp_info_nexthop_cmp
  *
  * Compare the nexthops of two paths. Return value is less than, equal to,
@@ -121,16 +141,18 @@ int bgp_info_nexthop_cmp(struct bgp_info *bi1, struct bgp_info *bi2)
 					&bi2->attr->mp_nexthop_global);
 				break;
 			case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
-				addr1 = (bi1->attr->mp_nexthop_prefer_global) ?
-					bi1->attr->mp_nexthop_global
-					: bi1->attr->mp_nexthop_local;
-				addr2 = (bi2->attr->mp_nexthop_prefer_global) ?
-					bi2->attr->mp_nexthop_global
-					: bi2->attr->mp_nexthop_local;
+				addr1 = (bi1->attr->mp_nexthop_prefer_global)
+						? bi1->attr->mp_nexthop_global
+						: bi1->attr->mp_nexthop_local;
+				addr2 = (bi2->attr->mp_nexthop_prefer_global)
+						? bi2->attr->mp_nexthop_global
+						: bi2->attr->mp_nexthop_local;
 
-				if (!bi1->attr->mp_nexthop_prefer_global &&
-				    !bi2->attr->mp_nexthop_prefer_global)
-					compare = !(bi1->peer->ifindex == bi2->peer->ifindex);
+				if (!bi1->attr->mp_nexthop_prefer_global
+				    && !bi2->attr->mp_nexthop_prefer_global)
+					compare = !bgp_interface_same(
+						bi1->peer->ifp, bi2->peer->ifp);
+
 				if (!compare)
 					compare = IPV6_ADDR_CMP(&addr1, &addr2);
 				break;

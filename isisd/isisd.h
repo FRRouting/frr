@@ -53,7 +53,7 @@ struct isis {
 	u_int32_t debugs;		  /* bitmap for debug */
 	time_t uptime;			  /* when did we start */
 	struct thread *t_dync_clean;      /* dynamic hostname cache cleanup thread */
-	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 0 through 255 */
+	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
 
@@ -70,8 +70,6 @@ struct isis_area {
 	struct route_table *route_table[ISIS_LEVELS];  /* IPv4 routes */
 	struct isis_spftree *spftree6[ISIS_LEVELS];    /* The v6 SPTs */
 	struct route_table *route_table6[ISIS_LEVELS]; /* IPv6 routes */
-						       /* $FRR indent$ */
-/* clang-format off */
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
 	struct list *circuit_list; /* IS-IS circuits */

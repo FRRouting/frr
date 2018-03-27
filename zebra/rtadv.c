@@ -34,6 +34,7 @@
 #include "command.h"
 #include "privs.h"
 #include "vrf.h"
+#include "ns.h"
 
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
@@ -621,7 +622,7 @@ static int rtadv_read(struct thread *thread)
 	return 0;
 }
 
-static int rtadv_make_socket(void)
+static int rtadv_make_socket(ns_id_t ns_id)
 {
 	int sock;
 	int ret = 0;
@@ -631,7 +632,7 @@ static int rtadv_make_socket(void)
 		zlog_err("rtadv_make_socket: could not raise privs, %s",
 			 safe_strerror(errno));
 
-	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+	sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
 
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("rtadv_make_socket: could not lower privs, %s",
@@ -800,8 +801,7 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
  * if the operator has explicitly enabled RA. The enable request can also
  * specify a RA interval (in seconds).
  */
-void zebra_interface_radv_set(struct zserv *client, u_short length,
-			      struct zebra_vrf *zvrf, int enable)
+static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 {
 	struct stream *s;
 	ifindex_t ifindex;
@@ -809,7 +809,7 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 	struct zebra_if *zif;
 	int ra_interval;
 
-	s = client->ibuf;
+	s = msg;
 
 	/* Get interface index and RA interval. */
 	STREAM_GETL(s, ifindex);
@@ -841,9 +841,9 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 		SET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
 		if (ra_interval
-			&& (ra_interval * 1000) < zif->rtadv.MaxRtrAdvInterval
-			&& !CHECK_FLAG(zif->rtadv.ra_configured,
-				VTY_RA_INTERVAL_CONFIGURED))
+		    && (ra_interval * 1000) < zif->rtadv.MaxRtrAdvInterval
+		    && !CHECK_FLAG(zif->rtadv.ra_configured,
+				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
 	} else {
 		UNSET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
@@ -856,6 +856,15 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 	}
 stream_failure:
 	return;
+}
+
+void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
+{
+	zebra_interface_radv_set(client, hdr, msg, zvrf, 0);
+}
+void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
+{
+	zebra_interface_radv_set(client, hdr, msg, zvrf, 1);
 }
 
 DEFUN (ipv6_nd_suppress_ra,
@@ -1686,7 +1695,7 @@ static void rtadv_event(struct zebra_ns *zns, enum rtadv_event event, int val)
 
 void rtadv_init(struct zebra_ns *zns)
 {
-	zns->rtadv.sock = rtadv_make_socket();
+	zns->rtadv.sock = rtadv_make_socket(zns->ns_id);
 }
 
 void rtadv_terminate(struct zebra_ns *zns)

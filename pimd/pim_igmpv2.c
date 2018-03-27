@@ -111,6 +111,9 @@ int igmp_v2_recv_report(struct igmp_sock *igmp, struct in_addr from,
 
 	on_trace(__PRETTY_FUNCTION__, igmp->interface, from);
 
+	if (igmp->mtrace_only)
+		return 0;
+
 	if (igmp_msg_len != IGMP_V12_MSG_SIZE) {
 		zlog_warn(
 			"Recv IGMPv2 REPORT from %s on %s: size=%d other than correct=%d",
@@ -153,6 +156,9 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct in_addr from,
 	char group_str[INET_ADDRSTRLEN];
 
 	on_trace(__PRETTY_FUNCTION__, igmp->interface, from);
+
+	if (igmp->mtrace_only)
+		return 0;
 
 	if (igmp_msg_len != IGMP_V12_MSG_SIZE) {
 		zlog_warn(

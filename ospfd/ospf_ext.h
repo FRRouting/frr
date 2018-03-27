@@ -194,7 +194,7 @@ extern void ospf_ext_term(void);
 extern void ospf_ext_finish(void);
 extern void ospf_ext_update_sr(bool enable);
 extern uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp,
-					  uint32_t index,
-					  struct prefix_ipv4 *p,
-					  uint8_t flags);
+					       uint32_t index,
+					       struct prefix_ipv4 *p,
+					       uint8_t flags);
 #endif /* _FRR_OSPF_EXT_PREF_H_ */

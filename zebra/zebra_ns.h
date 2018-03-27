@@ -23,6 +23,7 @@
 #define __ZEBRA_NS_H__
 
 #include <lib/ns.h>
+#include <lib/vrf.h>
 
 #ifdef HAVE_NETLINK
 /* Socket interface to kernel */
@@ -33,6 +34,18 @@ struct nlsock {
 	char name[64];
 };
 #endif
+
+struct zebra_ns_table {
+	RB_ENTRY(zebra_ns_table) zebra_ns_table_entry;
+
+	uint32_t tableid;
+	afi_t afi;
+
+	struct route_table *table;
+};
+RB_HEAD(zebra_ns_table_head, zebra_ns_table);
+RB_PROTOTYPE(zebra_ns_table_head, zebra_ns_table, zebra_ns_table_entry,
+	     zebra_ns_table_entry_compare)
 
 struct zebra_ns {
 	/* net-ns name.  */
@@ -55,11 +68,29 @@ struct zebra_ns {
 #if defined(HAVE_RTADV)
 	struct rtadv rtadv;
 #endif /* HAVE_RTADV */
+
+	struct zebra_ns_table_head ns_tables;
+
+	struct hash *rules_hash;
+
+	/* Back pointer */
+	struct ns *ns;
 };
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
 
 int zebra_ns_init(void);
 int zebra_ns_enable(ns_id_t ns_id, void **info);
+int zebra_ns_disabled(struct ns *ns);
 int zebra_ns_disable(ns_id_t ns_id, void **info);
+
+extern struct route_table *zebra_ns_find_table(struct zebra_ns *zns,
+					       uint32_t tableid, afi_t afi);
+extern struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
+					      struct zebra_vrf *zvrf,
+					      uint32_t tableid, afi_t afi);
+int zebra_ns_config_write(struct vty *vty, struct ns *ns);
+
+unsigned long zebra_ns_score_proto(u_char proto, u_short instance);
+void zebra_ns_sweep_route(void);
 #endif

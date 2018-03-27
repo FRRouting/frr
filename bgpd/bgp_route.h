@@ -104,10 +104,8 @@ struct bgp_info_extra {
 				struct in6_addr addr6;
 			} un; /* cached un address */
 			time_t create_time;
-			struct
-				prefix
-					aux_prefix; /* AFI_L2VPN: the IP addr,
-						       if family set */
+			struct prefix aux_prefix; /* AFI_L2VPN: the IP addr,
+						     if family set */
 		} import;
 
 	} vnc;
@@ -116,6 +114,30 @@ struct bgp_info_extra {
 	/* For imported routes into a VNI (or VRF), this points to the parent.
 	 */
 	void *parent;
+
+	/*
+	 * Some tunnelish parameters follow. Maybe consolidate into an
+	 * internal tunnel structure?
+	 */
+
+	/*
+	 * Original bgp instance for imported routes. Needed for:
+	 * 1. Find all routes from a specific vrf for deletion
+	 * 2. vrf context of original nexthop
+	 *
+	 * Store pointer to bgp instance rather than bgp->vrf_id because
+	 * bgp->vrf_id is not always valid (or may change?).
+	 *
+	 * Set to NULL if route is not imported from another bgp instance.
+	 */
+	struct bgp *bgp_orig;
+
+	/*
+	 * Nexthop in context of original bgp instance. Needed
+	 * for label resolution of core mpls routes exported to a vrf.
+	 * Set nexthop_orig.family to 0 if not valid.
+	 */
+	struct prefix nexthop_orig;
 };
 
 struct bgp_info {
@@ -181,6 +203,7 @@ struct bgp_info {
 #ifdef ENABLE_BGP_VNC
 # define BGP_ROUTE_RFP          4 
 #endif
+#define BGP_ROUTE_IMPORTED     5        /* from another bgp instance/safi */
 
 	u_short instance;
 

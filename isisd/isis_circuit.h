@@ -32,8 +32,6 @@
 #include "isis_constants.h"
 #include "isis_common.h"
 
-#define CIRCUIT_MAX 255
-
 struct isis_lsp;
 
 struct password {
@@ -69,7 +67,7 @@ struct isis_p2p_info {
 
 struct isis_circuit {
 	int state;
-	u_char circuit_id;	   /* l1/l2 p2p/bcast CircuitID */
+	u_char circuit_id;	     /* l1/l2 bcast CircuitID */
 	struct isis_area *area;      /* back pointer to the area */
 	struct interface *interface; /* interface info from z */
 	int fd;			     /* IS-IS l1/2 socket */
@@ -96,8 +94,6 @@ struct isis_circuit {
 	int (*tx)(struct isis_circuit *circuit, int level);
 	struct stream *snd_stream; /* Stream for sending */
 	int idx;		   /* idx in S[RM|SN] flags */
-				   /* $FRR indent$ */
-				   /* clang-format off */
 #define CIRCUIT_T_UNKNOWN    0
 #define CIRCUIT_T_BROADCAST  1
 #define CIRCUIT_T_P2P        2
@@ -136,6 +132,7 @@ struct isis_circuit {
 	u_int16_t upadjcount[2];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
 	u_char flags;
+	bool disable_threeway_adj;
 	/*
 	 * Counters as in 10589--11.2.5.9
 	 */
@@ -185,7 +182,7 @@ void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 			 bool ipv6_router);
 ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive);
 void isis_circuit_is_type_set(struct isis_circuit *circuit, int is_type);
-ferr_r isis_circuit_circ_type_set (struct isis_circuit *circuit, int circ_type);
+ferr_r isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type);
 
 ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
 			       int metric);

@@ -25,7 +25,8 @@ struct route_info {
 	struct interface *nhrp_ifp;
 };
 
-static struct route_node *nhrp_route_update_get(const struct prefix *p, int create)
+static struct route_node *nhrp_route_update_get(const struct prefix *p,
+						int create)
 {
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(p));
@@ -36,7 +37,8 @@ static struct route_node *nhrp_route_update_get(const struct prefix *p, int crea
 	if (create) {
 		rn = route_node_get(zebra_rib[afi], p);
 		if (!rn->info) {
-			rn->info = XCALLOC(MTYPE_NHRP_ROUTE, sizeof(struct route_info));
+			rn->info = XCALLOC(MTYPE_NHRP_ROUTE,
+					   sizeof(struct route_info));
 			route_lock_node(rn);
 		}
 		return rn;
@@ -49,7 +51,8 @@ static void nhrp_route_update_put(struct route_node *rn)
 {
 	struct route_info *ri = rn->info;
 
-	if (!ri->ifp && !ri->nhrp_ifp && sockunion_family(&ri->via) == AF_UNSPEC) {
+	if (!ri->ifp && !ri->nhrp_ifp
+	    && sockunion_family(&ri->via) == AF_UNSPEC) {
 		XFREE(MTYPE_NHRP_ROUTE, rn->info);
 		rn->info = NULL;
 		route_unlock_node(rn);
@@ -57,12 +60,15 @@ static void nhrp_route_update_put(struct route_node *rn)
 	route_unlock_node(rn);
 }
 
-static void nhrp_route_update_zebra(const struct prefix *p, union sockunion *nexthop, struct interface *ifp)
+static void nhrp_route_update_zebra(const struct prefix *p,
+				    union sockunion *nexthop,
+				    struct interface *ifp)
 {
 	struct route_node *rn;
 	struct route_info *ri;
 
-	rn = nhrp_route_update_get(p, (sockunion_family(nexthop) != AF_UNSPEC) || ifp);
+	rn = nhrp_route_update_get(
+		p, (sockunion_family(nexthop) != AF_UNSPEC) || ifp);
 	if (rn) {
 		ri = rn->info;
 		ri->via = *nexthop;
@@ -84,7 +90,9 @@ void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
 	}
 }
 
-void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix *p, struct interface *ifp, const union sockunion *nexthop, uint32_t mtu)
+void nhrp_route_announce(int add, enum nhrp_cache_type type,
+			 const struct prefix *p, struct interface *ifp,
+			 const union sockunion *nexthop, uint32_t mtu)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -114,7 +122,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 		SET_FLAG(api.flags, ZEBRA_FLAG_FIB_OVERRIDE);
 		break;
 	}
-	SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	api.nexthop_num = 1;
@@ -158,10 +166,13 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 		char buf[2][PREFIX_STRLEN];
 
 		prefix2str(&api.prefix, buf[0], sizeof(buf[0]));
-		zlog_debug("Zebra send: route %s %s nexthop %s metric %u"
+		zlog_debug(
+			"Zebra send: route %s %s nexthop %s metric %u"
 			" count %d dev %s",
 			add ? "add" : "del", buf[0],
-			nexthop ? inet_ntop(api.prefix.family, &api_nh->gate, buf[1], sizeof(buf[1])) : "<onlink>",
+			nexthop ? inet_ntop(api.prefix.family, &api_nh->gate,
+					    buf[1], sizeof(buf[1]))
+				: "<onlink>",
 			api.metric, api.nexthop_num, ifp ? ifp->name : "none");
 	}
 
@@ -169,7 +180,8 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 			   &api);
 }
 
-int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id)
+int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length,
+		    vrf_id_t vrf_id)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -200,15 +212,15 @@ int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_i
 		}
 
 		if (api_nh->ifindex != IFINDEX_INTERNAL)
-                       	ifp = if_lookup_by_index(api_nh->ifindex, VRF_DEFAULT);
+			ifp = if_lookup_by_index(api_nh->ifindex, VRF_DEFAULT);
 	}
 
 	added = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 	debugf(NHRP_DEBUG_ROUTE, "if-route-%s: %s via %s dev %s",
-		added ? "add" : "del",
-		prefix2str(&api.prefix, buf[0], sizeof buf[0]),
-		sockunion2str(&nexthop_addr, buf[1], sizeof buf[1]),
-		ifp ? ifp->name : "(none)");
+	       added ? "add" : "del",
+	       prefix2str(&api.prefix, buf[0], sizeof buf[0]),
+	       sockunion2str(&nexthop_addr, buf[1], sizeof buf[1]),
+	       ifp ? ifp->name : "(none)");
 
 	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, ifp);
 	nhrp_shortcut_prefix_change(&api.prefix, !added);
@@ -216,7 +228,8 @@ int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_i
 	return 0;
 }
 
-int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p, union sockunion *via, struct interface **ifp)
+int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
+			   union sockunion *via, struct interface **ifp)
 {
 	struct route_node *rn;
 	struct route_info *ri;
@@ -227,30 +240,38 @@ int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p, union 
 	sockunion2hostprefix(addr, &lookup);
 
 	rn = route_node_match(zebra_rib[afi], &lookup);
-	if (!rn) return 0;
+	if (!rn)
+		return 0;
 
 	ri = rn->info;
 	if (ri->nhrp_ifp) {
 		debugf(NHRP_DEBUG_ROUTE, "lookup %s: nhrp_if=%s",
-			prefix2str(&lookup, buf, sizeof buf),
-			ri->nhrp_ifp->name);
+		       prefix2str(&lookup, buf, sizeof buf),
+		       ri->nhrp_ifp->name);
 
-		if (via) sockunion_family(via) = AF_UNSPEC;
-		if (ifp) *ifp = ri->nhrp_ifp;
+		if (via)
+			sockunion_family(via) = AF_UNSPEC;
+		if (ifp)
+			*ifp = ri->nhrp_ifp;
 	} else {
 		debugf(NHRP_DEBUG_ROUTE, "lookup %s: zebra route dev %s",
-			prefix2str(&lookup, buf, sizeof buf),
-			ri->ifp ? ri->ifp->name : "(none)");
+		       prefix2str(&lookup, buf, sizeof buf),
+		       ri->ifp ? ri->ifp->name : "(none)");
 
-		if (via) *via = ri->via;
-		if (ifp) *ifp = ri->ifp;
+		if (via)
+			*via = ri->via;
+		if (ifp)
+			*ifp = ri->ifp;
 	}
-	if (p) *p = rn->p;
+	if (p)
+		*p = rn->p;
 	route_unlock_node(rn);
 	return 1;
 }
 
-enum nhrp_route_type nhrp_route_address(struct interface *in_ifp, union sockunion *addr, struct prefix *p, struct nhrp_peer **peer)
+enum nhrp_route_type nhrp_route_address(struct interface *in_ifp,
+					union sockunion *addr, struct prefix *p,
+					struct nhrp_peer **peer)
 {
 	struct interface *ifp = in_ifp;
 	struct nhrp_interface *nifp;
@@ -266,7 +287,8 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp, union sockunio
 
 		c = nhrp_cache_get(ifp, addr, 0);
 		if (c && c->cur.type == NHRP_CACHE_LOCAL) {
-			if (p) memset(p, 0, sizeof(*p));
+			if (p)
+				memset(p, 0, sizeof(*p));
 			return NHRP_ROUTE_LOCAL;
 		}
 	}
@@ -277,7 +299,8 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp, union sockunio
 		if (ifp) {
 			/* Departing from nbma network? */
 			nifp = ifp->info;
-			if (network_id && network_id != nifp->afi[afi].network_id)
+			if (network_id
+			    && network_id != nifp->afi[afi].network_id)
 				return NHRP_ROUTE_OFF_NBMA;
 		}
 		if (sockunion_family(&via[i]) == AF_UNSPEC)
@@ -290,10 +313,12 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp, union sockunio
 	if (ifp) {
 		c = nhrp_cache_get(ifp, addr, 0);
 		if (c && c->cur.type >= NHRP_CACHE_DYNAMIC) {
-			if (p) memset(p, 0, sizeof(*p));
+			if (p)
+				memset(p, 0, sizeof(*p));
 			if (c->cur.type == NHRP_CACHE_LOCAL)
 				return NHRP_ROUTE_LOCAL;
-			if (peer) *peer = nhrp_peer_ref(c->cur.peer);
+			if (peer)
+				*peer = nhrp_peer_ref(c->cur.peer);
 			return NHRP_ROUTE_NBMA_NEXTHOP;
 		}
 	}
@@ -301,14 +326,13 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp, union sockunio
 	return NHRP_ROUTE_BLACKHOLE;
 }
 
-static void
-nhrp_zebra_connected (struct zclient *zclient)
+static void nhrp_zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+				ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 }
 
 void nhrp_zebra_init(void)

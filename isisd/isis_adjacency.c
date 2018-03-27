@@ -47,6 +47,7 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_mt.h"
+#include "isisd/isis_tlvs.h"
 
 extern struct isis *isis;
 
@@ -78,6 +79,7 @@ struct isis_adjacency *isis_new_adj(const u_char *id, const u_char *snpa,
 	adj->level = level;
 	adj->flaps = 0;
 	adj->last_flap = time(NULL);
+	adj->threeway_state = ISIS_THREEWAY_DOWN;
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		listnode_add(circuit->u.bc.adjdb[level - 1], adj);
 		adj->dischanges[level - 1] = 0;
@@ -159,6 +161,51 @@ static const char *adj_state2string(int state)
 	}
 
 	return NULL; /* not reached */
+}
+
+void isis_adj_process_threeway(struct isis_adjacency *adj,
+			       struct isis_threeway_adj *tw_adj,
+			       enum isis_adj_usage adj_usage)
+{
+	enum isis_threeway_state next_tw_state = ISIS_THREEWAY_DOWN;
+
+	if (tw_adj && !adj->circuit->disable_threeway_adj) {
+		if (tw_adj->state == ISIS_THREEWAY_DOWN) {
+			next_tw_state = ISIS_THREEWAY_INITIALIZING;
+		} else if (tw_adj->state == ISIS_THREEWAY_INITIALIZING) {
+			next_tw_state = ISIS_THREEWAY_UP;
+		} else if (tw_adj->state == ISIS_THREEWAY_UP) {
+			if (adj->threeway_state == ISIS_THREEWAY_DOWN)
+				next_tw_state = ISIS_THREEWAY_DOWN;
+			else
+				next_tw_state = ISIS_THREEWAY_UP;
+		}
+	} else {
+		next_tw_state = ISIS_THREEWAY_UP;
+	}
+
+	if (next_tw_state != adj->threeway_state) {
+		if (isis->debugs & DEBUG_ADJ_PACKETS) {
+			zlog_info("ISIS-Adj (%s): Threeway state change %s to %s",
+				  adj->circuit->area->area_tag,
+				  isis_threeway_state_name(adj->threeway_state),
+				  isis_threeway_state_name(next_tw_state));
+		}
+	}
+
+	if (next_tw_state == ISIS_THREEWAY_DOWN) {
+		isis_adj_state_change(adj, ISIS_ADJ_DOWN, "Neighbor restarted");
+		return;
+	}
+
+	if (next_tw_state == ISIS_THREEWAY_UP) {
+		if (adj->adj_state != ISIS_ADJ_UP) {
+			isis_adj_state_change(adj, ISIS_ADJ_UP, NULL);
+			adj->adj_usage = adj_usage;
+		}
+	}
+
+	adj->threeway_state = next_tw_state;
 }
 
 void isis_adj_state_change(struct isis_adjacency *adj,
@@ -437,10 +484,10 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			for (unsigned int i = 0; i < adj->area_address_count;
 			     i++) {
 				vty_out(vty, "      %s\n",
-					  isonet_print(adj->area_addresses[i]
-							       .area_addr,
-						       adj->area_addresses[i]
-							       .addr_len));
+					isonet_print(adj->area_addresses[i]
+							     .area_addr,
+						     adj->area_addresses[i]
+							     .addr_len));
 			}
 		}
 		if (adj->ipv4_address_count) {
@@ -448,7 +495,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			for (unsigned int i = 0; i < adj->ipv4_address_count;
 			     i++)
 				vty_out(vty, "      %s\n",
-					  inet_ntoa(adj->ipv4_addresses[i]));
+					inet_ntoa(adj->ipv4_addresses[i]));
 		}
 		if (adj->ipv6_address_count) {
 			vty_out(vty, "    IPv6 Address(es):\n");

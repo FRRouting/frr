@@ -25,8 +25,9 @@
 #include "command.h"
 #include "memory.h"
 #include "srcdest_table.h"
-
+#include "vrf.h"
 #include "vty.h"
+
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/rib.h"
@@ -38,6 +39,7 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_netns_notify.h"
 
 extern struct zebra_t zebrad;
 
@@ -76,7 +78,7 @@ void zebra_vrf_update_all(struct zserv *client)
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		if (vrf->vrf_id)
+		if (vrf->vrf_id != VRF_UNKNOWN)
 			zsend_vrf_add(client, vrf_info_lookup(vrf->vrf_id));
 	}
 }
@@ -90,12 +92,9 @@ static int zebra_vrf_new(struct vrf *vrf)
 		zlog_info("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
-	zvrf->zns = zebra_ns_lookup(
-		NS_DEFAULT); /* Point to the global (single) NS */
-	router_id_init(zvrf);
 	vrf->info = zvrf;
 	zvrf->vrf = vrf;
-
+	router_id_init(zvrf);
 	return 0;
 }
 
@@ -113,9 +112,13 @@ static int zebra_vrf_enable(struct vrf *vrf)
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("VRF %s id %u is now active",
-			   zvrf_name(zvrf), zvrf_id(zvrf));
+		zlog_debug("VRF %s id %u is now active", zvrf_name(zvrf),
+			   zvrf_id(zvrf));
 
+	if (vrf_is_backend_netns())
+		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
+	else
+		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 	/* Inform clients that the VRF is now active. This is an
 	 * add for the clients.
 	 */
@@ -159,6 +162,12 @@ static int zebra_vrf_enable(struct vrf *vrf)
 				}
 		}
 
+	/*
+	 * We may have static routes that are now possible to
+	 * insert into the appropriate tables
+	 */
+	static_config_install_delayed_routes(zvrf);
+
 	/* Kick off any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_enable(zvrf);
 
@@ -174,15 +183,14 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	struct static_route *si;
 	struct route_table *table;
 	struct interface *ifp;
-	u_int32_t table_id;
 	afi_t afi;
 	safi_t safi;
 	unsigned i;
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("VRF %s id %u is now inactive",
-			   zvrf_name(zvrf), zvrf_id(zvrf));
+		zlog_debug("VRF %s id %u is now inactive", zvrf_name(zvrf),
+			   zvrf_id(zvrf));
 
 	/* Uninstall any static routes configured for this VRF. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -213,12 +221,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 			rib_close_table(zvrf->table[afi][safi]);
-
-		if (vrf->vrf_id == VRF_DEFAULT)
-			for (table_id = 0; table_id < ZEBRA_KERNEL_TABLE_MAX;
-			     table_id++)
-				if (zvrf->other_table[afi][table_id])
-					rib_close_table(zvrf->other_table[afi][table_id]);
 	}
 
 	/* Cleanup Vxlan, MPLS and PW tables. */
@@ -226,7 +228,8 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	zebra_mpls_cleanup_tables(zvrf);
 	zebra_pw_exit(zvrf);
 
-	/* Remove link-local IPv4 addresses created for BGP unnumbered peering. */
+	/* Remove link-local IPv4 addresses created for BGP unnumbered peering.
+	 */
 	FOR_ALL_INTERFACES (vrf, ifp)
 		if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 
@@ -236,7 +239,8 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		struct route_node *rnode;
 		rib_dest_t *dest;
 
-		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i], lnode, nnode, rnode)) {
+		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i], lnode, nnode,
+				       rnode)) {
 			dest = rib_dest_from_rnode(rnode);
 			if (dest && rib_dest_vrf(dest) == zvrf) {
 				route_unlock_node(rnode);
@@ -258,17 +262,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 			zvrf->table[afi][safi] = NULL;
 		}
 
-		if (vrf->vrf_id == VRF_DEFAULT)
-			for (table_id = 0; table_id < ZEBRA_KERNEL_TABLE_MAX;
-			     table_id++)
-				if (zvrf->other_table[afi][table_id]) {
-					table = zvrf->other_table[afi][table_id];
-					table_info = table->info;
-					route_table_finish(table);
-					XFREE(MTYPE_RIB_TABLE_INFO, table_info);
-					zvrf->other_table[afi][table_id] = NULL;
-				}
-
 		route_table_finish(zvrf->rnh_table[afi]);
 		zvrf->rnh_table[afi] = NULL;
 		route_table_finish(zvrf->import_check_table[afi]);
@@ -282,15 +275,14 @@ static int zebra_vrf_delete(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf = vrf->info;
 	struct route_table *table;
-	u_int32_t table_id;
 	afi_t afi;
 	safi_t safi;
 	unsigned i;
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("VRF %s id %u deleted",
-			   zvrf_name(zvrf), zvrf_id(zvrf));
+		zlog_debug("VRF %s id %u deleted", zvrf_name(zvrf),
+			   zvrf_id(zvrf));
 
 	/* clean-up work queues */
 	for (i = 0; i < MQ_SIZE; i++) {
@@ -298,7 +290,8 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		struct route_node *rnode;
 		rib_dest_t *dest;
 
-		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i], lnode, nnode, rnode)) {
+		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i], lnode, nnode,
+				       rnode)) {
 			dest = rib_dest_from_rnode(rnode);
 			if (dest && rib_dest_vrf(dest) == zvrf) {
 				route_unlock_node(rnode);
@@ -327,14 +320,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 			table = zvrf->stable[afi][safi];
 			route_table_finish(table);
 		}
-
-		for (table_id = 0; table_id < ZEBRA_KERNEL_TABLE_MAX; table_id++)
-			if (zvrf->other_table[afi][table_id]) {
-				table = zvrf->other_table[afi][table_id];
-				table_info = table->info;
-				route_table_finish(table);
-				XFREE(MTYPE_RIB_TABLE_INFO, table_info);
-			}
 
 		route_table_finish(zvrf->rnh_table[afi]);
 		route_table_finish(zvrf->import_check_table[afi]);
@@ -407,8 +392,8 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 	return table;
 }
 
-static void zebra_rtable_node_cleanup(struct route_table *table,
-				      struct route_node *node)
+void zebra_rtable_node_cleanup(struct route_table *table,
+			       struct route_node *node)
 {
 	struct route_entry *re, *next;
 
@@ -545,34 +530,20 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id,
 						vrf_id_t vrf_id)
 {
 	struct zebra_vrf *zvrf;
-	rib_table_info_t *info;
-	struct route_table *table;
+	struct zebra_ns *zns;
 
 	zvrf = vrf_info_lookup(vrf_id);
 	if (!zvrf)
 		return NULL;
 
-	if (afi >= AFI_MAX)
-		return NULL;
+	zns = zvrf->zns;
 
-	if (table_id >= ZEBRA_KERNEL_TABLE_MAX)
+	if (afi >= AFI_MAX)
 		return NULL;
 
 	if ((vrf_id == VRF_DEFAULT) && (table_id != RT_TABLE_MAIN)
 	    && (table_id != zebrad.rtm_table_default)) {
-		if (zvrf->other_table[afi][table_id] == NULL) {
-			table = (afi == AFI_IP6) ? srcdest_table_init()
-						 : route_table_init();
-			info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
-			info->zvrf = zvrf;
-			info->afi = afi;
-			info->safi = SAFI_UNICAST;
-			table->info = info;
-			table->cleanup = zebra_rtable_node_cleanup;
-			zvrf->other_table[afi][table_id] = table;
-		}
-
-		return (zvrf->other_table[afi][table_id]);
+		return zebra_ns_get_table(zns, zvrf, table_id, afi);
 	}
 
 	return zvrf->table[afi][SAFI_UNICAST];
@@ -598,8 +569,12 @@ static int vrf_config_write(struct vty *vty)
 		if (vrf_is_user_cfged(vrf)) {
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
-				vty_out(vty, " vni %u\n", zvrf->l3vni);
-			vty_out(vty, "!\n");
+				vty_out(vty, " vni %u%s\n", zvrf->l3vni,
+					is_l3vni_for_prefix_routes_only(
+						zvrf->l3vni)
+						? " prefix-routes-only"
+						: "");
+			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
 		}
 
 		static_config(vty, zvrf, AFI_IP, SAFI_UNICAST, "ip route");
@@ -618,5 +593,5 @@ void zebra_vrf_init(void)
 	vrf_init(zebra_vrf_new, zebra_vrf_enable, zebra_vrf_disable,
 		 zebra_vrf_delete);
 
-	vrf_cmd_init(vrf_config_write);
+	vrf_cmd_init(vrf_config_write, &zserv_privs);
 }

@@ -55,12 +55,30 @@ static inline vni_t label2vni(mpls_label_t *label)
 	return vni;
 }
 
+static inline int advertise_type5_routes(struct bgp *bgp_vrf,
+					 afi_t afi)
+{
+	if (!bgp_vrf->l3vni)
+		return 0;
+
+	if (afi == AFI_IP &&
+	    CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST))
+		return 1;
+
+	if (afi == AFI_IP6 &&
+	    CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST))
+		return 1;
+
+	return 0;
+}
+
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
 					   struct prefix *p,
-					   struct attr *src_attr,
-					   afi_t afi, safi_t safi);
-extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf,
-					  struct prefix *p,
+					   struct attr *src_attr, afi_t afi,
+					   safi_t safi);
+extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 					  afi_t afi, safi_t safi);
 extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					   safi_t safi);
@@ -73,10 +91,9 @@ extern char *bgp_evpn_label2str(mpls_label_t *label, u_int32_t num_labels,
 extern char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len);
 extern void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json);
 extern void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
-				   struct prefix_rd *prd,
-				   mpls_label_t *label, u_int32_t num_labels,
-				   struct attr *attr, int addpath_encode,
-				   u_int32_t addpath_tx_id);
+				   struct prefix_rd *prd, mpls_label_t *label,
+				   u_int32_t num_labels, struct attr *attr,
+				   int addpath_encode, u_int32_t addpath_tx_id);
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			       struct bgp_nlri *packet, int withdraw);
 extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
@@ -91,7 +108,7 @@ extern int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni,
 				    u_char flags);
 extern int bgp_evpn_local_l3vni_add(vni_t vni, vrf_id_t vrf_id,
 				    struct ethaddr *rmac,
-				    struct in_addr originator_ip);
+				    struct in_addr originator_ip, int filter);
 extern int bgp_evpn_local_l3vni_del(vni_t vni, vrf_id_t vrf_id);
 extern int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni);
 extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
