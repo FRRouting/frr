@@ -465,6 +465,7 @@ struct bgp {
 	/* vpn-policy */
 	struct {
 		struct ecommunity *rtlist[BGP_VPN_POLICY_DIR_MAX];
+		struct ecommunity *import_redirect_rtlist;
 		char *rmap_name[BGP_VPN_POLICY_DIR_MAX];
 		struct route_map *rmap[BGP_VPN_POLICY_DIR_MAX];
 

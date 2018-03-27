@@ -1774,3 +1774,22 @@ void bgp_mplsvpn_init(void)
 			&show_ip_bgp_vpn_rd_neighbor_advertised_routes_cmd);
 #endif /* KEEP_OLD_VPN_COMMANDS */
 }
+
+vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
+{
+	struct listnode *mnode, *mnnode;
+	struct bgp *bgp;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+		struct ecommunity *ec;
+
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		ec = bgp->vpn_policy[AFI_IP].import_redirect_rtlist;
+
+		if (ecom_intersect(ec, eckey))
+			return bgp->vrf_id;
+	}
+	return VRF_UNKNOWN;
+}

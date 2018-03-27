@@ -3272,6 +3272,14 @@ int bgp_delete(struct bgp *bgp)
 #endif
 	bgp_cleanup_routes(bgp);
 
+	for (afi = 0; afi < AFI_MAX; ++afi) {
+		if (!bgp->vpn_policy[afi].import_redirect_rtlist)
+			continue;
+		ecommunity_free(
+				&bgp->vpn_policy[afi]
+				.import_redirect_rtlist);
+		bgp->vpn_policy[afi].import_redirect_rtlist = NULL;
+	}
 	/* Remove visibility via the master list - there may however still be
 	 * routes to be processed still referencing the struct bgp.
 	 */
