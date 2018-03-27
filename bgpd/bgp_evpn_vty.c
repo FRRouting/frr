@@ -2766,7 +2766,7 @@ DEFUN (bgp_evpn_advertise_type5,
 		rmap_changed = 1;
 	}
 
-	if (!(afi == AFI_IP) || (afi == AFI_IP6)) {
+	if (!(afi == AFI_IP || afi == AFI_IP6)) {
 		vty_out(vty,
 			"%%only ipv4 or ipv6 address families are supported");
 		return CMD_WARNING;

@@ -862,7 +862,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	 */
 	if (old_select && old_select == new_select
 	    && old_select->type == ZEBRA_ROUTE_BGP
-	    && old_select->sub_type == BGP_ROUTE_NORMAL
+	    && old_select->sub_type == BGP_ROUTE_IMPORTED
 	    && !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR)
 	    && !CHECK_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED)
 	    && !bgp->addpath_tx_used[afi][safi]) {
@@ -898,7 +898,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	}
 
 	if (new_select && new_select->type == ZEBRA_ROUTE_BGP
-	    && new_select->sub_type == BGP_ROUTE_NORMAL) {
+	    && new_select->sub_type == BGP_ROUTE_IMPORTED) {
 		flags = 0;
 		if (new_select->attr->sticky)
 			SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
@@ -919,7 +919,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 			evpn_delete_old_local_route(bgp, vpn, rn, old_select);
 	} else {
 		if (old_select && old_select->type == ZEBRA_ROUTE_BGP
-		    && old_select->sub_type == BGP_ROUTE_NORMAL)
+		    && old_select->sub_type == BGP_ROUTE_IMPORTED)
 			ret = evpn_zebra_uninstall(bgp, vpn,
 						   (struct prefix_evpn *)&rn->p,
 						   old_select->attr->nexthop);
@@ -1139,7 +1139,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			local_ri = tmp_ri;
 		if (vni_table) {
 			if (tmp_ri->type == ZEBRA_ROUTE_BGP
-			    && tmp_ri->sub_type == BGP_ROUTE_NORMAL
+			    && tmp_ri->sub_type == BGP_ROUTE_IMPORTED
 			    && CHECK_FLAG(tmp_ri->flags, BGP_INFO_VALID)) {
 				if (!remote_ri)
 					remote_ri = tmp_ri;
@@ -1840,7 +1840,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		attr_new = bgp_attr_intern(&attr);
 
 		/* Create new route with its attribute. */
-		ri = info_make(parent_ri->type, parent_ri->sub_type, 0,
+		ri = info_make(parent_ri->type, BGP_ROUTE_IMPORTED, 0,
 			       parent_ri->peer, attr_new, rn);
 		SET_FLAG(ri->flags, BGP_INFO_VALID);
 		bgp_info_extra_get(ri);
@@ -1912,7 +1912,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		attr_new = bgp_attr_intern(parent_ri->attr);
 
 		/* Create new route with its attribute. */
-		ri = info_make(parent_ri->type, parent_ri->sub_type, 0,
+		ri = info_make(parent_ri->type, BGP_ROUTE_IMPORTED, 0,
 			       parent_ri->peer, attr_new, rn);
 		SET_FLAG(ri->flags, BGP_INFO_VALID);
 		bgp_info_extra_get(ri);

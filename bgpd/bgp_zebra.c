@@ -1043,7 +1043,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	 * Currently presence of rmac in attr denotes
 	 * this is an EVPN type-2 route
 	 */
-	if (!is_zero_mac(&(info->attr->rmac)))
+	if (info->sub_type == BGP_ROUTE_IMPORTED)
 		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 
 	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
@@ -1344,7 +1344,7 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info,
 	 * Currently presence of rmac in attr denotes
 	 * this is an EVPN type-2 route
 	 */
-	if (!is_zero_mac(&(info->attr->rmac)))
+	if (info->sub_type == BGP_ROUTE_IMPORTED)
 		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 
 	if (peer->sort == BGP_PEER_IBGP) {
