@@ -895,3 +895,39 @@ extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 	ecom->val = p;
 	return 1;
 }
+
+/*
+ * Remove specified extended community value from extended community.
+ * Returns 1 if value was present (and hence, removed), 0 otherwise.
+ */
+int ecommunity_del_val(struct ecommunity *ecom, struct ecommunity_val *eval)
+{
+	u_int8_t *p;
+	int c, found = 0;
+
+	/* Make sure specified value exists. */
+	if (ecom == NULL || ecom->val == NULL)
+		return 0;
+	c = 0;
+	for (p = ecom->val; c < ecom->size; p += ECOMMUNITY_SIZE, c++) {
+		if (!memcmp(p, eval->val, ECOMMUNITY_SIZE)) {
+			found = 1;
+			break;
+		}
+	}
+	if (found == 0)
+		return 0;
+
+	/* Delete the selected value */
+	ecom->size--;
+	p = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom->size * ECOMMUNITY_SIZE);
+	if (c != 0)
+		memcpy(p, ecom->val, c * ECOMMUNITY_SIZE);
+	if ((ecom->size - c) != 0)
+		memcpy(p + (c)*ECOMMUNITY_SIZE,
+		       ecom->val + (c + 1) * ECOMMUNITY_SIZE,
+		       (ecom->size - c) * ECOMMUNITY_SIZE);
+	XFREE(MTYPE_ECOMMUNITY, ecom->val);
+	ecom->val = p;
+	return 1;
+}

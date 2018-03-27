@@ -6589,7 +6589,6 @@ DEFPY (bgp_imexport_vrf,
 	bool remove = false;
 	int32_t idx = 0;
 	char *vname;
-	const char *export_name;
 	safi_t safi;
 	afi_t afi;
 
@@ -6614,80 +6613,17 @@ DEFPY (bgp_imexport_vrf,
 		}
 	}
 
-	export_name = bgp->name ? bgp->name : VRF_DEFAULT_NAME;
-
 	if (remove) {
-		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
-					  vname)) {
-			if (strcmp(vname, import_name) == 0)
-				break;
-		}
-
-		if (!vname) {
-			vty_out(vty,
-				"Specified VRF %s was not imported, ignoring",
-				import_name);
-			return CMD_WARNING;
-		}
-
-		listnode_delete(bgp->vpn_policy[afi].import_vrf, vname);
-		XFREE(MTYPE_TMP, vname);
-
-		if (bgp->vpn_policy[afi].import_vrf->count == 0) {
-			UNSET_FLAG(bgp->af_flags[afi][safi],
-				   BGP_CONFIG_VRF_TO_VRF_IMPORT);
-
-			ecommunity_free(
-				&bgp->vpn_policy[afi]
-					 .rtlist[BGP_VPN_POLICY_DIR_FROMVPN]);
-		}
-
-		for (ALL_LIST_ELEMENTS_RO(vrf_bgp->vpn_policy[afi].export_vrf,
-					  node, vname)) {
-			if (strcmp(vname, export_name) == 0)
-				break;
-		}
-
-		listnode_delete(vrf_bgp->vpn_policy[afi].export_vrf, vname);
-		XFREE(MTYPE_TMP, vname);
-
-		UNSET_FLAG(vrf_bgp->af_flags[afi][safi],
-			   BGP_CONFIG_VRF_TO_VRF_EXPORT);
-		UNSET_FLAG(vrf_bgp->vpn_policy[afi].flags,
-			   BGP_VPN_POLICY_TOVPN_RD_SET);
-
-		ecommunity_free(&vrf_bgp->vpn_policy[afi]
-					 .rtlist[BGP_VPN_POLICY_DIR_TOVPN]);
-		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp, vrf_bgp);
+		vrf_unimport_from_vrf(bgp, vrf_bgp, afi, safi);
 	} else {
-		char buf[1000];
-
+		/* Already importing from "import_vrf"? */
 		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
 					  vname)) {
 			if (strcmp(vname, import_name) == 0)
 				return CMD_WARNING;
 		}
 
-		vname = XSTRDUP(MTYPE_TMP, import_name);
-		listnode_add(bgp->vpn_policy[afi].import_vrf, vname);
-
-		vname = XSTRDUP(MTYPE_TMP, export_name);
-		listnode_add(vrf_bgp->vpn_policy[afi].export_vrf, vname);
-
-		prefix_rd2str(&vrf_bgp->vrf_prd, buf, sizeof(buf));
-		vrf_bgp->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_TOVPN] =
-			ecommunity_str2com(buf, ECOMMUNITY_ROUTE_TARGET, 0);
-		bgp->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_FROMVPN] =
-			ecommunity_str2com(buf, ECOMMUNITY_ROUTE_TARGET, 0);
-
-		SET_FLAG(bgp->af_flags[afi][safi],
-			 BGP_CONFIG_VRF_TO_VRF_IMPORT);
-		SET_FLAG(vrf_bgp->af_flags[afi][safi],
-			 BGP_CONFIG_VRF_TO_VRF_EXPORT);
-		SET_FLAG(vrf_bgp->vpn_policy[afi].flags,
-			 BGP_VPN_POLICY_TOVPN_RD_SET);
-		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp,
-				    vrf_bgp);
+		vrf_import_from_vrf(bgp, vrf_bgp, afi, safi);
 	}
 
 	return CMD_SUCCESS;
