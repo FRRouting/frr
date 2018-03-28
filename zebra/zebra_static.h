@@ -77,6 +77,9 @@ struct static_route {
 
 	/* Label information */
 	struct static_nh_label snh_label;
+
+	/* Table Information */
+	uint32_t table_id;
 };
 
 extern void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
@@ -92,14 +95,16 @@ extern int static_add_route(afi_t, safi_t safi, uint8_t type, struct prefix *p,
 			    enum static_blackhole_type bh_type, route_tag_t tag,
 			    uint8_t distance, struct zebra_vrf *zvrf,
 			    struct zebra_vrf *nh_zvrf,
-			    struct static_nh_label *snh_label);
+			    struct static_nh_label *snh_label,
+			    uint32_t table_id);
 
 extern int static_delete_route(afi_t, safi_t safi, uint8_t type,
 			       struct prefix *p, struct prefix_ipv6 *src_p,
 			       union g_addr *gate, const char *ifname,
 			       route_tag_t tag, uint8_t distance,
 			       struct zebra_vrf *zvrf,
-			       struct static_nh_label *snh_label);
+			       struct static_nh_label *snh_label,
+			       uint32_t table_id);
 
 extern void static_ifindex_update(struct interface *ifp, bool up);
 
