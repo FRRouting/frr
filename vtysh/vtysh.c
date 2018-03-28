@@ -3379,7 +3379,7 @@ void vtysh_init_vty(void)
 	/* debugging */
 	install_element(VIEW_NODE, &vtysh_show_debugging_cmd);
 	install_element(VIEW_NODE, &vtysh_show_debugging_hashtable_cmd);
-	install_element(VIEW_NODE, &vtysh_debug_all_cmd);
+	install_element(ENABLE_NODE, &vtysh_debug_all_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
 
 	/* misc lib show commands */
