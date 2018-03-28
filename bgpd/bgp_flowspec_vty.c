@@ -68,16 +68,28 @@ static const struct message bgp_flowspec_display_min[] = {
 	{0}
 };
 
-#define	FS_STRING_UPDATE(count, ptr, format) do {			      \
-		if (((format) == NLRI_STRING_FORMAT_DEBUG) && (count)) {      \
-			(ptr) += sprintf((ptr), ", ");                        \
-		} else if (((format) == NLRI_STRING_FORMAT_MIN) && (count)) { \
-			(ptr) += sprintf((ptr), " ");                         \
-		}                                                             \
-		count++;			                              \
+#define	FS_STRING_UPDATE(count, ptr, format, remaining_len) do {	\
+		int _len_written;					\
+									\
+		if (((format) == NLRI_STRING_FORMAT_DEBUG) && (count)) {\
+			_len_written = snprintf((ptr), (remaining_len),	\
+						", ");			\
+			(remaining_len) -= _len_written;		\
+			(ptr) += _len_written;				\
+		} else if (((format) == NLRI_STRING_FORMAT_MIN) 	\
+			   && (count)) {				\
+			_len_written = snprintf((ptr), (remaining_len),	\
+						" ");			\
+			(remaining_len) -= _len_written;		\
+			(ptr) += _len_written;				\
+		}							\
+		count++;						\
 	} while (0)
 
-/* Parse FLOWSPEC NLRI*/
+/* Parse FLOWSPEC NLRI
+ * passed return_string string has assumed length
+ * BGP_FLOWSPEC_STRING_DISPLAY_MAX
+ */
 void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 			    char *return_string, int format,
 			    json_object *json_path)
@@ -92,6 +104,8 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 	char pre_extra[2] = "";
 	const struct message *bgp_flowspec_display;
 	enum bgp_flowspec_util_nlri_t type_util;
+	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
+	int len_written;
 
 	if (format == NLRI_STRING_FORMAT_LARGE) {
 		snprintf(pre_extra, sizeof(pre_extra), "\t");
@@ -121,10 +135,14 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 				     local_string);
 				break;
 			}
-			FS_STRING_UPDATE(count, ptr, format);
-			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
-				     lookup_msg(bgp_flowspec_display, type, ""),
-				     local_string, extra);
+			FS_STRING_UPDATE(count, ptr, format, len_string);
+			len_written = snprintf(ptr, len_string, "%s%s %s%s",
+					pre_extra,
+					lookup_msg(bgp_flowspec_display,
+						   type, ""),
+					local_string, extra);
+			len_string -= len_written;
+			ptr += len_written;
 			break;
 		case FLOWSPEC_IP_PROTOCOL:
 		case FLOWSPEC_PORT:
@@ -144,11 +162,14 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 				     local_string);
 				break;
 			}
-			FS_STRING_UPDATE(count, ptr, format);
-			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
-				     lookup_msg(bgp_flowspec_display,
-						type, ""),
+			FS_STRING_UPDATE(count, ptr, format, len_string);
+			len_written = snprintf(ptr, len_string, "%s%s %s%s",
+					pre_extra,
+					lookup_msg(bgp_flowspec_display,
+					type, ""),
 				     local_string, extra);
+			len_string -= len_written;
+			ptr += len_written;
 			break;
 		case FLOWSPEC_TCP_FLAGS:
 			ret = bgp_flowspec_tcpflags_decode(
@@ -160,14 +181,19 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 				break;
 			if (json_path) {
 				json_object_string_add(json_path,
-				     lookup_msg(bgp_flowspec_display, type, ""),
+				     lookup_msg(bgp_flowspec_display,
+						type, ""),
 				     local_string);
 				break;
 			}
-			FS_STRING_UPDATE(count, ptr, format);
-			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
-				     lookup_msg(bgp_flowspec_display, type, ""),
-				     local_string, extra);
+			FS_STRING_UPDATE(count, ptr, format, len_string);
+			len_written = snprintf(ptr, len_string, "%s%s %s%s",
+					pre_extra,
+					lookup_msg(bgp_flowspec_display,
+						   type, ""),
+					local_string, extra);
+			len_string -= len_written;
+			ptr += len_written;
 			break;
 		case FLOWSPEC_PKT_LEN:
 		case FLOWSPEC_DSCP:
@@ -184,11 +210,14 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 				    local_string);
 				break;
 			}
-			FS_STRING_UPDATE(count, ptr, format);
-			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
-				     lookup_msg(bgp_flowspec_display,
-						type, ""),
+			FS_STRING_UPDATE(count, ptr, format, len_string);
+			len_written = snprintf(ptr, len_string, "%s%s %s%s",
+					pre_extra,
+					lookup_msg(bgp_flowspec_display,
+					type, ""),
 				     local_string, extra);
+			len_string -= len_written;
+			ptr += len_written;
 			break;
 		case FLOWSPEC_FRAGMENT:
 			ret = bgp_flowspec_fragment_type_decode(
@@ -205,11 +234,14 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 				    local_string);
 				break;
 			}
-			FS_STRING_UPDATE(count, ptr, format);
-			ptr += sprintf(ptr, "%s%s %s%s", pre_extra,
-				     lookup_msg(bgp_flowspec_display,
-						type, ""),
-				     local_string, extra);
+			FS_STRING_UPDATE(count, ptr, format, len_string);
+			len_written = snprintf(ptr, len_string, "%s%s %s%s",
+					pre_extra,
+					lookup_msg(bgp_flowspec_display,
+					type, ""),
+					local_string, extra);
+			len_string -= len_written;
+			ptr += len_written;
 			break;
 		default:
 			error = -1;

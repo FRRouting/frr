@@ -107,6 +107,8 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
  * return number of bytes analysed
  * if there is an error, the passed error param is used to give error:
  * -1 if decoding error,
+ * if result is a string, its assumed length
+ *  is BGP_FLOWSPEC_STRING_DISPLAY_MAX
  */
 int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 			   uint8_t *nlri_ptr,
@@ -118,6 +120,8 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 	int loop = 0;
 	char *ptr = (char *)result; /* for return_string */
 	uint32_t offset = 0;
+	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
+	int len_written;
 
 	*error = 0;
 	do {
@@ -134,15 +138,34 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 			*error = -1;
 		switch (type) {
 		case BGP_FLOWSPEC_RETURN_STRING:
-			if (loop)
-				ptr += sprintf(ptr, ", ");
-			if (op[5] == 1)
-				ptr += sprintf(ptr, "<");
-			if (op[6] == 1)
-				ptr += sprintf(ptr, ">");
-			if (op[7] == 1)
-				ptr += sprintf(ptr, "=");
-			ptr += sprintf(ptr, " %d ", value);
+			if (loop) {
+				len_written = snprintf(ptr, len_string,
+						      ", ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			if (op[5] == 1) {
+				len_written = snprintf(ptr, len_string,
+						       "<");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			if (op[6] == 1) {
+				len_written = snprintf(ptr, len_string,
+						      ">");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			if (op[7] == 1) {
+				len_written = snprintf(ptr, len_string,
+						       "=");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			len_written = snprintf(ptr, len_string,
+					       " %d ", value);
+			len_string -= len_written;
+			ptr += len_written;
 			break;
 		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
 			/* TODO : FS OPAQUE */
@@ -169,6 +192,8 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
  * return number of bytes analysed
  * if there is an error, the passed error param is used to give error:
  * -1 if decoding error,
+ * if result is a string, its assumed length
+ *  is BGP_FLOWSPEC_STRING_DISPLAY_MAX
  */
 int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
 				 uint8_t *nlri_ptr,
@@ -179,6 +204,8 @@ int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
 	int len, value_size, loop = 0, value;
 	char *ptr = (char *)result; /* for return_string */
 	uint32_t offset = 0;
+	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
+	int len_written;
 
 	*error = 0;
 	do {
@@ -192,16 +219,37 @@ int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
 		value = hexstr2num(&nlri_ptr[offset], value_size);
 		switch (type) {
 		case BGP_FLOWSPEC_RETURN_STRING:
-			if (op[1] == 1 && loop != 0)
-				ptr += sprintf(ptr, ", and ");
-			else if (op[1] == 0 && loop != 0)
-				ptr += sprintf(ptr, ", or ");
-			ptr += sprintf(ptr, "tcp flags is ");
-			if (op[6] == 1)
-				ptr += sprintf(ptr, "not ");
-			if (op[7] == 1)
-				ptr += sprintf(ptr, "exactly match ");
-			ptr += sprintf(ptr, "%d", value);
+			if (op[1] == 1 && loop != 0) {
+				len_written = snprintf(ptr, len_string,
+						       ", and ");
+				len_string -= len_written;
+				ptr += len_written;
+			} else if (op[1] == 0 && loop != 0) {
+				len_written = snprintf(ptr, len_string,
+						      ", or ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			len_written = snprintf(ptr, len_string,
+					       "tcp flags is ");
+			len_string -= len_written;
+			ptr += len_written;
+			if (op[6] == 1) {
+				ptr += snprintf(ptr, len_string,
+					       "not ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			if (op[7] == 1) {
+				ptr += snprintf(ptr, len_string,
+					       "exactly match ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			ptr += snprintf(ptr, len_string,
+				       "%d", value);
+			len_string -= len_written;
+			ptr += len_written;
 			break;
 		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
 			/* TODO : FS OPAQUE */
@@ -237,6 +285,8 @@ int bgp_flowspec_fragment_type_decode(enum bgp_flowspec_util_nlri_t type,
 	int len, value, value_size, loop = 0;
 	char *ptr = (char *)result; /* for return_string */
 	uint32_t offset = 0;
+	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
+	int len_written;
 
 	*error = 0;
 	do {
@@ -262,16 +312,28 @@ int bgp_flowspec_fragment_type_decode(enum bgp_flowspec_util_nlri_t type,
 		case BGP_FLOWSPEC_RETURN_STRING:
 			switch (value) {
 			case 1:
-				ptr += sprintf(ptr, "dont-fragment");
+				len_written = snprintf(ptr, len_string,
+						       "dont-fragment");
+				len_string -= len_written;
+				ptr += len_written;
 				break;
 			case 2:
-				ptr += sprintf(ptr, "is-fragment");
+				len_written = snprintf(ptr, len_string,
+						      "is-fragment");
+				len_string -= len_written;
+				ptr += len_written;
 				break;
 			case 4:
-				ptr += sprintf(ptr, "first-fragment");
+				len_written = snprintf(ptr, len_string,
+						       "first-fragment");
+				len_string -= len_written;
+				ptr += len_written;
 				break;
 			case 8:
-				ptr += sprintf(ptr, "last-fragment");
+				len_written = snprintf(ptr, len_string,
+						       "last-fragment");
+				len_string -= len_written;
+				ptr += len_written;
 				break;
 			default:
 				{}
