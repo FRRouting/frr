@@ -355,6 +355,23 @@ static int zebra_static_route_leak(
 			mask_str, src_str, gate_str, ifname, flag_str, tag_str,
 			distance_str, label_str, table_str);
 	}
+	if (table_str) {
+		/* table configured. check consistent with vrf config
+		 */
+		if (zvrf->table_id != RT_TABLE_MAIN &&
+		    zvrf->table_id != zebrad.rtm_table_default) {
+			if (vty)
+				vty_out(vty,
+				    "%% Table %s overlaps vrf table %u\n",
+				    table_str, zvrf->table_id);
+			else
+				zlog_warn(
+				    "%s: Table %s overlaps vrf table %u",
+				    __PRETTY_FUNCTION__,
+				    table_str, zvrf->table_id);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
 
 	/* Administrative distance. */
 	if (distance_str)
@@ -2643,6 +2660,11 @@ int static_config(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
 			if (si->nh_vrf_id != si->vrf_id) {
 				vty_out(vty, " nexthop-vrf %s", si->nh_vrfname);
 			}
+
+			/* table ID from VRF overrides configured
+			 */
+			if (si->table_id && zvrf->table_id == RT_TABLE_MAIN)
+				vty_out(vty, " table %u", si->table_id);
 
 			vty_out(vty, "\n");
 
