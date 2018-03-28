@@ -112,6 +112,9 @@ void nexthop_del(struct nexthop_group *nhg, struct nexthop *nh)
 
 	if (nexthop->next)
 		nexthop->next->prev = nexthop->prev;
+
+	nh->prev = NULL;
+	nh->next = NULL;
 }
 
 void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
@@ -151,6 +154,7 @@ static void nhgc_delete_nexthops(struct nexthop_group_cmd *nhgc)
 	while (nexthop) {
 		struct nexthop *next = nexthop_next(nexthop);
 
+		nexthop_del(&nhgc->nhg, nexthop);
 		if (nhg_hooks.del_nexthop)
 			nhg_hooks.del_nexthop(nhgc, nexthop);
 
