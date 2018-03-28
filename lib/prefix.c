@@ -339,6 +339,21 @@ int str2family(const char *string)
 	return -1;
 }
 
+const char *family2str(int family)
+{
+	switch (family) {
+	case AF_INET:
+		return "IPv4";
+	case AF_INET6:
+		return "IPv6";
+	case AF_ETHERNET:
+		return "Ethernet";
+	case AF_EVPN:
+		return "Evpn";
+	}
+	return "?";
+}
+
 /* Address Famiy Identifier to Address Family converter. */
 int afi2family(afi_t afi)
 {
