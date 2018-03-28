@@ -2031,6 +2031,35 @@ DEFPY (show_route_table,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_route_table_vrf,
+       show_route_table_vrf_cmd,
+       "show <ip$ipv4|ipv6$ipv6> route table (1-4294967295)$table vrf NAME$vrf_name [json$json]",
+       SHOW_STR
+       IP_STR
+       IP6_STR
+       "IP routing table\n"
+       "Table to display\n"
+       "The table number to display, if available\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
+	struct zebra_vrf *zvrf;
+	struct route_table *t;
+	vrf_id_t vrf_id = VRF_DEFAULT;
+
+	if (vrf_name)
+		VRF_GET_ID(vrf_id, vrf_name);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
+
+	t = zebra_ns_find_table(zvrf->zns, table, afi);
+	if (t)
+		do_show_route_helper(vty, zvrf, t, afi, false, 0, false, false,
+				     0, 0, !!json);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_nht,
        show_ip_nht_cmd,
        "show ip nht [vrf NAME]",
@@ -4389,6 +4418,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_vrf_vni_cmd);
 	install_element(VIEW_NODE, &show_route_cmd);
 	install_element(VIEW_NODE, &show_route_table_cmd);
+	if (vrf_is_backend_netns())
+		install_element(VIEW_NODE, &show_route_table_vrf_cmd);
 	install_element(VIEW_NODE, &show_route_detail_cmd);
 	install_element(VIEW_NODE, &show_route_summary_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_cmd);
