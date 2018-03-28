@@ -251,8 +251,14 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 					intf, vrf->name);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
-		} else
+		} else {
+			if (IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
+				vty_out(vty,
+					"Specified a v6 LL with no interface, rejecting\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
 			nhop.type = NEXTHOP_TYPE_IPV6;
+		}
 	}
 
 	if (pbrms->nhg)

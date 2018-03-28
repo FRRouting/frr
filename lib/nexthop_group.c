@@ -280,8 +280,14 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 					intf, vrf->name);
 				return CMD_WARNING;
 			}
-		} else
+		} else {
+			if (IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
+				vty_out(vty,
+					"Specified a v6 LL with no interface, rejecting\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
 			nhop.type = NEXTHOP_TYPE_IPV6;
+		}
 	}
 
 	nh = nexthop_exists(&nhgc->nhg, &nhop);
