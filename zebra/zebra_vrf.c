@@ -434,7 +434,8 @@ struct zebra_vrf *zebra_vrf_alloc(void)
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
 	zebra_pw_init(zvrf);
-
+	zvrf->table_id = RT_TABLE_MAIN;
+	/* by default table ID is default one */
 	return zvrf;
 }
 
