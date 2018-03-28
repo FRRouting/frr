@@ -2964,6 +2964,28 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 				 bgp->restart_time, &bgp->t_startup);
 	}
 
+	/* printable name we can use in debug messages */
+	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+		bgp->name_pretty = XSTRDUP(MTYPE_BGP, "VRF default");
+	} else {
+		const char *n;
+		int len;
+
+		if (bgp->name)
+			n = bgp->name;
+		else
+			n = "?";
+
+		len = 4 + 1 + strlen(n) + 1;	/* "view foo\0" */
+
+		bgp->name_pretty = XCALLOC(MTYPE_BGP, len);
+		snprintf(bgp->name_pretty, len, "%s %s",
+			(bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+				? "VRF"
+				: "VIEW",
+			n);
+	}
+
 	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_MAX,
 			      memory_order_relaxed);
 	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_MAX,
@@ -3358,6 +3380,8 @@ void bgp_free(struct bgp *bgp)
 
 	if (bgp->name)
 		XFREE(MTYPE_BGP, bgp->name);
+	if (bgp->name_pretty)
+		XFREE(MTYPE_BGP, bgp->name_pretty);
 
 	XFREE(MTYPE_BGP, bgp);
 }
