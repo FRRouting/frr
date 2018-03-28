@@ -53,6 +53,10 @@ OPTIONS available for the vtysh command:
 
    When executing cli that does not invoke a vtysh shell, if an error ocurrs ignore it for purposes of return codes from vtysh.
 
+.. option:: -u, --user
+
+   Run as an unprivileged user. This limits access to non-privileged commands, i.e., the same commands when directly accessing a daemon   before running the enable command. It also provides the same limited security as such direct access.
+
 .. option:: -h, --help
 
    Display a usage message on standard output and exit.
