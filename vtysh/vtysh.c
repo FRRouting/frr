@@ -141,21 +141,22 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 
 		bufvalid += nread;
 
+		/*
+		 * We expect string output from daemons, so instead of looking
+		 * for the full 3 null bytes of the terminator, we check for
+		 * just one instead and assume it is the first byte of the
+		 * terminator. The presence of the full terminator is checked
+		 * later.
+		 */
 		if (bufvalid - buf >= 4)
-			end = memmem(bufvalid - 4, 4, terminator,
-				     sizeof(terminator));
-
-		if (end && end + sizeof(terminator) + 1 > bufvalid)
-			/* found \0\0\0 but return code hasn't been read yet */
-			end = NULL;
-		if (end)
-			ret = end[sizeof(terminator)];
+			end = memmem(bufvalid - 4, 4, "\0", 1);
 
 		/*
 		 * calculate # bytes we have, up to & not including the
 		 * terminator if present
 		 */
 		size_t textlen = (end ? end : bufvalid) - buf;
+		bool b = false;
 
 		/* feed line processing callback if present */
 		while (callback && bufvalid > buf && (end > buf || !end)) {
@@ -165,16 +166,37 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 				/* line break */
 				*eol++ = '\0';
 			else if (end == buf)
-				/* no line break, end of input, no text left
-				 * before end
-				 * => don't insert an empty line at the end */
-				break;
+				/*
+				 * no line break, end of input, no text left
+				 * before end; nothing to write
+				 */
+				b = true;
 			else if (end)
-				/* no line break, end of input, but some text
-				 * left */
+				/* no nl, end of input, but some text left */
 				eol = end;
-			else
-				/* continue reading */
+			else if (bufvalid == buf + bufsz) {
+				/*
+				 * no nl, no end of input, no buffer space;
+				 * realloc
+				 */
+				char *new;
+
+				bufsz *= 2;
+				if (buf == stackbuf) {
+					new = XMALLOC(MTYPE_TMP, bufsz);
+					memcpy(new, stackbuf, sizeof(stackbuf));
+				} else
+					new = XREALLOC(MTYPE_TMP, buf, bufsz);
+
+				bufvalid = bufvalid - buf + new;
+				buf = new;
+				/* !end -> we won't be reading more data... */
+				assert(end == NULL);
+				b = true;
+			} else
+				b = true;
+
+			if (b)
 				break;
 
 			/* eol is at line end now, either \n => \0 or \0\0\0 */
@@ -187,10 +209,7 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 			if (callback)
 				callback(cbarg, buf);
 
-			if (eol == end)
-				/* \n\0\0\0 */
-				break;
-
+			/* shift back data and adjust bufvalid */
 			memmove(buf, eol, bufvalid - eol);
 			bufvalid -= eol - buf;
 			if (end)
@@ -203,23 +222,28 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 				fwrite(buf, 1, textlen, fp);
 			memmove(buf, buf + textlen, bufvalid - buf - textlen);
 			bufvalid -= textlen;
+			if (end)
+				end -= textlen;
+
+			/*
+			 * ----------------------------------------------------
+			 * At this point `buf` should be in one of two states:
+			 * - Empty (i.e. buf == bufvalid)
+			 * - Contains up to 4 bytes of the terminator
+			 * ----------------------------------------------------
+			 */
+			assert(((buf == bufvalid)
+				|| (bufvalid - buf <= 4 && buf[0] == 0x00)));
 		}
 
-		if (bufvalid == buf + bufsz) {
-			char *new;
-			bufsz *= 2;
-			if (buf == stackbuf) {
-				new = XMALLOC(MTYPE_TMP, bufsz);
-				memcpy(new, stackbuf, sizeof(stackbuf));
-			} else
-				new = XREALLOC(MTYPE_TMP, buf, bufsz);
-
-			bufvalid = bufvalid - buf + new;
-			buf = new;
-			/* if end != NULL, we won't be reading more data... */
-			assert(end == NULL);
+		/* if we have the terminator, break */
+		if (end && bufvalid - buf == 4) {
+			assert(!memcmp(buf, terminator, 3));
+			ret = buf[3];
+			break;
 		}
-	} while (!end);
+
+	} while (true);
 	goto out;
 
 out_err:
