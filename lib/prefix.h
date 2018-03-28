@@ -290,6 +290,7 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 extern int str2family(const char *);
 extern int afi2family(afi_t);
 extern afi_t family2afi(int);
+extern const char *family2str(int family);
 extern const char *safi2str(safi_t safi);
 extern const char *afi2str(afi_t afi);
 
