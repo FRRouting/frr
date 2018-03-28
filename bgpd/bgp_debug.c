@@ -469,13 +469,13 @@ const char *bgp_notify_subcode_str(char code, char subcode)
 }
 
 /* extract notify admin reason if correctly present */
-const char *bgp_notify_admin_message(char *buf, size_t bufsz, u_char *data,
+const char *bgp_notify_admin_message(char *buf, size_t bufsz, uint8_t *data,
 				     size_t datalen)
 {
 	if (!data || datalen < 1)
 		return NULL;
 
-	u_char len = data[0];
+	uint8_t len = data[0];
 	if (len > 128 || len > datalen - 1)
 		return NULL;
 
@@ -2159,8 +2159,8 @@ int bgp_debug_zebra(struct prefix *p)
 const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    struct prefix_rd *prd,
 				    union prefixconstptr pu,
-				    mpls_label_t *label, u_int32_t num_labels,
-				    int addpath_valid, u_int32_t addpath_id,
+				    mpls_label_t *label, uint32_t num_labels,
+				    int addpath_valid, uint32_t addpath_id,
 				    char *str, int size)
 {
 	char rd_buf[RD_ADDRSTRLEN];
@@ -2192,7 +2192,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 			bgp_evpn_label2str(label, num_labels, tag_buf2, 20);
 			sprintf(tag_buf, " label %s", tag_buf2);
 		} else {
-			u_int32_t label_value;
+			uint32_t label_value;
 
 			label_value = decode_label(label);
 			sprintf(tag_buf, " label %u", label_value);

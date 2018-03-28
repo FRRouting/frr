@@ -101,7 +101,7 @@ const struct message ospf_auth_type_str[] = {
 
 #define OSPF_OPTION_STR_MAXLEN		24
 
-char *ospf_options_dump(u_char options)
+char *ospf_options_dump(uint8_t options)
 {
 	static char buf[OSPF_OPTION_STR_MAXLEN];
 
@@ -130,7 +130,7 @@ void ospf_lsa_header_dump(struct lsa_header *lsah)
 	zlog_debug("    Link State ID %s", inet_ntoa(lsah->id));
 	zlog_debug("    Advertising Router %s", inet_ntoa(lsah->adv_router));
 	zlog_debug("    LS sequence number 0x%lx",
-		   (u_long)ntohl(lsah->ls_seqnum));
+		   (unsigned long)ntohl(lsah->ls_seqnum));
 	zlog_debug("    LS checksum 0x%x", ntohs(lsah->checksum));
 	zlog_debug("    length %d", ntohs(lsah->length));
 }

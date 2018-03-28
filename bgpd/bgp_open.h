@@ -23,14 +23,14 @@
 
 /* Standard header for capability TLV */
 struct capability_header {
-	u_char code;
-	u_char length;
+	uint8_t code;
+	uint8_t length;
 };
 
 /* Generic MP capability data */
 struct capability_mp_data {
 	uint16_t afi; /* iana_afi_t */
-	u_char reserved;
+	uint8_t reserved;
 	uint8_t safi; /* iana_safi_t */
 };
 
@@ -41,11 +41,11 @@ struct capability_as4 {
 struct graceful_restart_af {
 	afi_t afi;
 	safi_t safi;
-	u_char flag;
+	uint8_t flag;
 };
 
 struct capability_gr {
-	u_int16_t restart_flag_time;
+	uint16_t restart_flag_time;
 	struct graceful_restart_af gr[];
 };
 
@@ -93,10 +93,10 @@ struct capability_gr {
 #define RESTART_R_BIT              0x8000
 #define RESTART_F_BIT              0x80
 
-extern int bgp_open_option_parse(struct peer *, u_char, int *);
+extern int bgp_open_option_parse(struct peer *, uint8_t, int *);
 extern void bgp_open_capability(struct stream *, struct peer *);
-extern void bgp_capability_vty_out(struct vty *, struct peer *, u_char,
+extern void bgp_capability_vty_out(struct vty *, struct peer *, uint8_t,
 				   json_object *);
-extern as_t peek_for_as4_capability(struct peer *, u_char);
+extern as_t peek_for_as4_capability(struct peer *, uint8_t);
 
 #endif /* _QUAGGA_BGP_OPEN_H */

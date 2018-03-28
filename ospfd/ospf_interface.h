@@ -47,28 +47,30 @@
 		 ? (O)->params->P                                              \
 		 : IF_DEF_PARAMS((O)->ifp)->P)
 
-#define DECLARE_IF_PARAM(T, P) T P; u_char P##__config:1
+#define DECLARE_IF_PARAM(T, P)                                                 \
+	T P;                                                                   \
+	uint8_t P##__config : 1
 #define UNSET_IF_PARAM(S, P) ((S)->P##__config) = 0
 #define SET_IF_PARAM(S, P) ((S)->P##__config) = 1
 
 struct ospf_if_params {
-	DECLARE_IF_PARAM(u_int32_t,
+	DECLARE_IF_PARAM(uint32_t,
 			 transmit_delay); /* Interface Transmisson Delay */
-	DECLARE_IF_PARAM(u_int32_t,
+	DECLARE_IF_PARAM(uint32_t,
 			 output_cost_cmd); /* Command Interface Output Cost */
-	DECLARE_IF_PARAM(u_int32_t,
+	DECLARE_IF_PARAM(uint32_t,
 			 retransmit_interval); /* Retransmission Interval */
-	DECLARE_IF_PARAM(u_char, passive_interface); /* OSPF Interface is
+	DECLARE_IF_PARAM(uint8_t, passive_interface); /* OSPF Interface is
 							passive: no sending or
 							receiving (no need to
 							join multicast groups)
 							*/
-	DECLARE_IF_PARAM(u_char, priority); /* OSPF Interface priority */
+	DECLARE_IF_PARAM(uint8_t, priority); /* OSPF Interface priority */
 	/* Enable OSPF on this interface with area if_area */
 	DECLARE_IF_PARAM(struct in_addr, if_area);
-	u_int32_t if_area_id_fmt;
+	uint32_t if_area_id_fmt;
 
-	DECLARE_IF_PARAM(u_char, type); /* type of interface */
+	DECLARE_IF_PARAM(uint8_t, type); /* type of interface */
 #define OSPF_IF_ACTIVE                  0
 #define OSPF_IF_PASSIVE		        1
 
@@ -80,25 +82,25 @@ struct ospf_if_params {
 			    ? IF_DEF_PARAMS((O)->ifp)->passive_interface       \
 			    : (O)->ospf->passive_interface_default))
 
-	DECLARE_IF_PARAM(u_int32_t, v_hello); /* Hello Interval */
-	DECLARE_IF_PARAM(u_int32_t, v_wait);  /* Router Dead Interval */
+	DECLARE_IF_PARAM(uint32_t, v_hello); /* Hello Interval */
+	DECLARE_IF_PARAM(uint32_t, v_wait);  /* Router Dead Interval */
 
 	/* MTU mismatch check (see RFC2328, chap 10.6) */
-	DECLARE_IF_PARAM(u_char, mtu_ignore);
+	DECLARE_IF_PARAM(uint8_t, mtu_ignore);
 
 	/* Fast-Hellos */
-	DECLARE_IF_PARAM(u_char, fast_hello);
+	DECLARE_IF_PARAM(uint8_t, fast_hello);
 
 	/* Authentication data. */
-	u_char auth_simple[OSPF_AUTH_SIMPLE_SIZE + 1]; /* Simple password. */
-	u_char auth_simple__config : 1;
+	uint8_t auth_simple[OSPF_AUTH_SIMPLE_SIZE + 1]; /* Simple password. */
+	uint8_t auth_simple__config : 1;
 
 	DECLARE_IF_PARAM(struct list *,
 			 auth_crypt);     /* List of Auth cryptographic data. */
 	DECLARE_IF_PARAM(int, auth_type); /* OSPF authentication type */
 
 	/* Other, non-configuration state */
-	u_int32_t network_lsa_seqnum; /* Network LSA seqnum */
+	uint32_t network_lsa_seqnum; /* Network LSA seqnum */
 
 	/* BFD configuration */
 	struct bfd_info *bfd_info;
@@ -126,7 +128,7 @@ struct ospf_vl_data {
 	struct ospf_interface *vl_oi;  /* Interface data structure */
 	struct vertex_nexthop nexthop; /* Nexthop router and oi to use */
 	struct in_addr peer_addr;      /* Address used to reach the peer */
-	u_char flags;
+	uint8_t flags;
 };
 
 
@@ -136,8 +138,8 @@ struct ospf_vl_data {
 #define OSPF_VL_FLAG_APPROVED 0x01
 
 struct crypt_key {
-	u_char key_id;
-	u_char auth_key[OSPF_AUTH_MD5_SIZE + 1];
+	uint8_t key_id;
+	uint8_t auth_key[OSPF_AUTH_MD5_SIZE + 1];
 };
 
 /* OSPF interface structure. */
@@ -160,13 +162,13 @@ struct ospf_interface {
 	struct ospf_fifo *obuf; /* Output queue */
 
 	/* OSPF Network Type. */
-	u_char type;
+	uint8_t type;
 
 	/* State of Interface State Machine. */
-	u_char state;
+	uint8_t state;
 
 	/* To which multicast groups do we currently belong? */
-	u_char multicast_memberships;
+	uint8_t multicast_memberships;
 #define OI_MEMBER_FLAG(M) (1 << (M))
 #define OI_MEMBER_COUNT(O,M) (IF_OSPF_IF_INFO(oi->ifp)->membership_counts[(M)])
 #define OI_MEMBER_CHECK(O, M)                                                  \
@@ -188,8 +190,8 @@ struct ospf_interface {
 	/* Configured varables. */
 	struct ospf_if_params *params;
 
-	u_int32_t crypt_seqnum; /* Cryptographic Sequence Number */
-	u_int32_t output_cost;  /* Acutual Interface Output Cost */
+	uint32_t crypt_seqnum; /* Cryptographic Sequence Number */
+	uint32_t output_cost;  /* Acutual Interface Output Cost */
 
 	/* Neighbor information. */
 	struct route_table *nbrs;       /* OSPF Neighbor List */
@@ -216,7 +218,7 @@ struct ospf_interface {
 	} ls_ack_direct;
 
 	/* Timer values. */
-	u_int32_t v_ls_ack; /* Delayed Link State Acknowledgment */
+	uint32_t v_ls_ack; /* Delayed Link State Acknowledgment */
 
 	/* Threads. */
 	struct thread *t_hello;		  /* timer */
@@ -229,20 +231,20 @@ struct ospf_interface {
 	int on_write_q;
 
 	/* Statistics fields. */
-	u_int32_t hello_in;     /* Hello message input count. */
-	u_int32_t hello_out;    /* Hello message output count. */
-	u_int32_t db_desc_in;   /* database desc. message input count. */
-	u_int32_t db_desc_out;  /* database desc. message output count. */
-	u_int32_t ls_req_in;    /* LS request message input count. */
-	u_int32_t ls_req_out;   /* LS request message output count. */
-	u_int32_t ls_upd_in;    /* LS update message input count. */
-	u_int32_t ls_upd_out;   /* LS update message output count. */
-	u_int32_t ls_ack_in;    /* LS Ack message input count. */
-	u_int32_t ls_ack_out;   /* LS Ack message output count. */
-	u_int32_t discarded;    /* discarded input count by error. */
-	u_int32_t state_change; /* Number of status change. */
+	uint32_t hello_in;     /* Hello message input count. */
+	uint32_t hello_out;    /* Hello message output count. */
+	uint32_t db_desc_in;   /* database desc. message input count. */
+	uint32_t db_desc_out;  /* database desc. message output count. */
+	uint32_t ls_req_in;    /* LS request message input count. */
+	uint32_t ls_req_out;   /* LS request message output count. */
+	uint32_t ls_upd_in;    /* LS update message input count. */
+	uint32_t ls_upd_out;   /* LS update message output count. */
+	uint32_t ls_ack_in;    /* LS Ack message input count. */
+	uint32_t ls_ack_out;   /* LS Ack message output count. */
+	uint32_t discarded;    /* discarded input count by error. */
+	uint32_t state_change; /* Number of status change. */
 
-	u_int32_t full_nbrs;
+	uint32_t full_nbrs;
 
 	QOBJ_FIELDS
 };
@@ -308,11 +310,11 @@ extern void ospf_vl_shut_unapproved(struct ospf *);
 extern int ospf_full_virtual_nbrs(struct ospf_area *);
 extern int ospf_vls_in_area(struct ospf_area *);
 
-extern struct crypt_key *ospf_crypt_key_lookup(struct list *, u_char);
+extern struct crypt_key *ospf_crypt_key_lookup(struct list *, uint8_t);
 extern struct crypt_key *ospf_crypt_key_new(void);
 extern void ospf_crypt_key_add(struct list *, struct crypt_key *);
-extern int ospf_crypt_key_delete(struct list *, u_char);
-extern u_char ospf_default_iftype(struct interface *ifp);
+extern int ospf_crypt_key_delete(struct list *, uint8_t);
+extern uint8_t ospf_default_iftype(struct interface *ifp);
 extern int ospf_interface_neighbor_count(struct ospf_interface *oi);
 
 /* Set all multicast memberships appropriately based on the type and

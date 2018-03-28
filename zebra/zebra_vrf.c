@@ -372,7 +372,7 @@ int zebra_vrf_has_config(struct zebra_vrf *zvrf)
  */
 struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 						  vrf_id_t vrf_id,
-						  u_int32_t table_id)
+						  uint32_t table_id)
 {
 	struct route_table *table = NULL;
 
@@ -526,7 +526,7 @@ struct route_table *zebra_vrf_static_table(afi_t afi, safi_t safi,
 	return zvrf->stable[afi][safi];
 }
 
-struct route_table *zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id,
+struct route_table *zebra_vrf_other_route_table(afi_t afi, uint32_t table_id,
 						vrf_id_t vrf_id)
 {
 	struct zebra_vrf *zvrf;

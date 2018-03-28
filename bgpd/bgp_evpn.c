@@ -335,7 +335,7 @@ static int evpn_route_target_cmp(struct ecommunity *ecom1,
 static inline void mask_ecom_global_admin(struct ecommunity_val *dst,
 					  struct ecommunity_val *src)
 {
-	u_char type;
+	uint8_t type;
 
 	type = src->val[0];
 	dst->val[0] = 0;
@@ -488,7 +488,7 @@ static void evpn_convert_nexthop_to_ipv6(struct attr *attr)
 static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 				       struct prefix_evpn *p,
 				       struct in_addr remote_vtep_ip, int add,
-				       u_char flags)
+				       uint8_t flags)
 {
 	struct stream *s;
 	int ipa_len;
@@ -603,7 +603,7 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 	memset(&ecom_encap, 0, sizeof(ecom_encap));
 	encode_encap_extcomm(tnl_type, &eval);
 	ecom_encap.size = 1;
-	ecom_encap.val = (u_int8_t *)eval.val;
+	ecom_encap.val = (uint8_t *)eval.val;
 
 	/* Add Encap */
 	attr->ecommunity = ecommunity_dup(&ecom_encap);
@@ -653,7 +653,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	bgp_encap_types tnl_type;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
-	u_int32_t seqnum;
+	uint32_t seqnum;
 	struct list *vrf_export_rtl = NULL;
 
 	/* Encap */
@@ -661,7 +661,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	memset(&ecom_encap, 0, sizeof(ecom_encap));
 	encode_encap_extcomm(tnl_type, &eval);
 	ecom_encap.size = 1;
-	ecom_encap.val = (u_int8_t *)eval.val;
+	ecom_encap.val = (uint8_t *)eval.val;
 
 	/* Add Encap */
 	attr->ecommunity = ecommunity_dup(&ecom_encap);
@@ -689,7 +689,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		memset(&ecom_sticky, 0, sizeof(ecom_sticky));
 		encode_mac_mobility_extcomm(1, seqnum, &eval_sticky);
 		ecom_sticky.size = 1;
-		ecom_sticky.val = (u_int8_t *)eval_sticky.val;
+		ecom_sticky.val = (uint8_t *)eval_sticky.val;
 		attr->ecommunity =
 			ecommunity_merge(attr->ecommunity, &ecom_sticky);
 	}
@@ -720,13 +720,13 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 /*
  * Add MAC mobility extended community to attribute.
  */
-static void add_mac_mobility_to_attr(u_int32_t seq_num, struct attr *attr)
+static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 {
 	struct ecommunity ecom_tmp;
 	struct ecommunity_val eval;
-	u_int8_t *ecom_val_ptr;
+	uint8_t *ecom_val_ptr;
 	int i;
-	u_int8_t *pnt;
+	uint8_t *pnt;
 	int type = 0;
 	int sub_type = 0;
 
@@ -745,9 +745,8 @@ static void add_mac_mobility_to_attr(u_int32_t seq_num, struct attr *attr)
 			if (type == ECOMMUNITY_ENCODE_EVPN
 			    && sub_type
 				       == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
-				ecom_val_ptr =
-					(u_int8_t *)(attr->ecommunity->val
-						     + (i * 8));
+				ecom_val_ptr = (uint8_t *)(attr->ecommunity->val
+							   + (i * 8));
 				break;
 			}
 		}
@@ -761,7 +760,7 @@ static void add_mac_mobility_to_attr(u_int32_t seq_num, struct attr *attr)
 	else {
 		memset(&ecom_tmp, 0, sizeof(ecom_tmp));
 		ecom_tmp.size = 1;
-		ecom_tmp.val = (u_int8_t *)eval.val;
+		ecom_tmp.val = (uint8_t *)eval.val;
 
 		attr->ecommunity =
 			ecommunity_merge(attr->ecommunity, &ecom_tmp);
@@ -771,7 +770,7 @@ static void add_mac_mobility_to_attr(u_int32_t seq_num, struct attr *attr)
 /* Install EVPN route into zebra. */
 static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
 			      struct prefix_evpn *p,
-			      struct in_addr remote_vtep_ip, u_char flags)
+			      struct in_addr remote_vtep_ip, uint8_t flags)
 {
 	int ret;
 
@@ -848,7 +847,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 	int ret = 0;
-	u_char flags = 0;
+	uint8_t flags = 0;
 
 	/* Compute the best path. */
 	bgp_best_selection(bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new,
@@ -1111,15 +1110,15 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 				   afi_t afi, safi_t safi, struct bgp_node *rn,
 				   struct attr *attr, int add, int vni_table,
-				   struct bgp_info **ri, u_char flags)
+				   struct bgp_info **ri, uint8_t flags)
 {
 	struct bgp_info *tmp_ri;
 	struct bgp_info *local_ri, *remote_ri;
 	struct attr *attr_new;
 	mpls_label_t label[BGP_MAX_LABELS];
-	u_int32_t num_labels = 1;
+	uint32_t num_labels = 1;
 	int route_change = 1;
-	u_char sticky = 0;
+	uint8_t sticky = 0;
 	struct prefix_evpn *evp;
 
 	*ri = NULL;
@@ -1167,7 +1166,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		 * This will ensure that local routes are preferred for g/w macs
 		 */
 		if (remote_ri && !CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW)) {
-			u_int32_t cur_seqnum;
+			uint32_t cur_seqnum;
 
 			/* Add MM extended community to route. */
 			cur_seqnum = mac_mobility_seqnum(remote_ri->attr);
@@ -1260,7 +1259,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
  * and schedule for processing.
  */
 static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
-			     struct prefix_evpn *p, u_char flags)
+			     struct prefix_evpn *p, uint8_t flags)
 {
 	struct bgp_node *rn;
 	struct attr attr;
@@ -2083,8 +2082,8 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf, struct bgp_info *ri)
 	 * matches, we're done.
 	 */
 	for (i = 0; i < ecom->size; i++) {
-		u_char *pnt;
-		u_char type, sub_type;
+		uint8_t *pnt;
+		uint8_t type, sub_type;
 		struct ecommunity_val *eval;
 		struct ecommunity_val eval_tmp;
 		struct vrf_irt_node *irt;
@@ -2150,8 +2149,8 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 	 * matches, we're done.
 	 */
 	for (i = 0; i < ecom->size; i++) {
-		u_char *pnt;
-		u_char type, sub_type;
+		uint8_t *pnt;
+		uint8_t type, sub_type;
 		struct ecommunity_val *eval;
 		struct ecommunity_val eval_tmp;
 		struct irt_node *irt;
@@ -2519,8 +2518,8 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	 * the route into matching VNIs/VRFs.
 	 */
 	for (i = 0; i < ecom->size; i++) {
-		u_char *pnt;
-		u_char type, sub_type;
+		uint8_t *pnt;
+		uint8_t type, sub_type;
 		struct ecommunity_val *eval;
 		struct ecommunity_val eval_tmp;
 		struct irt_node *irt;	 /* import rt for l2vni */
@@ -2806,15 +2805,15 @@ static void withdraw_router_id_vni(struct hash_backet *backet, struct bgp *bgp)
  * Process received EVPN type-2 route (advertise or withdraw).
  */
 static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
-			       struct attr *attr, u_char *pfx, int psize,
-			       u_int32_t addpath_id)
+			       struct attr *attr, uint8_t *pfx, int psize,
+			       uint32_t addpath_id)
 {
 	struct prefix_rd prd;
 	struct prefix_evpn p;
-	u_char ipaddr_len;
-	u_char macaddr_len;
+	uint8_t ipaddr_len;
+	uint8_t macaddr_len;
 	mpls_label_t label[BGP_MAX_LABELS]; /* holds the VNI(s) as in packet */
-	u_int32_t num_labels = 0;
+	uint32_t num_labels = 0;
 	int ret;
 
 	/* Type-2 route should be either 33, 37 or 49 bytes or an
@@ -2915,12 +2914,12 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
  * Process received EVPN type-3 route (advertise or withdraw).
  */
 static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
-			       struct attr *attr, u_char *pfx, int psize,
-			       u_int32_t addpath_id)
+			       struct attr *attr, uint8_t *pfx, int psize,
+			       uint32_t addpath_id)
 {
 	struct prefix_rd prd;
 	struct prefix_evpn p;
-	u_char ipaddr_len;
+	uint8_t ipaddr_len;
 	int ret;
 
 	/* Type-3 route should be either 17 or 29 bytes: RD (8), Eth Tag (4),
@@ -2988,14 +2987,14 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
  * Process received EVPN type-5 route (advertise or withdraw).
  */
 static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
-			       struct attr *attr, u_char *pfx, int psize,
-			       u_int32_t addpath_id, int withdraw)
+			       struct attr *attr, uint8_t *pfx, int psize,
+			       uint32_t addpath_id, int withdraw)
 {
 	struct prefix_rd prd;
 	struct prefix_evpn p;
 	struct bgp_route_evpn evpn;
-	u_char ippfx_len;
-	u_int32_t eth_tag;
+	uint8_t ippfx_len;
+	uint32_t eth_tag;
 	mpls_label_t label; /* holds the VNI as in the packet */
 	int ret;
 
@@ -3087,7 +3086,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 
 static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 				     struct prefix_rd *prd, mpls_label_t *label,
-				     u_int32_t num_labels, struct attr *attr)
+				     uint32_t num_labels, struct attr *attr)
 {
 	int len;
 	char temp[16];
@@ -3547,7 +3546,7 @@ int bgp_evpn_uninstall_routes(struct bgp *bgp, struct bgpevpn *vpn)
 /*
  * TODO: Hardcoded for a maximum of 2 VNIs right now
  */
-char *bgp_evpn_label2str(mpls_label_t *label, u_int32_t num_labels, char *buf,
+char *bgp_evpn_label2str(mpls_label_t *label, uint32_t num_labels, char *buf,
 			 int len)
 {
 	vni_t vni1, vni2;
@@ -3596,7 +3595,7 @@ void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json)
 							      buf1,
 							      sizeof(buf1)));
 		} else {
-			u_char family;
+			uint8_t family;
 
 			family = IS_EVPN_PREFIX_IPADDR_V4(p) ? AF_INET
 							     : AF_INET6;
@@ -3647,7 +3646,7 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 				 prefix_mac2str(&p->prefix.mac, buf1,
 						sizeof(buf1)));
 		else {
-			u_char family;
+			uint8_t family;
 
 			family = IS_EVPN_PREFIX_IPADDR_V4(p) ? AF_INET
 							     : AF_INET6;
@@ -3680,8 +3679,8 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
  */
 void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 			    struct prefix_rd *prd, mpls_label_t *label,
-			    u_int32_t num_labels, struct attr *attr,
-			    int addpath_encode, u_int32_t addpath_tx_id)
+			    uint32_t num_labels, struct attr *attr,
+			    int addpath_encode, uint32_t addpath_tx_id)
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)p;
 	int len, ipa_len = 0;
@@ -3740,15 +3739,15 @@ void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			struct bgp_nlri *packet, int withdraw)
 {
-	u_char *pnt;
-	u_char *lim;
+	uint8_t *pnt;
+	uint8_t *lim;
 	afi_t afi;
 	safi_t safi;
-	u_int32_t addpath_id;
+	uint32_t addpath_id;
 	int addpath_encoded;
 	int psize = 0;
-	u_char rtype;
-	u_char rlen;
+	uint8_t rtype;
+	uint8_t rlen;
 	struct prefix p;
 
 	/* Start processing the NLRI - there may be multiple in the MP_REACH */
@@ -4192,7 +4191,7 @@ int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
  * Handle add of a local MACIP.
  */
 int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
-			     struct ipaddr *ip, u_char flags)
+			     struct ipaddr *ip, uint8_t flags)
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;

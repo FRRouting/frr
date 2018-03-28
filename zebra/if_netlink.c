@@ -271,7 +271,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	struct rtattr *attr[IFLA_VRF_MAX + 1];
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-	u_int32_t nl_table_id;
+	uint32_t nl_table_id;
 
 	ifi = NLMSG_DATA(h);
 
@@ -296,7 +296,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		return;
 	}
 
-	nl_table_id = *(u_int32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]);
+	nl_table_id = *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]);
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -409,7 +409,7 @@ static int netlink_extract_bridge_info(struct rtattr *link_data,
 	parse_rtattr_nested(attr, IFLA_BR_MAX, link_data);
 	if (attr[IFLA_BR_VLAN_FILTERING])
 		bridge_info->vlan_aware =
-			*(u_char *)RTA_DATA(attr[IFLA_BR_VLAN_FILTERING]);
+			*(uint8_t *)RTA_DATA(attr[IFLA_BR_VLAN_FILTERING]);
 	return 0;
 }
 
@@ -503,8 +503,8 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 	struct interface *ifp;
 	struct rtattr *aftb[IFLA_BRIDGE_MAX + 1];
 	struct {
-		u_int16_t flags;
-		u_int16_t vid;
+		uint16_t flags;
+		uint16_t vid;
 	} * vinfo;
 	vlanid_t access_vlan;
 
@@ -631,7 +631,7 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		if (slave_kind && (strcmp(slave_kind, "vrf") == 0)
 		    && !vrf_is_backend_netns()) {
 			zif_slave_type = ZEBRA_IF_SLAVE_VRF;
-			vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+			vrf_id = *(uint32_t *)RTA_DATA(tb[IFLA_MASTER]);
 		} else if (slave_kind && (strcmp(slave_kind, "bridge") == 0)) {
 			zif_slave_type = ZEBRA_IF_SLAVE_BRIDGE;
 			bridge_ifindex =
@@ -683,7 +683,7 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 /* Request for specific interface or address information from the kernel */
 static int netlink_request_intf_addr(struct zebra_ns *zns, int family, int type,
-				     u_int32_t filter_mask)
+				     uint32_t filter_mask)
 {
 	struct {
 		struct nlmsghdr n;
@@ -876,7 +876,7 @@ int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	struct interface *ifp;
 	void *addr;
 	void *broad;
-	u_char flags = 0;
+	uint8_t flags = 0;
 	char *label = NULL;
 	struct zebra_ns *zns;
 
@@ -1109,8 +1109,7 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			if (slave_kind && (strcmp(slave_kind, "vrf") == 0)
 			    && !vrf_is_backend_netns()) {
 				zif_slave_type = ZEBRA_IF_SLAVE_VRF;
-				vrf_id =
-					*(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+				vrf_id = *(uint32_t *)RTA_DATA(tb[IFLA_MASTER]);
 			} else if (slave_kind
 				   && (strcmp(slave_kind, "bridge") == 0)) {
 				zif_slave_type = ZEBRA_IF_SLAVE_BRIDGE;

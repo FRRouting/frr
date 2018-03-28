@@ -28,30 +28,30 @@
  * Area Address
  */
 struct area_addr {
-	u_char addr_len;
-	u_char area_addr[20];
+	uint8_t addr_len;
+	uint8_t area_addr[20];
 };
 
 struct isis_passwd {
-	u_char len;
+	uint8_t len;
 #define ISIS_PASSWD_TYPE_UNUSED   0
 #define ISIS_PASSWD_TYPE_CLEARTXT 1
 #define ISIS_PASSWD_TYPE_HMAC_MD5 54
 #define ISIS_PASSWD_TYPE_PRIVATE  255
-	u_char type;
+	uint8_t type;
 /* Authenticate SNPs? */
 #define SNP_AUTH_SEND   0x01
 #define SNP_AUTH_RECV   0x02
-	u_char snp_auth;
-	u_char passwd[255];
+	uint8_t snp_auth;
+	uint8_t passwd[255];
 };
 
 /*
  * Supported Protocol IDs
  */
 struct nlpids {
-	u_char count;
-	u_char nlpids[4]; /* FIXME: enough ? */
+	uint8_t count;
+	uint8_t nlpids[4]; /* FIXME: enough ? */
 };
 
 #endif

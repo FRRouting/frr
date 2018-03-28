@@ -135,7 +135,7 @@ typedef enum {
 } zebra_message_types_t;
 
 struct redist_proto {
-	u_char enabled;
+	uint8_t enabled;
 	struct list *instances;
 };
 
@@ -173,8 +173,8 @@ struct zclient {
 	struct thread *t_write;
 
 	/* Redistribute information. */
-	u_char redist_default; /* clients protocol */
-	u_short instance;
+	uint8_t redist_default; /* clients protocol */
+	unsigned short instance;
 	struct redist_proto mi_redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 	vrf_bitmap_t redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
@@ -270,12 +270,12 @@ struct zapi_nexthop {
  * to encode/decode.
  */
 struct zapi_route {
-	u_char type;
-	u_short instance;
+	uint8_t type;
+	unsigned short instance;
 
-	u_int32_t flags;
+	uint32_t flags;
 
-	u_char message;
+	uint8_t message;
 
 	/*
 	 * This is an enum but we are going to treat it as a uint8_t
@@ -286,16 +286,16 @@ struct zapi_route {
 	struct prefix prefix;
 	struct prefix_ipv6 src_prefix;
 
-	u_int16_t nexthop_num;
+	uint16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
 
-	u_char distance;
+	uint8_t distance;
 
-	u_int32_t metric;
+	uint32_t metric;
 
 	route_tag_t tag;
 
-	u_int32_t mtu;
+	uint32_t mtu;
 
 	vrf_id_t vrf_id;
 
@@ -306,31 +306,31 @@ struct zapi_route {
 
 /* Zebra IPv4 route message API. */
 struct zapi_ipv4 {
-	u_char type;
-	u_short instance;
+	uint8_t type;
+	unsigned short instance;
 
-	u_int32_t flags;
+	uint32_t flags;
 
-	u_char message;
+	uint8_t message;
 
 	safi_t safi;
 
-	u_char nexthop_num;
+	uint8_t nexthop_num;
 	struct in_addr **nexthop;
 
-	u_char ifindex_num;
+	uint8_t ifindex_num;
 	ifindex_t *ifindex;
 
-	u_char label_num;
+	uint8_t label_num;
 	unsigned int *label;
 
-	u_char distance;
+	uint8_t distance;
 
-	u_int32_t metric;
+	uint32_t metric;
 
 	route_tag_t tag;
 
-	u_int32_t mtu;
+	uint32_t mtu;
 
 	vrf_id_t vrf_id;
 };
@@ -394,7 +394,7 @@ extern struct zclient *zclient_new_notify(struct thread_master *m,
 	zclient_new_notify((A), &zclient_options_default);                     \
 	CPP_WARN("Please transition to using zclient_new_notify");
 
-extern void zclient_init(struct zclient *, int, u_short,
+extern void zclient_init(struct zclient *, int, unsigned short,
 			 struct zebra_privs_t *privs);
 extern int zclient_start(struct zclient *);
 extern void zclient_stop(struct zclient *);
@@ -403,9 +403,10 @@ extern void zclient_free(struct zclient *);
 
 extern int zclient_socket_connect(struct zclient *);
 
-extern u_short *redist_check_instance(struct redist_proto *, u_short);
-extern void redist_add_instance(struct redist_proto *, u_short);
-extern void redist_del_instance(struct redist_proto *, u_short);
+extern unsigned short *redist_check_instance(struct redist_proto *,
+					     unsigned short);
+extern void redist_add_instance(struct redist_proto *, unsigned short);
+extern void redist_del_instance(struct redist_proto *, unsigned short);
 
 /*
  * Send to zebra that the specified vrf is using label to resolve
@@ -434,11 +435,12 @@ extern void zclient_send_interface_radv_req(struct zclient *zclient,
 
 /* Send redistribute command to zebra daemon. Do not update zclient state. */
 extern int zebra_redistribute_send(int command, struct zclient *, afi_t,
-				   int type, u_short instance, vrf_id_t vrf_id);
+				   int type, unsigned short instance,
+				   vrf_id_t vrf_id);
 
 /* If state has changed, update state and call zebra_redistribute_send. */
 extern void zclient_redistribute(int command, struct zclient *, afi_t, int type,
-				 u_short instance, vrf_id_t vrf_id);
+				 unsigned short instance, vrf_id_t vrf_id);
 
 /* If state has changed, update state and send the command to zebra. */
 extern void zclient_redistribute_default(int command, struct zclient *,
@@ -483,9 +485,9 @@ extern void zclient_create_header(struct stream *, uint16_t, vrf_id_t);
  *    - a marker mismatch was detected
  *    - header size field specified more data than could be read
  */
-extern int zclient_read_header(struct stream *s, int sock, u_int16_t *size,
-			       u_char *marker, u_char *version,
-			       vrf_id_t *vrf_id, u_int16_t *cmd);
+extern int zclient_read_header(struct stream *s, int sock, uint16_t *size,
+			       uint8_t *marker, uint8_t *version,
+			       vrf_id_t *vrf_id, uint16_t *cmd);
 /*
  * Parse header from ZAPI message stream into struct zmsghdr.
  * This function assumes the stream getp points at the first byte of the header.
@@ -524,14 +526,14 @@ CPP_NOTICE("zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as we
 #endif
 /* clang-format on */
 
-extern int zapi_ipv4_route(u_char, struct zclient *, struct prefix_ipv4 *,
+extern int zapi_ipv4_route(uint8_t, struct zclient *, struct prefix_ipv4 *,
 			   struct zapi_ipv4 *) __attribute__((deprecated));
 
 extern struct interface *zebra_interface_link_params_read(struct stream *);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
 extern int lm_label_manager_connect(struct zclient *zclient);
-extern int lm_get_label_chunk(struct zclient *zclient, u_char keep,
+extern int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 			      uint32_t chunk_size, uint32_t *start,
 			      uint32_t *end);
 extern int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
@@ -545,47 +547,47 @@ extern void zebra_read_pw_status_update(int command, struct zclient *zclient,
 /* IPv6 prefix add and delete function prototype. */
 
 struct zapi_ipv6 {
-	u_char type;
-	u_short instance;
+	uint8_t type;
+	unsigned short instance;
 
-	u_int32_t flags;
+	uint32_t flags;
 
-	u_char message;
+	uint8_t message;
 
 	safi_t safi;
 
-	u_char nexthop_num;
+	uint8_t nexthop_num;
 	struct in6_addr **nexthop;
 
-	u_char ifindex_num;
+	uint8_t ifindex_num;
 	ifindex_t *ifindex;
 
-	u_char label_num;
+	uint8_t label_num;
 	unsigned int *label;
 
-	u_char distance;
+	uint8_t distance;
 
-	u_int32_t metric;
+	uint32_t metric;
 
 	route_tag_t tag;
 
-	u_int32_t mtu;
+	uint32_t mtu;
 
 	vrf_id_t vrf_id;
 };
 
-extern int zapi_ipv6_route(u_char cmd, struct zclient *zclient,
+extern int zapi_ipv6_route(uint8_t cmd, struct zclient *zclient,
 			   struct prefix_ipv6 *p, struct prefix_ipv6 *src_p,
 			   struct zapi_ipv6 *api) __attribute__((deprecated));
-extern int zapi_ipv4_route_ipv6_nexthop(u_char, struct zclient *,
+extern int zapi_ipv4_route_ipv6_nexthop(uint8_t, struct zclient *,
 					struct prefix_ipv4 *,
 					struct zapi_ipv6 *)
 	__attribute__((deprecated));
-extern int zclient_route_send(u_char, struct zclient *, struct zapi_route *);
+extern int zclient_route_send(uint8_t, struct zclient *, struct zapi_route *);
 extern int zclient_send_rnh(struct zclient *zclient, int command,
 			    struct prefix *p, bool exact_match,
 			    vrf_id_t vrf_id);
-extern int zapi_route_encode(u_char, struct stream *, struct zapi_route *);
+extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,

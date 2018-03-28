@@ -77,7 +77,7 @@ static void handle_route_entry(mib2_ipRouteEntry_t *routeEntry)
 	struct prefix prefix;
 	struct in_addr tmpaddr;
 	struct nexthop nh;
-	u_char zebra_flags = 0;
+	uint8_t zebra_flags = 0;
 
 	if (routeEntry->ipRouteInfo.re_ire_type & IRE_CACHETABLE)
 		return;

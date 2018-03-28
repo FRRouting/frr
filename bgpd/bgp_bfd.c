@@ -383,8 +383,8 @@ static int bgp_bfd_dest_update(int command, struct zclient *zclient,
 /*
  * bgp_bfd_peer_param_set - Set the configured BFD paramter values for peer.
  */
-static int bgp_bfd_peer_param_set(struct peer *peer, u_int32_t min_rx,
-				  u_int32_t min_tx, u_int8_t detect_mult,
+static int bgp_bfd_peer_param_set(struct peer *peer, uint32_t min_rx,
+				  uint32_t min_tx, uint8_t detect_mult,
 				  int defaults)
 {
 	struct peer_group *group;
@@ -526,7 +526,7 @@ void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
 /*
  * bgp_bfd_show_info - Show the peer BFD information.
  */
-void bgp_bfd_show_info(struct vty *vty, struct peer *peer, u_char use_json,
+void bgp_bfd_show_info(struct vty *vty, struct peer *peer, uint8_t use_json,
 		       json_object *json_neigh)
 {
 	bfd_show_info(vty, (struct bfd_info *)peer->bfd_info,
@@ -571,9 +571,9 @@ DEFUN (neighbor_bfd_param,
 	int idx_number_2 = 4;
 	int idx_number_3 = 5;
 	struct peer *peer;
-	u_int32_t rx_val;
-	u_int32_t tx_val;
-	u_int8_t dm_val;
+	uint32_t rx_val;
+	uint32_t tx_val;
+	uint8_t dm_val;
 	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);

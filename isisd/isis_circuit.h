@@ -37,26 +37,26 @@ struct isis_lsp;
 struct password {
 	struct password *next;
 	int len;
-	u_char *pass;
+	uint8_t *pass;
 };
 
 struct metric {
-	u_char metric_default;
-	u_char metric_error;
-	u_char metric_expense;
-	u_char metric_delay;
+	uint8_t metric_default;
+	uint8_t metric_error;
+	uint8_t metric_expense;
+	uint8_t metric_delay;
 };
 
 struct isis_bcast_info {
-	u_char snpa[ETH_ALEN];		    /* SNPA of this circuit */
+	uint8_t snpa[ETH_ALEN];		    /* SNPA of this circuit */
 	char run_dr_elect[2];		    /* Should we run dr election ? */
 	struct thread *t_run_dr[2];	 /* DR election thread */
 	struct thread *t_send_lan_hello[2]; /* send LAN IIHs in this thread */
 	struct list *adjdb[2];		    /* adjacency dbs */
 	struct list *lan_neighs[2];	 /* list of lx neigh snpa */
 	char is_dr[2];			    /* Are we level x DR ? */
-	u_char l1_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-1 DR */
-	u_char l2_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-2 DR */
+	uint8_t l1_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-1 DR */
+	uint8_t l2_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-2 DR */
 	struct thread *t_refresh_pseudo_lsp[2];  /* refresh pseudo-node LSPs */
 };
 
@@ -67,7 +67,7 @@ struct isis_p2p_info {
 
 struct isis_circuit {
 	int state;
-	u_char circuit_id;	     /* l1/l2 bcast CircuitID */
+	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
 	struct isis_area *area;      /* back pointer to the area */
 	struct interface *interface; /* interface info from z */
 	int fd;			     /* IS-IS l1/2 socket */
@@ -89,7 +89,7 @@ struct isis_circuit {
 					* circuit
 					*/
 	/* there is no real point in two streams, just for programming kicker */
-	int (*rx)(struct isis_circuit *circuit, u_char *ssnpa);
+	int (*rx)(struct isis_circuit *circuit, uint8_t *ssnpa);
 	struct stream *rcv_stream; /* Stream for receiving */
 	int (*tx)(struct isis_circuit *circuit, int level);
 	struct stream *snd_stream; /* Stream for sending */
@@ -104,7 +104,7 @@ struct isis_circuit {
 		struct isis_bcast_info bc;
 		struct isis_p2p_info p2p;
 	} u;
-	u_char priority[2]; /* l1/2 IS configured priority */
+	uint8_t priority[2]; /* l1/2 IS configured priority */
 	int pad_hellos;     /* add padding to Hello PDUs ? */
 	char ext_domain;    /* externalDomain   (boolean) */
 	int lsp_regenerate_pending[ISIS_LEVELS];
@@ -114,12 +114,12 @@ struct isis_circuit {
 	struct isis_passwd passwd;     /* Circuit rx/tx password */
 	int is_type;		       /* circuit is type == level of circuit
 					* differentiated from circuit type (media) */
-	u_int32_t hello_interval[2];   /* l1HelloInterval in msecs */
-	u_int16_t hello_multiplier[2]; /* l1HelloMultiplier */
-	u_int16_t csnp_interval[2];    /* level-1 csnp-interval in seconds */
-	u_int16_t psnp_interval[2];    /* level-1 psnp-interval in seconds */
-	u_int8_t metric[2];
-	u_int32_t te_metric[2];
+	uint32_t hello_interval[2];    /* l1HelloInterval in msecs */
+	uint16_t hello_multiplier[2];  /* l1HelloMultiplier */
+	uint16_t csnp_interval[2];     /* level-1 csnp-interval in seconds */
+	uint16_t psnp_interval[2];     /* level-1 psnp-interval in seconds */
+	uint8_t metric[2];
+	uint32_t te_metric[2];
 	struct mpls_te_circuit
 		*mtc;   /* Support for MPLS-TE parameters - see isis_te.[c,h] */
 	int ip_router;  /* Route IP ? */
@@ -129,20 +129,20 @@ struct isis_circuit {
 	int ipv6_router;	    /* Route IPv6 ? */
 	struct list *ipv6_link;     /* our link local IPv6 addresses */
 	struct list *ipv6_non_link; /* our non-link local IPv6 addresses */
-	u_int16_t upadjcount[2];
+	uint16_t upadjcount[2];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
-	u_char flags;
+	uint8_t flags;
 	bool disable_threeway_adj;
 	/*
 	 * Counters as in 10589--11.2.5.9
 	 */
-	u_int32_t adj_state_changes; /* changesInAdjacencyState */
-	u_int32_t init_failures;     /* intialisationFailures */
-	u_int32_t ctrl_pdus_rxed;    /* controlPDUsReceived */
-	u_int32_t ctrl_pdus_txed;    /* controlPDUsSent */
-	u_int32_t
+	uint32_t adj_state_changes; /* changesInAdjacencyState */
+	uint32_t init_failures;     /* intialisationFailures */
+	uint32_t ctrl_pdus_rxed;    /* controlPDUsReceived */
+	uint32_t ctrl_pdus_txed;    /* controlPDUsSent */
+	uint32_t
 		desig_changes[2]; /* lanLxDesignatedIntermediateSystemChanges */
-	u_int32_t rej_adjacencies; /* rejectedAdjacencies */
+	uint32_t rej_adjacencies; /* rejectedAdjacencies */
 
 	QOBJ_FIELDS
 };

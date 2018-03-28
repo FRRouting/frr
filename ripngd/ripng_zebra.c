@@ -37,7 +37,7 @@
 struct zclient *zclient = NULL;
 
 /* Send ECMP routes to zebra. */
-static void ripng_zebra_ipv6_send(struct route_node *rp, u_char cmd)
+static void ripng_zebra_ipv6_send(struct route_node *rp, uint8_t cmd)
 {
 	struct list *list = (struct list *)rp->info;
 	struct zapi_route api;

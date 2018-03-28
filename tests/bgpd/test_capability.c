@@ -54,7 +54,7 @@ static int tty = 0;
 static struct test_segment {
 	const char *name;
 	const char *desc;
-	const u_char data[1024];
+	const uint8_t data[1024];
 	int len;
 #define SHOULD_PARSE	0
 #define SHOULD_ERR	-1

@@ -24,13 +24,12 @@
  * of bytes.  No alignment or length assumptions are made about
  * the input key.
  */
-extern u_int32_t jhash(const void *key, u_int32_t length, u_int32_t initval);
+extern uint32_t jhash(const void *key, uint32_t length, uint32_t initval);
 
-/* A special optimized version that handles 1 or more of u_int32_ts.
- * The length parameter here is the number of u_int32_ts in the key.
+/* A special optimized version that handles 1 or more of uint32_ts.
+ * The length parameter here is the number of uint32_ts in the key.
  */
-extern u_int32_t jhash2(const u_int32_t *k, u_int32_t length,
-			u_int32_t initval);
+extern uint32_t jhash2(const uint32_t *k, uint32_t length, uint32_t initval);
 
 /* A special ultra-optimized versions that knows they are hashing exactly
  * 3, 2 or 1 word(s).
@@ -38,9 +37,9 @@ extern u_int32_t jhash2(const u_int32_t *k, u_int32_t length,
  * NOTE: In partilar the "c += length; __jhash_mix(a,b,c);" normally
  *       done at the end is not done here.
  */
-extern u_int32_t jhash_3words(u_int32_t a, u_int32_t b, u_int32_t c,
-			      u_int32_t initval);
-extern u_int32_t jhash_2words(u_int32_t a, u_int32_t b, u_int32_t initval);
-extern u_int32_t jhash_1word(u_int32_t a, u_int32_t initval);
+extern uint32_t jhash_3words(uint32_t a, uint32_t b, uint32_t c,
+			     uint32_t initval);
+extern uint32_t jhash_2words(uint32_t a, uint32_t b, uint32_t initval);
+extern uint32_t jhash_1word(uint32_t a, uint32_t initval);
 
 #endif /* _QUAGGA_JHASH_H */

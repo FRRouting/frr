@@ -139,11 +139,11 @@ struct rip {
 	int default_metric;
 
 	/* RIP default-information originate. */
-	u_char default_information;
+	uint8_t default_information;
 	char *default_information_route_map;
 
 	/* RIP default distance. */
-	u_char distance;
+	uint8_t distance;
 	struct route_table *distance_table;
 
 	/* RIP ECMP flag */
@@ -154,7 +154,7 @@ struct rip {
 		char *name;
 		struct route_map *map;
 		int metric_config;
-		u_int32_t metric;
+		uint32_t metric;
 	} route_map[ZEBRA_ROUTE_MAX];
 
 	QOBJ_FIELDS
@@ -163,12 +163,12 @@ DECLARE_QOBJ_TYPE(rip)
 
 /* RIP routing table entry which belong to rip_packet. */
 struct rte {
-	u_int16_t family;       /* Address family of this route. */
-	u_int16_t tag;		/* Route Tag which included in RIP2 packet. */
+	uint16_t family;	/* Address family of this route. */
+	uint16_t tag;		/* Route Tag which included in RIP2 packet. */
 	struct in_addr prefix;  /* Prefix of rip route. */
 	struct in_addr mask;    /* Netmask of rip route. */
 	struct in_addr nexthop; /* Next hop of rip route. */
-	u_int32_t metric;       /* Metric value of rip route. */
+	uint32_t metric;	/* Metric value of rip route. */
 };
 
 /* RIP packet structure. */
@@ -199,19 +199,19 @@ struct rip_info {
 	struct in_addr from;
 
 	/* Metric of this route. */
-	u_int32_t metric;
+	uint32_t metric;
 
 	/* External metric of this route.
 	   if learnt from an externalm proto */
-	u_int32_t external_metric;
+	uint32_t external_metric;
 
 	/* Tag information of this route. */
-	u_int16_t tag;
+	uint16_t tag;
 
 /* Flags of RIP route. */
 #define RIP_RTF_FIB      1
 #define RIP_RTF_CHANGED  2
-	u_char flags;
+	uint8_t flags;
 
 	/* Garbage collect timer. */
 	struct thread *t_timeout;
@@ -219,14 +219,14 @@ struct rip_info {
 
 	/* Route-map futures - this variables can be changed. */
 	struct in_addr nexthop_out;
-	u_char metric_set;
-	u_int32_t metric_out;
-	u_int16_t tag_out;
+	uint8_t metric_set;
+	uint32_t metric_out;
+	uint16_t tag_out;
 	ifindex_t ifindex_out;
 
 	struct route_node *rp;
 
-	u_char distance;
+	uint8_t distance;
 
 #ifdef NEW_RIP_TABLE
 	struct rip_info *next;
@@ -266,7 +266,7 @@ struct rip_interface {
 	char *key_chain;
 
 	/* value to use for md5->auth_len */
-	u_int8_t md5_auth_len;
+	uint8_t md5_auth_len;
 
 	/* Split horizon flag. */
 	split_horizon_policy_t split_horizon;
@@ -310,7 +310,7 @@ struct rip_peer {
 	time_t uptime;
 
 	/* Peer RIP version. */
-	u_char version;
+	uint8_t version;
 
 	/* Statistics. */
 	int recv_badpackets;
@@ -321,20 +321,20 @@ struct rip_peer {
 };
 
 struct rip_md5_info {
-	u_int16_t family;
-	u_int16_t type;
-	u_int16_t packet_len;
-	u_char keyid;
-	u_char auth_len;
-	u_int32_t sequence;
-	u_int32_t reserv1;
-	u_int32_t reserv2;
+	uint16_t family;
+	uint16_t type;
+	uint16_t packet_len;
+	uint8_t keyid;
+	uint8_t auth_len;
+	uint32_t sequence;
+	uint32_t reserv1;
+	uint32_t reserv2;
 };
 
 struct rip_md5_data {
-	u_int16_t family;
-	u_int16_t type;
-	u_char digest[16];
+	uint16_t family;
+	uint16_t type;
+	uint8_t digest[16];
 };
 
 /* RIP accepet/announce methods. */
@@ -380,7 +380,7 @@ extern void rip_zclient_reset(void);
 extern void rip_offset_init(void);
 extern int if_check_address(struct in_addr addr);
 
-extern int rip_request_send(struct sockaddr_in *, struct interface *, u_char,
+extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
 			    struct connected *);
 extern int rip_neighbor_lookup(struct sockaddr_in *);
 
@@ -401,7 +401,7 @@ extern int config_write_rip_offset_list(struct vty *);
 extern int config_write_rip_redistribute(struct vty *, int);
 
 extern void rip_peer_init(void);
-extern void rip_peer_update(struct sockaddr_in *, u_char);
+extern void rip_peer_update(struct sockaddr_in *, uint8_t);
 extern void rip_peer_bad_route(struct sockaddr_in *);
 extern void rip_peer_bad_packet(struct sockaddr_in *);
 extern void rip_peer_display(struct vty *);
@@ -409,13 +409,13 @@ extern struct rip_peer *rip_peer_lookup(struct in_addr *);
 extern struct rip_peer *rip_peer_lookup_next(struct in_addr *);
 
 extern int rip_offset_list_apply_in(struct prefix_ipv4 *, struct interface *,
-				    u_int32_t *);
+				    uint32_t *);
 extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
-				     u_int32_t *);
+				     uint32_t *);
 extern void rip_offset_clean(void);
 
 extern void rip_info_free(struct rip_info *);
-extern u_char rip_distance_apply(struct rip_info *);
+extern uint8_t rip_distance_apply(struct rip_info *);
 extern void rip_redistribute_clean(void);
 
 extern struct rip_info *rip_ecmp_add(struct rip_info *);

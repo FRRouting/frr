@@ -39,11 +39,11 @@
 /* Packet send and receive function prototypes. */
 extern void bgp_keepalive_send(struct peer *);
 extern void bgp_open_send(struct peer *);
-extern void bgp_notify_send(struct peer *, u_int8_t, u_int8_t);
-extern void bgp_notify_send_with_data(struct peer *, u_int8_t, u_int8_t,
-				      u_int8_t *, size_t);
-extern void bgp_route_refresh_send(struct peer *, afi_t, safi_t, u_char, u_char,
-				   int);
+extern void bgp_notify_send(struct peer *, uint8_t, uint8_t);
+extern void bgp_notify_send_with_data(struct peer *, uint8_t, uint8_t,
+				      uint8_t *, size_t);
+extern void bgp_route_refresh_send(struct peer *, afi_t, safi_t, uint8_t,
+				   uint8_t, int);
 extern void bgp_capability_send(struct peer *, afi_t, safi_t, int, int);
 extern void bgp_default_update_send(struct peer *, struct attr *, afi_t, safi_t,
 				    struct peer *);
@@ -58,7 +58,7 @@ extern void bgp_update_restarted_peers(struct peer *);
 extern void bgp_update_implicit_eors(struct peer *);
 extern void bgp_check_update_delay(struct bgp *);
 
-extern int bgp_packet_set_marker(struct stream *s, u_char type);
+extern int bgp_packet_set_marker(struct stream *s, uint8_t type);
 extern int bgp_packet_set_size(struct stream *s);
 
 extern int bgp_generate_updgrp_packets(struct thread *);

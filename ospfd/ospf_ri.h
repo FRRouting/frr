@@ -78,7 +78,7 @@
 
 struct ri_tlv_router_cap {
 	struct tlv_header header; /* Value length is 4 bytes. */
-	u_int32_t value;
+	uint32_t value;
 };
 
 /* Capabilities bits are left align */
@@ -108,10 +108,10 @@ struct ri_pce_subtlv_address {
 #define	PCE_ADDRESS_LENGTH_IPV4		8
 #define	PCE_ADDRESS_LENGTH_IPV6		20
 	struct {
-		u_int16_t type; /* Address type: 1 = IPv4, 2 = IPv6 */
+		uint16_t type; /* Address type: 1 = IPv4, 2 = IPv6 */
 #define	PCE_ADDRESS_TYPE_IPV4		1
 #define	PCE_ADDRESS_TYPE_IPV6		2
-		u_int16_t reserved;
+		uint16_t reserved;
 		struct in_addr value; /* PCE address */
 	} address;
 };
@@ -124,7 +124,7 @@ struct ri_pce_subtlv_path_scope {
 	 * L, R, Rd, S, Sd, Y, PrefL, PrefR, PrefS and PrefY bits:
 	 * see RFC5088 page 9
 	 */
-	u_int32_t value;
+	uint32_t value;
 };
 
 /* PCE Domain Sub-TLV */ /* Optional */
@@ -135,18 +135,18 @@ struct ri_pce_subtlv_path_scope {
 
 struct ri_pce_subtlv_domain {
 	struct tlv_header header; /* Type = 3; Length = 8 bytes. */
-	u_int16_t type; /* Domain type: 1 = OSPF Area ID, 2 = AS Number */
-	u_int16_t reserved;
-	u_int32_t value;
+	uint16_t type; /* Domain type: 1 = OSPF Area ID, 2 = AS Number */
+	uint16_t reserved;
+	uint32_t value;
 };
 
 /* PCE Neighbor Sub-TLV */ /* Mandatory if R or S bit is set */
 #define RI_PCE_SUBTLV_NEIGHBOR		4
 struct ri_pce_subtlv_neighbor {
 	struct tlv_header header; /* Type = 4; Length = 8 bytes. */
-	u_int16_t type; /* Domain type: 1 = OSPF Area ID, 2 = AS Number */
-	u_int16_t reserved;
-	u_int32_t value;
+	uint16_t type; /* Domain type: 1 = OSPF Area ID, 2 = AS Number */
+	uint16_t reserved;
+	uint32_t value;
 };
 
 /* PCE Capabilities Flags Sub-TLV */ /* Optional */
@@ -164,7 +164,7 @@ struct ri_pce_subtlv_neighbor {
 
 struct ri_pce_subtlv_cap_flag {
 	struct tlv_header header; /* Type = 5; Length = n x 4 bytes. */
-	u_int32_t value;
+	uint32_t value;
 };
 
 /* Structure to share flooding scope info for Segment Routing */

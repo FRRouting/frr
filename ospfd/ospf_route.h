@@ -64,10 +64,10 @@ struct route_standard {
 	int external_routing;
 
 	/* Optional Capability. */
-	u_char options; /* Get from LSA header. */
+	uint8_t options; /* Get from LSA header. */
 
 	/*  */
-	u_char flags; /* From router-LSA */
+	uint8_t flags; /* From router-LSA */
 };
 
 struct route_external {
@@ -75,10 +75,10 @@ struct route_external {
 	struct ospf_lsa *origin;
 
 	/* Link State Cost Type2. */
-	u_int32_t type2_cost;
+	uint32_t type2_cost;
 
 	/* Tag value. */
-	u_int32_t tag;
+	uint32_t tag;
 
 	/* ASBR route. */
 	struct ospf_route *asbr;
@@ -86,7 +86,7 @@ struct route_external {
 
 struct ospf_route {
 	/* Destination Type. */
-	u_char type;
+	uint8_t type;
 
 	/* Destination ID. */ /* i.e. Link State ID. */
 	struct in_addr id;
@@ -95,13 +95,13 @@ struct ospf_route {
 	struct in_addr mask; /* Only valid for networks. */
 
 	/* Path Type. */
-	u_char path_type;
+	uint8_t path_type;
 
 	/* List of Paths. */
 	struct list *paths;
 
 	/* Link State Cost. */
-	u_int32_t cost; /* i.e. metric. */
+	uint32_t cost; /* i.e. metric. */
 
 	/* Route specific info. */
 	union {

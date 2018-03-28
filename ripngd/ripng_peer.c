@@ -113,7 +113,7 @@ static struct ripng_peer *ripng_peer_get(struct in6_addr *addr)
 	return peer;
 }
 
-void ripng_peer_update(struct sockaddr_in6 *from, u_char version)
+void ripng_peer_update(struct sockaddr_in6 *from, uint8_t version)
 {
 	struct ripng_peer *peer;
 	peer = ripng_peer_get(&from->sin6_addr);

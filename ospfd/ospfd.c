@@ -223,7 +223,7 @@ static int ospf_area_id_cmp(struct ospf_area *a1, struct ospf_area *a2)
 }
 
 /* Allocate new ospf structure. */
-static struct ospf *ospf_new(u_short instance, const char *name)
+static struct ospf *ospf_new(unsigned short instance, const char *name)
 {
 	int i;
 	struct vrf *vrf = NULL;
@@ -338,7 +338,7 @@ static struct ospf *ospf_new(u_short instance, const char *name)
 	return new;
 }
 
-struct ospf *ospf_lookup_instance(u_short instance)
+struct ospf *ospf_lookup_instance(unsigned short instance)
 {
 	struct ospf *ospf;
 	struct listnode *node, *nnode;
@@ -374,7 +374,7 @@ static void ospf_delete(struct ospf *ospf)
 	listnode_delete(om->ospf, ospf);
 }
 
-struct ospf *ospf_lookup_by_inst_name(u_short instance, const char *name)
+struct ospf *ospf_lookup_by_inst_name(unsigned short instance, const char *name)
 {
 	struct ospf *ospf = NULL;
 	struct listnode *node, *nnode;
@@ -389,7 +389,7 @@ struct ospf *ospf_lookup_by_inst_name(u_short instance, const char *name)
 	return NULL;
 }
 
-struct ospf *ospf_get(u_short instance, const char *name)
+struct ospf *ospf_get(unsigned short instance, const char *name)
 {
 	struct ospf *ospf;
 
@@ -413,7 +413,7 @@ struct ospf *ospf_get(u_short instance, const char *name)
 	return ospf;
 }
 
-struct ospf *ospf_get_instance(u_short instance)
+struct ospf *ospf_get_instance(unsigned short instance)
 {
 	struct ospf *ospf;
 
@@ -608,7 +608,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	struct ospf_vl_data *vl_data;
 	struct listnode *node, *nnode;
 	int i;
-	u_short instance = 0;
+	unsigned short instance = 0;
 
 	QOBJ_UNREG(ospf);
 
@@ -1941,7 +1941,7 @@ int ospf_nbr_nbma_unset(struct ospf *ospf, struct in_addr nbr_addr)
 }
 
 int ospf_nbr_nbma_priority_set(struct ospf *ospf, struct in_addr nbr_addr,
-			       u_char priority)
+			       uint8_t priority)
 {
 	struct ospf_nbr_nbma *nbr_nbma;
 

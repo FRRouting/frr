@@ -73,7 +73,7 @@ struct vrf {
 	char name[VRF_NAMSIZ + 1];
 
 	/* Zebra internal VRF status */
-	u_char status;
+	uint8_t status;
 #define VRF_ACTIVE     (1 << 0) /* VRF is up in kernel */
 #define VRF_CONFIGURED (1 << 1) /* VRF has some FRR configuration */
 

@@ -37,13 +37,14 @@ void bgp_rfapi_destroy(struct bgp *bgp, struct rfapi *h);
 
 extern void rfapiProcessUpdate(struct peer *peer, void *rfd, struct prefix *p,
 			       struct prefix_rd *prd, struct attr *attr,
-			       afi_t afi, safi_t safi, u_char type,
-			       u_char sub_type, uint32_t *label);
+			       afi_t afi, safi_t safi, uint8_t type,
+			       uint8_t sub_type, uint32_t *label);
 
 
 extern void rfapiProcessWithdraw(struct peer *peer, void *rfd, struct prefix *p,
 				 struct prefix_rd *prd, struct attr *attr,
-				 afi_t afi, safi_t safi, u_char type, int kill);
+				 afi_t afi, safi_t safi, uint8_t type,
+				 int kill);
 
 extern void rfapiProcessPeerDown(struct peer *peer);
 

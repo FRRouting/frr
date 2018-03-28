@@ -27,9 +27,9 @@
 
 #ifdef SUNOS_5
 #define _XPG4_2
-typedef unsigned int u_int32_t;
-typedef unsigned short u_int16_t;
-typedef unsigned char u_int8_t;
+typedef unsigned int uint32_t;
+typedef unsigned short uint16_t;
+typedef unsigned char uint8_t;
 #endif /* SUNOS_5 */
 
 #include <unistd.h>
@@ -494,8 +494,8 @@ typedef enum {
 	((atomic_store_explicit(PV, 0, memory_order_seq_cst)))
 
 /* Zebra types. Used in Zserv message header. */
-typedef u_int16_t zebra_size_t;
-typedef u_int16_t zebra_command_t;
+typedef uint16_t zebra_size_t;
+typedef uint16_t zebra_command_t;
 
 /* VRF ID type. */
 typedef uint32_t vrf_id_t;

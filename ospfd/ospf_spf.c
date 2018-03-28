@@ -360,23 +360,23 @@ static struct router_lsa_link *
 ospf_get_next_link(struct vertex *v, struct vertex *w,
 		   struct router_lsa_link *prev_link)
 {
-	u_char *p;
-	u_char *lim;
-	u_char lsa_type = LSA_LINK_TYPE_TRANSIT;
+	uint8_t *p;
+	uint8_t *lim;
+	uint8_t lsa_type = LSA_LINK_TYPE_TRANSIT;
 	struct router_lsa_link *l;
 
 	if (w->type == OSPF_VERTEX_ROUTER)
 		lsa_type = LSA_LINK_TYPE_POINTOPOINT;
 
 	if (prev_link == NULL)
-		p = ((u_char *)v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
+		p = ((uint8_t *)v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
 	else {
-		p = (u_char *)prev_link;
+		p = (uint8_t *)prev_link;
 		p += (OSPF_ROUTER_LSA_LINK_SIZE
 		      + (prev_link->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
 	}
 
-	lim = ((u_char *)v->lsa) + ntohs(v->lsa->length);
+	lim = ((uint8_t *)v->lsa) + ntohs(v->lsa->length);
 
 	while (p < lim) {
 		l = (struct router_lsa_link *)p;
@@ -784,8 +784,8 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 			  struct ospf_area *area, struct pqueue *candidate)
 {
 	struct ospf_lsa *w_lsa = NULL;
-	u_char *p;
-	u_char *lim;
+	uint8_t *p;
+	uint8_t *lim;
 	struct router_lsa_link *l = NULL;
 	struct in_addr *r;
 	int type = 0, lsa_pos = -1, lsa_pos_next = 0;
@@ -802,8 +802,8 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 			   v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
 			   inet_ntoa(v->lsa->id));
 
-	p = ((u_char *)v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
-	lim = ((u_char *)v->lsa) + ntohs(v->lsa->length);
+	p = ((uint8_t *)v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
+	lim = ((uint8_t *)v->lsa) + ntohs(v->lsa->length);
 
 	while (p < lim) {
 		struct vertex *w;
@@ -1017,8 +1017,8 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 		zlog_debug("ospf_process_stub():processing stubs for area %s",
 			   inet_ntoa(area->area_id));
 	if (v->type == OSPF_VERTEX_ROUTER) {
-		u_char *p;
-		u_char *lim;
+		uint8_t *p;
+		uint8_t *lim;
 		struct router_lsa_link *l;
 		struct router_lsa *rlsa;
 		int lsa_pos = 0;
@@ -1034,8 +1034,8 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 			zlog_debug(
 				"ospf_process_stubs(): we have %d links to process",
 				ntohs(rlsa->links));
-		p = ((u_char *)v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
-		lim = ((u_char *)v->lsa) + ntohs(v->lsa->length);
+		p = ((uint8_t *)v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
+		lim = ((uint8_t *)v->lsa) + ntohs(v->lsa->length);
 
 		while (p < lim) {
 			l = (struct router_lsa_link *)p;

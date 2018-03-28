@@ -198,7 +198,7 @@ static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
 {
 	struct zebra_vrf *zvrf;
 	struct prefix p;
-	u_int32_t label;
+	uint32_t label;
 	int ret;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -340,7 +340,7 @@ DEFUN (show_mpls_table,
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	u_char uj = use_json(argc, argv);
+	uint8_t uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	zebra_mpls_print_lsp_table(vty, zvrf, uj);
@@ -356,9 +356,9 @@ DEFUN (show_mpls_table_lsp,
        "LSP to display information about\n"
        JSON_STR)
 {
-	u_int32_t label;
+	uint32_t label;
 	struct zebra_vrf *zvrf;
-	u_char uj = use_json(argc, argv);
+	uint8_t uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	label = atoi(argv[3]->arg);
@@ -384,8 +384,8 @@ static int zebra_mpls_global_block(struct vty *vty, int add_cmd,
 				   const char *end_label_str)
 {
 	int ret;
-	u_int32_t start_label;
-	u_int32_t end_label;
+	uint32_t start_label;
+	uint32_t end_label;
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);

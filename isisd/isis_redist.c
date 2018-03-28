@@ -239,7 +239,7 @@ static void isis_redist_ensure_default(struct isis *isis, int family)
 }
 
 /* Handle notification about route being added */
-void isis_redist_add(int type, struct prefix *p, u_char distance,
+void isis_redist_add(int type, struct prefix *p, uint8_t distance,
 		     uint32_t metric)
 {
 	int family = p->family;

@@ -123,8 +123,8 @@ struct te_link_subtlv_link_type {
 	struct {
 #define	LINK_TYPE_SUBTLV_VALUE_PTP	1
 #define	LINK_TYPE_SUBTLV_VALUE_MA	2
-		u_char value;
-		u_char padding[3];
+		uint8_t value;
+		uint8_t padding[3];
 	} link_type;
 };
 
@@ -153,7 +153,7 @@ struct te_link_subtlv_rmtif_ipaddr {
 #define	TE_LINK_SUBTLV_TE_METRIC	5
 struct te_link_subtlv_te_metric {
 	struct tlv_header header; /* Value length is 4 octets. */
-	u_int32_t value;	  /* Link metric for TE purpose. */
+	uint32_t value;		  /* Link metric for TE purpose. */
 };
 
 /* Link Sub-TLV: Maximum Bandwidth */ /* Optional */
@@ -182,7 +182,7 @@ struct te_link_subtlv_unrsv_bw {
 #define	TE_LINK_SUBTLV_RSC_CLSCLR	9
 struct te_link_subtlv_rsc_clsclr {
 	struct tlv_header header; /* Value length is 4 octets. */
-	u_int32_t value;	  /* Admin. group membership. */
+	uint32_t value;		  /* Admin. group membership. */
 };
 
 /* For RFC6827 */
@@ -200,8 +200,8 @@ struct te_link_subtlv_lrrid {
 #define TE_LINK_SUBTLV_LLRI_SIZE	8
 struct te_link_subtlv_llri {
 	struct tlv_header header; /* Value length is 8 octets. */
-	u_int32_t local;	  /* Link Local Identifier */
-	u_int32_t remote;	 /* Link Remote Identifier */
+	uint32_t local;		  /* Link Local Identifier */
+	uint32_t remote;	  /* Link Remote Identifier */
 };
 
 /* Inter-RA Export Upward sub-TLV (12) and Inter-RA Export Downward sub-TLV (13)
@@ -215,7 +215,7 @@ struct te_link_subtlv_llri {
 #define TE_LINK_SUBTLV_RAS		21
 struct te_link_subtlv_ras {
 	struct tlv_header header; /* Value length is 4 octets. */
-	u_int32_t value;	  /* Remote AS number */
+	uint32_t value;		  /* Remote AS number */
 };
 
 /* IPv4 Remote ASBR ID Sub-TLV */
@@ -240,7 +240,7 @@ struct te_link_subtlv_av_delay {
 	 * delay in micro-seconds only 24 bits => 0 ... 16777215
 	 * with Anomalous Bit as Upper most bit
 	 */
-	u_int32_t value;
+	uint32_t value;
 };
 
 /* Link Sub-TLV: Low/High Link Delay */
@@ -252,9 +252,9 @@ struct te_link_subtlv_mm_delay {
 	 * low delay in micro-seconds only 24 bits => 0 ... 16777215
 	 * with Anomalous Bit (A) as Upper most bit
 	 */
-	u_int32_t low;
+	uint32_t low;
 	/* high delay in micro-seconds only 24 bits => 0 ... 16777215 */
-	u_int32_t high;
+	uint32_t high;
 };
 
 /* Link Sub-TLV: Link Delay Variation i.e. Jitter */
@@ -262,7 +262,7 @@ struct te_link_subtlv_mm_delay {
 struct te_link_subtlv_delay_var {
 	struct tlv_header header; /* Value length is 4 bytes. */
 	/* interval in micro-seconds only 24 bits => 0 ... 16777215 */
-	u_int32_t value;
+	uint32_t value;
 };
 
 /* Link Sub-TLV: Routine Unidirectional Link Packet Loss */
@@ -273,7 +273,7 @@ struct te_link_subtlv_pkt_loss {
 	 * in percentage of total traffic only 24 bits (2^24 - 2)
 	 * with Anomalous Bit as Upper most bit
 	 */
-	u_int32_t value;
+	uint32_t value;
 };
 
 /* Link Sub-TLV: Unidirectional Residual Bandwidth */ /* Optional */
@@ -311,23 +311,23 @@ enum inter_as_mode { Off, AS, Area };
 struct te_link_subtlv {
 	struct tlv_header header;
 	union {
-		u_int32_t link_type;
+		uint32_t link_type;
 		struct in_addr link_id;
 		struct in_addr lclif;
 		struct in_addr rmtif;
-		u_int32_t te_metric;
+		uint32_t te_metric;
 		float max_bw;
 		float max_rsv_bw;
 		float unrsv[8];
-		u_int32_t rsc_clsclr;
-		u_int32_t llri[2];
-		u_int32_t ras;
+		uint32_t rsc_clsclr;
+		uint32_t llri[2];
+		uint32_t ras;
 		struct in_addr rip;
 		struct in_addr lrrid[2];
-		u_int32_t av_delay;
-		u_int32_t mm_delay;
-		u_int32_t delay_var;
-		u_int32_t pkt_loss;
+		uint32_t av_delay;
+		uint32_t mm_delay;
+		uint32_t delay_var;
+		uint32_t pkt_loss;
 		float res_bw;
 		float ava_bw;
 		float use_bw;
@@ -357,7 +357,7 @@ struct mpls_te_link {
 	 * is subdivided into 8-bit "unused" field and 16-bit "instance" field.
 	 * In this implementation, each Link-TLV has its own instance.
 	 */
-	u_int32_t instance;
+	uint32_t instance;
 
 	/* Reference pointer to a Zebra-interface. */
 	struct interface *ifp;
@@ -366,10 +366,10 @@ struct mpls_te_link {
 	struct ospf_area *area;
 
 	/* Flags to manage this link parameters. */
-	u_int32_t flags;
+	uint32_t flags;
 
 	/* Type of MPLS-TE link: RFC3630, RFC5392, RFC5392 emulated, RFC6827 */
-	u_int8_t type;
+	uint8_t type;
 
 	/* Store Link-TLV in network byte order. */
 	/* RFC3630 & RFC6827 / RFC 6827 */
@@ -410,7 +410,7 @@ extern void ospf_mpls_te_finish(void);
 extern struct ospf_mpls_te *get_ospf_mpls_te(void);
 extern void ospf_mpls_te_update_if(struct interface *);
 extern void ospf_mpls_te_lsa_schedule(struct mpls_te_link *, enum lsa_opcode);
-extern void set_linkparams_llri(struct mpls_te_link *, u_int32_t, u_int32_t);
+extern void set_linkparams_llri(struct mpls_te_link *, uint32_t, uint32_t);
 extern void set_linkparams_lrrid(struct mpls_te_link *, struct in_addr,
 				 struct in_addr);
 

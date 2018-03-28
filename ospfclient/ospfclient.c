@@ -72,7 +72,7 @@ char **args;
 /* Our opaque LSAs have the following format. */
 struct my_opaque_lsa {
 	struct lsa_header hdr; /* include common LSA header */
-	u_char data[4];	/* our own data format then follows here */
+	uint8_t data[4];       /* our own data format then follows here */
 };
 
 
@@ -109,13 +109,13 @@ static int lsa_inject(struct thread *t)
 	struct ospf_apiclient *cl;
 	struct in_addr ifaddr;
 	struct in_addr area_id;
-	u_char lsa_type;
-	u_char opaque_type;
-	u_int32_t opaque_id;
+	uint8_t lsa_type;
+	uint8_t opaque_type;
+	uint32_t opaque_id;
 	void *opaquedata;
 	int opaquelen;
 
-	static u_int32_t counter = 1; /* Incremented each time invoked */
+	static uint32_t counter = 1; /* Incremented each time invoked */
 	int rc;
 
 	cl = THREAD_ARG(t);
@@ -135,7 +135,7 @@ static int lsa_inject(struct thread *t)
 	opaque_type = atoi(args[3]);
 	opaque_id = atoi(args[4]);
 	opaquedata = &counter;
-	opaquelen = sizeof(u_int32_t);
+	opaquelen = sizeof(uint32_t);
 
 	printf("Originating/updating LSA with counter=%d... ", counter);
 	rc = ospf_apiclient_lsa_originate(cl, ifaddr, area_id, lsa_type,
@@ -182,7 +182,7 @@ static int lsa_read(struct thread *thread)
  */
 
 static void lsa_update_callback(struct in_addr ifaddr, struct in_addr area_id,
-				u_char is_self_originated,
+				uint8_t is_self_originated,
 				struct lsa_header *lsa)
 {
 	printf("lsa_update_callback: ");
@@ -198,7 +198,7 @@ static void lsa_update_callback(struct in_addr ifaddr, struct in_addr area_id,
 	   if (lsa->type == OSPF_ROUTER_LSA) {
 	     struct router_lsa *rl = (struct router_lsa) lsa;
 	     ...
-	     u_int16_t links = rl->links;
+	     uint16_t links = rl->links;
 	     ...
 	  }
 	*/
@@ -207,7 +207,7 @@ static void lsa_update_callback(struct in_addr ifaddr, struct in_addr area_id,
 }
 
 static void lsa_delete_callback(struct in_addr ifaddr, struct in_addr area_id,
-				u_char is_self_originated,
+				uint8_t is_self_originated,
 				struct lsa_header *lsa)
 {
 	printf("lsa_delete_callback: ");
@@ -218,7 +218,7 @@ static void lsa_delete_callback(struct in_addr ifaddr, struct in_addr area_id,
 	ospf_lsa_header_dump(lsa);
 }
 
-static void ready_callback(u_char lsa_type, u_char opaque_type,
+static void ready_callback(uint8_t lsa_type, uint8_t opaque_type,
 			   struct in_addr addr)
 {
 	printf("ready_callback: lsa_type: %d opaque_type: %d addr=%s\n",
@@ -246,7 +246,7 @@ static void del_if_callback(struct in_addr ifaddr)
 }
 
 static void ism_change_callback(struct in_addr ifaddr, struct in_addr area_id,
-				u_char state)
+				uint8_t state)
 {
 	printf("ism_change: ifaddr: %s ", inet_ntoa(ifaddr));
 	printf("area_id: %s\n", inet_ntoa(area_id));
@@ -255,7 +255,7 @@ static void ism_change_callback(struct in_addr ifaddr, struct in_addr area_id,
 }
 
 static void nsm_change_callback(struct in_addr ifaddr, struct in_addr nbraddr,
-				struct in_addr router_id, u_char state)
+				struct in_addr router_id, uint8_t state)
 {
 	printf("nsm_change: ifaddr: %s ", inet_ntoa(ifaddr));
 	printf("nbraddr: %s\n", inet_ntoa(nbraddr));

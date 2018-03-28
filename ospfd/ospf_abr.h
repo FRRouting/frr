@@ -33,23 +33,23 @@ struct ospf_area_range {
 	struct in_addr addr;
 
 	/* Area range masklen. */
-	u_char masklen;
+	uint8_t masklen;
 
 	/* Flags. */
-	u_char flags;
+	uint8_t flags;
 
 	/* Number of more specific prefixes. */
 	int specifics;
 
 	/* Addr and masklen to substitute. */
 	struct in_addr subst_addr;
-	u_char subst_masklen;
+	uint8_t subst_masklen;
 
 	/* Range cost. */
-	u_int32_t cost;
+	uint32_t cost;
 
 	/* Configured range cost. */
-	u_int32_t cost_config;
+	uint32_t cost_config;
 };
 
 /* Prototypes. */
@@ -64,7 +64,7 @@ ospf_area_range_lookup_next(struct ospf_area *, struct in_addr *, int);
 extern int ospf_area_range_set(struct ospf *, struct in_addr,
 			       struct prefix_ipv4 *, int);
 extern int ospf_area_range_cost_set(struct ospf *, struct in_addr,
-				    struct prefix_ipv4 *, u_int32_t);
+				    struct prefix_ipv4 *, uint32_t);
 extern int ospf_area_range_unset(struct ospf *, struct in_addr,
 				 struct prefix_ipv4 *);
 extern int ospf_area_range_substitute_set(struct ospf *, struct in_addr,
@@ -81,6 +81,6 @@ extern void ospf_check_abr_status(struct ospf *);
 extern void ospf_abr_task(struct ospf *);
 extern void ospf_schedule_abr_task(struct ospf *);
 
-extern void ospf_abr_announce_network_to_area(struct prefix_ipv4 *, u_int32_t,
+extern void ospf_abr_announce_network_to_area(struct prefix_ipv4 *, uint32_t,
 					      struct ospf_area *);
 #endif /* _ZEBRA_OSPF_ABR_H */

@@ -33,12 +33,12 @@
 
 /* A router or network in an area */
 struct vertex {
-	u_char flags;
-	u_char type;		/* copied from LSA header */
+	uint8_t flags;
+	uint8_t type;		/* copied from LSA header */
 	struct in_addr id;      /* copied from LSA header */
 	struct lsa_header *lsa; /* Router or Network LSA */
 	int *stat;		/* Link to LSA status. */
-	u_int32_t distance;     /* from root to this vertex */
+	uint32_t distance;      /* from root to this vertex */
 	struct list *parents;   /* list of parents in SPF tree */
 	struct list *children;  /* list of children in SPF tree*/
 };

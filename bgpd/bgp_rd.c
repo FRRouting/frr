@@ -36,57 +36,57 @@
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
-u_int16_t decode_rd_type(u_char *pnt)
+uint16_t decode_rd_type(uint8_t *pnt)
 {
-	u_int16_t v;
+	uint16_t v;
 
-	v = ((u_int16_t)*pnt++ << 8);
+	v = ((uint16_t)*pnt++ << 8);
 #if ENABLE_BGP_VNC
 	/*
 	 * VNC L2 stores LHI in lower byte, so omit it
 	 */
 	if (v != RD_TYPE_VNC_ETH)
-		v |= (u_int16_t)*pnt;
+		v |= (uint16_t)*pnt;
 #else /* duplicate code for clarity */
-	v |= (u_int16_t)*pnt;
+	v |= (uint16_t)*pnt;
 #endif
 	return v;
 }
 
-void encode_rd_type(u_int16_t v, u_char *pnt)
+void encode_rd_type(uint16_t v, uint8_t *pnt)
 {
-	*((u_int16_t *)pnt) = htons(v);
+	*((uint16_t *)pnt) = htons(v);
 }
 
 /* type == RD_TYPE_AS */
-void decode_rd_as(u_char *pnt, struct rd_as *rd_as)
+void decode_rd_as(uint8_t *pnt, struct rd_as *rd_as)
 {
-	rd_as->as = (u_int16_t)*pnt++ << 8;
-	rd_as->as |= (u_int16_t)*pnt++;
+	rd_as->as = (uint16_t)*pnt++ << 8;
+	rd_as->as |= (uint16_t)*pnt++;
 	ptr_get_be32(pnt, &rd_as->val);
 }
 
 /* type == RD_TYPE_AS4 */
-void decode_rd_as4(u_char *pnt, struct rd_as *rd_as)
+void decode_rd_as4(uint8_t *pnt, struct rd_as *rd_as)
 {
 	pnt = ptr_get_be32(pnt, &rd_as->as);
-	rd_as->val = ((u_int16_t)*pnt++ << 8);
-	rd_as->val |= (u_int16_t)*pnt;
+	rd_as->val = ((uint16_t)*pnt++ << 8);
+	rd_as->val |= (uint16_t)*pnt;
 }
 
 /* type == RD_TYPE_IP */
-void decode_rd_ip(u_char *pnt, struct rd_ip *rd_ip)
+void decode_rd_ip(uint8_t *pnt, struct rd_ip *rd_ip)
 {
 	memcpy(&rd_ip->ip, pnt, 4);
 	pnt += 4;
 
-	rd_ip->val = ((u_int16_t)*pnt++ << 8);
-	rd_ip->val |= (u_int16_t)*pnt;
+	rd_ip->val = ((uint16_t)*pnt++ << 8);
+	rd_ip->val |= (uint16_t)*pnt;
 }
 
 #if ENABLE_BGP_VNC
 /* type == RD_TYPE_VNC_ETH */
-void decode_rd_vnc_eth(u_char *pnt, struct rd_vnc_eth *rd_vnc_eth)
+void decode_rd_vnc_eth(uint8_t *pnt, struct rd_vnc_eth *rd_vnc_eth)
 {
 	rd_vnc_eth->type = RD_TYPE_VNC_ETH;
 	rd_vnc_eth->local_nve_id = pnt[1];
@@ -161,8 +161,8 @@ out:
 
 char *prefix_rd2str(struct prefix_rd *prd, char *buf, size_t size)
 {
-	u_char *pnt;
-	u_int16_t type;
+	uint8_t *pnt;
+	uint16_t type;
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;
 

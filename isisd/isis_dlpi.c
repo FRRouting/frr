@@ -54,14 +54,14 @@ static t_uscalar_t dlpi_ctl[1024]; /* DLPI control messages */
  * ISO 10589 - 8.4.8
  */
 
-u_char ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
-u_char ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-u_char ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-u_char ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
+uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
+uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
+uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
+uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
 
-static u_char sock_buff[8192];
+static uint8_t sock_buff[8192];
 
-static u_short pf_filter[] = {
+static unsigned short pf_filter[] = {
 	ENF_PUSHWORD + 0,       /* Get the SSAP/DSAP values */
 	ENF_PUSHLIT | ENF_CAND, /* Check them */
 	ISO_SAP | (ISO_SAP << 8),
@@ -248,23 +248,23 @@ static int dlpibind(int fd)
 		return 0;
 }
 
-static int dlpimcast(int fd, const u_char *mcaddr)
+static int dlpimcast(int fd, const uint8_t *mcaddr)
 {
 	struct {
 		dl_enabmulti_req_t der;
-		u_char addr[ETHERADDRL];
+		uint8_t addr[ETHERADDRL];
 	} dler;
 
 	memset(&dler, 0, sizeof(dler));
 	dler.der.dl_primitive = DL_ENABMULTI_REQ;
 	dler.der.dl_addr_length = sizeof(dler.addr);
-	dler.der.dl_addr_offset = dler.addr - (u_char *)&dler;
+	dler.der.dl_addr_offset = dler.addr - (uint8_t *)&dler;
 	memcpy(dler.addr, mcaddr, sizeof(dler.addr));
 	dlpisend(fd, &dler, sizeof(dler), NULL, 0, 0);
 	return dlpiok(fd, dler.der.dl_primitive);
 }
 
-static int dlpiaddr(int fd, u_char *addr)
+static int dlpiaddr(int fd, uint8_t *addr)
 {
 	dl_phys_addr_req_t dpar;
 	dl_phys_addr_ack_t *dpaa = (dl_phys_addr_ack_t *)dlpi_ctl;
@@ -443,7 +443,7 @@ static int open_dlpi_dev(struct isis_circuit *circuit)
 		struct strioctl sioc;
 
 		pfil.Pf_Priority = 0;
-		pfil.Pf_FilterLen = sizeof(pf_filter) / sizeof(u_short);
+		pfil.Pf_FilterLen = sizeof(pf_filter) / sizeof(unsigned short);
 		memcpy(pfil.Pf_Filter, pf_filter, sizeof(pf_filter));
 		/* pfmod does not support transparent ioctls */
 		sioc.ic_cmd = PFIOCSETF;
@@ -495,7 +495,7 @@ end:
 	return retval;
 }
 
-int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
+int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 {
 	struct pollfd fds[1];
 	struct strbuf ctlbuf, databuf;
@@ -561,7 +561,7 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 {
 	dl_unitdata_req_t *dur = (dl_unitdata_req_t *)dlpi_ctl;
 	char *dstaddr;
-	u_short *dstsap;
+	unsigned short *dstsap;
 	int buflen;
 	int rv;
 
@@ -583,9 +583,9 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 
 	dstaddr = (char *)(dur + 1);
 	if (circuit->sap_length < 0) {
-		dstsap = (u_short *)(dstaddr + ETHERADDRL);
+		dstsap = (unsigned short *)(dstaddr + ETHERADDRL);
 	} else {
-		dstsap = (u_short *)dstaddr;
+		dstsap = (unsigned short *)dstaddr;
 		dstaddr += circuit->sap_length;
 	}
 	if (level == 1)

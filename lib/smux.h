@@ -59,11 +59,11 @@ struct trap_object {
 
 #define SNMP_INTEGER(V)                                                        \
 	(*var_len = sizeof(snmp_int_val), snmp_int_val = V,                    \
-	 (u_char *)&snmp_int_val)
+	 (uint8_t *)&snmp_int_val)
 
 #define SNMP_IPADDRESS(V)                                                      \
 	(*var_len = sizeof(struct in_addr), snmp_in_addr_val = V,              \
-	 (u_char *)&snmp_in_addr_val)
+	 (uint8_t *)&snmp_in_addr_val)
 
 extern void smux_init(struct thread_master *tm);
 extern void smux_register_mib(const char *, struct variable *, size_t, int,
@@ -96,7 +96,7 @@ extern int smux_header_table(struct variable *, oid *, size_t *, int, size_t *,
 */
 extern int smux_trap(struct variable *, size_t, const oid *, size_t,
 		     const oid *, size_t, const oid *, size_t,
-		     const struct trap_object *, size_t, u_char);
+		     const struct trap_object *, size_t, uint8_t);
 
 extern int oid_compare(const oid *, int, const oid *, int);
 extern void oid2in_addr(oid[], int, struct in_addr *);

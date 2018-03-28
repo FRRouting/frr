@@ -320,7 +320,7 @@ void eigrp_if_set_multicast(struct eigrp_interface *ei)
 	}
 }
 
-u_char eigrp_default_iftype(struct interface *ifp)
+uint8_t eigrp_default_iftype(struct interface *ifp)
 {
 	if (if_is_pointopoint(ifp))
 		return EIGRP_IFTYPE_POINTOPOINT;
@@ -413,32 +413,32 @@ struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *eigrp,
 	return NULL;
 }
 
-u_int32_t eigrp_bandwidth_to_scaled(u_int32_t bandwidth)
+uint32_t eigrp_bandwidth_to_scaled(uint32_t bandwidth)
 {
 	uint64_t temp_bandwidth = (256ull * 10000000) / bandwidth;
 
 	temp_bandwidth = temp_bandwidth < EIGRP_MAX_METRIC ? temp_bandwidth
 							   : EIGRP_MAX_METRIC;
 
-	return (u_int32_t)temp_bandwidth;
+	return (uint32_t)temp_bandwidth;
 }
 
-u_int32_t eigrp_scaled_to_bandwidth(u_int32_t scaled)
+uint32_t eigrp_scaled_to_bandwidth(uint32_t scaled)
 {
 	uint64_t temp_scaled = scaled * (256ull * 10000000);
 
 	temp_scaled =
 		temp_scaled < EIGRP_MAX_METRIC ? temp_scaled : EIGRP_MAX_METRIC;
 
-	return (u_int32_t)temp_scaled;
+	return (uint32_t)temp_scaled;
 }
 
-u_int32_t eigrp_delay_to_scaled(u_int32_t delay)
+uint32_t eigrp_delay_to_scaled(uint32_t delay)
 {
 	return delay * 256;
 }
 
-u_int32_t eigrp_scaled_to_delay(u_int32_t scaled)
+uint32_t eigrp_scaled_to_delay(uint32_t scaled)
 {
 	return scaled / 256;
 }

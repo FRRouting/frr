@@ -208,7 +208,7 @@ void ospf_opaque_type11_lsa_term(struct ospf *top)
 	return;
 }
 
-static const char *ospf_opaque_type_name(u_char opaque_type)
+static const char *ospf_opaque_type_name(uint8_t opaque_type)
 {
 	const char *name = "Unknown";
 
@@ -241,7 +241,7 @@ static const char *ospf_opaque_type_name(u_char opaque_type)
 		if (OPAQUE_TYPE_RANGE_UNASSIGNED(opaque_type))
 			name = "Unassigned";
 		else {
-			u_int32_t bigger_range = opaque_type;
+			uint32_t bigger_range = opaque_type;
 			/*
 			 * Get around type-limits warning: comparison is always
 			 * true due to limited range of data type
@@ -261,7 +261,7 @@ static const char *ospf_opaque_type_name(u_char opaque_type)
 struct opaque_info_per_type; /* Forward declaration. */
 
 struct ospf_opaque_functab {
-	u_char opaque_type;
+	uint8_t opaque_type;
 	struct opaque_info_per_type *oipt;
 
 	int (*new_if_hook)(struct interface *ifp);
@@ -326,7 +326,7 @@ static void ospf_opaque_funclist_term(void)
 	return;
 }
 
-static struct list *ospf_get_opaque_funclist(u_char lsa_type)
+static struct list *ospf_get_opaque_funclist(uint8_t lsa_type)
 {
 	struct list *funclist = NULL;
 
@@ -361,7 +361,7 @@ static struct list *ospf_get_opaque_funclist(u_char lsa_type)
 
 /* XXX: such a huge argument list can /not/ be healthy... */
 int ospf_register_opaque_functab(
-	u_char lsa_type, u_char opaque_type,
+	uint8_t lsa_type, uint8_t opaque_type,
 	int (*new_if_hook)(struct interface *ifp),
 	int (*del_if_hook)(struct interface *ifp),
 	void (*ism_change_hook)(struct ospf_interface *oi, int old_status),
@@ -429,7 +429,7 @@ out:
 	return rc;
 }
 
-void ospf_delete_opaque_functab(u_char lsa_type, u_char opaque_type)
+void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 {
 	struct list *funclist;
 	struct listnode *node, *nnode;
@@ -467,7 +467,7 @@ ospf_opaque_functab_lookup(struct ospf_lsa *lsa)
 	struct list *funclist;
 	struct listnode *node;
 	struct ospf_opaque_functab *functab;
-	u_char key = GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr));
+	uint8_t key = GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr));
 
 	if ((funclist = ospf_get_opaque_funclist(lsa->data->type)) != NULL)
 		for (ALL_LIST_ELEMENTS_RO(funclist, node, functab))
@@ -487,8 +487,8 @@ ospf_opaque_functab_lookup(struct ospf_lsa *lsa)
  * identified by their opaque-id.
  */
 struct opaque_info_per_type {
-	u_char lsa_type;
-	u_char opaque_type;
+	uint8_t lsa_type;
+	uint8_t opaque_type;
 
 	enum { PROC_NORMAL, PROC_SUSPEND } status;
 
@@ -521,7 +521,7 @@ struct opaque_info_per_type {
 
 /* Opaque-LSA control information per opaque-id. */
 struct opaque_info_per_id {
-	u_int32_t opaque_id;
+	uint32_t opaque_id;
 
 	/* Thread for refresh/flush scheduling for this opaque-type/id. */
 	struct thread *t_opaque_lsa_self;
@@ -665,7 +665,7 @@ lookup_opaque_info_by_type(struct ospf_lsa *lsa)
 	struct list *listtop = NULL;
 	struct listnode *node, *nnode;
 	struct opaque_info_per_type *oipt = NULL;
-	u_char key = GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr));
+	uint8_t key = GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr));
 
 	switch (lsa->data->type) {
 	case OSPF_OPAQUE_LINK_LSA:
@@ -746,7 +746,7 @@ lookup_opaque_info_by_id(struct opaque_info_per_type *oipt,
 {
 	struct listnode *node, *nnode;
 	struct opaque_info_per_id *oipi;
-	u_int32_t key = GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr));
+	uint32_t key = GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr));
 
 	for (ALL_LIST_ELEMENTS(oipt->id_list, node, nnode, oipi))
 		if (oipi->opaque_id == key)
@@ -1181,9 +1181,9 @@ void ospf_opaque_config_write_debug(struct vty *vty)
 void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
-	u_int32_t lsid = ntohl(lsah->id.s_addr);
-	u_char opaque_type = GET_OPAQUE_TYPE(lsid);
-	u_int32_t opaque_id = GET_OPAQUE_ID(lsid);
+	uint32_t lsid = ntohl(lsah->id.s_addr);
+	uint8_t opaque_type = GET_OPAQUE_TYPE(lsid);
+	uint32_t opaque_id = GET_OPAQUE_ID(lsid);
 	struct ospf_opaque_functab *functab;
 
 	/* Switch output functionality by vty address. */
@@ -1214,7 +1214,7 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa)
 	return;
 }
 
-void ospf_opaque_lsa_dump(struct stream *s, u_int16_t length)
+void ospf_opaque_lsa_dump(struct stream *s, uint16_t length)
 {
 	struct ospf_lsa lsa;
 
@@ -1660,15 +1660,15 @@ struct ospf_lsa *ospf_opaque_lsa_refresh(struct ospf_lsa *lsa)
 #define OSPF_OPAQUE_TIMER_ON(T,F,L,V) thread_add_timer_msec (master, (F), (L), (V), &(T))
 
 static struct ospf_lsa *pseudo_lsa(struct ospf_interface *oi,
-				   struct ospf_area *area, u_char lsa_type,
-				   u_char opaque_type);
+				   struct ospf_area *area, uint8_t lsa_type,
+				   uint8_t opaque_type);
 static int ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t);
 static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t);
 static int ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t);
 static int ospf_opaque_lsa_refresh_timer(struct thread *t);
 
 void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
-					  u_char lsa_type, u_char opaque_type)
+					  uint8_t lsa_type, uint8_t opaque_type)
 {
 	struct ospf *top = NULL;
 	struct ospf_area dummy, *area = NULL;
@@ -1827,12 +1827,12 @@ out:
 }
 
 static struct ospf_lsa *pseudo_lsa(struct ospf_interface *oi,
-				   struct ospf_area *area, u_char lsa_type,
-				   u_char opaque_type)
+				   struct ospf_area *area, uint8_t lsa_type,
+				   uint8_t opaque_type)
 {
 	static struct ospf_lsa lsa = {0};
 	static struct lsa_header lsah = {0};
-	u_int32_t tmp;
+	uint32_t tmp;
 
 	lsa.oi = oi;
 	lsa.area = area;

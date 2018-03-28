@@ -105,7 +105,7 @@ static struct rip_peer *rip_peer_get(struct in_addr *addr)
 	return peer;
 }
 
-void rip_peer_update(struct sockaddr_in *from, u_char version)
+void rip_peer_update(struct sockaddr_in *from, uint8_t version)
 {
 	struct rip_peer *peer;
 	peer = rip_peer_get(&from->sin_addr);

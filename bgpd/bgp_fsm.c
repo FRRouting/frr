@@ -166,8 +166,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 			zlog_err(
 				"[%s] Dropping pending packet on connection transfer:",
 				peer->host);
-			u_int16_t type = stream_getc_from(peer->curr,
-							  BGP_MARKER_SIZE + 2);
+			uint16_t type = stream_getc_from(peer->curr,
+							 BGP_MARKER_SIZE + 2);
 			bgp_dump_packet(peer, type, peer->curr);
 			stream_free(peer->curr);
 			peer->curr = NULL;
@@ -763,8 +763,8 @@ int bgp_maxmed_onstartup_active(struct bgp *bgp)
 
 void bgp_maxmed_update(struct bgp *bgp)
 {
-	u_char maxmed_active;
-	u_int32_t maxmed_value;
+	uint8_t maxmed_active;
+	uint32_t maxmed_value;
 
 	if (bgp->v_maxmed_admin) {
 		maxmed_active = 1;
@@ -1199,7 +1199,8 @@ static int bgp_stop_with_error(struct peer *peer)
 
 
 /* something went wrong, send notify and tear down */
-static int bgp_stop_with_notify(struct peer *peer, u_char code, u_char sub_code)
+static int bgp_stop_with_notify(struct peer *peer, uint8_t code,
+				uint8_t sub_code)
 {
 	/* Send notify to remote peer */
 	bgp_notify_send(peer, code, sub_code);

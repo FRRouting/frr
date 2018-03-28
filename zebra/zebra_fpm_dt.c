@@ -176,7 +176,7 @@ static void zfpm_dt_log_fpm_message(Fpm__Message *msg)
 	Fpm__AddRoute *add_route;
 	Fpm__Nexthop *nexthop;
 	struct prefix prefix;
-	u_char family, nh_family;
+	uint8_t family, nh_family;
 	uint if_index;
 	char *if_name;
 	size_t i;

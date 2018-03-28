@@ -108,7 +108,7 @@ int eigrp_hello_timer(struct thread *thread)
  * @param[in]		nbr	neighbor the ACK should be sent to
  * @param[in]		param	pointer packet TLV is stored to
  *
- * @return u_int16_t	number of bytes added to packet stream
+ * @return uint16_t	number of bytes added to packet stream
  *
  * @par
  * Encode Parameter TLV, used to convey metric weights and the hold time.
@@ -183,7 +183,7 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 	return nbr;
 }
 
-static u_char
+static uint8_t
 eigrp_hello_authentication_decode(struct stream *s,
 				  struct eigrp_tlv_hdr_type *tlv_header,
 				  struct eigrp_neighbor *nbr)
@@ -268,15 +268,15 @@ static void eigrp_peer_termination_decode(struct eigrp_neighbor *nbr,
  * @param[in]		nbr_addr  pointer to neighbor address for Peer
  * Termination TLV
  *
- * @return u_int16_t    number of bytes added to packet stream
+ * @return uint16_t    number of bytes added to packet stream
  *
  * @par
  * Function used to encode Peer Termination TLV to Hello packet.
  */
-static u_int16_t eigrp_peer_termination_encode(struct stream *s,
-					       struct in_addr *nbr_addr)
+static uint16_t eigrp_peer_termination_encode(struct stream *s,
+					      struct in_addr *nbr_addr)
 {
-	u_int16_t length = EIGRP_TLV_PEER_TERMINATION_LEN;
+	uint16_t length = EIGRP_TLV_PEER_TERMINATION_LEN;
 
 	/* fill in type and length */
 	stream_putw(s, EIGRP_TLV_PEER_TERMINATION);
@@ -405,8 +405,8 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 			   inet_ntoa(nbr->src));
 }
 
-u_int32_t FRR_MAJOR;
-u_int32_t FRR_MINOR;
+uint32_t FRR_MAJOR;
+uint32_t FRR_MINOR;
 
 void eigrp_sw_version_initialize(void)
 {
@@ -428,16 +428,16 @@ void eigrp_sw_version_initialize(void)
  *
  * @param[in,out]	s	packet stream TLV is stored to
  *
- * @return u_int16_t	number of bytes added to packet stream
+ * @return uint16_t	number of bytes added to packet stream
  *
  * @par
  * Store the software version in the specified location.
  * This consists of two bytes of OS version, and two bytes of EIGRP
  * revision number.
  */
-static u_int16_t eigrp_sw_version_encode(struct stream *s)
+static uint16_t eigrp_sw_version_encode(struct stream *s)
 {
-	u_int16_t length = EIGRP_TLV_SW_VERSION_LEN;
+	uint16_t length = EIGRP_TLV_SW_VERSION_LEN;
 
 	// setup the tlv fields
 	stream_putw(s, EIGRP_TLV_SW_VERSION);
@@ -464,9 +464,9 @@ static u_int16_t eigrp_sw_version_encode(struct stream *s)
  * If doing mutli-topology, then store the supported TID list.
  * This is currently a place holder function
  */
-static u_int16_t eigrp_tidlist_encode(struct stream *s)
+static uint16_t eigrp_tidlist_encode(struct stream *s)
 {
-	// u_int16_t length = EIGRP_TLV_SW_VERSION_LEN;
+	// uint16_t length = EIGRP_TLV_SW_VERSION_LEN;
 	return 0;
 }
 
@@ -475,15 +475,15 @@ static u_int16_t eigrp_tidlist_encode(struct stream *s)
  *
  * @param[in,out]       s       packet stream TLV is stored to
  *
- * @return u_int16_t    number of bytes added to packet stream
+ * @return uint16_t    number of bytes added to packet stream
  *
  * @par
  * Part of conditional receive process
  *
  */
-static u_int16_t eigrp_sequence_encode(struct stream *s)
+static uint16_t eigrp_sequence_encode(struct stream *s)
 {
-	u_int16_t length = EIGRP_TLV_SEQ_BASE_LEN;
+	uint16_t length = EIGRP_TLV_SEQ_BASE_LEN;
 	struct eigrp *eigrp;
 	struct eigrp_interface *ei;
 	struct listnode *node, *node2, *nnode2;
@@ -507,7 +507,7 @@ static u_int16_t eigrp_sequence_encode(struct stream *s)
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
 		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
 			if (nbr->multicast_queue->count > 0) {
-				length += (u_int16_t)stream_put_ipv4(
+				length += (uint16_t)stream_put_ipv4(
 					s, nbr->src.s_addr);
 				found = 1;
 			}
@@ -532,15 +532,15 @@ static u_int16_t eigrp_sequence_encode(struct stream *s)
  *
  * @param[in,out]       s       packet stream TLV is stored to
  *
- * @return u_int16_t    number of bytes added to packet stream
+ * @return uint16_t    number of bytes added to packet stream
  *
  * @par
  * Part of conditional receive process
  *
  */
-static u_int16_t eigrp_next_sequence_encode(struct stream *s)
+static uint16_t eigrp_next_sequence_encode(struct stream *s)
 {
-	u_int16_t length = EIGRP_NEXT_SEQUENCE_TLV_SIZE;
+	uint16_t length = EIGRP_NEXT_SEQUENCE_TLV_SIZE;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -562,7 +562,7 @@ static u_int16_t eigrp_next_sequence_encode(struct stream *s)
  * @param[in]		ei	pointer to interface hello packet came in on
  * @param[in,out]	s	packet stream TLV is stored to
  *
- * @return u_int16_t	number of bytes added to packet stream
+ * @return uint16_t	number of bytes added to packet stream
  *
  * @par
  * Encode Parameter TLV, used to convey metric weights and the hold time.
@@ -571,10 +571,10 @@ static u_int16_t eigrp_next_sequence_encode(struct stream *s)
  * Note the addition of K6 for the new extended metrics, and does not apply to
  * older TLV packet formats.
  */
-static u_int16_t eigrp_hello_parameter_encode(struct eigrp_interface *ei,
-					      struct stream *s, u_char flags)
+static uint16_t eigrp_hello_parameter_encode(struct eigrp_interface *ei,
+					     struct stream *s, uint8_t flags)
 {
-	u_int16_t length = EIGRP_TLV_PARAMETER_LEN;
+	uint16_t length = EIGRP_TLV_PARAMETER_LEN;
 
 	// add in the parameters TLV
 	stream_putw(s, EIGRP_TLV_PARAMETER);
@@ -622,12 +622,12 @@ static u_int16_t eigrp_hello_parameter_encode(struct eigrp_interface *ei,
  *
  */
 static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
-					       in_addr_t addr, u_int32_t ack,
-					       u_char flags,
+					       in_addr_t addr, uint32_t ack,
+					       uint8_t flags,
 					       struct in_addr *nbr_addr)
 {
 	struct eigrp_packet *ep;
-	u_int16_t length = EIGRP_HEADER_LEN;
+	uint16_t length = EIGRP_HEADER_LEN;
 
 	// allocate a new packet to be sent
 	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
@@ -749,7 +749,7 @@ void eigrp_hello_send_ack(struct eigrp_neighbor *nbr)
  * sending.  If no packets are currently queues, the packet will be
  * sent immadiatly
  */
-void eigrp_hello_send(struct eigrp_interface *ei, u_char flags,
+void eigrp_hello_send(struct eigrp_interface *ei, uint8_t flags,
 		      struct in_addr *nbr_addr)
 {
 	struct eigrp_packet *ep = NULL;

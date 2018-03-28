@@ -29,7 +29,7 @@
 #define CHUNK_SIZE 32
 
 struct zclient *zclient;
-u_short instance = 1;
+unsigned short instance = 1;
 
 const char *sequence = "GGRGGGRRG";
 

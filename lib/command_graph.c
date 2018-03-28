@@ -32,7 +32,7 @@ DEFINE_MTYPE_STATIC(LIB, CMD_TEXT, "Command Token Help")
 DEFINE_MTYPE(LIB, CMD_ARG, "Command Argument")
 DEFINE_MTYPE_STATIC(LIB, CMD_VAR, "Command Argument Name")
 
-struct cmd_token *cmd_token_new(enum cmd_token_type type, u_char attr,
+struct cmd_token *cmd_token_new(enum cmd_token_type type, uint8_t attr,
 				const char *text, const char *desc)
 {
 	struct cmd_token *token =
@@ -198,7 +198,7 @@ static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
 }
 
 static void cmd_fork_bump_attr(struct graph_node *gn, struct graph_node *join,
-			       u_char attr)
+			       uint8_t attr)
 {
 	size_t i;
 	struct cmd_token *tok = gn->data;

@@ -58,7 +58,7 @@ static struct zclient *zclient_vnc = NULL;
 /*
  * Routes coming from zebra get added to VNC here
  */
-static void vnc_redistribute_add(struct prefix *p, u_int32_t metric,
+static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 				 uint8_t type)
 {
 	struct bgp *bgp = bgp_get_default();
@@ -436,7 +436,7 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 
 
 static void
-nve_list_to_nh_array(u_char family, struct list *nve_list,
+nve_list_to_nh_array(uint8_t family, struct list *nve_list,
 		     unsigned int *nh_count_ret,
 		     void **nh_ary_ret,  /* returned address array */
 		     void **nhp_ary_ret) /* returned pointer array */

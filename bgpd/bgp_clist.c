@@ -334,13 +334,13 @@ community_list_entry_lookup(struct community_list *list, const void *arg,
 static char *community_str_get(struct community *com, int i)
 {
 	int len;
-	u_int32_t comval;
-	u_int16_t as;
-	u_int16_t val;
+	uint32_t comval;
+	uint16_t as;
+	uint16_t val;
 	char *str;
 	char *pnt;
 
-	memcpy(&comval, com_nthval(com, i), sizeof(u_int32_t));
+	memcpy(&comval, com_nthval(com, i), sizeof(uint32_t));
 	comval = ntohl(comval);
 
 	switch (comval) {
@@ -451,11 +451,11 @@ static int community_regexp_match(struct community *com, regex_t *reg)
 static char *lcommunity_str_get(struct lcommunity *lcom, int i)
 {
 	struct lcommunity_val lcomval;
-	u_int32_t globaladmin;
-	u_int32_t localdata1;
-	u_int32_t localdata2;
+	uint32_t globaladmin;
+	uint32_t localdata1;
+	uint32_t localdata2;
 	char *str;
-	u_char *ptr;
+	uint8_t *ptr;
 	char *pnt;
 
 	ptr = lcom->val + (i * LCOMMUNITY_SIZE);
@@ -465,7 +465,7 @@ static char *lcommunity_str_get(struct lcommunity *lcom, int i)
 	/* Allocate memory.  48 bytes taken off bgp_lcommunity.c */
 	str = pnt = XMALLOC(MTYPE_LCOMMUNITY_STR, 48);
 
-	ptr = (u_char *)lcomval.val;
+	ptr = (uint8_t *)lcomval.val;
 	ptr = ptr_get_be32(ptr, &globaladmin);
 	ptr = ptr_get_be32(ptr, &localdata1);
 	ptr = ptr_get_be32(ptr, &localdata2);
@@ -549,7 +549,7 @@ static struct community *
 community_regexp_delete (struct community *com, regex_t * reg)
 {
   int i;
-  u_int32_t comval;
+  uint32_t comval;
   /* Maximum is "65535:65535" + '\0'. */
   char c[12];
   const char *str;
@@ -560,7 +560,7 @@ community_regexp_delete (struct community *com, regex_t * reg)
   i = 0;
   while (i < com->size)
     {
-      memcpy (&comval, com_nthval (com, i), sizeof (u_int32_t));
+      memcpy (&comval, com_nthval (com, i), sizeof (uint32_t));
       comval = ntohl (comval);
 
       switch (comval)
@@ -694,8 +694,8 @@ struct community *community_list_match_delete(struct community *com,
 					      struct community_list *list)
 {
 	struct community_entry *entry;
-	u_int32_t val;
-	u_int32_t com_index_to_delete[com->size];
+	uint32_t val;
+	uint32_t com_index_to_delete[com->size];
 	int delete_index = 0;
 	int i;
 
@@ -895,8 +895,8 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 						struct community_list *list)
 {
 	struct community_entry *entry;
-	u_int32_t com_index_to_delete[lcom->size];
-	u_char *ptr;
+	uint32_t com_index_to_delete[lcom->size];
+	uint8_t *ptr;
 	int delete_index = 0;
 	int i;
 

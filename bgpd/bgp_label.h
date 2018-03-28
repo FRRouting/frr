@@ -51,7 +51,7 @@ static inline int bgp_labeled_safi(safi_t safi)
 
 static inline int bgp_is_withdraw_label(mpls_label_t *label)
 {
-	u_char *pkt = (u_char *)label;
+	uint8_t *pkt = (uint8_t *)label;
 
 	/* The check on pkt[2] for 0x00 or 0x02 is in case bgp_set_valid_label()
 	 * was called on the withdraw label */
@@ -63,7 +63,7 @@ static inline int bgp_is_withdraw_label(mpls_label_t *label)
 
 static inline int bgp_is_valid_label(mpls_label_t *label)
 {
-	u_char *t = (u_char *)label;
+	uint8_t *t = (uint8_t *)label;
 	if (!t)
 		return 0;
 	return (t[2] & 0x02);
@@ -71,14 +71,14 @@ static inline int bgp_is_valid_label(mpls_label_t *label)
 
 static inline void bgp_set_valid_label(mpls_label_t *label)
 {
-	u_char *t = (u_char *)label;
+	uint8_t *t = (uint8_t *)label;
 	if (t)
 		t[2] |= 0x02;
 }
 
 static inline void bgp_unset_valid_label(mpls_label_t *label)
 {
-	u_char *t = (u_char *)label;
+	uint8_t *t = (uint8_t *)label;
 	if (t)
 		t[2] &= ~0x02;
 }
@@ -95,17 +95,17 @@ static inline void bgp_unregister_for_label(struct bgp_node *rn)
 }
 
 /* Label stream to value */
-static inline u_int32_t label_pton(mpls_label_t *label)
+static inline uint32_t label_pton(mpls_label_t *label)
 {
-	u_char *t = (u_char *)label;
+	uint8_t *t = (uint8_t *)label;
 	return ((((unsigned int)t[0]) << 12) | (((unsigned int)t[1]) << 4)
 		| ((unsigned int)((t[2] & 0xF0) >> 4)));
 }
 
 /* Encode label values */
-static inline void label_ntop(u_int32_t l, int bos, mpls_label_t *label)
+static inline void label_ntop(uint32_t l, int bos, mpls_label_t *label)
 {
-	u_char *t = (u_char *)label;
+	uint8_t *t = (uint8_t *)label;
 	t[0] = ((l & 0x000FF000) >> 12);
 	t[1] = ((l & 0x00000FF0) >> 4);
 	t[2] = ((l & 0x0000000F) << 4);
@@ -114,9 +114,9 @@ static inline void label_ntop(u_int32_t l, int bos, mpls_label_t *label)
 }
 
 /* Return BOS value of label stream */
-static inline u_char label_bos(mpls_label_t *label)
+static inline uint8_t label_bos(mpls_label_t *label)
 {
-	u_char *t = (u_char *)label;
+	uint8_t *t = (uint8_t *)label;
 	return (t[2] & 0x01);
 };
 

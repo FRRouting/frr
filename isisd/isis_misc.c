@@ -56,7 +56,7 @@ char nlpidstring[30];
 /*
  * This converts the isonet to its printable format
  */
-const char *isonet_print(const u_char *from, int len)
+const char *isonet_print(const uint8_t *from, int len)
 {
 	int i = 0;
 	char *pos = isonet;
@@ -87,11 +87,11 @@ const char *isonet_print(const u_char *from, int len)
  * Returns 0 on error, length of buff on ok
  * extract dot from the dotted str, and insert all the number in a buff
  */
-int dotformat2buff(u_char *buff, const char *dotted)
+int dotformat2buff(uint8_t *buff, const char *dotted)
 {
 	int dotlen, len = 0;
 	const char *pos = dotted;
-	u_char number[3];
+	uint8_t number[3];
 	int nextdotpos = 2;
 
 	number[2] = '\0';
@@ -136,11 +136,11 @@ int dotformat2buff(u_char *buff, const char *dotted)
 /*
  * conversion of XXXX.XXXX.XXXX to memory
  */
-int sysid2buff(u_char *buff, const char *dotted)
+int sysid2buff(uint8_t *buff, const char *dotted)
 {
 	int len = 0;
 	const char *pos = dotted;
-	u_char number[3];
+	uint8_t number[3];
 
 	number[2] = '\0';
 	// surely not a sysid_string if not 14 length
@@ -304,17 +304,17 @@ const char *syst2string(int type)
 /*
  * Print functions - we print to static vars
  */
-const char *snpa_print(const u_char *from)
+const char *snpa_print(const uint8_t *from)
 {
 	return isis_format_id(from, ISIS_SYS_ID_LEN);
 }
 
-const char *sysid_print(const u_char *from)
+const char *sysid_print(const uint8_t *from)
 {
 	return isis_format_id(from, ISIS_SYS_ID_LEN);
 }
 
-const char *rawlspid_print(const u_char *from)
+const char *rawlspid_print(const uint8_t *from)
 {
 	return isis_format_id(from, 8);
 }
@@ -355,10 +355,10 @@ const char *isis_format_id(const uint8_t *id, size_t len)
 	return rv;
 }
 
-const char *time2string(u_int32_t time)
+const char *time2string(uint32_t time)
 {
 	char *pos = datestring;
-	u_int32_t rest;
+	uint32_t rest;
 
 	if (time == 0)
 		return "-";
@@ -421,7 +421,7 @@ unsigned long isis_jitter(unsigned long timer, unsigned long jitter)
 	return timer;
 }
 
-struct in_addr newprefix2inaddr(u_char *prefix_start, u_char prefix_masklen)
+struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen)
 {
 	memset(&new_prefix, 0, sizeof(new_prefix));
 	memcpy(&new_prefix, prefix_start,
@@ -435,7 +435,7 @@ struct in_addr newprefix2inaddr(u_char *prefix_start, u_char prefix_masklen)
  * Returns the dynamic hostname associated with the passed system ID.
  * If no dynamic hostname found then returns formatted system ID.
  */
-const char *print_sys_hostname(const u_char *sysid)
+const char *print_sys_hostname(const uint8_t *sysid)
 {
 	struct isis_dynhn *dyn;
 

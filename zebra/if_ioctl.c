@@ -242,7 +242,7 @@ static int if_getaddrs(void)
 #if defined(KAME)
 			if (IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr)) {
 				addr->sin6_scope_id =
-					ntohs(*(u_int16_t *)&addr->sin6_addr
+					ntohs(*(uint16_t *)&addr->sin6_addr
 						       .s6_addr[2]);
 				addr->sin6_addr.s6_addr[2] =
 					addr->sin6_addr.s6_addr[3] = 0;

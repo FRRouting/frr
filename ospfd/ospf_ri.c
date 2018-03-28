@@ -90,13 +90,13 @@ struct ospf_ri_sr_info {
 struct ospf_router_info {
 	bool enabled;
 
-	u_int8_t registered;
-	u_int8_t scope;
+	uint8_t registered;
+	uint8_t scope;
 
 /* Flags to manage this router information. */
 #define RIFLG_LSA_ENGAGED		0x1
 #define RIFLG_LSA_FORCED_REFRESH	0x2
-	u_int32_t flags;
+	uint32_t flags;
 
 	/* area pointer if flooding is Type 10 Null if flooding is AS scope */
 	struct ospf_area *area;
@@ -163,7 +163,7 @@ int ospf_router_info_init(void)
 	return 0;
 }
 
-static int ospf_router_info_register(u_int8_t scope)
+static int ospf_router_info_register(uint8_t scope)
 {
 	int rc = 0;
 
@@ -260,7 +260,7 @@ struct scope_info ospf_router_info_get_flooding_scope(void)
  *------------------------------------------------------------------------*/
 
 static void set_router_info_capabilities(struct ri_tlv_router_cap *ric,
-					 u_int32_t cap)
+					 uint32_t cap)
 {
 	ric->header.type = htons(RI_TLV_CAPABILITIES);
 	ric->header.length = htons(RI_TLV_LENGTH);
@@ -270,7 +270,7 @@ static void set_router_info_capabilities(struct ri_tlv_router_cap *ric,
 
 static int set_pce_header(struct ospf_pce_info *pce)
 {
-	u_int16_t length = 0;
+	uint16_t length = 0;
 	struct listnode *node;
 	struct ri_pce_subtlv_domain *domain;
 	struct ri_pce_subtlv_neighbor *neighbor;
@@ -326,7 +326,7 @@ static void set_pce_address(struct in_addr ipv4, struct ospf_pce_info *pce)
 	return;
 }
 
-static void set_pce_path_scope(u_int32_t scope, struct ospf_pce_info *pce)
+static void set_pce_path_scope(uint32_t scope, struct ospf_pce_info *pce)
 {
 
 	/* Set PCE Scope */
@@ -337,7 +337,7 @@ static void set_pce_path_scope(u_int32_t scope, struct ospf_pce_info *pce)
 	return;
 }
 
-static void set_pce_domain(u_int16_t type, u_int32_t domain,
+static void set_pce_domain(uint16_t type, uint32_t domain,
 			   struct ospf_pce_info *pce)
 {
 
@@ -358,7 +358,7 @@ static void set_pce_domain(u_int16_t type, u_int32_t domain,
 	return;
 }
 
-static void unset_pce_domain(u_int16_t type, u_int32_t domain,
+static void unset_pce_domain(uint16_t type, uint32_t domain,
 			     struct ospf_pce_info *pce)
 {
 	struct listnode *node;
@@ -387,7 +387,7 @@ static void unset_pce_domain(u_int16_t type, u_int32_t domain,
 	}
 }
 
-static void set_pce_neighbor(u_int16_t type, u_int32_t domain,
+static void set_pce_neighbor(uint16_t type, uint32_t domain,
 			     struct ospf_pce_info *pce)
 {
 
@@ -408,7 +408,7 @@ static void set_pce_neighbor(u_int16_t type, u_int32_t domain,
 	return;
 }
 
-static void unset_pce_neighbor(u_int16_t type, u_int32_t domain,
+static void unset_pce_neighbor(uint16_t type, uint32_t domain,
 			       struct ospf_pce_info *pce)
 {
 	struct listnode *node;
@@ -438,7 +438,7 @@ static void unset_pce_neighbor(u_int16_t type, u_int32_t domain,
 	}
 }
 
-static void set_pce_cap_flag(u_int32_t cap, struct ospf_pce_info *pce)
+static void set_pce_cap_flag(uint32_t cap, struct ospf_pce_info *pce)
 {
 
 	/* Set PCE Capabilities flag */
@@ -529,7 +529,7 @@ static void unset_param(struct tlv_header *tlv)
 
 static void initialize_params(struct ospf_router_info *ori)
 {
-	u_int32_t cap = 0;
+	uint32_t cap = 0;
 	struct ospf *top;
 
 	/*
@@ -735,10 +735,10 @@ static struct ospf_lsa *ospf_router_info_lsa_new()
 	struct stream *s;
 	struct lsa_header *lsah;
 	struct ospf_lsa *new = NULL;
-	u_char options, lsa_type;
+	uint8_t options, lsa_type;
 	struct in_addr lsa_id;
-	u_int32_t tmp;
-	u_int16_t length;
+	uint32_t tmp;
+	uint16_t length;
 
 	/* Create a stream for LSA. */
 	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
@@ -974,7 +974,7 @@ static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 	struct ospf_lsa lsa;
 	struct lsa_header lsah;
 	struct ospf *top;
-	u_int32_t tmp;
+	uint32_t tmp;
 
 	memset(&lsa, 0, sizeof(lsa));
 	memset(&lsah, 0, sizeof(lsah));
@@ -1075,7 +1075,7 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
  * Followings are vty session control functions.
  *------------------------------------------------------------------------*/
 
-static u_int16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct ri_tlv_router_cap *top = (struct ri_tlv_router_cap *)tlvh;
 
@@ -1088,8 +1088,8 @@ static u_int16_t show_vty_router_cap(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_pce_subtlv_address(struct vty *vty,
-					     struct tlv_header *tlvh)
+static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
+					    struct tlv_header *tlvh)
 {
 	struct ri_pce_subtlv_address *top =
 		(struct ri_pce_subtlv_address *)tlvh;
@@ -1114,8 +1114,8 @@ static u_int16_t show_vty_pce_subtlv_address(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_pce_subtlv_path_scope(struct vty *vty,
-						struct tlv_header *tlvh)
+static uint16_t show_vty_pce_subtlv_path_scope(struct vty *vty,
+					       struct tlv_header *tlvh)
 {
 	struct ri_pce_subtlv_path_scope *top =
 		(struct ri_pce_subtlv_path_scope *)tlvh;
@@ -1128,8 +1128,8 @@ static u_int16_t show_vty_pce_subtlv_path_scope(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_pce_subtlv_domain(struct vty *vty,
-					    struct tlv_header *tlvh)
+static uint16_t show_vty_pce_subtlv_domain(struct vty *vty,
+					   struct tlv_header *tlvh)
 {
 	struct ri_pce_subtlv_domain *top = (struct ri_pce_subtlv_domain *)tlvh;
 	struct in_addr tmp;
@@ -1150,8 +1150,8 @@ static u_int16_t show_vty_pce_subtlv_domain(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
-					      struct tlv_header *tlvh)
+static uint16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
+					     struct tlv_header *tlvh)
 {
 
 	struct ri_pce_subtlv_neighbor *top =
@@ -1176,8 +1176,8 @@ static u_int16_t show_vty_pce_subtlv_neighbor(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
-					      struct tlv_header *tlvh)
+static uint16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
+					     struct tlv_header *tlvh)
 {
 	struct ri_pce_subtlv_cap_flag *top =
 		(struct ri_pce_subtlv_cap_flag *)tlvh;
@@ -1192,7 +1192,7 @@ static u_int16_t show_vty_pce_subtlv_cap_flag(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
 {
 	if (vty != NULL)
 		vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
@@ -1204,11 +1204,11 @@ static u_int16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
-				   uint32_t total)
+static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
+				  uint32_t total)
 {
 	struct tlv_header *tlvh;
-	u_int16_t sum = 0;
+	uint16_t sum = 0;
 
 	for (tlvh = ri; sum < total; tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
@@ -1332,7 +1332,7 @@ static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
 	struct tlv_header *tlvh;
-	u_int16_t length = 0, sum = 0;
+	uint16_t length = 0, sum = 0;
 
 	/* Initialize TLV browsing */
 	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
@@ -1442,7 +1442,7 @@ DEFUN (router_info,
 	int idx_ipv4 = 2;
 	char *area = (argc == 3) ? argv[idx_ipv4]->arg : NULL;
 
-	u_int8_t scope;
+	uint8_t scope;
 
 	if (OspfRI.enabled)
 		return CMD_SUCCESS;

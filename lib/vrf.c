@@ -343,10 +343,11 @@ void *vrf_info_lookup(vrf_id_t vrf_id)
 #define VRF_BITMAP_BIT_OFFSET(_id) ((_id) % VRF_BITMAP_NUM_OF_BITS_IN_GROUP)
 
 #define VRF_BITMAP_INDEX_IN_GROUP(_bit_offset) ((_bit_offset) / CHAR_BIT)
-#define VRF_BITMAP_FLAG(_bit_offset) (((u_char)1) << ((_bit_offset) % CHAR_BIT))
+#define VRF_BITMAP_FLAG(_bit_offset)                                           \
+	(((uint8_t)1) << ((_bit_offset) % CHAR_BIT))
 
 struct vrf_bitmap {
-	u_char *groups[VRF_BITMAP_NUM_OF_GROUPS];
+	uint8_t *groups[VRF_BITMAP_NUM_OF_GROUPS];
 };
 
 vrf_bitmap_t vrf_bitmap_init(void)
@@ -373,8 +374,8 @@ void vrf_bitmap_free(vrf_bitmap_t bmap)
 void vrf_bitmap_set(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 {
 	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
-	u_char group = VRF_BITMAP_GROUP(vrf_id);
-	u_char offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
+	uint8_t group = VRF_BITMAP_GROUP(vrf_id);
+	uint8_t offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
 
 	if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN)
 		return;
@@ -390,8 +391,8 @@ void vrf_bitmap_set(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 void vrf_bitmap_unset(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 {
 	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
-	u_char group = VRF_BITMAP_GROUP(vrf_id);
-	u_char offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
+	uint8_t group = VRF_BITMAP_GROUP(vrf_id);
+	uint8_t offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
 
 	if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN
 	    || bm->groups[group] == NULL)
@@ -404,8 +405,8 @@ void vrf_bitmap_unset(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 int vrf_bitmap_check(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 {
 	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
-	u_char group = VRF_BITMAP_GROUP(vrf_id);
-	u_char offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
+	uint8_t group = VRF_BITMAP_GROUP(vrf_id);
+	uint8_t offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
 
 	if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN
 	    || bm->groups[group] == NULL)

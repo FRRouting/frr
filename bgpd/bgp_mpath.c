@@ -46,7 +46,7 @@
  * Record maximum-paths configuration for BGP instance
  */
 int bgp_maximum_paths_set(struct bgp *bgp, afi_t afi, safi_t safi, int peertype,
-			  u_int16_t maxpaths, u_int16_t options)
+			  uint16_t maxpaths, uint16_t options)
 {
 	if (!bgp || (afi >= AFI_MAX) || (safi >= SAFI_MAX))
 		return -1;
@@ -370,7 +370,7 @@ struct bgp_info *bgp_info_mpath_first(struct bgp_info *binfo)
  *
  * Given the bestpath bgp_info, return the number of multipath entries
  */
-u_int32_t bgp_info_mpath_count(struct bgp_info *binfo)
+uint32_t bgp_info_mpath_count(struct bgp_info *binfo)
 {
 	if (!binfo->mpath)
 		return 0;
@@ -382,7 +382,7 @@ u_int32_t bgp_info_mpath_count(struct bgp_info *binfo)
  *
  * Sets the count of multipaths into bestpath's mpath element
  */
-static void bgp_info_mpath_count_set(struct bgp_info *binfo, u_int32_t count)
+static void bgp_info_mpath_count_set(struct bgp_info *binfo, uint32_t count)
 {
 	struct bgp_info_mpath *mpath;
 	if (!count && !binfo->mpath)
@@ -432,7 +432,7 @@ void bgp_info_mpath_update(struct bgp_node *rn, struct bgp_info *new_best,
 			   struct bgp_info *old_best, struct list *mp_list,
 			   struct bgp_maxpaths_cfg *mpath_cfg)
 {
-	u_int16_t maxpaths, mpath_count, old_mpath_count;
+	uint16_t maxpaths, mpath_count, old_mpath_count;
 	struct listnode *mp_node, *mp_next_node;
 	struct bgp_info *cur_mpath, *new_mpath, *next_mpath, *prev_mpath;
 	int mpath_changed, debug;
@@ -677,7 +677,7 @@ void bgp_info_mpath_aggregate_update(struct bgp_info *new_best,
 	struct aspath *aspath;
 	struct aspath *asmerge;
 	struct attr *new_attr, *old_attr;
-	u_char origin;
+	uint8_t origin;
 	struct community *community, *commerge;
 	struct ecommunity *ecomm, *ecommerge;
 	struct lcommunity *lcomm, *lcommerge;

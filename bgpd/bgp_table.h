@@ -58,7 +58,7 @@ struct bgp_node {
 	mpls_label_t local_label;
 
 	uint64_t version;
-	u_char flags;
+	uint8_t flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 #define BGP_NODE_USER_CLEAR             (1 << 1)
 #define BGP_NODE_LABEL_CHANGED          (1 << 2)

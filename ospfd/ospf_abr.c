@@ -215,7 +215,7 @@ int ospf_area_range_set(struct ospf *ospf, struct in_addr area_id,
 }
 
 int ospf_area_range_cost_set(struct ospf *ospf, struct in_addr area_id,
-			     struct prefix_ipv4 *p, u_int32_t cost)
+			     struct prefix_ipv4 *p, uint32_t cost)
 {
 	struct ospf_area *area;
 	struct ospf_area_range *range;
@@ -379,7 +379,7 @@ static void ospf_abr_nssa_check_status(struct ospf *ospf)
 	struct listnode *lnode, *nnode;
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, lnode, nnode, area)) {
-		u_char old_state = area->NSSATranslatorState;
+		uint8_t old_state = area->NSSATranslatorState;
 
 		if (area->external_routing != OSPF_AREA_NSSA)
 			continue;
@@ -471,7 +471,7 @@ void ospf_check_abr_status(struct ospf *ospf)
 	int bb_act_attached = 0;
 	int areas_configured = 0;
 	int areas_act_attached = 0;
-	u_char new_flags = ospf->flags;
+	uint8_t new_flags = ospf->flags;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_check_abr_status(): Start");
@@ -585,12 +585,12 @@ static void ospf_abr_update_aggregate(struct ospf_area_range *range,
 	range->specifics++;
 }
 
-static void set_metric(struct ospf_lsa *lsa, u_int32_t metric)
+static void set_metric(struct ospf_lsa *lsa, uint32_t metric)
 {
 	struct summary_lsa *header;
-	u_char *mp;
+	uint8_t *mp;
 	metric = htonl(metric);
-	mp = (u_char *)&metric;
+	mp = (uint8_t *)&metric;
 	mp++;
 	header = (struct summary_lsa *)lsa->data;
 	memcpy(header->metric, mp, 3);
@@ -683,18 +683,18 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 	return 0;
 }
 
-static void ospf_abr_translate_nssa_range(struct prefix_ipv4 *p, u_int32_t cost)
+static void ospf_abr_translate_nssa_range(struct prefix_ipv4 *p, uint32_t cost)
 {
 	/* The Type-7 is created from the aggregated prefix and forwarded
 	   for lsa installation and flooding... to be added... */
 }
 
-void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, u_int32_t cost,
+void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 				       struct ospf_area *area)
 {
 	struct ospf_lsa *lsa, *old = NULL;
 	struct summary_lsa *sl = NULL;
-	u_int32_t full_cost;
+	uint32_t full_cost;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_abr_announce_network_to_area(): Start");
@@ -1089,7 +1089,7 @@ static void ospf_abr_process_network_rt(struct ospf *ospf,
 		zlog_debug("ospf_abr_process_network_rt(): Stop");
 }
 
-static void ospf_abr_announce_rtr_to_area(struct prefix_ipv4 *p, u_int32_t cost,
+static void ospf_abr_announce_rtr_to_area(struct prefix_ipv4 *p, uint32_t cost,
 					  struct ospf_area *area)
 {
 	struct ospf_lsa *lsa, *old = NULL;

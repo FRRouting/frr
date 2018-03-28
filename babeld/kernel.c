@@ -210,7 +210,7 @@ if_eui64(int ifindex, unsigned char *eui)
         return -1;
     }
 
-    u_char len = (u_char) ifp->hw_addr_len;
+    uint8_t len = (uint8_t)ifp->hw_addr_len;
     char *tmp = (void*) ifp->hw_addr;
 
     if (len == 8) {

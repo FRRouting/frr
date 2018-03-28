@@ -56,7 +56,7 @@ void setsockopt_so_sendbuf(const int sock, int size)
 
 int getsockopt_so_sendbuf(const int sock)
 {
-	u_int32_t optval;
+	uint32_t optval;
 	socklen_t optlen = sizeof(optval);
 	int ret = getsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&optval,
 			     &optlen);
@@ -382,7 +382,7 @@ int setsockopt_ipv4_multicast_if(int sock, struct in_addr if_addr,
 #endif
 }
 
-int setsockopt_ipv4_multicast_loop(int sock, u_char val)
+int setsockopt_ipv4_multicast_loop(int sock, uint8_t val)
 {
 	int ret;
 
@@ -584,9 +584,9 @@ int sockopt_tcp_signature(int sock, union sockunion *su, const char *password)
 #define TCP_MD5_AUTH_ADD 1
 #define TCP_MD5_AUTH_DEL 2
 	struct tcp_rfc2385_cmd {
-		u_int8_t command;  /* Command - Add/Delete */
-		u_int32_t address; /* IPV4 address associated */
-		u_int8_t keylen;   /* MD5 Key len (do NOT assume 0 terminated
+		uint8_t command;  /* Command - Add/Delete */
+		uint32_t address; /* IPV4 address associated */
+		uint8_t keylen;   /* MD5 Key len (do NOT assume 0 terminated
 				      ascii) */
 		void *key;	 /* MD5 Key */
 	} cmd;

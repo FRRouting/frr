@@ -32,7 +32,7 @@
 
 int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 		       struct prefix_rd *prd, afi_t afi, safi_t safi,
-		       u_char use_json)
+		       uint8_t use_json)
 {
 	struct bgp *bgp;
 	struct bgp_table *table;
@@ -124,14 +124,14 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 					}
 
 					if (rd_header) {
-						u_int16_t type;
+						uint16_t type;
 						struct rd_as rd_as;
 						struct rd_ip rd_ip = {0};
 #if ENABLE_BGP_VNC
 						struct rd_vnc_eth rd_vnc_eth = {
 							0};
 #endif
-						u_char *pnt;
+						uint8_t *pnt;
 
 						pnt = rn->p.u.val;
 

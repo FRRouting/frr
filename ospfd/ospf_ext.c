@@ -922,7 +922,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_new(struct ospf_area *area,
 	struct lsa_header *lsah;
 	struct ospf_lsa *new = NULL;
 	struct ospf *top;
-	u_char options, lsa_type;
+	uint8_t options, lsa_type;
 	struct in_addr lsa_id;
 	struct in_addr router_id;
 	uint32_t tmp;
@@ -1014,7 +1014,7 @@ static struct ospf_lsa *ospf_ext_link_lsa_new(struct ospf_area *area,
 	struct stream *s;
 	struct lsa_header *lsah;
 	struct ospf_lsa *new = NULL;
-	u_char options, lsa_type;
+	uint8_t options, lsa_type;
 	struct in_addr lsa_id;
 	uint32_t tmp;
 	uint16_t length;

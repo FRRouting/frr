@@ -60,8 +60,8 @@ extern struct zebra_t zebrad;
 /* static function declarations */
 
 static void fec_evaluate(struct zebra_vrf *zvrf);
-static u_int32_t fec_derive_label_from_index(struct zebra_vrf *vrf,
-					     zebra_fec_t *fec);
+static uint32_t fec_derive_label_from_index(struct zebra_vrf *vrf,
+					    zebra_fec_t *fec);
 static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		       struct route_node *rn, struct route_entry *re);
 static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label);
@@ -72,8 +72,8 @@ static void fec_update_clients(zebra_fec_t *fec);
 static void fec_print(zebra_fec_t *fec, struct vty *vty);
 static zebra_fec_t *fec_find(struct route_table *table, struct prefix *p);
 static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
-			    mpls_label_t label, u_int32_t flags,
-			    u_int32_t label_index);
+			    mpls_label_t label, uint32_t flags,
+			    uint32_t label_index);
 static int fec_del(zebra_fec_t *fec);
 
 static unsigned int label_hash(void *p);
@@ -330,7 +330,7 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
 {
 	struct route_node *rn;
 	zebra_fec_t *fec;
-	u_int32_t old_label, new_label;
+	uint32_t old_label, new_label;
 	int af;
 	char buf[BUFSIZ];
 
@@ -382,10 +382,10 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
  * its label index. The index is "acceptable" if it falls within the
  * globally configured label block (SRGB).
  */
-static u_int32_t fec_derive_label_from_index(struct zebra_vrf *zvrf,
-					     zebra_fec_t *fec)
+static uint32_t fec_derive_label_from_index(struct zebra_vrf *zvrf,
+					    zebra_fec_t *fec)
 {
-	u_int32_t label;
+	uint32_t label;
 
 	if (fec->label_index != MPLS_INVALID_LABEL_INDEX
 	    && zvrf->mpls_srgb.start_label
@@ -532,8 +532,8 @@ static zebra_fec_t *fec_find(struct route_table *table, struct prefix *p)
  * or when a binding is configured.
  */
 static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
-			    mpls_label_t label, u_int32_t flags,
-			    u_int32_t label_index)
+			    mpls_label_t label, uint32_t flags,
+			    uint32_t label_index)
 {
 	struct route_node *rn;
 	zebra_fec_t *fec;
@@ -1734,7 +1734,7 @@ void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum southbound_results res)
  *         -2 if a label was inside the reserved range (0-15)
  *         -3 if the number of labels given exceeds MPLS_MAX_LABELS
  */
-int mpls_str2label(const char *label_str, u_int8_t *num_labels,
+int mpls_str2label(const char *label_str, uint8_t *num_labels,
 		   mpls_label_t *labels)
 {
 	char *ostr;			  // copy of label string (start)
@@ -1779,7 +1779,7 @@ int mpls_str2label(const char *label_str, u_int8_t *num_labels,
 /*
  * Label to string conversion, labels in string separated by '/'.
  */
-char *mpls_label2str(u_int8_t num_labels, mpls_label_t *labels, char *buf,
+char *mpls_label2str(uint8_t num_labels, mpls_label_t *labels, char *buf,
 		     int len, int pretty)
 {
 	char label_buf[BUFSIZ];
@@ -1860,14 +1860,14 @@ int zebra_mpls_lsp_uninstall(struct zebra_vrf *zvrf, struct route_node *rn,
  * is acceptable.
  */
 int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
-			    u_int32_t label_index, struct zserv *client)
+			    uint32_t label_index, struct zserv *client)
 {
 	struct route_table *table;
 	zebra_fec_t *fec;
 	char buf[BUFSIZ];
 	int new_client;
 	int label_change = 0;
-	u_int32_t old_label;
+	uint32_t old_label;
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
 	if (!table)
@@ -2272,7 +2272,7 @@ static bool mpls_ftn_update_nexthop(int add, struct nexthop *nexthop,
  */
 int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 		    struct prefix *prefix, enum nexthop_types_t gtype,
-		    union g_addr *gate, ifindex_t ifindex, u_int8_t distance,
+		    union g_addr *gate, ifindex_t ifindex, uint8_t distance,
 		    mpls_label_t out_label)
 {
 	struct route_table *table;
@@ -2742,7 +2742,7 @@ void zebra_mpls_lsp_schedule(struct zebra_vrf *zvrf)
  * (VTY command handler).
  */
 void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
-			  mpls_label_t label, u_char use_json)
+			  mpls_label_t label, uint8_t use_json)
 {
 	struct hash *lsp_table;
 	zebra_lsp_t *lsp;
@@ -2773,7 +2773,7 @@ void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
  * Display MPLS label forwarding table (VTY command handler).
  */
 void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
-				u_char use_json)
+				uint8_t use_json)
 {
 	char buf[BUFSIZ];
 	json_object *json = NULL;
@@ -2893,8 +2893,8 @@ int zebra_mpls_write_lsp_config(struct vty *vty, struct zebra_vrf *zvrf)
 /*
  * Add/update global label block.
  */
-int zebra_mpls_label_block_add(struct zebra_vrf *zvrf, u_int32_t start_label,
-			       u_int32_t end_label)
+int zebra_mpls_label_block_add(struct zebra_vrf *zvrf, uint32_t start_label,
+			       uint32_t end_label)
 {
 	zvrf->mpls_srgb.start_label = start_label;
 	zvrf->mpls_srgb.end_label = end_label;

@@ -281,7 +281,7 @@ static int bgp_process_reads(struct thread *thread)
  */
 static uint16_t bgp_write(struct peer *peer)
 {
-	u_char type;
+	uint8_t type;
 	struct stream *s;
 	int num;
 	int update_last_write = 0;

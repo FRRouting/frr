@@ -97,7 +97,7 @@ static int irdp_if_delete(struct interface *ifp)
 	return 0;
 }
 
-static const char *inet_2a(u_int32_t a, char *b)
+static const char *inet_2a(uint32_t a, char *b)
 {
 	sprintf(b, "%u.%u.%u.%u", (a)&0xFF, (a >> 8) & 0xFF, (a >> 16) & 0xFF,
 		(a >> 24) & 0xFF);
@@ -118,7 +118,7 @@ static struct prefix *irdp_get_prefix(struct interface *ifp)
 }
 
 /* Join to the add/leave multicast group. */
-static int if_group(struct interface *ifp, int sock, u_int32_t group,
+static int if_group(struct interface *ifp, int sock, uint32_t group,
 		    int add_leave)
 {
 	struct ip_mreq m;
@@ -216,7 +216,7 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 	struct irdp_interface *irdp = zi->irdp;
 	struct listnode *node;
 	struct connected *ifc;
-	u_int32_t timer, seed;
+	uint32_t timer, seed;
 
 	assert(irdp);
 

@@ -51,8 +51,8 @@
    Next, if we send capability to the peer we want to set my capabilty
    inforation at each peer. */
 
-void bgp_capability_vty_out(struct vty *vty, struct peer *peer, u_char use_json,
-			    json_object *json_neigh)
+void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
+			    uint8_t use_json, json_object *json_neigh)
 {
 	char *pnt;
 	char *end;
@@ -271,8 +271,8 @@ static int bgp_capability_mp(struct peer *peer, struct capability_header *hdr)
 }
 
 static void bgp_capability_orf_not_support(struct peer *peer, iana_afi_t afi,
-					   iana_safi_t safi, u_char type,
-					   u_char mode)
+					   iana_safi_t safi, uint8_t type,
+					   uint8_t mode)
 {
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
@@ -295,15 +295,15 @@ static int bgp_capability_orf_entry(struct peer *peer,
 {
 	struct stream *s = BGP_INPUT(peer);
 	struct capability_mp_data mpc;
-	u_char num;
+	uint8_t num;
 	iana_afi_t pkt_afi;
 	afi_t afi;
 	iana_safi_t pkt_safi;
 	safi_t safi;
-	u_char type;
-	u_char mode;
-	u_int16_t sm_cap = 0; /* capability send-mode receive */
-	u_int16_t rm_cap = 0; /* capability receive-mode receive */
+	uint8_t type;
+	uint8_t mode;
+	uint16_t sm_cap = 0; /* capability send-mode receive */
+	uint16_t rm_cap = 0; /* capability receive-mode receive */
 	int i;
 
 	/* ORF Entry header */
@@ -433,7 +433,7 @@ static int bgp_capability_restart(struct peer *peer,
 				  struct capability_header *caphdr)
 {
 	struct stream *s = BGP_INPUT(peer);
-	u_int16_t restart_flag_time;
+	uint16_t restart_flag_time;
 	size_t end = stream_get_getp(s) + caphdr->length;
 
 	/* Verify length is a multiple of 4 */
@@ -468,7 +468,7 @@ static int bgp_capability_restart(struct peer *peer,
 		safi_t safi;
 		iana_afi_t pkt_afi = stream_getw(s);
 		iana_safi_t pkt_safi = stream_getc(s);
-		u_char flag = stream_getc(s);
+		uint8_t flag = stream_getc(s);
 
 		/* Convert AFI, SAFI to internal values, check. */
 		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
@@ -545,7 +545,7 @@ static int bgp_capability_addpath(struct peer *peer,
 		safi_t safi;
 		iana_afi_t pkt_afi = stream_getw(s);
 		iana_safi_t pkt_safi = stream_getc(s);
-		u_char send_receive = stream_getc(s);
+		uint8_t send_receive = stream_getc(s);
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -659,7 +659,7 @@ static int bgp_capability_hostname(struct peer *peer,
 	struct stream *s = BGP_INPUT(peer);
 	char str[BGP_MAX_HOSTNAME + 1];
 	size_t end = stream_get_getp(s) + hdr->length;
-	u_char len;
+	uint8_t len;
 
 	SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
 
@@ -788,7 +788,7 @@ static const size_t cap_modsizes[] = {
  *                           capabilities were encountered.
  */
 static int bgp_capability_parse(struct peer *peer, size_t length,
-				int *mp_capability, u_char **error)
+				int *mp_capability, uint8_t **error)
 {
 	int ret;
 	struct stream *s = BGP_INPUT(peer);
@@ -798,7 +798,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 
 	while (stream_get_getp(s) < end) {
 		size_t start;
-		u_char *sp = stream_pnt(s);
+		uint8_t *sp = stream_pnt(s);
 		struct capability_header caphdr;
 
 		ret = 0;
@@ -991,7 +991,7 @@ static int strict_capability_same(struct peer *peer)
 /* peek into option, stores ASN to *as4 if the AS4 capability was found.
  * Returns  0 if no as4 found, as4cap value otherwise.
  */
-as_t peek_for_as4_capability(struct peer *peer, u_char length)
+as_t peek_for_as4_capability(struct peer *peer, uint8_t length)
 {
 	struct stream *s = BGP_INPUT(peer);
 	size_t orig_getp = stream_get_getp(s);
@@ -1007,8 +1007,8 @@ as_t peek_for_as4_capability(struct peer *peer, u_char length)
 	 * correctly formatted options.
 	 */
 	while (stream_get_getp(s) < end) {
-		u_char opt_type;
-		u_char opt_length;
+		uint8_t opt_type;
+		uint8_t opt_length;
 
 		/* Check the length. */
 		if (stream_get_getp(s) + 2 > end)
@@ -1064,11 +1064,11 @@ end:
  *
  * @param[out] mp_capability @see bgp_capability_parse() for semantics.
  */
-int bgp_open_option_parse(struct peer *peer, u_char length, int *mp_capability)
+int bgp_open_option_parse(struct peer *peer, uint8_t length, int *mp_capability)
 {
 	int ret = 0;
-	u_char *error;
-	u_char error_data[BGP_MAX_PACKET_SIZE];
+	uint8_t *error;
+	uint8_t error_data[BGP_MAX_PACKET_SIZE];
 	struct stream *s = BGP_INPUT(peer);
 	size_t end = stream_get_getp(s) + length;
 
@@ -1079,8 +1079,8 @@ int bgp_open_option_parse(struct peer *peer, u_char length, int *mp_capability)
 			   peer->host, length);
 
 	while (stream_get_getp(s) < end) {
-		u_char opt_type;
-		u_char opt_length;
+		uint8_t opt_type;
+		uint8_t opt_length;
 
 		/* Must have at least an OPEN option header */
 		if (STREAM_READABLE(s) < 2) {
@@ -1192,10 +1192,10 @@ int bgp_open_option_parse(struct peer *peer, u_char length, int *mp_capability)
 }
 
 static void bgp_open_capability_orf(struct stream *s, struct peer *peer,
-				    afi_t afi, safi_t safi, u_char code)
+				    afi_t afi, safi_t safi, uint8_t code)
 {
-	u_char cap_len;
-	u_char orf_len;
+	uint8_t cap_len;
+	uint8_t orf_len;
 	unsigned long capp;
 	unsigned long orfp;
 	unsigned long numberp;
@@ -1262,15 +1262,15 @@ static void bgp_open_capability_orf(struct stream *s, struct peer *peer,
 /* Fill in capability open option to the packet. */
 void bgp_open_capability(struct stream *s, struct peer *peer)
 {
-	u_char len;
+	uint8_t len;
 	unsigned long cp, capp, rcapp;
 	iana_afi_t pkt_afi;
 	afi_t afi;
 	safi_t safi;
 	iana_safi_t pkt_safi;
 	as_t local_as;
-	u_int32_t restart_time;
-	u_char afi_safi_count = 0;
+	uint32_t restart_time;
+	uint8_t afi_safi_count = 0;
 	int adv_addpath_tx = 0;
 
 	/* Remember current pointer for Opt Parm Len. */

@@ -23,7 +23,7 @@
 #define __VLAN_H__
 
 /* VLAN Identifier */
-typedef u_int16_t vlanid_t;
+typedef uint16_t vlanid_t;
 #define VLANID_MAX 4095
 
 #endif /* __VLAN_H__ */

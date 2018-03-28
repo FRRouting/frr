@@ -143,7 +143,7 @@ static ns_id_t extract_nsid(struct nlmsghdr *nlh, char *buf)
 	     attr += NETLINK_ALIGN(attr->nla_len)) {
 		curr_length += attr->nla_len;
 		if ((attr->nla_type & NLA_TYPE_MASK) == NETNSA_NSID) {
-			u_int32_t *ptr = (u_int32_t *)(attr);
+			uint32_t *ptr = (uint32_t *)(attr);
 
 			ns_id = ptr[1];
 			break;

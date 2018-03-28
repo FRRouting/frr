@@ -2757,7 +2757,7 @@ void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs,
 void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs, struct list *neighbors)
 {
 	struct listnode *node;
-	u_char *snpa;
+	uint8_t *snpa;
 
 	for (ALL_LIST_ELEMENTS_RO(neighbors, node, snpa)) {
 		struct isis_lan_neighbor *n =

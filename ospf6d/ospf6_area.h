@@ -28,7 +28,7 @@ struct ospf6_area {
 	struct ospf6 *ospf6;
 
 	/* Area-ID */
-	u_int32_t area_id;
+	uint32_t area_id;
 
 #define OSPF6_AREA_FMT_DOTTEDQUAD 1
 #define OSPF6_AREA_FMT_DECIMAL    2
@@ -36,10 +36,10 @@ struct ospf6_area {
 	char name[16];
 
 	/* flag */
-	u_char flag;
+	uint8_t flag;
 
 	/* OSPF Option */
-	u_char options[3];
+	uint8_t options[3];
 
 	/* Summary routes to be originated (includes Configured Address Ranges)
 	 */
@@ -60,11 +60,11 @@ struct ospf6_area {
 	struct ospf6_route_table *spf_table;
 	struct ospf6_route_table *route_table;
 
-	u_int32_t spf_calculation; /* SPF calculation count */
+	uint32_t spf_calculation; /* SPF calculation count */
 
 	struct thread *thread_router_lsa;
 	struct thread *thread_intra_prefix_lsa;
-	u_int32_t router_lsa_size_limit;
+	uint32_t router_lsa_size_limit;
 
 	/* Area announce list */
 	struct {
@@ -117,9 +117,9 @@ struct ospf6_area {
 /* prototypes */
 extern int ospf6_area_cmp(void *va, void *vb);
 
-extern struct ospf6_area *ospf6_area_create(u_int32_t, struct ospf6 *, int);
+extern struct ospf6_area *ospf6_area_create(uint32_t, struct ospf6 *, int);
 extern void ospf6_area_delete(struct ospf6_area *);
-extern struct ospf6_area *ospf6_area_lookup(u_int32_t, struct ospf6 *);
+extern struct ospf6_area *ospf6_area_lookup(uint32_t, struct ospf6 *);
 
 extern void ospf6_area_enable(struct ospf6_area *);
 extern void ospf6_area_disable(struct ospf6_area *);

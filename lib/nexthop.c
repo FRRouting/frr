@@ -216,7 +216,7 @@ bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
 
 /* Update nexthop with label information. */
 void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
-			u_int8_t num_labels, mpls_label_t *label)
+			uint8_t num_labels, mpls_label_t *label)
 {
 	struct mpls_label_stack *nh_label;
 	int i;

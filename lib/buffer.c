@@ -174,7 +174,7 @@ void buffer_put(struct buffer *b, const void *p, size_t size)
 }
 
 /* Insert character into the buffer. */
-void buffer_putc(struct buffer *b, u_char c)
+void buffer_putc(struct buffer *b, uint8_t c)
 {
 	buffer_put(b, &c, 1);
 }
@@ -336,7 +336,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 					"%s: growing iov array to %d; "
 					"width %d, height %d, size %lu",
 					__func__, iov_alloc, width, height,
-					(u_long)b->size);
+					(unsigned long)b->size);
 				iov = XREALLOC(MTYPE_TMP, iov,
 					       iov_alloc * sizeof(*iov));
 			} else {
@@ -456,7 +456,7 @@ in one shot. */
 			zlog_err(
 				"%s: corruption detected: buffer queue empty, "
 				"but written is %lu",
-				__func__, (u_long)written);
+				__func__, (unsigned long)written);
 			break;
 		}
 		if (written < d->cp - d->sp) {

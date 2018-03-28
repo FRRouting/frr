@@ -62,7 +62,7 @@ void pim_bfd_write_config(struct vty *vty, struct interface *ifp)
  * pim_bfd_show_info - Show BFD info structure
  */
 void pim_bfd_show_info(struct vty *vty, void *bfd_info, json_object *json_obj,
-		       u_char use_json, int param_only)
+		       uint8_t use_json, int param_only)
 {
 	if (param_only)
 		bfd_show_param(vty, (struct bfd_info *)bfd_info, 1, 0, use_json,
@@ -179,8 +179,8 @@ void pim_bfd_trigger_event(struct pim_interface *pim_ifp,
  * pim_bfd_if_param_set - Set the configured BFD paramter values for
  *                         interface.
  */
-void pim_bfd_if_param_set(struct interface *ifp, u_int32_t min_rx,
-			  u_int32_t min_tx, u_int8_t detect_mult, int defaults)
+void pim_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
+			  uint32_t min_tx, uint8_t detect_mult, int defaults)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	int command = 0;

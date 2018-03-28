@@ -45,11 +45,11 @@
  * Based on Annex C.4 of ISO/IEC 8473
  */
 
-int iso_csum_verify(u_char *buffer, int len, uint16_t csum, int offset)
+int iso_csum_verify(uint8_t *buffer, int len, uint16_t csum, int offset)
 {
-	u_int16_t checksum;
-	u_int32_t c0;
-	u_int32_t c1;
+	uint16_t checksum;
+	uint32_t c0;
+	uint32_t c1;
 
 	c0 = csum & 0xff00;
 	c1 = csum & 0x00ff;

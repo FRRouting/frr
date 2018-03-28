@@ -107,7 +107,7 @@ int pim_socket_bind(int fd, struct interface *ifp)
 }
 
 int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
-		     u_char loop)
+		     uint8_t loop)
 {
 	int rcvbuf = 1024 * 1024 * 8;
 #ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX

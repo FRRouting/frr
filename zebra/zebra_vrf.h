@@ -28,8 +28,8 @@
 
 /* MPLS (Segment Routing) global block */
 typedef struct mpls_srgb_t_ {
-	u_int32_t start_label;
-	u_int32_t end_label;
+	uint32_t start_label;
+	uint32_t end_label;
 } mpls_srgb_t;
 
 /* Routing table instance.  */
@@ -41,14 +41,14 @@ struct zebra_vrf {
 	char *desc;
 
 	/* FIB identifier.  */
-	u_char fib_id;
+	uint8_t fib_id;
 
 	/* Flags. */
-	u_int16_t flags;
+	uint16_t flags;
 #define ZEBRA_VRF_RIB_SCHEDULED   (1 << 0)
 #define ZEBRA_VRF_RETAIN          (2 << 0)
 
-	u_int32_t table_id;
+	uint32_t table_id;
 
 	/* Routing table.  */
 	struct route_table *table[AFI_MAX][SAFI_MAX];
@@ -96,7 +96,7 @@ struct zebra_vrf {
 	struct zebra_static_pw_head static_pseudowires;
 
 	/* MPLS processing flags */
-	u_int16_t mpls_flags;
+	uint16_t mpls_flags;
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
 
 	/*
@@ -152,7 +152,7 @@ static inline bool zvrf_is_active(struct zebra_vrf *zvrf)
 
 struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 						  vrf_id_t vrf_id,
-						  u_int32_t table_id);
+						  uint32_t table_id);
 
 extern void zebra_vrf_update_all(struct zserv *client);
 extern struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id);
@@ -162,7 +162,7 @@ extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
 extern struct route_table *zebra_vrf_static_table(afi_t, safi_t,
 						  struct zebra_vrf *zvrf);
 extern struct route_table *
-zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id, vrf_id_t vrf_id);
+zebra_vrf_other_route_table(afi_t afi, uint32_t table_id, vrf_id_t vrf_id);
 extern int zebra_vrf_has_config(struct zebra_vrf *zvrf);
 extern void zebra_vrf_init(void);
 

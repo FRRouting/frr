@@ -43,15 +43,15 @@ struct isis_route_info {
 #define ISIS_ROUTE_FLAG_ACTIVE       0x01  /* active route for the prefix */
 #define ISIS_ROUTE_FLAG_ZEBRA_SYNCED 0x02  /* set when route synced to zebra */
 #define ISIS_ROUTE_FLAG_ZEBRA_RESYNC 0x04  /* set when route needs to sync */
-	u_char flag;
-	u_int32_t cost;
-	u_int32_t depth;
+	uint8_t flag;
+	uint32_t cost;
+	uint32_t depth;
 	struct list *nexthops;
 	struct list *nexthops6;
 };
 
-struct isis_route_info *isis_route_create(struct prefix *prefix, u_int32_t cost,
-					  u_int32_t depth,
+struct isis_route_info *isis_route_create(struct prefix *prefix, uint32_t cost,
+					  uint32_t depth,
 					  struct list *adjacencies,
 					  struct isis_area *area, int level);
 

@@ -55,7 +55,7 @@ typedef enum {
 struct bgpevpn {
 	vni_t vni;
 	vrf_id_t tenant_vrf_id;
-	u_int32_t flags;
+	uint32_t flags;
 #define VNI_FLAG_CFGD              0x1  /* VNI is user configured */
 #define VNI_FLAG_LIVE              0x2  /* VNI is "live" */
 #define VNI_FLAG_RD_CFGD           0x4  /* RD is user configured. */
@@ -69,31 +69,31 @@ struct bgpevpn {
 					   /* Flag to indicate if we are
 					    * advertising the g/w mac ip for
 					    * this VNI*/
-					   u_int8_t advertise_gw_macip;
+	uint8_t advertise_gw_macip;
 
-					   /* Flag to indicate if we are
-					    * advertising subnet for this VNI */
-					   u_int8_t advertise_subnet;
+	/* Flag to indicate if we are
+	 * advertising subnet for this VNI */
+	uint8_t advertise_subnet;
 
-					   /* Id for deriving the RD
-					    * automatically for this VNI */
-					   u_int16_t rd_id;
+	/* Id for deriving the RD
+	 * automatically for this VNI */
+	uint16_t rd_id;
 
-					   /* RD for this VNI. */
-					   struct prefix_rd prd;
+	/* RD for this VNI. */
+	struct prefix_rd prd;
 
-					   /* Route type 3 field */
-					   struct in_addr originator_ip;
+	/* Route type 3 field */
+	struct in_addr originator_ip;
 
-					   /* Import and Export RTs. */
-					   struct list *import_rtl;
-					   struct list *export_rtl;
+	/* Import and Export RTs. */
+	struct list *import_rtl;
+	struct list *export_rtl;
 
-					   /* Route table for EVPN routes for
-					    * this VNI. */
-					   struct bgp_table *route_table;
+	/* Route table for EVPN routes for
+	 * this VNI. */
+	struct bgp_table *route_table;
 
-					   QOBJ_FIELDS
+	QOBJ_FIELDS
 };
 
 DECLARE_QOBJ_TYPE(bgpevpn)
@@ -254,7 +254,7 @@ static inline void encode_default_gw_extcomm(struct ecommunity_val *eval)
 	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_DEF_GW;
 }
 
-static inline void encode_mac_mobility_extcomm(int static_mac, u_int32_t seq,
+static inline void encode_mac_mobility_extcomm(int static_mac, uint32_t seq,
 					       struct ecommunity_val *eval)
 {
 	memset(eval, 0, sizeof(*eval));

@@ -53,20 +53,20 @@
 
 /* OSPF LSA header. */
 struct lsa_header {
-	u_int16_t ls_age;
-	u_char options;
-	u_char type;
+	uint16_t ls_age;
+	uint8_t options;
+	uint8_t type;
 	struct in_addr id;
 	struct in_addr adv_router;
-	u_int32_t ls_seqnum;
-	u_int16_t checksum;
-	u_int16_t length;
+	uint32_t ls_seqnum;
+	uint16_t checksum;
+	uint16_t length;
 };
 
 /* OSPF LSA. */
 struct ospf_lsa {
 	/* LSA origination flag. */
-	u_char flags;
+	uint8_t flags;
 #define OSPF_LSA_SELF		  0x01
 #define OSPF_LSA_SELF_CHECKED	  0x02
 #define OSPF_LSA_RECEIVED	  0x04
@@ -140,9 +140,9 @@ struct router_lsa_link {
 	struct in_addr link_id;
 	struct in_addr link_data;
 	struct {
-		u_char type;
-		u_char tos_count;
-		u_int16_t metric;
+		uint8_t type;
+		uint8_t tos_count;
+		uint16_t metric;
 	} m[1];
 };
 
@@ -157,15 +157,15 @@ struct router_lsa_link {
    be replaced with the next revision having 1 descriptor block. */
 struct router_lsa {
 	struct lsa_header header;
-	u_char flags;
-	u_char zero;
-	u_int16_t links;
+	uint8_t flags;
+	uint8_t zero;
+	uint16_t links;
 	struct {
 		struct in_addr link_id;
 		struct in_addr link_data;
-		u_char type;
-		u_char tos;
-		u_int16_t metric;
+		uint8_t type;
+		uint8_t tos;
+		uint16_t metric;
 	} link[1];
 };
 
@@ -182,8 +182,8 @@ struct network_lsa {
 struct summary_lsa {
 	struct lsa_header header;
 	struct in_addr mask;
-	u_char tos;
-	u_char metric[3];
+	uint8_t tos;
+	uint8_t metric[3];
 };
 
 /* OSPF AS-external-LSAs structure. */
@@ -192,10 +192,10 @@ struct as_external_lsa {
 	struct lsa_header header;
 	struct in_addr mask;
 	struct {
-		u_char tos;
-		u_char metric[3];
+		uint8_t tos;
+		uint8_t metric[3];
 		struct in_addr fwd_addr;
-		u_int32_t route_tag;
+		uint32_t route_tag;
 	} e[1];
 };
 
@@ -222,13 +222,13 @@ extern struct timeval int2tv(int);
 extern struct timeval msec2tv(int);
 
 extern int get_age(struct ospf_lsa *);
-extern u_int16_t ospf_lsa_checksum(struct lsa_header *);
+extern uint16_t ospf_lsa_checksum(struct lsa_header *);
 extern int ospf_lsa_checksum_valid(struct lsa_header *);
 extern int ospf_lsa_refresh_delay(struct ospf_lsa *);
 
 extern const char *dump_lsa_key(struct ospf_lsa *);
-extern u_int32_t lsa_seqnum_increment(struct ospf_lsa *);
-extern void lsa_header_set(struct stream *, u_char, u_char, struct in_addr,
+extern uint32_t lsa_seqnum_increment(struct ospf_lsa *);
+extern void lsa_header_set(struct stream *, uint8_t, uint8_t, struct in_addr,
 			   struct in_addr);
 extern struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *);
 extern int ospf_check_nbr_status(struct ospf *);
@@ -252,16 +252,17 @@ extern int ospf_router_lsa_update_area(struct ospf_area *);
 extern void ospf_network_lsa_update(struct ospf_interface *);
 
 extern struct ospf_lsa *
-ospf_summary_lsa_originate(struct prefix_ipv4 *, u_int32_t, struct ospf_area *);
+ospf_summary_lsa_originate(struct prefix_ipv4 *, uint32_t, struct ospf_area *);
 extern struct ospf_lsa *ospf_summary_asbr_lsa_originate(struct prefix_ipv4 *,
-							u_int32_t,
+							uint32_t,
 							struct ospf_area *);
 
 extern struct ospf_lsa *ospf_lsa_install(struct ospf *, struct ospf_interface *,
 					 struct ospf_lsa *);
 
 extern void ospf_nssa_lsa_flush(struct ospf *ospf, struct prefix_ipv4 *p);
-extern void ospf_external_lsa_flush(struct ospf *, u_char, struct prefix_ipv4 *,
+extern void ospf_external_lsa_flush(struct ospf *, uint8_t,
+				    struct prefix_ipv4 *,
 				    ifindex_t /* , struct in_addr nexthop */);
 
 extern struct in_addr ospf_get_ip_from_ifp(struct ospf_interface *);
@@ -271,9 +272,9 @@ extern struct ospf_lsa *ospf_external_lsa_originate(struct ospf *,
 extern int ospf_external_lsa_originate_timer(struct thread *);
 extern int ospf_default_originate_timer(struct thread *);
 extern struct ospf_lsa *ospf_lsa_lookup(struct ospf *ospf, struct ospf_area *,
-					u_int32_t, struct in_addr,
+					uint32_t, struct in_addr,
 					struct in_addr);
-extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *, u_int32_t,
+extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *, uint32_t,
 					      struct in_addr);
 extern struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *,
 						  struct lsa_header *);
@@ -283,24 +284,25 @@ extern void ospf_flush_self_originated_lsas_now(struct ospf *);
 
 extern int ospf_lsa_is_self_originated(struct ospf *, struct ospf_lsa *);
 
-extern struct ospf_lsa *ospf_lsa_lookup_by_prefix(struct ospf_lsdb *, u_char,
+extern struct ospf_lsa *ospf_lsa_lookup_by_prefix(struct ospf_lsdb *, uint8_t,
 						  struct prefix_ipv4 *,
 						  struct in_addr);
 
 extern void ospf_lsa_maxage(struct ospf *, struct ospf_lsa *);
-extern u_int32_t get_metric(u_char *);
+extern uint32_t get_metric(uint8_t *);
 
 extern int ospf_lsa_maxage_walker(struct thread *);
 extern struct ospf_lsa *ospf_lsa_refresh(struct ospf *, struct ospf_lsa *);
 
 extern void ospf_external_lsa_refresh_default(struct ospf *);
 
-extern void ospf_external_lsa_refresh_type(struct ospf *, u_char, u_short, int);
+extern void ospf_external_lsa_refresh_type(struct ospf *, uint8_t,
+					   unsigned short, int);
 extern struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *,
 						  struct ospf_lsa *,
 						  struct external_info *, int);
 extern struct in_addr ospf_lsa_unique_id(struct ospf *, struct ospf_lsdb *,
-					 u_char, struct prefix_ipv4 *);
+					 uint8_t, struct prefix_ipv4 *);
 extern void ospf_schedule_lsa_flood_area(struct ospf_area *, struct ospf_lsa *);
 extern void ospf_schedule_lsa_flush_area(struct ospf_area *, struct ospf_lsa *);
 
@@ -314,8 +316,8 @@ extern void ospf_discard_from_db(struct ospf *, struct ospf_lsdb *,
 				 struct ospf_lsa *);
 extern int is_prefix_default(struct prefix_ipv4 *);
 
-extern int metric_type(struct ospf *, u_char, u_short);
-extern int metric_value(struct ospf *, u_char, u_short);
+extern int metric_type(struct ospf *, uint8_t, unsigned short);
+extern int metric_value(struct ospf *, uint8_t, unsigned short);
 
 extern struct in_addr ospf_get_nssa_ip(struct ospf_area *);
 extern int ospf_translated_nssa_compare(struct ospf_lsa *, struct ospf_lsa *);

@@ -33,7 +33,7 @@
 struct rip_metric_modifier {
 	enum { metric_increment, metric_decrement, metric_absolute } type;
 	bool used;
-	u_int8_t metric;
+	uint8_t metric;
 };
 
 /* `match metric METRIC' */
@@ -42,7 +42,7 @@ static route_map_result_t route_match_metric(void *rule, struct prefix *prefix,
 					     route_map_object_t type,
 					     void *object)
 {
-	u_int32_t *metric;
+	uint32_t *metric;
 	struct ripng_info *rinfo;
 
 	if (type == RMAP_RIPNG) {
@@ -60,9 +60,9 @@ static route_map_result_t route_match_metric(void *rule, struct prefix *prefix,
 /* Route map `match metric' match statement. `arg' is METRIC value */
 static void *route_match_metric_compile(const char *arg)
 {
-	u_int32_t *metric;
+	uint32_t *metric;
 
-	metric = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_int32_t));
+	metric = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
 	*metric = atoi(arg);
 
 	if (*metric > 0)

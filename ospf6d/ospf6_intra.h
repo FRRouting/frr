@@ -23,8 +23,8 @@
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_brouter;
-extern u_int32_t conf_debug_ospf6_brouter_specific_router_id;
-extern u_int32_t conf_debug_ospf6_brouter_specific_area_id;
+extern uint32_t conf_debug_ospf6_brouter_specific_router_id;
+extern uint32_t conf_debug_ospf6_brouter_specific_area_id;
 #define OSPF6_DEBUG_BROUTER_SUMMARY         0x01
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER 0x02
 #define OSPF6_DEBUG_BROUTER_SPECIFIC_AREA   0x04
@@ -73,20 +73,20 @@ extern u_int32_t conf_debug_ospf6_brouter_specific_area_id;
 /* Router-LSA */
 #define OSPF6_ROUTER_LSA_MIN_SIZE              4U
 struct ospf6_router_lsa {
-	u_char bits;
-	u_char options[3];
+	uint8_t bits;
+	uint8_t options[3];
 	/* followed by ospf6_router_lsdesc(s) */
 };
 
 /* Link State Description in Router-LSA */
 #define OSPF6_ROUTER_LSDESC_FIX_SIZE          16U
 struct ospf6_router_lsdesc {
-	u_char type;
-	u_char reserved;
-	u_int16_t metric; /* output cost */
-	u_int32_t interface_id;
-	u_int32_t neighbor_interface_id;
-	u_int32_t neighbor_router_id;
+	uint8_t type;
+	uint8_t reserved;
+	uint16_t metric; /* output cost */
+	uint32_t interface_id;
+	uint32_t neighbor_interface_id;
+	uint32_t neighbor_router_id;
 };
 
 #define OSPF6_ROUTER_LSDESC_POINTTOPOINT       1
@@ -117,15 +117,15 @@ enum stub_router_mode {
 /* Network-LSA */
 #define OSPF6_NETWORK_LSA_MIN_SIZE             4U
 struct ospf6_network_lsa {
-	u_char reserved;
-	u_char options[3];
+	uint8_t reserved;
+	uint8_t options[3];
 	/* followed by ospf6_netowrk_lsd(s) */
 };
 
 /* Link State Description in Router-LSA */
 #define OSPF6_NETWORK_LSDESC_FIX_SIZE          4U
 struct ospf6_network_lsdesc {
-	u_int32_t router_id;
+	uint32_t router_id;
 };
 #define NETWORK_LSDESC_GET_NBR_ROUTERID(x)                                     \
 	(((struct ospf6_network_lsdesc *)(x))->router_id)
@@ -133,20 +133,20 @@ struct ospf6_network_lsdesc {
 /* Link-LSA */
 #define OSPF6_LINK_LSA_MIN_SIZE               24U /* w/o 1st IPv6 prefix */
 struct ospf6_link_lsa {
-	u_char priority;
-	u_char options[3];
+	uint8_t priority;
+	uint8_t options[3];
 	struct in6_addr linklocal_addr;
-	u_int32_t prefix_num;
+	uint32_t prefix_num;
 	/* followed by ospf6 prefix(es) */
 };
 
 /* Intra-Area-Prefix-LSA */
 #define OSPF6_INTRA_PREFIX_LSA_MIN_SIZE       12U /* w/o 1st IPv6 prefix */
 struct ospf6_intra_prefix_lsa {
-	u_int16_t prefix_num;
-	u_int16_t ref_type;
-	u_int32_t ref_id;
-	u_int32_t ref_adv_router;
+	uint16_t prefix_num;
+	uint16_t ref_type;
+	uint32_t ref_id;
+	uint32_t ref_adv_router;
 	/* followed by ospf6 prefix(es) */
 };
 
@@ -213,11 +213,11 @@ struct ospf6_intra_prefix_lsa {
 	} while (0)
 
 /* Function Prototypes */
-extern char *ospf6_router_lsdesc_lookup(u_char type, u_int32_t interface_id,
-					u_int32_t neighbor_interface_id,
-					u_int32_t neighbor_router_id,
+extern char *ospf6_router_lsdesc_lookup(uint8_t type, uint32_t interface_id,
+					uint32_t neighbor_interface_id,
+					uint32_t neighbor_router_id,
 					struct ospf6_lsa *lsa);
-extern char *ospf6_network_lsdesc_lookup(u_int32_t router_id,
+extern char *ospf6_network_lsdesc_lookup(uint32_t router_id,
 					 struct ospf6_lsa *lsa);
 
 extern int ospf6_router_is_stub_router(struct ospf6_lsa *lsa);

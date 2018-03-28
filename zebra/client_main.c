@@ -39,7 +39,7 @@ int sock;
 
 /* IPv4 route add and delete test. */
 void zebra_test_ipv4(int command, int type, char *prefix, char *gateway,
-		     u_char distance)
+		     uint8_t distance)
 {
 	struct zapi_ipv4 api;
 	struct prefix_ipv4 p;
@@ -119,7 +119,7 @@ void zebra_sim(FILE *fp)
 {
 	char buf[BUFSIZ];
 	char distance_str[BUFSIZ];
-	u_char distance;
+	uint8_t distance;
 
 	while (fgets(buf, sizeof buf, fp)) {
 		int i;

@@ -56,7 +56,7 @@ struct route_entry {
 	int type;
 
 	/* Source protocol instance */
-	u_short instance;
+	unsigned short instance;
 
 	/* VRF identifier. */
 	vrf_id_t vrf_id;
@@ -65,11 +65,11 @@ struct route_entry {
 	uint32_t table;
 
 	/* Metric */
-	u_int32_t metric;
+	uint32_t metric;
 
 	/* MTU */
-	u_int32_t mtu;
-	u_int32_t nexthop_mtu;
+	uint32_t mtu;
+	uint32_t nexthop_mtu;
 
 	/* Distance. */
 	uint8_t distance;
@@ -78,10 +78,10 @@ struct route_entry {
 	 * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed
 	 * to clients via Zserv
 	 */
-	u_int32_t flags;
+	uint32_t flags;
 
 	/* RIB internal status */
-	u_char status;
+	uint8_t status;
 #define ROUTE_ENTRY_REMOVED          0x1
 /* to simplify NHT logic when NHs change, instead of doing a NH by NH cmp */
 #define ROUTE_ENTRY_NEXTHOPS_CHANGED 0x2
@@ -89,8 +89,8 @@ struct route_entry {
 #define ROUTE_ENTRY_LABELS_CHANGED   0x8
 
 	/* Nexthop information. */
-	u_char nexthop_num;
-	u_char nexthop_active_num;
+	uint8_t nexthop_num;
+	uint8_t nexthop_active_num;
 };
 
 /* meta-queue structure:
@@ -103,7 +103,7 @@ struct route_entry {
 #define MQ_SIZE 5
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
-	u_int32_t size; /* sum of lengths of all subqueues */
+	uint32_t size; /* sum of lengths of all subqueues */
 };
 
 /*
@@ -127,7 +127,7 @@ typedef struct rib_dest_t_ {
 	/*
 	 * Flags, see below.
 	 */
-	u_int32_t flags;
+	uint32_t flags;
 
 	/*
 	 * Linkage to put dest on the FPM processing queue.
@@ -287,8 +287,8 @@ extern int rib_lookup_ipv4_route(struct prefix_ipv4 *p, union sockunion *qgate,
 #define ZEBRA_RIB_FOUND_CONNECTED 2
 #define ZEBRA_RIB_NOTFOUND 3
 
-extern int is_zebra_valid_kernel_table(u_int32_t table_id);
-extern int is_zebra_main_routing_table(u_int32_t table_id);
+extern int is_zebra_valid_kernel_table(uint32_t table_id);
+extern int is_zebra_main_routing_table(uint32_t table_id);
 extern int zebra_check_addr(struct prefix *p);
 
 extern void rib_addnode(struct route_node *rn, struct route_entry *re,
@@ -302,18 +302,18 @@ extern void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
  * All rib_add function will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
 extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
-		   u_short instance, int flags, struct prefix *p,
+		   unsigned short instance, int flags, struct prefix *p,
 		   struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		   u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
+		   uint32_t table_id, uint32_t metric, uint32_t mtu,
 		   uint8_t distance, route_tag_t tag);
 
 extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			     struct prefix_ipv6 *src_p, struct route_entry *re);
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
-		       u_short instance, int flags, struct prefix *p,
+		       unsigned short instance, int flags, struct prefix *p,
 		       struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		       u_int32_t table_id, u_int32_t metric, bool fromkernel,
+		       uint32_t table_id, uint32_t metric, bool fromkernel,
 		       struct ethaddr *rmac);
 
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
@@ -331,8 +331,9 @@ extern void rib_sweep_route(void);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
 extern void rib_init(void);
-extern unsigned long rib_score_proto(u_char proto, u_short instance);
-extern unsigned long rib_score_proto_table(u_char proto, u_short instance,
+extern unsigned long rib_score_proto(uint8_t proto, unsigned short instance);
+extern unsigned long rib_score_proto_table(uint8_t proto,
+					   unsigned short instance,
 					   struct route_table *table);
 extern void rib_queue_add(struct route_node *rn);
 extern void meta_queue_free(struct meta_queue *mq);
@@ -395,7 +396,7 @@ static inline struct prefix *rib_dest_prefix(rib_dest_t *dest)
  *
  * Returns the address family that the destination is for.
  */
-static inline u_char rib_dest_af(rib_dest_t *dest)
+static inline uint8_t rib_dest_af(rib_dest_t *dest)
 {
 	return dest->rnode->p.family;
 }

@@ -71,7 +71,7 @@ struct nexthop {
 
 	enum nexthop_types_t type;
 
-	u_char flags;
+	uint8_t flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
@@ -114,7 +114,7 @@ struct nexthop *nexthop_new(void);
 void nexthop_free(struct nexthop *nexthop);
 void nexthops_free(struct nexthop *nexthop);
 
-void nexthop_add_labels(struct nexthop *, enum lsp_types_t, u_int8_t,
+void nexthop_add_labels(struct nexthop *, enum lsp_types_t, uint8_t,
 			mpls_label_t *);
 void nexthop_del_labels(struct nexthop *);
 

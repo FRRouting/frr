@@ -6357,6 +6357,19 @@ sub process {
 				     "unknown module license " . $extracted_string . "\n" . $herecurr);
 			}
 		}
+
+# check for usage of nonstandard fixed-width integral types
+		if ($line =~ /u_int8_t/ ||
+		    $line =~ /u_int32_t/ ||
+		    $line =~ /u_int16_t/ ||
+		    $line =~ /u_int64_t/ ||
+		    $line =~ /[^a-z_]u_char[^a-z_]/ ||
+		    $line =~ /[^a-z_]u_short[^a-z_]/ ||
+		    $line =~ /[^a-z_]u_int[^a-z_]/ ||
+		    $line =~ /[^a-z_]u_long[^a-z_]/) {
+			ERROR("NONSTANDARD_INTEGRAL_TYPES",
+			      "Please, no nonstandard integer types in new code.\n" . $herecurr)
+		}
 	}
 
 	# If we have no input at all, then there is nothing to report on

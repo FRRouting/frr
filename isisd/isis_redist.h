@@ -30,7 +30,7 @@
 struct isis_ext_info {
 	int origin;
 	uint32_t metric;
-	u_char distance;
+	uint8_t distance;
 };
 
 struct isis_redist {
@@ -46,7 +46,7 @@ struct vty;
 
 struct route_table *get_ext_reach(struct isis_area *area, int family,
 				  int level);
-void isis_redist_add(int type, struct prefix *p, u_char distance,
+void isis_redist_add(int type, struct prefix *p, uint8_t distance,
 		     uint32_t metric);
 void isis_redist_delete(int type, struct prefix *p);
 int isis_redist_config_write(struct vty *vty, struct isis_area *area,

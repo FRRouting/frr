@@ -175,7 +175,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	}
 }
 
-static int irdp_recvmsg(int sock, u_char *buf, int size, int *ifindex)
+static int irdp_recvmsg(int sock, uint8_t *buf, int size, int *ifindex)
 {
 	struct msghdr msg;
 	struct iovec iov;
@@ -226,7 +226,7 @@ int irdp_read_raw(struct thread *r)
 	thread_add_read(zebrad.master, irdp_read_raw, NULL, irdp_sock,
 			&t_irdp_raw);
 
-	ret = irdp_recvmsg(irdp_sock, (u_char *)buf, IRDP_RX_BUF, &ifindex);
+	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
 
 	if (ret < 0)
 		zlog_warn("IRDP: RX Error length = %d", ret);
@@ -263,8 +263,8 @@ int irdp_read_raw(struct thread *r)
 	return ret;
 }
 
-void send_packet(struct interface *ifp, struct stream *s, u_int32_t dst,
-		 struct prefix *p, u_int32_t ttl)
+void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
+		 struct prefix *p, uint32_t ttl)
 {
 	static struct sockaddr_in sockdst = {AF_INET};
 	struct ip *ip;
@@ -275,8 +275,8 @@ void send_packet(struct interface *ifp, struct stream *s, u_int32_t dst,
 	char msgbuf[256];
 	char buf[256];
 	struct in_pktinfo *pktinfo;
-	u_long src;
-	u_char on;
+	unsigned long src;
+	uint8_t on;
 
 	if (!(ifp->flags & IFF_UP))
 		return;

@@ -83,23 +83,23 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf)
 {
 }
 
-void zebra_vxlan_print_evpn(struct vty *vty, u_char uj)
+void zebra_vxlan_print_evpn(struct vty *vty, uint8_t uj)
 {
 }
 
-void zebra_vxlan_print_rmacs_l3vni(struct vty *, vni_t, u_char)
+void zebra_vxlan_print_rmacs_l3vni(struct vty *, vni_t, uint8_t)
 {
 }
 
-void zebra_vxlan_print_rmacs_all_l3vni(struct vty *, u_char)
+void zebra_vxlan_print_rmacs_all_l3vni(struct vty *, uint8_t)
 {
 }
 
-void zebra_vxlan_print_nh_l3vni(struct vty *, vni_t, u_char)
+void zebra_vxlan_print_nh_l3vni(struct vty *, vni_t, uint8_t)
 {
 }
 
-void zebra_vxlan_print_nh_all_l3vni(struct vty *, u_char)
+void zebra_vxlan_print_nh_all_l3vni(struct vty *, uint8_t)
 {
 }
 
@@ -117,14 +117,14 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 	return 0;
 }
 
-int zebra_vxlan_remote_macip_add(struct zserv *client, int sock, u_short length,
-				 struct zebra_vrf *zvrf)
+int zebra_vxlan_remote_macip_add(struct zserv *client, int sock,
+				 unsigned short length, struct zebra_vrf *zvrf)
 {
 	return 0;
 }
 
-int zebra_vxlan_remote_macip_del(struct zserv *client, int sock, u_short length,
-				 struct zebra_vrf *zvrf)
+int zebra_vxlan_remote_macip_del(struct zserv *client, int sock,
+				 unsigned short length, struct zebra_vrf *zvrf)
 {
 	return 0;
 }
@@ -132,7 +132,7 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, int sock, u_short length,
 int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 				     struct interface *br_if,
 				     struct ethaddr *mac, vlanid_t vid,
-				     u_char sticky)
+				     uint8_t sticky)
 {
 	return 0;
 }
@@ -172,7 +172,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 	return 0;
 }
 
-int zebra_vxlan_if_update(struct interface *ifp, u_int16_t chgflags)
+int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 {
 	return 0;
 }
@@ -182,20 +182,20 @@ int zebra_vxlan_if_del(struct interface *ifp)
 	return 0;
 }
 
-int zebra_vxlan_remote_vtep_add(struct zserv *client, int sock, u_short length,
-				struct zebra_vrf *zvrf)
+int zebra_vxlan_remote_vtep_add(struct zserv *client, int sock,
+				unsigned short length, struct zebra_vrf *zvrf)
 {
 	return 0;
 }
 
-int zebra_vxlan_remote_vtep_del(struct zserv *client, int sock, u_short length,
-				struct zebra_vrf *zvrf)
+int zebra_vxlan_remote_vtep_del(struct zserv *client, int sock,
+				unsigned short length, struct zebra_vrf *zvrf)
 {
 	return 0;
 }
 
 int zebra_vxlan_advertise_all_vni(struct zserv *client, int sock,
-				  u_short length, struct zebra_vrf *zvrf)
+				  unsigned short length, struct zebra_vrf *zvrf)
 {
 	return 0;
 }

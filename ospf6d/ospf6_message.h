@@ -46,14 +46,14 @@ extern unsigned char conf_debug_ospf6_message[];
 /* OSPFv3 packet header */
 #define OSPF6_HEADER_SIZE                     16U
 struct ospf6_header {
-	u_char version;
-	u_char type;
-	u_int16_t length;
-	u_int32_t router_id;
-	u_int32_t area_id;
-	u_int16_t checksum;
-	u_char instance_id;
-	u_char reserved;
+	uint8_t version;
+	uint8_t type;
+	uint16_t length;
+	uint32_t router_id;
+	uint32_t area_id;
+	uint16_t checksum;
+	uint8_t instance_id;
+	uint8_t reserved;
 };
 
 #define OSPF6_MESSAGE_END(H) ((caddr_t) (H) + ntohs ((H)->length))
@@ -62,24 +62,24 @@ struct ospf6_header {
 #define OSPF6_HELLO_MIN_SIZE                  20U
 struct ospf6_hello {
 	ifindex_t interface_id;
-	u_char priority;
-	u_char options[3];
-	u_int16_t hello_interval;
-	u_int16_t dead_interval;
-	u_int32_t drouter;
-	u_int32_t bdrouter;
+	uint8_t priority;
+	uint8_t options[3];
+	uint16_t hello_interval;
+	uint16_t dead_interval;
+	uint32_t drouter;
+	uint32_t bdrouter;
 	/* Followed by Router-IDs */
 };
 
 /* Database Description */
 #define OSPF6_DB_DESC_MIN_SIZE                12U
 struct ospf6_dbdesc {
-	u_char reserved1;
-	u_char options[3];
-	u_int16_t ifmtu;
-	u_char reserved2;
-	u_char bits;
-	u_int32_t seqnum;
+	uint8_t reserved1;
+	uint8_t options[3];
+	uint16_t ifmtu;
+	uint8_t reserved2;
+	uint8_t bits;
+	uint32_t seqnum;
 	/* Followed by LSA Headers */
 };
 
@@ -92,16 +92,16 @@ struct ospf6_dbdesc {
 /* It is just a sequence of entries below */
 #define OSPF6_LSREQ_LSDESC_FIX_SIZE           12U
 struct ospf6_lsreq_entry {
-	u_int16_t reserved;   /* Must Be Zero */
-	u_int16_t type;       /* LS type */
-	u_int32_t id;	 /* Link State ID */
-	u_int32_t adv_router; /* Advertising Router */
+	uint16_t reserved;   /* Must Be Zero */
+	uint16_t type;       /* LS type */
+	uint32_t id;	 /* Link State ID */
+	uint32_t adv_router; /* Advertising Router */
 };
 
 /* Link State Update */
 #define OSPF6_LS_UPD_MIN_SIZE                  4U
 struct ospf6_lsupdate {
-	u_int32_t lsa_number;
+	uint32_t lsa_number;
 	/* Followed by LSAs */
 };
 

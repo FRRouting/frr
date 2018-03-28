@@ -273,7 +273,7 @@ static int isis_route_info_same_attrib(struct isis_route_info *new,
 }
 
 static int isis_route_info_same(struct isis_route_info *new,
-				struct isis_route_info *old, u_char family)
+				struct isis_route_info *old, uint8_t family)
 {
 	struct listnode *node;
 	struct isis_nexthop *nexthop;
@@ -317,15 +317,15 @@ static int isis_route_info_same(struct isis_route_info *new,
 	return 1;
 }
 
-struct isis_route_info *isis_route_create(struct prefix *prefix, u_int32_t cost,
-					  u_int32_t depth,
+struct isis_route_info *isis_route_create(struct prefix *prefix, uint32_t cost,
+					  uint32_t depth,
 					  struct list *adjacencies,
 					  struct isis_area *area, int level)
 {
 	struct route_node *route_node;
 	struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
 	char buff[PREFIX2STR_BUFFER];
-	u_char family;
+	uint8_t family;
 
 	family = prefix->family;
 	/* for debugs */

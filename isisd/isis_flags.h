@@ -39,7 +39,7 @@ struct flags {
 void flags_initialize(struct flags *flags);
 long int flags_get_index(struct flags *flags);
 void flags_free_index(struct flags *flags, long int index);
-int flags_any_set(u_int32_t *flags);
+int flags_any_set(uint32_t *flags);
 
 #define _ISIS_SET_FLAG(F, C)                                                   \
 	{                                                                      \

@@ -160,9 +160,9 @@ int vty_out(struct vty *vty, const char *format, ...)
 
 		/* Pointer p must point out buffer. */
 		if (vty->type != VTY_TERM)
-			buffer_put(vty->obuf, (u_char *)p, len);
+			buffer_put(vty->obuf, (uint8_t *)p, len);
 		else
-			buffer_put_crlf(vty->obuf, (u_char *)p, len);
+			buffer_put_crlf(vty->obuf, (uint8_t *)p, len);
 
 		/* If p is not different with buf, it is allocated buffer.  */
 		if (p != buf)
@@ -1243,12 +1243,12 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 					"RFC 1073 violation detected: telnet NAWS option "
 					"should send %d characters, but we received %lu",
 					TELNET_NAWS_SB_LEN,
-					(u_long)vty->sb_len);
+					(unsigned long)vty->sb_len);
 			else if (sizeof(vty->sb_buf) < TELNET_NAWS_SB_LEN)
 				zlog_err(
 					"Bug detected: sizeof(vty->sb_buf) %lu < %d, "
 					"too small to handle the telnet NAWS option",
-					(u_long)sizeof(vty->sb_buf),
+					(unsigned long)sizeof(vty->sb_buf),
 					TELNET_NAWS_SB_LEN);
 			else {
 				vty->width = ((vty->sb_buf[1] << 8)
@@ -2057,7 +2057,7 @@ static int vtysh_read(struct thread *thread)
 	struct vty *vty;
 	unsigned char buf[VTY_READ_BUFSIZ];
 	unsigned char *p;
-	u_char header[4] = {0, 0, 0, 0};
+	uint8_t header[4] = {0, 0, 0, 0};
 
 	sock = THREAD_FD(thread);
 	vty = THREAD_ARG(thread);

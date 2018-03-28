@@ -38,7 +38,7 @@ struct lcommunity {
 	int size;
 
 	/* Large Communities value.  */
-	u_int8_t *val;
+	uint8_t *val;
 
 	/* Human readable format string.  */
 	char *str;
@@ -54,7 +54,7 @@ struct lcommunity_val {
 extern void lcommunity_init(void);
 extern void lcommunity_finish(void);
 extern void lcommunity_free(struct lcommunity **);
-extern struct lcommunity *lcommunity_parse(u_int8_t *, u_short);
+extern struct lcommunity *lcommunity_parse(uint8_t *, unsigned short);
 extern struct lcommunity *lcommunity_dup(struct lcommunity *);
 extern struct lcommunity *lcommunity_merge(struct lcommunity *,
 					   struct lcommunity *);
@@ -69,6 +69,6 @@ extern char *lcommunity_lcom2str(struct lcommunity *, int);
 extern int lcommunity_match(const struct lcommunity *,
 			    const struct lcommunity *);
 extern char *lcommunity_str(struct lcommunity *);
-extern int lcommunity_include(struct lcommunity *lcom, u_char *ptr);
-extern void lcommunity_del_val(struct lcommunity *lcom, u_char *ptr);
+extern int lcommunity_include(struct lcommunity *lcom, uint8_t *ptr);
+extern void lcommunity_del_val(struct lcommunity *lcom, uint8_t *ptr);
 #endif /* _QUAGGA_BGP_LCOMMUNITY_H */

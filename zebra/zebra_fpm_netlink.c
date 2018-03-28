@@ -45,7 +45,7 @@
  *
  * Returns string representation of an address of the given AF.
  */
-static inline const char *addr_to_a(u_char af, void *addr)
+static inline const char *addr_to_a(uint8_t af, void *addr)
 {
 	if (!addr)
 		return "<No address>";
@@ -83,7 +83,7 @@ static const char *prefix_addr_to_a(struct prefix *prefix)
  *
  * The size of an address in a given address family.
  */
-static size_t af_addr_size(u_char af)
+static size_t af_addr_size(uint8_t af)
 {
 	switch (af) {
 
@@ -125,10 +125,10 @@ typedef struct netlink_nh_info_t_ {
  */
 typedef struct netlink_route_info_t_ {
 	uint16_t nlmsg_type;
-	u_char rtm_type;
+	uint8_t rtm_type;
 	uint32_t rtm_table;
-	u_char rtm_protocol;
-	u_char af;
+	uint8_t rtm_protocol;
+	uint8_t af;
 	struct prefix *prefix;
 	uint32_t *metric;
 	unsigned int num_nhs;
@@ -199,7 +199,7 @@ static int netlink_route_info_add_nh(netlink_route_info_t *ri,
 /*
  * netlink_proto_from_route_type
  */
-static u_char netlink_proto_from_route_type(int type)
+static uint8_t netlink_proto_from_route_type(int type)
 {
 	switch (type) {
 	case ZEBRA_ROUTE_KERNEL:

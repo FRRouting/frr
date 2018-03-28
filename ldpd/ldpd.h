@@ -159,7 +159,7 @@ struct ldpd_init {
 	char		 group[256];
 	char		 ctl_sock_path[MAXPATHLEN];
 	char		 zclient_serv_path[MAXPATHLEN];
-	u_short		 instance;
+	unsigned short instance;
 };
 
 union ldpd_addr {

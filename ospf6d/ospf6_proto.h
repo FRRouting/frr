@@ -53,11 +53,11 @@
 /* OSPF6 Prefix */
 #define OSPF6_PREFIX_MIN_SIZE                  4U /* .length == 0 */
 struct ospf6_prefix {
-	u_int8_t prefix_length;
-	u_int8_t prefix_options;
+	uint8_t prefix_length;
+	uint8_t prefix_options;
 	union {
-		u_int16_t _prefix_metric;
-		u_int16_t _prefix_referenced_lstype;
+		uint16_t _prefix_metric;
+		uint16_t _prefix_referenced_lstype;
 	} u;
 #define prefix_metric        u._prefix_metric
 #define prefix_refer_lstype  u._prefix_referenced_lstype
@@ -92,9 +92,9 @@ struct ospf6_prefix {
 	} while (0)
 
 extern void ospf6_prefix_apply_mask(struct ospf6_prefix *op);
-extern void ospf6_prefix_options_printbuf(u_int8_t prefix_options, char *buf,
+extern void ospf6_prefix_options_printbuf(uint8_t prefix_options, char *buf,
 					  int size);
 extern void ospf6_capability_printbuf(char capability, char *buf, int size);
-extern void ospf6_options_printbuf(u_char *options, char *buf, int size);
+extern void ospf6_options_printbuf(uint8_t *options, char *buf, int size);
 
 #endif /* OSPF6_PROTO_H */

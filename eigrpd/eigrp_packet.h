@@ -42,9 +42,9 @@ extern struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *,
 extern void eigrp_packet_free(struct eigrp_packet *);
 extern void eigrp_packet_delete(struct eigrp_interface *);
 extern void eigrp_packet_header_init(int, struct eigrp *, struct stream *,
-				     u_int32_t, u_int32_t, u_int32_t);
+				     uint32_t, uint32_t, uint32_t);
 extern void eigrp_packet_checksum(struct eigrp_interface *, struct stream *,
-				  u_int16_t);
+				  uint16_t);
 
 extern struct eigrp_fifo *eigrp_fifo_new(void);
 extern struct eigrp_packet *eigrp_fifo_next(struct eigrp_fifo *);
@@ -56,12 +56,12 @@ extern void eigrp_fifo_reset(struct eigrp_fifo *);
 extern void eigrp_send_packet_reliably(struct eigrp_neighbor *);
 
 extern struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *);
-extern u_int16_t eigrp_add_internalTLV_to_stream(struct stream *,
-						 struct eigrp_prefix_entry *);
-extern u_int16_t eigrp_add_authTLV_MD5_to_stream(struct stream *,
-						 struct eigrp_interface *);
-extern u_int16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *,
-						    struct eigrp_interface *);
+extern uint16_t eigrp_add_internalTLV_to_stream(struct stream *,
+						struct eigrp_prefix_entry *);
+extern uint16_t eigrp_add_authTLV_MD5_to_stream(struct stream *,
+						struct eigrp_interface *);
+extern uint16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *,
+						   struct eigrp_interface *);
 
 extern int eigrp_unack_packet_retrans(struct thread *);
 extern int eigrp_unack_multicast_packet_retrans(struct thread *);
@@ -71,7 +71,7 @@ extern int eigrp_unack_multicast_packet_retrans(struct thread *);
  * eigrp_hello.c
  */
 extern void eigrp_sw_version_initialize(void);
-extern void eigrp_hello_send(struct eigrp_interface *, u_char,
+extern void eigrp_hello_send(struct eigrp_interface *, uint8_t,
 			     struct in_addr *);
 extern void eigrp_hello_send_ack(struct eigrp_neighbor *);
 extern void eigrp_hello_receive(struct eigrp *, struct ip *,
@@ -108,7 +108,7 @@ extern void eigrp_send_query(struct eigrp_interface *);
 extern void eigrp_query_receive(struct eigrp *, struct ip *,
 				struct eigrp_header *, struct stream *,
 				struct eigrp_interface *, int);
-extern u_int32_t eigrp_query_send_all(struct eigrp *);
+extern uint32_t eigrp_query_send_all(struct eigrp *);
 
 /*
  * These externs are found in eigrp_reply.c
@@ -143,15 +143,15 @@ extern struct TLV_SHA256_Authentication_Type *eigrp_authTLV_SHA256_new(void);
 extern void eigrp_authTLV_SHA256_free(struct TLV_SHA256_Authentication_Type *);
 
 extern int eigrp_make_md5_digest(struct eigrp_interface *, struct stream *,
-				 u_char);
+				 uint8_t);
 extern int eigrp_check_md5_digest(struct stream *,
 				  struct TLV_MD5_Authentication_Type *,
-				  struct eigrp_neighbor *, u_char);
+				  struct eigrp_neighbor *, uint8_t);
 extern int eigrp_make_sha256_digest(struct eigrp_interface *, struct stream *,
-				    u_char);
+				    uint8_t);
 extern int eigrp_check_sha256_digest(struct stream *,
 				     struct TLV_SHA256_Authentication_Type *,
-				     struct eigrp_neighbor *, u_char);
+				     struct eigrp_neighbor *, uint8_t);
 
 
 extern void eigrp_IPv4_InternalTLV_free(struct TLV_IPv4_Internal_type *);

@@ -316,7 +316,7 @@ uint8_t subtlvs_len(struct mpls_te_circuit *mtc)
 
 /* Following are various functions to set MPLS TE parameters */
 static void set_circuitparams_admin_grp(struct mpls_te_circuit *mtc,
-					u_int32_t admingrp)
+					uint32_t admingrp)
 {
 	SUBTLV_TYPE(mtc->admin_grp) = TE_SUBTLV_ADMIN_GRP;
 	SUBTLV_LEN(mtc->admin_grp) = SUBTLV_DEF_SIZE;
@@ -325,8 +325,8 @@ static void set_circuitparams_admin_grp(struct mpls_te_circuit *mtc,
 }
 
 static void __attribute__((unused))
-set_circuitparams_llri(struct mpls_te_circuit *mtc, u_int32_t local,
-		       u_int32_t remote)
+set_circuitparams_llri(struct mpls_te_circuit *mtc, uint32_t local,
+		       uint32_t remote)
 {
 	SUBTLV_TYPE(mtc->llri) = TE_SUBTLV_LLRI;
 	SUBTLV_LEN(mtc->llri) = TE_SUBTLV_LLRI_SIZE;
@@ -381,7 +381,7 @@ static void set_circuitparams_unrsv_bw(struct mpls_te_circuit *mtc,
 }
 
 static void set_circuitparams_te_metric(struct mpls_te_circuit *mtc,
-					u_int32_t te_metric)
+					uint32_t te_metric)
 {
 	SUBTLV_TYPE(mtc->te_metric) = TE_SUBTLV_TE_METRIC;
 	SUBTLV_LEN(mtc->te_metric) = TE_SUBTLV_TE_METRIC_SIZE;
@@ -392,7 +392,7 @@ static void set_circuitparams_te_metric(struct mpls_te_circuit *mtc,
 }
 
 static void set_circuitparams_inter_as(struct mpls_te_circuit *mtc,
-				       struct in_addr addr, u_int32_t as)
+				       struct in_addr addr, uint32_t as)
 {
 
 	/* Set the Remote ASBR IP address and then the associated AS number */
@@ -419,9 +419,9 @@ static void unset_circuitparams_inter_as(struct mpls_te_circuit *mtc)
 }
 
 static void set_circuitparams_av_delay(struct mpls_te_circuit *mtc,
-				       u_int32_t delay, u_char anormal)
+				       uint32_t delay, uint8_t anormal)
 {
-	u_int32_t tmp;
+	uint32_t tmp;
 	/* Note that TLV-length field is the size of array. */
 	SUBTLV_TYPE(mtc->av_delay) = TE_SUBTLV_AV_DELAY;
 	SUBTLV_LEN(mtc->av_delay) = SUBTLV_DEF_SIZE;
@@ -433,10 +433,10 @@ static void set_circuitparams_av_delay(struct mpls_te_circuit *mtc,
 }
 
 static void set_circuitparams_mm_delay(struct mpls_te_circuit *mtc,
-				       u_int32_t low, u_int32_t high,
-				       u_char anormal)
+				       uint32_t low, uint32_t high,
+				       uint8_t anormal)
 {
-	u_int32_t tmp;
+	uint32_t tmp;
 	/* Note that TLV-length field is the size of array. */
 	SUBTLV_TYPE(mtc->mm_delay) = TE_SUBTLV_MM_DELAY;
 	SUBTLV_LEN(mtc->mm_delay) = TE_SUBTLV_MM_DELAY_SIZE;
@@ -449,7 +449,7 @@ static void set_circuitparams_mm_delay(struct mpls_te_circuit *mtc,
 }
 
 static void set_circuitparams_delay_var(struct mpls_te_circuit *mtc,
-					u_int32_t jitter)
+					uint32_t jitter)
 {
 	/* Note that TLV-length field is the size of array. */
 	SUBTLV_TYPE(mtc->delay_var) = TE_SUBTLV_DELAY_VAR;
@@ -459,9 +459,9 @@ static void set_circuitparams_delay_var(struct mpls_te_circuit *mtc,
 }
 
 static void set_circuitparams_pkt_loss(struct mpls_te_circuit *mtc,
-				       u_int32_t loss, u_char anormal)
+				       uint32_t loss, uint8_t anormal)
 {
-	u_int32_t tmp;
+	uint32_t tmp;
 	/* Note that TLV-length field is the size of array. */
 	SUBTLV_TYPE(mtc->pkt_loss) = TE_SUBTLV_PKT_LOSS;
 	SUBTLV_LEN(mtc->pkt_loss) = SUBTLV_DEF_SIZE;
@@ -670,16 +670,16 @@ void isis_mpls_te_update(struct interface *ifp)
  * Followings are vty session control functions.
  *------------------------------------------------------------------------*/
 
-static u_char print_subtlv_admin_grp(struct sbuf *buf, int indent,
-				     struct te_subtlv_admin_grp *tlv)
+static uint8_t print_subtlv_admin_grp(struct sbuf *buf, int indent,
+				      struct te_subtlv_admin_grp *tlv)
 {
 	sbuf_push(buf, indent, "Administrative Group: 0x%" PRIx32 "\n",
 		  ntohl(tlv->value));
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_llri(struct sbuf *buf, int indent,
-				struct te_subtlv_llri *tlv)
+static uint8_t print_subtlv_llri(struct sbuf *buf, int indent,
+				 struct te_subtlv_llri *tlv)
 {
 	sbuf_push(buf, indent, "Link Local  ID: %" PRIu32 "\n",
 		  ntohl(tlv->local));
@@ -689,8 +689,8 @@ static u_char print_subtlv_llri(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + TE_SUBTLV_LLRI_SIZE);
 }
 
-static u_char print_subtlv_local_ipaddr(struct sbuf *buf, int indent,
-					struct te_subtlv_local_ipaddr *tlv)
+static uint8_t print_subtlv_local_ipaddr(struct sbuf *buf, int indent,
+					 struct te_subtlv_local_ipaddr *tlv)
 {
 	sbuf_push(buf, indent, "Local Interface IP Address(es): %s\n",
 		  inet_ntoa(tlv->value));
@@ -698,8 +698,8 @@ static u_char print_subtlv_local_ipaddr(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_rmt_ipaddr(struct sbuf *buf, int indent,
-				      struct te_subtlv_rmt_ipaddr *tlv)
+static uint8_t print_subtlv_rmt_ipaddr(struct sbuf *buf, int indent,
+				       struct te_subtlv_rmt_ipaddr *tlv)
 {
 	sbuf_push(buf, indent, "Remote Interface IP Address(es): %s\n",
 		  inet_ntoa(tlv->value));
@@ -707,8 +707,8 @@ static u_char print_subtlv_rmt_ipaddr(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_max_bw(struct sbuf *buf, int indent,
-				  struct te_subtlv_max_bw *tlv)
+static uint8_t print_subtlv_max_bw(struct sbuf *buf, int indent,
+				   struct te_subtlv_max_bw *tlv)
 {
 	float fval;
 
@@ -719,8 +719,8 @@ static u_char print_subtlv_max_bw(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_max_rsv_bw(struct sbuf *buf, int indent,
-				      struct te_subtlv_max_rsv_bw *tlv)
+static uint8_t print_subtlv_max_rsv_bw(struct sbuf *buf, int indent,
+				       struct te_subtlv_max_rsv_bw *tlv)
 {
 	float fval;
 
@@ -732,8 +732,8 @@ static u_char print_subtlv_max_rsv_bw(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_unrsv_bw(struct sbuf *buf, int indent,
-				    struct te_subtlv_unrsv_bw *tlv)
+static uint8_t print_subtlv_unrsv_bw(struct sbuf *buf, int indent,
+				     struct te_subtlv_unrsv_bw *tlv)
 {
 	float fval1, fval2;
 	int i;
@@ -751,10 +751,10 @@ static u_char print_subtlv_unrsv_bw(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + TE_SUBTLV_UNRSV_SIZE);
 }
 
-static u_char print_subtlv_te_metric(struct sbuf *buf, int indent,
-				     struct te_subtlv_te_metric *tlv)
+static uint8_t print_subtlv_te_metric(struct sbuf *buf, int indent,
+				      struct te_subtlv_te_metric *tlv)
 {
-	u_int32_t te_metric;
+	uint32_t te_metric;
 
 	te_metric = tlv->value[2] | tlv->value[1] << 8 | tlv->value[0] << 16;
 	sbuf_push(buf, indent, "Traffic Engineering Metric: %u\n", te_metric);
@@ -762,8 +762,8 @@ static u_char print_subtlv_te_metric(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_ras(struct sbuf *buf, int indent,
-			       struct te_subtlv_ras *tlv)
+static uint8_t print_subtlv_ras(struct sbuf *buf, int indent,
+				struct te_subtlv_ras *tlv)
 {
 	sbuf_push(buf, indent, "Inter-AS TE Remote AS number: %" PRIu32 "\n",
 		  ntohl(tlv->value));
@@ -771,8 +771,8 @@ static u_char print_subtlv_ras(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_rip(struct sbuf *buf, int indent,
-			       struct te_subtlv_rip *tlv)
+static uint8_t print_subtlv_rip(struct sbuf *buf, int indent,
+				struct te_subtlv_rip *tlv)
 {
 	sbuf_push(buf, indent, "Inter-AS TE Remote ASBR IP address: %s\n",
 		  inet_ntoa(tlv->value));
@@ -780,14 +780,14 @@ static u_char print_subtlv_rip(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_av_delay(struct sbuf *buf, int indent,
-				    struct te_subtlv_av_delay *tlv)
+static uint8_t print_subtlv_av_delay(struct sbuf *buf, int indent,
+				     struct te_subtlv_av_delay *tlv)
 {
-	u_int32_t delay;
-	u_int32_t A;
+	uint32_t delay;
+	uint32_t A;
 
-	delay = (u_int32_t)ntohl(tlv->value) & TE_EXT_MASK;
-	A = (u_int32_t)ntohl(tlv->value) & TE_EXT_ANORMAL;
+	delay = (uint32_t)ntohl(tlv->value) & TE_EXT_MASK;
+	A = (uint32_t)ntohl(tlv->value) & TE_EXT_ANORMAL;
 
 	sbuf_push(buf, indent,
 		  "%s Average Link Delay: %" PRIu32 " (micro-sec)\n",
@@ -796,15 +796,15 @@ static u_char print_subtlv_av_delay(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_mm_delay(struct sbuf *buf, int indent,
-				    struct te_subtlv_mm_delay *tlv)
+static uint8_t print_subtlv_mm_delay(struct sbuf *buf, int indent,
+				     struct te_subtlv_mm_delay *tlv)
 {
-	u_int32_t low, high;
-	u_int32_t A;
+	uint32_t low, high;
+	uint32_t A;
 
-	low = (u_int32_t)ntohl(tlv->low) & TE_EXT_MASK;
-	A = (u_int32_t)ntohl(tlv->low) & TE_EXT_ANORMAL;
-	high = (u_int32_t)ntohl(tlv->high) & TE_EXT_MASK;
+	low = (uint32_t)ntohl(tlv->low) & TE_EXT_MASK;
+	A = (uint32_t)ntohl(tlv->low) & TE_EXT_ANORMAL;
+	high = (uint32_t)ntohl(tlv->high) & TE_EXT_MASK;
 
 	sbuf_push(buf, indent, "%s Min/Max Link Delay: %" PRIu32 " / %" PRIu32 " (micro-sec)\n",
 		  A ? "Anomalous" : "Normal", low, high);
@@ -812,12 +812,12 @@ static u_char print_subtlv_mm_delay(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_delay_var(struct sbuf *buf, int indent,
-				     struct te_subtlv_delay_var *tlv)
+static uint8_t print_subtlv_delay_var(struct sbuf *buf, int indent,
+				      struct te_subtlv_delay_var *tlv)
 {
-	u_int32_t jitter;
+	uint32_t jitter;
 
-	jitter = (u_int32_t)ntohl(tlv->value) & TE_EXT_MASK;
+	jitter = (uint32_t)ntohl(tlv->value) & TE_EXT_MASK;
 
 	sbuf_push(buf, indent, "Delay Variation: %" PRIu32 " (micro-sec)\n",
 		  jitter);
@@ -825,16 +825,16 @@ static u_char print_subtlv_delay_var(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_pkt_loss(struct sbuf *buf, int indent,
-				    struct te_subtlv_pkt_loss *tlv)
+static uint8_t print_subtlv_pkt_loss(struct sbuf *buf, int indent,
+				     struct te_subtlv_pkt_loss *tlv)
 {
-	u_int32_t loss;
-	u_int32_t A;
+	uint32_t loss;
+	uint32_t A;
 	float fval;
 
-	loss = (u_int32_t)ntohl(tlv->value) & TE_EXT_MASK;
+	loss = (uint32_t)ntohl(tlv->value) & TE_EXT_MASK;
 	fval = (float)(loss * LOSS_PRECISION);
-	A = (u_int32_t)ntohl(tlv->value) & TE_EXT_ANORMAL;
+	A = (uint32_t)ntohl(tlv->value) & TE_EXT_ANORMAL;
 
 	sbuf_push(buf, indent, "%s Link Packet Loss: %g (%%)\n",
 		  A ? "Anomalous" : "Normal", fval);
@@ -842,8 +842,8 @@ static u_char print_subtlv_pkt_loss(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_res_bw(struct sbuf *buf, int indent,
-				  struct te_subtlv_res_bw *tlv)
+static uint8_t print_subtlv_res_bw(struct sbuf *buf, int indent,
+				   struct te_subtlv_res_bw *tlv)
 {
 	float fval;
 
@@ -855,8 +855,8 @@ static u_char print_subtlv_res_bw(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_ava_bw(struct sbuf *buf, int indent,
-				  struct te_subtlv_ava_bw *tlv)
+static uint8_t print_subtlv_ava_bw(struct sbuf *buf, int indent,
+				   struct te_subtlv_ava_bw *tlv)
 {
 	float fval;
 
@@ -868,8 +868,8 @@ static u_char print_subtlv_ava_bw(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_subtlv_use_bw(struct sbuf *buf, int indent,
-				  struct te_subtlv_use_bw *tlv)
+static uint8_t print_subtlv_use_bw(struct sbuf *buf, int indent,
+				   struct te_subtlv_use_bw *tlv)
 {
 	float fval;
 
@@ -881,11 +881,11 @@ static u_char print_subtlv_use_bw(struct sbuf *buf, int indent,
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
 
-static u_char print_unknown_tlv(struct sbuf *buf, int indent,
-				struct subtlv_header *tlvh)
+static uint8_t print_unknown_tlv(struct sbuf *buf, int indent,
+				 struct subtlv_header *tlvh)
 {
 	int i, rtn = 1;
-	u_char *v = (u_char *)tlvh;
+	uint8_t *v = (uint8_t *)tlvh;
 
 	if (tlvh->length != 0) {
 		sbuf_push(buf, indent,

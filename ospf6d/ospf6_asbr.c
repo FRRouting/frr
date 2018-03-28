@@ -813,8 +813,8 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry)
 {
 	struct ospf6_lsa *lsa;
-	u_int16_t type;
-	u_int32_t router;
+	uint16_t type;
+	uint32_t router;
 
 	if (!CHECK_FLAG(asbr_entry->flag, OSPF6_ROUTE_BEST)) {
 		char buf[16];
@@ -835,8 +835,8 @@ void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry)
 void ospf6_asbr_lsentry_remove(struct ospf6_route *asbr_entry)
 {
 	struct ospf6_lsa *lsa;
-	u_int16_t type;
-	u_int32_t router;
+	uint16_t type;
+	uint32_t router;
 
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 	router = ospf6_linkstate_prefix_adv_router(&asbr_entry->prefix);
@@ -997,7 +997,8 @@ void ospf6_asbr_send_externals_to_area(struct ospf6_area *oa)
 }
 
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
-				 struct prefix *prefix, u_int nexthop_num,
+				 struct prefix *prefix,
+				 unsigned int nexthop_num,
 				 struct in6_addr *nexthop, route_tag_t tag)
 {
 	int ret;
@@ -1486,7 +1487,7 @@ ospf6_routemap_rule_set_metric(void *rule, struct prefix *prefix,
 
 static void *ospf6_routemap_rule_set_metric_compile(const char *arg)
 {
-	u_int32_t metric;
+	uint32_t metric;
 	char *endp;
 	metric = strtoul(arg, &endp, 0);
 	if (metric > OSPF_LS_INFINITY || *endp != '\0')
@@ -1740,7 +1741,7 @@ static int ospf6_as_external_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 
 	vty_out(vty, "     Bits: %s\n", buf);
 	vty_out(vty, "     Metric: %5lu\n",
-		(u_long)OSPF6_ASBR_METRIC(external));
+		(unsigned long)OSPF6_ASBR_METRIC(external));
 
 	ospf6_prefix_options_printbuf(external->prefix.prefix_options, buf,
 				      sizeof(buf));
@@ -1773,7 +1774,7 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 {
 	struct ospf6_external_info *info = route->route_option;
 	char prefix[PREFIX2STR_BUFFER], id[16], forwarding[64];
-	u_int32_t tmp_id;
+	uint32_t tmp_id;
 
 	prefix2str(&route->prefix, prefix, sizeof(prefix));
 	tmp_id = ntohl(info->id);
@@ -1788,8 +1789,9 @@ static void ospf6_asbr_external_route_show(struct vty *vty,
 	vty_out(vty, "%c %-32s %-15s type-%d %5lu %s\n",
 		zebra_route_char(info->type), prefix, id,
 		route->path.metric_type,
-		(u_long)(route->path.metric_type == 2 ? route->path.u.cost_e2
-						      : route->path.cost),
+		(unsigned long)(route->path.metric_type == 2
+					? route->path.u.cost_e2
+					: route->path.cost),
 		forwarding);
 }
 

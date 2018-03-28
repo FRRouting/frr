@@ -1111,11 +1111,11 @@ DEFUN (no_bgp_confederation_peers,
  * @set: 1 for setting values, 0 for removing the max-paths config.
  */
 static int bgp_maxpaths_config_vty(struct vty *vty, int peer_type,
-				   const char *mpaths, u_int16_t options,
+				   const char *mpaths, uint16_t options,
 				   int set)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	u_int16_t maxpaths = 0;
+	uint16_t maxpaths = 0;
 	int ret;
 	afi_t afi;
 	safi_t safi;
@@ -1257,8 +1257,8 @@ static int bgp_update_delay_config_vty(struct vty *vty, const char *delay,
 				       const char *wait)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	u_int16_t update_delay;
-	u_int16_t establish_wait;
+	uint16_t update_delay;
+	uint16_t establish_wait;
 
 	update_delay = strtoul(delay, NULL, 10);
 
@@ -1779,7 +1779,7 @@ DEFUN (bgp_graceful_restart_stalepath_time,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
-	u_int32_t stalepath;
+	uint32_t stalepath;
 
 	stalepath = strtoul(argv[idx_number]->arg, NULL, 10);
 	bgp->stalepath_time = stalepath;
@@ -1796,7 +1796,7 @@ DEFUN (bgp_graceful_restart_restart_time,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
-	u_int32_t restart;
+	uint32_t restart;
 
 	restart = strtoul(argv[idx_number]->arg, NULL, 10);
 	bgp->restart_time = restart;
@@ -2292,7 +2292,7 @@ DEFUN (bgp_default_local_preference,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
-	u_int32_t local_pref;
+	uint32_t local_pref;
 
 	local_pref = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -2329,7 +2329,7 @@ DEFUN (bgp_default_subgroup_pkt_queue_max,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
-	u_int32_t max_size;
+	uint32_t max_size;
 
 	max_size = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -3404,7 +3404,7 @@ ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
 	     "Peer-group name\n")
 
 static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
-				u_int16_t flag, int set)
+				uint16_t flag, int set)
 {
 	int ret;
 	struct peer *peer;
@@ -3436,14 +3436,13 @@ static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
 	return bgp_vty_return(vty, ret);
 }
 
-static int peer_flag_set_vty(struct vty *vty, const char *ip_str,
-			     u_int16_t flag)
+static int peer_flag_set_vty(struct vty *vty, const char *ip_str, uint16_t flag)
 {
 	return peer_flag_modify_vty(vty, ip_str, flag, 1);
 }
 
 static int peer_flag_unset_vty(struct vty *vty, const char *ip_str,
-			       u_int16_t flag)
+			       uint16_t flag)
 {
 	return peer_flag_modify_vty(vty, ip_str, flag, 0);
 }
@@ -3608,7 +3607,7 @@ DEFUN (no_neighbor_capability_enhe,
 }
 
 static int peer_af_flag_modify_vty(struct vty *vty, const char *peer_str,
-				   afi_t afi, safi_t safi, u_int32_t flag,
+				   afi_t afi, safi_t safi, uint32_t flag,
 				   int set)
 {
 	int ret;
@@ -3627,13 +3626,13 @@ static int peer_af_flag_modify_vty(struct vty *vty, const char *peer_str,
 }
 
 static int peer_af_flag_set_vty(struct vty *vty, const char *peer_str,
-				afi_t afi, safi_t safi, u_int32_t flag)
+				afi_t afi, safi_t safi, uint32_t flag)
 {
 	return peer_af_flag_modify_vty(vty, peer_str, afi, safi, flag, 1);
 }
 
 static int peer_af_flag_unset_vty(struct vty *vty, const char *peer_str,
-				  afi_t afi, safi_t safi, u_int32_t flag)
+				  afi_t afi, safi_t safi, uint32_t flag)
 {
 	return peer_af_flag_modify_vty(vty, peer_str, afi, safi, flag, 0);
 }
@@ -3653,7 +3652,7 @@ DEFUN (neighbor_capability_orf_prefix,
 {
 	int idx_peer = 1;
 	int idx_send_recv = 5;
-	u_int16_t flag = 0;
+	uint16_t flag = 0;
 
 	if (strmatch(argv[idx_send_recv]->text, "send"))
 		flag = PEER_FLAG_ORF_PREFIX_SM;
@@ -3697,7 +3696,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
 {
 	int idx_peer = 2;
 	int idx_send_recv = 6;
-	u_int16_t flag = 0;
+	uint16_t flag = 0;
 
 	if (strmatch(argv[idx_send_recv]->text, "send"))
 		flag = PEER_FLAG_ORF_PREFIX_SM;
@@ -4072,7 +4071,7 @@ DEFUN (neighbor_send_community_type,
        "Send Large Community attributes\n")
 {
 	int idx = 0;
-	u_int32_t flag = 0;
+	uint32_t flag = 0;
 
 	char *peer = argv[1]->arg;
 
@@ -4338,7 +4337,7 @@ DEFUN (neighbor_attr_unchanged,
 	int idx = 0;
 	char *peer_str = argv[1]->arg;
 	struct peer *peer;
-	u_int16_t flags = 0;
+	uint16_t flags = 0;
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 
@@ -4408,7 +4407,7 @@ DEFUN (no_neighbor_attr_unchanged,
 {
 	int idx = 0;
 	char *peer = argv[2]->arg;
-	u_int16_t flags = 0;
+	uint16_t flags = 0;
 
 	if (argv_find(argv, argc, "as-path", &idx))
 		SET_FLAG(flags, PEER_FLAG_AS_PATH_UNCHANGED);
@@ -4747,7 +4746,7 @@ static int peer_port_vty(struct vty *vty, const char *ip_str, int afi,
 			 const char *port_str)
 {
 	struct peer *peer;
-	u_int16_t port;
+	uint16_t port;
 	struct servent *sp;
 
 	peer = peer_lookup_vty(vty, ip_str);
@@ -4924,8 +4923,8 @@ static int peer_timers_set_vty(struct vty *vty, const char *ip_str,
 {
 	int ret;
 	struct peer *peer;
-	u_int32_t keepalive;
-	u_int32_t holdtime;
+	uint32_t keepalive;
+	uint32_t holdtime;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
@@ -4990,7 +4989,7 @@ static int peer_timers_connect_set_vty(struct vty *vty, const char *ip_str,
 {
 	int ret;
 	struct peer *peer;
-	u_int32_t connect;
+	uint32_t connect;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
@@ -5052,7 +5051,7 @@ static int peer_advertise_interval_vty(struct vty *vty, const char *ip_str,
 {
 	int ret;
 	struct peer *peer;
-	u_int32_t routeadv = 0;
+	uint32_t routeadv = 0;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
@@ -5107,7 +5106,7 @@ DEFUN (bgp_set_route_map_delay_timer,
        "0 disables the timer, no route updates happen when route-maps change\n")
 {
 	int idx_number = 3;
-	u_int32_t rmap_delay_timer;
+	uint32_t rmap_delay_timer;
 
 	if (argv[idx_number]->arg) {
 		rmap_delay_timer = strtoul(argv[idx_number]->arg, NULL, 10);
@@ -5658,9 +5657,9 @@ static int peer_maximum_prefix_set_vty(struct vty *vty, const char *ip_str,
 {
 	int ret;
 	struct peer *peer;
-	u_int32_t max;
-	u_char threshold;
-	u_int16_t restart;
+	uint32_t max;
+	uint8_t threshold;
+	uint16_t restart;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
@@ -7026,7 +7025,7 @@ DEFUN (show_bgp_vrfs,
 	struct list *inst = bm->bgp;
 	struct listnode *node;
 	struct bgp *bgp;
-	u_char uj = use_json(argc, argv);
+	uint8_t uj = use_json(argc, argv);
 	json_object *json = NULL;
 	json_object *json_vrfs = NULL;
 	int count = 0;
@@ -7347,7 +7346,7 @@ static void bgp_show_bestpath_json(struct bgp *bgp, json_object *json)
 
 /* Show BGP peer's summary information. */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
-			    u_char use_json, json_object *json)
+			    uint8_t use_json, json_object *json)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -7762,7 +7761,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 }
 
 static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
-				      int safi, u_char use_json,
+				      int safi, uint8_t use_json,
 				      json_object *json)
 {
 	int is_first = 1;
@@ -7824,7 +7823,7 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 }
 
 static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
-					       safi_t safi, u_char use_json)
+					       safi_t safi, uint8_t use_json)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -7861,7 +7860,7 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 }
 
 int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-			 safi_t safi, u_char use_json)
+			 safi_t safi, uint8_t use_json)
 {
 	struct bgp *bgp;
 
@@ -7999,9 +7998,9 @@ enum show_type { show_all, show_peer };
 
 static void bgp_show_peer_afi_orf_cap(struct vty *vty, struct peer *p,
 				      afi_t afi, safi_t safi,
-				      u_int16_t adv_smcap, u_int16_t adv_rmcap,
-				      u_int16_t rcv_smcap, u_int16_t rcv_rmcap,
-				      u_char use_json, json_object *json_pref)
+				      uint16_t adv_smcap, uint16_t adv_rmcap,
+				      uint16_t rcv_smcap, uint16_t rcv_rmcap,
+				      uint8_t use_json, json_object *json_pref)
 {
 	/* Send-Mode */
 	if (CHECK_FLAG(p->af_cap[afi][safi], adv_smcap)
@@ -8061,7 +8060,7 @@ static void bgp_show_peer_afi_orf_cap(struct vty *vty, struct peer *p,
 }
 
 static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
-			      safi_t safi, u_char use_json,
+			      safi_t safi, uint8_t use_json,
 			      json_object *json_neigh)
 {
 	struct bgp_filter *filter;
@@ -8636,7 +8635,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 	}
 }
 
-static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
+static void bgp_show_peer(struct vty *vty, struct peer *p, uint8_t use_json,
 			  json_object *json)
 {
 	struct bgp *bgp;
@@ -8647,8 +8646,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 	const char *code_str;
 	afi_t afi;
 	safi_t safi;
-	u_int16_t i;
-	u_char *msg;
+	uint16_t i;
+	uint8_t *msg;
 	json_object *json_neigh = NULL;
 	time_t epoch_tbuf;
 
@@ -10083,7 +10082,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 
 					msg_str = bgp_notify_admin_message(
 						msgbuf, sizeof(msgbuf),
-						(u_char *)p->notify.data,
+						(uint8_t *)p->notify.data,
 						p->notify.length);
 					if (msg_str)
 						json_object_string_add(
@@ -10119,7 +10118,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 
 					msg_str = bgp_notify_admin_message(
 						msgbuf, sizeof(msgbuf),
-						(u_char *)p->notify.data,
+						(uint8_t *)p->notify.data,
 						p->notify.length);
 					if (msg_str)
 						vty_out(vty,
@@ -10373,7 +10372,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 
 static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 			     enum show_type type, union sockunion *su,
-			     const char *conf_if, u_char use_json,
+			     const char *conf_if, uint8_t use_json,
 			     json_object *json)
 {
 	struct listnode *node, *nnode;
@@ -10430,7 +10429,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 						 enum show_type type,
 						 const char *ip_str,
-						 u_char use_json)
+						 uint8_t use_json)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -10497,7 +10496,7 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 
 static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 				 enum show_type type, const char *ip_str,
-				 u_char use_json)
+				 uint8_t use_json)
 {
 	int ret;
 	struct bgp *bgp;
@@ -10572,7 +10571,7 @@ DEFUN (show_ip_bgp_neighbors,
 	char *sh_arg = NULL;
 	enum show_type sh_type;
 
-	u_char uj = use_json(argc, argv);
+	uint8_t uj = use_json(argc, argv);
 
 	int idx = 0;
 
@@ -11084,7 +11083,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
 	int idx_protocol = 1;
 	int idx_number = 3;
 	int type;
-	u_int32_t metric;
+	uint32_t metric;
 	struct bgp_redist *red;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
@@ -11121,7 +11120,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 	int idx_word = 3;
 	int idx_number = 5;
 	int type;
-	u_int32_t metric;
+	uint32_t metric;
 	struct bgp_redist *red;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
@@ -11163,7 +11162,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 	int idx_number = 3;
 	int idx_word = 5;
 	int type;
-	u_int32_t metric;
+	uint32_t metric;
 	struct bgp_redist *red;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
@@ -11201,8 +11200,8 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_ospf_table = 1;
 	int idx_number = 2;
-	u_short instance;
-	u_short protocol;
+	unsigned short instance;
+	unsigned short protocol;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -11237,7 +11236,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 	int idx_number = 2;
 	int idx_word = 4;
 	struct bgp_redist *red;
-	u_short instance;
+	unsigned short instance;
 	int protocol;
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
@@ -11275,9 +11274,9 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
 	int idx_ospf_table = 1;
 	int idx_number = 2;
 	int idx_number_2 = 4;
-	u_int32_t metric;
+	uint32_t metric;
 	struct bgp_redist *red;
-	u_short instance;
+	unsigned short instance;
 	int protocol;
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
@@ -11320,9 +11319,9 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
 	int idx_number = 2;
 	int idx_word = 4;
 	int idx_number_2 = 6;
-	u_int32_t metric;
+	uint32_t metric;
 	struct bgp_redist *red;
-	u_short instance;
+	unsigned short instance;
 	int protocol;
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
@@ -11369,9 +11368,9 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
 	int idx_number = 2;
 	int idx_number_2 = 4;
 	int idx_word = 6;
-	u_int32_t metric;
+	uint32_t metric;
 	struct bgp_redist *red;
-	u_short instance;
+	unsigned short instance;
 	int protocol;
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
@@ -11417,7 +11416,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_ospf_table = 2;
 	int idx_number = 3;
-	u_short instance;
+	unsigned short instance;
 	int protocol;
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
@@ -11533,7 +11532,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
 	int idx_protocol = 1;
 	int idx_number = 3;
 	int type;
-	u_int32_t metric;
+	uint32_t metric;
 	struct bgp_redist *red;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
@@ -11563,7 +11562,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 	int idx_word = 3;
 	int idx_number = 5;
 	int type;
-	u_int32_t metric;
+	uint32_t metric;
 	struct bgp_redist *red;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
@@ -11594,7 +11593,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 	int idx_number = 3;
 	int idx_word = 5;
 	int type;
-	u_int32_t metric;
+	uint32_t metric;
 	struct bgp_redist *red;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);

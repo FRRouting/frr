@@ -62,7 +62,7 @@ void api_opaque_lsa_print(struct lsa_header *data)
 {
 	struct opaque_lsa {
 		struct lsa_header header;
-		u_char mydata[];
+		uint8_t mydata[];
 	};
 
 	struct opaque_lsa *olsa;
@@ -87,8 +87,8 @@ void api_opaque_lsa_print(struct lsa_header *data)
  * -----------------------------------------------------------
  */
 
-struct msg *msg_new(u_char msgtype, void *msgbody, u_int32_t seqnum,
-		    u_int16_t msglen)
+struct msg *msg_new(uint8_t msgtype, void *msgbody, uint32_t seqnum,
+		    uint16_t msglen)
 {
 	struct msg *new;
 
@@ -282,14 +282,14 @@ void msg_free(struct msg *msg)
 
 
 /* Set sequence number of message */
-void msg_set_seq(struct msg *msg, u_int32_t seqnr)
+void msg_set_seq(struct msg *msg, uint32_t seqnr)
 {
 	assert(msg);
 	msg->hdr.msgseq = htonl(seqnr);
 }
 
 /* Get sequence number of message */
-u_int32_t msg_get_seq(struct msg *msg)
+uint32_t msg_get_seq(struct msg *msg)
 {
 	assert(msg);
 	return ntohl(msg->hdr.msgseq);
@@ -368,12 +368,12 @@ struct msg *msg_read(int fd)
 {
 	struct msg *msg;
 	struct apimsghdr hdr;
-	u_char buf[OSPF_API_MAX_MSG_SIZE];
+	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
 	int bodylen;
 	int rlen;
 
 	/* Read message header */
-	rlen = readn(fd, (u_char *)&hdr, sizeof(struct apimsghdr));
+	rlen = readn(fd, (uint8_t *)&hdr, sizeof(struct apimsghdr));
 
 	if (rlen < 0) {
 		zlog_warn("msg_read: readn %s", safe_strerror(errno));
@@ -418,7 +418,7 @@ struct msg *msg_read(int fd)
 
 int msg_write(int fd, struct msg *msg)
 {
-	u_char buf[OSPF_API_MAX_MSG_SIZE];
+	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
 	int l;
 	int wlen;
 
@@ -452,8 +452,8 @@ int msg_write(int fd, struct msg *msg)
  * -----------------------------------------------------------
  */
 
-struct msg *new_msg_register_opaque_type(u_int32_t seqnum, u_char ltype,
-					 u_char otype)
+struct msg *new_msg_register_opaque_type(uint32_t seqnum, uint8_t ltype,
+					 uint8_t otype)
 {
 	struct msg_register_opaque_type rmsg;
 
@@ -465,10 +465,10 @@ struct msg *new_msg_register_opaque_type(u_int32_t seqnum, u_char ltype,
 		       sizeof(struct msg_register_opaque_type));
 }
 
-struct msg *new_msg_register_event(u_int32_t seqnum,
+struct msg *new_msg_register_event(uint32_t seqnum,
 				   struct lsa_filter_type *filter)
 {
-	u_char buf[OSPF_API_MAX_MSG_SIZE];
+	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
 	struct msg_register_event *emsg;
 	unsigned int len;
 
@@ -484,9 +484,9 @@ struct msg *new_msg_register_event(u_int32_t seqnum,
 	return msg_new(MSG_REGISTER_EVENT, emsg, seqnum, len);
 }
 
-struct msg *new_msg_sync_lsdb(u_int32_t seqnum, struct lsa_filter_type *filter)
+struct msg *new_msg_sync_lsdb(uint32_t seqnum, struct lsa_filter_type *filter)
 {
-	u_char buf[OSPF_API_MAX_MSG_SIZE];
+	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
 	struct msg_sync_lsdb *smsg;
 	unsigned int len;
 
@@ -503,7 +503,7 @@ struct msg *new_msg_sync_lsdb(u_int32_t seqnum, struct lsa_filter_type *filter)
 }
 
 
-struct msg *new_msg_originate_request(u_int32_t seqnum, struct in_addr ifaddr,
+struct msg *new_msg_originate_request(uint32_t seqnum, struct in_addr ifaddr,
 				      struct in_addr area_id,
 				      struct lsa_header *data)
 {
@@ -527,9 +527,9 @@ struct msg *new_msg_originate_request(u_int32_t seqnum, struct in_addr ifaddr,
 	return msg_new(MSG_ORIGINATE_REQUEST, omsg, seqnum, omsglen);
 }
 
-struct msg *new_msg_delete_request(u_int32_t seqnum, struct in_addr area_id,
-				   u_char lsa_type, u_char opaque_type,
-				   u_int32_t opaque_id)
+struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr area_id,
+				   uint8_t lsa_type, uint8_t opaque_type,
+				   uint32_t opaque_id)
 {
 	struct msg_delete_request dmsg;
 	dmsg.area_id = area_id;
@@ -543,7 +543,7 @@ struct msg *new_msg_delete_request(u_int32_t seqnum, struct in_addr area_id,
 }
 
 
-struct msg *new_msg_reply(u_int32_t seqnr, u_char rc)
+struct msg *new_msg_reply(uint32_t seqnr, uint8_t rc)
 {
 	struct msg *msg;
 	struct msg_reply rmsg;
@@ -557,8 +557,8 @@ struct msg *new_msg_reply(u_int32_t seqnr, u_char rc)
 	return msg;
 }
 
-struct msg *new_msg_ready_notify(u_int32_t seqnr, u_char lsa_type,
-				 u_char opaque_type, struct in_addr addr)
+struct msg *new_msg_ready_notify(uint32_t seqnr, uint8_t lsa_type,
+				 uint8_t opaque_type, struct in_addr addr)
 {
 	struct msg_ready_notify rmsg;
 
@@ -571,7 +571,7 @@ struct msg *new_msg_ready_notify(u_int32_t seqnr, u_char lsa_type,
 		       sizeof(struct msg_ready_notify));
 }
 
-struct msg *new_msg_new_if(u_int32_t seqnr, struct in_addr ifaddr,
+struct msg *new_msg_new_if(uint32_t seqnr, struct in_addr ifaddr,
 			   struct in_addr area_id)
 {
 	struct msg_new_if nmsg;
@@ -582,7 +582,7 @@ struct msg *new_msg_new_if(u_int32_t seqnr, struct in_addr ifaddr,
 	return msg_new(MSG_NEW_IF, &nmsg, seqnr, sizeof(struct msg_new_if));
 }
 
-struct msg *new_msg_del_if(u_int32_t seqnr, struct in_addr ifaddr)
+struct msg *new_msg_del_if(uint32_t seqnr, struct in_addr ifaddr)
 {
 	struct msg_del_if dmsg;
 
@@ -591,8 +591,8 @@ struct msg *new_msg_del_if(u_int32_t seqnr, struct in_addr ifaddr)
 	return msg_new(MSG_DEL_IF, &dmsg, seqnr, sizeof(struct msg_del_if));
 }
 
-struct msg *new_msg_ism_change(u_int32_t seqnr, struct in_addr ifaddr,
-			       struct in_addr area_id, u_char status)
+struct msg *new_msg_ism_change(uint32_t seqnr, struct in_addr ifaddr,
+			       struct in_addr area_id, uint8_t status)
 {
 	struct msg_ism_change imsg;
 
@@ -605,9 +605,9 @@ struct msg *new_msg_ism_change(u_int32_t seqnr, struct in_addr ifaddr,
 		       sizeof(struct msg_ism_change));
 }
 
-struct msg *new_msg_nsm_change(u_int32_t seqnr, struct in_addr ifaddr,
+struct msg *new_msg_nsm_change(uint32_t seqnr, struct in_addr ifaddr,
 			       struct in_addr nbraddr, struct in_addr router_id,
-			       u_char status)
+			       uint8_t status)
 {
 	struct msg_nsm_change nmsg;
 
@@ -621,13 +621,13 @@ struct msg *new_msg_nsm_change(u_int32_t seqnr, struct in_addr ifaddr,
 		       sizeof(struct msg_nsm_change));
 }
 
-struct msg *new_msg_lsa_change_notify(u_char msgtype, u_int32_t seqnum,
+struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
 				      struct in_addr ifaddr,
 				      struct in_addr area_id,
-				      u_char is_self_originated,
+				      uint8_t is_self_originated,
 				      struct lsa_header *data)
 {
-	u_char buf[OSPF_API_MAX_MSG_SIZE];
+	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
 	struct msg_lsa_change_notify *nmsg;
 	unsigned int len;
 

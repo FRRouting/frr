@@ -81,7 +81,7 @@ extern int setsockopt_ipv4_multicast(int sock, int optname,
 				     struct in_addr if_addr,
 				     unsigned int mcast_addr,
 				     ifindex_t ifindex);
-extern int setsockopt_ipv4_multicast_loop(int sock, u_char val);
+extern int setsockopt_ipv4_multicast_loop(int sock, uint8_t val);
 
 extern int setsockopt_ipv4_tos(int sock, int tos);
 

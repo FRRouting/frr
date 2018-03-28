@@ -230,7 +230,7 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 	      size_t enamelen, const oid *name, size_t namelen,
 	      const oid *iname, size_t inamelen,
 	      const struct trap_object *trapobj, size_t trapobjlen,
-	      u_char sptrap)
+	      uint8_t sptrap)
 {
 	oid objid_snmptrap[] = {1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0};
 	size_t objid_snmptrap_len = sizeof objid_snmptrap / sizeof(oid);
@@ -248,7 +248,7 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 	notification_oid_len = enamelen + 1;
 	snmp_varlist_add_variable(&notification_vars, objid_snmptrap,
 				  objid_snmptrap_len, ASN_OBJECT_ID,
-				  (u_char *)notification_oid,
+				  (uint8_t *)notification_oid,
 				  notification_oid_len * sizeof(oid));
 
 	/* Provided bindings */
@@ -256,7 +256,7 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 		unsigned int j;
 		oid oid[MAX_OID_LEN];
 		size_t oid_len, onamelen;
-		u_char *val;
+		uint8_t *val;
 		size_t val_len;
 		WriteMethod *wm = NULL;
 		struct variable cvp;

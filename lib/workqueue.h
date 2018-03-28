@@ -106,7 +106,7 @@ struct work_queue {
 	} cycles; /* cycle counts */
 
 	/* private state */
-	u_int16_t flags; /* user set flag */
+	uint16_t flags; /* user set flag */
 };
 
 /* User API */

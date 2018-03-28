@@ -296,7 +296,7 @@ static char *str_append(char *dst, int len, const char *src)
 	return dst;
 }
 
-static char *num_append(char *s, int len, u_long x)
+static char *num_append(char *s, int len, unsigned long x)
 {
 	char buf[30];
 	char *t;
@@ -312,7 +312,7 @@ static char *num_append(char *s, int len, u_long x)
 }
 
 #if defined(SA_SIGINFO) || defined(HAVE_STACK_TRACE)
-static char *hex_append(char *s, int len, u_long x)
+static char *hex_append(char *s, int len, unsigned long x)
 {
 	char buf[30];
 	char *t;
@@ -321,7 +321,7 @@ static char *hex_append(char *s, int len, u_long x)
 		return str_append(s, len, "0");
 	*(t = &buf[sizeof(buf) - 1]) = '\0';
 	while (x && (t > buf)) {
-		u_int cc = (x % 16);
+		unsigned int cc = (x % 16);
 		*--t = ((cc < 10) ? ('0' + cc) : ('a' + cc - 10));
 		x /= 16;
 	}
@@ -446,10 +446,10 @@ void zlog_signal(int signo, const char *action
 	s = num_append(LOC, now);
 #ifdef SA_SIGINFO
 	s = str_append(LOC, " (si_addr 0x");
-	s = hex_append(LOC, (u_long)(siginfo->si_addr));
+	s = hex_append(LOC, (unsigned long)(siginfo->si_addr));
 	if (program_counter) {
 		s = str_append(LOC, ", PC 0x");
-		s = hex_append(LOC, (u_long)program_counter);
+		s = hex_append(LOC, (unsigned long)program_counter);
 	}
 	s = str_append(LOC, "); ");
 #else  /* SA_SIGINFO */
@@ -596,7 +596,8 @@ void zlog_backtrace_sigsafe(int priority, void *program_counter)
 					s = str_append(LOC, "[bt ");
 					s = num_append(LOC, i);
 					s = str_append(LOC, "] 0x");
-					s = hex_append(LOC, (u_long)(array[i]));
+					s = hex_append(
+						LOC, (unsigned long)(array[i]));
 				}
 				*s = '\0';
 				if (priority
@@ -720,11 +721,11 @@ void memory_oom(size_t size, const char *name)
 }
 
 /* Open log stream */
-void openzlog(const char *progname, const char *protoname, u_short instance,
-	      int syslog_flags, int syslog_facility)
+void openzlog(const char *progname, const char *protoname,
+	      unsigned short instance, int syslog_flags, int syslog_facility)
 {
 	struct zlog *zl;
-	u_int i;
+	unsigned int i;
 
 	zl = XCALLOC(MTYPE_ZLOG, sizeof(struct zlog));
 
@@ -969,9 +970,9 @@ static const struct zebra_desc_table command_types[] = {
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};
 
-static const struct zebra_desc_table *zroute_lookup(u_int zroute)
+static const struct zebra_desc_table *zroute_lookup(unsigned int zroute)
 {
-	u_int i;
+	unsigned int i;
 
 	if (zroute >= array_size(route_types)) {
 		zlog_err("unknown zebra route type: %u", zroute);
@@ -992,12 +993,12 @@ static const struct zebra_desc_table *zroute_lookup(u_int zroute)
 	return &unknown;
 }
 
-const char *zebra_route_string(u_int zroute)
+const char *zebra_route_string(unsigned int zroute)
 {
 	return zroute_lookup(zroute)->string;
 }
 
-char zebra_route_char(u_int zroute)
+char zebra_route_char(unsigned int zroute)
 {
 	return zroute_lookup(zroute)->chr;
 }
