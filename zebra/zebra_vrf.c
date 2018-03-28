@@ -525,9 +525,7 @@ static int vrf_config_write(struct vty *vty)
 			if (zvrf->l3vni)
 				vty_out(vty, "vni %u\n", zvrf->l3vni);
 			vty_out(vty, "!\n");
-		}
-
-		if (vrf_is_user_cfged(vrf)) {
+		} else if (vrf_is_user_cfged(vrf)) {
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
 				vty_out(vty, " vni %u%s\n", zvrf->l3vni,
