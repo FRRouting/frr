@@ -163,6 +163,7 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 	msg->sub_address_family = QPB__SUB_ADDRESS_FAMILY__UNICAST;
 	msg->key = fpm_route_key_create(allocator, rib_dest_prefix(dest));
 	qpb_protocol_set(&msg->protocol, re->type);
+	msg->has_route_type = 1;
 	msg->route_type = FPM__ROUTE_TYPE__NORMAL;
 	msg->metric = re->metric;
 
@@ -245,6 +246,7 @@ static Fpm__Message *create_route_message(qpb_allocator_t *allocator,
 	fpm__message__init(msg);
 
 	if (!re) {
+		msg->has_type = 1;
 		msg->type = FPM__MESSAGE__TYPE__DELETE_ROUTE;
 		msg->delete_route =
 			create_delete_route_message(allocator, dest, re);
@@ -255,6 +257,7 @@ static Fpm__Message *create_route_message(qpb_allocator_t *allocator,
 		return msg;
 	}
 
+	msg->has_type = 1;
 	msg->type = FPM__MESSAGE__TYPE__ADD_ROUTE;
 	msg->add_route = create_add_route_message(allocator, dest, re);
 	if (!msg->add_route) {
