@@ -83,4 +83,7 @@ extern void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 			  struct bgp_pbr_match *pbm,
 			  bool install);
 
+extern void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
+				afi_t afi, uint32_t table_id, bool announce);
+
 #endif /* _QUAGGA_BGP_ZEBRA_H */
