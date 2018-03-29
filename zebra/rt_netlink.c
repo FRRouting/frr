@@ -927,9 +927,9 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				" 5549: _netlink_route_build_singlepath() (%s): "
-				"nexthop via %s %s if %u",
+				"nexthop via %s %s if %u(%u)",
 				routedesc, ipv4_ll_buf, label_buf,
-				nexthop->ifindex);
+				nexthop->ifindex, nexthop->vrf_id);
 		return;
 	}
 
@@ -953,9 +953,9 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"netlink_route_multipath() (%s): "
-				"nexthop via %s %s if %u",
+				"nexthop via %s %s if %u(%u)",
 				routedesc, inet_ntoa(nexthop->gate.ipv4),
-				label_buf, nexthop->ifindex);
+				label_buf, nexthop->ifindex, nexthop->vrf_id);
 	}
 
 	if (nexthop->type == NEXTHOP_TYPE_IPV6
@@ -976,9 +976,9 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"netlink_route_multipath() (%s): "
-				"nexthop via %s %s if %u",
+				"nexthop via %s %s if %u(%u)",
 				routedesc, inet6_ntoa(nexthop->gate.ipv6),
-				label_buf, nexthop->ifindex);
+				label_buf, nexthop->ifindex, nexthop->vrf_id);
 	}
 
 	/*
@@ -1003,8 +1003,8 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"netlink_route_multipath() (%s): "
-				"nexthop via if %u",
-				routedesc, nexthop->ifindex);
+				"nexthop via if %u(%u)",
+				routedesc, nexthop->ifindex, nexthop->vrf_id);
 	}
 
 	if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
@@ -1020,8 +1020,8 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"netlink_route_multipath() (%s): "
-				"nexthop via if %u",
-				routedesc, nexthop->ifindex);
+				"nexthop via if %u(%u)",
+				routedesc, nexthop->ifindex, nexthop->vrf_id);
 	}
 }
 
@@ -1260,14 +1260,15 @@ _netlink_mpls_build_multipath(const char *routedesc, zebra_nhlfe_t *nhlfe,
  */
 static void _netlink_route_debug(int cmd, struct prefix *p,
 				 struct nexthop *nexthop, const char *routedesc,
-				 int family, struct zebra_vrf *zvrf)
+				 int family, struct zebra_vrf *zvrf,
+				 uint32_t tableid)
 {
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char buf[PREFIX_STRLEN];
 		zlog_debug(
-			"netlink_route_multipath() (%s): %s %s vrf %u type %s",
+			"netlink_route_multipath() (%s): %s %s vrf %u(%u) type %s",
 			routedesc, nl_msg_type_to_str(cmd),
-			prefix2str(p, buf, sizeof(buf)), zvrf_id(zvrf),
+			prefix2str(p, buf, sizeof(buf)), zvrf_id(zvrf), tableid,
 			(nexthop) ? nexthop_type_to_str(nexthop->type) : "UNK");
 	}
 }
@@ -1486,7 +1487,7 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 						    : "single-path";
 
 				_netlink_route_debug(cmd, p, nexthop, routedesc,
-						     family, zvrf);
+						     family, zvrf, re->table);
 				_netlink_route_build_singlepath(
 					routedesc, bytelen, nexthop, &req.n,
 					&req.r, sizeof req, cmd);
@@ -1570,7 +1571,7 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 				nexthop_num++;
 
 				_netlink_route_debug(cmd, p, nexthop, routedesc,
-						     family, zvrf);
+						     family, zvrf, re->table);
 				_netlink_route_build_multipath(
 					routedesc, bytelen, nexthop, rta, rtnh,
 					&req.r, &src1);
