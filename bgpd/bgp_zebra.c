@@ -1197,12 +1197,17 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 					ifindex = mpinfo->peer->nexthop.ifp
 							  ->ifindex;
 			}
-			if (ifindex == 0)
-				continue;
+
+			if (IN6_IS_ADDR_LINKLOCAL(nexthop)) {
+				if (ifindex == 0)
+					continue;
+			} else
+				ifindex = 0;
 
 			api_nh->gate.ipv6 = *nexthop;
 			api_nh->ifindex = ifindex;
-			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			api_nh->type = ifindex ? NEXTHOP_TYPE_IPV6_IFINDEX
+					       : NEXTHOP_TYPE_IPV6;
 		}
 
 		if (mpinfo->extra
