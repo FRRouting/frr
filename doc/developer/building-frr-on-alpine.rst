@@ -1,4 +1,4 @@
-Building FRR dev packages on Alpine Linux from Git Source
+Alpine Linux 3.7+
 =========================================================
 
 For building Alpine Linux dev packages, we use docker.
