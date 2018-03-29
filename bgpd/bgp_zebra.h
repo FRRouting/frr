@@ -24,7 +24,10 @@
 #include "vxlan.h"
 
 extern void bgp_zebra_init(struct thread_master *master);
+extern void bgp_zebra_init_tm_connect(void);
 extern void bgp_zebra_destroy(void);
+extern int bgp_zebra_get_table_range(uint32_t chunk_size,
+				     uint32_t *start, uint32_t *end);
 extern int bgp_if_update_all(void);
 extern void bgp_config_write_maxpaths(struct vty *, struct bgp *, afi_t,
 				      safi_t);

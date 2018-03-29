@@ -61,6 +61,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/rt.h"
 #include "zebra/zebra_pbr.h"
+#include "zebra/table_manager.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_READ, ZEBRA_WRITE };
@@ -2186,6 +2187,60 @@ stream_failure:
 	return;
 }
 
+static int zsend_table_manager_connect_response(struct zserv *client,
+						vrf_id_t vrf_id, uint16_t result)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_TABLE_MANAGER_CONNECT, vrf_id);
+
+	/* result */
+	stream_putc(s, result);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zebra_server_send_message(client, s);
+}
+
+/* Send response to a table manager connect request to client */
+static void zread_table_manager_connect(struct zserv *client,
+					struct stream *msg,
+					vrf_id_t vrf_id)
+{
+	struct stream *s;
+	uint8_t proto;
+	uint16_t instance;
+
+	s = msg;
+
+	/* Get data. */
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
+
+	/* accept only dynamic routing protocols */
+	if ((proto >= ZEBRA_ROUTE_MAX) || (proto <= ZEBRA_ROUTE_STATIC)) {
+		zlog_err("client %d has wrong protocol %s", client->sock,
+			 zebra_route_string(proto));
+		zsend_table_manager_connect_response(client, vrf_id, 1);
+		return;
+	}
+	zlog_notice("client %d with vrf %u instance %u connected as %s",
+		    client->sock, vrf_id, instance, zebra_route_string(proto));
+	client->proto = proto;
+	client->instance = instance;
+
+	/*
+	 * Release previous labels of same protocol and instance.
+	 * This is done in case it restarted from an unexpected shutdown.
+	 */
+	release_daemon_table_chunks(proto, instance);
+
+	zsend_table_manager_connect_response(client, vrf_id, 0);
+
+ stream_failure:
+	return;
+}
+
 static void zread_label_manager_connect(struct zserv *client,
 					struct stream *msg, vrf_id_t vrf_id)
 {
@@ -2217,7 +2272,7 @@ static void zread_label_manager_connect(struct zserv *client,
 	  Release previous labels of same protocol and instance.
 	  This is done in case it restarted from an unexpected shutdown.
 	*/
-	release_daemon_chunks(proto, instance);
+	release_daemon_label_chunks(proto, instance);
 
 	zlog_debug(
 		" Label Manager client connected: sock %d, proto %s, vrf %u instance %u",
@@ -2225,7 +2280,7 @@ static void zread_label_manager_connect(struct zserv *client,
 	/* send response back */
 	zsend_label_manager_connect_response(client, vrf_id, 0);
 
-stream_failure:
+ stream_failure:
 	return;
 }
 
@@ -2302,6 +2357,92 @@ static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 			else if (hdr->command == ZEBRA_RELEASE_LABEL_CHUNK)
 				zread_release_label_chunk(client, msg);
 		}
+	}
+}
+
+/* Send response to a get table chunk request to client */
+static int zsend_assign_table_chunk_response(struct zserv *client,
+					     vrf_id_t vrf_id,
+					     struct table_manager_chunk *tmc)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_GET_TABLE_CHUNK, vrf_id);
+
+	if (tmc) {
+		/* start and end labels */
+		stream_putl(s, tmc->start);
+		stream_putl(s, tmc->end);
+	}
+
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zebra_server_send_message(client, s);
+}
+
+static void zread_get_table_chunk(struct zserv *client, struct stream *msg,
+				  vrf_id_t vrf_id)
+{
+	struct stream *s;
+	uint32_t size;
+	struct table_manager_chunk *tmc;
+
+	/* Get input stream.  */
+	s = msg;
+
+	/* Get data. */
+	STREAM_GETL(s, size);
+
+	tmc = assign_table_chunk(client->proto, client->instance, size);
+	if (!tmc)
+		zlog_err("%s: Unable to assign Table Chunk of size %u",
+			 __func__, size);
+	else
+		zlog_debug("Assigned Table Chunk %u - %u", tmc->start,
+			   tmc->end);
+	/* send response back */
+	zsend_assign_table_chunk_response(client, vrf_id, tmc);
+
+stream_failure:
+	return;
+}
+
+static void zread_release_table_chunk(struct zserv *client, struct stream *msg)
+{
+	struct stream *s;
+	uint32_t start, end;
+
+	/* Get input stream.  */
+	s = msg;
+
+	/* Get data. */
+	STREAM_GETL(s, start);
+	STREAM_GETL(s, end);
+
+	release_table_chunk(client->proto, client->instance, start, end);
+
+stream_failure:
+	return;
+}
+
+static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
+{
+	/* to avoid sending other messages like ZERBA_INTERFACE_UP */
+	if (hdr->command == ZEBRA_TABLE_MANAGER_CONNECT)
+		zread_table_manager_connect(client, msg, zvrf_id(zvrf));
+	else {
+		/* Sanity: don't allow 'unidentified' requests */
+		if (!client->proto) {
+			zlog_err(
+				 "Got table request from an unidentified client");
+			return;
+		}
+		if (hdr->command == ZEBRA_GET_TABLE_CHUNK)
+			zread_get_table_chunk(client, msg,
+					      zvrf_id(zvrf));
+		else if (hdr->command == ZEBRA_RELEASE_TABLE_CHUNK)
+			zread_release_table_chunk(client, msg);
 	}
 }
 
@@ -2627,6 +2768,9 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_PW_UNSET] = zread_pseudowire,
 	[ZEBRA_RULE_ADD] = zread_rule,
 	[ZEBRA_RULE_DELETE] = zread_rule,
+	[ZEBRA_TABLE_MANAGER_CONNECT] = zread_table_manager_request,
+	[ZEBRA_GET_TABLE_CHUNK] = zread_table_manager_request,
+	[ZEBRA_RELEASE_TABLE_CHUNK] = zread_table_manager_request,
 };
 
 static inline void zserv_handle_commands(struct zserv *client,
@@ -2658,7 +2802,10 @@ static void zebra_client_free(struct zserv *client)
 	zebra_client_close_cleanup_rnh(client);
 
 	/* Release Label Manager chunks */
-	release_daemon_chunks(client->proto, client->instance);
+	release_daemon_label_chunks(client->proto, client->instance);
+
+	/* Release Table Manager chunks */
+	release_daemon_table_chunks(client->proto, client->instance);
 
 	/* Cleanup any FECs registered by this client. */
 	zebra_mpls_cleanup_fecs_for_client(vrf_info_lookup(VRF_DEFAULT),
