@@ -6575,6 +6575,81 @@ ALIAS (af_route_map_vpn_imexport,
        "For routes leaked from vpn to current address-family\n"
        "For routes leaked from current address-family to vpn\n")
 
+DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
+      "[no] import vrf route-map RMAP$rmap_str",
+      NO_STR
+      "Import routes from another VRF\n"
+      "Vrf routes being filtered\n"
+      "Specify route map\n"
+      "name of route-map\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	int ret;
+	int doafi[AFI_MAX] = {0};
+	vpn_policy_direction_t dir = BGP_VPN_POLICY_DIR_FROMVPN;
+	afi_t afi;
+	int idx = 0;
+	int yes = 1;
+	struct bgp *bgp_default;
+
+	if (argv_find(argv, argc, "no", &idx))
+		yes = 0;
+
+	ret = vpn_policy_getafi(vty, doafi);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
+	bgp_default = bgp_get_default();
+	if (!bgp_default) {
+		int32_t ret;
+		as_t as = bgp->as;
+
+		/* Auto-create assuming the same AS */
+		ret = bgp_get(&bgp_default, &as, NULL,
+			      BGP_INSTANCE_TYPE_DEFAULT);
+
+		if (ret) {
+			vty_out(vty,
+				"VRF default is not configured as a bgp instance\n");
+			return CMD_WARNING;
+		}
+	}
+
+	for (afi = 0; afi < AFI_MAX; ++afi) {
+		if (!doafi[afi])
+			continue;
+
+		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+
+		if (yes) {
+			if (bgp->vpn_policy[afi].rmap_name[dir])
+				XFREE(MTYPE_ROUTE_MAP_NAME,
+				      bgp->vpn_policy[afi].rmap_name[dir]);
+			bgp->vpn_policy[afi].rmap_name[dir] =
+				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+			bgp->vpn_policy[afi].rmap[dir] =
+				route_map_lookup_by_name(rmap_str);
+		} else {
+			if (bgp->vpn_policy[afi].rmap_name[dir])
+				XFREE(MTYPE_ROUTE_MAP_NAME,
+				      bgp->vpn_policy[afi].rmap_name[dir]);
+			bgp->vpn_policy[afi].rmap_name[dir] = NULL;
+			bgp->vpn_policy[afi].rmap[dir] = NULL;
+		}
+
+		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+	}
+
+	return CMD_SUCCESS;
+}
+
+ALIAS(af_import_vrf_route_map, af_no_import_vrf_route_map_cmd,
+      "no import vrf route-map",
+      NO_STR
+      "Import routes from another VRF\n"
+      "Vrf routes being filtered\n"
+      "Specify route map\n")
+
 DEFPY (bgp_imexport_vrf,
        bgp_imexport_vrf_cmd,
        "[no] import vrf NAME$import_name",
@@ -11910,6 +11985,11 @@ void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 {
 	int indent = 2;
 
+	if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN])
+		vty_out(vty, "%*simport vrf route-map %s\n", indent, "",
+			bgp->vpn_policy[afi]
+				.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]);
+
 	if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
 		       BGP_CONFIG_VRF_TO_VRF_IMPORT)
 	    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
@@ -11977,16 +12057,12 @@ void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 			XFREE(MTYPE_ECOMMUNITY_STR, b);
 		}
 	}
-	if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]) {
-		vty_out(vty, "%*sroute-map vpn import %s\n", indent, "",
-			bgp->vpn_policy[afi]
-				.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]);
-	}
-	if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_TOVPN]) {
+
+	if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_TOVPN])
 		vty_out(vty, "%*sroute-map vpn export %s\n", indent, "",
 			bgp->vpn_policy[afi]
 				.rmap_name[BGP_VPN_POLICY_DIR_TOVPN]);
-	}
+
 	if (bgp->vpn_policy[afi].import_redirect_rtlist) {
 		char *b = ecommunity_ecom2str(
 					bgp->vpn_policy[afi]
@@ -13270,6 +13346,8 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV4_NODE, &af_route_map_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_route_map_vpn_imexport_cmd);
+	install_element(BGP_IPV4_NODE, &af_import_vrf_route_map_cmd);
+	install_element(BGP_IPV6_NODE, &af_import_vrf_route_map_cmd);
 
 	install_element(BGP_IPV4_NODE, &af_routetarget_import_cmd);
 	install_element(BGP_IPV6_NODE, &af_routetarget_import_cmd);
@@ -13284,6 +13362,8 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_no_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV4_NODE, &af_no_route_map_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_route_map_vpn_imexport_cmd);
+	install_element(BGP_IPV4_NODE, &af_no_import_vrf_route_map_cmd);
+	install_element(BGP_IPV6_NODE, &af_no_import_vrf_route_map_cmd);
 }
 
 #include "memory.h"
