@@ -654,8 +654,8 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 		return;
 	}
 
-	/* loop check */
-	if (info_vrf->extra && info_vrf->extra->bgp_orig == bgp_vpn)
+	/* loop check - should not be an imported route. */
+	if (info_vrf->extra && info_vrf->extra->bgp_orig)
 		return;
 
 
