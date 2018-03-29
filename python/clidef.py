@@ -186,7 +186,7 @@ def process_file(fn, ofd, dumpfd, all_defun):
     filedata = clippy.parse(fn)
 
     for entry in filedata['data']:
-        if entry['type'] == 'DEFPY' or (all_defun and entry['type'].startswith('DEFUN')):
+        if entry['type'].startswith('DEFPY') or (all_defun and entry['type'].startswith('DEFUN')):
             cmddef = entry['args'][2]
             cmddef = ''.join([i[1:-1] for i in cmddef])
 
