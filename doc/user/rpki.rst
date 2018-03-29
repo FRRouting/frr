@@ -44,6 +44,9 @@ In a nutshell, the current implementation provides the following features
 - Route maps can be configured to match a specific RPKI validation state. This
   allows the creation of local policies, which handle BGP routes based on the
   outcome of the Prefix Origin Validation.
+- Updates from the RPKI cache servers are directly applied and path selection
+  is updated accordingly. (Soft reconfiguration **must** be enabled for this
+  to work).
 
 
 .. _enabling-rpki:

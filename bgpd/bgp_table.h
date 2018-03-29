@@ -24,6 +24,7 @@
 #include "mpls.h"
 #include "table.h"
 #include "queue.h"
+#include "linklist.h"
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -308,5 +309,8 @@ static inline uint64_t bgp_table_version(struct bgp_table *table)
 {
 	return table->version;
 }
+
+void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
+			    uint8_t maxlen, struct list *matches);
 
 #endif /* _QUAGGA_BGP_TABLE_H */
