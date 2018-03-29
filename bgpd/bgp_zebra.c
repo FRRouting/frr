@@ -1082,16 +1082,9 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (info->type == ZEBRA_ROUTE_BGP
 	    && info->sub_type == BGP_ROUTE_IMPORTED) {
 
-		struct bgp_info *bi;
-
-		/*
-		 * Look at parent chain for peer sort
-		 */
-		for (bi = info; bi->extra && bi->extra->parent;
-		     bi = bi->extra->parent) {
-
-			peer = ((struct bgp_info *)(bi->extra->parent))->peer;
-		}
+		/* Obtain peer from parent */
+		if (info->extra && info->extra->parent)
+			peer = ((struct bgp_info *)(info->extra->parent))->peer;
 	}
 
 	tag = info->attr->tag;
