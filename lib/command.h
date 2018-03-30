@@ -331,7 +331,7 @@ struct cmd_node {
 #define BGP_SOFT_RSCLIENT_RIB_STR "Soft reconfig for rsclient RIB\n"
 #define OSPF_STR "OSPF information\n"
 #define NEIGHBOR_STR "Specify neighbor router\n"
-#define DEBUG_STR "Debugging functions (see also 'undebug')\n"
+#define DEBUG_STR "Debugging functions\n"
 #define UNDEBUG_STR "Disable debugging functions (see also 'debug')\n"
 #define ROUTER_STR "Enable a routing process\n"
 #define AS_STR "AS number\n"
