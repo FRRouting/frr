@@ -6664,6 +6664,7 @@ DEFPY (bgp_imexport_vrf,
 	bool remove = false;
 	int32_t idx = 0;
 	char *vname;
+	enum bgp_instance_type bgp_type = BGP_INSTANCE_TYPE_VRF;
 	safi_t safi;
 	afi_t afi;
 
@@ -6678,9 +6679,17 @@ DEFPY (bgp_imexport_vrf,
 		int32_t ret;
 		as_t as = bgp->as;
 
+		if (strcmp(import_name, BGP_DEFAULT_NAME) == 0) {
+			vrf_bgp = bgp_get_default();
+			if (!vrf_bgp) {
+				bgp_type = BGP_INSTANCE_TYPE_DEFAULT;
+				import_name = NULL;
+			}
+		}
+
 		/* Auto-create assuming the same AS */
-		ret = bgp_get(&vrf_bgp, &as, import_name,
-			      BGP_INSTANCE_TYPE_VRF);
+		ret = bgp_get(&vrf_bgp, &as, import_name, bgp_type);
+
 		if (ret) {
 			vty_out(vty,
 				"VRF %s is not configured as a bgp instance\n",

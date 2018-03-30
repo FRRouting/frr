@@ -1463,7 +1463,7 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	struct ecommunity *ecom;
 	bool first_export = false;
 
-	export_name = to_bgp->name ? to_bgp->name : VRF_DEFAULT_NAME;
+	export_name = to_bgp->name ? to_bgp->name : BGP_DEFAULT_NAME;
 	idir = BGP_VPN_POLICY_DIR_FROMVPN;
 	edir = BGP_VPN_POLICY_DIR_TOVPN;
 
@@ -1471,7 +1471,9 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	 * Cross-ref both VRFs. Also, note if this is the first time
 	 * any VRF is importing from "import_vrf".
 	 */
-	vname = XSTRDUP(MTYPE_TMP, from_bgp->name);
+	vname = (from_bgp->name ? XSTRDUP(MTYPE_TMP, from_bgp->name)
+			       : XSTRDUP(MTYPE_TMP, BGP_DEFAULT_NAME));
+
 	listnode_add(to_bgp->vpn_policy[afi].import_vrf, vname);
 
 	if (!listcount(from_bgp->vpn_policy[afi].export_vrf))
@@ -1518,20 +1520,21 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 			   afi_t afi, safi_t safi)
 {
-	const char *export_name;
+	const char *export_name, *tmp_name;
 	vpn_policy_direction_t idir, edir;
 	char *vname;
 	struct ecommunity *ecom;
 	struct listnode *node;
 
-	export_name = to_bgp->name ? to_bgp->name : VRF_DEFAULT_NAME;
+	export_name = to_bgp->name ? to_bgp->name : BGP_DEFAULT_NAME;
+	tmp_name = from_bgp->name ? from_bgp->name : BGP_DEFAULT_NAME;
 	idir = BGP_VPN_POLICY_DIR_FROMVPN;
 	edir = BGP_VPN_POLICY_DIR_TOVPN;
 
 	/* Were we importing from "import_vrf"? */
 	for (ALL_LIST_ELEMENTS_RO(to_bgp->vpn_policy[afi].import_vrf, node,
 				  vname)) {
-		if (strcmp(vname, from_bgp->name) == 0)
+		if (strcmp(vname, tmp_name) == 0)
 			break;
 	}
 
