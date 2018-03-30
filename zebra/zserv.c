@@ -864,7 +864,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 	struct rnh *rnh;
 	struct stream *s;
 	struct prefix p;
-	unsigned short l = 0;
+	unsigned short l = 10;
 	uint8_t flags = 0;
 	uint16_t type = cmd2type[hdr->command];
 
