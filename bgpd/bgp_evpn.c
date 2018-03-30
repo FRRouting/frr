@@ -4336,6 +4336,7 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	struct bgp *bgp_vrf = NULL; /* bgp vrf instance */
 	struct bgp *bgp_def = NULL; /* default bgp instance */
 	struct listnode *node = NULL;
+	struct listnode *next = NULL;
 	struct bgpevpn *vpn = NULL;
 
 	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
@@ -4385,6 +4386,10 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 			update_routes_for_vni(bgp_def, vpn);
 		}
 	}
+
+	/* If any L2VNIs point to this instance, unlink them. */
+	for (ALL_LIST_ELEMENTS(bgp_vrf->l2vnis, node, next, vpn))
+		bgpevpn_unlink_from_l3vni(vpn);
 
 	/* Delete the instance if it was autocreated */
 	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO))
