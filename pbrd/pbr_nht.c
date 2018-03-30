@@ -312,8 +312,16 @@ static void pbr_nht_find_nhg_from_table_install(struct hash_backet *b,
 	if (pnhgc->table_id == *table_id) {
 		DEBUGD(&pbr_dbg_nht, "%s: Table ID (%u) matches %s",
 		       __PRETTY_FUNCTION__, *table_id, pnhgc->name);
-		pnhgc->installed = true;
-		pbr_map_schedule_policy_from_nhg(pnhgc->name);
+
+		/*
+		 * If the table has been re-handled by zebra
+		 * and we are already installed no need to do
+		 * anything here.
+		 */
+		if (!pnhgc->installed) {
+			pnhgc->installed = true;
+			pbr_map_schedule_policy_from_nhg(pnhgc->name);
+		}
 	}
 }
 

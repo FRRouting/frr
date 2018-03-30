@@ -541,8 +541,11 @@ void pbr_map_check(struct pbr_map_sequence *pbrms)
 		       pbrms->seqno, pbrms->reason);
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi))
-		pbr_send_pbr_map(pbrms, pmi, install);
+	for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, inode, pmi)) {
+		if ((install && !pbrms->installed) ||
+		    (!install && pbrms->installed))
+			pbr_send_pbr_map(pbrms, pmi, install);
+	}
 }
 
 void pbr_map_install(struct pbr_map *pbrm)
