@@ -2886,11 +2886,26 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 		STREAM_GETC(s, zpi.dst.prefixlen);
 		STREAM_GET(&zpi.dst.u.prefix, s, prefix_blen(&zpi.dst));
 
+		STREAM_GETW(s, zpi.src_port_min);
+		STREAM_GETW(s, zpi.src_port_max);
+		STREAM_GETW(s, zpi.dst_port_min);
+		STREAM_GETW(s, zpi.dst_port_max);
+		STREAM_GETC(s, zpi.proto);
 		if (!is_default_prefix(&zpi.src))
 			zpi.filter_bm |= PBR_FILTER_SRC_IP;
 
 		if (!is_default_prefix(&zpi.dst))
 			zpi.filter_bm |= PBR_FILTER_DST_IP;
+		if (zpi.dst_port_min != 0)
+			zpi.filter_bm |= PBR_FILTER_DST_PORT;
+		if (zpi.src_port_min != 0)
+			zpi.filter_bm |= PBR_FILTER_SRC_PORT;
+		if (zpi.dst_port_max != 0)
+			zpi.filter_bm |= PBR_FILTER_DST_PORT_RANGE;
+		if (zpi.src_port_max != 0)
+			zpi.filter_bm |= PBR_FILTER_SRC_PORT_RANGE;
+		if (zpi.proto != 0)
+			zpi.filter_bm |= PBR_FILTER_PROTO;
 
 		/* calculate backpointer */
 		zpi.backpointer = zebra_pbr_lookup_ipset_pername(

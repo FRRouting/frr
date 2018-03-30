@@ -91,6 +91,13 @@ struct zebra_pbr_ipset_entry {
 	struct prefix src;
 	struct prefix dst;
 
+	uint16_t src_port_min;
+	uint16_t src_port_max;
+	uint16_t dst_port_min;
+	uint16_t dst_port_max;
+
+	uint8_t proto;
+
 	uint32_t filter_bm;
 
 	struct zebra_pbr_ipset *backpointer;
