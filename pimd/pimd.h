@@ -140,13 +140,6 @@ struct in_addr qpim_all_pim_routers_addr;
 int qpim_t_periodic; /* Period between Join/Prune Messages */
 struct pim_assert_metric qpim_infinite_assert_metric;
 long qpim_rpf_cache_refresh_delay_msec;
-struct thread *qpim_rpf_cache_refresher;
-int64_t qpim_rpf_cache_refresh_requests;
-int64_t qpim_rpf_cache_refresh_events;
-int64_t qpim_rpf_cache_refresh_last;
-int64_t qpim_scan_oil_events;
-int64_t qpim_scan_oil_last;
-int64_t qpim_nexthop_lookups;
 extern int qpim_packet_process;
 extern uint8_t qpim_ecmp_enable;
 extern uint8_t qpim_ecmp_rebalance_enable;

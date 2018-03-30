@@ -37,17 +37,15 @@
 #include "pim_nht.h"
 #include "pim_oil.h"
 
-static long long last_route_change_time = -1;
-long long nexthop_lookups_avoided = 0;
-
 static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
 
-void pim_rpf_set_refresh_time(void)
+void pim_rpf_set_refresh_time(struct pim_instance *pim)
 {
-	last_route_change_time = pim_time_monotonic_usec();
+	pim->last_route_change_time = pim_time_monotonic_usec();
 	if (PIM_DEBUG_TRACE)
-		zlog_debug("%s: New last route change time: %lld",
-			   __PRETTY_FUNCTION__, last_route_change_time);
+		zlog_debug("%s: vrf(%s) New last route change time: %" PRId64,
+			   __PRETTY_FUNCTION__, pim->vrf->name,
+			   pim->last_route_change_time);
 }
 
 int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
@@ -70,7 +68,7 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		return -1;
 
 	if ((nexthop->last_lookup.s_addr == addr.s_addr)
-	    && (nexthop->last_lookup_time > last_route_change_time)) {
+	    && (nexthop->last_lookup_time > pim->last_route_change_time)) {
 		if (PIM_DEBUG_TRACE) {
 			char addr_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<addr?>", addr, addr_str,
@@ -79,12 +77,12 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			pim_addr_dump("<nexthop?>", &nexthop->mrib_nexthop_addr,
 				      nexthop_str, sizeof(nexthop_str));
 			zlog_debug(
-				"%s: Using last lookup for %s at %lld, %lld addr%s",
+				"%s: Using last lookup for %s at %lld, %" PRId64 " addr%s",
 				__PRETTY_FUNCTION__, addr_str,
 				nexthop->last_lookup_time,
-				last_route_change_time, nexthop_str);
+				pim->last_route_change_time, nexthop_str);
 		}
-		nexthop_lookups_avoided++;
+		pim->nexthop_lookups_avoided++;
 		return 0;
 	} else {
 		if (PIM_DEBUG_TRACE) {
@@ -92,10 +90,10 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			pim_inet4_dump("<addr?>", addr, addr_str,
 				       sizeof(addr_str));
 			zlog_debug(
-				"%s: Looking up: %s, last lookup time: %lld, %lld",
+				"%s: Looking up: %s, last lookup time: %lld, %" PRId64,
 				__PRETTY_FUNCTION__, addr_str,
 				nexthop->last_lookup_time,
-				last_route_change_time);
+				pim->last_route_change_time);
 		}
 	}
 

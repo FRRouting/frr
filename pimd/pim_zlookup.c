@@ -352,7 +352,7 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 	uint32_t route_metric = 0xFFFFFFFF;
 	uint8_t protocol_distance = 0xFF;
 
-	qpim_nexthop_lookups++;
+	pim->nexthop_lookups++;
 
 	for (lookup = 0; lookup < max_lookup; ++lookup) {
 		int num_ifindex;

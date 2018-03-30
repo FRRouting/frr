@@ -477,17 +477,6 @@ struct pim_neighbor *pim_neighbor_find_if(struct interface *ifp)
 	return listnode_head(pim_ifp->pim_neighbor_list);
 }
 
-/* rpf info associated with an upstream entry needs to be re-evaluated
- * when an RPF neighbor comes or goes */
-static void pim_neighbor_rpf_update(void)
-{
-	/* XXX: for the time being piggyback on the timer used on rib changes
-	 * to scan and update the rpf nexthop. This is expensive processing
-	 * and we should be able to optimize neighbor changes differently than
-	 * nexthop changes. */
-	sched_rpf_cache_refresh();
-}
-
 struct pim_neighbor *
 pim_neighbor_add(struct interface *ifp, struct in_addr source_addr,
 		 pim_hello_options hello_options, uint16_t holdtime,
@@ -556,7 +545,7 @@ pim_neighbor_add(struct interface *ifp, struct in_addr source_addr,
 
 	pim_rp_setup(pim_ifp->pim);
 
-	pim_neighbor_rpf_update();
+	sched_rpf_cache_refresh(pim_ifp->pim);
 	return neigh;
 }
 
@@ -678,7 +667,7 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 
 	pim_neighbor_free(neigh);
 
-	pim_neighbor_rpf_update();
+	sched_rpf_cache_refresh(pim_ifp->pim);
 }
 
 void pim_neighbor_delete_all(struct interface *ifp, const char *delete_message)
