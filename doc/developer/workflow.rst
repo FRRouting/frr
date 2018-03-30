@@ -702,6 +702,13 @@ compiler/preprocessor annotations to print warnings at compile time,
 pointing to the appropriate update path. A ``-Werror`` build should fail
 if compatibility bits are used.
 
+Preferably, the shell script :file:`tools/fixup-deprecated.py` will be
+updated along with making non-backwards compatible code changes, or an
+alternate script should be introduced, to update the code to match the
+change.  When the script is updated, there is no need to preserve the
+deprecated code. Note that this does not apply to user interface
+changes, just internal code, macros and libraries.
+
 Miscellaneous
 -------------
 
