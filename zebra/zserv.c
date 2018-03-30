@@ -3074,6 +3074,7 @@ static int zserv_process_messages(struct thread *thread)
 		if (!hdrvalid)
 			continue;
 
+		hdr.length -= ZEBRA_HEADER_SIZE;
 		/* lookup vrf */
 		zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
 		if (!zvrf && IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV) {
@@ -3194,7 +3195,6 @@ static int zserv_read(struct thread *thread)
 #if defined(HANDLE_ZAPI_FUZZING)
 		zserv_write_incoming(client->ibuf_work, command);
 #endif
-		hdr.length -= ZEBRA_HEADER_SIZE;
 
 		/* Debug packet information. */
 		if (IS_ZEBRA_DEBUG_EVENT)
