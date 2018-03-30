@@ -695,6 +695,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	int is_debug = 0;
 	struct ospf6_inter_prefix_lsa *prefix_lsa = NULL;
 	struct ospf6_inter_router_lsa *router_lsa = NULL;
+	struct ospf6_path *path;
 
 	memset(&prefix, 0, sizeof(prefix));
 
@@ -900,6 +901,9 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 
 	ospf6_route_copy_nexthops(route, abr_entry);
 
+	path = ospf6_path_dup(&route->path);
+	ospf6_copy_nexthops(path->nh_list, abr_entry->nh_list);
+	listnode_add_sort(route->paths, path);
 
 	/* (7) If the routes are identical, copy the next hops over to existing
 	   route. ospf6's route table implementation will otherwise string both

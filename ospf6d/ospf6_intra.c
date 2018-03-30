@@ -1326,6 +1326,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 	char buf[PREFIX2STR_BUFFER];
 	struct interface *ifp;
 	int direct_connect = 0;
+	struct ospf6_path *path;
 
 	if (OSPF6_LSA_IS_MAXAGE(lsa))
 		return;
@@ -1417,9 +1418,14 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 			ospf6_route_copy_nexthops(route, ls_entry);
 		}
 
+		path = ospf6_path_dup(&route->path);
+		ospf6_copy_nexthops(path->nh_list, route->path.nh_list);
+		listnode_add_sort(route->paths, path);
+
 		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 			prefix2str(&route->prefix, buf, sizeof(buf));
-			zlog_debug("  route %s add with nh count %u", buf,
+			zlog_debug("  route %s add with cost %u nh count %u",
+				   buf, route->path.cost,
 				   listcount(route->nh_list));
 		}
 
@@ -1735,9 +1741,6 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 		    && CHECK_FLAG(brouter->flag, OSPF6_ROUTE_ADD)) {
 			UNSET_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE);
 			UNSET_FLAG(brouter->flag, OSPF6_ROUTE_ADD);
-			zlog_debug("%s: EVENT unset REOUTE_REMOVE and ROUTE_ADD brouter %s",
-				   __PRETTY_FUNCTION__, brouter_name);
-			ospf6_brouter_debug_print(brouter);
 		}
 
 		if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE)) {
