@@ -169,7 +169,60 @@ static int sprintf_bgp_pbr_match_val(char *str, struct bgp_pbr_match_val *mval,
 		_cnt++; \
 	} while (0)
 
-/* return 1 if OK, 0 if validation should stop) */
+struct bgp_pbr_range_port {
+	uint16_t min_port;
+	uint16_t max_port;
+};
+
+/* return true if extraction ok
+ */
+static bool bgp_pbr_extract(struct bgp_pbr_match_val list[],
+			    int num,
+			    struct bgp_pbr_range_port *range)
+{
+	int i = 0;
+	bool exact_match = false;
+
+	if (range)
+		memset(range, 0, sizeof(struct bgp_pbr_range_port));
+
+	if (num > 2)
+		return false;
+	for (i = 0; i < num; i++) {
+		if (i != 0 && (list[i].compare_operator ==
+			       OPERATOR_COMPARE_EQUAL_TO))
+			return false;
+		if (i == 0 && (list[i].compare_operator ==
+			       OPERATOR_COMPARE_EQUAL_TO)) {
+			if (range)
+				range->min_port = list[i].value;
+			exact_match = true;
+		}
+		if (exact_match == true && i > 0)
+			return false;
+		if (list[i].compare_operator ==
+		    (OPERATOR_COMPARE_GREATER_THAN +
+		     OPERATOR_COMPARE_EQUAL_TO)) {
+			if (range)
+				range->min_port = list[i].value;
+		} else if (list[i].compare_operator ==
+			   (OPERATOR_COMPARE_LESS_THAN +
+			    OPERATOR_COMPARE_EQUAL_TO)) {
+			if (range)
+				range->max_port = list[i].value;
+		} else if (list[i].compare_operator ==
+			   OPERATOR_COMPARE_LESS_THAN) {
+			if (range)
+				range->max_port = list[i].value - 1;
+		} else if (list[i].compare_operator ==
+			   OPERATOR_COMPARE_GREATER_THAN) {
+			if (range)
+				range->min_port = list[i].value + 1;
+		}
+	}
+	return true;
+}
+
 static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 {
 	/* because bgp pbr entry may contain unsupported
@@ -179,16 +232,61 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	 * - combination src/dst => redirect nexthop [ + rate]
 	 * - combination src/dst => redirect VRF [ + rate]
 	 * - combination src/dst => drop
+	 * - combination srcport + @IP
 	 */
-	if (api->match_src_port_num || api->match_dst_port_num
-	    || api->match_port_num || api->match_protocol_num
-	    || api->match_icmp_type_num || api->match_icmp_type_num
+	if (api->match_icmp_type_num || api->match_icmp_type_num
 	    || api->match_packet_length_num || api->match_dscp_num
 	    || api->match_tcpflags_num) {
 		if (BGP_DEBUG(pbr, PBR)) {
 			bgp_pbr_print_policy_route(api);
 			zlog_debug("BGP: some SET actions not supported by Zebra. ignoring.");
+			zlog_debug("BGP: case icmp or length or dscp or tcp flags");
 		}
+		return 0;
+	}
+
+	if (api->match_protocol_num > 1) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match protocol operations:"
+				 "multiple protocols ( %d). ignoring.",
+				 api->match_protocol_num);
+		return 0;
+	}
+	if (api->match_protocol_num == 1 &&
+	    api->protocol[0].value != PROTOCOL_UDP &&
+	    api->protocol[0].value != PROTOCOL_TCP) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match protocol operations:"
+				   "protocol (%d) not supported. ignoring",
+				   api->match_protocol_num);
+		return 0;
+	}
+	if (!bgp_pbr_extract(api->src_port, api->match_src_port_num, NULL)) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match src port operations:"
+				   "too complex. ignoring.");
+		return 0;
+	}
+	if (!bgp_pbr_extract(api->dst_port, api->match_dst_port_num, NULL)) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match dst port operations:"
+				   "too complex. ignoring.");
+		return 0;
+	}
+	if (!bgp_pbr_extract(api->port, api->match_port_num, NULL)) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match port operations:"
+				 "too complex. ignoring.");
+		return 0;
+	}
+	/* no combinations with both src_port and dst_port
+	 * or port with src_port and dst_port
+	 */
+	if (api->match_src_port_num + api->match_dst_port_num +
+	    api->match_port_num > 3) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match multiple port operations:"
+				 " too complex. ignoring.");
 		return 0;
 	}
 	if (!(api->match_bitmask & PREFIX_SRC_PRESENT) &&
@@ -447,6 +545,11 @@ uint32_t bgp_pbr_match_entry_hash_key(void *arg)
 	pbme = (struct bgp_pbr_match_entry *)arg;
 	key = prefix_hash_key(&pbme->src);
 	key = jhash_1word(prefix_hash_key(&pbme->dst), key);
+	key = jhash(&pbme->dst_port_min, 2, key);
+	key = jhash(&pbme->src_port_min, 2, key);
+	key = jhash(&pbme->dst_port_max, 2, key);
+	key = jhash(&pbme->src_port_max, 2, key);
+	key = jhash(&pbme->proto, 1, key);
 
 	return key;
 }
@@ -472,6 +575,21 @@ int bgp_pbr_match_entry_hash_equal(const void *arg1, const void *arg2)
 		return 0;
 
 	if (!prefix_same(&r1->dst, &r2->dst))
+		return 0;
+
+	if (r1->src_port_min != r2->src_port_min)
+		return 0;
+
+	if (r1->dst_port_min != r2->dst_port_min)
+		return 0;
+
+	if (r1->src_port_max != r2->src_port_max)
+		return 0;
+
+	if (r1->dst_port_max != r2->dst_port_max)
+		return 0;
+
+	if (r1->proto != r2->proto)
 		return 0;
 
 	return 1;
@@ -813,10 +931,13 @@ static int bgp_pbr_get_remaining_entry(struct hash_backet *backet, void *arg)
 }
 
 static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
-						  struct bgp_info *binfo,
-						  vrf_id_t vrf_id,
-						  struct prefix *src,
-						  struct prefix *dst)
+					  struct bgp_info *binfo,
+					  vrf_id_t vrf_id,
+					  struct prefix *src,
+					  struct prefix *dst,
+					  uint8_t protocol,
+					  struct bgp_pbr_range_port *src_port,
+					  struct bgp_pbr_range_port *dst_port)
 {
 	struct bgp_pbr_match temp;
 	struct bgp_pbr_match_entry temp2;
@@ -840,11 +961,35 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 		prefix_copy(&temp2.dst, dst);
 	} else
 		temp2.dst.family = AF_INET;
+	if (src_port) {
+		temp.flags |= MATCH_PORT_SRC_SET;
+		temp2.src_port_min = src_port->min_port;
+		if (src_port->max_port) {
+			temp.flags |= MATCH_PORT_SRC_RANGE_SET;
+			temp2.src_port_max = src_port->max_port;
+		}
+	}
+	if (dst_port) {
+		temp.flags |= MATCH_PORT_DST_SET;
+		temp2.dst_port_min = dst_port->min_port;
+		if (dst_port->max_port) {
+			temp.flags |= MATCH_PORT_DST_RANGE_SET;
+			temp2.dst_port_max = dst_port->max_port;
+		}
+	}
+	temp2.proto = protocol;
 
-	if (src == NULL || dst == NULL)
-		temp.type = IPSET_NET;
-	else
-		temp.type = IPSET_NET_NET;
+	if (src == NULL || dst == NULL) {
+		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
+			temp.type = IPSET_NET_PORT;
+		else
+			temp.type = IPSET_NET;
+	} else {
+		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
+			temp.type = IPSET_NET_PORT_NET;
+		else
+			temp.type = IPSET_NET_NET;
+	}
 	if (vrf_id == VRF_UNKNOWN) /* XXX case BGP destroy */
 		temp.vrf_id = 0;
 	else
@@ -870,12 +1015,15 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 }
 
 static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
-					     struct bgp_info *binfo,
-					     vrf_id_t vrf_id,
-					     struct prefix *src,
-					     struct prefix *dst,
-					     struct nexthop *nh,
-					     float *rate)
+				     struct bgp_info *binfo,
+				     vrf_id_t vrf_id,
+				     struct prefix *src,
+				     struct prefix *dst,
+				     struct nexthop *nh,
+				     float *rate,
+				     uint8_t protocol,
+				     struct bgp_pbr_range_port *src_port,
+				     struct bgp_pbr_range_port *dst_port)
 {
 	struct bgp_pbr_match temp;
 	struct bgp_pbr_match_entry temp2;
@@ -913,15 +1061,33 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 
 	/* then look for bpm */
 	memset(&temp, 0, sizeof(temp));
-	if (src == NULL || dst == NULL)
-		temp.type = IPSET_NET;
-	else
-		temp.type = IPSET_NET_NET;
+	if (src == NULL || dst == NULL) {
+		if ((src_port && src_port->min_port) ||
+		    (dst_port && dst_port->min_port))
+			temp.type = IPSET_NET_PORT;
+		else
+			temp.type = IPSET_NET;
+	} else {
+		if ((src_port && src_port->min_port) ||
+		    (dst_port && dst_port->min_port))
+			temp.type = IPSET_NET_PORT_NET;
+		else
+			temp.type = IPSET_NET_NET;
+	}
 	temp.vrf_id = vrf_id;
 	if (src)
 		temp.flags |= MATCH_IP_SRC_SET;
 	if (dst)
 		temp.flags |= MATCH_IP_DST_SET;
+
+	if (src_port && src_port->min_port)
+		temp.flags |= MATCH_PORT_SRC_SET;
+	if (dst_port && dst_port->min_port)
+		temp.flags |= MATCH_PORT_DST_SET;
+	if (src_port && src_port->max_port)
+		temp.flags |= MATCH_PORT_SRC_RANGE_SET;
+	if (dst_port && dst_port->max_port)
+		temp.flags |= MATCH_PORT_DST_RANGE_SET;
 	temp.action = bpa;
 	bpm = hash_get(bgp->pbr_match_hash, &temp,
 		       bgp_pbr_match_alloc_intern);
@@ -953,9 +1119,14 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		prefix_copy(&temp2.dst, dst);
 	else
 		temp2.dst.family = AF_INET;
+	temp2.src_port_min = src_port ? src_port->min_port : 0;
+	temp2.dst_port_min = dst_port ? dst_port->min_port : 0;
+	temp2.src_port_max = src_port ? src_port->max_port : 0;
+	temp2.dst_port_max = dst_port ? dst_port->max_port : 0;
+	temp2.proto = protocol;
 	if (bpm)
 		bpme = hash_get(bpm->entry_hash, &temp2,
-			bgp_pbr_match_entry_alloc_intern);
+				bgp_pbr_match_entry_alloc_intern);
 	if (bpme && bpme->unique == 0) {
 		bpme->unique = ++bgp_pbr_match_entry_counter_unique;
 		/* 0 value is forbidden */
@@ -1021,6 +1192,9 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	int continue_loop = 1;
 	float rate = 0;
 	struct prefix *src = NULL, *dst = NULL;
+	uint8_t proto = 0;
+	struct bgp_pbr_range_port *srcp = NULL, *dstp = NULL;
+	struct bgp_pbr_range_port range;
 
 	if (api->match_bitmask & PREFIX_SRC_PRESENT)
 		src = &api->src_prefix;
@@ -1028,10 +1202,33 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		dst = &api->dst_prefix;
 	memset(&nh, 0, sizeof(struct nexthop));
 	nh.vrf_id = VRF_UNKNOWN;
-
+	if (api->match_protocol_num)
+		proto = (uint8_t)api->protocol[0].value;
+	/* if match_port is selected, then either src or dst port will be parsed
+	 * but not both at the same time
+	 */
+	if (api->match_port_num >= 1) {
+		bgp_pbr_extract(api->port,
+				api->match_port_num,
+				&range);
+		srcp = dstp = &range;
+	} else if (api->match_src_port_num >= 1) {
+		bgp_pbr_extract(api->src_port,
+				api->match_src_port_num,
+				&range);
+		srcp = &range;
+		dstp = NULL;
+	} else if (api->match_dst_port_num >= 1) {
+		bgp_pbr_extract(api->dst_port,
+				api->match_dst_port_num,
+				&range);
+		dstp = &range;
+		srcp = NULL;
+	}
 	if (!add)
 		return bgp_pbr_policyroute_remove_from_zebra(bgp, binfo,
-					     api->vrf_id, src, dst);
+					     api->vrf_id, src, dst,
+					     proto, srcp, dstp);
 	/* no action for add = true */
 	for (i = 0; i < api->action_num; i++) {
 		switch (api->actions[i].action) {
@@ -1042,7 +1239,8 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 				nh.type = NEXTHOP_TYPE_BLACKHOLE;
 				bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
 						    api->vrf_id, src, dst,
-						    &nh, &rate);
+						    &nh, &rate, proto,
+						    srcp, dstp);
 			} else {
 				/* update rate. can be reentrant */
 				rate = api->actions[i].u.r.rate;
@@ -1085,7 +1283,8 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 			bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
 							    api->vrf_id,
 							    src, dst,
-							    &nh, &rate);
+							    &nh, &rate, proto,
+							    srcp, dstp);
 			/* XXX combination with REDIRECT_VRF
 			 * + REDIRECT_NH_IP not done
 			 */
@@ -1097,7 +1296,8 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 			bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
 							 api->vrf_id,
 							 src, dst,
-							 &nh, &rate);
+							 &nh, &rate, proto,
+							 srcp, dstp);
 			continue_loop = 0;
 			break;
 		case ACTION_MARKING:

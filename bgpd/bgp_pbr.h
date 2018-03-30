@@ -123,6 +123,8 @@ struct bgp_pbr_entry_main {
 	struct prefix src_prefix;
 	struct prefix dst_prefix;
 
+#define PROTOCOL_UDP 17
+#define PROTOCOL_TCP 6
 	struct bgp_pbr_match_val protocol[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val src_port[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val dst_port[BGP_PBR_MATCH_VAL_MAX];
@@ -157,6 +159,10 @@ struct bgp_pbr_match {
 
 #define MATCH_IP_SRC_SET		(1 << 0)
 #define MATCH_IP_DST_SET		(1 << 1)
+#define MATCH_PORT_SRC_SET		(1 << 2)
+#define MATCH_PORT_DST_SET		(1 << 3)
+#define MATCH_PORT_SRC_RANGE_SET	(1 << 4)
+#define MATCH_PORT_DST_RANGE_SET	(1 << 5)
 	uint32_t flags;
 
 	vrf_id_t vrf_id;
