@@ -5629,49 +5629,52 @@ sub process {
 			}
 		}
 
+#
+# Kernel macros unnused for FRR
+#
 # Check for __attribute__ packed, prefer __packed
-		if ($realfile !~ m@\binclude/uapi/@ &&
-		    $line =~ /\b__attribute__\s*\(\s*\(.*\bpacked\b/) {
-			WARN("PREFER_PACKED",
-			     "__packed is preferred over __attribute__((packed))\n" . $herecurr);
-		}
+#		if ($realfile !~ m@\binclude/uapi/@ &&
+#		    $line =~ /\b__attribute__\s*\(\s*\(.*\bpacked\b/) {
+#			WARN("PREFER_PACKED",
+#			     "__packed is preferred over __attribute__((packed))\n" . $herecurr);
+#		}
 
 # Check for __attribute__ aligned, prefer __aligned
-		if ($realfile !~ m@\binclude/uapi/@ &&
-		    $line =~ /\b__attribute__\s*\(\s*\(.*aligned/) {
-			WARN("PREFER_ALIGNED",
-			     "__aligned(size) is preferred over __attribute__((aligned(size)))\n" . $herecurr);
-		}
+#		if ($realfile !~ m@\binclude/uapi/@ &&
+#		    $line =~ /\b__attribute__\s*\(\s*\(.*aligned/) {
+#			WARN("PREFER_ALIGNED",
+#			     "__aligned(size) is preferred over __attribute__((aligned(size)))\n" . $herecurr);
+#		}
 
 # Check for __attribute__ format(printf, prefer __printf
-		if ($realfile !~ m@\binclude/uapi/@ &&
-		    $line =~ /\b__attribute__\s*\(\s*\(\s*format\s*\(\s*printf/) {
-			if (WARN("PREFER_PRINTF",
-				 "__printf(string-index, first-to-check) is preferred over __attribute__((format(printf, string-index, first-to-check)))\n" . $herecurr) &&
-			    $fix) {
-				$fixed[$fixlinenr] =~ s/\b__attribute__\s*\(\s*\(\s*format\s*\(\s*printf\s*,\s*(.*)\)\s*\)\s*\)/"__printf(" . trim($1) . ")"/ex;
+#		if ($realfile !~ m@\binclude/uapi/@ &&
+#		    $line =~ /\b__attribute__\s*\(\s*\(\s*format\s*\(\s*printf/) {
+#			if (WARN("PREFER_PRINTF",
+#				 "__printf(string-index, first-to-check) is preferred over __attribute__((format(printf, string-index, first-to-check)))\n" . $herecurr) &&
+#			    $fix) {
+#				$fixed[$fixlinenr] =~ s/\b__attribute__\s*\(\s*\(\s*format\s*\(\s*printf\s*,\s*(.*)\)\s*\)\s*\)/"__printf(" . trim($1) . ")"/ex;
 
-			}
-		}
+#			}
+#		}
 
 # Check for __attribute__ format(scanf, prefer __scanf
-		if ($realfile !~ m@\binclude/uapi/@ &&
-		    $line =~ /\b__attribute__\s*\(\s*\(\s*format\s*\(\s*scanf\b/) {
-			if (WARN("PREFER_SCANF",
-				 "__scanf(string-index, first-to-check) is preferred over __attribute__((format(scanf, string-index, first-to-check)))\n" . $herecurr) &&
-			    $fix) {
-				$fixed[$fixlinenr] =~ s/\b__attribute__\s*\(\s*\(\s*format\s*\(\s*scanf\s*,\s*(.*)\)\s*\)\s*\)/"__scanf(" . trim($1) . ")"/ex;
-			}
-		}
+#		if ($realfile !~ m@\binclude/uapi/@ &&
+#		    $line =~ /\b__attribute__\s*\(\s*\(\s*format\s*\(\s*scanf\b/) {
+#			if (WARN("PREFER_SCANF",
+#				 "__scanf(string-index, first-to-check) is preferred over __attribute__((format(scanf, string-index, first-to-check)))\n" . $herecurr) &&
+#			    $fix) {
+#				$fixed[$fixlinenr] =~ s/\b__attribute__\s*\(\s*\(\s*format\s*\(\s*scanf\s*,\s*(.*)\)\s*\)\s*\)/"__scanf(" . trim($1) . ")"/ex;
+#			}
+#		}
 
 # Check for __attribute__ weak, or __weak declarations (may have link issues)
-		if ($^V && $^V ge 5.10.0 &&
-		    $line =~ /(?:$Declare|$DeclareMisordered)\s*$Ident\s*$balanced_parens\s*(?:$Attribute)?\s*;/ &&
-		    ($line =~ /\b__attribute__\s*\(\s*\(.*\bweak\b/ ||
-		     $line =~ /\b__weak\b/)) {
-			ERROR("WEAK_DECLARATION",
-			      "Using weak declarations can have unintended link defects\n" . $herecurr);
-		}
+#		if ($^V && $^V ge 5.10.0 &&
+#		    $line =~ /(?:$Declare|$DeclareMisordered)\s*$Ident\s*$balanced_parens\s*(?:$Attribute)?\s*;/ &&
+#		    ($line =~ /\b__attribute__\s*\(\s*\(.*\bweak\b/ ||
+#		     $line =~ /\b__weak\b/)) {
+#			ERROR("WEAK_DECLARATION",
+#			      "Using weak declarations can have unintended link defects\n" . $herecurr);
+#		}
 
 # check for c99 types like uint8_t used outside of uapi/ and tools/
 		if ($realfile !~ m@\binclude/uapi/@ &&
