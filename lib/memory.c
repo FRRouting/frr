@@ -26,6 +26,7 @@ struct memgroup **mg_insert = &mg_first;
 
 DEFINE_MGROUP(LIB, "libfrr")
 DEFINE_MTYPE(LIB, TMP, "Temporary memory")
+DEFINE_MTYPE(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec")
 
 static inline void mt_count_alloc(struct memtype *mt, size_t size)
 {

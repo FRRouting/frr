@@ -52,6 +52,7 @@
 #endif
 #include "bgp_encap_types.h"
 #include "bgp_evpn.h"
+#include "bgp_flowspec_private.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
@@ -1647,6 +1648,13 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 	/* Nexthop length check. */
 	switch (attr->mp_nexthop_len) {
+	case 0:
+		if (safi != SAFI_FLOWSPEC) {
+			zlog_info("%s: (%s) Wrong multiprotocol next hop length: %d",
+				  __func__, peer->host, attr->mp_nexthop_len);
+			return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
+		}
+		break;
 	case BGP_ATTR_NHLEN_VPNV4:
 		stream_getl(s); /* RD high */
 		stream_getl(s); /* RD low */
@@ -2669,6 +2677,8 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			stream_putc(s, 4);
 			stream_put(s, &attr->mp_nexthop_global_in, 4);
 			break;
+		case SAFI_FLOWSPEC:
+			stream_putc(s, 0); /* no nexthop for flowspec */
 		default:
 			break;
 		}
@@ -2719,14 +2729,17 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 			stream_put(s, &attr->mp_nexthop_global,
 				   IPV6_MAX_BYTELEN);
 			break;
+		case SAFI_FLOWSPEC:
+			stream_putc(s, 0); /* no nexthop for flowspec */
 		default:
 			break;
 		}
 		break;
 	default:
-		zlog_err(
-			"Bad nexthop when sening to %s, AFI %u SAFI %u nhlen %d",
-			peer->host, afi, safi, attr->mp_nexthop_len);
+		if (safi != SAFI_FLOWSPEC)
+			zlog_err(
+				 "Bad nexthop when sending to %s, AFI %u SAFI %u nhlen %d",
+				 peer->host, afi, safi, attr->mp_nexthop_len);
 		break;
 	}
 
@@ -2756,6 +2769,14 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 	} else if (safi == SAFI_LABELED_UNICAST) {
 		/* Prefix write with label. */
 		stream_put_labeled_prefix(s, p, label);
+	} else if (safi == SAFI_FLOWSPEC) {
+		if (PSIZE (p->prefixlen)+2 < FLOWSPEC_NLRI_SIZELIMIT)
+			stream_putc(s, PSIZE (p->prefixlen)+2);
+		else
+			stream_putw(s, (PSIZE (p->prefixlen)+2)|(0xf<<12));
+		stream_putc(s, 2);/* Filter type */
+		stream_putc(s, p->prefixlen);/* Prefix length */
+		stream_put(s, &p->u.prefix, PSIZE (p->prefixlen));
 	} else
 		stream_put_prefix_addpath(s, p, addpath_encode, addpath_tx_id);
 }

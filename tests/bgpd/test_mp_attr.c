@@ -809,7 +809,26 @@ static struct test_segment {
 		37,
 		SHOULD_ERR,
 	},
-
+	{
+		.name = "IPv4",
+		.desc = "IPV4 MP Reach, flowspec, 1 NLRI",
+		.data = {
+			/* AFI / SAFI */ 0x0,
+			AFI_IP,
+			IANA_SAFI_FLOWSPEC,
+			0x00, /* no NH */
+			0x00,
+			0x06, /* FS Length */
+			0x01, /* FS dest prefix ID */
+			0x1e, /* IP */
+			0x1e,
+			0x28,
+			0x28,
+			0x0
+		},
+		.len = 12,
+		.parses = SHOULD_PARSE,
+	},
 	{NULL, NULL, {0}, 0, 0}};
 
 /* MP_UNREACH_NLRI tests */
@@ -905,6 +924,24 @@ static struct test_segment mp_unreach_segments[] = {
 		},
 		(3 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_PARSE,
+	},
+	{
+		.name = "IPv4",
+		.desc = "IPV4 MP Unreach, flowspec, 1 NLRI",
+		.data = {
+			/* AFI / SAFI */ 0x0,
+			AFI_IP,
+			IANA_SAFI_FLOWSPEC,
+			0x06, /* FS Length */
+			0x01, /* FS dest prefix ID */
+			0x1e, /* IP */
+			0x1e,
+			0x28,
+			0x28,
+			0x0
+		},
+		.len = 10,
+		.parses = SHOULD_PARSE,
 	},
 	{NULL, NULL, {0}, 0, 0}};
 
@@ -1002,9 +1039,11 @@ int main(void)
 	conf_bgp_debug_neighbor_events = -1UL;
 	conf_bgp_debug_packet = -1UL;
 	conf_bgp_debug_as4 = -1UL;
+	conf_bgp_debug_flowspec = -1UL;
 	term_bgp_debug_neighbor_events = -1UL;
 	term_bgp_debug_packet = -1UL;
 	term_bgp_debug_as4 = -1UL;
+	term_bgp_debug_flowspec = -1UL;
 
 	qobj_init();
 	cmd_init(0);

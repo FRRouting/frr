@@ -73,6 +73,8 @@
 #include "bgpd/bgp_encap_tlv.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_vty.h"
+#include "bgpd/bgp_flowspec.h"
+#include "bgpd/bgp_flowspec_util.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_route_clippy.c"
@@ -5551,7 +5553,8 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 
 	/* MPLS-VPN aggregation is not yet supported. */
 	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
-	    || (safi == SAFI_EVPN))
+	    || (safi == SAFI_EVPN)
+	    || (safi == SAFI_FLOWSPEC))
 		return;
 
 	table = bgp->aggregate[afi][safi];
@@ -5589,7 +5592,8 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 
 	/* MPLS-VPN aggregation is not yet supported. */
 	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
-	    || (safi == SAFI_EVPN))
+	    || (safi == SAFI_EVPN)
+	    || (safi == SAFI_FLOWSPEC))
 		return;
 
 	table = bgp->aggregate[afi][safi];
@@ -5817,6 +5821,9 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	struct bgp_node *rn;
 	struct bgp_aggregate *aggregate;
 
+	if (safi == SAFI_FLOWSPEC)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
 	if (!ret) {
@@ -5859,6 +5866,9 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	struct prefix p;
 	struct bgp_node *rn;
 	struct bgp_aggregate *aggregate;
+
+	if (safi == SAFI_FLOWSPEC)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
@@ -6308,6 +6318,11 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 		prefix2str(p, buf, PREFIX_STRLEN);
 		len = vty_out(vty, "%s", buf);
 #endif
+	} else if (p->family == AF_FLOWSPEC) {
+		route_vty_out_flowspec(vty, p, NULL,
+			       json ?
+			       NLRI_STRING_FORMAT_JSON_SIMPLE :
+			       NLRI_STRING_FORMAT_MIN, json);
 	} else {
 		if (!json)
 			len = vty_out(
@@ -6499,9 +6514,10 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 						     "used");
 		} else
 			vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
-	}
+	} else if (safi == SAFI_FLOWSPEC) {
+		/* already done */
 	/* IPv4 Next Hop */
-	else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
+	} else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
 
@@ -8421,6 +8437,12 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		return bgp_show_table_rd(vty, bgp, safi, table, NULL, type,
 					 output_arg, use_json);
 	}
+
+	if (safi == SAFI_FLOWSPEC && type == bgp_show_type_detail) {
+		return bgp_show_table_flowspec(vty, bgp, afi, table, type,
+					       output_arg, use_json,
+					       1, NULL, NULL);
+	}
 	/* labeled-unicast routes live in the unicast table */
 	else if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
@@ -8702,6 +8724,18 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 			}
 
 			bgp_unlock_node(rm);
+		}
+	} else if (safi == SAFI_FLOWSPEC) {
+		rn = bgp_flowspec_get_match_per_ip(afi, rib,
+						   &match, prefix_check);
+		if (rn != NULL) {
+			route_vty_out_flowspec(vty, &rn->p,
+					       rn->info, use_json ?
+					       NLRI_STRING_FORMAT_JSON :
+					       NLRI_STRING_FORMAT_LARGE,
+					       json_paths);
+			display++;
+			bgp_unlock_node(rn);
 		}
 	} else {
 		header = 1;
@@ -10417,6 +10451,32 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, use_json);
 }
 
+DEFUN (show_ip_bgp_flowspec_routes_detailed,
+       show_ip_bgp_flowspec_routes_detailed_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" flowspec] detail [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       BGP_AFI_HELP_STR
+       "SAFI Flowspec\n"
+       "Detailed information on flowspec entries\n"
+       JSON_STR)
+{
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_UNICAST;
+	struct bgp *bgp = NULL;
+	int idx = 0;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp);
+	if (!idx)
+		return CMD_WARNING;
+
+	return bgp_show(vty, bgp, afi, safi,
+			bgp_show_type_detail, NULL, use_json(argc, argv));
+}
+
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] "
@@ -11431,6 +11491,10 @@ void bgp_route_init(void)
 	/* Large Communities */
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_list_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_cmd);
+
+	/* show bgp ipv4 flowspec detailed */
+	install_element(VIEW_NODE, &show_ip_bgp_flowspec_routes_detailed_cmd);
+
 }
 
 void bgp_route_finish(void)
