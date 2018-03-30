@@ -1,0 +1,4 @@
+/* remove max-width restriction */
+div.body {
+    max-width: none;
+}
