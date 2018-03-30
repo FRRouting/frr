@@ -830,6 +830,64 @@ static int zebra_wrap_script_iptable_update(struct zebra_ns *zns, int cmd,
 		else
 			snprintf(buf2, sizeof(buf2), "src");
 		ret = netlink_iptable_update_unit(cmd, iptable, buf2);
+	} else if (iptable->type == IPSET_NET_PORT) {
+		char *ptr = buf2;
+		int len_written;
+		int remaining_len = sizeof(buf2);
+
+		if (iptable->filter_bm & PBR_FILTER_DST_IP) {
+			len_written = snprintf(ptr, remaining_len, "dst");
+			ptr += len_written;
+			remaining_len -= len_written;
+		} else {
+			len_written = snprintf(ptr, remaining_len, "src");
+			ptr += len_written;
+			remaining_len -= len_written;
+		}
+		if ((iptable->filter_bm & PBR_FILTER_DST_PORT) &&
+		    (iptable->filter_bm & PBR_FILTER_SRC_PORT)) {
+			/* iptable rule will be called twice.
+			 * one for each side
+			 */
+			snprintf(ptr, remaining_len, ",dst");
+			ret = netlink_iptable_update_unit(cmd, iptable, buf2);
+			len_written = snprintf(ptr, remaining_len, ",src");
+			ptr += len_written;
+			remaining_len -= len_written;
+		} else if (iptable->filter_bm & PBR_FILTER_DST_PORT) {
+			len_written = snprintf(ptr, remaining_len, ",dst");
+			ptr += len_written;
+			remaining_len -= len_written;
+		} else if (iptable->filter_bm & PBR_FILTER_SRC_PORT)
+			snprintf(ptr, remaining_len, ",src");
+		ret += netlink_iptable_update_unit(cmd, iptable, buf2);
+	} else if (iptable->type == IPSET_NET_PORT_NET) {
+		char *ptr = buf2;
+		int len_written;
+		int remaining_len = sizeof(buf2);
+
+		len_written = snprintf(ptr, remaining_len, "src");
+		ptr += len_written;
+		remaining_len -= len_written;
+
+		if ((iptable->filter_bm & PBR_FILTER_DST_PORT) &&
+		    (iptable->filter_bm & PBR_FILTER_SRC_PORT)) {
+			snprintf(ptr, remaining_len, ",dst,dst");
+			ret = netlink_iptable_update_unit(cmd, iptable, buf2);
+			len_written = snprintf(ptr, remaining_len, ",src");
+			ptr += len_written;
+			remaining_len -= len_written;
+		} else if (iptable->filter_bm & PBR_FILTER_DST_PORT) {
+			len_written = snprintf(ptr, remaining_len, ",dst");
+			ptr += len_written;
+			remaining_len -= len_written;
+		} else if (iptable->filter_bm & PBR_FILTER_SRC_PORT) {
+			len_written = snprintf(ptr, remaining_len, ",src");
+			ptr += len_written;
+			remaining_len -= len_written;
+		}
+		snprintf(ptr, remaining_len, ",dst");
+		ret += netlink_iptable_update_unit(cmd, iptable, buf2);
 	}
 	return !ret ? 1 : 0;
 }
@@ -909,6 +967,18 @@ static int netlink_ipset_entry_update_unit(int cmd,
 	return zebra_wrap_script_call_only(buf);
 }
 
+static void netlink_ipset_entry_port(char *strtofill, int lenstr,
+				     uint32_t filter_bm,
+				     uint16_t port_min, uint16_t port_max)
+{
+	if (port_max)
+		snprintf(strtofill, lenstr, "%d-%d",
+			port_min, port_max);
+	else
+		snprintf(strtofill, lenstr, "%d",
+			port_min);
+}
+
 /*
  * Form netlink message and ship it. Currently, notify status after
  * waiting for netlink status.
@@ -921,12 +991,22 @@ static int zebra_wrap_script_ipset_entry_update(struct zebra_ns *zns, int cmd,
 	char buf_dst[PREFIX2STR_BUFFER];
 	char *psrc = NULL, *pdst = NULL;
 	struct zebra_pbr_ipset *bp;
+	uint16_t port = 0;
+	uint16_t port_max = 0;
 	int ret = 0;
 
 	if (!zebra_wrap_script_ipset_pathname) {
 		zlog_err("SCRIPT: script not configured for ipset\n");
 		return 0;
 	}
+	if (ipset->filter_bm & PBR_FILTER_SRC_PORT)
+		port = ipset->src_port_min;
+	else if (ipset->filter_bm & PBR_FILTER_DST_PORT)
+		port = ipset->dst_port_min;
+	if (ipset->filter_bm & PBR_FILTER_SRC_PORT_RANGE)
+		port_max = ipset->src_port_max;
+	else if (ipset->filter_bm & PBR_FILTER_DST_PORT_RANGE)
+		port_max = ipset->dst_port_max;
 	if (ipset->filter_bm & PBR_FILTER_SRC_IP) {
 		psrc = (char *)prefix2str(&ipset->src,
 					  buf_src,
@@ -958,13 +1038,63 @@ static int zebra_wrap_script_ipset_entry_update(struct zebra_ns *zns, int cmd,
 			bp->ipset_name,
 			pdst == NULL ? psrc : pdst);
 		ret = netlink_ipset_entry_update_unit(cmd, ipset, buf);
-	} else {
-		sprintf(buf, "%s %s %s %s,%s",
-			zebra_wrap_script_ipset_pathname,
-			cmd ? "add" : "del",
-			bp->ipset_name,
-			psrc, pdst);
-		ret = netlink_ipset_entry_update_unit(cmd, ipset, buf);
+	} else if (bp->type == IPSET_NET_PORT) {
+		char strtofill[32];
+
+		netlink_ipset_entry_port(strtofill, sizeof(strtofill),
+					 ipset->filter_bm,
+					 port, port_max);
+		/* apply it to udp and tcp */
+		if (!(ipset->filter_bm & PBR_FILTER_PROTO)) {
+			snprintf(buf, sizeof(buf), "%s %s %s %s,udp:%s",
+				zebra_wrap_script_ipset_pathname,
+				cmd ? "add" : "del",
+				bp->ipset_name,
+				pdst == NULL ? psrc : pdst, strtofill);
+			ret = netlink_ipset_entry_update_unit(cmd, ipset, buf);
+			snprintf(buf, sizeof(buf), "%s %s %s %s,tcp:%s",
+				zebra_wrap_script_ipset_pathname,
+				cmd ? "add" : "del",
+				bp->ipset_name,
+				pdst == NULL ? psrc : pdst, strtofill);
+			ret += netlink_ipset_entry_update_unit(cmd, ipset, buf);
+		} else {
+			snprintf(buf, sizeof(buf), "%s %s %s %s,%d:%s",
+				zebra_wrap_script_ipset_pathname,
+				cmd ? "add" : "del",
+				bp->ipset_name,
+				pdst == NULL ? psrc : pdst, ipset->proto,
+				strtofill);
+			ret = netlink_ipset_entry_update_unit(cmd, ipset, buf);
+		}
+	} else if (bp->type == IPSET_NET_PORT_NET) {
+		char strtofill[32];
+
+		netlink_ipset_entry_port(strtofill, sizeof(strtofill),
+					 ipset->filter_bm,
+					 port, port_max);
+		/* apply it to udp and tcp */
+		if (!(ipset->filter_bm & PBR_FILTER_PROTO)) {
+			snprintf(buf, sizeof(buf), "%s %s %s %s,tcp:%s,%s",
+				zebra_wrap_script_ipset_pathname,
+				cmd ? "add" : "del",
+				bp->ipset_name,
+				psrc, strtofill, pdst);
+			ret = netlink_ipset_entry_update_unit(cmd, ipset, buf);
+			snprintf(buf, sizeof(buf), "%s %s %s %s,udp:%s,%s",
+				zebra_wrap_script_ipset_pathname,
+				cmd ? "add" : "del",
+				bp->ipset_name,
+				psrc, strtofill, pdst);
+			ret += netlink_ipset_entry_update_unit(cmd, ipset, buf);
+		} else {
+			snprintf(buf, sizeof(buf), "%s %s %s %s,%d:%s,%s",
+				zebra_wrap_script_ipset_pathname,
+				cmd ? "add" : "del",
+				bp->ipset_name,
+				psrc, ipset->proto, strtofill, pdst);
+			ret = netlink_ipset_entry_update_unit(cmd, ipset, buf);
+		}
 	}
 	return !ret ? 1 : 0;
 }
