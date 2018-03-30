@@ -189,6 +189,12 @@ struct bgp_pbr_match_entry {
 	struct prefix src;
 	struct prefix dst;
 
+	uint16_t src_port_min;
+	uint16_t src_port_max;
+	uint16_t dst_port_min;
+	uint16_t dst_port_max;
+	uint8_t proto;
+
 	bool installed;
 	bool install_in_progress;
 };
