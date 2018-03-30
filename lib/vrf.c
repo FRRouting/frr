@@ -642,6 +642,17 @@ int vrf_is_mapped_on_netns(vrf_id_t vrf_id)
 }
 
 /* vrf CLI commands */
+DEFUN_NOSH(vrf_exit,
+           vrf_exit_cmd,
+	   "exit-vrf",
+	   "Exit current mode and down to previous mode\n")
+{
+	/* We have to set vrf context to default vrf */
+	VTY_PUSH_CONTEXT(VRF_NODE, vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME));
+	vty->node = CONFIG_NODE;
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (vrf,
        vrf_cmd,
        "vrf NAME",
@@ -799,6 +810,7 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty),
 	install_element(CONFIG_NODE, &no_vrf_cmd);
 	install_node(&vrf_node, writefunc);
 	install_default(VRF_NODE);
+	install_element(VRF_NODE, &vrf_exit_cmd);
 	if (vrf_is_backend_netns() && ns_have_netns()) {
 		/* Install NS commands. */
 		vrf_daemon_privs = daemon_privs;
