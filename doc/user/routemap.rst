@@ -232,7 +232,7 @@ Route Map Set Command
 .. index:: set ipv6 next-hop global IPV6_ADDRESS
 .. clicmd:: set ipv6 next-hop global IPV6_ADDRESS
 
-   Set the next-hop to the specified IPV6_ADDRESS.  For both incoming and
+   Set the next-hop to the specified IPV6_ADDRESS for both incoming and
    outgoing route-maps.
 
 .. index:: set local-preference LOCAL_PREF
@@ -259,11 +259,6 @@ Route Map Set Command
 .. clicmd:: set community COMMUNITY
 
    Set the BGP community attribute.
-
-.. index:: set ipv6 next-hop global IPV6_ADDRESS
-.. clicmd:: set ipv6 next-hop global IPV6_ADDRESS
-
-   Set the BGP-4+ global IPv6 nexthop address.
 
 .. index:: set ipv6 next-hop local IPV6_ADDRESS
 .. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
