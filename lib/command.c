@@ -85,7 +85,6 @@ const char *node_names[] = {
 	"bgp vnc defaults",	 // BGP_VNC_DEFAULTS_NODE,
 	"bgp vnc nve",		    // BGP_VNC_NVE_GROUP_NODE,
 	"bgp vnc l2",		    // BGP_VNC_L2_GROUP_NODE,
-	"rfp defaults",		    // RFP_DEFAULTS_NODE,
 	"bgp evpn",		    // BGP_EVPN_NODE,
 	"ospf",			    // OSPF_NODE,
 	"ospf6",		    // OSPF6_NODE,
