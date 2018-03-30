@@ -21,3 +21,4 @@ Building FRR
    building-frr-on-ubuntu1204
    building-frr-on-ubuntu1404
    building-frr-on-ubuntu1604
+   building-frr-on-ubuntu1804
