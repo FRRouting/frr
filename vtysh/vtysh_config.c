@@ -258,16 +258,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				 strlen("ip as-path access-list"))
 			 == 0)
 			config = config_get(AS_LIST_NODE, line);
-		else if (strncmp(line, "ip community-list",
-				 strlen("ip community-list"))
-				 == 0
-			 || strncmp(line, "ip extcommunity-list",
-				    strlen("ip extcommunity-list"))
-				    == 0
-			 || strncmp(line, "ip large-community-list",
-				    strlen("ip large-community-list"))
-				    == 0)
-			config = config_get(COMMUNITY_LIST_NODE, line);
 		else if (strncmp(line, "ip route", strlen("ip route")) == 0)
 			config = config_get(IP_NODE, line);
 		else if (strncmp(line, "ipv6 route", strlen("ipv6 route")) == 0)
@@ -326,11 +316,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
  * or not. */
 #define NO_DELIMITER(I)                                                        \
 	((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE            \
-	 || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE                  \
-	 || (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE                  \
-	 || (I) == PREFIX_IPV6_NODE || (I) == SERVICE_NODE                     \
-	 || (I) == FORWARDING_NODE || (I) == DEBUG_NODE || (I) == AAA_NODE     \
-	 || (I) == VRF_DEBUG_NODE || (I) == MPLS_NODE)
+	 || (I) == AS_LIST_NODE || (I) == ACCESS_IPV6_NODE                     \
+	 || (I) == ACCESS_MAC_NODE || (I) == PREFIX_IPV6_NODE                  \
+	 || (I) == SERVICE_NODE || (I) == FORWARDING_NODE || (I) == DEBUG_NODE \
+	 || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE || (I) == MPLS_NODE)
 
 /* Display configuration to file pointer. */
 void vtysh_config_dump(FILE *fp)

@@ -106,7 +106,6 @@ const char *node_names[] = {
 	"MAC access list",	  // ACCESS_MAC_NODE,
 	"ipv6 prefix list",	 // PREFIX_IPV6_NODE,
 	"as list",		    // AS_LIST_NODE,
-	"community list",	   // COMMUNITY_LIST_NODE,
 	"routemap",		    // RMAP_NODE,
 	"smux",			    // SMUX_NODE,
 	"dump",			    // DUMP_NODE,
