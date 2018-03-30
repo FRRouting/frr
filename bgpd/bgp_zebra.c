@@ -2167,6 +2167,12 @@ static void bgp_encode_pbr_ipset_entry_match(struct stream *s,
 	stream_putc(s, pbime->dst.family);
 	stream_putc(s, pbime->dst.prefixlen);
 	stream_put(s, &pbime->dst.u.prefix, prefix_blen(&pbime->dst));
+
+	stream_putw(s, pbime->src_port_min);
+	stream_putw(s, pbime->src_port_max);
+	stream_putw(s, pbime->dst_port_min);
+	stream_putw(s, pbime->dst_port_max);
+	stream_putc(s, pbime->proto);
 }
 
 static void bgp_encode_pbr_iptable_match(struct stream *s,
