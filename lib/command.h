@@ -129,7 +129,6 @@ enum node_type {
 	ACCESS_MAC_NODE,	 /* MAC access list node*/
 	PREFIX_IPV6_NODE,	/* Prefix list node. */
 	AS_LIST_NODE,		 /* AS list node. */
-	COMMUNITY_LIST_NODE,     /* Community list node. */
 	RMAP_NODE,		 /* Route map node. */
 	SMUX_NODE,		 /* SNMP configuration node. */
 	DUMP_NODE,		 /* Packet dump node. */
