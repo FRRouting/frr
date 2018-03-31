@@ -412,9 +412,12 @@ void ns_init(void)
 		return;
 	errno = 0;
 #ifdef HAVE_NETNS
-	if (have_netns_enabled < 0)
+	if (have_netns_enabled < 0) {
 		ns_default_ns_fd = open(NS_DEFAULT_NAME, O_RDONLY);
-	else {
+		if (ns_default_ns_fd == -1)
+			zlog_err("NS initialization failure %d(%s)",
+				 errno, safe_strerror(errno));
+	} else {
 		ns_default_ns_fd = -1;
 		default_ns = NULL;
 	}
@@ -422,9 +425,6 @@ void ns_init(void)
 	ns_default_ns_fd = -1;
 	default_ns = NULL;
 #endif /* HAVE_NETNS */
-	if (ns_default_ns_fd == -1)
-		zlog_err("NS initialisation failure (%s)",
-			 safe_strerror(errno));
 	ns_current_ns_fd = -1;
 	ns_initialised = 1;
 }
