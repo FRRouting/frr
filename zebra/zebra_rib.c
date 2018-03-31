@@ -2491,8 +2491,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		 * If we can show that this code path is
 		 * dead then we can remove it.
 		 */
-		if (fib && type == ZEBRA_ROUTE_KERNEL
-		    && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE)) {
+		if (fib && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				rnode_debug(
 					rn, vrf_id,
