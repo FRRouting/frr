@@ -1,467 +1,117 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/igmp.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <errno.h>
-
-#include "log.h"
-#include "privs.h"
-#include "if.h"
-#include "vrf.h"
-#include "sockopt.h"
-
-#include "pimd.h"
-#include "pim_mroute.h"
-#include "pim_sock.h"
-#include "pim_str.h"
-#include "pim_igmp_join.h"
-
-/* GLOBAL VARS */
-
-int pim_socket_raw(int protocol)
-{
-	int fd;
-
-	if (pimd_privs.change(ZPRIVS_RAISE))
-		zlog_err("pim_sockek_raw: could not raise privs, %s",
-			 safe_strerror(errno));
-
-	fd = socket(AF_INET, SOCK_RAW, protocol);
-
-	if (pimd_privs.change(ZPRIVS_LOWER))
-		zlog_err("pim_socket_raw: could not lower privs, %s",
-			 safe_strerror(errno));
-
-	if (fd < 0) {
-		zlog_warn("Could not create raw socket: errno=%d: %s", errno,
-			  safe_strerror(errno));
-		return PIM_SOCK_ERR_SOCKET;
-	}
-
-	return fd;
-}
-
-void pim_socket_ip_hdr(int fd)
-{
-	const int on = 1;
-
-	if (pimd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs, %s", __PRETTY_FUNCTION__,
-			 safe_strerror(errno));
-
-	if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
-		zlog_err("%s: Could not turn on IP_HDRINCL option: %s",
-			 __PRETTY_FUNCTION__, safe_strerror(errno));
-
-	if (pimd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs, %s", __PRETTY_FUNCTION__,
-			 safe_strerror(errno));
-}
-
-/*
- * Given a socket and a interface,
- * Bind that socket to that interface
- */
-int pim_socket_bind(int fd, struct interface *ifp)
-{
-	int ret = 0;
-#ifdef SO_BINDTODEVICE
-
-	if (pimd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs, %s", __PRETTY_FUNCTION__,
-			 safe_strerror(errno));
-
-	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifp->name,
-			 strlen(ifp->name));
-
-	if (pimd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs, %s", __PRETTY_FUNCTION__,
-			 safe_strerror(errno));
-
-#endif
-	return ret;
-}
-
-int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
-		     uint8_t loop)
-{
-	int rcvbuf = 1024 * 1024 * 8;
-#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
-	struct ip_mreqn mreq;
-#else
-	struct ip_mreq mreq;
-#endif
-	int fd;
-
-	fd = pim_socket_raw(protocol);
-	if (fd < 0) {
-		zlog_warn("Could not create multicast socket: errno=%d: %s",
-			  errno, safe_strerror(errno));
-		return PIM_SOCK_ERR_SOCKET;
-	}
-
-#ifdef SO_BINDTODEVICE
-	if (protocol == IPPROTO_PIM) {
-		int ret;
-
-		ret = pim_socket_bind(fd, ifp);
-		if (ret) {
-			close(fd);
-			zlog_warn(
-				"Could not set fd: %d for interface: %s to device",
-				fd, ifp->name);
-			return PIM_SOCK_ERR_BIND;
-		}
-	}
-#else
-/* XXX: use IP_PKTINFO / IP_RECVIF to emulate behaviour?  Or change to
- * only use 1 socket for all interfaces? */
-#endif
-
-	/* Needed to obtain destination address from recvmsg() */
-	{
-#if defined(HAVE_IP_PKTINFO)
-		/* Linux and Solaris IP_PKTINFO */
-		int opt = 1;
-		if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt, sizeof(opt))) {
-			zlog_warn(
-				"Could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
-		}
-#elif defined(HAVE_IP_RECVDSTADDR)
-		/* BSD IP_RECVDSTADDR */
-		int opt = 1;
-		if (setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, &opt,
-			       sizeof(opt))) {
-			zlog_warn(
-				"Could not set IP_RECVDSTADDR on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
-		}
-#else
-		zlog_err(
-			"%s %s: Missing IP_PKTINFO and IP_RECVDSTADDR: unable to get dst addr from recvmsg()",
-			__FILE__, __PRETTY_FUNCTION__);
-		close(fd);
-		return PIM_SOCK_ERR_DSTADDR;
-#endif
-	}
-
-
-	/* Set router alert (RFC 2113) for all IGMP messages (RFC 3376 4.
-	 * Message Formats)*/
-	if (protocol == IPPROTO_IGMP) {
-		uint8_t ra[4];
-		ra[0] = 148;
-		ra[1] = 4;
-		ra[2] = 0;
-		ra[3] = 0;
-		if (setsockopt(fd, IPPROTO_IP, IP_OPTIONS, ra, 4)) {
-			zlog_warn(
-				"Could not set Router Alert Option on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
-			close(fd);
-			return PIM_SOCK_ERR_RA;
-		}
-	}
-
-	{
-		int reuse = 1;
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *)&reuse,
-			       sizeof(reuse))) {
-			zlog_warn(
-				"Could not set Reuse Address Option on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
-			close(fd);
-			return PIM_SOCK_ERR_REUSE;
-		}
-	}
-
-	{
-		const int MTTL = 1;
-		int ttl = MTTL;
-		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&ttl,
-			       sizeof(ttl))) {
-			zlog_warn(
-				"Could not set multicast TTL=%d on socket fd=%d: errno=%d: %s",
-				MTTL, fd, errno, safe_strerror(errno));
-			close(fd);
-			return PIM_SOCK_ERR_TTL;
-		}
-	}
-
-	if (setsockopt_ipv4_multicast_loop(fd, loop)) {
-		zlog_warn(
-			"Could not %s Multicast Loopback Option on socket fd=%d: errno=%d: %s",
-			loop ? "enable" : "disable", fd, errno,
-			safe_strerror(errno));
-		close(fd);
-		return PIM_SOCK_ERR_LOOP;
-	}
-
-	memset(&mreq, 0, sizeof(mreq));
-#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
-	mreq.imr_ifindex = ifp->ifindex;
-#else
-/*
- * I am not sure what to do here yet for *BSD
- */
-// mreq.imr_interface = ifindex;
-#endif
-
-	if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, (void *)&mreq,
-		       sizeof(mreq))) {
-		zlog_warn(
-			"Could not set Outgoing Interface Option on socket fd=%d: errno=%d: %s",
-			fd, errno, safe_strerror(errno));
-		close(fd);
-		return PIM_SOCK_ERR_IFACE;
-	}
-
-	if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf)))
-		zlog_warn("%s: Failure to set buffer size to %d",
-			  __PRETTY_FUNCTION__, rcvbuf);
-
-	{
-		long flags;
-
-		flags = fcntl(fd, F_GETFL, 0);
-		if (flags < 0) {
-			zlog_warn(
-				"Could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
-			close(fd);
-			return PIM_SOCK_ERR_NONBLOCK_GETFL;
-		}
-
-		if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
-			zlog_warn(
-				"Could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
-			close(fd);
-			return PIM_SOCK_ERR_NONBLOCK_SETFL;
-		}
-	}
-
-	return fd;
-}
-
-int pim_socket_join(int fd, struct in_addr group, struct in_addr ifaddr,
-		    ifindex_t ifindex)
-{
-	int ret;
-
-#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
-	struct ip_mreqn opt;
-#else
-	struct ip_mreq opt;
-#endif
-
-	opt.imr_multiaddr = group;
-
-#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
-	opt.imr_address = ifaddr;
-	opt.imr_ifindex = ifindex;
-#else
-	opt.imr_interface = ifaddr;
-#endif
-
-	ret = setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &opt, sizeof(opt));
-	if (ret) {
-		char group_str[INET_ADDRSTRLEN];
-		char ifaddr_str[INET_ADDRSTRLEN];
-		if (!inet_ntop(AF_INET, &group, group_str, sizeof(group_str)))
-			sprintf(group_str, "<group?>");
-		if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str,
-			       sizeof(ifaddr_str)))
-			sprintf(ifaddr_str, "<ifaddr?>");
-
-		zlog_err(
-			"Failure socket joining fd=%d group %s on interface address %s: errno=%d: %s",
-			fd, group_str, ifaddr_str, errno, safe_strerror(errno));
-		return ret;
-	}
-
-	if (PIM_DEBUG_TRACE) {
-		char group_str[INET_ADDRSTRLEN];
-		char ifaddr_str[INET_ADDRSTRLEN];
-		if (!inet_ntop(AF_INET, &group, group_str, sizeof(group_str)))
-			sprintf(group_str, "<group?>");
-		if (!inet_ntop(AF_INET, &ifaddr, ifaddr_str,
-			       sizeof(ifaddr_str)))
-			sprintf(ifaddr_str, "<ifaddr?>");
-
-		zlog_debug(
-			"Socket fd=%d joined group %s on interface address %s",
-			fd, group_str, ifaddr_str);
-	}
-
-	return ret;
-}
-
-int pim_socket_join_source(int fd, ifindex_t ifindex, struct in_addr group_addr,
-			   struct in_addr source_addr, const char *ifname)
-{
-	if (pim_igmp_join_source(fd, ifindex, group_addr, source_addr)) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
-		zlog_warn(
-			"%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, group_str, source_str, ifindex,
-			ifname, errno, safe_strerror(errno));
-		return -1;
-	}
-
-	return 0;
-}
-
-int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
-			  struct sockaddr_in *from, socklen_t *fromlen,
-			  struct sockaddr_in *to, socklen_t *tolen,
-			  ifindex_t *ifindex)
-{
-	struct msghdr msgh;
-	struct cmsghdr *cmsg;
-	struct iovec iov;
-	char cbuf[1000];
-	int err;
-
-	/*
-	 * IP_PKTINFO / IP_RECVDSTADDR don't yield sin_port.
-	 * Use getsockname() to get sin_port.
-	 */
-	if (to) {
-		struct sockaddr_in si;
-		socklen_t si_len = sizeof(si);
-
-		memset(&si, 0, sizeof(si));
-		to->sin_family = AF_INET;
-
-		pim_socket_getsockname(fd, (struct sockaddr *)&si, &si_len);
-
-		to->sin_port = si.sin_port;
-		to->sin_addr = si.sin_addr;
-
-		if (tolen)
-			*tolen = sizeof(si);
-	}
-
-	memset(&msgh, 0, sizeof(struct msghdr));
-	iov.iov_base = buf;
-	iov.iov_len = len;
-	msgh.msg_control = cbuf;
-	msgh.msg_controllen = sizeof(cbuf);
-	msgh.msg_name = from;
-	msgh.msg_namelen = fromlen ? *fromlen : 0;
-	msgh.msg_iov = &iov;
-	msgh.msg_iovlen = 1;
-	msgh.msg_flags = 0;
-
-	err = recvmsg(fd, &msgh, 0);
-	if (err < 0)
-		return err;
-
-	if (fromlen)
-		*fromlen = msgh.msg_namelen;
-
-	for (cmsg = CMSG_FIRSTHDR(&msgh); cmsg != NULL;
-	     cmsg = CMSG_NXTHDR(&msgh, cmsg)) {
-
-#ifdef HAVE_IP_PKTINFO
-		if ((cmsg->cmsg_level == IPPROTO_IP)
-		    && (cmsg->cmsg_type == IP_PKTINFO)) {
-			struct in_pktinfo *i =
-				(struct in_pktinfo *)CMSG_DATA(cmsg);
-			if (to)
-				((struct sockaddr_in *)to)->sin_addr =
-					i->ipi_addr;
-			if (tolen)
-				*tolen = sizeof(struct sockaddr_in);
-			if (ifindex)
-				*ifindex = i->ipi_ifindex;
-
-			break;
-		}
-#endif
-
-#ifdef HAVE_IP_RECVDSTADDR
-		if ((cmsg->cmsg_level == IPPROTO_IP)
-		    && (cmsg->cmsg_type == IP_RECVDSTADDR)) {
-			struct in_addr *i = (struct in_addr *)CMSG_DATA(cmsg);
-			if (to)
-				((struct sockaddr_in *)to)->sin_addr = *i;
-			if (tolen)
-				*tolen = sizeof(struct sockaddr_in);
-
-			break;
-		}
-#endif
-
-#if defined(HAVE_IP_RECVIF) && defined(CMSG_IFINDEX)
-		if (cmsg->cmsg_type == IP_RECVIF)
-			if (ifindex)
-				*ifindex = CMSG_IFINDEX(cmsg);
-#endif
-
-	} /* for (cmsg) */
-
-	return err; /* len */
-}
-
-int pim_socket_mcastloop_get(int fd)
-{
-	int loop;
-	socklen_t loop_len = sizeof(loop);
-
-	if (getsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, &loop_len)) {
-		int e = errno;
-		zlog_warn(
-			"Could not get Multicast Loopback Option on socket fd=%d: errno=%d: %s",
-			fd, errno, safe_strerror(errno));
-		errno = e;
-		return PIM_SOCK_ERR_LOOP;
-	}
-
-	return loop;
-}
-
-int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen)
-{
-	if (getsockname(fd, name, namelen)) {
-		int e = errno;
-		zlog_warn(
-			"Could not get Socket Name for socket fd=%d: errno=%d: %s",
-			fd, errno, safe_strerror(errno));
-		errno = e;
-		return PIM_SOCK_ERR_NAME;
-	}
-
-	return PIM_SOCK_ERR_NONE;
-}
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#include<zebra.h>#include<sys/types.h>#include<sys/socket.h>#include<netin
+et/in.h>#include<netinet/igmp.h>#include<arpa/inet.h>#include<unistd.h>#include<
+netdb.h>#include<errno.h>#include"log.h"#include"privs.h"#include"if.h"#include"
+vrf.h"#include"sockopt.h"#include"pimd.h"#include"pim_mroute.h"#include"pim_sock
+.h"#include"pim_str.h"#include"pim_igmp_join.h"/*GLOBALVARS*/intpim_socket_raw(i
+ntprotocol){intfd;if(pimd_privs.change(ZPRIVS_RAISE))zlog_err("pim_sockek_raw:co
+uldnotraiseprivs,%s",safe_strerror(errno));fd=socket(AF_INET,SOCK_RAW,protocol);
+if(pimd_privs.change(ZPRIVS_LOWER))zlog_err("pim_socket_raw:couldnotlowerprivs,%
+s",safe_strerror(errno));if(fd<0){zlog_warn("Couldnotcreaterawsocket:errno=%d:%s
+",errno,safe_strerror(errno));returnPIM_SOCK_ERR_SOCKET;}returnfd;}voidpim_socke
+t_ip_hdr(intfd){constinton=1;if(pimd_privs.change(ZPRIVS_RAISE))zlog_err("%s:cou
+ldnotraiseprivs,%s",__PRETTY_FUNCTION__,safe_strerror(errno));if(setsockopt(fd,I
+PPROTO_IP,IP_HDRINCL,&on,sizeof(on)))zlog_err("%s:CouldnotturnonIP_HDRINCLoption
+:%s",__PRETTY_FUNCTION__,safe_strerror(errno));if(pimd_privs.change(ZPRIVS_LOWER
+))zlog_err("%s:couldnotlowerprivs,%s",__PRETTY_FUNCTION__,safe_strerror(errno));
+}/**Givenasocketandainterface,*Bindthatsockettothatinterface*/intpim_socket_bind
+(intfd,structinterface*ifp){intret=0;#ifdefSO_BINDTODEVICEif(pimd_privs.change(Z
+PRIVS_RAISE))zlog_err("%s:couldnotraiseprivs,%s",__PRETTY_FUNCTION__,safe_strerr
+or(errno));ret=setsockopt(fd,SOL_SOCKET,SO_BINDTODEVICE,ifp->name,strlen(ifp->na
+me));if(pimd_privs.change(ZPRIVS_LOWER))zlog_err("%s:couldnotlowerprivs,%s",__PR
+ETTY_FUNCTION__,safe_strerror(errno));#endifreturnret;}intpim_socket_mcast(intpr
+otocol,structin_addrifaddr,structinterface*ifp,uint8_tloop){intrcvbuf=1024*1024*
+8;#ifdefHAVE_STRUCT_IP_MREQN_IMR_IFINDEXstructip_mreqnmreq;#elsestructip_mreqmre
+q;#endifintfd;fd=pim_socket_raw(protocol);if(fd<0){zlog_warn("Couldnotcreatemult
+icastsocket:errno=%d:%s",errno,safe_strerror(errno));returnPIM_SOCK_ERR_SOCKET;}
+#ifdefSO_BINDTODEVICEif(protocol==IPPROTO_PIM){intret;ret=pim_socket_bind(fd,ifp
+);if(ret){close(fd);zlog_warn("Couldnotsetfd:%dforinterface:%stodevice",fd,ifp->
+name);returnPIM_SOCK_ERR_BIND;}}#else/*XXX:useIP_PKTINFO/IP_RECVIFtoemulatebehav
+iour?Orchangeto*onlyuse1socketforallinterfaces?*/#endif/*Neededtoobtaindestinati
+onaddressfromrecvmsg()*/{#ifdefined(HAVE_IP_PKTINFO)/*LinuxandSolarisIP_PKTINFO*
+/intopt=1;if(setsockopt(fd,IPPROTO_IP,IP_PKTINFO,&opt,sizeof(opt))){zlog_warn("C
+ouldnotsetIP_PKTINFOonsocketfd=%d:errno=%d:%s",fd,errno,safe_strerror(errno));}#
+elifdefined(HAVE_IP_RECVDSTADDR)/*BSDIP_RECVDSTADDR*/intopt=1;if(setsockopt(fd,I
+PPROTO_IP,IP_RECVDSTADDR,&opt,sizeof(opt))){zlog_warn("CouldnotsetIP_RECVDSTADDR
+onsocketfd=%d:errno=%d:%s",fd,errno,safe_strerror(errno));}#elsezlog_err("%s%s:M
+issingIP_PKTINFOandIP_RECVDSTADDR:unabletogetdstaddrfromrecvmsg()",__FILE__,__PR
+ETTY_FUNCTION__);close(fd);returnPIM_SOCK_ERR_DSTADDR;#endif}/*Setrouteralert(RF
+C2113)forallIGMPmessages(RFC33764.*MessageFormats)*/if(protocol==IPPROTO_IGMP){u
+int8_tra[4];ra[0]=148;ra[1]=4;ra[2]=0;ra[3]=0;if(setsockopt(fd,IPPROTO_IP,IP_OPT
+IONS,ra,4)){zlog_warn("CouldnotsetRouterAlertOptiononsocketfd=%d:errno=%d:%s",fd
+,errno,safe_strerror(errno));close(fd);returnPIM_SOCK_ERR_RA;}}{intreuse=1;if(se
+tsockopt(fd,SOL_SOCKET,SO_REUSEADDR,(void*)&reuse,sizeof(reuse))){zlog_warn("Cou
+ldnotsetReuseAddressOptiononsocketfd=%d:errno=%d:%s",fd,errno,safe_strerror(errn
+o));close(fd);returnPIM_SOCK_ERR_REUSE;}}{constintMTTL=1;intttl=MTTL;if(setsocko
+pt(fd,IPPROTO_IP,IP_MULTICAST_TTL,(void*)&ttl,sizeof(ttl))){zlog_warn("Couldnots
+etmulticastTTL=%donsocketfd=%d:errno=%d:%s",MTTL,fd,errno,safe_strerror(errno));
+close(fd);returnPIM_SOCK_ERR_TTL;}}if(setsockopt_ipv4_multicast_loop(fd,loop)){z
+log_warn("Couldnot%sMulticastLoopbackOptiononsocketfd=%d:errno=%d:%s",loop?"enab
+le":"disable",fd,errno,safe_strerror(errno));close(fd);returnPIM_SOCK_ERR_LOOP;}
+memset(&mreq,0,sizeof(mreq));#ifdefHAVE_STRUCT_IP_MREQN_IMR_IFINDEXmreq.imr_ifin
+dex=ifp->ifindex;#else/**Iamnotsurewhattodohereyetfor*BSD*///mreq.imr_interface=
+ifindex;#endifif(setsockopt(fd,IPPROTO_IP,IP_MULTICAST_IF,(void*)&mreq,sizeof(mr
+eq))){zlog_warn("CouldnotsetOutgoingInterfaceOptiononsocketfd=%d:errno=%d:%s",fd
+,errno,safe_strerror(errno));close(fd);returnPIM_SOCK_ERR_IFACE;}if(setsockopt(f
+d,SOL_SOCKET,SO_RCVBUF,&rcvbuf,sizeof(rcvbuf)))zlog_warn("%s:Failuretosetbuffers
+izeto%d",__PRETTY_FUNCTION__,rcvbuf);{longflags;flags=fcntl(fd,F_GETFL,0);if(fla
+gs<0){zlog_warn("Couldnotgetfcntl(F_GETFL,O_NONBLOCK)onsocketfd=%d:errno=%d:%s",
+fd,errno,safe_strerror(errno));close(fd);returnPIM_SOCK_ERR_NONBLOCK_GETFL;}if(f
+cntl(fd,F_SETFL,flags|O_NONBLOCK)){zlog_warn("Couldnotsetfcntl(F_SETFL,O_NONBLOC
+K)onsocketfd=%d:errno=%d:%s",fd,errno,safe_strerror(errno));close(fd);returnPIM_
+SOCK_ERR_NONBLOCK_SETFL;}}returnfd;}intpim_socket_join(intfd,structin_addrgroup,
+structin_addrifaddr,ifindex_tifindex){intret;#ifdefHAVE_STRUCT_IP_MREQN_IMR_IFIN
+DEXstructip_mreqnopt;#elsestructip_mreqopt;#endifopt.imr_multiaddr=group;#ifdefH
+AVE_STRUCT_IP_MREQN_IMR_IFINDEXopt.imr_address=ifaddr;opt.imr_ifindex=ifindex;#e
+lseopt.imr_interface=ifaddr;#endifret=setsockopt(fd,IPPROTO_IP,IP_ADD_MEMBERSHIP
+,&opt,sizeof(opt));if(ret){chargroup_str[INET_ADDRSTRLEN];charifaddr_str[INET_AD
+DRSTRLEN];if(!inet_ntop(AF_INET,&group,group_str,sizeof(group_str)))sprintf(grou
+p_str,"<group?>");if(!inet_ntop(AF_INET,&ifaddr,ifaddr_str,sizeof(ifaddr_str)))s
+printf(ifaddr_str,"<ifaddr?>");zlog_err("Failuresocketjoiningfd=%dgroup%soninter
+faceaddress%s:errno=%d:%s",fd,group_str,ifaddr_str,errno,safe_strerror(errno));r
+eturnret;}if(PIM_DEBUG_TRACE){chargroup_str[INET_ADDRSTRLEN];charifaddr_str[INET
+_ADDRSTRLEN];if(!inet_ntop(AF_INET,&group,group_str,sizeof(group_str)))sprintf(g
+roup_str,"<group?>");if(!inet_ntop(AF_INET,&ifaddr,ifaddr_str,sizeof(ifaddr_str)
+))sprintf(ifaddr_str,"<ifaddr?>");zlog_debug("Socketfd=%djoinedgroup%soninterfac
+eaddress%s",fd,group_str,ifaddr_str);}returnret;}intpim_socket_join_source(intfd
+,ifindex_tifindex,structin_addrgroup_addr,structin_addrsource_addr,constchar*ifn
+ame){if(pim_igmp_join_source(fd,ifindex,group_addr,source_addr)){chargroup_str[I
+NET_ADDRSTRLEN];charsource_str[INET_ADDRSTRLEN];pim_inet4_dump("<grp?>",group_ad
+dr,group_str,sizeof(group_str));pim_inet4_dump("<src?>",source_addr,source_str,s
+izeof(source_str));zlog_warn("%s:setsockopt(fd=%d)failureforIGMPgroup%ssource%si
+findex%doninterface%s:errno=%d:%s",__PRETTY_FUNCTION__,fd,group_str,source_str,i
+findex,ifname,errno,safe_strerror(errno));return-1;}return0;}intpim_socket_recvf
+romto(intfd,uint8_t*buf,size_tlen,structsockaddr_in*from,socklen_t*fromlen,struc
+tsockaddr_in*to,socklen_t*tolen,ifindex_t*ifindex){structmsghdrmsgh;structcmsghd
+r*cmsg;structioveciov;charcbuf[1000];interr;/**IP_PKTINFO/IP_RECVDSTADDRdon'tyie
+ldsin_port.*Usegetsockname()togetsin_port.*/if(to){structsockaddr_insi;socklen_t
+si_len=sizeof(si);memset(&si,0,sizeof(si));to->sin_family=AF_INET;pim_socket_get
+sockname(fd,(structsockaddr*)&si,&si_len);to->sin_port=si.sin_port;to->sin_addr=
+si.sin_addr;if(tolen)*tolen=sizeof(si);}memset(&msgh,0,sizeof(structmsghdr));iov
+.iov_base=buf;iov.iov_len=len;msgh.msg_control=cbuf;msgh.msg_controllen=sizeof(c
+buf);msgh.msg_name=from;msgh.msg_namelen=fromlen?*fromlen:0;msgh.msg_iov=&iov;ms
+gh.msg_iovlen=1;msgh.msg_flags=0;err=recvmsg(fd,&msgh,0);if(err<0)returnerr;if(f
+romlen)*fromlen=msgh.msg_namelen;for(cmsg=CMSG_FIRSTHDR(&msgh);cmsg!=NULL;cmsg=C
+MSG_NXTHDR(&msgh,cmsg)){#ifdefHAVE_IP_PKTINFOif((cmsg->cmsg_level==IPPROTO_IP)&&
+(cmsg->cmsg_type==IP_PKTINFO)){structin_pktinfo*i=(structin_pktinfo*)CMSG_DATA(c
+msg);if(to)((structsockaddr_in*)to)->sin_addr=i->ipi_addr;if(tolen)*tolen=sizeof
+(structsockaddr_in);if(ifindex)*ifindex=i->ipi_ifindex;break;}#endif#ifdefHAVE_I
+P_RECVDSTADDRif((cmsg->cmsg_level==IPPROTO_IP)&&(cmsg->cmsg_type==IP_RECVDSTADDR
+)){structin_addr*i=(structin_addr*)CMSG_DATA(cmsg);if(to)((structsockaddr_in*)to
+)->sin_addr=*i;if(tolen)*tolen=sizeof(structsockaddr_in);break;}#endif#ifdefined
+(HAVE_IP_RECVIF)&&defined(CMSG_IFINDEX)if(cmsg->cmsg_type==IP_RECVIF)if(ifindex)
+*ifindex=CMSG_IFINDEX(cmsg);#endif}/*for(cmsg)*/returnerr;/*len*/}intpim_socket_
+mcastloop_get(intfd){intloop;socklen_tloop_len=sizeof(loop);if(getsockopt(fd,IPP
+ROTO_IP,IP_MULTICAST_LOOP,&loop,&loop_len)){inte=errno;zlog_warn("CouldnotgetMul
+ticastLoopbackOptiononsocketfd=%d:errno=%d:%s",fd,errno,safe_strerror(errno));er
+rno=e;returnPIM_SOCK_ERR_LOOP;}returnloop;}intpim_socket_getsockname(intfd,struc
+tsockaddr*name,socklen_t*namelen){if(getsockname(fd,name,namelen)){inte=errno;zl
+og_warn("CouldnotgetSocketNameforsocketfd=%d:errno=%d:%s",fd,errno,safe_strerror
+(errno));errno=e;returnPIM_SOCK_ERR_NAME;}returnPIM_SOCK_ERR_NONE;}

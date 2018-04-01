@@ -1,47 +1,21 @@
-/* isisd memory type definitions
- *
- * Copyright (C) 2015  David Lamparter
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include "isis_memory.h"
-
-DEFINE_MGROUP(ISISD, "isisd")
-DEFINE_MTYPE(ISISD, ISIS, "ISIS")
-DEFINE_MTYPE(ISISD, ISIS_TMP, "ISIS TMP")
-DEFINE_MTYPE(ISISD, ISIS_CIRCUIT, "ISIS circuit")
-DEFINE_MTYPE(ISISD, ISIS_LSP, "ISIS LSP")
-DEFINE_MTYPE(ISISD, ISIS_ADJACENCY, "ISIS adjacency")
-DEFINE_MTYPE(ISISD, ISIS_ADJACENCY_INFO, "ISIS adjacency info")
-DEFINE_MTYPE(ISISD, ISIS_AREA, "ISIS area")
-DEFINE_MTYPE(ISISD, ISIS_AREA_ADDR, "ISIS area address")
-DEFINE_MTYPE(ISISD, ISIS_DYNHN, "ISIS dyn hostname")
-DEFINE_MTYPE(ISISD, ISIS_SPFTREE, "ISIS SPFtree")
-DEFINE_MTYPE(ISISD, ISIS_VERTEX, "ISIS vertex")
-DEFINE_MTYPE(ISISD, ISIS_ROUTE_INFO, "ISIS route info")
-DEFINE_MTYPE(ISISD, ISIS_NEXTHOP, "ISIS nexthop")
-DEFINE_MTYPE(ISISD, ISIS_NEXTHOP6, "ISIS nexthop6")
-DEFINE_MTYPE(ISISD, ISIS_DICT, "ISIS dictionary")
-DEFINE_MTYPE(ISISD, ISIS_DICT_NODE, "ISIS dictionary node")
-DEFINE_MTYPE(ISISD, ISIS_EXT_ROUTE, "ISIS redistributed route")
-DEFINE_MTYPE(ISISD, ISIS_EXT_INFO, "ISIS redistributed route info")
-DEFINE_MTYPE(ISISD, ISIS_MPLS_TE, "ISIS MPLS_TE parameters")
+/*isisdmemorytypedefinitions**Copyright(C)2015DavidLamparter**ThisfileispartofQu
+agga.**Quaggaisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsofth
+eGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,o
+r(atyouroption)any*laterversion.**Quaggaisdistributedinthehopethatitwillbeuseful
+,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESS
+FORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldha
+vereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYI
+NG;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,M
+A02110-1301USA*/#ifdefHAVE_CONFIG_H#include"config.h"#endif#include"isis_memory.
+h"DEFINE_MGROUP(ISISD,"isisd")DEFINE_MTYPE(ISISD,ISIS,"ISIS")DEFINE_MTYPE(ISISD,
+ISIS_TMP,"ISISTMP")DEFINE_MTYPE(ISISD,ISIS_CIRCUIT,"ISIScircuit")DEFINE_MTYPE(IS
+ISD,ISIS_LSP,"ISISLSP")DEFINE_MTYPE(ISISD,ISIS_ADJACENCY,"ISISadjacency")DEFINE_
+MTYPE(ISISD,ISIS_ADJACENCY_INFO,"ISISadjacencyinfo")DEFINE_MTYPE(ISISD,ISIS_AREA
+,"ISISarea")DEFINE_MTYPE(ISISD,ISIS_AREA_ADDR,"ISISareaaddress")DEFINE_MTYPE(ISI
+SD,ISIS_DYNHN,"ISISdynhostname")DEFINE_MTYPE(ISISD,ISIS_SPFTREE,"ISISSPFtree")DE
+FINE_MTYPE(ISISD,ISIS_VERTEX,"ISISvertex")DEFINE_MTYPE(ISISD,ISIS_ROUTE_INFO,"IS
+ISrouteinfo")DEFINE_MTYPE(ISISD,ISIS_NEXTHOP,"ISISnexthop")DEFINE_MTYPE(ISISD,IS
+IS_NEXTHOP6,"ISISnexthop6")DEFINE_MTYPE(ISISD,ISIS_DICT,"ISISdictionary")DEFINE_
+MTYPE(ISISD,ISIS_DICT_NODE,"ISISdictionarynode")DEFINE_MTYPE(ISISD,ISIS_EXT_ROUT
+E,"ISISredistributedroute")DEFINE_MTYPE(ISISD,ISIS_EXT_INFO,"ISISredistributedro
+uteinfo")DEFINE_MTYPE(ISISD,ISIS_MPLS_TE,"ISISMPLS_TEparameters")

@@ -1,454 +1,118 @@
-/* Hash routine.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#include <math.h>
-
-#include "hash.h"
-#include "memory.h"
-#include "linklist.h"
-#include "termtable.h"
-#include "vty.h"
-#include "command.h"
-#include "libfrr.h"
-
-DEFINE_MTYPE(LIB, HASH, "Hash")
-DEFINE_MTYPE(LIB, HASH_BACKET, "Hash Bucket")
-DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index")
-
-pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
-static struct list *_hashes;
-
-/* Allocate a new hash.  */
-struct hash *hash_create_size(unsigned int size,
-			      unsigned int (*hash_key)(void *),
-			      int (*hash_cmp)(const void *, const void *),
-			      const char *name)
-{
-	struct hash *hash;
-
-	assert((size & (size - 1)) == 0);
-	hash = XCALLOC(MTYPE_HASH, sizeof(struct hash));
-	hash->index =
-		XCALLOC(MTYPE_HASH_INDEX, sizeof(struct hash_backet *) * size);
-	hash->size = size;
-	hash->hash_key = hash_key;
-	hash->hash_cmp = hash_cmp;
-	hash->count = 0;
-	hash->name = name ? XSTRDUP(MTYPE_HASH, name) : NULL;
-	hash->stats.empty = hash->size;
-
-	pthread_mutex_lock(&_hashes_mtx);
-	{
-		if (!_hashes)
-			_hashes = list_new();
-
-		listnode_add(_hashes, hash);
-	}
-	pthread_mutex_unlock(&_hashes_mtx);
-
-	return hash;
-}
-
-/* Allocate a new hash with default hash size.  */
-struct hash *hash_create(unsigned int (*hash_key)(void *),
-			 int (*hash_cmp)(const void *, const void *),
-			 const char *name)
-{
-	return hash_create_size(HASH_INITIAL_SIZE, hash_key, hash_cmp, name);
-}
-
-/* Utility function for hash_get().  When this function is specified
-   as alloc_func, return arugment as it is.  This function is used for
-   intern already allocated value.  */
-void *hash_alloc_intern(void *arg)
-{
-	return arg;
-}
-
-#define hash_update_ssq(hz, old, new)                                          \
-	atomic_fetch_add_explicit(&hz->stats.ssq, (new + old) * (new - old),   \
-				  memory_order_relaxed);
-
-/* Expand hash if the chain length exceeds the threshold. */
-static void hash_expand(struct hash *hash)
-{
-	unsigned int i, new_size;
-	struct hash_backet *hb, *hbnext, **new_index;
-
-	new_size = hash->size * 2;
-
-	if (hash->max_size && new_size > hash->max_size)
-		return;
-
-	new_index = XCALLOC(MTYPE_HASH_INDEX,
-			    sizeof(struct hash_backet *) * new_size);
-	if (new_index == NULL)
-		return;
-
-	hash->stats.empty = new_size;
-
-	for (i = 0; i < hash->size; i++)
-		for (hb = hash->index[i]; hb; hb = hbnext) {
-			unsigned int h = hb->key & (new_size - 1);
-
-			hbnext = hb->next;
-			hb->next = new_index[h];
-
-			int oldlen = hb->next ? hb->next->len : 0;
-			int newlen = oldlen + 1;
-
-			if (newlen == 1)
-				hash->stats.empty--;
-			else
-				hb->next->len = 0;
-
-			hb->len = newlen;
-
-			hash_update_ssq(hash, oldlen, newlen);
-
-			new_index[h] = hb;
-		}
-
-	/* Switch to new table */
-	XFREE(MTYPE_HASH_INDEX, hash->index);
-	hash->size = new_size;
-	hash->index = new_index;
-}
-
-/* Lookup and return hash backet in hash.  If there is no
-   corresponding hash backet and alloc_func is specified, create new
-   hash backet.  */
-void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
-{
-	unsigned int key;
-	unsigned int index;
-	void *newdata;
-	struct hash_backet *backet;
-
-	if (!alloc_func && !hash->count)
-		return NULL;
-
-	key = (*hash->hash_key)(data);
-	index = key & (hash->size - 1);
-
-	for (backet = hash->index[index]; backet != NULL;
-	     backet = backet->next) {
-		if (backet->key == key && (*hash->hash_cmp)(backet->data, data))
-			return backet->data;
-	}
-
-	if (alloc_func) {
-		newdata = (*alloc_func)(data);
-		if (newdata == NULL)
-			return NULL;
-
-		if (HASH_THRESHOLD(hash->count + 1, hash->size)) {
-			hash_expand(hash);
-			index = key & (hash->size - 1);
-		}
-
-		backet = XCALLOC(MTYPE_HASH_BACKET, sizeof(struct hash_backet));
-		backet->data = newdata;
-		backet->key = key;
-		backet->next = hash->index[index];
-		hash->index[index] = backet;
-		hash->count++;
-
-		int oldlen = backet->next ? backet->next->len : 0;
-		int newlen = oldlen + 1;
-
-		if (newlen == 1)
-			hash->stats.empty--;
-		else
-			backet->next->len = 0;
-
-		backet->len = newlen;
-
-		hash_update_ssq(hash, oldlen, newlen);
-
-		return backet->data;
-	}
-	return NULL;
-}
-
-/* Hash lookup.  */
-void *hash_lookup(struct hash *hash, void *data)
-{
-	return hash_get(hash, data, NULL);
-}
-
-/* Simple Bernstein hash which is simple and fast for common case */
-unsigned int string_hash_make(const char *str)
-{
-	unsigned int hash = 0;
-
-	while (*str)
-		hash = (hash * 33) ^ (unsigned int)*str++;
-
-	return hash;
-}
-
-/* This function release registered value from specified hash.  When
-   release is successfully finished, return the data pointer in the
-   hash backet.  */
-void *hash_release(struct hash *hash, void *data)
-{
-	void *ret;
-	unsigned int key;
-	unsigned int index;
-	struct hash_backet *backet;
-	struct hash_backet *pp;
-
-	key = (*hash->hash_key)(data);
-	index = key & (hash->size - 1);
-
-	for (backet = pp = hash->index[index]; backet; backet = backet->next) {
-		if (backet->key == key
-		    && (*hash->hash_cmp)(backet->data, data)) {
-			int oldlen = hash->index[index]->len;
-			int newlen = oldlen - 1;
-
-			if (backet == pp)
-				hash->index[index] = backet->next;
-			else
-				pp->next = backet->next;
-
-			if (hash->index[index])
-				hash->index[index]->len = newlen;
-			else
-				hash->stats.empty++;
-
-			hash_update_ssq(hash, oldlen, newlen);
-
-			ret = backet->data;
-			XFREE(MTYPE_HASH_BACKET, backet);
-			hash->count--;
-			return ret;
-		}
-		pp = backet;
-	}
-	return NULL;
-}
-
-/* Iterator function for hash.  */
-void hash_iterate(struct hash *hash, void (*func)(struct hash_backet *, void *),
-		  void *arg)
-{
-	unsigned int i;
-	struct hash_backet *hb;
-	struct hash_backet *hbnext;
-
-	for (i = 0; i < hash->size; i++)
-		for (hb = hash->index[i]; hb; hb = hbnext) {
-			/* get pointer to next hash backet here, in case (*func)
-			 * decides to delete hb by calling hash_release
-			 */
-			hbnext = hb->next;
-			(*func)(hb, arg);
-		}
-}
-
-/* Iterator function for hash.  */
-void hash_walk(struct hash *hash, int (*func)(struct hash_backet *, void *),
-	       void *arg)
-{
-	unsigned int i;
-	struct hash_backet *hb;
-	struct hash_backet *hbnext;
-	int ret = HASHWALK_CONTINUE;
-
-	for (i = 0; i < hash->size; i++) {
-		for (hb = hash->index[i]; hb; hb = hbnext) {
-			/* get pointer to next hash backet here, in case (*func)
-			 * decides to delete hb by calling hash_release
-			 */
-			hbnext = hb->next;
-			ret = (*func)(hb, arg);
-			if (ret == HASHWALK_ABORT)
-				return;
-		}
-	}
-}
-
-/* Clean up hash.  */
-void hash_clean(struct hash *hash, void (*free_func)(void *))
-{
-	unsigned int i;
-	struct hash_backet *hb;
-	struct hash_backet *next;
-
-	for (i = 0; i < hash->size; i++) {
-		for (hb = hash->index[i]; hb; hb = next) {
-			next = hb->next;
-
-			if (free_func)
-				(*free_func)(hb->data);
-
-			XFREE(MTYPE_HASH_BACKET, hb);
-			hash->count--;
-		}
-		hash->index[i] = NULL;
-	}
-
-	hash->stats.ssq = 0;
-	hash->stats.empty = hash->size;
-}
-
-/* Free hash memory.  You may call hash_clean before call this
-   function.  */
-void hash_free(struct hash *hash)
-{
-	pthread_mutex_lock(&_hashes_mtx);
-	{
-		if (_hashes) {
-			listnode_delete(_hashes, hash);
-			if (_hashes->count == 0) {
-				list_delete_and_null(&_hashes);
-			}
-		}
-	}
-	pthread_mutex_unlock(&_hashes_mtx);
-
-	if (hash->name)
-		XFREE(MTYPE_HASH, hash->name);
-
-	XFREE(MTYPE_HASH_INDEX, hash->index);
-	XFREE(MTYPE_HASH, hash);
-}
-
-
-/* CLI commands ------------------------------------------------------------ */
-
-DEFUN_NOSH(show_hash_stats,
-           show_hash_stats_cmd,
-           "show debugging hashtable [statistics]",
-           SHOW_STR
-           DEBUG_STR
-           "Statistics about hash tables\n"
-           "Statistics about hash tables\n")
-{
-	struct hash *h;
-	struct listnode *ln;
-	struct ttable *tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-
-	ttable_add_row(tt, "Hash table|Buckets|Entries|Empty|LF|SD|FLF|SD");
-	tt->style.cell.lpad = 2;
-	tt->style.cell.rpad = 1;
-	tt->style.corner = '+';
-	ttable_restyle(tt);
-	ttable_rowseps(tt, 0, BOTTOM, true, '-');
-
-	/* Summary statistics calculated are:
-	 *
-	 * - Load factor: This is the number of elements in the table divided
-	 *   by the number of buckets. Since this hash table implementation
-	 *   uses chaining, this value can be greater than 1.
-	 *   This number provides information on how 'full' the table is, but
-	 *   does not provide information on how evenly distributed the
-	 *   elements are.
-	 *   Notably, a load factor >= 1 does not imply that every bucket has
-	 *   an element; with a pathological hash function, all elements could
-	 *   be in a single bucket.
-	 *
-	 * - Full load factor: this is the number of elements in the table
-	 *   divided by the number of buckets that have some elements in them.
-	 *
-	 * - Std. Dev.: This is the standard deviation calculated from the
-	 *   relevant load factor. If the load factor is the mean of number of
-	 *   elements per bucket, the standard deviation measures how much any
-	 *   particular bucket is likely to deviate from the mean.
-	 *   As a rule of thumb this number should be less than 2, and ideally
-	 *   <= 1 for optimal performance. A number larger than 3 generally
-	 *   indicates a poor hash function.
-	 */
-
-	double lf;    // load factor
-	double flf;   // full load factor
-	double var;   // overall variance
-	double fvar;  // full variance
-	double stdv;  // overall stddev
-	double fstdv; // full stddev
-
-	long double x2;   // h->count ^ 2
-	long double ldc;  // (long double) h->count
-	long double full; // h->size - h->stats.empty
-	long double ssq;  // ssq casted to long double
-
-	pthread_mutex_lock(&_hashes_mtx);
-	if (!_hashes) {
-		pthread_mutex_unlock(&_hashes_mtx);
-		ttable_del(tt);
-		vty_out(vty, "No hash tables in use.\n");
-		return CMD_SUCCESS;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(_hashes, ln, h)) {
-		if (!h->name)
-			continue;
-
-		ssq = (long double)h->stats.ssq;
-		x2 = h->count * h->count;
-		ldc = (long double)h->count;
-		full = h->size - h->stats.empty;
-		lf = h->count / (double)h->size;
-		flf = full ? h->count / (double)(full) : 0;
-		var = ldc ? (1.0 / ldc) * (ssq - x2 / ldc) : 0;
-		fvar = full ? (1.0 / full) * (ssq - x2 / full) : 0;
-		var = (var < .0001) ? 0 : var;
-		fvar = (fvar < .0001) ? 0 : fvar;
-		stdv = sqrt(var);
-		fstdv = sqrt(fvar);
-
-		ttable_add_row(tt, "%s|%d|%ld|%.0f%%|%.2lf|%.2lf|%.2lf|%.2lf",
-			       h->name, h->size, h->count,
-			       (h->stats.empty / (double)h->size) * 100, lf,
-			       stdv, flf, fstdv);
-	}
-	pthread_mutex_unlock(&_hashes_mtx);
-
-	/* display header */
-	char header[] = "Showing hash table statistics for ";
-	char underln[sizeof(header) + strlen(frr_protonameinst)];
-	memset(underln, '-', sizeof(underln));
-	underln[sizeof(underln) - 1] = '\0';
-	vty_out(vty, "%s%s\n", header, frr_protonameinst);
-	vty_out(vty, "%s\n", underln);
-
-	vty_out(vty, "# allocated: %d\n", _hashes->count);
-	vty_out(vty, "# named:     %d\n\n", tt->nrows - 1);
-
-	if (tt->nrows > 1) {
-		ttable_colseps(tt, 0, RIGHT, true, '|');
-		char *table = ttable_dump(tt, "\n");
-		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
-	} else
-		vty_out(vty, "No named hash tables to display.\n");
-
-	ttable_del(tt);
-
-	return CMD_SUCCESS;
-}
-
-void hash_cmd_init()
-{
-	install_element(ENABLE_NODE, &show_hash_stats_cmd);
-}
+/*Hashroutine.*Copyright(C)1998KunihiroIshiguro**ThisfileispartofGNUZebra.**GNUZ
+ebraisfreesoftware;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGener
+alPublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversion2,or(atyour*
+option)anylaterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WI
+THOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPAR
+TICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhaverecei
+vedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifno
+t,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-
+1301USA*/#include<zebra.h>#include<math.h>#include"hash.h"#include"memory.h"#inc
+lude"linklist.h"#include"termtable.h"#include"vty.h"#include"command.h"#include"
+libfrr.h"DEFINE_MTYPE(LIB,HASH,"Hash")DEFINE_MTYPE(LIB,HASH_BACKET,"HashBucket")
+DEFINE_MTYPE_STATIC(LIB,HASH_INDEX,"HashIndex")pthread_mutex_t_hashes_mtx=PTHREA
+D_MUTEX_INITIALIZER;staticstructlist*_hashes;/*Allocateanewhash.*/structhash*has
+h_create_size(unsignedintsize,unsignedint(*hash_key)(void*),int(*hash_cmp)(const
+void*,constvoid*),constchar*name){structhash*hash;assert((size&(size-1))==0);has
+h=XCALLOC(MTYPE_HASH,sizeof(structhash));hash->index=XCALLOC(MTYPE_HASH_INDEX,si
+zeof(structhash_backet*)*size);hash->size=size;hash->hash_key=hash_key;hash->has
+h_cmp=hash_cmp;hash->count=0;hash->name=name?XSTRDUP(MTYPE_HASH,name):NULL;hash-
+>stats.empty=hash->size;pthread_mutex_lock(&_hashes_mtx);{if(!_hashes)_hashes=li
+st_new();listnode_add(_hashes,hash);}pthread_mutex_unlock(&_hashes_mtx);returnha
+sh;}/*Allocateanewhashwithdefaulthashsize.*/structhash*hash_create(unsignedint(*
+hash_key)(void*),int(*hash_cmp)(constvoid*,constvoid*),constchar*name){returnhas
+h_create_size(HASH_INITIAL_SIZE,hash_key,hash_cmp,name);}/*Utilityfunctionforhas
+h_get().Whenthisfunctionisspecifiedasalloc_func,returnarugmentasitis.Thisfunctio
+nisusedforinternalreadyallocatedvalue.*/void*hash_alloc_intern(void*arg){returna
+rg;}#definehash_update_ssq(hz,old,new)\atomic_fetch_add_explicit(&hz->stats.ssq,
+(new+old)*(new-old),\memory_order_relaxed);/*Expandhashifthechainlengthexceedsth
+ethreshold.*/staticvoidhash_expand(structhash*hash){unsignedinti,new_size;struct
+hash_backet*hb,*hbnext,**new_index;new_size=hash->size*2;if(hash->max_size&&new_
+size>hash->max_size)return;new_index=XCALLOC(MTYPE_HASH_INDEX,sizeof(structhash_
+backet*)*new_size);if(new_index==NULL)return;hash->stats.empty=new_size;for(i=0;
+i<hash->size;i++)for(hb=hash->index[i];hb;hb=hbnext){unsignedinth=hb->key&(new_s
+ize-1);hbnext=hb->next;hb->next=new_index[h];intoldlen=hb->next?hb->next->len:0;
+intnewlen=oldlen+1;if(newlen==1)hash->stats.empty--;elsehb->next->len=0;hb->len=
+newlen;hash_update_ssq(hash,oldlen,newlen);new_index[h]=hb;}/*Switchtonewtable*/
+XFREE(MTYPE_HASH_INDEX,hash->index);hash->size=new_size;hash->index=new_index;}/
+*Lookupandreturnhashbacketinhash.Ifthereisnocorrespondinghashbacketandalloc_func
+isspecified,createnewhashbacket.*/void*hash_get(structhash*hash,void*data,void*(
+*alloc_func)(void*)){unsignedintkey;unsignedintindex;void*newdata;structhash_bac
+ket*backet;if(!alloc_func&&!hash->count)returnNULL;key=(*hash->hash_key)(data);i
+ndex=key&(hash->size-1);for(backet=hash->index[index];backet!=NULL;backet=backet
+->next){if(backet->key==key&&(*hash->hash_cmp)(backet->data,data))returnbacket->
+data;}if(alloc_func){newdata=(*alloc_func)(data);if(newdata==NULL)returnNULL;if(
+HASH_THRESHOLD(hash->count+1,hash->size)){hash_expand(hash);index=key&(hash->siz
+e-1);}backet=XCALLOC(MTYPE_HASH_BACKET,sizeof(structhash_backet));backet->data=n
+ewdata;backet->key=key;backet->next=hash->index[index];hash->index[index]=backet
+;hash->count++;intoldlen=backet->next?backet->next->len:0;intnewlen=oldlen+1;if(
+newlen==1)hash->stats.empty--;elsebacket->next->len=0;backet->len=newlen;hash_up
+date_ssq(hash,oldlen,newlen);returnbacket->data;}returnNULL;}/*Hashlookup.*/void
+*hash_lookup(structhash*hash,void*data){returnhash_get(hash,data,NULL);}/*Simple
+Bernsteinhashwhichissimpleandfastforcommoncase*/unsignedintstring_hash_make(cons
+tchar*str){unsignedinthash=0;while(*str)hash=(hash*33)^(unsignedint)*str++;retur
+nhash;}/*Thisfunctionreleaseregisteredvaluefromspecifiedhash.Whenreleaseissucces
+sfullyfinished,returnthedatapointerinthehashbacket.*/void*hash_release(structhas
+h*hash,void*data){void*ret;unsignedintkey;unsignedintindex;structhash_backet*bac
+ket;structhash_backet*pp;key=(*hash->hash_key)(data);index=key&(hash->size-1);fo
+r(backet=pp=hash->index[index];backet;backet=backet->next){if(backet->key==key&&
+(*hash->hash_cmp)(backet->data,data)){intoldlen=hash->index[index]->len;intnewle
+n=oldlen-1;if(backet==pp)hash->index[index]=backet->next;elsepp->next=backet->ne
+xt;if(hash->index[index])hash->index[index]->len=newlen;elsehash->stats.empty++;
+hash_update_ssq(hash,oldlen,newlen);ret=backet->data;XFREE(MTYPE_HASH_BACKET,bac
+ket);hash->count--;returnret;}pp=backet;}returnNULL;}/*Iteratorfunctionforhash.*
+/voidhash_iterate(structhash*hash,void(*func)(structhash_backet*,void*),void*arg
+){unsignedinti;structhash_backet*hb;structhash_backet*hbnext;for(i=0;i<hash->siz
+e;i++)for(hb=hash->index[i];hb;hb=hbnext){/*getpointertonexthashbackethere,incas
+e(*func)*decidestodeletehbbycallinghash_release*/hbnext=hb->next;(*func)(hb,arg)
+;}}/*Iteratorfunctionforhash.*/voidhash_walk(structhash*hash,int(*func)(structha
+sh_backet*,void*),void*arg){unsignedinti;structhash_backet*hb;structhash_backet*
+hbnext;intret=HASHWALK_CONTINUE;for(i=0;i<hash->size;i++){for(hb=hash->index[i];
+hb;hb=hbnext){/*getpointertonexthashbackethere,incase(*func)*decidestodeletehbby
+callinghash_release*/hbnext=hb->next;ret=(*func)(hb,arg);if(ret==HASHWALK_ABORT)
+return;}}}/*Cleanuphash.*/voidhash_clean(structhash*hash,void(*free_func)(void*)
+){unsignedinti;structhash_backet*hb;structhash_backet*next;for(i=0;i<hash->size;
+i++){for(hb=hash->index[i];hb;hb=next){next=hb->next;if(free_func)(*free_func)(h
+b->data);XFREE(MTYPE_HASH_BACKET,hb);hash->count--;}hash->index[i]=NULL;}hash->s
+tats.ssq=0;hash->stats.empty=hash->size;}/*Freehashmemory.Youmaycallhash_cleanbe
+forecallthisfunction.*/voidhash_free(structhash*hash){pthread_mutex_lock(&_hashe
+s_mtx);{if(_hashes){listnode_delete(_hashes,hash);if(_hashes->count==0){list_del
+ete_and_null(&_hashes);}}}pthread_mutex_unlock(&_hashes_mtx);if(hash->name)XFREE
+(MTYPE_HASH,hash->name);XFREE(MTYPE_HASH_INDEX,hash->index);XFREE(MTYPE_HASH,has
+h);}/*CLIcommands------------------------------------------------------------*/D
+EFUN_NOSH(show_hash_stats,show_hash_stats_cmd,"showdebugginghashtable[statistics
+]",SHOW_STRDEBUG_STR"Statisticsabouthashtables\n""Statisticsabouthashtables\n"){
+structhash*h;structlistnode*ln;structttable*tt=ttable_new(&ttable_styles[TTSTYLE
+_BLANK]);ttable_add_row(tt,"Hashtable|Buckets|Entries|Empty|LF|SD|FLF|SD");tt->s
+tyle.cell.lpad=2;tt->style.cell.rpad=1;tt->style.corner='+';ttable_restyle(tt);t
+table_rowseps(tt,0,BOTTOM,true,'-');/*Summarystatisticscalculatedare:**-Loadfact
+or:Thisisthenumberofelementsinthetabledivided*bythenumberofbuckets.Sincethishash
+tableimplementation*useschaining,thisvaluecanbegreaterthan1.*Thisnumberprovidesi
+nformationonhow'full'thetableis,but*doesnotprovideinformationonhowevenlydistribu
+tedthe*elementsare.*Notably,aloadfactor>=1doesnotimplythateverybuckethas*aneleme
+nt;withapathologicalhashfunction,allelementscould*beinasinglebucket.**-Fullloadf
+actor:thisisthenumberofelementsinthetable*dividedbythenumberofbucketsthathavesom
+eelementsinthem.**-Std.Dev.:Thisisthestandarddeviationcalculatedfromthe*relevant
+loadfactor.Iftheloadfactoristhemeanofnumberof*elementsperbucket,thestandarddevia
+tionmeasureshowmuchany*particularbucketislikelytodeviatefromthemean.*Asaruleofth
+umbthisnumbershouldbelessthan2,andideally*<=1foroptimalperformance.Anumberlarger
+than3generally*indicatesapoorhashfunction.*/doublelf;//loadfactordoubleflf;//ful
+lloadfactordoublevar;//overallvariancedoublefvar;//fullvariancedoublestdv;//over
+allstddevdoublefstdv;//fullstddevlongdoublex2;//h->count^2longdoubleldc;//(longd
+ouble)h->countlongdoublefull;//h->size-h->stats.emptylongdoublessq;//ssqcastedto
+longdoublepthread_mutex_lock(&_hashes_mtx);if(!_hashes){pthread_mutex_unlock(&_h
+ashes_mtx);ttable_del(tt);vty_out(vty,"Nohashtablesinuse.\n");returnCMD_SUCCESS;
+}for(ALL_LIST_ELEMENTS_RO(_hashes,ln,h)){if(!h->name)continue;ssq=(longdouble)h-
+>stats.ssq;x2=h->count*h->count;ldc=(longdouble)h->count;full=h->size-h->stats.e
+mpty;lf=h->count/(double)h->size;flf=full?h->count/(double)(full):0;var=ldc?(1.0
+/ldc)*(ssq-x2/ldc):0;fvar=full?(1.0/full)*(ssq-x2/full):0;var=(var<.0001)?0:var;
+fvar=(fvar<.0001)?0:fvar;stdv=sqrt(var);fstdv=sqrt(fvar);ttable_add_row(tt,"%s|%
+d|%ld|%.0f%%|%.2lf|%.2lf|%.2lf|%.2lf",h->name,h->size,h->count,(h->stats.empty/(
+double)h->size)*100,lf,stdv,flf,fstdv);}pthread_mutex_unlock(&_hashes_mtx);/*dis
+playheader*/charheader[]="Showinghashtablestatisticsfor";charunderln[sizeof(head
+er)+strlen(frr_protonameinst)];memset(underln,'-',sizeof(underln));underln[sizeo
+f(underln)-1]='\0';vty_out(vty,"%s%s\n",header,frr_protonameinst);vty_out(vty,"%
+s\n",underln);vty_out(vty,"#allocated:%d\n",_hashes->count);vty_out(vty,"#named:
+%d\n\n",tt->nrows-1);if(tt->nrows>1){ttable_colseps(tt,0,RIGHT,true,'|');char*ta
+ble=ttable_dump(tt,"\n");vty_out(vty,"%s\n",table);XFREE(MTYPE_TMP,table);}elsev
+ty_out(vty,"Nonamedhashtablestodisplay.\n");ttable_del(tt);returnCMD_SUCCESS;}vo
+idhash_cmd_init(){install_element(ENABLE_NODE,&show_hash_stats_cmd);}

@@ -1,40 +1,15 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_dynhn.h
- *                             Dynamic hostname cache
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#ifndef _ZEBRA_ISIS_DYNHN_H
-#define _ZEBRA_ISIS_DYNHN_H
-
-struct isis_dynhn {
-	uint8_t id[ISIS_SYS_ID_LEN];
-	char hostname[256];
-	time_t refresh;
-	int level;
-};
-
-void dyn_cache_init(void);
-void isis_dynhn_insert(const uint8_t *id, const char *hostname, int level);
-void isis_dynhn_remove(const uint8_t *id);
-struct isis_dynhn *dynhn_find_by_id(const uint8_t *id);
-struct isis_dynhn *dynhn_find_by_name(const char *hostname);
-void dynhn_print_all(struct vty *vty);
-
-#endif /* _ZEBRA_ISIS_DYNHN_H */
+/**IS-ISRout(e)ingprotocol-isis_dynhn.h*Dynamichostnamecache**Copyright(C)2001,2
+002SampoSaaristo*TampereUniversityofTechnology*InstituteofCommunicationsEngineer
+ing**Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*underthetermso
+ftheGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;eitherversion
+2oftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistributedintheho
+pethatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCH
+ANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*mored
+etails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthispro
+gram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt
+,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_ISIS_DYNHN_H#define_ZEBRA_ISIS
+_DYNHN_Hstructisis_dynhn{uint8_tid[ISIS_SYS_ID_LEN];charhostname[256];time_trefr
+esh;intlevel;};voiddyn_cache_init(void);voidisis_dynhn_insert(constuint8_t*id,co
+nstchar*hostname,intlevel);voidisis_dynhn_remove(constuint8_t*id);structisis_dyn
+hn*dynhn_find_by_id(constuint8_t*id);structisis_dynhn*dynhn_find_by_name(constch
+ar*hostname);voiddynhn_print_all(structvty*vty);#endif/*_ZEBRA_ISIS_DYNHN_H*/

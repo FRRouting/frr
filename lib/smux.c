@@ -1,1416 +1,326 @@
-/* SNMP support
- * Copyright (C) 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#ifdef SNMP_SMUX
-#include <net-snmp/net-snmp-config.h>
-#include <net-snmp/net-snmp-includes.h>
-
-#include "log.h"
-#include "thread.h"
-#include "linklist.h"
-#include "command.h"
-#include <lib/version.h>
-#include "memory.h"
-#include "sockunion.h"
-#include "smux.h"
-
-#define SMUX_PORT_DEFAULT 199
-
-#define SMUXMAXPKTSIZE    1500
-#define SMUXMAXSTRLEN      256
-
-#define SMUX_OPEN       (ASN_APPLICATION | ASN_CONSTRUCTOR | 0)
-#define SMUX_CLOSE      (ASN_APPLICATION | ASN_PRIMITIVE | 1)
-#define SMUX_RREQ       (ASN_APPLICATION | ASN_CONSTRUCTOR | 2)
-#define SMUX_RRSP       (ASN_APPLICATION | ASN_PRIMITIVE | 3)
-#define SMUX_SOUT       (ASN_APPLICATION | ASN_PRIMITIVE | 4)
-
-#define SMUX_GET        (ASN_CONTEXT | ASN_CONSTRUCTOR | 0)
-#define SMUX_GETNEXT    (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)
-#define SMUX_GETRSP     (ASN_CONTEXT | ASN_CONSTRUCTOR | 2)
-#define SMUX_SET	(ASN_CONTEXT | ASN_CONSTRUCTOR | 3)
-#define SMUX_TRAP	(ASN_CONTEXT | ASN_CONSTRUCTOR | 4)
-
-#define SMUX_MAX_FAILURE 3
-
-/* SNMP tree. */
-struct subtree {
-	/* Tree's oid. */
-	oid name[MAX_OID_LEN];
-	uint8_t name_len;
-
-	/* List of the variables. */
-	struct variable *variables;
-
-	/* Length of the variables list. */
-	int variables_num;
-
-	/* Width of the variables list. */
-	int variables_width;
-
-	/* Registered flag. */
-	int registered;
-};
-
-#define min(A,B) ((A) < (B) ? (A) : (B))
-
-enum smux_event { SMUX_SCHEDULE, SMUX_CONNECT, SMUX_READ };
-
-void smux_event(enum smux_event, int);
-
-
-/* SMUX socket. */
-int smux_sock = -1;
-
-/* SMUX subtree list. */
-struct list *treelist;
-
-/* SMUX oid. */
-oid *smux_oid = NULL;
-size_t smux_oid_len;
-
-/* SMUX password. */
-char *smux_passwd = NULL;
-
-/* SMUX read threads. */
-struct thread *smux_read_thread;
-
-/* SMUX connect thrads. */
-struct thread *smux_connect_thread;
-
-/* SMUX debug flag. */
-int debug_smux = 0;
-
-/* SMUX failure count. */
-int fail = 0;
-
-/* SMUX node. */
-static struct cmd_node smux_node = {
-	SMUX_NODE, "" /* SMUX has no interface. */
-};
-
-/* thread master */
-static struct thread_master *smux_master;
-
-static int oid_compare_part(oid *o1, int o1_len, oid *o2, int o2_len)
-{
-	int i;
-
-	for (i = 0; i < min(o1_len, o2_len); i++) {
-		if (o1[i] < o2[i])
-			return -1;
-		else if (o1[i] > o2[i])
-			return 1;
-	}
-	if (o1_len < o2_len)
-		return -1;
-
-	return 0;
-}
-
-static void smux_oid_dump(const char *prefix, const oid *oid, size_t oid_len)
-{
-	unsigned int i;
-	int first = 1;
-	char buf[MAX_OID_LEN * 3];
-
-	buf[0] = '\0';
-
-	for (i = 0; i < oid_len; i++) {
-		sprintf(buf + strlen(buf), "%s%d", first ? "" : ".",
-			(int)oid[i]);
-		first = 0;
-	}
-	zlog_debug("%s: %s", prefix, buf);
-}
-
-static int smux_socket(void)
-{
-	int ret;
-	struct addrinfo hints, *res0, *res;
-	int gai;
-	int sock = 0;
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	gai = getaddrinfo(NULL, "smux", &hints, &res0);
-	if (gai == EAI_SERVICE) {
-		char servbuf[NI_MAXSERV];
-		sprintf(servbuf, "%d", SMUX_PORT_DEFAULT);
-		servbuf[sizeof(servbuf) - 1] = '\0';
-		gai = getaddrinfo(NULL, servbuf, &hints, &res0);
-	}
-	if (gai) {
-		zlog_warn("Cannot locate loopback service smux");
-		return -1;
-	}
-	for (res = res0; res; res = res->ai_next) {
-		if (res->ai_family != AF_INET && res->ai_family != AF_INET6)
-			continue;
-
-		sock = socket(res->ai_family, res->ai_socktype,
-			      res->ai_protocol);
-		if (sock < 0)
-			continue;
-		sockopt_reuseaddr(sock);
-		sockopt_reuseport(sock);
-		ret = connect(sock, res->ai_addr, res->ai_addrlen);
-		if (ret < 0) {
-			close(sock);
-			sock = -1;
-			continue;
-		}
-		break;
-	}
-	freeaddrinfo(res0);
-	if (sock < 0)
-		zlog_warn("Can't connect to SNMP agent with SMUX");
-	return sock;
-}
-
-static void smux_getresp_send(oid objid[], size_t objid_len, long reqid,
-			      long errstat, long errindex, uint8_t val_type,
-			      void *arg, size_t arg_len)
-{
-	uint8_t buf[BUFSIZ];
-	uint8_t *ptr, *h1, *h1e, *h2, *h2e;
-	size_t len, length;
-
-	ptr = buf;
-	len = BUFSIZ;
-	length = len;
-
-	if (debug_smux) {
-		zlog_debug("SMUX GETRSP send");
-		zlog_debug("SMUX GETRSP reqid: %ld", reqid);
-	}
-
-	h1 = ptr;
-	/* Place holder h1 for complete sequence */
-	ptr = asn_build_sequence(ptr, &len, (uint8_t)SMUX_GETRSP, 0);
-	h1e = ptr;
-
-	ptr = asn_build_int(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER), &reqid,
-		sizeof(reqid));
-
-	if (debug_smux)
-		zlog_debug("SMUX GETRSP errstat: %ld", errstat);
-
-	ptr = asn_build_int(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		&errstat, sizeof(errstat));
-	if (debug_smux)
-		zlog_debug("SMUX GETRSP errindex: %ld", errindex);
-
-	ptr = asn_build_int(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		&errindex, sizeof(errindex));
-
-	h2 = ptr;
-	/* Place holder h2 for one variable */
-	ptr = asn_build_sequence(ptr, &len,
-				 (uint8_t)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
-	h2e = ptr;
-
-	ptr = snmp_build_var_op(ptr, objid, &objid_len, val_type, arg_len, arg,
-				&len);
-
-	/* Now variable size is known, fill in size */
-	asn_build_sequence(h2, &length,
-			   (uint8_t)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
-			   ptr - h2e);
-
-	/* Fill in size of whole sequence */
-	asn_build_sequence(h1, &length, (uint8_t)SMUX_GETRSP, ptr - h1e);
-
-	if (debug_smux)
-		zlog_debug("SMUX getresp send: %td", (ptr - buf));
-
-	send(smux_sock, buf, (ptr - buf), 0);
-}
-
-static uint8_t *smux_var(uint8_t *ptr, size_t len, oid objid[],
-			 size_t *objid_len, size_t *var_val_len,
-			 uint8_t *var_val_type, void **var_value)
-{
-	uint8_t type;
-	uint8_t val_type;
-	size_t val_len;
-	uint8_t *val;
-
-	if (debug_smux)
-		zlog_debug("SMUX var parse: len %zd", len);
-
-	/* Parse header. */
-	ptr = asn_parse_header(ptr, &len, &type);
-
-	if (debug_smux) {
-		zlog_debug("SMUX var parse: type %d len %zd", type, len);
-		zlog_debug("SMUX var parse: type must be %d",
-			   (ASN_SEQUENCE | ASN_CONSTRUCTOR));
-	}
-
-	/* Parse var option. */
-	*objid_len = MAX_OID_LEN;
-	ptr = snmp_parse_var_op(ptr, objid, objid_len, &val_type, &val_len,
-				&val, &len);
-
-	if (var_val_len)
-		*var_val_len = val_len;
-
-	if (var_value)
-		*var_value = (void *)val;
-
-	if (var_val_type)
-		*var_val_type = val_type;
-
-	/* Requested object id length is objid_len. */
-	if (debug_smux)
-		smux_oid_dump("Request OID", objid, *objid_len);
-
-	if (debug_smux)
-		zlog_debug("SMUX val_type: %d", val_type);
-
-	/* Check request value type. */
-	if (debug_smux)
-		switch (val_type) {
-		case ASN_NULL:
-			/* In case of SMUX_GET or SMUX_GET_NEXT val_type is set
-			   to
-			   ASN_NULL. */
-			zlog_debug("ASN_NULL");
-			break;
-
-		case ASN_INTEGER:
-			zlog_debug("ASN_INTEGER");
-			break;
-		case ASN_COUNTER:
-		case ASN_GAUGE:
-		case ASN_TIMETICKS:
-		case ASN_UINTEGER:
-			zlog_debug("ASN_COUNTER");
-			break;
-		case ASN_COUNTER64:
-			zlog_debug("ASN_COUNTER64");
-			break;
-		case ASN_IPADDRESS:
-			zlog_debug("ASN_IPADDRESS");
-			break;
-		case ASN_OCTET_STR:
-			zlog_debug("ASN_OCTET_STR");
-			break;
-		case ASN_OPAQUE:
-		case ASN_NSAP:
-		case ASN_OBJECT_ID:
-			zlog_debug("ASN_OPAQUE");
-			break;
-		case SNMP_NOSUCHOBJECT:
-			zlog_debug("SNMP_NOSUCHOBJECT");
-			break;
-		case SNMP_NOSUCHINSTANCE:
-			zlog_debug("SNMP_NOSUCHINSTANCE");
-			break;
-		case SNMP_ENDOFMIBVIEW:
-			zlog_debug("SNMP_ENDOFMIBVIEW");
-			break;
-		case ASN_BIT_STR:
-			zlog_debug("ASN_BIT_STR");
-			break;
-		default:
-			zlog_debug("Unknown type");
-			break;
-		}
-	return ptr;
-}
-
-/* NOTE: all 3 functions (smux_set, smux_get & smux_getnext) are based on
-   ucd-snmp smux and as such suppose, that the peer receives in the message
-   only one variable. Fortunately, IBM seems to do the same in AIX. */
-
-static int smux_set(oid *reqid, size_t *reqid_len, uint8_t val_type, void *val,
-		    size_t val_len, int action)
-{
-	int j;
-	struct subtree *subtree;
-	struct variable *v;
-	int subresult;
-	oid *suffix;
-	size_t suffix_len;
-	int result;
-	uint8_t *statP = NULL;
-	WriteMethod *write_method = NULL;
-	struct listnode *node, *nnode;
-
-	/* Check */
-	for (ALL_LIST_ELEMENTS(treelist, node, nnode, subtree)) {
-		subresult = oid_compare_part(reqid, *reqid_len, subtree->name,
-					     subtree->name_len);
-
-		/* Subtree matched. */
-		if (subresult == 0) {
-			/* Prepare suffix. */
-			suffix = reqid + subtree->name_len;
-			suffix_len = *reqid_len - subtree->name_len;
-			result = subresult;
-
-			/* Check variables. */
-			for (j = 0; j < subtree->variables_num; j++) {
-				v = &subtree->variables[j];
-
-				/* Always check suffix */
-				result = oid_compare_part(suffix, suffix_len,
-							  v->name, v->namelen);
-
-				/* This is exact match so result must be zero.
-				 */
-				if (result == 0) {
-					if (debug_smux)
-						zlog_debug(
-							"SMUX function call index is %d",
-							v->magic);
-
-					statP = (*v->findVar)(
-						v, suffix, &suffix_len, 1,
-						&val_len, &write_method);
-
-					if (write_method) {
-						return (*write_method)(
-							action, val, val_type,
-							val_len, statP, suffix,
-							suffix_len);
-					} else {
-						return SNMP_ERR_READONLY;
-					}
-				}
-
-				/* If above execution is failed or oid is small
-				   (so
-				   there is no further match). */
-				if (result < 0)
-					return SNMP_ERR_NOSUCHNAME;
-			}
-		}
-	}
-	return SNMP_ERR_NOSUCHNAME;
-}
-
-static int smux_get(oid *reqid, size_t *reqid_len, int exact, uint8_t *val_type,
-		    void **val, size_t *val_len)
-{
-	int j;
-	struct subtree *subtree;
-	struct variable *v;
-	int subresult;
-	oid *suffix;
-	size_t suffix_len;
-	int result;
-	WriteMethod *write_method = NULL;
-	struct listnode *node, *nnode;
-
-	/* Check */
-	for (ALL_LIST_ELEMENTS(treelist, node, nnode, subtree)) {
-		subresult = oid_compare_part(reqid, *reqid_len, subtree->name,
-					     subtree->name_len);
-
-		/* Subtree matched. */
-		if (subresult == 0) {
-			/* Prepare suffix. */
-			suffix = reqid + subtree->name_len;
-			suffix_len = *reqid_len - subtree->name_len;
-			result = subresult;
-
-			/* Check variables. */
-			for (j = 0; j < subtree->variables_num; j++) {
-				v = &subtree->variables[j];
-
-				/* Always check suffix */
-				result = oid_compare_part(suffix, suffix_len,
-							  v->name, v->namelen);
-
-				/* This is exact match so result must be zero.
-				 */
-				if (result == 0) {
-					if (debug_smux)
-						zlog_debug(
-							"SMUX function call index is %d",
-							v->magic);
-
-					*val = (*v->findVar)(
-						v, suffix, &suffix_len, exact,
-						val_len, &write_method);
-
-					/* There is no instance. */
-					if (*val == NULL)
-						return SNMP_NOSUCHINSTANCE;
-
-					/* Call is suceed. */
-					*val_type = v->type;
-
-					return 0;
-				}
-
-				/* If above execution is failed or oid is small
-				   (so
-				   there is no further match). */
-				if (result < 0)
-					return SNMP_ERR_NOSUCHNAME;
-			}
-		}
-	}
-	return SNMP_ERR_NOSUCHNAME;
-}
-
-static int smux_getnext(oid *reqid, size_t *reqid_len, int exact,
-			uint8_t *val_type, void **val, size_t *val_len)
-{
-	int j;
-	oid save[MAX_OID_LEN];
-	int savelen = 0;
-	struct subtree *subtree;
-	struct variable *v;
-	int subresult;
-	oid *suffix;
-	size_t suffix_len;
-	int result;
-	WriteMethod *write_method = NULL;
-	struct listnode *node, *nnode;
-
-
-	/* Save incoming request. */
-	oid_copy(save, reqid, *reqid_len);
-	savelen = *reqid_len;
-
-	/* Check */
-	for (ALL_LIST_ELEMENTS(treelist, node, nnode, subtree)) {
-		subresult = oid_compare_part(reqid, *reqid_len, subtree->name,
-					     subtree->name_len);
-
-		/* If request is in the tree. The agent has to make sure we
-		   only receive requests we have registered for. */
-		/* Unfortunately, that's not true. In fact, a SMUX subagent has
-		   to
-		   behave as if it manages the whole SNMP MIB tree itself. It's
-		   the
-		   duty of the master agent to collect the best answer and
-		   return it
-		   to the manager. See RFC 1227 chapter 3.1.6 for the glory
-		   details
-		   :-). ucd-snmp really behaves bad here as it actually might
-		   ask
-		   multiple times for the same GETNEXT request as it throws away
-		   the
-		   answer when it expects it in a different subtree and might
-		   come
-		   back later with the very same request. --jochen */
-
-		if (subresult <= 0) {
-			/* Prepare suffix. */
-			suffix = reqid + subtree->name_len;
-			suffix_len = *reqid_len - subtree->name_len;
-			if (subresult < 0) {
-				oid_copy(reqid, subtree->name,
-					 subtree->name_len);
-				*reqid_len = subtree->name_len;
-			}
-			for (j = 0; j < subtree->variables_num; j++) {
-				result = subresult;
-				v = &subtree->variables[j];
-
-				/* Next then check result >= 0. */
-				if (result == 0)
-					result = oid_compare_part(
-						suffix, suffix_len, v->name,
-						v->namelen);
-
-				if (result <= 0) {
-					if (debug_smux)
-						zlog_debug(
-							"SMUX function call index is %d",
-							v->magic);
-					if (result < 0) {
-						oid_copy(suffix, v->name,
-							 v->namelen);
-						suffix_len = v->namelen;
-					}
-					*val = (*v->findVar)(
-						v, suffix, &suffix_len, exact,
-						val_len, &write_method);
-					*reqid_len =
-						suffix_len + subtree->name_len;
-					if (*val) {
-						*val_type = v->type;
-						return 0;
-					}
-				}
-			}
-		}
-	}
-	memcpy(reqid, save, savelen * sizeof(oid));
-	*reqid_len = savelen;
-
-	return SNMP_ERR_NOSUCHNAME;
-}
-
-/* GET message header. */
-static uint8_t *smux_parse_get_header(uint8_t *ptr, size_t *len, long *reqid)
-{
-	uint8_t type;
-	long errstat;
-	long errindex;
-
-	/* Request ID. */
-	ptr = asn_parse_int(ptr, len, &type, reqid, sizeof(*reqid));
-
-	if (debug_smux)
-		zlog_debug("SMUX GET reqid: %d len: %d", (int)*reqid,
-			   (int)*len);
-
-	/* Error status. */
-	ptr = asn_parse_int(ptr, len, &type, &errstat, sizeof(errstat));
-
-	if (debug_smux)
-		zlog_debug("SMUX GET errstat %ld len: %zd", errstat, *len);
-
-	/* Error index. */
-	ptr = asn_parse_int(ptr, len, &type, &errindex, sizeof(errindex));
-
-	if (debug_smux)
-		zlog_debug("SMUX GET errindex %ld len: %zd", errindex, *len);
-
-	return ptr;
-}
-
-static void smux_parse_set(uint8_t *ptr, size_t len, int action)
-{
-	long reqid;
-	oid oid[MAX_OID_LEN];
-	size_t oid_len;
-	uint8_t val_type;
-	void *val;
-	size_t val_len;
-	int ret;
-
-	if (debug_smux)
-		zlog_debug("SMUX SET(%s) message parse: len %zd",
-			   (RESERVE1 == action)
-				   ? "RESERVE1"
-				   : ((FREE == action) ? "FREE" : "COMMIT"),
-			   len);
-
-	/* Parse SET message header. */
-	ptr = smux_parse_get_header(ptr, &len, &reqid);
-
-	/* Parse SET message object ID. */
-	ptr = smux_var(ptr, len, oid, &oid_len, &val_len, &val_type, &val);
-
-	ret = smux_set(oid, &oid_len, val_type, val, val_len, action);
-	if (debug_smux)
-		zlog_debug("SMUX SET ret %d", ret);
-
-	/* Return result. */
-	if (RESERVE1 == action)
-		smux_getresp_send(oid, oid_len, reqid, ret, 3, ASN_NULL, NULL,
-				  0);
-}
-
-static void smux_parse_get(uint8_t *ptr, size_t len, int exact)
-{
-	long reqid;
-	oid oid[MAX_OID_LEN];
-	size_t oid_len;
-	uint8_t val_type;
-	void *val;
-	size_t val_len;
-	int ret;
-
-	if (debug_smux)
-		zlog_debug("SMUX GET message parse: len %zd", len);
-
-	/* Parse GET message header. */
-	ptr = smux_parse_get_header(ptr, &len, &reqid);
-
-	/* Parse GET message object ID. We needn't the value come */
-	ptr = smux_var(ptr, len, oid, &oid_len, NULL, NULL, NULL);
-
-	/* Traditional getstatptr. */
-	if (exact)
-		ret = smux_get(oid, &oid_len, exact, &val_type, &val, &val_len);
-	else
-		ret = smux_getnext(oid, &oid_len, exact, &val_type, &val,
-				   &val_len);
-
-	/* Return result. */
-	if (ret == 0)
-		smux_getresp_send(oid, oid_len, reqid, 0, 0, val_type, val,
-				  val_len);
-	else
-		smux_getresp_send(oid, oid_len, reqid, ret, 3, ASN_NULL, NULL,
-				  0);
-}
-
-/* Parse SMUX_CLOSE message. */
-static void smux_parse_close(uint8_t *ptr, int len)
-{
-	long reason = 0;
-
-	while (len--) {
-		reason = (reason << 8) | (long)*ptr;
-		ptr++;
-	}
-	zlog_info("SMUX_CLOSE with reason: %ld", reason);
-}
-
-/* SMUX_RRSP message. */
-static void smux_parse_rrsp(uint8_t *ptr, size_t len)
-{
-	uint8_t val;
-	long errstat;
-
-	ptr = asn_parse_int(ptr, &len, &val, &errstat, sizeof(errstat));
-
-	if (debug_smux)
-		zlog_debug("SMUX_RRSP value: %d errstat: %ld", val, errstat);
-}
-
-/* Parse SMUX message. */
-static int smux_parse(uint8_t *ptr, size_t len)
-{
-	/* This buffer we'll use for SOUT message. We could allocate it with
-	   malloc and save only static pointer/lenght, but IMHO static
-	   buffer is a faster solusion. */
-	static uint8_t sout_save_buff[SMUXMAXPKTSIZE];
-	static int sout_save_len = 0;
-
-	int len_income = len; /* see note below: YYY */
-	uint8_t type;
-	uint8_t rollback;
-
-	rollback = ptr[2]; /* important only for SMUX_SOUT */
-
-process_rest: /* see note below: YYY */
-
-	/* Parse SMUX message type and subsequent length. */
-	ptr = asn_parse_header(ptr, &len, &type);
-
-	if (debug_smux)
-		zlog_debug("SMUX message received type: %d rest len: %zd", type,
-			   len);
-
-	switch (type) {
-	case SMUX_OPEN:
-		/* Open must be not send from SNMP agent. */
-		zlog_warn("SMUX_OPEN received: resetting connection.");
-		return -1;
-		break;
-	case SMUX_RREQ:
-		/* SMUX_RREQ message is invalid for us. */
-		zlog_warn("SMUX_RREQ received: resetting connection.");
-		return -1;
-		break;
-	case SMUX_SOUT:
-		/* SMUX_SOUT message is now valied for us. */
-		if (debug_smux)
-			zlog_debug("SMUX_SOUT(%s)",
-				   rollback ? "rollback" : "commit");
-
-		if (sout_save_len > 0) {
-			smux_parse_set(sout_save_buff, sout_save_len,
-				       rollback ? FREE : COMMIT);
-			sout_save_len = 0;
-		} else
-			zlog_warn("SMUX_SOUT sout_save_len=%d - invalid",
-				  (int)sout_save_len);
-
-		if (len_income > 3) {
-			/* YYY: this strange code has to solve the "slow peer"
-			   problem: When agent sends SMUX_SOUT message it
-			   doesn't
-			   wait any responce and may send some next message to
-			   subagent. Then the peer in 'smux_read()' will recieve
-			   from socket the 'concatenated' buffer, contaning both
-			   SMUX_SOUT message and the next one
-			   (SMUX_GET/SMUX_GETNEXT/SMUX_GET). So we should check:
-			   if
-			   the buffer is longer than 3 ( length of SMUX_SOUT ),
-			   we
-			   must process the rest of it.  This effect may be
-			   observed
-			   if 'debug_smux' is set to '1' */
-			ptr++;
-			len = len_income - 3;
-			goto process_rest;
-		}
-		break;
-	case SMUX_GETRSP:
-		/* SMUX_GETRSP message is invalid for us. */
-		zlog_warn("SMUX_GETRSP received: resetting connection.");
-		return -1;
-		break;
-	case SMUX_CLOSE:
-		/* Close SMUX connection. */
-		if (debug_smux)
-			zlog_debug("SMUX_CLOSE");
-		smux_parse_close(ptr, len);
-		return -1;
-		break;
-	case SMUX_RRSP:
-		/* This is response for register message. */
-		if (debug_smux)
-			zlog_debug("SMUX_RRSP");
-		smux_parse_rrsp(ptr, len);
-		break;
-	case SMUX_GET:
-		/* Exact request for object id. */
-		if (debug_smux)
-			zlog_debug("SMUX_GET");
-		smux_parse_get(ptr, len, 1);
-		break;
-	case SMUX_GETNEXT:
-		/* Next request for object id. */
-		if (debug_smux)
-			zlog_debug("SMUX_GETNEXT");
-		smux_parse_get(ptr, len, 0);
-		break;
-	case SMUX_SET:
-		/* SMUX_SET is supported with some limitations. */
-		if (debug_smux)
-			zlog_debug("SMUX_SET");
-
-		/* save the data for future SMUX_SOUT */
-		memcpy(sout_save_buff, ptr, len);
-		sout_save_len = len;
-		smux_parse_set(ptr, len, RESERVE1);
-		break;
-	default:
-		zlog_info("Unknown type: %d", type);
-		break;
-	}
-	return 0;
-}
-
-/* SMUX message read function. */
-static int smux_read(struct thread *t)
-{
-	int sock;
-	int len;
-	uint8_t buf[SMUXMAXPKTSIZE];
-	int ret;
-
-	/* Clear thread. */
-	sock = THREAD_FD(t);
-	smux_read_thread = NULL;
-
-	if (debug_smux)
-		zlog_debug("SMUX read start");
-
-	/* Read message from SMUX socket. */
-	len = recv(sock, buf, SMUXMAXPKTSIZE, 0);
-
-	if (len < 0) {
-		zlog_warn("Can't read all SMUX packet: %s",
-			  safe_strerror(errno));
-		close(sock);
-		smux_sock = -1;
-		smux_event(SMUX_CONNECT, 0);
-		return -1;
-	}
-
-	if (len == 0) {
-		zlog_warn("SMUX connection closed: %d", sock);
-		close(sock);
-		smux_sock = -1;
-		smux_event(SMUX_CONNECT, 0);
-		return -1;
-	}
-
-	if (debug_smux)
-		zlog_debug("SMUX read len: %d", len);
-
-	/* Parse the message. */
-	ret = smux_parse(buf, len);
-
-	if (ret < 0) {
-		close(sock);
-		smux_sock = -1;
-		smux_event(SMUX_CONNECT, 0);
-		return -1;
-	}
-
-	/* Regiser read thread. */
-	smux_event(SMUX_READ, sock);
-
-	return 0;
-}
-
-static int smux_open(int sock)
-{
-	uint8_t buf[BUFSIZ];
-	uint8_t *ptr;
-	size_t len;
-	long version;
-	const char progname[] = FRR_SMUX_NAME "-" FRR_VERSION;
-
-	if (debug_smux) {
-		smux_oid_dump("SMUX open oid", smux_oid, smux_oid_len);
-		zlog_debug("SMUX open progname: %s", progname);
-		zlog_debug("SMUX open password: %s", smux_passwd);
-	}
-
-	ptr = buf;
-	len = BUFSIZ;
-
-	/* SMUX Header.  As placeholder. */
-	ptr = asn_build_header(ptr, &len, (uint8_t)SMUX_OPEN, 0);
-
-	/* SMUX Open. */
-	version = 0;
-	ptr = asn_build_int(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		&version, sizeof(version));
-
-	/* SMUX connection oid. */
-	ptr = asn_build_objid(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OBJECT_ID),
-		smux_oid, smux_oid_len);
-
-	/* SMUX connection description. */
-	ptr = asn_build_string(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OCTET_STR),
-		(const uint8_t *)progname, strlen(progname));
-
-	/* SMUX connection password. */
-	ptr = asn_build_string(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OCTET_STR),
-		(uint8_t *)smux_passwd, strlen(smux_passwd));
-
-	/* Fill in real SMUX header.  We exclude ASN header size (2). */
-	len = BUFSIZ;
-	asn_build_header(buf, &len, (uint8_t)SMUX_OPEN, (ptr - buf) - 2);
-
-	return send(sock, buf, (ptr - buf), 0);
-}
-
-/* `ename` is ignored. Instead of using the provided enterprise OID,
-   the SMUX peer is used. This keep compatibility with the previous
-   versions of Quagga.
-
-   All other fields are used as they are intended. */
-int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
-	      size_t enamelen, const oid *name, size_t namelen,
-	      const oid *iname, size_t inamelen,
-	      const struct trap_object *trapobj, size_t trapobjlen,
-	      uint8_t sptrap)
-{
-	unsigned int i;
-	uint8_t buf[BUFSIZ];
-	uint8_t *ptr;
-	size_t len, length;
-	struct in_addr addr;
-	unsigned long val;
-	uint8_t *h1, *h1e;
-
-	ptr = buf;
-	len = BUFSIZ;
-	length = len;
-
-	/* When SMUX connection is not established. */
-	if (smux_sock < 0)
-		return 0;
-
-	/* SMUX header. */
-	ptr = asn_build_header(ptr, &len, (uint8_t)SMUX_TRAP, 0);
-
-	/* Sub agent enterprise oid. */
-	ptr = asn_build_objid(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OBJECT_ID),
-		smux_oid, smux_oid_len);
-
-	/* IP address. */
-	addr.s_addr = 0;
-	ptr = asn_build_string(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_IPADDRESS),
-		(uint8_t *)&addr, sizeof(addr));
-
-	/* Generic trap integer. */
-	val = SNMP_TRAP_ENTERPRISESPECIFIC;
-	ptr = asn_build_int(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		(long *)&val, sizeof(val));
-
-	/* Specific trap integer. */
-	val = sptrap;
-	ptr = asn_build_int(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		(long *)&val, sizeof(val));
-
-	/* Timeticks timestamp. */
-	val = 0;
-	ptr = asn_build_unsigned_int(
-		ptr, &len,
-		(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_TIMETICKS), &val,
-		sizeof(val));
-
-	/* Variables. */
-	h1 = ptr;
-	ptr = asn_build_sequence(ptr, &len,
-				 (uint8_t)(ASN_SEQUENCE | ASN_CONSTRUCTOR), 0);
-
-
-	/* Iteration for each objects. */
-	h1e = ptr;
-	for (i = 0; i < trapobjlen; i++) {
-		int ret;
-		oid oid[MAX_OID_LEN];
-		size_t oid_len;
-		void *val;
-		size_t val_len;
-		uint8_t val_type;
-
-		/* Make OID. */
-		if (trapobj[i].namelen > 0) {
-			oid_copy(oid, name, namelen);
-			oid_copy(oid + namelen, trapobj[i].name,
-				 trapobj[i].namelen);
-			oid_copy(oid + namelen + trapobj[i].namelen, iname,
-				 inamelen);
-			oid_len = namelen + trapobj[i].namelen + inamelen;
-		} else {
-			oid_copy(oid, name, namelen);
-			oid_copy(oid + namelen, trapobj[i].name,
-				 trapobj[i].namelen * (-1));
-			oid_len = namelen + trapobj[i].namelen * (-1);
-		}
-
-		if (debug_smux) {
-			smux_oid_dump("Trap", name, namelen);
-			if (trapobj[i].namelen < 0)
-				smux_oid_dump("Trap", trapobj[i].name,
-					      (-1) * (trapobj[i].namelen));
-			else {
-				smux_oid_dump("Trap", trapobj[i].name,
-					      (trapobj[i].namelen));
-				smux_oid_dump("Trap", iname, inamelen);
-			}
-			smux_oid_dump("Trap", oid, oid_len);
-			zlog_info("BUFSIZ: %d // oid_len: %lu", BUFSIZ,
-				  (unsigned long)oid_len);
-		}
-
-		ret = smux_get(oid, &oid_len, 1, &val_type, &val, &val_len);
-
-		if (debug_smux)
-			zlog_debug("smux_get result %d", ret);
-
-		if (ret == 0)
-			ptr = snmp_build_var_op(ptr, oid, &oid_len, val_type,
-						val_len, val, &len);
-	}
-
-	/* Now variable size is known, fill in size */
-	asn_build_sequence(h1, &length,
-			   (uint8_t)(ASN_SEQUENCE | ASN_CONSTRUCTOR),
-			   ptr - h1e);
-
-	/* Fill in size of whole sequence */
-	len = BUFSIZ;
-	asn_build_header(buf, &len, (uint8_t)SMUX_TRAP, (ptr - buf) - 2);
-
-	return send(smux_sock, buf, (ptr - buf), 0);
-}
-
-static int smux_register(int sock)
-{
-	uint8_t buf[BUFSIZ];
-	uint8_t *ptr;
-	int ret;
-	size_t len;
-	long priority;
-	long operation;
-	struct subtree *subtree;
-	struct listnode *node, *nnode;
-
-	ret = 0;
-
-	for (ALL_LIST_ELEMENTS(treelist, node, nnode, subtree)) {
-		ptr = buf;
-		len = BUFSIZ;
-
-		/* SMUX RReq Header. */
-		ptr = asn_build_header(ptr, &len, (uint8_t)SMUX_RREQ, 0);
-
-		/* Register MIB tree. */
-		ptr = asn_build_objid(ptr, &len,
-				      (uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						| ASN_OBJECT_ID),
-				      subtree->name, subtree->name_len);
-
-		/* Priority. */
-		priority = -1;
-		ptr = asn_build_int(
-			ptr, &len,
-			(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-			&priority, sizeof(priority));
-
-		/* Operation. */
-		operation = 2; /* Register R/W */
-		ptr = asn_build_int(
-			ptr, &len,
-			(uint8_t)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-			&operation, sizeof(operation));
-
-		if (debug_smux) {
-			smux_oid_dump("SMUX register oid", subtree->name,
-				      subtree->name_len);
-			zlog_debug("SMUX register priority: %ld", priority);
-			zlog_debug("SMUX register operation: %ld", operation);
-		}
-
-		len = BUFSIZ;
-		asn_build_header(buf, &len, (uint8_t)SMUX_RREQ,
-				 (ptr - buf) - 2);
-		ret = send(sock, buf, (ptr - buf), 0);
-		if (ret < 0)
-			return ret;
-	}
-	return ret;
-}
-
-/* Try to connect to SNMP agent. */
-static int smux_connect(struct thread *t)
-{
-	int ret;
-
-	if (debug_smux)
-		zlog_debug("SMUX connect try %d", fail + 1);
-
-	/* Clear thread poner of myself. */
-	smux_connect_thread = NULL;
-
-	/* Make socket.  Try to connect. */
-	smux_sock = smux_socket();
-	if (smux_sock < 0) {
-		if (++fail < SMUX_MAX_FAILURE)
-			smux_event(SMUX_CONNECT, 0);
-		return 0;
-	}
-
-	/* Send OPEN PDU. */
-	ret = smux_open(smux_sock);
-	if (ret < 0) {
-		zlog_warn("SMUX open message send failed: %s",
-			  safe_strerror(errno));
-		close(smux_sock);
-		smux_sock = -1;
-		if (++fail < SMUX_MAX_FAILURE)
-			smux_event(SMUX_CONNECT, 0);
-		return -1;
-	}
-
-	/* Send any outstanding register PDUs. */
-	ret = smux_register(smux_sock);
-	if (ret < 0) {
-		zlog_warn("SMUX register message send failed: %s",
-			  safe_strerror(errno));
-		close(smux_sock);
-		smux_sock = -1;
-		if (++fail < SMUX_MAX_FAILURE)
-			smux_event(SMUX_CONNECT, 0);
-		return -1;
-	}
-
-	/* Everything goes fine. */
-	smux_event(SMUX_READ, smux_sock);
-
-	return 0;
-}
-
-/* Clear all SMUX related resources. */
-static void smux_stop(void)
-{
-	if (smux_read_thread) {
-		thread_cancel(smux_read_thread);
-		smux_read_thread = NULL;
-	}
-
-	if (smux_connect_thread) {
-		thread_cancel(smux_connect_thread);
-		smux_connect_thread = NULL;
-	}
-
-	if (smux_sock >= 0) {
-		close(smux_sock);
-		smux_sock = -1;
-	}
-}
-
-
-void smux_event(enum smux_event event, int sock)
-{
-	switch (event) {
-	case SMUX_SCHEDULE:
-		smux_connect_thread = NULL;
-		thread_add_event(smux_master, smux_connect, NULL, 0,
-				 &smux_connect_thread);
-		break;
-	case SMUX_CONNECT:
-		smux_connect_thread = NULL;
-		thread_add_timer(smux_master, smux_connect, NULL, 10,
-				 &smux_connect_thread);
-		break;
-	case SMUX_READ:
-		smux_read_thread = NULL;
-		thread_add_read(smux_master, smux_read, NULL, sock,
-				&smux_read_thread);
-		break;
-	default:
-		break;
-	}
-}
-
-static int smux_str2oid(const char *str, oid *oid, size_t *oid_len)
-{
-	int len;
-	int val;
-
-	len = 0;
-	val = 0;
-	*oid_len = 0;
-
-	if (*str == '.')
-		str++;
-	if (*str == '\0')
-		return 0;
-
-	while (1) {
-		if (!isdigit(*str))
-			return -1;
-
-		while (isdigit(*str)) {
-			val *= 10;
-			val += (*str - '0');
-			str++;
-		}
-
-		if (*str == '\0')
-			break;
-		if (*str != '.')
-			return -1;
-
-		oid[len++] = val;
-		val = 0;
-		str++;
-	}
-
-	oid[len++] = val;
-	*oid_len = len;
-
-	return 0;
-}
-
-static oid *smux_oid_dup(oid *objid, size_t objid_len)
-{
-	oid *new;
-
-	new = XMALLOC(MTYPE_TMP, sizeof(oid) * objid_len);
-	oid_copy(new, objid, objid_len);
-
-	return new;
-}
-
-static int smux_peer_oid(struct vty *vty, const char *oid_str,
-			 const char *passwd_str)
-{
-	int ret;
-	oid oid[MAX_OID_LEN];
-	size_t oid_len;
-
-	ret = smux_str2oid(oid_str, oid, &oid_len);
-	if (ret != 0) {
-		vty_out(vty, "object ID malformed\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (smux_oid) {
-		free(smux_oid);
-		smux_oid = NULL;
-	}
-
-	/* careful, smux_passwd might point to string constant */
-	if (smux_passwd) {
-		free(smux_passwd);
-		smux_passwd = NULL;
-	}
-
-	smux_oid = smux_oid_dup(oid, oid_len);
-	smux_oid_len = oid_len;
-
-	if (passwd_str)
-		smux_passwd = strdup(passwd_str);
-	else
-		smux_passwd = strdup("");
-
-	return 0;
-}
-
-static int smux_peer_default(void)
-{
-	if (smux_oid) {
-		free(smux_oid);
-		smux_oid = NULL;
-	}
-
-	/* careful, smux_passwd might be pointing at string constant */
-	if (smux_passwd) {
-		free(smux_passwd);
-		smux_passwd = NULL;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (smux_peer,
-       smux_peer_cmd,
-       "smux peer OID",
-       "SNMP MUX protocol settings\n"
-       "SNMP MUX peer settings\n"
-       "Object ID used in SMUX peering\n")
-{
-	int idx_oid = 2;
-	if (smux_peer_oid(vty, argv[idx_oid]->arg, NULL) == 0) {
-		smux_start();
-		return CMD_SUCCESS;
-	} else
-		return CMD_WARNING_CONFIG_FAILED;
-}
-
-DEFUN (smux_peer_password,
-       smux_peer_password_cmd,
-       "smux peer OID PASSWORD",
-       "SNMP MUX protocol settings\n"
-       "SNMP MUX peer settings\n"
-       "SMUX peering object ID\n"
-       "SMUX peering password\n")
-{
-	int idx_oid = 2;
-	if (smux_peer_oid(vty, argv[idx_oid]->arg, argv[3]->rg) == 0) {
-		smux_start();
-		return CMD_SUCCESS;
-	} else
-		return CMD_WARNING_CONFIG_FAILED;
-}
-
-DEFUN (no_smux_peer,
-       no_smux_peer_cmd,
-       "no smux peer [OID [PASSWORD]]",
-       NO_STR
-       "SNMP MUX protocol settings\n"
-       "SNMP MUX peer settings\n"
-       "SMUX peering object ID\n"
-       "SMUX peering password\n")
-{
-	smux_stop();
-	return smux_peer_default();
-}
-
-static int config_write_smux(struct vty *vty)
-{
-	int first = 1;
-	unsigned int i;
-
-	if (smux_oid) {
-		vty_out(vty, "smux peer ");
-		for (i = 0; i < smux_oid_len; i++) {
-			vty_out(vty, "%s%d", first ? "" : ".",
-				(int)smux_oid[i]);
-			first = 0;
-		}
-		vty_out(vty, " %s\n", smux_passwd);
-	}
-	return 0;
-}
-
-/* Register subtree to smux master tree. */
-void smux_register_mib(const char *descr, struct variable *var, size_t width,
-		       int num, oid name[], size_t namelen)
-{
-	struct subtree *tree;
-
-	tree = (struct subtree *)malloc(sizeof(struct subtree));
-	oid_copy(tree->name, name, namelen);
-	tree->name_len = namelen;
-	tree->variables = var;
-	tree->variables_num = num;
-	tree->variables_width = width;
-	tree->registered = 0;
-	listnode_add_sort(treelist, tree);
-}
-
-/* Compare function to keep treelist sorted */
-static int smux_tree_cmp(struct subtree *tree1, struct subtree *tree2)
-{
-	return oid_compare(tree1->name, tree1->name_len, tree2->name,
-			   tree2->name_len);
-}
-
-/* Initialize some values then schedule first SMUX connection. */
-void smux_init(struct thread_master *tm)
-{
-	assert(tm);
-	/* copy callers thread master */
-	smux_master = tm;
-
-	/* Make MIB tree. */
-	treelist = list_new();
-	treelist->cmp = (int (*)(void *, void *))smux_tree_cmp;
-
-	/* Install commands. */
-	install_node(&smux_node, config_write_smux);
-
-	install_element(CONFIG_NODE, &smux_peer_cmd);
-	install_element(CONFIG_NODE, &smux_peer_password_cmd);
-	install_element(CONFIG_NODE, &no_smux_peer_cmd);
-	install_element(CONFIG_NODE, &no_smux_peer_oid_cmd);
-	install_element(CONFIG_NODE, &no_smux_peer_oid_password_cmd);
-}
-
-void smux_start(void)
-{
-	/* Close any existing connections. */
-	smux_stop();
-
-	/* Schedule first connection. */
-	smux_event(SMUX_SCHEDULE, 0);
-}
-#endif /* SNMP_SMUX */
+/*SNMPsupport*Copyright(C)1999KunihiroIshiguro<kunihiro@zebra.org>**Thisfileispa
+rtofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underth
+etermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;either
+version2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatit
+willbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABIL
+ITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.*
+*YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;see
+thefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFl
+oor,Boston,MA02110-1301USA*/#include<zebra.h>#ifdefSNMP_SMUX#include<net-snmp/ne
+t-snmp-config.h>#include<net-snmp/net-snmp-includes.h>#include"log.h"#include"th
+read.h"#include"linklist.h"#include"command.h"#include<lib/version.h>#include"me
+mory.h"#include"sockunion.h"#include"smux.h"#defineSMUX_PORT_DEFAULT199#defineSM
+UXMAXPKTSIZE1500#defineSMUXMAXSTRLEN256#defineSMUX_OPEN(ASN_APPLICATION|ASN_CONS
+TRUCTOR|0)#defineSMUX_CLOSE(ASN_APPLICATION|ASN_PRIMITIVE|1)#defineSMUX_RREQ(ASN
+_APPLICATION|ASN_CONSTRUCTOR|2)#defineSMUX_RRSP(ASN_APPLICATION|ASN_PRIMITIVE|3)
+#defineSMUX_SOUT(ASN_APPLICATION|ASN_PRIMITIVE|4)#defineSMUX_GET(ASN_CONTEXT|ASN
+_CONSTRUCTOR|0)#defineSMUX_GETNEXT(ASN_CONTEXT|ASN_CONSTRUCTOR|1)#defineSMUX_GET
+RSP(ASN_CONTEXT|ASN_CONSTRUCTOR|2)#defineSMUX_SET(ASN_CONTEXT|ASN_CONSTRUCTOR|3)
+#defineSMUX_TRAP(ASN_CONTEXT|ASN_CONSTRUCTOR|4)#defineSMUX_MAX_FAILURE3/*SNMPtre
+e.*/structsubtree{/*Tree'soid.*/oidname[MAX_OID_LEN];uint8_tname_len;/*Listofthe
+variables.*/structvariable*variables;/*Lengthofthevariableslist.*/intvariables_n
+um;/*Widthofthevariableslist.*/intvariables_width;/*Registeredflag.*/intregister
+ed;};#definemin(A,B)((A)<(B)?(A):(B))enumsmux_event{SMUX_SCHEDULE,SMUX_CONNECT,S
+MUX_READ};voidsmux_event(enumsmux_event,int);/*SMUXsocket.*/intsmux_sock=-1;/*SM
+UXsubtreelist.*/structlist*treelist;/*SMUXoid.*/oid*smux_oid=NULL;size_tsmux_oid
+_len;/*SMUXpassword.*/char*smux_passwd=NULL;/*SMUXreadthreads.*/structthread*smu
+x_read_thread;/*SMUXconnectthrads.*/structthread*smux_connect_thread;/*SMUXdebug
+flag.*/intdebug_smux=0;/*SMUXfailurecount.*/intfail=0;/*SMUXnode.*/staticstructc
+md_nodesmux_node={SMUX_NODE,""/*SMUXhasnointerface.*/};/*threadmaster*/staticstr
+uctthread_master*smux_master;staticintoid_compare_part(oid*o1,into1_len,oid*o2,i
+nto2_len){inti;for(i=0;i<min(o1_len,o2_len);i++){if(o1[i]<o2[i])return-1;elseif(
+o1[i]>o2[i])return1;}if(o1_len<o2_len)return-1;return0;}staticvoidsmux_oid_dump(
+constchar*prefix,constoid*oid,size_toid_len){unsignedinti;intfirst=1;charbuf[MAX
+_OID_LEN*3];buf[0]='\0';for(i=0;i<oid_len;i++){sprintf(buf+strlen(buf),"%s%d",fi
+rst?"":".",(int)oid[i]);first=0;}zlog_debug("%s:%s",prefix,buf);}staticintsmux_s
+ocket(void){intret;structaddrinfohints,*res0,*res;intgai;intsock=0;memset(&hints
+,0,sizeof(hints));hints.ai_family=PF_UNSPEC;hints.ai_socktype=SOCK_STREAM;gai=ge
+taddrinfo(NULL,"smux",&hints,&res0);if(gai==EAI_SERVICE){charservbuf[NI_MAXSERV]
+;sprintf(servbuf,"%d",SMUX_PORT_DEFAULT);servbuf[sizeof(servbuf)-1]='\0';gai=get
+addrinfo(NULL,servbuf,&hints,&res0);}if(gai){zlog_warn("Cannotlocateloopbackserv
+icesmux");return-1;}for(res=res0;res;res=res->ai_next){if(res->ai_family!=AF_INE
+T&&res->ai_family!=AF_INET6)continue;sock=socket(res->ai_family,res->ai_socktype
+,res->ai_protocol);if(sock<0)continue;sockopt_reuseaddr(sock);sockopt_reuseport(
+sock);ret=connect(sock,res->ai_addr,res->ai_addrlen);if(ret<0){close(sock);sock=
+-1;continue;}break;}freeaddrinfo(res0);if(sock<0)zlog_warn("Can'tconnecttoSNMPag
+entwithSMUX");returnsock;}staticvoidsmux_getresp_send(oidobjid[],size_tobjid_len
+,longreqid,longerrstat,longerrindex,uint8_tval_type,void*arg,size_targ_len){uint
+8_tbuf[BUFSIZ];uint8_t*ptr,*h1,*h1e,*h2,*h2e;size_tlen,length;ptr=buf;len=BUFSIZ
+;length=len;if(debug_smux){zlog_debug("SMUXGETRSPsend");zlog_debug("SMUXGETRSPre
+qid:%ld",reqid);}h1=ptr;/*Placeholderh1forcompletesequence*/ptr=asn_build_sequen
+ce(ptr,&len,(uint8_t)SMUX_GETRSP,0);h1e=ptr;ptr=asn_build_int(ptr,&len,(uint8_t)
+(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_INTEGER),&reqid,sizeof(reqid));if(debug_smux)zl
+og_debug("SMUXGETRSPerrstat:%ld",errstat);ptr=asn_build_int(ptr,&len,(uint8_t)(A
+SN_UNIVERSAL|ASN_PRIMITIVE|ASN_INTEGER),&errstat,sizeof(errstat));if(debug_smux)
+zlog_debug("SMUXGETRSPerrindex:%ld",errindex);ptr=asn_build_int(ptr,&len,(uint8_
+t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_INTEGER),&errindex,sizeof(errindex));h2=ptr;/
+*Placeholderh2foronevariable*/ptr=asn_build_sequence(ptr,&len,(uint8_t)(ASN_SEQU
+ENCE|ASN_CONSTRUCTOR),0);h2e=ptr;ptr=snmp_build_var_op(ptr,objid,&objid_len,val_
+type,arg_len,arg,&len);/*Nowvariablesizeisknown,fillinsize*/asn_build_sequence(h
+2,&length,(uint8_t)(ASN_SEQUENCE|ASN_CONSTRUCTOR),ptr-h2e);/*Fillinsizeofwholese
+quence*/asn_build_sequence(h1,&length,(uint8_t)SMUX_GETRSP,ptr-h1e);if(debug_smu
+x)zlog_debug("SMUXgetrespsend:%td",(ptr-buf));send(smux_sock,buf,(ptr-buf),0);}s
+taticuint8_t*smux_var(uint8_t*ptr,size_tlen,oidobjid[],size_t*objid_len,size_t*v
+ar_val_len,uint8_t*var_val_type,void**var_value){uint8_ttype;uint8_tval_type;siz
+e_tval_len;uint8_t*val;if(debug_smux)zlog_debug("SMUXvarparse:len%zd",len);/*Par
+seheader.*/ptr=asn_parse_header(ptr,&len,&type);if(debug_smux){zlog_debug("SMUXv
+arparse:type%dlen%zd",type,len);zlog_debug("SMUXvarparse:typemustbe%d",(ASN_SEQU
+ENCE|ASN_CONSTRUCTOR));}/*Parsevaroption.*/*objid_len=MAX_OID_LEN;ptr=snmp_parse
+_var_op(ptr,objid,objid_len,&val_type,&val_len,&val,&len);if(var_val_len)*var_va
+l_len=val_len;if(var_value)*var_value=(void*)val;if(var_val_type)*var_val_type=v
+al_type;/*Requestedobjectidlengthisobjid_len.*/if(debug_smux)smux_oid_dump("Requ
+estOID",objid,*objid_len);if(debug_smux)zlog_debug("SMUXval_type:%d",val_type);/
+*Checkrequestvaluetype.*/if(debug_smux)switch(val_type){caseASN_NULL:/*IncaseofS
+MUX_GETorSMUX_GET_NEXTval_typeissettoASN_NULL.*/zlog_debug("ASN_NULL");break;cas
+eASN_INTEGER:zlog_debug("ASN_INTEGER");break;caseASN_COUNTER:caseASN_GAUGE:caseA
+SN_TIMETICKS:caseASN_UINTEGER:zlog_debug("ASN_COUNTER");break;caseASN_COUNTER64:
+zlog_debug("ASN_COUNTER64");break;caseASN_IPADDRESS:zlog_debug("ASN_IPADDRESS");
+break;caseASN_OCTET_STR:zlog_debug("ASN_OCTET_STR");break;caseASN_OPAQUE:caseASN
+_NSAP:caseASN_OBJECT_ID:zlog_debug("ASN_OPAQUE");break;caseSNMP_NOSUCHOBJECT:zlo
+g_debug("SNMP_NOSUCHOBJECT");break;caseSNMP_NOSUCHINSTANCE:zlog_debug("SNMP_NOSU
+CHINSTANCE");break;caseSNMP_ENDOFMIBVIEW:zlog_debug("SNMP_ENDOFMIBVIEW");break;c
+aseASN_BIT_STR:zlog_debug("ASN_BIT_STR");break;default:zlog_debug("Unknowntype")
+;break;}returnptr;}/*NOTE:all3functions(smux_set,smux_get&smux_getnext)arebasedo
+nucd-snmpsmuxandassuchsuppose,thatthepeerreceivesinthemessageonlyonevariable.For
+tunately,IBMseemstodothesameinAIX.*/staticintsmux_set(oid*reqid,size_t*reqid_len
+,uint8_tval_type,void*val,size_tval_len,intaction){intj;structsubtree*subtree;st
+ructvariable*v;intsubresult;oid*suffix;size_tsuffix_len;intresult;uint8_t*statP=
+NULL;WriteMethod*write_method=NULL;structlistnode*node,*nnode;/*Check*/for(ALL_L
+IST_ELEMENTS(treelist,node,nnode,subtree)){subresult=oid_compare_part(reqid,*req
+id_len,subtree->name,subtree->name_len);/*Subtreematched.*/if(subresult==0){/*Pr
+eparesuffix.*/suffix=reqid+subtree->name_len;suffix_len=*reqid_len-subtree->name
+_len;result=subresult;/*Checkvariables.*/for(j=0;j<subtree->variables_num;j++){v
+=&subtree->variables[j];/*Alwayschecksuffix*/result=oid_compare_part(suffix,suff
+ix_len,v->name,v->namelen);/*Thisisexactmatchsoresultmustbezero.*/if(result==0){
+if(debug_smux)zlog_debug("SMUXfunctioncallindexis%d",v->magic);statP=(*v->findVa
+r)(v,suffix,&suffix_len,1,&val_len,&write_method);if(write_method){return(*write
+_method)(action,val,val_type,val_len,statP,suffix,suffix_len);}else{returnSNMP_E
+RR_READONLY;}}/*Ifaboveexecutionisfailedoroidissmall(sothereisnofurthermatch).*/
+if(result<0)returnSNMP_ERR_NOSUCHNAME;}}}returnSNMP_ERR_NOSUCHNAME;}staticintsmu
+x_get(oid*reqid,size_t*reqid_len,intexact,uint8_t*val_type,void**val,size_t*val_
+len){intj;structsubtree*subtree;structvariable*v;intsubresult;oid*suffix;size_ts
+uffix_len;intresult;WriteMethod*write_method=NULL;structlistnode*node,*nnode;/*C
+heck*/for(ALL_LIST_ELEMENTS(treelist,node,nnode,subtree)){subresult=oid_compare_
+part(reqid,*reqid_len,subtree->name,subtree->name_len);/*Subtreematched.*/if(sub
+result==0){/*Preparesuffix.*/suffix=reqid+subtree->name_len;suffix_len=*reqid_le
+n-subtree->name_len;result=subresult;/*Checkvariables.*/for(j=0;j<subtree->varia
+bles_num;j++){v=&subtree->variables[j];/*Alwayschecksuffix*/result=oid_compare_p
+art(suffix,suffix_len,v->name,v->namelen);/*Thisisexactmatchsoresultmustbezero.*
+/if(result==0){if(debug_smux)zlog_debug("SMUXfunctioncallindexis%d",v->magic);*v
+al=(*v->findVar)(v,suffix,&suffix_len,exact,val_len,&write_method);/*Thereisnoin
+stance.*/if(*val==NULL)returnSNMP_NOSUCHINSTANCE;/*Callissuceed.*/*val_type=v->t
+ype;return0;}/*Ifaboveexecutionisfailedoroidissmall(sothereisnofurthermatch).*/i
+f(result<0)returnSNMP_ERR_NOSUCHNAME;}}}returnSNMP_ERR_NOSUCHNAME;}staticintsmux
+_getnext(oid*reqid,size_t*reqid_len,intexact,uint8_t*val_type,void**val,size_t*v
+al_len){intj;oidsave[MAX_OID_LEN];intsavelen=0;structsubtree*subtree;structvaria
+ble*v;intsubresult;oid*suffix;size_tsuffix_len;intresult;WriteMethod*write_metho
+d=NULL;structlistnode*node,*nnode;/*Saveincomingrequest.*/oid_copy(save,reqid,*r
+eqid_len);savelen=*reqid_len;/*Check*/for(ALL_LIST_ELEMENTS(treelist,node,nnode,
+subtree)){subresult=oid_compare_part(reqid,*reqid_len,subtree->name,subtree->nam
+e_len);/*Ifrequestisinthetree.Theagenthastomakesureweonlyreceiverequestswehavere
+gisteredfor.*//*Unfortunately,that'snottrue.Infact,aSMUXsubagenthastobehaveasifi
+tmanagesthewholeSNMPMIBtreeitself.It'sthedutyofthemasteragenttocollectthebestans
+werandreturnittothemanager.SeeRFC1227chapter3.1.6fortheglorydetails:-).ucd-snmpr
+eallybehavesbadhereasitactuallymightaskmultipletimesforthesameGETNEXTrequestasit
+throwsawaytheanswerwhenitexpectsitinadifferentsubtreeandmightcomebacklaterwithth
+everysamerequest.--jochen*/if(subresult<=0){/*Preparesuffix.*/suffix=reqid+subtr
+ee->name_len;suffix_len=*reqid_len-subtree->name_len;if(subresult<0){oid_copy(re
+qid,subtree->name,subtree->name_len);*reqid_len=subtree->name_len;}for(j=0;j<sub
+tree->variables_num;j++){result=subresult;v=&subtree->variables[j];/*Nextthenche
+ckresult>=0.*/if(result==0)result=oid_compare_part(suffix,suffix_len,v->name,v->
+namelen);if(result<=0){if(debug_smux)zlog_debug("SMUXfunctioncallindexis%d",v->m
+agic);if(result<0){oid_copy(suffix,v->name,v->namelen);suffix_len=v->namelen;}*v
+al=(*v->findVar)(v,suffix,&suffix_len,exact,val_len,&write_method);*reqid_len=su
+ffix_len+subtree->name_len;if(*val){*val_type=v->type;return0;}}}}}memcpy(reqid,
+save,savelen*sizeof(oid));*reqid_len=savelen;returnSNMP_ERR_NOSUCHNAME;}/*GETmes
+sageheader.*/staticuint8_t*smux_parse_get_header(uint8_t*ptr,size_t*len,long*req
+id){uint8_ttype;longerrstat;longerrindex;/*RequestID.*/ptr=asn_parse_int(ptr,len
+,&type,reqid,sizeof(*reqid));if(debug_smux)zlog_debug("SMUXGETreqid:%dlen:%d",(i
+nt)*reqid,(int)*len);/*Errorstatus.*/ptr=asn_parse_int(ptr,len,&type,&errstat,si
+zeof(errstat));if(debug_smux)zlog_debug("SMUXGETerrstat%ldlen:%zd",errstat,*len)
+;/*Errorindex.*/ptr=asn_parse_int(ptr,len,&type,&errindex,sizeof(errindex));if(d
+ebug_smux)zlog_debug("SMUXGETerrindex%ldlen:%zd",errindex,*len);returnptr;}stati
+cvoidsmux_parse_set(uint8_t*ptr,size_tlen,intaction){longreqid;oidoid[MAX_OID_LE
+N];size_toid_len;uint8_tval_type;void*val;size_tval_len;intret;if(debug_smux)zlo
+g_debug("SMUXSET(%s)messageparse:len%zd",(RESERVE1==action)?"RESERVE1":((FREE==a
+ction)?"FREE":"COMMIT"),len);/*ParseSETmessageheader.*/ptr=smux_parse_get_header
+(ptr,&len,&reqid);/*ParseSETmessageobjectID.*/ptr=smux_var(ptr,len,oid,&oid_len,
+&val_len,&val_type,&val);ret=smux_set(oid,&oid_len,val_type,val,val_len,action);
+if(debug_smux)zlog_debug("SMUXSETret%d",ret);/*Returnresult.*/if(RESERVE1==actio
+n)smux_getresp_send(oid,oid_len,reqid,ret,3,ASN_NULL,NULL,0);}staticvoidsmux_par
+se_get(uint8_t*ptr,size_tlen,intexact){longreqid;oidoid[MAX_OID_LEN];size_toid_l
+en;uint8_tval_type;void*val;size_tval_len;intret;if(debug_smux)zlog_debug("SMUXG
+ETmessageparse:len%zd",len);/*ParseGETmessageheader.*/ptr=smux_parse_get_header(
+ptr,&len,&reqid);/*ParseGETmessageobjectID.Weneedn'tthevaluecome*/ptr=smux_var(p
+tr,len,oid,&oid_len,NULL,NULL,NULL);/*Traditionalgetstatptr.*/if(exact)ret=smux_
+get(oid,&oid_len,exact,&val_type,&val,&val_len);elseret=smux_getnext(oid,&oid_le
+n,exact,&val_type,&val,&val_len);/*Returnresult.*/if(ret==0)smux_getresp_send(oi
+d,oid_len,reqid,0,0,val_type,val,val_len);elsesmux_getresp_send(oid,oid_len,reqi
+d,ret,3,ASN_NULL,NULL,0);}/*ParseSMUX_CLOSEmessage.*/staticvoidsmux_parse_close(
+uint8_t*ptr,intlen){longreason=0;while(len--){reason=(reason<<8)|(long)*ptr;ptr+
++;}zlog_info("SMUX_CLOSEwithreason:%ld",reason);}/*SMUX_RRSPmessage.*/staticvoid
+smux_parse_rrsp(uint8_t*ptr,size_tlen){uint8_tval;longerrstat;ptr=asn_parse_int(
+ptr,&len,&val,&errstat,sizeof(errstat));if(debug_smux)zlog_debug("SMUX_RRSPvalue
+:%derrstat:%ld",val,errstat);}/*ParseSMUXmessage.*/staticintsmux_parse(uint8_t*p
+tr,size_tlen){/*Thisbufferwe'lluseforSOUTmessage.Wecouldallocateitwithmallocands
+aveonlystaticpointer/lenght,butIMHOstaticbufferisafastersolusion.*/staticuint8_t
+sout_save_buff[SMUXMAXPKTSIZE];staticintsout_save_len=0;intlen_income=len;/*seen
+otebelow:YYY*/uint8_ttype;uint8_trollback;rollback=ptr[2];/*importantonlyforSMUX
+_SOUT*/process_rest:/*seenotebelow:YYY*//*ParseSMUXmessagetypeandsubsequentlengt
+h.*/ptr=asn_parse_header(ptr,&len,&type);if(debug_smux)zlog_debug("SMUXmessagere
+ceivedtype:%drestlen:%zd",type,len);switch(type){caseSMUX_OPEN:/*Openmustbenotse
+ndfromSNMPagent.*/zlog_warn("SMUX_OPENreceived:resettingconnection.");return-1;b
+reak;caseSMUX_RREQ:/*SMUX_RREQmessageisinvalidforus.*/zlog_warn("SMUX_RREQreceiv
+ed:resettingconnection.");return-1;break;caseSMUX_SOUT:/*SMUX_SOUTmessageisnowva
+liedforus.*/if(debug_smux)zlog_debug("SMUX_SOUT(%s)",rollback?"rollback":"commit
+");if(sout_save_len>0){smux_parse_set(sout_save_buff,sout_save_len,rollback?FREE
+:COMMIT);sout_save_len=0;}elsezlog_warn("SMUX_SOUTsout_save_len=%d-invalid",(int
+)sout_save_len);if(len_income>3){/*YYY:thisstrangecodehastosolvethe"slowpeer"pro
+blem:WhenagentsendsSMUX_SOUTmessageitdoesn'twaitanyresponceandmaysendsomenextmes
+sagetosubagent.Thenthepeerin'smux_read()'willrecievefromsocketthe'concatenated'b
+uffer,contaningbothSMUX_SOUTmessageandthenextone(SMUX_GET/SMUX_GETNEXT/SMUX_GET)
+.Soweshouldcheck:ifthebufferislongerthan3(lengthofSMUX_SOUT),wemustprocesstheres
+tofit.Thiseffectmaybeobservedif'debug_smux'issetto'1'*/ptr++;len=len_income-3;go
+toprocess_rest;}break;caseSMUX_GETRSP:/*SMUX_GETRSPmessageisinvalidforus.*/zlog_
+warn("SMUX_GETRSPreceived:resettingconnection.");return-1;break;caseSMUX_CLOSE:/
+*CloseSMUXconnection.*/if(debug_smux)zlog_debug("SMUX_CLOSE");smux_parse_close(p
+tr,len);return-1;break;caseSMUX_RRSP:/*Thisisresponseforregistermessage.*/if(deb
+ug_smux)zlog_debug("SMUX_RRSP");smux_parse_rrsp(ptr,len);break;caseSMUX_GET:/*Ex
+actrequestforobjectid.*/if(debug_smux)zlog_debug("SMUX_GET");smux_parse_get(ptr,
+len,1);break;caseSMUX_GETNEXT:/*Nextrequestforobjectid.*/if(debug_smux)zlog_debu
+g("SMUX_GETNEXT");smux_parse_get(ptr,len,0);break;caseSMUX_SET:/*SMUX_SETissuppo
+rtedwithsomelimitations.*/if(debug_smux)zlog_debug("SMUX_SET");/*savethedataforf
+utureSMUX_SOUT*/memcpy(sout_save_buff,ptr,len);sout_save_len=len;smux_parse_set(
+ptr,len,RESERVE1);break;default:zlog_info("Unknowntype:%d",type);break;}return0;
+}/*SMUXmessagereadfunction.*/staticintsmux_read(structthread*t){intsock;intlen;u
+int8_tbuf[SMUXMAXPKTSIZE];intret;/*Clearthread.*/sock=THREAD_FD(t);smux_read_thr
+ead=NULL;if(debug_smux)zlog_debug("SMUXreadstart");/*ReadmessagefromSMUXsocket.*
+/len=recv(sock,buf,SMUXMAXPKTSIZE,0);if(len<0){zlog_warn("Can'treadallSMUXpacket
+:%s",safe_strerror(errno));close(sock);smux_sock=-1;smux_event(SMUX_CONNECT,0);r
+eturn-1;}if(len==0){zlog_warn("SMUXconnectionclosed:%d",sock);close(sock);smux_s
+ock=-1;smux_event(SMUX_CONNECT,0);return-1;}if(debug_smux)zlog_debug("SMUXreadle
+n:%d",len);/*Parsethemessage.*/ret=smux_parse(buf,len);if(ret<0){close(sock);smu
+x_sock=-1;smux_event(SMUX_CONNECT,0);return-1;}/*Regiserreadthread.*/smux_event(
+SMUX_READ,sock);return0;}staticintsmux_open(intsock){uint8_tbuf[BUFSIZ];uint8_t*
+ptr;size_tlen;longversion;constcharprogname[]=FRR_SMUX_NAME"-"FRR_VERSION;if(deb
+ug_smux){smux_oid_dump("SMUXopenoid",smux_oid,smux_oid_len);zlog_debug("SMUXopen
+progname:%s",progname);zlog_debug("SMUXopenpassword:%s",smux_passwd);}ptr=buf;le
+n=BUFSIZ;/*SMUXHeader.Asplaceholder.*/ptr=asn_build_header(ptr,&len,(uint8_t)SMU
+X_OPEN,0);/*SMUXOpen.*/version=0;ptr=asn_build_int(ptr,&len,(uint8_t)(ASN_UNIVER
+SAL|ASN_PRIMITIVE|ASN_INTEGER),&version,sizeof(version));/*SMUXconnectionoid.*/p
+tr=asn_build_objid(ptr,&len,(uint8_t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OBJECT_ID)
+,smux_oid,smux_oid_len);/*SMUXconnectiondescription.*/ptr=asn_build_string(ptr,&
+len,(uint8_t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),(constuint8_t*)progname
+,strlen(progname));/*SMUXconnectionpassword.*/ptr=asn_build_string(ptr,&len,(uin
+t8_t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OCTET_STR),(uint8_t*)smux_passwd,strlen(sm
+ux_passwd));/*FillinrealSMUXheader.WeexcludeASNheadersize(2).*/len=BUFSIZ;asn_bu
+ild_header(buf,&len,(uint8_t)SMUX_OPEN,(ptr-buf)-2);returnsend(sock,buf,(ptr-buf
+),0);}/*`ename`isignored.InsteadofusingtheprovidedenterpriseOID,theSMUXpeerisuse
+d.ThiskeepcompatibilitywiththepreviousversionsofQuagga.Allotherfieldsareusedasth
+eyareintended.*/intsmux_trap(structvariable*vp,size_tvp_len,constoid*ename,size_
+tenamelen,constoid*name,size_tnamelen,constoid*iname,size_tinamelen,conststructt
+rap_object*trapobj,size_ttrapobjlen,uint8_tsptrap){unsignedinti;uint8_tbuf[BUFSI
+Z];uint8_t*ptr;size_tlen,length;structin_addraddr;unsignedlongval;uint8_t*h1,*h1
+e;ptr=buf;len=BUFSIZ;length=len;/*WhenSMUXconnectionisnotestablished.*/if(smux_s
+ock<0)return0;/*SMUXheader.*/ptr=asn_build_header(ptr,&len,(uint8_t)SMUX_TRAP,0)
+;/*Subagententerpriseoid.*/ptr=asn_build_objid(ptr,&len,(uint8_t)(ASN_UNIVERSAL|
+ASN_PRIMITIVE|ASN_OBJECT_ID),smux_oid,smux_oid_len);/*IPaddress.*/addr.s_addr=0;
+ptr=asn_build_string(ptr,&len,(uint8_t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_IPADDRES
+S),(uint8_t*)&addr,sizeof(addr));/*Generictrapinteger.*/val=SNMP_TRAP_ENTERPRISE
+SPECIFIC;ptr=asn_build_int(ptr,&len,(uint8_t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_IN
+TEGER),(long*)&val,sizeof(val));/*Specifictrapinteger.*/val=sptrap;ptr=asn_build
+_int(ptr,&len,(uint8_t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_INTEGER),(long*)&val,siz
+eof(val));/*Timetickstimestamp.*/val=0;ptr=asn_build_unsigned_int(ptr,&len,(uint
+8_t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_TIMETICKS),&val,sizeof(val));/*Variables.*/
+h1=ptr;ptr=asn_build_sequence(ptr,&len,(uint8_t)(ASN_SEQUENCE|ASN_CONSTRUCTOR),0
+);/*Iterationforeachobjects.*/h1e=ptr;for(i=0;i<trapobjlen;i++){intret;oidoid[MA
+X_OID_LEN];size_toid_len;void*val;size_tval_len;uint8_tval_type;/*MakeOID.*/if(t
+rapobj[i].namelen>0){oid_copy(oid,name,namelen);oid_copy(oid+namelen,trapobj[i].
+name,trapobj[i].namelen);oid_copy(oid+namelen+trapobj[i].namelen,iname,inamelen)
+;oid_len=namelen+trapobj[i].namelen+inamelen;}else{oid_copy(oid,name,namelen);oi
+d_copy(oid+namelen,trapobj[i].name,trapobj[i].namelen*(-1));oid_len=namelen+trap
+obj[i].namelen*(-1);}if(debug_smux){smux_oid_dump("Trap",name,namelen);if(trapob
+j[i].namelen<0)smux_oid_dump("Trap",trapobj[i].name,(-1)*(trapobj[i].namelen));e
+lse{smux_oid_dump("Trap",trapobj[i].name,(trapobj[i].namelen));smux_oid_dump("Tr
+ap",iname,inamelen);}smux_oid_dump("Trap",oid,oid_len);zlog_info("BUFSIZ:%d//oid
+_len:%lu",BUFSIZ,(unsignedlong)oid_len);}ret=smux_get(oid,&oid_len,1,&val_type,&
+val,&val_len);if(debug_smux)zlog_debug("smux_getresult%d",ret);if(ret==0)ptr=snm
+p_build_var_op(ptr,oid,&oid_len,val_type,val_len,val,&len);}/*Nowvariablesizeisk
+nown,fillinsize*/asn_build_sequence(h1,&length,(uint8_t)(ASN_SEQUENCE|ASN_CONSTR
+UCTOR),ptr-h1e);/*Fillinsizeofwholesequence*/len=BUFSIZ;asn_build_header(buf,&le
+n,(uint8_t)SMUX_TRAP,(ptr-buf)-2);returnsend(smux_sock,buf,(ptr-buf),0);}statici
+ntsmux_register(intsock){uint8_tbuf[BUFSIZ];uint8_t*ptr;intret;size_tlen;longpri
+ority;longoperation;structsubtree*subtree;structlistnode*node,*nnode;ret=0;for(A
+LL_LIST_ELEMENTS(treelist,node,nnode,subtree)){ptr=buf;len=BUFSIZ;/*SMUXRReqHead
+er.*/ptr=asn_build_header(ptr,&len,(uint8_t)SMUX_RREQ,0);/*RegisterMIBtree.*/ptr
+=asn_build_objid(ptr,&len,(uint8_t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_OBJECT_ID),s
+ubtree->name,subtree->name_len);/*Priority.*/priority=-1;ptr=asn_build_int(ptr,&
+len,(uint8_t)(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_INTEGER),&priority,sizeof(priority
+));/*Operation.*/operation=2;/*RegisterR/W*/ptr=asn_build_int(ptr,&len,(uint8_t)
+(ASN_UNIVERSAL|ASN_PRIMITIVE|ASN_INTEGER),&operation,sizeof(operation));if(debug
+_smux){smux_oid_dump("SMUXregisteroid",subtree->name,subtree->name_len);zlog_deb
+ug("SMUXregisterpriority:%ld",priority);zlog_debug("SMUXregisteroperation:%ld",o
+peration);}len=BUFSIZ;asn_build_header(buf,&len,(uint8_t)SMUX_RREQ,(ptr-buf)-2);
+ret=send(sock,buf,(ptr-buf),0);if(ret<0)returnret;}returnret;}/*TrytoconnecttoSN
+MPagent.*/staticintsmux_connect(structthread*t){intret;if(debug_smux)zlog_debug(
+"SMUXconnecttry%d",fail+1);/*Clearthreadponerofmyself.*/smux_connect_thread=NULL
+;/*Makesocket.Trytoconnect.*/smux_sock=smux_socket();if(smux_sock<0){if(++fail<S
+MUX_MAX_FAILURE)smux_event(SMUX_CONNECT,0);return0;}/*SendOPENPDU.*/ret=smux_ope
+n(smux_sock);if(ret<0){zlog_warn("SMUXopenmessagesendfailed:%s",safe_strerror(er
+rno));close(smux_sock);smux_sock=-1;if(++fail<SMUX_MAX_FAILURE)smux_event(SMUX_C
+ONNECT,0);return-1;}/*SendanyoutstandingregisterPDUs.*/ret=smux_register(smux_so
+ck);if(ret<0){zlog_warn("SMUXregistermessagesendfailed:%s",safe_strerror(errno))
+;close(smux_sock);smux_sock=-1;if(++fail<SMUX_MAX_FAILURE)smux_event(SMUX_CONNEC
+T,0);return-1;}/*Everythinggoesfine.*/smux_event(SMUX_READ,smux_sock);return0;}/
+*ClearallSMUXrelatedresources.*/staticvoidsmux_stop(void){if(smux_read_thread){t
+hread_cancel(smux_read_thread);smux_read_thread=NULL;}if(smux_connect_thread){th
+read_cancel(smux_connect_thread);smux_connect_thread=NULL;}if(smux_sock>=0){clos
+e(smux_sock);smux_sock=-1;}}voidsmux_event(enumsmux_eventevent,intsock){switch(e
+vent){caseSMUX_SCHEDULE:smux_connect_thread=NULL;thread_add_event(smux_master,sm
+ux_connect,NULL,0,&smux_connect_thread);break;caseSMUX_CONNECT:smux_connect_thre
+ad=NULL;thread_add_timer(smux_master,smux_connect,NULL,10,&smux_connect_thread);
+break;caseSMUX_READ:smux_read_thread=NULL;thread_add_read(smux_master,smux_read,
+NULL,sock,&smux_read_thread);break;default:break;}}staticintsmux_str2oid(constch
+ar*str,oid*oid,size_t*oid_len){intlen;intval;len=0;val=0;*oid_len=0;if(*str=='.'
+)str++;if(*str=='\0')return0;while(1){if(!isdigit(*str))return-1;while(isdigit(*
+str)){val*=10;val+=(*str-'0');str++;}if(*str=='\0')break;if(*str!='.')return-1;o
+id[len++]=val;val=0;str++;}oid[len++]=val;*oid_len=len;return0;}staticoid*smux_o
+id_dup(oid*objid,size_tobjid_len){oid*new;new=XMALLOC(MTYPE_TMP,sizeof(oid)*obji
+d_len);oid_copy(new,objid,objid_len);returnnew;}staticintsmux_peer_oid(structvty
+*vty,constchar*oid_str,constchar*passwd_str){intret;oidoid[MAX_OID_LEN];size_toi
+d_len;ret=smux_str2oid(oid_str,oid,&oid_len);if(ret!=0){vty_out(vty,"objectIDmal
+formed\n");returnCMD_WARNING_CONFIG_FAILED;}if(smux_oid){free(smux_oid);smux_oid
+=NULL;}/*careful,smux_passwdmightpointtostringconstant*/if(smux_passwd){free(smu
+x_passwd);smux_passwd=NULL;}smux_oid=smux_oid_dup(oid,oid_len);smux_oid_len=oid_
+len;if(passwd_str)smux_passwd=strdup(passwd_str);elsesmux_passwd=strdup("");retu
+rn0;}staticintsmux_peer_default(void){if(smux_oid){free(smux_oid);smux_oid=NULL;
+}/*careful,smux_passwdmightbepointingatstringconstant*/if(smux_passwd){free(smux
+_passwd);smux_passwd=NULL;}returnCMD_SUCCESS;}DEFUN(smux_peer,smux_peer_cmd,"smu
+xpeerOID","SNMPMUXprotocolsettings\n""SNMPMUXpeersettings\n""ObjectIDusedinSMUXp
+eering\n"){intidx_oid=2;if(smux_peer_oid(vty,argv[idx_oid]->arg,NULL)==0){smux_s
+tart();returnCMD_SUCCESS;}elsereturnCMD_WARNING_CONFIG_FAILED;}DEFUN(smux_peer_p
+assword,smux_peer_password_cmd,"smuxpeerOIDPASSWORD","SNMPMUXprotocolsettings\n"
+"SNMPMUXpeersettings\n""SMUXpeeringobjectID\n""SMUXpeeringpassword\n"){intidx_oi
+d=2;if(smux_peer_oid(vty,argv[idx_oid]->arg,argv[3]->rg)==0){smux_start();return
+CMD_SUCCESS;}elsereturnCMD_WARNING_CONFIG_FAILED;}DEFUN(no_smux_peer,no_smux_pee
+r_cmd,"nosmuxpeer[OID[PASSWORD]]",NO_STR"SNMPMUXprotocolsettings\n""SNMPMUXpeers
+ettings\n""SMUXpeeringobjectID\n""SMUXpeeringpassword\n"){smux_stop();returnsmux
+_peer_default();}staticintconfig_write_smux(structvty*vty){intfirst=1;unsignedin
+ti;if(smux_oid){vty_out(vty,"smuxpeer");for(i=0;i<smux_oid_len;i++){vty_out(vty,
+"%s%d",first?"":".",(int)smux_oid[i]);first=0;}vty_out(vty,"%s\n",smux_passwd);}
+return0;}/*Registersubtreetosmuxmastertree.*/voidsmux_register_mib(constchar*des
+cr,structvariable*var,size_twidth,intnum,oidname[],size_tnamelen){structsubtree*
+tree;tree=(structsubtree*)malloc(sizeof(structsubtree));oid_copy(tree->name,name
+,namelen);tree->name_len=namelen;tree->variables=var;tree->variables_num=num;tre
+e->variables_width=width;tree->registered=0;listnode_add_sort(treelist,tree);}/*
+Comparefunctiontokeeptreelistsorted*/staticintsmux_tree_cmp(structsubtree*tree1,
+structsubtree*tree2){returnoid_compare(tree1->name,tree1->name_len,tree2->name,t
+ree2->name_len);}/*InitializesomevaluesthenschedulefirstSMUXconnection.*/voidsmu
+x_init(structthread_master*tm){assert(tm);/*copycallersthreadmaster*/smux_master
+=tm;/*MakeMIBtree.*/treelist=list_new();treelist->cmp=(int(*)(void*,void*))smux_
+tree_cmp;/*Installcommands.*/install_node(&smux_node,config_write_smux);install_
+element(CONFIG_NODE,&smux_peer_cmd);install_element(CONFIG_NODE,&smux_peer_passw
+ord_cmd);install_element(CONFIG_NODE,&no_smux_peer_cmd);install_element(CONFIG_N
+ODE,&no_smux_peer_oid_cmd);install_element(CONFIG_NODE,&no_smux_peer_oid_passwor
+d_cmd);}voidsmux_start(void){/*Closeanyexistingconnections.*/smux_stop();/*Sched
+ulefirstconnection.*/smux_event(SMUX_SCHEDULE,0);}#endif/*SNMP_SMUX*/

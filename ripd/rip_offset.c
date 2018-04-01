@@ -1,411 +1,114 @@
-/* RIP offset-list
- * Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "if.h"
-#include "prefix.h"
-#include "filter.h"
-#include "command.h"
-#include "linklist.h"
-#include "memory.h"
-
-#include "ripd/ripd.h"
-
-#define RIP_OFFSET_LIST_IN  0
-#define RIP_OFFSET_LIST_OUT 1
-#define RIP_OFFSET_LIST_MAX 2
-
-struct rip_offset_list {
-	char *ifname;
-
-	struct {
-		char *alist_name;
-		/* struct access_list *alist; */
-		int metric;
-	} direct[RIP_OFFSET_LIST_MAX];
-};
-
-static struct list *rip_offset_list_master;
-
-static int strcmp_safe(const char *s1, const char *s2)
-{
-	if (s1 == NULL && s2 == NULL)
-		return 0;
-	if (s1 == NULL)
-		return -1;
-	if (s2 == NULL)
-		return 1;
-	return strcmp(s1, s2);
-}
-
-static struct rip_offset_list *rip_offset_list_new(void)
-{
-	return XCALLOC(MTYPE_RIP_OFFSET_LIST, sizeof(struct rip_offset_list));
-}
-
-static void rip_offset_list_free(struct rip_offset_list *offset)
-{
-	XFREE(MTYPE_RIP_OFFSET_LIST, offset);
-}
-
-static struct rip_offset_list *rip_offset_list_lookup(const char *ifname)
-{
-	struct rip_offset_list *offset;
-	struct listnode *node, *nnode;
-
-	for (ALL_LIST_ELEMENTS(rip_offset_list_master, node, nnode, offset)) {
-		if (strcmp_safe(offset->ifname, ifname) == 0)
-			return offset;
-	}
-	return NULL;
-}
-
-static struct rip_offset_list *rip_offset_list_get(const char *ifname)
-{
-	struct rip_offset_list *offset;
-
-	offset = rip_offset_list_lookup(ifname);
-	if (offset)
-		return offset;
-
-	offset = rip_offset_list_new();
-	if (ifname)
-		offset->ifname = strdup(ifname);
-	listnode_add_sort(rip_offset_list_master, offset);
-
-	return offset;
-}
-
-static int rip_offset_list_set(struct vty *vty, const char *alist,
-			       const char *direct_str, const char *metric_str,
-			       const char *ifname)
-{
-	int direct;
-	int metric;
-	struct rip_offset_list *offset;
-
-	/* Check direction. */
-	if (strncmp(direct_str, "i", 1) == 0)
-		direct = RIP_OFFSET_LIST_IN;
-	else if (strncmp(direct_str, "o", 1) == 0)
-		direct = RIP_OFFSET_LIST_OUT;
-	else {
-		vty_out(vty, "Invalid direction: %s\n", direct_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Check metric. */
-	metric = atoi(metric_str);
-	if (metric < 0 || metric > 16) {
-		vty_out(vty, "Invalid metric: %s\n", metric_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Get offset-list structure with interface name. */
-	offset = rip_offset_list_get(ifname);
-
-	if (offset->direct[direct].alist_name)
-		free(offset->direct[direct].alist_name);
-	offset->direct[direct].alist_name = strdup(alist);
-	offset->direct[direct].metric = metric;
-
-	return CMD_SUCCESS;
-}
-
-static int rip_offset_list_unset(struct vty *vty, const char *alist,
-				 const char *direct_str, const char *metric_str,
-				 const char *ifname)
-{
-	int direct;
-	int metric;
-	struct rip_offset_list *offset;
-
-	/* Check direction. */
-	if (strncmp(direct_str, "i", 1) == 0)
-		direct = RIP_OFFSET_LIST_IN;
-	else if (strncmp(direct_str, "o", 1) == 0)
-		direct = RIP_OFFSET_LIST_OUT;
-	else {
-		vty_out(vty, "Invalid direction: %s\n", direct_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Check metric. */
-	metric = atoi(metric_str);
-	if (metric < 0 || metric > 16) {
-		vty_out(vty, "Invalid metric: %s\n", metric_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Get offset-list structure with interface name. */
-	offset = rip_offset_list_lookup(ifname);
-
-	if (offset) {
-		if (offset->direct[direct].alist_name)
-			free(offset->direct[direct].alist_name);
-		offset->direct[direct].alist_name = NULL;
-
-		if (offset->direct[RIP_OFFSET_LIST_IN].alist_name == NULL
-		    && offset->direct[RIP_OFFSET_LIST_OUT].alist_name == NULL) {
-			listnode_delete(rip_offset_list_master, offset);
-			if (offset->ifname)
-				free(offset->ifname);
-			rip_offset_list_free(offset);
-		}
-	} else {
-		vty_out(vty, "Can't find offset-list\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
-}
-
-#define OFFSET_LIST_IN_NAME(O)  ((O)->direct[RIP_OFFSET_LIST_IN].alist_name)
-#define OFFSET_LIST_IN_METRIC(O)  ((O)->direct[RIP_OFFSET_LIST_IN].metric)
-
-#define OFFSET_LIST_OUT_NAME(O)  ((O)->direct[RIP_OFFSET_LIST_OUT].alist_name)
-#define OFFSET_LIST_OUT_METRIC(O)  ((O)->direct[RIP_OFFSET_LIST_OUT].metric)
-
-/* If metric is modifed return 1. */
-int rip_offset_list_apply_in(struct prefix_ipv4 *p, struct interface *ifp,
-			     uint32_t *metric)
-{
-	struct rip_offset_list *offset;
-	struct access_list *alist;
-
-	/* Look up offset-list with interface name. */
-	offset = rip_offset_list_lookup(ifp->name);
-	if (offset && OFFSET_LIST_IN_NAME(offset)) {
-		alist = access_list_lookup(AFI_IP, OFFSET_LIST_IN_NAME(offset));
-
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
-			*metric += OFFSET_LIST_IN_METRIC(offset);
-			return 1;
-		}
-		return 0;
-	}
-	/* Look up offset-list without interface name. */
-	offset = rip_offset_list_lookup(NULL);
-	if (offset && OFFSET_LIST_IN_NAME(offset)) {
-		alist = access_list_lookup(AFI_IP, OFFSET_LIST_IN_NAME(offset));
-
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
-			*metric += OFFSET_LIST_IN_METRIC(offset);
-			return 1;
-		}
-		return 0;
-	}
-	return 0;
-}
-
-/* If metric is modifed return 1. */
-int rip_offset_list_apply_out(struct prefix_ipv4 *p, struct interface *ifp,
-			      uint32_t *metric)
-{
-	struct rip_offset_list *offset;
-	struct access_list *alist;
-
-	/* Look up offset-list with interface name. */
-	offset = rip_offset_list_lookup(ifp->name);
-	if (offset && OFFSET_LIST_OUT_NAME(offset)) {
-		alist = access_list_lookup(AFI_IP,
-					   OFFSET_LIST_OUT_NAME(offset));
-
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
-			*metric += OFFSET_LIST_OUT_METRIC(offset);
-			return 1;
-		}
-		return 0;
-	}
-
-	/* Look up offset-list without interface name. */
-	offset = rip_offset_list_lookup(NULL);
-	if (offset && OFFSET_LIST_OUT_NAME(offset)) {
-		alist = access_list_lookup(AFI_IP,
-					   OFFSET_LIST_OUT_NAME(offset));
-
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
-			*metric += OFFSET_LIST_OUT_METRIC(offset);
-			return 1;
-		}
-		return 0;
-	}
-	return 0;
-}
-
-DEFUN (rip_offset_list,
-       rip_offset_list_cmd,
-       "offset-list WORD <in|out> (0-16)",
-       "Modify RIP metric\n"
-       "Access-list name\n"
-       "For incoming updates\n"
-       "For outgoing updates\n"
-       "Metric value\n")
-{
-	int idx_word = 1;
-	int idx_in_out = 2;
-	int idx_number = 3;
-	return rip_offset_list_set(vty, argv[idx_word]->arg,
-				   argv[idx_in_out]->arg, argv[idx_number]->arg,
-				   NULL);
-}
-
-DEFUN (rip_offset_list_ifname,
-       rip_offset_list_ifname_cmd,
-       "offset-list WORD <in|out> (0-16) IFNAME",
-       "Modify RIP metric\n"
-       "Access-list name\n"
-       "For incoming updates\n"
-       "For outgoing updates\n"
-       "Metric value\n"
-       "Interface to match\n")
-{
-	int idx_word = 1;
-	int idx_in_out = 2;
-	int idx_number = 3;
-	int idx_ifname = 4;
-	return rip_offset_list_set(vty, argv[idx_word]->arg,
-				   argv[idx_in_out]->arg, argv[idx_number]->arg,
-				   argv[idx_ifname]->arg);
-}
-
-DEFUN (no_rip_offset_list,
-       no_rip_offset_list_cmd,
-       "no offset-list WORD <in|out> (0-16)",
-       NO_STR
-       "Modify RIP metric\n"
-       "Access-list name\n"
-       "For incoming updates\n"
-       "For outgoing updates\n"
-       "Metric value\n")
-{
-	int idx_word = 2;
-	int idx_in_out = 3;
-	int idx_number = 4;
-	return rip_offset_list_unset(vty, argv[idx_word]->arg,
-				     argv[idx_in_out]->arg,
-				     argv[idx_number]->arg, NULL);
-}
-
-DEFUN (no_rip_offset_list_ifname,
-       no_rip_offset_list_ifname_cmd,
-       "no offset-list WORD <in|out> (0-16) IFNAME",
-       NO_STR
-       "Modify RIP metric\n"
-       "Access-list name\n"
-       "For incoming updates\n"
-       "For outgoing updates\n"
-       "Metric value\n"
-       "Interface to match\n")
-{
-	int idx_word = 2;
-	int idx_in_out = 3;
-	int idx_number = 4;
-	int idx_ifname = 5;
-	return rip_offset_list_unset(
-		vty, argv[idx_word]->arg, argv[idx_in_out]->arg,
-		argv[idx_number]->arg, argv[idx_ifname]->arg);
-}
-
-static int offset_list_cmp(struct rip_offset_list *o1,
-			   struct rip_offset_list *o2)
-{
-	return strcmp_safe(o1->ifname, o2->ifname);
-}
-
-static void offset_list_del(struct rip_offset_list *offset)
-{
-	if (OFFSET_LIST_IN_NAME(offset))
-		free(OFFSET_LIST_IN_NAME(offset));
-	if (OFFSET_LIST_OUT_NAME(offset))
-		free(OFFSET_LIST_OUT_NAME(offset));
-	if (offset->ifname)
-		free(offset->ifname);
-	rip_offset_list_free(offset);
-}
-
-void rip_offset_init()
-{
-	rip_offset_list_master = list_new();
-	rip_offset_list_master->cmp = (int (*)(void *, void *))offset_list_cmp;
-	rip_offset_list_master->del = (void (*)(void *))offset_list_del;
-
-	install_element(RIP_NODE, &rip_offset_list_cmd);
-	install_element(RIP_NODE, &rip_offset_list_ifname_cmd);
-	install_element(RIP_NODE, &no_rip_offset_list_cmd);
-	install_element(RIP_NODE, &no_rip_offset_list_ifname_cmd);
-}
-
-void rip_offset_clean()
-{
-	list_delete_and_null(&rip_offset_list_master);
-
-	rip_offset_list_master = list_new();
-	rip_offset_list_master->cmp = (int (*)(void *, void *))offset_list_cmp;
-	rip_offset_list_master->del = (void (*)(void *))offset_list_del;
-}
-
-int config_write_rip_offset_list(struct vty *vty)
-{
-	struct listnode *node, *nnode;
-	struct rip_offset_list *offset;
-
-	for (ALL_LIST_ELEMENTS(rip_offset_list_master, node, nnode, offset)) {
-		if (!offset->ifname) {
-			if (offset->direct[RIP_OFFSET_LIST_IN].alist_name)
-				vty_out(vty, " offset-list %s in %d\n",
-					offset->direct[RIP_OFFSET_LIST_IN]
-						.alist_name,
-					offset->direct[RIP_OFFSET_LIST_IN]
-						.metric);
-			if (offset->direct[RIP_OFFSET_LIST_OUT].alist_name)
-				vty_out(vty, " offset-list %s out %d\n",
-					offset->direct[RIP_OFFSET_LIST_OUT]
-						.alist_name,
-					offset->direct[RIP_OFFSET_LIST_OUT]
-						.metric);
-		} else {
-			if (offset->direct[RIP_OFFSET_LIST_IN].alist_name)
-				vty_out(vty, " offset-list %s in %d %s\n",
-					offset->direct[RIP_OFFSET_LIST_IN]
-						.alist_name,
-					offset->direct[RIP_OFFSET_LIST_IN]
-						.metric,
-					offset->ifname);
-			if (offset->direct[RIP_OFFSET_LIST_OUT].alist_name)
-				vty_out(vty, " offset-list %s out %d %s\n",
-					offset->direct[RIP_OFFSET_LIST_OUT]
-						.alist_name,
-					offset->direct[RIP_OFFSET_LIST_OUT]
-						.metric,
-					offset->ifname);
-		}
-	}
-
-	return 0;
-}
+/*RIPoffset-list*Copyright(C)2000KunihiroIshiguro<kunihiro@zebra.org>**Thisfilei
+spartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*unde
+rthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eit
+herversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopetha
+titwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTA
+BILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetail
+s.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;
+seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,Fift
+hFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"if.h"#include"prefix.h"
+#include"filter.h"#include"command.h"#include"linklist.h"#include"memory.h"#incl
+ude"ripd/ripd.h"#defineRIP_OFFSET_LIST_IN0#defineRIP_OFFSET_LIST_OUT1#defineRIP_
+OFFSET_LIST_MAX2structrip_offset_list{char*ifname;struct{char*alist_name;/*struc
+taccess_list*alist;*/intmetric;}direct[RIP_OFFSET_LIST_MAX];};staticstructlist*r
+ip_offset_list_master;staticintstrcmp_safe(constchar*s1,constchar*s2){if(s1==NUL
+L&&s2==NULL)return0;if(s1==NULL)return-1;if(s2==NULL)return1;returnstrcmp(s1,s2)
+;}staticstructrip_offset_list*rip_offset_list_new(void){returnXCALLOC(MTYPE_RIP_
+OFFSET_LIST,sizeof(structrip_offset_list));}staticvoidrip_offset_list_free(struc
+trip_offset_list*offset){XFREE(MTYPE_RIP_OFFSET_LIST,offset);}staticstructrip_of
+fset_list*rip_offset_list_lookup(constchar*ifname){structrip_offset_list*offset;
+structlistnode*node,*nnode;for(ALL_LIST_ELEMENTS(rip_offset_list_master,node,nno
+de,offset)){if(strcmp_safe(offset->ifname,ifname)==0)returnoffset;}returnNULL;}s
+taticstructrip_offset_list*rip_offset_list_get(constchar*ifname){structrip_offse
+t_list*offset;offset=rip_offset_list_lookup(ifname);if(offset)returnoffset;offse
+t=rip_offset_list_new();if(ifname)offset->ifname=strdup(ifname);listnode_add_sor
+t(rip_offset_list_master,offset);returnoffset;}staticintrip_offset_list_set(stru
+ctvty*vty,constchar*alist,constchar*direct_str,constchar*metric_str,constchar*if
+name){intdirect;intmetric;structrip_offset_list*offset;/*Checkdirection.*/if(str
+ncmp(direct_str,"i",1)==0)direct=RIP_OFFSET_LIST_IN;elseif(strncmp(direct_str,"o
+",1)==0)direct=RIP_OFFSET_LIST_OUT;else{vty_out(vty,"Invaliddirection:%s\n",dire
+ct_str);returnCMD_WARNING_CONFIG_FAILED;}/*Checkmetric.*/metric=atoi(metric_str)
+;if(metric<0||metric>16){vty_out(vty,"Invalidmetric:%s\n",metric_str);returnCMD_
+WARNING_CONFIG_FAILED;}/*Getoffset-liststructurewithinterfacename.*/offset=rip_o
+ffset_list_get(ifname);if(offset->direct[direct].alist_name)free(offset->direct[
+direct].alist_name);offset->direct[direct].alist_name=strdup(alist);offset->dire
+ct[direct].metric=metric;returnCMD_SUCCESS;}staticintrip_offset_list_unset(struc
+tvty*vty,constchar*alist,constchar*direct_str,constchar*metric_str,constchar*ifn
+ame){intdirect;intmetric;structrip_offset_list*offset;/*Checkdirection.*/if(strn
+cmp(direct_str,"i",1)==0)direct=RIP_OFFSET_LIST_IN;elseif(strncmp(direct_str,"o"
+,1)==0)direct=RIP_OFFSET_LIST_OUT;else{vty_out(vty,"Invaliddirection:%s\n",direc
+t_str);returnCMD_WARNING_CONFIG_FAILED;}/*Checkmetric.*/metric=atoi(metric_str);
+if(metric<0||metric>16){vty_out(vty,"Invalidmetric:%s\n",metric_str);returnCMD_W
+ARNING_CONFIG_FAILED;}/*Getoffset-liststructurewithinterfacename.*/offset=rip_of
+fset_list_lookup(ifname);if(offset){if(offset->direct[direct].alist_name)free(of
+fset->direct[direct].alist_name);offset->direct[direct].alist_name=NULL;if(offse
+t->direct[RIP_OFFSET_LIST_IN].alist_name==NULL&&offset->direct[RIP_OFFSET_LIST_O
+UT].alist_name==NULL){listnode_delete(rip_offset_list_master,offset);if(offset->
+ifname)free(offset->ifname);rip_offset_list_free(offset);}}else{vty_out(vty,"Can
+'tfindoffset-list\n");returnCMD_WARNING_CONFIG_FAILED;}returnCMD_SUCCESS;}#defin
+eOFFSET_LIST_IN_NAME(O)((O)->direct[RIP_OFFSET_LIST_IN].alist_name)#defineOFFSET
+_LIST_IN_METRIC(O)((O)->direct[RIP_OFFSET_LIST_IN].metric)#defineOFFSET_LIST_OUT
+_NAME(O)((O)->direct[RIP_OFFSET_LIST_OUT].alist_name)#defineOFFSET_LIST_OUT_METR
+IC(O)((O)->direct[RIP_OFFSET_LIST_OUT].metric)/*Ifmetricismodifedreturn1.*/intri
+p_offset_list_apply_in(structprefix_ipv4*p,structinterface*ifp,uint32_t*metric){
+structrip_offset_list*offset;structaccess_list*alist;/*Lookupoffset-listwithinte
+rfacename.*/offset=rip_offset_list_lookup(ifp->name);if(offset&&OFFSET_LIST_IN_N
+AME(offset)){alist=access_list_lookup(AFI_IP,OFFSET_LIST_IN_NAME(offset));if(ali
+st&&access_list_apply(alist,(structprefix*)p)==FILTER_PERMIT){*metric+=OFFSET_LI
+ST_IN_METRIC(offset);return1;}return0;}/*Lookupoffset-listwithoutinterfacename.*
+/offset=rip_offset_list_lookup(NULL);if(offset&&OFFSET_LIST_IN_NAME(offset)){ali
+st=access_list_lookup(AFI_IP,OFFSET_LIST_IN_NAME(offset));if(alist&&access_list_
+apply(alist,(structprefix*)p)==FILTER_PERMIT){*metric+=OFFSET_LIST_IN_METRIC(off
+set);return1;}return0;}return0;}/*Ifmetricismodifedreturn1.*/intrip_offset_list_
+apply_out(structprefix_ipv4*p,structinterface*ifp,uint32_t*metric){structrip_off
+set_list*offset;structaccess_list*alist;/*Lookupoffset-listwithinterfacename.*/o
+ffset=rip_offset_list_lookup(ifp->name);if(offset&&OFFSET_LIST_OUT_NAME(offset))
+{alist=access_list_lookup(AFI_IP,OFFSET_LIST_OUT_NAME(offset));if(alist&&access_
+list_apply(alist,(structprefix*)p)==FILTER_PERMIT){*metric+=OFFSET_LIST_OUT_METR
+IC(offset);return1;}return0;}/*Lookupoffset-listwithoutinterfacename.*/offset=ri
+p_offset_list_lookup(NULL);if(offset&&OFFSET_LIST_OUT_NAME(offset)){alist=access
+_list_lookup(AFI_IP,OFFSET_LIST_OUT_NAME(offset));if(alist&&access_list_apply(al
+ist,(structprefix*)p)==FILTER_PERMIT){*metric+=OFFSET_LIST_OUT_METRIC(offset);re
+turn1;}return0;}return0;}DEFUN(rip_offset_list,rip_offset_list_cmd,"offset-listW
+ORD<in|out>(0-16)","ModifyRIPmetric\n""Access-listname\n""Forincomingupdates\n""
+Foroutgoingupdates\n""Metricvalue\n"){intidx_word=1;intidx_in_out=2;intidx_numbe
+r=3;returnrip_offset_list_set(vty,argv[idx_word]->arg,argv[idx_in_out]->arg,argv
+[idx_number]->arg,NULL);}DEFUN(rip_offset_list_ifname,rip_offset_list_ifname_cmd
+,"offset-listWORD<in|out>(0-16)IFNAME","ModifyRIPmetric\n""Access-listname\n""Fo
+rincomingupdates\n""Foroutgoingupdates\n""Metricvalue\n""Interfacetomatch\n"){in
+tidx_word=1;intidx_in_out=2;intidx_number=3;intidx_ifname=4;returnrip_offset_lis
+t_set(vty,argv[idx_word]->arg,argv[idx_in_out]->arg,argv[idx_number]->arg,argv[i
+dx_ifname]->arg);}DEFUN(no_rip_offset_list,no_rip_offset_list_cmd,"nooffset-list
+WORD<in|out>(0-16)",NO_STR"ModifyRIPmetric\n""Access-listname\n""Forincomingupda
+tes\n""Foroutgoingupdates\n""Metricvalue\n"){intidx_word=2;intidx_in_out=3;intid
+x_number=4;returnrip_offset_list_unset(vty,argv[idx_word]->arg,argv[idx_in_out]-
+>arg,argv[idx_number]->arg,NULL);}DEFUN(no_rip_offset_list_ifname,no_rip_offset_
+list_ifname_cmd,"nooffset-listWORD<in|out>(0-16)IFNAME",NO_STR"ModifyRIPmetric\n
+""Access-listname\n""Forincomingupdates\n""Foroutgoingupdates\n""Metricvalue\n""
+Interfacetomatch\n"){intidx_word=2;intidx_in_out=3;intidx_number=4;intidx_ifname
+=5;returnrip_offset_list_unset(vty,argv[idx_word]->arg,argv[idx_in_out]->arg,arg
+v[idx_number]->arg,argv[idx_ifname]->arg);}staticintoffset_list_cmp(structrip_of
+fset_list*o1,structrip_offset_list*o2){returnstrcmp_safe(o1->ifname,o2->ifname);
+}staticvoidoffset_list_del(structrip_offset_list*offset){if(OFFSET_LIST_IN_NAME(
+offset))free(OFFSET_LIST_IN_NAME(offset));if(OFFSET_LIST_OUT_NAME(offset))free(O
+FFSET_LIST_OUT_NAME(offset));if(offset->ifname)free(offset->ifname);rip_offset_l
+ist_free(offset);}voidrip_offset_init(){rip_offset_list_master=list_new();rip_of
+fset_list_master->cmp=(int(*)(void*,void*))offset_list_cmp;rip_offset_list_maste
+r->del=(void(*)(void*))offset_list_del;install_element(RIP_NODE,&rip_offset_list
+_cmd);install_element(RIP_NODE,&rip_offset_list_ifname_cmd);install_element(RIP_
+NODE,&no_rip_offset_list_cmd);install_element(RIP_NODE,&no_rip_offset_list_ifnam
+e_cmd);}voidrip_offset_clean(){list_delete_and_null(&rip_offset_list_master);rip
+_offset_list_master=list_new();rip_offset_list_master->cmp=(int(*)(void*,void*))
+offset_list_cmp;rip_offset_list_master->del=(void(*)(void*))offset_list_del;}int
+config_write_rip_offset_list(structvty*vty){structlistnode*node,*nnode;structrip
+_offset_list*offset;for(ALL_LIST_ELEMENTS(rip_offset_list_master,node,nnode,offs
+et)){if(!offset->ifname){if(offset->direct[RIP_OFFSET_LIST_IN].alist_name)vty_ou
+t(vty,"offset-list%sin%d\n",offset->direct[RIP_OFFSET_LIST_IN].alist_name,offset
+->direct[RIP_OFFSET_LIST_IN].metric);if(offset->direct[RIP_OFFSET_LIST_OUT].alis
+t_name)vty_out(vty,"offset-list%sout%d\n",offset->direct[RIP_OFFSET_LIST_OUT].al
+ist_name,offset->direct[RIP_OFFSET_LIST_OUT].metric);}else{if(offset->direct[RIP
+_OFFSET_LIST_IN].alist_name)vty_out(vty,"offset-list%sin%d%s\n",offset->direct[R
+IP_OFFSET_LIST_IN].alist_name,offset->direct[RIP_OFFSET_LIST_IN].metric,offset->
+ifname);if(offset->direct[RIP_OFFSET_LIST_OUT].alist_name)vty_out(vty,"offset-li
+st%sout%d%s\n",offset->direct[RIP_OFFSET_LIST_OUT].alist_name,offset->direct[RIP
+_OFFSET_LIST_OUT].metric,offset->ifname);}}return0;}

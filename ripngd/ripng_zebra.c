@@ -1,443 +1,123 @@
-/*
- * RIPngd and zebra interface.
- * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "command.h"
-#include "prefix.h"
-#include "table.h"
-#include "stream.h"
-#include "memory.h"
-#include "routemap.h"
-#include "zclient.h"
-#include "log.h"
-
-#include "ripngd/ripngd.h"
-#include "ripngd/ripng_debug.h"
-
-/* All information about zebra. */
-struct zclient *zclient = NULL;
-
-/* Send ECMP routes to zebra. */
-static void ripng_zebra_ipv6_send(struct route_node *rp, uint8_t cmd)
-{
-	struct list *list = (struct list *)rp->info;
-	struct zapi_route api;
-	struct zapi_nexthop *api_nh;
-	struct listnode *listnode = NULL;
-	struct ripng_info *rinfo = NULL;
-	int count = 0;
-
-	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
-	api.type = ZEBRA_ROUTE_RIPNG;
-	api.safi = SAFI_UNICAST;
-	api.prefix = rp->p;
-
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-		if (count >= MULTIPATH_NUM)
-			break;
-		api_nh = &api.nexthops[count];
-		api_nh->vrf_id = VRF_DEFAULT;
-		api_nh->gate.ipv6 = rinfo->nexthop;
-		api_nh->ifindex = rinfo->ifindex;
-		api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-		count++;
-		if (cmd == ZEBRA_ROUTE_ADD)
-			SET_FLAG(rinfo->flags, RIPNG_RTF_FIB);
-		else
-			UNSET_FLAG(rinfo->flags, RIPNG_RTF_FIB);
-	}
-
-	api.nexthop_num = count;
-
-	rinfo = listgetdata(listhead(list));
-
-	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
-	api.metric = rinfo->metric;
-
-	if (rinfo->tag) {
-		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
-		api.tag = rinfo->tag;
-	}
-
-	zclient_route_send(cmd, zclient, &api);
-
-	if (IS_RIPNG_DEBUG_ZEBRA) {
-		if (ripng->ecmp)
-			zlog_debug("%s: %s/%d nexthops %d",
-				   (cmd == ZEBRA_ROUTE_ADD)
-					   ? "Install into zebra"
-					   : "Delete from zebra",
-				   inet6_ntoa(rp->p.u.prefix6), rp->p.prefixlen,
-				   count);
-		else
-			zlog_debug(
-				"%s: %s/%d",
-				(cmd == ZEBRA_ROUTE_ADD) ? "Install into zebra"
-							 : "Delete from zebra",
-				inet6_ntoa(rp->p.u.prefix6), rp->p.prefixlen);
-	}
-}
-
-/* Add/update ECMP routes to zebra. */
-void ripng_zebra_ipv6_add(struct route_node *rp)
-{
-	ripng_zebra_ipv6_send(rp, ZEBRA_ROUTE_ADD);
-}
-
-/* Delete ECMP routes from zebra. */
-void ripng_zebra_ipv6_delete(struct route_node *rp)
-{
-	ripng_zebra_ipv6_send(rp, ZEBRA_ROUTE_DELETE);
-}
-
-/* Zebra route add and delete treatment. */
-static int ripng_zebra_read_route(int command, struct zclient *zclient,
-				  zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct zapi_route api;
-	struct in6_addr nexthop;
-	unsigned long ifindex;
-
-	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		return -1;
-
-	/* we completely ignore srcdest routes for now. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-		return 0;
-
-	nexthop = api.nexthops[0].gate.ipv6;
-	ifindex = api.nexthops[0].ifindex;
-
-	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
-		ripng_redistribute_add(api.type, RIPNG_ROUTE_REDISTRIBUTE,
-				       (struct prefix_ipv6 *)&api.prefix,
-				       ifindex, &nexthop, api.tag);
-	else
-		ripng_redistribute_delete(api.type, RIPNG_ROUTE_REDISTRIBUTE,
-					  (struct prefix_ipv6 *)&api.prefix,
-					  ifindex);
-
-	return 0;
-}
-
-void ripng_zclient_reset(void)
-{
-	zclient_reset(zclient);
-}
-
-static int ripng_redistribute_unset(int type)
-{
-
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][type], VRF_DEFAULT))
-		return CMD_SUCCESS;
-
-	vrf_bitmap_set(zclient->redist[AFI_IP6][type], VRF_DEFAULT);
-
-	if (zclient->sock > 0)
-		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
-					AFI_IP6, type, 0, VRF_DEFAULT);
-
-	ripng_redistribute_withdraw(type);
-
-	return CMD_SUCCESS;
-}
-
-int ripng_redistribute_check(int type)
-{
-	return vrf_bitmap_check(zclient->redist[AFI_IP6][type], VRF_DEFAULT);
-}
-
-static void ripng_redistribute_metric_set(int type, int metric)
-{
-	ripng->route_map[type].metric_config = 1;
-	ripng->route_map[type].metric = metric;
-}
-
-static int ripng_redistribute_metric_unset(int type)
-{
-	ripng->route_map[type].metric_config = 0;
-	ripng->route_map[type].metric = 0;
-	return 0;
-}
-
-static void ripng_redistribute_routemap_set(int type, const char *name)
-{
-	if (ripng->route_map[type].name)
-		free(ripng->route_map[type].name);
-
-	ripng->route_map[type].name = strdup(name);
-	ripng->route_map[type].map = route_map_lookup_by_name(name);
-}
-
-static void ripng_redistribute_routemap_unset(int type)
-{
-	if (ripng->route_map[type].name)
-		free(ripng->route_map[type].name);
-
-	ripng->route_map[type].name = NULL;
-	ripng->route_map[type].map = NULL;
-}
-
-/* Redistribution types */
-static struct {
-	int type;
-	int str_min_len;
-	const char *str;
-} redist_type[] = {{ZEBRA_ROUTE_KERNEL, 1, "kernel"},
-		   {ZEBRA_ROUTE_CONNECT, 1, "connected"},
-		   {ZEBRA_ROUTE_STATIC, 1, "static"},
-		   {ZEBRA_ROUTE_OSPF6, 1, "ospf6"},
-		   {ZEBRA_ROUTE_BGP, 2, "bgp"},
-		   {ZEBRA_ROUTE_VNC, 1, "vnc"},
-		   {0, 0, NULL}};
-
-void ripng_redistribute_clean()
-{
-	int i;
-
-	for (i = 0; redist_type[i].str; i++) {
-		if (vrf_bitmap_check(
-			    zclient->redist[AFI_IP6][redist_type[i].type],
-			    VRF_DEFAULT)) {
-			if (zclient->sock > 0)
-				zebra_redistribute_send(
-					ZEBRA_REDISTRIBUTE_DELETE, zclient,
-					AFI_IP6, redist_type[i].type, 0,
-					VRF_DEFAULT);
-
-			vrf_bitmap_unset(
-				zclient->redist[AFI_IP6][redist_type[i].type],
-				VRF_DEFAULT);
-
-			/* Remove the routes from RIPng table. */
-			ripng_redistribute_withdraw(redist_type[i].type);
-		}
-	}
-}
-
-DEFUN (ripng_redistribute_type,
-       ripng_redistribute_type_cmd,
-       "redistribute " FRR_REDIST_STR_RIPNGD,
-       "Redistribute\n"
-       FRR_REDIST_HELP_STR_RIPNGD)
-{
-	int type;
-
-	char *proto = argv[argc - 1]->text;
-	type = proto_redistnum(AFI_IP6, proto);
-
-	if (type < 0) {
-		vty_out(vty, "Invalid type %s\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
-			     VRF_DEFAULT);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_redistribute_type,
-       no_ripng_redistribute_type_cmd,
-       "no redistribute " FRR_REDIST_STR_RIPNGD " [metric (0-16)] [route-map WORD]",
-       NO_STR
-       "Redistribute\n"
-       FRR_REDIST_HELP_STR_RIPNGD
-       "Metric\n"
-       "Metric value\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-	int type;
-
-	char *proto = argv[2]->text;
-	type = proto_redistnum(AFI_IP6, proto);
-
-	if (type < 0) {
-		vty_out(vty, "Invalid type %s\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ripng_redistribute_metric_unset(type);
-	ripng_redistribute_routemap_unset(type);
-	return ripng_redistribute_unset(type);
-}
-
-
-DEFUN (ripng_redistribute_type_metric,
-       ripng_redistribute_type_metric_cmd,
-       "redistribute " FRR_REDIST_STR_RIPNGD " metric (0-16)",
-       "Redistribute\n"
-       FRR_REDIST_HELP_STR_RIPNGD
-       "Metric\n"
-       "Metric value\n")
-{
-	int idx_protocol = 1;
-	int idx_number = 3;
-	int type;
-	int metric;
-
-	metric = atoi(argv[idx_number]->arg);
-	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-
-	if (type < 0) {
-		vty_out(vty, "Invalid type %s\n", argv[idx_protocol]->text);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ripng_redistribute_metric_set(type, metric);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
-			     VRF_DEFAULT);
-	return CMD_SUCCESS;
-}
-
-DEFUN (ripng_redistribute_type_routemap,
-       ripng_redistribute_type_routemap_cmd,
-       "redistribute " FRR_REDIST_STR_RIPNGD " route-map WORD",
-       "Redistribute\n"
-       FRR_REDIST_HELP_STR_RIPNGD
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-	int idx_protocol = 1;
-	int idx_word = 3;
-	int type;
-
-	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-
-	if (type < 0) {
-		vty_out(vty, "Invalid type %s\n", argv[idx_protocol]->text);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ripng_redistribute_routemap_set(type, argv[idx_word]->text);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
-			     VRF_DEFAULT);
-	return CMD_SUCCESS;
-}
-
-DEFUN (ripng_redistribute_type_metric_routemap,
-       ripng_redistribute_type_metric_routemap_cmd,
-       "redistribute " FRR_REDIST_STR_RIPNGD " metric (0-16) route-map WORD",
-       "Redistribute\n"
-       FRR_REDIST_HELP_STR_RIPNGD
-       "Metric\n"
-       "Metric value\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-	int idx_protocol = 1;
-	int idx_number = 3;
-	int idx_word = 5;
-	int type;
-	int metric;
-
-	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	metric = atoi(argv[idx_number]->arg);
-
-	if (type < 0) {
-		vty_out(vty, "Invalid type %s\n", argv[idx_protocol]->text);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ripng_redistribute_metric_set(type, metric);
-	ripng_redistribute_routemap_set(type, argv[idx_word]->text);
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
-			     VRF_DEFAULT);
-	return CMD_SUCCESS;
-}
-
-void ripng_redistribute_write(struct vty *vty, int config_mode)
-{
-	int i;
-
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (i == zclient->redist_default
-		    || !vrf_bitmap_check(zclient->redist[AFI_IP6][i],
-					 VRF_DEFAULT))
-			continue;
-
-		if (!config_mode) {
-			vty_out(vty, "    %s", zebra_route_string(i));
-			continue;
-		}
-
-		if (ripng->route_map[i].metric_config) {
-			if (ripng->route_map[i].name)
-				vty_out(vty,
-					" redistribute %s metric %d route-map %s\n",
-					zebra_route_string(i),
-					ripng->route_map[i].metric,
-					ripng->route_map[i].name);
-			else
-				vty_out(vty, " redistribute %s metric %d\n",
-					zebra_route_string(i),
-					ripng->route_map[i].metric);
-		} else {
-			if (ripng->route_map[i].name)
-				vty_out(vty, " redistribute %s route-map %s\n",
-					zebra_route_string(i),
-					ripng->route_map[i].name);
-			else
-				vty_out(vty, " redistribute %s\n",
-					zebra_route_string(i));
-		}
-	}
-}
-
-static void ripng_zebra_connected(struct zclient *zclient)
-{
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
-}
-
-/* Initialize zebra structure and it's commands. */
-void zebra_init(struct thread_master *master)
-{
-	/* Allocate zebra structure. */
-	zclient = zclient_new_notify(master, &zclient_options_default);
-	zclient_init(zclient, ZEBRA_ROUTE_RIPNG, 0, &ripngd_privs);
-
-	zclient->zebra_connected = ripng_zebra_connected;
-	zclient->interface_up = ripng_interface_up;
-	zclient->interface_down = ripng_interface_down;
-	zclient->interface_add = ripng_interface_add;
-	zclient->interface_delete = ripng_interface_delete;
-	zclient->interface_address_add = ripng_interface_address_add;
-	zclient->interface_address_delete = ripng_interface_address_delete;
-	zclient->redistribute_route_add = ripng_zebra_read_route;
-	zclient->redistribute_route_del = ripng_zebra_read_route;
-
-	/* Install command elements to ripng node */
-	install_element(RIPNG_NODE, &ripng_redistribute_type_cmd);
-	install_element(RIPNG_NODE, &ripng_redistribute_type_routemap_cmd);
-	install_element(RIPNG_NODE, &ripng_redistribute_type_metric_cmd);
-	install_element(RIPNG_NODE,
-			&ripng_redistribute_type_metric_routemap_cmd);
-	install_element(RIPNG_NODE, &no_ripng_redistribute_type_cmd);
-}
-
-void ripng_zebra_stop(void)
-{
-	zclient_stop(zclient);
-	zclient_free(zclient);
-}
+/**RIPngdandzebrainterface.*Copyright(C)1998,1999KunihiroIshiguro**Thisfileispar
+tofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthe
+termsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherv
+ersion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitw
+illbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILI
+TYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**
+YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seet
+hefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFlo
+or,Boston,MA02110-1301USA*/#include<zebra.h>#include"command.h"#include"prefix.h
+"#include"table.h"#include"stream.h"#include"memory.h"#include"routemap.h"#inclu
+de"zclient.h"#include"log.h"#include"ripngd/ripngd.h"#include"ripngd/ripng_debug
+.h"/*Allinformationaboutzebra.*/structzclient*zclient=NULL;/*SendECMProutestozeb
+ra.*/staticvoidripng_zebra_ipv6_send(structroute_node*rp,uint8_tcmd){structlist*
+list=(structlist*)rp->info;structzapi_routeapi;structzapi_nexthop*api_nh;structl
+istnode*listnode=NULL;structripng_info*rinfo=NULL;intcount=0;memset(&api,0,sizeo
+f(api));api.vrf_id=VRF_DEFAULT;api.type=ZEBRA_ROUTE_RIPNG;api.safi=SAFI_UNICAST;
+api.prefix=rp->p;SET_FLAG(api.message,ZAPI_MESSAGE_NEXTHOP);for(ALL_LIST_ELEMENT
+S_RO(list,listnode,rinfo)){if(count>=MULTIPATH_NUM)break;api_nh=&api.nexthops[co
+unt];api_nh->vrf_id=VRF_DEFAULT;api_nh->gate.ipv6=rinfo->nexthop;api_nh->ifindex
+=rinfo->ifindex;api_nh->type=NEXTHOP_TYPE_IPV6_IFINDEX;count++;if(cmd==ZEBRA_ROU
+TE_ADD)SET_FLAG(rinfo->flags,RIPNG_RTF_FIB);elseUNSET_FLAG(rinfo->flags,RIPNG_RT
+F_FIB);}api.nexthop_num=count;rinfo=listgetdata(listhead(list));SET_FLAG(api.mes
+sage,ZAPI_MESSAGE_METRIC);api.metric=rinfo->metric;if(rinfo->tag){SET_FLAG(api.m
+essage,ZAPI_MESSAGE_TAG);api.tag=rinfo->tag;}zclient_route_send(cmd,zclient,&api
+);if(IS_RIPNG_DEBUG_ZEBRA){if(ripng->ecmp)zlog_debug("%s:%s/%dnexthops%d",(cmd==
+ZEBRA_ROUTE_ADD)?"Installintozebra":"Deletefromzebra",inet6_ntoa(rp->p.u.prefix6
+),rp->p.prefixlen,count);elsezlog_debug("%s:%s/%d",(cmd==ZEBRA_ROUTE_ADD)?"Insta
+llintozebra":"Deletefromzebra",inet6_ntoa(rp->p.u.prefix6),rp->p.prefixlen);}}/*
+Add/updateECMProutestozebra.*/voidripng_zebra_ipv6_add(structroute_node*rp){ripn
+g_zebra_ipv6_send(rp,ZEBRA_ROUTE_ADD);}/*DeleteECMProutesfromzebra.*/voidripng_z
+ebra_ipv6_delete(structroute_node*rp){ripng_zebra_ipv6_send(rp,ZEBRA_ROUTE_DELET
+E);}/*Zebrarouteaddanddeletetreatment.*/staticintripng_zebra_read_route(intcomma
+nd,structzclient*zclient,zebra_size_tlength,vrf_id_tvrf_id){structzapi_routeapi;
+structin6_addrnexthop;unsignedlongifindex;if(zapi_route_decode(zclient->ibuf,&ap
+i)<0)return-1;/*wecompletelyignoresrcdestroutesfornow.*/if(CHECK_FLAG(api.messag
+e,ZAPI_MESSAGE_SRCPFX))return0;nexthop=api.nexthops[0].gate.ipv6;ifindex=api.nex
+thops[0].ifindex;if(command==ZEBRA_REDISTRIBUTE_ROUTE_ADD)ripng_redistribute_add
+(api.type,RIPNG_ROUTE_REDISTRIBUTE,(structprefix_ipv6*)&api.prefix,ifindex,&next
+hop,api.tag);elseripng_redistribute_delete(api.type,RIPNG_ROUTE_REDISTRIBUTE,(st
+ructprefix_ipv6*)&api.prefix,ifindex);return0;}voidripng_zclient_reset(void){zcl
+ient_reset(zclient);}staticintripng_redistribute_unset(inttype){if(!vrf_bitmap_c
+heck(zclient->redist[AFI_IP6][type],VRF_DEFAULT))returnCMD_SUCCESS;vrf_bitmap_se
+t(zclient->redist[AFI_IP6][type],VRF_DEFAULT);if(zclient->sock>0)zebra_redistrib
+ute_send(ZEBRA_REDISTRIBUTE_DELETE,zclient,AFI_IP6,type,0,VRF_DEFAULT);ripng_red
+istribute_withdraw(type);returnCMD_SUCCESS;}intripng_redistribute_check(inttype)
+{returnvrf_bitmap_check(zclient->redist[AFI_IP6][type],VRF_DEFAULT);}staticvoidr
+ipng_redistribute_metric_set(inttype,intmetric){ripng->route_map[type].metric_co
+nfig=1;ripng->route_map[type].metric=metric;}staticintripng_redistribute_metric_
+unset(inttype){ripng->route_map[type].metric_config=0;ripng->route_map[type].met
+ric=0;return0;}staticvoidripng_redistribute_routemap_set(inttype,constchar*name)
+{if(ripng->route_map[type].name)free(ripng->route_map[type].name);ripng->route_m
+ap[type].name=strdup(name);ripng->route_map[type].map=route_map_lookup_by_name(n
+ame);}staticvoidripng_redistribute_routemap_unset(inttype){if(ripng->route_map[t
+ype].name)free(ripng->route_map[type].name);ripng->route_map[type].name=NULL;rip
+ng->route_map[type].map=NULL;}/*Redistributiontypes*/staticstruct{inttype;intstr
+_min_len;constchar*str;}redist_type[]={{ZEBRA_ROUTE_KERNEL,1,"kernel"},{ZEBRA_RO
+UTE_CONNECT,1,"connected"},{ZEBRA_ROUTE_STATIC,1,"static"},{ZEBRA_ROUTE_OSPF6,1,
+"ospf6"},{ZEBRA_ROUTE_BGP,2,"bgp"},{ZEBRA_ROUTE_VNC,1,"vnc"},{0,0,NULL}};voidrip
+ng_redistribute_clean(){inti;for(i=0;redist_type[i].str;i++){if(vrf_bitmap_check
+(zclient->redist[AFI_IP6][redist_type[i].type],VRF_DEFAULT)){if(zclient->sock>0)
+zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE,zclient,AFI_IP6,redist_type[i]
+.type,0,VRF_DEFAULT);vrf_bitmap_unset(zclient->redist[AFI_IP6][redist_type[i].ty
+pe],VRF_DEFAULT);/*RemovetheroutesfromRIPngtable.*/ripng_redistribute_withdraw(r
+edist_type[i].type);}}}DEFUN(ripng_redistribute_type,ripng_redistribute_type_cmd
+,"redistribute"FRR_REDIST_STR_RIPNGD,"Redistribute\n"FRR_REDIST_HELP_STR_RIPNGD)
+{inttype;char*proto=argv[argc-1]->text;type=proto_redistnum(AFI_IP6,proto);if(ty
+pe<0){vty_out(vty,"Invalidtype%s\n",proto);returnCMD_WARNING_CONFIG_FAILED;}zcli
+ent_redistribute(ZEBRA_REDISTRIBUTE_ADD,zclient,AFI_IP6,type,0,VRF_DEFAULT);retu
+rnCMD_SUCCESS;}DEFUN(no_ripng_redistribute_type,no_ripng_redistribute_type_cmd,"
+noredistribute"FRR_REDIST_STR_RIPNGD"[metric(0-16)][route-mapWORD]",NO_STR"Redis
+tribute\n"FRR_REDIST_HELP_STR_RIPNGD"Metric\n""Metricvalue\n""Routemapreference\
+n""Pointertoroute-mapentries\n"){inttype;char*proto=argv[2]->text;type=proto_red
+istnum(AFI_IP6,proto);if(type<0){vty_out(vty,"Invalidtype%s\n",proto);returnCMD_
+WARNING_CONFIG_FAILED;}ripng_redistribute_metric_unset(type);ripng_redistribute_
+routemap_unset(type);returnripng_redistribute_unset(type);}DEFUN(ripng_redistrib
+ute_type_metric,ripng_redistribute_type_metric_cmd,"redistribute"FRR_REDIST_STR_
+RIPNGD"metric(0-16)","Redistribute\n"FRR_REDIST_HELP_STR_RIPNGD"Metric\n""Metric
+value\n"){intidx_protocol=1;intidx_number=3;inttype;intmetric;metric=atoi(argv[i
+dx_number]->arg);type=proto_redistnum(AFI_IP6,argv[idx_protocol]->text);if(type<
+0){vty_out(vty,"Invalidtype%s\n",argv[idx_protocol]->text);returnCMD_WARNING_CON
+FIG_FAILED;}ripng_redistribute_metric_set(type,metric);zclient_redistribute(ZEBR
+A_REDISTRIBUTE_ADD,zclient,AFI_IP6,type,0,VRF_DEFAULT);returnCMD_SUCCESS;}DEFUN(
+ripng_redistribute_type_routemap,ripng_redistribute_type_routemap_cmd,"redistrib
+ute"FRR_REDIST_STR_RIPNGD"route-mapWORD","Redistribute\n"FRR_REDIST_HELP_STR_RIP
+NGD"Routemapreference\n""Pointertoroute-mapentries\n"){intidx_protocol=1;intidx_
+word=3;inttype;type=proto_redistnum(AFI_IP6,argv[idx_protocol]->text);if(type<0)
+{vty_out(vty,"Invalidtype%s\n",argv[idx_protocol]->text);returnCMD_WARNING_CONFI
+G_FAILED;}ripng_redistribute_routemap_set(type,argv[idx_word]->text);zclient_red
+istribute(ZEBRA_REDISTRIBUTE_ADD,zclient,AFI_IP6,type,0,VRF_DEFAULT);returnCMD_S
+UCCESS;}DEFUN(ripng_redistribute_type_metric_routemap,ripng_redistribute_type_me
+tric_routemap_cmd,"redistribute"FRR_REDIST_STR_RIPNGD"metric(0-16)route-mapWORD"
+,"Redistribute\n"FRR_REDIST_HELP_STR_RIPNGD"Metric\n""Metricvalue\n""Routemapref
+erence\n""Pointertoroute-mapentries\n"){intidx_protocol=1;intidx_number=3;intidx
+_word=5;inttype;intmetric;type=proto_redistnum(AFI_IP6,argv[idx_protocol]->text)
+;metric=atoi(argv[idx_number]->arg);if(type<0){vty_out(vty,"Invalidtype%s\n",arg
+v[idx_protocol]->text);returnCMD_WARNING_CONFIG_FAILED;}ripng_redistribute_metri
+c_set(type,metric);ripng_redistribute_routemap_set(type,argv[idx_word]->text);zc
+lient_redistribute(ZEBRA_REDISTRIBUTE_ADD,zclient,AFI_IP6,type,0,VRF_DEFAULT);re
+turnCMD_SUCCESS;}voidripng_redistribute_write(structvty*vty,intconfig_mode){inti
+;for(i=0;i<ZEBRA_ROUTE_MAX;i++){if(i==zclient->redist_default||!vrf_bitmap_check
+(zclient->redist[AFI_IP6][i],VRF_DEFAULT))continue;if(!config_mode){vty_out(vty,
+"%s",zebra_route_string(i));continue;}if(ripng->route_map[i].metric_config){if(r
+ipng->route_map[i].name)vty_out(vty,"redistribute%smetric%droute-map%s\n",zebra_
+route_string(i),ripng->route_map[i].metric,ripng->route_map[i].name);elsevty_out
+(vty,"redistribute%smetric%d\n",zebra_route_string(i),ripng->route_map[i].metric
+);}else{if(ripng->route_map[i].name)vty_out(vty,"redistribute%sroute-map%s\n",ze
+bra_route_string(i),ripng->route_map[i].name);elsevty_out(vty,"redistribute%s\n"
+,zebra_route_string(i));}}}staticvoidripng_zebra_connected(structzclient*zclient
+){zclient_send_reg_requests(zclient,VRF_DEFAULT);}/*Initializezebrastructureandi
+t'scommands.*/voidzebra_init(structthread_master*master){/*Allocatezebrastructur
+e.*/zclient=zclient_new_notify(master,&zclient_options_default);zclient_init(zcl
+ient,ZEBRA_ROUTE_RIPNG,0,&ripngd_privs);zclient->zebra_connected=ripng_zebra_con
+nected;zclient->interface_up=ripng_interface_up;zclient->interface_down=ripng_in
+terface_down;zclient->interface_add=ripng_interface_add;zclient->interface_delet
+e=ripng_interface_delete;zclient->interface_address_add=ripng_interface_address_
+add;zclient->interface_address_delete=ripng_interface_address_delete;zclient->re
+distribute_route_add=ripng_zebra_read_route;zclient->redistribute_route_del=ripn
+g_zebra_read_route;/*Installcommandelementstoripngnode*/install_element(RIPNG_NO
+DE,&ripng_redistribute_type_cmd);install_element(RIPNG_NODE,&ripng_redistribute_
+type_routemap_cmd);install_element(RIPNG_NODE,&ripng_redistribute_type_metric_cm
+d);install_element(RIPNG_NODE,&ripng_redistribute_type_metric_routemap_cmd);inst
+all_element(RIPNG_NODE,&no_ripng_redistribute_type_cmd);}voidripng_zebra_stop(vo
+id){zclient_stop(zclient);zclient_free(zclient);}

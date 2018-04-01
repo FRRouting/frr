@@ -1,128 +1,61 @@
-/* bgpd memory type definitions
- *
- * Copyright (C) 2015  David Lamparter
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include "bgp_memory.h"
-
-/* this file is temporary in nature;  definitions should be moved to the
- * files they're used in */
-
-DEFINE_MGROUP(BGPD, "bgpd")
-DEFINE_MTYPE(BGPD, BGP, "BGP instance")
-DEFINE_MTYPE(BGPD, BGP_LISTENER, "BGP listen socket details")
-DEFINE_MTYPE(BGPD, BGP_PEER, "BGP peer")
-DEFINE_MTYPE(BGPD, BGP_PEER_HOST, "BGP peer hostname")
-DEFINE_MTYPE(BGPD, BGP_PEER_IFNAME, "BGP peer ifname")
-DEFINE_MTYPE(BGPD, PEER_GROUP, "Peer group")
-DEFINE_MTYPE(BGPD, PEER_GROUP_HOST, "BGP Peer group hostname")
-DEFINE_MTYPE(BGPD, PEER_DESC, "Peer description")
-DEFINE_MTYPE(BGPD, PEER_PASSWORD, "Peer password string")
-DEFINE_MTYPE(BGPD, BGP_PEER_AF, "BGP peer af")
-DEFINE_MTYPE(BGPD, BGP_UPDGRP, "BGP update group")
-DEFINE_MTYPE(BGPD, BGP_UPD_SUBGRP, "BGP update subgroup")
-DEFINE_MTYPE(BGPD, BGP_PACKET, "BGP packet")
-DEFINE_MTYPE(BGPD, ATTR, "BGP attribute")
-DEFINE_MTYPE(BGPD, AS_PATH, "BGP aspath")
-DEFINE_MTYPE(BGPD, AS_SEG, "BGP aspath seg")
-DEFINE_MTYPE(BGPD, AS_SEG_DATA, "BGP aspath segment data")
-DEFINE_MTYPE(BGPD, AS_STR, "BGP aspath str")
-
-DEFINE_MTYPE(BGPD, BGP_TABLE, "BGP table")
-DEFINE_MTYPE(BGPD, BGP_NODE, "BGP node")
-DEFINE_MTYPE(BGPD, BGP_ROUTE, "BGP route")
-DEFINE_MTYPE(BGPD, BGP_ROUTE_EXTRA, "BGP ancillary route info")
-DEFINE_MTYPE(BGPD, BGP_CONN, "BGP connected")
-DEFINE_MTYPE(BGPD, BGP_STATIC, "BGP static")
-DEFINE_MTYPE(BGPD, BGP_ADVERTISE_ATTR, "BGP adv attr")
-DEFINE_MTYPE(BGPD, BGP_ADVERTISE, "BGP adv")
-DEFINE_MTYPE(BGPD, BGP_SYNCHRONISE, "BGP synchronise")
-DEFINE_MTYPE(BGPD, BGP_ADJ_IN, "BGP adj in")
-DEFINE_MTYPE(BGPD, BGP_ADJ_OUT, "BGP adj out")
-DEFINE_MTYPE(BGPD, BGP_MPATH_INFO, "BGP multipath info")
-
-DEFINE_MTYPE(BGPD, AS_LIST, "BGP AS list")
-DEFINE_MTYPE(BGPD, AS_FILTER, "BGP AS filter")
-DEFINE_MTYPE(BGPD, AS_FILTER_STR, "BGP AS filter str")
-
-DEFINE_MTYPE(BGPD, COMMUNITY, "community")
-DEFINE_MTYPE(BGPD, COMMUNITY_VAL, "community val")
-DEFINE_MTYPE(BGPD, COMMUNITY_STR, "community str")
-
-DEFINE_MTYPE(BGPD, ECOMMUNITY, "extcommunity")
-DEFINE_MTYPE(BGPD, ECOMMUNITY_VAL, "extcommunity val")
-DEFINE_MTYPE(BGPD, ECOMMUNITY_STR, "extcommunity str")
-
-DEFINE_MTYPE(BGPD, COMMUNITY_LIST, "community-list")
-DEFINE_MTYPE(BGPD, COMMUNITY_LIST_NAME, "community-list name")
-DEFINE_MTYPE(BGPD, COMMUNITY_LIST_ENTRY, "community-list entry")
-DEFINE_MTYPE(BGPD, COMMUNITY_LIST_CONFIG, "community-list config")
-DEFINE_MTYPE(BGPD, COMMUNITY_LIST_HANDLER, "community-list handler")
-
-DEFINE_MTYPE(BGPD, CLUSTER, "Cluster list")
-DEFINE_MTYPE(BGPD, CLUSTER_VAL, "Cluster list val")
-
-DEFINE_MTYPE(BGPD, BGP_PROCESS_QUEUE, "BGP Process queue")
-DEFINE_MTYPE(BGPD, BGP_CLEAR_NODE_QUEUE, "BGP node clear queue")
-
-DEFINE_MTYPE(BGPD, TRANSIT, "BGP transit attr")
-DEFINE_MTYPE(BGPD, TRANSIT_VAL, "BGP transit val")
-
-DEFINE_MTYPE(BGPD, BGP_DEBUG_FILTER, "BGP debug filter")
-DEFINE_MTYPE(BGPD, BGP_DEBUG_STR, "BGP debug filter string")
-
-DEFINE_MTYPE(BGPD, BGP_DISTANCE, "BGP distance")
-DEFINE_MTYPE(BGPD, BGP_NEXTHOP_CACHE, "BGP nexthop")
-DEFINE_MTYPE(BGPD, BGP_CONFED_LIST, "BGP confed list")
-DEFINE_MTYPE(BGPD, PEER_UPDATE_SOURCE, "BGP peer update interface")
-DEFINE_MTYPE(BGPD, PEER_CONF_IF, "BGP peer config interface")
-DEFINE_MTYPE(BGPD, BGP_DAMP_INFO, "Dampening info")
-DEFINE_MTYPE(BGPD, BGP_DAMP_ARRAY, "BGP Dampening array")
-DEFINE_MTYPE(BGPD, BGP_REGEXP, "BGP regexp")
-DEFINE_MTYPE(BGPD, BGP_AGGREGATE, "BGP aggregate")
-DEFINE_MTYPE(BGPD, BGP_ADDR, "BGP own address")
-DEFINE_MTYPE(BGPD, TIP_ADDR, "BGP own tunnel-ip address")
-
-DEFINE_MTYPE(BGPD, BGP_REDIST, "BGP redistribution")
-DEFINE_MTYPE(BGPD, BGP_FILTER_NAME, "BGP Filter Information")
-DEFINE_MTYPE(BGPD, BGP_DUMP_STR, "BGP Dump String Information")
-DEFINE_MTYPE(BGPD, ENCAP_TLV, "ENCAP TLV")
-
-DEFINE_MTYPE(BGPD, BGP_TEA_OPTIONS, "BGP TEA Options")
-DEFINE_MTYPE(BGPD, BGP_TEA_OPTIONS_VALUE, "BGP TEA Options Value")
-
-DEFINE_MTYPE(BGPD, LCOMMUNITY, "Large Community")
-DEFINE_MTYPE(BGPD, LCOMMUNITY_STR, "Large Community display string")
-DEFINE_MTYPE(BGPD, LCOMMUNITY_VAL, "Large Community value")
-
-DEFINE_MTYPE(BGPD, BGP_EVPN, "BGP EVPN Information")
-DEFINE_MTYPE(BGPD, BGP_EVPN_IMPORT_RT, "BGP EVPN Import RT")
-DEFINE_MTYPE(BGPD, BGP_EVPN_VRF_IMPORT_RT, "BGP EVPN VRF Import RT")
-DEFINE_MTYPE(BGPD, BGP_EVPN_MACIP, "BGP EVPN MAC IP")
-
-DEFINE_MTYPE(BGPD, BGP_FLOWSPEC, "BGP flowspec")
-DEFINE_MTYPE(BGPD, BGP_FLOWSPEC_RULE, "BGP flowspec rule")
-DEFINE_MTYPE(BGPD, BGP_FLOWSPEC_RULE_STR, "BGP flowspec rule str")
-DEFINE_MTYPE(BGPD, BGP_FLOWSPEC_COMPILED, "BGP flowspec compiled")
-DEFINE_MTYPE(BGPD, BGP_FLOWSPEC_NAME, "BGP flowspec name")
-DEFINE_MTYPE(BGPD, BGP_FLOWSPEC_INDEX, "BGP flowspec index")
+/*bgpdmemorytypedefinitions**Copyright(C)2015DavidLamparter**ThisfileispartofQua
+gga.**Quaggaisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsofthe
+GNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or
+(atyouroption)any*laterversion.**Quaggaisdistributedinthehopethatitwillbeuseful,
+but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSF
+ORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhav
+ereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYIN
+G;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA
+02110-1301USA*/#ifdefHAVE_CONFIG_H#include"config.h"#endif#include"bgp_memory.h"
+/*thisfileistemporaryinnature;definitionsshouldbemovedtothe*filesthey'reusedin*/
+DEFINE_MGROUP(BGPD,"bgpd")DEFINE_MTYPE(BGPD,BGP,"BGPinstance")DEFINE_MTYPE(BGPD,
+BGP_LISTENER,"BGPlistensocketdetails")DEFINE_MTYPE(BGPD,BGP_PEER,"BGPpeer")DEFIN
+E_MTYPE(BGPD,BGP_PEER_HOST,"BGPpeerhostname")DEFINE_MTYPE(BGPD,BGP_PEER_IFNAME,"
+BGPpeerifname")DEFINE_MTYPE(BGPD,PEER_GROUP,"Peergroup")DEFINE_MTYPE(BGPD,PEER_G
+ROUP_HOST,"BGPPeergrouphostname")DEFINE_MTYPE(BGPD,PEER_DESC,"Peerdescription")D
+EFINE_MTYPE(BGPD,PEER_PASSWORD,"Peerpasswordstring")DEFINE_MTYPE(BGPD,BGP_PEER_A
+F,"BGPpeeraf")DEFINE_MTYPE(BGPD,BGP_UPDGRP,"BGPupdategroup")DEFINE_MTYPE(BGPD,BG
+P_UPD_SUBGRP,"BGPupdatesubgroup")DEFINE_MTYPE(BGPD,BGP_PACKET,"BGPpacket")DEFINE
+_MTYPE(BGPD,ATTR,"BGPattribute")DEFINE_MTYPE(BGPD,AS_PATH,"BGPaspath")DEFINE_MTY
+PE(BGPD,AS_SEG,"BGPaspathseg")DEFINE_MTYPE(BGPD,AS_SEG_DATA,"BGPaspathsegmentdat
+a")DEFINE_MTYPE(BGPD,AS_STR,"BGPaspathstr")DEFINE_MTYPE(BGPD,BGP_TABLE,"BGPtable
+")DEFINE_MTYPE(BGPD,BGP_NODE,"BGPnode")DEFINE_MTYPE(BGPD,BGP_ROUTE,"BGProute")DE
+FINE_MTYPE(BGPD,BGP_ROUTE_EXTRA,"BGPancillaryrouteinfo")DEFINE_MTYPE(BGPD,BGP_CO
+NN,"BGPconnected")DEFINE_MTYPE(BGPD,BGP_STATIC,"BGPstatic")DEFINE_MTYPE(BGPD,BGP
+_ADVERTISE_ATTR,"BGPadvattr")DEFINE_MTYPE(BGPD,BGP_ADVERTISE,"BGPadv")DEFINE_MTY
+PE(BGPD,BGP_SYNCHRONISE,"BGPsynchronise")DEFINE_MTYPE(BGPD,BGP_ADJ_IN,"BGPadjin"
+)DEFINE_MTYPE(BGPD,BGP_ADJ_OUT,"BGPadjout")DEFINE_MTYPE(BGPD,BGP_MPATH_INFO,"BGP
+multipathinfo")DEFINE_MTYPE(BGPD,AS_LIST,"BGPASlist")DEFINE_MTYPE(BGPD,AS_FILTER
+,"BGPASfilter")DEFINE_MTYPE(BGPD,AS_FILTER_STR,"BGPASfilterstr")DEFINE_MTYPE(BGP
+D,COMMUNITY,"community")DEFINE_MTYPE(BGPD,COMMUNITY_VAL,"communityval")DEFINE_MT
+YPE(BGPD,COMMUNITY_STR,"communitystr")DEFINE_MTYPE(BGPD,ECOMMUNITY,"extcommunity
+")DEFINE_MTYPE(BGPD,ECOMMUNITY_VAL,"extcommunityval")DEFINE_MTYPE(BGPD,ECOMMUNIT
+Y_STR,"extcommunitystr")DEFINE_MTYPE(BGPD,COMMUNITY_LIST,"community-list")DEFINE
+_MTYPE(BGPD,COMMUNITY_LIST_NAME,"community-listname")DEFINE_MTYPE(BGPD,COMMUNITY
+_LIST_ENTRY,"community-listentry")DEFINE_MTYPE(BGPD,COMMUNITY_LIST_CONFIG,"commu
+nity-listconfig")DEFINE_MTYPE(BGPD,COMMUNITY_LIST_HANDLER,"community-listhandler
+")DEFINE_MTYPE(BGPD,CLUSTER,"Clusterlist")DEFINE_MTYPE(BGPD,CLUSTER_VAL,"Cluster
+listval")DEFINE_MTYPE(BGPD,BGP_PROCESS_QUEUE,"BGPProcessqueue")DEFINE_MTYPE(BGPD
+,BGP_CLEAR_NODE_QUEUE,"BGPnodeclearqueue")DEFINE_MTYPE(BGPD,TRANSIT,"BGPtransita
+ttr")DEFINE_MTYPE(BGPD,TRANSIT_VAL,"BGPtransitval")DEFINE_MTYPE(BGPD,BGP_DEBUG_F
+ILTER,"BGPdebugfilter")DEFINE_MTYPE(BGPD,BGP_DEBUG_STR,"BGPdebugfilterstring")DE
+FINE_MTYPE(BGPD,BGP_DISTANCE,"BGPdistance")DEFINE_MTYPE(BGPD,BGP_NEXTHOP_CACHE,"
+BGPnexthop")DEFINE_MTYPE(BGPD,BGP_CONFED_LIST,"BGPconfedlist")DEFINE_MTYPE(BGPD,
+PEER_UPDATE_SOURCE,"BGPpeerupdateinterface")DEFINE_MTYPE(BGPD,PEER_CONF_IF,"BGPp
+eerconfiginterface")DEFINE_MTYPE(BGPD,BGP_DAMP_INFO,"Dampeninginfo")DEFINE_MTYPE
+(BGPD,BGP_DAMP_ARRAY,"BGPDampeningarray")DEFINE_MTYPE(BGPD,BGP_REGEXP,"BGPregexp
+")DEFINE_MTYPE(BGPD,BGP_AGGREGATE,"BGPaggregate")DEFINE_MTYPE(BGPD,BGP_ADDR,"BGP
+ownaddress")DEFINE_MTYPE(BGPD,TIP_ADDR,"BGPowntunnel-ipaddress")DEFINE_MTYPE(BGP
+D,BGP_REDIST,"BGPredistribution")DEFINE_MTYPE(BGPD,BGP_FILTER_NAME,"BGPFilterInf
+ormation")DEFINE_MTYPE(BGPD,BGP_DUMP_STR,"BGPDumpStringInformation")DEFINE_MTYPE
+(BGPD,ENCAP_TLV,"ENCAPTLV")DEFINE_MTYPE(BGPD,BGP_TEA_OPTIONS,"BGPTEAOptions")DEF
+INE_MTYPE(BGPD,BGP_TEA_OPTIONS_VALUE,"BGPTEAOptionsValue")DEFINE_MTYPE(BGPD,LCOM
+MUNITY,"LargeCommunity")DEFINE_MTYPE(BGPD,LCOMMUNITY_STR,"LargeCommunitydisplays
+tring")DEFINE_MTYPE(BGPD,LCOMMUNITY_VAL,"LargeCommunityvalue")DEFINE_MTYPE(BGPD,
+BGP_EVPN,"BGPEVPNInformation")DEFINE_MTYPE(BGPD,BGP_EVPN_IMPORT_RT,"BGPEVPNImpor
+tRT")DEFINE_MTYPE(BGPD,BGP_EVPN_VRF_IMPORT_RT,"BGPEVPNVRFImportRT")DEFINE_MTYPE(
+BGPD,BGP_EVPN_MACIP,"BGPEVPNMACIP")DEFINE_MTYPE(BGPD,BGP_FLOWSPEC,"BGPflowspec")
+DEFINE_MTYPE(BGPD,BGP_FLOWSPEC_RULE,"BGPflowspecrule")DEFINE_MTYPE(BGPD,BGP_FLOW
+SPEC_RULE_STR,"BGPflowspecrulestr")DEFINE_MTYPE(BGPD,BGP_FLOWSPEC_COMPILED,"BGPf
+lowspeccompiled")DEFINE_MTYPE(BGPD,BGP_FLOWSPEC_NAME,"BGPflowspecname")DEFINE_MT
+YPE(BGPD,BGP_FLOWSPEC_INDEX,"BGPflowspecindex")

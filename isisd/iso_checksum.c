@@ -1,73 +1,18 @@
-/*
- * IS-IS Rout(e)ing protocol - iso_checksum.c
- *                             ISO checksum related routines
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#include "iso_checksum.h"
-#include "checksum.h"
-
-/*
- * Calculations of the OSI checksum.
- * ISO/IEC 8473 defines the sum as
- *
- *     L
- *  sum  a (mod 255) = 0
- *     1  i
- *
- *     L
- *  sum (L-i+1)a (mod 255) = 0
- *     1        i
- *
- */
-
-/*
- * Verifies that the checksum is correct.
- * Return 0 on correct and 1 on invalid checksum.
- * Based on Annex C.4 of ISO/IEC 8473
- */
-
-int iso_csum_verify(uint8_t *buffer, int len, uint16_t csum, int offset)
-{
-	uint16_t checksum;
-	uint32_t c0;
-	uint32_t c1;
-
-	c0 = csum & 0xff00;
-	c1 = csum & 0x00ff;
-
-	/*
-	 * If both are zero return correct
-	 */
-	if (c0 == 0 && c1 == 0)
-		return 0;
-
-	/*
-	 * If either, but not both are zero return incorrect
-	 */
-	if (c0 == 0 || c1 == 0)
-		return 1;
-
-	checksum = fletcher_checksum(buffer, len, offset);
-	if (checksum == htons(csum))
-		return 0;
-	return 1;
-}
+/**IS-ISRout(e)ingprotocol-iso_checksum.c*ISOchecksumrelatedroutines**Copyright(
+C)2001,2002SampoSaaristo*TampereUniversityofTechnology*InstituteofCommunications
+Engineering**Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*undert
+hetermsoftheGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;eithe
+rversion2oftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistribute
+dinthehopethatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrant
+yofMERCHANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensef
+or*moredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*wit
+hthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51Fr
+anklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"iso_checks
+um.h"#include"checksum.h"/**CalculationsoftheOSIchecksum.*ISO/IEC8473definesthes
+umas**L*suma(mod255)=0*1i**L*sum(L-i+1)a(mod255)=0*1i**//**Verifiesthatthechecks
+umiscorrect.*Return0oncorrectand1oninvalidchecksum.*BasedonAnnexC.4ofISO/IEC8473
+*/intiso_csum_verify(uint8_t*buffer,intlen,uint16_tcsum,intoffset){uint16_tcheck
+sum;uint32_tc0;uint32_tc1;c0=csum&0xff00;c1=csum&0x00ff;/**Ifbotharezeroreturnco
+rrect*/if(c0==0&&c1==0)return0;/**Ifeither,butnotbotharezeroreturnincorrect*/if(
+c0==0||c1==0)return1;checksum=fletcher_checksum(buffer,len,offset);if(checksum==
+htons(csum))return0;return1;}

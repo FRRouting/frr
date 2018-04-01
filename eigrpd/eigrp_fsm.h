@@ -1,34 +1,11 @@
-/*
- * EIGRP Finite State Machine (DUAL).
- * Copyright (C) 2013-2014
- * Authors:
- *   Donnie Savage
- *   Jan Janovic
- *   Matej Perina
- *   Peter Orsag
- *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_EIGRP_FSM_H
-#define _ZEBRA_EIGRP_FSM_H
-
-extern int eigrp_fsm_event(struct eigrp_fsm_action_message *msg);
-
-
-#endif /* _ZEBRA_EIGRP_DUAL_H */
+/**EIGRPFiniteStateMachine(DUAL).*Copyright(C)2013-2014*Authors:*DonnieSavage*Ja
+nJanovic*MatejPerina*PeterOrsag*PeterPaluch**ThisfileispartofGNUZebra.**GNUZebra
+isfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPu
+blicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroptio
+n)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOU
+TANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICU
+LARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceiveda
+copyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,wr
+itetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301
+USA*/#ifndef_ZEBRA_EIGRP_FSM_H#define_ZEBRA_EIGRP_FSM_Hexterninteigrp_fsm_event(
+structeigrp_fsm_action_message*msg);#endif/*_ZEBRA_EIGRP_DUAL_H*/

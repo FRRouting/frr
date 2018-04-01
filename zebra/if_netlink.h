@@ -1,34 +1,14 @@
-/* Header file exported by if_netlink.c to zebra.
- * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_IF_NETLINK_H
-#define _ZEBRA_IF_NETLINK_H
-
-#ifdef HAVE_NETLINK
-
-extern int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,
-				  ns_id_t ns_id, int startup);
-extern int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-			       ns_id_t ns_id, int startup);
-extern int interface_lookup_netlink(struct zebra_ns *zns);
-
-#endif /* HAVE_NETLINK */
-
-#endif /* _ZEBRA_IF_NETLINK_H */
+/*Headerfileexportedbyif_netlink.ctozebra.*Copyright(C)1997,98,99KunihiroIshigur
+o**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/orm
+odifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFo
+undation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributed
+inthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarranty
+of*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicensef
+ormoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*with
+thisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51Fra
+nklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_IF_NETLINK_H#define_ZEB
+RA_IF_NETLINK_H#ifdefHAVE_NETLINKexternintnetlink_interface_addr(structsockaddr_
+nl*snl,structnlmsghdr*h,ns_id_tns_id,intstartup);externintnetlink_link_change(st
+ructsockaddr_nl*snl,structnlmsghdr*h,ns_id_tns_id,intstartup);externintinterface
+_lookup_netlink(structzebra_ns*zns);#endif/*HAVE_NETLINK*/#endif/*_ZEBRA_IF_NETL
+INK_H*/

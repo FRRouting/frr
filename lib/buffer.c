@@ -1,515 +1,124 @@
-/*
- * Buffering of output and input.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "memory.h"
-#include "buffer.h"
-#include "log.h"
-#include "network.h"
-#include <stddef.h>
-
-DEFINE_MTYPE_STATIC(LIB, BUFFER, "Buffer")
-DEFINE_MTYPE_STATIC(LIB, BUFFER_DATA, "Buffer data")
-
-/* Buffer master. */
-struct buffer {
-	/* Data list. */
-	struct buffer_data *head;
-	struct buffer_data *tail;
-
-	/* Size of each buffer_data chunk. */
-	size_t size;
-};
-
-/* Data container. */
-struct buffer_data {
-	struct buffer_data *next;
-
-	/* Location to add new data. */
-	size_t cp;
-
-	/* Pointer to data not yet flushed. */
-	size_t sp;
-
-	/* Actual data stream (variable length). */
-	unsigned char data[]; /* real dimension is buffer->size */
-};
-
-/* It should always be true that: 0 <= sp <= cp <= size */
-
-/* Default buffer size (used if none specified).  It is rounded up to the
-   next page boundery. */
-#define BUFFER_SIZE_DEFAULT		4096
-
-#define BUFFER_DATA_FREE(D) XFREE(MTYPE_BUFFER_DATA, (D))
-
-/* Make new buffer. */
-struct buffer *buffer_new(size_t size)
-{
-	struct buffer *b;
-
-	b = XCALLOC(MTYPE_BUFFER, sizeof(struct buffer));
-
-	if (size)
-		b->size = size;
-	else {
-		static size_t default_size;
-		if (!default_size) {
-			long pgsz = sysconf(_SC_PAGESIZE);
-			default_size = ((((BUFFER_SIZE_DEFAULT - 1) / pgsz) + 1)
-					* pgsz);
-		}
-		b->size = default_size;
-	}
-
-	return b;
-}
-
-/* Free buffer. */
-void buffer_free(struct buffer *b)
-{
-	buffer_reset(b);
-	XFREE(MTYPE_BUFFER, b);
-}
-
-/* Make string clone. */
-char *buffer_getstr(struct buffer *b)
-{
-	size_t totlen = 0;
-	struct buffer_data *data;
-	char *s;
-	char *p;
-
-	for (data = b->head; data; data = data->next)
-		totlen += data->cp - data->sp;
-	if (!(s = XMALLOC(MTYPE_TMP, totlen + 1)))
-		return NULL;
-	p = s;
-	for (data = b->head; data; data = data->next) {
-		memcpy(p, data->data + data->sp, data->cp - data->sp);
-		p += data->cp - data->sp;
-	}
-	*p = '\0';
-	return s;
-}
-
-/* Return 1 if buffer is empty. */
-int buffer_empty(struct buffer *b)
-{
-	return (b->head == NULL);
-}
-
-/* Clear and free all allocated data. */
-void buffer_reset(struct buffer *b)
-{
-	struct buffer_data *data;
-	struct buffer_data *next;
-
-	for (data = b->head; data; data = next) {
-		next = data->next;
-		BUFFER_DATA_FREE(data);
-	}
-	b->head = b->tail = NULL;
-}
-
-/* Add buffer_data to the end of buffer. */
-static struct buffer_data *buffer_add(struct buffer *b)
-{
-	struct buffer_data *d;
-
-	d = XMALLOC(MTYPE_BUFFER_DATA,
-		    offsetof(struct buffer_data, data) + b->size);
-	d->cp = d->sp = 0;
-	d->next = NULL;
-
-	if (b->tail)
-		b->tail->next = d;
-	else
-		b->head = d;
-	b->tail = d;
-
-	return d;
-}
-
-/* Write data to buffer. */
-void buffer_put(struct buffer *b, const void *p, size_t size)
-{
-	struct buffer_data *data = b->tail;
-	const char *ptr = p;
-
-	/* We use even last one byte of data buffer. */
-	while (size) {
-		size_t chunk;
-
-		/* If there is no data buffer add it. */
-		if (data == NULL || data->cp == b->size)
-			data = buffer_add(b);
-
-		chunk = ((size <= (b->size - data->cp)) ? size
-							: (b->size - data->cp));
-		memcpy((data->data + data->cp), ptr, chunk);
-		size -= chunk;
-		ptr += chunk;
-		data->cp += chunk;
-	}
-}
-
-/* Insert character into the buffer. */
-void buffer_putc(struct buffer *b, uint8_t c)
-{
-	buffer_put(b, &c, 1);
-}
-
-/* Put string to the buffer. */
-void buffer_putstr(struct buffer *b, const char *c)
-{
-	buffer_put(b, c, strlen(c));
-}
-
-/* Expand \n to \r\n */
-void buffer_put_crlf(struct buffer *b, const void *origp, size_t origsize)
-{
-	struct buffer_data *data = b->tail;
-	const char *p = origp, *end = p + origsize, *lf;
-	size_t size;
-
-	lf = memchr(p, '\n', end - p);
-
-	/* We use even last one byte of data buffer. */
-	while (p < end) {
-		size_t avail, chunk;
-
-		/* If there is no data buffer add it. */
-		if (data == NULL || data->cp == b->size)
-			data = buffer_add(b);
-
-		size = (lf ? lf : end) - p;
-		avail = b->size - data->cp;
-
-		chunk = (size <= avail) ? size : avail;
-		memcpy(data->data + data->cp, p, chunk);
-
-		p += chunk;
-		data->cp += chunk;
-
-		if (lf && size <= avail) {
-			/* we just copied up to (including) a '\n' */
-			if (data->cp == b->size)
-				data = buffer_add(b);
-			data->data[data->cp++] = '\r';
-			if (data->cp == b->size)
-				data = buffer_add(b);
-			data->data[data->cp++] = '\n';
-
-			p++;
-			lf = memchr(p, '\n', end - p);
-		}
-	}
-}
-
-/* Keep flushing data to the fd until the buffer is empty or an error is
-   encountered or the operation would block. */
-buffer_status_t buffer_flush_all(struct buffer *b, int fd)
-{
-	buffer_status_t ret;
-	struct buffer_data *head;
-	size_t head_sp;
-
-	if (!b->head)
-		return BUFFER_EMPTY;
-	head_sp = (head = b->head)->sp;
-	/* Flush all data. */
-	while ((ret = buffer_flush_available(b, fd)) == BUFFER_PENDING) {
-		if ((b->head == head) && (head_sp == head->sp)
-		    && (errno != EINTR))
-			/* No data was flushed, so kernel buffer must be full.
-			 */
-			return ret;
-		head_sp = (head = b->head)->sp;
-	}
-
-	return ret;
-}
-
-/* Flush enough data to fill a terminal window of the given scene (used only
-   by vty telnet interface). */
-buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
-				    int height, int erase_flag,
-				    int no_more_flag)
-{
-	int nbytes;
-	int iov_alloc;
-	int iov_index;
-	struct iovec *iov;
-	struct iovec small_iov[3];
-	char more[] = " --More-- ";
-	char erase[] = {0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
-			0x08, 0x08, ' ',  ' ',  ' ',  ' ',  ' ',  ' ',
-			' ',  ' ',  ' ',  ' ',  0x08, 0x08, 0x08, 0x08,
-			0x08, 0x08, 0x08, 0x08, 0x08, 0x08};
-	struct buffer_data *data;
-	int column;
-
-	if (!b->head)
-		return BUFFER_EMPTY;
-
-	if (height < 1) {
-		zlog_warn(
-			"%s called with non-positive window height %d, forcing to 1",
-			__func__, height);
-		height = 1;
-	} else if (height >= 2)
-		height--;
-	if (width < 1) {
-		zlog_warn(
-			"%s called with non-positive window width %d, forcing to 1",
-			__func__, width);
-		width = 1;
-	}
-
-	/* For erase and more data add two to b's buffer_data count.*/
-	if (b->head->next == NULL) {
-		iov_alloc = array_size(small_iov);
-		iov = small_iov;
-	} else {
-		iov_alloc = ((height * (width + 2)) / b->size) + 10;
-		iov = XMALLOC(MTYPE_TMP, iov_alloc * sizeof(*iov));
-	}
-	iov_index = 0;
-
-	/* Previously print out is performed. */
-	if (erase_flag) {
-		iov[iov_index].iov_base = erase;
-		iov[iov_index].iov_len = sizeof erase;
-		iov_index++;
-	}
-
-	/* Output data. */
-	column = 1; /* Column position of next character displayed. */
-	for (data = b->head; data && (height > 0); data = data->next) {
-		size_t cp;
-
-		cp = data->sp;
-		while ((cp < data->cp) && (height > 0)) {
-			/* Calculate lines remaining and column position after
-			   displaying
-			   this character. */
-			if (data->data[cp] == '\r')
-				column = 1;
-			else if ((data->data[cp] == '\n')
-				 || (column == width)) {
-				column = 1;
-				height--;
-			} else
-				column++;
-			cp++;
-		}
-		iov[iov_index].iov_base = (char *)(data->data + data->sp);
-		iov[iov_index++].iov_len = cp - data->sp;
-		data->sp = cp;
-
-		if (iov_index == iov_alloc)
-		/* This should not ordinarily happen. */
-		{
-			iov_alloc *= 2;
-			if (iov != small_iov) {
-				zlog_warn(
-					"%s: growing iov array to %d; "
-					"width %d, height %d, size %lu",
-					__func__, iov_alloc, width, height,
-					(unsigned long)b->size);
-				iov = XREALLOC(MTYPE_TMP, iov,
-					       iov_alloc * sizeof(*iov));
-			} else {
-				/* This should absolutely never occur. */
-				zlog_err(
-					"%s: corruption detected: iov_small overflowed; "
-					"head %p, tail %p, head->next %p",
-					__func__, (void *)b->head,
-					(void *)b->tail, (void *)b->head->next);
-				iov = XMALLOC(MTYPE_TMP,
-					      iov_alloc * sizeof(*iov));
-				memcpy(iov, small_iov, sizeof(small_iov));
-			}
-		}
-	}
-
-	/* In case of `more' display need. */
-	if (b->tail && (b->tail->sp < b->tail->cp) && !no_more_flag) {
-		iov[iov_index].iov_base = more;
-		iov[iov_index].iov_len = sizeof more;
-		iov_index++;
-	}
-
-
-#ifdef IOV_MAX
-	/* IOV_MAX are normally defined in <sys/uio.h> , Posix.1g.
-	   example: Solaris2.6 are defined IOV_MAX size at 16.     */
-	{
-		struct iovec *c_iov = iov;
-		nbytes = 0; /* Make sure it's initialized. */
-
-		while (iov_index > 0) {
-			int iov_size;
-
-			iov_size =
-				((iov_index > IOV_MAX) ? IOV_MAX : iov_index);
-			if ((nbytes = writev(fd, c_iov, iov_size)) < 0) {
-				zlog_warn("%s: writev to fd %d failed: %s",
-					  __func__, fd, safe_strerror(errno));
-				break;
-			}
-
-			/* move pointer io-vector */
-			c_iov += iov_size;
-			iov_index -= iov_size;
-		}
-	}
-#else  /* IOV_MAX */
-	if ((nbytes = writev(fd, iov, iov_index)) < 0)
-		zlog_warn("%s: writev to fd %d failed: %s", __func__, fd,
-			  safe_strerror(errno));
-#endif /* IOV_MAX */
-
-	/* Free printed buffer data. */
-	while (b->head && (b->head->sp == b->head->cp)) {
-		struct buffer_data *del;
-		if (!(b->head = (del = b->head)->next))
-			b->tail = NULL;
-		BUFFER_DATA_FREE(del);
-	}
-
-	if (iov != small_iov)
-		XFREE(MTYPE_TMP, iov);
-
-	return (nbytes < 0) ? BUFFER_ERROR
-			    : (b->head ? BUFFER_PENDING : BUFFER_EMPTY);
-}
-
-/* This function (unlike other buffer_flush* functions above) is designed
-to work with non-blocking sockets.  It does not attempt to write out
-all of the queued data, just a "big" chunk.  It returns 0 if it was
-able to empty out the buffers completely, 1 if more flushing is
-required later, or -1 on a fatal write error. */
-buffer_status_t buffer_flush_available(struct buffer *b, int fd)
-{
-
-/* These are just reasonable values to make sure a significant amount of
-data is written.  There's no need to go crazy and try to write it all
-in one shot. */
-#ifdef IOV_MAX
-#define MAX_CHUNKS ((IOV_MAX >= 16) ? 16 : IOV_MAX)
-#else
-#define MAX_CHUNKS 16
-#endif
-#define MAX_FLUSH 131072
-
-	struct buffer_data *d;
-	size_t written;
-	struct iovec iov[MAX_CHUNKS];
-	size_t iovcnt = 0;
-	size_t nbyte = 0;
-
-	for (d = b->head; d && (iovcnt < MAX_CHUNKS) && (nbyte < MAX_FLUSH);
-	     d = d->next, iovcnt++) {
-		iov[iovcnt].iov_base = d->data + d->sp;
-		nbyte += (iov[iovcnt].iov_len = d->cp - d->sp);
-	}
-
-	if (!nbyte)
-		/* No data to flush: should we issue a warning message? */
-		return BUFFER_EMPTY;
-
-	/* only place where written should be sign compared */
-	if ((ssize_t)(written = writev(fd, iov, iovcnt)) < 0) {
-		if (ERRNO_IO_RETRY(errno))
-			/* Calling code should try again later. */
-			return BUFFER_PENDING;
-		zlog_warn("%s: write error on fd %d: %s", __func__, fd,
-			  safe_strerror(errno));
-		return BUFFER_ERROR;
-	}
-
-	/* Free printed buffer data. */
-	while (written > 0) {
-		struct buffer_data *d;
-		if (!(d = b->head)) {
-			zlog_err(
-				"%s: corruption detected: buffer queue empty, "
-				"but written is %lu",
-				__func__, (unsigned long)written);
-			break;
-		}
-		if (written < d->cp - d->sp) {
-			d->sp += written;
-			return BUFFER_PENDING;
-		}
-
-		written -= (d->cp - d->sp);
-		if (!(b->head = d->next))
-			b->tail = NULL;
-		BUFFER_DATA_FREE(d);
-	}
-
-	return b->head ? BUFFER_PENDING : BUFFER_EMPTY;
-
-#undef MAX_CHUNKS
-#undef MAX_FLUSH
-}
-
-buffer_status_t buffer_write(struct buffer *b, int fd, const void *p,
-			     size_t size)
-{
-	ssize_t nbytes;
-
-#if 0
-	/*
-	 * Should we attempt to drain any previously buffered data?
-	 * This could help reduce latency in pushing out the data if
-	 * we are stuck in a long-running thread that is preventing
-	 * the main select loop from calling the flush thread...
-	 */
-	if (b->head && (buffer_flush_available(b, fd) == BUFFER_ERROR))
-		return BUFFER_ERROR;
-#endif
-	if (b->head)
-		/* Buffer is not empty, so do not attempt to write the new data.
-		 */
-		nbytes = 0;
-	else if ((nbytes = write(fd, p, size)) < 0) {
-		if (ERRNO_IO_RETRY(errno))
-			nbytes = 0;
-		else {
-			zlog_warn("%s: write error on fd %d: %s", __func__, fd,
-				  safe_strerror(errno));
-			return BUFFER_ERROR;
-		}
-	}
-	/* Add any remaining data to the buffer. */
-	{
-		size_t written = nbytes;
-		if (written < size)
-			buffer_put(b, ((const char *)p) + written,
-				   size - written);
-	}
-	return b->head ? BUFFER_PENDING : BUFFER_EMPTY;
-}
+/**Bufferingofoutputandinput.*Copyright(C)1998KunihiroIshiguro**Thisfileispartof
+GNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itundertheter
+msoftheGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;eithervers
+ion2,or(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatitwill
+beuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYo
+rFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**You
+shouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethef
+ileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,
+Boston,MA02110-1301USA*/#include<zebra.h>#include"memory.h"#include"buffer.h"#in
+clude"log.h"#include"network.h"#include<stddef.h>DEFINE_MTYPE_STATIC(LIB,BUFFER,
+"Buffer")DEFINE_MTYPE_STATIC(LIB,BUFFER_DATA,"Bufferdata")/*Buffermaster.*/struc
+tbuffer{/*Datalist.*/structbuffer_data*head;structbuffer_data*tail;/*Sizeofeachb
+uffer_datachunk.*/size_tsize;};/*Datacontainer.*/structbuffer_data{structbuffer_
+data*next;/*Locationtoaddnewdata.*/size_tcp;/*Pointertodatanotyetflushed.*/size_
+tsp;/*Actualdatastream(variablelength).*/unsignedchardata[];/*realdimensionisbuf
+fer->size*/};/*Itshouldalwaysbetruethat:0<=sp<=cp<=size*//*Defaultbuffersize(use
+difnonespecified).Itisroundeduptothenextpageboundery.*/#defineBUFFER_SIZE_DEFAUL
+T4096#defineBUFFER_DATA_FREE(D)XFREE(MTYPE_BUFFER_DATA,(D))/*Makenewbuffer.*/str
+uctbuffer*buffer_new(size_tsize){structbuffer*b;b=XCALLOC(MTYPE_BUFFER,sizeof(st
+ructbuffer));if(size)b->size=size;else{staticsize_tdefault_size;if(!default_size
+){longpgsz=sysconf(_SC_PAGESIZE);default_size=((((BUFFER_SIZE_DEFAULT-1)/pgsz)+1
+)*pgsz);}b->size=default_size;}returnb;}/*Freebuffer.*/voidbuffer_free(structbuf
+fer*b){buffer_reset(b);XFREE(MTYPE_BUFFER,b);}/*Makestringclone.*/char*buffer_ge
+tstr(structbuffer*b){size_ttotlen=0;structbuffer_data*data;char*s;char*p;for(dat
+a=b->head;data;data=data->next)totlen+=data->cp-data->sp;if(!(s=XMALLOC(MTYPE_TM
+P,totlen+1)))returnNULL;p=s;for(data=b->head;data;data=data->next){memcpy(p,data
+->data+data->sp,data->cp-data->sp);p+=data->cp-data->sp;}*p='\0';returns;}/*Retu
+rn1ifbufferisempty.*/intbuffer_empty(structbuffer*b){return(b->head==NULL);}/*Cl
+earandfreeallallocateddata.*/voidbuffer_reset(structbuffer*b){structbuffer_data*
+data;structbuffer_data*next;for(data=b->head;data;data=next){next=data->next;BUF
+FER_DATA_FREE(data);}b->head=b->tail=NULL;}/*Addbuffer_datatotheendofbuffer.*/st
+aticstructbuffer_data*buffer_add(structbuffer*b){structbuffer_data*d;d=XMALLOC(M
+TYPE_BUFFER_DATA,offsetof(structbuffer_data,data)+b->size);d->cp=d->sp=0;d->next
+=NULL;if(b->tail)b->tail->next=d;elseb->head=d;b->tail=d;returnd;}/*Writedatatob
+uffer.*/voidbuffer_put(structbuffer*b,constvoid*p,size_tsize){structbuffer_data*
+data=b->tail;constchar*ptr=p;/*Weuseevenlastonebyteofdatabuffer.*/while(size){si
+ze_tchunk;/*Ifthereisnodatabufferaddit.*/if(data==NULL||data->cp==b->size)data=b
+uffer_add(b);chunk=((size<=(b->size-data->cp))?size:(b->size-data->cp));memcpy((
+data->data+data->cp),ptr,chunk);size-=chunk;ptr+=chunk;data->cp+=chunk;}}/*Inser
+tcharacterintothebuffer.*/voidbuffer_putc(structbuffer*b,uint8_tc){buffer_put(b,
+&c,1);}/*Putstringtothebuffer.*/voidbuffer_putstr(structbuffer*b,constchar*c){bu
+ffer_put(b,c,strlen(c));}/*Expand\nto\r\n*/voidbuffer_put_crlf(structbuffer*b,co
+nstvoid*origp,size_torigsize){structbuffer_data*data=b->tail;constchar*p=origp,*
+end=p+origsize,*lf;size_tsize;lf=memchr(p,'\n',end-p);/*Weuseevenlastonebyteofda
+tabuffer.*/while(p<end){size_tavail,chunk;/*Ifthereisnodatabufferaddit.*/if(data
+==NULL||data->cp==b->size)data=buffer_add(b);size=(lf?lf:end)-p;avail=b->size-da
+ta->cp;chunk=(size<=avail)?size:avail;memcpy(data->data+data->cp,p,chunk);p+=chu
+nk;data->cp+=chunk;if(lf&&size<=avail){/*wejustcopiedupto(including)a'\n'*/if(da
+ta->cp==b->size)data=buffer_add(b);data->data[data->cp++]='\r';if(data->cp==b->s
+ize)data=buffer_add(b);data->data[data->cp++]='\n';p++;lf=memchr(p,'\n',end-p);}
+}}/*Keepflushingdatatothefduntilthebufferisemptyoranerrorisencounteredortheopera
+tionwouldblock.*/buffer_status_tbuffer_flush_all(structbuffer*b,intfd){buffer_st
+atus_tret;structbuffer_data*head;size_thead_sp;if(!b->head)returnBUFFER_EMPTY;he
+ad_sp=(head=b->head)->sp;/*Flushalldata.*/while((ret=buffer_flush_available(b,fd
+))==BUFFER_PENDING){if((b->head==head)&&(head_sp==head->sp)&&(errno!=EINTR))/*No
+datawasflushed,sokernelbuffermustbefull.*/returnret;head_sp=(head=b->head)->sp;}
+returnret;}/*Flushenoughdatatofillaterminalwindowofthegivenscene(usedonlybyvtyte
+lnetinterface).*/buffer_status_tbuffer_flush_window(structbuffer*b,intfd,intwidt
+h,intheight,interase_flag,intno_more_flag){intnbytes;intiov_alloc;intiov_index;s
+tructiovec*iov;structiovecsmall_iov[3];charmore[]="--More--";charerase[]={0x08,0
+x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,'','','','','','','','','','',0x08,0
+x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08};structbuffer_data*data;intcolumn;if
+(!b->head)returnBUFFER_EMPTY;if(height<1){zlog_warn("%scalledwithnon-positivewin
+dowheight%d,forcingto1",__func__,height);height=1;}elseif(height>=2)height--;if(
+width<1){zlog_warn("%scalledwithnon-positivewindowwidth%d,forcingto1",__func__,w
+idth);width=1;}/*Foreraseandmoredataaddtwotob'sbuffer_datacount.*/if(b->head->ne
+xt==NULL){iov_alloc=array_size(small_iov);iov=small_iov;}else{iov_alloc=((height
+*(width+2))/b->size)+10;iov=XMALLOC(MTYPE_TMP,iov_alloc*sizeof(*iov));}iov_index
+=0;/*Previouslyprintoutisperformed.*/if(erase_flag){iov[iov_index].iov_base=eras
+e;iov[iov_index].iov_len=sizeoferase;iov_index++;}/*Outputdata.*/column=1;/*Colu
+mnpositionofnextcharacterdisplayed.*/for(data=b->head;data&&(height>0);data=data
+->next){size_tcp;cp=data->sp;while((cp<data->cp)&&(height>0)){/*Calculatelinesre
+mainingandcolumnpositionafterdisplayingthischaracter.*/if(data->data[cp]=='\r')c
+olumn=1;elseif((data->data[cp]=='\n')||(column==width)){column=1;height--;}elsec
+olumn++;cp++;}iov[iov_index].iov_base=(char*)(data->data+data->sp);iov[iov_index
+++].iov_len=cp-data->sp;data->sp=cp;if(iov_index==iov_alloc)/*Thisshouldnotordin
+arilyhappen.*/{iov_alloc*=2;if(iov!=small_iov){zlog_warn("%s:growingiovarrayto%d
+;""width%d,height%d,size%lu",__func__,iov_alloc,width,height,(unsignedlong)b->si
+ze);iov=XREALLOC(MTYPE_TMP,iov,iov_alloc*sizeof(*iov));}else{/*Thisshouldabsolut
+elyneveroccur.*/zlog_err("%s:corruptiondetected:iov_smalloverflowed;""head%p,tai
+l%p,head->next%p",__func__,(void*)b->head,(void*)b->tail,(void*)b->head->next);i
+ov=XMALLOC(MTYPE_TMP,iov_alloc*sizeof(*iov));memcpy(iov,small_iov,sizeof(small_i
+ov));}}}/*Incaseof`more'displayneed.*/if(b->tail&&(b->tail->sp<b->tail->cp)&&!no
+_more_flag){iov[iov_index].iov_base=more;iov[iov_index].iov_len=sizeofmore;iov_i
+ndex++;}#ifdefIOV_MAX/*IOV_MAXarenormallydefinedin<sys/uio.h>,Posix.1g.example:S
+olaris2.6aredefinedIOV_MAXsizeat16.*/{structiovec*c_iov=iov;nbytes=0;/*Makesurei
+t'sinitialized.*/while(iov_index>0){intiov_size;iov_size=((iov_index>IOV_MAX)?IO
+V_MAX:iov_index);if((nbytes=writev(fd,c_iov,iov_size))<0){zlog_warn("%s:writevto
+fd%dfailed:%s",__func__,fd,safe_strerror(errno));break;}/*movepointerio-vector*/
+c_iov+=iov_size;iov_index-=iov_size;}}#else/*IOV_MAX*/if((nbytes=writev(fd,iov,i
+ov_index))<0)zlog_warn("%s:writevtofd%dfailed:%s",__func__,fd,safe_strerror(errn
+o));#endif/*IOV_MAX*//*Freeprintedbufferdata.*/while(b->head&&(b->head->sp==b->h
+ead->cp)){structbuffer_data*del;if(!(b->head=(del=b->head)->next))b->tail=NULL;B
+UFFER_DATA_FREE(del);}if(iov!=small_iov)XFREE(MTYPE_TMP,iov);return(nbytes<0)?BU
+FFER_ERROR:(b->head?BUFFER_PENDING:BUFFER_EMPTY);}/*Thisfunction(unlikeotherbuff
+er_flush*functionsabove)isdesignedtoworkwithnon-blockingsockets.Itdoesnotattempt
+towriteoutallofthequeueddata,justa"big"chunk.Itreturns0ifitwasabletoemptyouttheb
+ufferscompletely,1ifmoreflushingisrequiredlater,or-1onafatalwriteerror.*/buffer_
+status_tbuffer_flush_available(structbuffer*b,intfd){/*Thesearejustreasonableval
+uestomakesureasignificantamountofdataiswritten.There'snoneedtogocrazyandtrytowri
+teitallinoneshot.*/#ifdefIOV_MAX#defineMAX_CHUNKS((IOV_MAX>=16)?16:IOV_MAX)#else
+#defineMAX_CHUNKS16#endif#defineMAX_FLUSH131072structbuffer_data*d;size_twritten
+;structioveciov[MAX_CHUNKS];size_tiovcnt=0;size_tnbyte=0;for(d=b->head;d&&(iovcn
+t<MAX_CHUNKS)&&(nbyte<MAX_FLUSH);d=d->next,iovcnt++){iov[iovcnt].iov_base=d->dat
+a+d->sp;nbyte+=(iov[iovcnt].iov_len=d->cp-d->sp);}if(!nbyte)/*Nodatatoflush:shou
+ldweissueawarningmessage?*/returnBUFFER_EMPTY;/*onlyplacewherewrittenshouldbesig
+ncompared*/if((ssize_t)(written=writev(fd,iov,iovcnt))<0){if(ERRNO_IO_RETRY(errn
+o))/*Callingcodeshouldtryagainlater.*/returnBUFFER_PENDING;zlog_warn("%s:writeer
+roronfd%d:%s",__func__,fd,safe_strerror(errno));returnBUFFER_ERROR;}/*Freeprinte
+dbufferdata.*/while(written>0){structbuffer_data*d;if(!(d=b->head)){zlog_err("%s
+:corruptiondetected:bufferqueueempty,""butwrittenis%lu",__func__,(unsignedlong)w
+ritten);break;}if(written<d->cp-d->sp){d->sp+=written;returnBUFFER_PENDING;}writ
+ten-=(d->cp-d->sp);if(!(b->head=d->next))b->tail=NULL;BUFFER_DATA_FREE(d);}retur
+nb->head?BUFFER_PENDING:BUFFER_EMPTY;#undefMAX_CHUNKS#undefMAX_FLUSH}buffer_stat
+us_tbuffer_write(structbuffer*b,intfd,constvoid*p,size_tsize){ssize_tnbytes;#if0
+/**Shouldweattempttodrainanypreviouslybuffereddata?*Thiscouldhelpreducelatencyin
+pushingoutthedataif*wearestuckinalong-runningthreadthatispreventing*themainselec
+tloopfromcallingtheflushthread...*/if(b->head&&(buffer_flush_available(b,fd)==BU
+FFER_ERROR))returnBUFFER_ERROR;#endifif(b->head)/*Bufferisnotempty,sodonotattemp
+ttowritethenewdata.*/nbytes=0;elseif((nbytes=write(fd,p,size))<0){if(ERRNO_IO_RE
+TRY(errno))nbytes=0;else{zlog_warn("%s:writeerroronfd%d:%s",__func__,fd,safe_str
+error(errno));returnBUFFER_ERROR;}}/*Addanyremainingdatatothebuffer.*/{size_twri
+tten=nbytes;if(written<size)buffer_put(b,((constchar*)p)+written,size-written);}
+returnb->head?BUFFER_PENDING:BUFFER_EMPTY;}

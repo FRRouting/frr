@@ -1,330 +1,117 @@
-/*
- * OSPF Link State Advertisement
- * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_OSPF_LSA_H
-#define _ZEBRA_OSPF_LSA_H
-
-#include "stream.h"
-
-/* OSPF LSA Range definition. */
-#define OSPF_MIN_LSA		1  /* begin range here */
-#define OSPF_MAX_LSA           12
-
-/* OSPF LSA Type definition. */
-#define OSPF_UNKNOWN_LSA	      0
-#define OSPF_ROUTER_LSA               1
-#define OSPF_NETWORK_LSA              2
-#define OSPF_SUMMARY_LSA              3
-#define OSPF_ASBR_SUMMARY_LSA         4
-#define OSPF_AS_EXTERNAL_LSA          5
-#define OSPF_GROUP_MEMBER_LSA	      6  /* Not supported. */
-#define OSPF_AS_NSSA_LSA	              7
-#define OSPF_EXTERNAL_ATTRIBUTES_LSA  8  /* Not supported. */
-#define OSPF_OPAQUE_LINK_LSA	      9
-#define OSPF_OPAQUE_AREA_LSA	     10
-#define OSPF_OPAQUE_AS_LSA	     11
-
-#define OSPF_LSA_HEADER_SIZE	     20U
-#define OSPF_ROUTER_LSA_LINK_SIZE    12U
-#define OSPF_ROUTER_LSA_TOS_SIZE      4U
-#define OSPF_MAX_LSA_SIZE	   1500U
-
-/* AS-external-LSA refresh method. */
-#define LSA_REFRESH_IF_CHANGED	0
-#define LSA_REFRESH_FORCE	1
-
-/* OSPF LSA header. */
-struct lsa_header {
-	uint16_t ls_age;
-	uint8_t options;
-	uint8_t type;
-	struct in_addr id;
-	struct in_addr adv_router;
-	uint32_t ls_seqnum;
-	uint16_t checksum;
-	uint16_t length;
-};
-
-/* OSPF LSA. */
-struct ospf_lsa {
-	/* LSA origination flag. */
-	uint8_t flags;
-#define OSPF_LSA_SELF		  0x01
-#define OSPF_LSA_SELF_CHECKED	  0x02
-#define OSPF_LSA_RECEIVED	  0x04
-#define OSPF_LSA_APPROVED	  0x08
-#define OSPF_LSA_DISCARD	  0x10
-#define OSPF_LSA_LOCAL_XLT	  0x20
-#define OSPF_LSA_PREMATURE_AGE	  0x40
-#define OSPF_LSA_IN_MAXAGE	  0x80
-
-	/* LSA data. */
-	struct lsa_header *data;
-
-	/* Received time stamp. */
-	struct timeval tv_recv;
-
-	/* Last time it was originated */
-	struct timeval tv_orig;
-
-	/* All of reference count, also lock to remove. */
-	int lock;
-
-	/* Flags for the SPF calculation. */
-	int stat;
-#define LSA_SPF_NOT_EXPLORED -1
-#define LSA_SPF_IN_SPFTREE -2
-	/* If stat >= 0, stat is LSA position in candidates heap. */
-
-	/* References to this LSA in neighbor retransmission lists*/
-	int retransmit_counter;
-
-	/* Area the LSA belongs to, may be NULL if AS-external-LSA. */
-	struct ospf_area *area;
-
-	/* Parent LSDB. */
-	struct ospf_lsdb *lsdb;
-
-	/* Related Route. */
-	void *route;
-
-	/* Refreshement List or Queue */
-	int refresh_list;
-
-	/* For Type-9 Opaque-LSAs */
-	struct ospf_interface *oi;
-
-	/* VRF Id */
-	vrf_id_t vrf_id;
-};
-
-/* OSPF LSA Link Type. */
-#define LSA_LINK_TYPE_POINTOPOINT      1
-#define LSA_LINK_TYPE_TRANSIT          2
-#define LSA_LINK_TYPE_STUB             3
-#define LSA_LINK_TYPE_VIRTUALLINK      4
-
-/* OSPF Router LSA Flag. */
-#define ROUTER_LSA_BORDER	       0x01 /* The router is an ABR */
-#define ROUTER_LSA_EXTERNAL	       0x02 /* The router is an ASBR */
-#define ROUTER_LSA_VIRTUAL	       0x04 /* The router has a VL in this area */
-#define ROUTER_LSA_NT		       0x10 /* The routers always translates Type-7 */
-#define ROUTER_LSA_SHORTCUT	       0x20 /* Shortcut-ABR specific flag */
-
-#define IS_ROUTER_LSA_VIRTUAL(x)       ((x)->flags & ROUTER_LSA_VIRTUAL)
-#define IS_ROUTER_LSA_EXTERNAL(x)      ((x)->flags & ROUTER_LSA_EXTERNAL)
-#define IS_ROUTER_LSA_BORDER(x)	       ((x)->flags & ROUTER_LSA_BORDER)
-#define IS_ROUTER_LSA_SHORTCUT(x)      ((x)->flags & ROUTER_LSA_SHORTCUT)
-#define IS_ROUTER_LSA_NT(x)            ((x)->flags & ROUTER_LSA_NT)
-
-/* OSPF Router-LSA Link information. */
-struct router_lsa_link {
-	struct in_addr link_id;
-	struct in_addr link_data;
-	struct {
-		uint8_t type;
-		uint8_t tos_count;
-		uint16_t metric;
-	} m[1];
-};
-
-/* OSPF Router-LSAs structure. */
-#define OSPF_ROUTER_LSA_MIN_SIZE                   4U /* w/0 link descriptors */
-/* There is an edge case, when number of links in a Router-LSA may be 0 without
-   breaking the specification. A router, which has no other links to backbone
-   area besides one virtual link, will not put any VL descriptor blocks into
-   the Router-LSA generated for area 0 until a full adjacency over the VL is
-   reached (RFC2328 12.4.1.3). In this case the Router-LSA initially received
-   by the other end of the VL will have 0 link descriptor blocks, but soon will
-   be replaced with the next revision having 1 descriptor block. */
-struct router_lsa {
-	struct lsa_header header;
-	uint8_t flags;
-	uint8_t zero;
-	uint16_t links;
-	struct {
-		struct in_addr link_id;
-		struct in_addr link_data;
-		uint8_t type;
-		uint8_t tos;
-		uint16_t metric;
-	} link[1];
-};
-
-/* OSPF Network-LSAs structure. */
-#define OSPF_NETWORK_LSA_MIN_SIZE                  8U /* w/1 router-ID */
-struct network_lsa {
-	struct lsa_header header;
-	struct in_addr mask;
-	struct in_addr routers[1];
-};
-
-/* OSPF Summary-LSAs structure. */
-#define OSPF_SUMMARY_LSA_MIN_SIZE                  8U /* w/1 TOS metric block */
-struct summary_lsa {
-	struct lsa_header header;
-	struct in_addr mask;
-	uint8_t tos;
-	uint8_t metric[3];
-};
-
-/* OSPF AS-external-LSAs structure. */
-#define OSPF_AS_EXTERNAL_LSA_MIN_SIZE             16U /* w/1 TOS forwarding block */
-struct as_external_lsa {
-	struct lsa_header header;
-	struct in_addr mask;
-	struct {
-		uint8_t tos;
-		uint8_t metric[3];
-		struct in_addr fwd_addr;
-		uint32_t route_tag;
-	} e[1];
-};
-
-#include "ospfd/ospf_opaque.h"
-
-/* Macros. */
-#define GET_METRIC(x) get_metric(x)
-#define IS_EXTERNAL_METRIC(x)   ((x) & 0x80)
-
-#define GET_AGE(x)     (ntohs ((x)->data->ls_age) + time (NULL) - (x)->tv_recv)
-#define LS_AGE(x) (OSPF_LSA_MAXAGE < get_age(x) ? OSPF_LSA_MAXAGE : get_age(x))
-#define IS_LSA_SELF(L)          (CHECK_FLAG ((L)->flags, OSPF_LSA_SELF))
-#define IS_LSA_MAXAGE(L)        (LS_AGE ((L)) == OSPF_LSA_MAXAGE)
-
-#define OSPF_LSA_UPDATE_DELAY		2
-
-#define OSPF_LSA_UPDATE_TIMER_ON(T, F)                                         \
-	if (!(T))                                                              \
-	(T) = thread_add_timer(master, (F), 0, 2)
-
-/* Prototypes. */
-/* XXX: Eek, time functions, similar are in lib/thread.c */
-extern struct timeval int2tv(int);
-extern struct timeval msec2tv(int);
-
-extern int get_age(struct ospf_lsa *);
-extern uint16_t ospf_lsa_checksum(struct lsa_header *);
-extern int ospf_lsa_checksum_valid(struct lsa_header *);
-extern int ospf_lsa_refresh_delay(struct ospf_lsa *);
-
-extern const char *dump_lsa_key(struct ospf_lsa *);
-extern uint32_t lsa_seqnum_increment(struct ospf_lsa *);
-extern void lsa_header_set(struct stream *, uint8_t, uint8_t, struct in_addr,
-			   struct in_addr);
-extern struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *);
-extern int ospf_check_nbr_status(struct ospf *);
-
-/* Prototype for LSA primitive. */
-extern struct ospf_lsa *ospf_lsa_new(void);
-extern struct ospf_lsa *ospf_lsa_dup(struct ospf_lsa *);
-extern void ospf_lsa_free(struct ospf_lsa *);
-extern struct ospf_lsa *ospf_lsa_lock(struct ospf_lsa *);
-extern void ospf_lsa_unlock(struct ospf_lsa **);
-extern void ospf_lsa_discard(struct ospf_lsa *);
-extern int ospf_lsa_flush_schedule(struct ospf *, struct ospf_lsa *);
-extern struct lsa_header *ospf_lsa_data_new(size_t);
-extern struct lsa_header *ospf_lsa_data_dup(struct lsa_header *);
-extern void ospf_lsa_data_free(struct lsa_header *);
-
-/* Prototype for various LSAs */
-extern int ospf_router_lsa_update(struct ospf *);
-extern int ospf_router_lsa_update_area(struct ospf_area *);
-
-extern void ospf_network_lsa_update(struct ospf_interface *);
-
-extern struct ospf_lsa *
-ospf_summary_lsa_originate(struct prefix_ipv4 *, uint32_t, struct ospf_area *);
-extern struct ospf_lsa *ospf_summary_asbr_lsa_originate(struct prefix_ipv4 *,
-							uint32_t,
-							struct ospf_area *);
-
-extern struct ospf_lsa *ospf_lsa_install(struct ospf *, struct ospf_interface *,
-					 struct ospf_lsa *);
-
-extern void ospf_nssa_lsa_flush(struct ospf *ospf, struct prefix_ipv4 *p);
-extern void ospf_external_lsa_flush(struct ospf *, uint8_t,
-				    struct prefix_ipv4 *,
-				    ifindex_t /* , struct in_addr nexthop */);
-
-extern struct in_addr ospf_get_ip_from_ifp(struct ospf_interface *);
-
-extern struct ospf_lsa *ospf_external_lsa_originate(struct ospf *,
-						    struct external_info *);
-extern int ospf_external_lsa_originate_timer(struct thread *);
-extern int ospf_default_originate_timer(struct thread *);
-extern struct ospf_lsa *ospf_lsa_lookup(struct ospf *ospf, struct ospf_area *,
-					uint32_t, struct in_addr,
-					struct in_addr);
-extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *, uint32_t,
-					      struct in_addr);
-extern struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *,
-						  struct lsa_header *);
-extern int ospf_lsa_more_recent(struct ospf_lsa *, struct ospf_lsa *);
-extern int ospf_lsa_different(struct ospf_lsa *, struct ospf_lsa *);
-extern void ospf_flush_self_originated_lsas_now(struct ospf *);
-
-extern int ospf_lsa_is_self_originated(struct ospf *, struct ospf_lsa *);
-
-extern struct ospf_lsa *ospf_lsa_lookup_by_prefix(struct ospf_lsdb *, uint8_t,
-						  struct prefix_ipv4 *,
-						  struct in_addr);
-
-extern void ospf_lsa_maxage(struct ospf *, struct ospf_lsa *);
-extern uint32_t get_metric(uint8_t *);
-
-extern int ospf_lsa_maxage_walker(struct thread *);
-extern struct ospf_lsa *ospf_lsa_refresh(struct ospf *, struct ospf_lsa *);
-
-extern void ospf_external_lsa_refresh_default(struct ospf *);
-
-extern void ospf_external_lsa_refresh_type(struct ospf *, uint8_t,
-					   unsigned short, int);
-extern struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *,
-						  struct ospf_lsa *,
-						  struct external_info *, int);
-extern struct in_addr ospf_lsa_unique_id(struct ospf *, struct ospf_lsdb *,
-					 uint8_t, struct prefix_ipv4 *);
-extern void ospf_schedule_lsa_flood_area(struct ospf_area *, struct ospf_lsa *);
-extern void ospf_schedule_lsa_flush_area(struct ospf_area *, struct ospf_lsa *);
-
-extern void ospf_refresher_register_lsa(struct ospf *, struct ospf_lsa *);
-extern void ospf_refresher_unregister_lsa(struct ospf *, struct ospf_lsa *);
-extern int ospf_lsa_refresh_walker(struct thread *);
-
-extern void ospf_lsa_maxage_delete(struct ospf *, struct ospf_lsa *);
-
-extern void ospf_discard_from_db(struct ospf *, struct ospf_lsdb *,
-				 struct ospf_lsa *);
-extern int is_prefix_default(struct prefix_ipv4 *);
-
-extern int metric_type(struct ospf *, uint8_t, unsigned short);
-extern int metric_value(struct ospf *, uint8_t, unsigned short);
-
-extern struct in_addr ospf_get_nssa_ip(struct ospf_area *);
-extern int ospf_translated_nssa_compare(struct ospf_lsa *, struct ospf_lsa *);
-extern struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *,
-						     struct ospf_lsa *,
-						     struct ospf_lsa *);
-extern struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *,
-						       struct ospf_lsa *);
-
-#endif /* _ZEBRA_OSPF_LSA_H */
+/**OSPFLinkStateAdvertisement*Copyright(C)1999,2000ToshiakiTakada**Thisfileispar
+tofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthe
+termsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherv
+ersion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitw
+illbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILI
+TYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**
+YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seet
+hefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFlo
+or,Boston,MA02110-1301USA*/#ifndef_ZEBRA_OSPF_LSA_H#define_ZEBRA_OSPF_LSA_H#incl
+ude"stream.h"/*OSPFLSARangedefinition.*/#defineOSPF_MIN_LSA1/*beginrangehere*/#d
+efineOSPF_MAX_LSA12/*OSPFLSATypedefinition.*/#defineOSPF_UNKNOWN_LSA0#defineOSPF
+_ROUTER_LSA1#defineOSPF_NETWORK_LSA2#defineOSPF_SUMMARY_LSA3#defineOSPF_ASBR_SUM
+MARY_LSA4#defineOSPF_AS_EXTERNAL_LSA5#defineOSPF_GROUP_MEMBER_LSA6/*Notsupported
+.*/#defineOSPF_AS_NSSA_LSA7#defineOSPF_EXTERNAL_ATTRIBUTES_LSA8/*Notsupported.*/
+#defineOSPF_OPAQUE_LINK_LSA9#defineOSPF_OPAQUE_AREA_LSA10#defineOSPF_OPAQUE_AS_L
+SA11#defineOSPF_LSA_HEADER_SIZE20U#defineOSPF_ROUTER_LSA_LINK_SIZE12U#defineOSPF
+_ROUTER_LSA_TOS_SIZE4U#defineOSPF_MAX_LSA_SIZE1500U/*AS-external-LSArefreshmetho
+d.*/#defineLSA_REFRESH_IF_CHANGED0#defineLSA_REFRESH_FORCE1/*OSPFLSAheader.*/str
+uctlsa_header{uint16_tls_age;uint8_toptions;uint8_ttype;structin_addrid;structin
+_addradv_router;uint32_tls_seqnum;uint16_tchecksum;uint16_tlength;};/*OSPFLSA.*/
+structospf_lsa{/*LSAoriginationflag.*/uint8_tflags;#defineOSPF_LSA_SELF0x01#defi
+neOSPF_LSA_SELF_CHECKED0x02#defineOSPF_LSA_RECEIVED0x04#defineOSPF_LSA_APPROVED0
+x08#defineOSPF_LSA_DISCARD0x10#defineOSPF_LSA_LOCAL_XLT0x20#defineOSPF_LSA_PREMA
+TURE_AGE0x40#defineOSPF_LSA_IN_MAXAGE0x80/*LSAdata.*/structlsa_header*data;/*Rec
+eivedtimestamp.*/structtimevaltv_recv;/*Lasttimeitwasoriginated*/structtimevaltv
+_orig;/*Allofreferencecount,alsolocktoremove.*/intlock;/*FlagsfortheSPFcalculati
+on.*/intstat;#defineLSA_SPF_NOT_EXPLORED-1#defineLSA_SPF_IN_SPFTREE-2/*Ifstat>=0
+,statisLSApositionincandidatesheap.*//*ReferencestothisLSAinneighborretransmissi
+onlists*/intretransmit_counter;/*AreatheLSAbelongsto,maybeNULLifAS-external-LSA.
+*/structospf_area*area;/*ParentLSDB.*/structospf_lsdb*lsdb;/*RelatedRoute.*/void
+*route;/*RefreshementListorQueue*/intrefresh_list;/*ForType-9Opaque-LSAs*/struct
+ospf_interface*oi;/*VRFId*/vrf_id_tvrf_id;};/*OSPFLSALinkType.*/#defineLSA_LINK_
+TYPE_POINTOPOINT1#defineLSA_LINK_TYPE_TRANSIT2#defineLSA_LINK_TYPE_STUB3#defineL
+SA_LINK_TYPE_VIRTUALLINK4/*OSPFRouterLSAFlag.*/#defineROUTER_LSA_BORDER0x01/*The
+routerisanABR*/#defineROUTER_LSA_EXTERNAL0x02/*TherouterisanASBR*/#defineROUTER_
+LSA_VIRTUAL0x04/*TherouterhasaVLinthisarea*/#defineROUTER_LSA_NT0x10/*Therouters
+alwaystranslatesType-7*/#defineROUTER_LSA_SHORTCUT0x20/*Shortcut-ABRspecificflag
+*/#defineIS_ROUTER_LSA_VIRTUAL(x)((x)->flags&ROUTER_LSA_VIRTUAL)#defineIS_ROUTER
+_LSA_EXTERNAL(x)((x)->flags&ROUTER_LSA_EXTERNAL)#defineIS_ROUTER_LSA_BORDER(x)((
+x)->flags&ROUTER_LSA_BORDER)#defineIS_ROUTER_LSA_SHORTCUT(x)((x)->flags&ROUTER_L
+SA_SHORTCUT)#defineIS_ROUTER_LSA_NT(x)((x)->flags&ROUTER_LSA_NT)/*OSPFRouter-LSA
+Linkinformation.*/structrouter_lsa_link{structin_addrlink_id;structin_addrlink_d
+ata;struct{uint8_ttype;uint8_ttos_count;uint16_tmetric;}m[1];};/*OSPFRouter-LSAs
+structure.*/#defineOSPF_ROUTER_LSA_MIN_SIZE4U/*w/0linkdescriptors*//*Thereisaned
+gecase,whennumberoflinksinaRouter-LSAmaybe0withoutbreakingthespecification.Arout
+er,whichhasnootherlinkstobackboneareabesidesonevirtuallink,willnotputanyVLdescri
+ptorblocksintotheRouter-LSAgeneratedforarea0untilafulladjacencyovertheVLisreache
+d(RFC232812.4.1.3).InthiscasetheRouter-LSAinitiallyreceivedbytheotherendoftheVLw
+illhave0linkdescriptorblocks,butsoonwillbereplacedwiththenextrevisionhaving1desc
+riptorblock.*/structrouter_lsa{structlsa_headerheader;uint8_tflags;uint8_tzero;u
+int16_tlinks;struct{structin_addrlink_id;structin_addrlink_data;uint8_ttype;uint
+8_ttos;uint16_tmetric;}link[1];};/*OSPFNetwork-LSAsstructure.*/#defineOSPF_NETWO
+RK_LSA_MIN_SIZE8U/*w/1router-ID*/structnetwork_lsa{structlsa_headerheader;struct
+in_addrmask;structin_addrrouters[1];};/*OSPFSummary-LSAsstructure.*/#defineOSPF_
+SUMMARY_LSA_MIN_SIZE8U/*w/1TOSmetricblock*/structsummary_lsa{structlsa_headerhea
+der;structin_addrmask;uint8_ttos;uint8_tmetric[3];};/*OSPFAS-external-LSAsstruct
+ure.*/#defineOSPF_AS_EXTERNAL_LSA_MIN_SIZE16U/*w/1TOSforwardingblock*/structas_e
+xternal_lsa{structlsa_headerheader;structin_addrmask;struct{uint8_ttos;uint8_tme
+tric[3];structin_addrfwd_addr;uint32_troute_tag;}e[1];};#include"ospfd/ospf_opaq
+ue.h"/*Macros.*/#defineGET_METRIC(x)get_metric(x)#defineIS_EXTERNAL_METRIC(x)((x
+)&0x80)#defineGET_AGE(x)(ntohs((x)->data->ls_age)+time(NULL)-(x)->tv_recv)#defin
+eLS_AGE(x)(OSPF_LSA_MAXAGE<get_age(x)?OSPF_LSA_MAXAGE:get_age(x))#defineIS_LSA_S
+ELF(L)(CHECK_FLAG((L)->flags,OSPF_LSA_SELF))#defineIS_LSA_MAXAGE(L)(LS_AGE((L))=
+=OSPF_LSA_MAXAGE)#defineOSPF_LSA_UPDATE_DELAY2#defineOSPF_LSA_UPDATE_TIMER_ON(T,
+F)\if(!(T))\(T)=thread_add_timer(master,(F),0,2)/*Prototypes.*//*XXX:Eek,timefun
+ctions,similarareinlib/thread.c*/externstructtimevalint2tv(int);externstructtime
+valmsec2tv(int);externintget_age(structospf_lsa*);externuint16_tospf_lsa_checksu
+m(structlsa_header*);externintospf_lsa_checksum_valid(structlsa_header*);externi
+ntospf_lsa_refresh_delay(structospf_lsa*);externconstchar*dump_lsa_key(structosp
+f_lsa*);externuint32_tlsa_seqnum_increment(structospf_lsa*);externvoidlsa_header
+_set(structstream*,uint8_t,uint8_t,structin_addr,structin_addr);externstructospf
+_neighbor*ospf_nbr_lookup_ptop(structospf_interface*);externintospf_check_nbr_st
+atus(structospf*);/*PrototypeforLSAprimitive.*/externstructospf_lsa*ospf_lsa_new
+(void);externstructospf_lsa*ospf_lsa_dup(structospf_lsa*);externvoidospf_lsa_fre
+e(structospf_lsa*);externstructospf_lsa*ospf_lsa_lock(structospf_lsa*);externvoi
+dospf_lsa_unlock(structospf_lsa**);externvoidospf_lsa_discard(structospf_lsa*);e
+xternintospf_lsa_flush_schedule(structospf*,structospf_lsa*);externstructlsa_hea
+der*ospf_lsa_data_new(size_t);externstructlsa_header*ospf_lsa_data_dup(structlsa
+_header*);externvoidospf_lsa_data_free(structlsa_header*);/*PrototypeforvariousL
+SAs*/externintospf_router_lsa_update(structospf*);externintospf_router_lsa_updat
+e_area(structospf_area*);externvoidospf_network_lsa_update(structospf_interface*
+);externstructospf_lsa*ospf_summary_lsa_originate(structprefix_ipv4*,uint32_t,st
+ructospf_area*);externstructospf_lsa*ospf_summary_asbr_lsa_originate(structprefi
+x_ipv4*,uint32_t,structospf_area*);externstructospf_lsa*ospf_lsa_install(structo
+spf*,structospf_interface*,structospf_lsa*);externvoidospf_nssa_lsa_flush(struct
+ospf*ospf,structprefix_ipv4*p);externvoidospf_external_lsa_flush(structospf*,uin
+t8_t,structprefix_ipv4*,ifindex_t/*,structin_addrnexthop*/);externstructin_addro
+spf_get_ip_from_ifp(structospf_interface*);externstructospf_lsa*ospf_external_ls
+a_originate(structospf*,structexternal_info*);externintospf_external_lsa_origina
+te_timer(structthread*);externintospf_default_originate_timer(structthread*);ext
+ernstructospf_lsa*ospf_lsa_lookup(structospf*ospf,structospf_area*,uint32_t,stru
+ctin_addr,structin_addr);externstructospf_lsa*ospf_lsa_lookup_by_id(structospf_a
+rea*,uint32_t,structin_addr);externstructospf_lsa*ospf_lsa_lookup_by_header(stru
+ctospf_area*,structlsa_header*);externintospf_lsa_more_recent(structospf_lsa*,st
+ructospf_lsa*);externintospf_lsa_different(structospf_lsa*,structospf_lsa*);exte
+rnvoidospf_flush_self_originated_lsas_now(structospf*);externintospf_lsa_is_self
+_originated(structospf*,structospf_lsa*);externstructospf_lsa*ospf_lsa_lookup_by
+_prefix(structospf_lsdb*,uint8_t,structprefix_ipv4*,structin_addr);externvoidosp
+f_lsa_maxage(structospf*,structospf_lsa*);externuint32_tget_metric(uint8_t*);ext
+ernintospf_lsa_maxage_walker(structthread*);externstructospf_lsa*ospf_lsa_refres
+h(structospf*,structospf_lsa*);externvoidospf_external_lsa_refresh_default(struc
+tospf*);externvoidospf_external_lsa_refresh_type(structospf*,uint8_t,unsignedsho
+rt,int);externstructospf_lsa*ospf_external_lsa_refresh(structospf*,structospf_ls
+a*,structexternal_info*,int);externstructin_addrospf_lsa_unique_id(structospf*,s
+tructospf_lsdb*,uint8_t,structprefix_ipv4*);externvoidospf_schedule_lsa_flood_ar
+ea(structospf_area*,structospf_lsa*);externvoidospf_schedule_lsa_flush_area(stru
+ctospf_area*,structospf_lsa*);externvoidospf_refresher_register_lsa(structospf*,
+structospf_lsa*);externvoidospf_refresher_unregister_lsa(structospf*,structospf_
+lsa*);externintospf_lsa_refresh_walker(structthread*);externvoidospf_lsa_maxage_
+delete(structospf*,structospf_lsa*);externvoidospf_discard_from_db(structospf*,s
+tructospf_lsdb*,structospf_lsa*);externintis_prefix_default(structprefix_ipv4*);
+externintmetric_type(structospf*,uint8_t,unsignedshort);externintmetric_value(st
+ructospf*,uint8_t,unsignedshort);externstructin_addrospf_get_nssa_ip(structospf_
+area*);externintospf_translated_nssa_compare(structospf_lsa*,structospf_lsa*);ex
+ternstructospf_lsa*ospf_translated_nssa_refresh(structospf*,structospf_lsa*,stru
+ctospf_lsa*);externstructospf_lsa*ospf_translated_nssa_originate(structospf*,str
+uctospf_lsa*);#endif/*_ZEBRA_OSPF_LSA_H*/

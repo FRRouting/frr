@@ -1,167 +1,73 @@
-/*
- * Zebra VxLAN (EVPN) Data structures and definitions
- * These are public definitions referenced by other files.
- * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- */
-
-#ifndef _ZEBRA_VXLAN_H
-#define _ZEBRA_VXLAN_H
-
-#include <zebra.h>
-
-#include "linklist.h"
-#include "if.h"
-#include "vlan.h"
-#include "vxlan.h"
-
-#include "lib/json.h"
-#include "zebra/zebra_vrf.h"
-#include "zebra/zserv.h"
-
-/* Is EVPN enabled? */
-#define EVPN_ENABLED(zvrf)  (zvrf)->advertise_all_vni
-static inline int is_evpn_enabled()
-{
-	struct zebra_vrf *zvrf = NULL;
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	return zvrf ? zvrf->advertise_all_vni : 0;
-}
-
-
-/* VxLAN interface change flags of interest. */
-#define ZEBRA_VXLIF_LOCAL_IP_CHANGE     0x1
-#define ZEBRA_VXLIF_MASTER_CHANGE       0x2
-#define ZEBRA_VXLIF_VLAN_CHANGE         0x4
-
-#define VNI_STR_LEN 32
-
-/* ZAPI message handlers */
-extern void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS);
-extern void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);
-extern void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS);
-extern void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS);
-extern void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS);
-extern void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS);
-extern void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS);
-
-extern int is_l3vni_for_prefix_routes_only(vni_t vni);
-extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
-extern int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf);
-extern int zebra_vxlan_vrf_enable(struct zebra_vrf *zvrf);
-extern int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf);
-extern int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf);
-extern void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
-						struct ipaddr *ip, uint8_t uj);
-extern void zebra_vxlan_print_evpn(struct vty *vty, uint8_t uj);
-extern void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
-						  struct ethaddr *rmac,
-						  uint8_t use_json);
-extern void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				       vni_t vni, uint8_t use_json);
-extern void zebra_vxlan_print_macs_all_vni(struct vty *vty,
-					   struct zebra_vrf *zvrf,
-					   uint8_t use_json);
-extern void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
-						struct zebra_vrf *zvrf,
-						struct in_addr vtep_ip,
-						uint8_t use_json);
-extern void zebra_vxlan_print_specific_mac_vni(struct vty *vty,
-					       struct zebra_vrf *zvrf,
-					       vni_t vni, struct ethaddr *mac);
-extern void zebra_vxlan_print_macs_vni_vtep(struct vty *vty,
-					    struct zebra_vrf *zvrf, vni_t vni,
-					    struct in_addr vtep_ip,
-					    uint8_t use_json);
-extern void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
-					vni_t vni, uint8_t use_json);
-extern void zebra_vxlan_print_neigh_all_vni(struct vty *vty,
-					    struct zebra_vrf *zvrf,
-					    uint8_t use_json);
-extern void zebra_vxlan_print_specific_neigh_vni(struct vty *vty,
-						 struct zebra_vrf *zvrf,
-						 vni_t vni, struct ipaddr *ip,
-						 uint8_t use_json);
-extern void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty,
-					     struct zebra_vrf *zvrf, vni_t vni,
-					     struct in_addr vtep_ip,
-					     uint8_t use_json);
-extern void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				  vni_t vni, uint8_t use_json);
-extern void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
-				   uint8_t use_json);
-extern void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t vni,
-					  uint8_t use_json);
-extern void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty,
-					      uint8_t use_json);
-extern void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t vni,
-				       uint8_t use_json);
-extern void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, uint8_t use_json);
-extern void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni,
-				    uint8_t use_json);
-extern void zebra_vxlan_print_vrf_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				      json_object *json_vrfs);
-extern int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
-					int add);
-extern int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if);
-extern int zebra_vxlan_svi_down(struct interface *ifp,
-				struct interface *link_if);
-extern int zebra_vxlan_local_neigh_add_update(
-	struct interface *ifp, struct interface *link_if, struct ipaddr *ip,
-	struct ethaddr *macaddr, uint16_t state, uint8_t ext_learned);
-extern int zebra_vxlan_local_neigh_del(struct interface *ifp,
-				       struct interface *link_if,
-				       struct ipaddr *ip);
-extern int zebra_vxlan_local_mac_add_update(struct interface *ifp,
-					    struct interface *br_if,
-					    struct ethaddr *mac, vlanid_t vid,
-					    uint8_t sticky);
-extern int zebra_vxlan_local_mac_del(struct interface *ifp,
-				     struct interface *br_if,
-				     struct ethaddr *mac, vlanid_t vid);
-extern int zebra_vxlan_check_readd_remote_mac(struct interface *ifp,
-					      struct interface *br_if,
-					      struct ethaddr *mac,
-					      vlanid_t vid);
-extern int zebra_vxlan_check_del_local_mac(struct interface *ifp,
-					   struct interface *br_if,
-					   struct ethaddr *mac, vlanid_t vid);
-extern int zebra_vxlan_if_up(struct interface *ifp);
-extern int zebra_vxlan_if_down(struct interface *ifp);
-extern int zebra_vxlan_if_add(struct interface *ifp);
-extern int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags);
-extern int zebra_vxlan_if_del(struct interface *ifp);
-extern int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
-					   char *err, int err_str_sz,
-					   int filter, int add);
-extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
-extern void zebra_vxlan_close_tables(struct zebra_vrf *);
-extern void zebra_vxlan_cleanup_tables(struct zebra_vrf *);
-extern void zebra_vxlan_ns_init(struct zebra_ns *zns);
-extern void zebra_vxlan_ns_disable(struct zebra_ns *zns);
-extern void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
-					   struct ethaddr *rmac,
-					   struct ipaddr *ip,
-					   struct prefix *host_prefix);
-extern void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
-					   struct ethaddr *rmac,
-					   struct ipaddr *vtep_ip,
-					   struct prefix *host_prefix);
-
-#endif /* _ZEBRA_VXLAN_H */
+/**ZebraVxLAN(EVPN)Datastructuresanddefinitions*Thesearepublicdefinitionsreferen
+cedbyotherfiles.*Copyright(C)2016,2017CumulusNetworks,Inc.**ThisfileispartofFRR.
+**FRRisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGene
+ralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyour
+option)any*laterversion.**FRRisdistributedinthehopethatitwillbeuseful,but*WITHOU
+TANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICU
+LARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceiveda
+copyoftheGNUGeneralPublicLicense*alongwithFRR;seethefileCOPYING.Ifnot,writetothe
+Free*SoftwareFoundation,Inc.,59TemplePlace-Suite330,Boston,MA*02111-1307,USA.*/#
+ifndef_ZEBRA_VXLAN_H#define_ZEBRA_VXLAN_H#include<zebra.h>#include"linklist.h"#i
+nclude"if.h"#include"vlan.h"#include"vxlan.h"#include"lib/json.h"#include"zebra/
+zebra_vrf.h"#include"zebra/zserv.h"/*IsEVPNenabled?*/#defineEVPN_ENABLED(zvrf)(z
+vrf)->advertise_all_vnistaticinlineintis_evpn_enabled(){structzebra_vrf*zvrf=NUL
+L;zvrf=zebra_vrf_lookup_by_id(VRF_DEFAULT);returnzvrf?zvrf->advertise_all_vni:0;
+}/*VxLANinterfacechangeflagsofinterest.*/#defineZEBRA_VXLIF_LOCAL_IP_CHANGE0x1#d
+efineZEBRA_VXLIF_MASTER_CHANGE0x2#defineZEBRA_VXLIF_VLAN_CHANGE0x4#defineVNI_STR
+_LEN32/*ZAPImessagehandlers*/externvoidzebra_vxlan_remote_macip_add(ZAPI_HANDLER
+_ARGS);externvoidzebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);externvoidzebra
+_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS);externvoidzebra_vxlan_remote_vtep_del(
+ZAPI_HANDLER_ARGS);externvoidzebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS);ext
+ernvoidzebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS);externvoidzebra_vxlan_a
+dvertise_all_vni(ZAPI_HANDLER_ARGS);externintis_l3vni_for_prefix_routes_only(vni
+_tvni);externifindex_tget_l3vni_svi_ifindex(vrf_id_tvrf_id);externintzebra_vxlan
+_vrf_delete(structzebra_vrf*zvrf);externintzebra_vxlan_vrf_enable(structzebra_vr
+f*zvrf);externintzebra_vxlan_vrf_disable(structzebra_vrf*zvrf);externintzebra_vx
+lan_vrf_delete(structzebra_vrf*zvrf);externvoidzebra_vxlan_print_specific_nh_l3v
+ni(structvty*vty,vni_tl3vni,structipaddr*ip,uint8_tuj);externvoidzebra_vxlan_pri
+nt_evpn(structvty*vty,uint8_tuj);externvoidzebra_vxlan_print_specific_rmac_l3vni
+(structvty*vty,vni_tl3vni,structethaddr*rmac,uint8_tuse_json);externvoidzebra_vx
+lan_print_macs_vni(structvty*vty,structzebra_vrf*zvrf,vni_tvni,uint8_tuse_json);
+externvoidzebra_vxlan_print_macs_all_vni(structvty*vty,structzebra_vrf*zvrf,uint
+8_tuse_json);externvoidzebra_vxlan_print_macs_all_vni_vtep(structvty*vty,structz
+ebra_vrf*zvrf,structin_addrvtep_ip,uint8_tuse_json);externvoidzebra_vxlan_print_
+specific_mac_vni(structvty*vty,structzebra_vrf*zvrf,vni_tvni,structethaddr*mac);
+externvoidzebra_vxlan_print_macs_vni_vtep(structvty*vty,structzebra_vrf*zvrf,vni
+_tvni,structin_addrvtep_ip,uint8_tuse_json);externvoidzebra_vxlan_print_neigh_vn
+i(structvty*vty,structzebra_vrf*zvrf,vni_tvni,uint8_tuse_json);externvoidzebra_v
+xlan_print_neigh_all_vni(structvty*vty,structzebra_vrf*zvrf,uint8_tuse_json);ext
+ernvoidzebra_vxlan_print_specific_neigh_vni(structvty*vty,structzebra_vrf*zvrf,v
+ni_tvni,structipaddr*ip,uint8_tuse_json);externvoidzebra_vxlan_print_neigh_vni_v
+tep(structvty*vty,structzebra_vrf*zvrf,vni_tvni,structin_addrvtep_ip,uint8_tuse_
+json);externvoidzebra_vxlan_print_vni(structvty*vty,structzebra_vrf*zvrf,vni_tvn
+i,uint8_tuse_json);externvoidzebra_vxlan_print_vnis(structvty*vty,structzebra_vr
+f*zvrf,uint8_tuse_json);externvoidzebra_vxlan_print_rmacs_l3vni(structvty*vty,vn
+i_tvni,uint8_tuse_json);externvoidzebra_vxlan_print_rmacs_all_l3vni(structvty*vt
+y,uint8_tuse_json);externvoidzebra_vxlan_print_nh_l3vni(structvty*vty,vni_tvni,u
+int8_tuse_json);externvoidzebra_vxlan_print_nh_all_l3vni(structvty*vty,uint8_tus
+e_json);externvoidzebra_vxlan_print_l3vni(structvty*vty,vni_tvni,uint8_tuse_json
+);externvoidzebra_vxlan_print_vrf_vni(structvty*vty,structzebra_vrf*zvrf,json_ob
+ject*json_vrfs);externintzebra_vxlan_add_del_gw_macip(structinterface*ifp,struct
+prefix*p,intadd);externintzebra_vxlan_svi_up(structinterface*ifp,structinterface
+*link_if);externintzebra_vxlan_svi_down(structinterface*ifp,structinterface*link
+_if);externintzebra_vxlan_local_neigh_add_update(structinterface*ifp,structinter
+face*link_if,structipaddr*ip,structethaddr*macaddr,uint16_tstate,uint8_text_lear
+ned);externintzebra_vxlan_local_neigh_del(structinterface*ifp,structinterface*li
+nk_if,structipaddr*ip);externintzebra_vxlan_local_mac_add_update(structinterface
+*ifp,structinterface*br_if,structethaddr*mac,vlanid_tvid,uint8_tsticky);externin
+tzebra_vxlan_local_mac_del(structinterface*ifp,structinterface*br_if,structethad
+dr*mac,vlanid_tvid);externintzebra_vxlan_check_readd_remote_mac(structinterface*
+ifp,structinterface*br_if,structethaddr*mac,vlanid_tvid);externintzebra_vxlan_ch
+eck_del_local_mac(structinterface*ifp,structinterface*br_if,structethaddr*mac,vl
+anid_tvid);externintzebra_vxlan_if_up(structinterface*ifp);externintzebra_vxlan_
+if_down(structinterface*ifp);externintzebra_vxlan_if_add(structinterface*ifp);ex
+ternintzebra_vxlan_if_update(structinterface*ifp,uint16_tchgflags);externintzebr
+a_vxlan_if_del(structinterface*ifp);externintzebra_vxlan_process_vrf_vni_cmd(str
+uctzebra_vrf*zvrf,vni_tvni,char*err,interr_str_sz,intfilter,intadd);externvoidze
+bra_vxlan_init_tables(structzebra_vrf*zvrf);externvoidzebra_vxlan_close_tables(s
+tructzebra_vrf*);externvoidzebra_vxlan_cleanup_tables(structzebra_vrf*);externvo
+idzebra_vxlan_ns_init(structzebra_ns*zns);externvoidzebra_vxlan_ns_disable(struc
+tzebra_ns*zns);externvoidzebra_vxlan_evpn_vrf_route_add(vrf_id_tvrf_id,structeth
+addr*rmac,structipaddr*ip,structprefix*host_prefix);externvoidzebra_vxlan_evpn_v
+rf_route_del(vrf_id_tvrf_id,structethaddr*rmac,structipaddr*vtep_ip,structprefix
+*host_prefix);#endif/*_ZEBRA_VXLAN_H*/

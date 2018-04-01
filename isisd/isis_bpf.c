@@ -1,321 +1,89 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_bpf.c
- *
- * Copyright (C) 2001,2002    Sampo Saaristo
- *                            Tampere University of Technology
- *                            Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#if ISIS_METHOD == ISIS_METHOD_BPF
-#include <net/if.h>
-#include <netinet/if_ether.h>
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <net/bpf.h>
-
-#include "log.h"
-#include "network.h"
-#include "stream.h"
-#include "if.h"
-
-#include "isisd/dict.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_common.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isis_flags.h"
-#include "isisd/isisd.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isis_network.h"
-
-#include "privs.h"
-
-struct bpf_insn llcfilter[] = {
-	BPF_STMT(BPF_LD + BPF_B + BPF_ABS,
-		 ETHER_HDR_LEN), /* check first byte */
-	BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ISO_SAP, 0, 5),
-	BPF_STMT(BPF_LD + BPF_B + BPF_ABS, ETHER_HDR_LEN + 1),
-	BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ISO_SAP, 0,
-		 3), /* check second byte */
-	BPF_STMT(BPF_LD + BPF_B + BPF_ABS, ETHER_HDR_LEN + 2),
-	BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x03, 0, 1), /* check third byte */
-	BPF_STMT(BPF_RET + BPF_K, (unsigned int)-1),
-	BPF_STMT(BPF_RET + BPF_K, 0)};
-unsigned int readblen = 0;
-uint8_t *readbuff = NULL;
-
-/*
- * Table 9 - Architectural constants for use with ISO 8802 subnetworks
- * ISO 10589 - 8.4.8
- */
-
-uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
-uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
-
-static char sock_buff[8192];
-
-static int open_bpf_dev(struct isis_circuit *circuit)
-{
-	int i = 0, fd;
-	char bpfdev[128];
-	struct ifreq ifr;
-	unsigned int blen, immediate;
-#ifdef BIOCSSEESENT
-	unsigned int seesent;
-#endif
-	struct timeval timeout;
-	struct bpf_program bpf_prog;
-
-	do {
-		(void)snprintf(bpfdev, sizeof(bpfdev), "/dev/bpf%d", i++);
-		fd = open(bpfdev, O_RDWR);
-	} while (fd < 0 && errno == EBUSY);
-
-	if (fd < 0) {
-		zlog_warn("open_bpf_dev(): failed to create bpf socket: %s",
-			  safe_strerror(errno));
-		return ISIS_WARNING;
-	}
-
-	zlog_debug("Opened BPF device %s", bpfdev);
-
-	memcpy(ifr.ifr_name, circuit->interface->name, sizeof(ifr.ifr_name));
-	if (ioctl(fd, BIOCSETIF, (caddr_t)&ifr) < 0) {
-		zlog_warn("open_bpf_dev(): failed to bind to interface: %s",
-			  safe_strerror(errno));
-		return ISIS_WARNING;
-	}
-
-	if (ioctl(fd, BIOCGBLEN, (caddr_t)&blen) < 0) {
-		zlog_warn("failed to get BPF buffer len");
-		blen = circuit->interface->mtu;
-	}
-
-	readblen = blen;
-
-	if (readbuff == NULL)
-		readbuff = malloc(blen);
-
-	zlog_debug("BPF buffer len = %u", blen);
-
-	/*  BPF(4): reads return immediately upon packet reception.
-	 *  Otherwise, a read will block until either the kernel
-	 *  buffer becomes full or a timeout occurs.
-	 */
-	immediate = 1;
-	if (ioctl(fd, BIOCIMMEDIATE, (caddr_t)&immediate) < 0) {
-		zlog_warn("failed to set BPF dev to immediate mode");
-	}
-
-#ifdef BIOCSSEESENT
-	/*
-	 * We want to see only incoming packets
-	 */
-	seesent = 0;
-	if (ioctl(fd, BIOCSSEESENT, (caddr_t)&seesent) < 0) {
-		zlog_warn("failed to set BPF dev to incoming only mode");
-	}
-#endif
-
-	/*
-	 * ...but all of them
-	 */
-	if (ioctl(fd, BIOCPROMISC) < 0) {
-		zlog_warn("failed to set BPF dev to promiscuous mode");
-	}
-
-	/*
-	 * If the buffer length is smaller than our mtu, lets try to increase it
-	 */
-	if (blen < circuit->interface->mtu) {
-		if (ioctl(fd, BIOCSBLEN, &circuit->interface->mtu) < 0) {
-			zlog_warn("failed to set BPF buffer len (%u to %u)",
-				  blen, circuit->interface->mtu);
-		}
-	}
-
-	/*
-	 * Set a timeout parameter - hope this helps select()
-	 */
-	timeout.tv_sec = 600;
-	timeout.tv_usec = 0;
-	if (ioctl(fd, BIOCSRTIMEOUT, (caddr_t)&timeout) < 0) {
-		zlog_warn("failed to set BPF device timeout");
-	}
-
-	/*
-	 * And set the filter
-	 */
-	memset(&bpf_prog, 0, sizeof(struct bpf_program));
-	bpf_prog.bf_len = 8;
-	bpf_prog.bf_insns = &(llcfilter[0]);
-	if (ioctl(fd, BIOCSETF, (caddr_t)&bpf_prog) < 0) {
-		zlog_warn("open_bpf_dev(): failed to install filter: %s",
-			  safe_strerror(errno));
-		return ISIS_WARNING;
-	}
-
-	assert(fd > 0);
-
-	circuit->fd = fd;
-
-	return ISIS_OK;
-}
-
-/*
- * Create the socket and set the tx/rx funcs
- */
-int isis_sock_init(struct isis_circuit *circuit)
-{
-	int retval = ISIS_OK;
-
-	if (isisd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs, %s", __func__,
-			 safe_strerror(errno));
-
-	retval = open_bpf_dev(circuit);
-
-	if (retval != ISIS_OK) {
-		zlog_warn("%s: could not initialize the socket", __func__);
-		goto end;
-	}
-
-	if (if_is_broadcast(circuit->interface)) {
-		circuit->tx = isis_send_pdu_bcast;
-		circuit->rx = isis_recv_pdu_bcast;
-	} else {
-		zlog_warn("isis_sock_init(): unknown circuit type");
-		retval = ISIS_WARNING;
-		goto end;
-	}
-
-end:
-	if (isisd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs, %s", __func__,
-			 safe_strerror(errno));
-
-	return retval;
-}
-
-int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
-{
-	int bytesread = 0, bytestoread, offset, one = 1, err = ISIS_OK;
-	uint8_t *buff_ptr;
-	struct bpf_hdr *bpf_hdr;
-
-	assert(circuit->fd > 0);
-
-	if (ioctl(circuit->fd, FIONREAD, (caddr_t)&bytestoread) < 0) {
-		zlog_warn("ioctl() FIONREAD failed: %s", safe_strerror(errno));
-	}
-
-	if (bytestoread) {
-		bytesread = read(circuit->fd, readbuff, readblen);
-	}
-	if (bytesread < 0) {
-		zlog_warn("isis_recv_pdu_bcast(): read() failed: %s",
-				safe_strerror(errno));
-		return ISIS_WARNING;
-	}
-
-	if (bytesread == 0)
-		return ISIS_WARNING;
-
-	buff_ptr = readbuff;
-	while (buff_ptr < readbuff + bytesread) {
-		bpf_hdr = (struct bpf_hdr *) buff_ptr;
-		assert(bpf_hdr->bh_caplen == bpf_hdr->bh_datalen);
-		offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETHER_HDR_LEN;
-
-		/* then we lose the BPF, LLC and ethernet headers */
-		stream_write(circuit->rcv_stream, buff_ptr + offset,
-			     bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
-		stream_set_getp(circuit->rcv_stream, 0);
-
-		memcpy(ssnpa, buff_ptr + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
-		ETHER_ADDR_LEN);
-
-		err = isis_handle_pdu(circuit, ssnpa);
-		stream_reset(circuit->rcv_stream);
-		buff_ptr += BPF_WORDALIGN(bpf_hdr->bh_hdrlen +
-						bpf_hdr->bh_datalen);
-	}
-
-
-	if (ioctl(circuit->fd, BIOCFLUSH, &one) < 0)
-		zlog_warn("Flushing failed: %s", safe_strerror(errno));
-
-	return ISIS_OK;
-}
-
-int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
-{
-	struct ether_header *eth;
-	ssize_t written;
-	size_t buflen;
-
-	buflen = stream_get_endp(circuit->snd_stream) + LLC_LEN + ETHER_HDR_LEN;
-	if (buflen > sizeof(sock_buff)) {
-		zlog_warn(
-			"isis_send_pdu_bcast: sock_buff size %zu is less than "
-			"output pdu size %zu on circuit %s",
-			sizeof(sock_buff), buflen, circuit->interface->name);
-		return ISIS_WARNING;
-	}
-
-	stream_set_getp(circuit->snd_stream, 0);
-
-	/*
-	 * First the eth header
-	 */
-	eth = (struct ether_header *)sock_buff;
-	if (level == 1)
-		memcpy(eth->ether_dhost, ALL_L1_ISS, ETH_ALEN);
-	else
-		memcpy(eth->ether_dhost, ALL_L2_ISS, ETH_ALEN);
-	memcpy(eth->ether_shost, circuit->u.bc.snpa, ETH_ALEN);
-	size_t frame_size = stream_get_endp(circuit->snd_stream) + LLC_LEN;
-	eth->ether_type = htons(isis_ethertype(frame_size));
-
-	/*
-	 * Then the LLC
-	 */
-	sock_buff[ETHER_HDR_LEN] = ISO_SAP;
-	sock_buff[ETHER_HDR_LEN + 1] = ISO_SAP;
-	sock_buff[ETHER_HDR_LEN + 2] = 0x03;
-
-	/* then we copy the data */
-	memcpy(sock_buff + (LLC_LEN + ETHER_HDR_LEN), circuit->snd_stream->data,
-	       stream_get_endp(circuit->snd_stream));
-
-	/* now we can send this */
-	written = write(circuit->fd, sock_buff, buflen);
-	if (written < 0) {
-		zlog_warn("IS-IS bpf: could not transmit packet on %s: %s",
-			  circuit->interface->name, safe_strerror(errno));
-		if (ERRNO_IO_RETRY(errno))
-			return ISIS_WARNING;
-		return ISIS_ERROR;
-	}
-
-	return ISIS_OK;
-}
-
-#endif /* ISIS_METHOD == ISIS_METHOD_BPF */
+/**IS-ISRout(e)ingprotocol-isis_bpf.c**Copyright(C)2001,2002SampoSaaristo*Tamper
+eUniversityofTechnology*InstituteofCommunicationsEngineering**Thisprogramisfrees
+oftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLic
+enseaspublishedbytheFree*SoftwareFoundation;eitherversion2oftheLicense,or(atyour
+option)*anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,bu
+tWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHANTABILITYor*FITNESSFOR
+APARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*moredetails.**Youshouldhaver
+eceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;
+ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02
+110-1301USA*/#include<zebra.h>#ifISIS_METHOD==ISIS_METHOD_BPF#include<net/if.h>#
+include<netinet/if_ether.h>#include<sys/time.h>#include<sys/ioctl.h>#include<net
+/bpf.h>#include"log.h"#include"network.h"#include"stream.h"#include"if.h"#includ
+e"isisd/dict.h"#include"isisd/isis_constants.h"#include"isisd/isis_common.h"#inc
+lude"isisd/isis_circuit.h"#include"isisd/isis_flags.h"#include"isisd/isisd.h"#in
+clude"isisd/isis_constants.h"#include"isisd/isis_circuit.h"#include"isisd/isis_n
+etwork.h"#include"privs.h"structbpf_insnllcfilter[]={BPF_STMT(BPF_LD+BPF_B+BPF_A
+BS,ETHER_HDR_LEN),/*checkfirstbyte*/BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K,ISO_SAP,0,5),
+BPF_STMT(BPF_LD+BPF_B+BPF_ABS,ETHER_HDR_LEN+1),BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K,IS
+O_SAP,0,3),/*checksecondbyte*/BPF_STMT(BPF_LD+BPF_B+BPF_ABS,ETHER_HDR_LEN+2),BPF
+_JUMP(BPF_JMP+BPF_JEQ+BPF_K,0x03,0,1),/*checkthirdbyte*/BPF_STMT(BPF_RET+BPF_K,(
+unsignedint)-1),BPF_STMT(BPF_RET+BPF_K,0)};unsignedintreadblen=0;uint8_t*readbuf
+f=NULL;/**Table9-ArchitecturalconstantsforusewithISO8802subnetworks*ISO10589-8.4
+.8*/uint8_tALL_L1_ISS[6]={0x01,0x80,0xC2,0x00,0x00,0x14};uint8_tALL_L2_ISS[6]={0
+x01,0x80,0xC2,0x00,0x00,0x15};uint8_tALL_ISS[6]={0x09,0x00,0x2B,0x00,0x00,0x05};
+uint8_tALL_ESS[6]={0x09,0x00,0x2B,0x00,0x00,0x04};staticcharsock_buff[8192];stat
+icintopen_bpf_dev(structisis_circuit*circuit){inti=0,fd;charbpfdev[128];structif
+reqifr;unsignedintblen,immediate;#ifdefBIOCSSEESENTunsignedintseesent;#endifstru
+cttimevaltimeout;structbpf_programbpf_prog;do{(void)snprintf(bpfdev,sizeof(bpfde
+v),"/dev/bpf%d",i++);fd=open(bpfdev,O_RDWR);}while(fd<0&&errno==EBUSY);if(fd<0){
+zlog_warn("open_bpf_dev():failedtocreatebpfsocket:%s",safe_strerror(errno));retu
+rnISIS_WARNING;}zlog_debug("OpenedBPFdevice%s",bpfdev);memcpy(ifr.ifr_name,circu
+it->interface->name,sizeof(ifr.ifr_name));if(ioctl(fd,BIOCSETIF,(caddr_t)&ifr)<0
+){zlog_warn("open_bpf_dev():failedtobindtointerface:%s",safe_strerror(errno));re
+turnISIS_WARNING;}if(ioctl(fd,BIOCGBLEN,(caddr_t)&blen)<0){zlog_warn("failedtoge
+tBPFbufferlen");blen=circuit->interface->mtu;}readblen=blen;if(readbuff==NULL)re
+adbuff=malloc(blen);zlog_debug("BPFbufferlen=%u",blen);/*BPF(4):readsreturnimmed
+iatelyuponpacketreception.*Otherwise,areadwillblockuntileitherthekernel*bufferbe
+comesfulloratimeoutoccurs.*/immediate=1;if(ioctl(fd,BIOCIMMEDIATE,(caddr_t)&imme
+diate)<0){zlog_warn("failedtosetBPFdevtoimmediatemode");}#ifdefBIOCSSEESENT/**We
+wanttoseeonlyincomingpackets*/seesent=0;if(ioctl(fd,BIOCSSEESENT,(caddr_t)&seese
+nt)<0){zlog_warn("failedtosetBPFdevtoincomingonlymode");}#endif/**...butallofthe
+m*/if(ioctl(fd,BIOCPROMISC)<0){zlog_warn("failedtosetBPFdevtopromiscuousmode");}
+/**Ifthebufferlengthissmallerthanourmtu,letstrytoincreaseit*/if(blen<circuit->in
+terface->mtu){if(ioctl(fd,BIOCSBLEN,&circuit->interface->mtu)<0){zlog_warn("fail
+edtosetBPFbufferlen(%uto%u)",blen,circuit->interface->mtu);}}/**Setatimeoutparam
+eter-hopethishelpsselect()*/timeout.tv_sec=600;timeout.tv_usec=0;if(ioctl(fd,BIO
+CSRTIMEOUT,(caddr_t)&timeout)<0){zlog_warn("failedtosetBPFdevicetimeout");}/**An
+dsetthefilter*/memset(&bpf_prog,0,sizeof(structbpf_program));bpf_prog.bf_len=8;b
+pf_prog.bf_insns=&(llcfilter[0]);if(ioctl(fd,BIOCSETF,(caddr_t)&bpf_prog)<0){zlo
+g_warn("open_bpf_dev():failedtoinstallfilter:%s",safe_strerror(errno));returnISI
+S_WARNING;}assert(fd>0);circuit->fd=fd;returnISIS_OK;}/**Createthesocketandsetth
+etx/rxfuncs*/intisis_sock_init(structisis_circuit*circuit){intretval=ISIS_OK;if(
+isisd_privs.change(ZPRIVS_RAISE))zlog_err("%s:couldnotraiseprivs,%s",__func__,sa
+fe_strerror(errno));retval=open_bpf_dev(circuit);if(retval!=ISIS_OK){zlog_warn("
+%s:couldnotinitializethesocket",__func__);gotoend;}if(if_is_broadcast(circuit->i
+nterface)){circuit->tx=isis_send_pdu_bcast;circuit->rx=isis_recv_pdu_bcast;}else
+{zlog_warn("isis_sock_init():unknowncircuittype");retval=ISIS_WARNING;gotoend;}e
+nd:if(isisd_privs.change(ZPRIVS_LOWER))zlog_err("%s:couldnotlowerprivs,%s",__fun
+c__,safe_strerror(errno));returnretval;}intisis_recv_pdu_bcast(structisis_circui
+t*circuit,uint8_t*ssnpa){intbytesread=0,bytestoread,offset,one=1,err=ISIS_OK;uin
+t8_t*buff_ptr;structbpf_hdr*bpf_hdr;assert(circuit->fd>0);if(ioctl(circuit->fd,F
+IONREAD,(caddr_t)&bytestoread)<0){zlog_warn("ioctl()FIONREADfailed:%s",safe_stre
+rror(errno));}if(bytestoread){bytesread=read(circuit->fd,readbuff,readblen);}if(
+bytesread<0){zlog_warn("isis_recv_pdu_bcast():read()failed:%s",safe_strerror(err
+no));returnISIS_WARNING;}if(bytesread==0)returnISIS_WARNING;buff_ptr=readbuff;wh
+ile(buff_ptr<readbuff+bytesread){bpf_hdr=(structbpf_hdr*)buff_ptr;assert(bpf_hdr
+->bh_caplen==bpf_hdr->bh_datalen);offset=bpf_hdr->bh_hdrlen+LLC_LEN+ETHER_HDR_LE
+N;/*thenwelosetheBPF,LLCandethernetheaders*/stream_write(circuit->rcv_stream,buf
+f_ptr+offset,bpf_hdr->bh_caplen-LLC_LEN-ETHER_HDR_LEN);stream_set_getp(circuit->
+rcv_stream,0);memcpy(ssnpa,buff_ptr+bpf_hdr->bh_hdrlen+ETHER_ADDR_LEN,ETHER_ADDR
+_LEN);err=isis_handle_pdu(circuit,ssnpa);stream_reset(circuit->rcv_stream);buff_
+ptr+=BPF_WORDALIGN(bpf_hdr->bh_hdrlen+bpf_hdr->bh_datalen);}if(ioctl(circuit->fd
+,BIOCFLUSH,&one)<0)zlog_warn("Flushingfailed:%s",safe_strerror(errno));returnISI
+S_OK;}intisis_send_pdu_bcast(structisis_circuit*circuit,intlevel){structether_he
+ader*eth;ssize_twritten;size_tbuflen;buflen=stream_get_endp(circuit->snd_stream)
++LLC_LEN+ETHER_HDR_LEN;if(buflen>sizeof(sock_buff)){zlog_warn("isis_send_pdu_bca
+st:sock_buffsize%zuislessthan""outputpdusize%zuoncircuit%s",sizeof(sock_buff),bu
+flen,circuit->interface->name);returnISIS_WARNING;}stream_set_getp(circuit->snd_
+stream,0);/**Firsttheethheader*/eth=(structether_header*)sock_buff;if(level==1)m
+emcpy(eth->ether_dhost,ALL_L1_ISS,ETH_ALEN);elsememcpy(eth->ether_dhost,ALL_L2_I
+SS,ETH_ALEN);memcpy(eth->ether_shost,circuit->u.bc.snpa,ETH_ALEN);size_tframe_si
+ze=stream_get_endp(circuit->snd_stream)+LLC_LEN;eth->ether_type=htons(isis_ether
+type(frame_size));/**ThentheLLC*/sock_buff[ETHER_HDR_LEN]=ISO_SAP;sock_buff[ETHE
+R_HDR_LEN+1]=ISO_SAP;sock_buff[ETHER_HDR_LEN+2]=0x03;/*thenwecopythedata*/memcpy
+(sock_buff+(LLC_LEN+ETHER_HDR_LEN),circuit->snd_stream->data,stream_get_endp(cir
+cuit->snd_stream));/*nowwecansendthis*/written=write(circuit->fd,sock_buff,bufle
+n);if(written<0){zlog_warn("IS-ISbpf:couldnottransmitpacketon%s:%s",circuit->int
+erface->name,safe_strerror(errno));if(ERRNO_IO_RETRY(errno))returnISIS_WARNING;r
+eturnISIS_ERROR;}returnISIS_OK;}#endif/*ISIS_METHOD==ISIS_METHOD_BPF*/

@@ -1,169 +1,45 @@
-/*
- * NS related header.
- * Copyright (C) 2014 6WIND S.A.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_NS_H
-#define _ZEBRA_NS_H
-
-#include "openbsd-tree.h"
-#include "linklist.h"
-#include "vty.h"
-
-typedef uint32_t ns_id_t;
-
-/* the default NS ID */
-#define NS_UNKNOWN UINT32_MAX
-
-/* Default netns directory (Linux) */
-#define NS_RUN_DIR         "/var/run/netns"
-
-#ifdef HAVE_NETNS
-#define NS_DEFAULT_NAME    "/proc/self/ns/net"
-#else  /* !HAVE_NETNS */
-#define NS_DEFAULT_NAME    "Default-logical-router"
-#endif /* HAVE_NETNS */
-
-struct ns {
-	RB_ENTRY(ns) entry;
-
-	/* Identifier, same as the vector index */
-	ns_id_t ns_id;
-
-	/* Name */
-	char *name;
-
-	/* File descriptor */
-	int fd;
-
-	/* Master list of interfaces belonging to this NS */
-	struct list *iflist;
-
-	/* Back Pointer to VRF */
-	void *vrf_ctxt;
-
-	/* User data */
-	void *info;
-};
-RB_HEAD(ns_head, ns);
-RB_PROTOTYPE(ns_head, ns, entry, ns_compare)
-
-extern struct ns_head ns_tree;
-
-/*
- * API for managing NETNS. eg from zebra daemon
- * one want to manage the list of NETNS, etc...
- */
-
-/*
- * NS hooks
- */
-
-#define NS_NEW_HOOK        0   /* a new logical-router is just created */
-#define NS_DELETE_HOOK     1   /* a logical-router is to be deleted */
-#define NS_ENABLE_HOOK     2   /* a logical-router is ready to use */
-#define NS_DISABLE_HOOK    3   /* a logical-router is to be unusable */
-
-/*
- * Add a specific hook ns module.
- * @param1: hook type
- * @param2: the callback function
- *          - param 1: the NS ID
- *          - param 2: the address of the user data pointer (the user data
- *                     can be stored in or freed from there)
- */
-extern void ns_add_hook(int type, int (*)(struct ns *));
-
-
-/*
- * NS initializer/destructor
- */
-
-extern void ns_terminate(void);
-
-/* API to initialize NETNS managerment
- * parameter is the default ns_id
- */
-extern void ns_init_management(ns_id_t ns_id);
-
-
-/*
- * NS utilities
- */
-
-/* Create a socket serving for the given NS
- */
-int ns_socket(int domain, int type, int protocol, ns_id_t ns_id);
-
-/* return the path of the NETNS */
-extern char *ns_netns_pathname(struct vty *vty, const char *name);
-
-/* Parse and execute a function on all the NETNS */
-extern void ns_walk_func(int (*func)(struct ns *));
-
-/* API to get the NETNS name, from the ns pointer */
-extern const char *ns_get_name(struct ns *ns);
-
-/* only called from vrf ( when removing netns from vrf)
- * or at VRF or logical router termination
- */
-extern void ns_delete(struct ns *ns);
-
-/* return > 0 if netns is available
- * called by VRF to check netns backend is available for VRF
- */
-extern int ns_have_netns(void);
-
-/* API to get context information of a NS */
-extern void *ns_info_lookup(ns_id_t ns_id);
-
-/*
- * NS init routine
- * should be called from backendx
- */
-extern void ns_init(void);
-
-/* API to retrieve default NS */
-extern ns_id_t ns_get_default_id(void);
-
-#define NS_DEFAULT ns_get_default_id()
-
-/* API that can be used to change from NS */
-extern int ns_switchback_to_initial(void);
-extern int ns_switch_to_netns(const char *netns_name);
-
-/*
- * NS handling routines.
- * called by modules that use NS backend
- */
-
-/* API to search for already present NETNS */
-extern struct ns *ns_lookup(ns_id_t ns_id);
-extern struct ns *ns_lookup_name(const char *name);
-
-/* API to handle NS : creation, enable, disable
- * for enable, a callback function is passed as parameter
- * the callback belongs to the module that uses NS as backend
- * upon enabling the NETNS, the upper layer is informed
- */
-extern int ns_enable(struct ns *ns, void (*func)(ns_id_t, void *));
-extern struct ns *ns_get_created(struct ns *ns, char *name, ns_id_t ns_id);
-extern void ns_disable(struct ns *ns);
-
-#endif /*_ZEBRA_NS_H*/
+/**NSrelatedheader.*Copyright(C)20146WINDS.A.**ThisfileispartofGNUZebra.**GNUZeb
+raisfreesoftware;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneral
+PublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversion2,or(atyour*op
+tion)anylaterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITH
+OUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTI
+CULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceive
+dacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,
+writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-13
+01USA*/#ifndef_ZEBRA_NS_H#define_ZEBRA_NS_H#include"openbsd-tree.h"#include"link
+list.h"#include"vty.h"typedefuint32_tns_id_t;/*thedefaultNSID*/#defineNS_UNKNOWN
+UINT32_MAX/*Defaultnetnsdirectory(Linux)*/#defineNS_RUN_DIR"/var/run/netns"#ifde
+fHAVE_NETNS#defineNS_DEFAULT_NAME"/proc/self/ns/net"#else/*!HAVE_NETNS*/#defineN
+S_DEFAULT_NAME"Default-logical-router"#endif/*HAVE_NETNS*/structns{RB_ENTRY(ns)e
+ntry;/*Identifier,sameasthevectorindex*/ns_id_tns_id;/*Name*/char*name;/*Filedes
+criptor*/intfd;/*MasterlistofinterfacesbelongingtothisNS*/structlist*iflist;/*Ba
+ckPointertoVRF*/void*vrf_ctxt;/*Userdata*/void*info;};RB_HEAD(ns_head,ns);RB_PRO
+TOTYPE(ns_head,ns,entry,ns_compare)externstructns_headns_tree;/**APIformanagingN
+ETNS.egfromzebradaemon*onewanttomanagethelistofNETNS,etc...*//**NShooks*/#define
+NS_NEW_HOOK0/*anewlogical-routerisjustcreated*/#defineNS_DELETE_HOOK1/*alogical-
+routeristobedeleted*/#defineNS_ENABLE_HOOK2/*alogical-routerisreadytouse*/#defin
+eNS_DISABLE_HOOK3/*alogical-routeristobeunusable*//**Addaspecifichooknsmodule.*@
+param1:hooktype*@param2:thecallbackfunction*-param1:theNSID*-param2:theaddressof
+theuserdatapointer(theuserdata*canbestoredinorfreedfromthere)*/externvoidns_add_
+hook(inttype,int(*)(structns*));/**NSinitializer/destructor*/externvoidns_termin
+ate(void);/*APItoinitializeNETNSmanagerment*parameteristhedefaultns_id*/externvo
+idns_init_management(ns_id_tns_id);/**NSutilities*//*Createasocketservingfortheg
+ivenNS*/intns_socket(intdomain,inttype,intprotocol,ns_id_tns_id);/*returnthepath
+oftheNETNS*/externchar*ns_netns_pathname(structvty*vty,constchar*name);/*Parsean
+dexecuteafunctiononalltheNETNS*/externvoidns_walk_func(int(*func)(structns*));/*
+APItogettheNETNSname,fromthenspointer*/externconstchar*ns_get_name(structns*ns);
+/*onlycalledfromvrf(whenremovingnetnsfromvrf)*oratVRForlogicalroutertermination*
+/externvoidns_delete(structns*ns);/*return>0ifnetnsisavailable*calledbyVRFtochec
+knetnsbackendisavailableforVRF*/externintns_have_netns(void);/*APItogetcontextin
+formationofaNS*/externvoid*ns_info_lookup(ns_id_tns_id);/**NSinitroutine*shouldb
+ecalledfrombackendx*/externvoidns_init(void);/*APItoretrievedefaultNS*/externns_
+id_tns_get_default_id(void);#defineNS_DEFAULTns_get_default_id()/*APIthatcanbeus
+edtochangefromNS*/externintns_switchback_to_initial(void);externintns_switch_to_
+netns(constchar*netns_name);/**NShandlingroutines.*calledbymodulesthatuseNSbacke
+nd*//*APItosearchforalreadypresentNETNS*/externstructns*ns_lookup(ns_id_tns_id);
+externstructns*ns_lookup_name(constchar*name);/*APItohandleNS:creation,enable,di
+sable*forenable,acallbackfunctionispassedasparameter*thecallbackbelongstothemodu
+lethatusesNSasbackend*uponenablingtheNETNS,theupperlayerisinformed*/externintns_
+enable(structns*ns,void(*func)(ns_id_t,void*));externstructns*ns_get_created(str
+uctns*ns,char*name,ns_id_tns_id);externvoidns_disable(structns*ns);#endif/*_ZEBR
+A_NS_H*/

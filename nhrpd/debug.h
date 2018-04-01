@@ -1,43 +1,10 @@
-#include "log.h"
-
-#if defined(__GNUC__) && (__GNUC__ >= 3)
-#define likely(_x) __builtin_expect(!!(_x), 1)
-#define unlikely(_x) __builtin_expect(!!(_x), 0)
-#else
-#define likely(_x) !!(_x)
-#define unlikely(_x) !!(_x)
-#endif
-
-#define NHRP_DEBUG_COMMON	(1 << 0)
-#define NHRP_DEBUG_KERNEL	(1 << 1)
-#define NHRP_DEBUG_IF		(1 << 2)
-#define NHRP_DEBUG_ROUTE	(1 << 3)
-#define NHRP_DEBUG_VICI		(1 << 4)
-#define NHRP_DEBUG_EVENT	(1 << 5)
-#define NHRP_DEBUG_ALL		(0xFFFF)
-
-extern unsigned int debug_flags;
-
-#if defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
-
-#define debugf(level, ...)                                                     \
-	do {                                                                   \
-		if (unlikely(debug_flags & level))                             \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
-
-#elif defined __GNUC__
-
-#define debugf(level, _args...)                                                \
-	do {                                                                   \
-		if (unlikely(debug_flags & level))                             \
-			zlog_debug(_args);                                     \
-	} while (0)
-
-#else
-
-static inline void debugf(int level, const char *format, ...)
-{
-}
-
-#endif
+#include"log.h"#ifdefined(__GNUC__)&&(__GNUC__>=3)#definelikely(_x)__builtin_exp
+ect(!!(_x),1)#defineunlikely(_x)__builtin_expect(!!(_x),0)#else#definelikely(_x)
+!!(_x)#defineunlikely(_x)!!(_x)#endif#defineNHRP_DEBUG_COMMON(1<<0)#defineNHRP_D
+EBUG_KERNEL(1<<1)#defineNHRP_DEBUG_IF(1<<2)#defineNHRP_DEBUG_ROUTE(1<<3)#defineN
+HRP_DEBUG_VICI(1<<4)#defineNHRP_DEBUG_EVENT(1<<5)#defineNHRP_DEBUG_ALL(0xFFFF)ex
+ternunsignedintdebug_flags;#ifdefined__STDC_VERSION__&&__STDC_VERSION__>=199901L
+#definedebugf(level,...)\do{\if(unlikely(debug_flags&level))\zlog_debug(__VA_ARG
+S__);\}while(0)#elifdefined__GNUC__#definedebugf(level,_args...)\do{\if(unlikely
+(debug_flags&level))\zlog_debug(_args);\}while(0)#elsestaticinlinevoiddebugf(int
+level,constchar*format,...){}#endif

@@ -1,57 +1,27 @@
-/* ospfd memory type definitions
- *
- * Copyright (C) 2015  David Lamparter
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include "ospf_memory.h"
-
-DEFINE_MGROUP(OSPFD, "ospfd")
-DEFINE_MTYPE(OSPFD, OSPF_TOP, "OSPF top")
-DEFINE_MTYPE(OSPFD, OSPF_AREA, "OSPF area")
-DEFINE_MTYPE(OSPFD, OSPF_AREA_RANGE, "OSPF area range")
-DEFINE_MTYPE(OSPFD, OSPF_NETWORK, "OSPF network")
-DEFINE_MTYPE(OSPFD, OSPF_NEIGHBOR_STATIC, "OSPF static nbr")
-DEFINE_MTYPE(OSPFD, OSPF_IF, "OSPF interface")
-DEFINE_MTYPE(OSPFD, OSPF_NEIGHBOR, "OSPF neighbor")
-DEFINE_MTYPE(OSPFD, OSPF_ROUTE, "OSPF route")
-DEFINE_MTYPE(OSPFD, OSPF_TMP, "OSPF tmp mem")
-DEFINE_MTYPE(OSPFD, OSPF_LSA, "OSPF LSA")
-DEFINE_MTYPE(OSPFD, OSPF_LSA_DATA, "OSPF LSA data")
-DEFINE_MTYPE(OSPFD, OSPF_LSDB, "OSPF LSDB")
-DEFINE_MTYPE(OSPFD, OSPF_PACKET, "OSPF packet")
-DEFINE_MTYPE(OSPFD, OSPF_FIFO, "OSPF FIFO queue")
-DEFINE_MTYPE(OSPFD, OSPF_VERTEX, "OSPF vertex")
-DEFINE_MTYPE(OSPFD, OSPF_VERTEX_PARENT, "OSPF vertex parent")
-DEFINE_MTYPE(OSPFD, OSPF_NEXTHOP, "OSPF nexthop")
-DEFINE_MTYPE(OSPFD, OSPF_PATH, "OSPF path")
-DEFINE_MTYPE(OSPFD, OSPF_VL_DATA, "OSPF VL data")
-DEFINE_MTYPE(OSPFD, OSPF_CRYPT_KEY, "OSPF crypt key")
-DEFINE_MTYPE(OSPFD, OSPF_EXTERNAL_INFO, "OSPF ext. info")
-DEFINE_MTYPE(OSPFD, OSPF_DISTANCE, "OSPF distance")
-DEFINE_MTYPE(OSPFD, OSPF_IF_INFO, "OSPF if info")
-DEFINE_MTYPE(OSPFD, OSPF_IF_PARAMS, "OSPF if params")
-DEFINE_MTYPE(OSPFD, OSPF_MESSAGE, "OSPF message")
-DEFINE_MTYPE(OSPFD, OSPF_MPLS_TE, "OSPF MPLS parameters")
-DEFINE_MTYPE(OSPFD, OSPF_PCE_PARAMS, "OSPF PCE parameters")
-DEFINE_MTYPE(OSPFD, OSPF_EXT_PARAMS, "OSPF Extended parameters")
-DEFINE_MTYPE(OSPFD, OSPF_SR_PARAMS, "OSPF Segment Routing parameters")
+/*ospfdmemorytypedefinitions**Copyright(C)2015DavidLamparter**ThisfileispartofQu
+agga.**Quaggaisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsofth
+eGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,o
+r(atyouroption)any*laterversion.**Quaggaisdistributedinthehopethatitwillbeuseful
+,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESS
+FORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldha
+vereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYI
+NG;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,M
+A02110-1301USA*/#ifdefHAVE_CONFIG_H#include"config.h"#endif#include"ospf_memory.
+h"DEFINE_MGROUP(OSPFD,"ospfd")DEFINE_MTYPE(OSPFD,OSPF_TOP,"OSPFtop")DEFINE_MTYPE
+(OSPFD,OSPF_AREA,"OSPFarea")DEFINE_MTYPE(OSPFD,OSPF_AREA_RANGE,"OSPFarearange")D
+EFINE_MTYPE(OSPFD,OSPF_NETWORK,"OSPFnetwork")DEFINE_MTYPE(OSPFD,OSPF_NEIGHBOR_ST
+ATIC,"OSPFstaticnbr")DEFINE_MTYPE(OSPFD,OSPF_IF,"OSPFinterface")DEFINE_MTYPE(OSP
+FD,OSPF_NEIGHBOR,"OSPFneighbor")DEFINE_MTYPE(OSPFD,OSPF_ROUTE,"OSPFroute")DEFINE
+_MTYPE(OSPFD,OSPF_TMP,"OSPFtmpmem")DEFINE_MTYPE(OSPFD,OSPF_LSA,"OSPFLSA")DEFINE_
+MTYPE(OSPFD,OSPF_LSA_DATA,"OSPFLSAdata")DEFINE_MTYPE(OSPFD,OSPF_LSDB,"OSPFLSDB")
+DEFINE_MTYPE(OSPFD,OSPF_PACKET,"OSPFpacket")DEFINE_MTYPE(OSPFD,OSPF_FIFO,"OSPFFI
+FOqueue")DEFINE_MTYPE(OSPFD,OSPF_VERTEX,"OSPFvertex")DEFINE_MTYPE(OSPFD,OSPF_VER
+TEX_PARENT,"OSPFvertexparent")DEFINE_MTYPE(OSPFD,OSPF_NEXTHOP,"OSPFnexthop")DEFI
+NE_MTYPE(OSPFD,OSPF_PATH,"OSPFpath")DEFINE_MTYPE(OSPFD,OSPF_VL_DATA,"OSPFVLdata"
+)DEFINE_MTYPE(OSPFD,OSPF_CRYPT_KEY,"OSPFcryptkey")DEFINE_MTYPE(OSPFD,OSPF_EXTERN
+AL_INFO,"OSPFext.info")DEFINE_MTYPE(OSPFD,OSPF_DISTANCE,"OSPFdistance")DEFINE_MT
+YPE(OSPFD,OSPF_IF_INFO,"OSPFifinfo")DEFINE_MTYPE(OSPFD,OSPF_IF_PARAMS,"OSPFifpar
+ams")DEFINE_MTYPE(OSPFD,OSPF_MESSAGE,"OSPFmessage")DEFINE_MTYPE(OSPFD,OSPF_MPLS_
+TE,"OSPFMPLSparameters")DEFINE_MTYPE(OSPFD,OSPF_PCE_PARAMS,"OSPFPCEparameters")D
+EFINE_MTYPE(OSPFD,OSPF_EXT_PARAMS,"OSPFExtendedparameters")DEFINE_MTYPE(OSPFD,OS
+PF_SR_PARAMS,"OSPFSegmentRoutingparameters")

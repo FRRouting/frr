@@ -1,424 +1,118 @@
-/* RIPng offset-list
- * Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/* RIPng support by Vincent Jardin <vincent.jardin@6wind.com>
- * Copyright (C) 2002 6WIND
- */
-
-#include <zebra.h>
-
-#include "if.h"
-#include "prefix.h"
-#include "filter.h"
-#include "command.h"
-#include "linklist.h"
-#include "memory.h"
-
-#include "ripngd/ripngd.h"
-
-#define RIPNG_OFFSET_LIST_IN  0
-#define RIPNG_OFFSET_LIST_OUT 1
-#define RIPNG_OFFSET_LIST_MAX 2
-
-struct ripng_offset_list {
-	char *ifname;
-
-	struct {
-		char *alist_name;
-		/* struct access_list *alist; */
-		int metric;
-	} direct[RIPNG_OFFSET_LIST_MAX];
-};
-
-static struct list *ripng_offset_list_master;
-
-static int strcmp_safe(const char *s1, const char *s2)
-{
-	if (s1 == NULL && s2 == NULL)
-		return 0;
-	if (s1 == NULL)
-		return -1;
-	if (s2 == NULL)
-		return 1;
-	return strcmp(s1, s2);
-}
-
-static struct ripng_offset_list *ripng_offset_list_new(void)
-{
-	struct ripng_offset_list *new;
-
-	new = XCALLOC(MTYPE_RIPNG_OFFSET_LIST,
-		      sizeof(struct ripng_offset_list));
-	return new;
-}
-
-static void ripng_offset_list_free(struct ripng_offset_list *offset)
-{
-	XFREE(MTYPE_RIPNG_OFFSET_LIST, offset);
-}
-
-static struct ripng_offset_list *ripng_offset_list_lookup(const char *ifname)
-{
-	struct ripng_offset_list *offset;
-	struct listnode *node, *nnode;
-
-	for (ALL_LIST_ELEMENTS(ripng_offset_list_master, node, nnode, offset)) {
-		if (strcmp_safe(offset->ifname, ifname) == 0)
-			return offset;
-	}
-	return NULL;
-}
-
-static struct ripng_offset_list *ripng_offset_list_get(const char *ifname)
-{
-	struct ripng_offset_list *offset;
-
-	offset = ripng_offset_list_lookup(ifname);
-	if (offset)
-		return offset;
-
-	offset = ripng_offset_list_new();
-	if (ifname)
-		offset->ifname = strdup(ifname);
-	listnode_add_sort(ripng_offset_list_master, offset);
-
-	return offset;
-}
-
-static int ripng_offset_list_set(struct vty *vty, const char *alist,
-				 const char *direct_str, const char *metric_str,
-				 const char *ifname)
-{
-	int direct;
-	int metric;
-	struct ripng_offset_list *offset;
-
-	/* Check direction. */
-	if (strncmp(direct_str, "i", 1) == 0)
-		direct = RIPNG_OFFSET_LIST_IN;
-	else if (strncmp(direct_str, "o", 1) == 0)
-		direct = RIPNG_OFFSET_LIST_OUT;
-	else {
-		vty_out(vty, "Invalid direction: %s\n", direct_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Check metric. */
-	metric = atoi(metric_str);
-	if (metric < 0 || metric > 16) {
-		vty_out(vty, "Invalid metric: %s\n", metric_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Get offset-list structure with interface name. */
-	offset = ripng_offset_list_get(ifname);
-
-	if (offset->direct[direct].alist_name)
-		free(offset->direct[direct].alist_name);
-	offset->direct[direct].alist_name = strdup(alist);
-	offset->direct[direct].metric = metric;
-
-	return CMD_SUCCESS;
-}
-
-static int ripng_offset_list_unset(struct vty *vty, const char *alist,
-				   const char *direct_str,
-				   const char *metric_str, const char *ifname)
-{
-	int direct;
-	int metric;
-	struct ripng_offset_list *offset;
-
-	/* Check direction. */
-	if (strncmp(direct_str, "i", 1) == 0)
-		direct = RIPNG_OFFSET_LIST_IN;
-	else if (strncmp(direct_str, "o", 1) == 0)
-		direct = RIPNG_OFFSET_LIST_OUT;
-	else {
-		vty_out(vty, "Invalid direction: %s\n", direct_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Check metric. */
-	metric = atoi(metric_str);
-	if (metric < 0 || metric > 16) {
-		vty_out(vty, "Invalid metric: %s\n", metric_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Get offset-list structure with interface name. */
-	offset = ripng_offset_list_lookup(ifname);
-
-	if (offset) {
-		if (offset->direct[direct].alist_name)
-			free(offset->direct[direct].alist_name);
-		offset->direct[direct].alist_name = NULL;
-
-		if (offset->direct[RIPNG_OFFSET_LIST_IN].alist_name == NULL
-		    && offset->direct[RIPNG_OFFSET_LIST_OUT].alist_name
-			       == NULL) {
-			listnode_delete(ripng_offset_list_master, offset);
-			if (offset->ifname)
-				free(offset->ifname);
-			ripng_offset_list_free(offset);
-		}
-	} else {
-		vty_out(vty, "Can't find offset-list\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
-}
-
-#define OFFSET_LIST_IN_NAME(O)  ((O)->direct[RIPNG_OFFSET_LIST_IN].alist_name)
-#define OFFSET_LIST_IN_METRIC(O)  ((O)->direct[RIPNG_OFFSET_LIST_IN].metric)
-
-#define OFFSET_LIST_OUT_NAME(O)  ((O)->direct[RIPNG_OFFSET_LIST_OUT].alist_name)
-#define OFFSET_LIST_OUT_METRIC(O)  ((O)->direct[RIPNG_OFFSET_LIST_OUT].metric)
-
-/* If metric is modifed return 1. */
-int ripng_offset_list_apply_in(struct prefix_ipv6 *p, struct interface *ifp,
-			       uint8_t *metric)
-{
-	struct ripng_offset_list *offset;
-	struct access_list *alist;
-
-	/* Look up offset-list with interface name. */
-	offset = ripng_offset_list_lookup(ifp->name);
-	if (offset && OFFSET_LIST_IN_NAME(offset)) {
-		alist = access_list_lookup(AFI_IP6,
-					   OFFSET_LIST_IN_NAME(offset));
-
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
-			*metric += OFFSET_LIST_IN_METRIC(offset);
-			return 1;
-		}
-		return 0;
-	}
-	/* Look up offset-list without interface name. */
-	offset = ripng_offset_list_lookup(NULL);
-	if (offset && OFFSET_LIST_IN_NAME(offset)) {
-		alist = access_list_lookup(AFI_IP6,
-					   OFFSET_LIST_IN_NAME(offset));
-
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
-			*metric += OFFSET_LIST_IN_METRIC(offset);
-			return 1;
-		}
-		return 0;
-	}
-	return 0;
-}
-
-/* If metric is modifed return 1. */
-int ripng_offset_list_apply_out(struct prefix_ipv6 *p, struct interface *ifp,
-				uint8_t *metric)
-{
-	struct ripng_offset_list *offset;
-	struct access_list *alist;
-
-	/* Look up offset-list with interface name. */
-	offset = ripng_offset_list_lookup(ifp->name);
-	if (offset && OFFSET_LIST_OUT_NAME(offset)) {
-		alist = access_list_lookup(AFI_IP6,
-					   OFFSET_LIST_OUT_NAME(offset));
-
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
-			*metric += OFFSET_LIST_OUT_METRIC(offset);
-			return 1;
-		}
-		return 0;
-	}
-
-	/* Look up offset-list without interface name. */
-	offset = ripng_offset_list_lookup(NULL);
-	if (offset && OFFSET_LIST_OUT_NAME(offset)) {
-		alist = access_list_lookup(AFI_IP6,
-					   OFFSET_LIST_OUT_NAME(offset));
-
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
-			*metric += OFFSET_LIST_OUT_METRIC(offset);
-			return 1;
-		}
-		return 0;
-	}
-	return 0;
-}
-
-DEFUN (ripng_offset_list,
-       ripng_offset_list_cmd,
-       "offset-list WORD <in|out> (0-16)",
-       "Modify RIPng metric\n"
-       "Access-list name\n"
-       "For incoming updates\n"
-       "For outgoing updates\n"
-       "Metric value\n")
-{
-	int idx_word = 1;
-	int idx_in_out = 2;
-	int idx_number = 3;
-	return ripng_offset_list_set(vty, argv[idx_word]->arg,
-				     argv[idx_in_out]->arg,
-				     argv[idx_number]->arg, NULL);
-}
-
-DEFUN (ripng_offset_list_ifname,
-       ripng_offset_list_ifname_cmd,
-       "offset-list WORD <in|out> (0-16) IFNAME",
-       "Modify RIPng metric\n"
-       "Access-list name\n"
-       "For incoming updates\n"
-       "For outgoing updates\n"
-       "Metric value\n"
-       "Interface to match\n")
-{
-	int idx_word = 1;
-	int idx_in_out = 2;
-	int idx_number = 3;
-	int idx_ifname = 4;
-	return ripng_offset_list_set(
-		vty, argv[idx_word]->arg, argv[idx_in_out]->arg,
-		argv[idx_number]->arg, argv[idx_ifname]->arg);
-}
-
-DEFUN (no_ripng_offset_list,
-       no_ripng_offset_list_cmd,
-       "no offset-list WORD <in|out> (0-16)",
-       NO_STR
-       "Modify RIPng metric\n"
-       "Access-list name\n"
-       "For incoming updates\n"
-       "For outgoing updates\n"
-       "Metric value\n")
-{
-	int idx_word = 2;
-	int idx_in_out = 3;
-	int idx_number = 4;
-	return ripng_offset_list_unset(vty, argv[idx_word]->arg,
-				       argv[idx_in_out]->arg,
-				       argv[idx_number]->arg, NULL);
-}
-
-DEFUN (no_ripng_offset_list_ifname,
-       no_ripng_offset_list_ifname_cmd,
-       "no offset-list WORD <in|out> (0-16) IFNAME",
-       NO_STR
-       "Modify RIPng metric\n"
-       "Access-list name\n"
-       "For incoming updates\n"
-       "For outgoing updates\n"
-       "Metric value\n"
-       "Interface to match\n")
-{
-	int idx_word = 2;
-	int idx_in_out = 3;
-	int idx_number = 4;
-	int idx_ifname = 5;
-	return ripng_offset_list_unset(
-		vty, argv[idx_word]->arg, argv[idx_in_out]->arg,
-		argv[idx_number]->arg, argv[idx_ifname]->arg);
-}
-
-static int offset_list_cmp(struct ripng_offset_list *o1,
-			   struct ripng_offset_list *o2)
-{
-	return strcmp_safe(o1->ifname, o2->ifname);
-}
-
-static void offset_list_del(struct ripng_offset_list *offset)
-{
-	if (OFFSET_LIST_IN_NAME(offset))
-		free(OFFSET_LIST_IN_NAME(offset));
-	if (OFFSET_LIST_OUT_NAME(offset))
-		free(OFFSET_LIST_OUT_NAME(offset));
-	if (offset->ifname)
-		free(offset->ifname);
-	ripng_offset_list_free(offset);
-}
-
-void ripng_offset_init(void)
-{
-	ripng_offset_list_master = list_new();
-	ripng_offset_list_master->cmp =
-		(int (*)(void *, void *))offset_list_cmp;
-	ripng_offset_list_master->del = (void (*)(void *))offset_list_del;
-
-	install_element(RIPNG_NODE, &ripng_offset_list_cmd);
-	install_element(RIPNG_NODE, &ripng_offset_list_ifname_cmd);
-	install_element(RIPNG_NODE, &no_ripng_offset_list_cmd);
-	install_element(RIPNG_NODE, &no_ripng_offset_list_ifname_cmd);
-}
-
-void ripng_offset_clean(void)
-{
-	list_delete_and_null(&ripng_offset_list_master);
-
-	ripng_offset_list_master = list_new();
-	ripng_offset_list_master->cmp =
-		(int (*)(void *, void *))offset_list_cmp;
-	ripng_offset_list_master->del = (void (*)(void *))offset_list_del;
-}
-
-int config_write_ripng_offset_list(struct vty *vty)
-{
-	struct listnode *node, *nnode;
-	struct ripng_offset_list *offset;
-
-	for (ALL_LIST_ELEMENTS(ripng_offset_list_master, node, nnode, offset)) {
-		if (!offset->ifname) {
-			if (offset->direct[RIPNG_OFFSET_LIST_IN].alist_name)
-				vty_out(vty, " offset-list %s in %d\n",
-					offset->direct[RIPNG_OFFSET_LIST_IN]
-						.alist_name,
-					offset->direct[RIPNG_OFFSET_LIST_IN]
-						.metric);
-			if (offset->direct[RIPNG_OFFSET_LIST_OUT].alist_name)
-				vty_out(vty, " offset-list %s out %d\n",
-					offset->direct[RIPNG_OFFSET_LIST_OUT]
-						.alist_name,
-					offset->direct[RIPNG_OFFSET_LIST_OUT]
-						.metric);
-		} else {
-			if (offset->direct[RIPNG_OFFSET_LIST_IN].alist_name)
-				vty_out(vty, " offset-list %s in %d %s\n",
-					offset->direct[RIPNG_OFFSET_LIST_IN]
-						.alist_name,
-					offset->direct[RIPNG_OFFSET_LIST_IN]
-						.metric,
-					offset->ifname);
-			if (offset->direct[RIPNG_OFFSET_LIST_OUT].alist_name)
-				vty_out(vty, " offset-list %s out %d %s\n",
-					offset->direct[RIPNG_OFFSET_LIST_OUT]
-						.alist_name,
-					offset->direct[RIPNG_OFFSET_LIST_OUT]
-						.metric,
-					offset->ifname);
-		}
-	}
-
-	return 0;
-}
+/*RIPngoffset-list*Copyright(C)2000KunihiroIshiguro<kunihiro@zebra.org>**Thisfil
+eispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*un
+derthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;e
+itherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopet
+hatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHAN
+TABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredeta
+ils.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogra
+m;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,Fi
+fthFloor,Boston,MA02110-1301USA*//*RIPngsupportbyVincentJardin<vincent.jardin@6w
+ind.com>*Copyright(C)20026WIND*/#include<zebra.h>#include"if.h"#include"prefix.h
+"#include"filter.h"#include"command.h"#include"linklist.h"#include"memory.h"#inc
+lude"ripngd/ripngd.h"#defineRIPNG_OFFSET_LIST_IN0#defineRIPNG_OFFSET_LIST_OUT1#d
+efineRIPNG_OFFSET_LIST_MAX2structripng_offset_list{char*ifname;struct{char*alist
+_name;/*structaccess_list*alist;*/intmetric;}direct[RIPNG_OFFSET_LIST_MAX];};sta
+ticstructlist*ripng_offset_list_master;staticintstrcmp_safe(constchar*s1,constch
+ar*s2){if(s1==NULL&&s2==NULL)return0;if(s1==NULL)return-1;if(s2==NULL)return1;re
+turnstrcmp(s1,s2);}staticstructripng_offset_list*ripng_offset_list_new(void){str
+uctripng_offset_list*new;new=XCALLOC(MTYPE_RIPNG_OFFSET_LIST,sizeof(structripng_
+offset_list));returnnew;}staticvoidripng_offset_list_free(structripng_offset_lis
+t*offset){XFREE(MTYPE_RIPNG_OFFSET_LIST,offset);}staticstructripng_offset_list*r
+ipng_offset_list_lookup(constchar*ifname){structripng_offset_list*offset;structl
+istnode*node,*nnode;for(ALL_LIST_ELEMENTS(ripng_offset_list_master,node,nnode,of
+fset)){if(strcmp_safe(offset->ifname,ifname)==0)returnoffset;}returnNULL;}static
+structripng_offset_list*ripng_offset_list_get(constchar*ifname){structripng_offs
+et_list*offset;offset=ripng_offset_list_lookup(ifname);if(offset)returnoffset;of
+fset=ripng_offset_list_new();if(ifname)offset->ifname=strdup(ifname);listnode_ad
+d_sort(ripng_offset_list_master,offset);returnoffset;}staticintripng_offset_list
+_set(structvty*vty,constchar*alist,constchar*direct_str,constchar*metric_str,con
+stchar*ifname){intdirect;intmetric;structripng_offset_list*offset;/*Checkdirecti
+on.*/if(strncmp(direct_str,"i",1)==0)direct=RIPNG_OFFSET_LIST_IN;elseif(strncmp(
+direct_str,"o",1)==0)direct=RIPNG_OFFSET_LIST_OUT;else{vty_out(vty,"Invaliddirec
+tion:%s\n",direct_str);returnCMD_WARNING_CONFIG_FAILED;}/*Checkmetric.*/metric=a
+toi(metric_str);if(metric<0||metric>16){vty_out(vty,"Invalidmetric:%s\n",metric_
+str);returnCMD_WARNING_CONFIG_FAILED;}/*Getoffset-liststructurewithinterfacename
+.*/offset=ripng_offset_list_get(ifname);if(offset->direct[direct].alist_name)fre
+e(offset->direct[direct].alist_name);offset->direct[direct].alist_name=strdup(al
+ist);offset->direct[direct].metric=metric;returnCMD_SUCCESS;}staticintripng_offs
+et_list_unset(structvty*vty,constchar*alist,constchar*direct_str,constchar*metri
+c_str,constchar*ifname){intdirect;intmetric;structripng_offset_list*offset;/*Che
+ckdirection.*/if(strncmp(direct_str,"i",1)==0)direct=RIPNG_OFFSET_LIST_IN;elseif
+(strncmp(direct_str,"o",1)==0)direct=RIPNG_OFFSET_LIST_OUT;else{vty_out(vty,"Inv
+aliddirection:%s\n",direct_str);returnCMD_WARNING_CONFIG_FAILED;}/*Checkmetric.*
+/metric=atoi(metric_str);if(metric<0||metric>16){vty_out(vty,"Invalidmetric:%s\n
+",metric_str);returnCMD_WARNING_CONFIG_FAILED;}/*Getoffset-liststructurewithinte
+rfacename.*/offset=ripng_offset_list_lookup(ifname);if(offset){if(offset->direct
+[direct].alist_name)free(offset->direct[direct].alist_name);offset->direct[direc
+t].alist_name=NULL;if(offset->direct[RIPNG_OFFSET_LIST_IN].alist_name==NULL&&off
+set->direct[RIPNG_OFFSET_LIST_OUT].alist_name==NULL){listnode_delete(ripng_offse
+t_list_master,offset);if(offset->ifname)free(offset->ifname);ripng_offset_list_f
+ree(offset);}}else{vty_out(vty,"Can'tfindoffset-list\n");returnCMD_WARNING_CONFI
+G_FAILED;}returnCMD_SUCCESS;}#defineOFFSET_LIST_IN_NAME(O)((O)->direct[RIPNG_OFF
+SET_LIST_IN].alist_name)#defineOFFSET_LIST_IN_METRIC(O)((O)->direct[RIPNG_OFFSET
+_LIST_IN].metric)#defineOFFSET_LIST_OUT_NAME(O)((O)->direct[RIPNG_OFFSET_LIST_OU
+T].alist_name)#defineOFFSET_LIST_OUT_METRIC(O)((O)->direct[RIPNG_OFFSET_LIST_OUT
+].metric)/*Ifmetricismodifedreturn1.*/intripng_offset_list_apply_in(structprefix
+_ipv6*p,structinterface*ifp,uint8_t*metric){structripng_offset_list*offset;struc
+taccess_list*alist;/*Lookupoffset-listwithinterfacename.*/offset=ripng_offset_li
+st_lookup(ifp->name);if(offset&&OFFSET_LIST_IN_NAME(offset)){alist=access_list_l
+ookup(AFI_IP6,OFFSET_LIST_IN_NAME(offset));if(alist&&access_list_apply(alist,(st
+ructprefix*)p)==FILTER_PERMIT){*metric+=OFFSET_LIST_IN_METRIC(offset);return1;}r
+eturn0;}/*Lookupoffset-listwithoutinterfacename.*/offset=ripng_offset_list_looku
+p(NULL);if(offset&&OFFSET_LIST_IN_NAME(offset)){alist=access_list_lookup(AFI_IP6
+,OFFSET_LIST_IN_NAME(offset));if(alist&&access_list_apply(alist,(structprefix*)p
+)==FILTER_PERMIT){*metric+=OFFSET_LIST_IN_METRIC(offset);return1;}return0;}retur
+n0;}/*Ifmetricismodifedreturn1.*/intripng_offset_list_apply_out(structprefix_ipv
+6*p,structinterface*ifp,uint8_t*metric){structripng_offset_list*offset;structacc
+ess_list*alist;/*Lookupoffset-listwithinterfacename.*/offset=ripng_offset_list_l
+ookup(ifp->name);if(offset&&OFFSET_LIST_OUT_NAME(offset)){alist=access_list_look
+up(AFI_IP6,OFFSET_LIST_OUT_NAME(offset));if(alist&&access_list_apply(alist,(stru
+ctprefix*)p)==FILTER_PERMIT){*metric+=OFFSET_LIST_OUT_METRIC(offset);return1;}re
+turn0;}/*Lookupoffset-listwithoutinterfacename.*/offset=ripng_offset_list_lookup
+(NULL);if(offset&&OFFSET_LIST_OUT_NAME(offset)){alist=access_list_lookup(AFI_IP6
+,OFFSET_LIST_OUT_NAME(offset));if(alist&&access_list_apply(alist,(structprefix*)
+p)==FILTER_PERMIT){*metric+=OFFSET_LIST_OUT_METRIC(offset);return1;}return0;}ret
+urn0;}DEFUN(ripng_offset_list,ripng_offset_list_cmd,"offset-listWORD<in|out>(0-1
+6)","ModifyRIPngmetric\n""Access-listname\n""Forincomingupdates\n""Foroutgoingup
+dates\n""Metricvalue\n"){intidx_word=1;intidx_in_out=2;intidx_number=3;returnrip
+ng_offset_list_set(vty,argv[idx_word]->arg,argv[idx_in_out]->arg,argv[idx_number
+]->arg,NULL);}DEFUN(ripng_offset_list_ifname,ripng_offset_list_ifname_cmd,"offse
+t-listWORD<in|out>(0-16)IFNAME","ModifyRIPngmetric\n""Access-listname\n""Forinco
+mingupdates\n""Foroutgoingupdates\n""Metricvalue\n""Interfacetomatch\n"){intidx_
+word=1;intidx_in_out=2;intidx_number=3;intidx_ifname=4;returnripng_offset_list_s
+et(vty,argv[idx_word]->arg,argv[idx_in_out]->arg,argv[idx_number]->arg,argv[idx_
+ifname]->arg);}DEFUN(no_ripng_offset_list,no_ripng_offset_list_cmd,"nooffset-lis
+tWORD<in|out>(0-16)",NO_STR"ModifyRIPngmetric\n""Access-listname\n""Forincomingu
+pdates\n""Foroutgoingupdates\n""Metricvalue\n"){intidx_word=2;intidx_in_out=3;in
+tidx_number=4;returnripng_offset_list_unset(vty,argv[idx_word]->arg,argv[idx_in_
+out]->arg,argv[idx_number]->arg,NULL);}DEFUN(no_ripng_offset_list_ifname,no_ripn
+g_offset_list_ifname_cmd,"nooffset-listWORD<in|out>(0-16)IFNAME",NO_STR"ModifyRI
+Pngmetric\n""Access-listname\n""Forincomingupdates\n""Foroutgoingupdates\n""Metr
+icvalue\n""Interfacetomatch\n"){intidx_word=2;intidx_in_out=3;intidx_number=4;in
+tidx_ifname=5;returnripng_offset_list_unset(vty,argv[idx_word]->arg,argv[idx_in_
+out]->arg,argv[idx_number]->arg,argv[idx_ifname]->arg);}staticintoffset_list_cmp
+(structripng_offset_list*o1,structripng_offset_list*o2){returnstrcmp_safe(o1->if
+name,o2->ifname);}staticvoidoffset_list_del(structripng_offset_list*offset){if(O
+FFSET_LIST_IN_NAME(offset))free(OFFSET_LIST_IN_NAME(offset));if(OFFSET_LIST_OUT_
+NAME(offset))free(OFFSET_LIST_OUT_NAME(offset));if(offset->ifname)free(offset->i
+fname);ripng_offset_list_free(offset);}voidripng_offset_init(void){ripng_offset_
+list_master=list_new();ripng_offset_list_master->cmp=(int(*)(void*,void*))offset
+_list_cmp;ripng_offset_list_master->del=(void(*)(void*))offset_list_del;install_
+element(RIPNG_NODE,&ripng_offset_list_cmd);install_element(RIPNG_NODE,&ripng_off
+set_list_ifname_cmd);install_element(RIPNG_NODE,&no_ripng_offset_list_cmd);insta
+ll_element(RIPNG_NODE,&no_ripng_offset_list_ifname_cmd);}voidripng_offset_clean(
+void){list_delete_and_null(&ripng_offset_list_master);ripng_offset_list_master=l
+ist_new();ripng_offset_list_master->cmp=(int(*)(void*,void*))offset_list_cmp;rip
+ng_offset_list_master->del=(void(*)(void*))offset_list_del;}intconfig_write_ripn
+g_offset_list(structvty*vty){structlistnode*node,*nnode;structripng_offset_list*
+offset;for(ALL_LIST_ELEMENTS(ripng_offset_list_master,node,nnode,offset)){if(!of
+fset->ifname){if(offset->direct[RIPNG_OFFSET_LIST_IN].alist_name)vty_out(vty,"of
+fset-list%sin%d\n",offset->direct[RIPNG_OFFSET_LIST_IN].alist_name,offset->direc
+t[RIPNG_OFFSET_LIST_IN].metric);if(offset->direct[RIPNG_OFFSET_LIST_OUT].alist_n
+ame)vty_out(vty,"offset-list%sout%d\n",offset->direct[RIPNG_OFFSET_LIST_OUT].ali
+st_name,offset->direct[RIPNG_OFFSET_LIST_OUT].metric);}else{if(offset->direct[RI
+PNG_OFFSET_LIST_IN].alist_name)vty_out(vty,"offset-list%sin%d%s\n",offset->direc
+t[RIPNG_OFFSET_LIST_IN].alist_name,offset->direct[RIPNG_OFFSET_LIST_IN].metric,o
+ffset->ifname);if(offset->direct[RIPNG_OFFSET_LIST_OUT].alist_name)vty_out(vty,"
+offset-list%sout%d%s\n",offset->direct[RIPNG_OFFSET_LIST_OUT].alist_name,offset-
+>direct[RIPNG_OFFSET_LIST_OUT].metric,offset->ifname);}}return0;}

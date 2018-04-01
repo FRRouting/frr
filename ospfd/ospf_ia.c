@@ -1,706 +1,187 @@
-/*
- * OSPF inter-area routing.
- * Copyright (C) 1999, 2000 Alex Zinin, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-
-#include <zebra.h>
-
-#include "thread.h"
-#include "memory.h"
-#include "hash.h"
-#include "linklist.h"
-#include "prefix.h"
-#include "table.h"
-#include "log.h"
-
-#include "ospfd/ospfd.h"
-#include "ospfd/ospf_interface.h"
-#include "ospfd/ospf_ism.h"
-#include "ospfd/ospf_asbr.h"
-#include "ospfd/ospf_lsa.h"
-#include "ospfd/ospf_lsdb.h"
-#include "ospfd/ospf_neighbor.h"
-#include "ospfd/ospf_nsm.h"
-#include "ospfd/ospf_spf.h"
-#include "ospfd/ospf_route.h"
-#include "ospfd/ospf_ase.h"
-#include "ospfd/ospf_abr.h"
-#include "ospfd/ospf_ia.h"
-#include "ospfd/ospf_dump.h"
-
-static struct ospf_route *ospf_find_abr_route(struct route_table *rtrs,
-					      struct prefix_ipv4 *abr,
-					      struct ospf_area *area)
-{
-	struct route_node *rn;
-	struct ospf_route * or ;
-	struct listnode *node;
-
-	if ((rn = route_node_lookup(rtrs, (struct prefix *)abr)) == NULL)
-		return NULL;
-
-	route_unlock_node(rn);
-
-	for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node, or))
-		if (IPV4_ADDR_SAME(& or->u.std.area_id, &area->area_id)
-		    && (or->u.std.flags & ROUTER_LSA_BORDER))
-			return or ;
-
-	return NULL;
-}
-
-static void ospf_ia_network_route(struct ospf *ospf, struct route_table *rt,
-				  struct prefix_ipv4 *p,
-				  struct ospf_route *new_or,
-				  struct ospf_route *abr_or)
-{
-	struct route_node *rn1;
-	struct ospf_route * or ;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_ia_network_route(): processing summary route to %s/%d",
-			inet_ntoa(p->prefix), p->prefixlen);
-
-	/* Find a route to the same dest */
-	if ((rn1 = route_node_lookup(rt, (struct prefix *)p))) {
-		int res;
-
-		route_unlock_node(rn1);
-
-		if ((or = rn1->info)) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_ia_network_route(): "
-					"Found a route to the same network");
-			/* Check the existing route. */
-			if ((res = ospf_route_cmp(ospf, new_or, or)) < 0) {
-				/* New route is better, so replace old one. */
-				ospf_route_subst(rn1, new_or, abr_or);
-			} else if (res == 0) {
-				/* New and old route are equal, so next hops can
-				 * be added. */
-				route_lock_node(rn1);
-				ospf_route_copy_nexthops(or, abr_or->paths);
-				route_unlock_node(rn1);
-
-				/* new route can be deleted, because existing
-				 * route has been updated. */
-				ospf_route_free(new_or);
-			} else {
-				/* New route is worse, so free it. */
-				ospf_route_free(new_or);
-				return;
-			}
-		} /* if (or)*/
-	}	 /*if (rn1)*/
-	else {    /* no route */
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_ia_network_route(): add new route to %s/%d",
-				inet_ntoa(p->prefix), p->prefixlen);
-		ospf_route_add(rt, p, new_or, abr_or);
-	}
-}
-
-static void ospf_ia_router_route(struct ospf *ospf, struct route_table *rtrs,
-				 struct prefix_ipv4 *p,
-				 struct ospf_route *new_or,
-				 struct ospf_route *abr_or)
-{
-	struct ospf_route * or = NULL;
-	struct route_node *rn;
-	int ret;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_ia_router_route(): considering %s/%d",
-			   inet_ntoa(p->prefix), p->prefixlen);
-	/* Find a route to the same dest */
-	rn = route_node_get(rtrs, (struct prefix *)p);
-
-	if (rn->info == NULL)
-		/* This is a new route */
-		rn->info = list_new();
-	else {
-		struct ospf_area *or_area;
-		or_area = ospf_area_lookup_by_area_id(ospf,
-						      new_or->u.std.area_id);
-		assert(or_area);
-		/* This is an additional route */
-		route_unlock_node(rn);
-		or = ospf_find_asbr_route_through_area(rtrs, p, or_area);
-	}
-
-	if (or) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_ia_router_route(): "
-				"a route to the same ABR through the same area exists");
-		/* New route is better */
-		if ((ret = ospf_route_cmp(ospf, new_or, or)) < 0) {
-			listnode_delete(rn->info, or);
-			ospf_route_free(or);
-			/* proceed down */
-		}
-		/* Routes are the same */
-		else if (ret == 0) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_ia_router_route(): merging the new route");
-
-			ospf_route_copy_nexthops(or, abr_or->paths);
-			ospf_route_free(new_or);
-			return;
-		}
-		/* New route is worse */
-		else {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_ia_router_route(): skipping the new route");
-			ospf_route_free(new_or);
-			return;
-		}
-	}
-
-	ospf_route_copy_nexthops(new_or, abr_or->paths);
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_ia_router_route(): adding the new route");
-
-	listnode_add(rn->info, new_or);
-}
-
-
-static int process_summary_lsa(struct ospf_area *area, struct route_table *rt,
-			       struct route_table *rtrs, struct ospf_lsa *lsa)
-{
-	struct ospf *ospf = area->ospf;
-	struct ospf_area_range *range;
-	struct ospf_route *abr_or, *new_or;
-	struct summary_lsa *sl;
-	struct prefix_ipv4 p, abr;
-	uint32_t metric;
-
-	if (lsa == NULL)
-		return 0;
-
-	sl = (struct summary_lsa *)lsa->data;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("process_summary_lsa(): LS ID: %s",
-			   inet_ntoa(sl->header.id));
-
-	metric = GET_METRIC(sl->metric);
-
-	if (metric == OSPF_LS_INFINITY)
-		return 0;
-
-	if (IS_LSA_MAXAGE(lsa))
-		return 0;
-
-	if (ospf_lsa_is_self_originated(area->ospf, lsa))
-		return 0;
-
-	p.family = AF_INET;
-	p.prefix = sl->header.id;
-
-	if (sl->header.type == OSPF_SUMMARY_LSA)
-		p.prefixlen = ip_masklen(sl->mask);
-	else
-		p.prefixlen = IPV4_MAX_BITLEN;
-
-	apply_mask_ipv4(&p);
-
-	if (sl->header.type == OSPF_SUMMARY_LSA
-	    && (range = ospf_area_range_match_any(ospf, &p))
-	    && ospf_area_range_active(range))
-		return 0;
-
-	/* XXX: This check seems dubious to me. If an ABR has already decided
-	 * to consider summaries received in this area, then why would one wish
-	 * to exclude default?
-	 */
-	if (IS_OSPF_ABR(ospf) && ospf->abr_type != OSPF_ABR_STAND
-	    && area->external_routing != OSPF_AREA_DEFAULT
-	    && p.prefix.s_addr == OSPF_DEFAULT_DESTINATION && p.prefixlen == 0)
-		return 0; /* Ignore summary default from a stub area */
-
-	abr.family = AF_INET;
-	abr.prefix = sl->header.adv_router;
-	abr.prefixlen = IPV4_MAX_BITLEN;
-	apply_mask_ipv4(&abr);
-
-	abr_or = ospf_find_abr_route(rtrs, &abr, area);
-
-	if (abr_or == NULL)
-		return 0;
-
-	new_or = ospf_route_new();
-	new_or->type = OSPF_DESTINATION_NETWORK;
-	new_or->id = sl->header.id;
-	new_or->mask = sl->mask;
-	new_or->u.std.options = sl->header.options;
-	new_or->u.std.origin = (struct lsa_header *)sl;
-	new_or->cost = abr_or->cost + metric;
-	new_or->u.std.area_id = area->area_id;
-	new_or->u.std.external_routing = area->external_routing;
-	new_or->path_type = OSPF_PATH_INTER_AREA;
-
-	if (sl->header.type == OSPF_SUMMARY_LSA)
-		ospf_ia_network_route(ospf, rt, &p, new_or, abr_or);
-	else {
-		new_or->type = OSPF_DESTINATION_ROUTER;
-		new_or->u.std.flags = ROUTER_LSA_EXTERNAL;
-		ospf_ia_router_route(ospf, rtrs, &p, new_or, abr_or);
-	}
-
-	return 0;
-}
-
-static void ospf_examine_summaries(struct ospf_area *area,
-				   struct route_table *lsdb_rt,
-				   struct route_table *rt,
-				   struct route_table *rtrs)
-{
-	struct ospf_lsa *lsa;
-	struct route_node *rn;
-
-	LSDB_LOOP (lsdb_rt, rn, lsa)
-		process_summary_lsa(area, rt, rtrs, lsa);
-}
-
-int ospf_area_is_transit(struct ospf_area *area)
-{
-	return (area->transit == OSPF_TRANSIT_TRUE)
-	       || ospf_full_virtual_nbrs(
-			  area); /* Cisco forgets to set the V-bit :( */
-}
-
-static void ospf_update_network_route(struct ospf *ospf, struct route_table *rt,
-				      struct route_table *rtrs,
-				      struct summary_lsa *lsa,
-				      struct prefix_ipv4 *p,
-				      struct ospf_area *area)
-{
-	struct route_node *rn;
-	struct ospf_route * or, *abr_or, *new_or;
-	struct prefix_ipv4 abr;
-	uint32_t cost;
-
-	abr.family = AF_INET;
-	abr.prefix = lsa->header.adv_router;
-	abr.prefixlen = IPV4_MAX_BITLEN;
-	apply_mask_ipv4(&abr);
-
-	abr_or = ospf_find_abr_route(rtrs, &abr, area);
-
-	if (abr_or == NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_update_network_route(): can't find a route to the ABR");
-		return;
-	}
-
-	cost = abr_or->cost + GET_METRIC(lsa->metric);
-
-	rn = route_node_lookup(rt, (struct prefix *)p);
-
-	if (!rn) {
-		if (ospf->abr_type != OSPF_ABR_SHORTCUT)
-			return; /* Standard ABR can update only already
-				   installed
-				   backbone paths */
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_update_network_route(): "
-				"Allowing Shortcut ABR to add new route");
-		new_or = ospf_route_new();
-		new_or->type = OSPF_DESTINATION_NETWORK;
-		new_or->id = lsa->header.id;
-		new_or->mask = lsa->mask;
-		new_or->u.std.options = lsa->header.options;
-		new_or->u.std.origin = (struct lsa_header *)lsa;
-		new_or->cost = cost;
-		new_or->u.std.area_id = area->area_id;
-		new_or->u.std.external_routing = area->external_routing;
-		new_or->path_type = OSPF_PATH_INTER_AREA;
-		ospf_route_add(rt, p, new_or, abr_or);
-
-		return;
-	} else {
-		route_unlock_node(rn);
-		if (rn->info == NULL)
-			return;
-	}
-
-	or = rn->info;
-
-	if (or->path_type != OSPF_PATH_INTRA_AREA &&
-	    or->path_type != OSPF_PATH_INTER_AREA) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_update_network_route(): ERR: path type is wrong");
-		return;
-	}
-
-	if (ospf->abr_type == OSPF_ABR_SHORTCUT) {
-		if (
-			or->path_type == OSPF_PATH_INTRA_AREA
-				  && !OSPF_IS_AREA_ID_BACKBONE(
-					     or->u.std.area_id)) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_update_network_route(): Shortcut: "
-					"this intra-area path is not backbone");
-			return;
-		}
-	} else /* Not Shortcut ABR */
-	{
-		if (!OSPF_IS_AREA_ID_BACKBONE(or->u.std.area_id)) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_update_network_route(): "
-					"route is not BB-associated");
-			return; /* We can update only BB routes */
-		}
-	}
-
-	if (or->cost < cost) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_update_network_route(): new route is worse");
-		return;
-	}
-
-	if (or->cost == cost) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_update_network_route(): "
-				"new route is same distance, adding nexthops");
-		ospf_route_copy_nexthops(or, abr_or->paths);
-	}
-
-	if (or->cost > cost) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_update_network_route(): "
-				"new route is better, overriding nexthops");
-		ospf_route_subst_nexthops(or, abr_or->paths);
-		or->cost = cost;
-
-		if ((ospf->abr_type == OSPF_ABR_SHORTCUT)
-		    && !OSPF_IS_AREA_ID_BACKBONE(or->u.std.area_id)) {
-			or->path_type = OSPF_PATH_INTER_AREA;
-			or->u.std.area_id = area->area_id;
-			or->u.std.external_routing = area->external_routing;
-			/* Note that we can do this only in Shortcut ABR mode,
-			   because standard ABR must leave the route type and
-			   area
-			   unchanged
-			*/
-		}
-	}
-}
-
-static void ospf_update_router_route(struct ospf *ospf,
-				     struct route_table *rtrs,
-				     struct summary_lsa *lsa,
-				     struct prefix_ipv4 *p,
-				     struct ospf_area *area)
-{
-	struct ospf_route * or, *abr_or, *new_or;
-	struct prefix_ipv4 abr;
-	uint32_t cost;
-
-	abr.family = AF_INET;
-	abr.prefix = lsa->header.adv_router;
-	abr.prefixlen = IPV4_MAX_BITLEN;
-	apply_mask_ipv4(&abr);
-
-	abr_or = ospf_find_abr_route(rtrs, &abr, area);
-
-	if (abr_or == NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_update_router_route(): can't find a route to the ABR");
-		return;
-	}
-
-	cost = abr_or->cost + GET_METRIC(lsa->metric);
-
-	/* First try to find a backbone path,
-	   because standard ABR can update only BB-associated paths */
-
-	if ((ospf->backbone == NULL) && (ospf->abr_type != OSPF_ABR_SHORTCUT))
-		return; /* no BB area, not Shortcut ABR, exiting */
-
-	/* find the backbone route, if possible */
-	if ((ospf->backbone == NULL)
-	    || !(or = ospf_find_asbr_route_through_area(rtrs, p,
-							ospf->backbone))) {
-		if (ospf->abr_type != OSPF_ABR_SHORTCUT)
-
-			/* route to ASBR through the BB not found
-			   the router is not Shortcut ABR, exiting */
-
-			return;
-		else
-		/* We're a Shortcut ABR*/
-		{
-			/* Let it either add a new router or update the route
-			   through the same (non-BB) area. */
-
-			new_or = ospf_route_new();
-			new_or->type = OSPF_DESTINATION_ROUTER;
-			new_or->id = lsa->header.id;
-			new_or->mask = lsa->mask;
-			new_or->u.std.options = lsa->header.options;
-			new_or->u.std.origin = (struct lsa_header *)lsa;
-			new_or->cost = cost;
-			new_or->u.std.area_id = area->area_id;
-			new_or->u.std.external_routing = area->external_routing;
-			new_or->path_type = OSPF_PATH_INTER_AREA;
-			new_or->u.std.flags = ROUTER_LSA_EXTERNAL;
-			ospf_ia_router_route(ospf, rtrs, p, new_or, abr_or);
-
-			return;
-		}
-	}
-
-	/* At this point the "or" is always bb-associated */
-
-	if (!(or->u.std.flags & ROUTER_LSA_EXTERNAL)) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_upd_router_route(): the remote router is not an ASBR");
-		return;
-	}
-
-	if (or->path_type != OSPF_PATH_INTRA_AREA &&
-	    or->path_type != OSPF_PATH_INTER_AREA)
-		return;
-
-	if (or->cost < cost)
-		return;
-
-	else if (or->cost == cost)
-		ospf_route_copy_nexthops(or, abr_or->paths);
-
-	else if (or->cost > cost) {
-		ospf_route_subst_nexthops(or, abr_or->paths);
-		or->cost = cost;
-
-		/* Even if the ABR runs in Shortcut mode, we can't change
-		   the path type and area, because the "or" is always
-		   bb-associated
-		   at this point and even Shortcut ABR can't change these
-		   attributes */
-	}
-}
-
-static int process_transit_summary_lsa(struct ospf_area *area,
-				       struct route_table *rt,
-				       struct route_table *rtrs,
-				       struct ospf_lsa *lsa)
-{
-	struct ospf *ospf = area->ospf;
-	struct summary_lsa *sl;
-	struct prefix_ipv4 p;
-	uint32_t metric;
-
-	if (lsa == NULL)
-		return 0;
-
-	sl = (struct summary_lsa *)lsa->data;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("process_transit_summaries(): LS ID: %s",
-			   inet_ntoa(lsa->data->id));
-	metric = GET_METRIC(sl->metric);
-
-	if (metric == OSPF_LS_INFINITY) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"process_transit_summaries(): metric is infinity, skip");
-		return 0;
-	}
-
-	if (IS_LSA_MAXAGE(lsa)) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"process_transit_summaries(): This LSA is too old");
-		return 0;
-	}
-
-	if (ospf_lsa_is_self_originated(area->ospf, lsa)) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"process_transit_summaries(): This LSA is mine, skip");
-		return 0;
-	}
-
-	p.family = AF_INET;
-	p.prefix = sl->header.id;
-
-	if (sl->header.type == OSPF_SUMMARY_LSA)
-		p.prefixlen = ip_masklen(sl->mask);
-	else
-		p.prefixlen = IPV4_MAX_BITLEN;
-
-	apply_mask_ipv4(&p);
-
-	if (sl->header.type == OSPF_SUMMARY_LSA)
-		ospf_update_network_route(ospf, rt, rtrs, sl, &p, area);
-	else
-		ospf_update_router_route(ospf, rtrs, sl, &p, area);
-
-	return 0;
-}
-
-static void ospf_examine_transit_summaries(struct ospf_area *area,
-					   struct route_table *lsdb_rt,
-					   struct route_table *rt,
-					   struct route_table *rtrs)
-{
-	struct ospf_lsa *lsa;
-	struct route_node *rn;
-
-	LSDB_LOOP (lsdb_rt, rn, lsa)
-		process_transit_summary_lsa(area, rt, rtrs, lsa);
-}
-
-void ospf_ia_routing(struct ospf *ospf, struct route_table *rt,
-		     struct route_table *rtrs)
-{
-	struct ospf_area *area;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_ia_routing():start");
-
-	if (IS_OSPF_ABR(ospf)) {
-		struct listnode *node;
-		struct ospf_area *area;
-
-		switch (ospf->abr_type) {
-		case OSPF_ABR_STAND:
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug("ospf_ia_routing():Standard ABR");
-
-			if ((area = ospf->backbone)) {
-				struct listnode *node;
-
-				if (IS_DEBUG_OSPF_EVENT) {
-					zlog_debug(
-						"ospf_ia_routing():backbone area found");
-					zlog_debug(
-						"ospf_ia_routing():examining summaries");
-				}
-
-				OSPF_EXAMINE_SUMMARIES_ALL(area, rt, rtrs);
-
-				for (ALL_LIST_ELEMENTS_RO(ospf->areas, node,
-							  area))
-					if (area != ospf->backbone)
-						if (ospf_area_is_transit(area))
-							OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL(
-								area, rt, rtrs);
-			} else if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_ia_routing():backbone area NOT found");
-			break;
-		case OSPF_ABR_IBM:
-		case OSPF_ABR_CISCO:
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_ia_routing():Alternative Cisco/IBM ABR");
-			area = ospf->backbone; /* Find the BB */
-
-			/* If we have an active BB connection */
-			if (area && ospf_act_bb_connection(ospf)) {
-				if (IS_DEBUG_OSPF_EVENT) {
-					zlog_debug(
-						"ospf_ia_routing(): backbone area found");
-					zlog_debug(
-						"ospf_ia_routing(): examining BB summaries");
-				}
-
-				OSPF_EXAMINE_SUMMARIES_ALL(area, rt, rtrs);
-
-				for (ALL_LIST_ELEMENTS_RO(ospf->areas, node,
-							  area))
-					if (area != ospf->backbone)
-						if (ospf_area_is_transit(area))
-							OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL(
-								area, rt, rtrs);
-			} else { /* No active BB connection--consider all areas
-				    */
-				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"ospf_ia_routing(): "
-						"Active BB connection not found");
-				for (ALL_LIST_ELEMENTS_RO(ospf->areas, node,
-							  area))
-					OSPF_EXAMINE_SUMMARIES_ALL(area, rt,
-								   rtrs);
-			}
-			break;
-		case OSPF_ABR_SHORTCUT:
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_ia_routing():Alternative Shortcut");
-			area = ospf->backbone; /* Find the BB */
-
-			/* If we have an active BB connection */
-			if (area && ospf_act_bb_connection(ospf)) {
-				if (IS_DEBUG_OSPF_EVENT) {
-					zlog_debug(
-						"ospf_ia_routing(): backbone area found");
-					zlog_debug(
-						"ospf_ia_routing(): examining BB summaries");
-				}
-				OSPF_EXAMINE_SUMMARIES_ALL(area, rt, rtrs);
-			}
-
-			for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
-				if (area != ospf->backbone)
-					if (ospf_area_is_transit(area)
-					    || ((area->shortcut_configured
-						 != OSPF_SHORTCUT_DISABLE)
-						&& ((ospf->backbone == NULL)
-						    || ((area->shortcut_configured
-							 == OSPF_SHORTCUT_ENABLE)
-							&& area->shortcut_capability))))
-						OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL(
-							area, rt, rtrs);
-			break;
-		default:
-			break;
-		}
-	} else {
-		struct listnode *node;
-
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_ia_routing():not ABR, considering all areas");
-
-		for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
-			OSPF_EXAMINE_SUMMARIES_ALL(area, rt, rtrs);
-	}
-}
+/**OSPFinter-arearouting.*Copyright(C)1999,2000AlexZinin,ToshiakiTakada**Thisfil
+eispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*un
+derthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;e
+itherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopet
+hatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHAN
+TABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredeta
+ils.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogra
+m;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,Fi
+fthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"thread.h"#include"mem
+ory.h"#include"hash.h"#include"linklist.h"#include"prefix.h"#include"table.h"#in
+clude"log.h"#include"ospfd/ospfd.h"#include"ospfd/ospf_interface.h"#include"ospf
+d/ospf_ism.h"#include"ospfd/ospf_asbr.h"#include"ospfd/ospf_lsa.h"#include"ospfd
+/ospf_lsdb.h"#include"ospfd/ospf_neighbor.h"#include"ospfd/ospf_nsm.h"#include"o
+spfd/ospf_spf.h"#include"ospfd/ospf_route.h"#include"ospfd/ospf_ase.h"#include"o
+spfd/ospf_abr.h"#include"ospfd/ospf_ia.h"#include"ospfd/ospf_dump.h"staticstruct
+ospf_route*ospf_find_abr_route(structroute_table*rtrs,structprefix_ipv4*abr,stru
+ctospf_area*area){structroute_node*rn;structospf_route*or;structlistnode*node;if
+((rn=route_node_lookup(rtrs,(structprefix*)abr))==NULL)returnNULL;route_unlock_n
+ode(rn);for(ALL_LIST_ELEMENTS_RO((structlist*)rn->info,node,or))if(IPV4_ADDR_SAM
+E(&or->u.std.area_id,&area->area_id)&&(or->u.std.flags&ROUTER_LSA_BORDER))return
+or;returnNULL;}staticvoidospf_ia_network_route(structospf*ospf,structroute_table
+*rt,structprefix_ipv4*p,structospf_route*new_or,structospf_route*abr_or){structr
+oute_node*rn1;structospf_route*or;if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_ia_net
+work_route():processingsummaryrouteto%s/%d",inet_ntoa(p->prefix),p->prefixlen);/
+*Findaroutetothesamedest*/if((rn1=route_node_lookup(rt,(structprefix*)p))){intre
+s;route_unlock_node(rn1);if((or=rn1->info)){if(IS_DEBUG_OSPF_EVENT)zlog_debug("o
+spf_ia_network_route():""Foundaroutetothesamenetwork");/*Checktheexistingroute.*
+/if((res=ospf_route_cmp(ospf,new_or,or))<0){/*Newrouteisbetter,soreplaceoldone.*
+/ospf_route_subst(rn1,new_or,abr_or);}elseif(res==0){/*Newandoldrouteareequal,so
+nexthopscan*beadded.*/route_lock_node(rn1);ospf_route_copy_nexthops(or,abr_or->p
+aths);route_unlock_node(rn1);/*newroutecanbedeleted,becauseexisting*routehasbeen
+updated.*/ospf_route_free(new_or);}else{/*Newrouteisworse,sofreeit.*/ospf_route_
+free(new_or);return;}}/*if(or)*/}/*if(rn1)*/else{/*noroute*/if(IS_DEBUG_OSPF_EVE
+NT)zlog_debug("ospf_ia_network_route():addnewrouteto%s/%d",inet_ntoa(p->prefix),
+p->prefixlen);ospf_route_add(rt,p,new_or,abr_or);}}staticvoidospf_ia_router_rout
+e(structospf*ospf,structroute_table*rtrs,structprefix_ipv4*p,structospf_route*ne
+w_or,structospf_route*abr_or){structospf_route*or=NULL;structroute_node*rn;intre
+t;if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_ia_router_route():considering%s/%d",in
+et_ntoa(p->prefix),p->prefixlen);/*Findaroutetothesamedest*/rn=route_node_get(rt
+rs,(structprefix*)p);if(rn->info==NULL)/*Thisisanewroute*/rn->info=list_new();el
+se{structospf_area*or_area;or_area=ospf_area_lookup_by_area_id(ospf,new_or->u.st
+d.area_id);assert(or_area);/*Thisisanadditionalroute*/route_unlock_node(rn);or=o
+spf_find_asbr_route_through_area(rtrs,p,or_area);}if(or){if(IS_DEBUG_OSPF_EVENT)
+zlog_debug("ospf_ia_router_route():""aroutetothesameABRthroughthesameareaexists"
+);/*Newrouteisbetter*/if((ret=ospf_route_cmp(ospf,new_or,or))<0){listnode_delete
+(rn->info,or);ospf_route_free(or);/*proceeddown*/}/*Routesarethesame*/elseif(ret
+==0){if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_ia_router_route():mergingthenewrout
+e");ospf_route_copy_nexthops(or,abr_or->paths);ospf_route_free(new_or);return;}/
+*Newrouteisworse*/else{if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_ia_router_route()
+:skippingthenewroute");ospf_route_free(new_or);return;}}ospf_route_copy_nexthops
+(new_or,abr_or->paths);if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_ia_router_route()
+:addingthenewroute");listnode_add(rn->info,new_or);}staticintprocess_summary_lsa
+(structospf_area*area,structroute_table*rt,structroute_table*rtrs,structospf_lsa
+*lsa){structospf*ospf=area->ospf;structospf_area_range*range;structospf_route*ab
+r_or,*new_or;structsummary_lsa*sl;structprefix_ipv4p,abr;uint32_tmetric;if(lsa==
+NULL)return0;sl=(structsummary_lsa*)lsa->data;if(IS_DEBUG_OSPF_EVENT)zlog_debug(
+"process_summary_lsa():LSID:%s",inet_ntoa(sl->header.id));metric=GET_METRIC(sl->
+metric);if(metric==OSPF_LS_INFINITY)return0;if(IS_LSA_MAXAGE(lsa))return0;if(osp
+f_lsa_is_self_originated(area->ospf,lsa))return0;p.family=AF_INET;p.prefix=sl->h
+eader.id;if(sl->header.type==OSPF_SUMMARY_LSA)p.prefixlen=ip_masklen(sl->mask);e
+lsep.prefixlen=IPV4_MAX_BITLEN;apply_mask_ipv4(&p);if(sl->header.type==OSPF_SUMM
+ARY_LSA&&(range=ospf_area_range_match_any(ospf,&p))&&ospf_area_range_active(rang
+e))return0;/*XXX:Thischeckseemsdubioustome.IfanABRhasalreadydecided*toconsidersu
+mmariesreceivedinthisarea,thenwhywouldonewish*toexcludedefault?*/if(IS_OSPF_ABR(
+ospf)&&ospf->abr_type!=OSPF_ABR_STAND&&area->external_routing!=OSPF_AREA_DEFAULT
+&&p.prefix.s_addr==OSPF_DEFAULT_DESTINATION&&p.prefixlen==0)return0;/*Ignoresumm
+arydefaultfromastubarea*/abr.family=AF_INET;abr.prefix=sl->header.adv_router;abr
+.prefixlen=IPV4_MAX_BITLEN;apply_mask_ipv4(&abr);abr_or=ospf_find_abr_route(rtrs
+,&abr,area);if(abr_or==NULL)return0;new_or=ospf_route_new();new_or->type=OSPF_DE
+STINATION_NETWORK;new_or->id=sl->header.id;new_or->mask=sl->mask;new_or->u.std.o
+ptions=sl->header.options;new_or->u.std.origin=(structlsa_header*)sl;new_or->cos
+t=abr_or->cost+metric;new_or->u.std.area_id=area->area_id;new_or->u.std.external
+_routing=area->external_routing;new_or->path_type=OSPF_PATH_INTER_AREA;if(sl->he
+ader.type==OSPF_SUMMARY_LSA)ospf_ia_network_route(ospf,rt,&p,new_or,abr_or);else
+{new_or->type=OSPF_DESTINATION_ROUTER;new_or->u.std.flags=ROUTER_LSA_EXTERNAL;os
+pf_ia_router_route(ospf,rtrs,&p,new_or,abr_or);}return0;}staticvoidospf_examine_
+summaries(structospf_area*area,structroute_table*lsdb_rt,structroute_table*rt,st
+ructroute_table*rtrs){structospf_lsa*lsa;structroute_node*rn;LSDB_LOOP(lsdb_rt,r
+n,lsa)process_summary_lsa(area,rt,rtrs,lsa);}intospf_area_is_transit(structospf_
+area*area){return(area->transit==OSPF_TRANSIT_TRUE)||ospf_full_virtual_nbrs(area
+);/*CiscoforgetstosettheV-bit:(*/}staticvoidospf_update_network_route(structospf
+*ospf,structroute_table*rt,structroute_table*rtrs,structsummary_lsa*lsa,structpr
+efix_ipv4*p,structospf_area*area){structroute_node*rn;structospf_route*or,*abr_o
+r,*new_or;structprefix_ipv4abr;uint32_tcost;abr.family=AF_INET;abr.prefix=lsa->h
+eader.adv_router;abr.prefixlen=IPV4_MAX_BITLEN;apply_mask_ipv4(&abr);abr_or=ospf
+_find_abr_route(rtrs,&abr,area);if(abr_or==NULL){if(IS_DEBUG_OSPF_EVENT)zlog_deb
+ug("ospf_update_network_route():can'tfindaroutetotheABR");return;}cost=abr_or->c
+ost+GET_METRIC(lsa->metric);rn=route_node_lookup(rt,(structprefix*)p);if(!rn){if
+(ospf->abr_type!=OSPF_ABR_SHORTCUT)return;/*StandardABRcanupdateonlyalreadyinsta
+lledbackbonepaths*/if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_update_network_route(
+):""AllowingShortcutABRtoaddnewroute");new_or=ospf_route_new();new_or->type=OSPF
+_DESTINATION_NETWORK;new_or->id=lsa->header.id;new_or->mask=lsa->mask;new_or->u.
+std.options=lsa->header.options;new_or->u.std.origin=(structlsa_header*)lsa;new_
+or->cost=cost;new_or->u.std.area_id=area->area_id;new_or->u.std.external_routing
+=area->external_routing;new_or->path_type=OSPF_PATH_INTER_AREA;ospf_route_add(rt
+,p,new_or,abr_or);return;}else{route_unlock_node(rn);if(rn->info==NULL)return;}o
+r=rn->info;if(or->path_type!=OSPF_PATH_INTRA_AREA&&or->path_type!=OSPF_PATH_INTE
+R_AREA){if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_update_network_route():ERR:patht
+ypeiswrong");return;}if(ospf->abr_type==OSPF_ABR_SHORTCUT){if(or->path_type==OSP
+F_PATH_INTRA_AREA&&!OSPF_IS_AREA_ID_BACKBONE(or->u.std.area_id)){if(IS_DEBUG_OSP
+F_EVENT)zlog_debug("ospf_update_network_route():Shortcut:""thisintra-areapathisn
+otbackbone");return;}}else/*NotShortcutABR*/{if(!OSPF_IS_AREA_ID_BACKBONE(or->u.
+std.area_id)){if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_update_network_route():""r
+outeisnotBB-associated");return;/*WecanupdateonlyBBroutes*/}}if(or->cost<cost){i
+f(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_update_network_route():newrouteisworse");
+return;}if(or->cost==cost){if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_update_networ
+k_route():""newrouteissamedistance,addingnexthops");ospf_route_copy_nexthops(or,
+abr_or->paths);}if(or->cost>cost){if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_update
+_network_route():""newrouteisbetter,overridingnexthops");ospf_route_subst_nextho
+ps(or,abr_or->paths);or->cost=cost;if((ospf->abr_type==OSPF_ABR_SHORTCUT)&&!OSPF
+_IS_AREA_ID_BACKBONE(or->u.std.area_id)){or->path_type=OSPF_PATH_INTER_AREA;or->
+u.std.area_id=area->area_id;or->u.std.external_routing=area->external_routing;/*
+NotethatwecandothisonlyinShortcutABRmode,becausestandardABRmustleavetheroutetype
+andareaunchanged*/}}}staticvoidospf_update_router_route(structospf*ospf,structro
+ute_table*rtrs,structsummary_lsa*lsa,structprefix_ipv4*p,structospf_area*area){s
+tructospf_route*or,*abr_or,*new_or;structprefix_ipv4abr;uint32_tcost;abr.family=
+AF_INET;abr.prefix=lsa->header.adv_router;abr.prefixlen=IPV4_MAX_BITLEN;apply_ma
+sk_ipv4(&abr);abr_or=ospf_find_abr_route(rtrs,&abr,area);if(abr_or==NULL){if(IS_
+DEBUG_OSPF_EVENT)zlog_debug("ospf_update_router_route():can'tfindaroutetotheABR"
+);return;}cost=abr_or->cost+GET_METRIC(lsa->metric);/*Firsttrytofindabackbonepat
+h,becausestandardABRcanupdateonlyBB-associatedpaths*/if((ospf->backbone==NULL)&&
+(ospf->abr_type!=OSPF_ABR_SHORTCUT))return;/*noBBarea,notShortcutABR,exiting*//*
+findthebackboneroute,ifpossible*/if((ospf->backbone==NULL)||!(or=ospf_find_asbr_
+route_through_area(rtrs,p,ospf->backbone))){if(ospf->abr_type!=OSPF_ABR_SHORTCUT
+)/*routetoASBRthroughtheBBnotfoundtherouterisnotShortcutABR,exiting*/return;else
+/*We'reaShortcutABR*/{/*Letiteitheraddanewrouterorupdatetheroutethroughthesame(n
+on-BB)area.*/new_or=ospf_route_new();new_or->type=OSPF_DESTINATION_ROUTER;new_or
+->id=lsa->header.id;new_or->mask=lsa->mask;new_or->u.std.options=lsa->header.opt
+ions;new_or->u.std.origin=(structlsa_header*)lsa;new_or->cost=cost;new_or->u.std
+.area_id=area->area_id;new_or->u.std.external_routing=area->external_routing;new
+_or->path_type=OSPF_PATH_INTER_AREA;new_or->u.std.flags=ROUTER_LSA_EXTERNAL;ospf
+_ia_router_route(ospf,rtrs,p,new_or,abr_or);return;}}/*Atthispointthe"or"isalway
+sbb-associated*/if(!(or->u.std.flags&ROUTER_LSA_EXTERNAL)){if(IS_DEBUG_OSPF_EVEN
+T)zlog_debug("ospf_upd_router_route():theremoterouterisnotanASBR");return;}if(or
+->path_type!=OSPF_PATH_INTRA_AREA&&or->path_type!=OSPF_PATH_INTER_AREA)return;if
+(or->cost<cost)return;elseif(or->cost==cost)ospf_route_copy_nexthops(or,abr_or->
+paths);elseif(or->cost>cost){ospf_route_subst_nexthops(or,abr_or->paths);or->cos
+t=cost;/*EveniftheABRrunsinShortcutmode,wecan'tchangethepathtypeandarea,becauset
+he"or"isalwaysbb-associatedatthispointandevenShortcutABRcan'tchangetheseattribut
+es*/}}staticintprocess_transit_summary_lsa(structospf_area*area,structroute_tabl
+e*rt,structroute_table*rtrs,structospf_lsa*lsa){structospf*ospf=area->ospf;struc
+tsummary_lsa*sl;structprefix_ipv4p;uint32_tmetric;if(lsa==NULL)return0;sl=(struc
+tsummary_lsa*)lsa->data;if(IS_DEBUG_OSPF_EVENT)zlog_debug("process_transit_summa
+ries():LSID:%s",inet_ntoa(lsa->data->id));metric=GET_METRIC(sl->metric);if(metri
+c==OSPF_LS_INFINITY){if(IS_DEBUG_OSPF_EVENT)zlog_debug("process_transit_summarie
+s():metricisinfinity,skip");return0;}if(IS_LSA_MAXAGE(lsa)){if(IS_DEBUG_OSPF_EVE
+NT)zlog_debug("process_transit_summaries():ThisLSAistooold");return0;}if(ospf_ls
+a_is_self_originated(area->ospf,lsa)){if(IS_DEBUG_OSPF_EVENT)zlog_debug("process
+_transit_summaries():ThisLSAismine,skip");return0;}p.family=AF_INET;p.prefix=sl-
+>header.id;if(sl->header.type==OSPF_SUMMARY_LSA)p.prefixlen=ip_masklen(sl->mask)
+;elsep.prefixlen=IPV4_MAX_BITLEN;apply_mask_ipv4(&p);if(sl->header.type==OSPF_SU
+MMARY_LSA)ospf_update_network_route(ospf,rt,rtrs,sl,&p,area);elseospf_update_rou
+ter_route(ospf,rtrs,sl,&p,area);return0;}staticvoidospf_examine_transit_summarie
+s(structospf_area*area,structroute_table*lsdb_rt,structroute_table*rt,structrout
+e_table*rtrs){structospf_lsa*lsa;structroute_node*rn;LSDB_LOOP(lsdb_rt,rn,lsa)pr
+ocess_transit_summary_lsa(area,rt,rtrs,lsa);}voidospf_ia_routing(structospf*ospf
+,structroute_table*rt,structroute_table*rtrs){structospf_area*area;if(IS_DEBUG_O
+SPF_EVENT)zlog_debug("ospf_ia_routing():start");if(IS_OSPF_ABR(ospf)){structlist
+node*node;structospf_area*area;switch(ospf->abr_type){caseOSPF_ABR_STAND:if(IS_D
+EBUG_OSPF_EVENT)zlog_debug("ospf_ia_routing():StandardABR");if((area=ospf->backb
+one)){structlistnode*node;if(IS_DEBUG_OSPF_EVENT){zlog_debug("ospf_ia_routing():
+backboneareafound");zlog_debug("ospf_ia_routing():examiningsummaries");}OSPF_EXA
+MINE_SUMMARIES_ALL(area,rt,rtrs);for(ALL_LIST_ELEMENTS_RO(ospf->areas,node,area)
+)if(area!=ospf->backbone)if(ospf_area_is_transit(area))OSPF_EXAMINE_TRANSIT_SUMM
+ARIES_ALL(area,rt,rtrs);}elseif(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_ia_routing(
+):backboneareaNOTfound");break;caseOSPF_ABR_IBM:caseOSPF_ABR_CISCO:if(IS_DEBUG_O
+SPF_EVENT)zlog_debug("ospf_ia_routing():AlternativeCisco/IBMABR");area=ospf->bac
+kbone;/*FindtheBB*//*IfwehaveanactiveBBconnection*/if(area&&ospf_act_bb_connecti
+on(ospf)){if(IS_DEBUG_OSPF_EVENT){zlog_debug("ospf_ia_routing():backboneareafoun
+d");zlog_debug("ospf_ia_routing():examiningBBsummaries");}OSPF_EXAMINE_SUMMARIES
+_ALL(area,rt,rtrs);for(ALL_LIST_ELEMENTS_RO(ospf->areas,node,area))if(area!=ospf
+->backbone)if(ospf_area_is_transit(area))OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL(area
+,rt,rtrs);}else{/*NoactiveBBconnection--considerallareas*/if(IS_DEBUG_OSPF_EVENT
+)zlog_debug("ospf_ia_routing():""ActiveBBconnectionnotfound");for(ALL_LIST_ELEME
+NTS_RO(ospf->areas,node,area))OSPF_EXAMINE_SUMMARIES_ALL(area,rt,rtrs);}break;ca
+seOSPF_ABR_SHORTCUT:if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_ia_routing():Alterna
+tiveShortcut");area=ospf->backbone;/*FindtheBB*//*IfwehaveanactiveBBconnection*/
+if(area&&ospf_act_bb_connection(ospf)){if(IS_DEBUG_OSPF_EVENT){zlog_debug("ospf_
+ia_routing():backboneareafound");zlog_debug("ospf_ia_routing():examiningBBsummar
+ies");}OSPF_EXAMINE_SUMMARIES_ALL(area,rt,rtrs);}for(ALL_LIST_ELEMENTS_RO(ospf->
+areas,node,area))if(area!=ospf->backbone)if(ospf_area_is_transit(area)||((area->
+shortcut_configured!=OSPF_SHORTCUT_DISABLE)&&((ospf->backbone==NULL)||((area->sh
+ortcut_configured==OSPF_SHORTCUT_ENABLE)&&area->shortcut_capability))))OSPF_EXAM
+INE_TRANSIT_SUMMARIES_ALL(area,rt,rtrs);break;default:break;}}else{structlistnod
+e*node;if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_ia_routing():notABR,consideringal
+lareas");for(ALL_LIST_ELEMENTS_RO(ospf->areas,node,area))OSPF_EXAMINE_SUMMARIES_
+ALL(area,rt,rtrs);}}

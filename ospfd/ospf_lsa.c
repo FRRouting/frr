@@ -1,3727 +1,1006 @@
-/*
- * OSPF Link State Advertisement
- * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "monotime.h"
-#include "linklist.h"
-#include "prefix.h"
-#include "if.h"
-#include "table.h"
-#include "memory.h"
-#include "stream.h"
-#include "log.h"
-#include "thread.h"
-#include "hash.h"
-#include "sockunion.h" /* for inet_aton() */
-#include "checksum.h"
-
-#include "ospfd/ospfd.h"
-#include "ospfd/ospf_interface.h"
-#include "ospfd/ospf_ism.h"
-#include "ospfd/ospf_asbr.h"
-#include "ospfd/ospf_lsa.h"
-#include "ospfd/ospf_lsdb.h"
-#include "ospfd/ospf_neighbor.h"
-#include "ospfd/ospf_nsm.h"
-#include "ospfd/ospf_flood.h"
-#include "ospfd/ospf_packet.h"
-#include "ospfd/ospf_spf.h"
-#include "ospfd/ospf_dump.h"
-#include "ospfd/ospf_route.h"
-#include "ospfd/ospf_ase.h"
-#include "ospfd/ospf_zebra.h"
-#include "ospfd/ospf_abr.h"
-
-
-uint32_t get_metric(uint8_t *metric)
-{
-	uint32_t m;
-	m = metric[0];
-	m = (m << 8) + metric[1];
-	m = (m << 8) + metric[2];
-	return m;
-}
-
-
-struct timeval int2tv(int a)
-{
-	struct timeval ret;
-
-	ret.tv_sec = a;
-	ret.tv_usec = 0;
-
-	return ret;
-}
-
-struct timeval msec2tv(int a)
-{
-	struct timeval ret;
-
-	ret.tv_sec = a / 1000;
-	ret.tv_usec = (a % 1000) * 1000;
-
-	return ret;
-}
-
-int ospf_lsa_refresh_delay(struct ospf_lsa *lsa)
-{
-	struct timeval delta;
-	int delay = 0;
-
-	if (monotime_since(&lsa->tv_orig, &delta)
-	    < OSPF_MIN_LS_INTERVAL * 1000LL) {
-		struct timeval minv = msec2tv(OSPF_MIN_LS_INTERVAL);
-		timersub(&minv, &delta, &minv);
-
-		/* TBD: remove padding to full sec, return timeval instead */
-		delay = minv.tv_sec + !!minv.tv_usec;
-
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d:%s]: Refresh timer delay %d seconds",
-				lsa->data->type, inet_ntoa(lsa->data->id),
-				delay);
-
-		assert(delay > 0);
-	}
-
-	return delay;
-}
-
-
-int get_age(struct ospf_lsa *lsa)
-{
-	struct timeval rel;
-
-	monotime_since(&lsa->tv_recv, &rel);
-	return ntohs(lsa->data->ls_age) + rel.tv_sec;
-}
-
-
-/* Fletcher Checksum -- Refer to RFC1008. */
-
-/* All the offsets are zero-based. The offsets in the RFC1008 are
-   one-based. */
-uint16_t ospf_lsa_checksum(struct lsa_header *lsa)
-{
-	uint8_t *buffer = (uint8_t *)&lsa->options;
-	int options_offset = buffer - (uint8_t *)&lsa->ls_age; /* should be 2 */
-
-	/* Skip the AGE field */
-	uint16_t len = ntohs(lsa->length) - options_offset;
-
-	/* Checksum offset starts from "options" field, not the beginning of the
-	   lsa_header struct. The offset is 14, rather than 16. */
-	int checksum_offset = (uint8_t *)&lsa->checksum - buffer;
-
-	return fletcher_checksum(buffer, len, checksum_offset);
-}
-
-int ospf_lsa_checksum_valid(struct lsa_header *lsa)
-{
-	uint8_t *buffer = (uint8_t *)&lsa->options;
-	int options_offset = buffer - (uint8_t *)&lsa->ls_age; /* should be 2 */
-
-	/* Skip the AGE field */
-	uint16_t len = ntohs(lsa->length) - options_offset;
-
-	return (fletcher_checksum(buffer, len, FLETCHER_CHECKSUM_VALIDATE)
-		== 0);
-}
-
-
-/* Create OSPF LSA. */
-struct ospf_lsa *ospf_lsa_new()
-{
-	struct ospf_lsa *new;
-
-	new = XCALLOC(MTYPE_OSPF_LSA, sizeof(struct ospf_lsa));
-
-	new->flags = 0;
-	new->lock = 1;
-	new->retransmit_counter = 0;
-	monotime(&new->tv_recv);
-	new->tv_orig = new->tv_recv;
-	new->refresh_list = -1;
-	new->vrf_id = VRF_DEFAULT;
-
-	return new;
-}
-
-/* Duplicate OSPF LSA. */
-struct ospf_lsa *ospf_lsa_dup(struct ospf_lsa *lsa)
-{
-	struct ospf_lsa *new;
-
-	if (lsa == NULL)
-		return NULL;
-
-	new = XCALLOC(MTYPE_OSPF_LSA, sizeof(struct ospf_lsa));
-
-	memcpy(new, lsa, sizeof(struct ospf_lsa));
-	UNSET_FLAG(new->flags, OSPF_LSA_DISCARD);
-	new->lock = 1;
-	new->retransmit_counter = 0;
-	new->data = ospf_lsa_data_dup(lsa->data);
-
-	/* kevinm: Clear the refresh_list, otherwise there are going
-	   to be problems when we try to remove the LSA from the
-	   queue (which it's not a member of.)
-	   XXX: Should we add the LSA to the refresh_list queue? */
-	new->refresh_list = -1;
-
-	if (IS_DEBUG_OSPF(lsa, LSA))
-		zlog_debug("LSA: duplicated %p (new: %p)", (void *)lsa,
-			   (void *)new);
-
-	return new;
-}
-
-/* Free OSPF LSA. */
-void ospf_lsa_free(struct ospf_lsa *lsa)
-{
-	assert(lsa->lock == 0);
-
-	if (IS_DEBUG_OSPF(lsa, LSA))
-		zlog_debug("LSA: freed %p", (void *)lsa);
-
-	/* Delete LSA data. */
-	if (lsa->data != NULL)
-		ospf_lsa_data_free(lsa->data);
-
-	assert(lsa->refresh_list < 0);
-
-	memset(lsa, 0, sizeof(struct ospf_lsa));
-	XFREE(MTYPE_OSPF_LSA, lsa);
-}
-
-/* Lock LSA. */
-struct ospf_lsa *ospf_lsa_lock(struct ospf_lsa *lsa)
-{
-	lsa->lock++;
-	return lsa;
-}
-
-/* Unlock LSA. */
-void ospf_lsa_unlock(struct ospf_lsa **lsa)
-{
-	/* This is sanity check. */
-	if (!lsa || !*lsa)
-		return;
-
-	(*lsa)->lock--;
-
-	assert((*lsa)->lock >= 0);
-
-	if ((*lsa)->lock == 0) {
-		assert(CHECK_FLAG((*lsa)->flags, OSPF_LSA_DISCARD));
-		ospf_lsa_free(*lsa);
-		*lsa = NULL;
-	}
-}
-
-/* Check discard flag. */
-void ospf_lsa_discard(struct ospf_lsa *lsa)
-{
-	if (!CHECK_FLAG(lsa->flags, OSPF_LSA_DISCARD)) {
-		SET_FLAG(lsa->flags, OSPF_LSA_DISCARD);
-		ospf_lsa_unlock(&lsa);
-	}
-}
-
-/* Create LSA data. */
-struct lsa_header *ospf_lsa_data_new(size_t size)
-{
-	return XCALLOC(MTYPE_OSPF_LSA_DATA, size);
-}
-
-/* Duplicate LSA data. */
-struct lsa_header *ospf_lsa_data_dup(struct lsa_header *lsah)
-{
-	struct lsa_header *new;
-
-	new = ospf_lsa_data_new(ntohs(lsah->length));
-	memcpy(new, lsah, ntohs(lsah->length));
-
-	return new;
-}
-
-/* Free LSA data. */
-void ospf_lsa_data_free(struct lsa_header *lsah)
-{
-	if (IS_DEBUG_OSPF(lsa, LSA))
-		zlog_debug("LSA[Type%d:%s]: data freed %p", lsah->type,
-			   inet_ntoa(lsah->id), (void *)lsah);
-
-	XFREE(MTYPE_OSPF_LSA_DATA, lsah);
-}
-
-
-/* LSA general functions. */
-
-const char *dump_lsa_key(struct ospf_lsa *lsa)
-{
-	static char buf[] = {"Type255,id(255.255.255.255),ar(255.255.255.255)"};
-	struct lsa_header *lsah;
-
-	if (lsa != NULL && (lsah = lsa->data) != NULL) {
-		char id[INET_ADDRSTRLEN], ar[INET_ADDRSTRLEN];
-		strlcpy(id, inet_ntoa(lsah->id), sizeof(id));
-		strlcpy(ar, inet_ntoa(lsah->adv_router), sizeof(ar));
-
-		sprintf(buf, "Type%d,id(%s),ar(%s)", lsah->type, id, ar);
-	} else
-		strlcpy(buf, "NULL", sizeof(buf));
-
-	return buf;
-}
-
-uint32_t lsa_seqnum_increment(struct ospf_lsa *lsa)
-{
-	uint32_t seqnum;
-
-	seqnum = ntohl(lsa->data->ls_seqnum) + 1;
-
-	return htonl(seqnum);
-}
-
-void lsa_header_set(struct stream *s, uint8_t options, uint8_t type,
-		    struct in_addr id, struct in_addr router_id)
-{
-	struct lsa_header *lsah;
-
-	lsah = (struct lsa_header *)STREAM_DATA(s);
-
-	lsah->ls_age = htons(OSPF_LSA_INITIAL_AGE);
-	lsah->options = options;
-	lsah->type = type;
-	lsah->id = id;
-	lsah->adv_router = router_id;
-	lsah->ls_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
-
-	stream_forward_endp(s, OSPF_LSA_HEADER_SIZE);
-}
-
-
-/* router-LSA related functions. */
-/* Get router-LSA flags. */
-static uint8_t router_lsa_flags(struct ospf_area *area)
-{
-	uint8_t flags;
-
-	flags = area->ospf->flags;
-
-	/* Set virtual link flag. */
-	if (ospf_full_virtual_nbrs(area))
-		SET_FLAG(flags, ROUTER_LSA_VIRTUAL);
-	else
-		/* Just sanity check */
-		UNSET_FLAG(flags, ROUTER_LSA_VIRTUAL);
-
-	/* Set Shortcut ABR behabiour flag. */
-	UNSET_FLAG(flags, ROUTER_LSA_SHORTCUT);
-	if (area->ospf->abr_type == OSPF_ABR_SHORTCUT)
-		if (!OSPF_IS_AREA_BACKBONE(area))
-			if ((area->shortcut_configured == OSPF_SHORTCUT_DEFAULT
-			     && area->ospf->backbone == NULL)
-			    || area->shortcut_configured
-				       == OSPF_SHORTCUT_ENABLE)
-				SET_FLAG(flags, ROUTER_LSA_SHORTCUT);
-
-	/* ASBR can't exit in stub area. */
-	if (area->external_routing == OSPF_AREA_STUB)
-		UNSET_FLAG(flags, ROUTER_LSA_EXTERNAL);
-	/* If ASBR set External flag */
-	else if (IS_OSPF_ASBR(area->ospf))
-		SET_FLAG(flags, ROUTER_LSA_EXTERNAL);
-
-	/* Set ABR dependent flags */
-	if (IS_OSPF_ABR(area->ospf)) {
-		SET_FLAG(flags, ROUTER_LSA_BORDER);
-		/* If Area is NSSA and we are both ABR and unconditional
-		 * translator,
-		 * set Nt bit to inform other routers.
-		 */
-		if ((area->external_routing == OSPF_AREA_NSSA)
-		    && (area->NSSATranslatorRole == OSPF_NSSA_ROLE_ALWAYS))
-			SET_FLAG(flags, ROUTER_LSA_NT);
-	}
-	return flags;
-}
-
-/* Lookup neighbor other than myself.
-   And check neighbor count,
-   Point-to-Point link must have only 1 neighbor. */
-struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *oi)
-{
-	struct ospf_neighbor *nbr = NULL;
-	struct route_node *rn;
-
-	/* Search neighbor, there must be one of two nbrs. */
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-		if ((nbr = rn->info))
-			if (!IPV4_ADDR_SAME(&nbr->router_id,
-					    &oi->ospf->router_id))
-				if (nbr->state == NSM_Full) {
-					route_unlock_node(rn);
-					break;
-				}
-
-	/* PtoP link must have only 1 neighbor. */
-	if (ospf_nbr_count(oi, 0) > 1)
-		zlog_warn("Point-to-Point link has more than 1 neighobrs.");
-
-	return nbr;
-}
-
-/* Determine cost of link, taking RFC3137 stub-router support into
- * consideration
- */
-static uint16_t ospf_link_cost(struct ospf_interface *oi)
-{
-	/* RFC3137 stub router support */
-	if (!CHECK_FLAG(oi->area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
-		return oi->output_cost;
-	else
-		return OSPF_OUTPUT_COST_INFINITE;
-}
-
-/* Set a link information. */
-static char link_info_set(struct stream *s, struct in_addr id,
-			  struct in_addr data, uint8_t type, uint8_t tos,
-			  uint16_t cost)
-{
-	/* LSA stream is initially allocated to OSPF_MAX_LSA_SIZE, suits
-	 * vast majority of cases. Some rare routers with lots of links need
-	 * more.
-	 * we try accomodate those here.
-	 */
-	if (STREAM_WRITEABLE(s) < OSPF_ROUTER_LSA_LINK_SIZE) {
-		size_t ret = OSPF_MAX_LSA_SIZE;
-
-		/* Can we enlarge the stream still? */
-		if (STREAM_SIZE(s) == OSPF_MAX_LSA_SIZE) {
-			/* we futz the size here for simplicity, really we need
-			 * to account
-			 * for just:
-			 * IP Header - (sizeof (struct ip))
-			 * OSPF Header - OSPF_HEADER_SIZE
-			 * LSA Header - OSPF_LSA_HEADER_SIZE
-			 * MD5 auth data, if MD5 is configured -
-			 * OSPF_AUTH_MD5_SIZE.
-			 *
-			 * Simpler just to subtract OSPF_MAX_LSA_SIZE though.
-			 */
-			ret = stream_resize(
-				s, OSPF_MAX_PACKET_SIZE - OSPF_MAX_LSA_SIZE);
-		}
-
-		if (ret == OSPF_MAX_LSA_SIZE) {
-			zlog_warn(
-				"%s: Out of space in LSA stream, left %zd, size %zd",
-				__func__, STREAM_WRITEABLE(s), STREAM_SIZE(s));
-			return 0;
-		}
-	}
-
-	/* TOS based routing is not supported. */
-	stream_put_ipv4(s, id.s_addr);   /* Link ID. */
-	stream_put_ipv4(s, data.s_addr); /* Link Data. */
-	stream_putc(s, type);		 /* Link Type. */
-	stream_putc(s, tos);		 /* TOS = 0. */
-	stream_putw(s, cost);		 /* Link Cost. */
-
-	return 1;
-}
-
-/* Describe Point-to-Point link (Section 12.4.1.1). */
-static int lsa_link_ptop_set(struct stream *s, struct ospf_interface *oi)
-{
-	int links = 0;
-	struct ospf_neighbor *nbr;
-	struct in_addr id, mask, data;
-	uint16_t cost = ospf_link_cost(oi);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("LSA[Type1]: Set link Point-to-Point");
-
-	if ((nbr = ospf_nbr_lookup_ptop(oi)))
-		if (nbr->state == NSM_Full) {
-			if (CHECK_FLAG(oi->connected->flags,
-				       ZEBRA_IFA_UNNUMBERED)) {
-				/* For unnumbered point-to-point networks, the
-				   Link Data field
-				   should specify the interface's MIB-II ifIndex
-				   value. */
-				data.s_addr = htonl(oi->ifp->ifindex);
-				links += link_info_set(
-					s, nbr->router_id, data,
-					LSA_LINK_TYPE_POINTOPOINT, 0, cost);
-			} else {
-				links += link_info_set(
-					s, nbr->router_id,
-					oi->address->u.prefix4,
-					LSA_LINK_TYPE_POINTOPOINT, 0, cost);
-			}
-		}
-
-	/* no need for a stub link for unnumbered interfaces */
-	if (!CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
-		/* Regardless of the state of the neighboring router, we must
-		   add a Type 3 link (stub network).
-		   N.B. Options 1 & 2 share basically the same logic. */
-		masklen2ip(oi->address->prefixlen, &mask);
-		id.s_addr = CONNECTED_PREFIX(oi->connected)->u.prefix4.s_addr
-			    & mask.s_addr;
-		links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
-				       oi->output_cost);
-	}
-
-	return links;
-}
-
-/* Describe Broadcast Link. */
-static int lsa_link_broadcast_set(struct stream *s, struct ospf_interface *oi)
-{
-	struct ospf_neighbor *dr;
-	struct in_addr id, mask;
-	uint16_t cost = ospf_link_cost(oi);
-
-	/* Describe Type 3 Link. */
-	if (oi->state == ISM_Waiting) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type1]: Interface %s is in state Waiting. "
-				"Adding stub interface",
-				oi->ifp->name);
-		masklen2ip(oi->address->prefixlen, &mask);
-		id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
-		return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
-				     oi->output_cost);
-	}
-
-	dr = ospf_nbr_lookup_by_addr(oi->nbrs, &DR(oi));
-	/* Describe Type 2 link. */
-	if (dr && (dr->state == NSM_Full
-		   || IPV4_ADDR_SAME(&oi->address->u.prefix4, &DR(oi)))
-	    && ospf_nbr_count(oi, NSM_Full) > 0) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type1]: Interface %s has a DR. "
-				"Adding transit interface",
-				oi->ifp->name);
-		return link_info_set(s, DR(oi), oi->address->u.prefix4,
-				     LSA_LINK_TYPE_TRANSIT, 0, cost);
-	}
-	/* Describe type 3 link. */
-	else {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type1]: Interface %s has no DR. "
-				"Adding stub interface",
-				oi->ifp->name);
-		masklen2ip(oi->address->prefixlen, &mask);
-		id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
-		return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
-				     oi->output_cost);
-	}
-}
-
-static int lsa_link_loopback_set(struct stream *s, struct ospf_interface *oi)
-{
-	struct in_addr id, mask;
-
-	/* Describe Type 3 Link. */
-	if (oi->state != ISM_Loopback)
-		return 0;
-
-	mask.s_addr = 0xffffffff;
-	id.s_addr = oi->address->u.prefix4.s_addr;
-	return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
-}
-
-/* Describe Virtual Link. */
-static int lsa_link_virtuallink_set(struct stream *s, struct ospf_interface *oi)
-{
-	struct ospf_neighbor *nbr;
-	uint16_t cost = ospf_link_cost(oi);
-
-	if (oi->state == ISM_PointToPoint)
-		if ((nbr = ospf_nbr_lookup_ptop(oi)))
-			if (nbr->state == NSM_Full) {
-				return link_info_set(s, nbr->router_id,
-						     oi->address->u.prefix4,
-						     LSA_LINK_TYPE_VIRTUALLINK,
-						     0, cost);
-			}
-
-	return 0;
-}
-
-#define lsa_link_nbma_set(S,O)  lsa_link_broadcast_set (S, O)
-
-/* this function add for support point-to-multipoint ,see rfc2328
-12.4.1.4.*/
-/* from "edward rrr" <edward_rrr@hotmail.com>
-   http://marc.theaimsgroup.com/?l=zebra&m=100739222210507&w=2 */
-static int lsa_link_ptomp_set(struct stream *s, struct ospf_interface *oi)
-{
-	int links = 0;
-	struct route_node *rn;
-	struct ospf_neighbor *nbr = NULL;
-	struct in_addr id, mask;
-	uint16_t cost = ospf_link_cost(oi);
-
-	mask.s_addr = 0xffffffff;
-	id.s_addr = oi->address->u.prefix4.s_addr;
-	links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("PointToMultipoint: running ptomultip_set");
-
-	/* Search neighbor, */
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-		if ((nbr = rn->info) != NULL)
-			/* Ignore myself. */
-			if (!IPV4_ADDR_SAME(&nbr->router_id,
-					    &oi->ospf->router_id))
-				if (nbr->state == NSM_Full)
-
-				{
-					links += link_info_set(
-						s, nbr->router_id,
-						oi->address->u.prefix4,
-						LSA_LINK_TYPE_POINTOPOINT, 0,
-						cost);
-					if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-						zlog_debug(
-							"PointToMultipoint: set link to %s",
-							inet_ntoa(
-								oi->address->u
-									.prefix4));
-				}
-
-	return links;
-}
-
-/* Set router-LSA link information. */
-static int router_lsa_link_set(struct stream *s, struct ospf_area *area)
-{
-	struct listnode *node;
-	struct ospf_interface *oi;
-	int links = 0;
-
-	for (ALL_LIST_ELEMENTS_RO(area->oiflist, node, oi)) {
-		struct interface *ifp = oi->ifp;
-
-		/* Check interface is up, OSPF is enable. */
-		if (if_is_operative(ifp)) {
-			if (oi->state != ISM_Down) {
-				oi->lsa_pos_beg = links;
-				/* Describe each link. */
-				switch (oi->type) {
-				case OSPF_IFTYPE_POINTOPOINT:
-					links += lsa_link_ptop_set(s, oi);
-					break;
-				case OSPF_IFTYPE_BROADCAST:
-					links += lsa_link_broadcast_set(s, oi);
-					break;
-				case OSPF_IFTYPE_NBMA:
-					links += lsa_link_nbma_set(s, oi);
-					break;
-				case OSPF_IFTYPE_POINTOMULTIPOINT:
-					links += lsa_link_ptomp_set(s, oi);
-					break;
-				case OSPF_IFTYPE_VIRTUALLINK:
-					links +=
-						lsa_link_virtuallink_set(s, oi);
-					break;
-				case OSPF_IFTYPE_LOOPBACK:
-					links += lsa_link_loopback_set(s, oi);
-				}
-				oi->lsa_pos_end = links;
-			}
-		}
-	}
-
-	return links;
-}
-
-/* Set router-LSA body. */
-static void ospf_router_lsa_body_set(struct stream *s, struct ospf_area *area)
-{
-	unsigned long putp;
-	uint16_t cnt;
-
-	/* Set flags. */
-	stream_putc(s, router_lsa_flags(area));
-
-	/* Set Zero fields. */
-	stream_putc(s, 0);
-
-	/* Keep pointer to # links. */
-	putp = stream_get_endp(s);
-
-	/* Forward word */
-	stream_putw(s, 0);
-
-	/* Set all link information. */
-	cnt = router_lsa_link_set(s, area);
-
-	/* Set # of links here. */
-	stream_putw_at(s, putp, cnt);
-}
-
-static int ospf_stub_router_timer(struct thread *t)
-{
-	struct ospf_area *area = THREAD_ARG(t);
-
-	area->t_stub_router = NULL;
-
-	SET_FLAG(area->stub_router_state, OSPF_AREA_WAS_START_STUB_ROUTED);
-
-	/* clear stub route state and generate router-lsa refresh, don't
-	 * clobber an administratively set stub-router state though.
-	 */
-	if (CHECK_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
-		return 0;
-
-	UNSET_FLAG(area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED);
-
-	ospf_router_lsa_update_area(area);
-
-	return 0;
-}
-
-static void ospf_stub_router_check(struct ospf_area *area)
-{
-	/* area must either be administratively configured to be stub
-	 * or startup-time stub-router must be configured and we must in a
-	 * pre-stub
-	 * state.
-	 */
-	if (CHECK_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED)) {
-		SET_FLAG(area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED);
-		return;
-	}
-
-	/* not admin-stubbed, check whether startup stubbing is configured and
-	 * whether it's not been done yet
-	 */
-	if (CHECK_FLAG(area->stub_router_state,
-		       OSPF_AREA_WAS_START_STUB_ROUTED))
-		return;
-
-	if (area->ospf->stub_router_startup_time
-	    == OSPF_STUB_ROUTER_UNCONFIGURED) {
-		/* stub-router is hence done forever for this area, even if
-		 * someone
-		 * tries configure it (take effect next restart).
-		 */
-		SET_FLAG(area->stub_router_state,
-			 OSPF_AREA_WAS_START_STUB_ROUTED);
-		return;
-	}
-
-	/* startup stub-router configured and not yet done */
-	SET_FLAG(area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED);
-
-	OSPF_AREA_TIMER_ON(area->t_stub_router, ospf_stub_router_timer,
-			   area->ospf->stub_router_startup_time);
-}
-
-/* Create new router-LSA. */
-static struct ospf_lsa *ospf_router_lsa_new(struct ospf_area *area)
-{
-	struct ospf *ospf = area->ospf;
-	struct stream *s;
-	struct lsa_header *lsah;
-	struct ospf_lsa *new;
-	int length;
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("LSA[Type1]: Create router-LSA instance");
-
-	/* check whether stub-router is desired, and if this is the first
-	 * router LSA.
-	 */
-	ospf_stub_router_check(area);
-
-	/* Create a stream for LSA. */
-	s = stream_new(OSPF_MAX_LSA_SIZE);
-	/* Set LSA common header fields. */
-	lsa_header_set(s, LSA_OPTIONS_GET(area) | LSA_OPTIONS_NSSA_GET(area),
-		       OSPF_ROUTER_LSA, ospf->router_id, ospf->router_id);
-
-	/* Set router-LSA body fields. */
-	ospf_router_lsa_body_set(s, area);
-
-	/* Set length. */
-	length = stream_get_endp(s);
-	lsah = (struct lsa_header *)STREAM_DATA(s);
-	lsah->length = htons(length);
-
-	/* Now, create OSPF LSA instance. */
-	if ((new = ospf_lsa_new()) == NULL) {
-		zlog_err("%s: Unable to create new lsa", __func__);
-		return NULL;
-	}
-
-	new->area = area;
-	SET_FLAG(new->flags, OSPF_LSA_SELF | OSPF_LSA_SELF_CHECKED);
-	new->vrf_id = area->ospf->vrf_id;
-
-	/* Copy LSA data to store, discard stream. */
-	new->data = ospf_lsa_data_new(length);
-	memcpy(new->data, lsah, length);
-	stream_free(s);
-
-	return new;
-}
-
-/* Originate Router-LSA. */
-static struct ospf_lsa *ospf_router_lsa_originate(struct ospf_area *area)
-{
-	struct ospf_lsa *new;
-
-	/* Create new router-LSA instance. */
-	if ((new = ospf_router_lsa_new(area)) == NULL) {
-		zlog_err("%s: ospf_router_lsa_new returned NULL", __func__);
-		return NULL;
-	}
-
-	/* Sanity check. */
-	if (new->data->adv_router.s_addr == 0) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("LSA[Type1]: AdvRouter is 0, discard");
-		ospf_lsa_discard(new);
-		return NULL;
-	}
-
-	/* Install LSA to LSDB. */
-	new = ospf_lsa_install(area->ospf, NULL, new);
-
-	/* Update LSA origination count. */
-	area->ospf->lsa_originate_count++;
-
-	/* Flooding new LSA through area. */
-	ospf_flood_through_area(area, NULL, new);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: Originate router-LSA %p",
-			   new->data->type, inet_ntoa(new->data->id),
-			   (void *)new);
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return new;
-}
-
-/* Refresh router-LSA. */
-static struct ospf_lsa *ospf_router_lsa_refresh(struct ospf_lsa *lsa)
-{
-	struct ospf_area *area = lsa->area;
-	struct ospf_lsa *new;
-
-	/* Sanity check. */
-	assert(lsa->data);
-
-	/* Delete LSA from neighbor retransmit-list. */
-	ospf_ls_retransmit_delete_nbr_area(area, lsa);
-
-	/* Unregister LSA from refresh-list */
-	ospf_refresher_unregister_lsa(area->ospf, lsa);
-
-	/* Create new router-LSA instance. */
-	if ((new = ospf_router_lsa_new(area)) == NULL) {
-		zlog_err("%s: ospf_router_lsa_new returned NULL", __func__);
-		return NULL;
-	}
-
-	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-
-	ospf_lsa_install(area->ospf, NULL, new);
-
-	/* Flood LSA through area. */
-	ospf_flood_through_area(area, NULL, new);
-
-	/* Debug logging. */
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: router-LSA refresh",
-			   new->data->type, inet_ntoa(new->data->id));
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return NULL;
-}
-
-int ospf_router_lsa_update_area(struct ospf_area *area)
-{
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("[router-LSA]: (router-LSA area update)");
-
-	/* Now refresh router-LSA. */
-	if (area->router_lsa_self)
-		ospf_lsa_refresh(area->ospf, area->router_lsa_self);
-	/* Newly originate router-LSA. */
-	else
-		ospf_router_lsa_originate(area);
-
-	return 0;
-}
-
-int ospf_router_lsa_update(struct ospf *ospf)
-{
-	struct listnode *node, *nnode;
-	struct ospf_area *area;
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("Timer[router-LSA Update]: (timer expire)");
-
-	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
-		struct ospf_lsa *lsa = area->router_lsa_self;
-		struct router_lsa *rl;
-		const char *area_str;
-
-		/* Keep Area ID string. */
-		area_str = AREA_NAME(area);
-
-		/* If LSA not exist in this Area, originate new. */
-		if (lsa == NULL) {
-			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-				zlog_debug(
-					"LSA[Type1]: Create router-LSA for Area %s",
-					area_str);
-
-			ospf_router_lsa_originate(area);
-		}
-		/* If router-ID is changed, Link ID must change.
-		   First flush old LSA, then originate new. */
-		else if (!IPV4_ADDR_SAME(&lsa->data->id, &ospf->router_id)) {
-			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-				zlog_debug(
-					"LSA[Type%d:%s]: Refresh router-LSA for Area %s",
-					lsa->data->type,
-					inet_ntoa(lsa->data->id), area_str);
-			ospf_refresher_unregister_lsa(ospf, lsa);
-			ospf_lsa_flush_area(lsa, area);
-			ospf_lsa_unlock(&area->router_lsa_self);
-			area->router_lsa_self = NULL;
-
-			/* Refresh router-LSA, (not install) and flood through
-			 * area. */
-			ospf_router_lsa_update_area(area);
-		} else {
-			rl = (struct router_lsa *)lsa->data;
-			/* Refresh router-LSA, (not install) and flood through
-			 * area. */
-			if (rl->flags != ospf->flags)
-				ospf_router_lsa_update_area(area);
-		}
-	}
-
-	return 0;
-}
-
-
-/* network-LSA related functions. */
-/* Originate Network-LSA. */
-static void ospf_network_lsa_body_set(struct stream *s,
-				      struct ospf_interface *oi)
-{
-	struct in_addr mask;
-	struct route_node *rn;
-	struct ospf_neighbor *nbr;
-
-	masklen2ip(oi->address->prefixlen, &mask);
-	stream_put_ipv4(s, mask.s_addr);
-
-	/* The network-LSA lists those routers that are fully adjacent to
-	  the Designated Router; each fully adjacent router is identified by
-	  its OSPF Router ID.  The Designated Router includes itself in this
-	  list. RFC2328, Section 12.4.2 */
-
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-		if ((nbr = rn->info) != NULL)
-			if (nbr->state == NSM_Full || nbr == oi->nbr_self)
-				stream_put_ipv4(s, nbr->router_id.s_addr);
-}
-
-static struct ospf_lsa *ospf_network_lsa_new(struct ospf_interface *oi)
-{
-	struct stream *s;
-	struct ospf_lsa *new;
-	struct lsa_header *lsah;
-	struct ospf_if_params *oip;
-	int length;
-
-	/* If there are no neighbours on this network (the net is stub),
-	   the router does not originate network-LSA (see RFC 12.4.2) */
-	if (oi->full_nbrs == 0)
-		return NULL;
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("LSA[Type2]: Create network-LSA instance");
-
-	/* Create new stream for LSA. */
-	s = stream_new(OSPF_MAX_LSA_SIZE);
-	lsah = (struct lsa_header *)STREAM_DATA(s);
-
-	lsa_header_set(s, (OPTIONS(oi) | LSA_OPTIONS_GET(oi->area)),
-		       OSPF_NETWORK_LSA, DR(oi), oi->ospf->router_id);
-
-	/* Set network-LSA body fields. */
-	ospf_network_lsa_body_set(s, oi);
-
-	/* Set length. */
-	length = stream_get_endp(s);
-	lsah->length = htons(length);
-
-	/* Create OSPF LSA instance. */
-	if ((new = ospf_lsa_new()) == NULL) {
-		zlog_err("%s: ospf_lsa_new returned NULL", __func__);
-		return NULL;
-	}
-
-	new->area = oi->area;
-	SET_FLAG(new->flags, OSPF_LSA_SELF | OSPF_LSA_SELF_CHECKED);
-	new->vrf_id = oi->ospf->vrf_id;
-
-	/* Copy LSA to store. */
-	new->data = ospf_lsa_data_new(length);
-	memcpy(new->data, lsah, length);
-	stream_free(s);
-
-	/* Remember prior network LSA sequence numbers, even if we stop
-	 * originating one for this oi, to try avoid re-originating LSAs with a
-	 * prior sequence number, and thus speed up adjency forming &
-	 * convergence.
-	 */
-	if ((oip = ospf_lookup_if_params(oi->ifp, oi->address->u.prefix4))) {
-		new->data->ls_seqnum = oip->network_lsa_seqnum;
-		new->data->ls_seqnum = lsa_seqnum_increment(new);
-	} else {
-		oip = ospf_get_if_params(oi->ifp, oi->address->u.prefix4);
-		ospf_if_update_params(oi->ifp, oi->address->u.prefix4);
-	}
-	oip->network_lsa_seqnum = new->data->ls_seqnum;
-
-	return new;
-}
-
-/* Originate network-LSA. */
-void ospf_network_lsa_update(struct ospf_interface *oi)
-{
-	struct ospf_lsa *new;
-
-	if (oi->network_lsa_self != NULL) {
-		ospf_lsa_refresh(oi->ospf, oi->network_lsa_self);
-		return;
-	}
-
-	/* Create new network-LSA instance. */
-	new = ospf_network_lsa_new(oi);
-	if (new == NULL)
-		return;
-
-	/* Install LSA to LSDB. */
-	new = ospf_lsa_install(oi->ospf, oi, new);
-
-	/* Update LSA origination count. */
-	oi->ospf->lsa_originate_count++;
-
-	/* Flooding new LSA through area. */
-	ospf_flood_through_area(oi->area, NULL, new);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: Originate network-LSA %p",
-			   new->data->type, inet_ntoa(new->data->id),
-			   (void *)new);
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return;
-}
-
-static struct ospf_lsa *ospf_network_lsa_refresh(struct ospf_lsa *lsa)
-{
-	struct ospf_area *area = lsa->area;
-	struct ospf_lsa *new, *new2;
-	struct ospf_if_params *oip;
-	struct ospf_interface *oi;
-
-	assert(lsa->data);
-
-	/* Retrieve the oi for the network LSA */
-	oi = ospf_if_lookup_by_local_addr(area->ospf, NULL, lsa->data->id);
-	if (oi == NULL) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-			zlog_debug(
-				"LSA[Type%d:%s]: network-LSA refresh: "
-				"no oi found, ick, ignoring.",
-				lsa->data->type, inet_ntoa(lsa->data->id));
-			ospf_lsa_header_dump(lsa->data);
-		}
-		return NULL;
-	}
-	/* Delete LSA from neighbor retransmit-list. */
-	ospf_ls_retransmit_delete_nbr_area(area, lsa);
-
-	/* Unregister LSA from refresh-list */
-	ospf_refresher_unregister_lsa(area->ospf, lsa);
-
-	/* Create new network-LSA instance. */
-	new = ospf_network_lsa_new(oi);
-	if (new == NULL)
-		return NULL;
-
-	oip = ospf_lookup_if_params(oi->ifp, oi->address->u.prefix4);
-	assert(oip != NULL);
-	oip->network_lsa_seqnum = new->data->ls_seqnum =
-		lsa_seqnum_increment(lsa);
-
-	new2 = ospf_lsa_install(area->ospf, oi, new);
-
-	assert(new2 == new);
-
-	/* Flood LSA through aera. */
-	ospf_flood_through_area(area, NULL, new);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: network-LSA refresh",
-			   new->data->type, inet_ntoa(new->data->id));
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return new;
-}
-
-static void stream_put_ospf_metric(struct stream *s, uint32_t metric_value)
-{
-	uint32_t metric;
-	char *mp;
-
-	/* Put 0 metric. TOS metric is not supported. */
-	metric = htonl(metric_value);
-	mp = (char *)&metric;
-	mp++;
-	stream_put(s, mp, 3);
-}
-
-/* summary-LSA related functions. */
-static void ospf_summary_lsa_body_set(struct stream *s, struct prefix *p,
-				      uint32_t metric)
-{
-	struct in_addr mask;
-
-	masklen2ip(p->prefixlen, &mask);
-
-	/* Put Network Mask. */
-	stream_put_ipv4(s, mask.s_addr);
-
-	/* Set # TOS. */
-	stream_putc(s, (uint8_t)0);
-
-	/* Set metric. */
-	stream_put_ospf_metric(s, metric);
-}
-
-static struct ospf_lsa *ospf_summary_lsa_new(struct ospf_area *area,
-					     struct prefix *p, uint32_t metric,
-					     struct in_addr id)
-{
-	struct stream *s;
-	struct ospf_lsa *new;
-	struct lsa_header *lsah;
-	int length;
-
-	if (id.s_addr == 0xffffffff) {
-		/* Maybe Link State ID not available. */
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d]: Link ID not available, can't originate",
-				OSPF_SUMMARY_LSA);
-		return NULL;
-	}
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("LSA[Type3]: Create summary-LSA instance");
-
-	/* Create new stream for LSA. */
-	s = stream_new(OSPF_MAX_LSA_SIZE);
-	lsah = (struct lsa_header *)STREAM_DATA(s);
-
-	lsa_header_set(s, LSA_OPTIONS_GET(area), OSPF_SUMMARY_LSA, id,
-		       area->ospf->router_id);
-
-	/* Set summary-LSA body fields. */
-	ospf_summary_lsa_body_set(s, p, metric);
-
-	/* Set length. */
-	length = stream_get_endp(s);
-	lsah->length = htons(length);
-
-	/* Create OSPF LSA instance. */
-	new = ospf_lsa_new();
-	new->area = area;
-	SET_FLAG(new->flags, OSPF_LSA_SELF | OSPF_LSA_SELF_CHECKED);
-	new->vrf_id = area->ospf->vrf_id;
-
-	/* Copy LSA to store. */
-	new->data = ospf_lsa_data_new(length);
-	memcpy(new->data, lsah, length);
-	stream_free(s);
-
-	return new;
-}
-
-/* Originate Summary-LSA. */
-struct ospf_lsa *ospf_summary_lsa_originate(struct prefix_ipv4 *p,
-					    uint32_t metric,
-					    struct ospf_area *area)
-{
-	struct ospf_lsa *new;
-	struct in_addr id;
-
-	id = ospf_lsa_unique_id(area->ospf, area->lsdb, OSPF_SUMMARY_LSA, p);
-
-	if (id.s_addr == 0xffffffff) {
-		/* Maybe Link State ID not available. */
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d]: Link ID not available, can't originate",
-				OSPF_SUMMARY_LSA);
-		return NULL;
-	}
-
-	/* Create new summary-LSA instance. */
-	if (!(new = ospf_summary_lsa_new(area, (struct prefix *)p, metric, id)))
-		return NULL;
-
-	/* Instlal LSA to LSDB. */
-	new = ospf_lsa_install(area->ospf, NULL, new);
-
-	/* Update LSA origination count. */
-	area->ospf->lsa_originate_count++;
-
-	/* Flooding new LSA through area. */
-	ospf_flood_through_area(area, NULL, new);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: Originate summary-LSA %p",
-			   new->data->type, inet_ntoa(new->data->id),
-			   (void *)new);
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return new;
-}
-
-static struct ospf_lsa *ospf_summary_lsa_refresh(struct ospf *ospf,
-						 struct ospf_lsa *lsa)
-{
-	struct ospf_lsa *new;
-	struct summary_lsa *sl;
-	struct prefix p;
-
-	/* Sanity check. */
-	assert(lsa->data);
-
-	sl = (struct summary_lsa *)lsa->data;
-	p.prefixlen = ip_masklen(sl->mask);
-	new = ospf_summary_lsa_new(lsa->area, &p, GET_METRIC(sl->metric),
-				   sl->header.id);
-
-	if (!new)
-		return NULL;
-
-	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-
-	ospf_lsa_install(ospf, NULL, new);
-
-	/* Flood LSA through AS. */
-	ospf_flood_through_area(new->area, NULL, new);
-
-	/* Debug logging. */
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: summary-LSA refresh",
-			   new->data->type, inet_ntoa(new->data->id));
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return new;
-}
-
-
-/* summary-ASBR-LSA related functions. */
-static void ospf_summary_asbr_lsa_body_set(struct stream *s, struct prefix *p,
-					   uint32_t metric)
-{
-	/* Put Network Mask. */
-	stream_put_ipv4(s, (uint32_t)0);
-
-	/* Set # TOS. */
-	stream_putc(s, (uint8_t)0);
-
-	/* Set metric. */
-	stream_put_ospf_metric(s, metric);
-}
-
-static struct ospf_lsa *ospf_summary_asbr_lsa_new(struct ospf_area *area,
-						  struct prefix *p,
-						  uint32_t metric,
-						  struct in_addr id)
-{
-	struct stream *s;
-	struct ospf_lsa *new;
-	struct lsa_header *lsah;
-	int length;
-
-	if (id.s_addr == 0xffffffff) {
-		/* Maybe Link State ID not available. */
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d]: Link ID not available, can't originate",
-				OSPF_ASBR_SUMMARY_LSA);
-		return NULL;
-	}
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("LSA[Type3]: Create summary-LSA instance");
-
-	/* Create new stream for LSA. */
-	s = stream_new(OSPF_MAX_LSA_SIZE);
-	lsah = (struct lsa_header *)STREAM_DATA(s);
-
-	lsa_header_set(s, LSA_OPTIONS_GET(area), OSPF_ASBR_SUMMARY_LSA, id,
-		       area->ospf->router_id);
-
-	/* Set summary-LSA body fields. */
-	ospf_summary_asbr_lsa_body_set(s, p, metric);
-
-	/* Set length. */
-	length = stream_get_endp(s);
-	lsah->length = htons(length);
-
-	/* Create OSPF LSA instance. */
-	new = ospf_lsa_new();
-	new->area = area;
-	SET_FLAG(new->flags, OSPF_LSA_SELF | OSPF_LSA_SELF_CHECKED);
-	new->vrf_id = area->ospf->vrf_id;
-
-	/* Copy LSA to store. */
-	new->data = ospf_lsa_data_new(length);
-	memcpy(new->data, lsah, length);
-	stream_free(s);
-
-	return new;
-}
-
-/* Originate summary-ASBR-LSA. */
-struct ospf_lsa *ospf_summary_asbr_lsa_originate(struct prefix_ipv4 *p,
-						 uint32_t metric,
-						 struct ospf_area *area)
-{
-	struct ospf_lsa *new;
-	struct in_addr id;
-
-	id = ospf_lsa_unique_id(area->ospf, area->lsdb, OSPF_ASBR_SUMMARY_LSA,
-				p);
-
-	if (id.s_addr == 0xffffffff) {
-		/* Maybe Link State ID not available. */
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d]: Link ID not available, can't originate",
-				OSPF_ASBR_SUMMARY_LSA);
-		return NULL;
-	}
-
-	/* Create new summary-LSA instance. */
-	new = ospf_summary_asbr_lsa_new(area, (struct prefix *)p, metric, id);
-	if (!new)
-		return NULL;
-
-	/* Install LSA to LSDB. */
-	new = ospf_lsa_install(area->ospf, NULL, new);
-
-	/* Update LSA origination count. */
-	area->ospf->lsa_originate_count++;
-
-	/* Flooding new LSA through area. */
-	ospf_flood_through_area(area, NULL, new);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: Originate summary-ASBR-LSA %p",
-			   new->data->type, inet_ntoa(new->data->id),
-			   (void *)new);
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return new;
-}
-
-static struct ospf_lsa *ospf_summary_asbr_lsa_refresh(struct ospf *ospf,
-						      struct ospf_lsa *lsa)
-{
-	struct ospf_lsa *new;
-	struct summary_lsa *sl;
-	struct prefix p;
-
-	/* Sanity check. */
-	assert(lsa->data);
-
-	sl = (struct summary_lsa *)lsa->data;
-	p.prefixlen = ip_masklen(sl->mask);
-	new = ospf_summary_asbr_lsa_new(lsa->area, &p, GET_METRIC(sl->metric),
-					sl->header.id);
-	if (!new)
-		return NULL;
-
-	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-
-	ospf_lsa_install(ospf, NULL, new);
-
-	/* Flood LSA through area. */
-	ospf_flood_through_area(new->area, NULL, new);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: summary-ASBR-LSA refresh",
-			   new->data->type, inet_ntoa(new->data->id));
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return new;
-}
-
-/* AS-external-LSA related functions. */
-
-/* Get nexthop for AS-external-LSAs.  Return nexthop if its interface
-   is connected, else 0*/
-static struct in_addr ospf_external_lsa_nexthop_get(struct ospf *ospf,
-						    struct in_addr nexthop)
-{
-	struct in_addr fwd;
-	struct prefix nh;
-	struct listnode *node;
-	struct ospf_interface *oi;
-
-	fwd.s_addr = 0;
-
-	if (!nexthop.s_addr)
-		return fwd;
-
-	/* Check whether nexthop is covered by OSPF network. */
-	nh.family = AF_INET;
-	nh.u.prefix4 = nexthop;
-	nh.prefixlen = IPV4_MAX_BITLEN;
-
-	/* XXX/SCALE: If there were a lot of oi's on an ifp, then it'd be
-	 * better to make use of the per-ifp table of ois.
-	 */
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
-		if (if_is_operative(oi->ifp))
-			if (oi->address->family == AF_INET)
-				if (prefix_match(oi->address, &nh))
-					return nexthop;
-
-	return fwd;
-}
-
-/* NSSA-external-LSA related functions. */
-
-/* Get 1st IP connection for Forward Addr */
-
-struct in_addr ospf_get_ip_from_ifp(struct ospf_interface *oi)
-{
-	struct in_addr fwd;
-
-	fwd.s_addr = 0;
-
-	if (if_is_operative(oi->ifp))
-		return oi->address->u.prefix4;
-
-	return fwd;
-}
-
-/* Get 1st IP connection for Forward Addr */
-struct in_addr ospf_get_nssa_ip(struct ospf_area *area)
-{
-	struct in_addr fwd;
-	struct in_addr best_default;
-	struct listnode *node;
-	struct ospf_interface *oi;
-
-	fwd.s_addr = 0;
-	best_default.s_addr = 0;
-
-	for (ALL_LIST_ELEMENTS_RO(area->ospf->oiflist, node, oi)) {
-		if (if_is_operative(oi->ifp))
-			if (oi->area->external_routing == OSPF_AREA_NSSA)
-				if (oi->address
-				    && oi->address->family == AF_INET) {
-					if (best_default.s_addr == 0)
-						best_default =
-							oi->address->u.prefix4;
-					if (oi->area == area)
-						return oi->address->u.prefix4;
-				}
-	}
-	if (best_default.s_addr != 0)
-		return best_default;
-
-	if (best_default.s_addr != 0)
-		return best_default;
-
-	return fwd;
-}
-
-#define DEFAULT_DEFAULT_METRIC	             20
-#define DEFAULT_DEFAULT_ORIGINATE_METRIC     10
-#define DEFAULT_DEFAULT_ALWAYS_METRIC	      1
-
-#define DEFAULT_METRIC_TYPE		     EXTERNAL_METRIC_TYPE_2
-
-int metric_type(struct ospf *ospf, uint8_t src, unsigned short instance)
-{
-	struct ospf_redist *red;
-
-	red = ospf_redist_lookup(ospf, src, instance);
-
-	return ((!red || red->dmetric.type < 0) ? DEFAULT_METRIC_TYPE
-						: red->dmetric.type);
-}
-
-int metric_value(struct ospf *ospf, uint8_t src, unsigned short instance)
-{
-	struct ospf_redist *red;
-
-	red = ospf_redist_lookup(ospf, src, instance);
-	if (!red || red->dmetric.value < 0) {
-		if (src == DEFAULT_ROUTE) {
-			if (ospf->default_originate == DEFAULT_ORIGINATE_ZEBRA)
-				return DEFAULT_DEFAULT_ORIGINATE_METRIC;
-			else
-				return DEFAULT_DEFAULT_ALWAYS_METRIC;
-		} else if (ospf->default_metric < 0)
-			return DEFAULT_DEFAULT_METRIC;
-		else
-			return ospf->default_metric;
-	}
-
-	return red->dmetric.value;
-}
-
-/* Set AS-external-LSA body. */
-static void ospf_external_lsa_body_set(struct stream *s,
-				       struct external_info *ei,
-				       struct ospf *ospf)
-{
-	struct prefix_ipv4 *p = &ei->p;
-	struct in_addr mask, fwd_addr;
-	uint32_t mvalue;
-	int mtype;
-	int type;
-	unsigned short instance;
-
-	/* Put Network Mask. */
-	masklen2ip(p->prefixlen, &mask);
-	stream_put_ipv4(s, mask.s_addr);
-
-	/* If prefix is default, specify DEFAULT_ROUTE. */
-	type = is_prefix_default(&ei->p) ? DEFAULT_ROUTE : ei->type;
-	instance = is_prefix_default(&ei->p) ? 0 : ei->instance;
-
-	mtype = (ROUTEMAP_METRIC_TYPE(ei) != -1)
-			? ROUTEMAP_METRIC_TYPE(ei)
-			: metric_type(ospf, type, instance);
-
-	mvalue = (ROUTEMAP_METRIC(ei) != -1)
-			 ? ROUTEMAP_METRIC(ei)
-			 : metric_value(ospf, type, instance);
-
-	/* Put type of external metric. */
-	stream_putc(s, (mtype == EXTERNAL_METRIC_TYPE_2 ? 0x80 : 0));
-
-	/* Put 0 metric. TOS metric is not supported. */
-	stream_put_ospf_metric(s, mvalue);
-
-	/* Get forwarding address to nexthop if on the Connection List, else 0.
-	 */
-	fwd_addr = ospf_external_lsa_nexthop_get(ospf, ei->nexthop);
-
-	/* Put forwarding address. */
-	stream_put_ipv4(s, fwd_addr.s_addr);
-
-	/* Put route tag */
-	stream_putl(s, ei->tag);
-}
-
-/* Create new external-LSA. */
-static struct ospf_lsa *ospf_external_lsa_new(struct ospf *ospf,
-					      struct external_info *ei,
-					      struct in_addr *old_id)
-{
-	struct stream *s;
-	struct lsa_header *lsah;
-	struct ospf_lsa *new;
-	struct in_addr id;
-	int length;
-
-	if (ei == NULL) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type5]: External info is NULL, can't originate");
-		return NULL;
-	}
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("LSA[Type5]: Originate AS-external-LSA instance");
-
-	/* If old Link State ID is specified, refresh LSA with same ID. */
-	if (old_id)
-		id = *old_id;
-	/* Get Link State with unique ID. */
-	else {
-		id = ospf_lsa_unique_id(ospf, ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
-					&ei->p);
-		if (id.s_addr == 0xffffffff) {
-			/* Maybe Link State ID not available. */
-			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-				zlog_debug(
-					"LSA[Type5]: Link ID not available, can't originate");
-			return NULL;
-		}
-	}
-
-	/* Create new stream for LSA. */
-	s = stream_new(OSPF_MAX_LSA_SIZE);
-	lsah = (struct lsa_header *)STREAM_DATA(s);
-
-	/* Set LSA common header fields. */
-	lsa_header_set(s, OSPF_OPTION_E, OSPF_AS_EXTERNAL_LSA, id,
-		       ospf->router_id);
-
-	/* Set AS-external-LSA body fields. */
-	ospf_external_lsa_body_set(s, ei, ospf);
-
-	/* Set length. */
-	length = stream_get_endp(s);
-	lsah->length = htons(length);
-
-	/* Now, create OSPF LSA instance. */
-	new = ospf_lsa_new();
-	new->area = NULL;
-	SET_FLAG(new->flags,
-		 OSPF_LSA_SELF | OSPF_LSA_APPROVED | OSPF_LSA_SELF_CHECKED);
-	new->vrf_id = ospf->vrf_id;
-
-	/* Copy LSA data to store, discard stream. */
-	new->data = ospf_lsa_data_new(length);
-	memcpy(new->data, lsah, length);
-	stream_free(s);
-
-	return new;
-}
-
-/* As Type-7 */
-static void ospf_install_flood_nssa(struct ospf *ospf, struct ospf_lsa *lsa,
-				    struct external_info *ei)
-{
-	struct ospf_lsa *new;
-	struct as_external_lsa *extlsa;
-	struct ospf_area *area;
-	struct listnode *node, *nnode;
-
-	/* LSA may be a Type-5 originated via translation of a Type-7 LSA
-	 * which originated from an NSSA area. In which case it should not be
-	 * flooded back to NSSA areas.
-	 */
-	if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT))
-		return;
-
-	/* NSSA Originate or Refresh (If anyNSSA)
-
-	LSA is self-originated. And just installed as Type-5.
-	Additionally, install as Type-7 LSDB for every attached NSSA.
-
-	P-Bit controls which ABR performs translation to outside world; If
-	we are an ABR....do not set the P-bit, because we send the Type-5,
-	not as the ABR Translator, but as the ASBR owner within the AS!
-
-	If we are NOT ABR, Flood through NSSA as Type-7 w/P-bit set.  The
-	elected ABR Translator will see the P-bit, Translate, and re-flood.
-
-	Later, ABR_TASK and P-bit will scan Type-7 LSDB and translate to
-	Type-5's to non-NSSA Areas.  (it will also attempt a re-install) */
-
-	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
-		/* Don't install Type-7 LSA's into nonNSSA area */
-		if (area->external_routing != OSPF_AREA_NSSA)
-			continue;
-
-		/* make lsa duplicate, lock=1 */
-		new = ospf_lsa_dup(lsa);
-		new->area = area;
-		new->data->type = OSPF_AS_NSSA_LSA;
-
-		/* set P-bit if not ABR */
-		if (!IS_OSPF_ABR(ospf)) {
-			SET_FLAG(new->data->options, OSPF_OPTION_NP);
-
-			/* set non-zero FWD ADDR
-
-			draft-ietf-ospf-nssa-update-09.txt
-
-			if the network between the NSSA AS boundary router and
-			the
-			adjacent AS is advertised into OSPF as an internal OSPF
-			route,
-			the forwarding address should be the next op address as
-			is cu
-			currently done with type-5 LSAs.  If the intervening
-			network is
-			not adversited into OSPF as an internal OSPF route and
-			the
-			type-7 LSA's P-bit is set a forwarding address should be
-			selected from one of the router's active OSPF interface
-			addresses
-			which belong to the NSSA.  If no such addresses exist,
-			then
-			no type-7 LSA's with the P-bit set should originate from
-			this
-			router.   */
-
-			/* kevinm: not updating lsa anymore, just new */
-			extlsa = (struct as_external_lsa *)(new->data);
-
-			if (extlsa->e[0].fwd_addr.s_addr == 0)
-				extlsa->e[0].fwd_addr = ospf_get_nssa_ip(
-					area); /* this NSSA area in ifp */
-
-			if (extlsa->e[0].fwd_addr.s_addr == 0) {
-				if (IS_DEBUG_OSPF_NSSA)
-					zlog_debug(
-						"LSA[Type-7]: Could not build FWD-ADDR");
-				ospf_lsa_discard(new);
-				return;
-			}
-		}
-
-		/* install also as Type-7 */
-		ospf_lsa_install(ospf, NULL,
-				 new); /* Remove Old, Lock New = 2 */
-
-		/* will send each copy, lock=2+n */
-		ospf_flood_through_as(
-			ospf, NULL, new); /* all attached NSSA's, no AS/STUBs */
-	}
-}
-
-static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
-						     struct ospf_lsa *type7)
-{
-
-	struct ospf_lsa *new;
-	struct as_external_lsa *ext, *extnew;
-	struct external_info ei;
-
-	ext = (struct as_external_lsa *)(type7->data);
-
-	/* need external_info struct, fill in bare minimum */
-	ei.p.family = AF_INET;
-	ei.p.prefix = type7->data->id;
-	ei.p.prefixlen = ip_masklen(ext->mask);
-	ei.type = ZEBRA_ROUTE_OSPF;
-	ei.nexthop = ext->header.adv_router;
-	ei.route_map_set.metric = -1;
-	ei.route_map_set.metric_type = -1;
-	ei.tag = 0;
-
-	if ((new = ospf_external_lsa_new(ospf, &ei, &type7->data->id))
-	    == NULL) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_nssa_translate_originate(): Could not originate "
-				"Translated Type-5 for %s",
-				inet_ntoa(ei.p.prefix));
-		return NULL;
-	}
-
-	extnew = (struct as_external_lsa *)(new->data);
-
-	/* copy over Type-7 data to new */
-	extnew->e[0].tos = ext->e[0].tos;
-	extnew->e[0].route_tag = ext->e[0].route_tag;
-	extnew->e[0].fwd_addr.s_addr = ext->e[0].fwd_addr.s_addr;
-	new->data->ls_seqnum = type7->data->ls_seqnum;
-
-	/* add translated flag, checksum and lock new lsa */
-	SET_FLAG(new->flags, OSPF_LSA_LOCAL_XLT); /* Translated from 7  */
-	new = ospf_lsa_lock(new);
-
-	return new;
-}
-
-/* Originate Translated Type-5 for supplied Type-7 NSSA LSA */
-struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
-						struct ospf_lsa *type7)
-{
-	struct ospf_lsa *new;
-	struct as_external_lsa *extnew;
-
-	/* we cant use ospf_external_lsa_originate() as we need to set
-	 * the OSPF_LSA_LOCAL_XLT flag, must originate by hand
-	 */
-
-	if ((new = ospf_lsa_translated_nssa_new(ospf, type7)) == NULL) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_translated_nssa_originate(): Could not translate "
-				"Type-7, Id %s, to Type-5",
-				inet_ntoa(type7->data->id));
-		return NULL;
-	}
-
-	extnew = (struct as_external_lsa *)new;
-
-	if (IS_DEBUG_OSPF_NSSA) {
-		zlog_debug(
-			"ospf_translated_nssa_originate(): "
-			"translated Type 7, installed:");
-		ospf_lsa_header_dump(new->data);
-		zlog_debug("   Network mask: %d", ip_masklen(extnew->mask));
-		zlog_debug("   Forward addr: %s",
-			   inet_ntoa(extnew->e[0].fwd_addr));
-	}
-
-	if ((new = ospf_lsa_install(ospf, NULL, new)) == NULL) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_lsa_translated_nssa_originate(): "
-				"Could not install LSA "
-				"id %s",
-				inet_ntoa(type7->data->id));
-		return NULL;
-	}
-
-	ospf->lsa_originate_count++;
-	ospf_flood_through_as(ospf, NULL, new);
-
-	return new;
-}
-
-/* Refresh Translated from NSSA AS-external-LSA. */
-struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
-					      struct ospf_lsa *type7,
-					      struct ospf_lsa *type5)
-{
-	struct ospf_lsa *new = NULL;
-
-	/* Sanity checks. */
-	assert(type7 || type5);
-	if (!(type7 || type5))
-		return NULL;
-	if (type7)
-		assert(type7->data);
-	if (type5)
-		assert(type5->data);
-	assert(ospf->anyNSSA);
-
-	/* get required data according to what has been given */
-	if (type7 && type5 == NULL) {
-		/* find the translated Type-5 for this Type-7 */
-		struct as_external_lsa *ext =
-			(struct as_external_lsa *)(type7->data);
-		struct prefix_ipv4 p = {
-			.prefix = type7->data->id,
-			.prefixlen = ip_masklen(ext->mask),
-			.family = AF_INET,
-		};
-
-		type5 = ospf_external_info_find_lsa(ospf, &p);
-	} else if (type5 && type7 == NULL) {
-		/* find the type-7 from which supplied type-5 was translated,
-		 * ie find first type-7 with same LSA Id.
-		 */
-		struct listnode *ln, *lnn;
-		struct route_node *rn;
-		struct ospf_lsa *lsa;
-		struct ospf_area *area;
-
-		for (ALL_LIST_ELEMENTS(ospf->areas, ln, lnn, area)) {
-			if (area->external_routing != OSPF_AREA_NSSA && !type7)
-				continue;
-
-			LSDB_LOOP (NSSA_LSDB(area), rn, lsa) {
-				if (lsa->data->id.s_addr
-				    == type5->data->id.s_addr) {
-					type7 = lsa;
-					break;
-				}
-			}
-		}
-	}
-
-	/* do we have type7? */
-	if (!type7) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_translated_nssa_refresh(): no Type-7 found for "
-				"Type-5 LSA Id %s",
-				inet_ntoa(type5->data->id));
-		return NULL;
-	}
-
-	/* do we have valid translated type5? */
-	if (type5 == NULL || !CHECK_FLAG(type5->flags, OSPF_LSA_LOCAL_XLT)) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_translated_nssa_refresh(): No translated Type-5 "
-				"found for Type-7 with Id %s",
-				inet_ntoa(type7->data->id));
-		return NULL;
-	}
-
-	/* Delete LSA from neighbor retransmit-list. */
-	ospf_ls_retransmit_delete_nbr_as(ospf, type5);
-
-	/* create new translated LSA */
-	if ((new = ospf_lsa_translated_nssa_new(ospf, type7)) == NULL) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_translated_nssa_refresh(): Could not translate "
-				"Type-7 for %s to Type-5",
-				inet_ntoa(type7->data->id));
-		return NULL;
-	}
-
-	if (!(new = ospf_lsa_install(ospf, NULL, new))) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_translated_nssa_refresh(): Could not install "
-				"translated LSA, Id %s",
-				inet_ntoa(type7->data->id));
-		return NULL;
-	}
-
-	/* Flood LSA through area. */
-	ospf_flood_through_as(ospf, NULL, new);
-
-	return new;
-}
-
-int is_prefix_default(struct prefix_ipv4 *p)
-{
-	struct prefix_ipv4 q;
-
-	q.family = AF_INET;
-	q.prefix.s_addr = 0;
-	q.prefixlen = 0;
-
-	return prefix_same((struct prefix *)p, (struct prefix *)&q);
-}
-
-/* Originate an AS-external-LSA, install and flood. */
-struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
-					     struct external_info *ei)
-{
-	struct ospf_lsa *new;
-
-	/* Added for NSSA project....
-
-	     External LSAs are originated in ASBRs as usual, but for NSSA
-	   systems.
-	   there is the global Type-5 LSDB and a Type-7 LSDB installed for
-	   every area.  The Type-7's are flooded to every IR and every ABR; We
-	   install the Type-5 LSDB so that the normal "refresh" code operates
-	   as usual, and flag them as not used during ASE calculations.  The
-	   Type-7 LSDB is used for calculations.  Each Type-7 has a Forwarding
-	   Address of non-zero.
-
-	   If an ABR is the elected NSSA translator, following SPF and during
-	   the ABR task it will translate all the scanned Type-7's, with P-bit
-	   ON and not-self generated, and translate to Type-5's throughout the
-	   non-NSSA/STUB AS.
-
-	   A difference in operation depends whether this ASBR is an ABR
-	   or not.  If not an ABR, the P-bit is ON, to indicate that any
-	   elected NSSA-ABR can perform its translation.
-
-	   If an ABR, the P-bit is OFF;  No ABR will perform translation and
-	   this ASBR will flood the Type-5 LSA as usual.
-
-	   For the case where this ASBR is not an ABR, the ASE calculations
-	   are based on the Type-5 LSDB;  The Type-7 LSDB exists just to
-	   demonstrate to the user that there are LSA's that belong to any
-	   attached NSSA.
-
-	   Finally, it just so happens that when the ABR is translating every
-	   Type-7 into Type-5, it installs it into the Type-5 LSDB as an
-	   approved Type-5 (translated from Type-7);  at the end of translation
-	   if any Translated Type-5's remain unapproved, then they must be
-	   flushed from the AS.
-
-	   */
-
-	/* Check the AS-external-LSA should be originated. */
-	if (!ospf_redistribute_check(ospf, ei, NULL))
-		return NULL;
-
-	/* Create new AS-external-LSA instance. */
-	if ((new = ospf_external_lsa_new(ospf, ei, NULL)) == NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"LSA[Type5:%s]: Could not originate AS-external-LSA",
-				inet_ntoa(ei->p.prefix));
-		return NULL;
-	}
-
-	/* Install newly created LSA into Type-5 LSDB, lock = 1. */
-	ospf_lsa_install(ospf, NULL, new);
-
-	/* Update LSA origination count. */
-	ospf->lsa_originate_count++;
-
-	/* Flooding new LSA. only to AS (non-NSSA/STUB) */
-	ospf_flood_through_as(ospf, NULL, new);
-
-	/* If there is any attached NSSA, do special handling */
-	if (ospf->anyNSSA &&
-	    /* stay away from translated LSAs! */
-	    !(CHECK_FLAG(new->flags, OSPF_LSA_LOCAL_XLT)))
-		ospf_install_flood_nssa(
-			ospf, new, ei); /* Install/Flood Type-7 to all NSSAs */
-
-	/* Debug logging. */
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: Originate AS-external-LSA %p",
-			   new->data->type, inet_ntoa(new->data->id),
-			   (void *)new);
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return new;
-}
-
-/* Originate AS-external-LSA from external info with initial flag. */
-int ospf_external_lsa_originate_timer(struct thread *thread)
-{
-	struct ospf *ospf = THREAD_ARG(thread);
-	struct route_node *rn;
-	struct external_info *ei;
-	struct route_table *rt;
-	int type = THREAD_VAL(thread);
-	struct list *ext_list;
-	struct listnode *node;
-	struct ospf_external *ext;
-
-	ospf->t_external_lsa = NULL;
-
-	ext_list = ospf->external[type];
-	if (!ext_list)
-		return 0;
-
-	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext))
-		/* Originate As-external-LSA from all type of distribute source.
-		 */
-		if ((rt = ext->external_info))
-			for (rn = route_top(rt); rn; rn = route_next(rn))
-				if ((ei = rn->info) != NULL)
-					if (!is_prefix_default(
-						    (struct prefix_ipv4 *)&ei
-							    ->p))
-						if (!ospf_external_lsa_originate(
-							    ospf, ei))
-							zlog_warn(
-								"LSA: AS-external-LSA was not originated.");
-
-	return 0;
-}
-
-static struct external_info *ospf_default_external_info(struct ospf *ospf)
-{
-	int type;
-	struct route_node *rn;
-	struct prefix_ipv4 p;
-
-	p.family = AF_INET;
-	p.prefix.s_addr = 0;
-	p.prefixlen = 0;
-
-	/* First, lookup redistributed default route. */
-	for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
-		struct list *ext_list;
-		struct listnode *node;
-		struct ospf_external *ext;
-
-		if (type == ZEBRA_ROUTE_OSPF)
-			continue;
-
-		ext_list = ospf->external[type];
-		if (!ext_list)
-			continue;
-
-		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
-			rn = route_node_lookup(ext->external_info,
-					       (struct prefix *)&p);
-			if (rn != NULL) {
-				route_unlock_node(rn);
-				assert(rn->info);
-				if (ospf_redistribute_check(ospf, rn->info,
-							    NULL))
-					return rn->info;
-			}
-		}
-	}
-
-	return NULL;
-}
-
-int ospf_default_originate_timer(struct thread *thread)
-{
-	struct prefix_ipv4 p;
-	struct in_addr nexthop;
-	struct external_info *ei;
-	struct ospf *ospf;
-
-	ospf = THREAD_ARG(thread);
-
-	p.family = AF_INET;
-	p.prefix.s_addr = 0;
-	p.prefixlen = 0;
-
-	if (ospf->default_originate == DEFAULT_ORIGINATE_ALWAYS) {
-		/* If there is no default route via redistribute,
-		   then originate AS-external-LSA with nexthop 0 (self). */
-		nexthop.s_addr = 0;
-		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop,
-				       0);
-	}
-
-	if ((ei = ospf_default_external_info(ospf)))
-		ospf_external_lsa_originate(ospf, ei);
-
-	return 0;
-}
-
-/* Flush any NSSA LSAs for given prefix */
-void ospf_nssa_lsa_flush(struct ospf *ospf, struct prefix_ipv4 *p)
-{
-	struct listnode *node, *nnode;
-	struct ospf_lsa *lsa = NULL;
-	struct ospf_area *area;
-
-	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
-		if (area->external_routing == OSPF_AREA_NSSA) {
-			lsa = ospf_lsa_lookup(ospf, area, OSPF_AS_NSSA_LSA,
-					      p->prefix, ospf->router_id);
-			if (!lsa) {
-				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-					zlog_debug(
-						"LSA: There is no such AS-NSSA-LSA %s/%d in LSDB",
-						inet_ntoa(p->prefix),
-						p->prefixlen);
-				continue;
-			}
-			ospf_ls_retransmit_delete_nbr_area(area, lsa);
-			if (!IS_LSA_MAXAGE(lsa)) {
-				ospf_refresher_unregister_lsa(ospf, lsa);
-				ospf_lsa_flush_area(lsa, area);
-			}
-		}
-	}
-}
-
-/* Flush an AS-external-LSA from LSDB and routing domain. */
-void ospf_external_lsa_flush(struct ospf *ospf, uint8_t type,
-			     struct prefix_ipv4 *p,
-			     ifindex_t ifindex /*, struct in_addr nexthop */)
-{
-	struct ospf_lsa *lsa;
-
-	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-		zlog_debug("LSA: Flushing AS-external-LSA %s/%d",
-			   inet_ntoa(p->prefix), p->prefixlen);
-
-	/* First lookup LSA from LSDB. */
-	if (!(lsa = ospf_external_info_find_lsa(ospf, p))) {
-		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-			zlog_debug(
-				"LSA: There is no such AS-external-LSA %s/%d in LSDB",
-				inet_ntoa(p->prefix), p->prefixlen);
-		return;
-	}
-
-	/* If LSA is selforiginated, not a translated LSA, and there is
-	 * NSSA area, flush Type-7 LSA's at first.
-	 */
-	if (IS_LSA_SELF(lsa) && (ospf->anyNSSA)
-	    && !(CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT)))
-		ospf_nssa_lsa_flush(ospf, p);
-
-	/* Sweep LSA from Link State Retransmit List. */
-	ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
-
-/* There must be no self-originated LSA in rtrs_external. */
-#if 0
-  /* Remove External route from Zebra. */
-  ospf_zebra_delete ((struct prefix_ipv4 *) p, &nexthop);
-#endif
-
-	if (!IS_LSA_MAXAGE(lsa)) {
-		/* Unregister LSA from Refresh queue. */
-		ospf_refresher_unregister_lsa(ospf, lsa);
-
-		/* Flush AS-external-LSA through AS. */
-		ospf_lsa_flush_as(ospf, lsa);
-	}
-
-	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-		zlog_debug("ospf_external_lsa_flush(): stop");
-}
-
-void ospf_external_lsa_refresh_default(struct ospf *ospf)
-{
-	struct prefix_ipv4 p;
-	struct external_info *ei;
-	struct ospf_lsa *lsa;
-
-	p.family = AF_INET;
-	p.prefixlen = 0;
-	p.prefix.s_addr = 0;
-
-	ei = ospf_default_external_info(ospf);
-	lsa = ospf_external_info_find_lsa(ospf, &p);
-
-	if (ei) {
-		if (lsa) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type5:0.0.0.0]: Refresh AS-external-LSA %p",
-					(void *)lsa);
-			ospf_external_lsa_refresh(ospf, lsa, ei,
-						  LSA_REFRESH_FORCE);
-		} else {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type5:0.0.0.0]: Originate AS-external-LSA");
-			ospf_external_lsa_originate(ospf, ei);
-		}
-	} else {
-		if (lsa) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type5:0.0.0.0]: Flush AS-external-LSA");
-			ospf_refresher_unregister_lsa(ospf, lsa);
-			ospf_lsa_flush_as(ospf, lsa);
-		}
-	}
-}
-
-void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
-				    unsigned short instance, int force)
-{
-	struct route_node *rn;
-	struct external_info *ei;
-	struct ospf_external *ext;
-
-	if (type == DEFAULT_ROUTE)
-		return;
-
-	ext = ospf_external_lookup(ospf, type, instance);
-
-	if (ext && EXTERNAL_INFO(ext)) {
-		/* Refresh each redistributed AS-external-LSAs. */
-		for (rn = route_top(EXTERNAL_INFO(ext)); rn;
-		     rn = route_next(rn)) {
-			ei = rn->info;
-			if (ei) {
-				if (!is_prefix_default(&ei->p)) {
-					struct ospf_lsa *lsa;
-
-					lsa = ospf_external_info_find_lsa(
-						ospf, &ei->p);
-					if (lsa)
-						ospf_external_lsa_refresh(
-							ospf, lsa, ei, force);
-					else
-						ospf_external_lsa_originate(
-							ospf, ei);
-				}
-			}
-		}
-	}
-}
-
-/* Refresh AS-external-LSA. */
-struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *ospf,
-					   struct ospf_lsa *lsa,
-					   struct external_info *ei, int force)
-{
-	struct ospf_lsa *new;
-	int changed;
-
-	/* Check the AS-external-LSA should be originated. */
-	if (!ospf_redistribute_check(ospf, ei, &changed)) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d:%s]: Could not be refreshed, "
-				"redist check fail",
-				lsa->data->type, inet_ntoa(lsa->data->id));
-		ospf_external_lsa_flush(ospf, ei->type, &ei->p,
-					ei->ifindex /*, ei->nexthop */);
-		return NULL;
-	}
-
-	if (!changed && !force) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d:%s]: Not refreshed, not changed/forced",
-				lsa->data->type, inet_ntoa(lsa->data->id));
-		return NULL;
-	}
-
-	/* Delete LSA from neighbor retransmit-list. */
-	ospf_ls_retransmit_delete_nbr_as(ospf, lsa);
-
-	/* Unregister AS-external-LSA from refresh-list. */
-	ospf_refresher_unregister_lsa(ospf, lsa);
-
-	new = ospf_external_lsa_new(ospf, ei, &lsa->data->id);
-
-	if (new == NULL) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug("LSA[Type%d:%s]: Could not be refreshed",
-				   lsa->data->type, inet_ntoa(lsa->data->id));
-		return NULL;
-	}
-
-	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-
-	ospf_lsa_install(ospf, NULL, new); /* As type-5. */
-
-	/* Flood LSA through AS. */
-	ospf_flood_through_as(ospf, NULL, new);
-
-	/* If any attached NSSA, install as Type-7, flood to all NSSA Areas */
-	if (ospf->anyNSSA && !(CHECK_FLAG(new->flags, OSPF_LSA_LOCAL_XLT)))
-		ospf_install_flood_nssa(ospf, new,
-					ei); /* Install/Flood per new rules */
-
-	/* Register self-originated LSA to refresh queue.
-	 * Translated LSAs should not be registered, but refreshed upon
-	 * refresh of the Type-7
-	 */
-	if (!CHECK_FLAG(new->flags, OSPF_LSA_LOCAL_XLT))
-		ospf_refresher_register_lsa(ospf, new);
-
-	/* Debug logging. */
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: AS-external-LSA refresh",
-			   new->data->type, inet_ntoa(new->data->id));
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return new;
-}
-
-
-/* LSA installation functions. */
-
-/* Install router-LSA to an area. */
-static struct ospf_lsa *
-ospf_router_lsa_install(struct ospf *ospf, struct ospf_lsa *new, int rt_recalc)
-{
-	struct ospf_area *area = new->area;
-
-	/* RFC 2328 Section 13.2 Router-LSAs and network-LSAs
-	   The entire routing table must be recalculated, starting with
-	   the shortest path calculations for each area (not just the
-	   area whose link-state database has changed).
-	*/
-
-	if (IS_LSA_SELF(new)) {
-
-		/* Only install LSA if it is originated/refreshed by us.
-		 * If LSA was received by flooding, the RECEIVED flag is set so
-		 * do
-		 * not link the LSA */
-		if (CHECK_FLAG(new->flags, OSPF_LSA_RECEIVED))
-			return new; /* ignore stale LSA */
-
-		/* Set self-originated router-LSA. */
-		ospf_lsa_unlock(&area->router_lsa_self);
-		area->router_lsa_self = ospf_lsa_lock(new);
-
-		ospf_refresher_register_lsa(ospf, new);
-	}
-	if (rt_recalc)
-		ospf_spf_calculate_schedule(ospf, SPF_FLAG_ROUTER_LSA_INSTALL);
-	return new;
-}
-
-#define OSPF_INTERFACE_TIMER_ON(T, F, V)                                       \
-	if (!(T))                                                              \
-	(T) = thread_add_timer(master, (F), oi, (V))
-
-/* Install network-LSA to an area. */
-static struct ospf_lsa *ospf_network_lsa_install(struct ospf *ospf,
-						 struct ospf_interface *oi,
-						 struct ospf_lsa *new,
-						 int rt_recalc)
-{
-
-	/* RFC 2328 Section 13.2 Router-LSAs and network-LSAs
-	   The entire routing table must be recalculated, starting with
-	   the shortest path calculations for each area (not just the
-	   area whose link-state database has changed).
-	*/
-	if (IS_LSA_SELF(new)) {
-		/* We supposed that when LSA is originated by us, we pass the
-		   int
-		   for which it was originated. If LSA was received by flooding,
-		   the RECEIVED flag is set, so we do not link the LSA to the
-		   int. */
-		if (CHECK_FLAG(new->flags, OSPF_LSA_RECEIVED))
-			return new; /* ignore stale LSA */
-
-		ospf_lsa_unlock(&oi->network_lsa_self);
-		oi->network_lsa_self = ospf_lsa_lock(new);
-		ospf_refresher_register_lsa(ospf, new);
-	}
-	if (rt_recalc)
-		ospf_spf_calculate_schedule(ospf, SPF_FLAG_NETWORK_LSA_INSTALL);
-
-	return new;
-}
-
-/* Install summary-LSA to an area. */
-static struct ospf_lsa *
-ospf_summary_lsa_install(struct ospf *ospf, struct ospf_lsa *new, int rt_recalc)
-{
-	if (rt_recalc && !IS_LSA_SELF(new)) {
-/* RFC 2328 Section 13.2 Summary-LSAs
-   The best route to the destination described by the summary-
-   LSA must be recalculated (see Section 16.5).  If this
-   destination is an AS boundary router, it may also be
-   necessary to re-examine all the AS-external-LSAs.
-*/
-
-#if 0
-      /* This doesn't exist yet... */
-      ospf_summary_incremental_update(new); */
-#else /* #if 0 */
-		ospf_spf_calculate_schedule(ospf, SPF_FLAG_SUMMARY_LSA_INSTALL);
-#endif /* #if 0 */
-	}
-
-	if (IS_LSA_SELF(new))
-		ospf_refresher_register_lsa(ospf, new);
-
-	return new;
-}
-
-/* Install ASBR-summary-LSA to an area. */
-static struct ospf_lsa *ospf_summary_asbr_lsa_install(struct ospf *ospf,
-						      struct ospf_lsa *new,
-						      int rt_recalc)
-{
-	if (rt_recalc && !IS_LSA_SELF(new)) {
-/* RFC 2328 Section 13.2 Summary-LSAs
-   The best route to the destination described by the summary-
-   LSA must be recalculated (see Section 16.5).  If this
-   destination is an AS boundary router, it may also be
-   necessary to re-examine all the AS-external-LSAs.
-*/
-#if 0
-      /* These don't exist yet... */
-      ospf_summary_incremental_update(new);
-      /* Isn't this done by the above call? 
-	 - RFC 2328 Section 16.5 implies it should be */
-      /* ospf_ase_calculate_schedule(); */
-#else  /* #if 0 */
-		ospf_spf_calculate_schedule(ospf,
-					    SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL);
-#endif /* #if 0 */
-	}
-
-	/* register LSA to refresh-list. */
-	if (IS_LSA_SELF(new))
-		ospf_refresher_register_lsa(ospf, new);
-
-	return new;
-}
-
-/* Install AS-external-LSA. */
-static struct ospf_lsa *ospf_external_lsa_install(struct ospf *ospf,
-						  struct ospf_lsa *new,
-						  int rt_recalc)
-{
-	ospf_ase_register_external_lsa(new, ospf);
-	/* If LSA is not self-originated, calculate an external route. */
-	if (rt_recalc) {
-		/* RFC 2328 Section 13.2 AS-external-LSAs
-		      The best route to the destination described by the AS-
-		      external-LSA must be recalculated (see Section 16.6).
-		*/
-
-		if (!IS_LSA_SELF(new))
-			ospf_ase_incremental_update(ospf, new);
-	}
-
-	if (new->data->type == OSPF_AS_NSSA_LSA) {
-		/* There is no point to register selforiginate Type-7 LSA for
-		 * refreshing. We rely on refreshing Type-5 LSA's
-		 */
-		if (IS_LSA_SELF(new))
-			return new;
-		else {
-			/* Try refresh type-5 translated LSA for this LSA, if
-			 * one exists.
-			 * New translations will be taken care of by the
-			 * abr_task.
-			 */
-			ospf_translated_nssa_refresh(ospf, new, NULL);
-			ospf_schedule_abr_task(ospf);
-		}
-	}
-
-	/* Register self-originated LSA to refresh queue.
-	 * Leave Translated LSAs alone if NSSA is enabled
-	 */
-	if (IS_LSA_SELF(new) && !CHECK_FLAG(new->flags, OSPF_LSA_LOCAL_XLT))
-		ospf_refresher_register_lsa(ospf, new);
-
-	return new;
-}
-
-void ospf_discard_from_db(struct ospf *ospf, struct ospf_lsdb *lsdb,
-			  struct ospf_lsa *lsa)
-{
-	struct ospf_lsa *old;
-
-	if (!lsdb) {
-		zlog_warn("%s: Called with NULL lsdb!", __func__);
-		if (!lsa)
-			zlog_warn("%s: and NULL LSA!", __func__);
-		else
-			zlog_warn("LSA[Type%d:%s]: not associated with LSDB!",
-				  lsa->data->type, inet_ntoa(lsa->data->id));
-		return;
-	}
-
-	old = ospf_lsdb_lookup(lsdb, lsa);
-
-	if (!old)
-		return;
-
-	if (old->refresh_list >= 0)
-		ospf_refresher_unregister_lsa(ospf, old);
-
-	switch (old->data->type) {
-	case OSPF_AS_EXTERNAL_LSA:
-		ospf_ase_unregister_external_lsa(old, ospf);
-		ospf_ls_retransmit_delete_nbr_as(ospf, old);
-		break;
-	case OSPF_OPAQUE_AS_LSA:
-		ospf_ls_retransmit_delete_nbr_as(ospf, old);
-		break;
-	case OSPF_AS_NSSA_LSA:
-		ospf_ls_retransmit_delete_nbr_area(old->area, old);
-		ospf_ase_unregister_external_lsa(old, ospf);
-		break;
-	default:
-		ospf_ls_retransmit_delete_nbr_area(old->area, old);
-		break;
-	}
-
-	ospf_lsa_maxage_delete(ospf, old);
-	ospf_lsa_discard(old);
-}
-
-struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
-				  struct ospf_lsa *lsa)
-{
-	struct ospf_lsa *new = NULL;
-	struct ospf_lsa *old = NULL;
-	struct ospf_lsdb *lsdb = NULL;
-	int rt_recalc;
-
-	/* Set LSDB. */
-	switch (lsa->data->type) {
-	/* kevinm */
-	case OSPF_AS_NSSA_LSA:
-		if (lsa->area)
-			lsdb = lsa->area->lsdb;
-		else
-			lsdb = ospf->lsdb;
-		break;
-	case OSPF_AS_EXTERNAL_LSA:
-	case OSPF_OPAQUE_AS_LSA:
-		lsdb = ospf->lsdb;
-		break;
-	default:
-		lsdb = lsa->area->lsdb;
-		break;
-	}
-
-	assert(lsdb);
-
-	/*  RFC 2328 13.2.  Installing LSAs in the database
-
-	      Installing a new LSA in the database, either as the result of
-	      flooding or a newly self-originated LSA, may cause the OSPF
-	      routing table structure to be recalculated.  The contents of the
-	      new LSA should be compared to the old instance, if present.  If
-	      there is no difference, there is no need to recalculate the
-	      routing table. When comparing an LSA to its previous instance,
-	      the following are all considered to be differences in contents:
-
-		  o   The LSA's Options field has changed.
-
-		  o   One of the LSA instances has LS age set to MaxAge, and
-		      the other does not.
-
-		  o   The length field in the LSA header has changed.
-
-		  o   The body of the LSA (i.e., anything outside the 20-byte
-		      LSA header) has changed. Note that this excludes changes
-		      in LS Sequence Number and LS Checksum.
-
-	*/
-	/* Look up old LSA and determine if any SPF calculation or incremental
-	   update is needed */
-	old = ospf_lsdb_lookup(lsdb, lsa);
-
-	/* Do comparision and record if recalc needed. */
-	rt_recalc = 0;
-	if (old == NULL || ospf_lsa_different(old, lsa))
-		rt_recalc = 1;
-
-	/*
-	   Sequence number check (Section 14.1 of rfc 2328)
-	   "Premature aging is used when it is time for a self-originated
-	    LSA's sequence number field to wrap.  At this point, the current
-	    LSA instance (having LS sequence number MaxSequenceNumber) must
-	    be prematurely aged and flushed from the routing domain before a
-	    new instance with sequence number equal to InitialSequenceNumber
-	    can be originated. "
-	 */
-
-	if (ntohl(lsa->data->ls_seqnum) - 1 == OSPF_MAX_SEQUENCE_NUMBER) {
-		if (ospf_lsa_is_self_originated(ospf, lsa)) {
-			lsa->data->ls_seqnum = htonl(OSPF_MAX_SEQUENCE_NUMBER);
-
-			if (!IS_LSA_MAXAGE(lsa))
-				lsa->flags |= OSPF_LSA_PREMATURE_AGE;
-			lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
-
-			if (IS_DEBUG_OSPF(lsa, LSA_REFRESH)) {
-				zlog_debug(
-					"ospf_lsa_install() Premature Aging "
-					"lsa 0x%p, seqnum 0x%x",
-					(void *)lsa,
-					ntohl(lsa->data->ls_seqnum));
-				ospf_lsa_header_dump(lsa->data);
-			}
-		} else {
-			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-				zlog_debug(
-					"ospf_lsa_install() got an lsa with seq 0x80000000 "
-					"that was not self originated. Ignoring\n");
-				ospf_lsa_header_dump(lsa->data);
-			}
-			return old;
-		}
-	}
-
-	/* discard old LSA from LSDB */
-	if (old != NULL)
-		ospf_discard_from_db(ospf, lsdb, lsa);
-
-	/* Calculate Checksum if self-originated?. */
-	if (IS_LSA_SELF(lsa))
-		ospf_lsa_checksum(lsa->data);
-
-	/* Insert LSA to LSDB. */
-	ospf_lsdb_add(lsdb, lsa);
-	lsa->lsdb = lsdb;
-
-	/* Do LSA specific installation process. */
-	switch (lsa->data->type) {
-	case OSPF_ROUTER_LSA:
-		new = ospf_router_lsa_install(ospf, lsa, rt_recalc);
-		break;
-	case OSPF_NETWORK_LSA:
-		assert(oi);
-		new = ospf_network_lsa_install(ospf, oi, lsa, rt_recalc);
-		break;
-	case OSPF_SUMMARY_LSA:
-		new = ospf_summary_lsa_install(ospf, lsa, rt_recalc);
-		break;
-	case OSPF_ASBR_SUMMARY_LSA:
-		new = ospf_summary_asbr_lsa_install(ospf, lsa, rt_recalc);
-		break;
-	case OSPF_AS_EXTERNAL_LSA:
-		new = ospf_external_lsa_install(ospf, lsa, rt_recalc);
-		break;
-	case OSPF_OPAQUE_LINK_LSA:
-		if (IS_LSA_SELF(lsa))
-			lsa->oi = oi; /* Specify outgoing ospf-interface for
-					 this LSA. */
-		else {
-			/* Incoming "oi" for this LSA has set at LSUpd
-			 * reception. */
-		}
-	/* Fallthrough */
-	case OSPF_OPAQUE_AREA_LSA:
-	case OSPF_OPAQUE_AS_LSA:
-		new = ospf_opaque_lsa_install(lsa, rt_recalc);
-		break;
-	case OSPF_AS_NSSA_LSA:
-		new = ospf_external_lsa_install(ospf, lsa, rt_recalc);
-	default: /* type-6,8,9....nothing special */
-		break;
-	}
-
-	if (new == NULL)
-		return new; /* Installation failed, cannot proceed further --
-			       endo. */
-
-	/* Debug logs. */
-	if (IS_DEBUG_OSPF(lsa, LSA_INSTALL)) {
-		char area_str[INET_ADDRSTRLEN];
-
-		switch (lsa->data->type) {
-		case OSPF_AS_EXTERNAL_LSA:
-		case OSPF_OPAQUE_AS_LSA:
-		case OSPF_AS_NSSA_LSA:
-			zlog_debug("LSA[%s]: Install %s", dump_lsa_key(new),
-				   lookup_msg(ospf_lsa_type_msg,
-					      new->data->type, NULL));
-			break;
-		default:
-			strlcpy(area_str, inet_ntoa(new->area->area_id),
-				sizeof(area_str));
-			zlog_debug("LSA[%s]: Install %s to Area %s",
-				   dump_lsa_key(new),
-				   lookup_msg(ospf_lsa_type_msg,
-					      new->data->type, NULL),
-				   area_str);
-			break;
-		}
-	}
-
-	/*
-	   If received LSA' ls_age is MaxAge, or lsa is being prematurely aged
-	   (it's getting flushed out of the area), set LSA on MaxAge LSA list.
-	 */
-	if (IS_LSA_MAXAGE(new)) {
-		if (IS_DEBUG_OSPF(lsa, LSA_INSTALL))
-			zlog_debug("LSA[Type%d:%s]: Install LSA 0x%p, MaxAge",
-				   new->data->type, inet_ntoa(new->data->id),
-				   (void *)lsa);
-		ospf_lsa_maxage(ospf, lsa);
-	}
-
-	return new;
-}
-
-
-int ospf_check_nbr_status(struct ospf *ospf)
-{
-	struct listnode *node, *nnode;
-	struct ospf_interface *oi;
-
-	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
-		struct route_node *rn;
-		struct ospf_neighbor *nbr;
-
-		if (ospf_if_is_enable(oi))
-			for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-				if ((nbr = rn->info) != NULL)
-					if (nbr->state == NSM_Exchange
-					    || nbr->state == NSM_Loading) {
-						route_unlock_node(rn);
-						return 0;
-					}
-	}
-
-	return 1;
-}
-
-
-static int ospf_maxage_lsa_remover(struct thread *thread)
-{
-	struct ospf *ospf = THREAD_ARG(thread);
-	struct ospf_lsa *lsa;
-	struct route_node *rn;
-	int reschedule = 0;
-
-	ospf->t_maxage = NULL;
-
-	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-		zlog_debug("LSA[MaxAge]: remover Start");
-
-	reschedule = !ospf_check_nbr_status(ospf);
-
-	if (!reschedule)
-		for (rn = route_top(ospf->maxage_lsa); rn;
-		     rn = route_next(rn)) {
-			if ((lsa = rn->info) == NULL) {
-				continue;
-			}
-
-			/* There is at least one neighbor from which we still
-			 * await an ack
-			 * for that LSA, so we are not allowed to remove it from
-			 * our lsdb yet
-			 * as per RFC 2328 section 14 para 4 a) */
-			if (lsa->retransmit_counter > 0) {
-				reschedule = 1;
-				continue;
-			}
-
-			/* TODO: maybe convert this function to a work-queue */
-			if (thread_should_yield(thread)) {
-				OSPF_TIMER_ON(ospf->t_maxage,
-					      ospf_maxage_lsa_remover, 0);
-				route_unlock_node(
-					rn); /* route_top/route_next */
-				return 0;
-			}
-
-			/* Remove LSA from the LSDB */
-			if (IS_LSA_SELF(lsa))
-				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-					zlog_debug(
-						"LSA[Type%d:%s]: LSA 0x%lx is self-originated: ",
-						lsa->data->type,
-						inet_ntoa(lsa->data->id),
-						(unsigned long)lsa);
-
-			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-				zlog_debug(
-					"LSA[Type%d:%s]: MaxAge LSA removed from list",
-					lsa->data->type,
-					inet_ntoa(lsa->data->id));
-
-			if (CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE)) {
-				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-					zlog_debug(
-						"originating new lsa for lsa 0x%p\n",
-						(void *)lsa);
-				ospf_lsa_refresh(ospf, lsa);
-			}
-
-			/* Remove from lsdb. */
-			if (lsa->lsdb) {
-				ospf_discard_from_db(ospf, lsa->lsdb, lsa);
-				ospf_lsdb_delete(lsa->lsdb, lsa);
-			} else
-				zlog_warn(
-					"%s: LSA[Type%d:%s]: No associated LSDB!",
-					__func__, lsa->data->type,
-					inet_ntoa(lsa->data->id));
-		}
-
-	/*    A MaxAge LSA must be removed immediately from the router's link
-	      state database as soon as both a) it is no longer contained on any
-	      neighbor Link state retransmission lists and b) none of the
-	   router's
-	      neighbors are in states Exchange or Loading. */
-	if (reschedule)
-		OSPF_TIMER_ON(ospf->t_maxage, ospf_maxage_lsa_remover,
-			      ospf->maxage_delay);
-
-	return 0;
-}
-
-void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
-{
-	struct route_node *rn;
-	struct prefix lsa_prefix;
-
-	memset(&lsa_prefix, 0, sizeof(struct prefix));
-	lsa_prefix.family = 0;
-	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
-	lsa_prefix.u.ptr = (uintptr_t)lsa;
-
-	if ((rn = route_node_lookup(ospf->maxage_lsa,
-				    (struct prefix *)&lsa_prefix))) {
-		if (rn->info == lsa) {
-			UNSET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
-			ospf_lsa_unlock(&lsa); /* maxage_lsa */
-			rn->info = NULL;
-			route_unlock_node(
-				rn); /* unlock node because lsa is deleted */
-		}
-		route_unlock_node(rn); /* route_node_lookup */
-	} else {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: lsa %s is not found in maxage db.",
-				   __PRETTY_FUNCTION__, dump_lsa_key(lsa));
-	}
-}
-
-/* Add LSA onto the MaxAge list, and schedule for removal.
- * This does *not* lead to the LSA being flooded, that must be taken
- * care of elsewhere, see, e.g., ospf_lsa_flush* (which are callers of this
- * function).
- */
-void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
-{
-	struct prefix lsa_prefix;
-	struct route_node *rn;
-
-	/* When we saw a MaxAge LSA flooded to us, we put it on the list
-	   and schedule the MaxAge LSA remover. */
-	if (CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE)) {
-		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-			zlog_debug(
-				"LSA[Type%d:%s]: %p already exists on MaxAge LSA list",
-				lsa->data->type, inet_ntoa(lsa->data->id),
-				(void *)lsa);
-		return;
-	}
-
-	memset(&lsa_prefix, 0, sizeof(struct prefix));
-	lsa_prefix.family = 0;
-	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
-	lsa_prefix.u.ptr = (uintptr_t)lsa;
-
-	if ((rn = route_node_get(ospf->maxage_lsa,
-				 (struct prefix *)&lsa_prefix))
-	    != NULL) {
-		if (rn->info != NULL) {
-			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-				zlog_debug(
-					"LSA[%s]: found LSA (%p) in table for LSA %p %d",
-					dump_lsa_key(lsa), rn->info,
-					(void *)lsa, lsa_prefix.prefixlen);
-			route_unlock_node(rn);
-		} else {
-			rn->info = ospf_lsa_lock(lsa);
-			SET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
-		}
-	} else {
-		zlog_err("Unable to allocate memory for maxage lsa %s\n",
-			 dump_lsa_key(lsa));
-		assert(0);
-	}
-
-	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-		zlog_debug("LSA[%s]: MaxAge LSA remover scheduled.",
-			   dump_lsa_key(lsa));
-
-	OSPF_TIMER_ON(ospf->t_maxage, ospf_maxage_lsa_remover,
-		      ospf->maxage_delay);
-}
-
-static int ospf_lsa_maxage_walker_remover(struct ospf *ospf,
-					  struct ospf_lsa *lsa)
-{
-	/* Stay away from any Local Translated Type-7 LSAs */
-	if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT))
-		return 0;
-
-	if (IS_LSA_MAXAGE(lsa))
-		/* Self-originated LSAs should NOT time-out instead,
-		   they're flushed and submitted to the max_age list explicitly.
-		   */
-		if (!ospf_lsa_is_self_originated(ospf, lsa)) {
-			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-				zlog_debug("LSA[%s]: is MaxAge",
-					   dump_lsa_key(lsa));
-
-			switch (lsa->data->type) {
-			case OSPF_OPAQUE_LINK_LSA:
-			case OSPF_OPAQUE_AREA_LSA:
-			case OSPF_OPAQUE_AS_LSA:
-				/*
-				 * As a general rule, whenever network topology
-				 * has changed
-				 * (due to an LSA removal in this case), routing
-				 * recalculation
-				 * should be triggered. However, this is not
-				 * true for opaque
-				 * LSAs. Even if an opaque LSA instance is going
-				 * to be removed
-				 * from the routing domain, it does not mean a
-				 * change in network
-				 * topology, and thus, routing recalculation is
-				 * not needed here.
-				 */
-				break;
-			case OSPF_AS_EXTERNAL_LSA:
-			case OSPF_AS_NSSA_LSA:
-				ospf_ase_incremental_update(ospf, lsa);
-				break;
-			default:
-				ospf_spf_calculate_schedule(ospf,
-							    SPF_FLAG_MAXAGE);
-				break;
-			}
-			ospf_lsa_maxage(ospf, lsa);
-		}
-
-	if (IS_LSA_MAXAGE(lsa) && !ospf_lsa_is_self_originated(ospf, lsa))
-		if (LS_AGE(lsa) > OSPF_LSA_MAXAGE + 30)
-			printf("Eek! Shouldn't happen!\n");
-
-	return 0;
-}
-
-/* Periodical check of MaxAge LSA. */
-int ospf_lsa_maxage_walker(struct thread *thread)
-{
-	struct ospf *ospf = THREAD_ARG(thread);
-	struct route_node *rn;
-	struct ospf_lsa *lsa;
-	struct ospf_area *area;
-	struct listnode *node, *nnode;
-
-	ospf->t_maxage_walker = NULL;
-
-	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
-		LSDB_LOOP (ROUTER_LSDB(area), rn, lsa)
-			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP (NETWORK_LSDB(area), rn, lsa)
-			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
-			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
-			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
-			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
-			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
-			ospf_lsa_maxage_walker_remover(ospf, lsa);
-	}
-
-	/* for AS-external-LSAs. */
-	if (ospf->lsdb) {
-		LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
-			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
-			ospf_lsa_maxage_walker_remover(ospf, lsa);
-	}
-
-	OSPF_TIMER_ON(ospf->t_maxage_walker, ospf_lsa_maxage_walker,
-		      OSPF_LSA_MAXAGE_CHECK_INTERVAL);
-	return 0;
-}
-
-struct ospf_lsa *ospf_lsa_lookup_by_prefix(struct ospf_lsdb *lsdb, uint8_t type,
-					   struct prefix_ipv4 *p,
-					   struct in_addr router_id)
-{
-	struct ospf_lsa *lsa;
-	struct in_addr mask, id;
-	struct lsa_header_mask {
-		struct lsa_header header;
-		struct in_addr mask;
-	} * hmask;
-
-	lsa = ospf_lsdb_lookup_by_id(lsdb, type, p->prefix, router_id);
-	if (lsa == NULL)
-		return NULL;
-
-	masklen2ip(p->prefixlen, &mask);
-
-	hmask = (struct lsa_header_mask *)lsa->data;
-
-	if (mask.s_addr != hmask->mask.s_addr) {
-		id.s_addr = p->prefix.s_addr | (~mask.s_addr);
-		lsa = ospf_lsdb_lookup_by_id(lsdb, type, id, router_id);
-		if (!lsa)
-			return NULL;
-	}
-
-	return lsa;
-}
-
-struct ospf_lsa *ospf_lsa_lookup(struct ospf *ospf, struct ospf_area *area,
-				 uint32_t type, struct in_addr id,
-				 struct in_addr adv_router)
-{
-	if (!ospf)
-		return NULL;
-
-	switch (type) {
-	case OSPF_ROUTER_LSA:
-	case OSPF_NETWORK_LSA:
-	case OSPF_SUMMARY_LSA:
-	case OSPF_ASBR_SUMMARY_LSA:
-	case OSPF_AS_NSSA_LSA:
-	case OSPF_OPAQUE_LINK_LSA:
-	case OSPF_OPAQUE_AREA_LSA:
-		return ospf_lsdb_lookup_by_id(area->lsdb, type, id, adv_router);
-	case OSPF_AS_EXTERNAL_LSA:
-	case OSPF_OPAQUE_AS_LSA:
-		return ospf_lsdb_lookup_by_id(ospf->lsdb, type, id, adv_router);
-	default:
-		break;
-	}
-
-	return NULL;
-}
-
-struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *area, uint32_t type,
-				       struct in_addr id)
-{
-	struct ospf_lsa *lsa;
-	struct route_node *rn;
-
-	switch (type) {
-	case OSPF_ROUTER_LSA:
-		return ospf_lsdb_lookup_by_id(area->lsdb, type, id, id);
-	case OSPF_NETWORK_LSA:
-		for (rn = route_top(NETWORK_LSDB(area)); rn;
-		     rn = route_next(rn))
-			if ((lsa = rn->info))
-				if (IPV4_ADDR_SAME(&lsa->data->id, &id)) {
-					route_unlock_node(rn);
-					return lsa;
-				}
-		break;
-	case OSPF_SUMMARY_LSA:
-	case OSPF_ASBR_SUMMARY_LSA:
-		/* Currently not used. */
-		assert(1);
-		return ospf_lsdb_lookup_by_id(area->lsdb, type, id, id);
-	case OSPF_AS_EXTERNAL_LSA:
-	case OSPF_AS_NSSA_LSA:
-	case OSPF_OPAQUE_LINK_LSA:
-	case OSPF_OPAQUE_AREA_LSA:
-	case OSPF_OPAQUE_AS_LSA:
-		/* Currently not used. */
-		break;
-	default:
-		break;
-	}
-
-	return NULL;
-}
-
-struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *area,
-					   struct lsa_header *lsah)
-{
-	struct ospf_lsa *match;
-
-	/*
-	 * Strictly speaking, the LSA-ID field for Opaque-LSAs (type-9/10/11)
-	 * is redefined to have two subfields; opaque-type and opaque-id.
-	 * However, it is harmless to treat the two sub fields together, as if
-	 * they two were forming a unique LSA-ID.
-	 */
-
-	match = ospf_lsa_lookup(area->ospf, area, lsah->type, lsah->id,
-				lsah->adv_router);
-
-	if (match == NULL)
-		if (IS_DEBUG_OSPF(lsa, LSA) == OSPF_DEBUG_LSA)
-			zlog_debug("LSA[Type%d:%s]: Lookup by header, NO MATCH",
-				   lsah->type, inet_ntoa(lsah->id));
-
-	return match;
-}
-
-/* return +n, l1 is more recent.
-   return -n, l2 is more recent.
-   return 0, l1 and l2 is identical. */
-int ospf_lsa_more_recent(struct ospf_lsa *l1, struct ospf_lsa *l2)
-{
-	int r;
-	int x, y;
-
-	if (l1 == NULL && l2 == NULL)
-		return 0;
-	if (l1 == NULL)
-		return -1;
-	if (l2 == NULL)
-		return 1;
-
-	/* compare LS sequence number. */
-	x = (int)ntohl(l1->data->ls_seqnum);
-	y = (int)ntohl(l2->data->ls_seqnum);
-	if (x > y)
-		return 1;
-	if (x < y)
-		return -1;
-
-	/* compare LS checksum. */
-	r = ntohs(l1->data->checksum) - ntohs(l2->data->checksum);
-	if (r)
-		return r;
-
-	/* compare LS age. */
-	if (IS_LSA_MAXAGE(l1) && !IS_LSA_MAXAGE(l2))
-		return 1;
-	else if (!IS_LSA_MAXAGE(l1) && IS_LSA_MAXAGE(l2))
-		return -1;
-
-	/* compare LS age with MaxAgeDiff. */
-	if (LS_AGE(l1) - LS_AGE(l2) > OSPF_LSA_MAXAGE_DIFF)
-		return -1;
-	else if (LS_AGE(l2) - LS_AGE(l1) > OSPF_LSA_MAXAGE_DIFF)
-		return 1;
-
-	/* LSAs are identical. */
-	return 0;
-}
-
-/* If two LSAs are different, return 1, otherwise return 0. */
-int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2)
-{
-	char *p1, *p2;
-	assert(l1);
-	assert(l2);
-	assert(l1->data);
-	assert(l2->data);
-
-	if (l1->data->options != l2->data->options)
-		return 1;
-
-	if (IS_LSA_MAXAGE(l1) && !IS_LSA_MAXAGE(l2))
-		return 1;
-
-	if (IS_LSA_MAXAGE(l2) && !IS_LSA_MAXAGE(l1))
-		return 1;
-
-	if (l1->data->length != l2->data->length)
-		return 1;
-
-	if (l1->data->length == 0)
-		return 1;
-
-	if (CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
-		return 1; /* May be a stale LSA in the LSBD */
-
-	assert(ntohs(l1->data->length) > OSPF_LSA_HEADER_SIZE);
-
-	p1 = (char *)l1->data;
-	p2 = (char *)l2->data;
-
-	if (memcmp(p1 + OSPF_LSA_HEADER_SIZE, p2 + OSPF_LSA_HEADER_SIZE,
-		   ntohs(l1->data->length) - OSPF_LSA_HEADER_SIZE)
-	    != 0)
-		return 1;
-
-	return 0;
-}
-
-#ifdef ORIGINAL_CODING
-void ospf_lsa_flush_self_originated(struct ospf_neighbor *nbr,
-				    struct ospf_lsa *self, struct ospf_lsa *new)
-{
-	uint32_t seqnum;
-
-	/* Adjust LS Sequence Number. */
-	seqnum = ntohl(new->data->ls_seqnum) + 1;
-	self->data->ls_seqnum = htonl(seqnum);
-
-	/* Recalculate LSA checksum. */
-	ospf_lsa_checksum(self->data);
-
-	/* Reflooding LSA. */
-	/*  RFC2328  Section 13.3
-		  On non-broadcast networks, separate	Link State Update
-		  packets must be sent, as unicasts, to each adjacent	neighbor
-		  (i.e., those in state Exchange or greater).	 The destination
-		  IP addresses for these packets are the neighbors' IP
-		  addresses.   */
-	if (nbr->oi->type == OSPF_IFTYPE_NBMA) {
-		struct route_node *rn;
-		struct ospf_neighbor *onbr;
-
-		for (rn = route_top(nbr->oi->nbrs); rn; rn = route_next(rn))
-			if ((onbr = rn->info) != NULL)
-				if (onbr != nbr->oi->nbr_self
-				    && onbr->status >= NSM_Exchange)
-					ospf_ls_upd_send_lsa(
-						onbr, self,
-						OSPF_SEND_PACKET_DIRECT);
-	} else
-		ospf_ls_upd_send_lsa(nbr, self, OSPF_SEND_PACKET_INDIRECT);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("LSA[Type%d:%s]: Flush self-originated LSA",
-			   self->data->type, inet_ntoa(self->data->id));
-}
-#else  /* ORIGINAL_CODING */
-int ospf_lsa_flush_schedule(struct ospf *ospf, struct ospf_lsa *lsa)
-{
-	if (lsa == NULL || !IS_LSA_SELF(lsa))
-		return 0;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"LSA[Type%d:%s]: Schedule self-originated LSA to FLUSH",
-			lsa->data->type, inet_ntoa(lsa->data->id));
-
-	/* Force given lsa's age to MaxAge. */
-	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
-
-	switch (lsa->data->type) {
-	/* Opaque wants to be notified of flushes */
-	case OSPF_OPAQUE_LINK_LSA:
-	case OSPF_OPAQUE_AREA_LSA:
-	case OSPF_OPAQUE_AS_LSA:
-		ospf_opaque_lsa_refresh(lsa);
-		break;
-	default:
-		ospf_refresher_unregister_lsa(ospf, lsa);
-		ospf_lsa_flush(ospf, lsa);
-		break;
-	}
-
-	return 0;
-}
-
-void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
-{
-	struct listnode *node, *nnode;
-	struct listnode *node2, *nnode2;
-	struct ospf_area *area;
-	struct ospf_interface *oi;
-	struct ospf_lsa *lsa;
-	struct route_node *rn;
-	int need_to_flush_ase = 0;
-
-	ospf->inst_shutdown = 1;
-
-	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
-		if ((lsa = area->router_lsa_self) != NULL) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"LSA[Type%d:%s]: Schedule self-originated LSA to FLUSH",
-					lsa->data->type,
-					inet_ntoa(lsa->data->id));
-
-			ospf_refresher_unregister_lsa(ospf, lsa);
-			ospf_lsa_flush_area(lsa, area);
-			ospf_lsa_unlock(&area->router_lsa_self);
-			area->router_lsa_self = NULL;
-		}
-
-		for (ALL_LIST_ELEMENTS(area->oiflist, node2, nnode2, oi)) {
-			if ((lsa = oi->network_lsa_self) != NULL
-			    && oi->state == ISM_DR && oi->full_nbrs > 0) {
-				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"LSA[Type%d:%s]: Schedule self-originated LSA to FLUSH",
-						lsa->data->type,
-						inet_ntoa(lsa->data->id));
-
-				ospf_refresher_unregister_lsa(
-					ospf, oi->network_lsa_self);
-				ospf_lsa_flush_area(oi->network_lsa_self, area);
-				ospf_lsa_unlock(&oi->network_lsa_self);
-				oi->network_lsa_self = NULL;
-			}
-
-			if (oi->type != OSPF_IFTYPE_VIRTUALLINK
-			    && area->external_routing == OSPF_AREA_DEFAULT)
-				need_to_flush_ase = 1;
-		}
-
-		LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
-			ospf_lsa_flush_schedule(ospf, lsa);
-		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
-			ospf_lsa_flush_schedule(ospf, lsa);
-		LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
-			ospf_lsa_flush_schedule(ospf, lsa);
-		LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
-			ospf_lsa_flush_schedule(ospf, lsa);
-	}
-
-	if (need_to_flush_ase) {
-		LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
-			ospf_lsa_flush_schedule(ospf, lsa);
-		LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
-			ospf_lsa_flush_schedule(ospf, lsa);
-	}
-
-	/*
-	 * Make sure that the MaxAge LSA remover is executed immediately,
-	 * without conflicting to other threads.
-	 */
-	if (ospf->t_maxage != NULL) {
-		OSPF_TIMER_OFF(ospf->t_maxage);
-		thread_execute(master, ospf_maxage_lsa_remover, ospf, 0);
-	}
-
-	return;
-}
-#endif /* ORIGINAL_CODING */
-
-/* If there is self-originated LSA, then return 1, otherwise return 0. */
-/* An interface-independent version of ospf_lsa_is_self_originated */
-int ospf_lsa_is_self_originated(struct ospf *ospf, struct ospf_lsa *lsa)
-{
-	struct listnode *node;
-	struct ospf_interface *oi;
-
-	/* This LSA is already checked. */
-	if (CHECK_FLAG(lsa->flags, OSPF_LSA_SELF_CHECKED))
-		return IS_LSA_SELF(lsa);
-
-	/* Make sure LSA is self-checked. */
-	SET_FLAG(lsa->flags, OSPF_LSA_SELF_CHECKED);
-
-	/* AdvRouter and Router ID is the same. */
-	if (IPV4_ADDR_SAME(&lsa->data->adv_router, &ospf->router_id))
-		SET_FLAG(lsa->flags, OSPF_LSA_SELF);
-
-	/* LSA is router-LSA. */
-	else if (lsa->data->type == OSPF_ROUTER_LSA
-		 && IPV4_ADDR_SAME(&lsa->data->id, &ospf->router_id))
-		SET_FLAG(lsa->flags, OSPF_LSA_SELF);
-
-	/* LSA is network-LSA.  Compare Link ID with all interfaces. */
-	else if (lsa->data->type == OSPF_NETWORK_LSA)
-		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
-			/* Ignore virtual link. */
-			if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-				if (oi->address->family == AF_INET)
-					if (IPV4_ADDR_SAME(
-						    &lsa->data->id,
-						    &oi->address->u.prefix4)) {
-						/* to make it easier later */
-						SET_FLAG(lsa->flags,
-							 OSPF_LSA_SELF);
-						return IS_LSA_SELF(lsa);
-					}
-		}
-
-	return IS_LSA_SELF(lsa);
-}
-
-/* Get unique Link State ID. */
-struct in_addr ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
-				  uint8_t type, struct prefix_ipv4 *p)
-{
-	struct ospf_lsa *lsa;
-	struct in_addr mask, id;
-
-	id = p->prefix;
-
-	/* Check existence of LSA instance. */
-	lsa = ospf_lsdb_lookup_by_id(lsdb, type, id, ospf->router_id);
-	if (lsa) {
-		struct as_external_lsa *al =
-			(struct as_external_lsa *)lsa->data;
-		if (ip_masklen(al->mask) == p->prefixlen) {
-			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-				zlog_debug(
-					"ospf_lsa_unique_id(): "
-					"Can't get Link State ID for %s/%d",
-					inet_ntoa(p->prefix), p->prefixlen);
-			/*	  id.s_addr = 0; */
-			id.s_addr = 0xffffffff;
-			return id;
-		}
-		/* Masklen differs, then apply wildcard mask to Link State ID.
-		   */
-		else {
-			masklen2ip(p->prefixlen, &mask);
-
-			id.s_addr = p->prefix.s_addr | (~mask.s_addr);
-			lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, type, id,
-						     ospf->router_id);
-			if (lsa) {
-				if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-					zlog_debug(
-						"ospf_lsa_unique_id(): "
-						"Can't get Link State ID for %s/%d",
-						inet_ntoa(p->prefix),
-						p->prefixlen);
-				/* 	      id.s_addr = 0; */
-				id.s_addr = 0xffffffff;
-				return id;
-			}
-		}
-	}
-
-	return id;
-}
-
-
-#define LSA_ACTION_FLOOD_AREA 1
-#define LSA_ACTION_FLUSH_AREA 2
-
-struct lsa_action {
-	uint8_t action;
-	struct ospf_area *area;
-	struct ospf_lsa *lsa;
-};
-
-static int ospf_lsa_action(struct thread *t)
-{
-	struct lsa_action *data;
-
-	data = THREAD_ARG(t);
-
-	if (IS_DEBUG_OSPF(lsa, LSA) == OSPF_DEBUG_LSA)
-		zlog_debug("LSA[Action]: Performing scheduled LSA action: %d",
-			   data->action);
-
-	switch (data->action) {
-	case LSA_ACTION_FLOOD_AREA:
-		ospf_flood_through_area(data->area, NULL, data->lsa);
-		break;
-	case LSA_ACTION_FLUSH_AREA:
-		ospf_lsa_flush_area(data->lsa, data->area);
-		break;
-	}
-
-	ospf_lsa_unlock(&data->lsa); /* Message */
-	XFREE(MTYPE_OSPF_MESSAGE, data);
-	return 0;
-}
-
-void ospf_schedule_lsa_flood_area(struct ospf_area *area, struct ospf_lsa *lsa)
-{
-	struct lsa_action *data;
-
-	data = XCALLOC(MTYPE_OSPF_MESSAGE, sizeof(struct lsa_action));
-	data->action = LSA_ACTION_FLOOD_AREA;
-	data->area = area;
-	data->lsa = ospf_lsa_lock(lsa); /* Message / Flood area */
-
-	thread_add_event(master, ospf_lsa_action, data, 0, NULL);
-}
-
-void ospf_schedule_lsa_flush_area(struct ospf_area *area, struct ospf_lsa *lsa)
-{
-	struct lsa_action *data;
-
-	data = XCALLOC(MTYPE_OSPF_MESSAGE, sizeof(struct lsa_action));
-	data->action = LSA_ACTION_FLUSH_AREA;
-	data->area = area;
-	data->lsa = ospf_lsa_lock(lsa); /* Message / Flush area */
-
-	thread_add_event(master, ospf_lsa_action, data, 0, NULL);
-}
-
-
-/* LSA Refreshment functions. */
-struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
-{
-	struct external_info *ei;
-	struct ospf_lsa *new = NULL;
-	assert(CHECK_FLAG(lsa->flags, OSPF_LSA_SELF));
-	assert(IS_LSA_SELF(lsa));
-	assert(lsa->lock > 0);
-
-	switch (lsa->data->type) {
-	/* Router and Network LSAs are processed differently. */
-	case OSPF_ROUTER_LSA:
-		new = ospf_router_lsa_refresh(lsa);
-		break;
-	case OSPF_NETWORK_LSA:
-		new = ospf_network_lsa_refresh(lsa);
-		break;
-	case OSPF_SUMMARY_LSA:
-		new = ospf_summary_lsa_refresh(ospf, lsa);
-		break;
-	case OSPF_ASBR_SUMMARY_LSA:
-		new = ospf_summary_asbr_lsa_refresh(ospf, lsa);
-		break;
-	case OSPF_AS_EXTERNAL_LSA:
-		/* Translated from NSSA Type-5s are refreshed when
-		 * from refresh of Type-7 - do not refresh these directly.
-		 */
-		if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT))
-			break;
-		ei = ospf_external_info_check(ospf, lsa);
-		if (ei)
-			new = ospf_external_lsa_refresh(ospf, lsa, ei,
-							LSA_REFRESH_FORCE);
-		else
-			ospf_lsa_flush_as(ospf, lsa);
-		break;
-	case OSPF_OPAQUE_LINK_LSA:
-	case OSPF_OPAQUE_AREA_LSA:
-	case OSPF_OPAQUE_AS_LSA:
-		new = ospf_opaque_lsa_refresh(lsa);
-		break;
-	default:
-		break;
-	}
-	return new;
-}
-
-void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
-{
-	uint16_t index, current_index;
-
-	assert(lsa->lock > 0);
-	assert(IS_LSA_SELF(lsa));
-
-	if (lsa->refresh_list < 0) {
-		int delay;
-		int min_delay =
-			OSPF_LS_REFRESH_TIME - (2 * OSPF_LS_REFRESH_JITTER);
-		int max_delay = OSPF_LS_REFRESH_TIME - OSPF_LS_REFRESH_JITTER;
-
-		/* We want to refresh the LSA within OSPF_LS_REFRESH_TIME which
-		 * is
-		 * 1800s. Use jitter so that we send the LSA sometime between
-		 * 1680s
-		 * and 1740s.
-		 */
-		delay = (random() % (max_delay - min_delay)) + min_delay;
-
-		current_index = ospf->lsa_refresh_queue.index
-				+ (monotime(NULL) - ospf->lsa_refresher_started)
-					  / OSPF_LSA_REFRESHER_GRANULARITY;
-
-		index = (current_index + delay / OSPF_LSA_REFRESHER_GRANULARITY)
-			% (OSPF_LSA_REFRESHER_SLOTS);
-
-		if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
-			zlog_debug(
-				"LSA[Refresh:Type%d:%s]: age %d, added to index %d",
-				lsa->data->type, inet_ntoa(lsa->data->id),
-				LS_AGE(lsa), index);
-
-		if (!ospf->lsa_refresh_queue.qs[index])
-			ospf->lsa_refresh_queue.qs[index] = list_new();
-
-		listnode_add(ospf->lsa_refresh_queue.qs[index],
-			     ospf_lsa_lock(lsa)); /* lsa_refresh_queue */
-		lsa->refresh_list = index;
-
-		if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
-			zlog_debug(
-				"LSA[Refresh:Type%d:%s]: ospf_refresher_register_lsa(): "
-				"setting refresh_list on lsa %p (slod %d)",
-				lsa->data->type, inet_ntoa(lsa->data->id),
-				(void *)lsa, index);
-	}
-}
-
-void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
-{
-	assert(lsa->lock > 0);
-	assert(IS_LSA_SELF(lsa));
-	if (lsa->refresh_list >= 0) {
-		struct list *refresh_list =
-			ospf->lsa_refresh_queue.qs[lsa->refresh_list];
-		listnode_delete(refresh_list, lsa);
-		if (!listcount(refresh_list)) {
-			list_delete_and_null(&refresh_list);
-			ospf->lsa_refresh_queue.qs[lsa->refresh_list] = NULL;
-		}
-		ospf_lsa_unlock(&lsa); /* lsa_refresh_queue */
-		lsa->refresh_list = -1;
-	}
-}
-
-int ospf_lsa_refresh_walker(struct thread *t)
-{
-	struct list *refresh_list;
-	struct listnode *node, *nnode;
-	struct ospf *ospf = THREAD_ARG(t);
-	struct ospf_lsa *lsa;
-	int i;
-	struct list *lsa_to_refresh = list_new();
-
-	if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
-		zlog_debug("LSA[Refresh]: ospf_lsa_refresh_walker(): start");
-
-
-	i = ospf->lsa_refresh_queue.index;
-
-	/* Note: if clock has jumped backwards, then time change could be
-	   negative,
-	   so we are careful to cast the expression to unsigned before taking
-	   modulus. */
-	ospf->lsa_refresh_queue.index =
-		((unsigned long)(ospf->lsa_refresh_queue.index
-				 + (monotime(NULL)
-				    - ospf->lsa_refresher_started)
-					   / OSPF_LSA_REFRESHER_GRANULARITY))
-		% OSPF_LSA_REFRESHER_SLOTS;
-
-	if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
-		zlog_debug(
-			"LSA[Refresh]: ospf_lsa_refresh_walker(): next index %d",
-			ospf->lsa_refresh_queue.index);
-
-	for (; i != ospf->lsa_refresh_queue.index;
-	     i = (i + 1) % OSPF_LSA_REFRESHER_SLOTS) {
-		if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
-			zlog_debug(
-				"LSA[Refresh]: ospf_lsa_refresh_walker(): "
-				"refresh index %d",
-				i);
-
-		refresh_list = ospf->lsa_refresh_queue.qs[i];
-
-		assert(i >= 0);
-
-		ospf->lsa_refresh_queue.qs[i] = NULL;
-
-		if (refresh_list) {
-			for (ALL_LIST_ELEMENTS(refresh_list, node, nnode,
-					       lsa)) {
-				if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
-					zlog_debug(
-						"LSA[Refresh:Type%d:%s]: ospf_lsa_refresh_walker(): "
-						"refresh lsa %p (slot %d)",
-						lsa->data->type,
-						inet_ntoa(lsa->data->id),
-						(void *)lsa, i);
-
-				assert(lsa->lock > 0);
-				list_delete_node(refresh_list, node);
-				lsa->refresh_list = -1;
-				listnode_add(lsa_to_refresh, lsa);
-			}
-			list_delete_and_null(&refresh_list);
-		}
-	}
-
-	ospf->t_lsa_refresher = NULL;
-	thread_add_timer(master, ospf_lsa_refresh_walker, ospf,
-			 ospf->lsa_refresh_interval, &ospf->t_lsa_refresher);
-	ospf->lsa_refresher_started = monotime(NULL);
-
-	for (ALL_LIST_ELEMENTS(lsa_to_refresh, node, nnode, lsa)) {
-		ospf_lsa_refresh(ospf, lsa);
-		assert(lsa->lock > 0);
-		ospf_lsa_unlock(
-			&lsa); /* lsa_refresh_queue & temp for lsa_to_refresh*/
-	}
-
-	list_delete_and_null(&lsa_to_refresh);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
-		zlog_debug("LSA[Refresh]: ospf_lsa_refresh_walker(): end");
-
-	return 0;
-}
+/**OSPFLinkStateAdvertisement*Copyright(C)1999,2000ToshiakiTakada**Thisfileispar
+tofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthe
+termsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherv
+ersion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitw
+illbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILI
+TYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**
+YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seet
+hefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFlo
+or,Boston,MA02110-1301USA*/#include<zebra.h>#include"monotime.h"#include"linklis
+t.h"#include"prefix.h"#include"if.h"#include"table.h"#include"memory.h"#include"
+stream.h"#include"log.h"#include"thread.h"#include"hash.h"#include"sockunion.h"/
+*forinet_aton()*/#include"checksum.h"#include"ospfd/ospfd.h"#include"ospfd/ospf_
+interface.h"#include"ospfd/ospf_ism.h"#include"ospfd/ospf_asbr.h"#include"ospfd/
+ospf_lsa.h"#include"ospfd/ospf_lsdb.h"#include"ospfd/ospf_neighbor.h"#include"os
+pfd/ospf_nsm.h"#include"ospfd/ospf_flood.h"#include"ospfd/ospf_packet.h"#include
+"ospfd/ospf_spf.h"#include"ospfd/ospf_dump.h"#include"ospfd/ospf_route.h"#includ
+e"ospfd/ospf_ase.h"#include"ospfd/ospf_zebra.h"#include"ospfd/ospf_abr.h"uint32_
+tget_metric(uint8_t*metric){uint32_tm;m=metric[0];m=(m<<8)+metric[1];m=(m<<8)+me
+tric[2];returnm;}structtimevalint2tv(inta){structtimevalret;ret.tv_sec=a;ret.tv_
+usec=0;returnret;}structtimevalmsec2tv(inta){structtimevalret;ret.tv_sec=a/1000;
+ret.tv_usec=(a%1000)*1000;returnret;}intospf_lsa_refresh_delay(structospf_lsa*ls
+a){structtimevaldelta;intdelay=0;if(monotime_since(&lsa->tv_orig,&delta)<OSPF_MI
+N_LS_INTERVAL*1000LL){structtimevalminv=msec2tv(OSPF_MIN_LS_INTERVAL);timersub(&
+minv,&delta,&minv);/*TBD:removepaddingtofullsec,returntimevalinstead*/delay=minv
+.tv_sec+!!minv.tv_usec;if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type%d
+:%s]:Refreshtimerdelay%dseconds",lsa->data->type,inet_ntoa(lsa->data->id),delay)
+;assert(delay>0);}returndelay;}intget_age(structospf_lsa*lsa){structtimevalrel;m
+onotime_since(&lsa->tv_recv,&rel);returnntohs(lsa->data->ls_age)+rel.tv_sec;}/*F
+letcherChecksum--RefertoRFC1008.*//*Alltheoffsetsarezero-based.TheoffsetsintheRF
+C1008areone-based.*/uint16_tospf_lsa_checksum(structlsa_header*lsa){uint8_t*buff
+er=(uint8_t*)&lsa->options;intoptions_offset=buffer-(uint8_t*)&lsa->ls_age;/*sho
+uldbe2*//*SkiptheAGEfield*/uint16_tlen=ntohs(lsa->length)-options_offset;/*Check
+sumoffsetstartsfrom"options"field,notthebeginningofthelsa_headerstruct.Theoffset
+is14,ratherthan16.*/intchecksum_offset=(uint8_t*)&lsa->checksum-buffer;returnfle
+tcher_checksum(buffer,len,checksum_offset);}intospf_lsa_checksum_valid(structlsa
+_header*lsa){uint8_t*buffer=(uint8_t*)&lsa->options;intoptions_offset=buffer-(ui
+nt8_t*)&lsa->ls_age;/*shouldbe2*//*SkiptheAGEfield*/uint16_tlen=ntohs(lsa->lengt
+h)-options_offset;return(fletcher_checksum(buffer,len,FLETCHER_CHECKSUM_VALIDATE
+)==0);}/*CreateOSPFLSA.*/structospf_lsa*ospf_lsa_new(){structospf_lsa*new;new=XC
+ALLOC(MTYPE_OSPF_LSA,sizeof(structospf_lsa));new->flags=0;new->lock=1;new->retra
+nsmit_counter=0;monotime(&new->tv_recv);new->tv_orig=new->tv_recv;new->refresh_l
+ist=-1;new->vrf_id=VRF_DEFAULT;returnnew;}/*DuplicateOSPFLSA.*/structospf_lsa*os
+pf_lsa_dup(structospf_lsa*lsa){structospf_lsa*new;if(lsa==NULL)returnNULL;new=XC
+ALLOC(MTYPE_OSPF_LSA,sizeof(structospf_lsa));memcpy(new,lsa,sizeof(structospf_ls
+a));UNSET_FLAG(new->flags,OSPF_LSA_DISCARD);new->lock=1;new->retransmit_counter=
+0;new->data=ospf_lsa_data_dup(lsa->data);/*kevinm:Cleartherefresh_list,otherwise
+therearegoingtobeproblemswhenwetrytoremovetheLSAfromthequeue(whichit'snotamember
+of.)XXX:ShouldweaddtheLSAtotherefresh_listqueue?*/new->refresh_list=-1;if(IS_DEB
+UG_OSPF(lsa,LSA))zlog_debug("LSA:duplicated%p(new:%p)",(void*)lsa,(void*)new);re
+turnnew;}/*FreeOSPFLSA.*/voidospf_lsa_free(structospf_lsa*lsa){assert(lsa->lock=
+=0);if(IS_DEBUG_OSPF(lsa,LSA))zlog_debug("LSA:freed%p",(void*)lsa);/*DeleteLSAda
+ta.*/if(lsa->data!=NULL)ospf_lsa_data_free(lsa->data);assert(lsa->refresh_list<0
+);memset(lsa,0,sizeof(structospf_lsa));XFREE(MTYPE_OSPF_LSA,lsa);}/*LockLSA.*/st
+ructospf_lsa*ospf_lsa_lock(structospf_lsa*lsa){lsa->lock++;returnlsa;}/*UnlockLS
+A.*/voidospf_lsa_unlock(structospf_lsa**lsa){/*Thisissanitycheck.*/if(!lsa||!*ls
+a)return;(*lsa)->lock--;assert((*lsa)->lock>=0);if((*lsa)->lock==0){assert(CHECK
+_FLAG((*lsa)->flags,OSPF_LSA_DISCARD));ospf_lsa_free(*lsa);*lsa=NULL;}}/*Checkdi
+scardflag.*/voidospf_lsa_discard(structospf_lsa*lsa){if(!CHECK_FLAG(lsa->flags,O
+SPF_LSA_DISCARD)){SET_FLAG(lsa->flags,OSPF_LSA_DISCARD);ospf_lsa_unlock(&lsa);}}
+/*CreateLSAdata.*/structlsa_header*ospf_lsa_data_new(size_tsize){returnXCALLOC(M
+TYPE_OSPF_LSA_DATA,size);}/*DuplicateLSAdata.*/structlsa_header*ospf_lsa_data_du
+p(structlsa_header*lsah){structlsa_header*new;new=ospf_lsa_data_new(ntohs(lsah->
+length));memcpy(new,lsah,ntohs(lsah->length));returnnew;}/*FreeLSAdata.*/voidosp
+f_lsa_data_free(structlsa_header*lsah){if(IS_DEBUG_OSPF(lsa,LSA))zlog_debug("LSA
+[Type%d:%s]:datafreed%p",lsah->type,inet_ntoa(lsah->id),(void*)lsah);XFREE(MTYPE
+_OSPF_LSA_DATA,lsah);}/*LSAgeneralfunctions.*/constchar*dump_lsa_key(structospf_
+lsa*lsa){staticcharbuf[]={"Type255,id(255.255.255.255),ar(255.255.255.255)"};str
+uctlsa_header*lsah;if(lsa!=NULL&&(lsah=lsa->data)!=NULL){charid[INET_ADDRSTRLEN]
+,ar[INET_ADDRSTRLEN];strlcpy(id,inet_ntoa(lsah->id),sizeof(id));strlcpy(ar,inet_
+ntoa(lsah->adv_router),sizeof(ar));sprintf(buf,"Type%d,id(%s),ar(%s)",lsah->type
+,id,ar);}elsestrlcpy(buf,"NULL",sizeof(buf));returnbuf;}uint32_tlsa_seqnum_incre
+ment(structospf_lsa*lsa){uint32_tseqnum;seqnum=ntohl(lsa->data->ls_seqnum)+1;ret
+urnhtonl(seqnum);}voidlsa_header_set(structstream*s,uint8_toptions,uint8_ttype,s
+tructin_addrid,structin_addrrouter_id){structlsa_header*lsah;lsah=(structlsa_hea
+der*)STREAM_DATA(s);lsah->ls_age=htons(OSPF_LSA_INITIAL_AGE);lsah->options=optio
+ns;lsah->type=type;lsah->id=id;lsah->adv_router=router_id;lsah->ls_seqnum=htonl(
+OSPF_INITIAL_SEQUENCE_NUMBER);stream_forward_endp(s,OSPF_LSA_HEADER_SIZE);}/*rou
+ter-LSArelatedfunctions.*//*Getrouter-LSAflags.*/staticuint8_trouter_lsa_flags(s
+tructospf_area*area){uint8_tflags;flags=area->ospf->flags;/*Setvirtuallinkflag.*
+/if(ospf_full_virtual_nbrs(area))SET_FLAG(flags,ROUTER_LSA_VIRTUAL);else/*Justsa
+nitycheck*/UNSET_FLAG(flags,ROUTER_LSA_VIRTUAL);/*SetShortcutABRbehabiourflag.*/
+UNSET_FLAG(flags,ROUTER_LSA_SHORTCUT);if(area->ospf->abr_type==OSPF_ABR_SHORTCUT
+)if(!OSPF_IS_AREA_BACKBONE(area))if((area->shortcut_configured==OSPF_SHORTCUT_DE
+FAULT&&area->ospf->backbone==NULL)||area->shortcut_configured==OSPF_SHORTCUT_ENA
+BLE)SET_FLAG(flags,ROUTER_LSA_SHORTCUT);/*ASBRcan'texitinstubarea.*/if(area->ext
+ernal_routing==OSPF_AREA_STUB)UNSET_FLAG(flags,ROUTER_LSA_EXTERNAL);/*IfASBRsetE
+xternalflag*/elseif(IS_OSPF_ASBR(area->ospf))SET_FLAG(flags,ROUTER_LSA_EXTERNAL)
+;/*SetABRdependentflags*/if(IS_OSPF_ABR(area->ospf)){SET_FLAG(flags,ROUTER_LSA_B
+ORDER);/*IfAreaisNSSAandwearebothABRandunconditional*translator,*setNtbittoinfor
+motherrouters.*/if((area->external_routing==OSPF_AREA_NSSA)&&(area->NSSATranslat
+orRole==OSPF_NSSA_ROLE_ALWAYS))SET_FLAG(flags,ROUTER_LSA_NT);}returnflags;}/*Loo
+kupneighborotherthanmyself.Andcheckneighborcount,Point-to-Pointlinkmusthaveonly1
+neighbor.*/structospf_neighbor*ospf_nbr_lookup_ptop(structospf_interface*oi){str
+uctospf_neighbor*nbr=NULL;structroute_node*rn;/*Searchneighbor,theremustbeoneoft
+wonbrs.*/for(rn=route_top(oi->nbrs);rn;rn=route_next(rn))if((nbr=rn->info))if(!I
+PV4_ADDR_SAME(&nbr->router_id,&oi->ospf->router_id))if(nbr->state==NSM_Full){rou
+te_unlock_node(rn);break;}/*PtoPlinkmusthaveonly1neighbor.*/if(ospf_nbr_count(oi
+,0)>1)zlog_warn("Point-to-Pointlinkhasmorethan1neighobrs.");returnnbr;}/*Determi
+necostoflink,takingRFC3137stub-routersupportinto*consideration*/staticuint16_tos
+pf_link_cost(structospf_interface*oi){/*RFC3137stubroutersupport*/if(!CHECK_FLAG
+(oi->area->stub_router_state,OSPF_AREA_IS_STUB_ROUTED))returnoi->output_cost;els
+ereturnOSPF_OUTPUT_COST_INFINITE;}/*Setalinkinformation.*/staticcharlink_info_se
+t(structstream*s,structin_addrid,structin_addrdata,uint8_ttype,uint8_ttos,uint16
+_tcost){/*LSAstreamisinitiallyallocatedtoOSPF_MAX_LSA_SIZE,suits*vastmajorityofc
+ases.Somerarerouterswithlotsoflinksneed*more.*wetryaccomodatethosehere.*/if(STRE
+AM_WRITEABLE(s)<OSPF_ROUTER_LSA_LINK_SIZE){size_tret=OSPF_MAX_LSA_SIZE;/*Canween
+largethestreamstill?*/if(STREAM_SIZE(s)==OSPF_MAX_LSA_SIZE){/*wefutzthesizeheref
+orsimplicity,reallyweneed*toaccount*forjust:*IPHeader-(sizeof(structip))*OSPFHea
+der-OSPF_HEADER_SIZE*LSAHeader-OSPF_LSA_HEADER_SIZE*MD5authdata,ifMD5isconfigure
+d-*OSPF_AUTH_MD5_SIZE.**SimplerjusttosubtractOSPF_MAX_LSA_SIZEthough.*/ret=strea
+m_resize(s,OSPF_MAX_PACKET_SIZE-OSPF_MAX_LSA_SIZE);}if(ret==OSPF_MAX_LSA_SIZE){z
+log_warn("%s:OutofspaceinLSAstream,left%zd,size%zd",__func__,STREAM_WRITEABLE(s)
+,STREAM_SIZE(s));return0;}}/*TOSbasedroutingisnotsupported.*/stream_put_ipv4(s,i
+d.s_addr);/*LinkID.*/stream_put_ipv4(s,data.s_addr);/*LinkData.*/stream_putc(s,t
+ype);/*LinkType.*/stream_putc(s,tos);/*TOS=0.*/stream_putw(s,cost);/*LinkCost.*/
+return1;}/*DescribePoint-to-Pointlink(Section12.4.1.1).*/staticintlsa_link_ptop_
+set(structstream*s,structospf_interface*oi){intlinks=0;structospf_neighbor*nbr;s
+tructin_addrid,mask,data;uint16_tcost=ospf_link_cost(oi);if(IS_DEBUG_OSPF(lsa,LS
+A_GENERATE))zlog_debug("LSA[Type1]:SetlinkPoint-to-Point");if((nbr=ospf_nbr_look
+up_ptop(oi)))if(nbr->state==NSM_Full){if(CHECK_FLAG(oi->connected->flags,ZEBRA_I
+FA_UNNUMBERED)){/*Forunnumberedpoint-to-pointnetworks,theLinkDatafieldshouldspec
+ifytheinterface'sMIB-IIifIndexvalue.*/data.s_addr=htonl(oi->ifp->ifindex);links+
+=link_info_set(s,nbr->router_id,data,LSA_LINK_TYPE_POINTOPOINT,0,cost);}else{lin
+ks+=link_info_set(s,nbr->router_id,oi->address->u.prefix4,LSA_LINK_TYPE_POINTOPO
+INT,0,cost);}}/*noneedforastublinkforunnumberedinterfaces*/if(!CHECK_FLAG(oi->co
+nnected->flags,ZEBRA_IFA_UNNUMBERED)){/*Regardlessofthestateoftheneighboringrout
+er,wemustaddaType3link(stubnetwork).N.B.Options1&2sharebasicallythesamelogic.*/m
+asklen2ip(oi->address->prefixlen,&mask);id.s_addr=CONNECTED_PREFIX(oi->connected
+)->u.prefix4.s_addr&mask.s_addr;links+=link_info_set(s,id,mask,LSA_LINK_TYPE_STU
+B,0,oi->output_cost);}returnlinks;}/*DescribeBroadcastLink.*/staticintlsa_link_b
+roadcast_set(structstream*s,structospf_interface*oi){structospf_neighbor*dr;stru
+ctin_addrid,mask;uint16_tcost=ospf_link_cost(oi);/*DescribeType3Link.*/if(oi->st
+ate==ISM_Waiting){if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type1]:Inte
+rface%sisinstateWaiting.""Addingstubinterface",oi->ifp->name);masklen2ip(oi->add
+ress->prefixlen,&mask);id.s_addr=oi->address->u.prefix4.s_addr&mask.s_addr;retur
+nlink_info_set(s,id,mask,LSA_LINK_TYPE_STUB,0,oi->output_cost);}dr=ospf_nbr_look
+up_by_addr(oi->nbrs,&DR(oi));/*DescribeType2link.*/if(dr&&(dr->state==NSM_Full||
+IPV4_ADDR_SAME(&oi->address->u.prefix4,&DR(oi)))&&ospf_nbr_count(oi,NSM_Full)>0)
+{if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type1]:Interface%shasaDR.""A
+ddingtransitinterface",oi->ifp->name);returnlink_info_set(s,DR(oi),oi->address->
+u.prefix4,LSA_LINK_TYPE_TRANSIT,0,cost);}/*Describetype3link.*/else{if(IS_DEBUG_
+OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type1]:Interface%shasnoDR.""Addingstubint
+erface",oi->ifp->name);masklen2ip(oi->address->prefixlen,&mask);id.s_addr=oi->ad
+dress->u.prefix4.s_addr&mask.s_addr;returnlink_info_set(s,id,mask,LSA_LINK_TYPE_
+STUB,0,oi->output_cost);}}staticintlsa_link_loopback_set(structstream*s,structos
+pf_interface*oi){structin_addrid,mask;/*DescribeType3Link.*/if(oi->state!=ISM_Lo
+opback)return0;mask.s_addr=0xffffffff;id.s_addr=oi->address->u.prefix4.s_addr;re
+turnlink_info_set(s,id,mask,LSA_LINK_TYPE_STUB,0,0);}/*DescribeVirtualLink.*/sta
+ticintlsa_link_virtuallink_set(structstream*s,structospf_interface*oi){structosp
+f_neighbor*nbr;uint16_tcost=ospf_link_cost(oi);if(oi->state==ISM_PointToPoint)if
+((nbr=ospf_nbr_lookup_ptop(oi)))if(nbr->state==NSM_Full){returnlink_info_set(s,n
+br->router_id,oi->address->u.prefix4,LSA_LINK_TYPE_VIRTUALLINK,0,cost);}return0;
+}#definelsa_link_nbma_set(S,O)lsa_link_broadcast_set(S,O)/*thisfunctionaddforsup
+portpoint-to-multipoint,seerfc232812.4.1.4.*//*from"edwardrrr"<edward_rrr@hotmai
+l.com>http://marc.theaimsgroup.com/?l=zebra&m=100739222210507&w=2*/staticintlsa_
+link_ptomp_set(structstream*s,structospf_interface*oi){intlinks=0;structroute_no
+de*rn;structospf_neighbor*nbr=NULL;structin_addrid,mask;uint16_tcost=ospf_link_c
+ost(oi);mask.s_addr=0xffffffff;id.s_addr=oi->address->u.prefix4.s_addr;links+=li
+nk_info_set(s,id,mask,LSA_LINK_TYPE_STUB,0,0);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)
+)zlog_debug("PointToMultipoint:runningptomultip_set");/*Searchneighbor,*/for(rn=
+route_top(oi->nbrs);rn;rn=route_next(rn))if((nbr=rn->info)!=NULL)/*Ignoremyself.
+*/if(!IPV4_ADDR_SAME(&nbr->router_id,&oi->ospf->router_id))if(nbr->state==NSM_Fu
+ll){links+=link_info_set(s,nbr->router_id,oi->address->u.prefix4,LSA_LINK_TYPE_P
+OINTOPOINT,0,cost);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("PointToMultipo
+int:setlinkto%s",inet_ntoa(oi->address->u.prefix4));}returnlinks;}/*Setrouter-LS
+Alinkinformation.*/staticintrouter_lsa_link_set(structstream*s,structospf_area*a
+rea){structlistnode*node;structospf_interface*oi;intlinks=0;for(ALL_LIST_ELEMENT
+S_RO(area->oiflist,node,oi)){structinterface*ifp=oi->ifp;/*Checkinterfaceisup,OS
+PFisenable.*/if(if_is_operative(ifp)){if(oi->state!=ISM_Down){oi->lsa_pos_beg=li
+nks;/*Describeeachlink.*/switch(oi->type){caseOSPF_IFTYPE_POINTOPOINT:links+=lsa
+_link_ptop_set(s,oi);break;caseOSPF_IFTYPE_BROADCAST:links+=lsa_link_broadcast_s
+et(s,oi);break;caseOSPF_IFTYPE_NBMA:links+=lsa_link_nbma_set(s,oi);break;caseOSP
+F_IFTYPE_POINTOMULTIPOINT:links+=lsa_link_ptomp_set(s,oi);break;caseOSPF_IFTYPE_
+VIRTUALLINK:links+=lsa_link_virtuallink_set(s,oi);break;caseOSPF_IFTYPE_LOOPBACK
+:links+=lsa_link_loopback_set(s,oi);}oi->lsa_pos_end=links;}}}returnlinks;}/*Set
+router-LSAbody.*/staticvoidospf_router_lsa_body_set(structstream*s,structospf_ar
+ea*area){unsignedlongputp;uint16_tcnt;/*Setflags.*/stream_putc(s,router_lsa_flag
+s(area));/*SetZerofields.*/stream_putc(s,0);/*Keeppointerto#links.*/putp=stream_
+get_endp(s);/*Forwardword*/stream_putw(s,0);/*Setalllinkinformation.*/cnt=router
+_lsa_link_set(s,area);/*Set#oflinkshere.*/stream_putw_at(s,putp,cnt);}staticinto
+spf_stub_router_timer(structthread*t){structospf_area*area=THREAD_ARG(t);area->t
+_stub_router=NULL;SET_FLAG(area->stub_router_state,OSPF_AREA_WAS_START_STUB_ROUT
+ED);/*clearstubroutestateandgeneraterouter-lsarefresh,don't*clobberanadministrat
+ivelysetstub-routerstatethough.*/if(CHECK_FLAG(area->stub_router_state,OSPF_AREA
+_ADMIN_STUB_ROUTED))return0;UNSET_FLAG(area->stub_router_state,OSPF_AREA_IS_STUB
+_ROUTED);ospf_router_lsa_update_area(area);return0;}staticvoidospf_stub_router_c
+heck(structospf_area*area){/*areamusteitherbeadministrativelyconfiguredtobestub*
+orstartup-timestub-routermustbeconfiguredandwemustina*pre-stub*state.*/if(CHECK_
+FLAG(area->stub_router_state,OSPF_AREA_ADMIN_STUB_ROUTED)){SET_FLAG(area->stub_r
+outer_state,OSPF_AREA_IS_STUB_ROUTED);return;}/*notadmin-stubbed,checkwhethersta
+rtupstubbingisconfiguredand*whetherit'snotbeendoneyet*/if(CHECK_FLAG(area->stub_
+router_state,OSPF_AREA_WAS_START_STUB_ROUTED))return;if(area->ospf->stub_router_
+startup_time==OSPF_STUB_ROUTER_UNCONFIGURED){/*stub-routerishencedoneforeverfort
+hisarea,evenif*someone*triesconfigureit(takeeffectnextrestart).*/SET_FLAG(area->
+stub_router_state,OSPF_AREA_WAS_START_STUB_ROUTED);return;}/*startupstub-routerc
+onfiguredandnotyetdone*/SET_FLAG(area->stub_router_state,OSPF_AREA_IS_STUB_ROUTE
+D);OSPF_AREA_TIMER_ON(area->t_stub_router,ospf_stub_router_timer,area->ospf->stu
+b_router_startup_time);}/*Createnewrouter-LSA.*/staticstructospf_lsa*ospf_router
+_lsa_new(structospf_area*area){structospf*ospf=area->ospf;structstream*s;structl
+sa_header*lsah;structospf_lsa*new;intlength;if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))z
+log_debug("LSA[Type1]:Createrouter-LSAinstance");/*checkwhetherstub-routerisdesi
+red,andifthisisthefirst*routerLSA.*/ospf_stub_router_check(area);/*Createastream
+forLSA.*/s=stream_new(OSPF_MAX_LSA_SIZE);/*SetLSAcommonheaderfields.*/lsa_header
+_set(s,LSA_OPTIONS_GET(area)|LSA_OPTIONS_NSSA_GET(area),OSPF_ROUTER_LSA,ospf->ro
+uter_id,ospf->router_id);/*Setrouter-LSAbodyfields.*/ospf_router_lsa_body_set(s,
+area);/*Setlength.*/length=stream_get_endp(s);lsah=(structlsa_header*)STREAM_DAT
+A(s);lsah->length=htons(length);/*Now,createOSPFLSAinstance.*/if((new=ospf_lsa_n
+ew())==NULL){zlog_err("%s:Unabletocreatenewlsa",__func__);returnNULL;}new->area=
+area;SET_FLAG(new->flags,OSPF_LSA_SELF|OSPF_LSA_SELF_CHECKED);new->vrf_id=area->
+ospf->vrf_id;/*CopyLSAdatatostore,discardstream.*/new->data=ospf_lsa_data_new(le
+ngth);memcpy(new->data,lsah,length);stream_free(s);returnnew;}/*OriginateRouter-
+LSA.*/staticstructospf_lsa*ospf_router_lsa_originate(structospf_area*area){struc
+tospf_lsa*new;/*Createnewrouter-LSAinstance.*/if((new=ospf_router_lsa_new(area))
+==NULL){zlog_err("%s:ospf_router_lsa_newreturnedNULL",__func__);returnNULL;}/*Sa
+nitycheck.*/if(new->data->adv_router.s_addr==0){if(IS_DEBUG_OSPF_EVENT)zlog_debu
+g("LSA[Type1]:AdvRouteris0,discard");ospf_lsa_discard(new);returnNULL;}/*Install
+LSAtoLSDB.*/new=ospf_lsa_install(area->ospf,NULL,new);/*UpdateLSAoriginationcoun
+t.*/area->ospf->lsa_originate_count++;/*FloodingnewLSAthrougharea.*/ospf_flood_t
+hrough_area(area,NULL,new);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_debug("LSA[T
+ype%d:%s]:Originaterouter-LSA%p",new->data->type,inet_ntoa(new->data->id),(void*
+)new);ospf_lsa_header_dump(new->data);}returnnew;}/*Refreshrouter-LSA.*/staticst
+ructospf_lsa*ospf_router_lsa_refresh(structospf_lsa*lsa){structospf_area*area=ls
+a->area;structospf_lsa*new;/*Sanitycheck.*/assert(lsa->data);/*DeleteLSAfromneig
+hborretransmit-list.*/ospf_ls_retransmit_delete_nbr_area(area,lsa);/*UnregisterL
+SAfromrefresh-list*/ospf_refresher_unregister_lsa(area->ospf,lsa);/*Createnewrou
+ter-LSAinstance.*/if((new=ospf_router_lsa_new(area))==NULL){zlog_err("%s:ospf_ro
+uter_lsa_newreturnedNULL",__func__);returnNULL;}new->data->ls_seqnum=lsa_seqnum_
+increment(lsa);ospf_lsa_install(area->ospf,NULL,new);/*FloodLSAthrougharea.*/osp
+f_flood_through_area(area,NULL,new);/*Debuglogging.*/if(IS_DEBUG_OSPF(lsa,LSA_GE
+NERATE)){zlog_debug("LSA[Type%d:%s]:router-LSArefresh",new->data->type,inet_ntoa
+(new->data->id));ospf_lsa_header_dump(new->data);}returnNULL;}intospf_router_lsa
+_update_area(structospf_area*area){if(IS_DEBUG_OSPF_EVENT)zlog_debug("[router-LS
+A]:(router-LSAareaupdate)");/*Nowrefreshrouter-LSA.*/if(area->router_lsa_self)os
+pf_lsa_refresh(area->ospf,area->router_lsa_self);/*Newlyoriginaterouter-LSA.*/el
+seospf_router_lsa_originate(area);return0;}intospf_router_lsa_update(structospf*
+ospf){structlistnode*node,*nnode;structospf_area*area;if(IS_DEBUG_OSPF(lsa,LSA_G
+ENERATE))zlog_debug("Timer[router-LSAUpdate]:(timerexpire)");for(ALL_LIST_ELEMEN
+TS(ospf->areas,node,nnode,area)){structospf_lsa*lsa=area->router_lsa_self;struct
+router_lsa*rl;constchar*area_str;/*KeepAreaIDstring.*/area_str=AREA_NAME(area);/
+*IfLSAnotexistinthisArea,originatenew.*/if(lsa==NULL){if(IS_DEBUG_OSPF(lsa,LSA_G
+ENERATE))zlog_debug("LSA[Type1]:Createrouter-LSAforArea%s",area_str);ospf_router
+_lsa_originate(area);}/*Ifrouter-IDischanged,LinkIDmustchange.FirstflusholdLSA,t
+henoriginatenew.*/elseif(!IPV4_ADDR_SAME(&lsa->data->id,&ospf->router_id)){if(IS
+_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type%d:%s]:Refreshrouter-LSAforAre
+a%s",lsa->data->type,inet_ntoa(lsa->data->id),area_str);ospf_refresher_unregiste
+r_lsa(ospf,lsa);ospf_lsa_flush_area(lsa,area);ospf_lsa_unlock(&area->router_lsa_
+self);area->router_lsa_self=NULL;/*Refreshrouter-LSA,(notinstall)andfloodthrough
+*area.*/ospf_router_lsa_update_area(area);}else{rl=(structrouter_lsa*)lsa->data;
+/*Refreshrouter-LSA,(notinstall)andfloodthrough*area.*/if(rl->flags!=ospf->flags
+)ospf_router_lsa_update_area(area);}}return0;}/*network-LSArelatedfunctions.*//*
+OriginateNetwork-LSA.*/staticvoidospf_network_lsa_body_set(structstream*s,struct
+ospf_interface*oi){structin_addrmask;structroute_node*rn;structospf_neighbor*nbr
+;masklen2ip(oi->address->prefixlen,&mask);stream_put_ipv4(s,mask.s_addr);/*Thene
+twork-LSAliststhoseroutersthatarefullyadjacenttotheDesignatedRouter;eachfullyadj
+acentrouterisidentifiedbyitsOSPFRouterID.TheDesignatedRouterincludesitselfinthis
+list.RFC2328,Section12.4.2*/for(rn=route_top(oi->nbrs);rn;rn=route_next(rn))if((
+nbr=rn->info)!=NULL)if(nbr->state==NSM_Full||nbr==oi->nbr_self)stream_put_ipv4(s
+,nbr->router_id.s_addr);}staticstructospf_lsa*ospf_network_lsa_new(structospf_in
+terface*oi){structstream*s;structospf_lsa*new;structlsa_header*lsah;structospf_i
+f_params*oip;intlength;/*Iftherearenoneighboursonthisnetwork(thenetisstub),thero
+uterdoesnotoriginatenetwork-LSA(seeRFC12.4.2)*/if(oi->full_nbrs==0)returnNULL;if
+(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type2]:Createnetwork-LSAinstanc
+e");/*CreatenewstreamforLSA.*/s=stream_new(OSPF_MAX_LSA_SIZE);lsah=(structlsa_he
+ader*)STREAM_DATA(s);lsa_header_set(s,(OPTIONS(oi)|LSA_OPTIONS_GET(oi->area)),OS
+PF_NETWORK_LSA,DR(oi),oi->ospf->router_id);/*Setnetwork-LSAbodyfields.*/ospf_net
+work_lsa_body_set(s,oi);/*Setlength.*/length=stream_get_endp(s);lsah->length=hto
+ns(length);/*CreateOSPFLSAinstance.*/if((new=ospf_lsa_new())==NULL){zlog_err("%s
+:ospf_lsa_newreturnedNULL",__func__);returnNULL;}new->area=oi->area;SET_FLAG(new
+->flags,OSPF_LSA_SELF|OSPF_LSA_SELF_CHECKED);new->vrf_id=oi->ospf->vrf_id;/*Copy
+LSAtostore.*/new->data=ospf_lsa_data_new(length);memcpy(new->data,lsah,length);s
+tream_free(s);/*RememberpriornetworkLSAsequencenumbers,evenifwestop*originatingo
+neforthisoi,totryavoidre-originatingLSAswitha*priorsequencenumber,andthusspeedup
+adjencyforming&*convergence.*/if((oip=ospf_lookup_if_params(oi->ifp,oi->address-
+>u.prefix4))){new->data->ls_seqnum=oip->network_lsa_seqnum;new->data->ls_seqnum=
+lsa_seqnum_increment(new);}else{oip=ospf_get_if_params(oi->ifp,oi->address->u.pr
+efix4);ospf_if_update_params(oi->ifp,oi->address->u.prefix4);}oip->network_lsa_s
+eqnum=new->data->ls_seqnum;returnnew;}/*Originatenetwork-LSA.*/voidospf_network_
+lsa_update(structospf_interface*oi){structospf_lsa*new;if(oi->network_lsa_self!=
+NULL){ospf_lsa_refresh(oi->ospf,oi->network_lsa_self);return;}/*Createnewnetwork
+-LSAinstance.*/new=ospf_network_lsa_new(oi);if(new==NULL)return;/*InstallLSAtoLS
+DB.*/new=ospf_lsa_install(oi->ospf,oi,new);/*UpdateLSAoriginationcount.*/oi->osp
+f->lsa_originate_count++;/*FloodingnewLSAthrougharea.*/ospf_flood_through_area(o
+i->area,NULL,new);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_debug("LSA[Type%d:%s]
+:Originatenetwork-LSA%p",new->data->type,inet_ntoa(new->data->id),(void*)new);os
+pf_lsa_header_dump(new->data);}return;}staticstructospf_lsa*ospf_network_lsa_ref
+resh(structospf_lsa*lsa){structospf_area*area=lsa->area;structospf_lsa*new,*new2
+;structospf_if_params*oip;structospf_interface*oi;assert(lsa->data);/*Retrieveth
+eoiforthenetworkLSA*/oi=ospf_if_lookup_by_local_addr(area->ospf,NULL,lsa->data->
+id);if(oi==NULL){if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_debug("LSA[Type%d:%s]:
+network-LSArefresh:""nooifound,ick,ignoring.",lsa->data->type,inet_ntoa(lsa->dat
+a->id));ospf_lsa_header_dump(lsa->data);}returnNULL;}/*DeleteLSAfromneighborretr
+ansmit-list.*/ospf_ls_retransmit_delete_nbr_area(area,lsa);/*UnregisterLSAfromre
+fresh-list*/ospf_refresher_unregister_lsa(area->ospf,lsa);/*Createnewnetwork-LSA
+instance.*/new=ospf_network_lsa_new(oi);if(new==NULL)returnNULL;oip=ospf_lookup_
+if_params(oi->ifp,oi->address->u.prefix4);assert(oip!=NULL);oip->network_lsa_seq
+num=new->data->ls_seqnum=lsa_seqnum_increment(lsa);new2=ospf_lsa_install(area->o
+spf,oi,new);assert(new2==new);/*FloodLSAthroughaera.*/ospf_flood_through_area(ar
+ea,NULL,new);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_debug("LSA[Type%d:%s]:netw
+ork-LSArefresh",new->data->type,inet_ntoa(new->data->id));ospf_lsa_header_dump(n
+ew->data);}returnnew;}staticvoidstream_put_ospf_metric(structstream*s,uint32_tme
+tric_value){uint32_tmetric;char*mp;/*Put0metric.TOSmetricisnotsupported.*/metric
+=htonl(metric_value);mp=(char*)&metric;mp++;stream_put(s,mp,3);}/*summary-LSArel
+atedfunctions.*/staticvoidospf_summary_lsa_body_set(structstream*s,structprefix*
+p,uint32_tmetric){structin_addrmask;masklen2ip(p->prefixlen,&mask);/*PutNetworkM
+ask.*/stream_put_ipv4(s,mask.s_addr);/*Set#TOS.*/stream_putc(s,(uint8_t)0);/*Set
+metric.*/stream_put_ospf_metric(s,metric);}staticstructospf_lsa*ospf_summary_lsa
+_new(structospf_area*area,structprefix*p,uint32_tmetric,structin_addrid){structs
+tream*s;structospf_lsa*new;structlsa_header*lsah;intlength;if(id.s_addr==0xfffff
+fff){/*MaybeLinkStateIDnotavailable.*/if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_de
+bug("LSA[Type%d]:LinkIDnotavailable,can'toriginate",OSPF_SUMMARY_LSA);returnNULL
+;}if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type3]:Createsummary-LSAins
+tance");/*CreatenewstreamforLSA.*/s=stream_new(OSPF_MAX_LSA_SIZE);lsah=(structls
+a_header*)STREAM_DATA(s);lsa_header_set(s,LSA_OPTIONS_GET(area),OSPF_SUMMARY_LSA
+,id,area->ospf->router_id);/*Setsummary-LSAbodyfields.*/ospf_summary_lsa_body_se
+t(s,p,metric);/*Setlength.*/length=stream_get_endp(s);lsah->length=htons(length)
+;/*CreateOSPFLSAinstance.*/new=ospf_lsa_new();new->area=area;SET_FLAG(new->flags
+,OSPF_LSA_SELF|OSPF_LSA_SELF_CHECKED);new->vrf_id=area->ospf->vrf_id;/*CopyLSAto
+store.*/new->data=ospf_lsa_data_new(length);memcpy(new->data,lsah,length);stream
+_free(s);returnnew;}/*OriginateSummary-LSA.*/structospf_lsa*ospf_summary_lsa_ori
+ginate(structprefix_ipv4*p,uint32_tmetric,structospf_area*area){structospf_lsa*n
+ew;structin_addrid;id=ospf_lsa_unique_id(area->ospf,area->lsdb,OSPF_SUMMARY_LSA,
+p);if(id.s_addr==0xffffffff){/*MaybeLinkStateIDnotavailable.*/if(IS_DEBUG_OSPF(l
+sa,LSA_GENERATE))zlog_debug("LSA[Type%d]:LinkIDnotavailable,can'toriginate",OSPF
+_SUMMARY_LSA);returnNULL;}/*Createnewsummary-LSAinstance.*/if(!(new=ospf_summary
+_lsa_new(area,(structprefix*)p,metric,id)))returnNULL;/*InstlalLSAtoLSDB.*/new=o
+spf_lsa_install(area->ospf,NULL,new);/*UpdateLSAoriginationcount.*/area->ospf->l
+sa_originate_count++;/*FloodingnewLSAthrougharea.*/ospf_flood_through_area(area,
+NULL,new);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_debug("LSA[Type%d:%s]:Origina
+tesummary-LSA%p",new->data->type,inet_ntoa(new->data->id),(void*)new);ospf_lsa_h
+eader_dump(new->data);}returnnew;}staticstructospf_lsa*ospf_summary_lsa_refresh(
+structospf*ospf,structospf_lsa*lsa){structospf_lsa*new;structsummary_lsa*sl;stru
+ctprefixp;/*Sanitycheck.*/assert(lsa->data);sl=(structsummary_lsa*)lsa->data;p.p
+refixlen=ip_masklen(sl->mask);new=ospf_summary_lsa_new(lsa->area,&p,GET_METRIC(s
+l->metric),sl->header.id);if(!new)returnNULL;new->data->ls_seqnum=lsa_seqnum_inc
+rement(lsa);ospf_lsa_install(ospf,NULL,new);/*FloodLSAthroughAS.*/ospf_flood_thr
+ough_area(new->area,NULL,new);/*Debuglogging.*/if(IS_DEBUG_OSPF(lsa,LSA_GENERATE
+)){zlog_debug("LSA[Type%d:%s]:summary-LSArefresh",new->data->type,inet_ntoa(new-
+>data->id));ospf_lsa_header_dump(new->data);}returnnew;}/*summary-ASBR-LSArelate
+dfunctions.*/staticvoidospf_summary_asbr_lsa_body_set(structstream*s,structprefi
+x*p,uint32_tmetric){/*PutNetworkMask.*/stream_put_ipv4(s,(uint32_t)0);/*Set#TOS.
+*/stream_putc(s,(uint8_t)0);/*Setmetric.*/stream_put_ospf_metric(s,metric);}stat
+icstructospf_lsa*ospf_summary_asbr_lsa_new(structospf_area*area,structprefix*p,u
+int32_tmetric,structin_addrid){structstream*s;structospf_lsa*new;structlsa_heade
+r*lsah;intlength;if(id.s_addr==0xffffffff){/*MaybeLinkStateIDnotavailable.*/if(I
+S_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type%d]:LinkIDnotavailable,can'to
+riginate",OSPF_ASBR_SUMMARY_LSA);returnNULL;}if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))
+zlog_debug("LSA[Type3]:Createsummary-LSAinstance");/*CreatenewstreamforLSA.*/s=s
+tream_new(OSPF_MAX_LSA_SIZE);lsah=(structlsa_header*)STREAM_DATA(s);lsa_header_s
+et(s,LSA_OPTIONS_GET(area),OSPF_ASBR_SUMMARY_LSA,id,area->ospf->router_id);/*Set
+summary-LSAbodyfields.*/ospf_summary_asbr_lsa_body_set(s,p,metric);/*Setlength.*
+/length=stream_get_endp(s);lsah->length=htons(length);/*CreateOSPFLSAinstance.*/
+new=ospf_lsa_new();new->area=area;SET_FLAG(new->flags,OSPF_LSA_SELF|OSPF_LSA_SEL
+F_CHECKED);new->vrf_id=area->ospf->vrf_id;/*CopyLSAtostore.*/new->data=ospf_lsa_
+data_new(length);memcpy(new->data,lsah,length);stream_free(s);returnnew;}/*Origi
+natesummary-ASBR-LSA.*/structospf_lsa*ospf_summary_asbr_lsa_originate(structpref
+ix_ipv4*p,uint32_tmetric,structospf_area*area){structospf_lsa*new;structin_addri
+d;id=ospf_lsa_unique_id(area->ospf,area->lsdb,OSPF_ASBR_SUMMARY_LSA,p);if(id.s_a
+ddr==0xffffffff){/*MaybeLinkStateIDnotavailable.*/if(IS_DEBUG_OSPF(lsa,LSA_GENER
+ATE))zlog_debug("LSA[Type%d]:LinkIDnotavailable,can'toriginate",OSPF_ASBR_SUMMAR
+Y_LSA);returnNULL;}/*Createnewsummary-LSAinstance.*/new=ospf_summary_asbr_lsa_ne
+w(area,(structprefix*)p,metric,id);if(!new)returnNULL;/*InstallLSAtoLSDB.*/new=o
+spf_lsa_install(area->ospf,NULL,new);/*UpdateLSAoriginationcount.*/area->ospf->l
+sa_originate_count++;/*FloodingnewLSAthrougharea.*/ospf_flood_through_area(area,
+NULL,new);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_debug("LSA[Type%d:%s]:Origina
+tesummary-ASBR-LSA%p",new->data->type,inet_ntoa(new->data->id),(void*)new);ospf_
+lsa_header_dump(new->data);}returnnew;}staticstructospf_lsa*ospf_summary_asbr_ls
+a_refresh(structospf*ospf,structospf_lsa*lsa){structospf_lsa*new;structsummary_l
+sa*sl;structprefixp;/*Sanitycheck.*/assert(lsa->data);sl=(structsummary_lsa*)lsa
+->data;p.prefixlen=ip_masklen(sl->mask);new=ospf_summary_asbr_lsa_new(lsa->area,
+&p,GET_METRIC(sl->metric),sl->header.id);if(!new)returnNULL;new->data->ls_seqnum
+=lsa_seqnum_increment(lsa);ospf_lsa_install(ospf,NULL,new);/*FloodLSAthrougharea
+.*/ospf_flood_through_area(new->area,NULL,new);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE
+)){zlog_debug("LSA[Type%d:%s]:summary-ASBR-LSArefresh",new->data->type,inet_ntoa
+(new->data->id));ospf_lsa_header_dump(new->data);}returnnew;}/*AS-external-LSAre
+latedfunctions.*//*GetnexthopforAS-external-LSAs.Returnnexthopifitsinterfaceisco
+nnected,else0*/staticstructin_addrospf_external_lsa_nexthop_get(structospf*ospf,
+structin_addrnexthop){structin_addrfwd;structprefixnh;structlistnode*node;struct
+ospf_interface*oi;fwd.s_addr=0;if(!nexthop.s_addr)returnfwd;/*Checkwhethernextho
+piscoveredbyOSPFnetwork.*/nh.family=AF_INET;nh.u.prefix4=nexthop;nh.prefixlen=IP
+V4_MAX_BITLEN;/*XXX/SCALE:Iftherewerealotofoi'sonanifp,thenit'dbe*bettertomakeus
+eoftheper-ifptableofois.*/for(ALL_LIST_ELEMENTS_RO(ospf->oiflist,node,oi))if(if_
+is_operative(oi->ifp))if(oi->address->family==AF_INET)if(prefix_match(oi->addres
+s,&nh))returnnexthop;returnfwd;}/*NSSA-external-LSArelatedfunctions.*//*Get1stIP
+connectionforForwardAddr*/structin_addrospf_get_ip_from_ifp(structospf_interface
+*oi){structin_addrfwd;fwd.s_addr=0;if(if_is_operative(oi->ifp))returnoi->address
+->u.prefix4;returnfwd;}/*Get1stIPconnectionforForwardAddr*/structin_addrospf_get
+_nssa_ip(structospf_area*area){structin_addrfwd;structin_addrbest_default;struct
+listnode*node;structospf_interface*oi;fwd.s_addr=0;best_default.s_addr=0;for(ALL
+_LIST_ELEMENTS_RO(area->ospf->oiflist,node,oi)){if(if_is_operative(oi->ifp))if(o
+i->area->external_routing==OSPF_AREA_NSSA)if(oi->address&&oi->address->family==A
+F_INET){if(best_default.s_addr==0)best_default=oi->address->u.prefix4;if(oi->are
+a==area)returnoi->address->u.prefix4;}}if(best_default.s_addr!=0)returnbest_defa
+ult;if(best_default.s_addr!=0)returnbest_default;returnfwd;}#defineDEFAULT_DEFAU
+LT_METRIC20#defineDEFAULT_DEFAULT_ORIGINATE_METRIC10#defineDEFAULT_DEFAULT_ALWAY
+S_METRIC1#defineDEFAULT_METRIC_TYPEEXTERNAL_METRIC_TYPE_2intmetric_type(structos
+pf*ospf,uint8_tsrc,unsignedshortinstance){structospf_redist*red;red=ospf_redist_
+lookup(ospf,src,instance);return((!red||red->dmetric.type<0)?DEFAULT_METRIC_TYPE
+:red->dmetric.type);}intmetric_value(structospf*ospf,uint8_tsrc,unsignedshortins
+tance){structospf_redist*red;red=ospf_redist_lookup(ospf,src,instance);if(!red||
+red->dmetric.value<0){if(src==DEFAULT_ROUTE){if(ospf->default_originate==DEFAULT
+_ORIGINATE_ZEBRA)returnDEFAULT_DEFAULT_ORIGINATE_METRIC;elsereturnDEFAULT_DEFAUL
+T_ALWAYS_METRIC;}elseif(ospf->default_metric<0)returnDEFAULT_DEFAULT_METRIC;else
+returnospf->default_metric;}returnred->dmetric.value;}/*SetAS-external-LSAbody.*
+/staticvoidospf_external_lsa_body_set(structstream*s,structexternal_info*ei,stru
+ctospf*ospf){structprefix_ipv4*p=&ei->p;structin_addrmask,fwd_addr;uint32_tmvalu
+e;intmtype;inttype;unsignedshortinstance;/*PutNetworkMask.*/masklen2ip(p->prefix
+len,&mask);stream_put_ipv4(s,mask.s_addr);/*Ifprefixisdefault,specifyDEFAULT_ROU
+TE.*/type=is_prefix_default(&ei->p)?DEFAULT_ROUTE:ei->type;instance=is_prefix_de
+fault(&ei->p)?0:ei->instance;mtype=(ROUTEMAP_METRIC_TYPE(ei)!=-1)?ROUTEMAP_METRI
+C_TYPE(ei):metric_type(ospf,type,instance);mvalue=(ROUTEMAP_METRIC(ei)!=-1)?ROUT
+EMAP_METRIC(ei):metric_value(ospf,type,instance);/*Puttypeofexternalmetric.*/str
+eam_putc(s,(mtype==EXTERNAL_METRIC_TYPE_2?0x80:0));/*Put0metric.TOSmetricisnotsu
+pported.*/stream_put_ospf_metric(s,mvalue);/*Getforwardingaddresstonexthopifonth
+eConnectionList,else0.*/fwd_addr=ospf_external_lsa_nexthop_get(ospf,ei->nexthop)
+;/*Putforwardingaddress.*/stream_put_ipv4(s,fwd_addr.s_addr);/*Putroutetag*/stre
+am_putl(s,ei->tag);}/*Createnewexternal-LSA.*/staticstructospf_lsa*ospf_external
+_lsa_new(structospf*ospf,structexternal_info*ei,structin_addr*old_id){structstre
+am*s;structlsa_header*lsah;structospf_lsa*new;structin_addrid;intlength;if(ei==N
+ULL){if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type5]:ExternalinfoisNUL
+L,can'toriginate");returnNULL;}if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LS
+A[Type5]:OriginateAS-external-LSAinstance");/*IfoldLinkStateIDisspecified,refres
+hLSAwithsameID.*/if(old_id)id=*old_id;/*GetLinkStatewithuniqueID.*/else{id=ospf_
+lsa_unique_id(ospf,ospf->lsdb,OSPF_AS_EXTERNAL_LSA,&ei->p);if(id.s_addr==0xfffff
+fff){/*MaybeLinkStateIDnotavailable.*/if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_de
+bug("LSA[Type5]:LinkIDnotavailable,can'toriginate");returnNULL;}}/*Createnewstre
+amforLSA.*/s=stream_new(OSPF_MAX_LSA_SIZE);lsah=(structlsa_header*)STREAM_DATA(s
+);/*SetLSAcommonheaderfields.*/lsa_header_set(s,OSPF_OPTION_E,OSPF_AS_EXTERNAL_L
+SA,id,ospf->router_id);/*SetAS-external-LSAbodyfields.*/ospf_external_lsa_body_s
+et(s,ei,ospf);/*Setlength.*/length=stream_get_endp(s);lsah->length=htons(length)
+;/*Now,createOSPFLSAinstance.*/new=ospf_lsa_new();new->area=NULL;SET_FLAG(new->f
+lags,OSPF_LSA_SELF|OSPF_LSA_APPROVED|OSPF_LSA_SELF_CHECKED);new->vrf_id=ospf->vr
+f_id;/*CopyLSAdatatostore,discardstream.*/new->data=ospf_lsa_data_new(length);me
+mcpy(new->data,lsah,length);stream_free(s);returnnew;}/*AsType-7*/staticvoidospf
+_install_flood_nssa(structospf*ospf,structospf_lsa*lsa,structexternal_info*ei){s
+tructospf_lsa*new;structas_external_lsa*extlsa;structospf_area*area;structlistno
+de*node,*nnode;/*LSAmaybeaType-5originatedviatranslationofaType-7LSA*whichorigin
+atedfromanNSSAarea.Inwhichcaseitshouldnotbe*floodedbacktoNSSAareas.*/if(CHECK_FL
+AG(lsa->flags,OSPF_LSA_LOCAL_XLT))return;/*NSSAOriginateorRefresh(IfanyNSSA)LSAi
+sself-originated.AndjustinstalledasType-5.Additionally,installasType-7LSDBforeve
+ryattachedNSSA.P-BitcontrolswhichABRperformstranslationtooutsideworld;IfweareanA
+BR....donotsettheP-bit,becausewesendtheType-5,notastheABRTranslator,butastheASBR
+ownerwithintheAS!IfweareNOTABR,FloodthroughNSSAasType-7w/P-bitset.TheelectedABRT
+ranslatorwillseetheP-bit,Translate,andre-flood.Later,ABR_TASKandP-bitwillscanTyp
+e-7LSDBandtranslatetoType-5'stonon-NSSAAreas.(itwillalsoattemptare-install)*/for
+(ALL_LIST_ELEMENTS(ospf->areas,node,nnode,area)){/*Don'tinstallType-7LSA'sintono
+nNSSAarea*/if(area->external_routing!=OSPF_AREA_NSSA)continue;/*makelsaduplicate
+,lock=1*/new=ospf_lsa_dup(lsa);new->area=area;new->data->type=OSPF_AS_NSSA_LSA;/
+*setP-bitifnotABR*/if(!IS_OSPF_ABR(ospf)){SET_FLAG(new->data->options,OSPF_OPTIO
+N_NP);/*setnon-zeroFWDADDRdraft-ietf-ospf-nssa-update-09.txtifthenetworkbetweent
+heNSSAASboundaryrouterandtheadjacentASisadvertisedintoOSPFasaninternalOSPFroute,
+theforwardingaddressshouldbethenextopaddressasiscucurrentlydonewithtype-5LSAs.If
+theinterveningnetworkisnotadversitedintoOSPFasaninternalOSPFrouteandthetype-7LSA
+'sP-bitissetaforwardingaddressshouldbeselectedfromoneoftherouter'sactiveOSPFinte
+rfaceaddresseswhichbelongtotheNSSA.Ifnosuchaddressesexist,thennotype-7LSA'switht
+heP-bitsetshouldoriginatefromthisrouter.*//*kevinm:notupdatinglsaanymore,justnew
+*/extlsa=(structas_external_lsa*)(new->data);if(extlsa->e[0].fwd_addr.s_addr==0)
+extlsa->e[0].fwd_addr=ospf_get_nssa_ip(area);/*thisNSSAareainifp*/if(extlsa->e[0
+].fwd_addr.s_addr==0){if(IS_DEBUG_OSPF_NSSA)zlog_debug("LSA[Type-7]:Couldnotbuil
+dFWD-ADDR");ospf_lsa_discard(new);return;}}/*installalsoasType-7*/ospf_lsa_insta
+ll(ospf,NULL,new);/*RemoveOld,LockNew=2*//*willsendeachcopy,lock=2+n*/ospf_flood
+_through_as(ospf,NULL,new);/*allattachedNSSA's,noAS/STUBs*/}}staticstructospf_ls
+a*ospf_lsa_translated_nssa_new(structospf*ospf,structospf_lsa*type7){structospf_
+lsa*new;structas_external_lsa*ext,*extnew;structexternal_infoei;ext=(structas_ex
+ternal_lsa*)(type7->data);/*needexternal_infostruct,fillinbareminimum*/ei.p.fami
+ly=AF_INET;ei.p.prefix=type7->data->id;ei.p.prefixlen=ip_masklen(ext->mask);ei.t
+ype=ZEBRA_ROUTE_OSPF;ei.nexthop=ext->header.adv_router;ei.route_map_set.metric=-
+1;ei.route_map_set.metric_type=-1;ei.tag=0;if((new=ospf_external_lsa_new(ospf,&e
+i,&type7->data->id))==NULL){if(IS_DEBUG_OSPF_NSSA)zlog_debug("ospf_nssa_translat
+e_originate():Couldnotoriginate""TranslatedType-5for%s",inet_ntoa(ei.p.prefix));
+returnNULL;}extnew=(structas_external_lsa*)(new->data);/*copyoverType-7datatonew
+*/extnew->e[0].tos=ext->e[0].tos;extnew->e[0].route_tag=ext->e[0].route_tag;extn
+ew->e[0].fwd_addr.s_addr=ext->e[0].fwd_addr.s_addr;new->data->ls_seqnum=type7->d
+ata->ls_seqnum;/*addtranslatedflag,checksumandlocknewlsa*/SET_FLAG(new->flags,OS
+PF_LSA_LOCAL_XLT);/*Translatedfrom7*/new=ospf_lsa_lock(new);returnnew;}/*Origina
+teTranslatedType-5forsuppliedType-7NSSALSA*/structospf_lsa*ospf_translated_nssa_
+originate(structospf*ospf,structospf_lsa*type7){structospf_lsa*new;structas_exte
+rnal_lsa*extnew;/*wecantuseospf_external_lsa_originate()asweneedtoset*theOSPF_LS
+A_LOCAL_XLTflag,mustoriginatebyhand*/if((new=ospf_lsa_translated_nssa_new(ospf,t
+ype7))==NULL){if(IS_DEBUG_OSPF_NSSA)zlog_debug("ospf_translated_nssa_originate()
+:Couldnottranslate""Type-7,Id%s,toType-5",inet_ntoa(type7->data->id));returnNULL
+;}extnew=(structas_external_lsa*)new;if(IS_DEBUG_OSPF_NSSA){zlog_debug("ospf_tra
+nslated_nssa_originate():""translatedType7,installed:");ospf_lsa_header_dump(new
+->data);zlog_debug("Networkmask:%d",ip_masklen(extnew->mask));zlog_debug("Forwar
+daddr:%s",inet_ntoa(extnew->e[0].fwd_addr));}if((new=ospf_lsa_install(ospf,NULL,
+new))==NULL){if(IS_DEBUG_OSPF_NSSA)zlog_debug("ospf_lsa_translated_nssa_originat
+e():""CouldnotinstallLSA""id%s",inet_ntoa(type7->data->id));returnNULL;}ospf->ls
+a_originate_count++;ospf_flood_through_as(ospf,NULL,new);returnnew;}/*RefreshTra
+nslatedfromNSSAAS-external-LSA.*/structospf_lsa*ospf_translated_nssa_refresh(str
+uctospf*ospf,structospf_lsa*type7,structospf_lsa*type5){structospf_lsa*new=NULL;
+/*Sanitychecks.*/assert(type7||type5);if(!(type7||type5))returnNULL;if(type7)ass
+ert(type7->data);if(type5)assert(type5->data);assert(ospf->anyNSSA);/*getrequire
+ddataaccordingtowhathasbeengiven*/if(type7&&type5==NULL){/*findthetranslatedType
+-5forthisType-7*/structas_external_lsa*ext=(structas_external_lsa*)(type7->data)
+;structprefix_ipv4p={.prefix=type7->data->id,.prefixlen=ip_masklen(ext->mask),.f
+amily=AF_INET,};type5=ospf_external_info_find_lsa(ospf,&p);}elseif(type5&&type7=
+=NULL){/*findthetype-7fromwhichsuppliedtype-5wastranslated,*iefindfirsttype-7wit
+hsameLSAId.*/structlistnode*ln,*lnn;structroute_node*rn;structospf_lsa*lsa;struc
+tospf_area*area;for(ALL_LIST_ELEMENTS(ospf->areas,ln,lnn,area)){if(area->externa
+l_routing!=OSPF_AREA_NSSA&&!type7)continue;LSDB_LOOP(NSSA_LSDB(area),rn,lsa){if(
+lsa->data->id.s_addr==type5->data->id.s_addr){type7=lsa;break;}}}}/*dowehavetype
+7?*/if(!type7){if(IS_DEBUG_OSPF_NSSA)zlog_debug("ospf_translated_nssa_refresh():
+noType-7foundfor""Type-5LSAId%s",inet_ntoa(type5->data->id));returnNULL;}/*doweh
+avevalidtranslatedtype5?*/if(type5==NULL||!CHECK_FLAG(type5->flags,OSPF_LSA_LOCA
+L_XLT)){if(IS_DEBUG_OSPF_NSSA)zlog_debug("ospf_translated_nssa_refresh():Notrans
+latedType-5""foundforType-7withId%s",inet_ntoa(type7->data->id));returnNULL;}/*D
+eleteLSAfromneighborretransmit-list.*/ospf_ls_retransmit_delete_nbr_as(ospf,type
+5);/*createnewtranslatedLSA*/if((new=ospf_lsa_translated_nssa_new(ospf,type7))==
+NULL){if(IS_DEBUG_OSPF_NSSA)zlog_debug("ospf_translated_nssa_refresh():Couldnott
+ranslate""Type-7for%stoType-5",inet_ntoa(type7->data->id));returnNULL;}if(!(new=
+ospf_lsa_install(ospf,NULL,new))){if(IS_DEBUG_OSPF_NSSA)zlog_debug("ospf_transla
+ted_nssa_refresh():Couldnotinstall""translatedLSA,Id%s",inet_ntoa(type7->data->i
+d));returnNULL;}/*FloodLSAthrougharea.*/ospf_flood_through_as(ospf,NULL,new);ret
+urnnew;}intis_prefix_default(structprefix_ipv4*p){structprefix_ipv4q;q.family=AF
+_INET;q.prefix.s_addr=0;q.prefixlen=0;returnprefix_same((structprefix*)p,(struct
+prefix*)&q);}/*OriginateanAS-external-LSA,installandflood.*/structospf_lsa*ospf_
+external_lsa_originate(structospf*ospf,structexternal_info*ei){structospf_lsa*ne
+w;/*AddedforNSSAproject....ExternalLSAsareoriginatedinASBRsasusual,butforNSSAsys
+tems.thereistheglobalType-5LSDBandaType-7LSDBinstalledforeveryarea.TheType-7'sar
+efloodedtoeveryIRandeveryABR;WeinstalltheType-5LSDBsothatthenormal"refresh"codeo
+peratesasusual,andflagthemasnotusedduringASEcalculations.TheType-7LSDBisusedforc
+alculations.EachType-7hasaForwardingAddressofnon-zero.IfanABRistheelectedNSSAtra
+nslator,followingSPFandduringtheABRtaskitwilltranslateallthescannedType-7's,with
+P-bitONandnot-selfgenerated,andtranslatetoType-5'sthroughoutthenon-NSSA/STUBAS.A
+differenceinoperationdependswhetherthisASBRisanABRornot.IfnotanABR,theP-bitisON,
+toindicatethatanyelectedNSSA-ABRcanperformitstranslation.IfanABR,theP-bitisOFF;N
+oABRwillperformtranslationandthisASBRwillfloodtheType-5LSAasusual.Forthecasewher
+ethisASBRisnotanABR,theASEcalculationsarebasedontheType-5LSDB;TheType-7LSDBexist
+sjusttodemonstratetotheuserthatthereareLSA'sthatbelongtoanyattachedNSSA.Finally,
+itjustsohappensthatwhentheABRistranslatingeveryType-7intoType-5,itinstallsitinto
+theType-5LSDBasanapprovedType-5(translatedfromType-7);attheendoftranslationifany
+TranslatedType-5'sremainunapproved,thentheymustbeflushedfromtheAS.*//*ChecktheAS
+-external-LSAshouldbeoriginated.*/if(!ospf_redistribute_check(ospf,ei,NULL))retu
+rnNULL;/*CreatenewAS-external-LSAinstance.*/if((new=ospf_external_lsa_new(ospf,e
+i,NULL))==NULL){if(IS_DEBUG_OSPF_EVENT)zlog_debug("LSA[Type5:%s]:Couldnotorigina
+teAS-external-LSA",inet_ntoa(ei->p.prefix));returnNULL;}/*InstallnewlycreatedLSA
+intoType-5LSDB,lock=1.*/ospf_lsa_install(ospf,NULL,new);/*UpdateLSAoriginationco
+unt.*/ospf->lsa_originate_count++;/*FloodingnewLSA.onlytoAS(non-NSSA/STUB)*/ospf
+_flood_through_as(ospf,NULL,new);/*IfthereisanyattachedNSSA,dospecialhandling*/i
+f(ospf->anyNSSA&&/*stayawayfromtranslatedLSAs!*/!(CHECK_FLAG(new->flags,OSPF_LSA
+_LOCAL_XLT)))ospf_install_flood_nssa(ospf,new,ei);/*Install/FloodType-7toallNSSA
+s*//*Debuglogging.*/if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_debug("LSA[Type%d:%
+s]:OriginateAS-external-LSA%p",new->data->type,inet_ntoa(new->data->id),(void*)n
+ew);ospf_lsa_header_dump(new->data);}returnnew;}/*OriginateAS-external-LSAfromex
+ternalinfowithinitialflag.*/intospf_external_lsa_originate_timer(structthread*th
+read){structospf*ospf=THREAD_ARG(thread);structroute_node*rn;structexternal_info
+*ei;structroute_table*rt;inttype=THREAD_VAL(thread);structlist*ext_list;structli
+stnode*node;structospf_external*ext;ospf->t_external_lsa=NULL;ext_list=ospf->ext
+ernal[type];if(!ext_list)return0;for(ALL_LIST_ELEMENTS_RO(ext_list,node,ext))/*O
+riginateAs-external-LSAfromalltypeofdistributesource.*/if((rt=ext->external_info
+))for(rn=route_top(rt);rn;rn=route_next(rn))if((ei=rn->info)!=NULL)if(!is_prefix
+_default((structprefix_ipv4*)&ei->p))if(!ospf_external_lsa_originate(ospf,ei))zl
+og_warn("LSA:AS-external-LSAwasnotoriginated.");return0;}staticstructexternal_in
+fo*ospf_default_external_info(structospf*ospf){inttype;structroute_node*rn;struc
+tprefix_ipv4p;p.family=AF_INET;p.prefix.s_addr=0;p.prefixlen=0;/*First,lookupred
+istributeddefaultroute.*/for(type=0;type<=ZEBRA_ROUTE_MAX;type++){structlist*ext
+_list;structlistnode*node;structospf_external*ext;if(type==ZEBRA_ROUTE_OSPF)cont
+inue;ext_list=ospf->external[type];if(!ext_list)continue;for(ALL_LIST_ELEMENTS_R
+O(ext_list,node,ext)){rn=route_node_lookup(ext->external_info,(structprefix*)&p)
+;if(rn!=NULL){route_unlock_node(rn);assert(rn->info);if(ospf_redistribute_check(
+ospf,rn->info,NULL))returnrn->info;}}}returnNULL;}intospf_default_originate_time
+r(structthread*thread){structprefix_ipv4p;structin_addrnexthop;structexternal_in
+fo*ei;structospf*ospf;ospf=THREAD_ARG(thread);p.family=AF_INET;p.prefix.s_addr=0
+;p.prefixlen=0;if(ospf->default_originate==DEFAULT_ORIGINATE_ALWAYS){/*Ifthereis
+nodefaultrouteviaredistribute,thenoriginateAS-external-LSAwithnexthop0(self).*/n
+exthop.s_addr=0;ospf_external_info_add(ospf,DEFAULT_ROUTE,0,p,0,nexthop,0);}if((
+ei=ospf_default_external_info(ospf)))ospf_external_lsa_originate(ospf,ei);return
+0;}/*FlushanyNSSALSAsforgivenprefix*/voidospf_nssa_lsa_flush(structospf*ospf,str
+uctprefix_ipv4*p){structlistnode*node,*nnode;structospf_lsa*lsa=NULL;structospf_
+area*area;for(ALL_LIST_ELEMENTS(ospf->areas,node,nnode,area)){if(area->external_
+routing==OSPF_AREA_NSSA){lsa=ospf_lsa_lookup(ospf,area,OSPF_AS_NSSA_LSA,p->prefi
+x,ospf->router_id);if(!lsa){if(IS_DEBUG_OSPF(lsa,LSA_FLOODING))zlog_debug("LSA:T
+hereisnosuchAS-NSSA-LSA%s/%dinLSDB",inet_ntoa(p->prefix),p->prefixlen);continue;
+}ospf_ls_retransmit_delete_nbr_area(area,lsa);if(!IS_LSA_MAXAGE(lsa)){ospf_refre
+sher_unregister_lsa(ospf,lsa);ospf_lsa_flush_area(lsa,area);}}}}/*FlushanAS-exte
+rnal-LSAfromLSDBandroutingdomain.*/voidospf_external_lsa_flush(structospf*ospf,u
+int8_ttype,structprefix_ipv4*p,ifindex_tifindex/*,structin_addrnexthop*/){struct
+ospf_lsa*lsa;if(IS_DEBUG_OSPF(lsa,LSA_FLOODING))zlog_debug("LSA:FlushingAS-exter
+nal-LSA%s/%d",inet_ntoa(p->prefix),p->prefixlen);/*FirstlookupLSAfromLSDB.*/if(!
+(lsa=ospf_external_info_find_lsa(ospf,p))){if(IS_DEBUG_OSPF(lsa,LSA_FLOODING))zl
+og_debug("LSA:ThereisnosuchAS-external-LSA%s/%dinLSDB",inet_ntoa(p->prefix),p->p
+refixlen);return;}/*IfLSAisselforiginated,notatranslatedLSA,andthereis*NSSAarea,
+flushType-7LSA'satfirst.*/if(IS_LSA_SELF(lsa)&&(ospf->anyNSSA)&&!(CHECK_FLAG(lsa
+->flags,OSPF_LSA_LOCAL_XLT)))ospf_nssa_lsa_flush(ospf,p);/*SweepLSAfromLinkState
+RetransmitList.*/ospf_ls_retransmit_delete_nbr_as(ospf,lsa);/*Theremustbenoself-
+originatedLSAinrtrs_external.*/#if0/*RemoveExternalroutefromZebra.*/ospf_zebra_d
+elete((structprefix_ipv4*)p,&nexthop);#endifif(!IS_LSA_MAXAGE(lsa)){/*Unregister
+LSAfromRefreshqueue.*/ospf_refresher_unregister_lsa(ospf,lsa);/*FlushAS-external
+-LSAthroughAS.*/ospf_lsa_flush_as(ospf,lsa);}if(IS_DEBUG_OSPF(lsa,LSA_FLOODING))
+zlog_debug("ospf_external_lsa_flush():stop");}voidospf_external_lsa_refresh_defa
+ult(structospf*ospf){structprefix_ipv4p;structexternal_info*ei;structospf_lsa*ls
+a;p.family=AF_INET;p.prefixlen=0;p.prefix.s_addr=0;ei=ospf_default_external_info
+(ospf);lsa=ospf_external_info_find_lsa(ospf,&p);if(ei){if(lsa){if(IS_DEBUG_OSPF_
+EVENT)zlog_debug("LSA[Type5:0.0.0.0]:RefreshAS-external-LSA%p",(void*)lsa);ospf_
+external_lsa_refresh(ospf,lsa,ei,LSA_REFRESH_FORCE);}else{if(IS_DEBUG_OSPF_EVENT
+)zlog_debug("LSA[Type5:0.0.0.0]:OriginateAS-external-LSA");ospf_external_lsa_ori
+ginate(ospf,ei);}}else{if(lsa){if(IS_DEBUG_OSPF_EVENT)zlog_debug("LSA[Type5:0.0.
+0.0]:FlushAS-external-LSA");ospf_refresher_unregister_lsa(ospf,lsa);ospf_lsa_flu
+sh_as(ospf,lsa);}}}voidospf_external_lsa_refresh_type(structospf*ospf,uint8_ttyp
+e,unsignedshortinstance,intforce){structroute_node*rn;structexternal_info*ei;str
+uctospf_external*ext;if(type==DEFAULT_ROUTE)return;ext=ospf_external_lookup(ospf
+,type,instance);if(ext&&EXTERNAL_INFO(ext)){/*RefresheachredistributedAS-externa
+l-LSAs.*/for(rn=route_top(EXTERNAL_INFO(ext));rn;rn=route_next(rn)){ei=rn->info;
+if(ei){if(!is_prefix_default(&ei->p)){structospf_lsa*lsa;lsa=ospf_external_info_
+find_lsa(ospf,&ei->p);if(lsa)ospf_external_lsa_refresh(ospf,lsa,ei,force);elseos
+pf_external_lsa_originate(ospf,ei);}}}}}/*RefreshAS-external-LSA.*/structospf_ls
+a*ospf_external_lsa_refresh(structospf*ospf,structospf_lsa*lsa,structexternal_in
+fo*ei,intforce){structospf_lsa*new;intchanged;/*ChecktheAS-external-LSAshouldbeo
+riginated.*/if(!ospf_redistribute_check(ospf,ei,&changed)){if(IS_DEBUG_OSPF(lsa,
+LSA_GENERATE))zlog_debug("LSA[Type%d:%s]:Couldnotberefreshed,""redistcheckfail",
+lsa->data->type,inet_ntoa(lsa->data->id));ospf_external_lsa_flush(ospf,ei->type,
+&ei->p,ei->ifindex/*,ei->nexthop*/);returnNULL;}if(!changed&&!force){if(IS_DEBUG
+_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type%d:%s]:Notrefreshed,notchanged/force
+d",lsa->data->type,inet_ntoa(lsa->data->id));returnNULL;}/*DeleteLSAfromneighbor
+retransmit-list.*/ospf_ls_retransmit_delete_nbr_as(ospf,lsa);/*UnregisterAS-exte
+rnal-LSAfromrefresh-list.*/ospf_refresher_unregister_lsa(ospf,lsa);new=ospf_exte
+rnal_lsa_new(ospf,ei,&lsa->data->id);if(new==NULL){if(IS_DEBUG_OSPF(lsa,LSA_GENE
+RATE))zlog_debug("LSA[Type%d:%s]:Couldnotberefreshed",lsa->data->type,inet_ntoa(
+lsa->data->id));returnNULL;}new->data->ls_seqnum=lsa_seqnum_increment(lsa);ospf_
+lsa_install(ospf,NULL,new);/*Astype-5.*//*FloodLSAthroughAS.*/ospf_flood_through
+_as(ospf,NULL,new);/*IfanyattachedNSSA,installasType-7,floodtoallNSSAAreas*/if(o
+spf->anyNSSA&&!(CHECK_FLAG(new->flags,OSPF_LSA_LOCAL_XLT)))ospf_install_flood_ns
+sa(ospf,new,ei);/*Install/Floodpernewrules*//*Registerself-originatedLSAtorefres
+hqueue.*TranslatedLSAsshouldnotberegistered,butrefreshedupon*refreshoftheType-7*
+/if(!CHECK_FLAG(new->flags,OSPF_LSA_LOCAL_XLT))ospf_refresher_register_lsa(ospf,
+new);/*Debuglogging.*/if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_debug("LSA[Type%d
+:%s]:AS-external-LSArefresh",new->data->type,inet_ntoa(new->data->id));ospf_lsa_
+header_dump(new->data);}returnnew;}/*LSAinstallationfunctions.*//*Installrouter-
+LSAtoanarea.*/staticstructospf_lsa*ospf_router_lsa_install(structospf*ospf,struc
+tospf_lsa*new,intrt_recalc){structospf_area*area=new->area;/*RFC2328Section13.2R
+outer-LSAsandnetwork-LSAsTheentireroutingtablemustberecalculated,startingwiththe
+shortestpathcalculationsforeacharea(notjusttheareawhoselink-statedatabasehaschan
+ged).*/if(IS_LSA_SELF(new)){/*OnlyinstallLSAifitisoriginated/refreshedbyus.*IfLS
+Awasreceivedbyflooding,theRECEIVEDflagissetso*do*notlinktheLSA*/if(CHECK_FLAG(ne
+w->flags,OSPF_LSA_RECEIVED))returnnew;/*ignorestaleLSA*//*Setself-originatedrout
+er-LSA.*/ospf_lsa_unlock(&area->router_lsa_self);area->router_lsa_self=ospf_lsa_
+lock(new);ospf_refresher_register_lsa(ospf,new);}if(rt_recalc)ospf_spf_calculate
+_schedule(ospf,SPF_FLAG_ROUTER_LSA_INSTALL);returnnew;}#defineOSPF_INTERFACE_TIM
+ER_ON(T,F,V)\if(!(T))\(T)=thread_add_timer(master,(F),oi,(V))/*Installnetwork-LS
+Atoanarea.*/staticstructospf_lsa*ospf_network_lsa_install(structospf*ospf,struct
+ospf_interface*oi,structospf_lsa*new,intrt_recalc){/*RFC2328Section13.2Router-LS
+Asandnetwork-LSAsTheentireroutingtablemustberecalculated,startingwiththeshortest
+pathcalculationsforeacharea(notjusttheareawhoselink-statedatabasehaschanged).*/i
+f(IS_LSA_SELF(new)){/*WesupposedthatwhenLSAisoriginatedbyus,wepasstheintforwhich
+itwasoriginated.IfLSAwasreceivedbyflooding,theRECEIVEDflagisset,sowedonotlinkthe
+LSAtotheint.*/if(CHECK_FLAG(new->flags,OSPF_LSA_RECEIVED))returnnew;/*ignorestal
+eLSA*/ospf_lsa_unlock(&oi->network_lsa_self);oi->network_lsa_self=ospf_lsa_lock(
+new);ospf_refresher_register_lsa(ospf,new);}if(rt_recalc)ospf_spf_calculate_sche
+dule(ospf,SPF_FLAG_NETWORK_LSA_INSTALL);returnnew;}/*Installsummary-LSAtoanarea.
+*/staticstructospf_lsa*ospf_summary_lsa_install(structospf*ospf,structospf_lsa*n
+ew,intrt_recalc){if(rt_recalc&&!IS_LSA_SELF(new)){/*RFC2328Section13.2Summary-LS
+AsThebestroutetothedestinationdescribedbythesummary-LSAmustberecalculated(seeSec
+tion16.5).IfthisdestinationisanASboundaryrouter,itmayalsobenecessarytore-examine
+alltheAS-external-LSAs.*/#if0/*Thisdoesn'texistyet...*/ospf_summary_incremental_
+update(new);*/#else/*#if0*/ospf_spf_calculate_schedule(ospf,SPF_FLAG_SUMMARY_LSA
+_INSTALL);#endif/*#if0*/}if(IS_LSA_SELF(new))ospf_refresher_register_lsa(ospf,ne
+w);returnnew;}/*InstallASBR-summary-LSAtoanarea.*/staticstructospf_lsa*ospf_summ
+ary_asbr_lsa_install(structospf*ospf,structospf_lsa*new,intrt_recalc){if(rt_reca
+lc&&!IS_LSA_SELF(new)){/*RFC2328Section13.2Summary-LSAsThebestroutetothedestinat
+iondescribedbythesummary-LSAmustberecalculated(seeSection16.5).Ifthisdestination
+isanASboundaryrouter,itmayalsobenecessarytore-examinealltheAS-external-LSAs.*/#i
+f0/*Thesedon'texistyet...*/ospf_summary_incremental_update(new);/*Isn'tthisdoneb
+ytheabovecall?-RFC2328Section16.5impliesitshouldbe*//*ospf_ase_calculate_schedul
+e();*/#else/*#if0*/ospf_spf_calculate_schedule(ospf,SPF_FLAG_ASBR_SUMMARY_LSA_IN
+STALL);#endif/*#if0*/}/*registerLSAtorefresh-list.*/if(IS_LSA_SELF(new))ospf_ref
+resher_register_lsa(ospf,new);returnnew;}/*InstallAS-external-LSA.*/staticstruct
+ospf_lsa*ospf_external_lsa_install(structospf*ospf,structospf_lsa*new,intrt_reca
+lc){ospf_ase_register_external_lsa(new,ospf);/*IfLSAisnotself-originated,calcula
+teanexternalroute.*/if(rt_recalc){/*RFC2328Section13.2AS-external-LSAsThebestrou
+tetothedestinationdescribedbytheAS-external-LSAmustberecalculated(seeSection16.6
+).*/if(!IS_LSA_SELF(new))ospf_ase_incremental_update(ospf,new);}if(new->data->ty
+pe==OSPF_AS_NSSA_LSA){/*ThereisnopointtoregisterselforiginateType-7LSAfor*refres
+hing.WerelyonrefreshingType-5LSA's*/if(IS_LSA_SELF(new))returnnew;else{/*Tryrefr
+eshtype-5translatedLSAforthisLSA,if*oneexists.*Newtranslationswillbetakencareofb
+ythe*abr_task.*/ospf_translated_nssa_refresh(ospf,new,NULL);ospf_schedule_abr_ta
+sk(ospf);}}/*Registerself-originatedLSAtorefreshqueue.*LeaveTranslatedLSAsalonei
+fNSSAisenabled*/if(IS_LSA_SELF(new)&&!CHECK_FLAG(new->flags,OSPF_LSA_LOCAL_XLT))
+ospf_refresher_register_lsa(ospf,new);returnnew;}voidospf_discard_from_db(struct
+ospf*ospf,structospf_lsdb*lsdb,structospf_lsa*lsa){structospf_lsa*old;if(!lsdb){
+zlog_warn("%s:CalledwithNULLlsdb!",__func__);if(!lsa)zlog_warn("%s:andNULLLSA!",
+__func__);elsezlog_warn("LSA[Type%d:%s]:notassociatedwithLSDB!",lsa->data->type,
+inet_ntoa(lsa->data->id));return;}old=ospf_lsdb_lookup(lsdb,lsa);if(!old)return;
+if(old->refresh_list>=0)ospf_refresher_unregister_lsa(ospf,old);switch(old->data
+->type){caseOSPF_AS_EXTERNAL_LSA:ospf_ase_unregister_external_lsa(old,ospf);ospf
+_ls_retransmit_delete_nbr_as(ospf,old);break;caseOSPF_OPAQUE_AS_LSA:ospf_ls_retr
+ansmit_delete_nbr_as(ospf,old);break;caseOSPF_AS_NSSA_LSA:ospf_ls_retransmit_del
+ete_nbr_area(old->area,old);ospf_ase_unregister_external_lsa(old,ospf);break;def
+ault:ospf_ls_retransmit_delete_nbr_area(old->area,old);break;}ospf_lsa_maxage_de
+lete(ospf,old);ospf_lsa_discard(old);}structospf_lsa*ospf_lsa_install(structospf
+*ospf,structospf_interface*oi,structospf_lsa*lsa){structospf_lsa*new=NULL;struct
+ospf_lsa*old=NULL;structospf_lsdb*lsdb=NULL;intrt_recalc;/*SetLSDB.*/switch(lsa-
+>data->type){/*kevinm*/caseOSPF_AS_NSSA_LSA:if(lsa->area)lsdb=lsa->area->lsdb;el
+selsdb=ospf->lsdb;break;caseOSPF_AS_EXTERNAL_LSA:caseOSPF_OPAQUE_AS_LSA:lsdb=osp
+f->lsdb;break;default:lsdb=lsa->area->lsdb;break;}assert(lsdb);/*RFC232813.2.Ins
+tallingLSAsinthedatabaseInstallinganewLSAinthedatabase,eitherastheresultoffloodi
+ngoranewlyself-originatedLSA,maycausetheOSPFroutingtablestructuretoberecalculate
+d.ThecontentsofthenewLSAshouldbecomparedtotheoldinstance,ifpresent.Ifthereisnodi
+fference,thereisnoneedtorecalculatetheroutingtable.WhencomparinganLSAtoitsprevio
+usinstance,thefollowingareallconsideredtobedifferencesincontents:oTheLSA'sOption
+sfieldhaschanged.oOneoftheLSAinstanceshasLSagesettoMaxAge,andtheotherdoesnot.oTh
+elengthfieldintheLSAheaderhaschanged.oThebodyoftheLSA(i.e.,anythingoutsidethe20-
+byteLSAheader)haschanged.NotethatthisexcludeschangesinLSSequenceNumberandLSCheck
+sum.*//*LookupoldLSAanddetermineifanySPFcalculationorincrementalupdateisneeded*/
+old=ospf_lsdb_lookup(lsdb,lsa);/*Docomparisionandrecordifrecalcneeded.*/rt_recal
+c=0;if(old==NULL||ospf_lsa_different(old,lsa))rt_recalc=1;/*Sequencenumbercheck(
+Section14.1ofrfc2328)"Prematureagingisusedwhenitistimeforaself-originatedLSA'sse
+quencenumberfieldtowrap.Atthispoint,thecurrentLSAinstance(havingLSsequencenumber
+MaxSequenceNumber)mustbeprematurelyagedandflushedfromtheroutingdomainbeforeanewi
+nstancewithsequencenumberequaltoInitialSequenceNumbercanbeoriginated."*/if(ntohl
+(lsa->data->ls_seqnum)-1==OSPF_MAX_SEQUENCE_NUMBER){if(ospf_lsa_is_self_originat
+ed(ospf,lsa)){lsa->data->ls_seqnum=htonl(OSPF_MAX_SEQUENCE_NUMBER);if(!IS_LSA_MA
+XAGE(lsa))lsa->flags|=OSPF_LSA_PREMATURE_AGE;lsa->data->ls_age=htons(OSPF_LSA_MA
+XAGE);if(IS_DEBUG_OSPF(lsa,LSA_REFRESH)){zlog_debug("ospf_lsa_install()Premature
+Aging""lsa0x%p,seqnum0x%x",(void*)lsa,ntohl(lsa->data->ls_seqnum));ospf_lsa_head
+er_dump(lsa->data);}}else{if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_debug("ospf_l
+sa_install()gotanlsawithseq0x80000000""thatwasnotselforiginated.Ignoring\n");osp
+f_lsa_header_dump(lsa->data);}returnold;}}/*discardoldLSAfromLSDB*/if(old!=NULL)
+ospf_discard_from_db(ospf,lsdb,lsa);/*CalculateChecksumifself-originated?.*/if(I
+S_LSA_SELF(lsa))ospf_lsa_checksum(lsa->data);/*InsertLSAtoLSDB.*/ospf_lsdb_add(l
+sdb,lsa);lsa->lsdb=lsdb;/*DoLSAspecificinstallationprocess.*/switch(lsa->data->t
+ype){caseOSPF_ROUTER_LSA:new=ospf_router_lsa_install(ospf,lsa,rt_recalc);break;c
+aseOSPF_NETWORK_LSA:assert(oi);new=ospf_network_lsa_install(ospf,oi,lsa,rt_recal
+c);break;caseOSPF_SUMMARY_LSA:new=ospf_summary_lsa_install(ospf,lsa,rt_recalc);b
+reak;caseOSPF_ASBR_SUMMARY_LSA:new=ospf_summary_asbr_lsa_install(ospf,lsa,rt_rec
+alc);break;caseOSPF_AS_EXTERNAL_LSA:new=ospf_external_lsa_install(ospf,lsa,rt_re
+calc);break;caseOSPF_OPAQUE_LINK_LSA:if(IS_LSA_SELF(lsa))lsa->oi=oi;/*Specifyout
+goingospf-interfaceforthisLSA.*/else{/*Incoming"oi"forthisLSAhassetatLSUpd*recep
+tion.*/}/*Fallthrough*/caseOSPF_OPAQUE_AREA_LSA:caseOSPF_OPAQUE_AS_LSA:new=ospf_
+opaque_lsa_install(lsa,rt_recalc);break;caseOSPF_AS_NSSA_LSA:new=ospf_external_l
+sa_install(ospf,lsa,rt_recalc);default:/*type-6,8,9....nothingspecial*/break;}if
+(new==NULL)returnnew;/*Installationfailed,cannotproceedfurther--endo.*//*Debuglo
+gs.*/if(IS_DEBUG_OSPF(lsa,LSA_INSTALL)){chararea_str[INET_ADDRSTRLEN];switch(lsa
+->data->type){caseOSPF_AS_EXTERNAL_LSA:caseOSPF_OPAQUE_AS_LSA:caseOSPF_AS_NSSA_L
+SA:zlog_debug("LSA[%s]:Install%s",dump_lsa_key(new),lookup_msg(ospf_lsa_type_msg
+,new->data->type,NULL));break;default:strlcpy(area_str,inet_ntoa(new->area->area
+_id),sizeof(area_str));zlog_debug("LSA[%s]:Install%stoArea%s",dump_lsa_key(new),
+lookup_msg(ospf_lsa_type_msg,new->data->type,NULL),area_str);break;}}/*Ifreceive
+dLSA'ls_ageisMaxAge,orlsaisbeingprematurelyaged(it'sgettingflushedoutofthearea),
+setLSAonMaxAgeLSAlist.*/if(IS_LSA_MAXAGE(new)){if(IS_DEBUG_OSPF(lsa,LSA_INSTALL)
+)zlog_debug("LSA[Type%d:%s]:InstallLSA0x%p,MaxAge",new->data->type,inet_ntoa(new
+->data->id),(void*)lsa);ospf_lsa_maxage(ospf,lsa);}returnnew;}intospf_check_nbr_
+status(structospf*ospf){structlistnode*node,*nnode;structospf_interface*oi;for(A
+LL_LIST_ELEMENTS(ospf->oiflist,node,nnode,oi)){structroute_node*rn;structospf_ne
+ighbor*nbr;if(ospf_if_is_enable(oi))for(rn=route_top(oi->nbrs);rn;rn=route_next(
+rn))if((nbr=rn->info)!=NULL)if(nbr->state==NSM_Exchange||nbr->state==NSM_Loading
+){route_unlock_node(rn);return0;}}return1;}staticintospf_maxage_lsa_remover(stru
+ctthread*thread){structospf*ospf=THREAD_ARG(thread);structospf_lsa*lsa;structrou
+te_node*rn;intreschedule=0;ospf->t_maxage=NULL;if(IS_DEBUG_OSPF(lsa,LSA_FLOODING
+))zlog_debug("LSA[MaxAge]:removerStart");reschedule=!ospf_check_nbr_status(ospf)
+;if(!reschedule)for(rn=route_top(ospf->maxage_lsa);rn;rn=route_next(rn)){if((lsa
+=rn->info)==NULL){continue;}/*Thereisatleastoneneighborfromwhichwestill*awaitana
+ck*forthatLSA,sowearenotallowedtoremoveitfrom*ourlsdbyet*asperRFC2328section14pa
+ra4a)*/if(lsa->retransmit_counter>0){reschedule=1;continue;}/*TODO:maybeconvertt
+hisfunctiontoawork-queue*/if(thread_should_yield(thread)){OSPF_TIMER_ON(ospf->t_
+maxage,ospf_maxage_lsa_remover,0);route_unlock_node(rn);/*route_top/route_next*/
+return0;}/*RemoveLSAfromtheLSDB*/if(IS_LSA_SELF(lsa))if(IS_DEBUG_OSPF(lsa,LSA_FL
+OODING))zlog_debug("LSA[Type%d:%s]:LSA0x%lxisself-originated:",lsa->data->type,i
+net_ntoa(lsa->data->id),(unsignedlong)lsa);if(IS_DEBUG_OSPF(lsa,LSA_FLOODING))zl
+og_debug("LSA[Type%d:%s]:MaxAgeLSAremovedfromlist",lsa->data->type,inet_ntoa(lsa
+->data->id));if(CHECK_FLAG(lsa->flags,OSPF_LSA_PREMATURE_AGE)){if(IS_DEBUG_OSPF(
+lsa,LSA_FLOODING))zlog_debug("originatingnewlsaforlsa0x%p\n",(void*)lsa);ospf_ls
+a_refresh(ospf,lsa);}/*Removefromlsdb.*/if(lsa->lsdb){ospf_discard_from_db(ospf,
+lsa->lsdb,lsa);ospf_lsdb_delete(lsa->lsdb,lsa);}elsezlog_warn("%s:LSA[Type%d:%s]
+:NoassociatedLSDB!",__func__,lsa->data->type,inet_ntoa(lsa->data->id));}/*AMaxAg
+eLSAmustberemovedimmediatelyfromtherouter'slinkstatedatabaseassoonasbotha)itisno
+longercontainedonanyneighborLinkstateretransmissionlistsandb)noneoftherouter'sne
+ighborsareinstatesExchangeorLoading.*/if(reschedule)OSPF_TIMER_ON(ospf->t_maxage
+,ospf_maxage_lsa_remover,ospf->maxage_delay);return0;}voidospf_lsa_maxage_delete
+(structospf*ospf,structospf_lsa*lsa){structroute_node*rn;structprefixlsa_prefix;
+memset(&lsa_prefix,0,sizeof(structprefix));lsa_prefix.family=0;lsa_prefix.prefix
+len=sizeof(lsa_prefix.u.ptr)*CHAR_BIT;lsa_prefix.u.ptr=(uintptr_t)lsa;if((rn=rou
+te_node_lookup(ospf->maxage_lsa,(structprefix*)&lsa_prefix))){if(rn->info==lsa){
+UNSET_FLAG(lsa->flags,OSPF_LSA_IN_MAXAGE);ospf_lsa_unlock(&lsa);/*maxage_lsa*/rn
+->info=NULL;route_unlock_node(rn);/*unlocknodebecauselsaisdeleted*/}route_unlock
+_node(rn);/*route_node_lookup*/}else{if(IS_DEBUG_OSPF_EVENT)zlog_debug("%s:lsa%s
+isnotfoundinmaxagedb.",__PRETTY_FUNCTION__,dump_lsa_key(lsa));}}/*AddLSAontotheM
+axAgelist,andscheduleforremoval.*Thisdoes*not*leadtotheLSAbeingflooded,thatmustb
+etaken*careofelsewhere,see,e.g.,ospf_lsa_flush*(whicharecallersofthis*function).
+*/voidospf_lsa_maxage(structospf*ospf,structospf_lsa*lsa){structprefixlsa_prefix
+;structroute_node*rn;/*WhenwesawaMaxAgeLSAfloodedtous,weputitonthelistandschedul
+etheMaxAgeLSAremover.*/if(CHECK_FLAG(lsa->flags,OSPF_LSA_IN_MAXAGE)){if(IS_DEBUG
+_OSPF(lsa,LSA_FLOODING))zlog_debug("LSA[Type%d:%s]:%palreadyexistsonMaxAgeLSAlis
+t",lsa->data->type,inet_ntoa(lsa->data->id),(void*)lsa);return;}memset(&lsa_pref
+ix,0,sizeof(structprefix));lsa_prefix.family=0;lsa_prefix.prefixlen=sizeof(lsa_p
+refix.u.ptr)*CHAR_BIT;lsa_prefix.u.ptr=(uintptr_t)lsa;if((rn=route_node_get(ospf
+->maxage_lsa,(structprefix*)&lsa_prefix))!=NULL){if(rn->info!=NULL){if(IS_DEBUG_
+OSPF(lsa,LSA_FLOODING))zlog_debug("LSA[%s]:foundLSA(%p)intableforLSA%p%d",dump_l
+sa_key(lsa),rn->info,(void*)lsa,lsa_prefix.prefixlen);route_unlock_node(rn);}els
+e{rn->info=ospf_lsa_lock(lsa);SET_FLAG(lsa->flags,OSPF_LSA_IN_MAXAGE);}}else{zlo
+g_err("Unabletoallocatememoryformaxagelsa%s\n",dump_lsa_key(lsa));assert(0);}if(
+IS_DEBUG_OSPF(lsa,LSA_FLOODING))zlog_debug("LSA[%s]:MaxAgeLSAremoverscheduled.",
+dump_lsa_key(lsa));OSPF_TIMER_ON(ospf->t_maxage,ospf_maxage_lsa_remover,ospf->ma
+xage_delay);}staticintospf_lsa_maxage_walker_remover(structospf*ospf,structospf_
+lsa*lsa){/*StayawayfromanyLocalTranslatedType-7LSAs*/if(CHECK_FLAG(lsa->flags,OS
+PF_LSA_LOCAL_XLT))return0;if(IS_LSA_MAXAGE(lsa))/*Self-originatedLSAsshouldNOTti
+me-outinstead,they'reflushedandsubmittedtothemax_agelistexplicitly.*/if(!ospf_ls
+a_is_self_originated(ospf,lsa)){if(IS_DEBUG_OSPF(lsa,LSA_FLOODING))zlog_debug("L
+SA[%s]:isMaxAge",dump_lsa_key(lsa));switch(lsa->data->type){caseOSPF_OPAQUE_LINK
+_LSA:caseOSPF_OPAQUE_AREA_LSA:caseOSPF_OPAQUE_AS_LSA:/**Asageneralrule,whenevern
+etworktopology*haschanged*(duetoanLSAremovalinthiscase),routing*recalculation*sh
+ouldbetriggered.However,thisisnot*trueforopaque*LSAs.EvenifanopaqueLSAinstanceis
+going*toberemoved*fromtheroutingdomain,itdoesnotmeana*changeinnetwork*topology,a
+ndthus,routingrecalculationis*notneededhere.*/break;caseOSPF_AS_EXTERNAL_LSA:cas
+eOSPF_AS_NSSA_LSA:ospf_ase_incremental_update(ospf,lsa);break;default:ospf_spf_c
+alculate_schedule(ospf,SPF_FLAG_MAXAGE);break;}ospf_lsa_maxage(ospf,lsa);}if(IS_
+LSA_MAXAGE(lsa)&&!ospf_lsa_is_self_originated(ospf,lsa))if(LS_AGE(lsa)>OSPF_LSA_
+MAXAGE+30)printf("Eek!Shouldn'thappen!\n");return0;}/*PeriodicalcheckofMaxAgeLSA
+.*/intospf_lsa_maxage_walker(structthread*thread){structospf*ospf=THREAD_ARG(thr
+ead);structroute_node*rn;structospf_lsa*lsa;structospf_area*area;structlistnode*
+node,*nnode;ospf->t_maxage_walker=NULL;for(ALL_LIST_ELEMENTS(ospf->areas,node,nn
+ode,area)){LSDB_LOOP(ROUTER_LSDB(area),rn,lsa)ospf_lsa_maxage_walker_remover(osp
+f,lsa);LSDB_LOOP(NETWORK_LSDB(area),rn,lsa)ospf_lsa_maxage_walker_remover(ospf,l
+sa);LSDB_LOOP(SUMMARY_LSDB(area),rn,lsa)ospf_lsa_maxage_walker_remover(ospf,lsa)
+;LSDB_LOOP(ASBR_SUMMARY_LSDB(area),rn,lsa)ospf_lsa_maxage_walker_remover(ospf,ls
+a);LSDB_LOOP(OPAQUE_AREA_LSDB(area),rn,lsa)ospf_lsa_maxage_walker_remover(ospf,l
+sa);LSDB_LOOP(OPAQUE_LINK_LSDB(area),rn,lsa)ospf_lsa_maxage_walker_remover(ospf,
+lsa);LSDB_LOOP(NSSA_LSDB(area),rn,lsa)ospf_lsa_maxage_walker_remover(ospf,lsa);}
+/*forAS-external-LSAs.*/if(ospf->lsdb){LSDB_LOOP(EXTERNAL_LSDB(ospf),rn,lsa)ospf
+_lsa_maxage_walker_remover(ospf,lsa);LSDB_LOOP(OPAQUE_AS_LSDB(ospf),rn,lsa)ospf_
+lsa_maxage_walker_remover(ospf,lsa);}OSPF_TIMER_ON(ospf->t_maxage_walker,ospf_ls
+a_maxage_walker,OSPF_LSA_MAXAGE_CHECK_INTERVAL);return0;}structospf_lsa*ospf_lsa
+_lookup_by_prefix(structospf_lsdb*lsdb,uint8_ttype,structprefix_ipv4*p,structin_
+addrrouter_id){structospf_lsa*lsa;structin_addrmask,id;structlsa_header_mask{str
+uctlsa_headerheader;structin_addrmask;}*hmask;lsa=ospf_lsdb_lookup_by_id(lsdb,ty
+pe,p->prefix,router_id);if(lsa==NULL)returnNULL;masklen2ip(p->prefixlen,&mask);h
+mask=(structlsa_header_mask*)lsa->data;if(mask.s_addr!=hmask->mask.s_addr){id.s_
+addr=p->prefix.s_addr|(~mask.s_addr);lsa=ospf_lsdb_lookup_by_id(lsdb,type,id,rou
+ter_id);if(!lsa)returnNULL;}returnlsa;}structospf_lsa*ospf_lsa_lookup(structospf
+*ospf,structospf_area*area,uint32_ttype,structin_addrid,structin_addradv_router)
+{if(!ospf)returnNULL;switch(type){caseOSPF_ROUTER_LSA:caseOSPF_NETWORK_LSA:caseO
+SPF_SUMMARY_LSA:caseOSPF_ASBR_SUMMARY_LSA:caseOSPF_AS_NSSA_LSA:caseOSPF_OPAQUE_L
+INK_LSA:caseOSPF_OPAQUE_AREA_LSA:returnospf_lsdb_lookup_by_id(area->lsdb,type,id
+,adv_router);caseOSPF_AS_EXTERNAL_LSA:caseOSPF_OPAQUE_AS_LSA:returnospf_lsdb_loo
+kup_by_id(ospf->lsdb,type,id,adv_router);default:break;}returnNULL;}structospf_l
+sa*ospf_lsa_lookup_by_id(structospf_area*area,uint32_ttype,structin_addrid){stru
+ctospf_lsa*lsa;structroute_node*rn;switch(type){caseOSPF_ROUTER_LSA:returnospf_l
+sdb_lookup_by_id(area->lsdb,type,id,id);caseOSPF_NETWORK_LSA:for(rn=route_top(NE
+TWORK_LSDB(area));rn;rn=route_next(rn))if((lsa=rn->info))if(IPV4_ADDR_SAME(&lsa-
+>data->id,&id)){route_unlock_node(rn);returnlsa;}break;caseOSPF_SUMMARY_LSA:case
+OSPF_ASBR_SUMMARY_LSA:/*Currentlynotused.*/assert(1);returnospf_lsdb_lookup_by_i
+d(area->lsdb,type,id,id);caseOSPF_AS_EXTERNAL_LSA:caseOSPF_AS_NSSA_LSA:caseOSPF_
+OPAQUE_LINK_LSA:caseOSPF_OPAQUE_AREA_LSA:caseOSPF_OPAQUE_AS_LSA:/*Currentlynotus
+ed.*/break;default:break;}returnNULL;}structospf_lsa*ospf_lsa_lookup_by_header(s
+tructospf_area*area,structlsa_header*lsah){structospf_lsa*match;/**Strictlyspeak
+ing,theLSA-IDfieldforOpaque-LSAs(type-9/10/11)*isredefinedtohavetwosubfields;opa
+que-typeandopaque-id.*However,itisharmlesstotreatthetwosubfieldstogether,asif*th
+eytwowereformingauniqueLSA-ID.*/match=ospf_lsa_lookup(area->ospf,area,lsah->type
+,lsah->id,lsah->adv_router);if(match==NULL)if(IS_DEBUG_OSPF(lsa,LSA)==OSPF_DEBUG
+_LSA)zlog_debug("LSA[Type%d:%s]:Lookupbyheader,NOMATCH",lsah->type,inet_ntoa(lsa
+h->id));returnmatch;}/*return+n,l1ismorerecent.return-n,l2ismorerecent.return0,l
+1andl2isidentical.*/intospf_lsa_more_recent(structospf_lsa*l1,structospf_lsa*l2)
+{intr;intx,y;if(l1==NULL&&l2==NULL)return0;if(l1==NULL)return-1;if(l2==NULL)retu
+rn1;/*compareLSsequencenumber.*/x=(int)ntohl(l1->data->ls_seqnum);y=(int)ntohl(l
+2->data->ls_seqnum);if(x>y)return1;if(x<y)return-1;/*compareLSchecksum.*/r=ntohs
+(l1->data->checksum)-ntohs(l2->data->checksum);if(r)returnr;/*compareLSage.*/if(
+IS_LSA_MAXAGE(l1)&&!IS_LSA_MAXAGE(l2))return1;elseif(!IS_LSA_MAXAGE(l1)&&IS_LSA_
+MAXAGE(l2))return-1;/*compareLSagewithMaxAgeDiff.*/if(LS_AGE(l1)-LS_AGE(l2)>OSPF
+_LSA_MAXAGE_DIFF)return-1;elseif(LS_AGE(l2)-LS_AGE(l1)>OSPF_LSA_MAXAGE_DIFF)retu
+rn1;/*LSAsareidentical.*/return0;}/*IftwoLSAsaredifferent,return1,otherwiseretur
+n0.*/intospf_lsa_different(structospf_lsa*l1,structospf_lsa*l2){char*p1,*p2;asse
+rt(l1);assert(l2);assert(l1->data);assert(l2->data);if(l1->data->options!=l2->da
+ta->options)return1;if(IS_LSA_MAXAGE(l1)&&!IS_LSA_MAXAGE(l2))return1;if(IS_LSA_M
+AXAGE(l2)&&!IS_LSA_MAXAGE(l1))return1;if(l1->data->length!=l2->data->length)retu
+rn1;if(l1->data->length==0)return1;if(CHECK_FLAG((l1->flags^l2->flags),OSPF_LSA_
+RECEIVED))return1;/*MaybeastaleLSAintheLSBD*/assert(ntohs(l1->data->length)>OSPF
+_LSA_HEADER_SIZE);p1=(char*)l1->data;p2=(char*)l2->data;if(memcmp(p1+OSPF_LSA_HE
+ADER_SIZE,p2+OSPF_LSA_HEADER_SIZE,ntohs(l1->data->length)-OSPF_LSA_HEADER_SIZE)!
+=0)return1;return0;}#ifdefORIGINAL_CODINGvoidospf_lsa_flush_self_originated(stru
+ctospf_neighbor*nbr,structospf_lsa*self,structospf_lsa*new){uint32_tseqnum;/*Adj
+ustLSSequenceNumber.*/seqnum=ntohl(new->data->ls_seqnum)+1;self->data->ls_seqnum
+=htonl(seqnum);/*RecalculateLSAchecksum.*/ospf_lsa_checksum(self->data);/*Refloo
+dingLSA.*//*RFC2328Section13.3Onnon-broadcastnetworks,separateLinkStateUpdatepac
+ketsmustbesent,asunicasts,toeachadjacentneighbor(i.e.,thoseinstateExchangeorgrea
+ter).ThedestinationIPaddressesforthesepacketsaretheneighbors'IPaddresses.*/if(nb
+r->oi->type==OSPF_IFTYPE_NBMA){structroute_node*rn;structospf_neighbor*onbr;for(
+rn=route_top(nbr->oi->nbrs);rn;rn=route_next(rn))if((onbr=rn->info)!=NULL)if(onb
+r!=nbr->oi->nbr_self&&onbr->status>=NSM_Exchange)ospf_ls_upd_send_lsa(onbr,self,
+OSPF_SEND_PACKET_DIRECT);}elseospf_ls_upd_send_lsa(nbr,self,OSPF_SEND_PACKET_IND
+IRECT);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type%d:%s]:Flushself-o
+riginatedLSA",self->data->type,inet_ntoa(self->data->id));}#else/*ORIGINAL_CODIN
+G*/intospf_lsa_flush_schedule(structospf*ospf,structospf_lsa*lsa){if(lsa==NULL||
+!IS_LSA_SELF(lsa))return0;if(IS_DEBUG_OSPF_EVENT)zlog_debug("LSA[Type%d:%s]:Sche
+duleself-originatedLSAtoFLUSH",lsa->data->type,inet_ntoa(lsa->data->id));/*Force
+givenlsa'sagetoMaxAge.*/lsa->data->ls_age=htons(OSPF_LSA_MAXAGE);switch(lsa->dat
+a->type){/*Opaquewantstobenotifiedofflushes*/caseOSPF_OPAQUE_LINK_LSA:caseOSPF_O
+PAQUE_AREA_LSA:caseOSPF_OPAQUE_AS_LSA:ospf_opaque_lsa_refresh(lsa);break;default
+:ospf_refresher_unregister_lsa(ospf,lsa);ospf_lsa_flush(ospf,lsa);break;}return0
+;}voidospf_flush_self_originated_lsas_now(structospf*ospf){structlistnode*node,*
+nnode;structlistnode*node2,*nnode2;structospf_area*area;structospf_interface*oi;
+structospf_lsa*lsa;structroute_node*rn;intneed_to_flush_ase=0;ospf->inst_shutdow
+n=1;for(ALL_LIST_ELEMENTS(ospf->areas,node,nnode,area)){if((lsa=area->router_lsa
+_self)!=NULL){if(IS_DEBUG_OSPF_EVENT)zlog_debug("LSA[Type%d:%s]:Scheduleself-ori
+ginatedLSAtoFLUSH",lsa->data->type,inet_ntoa(lsa->data->id));ospf_refresher_unre
+gister_lsa(ospf,lsa);ospf_lsa_flush_area(lsa,area);ospf_lsa_unlock(&area->router
+_lsa_self);area->router_lsa_self=NULL;}for(ALL_LIST_ELEMENTS(area->oiflist,node2
+,nnode2,oi)){if((lsa=oi->network_lsa_self)!=NULL&&oi->state==ISM_DR&&oi->full_nb
+rs>0){if(IS_DEBUG_OSPF_EVENT)zlog_debug("LSA[Type%d:%s]:Scheduleself-originatedL
+SAtoFLUSH",lsa->data->type,inet_ntoa(lsa->data->id));ospf_refresher_unregister_l
+sa(ospf,oi->network_lsa_self);ospf_lsa_flush_area(oi->network_lsa_self,area);osp
+f_lsa_unlock(&oi->network_lsa_self);oi->network_lsa_self=NULL;}if(oi->type!=OSPF
+_IFTYPE_VIRTUALLINK&&area->external_routing==OSPF_AREA_DEFAULT)need_to_flush_ase
+=1;}LSDB_LOOP(SUMMARY_LSDB(area),rn,lsa)ospf_lsa_flush_schedule(ospf,lsa);LSDB_L
+OOP(ASBR_SUMMARY_LSDB(area),rn,lsa)ospf_lsa_flush_schedule(ospf,lsa);LSDB_LOOP(O
+PAQUE_LINK_LSDB(area),rn,lsa)ospf_lsa_flush_schedule(ospf,lsa);LSDB_LOOP(OPAQUE_
+AREA_LSDB(area),rn,lsa)ospf_lsa_flush_schedule(ospf,lsa);}if(need_to_flush_ase){
+LSDB_LOOP(EXTERNAL_LSDB(ospf),rn,lsa)ospf_lsa_flush_schedule(ospf,lsa);LSDB_LOOP
+(OPAQUE_AS_LSDB(ospf),rn,lsa)ospf_lsa_flush_schedule(ospf,lsa);}/**Makesurethatt
+heMaxAgeLSAremoverisexecutedimmediately,*withoutconflictingtootherthreads.*/if(o
+spf->t_maxage!=NULL){OSPF_TIMER_OFF(ospf->t_maxage);thread_execute(master,ospf_m
+axage_lsa_remover,ospf,0);}return;}#endif/*ORIGINAL_CODING*//*Ifthereisself-orig
+inatedLSA,thenreturn1,otherwisereturn0.*//*Aninterface-independentversionofospf_
+lsa_is_self_originated*/intospf_lsa_is_self_originated(structospf*ospf,structosp
+f_lsa*lsa){structlistnode*node;structospf_interface*oi;/*ThisLSAisalreadychecked
+.*/if(CHECK_FLAG(lsa->flags,OSPF_LSA_SELF_CHECKED))returnIS_LSA_SELF(lsa);/*Make
+sureLSAisself-checked.*/SET_FLAG(lsa->flags,OSPF_LSA_SELF_CHECKED);/*AdvRouteran
+dRouterIDisthesame.*/if(IPV4_ADDR_SAME(&lsa->data->adv_router,&ospf->router_id))
+SET_FLAG(lsa->flags,OSPF_LSA_SELF);/*LSAisrouter-LSA.*/elseif(lsa->data->type==O
+SPF_ROUTER_LSA&&IPV4_ADDR_SAME(&lsa->data->id,&ospf->router_id))SET_FLAG(lsa->fl
+ags,OSPF_LSA_SELF);/*LSAisnetwork-LSA.CompareLinkIDwithallinterfaces.*/elseif(ls
+a->data->type==OSPF_NETWORK_LSA)for(ALL_LIST_ELEMENTS_RO(ospf->oiflist,node,oi))
+{/*Ignorevirtuallink.*/if(oi->type!=OSPF_IFTYPE_VIRTUALLINK)if(oi->address->fami
+ly==AF_INET)if(IPV4_ADDR_SAME(&lsa->data->id,&oi->address->u.prefix4)){/*tomakei
+teasierlater*/SET_FLAG(lsa->flags,OSPF_LSA_SELF);returnIS_LSA_SELF(lsa);}}return
+IS_LSA_SELF(lsa);}/*GetuniqueLinkStateID.*/structin_addrospf_lsa_unique_id(struc
+tospf*ospf,structospf_lsdb*lsdb,uint8_ttype,structprefix_ipv4*p){structospf_lsa*
+lsa;structin_addrmask,id;id=p->prefix;/*CheckexistenceofLSAinstance.*/lsa=ospf_l
+sdb_lookup_by_id(lsdb,type,id,ospf->router_id);if(lsa){structas_external_lsa*al=
+(structas_external_lsa*)lsa->data;if(ip_masklen(al->mask)==p->prefixlen){if(IS_D
+EBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("ospf_lsa_unique_id():""Can'tgetLinkState
+IDfor%s/%d",inet_ntoa(p->prefix),p->prefixlen);/*id.s_addr=0;*/id.s_addr=0xfffff
+fff;returnid;}/*Masklendiffers,thenapplywildcardmasktoLinkStateID.*/else{masklen
+2ip(p->prefixlen,&mask);id.s_addr=p->prefix.s_addr|(~mask.s_addr);lsa=ospf_lsdb_
+lookup_by_id(ospf->lsdb,type,id,ospf->router_id);if(lsa){if(IS_DEBUG_OSPF(lsa,LS
+A_GENERATE))zlog_debug("ospf_lsa_unique_id():""Can'tgetLinkStateIDfor%s/%d",inet
+_ntoa(p->prefix),p->prefixlen);/*id.s_addr=0;*/id.s_addr=0xffffffff;returnid;}}}
+returnid;}#defineLSA_ACTION_FLOOD_AREA1#defineLSA_ACTION_FLUSH_AREA2structlsa_ac
+tion{uint8_taction;structospf_area*area;structospf_lsa*lsa;};staticintospf_lsa_a
+ction(structthread*t){structlsa_action*data;data=THREAD_ARG(t);if(IS_DEBUG_OSPF(
+lsa,LSA)==OSPF_DEBUG_LSA)zlog_debug("LSA[Action]:PerformingscheduledLSAaction:%d
+",data->action);switch(data->action){caseLSA_ACTION_FLOOD_AREA:ospf_flood_throug
+h_area(data->area,NULL,data->lsa);break;caseLSA_ACTION_FLUSH_AREA:ospf_lsa_flush
+_area(data->lsa,data->area);break;}ospf_lsa_unlock(&data->lsa);/*Message*/XFREE(
+MTYPE_OSPF_MESSAGE,data);return0;}voidospf_schedule_lsa_flood_area(structospf_ar
+ea*area,structospf_lsa*lsa){structlsa_action*data;data=XCALLOC(MTYPE_OSPF_MESSAG
+E,sizeof(structlsa_action));data->action=LSA_ACTION_FLOOD_AREA;data->area=area;d
+ata->lsa=ospf_lsa_lock(lsa);/*Message/Floodarea*/thread_add_event(master,ospf_ls
+a_action,data,0,NULL);}voidospf_schedule_lsa_flush_area(structospf_area*area,str
+uctospf_lsa*lsa){structlsa_action*data;data=XCALLOC(MTYPE_OSPF_MESSAGE,sizeof(st
+ructlsa_action));data->action=LSA_ACTION_FLUSH_AREA;data->area=area;data->lsa=os
+pf_lsa_lock(lsa);/*Message/Flusharea*/thread_add_event(master,ospf_lsa_action,da
+ta,0,NULL);}/*LSARefreshmentfunctions.*/structospf_lsa*ospf_lsa_refresh(structos
+pf*ospf,structospf_lsa*lsa){structexternal_info*ei;structospf_lsa*new=NULL;asser
+t(CHECK_FLAG(lsa->flags,OSPF_LSA_SELF));assert(IS_LSA_SELF(lsa));assert(lsa->loc
+k>0);switch(lsa->data->type){/*RouterandNetworkLSAsareprocesseddifferently.*/cas
+eOSPF_ROUTER_LSA:new=ospf_router_lsa_refresh(lsa);break;caseOSPF_NETWORK_LSA:new
+=ospf_network_lsa_refresh(lsa);break;caseOSPF_SUMMARY_LSA:new=ospf_summary_lsa_r
+efresh(ospf,lsa);break;caseOSPF_ASBR_SUMMARY_LSA:new=ospf_summary_asbr_lsa_refre
+sh(ospf,lsa);break;caseOSPF_AS_EXTERNAL_LSA:/*TranslatedfromNSSAType-5sarerefres
+hedwhen*fromrefreshofType-7-donotrefreshthesedirectly.*/if(CHECK_FLAG(lsa->flags
+,OSPF_LSA_LOCAL_XLT))break;ei=ospf_external_info_check(ospf,lsa);if(ei)new=ospf_
+external_lsa_refresh(ospf,lsa,ei,LSA_REFRESH_FORCE);elseospf_lsa_flush_as(ospf,l
+sa);break;caseOSPF_OPAQUE_LINK_LSA:caseOSPF_OPAQUE_AREA_LSA:caseOSPF_OPAQUE_AS_L
+SA:new=ospf_opaque_lsa_refresh(lsa);break;default:break;}returnnew;}voidospf_ref
+resher_register_lsa(structospf*ospf,structospf_lsa*lsa){uint16_tindex,current_in
+dex;assert(lsa->lock>0);assert(IS_LSA_SELF(lsa));if(lsa->refresh_list<0){intdela
+y;intmin_delay=OSPF_LS_REFRESH_TIME-(2*OSPF_LS_REFRESH_JITTER);intmax_delay=OSPF
+_LS_REFRESH_TIME-OSPF_LS_REFRESH_JITTER;/*WewanttorefreshtheLSAwithinOSPF_LS_REF
+RESH_TIMEwhich*is*1800s.UsejittersothatwesendtheLSAsometimebetween*1680s*and1740
+s.*/delay=(random()%(max_delay-min_delay))+min_delay;current_index=ospf->lsa_ref
+resh_queue.index+(monotime(NULL)-ospf->lsa_refresher_started)/OSPF_LSA_REFRESHER
+_GRANULARITY;index=(current_index+delay/OSPF_LSA_REFRESHER_GRANULARITY)%(OSPF_LS
+A_REFRESHER_SLOTS);if(IS_DEBUG_OSPF(lsa,LSA_REFRESH))zlog_debug("LSA[Refresh:Typ
+e%d:%s]:age%d,addedtoindex%d",lsa->data->type,inet_ntoa(lsa->data->id),LS_AGE(ls
+a),index);if(!ospf->lsa_refresh_queue.qs[index])ospf->lsa_refresh_queue.qs[index
+]=list_new();listnode_add(ospf->lsa_refresh_queue.qs[index],ospf_lsa_lock(lsa));
+/*lsa_refresh_queue*/lsa->refresh_list=index;if(IS_DEBUG_OSPF(lsa,LSA_REFRESH))z
+log_debug("LSA[Refresh:Type%d:%s]:ospf_refresher_register_lsa():""settingrefresh
+_listonlsa%p(slod%d)",lsa->data->type,inet_ntoa(lsa->data->id),(void*)lsa,index)
+;}}voidospf_refresher_unregister_lsa(structospf*ospf,structospf_lsa*lsa){assert(
+lsa->lock>0);assert(IS_LSA_SELF(lsa));if(lsa->refresh_list>=0){structlist*refres
+h_list=ospf->lsa_refresh_queue.qs[lsa->refresh_list];listnode_delete(refresh_lis
+t,lsa);if(!listcount(refresh_list)){list_delete_and_null(&refresh_list);ospf->ls
+a_refresh_queue.qs[lsa->refresh_list]=NULL;}ospf_lsa_unlock(&lsa);/*lsa_refresh_
+queue*/lsa->refresh_list=-1;}}intospf_lsa_refresh_walker(structthread*t){structl
+ist*refresh_list;structlistnode*node,*nnode;structospf*ospf=THREAD_ARG(t);struct
+ospf_lsa*lsa;inti;structlist*lsa_to_refresh=list_new();if(IS_DEBUG_OSPF(lsa,LSA_
+REFRESH))zlog_debug("LSA[Refresh]:ospf_lsa_refresh_walker():start");i=ospf->lsa_
+refresh_queue.index;/*Note:ifclockhasjumpedbackwards,thentimechangecouldbenegati
+ve,sowearecarefultocasttheexpressiontounsignedbeforetakingmodulus.*/ospf->lsa_re
+fresh_queue.index=((unsignedlong)(ospf->lsa_refresh_queue.index+(monotime(NULL)-
+ospf->lsa_refresher_started)/OSPF_LSA_REFRESHER_GRANULARITY))%OSPF_LSA_REFRESHER
+_SLOTS;if(IS_DEBUG_OSPF(lsa,LSA_REFRESH))zlog_debug("LSA[Refresh]:ospf_lsa_refre
+sh_walker():nextindex%d",ospf->lsa_refresh_queue.index);for(;i!=ospf->lsa_refres
+h_queue.index;i=(i+1)%OSPF_LSA_REFRESHER_SLOTS){if(IS_DEBUG_OSPF(lsa,LSA_REFRESH
+))zlog_debug("LSA[Refresh]:ospf_lsa_refresh_walker():""refreshindex%d",i);refres
+h_list=ospf->lsa_refresh_queue.qs[i];assert(i>=0);ospf->lsa_refresh_queue.qs[i]=
+NULL;if(refresh_list){for(ALL_LIST_ELEMENTS(refresh_list,node,nnode,lsa)){if(IS_
+DEBUG_OSPF(lsa,LSA_REFRESH))zlog_debug("LSA[Refresh:Type%d:%s]:ospf_lsa_refresh_
+walker():""refreshlsa%p(slot%d)",lsa->data->type,inet_ntoa(lsa->data->id),(void*
+)lsa,i);assert(lsa->lock>0);list_delete_node(refresh_list,node);lsa->refresh_lis
+t=-1;listnode_add(lsa_to_refresh,lsa);}list_delete_and_null(&refresh_list);}}osp
+f->t_lsa_refresher=NULL;thread_add_timer(master,ospf_lsa_refresh_walker,ospf,osp
+f->lsa_refresh_interval,&ospf->t_lsa_refresher);ospf->lsa_refresher_started=mono
+time(NULL);for(ALL_LIST_ELEMENTS(lsa_to_refresh,node,nnode,lsa)){ospf_lsa_refres
+h(ospf,lsa);assert(lsa->lock>0);ospf_lsa_unlock(&lsa);/*lsa_refresh_queue&tempfo
+rlsa_to_refresh*/}list_delete_and_null(&lsa_to_refresh);if(IS_DEBUG_OSPF(lsa,LSA
+_REFRESH))zlog_debug("LSA[Refresh]:ospf_lsa_refresh_walker():end");return0;}

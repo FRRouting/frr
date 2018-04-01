@@ -1,105 +1,30 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_MSG_H
-#define PIM_MSG_H
-
-#include <netinet/in.h>
-
-#include "pim_jp_agg.h"
-/*
-  Number       Description
-  ----------   ------------------
-  0            Reserved
-  1            IP (IP version 4)
-  2            IP6 (IP version 6)
-
-  From:
-  http://www.iana.org/assignments/address-family-numbers
-*/
-enum pim_msg_address_family {
-	PIM_MSG_ADDRESS_FAMILY_RESERVED,
-	PIM_MSG_ADDRESS_FAMILY_IPV4,
-	PIM_MSG_ADDRESS_FAMILY_IPV6,
-};
-
-/*
- * Network Order pim_msg_hdr
- */
-struct pim_msg_header {
-	uint8_t type : 4;
-	uint8_t ver : 4;
-	uint8_t reserved;
-	uint16_t checksum;
-} __attribute__((packed));
-
-struct pim_encoded_ipv4_unicast {
-	uint8_t family;
-	uint8_t reserved;
-	struct in_addr addr;
-} __attribute__((packed));
-
-struct pim_encoded_group_ipv4 {
-	uint8_t ne;
-	uint8_t family;
-	uint8_t reserved;
-	uint8_t mask;
-	struct in_addr addr;
-} __attribute__((packed));
-
-struct pim_encoded_source_ipv4 {
-	uint8_t ne;
-	uint8_t family;
-	uint8_t bits;
-	uint8_t mask;
-	struct in_addr addr;
-} __attribute__((packed));
-
-struct pim_jp_groups {
-	struct pim_encoded_group_ipv4 g;
-	uint16_t joins;
-	uint16_t prunes;
-	struct pim_encoded_source_ipv4 s[1];
-} __attribute__((packed));
-
-struct pim_jp {
-	struct pim_msg_header header;
-	struct pim_encoded_ipv4_unicast addr;
-	uint8_t reserved;
-	uint8_t num_groups;
-	uint16_t holdtime;
-	struct pim_jp_groups groups[1];
-} __attribute__((packed));
-
-void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
-			  uint8_t pim_msg_type);
-uint8_t *pim_msg_addr_encode_ipv4_ucast(uint8_t *buf, struct in_addr addr);
-uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf, struct in_addr addr);
-
-#define PIM_ENCODE_SPARSE_BIT      0x04
-#define PIM_ENCODE_WC_BIT          0x02
-#define PIM_ENCODE_RPT_BIT         0x01
-uint8_t *pim_msg_addr_encode_ipv4_source(uint8_t *buf, struct in_addr addr,
-					 uint8_t bits);
-
-
-size_t pim_msg_get_jp_group_size(struct list *sources);
-size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
-			       struct pim_jp_agg_group *sgs, size_t size);
-#endif /* PIM_MSG_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_MSG_H#definePIM_MSG_H#include<netinet/in.h>#include"pim_jp_agg.
+h"/*NumberDescription----------------------------0Reserved1IP(IPversion4)2IP6(IP
+version6)From:http://www.iana.org/assignments/address-family-numbers*/enumpim_ms
+g_address_family{PIM_MSG_ADDRESS_FAMILY_RESERVED,PIM_MSG_ADDRESS_FAMILY_IPV4,PIM
+_MSG_ADDRESS_FAMILY_IPV6,};/**NetworkOrderpim_msg_hdr*/structpim_msg_header{uint
+8_ttype:4;uint8_tver:4;uint8_treserved;uint16_tchecksum;}__attribute__((packed))
+;structpim_encoded_ipv4_unicast{uint8_tfamily;uint8_treserved;structin_addraddr;
+}__attribute__((packed));structpim_encoded_group_ipv4{uint8_tne;uint8_tfamily;ui
+nt8_treserved;uint8_tmask;structin_addraddr;}__attribute__((packed));structpim_e
+ncoded_source_ipv4{uint8_tne;uint8_tfamily;uint8_tbits;uint8_tmask;structin_addr
+addr;}__attribute__((packed));structpim_jp_groups{structpim_encoded_group_ipv4g;
+uint16_tjoins;uint16_tprunes;structpim_encoded_source_ipv4s[1];}__attribute__((p
+acked));structpim_jp{structpim_msg_headerheader;structpim_encoded_ipv4_unicastad
+dr;uint8_treserved;uint8_tnum_groups;uint16_tholdtime;structpim_jp_groupsgroups[
+1];}__attribute__((packed));voidpim_msg_build_header(uint8_t*pim_msg,size_tpim_m
+sg_size,uint8_tpim_msg_type);uint8_t*pim_msg_addr_encode_ipv4_ucast(uint8_t*buf,
+structin_addraddr);uint8_t*pim_msg_addr_encode_ipv4_group(uint8_t*buf,structin_a
+ddraddr);#definePIM_ENCODE_SPARSE_BIT0x04#definePIM_ENCODE_WC_BIT0x02#definePIM_
+ENCODE_RPT_BIT0x01uint8_t*pim_msg_addr_encode_ipv4_source(uint8_t*buf,structin_a
+ddraddr,uint8_tbits);size_tpim_msg_get_jp_group_size(structlist*sources);size_tp
+im_msg_build_jp_groups(structpim_jp_groups*grp,structpim_jp_agg_group*sgs,size_t
+size);#endif/*PIM_MSG_H*/

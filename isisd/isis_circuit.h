@@ -1,205 +1,83 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_circuit.h
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef ISIS_CIRCUIT_H
-#define ISIS_CIRCUIT_H
-
-#include "vty.h"
-#include "if.h"
-#include "qobj.h"
-#include "prefix.h"
-#include "ferr.h"
-
-#include "isis_constants.h"
-#include "isis_common.h"
-
-struct isis_lsp;
-
-struct password {
-	struct password *next;
-	int len;
-	uint8_t *pass;
-};
-
-struct metric {
-	uint8_t metric_default;
-	uint8_t metric_error;
-	uint8_t metric_expense;
-	uint8_t metric_delay;
-};
-
-struct isis_bcast_info {
-	uint8_t snpa[ETH_ALEN];		    /* SNPA of this circuit */
-	char run_dr_elect[2];		    /* Should we run dr election ? */
-	struct thread *t_run_dr[2];	 /* DR election thread */
-	struct thread *t_send_lan_hello[2]; /* send LAN IIHs in this thread */
-	struct list *adjdb[2];		    /* adjacency dbs */
-	struct list *lan_neighs[2];	 /* list of lx neigh snpa */
-	char is_dr[2];			    /* Are we level x DR ? */
-	uint8_t l1_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-1 DR */
-	uint8_t l2_desig_is[ISIS_SYS_ID_LEN + 1]; /* level-2 DR */
-	struct thread *t_refresh_pseudo_lsp[2];  /* refresh pseudo-node LSPs */
-};
-
-struct isis_p2p_info {
-	struct isis_adjacency *neighbor;
-	struct thread *t_send_p2p_hello; /* send P2P IIHs in this thread  */
-};
-
-struct isis_circuit {
-	int state;
-	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
-	struct isis_area *area;      /* back pointer to the area */
-	struct interface *interface; /* interface info from z */
-	int fd;			     /* IS-IS l1/2 socket */
-	int sap_length;		     /* SAP length for DLPI */
-	struct nlpids nlpids;
-	/*
-	 * Threads
-	 */
-	struct thread *t_read;
-	struct thread *t_send_csnp[2];
-	struct thread *t_send_psnp[2];
-	struct thread *t_send_lsp;
-	struct list *lsp_queue;	/* LSPs to be txed (both levels) */
-	struct isis_lsp_hash *lsp_hash; /* Hashtable synchronized with lsp_queue */
-	time_t lsp_queue_last_push[2]; /* timestamp used to enforce transmit
-					* interval;
-					* for scalability, use one timestamp per
-					* circuit, instead of one per lsp per
-					* circuit
-					*/
-	/* there is no real point in two streams, just for programming kicker */
-	int (*rx)(struct isis_circuit *circuit, uint8_t *ssnpa);
-	struct stream *rcv_stream; /* Stream for receiving */
-	int (*tx)(struct isis_circuit *circuit, int level);
-	struct stream *snd_stream; /* Stream for sending */
-	int idx;		   /* idx in S[RM|SN] flags */
-#define CIRCUIT_T_UNKNOWN    0
-#define CIRCUIT_T_BROADCAST  1
-#define CIRCUIT_T_P2P        2
-#define CIRCUIT_T_LOOPBACK   3
-	int circ_type;		   /* type of the physical interface */
-	int circ_type_config;      /* config type of the physical interface */
-	union {
-		struct isis_bcast_info bc;
-		struct isis_p2p_info p2p;
-	} u;
-	uint8_t priority[2]; /* l1/2 IS configured priority */
-	int pad_hellos;     /* add padding to Hello PDUs ? */
-	char ext_domain;    /* externalDomain   (boolean) */
-	int lsp_regenerate_pending[ISIS_LEVELS];
-	/*
-	 * Configurables
-	 */
-	struct isis_passwd passwd;     /* Circuit rx/tx password */
-	int is_type;		       /* circuit is type == level of circuit
-					* differentiated from circuit type (media) */
-	uint32_t hello_interval[2];    /* l1HelloInterval in msecs */
-	uint16_t hello_multiplier[2];  /* l1HelloMultiplier */
-	uint16_t csnp_interval[2];     /* level-1 csnp-interval in seconds */
-	uint16_t psnp_interval[2];     /* level-1 psnp-interval in seconds */
-	uint8_t metric[2];
-	uint32_t te_metric[2];
-	struct mpls_te_circuit
-		*mtc;   /* Support for MPLS-TE parameters - see isis_te.[c,h] */
-	int ip_router;  /* Route IP ? */
-	int is_passive; /* Is Passive ? */
-	struct list *mt_settings;   /* IS-IS MT Settings */
-	struct list *ip_addrs;      /* our IP addresses */
-	int ipv6_router;	    /* Route IPv6 ? */
-	struct list *ipv6_link;     /* our link local IPv6 addresses */
-	struct list *ipv6_non_link; /* our non-link local IPv6 addresses */
-	uint16_t upadjcount[2];
-#define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
-	uint8_t flags;
-	bool disable_threeway_adj;
-	/*
-	 * Counters as in 10589--11.2.5.9
-	 */
-	uint32_t adj_state_changes; /* changesInAdjacencyState */
-	uint32_t init_failures;     /* intialisationFailures */
-	uint32_t ctrl_pdus_rxed;    /* controlPDUsReceived */
-	uint32_t ctrl_pdus_txed;    /* controlPDUsSent */
-	uint32_t
-		desig_changes[2]; /* lanLxDesignatedIntermediateSystemChanges */
-	uint32_t rej_adjacencies; /* rejectedAdjacencies */
-
-	QOBJ_FIELDS
-};
-DECLARE_QOBJ_TYPE(isis_circuit)
-
-void isis_circuit_init(void);
-struct isis_circuit *isis_circuit_new(void);
-void isis_circuit_del(struct isis_circuit *circuit);
-struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
-					   struct list *list);
-struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp);
-void isis_circuit_configure(struct isis_circuit *circuit,
-			    struct isis_area *area);
-void isis_circuit_deconfigure(struct isis_circuit *circuit,
-			      struct isis_area *area);
-void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp);
-void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp);
-void isis_circuit_if_bind(struct isis_circuit *circuit, struct interface *ifp);
-void isis_circuit_if_unbind(struct isis_circuit *circuit,
-			    struct interface *ifp);
-void isis_circuit_add_addr(struct isis_circuit *circuit,
-			   struct connected *conn);
-void isis_circuit_del_addr(struct isis_circuit *circuit,
-			   struct connected *conn);
-void isis_circuit_prepare(struct isis_circuit *circuit);
-int isis_circuit_up(struct isis_circuit *circuit);
-void isis_circuit_down(struct isis_circuit *);
-void circuit_update_nlpids(struct isis_circuit *circuit);
-void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
-			    char detail);
-size_t isis_circuit_pdu_size(struct isis_circuit *circuit);
-void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
-
-struct isis_circuit *isis_circuit_create(struct isis_area *area,
-					 struct interface *ifp);
-void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
-			 bool ipv6_router);
-ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive);
-void isis_circuit_is_type_set(struct isis_circuit *circuit, int is_type);
-ferr_r isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type);
-
-ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
-			       int metric);
-
-ferr_r isis_circuit_passwd_unset(struct isis_circuit *circuit);
-ferr_r isis_circuit_passwd_cleartext_set(struct isis_circuit *circuit,
-					 const char *passwd);
-ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
-					const char *passwd);
-
-int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
-				bool enabled);
-
-void isis_circuit_schedule_lsp_send(struct isis_circuit *circuit);
-void isis_circuit_queue_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp);
-void isis_circuit_lsp_queue_clean(struct isis_circuit *circuit);
-void isis_circuit_cancel_queued_lsp(struct isis_circuit *circuit,
-				    struct isis_lsp *lsp);
-struct isis_lsp *isis_circuit_lsp_queue_pop(struct isis_circuit *circuit);
-#endif /* _ZEBRA_ISIS_CIRCUIT_H */
+/**IS-ISRout(e)ingprotocol-isis_circuit.h**Copyright(C)2001,2002SampoSaaristo*Ta
+mpereUniversityofTechnology*InstituteofCommunicationsEngineering**Thisprogramisf
+reesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPubli
+cLicenseaspublishedbytheFree*SoftwareFoundation;eitherversion2oftheLicense,or(at
+youroption)*anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeusefu
+l,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHANTABILITYor*FITNES
+SFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*moredetails.**Youshouldh
+avereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPY
+ING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,
+MA02110-1301USA*/#ifndefISIS_CIRCUIT_H#defineISIS_CIRCUIT_H#include"vty.h"#inclu
+de"if.h"#include"qobj.h"#include"prefix.h"#include"ferr.h"#include"isis_constant
+s.h"#include"isis_common.h"structisis_lsp;structpassword{structpassword*next;int
+len;uint8_t*pass;};structmetric{uint8_tmetric_default;uint8_tmetric_error;uint8_
+tmetric_expense;uint8_tmetric_delay;};structisis_bcast_info{uint8_tsnpa[ETH_ALEN
+];/*SNPAofthiscircuit*/charrun_dr_elect[2];/*Shouldwerundrelection?*/structthrea
+d*t_run_dr[2];/*DRelectionthread*/structthread*t_send_lan_hello[2];/*sendLANIIHs
+inthisthread*/structlist*adjdb[2];/*adjacencydbs*/structlist*lan_neighs[2];/*lis
+toflxneighsnpa*/charis_dr[2];/*ArewelevelxDR?*/uint8_tl1_desig_is[ISIS_SYS_ID_LE
+N+1];/*level-1DR*/uint8_tl2_desig_is[ISIS_SYS_ID_LEN+1];/*level-2DR*/structthrea
+d*t_refresh_pseudo_lsp[2];/*refreshpseudo-nodeLSPs*/};structisis_p2p_info{struct
+isis_adjacency*neighbor;structthread*t_send_p2p_hello;/*sendP2PIIHsinthisthread*
+/};structisis_circuit{intstate;uint8_tcircuit_id;/*l1/l2bcastCircuitID*/structis
+is_area*area;/*backpointertothearea*/structinterface*interface;/*interfaceinfofr
+omz*/intfd;/*IS-ISl1/2socket*/intsap_length;/*SAPlengthforDLPI*/structnlpidsnlpi
+ds;/**Threads*/structthread*t_read;structthread*t_send_csnp[2];structthread*t_se
+nd_psnp[2];structthread*t_send_lsp;structlist*lsp_queue;/*LSPstobetxed(bothlevel
+s)*/structisis_lsp_hash*lsp_hash;/*Hashtablesynchronizedwithlsp_queue*/time_tlsp
+_queue_last_push[2];/*timestampusedtoenforcetransmit*interval;*forscalability,us
+eonetimestampper*circuit,insteadofoneperlspper*circuit*//*thereisnorealpointintw
+ostreams,justforprogrammingkicker*/int(*rx)(structisis_circuit*circuit,uint8_t*s
+snpa);structstream*rcv_stream;/*Streamforreceiving*/int(*tx)(structisis_circuit*
+circuit,intlevel);structstream*snd_stream;/*Streamforsending*/intidx;/*idxinS[RM
+|SN]flags*/#defineCIRCUIT_T_UNKNOWN0#defineCIRCUIT_T_BROADCAST1#defineCIRCUIT_T_
+P2P2#defineCIRCUIT_T_LOOPBACK3intcirc_type;/*typeofthephysicalinterface*/intcirc
+_type_config;/*configtypeofthephysicalinterface*/union{structisis_bcast_infobc;s
+tructisis_p2p_infop2p;}u;uint8_tpriority[2];/*l1/2ISconfiguredpriority*/intpad_h
+ellos;/*addpaddingtoHelloPDUs?*/charext_domain;/*externalDomain(boolean)*/intlsp
+_regenerate_pending[ISIS_LEVELS];/**Configurables*/structisis_passwdpasswd;/*Cir
+cuitrx/txpassword*/intis_type;/*circuitistype==levelofcircuit*differentiatedfrom
+circuittype(media)*/uint32_thello_interval[2];/*l1HelloIntervalinmsecs*/uint16_t
+hello_multiplier[2];/*l1HelloMultiplier*/uint16_tcsnp_interval[2];/*level-1csnp-
+intervalinseconds*/uint16_tpsnp_interval[2];/*level-1psnp-intervalinseconds*/uin
+t8_tmetric[2];uint32_tte_metric[2];structmpls_te_circuit*mtc;/*SupportforMPLS-TE
+parameters-seeisis_te.[c,h]*/intip_router;/*RouteIP?*/intis_passive;/*IsPassive?
+*/structlist*mt_settings;/*IS-ISMTSettings*/structlist*ip_addrs;/*ourIPaddresses
+*/intipv6_router;/*RouteIPv6?*/structlist*ipv6_link;/*ourlinklocalIPv6addresses*
+/structlist*ipv6_non_link;/*ournon-linklocalIPv6addresses*/uint16_tupadjcount[2]
+;#defineISIS_CIRCUIT_FLAPPED_AFTER_SPF0x01uint8_tflags;booldisable_threeway_adj;
+/**Countersasin10589--11.2.5.9*/uint32_tadj_state_changes;/*changesInAdjacencySt
+ate*/uint32_tinit_failures;/*intialisationFailures*/uint32_tctrl_pdus_rxed;/*con
+trolPDUsReceived*/uint32_tctrl_pdus_txed;/*controlPDUsSent*/uint32_tdesig_change
+s[2];/*lanLxDesignatedIntermediateSystemChanges*/uint32_trej_adjacencies;/*rejec
+tedAdjacencies*/QOBJ_FIELDS};DECLARE_QOBJ_TYPE(isis_circuit)voidisis_circuit_ini
+t(void);structisis_circuit*isis_circuit_new(void);voidisis_circuit_del(structisi
+s_circuit*circuit);structisis_circuit*circuit_lookup_by_ifp(structinterface*ifp,
+structlist*list);structisis_circuit*circuit_scan_by_ifp(structinterface*ifp);voi
+disis_circuit_configure(structisis_circuit*circuit,structisis_area*area);voidisi
+s_circuit_deconfigure(structisis_circuit*circuit,structisis_area*area);voidisis_
+circuit_if_add(structisis_circuit*circuit,structinterface*ifp);voidisis_circuit_
+if_del(structisis_circuit*circuit,structinterface*ifp);voidisis_circuit_if_bind(
+structisis_circuit*circuit,structinterface*ifp);voidisis_circuit_if_unbind(struc
+tisis_circuit*circuit,structinterface*ifp);voidisis_circuit_add_addr(structisis_
+circuit*circuit,structconnected*conn);voidisis_circuit_del_addr(structisis_circu
+it*circuit,structconnected*conn);voidisis_circuit_prepare(structisis_circuit*cir
+cuit);intisis_circuit_up(structisis_circuit*circuit);voidisis_circuit_down(struc
+tisis_circuit*);voidcircuit_update_nlpids(structisis_circuit*circuit);voidisis_c
+ircuit_print_vty(structisis_circuit*circuit,structvty*vty,chardetail);size_tisis
+_circuit_pdu_size(structisis_circuit*circuit);voidisis_circuit_stream(structisis
+_circuit*circuit,structstream**stream);structisis_circuit*isis_circuit_create(st
+ructisis_area*area,structinterface*ifp);voidisis_circuit_af_set(structisis_circu
+it*circuit,boolip_router,boolipv6_router);ferr_risis_circuit_passive_set(structi
+sis_circuit*circuit,boolpassive);voidisis_circuit_is_type_set(structisis_circuit
+*circuit,intis_type);ferr_risis_circuit_circ_type_set(structisis_circuit*circuit
+,intcirc_type);ferr_risis_circuit_metric_set(structisis_circuit*circuit,intlevel
+,intmetric);ferr_risis_circuit_passwd_unset(structisis_circuit*circuit);ferr_ris
+is_circuit_passwd_cleartext_set(structisis_circuit*circuit,constchar*passwd);fer
+r_risis_circuit_passwd_hmac_md5_set(structisis_circuit*circuit,constchar*passwd)
+;intisis_circuit_mt_enabled_set(structisis_circuit*circuit,uint16_tmtid,boolenab
+led);voidisis_circuit_schedule_lsp_send(structisis_circuit*circuit);voidisis_cir
+cuit_queue_lsp(structisis_circuit*circuit,structisis_lsp*lsp);voidisis_circuit_l
+sp_queue_clean(structisis_circuit*circuit);voidisis_circuit_cancel_queued_lsp(st
+ructisis_circuit*circuit,structisis_lsp*lsp);structisis_lsp*isis_circuit_lsp_que
+ue_pop(structisis_circuit*circuit);#endif/*_ZEBRA_ISIS_CIRCUIT_H*/

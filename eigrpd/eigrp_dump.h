@@ -1,164 +1,62 @@
-/*
- * EIGRP Dump Functions and Debbuging.
- * Copyright (C) 2013-2014
- * Authors:
- *   Donnie Savage
- *   Jan Janovic
- *   Matej Perina
- *   Peter Orsag
- *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_EIGRPD_DUMP_H_
-#define _ZEBRA_EIGRPD_DUMP_H_
-
-#define EIGRP_TIME_DUMP_SIZE		16
-
-/* general debug flags */
-extern unsigned long term_debug_eigrp;
-#define EIGRP_DEBUG_EVENT		0x01
-#define EIGRP_DEBUG_DETAIL		0x02
-#define EIGRP_DEBUG_TIMERS		0x04
-
-/* neighbor debug flags */
-extern unsigned long term_debug_eigrp_nei;
-#define EIGRP_DEBUG_NEI				0x01
-
-/* packet debug flags */
-extern unsigned long term_debug_eigrp_packet[];
-#define EIGRP_DEBUG_UPDATE			0x01
-#define EIGRP_DEBUG_REQUEST			0x02
-#define EIGRP_DEBUG_QUERY			0x04
-#define EIGRP_DEBUG_REPLY			0x08
-#define EIGRP_DEBUG_HELLO			0x10
-#define EIGRP_DEBUG_PROBE			0x40
-#define EIGRP_DEBUG_ACK 			0x80
-#define EIGRP_DEBUG_SIAQUERY	    0x200
-#define EIGRP_DEBUG_SIAREPLY	    0x400
-#define EIGRP_DEBUG_STUB 			0x800
-#define EIGRP_DEBUG_PACKETS_ALL     0xfff
-
-extern unsigned long term_debug_eigrp_transmit;
-#define EIGRP_DEBUG_SEND			0x01
-#define EIGRP_DEBUG_RECV			0x02
-#define EIGRP_DEBUG_SEND_RECV		0x03
-#define EIGRP_DEBUG_PACKET_DETAIL	0x04
-
-/* zebra debug flags */
-extern unsigned long term_debug_eigrp_zebra;
-#define EIGRP_DEBUG_ZEBRA_INTERFACE	0x01
-#define EIGRP_DEBUG_ZEBRA_REDISTRIBUTE	0x02
-#define EIGRP_DEBUG_ZEBRA		0x03
-
-/* Macro for setting debug option. */
-#define CONF_DEBUG_NEI_ON(a, b)		conf_debug_eigrp_nei[a] |= (b)
-#define CONF_DEBUG_NEI_OFF(a, b)	conf_debug_eigrp_nei[a] &= ~(b)
-#define TERM_DEBUG_NEI_ON(a, b)		term_debug_eigrp_nei[a] |= (b)
-#define TERM_DEBUG_NEI_OFF(a, b)	term_debug_eigrp_nei[a] &= ~(b)
-#define DEBUG_NEI_ON(a, b)                                                     \
-	do {                                                                   \
-		CONF_DEBUG_NEI_ON(a, b);                                       \
-		TERM_DEBUG_NEI_ON(a, b);                                       \
-	} while (0)
-#define DEBUG_NEI_OFF(a, b)                                                    \
-	do {                                                                   \
-		CONF_DEBUG_NEI_OFF(a, b);                                      \
-		TERM_DEBUG_NEI_OFF(a, b);                                      \
-	} while (0)
-
-#define CONF_DEBUG_PACKET_ON(a, b)	conf_debug_eigrp_packet[a] |= (b)
-#define CONF_DEBUG_PACKET_OFF(a, b)	conf_debug_eigrp_packet[a] &= ~(b)
-#define TERM_DEBUG_PACKET_ON(a, b)	term_debug_eigrp_packet[a] |= (b)
-#define TERM_DEBUG_PACKET_OFF(a, b)	term_debug_eigrp_packet[a] &= ~(b)
-#define DEBUG_PACKET_ON(a, b)                                                  \
-	do {                                                                   \
-		CONF_DEBUG_PACKET_ON(a, b);                                    \
-		TERM_DEBUG_PACKET_ON(a, b);                                    \
-	} while (0)
-#define DEBUG_PACKET_OFF(a, b)                                                 \
-	do {                                                                   \
-		CONF_DEBUG_PACKET_OFF(a, b);                                   \
-		TERM_DEBUG_PACKET_OFF(a, b);                                   \
-	} while (0)
-
-#define CONF_DEBUG_TRANSMIT_ON(a, b)	conf_debug_eigrp_transmit |= (b)
-#define CONF_DEBUG_TRANSMIT_OFF(a, b)	conf_debug_eigrp_transmit &= ~(b)
-#define TERM_DEBUG_TRANSMIT_ON(a, b)	term_debug_eigrp_transmit |= (b)
-#define TERM_DEBUG_TRANSMIT_OFF(a, b)	term_debug_eigrp_transmit &= ~(b)
-#define DEBUG_TRANSMIT_ON(a, b)                                                \
-	do {                                                                   \
-		CONF_DEBUG_TRANSMIT_ON(a, b);                                  \
-		TERM_DEBUG_TRANSMIT_ON(a, b);                                  \
-	} while (0)
-#define DEBUG_TRANSMIT_OFF(a, b)                                               \
-	do {                                                                   \
-		CONF_DEBUG_TRANSMIT_OFF(a, b);                                 \
-		TERM_DEBUG_TRANSMIT_OFF(a, b);                                 \
-	} while (0)
-
-#define CONF_DEBUG_ON(a, b)		conf_debug_eigrp_ ## a |= (EIGRP_DEBUG_ ## b)
-#define CONF_DEBUG_OFF(a, b)		conf_debug_eigrp_ ## a &= ~(EIGRP_DEBUG_ ## b)
-#define TERM_DEBUG_ON(a, b)		term_debug_eigrp_ ## a |= (EIGRP_DEBUG_ ## b)
-#define TERM_DEBUG_OFF(a, b)		term_debug_eigrp_ ## a &= ~(EIGRP_DEBUG_ ## b)
-#define DEBUG_ON(a, b)                                                         \
-	do {                                                                   \
-		CONF_DEBUG_ON(a, b);                                           \
-		TERM_DEBUG_ON(a, b);                                           \
-	} while (0)
-#define DEBUG_OFF(a, b)                                                        \
-	do {                                                                   \
-		CONF_DEBUG_OFF(a, b);                                          \
-		TERM_DEBUG_OFF(a, b);                                          \
-	} while (0)
-
-/* Macro for checking debug option. */
-#define IS_DEBUG_EIGRP_PACKET(a, b)                                            \
-	(term_debug_eigrp_packet[a] & EIGRP_DEBUG_##b)
-#define IS_DEBUG_EIGRP_TRANSMIT(a, b)                                          \
-	(term_debug_eigrp_transmit & EIGRP_DEBUG_##b)
-#define IS_DEBUG_EIGRP_NEI(a, b) (term_debug_eigrp_nei & EIGRP_DEBUG_##b)
-#define IS_DEBUG_EIGRP(a, b) (term_debug_eigrp & EIGRP_DEBUG_##b)
-#define IS_DEBUG_EIGRP_EVENT IS_DEBUG_EIGRP(event, EVENT)
-
-/* Prototypes. */
-extern const char *eigrp_if_name_string(struct eigrp_interface *);
-extern const char *eigrp_if_ip_string(struct eigrp_interface *);
-extern const char *eigrp_neigh_ip_string(struct eigrp_neighbor *);
-extern const char *eigrp_topology_ip_string(struct eigrp_prefix_entry *);
-
-extern void eigrp_ip_header_dump(struct ip *);
-extern void eigrp_header_dump(struct eigrp_header *);
-
-extern void show_ip_eigrp_interface_header(struct vty *, struct eigrp *);
-extern void show_ip_eigrp_neighbor_header(struct vty *, struct eigrp *);
-extern void show_ip_eigrp_topology_header(struct vty *, struct eigrp *);
-extern void show_ip_eigrp_interface_detail(struct vty *, struct eigrp *,
-					   struct eigrp_interface *);
-extern void show_ip_eigrp_interface_sub(struct vty *, struct eigrp *,
-					struct eigrp_interface *);
-extern void show_ip_eigrp_neighbor_sub(struct vty *, struct eigrp_neighbor *,
-				       int);
-extern void show_ip_eigrp_prefix_entry(struct vty *,
-				       struct eigrp_prefix_entry *);
-extern void show_ip_eigrp_nexthop_entry(struct vty *, struct eigrp *,
-					struct eigrp_nexthop_entry *, int *);
-
-extern void eigrp_debug_init(void);
-
-#endif /* _ZEBRA_EIGRPD_DUMP_H_ */
+/**EIGRPDumpFunctionsandDebbuging.*Copyright(C)2013-2014*Authors:*DonnieSavage*J
+anJanovic*MatejPerina*PeterOrsag*PeterPaluch**ThisfileispartofGNUZebra.**GNUZebr
+aisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralP
+ublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouropti
+on)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndef_ZEBRA_EIGRPD_DUMP_H_#define_ZEBRA_EIGRPD_DUMP_H_#defineEIGRP_TIME_
+DUMP_SIZE16/*generaldebugflags*/externunsignedlongterm_debug_eigrp;#defineEIGRP_
+DEBUG_EVENT0x01#defineEIGRP_DEBUG_DETAIL0x02#defineEIGRP_DEBUG_TIMERS0x04/*neigh
+bordebugflags*/externunsignedlongterm_debug_eigrp_nei;#defineEIGRP_DEBUG_NEI0x01
+/*packetdebugflags*/externunsignedlongterm_debug_eigrp_packet[];#defineEIGRP_DEB
+UG_UPDATE0x01#defineEIGRP_DEBUG_REQUEST0x02#defineEIGRP_DEBUG_QUERY0x04#defineEI
+GRP_DEBUG_REPLY0x08#defineEIGRP_DEBUG_HELLO0x10#defineEIGRP_DEBUG_PROBE0x40#defi
+neEIGRP_DEBUG_ACK0x80#defineEIGRP_DEBUG_SIAQUERY0x200#defineEIGRP_DEBUG_SIAREPLY
+0x400#defineEIGRP_DEBUG_STUB0x800#defineEIGRP_DEBUG_PACKETS_ALL0xfffexternunsign
+edlongterm_debug_eigrp_transmit;#defineEIGRP_DEBUG_SEND0x01#defineEIGRP_DEBUG_RE
+CV0x02#defineEIGRP_DEBUG_SEND_RECV0x03#defineEIGRP_DEBUG_PACKET_DETAIL0x04/*zebr
+adebugflags*/externunsignedlongterm_debug_eigrp_zebra;#defineEIGRP_DEBUG_ZEBRA_I
+NTERFACE0x01#defineEIGRP_DEBUG_ZEBRA_REDISTRIBUTE0x02#defineEIGRP_DEBUG_ZEBRA0x0
+3/*Macroforsettingdebugoption.*/#defineCONF_DEBUG_NEI_ON(a,b)conf_debug_eigrp_ne
+i[a]|=(b)#defineCONF_DEBUG_NEI_OFF(a,b)conf_debug_eigrp_nei[a]&=~(b)#defineTERM_
+DEBUG_NEI_ON(a,b)term_debug_eigrp_nei[a]|=(b)#defineTERM_DEBUG_NEI_OFF(a,b)term_
+debug_eigrp_nei[a]&=~(b)#defineDEBUG_NEI_ON(a,b)\do{\CONF_DEBUG_NEI_ON(a,b);\TER
+M_DEBUG_NEI_ON(a,b);\}while(0)#defineDEBUG_NEI_OFF(a,b)\do{\CONF_DEBUG_NEI_OFF(a
+,b);\TERM_DEBUG_NEI_OFF(a,b);\}while(0)#defineCONF_DEBUG_PACKET_ON(a,b)conf_debu
+g_eigrp_packet[a]|=(b)#defineCONF_DEBUG_PACKET_OFF(a,b)conf_debug_eigrp_packet[a
+]&=~(b)#defineTERM_DEBUG_PACKET_ON(a,b)term_debug_eigrp_packet[a]|=(b)#defineTER
+M_DEBUG_PACKET_OFF(a,b)term_debug_eigrp_packet[a]&=~(b)#defineDEBUG_PACKET_ON(a,
+b)\do{\CONF_DEBUG_PACKET_ON(a,b);\TERM_DEBUG_PACKET_ON(a,b);\}while(0)#defineDEB
+UG_PACKET_OFF(a,b)\do{\CONF_DEBUG_PACKET_OFF(a,b);\TERM_DEBUG_PACKET_OFF(a,b);\}
+while(0)#defineCONF_DEBUG_TRANSMIT_ON(a,b)conf_debug_eigrp_transmit|=(b)#defineC
+ONF_DEBUG_TRANSMIT_OFF(a,b)conf_debug_eigrp_transmit&=~(b)#defineTERM_DEBUG_TRAN
+SMIT_ON(a,b)term_debug_eigrp_transmit|=(b)#defineTERM_DEBUG_TRANSMIT_OFF(a,b)ter
+m_debug_eigrp_transmit&=~(b)#defineDEBUG_TRANSMIT_ON(a,b)\do{\CONF_DEBUG_TRANSMI
+T_ON(a,b);\TERM_DEBUG_TRANSMIT_ON(a,b);\}while(0)#defineDEBUG_TRANSMIT_OFF(a,b)\
+do{\CONF_DEBUG_TRANSMIT_OFF(a,b);\TERM_DEBUG_TRANSMIT_OFF(a,b);\}while(0)#define
+CONF_DEBUG_ON(a,b)conf_debug_eigrp_##a|=(EIGRP_DEBUG_##b)#defineCONF_DEBUG_OFF(a
+,b)conf_debug_eigrp_##a&=~(EIGRP_DEBUG_##b)#defineTERM_DEBUG_ON(a,b)term_debug_e
+igrp_##a|=(EIGRP_DEBUG_##b)#defineTERM_DEBUG_OFF(a,b)term_debug_eigrp_##a&=~(EIG
+RP_DEBUG_##b)#defineDEBUG_ON(a,b)\do{\CONF_DEBUG_ON(a,b);\TERM_DEBUG_ON(a,b);\}w
+hile(0)#defineDEBUG_OFF(a,b)\do{\CONF_DEBUG_OFF(a,b);\TERM_DEBUG_OFF(a,b);\}whil
+e(0)/*Macroforcheckingdebugoption.*/#defineIS_DEBUG_EIGRP_PACKET(a,b)\(term_debu
+g_eigrp_packet[a]&EIGRP_DEBUG_##b)#defineIS_DEBUG_EIGRP_TRANSMIT(a,b)\(term_debu
+g_eigrp_transmit&EIGRP_DEBUG_##b)#defineIS_DEBUG_EIGRP_NEI(a,b)(term_debug_eigrp
+_nei&EIGRP_DEBUG_##b)#defineIS_DEBUG_EIGRP(a,b)(term_debug_eigrp&EIGRP_DEBUG_##b
+)#defineIS_DEBUG_EIGRP_EVENTIS_DEBUG_EIGRP(event,EVENT)/*Prototypes.*/externcons
+tchar*eigrp_if_name_string(structeigrp_interface*);externconstchar*eigrp_if_ip_s
+tring(structeigrp_interface*);externconstchar*eigrp_neigh_ip_string(structeigrp_
+neighbor*);externconstchar*eigrp_topology_ip_string(structeigrp_prefix_entry*);e
+xternvoideigrp_ip_header_dump(structip*);externvoideigrp_header_dump(structeigrp
+_header*);externvoidshow_ip_eigrp_interface_header(structvty*,structeigrp*);exte
+rnvoidshow_ip_eigrp_neighbor_header(structvty*,structeigrp*);externvoidshow_ip_e
+igrp_topology_header(structvty*,structeigrp*);externvoidshow_ip_eigrp_interface_
+detail(structvty*,structeigrp*,structeigrp_interface*);externvoidshow_ip_eigrp_i
+nterface_sub(structvty*,structeigrp*,structeigrp_interface*);externvoidshow_ip_e
+igrp_neighbor_sub(structvty*,structeigrp_neighbor*,int);externvoidshow_ip_eigrp_
+prefix_entry(structvty*,structeigrp_prefix_entry*);externvoidshow_ip_eigrp_nexth
+op_entry(structvty*,structeigrp*,structeigrp_nexthop_entry*,int*);externvoideigr
+p_debug_init(void);#endif/*_ZEBRA_EIGRPD_DUMP_H_*/

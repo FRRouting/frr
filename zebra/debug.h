@@ -1,85 +1,33 @@
-/*
- * Zebra debug related function
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_DEBUG_H
-#define _ZEBRA_DEBUG_H
-
-/* Debug flags. */
-#define ZEBRA_DEBUG_EVENT   0x01
-
-#define ZEBRA_DEBUG_PACKET  0x01
-#define ZEBRA_DEBUG_SEND    0x20
-#define ZEBRA_DEBUG_RECV    0x40
-#define ZEBRA_DEBUG_DETAIL  0x80
-
-#define ZEBRA_DEBUG_KERNEL  0x01
-#define ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND 0x20
-#define ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV 0x40
-
-#define ZEBRA_DEBUG_RIB     0x01
-#define ZEBRA_DEBUG_RIB_DETAILED   0x02
-
-#define ZEBRA_DEBUG_FPM     0x01
-#define ZEBRA_DEBUG_NHT     0x01
-
-#define ZEBRA_DEBUG_MPLS    0x01
-
-#define ZEBRA_DEBUG_VXLAN   0x01
-
-#define ZEBRA_DEBUG_PW      0x01
-
-/* Debug related macro. */
-#define IS_ZEBRA_DEBUG_EVENT  (zebra_debug_event & ZEBRA_DEBUG_EVENT)
-
-#define IS_ZEBRA_DEBUG_PACKET (zebra_debug_packet & ZEBRA_DEBUG_PACKET)
-#define IS_ZEBRA_DEBUG_SEND   (zebra_debug_packet & ZEBRA_DEBUG_SEND)
-#define IS_ZEBRA_DEBUG_RECV   (zebra_debug_packet & ZEBRA_DEBUG_RECV)
-#define IS_ZEBRA_DEBUG_DETAIL (zebra_debug_packet & ZEBRA_DEBUG_DETAIL)
-
-#define IS_ZEBRA_DEBUG_KERNEL (zebra_debug_kernel & ZEBRA_DEBUG_KERNEL)
-#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND                                     \
-	(zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
-#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV                                     \
-	(zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
-
-#define IS_ZEBRA_DEBUG_RIB                                                     \
-	(zebra_debug_rib & (ZEBRA_DEBUG_RIB | ZEBRA_DEBUG_RIB_DETAILED))
-#define IS_ZEBRA_DEBUG_RIB_DETAILED  (zebra_debug_rib & ZEBRA_DEBUG_RIB_DETAILED)
-
-#define IS_ZEBRA_DEBUG_FPM (zebra_debug_fpm & ZEBRA_DEBUG_FPM)
-#define IS_ZEBRA_DEBUG_NHT  (zebra_debug_nht & ZEBRA_DEBUG_NHT)
-#define IS_ZEBRA_DEBUG_MPLS  (zebra_debug_mpls & ZEBRA_DEBUG_MPLS)
-#define IS_ZEBRA_DEBUG_VXLAN (zebra_debug_vxlan & ZEBRA_DEBUG_VXLAN)
-#define IS_ZEBRA_DEBUG_PW  (zebra_debug_pw & ZEBRA_DEBUG_PW)
-
-extern unsigned long zebra_debug_event;
-extern unsigned long zebra_debug_packet;
-extern unsigned long zebra_debug_kernel;
-extern unsigned long zebra_debug_rib;
-extern unsigned long zebra_debug_fpm;
-extern unsigned long zebra_debug_nht;
-extern unsigned long zebra_debug_mpls;
-extern unsigned long zebra_debug_vxlan;
-extern unsigned long zebra_debug_pw;
-
-extern void zebra_debug_init(void);
-
-#endif /* _ZEBRA_DEBUG_H */
+/**Zebradebugrelatedfunction*Copyright(C)1999KunihiroIshiguro**ThisfileispartofG
+NUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*undertheterm
+softheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversi
+on2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillb
+euseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYor
+FITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yous
+houldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefi
+leCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,B
+oston,MA02110-1301USA*/#ifndef_ZEBRA_DEBUG_H#define_ZEBRA_DEBUG_H/*Debugflags.*/
+#defineZEBRA_DEBUG_EVENT0x01#defineZEBRA_DEBUG_PACKET0x01#defineZEBRA_DEBUG_SEND
+0x20#defineZEBRA_DEBUG_RECV0x40#defineZEBRA_DEBUG_DETAIL0x80#defineZEBRA_DEBUG_K
+ERNEL0x01#defineZEBRA_DEBUG_KERNEL_MSGDUMP_SEND0x20#defineZEBRA_DEBUG_KERNEL_MSG
+DUMP_RECV0x40#defineZEBRA_DEBUG_RIB0x01#defineZEBRA_DEBUG_RIB_DETAILED0x02#defin
+eZEBRA_DEBUG_FPM0x01#defineZEBRA_DEBUG_NHT0x01#defineZEBRA_DEBUG_MPLS0x01#define
+ZEBRA_DEBUG_VXLAN0x01#defineZEBRA_DEBUG_PW0x01/*Debugrelatedmacro.*/#defineIS_ZE
+BRA_DEBUG_EVENT(zebra_debug_event&ZEBRA_DEBUG_EVENT)#defineIS_ZEBRA_DEBUG_PACKET
+(zebra_debug_packet&ZEBRA_DEBUG_PACKET)#defineIS_ZEBRA_DEBUG_SEND(zebra_debug_pa
+cket&ZEBRA_DEBUG_SEND)#defineIS_ZEBRA_DEBUG_RECV(zebra_debug_packet&ZEBRA_DEBUG_
+RECV)#defineIS_ZEBRA_DEBUG_DETAIL(zebra_debug_packet&ZEBRA_DEBUG_DETAIL)#defineI
+S_ZEBRA_DEBUG_KERNEL(zebra_debug_kernel&ZEBRA_DEBUG_KERNEL)#defineIS_ZEBRA_DEBUG
+_KERNEL_MSGDUMP_SEND\(zebra_debug_kernel&ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)#define
+IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV\(zebra_debug_kernel&ZEBRA_DEBUG_KERNEL_MSGDUM
+P_RECV)#defineIS_ZEBRA_DEBUG_RIB\(zebra_debug_rib&(ZEBRA_DEBUG_RIB|ZEBRA_DEBUG_R
+IB_DETAILED))#defineIS_ZEBRA_DEBUG_RIB_DETAILED(zebra_debug_rib&ZEBRA_DEBUG_RIB_
+DETAILED)#defineIS_ZEBRA_DEBUG_FPM(zebra_debug_fpm&ZEBRA_DEBUG_FPM)#defineIS_ZEB
+RA_DEBUG_NHT(zebra_debug_nht&ZEBRA_DEBUG_NHT)#defineIS_ZEBRA_DEBUG_MPLS(zebra_de
+bug_mpls&ZEBRA_DEBUG_MPLS)#defineIS_ZEBRA_DEBUG_VXLAN(zebra_debug_vxlan&ZEBRA_DE
+BUG_VXLAN)#defineIS_ZEBRA_DEBUG_PW(zebra_debug_pw&ZEBRA_DEBUG_PW)externunsignedl
+ongzebra_debug_event;externunsignedlongzebra_debug_packet;externunsignedlongzebr
+a_debug_kernel;externunsignedlongzebra_debug_rib;externunsignedlongzebra_debug_f
+pm;externunsignedlongzebra_debug_nht;externunsignedlongzebra_debug_mpls;externun
+signedlongzebra_debug_vxlan;externunsignedlongzebra_debug_pw;externvoidzebra_deb
+ug_init(void);#endif/*_ZEBRA_DEBUG_H*/

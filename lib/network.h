@@ -1,44 +1,16 @@
-/*
- * Network library header.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_NETWORK_H
-#define _ZEBRA_NETWORK_H
-
-/* Both readn and writen are deprecated and will be removed.  They are not
-   suitable for use with non-blocking file descriptors.
- */
-extern int readn(int, uint8_t *, int);
-extern int writen(int, const uint8_t *, int);
-
-/* Set the file descriptor to use non-blocking I/O.  Returns 0 for success,
-   -1 on error. */
-extern int set_nonblocking(int fd);
-
-extern int set_cloexec(int fd);
-
-/* Does the I/O error indicate that the operation should be retried later? */
-#define ERRNO_IO_RETRY(EN)                                                     \
-	(((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
-
-extern float htonf(float);
-extern float ntohf(float);
-
-#endif /* _ZEBRA_NETWORK_H */
+/**Networklibraryheader.*Copyright(C)1998KunihiroIshiguro**ThisfileispartofGNUZe
+bra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoft
+heGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,
+or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuse
+ful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITN
+ESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshoul
+dhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCO
+PYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bosto
+n,MA02110-1301USA*/#ifndef_ZEBRA_NETWORK_H#define_ZEBRA_NETWORK_H/*Bothreadnandw
+ritenaredeprecatedandwillberemoved.Theyarenotsuitableforusewithnon-blockingfiled
+escriptors.*/externintreadn(int,uint8_t*,int);externintwriten(int,constuint8_t*,
+int);/*Setthefiledescriptortousenon-blockingI/O.Returns0forsuccess,-1onerror.*/e
+xternintset_nonblocking(intfd);externintset_cloexec(intfd);/*DoestheI/Oerrorindi
+catethattheoperationshouldberetriedlater?*/#defineERRNO_IO_RETRY(EN)\(((EN)==EAG
+AIN)||((EN)==EWOULDBLOCK)||((EN)==EINTR))externfloathtonf(float);externfloatntoh
+f(float);#endif/*_ZEBRA_NETWORK_H*/

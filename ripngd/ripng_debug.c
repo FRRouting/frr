@@ -1,244 +1,67 @@
-/*
- * RIPng debug output routines
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#include "command.h"
-#include "ripngd/ripng_debug.h"
-
-/* For debug statement. */
-unsigned long ripng_debug_event = 0;
-unsigned long ripng_debug_packet = 0;
-unsigned long ripng_debug_zebra = 0;
-
-DEFUN_NOSH (show_debugging_ripng,
-	    show_debugging_ripng_cmd,
-	    "show debugging [ripng]",
-	    SHOW_STR
-	    DEBUG_STR
-	    "RIPng configuration\n")
-{
-	vty_out(vty, "RIPng debugging status:\n");
-
-	if (IS_RIPNG_DEBUG_EVENT)
-		vty_out(vty, "  RIPng event debugging is on\n");
-
-	if (IS_RIPNG_DEBUG_PACKET) {
-		if (IS_RIPNG_DEBUG_SEND && IS_RIPNG_DEBUG_RECV) {
-			vty_out(vty, "  RIPng packet debugging is on\n");
-		} else {
-			if (IS_RIPNG_DEBUG_SEND)
-				vty_out(vty,
-					"  RIPng packet send debugging is on\n");
-			else
-				vty_out(vty,
-					"  RIPng packet receive debugging is on\n");
-		}
-	}
-
-	if (IS_RIPNG_DEBUG_ZEBRA)
-		vty_out(vty, "  RIPng zebra debugging is on\n");
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_ripng_events,
-       debug_ripng_events_cmd,
-       "debug ripng events",
-       DEBUG_STR
-       "RIPng configuration\n"
-       "Debug option set for ripng events\n")
-{
-	ripng_debug_event = RIPNG_DEBUG_EVENT;
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_ripng_packet,
-       debug_ripng_packet_cmd,
-       "debug ripng packet",
-       DEBUG_STR
-       "RIPng configuration\n"
-       "Debug option set for ripng packet\n")
-{
-	ripng_debug_packet = RIPNG_DEBUG_PACKET;
-	ripng_debug_packet |= RIPNG_DEBUG_SEND;
-	ripng_debug_packet |= RIPNG_DEBUG_RECV;
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_ripng_packet_direct,
-       debug_ripng_packet_direct_cmd,
-       "debug ripng packet <recv|send>",
-       DEBUG_STR
-       "RIPng configuration\n"
-       "Debug option set for ripng packet\n"
-       "Debug option set for receive packet\n"
-       "Debug option set for send packet\n")
-{
-	int idx_recv_send = 3;
-	ripng_debug_packet |= RIPNG_DEBUG_PACKET;
-	if (strcmp("send", argv[idx_recv_send]->text) == 0)
-		ripng_debug_packet |= RIPNG_DEBUG_SEND;
-	if (strcmp("recv", argv[idx_recv_send]->text) == 0)
-		ripng_debug_packet |= RIPNG_DEBUG_RECV;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_ripng_zebra,
-       debug_ripng_zebra_cmd,
-       "debug ripng zebra",
-       DEBUG_STR
-       "RIPng configuration\n"
-       "Debug option set for ripng and zebra communication\n")
-{
-	ripng_debug_zebra = RIPNG_DEBUG_ZEBRA;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ripng_events,
-       no_debug_ripng_events_cmd,
-       "no debug ripng events",
-       NO_STR
-       DEBUG_STR
-       "RIPng configuration\n"
-       "Debug option set for ripng events\n")
-{
-	ripng_debug_event = 0;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ripng_packet,
-       no_debug_ripng_packet_cmd,
-       "no debug ripng packet",
-       NO_STR
-       DEBUG_STR
-       "RIPng configuration\n"
-       "Debug option set for ripng packet\n")
-{
-	ripng_debug_packet = 0;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ripng_packet_direct,
-       no_debug_ripng_packet_direct_cmd,
-       "no debug ripng packet <recv|send>",
-       NO_STR
-       DEBUG_STR
-       "RIPng configuration\n"
-       "Debug option set for ripng packet\n"
-       "Debug option set for receive packet\n"
-       "Debug option set for send packet\n")
-{
-	int idx_recv_send = 4;
-	if (strcmp("send", argv[idx_recv_send]->text) == 0) {
-		if (IS_RIPNG_DEBUG_RECV)
-			ripng_debug_packet &= ~RIPNG_DEBUG_SEND;
-		else
-			ripng_debug_packet = 0;
-	} else if (strcmp("recv", argv[idx_recv_send]->text) == 0) {
-		if (IS_RIPNG_DEBUG_SEND)
-			ripng_debug_packet &= ~RIPNG_DEBUG_RECV;
-		else
-			ripng_debug_packet = 0;
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ripng_zebra,
-       no_debug_ripng_zebra_cmd,
-       "no debug ripng zebra",
-       NO_STR
-       DEBUG_STR
-       "RIPng configuration\n"
-       "Debug option set for ripng and zebra communication\n")
-{
-	ripng_debug_zebra = 0;
-	return CMD_SUCCESS;
-}
-
-/* Debug node. */
-static struct cmd_node debug_node = {
-	DEBUG_NODE, "", /* Debug node has no interface. */
-	1		/* VTYSH */
-};
-
-static int config_write_debug(struct vty *vty)
-{
-	int write = 0;
-
-	if (IS_RIPNG_DEBUG_EVENT) {
-		vty_out(vty, "debug ripng events\n");
-		write++;
-	}
-	if (IS_RIPNG_DEBUG_PACKET) {
-		if (IS_RIPNG_DEBUG_SEND && IS_RIPNG_DEBUG_RECV) {
-			vty_out(vty, "debug ripng packet\n");
-			write++;
-		} else {
-			if (IS_RIPNG_DEBUG_SEND)
-				vty_out(vty, "debug ripng packet send\n");
-			else
-				vty_out(vty, "debug ripng packet recv\n");
-			write++;
-		}
-	}
-	if (IS_RIPNG_DEBUG_ZEBRA) {
-		vty_out(vty, "debug ripng zebra\n");
-		write++;
-	}
-	return write;
-}
-
-void ripng_debug_reset()
-{
-	ripng_debug_event = 0;
-	ripng_debug_packet = 0;
-	ripng_debug_zebra = 0;
-}
-
-void ripng_debug_init()
-{
-	ripng_debug_event = 0;
-	ripng_debug_packet = 0;
-	ripng_debug_zebra = 0;
-
-	install_node(&debug_node, config_write_debug);
-
-	install_element(VIEW_NODE, &show_debugging_ripng_cmd);
-
-	install_element(ENABLE_NODE, &debug_ripng_events_cmd);
-	install_element(ENABLE_NODE, &debug_ripng_packet_cmd);
-	install_element(ENABLE_NODE, &debug_ripng_packet_direct_cmd);
-	install_element(ENABLE_NODE, &debug_ripng_zebra_cmd);
-	install_element(ENABLE_NODE, &no_debug_ripng_events_cmd);
-	install_element(ENABLE_NODE, &no_debug_ripng_packet_cmd);
-	install_element(ENABLE_NODE, &no_debug_ripng_packet_direct_cmd);
-	install_element(ENABLE_NODE, &no_debug_ripng_zebra_cmd);
-
-	install_element(CONFIG_NODE, &debug_ripng_events_cmd);
-	install_element(CONFIG_NODE, &debug_ripng_packet_cmd);
-	install_element(CONFIG_NODE, &debug_ripng_packet_direct_cmd);
-	install_element(CONFIG_NODE, &debug_ripng_zebra_cmd);
-	install_element(CONFIG_NODE, &no_debug_ripng_events_cmd);
-	install_element(CONFIG_NODE, &no_debug_ripng_packet_cmd);
-	install_element(CONFIG_NODE, &no_debug_ripng_packet_direct_cmd);
-	install_element(CONFIG_NODE, &no_debug_ripng_zebra_cmd);
-}
+/**RIPngdebugoutputroutines*Copyright(C)1998KunihiroIshiguro**ThisfileispartofGN
+UZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*undertheterms
+oftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversio
+n2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbe
+useful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorF
+ITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yoush
+ouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefil
+eCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bo
+ston,MA02110-1301USA*/#include<zebra.h>#include"command.h"#include"ripngd/ripng_
+debug.h"/*Fordebugstatement.*/unsignedlongripng_debug_event=0;unsignedlongripng_
+debug_packet=0;unsignedlongripng_debug_zebra=0;DEFUN_NOSH(show_debugging_ripng,s
+how_debugging_ripng_cmd,"showdebugging[ripng]",SHOW_STRDEBUG_STR"RIPngconfigurat
+ion\n"){vty_out(vty,"RIPngdebuggingstatus:\n");if(IS_RIPNG_DEBUG_EVENT)vty_out(v
+ty,"RIPngeventdebuggingison\n");if(IS_RIPNG_DEBUG_PACKET){if(IS_RIPNG_DEBUG_SEND
+&&IS_RIPNG_DEBUG_RECV){vty_out(vty,"RIPngpacketdebuggingison\n");}else{if(IS_RIP
+NG_DEBUG_SEND)vty_out(vty,"RIPngpacketsenddebuggingison\n");elsevty_out(vty,"RIP
+ngpacketreceivedebuggingison\n");}}if(IS_RIPNG_DEBUG_ZEBRA)vty_out(vty,"RIPngzeb
+radebuggingison\n");returnCMD_SUCCESS;}DEFUN(debug_ripng_events,debug_ripng_even
+ts_cmd,"debugripngevents",DEBUG_STR"RIPngconfiguration\n""Debugoptionsetforripng
+events\n"){ripng_debug_event=RIPNG_DEBUG_EVENT;returnCMD_SUCCESS;}DEFUN(debug_ri
+png_packet,debug_ripng_packet_cmd,"debugripngpacket",DEBUG_STR"RIPngconfiguratio
+n\n""Debugoptionsetforripngpacket\n"){ripng_debug_packet=RIPNG_DEBUG_PACKET;ripn
+g_debug_packet|=RIPNG_DEBUG_SEND;ripng_debug_packet|=RIPNG_DEBUG_RECV;returnCMD_
+SUCCESS;}DEFUN(debug_ripng_packet_direct,debug_ripng_packet_direct_cmd,"debugrip
+ngpacket<recv|send>",DEBUG_STR"RIPngconfiguration\n""Debugoptionsetforripngpacke
+t\n""Debugoptionsetforreceivepacket\n""Debugoptionsetforsendpacket\n"){intidx_re
+cv_send=3;ripng_debug_packet|=RIPNG_DEBUG_PACKET;if(strcmp("send",argv[idx_recv_
+send]->text)==0)ripng_debug_packet|=RIPNG_DEBUG_SEND;if(strcmp("recv",argv[idx_r
+ecv_send]->text)==0)ripng_debug_packet|=RIPNG_DEBUG_RECV;returnCMD_SUCCESS;}DEFU
+N(debug_ripng_zebra,debug_ripng_zebra_cmd,"debugripngzebra",DEBUG_STR"RIPngconfi
+guration\n""Debugoptionsetforripngandzebracommunication\n"){ripng_debug_zebra=RI
+PNG_DEBUG_ZEBRA;returnCMD_SUCCESS;}DEFUN(no_debug_ripng_events,no_debug_ripng_ev
+ents_cmd,"nodebugripngevents",NO_STRDEBUG_STR"RIPngconfiguration\n""Debugoptions
+etforripngevents\n"){ripng_debug_event=0;returnCMD_SUCCESS;}DEFUN(no_debug_ripng
+_packet,no_debug_ripng_packet_cmd,"nodebugripngpacket",NO_STRDEBUG_STR"RIPngconf
+iguration\n""Debugoptionsetforripngpacket\n"){ripng_debug_packet=0;returnCMD_SUC
+CESS;}DEFUN(no_debug_ripng_packet_direct,no_debug_ripng_packet_direct_cmd,"nodeb
+ugripngpacket<recv|send>",NO_STRDEBUG_STR"RIPngconfiguration\n""Debugoptionsetfo
+rripngpacket\n""Debugoptionsetforreceivepacket\n""Debugoptionsetforsendpacket\n"
+){intidx_recv_send=4;if(strcmp("send",argv[idx_recv_send]->text)==0){if(IS_RIPNG
+_DEBUG_RECV)ripng_debug_packet&=~RIPNG_DEBUG_SEND;elseripng_debug_packet=0;}else
+if(strcmp("recv",argv[idx_recv_send]->text)==0){if(IS_RIPNG_DEBUG_SEND)ripng_deb
+ug_packet&=~RIPNG_DEBUG_RECV;elseripng_debug_packet=0;}returnCMD_SUCCESS;}DEFUN(
+no_debug_ripng_zebra,no_debug_ripng_zebra_cmd,"nodebugripngzebra",NO_STRDEBUG_ST
+R"RIPngconfiguration\n""Debugoptionsetforripngandzebracommunication\n"){ripng_de
+bug_zebra=0;returnCMD_SUCCESS;}/*Debugnode.*/staticstructcmd_nodedebug_node={DEB
+UG_NODE,"",/*Debugnodehasnointerface.*/1/*VTYSH*/};staticintconfig_write_debug(s
+tructvty*vty){intwrite=0;if(IS_RIPNG_DEBUG_EVENT){vty_out(vty,"debugripngevents\
+n");write++;}if(IS_RIPNG_DEBUG_PACKET){if(IS_RIPNG_DEBUG_SEND&&IS_RIPNG_DEBUG_RE
+CV){vty_out(vty,"debugripngpacket\n");write++;}else{if(IS_RIPNG_DEBUG_SEND)vty_o
+ut(vty,"debugripngpacketsend\n");elsevty_out(vty,"debugripngpacketrecv\n");write
+++;}}if(IS_RIPNG_DEBUG_ZEBRA){vty_out(vty,"debugripngzebra\n");write++;}returnwr
+ite;}voidripng_debug_reset(){ripng_debug_event=0;ripng_debug_packet=0;ripng_debu
+g_zebra=0;}voidripng_debug_init(){ripng_debug_event=0;ripng_debug_packet=0;ripng
+_debug_zebra=0;install_node(&debug_node,config_write_debug);install_element(VIEW
+_NODE,&show_debugging_ripng_cmd);install_element(ENABLE_NODE,&debug_ripng_events
+_cmd);install_element(ENABLE_NODE,&debug_ripng_packet_cmd);install_element(ENABL
+E_NODE,&debug_ripng_packet_direct_cmd);install_element(ENABLE_NODE,&debug_ripng_
+zebra_cmd);install_element(ENABLE_NODE,&no_debug_ripng_events_cmd);install_eleme
+nt(ENABLE_NODE,&no_debug_ripng_packet_cmd);install_element(ENABLE_NODE,&no_debug
+_ripng_packet_direct_cmd);install_element(ENABLE_NODE,&no_debug_ripng_zebra_cmd)
+;install_element(CONFIG_NODE,&debug_ripng_events_cmd);install_element(CONFIG_NOD
+E,&debug_ripng_packet_cmd);install_element(CONFIG_NODE,&debug_ripng_packet_direc
+t_cmd);install_element(CONFIG_NODE,&debug_ripng_zebra_cmd);install_element(CONFI
+G_NODE,&no_debug_ripng_events_cmd);install_element(CONFIG_NODE,&no_debug_ripng_p
+acket_cmd);install_element(CONFIG_NODE,&no_debug_ripng_packet_direct_cmd);instal
+l_element(CONFIG_NODE,&no_debug_ripng_zebra_cmd);}

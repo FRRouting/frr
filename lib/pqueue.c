@@ -1,187 +1,54 @@
-/* Priority queue functions.
- * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "memory.h"
-#include "pqueue.h"
-
-DEFINE_MTYPE_STATIC(LIB, PQUEUE, "Priority queue")
-DEFINE_MTYPE_STATIC(LIB, PQUEUE_DATA, "Priority queue data")
-
-/* priority queue using heap sort */
-
-/* pqueue->cmp() controls the order of sorting (i.e, ascending or
-   descending). If you want the left node to move upper of the heap
-   binary tree, make cmp() to return less than 0.  for example, if cmp
-   (10, 20) returns -1, the sorting is ascending order. if cmp (10,
-   20) returns 1, the sorting is descending order. if cmp (10, 20)
-   returns 0, this library does not do sorting (which will not be what
-   you want).  To be brief, if the contents of cmp_func (left, right)
-   is left - right, dequeue () returns the smallest node.  Otherwise
-   (if the contents is right - left), dequeue () returns the largest
-   node.  */
-
-#define DATA_SIZE (sizeof (void *))
-#define PARENT_OF(x) ((x - 1) / 2)
-#define LEFT_OF(x)  (2 * x + 1)
-#define RIGHT_OF(x) (2 * x + 2)
-#define HAVE_CHILD(x,q) (x < (q)->size / 2)
-
-void trickle_up(int index, struct pqueue *queue)
-{
-	void *tmp;
-
-	/* Save current node as tmp node.  */
-	tmp = queue->array[index];
-
-	/* Continue until the node reaches top or the place where the parent
-	   node should be upper than the tmp node.  */
-	while (index > 0
-	       && (*queue->cmp)(tmp, queue->array[PARENT_OF(index)]) < 0) {
-		/* actually trickle up */
-		queue->array[index] = queue->array[PARENT_OF(index)];
-		if (queue->update != NULL)
-			(*queue->update)(queue->array[index], index);
-		index = PARENT_OF(index);
-	}
-
-	/* Restore the tmp node to appropriate place.  */
-	queue->array[index] = tmp;
-	if (queue->update != NULL)
-		(*queue->update)(tmp, index);
-}
-
-void trickle_down(int index, struct pqueue *queue)
-{
-	void *tmp;
-	int which;
-
-	/* Save current node as tmp node.  */
-	tmp = queue->array[index];
-
-	/* Continue until the node have at least one (left) child.  */
-	while (HAVE_CHILD(index, queue)) {
-		/* If right child exists, and if the right child is more proper
-		   to be moved upper.  */
-		if (RIGHT_OF(index) < queue->size
-		    && (*queue->cmp)(queue->array[LEFT_OF(index)],
-				     queue->array[RIGHT_OF(index)])
-			       > 0)
-			which = RIGHT_OF(index);
-		else
-			which = LEFT_OF(index);
-
-		/* If the tmp node should be upper than the child, break.  */
-		if ((*queue->cmp)(queue->array[which], tmp) > 0)
-			break;
-
-		/* Actually trickle down the tmp node.  */
-		queue->array[index] = queue->array[which];
-		if (queue->update != NULL)
-			(*queue->update)(queue->array[index], index);
-		index = which;
-	}
-
-	/* Restore the tmp node to appropriate place.  */
-	queue->array[index] = tmp;
-	if (queue->update != NULL)
-		(*queue->update)(tmp, index);
-}
-
-struct pqueue *pqueue_create(void)
-{
-	struct pqueue *queue;
-
-	queue = XCALLOC(MTYPE_PQUEUE, sizeof(struct pqueue));
-
-	queue->array =
-		XCALLOC(MTYPE_PQUEUE_DATA, DATA_SIZE * PQUEUE_INIT_ARRAYSIZE);
-	queue->array_size = PQUEUE_INIT_ARRAYSIZE;
-
-	/* By default we want nothing to happen when a node changes. */
-	queue->update = NULL;
-	return queue;
-}
-
-void pqueue_delete(struct pqueue *queue)
-{
-	XFREE(MTYPE_PQUEUE_DATA, queue->array);
-	XFREE(MTYPE_PQUEUE, queue);
-}
-
-static int pqueue_expand(struct pqueue *queue)
-{
-	void **newarray;
-
-	newarray =
-		XCALLOC(MTYPE_PQUEUE_DATA, queue->array_size * DATA_SIZE * 2);
-	if (newarray == NULL)
-		return 0;
-
-	memcpy(newarray, queue->array, queue->array_size * DATA_SIZE);
-
-	XFREE(MTYPE_PQUEUE_DATA, queue->array);
-	queue->array = newarray;
-	queue->array_size *= 2;
-
-	return 1;
-}
-
-void pqueue_enqueue(void *data, struct pqueue *queue)
-{
-	if (queue->size + 2 >= queue->array_size && !pqueue_expand(queue))
-		return;
-
-	queue->array[queue->size] = data;
-	if (queue->update != NULL)
-		(*queue->update)(data, queue->size);
-	trickle_up(queue->size, queue);
-	queue->size++;
-}
-
-void *pqueue_dequeue(struct pqueue *queue)
-{
-	void *data = queue->array[0];
-	queue->array[0] = queue->array[--queue->size];
-	trickle_down(0, queue);
-	return data;
-}
-
-void pqueue_remove_at(int index, struct pqueue *queue)
-{
-	queue->array[index] = queue->array[--queue->size];
-
-	if (index > 0
-	    && (*queue->cmp)(queue->array[index],
-			     queue->array[PARENT_OF(index)])
-		       < 0) {
-		trickle_up(index, queue);
-	} else {
-		trickle_down(index, queue);
-	}
-}
-
-void pqueue_remove(void *data, struct pqueue *queue)
-{
-	for (int i = 0; i < queue->size; i++)
-		if (queue->array[i] == data)
-			pqueue_remove_at(i, queue);
-}
+/*Priorityqueuefunctions.*Copyright(C)2003YasuhiroOhara**ThisfileispartofGNUZebr
+a.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itunderthetermsofthe
+GNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversion2,or
+(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatitwillbeusefu
+l,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNES
+SFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldh
+avereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPY
+ING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,
+MA02110-1301USA*/#include<zebra.h>#include"memory.h"#include"pqueue.h"DEFINE_MTY
+PE_STATIC(LIB,PQUEUE,"Priorityqueue")DEFINE_MTYPE_STATIC(LIB,PQUEUE_DATA,"Priori
+tyqueuedata")/*priorityqueueusingheapsort*//*pqueue->cmp()controlstheorderofsort
+ing(i.e,ascendingordescending).Ifyouwanttheleftnodetomoveupperoftheheapbinarytre
+e,makecmp()toreturnlessthan0.forexample,ifcmp(10,20)returns-1,thesortingisascend
+ingorder.ifcmp(10,20)returns1,thesortingisdescendingorder.ifcmp(10,20)returns0,t
+hislibrarydoesnotdosorting(whichwillnotbewhatyouwant).Tobebrief,ifthecontentsofc
+mp_func(left,right)isleft-right,dequeue()returnsthesmallestnode.Otherwise(ifthec
+ontentsisright-left),dequeue()returnsthelargestnode.*/#defineDATA_SIZE(sizeof(vo
+id*))#definePARENT_OF(x)((x-1)/2)#defineLEFT_OF(x)(2*x+1)#defineRIGHT_OF(x)(2*x+
+2)#defineHAVE_CHILD(x,q)(x<(q)->size/2)voidtrickle_up(intindex,structpqueue*queu
+e){void*tmp;/*Savecurrentnodeastmpnode.*/tmp=queue->array[index];/*Continueuntil
+thenodereachestoportheplacewheretheparentnodeshouldbeupperthanthetmpnode.*/while
+(index>0&&(*queue->cmp)(tmp,queue->array[PARENT_OF(index)])<0){/*actuallytrickle
+up*/queue->array[index]=queue->array[PARENT_OF(index)];if(queue->update!=NULL)(*
+queue->update)(queue->array[index],index);index=PARENT_OF(index);}/*Restorethetm
+pnodetoappropriateplace.*/queue->array[index]=tmp;if(queue->update!=NULL)(*queue
+->update)(tmp,index);}voidtrickle_down(intindex,structpqueue*queue){void*tmp;int
+which;/*Savecurrentnodeastmpnode.*/tmp=queue->array[index];/*Continueuntilthenod
+ehaveatleastone(left)child.*/while(HAVE_CHILD(index,queue)){/*Ifrightchildexists
+,andiftherightchildismorepropertobemovedupper.*/if(RIGHT_OF(index)<queue->size&&
+(*queue->cmp)(queue->array[LEFT_OF(index)],queue->array[RIGHT_OF(index)])>0)whic
+h=RIGHT_OF(index);elsewhich=LEFT_OF(index);/*Ifthetmpnodeshouldbeupperthanthechi
+ld,break.*/if((*queue->cmp)(queue->array[which],tmp)>0)break;/*Actuallytrickledo
+wnthetmpnode.*/queue->array[index]=queue->array[which];if(queue->update!=NULL)(*
+queue->update)(queue->array[index],index);index=which;}/*Restorethetmpnodetoappr
+opriateplace.*/queue->array[index]=tmp;if(queue->update!=NULL)(*queue->update)(t
+mp,index);}structpqueue*pqueue_create(void){structpqueue*queue;queue=XCALLOC(MTY
+PE_PQUEUE,sizeof(structpqueue));queue->array=XCALLOC(MTYPE_PQUEUE_DATA,DATA_SIZE
+*PQUEUE_INIT_ARRAYSIZE);queue->array_size=PQUEUE_INIT_ARRAYSIZE;/*Bydefaultwewan
+tnothingtohappenwhenanodechanges.*/queue->update=NULL;returnqueue;}voidpqueue_de
+lete(structpqueue*queue){XFREE(MTYPE_PQUEUE_DATA,queue->array);XFREE(MTYPE_PQUEU
+E,queue);}staticintpqueue_expand(structpqueue*queue){void**newarray;newarray=XCA
+LLOC(MTYPE_PQUEUE_DATA,queue->array_size*DATA_SIZE*2);if(newarray==NULL)return0;
+memcpy(newarray,queue->array,queue->array_size*DATA_SIZE);XFREE(MTYPE_PQUEUE_DAT
+A,queue->array);queue->array=newarray;queue->array_size*=2;return1;}voidpqueue_e
+nqueue(void*data,structpqueue*queue){if(queue->size+2>=queue->array_size&&!pqueu
+e_expand(queue))return;queue->array[queue->size]=data;if(queue->update!=NULL)(*q
+ueue->update)(data,queue->size);trickle_up(queue->size,queue);queue->size++;}voi
+d*pqueue_dequeue(structpqueue*queue){void*data=queue->array[0];queue->array[0]=q
+ueue->array[--queue->size];trickle_down(0,queue);returndata;}voidpqueue_remove_a
+t(intindex,structpqueue*queue){queue->array[index]=queue->array[--queue->size];i
+f(index>0&&(*queue->cmp)(queue->array[index],queue->array[PARENT_OF(index)])<0){
+trickle_up(index,queue);}else{trickle_down(index,queue);}}voidpqueue_remove(void
+*data,structpqueue*queue){for(inti=0;i<queue->size;i++)if(queue->array[i]==data)
+pqueue_remove_at(i,queue);}

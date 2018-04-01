@@ -1,458 +1,162 @@
-/*
- * EIGRP Definition of Constants.
- * Copyright (C) 2013-2016
- * Authors:
- *   Donnie Savage
- *   Jan Janovic
- *   Matej Perina
- *   Peter Orsag
- *   Peter Paluch
- *   Frantisek Gazo
- *   Tomas Hvorkovy
- *   Martin Kontsek
- *   Lukas Koribsky
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_EIGRP_CONST_H_
-#define _ZEBRA_EIGRP_CONST_H_
-
-#define FALSE 0
-
-#define EIGRP_NEIGHBOR_DOWN           0
-#define EIGRP_NEIGHBOR_PENDING        1
-#define EIGRP_NEIGHBOR_UP             2
-#define EIGRP_NEIGHBOR_STATE_MAX      3
-
-/*Packet requiring ack will be retransmitted again after this time*/
-#define EIGRP_PACKET_RETRANS_TIME        2 /* in seconds */
-#define EIGRP_PACKET_RETRANS_MAX         16 /* number of retrans attempts */
-#define PLAINTEXT_LENGTH                 81
-
-/*Metric variance multiplier*/
-#define EIGRP_VARIANCE_DEFAULT  1
-#define EIGRP_MAX_PATHS_DEFAULT 4
-
-/* Return values of functions involved in packet verification */
-#define MSG_OK    0
-#define MSG_NG    1
-
-#define EIGRP_HEADER_VERSION            2
-
-/* Default protocol, port number. */
-#ifndef IPPROTO_EIGRPIGP
-#define IPPROTO_EIGRPIGP         88
-#endif /* IPPROTO_EIGRPIGP */
-
-#define EIGRP_AUTH_MD5_TLV_SIZE          40
-#define EIGRP_AUTH_SHA256_TLV_SIZE          56
-
-/*Cisco routers use only first 44 bytes of basic hello for their MD5
- * calculations*/
-#define EIGRP_MD5_BASIC_COMPUTE       44
-#define EIGRP_MD5_UPDATE_INIT_COMPUTE       40
-
-#define EIGRP_AUTH_BASIC_HELLO_FLAG       0x01
-#define EIGRP_AUTH_TID_HELLO_FLAG       0x02
-#define EIGRP_AUTH_UPDATE_INIT_FLAG       0x04
-#define EIGRP_AUTH_UPDATE_FLAG            0x08
-#define EIGRP_AUTH_EXTRA_SALT_FLAG        0x10
-
-#define EIGRP_NEXT_SEQUENCE_TLV_SIZE     8
-
-/* IP TTL for EIGRP protocol. */
-#define EIGRP_IP_TTL             1
-
-/* VTY port number. */
-#define EIGRP_VTY_PORT          2613
-
-/* Default configuration file name for eigrp. */
-#define EIGRP_DEFAULT_CONFIG   "eigrpd.conf"
-
-#define EIGRP_HELLO_INTERVAL_DEFAULT        5
-#define EIGRP_HOLD_INTERVAL_DEFAULT         15
-#define EIGRP_BANDWIDTH_DEFAULT             100000
-#define EIGRP_DELAY_DEFAULT                 10
-#define EIGRP_RELIABILITY_DEFAULT           255
-#define EIGRP_LOAD_DEFAULT                  1
-
-#define EIGRP_MULTICAST_ADDRESS            0xe000000A /*224.0.0.10*/
-
-#define EIGRP_MAX_METRIC                   0xffffffffU    /*4294967295*/
-enum metric_change { METRIC_DECREASE, METRIC_SAME, METRIC_INCREASE };
-
-#define DEFAULT_ROUTE               ZEBRA_ROUTE_MAX
-#define DEFAULT_ROUTE_TYPE(T) ((T) == DEFAULT_ROUTE)
-
-#define INTERFACE_DOWN_BY_ZEBRA       1
-#define INTERFACE_DOWN_BY_VTY         2
-#define INTERFACE_DOWN_BY_FINAL       3
-
-#define EIGRP_HELLO_NORMAL                    0x00
-#define EIGRP_HELLO_GRACEFUL_SHUTDOWN         0x01
-#define EIGRP_HELLO_ADD_SEQUENCE              0x02
-#define EIGRP_HELLO_GRACEFUL_SHUTDOWN_NBR     0x04
-
-/* EIGRP Network Type. */
-#define EIGRP_IFTYPE_NONE 0
-#define EIGRP_IFTYPE_POINTOPOINT 1
-#define EIGRP_IFTYPE_BROADCAST 2
-#define EIGRP_IFTYPE_NBMA 3
-#define EIGRP_IFTYPE_POINTOMULTIPOINT 4
-#define EIGRP_IFTYPE_LOOPBACK 5
-#define EIGRP_IFTYPE_MAX 6
-
-#define EIGRP_IF_ACTIVE                  0
-#define EIGRP_IF_PASSIVE                 1
-
-/* EIGRP TT destination type */
-#define EIGRP_TOPOLOGY_TYPE_CONNECTED           0 // Connected network
-#define EIGRP_TOPOLOGY_TYPE_REMOTE              1 // Remote internal network
-#define EIGRP_TOPOLOGY_TYPE_REMOTE_EXTERNAL     2 // Remote external network
-
-/*EIGRP TT entry flags*/
-#define EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG     (1 << 0)
-#define EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG    (1 << 1)
-#define EIGRP_NEXTHOP_ENTRY_INTABLE_FLAG       (1 << 2)
-#define EIGRP_NEXTHOP_ENTRY_EXTERNAL_FLAG      (1 << 3)
-
-/*EIGRP FSM state count, event count*/
-#define EIGRP_FSM_STATE_MAX                  5
-#define EIGRP_FSM_EVENT_MAX                  16
-
-/*EEGRP FSM states*/
-enum eigrp_fsm_states {
-	EIGRP_FSM_STATE_PASSIVE,
-	EIGRP_FSM_STATE_ACTIVE_0,
-	EIGRP_FSM_STATE_ACTIVE_1,
-	EIGRP_FSM_STATE_ACTIVE_2,
-	EIGRP_FSM_STATE_ACTIVE_3,
-};
-
-/*EIGRP FSM events return values*/
-#define EIGRP_FSM_NEED_UPDATE				1
-#define EIGRP_FSM_NEED_QUERY				2
-
-/*EIGRP FSM events*/
-enum eigrp_fsm_events {
-	/*
-	 * Input event other than query from succ,
-	 * FC is not satisified
-	 */
-	EIGRP_FSM_EVENT_NQ_FCN,
-
-	/* last reply, FD is reset */
-	EIGRP_FSM_EVENT_LR,
-
-	/* Query from succ, FC not satisfied */
-	EIGRP_FSM_EVENT_Q_FCN,
-
-	/* last reply, FC satisifed with current value of FDij */
-	EIGRP_FSM_EVENT_LR_FCS,
-
-	/* distance increase while in a active state */
-	EIGRP_FSM_EVENT_DINC,
-
-	/* Query from succ while in active state */
-	EIGRP_FSM_EVENT_QACT,
-
-	/* last reply, FC not satisified */
-	EIGRP_FSM_EVENT_LR_FCN,
-
-	/*
-	 * state not changed
-	 * usually by receiving not last reply
-	 */
-	EIGRP_FSM_KEEP_STATE,
-};
-
-/**
- * External routes originate from some other protocol - these are them
- */
-#define NULL_PROTID		0		/*!< unknown protocol */
-#define IGRP_PROTID		1		/*!< IGRP.. whos your daddy! */
-#define EIGRP_PROTID		2		/*!< EIGRP - Just flat out the best */
-#define STATIC_PROTID		3		/*!< Staticly configured source */
-#define RIP_PROTID		4		/*!< Routing Information Protocol */
-#define HELLO_PROTID		5		/*!< Hello? RFC-891 you there? */
-#define OSPF_PROTID		6		/*!< OSPF - Open Shortest Path First */
-#define ISIS_PROTID		7		/*!< Intermediate System To Intermediate System */
-#define EGP_PROTID		8		/*!< Exterior Gateway Protocol */
-#define BGP_PROTID		9		/*!< Border Gateway Protocol */
-#define IDRP_PROTID		10		/*!< InterDomain Routing Protocol */
-#define CONN_PROTID		11		/*!< Connected source */
-
-/*
- * metric k-value defaults
- */
-#define EIGRP_K1_DEFAULT	1		//!< unweighed inverse bandwidth
-#define EIGRP_K2_DEFAULT	0		//!< no loading term
-#define EIGRP_K3_DEFAULT	1		//!< unweighted delay
-#define EIGRP_K4_DEFAULT	0		//!< no reliability term
-#define EIGRP_K5_DEFAULT	0		//!< no reliability term
-#define EIGRP_K6_DEFAULT	0		//!< do not add in extended metrics
-
-/*
- * EIGRP Fixed header
- */
-#define EIGRP_HEADER_LEN        20U
-#define EIGRP_PACKET_MAX_LEN    65535U   /* includes IP Header size. */
-
-#define EIGRP_TLV_HDR_LENGTH    4
-
-/**
- * EIGRP Packet Opcodes
- */
-#define EIGRP_OPC_UPDATE        1       /*!< packet containing routing information */
-#define EIGRP_OPC_REQUEST       2       /*!< sent to request one or more routes */
-#define EIGRP_OPC_QUERY         3       /*!< sent when a routing is in active start */
-#define EIGRP_OPC_REPLY         4       /*!< sent in response to a query */
-#define EIGRP_OPC_HELLO         5       /*!< sent to maintain a peering session */
-#define EIGRP_OPC_IPXSAP        6       /*!< IPX SAP information */
-#define EIGRP_OPC_PROBE         7       /*!< for test purposes   */
-#define EIGRP_OPC_ACK           8       /*!< acknowledge         */
-#define EIGRP_OPC_SIAQUERY      10      /*!< QUERY - with relaxed restrictions */
-#define EIGRP_OPC_SIAREPLY      11      /*!< REPLY - may contain old routing information */
-
-/**
- * EIGRP TLV Range definitions
- *      PDM             TLV Range
- *      General         0x0000
- *      IPv4            0x0100                  ** TLVs for one and all
- *      ATALK           0x0200                  ** legacy
- *      IPX             0x0300                  ** discontinued
- *      IPv6            0x0400                  ** legacy
- *      Multiprotocol   0x0600                  ** wide metrics
- *      MultiTopology   0x00f0                  ** deprecated
- */
-#define EIGRP_TLV_RANGEMASK     0xfff0          /*!< should be 0xff00 - opps */
-#define EIGRP_TLV_GENERAL       0x0000
-
-/**
- * 1.2 TLV Definitions  ** legacy
- * These are considered legacyu and are only used for backward compability with
- * older Cisco Routers.  They should not be your first choice for packet codings
- */
-#define EIGRP_TLV_IPv4          0x0100          /*!< Classic IPv4 TLV encoding */
-#define EIGRP_TLV_ATALK         0x0200          /*!< Classic Appletalk TLV encoding*/
-#define EIGRP_TLV_IPX           0x0300          /*!< Classic IPX TLV encoding */
-#define EIGRP_TLV_IPv6          0x0400          /*!< Classic IPv6 TLV encoding */
-
-/**
- * 2.0 Multi-Protocol TLV Definitions
- * These are the current packet formats and should be used for packets
- */
-#define EIGRP_TLV_MP            0x0600          /*!< Non-PDM specific encoding */
-
-/**
- * TLV type definitions.  Generic (protocol-independent) TLV types are
- * defined here.  Protocol-specific ones are defined elsewhere.
- */
-#define EIGRP_TLV_PARAMETER             (EIGRP_TLV_GENERAL | 0x0001)    /*!< eigrp parameters */
-#define EIGRP_TLV_PARAMETER_LEN         (12U)
-#define EIGRP_TLV_AUTH                  (EIGRP_TLV_GENERAL | 0x0002)    /*!< authentication */
-#define EIGRP_TLV_SEQ                   (EIGRP_TLV_GENERAL | 0x0003)    /*!< sequenced packet */
-#define EIGRP_TLV_SEQ_BASE_LEN          (5U)
-#define EIGRP_TLV_SW_VERSION            (EIGRP_TLV_GENERAL | 0x0004)    /*!< software version */
-#define EIGRP_TLV_SW_VERSION_LEN        (8U)
-#define EIGRP_TLV_NEXT_MCAST_SEQ        (EIGRP_TLV_GENERAL | 0x0005)    /*!< sequence number */
-#define EIGRP_TLV_PEER_TERMINATION      (EIGRP_TLV_GENERAL | 0x0007)    /*!< peer termination */
-#define EIGRP_TLV_PEER_TERMINATION_LEN 	(9U)
-#define EIGRP_TLV_PEER_TIDLIST          (EIGRP_TLV_GENERAL | 0x0008)    /*!< peer sub-topology list */
-
-/* Older cisco routers send TIDLIST value wrong, adding for backwards
- * compatabily */
-#define EIGRP_TLV_PEER_MTRLIST          (EIGRP_TLV_GENERAL | 0x00f5)
-
-/**
- * Route Based TLVs
- */
-#define EIGRP_TLV_REQUEST               0x0001
-#define EIGRP_TLV_INTERNAL              0x0002
-#define EIGRP_TLV_EXTERNAL              0x0003
-#define EIGRP_TLV_COMMUNITY             0x0004
-#define EIGRP_TLV_TYPEMASK              0x000f
-
-#define EIGRP_TLV_IPv4_REQ              (EIGRP_TLV_IPv4 | EIGRP_TLV_REQUEST)
-#define EIGRP_TLV_IPv4_INT              (EIGRP_TLV_IPv4 | EIGRP_TLV_INTERNAL)
-#define EIGRP_TLV_IPv4_EXT              (EIGRP_TLV_IPv4 | EIGRP_TLV_EXTERNAL)
-#define EIGRP_TLV_IPv4_COM              (EIGRP_TLV_IPv4 | EIGRP_TLV_COMMUNITY)
-
-#define EIGRP_TLV_IPV4_SIZE_GRT_24_BIT      0x001D
-#define EIGRP_TLV_IPV4_SIZE_GRT_16_BIT      0x001C
-#define EIGRP_TLV_IPV4_SIZE_GRT_8_BIT       0x001B
-#define EIGRP_TLV_IPV4_SIZE_GRT_0_BIT       0x001A
-#define EIGRP_TLV_MAX_IPV4_BYTE             EIGRP_TLV_IPV4_SIZE_GRT_24_BIT
-
-/* max number of TLV IPv4 prefixes in packet */
-#define EIGRP_TLV_MAX_IPv4				25
-
-/**
- *
- * extdata flag field definitions
- */
-#define EIGRP_OPAQUE_EXT        0x01    /*!< Route is external */
-#define EIGRP_OPAQUE_CD         0x02    /*!< Candidate default route */
-
-/**
- * Address-Family types are taken from:
- *       http://www.iana.org/assignments/address-family-numbers
- * to provide a standards based exchange of AFI information between
- * EIGRP routers.
- */
-#define EIGRP_AF_IPv4           1       /*!< IPv4 (IP version 4) */
-#define EIGRP_AF_IPv6           2       /*!< IPv6 (IP version 6) */
-#define EIGRP_AF_IPX            11      /*!< IPX */
-#define EIGRP_AF_ATALK          12      /*!< Appletalk */
-#define EIGRP_SF_COMMON         16384   /*!< Cisco Service Family */
-#define EIGRP_SF_IPv4           16385   /*!< Cisco IPv4 Service Family */
-#define EIGRP_SF_IPv6           16386   /*!< Cisco IPv6 Service Family */
-
-/**
- * Authentication types supported by EIGRP
- */
-#define EIGRP_AUTH_TYPE_NONE            0
-#define EIGRP_AUTH_TYPE_TEXT            1
-#define EIGRP_AUTH_TYPE_MD5             2
-#define EIGRP_AUTH_TYPE_MD5_LEN         16
-#define EIGRP_AUTH_TYPE_SHA256          3
-#define EIGRP_AUTH_TYPE_SHA256_LEN      32
-
-/**
- * opaque flag field definitions
- */
-#define EIGRP_OPAQUE_SRCWD      0x01    /*!< Route Source Withdraw */
-#define EIGRP_OPAQUE_ACTIVE     0x04    /*!< Route is currently in active state */
-#define EIGRP_OPAQUE_REPL       0x08    /*!< Route is replicated from different tableid */
-
-/**
- * pak flag bit field definitions - 0 (none)-7 source priority
- */
-#define EIGRP_PRIV_DEFAULT      0x00    /* 0 (none)-7 source priority */
-#define EIGRP_PRIV_LOW          0x01
-#define EIGRP_PRIV_MEDIUM       0x04
-#define EIGRP_PRIV_HIGH         0x07
-
-/*
- * Init bit definition. First unicast transmitted Update has this
- * bit set in the flags field of the fixed header. It tells the neighbor
- * to down-load his topology table.
- */
-#define EIGRP_INIT_FLAG 0x01
-
-/*
- * CR bit (Conditionally Received) definition in flags field on header. Any
- * packets with the CR-bit set can be accepted by an EIGRP speaker if and
- * only if a previous Hello was received with the SEQUENCE_TYPE TLV present.
- *
- * This allows multicasts to be transmitted in order and reliably at the
- * same time as unicasts are transmitted.
- */
-#define EIGRP_CR_FLAG 0x02
-
-/*
- * RS bit.  The Restart flag is set in the hello and the init
- * update packets during the nsf signaling period.  A nsf-aware
- * router looks at the RS flag to detect if a peer is restarting
- * and maintain the adjacency. A restarting router looks at
- * this flag to determine if the peer is helping out with the restart.
- */
-#define EIGRP_RS_FLAG 0x04
-
-/*
- * EOT bit.  The End-of-Table flag marks the end of the start-up updates
- * sent to a new peer.  A nsf restarting router looks at this flag to
- * determine if it has finished receiving the start-up updates from all
- * peers.  A nsf-aware router waits for this flag before cleaning up
- * the stale routes from the restarting peer.
- */
-#define EIGRP_EOT_FLAG 0x08
-
-/**
- * EIGRP Virtual Router ID
- *
- * Define values to deal with EIGRP virtual router ids.  Virtual
- * router IDs are stored in the upper short of the EIGRP fixed packet
- * header.  The lower short of the packet header continues to be used
- * as asystem number.
- *
- * Virtual Router IDs are PDM-independent.  All PDMs will use
- * VRID_BASE to indicate the 'base' or 'legacy' EIGRP instance.
- * All PDMs need to initialize their vrid to VRID_BASE for compatibility
- * with legacy routers.
- * Once IPv6 supports 'MTR Multicast', it will use the same VRID as
- * IPv4.  No current plans to support VRIDs on IPX. :)
- * Initial usage of VRID is to signal usage of Multicast topology for
- * MTR.
- *
- * VRID_MCAST is a well known constant, other VRIDs will be determined
- * programmatic...
- *
- * With the addition of SAF the VRID space has been divided into two
- * segments 0x0000-0x7fff is for EIGRP and vNets, 0x8000-0xffff is
- * for saf and its associated vNets.
- */
-#define EIGRP_VRID_MASK         0x8001
-#define EIGRP_VRID_AF_BASE      0x0000
-#define EIGRP_VRID_MCAST_BASE   0x0001
-#define EIGRP_VRID_SF_BASE      0x8000
-
-/* Extended Attributes for a destination */
-#define EIGRP_ATTR_HDRLEN (2)
-#define EIGRP_ATTR_MAXDATA (512)
-
-#define EIGRP_ATTR_NOOP         0       /*!< No-Op used as offset padding */
-#define EIGRP_ATTR_SCALED       1       /*!< Scaled metric values */
-#define EIGRP_ATTR_TAG          2       /*!< Tag assigned by Admin for dest */
-#define EIGRP_ATTR_COMM         3       /*!< Community attribute for dest */
-#define EIGRP_ATTR_JITTER       4       /*!< Variation in path delay */
-#define EIGRP_ATTR_QENERGY      5       /*!< Non-Active energy usage along path */
-#define EIGRP_ATTR_ENERGY       6       /*!< Active energy usage along path */
-
-/*
- * Begin EIGRP-BGP interoperability communities
- */
-#define EIGRP_EXTCOMM_SOO_ASFMT         0x0003 /* Site-of-Origin, BGP AS format */
-#define EIGRP_EXTCOMM_SOO_ADRFMT        0x0103 /* Site-of-Origin, BGP/EIGRP addr format */
-
-/*
- * EIGRP Specific communities
- */
-#define EIGRP_EXTCOMM_EIGRP             0x8800 /* EIGRP route information appended*/
-#define EIGRP_EXTCOMM_DAD               0x8801 /* EIGRP AS + Delay           */
-#define EIGRP_EXTCOMM_VRHB              0x8802 /* EIGRP Vector: Reliability + Hop + BW */
-#define EIGRP_EXTCOMM_SRLM              0x8803 /* EIGRP System: Reserve +Load + MTU   */
-#define EIGRP_EXTCOMM_SAR               0x8804 /* EIGRP System: Remote AS + Remote ID  */
-#define EIGRP_EXTCOMM_RPM               0x8805 /* EIGRP Remote: Protocol + Metric    */
-#define EIGRP_EXTCOMM_VRR               0x8806 /* EIGRP Vecmet: Rsvd + (internal) Routerid */
-
-/*
- * EIGRP Filter constants
- */
-#define EIGRP_FILTER_IN  0
-#define EIGRP_FILTER_OUT 1
-#define EIGRP_FILTER_MAX 2
-
-/*
- * EIGRP Filter constants
- */
-#define EIGRP_HSROLE_DEFAULT  	EIGRP_HSROLE_SPOKE
-#define EIGRP_HSROLE_HUB 		0x01
-#define EIGRP_HSROLE_SPOKE 		0x02
-
-#endif /* _ZEBRA_EIGRP_CONST_H_ */
+/**EIGRPDefinitionofConstants.*Copyright(C)2013-2016*Authors:*DonnieSavage*JanJa
+novic*MatejPerina*PeterOrsag*PeterPaluch*FrantisekGazo*TomasHvorkovy*MartinKonts
+ek*LukasKoribsky**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredist
+ributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe
+*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZeb
+raisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventhe
+impliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*Genera
+lPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLi
+censealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Founda
+tion,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_EIGRP_CO
+NST_H_#define_ZEBRA_EIGRP_CONST_H_#defineFALSE0#defineEIGRP_NEIGHBOR_DOWN0#defin
+eEIGRP_NEIGHBOR_PENDING1#defineEIGRP_NEIGHBOR_UP2#defineEIGRP_NEIGHBOR_STATE_MAX
+3/*Packetrequiringackwillberetransmittedagainafterthistime*/#defineEIGRP_PACKET_
+RETRANS_TIME2/*inseconds*/#defineEIGRP_PACKET_RETRANS_MAX16/*numberofretransatte
+mpts*/#definePLAINTEXT_LENGTH81/*Metricvariancemultiplier*/#defineEIGRP_VARIANCE
+_DEFAULT1#defineEIGRP_MAX_PATHS_DEFAULT4/*Returnvaluesoffunctionsinvolvedinpacke
+tverification*/#defineMSG_OK0#defineMSG_NG1#defineEIGRP_HEADER_VERSION2/*Default
+protocol,portnumber.*/#ifndefIPPROTO_EIGRPIGP#defineIPPROTO_EIGRPIGP88#endif/*IP
+PROTO_EIGRPIGP*/#defineEIGRP_AUTH_MD5_TLV_SIZE40#defineEIGRP_AUTH_SHA256_TLV_SIZ
+E56/*Ciscoroutersuseonlyfirst44bytesofbasichellofortheirMD5*calculations*/#defin
+eEIGRP_MD5_BASIC_COMPUTE44#defineEIGRP_MD5_UPDATE_INIT_COMPUTE40#defineEIGRP_AUT
+H_BASIC_HELLO_FLAG0x01#defineEIGRP_AUTH_TID_HELLO_FLAG0x02#defineEIGRP_AUTH_UPDA
+TE_INIT_FLAG0x04#defineEIGRP_AUTH_UPDATE_FLAG0x08#defineEIGRP_AUTH_EXTRA_SALT_FL
+AG0x10#defineEIGRP_NEXT_SEQUENCE_TLV_SIZE8/*IPTTLforEIGRPprotocol.*/#defineEIGRP
+_IP_TTL1/*VTYportnumber.*/#defineEIGRP_VTY_PORT2613/*Defaultconfigurationfilenam
+eforeigrp.*/#defineEIGRP_DEFAULT_CONFIG"eigrpd.conf"#defineEIGRP_HELLO_INTERVAL_
+DEFAULT5#defineEIGRP_HOLD_INTERVAL_DEFAULT15#defineEIGRP_BANDWIDTH_DEFAULT100000
+#defineEIGRP_DELAY_DEFAULT10#defineEIGRP_RELIABILITY_DEFAULT255#defineEIGRP_LOAD
+_DEFAULT1#defineEIGRP_MULTICAST_ADDRESS0xe000000A/*224.0.0.10*/#defineEIGRP_MAX_
+METRIC0xffffffffU/*4294967295*/enummetric_change{METRIC_DECREASE,METRIC_SAME,MET
+RIC_INCREASE};#defineDEFAULT_ROUTEZEBRA_ROUTE_MAX#defineDEFAULT_ROUTE_TYPE(T)((T
+)==DEFAULT_ROUTE)#defineINTERFACE_DOWN_BY_ZEBRA1#defineINTERFACE_DOWN_BY_VTY2#de
+fineINTERFACE_DOWN_BY_FINAL3#defineEIGRP_HELLO_NORMAL0x00#defineEIGRP_HELLO_GRAC
+EFUL_SHUTDOWN0x01#defineEIGRP_HELLO_ADD_SEQUENCE0x02#defineEIGRP_HELLO_GRACEFUL_
+SHUTDOWN_NBR0x04/*EIGRPNetworkType.*/#defineEIGRP_IFTYPE_NONE0#defineEIGRP_IFTYP
+E_POINTOPOINT1#defineEIGRP_IFTYPE_BROADCAST2#defineEIGRP_IFTYPE_NBMA3#defineEIGR
+P_IFTYPE_POINTOMULTIPOINT4#defineEIGRP_IFTYPE_LOOPBACK5#defineEIGRP_IFTYPE_MAX6#
+defineEIGRP_IF_ACTIVE0#defineEIGRP_IF_PASSIVE1/*EIGRPTTdestinationtype*/#defineE
+IGRP_TOPOLOGY_TYPE_CONNECTED0//Connectednetwork#defineEIGRP_TOPOLOGY_TYPE_REMOTE
+1//Remoteinternalnetwork#defineEIGRP_TOPOLOGY_TYPE_REMOTE_EXTERNAL2//Remoteexter
+nalnetwork/*EIGRPTTentryflags*/#defineEIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG(1<<0)#d
+efineEIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG(1<<1)#defineEIGRP_NEXTHOP_ENTRY_INTABLE
+_FLAG(1<<2)#defineEIGRP_NEXTHOP_ENTRY_EXTERNAL_FLAG(1<<3)/*EIGRPFSMstatecount,ev
+entcount*/#defineEIGRP_FSM_STATE_MAX5#defineEIGRP_FSM_EVENT_MAX16/*EEGRPFSMstate
+s*/enumeigrp_fsm_states{EIGRP_FSM_STATE_PASSIVE,EIGRP_FSM_STATE_ACTIVE_0,EIGRP_F
+SM_STATE_ACTIVE_1,EIGRP_FSM_STATE_ACTIVE_2,EIGRP_FSM_STATE_ACTIVE_3,};/*EIGRPFSM
+eventsreturnvalues*/#defineEIGRP_FSM_NEED_UPDATE1#defineEIGRP_FSM_NEED_QUERY2/*E
+IGRPFSMevents*/enumeigrp_fsm_events{/**Inputeventotherthanqueryfromsucc,*FCisnot
+satisified*/EIGRP_FSM_EVENT_NQ_FCN,/*lastreply,FDisreset*/EIGRP_FSM_EVENT_LR,/*Q
+ueryfromsucc,FCnotsatisfied*/EIGRP_FSM_EVENT_Q_FCN,/*lastreply,FCsatisifedwithcu
+rrentvalueofFDij*/EIGRP_FSM_EVENT_LR_FCS,/*distanceincreasewhileinaactivestate*/
+EIGRP_FSM_EVENT_DINC,/*Queryfromsuccwhileinactivestate*/EIGRP_FSM_EVENT_QACT,/*l
+astreply,FCnotsatisified*/EIGRP_FSM_EVENT_LR_FCN,/**statenotchanged*usuallybyrec
+eivingnotlastreply*/EIGRP_FSM_KEEP_STATE,};/***Externalroutesoriginatefromsomeot
+herprotocol-thesearethem*/#defineNULL_PROTID0/*!<unknownprotocol*/#defineIGRP_PR
+OTID1/*!<IGRP..whosyourdaddy!*/#defineEIGRP_PROTID2/*!<EIGRP-Justflatoutthebest*
+/#defineSTATIC_PROTID3/*!<Staticlyconfiguredsource*/#defineRIP_PROTID4/*!<Routin
+gInformationProtocol*/#defineHELLO_PROTID5/*!<Hello?RFC-891youthere?*/#defineOSP
+F_PROTID6/*!<OSPF-OpenShortestPathFirst*/#defineISIS_PROTID7/*!<IntermediateSyst
+emToIntermediateSystem*/#defineEGP_PROTID8/*!<ExteriorGatewayProtocol*/#defineBG
+P_PROTID9/*!<BorderGatewayProtocol*/#defineIDRP_PROTID10/*!<InterDomainRoutingPr
+otocol*/#defineCONN_PROTID11/*!<Connectedsource*//**metrick-valuedefaults*/#defi
+neEIGRP_K1_DEFAULT1//!<unweighedinversebandwidth#defineEIGRP_K2_DEFAULT0//!<nolo
+adingterm#defineEIGRP_K3_DEFAULT1//!<unweighteddelay#defineEIGRP_K4_DEFAULT0//!<
+noreliabilityterm#defineEIGRP_K5_DEFAULT0//!<noreliabilityterm#defineEIGRP_K6_DE
+FAULT0//!<donotaddinextendedmetrics/**EIGRPFixedheader*/#defineEIGRP_HEADER_LEN2
+0U#defineEIGRP_PACKET_MAX_LEN65535U/*includesIPHeadersize.*/#defineEIGRP_TLV_HDR
+_LENGTH4/***EIGRPPacketOpcodes*/#defineEIGRP_OPC_UPDATE1/*!<packetcontainingrout
+inginformation*/#defineEIGRP_OPC_REQUEST2/*!<senttorequestoneormoreroutes*/#defi
+neEIGRP_OPC_QUERY3/*!<sentwhenaroutingisinactivestart*/#defineEIGRP_OPC_REPLY4/*
+!<sentinresponsetoaquery*/#defineEIGRP_OPC_HELLO5/*!<senttomaintainapeeringsessi
+on*/#defineEIGRP_OPC_IPXSAP6/*!<IPXSAPinformation*/#defineEIGRP_OPC_PROBE7/*!<fo
+rtestpurposes*/#defineEIGRP_OPC_ACK8/*!<acknowledge*/#defineEIGRP_OPC_SIAQUERY10
+/*!<QUERY-withrelaxedrestrictions*/#defineEIGRP_OPC_SIAREPLY11/*!<REPLY-mayconta
+inoldroutinginformation*//***EIGRPTLVRangedefinitions*PDMTLVRange*General0x0000*
+IPv40x0100**TLVsforoneandall*ATALK0x0200**legacy*IPX0x0300**discontinued*IPv60x0
+400**legacy*Multiprotocol0x0600**widemetrics*MultiTopology0x00f0**deprecated*/#d
+efineEIGRP_TLV_RANGEMASK0xfff0/*!<shouldbe0xff00-opps*/#defineEIGRP_TLV_GENERAL0
+x0000/***1.2TLVDefinitions**legacy*Theseareconsideredlegacyuandareonlyusedforbac
+kwardcompabilitywith*olderCiscoRouters.Theyshouldnotbeyourfirstchoiceforpacketco
+dings*/#defineEIGRP_TLV_IPv40x0100/*!<ClassicIPv4TLVencoding*/#defineEIGRP_TLV_A
+TALK0x0200/*!<ClassicAppletalkTLVencoding*/#defineEIGRP_TLV_IPX0x0300/*!<Classic
+IPXTLVencoding*/#defineEIGRP_TLV_IPv60x0400/*!<ClassicIPv6TLVencoding*//***2.0Mu
+lti-ProtocolTLVDefinitions*Thesearethecurrentpacketformatsandshouldbeusedforpack
+ets*/#defineEIGRP_TLV_MP0x0600/*!<Non-PDMspecificencoding*//***TLVtypedefinition
+s.Generic(protocol-independent)TLVtypesare*definedhere.Protocol-specificonesared
+efinedelsewhere.*/#defineEIGRP_TLV_PARAMETER(EIGRP_TLV_GENERAL|0x0001)/*!<eigrpp
+arameters*/#defineEIGRP_TLV_PARAMETER_LEN(12U)#defineEIGRP_TLV_AUTH(EIGRP_TLV_GE
+NERAL|0x0002)/*!<authentication*/#defineEIGRP_TLV_SEQ(EIGRP_TLV_GENERAL|0x0003)/
+*!<sequencedpacket*/#defineEIGRP_TLV_SEQ_BASE_LEN(5U)#defineEIGRP_TLV_SW_VERSION
+(EIGRP_TLV_GENERAL|0x0004)/*!<softwareversion*/#defineEIGRP_TLV_SW_VERSION_LEN(8
+U)#defineEIGRP_TLV_NEXT_MCAST_SEQ(EIGRP_TLV_GENERAL|0x0005)/*!<sequencenumber*/#
+defineEIGRP_TLV_PEER_TERMINATION(EIGRP_TLV_GENERAL|0x0007)/*!<peertermination*/#
+defineEIGRP_TLV_PEER_TERMINATION_LEN(9U)#defineEIGRP_TLV_PEER_TIDLIST(EIGRP_TLV_
+GENERAL|0x0008)/*!<peersub-topologylist*//*OlderciscorouterssendTIDLISTvaluewron
+g,addingforbackwards*compatabily*/#defineEIGRP_TLV_PEER_MTRLIST(EIGRP_TLV_GENERA
+L|0x00f5)/***RouteBasedTLVs*/#defineEIGRP_TLV_REQUEST0x0001#defineEIGRP_TLV_INTE
+RNAL0x0002#defineEIGRP_TLV_EXTERNAL0x0003#defineEIGRP_TLV_COMMUNITY0x0004#define
+EIGRP_TLV_TYPEMASK0x000f#defineEIGRP_TLV_IPv4_REQ(EIGRP_TLV_IPv4|EIGRP_TLV_REQUE
+ST)#defineEIGRP_TLV_IPv4_INT(EIGRP_TLV_IPv4|EIGRP_TLV_INTERNAL)#defineEIGRP_TLV_
+IPv4_EXT(EIGRP_TLV_IPv4|EIGRP_TLV_EXTERNAL)#defineEIGRP_TLV_IPv4_COM(EIGRP_TLV_I
+Pv4|EIGRP_TLV_COMMUNITY)#defineEIGRP_TLV_IPV4_SIZE_GRT_24_BIT0x001D#defineEIGRP_
+TLV_IPV4_SIZE_GRT_16_BIT0x001C#defineEIGRP_TLV_IPV4_SIZE_GRT_8_BIT0x001B#defineE
+IGRP_TLV_IPV4_SIZE_GRT_0_BIT0x001A#defineEIGRP_TLV_MAX_IPV4_BYTEEIGRP_TLV_IPV4_S
+IZE_GRT_24_BIT/*maxnumberofTLVIPv4prefixesinpacket*/#defineEIGRP_TLV_MAX_IPv425/
+****extdataflagfielddefinitions*/#defineEIGRP_OPAQUE_EXT0x01/*!<Routeisexternal*
+/#defineEIGRP_OPAQUE_CD0x02/*!<Candidatedefaultroute*//***Address-Familytypesare
+takenfrom:*http://www.iana.org/assignments/address-family-numbers*toprovideastan
+dardsbasedexchangeofAFIinformationbetween*EIGRProuters.*/#defineEIGRP_AF_IPv41/*
+!<IPv4(IPversion4)*/#defineEIGRP_AF_IPv62/*!<IPv6(IPversion6)*/#defineEIGRP_AF_I
+PX11/*!<IPX*/#defineEIGRP_AF_ATALK12/*!<Appletalk*/#defineEIGRP_SF_COMMON16384/*
+!<CiscoServiceFamily*/#defineEIGRP_SF_IPv416385/*!<CiscoIPv4ServiceFamily*/#defi
+neEIGRP_SF_IPv616386/*!<CiscoIPv6ServiceFamily*//***Authenticationtypessupported
+byEIGRP*/#defineEIGRP_AUTH_TYPE_NONE0#defineEIGRP_AUTH_TYPE_TEXT1#defineEIGRP_AU
+TH_TYPE_MD52#defineEIGRP_AUTH_TYPE_MD5_LEN16#defineEIGRP_AUTH_TYPE_SHA2563#defin
+eEIGRP_AUTH_TYPE_SHA256_LEN32/***opaqueflagfielddefinitions*/#defineEIGRP_OPAQUE
+_SRCWD0x01/*!<RouteSourceWithdraw*/#defineEIGRP_OPAQUE_ACTIVE0x04/*!<Routeiscurr
+entlyinactivestate*/#defineEIGRP_OPAQUE_REPL0x08/*!<Routeisreplicatedfromdiffere
+nttableid*//***pakflagbitfielddefinitions-0(none)-7sourcepriority*/#defineEIGRP_
+PRIV_DEFAULT0x00/*0(none)-7sourcepriority*/#defineEIGRP_PRIV_LOW0x01#defineEIGRP
+_PRIV_MEDIUM0x04#defineEIGRP_PRIV_HIGH0x07/**Initbitdefinition.Firstunicasttrans
+mittedUpdatehasthis*bitsetintheflagsfieldofthefixedheader.Ittellstheneighbor*tod
+own-loadhistopologytable.*/#defineEIGRP_INIT_FLAG0x01/**CRbit(ConditionallyRecei
+ved)definitioninflagsfieldonheader.Any*packetswiththeCR-bitsetcanbeacceptedbyanE
+IGRPspeakerifand*onlyifapreviousHellowasreceivedwiththeSEQUENCE_TYPETLVpresent.*
+*Thisallowsmulticaststobetransmittedinorderandreliablyatthe*sametimeasunicastsar
+etransmitted.*/#defineEIGRP_CR_FLAG0x02/**RSbit.TheRestartflagissetinthehelloand
+theinit*updatepacketsduringthensfsignalingperiod.Ansf-aware*routerlooksattheRSfl
+agtodetectifapeerisrestarting*andmaintaintheadjacency.Arestartingrouterlooksat*t
+hisflagtodetermineifthepeerishelpingoutwiththerestart.*/#defineEIGRP_RS_FLAG0x04
+/**EOTbit.TheEnd-of-Tableflagmarkstheendofthestart-upupdates*senttoanewpeer.Ansf
+restartingrouterlooksatthisflagto*determineifithasfinishedreceivingthestart-upup
+datesfromall*peers.Ansf-awarerouterwaitsforthisflagbeforecleaningup*thestalerout
+esfromtherestartingpeer.*/#defineEIGRP_EOT_FLAG0x08/***EIGRPVirtualRouterID**Def
+inevaluestodealwithEIGRPvirtualrouterids.Virtual*routerIDsarestoredintheuppersho
+rtoftheEIGRPfixedpacket*header.Thelowershortofthepacketheadercontinuestobeused*a
+sasystemnumber.**VirtualRouterIDsarePDM-independent.AllPDMswilluse*VRID_BASEtoin
+dicatethe'base'or'legacy'EIGRPinstance.*AllPDMsneedtoinitializetheirvridtoVRID_B
+ASEforcompatibility*withlegacyrouters.*OnceIPv6supports'MTRMulticast',itwilluset
+hesameVRIDas*IPv4.NocurrentplanstosupportVRIDsonIPX.:)*InitialusageofVRIDistosig
+nalusageofMulticasttopologyfor*MTR.**VRID_MCASTisawellknownconstant,otherVRIDswi
+llbedetermined*programmatic...**WiththeadditionofSAFtheVRIDspacehasbeendividedin
+totwo*segments0x0000-0x7fffisforEIGRPandvNets,0x8000-0xffffis*forsafanditsassoci
+atedvNets.*/#defineEIGRP_VRID_MASK0x8001#defineEIGRP_VRID_AF_BASE0x0000#defineEI
+GRP_VRID_MCAST_BASE0x0001#defineEIGRP_VRID_SF_BASE0x8000/*ExtendedAttributesfora
+destination*/#defineEIGRP_ATTR_HDRLEN(2)#defineEIGRP_ATTR_MAXDATA(512)#defineEIG
+RP_ATTR_NOOP0/*!<No-Opusedasoffsetpadding*/#defineEIGRP_ATTR_SCALED1/*!<Scaledme
+tricvalues*/#defineEIGRP_ATTR_TAG2/*!<TagassignedbyAdminfordest*/#defineEIGRP_AT
+TR_COMM3/*!<Communityattributefordest*/#defineEIGRP_ATTR_JITTER4/*!<Variationinp
+athdelay*/#defineEIGRP_ATTR_QENERGY5/*!<Non-Activeenergyusagealongpath*/#defineE
+IGRP_ATTR_ENERGY6/*!<Activeenergyusagealongpath*//**BeginEIGRP-BGPinteroperabili
+tycommunities*/#defineEIGRP_EXTCOMM_SOO_ASFMT0x0003/*Site-of-Origin,BGPASformat*
+/#defineEIGRP_EXTCOMM_SOO_ADRFMT0x0103/*Site-of-Origin,BGP/EIGRPaddrformat*//**E
+IGRPSpecificcommunities*/#defineEIGRP_EXTCOMM_EIGRP0x8800/*EIGRProuteinformation
+appended*/#defineEIGRP_EXTCOMM_DAD0x8801/*EIGRPAS+Delay*/#defineEIGRP_EXTCOMM_VR
+HB0x8802/*EIGRPVector:Reliability+Hop+BW*/#defineEIGRP_EXTCOMM_SRLM0x8803/*EIGRP
+System:Reserve+Load+MTU*/#defineEIGRP_EXTCOMM_SAR0x8804/*EIGRPSystem:RemoteAS+Re
+moteID*/#defineEIGRP_EXTCOMM_RPM0x8805/*EIGRPRemote:Protocol+Metric*/#defineEIGR
+P_EXTCOMM_VRR0x8806/*EIGRPVecmet:Rsvd+(internal)Routerid*//**EIGRPFilterconstant
+s*/#defineEIGRP_FILTER_IN0#defineEIGRP_FILTER_OUT1#defineEIGRP_FILTER_MAX2/**EIG
+RPFilterconstants*/#defineEIGRP_HSROLE_DEFAULTEIGRP_HSROLE_SPOKE#defineEIGRP_HSR
+OLE_HUB0x01#defineEIGRP_HSROLE_SPOKE0x02#endif/*_ZEBRA_EIGRP_CONST_H_*/

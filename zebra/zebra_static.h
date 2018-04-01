@@ -1,105 +1,30 @@
-/*
- * Static Routing Information header
- * Copyright (C) 2016 Cumulus Networks
- *               Donald Sharp
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#ifndef __ZEBRA_STATIC_H__
-#define __ZEBRA_STATIC_H__
-
-#include "zebra/zebra_mpls.h"
-
-/* Static route label information */
-struct static_nh_label {
-	uint8_t num_labels;
-	uint8_t reserved[3];
-	mpls_label_t label[MPLS_MAX_LABELS];
-};
-
-enum static_blackhole_type {
-	STATIC_BLACKHOLE_DROP = 0,
-	STATIC_BLACKHOLE_NULL,
-	STATIC_BLACKHOLE_REJECT
-};
-
-typedef enum {
-	STATIC_IFNAME,
-	STATIC_IPV4_GATEWAY,
-	STATIC_IPV4_GATEWAY_IFNAME,
-	STATIC_BLACKHOLE,
-	STATIC_IPV6_GATEWAY,
-	STATIC_IPV6_GATEWAY_IFNAME,
-} zebra_static_types;
-
-/* Static route information. */
-struct static_route {
-	/* For linked list. */
-	struct static_route *prev;
-	struct static_route *next;
-
-	/* VRF identifier. */
-	vrf_id_t vrf_id;
-	vrf_id_t nh_vrf_id;
-
-	/* Administrative distance. */
-	uint8_t distance;
-
-	/* Tag */
-	route_tag_t tag;
-
-	/* Flag for this static route's type. */
-	zebra_static_types type;
-
-	/*
-	 * Nexthop value.
-	 */
-	enum static_blackhole_type bh_type;
-	union g_addr addr;
-	ifindex_t ifindex;
-
-	char ifname[INTERFACE_NAMSIZ + 1];
-
-	/* Label information */
-	struct static_nh_label snh_label;
-};
-
-extern void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
-				 struct prefix_ipv6 *src_p,
-				 struct static_route *si);
-extern void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
-				   struct prefix_ipv6 *src_p,
-				   struct static_route *si);
-
-extern int static_add_route(afi_t, safi_t safi, uint8_t type, struct prefix *p,
-			    struct prefix_ipv6 *src_p, union g_addr *gate,
-			    const char *ifname,
-			    enum static_blackhole_type bh_type, route_tag_t tag,
-			    uint8_t distance, struct zebra_vrf *zvrf,
-			    struct zebra_vrf *nh_zvrf,
-			    struct static_nh_label *snh_label);
-
-extern int static_delete_route(afi_t, safi_t safi, uint8_t type,
-			       struct prefix *p, struct prefix_ipv6 *src_p,
-			       union g_addr *gate, const char *ifname,
-			       route_tag_t tag, uint8_t distance,
-			       struct zebra_vrf *zvrf,
-			       struct static_nh_label *snh_label);
-
-extern void static_ifindex_update(struct interface *ifp, bool up);
-
-#endif
+/**StaticRoutingInformationheader*Copyright(C)2016CumulusNetworks*DonaldSharp**T
+hisfileispartofQuagga.**Quaggaisfreesoftware;youcanredistributeitand/ormodifyit*
+underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation
+;eitherversion2,or(atyouroption)any*laterversion.**Quaggaisdistributedinthehopet
+hatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHAN
+TABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredeta
+ils.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogra
+m;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,Fi
+fthFloor,Boston,MA02110-1301USA*/#ifndef__ZEBRA_STATIC_H__#define__ZEBRA_STATIC_
+H__#include"zebra/zebra_mpls.h"/*Staticroutelabelinformation*/structstatic_nh_la
+bel{uint8_tnum_labels;uint8_treserved[3];mpls_label_tlabel[MPLS_MAX_LABELS];};en
+umstatic_blackhole_type{STATIC_BLACKHOLE_DROP=0,STATIC_BLACKHOLE_NULL,STATIC_BLA
+CKHOLE_REJECT};typedefenum{STATIC_IFNAME,STATIC_IPV4_GATEWAY,STATIC_IPV4_GATEWAY
+_IFNAME,STATIC_BLACKHOLE,STATIC_IPV6_GATEWAY,STATIC_IPV6_GATEWAY_IFNAME,}zebra_s
+tatic_types;/*Staticrouteinformation.*/structstatic_route{/*Forlinkedlist.*/stru
+ctstatic_route*prev;structstatic_route*next;/*VRFidentifier.*/vrf_id_tvrf_id;vrf
+_id_tnh_vrf_id;/*Administrativedistance.*/uint8_tdistance;/*Tag*/route_tag_ttag;
+/*Flagforthisstaticroute'stype.*/zebra_static_typestype;/**Nexthopvalue.*/enumst
+atic_blackhole_typebh_type;uniong_addraddr;ifindex_tifindex;charifname[INTERFACE
+_NAMSIZ+1];/*Labelinformation*/structstatic_nh_labelsnh_label;};externvoidstatic
+_install_route(afi_tafi,safi_tsafi,structprefix*p,structprefix_ipv6*src_p,struct
+static_route*si);externvoidstatic_uninstall_route(afi_tafi,safi_tsafi,structpref
+ix*p,structprefix_ipv6*src_p,structstatic_route*si);externintstatic_add_route(af
+i_t,safi_tsafi,uint8_ttype,structprefix*p,structprefix_ipv6*src_p,uniong_addr*ga
+te,constchar*ifname,enumstatic_blackhole_typebh_type,route_tag_ttag,uint8_tdista
+nce,structzebra_vrf*zvrf,structzebra_vrf*nh_zvrf,structstatic_nh_label*snh_label
+);externintstatic_delete_route(afi_t,safi_tsafi,uint8_ttype,structprefix*p,struc
+tprefix_ipv6*src_p,uniong_addr*gate,constchar*ifname,route_tag_ttag,uint8_tdista
+nce,structzebra_vrf*zvrf,structstatic_nh_label*snh_label);externvoidstatic_ifind
+ex_update(structinterface*ifp,boolup);#endif

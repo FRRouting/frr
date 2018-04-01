@@ -1,579 +1,142 @@
-/*	$OpenBSD$ */
-
-/*
- * Copyright (c) 2013, 2016 Renato Westphal <renato@openbsd.org>
- * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
- * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-#include <zebra.h>
-
-#include "ldpd.h"
-#include "ldpe.h"
-#include "log.h"
-
-#include "sockopt.h"
-
-static __inline int	 iface_compare(const struct iface *, const struct iface *);
-static struct if_addr	*if_addr_new(struct kaddr *);
-static struct if_addr	*if_addr_lookup(struct if_addr_head *, struct kaddr *);
-static int		 if_start(struct iface *, int);
-static int		 if_reset(struct iface *, int);
-static void		 if_update_af(struct iface_af *);
-static int		 if_hello_timer(struct thread *);
-static void		 if_start_hello_timer(struct iface_af *);
-static void		 if_stop_hello_timer(struct iface_af *);
-static int		 if_join_ipv4_group(struct iface *, struct in_addr *);
-static int		 if_leave_ipv4_group(struct iface *, struct in_addr *);
-static int		 if_join_ipv6_group(struct iface *, struct in6_addr *);
-static int		 if_leave_ipv6_group(struct iface *, struct in6_addr *);
-
-RB_GENERATE(iface_head, iface, entry, iface_compare)
-
-static __inline int
-iface_compare(const struct iface *a, const struct iface *b)
-{
-	return (if_cmp_name_func((char *)a->name, (char *)b->name));
-}
-
-struct iface *
-if_new(const char *name)
-{
-	struct iface		*iface;
-
-	if ((iface = calloc(1, sizeof(*iface))) == NULL)
-		fatal("if_new: calloc");
-
-	strlcpy(iface->name, name, sizeof(iface->name));
-
-	/* ipv4 */
-	iface->ipv4.af = AF_INET;
-	iface->ipv4.iface = iface;
-	iface->ipv4.enabled = 0;
-
-	/* ipv6 */
-	iface->ipv6.af = AF_INET6;
-	iface->ipv6.iface = iface;
-	iface->ipv6.enabled = 0;
-
-	return (iface);
-}
-
-void
-ldpe_if_init(struct iface *iface)
-{
-	log_debug("%s: interface %s", __func__, iface->name);
-
-	LIST_INIT(&iface->addr_list);
-
-	/* ipv4 */
-	iface->ipv4.iface = iface;
-	iface->ipv4.state = IF_STA_DOWN;
-	RB_INIT(ia_adj_head, &iface->ipv4.adj_tree);
-
-	/* ipv6 */
-	iface->ipv6.iface = iface;
-	iface->ipv6.state = IF_STA_DOWN;
-	RB_INIT(ia_adj_head, &iface->ipv6.adj_tree);
-}
-
-void
-ldpe_if_exit(struct iface *iface)
-{
-	struct if_addr		*if_addr;
-
-	log_debug("%s: interface %s", __func__, iface->name);
-
-	if (iface->ipv4.state == IF_STA_ACTIVE)
-		if_reset(iface, AF_INET);
-	if (iface->ipv6.state == IF_STA_ACTIVE)
-		if_reset(iface, AF_INET6);
-
-	while ((if_addr = LIST_FIRST(&iface->addr_list)) != NULL) {
-		LIST_REMOVE(if_addr, entry);
-		assert(if_addr != LIST_FIRST(&iface->addr_list));
-		free(if_addr);
-	}
-}
-
-struct iface *
-if_lookup(struct ldpd_conf *xconf, unsigned short ifindex)
-{
-	struct iface *iface;
-
-	RB_FOREACH(iface, iface_head, &xconf->iface_tree)
-		if (iface->ifindex == ifindex)
-			return (iface);
-
-	return (NULL);
-}
-
-struct iface *
-if_lookup_name(struct ldpd_conf *xconf, const char *ifname)
-{
-	struct iface     iface;
-	strlcpy(iface.name, ifname, sizeof(iface.name));
-	return (RB_FIND(iface_head, &xconf->iface_tree, &iface));
-}
-
-void
-if_update_info(struct iface *iface, struct kif *kif)
-{
-	/* get type */
-	if (kif->flags & IFF_POINTOPOINT)
-		iface->type = IF_TYPE_POINTOPOINT;
-	if (kif->flags & IFF_BROADCAST &&
-	    kif->flags & IFF_MULTICAST)
-		iface->type = IF_TYPE_BROADCAST;
-
-	/* get index and flags */
-	iface->ifindex = kif->ifindex;
-	iface->operative = kif->operative;
-}
-
-struct iface_af *
-iface_af_get(struct iface *iface, int af)
-{
-	switch (af) {
-	case AF_INET:
-		return (&iface->ipv4);
-	case AF_INET6:
-		return (&iface->ipv6);
-	default:
-		fatalx("iface_af_get: unknown af");
-	}
-}
-
-static struct if_addr *
-if_addr_new(struct kaddr *ka)
-{
-	struct if_addr	*if_addr;
-
-	if ((if_addr = calloc(1, sizeof(*if_addr))) == NULL)
-		fatal(__func__);
-
-	if_addr->af = ka->af;
-	if_addr->addr = ka->addr;
-	if_addr->prefixlen = ka->prefixlen;
-	if_addr->dstbrd = ka->dstbrd;
-
-	return (if_addr);
-}
-
-static struct if_addr *
-if_addr_lookup(struct if_addr_head *addr_list, struct kaddr *ka)
-{
-	struct if_addr	*if_addr;
-	int		 af = ka->af;
-
-	LIST_FOREACH(if_addr, addr_list, entry)
-		if (!ldp_addrcmp(af, &if_addr->addr, &ka->addr) &&
-		    if_addr->prefixlen == ka->prefixlen &&
-		    !ldp_addrcmp(af, &if_addr->dstbrd, &ka->dstbrd))
-			return (if_addr);
-
-	return (NULL);
-}
-
-void
-if_addr_add(struct kaddr *ka)
-{
-	struct iface		*iface;
-	struct if_addr		*if_addr;
-	struct nbr		*nbr;
-
-	if (if_addr_lookup(&global.addr_list, ka) == NULL) {
-		if_addr = if_addr_new(ka);
-
-		LIST_INSERT_HEAD(&global.addr_list, if_addr, entry);
-		RB_FOREACH(nbr, nbr_id_head, &nbrs_by_id) {
-			if (nbr->state != NBR_STA_OPER)
-				continue;
-			if (if_addr->af == AF_INET && !nbr->v4_enabled)
-				continue;
-			if (if_addr->af == AF_INET6 && !nbr->v6_enabled)
-				continue;
-
-			send_address_single(nbr, if_addr, 0);
-		}
-	}
-
-	iface = if_lookup_name(leconf, ka->ifname);
-	if (iface) {
-		if (ka->af == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&ka->addr.v6))
-			iface->linklocal = ka->addr.v6;
-
-		if (if_addr_lookup(&iface->addr_list, ka) == NULL) {
-			if_addr = if_addr_new(ka);
-			LIST_INSERT_HEAD(&iface->addr_list, if_addr, entry);
-			ldp_if_update(iface, if_addr->af);
-		}
-	}
-}
-
-void
-if_addr_del(struct kaddr *ka)
-{
-	struct iface		*iface;
-	struct if_addr		*if_addr;
-	struct nbr		*nbr;
-
-	iface = if_lookup_name(leconf, ka->ifname);
-	if (iface) {
-		if (ka->af == AF_INET6 &&
-		    IN6_ARE_ADDR_EQUAL(&iface->linklocal, &ka->addr.v6))
-			memset(&iface->linklocal, 0, sizeof(iface->linklocal));
-
-		if_addr = if_addr_lookup(&iface->addr_list, ka);
-		if (if_addr) {
-			LIST_REMOVE(if_addr, entry);
-			ldp_if_update(iface, if_addr->af);
-			free(if_addr);
-		}
-	}
-
-	if_addr = if_addr_lookup(&global.addr_list, ka);
-	if (if_addr) {
-		RB_FOREACH(nbr, nbr_id_head, &nbrs_by_id) {
-			if (nbr->state != NBR_STA_OPER)
-				continue;
-			if (if_addr->af == AF_INET && !nbr->v4_enabled)
-				continue;
-			if (if_addr->af == AF_INET6 && !nbr->v6_enabled)
-				continue;
-			send_address_single(nbr, if_addr, 1);
-		}
-		LIST_REMOVE(if_addr, entry);
-		free(if_addr);
-	}
-}
-
-static int
-if_start(struct iface *iface, int af)
-{
-	struct iface_af		*ia;
-	struct timeval		 now;
-
-	log_debug("%s: %s address-family %s", __func__, iface->name,
-	    af_name(af));
-
-	ia = iface_af_get(iface, af);
-
-	gettimeofday(&now, NULL);
-	ia->uptime = now.tv_sec;
-
-	switch (af) {
-	case AF_INET:
-		if (if_join_ipv4_group(iface, &global.mcast_addr_v4))
-			return (-1);
-		break;
-	case AF_INET6:
-		if (if_join_ipv6_group(iface, &global.mcast_addr_v6))
-			return (-1);
-		break;
-	default:
-		fatalx("if_start: unknown af");
-	}
-
-	send_hello(HELLO_LINK, ia, NULL);
-	if_start_hello_timer(ia);
-	ia->state = IF_STA_ACTIVE;
-
-	return (0);
-}
-
-static int
-if_reset(struct iface *iface, int af)
-{
-	struct iface_af		*ia;
-	struct adj		*adj;
-
-	log_debug("%s: %s address-family %s", __func__, iface->name,
-	    af_name(af));
-
-	ia = iface_af_get(iface, af);
-	if_stop_hello_timer(ia);
-
-	while (!RB_EMPTY(ia_adj_head, &ia->adj_tree)) {
-		adj = RB_ROOT(ia_adj_head, &ia->adj_tree);
-
-		adj_del(adj, S_SHUTDOWN);
-	}
-
-	/* try to cleanup */
-	switch (af) {
-	case AF_INET:
-		if (global.ipv4.ldp_disc_socket != -1)
-			if_leave_ipv4_group(iface, &global.mcast_addr_v4);
-		break;
-	case AF_INET6:
-		if (global.ipv6.ldp_disc_socket != -1)
-			if_leave_ipv6_group(iface, &global.mcast_addr_v6);
-		break;
-	default:
-		fatalx("if_reset: unknown af");
-	}
-
-	ia->state = IF_STA_DOWN;
-
-	return (0);
-}
-
-static void
-if_update_af(struct iface_af *ia)
-{
-	int			 addr_ok = 0, socket_ok, rtr_id_ok;
-	struct if_addr		*if_addr;
-
-	switch (ia->af) {
-	case AF_INET:
-		/*
-		 * NOTE: for LDPv4, each interface should have at least one
-		 * valid IP address otherwise they can not be enabled.
-		 */
-		LIST_FOREACH(if_addr, &ia->iface->addr_list, entry) {
-			if (if_addr->af == AF_INET) {
-				addr_ok = 1;
-				break;
-			}
-		}
-		break;
-	case AF_INET6:
-		/* for IPv6 the link-local address is enough. */
-		if (IN6_IS_ADDR_LINKLOCAL(&ia->iface->linklocal))
-			addr_ok = 1;
-		break;
-	default:
-		fatalx("if_update_af: unknown af");
-	}
-
-	if ((ldp_af_global_get(&global, ia->af))->ldp_disc_socket != -1)
-		socket_ok = 1;
-	else
-		socket_ok = 0;
-
-	if (ldp_rtr_id_get(leconf) != INADDR_ANY)
-		rtr_id_ok = 1;
-	else
-		rtr_id_ok = 0;
-
-	if (ia->state == IF_STA_DOWN) {
-		if (!ia->enabled || !ia->iface->operative || !addr_ok ||
-		    !socket_ok || !rtr_id_ok)
-			return;
-
-		if_start(ia->iface, ia->af);
-	} else if (ia->state == IF_STA_ACTIVE) {
-		if (ia->enabled && ia->iface->operative && addr_ok &&
-		    socket_ok && rtr_id_ok)
-			return;
-
-		if_reset(ia->iface, ia->af);
-	}
-}
-
-void
-ldp_if_update(struct iface *iface, int af)
-{
-	if (af == AF_INET || af == AF_UNSPEC)
-		if_update_af(&iface->ipv4);
-	if (af == AF_INET6 || af == AF_UNSPEC)
-		if_update_af(&iface->ipv6);
-}
-
-void
-if_update_all(int af)
-{
-	struct iface		*iface;
-
-	RB_FOREACH(iface, iface_head, &leconf->iface_tree)
-		ldp_if_update(iface, af);
-}
-
-uint16_t
-if_get_hello_holdtime(struct iface_af *ia)
-{
-	if (ia->hello_holdtime != 0)
-		return (ia->hello_holdtime);
-
-	if ((ldp_af_conf_get(leconf, ia->af))->lhello_holdtime != 0)
-		return ((ldp_af_conf_get(leconf, ia->af))->lhello_holdtime);
-
-	return (leconf->lhello_holdtime);
-}
-
-uint16_t
-if_get_hello_interval(struct iface_af *ia)
-{
-	if (ia->hello_interval != 0)
-		return (ia->hello_interval);
-
-	if ((ldp_af_conf_get(leconf, ia->af))->lhello_interval != 0)
-		return ((ldp_af_conf_get(leconf, ia->af))->lhello_interval);
-
-	return (leconf->lhello_interval);
-}
-
-/* timers */
-/* ARGSUSED */
-static int
-if_hello_timer(struct thread *thread)
-{
-	struct iface_af		*ia = THREAD_ARG(thread);
-
-	ia->hello_timer = NULL;
-	send_hello(HELLO_LINK, ia, NULL);
-	if_start_hello_timer(ia);
-
-	return (0);
-}
-
-static void
-if_start_hello_timer(struct iface_af *ia)
-{
-	THREAD_TIMER_OFF(ia->hello_timer);
-	ia->hello_timer = NULL;
-	thread_add_timer(master, if_hello_timer, ia, if_get_hello_interval(ia),
-			 &ia->hello_timer);
-}
-
-static void
-if_stop_hello_timer(struct iface_af *ia)
-{
-	THREAD_TIMER_OFF(ia->hello_timer);
-}
-
-struct ctl_iface *
-if_to_ctl(struct iface_af *ia)
-{
-	static struct ctl_iface	 ictl;
-	struct timeval		 now;
-	struct adj		*adj;
-
-	ictl.af = ia->af;
-	memcpy(ictl.name, ia->iface->name, sizeof(ictl.name));
-	ictl.ifindex = ia->iface->ifindex;
-	ictl.state = ia->state;
-	ictl.type = ia->iface->type;
-	ictl.hello_holdtime = if_get_hello_holdtime(ia);
-	ictl.hello_interval = if_get_hello_interval(ia);
-
-	gettimeofday(&now, NULL);
-	if (ia->state != IF_STA_DOWN &&
-	    ia->uptime != 0) {
-		ictl.uptime = now.tv_sec - ia->uptime;
-	} else
-		ictl.uptime = 0;
-
-	ictl.adj_cnt = 0;
-	RB_FOREACH(adj, ia_adj_head, &ia->adj_tree)
-		ictl.adj_cnt++;
-
-	return (&ictl);
-}
-
-/* multicast membership sockopts */
-in_addr_t
-if_get_ipv4_addr(struct iface *iface)
-{
-	struct if_addr		*if_addr;
-
-	LIST_FOREACH(if_addr, &iface->addr_list, entry)
-		if (if_addr->af == AF_INET)
-			return (if_addr->addr.v4.s_addr);
-
-	return (INADDR_ANY);
-}
-
-static int
-if_join_ipv4_group(struct iface *iface, struct in_addr *addr)
-{
-	struct in_addr		 if_addr;
-
-	log_debug("%s: interface %s addr %s", __func__, iface->name,
-	    inet_ntoa(*addr));
-
-	if_addr.s_addr = if_get_ipv4_addr(iface);
-
-	if (setsockopt_ipv4_multicast(global.ipv4.ldp_disc_socket,
-	    IP_ADD_MEMBERSHIP, if_addr, addr->s_addr, iface->ifindex) < 0) {
-		log_warn("%s: error IP_ADD_MEMBERSHIP, interface %s address %s",
-		     __func__, iface->name, inet_ntoa(*addr));
-		return (-1);
-	}
-	return (0);
-}
-
-static int
-if_leave_ipv4_group(struct iface *iface, struct in_addr *addr)
-{
-	struct in_addr		 if_addr;
-
-	log_debug("%s: interface %s addr %s", __func__, iface->name,
-	    inet_ntoa(*addr));
-
-	if_addr.s_addr = if_get_ipv4_addr(iface);
-
-	if (setsockopt_ipv4_multicast(global.ipv4.ldp_disc_socket,
-	    IP_DROP_MEMBERSHIP, if_addr, addr->s_addr, iface->ifindex) < 0) {
-		log_warn("%s: error IP_DROP_MEMBERSHIP, interface %s "
-		    "address %s", __func__, iface->name, inet_ntoa(*addr));
-		return (-1);
-	}
-
-	return (0);
-}
-
-static int
-if_join_ipv6_group(struct iface *iface, struct in6_addr *addr)
-{
-	struct ipv6_mreq	 mreq;
-
-	log_debug("%s: interface %s addr %s", __func__, iface->name,
-	    log_in6addr(addr));
-
-	mreq.ipv6mr_multiaddr = *addr;
-	mreq.ipv6mr_interface = iface->ifindex;
-
-	if (setsockopt(global.ipv6.ldp_disc_socket, IPPROTO_IPV6,
-	    IPV6_JOIN_GROUP, &mreq, sizeof(mreq)) < 0) {
-		log_warn("%s: error IPV6_JOIN_GROUP, interface %s address %s",
-		    __func__, iface->name, log_in6addr(addr));
-		return (-1);
-	}
-
-	return (0);
-}
-
-static int
-if_leave_ipv6_group(struct iface *iface, struct in6_addr *addr)
-{
-	struct ipv6_mreq	 mreq;
-
-	log_debug("%s: interface %s addr %s", __func__, iface->name,
-	    log_in6addr(addr));
-
-	mreq.ipv6mr_multiaddr = *addr;
-	mreq.ipv6mr_interface = iface->ifindex;
-
-	if (setsockopt(global.ipv6.ldp_disc_socket, IPPROTO_IPV6,
-	    IPV6_LEAVE_GROUP, (void *)&mreq, sizeof(mreq)) < 0) {
-		log_warn("%s: error IPV6_LEAVE_GROUP, interface %s address %s",
-		    __func__, iface->name, log_in6addr(addr));
-		return (-1);
-	}
-
-	return (0);
-}
+/*$OpenBSD$*//**Copyright(c)2013,2016RenatoWestphal<renato@openbsd.org>*Copyrigh
+t(c)2005ClaudioJeker<claudio@openbsd.org>*Copyright(c)2004,2005,2008EsbenNorby<n
+orby@openbsd.org>**Permissiontouse,copy,modify,anddistributethissoftwareforany*p
+urposewithorwithoutfeeisherebygranted,providedthattheabove*copyrightnoticeandthi
+spermissionnoticeappearinallcopies.**THESOFTWAREISPROVIDED"ASIS"ANDTHEAUTHORDISC
+LAIMSALLWARRANTIES*WITHREGARDTOTHISSOFTWAREINCLUDINGALLIMPLIEDWARRANTIESOF*MERCH
+ANTABILITYANDFITNESS.INNOEVENTSHALLTHEAUTHORBELIABLEFOR*ANYSPECIAL,DIRECT,INDIRE
+CT,ORCONSEQUENTIALDAMAGESORANYDAMAGES*WHATSOEVERRESULTINGFROMLOSSOFUSE,DATAORPRO
+FITS,WHETHERINAN*ACTIONOFCONTRACT,NEGLIGENCEOROTHERTORTIOUSACTION,ARISINGOUTOF*O
+RINCONNECTIONWITHTHEUSEORPERFORMANCEOFTHISSOFTWARE.*/#include<zebra.h>#include"l
+dpd.h"#include"ldpe.h"#include"log.h"#include"sockopt.h"static__inlineintiface_c
+ompare(conststructiface*,conststructiface*);staticstructif_addr*if_addr_new(stru
+ctkaddr*);staticstructif_addr*if_addr_lookup(structif_addr_head*,structkaddr*);s
+taticintif_start(structiface*,int);staticintif_reset(structiface*,int);staticvoi
+dif_update_af(structiface_af*);staticintif_hello_timer(structthread*);staticvoid
+if_start_hello_timer(structiface_af*);staticvoidif_stop_hello_timer(structiface_
+af*);staticintif_join_ipv4_group(structiface*,structin_addr*);staticintif_leave_
+ipv4_group(structiface*,structin_addr*);staticintif_join_ipv6_group(structiface*
+,structin6_addr*);staticintif_leave_ipv6_group(structiface*,structin6_addr*);RB_
+GENERATE(iface_head,iface,entry,iface_compare)static__inlineintiface_compare(con
+ststructiface*a,conststructiface*b){return(if_cmp_name_func((char*)a->name,(char
+*)b->name));}structiface*if_new(constchar*name){structiface*iface;if((iface=call
+oc(1,sizeof(*iface)))==NULL)fatal("if_new:calloc");strlcpy(iface->name,name,size
+of(iface->name));/*ipv4*/iface->ipv4.af=AF_INET;iface->ipv4.iface=iface;iface->i
+pv4.enabled=0;/*ipv6*/iface->ipv6.af=AF_INET6;iface->ipv6.iface=iface;iface->ipv
+6.enabled=0;return(iface);}voidldpe_if_init(structiface*iface){log_debug("%s:int
+erface%s",__func__,iface->name);LIST_INIT(&iface->addr_list);/*ipv4*/iface->ipv4
+.iface=iface;iface->ipv4.state=IF_STA_DOWN;RB_INIT(ia_adj_head,&iface->ipv4.adj_
+tree);/*ipv6*/iface->ipv6.iface=iface;iface->ipv6.state=IF_STA_DOWN;RB_INIT(ia_a
+dj_head,&iface->ipv6.adj_tree);}voidldpe_if_exit(structiface*iface){structif_add
+r*if_addr;log_debug("%s:interface%s",__func__,iface->name);if(iface->ipv4.state=
+=IF_STA_ACTIVE)if_reset(iface,AF_INET);if(iface->ipv6.state==IF_STA_ACTIVE)if_re
+set(iface,AF_INET6);while((if_addr=LIST_FIRST(&iface->addr_list))!=NULL){LIST_RE
+MOVE(if_addr,entry);assert(if_addr!=LIST_FIRST(&iface->addr_list));free(if_addr)
+;}}structiface*if_lookup(structldpd_conf*xconf,unsignedshortifindex){structiface
+*iface;RB_FOREACH(iface,iface_head,&xconf->iface_tree)if(iface->ifindex==ifindex
+)return(iface);return(NULL);}structiface*if_lookup_name(structldpd_conf*xconf,co
+nstchar*ifname){structifaceiface;strlcpy(iface.name,ifname,sizeof(iface.name));r
+eturn(RB_FIND(iface_head,&xconf->iface_tree,&iface));}voidif_update_info(structi
+face*iface,structkif*kif){/*gettype*/if(kif->flags&IFF_POINTOPOINT)iface->type=I
+F_TYPE_POINTOPOINT;if(kif->flags&IFF_BROADCAST&&kif->flags&IFF_MULTICAST)iface->
+type=IF_TYPE_BROADCAST;/*getindexandflags*/iface->ifindex=kif->ifindex;iface->op
+erative=kif->operative;}structiface_af*iface_af_get(structiface*iface,intaf){swi
+tch(af){caseAF_INET:return(&iface->ipv4);caseAF_INET6:return(&iface->ipv6);defau
+lt:fatalx("iface_af_get:unknownaf");}}staticstructif_addr*if_addr_new(structkadd
+r*ka){structif_addr*if_addr;if((if_addr=calloc(1,sizeof(*if_addr)))==NULL)fatal(
+__func__);if_addr->af=ka->af;if_addr->addr=ka->addr;if_addr->prefixlen=ka->prefi
+xlen;if_addr->dstbrd=ka->dstbrd;return(if_addr);}staticstructif_addr*if_addr_loo
+kup(structif_addr_head*addr_list,structkaddr*ka){structif_addr*if_addr;intaf=ka-
+>af;LIST_FOREACH(if_addr,addr_list,entry)if(!ldp_addrcmp(af,&if_addr->addr,&ka->
+addr)&&if_addr->prefixlen==ka->prefixlen&&!ldp_addrcmp(af,&if_addr->dstbrd,&ka->
+dstbrd))return(if_addr);return(NULL);}voidif_addr_add(structkaddr*ka){structifac
+e*iface;structif_addr*if_addr;structnbr*nbr;if(if_addr_lookup(&global.addr_list,
+ka)==NULL){if_addr=if_addr_new(ka);LIST_INSERT_HEAD(&global.addr_list,if_addr,en
+try);RB_FOREACH(nbr,nbr_id_head,&nbrs_by_id){if(nbr->state!=NBR_STA_OPER)continu
+e;if(if_addr->af==AF_INET&&!nbr->v4_enabled)continue;if(if_addr->af==AF_INET6&&!
+nbr->v6_enabled)continue;send_address_single(nbr,if_addr,0);}}iface=if_lookup_na
+me(leconf,ka->ifname);if(iface){if(ka->af==AF_INET6&&IN6_IS_ADDR_LINKLOCAL(&ka->
+addr.v6))iface->linklocal=ka->addr.v6;if(if_addr_lookup(&iface->addr_list,ka)==N
+ULL){if_addr=if_addr_new(ka);LIST_INSERT_HEAD(&iface->addr_list,if_addr,entry);l
+dp_if_update(iface,if_addr->af);}}}voidif_addr_del(structkaddr*ka){structiface*i
+face;structif_addr*if_addr;structnbr*nbr;iface=if_lookup_name(leconf,ka->ifname)
+;if(iface){if(ka->af==AF_INET6&&IN6_ARE_ADDR_EQUAL(&iface->linklocal,&ka->addr.v
+6))memset(&iface->linklocal,0,sizeof(iface->linklocal));if_addr=if_addr_lookup(&
+iface->addr_list,ka);if(if_addr){LIST_REMOVE(if_addr,entry);ldp_if_update(iface,
+if_addr->af);free(if_addr);}}if_addr=if_addr_lookup(&global.addr_list,ka);if(if_
+addr){RB_FOREACH(nbr,nbr_id_head,&nbrs_by_id){if(nbr->state!=NBR_STA_OPER)contin
+ue;if(if_addr->af==AF_INET&&!nbr->v4_enabled)continue;if(if_addr->af==AF_INET6&&
+!nbr->v6_enabled)continue;send_address_single(nbr,if_addr,1);}LIST_REMOVE(if_add
+r,entry);free(if_addr);}}staticintif_start(structiface*iface,intaf){structiface_
+af*ia;structtimevalnow;log_debug("%s:%saddress-family%s",__func__,iface->name,af
+_name(af));ia=iface_af_get(iface,af);gettimeofday(&now,NULL);ia->uptime=now.tv_s
+ec;switch(af){caseAF_INET:if(if_join_ipv4_group(iface,&global.mcast_addr_v4))ret
+urn(-1);break;caseAF_INET6:if(if_join_ipv6_group(iface,&global.mcast_addr_v6))re
+turn(-1);break;default:fatalx("if_start:unknownaf");}send_hello(HELLO_LINK,ia,NU
+LL);if_start_hello_timer(ia);ia->state=IF_STA_ACTIVE;return(0);}staticintif_rese
+t(structiface*iface,intaf){structiface_af*ia;structadj*adj;log_debug("%s:%saddre
+ss-family%s",__func__,iface->name,af_name(af));ia=iface_af_get(iface,af);if_stop
+_hello_timer(ia);while(!RB_EMPTY(ia_adj_head,&ia->adj_tree)){adj=RB_ROOT(ia_adj_
+head,&ia->adj_tree);adj_del(adj,S_SHUTDOWN);}/*trytocleanup*/switch(af){caseAF_I
+NET:if(global.ipv4.ldp_disc_socket!=-1)if_leave_ipv4_group(iface,&global.mcast_a
+ddr_v4);break;caseAF_INET6:if(global.ipv6.ldp_disc_socket!=-1)if_leave_ipv6_grou
+p(iface,&global.mcast_addr_v6);break;default:fatalx("if_reset:unknownaf");}ia->s
+tate=IF_STA_DOWN;return(0);}staticvoidif_update_af(structiface_af*ia){intaddr_ok
+=0,socket_ok,rtr_id_ok;structif_addr*if_addr;switch(ia->af){caseAF_INET:/**NOTE:
+forLDPv4,eachinterfaceshouldhaveatleastone*validIPaddressotherwisetheycannotbeen
+abled.*/LIST_FOREACH(if_addr,&ia->iface->addr_list,entry){if(if_addr->af==AF_INE
+T){addr_ok=1;break;}}break;caseAF_INET6:/*forIPv6thelink-localaddressisenough.*/
+if(IN6_IS_ADDR_LINKLOCAL(&ia->iface->linklocal))addr_ok=1;break;default:fatalx("
+if_update_af:unknownaf");}if((ldp_af_global_get(&global,ia->af))->ldp_disc_socke
+t!=-1)socket_ok=1;elsesocket_ok=0;if(ldp_rtr_id_get(leconf)!=INADDR_ANY)rtr_id_o
+k=1;elsertr_id_ok=0;if(ia->state==IF_STA_DOWN){if(!ia->enabled||!ia->iface->oper
+ative||!addr_ok||!socket_ok||!rtr_id_ok)return;if_start(ia->iface,ia->af);}elsei
+f(ia->state==IF_STA_ACTIVE){if(ia->enabled&&ia->iface->operative&&addr_ok&&socke
+t_ok&&rtr_id_ok)return;if_reset(ia->iface,ia->af);}}voidldp_if_update(structifac
+e*iface,intaf){if(af==AF_INET||af==AF_UNSPEC)if_update_af(&iface->ipv4);if(af==A
+F_INET6||af==AF_UNSPEC)if_update_af(&iface->ipv6);}voidif_update_all(intaf){stru
+ctiface*iface;RB_FOREACH(iface,iface_head,&leconf->iface_tree)ldp_if_update(ifac
+e,af);}uint16_tif_get_hello_holdtime(structiface_af*ia){if(ia->hello_holdtime!=0
+)return(ia->hello_holdtime);if((ldp_af_conf_get(leconf,ia->af))->lhello_holdtime
+!=0)return((ldp_af_conf_get(leconf,ia->af))->lhello_holdtime);return(leconf->lhe
+llo_holdtime);}uint16_tif_get_hello_interval(structiface_af*ia){if(ia->hello_int
+erval!=0)return(ia->hello_interval);if((ldp_af_conf_get(leconf,ia->af))->lhello_
+interval!=0)return((ldp_af_conf_get(leconf,ia->af))->lhello_interval);return(lec
+onf->lhello_interval);}/*timers*//*ARGSUSED*/staticintif_hello_timer(structthrea
+d*thread){structiface_af*ia=THREAD_ARG(thread);ia->hello_timer=NULL;send_hello(H
+ELLO_LINK,ia,NULL);if_start_hello_timer(ia);return(0);}staticvoidif_start_hello_
+timer(structiface_af*ia){THREAD_TIMER_OFF(ia->hello_timer);ia->hello_timer=NULL;
+thread_add_timer(master,if_hello_timer,ia,if_get_hello_interval(ia),&ia->hello_t
+imer);}staticvoidif_stop_hello_timer(structiface_af*ia){THREAD_TIMER_OFF(ia->hel
+lo_timer);}structctl_iface*if_to_ctl(structiface_af*ia){staticstructctl_ifaceict
+l;structtimevalnow;structadj*adj;ictl.af=ia->af;memcpy(ictl.name,ia->iface->name
+,sizeof(ictl.name));ictl.ifindex=ia->iface->ifindex;ictl.state=ia->state;ictl.ty
+pe=ia->iface->type;ictl.hello_holdtime=if_get_hello_holdtime(ia);ictl.hello_inte
+rval=if_get_hello_interval(ia);gettimeofday(&now,NULL);if(ia->state!=IF_STA_DOWN
+&&ia->uptime!=0){ictl.uptime=now.tv_sec-ia->uptime;}elseictl.uptime=0;ictl.adj_c
+nt=0;RB_FOREACH(adj,ia_adj_head,&ia->adj_tree)ictl.adj_cnt++;return(&ictl);}/*mu
+lticastmembershipsockopts*/in_addr_tif_get_ipv4_addr(structiface*iface){structif
+_addr*if_addr;LIST_FOREACH(if_addr,&iface->addr_list,entry)if(if_addr->af==AF_IN
+ET)return(if_addr->addr.v4.s_addr);return(INADDR_ANY);}staticintif_join_ipv4_gro
+up(structiface*iface,structin_addr*addr){structin_addrif_addr;log_debug("%s:inte
+rface%saddr%s",__func__,iface->name,inet_ntoa(*addr));if_addr.s_addr=if_get_ipv4
+_addr(iface);if(setsockopt_ipv4_multicast(global.ipv4.ldp_disc_socket,IP_ADD_MEM
+BERSHIP,if_addr,addr->s_addr,iface->ifindex)<0){log_warn("%s:errorIP_ADD_MEMBERS
+HIP,interface%saddress%s",__func__,iface->name,inet_ntoa(*addr));return(-1);}ret
+urn(0);}staticintif_leave_ipv4_group(structiface*iface,structin_addr*addr){struc
+tin_addrif_addr;log_debug("%s:interface%saddr%s",__func__,iface->name,inet_ntoa(
+*addr));if_addr.s_addr=if_get_ipv4_addr(iface);if(setsockopt_ipv4_multicast(glob
+al.ipv4.ldp_disc_socket,IP_DROP_MEMBERSHIP,if_addr,addr->s_addr,iface->ifindex)<
+0){log_warn("%s:errorIP_DROP_MEMBERSHIP,interface%s""address%s",__func__,iface->
+name,inet_ntoa(*addr));return(-1);}return(0);}staticintif_join_ipv6_group(struct
+iface*iface,structin6_addr*addr){structipv6_mreqmreq;log_debug("%s:interface%sad
+dr%s",__func__,iface->name,log_in6addr(addr));mreq.ipv6mr_multiaddr=*addr;mreq.i
+pv6mr_interface=iface->ifindex;if(setsockopt(global.ipv6.ldp_disc_socket,IPPROTO
+_IPV6,IPV6_JOIN_GROUP,&mreq,sizeof(mreq))<0){log_warn("%s:errorIPV6_JOIN_GROUP,i
+nterface%saddress%s",__func__,iface->name,log_in6addr(addr));return(-1);}return(
+0);}staticintif_leave_ipv6_group(structiface*iface,structin6_addr*addr){structip
+v6_mreqmreq;log_debug("%s:interface%saddr%s",__func__,iface->name,log_in6addr(ad
+dr));mreq.ipv6mr_multiaddr=*addr;mreq.ipv6mr_interface=iface->ifindex;if(setsock
+opt(global.ipv6.ldp_disc_socket,IPPROTO_IPV6,IPV6_LEAVE_GROUP,(void*)&mreq,sizeo
+f(mreq))<0){log_warn("%s:errorIPV6_LEAVE_GROUP,interface%saddress%s",__func__,if
+ace->name,log_in6addr(addr));return(-1);}return(0);}

@@ -1,30 +1,11 @@
-/*
- *
- * Copyright 2015-2016, LabN Consulting, L.L.C.
- *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/* Sample header file */
-#ifndef _RFP_H
-#define _RFP_H
-
-#include "bgpd/rfapi/rfapi.h"
-extern int bgp_rfp_cfg_write(void *vty, void *bgp);
-/* TO BE REMOVED */
-void rfp_clear_vnc_nve_all(void);
-
-#endif /* _RFP_H */
+/***Copyright2015-2016,LabNConsulting,L.L.C.***Thisprogramisfreesoftware;youcanr
+edistributeitand/or*modifyitunderthetermsoftheGNUGeneralPublicLicense*aspublishe
+dbytheFreeSoftwareFoundation;eitherversion2*oftheLicense,or(atyouroption)anylate
+rversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,*butWITHOUTANYWAR
+RANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURP
+OSE.Seethe*GNUGeneralPublicLicenseformoredetails.**Youshouldhavereceivedacopyoft
+heGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetoth
+eFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*//*
+Sampleheaderfile*/#ifndef_RFP_H#define_RFP_H#include"bgpd/rfapi/rfapi.h"externin
+tbgp_rfp_cfg_write(void*vty,void*bgp);/*TOBEREMOVED*/voidrfp_clear_vnc_nve_all(v
+oid);#endif/*_RFP_H*/

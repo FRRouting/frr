@@ -1,708 +1,199 @@
-/*
- * Client side of OSPF API.
- * Copyright (C) 2001, 2002, 2003 Ralph Keller
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include <lib/version.h>
-#include "getopt.h"
-#include "thread.h"
-#include "prefix.h"
-#include "linklist.h"
-#include "if.h"
-#include "vector.h"
-#include "vty.h"
-#include "command.h"
-#include "filter.h"
-#include "stream.h"
-#include "log.h"
-#include "memory.h"
-
-/* work around gcc bug 69981, disable MTYPEs in libospf */
-#define _QUAGGA_OSPF_MEMORY_H
-
-#include "ospfd/ospfd.h"
-#include "ospfd/ospf_interface.h"
-#include "ospfd/ospf_asbr.h"
-#include "ospfd/ospf_lsa.h"
-#include "ospfd/ospf_opaque.h"
-#include "ospfd/ospf_lsdb.h"
-#include "ospfd/ospf_neighbor.h"
-#include "ospfd/ospf_dump.h"
-#include "ospfd/ospf_zebra.h"
-#include "ospfd/ospf_api.h"
-
-#include "ospf_apiclient.h"
-
-/* *sigh* ... can't find a better way to hammer this into automake */
-#include "ospfd/ospf_dump_api.c"
-#include "ospfd/ospf_api.c"
-
-DEFINE_MGROUP(OSPFCLIENT, "libospfapiclient")
-DEFINE_MTYPE_STATIC(OSPFCLIENT, OSPF_APICLIENT, "OSPF-API client")
-
-/* Backlog for listen */
-#define BACKLOG 5
-
-/* -----------------------------------------------------------
- * Forward declarations
- * -----------------------------------------------------------
- */
-
-void ospf_apiclient_handle_reply(struct ospf_apiclient *oclient,
-				 struct msg *msg);
-void ospf_apiclient_handle_update_notify(struct ospf_apiclient *oclient,
-					 struct msg *msg);
-void ospf_apiclient_handle_delete_notify(struct ospf_apiclient *oclient,
-					 struct msg *msg);
-
-/* -----------------------------------------------------------
- * Initialization
- * -----------------------------------------------------------
- */
-
-static unsigned short ospf_apiclient_getport(void)
-{
-	struct servent *sp = getservbyname("ospfapi", "tcp");
-
-	return sp ? ntohs(sp->s_port) : OSPF_API_SYNC_PORT;
-}
-
-/* -----------------------------------------------------------
- * Followings are functions for connection management
- * -----------------------------------------------------------
- */
-
-struct ospf_apiclient *ospf_apiclient_connect(char *host, int syncport)
-{
-	struct sockaddr_in myaddr_sync;
-	struct sockaddr_in myaddr_async;
-	struct sockaddr_in peeraddr;
-	struct hostent *hp;
-	struct ospf_apiclient *new;
-	int size = 0;
-	unsigned int peeraddrlen;
-	int async_server_sock;
-	int fd1, fd2;
-	int ret;
-	int on = 1;
-
-	/* There are two connections between the client and the server.
-	   First the client opens a connection for synchronous requests/replies
-	   to the server. The server will accept this connection and
-	   as a reaction open a reverse connection channel for
-	   asynchronous messages. */
-
-	async_server_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (async_server_sock < 0) {
-		fprintf(stderr,
-			"ospf_apiclient_connect: creating async socket failed\n");
-		return NULL;
-	}
-
-	/* Prepare socket for asynchronous messages */
-	/* Initialize async address structure */
-	memset(&myaddr_async, 0, sizeof(struct sockaddr_in));
-	myaddr_async.sin_family = AF_INET;
-	myaddr_async.sin_addr.s_addr = htonl(INADDR_ANY);
-	myaddr_async.sin_port = htons(syncport + 1);
-	size = sizeof(struct sockaddr_in);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	myaddr_async.sin_len = size;
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-
-	/* This is a server socket, reuse addr and port */
-	ret = setsockopt(async_server_sock, SOL_SOCKET, SO_REUSEADDR,
-			 (void *)&on, sizeof(on));
-	if (ret < 0) {
-		fprintf(stderr,
-			"ospf_apiclient_connect: SO_REUSEADDR failed\n");
-		close(async_server_sock);
-		return NULL;
-	}
-
-#ifdef SO_REUSEPORT
-	ret = setsockopt(async_server_sock, SOL_SOCKET, SO_REUSEPORT,
-			 (void *)&on, sizeof(on));
-	if (ret < 0) {
-		fprintf(stderr,
-			"ospf_apiclient_connect: SO_REUSEPORT failed\n");
-		close(async_server_sock);
-		return NULL;
-	}
-#endif /* SO_REUSEPORT */
-
-	/* Bind socket to address structure */
-	ret = bind(async_server_sock, (struct sockaddr *)&myaddr_async, size);
-	if (ret < 0) {
-		fprintf(stderr,
-			"ospf_apiclient_connect: bind async socket failed\n");
-		close(async_server_sock);
-		return NULL;
-	}
-
-	/* Wait for reverse channel connection establishment from server */
-	ret = listen(async_server_sock, BACKLOG);
-	if (ret < 0) {
-		fprintf(stderr, "ospf_apiclient_connect: listen: %s\n",
-			safe_strerror(errno));
-		close(async_server_sock);
-		return NULL;
-	}
-
-	/* Make connection for synchronous requests and connect to server */
-	/* Resolve address of server */
-	hp = gethostbyname(host);
-	if (!hp) {
-		fprintf(stderr, "ospf_apiclient_connect: no such host %s\n",
-			host);
-		close(async_server_sock);
-		return NULL;
-	}
-
-	fd1 = socket(AF_INET, SOCK_STREAM, 0);
-	if (fd1 < 0) {
-		close(async_server_sock);
-		fprintf(stderr,
-			"ospf_apiclient_connect: creating sync socket failed\n");
-		return NULL;
-	}
-
-
-	/* Reuse addr and port */
-	ret = setsockopt(fd1, SOL_SOCKET, SO_REUSEADDR, (void *)&on,
-			 sizeof(on));
-	if (ret < 0) {
-		fprintf(stderr,
-			"ospf_apiclient_connect: SO_REUSEADDR failed\n");
-		close(fd1);
-		close(async_server_sock);
-		return NULL;
-	}
-
-#ifdef SO_REUSEPORT
-	ret = setsockopt(fd1, SOL_SOCKET, SO_REUSEPORT, (void *)&on,
-			 sizeof(on));
-	if (ret < 0) {
-		fprintf(stderr,
-			"ospf_apiclient_connect: SO_REUSEPORT failed\n");
-		close(fd1);
-		close(async_server_sock);
-		return NULL;
-	}
-#endif /* SO_REUSEPORT */
-
-
-	/* Bind sync socket to address structure. This is needed since we
-	   want the sync port number on a fixed port number. The reverse
-	   async channel will be at this port+1 */
-
-	memset(&myaddr_sync, 0, sizeof(struct sockaddr_in));
-	myaddr_sync.sin_family = AF_INET;
-	myaddr_sync.sin_port = htons(syncport);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	myaddr_sync.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-
-	ret = bind(fd1, (struct sockaddr *)&myaddr_sync, size);
-	if (ret < 0) {
-		fprintf(stderr,
-			"ospf_apiclient_connect: bind sync socket failed\n");
-		close(fd1);
-		close(async_server_sock);
-		return NULL;
-	}
-
-	/* Prepare address structure for connect */
-	memcpy(&myaddr_sync.sin_addr, hp->h_addr, hp->h_length);
-	myaddr_sync.sin_family = AF_INET;
-	myaddr_sync.sin_port = htons(ospf_apiclient_getport());
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	myaddr_sync.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-
-	/* Now establish synchronous channel with OSPF daemon */
-	ret = connect(fd1, (struct sockaddr *)&myaddr_sync,
-		      sizeof(struct sockaddr_in));
-	if (ret < 0) {
-		fprintf(stderr,
-			"ospf_apiclient_connect: sync connect failed\n");
-		close(async_server_sock);
-		close(fd1);
-		return NULL;
-	}
-
-	/* Accept reverse connection */
-	peeraddrlen = sizeof(struct sockaddr_in);
-	memset(&peeraddr, 0, peeraddrlen);
-
-	fd2 = accept(async_server_sock, (struct sockaddr *)&peeraddr,
-		     &peeraddrlen);
-	if (fd2 < 0) {
-		fprintf(stderr,
-			"ospf_apiclient_connect: accept async failed\n");
-		close(async_server_sock);
-		close(fd1);
-		close(fd2);
-		return NULL;
-	}
-
-	/* Server socket is not needed anymore since we are not accepting more
-	   connections */
-	close(async_server_sock);
-
-	/* Create new client-side instance */
-	new = XCALLOC(MTYPE_OSPF_APICLIENT, sizeof(struct ospf_apiclient));
-
-	/* Initialize socket descriptors for sync and async channels */
-	new->fd_sync = fd1;
-	new->fd_async = fd2;
-
-	return new;
-}
-
-int ospf_apiclient_close(struct ospf_apiclient *oclient)
-{
-
-	if (oclient->fd_sync >= 0) {
-		close(oclient->fd_sync);
-	}
-
-	if (oclient->fd_async >= 0) {
-		close(oclient->fd_async);
-	}
-
-	/* Free client structure */
-	XFREE(MTYPE_OSPF_APICLIENT, oclient);
-	return 0;
-}
-
-/* -----------------------------------------------------------
- * Followings are functions to send a request to OSPFd
- * -----------------------------------------------------------
- */
-
-/* Send synchronous request, wait for reply */
-static int ospf_apiclient_send_request(struct ospf_apiclient *oclient,
-				       struct msg *msg)
-{
-	uint32_t reqseq;
-	struct msg_reply *msgreply;
-	int rc;
-
-	/* NB: Given "msg" is freed inside this function. */
-
-	/* Remember the sequence number of the request */
-	reqseq = ntohl(msg->hdr.msgseq);
-
-	/* Write message to OSPFd */
-	rc = msg_write(oclient->fd_sync, msg);
-	msg_free(msg);
-
-	if (rc < 0) {
-		return -1;
-	}
-
-	/* Wait for reply */ /* NB: New "msg" is allocated by "msg_read()". */
-	msg = msg_read(oclient->fd_sync);
-	if (!msg)
-		return -1;
-
-	assert(msg->hdr.msgtype == MSG_REPLY);
-	assert(ntohl(msg->hdr.msgseq) == reqseq);
-
-	msgreply = (struct msg_reply *)STREAM_DATA(msg->s);
-	rc = msgreply->errcode;
-	msg_free(msg);
-
-	return rc;
-}
-
-
-/* -----------------------------------------------------------
- * Helper functions
- * -----------------------------------------------------------
- */
-
-static uint32_t ospf_apiclient_get_seqnr(void)
-{
-	static uint32_t seqnr = MIN_SEQ;
-	uint32_t tmp;
-
-	tmp = seqnr;
-	/* Increment sequence number */
-	if (seqnr < MAX_SEQ) {
-		seqnr++;
-	} else {
-		seqnr = MIN_SEQ;
-	}
-	return tmp;
-}
-
-/* -----------------------------------------------------------
- * API to access OSPF daemon by client applications.
- * -----------------------------------------------------------
- */
-
-/*
- * Synchronous request to register opaque type.
- */
-int ospf_apiclient_register_opaque_type(struct ospf_apiclient *cl,
-					uint8_t ltype, uint8_t otype)
-{
-	struct msg *msg;
-	int rc;
-
-	/* just put 1 as a sequence number. */
-	msg = new_msg_register_opaque_type(ospf_apiclient_get_seqnr(), ltype,
-					   otype);
-	if (!msg) {
-		fprintf(stderr, "new_msg_register_opaque_type failed\n");
-		return -1;
-	}
-
-	rc = ospf_apiclient_send_request(cl, msg);
-	return rc;
-}
-
-/*
- * Synchronous request to synchronize with OSPF's LSDB.
- * Two steps required: register_event in order to get
- * dynamic updates and LSDB_Sync.
- */
-int ospf_apiclient_sync_lsdb(struct ospf_apiclient *oclient)
-{
-	struct msg *msg;
-	int rc;
-	struct lsa_filter_type filter;
-
-	filter.typemask = 0xFFFF; /* all LSAs */
-	filter.origin = ANY_ORIGIN;
-	filter.num_areas = 0; /* all Areas. */
-
-	msg = new_msg_register_event(ospf_apiclient_get_seqnr(), &filter);
-	if (!msg) {
-		fprintf(stderr, "new_msg_register_event failed\n");
-		return -1;
-	}
-	rc = ospf_apiclient_send_request(oclient, msg);
-
-	if (rc != 0)
-		goto out;
-
-	msg = new_msg_sync_lsdb(ospf_apiclient_get_seqnr(), &filter);
-	if (!msg) {
-		fprintf(stderr, "new_msg_sync_lsdb failed\n");
-		return -1;
-	}
-	rc = ospf_apiclient_send_request(oclient, msg);
-
-out:
-	return rc;
-}
-
-/*
- * Synchronous request to originate or update an LSA.
- */
-
-int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
-				 struct in_addr ifaddr, struct in_addr area_id,
-				 uint8_t lsa_type, uint8_t opaque_type,
-				 uint32_t opaque_id, void *opaquedata,
-				 int opaquelen)
-{
-	struct msg *msg;
-	int rc;
-	uint8_t buf[OSPF_MAX_LSA_SIZE];
-	struct lsa_header *lsah;
-	uint32_t tmp;
-
-
-	/* We can only originate opaque LSAs */
-	if (!IS_OPAQUE_LSA(lsa_type)) {
-		fprintf(stderr, "Cannot originate non-opaque LSA type %d\n",
-			lsa_type);
-		return OSPF_API_ILLEGALLSATYPE;
-	}
-
-	/* Make a new LSA from parameters */
-	lsah = (struct lsa_header *)buf;
-	lsah->ls_age = 0;
-	lsah->options = 0;
-	lsah->type = lsa_type;
-
-	tmp = SET_OPAQUE_LSID(opaque_type, opaque_id);
-	lsah->id.s_addr = htonl(tmp);
-	lsah->adv_router.s_addr = 0;
-	lsah->ls_seqnum = 0;
-	lsah->checksum = 0;
-	lsah->length = htons(sizeof(struct lsa_header) + opaquelen);
-
-	memcpy(((uint8_t *)lsah) + sizeof(struct lsa_header), opaquedata,
-	       opaquelen);
-
-	msg = new_msg_originate_request(ospf_apiclient_get_seqnr(), ifaddr,
-					area_id, lsah);
-	if (!msg) {
-		fprintf(stderr, "new_msg_originate_request failed\n");
-		return OSPF_API_NOMEMORY;
-	}
-
-	rc = ospf_apiclient_send_request(oclient, msg);
-	return rc;
-}
-
-int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
-			      struct in_addr area_id, uint8_t lsa_type,
-			      uint8_t opaque_type, uint32_t opaque_id)
-{
-	struct msg *msg;
-	int rc;
-
-	/* Only opaque LSA can be deleted */
-	if (!IS_OPAQUE_LSA(lsa_type)) {
-		fprintf(stderr, "Cannot delete non-opaque LSA type %d\n",
-			lsa_type);
-		return OSPF_API_ILLEGALLSATYPE;
-	}
-
-	/* opaque_id is in host byte order and will be converted
-	 * to network byte order by new_msg_delete_request */
-	msg = new_msg_delete_request(ospf_apiclient_get_seqnr(), area_id,
-				     lsa_type, opaque_type, opaque_id);
-
-	rc = ospf_apiclient_send_request(oclient, msg);
-	return rc;
-}
-
-/* -----------------------------------------------------------
- * Followings are handlers for messages from OSPF daemon
- * -----------------------------------------------------------
- */
-
-static void ospf_apiclient_handle_ready(struct ospf_apiclient *oclient,
-					struct msg *msg)
-{
-	struct msg_ready_notify *r;
-	r = (struct msg_ready_notify *)STREAM_DATA(msg->s);
-
-	/* Invoke registered callback function. */
-	if (oclient->ready_notify) {
-		(oclient->ready_notify)(r->lsa_type, r->opaque_type, r->addr);
-	}
-}
-
-static void ospf_apiclient_handle_new_if(struct ospf_apiclient *oclient,
-					 struct msg *msg)
-{
-	struct msg_new_if *n;
-	n = (struct msg_new_if *)STREAM_DATA(msg->s);
-
-	/* Invoke registered callback function. */
-	if (oclient->new_if) {
-		(oclient->new_if)(n->ifaddr, n->area_id);
-	}
-}
-
-static void ospf_apiclient_handle_del_if(struct ospf_apiclient *oclient,
-					 struct msg *msg)
-{
-	struct msg_del_if *d;
-	d = (struct msg_del_if *)STREAM_DATA(msg->s);
-
-	/* Invoke registered callback function. */
-	if (oclient->del_if) {
-		(oclient->del_if)(d->ifaddr);
-	}
-}
-
-static void ospf_apiclient_handle_ism_change(struct ospf_apiclient *oclient,
-					     struct msg *msg)
-{
-	struct msg_ism_change *m;
-	m = (struct msg_ism_change *)STREAM_DATA(msg->s);
-
-	/* Invoke registered callback function. */
-	if (oclient->ism_change) {
-		(oclient->ism_change)(m->ifaddr, m->area_id, m->status);
-	}
-}
-
-static void ospf_apiclient_handle_nsm_change(struct ospf_apiclient *oclient,
-					     struct msg *msg)
-{
-	struct msg_nsm_change *m;
-	m = (struct msg_nsm_change *)STREAM_DATA(msg->s);
-
-	/* Invoke registered callback function. */
-	if (oclient->nsm_change) {
-		(oclient->nsm_change)(m->ifaddr, m->nbraddr, m->router_id,
-				      m->status);
-	}
-}
-
-static void ospf_apiclient_handle_lsa_update(struct ospf_apiclient *oclient,
-					     struct msg *msg)
-{
-	struct msg_lsa_change_notify *cn;
-	struct lsa_header *lsa;
-	int lsalen;
-
-	cn = (struct msg_lsa_change_notify *)STREAM_DATA(msg->s);
-
-	/* Extract LSA from message */
-	lsalen = ntohs(cn->data.length);
-	lsa = XMALLOC(MTYPE_OSPF_APICLIENT, lsalen);
-	if (!lsa) {
-		fprintf(stderr, "LSA update: Cannot allocate memory for LSA\n");
-		return;
-	}
-	memcpy(lsa, &(cn->data), lsalen);
-
-	/* Invoke registered update callback function */
-	if (oclient->update_notify) {
-		(oclient->update_notify)(cn->ifaddr, cn->area_id,
-					 cn->is_self_originated, lsa);
-	}
-
-	/* free memory allocated by ospf apiclient library */
-	XFREE(MTYPE_OSPF_APICLIENT, lsa);
-}
-
-static void ospf_apiclient_handle_lsa_delete(struct ospf_apiclient *oclient,
-					     struct msg *msg)
-{
-	struct msg_lsa_change_notify *cn;
-	struct lsa_header *lsa;
-	int lsalen;
-
-	cn = (struct msg_lsa_change_notify *)STREAM_DATA(msg->s);
-
-	/* Extract LSA from message */
-	lsalen = ntohs(cn->data.length);
-	lsa = XMALLOC(MTYPE_OSPF_APICLIENT, lsalen);
-	if (!lsa) {
-		fprintf(stderr, "LSA delete: Cannot allocate memory for LSA\n");
-		return;
-	}
-	memcpy(lsa, &(cn->data), lsalen);
-
-	/* Invoke registered update callback function */
-	if (oclient->delete_notify) {
-		(oclient->delete_notify)(cn->ifaddr, cn->area_id,
-					 cn->is_self_originated, lsa);
-	}
-
-	/* free memory allocated by ospf apiclient library */
-	XFREE(MTYPE_OSPF_APICLIENT, lsa);
-}
-
-static void ospf_apiclient_msghandle(struct ospf_apiclient *oclient,
-				     struct msg *msg)
-{
-	/* Call message handler function. */
-	switch (msg->hdr.msgtype) {
-	case MSG_READY_NOTIFY:
-		ospf_apiclient_handle_ready(oclient, msg);
-		break;
-	case MSG_NEW_IF:
-		ospf_apiclient_handle_new_if(oclient, msg);
-		break;
-	case MSG_DEL_IF:
-		ospf_apiclient_handle_del_if(oclient, msg);
-		break;
-	case MSG_ISM_CHANGE:
-		ospf_apiclient_handle_ism_change(oclient, msg);
-		break;
-	case MSG_NSM_CHANGE:
-		ospf_apiclient_handle_nsm_change(oclient, msg);
-		break;
-	case MSG_LSA_UPDATE_NOTIFY:
-		ospf_apiclient_handle_lsa_update(oclient, msg);
-		break;
-	case MSG_LSA_DELETE_NOTIFY:
-		ospf_apiclient_handle_lsa_delete(oclient, msg);
-		break;
-	default:
-		fprintf(stderr,
-			"ospf_apiclient_read: Unknown message type: %d\n",
-			msg->hdr.msgtype);
-		break;
-	}
-}
-
-/* -----------------------------------------------------------
- * Callback handler registration
- * -----------------------------------------------------------
- */
-
-void ospf_apiclient_register_callback(
-	struct ospf_apiclient *oclient,
-	void (*ready_notify)(uint8_t lsa_type, uint8_t opaque_type,
-			     struct in_addr addr),
-	void (*new_if)(struct in_addr ifaddr, struct in_addr area_id),
-	void (*del_if)(struct in_addr ifaddr),
-	void (*ism_change)(struct in_addr ifaddr, struct in_addr area_id,
-			   uint8_t status),
-	void (*nsm_change)(struct in_addr ifaddr, struct in_addr nbraddr,
-			   struct in_addr router_id, uint8_t status),
-	void (*update_notify)(struct in_addr ifaddr, struct in_addr area_id,
-			      uint8_t self_origin, struct lsa_header *lsa),
-	void (*delete_notify)(struct in_addr ifaddr, struct in_addr area_id,
-			      uint8_t self_origin, struct lsa_header *lsa))
-{
-	assert(oclient);
-	assert(update_notify);
-
-	/* Register callback function */
-	oclient->ready_notify = ready_notify;
-	oclient->new_if = new_if;
-	oclient->del_if = del_if;
-	oclient->ism_change = ism_change;
-	oclient->nsm_change = nsm_change;
-	oclient->update_notify = update_notify;
-	oclient->delete_notify = delete_notify;
-}
-
-/* -----------------------------------------------------------
- * Asynchronous message handling
- * -----------------------------------------------------------
- */
-
-int ospf_apiclient_handle_async(struct ospf_apiclient *oclient)
-{
-	struct msg *msg;
-
-	/* Get a message */
-	msg = msg_read(oclient->fd_async);
-
-	if (!msg) {
-		/* Connection broke down */
-		return -1;
-	}
-
-	/* Handle message */
-	ospf_apiclient_msghandle(oclient, msg);
-
-	/* Don't forget to free this message */
-	msg_free(msg);
-
-	return 0;
-}
+/**ClientsideofOSPFAPI.*Copyright(C)2001,2002,2003RalphKeller**ThisfileispartofG
+NUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itundertheterm
+softheGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversi
+on2,or(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatitwillb
+euseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYor
+FITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yous
+houldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefi
+leCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,B
+oston,MA02110-1301USA*/#include<zebra.h>#include<lib/version.h>#include"getopt.h
+"#include"thread.h"#include"prefix.h"#include"linklist.h"#include"if.h"#include"
+vector.h"#include"vty.h"#include"command.h"#include"filter.h"#include"stream.h"#
+include"log.h"#include"memory.h"/*workaroundgccbug69981,disableMTYPEsinlibospf*/
+#define_QUAGGA_OSPF_MEMORY_H#include"ospfd/ospfd.h"#include"ospfd/ospf_interface
+.h"#include"ospfd/ospf_asbr.h"#include"ospfd/ospf_lsa.h"#include"ospfd/ospf_opaq
+ue.h"#include"ospfd/ospf_lsdb.h"#include"ospfd/ospf_neighbor.h"#include"ospfd/os
+pf_dump.h"#include"ospfd/ospf_zebra.h"#include"ospfd/ospf_api.h"#include"ospf_ap
+iclient.h"/**sigh*...can'tfindabetterwaytohammerthisintoautomake*/#include"ospfd
+/ospf_dump_api.c"#include"ospfd/ospf_api.c"DEFINE_MGROUP(OSPFCLIENT,"libospfapic
+lient")DEFINE_MTYPE_STATIC(OSPFCLIENT,OSPF_APICLIENT,"OSPF-APIclient")/*Backlogf
+orlisten*/#defineBACKLOG5/*-----------------------------------------------------
+------*Forwarddeclarations*-----------------------------------------------------
+------*/voidospf_apiclient_handle_reply(structospf_apiclient*oclient,structmsg*m
+sg);voidospf_apiclient_handle_update_notify(structospf_apiclient*oclient,structm
+sg*msg);voidospf_apiclient_handle_delete_notify(structospf_apiclient*oclient,str
+uctmsg*msg);/*-----------------------------------------------------------*Initia
+lization*-----------------------------------------------------------*/staticunsi
+gnedshortospf_apiclient_getport(void){structservent*sp=getservbyname("ospfapi","
+tcp");returnsp?ntohs(sp->s_port):OSPF_API_SYNC_PORT;}/*-------------------------
+----------------------------------*Followingsarefunctionsforconnectionmanagement
+*-----------------------------------------------------------*/structospf_apiclie
+nt*ospf_apiclient_connect(char*host,intsyncport){structsockaddr_inmyaddr_sync;st
+ructsockaddr_inmyaddr_async;structsockaddr_inpeeraddr;structhostent*hp;structosp
+f_apiclient*new;intsize=0;unsignedintpeeraddrlen;intasync_server_sock;intfd1,fd2
+;intret;inton=1;/*Therearetwoconnectionsbetweentheclientandtheserver.Firstthecli
+entopensaconnectionforsynchronousrequests/repliestotheserver.Theserverwillaccept
+thisconnectionandasareactionopenareverseconnectionchannelforasynchronousmessages
+.*/async_server_sock=socket(AF_INET,SOCK_STREAM,0);if(async_server_sock<0){fprin
+tf(stderr,"ospf_apiclient_connect:creatingasyncsocketfailed\n");returnNULL;}/*Pr
+eparesocketforasynchronousmessages*//*Initializeasyncaddressstructure*/memset(&m
+yaddr_async,0,sizeof(structsockaddr_in));myaddr_async.sin_family=AF_INET;myaddr_
+async.sin_addr.s_addr=htonl(INADDR_ANY);myaddr_async.sin_port=htons(syncport+1);
+size=sizeof(structsockaddr_in);#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENmyaddr_async
+.sin_len=size;#endif/*HAVE_STRUCT_SOCKADDR_IN_SIN_LEN*//*Thisisaserversocket,reu
+seaddrandport*/ret=setsockopt(async_server_sock,SOL_SOCKET,SO_REUSEADDR,(void*)&
+on,sizeof(on));if(ret<0){fprintf(stderr,"ospf_apiclient_connect:SO_REUSEADDRfail
+ed\n");close(async_server_sock);returnNULL;}#ifdefSO_REUSEPORTret=setsockopt(asy
+nc_server_sock,SOL_SOCKET,SO_REUSEPORT,(void*)&on,sizeof(on));if(ret<0){fprintf(
+stderr,"ospf_apiclient_connect:SO_REUSEPORTfailed\n");close(async_server_sock);r
+eturnNULL;}#endif/*SO_REUSEPORT*//*Bindsockettoaddressstructure*/ret=bind(async_
+server_sock,(structsockaddr*)&myaddr_async,size);if(ret<0){fprintf(stderr,"ospf_
+apiclient_connect:bindasyncsocketfailed\n");close(async_server_sock);returnNULL;
+}/*Waitforreversechannelconnectionestablishmentfromserver*/ret=listen(async_serv
+er_sock,BACKLOG);if(ret<0){fprintf(stderr,"ospf_apiclient_connect:listen:%s\n",s
+afe_strerror(errno));close(async_server_sock);returnNULL;}/*Makeconnectionforsyn
+chronousrequestsandconnecttoserver*//*Resolveaddressofserver*/hp=gethostbyname(h
+ost);if(!hp){fprintf(stderr,"ospf_apiclient_connect:nosuchhost%s\n",host);close(
+async_server_sock);returnNULL;}fd1=socket(AF_INET,SOCK_STREAM,0);if(fd1<0){close
+(async_server_sock);fprintf(stderr,"ospf_apiclient_connect:creatingsyncsocketfai
+led\n");returnNULL;}/*Reuseaddrandport*/ret=setsockopt(fd1,SOL_SOCKET,SO_REUSEAD
+DR,(void*)&on,sizeof(on));if(ret<0){fprintf(stderr,"ospf_apiclient_connect:SO_RE
+USEADDRfailed\n");close(fd1);close(async_server_sock);returnNULL;}#ifdefSO_REUSE
+PORTret=setsockopt(fd1,SOL_SOCKET,SO_REUSEPORT,(void*)&on,sizeof(on));if(ret<0){
+fprintf(stderr,"ospf_apiclient_connect:SO_REUSEPORTfailed\n");close(fd1);close(a
+sync_server_sock);returnNULL;}#endif/*SO_REUSEPORT*//*Bindsyncsockettoaddressstr
+ucture.Thisisneededsincewewantthesyncportnumberonafixedportnumber.Thereverseasyn
+cchannelwillbeatthisport+1*/memset(&myaddr_sync,0,sizeof(structsockaddr_in));mya
+ddr_sync.sin_family=AF_INET;myaddr_sync.sin_port=htons(syncport);#ifdefHAVE_STRU
+CT_SOCKADDR_IN_SIN_LENmyaddr_sync.sin_len=sizeof(structsockaddr_in);#endif/*HAVE
+_STRUCT_SOCKADDR_IN_SIN_LEN*/ret=bind(fd1,(structsockaddr*)&myaddr_sync,size);if
+(ret<0){fprintf(stderr,"ospf_apiclient_connect:bindsyncsocketfailed\n");close(fd
+1);close(async_server_sock);returnNULL;}/*Prepareaddressstructureforconnect*/mem
+cpy(&myaddr_sync.sin_addr,hp->h_addr,hp->h_length);myaddr_sync.sin_family=AF_INE
+T;myaddr_sync.sin_port=htons(ospf_apiclient_getport());#ifdefHAVE_STRUCT_SOCKADD
+R_IN_SIN_LENmyaddr_sync.sin_len=sizeof(structsockaddr_in);#endif/*HAVE_STRUCT_SO
+CKADDR_IN_SIN_LEN*//*NowestablishsynchronouschannelwithOSPFdaemon*/ret=connect(f
+d1,(structsockaddr*)&myaddr_sync,sizeof(structsockaddr_in));if(ret<0){fprintf(st
+derr,"ospf_apiclient_connect:syncconnectfailed\n");close(async_server_sock);clos
+e(fd1);returnNULL;}/*Acceptreverseconnection*/peeraddrlen=sizeof(structsockaddr_
+in);memset(&peeraddr,0,peeraddrlen);fd2=accept(async_server_sock,(structsockaddr
+*)&peeraddr,&peeraddrlen);if(fd2<0){fprintf(stderr,"ospf_apiclient_connect:accep
+tasyncfailed\n");close(async_server_sock);close(fd1);close(fd2);returnNULL;}/*Se
+rversocketisnotneededanymoresincewearenotacceptingmoreconnections*/close(async_s
+erver_sock);/*Createnewclient-sideinstance*/new=XCALLOC(MTYPE_OSPF_APICLIENT,siz
+eof(structospf_apiclient));/*Initializesocketdescriptorsforsyncandasyncchannels*
+/new->fd_sync=fd1;new->fd_async=fd2;returnnew;}intospf_apiclient_close(structosp
+f_apiclient*oclient){if(oclient->fd_sync>=0){close(oclient->fd_sync);}if(oclient
+->fd_async>=0){close(oclient->fd_async);}/*Freeclientstructure*/XFREE(MTYPE_OSPF
+_APICLIENT,oclient);return0;}/*-------------------------------------------------
+----------*FollowingsarefunctionstosendarequesttoOSPFd*-------------------------
+----------------------------------*//*Sendsynchronousrequest,waitforreply*/stati
+cintospf_apiclient_send_request(structospf_apiclient*oclient,structmsg*msg){uint
+32_treqseq;structmsg_reply*msgreply;intrc;/*NB:Given"msg"isfreedinsidethisfuncti
+on.*//*Rememberthesequencenumberoftherequest*/reqseq=ntohl(msg->hdr.msgseq);/*Wr
+itemessagetoOSPFd*/rc=msg_write(oclient->fd_sync,msg);msg_free(msg);if(rc<0){ret
+urn-1;}/*Waitforreply*//*NB:New"msg"isallocatedby"msg_read()".*/msg=msg_read(ocl
+ient->fd_sync);if(!msg)return-1;assert(msg->hdr.msgtype==MSG_REPLY);assert(ntohl
+(msg->hdr.msgseq)==reqseq);msgreply=(structmsg_reply*)STREAM_DATA(msg->s);rc=msg
+reply->errcode;msg_free(msg);returnrc;}/*---------------------------------------
+--------------------*Helperfunctions*-------------------------------------------
+----------------*/staticuint32_tospf_apiclient_get_seqnr(void){staticuint32_tseq
+nr=MIN_SEQ;uint32_ttmp;tmp=seqnr;/*Incrementsequencenumber*/if(seqnr<MAX_SEQ){se
+qnr++;}else{seqnr=MIN_SEQ;}returntmp;}/*----------------------------------------
+-------------------*APItoaccessOSPFdaemonbyclientapplications.*-----------------
+------------------------------------------*//**Synchronousrequesttoregisteropaqu
+etype.*/intospf_apiclient_register_opaque_type(structospf_apiclient*cl,uint8_tlt
+ype,uint8_totype){structmsg*msg;intrc;/*justput1asasequencenumber.*/msg=new_msg_
+register_opaque_type(ospf_apiclient_get_seqnr(),ltype,otype);if(!msg){fprintf(st
+derr,"new_msg_register_opaque_typefailed\n");return-1;}rc=ospf_apiclient_send_re
+quest(cl,msg);returnrc;}/**SynchronousrequesttosynchronizewithOSPF'sLSDB.*Twoste
+psrequired:register_eventinordertoget*dynamicupdatesandLSDB_Sync.*/intospf_apicl
+ient_sync_lsdb(structospf_apiclient*oclient){structmsg*msg;intrc;structlsa_filte
+r_typefilter;filter.typemask=0xFFFF;/*allLSAs*/filter.origin=ANY_ORIGIN;filter.n
+um_areas=0;/*allAreas.*/msg=new_msg_register_event(ospf_apiclient_get_seqnr(),&f
+ilter);if(!msg){fprintf(stderr,"new_msg_register_eventfailed\n");return-1;}rc=os
+pf_apiclient_send_request(oclient,msg);if(rc!=0)gotoout;msg=new_msg_sync_lsdb(os
+pf_apiclient_get_seqnr(),&filter);if(!msg){fprintf(stderr,"new_msg_sync_lsdbfail
+ed\n");return-1;}rc=ospf_apiclient_send_request(oclient,msg);out:returnrc;}/**Sy
+nchronousrequesttooriginateorupdateanLSA.*/intospf_apiclient_lsa_originate(struc
+tospf_apiclient*oclient,structin_addrifaddr,structin_addrarea_id,uint8_tlsa_type
+,uint8_topaque_type,uint32_topaque_id,void*opaquedata,intopaquelen){structmsg*ms
+g;intrc;uint8_tbuf[OSPF_MAX_LSA_SIZE];structlsa_header*lsah;uint32_ttmp;/*Wecano
+nlyoriginateopaqueLSAs*/if(!IS_OPAQUE_LSA(lsa_type)){fprintf(stderr,"Cannotorigi
+natenon-opaqueLSAtype%d\n",lsa_type);returnOSPF_API_ILLEGALLSATYPE;}/*MakeanewLS
+Afromparameters*/lsah=(structlsa_header*)buf;lsah->ls_age=0;lsah->options=0;lsah
+->type=lsa_type;tmp=SET_OPAQUE_LSID(opaque_type,opaque_id);lsah->id.s_addr=htonl
+(tmp);lsah->adv_router.s_addr=0;lsah->ls_seqnum=0;lsah->checksum=0;lsah->length=
+htons(sizeof(structlsa_header)+opaquelen);memcpy(((uint8_t*)lsah)+sizeof(structl
+sa_header),opaquedata,opaquelen);msg=new_msg_originate_request(ospf_apiclient_ge
+t_seqnr(),ifaddr,area_id,lsah);if(!msg){fprintf(stderr,"new_msg_originate_reques
+tfailed\n");returnOSPF_API_NOMEMORY;}rc=ospf_apiclient_send_request(oclient,msg)
+;returnrc;}intospf_apiclient_lsa_delete(structospf_apiclient*oclient,structin_ad
+drarea_id,uint8_tlsa_type,uint8_topaque_type,uint32_topaque_id){structmsg*msg;in
+trc;/*OnlyopaqueLSAcanbedeleted*/if(!IS_OPAQUE_LSA(lsa_type)){fprintf(stderr,"Ca
+nnotdeletenon-opaqueLSAtype%d\n",lsa_type);returnOSPF_API_ILLEGALLSATYPE;}/*opaq
+ue_idisinhostbyteorderandwillbeconverted*tonetworkbyteorderbynew_msg_delete_requ
+est*/msg=new_msg_delete_request(ospf_apiclient_get_seqnr(),area_id,lsa_type,opaq
+ue_type,opaque_id);rc=ospf_apiclient_send_request(oclient,msg);returnrc;}/*-----
+------------------------------------------------------*Followingsarehandlersform
+essagesfromOSPFdaemon*----------------------------------------------------------
+-*/staticvoidospf_apiclient_handle_ready(structospf_apiclient*oclient,structmsg*
+msg){structmsg_ready_notify*r;r=(structmsg_ready_notify*)STREAM_DATA(msg->s);/*I
+nvokeregisteredcallbackfunction.*/if(oclient->ready_notify){(oclient->ready_noti
+fy)(r->lsa_type,r->opaque_type,r->addr);}}staticvoidospf_apiclient_handle_new_if
+(structospf_apiclient*oclient,structmsg*msg){structmsg_new_if*n;n=(structmsg_new
+_if*)STREAM_DATA(msg->s);/*Invokeregisteredcallbackfunction.*/if(oclient->new_if
+){(oclient->new_if)(n->ifaddr,n->area_id);}}staticvoidospf_apiclient_handle_del_
+if(structospf_apiclient*oclient,structmsg*msg){structmsg_del_if*d;d=(structmsg_d
+el_if*)STREAM_DATA(msg->s);/*Invokeregisteredcallbackfunction.*/if(oclient->del_
+if){(oclient->del_if)(d->ifaddr);}}staticvoidospf_apiclient_handle_ism_change(st
+ructospf_apiclient*oclient,structmsg*msg){structmsg_ism_change*m;m=(structmsg_is
+m_change*)STREAM_DATA(msg->s);/*Invokeregisteredcallbackfunction.*/if(oclient->i
+sm_change){(oclient->ism_change)(m->ifaddr,m->area_id,m->status);}}staticvoidosp
+f_apiclient_handle_nsm_change(structospf_apiclient*oclient,structmsg*msg){struct
+msg_nsm_change*m;m=(structmsg_nsm_change*)STREAM_DATA(msg->s);/*Invokeregistered
+callbackfunction.*/if(oclient->nsm_change){(oclient->nsm_change)(m->ifaddr,m->nb
+raddr,m->router_id,m->status);}}staticvoidospf_apiclient_handle_lsa_update(struc
+tospf_apiclient*oclient,structmsg*msg){structmsg_lsa_change_notify*cn;structlsa_
+header*lsa;intlsalen;cn=(structmsg_lsa_change_notify*)STREAM_DATA(msg->s);/*Extr
+actLSAfrommessage*/lsalen=ntohs(cn->data.length);lsa=XMALLOC(MTYPE_OSPF_APICLIEN
+T,lsalen);if(!lsa){fprintf(stderr,"LSAupdate:CannotallocatememoryforLSA\n");retu
+rn;}memcpy(lsa,&(cn->data),lsalen);/*Invokeregisteredupdatecallbackfunction*/if(
+oclient->update_notify){(oclient->update_notify)(cn->ifaddr,cn->area_id,cn->is_s
+elf_originated,lsa);}/*freememoryallocatedbyospfapiclientlibrary*/XFREE(MTYPE_OS
+PF_APICLIENT,lsa);}staticvoidospf_apiclient_handle_lsa_delete(structospf_apiclie
+nt*oclient,structmsg*msg){structmsg_lsa_change_notify*cn;structlsa_header*lsa;in
+tlsalen;cn=(structmsg_lsa_change_notify*)STREAM_DATA(msg->s);/*ExtractLSAfrommes
+sage*/lsalen=ntohs(cn->data.length);lsa=XMALLOC(MTYPE_OSPF_APICLIENT,lsalen);if(
+!lsa){fprintf(stderr,"LSAdelete:CannotallocatememoryforLSA\n");return;}memcpy(ls
+a,&(cn->data),lsalen);/*Invokeregisteredupdatecallbackfunction*/if(oclient->dele
+te_notify){(oclient->delete_notify)(cn->ifaddr,cn->area_id,cn->is_self_originate
+d,lsa);}/*freememoryallocatedbyospfapiclientlibrary*/XFREE(MTYPE_OSPF_APICLIENT,
+lsa);}staticvoidospf_apiclient_msghandle(structospf_apiclient*oclient,structmsg*
+msg){/*Callmessagehandlerfunction.*/switch(msg->hdr.msgtype){caseMSG_READY_NOTIF
+Y:ospf_apiclient_handle_ready(oclient,msg);break;caseMSG_NEW_IF:ospf_apiclient_h
+andle_new_if(oclient,msg);break;caseMSG_DEL_IF:ospf_apiclient_handle_del_if(ocli
+ent,msg);break;caseMSG_ISM_CHANGE:ospf_apiclient_handle_ism_change(oclient,msg);
+break;caseMSG_NSM_CHANGE:ospf_apiclient_handle_nsm_change(oclient,msg);break;cas
+eMSG_LSA_UPDATE_NOTIFY:ospf_apiclient_handle_lsa_update(oclient,msg);break;caseM
+SG_LSA_DELETE_NOTIFY:ospf_apiclient_handle_lsa_delete(oclient,msg);break;default
+:fprintf(stderr,"ospf_apiclient_read:Unknownmessagetype:%d\n",msg->hdr.msgtype);
+break;}}/*-----------------------------------------------------------*Callbackha
+ndlerregistration*-----------------------------------------------------------*/v
+oidospf_apiclient_register_callback(structospf_apiclient*oclient,void(*ready_not
+ify)(uint8_tlsa_type,uint8_topaque_type,structin_addraddr),void(*new_if)(structi
+n_addrifaddr,structin_addrarea_id),void(*del_if)(structin_addrifaddr),void(*ism_
+change)(structin_addrifaddr,structin_addrarea_id,uint8_tstatus),void(*nsm_change
+)(structin_addrifaddr,structin_addrnbraddr,structin_addrrouter_id,uint8_tstatus)
+,void(*update_notify)(structin_addrifaddr,structin_addrarea_id,uint8_tself_origi
+n,structlsa_header*lsa),void(*delete_notify)(structin_addrifaddr,structin_addrar
+ea_id,uint8_tself_origin,structlsa_header*lsa)){assert(oclient);assert(update_no
+tify);/*Registercallbackfunction*/oclient->ready_notify=ready_notify;oclient->ne
+w_if=new_if;oclient->del_if=del_if;oclient->ism_change=ism_change;oclient->nsm_c
+hange=nsm_change;oclient->update_notify=update_notify;oclient->delete_notify=del
+ete_notify;}/*-----------------------------------------------------------*Asynch
+ronousmessagehandling*----------------------------------------------------------
+-*/intospf_apiclient_handle_async(structospf_apiclient*oclient){structmsg*msg;/*
+Getamessage*/msg=msg_read(oclient->fd_async);if(!msg){/*Connectionbrokedown*/ret
+urn-1;}/*Handlemessage*/ospf_apiclient_msghandle(oclient,msg);/*Don'tforgettofre
+ethismessage*/msg_free(msg);return0;}

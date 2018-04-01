@@ -1,314 +1,118 @@
-/*
- * Packet interface
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_STREAM_H
-#define _ZEBRA_STREAM_H
-
-#include "mpls.h"
-#include "prefix.h"
-
-/*
- * A stream is an arbitrary buffer, whose contents generally are assumed to
- * be in network order.
- *
- * A stream has the following attributes associated with it:
- *
- * - size: the allocated, invariant size of the buffer.
- *
- * - getp: the get position marker, denoting the offset in the stream where
- *         the next read (or 'get') will be from. This getp marker is
- *         automatically adjusted when data is read from the stream, the
- *         user may also manipulate this offset as they wish, within limits
- *         (see below)
- *
- * - endp: the end position marker, denoting the offset in the stream where
- *         valid data ends, and if the user attempted to write (or
- *         'put') data where that data would be written (or 'put') to.
- *
- * These attributes are all size_t values.
- *
- * Constraints:
- *
- * 1. getp can never exceed endp
- *
- * - hence if getp is equal to endp, there is no more valid data that can be
- *   gotten from the stream (though, the user may reposition getp to earlier in
- *   the stream, if they wish).
- *
- * 2. endp can never exceed size
- *
- * - hence, if endp is equal to size, then the stream is full, and no more
- *   data can be written to the stream.
- *
- * In other words the following must always be true, and the stream
- * abstraction is allowed internally to assert that the following property
- * holds true for a stream, as and when it wishes:
- *
- *        getp <= endp <= size
- *
- * It is the users responsibility to ensure this property is never violated.
- *
- * A stream therefore can be thought of like this:
- *
- * 	---------------------------------------------------
- * 	|XXXXXXXXXXXXXXXXXXXXXXXX                         |
- * 	---------------------------------------------------
- *               ^               ^                        ^
- *               getp            endp                     size
- *
- * This shows a stream containing data (shown as 'X') up to the endp offset.
- * The stream is empty from endp to size. Without adjusting getp, there are
- * still endp-getp bytes of valid data to be read from the stream.
- *
- * Methods are provided to get and put to/from the stream, as well as
- * retrieve the values of the 3 markers and manipulate the getp marker.
- *
- * Note:
- * At the moment, newly allocated streams are zero filled. Hence, one can
- * use stream_forward_endp() to effectively create arbitrary zero-fill
- * padding. However, note that stream_reset() does *not* zero-out the
- * stream. This property should **not** be relied upon.
- *
- * Best practice is to use stream_put (<stream *>, NULL, <size>) to zero out
- * any part of a stream which isn't otherwise written to.
- */
-
-/* Stream buffer. */
-struct stream {
-	struct stream *next;
-
-	/* Remainder is ***private*** to stream
-	 * direct access is frowned upon!
-	 * Use the appropriate functions/macros
-	 */
-	size_t getp;	 /* next get position */
-	size_t endp;	 /* last valid data position */
-	size_t size;	 /* size of data segment */
-	unsigned char *data; /* data pointer */
-};
-
-/* First in first out queue structure. */
-struct stream_fifo {
-	size_t count;
-
-	struct stream *head;
-	struct stream *tail;
-};
-
-/* Utility macros. */
-#define STREAM_SIZE(S)  ((S)->size)
-/* number of bytes which can still be written */
-#define STREAM_WRITEABLE(S) ((S)->size - (S)->endp)
-/* number of bytes still to be read */
-#define STREAM_READABLE(S) ((S)->endp - (S)->getp)
-
-#define STREAM_CONCAT_REMAIN(S1, S2, size) ((size) - (S1)->endp - (S2)->endp)
-
-/* deprecated macros - do not use in new code */
-#if CONFDATE > 20181128
-CPP_NOTICE("lib: time to remove deprecated stream.h macros")
-#endif
-#define STREAM_PNT(S)   stream_pnt((S))
-#define STREAM_REMAIN(S) STREAM_WRITEABLE((S))
-
-/* this macro is deprecated, but not slated for removal anytime soon */
-#define STREAM_DATA(S)  ((S)->data)
-
-/* Stream prototypes.
- * For stream_{put,get}S, the S suffix mean:
- *
- * c: character (unsigned byte)
- * w: word (two bytes)
- * l: long (two words)
- * q: quad (four words)
- */
-extern struct stream *stream_new(size_t);
-extern void stream_free(struct stream *);
-extern struct stream *stream_copy(struct stream *, struct stream *src);
-extern struct stream *stream_dup(struct stream *);
-extern size_t stream_resize(struct stream *, size_t);
-extern size_t stream_get_getp(struct stream *);
-extern size_t stream_get_endp(struct stream *);
-extern size_t stream_get_size(struct stream *);
-extern uint8_t *stream_get_data(struct stream *);
-
-/**
- * Create a new stream structure; copy offset bytes from s1 to the new
- * stream; copy s2 data to the new stream; copy rest of s1 data to the
- * new stream.
- */
-extern struct stream *stream_dupcat(struct stream *s1, struct stream *s2,
-				    size_t offset);
-
-extern void stream_set_getp(struct stream *, size_t);
-extern void stream_set_endp(struct stream *, size_t);
-extern void stream_forward_getp(struct stream *, size_t);
-extern void stream_forward_endp(struct stream *, size_t);
-
-/* steam_put: NULL source zeroes out size_t bytes of stream */
-extern void stream_put(struct stream *, const void *, size_t);
-extern int stream_putc(struct stream *, uint8_t);
-extern int stream_putc_at(struct stream *, size_t, uint8_t);
-extern int stream_putw(struct stream *, uint16_t);
-extern int stream_putw_at(struct stream *, size_t, uint16_t);
-extern int stream_put3(struct stream *, uint32_t);
-extern int stream_put3_at(struct stream *, size_t, uint32_t);
-extern int stream_putl(struct stream *, uint32_t);
-extern int stream_putl_at(struct stream *, size_t, uint32_t);
-extern int stream_putq(struct stream *, uint64_t);
-extern int stream_putq_at(struct stream *, size_t, uint64_t);
-extern int stream_put_ipv4(struct stream *, uint32_t);
-extern int stream_put_in_addr(struct stream *, struct in_addr *);
-extern int stream_put_in_addr_at(struct stream *, size_t, struct in_addr *);
-extern int stream_put_in6_addr_at(struct stream *, size_t, struct in6_addr *);
-extern int stream_put_prefix_addpath(struct stream *, struct prefix *,
-				     int addpath_encode,
-				     uint32_t addpath_tx_id);
-extern int stream_put_prefix(struct stream *, struct prefix *);
-extern int stream_put_labeled_prefix(struct stream *, struct prefix *,
-				     mpls_label_t *);
-extern void stream_get(void *, struct stream *, size_t);
-extern bool stream_get2(void *data, struct stream *s, size_t size);
-extern void stream_get_from(void *, struct stream *, size_t, size_t);
-extern uint8_t stream_getc(struct stream *);
-extern bool stream_getc2(struct stream *s, uint8_t *byte);
-extern uint8_t stream_getc_from(struct stream *, size_t);
-extern uint16_t stream_getw(struct stream *);
-extern bool stream_getw2(struct stream *s, uint16_t *word);
-extern uint16_t stream_getw_from(struct stream *, size_t);
-extern uint32_t stream_get3(struct stream *);
-extern uint32_t stream_get3_from(struct stream *, size_t);
-extern uint32_t stream_getl(struct stream *);
-extern bool stream_getl2(struct stream *s, uint32_t *l);
-extern uint32_t stream_getl_from(struct stream *, size_t);
-extern uint64_t stream_getq(struct stream *);
-extern uint64_t stream_getq_from(struct stream *, size_t);
-extern uint32_t stream_get_ipv4(struct stream *);
-
-/* IEEE-754 floats */
-extern float stream_getf(struct stream *);
-extern double stream_getd(struct stream *);
-extern int stream_putf(struct stream *, float);
-extern int stream_putd(struct stream *, double);
-
-#undef stream_read
-#undef stream_write
-
-/* Deprecated: assumes blocking I/O.  Will be removed.
-   Use stream_read_try instead.  */
-extern int stream_read(struct stream *, int, size_t);
-
-/* Read up to size bytes into the stream.
-   Return code:
-     >0: number of bytes read
-     0: end-of-file
-     -1: fatal error
-     -2: transient error, should retry later (i.e. EAGAIN or EINTR)
-   This is suitable for use with non-blocking file descriptors.
- */
-extern ssize_t stream_read_try(struct stream *s, int fd, size_t size);
-
-extern ssize_t stream_recvmsg(struct stream *s, int fd, struct msghdr *,
-			      int flags, size_t size);
-extern ssize_t stream_recvfrom(struct stream *s, int fd, size_t len, int flags,
-			       struct sockaddr *from, socklen_t *fromlen);
-extern size_t stream_write(struct stream *, const void *, size_t);
-
-/* reset the stream. See Note above */
-extern void stream_reset(struct stream *);
-extern int stream_flush(struct stream *, int);
-extern int stream_empty(struct stream *); /* is the stream empty? */
-
-/* deprecated */
-extern uint8_t *stream_pnt(struct stream *);
-
-/* Stream fifo. */
-extern struct stream_fifo *stream_fifo_new(void);
-extern void stream_fifo_push(struct stream_fifo *fifo, struct stream *s);
-extern struct stream *stream_fifo_pop(struct stream_fifo *fifo);
-extern struct stream *stream_fifo_head(struct stream_fifo *fifo);
-extern void stream_fifo_clean(struct stream_fifo *fifo);
-extern void stream_fifo_free(struct stream_fifo *fifo);
-
-/* This is here because "<< 24" is particularly problematic in C.
- * This is because the left operand of << is integer-promoted, which means
- * an uint8_t gets converted into a *signed* int.  Shifting into the sign
- * bit of a signed int is theoretically undefined behaviour, so - the left
- * operand needs to be cast to unsigned.
- *
- * This is not a problem for 16- or 8-bit values (they don't reach the sign
- * bit), for 64-bit values (you need to cast them anyway), and neither for
- * encoding (because it's downcasted.)
- */
-static inline uint8_t *ptr_get_be32(uint8_t *ptr, uint32_t *out)
-{
-	uint32_t tmp;
-	memcpy(&tmp, ptr, sizeof(tmp));
-	*out = ntohl(tmp);
-	return ptr + 4;
-}
-
-/*
- * so Normal stream_getX functions assert.  Which is anathema
- * to keeping a daemon up and running when something goes south
- * Provide a stream_getX2 functions that do not assert.
- * In addition provide these macro's that upon failure
- * goto stream_failure.  This is modeled upon some NL_XX
- * macros in the linux kernel.
- *
- * This change allows for proper memory freeing
- * after we've detected an error.
- *
- * In the future we will be removing the assert in
- * the stream functions but we need a transition
- * plan.
- */
-#define STREAM_GETC(S, P)                                                      \
-	do {                                                                   \
-		uint8_t _pval;                                                 \
-		if (!stream_getc2((S), &_pval))                                \
-			goto stream_failure;                                   \
-		(P) = _pval;                                                   \
-	} while (0)
-
-#define STREAM_GETW(S, P)                                                      \
-	do {                                                                   \
-		uint16_t _pval;                                                \
-		if (!stream_getw2((S), &_pval))                                \
-			goto stream_failure;                                   \
-		(P) = _pval;                                                   \
-	} while (0)
-
-#define STREAM_GETL(S, P)                                                      \
-	do {                                                                   \
-		uint32_t _pval;                                                \
-		if (!stream_getl2((S), &_pval))                                \
-			goto stream_failure;                                   \
-		(P) = _pval;                                                   \
-	} while (0)
-
-#define STREAM_GET(P, STR, SIZE)                                               \
-	do {                                                                   \
-		if (!stream_get2((P), (STR), (SIZE)))                          \
-			goto stream_failure;                                   \
-	} while (0)
-
-#endif /* _ZEBRA_STREAM_H */
+/**Packetinterface*Copyright(C)1999KunihiroIshiguro**ThisfileispartofGNUZebra.**
+GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUG
+eneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(aty
+ouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,bu
+t*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFOR
+APARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhaver
+eceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;
+ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02
+110-1301USA*/#ifndef_ZEBRA_STREAM_H#define_ZEBRA_STREAM_H#include"mpls.h"#includ
+e"prefix.h"/**Astreamisanarbitrarybuffer,whosecontentsgenerallyareassumedto*bein
+networkorder.**Astreamhasthefollowingattributesassociatedwithit:**-size:thealloc
+ated,invariantsizeofthebuffer.**-getp:thegetpositionmarker,denotingtheoffsetinth
+estreamwhere*thenextread(or'get')willbefrom.Thisgetpmarkeris*automaticallyadjust
+edwhendataisreadfromthestream,the*usermayalsomanipulatethisoffsetastheywish,with
+inlimits*(seebelow)**-endp:theendpositionmarker,denotingtheoffsetinthestreamwher
+e*validdataends,andiftheuserattemptedtowrite(or*'put')datawherethatdatawouldbewr
+itten(or'put')to.**Theseattributesareallsize_tvalues.**Constraints:**1.getpcanne
+verexceedendp**-henceifgetpisequaltoendp,thereisnomorevaliddatathatcanbe*gottenf
+romthestream(though,theusermayrepositiongetptoearlierin*thestream,iftheywish).**
+2.endpcanneverexceedsize**-hence,ifendpisequaltosize,thenthestreamisfull,andnomo
+re*datacanbewrittentothestream.**Inotherwordsthefollowingmustalwaysbetrue,andthe
+stream*abstractionisallowedinternallytoassertthatthefollowingproperty*holdstruef
+orastream,asandwhenitwishes:**getp<=endp<=size**Itistheusersresponsibilitytoensu
+rethispropertyisneverviolated.**Astreamthereforecanbethoughtoflikethis:**-------
+--------------------------------------------*|XXXXXXXXXXXXXXXXXXXXXXXX|*--------
+-------------------------------------------*^^^*getpendpsize**Thisshowsastreamco
+ntainingdata(shownas'X')uptotheendpoffset.*Thestreamisemptyfromendptosize.Withou
+tadjustinggetp,thereare*stillendp-getpbytesofvaliddatatobereadfromthestream.**Me
+thodsareprovidedtogetandputto/fromthestream,aswellas*retrievethevaluesofthe3mark
+ersandmanipulatethegetpmarker.**Note:*Atthemoment,newlyallocatedstreamsarezerofi
+lled.Hence,onecan*usestream_forward_endp()toeffectivelycreatearbitraryzero-fill*
+padding.However,notethatstream_reset()does*not*zero-outthe*stream.Thispropertysh
+ould**not**bereliedupon.**Bestpracticeistousestream_put(<stream*>,NULL,<size>)to
+zeroout*anypartofastreamwhichisn'totherwisewrittento.*//*Streambuffer.*/structst
+ream{structstream*next;/*Remainderis***private***tostream*directaccessisfrownedu
+pon!*Usetheappropriatefunctions/macros*/size_tgetp;/*nextgetposition*/size_tendp
+;/*lastvaliddataposition*/size_tsize;/*sizeofdatasegment*/unsignedchar*data;/*da
+tapointer*/};/*Firstinfirstoutqueuestructure.*/structstream_fifo{size_tcount;str
+uctstream*head;structstream*tail;};/*Utilitymacros.*/#defineSTREAM_SIZE(S)((S)->
+size)/*numberofbyteswhichcanstillbewritten*/#defineSTREAM_WRITEABLE(S)((S)->size
+-(S)->endp)/*numberofbytesstilltoberead*/#defineSTREAM_READABLE(S)((S)->endp-(S)
+->getp)#defineSTREAM_CONCAT_REMAIN(S1,S2,size)((size)-(S1)->endp-(S2)->endp)/*de
+precatedmacros-donotuseinnewcode*/#ifCONFDATE>20181128CPP_NOTICE("lib:timetoremo
+vedeprecatedstream.hmacros")#endif#defineSTREAM_PNT(S)stream_pnt((S))#defineSTRE
+AM_REMAIN(S)STREAM_WRITEABLE((S))/*thismacroisdeprecated,butnotslatedforremovala
+nytimesoon*/#defineSTREAM_DATA(S)((S)->data)/*Streamprototypes.*Forstream_{put,g
+et}S,theSsuffixmean:**c:character(unsignedbyte)*w:word(twobytes)*l:long(twowords
+)*q:quad(fourwords)*/externstructstream*stream_new(size_t);externvoidstream_free
+(structstream*);externstructstream*stream_copy(structstream*,structstream*src);e
+xternstructstream*stream_dup(structstream*);externsize_tstream_resize(structstre
+am*,size_t);externsize_tstream_get_getp(structstream*);externsize_tstream_get_en
+dp(structstream*);externsize_tstream_get_size(structstream*);externuint8_t*strea
+m_get_data(structstream*);/***Createanewstreamstructure;copyoffsetbytesfroms1tot
+henew*stream;copys2datatothenewstream;copyrestofs1datatothe*newstream.*/externst
+ructstream*stream_dupcat(structstream*s1,structstream*s2,size_toffset);externvoi
+dstream_set_getp(structstream*,size_t);externvoidstream_set_endp(structstream*,s
+ize_t);externvoidstream_forward_getp(structstream*,size_t);externvoidstream_forw
+ard_endp(structstream*,size_t);/*steam_put:NULLsourcezeroesoutsize_tbytesofstrea
+m*/externvoidstream_put(structstream*,constvoid*,size_t);externintstream_putc(st
+ructstream*,uint8_t);externintstream_putc_at(structstream*,size_t,uint8_t);exter
+nintstream_putw(structstream*,uint16_t);externintstream_putw_at(structstream*,si
+ze_t,uint16_t);externintstream_put3(structstream*,uint32_t);externintstream_put3
+_at(structstream*,size_t,uint32_t);externintstream_putl(structstream*,uint32_t);
+externintstream_putl_at(structstream*,size_t,uint32_t);externintstream_putq(stru
+ctstream*,uint64_t);externintstream_putq_at(structstream*,size_t,uint64_t);exter
+nintstream_put_ipv4(structstream*,uint32_t);externintstream_put_in_addr(structst
+ream*,structin_addr*);externintstream_put_in_addr_at(structstream*,size_t,struct
+in_addr*);externintstream_put_in6_addr_at(structstream*,size_t,structin6_addr*);
+externintstream_put_prefix_addpath(structstream*,structprefix*,intaddpath_encode
+,uint32_taddpath_tx_id);externintstream_put_prefix(structstream*,structprefix*);
+externintstream_put_labeled_prefix(structstream*,structprefix*,mpls_label_t*);ex
+ternvoidstream_get(void*,structstream*,size_t);externboolstream_get2(void*data,s
+tructstream*s,size_tsize);externvoidstream_get_from(void*,structstream*,size_t,s
+ize_t);externuint8_tstream_getc(structstream*);externboolstream_getc2(structstre
+am*s,uint8_t*byte);externuint8_tstream_getc_from(structstream*,size_t);externuin
+t16_tstream_getw(structstream*);externboolstream_getw2(structstream*s,uint16_t*w
+ord);externuint16_tstream_getw_from(structstream*,size_t);externuint32_tstream_g
+et3(structstream*);externuint32_tstream_get3_from(structstream*,size_t);externui
+nt32_tstream_getl(structstream*);externboolstream_getl2(structstream*s,uint32_t*
+l);externuint32_tstream_getl_from(structstream*,size_t);externuint64_tstream_get
+q(structstream*);externuint64_tstream_getq_from(structstream*,size_t);externuint
+32_tstream_get_ipv4(structstream*);/*IEEE-754floats*/externfloatstream_getf(stru
+ctstream*);externdoublestream_getd(structstream*);externintstream_putf(structstr
+eam*,float);externintstream_putd(structstream*,double);#undefstream_read#undefst
+ream_write/*Deprecated:assumesblockingI/O.Willberemoved.Usestream_read_tryinstea
+d.*/externintstream_read(structstream*,int,size_t);/*Readuptosizebytesintothestr
+eam.Returncode:>0:numberofbytesread0:end-of-file-1:fatalerror-2:transienterror,s
+houldretrylater(i.e.EAGAINorEINTR)Thisissuitableforusewithnon-blockingfiledescri
+ptors.*/externssize_tstream_read_try(structstream*s,intfd,size_tsize);externssiz
+e_tstream_recvmsg(structstream*s,intfd,structmsghdr*,intflags,size_tsize);extern
+ssize_tstream_recvfrom(structstream*s,intfd,size_tlen,intflags,structsockaddr*fr
+om,socklen_t*fromlen);externsize_tstream_write(structstream*,constvoid*,size_t);
+/*resetthestream.SeeNoteabove*/externvoidstream_reset(structstream*);externintst
+ream_flush(structstream*,int);externintstream_empty(structstream*);/*isthestream
+empty?*//*deprecated*/externuint8_t*stream_pnt(structstream*);/*Streamfifo.*/ext
+ernstructstream_fifo*stream_fifo_new(void);externvoidstream_fifo_push(structstre
+am_fifo*fifo,structstream*s);externstructstream*stream_fifo_pop(structstream_fif
+o*fifo);externstructstream*stream_fifo_head(structstream_fifo*fifo);externvoidst
+ream_fifo_clean(structstream_fifo*fifo);externvoidstream_fifo_free(structstream_
+fifo*fifo);/*Thisisherebecause"<<24"isparticularlyproblematicinC.*Thisisbecauset
+heleftoperandof<<isinteger-promoted,whichmeans*anuint8_tgetsconvertedintoa*signe
+d*int.Shiftingintothesign*bitofasignedintistheoreticallyundefinedbehaviour,so-th
+eleft*operandneedstobecasttounsigned.**Thisisnotaproblemfor16-or8-bitvalues(they
+don'treachthesign*bit),for64-bitvalues(youneedtocastthemanyway),andneitherfor*en
+coding(becauseit'sdowncasted.)*/staticinlineuint8_t*ptr_get_be32(uint8_t*ptr,uin
+t32_t*out){uint32_ttmp;memcpy(&tmp,ptr,sizeof(tmp));*out=ntohl(tmp);returnptr+4;
+}/**soNormalstream_getXfunctionsassert.Whichisanathema*tokeepingadaemonupandrunn
+ingwhensomethinggoessouth*Provideastream_getX2functionsthatdonotassert.*Inadditi
+onprovidethesemacro'sthatuponfailure*gotostream_failure.ThisismodeleduponsomeNL_
+XX*macrosinthelinuxkernel.**Thischangeallowsforpropermemoryfreeing*afterwe'vedet
+ectedanerror.**Inthefuturewewillberemovingtheassertin*thestreamfunctionsbutwenee
+datransition*plan.*/#defineSTREAM_GETC(S,P)\do{\uint8_t_pval;\if(!stream_getc2((
+S),&_pval))\gotostream_failure;\(P)=_pval;\}while(0)#defineSTREAM_GETW(S,P)\do{\
+uint16_t_pval;\if(!stream_getw2((S),&_pval))\gotostream_failure;\(P)=_pval;\}whi
+le(0)#defineSTREAM_GETL(S,P)\do{\uint32_t_pval;\if(!stream_getl2((S),&_pval))\go
+tostream_failure;\(P)=_pval;\}while(0)#defineSTREAM_GET(P,STR,SIZE)\do{\if(!stre
+am_get2((P),(STR),(SIZE)))\gotostream_failure;\}while(0)#endif/*_ZEBRA_STREAM_H*
+/

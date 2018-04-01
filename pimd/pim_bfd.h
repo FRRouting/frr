@@ -1,40 +1,17 @@
-/*
- * pim_bfd.h: PIM BFD definitions and structures
- *
- * Copyright (C) 2017 Cumulus Networks, Inc.
- * Chirag Shah
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
- */
-
-#ifndef PIM_BFD_H
-#define PIM_BFD_H
-
-#include "if.h"
-
-void pim_bfd_init(void);
-void pim_bfd_write_config(struct vty *vty, struct interface *ifp);
-void pim_bfd_show_info(struct vty *vty, void *bfd_info, json_object *json_obj,
-		       uint8_t use_json, int param_only);
-void pim_bfd_if_param_set(struct interface *ifp, uint32_t min_rx,
-			  uint32_t min_tx, uint8_t detect_mult, int defaults);
-int pim_bfd_reg_dereg_all_nbr(struct interface *ifp, int command);
-void pim_bfd_trigger_event(struct pim_interface *pim_ifp,
-			   struct pim_neighbor *nbr, uint8_t nbr_up);
-void pim_bfd_info_nbr_create(struct pim_interface *pim_ifp,
-			     struct pim_neighbor *neigh);
-void pim_bfd_info_free(void **bfd_info);
-#endif /* _PIM_BFD_H */
+/**pim_bfd.h:PIMBFDdefinitionsandstructures**Copyright(C)2017CumulusNetworks,Inc
+.*ChiragShah**Thisprogramisfreesoftware;youcanredistributeitand/ormodify*itunder
+thetermsoftheGNUGeneralPublicLicenseaspublishedby*theFreeSoftwareFoundation;eith
+erversion2oftheLicense,or*(atyouroption)anylaterversion.**Thisprogramisdistribut
+edinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarran
+tyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicens
+eformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicense*alongwi
+ththisprogram;seethefileCOPYING;ifnot,writetothe*FreeSoftwareFoundation,Inc.,51F
+ranklinSt,FifthFloor,Boston,*MA02110-1301USA*/#ifndefPIM_BFD_H#definePIM_BFD_H#i
+nclude"if.h"voidpim_bfd_init(void);voidpim_bfd_write_config(structvty*vty,struct
+interface*ifp);voidpim_bfd_show_info(structvty*vty,void*bfd_info,json_object*jso
+n_obj,uint8_tuse_json,intparam_only);voidpim_bfd_if_param_set(structinterface*if
+p,uint32_tmin_rx,uint32_tmin_tx,uint8_tdetect_mult,intdefaults);intpim_bfd_reg_d
+ereg_all_nbr(structinterface*ifp,intcommand);voidpim_bfd_trigger_event(structpim
+_interface*pim_ifp,structpim_neighbor*nbr,uint8_tnbr_up);voidpim_bfd_info_nbr_cr
+eate(structpim_interface*pim_ifp,structpim_neighbor*neigh);voidpim_bfd_info_free
+(void**bfd_info);#endif/*_PIM_BFD_H*/

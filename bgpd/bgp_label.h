@@ -1,123 +1,34 @@
-/* BGP carrying Label information
- * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _BGP_LABEL_H
-#define _BGP_LABEL_H
-
-#define BGP_LABEL_BYTES 3
-#define BGP_LABEL_BITS 24
-#define BGP_WITHDRAW_LABEL 0x800000
-
-struct bgp_node;
-struct bgp_info;
-struct peer;
-
-extern void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_info *ri,
-				    int reg);
-extern int bgp_parse_fec_update(void);
-extern mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_info *ri,
-				  struct peer *to, afi_t afi, safi_t safi);
-
-extern int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
-				struct bgp_nlri *packet);
-
-static inline int bgp_labeled_safi(safi_t safi)
-{
-	/* NOTE: This API really says a label (tag) MAY be present. Not all EVPN
-	 * routes will have a label.
-	 */
-	if ((safi == SAFI_LABELED_UNICAST) || (safi == SAFI_MPLS_VPN)
-	    || (safi == SAFI_EVPN))
-		return 1;
-	return 0;
-}
-
-static inline int bgp_is_withdraw_label(mpls_label_t *label)
-{
-	uint8_t *pkt = (uint8_t *)label;
-
-	/* The check on pkt[2] for 0x00 or 0x02 is in case bgp_set_valid_label()
-	 * was called on the withdraw label */
-	if ((pkt[0] == 0x80) && (pkt[1] == 0x00)
-	    && ((pkt[2] == 0x00) || (pkt[2] == 0x02)))
-		return 1;
-	return 0;
-}
-
-static inline int bgp_is_valid_label(mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	if (!t)
-		return 0;
-	return (t[2] & 0x02);
-}
-
-static inline void bgp_set_valid_label(mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	if (t)
-		t[2] |= 0x02;
-}
-
-static inline void bgp_unset_valid_label(mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	if (t)
-		t[2] &= ~0x02;
-}
-
-static inline void bgp_register_for_label(struct bgp_node *rn,
-					  struct bgp_info *ri)
-{
-	bgp_reg_dereg_for_label(rn, ri, 1);
-}
-
-static inline void bgp_unregister_for_label(struct bgp_node *rn)
-{
-	bgp_reg_dereg_for_label(rn, NULL, 0);
-}
-
-/* Label stream to value */
-static inline uint32_t label_pton(mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	return ((((unsigned int)t[0]) << 12) | (((unsigned int)t[1]) << 4)
-		| ((unsigned int)((t[2] & 0xF0) >> 4)));
-}
-
-/* Encode label values */
-static inline void label_ntop(uint32_t l, int bos, mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	t[0] = ((l & 0x000FF000) >> 12);
-	t[1] = ((l & 0x00000FF0) >> 4);
-	t[2] = ((l & 0x0000000F) << 4);
-	if (bos)
-		t[2] |= 0x01;
-}
-
-/* Return BOS value of label stream */
-static inline uint8_t label_bos(mpls_label_t *label)
-{
-	uint8_t *t = (uint8_t *)label;
-	return (t[2] & 0x01);
-};
-
-#endif /* _BGP_LABEL_H */
+/*BGPcarryingLabelinformation*Copyright(C)2013CumulusNetworks,Inc.**Thisfileispa
+rtofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underth
+etermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;either
+version2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatit
+willbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABIL
+ITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.*
+*YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;see
+thefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFl
+oor,Boston,MA02110-1301USA*/#ifndef_BGP_LABEL_H#define_BGP_LABEL_H#defineBGP_LAB
+EL_BYTES3#defineBGP_LABEL_BITS24#defineBGP_WITHDRAW_LABEL0x800000structbgp_node;
+structbgp_info;structpeer;externvoidbgp_reg_dereg_for_label(structbgp_node*rn,st
+ructbgp_info*ri,intreg);externintbgp_parse_fec_update(void);externmpls_label_tbg
+p_adv_label(structbgp_node*rn,structbgp_info*ri,structpeer*to,afi_tafi,safi_tsaf
+i);externintbgp_nlri_parse_label(structpeer*peer,structattr*attr,structbgp_nlri*
+packet);staticinlineintbgp_labeled_safi(safi_tsafi){/*NOTE:ThisAPIreallysaysalab
+el(tag)MAYbepresent.NotallEVPN*routeswillhavealabel.*/if((safi==SAFI_LABELED_UNI
+CAST)||(safi==SAFI_MPLS_VPN)||(safi==SAFI_EVPN))return1;return0;}staticinlineint
+bgp_is_withdraw_label(mpls_label_t*label){uint8_t*pkt=(uint8_t*)label;/*Thecheck
+onpkt[2]for0x00or0x02isincasebgp_set_valid_label()*wascalledonthewithdrawlabel*/
+if((pkt[0]==0x80)&&(pkt[1]==0x00)&&((pkt[2]==0x00)||(pkt[2]==0x02)))return1;retu
+rn0;}staticinlineintbgp_is_valid_label(mpls_label_t*label){uint8_t*t=(uint8_t*)l
+abel;if(!t)return0;return(t[2]&0x02);}staticinlinevoidbgp_set_valid_label(mpls_l
+abel_t*label){uint8_t*t=(uint8_t*)label;if(t)t[2]|=0x02;}staticinlinevoidbgp_uns
+et_valid_label(mpls_label_t*label){uint8_t*t=(uint8_t*)label;if(t)t[2]&=~0x02;}s
+taticinlinevoidbgp_register_for_label(structbgp_node*rn,structbgp_info*ri){bgp_r
+eg_dereg_for_label(rn,ri,1);}staticinlinevoidbgp_unregister_for_label(structbgp_
+node*rn){bgp_reg_dereg_for_label(rn,NULL,0);}/*Labelstreamtovalue*/staticinlineu
+int32_tlabel_pton(mpls_label_t*label){uint8_t*t=(uint8_t*)label;return((((unsign
+edint)t[0])<<12)|(((unsignedint)t[1])<<4)|((unsignedint)((t[2]&0xF0)>>4)));}/*En
+codelabelvalues*/staticinlinevoidlabel_ntop(uint32_tl,intbos,mpls_label_t*label)
+{uint8_t*t=(uint8_t*)label;t[0]=((l&0x000FF000)>>12);t[1]=((l&0x00000FF0)>>4);t[
+2]=((l&0x0000000F)<<4);if(bos)t[2]|=0x01;}/*ReturnBOSvalueoflabelstream*/statici
+nlineuint8_tlabel_bos(mpls_label_t*label){uint8_t*t=(uint8_t*)label;return(t[2]&
+0x01);};#endif/*_BGP_LABEL_H*/

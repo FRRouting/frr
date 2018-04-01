@@ -1,248 +1,123 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIMD_H
-#define PIMD_H
-
-#include <stdint.h>
-#include "zebra.h"
-#include "libfrr.h"
-#include "prefix.h"
-#include "vty.h"
-#include "plist.h"
-
-#include "pim_instance.h"
-#include "pim_str.h"
-#include "pim_memory.h"
-#include "pim_assert.h"
-
-#define PIMD_PROGNAME       "pimd"
-#define PIMD_DEFAULT_CONFIG "pimd.conf"
-#define PIMD_VTY_PORT       2611
-
-#define PIM_IP_PROTO_IGMP             (2)
-#define PIM_IP_PROTO_PIM              (103)
-#define PIM_IGMP_MIN_LEN              (8)
-
-#define PIM_ENFORCE_LOOPFREE_MFC
-
-/*
- * PIM MSG Header Format
- *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |PIM Ver| Type  |   Reserved    |           Checksum            |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-#define PIM_MSG_HEADER_LEN            (4)
-#define PIM_PIM_MIN_LEN               PIM_MSG_HEADER_LEN
-
-#define PIM_ENCODED_IPV4_UCAST_SIZE    (6)
-#define PIM_ENCODED_IPV4_GROUP_SIZE    (8)
-#define PIM_ENCODED_IPV4_SOURCE_SIZE   (8)
-
-/*
- * J/P Message Format, Group Header
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |        Upstream Neighbor Address (Encoded-Unicast format)     |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |  Reserved     | Num groups    |          Holdtime             |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |         Multicast Group Address 1 (Encoded-Group format)      |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |   Number of Joined Sources    |   Number of Pruned Sources    |
- * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-#define PIM_JP_GROUP_HEADER_SIZE                                               \
-	(PIM_ENCODED_IPV4_UCAST_SIZE + 1 + 1 + 2 + PIM_ENCODED_IPV4_GROUP_SIZE \
-	 + 2 + 2)
-
-#define PIM_PROTO_VERSION             (2)
-
-#define MCAST_ALL_SYSTEMS      "224.0.0.1"
-#define MCAST_ALL_ROUTERS      "224.0.0.2"
-#define MCAST_ALL_PIM_ROUTERS  "224.0.0.13"
-#define MCAST_ALL_IGMP_ROUTERS "224.0.0.22"
-
-#define PIM_FORCE_BOOLEAN(expr) ((expr) != 0)
-
-#define PIM_NET_INADDR_ANY (htonl(INADDR_ANY))
-#define PIM_INADDR_IS_ANY(addr) (addr).s_addr == PIM_NET_INADDR_ANY
-#define PIM_INADDR_ISNOT_ANY(addr) ((addr).s_addr != PIM_NET_INADDR_ANY) /* struct in_addr addr */
-
-#define max(x,y) ((x) > (y) ? (x) : (y))
-
-#define PIM_MASK_PIM_EVENTS          (1 << 0)
-#define PIM_MASK_PIM_EVENTS_DETAIL   (1 << 1)
-#define PIM_MASK_PIM_PACKETS         (1 << 2)
-#define PIM_MASK_PIM_PACKETDUMP_SEND (1 << 3)
-#define PIM_MASK_PIM_PACKETDUMP_RECV (1 << 4)
-#define PIM_MASK_PIM_TRACE           (1 << 5)
-#define PIM_MASK_PIM_TRACE_DETAIL    (1 << 6)
-#define PIM_MASK_IGMP_EVENTS         (1 << 7)
-#define PIM_MASK_IGMP_PACKETS        (1 << 8)
-#define PIM_MASK_IGMP_TRACE          (1 << 9)
-#define PIM_MASK_IGMP_TRACE_DETAIL   (1 << 10)
-#define PIM_MASK_ZEBRA               (1 << 11)
-#define PIM_MASK_SSMPINGD            (1 << 12)
-#define PIM_MASK_MROUTE              (1 << 13)
-#define PIM_MASK_MROUTE_DETAIL       (1 << 14)
-#define PIM_MASK_PIM_HELLO           (1 << 15)
-#define PIM_MASK_PIM_J_P             (1 << 16)
-#define PIM_MASK_STATIC              (1 << 17)
-#define PIM_MASK_PIM_REG             (1 << 18)
-#define PIM_MASK_MSDP_EVENTS         (1 << 19)
-#define PIM_MASK_MSDP_PACKETS        (1 << 20)
-#define PIM_MASK_MSDP_INTERNAL       (1 << 21)
-#define PIM_MASK_PIM_NHT             (1 << 22)
-#define PIM_MASK_PIM_NHT_DETAIL      (1 << 23)
-#define PIM_MASK_PIM_NHT_RP          (1 << 24)
-#define PIM_MASK_MTRACE              (1 << 25)
-/* Remember 32 bits!!! */
-
-/* PIM error codes */
-#define PIM_SUCCESS                0
-#define PIM_MALLOC_FAIL           -1
-#define PIM_GROUP_BAD_ADDRESS     -2
-#define PIM_GROUP_OVERLAP         -3
-#define PIM_GROUP_PFXLIST_OVERLAP -4
-#define PIM_RP_BAD_ADDRESS        -5
-#define PIM_RP_NO_PATH            -6
-#define PIM_RP_NOT_FOUND          -7
-#define PIM_RP_PFXLIST_IN_USE     -8
-#define PIM_IFACE_NOT_FOUND       -9
-#define PIM_UPDATE_SOURCE_DUP     -10
-
-const char *const PIM_ALL_SYSTEMS;
-const char *const PIM_ALL_ROUTERS;
-const char *const PIM_ALL_PIM_ROUTERS;
-const char *const PIM_ALL_IGMP_ROUTERS;
-
-extern struct thread_master *master;
-extern struct zebra_privs_t pimd_privs;
-uint32_t qpim_debugs;
-struct in_addr qpim_all_pim_routers_addr;
-int qpim_t_periodic; /* Period between Join/Prune Messages */
-struct pim_assert_metric qpim_infinite_assert_metric;
-long qpim_rpf_cache_refresh_delay_msec;
-extern int qpim_packet_process;
-extern uint8_t qpim_ecmp_enable;
-extern uint8_t qpim_ecmp_rebalance_enable;
-
-#define PIM_DEFAULT_PACKET_PROCESS 3
-
-#define PIM_JP_HOLDTIME (qpim_t_periodic * 7 / 2)
-
-/*
- * Register-Stop Timer (RST(S,G))
- * Default values
- */
-extern int32_t qpim_register_suppress_time;
-extern int32_t qpim_register_probe_time;
-#define PIM_REGISTER_SUPPRESSION_TIME_DEFAULT      (60)
-#define PIM_REGISTER_PROBE_TIME_DEFAULT            (5)
-
-#define PIM_DEBUG_PIM_EVENTS          (qpim_debugs & PIM_MASK_PIM_EVENTS)
-#define PIM_DEBUG_PIM_EVENTS_DETAIL   (qpim_debugs & PIM_MASK_PIM_EVENTS_DETAIL)
-#define PIM_DEBUG_PIM_PACKETS         (qpim_debugs & PIM_MASK_PIM_PACKETS)
-#define PIM_DEBUG_PIM_PACKETDUMP_SEND (qpim_debugs & PIM_MASK_PIM_PACKETDUMP_SEND)
-#define PIM_DEBUG_PIM_PACKETDUMP_RECV (qpim_debugs & PIM_MASK_PIM_PACKETDUMP_RECV)
-#define PIM_DEBUG_PIM_TRACE           (qpim_debugs & PIM_MASK_PIM_TRACE)
-#define PIM_DEBUG_PIM_TRACE_DETAIL    (qpim_debugs & PIM_MASK_PIM_TRACE_DETAIL)
-#define PIM_DEBUG_IGMP_EVENTS         (qpim_debugs & PIM_MASK_IGMP_EVENTS)
-#define PIM_DEBUG_IGMP_PACKETS        (qpim_debugs & PIM_MASK_IGMP_PACKETS)
-#define PIM_DEBUG_IGMP_TRACE          (qpim_debugs & PIM_MASK_IGMP_TRACE)
-#define PIM_DEBUG_IGMP_TRACE_DETAIL   (qpim_debugs & PIM_MASK_IGMP_TRACE_DETAIL)
-#define PIM_DEBUG_ZEBRA               (qpim_debugs & PIM_MASK_ZEBRA)
-#define PIM_DEBUG_SSMPINGD            (qpim_debugs & PIM_MASK_SSMPINGD)
-#define PIM_DEBUG_MROUTE              (qpim_debugs & PIM_MASK_MROUTE)
-#define PIM_DEBUG_MROUTE_DETAIL       (qpim_debugs & PIM_MASK_MROUTE_DETAIL)
-#define PIM_DEBUG_PIM_HELLO           (qpim_debugs & PIM_MASK_PIM_HELLO)
-#define PIM_DEBUG_PIM_J_P             (qpim_debugs & PIM_MASK_PIM_J_P)
-#define PIM_DEBUG_PIM_REG             (qpim_debugs & PIM_MASK_PIM_REG)
-#define PIM_DEBUG_STATIC              (qpim_debugs & PIM_MASK_STATIC)
-#define PIM_DEBUG_MSDP_EVENTS         (qpim_debugs & PIM_MASK_MSDP_EVENTS)
-#define PIM_DEBUG_MSDP_PACKETS        (qpim_debugs & PIM_MASK_MSDP_PACKETS)
-#define PIM_DEBUG_MSDP_INTERNAL       (qpim_debugs & PIM_MASK_MSDP_INTERNAL)
-#define PIM_DEBUG_PIM_NHT             (qpim_debugs & PIM_MASK_PIM_NHT)
-#define PIM_DEBUG_PIM_NHT_DETAIL      (qpim_debugs & PIM_MASK_PIM_NHT_DETAIL)
-#define PIM_DEBUG_PIM_NHT_RP          (qpim_debugs & PIM_MASK_PIM_NHT_RP)
-#define PIM_DEBUG_MTRACE              (qpim_debugs & PIM_MASK_MTRACE)
-
-#define PIM_DEBUG_EVENTS       (qpim_debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_IGMP_EVENTS | PIM_MASK_MSDP_EVENTS))
-#define PIM_DEBUG_PACKETS      (qpim_debugs & (PIM_MASK_PIM_PACKETS | PIM_MASK_IGMP_PACKETS | PIM_MASK_MSDP_PACKETS))
-#define PIM_DEBUG_TRACE        (qpim_debugs & (PIM_MASK_PIM_TRACE | PIM_MASK_IGMP_TRACE))
-
-#define PIM_DO_DEBUG_PIM_EVENTS          (qpim_debugs |= PIM_MASK_PIM_EVENTS)
-#define PIM_DO_DEBUG_PIM_PACKETS         (qpim_debugs |= PIM_MASK_PIM_PACKETS)
-#define PIM_DO_DEBUG_PIM_PACKETDUMP_SEND (qpim_debugs |= PIM_MASK_PIM_PACKETDUMP_SEND)
-#define PIM_DO_DEBUG_PIM_PACKETDUMP_RECV (qpim_debugs |= PIM_MASK_PIM_PACKETDUMP_RECV)
-#define PIM_DO_DEBUG_PIM_TRACE           (qpim_debugs |= PIM_MASK_PIM_TRACE)
-#define PIM_DO_DEBUG_PIM_TRACE_DETAIL    (qpim_debugs |= PIM_MASK_PIM_TRACE_DETAIL)
-#define PIM_DO_DEBUG_IGMP_EVENTS         (qpim_debugs |= PIM_MASK_IGMP_EVENTS)
-#define PIM_DO_DEBUG_IGMP_PACKETS        (qpim_debugs |= PIM_MASK_IGMP_PACKETS)
-#define PIM_DO_DEBUG_IGMP_TRACE          (qpim_debugs |= PIM_MASK_IGMP_TRACE)
-#define PIM_DO_DEBUG_IGMP_TRACE_DETAIL   (qpim_debugs |= PIM_MASK_IGMP_TRACE_DETAIL)
-#define PIM_DO_DEBUG_ZEBRA               (qpim_debugs |= PIM_MASK_ZEBRA)
-#define PIM_DO_DEBUG_SSMPINGD            (qpim_debugs |= PIM_MASK_SSMPINGD)
-#define PIM_DO_DEBUG_MROUTE              (qpim_debugs |= PIM_MASK_MROUTE)
-#define PIM_DO_DEBUG_MROUTE_DETAIL       (qpim_debugs |= PIM_MASK_MROUTE_DETAIL)
-#define PIM_DO_DEBUG_PIM_HELLO           (qpim_debugs |= PIM_MASK_PIM_HELLO)
-#define PIM_DO_DEBUG_PIM_J_P             (qpim_debugs |= PIM_MASK_PIM_J_P)
-#define PIM_DO_DEBUG_PIM_REG             (qpim_debugs |= PIM_MASK_PIM_REG)
-#define PIM_DO_DEBUG_STATIC              (qpim_debugs |= PIM_MASK_STATIC)
-#define PIM_DO_DEBUG_MSDP_EVENTS         (qpim_debugs |= PIM_MASK_MSDP_EVENTS)
-#define PIM_DO_DEBUG_MSDP_PACKETS        (qpim_debugs |= PIM_MASK_MSDP_PACKETS)
-#define PIM_DO_DEBUG_MSDP_INTERNAL       (qpim_debugs |= PIM_MASK_MSDP_INTERNAL)
-#define PIM_DO_DEBUG_PIM_NHT             (qpim_debugs |= PIM_MASK_PIM_NHT)
-#define PIM_DO_DEBUG_PIM_NHT_RP          (qpim_debugs |= PIM_MASK_PIM_NHT_RP)
-#define PIM_DO_DEBUG_MTRACE              (qpim_debugs |= PIM_MASK_MTRACE)
-
-#define PIM_DONT_DEBUG_PIM_EVENTS          (qpim_debugs &= ~PIM_MASK_PIM_EVENTS)
-#define PIM_DONT_DEBUG_PIM_PACKETS         (qpim_debugs &= ~PIM_MASK_PIM_PACKETS)
-#define PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND (qpim_debugs &= ~PIM_MASK_PIM_PACKETDUMP_SEND)
-#define PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV (qpim_debugs &= ~PIM_MASK_PIM_PACKETDUMP_RECV)
-#define PIM_DONT_DEBUG_PIM_TRACE           (qpim_debugs &= ~PIM_MASK_PIM_TRACE)
-#define PIM_DONT_DEBUG_PIM_TRACE_DETAIL    (qpim_debugs &= ~PIM_MASK_PIM_TRACE_DETAIL)
-#define PIM_DONT_DEBUG_IGMP_EVENTS         (qpim_debugs &= ~PIM_MASK_IGMP_EVENTS)
-#define PIM_DONT_DEBUG_IGMP_PACKETS        (qpim_debugs &= ~PIM_MASK_IGMP_PACKETS)
-#define PIM_DONT_DEBUG_IGMP_TRACE          (qpim_debugs &= ~PIM_MASK_IGMP_TRACE)
-#define PIM_DONT_DEBUG_IGMP_TRACE_DETAIL   (qpim_debugs &= ~PIM_MASK_IGMP_TRACE_DETAIL)
-#define PIM_DONT_DEBUG_ZEBRA               (qpim_debugs &= ~PIM_MASK_ZEBRA)
-#define PIM_DONT_DEBUG_SSMPINGD            (qpim_debugs &= ~PIM_MASK_SSMPINGD)
-#define PIM_DONT_DEBUG_MROUTE              (qpim_debugs &= ~PIM_MASK_MROUTE)
-#define PIM_DONT_DEBUG_MROUTE_DETAIL       (qpim_debugs &= ~PIM_MASK_MROUTE_DETAIL)
-#define PIM_DONT_DEBUG_PIM_HELLO           (qpim_debugs &= ~PIM_MASK_PIM_HELLO)
-#define PIM_DONT_DEBUG_PIM_J_P             (qpim_debugs &= ~PIM_MASK_PIM_J_P)
-#define PIM_DONT_DEBUG_PIM_REG             (qpim_debugs &= ~PIM_MASK_PIM_REG)
-#define PIM_DONT_DEBUG_STATIC              (qpim_debugs &= ~PIM_MASK_STATIC)
-#define PIM_DONT_DEBUG_MSDP_EVENTS         (qpim_debugs &= ~PIM_MASK_MSDP_EVENTS)
-#define PIM_DONT_DEBUG_MSDP_PACKETS        (qpim_debugs &= ~PIM_MASK_MSDP_PACKETS)
-#define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
-#define PIM_DONT_DEBUG_PIM_NHT             (qpim_debugs &= ~PIM_MASK_PIM_NHT)
-#define PIM_DONT_DEBUG_PIM_NHT_RP          (qpim_debugs &= ~PIM_MASK_PIM_NHT_RP)
-#define PIM_DONT_DEBUG_MTRACE              (qpim_debugs &= ~PIM_MASK_MTRACE)
-
-void pim_init(void);
-void pim_terminate(void);
-
-extern void pim_route_map_init(void);
-extern void pim_route_map_terminate(void);
-void pim_prefix_list_update(struct prefix_list *plist);
-
-#endif /* PIMD_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIMD_H#definePIMD_H#include<stdint.h>#include"zebra.h"#include"libf
+rr.h"#include"prefix.h"#include"vty.h"#include"plist.h"#include"pim_instance.h"#
+include"pim_str.h"#include"pim_memory.h"#include"pim_assert.h"#definePIMD_PROGNA
+ME"pimd"#definePIMD_DEFAULT_CONFIG"pimd.conf"#definePIMD_VTY_PORT2611#definePIM_
+IP_PROTO_IGMP(2)#definePIM_IP_PROTO_PIM(103)#definePIM_IGMP_MIN_LEN(8)#definePIM
+_ENFORCE_LOOPFREE_MFC/**PIMMSGHeaderFormat*01234567890123456789012345678901*+-+-
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*|PIMVer|Type|Reser
+ved|Checksum|*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*
+/#definePIM_MSG_HEADER_LEN(4)#definePIM_PIM_MIN_LENPIM_MSG_HEADER_LEN#definePIM_
+ENCODED_IPV4_UCAST_SIZE(6)#definePIM_ENCODED_IPV4_GROUP_SIZE(8)#definePIM_ENCODE
+D_IPV4_SOURCE_SIZE(8)/**J/PMessageFormat,GroupHeader*+-+-+-+-+-+-+-+-+-+-+-+-+-+
+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*|UpstreamNeighborAddress(Encoded-Unicastf
+ormat)|*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*|Reser
+ved|Numgroups|Holdtime|*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
++-+-+-+-+*|MulticastGroupAddress1(Encoded-Groupformat)|*+-+-+-+-+-+-+-+-+-+-+-+-
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*|NumberofJoinedSources|NumberofPrunedS
+ources|*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/#defi
+nePIM_JP_GROUP_HEADER_SIZE\(PIM_ENCODED_IPV4_UCAST_SIZE+1+1+2+PIM_ENCODED_IPV4_G
+ROUP_SIZE\+2+2)#definePIM_PROTO_VERSION(2)#defineMCAST_ALL_SYSTEMS"224.0.0.1"#de
+fineMCAST_ALL_ROUTERS"224.0.0.2"#defineMCAST_ALL_PIM_ROUTERS"224.0.0.13"#defineM
+CAST_ALL_IGMP_ROUTERS"224.0.0.22"#definePIM_FORCE_BOOLEAN(expr)((expr)!=0)#defin
+ePIM_NET_INADDR_ANY(htonl(INADDR_ANY))#definePIM_INADDR_IS_ANY(addr)(addr).s_add
+r==PIM_NET_INADDR_ANY#definePIM_INADDR_ISNOT_ANY(addr)((addr).s_addr!=PIM_NET_IN
+ADDR_ANY)/*structin_addraddr*/#definemax(x,y)((x)>(y)?(x):(y))#definePIM_MASK_PI
+M_EVENTS(1<<0)#definePIM_MASK_PIM_EVENTS_DETAIL(1<<1)#definePIM_MASK_PIM_PACKETS
+(1<<2)#definePIM_MASK_PIM_PACKETDUMP_SEND(1<<3)#definePIM_MASK_PIM_PACKETDUMP_RE
+CV(1<<4)#definePIM_MASK_PIM_TRACE(1<<5)#definePIM_MASK_PIM_TRACE_DETAIL(1<<6)#de
+finePIM_MASK_IGMP_EVENTS(1<<7)#definePIM_MASK_IGMP_PACKETS(1<<8)#definePIM_MASK_
+IGMP_TRACE(1<<9)#definePIM_MASK_IGMP_TRACE_DETAIL(1<<10)#definePIM_MASK_ZEBRA(1<
+<11)#definePIM_MASK_SSMPINGD(1<<12)#definePIM_MASK_MROUTE(1<<13)#definePIM_MASK_
+MROUTE_DETAIL(1<<14)#definePIM_MASK_PIM_HELLO(1<<15)#definePIM_MASK_PIM_J_P(1<<1
+6)#definePIM_MASK_STATIC(1<<17)#definePIM_MASK_PIM_REG(1<<18)#definePIM_MASK_MSD
+P_EVENTS(1<<19)#definePIM_MASK_MSDP_PACKETS(1<<20)#definePIM_MASK_MSDP_INTERNAL(
+1<<21)#definePIM_MASK_PIM_NHT(1<<22)#definePIM_MASK_PIM_NHT_DETAIL(1<<23)#define
+PIM_MASK_PIM_NHT_RP(1<<24)#definePIM_MASK_MTRACE(1<<25)/*Remember32bits!!!*//*PI
+Merrorcodes*/#definePIM_SUCCESS0#definePIM_MALLOC_FAIL-1#definePIM_GROUP_BAD_ADD
+RESS-2#definePIM_GROUP_OVERLAP-3#definePIM_GROUP_PFXLIST_OVERLAP-4#definePIM_RP_
+BAD_ADDRESS-5#definePIM_RP_NO_PATH-6#definePIM_RP_NOT_FOUND-7#definePIM_RP_PFXLI
+ST_IN_USE-8#definePIM_IFACE_NOT_FOUND-9#definePIM_UPDATE_SOURCE_DUP-10constchar*
+constPIM_ALL_SYSTEMS;constchar*constPIM_ALL_ROUTERS;constchar*constPIM_ALL_PIM_R
+OUTERS;constchar*constPIM_ALL_IGMP_ROUTERS;externstructthread_master*master;exte
+rnstructzebra_privs_tpimd_privs;uint32_tqpim_debugs;structin_addrqpim_all_pim_ro
+uters_addr;intqpim_t_periodic;/*PeriodbetweenJoin/PruneMessages*/structpim_asser
+t_metricqpim_infinite_assert_metric;longqpim_rpf_cache_refresh_delay_msec;extern
+intqpim_packet_process;externuint8_tqpim_ecmp_enable;externuint8_tqpim_ecmp_reba
+lance_enable;#definePIM_DEFAULT_PACKET_PROCESS3#definePIM_JP_HOLDTIME(qpim_t_per
+iodic*7/2)/**Register-StopTimer(RST(S,G))*Defaultvalues*/externint32_tqpim_regis
+ter_suppress_time;externint32_tqpim_register_probe_time;#definePIM_REGISTER_SUPP
+RESSION_TIME_DEFAULT(60)#definePIM_REGISTER_PROBE_TIME_DEFAULT(5)#definePIM_DEBU
+G_PIM_EVENTS(qpim_debugs&PIM_MASK_PIM_EVENTS)#definePIM_DEBUG_PIM_EVENTS_DETAIL(
+qpim_debugs&PIM_MASK_PIM_EVENTS_DETAIL)#definePIM_DEBUG_PIM_PACKETS(qpim_debugs&
+PIM_MASK_PIM_PACKETS)#definePIM_DEBUG_PIM_PACKETDUMP_SEND(qpim_debugs&PIM_MASK_P
+IM_PACKETDUMP_SEND)#definePIM_DEBUG_PIM_PACKETDUMP_RECV(qpim_debugs&PIM_MASK_PIM
+_PACKETDUMP_RECV)#definePIM_DEBUG_PIM_TRACE(qpim_debugs&PIM_MASK_PIM_TRACE)#defi
+nePIM_DEBUG_PIM_TRACE_DETAIL(qpim_debugs&PIM_MASK_PIM_TRACE_DETAIL)#definePIM_DE
+BUG_IGMP_EVENTS(qpim_debugs&PIM_MASK_IGMP_EVENTS)#definePIM_DEBUG_IGMP_PACKETS(q
+pim_debugs&PIM_MASK_IGMP_PACKETS)#definePIM_DEBUG_IGMP_TRACE(qpim_debugs&PIM_MAS
+K_IGMP_TRACE)#definePIM_DEBUG_IGMP_TRACE_DETAIL(qpim_debugs&PIM_MASK_IGMP_TRACE_
+DETAIL)#definePIM_DEBUG_ZEBRA(qpim_debugs&PIM_MASK_ZEBRA)#definePIM_DEBUG_SSMPIN
+GD(qpim_debugs&PIM_MASK_SSMPINGD)#definePIM_DEBUG_MROUTE(qpim_debugs&PIM_MASK_MR
+OUTE)#definePIM_DEBUG_MROUTE_DETAIL(qpim_debugs&PIM_MASK_MROUTE_DETAIL)#definePI
+M_DEBUG_PIM_HELLO(qpim_debugs&PIM_MASK_PIM_HELLO)#definePIM_DEBUG_PIM_J_P(qpim_d
+ebugs&PIM_MASK_PIM_J_P)#definePIM_DEBUG_PIM_REG(qpim_debugs&PIM_MASK_PIM_REG)#de
+finePIM_DEBUG_STATIC(qpim_debugs&PIM_MASK_STATIC)#definePIM_DEBUG_MSDP_EVENTS(qp
+im_debugs&PIM_MASK_MSDP_EVENTS)#definePIM_DEBUG_MSDP_PACKETS(qpim_debugs&PIM_MAS
+K_MSDP_PACKETS)#definePIM_DEBUG_MSDP_INTERNAL(qpim_debugs&PIM_MASK_MSDP_INTERNAL
+)#definePIM_DEBUG_PIM_NHT(qpim_debugs&PIM_MASK_PIM_NHT)#definePIM_DEBUG_PIM_NHT_
+DETAIL(qpim_debugs&PIM_MASK_PIM_NHT_DETAIL)#definePIM_DEBUG_PIM_NHT_RP(qpim_debu
+gs&PIM_MASK_PIM_NHT_RP)#definePIM_DEBUG_MTRACE(qpim_debugs&PIM_MASK_MTRACE)#defi
+nePIM_DEBUG_EVENTS(qpim_debugs&(PIM_MASK_PIM_EVENTS|PIM_MASK_IGMP_EVENTS|PIM_MAS
+K_MSDP_EVENTS))#definePIM_DEBUG_PACKETS(qpim_debugs&(PIM_MASK_PIM_PACKETS|PIM_MA
+SK_IGMP_PACKETS|PIM_MASK_MSDP_PACKETS))#definePIM_DEBUG_TRACE(qpim_debugs&(PIM_M
+ASK_PIM_TRACE|PIM_MASK_IGMP_TRACE))#definePIM_DO_DEBUG_PIM_EVENTS(qpim_debugs|=P
+IM_MASK_PIM_EVENTS)#definePIM_DO_DEBUG_PIM_PACKETS(qpim_debugs|=PIM_MASK_PIM_PAC
+KETS)#definePIM_DO_DEBUG_PIM_PACKETDUMP_SEND(qpim_debugs|=PIM_MASK_PIM_PACKETDUM
+P_SEND)#definePIM_DO_DEBUG_PIM_PACKETDUMP_RECV(qpim_debugs|=PIM_MASK_PIM_PACKETD
+UMP_RECV)#definePIM_DO_DEBUG_PIM_TRACE(qpim_debugs|=PIM_MASK_PIM_TRACE)#definePI
+M_DO_DEBUG_PIM_TRACE_DETAIL(qpim_debugs|=PIM_MASK_PIM_TRACE_DETAIL)#definePIM_DO
+_DEBUG_IGMP_EVENTS(qpim_debugs|=PIM_MASK_IGMP_EVENTS)#definePIM_DO_DEBUG_IGMP_PA
+CKETS(qpim_debugs|=PIM_MASK_IGMP_PACKETS)#definePIM_DO_DEBUG_IGMP_TRACE(qpim_deb
+ugs|=PIM_MASK_IGMP_TRACE)#definePIM_DO_DEBUG_IGMP_TRACE_DETAIL(qpim_debugs|=PIM_
+MASK_IGMP_TRACE_DETAIL)#definePIM_DO_DEBUG_ZEBRA(qpim_debugs|=PIM_MASK_ZEBRA)#de
+finePIM_DO_DEBUG_SSMPINGD(qpim_debugs|=PIM_MASK_SSMPINGD)#definePIM_DO_DEBUG_MRO
+UTE(qpim_debugs|=PIM_MASK_MROUTE)#definePIM_DO_DEBUG_MROUTE_DETAIL(qpim_debugs|=
+PIM_MASK_MROUTE_DETAIL)#definePIM_DO_DEBUG_PIM_HELLO(qpim_debugs|=PIM_MASK_PIM_H
+ELLO)#definePIM_DO_DEBUG_PIM_J_P(qpim_debugs|=PIM_MASK_PIM_J_P)#definePIM_DO_DEB
+UG_PIM_REG(qpim_debugs|=PIM_MASK_PIM_REG)#definePIM_DO_DEBUG_STATIC(qpim_debugs|
+=PIM_MASK_STATIC)#definePIM_DO_DEBUG_MSDP_EVENTS(qpim_debugs|=PIM_MASK_MSDP_EVEN
+TS)#definePIM_DO_DEBUG_MSDP_PACKETS(qpim_debugs|=PIM_MASK_MSDP_PACKETS)#definePI
+M_DO_DEBUG_MSDP_INTERNAL(qpim_debugs|=PIM_MASK_MSDP_INTERNAL)#definePIM_DO_DEBUG
+_PIM_NHT(qpim_debugs|=PIM_MASK_PIM_NHT)#definePIM_DO_DEBUG_PIM_NHT_RP(qpim_debug
+s|=PIM_MASK_PIM_NHT_RP)#definePIM_DO_DEBUG_MTRACE(qpim_debugs|=PIM_MASK_MTRACE)#
+definePIM_DONT_DEBUG_PIM_EVENTS(qpim_debugs&=~PIM_MASK_PIM_EVENTS)#definePIM_DON
+T_DEBUG_PIM_PACKETS(qpim_debugs&=~PIM_MASK_PIM_PACKETS)#definePIM_DONT_DEBUG_PIM
+_PACKETDUMP_SEND(qpim_debugs&=~PIM_MASK_PIM_PACKETDUMP_SEND)#definePIM_DONT_DEBU
+G_PIM_PACKETDUMP_RECV(qpim_debugs&=~PIM_MASK_PIM_PACKETDUMP_RECV)#definePIM_DONT
+_DEBUG_PIM_TRACE(qpim_debugs&=~PIM_MASK_PIM_TRACE)#definePIM_DONT_DEBUG_PIM_TRAC
+E_DETAIL(qpim_debugs&=~PIM_MASK_PIM_TRACE_DETAIL)#definePIM_DONT_DEBUG_IGMP_EVEN
+TS(qpim_debugs&=~PIM_MASK_IGMP_EVENTS)#definePIM_DONT_DEBUG_IGMP_PACKETS(qpim_de
+bugs&=~PIM_MASK_IGMP_PACKETS)#definePIM_DONT_DEBUG_IGMP_TRACE(qpim_debugs&=~PIM_
+MASK_IGMP_TRACE)#definePIM_DONT_DEBUG_IGMP_TRACE_DETAIL(qpim_debugs&=~PIM_MASK_I
+GMP_TRACE_DETAIL)#definePIM_DONT_DEBUG_ZEBRA(qpim_debugs&=~PIM_MASK_ZEBRA)#defin
+ePIM_DONT_DEBUG_SSMPINGD(qpim_debugs&=~PIM_MASK_SSMPINGD)#definePIM_DONT_DEBUG_M
+ROUTE(qpim_debugs&=~PIM_MASK_MROUTE)#definePIM_DONT_DEBUG_MROUTE_DETAIL(qpim_deb
+ugs&=~PIM_MASK_MROUTE_DETAIL)#definePIM_DONT_DEBUG_PIM_HELLO(qpim_debugs&=~PIM_M
+ASK_PIM_HELLO)#definePIM_DONT_DEBUG_PIM_J_P(qpim_debugs&=~PIM_MASK_PIM_J_P)#defi
+nePIM_DONT_DEBUG_PIM_REG(qpim_debugs&=~PIM_MASK_PIM_REG)#definePIM_DONT_DEBUG_ST
+ATIC(qpim_debugs&=~PIM_MASK_STATIC)#definePIM_DONT_DEBUG_MSDP_EVENTS(qpim_debugs
+&=~PIM_MASK_MSDP_EVENTS)#definePIM_DONT_DEBUG_MSDP_PACKETS(qpim_debugs&=~PIM_MAS
+K_MSDP_PACKETS)#definePIM_DONT_DEBUG_MSDP_INTERNAL(qpim_debugs&=~PIM_MASK_MSDP_I
+NTERNAL)#definePIM_DONT_DEBUG_PIM_NHT(qpim_debugs&=~PIM_MASK_PIM_NHT)#definePIM_
+DONT_DEBUG_PIM_NHT_RP(qpim_debugs&=~PIM_MASK_PIM_NHT_RP)#definePIM_DONT_DEBUG_MT
+RACE(qpim_debugs&=~PIM_MASK_MTRACE)voidpim_init(void);voidpim_terminate(void);ex
+ternvoidpim_route_map_init(void);externvoidpim_route_map_terminate(void);voidpim
+_prefix_list_update(structprefix_list*plist);#endif/*PIMD_H*/

@@ -1,191 +1,49 @@
-/*
- * Test program to verify that scheduled timers are executed in the
- * correct order.
- *
- * Copyright (C) 2013 by Open Source Routing.
- * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This file is part of Quagga
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include <stdio.h>
-#include <unistd.h>
-
-#include "memory.h"
-#include "pqueue.h"
-#include "prng.h"
-#include "thread.h"
-
-#define SCHEDULE_TIMERS 800
-#define REMOVE_TIMERS   200
-
-#define TIMESTR_LEN strlen("4294967296.999999")
-
-struct thread_master *master;
-
-static size_t log_buf_len;
-static size_t log_buf_pos;
-static char *log_buf;
-
-static size_t expected_buf_len;
-static size_t expected_buf_pos;
-static char *expected_buf;
-
-static struct prng *prng;
-
-static struct thread **timers;
-
-static int timers_pending;
-
-static void terminate_test(void)
-{
-	int exit_code;
-
-	if (strcmp(log_buf, expected_buf)) {
-		fprintf(stderr,
-			"Expected output and received output differ.\n");
-		fprintf(stderr, "---Expected output: ---\n%s", expected_buf);
-		fprintf(stderr, "---Actual output: ---\n%s", log_buf);
-		exit_code = 1;
-	} else {
-		printf("Expected output and actual output match.\n");
-		exit_code = 0;
-	}
-
-	thread_master_free(master);
-	XFREE(MTYPE_TMP, log_buf);
-	XFREE(MTYPE_TMP, expected_buf);
-	prng_free(prng);
-	XFREE(MTYPE_TMP, timers);
-
-	exit(exit_code);
-}
-
-static int timer_func(struct thread *thread)
-{
-	int rv;
-
-	rv = snprintf(log_buf + log_buf_pos, log_buf_len - log_buf_pos, "%s\n",
-		      (char *)thread->arg);
-	assert(rv >= 0);
-	log_buf_pos += rv;
-	assert(log_buf_pos < log_buf_len);
-	XFREE(MTYPE_TMP, thread->arg);
-
-	timers_pending--;
-	if (!timers_pending)
-		terminate_test();
-
-	return 0;
-}
-
-static int cmp_timeval(const void *a, const void *b)
-{
-	const struct timeval *ta = *(struct timeval * const *)a;
-	const struct timeval *tb = *(struct timeval * const *)b;
-
-	if (timercmp(ta, tb, <))
-		return -1;
-	if (timercmp(ta, tb, >))
-		return 1;
-	return 0;
-}
-
-int main(int argc, char **argv)
-{
-	int i, j;
-	struct thread t;
-	struct timeval **alarms;
-
-	master = thread_master_create(NULL);
-
-	log_buf_len = SCHEDULE_TIMERS * (TIMESTR_LEN + 1) + 1;
-	log_buf_pos = 0;
-	log_buf = XMALLOC(MTYPE_TMP, log_buf_len);
-
-	expected_buf_len = SCHEDULE_TIMERS * (TIMESTR_LEN + 1) + 1;
-	expected_buf_pos = 0;
-	expected_buf = XMALLOC(MTYPE_TMP, expected_buf_len);
-
-	prng = prng_new(0);
-
-	timers = XMALLOC(MTYPE_TMP, SCHEDULE_TIMERS * sizeof(*timers));
-
-	for (i = 0; i < SCHEDULE_TIMERS; i++) {
-		long interval_msec;
-		int ret;
-		char *arg;
-
-		/* Schedule timers to expire in 0..5 seconds */
-		interval_msec = prng_rand(prng) % 5000;
-		arg = XMALLOC(MTYPE_TMP, TIMESTR_LEN + 1);
-		timers[i] = NULL;
-		thread_add_timer_msec(master, timer_func, arg, interval_msec,
-				      &timers[i]);
-		ret = snprintf(arg, TIMESTR_LEN + 1, "%lld.%06lld",
-			       (long long)timers[i]->u.sands.tv_sec,
-			       (long long)timers[i]->u.sands.tv_usec);
-		assert(ret > 0);
-		assert((size_t)ret < TIMESTR_LEN + 1);
-		timers_pending++;
-	}
-
-	for (i = 0; i < REMOVE_TIMERS; i++) {
-		int index;
-
-		index = prng_rand(prng) % SCHEDULE_TIMERS;
-		if (!timers[index])
-			continue;
-
-		XFREE(MTYPE_TMP, timers[index]->arg);
-		thread_cancel(timers[index]);
-		timers[index] = NULL;
-		timers_pending--;
-	}
-
-	/* We create an array of pointers to the alarm times and sort
-	 * that array. That sorted array is used to generate a string
-	 * representing the expected "output" of the timers when they
-	 * are run. */
-	j = 0;
-	alarms = XMALLOC(MTYPE_TMP, timers_pending * sizeof(*alarms));
-	for (i = 0; i < SCHEDULE_TIMERS; i++) {
-		if (!timers[i])
-			continue;
-		alarms[j++] = &timers[i]->u.sands;
-	}
-	qsort(alarms, j, sizeof(*alarms), cmp_timeval);
-	for (i = 0; i < j; i++) {
-		int ret;
-
-		ret = snprintf(expected_buf + expected_buf_pos,
-			       expected_buf_len - expected_buf_pos,
-			       "%lld.%06lld\n", (long long)alarms[i]->tv_sec,
-			       (long long)alarms[i]->tv_usec);
-		assert(ret > 0);
-		expected_buf_pos += ret;
-		assert(expected_buf_pos < expected_buf_len);
-	}
-	XFREE(MTYPE_TMP, alarms);
-
-	while (thread_fetch(master, &t))
-		thread_call(&t);
-
-	return 0;
-}
+/**Testprogramtoverifythatscheduledtimersareexecutedinthe*correctorder.**Copyrig
+ht(C)2013byOpenSourceRouting.*Copyright(C)2013byInternetSystemsConsortium,Inc.("
+ISC")**ThisfileispartofQuagga**Quaggaisfreesoftware;youcanredistributeitand/ormo
+difyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFou
+ndation;eitherversion2,or(atyouroption)any*laterversion.**Quaggaisdistributedint
+hehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*
+MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseform
+oredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthi
+sprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51Frankl
+inSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include<stdio.h>#inclu
+de<unistd.h>#include"memory.h"#include"pqueue.h"#include"prng.h"#include"thread.
+h"#defineSCHEDULE_TIMERS800#defineREMOVE_TIMERS200#defineTIMESTR_LENstrlen("4294
+967296.999999")structthread_master*master;staticsize_tlog_buf_len;staticsize_tlo
+g_buf_pos;staticchar*log_buf;staticsize_texpected_buf_len;staticsize_texpected_b
+uf_pos;staticchar*expected_buf;staticstructprng*prng;staticstructthread**timers;
+staticinttimers_pending;staticvoidterminate_test(void){intexit_code;if(strcmp(lo
+g_buf,expected_buf)){fprintf(stderr,"Expectedoutputandreceivedoutputdiffer.\n");
+fprintf(stderr,"---Expectedoutput:---\n%s",expected_buf);fprintf(stderr,"---Actu
+aloutput:---\n%s",log_buf);exit_code=1;}else{printf("Expectedoutputandactualoutp
+utmatch.\n");exit_code=0;}thread_master_free(master);XFREE(MTYPE_TMP,log_buf);XF
+REE(MTYPE_TMP,expected_buf);prng_free(prng);XFREE(MTYPE_TMP,timers);exit(exit_co
+de);}staticinttimer_func(structthread*thread){intrv;rv=snprintf(log_buf+log_buf_
+pos,log_buf_len-log_buf_pos,"%s\n",(char*)thread->arg);assert(rv>=0);log_buf_pos
++=rv;assert(log_buf_pos<log_buf_len);XFREE(MTYPE_TMP,thread->arg);timers_pending
+--;if(!timers_pending)terminate_test();return0;}staticintcmp_timeval(constvoid*a
+,constvoid*b){conststructtimeval*ta=*(structtimeval*const*)a;conststructtimeval*
+tb=*(structtimeval*const*)b;if(timercmp(ta,tb,<))return-1;if(timercmp(ta,tb,>))r
+eturn1;return0;}intmain(intargc,char**argv){inti,j;structthreadt;structtimeval**
+alarms;master=thread_master_create(NULL);log_buf_len=SCHEDULE_TIMERS*(TIMESTR_LE
+N+1)+1;log_buf_pos=0;log_buf=XMALLOC(MTYPE_TMP,log_buf_len);expected_buf_len=SCH
+EDULE_TIMERS*(TIMESTR_LEN+1)+1;expected_buf_pos=0;expected_buf=XMALLOC(MTYPE_TMP
+,expected_buf_len);prng=prng_new(0);timers=XMALLOC(MTYPE_TMP,SCHEDULE_TIMERS*siz
+eof(*timers));for(i=0;i<SCHEDULE_TIMERS;i++){longinterval_msec;intret;char*arg;/
+*Scheduletimerstoexpirein0..5seconds*/interval_msec=prng_rand(prng)%5000;arg=XMA
+LLOC(MTYPE_TMP,TIMESTR_LEN+1);timers[i]=NULL;thread_add_timer_msec(master,timer_
+func,arg,interval_msec,&timers[i]);ret=snprintf(arg,TIMESTR_LEN+1,"%lld.%06lld",
+(longlong)timers[i]->u.sands.tv_sec,(longlong)timers[i]->u.sands.tv_usec);assert
+(ret>0);assert((size_t)ret<TIMESTR_LEN+1);timers_pending++;}for(i=0;i<REMOVE_TIM
+ERS;i++){intindex;index=prng_rand(prng)%SCHEDULE_TIMERS;if(!timers[index])contin
+ue;XFREE(MTYPE_TMP,timers[index]->arg);thread_cancel(timers[index]);timers[index
+]=NULL;timers_pending--;}/*Wecreateanarrayofpointerstothealarmtimesandsort*thata
+rray.Thatsortedarrayisusedtogenerateastring*representingtheexpected"output"ofthe
+timerswhenthey*arerun.*/j=0;alarms=XMALLOC(MTYPE_TMP,timers_pending*sizeof(*alar
+ms));for(i=0;i<SCHEDULE_TIMERS;i++){if(!timers[i])continue;alarms[j++]=&timers[i
+]->u.sands;}qsort(alarms,j,sizeof(*alarms),cmp_timeval);for(i=0;i<j;i++){intret;
+ret=snprintf(expected_buf+expected_buf_pos,expected_buf_len-expected_buf_pos,"%l
+ld.%06lld\n",(longlong)alarms[i]->tv_sec,(longlong)alarms[i]->tv_usec);assert(re
+t>0);expected_buf_pos+=ret;assert(expected_buf_pos<expected_buf_len);}XFREE(MTYP
+E_TMP,alarms);while(thread_fetch(master,&t))thread_call(&t);return0;}

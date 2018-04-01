@@ -1,156 +1,53 @@
-/* Declarations for getopt.
- * Copyright (C) 1989,90,91,92,93,94,96,97 Free Software Foundation, Inc.
- *
- * NOTE: The canonical source of this file is maintained with the GNU C Library.
- * Bugs can be reported to bug-glibc@gnu.org.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _GETOPT_H
-#define _GETOPT_H 1
-
-/*
- * The operating system may or may not provide getopt_long(), and if
- * so it may or may not be a version we are willing to use.  Our
- * strategy is to declare getopt here, and then provide code unless
- * the supplied version is adequate.  The difficult case is when a
- * declaration for getopt is provided, as our declaration must match.
- *
- * XXX Arguably this version should be named differently, and the
- * local names defined to refer to the system version when we choose
- * to use the system version.
- */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/* For communication from `getopt' to the caller.
-   When `getopt' finds an option that takes an argument,
-   the argument value is returned here.
-   Also, when `ordering' is RETURN_IN_ORDER,
-   each non-option ARGV-element is returned here.  */
-
-extern char *optarg;
-
-/* Index in ARGV of the next element to be scanned.
-   This is used for communication to and from the caller
-   and for communication between successive calls to `getopt'.
-
-   On entry to `getopt', zero means this is the first call; initialize.
-
-   When `getopt' returns -1, this is the index of the first of the
-   non-option elements that the caller should itself scan.
-
-   Otherwise, `optind' communicates from one call to the next
-   how much of ARGV has been scanned so far.  */
-
-extern int optind;
-
-/* Callers store zero here to inhibit the error message `getopt' prints
-   for unrecognized options.  */
-
-extern int opterr;
-
-/* Set to an option character which was unrecognized.  */
-
-extern int optopt;
-
-/* Describe the long-named options requested by the application.
-   The LONG_OPTIONS argument to getopt_long or getopt_long_only is a vector
-   of `struct option' terminated by an element containing a name which is
-   zero.
-
-   The field `has_arg' is:
-   no_argument		(or 0) if the option does not take an argument,
-   required_argument	(or 1) if the option requires an argument,
-   optional_argument 	(or 2) if the option takes an optional argument.
-
-   If the field `flag' is not NULL, it points to a variable that is set
-   to the value given in the field `val' when the option is found, but
-   left unchanged if the option is not found.
-
-   To have a long-named option do something other than set an `int' to
-   a compiled-in constant, such as set a value from `optarg', set the
-   option's `flag' field to zero and its `val' field to a nonzero
-   value (the equivalent single-letter option character, if there is
-   one).  For long options that have a zero `flag' field, `getopt'
-   returns the contents of the `val' field.  */
-
-struct option {
-#if defined(__STDC__) && __STDC__
-	const char *name;
-#else
-	char *name;
-#endif
-	/* has_arg can't be an enum because some compilers complain about
-	   type mismatches in all the code that assumes it is an int.  */
-	int has_arg;
-	int *flag;
-	int val;
-};
-
-/* Names for the values of the `has_arg' field of `struct option'.  */
-
-#define	no_argument		0
-#define required_argument	1
-#define optional_argument	2
-
-#if defined(__STDC__) && __STDC__
-
-#if REALLY_NEED_PLAIN_GETOPT
-
-/*
- * getopt is defined in POSIX.2.  Assume that if the system defines
- * getopt that it complies with POSIX.2.  If not, an autoconf test
- * should be written to define NONPOSIX_GETOPT_DEFINITION.
- */
-#ifndef NONPOSIX_GETOPT_DEFINITION
-extern int getopt(int argc, char *const *argv, const char *shortopts);
-#else  /* NONPOSIX_GETOPT_DEFINITION */
-extern int getopt(void);
-#endif /* NONPOSIX_GETOPT_DEFINITION */
-
-#endif
-
-
-extern int getopt_long(int argc, char *const *argv, const char *shortopts,
-		       const struct option *longopts, int *longind);
-extern int getopt_long_only(int argc, char *const *argv, const char *shortopts,
-			    const struct option *longopts, int *longind);
-
-/* Internal only.  Users should not call this directly.  */
-extern int _getopt_internal(int argc, char *const *argv, const char *shortopts,
-			    const struct option *longopts, int *longind,
-			    int long_only);
-#else /* not __STDC__ */
-
-#ifdef REALLY_NEED_PLAIN_GETOPT
-extern int getopt();
-#endif /* REALLY_NEED_PLAIN_GETOPT */
-
-extern int getopt_long();
-extern int getopt_long_only();
-
-extern int _getopt_internal();
-
-#endif /* __STDC__ */
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* getopt.h */
+/*Declarationsforgetopt.*Copyright(C)1989,90,91,92,93,94,96,97FreeSoftwareFounda
+tion,Inc.**NOTE:ThecanonicalsourceofthisfileismaintainedwiththeGNUCLibrary.*Bugs
+canbereportedtobug-glibc@gnu.org.**Thisprogramisfreesoftware;youcanredistributei
+tand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSo
+ftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**Thisprogramis
+distributedinthehopethatitwillbeuseful,*butWITHOUTANYWARRANTY;withouteventheimpl
+iedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.Seethe*GNUGeneralPub
+licLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicens
+ealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation
+,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_GETOPT_H#define_GE
+TOPT_H1/**Theoperatingsystemmayormaynotprovidegetopt_long(),andif*soitmayormayno
+tbeaversionwearewillingtouse.Our*strategyistodeclaregetopthere,andthenprovidecod
+eunless*thesuppliedversionisadequate.Thedifficultcaseiswhena*declarationforgetop
+tisprovided,asourdeclarationmustmatch.**XXXArguablythisversionshouldbenameddiffe
+rently,andthe*localnamesdefinedtorefertothesystemversionwhenwechoose*tousethesys
+temversion.*/#ifdef__cplusplusextern"C"{#endif/*Forcommunicationfrom`getopt'toth
+ecaller.When`getopt'findsanoptionthattakesanargument,theargumentvalueisreturnedh
+ere.Also,when`ordering'isRETURN_IN_ORDER,eachnon-optionARGV-elementisreturnedher
+e.*/externchar*optarg;/*IndexinARGVofthenextelementtobescanned.Thisisusedforcomm
+unicationtoandfromthecallerandforcommunicationbetweensuccessivecallsto`getopt'.O
+nentryto`getopt',zeromeansthisisthefirstcall;initialize.When`getopt'returns-1,th
+isistheindexofthefirstofthenon-optionelementsthatthecallershoulditselfscan.Other
+wise,`optind'communicatesfromonecalltothenexthowmuchofARGVhasbeenscannedsofar.*/
+externintoptind;/*Callersstorezeroheretoinhibittheerrormessage`getopt'printsforu
+nrecognizedoptions.*/externintopterr;/*Settoanoptioncharacterwhichwasunrecognize
+d.*/externintoptopt;/*Describethelong-namedoptionsrequestedbytheapplication.TheL
+ONG_OPTIONSargumenttogetopt_longorgetopt_long_onlyisavectorof`structoption'termi
+natedbyanelementcontaininganamewhichiszero.Thefield`has_arg'is:no_argument(or0)i
+ftheoptiondoesnottakeanargument,required_argument(or1)iftheoptionrequiresanargum
+ent,optional_argument(or2)iftheoptiontakesanoptionalargument.Ifthefield`flag'isn
+otNULL,itpointstoavariablethatissettothevaluegiveninthefield`val'whentheoptionis
+found,butleftunchangediftheoptionisnotfound.Tohavealong-namedoptiondosomethingot
+herthansetan`int'toacompiled-inconstant,suchassetavaluefrom`optarg',settheoption
+'s`flag'fieldtozeroandits`val'fieldtoanonzerovalue(theequivalentsingle-letteropt
+ioncharacter,ifthereisone).Forlongoptionsthathaveazero`flag'field,`getopt'return
+sthecontentsofthe`val'field.*/structoption{#ifdefined(__STDC__)&&__STDC__constch
+ar*name;#elsechar*name;#endif/*has_argcan'tbeanenumbecausesomecompilerscomplaina
+bouttypemismatchesinallthecodethatassumesitisanint.*/inthas_arg;int*flag;intval;
+};/*Namesforthevaluesofthe`has_arg'fieldof`structoption'.*/#defineno_argument0#d
+efinerequired_argument1#defineoptional_argument2#ifdefined(__STDC__)&&__STDC__#i
+fREALLY_NEED_PLAIN_GETOPT/**getoptisdefinedinPOSIX.2.Assumethatifthesystemdefine
+s*getoptthatitcomplieswithPOSIX.2.Ifnot,anautoconftest*shouldbewrittentodefineNO
+NPOSIX_GETOPT_DEFINITION.*/#ifndefNONPOSIX_GETOPT_DEFINITIONexternintgetopt(inta
+rgc,char*const*argv,constchar*shortopts);#else/*NONPOSIX_GETOPT_DEFINITION*/exte
+rnintgetopt(void);#endif/*NONPOSIX_GETOPT_DEFINITION*/#endifexternintgetopt_long
+(intargc,char*const*argv,constchar*shortopts,conststructoption*longopts,int*long
+ind);externintgetopt_long_only(intargc,char*const*argv,constchar*shortopts,const
+structoption*longopts,int*longind);/*Internalonly.Usersshouldnotcallthisdirectly
+.*/externint_getopt_internal(intargc,char*const*argv,constchar*shortopts,constst
+ructoption*longopts,int*longind,intlong_only);#else/*not__STDC__*/#ifdefREALLY_N
+EED_PLAIN_GETOPTexternintgetopt();#endif/*REALLY_NEED_PLAIN_GETOPT*/externintget
+opt_long();externintgetopt_long_only();externint_getopt_internal();#endif/*__STD
+C__*/#ifdef__cplusplus}#endif#endif/*getopt.h*/

@@ -1,148 +1,46 @@
-/* BGP flap dampening
- * Copyright (C) 2001 IP Infusion Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_BGP_DAMP_H
-#define _QUAGGA_BGP_DAMP_H
-
-/* Structure maintained on a per-route basis. */
-struct bgp_damp_info {
-	/* Doubly linked list.  This information must be linked to
-	   reuse_list or no_reuse_list.  */
-	struct bgp_damp_info *next;
-	struct bgp_damp_info *prev;
-
-	/* Figure-of-merit.  */
-	unsigned int penalty;
-
-	/* Number of flapping.  */
-	unsigned int flap;
-
-	/* First flap time  */
-	time_t start_time;
-
-	/* Last time penalty was updated.  */
-	time_t t_updated;
-
-	/* Time of route start to be suppressed.  */
-	time_t suppress_time;
-
-	/* Back reference to bgp_info. */
-	struct bgp_info *binfo;
-
-	/* Back reference to bgp_node. */
-	struct bgp_node *rn;
-
-	/* Current index in the reuse_list. */
-	int index;
-
-	/* Last time message type. */
-	uint8_t lastrecord;
-#define BGP_RECORD_UPDATE	1U
-#define BGP_RECORD_WITHDRAW	2U
-
-	afi_t afi;
-	safi_t safi;
-};
-
-/* Specified parameter set configuration. */
-struct bgp_damp_config {
-	/* Value over which routes suppressed.  */
-	unsigned int suppress_value;
-
-	/* Value below which suppressed routes reused.  */
-	unsigned int reuse_limit;
-
-	/* Max time a route can be suppressed.  */
-	time_t max_suppress_time;
-
-	/* Time during which accumulated penalty reduces by half.  */
-	time_t half_life;
-
-	/* Non-configurable parameters but fixed at implementation time.
-	 * To change this values, init_bgp_damp() should be modified.
-	 */
-	time_t tmax; /* Max time previous instability retained */
-	unsigned int reuse_list_size;  /* Number of reuse lists */
-	unsigned int reuse_index_size; /* Size of reuse index array */
-
-	/* Non-configurable parameters.  Most of these are calculated from
-	 * the configurable parameters above.
-	 */
-	unsigned int ceiling;		  /* Max value a penalty can attain */
-	unsigned int decay_rate_per_tick; /* Calculated from half-life */
-	unsigned int decay_array_size; /* Calculated using config parameters */
-	double scale_factor;
-	unsigned int reuse_scale_factor;
-
-	/* Decay array per-set based. */
-	double *decay_array;
-
-	/* Reuse index array per-set based. */
-	int *reuse_index;
-
-	/* Reuse list array per-set based. */
-	struct bgp_damp_info **reuse_list;
-	int reuse_offset;
-
-	/* All dampening information which is not on reuse list.  */
-	struct bgp_damp_info *no_reuse_list;
-
-	/* Reuse timer thread per-set base. */
-	struct thread *t_reuse;
-};
-
-#define BGP_DAMP_NONE           0
-#define BGP_DAMP_USED		1
-#define BGP_DAMP_SUPPRESSED	2
-
-/* Time granularity for reuse lists */
-#define DELTA_REUSE	          10
-
-/* Time granularity for decay arrays */
-#define DELTA_T 	           5
-
-#define DEFAULT_PENALTY         1000
-
-#define DEFAULT_HALF_LIFE         15
-#define DEFAULT_REUSE 	       	 750
-#define DEFAULT_SUPPRESS 	2000
-
-#define REUSE_LIST_SIZE          256
-#define REUSE_ARRAY_SIZE        1024
-
-extern int bgp_damp_enable(struct bgp *, afi_t, safi_t, time_t, unsigned int,
-			   unsigned int, time_t);
-extern int bgp_damp_disable(struct bgp *, afi_t, safi_t);
-extern int bgp_damp_withdraw(struct bgp_info *, struct bgp_node *, afi_t,
-			     safi_t, int);
-extern int bgp_damp_update(struct bgp_info *, struct bgp_node *, afi_t, safi_t);
-extern int bgp_damp_scan(struct bgp_info *, afi_t, safi_t);
-extern void bgp_damp_info_free(struct bgp_damp_info *, int);
-extern void bgp_damp_info_clean(void);
-extern int bgp_damp_decay(time_t, int);
-extern void bgp_config_write_damp(struct vty *);
-extern void bgp_damp_info_vty(struct vty *, struct bgp_info *,
-			      json_object *json_path);
-extern const char *bgp_damp_reuse_time_vty(struct vty *, struct bgp_info *,
-					   char *, size_t, uint8_t,
-					   json_object *);
-extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t);
-
-#endif /* _QUAGGA_BGP_DAMP_H */
+/*BGPflapdampening*Copyright(C)2001IPInfusionInc.**ThisfileispartofGNUZebra.**GN
+UZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGen
+eralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyou
+roption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*
+WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAP
+ARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhaverec
+eivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;if
+not,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA0211
+0-1301USA*/#ifndef_QUAGGA_BGP_DAMP_H#define_QUAGGA_BGP_DAMP_H/*Structuremaintain
+edonaper-routebasis.*/structbgp_damp_info{/*Doublylinkedlist.Thisinformationmust
+belinkedtoreuse_listorno_reuse_list.*/structbgp_damp_info*next;structbgp_damp_in
+fo*prev;/*Figure-of-merit.*/unsignedintpenalty;/*Numberofflapping.*/unsignedintf
+lap;/*Firstflaptime*/time_tstart_time;/*Lasttimepenaltywasupdated.*/time_tt_upda
+ted;/*Timeofroutestarttobesuppressed.*/time_tsuppress_time;/*Backreferencetobgp_
+info.*/structbgp_info*binfo;/*Backreferencetobgp_node.*/structbgp_node*rn;/*Curr
+entindexinthereuse_list.*/intindex;/*Lasttimemessagetype.*/uint8_tlastrecord;#de
+fineBGP_RECORD_UPDATE1U#defineBGP_RECORD_WITHDRAW2Uafi_tafi;safi_tsafi;};/*Speci
+fiedparametersetconfiguration.*/structbgp_damp_config{/*Valueoverwhichroutessupp
+ressed.*/unsignedintsuppress_value;/*Valuebelowwhichsuppressedroutesreused.*/uns
+ignedintreuse_limit;/*Maxtimearoutecanbesuppressed.*/time_tmax_suppress_time;/*T
+imeduringwhichaccumulatedpenaltyreducesbyhalf.*/time_thalf_life;/*Non-configurab
+leparametersbutfixedatimplementationtime.*Tochangethisvalues,init_bgp_damp()shou
+ldbemodified.*/time_ttmax;/*Maxtimepreviousinstabilityretained*/unsignedintreuse
+_list_size;/*Numberofreuselists*/unsignedintreuse_index_size;/*Sizeofreuseindexa
+rray*//*Non-configurableparameters.Mostofthesearecalculatedfrom*theconfigurablep
+arametersabove.*/unsignedintceiling;/*Maxvalueapenaltycanattain*/unsignedintdeca
+y_rate_per_tick;/*Calculatedfromhalf-life*/unsignedintdecay_array_size;/*Calcula
+tedusingconfigparameters*/doublescale_factor;unsignedintreuse_scale_factor;/*Dec
+ayarrayper-setbased.*/double*decay_array;/*Reuseindexarrayper-setbased.*/int*reu
+se_index;/*Reuselistarrayper-setbased.*/structbgp_damp_info**reuse_list;intreuse
+_offset;/*Alldampeninginformationwhichisnotonreuselist.*/structbgp_damp_info*no_
+reuse_list;/*Reusetimerthreadper-setbase.*/structthread*t_reuse;};#defineBGP_DAM
+P_NONE0#defineBGP_DAMP_USED1#defineBGP_DAMP_SUPPRESSED2/*Timegranularityforreuse
+lists*/#defineDELTA_REUSE10/*Timegranularityfordecayarrays*/#defineDELTA_T5#defi
+neDEFAULT_PENALTY1000#defineDEFAULT_HALF_LIFE15#defineDEFAULT_REUSE750#defineDEF
+AULT_SUPPRESS2000#defineREUSE_LIST_SIZE256#defineREUSE_ARRAY_SIZE1024externintbg
+p_damp_enable(structbgp*,afi_t,safi_t,time_t,unsignedint,unsignedint,time_t);ext
+ernintbgp_damp_disable(structbgp*,afi_t,safi_t);externintbgp_damp_withdraw(struc
+tbgp_info*,structbgp_node*,afi_t,safi_t,int);externintbgp_damp_update(structbgp_
+info*,structbgp_node*,afi_t,safi_t);externintbgp_damp_scan(structbgp_info*,afi_t
+,safi_t);externvoidbgp_damp_info_free(structbgp_damp_info*,int);externvoidbgp_da
+mp_info_clean(void);externintbgp_damp_decay(time_t,int);externvoidbgp_config_wri
+te_damp(structvty*);externvoidbgp_damp_info_vty(structvty*,structbgp_info*,json_
+object*json_path);externconstchar*bgp_damp_reuse_time_vty(structvty*,structbgp_i
+nfo*,char*,size_t,uint8_t,json_object*);externintbgp_show_dampening_parameters(s
+tructvty*vty,afi_t,safi_t);#endif/*_QUAGGA_BGP_DAMP_H*/

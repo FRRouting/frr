@@ -1,794 +1,212 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "log.h"
-#include "prefix.h"
-#include "if.h"
-
-#include "pimd.h"
-#include "pim_int.h"
-#include "pim_tlv.h"
-#include "pim_str.h"
-#include "pim_msg.h"
-
-uint8_t *pim_tlv_append_uint16(uint8_t *buf, const uint8_t *buf_pastend,
-			       uint16_t option_type, uint16_t option_value)
-{
-	uint16_t option_len = 2;
-
-	if ((buf + PIM_TLV_OPTION_SIZE(option_len)) > buf_pastend)
-		return NULL;
-
-	*(uint16_t *)buf = htons(option_type);
-	buf += 2;
-	*(uint16_t *)buf = htons(option_len);
-	buf += 2;
-	*(uint16_t *)buf = htons(option_value);
-	buf += option_len;
-
-	return buf;
-}
-
-uint8_t *pim_tlv_append_2uint16(uint8_t *buf, const uint8_t *buf_pastend,
-				uint16_t option_type, uint16_t option_value1,
-				uint16_t option_value2)
-{
-	uint16_t option_len = 4;
-
-	if ((buf + PIM_TLV_OPTION_SIZE(option_len)) > buf_pastend)
-		return NULL;
-
-	*(uint16_t *)buf = htons(option_type);
-	buf += 2;
-	*(uint16_t *)buf = htons(option_len);
-	buf += 2;
-	*(uint16_t *)buf = htons(option_value1);
-	buf += 2;
-	*(uint16_t *)buf = htons(option_value2);
-	buf += 2;
-
-	return buf;
-}
-
-uint8_t *pim_tlv_append_uint32(uint8_t *buf, const uint8_t *buf_pastend,
-			       uint16_t option_type, uint32_t option_value)
-{
-	uint16_t option_len = 4;
-
-	if ((buf + PIM_TLV_OPTION_SIZE(option_len)) > buf_pastend)
-		return NULL;
-
-	*(uint16_t *)buf = htons(option_type);
-	buf += 2;
-	*(uint16_t *)buf = htons(option_len);
-	buf += 2;
-	pim_write_uint32(buf, option_value);
-	buf += option_len;
-
-	return buf;
-}
-
-#define ucast_ipv4_encoding_len (2 + sizeof(struct in_addr))
-#define ucast_ipv6_encoding_len (2 + sizeof(struct in6_addr))
-
-/*
- * An Encoded-Unicast address takes the following format:
- *
- *   0                   1                   2                   3
- *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |  Addr Family  | Encoding Type |     Unicast Address
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...
- *
- *  Addr Family
- *       The PIM address family of the 'Unicast Address' field of this
- *       address.
- *
- *       Values 0-127 are as assigned by the IANA for Internet Address   *
- * Families in [7].  Values 128-250 are reserved to be assigned by
- *       the IANA for PIM-specific Address Families.  Values 251 though
- *       255 are designated for private use.  As there is no assignment
- *       authority for this space, collisions should be expected.
- *
- *  Encoding Type
- *       The type of encoding used within a specific Address Family.  The
- *       value '0' is reserved for this field and represents the native
- *       encoding of the Address Family.
- *
- *  Unicast Address
- *       The unicast address as represented by the given Address Family
- *       and Encoding Type.
- */
-int pim_encode_addr_ucast(uint8_t *buf, struct prefix *p)
-{
-	switch (p->family) {
-	case AF_INET:
-		*(uint8_t *)buf =
-			PIM_MSG_ADDRESS_FAMILY_IPV4; /* notice: AF_INET !=
-							PIM_MSG_ADDRESS_FAMILY_IPV4
-							*/
-		++buf;
-		*(uint8_t *)buf = 0; /* ucast IPv4 native encoding type (RFC
-					4601: 4.9.1) */
-		++buf;
-		memcpy(buf, &p->u.prefix4, sizeof(struct in_addr));
-		return ucast_ipv4_encoding_len;
-		break;
-	case AF_INET6:
-		*(uint8_t *)buf = PIM_MSG_ADDRESS_FAMILY_IPV6;
-		++buf;
-		*(uint8_t *)buf = 0;
-		++buf;
-		memcpy(buf, &p->u.prefix6, sizeof(struct in6_addr));
-		return ucast_ipv6_encoding_len;
-		break;
-	default:
-		return 0;
-		break;
-	}
-}
-
-#define group_ipv4_encoding_len (4 + sizeof (struct in_addr))
-
-/*
- * Encoded-Group addresses take the following format:
- *
- *   0                   1                   2                   3
- *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |  Addr Family  | Encoding Type |B| Reserved  |Z|  Mask Len     |
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |                Group multicast Address
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...
- *
- *  Addr Family
- *       Described above.
- *
- *  Encoding Type
- *       Described above.
- *
- *  [B]idirectional PIM
- *       Indicates the group range should use Bidirectional PIM [13].
- *       For PIM-SM defined in this specification, this bit MUST be zero.
- *
- *  Reserved
- *       Transmitted as zero.  Ignored upon receipt.
- *
- *  Admin Scope [Z]one
- *       indicates the group range is an admin scope zone.  This is used
- *       in the Bootstrap Router Mechanism [11] only.  For all other
- *       purposes, this bit is set to zero and ignored on receipt.
- *
- *  Mask Len
- *       The Mask length field is 8 bits.  The value is the number of
- *       contiguous one bits that are left justified and used as a mask;
- *       when combined with the group address, it describes a range of
- *       groups.  It is less than or equal to the address length in bits
- *       for the given Address Family and Encoding Type.  If the message
- *       is sent for a single group, then the Mask length must equal the
- *       address length in bits for the given Address Family and Encoding
- *       Type (e.g., 32 for IPv4 native encoding, 128 for IPv6 native
- *       encoding).
- *
- *  Group multicast Address
- *       Contains the group address.
- */
-int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
-			  struct in_addr group)
-{
-	uint8_t flags = 0;
-
-	flags |= bidir << 8;
-	flags |= scope;
-
-	switch (afi) {
-	case AFI_IP:
-		*(uint8_t *)buf = PIM_MSG_ADDRESS_FAMILY_IPV4;
-		++buf;
-		*(uint8_t *)buf = 0;
-		++buf;
-		*(uint8_t *)buf = flags;
-		++buf;
-		*(uint8_t *)buf = 32;
-		++buf;
-		memcpy(buf, &group, sizeof(struct in_addr));
-		return group_ipv4_encoding_len;
-		break;
-	default:
-		return 0;
-		break;
-	}
-}
-
-uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
-				       struct list *ifconnected, int family)
-{
-	struct listnode *node;
-	uint16_t option_len = 0;
-	uint8_t *curr;
-	size_t uel;
-
-	node = listhead(ifconnected);
-
-	/* Empty address list ? */
-	if (!node) {
-		return buf;
-	}
-
-	if (family == AF_INET)
-		uel = ucast_ipv4_encoding_len;
-	else
-		uel = ucast_ipv6_encoding_len;
-
-	/* Scan secondary address list */
-	curr = buf + 4; /* skip T and L */
-	for (; node; node = listnextnode(node)) {
-		struct connected *ifc = listgetdata(node);
-		struct prefix *p = ifc->address;
-		int l_encode;
-
-		if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
-			continue;
-
-		if ((curr + uel) > buf_pastend)
-			return 0;
-
-		if (p->family != family)
-			continue;
-
-		l_encode = pim_encode_addr_ucast(curr, p);
-		curr += l_encode;
-		option_len += l_encode;
-	}
-
-	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
-		zlog_debug(
-			"%s: number of encoded secondary unicast IPv4 addresses: %zu",
-			__PRETTY_FUNCTION__, option_len / uel);
-	}
-
-	if (option_len < 1) {
-		/* Empty secondary unicast IPv4 address list */
-		return buf;
-	}
-
-	/*
-	 * Write T and L
-	 */
-	*(uint16_t *)buf = htons(PIM_MSG_OPTION_TYPE_ADDRESS_LIST);
-	*(uint16_t *)(buf + 2) = htons(option_len);
-
-	return curr;
-}
-
-static int check_tlv_length(const char *label, const char *tlv_name,
-			    const char *ifname, struct in_addr src_addr,
-			    int correct_len, int option_len)
-{
-	if (option_len != correct_len) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_warn(
-			"%s: PIM hello %s TLV with incorrect value size=%d correct=%d from %s on interface %s",
-			label, tlv_name, option_len, correct_len, src_str,
-			ifname);
-		return -1;
-	}
-
-	return 0;
-}
-
-static void check_tlv_redefinition_uint16(
-	const char *label, const char *tlv_name, const char *ifname,
-	struct in_addr src_addr, pim_hello_options options,
-	pim_hello_options opt_mask, uint16_t new, uint16_t old)
-{
-	if (PIM_OPTION_IS_SET(options, opt_mask)) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_warn(
-			"%s: PIM hello TLV redefined %s=%u old=%u from %s on interface %s",
-			label, tlv_name, new, old, src_str, ifname);
-	}
-}
-
-static void check_tlv_redefinition_uint32(
-	const char *label, const char *tlv_name, const char *ifname,
-	struct in_addr src_addr, pim_hello_options options,
-	pim_hello_options opt_mask, uint32_t new, uint32_t old)
-{
-	if (PIM_OPTION_IS_SET(options, opt_mask)) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_warn(
-			"%s: PIM hello TLV redefined %s=%u old=%u from %s on interface %s",
-			label, tlv_name, new, old, src_str, ifname);
-	}
-}
-
-static void check_tlv_redefinition_uint32_hex(
-	const char *label, const char *tlv_name, const char *ifname,
-	struct in_addr src_addr, pim_hello_options options,
-	pim_hello_options opt_mask, uint32_t new, uint32_t old)
-{
-	if (PIM_OPTION_IS_SET(options, opt_mask)) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_warn(
-			"%s: PIM hello TLV redefined %s=%08x old=%08x from %s on interface %s",
-			label, tlv_name, new, old, src_str, ifname);
-	}
-}
-
-int pim_tlv_parse_holdtime(const char *ifname, struct in_addr src_addr,
-			   pim_hello_options *hello_options,
-			   uint16_t *hello_option_holdtime, uint16_t option_len,
-			   const uint8_t *tlv_curr)
-{
-	const char *label = "holdtime";
-
-	if (check_tlv_length(__PRETTY_FUNCTION__, label, ifname, src_addr,
-			     sizeof(uint16_t), option_len)) {
-		return -1;
-	}
-
-	check_tlv_redefinition_uint16(
-		__PRETTY_FUNCTION__, label, ifname, src_addr, *hello_options,
-		PIM_OPTION_MASK_HOLDTIME, PIM_TLV_GET_HOLDTIME(tlv_curr),
-		*hello_option_holdtime);
-
-	PIM_OPTION_SET(*hello_options, PIM_OPTION_MASK_HOLDTIME);
-
-	*hello_option_holdtime = PIM_TLV_GET_HOLDTIME(tlv_curr);
-
-	return 0;
-}
-
-int pim_tlv_parse_lan_prune_delay(const char *ifname, struct in_addr src_addr,
-				  pim_hello_options *hello_options,
-				  uint16_t *hello_option_propagation_delay,
-				  uint16_t *hello_option_override_interval,
-				  uint16_t option_len, const uint8_t *tlv_curr)
-{
-	if (check_tlv_length(__PRETTY_FUNCTION__, "lan_prune_delay", ifname,
-			     src_addr, sizeof(uint32_t), option_len)) {
-		return -1;
-	}
-
-	check_tlv_redefinition_uint16(__PRETTY_FUNCTION__, "propagation_delay",
-				      ifname, src_addr, *hello_options,
-				      PIM_OPTION_MASK_LAN_PRUNE_DELAY,
-				      PIM_TLV_GET_PROPAGATION_DELAY(tlv_curr),
-				      *hello_option_propagation_delay);
-
-	PIM_OPTION_SET(*hello_options, PIM_OPTION_MASK_LAN_PRUNE_DELAY);
-
-	*hello_option_propagation_delay =
-		PIM_TLV_GET_PROPAGATION_DELAY(tlv_curr);
-	if (PIM_TLV_GET_CAN_DISABLE_JOIN_SUPPRESSION(tlv_curr)) {
-		PIM_OPTION_SET(*hello_options,
-			       PIM_OPTION_MASK_CAN_DISABLE_JOIN_SUPPRESSION);
-	} else {
-		PIM_OPTION_UNSET(*hello_options,
-				 PIM_OPTION_MASK_CAN_DISABLE_JOIN_SUPPRESSION);
-	}
-	++tlv_curr;
-	++tlv_curr;
-	*hello_option_override_interval =
-		PIM_TLV_GET_OVERRIDE_INTERVAL(tlv_curr);
-
-	return 0;
-}
-
-int pim_tlv_parse_dr_priority(const char *ifname, struct in_addr src_addr,
-			      pim_hello_options *hello_options,
-			      uint32_t *hello_option_dr_priority,
-			      uint16_t option_len, const uint8_t *tlv_curr)
-{
-	const char *label = "dr_priority";
-
-	if (check_tlv_length(__PRETTY_FUNCTION__, label, ifname, src_addr,
-			     sizeof(uint32_t), option_len)) {
-		return -1;
-	}
-
-	check_tlv_redefinition_uint32(
-		__PRETTY_FUNCTION__, label, ifname, src_addr, *hello_options,
-		PIM_OPTION_MASK_DR_PRIORITY, PIM_TLV_GET_DR_PRIORITY(tlv_curr),
-		*hello_option_dr_priority);
-
-	PIM_OPTION_SET(*hello_options, PIM_OPTION_MASK_DR_PRIORITY);
-
-	*hello_option_dr_priority = PIM_TLV_GET_DR_PRIORITY(tlv_curr);
-
-	return 0;
-}
-
-int pim_tlv_parse_generation_id(const char *ifname, struct in_addr src_addr,
-				pim_hello_options *hello_options,
-				uint32_t *hello_option_generation_id,
-				uint16_t option_len, const uint8_t *tlv_curr)
-{
-	const char *label = "generation_id";
-
-	if (check_tlv_length(__PRETTY_FUNCTION__, label, ifname, src_addr,
-			     sizeof(uint32_t), option_len)) {
-		return -1;
-	}
-
-	check_tlv_redefinition_uint32_hex(__PRETTY_FUNCTION__, label, ifname,
-					  src_addr, *hello_options,
-					  PIM_OPTION_MASK_GENERATION_ID,
-					  PIM_TLV_GET_GENERATION_ID(tlv_curr),
-					  *hello_option_generation_id);
-
-	PIM_OPTION_SET(*hello_options, PIM_OPTION_MASK_GENERATION_ID);
-
-	*hello_option_generation_id = PIM_TLV_GET_GENERATION_ID(tlv_curr);
-
-	return 0;
-}
-
-int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size)
-{
-	const int ucast_encoding_min_len = 3; /* 1 family + 1 type + 1 addr */
-	const uint8_t *addr;
-	const uint8_t *pastend;
-	int family;
-	int type;
-
-	if (buf_size < ucast_encoding_min_len) {
-		zlog_warn(
-			"%s: unicast address encoding overflow: left=%d needed=%d",
-			__PRETTY_FUNCTION__, buf_size, ucast_encoding_min_len);
-		return -1;
-	}
-
-	addr = buf;
-	pastend = buf + buf_size;
-
-	family = *addr++;
-	type = *addr++;
-
-	if (type) {
-		zlog_warn("%s: unknown unicast address encoding type=%d",
-			  __PRETTY_FUNCTION__, type);
-		return -2;
-	}
-
-	switch (family) {
-	case PIM_MSG_ADDRESS_FAMILY_IPV4:
-		if ((addr + sizeof(struct in_addr)) > pastend) {
-			zlog_warn(
-				"%s: IPv4 unicast address overflow: left=%zd needed=%zu",
-				__PRETTY_FUNCTION__, pastend - addr,
-				sizeof(struct in_addr));
-			return -3;
-		}
-
-		p->family = AF_INET; /* notice: AF_INET !=
-					PIM_MSG_ADDRESS_FAMILY_IPV4 */
-		memcpy(&p->u.prefix4, addr, sizeof(struct in_addr));
-		p->prefixlen = IPV4_MAX_PREFIXLEN;
-		addr += sizeof(struct in_addr);
-
-		break;
-	case PIM_MSG_ADDRESS_FAMILY_IPV6:
-		if ((addr + sizeof(struct in6_addr)) > pastend) {
-			zlog_warn(
-				"%s: IPv6 unicast address overflow: left=%zd needed %zu",
-				__PRETTY_FUNCTION__, pastend - addr,
-				sizeof(struct in6_addr));
-			return -3;
-		}
-
-		p->family = AF_INET6;
-		p->prefixlen = IPV6_MAX_PREFIXLEN;
-		memcpy(&p->u.prefix6, addr, sizeof(struct in6_addr));
-		addr += sizeof(struct in6_addr);
-
-		break;
-	default: {
-		zlog_warn("%s: unknown unicast address encoding family=%d from",
-			  __PRETTY_FUNCTION__, family);
-		return -4;
-	}
-	}
-
-	return addr - buf;
-}
-
-int pim_parse_addr_group(struct prefix_sg *sg, const uint8_t *buf, int buf_size)
-{
-	const int grp_encoding_min_len =
-		4; /* 1 family + 1 type + 1 reserved + 1 addr */
-	const uint8_t *addr;
-	const uint8_t *pastend;
-	int family;
-	int type;
-	int mask_len;
-
-	if (buf_size < grp_encoding_min_len) {
-		zlog_warn(
-			"%s: group address encoding overflow: left=%d needed=%d",
-			__PRETTY_FUNCTION__, buf_size, grp_encoding_min_len);
-		return -1;
-	}
-
-	addr = buf;
-	pastend = buf + buf_size;
-
-	family = *addr++;
-	type = *addr++;
-	//++addr;
-	++addr; /* skip b_reserved_z fields */
-	mask_len = *addr++;
-
-	switch (family) {
-	case PIM_MSG_ADDRESS_FAMILY_IPV4:
-		if (type) {
-			zlog_warn(
-				"%s: unknown group address encoding type=%d from",
-				__PRETTY_FUNCTION__, type);
-			return -2;
-		}
-
-		if ((addr + sizeof(struct in_addr)) > pastend) {
-			zlog_warn(
-				"%s: IPv4 group address overflow: left=%zd needed=%zu from",
-				__PRETTY_FUNCTION__, pastend - addr,
-				sizeof(struct in_addr));
-			return -3;
-		}
-
-		memcpy(&sg->grp.s_addr, addr, sizeof(struct in_addr));
-
-		addr += sizeof(struct in_addr);
-
-		break;
-	default: {
-		zlog_warn(
-			"%s: unknown group address encoding family=%d mask_len=%d from",
-			__PRETTY_FUNCTION__, family, mask_len);
-		return -4;
-	}
-	}
-
-	return addr - buf;
-}
-
-int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
-			  const uint8_t *buf, int buf_size)
-{
-	const int src_encoding_min_len =
-		4; /* 1 family + 1 type + 1 reserved + 1 addr */
-	const uint8_t *addr;
-	const uint8_t *pastend;
-	int family;
-	int type;
-	int mask_len;
-
-	if (buf_size < src_encoding_min_len) {
-		zlog_warn(
-			"%s: source address encoding overflow: left=%d needed=%d",
-			__PRETTY_FUNCTION__, buf_size, src_encoding_min_len);
-		return -1;
-	}
-
-	addr = buf;
-	pastend = buf + buf_size;
-
-	family = *addr++;
-	type = *addr++;
-	*flags = *addr++;
-	mask_len = *addr++;
-
-	if (type) {
-		zlog_warn(
-			"%s: unknown source address encoding type=%d: %02x%02x%02x%02x%02x%02x%02x%02x",
-			__PRETTY_FUNCTION__, type, buf[0], buf[1], buf[2],
-			buf[3], buf[4], buf[5], buf[6], buf[7]);
-		return -2;
-	}
-
-	switch (family) {
-	case PIM_MSG_ADDRESS_FAMILY_IPV4:
-		if ((addr + sizeof(struct in_addr)) > pastend) {
-			zlog_warn(
-				"%s: IPv4 source address overflow: left=%zd needed=%zu",
-				__PRETTY_FUNCTION__, pastend - addr,
-				sizeof(struct in_addr));
-			return -3;
-		}
-
-		memcpy(&sg->src, addr, sizeof(struct in_addr));
-
-		/*
-		   RFC 4601: 4.9.1  Encoded Source and Group Address Formats
-
-		   Encoded-Source Address
-
-		   The mask length MUST be equal to the mask length in bits for
-		   the given Address Family and Encoding Type (32 for IPv4
-		   native
-		   and 128 for IPv6 native).  A router SHOULD ignore any
-		   messages
-		   received with any other mask length.
-		*/
-		if (mask_len != 32) {
-			zlog_warn("%s: IPv4 bad source address mask: %d",
-				  __PRETTY_FUNCTION__, mask_len);
-			return -4;
-		}
-
-		addr += sizeof(struct in_addr);
-
-		break;
-	default: {
-		zlog_warn(
-			"%s: unknown source address encoding family=%d: %02x%02x%02x%02x%02x%02x%02x%02x",
-			__PRETTY_FUNCTION__, family, buf[0], buf[1], buf[2],
-			buf[3], buf[4], buf[5], buf[6], buf[7]);
-		return -5;
-	}
-	}
-
-	return addr - buf;
-}
-
-#define FREE_ADDR_LIST(hello_option_addr_list)                                 \
-	{                                                                      \
-		if (hello_option_addr_list) {                                  \
-			list_delete_and_null(&hello_option_addr_list);         \
-			hello_option_addr_list = 0;                            \
-		}                                                              \
-	}
-
-int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
-			    pim_hello_options *hello_options,
-			    struct list **hello_option_addr_list,
-			    uint16_t option_len, const uint8_t *tlv_curr)
-{
-	const uint8_t *addr;
-	const uint8_t *pastend;
-
-	zassert(hello_option_addr_list);
-
-	/*
-	  Scan addr list
-	 */
-	addr = tlv_curr;
-	pastend = tlv_curr + option_len;
-	while (addr < pastend) {
-		struct prefix tmp;
-		int addr_offset;
-
-		/*
-		  Parse ucast addr
-		 */
-		addr_offset = pim_parse_addr_ucast(&tmp, addr, pastend - addr);
-		if (addr_offset < 1) {
-			char src_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<src?>", src_addr, src_str,
-				       sizeof(src_str));
-			zlog_warn(
-				"%s: pim_parse_addr_ucast() failure: from %s on %s",
-				__PRETTY_FUNCTION__, src_str, ifname);
-			FREE_ADDR_LIST(*hello_option_addr_list);
-			return -1;
-		}
-		addr += addr_offset;
-
-		/*
-		  Debug
-		 */
-		if (PIM_DEBUG_PIM_TRACE) {
-			switch (tmp.family) {
-			case AF_INET: {
-				char addr_str[INET_ADDRSTRLEN];
-				char src_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<addr?>", tmp.u.prefix4,
-					       addr_str, sizeof(addr_str));
-				pim_inet4_dump("<src?>", src_addr, src_str,
-					       sizeof(src_str));
-				zlog_debug(
-					"%s: PIM hello TLV option: list_old_size=%d IPv4 address %s from %s on %s",
-					__PRETTY_FUNCTION__,
-					*hello_option_addr_list
-						? ((int)listcount(
-							  *hello_option_addr_list))
-						: -1,
-					addr_str, src_str, ifname);
-			} break;
-			case AF_INET6:
-				break;
-			default: {
-				char src_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<src?>", src_addr, src_str,
-					       sizeof(src_str));
-				zlog_debug(
-					"%s: PIM hello TLV option: list_old_size=%d UNKNOWN address family from %s on %s",
-					__PRETTY_FUNCTION__,
-					*hello_option_addr_list
-						? ((int)listcount(
-							  *hello_option_addr_list))
-						: -1,
-					src_str, ifname);
-			}
-			}
-		}
-
-		/*
-		  Exclude neighbor's primary address if incorrectly included in
-		  the secondary address list
-		 */
-		if (tmp.family == AF_INET) {
-			if (tmp.u.prefix4.s_addr == src_addr.s_addr) {
-				char src_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<src?>", src_addr, src_str,
-					       sizeof(src_str));
-				zlog_warn(
-					"%s: ignoring primary address in secondary list from %s on %s",
-					__PRETTY_FUNCTION__, src_str, ifname);
-				continue;
-			}
-		}
-
-		/*
-		  Allocate list if needed
-		 */
-		if (!*hello_option_addr_list) {
-			*hello_option_addr_list = list_new();
-			if (!*hello_option_addr_list) {
-				zlog_err(
-					"%s %s: failure: hello_option_addr_list=list_new()",
-					__FILE__, __PRETTY_FUNCTION__);
-				return -2;
-			}
-			(*hello_option_addr_list)->del =
-				(void (*)(void *))prefix_free;
-		}
-
-		/*
-		  Attach addr to list
-		 */
-		{
-			struct prefix *p;
-			p = prefix_new();
-			if (!p) {
-				zlog_err("%s %s: failure: prefix_new()",
-					 __FILE__, __PRETTY_FUNCTION__);
-				FREE_ADDR_LIST(*hello_option_addr_list);
-				return -3;
-			}
-			prefix_copy(p, &tmp);
-			listnode_add(*hello_option_addr_list, p);
-		}
-
-	} /* while (addr < pastend) */
-
-	/*
-	  Mark hello option
-	 */
-	PIM_OPTION_SET(*hello_options, PIM_OPTION_MASK_ADDRESS_LIST);
-
-	return 0;
-}
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#include<zebra.h>#include"log.h"#include"prefix.h"#include"if.h"#include"p
+imd.h"#include"pim_int.h"#include"pim_tlv.h"#include"pim_str.h"#include"pim_msg.
+h"uint8_t*pim_tlv_append_uint16(uint8_t*buf,constuint8_t*buf_pastend,uint16_topt
+ion_type,uint16_toption_value){uint16_toption_len=2;if((buf+PIM_TLV_OPTION_SIZE(
+option_len))>buf_pastend)returnNULL;*(uint16_t*)buf=htons(option_type);buf+=2;*(
+uint16_t*)buf=htons(option_len);buf+=2;*(uint16_t*)buf=htons(option_value);buf+=
+option_len;returnbuf;}uint8_t*pim_tlv_append_2uint16(uint8_t*buf,constuint8_t*bu
+f_pastend,uint16_toption_type,uint16_toption_value1,uint16_toption_value2){uint1
+6_toption_len=4;if((buf+PIM_TLV_OPTION_SIZE(option_len))>buf_pastend)returnNULL;
+*(uint16_t*)buf=htons(option_type);buf+=2;*(uint16_t*)buf=htons(option_len);buf+
+=2;*(uint16_t*)buf=htons(option_value1);buf+=2;*(uint16_t*)buf=htons(option_valu
+e2);buf+=2;returnbuf;}uint8_t*pim_tlv_append_uint32(uint8_t*buf,constuint8_t*buf
+_pastend,uint16_toption_type,uint32_toption_value){uint16_toption_len=4;if((buf+
+PIM_TLV_OPTION_SIZE(option_len))>buf_pastend)returnNULL;*(uint16_t*)buf=htons(op
+tion_type);buf+=2;*(uint16_t*)buf=htons(option_len);buf+=2;pim_write_uint32(buf,
+option_value);buf+=option_len;returnbuf;}#defineucast_ipv4_encoding_len(2+sizeof
+(structin_addr))#defineucast_ipv6_encoding_len(2+sizeof(structin6_addr))/**AnEnc
+oded-Unicastaddresstakesthefollowingformat:**0123*012345678901234567890123456789
+01*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*|AddrFamily
+|EncodingType|UnicastAddress*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+..
+.**AddrFamily*ThePIMaddressfamilyofthe'UnicastAddress'fieldofthis*address.**Valu
+es0-127areasassignedbytheIANAforInternetAddress**Familiesin[7].Values128-250arer
+eservedtobeassignedby*theIANAforPIM-specificAddressFamilies.Values251though*255a
+redesignatedforprivateuse.Asthereisnoassignment*authorityforthisspace,collisions
+shouldbeexpected.**EncodingType*ThetypeofencodingusedwithinaspecificAddressFamil
+y.The*value'0'isreservedforthisfieldandrepresentsthenative*encodingoftheAddressF
+amily.**UnicastAddress*TheunicastaddressasrepresentedbythegivenAddressFamily*and
+EncodingType.*/intpim_encode_addr_ucast(uint8_t*buf,structprefix*p){switch(p->fa
+mily){caseAF_INET:*(uint8_t*)buf=PIM_MSG_ADDRESS_FAMILY_IPV4;/*notice:AF_INET!=P
+IM_MSG_ADDRESS_FAMILY_IPV4*/++buf;*(uint8_t*)buf=0;/*ucastIPv4nativeencodingtype
+(RFC4601:4.9.1)*/++buf;memcpy(buf,&p->u.prefix4,sizeof(structin_addr));returnuca
+st_ipv4_encoding_len;break;caseAF_INET6:*(uint8_t*)buf=PIM_MSG_ADDRESS_FAMILY_IP
+V6;++buf;*(uint8_t*)buf=0;++buf;memcpy(buf,&p->u.prefix6,sizeof(structin6_addr))
+;returnucast_ipv6_encoding_len;break;default:return0;break;}}#definegroup_ipv4_e
+ncoding_len(4+sizeof(structin_addr))/**Encoded-Groupaddressestakethefollowingfor
+mat:**0123*01234567890123456789012345678901*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+*|AddrFamily|EncodingType|B|Reserved|Z|MaskLen|*+-+
+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*|GroupmulticastAd
+dress*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+...**AddrFamily*Describedabove.**Enco
+dingType*Describedabove.**[B]idirectionalPIM*IndicatesthegrouprangeshoulduseBidi
+rectionalPIM[13].*ForPIM-SMdefinedinthisspecification,thisbitMUSTbezero.**Reserv
+ed*Transmittedaszero.Ignoreduponreceipt.**AdminScope[Z]one*indicatesthegrouprang
+eisanadminscopezone.Thisisused*intheBootstrapRouterMechanism[11]only.Forallother
+*purposes,thisbitissettozeroandignoredonreceipt.**MaskLen*TheMasklengthfieldis8b
+its.Thevalueisthenumberof*contiguousonebitsthatareleftjustifiedandusedasamask;*w
+hencombinedwiththegroupaddress,itdescribesarangeof*groups.Itislessthanorequaltot
+headdresslengthinbits*forthegivenAddressFamilyandEncodingType.Ifthemessage*issen
+tforasinglegroup,thentheMasklengthmustequalthe*addresslengthinbitsforthegivenAdd
+ressFamilyandEncoding*Type(e.g.,32forIPv4nativeencoding,128forIPv6native*encodin
+g).**GroupmulticastAddress*Containsthegroupaddress.*/intpim_encode_addr_group(ui
+nt8_t*buf,afi_tafi,intbidir,intscope,structin_addrgroup){uint8_tflags=0;flags|=b
+idir<<8;flags|=scope;switch(afi){caseAFI_IP:*(uint8_t*)buf=PIM_MSG_ADDRESS_FAMIL
+Y_IPV4;++buf;*(uint8_t*)buf=0;++buf;*(uint8_t*)buf=flags;++buf;*(uint8_t*)buf=32
+;++buf;memcpy(buf,&group,sizeof(structin_addr));returngroup_ipv4_encoding_len;br
+eak;default:return0;break;}}uint8_t*pim_tlv_append_addrlist_ucast(uint8_t*buf,co
+nstuint8_t*buf_pastend,structlist*ifconnected,intfamily){structlistnode*node;uin
+t16_toption_len=0;uint8_t*curr;size_tuel;node=listhead(ifconnected);/*Emptyaddre
+sslist?*/if(!node){returnbuf;}if(family==AF_INET)uel=ucast_ipv4_encoding_len;els
+euel=ucast_ipv6_encoding_len;/*Scansecondaryaddresslist*/curr=buf+4;/*skipTandL*
+/for(;node;node=listnextnode(node)){structconnected*ifc=listgetdata(node);struct
+prefix*p=ifc->address;intl_encode;if(!CHECK_FLAG(ifc->flags,ZEBRA_IFA_SECONDARY)
+)continue;if((curr+uel)>buf_pastend)return0;if(p->family!=family)continue;l_enco
+de=pim_encode_addr_ucast(curr,p);curr+=l_encode;option_len+=l_encode;}if(PIM_DEB
+UG_PIM_TRACE_DETAIL){zlog_debug("%s:numberofencodedsecondaryunicastIPv4addresses
+:%zu",__PRETTY_FUNCTION__,option_len/uel);}if(option_len<1){/*Emptysecondaryunic
+astIPv4addresslist*/returnbuf;}/**WriteTandL*/*(uint16_t*)buf=htons(PIM_MSG_OPTI
+ON_TYPE_ADDRESS_LIST);*(uint16_t*)(buf+2)=htons(option_len);returncurr;}staticin
+tcheck_tlv_length(constchar*label,constchar*tlv_name,constchar*ifname,structin_a
+ddrsrc_addr,intcorrect_len,intoption_len){if(option_len!=correct_len){charsrc_st
+r[INET_ADDRSTRLEN];pim_inet4_dump("<src?>",src_addr,src_str,sizeof(src_str));zlo
+g_warn("%s:PIMhello%sTLVwithincorrectvaluesize=%dcorrect=%dfrom%soninterface%s",
+label,tlv_name,option_len,correct_len,src_str,ifname);return-1;}return0;}staticv
+oidcheck_tlv_redefinition_uint16(constchar*label,constchar*tlv_name,constchar*if
+name,structin_addrsrc_addr,pim_hello_optionsoptions,pim_hello_optionsopt_mask,ui
+nt16_tnew,uint16_told){if(PIM_OPTION_IS_SET(options,opt_mask)){charsrc_str[INET_
+ADDRSTRLEN];pim_inet4_dump("<src?>",src_addr,src_str,sizeof(src_str));zlog_warn(
+"%s:PIMhelloTLVredefined%s=%uold=%ufrom%soninterface%s",label,tlv_name,new,old,s
+rc_str,ifname);}}staticvoidcheck_tlv_redefinition_uint32(constchar*label,constch
+ar*tlv_name,constchar*ifname,structin_addrsrc_addr,pim_hello_optionsoptions,pim_
+hello_optionsopt_mask,uint32_tnew,uint32_told){if(PIM_OPTION_IS_SET(options,opt_
+mask)){charsrc_str[INET_ADDRSTRLEN];pim_inet4_dump("<src?>",src_addr,src_str,siz
+eof(src_str));zlog_warn("%s:PIMhelloTLVredefined%s=%uold=%ufrom%soninterface%s",
+label,tlv_name,new,old,src_str,ifname);}}staticvoidcheck_tlv_redefinition_uint32
+_hex(constchar*label,constchar*tlv_name,constchar*ifname,structin_addrsrc_addr,p
+im_hello_optionsoptions,pim_hello_optionsopt_mask,uint32_tnew,uint32_told){if(PI
+M_OPTION_IS_SET(options,opt_mask)){charsrc_str[INET_ADDRSTRLEN];pim_inet4_dump("
+<src?>",src_addr,src_str,sizeof(src_str));zlog_warn("%s:PIMhelloTLVredefined%s=%
+08xold=%08xfrom%soninterface%s",label,tlv_name,new,old,src_str,ifname);}}intpim_
+tlv_parse_holdtime(constchar*ifname,structin_addrsrc_addr,pim_hello_options*hell
+o_options,uint16_t*hello_option_holdtime,uint16_toption_len,constuint8_t*tlv_cur
+r){constchar*label="holdtime";if(check_tlv_length(__PRETTY_FUNCTION__,label,ifna
+me,src_addr,sizeof(uint16_t),option_len)){return-1;}check_tlv_redefinition_uint1
+6(__PRETTY_FUNCTION__,label,ifname,src_addr,*hello_options,PIM_OPTION_MASK_HOLDT
+IME,PIM_TLV_GET_HOLDTIME(tlv_curr),*hello_option_holdtime);PIM_OPTION_SET(*hello
+_options,PIM_OPTION_MASK_HOLDTIME);*hello_option_holdtime=PIM_TLV_GET_HOLDTIME(t
+lv_curr);return0;}intpim_tlv_parse_lan_prune_delay(constchar*ifname,structin_add
+rsrc_addr,pim_hello_options*hello_options,uint16_t*hello_option_propagation_dela
+y,uint16_t*hello_option_override_interval,uint16_toption_len,constuint8_t*tlv_cu
+rr){if(check_tlv_length(__PRETTY_FUNCTION__,"lan_prune_delay",ifname,src_addr,si
+zeof(uint32_t),option_len)){return-1;}check_tlv_redefinition_uint16(__PRETTY_FUN
+CTION__,"propagation_delay",ifname,src_addr,*hello_options,PIM_OPTION_MASK_LAN_P
+RUNE_DELAY,PIM_TLV_GET_PROPAGATION_DELAY(tlv_curr),*hello_option_propagation_del
+ay);PIM_OPTION_SET(*hello_options,PIM_OPTION_MASK_LAN_PRUNE_DELAY);*hello_option
+_propagation_delay=PIM_TLV_GET_PROPAGATION_DELAY(tlv_curr);if(PIM_TLV_GET_CAN_DI
+SABLE_JOIN_SUPPRESSION(tlv_curr)){PIM_OPTION_SET(*hello_options,PIM_OPTION_MASK_
+CAN_DISABLE_JOIN_SUPPRESSION);}else{PIM_OPTION_UNSET(*hello_options,PIM_OPTION_M
+ASK_CAN_DISABLE_JOIN_SUPPRESSION);}++tlv_curr;++tlv_curr;*hello_option_override_
+interval=PIM_TLV_GET_OVERRIDE_INTERVAL(tlv_curr);return0;}intpim_tlv_parse_dr_pr
+iority(constchar*ifname,structin_addrsrc_addr,pim_hello_options*hello_options,ui
+nt32_t*hello_option_dr_priority,uint16_toption_len,constuint8_t*tlv_curr){constc
+har*label="dr_priority";if(check_tlv_length(__PRETTY_FUNCTION__,label,ifname,src
+_addr,sizeof(uint32_t),option_len)){return-1;}check_tlv_redefinition_uint32(__PR
+ETTY_FUNCTION__,label,ifname,src_addr,*hello_options,PIM_OPTION_MASK_DR_PRIORITY
+,PIM_TLV_GET_DR_PRIORITY(tlv_curr),*hello_option_dr_priority);PIM_OPTION_SET(*he
+llo_options,PIM_OPTION_MASK_DR_PRIORITY);*hello_option_dr_priority=PIM_TLV_GET_D
+R_PRIORITY(tlv_curr);return0;}intpim_tlv_parse_generation_id(constchar*ifname,st
+ructin_addrsrc_addr,pim_hello_options*hello_options,uint32_t*hello_option_genera
+tion_id,uint16_toption_len,constuint8_t*tlv_curr){constchar*label="generation_id
+";if(check_tlv_length(__PRETTY_FUNCTION__,label,ifname,src_addr,sizeof(uint32_t)
+,option_len)){return-1;}check_tlv_redefinition_uint32_hex(__PRETTY_FUNCTION__,la
+bel,ifname,src_addr,*hello_options,PIM_OPTION_MASK_GENERATION_ID,PIM_TLV_GET_GEN
+ERATION_ID(tlv_curr),*hello_option_generation_id);PIM_OPTION_SET(*hello_options,
+PIM_OPTION_MASK_GENERATION_ID);*hello_option_generation_id=PIM_TLV_GET_GENERATIO
+N_ID(tlv_curr);return0;}intpim_parse_addr_ucast(structprefix*p,constuint8_t*buf,
+intbuf_size){constintucast_encoding_min_len=3;/*1family+1type+1addr*/constuint8_
+t*addr;constuint8_t*pastend;intfamily;inttype;if(buf_size<ucast_encoding_min_len
+){zlog_warn("%s:unicastaddressencodingoverflow:left=%dneeded=%d",__PRETTY_FUNCTI
+ON__,buf_size,ucast_encoding_min_len);return-1;}addr=buf;pastend=buf+buf_size;fa
+mily=*addr++;type=*addr++;if(type){zlog_warn("%s:unknownunicastaddressencodingty
+pe=%d",__PRETTY_FUNCTION__,type);return-2;}switch(family){casePIM_MSG_ADDRESS_FA
+MILY_IPV4:if((addr+sizeof(structin_addr))>pastend){zlog_warn("%s:IPv4unicastaddr
+essoverflow:left=%zdneeded=%zu",__PRETTY_FUNCTION__,pastend-addr,sizeof(structin
+_addr));return-3;}p->family=AF_INET;/*notice:AF_INET!=PIM_MSG_ADDRESS_FAMILY_IPV
+4*/memcpy(&p->u.prefix4,addr,sizeof(structin_addr));p->prefixlen=IPV4_MAX_PREFIX
+LEN;addr+=sizeof(structin_addr);break;casePIM_MSG_ADDRESS_FAMILY_IPV6:if((addr+s
+izeof(structin6_addr))>pastend){zlog_warn("%s:IPv6unicastaddressoverflow:left=%z
+dneeded%zu",__PRETTY_FUNCTION__,pastend-addr,sizeof(structin6_addr));return-3;}p
+->family=AF_INET6;p->prefixlen=IPV6_MAX_PREFIXLEN;memcpy(&p->u.prefix6,addr,size
+of(structin6_addr));addr+=sizeof(structin6_addr);break;default:{zlog_warn("%s:un
+knownunicastaddressencodingfamily=%dfrom",__PRETTY_FUNCTION__,family);return-4;}
+}returnaddr-buf;}intpim_parse_addr_group(structprefix_sg*sg,constuint8_t*buf,int
+buf_size){constintgrp_encoding_min_len=4;/*1family+1type+1reserved+1addr*/constu
+int8_t*addr;constuint8_t*pastend;intfamily;inttype;intmask_len;if(buf_size<grp_e
+ncoding_min_len){zlog_warn("%s:groupaddressencodingoverflow:left=%dneeded=%d",__
+PRETTY_FUNCTION__,buf_size,grp_encoding_min_len);return-1;}addr=buf;pastend=buf+
+buf_size;family=*addr++;type=*addr++;//++addr;++addr;/*skipb_reserved_zfields*/m
+ask_len=*addr++;switch(family){casePIM_MSG_ADDRESS_FAMILY_IPV4:if(type){zlog_war
+n("%s:unknowngroupaddressencodingtype=%dfrom",__PRETTY_FUNCTION__,type);return-2
+;}if((addr+sizeof(structin_addr))>pastend){zlog_warn("%s:IPv4groupaddressoverflo
+w:left=%zdneeded=%zufrom",__PRETTY_FUNCTION__,pastend-addr,sizeof(structin_addr)
+);return-3;}memcpy(&sg->grp.s_addr,addr,sizeof(structin_addr));addr+=sizeof(stru
+ctin_addr);break;default:{zlog_warn("%s:unknowngroupaddressencodingfamily=%dmask
+_len=%dfrom",__PRETTY_FUNCTION__,family,mask_len);return-4;}}returnaddr-buf;}int
+pim_parse_addr_source(structprefix_sg*sg,uint8_t*flags,constuint8_t*buf,intbuf_s
+ize){constintsrc_encoding_min_len=4;/*1family+1type+1reserved+1addr*/constuint8_
+t*addr;constuint8_t*pastend;intfamily;inttype;intmask_len;if(buf_size<src_encodi
+ng_min_len){zlog_warn("%s:sourceaddressencodingoverflow:left=%dneeded=%d",__PRET
+TY_FUNCTION__,buf_size,src_encoding_min_len);return-1;}addr=buf;pastend=buf+buf_
+size;family=*addr++;type=*addr++;*flags=*addr++;mask_len=*addr++;if(type){zlog_w
+arn("%s:unknownsourceaddressencodingtype=%d:%02x%02x%02x%02x%02x%02x%02x%02x",__
+PRETTY_FUNCTION__,type,buf[0],buf[1],buf[2],buf[3],buf[4],buf[5],buf[6],buf[7]);
+return-2;}switch(family){casePIM_MSG_ADDRESS_FAMILY_IPV4:if((addr+sizeof(structi
+n_addr))>pastend){zlog_warn("%s:IPv4sourceaddressoverflow:left=%zdneeded=%zu",__
+PRETTY_FUNCTION__,pastend-addr,sizeof(structin_addr));return-3;}memcpy(&sg->src,
+addr,sizeof(structin_addr));/*RFC4601:4.9.1EncodedSourceandGroupAddressFormatsEn
+coded-SourceAddressThemasklengthMUSTbeequaltothemasklengthinbitsforthegivenAddre
+ssFamilyandEncodingType(32forIPv4nativeand128forIPv6native).ArouterSHOULDignorea
+nymessagesreceivedwithanyothermasklength.*/if(mask_len!=32){zlog_warn("%s:IPv4ba
+dsourceaddressmask:%d",__PRETTY_FUNCTION__,mask_len);return-4;}addr+=sizeof(stru
+ctin_addr);break;default:{zlog_warn("%s:unknownsourceaddressencodingfamily=%d:%0
+2x%02x%02x%02x%02x%02x%02x%02x",__PRETTY_FUNCTION__,family,buf[0],buf[1],buf[2],
+buf[3],buf[4],buf[5],buf[6],buf[7]);return-5;}}returnaddr-buf;}#defineFREE_ADDR_
+LIST(hello_option_addr_list)\{\if(hello_option_addr_list){\list_delete_and_null(
+&hello_option_addr_list);\hello_option_addr_list=0;\}\}intpim_tlv_parse_addr_lis
+t(constchar*ifname,structin_addrsrc_addr,pim_hello_options*hello_options,structl
+ist**hello_option_addr_list,uint16_toption_len,constuint8_t*tlv_curr){constuint8
+_t*addr;constuint8_t*pastend;zassert(hello_option_addr_list);/*Scanaddrlist*/add
+r=tlv_curr;pastend=tlv_curr+option_len;while(addr<pastend){structprefixtmp;intad
+dr_offset;/*Parseucastaddr*/addr_offset=pim_parse_addr_ucast(&tmp,addr,pastend-a
+ddr);if(addr_offset<1){charsrc_str[INET_ADDRSTRLEN];pim_inet4_dump("<src?>",src_
+addr,src_str,sizeof(src_str));zlog_warn("%s:pim_parse_addr_ucast()failure:from%s
+on%s",__PRETTY_FUNCTION__,src_str,ifname);FREE_ADDR_LIST(*hello_option_addr_list
+);return-1;}addr+=addr_offset;/*Debug*/if(PIM_DEBUG_PIM_TRACE){switch(tmp.family
+){caseAF_INET:{charaddr_str[INET_ADDRSTRLEN];charsrc_str[INET_ADDRSTRLEN];pim_in
+et4_dump("<addr?>",tmp.u.prefix4,addr_str,sizeof(addr_str));pim_inet4_dump("<src
+?>",src_addr,src_str,sizeof(src_str));zlog_debug("%s:PIMhelloTLVoption:list_old_
+size=%dIPv4address%sfrom%son%s",__PRETTY_FUNCTION__,*hello_option_addr_list?((in
+t)listcount(*hello_option_addr_list)):-1,addr_str,src_str,ifname);}break;caseAF_
+INET6:break;default:{charsrc_str[INET_ADDRSTRLEN];pim_inet4_dump("<src?>",src_ad
+dr,src_str,sizeof(src_str));zlog_debug("%s:PIMhelloTLVoption:list_old_size=%dUNK
+NOWNaddressfamilyfrom%son%s",__PRETTY_FUNCTION__,*hello_option_addr_list?((int)l
+istcount(*hello_option_addr_list)):-1,src_str,ifname);}}}/*Excludeneighbor'sprim
+aryaddressifincorrectlyincludedinthesecondaryaddresslist*/if(tmp.family==AF_INET
+){if(tmp.u.prefix4.s_addr==src_addr.s_addr){charsrc_str[INET_ADDRSTRLEN];pim_ine
+t4_dump("<src?>",src_addr,src_str,sizeof(src_str));zlog_warn("%s:ignoringprimary
+addressinsecondarylistfrom%son%s",__PRETTY_FUNCTION__,src_str,ifname);continue;}
+}/*Allocatelistifneeded*/if(!*hello_option_addr_list){*hello_option_addr_list=li
+st_new();if(!*hello_option_addr_list){zlog_err("%s%s:failure:hello_option_addr_l
+ist=list_new()",__FILE__,__PRETTY_FUNCTION__);return-2;}(*hello_option_addr_list
+)->del=(void(*)(void*))prefix_free;}/*Attachaddrtolist*/{structprefix*p;p=prefix
+_new();if(!p){zlog_err("%s%s:failure:prefix_new()",__FILE__,__PRETTY_FUNCTION__)
+;FREE_ADDR_LIST(*hello_option_addr_list);return-3;}prefix_copy(p,&tmp);listnode_
+add(*hello_option_addr_list,p);}}/*while(addr<pastend)*//*Markhellooption*/PIM_O
+PTION_SET(*hello_options,PIM_OPTION_MASK_ADDRESS_LIST);return0;}

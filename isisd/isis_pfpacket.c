@@ -1,424 +1,125 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_pfpacket.c
- *
- * Copyright (C) 2001,2002    Sampo Saaristo
- *                            Tampere University of Technology
- *                            Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#if ISIS_METHOD == ISIS_METHOD_PFPACKET
-#include <net/ethernet.h> /* the L2 protocols */
-#include <netpacket/packet.h>
-
-#include <linux/filter.h>
-
-#include "log.h"
-#include "network.h"
-#include "stream.h"
-#include "if.h"
-
-#include "isisd/dict.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_common.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isis_flags.h"
-#include "isisd/isisd.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isis_network.h"
-
-#include "privs.h"
-
-/* tcpdump -i eth0 'isis' -dd */
-static struct sock_filter isisfilter[] = {
-	/* NB: we're in SOCK_DGRAM, so src/dst mac + length are stripped
-	 * off!
-	 * (OTOH it's a bit more lower-layer agnostic and might work
-	 * over GRE?) */
-	/*	{ 0x28, 0, 0, 0x0000000c - 14 }, */
-	/*	{ 0x25, 5, 0, 0x000005dc }, */
-	{0x28, 0, 0, 0x0000000e - 14}, {0x15, 0, 3, 0x0000fefe},
-	{0x30, 0, 0, 0x00000011 - 14}, {0x15, 0, 1, 0x00000083},
-	{0x6, 0, 0, 0x00040000},       {0x6, 0, 0, 0x00000000},
-};
-
-static struct sock_fprog bpf = {
-	.len = array_size(isisfilter),
-	.filter = isisfilter,
-};
-
-/*
- * Table 9 - Architectural constants for use with ISO 8802 subnetworks
- * ISO 10589 - 8.4.8
- */
-
-uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
-uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
-
-static uint8_t discard_buff[8192];
-static uint8_t sock_buff[8192];
-
-/*
- * if level is 0 we are joining p2p multicast
- * FIXME: and the p2p multicast being ???
- */
-static int isis_multicast_join(int fd, int registerto, int if_num)
-{
-	struct packet_mreq mreq;
-
-	memset(&mreq, 0, sizeof(mreq));
-	mreq.mr_ifindex = if_num;
-	if (registerto) {
-		mreq.mr_type = PACKET_MR_MULTICAST;
-		mreq.mr_alen = ETH_ALEN;
-		if (registerto == 1)
-			memcpy(&mreq.mr_address, ALL_L1_ISS, ETH_ALEN);
-		else if (registerto == 2)
-			memcpy(&mreq.mr_address, ALL_L2_ISS, ETH_ALEN);
-		else if (registerto == 3)
-			memcpy(&mreq.mr_address, ALL_ISS, ETH_ALEN);
-		else
-			memcpy(&mreq.mr_address, ALL_ESS, ETH_ALEN);
-
-	} else {
-		mreq.mr_type = PACKET_MR_ALLMULTI;
-	}
-#ifdef EXTREME_DEBUG
-	zlog_debug(
-		"isis_multicast_join(): fd=%d, reg_to=%d, if_num=%d, "
-		"address = %02x:%02x:%02x:%02x:%02x:%02x",
-		fd, registerto, if_num, mreq.mr_address[0], mreq.mr_address[1],
-		mreq.mr_address[2], mreq.mr_address[3], mreq.mr_address[4],
-		mreq.mr_address[5]);
-#endif /* EXTREME_DEBUG */
-	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq,
-		       sizeof(struct packet_mreq))) {
-		zlog_warn("isis_multicast_join(): setsockopt(): %s",
-			  safe_strerror(errno));
-		return ISIS_WARNING;
-	}
-
-	return ISIS_OK;
-}
-
-static int open_packet_socket(struct isis_circuit *circuit)
-{
-	struct sockaddr_ll s_addr;
-	int fd, retval = ISIS_OK;
-
-	fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
-	if (fd < 0) {
-		zlog_warn("open_packet_socket(): socket() failed %s",
-			  safe_strerror(errno));
-		return ISIS_WARNING;
-	}
-
-	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))) {
-		zlog_warn("open_packet_socket(): SO_ATTACH_FILTER failed: %s",
-			  safe_strerror(errno));
-	}
-
-	/*
-	 * Bind to the physical interface
-	 */
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
-	s_addr.sll_family = AF_PACKET;
-	s_addr.sll_protocol = htons(ETH_P_ALL);
-	s_addr.sll_ifindex = circuit->interface->ifindex;
-
-	if (bind(fd, (struct sockaddr *)(&s_addr), sizeof(struct sockaddr_ll))
-	    < 0) {
-		zlog_warn("open_packet_socket(): bind() failed: %s",
-			  safe_strerror(errno));
-		close(fd);
-		return ISIS_WARNING;
-	}
-
-	circuit->fd = fd;
-
-	if (if_is_broadcast(circuit->interface)) {
-		/*
-		 * Join to multicast groups
-		 * according to
-		 * 8.4.2 - Broadcast subnetwork IIH PDUs
-		 * FIXME: is there a case only one will fail??
-		 */
-		/* joining ALL_L1_ISS */
-		retval |= isis_multicast_join(circuit->fd, 1,
-					      circuit->interface->ifindex);
-		/* joining ALL_L2_ISS */
-		retval |= isis_multicast_join(circuit->fd, 2,
-					      circuit->interface->ifindex);
-		/* joining ALL_ISS (used in RFC 5309 p2p-over-lan as well) */
-		retval |= isis_multicast_join(circuit->fd, 3,
-					      circuit->interface->ifindex);
-	} else {
-		retval = isis_multicast_join(circuit->fd, 0,
-					     circuit->interface->ifindex);
-	}
-
-	return retval;
-}
-
-/*
- * Create the socket and set the tx/rx funcs
- */
-int isis_sock_init(struct isis_circuit *circuit)
-{
-	int retval = ISIS_OK;
-
-	if (isisd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs, %s", __func__,
-			 safe_strerror(errno));
-
-	retval = open_packet_socket(circuit);
-
-	if (retval != ISIS_OK) {
-		zlog_warn("%s: could not initialize the socket", __func__);
-		goto end;
-	}
-
-	/* Assign Rx and Tx callbacks are based on real if type */
-	if (if_is_broadcast(circuit->interface)) {
-		circuit->tx = isis_send_pdu_bcast;
-		circuit->rx = isis_recv_pdu_bcast;
-	} else if (if_is_pointopoint(circuit->interface)) {
-		circuit->tx = isis_send_pdu_p2p;
-		circuit->rx = isis_recv_pdu_p2p;
-	} else {
-		zlog_warn("isis_sock_init(): unknown circuit type");
-		retval = ISIS_WARNING;
-		goto end;
-	}
-
-end:
-	if (isisd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs, %s", __func__,
-			 safe_strerror(errno));
-
-	return retval;
-}
-
-static inline int llc_check(uint8_t *llc)
-{
-	if (*llc != ISO_SAP || *(llc + 1) != ISO_SAP || *(llc + 2) != 3)
-		return 0;
-
-	return 1;
-}
-
-int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
-{
-	int bytesread, addr_len;
-	struct sockaddr_ll s_addr;
-	uint8_t llc[LLC_LEN];
-
-	addr_len = sizeof(s_addr);
-
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
-
-	bytesread =
-		recvfrom(circuit->fd, (void *)&llc, LLC_LEN, MSG_PEEK,
-			 (struct sockaddr *)&s_addr, (socklen_t *)&addr_len);
-
-	if ((bytesread < 0)
-	    || (s_addr.sll_ifindex != (int)circuit->interface->ifindex)) {
-		if (bytesread < 0) {
-			zlog_warn(
-				"isis_recv_packet_bcast(): ifname %s, fd %d, "
-				"bytesread %d, recvfrom(): %s",
-				circuit->interface->name, circuit->fd,
-				bytesread, safe_strerror(errno));
-		}
-		if (s_addr.sll_ifindex != (int)circuit->interface->ifindex) {
-			zlog_warn(
-				"packet is received on multiple interfaces: "
-				"socket interface %d, circuit interface %d, "
-				"packet type %u",
-				s_addr.sll_ifindex, circuit->interface->ifindex,
-				s_addr.sll_pkttype);
-		}
-
-		/* get rid of the packet */
-		bytesread = recvfrom(circuit->fd, discard_buff,
-				     sizeof(discard_buff), MSG_DONTWAIT,
-				     (struct sockaddr *)&s_addr,
-				     (socklen_t *)&addr_len);
-
-		if (bytesread < 0)
-			zlog_warn("isis_recv_pdu_bcast(): recvfrom() failed");
-
-		return ISIS_WARNING;
-	}
-	/*
-	 * Filtering by llc field, discard packets sent by this host (other
-	 * circuit)
-	 */
-	if (!llc_check(llc) || s_addr.sll_pkttype == PACKET_OUTGOING) {
-		/*  Read the packet into discard buff */
-		bytesread = recvfrom(circuit->fd, discard_buff,
-				     sizeof(discard_buff), MSG_DONTWAIT,
-				     (struct sockaddr *)&s_addr,
-				     (socklen_t *)&addr_len);
-		if (bytesread < 0)
-			zlog_warn("isis_recv_pdu_bcast(): recvfrom() failed");
-		return ISIS_WARNING;
-	}
-
-	/* on lan we have to read to the static buff first */
-	bytesread = recvfrom(circuit->fd, sock_buff, sizeof(sock_buff),
-			     MSG_DONTWAIT, (struct sockaddr *)&s_addr,
-			     (socklen_t *)&addr_len);
-	if (bytesread < 0) {
-		zlog_warn("isis_recv_pdu_bcast(): recvfrom() failed");
-		return ISIS_WARNING;
-	}
-
-	/* then we lose the LLC */
-	stream_write(circuit->rcv_stream, sock_buff + LLC_LEN,
-		     bytesread - LLC_LEN);
-
-	memcpy(ssnpa, &s_addr.sll_addr, s_addr.sll_halen);
-
-	return ISIS_OK;
-}
-
-int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
-{
-	int bytesread, addr_len;
-	struct sockaddr_ll s_addr;
-
-	memset(&s_addr, 0, sizeof(struct sockaddr_ll));
-	addr_len = sizeof(s_addr);
-
-	/* we can read directly to the stream */
-	stream_recvfrom(circuit->rcv_stream, circuit->fd,
-			circuit->interface->mtu, 0, (struct sockaddr *)&s_addr,
-			(socklen_t *)&addr_len);
-
-	if (s_addr.sll_pkttype == PACKET_OUTGOING) {
-		/*  Read the packet into discard buff */
-		bytesread = recvfrom(circuit->fd, discard_buff,
-				     sizeof(discard_buff), MSG_DONTWAIT,
-				     (struct sockaddr *)&s_addr,
-				     (socklen_t *)&addr_len);
-		if (bytesread < 0)
-			zlog_warn("isis_recv_pdu_p2p(): recvfrom() failed");
-		return ISIS_WARNING;
-	}
-
-	/* If we don't have protocol type 0x00FE which is
-	 * ISO over GRE we exit with pain :)
-	 */
-	if (ntohs(s_addr.sll_protocol) != 0x00FE) {
-		zlog_warn("isis_recv_pdu_p2p(): protocol mismatch(): %X",
-			  ntohs(s_addr.sll_protocol));
-		return ISIS_WARNING;
-	}
-
-	memcpy(ssnpa, &s_addr.sll_addr, s_addr.sll_halen);
-
-	return ISIS_OK;
-}
-
-int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
-{
-	struct msghdr msg;
-	struct iovec iov[2];
-
-	/* we need to do the LLC in here because of P2P circuits, which will
-	 * not need it
-	 */
-	struct sockaddr_ll sa;
-
-	stream_set_getp(circuit->snd_stream, 0);
-	memset(&sa, 0, sizeof(struct sockaddr_ll));
-	sa.sll_family = AF_PACKET;
-
-	size_t frame_size = stream_get_endp(circuit->snd_stream) + LLC_LEN;
-	sa.sll_protocol = htons(isis_ethertype(frame_size));
-	sa.sll_ifindex = circuit->interface->ifindex;
-	sa.sll_halen = ETH_ALEN;
-	/* RFC5309 section 4.1 recommends ALL_ISS */
-	if (circuit->circ_type == CIRCUIT_T_P2P)
-		memcpy(&sa.sll_addr, ALL_ISS, ETH_ALEN);
-	else if (level == 1)
-		memcpy(&sa.sll_addr, ALL_L1_ISS, ETH_ALEN);
-	else
-		memcpy(&sa.sll_addr, ALL_L2_ISS, ETH_ALEN);
-
-	/* on a broadcast circuit */
-	/* first we put the LLC in */
-	sock_buff[0] = 0xFE;
-	sock_buff[1] = 0xFE;
-	sock_buff[2] = 0x03;
-
-	memset(&msg, 0, sizeof(msg));
-	msg.msg_name = &sa;
-	msg.msg_namelen = sizeof(struct sockaddr_ll);
-	msg.msg_iov = iov;
-	msg.msg_iovlen = 2;
-	iov[0].iov_base = sock_buff;
-	iov[0].iov_len = LLC_LEN;
-	iov[1].iov_base = circuit->snd_stream->data;
-	iov[1].iov_len = stream_get_endp(circuit->snd_stream);
-
-	if (sendmsg(circuit->fd, &msg, 0) < 0) {
-		zlog_warn("IS-IS pfpacket: could not transmit packet on %s: %s",
-			  circuit->interface->name, safe_strerror(errno));
-		if (ERRNO_IO_RETRY(errno))
-			return ISIS_WARNING;
-		return ISIS_ERROR;
-	}
-	return ISIS_OK;
-}
-
-int isis_send_pdu_p2p(struct isis_circuit *circuit, int level)
-{
-	struct sockaddr_ll sa;
-	ssize_t rv;
-
-	stream_set_getp(circuit->snd_stream, 0);
-	memset(&sa, 0, sizeof(struct sockaddr_ll));
-	sa.sll_family = AF_PACKET;
-	sa.sll_ifindex = circuit->interface->ifindex;
-	sa.sll_halen = ETH_ALEN;
-	if (level == 1)
-		memcpy(&sa.sll_addr, ALL_L1_ISS, ETH_ALEN);
-	else
-		memcpy(&sa.sll_addr, ALL_L2_ISS, ETH_ALEN);
-
-
-	/* lets try correcting the protocol */
-	sa.sll_protocol = htons(0x00FE);
-	rv = sendto(circuit->fd, circuit->snd_stream->data,
-		    stream_get_endp(circuit->snd_stream), 0,
-		    (struct sockaddr *)&sa, sizeof(struct sockaddr_ll));
-	if (rv < 0) {
-		zlog_warn("IS-IS pfpacket: could not transmit packet on %s: %s",
-			  circuit->interface->name, safe_strerror(errno));
-		if (ERRNO_IO_RETRY(errno))
-			return ISIS_WARNING;
-		return ISIS_ERROR;
-	}
-	return ISIS_OK;
-}
-
-#endif /* ISIS_METHOD == ISIS_METHOD_PFPACKET */
+/**IS-ISRout(e)ingprotocol-isis_pfpacket.c**Copyright(C)2001,2002SampoSaaristo*T
+ampereUniversityofTechnology*InstituteofCommunicationsEngineering**Thisprogramis
+freesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPubl
+icLicenseaspublishedbytheFree*SoftwareFoundation;eitherversion2oftheLicense,or(a
+tyouroption)*anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeusef
+ul,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHANTABILITYor*FITNE
+SSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*moredetails.**Youshould
+havereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOP
+YING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston
+,MA02110-1301USA*/#include<zebra.h>#ifISIS_METHOD==ISIS_METHOD_PFPACKET#include<
+net/ethernet.h>/*theL2protocols*/#include<netpacket/packet.h>#include<linux/filt
+er.h>#include"log.h"#include"network.h"#include"stream.h"#include"if.h"#include"
+isisd/dict.h"#include"isisd/isis_constants.h"#include"isisd/isis_common.h"#inclu
+de"isisd/isis_circuit.h"#include"isisd/isis_flags.h"#include"isisd/isisd.h"#incl
+ude"isisd/isis_constants.h"#include"isisd/isis_circuit.h"#include"isisd/isis_net
+work.h"#include"privs.h"/*tcpdump-ieth0'isis'-dd*/staticstructsock_filterisisfil
+ter[]={/*NB:we'reinSOCK_DGRAM,sosrc/dstmac+lengtharestripped*off!*(OTOHit'sabitm
+orelower-layeragnosticandmightwork*overGRE?)*//*{0x28,0,0,0x0000000c-14},*//*{0x
+25,5,0,0x000005dc},*/{0x28,0,0,0x0000000e-14},{0x15,0,3,0x0000fefe},{0x30,0,0,0x
+00000011-14},{0x15,0,1,0x00000083},{0x6,0,0,0x00040000},{0x6,0,0,0x00000000},};s
+taticstructsock_fprogbpf={.len=array_size(isisfilter),.filter=isisfilter,};/**Ta
+ble9-ArchitecturalconstantsforusewithISO8802subnetworks*ISO10589-8.4.8*/uint8_tA
+LL_L1_ISS[6]={0x01,0x80,0xC2,0x00,0x00,0x14};uint8_tALL_L2_ISS[6]={0x01,0x80,0xC
+2,0x00,0x00,0x15};uint8_tALL_ISS[6]={0x09,0x00,0x2B,0x00,0x00,0x05};uint8_tALL_E
+SS[6]={0x09,0x00,0x2B,0x00,0x00,0x04};staticuint8_tdiscard_buff[8192];staticuint
+8_tsock_buff[8192];/**iflevelis0wearejoiningp2pmulticast*FIXME:andthep2pmulticas
+tbeing???*/staticintisis_multicast_join(intfd,intregisterto,intif_num){structpac
+ket_mreqmreq;memset(&mreq,0,sizeof(mreq));mreq.mr_ifindex=if_num;if(registerto){
+mreq.mr_type=PACKET_MR_MULTICAST;mreq.mr_alen=ETH_ALEN;if(registerto==1)memcpy(&
+mreq.mr_address,ALL_L1_ISS,ETH_ALEN);elseif(registerto==2)memcpy(&mreq.mr_addres
+s,ALL_L2_ISS,ETH_ALEN);elseif(registerto==3)memcpy(&mreq.mr_address,ALL_ISS,ETH_
+ALEN);elsememcpy(&mreq.mr_address,ALL_ESS,ETH_ALEN);}else{mreq.mr_type=PACKET_MR
+_ALLMULTI;}#ifdefEXTREME_DEBUGzlog_debug("isis_multicast_join():fd=%d,reg_to=%d,
+if_num=%d,""address=%02x:%02x:%02x:%02x:%02x:%02x",fd,registerto,if_num,mreq.mr_
+address[0],mreq.mr_address[1],mreq.mr_address[2],mreq.mr_address[3],mreq.mr_addr
+ess[4],mreq.mr_address[5]);#endif/*EXTREME_DEBUG*/if(setsockopt(fd,SOL_PACKET,PA
+CKET_ADD_MEMBERSHIP,&mreq,sizeof(structpacket_mreq))){zlog_warn("isis_multicast_
+join():setsockopt():%s",safe_strerror(errno));returnISIS_WARNING;}returnISIS_OK;
+}staticintopen_packet_socket(structisis_circuit*circuit){structsockaddr_lls_addr
+;intfd,retval=ISIS_OK;fd=socket(PF_PACKET,SOCK_DGRAM,htons(ETH_P_ALL));if(fd<0){
+zlog_warn("open_packet_socket():socket()failed%s",safe_strerror(errno));returnIS
+IS_WARNING;}if(setsockopt(fd,SOL_SOCKET,SO_ATTACH_FILTER,&bpf,sizeof(bpf))){zlog
+_warn("open_packet_socket():SO_ATTACH_FILTERfailed:%s",safe_strerror(errno));}/*
+*Bindtothephysicalinterface*/memset(&s_addr,0,sizeof(structsockaddr_ll));s_addr.
+sll_family=AF_PACKET;s_addr.sll_protocol=htons(ETH_P_ALL);s_addr.sll_ifindex=cir
+cuit->interface->ifindex;if(bind(fd,(structsockaddr*)(&s_addr),sizeof(structsock
+addr_ll))<0){zlog_warn("open_packet_socket():bind()failed:%s",safe_strerror(errn
+o));close(fd);returnISIS_WARNING;}circuit->fd=fd;if(if_is_broadcast(circuit->int
+erface)){/**Jointomulticastgroups*accordingto*8.4.2-BroadcastsubnetworkIIHPDUs*F
+IXME:isthereacaseonlyonewillfail??*//*joiningALL_L1_ISS*/retval|=isis_multicast_
+join(circuit->fd,1,circuit->interface->ifindex);/*joiningALL_L2_ISS*/retval|=isi
+s_multicast_join(circuit->fd,2,circuit->interface->ifindex);/*joiningALL_ISS(use
+dinRFC5309p2p-over-lanaswell)*/retval|=isis_multicast_join(circuit->fd,3,circuit
+->interface->ifindex);}else{retval=isis_multicast_join(circuit->fd,0,circuit->in
+terface->ifindex);}returnretval;}/**Createthesocketandsetthetx/rxfuncs*/intisis_
+sock_init(structisis_circuit*circuit){intretval=ISIS_OK;if(isisd_privs.change(ZP
+RIVS_RAISE))zlog_err("%s:couldnotraiseprivs,%s",__func__,safe_strerror(errno));r
+etval=open_packet_socket(circuit);if(retval!=ISIS_OK){zlog_warn("%s:couldnotinit
+ializethesocket",__func__);gotoend;}/*AssignRxandTxcallbacksarebasedonrealiftype
+*/if(if_is_broadcast(circuit->interface)){circuit->tx=isis_send_pdu_bcast;circui
+t->rx=isis_recv_pdu_bcast;}elseif(if_is_pointopoint(circuit->interface)){circuit
+->tx=isis_send_pdu_p2p;circuit->rx=isis_recv_pdu_p2p;}else{zlog_warn("isis_sock_
+init():unknowncircuittype");retval=ISIS_WARNING;gotoend;}end:if(isisd_privs.chan
+ge(ZPRIVS_LOWER))zlog_err("%s:couldnotlowerprivs,%s",__func__,safe_strerror(errn
+o));returnretval;}staticinlineintllc_check(uint8_t*llc){if(*llc!=ISO_SAP||*(llc+
+1)!=ISO_SAP||*(llc+2)!=3)return0;return1;}intisis_recv_pdu_bcast(structisis_circ
+uit*circuit,uint8_t*ssnpa){intbytesread,addr_len;structsockaddr_lls_addr;uint8_t
+llc[LLC_LEN];addr_len=sizeof(s_addr);memset(&s_addr,0,sizeof(structsockaddr_ll))
+;bytesread=recvfrom(circuit->fd,(void*)&llc,LLC_LEN,MSG_PEEK,(structsockaddr*)&s
+_addr,(socklen_t*)&addr_len);if((bytesread<0)||(s_addr.sll_ifindex!=(int)circuit
+->interface->ifindex)){if(bytesread<0){zlog_warn("isis_recv_packet_bcast():ifnam
+e%s,fd%d,""bytesread%d,recvfrom():%s",circuit->interface->name,circuit->fd,bytes
+read,safe_strerror(errno));}if(s_addr.sll_ifindex!=(int)circuit->interface->ifin
+dex){zlog_warn("packetisreceivedonmultipleinterfaces:""socketinterface%d,circuit
+interface%d,""packettype%u",s_addr.sll_ifindex,circuit->interface->ifindex,s_add
+r.sll_pkttype);}/*getridofthepacket*/bytesread=recvfrom(circuit->fd,discard_buff
+,sizeof(discard_buff),MSG_DONTWAIT,(structsockaddr*)&s_addr,(socklen_t*)&addr_le
+n);if(bytesread<0)zlog_warn("isis_recv_pdu_bcast():recvfrom()failed");returnISIS
+_WARNING;}/**Filteringbyllcfield,discardpacketssentbythishost(other*circuit)*/if
+(!llc_check(llc)||s_addr.sll_pkttype==PACKET_OUTGOING){/*Readthepacketintodiscar
+dbuff*/bytesread=recvfrom(circuit->fd,discard_buff,sizeof(discard_buff),MSG_DONT
+WAIT,(structsockaddr*)&s_addr,(socklen_t*)&addr_len);if(bytesread<0)zlog_warn("i
+sis_recv_pdu_bcast():recvfrom()failed");returnISIS_WARNING;}/*onlanwehavetoreadt
+othestaticbufffirst*/bytesread=recvfrom(circuit->fd,sock_buff,sizeof(sock_buff),
+MSG_DONTWAIT,(structsockaddr*)&s_addr,(socklen_t*)&addr_len);if(bytesread<0){zlo
+g_warn("isis_recv_pdu_bcast():recvfrom()failed");returnISIS_WARNING;}/*thenwelos
+etheLLC*/stream_write(circuit->rcv_stream,sock_buff+LLC_LEN,bytesread-LLC_LEN);m
+emcpy(ssnpa,&s_addr.sll_addr,s_addr.sll_halen);returnISIS_OK;}intisis_recv_pdu_p
+2p(structisis_circuit*circuit,uint8_t*ssnpa){intbytesread,addr_len;structsockadd
+r_lls_addr;memset(&s_addr,0,sizeof(structsockaddr_ll));addr_len=sizeof(s_addr);/
+*wecanreaddirectlytothestream*/stream_recvfrom(circuit->rcv_stream,circuit->fd,c
+ircuit->interface->mtu,0,(structsockaddr*)&s_addr,(socklen_t*)&addr_len);if(s_ad
+dr.sll_pkttype==PACKET_OUTGOING){/*Readthepacketintodiscardbuff*/bytesread=recvf
+rom(circuit->fd,discard_buff,sizeof(discard_buff),MSG_DONTWAIT,(structsockaddr*)
+&s_addr,(socklen_t*)&addr_len);if(bytesread<0)zlog_warn("isis_recv_pdu_p2p():rec
+vfrom()failed");returnISIS_WARNING;}/*Ifwedon'thaveprotocoltype0x00FEwhichis*ISO
+overGREweexitwithpain:)*/if(ntohs(s_addr.sll_protocol)!=0x00FE){zlog_warn("isis_
+recv_pdu_p2p():protocolmismatch():%X",ntohs(s_addr.sll_protocol));returnISIS_WAR
+NING;}memcpy(ssnpa,&s_addr.sll_addr,s_addr.sll_halen);returnISIS_OK;}intisis_sen
+d_pdu_bcast(structisis_circuit*circuit,intlevel){structmsghdrmsg;structioveciov[
+2];/*weneedtodotheLLCinherebecauseofP2Pcircuits,whichwill*notneedit*/structsocka
+ddr_llsa;stream_set_getp(circuit->snd_stream,0);memset(&sa,0,sizeof(structsockad
+dr_ll));sa.sll_family=AF_PACKET;size_tframe_size=stream_get_endp(circuit->snd_st
+ream)+LLC_LEN;sa.sll_protocol=htons(isis_ethertype(frame_size));sa.sll_ifindex=c
+ircuit->interface->ifindex;sa.sll_halen=ETH_ALEN;/*RFC5309section4.1recommendsAL
+L_ISS*/if(circuit->circ_type==CIRCUIT_T_P2P)memcpy(&sa.sll_addr,ALL_ISS,ETH_ALEN
+);elseif(level==1)memcpy(&sa.sll_addr,ALL_L1_ISS,ETH_ALEN);elsememcpy(&sa.sll_ad
+dr,ALL_L2_ISS,ETH_ALEN);/*onabroadcastcircuit*//*firstweputtheLLCin*/sock_buff[0
+]=0xFE;sock_buff[1]=0xFE;sock_buff[2]=0x03;memset(&msg,0,sizeof(msg));msg.msg_na
+me=&sa;msg.msg_namelen=sizeof(structsockaddr_ll);msg.msg_iov=iov;msg.msg_iovlen=
+2;iov[0].iov_base=sock_buff;iov[0].iov_len=LLC_LEN;iov[1].iov_base=circuit->snd_
+stream->data;iov[1].iov_len=stream_get_endp(circuit->snd_stream);if(sendmsg(circ
+uit->fd,&msg,0)<0){zlog_warn("IS-ISpfpacket:couldnottransmitpacketon%s:%s",circu
+it->interface->name,safe_strerror(errno));if(ERRNO_IO_RETRY(errno))returnISIS_WA
+RNING;returnISIS_ERROR;}returnISIS_OK;}intisis_send_pdu_p2p(structisis_circuit*c
+ircuit,intlevel){structsockaddr_llsa;ssize_trv;stream_set_getp(circuit->snd_stre
+am,0);memset(&sa,0,sizeof(structsockaddr_ll));sa.sll_family=AF_PACKET;sa.sll_ifi
+ndex=circuit->interface->ifindex;sa.sll_halen=ETH_ALEN;if(level==1)memcpy(&sa.sl
+l_addr,ALL_L1_ISS,ETH_ALEN);elsememcpy(&sa.sll_addr,ALL_L2_ISS,ETH_ALEN);/*letst
+rycorrectingtheprotocol*/sa.sll_protocol=htons(0x00FE);rv=sendto(circuit->fd,cir
+cuit->snd_stream->data,stream_get_endp(circuit->snd_stream),0,(structsockaddr*)&
+sa,sizeof(structsockaddr_ll));if(rv<0){zlog_warn("IS-ISpfpacket:couldnottransmit
+packeton%s:%s",circuit->interface->name,safe_strerror(errno));if(ERRNO_IO_RETRY(
+errno))returnISIS_WARNING;returnISIS_ERROR;}returnISIS_OK;}#endif/*ISIS_METHOD==
+ISIS_METHOD_PFPACKET*/

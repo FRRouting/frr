@@ -1,135 +1,47 @@
-/*
- * Copyright (C) 1999-2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef OSPF6_MESSAGE_H
-#define OSPF6_MESSAGE_H
-
-#define OSPF6_MESSAGE_BUFSIZ  4096
-
-/* Debug option */
-extern unsigned char conf_debug_ospf6_message[];
-#define OSPF6_DEBUG_MESSAGE_SEND 0x01
-#define OSPF6_DEBUG_MESSAGE_RECV 0x02
-#define OSPF6_DEBUG_MESSAGE_ON(type, level)                                    \
-	(conf_debug_ospf6_message[type] |= (level))
-#define OSPF6_DEBUG_MESSAGE_OFF(type, level)                                   \
-	(conf_debug_ospf6_message[type] &= ~(level))
-#define IS_OSPF6_DEBUG_MESSAGE(t, e)                                           \
-	(conf_debug_ospf6_message[t] & OSPF6_DEBUG_MESSAGE_##e)
-
-/* Type */
-#define OSPF6_MESSAGE_TYPE_UNKNOWN  0x0
-#define OSPF6_MESSAGE_TYPE_HELLO    0x1  /* Discover/maintain neighbors */
-#define OSPF6_MESSAGE_TYPE_DBDESC   0x2  /* Summarize database contents */
-#define OSPF6_MESSAGE_TYPE_LSREQ    0x3  /* Database download request */
-#define OSPF6_MESSAGE_TYPE_LSUPDATE 0x4  /* Database update */
-#define OSPF6_MESSAGE_TYPE_LSACK    0x5  /* Flooding acknowledgment */
-#define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
-
-/* OSPFv3 packet header */
-#define OSPF6_HEADER_SIZE                     16U
-struct ospf6_header {
-	uint8_t version;
-	uint8_t type;
-	uint16_t length;
-	uint32_t router_id;
-	uint32_t area_id;
-	uint16_t checksum;
-	uint8_t instance_id;
-	uint8_t reserved;
-};
-
-#define OSPF6_MESSAGE_END(H) ((caddr_t) (H) + ntohs ((H)->length))
-
-/* Hello */
-#define OSPF6_HELLO_MIN_SIZE                  20U
-struct ospf6_hello {
-	ifindex_t interface_id;
-	uint8_t priority;
-	uint8_t options[3];
-	uint16_t hello_interval;
-	uint16_t dead_interval;
-	uint32_t drouter;
-	uint32_t bdrouter;
-	/* Followed by Router-IDs */
-};
-
-/* Database Description */
-#define OSPF6_DB_DESC_MIN_SIZE                12U
-struct ospf6_dbdesc {
-	uint8_t reserved1;
-	uint8_t options[3];
-	uint16_t ifmtu;
-	uint8_t reserved2;
-	uint8_t bits;
-	uint32_t seqnum;
-	/* Followed by LSA Headers */
-};
-
-#define OSPF6_DBDESC_MSBIT (0x01) /* master/slave bit */
-#define OSPF6_DBDESC_MBIT  (0x02) /* more bit */
-#define OSPF6_DBDESC_IBIT  (0x04) /* initial bit */
-
-/* Link State Request */
-#define OSPF6_LS_REQ_MIN_SIZE                  0U
-/* It is just a sequence of entries below */
-#define OSPF6_LSREQ_LSDESC_FIX_SIZE           12U
-struct ospf6_lsreq_entry {
-	uint16_t reserved;   /* Must Be Zero */
-	uint16_t type;       /* LS type */
-	uint32_t id;	 /* Link State ID */
-	uint32_t adv_router; /* Advertising Router */
-};
-
-/* Link State Update */
-#define OSPF6_LS_UPD_MIN_SIZE                  4U
-struct ospf6_lsupdate {
-	uint32_t lsa_number;
-	/* Followed by LSAs */
-};
-
-/* Link State Acknowledgement */
-#define OSPF6_LS_ACK_MIN_SIZE                  0U
-/* It is just a sequence of LSA Headers */
-
-/* Function definition */
-extern void ospf6_hello_print(struct ospf6_header *);
-extern void ospf6_dbdesc_print(struct ospf6_header *);
-extern void ospf6_lsreq_print(struct ospf6_header *);
-extern void ospf6_lsupdate_print(struct ospf6_header *);
-extern void ospf6_lsack_print(struct ospf6_header *);
-
-extern int ospf6_iobuf_size(unsigned int size);
-extern void ospf6_message_terminate(void);
-extern int ospf6_receive(struct thread *thread);
-
-extern int ospf6_hello_send(struct thread *thread);
-extern int ospf6_dbdesc_send(struct thread *thread);
-extern int ospf6_dbdesc_send_newone(struct thread *thread);
-extern int ospf6_lsreq_send(struct thread *thread);
-extern int ospf6_lsupdate_send_interface(struct thread *thread);
-extern int ospf6_lsupdate_send_neighbor(struct thread *thread);
-extern int ospf6_lsack_send_interface(struct thread *thread);
-extern int ospf6_lsack_send_neighbor(struct thread *thread);
-
-extern int config_write_ospf6_debug_message(struct vty *);
-extern void install_element_ospf6_debug_message(void);
-
-#endif /* OSPF6_MESSAGE_H */
+/**Copyright(C)1999-2003YasuhiroOhara**ThisfileispartofGNUZebra.**GNUZebraisfree
+software;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLi
+censeaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*
+laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWA
+RRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPUR
+POSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceivedacopyof
+theGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetot
+heFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#
+ifndefOSPF6_MESSAGE_H#defineOSPF6_MESSAGE_H#defineOSPF6_MESSAGE_BUFSIZ4096/*Debu
+goption*/externunsignedcharconf_debug_ospf6_message[];#defineOSPF6_DEBUG_MESSAGE
+_SEND0x01#defineOSPF6_DEBUG_MESSAGE_RECV0x02#defineOSPF6_DEBUG_MESSAGE_ON(type,l
+evel)\(conf_debug_ospf6_message[type]|=(level))#defineOSPF6_DEBUG_MESSAGE_OFF(ty
+pe,level)\(conf_debug_ospf6_message[type]&=~(level))#defineIS_OSPF6_DEBUG_MESSAG
+E(t,e)\(conf_debug_ospf6_message[t]&OSPF6_DEBUG_MESSAGE_##e)/*Type*/#defineOSPF6
+_MESSAGE_TYPE_UNKNOWN0x0#defineOSPF6_MESSAGE_TYPE_HELLO0x1/*Discover/maintainnei
+ghbors*/#defineOSPF6_MESSAGE_TYPE_DBDESC0x2/*Summarizedatabasecontents*/#defineO
+SPF6_MESSAGE_TYPE_LSREQ0x3/*Databasedownloadrequest*/#defineOSPF6_MESSAGE_TYPE_L
+SUPDATE0x4/*Databaseupdate*/#defineOSPF6_MESSAGE_TYPE_LSACK0x5/*Floodingacknowle
+dgment*/#defineOSPF6_MESSAGE_TYPE_ALL0x6/*Fordebugoption*//*OSPFv3packetheader*/
+#defineOSPF6_HEADER_SIZE16Ustructospf6_header{uint8_tversion;uint8_ttype;uint16_
+tlength;uint32_trouter_id;uint32_tarea_id;uint16_tchecksum;uint8_tinstance_id;ui
+nt8_treserved;};#defineOSPF6_MESSAGE_END(H)((caddr_t)(H)+ntohs((H)->length))/*He
+llo*/#defineOSPF6_HELLO_MIN_SIZE20Ustructospf6_hello{ifindex_tinterface_id;uint8
+_tpriority;uint8_toptions[3];uint16_thello_interval;uint16_tdead_interval;uint32
+_tdrouter;uint32_tbdrouter;/*FollowedbyRouter-IDs*/};/*DatabaseDescription*/#def
+ineOSPF6_DB_DESC_MIN_SIZE12Ustructospf6_dbdesc{uint8_treserved1;uint8_toptions[3
+];uint16_tifmtu;uint8_treserved2;uint8_tbits;uint32_tseqnum;/*FollowedbyLSAHeade
+rs*/};#defineOSPF6_DBDESC_MSBIT(0x01)/*master/slavebit*/#defineOSPF6_DBDESC_MBIT
+(0x02)/*morebit*/#defineOSPF6_DBDESC_IBIT(0x04)/*initialbit*//*LinkStateRequest*
+/#defineOSPF6_LS_REQ_MIN_SIZE0U/*Itisjustasequenceofentriesbelow*/#defineOSPF6_L
+SREQ_LSDESC_FIX_SIZE12Ustructospf6_lsreq_entry{uint16_treserved;/*MustBeZero*/ui
+nt16_ttype;/*LStype*/uint32_tid;/*LinkStateID*/uint32_tadv_router;/*AdvertisingR
+outer*/};/*LinkStateUpdate*/#defineOSPF6_LS_UPD_MIN_SIZE4Ustructospf6_lsupdate{u
+int32_tlsa_number;/*FollowedbyLSAs*/};/*LinkStateAcknowledgement*/#defineOSPF6_L
+S_ACK_MIN_SIZE0U/*ItisjustasequenceofLSAHeaders*//*Functiondefinition*/externvoi
+dospf6_hello_print(structospf6_header*);externvoidospf6_dbdesc_print(structospf6
+_header*);externvoidospf6_lsreq_print(structospf6_header*);externvoidospf6_lsupd
+ate_print(structospf6_header*);externvoidospf6_lsack_print(structospf6_header*);
+externintospf6_iobuf_size(unsignedintsize);externvoidospf6_message_terminate(voi
+d);externintospf6_receive(structthread*thread);externintospf6_hello_send(structt
+hread*thread);externintospf6_dbdesc_send(structthread*thread);externintospf6_dbd
+esc_send_newone(structthread*thread);externintospf6_lsreq_send(structthread*thre
+ad);externintospf6_lsupdate_send_interface(structthread*thread);externintospf6_l
+supdate_send_neighbor(structthread*thread);externintospf6_lsack_send_interface(s
+tructthread*thread);externintospf6_lsack_send_neighbor(structthread*thread);exte
+rnintconfig_write_ospf6_debug_message(structvty*);externvoidinstall_element_ospf
+6_debug_message(void);#endif/*OSPF6_MESSAGE_H*/

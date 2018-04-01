@@ -1,165 +1,35 @@
-/*
- * NetNS backend for non Linux systems
- * Copyright (C) 2018 6WIND S.A.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-
-#if !defined(GNU_LINUX) && (defined(SUNOS_5) || defined(OPEN_BSD))
-/* SUNOS_5 or OPEN_BSD */
-
-#include <zebra.h>
-#include "ns.h"
-#include "log.h"
-#include "memory.h"
-
-DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context")
-DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name")
-
-
-static inline int ns_compare(const struct ns *ns, const struct ns *ns2);
-
-RB_GENERATE(ns_head, ns, entry, ns_compare)
-
-struct ns_head ns_tree = RB_INITIALIZER(&ns_tree);
-
-static inline int ns_compare(const struct ns *a, const struct ns *b)
-{
-	return (a->ns_id - b->ns_id);
-}
-
-void ns_terminate(void)
-{
-}
-
-/* API to initialize NETNS managerment
- * parameter is the default ns_id
- */
-void ns_init_management(ns_id_t ns_id)
-{
-}
-
-
-/*
- * NS utilities
- */
-
-/* Create a socket serving for the given NS
- */
-int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
-{
-	return -1;
-}
-
-/* return the path of the NETNS */
-char *ns_netns_pathname(struct vty *vty, const char *name)
-{
-	return NULL;
-}
-
-/* Parse and execute a function on all the NETNS */
-void ns_walk_func(int (*func)(struct ns *))
-{
-}
-
-/* API to get the NETNS name, from the ns pointer */
-const char *ns_get_name(struct ns *ns)
-{
-	return NULL;
-}
-
-/* only called from vrf ( when removing netns from vrf)
- * or at VRF or logical router termination
- */
-void ns_delete(struct ns *ns)
-{
-}
-
-/* return > 0 if netns is available
- * called by VRF to check netns backend is available for VRF
- */
-int ns_have_netns(void)
-{
-	return 0;
-}
-
-/* API to get context information of a NS */
-void *ns_info_lookup(ns_id_t ns_id)
-{
-	return NULL;
-}
-
-/*
- * NS init routine
- * should be called from backendx
- */
-void ns_init(void)
-{
-}
-
-/* API to retrieve default NS */
-ns_id_t ns_get_default_id(void)
-{
-	return NS_UNKNOWN;
-}
-
-
-/* API that can be used to change from NS */
-int ns_switchback_to_initial(void)
-{
-	return 0;
-}
-int ns_switch_to_netns(const char *netns_name)
-{
-	return 0;
-}
-
-/*
- * NS handling routines.
- * called by modules that use NS backend
- */
-
-/* API to search for already present NETNS */
-struct ns *ns_lookup(ns_id_t ns_id)
-{
-	return NULL;
-}
-
-struct ns *ns_lookup_name(const char *name)
-{
-	return NULL;
-}
-
-/* API to handle NS : creation, enable, disable
- * for enable, a callback function is passed as parameter
- * the callback belongs to the module that uses NS as backend
- * upon enabling the NETNS, the upper layer is informed
- */
-int ns_enable(struct ns *ns, int (*func)(ns_id_t, void *))
-{
-	return 0;
-}
-
-struct ns *ns_get_created(struct ns *ns, char *name, ns_id_t ns_id)
-{
-	return NULL;
-}
-
-void ns_disable(struct ns *ns)
-{
-}
-
-#endif /* !GNU_LINUX */
+/**NetNSbackendfornonLinuxsystems*Copyright(C)20186WINDS.A.**Thisprogramisfreeso
+ftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLice
+nseaspublishedbytheFree*SoftwareFoundation;eitherversion2oftheLicense,or(atyouro
+ption)*anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but
+WITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHANTABILITYor*FITNESSFORA
+PARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*moredetails.**Youshouldhavere
+ceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;i
+fnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA021
+10-1301USA*/#if!defined(GNU_LINUX)&&(defined(SUNOS_5)||defined(OPEN_BSD))/*SUNOS
+_5orOPEN_BSD*/#include<zebra.h>#include"ns.h"#include"log.h"#include"memory.h"DE
+FINE_MTYPE_STATIC(LIB,NS,"NetNSContext")DEFINE_MTYPE_STATIC(LIB,NS_NAME,"NetNSNa
+me")staticinlineintns_compare(conststructns*ns,conststructns*ns2);RB_GENERATE(ns
+_head,ns,entry,ns_compare)structns_headns_tree=RB_INITIALIZER(&ns_tree);staticin
+lineintns_compare(conststructns*a,conststructns*b){return(a->ns_id-b->ns_id);}vo
+idns_terminate(void){}/*APItoinitializeNETNSmanagerment*parameteristhedefaultns_
+id*/voidns_init_management(ns_id_tns_id){}/**NSutilities*//*Createasocketserving
+forthegivenNS*/intns_socket(intdomain,inttype,intprotocol,ns_id_tns_id){return-1
+;}/*returnthepathoftheNETNS*/char*ns_netns_pathname(structvty*vty,constchar*name
+){returnNULL;}/*ParseandexecuteafunctiononalltheNETNS*/voidns_walk_func(int(*fun
+c)(structns*)){}/*APItogettheNETNSname,fromthenspointer*/constchar*ns_get_name(s
+tructns*ns){returnNULL;}/*onlycalledfromvrf(whenremovingnetnsfromvrf)*oratVRForl
+ogicalroutertermination*/voidns_delete(structns*ns){}/*return>0ifnetnsisavailabl
+e*calledbyVRFtochecknetnsbackendisavailableforVRF*/intns_have_netns(void){return
+0;}/*APItogetcontextinformationofaNS*/void*ns_info_lookup(ns_id_tns_id){returnNU
+LL;}/**NSinitroutine*shouldbecalledfrombackendx*/voidns_init(void){}/*APItoretri
+evedefaultNS*/ns_id_tns_get_default_id(void){returnNS_UNKNOWN;}/*APIthatcanbeuse
+dtochangefromNS*/intns_switchback_to_initial(void){return0;}intns_switch_to_netn
+s(constchar*netns_name){return0;}/**NShandlingroutines.*calledbymodulesthatuseNS
+backend*//*APItosearchforalreadypresentNETNS*/structns*ns_lookup(ns_id_tns_id){r
+eturnNULL;}structns*ns_lookup_name(constchar*name){returnNULL;}/*APItohandleNS:c
+reation,enable,disable*forenable,acallbackfunctionispassedasparameter*thecallbac
+kbelongstothemodulethatusesNSasbackend*uponenablingtheNETNS,theupperlayerisinfor
+med*/intns_enable(structns*ns,int(*func)(ns_id_t,void*)){return0;}structns*ns_ge
+t_created(structns*ns,char*name,ns_id_tns_id){returnNULL;}voidns_disable(structn
+s*ns){}#endif/*!GNU_LINUX*/

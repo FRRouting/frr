@@ -1,266 +1,78 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_events.h
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#include <zebra.h>
-
-#include "log.h"
-#include "memory.h"
-#include "if.h"
-#include "linklist.h"
-#include "command.h"
-#include "thread.h"
-#include "hash.h"
-#include "prefix.h"
-#include "stream.h"
-#include "table.h"
-
-#include "isisd/dict.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_common.h"
-#include "isisd/isis_flags.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isis_lsp.h"
-#include "isisd/isis_pdu.h"
-#include "isisd/isis_network.h"
-#include "isisd/isis_misc.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_adjacency.h"
-#include "isisd/isis_dr.h"
-#include "isisd/isisd.h"
-#include "isisd/isis_csm.h"
-#include "isisd/isis_events.h"
-#include "isisd/isis_spf.h"
-
-/* debug isis-spf spf-events
- 4w4d: ISIS-Spf (tlt): L2 SPF needed, new adjacency, from 0x609229F4
- 4w4d: ISIS-Spf (tlt): L2, 0000.0000.0042.01-00 TLV contents changed, code 0x2
- 4w4d: ISIS-Spf (tlt): L2, new LSP 0 DEAD.BEEF.0043.00-00
- 4w5d: ISIS-Spf (tlt): L1 SPF needed, periodic SPF, from 0x6091C844
- 4w5d: ISIS-Spf (tlt): L2 SPF needed, periodic SPF, from 0x6091C844
-*/
-
-void isis_event_circuit_state_change(struct isis_circuit *circuit,
-				     struct isis_area *area, int up)
-{
-	area->circuit_state_changes++;
-
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("ISIS-Evt (%s) circuit %s", area->area_tag,
-			   up ? "up" : "down");
-
-	/*
-	 * Regenerate LSPs this affects
-	 */
-	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-
-	return;
-}
-
-static void circuit_commence_level(struct isis_circuit *circuit, int level)
-{
-	if (level == 1) {
-		if (!circuit->is_passive)
-			thread_add_timer(master, send_l1_psnp, circuit,
-					 isis_jitter(circuit->psnp_interval[0],
-						     PSNP_JITTER),
-					 &circuit->t_send_psnp[0]);
-
-		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-			thread_add_timer(master, isis_run_dr_l1, circuit,
-					 2 * circuit->hello_interval[0],
-					 &circuit->u.bc.t_run_dr[0]);
-
-			thread_add_timer(master, send_lan_l1_hello, circuit,
-					 isis_jitter(circuit->hello_interval[0],
-						     IIH_JITTER),
-					 &circuit->u.bc.t_send_lan_hello[0]);
-
-			circuit->u.bc.lan_neighs[0] = list_new();
-		}
-	} else {
-		if (!circuit->is_passive)
-			thread_add_timer(master, send_l2_psnp, circuit,
-					 isis_jitter(circuit->psnp_interval[1],
-						     PSNP_JITTER),
-					 &circuit->t_send_psnp[1]);
-
-		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-			thread_add_timer(master, isis_run_dr_l2, circuit,
-					 2 * circuit->hello_interval[1],
-					 &circuit->u.bc.t_run_dr[1]);
-
-			thread_add_timer(master, send_lan_l2_hello, circuit,
-					 isis_jitter(circuit->hello_interval[1],
-						     IIH_JITTER),
-					 &circuit->u.bc.t_send_lan_hello[1]);
-
-			circuit->u.bc.lan_neighs[1] = list_new();
-		}
-	}
-
-	return;
-}
-
-static void circuit_resign_level(struct isis_circuit *circuit, int level)
-{
-	int idx = level - 1;
-
-	THREAD_TIMER_OFF(circuit->t_send_csnp[idx]);
-	THREAD_TIMER_OFF(circuit->t_send_psnp[idx]);
-
-	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[idx]);
-		THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[idx]);
-		THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[idx]);
-		circuit->lsp_regenerate_pending[idx] = 0;
-		circuit->u.bc.run_dr_elect[idx] = 0;
-		if (circuit->u.bc.lan_neighs[idx] != NULL)
-			list_delete_and_null(&circuit->u.bc.lan_neighs[idx]);
-	}
-
-	return;
-}
-
-void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
-{
-	if (circuit->state != C_STATE_UP) {
-		circuit->is_type = newtype;
-		return;
-	}
-
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("ISIS-Evt (%s) circuit type change %s -> %s",
-			   circuit->area->area_tag,
-			   circuit_t2string(circuit->is_type),
-			   circuit_t2string(newtype));
-
-	if (circuit->is_type == newtype)
-		return; /* No change */
-
-	if (!(newtype & circuit->area->is_type)) {
-		zlog_err(
-			"ISIS-Evt (%s) circuit type change - invalid level %s because"
-			" area is %s",
-			circuit->area->area_tag, circuit_t2string(newtype),
-			circuit_t2string(circuit->area->is_type));
-		return;
-	}
-
-	if (!circuit->is_passive) {
-		switch (circuit->is_type) {
-		case IS_LEVEL_1:
-			if (newtype == IS_LEVEL_2)
-				circuit_resign_level(circuit, 1);
-			circuit_commence_level(circuit, 2);
-			break;
-		case IS_LEVEL_1_AND_2:
-			if (newtype == IS_LEVEL_1)
-				circuit_resign_level(circuit, 2);
-			else
-				circuit_resign_level(circuit, 1);
-			break;
-		case IS_LEVEL_2:
-			if (newtype == IS_LEVEL_1)
-				circuit_resign_level(circuit, 2);
-			circuit_commence_level(circuit, 1);
-			break;
-		default:
-			break;
-		}
-	}
-
-	circuit->is_type = newtype;
-	lsp_regenerate_schedule(circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-
-	return;
-}
-
-/* 04/18/2002 by Gwak. */
-/**************************************************************************
- *
- * EVENTS for LSP generation
- *
- * 1) an Adajacency or Circuit Up/Down event
- * 2) a chnage in Circuit metric
- * 3) a change in Reachable Address metric
- * 4) a change in manualAreaAddresses
- * 5) a change in systemID
- * 6) a change in DIS status
- * 7) a chnage in the waiting status
- *
- * ***********************************************************************
- *
- * current support event
- *
- * 1) Adjacency Up/Down event
- * 6) a change in DIS status
- *
- * ***********************************************************************/
-
-void isis_event_adjacency_state_change(struct isis_adjacency *adj, int newstate)
-{
-	/* adjacency state change event.
-	 * - the only proto-type was supported */
-
-	/* invalid arguments */
-	if (!adj || !adj->circuit || !adj->circuit->area)
-		return;
-
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("ISIS-Evt (%s) Adjacency State change",
-			   adj->circuit->area->area_tag);
-
-	/* LSP generation again */
-	lsp_regenerate_schedule(adj->circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-
-	return;
-}
-
-/* events supporting code */
-
-int isis_event_dis_status_change(struct thread *thread)
-{
-	struct isis_circuit *circuit;
-
-	circuit = THREAD_ARG(thread);
-
-	/* invalid arguments */
-	if (!circuit || !circuit->area)
-		return 0;
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("ISIS-Evt (%s) DIS status change",
-			   circuit->area->area_tag);
-
-	/* LSP generation again */
-	lsp_regenerate_schedule(circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-
-	return 0;
-}
-
-void isis_event_auth_failure(char *area_tag, const char *error_string,
-			     uint8_t *sysid)
-{
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("ISIS-Evt (%s) Authentication failure %s from %s",
-			   area_tag, error_string, sysid_print(sysid));
-
-	return;
-}
+/**IS-ISRout(e)ingprotocol-isis_events.h**Copyright(C)2001,2002SampoSaaristo*Tam
+pereUniversityofTechnology*InstituteofCommunicationsEngineering**Thisprogramisfr
+eesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublic
+LicenseaspublishedbytheFree*SoftwareFoundation;eitherversion2oftheLicense,or(aty
+ouroption)*anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful
+,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHANTABILITYor*FITNESS
+FORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*moredetails.**Youshouldha
+vereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYI
+NG;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,M
+A02110-1301USA*/#include<zebra.h>#include"log.h"#include"memory.h"#include"if.h"
+#include"linklist.h"#include"command.h"#include"thread.h"#include"hash.h"#includ
+e"prefix.h"#include"stream.h"#include"table.h"#include"isisd/dict.h"#include"isi
+sd/isis_constants.h"#include"isisd/isis_common.h"#include"isisd/isis_flags.h"#in
+clude"isisd/isis_circuit.h"#include"isisd/isis_lsp.h"#include"isisd/isis_pdu.h"#
+include"isisd/isis_network.h"#include"isisd/isis_misc.h"#include"isisd/isis_cons
+tants.h"#include"isisd/isis_adjacency.h"#include"isisd/isis_dr.h"#include"isisd/
+isisd.h"#include"isisd/isis_csm.h"#include"isisd/isis_events.h"#include"isisd/is
+is_spf.h"/*debugisis-spfspf-events4w4d:ISIS-Spf(tlt):L2SPFneeded,newadjacency,fr
+om0x609229F44w4d:ISIS-Spf(tlt):L2,0000.0000.0042.01-00TLVcontentschanged,code0x2
+4w4d:ISIS-Spf(tlt):L2,newLSP0DEAD.BEEF.0043.00-004w5d:ISIS-Spf(tlt):L1SPFneeded,
+periodicSPF,from0x6091C8444w5d:ISIS-Spf(tlt):L2SPFneeded,periodicSPF,from0x6091C
+844*/voidisis_event_circuit_state_change(structisis_circuit*circuit,structisis_a
+rea*area,intup){area->circuit_state_changes++;if(isis->debugs&DEBUG_EVENTS)zlog_
+debug("ISIS-Evt(%s)circuit%s",area->area_tag,up?"up":"down");/**RegenerateLSPsth
+isaffects*/lsp_regenerate_schedule(area,IS_LEVEL_1|IS_LEVEL_2,0);return;}staticv
+oidcircuit_commence_level(structisis_circuit*circuit,intlevel){if(level==1){if(!
+circuit->is_passive)thread_add_timer(master,send_l1_psnp,circuit,isis_jitter(cir
+cuit->psnp_interval[0],PSNP_JITTER),&circuit->t_send_psnp[0]);if(circuit->circ_t
+ype==CIRCUIT_T_BROADCAST){thread_add_timer(master,isis_run_dr_l1,circuit,2*circu
+it->hello_interval[0],&circuit->u.bc.t_run_dr[0]);thread_add_timer(master,send_l
+an_l1_hello,circuit,isis_jitter(circuit->hello_interval[0],IIH_JITTER),&circuit-
+>u.bc.t_send_lan_hello[0]);circuit->u.bc.lan_neighs[0]=list_new();}}else{if(!cir
+cuit->is_passive)thread_add_timer(master,send_l2_psnp,circuit,isis_jitter(circui
+t->psnp_interval[1],PSNP_JITTER),&circuit->t_send_psnp[1]);if(circuit->circ_type
+==CIRCUIT_T_BROADCAST){thread_add_timer(master,isis_run_dr_l2,circuit,2*circuit-
+>hello_interval[1],&circuit->u.bc.t_run_dr[1]);thread_add_timer(master,send_lan_
+l2_hello,circuit,isis_jitter(circuit->hello_interval[1],IIH_JITTER),&circuit->u.
+bc.t_send_lan_hello[1]);circuit->u.bc.lan_neighs[1]=list_new();}}return;}staticv
+oidcircuit_resign_level(structisis_circuit*circuit,intlevel){intidx=level-1;THRE
+AD_TIMER_OFF(circuit->t_send_csnp[idx]);THREAD_TIMER_OFF(circuit->t_send_psnp[id
+x]);if(circuit->circ_type==CIRCUIT_T_BROADCAST){THREAD_TIMER_OFF(circuit->u.bc.t
+_send_lan_hello[idx]);THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[idx]);THREAD_TIMER
+_OFF(circuit->u.bc.t_refresh_pseudo_lsp[idx]);circuit->lsp_regenerate_pending[id
+x]=0;circuit->u.bc.run_dr_elect[idx]=0;if(circuit->u.bc.lan_neighs[idx]!=NULL)li
+st_delete_and_null(&circuit->u.bc.lan_neighs[idx]);}return;}voidisis_circuit_is_
+type_set(structisis_circuit*circuit,intnewtype){if(circuit->state!=C_STATE_UP){c
+ircuit->is_type=newtype;return;}if(isis->debugs&DEBUG_EVENTS)zlog_debug("ISIS-Ev
+t(%s)circuittypechange%s->%s",circuit->area->area_tag,circuit_t2string(circuit->
+is_type),circuit_t2string(newtype));if(circuit->is_type==newtype)return;/*Nochan
+ge*/if(!(newtype&circuit->area->is_type)){zlog_err("ISIS-Evt(%s)circuittypechang
+e-invalidlevel%sbecause""areais%s",circuit->area->area_tag,circuit_t2string(newt
+ype),circuit_t2string(circuit->area->is_type));return;}if(!circuit->is_passive){
+switch(circuit->is_type){caseIS_LEVEL_1:if(newtype==IS_LEVEL_2)circuit_resign_le
+vel(circuit,1);circuit_commence_level(circuit,2);break;caseIS_LEVEL_1_AND_2:if(n
+ewtype==IS_LEVEL_1)circuit_resign_level(circuit,2);elsecircuit_resign_level(circ
+uit,1);break;caseIS_LEVEL_2:if(newtype==IS_LEVEL_1)circuit_resign_level(circuit,
+2);circuit_commence_level(circuit,1);break;default:break;}}circuit->is_type=newt
+ype;lsp_regenerate_schedule(circuit->area,IS_LEVEL_1|IS_LEVEL_2,0);return;}/*04/
+18/2002byGwak.*//***************************************************************
+*************EVENTSforLSPgeneration**1)anAdajacencyorCircuitUp/Downevent*2)achna
+geinCircuitmetric*3)achangeinReachableAddressmetric*4)achangeinmanualAreaAddress
+es*5)achangeinsystemID*6)achangeinDISstatus*7)achnageinthewaitingstatus*********
+******************************************************************currentsupport
+event**1)AdjacencyUp/Downevent*6)achangeinDISstatus*****************************
+********************************************/voidisis_event_adjacency_state_chan
+ge(structisis_adjacency*adj,intnewstate){/*adjacencystatechangeevent.*-theonlypr
+oto-typewassupported*//*invalidarguments*/if(!adj||!adj->circuit||!adj->circuit-
+>area)return;if(isis->debugs&DEBUG_EVENTS)zlog_debug("ISIS-Evt(%s)AdjacencyState
+change",adj->circuit->area->area_tag);/*LSPgenerationagain*/lsp_regenerate_sched
+ule(adj->circuit->area,IS_LEVEL_1|IS_LEVEL_2,0);return;}/*eventssupportingcode*/
+intisis_event_dis_status_change(structthread*thread){structisis_circuit*circuit;
+circuit=THREAD_ARG(thread);/*invalidarguments*/if(!circuit||!circuit->area)retur
+n0;if(isis->debugs&DEBUG_EVENTS)zlog_debug("ISIS-Evt(%s)DISstatuschange",circuit
+->area->area_tag);/*LSPgenerationagain*/lsp_regenerate_schedule(circuit->area,IS
+_LEVEL_1|IS_LEVEL_2,0);return0;}voidisis_event_auth_failure(char*area_tag,constc
+har*error_string,uint8_t*sysid){if(isis->debugs&DEBUG_EVENTS)zlog_debug("ISIS-Ev
+t(%s)Authenticationfailure%sfrom%s",area_tag,error_string,sysid_print(sysid));re
+turn;}

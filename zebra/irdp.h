@@ -1,154 +1,50 @@
-/* ICMP Router Discovery Messages
- * Copyright (C) 1997, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/*
- * This file is modified and completed for the Zebra IRDP implementation
- * by Robert Olsson, Swedish University of Agricultural Sciences
- */
-
-#ifndef _IRDP_H
-#define _IRDP_H
-
-#include "lib/vty.h"
-
-#define TRUE 1
-#define FALSE 0
-
-/* ICMP Messages */
-#ifndef ICMP_ROUTERADVERT
-#define ICMP_ROUTERADVERT 9
-#endif /* ICMP_ROUTERADVERT */
-
-#ifndef ICMP_ROUTERSOLICIT
-#define ICMP_ROUTERSOLICIT 10
-#endif /* ICMP_ROUTERSOLICT */
-
-/* Multicast groups */
-#ifndef INADDR_ALLHOSTS_GROUP
-#define INADDR_ALLHOSTS_GROUP 0xe0000001U    /* 224.0.0.1 */
-#endif /* INADDR_ALLHOSTS_GROUP */
-
-#ifndef INADDR_ALLRTRS_GROUP
-#define INADDR_ALLRTRS_GROUP  0xe0000002U    /* 224.0.0.2 */
-#endif /* INADDR_ALLRTRS_GROUP */
-
-/* Default irdp packet interval */
-#define IRDP_DEFAULT_INTERVAL 300 
-
-/* Router constants from RFC1256 */
-#define MAX_INITIAL_ADVERT_INTERVAL 16
-#define MAX_INITIAL_ADVERTISEMENTS   3
-#define MAX_RESPONSE_DELAY           2
-
-#define IRDP_MAXADVERTINTERVAL 600
-#define IRDP_MINADVERTINTERVAL 450 /* 0.75*600 */
-#define IRDP_LIFETIME         1350 /* 3*450 */
-#define IRDP_PREFERENCE 0
-
-#define ICMP_MINLEN 8
-
-#define IRDP_LAST_ADVERT_MESSAGES 2 /* The last adverts with Holdtime 0 */
-
-#define IRDP_RX_BUF 1500
-
-/*
-     Comments comes from RFC1256 ICMP Router Discovery Messages.
-
-     The IP destination address to be used for multicast Router
-     Advertisements sent from the interface.  The only permissible
-     values are the all-systems multicast address, 224.0.0.1, or the
-     limited-broadcast address, 255.255.255.255.  (The all-systems
-     address is preferred wherever possible, i.e., on any link where
-     all listening hosts support IP multicast.)
-
-     Default: 224.0.0.1 if the router supports IP multicast on the
-     interface, else 255.255.255.255
-
-     The maximum time allowed between sending multicast Router
-     Advertisements from the interface, in seconds.  Must be no less
-     than 4 seconds and no greater than 1800 seconds.
-
-     Default: 600 seconds
-
-     The minimum time allowed between sending unsolicited multicast
-     Router Advertisements from the interface, in seconds.  Must be no
-     less than 3 seconds and no greater than MaxAdvertisementInterval.
-
-     Default: 0.75 * MaxAdvertisementInterval
-
-     The value to be placed in the Lifetime field of Router
-     Advertisements sent from the interface, in seconds.  Must be no
-     less than MaxAdvertisementInterval and no greater than 9000
-     seconds.
-
-     Default: 3 * MaxAdvertisementInterval
-
-     The preferability of the address as a default router address,
-     relative to other router addresses on the same subnet.  A 32-bit,
-     signed, twos-complement integer, with higher values meaning more
-     preferable.  The minimum value (hex 80000000) is used to indicate
-     that the address, even though it may be advertised, is not to be
-     used by neighboring hosts as a default router address.
-
-     Default: 0
-*/
-
-struct irdp_interface {
-	bool started;
-
-	unsigned long MaxAdvertInterval;
-	unsigned long MinAdvertInterval;
-	unsigned long Preference;
-
-	uint32_t flags;
-
-#define IF_ACTIVE               (1<<0) /* ICMP Active */
-#define IF_BROADCAST            (1<<1) /* 255.255.255.255 */
-#define IF_SOLICIT              (1<<2) /* Solicit active */
-#define IF_DEBUG_MESSAGES       (1<<3) 
-#define IF_DEBUG_PACKET         (1<<4) 
-#define IF_DEBUG_MISC           (1<<5) 
-#define IF_SHUTDOWN             (1<<6) 
-
-	struct interface *ifp;
-	struct thread *t_advertise;
-	unsigned long irdp_sent;
-	uint16_t Lifetime;
-
-	struct list *AdvPrefList;
-};
-
-struct Adv {
-	struct in_addr ip;
-	int pref;
-};
-
-extern void irdp_if_init(void);
-extern int irdp_sock_init(void);
-extern int irdp_config_write(struct vty *, struct interface *);
-extern int irdp_send_thread(struct thread *t_advert);
-extern void irdp_advert_off(struct interface *ifp);
-extern void process_solicit(struct interface *ifp);
-extern int irdp_read_raw(struct thread *r);
-extern void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
-			struct prefix *p, uint32_t ttl);
-
-
-#endif /* _IRDP_H */
+/*ICMPRouterDiscoveryMessages*Copyright(C)1997,2000KunihiroIshiguro**Thisfileisp
+artofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*undert
+hetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eithe
+rversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethati
+twillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABI
+LITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.
+**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;se
+ethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthF
+loor,Boston,MA02110-1301USA*//**ThisfileismodifiedandcompletedfortheZebraIRDPimp
+lementation*byRobertOlsson,SwedishUniversityofAgriculturalSciences*/#ifndef_IRDP
+_H#define_IRDP_H#include"lib/vty.h"#defineTRUE1#defineFALSE0/*ICMPMessages*/#ifn
+defICMP_ROUTERADVERT#defineICMP_ROUTERADVERT9#endif/*ICMP_ROUTERADVERT*/#ifndefI
+CMP_ROUTERSOLICIT#defineICMP_ROUTERSOLICIT10#endif/*ICMP_ROUTERSOLICT*//*Multica
+stgroups*/#ifndefINADDR_ALLHOSTS_GROUP#defineINADDR_ALLHOSTS_GROUP0xe0000001U/*2
+24.0.0.1*/#endif/*INADDR_ALLHOSTS_GROUP*/#ifndefINADDR_ALLRTRS_GROUP#defineINADD
+R_ALLRTRS_GROUP0xe0000002U/*224.0.0.2*/#endif/*INADDR_ALLRTRS_GROUP*//*Defaultir
+dppacketinterval*/#defineIRDP_DEFAULT_INTERVAL300/*RouterconstantsfromRFC1256*/#
+defineMAX_INITIAL_ADVERT_INTERVAL16#defineMAX_INITIAL_ADVERTISEMENTS3#defineMAX_
+RESPONSE_DELAY2#defineIRDP_MAXADVERTINTERVAL600#defineIRDP_MINADVERTINTERVAL450/
+*0.75*600*/#defineIRDP_LIFETIME1350/*3*450*/#defineIRDP_PREFERENCE0#defineICMP_M
+INLEN8#defineIRDP_LAST_ADVERT_MESSAGES2/*ThelastadvertswithHoldtime0*/#defineIRD
+P_RX_BUF1500/*CommentscomesfromRFC1256ICMPRouterDiscoveryMessages.TheIPdestinati
+onaddresstobeusedformulticastRouterAdvertisementssentfromtheinterface.Theonlyper
+missiblevaluesaretheall-systemsmulticastaddress,224.0.0.1,orthelimited-broadcast
+address,255.255.255.255.(Theall-systemsaddressispreferredwhereverpossible,i.e.,o
+nanylinkwherealllisteninghostssupportIPmulticast.)Default:224.0.0.1iftheroutersu
+pportsIPmulticastontheinterface,else255.255.255.255Themaximumtimeallowedbetweens
+endingmulticastRouterAdvertisementsfromtheinterface,inseconds.Mustbenolessthan4s
+econdsandnogreaterthan1800seconds.Default:600secondsTheminimumtimeallowedbetween
+sendingunsolicitedmulticastRouterAdvertisementsfromtheinterface,inseconds.Mustbe
+nolessthan3secondsandnogreaterthanMaxAdvertisementInterval.Default:0.75*MaxAdver
+tisementIntervalThevaluetobeplacedintheLifetimefieldofRouterAdvertisementssentfr
+omtheinterface,inseconds.MustbenolessthanMaxAdvertisementIntervalandnogreatertha
+n9000seconds.Default:3*MaxAdvertisementIntervalThepreferabilityoftheaddressasade
+faultrouteraddress,relativetootherrouteraddressesonthesamesubnet.A32-bit,signed,
+twos-complementinteger,withhighervaluesmeaningmorepreferable.Theminimumvalue(hex
+80000000)isusedtoindicatethattheaddress,eventhoughitmaybeadvertised,isnottobeuse
+dbyneighboringhostsasadefaultrouteraddress.Default:0*/structirdp_interface{bools
+tarted;unsignedlongMaxAdvertInterval;unsignedlongMinAdvertInterval;unsignedlongP
+reference;uint32_tflags;#defineIF_ACTIVE(1<<0)/*ICMPActive*/#defineIF_BROADCAST(
+1<<1)/*255.255.255.255*/#defineIF_SOLICIT(1<<2)/*Solicitactive*/#defineIF_DEBUG_
+MESSAGES(1<<3)#defineIF_DEBUG_PACKET(1<<4)#defineIF_DEBUG_MISC(1<<5)#defineIF_SH
+UTDOWN(1<<6)structinterface*ifp;structthread*t_advertise;unsignedlongirdp_sent;u
+int16_tLifetime;structlist*AdvPrefList;};structAdv{structin_addrip;intpref;};ext
+ernvoidirdp_if_init(void);externintirdp_sock_init(void);externintirdp_config_wri
+te(structvty*,structinterface*);externintirdp_send_thread(structthread*t_advert)
+;externvoidirdp_advert_off(structinterface*ifp);externvoidprocess_solicit(struct
+interface*ifp);externintirdp_read_raw(structthread*r);externvoidsend_packet(stru
+ctinterface*ifp,structstream*s,uint32_tdst,structprefix*p,uint32_tttl);#endif/*_
+IRDP_H*/

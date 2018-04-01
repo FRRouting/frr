@@ -1,79 +1,27 @@
-/*
- * Simple string buffer
- *
- * Copyright (C) 2017 Christian Franke
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- */
-#ifndef SBUF_H
-#define SBUF_H
-
-/*
- * sbuf provides a simple string buffer. One application where this comes
- * in handy is the parsing of binary data: If there is an error in the parsing
- * process due to invalid input data, printing an error message explaining what
- * went wrong is definitely useful. However, just printing the actual error,
- * without any information about the previous parsing steps, is usually not very
- * helpful.
- * Using sbuf, the parser can log the whole parsing process into a buffer using
- * a printf like API. When an error ocurrs, all the information about previous
- * parsing steps is there in the log, without any need for backtracking, and can
- * be used to give a detailed and useful error description.
- * When parsing completes successfully without any error, the log can just be
- * discarded unless debugging is turned on, to not spam the log.
- *
- * For the described usecase, the code would look something like this:
- *
- * int sbuf_example(..., char **parser_log)
- * {
- *         struct sbuf logbuf;
- *
- *         sbuf_init(&logbuf, NULL, 0);
- *         sbuf_push(&logbuf, 0, "Starting parser\n");
- *
- *         int rv = do_parse(&logbuf, ...);
- *
- *         *parser_log = sbuf_buf(&logbuf);
- *
- *         return 1;
- * }
- *
- * In this case, sbuf_example uses a string buffer with undefined size, which
- * will
- * be allocated on the heap by sbuf. The caller of sbuf_example is expected to
- * free
- * the string returned in parser_log.
- */
-
-struct sbuf {
-	bool fixed;
-	char *buf;
-	size_t size;
-	size_t pos;
-	int indent;
-};
-
-void sbuf_init(struct sbuf *dest, char *buf, size_t size);
-void sbuf_reset(struct sbuf *buf);
-const char *sbuf_buf(struct sbuf *buf);
-void sbuf_free(struct sbuf *buf);
-#include "lib/log.h"
-void sbuf_push(struct sbuf *buf, int indent, const char *format, ...)
-	PRINTF_ATTRIBUTE(3, 4);
-
-#endif
+/**Simplestringbuffer**Copyright(C)2017ChristianFranke**ThisfileispartofFRR.**FR
+Risfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralP
+ublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouropti
+on)any*laterversion.**FRRisdistributedinthehopethatitwillbeuseful,but*WITHOUTANY
+WARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARP
+URPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceivedacopy
+oftheGNUGeneralPublicLicense*alongwithFRR;seethefileCOPYING.Ifnot,writetotheFree
+*SoftwareFoundation,Inc.,59TemplePlace-Suite330,Boston,MA*02111-1307,USA.*/#ifnd
+efSBUF_H#defineSBUF_H/**sbufprovidesasimplestringbuffer.Oneapplicationwherethisc
+omes*inhandyistheparsingofbinarydata:Ifthereisanerrorintheparsing*processduetoin
+validinputdata,printinganerrormessageexplainingwhat*wentwrongisdefinitelyuseful.
+However,justprintingtheactualerror,*withoutanyinformationaboutthepreviousparsing
+steps,isusuallynotvery*helpful.*Usingsbuf,theparsercanlogthewholeparsingprocessi
+ntoabufferusing*aprintflikeAPI.Whenanerrorocurrs,alltheinformationaboutprevious*
+parsingstepsisthereinthelog,withoutanyneedforbacktracking,andcan*beusedtogiveade
+tailedandusefulerrordescription.*Whenparsingcompletessuccessfullywithoutanyerror
+,thelogcanjustbe*discardedunlessdebuggingisturnedon,tonotspamthelog.**Forthedesc
+ribedusecase,thecodewouldlooksomethinglikethis:**intsbuf_example(...,char**parse
+r_log)*{*structsbuflogbuf;**sbuf_init(&logbuf,NULL,0);*sbuf_push(&logbuf,0,"Star
+tingparser\n");**intrv=do_parse(&logbuf,...);***parser_log=sbuf_buf(&logbuf);**r
+eturn1;*}**Inthiscase,sbuf_exampleusesastringbufferwithundefinedsize,which*will*
+beallocatedontheheapbysbuf.Thecallerofsbuf_exampleisexpectedto*free*thestringret
+urnedinparser_log.*/structsbuf{boolfixed;char*buf;size_tsize;size_tpos;intindent
+;};voidsbuf_init(structsbuf*dest,char*buf,size_tsize);voidsbuf_reset(structsbuf*
+buf);constchar*sbuf_buf(structsbuf*buf);voidsbuf_free(structsbuf*buf);#include"l
+ib/log.h"voidsbuf_push(structsbuf*buf,intindent,constchar*format,...)PRINTF_ATTR
+IBUTE(3,4);#endif

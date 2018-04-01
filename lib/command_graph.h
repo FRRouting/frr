@@ -1,120 +1,38 @@
-/*
- * CLI graph handling
- *
- * --
- * Copyright (C) 2016 Cumulus Networks, Inc.
- * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- * Copyright (C) 2013 by Open Source Routing.
- * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _FRR_COMMAND_GRAPH_H
-#define _FRR_COMMAND_GRAPH_H
-
-#include <stdbool.h>
-#include <stdint.h>
-
-#include "memory.h"
-#include "vector.h"
-#include "graph.h"
-
-DECLARE_MTYPE(CMD_ARG)
-
-struct vty;
-
-/**
- * Types for tokens.
- *
- * The type determines what kind of data the token can match (in the
- * matching use case) or hold (in the argv use case).
- */
-/* clang-format off */
-enum cmd_token_type {
-	WORD_TKN,        // words
-	VARIABLE_TKN,    // almost anything
-	RANGE_TKN,       // integer range
-	IPV4_TKN,        // IPV4 addresses
-	IPV4_PREFIX_TKN, // IPV4 network prefixes
-	IPV6_TKN,        // IPV6 prefixes
-	IPV6_PREFIX_TKN, // IPV6 network prefixes
-	MAC_TKN,         // Ethernet address
-	MAC_PREFIX_TKN,  // Ethernet address w/ CIDR mask
-
-	/* plumbing types */
-	FORK_TKN,  // marks subgraph beginning
-	JOIN_TKN,  // marks subgraph end
-	START_TKN, // first token in line
-	END_TKN,   // last token in line
-
-	SPECIAL_TKN = FORK_TKN,
-};
-/* clang-format on */
-
-#define IS_VARYING_TOKEN(x) ((x) >= VARIABLE_TKN && (x) < FORK_TKN)
-
-/* Command attributes */
-enum { CMD_ATTR_NORMAL,
-       CMD_ATTR_DEPRECATED,
-       CMD_ATTR_HIDDEN,
-};
-
-/* Comamand token struct. */
-struct cmd_token {
-	enum cmd_token_type type; // token type
-	uint8_t attr;		  // token attributes
-	bool allowrepeat;	 // matcher allowed to match token repetively?
-	uint32_t refcnt;
-
-	char *text;	 // token text
-	char *desc;	 // token description
-	long long min, max; // for ranges
-	char *arg;	  // user input that matches this token
-	char *varname;
-
-	struct graph_node *forkjoin; // paired FORK/JOIN for JOIN/FORK
-};
-
-/* Structure of command element. */
-struct cmd_element {
-	const char *string; /* Command specification by string. */
-	const char *doc;    /* Documentation of this command. */
-	int daemon;	 /* Daemon to which this command belong. */
-	uint8_t attr;       /* Command attributes */
-
-	/* handler function for command */
-	int (*func)(const struct cmd_element *, struct vty *, int,
-		    struct cmd_token *[]);
-
-	const char *name; /* symbol name for debugging */
-};
-
-/* text for <cr> command */
-#define CMD_CR_TEXT "<cr>"
-
-/* memory management for cmd_token */
-extern struct cmd_token *cmd_token_new(enum cmd_token_type, uint8_t attr,
-				       const char *text, const char *desc);
-extern struct cmd_token *cmd_token_dup(struct cmd_token *);
-extern void cmd_token_del(struct cmd_token *);
-extern void cmd_token_varname_set(struct cmd_token *token, const char *varname);
-
-extern void cmd_graph_parse(struct graph *graph, struct cmd_element *cmd);
-extern void cmd_graph_names(struct graph *graph);
-extern void cmd_graph_merge(struct graph *old, struct graph *new,
-			    int direction);
-
-#endif /* _FRR_COMMAND_GRAPH_H */
+/**CLIgraphhandling**--*Copyright(C)2016CumulusNetworks,Inc.*Copyright(C)1997,98
+,99KunihiroIshiguro*Copyright(C)2013byOpenSourceRouting.*Copyright(C)2013byInter
+netSystemsConsortium,Inc.("ISC")**Thisprogramisfreesoftware;youcanredistributeit
+and/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbytheFree*Sof
+twareFoundation;eitherversion2oftheLicense,or(atyouroption)*anylaterversion.**Th
+isprogramisdistributedinthehopethatitwillbeuseful,butWITHOUT*ANYWARRANTY;without
+eventheimpliedwarrantyofMERCHANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNU
+GeneralPublicLicensefor*moredetails.**YoushouldhavereceivedacopyoftheGNUGeneralP
+ublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware
+*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_FRR_COM
+MAND_GRAPH_H#define_FRR_COMMAND_GRAPH_H#include<stdbool.h>#include<stdint.h>#inc
+lude"memory.h"#include"vector.h"#include"graph.h"DECLARE_MTYPE(CMD_ARG)structvty
+;/***Typesfortokens.**Thetypedetermineswhatkindofdatathetokencanmatch(inthe*matc
+hingusecase)orhold(intheargvusecase).*//*clang-formatoff*/enumcmd_token_type{WOR
+D_TKN,//wordsVARIABLE_TKN,//almostanythingRANGE_TKN,//integerrangeIPV4_TKN,//IPV
+4addressesIPV4_PREFIX_TKN,//IPV4networkprefixesIPV6_TKN,//IPV6prefixesIPV6_PREFI
+X_TKN,//IPV6networkprefixesMAC_TKN,//EthernetaddressMAC_PREFIX_TKN,//Ethernetadd
+ressw/CIDRmask/*plumbingtypes*/FORK_TKN,//markssubgraphbeginningJOIN_TKN,//marks
+subgraphendSTART_TKN,//firsttokeninlineEND_TKN,//lasttokeninlineSPECIAL_TKN=FORK
+_TKN,};/*clang-formaton*/#defineIS_VARYING_TOKEN(x)((x)>=VARIABLE_TKN&&(x)<FORK_
+TKN)/*Commandattributes*/enum{CMD_ATTR_NORMAL,CMD_ATTR_DEPRECATED,CMD_ATTR_HIDDE
+N,};/*Comamandtokenstruct.*/structcmd_token{enumcmd_token_typetype;//tokentypeui
+nt8_tattr;//tokenattributesboolallowrepeat;//matcherallowedtomatchtokenrepetivel
+y?uint32_trefcnt;char*text;//tokentextchar*desc;//tokendescriptionlonglongmin,ma
+x;//forrangeschar*arg;//userinputthatmatchesthistokenchar*varname;structgraph_no
+de*forkjoin;//pairedFORK/JOINforJOIN/FORK};/*Structureofcommandelement.*/structc
+md_element{constchar*string;/*Commandspecificationbystring.*/constchar*doc;/*Doc
+umentationofthiscommand.*/intdaemon;/*Daemontowhichthiscommandbelong.*/uint8_tat
+tr;/*Commandattributes*//*handlerfunctionforcommand*/int(*func)(conststructcmd_e
+lement*,structvty*,int,structcmd_token*[]);constchar*name;/*symbolnamefordebuggi
+ng*/};/*textfor<cr>command*/#defineCMD_CR_TEXT"<cr>"/*memorymanagementforcmd_tok
+en*/externstructcmd_token*cmd_token_new(enumcmd_token_type,uint8_tattr,constchar
+*text,constchar*desc);externstructcmd_token*cmd_token_dup(structcmd_token*);exte
+rnvoidcmd_token_del(structcmd_token*);externvoidcmd_token_varname_set(structcmd_
+token*token,constchar*varname);externvoidcmd_graph_parse(structgraph*graph,struc
+tcmd_element*cmd);externvoidcmd_graph_names(structgraph*graph);externvoidcmd_gra
+ph_merge(structgraph*old,structgraph*new,intdirection);#endif/*_FRR_COMMAND_GRAP
+H_H*/

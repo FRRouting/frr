@@ -1,459 +1,96 @@
-/*
-Copyright (c) 2007, 2008 by Juliusz Chroboczek
-Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-*/
-
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
-#include <sys/time.h>
-#include <time.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <limits.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-#include "babel_main.h"
-#include "babeld.h"
-#include "util.h"
-
-int
-roughly(int value)
-{
-    if(value < 0)
-        return -roughly(-value);
-    else if(value <= 1)
-        return value;
-    else
-        return value * 3 / 4 + random() % (value / 2);
-}
-
-/* d = s1 - s2 */
-void
-timeval_minus(struct timeval *d,
-              const struct timeval *s1, const struct timeval *s2)
-{
-    if(s1->tv_usec >= s2->tv_usec) {
-        d->tv_usec = s1->tv_usec - s2->tv_usec;
-        d->tv_sec = s1->tv_sec - s2->tv_sec;
-    } else {
-        d->tv_usec = s1->tv_usec + 1000000 - s2->tv_usec;
-        d->tv_sec = s1->tv_sec - s2->tv_sec - 1;
-    }
-}
-
-unsigned
-timeval_minus_msec(const struct timeval *s1, const struct timeval *s2)
-{
-    if(s1->tv_sec < s2->tv_sec)
-        return 0;
-
-    /* Avoid overflow. */
-    if(s1->tv_sec - s2->tv_sec > 2000000)
-        return 2000000000;
-
-    if(s1->tv_sec > s2->tv_sec)
-        return
-            (unsigned)((unsigned)(s1->tv_sec - s2->tv_sec) * 1000 +
-                       ((int)s1->tv_usec - s2->tv_usec) / 1000);
-
-    if(s1->tv_usec <= s2->tv_usec)
-        return 0;
-
-    return (unsigned)(s1->tv_usec - s2->tv_usec) / 1000u;
-}
-
-/* d = s + msecs */
-void
-timeval_add_msec(struct timeval *d, const struct timeval *s, int msecs)
-{
-    int usecs;
-    d->tv_sec = s->tv_sec + msecs / 1000;
-    usecs = s->tv_usec + (msecs % 1000) * 1000;
-    if(usecs < 1000000) {
-        d->tv_usec = usecs;
-    } else {
-        d->tv_usec = usecs - 1000000;
-        d->tv_sec++;
-    }
-}
-
-void
-set_timeout(struct timeval *timeout, int msecs)
-{
-    timeval_add_msec(timeout, &babel_now, roughly(msecs));
-}
-
-/* returns <0 if "s1" < "s2", etc. */
-int
-timeval_compare(const struct timeval *s1, const struct timeval *s2)
-{
-    if(s1->tv_sec < s2->tv_sec)
-        return -1;
-    else if(s1->tv_sec > s2->tv_sec)
-        return 1;
-    else if(s1->tv_usec < s2->tv_usec)
-        return -1;
-    else if(s1->tv_usec > s2->tv_usec)
-        return 1;
-    else
-        return 0;
-}
-
-/* set d at min(d, s) */
-/* {0, 0} represents infinity */
-void
-timeval_min(struct timeval *d, const struct timeval *s)
-{
-    if(s->tv_sec == 0)
-        return;
-
-    if(d->tv_sec == 0 || timeval_compare(d, s) > 0) {
-        *d = *s;
-    }
-}
-
-/* set d to min(d, x) with x in [secs, secs+1] */
-void
-timeval_min_sec(struct timeval *d, time_t secs)
-{
-    if(d->tv_sec == 0 || d->tv_sec > secs) {
-        d->tv_sec = secs;
-        d->tv_usec = random() % 1000000;
-    }
-}
-
-/* parse a float value in second and return the corresponding mili-seconds.
- For example:
- parse_msec("12.342345") returns 12342 */
-int
-parse_msec(const char *string)
-{
-    unsigned int in, fl;
-    int i, j;
-
-    in = fl = 0;
-    i = 0;
-    while(string[i] == ' ' || string[i] == '\t')
-        i++;
-    while(string[i] >= '0' && string[i] <= '9') {
-        in = in * 10 + string[i] - '0';
-        i++;
-    }
-    if(string[i] == '.') {
-        i++;
-        j = 0;
-        while(string[i] >= '0' && string[i] <= '9') {
-            fl = fl * 10 + string[i] - '0';
-            i++;
-            j++;
-        }
-
-        while(j > 3) {
-            fl /= 10;
-            j--;
-        }
-        while(j < 3) {
-            fl *= 10;
-            j++;
-        }
-    }
-
-    while(string[i] == ' ' || string[i] == '\t')
-        i++;
-
-    if(string[i] == '\0')
-        return in * 1000 + fl;
-
-    return -1;
-}
-
-/* There's no good name for a positive int in C, call it nat. */
-int
-parse_nat(const char *string)
-{
-    long l;
-    char *end;
-
-    l = strtol(string, &end, 0);
-
-    while(*end == ' ' || *end == '\t')
-        end++;
-    if(*end != '\0')
-        return -1;
-
-    if(l < 0 || l > INT_MAX)
-        return -1;
-
-    return (int)l;
-}
-
-int
-in_prefix(const unsigned char *restrict address,
-          const unsigned char *restrict prefix, unsigned char plen)
-{
-    unsigned char m;
-
-    if(plen > 128)
-        plen = 128;
-
-    if(memcmp(address, prefix, plen / 8) != 0)
-        return 0;
-
-    if(plen % 8 == 0)
-        return 1;
-
-    m = 0xFF << (8 - (plen % 8));
-
-    return ((address[plen / 8] & m) == (prefix[plen / 8] & m));
-}
-
-unsigned char *
-mask_prefix(unsigned char *restrict ret,
-            const unsigned char *restrict prefix, unsigned char plen)
-{
-    if(plen >= 128) {
-        memcpy(ret, prefix, 16);
-        return ret;
-    }
-
-    memset(ret, 0, 16);
-    memcpy(ret, prefix, plen / 8);
-    if(plen % 8 != 0)
-        ret[plen / 8] =
-            (prefix[plen / 8] & ((0xFF << (8 - (plen % 8))) & 0xFF));
-    return ret;
-}
-
-const unsigned char v4prefix[16] =
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 0, 0, 0, 0 };
-
-static const unsigned char llprefix[16] =
-    {0xFE, 0x80};
-
-const char *
-format_address(const unsigned char *address)
-{
-    static char buf[4][INET6_ADDRSTRLEN];
-    static int i = 0;
-    i = (i + 1) % 4;
-    if(v4mapped(address))
-       inet_ntop(AF_INET, address + 12, buf[i], INET6_ADDRSTRLEN);
-    else
-       inet_ntop(AF_INET6, address, buf[i], INET6_ADDRSTRLEN);
-    return buf[i];
-}
-
-const char *
-format_prefix(const unsigned char *prefix, unsigned char plen)
-{
-    static char buf[4][INET6_ADDRSTRLEN + 4];
-    static int i = 0;
-    int n;
-    i = (i + 1) % 4;
-    if(plen >= 96 && v4mapped(prefix)) {
-        inet_ntop(AF_INET, prefix + 12, buf[i], INET6_ADDRSTRLEN);
-        n = strlen(buf[i]);
-        snprintf(buf[i] + n, INET6_ADDRSTRLEN + 4 - n, "/%d", plen - 96);
-    } else {
-        inet_ntop(AF_INET6, prefix, buf[i], INET6_ADDRSTRLEN);
-        n = strlen(buf[i]);
-        snprintf(buf[i] + n, INET6_ADDRSTRLEN + 4 - n, "/%d", plen);
-    }
-    return buf[i];
-}
-
-const char *
-format_eui64(const unsigned char *eui)
-{
-    static char buf[4][28];
-    static int i = 0;
-    i = (i + 1) % 4;
-    snprintf(buf[i], 28, "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-             eui[0], eui[1], eui[2], eui[3],
-             eui[4], eui[5], eui[6], eui[7]);
-    return buf[i];
-}
-
-const char *
-format_thousands(unsigned int value)
-{
-    static char buf[4][15];
-    static int i = 0;
-    i = (i + 1) % 4;
-    snprintf(buf[i], 15, "%d.%.3d", value / 1000, value % 1000);
-    return buf[i];
-}
-
-int
-parse_address(const char *address, unsigned char *addr_r, int *af_r)
-{
-    struct in_addr ina;
-    struct in6_addr ina6;
-    int rc;
-
-    rc = inet_pton(AF_INET, address, &ina);
-    if(rc > 0) {
-        v4tov6(addr_r, (const unsigned char *)&ina);
-        if(af_r) *af_r = AF_INET;
-        return 0;
-    }
-
-    rc = inet_pton(AF_INET6, address, &ina6);
-    if(rc > 0) {
-        memcpy(addr_r, &ina6, 16);
-        if(af_r) *af_r = AF_INET6;
-        return 0;
-    }
-
-    return -1;
-}
-
-int
-parse_eui64(const char *eui, unsigned char *eui_r)
-{
-    int n;
-    n = sscanf(eui, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-               &eui_r[0], &eui_r[1], &eui_r[2], &eui_r[3],
-               &eui_r[4], &eui_r[5], &eui_r[6], &eui_r[7]);
-    if(n == 8)
-        return 0;
-
-    n = sscanf(eui, "%02hhx-%02hhx-%02hhx-%02hhx-%02hhx-%02hhx-%02hhx-%02hhx",
-               &eui_r[0], &eui_r[1], &eui_r[2], &eui_r[3],
-               &eui_r[4], &eui_r[5], &eui_r[6], &eui_r[7]);
-    if(n == 8)
-        return 0;
-
-    n = sscanf(eui, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-               &eui_r[0], &eui_r[1], &eui_r[2],
-               &eui_r[5], &eui_r[6], &eui_r[7]);
-    if(n == 6) {
-        eui_r[3] = 0xFF;
-        eui_r[4] = 0xFE;
-        return 0;
-    }
-    return -1;
-}
-
-int
-wait_for_fd(int direction, int fd, int msecs)
-{
-    fd_set fds;
-    int rc;
-    struct timeval tv;
-
-    tv.tv_sec = msecs / 1000;
-    tv.tv_usec = (msecs % 1000) * 1000;
-
-    FD_ZERO(&fds);
-    FD_SET(fd, &fds);
-    if(direction)
-        rc = select(fd + 1, NULL, &fds, NULL, &tv);
-    else
-        rc = select(fd + 1, &fds, NULL, NULL, &tv);
-
-    return rc;
-}
-
-int
-martian_prefix(const unsigned char *prefix, int plen)
-{
-    return
-        (plen >= 8 && prefix[0] == 0xFF) ||
-        (plen >= 10 && prefix[0] == 0xFE && (prefix[1] & 0xC0) == 0x80) ||
-        (plen >= 128 && memcmp(prefix, zeroes, 15) == 0 &&
-         (prefix[15] == 0 || prefix[15] == 1)) ||
-        (plen >= 96 && v4mapped(prefix) &&
-         ((plen >= 104 && (prefix[12] == 127 || prefix[12] == 0)) ||
-          (plen >= 100 && (prefix[12] & 0xE0) == 0xE0)));
-}
-
-int
-linklocal(const unsigned char *address)
-{
-    return memcmp(address, llprefix, 8) == 0;
-}
-
-int
-v4mapped(const unsigned char *address)
-{
-    return memcmp(address, v4prefix, 12) == 0;
-}
-
-void
-v4tov6(unsigned char *dst, const unsigned char *src)
-{
-    memcpy(dst, v4prefix, 12);
-    memcpy(dst + 12, src, 4);
-}
-
-void
-inaddr_to_uchar(unsigned char *dest, const struct in_addr *src)
-{
-    v4tov6(dest, (const unsigned char *)src);
-    assert(v4mapped(dest));
-}
-
-void
-uchar_to_inaddr(struct in_addr *dest, const unsigned char *src)
-{
-    assert(v4mapped(src));
-    memcpy(dest, src + 12, 4);
-}
-
-void
-in6addr_to_uchar(unsigned char *dest, const struct in6_addr *src)
-{
-    memcpy(dest, src, 16);
-}
-
-void
-uchar_to_in6addr(struct in6_addr *dest, const unsigned char *src)
-{
-    memcpy(dest, src, 16);
-}
-
-int
-daemonise()
-{
-    int rc;
-
-    fflush(stdout);
-    fflush(stderr);
-
-    rc = fork();
-    if(rc < 0)
-        return -1;
-
-    if(rc > 0)
-        exit(0);
-
-    rc = setsid();
-    if(rc < 0)
-        return -1;
-
-    return 1;
-}
+/*Copyright(c)2007,2008byJuliuszChroboczekCopyright2011byMatthieuBoutierandJuliu
+szChroboczekPermissionisherebygranted,freeofcharge,toanypersonobtainingacopyofth
+issoftwareandassociateddocumentationfiles(the"Software"),todealintheSoftwarewith
+outrestriction,includingwithoutlimitationtherightstouse,copy,modify,merge,publis
+h,distribute,sublicense,and/orsellcopiesoftheSoftware,andtopermitpersonstowhomth
+eSoftwareisfurnishedtodoso,subjecttothefollowingconditions:Theabovecopyrightnoti
+ceandthispermissionnoticeshallbeincludedinallcopiesorsubstantialportionsoftheSof
+tware.THESOFTWAREISPROVIDED"ASIS",WITHOUTWARRANTYOFANYKIND,EXPRESSORIMPLIED,INCL
+UDINGBUTNOTLIMITEDTOTHEWARRANTIESOFMERCHANTABILITY,FITNESSFORAPARTICULARPURPOSEA
+NDNONINFRINGEMENT.INNOEVENTSHALLTHEAUTHORSORCOPYRIGHTHOLDERSBELIABLEFORANYCLAIM,
+DAMAGESOROTHERLIABILITY,WHETHERINANACTIONOFCONTRACT,TORTOROTHERWISE,ARISINGFROM,
+OUTOFORINCONNECTIONWITHTHESOFTWAREORTHEUSEOROTHERDEALINGSINTHESOFTWARE.*/#includ
+e<stdlib.h>#include<stdarg.h>#include<string.h>#include<sys/time.h>#include<time
+.h>#include<stdio.h>#include<unistd.h>#include<limits.h>#include<sys/types.h>#in
+clude<sys/socket.h>#include<netinet/in.h>#include<arpa/inet.h>#include"babel_mai
+n.h"#include"babeld.h"#include"util.h"introughly(intvalue){if(value<0)return-rou
+ghly(-value);elseif(value<=1)returnvalue;elsereturnvalue*3/4+random()%(value/2);
+}/*d=s1-s2*/voidtimeval_minus(structtimeval*d,conststructtimeval*s1,conststructt
+imeval*s2){if(s1->tv_usec>=s2->tv_usec){d->tv_usec=s1->tv_usec-s2->tv_usec;d->tv
+_sec=s1->tv_sec-s2->tv_sec;}else{d->tv_usec=s1->tv_usec+1000000-s2->tv_usec;d->t
+v_sec=s1->tv_sec-s2->tv_sec-1;}}unsignedtimeval_minus_msec(conststructtimeval*s1
+,conststructtimeval*s2){if(s1->tv_sec<s2->tv_sec)return0;/*Avoidoverflow.*/if(s1
+->tv_sec-s2->tv_sec>2000000)return2000000000;if(s1->tv_sec>s2->tv_sec)return(uns
+igned)((unsigned)(s1->tv_sec-s2->tv_sec)*1000+((int)s1->tv_usec-s2->tv_usec)/100
+0);if(s1->tv_usec<=s2->tv_usec)return0;return(unsigned)(s1->tv_usec-s2->tv_usec)
+/1000u;}/*d=s+msecs*/voidtimeval_add_msec(structtimeval*d,conststructtimeval*s,i
+ntmsecs){intusecs;d->tv_sec=s->tv_sec+msecs/1000;usecs=s->tv_usec+(msecs%1000)*1
+000;if(usecs<1000000){d->tv_usec=usecs;}else{d->tv_usec=usecs-1000000;d->tv_sec+
++;}}voidset_timeout(structtimeval*timeout,intmsecs){timeval_add_msec(timeout,&ba
+bel_now,roughly(msecs));}/*returns<0if"s1"<"s2",etc.*/inttimeval_compare(constst
+ructtimeval*s1,conststructtimeval*s2){if(s1->tv_sec<s2->tv_sec)return-1;elseif(s
+1->tv_sec>s2->tv_sec)return1;elseif(s1->tv_usec<s2->tv_usec)return-1;elseif(s1->
+tv_usec>s2->tv_usec)return1;elsereturn0;}/*setdatmin(d,s)*//*{0,0}representsinfi
+nity*/voidtimeval_min(structtimeval*d,conststructtimeval*s){if(s->tv_sec==0)retu
+rn;if(d->tv_sec==0||timeval_compare(d,s)>0){*d=*s;}}/*setdtomin(d,x)withxin[secs
+,secs+1]*/voidtimeval_min_sec(structtimeval*d,time_tsecs){if(d->tv_sec==0||d->tv
+_sec>secs){d->tv_sec=secs;d->tv_usec=random()%1000000;}}/*parseafloatvalueinseco
+ndandreturnthecorrespondingmili-seconds.Forexample:parse_msec("12.342345")return
+s12342*/intparse_msec(constchar*string){unsignedintin,fl;inti,j;in=fl=0;i=0;whil
+e(string[i]==''||string[i]=='\t')i++;while(string[i]>='0'&&string[i]<='9'){in=in
+*10+string[i]-'0';i++;}if(string[i]=='.'){i++;j=0;while(string[i]>='0'&&string[i
+]<='9'){fl=fl*10+string[i]-'0';i++;j++;}while(j>3){fl/=10;j--;}while(j<3){fl*=10
+;j++;}}while(string[i]==''||string[i]=='\t')i++;if(string[i]=='\0')returnin*1000
++fl;return-1;}/*There'snogoodnameforapositiveintinC,callitnat.*/intparse_nat(con
+stchar*string){longl;char*end;l=strtol(string,&end,0);while(*end==''||*end=='\t'
+)end++;if(*end!='\0')return-1;if(l<0||l>INT_MAX)return-1;return(int)l;}intin_pre
+fix(constunsignedchar*restrictaddress,constunsignedchar*restrictprefix,unsignedc
+harplen){unsignedcharm;if(plen>128)plen=128;if(memcmp(address,prefix,plen/8)!=0)
+return0;if(plen%8==0)return1;m=0xFF<<(8-(plen%8));return((address[plen/8]&m)==(p
+refix[plen/8]&m));}unsignedchar*mask_prefix(unsignedchar*restrictret,constunsign
+edchar*restrictprefix,unsignedcharplen){if(plen>=128){memcpy(ret,prefix,16);retu
+rnret;}memset(ret,0,16);memcpy(ret,prefix,plen/8);if(plen%8!=0)ret[plen/8]=(pref
+ix[plen/8]&((0xFF<<(8-(plen%8)))&0xFF));returnret;}constunsignedcharv4prefix[16]
+={0,0,0,0,0,0,0,0,0,0,0xFF,0xFF,0,0,0,0};staticconstunsignedcharllprefix[16]={0x
+FE,0x80};constchar*format_address(constunsignedchar*address){staticcharbuf[4][IN
+ET6_ADDRSTRLEN];staticinti=0;i=(i+1)%4;if(v4mapped(address))inet_ntop(AF_INET,ad
+dress+12,buf[i],INET6_ADDRSTRLEN);elseinet_ntop(AF_INET6,address,buf[i],INET6_AD
+DRSTRLEN);returnbuf[i];}constchar*format_prefix(constunsignedchar*prefix,unsigne
+dcharplen){staticcharbuf[4][INET6_ADDRSTRLEN+4];staticinti=0;intn;i=(i+1)%4;if(p
+len>=96&&v4mapped(prefix)){inet_ntop(AF_INET,prefix+12,buf[i],INET6_ADDRSTRLEN);
+n=strlen(buf[i]);snprintf(buf[i]+n,INET6_ADDRSTRLEN+4-n,"/%d",plen-96);}else{ine
+t_ntop(AF_INET6,prefix,buf[i],INET6_ADDRSTRLEN);n=strlen(buf[i]);snprintf(buf[i]
++n,INET6_ADDRSTRLEN+4-n,"/%d",plen);}returnbuf[i];}constchar*format_eui64(constu
+nsignedchar*eui){staticcharbuf[4][28];staticinti=0;i=(i+1)%4;snprintf(buf[i],28,
+"%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",eui[0],eui[1],eui[2],eui[3],eui[4],eui
+[5],eui[6],eui[7]);returnbuf[i];}constchar*format_thousands(unsignedintvalue){st
+aticcharbuf[4][15];staticinti=0;i=(i+1)%4;snprintf(buf[i],15,"%d.%.3d",value/100
+0,value%1000);returnbuf[i];}intparse_address(constchar*address,unsignedchar*addr
+_r,int*af_r){structin_addrina;structin6_addrina6;intrc;rc=inet_pton(AF_INET,addr
+ess,&ina);if(rc>0){v4tov6(addr_r,(constunsignedchar*)&ina);if(af_r)*af_r=AF_INET
+;return0;}rc=inet_pton(AF_INET6,address,&ina6);if(rc>0){memcpy(addr_r,&ina6,16);
+if(af_r)*af_r=AF_INET6;return0;}return-1;}intparse_eui64(constchar*eui,unsignedc
+har*eui_r){intn;n=sscanf(eui,"%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%
+02hhx",&eui_r[0],&eui_r[1],&eui_r[2],&eui_r[3],&eui_r[4],&eui_r[5],&eui_r[6],&eu
+i_r[7]);if(n==8)return0;n=sscanf(eui,"%02hhx-%02hhx-%02hhx-%02hhx-%02hhx-%02hhx-
+%02hhx-%02hhx",&eui_r[0],&eui_r[1],&eui_r[2],&eui_r[3],&eui_r[4],&eui_r[5],&eui_
+r[6],&eui_r[7]);if(n==8)return0;n=sscanf(eui,"%02hhx:%02hhx:%02hhx:%02hhx:%02hhx
+:%02hhx",&eui_r[0],&eui_r[1],&eui_r[2],&eui_r[5],&eui_r[6],&eui_r[7]);if(n==6){e
+ui_r[3]=0xFF;eui_r[4]=0xFE;return0;}return-1;}intwait_for_fd(intdirection,intfd,
+intmsecs){fd_setfds;intrc;structtimevaltv;tv.tv_sec=msecs/1000;tv.tv_usec=(msecs
+%1000)*1000;FD_ZERO(&fds);FD_SET(fd,&fds);if(direction)rc=select(fd+1,NULL,&fds,
+NULL,&tv);elserc=select(fd+1,&fds,NULL,NULL,&tv);returnrc;}intmartian_prefix(con
+stunsignedchar*prefix,intplen){return(plen>=8&&prefix[0]==0xFF)||(plen>=10&&pref
+ix[0]==0xFE&&(prefix[1]&0xC0)==0x80)||(plen>=128&&memcmp(prefix,zeroes,15)==0&&(
+prefix[15]==0||prefix[15]==1))||(plen>=96&&v4mapped(prefix)&&((plen>=104&&(prefi
+x[12]==127||prefix[12]==0))||(plen>=100&&(prefix[12]&0xE0)==0xE0)));}intlinkloca
+l(constunsignedchar*address){returnmemcmp(address,llprefix,8)==0;}intv4mapped(co
+nstunsignedchar*address){returnmemcmp(address,v4prefix,12)==0;}voidv4tov6(unsign
+edchar*dst,constunsignedchar*src){memcpy(dst,v4prefix,12);memcpy(dst+12,src,4);}
+voidinaddr_to_uchar(unsignedchar*dest,conststructin_addr*src){v4tov6(dest,(const
+unsignedchar*)src);assert(v4mapped(dest));}voiduchar_to_inaddr(structin_addr*des
+t,constunsignedchar*src){assert(v4mapped(src));memcpy(dest,src+12,4);}voidin6add
+r_to_uchar(unsignedchar*dest,conststructin6_addr*src){memcpy(dest,src,16);}voidu
+char_to_in6addr(structin6_addr*dest,constunsignedchar*src){memcpy(dest,src,16);}
+intdaemonise(){intrc;fflush(stdout);fflush(stderr);rc=fork();if(rc<0)return-1;if
+(rc>0)exit(0);rc=setsid();if(rc<0)return-1;return1;}

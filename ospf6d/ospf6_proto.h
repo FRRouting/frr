@@ -1,100 +1,39 @@
-/*
- * Common protocol data and data structures.
- * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef OSPF6_PROTO_H
-#define OSPF6_PROTO_H
-
-/* OSPF protocol version */
-#define OSPFV3_VERSION           3
-
-/* TOS field normaly null */
-#define DEFAULT_TOS_VALUE      0x0
-
-#define ALLSPFROUTERS6 "ff02::5"
-#define ALLDROUTERS6   "ff02::6"
-
-#define OSPF6_ROUTER_BIT_W     (1 << 3)
-#define OSPF6_ROUTER_BIT_V     (1 << 2)
-#define OSPF6_ROUTER_BIT_E     (1 << 1)
-#define OSPF6_ROUTER_BIT_B     (1 << 0)
-
-/* OSPF options */
-/* present in HELLO, DD, LSA */
-#define OSPF6_OPT_SET(x,opt)   ((x)[2] |=  (opt))
-#define OSPF6_OPT_ISSET(x,opt) ((x)[2] &   (opt))
-#define OSPF6_OPT_CLEAR(x,opt) ((x)[2] &= ~(opt))
-#define OSPF6_OPT_CLEAR_ALL(x) ((x)[0] = (x)[1] = (x)[2] = 0)
-
-#define OSPF6_OPT_DC (1 << 5)   /* Demand Circuit handling Capability */
-#define OSPF6_OPT_R  (1 << 4)   /* Forwarding Capability (Any Protocol) */
-#define OSPF6_OPT_N  (1 << 3)   /* Handling Type-7 LSA Capability */
-#define OSPF6_OPT_MC (1 << 2)   /* Multicasting Capability */
-#define OSPF6_OPT_E  (1 << 1)   /* AS External Capability */
-#define OSPF6_OPT_V6 (1 << 0)   /* IPv6 forwarding Capability */
-
-/* OSPF6 Prefix */
-#define OSPF6_PREFIX_MIN_SIZE                  4U /* .length == 0 */
-struct ospf6_prefix {
-	uint8_t prefix_length;
-	uint8_t prefix_options;
-	union {
-		uint16_t _prefix_metric;
-		uint16_t _prefix_referenced_lstype;
-	} u;
-#define prefix_metric        u._prefix_metric
-#define prefix_refer_lstype  u._prefix_referenced_lstype
-	/* followed by one address_prefix */
-	struct in6_addr addr[];
-};
-
-#define OSPF6_PREFIX_OPTION_NU (1 << 0)  /* No Unicast */
-#define OSPF6_PREFIX_OPTION_LA (1 << 1)  /* Local Address */
-#define OSPF6_PREFIX_OPTION_MC (1 << 2)  /* MultiCast */
-#define OSPF6_PREFIX_OPTION_P  (1 << 3)  /* Propagate (NSSA) */
-
-/* caddr_t OSPF6_PREFIX_BODY (struct ospf6_prefix *); */
-#define OSPF6_PREFIX_BODY(x) ((caddr_t)(x) + sizeof (struct ospf6_prefix))
-
-/* size_t OSPF6_PREFIX_SPACE (int prefixlength); */
-#define OSPF6_PREFIX_SPACE(x) ((((x) + 31) / 32) * 4)
-
-/* size_t OSPF6_PREFIX_SIZE (struct ospf6_prefix *); */
-#define OSPF6_PREFIX_SIZE(x)                                                   \
-	(OSPF6_PREFIX_SPACE((x)->prefix_length) + sizeof(struct ospf6_prefix))
-
-/* struct ospf6_prefix *OSPF6_PREFIX_NEXT (struct ospf6_prefix *); */
-#define OSPF6_PREFIX_NEXT(x)                                                   \
-	((struct ospf6_prefix *)((caddr_t)(x) + OSPF6_PREFIX_SIZE(x)))
-
-#define ospf6_prefix_in6_addr(in6, op)                                         \
-	do {                                                                   \
-		memset(in6, 0, sizeof(struct in6_addr));                       \
-		memcpy(in6, (caddr_t)(op) + sizeof(struct ospf6_prefix),       \
-		       OSPF6_PREFIX_SPACE((op)->prefix_length));               \
-	} while (0)
-
-extern void ospf6_prefix_apply_mask(struct ospf6_prefix *op);
-extern void ospf6_prefix_options_printbuf(uint8_t prefix_options, char *buf,
-					  int size);
-extern void ospf6_capability_printbuf(char capability, char *buf, int size);
-extern void ospf6_options_printbuf(uint8_t *options, char *buf, int size);
-
-#endif /* OSPF6_PROTO_H */
+/**Commonprotocoldataanddatastructures.*Copyright(C)2003YasuhiroOhara**Thisfilei
+spartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*unde
+rthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eit
+herversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopetha
+titwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTA
+BILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetail
+s.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;
+seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,Fift
+hFloor,Boston,MA02110-1301USA*/#ifndefOSPF6_PROTO_H#defineOSPF6_PROTO_H/*OSPFpro
+tocolversion*/#defineOSPFV3_VERSION3/*TOSfieldnormalynull*/#defineDEFAULT_TOS_VA
+LUE0x0#defineALLSPFROUTERS6"ff02::5"#defineALLDROUTERS6"ff02::6"#defineOSPF6_ROU
+TER_BIT_W(1<<3)#defineOSPF6_ROUTER_BIT_V(1<<2)#defineOSPF6_ROUTER_BIT_E(1<<1)#de
+fineOSPF6_ROUTER_BIT_B(1<<0)/*OSPFoptions*//*presentinHELLO,DD,LSA*/#defineOSPF6
+_OPT_SET(x,opt)((x)[2]|=(opt))#defineOSPF6_OPT_ISSET(x,opt)((x)[2]&(opt))#define
+OSPF6_OPT_CLEAR(x,opt)((x)[2]&=~(opt))#defineOSPF6_OPT_CLEAR_ALL(x)((x)[0]=(x)[1
+]=(x)[2]=0)#defineOSPF6_OPT_DC(1<<5)/*DemandCircuithandlingCapability*/#defineOS
+PF6_OPT_R(1<<4)/*ForwardingCapability(AnyProtocol)*/#defineOSPF6_OPT_N(1<<3)/*Ha
+ndlingType-7LSACapability*/#defineOSPF6_OPT_MC(1<<2)/*MulticastingCapability*/#d
+efineOSPF6_OPT_E(1<<1)/*ASExternalCapability*/#defineOSPF6_OPT_V6(1<<0)/*IPv6for
+wardingCapability*//*OSPF6Prefix*/#defineOSPF6_PREFIX_MIN_SIZE4U/*.length==0*/st
+ructospf6_prefix{uint8_tprefix_length;uint8_tprefix_options;union{uint16_t_prefi
+x_metric;uint16_t_prefix_referenced_lstype;}u;#defineprefix_metricu._prefix_metr
+ic#defineprefix_refer_lstypeu._prefix_referenced_lstype/*followedbyoneaddress_pr
+efix*/structin6_addraddr[];};#defineOSPF6_PREFIX_OPTION_NU(1<<0)/*NoUnicast*/#de
+fineOSPF6_PREFIX_OPTION_LA(1<<1)/*LocalAddress*/#defineOSPF6_PREFIX_OPTION_MC(1<
+<2)/*MultiCast*/#defineOSPF6_PREFIX_OPTION_P(1<<3)/*Propagate(NSSA)*//*caddr_tOS
+PF6_PREFIX_BODY(structospf6_prefix*);*/#defineOSPF6_PREFIX_BODY(x)((caddr_t)(x)+
+sizeof(structospf6_prefix))/*size_tOSPF6_PREFIX_SPACE(intprefixlength);*/#define
+OSPF6_PREFIX_SPACE(x)((((x)+31)/32)*4)/*size_tOSPF6_PREFIX_SIZE(structospf6_pref
+ix*);*/#defineOSPF6_PREFIX_SIZE(x)\(OSPF6_PREFIX_SPACE((x)->prefix_length)+sizeo
+f(structospf6_prefix))/*structospf6_prefix*OSPF6_PREFIX_NEXT(structospf6_prefix*
+);*/#defineOSPF6_PREFIX_NEXT(x)\((structospf6_prefix*)((caddr_t)(x)+OSPF6_PREFIX
+_SIZE(x)))#defineospf6_prefix_in6_addr(in6,op)\do{\memset(in6,0,sizeof(structin6
+_addr));\memcpy(in6,(caddr_t)(op)+sizeof(structospf6_prefix),\OSPF6_PREFIX_SPACE
+((op)->prefix_length));\}while(0)externvoidospf6_prefix_apply_mask(structospf6_p
+refix*op);externvoidospf6_prefix_options_printbuf(uint8_tprefix_options,char*buf
+,intsize);externvoidospf6_capability_printbuf(charcapability,char*buf,intsize);e
+xternvoidospf6_options_printbuf(uint8_t*options,char*buf,intsize);#endif/*OSPF6_
+PROTO_H*/

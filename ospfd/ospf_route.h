@@ -1,155 +1,49 @@
-/*
- * OSPF routing table.
- * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_OSPF_ROUTE_H
-#define _ZEBRA_OSPF_ROUTE_H
-
-#define OSPF_DESTINATION_ROUTER		1
-#define OSPF_DESTINATION_NETWORK	2
-#define OSPF_DESTINATION_DISCARD	3
-
-#define OSPF_PATH_MIN			0
-#define OSPF_PATH_INTRA_AREA		1
-#define OSPF_PATH_INTER_AREA		2
-#define OSPF_PATH_TYPE1_EXTERNAL	3
-#define OSPF_PATH_TYPE2_EXTERNAL	4
-#define OSPF_PATH_MAX			5
-
-/* OSPF Path. */
-struct ospf_path {
-	struct in_addr nexthop;
-	struct in_addr adv_router;
-	ifindex_t ifindex;
-	unsigned char unnumbered;
-};
-
-/* Below is the structure linked to every
-   route node. Note that for Network routing
-   entries a single ospf_route is kept, while
-   for ABRs and ASBRs (Router routing entries),
-   we link an instance of ospf_router_route
-   where a list of paths is maintained, so
-
-   nr->info is a (struct ospf_route *) for OSPF_DESTINATION_NETWORK
-   but
-   nr->info is a (struct ospf_router_route *) for OSPF_DESTINATION_ROUTER
-*/
-
-struct route_standard {
-	/* Link Sate Origin. */
-	struct lsa_header *origin;
-
-	/* Associated Area. */
-	struct in_addr area_id; /* The area the route belongs to */
-
-	/*  Area Type */
-	int external_routing;
-
-	/* Optional Capability. */
-	uint8_t options; /* Get from LSA header. */
-
-	/*  */
-	uint8_t flags; /* From router-LSA */
-};
-
-struct route_external {
-	/* Link State Origin. */
-	struct ospf_lsa *origin;
-
-	/* Link State Cost Type2. */
-	uint32_t type2_cost;
-
-	/* Tag value. */
-	uint32_t tag;
-
-	/* ASBR route. */
-	struct ospf_route *asbr;
-};
-
-struct ospf_route {
-	/* Destination Type. */
-	uint8_t type;
-
-	/* Destination ID. */ /* i.e. Link State ID. */
-	struct in_addr id;
-
-	/* Address Mask. */
-	struct in_addr mask; /* Only valid for networks. */
-
-	/* Path Type. */
-	uint8_t path_type;
-
-	/* List of Paths. */
-	struct list *paths;
-
-	/* Link State Cost. */
-	uint32_t cost; /* i.e. metric. */
-
-	/* Route specific info. */
-	union {
-		struct route_standard std;
-		struct route_external ext;
-	} u;
-};
-
-extern struct ospf_path *ospf_path_new(void);
-extern void ospf_path_free(struct ospf_path *);
-extern struct ospf_path *ospf_path_lookup(struct list *, struct ospf_path *);
-extern struct ospf_route *ospf_route_new(void);
-extern void ospf_route_free(struct ospf_route *);
-extern void ospf_route_delete(struct ospf *, struct route_table *);
-extern void ospf_route_table_free(struct route_table *);
-
-extern void ospf_route_install(struct ospf *, struct route_table *);
-extern void ospf_route_table_dump(struct route_table *);
-
-extern void ospf_intra_add_router(struct route_table *, struct vertex *,
-				  struct ospf_area *);
-
-extern void ospf_intra_add_transit(struct route_table *, struct vertex *,
-				   struct ospf_area *);
-
-extern void ospf_intra_add_stub(struct route_table *, struct router_lsa_link *,
-				struct vertex *, struct ospf_area *,
-				int parent_is_root, int);
-
-extern int ospf_route_cmp(struct ospf *, struct ospf_route *,
-			  struct ospf_route *);
-extern void ospf_route_copy_nexthops(struct ospf_route *, struct list *);
-extern void ospf_route_copy_nexthops_from_vertex(struct ospf_route *,
-						 struct vertex *);
-
-extern void ospf_route_subst(struct route_node *, struct ospf_route *,
-			     struct ospf_route *);
-extern void ospf_route_add(struct route_table *, struct prefix_ipv4 *,
-			   struct ospf_route *, struct ospf_route *);
-
-extern void ospf_route_subst_nexthops(struct ospf_route *, struct list *);
-extern void ospf_prune_unreachable_networks(struct route_table *);
-extern void ospf_prune_unreachable_routers(struct route_table *);
-extern int ospf_add_discard_route(struct ospf *, struct route_table *,
-				  struct ospf_area *, struct prefix_ipv4 *);
-extern void ospf_delete_discard_route(struct ospf *, struct route_table *,
-				      struct prefix_ipv4 *);
-extern int ospf_route_match_same(struct route_table *, struct prefix_ipv4 *,
-				 struct ospf_route *);
-
-#endif /* _ZEBRA_OSPF_ROUTE_H */
+/**OSPFroutingtable.*Copyright(C)1999,2000ToshiakiTakada**ThisfileispartofGNUZeb
+ra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsofth
+eGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,o
+r(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeusef
+ul,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNE
+SSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshould
+havereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOP
+YING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston
+,MA02110-1301USA*/#ifndef_ZEBRA_OSPF_ROUTE_H#define_ZEBRA_OSPF_ROUTE_H#defineOSP
+F_DESTINATION_ROUTER1#defineOSPF_DESTINATION_NETWORK2#defineOSPF_DESTINATION_DIS
+CARD3#defineOSPF_PATH_MIN0#defineOSPF_PATH_INTRA_AREA1#defineOSPF_PATH_INTER_ARE
+A2#defineOSPF_PATH_TYPE1_EXTERNAL3#defineOSPF_PATH_TYPE2_EXTERNAL4#defineOSPF_PA
+TH_MAX5/*OSPFPath.*/structospf_path{structin_addrnexthop;structin_addradv_router
+;ifindex_tifindex;unsignedcharunnumbered;};/*Belowisthestructurelinkedtoeveryrou
+tenode.NotethatforNetworkroutingentriesasingleospf_routeiskept,whileforABRsandAS
+BRs(Routerroutingentries),welinkaninstanceofospf_router_routewherealistofpathsis
+maintained,sonr->infoisa(structospf_route*)forOSPF_DESTINATION_NETWORKbutnr->inf
+oisa(structospf_router_route*)forOSPF_DESTINATION_ROUTER*/structroute_standard{/
+*LinkSateOrigin.*/structlsa_header*origin;/*AssociatedArea.*/structin_addrarea_i
+d;/*Theareatheroutebelongsto*//*AreaType*/intexternal_routing;/*OptionalCapabili
+ty.*/uint8_toptions;/*GetfromLSAheader.*//**/uint8_tflags;/*Fromrouter-LSA*/};st
+ructroute_external{/*LinkStateOrigin.*/structospf_lsa*origin;/*LinkStateCostType
+2.*/uint32_ttype2_cost;/*Tagvalue.*/uint32_ttag;/*ASBRroute.*/structospf_route*a
+sbr;};structospf_route{/*DestinationType.*/uint8_ttype;/*DestinationID.*//*i.e.L
+inkStateID.*/structin_addrid;/*AddressMask.*/structin_addrmask;/*Onlyvalidfornet
+works.*//*PathType.*/uint8_tpath_type;/*ListofPaths.*/structlist*paths;/*LinkSta
+teCost.*/uint32_tcost;/*i.e.metric.*//*Routespecificinfo.*/union{structroute_sta
+ndardstd;structroute_externalext;}u;};externstructospf_path*ospf_path_new(void);
+externvoidospf_path_free(structospf_path*);externstructospf_path*ospf_path_looku
+p(structlist*,structospf_path*);externstructospf_route*ospf_route_new(void);exte
+rnvoidospf_route_free(structospf_route*);externvoidospf_route_delete(structospf*
+,structroute_table*);externvoidospf_route_table_free(structroute_table*);externv
+oidospf_route_install(structospf*,structroute_table*);externvoidospf_route_table
+_dump(structroute_table*);externvoidospf_intra_add_router(structroute_table*,str
+uctvertex*,structospf_area*);externvoidospf_intra_add_transit(structroute_table*
+,structvertex*,structospf_area*);externvoidospf_intra_add_stub(structroute_table
+*,structrouter_lsa_link*,structvertex*,structospf_area*,intparent_is_root,int);e
+xternintospf_route_cmp(structospf*,structospf_route*,structospf_route*);externvo
+idospf_route_copy_nexthops(structospf_route*,structlist*);externvoidospf_route_c
+opy_nexthops_from_vertex(structospf_route*,structvertex*);externvoidospf_route_s
+ubst(structroute_node*,structospf_route*,structospf_route*);externvoidospf_route
+_add(structroute_table*,structprefix_ipv4*,structospf_route*,structospf_route*);
+externvoidospf_route_subst_nexthops(structospf_route*,structlist*);externvoidosp
+f_prune_unreachable_networks(structroute_table*);externvoidospf_prune_unreachabl
+e_routers(structroute_table*);externintospf_add_discard_route(structospf*,struct
+route_table*,structospf_area*,structprefix_ipv4*);externvoidospf_delete_discard_
+route(structospf*,structroute_table*,structprefix_ipv4*);externintospf_route_mat
+ch_same(structroute_table*,structprefix_ipv4*,structospf_route*);#endif/*_ZEBRA_
+OSPF_ROUTE_H*/

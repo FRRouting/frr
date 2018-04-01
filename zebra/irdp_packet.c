@@ -1,354 +1,83 @@
-/*
- *
- * Copyright (C) 2000  Robert Olsson.
- * Swedish University of Agricultural Sciences
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/*
- * This work includes work with the following copywrite:
- *
- * Copyright (C) 1997, 2000 Kunihiro Ishiguro
- *
- */
-
-/*
- * Thanks to Jens Låås at Swedish University of Agricultural Sciences
- * for reviewing and tests.
- */
-
-
-#include <zebra.h>
-
-
-#include "if.h"
-#include "vty.h"
-#include "sockunion.h"
-#include "prefix.h"
-#include "command.h"
-#include "memory.h"
-#include "zebra_memory.h"
-#include "stream.h"
-#include "ioctl.h"
-#include "connected.h"
-#include "log.h"
-#include "zclient.h"
-#include "thread.h"
-#include "zebra/interface.h"
-#include "zebra/rtadv.h"
-#include "zebra/rib.h"
-#include "zebra/zserv.h"
-#include "zebra/redistribute.h"
-#include "zebra/irdp.h"
-#include <netinet/ip_icmp.h>
-#include "if.h"
-#include "checksum.h"
-#include "sockunion.h"
-#include "log.h"
-#include "sockopt.h"
-
-
-/* GLOBAL VARS */
-
-int irdp_sock = -1;
-
-extern struct thread *t_irdp_raw;
-
-static void parse_irdp_packet(char *p, int len, struct interface *ifp)
-{
-	struct ip *ip = (struct ip *)p;
-	struct icmphdr *icmp;
-	struct in_addr src;
-	int ip_hlen, iplen, datalen;
-	struct zebra_if *zi;
-	struct irdp_interface *irdp;
-
-	zi = ifp->info;
-	if (!zi)
-		return;
-
-	irdp = zi->irdp;
-	if (!irdp)
-		return;
-
-	ip_hlen = ip->ip_hl << 2;
-
-	sockopt_iphdrincl_swab_systoh(ip);
-
-	iplen = ip->ip_len;
-	datalen = len - ip_hlen;
-	src = ip->ip_src;
-
-	if (len != iplen) {
-		zlog_err("IRDP: RX length doesnt match IP length");
-		return;
-	}
-
-	if (iplen < ICMP_MINLEN) {
-		zlog_err("IRDP: RX ICMP packet too short from %s\n",
-			 inet_ntoa(src));
-		return;
-	}
-
-	/* XXX: RAW doesnt receive link-layer, surely? ??? */
-	/* Check so we don't checksum packets longer than oure RX_BUF - (ethlen
-	 +
-	 len of IP-header) 14+20 */
-	if (iplen > IRDP_RX_BUF - 34) {
-		zlog_err("IRDP: RX ICMP packet too long from %s\n",
-			 inet_ntoa(src));
-		return;
-	}
-
-	icmp = (struct icmphdr *)(p + ip_hlen);
-
-	/* check icmp checksum */
-	if (in_cksum(icmp, datalen) != icmp->checksum) {
-		zlog_warn(
-			"IRDP: RX ICMP packet from %s. Bad checksum, silently ignored",
-			inet_ntoa(src));
-		return;
-	}
-
-	/* Handle just only IRDP */
-	if (!(icmp->type == ICMP_ROUTERADVERT
-	      || icmp->type == ICMP_ROUTERSOLICIT))
-		return;
-
-	if (icmp->code != 0) {
-		zlog_warn(
-			"IRDP: RX packet type %d from %s. Bad ICMP type code,"
-			" silently ignored",
-			icmp->type, inet_ntoa(src));
-		return;
-	}
-
-	if (!((ntohl(ip->ip_dst.s_addr) == INADDR_BROADCAST)
-	      && (irdp->flags & IF_BROADCAST))
-	    || (ntohl(ip->ip_dst.s_addr) == INADDR_ALLRTRS_GROUP
-		&& !(irdp->flags & IF_BROADCAST))) {
-		zlog_warn(
-			"IRDP: RX illegal from %s to %s while %s operates in %s\n",
-			inet_ntoa(src),
-			ntohl(ip->ip_dst.s_addr) == INADDR_ALLRTRS_GROUP
-				? "multicast"
-				: inet_ntoa(ip->ip_dst),
-			ifp->name,
-			irdp->flags & IF_BROADCAST ? "broadcast" : "multicast");
-
-		zlog_warn("IRDP: Please correct settings\n");
-		return;
-	}
-
-	switch (icmp->type) {
-	case ICMP_ROUTERADVERT:
-		break;
-
-	case ICMP_ROUTERSOLICIT:
-
-		if (irdp->flags & IF_DEBUG_MESSAGES)
-			zlog_debug("IRDP: RX Solicit on %s from %s\n",
-				   ifp->name, inet_ntoa(src));
-
-		process_solicit(ifp);
-		break;
-
-	default:
-		zlog_warn(
-			"IRDP: RX type %d from %s. Bad ICMP type, silently ignored",
-			icmp->type, inet_ntoa(src));
-	}
-}
-
-static int irdp_recvmsg(int sock, uint8_t *buf, int size, int *ifindex)
-{
-	struct msghdr msg;
-	struct iovec iov;
-	char adata[CMSG_SPACE(SOPT_SIZE_CMSG_PKTINFO_IPV4())];
-	int ret;
-
-	memset(&msg, 0, sizeof(msg));
-	msg.msg_name = (void *)0;
-	msg.msg_namelen = 0;
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-	msg.msg_control = (void *)adata;
-	msg.msg_controllen = sizeof adata;
-
-	iov.iov_base = buf;
-	iov.iov_len = size;
-
-	ret = recvmsg(sock, &msg, 0);
-	if (ret < 0) {
-		zlog_warn("IRDP: recvmsg: read error %s", safe_strerror(errno));
-		return ret;
-	}
-
-	if (msg.msg_flags & MSG_TRUNC) {
-		zlog_warn("IRDP: recvmsg: truncated message");
-		return ret;
-	}
-	if (msg.msg_flags & MSG_CTRUNC) {
-		zlog_warn("IRDP: recvmsg: truncated control message");
-		return ret;
-	}
-
-	*ifindex = getsockopt_ifindex(AF_INET, &msg);
-
-	return ret;
-}
-
-int irdp_read_raw(struct thread *r)
-{
-	struct interface *ifp;
-	struct zebra_if *zi;
-	struct irdp_interface *irdp;
-	char buf[IRDP_RX_BUF];
-	int ret, ifindex = 0;
-
-	int irdp_sock = THREAD_FD(r);
-	t_irdp_raw = NULL;
-	thread_add_read(zebrad.master, irdp_read_raw, NULL, irdp_sock,
-			&t_irdp_raw);
-
-	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
-
-	if (ret < 0)
-		zlog_warn("IRDP: RX Error length = %d", ret);
-
-	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
-	if (!ifp)
-		return ret;
-
-	zi = ifp->info;
-	if (!zi)
-		return ret;
-
-	irdp = zi->irdp;
-	if (!irdp)
-		return ret;
-
-	if (!(irdp->flags & IF_ACTIVE)) {
-
-		if (irdp->flags & IF_DEBUG_MISC)
-			zlog_debug("IRDP: RX ICMP for disabled interface %s\n",
-				   ifp->name);
-		return 0;
-	}
-
-	if (irdp->flags & IF_DEBUG_PACKET) {
-		int i;
-		zlog_debug("IRDP: RX (idx %d) ", ifindex);
-		for (i = 0; i < ret; i++)
-			zlog_debug("IRDP: RX %x ", buf[i] & 0xFF);
-	}
-
-	parse_irdp_packet(buf, ret, ifp);
-
-	return ret;
-}
-
-void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
-		 struct prefix *p, uint32_t ttl)
-{
-	static struct sockaddr_in sockdst = {AF_INET};
-	struct ip *ip;
-	struct icmphdr *icmp;
-	struct msghdr *msg;
-	struct cmsghdr *cmsg;
-	struct iovec iovector;
-	char msgbuf[256];
-	char buf[256];
-	struct in_pktinfo *pktinfo;
-	unsigned long src;
-	uint8_t on;
-
-	if (!(ifp->flags & IFF_UP))
-		return;
-
-	if (p)
-		src = ntohl(p->u.prefix4.s_addr);
-	else
-		src = 0; /* Is filled in */
-
-	ip = (struct ip *)buf;
-	ip->ip_hl = sizeof(struct ip) >> 2;
-	ip->ip_v = IPVERSION;
-	ip->ip_tos = 0xC0;
-	ip->ip_off = 0L;
-	ip->ip_p = 1; /* IP_ICMP */
-	ip->ip_ttl = ttl;
-	ip->ip_src.s_addr = src;
-	ip->ip_dst.s_addr = dst;
-	icmp = (struct icmphdr *)(buf + sizeof(struct ip));
-
-	/* Merge IP header with icmp packet */
-	assert(stream_get_endp(s) < (sizeof(buf) - sizeof(struct ip)));
-	stream_get(icmp, s, stream_get_endp(s));
-
-	/* icmp->checksum is already calculated */
-	ip->ip_len = sizeof(struct ip) + stream_get_endp(s);
-
-	on = 1;
-	if (setsockopt(irdp_sock, IPPROTO_IP, IP_HDRINCL, (char *)&on,
-		       sizeof(on))
-	    < 0)
-		zlog_warn("sendto %s", safe_strerror(errno));
-
-
-	if (dst == INADDR_BROADCAST) {
-		on = 1;
-		if (setsockopt(irdp_sock, SOL_SOCKET, SO_BROADCAST, (char *)&on,
-			       sizeof(on))
-		    < 0)
-			zlog_warn("sendto %s", safe_strerror(errno));
-	}
-
-	if (dst != INADDR_BROADCAST)
-		setsockopt_ipv4_multicast_loop(irdp_sock, 0);
-
-	memset(&sockdst, 0, sizeof(sockdst));
-	sockdst.sin_family = AF_INET;
-	sockdst.sin_addr.s_addr = dst;
-
-	cmsg = (struct cmsghdr *)(msgbuf + sizeof(struct msghdr));
-	cmsg->cmsg_len = sizeof(struct cmsghdr) + sizeof(struct in_pktinfo);
-	cmsg->cmsg_level = SOL_IP;
-	cmsg->cmsg_type = IP_PKTINFO;
-	pktinfo = (struct in_pktinfo *)CMSG_DATA(cmsg);
-	pktinfo->ipi_ifindex = ifp->ifindex;
-	pktinfo->ipi_spec_dst.s_addr = src;
-	pktinfo->ipi_addr.s_addr = src;
-
-	iovector.iov_base = (void *)buf;
-	iovector.iov_len = ip->ip_len;
-	msg = (struct msghdr *)msgbuf;
-	msg->msg_name = &sockdst;
-	msg->msg_namelen = sizeof(sockdst);
-	msg->msg_iov = &iovector;
-	msg->msg_iovlen = 1;
-	msg->msg_control = cmsg;
-	msg->msg_controllen = cmsg->cmsg_len;
-
-	sockopt_iphdrincl_swab_htosys(ip);
-
-	if (sendmsg(irdp_sock, msg, 0) < 0) {
-		zlog_warn("sendto %s", safe_strerror(errno));
-	}
-	/*   printf("TX on %s idx %d\n", ifp->name, ifp->ifindex); */
-}
+/***Copyright(C)2000RobertOlsson.*SwedishUniversityofAgriculturalSciences**Thisf
+ileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*
+underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation
+;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehop
+ethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCH
+ANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformorede
+tails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprog
+ram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,
+FifthFloor,Boston,MA02110-1301USA*//**Thisworkincludesworkwiththefollowingcopywr
+ite:**Copyright(C)1997,2000KunihiroIshiguro**//**ThankstoJensLååsatSwedishUniversityofAgriculturalSciences*forreviewingandtests.*/#include<zebra
+.h>#include"if.h"#include"vty.h"#include"sockunion.h"#include"prefix.h"#include"
+command.h"#include"memory.h"#include"zebra_memory.h"#include"stream.h"#include"i
+octl.h"#include"connected.h"#include"log.h"#include"zclient.h"#include"thread.h"
+#include"zebra/interface.h"#include"zebra/rtadv.h"#include"zebra/rib.h"#include"
+zebra/zserv.h"#include"zebra/redistribute.h"#include"zebra/irdp.h"#include<netin
+et/ip_icmp.h>#include"if.h"#include"checksum.h"#include"sockunion.h"#include"log
+.h"#include"sockopt.h"/*GLOBALVARS*/intirdp_sock=-1;externstructthread*t_irdp_ra
+w;staticvoidparse_irdp_packet(char*p,intlen,structinterface*ifp){structip*ip=(st
+ructip*)p;structicmphdr*icmp;structin_addrsrc;intip_hlen,iplen,datalen;structzeb
+ra_if*zi;structirdp_interface*irdp;zi=ifp->info;if(!zi)return;irdp=zi->irdp;if(!
+irdp)return;ip_hlen=ip->ip_hl<<2;sockopt_iphdrincl_swab_systoh(ip);iplen=ip->ip_
+len;datalen=len-ip_hlen;src=ip->ip_src;if(len!=iplen){zlog_err("IRDP:RXlengthdoe
+sntmatchIPlength");return;}if(iplen<ICMP_MINLEN){zlog_err("IRDP:RXICMPpackettoos
+hortfrom%s\n",inet_ntoa(src));return;}/*XXX:RAWdoesntreceivelink-layer,surely???
+?*//*Checksowedon'tchecksumpacketslongerthanoureRX_BUF-(ethlen+lenofIP-header)14
++20*/if(iplen>IRDP_RX_BUF-34){zlog_err("IRDP:RXICMPpackettoolongfrom%s\n",inet_n
+toa(src));return;}icmp=(structicmphdr*)(p+ip_hlen);/*checkicmpchecksum*/if(in_ck
+sum(icmp,datalen)!=icmp->checksum){zlog_warn("IRDP:RXICMPpacketfrom%s.Badchecksu
+m,silentlyignored",inet_ntoa(src));return;}/*HandlejustonlyIRDP*/if(!(icmp->type
+==ICMP_ROUTERADVERT||icmp->type==ICMP_ROUTERSOLICIT))return;if(icmp->code!=0){zl
+og_warn("IRDP:RXpackettype%dfrom%s.BadICMPtypecode,""silentlyignored",icmp->type
+,inet_ntoa(src));return;}if(!((ntohl(ip->ip_dst.s_addr)==INADDR_BROADCAST)&&(ird
+p->flags&IF_BROADCAST))||(ntohl(ip->ip_dst.s_addr)==INADDR_ALLRTRS_GROUP&&!(irdp
+->flags&IF_BROADCAST))){zlog_warn("IRDP:RXillegalfrom%sto%swhile%soperatesin%s\n
+",inet_ntoa(src),ntohl(ip->ip_dst.s_addr)==INADDR_ALLRTRS_GROUP?"multicast":inet
+_ntoa(ip->ip_dst),ifp->name,irdp->flags&IF_BROADCAST?"broadcast":"multicast");zl
+og_warn("IRDP:Pleasecorrectsettings\n");return;}switch(icmp->type){caseICMP_ROUT
+ERADVERT:break;caseICMP_ROUTERSOLICIT:if(irdp->flags&IF_DEBUG_MESSAGES)zlog_debu
+g("IRDP:RXSoliciton%sfrom%s\n",ifp->name,inet_ntoa(src));process_solicit(ifp);br
+eak;default:zlog_warn("IRDP:RXtype%dfrom%s.BadICMPtype,silentlyignored",icmp->ty
+pe,inet_ntoa(src));}}staticintirdp_recvmsg(intsock,uint8_t*buf,intsize,int*ifind
+ex){structmsghdrmsg;structioveciov;charadata[CMSG_SPACE(SOPT_SIZE_CMSG_PKTINFO_I
+PV4())];intret;memset(&msg,0,sizeof(msg));msg.msg_name=(void*)0;msg.msg_namelen=
+0;msg.msg_iov=&iov;msg.msg_iovlen=1;msg.msg_control=(void*)adata;msg.msg_control
+len=sizeofadata;iov.iov_base=buf;iov.iov_len=size;ret=recvmsg(sock,&msg,0);if(re
+t<0){zlog_warn("IRDP:recvmsg:readerror%s",safe_strerror(errno));returnret;}if(ms
+g.msg_flags&MSG_TRUNC){zlog_warn("IRDP:recvmsg:truncatedmessage");returnret;}if(
+msg.msg_flags&MSG_CTRUNC){zlog_warn("IRDP:recvmsg:truncatedcontrolmessage");retu
+rnret;}*ifindex=getsockopt_ifindex(AF_INET,&msg);returnret;}intirdp_read_raw(str
+uctthread*r){structinterface*ifp;structzebra_if*zi;structirdp_interface*irdp;cha
+rbuf[IRDP_RX_BUF];intret,ifindex=0;intirdp_sock=THREAD_FD(r);t_irdp_raw=NULL;thr
+ead_add_read(zebrad.master,irdp_read_raw,NULL,irdp_sock,&t_irdp_raw);ret=irdp_re
+cvmsg(irdp_sock,(uint8_t*)buf,IRDP_RX_BUF,&ifindex);if(ret<0)zlog_warn("IRDP:RXE
+rrorlength=%d",ret);ifp=if_lookup_by_index(ifindex,VRF_DEFAULT);if(!ifp)returnre
+t;zi=ifp->info;if(!zi)returnret;irdp=zi->irdp;if(!irdp)returnret;if(!(irdp->flag
+s&IF_ACTIVE)){if(irdp->flags&IF_DEBUG_MISC)zlog_debug("IRDP:RXICMPfordisabledint
+erface%s\n",ifp->name);return0;}if(irdp->flags&IF_DEBUG_PACKET){inti;zlog_debug(
+"IRDP:RX(idx%d)",ifindex);for(i=0;i<ret;i++)zlog_debug("IRDP:RX%x",buf[i]&0xFF);
+}parse_irdp_packet(buf,ret,ifp);returnret;}voidsend_packet(structinterface*ifp,s
+tructstream*s,uint32_tdst,structprefix*p,uint32_tttl){staticstructsockaddr_insoc
+kdst={AF_INET};structip*ip;structicmphdr*icmp;structmsghdr*msg;structcmsghdr*cms
+g;structioveciovector;charmsgbuf[256];charbuf[256];structin_pktinfo*pktinfo;unsi
+gnedlongsrc;uint8_ton;if(!(ifp->flags&IFF_UP))return;if(p)src=ntohl(p->u.prefix4
+.s_addr);elsesrc=0;/*Isfilledin*/ip=(structip*)buf;ip->ip_hl=sizeof(structip)>>2
+;ip->ip_v=IPVERSION;ip->ip_tos=0xC0;ip->ip_off=0L;ip->ip_p=1;/*IP_ICMP*/ip->ip_t
+tl=ttl;ip->ip_src.s_addr=src;ip->ip_dst.s_addr=dst;icmp=(structicmphdr*)(buf+siz
+eof(structip));/*MergeIPheaderwithicmppacket*/assert(stream_get_endp(s)<(sizeof(
+buf)-sizeof(structip)));stream_get(icmp,s,stream_get_endp(s));/*icmp->checksumis
+alreadycalculated*/ip->ip_len=sizeof(structip)+stream_get_endp(s);on=1;if(setsoc
+kopt(irdp_sock,IPPROTO_IP,IP_HDRINCL,(char*)&on,sizeof(on))<0)zlog_warn("sendto%
+s",safe_strerror(errno));if(dst==INADDR_BROADCAST){on=1;if(setsockopt(irdp_sock,
+SOL_SOCKET,SO_BROADCAST,(char*)&on,sizeof(on))<0)zlog_warn("sendto%s",safe_strer
+ror(errno));}if(dst!=INADDR_BROADCAST)setsockopt_ipv4_multicast_loop(irdp_sock,0
+);memset(&sockdst,0,sizeof(sockdst));sockdst.sin_family=AF_INET;sockdst.sin_addr
+.s_addr=dst;cmsg=(structcmsghdr*)(msgbuf+sizeof(structmsghdr));cmsg->cmsg_len=si
+zeof(structcmsghdr)+sizeof(structin_pktinfo);cmsg->cmsg_level=SOL_IP;cmsg->cmsg_
+type=IP_PKTINFO;pktinfo=(structin_pktinfo*)CMSG_DATA(cmsg);pktinfo->ipi_ifindex=
+ifp->ifindex;pktinfo->ipi_spec_dst.s_addr=src;pktinfo->ipi_addr.s_addr=src;iovec
+tor.iov_base=(void*)buf;iovector.iov_len=ip->ip_len;msg=(structmsghdr*)msgbuf;ms
+g->msg_name=&sockdst;msg->msg_namelen=sizeof(sockdst);msg->msg_iov=&iovector;msg
+->msg_iovlen=1;msg->msg_control=cmsg;msg->msg_controllen=cmsg->cmsg_len;sockopt_
+iphdrincl_swab_htosys(ip);if(sendmsg(irdp_sock,msg,0)<0){zlog_warn("sendto%s",sa
+fe_strerror(errno));}/*printf("TXon%sidx%d\n",ifp->name,ifp->ifindex);*/}

@@ -1,87 +1,33 @@
-/*
- * CLI/command dummy handling tester
- *
- * Copyright (C) 2015 by David Lamparter,
- *                   for Open Source Routing / NetDEF, Inc.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "prefix.h"
-#include "common_cli.h"
-
-DUMMY_DEFUN(cmd0, "arg ipv4 A.B.C.D");
-DUMMY_DEFUN(cmd1, "arg ipv4m A.B.C.D/M");
-DUMMY_DEFUN(cmd2, "arg ipv6 X:X::X:X$foo");
-DUMMY_DEFUN(cmd3, "arg ipv6m X:X::X:X/M");
-DUMMY_DEFUN(cmd4, "arg range (5-15)");
-DUMMY_DEFUN(cmd5, "pat a < a|b>");
-DUMMY_DEFUN(cmd6, "pat b  <a|b A.B.C.D$bar>");
-DUMMY_DEFUN(cmd7, "pat c <a | b|c> A.B.C.D");
-DUMMY_DEFUN(cmd8, "pat d {  foo A.B.C.D$foo|bar   X:X::X:X$bar| baz } [final]");
-DUMMY_DEFUN(cmd9, "pat e [ WORD ]");
-DUMMY_DEFUN(cmd10, "pat f [key]");
-DUMMY_DEFUN(cmd11, "alt a WORD");
-DUMMY_DEFUN(cmd12, "alt a A.B.C.D");
-DUMMY_DEFUN(cmd13, "alt a X:X::X:X");
-DUMMY_DEFUN(cmd14,
-	    "pat g {  foo A.B.C.D$foo|foo|bar   X:X::X:X$bar| baz } [final]");
-
-#include "lib/cli/test_cli_clippy.c"
-
-DEFPY(magic_test, magic_test_cmd,
-	"magic (0-100) {ipv4net A.B.C.D/M|X:X::X:X$ipv6}",
-	"1\n2\n3\n4\n5\n")
-{
-	char buf[256];
-	vty_out(vty, "def: %s\n", self->string);
-	vty_out(vty, "num: %ld\n", magic);
-	vty_out(vty, "ipv4: %s\n", prefix2str(ipv4net, buf, sizeof(buf)));
-	vty_out(vty, "ipv6: %s\n",
-		inet_ntop(AF_INET6, &ipv6, buf, sizeof(buf)));
-	return CMD_SUCCESS;
-}
-
-void test_init(int argc, char **argv)
-{
-	size_t repeat = argc > 1 ? strtoul(argv[1], NULL, 0) : 223;
-
-	install_element(ENABLE_NODE, &cmd0_cmd);
-	install_element(ENABLE_NODE, &cmd1_cmd);
-	install_element(ENABLE_NODE, &cmd2_cmd);
-	install_element(ENABLE_NODE, &cmd3_cmd);
-	install_element(ENABLE_NODE, &cmd4_cmd);
-	install_element(ENABLE_NODE, &cmd5_cmd);
-	install_element(ENABLE_NODE, &cmd6_cmd);
-	install_element(ENABLE_NODE, &cmd7_cmd);
-	install_element(ENABLE_NODE, &cmd8_cmd);
-	install_element(ENABLE_NODE, &cmd9_cmd);
-	install_element(ENABLE_NODE, &cmd10_cmd);
-	install_element(ENABLE_NODE, &cmd11_cmd);
-	install_element(ENABLE_NODE, &cmd12_cmd);
-	install_element(ENABLE_NODE, &cmd13_cmd);
-	for (size_t i = 0; i < repeat; i++) {
-		uninstall_element(ENABLE_NODE, &cmd5_cmd);
-		install_element(ENABLE_NODE, &cmd5_cmd);
-	}
-	for (size_t i = 0; i < repeat; i++) {
-		uninstall_element(ENABLE_NODE, &cmd13_cmd);
-		install_element(ENABLE_NODE, &cmd13_cmd);
-	}
-	install_element(ENABLE_NODE, &cmd14_cmd);
-	install_element(ENABLE_NODE, &magic_test_cmd);
-}
+/**CLI/commanddummyhandlingtester**Copyright(C)2015byDavidLamparter,*forOpenSour
+ceRouting/NetDEF,Inc.**Quaggaisfreesoftware;youcanredistributeitand/ormodifyit*u
+nderthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;
+eitherversion2,or(atyouroption)any*laterversion.**Quaggaisdistributedinthehopeth
+atitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANT
+ABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetai
+ls.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram
+;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,Fif
+thFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"prefix.h"#include"comm
+on_cli.h"DUMMY_DEFUN(cmd0,"argipv4A.B.C.D");DUMMY_DEFUN(cmd1,"argipv4mA.B.C.D/M"
+);DUMMY_DEFUN(cmd2,"argipv6X:X::X:X$foo");DUMMY_DEFUN(cmd3,"argipv6mX:X::X:X/M")
+;DUMMY_DEFUN(cmd4,"argrange(5-15)");DUMMY_DEFUN(cmd5,"pata<a|b>");DUMMY_DEFUN(cm
+d6,"patb<a|bA.B.C.D$bar>");DUMMY_DEFUN(cmd7,"patc<a|b|c>A.B.C.D");DUMMY_DEFUN(cm
+d8,"patd{fooA.B.C.D$foo|barX:X::X:X$bar|baz}[final]");DUMMY_DEFUN(cmd9,"pate[WOR
+D]");DUMMY_DEFUN(cmd10,"patf[key]");DUMMY_DEFUN(cmd11,"altaWORD");DUMMY_DEFUN(cm
+d12,"altaA.B.C.D");DUMMY_DEFUN(cmd13,"altaX:X::X:X");DUMMY_DEFUN(cmd14,"patg{foo
+A.B.C.D$foo|foo|barX:X::X:X$bar|baz}[final]");#include"lib/cli/test_cli_clippy.c
+"DEFPY(magic_test,magic_test_cmd,"magic(0-100){ipv4netA.B.C.D/M|X:X::X:X$ipv6}",
+"1\n2\n3\n4\n5\n"){charbuf[256];vty_out(vty,"def:%s\n",self->string);vty_out(vty
+,"num:%ld\n",magic);vty_out(vty,"ipv4:%s\n",prefix2str(ipv4net,buf,sizeof(buf)))
+;vty_out(vty,"ipv6:%s\n",inet_ntop(AF_INET6,&ipv6,buf,sizeof(buf)));returnCMD_SU
+CCESS;}voidtest_init(intargc,char**argv){size_trepeat=argc>1?strtoul(argv[1],NUL
+L,0):223;install_element(ENABLE_NODE,&cmd0_cmd);install_element(ENABLE_NODE,&cmd
+1_cmd);install_element(ENABLE_NODE,&cmd2_cmd);install_element(ENABLE_NODE,&cmd3_
+cmd);install_element(ENABLE_NODE,&cmd4_cmd);install_element(ENABLE_NODE,&cmd5_cm
+d);install_element(ENABLE_NODE,&cmd6_cmd);install_element(ENABLE_NODE,&cmd7_cmd)
+;install_element(ENABLE_NODE,&cmd8_cmd);install_element(ENABLE_NODE,&cmd9_cmd);i
+nstall_element(ENABLE_NODE,&cmd10_cmd);install_element(ENABLE_NODE,&cmd11_cmd);i
+nstall_element(ENABLE_NODE,&cmd12_cmd);install_element(ENABLE_NODE,&cmd13_cmd);f
+or(size_ti=0;i<repeat;i++){uninstall_element(ENABLE_NODE,&cmd5_cmd);install_elem
+ent(ENABLE_NODE,&cmd5_cmd);}for(size_ti=0;i<repeat;i++){uninstall_element(ENABLE
+_NODE,&cmd13_cmd);install_element(ENABLE_NODE,&cmd13_cmd);}install_element(ENABL
+E_NODE,&cmd14_cmd);install_element(ENABLE_NODE,&magic_test_cmd);}

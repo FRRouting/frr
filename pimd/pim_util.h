@@ -1,39 +1,14 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_UTIL_H
-#define PIM_UTIL_H
-
-#include <stdint.h>
-
-#include <zebra.h>
-
-#include "checksum.h"
-#include "pimd.h"
-#include "pim_iface.h"
-
-uint8_t igmp_msg_encode16to8(uint16_t value);
-uint16_t igmp_msg_decode8to16(uint8_t code);
-
-void pim_pkt_dump(const char *label, const uint8_t *buf, int size);
-
-int pim_is_group_224_0_0_0_24(struct in_addr group_addr);
-int pim_is_group_224_4(struct in_addr group_addr);
-bool pim_is_group_filtered(struct pim_interface *pim_ifp, struct in_addr *grp);
-#endif /* PIM_UTIL_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_UTIL_H#definePIM_UTIL_H#include<stdint.h>#include<zebra.h>#incl
+ude"checksum.h"#include"pimd.h"#include"pim_iface.h"uint8_tigmp_msg_encode16to8(
+uint16_tvalue);uint16_tigmp_msg_decode8to16(uint8_tcode);voidpim_pkt_dump(constc
+har*label,constuint8_t*buf,intsize);intpim_is_group_224_0_0_0_24(structin_addrgr
+oup_addr);intpim_is_group_224_4(structin_addrgroup_addr);boolpim_is_group_filter
+ed(structpim_interface*pim_ifp,structin_addr*grp);#endif/*PIM_UTIL_H*/

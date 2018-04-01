@@ -1,1590 +1,410 @@
-/*
- * EIGRP VTY Interface.
- * Copyright (C) 2013-2016
- * Authors:
- *   Donnie Savage
- *   Jan Janovic
- *   Matej Perina
- *   Peter Orsag
- *   Peter Paluch
- *   Frantisek Gazo
- *   Tomas Hvorkovy
- *   Martin Kontsek
- *   Lukas Koribsky
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "memory.h"
-#include "thread.h"
-#include "prefix.h"
-#include "table.h"
-#include "vty.h"
-#include "command.h"
-#include "plist.h"
-#include "log.h"
-#include "zclient.h"
-#include "keychain.h"
-#include "linklist.h"
-#include "distribute.h"
-
-#include "eigrpd/eigrp_structs.h"
-#include "eigrpd/eigrpd.h"
-#include "eigrpd/eigrp_interface.h"
-#include "eigrpd/eigrp_neighbor.h"
-#include "eigrpd/eigrp_packet.h"
-#include "eigrpd/eigrp_zebra.h"
-#include "eigrpd/eigrp_vty.h"
-#include "eigrpd/eigrp_network.h"
-#include "eigrpd/eigrp_dump.h"
-#include "eigrpd/eigrp_const.h"
-
-static int config_write_network(struct vty *vty, struct eigrp *eigrp)
-{
-	struct route_node *rn;
-	int i;
-
-	/* `network area' print. */
-	for (rn = route_top(eigrp->networks); rn; rn = route_next(rn))
-		if (rn->info) {
-			/* Network print. */
-			vty_out(vty, " network %s/%d \n",
-				inet_ntoa(rn->p.u.prefix4), rn->p.prefixlen);
-		}
-
-	if (eigrp->max_paths != EIGRP_MAX_PATHS_DEFAULT)
-		vty_out(vty, " maximum-paths %d\n", eigrp->max_paths);
-
-	if (eigrp->variance != EIGRP_VARIANCE_DEFAULT)
-		vty_out(vty, " variance %d\n", eigrp->variance);
-
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-		if (i != zclient->redist_default
-		    && vrf_bitmap_check(zclient->redist[AFI_IP][i],
-					VRF_DEFAULT))
-			vty_out(vty, " redistribute %s\n",
-				zebra_route_string(i));
-
-	/*Separate EIGRP configuration from the rest of the config*/
-	vty_out(vty, "!\n");
-
-	return 0;
-}
-
-static int config_write_interfaces(struct vty *vty, struct eigrp *eigrp)
-{
-	struct eigrp_interface *ei;
-	struct listnode *node;
-
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		vty_frame(vty, "interface %s\n", ei->ifp->name);
-
-		if (ei->params.auth_type == EIGRP_AUTH_TYPE_MD5) {
-			vty_out(vty, " ip authentication mode eigrp %d md5\n",
-				eigrp->AS);
-		}
-
-		if (ei->params.auth_type == EIGRP_AUTH_TYPE_SHA256) {
-			vty_out(vty,
-				" ip authentication mode eigrp %d hmac-sha-256\n",
-				eigrp->AS);
-		}
-
-		if (ei->params.auth_keychain) {
-			vty_out(vty,
-				" ip authentication key-chain eigrp %d %s\n",
-				eigrp->AS, ei->params.auth_keychain);
-		}
-
-		if (ei->params.v_hello != EIGRP_HELLO_INTERVAL_DEFAULT) {
-			vty_out(vty, " ip hello-interval eigrp %d\n",
-				ei->params.v_hello);
-		}
-
-		if (ei->params.v_wait != EIGRP_HOLD_INTERVAL_DEFAULT) {
-			vty_out(vty, " ip hold-time eigrp %d\n",
-				ei->params.v_wait);
-		}
-
-		/*Separate this EIGRP interface configuration from the others*/
-		vty_endframe(vty, "!\n");
-	}
-
-	return 0;
-}
-
-static int eigrp_write_interface(struct vty *vty)
-{
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct interface *ifp;
-	struct eigrp_interface *ei;
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		ei = ifp->info;
-		if (!ei)
-			continue;
-
-		vty_frame(vty, "interface %s\n", ifp->name);
-
-		if (ifp->desc)
-			vty_out(vty, " description %s\n", ifp->desc);
-
-		if (ei->params.bandwidth != EIGRP_BANDWIDTH_DEFAULT)
-			vty_out(vty, " bandwidth %u\n", ei->params.bandwidth);
-		if (ei->params.delay != EIGRP_DELAY_DEFAULT)
-			vty_out(vty, " delay %u\n", ei->params.delay);
-		if (ei->params.v_hello != EIGRP_HELLO_INTERVAL_DEFAULT)
-			vty_out(vty, " ip hello-interval eigrp %u\n",
-				ei->params.v_hello);
-		if (ei->params.v_wait != EIGRP_HOLD_INTERVAL_DEFAULT)
-			vty_out(vty, " ip hold-time eigrp %u\n",
-				ei->params.v_wait);
-
-		vty_endframe(vty, "!\n");
-	}
-
-	return 0;
-}
-
-/**
- * Writes distribute lists to config
- */
-static int config_write_eigrp_distribute(struct vty *vty, struct eigrp *eigrp)
-{
-	int write = 0;
-
-	/* Distribute configuration. */
-	write += config_write_distribute(vty);
-
-	return write;
-}
-
-/**
- * Writes 'router eigrp' section to config
- */
-static int config_write_eigrp_router(struct vty *vty, struct eigrp *eigrp)
-{
-	int write = 0;
-
-	/* `router eigrp' print. */
-	vty_out(vty, "router eigrp %d\n", eigrp->AS);
-
-	write++;
-
-	if (!eigrp->networks)
-		return write;
-
-	/* Router ID print. */
-	if (eigrp->router_id_static != 0) {
-		struct in_addr router_id_static;
-		router_id_static.s_addr = htonl(eigrp->router_id_static);
-		vty_out(vty, " eigrp router-id %s\n",
-			inet_ntoa(router_id_static));
-	}
-
-	/* Network area print. */
-	config_write_network(vty, eigrp);
-
-	/* Distribute-list and default-information print. */
-	config_write_eigrp_distribute(vty, eigrp);
-
-	/*Separate EIGRP configuration from the rest of the config*/
-	vty_out(vty, "!\n");
-
-	return write;
-}
-
-DEFUN_NOSH (router_eigrp,
-            router_eigrp_cmd,
-            "router eigrp (1-65535)",
-            "Enable a routing process\n"
-            "Start EIGRP configuration\n"
-            "AS Number to use\n")
-{
-	struct eigrp *eigrp = eigrp_get(argv[2]->arg);
-	VTY_PUSH_CONTEXT(EIGRP_NODE, eigrp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_router_eigrp,
-       no_router_eigrp_cmd,
-       "no router eigrp (1-65535)",
-       NO_STR
-       "Routing process\n"
-       "EIGRP configuration\n"
-       "AS number to use\n")
-{
-	vty->node = CONFIG_NODE;
-
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (eigrp->AS != atoi(argv[3]->arg)) {
-		vty_out(vty, "%% Attempting to deconfigure non-existent AS\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	eigrp_finish_final(eigrp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_router_id,
-       eigrp_router_id_cmd,
-       "eigrp router-id A.B.C.D",
-       "EIGRP specific commands\n"
-       "Router ID for this EIGRP process\n"
-       "EIGRP Router-ID in IP address format\n")
-{
-	// struct eigrp *eigrp = vty->index;
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_router_id,
-       no_eigrp_router_id_cmd,
-       "no eigrp router-id A.B.C.D",
-       NO_STR
-       "EIGRP specific commands\n"
-       "Router ID for this EIGRP process\n"
-       "EIGRP Router-ID in IP address format\n")
-{
-	// struct eigrp *eigrp = vty->index;
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_passive_interface,
-       eigrp_passive_interface_cmd,
-       "passive-interface IFNAME",
-       "Suppress routing updates on an interface\n"
-       "Interface to suppress on\n")
-{
-	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct eigrp_interface *ei;
-	struct listnode *node;
-	char *ifname = argv[1]->arg;
-
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		if (strcmp(ifname, ei->ifp->name) == 0) {
-			ei->params.passive_interface = EIGRP_IF_PASSIVE;
-			return CMD_SUCCESS;
-		}
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_passive_interface,
-       no_eigrp_passive_interface_cmd,
-       "no passive-interface IFNAME",
-       NO_STR
-       "Suppress routing updates on an interface\n"
-       "Interface to suppress on\n")
-{
-	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct eigrp_interface *ei;
-	struct listnode *node;
-	char *ifname = argv[2]->arg;
-
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		if (strcmp(ifname, ei->ifp->name) == 0) {
-			ei->params.passive_interface = EIGRP_IF_ACTIVE;
-			return CMD_SUCCESS;
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_timers_active,
-       eigrp_timers_active_cmd,
-       "timers active-time <(1-65535)|disabled>",
-       "Adjust routing timers\n"
-       "Time limit for active state\n"
-       "Active state time limit in minutes\n"
-       "Disable time limit for active state\n")
-{
-	// struct eigrp *eigrp = vty->index;
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_timers_active,
-       no_eigrp_timers_active_cmd,
-       "no timers active-time <(1-65535)|disabled>",
-       NO_STR
-       "Adjust routing timers\n"
-       "Time limit for active state\n"
-       "Active state time limit in minutes\n"
-       "Disable time limit for active state\n")
-{
-	// struct eigrp *eigrp = vty->index;
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (eigrp_metric_weights,
-       eigrp_metric_weights_cmd,
-       "metric weights (0-255) (0-255) (0-255) (0-255) (0-255) ",
-       "Modify metrics and parameters for advertisement\n"
-       "Modify metric coefficients\n"
-       "K1\n"
-       "K2\n"
-       "K3\n"
-       "K4\n"
-       "K5\n")
-{
-	// struct eigrp *eigrp = vty->index;
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_metric_weights,
-       no_eigrp_metric_weights_cmd,
-       "no metric weights <0-255> <0-255> <0-255> <0-255> <0-255>",
-       NO_STR
-       "Modify metrics and parameters for advertisement\n"
-       "Modify metric coefficients\n"
-       "K1\n"
-       "K2\n"
-       "K3\n"
-       "K4\n"
-       "K5\n")
-{
-	// struct eigrp *eigrp = vty->index;
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (eigrp_network,
-       eigrp_network_cmd,
-       "network A.B.C.D/M",
-       "Enable routing on an IP network\n"
-       "EIGRP network prefix\n")
-{
-	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct prefix p;
-	int ret;
-
-	(void)str2prefix(argv[1]->arg, &p);
-
-	ret = eigrp_network_set(eigrp, &p);
-
-	if (ret == 0) {
-		vty_out(vty, "There is already same network statement.\n");
-		return CMD_WARNING;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_network,
-       no_eigrp_network_cmd,
-       "no network A.B.C.D/M",
-       NO_STR
-       "Disable routing on an IP network\n"
-       "EIGRP network prefix\n")
-{
-	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct prefix p;
-	int ret;
-
-	(void)str2prefix(argv[2]->arg, &p);
-
-	ret = eigrp_network_unset(eigrp, &p);
-
-	if (ret == 0) {
-		vty_out(vty, "Can't find specified network configuration.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_neighbor,
-       eigrp_neighbor_cmd,
-       "neighbor A.B.C.D",
-       "Specify a neighbor router\n"
-       "Neighbor address\n")
-{
-	// struct eigrp *eigrp = vty->index;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_neighbor,
-       no_eigrp_neighbor_cmd,
-       "no neighbor A.B.C.D",
-       NO_STR
-       "Specify a neighbor router\n"
-       "Neighbor address\n")
-{
-	// struct eigrp *eigrp = vty->index;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_eigrp_topology,
-       show_ip_eigrp_topology_cmd,
-       "show ip eigrp topology [all-links]",
-       SHOW_STR
-       IP_STR
-       "IP-EIGRP show commands\n"
-       "IP-EIGRP topology\n"
-       "Show all links in topology table\n")
-{
-	struct eigrp *eigrp;
-	struct listnode *node;
-	struct eigrp_prefix_entry *tn;
-	struct eigrp_nexthop_entry *te;
-	struct route_node *rn;
-	int first;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	show_ip_eigrp_topology_header(vty, eigrp);
-
-	for (rn = route_top(eigrp->topology_table); rn; rn = route_next(rn)) {
-		if (!rn->info)
-			continue;
-
-		tn = rn->info;
-		first = 1;
-		for (ALL_LIST_ELEMENTS_RO(tn->entries, node, te)) {
-			if (argc == 5
-			    || (((te->flags
-				  & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
-				 == EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
-				|| ((te->flags
-				     & EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG)
-				    == EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG))) {
-				show_ip_eigrp_nexthop_entry(vty, eigrp, te,
-							    &first);
-				first = 0;
-			}
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-ALIAS(show_ip_eigrp_topology, show_ip_eigrp_topology_detail_cmd,
-      "show ip eigrp topology <A.B.C.D|A.B.C.D/M|detail|summary>",
-      SHOW_STR IP_STR
-      "IP-EIGRP show commands\n"
-      "IP-EIGRP topology\n"
-      "Netwok to display information about\n"
-      "IP prefix <network>/<length>, e.g., 192.168.0.0/16\n"
-      "Show all links in topology table\n"
-      "Show a summary of the topology table\n")
-
-DEFUN (show_ip_eigrp_interfaces,
-       show_ip_eigrp_interfaces_cmd,
-       "show ip eigrp interfaces [IFNAME] [detail]",
-       SHOW_STR
-       IP_STR
-       "IP-EIGRP show commands\n"
-       "IP-EIGRP interfaces\n"
-       "Interface name to look at\n"
-       "Detailed information\n")
-{
-	struct eigrp_interface *ei;
-	struct eigrp *eigrp;
-	struct listnode *node;
-	int idx = 0;
-	bool detail = false;
-	const char *ifname = NULL;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, "EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (argv_find(argv, argc, "IFNAME", &idx))
-		ifname = argv[idx]->arg;
-
-	if (argv_find(argv, argc, "detail", &idx))
-		detail = true;
-
-	if (!ifname)
-		show_ip_eigrp_interface_header(vty, eigrp);
-
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		if (!ifname || strcmp(ei->ifp->name, ifname) == 0) {
-			show_ip_eigrp_interface_sub(vty, eigrp, ei);
-			if (detail)
-				show_ip_eigrp_interface_detail(vty, eigrp, ei);
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_eigrp_neighbors,
-       show_ip_eigrp_neighbors_cmd,
-       "show ip eigrp neighbors [IFNAME] [detail]",
-       SHOW_STR
-       IP_STR
-       "IP-EIGRP show commands\n"
-       "IP-EIGRP neighbors\n"
-       "Interface to show on\n"
-       "Detailed Information\n")
-{
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
-	bool detail = false;
-	int idx = 0;
-	const char *ifname = NULL;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (argv_find(argv, argc, "IFNAME", &idx))
-		ifname = argv[idx]->arg;
-
-	detail = (argv_find(argv, argc, "detail", &idx));
-
-	show_ip_eigrp_neighbor_header(vty, eigrp);
-
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		if (!ifname || strcmp(ei->ifp->name, ifname) == 0) {
-			for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-				if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
-					show_ip_eigrp_neighbor_sub(vty, nbr,
-								   detail);
-			}
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_if_delay,
-       eigrp_if_delay_cmd,
-       "delay (1-16777215)",
-       "Specify interface throughput delay\n"
-       "Throughput delay (tens of microseconds)\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-	uint32_t delay;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-	delay = atoi(argv[1]->arg);
-
-	ei->params.delay = delay;
-	eigrp_if_reset(ifp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_if_delay,
-       no_eigrp_if_delay_cmd,
-       "no delay (1-16777215)",
-       NO_STR
-       "Specify interface throughput delay\n"
-       "Throughput delay (tens of microseconds)\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-
-		return CMD_SUCCESS;
-	}
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	ei->params.delay = EIGRP_DELAY_DEFAULT;
-	eigrp_if_reset(ifp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_if_bandwidth,
-       eigrp_if_bandwidth_cmd,
-       "eigrp bandwidth (1-10000000)",
-       "EIGRP specific commands\n"
-       "Set bandwidth informational parameter\n"
-       "Bandwidth in kilobits\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	uint32_t bandwidth;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	bandwidth = atoi(argv[1]->arg);
-
-	ei->params.bandwidth = bandwidth;
-	eigrp_if_reset(ifp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_if_bandwidth,
-       no_eigrp_if_bandwidth_cmd,
-       "no eigrp bandwidth [(1-10000000)]",
-       NO_STR
-       "EIGRP specific commands\n"
-       "Set bandwidth informational parameter\n"
-       "Bandwidth in kilobits\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	ei->params.bandwidth = EIGRP_BANDWIDTH_DEFAULT;
-	eigrp_if_reset(ifp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_if_ip_hellointerval,
-       eigrp_if_ip_hellointerval_cmd,
-       "ip hello-interval eigrp (1-65535)",
-       "Interface Internet Protocol config commands\n"
-       "Configures EIGRP hello interval\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Seconds between hello transmissions\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	uint32_t hello;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	hello = atoi(argv[3]->arg);
-
-	ei->params.v_hello = hello;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_if_ip_hellointerval,
-       no_eigrp_if_ip_hellointerval_cmd,
-       "no ip hello-interval eigrp [(1-65535)]",
-       NO_STR
-       "Interface Internet Protocol config commands\n"
-       "Configures EIGRP hello interval\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Seconds between hello transmissions\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	ei->params.v_hello = EIGRP_HELLO_INTERVAL_DEFAULT;
-
-	THREAD_TIMER_OFF(ei->t_hello);
-	thread_add_timer(master, eigrp_hello_timer, ei, 1, &ei->t_hello);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_if_ip_holdinterval,
-       eigrp_if_ip_holdinterval_cmd,
-       "ip hold-time eigrp (1-65535)",
-       "Interface Internet Protocol config commands\n"
-       "Configures EIGRP IPv4 hold time\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Seconds before neighbor is considered down\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	uint32_t hold;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	hold = atoi(argv[3]->arg);
-
-	ei->params.v_wait = hold;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_ip_summary_address,
-       eigrp_ip_summary_address_cmd,
-       "ip summary-address eigrp (1-65535) A.B.C.D/M",
-       "Interface Internet Protocol config commands\n"
-       "Perform address summarization\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "AS number\n"
-       "Summary <network>/<length>, e.g. 192.168.0.0/16\n")
-{
-	// VTY_DECLVAR_CONTEXT(interface, ifp);
-	// uint32_t AS;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	// AS = atoi (argv[3]->arg);
-
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_ip_summary_address,
-       no_eigrp_ip_summary_address_cmd,
-       "no ip summary-address eigrp (1-65535) A.B.C.D/M",
-       NO_STR
-       "Interface Internet Protocol config commands\n"
-       "Perform address summarization\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "AS number\n"
-       "Summary <network>/<length>, e.g. 192.168.0.0/16\n")
-{
-	// VTY_DECLVAR_CONTEXT(interface, ifp);
-	// uint32_t AS;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	// AS = atoi (argv[4]->arg);
-
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_if_ip_holdinterval,
-       no_eigrp_if_ip_holdinterval_cmd,
-       "no ip hold-time eigrp",
-       NO_STR
-       "Interface Internet Protocol config commands\n"
-       "Configures EIGRP hello interval\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	ei->params.v_wait = EIGRP_HOLD_INTERVAL_DEFAULT;
-
-	return CMD_SUCCESS;
-}
-
-static int str2auth_type(const char *str, struct eigrp_interface *ei)
-{
-	/* Sanity check. */
-	if (str == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (strncmp(str, "md5", 3) == 0) {
-		ei->params.auth_type = EIGRP_AUTH_TYPE_MD5;
-		return CMD_SUCCESS;
-	} else if (strncmp(str, "hmac-sha-256", 12) == 0) {
-		ei->params.auth_type = EIGRP_AUTH_TYPE_SHA256;
-		return CMD_SUCCESS;
-	}
-
-	return CMD_WARNING_CONFIG_FAILED;
-}
-
-DEFUN (eigrp_authentication_mode,
-       eigrp_authentication_mode_cmd,
-       "ip authentication mode eigrp (1-65535) <md5|hmac-sha-256>",
-       "Interface Internet Protocol config commands\n"
-       "Authentication subcommands\n"
-       "Mode\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Autonomous system number\n"
-       "Keyed message digest\n"
-       "HMAC SHA256 algorithm \n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	//  if(strncmp(argv[2], "md5",3))
-	//    IF_DEF_PARAMS (ifp)->auth_type = EIGRP_AUTH_TYPE_MD5;
-	//  else if(strncmp(argv[2], "hmac-sha-256",12))
-	//    IF_DEF_PARAMS (ifp)->auth_type = EIGRP_AUTH_TYPE_SHA256;
-
-	return str2auth_type(argv[5]->arg, ei);
-}
-
-DEFUN (no_eigrp_authentication_mode,
-       no_eigrp_authentication_mode_cmd,
-       "no ip authentication mode eigrp (1-65535) <md5|hmac-sha-256>",
-       "Disable\n"
-       "Interface Internet Protocol config commands\n"
-       "Authentication subcommands\n"
-       "Mode\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Autonomous system number\n"
-       "Keyed message digest\n"
-       "HMAC SHA256 algorithm \n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	ei->params.auth_type = EIGRP_AUTH_TYPE_NONE;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_authentication_keychain,
-       eigrp_authentication_keychain_cmd,
-       "ip authentication key-chain eigrp (1-65535) WORD",
-       "Interface Internet Protocol config commands\n"
-       "Authentication subcommands\n"
-       "Key-chain\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Autonomous system number\n"
-       "Name of key-chain\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-	struct keychain *keychain;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, "EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	keychain = keychain_lookup(argv[4]->arg);
-	if (keychain != NULL) {
-		if (ei->params.auth_keychain) {
-			free(ei->params.auth_keychain);
-			ei->params.auth_keychain = strdup(keychain->name);
-		} else
-			ei->params.auth_keychain = strdup(keychain->name);
-	} else
-		vty_out(vty, "Key chain with specified name not found\n");
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_authentication_keychain,
-       no_eigrp_authentication_keychain_cmd,
-       "no ip authentication key-chain eigrp (1-65535) WORD",
-       "Disable\n"
-       "Interface Internet Protocol config commands\n"
-       "Authentication subcommands\n"
-       "Key-chain\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Autonomous system number\n"
-       "Name of key-chain\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, "EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	if ((ei->params.auth_keychain != NULL)
-	    && (strcmp(ei->params.auth_keychain, argv[5]->arg) == 0)) {
-		free(ei->params.auth_keychain);
-		ei->params.auth_keychain = NULL;
-	} else
-		vty_out(vty,
-			"Key chain with specified name not configured on interface\n");
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_redistribute_source_metric,
-       eigrp_redistribute_source_metric_cmd,
-       "redistribute " FRR_REDIST_STR_EIGRPD
-       " [metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)]",
-       REDIST_STR
-       FRR_REDIST_HELP_STR_EIGRPD
-       "Metric for redistributed routes\n"
-       "Bandwidth metric in Kbits per second\n"
-       "EIGRP delay metric, in 10 microsecond units\n"
-       "EIGRP reliability metric where 255 is 100% reliable2 ?\n"
-       "EIGRP Effective bandwidth metric (Loading) where 255 is 100% loaded\n"
-       "EIGRP MTU of the path\n")
-{
-	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct eigrp_metrics metrics_from_command = {0};
-	int source;
-	int idx = 0;
-
-	/* Get distribute source. */
-	argv_find(argv, argc, "redistribute", &idx);
-	source = proto_redistnum(AFI_IP, argv[idx + 1]->text);
-	if (source < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Get metrics values */
-
-	return eigrp_redistribute_set(eigrp, source, metrics_from_command);
-}
-
-DEFUN (no_eigrp_redistribute_source_metric,
-       no_eigrp_redistribute_source_metric_cmd,
-       "no redistribute " FRR_REDIST_STR_EIGRPD
-       " metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)",
-       "Disable\n"
-       REDIST_STR
-       FRR_REDIST_HELP_STR_EIGRPD
-       "Metric for redistributed routes\n"
-       "Bandwidth metric in Kbits per second\n"
-       "EIGRP delay metric, in 10 microsecond units\n"
-       "EIGRP reliability metric where 255 is 100% reliable2 ?\n"
-       "EIGRP Effective bandwidth metric (Loading) where 255 is 100% loaded\n"
-       "EIGRP MTU of the path\n")
-{
-	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	int source;
-	int idx = 0;
-
-	/* Get distribute source. */
-	argv_find(argv, argc, "redistribute", &idx);
-	source = proto_redistnum(AFI_IP, argv[idx + 1]->text);
-	if (source < 0) {
-		vty_out(vty, "%% Invalid route type\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Get metrics values */
-
-	return eigrp_redistribute_unset(eigrp, source);
-}
-
-DEFUN (eigrp_variance,
-       eigrp_variance_cmd,
-       "variance (1-128)",
-       "Control load balancing variance\n"
-       "Metric variance multiplier\n")
-{
-	struct eigrp *eigrp;
-	uint8_t variance;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, "EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-	variance = atoi(argv[1]->arg);
-
-	eigrp->variance = variance;
-
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_variance,
-       no_eigrp_variance_cmd,
-       "no variance (1-128)",
-       "Disable\n"
-       "Control load balancing variance\n"
-       "Metric variance multiplier\n")
-{
-	struct eigrp *eigrp;
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, "EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	eigrp->variance = EIGRP_VARIANCE_DEFAULT;
-
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (eigrp_maximum_paths,
-       eigrp_maximum_paths_cmd,
-       "maximum-paths (1-32)",
-       "Forward packets over multiple paths\n"
-       "Number of paths\n")
-{
-	struct eigrp *eigrp;
-	uint8_t max;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, "EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	max = atoi(argv[1]->arg);
-
-	eigrp->max_paths = max;
-
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_maximum_paths,
-       no_eigrp_maximum_paths_cmd,
-       "no maximum-paths <1-32>",
-       NO_STR
-       "Forward packets over multiple paths\n"
-       "Number of paths\n")
-{
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, "EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	eigrp->max_paths = EIGRP_MAX_PATHS_DEFAULT;
-
-	/*TODO: */
-
-	return CMD_SUCCESS;
-}
-
-/*
- * Execute hard restart for all neighbors
- */
-DEFUN (clear_ip_eigrp_neighbors,
-       clear_ip_eigrp_neighbors_cmd,
-       "clear ip eigrp neighbors",
-       CLEAR_STR
-       IP_STR
-       "Clear IP-EIGRP\n"
-       "Clear IP-EIGRP neighbors\n")
-{
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
-
-	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		/* send Goodbye Hello */
-		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
-
-		/* iterate over all neighbors on eigrp interface */
-		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-			if (nbr->state != EIGRP_NEIGHBOR_DOWN) {
-				zlog_debug(
-					"Neighbor %s (%s) is down: manually cleared",
-					inet_ntoa(nbr->src),
-					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       VRF_DEFAULT));
-				vty_time_print(vty, 0);
-				vty_out(vty,
-					"Neighbor %s (%s) is down: manually cleared\n",
-					inet_ntoa(nbr->src),
-					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       VRF_DEFAULT));
-
-				/* set neighbor to DOWN */
-				nbr->state = EIGRP_NEIGHBOR_DOWN;
-				/* delete neighbor */
-				eigrp_nbr_delete(nbr);
-			}
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-/*
- * Execute hard restart for all neighbors on interface
- */
-DEFUN (clear_ip_eigrp_neighbors_int,
-       clear_ip_eigrp_neighbors_int_cmd,
-       "clear ip eigrp neighbors IFNAME",
-       CLEAR_STR
-       IP_STR
-       "Clear IP-EIGRP\n"
-       "Clear IP-EIGRP neighbors\n"
-       "Interface's name\n")
-{
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
-	int idx = 0;
-
-	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	/* lookup interface by specified name */
-	argv_find(argv, argc, "IFNAME", &idx);
-	ei = eigrp_if_lookup_by_name(eigrp, argv[idx]->arg);
-	if (ei == NULL) {
-		vty_out(vty, " Interface (%s) doesn't exist\n", argv[idx]->arg);
-		return CMD_WARNING;
-	}
-
-	/* send Goodbye Hello */
-	eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
-
-	/* iterate over all neighbors on eigrp interface */
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-		if (nbr->state != EIGRP_NEIGHBOR_DOWN) {
-			zlog_debug("Neighbor %s (%s) is down: manually cleared",
-				   inet_ntoa(nbr->src),
-				   ifindex2ifname(nbr->ei->ifp->ifindex,
-						  VRF_DEFAULT));
-			vty_time_print(vty, 0);
-			vty_out(vty,
-				"Neighbor %s (%s) is down: manually cleared\n",
-				inet_ntoa(nbr->src),
-				ifindex2ifname(nbr->ei->ifp->ifindex,
-					       VRF_DEFAULT));
-
-			/* set neighbor to DOWN */
-			nbr->state = EIGRP_NEIGHBOR_DOWN;
-			/* delete neighbor */
-			eigrp_nbr_delete(nbr);
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-/*
- * Execute hard restart for neighbor specified by IP
- */
-DEFUN (clear_ip_eigrp_neighbors_IP,
-       clear_ip_eigrp_neighbors_IP_cmd,
-       "clear ip eigrp neighbors A.B.C.D",
-       CLEAR_STR
-       IP_STR
-       "Clear IP-EIGRP\n"
-       "Clear IP-EIGRP neighbors\n"
-       "IP-EIGRP neighbor address\n")
-{
-	struct eigrp *eigrp;
-	struct eigrp_neighbor *nbr;
-	struct in_addr nbr_addr;
-
-	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
-		vty_out(vty, "Unable to parse %s", argv[4]->arg);
-		return CMD_WARNING;
-	}
-
-	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	/* lookup neighbor in whole process */
-	nbr = eigrp_nbr_lookup_by_addr_process(eigrp, nbr_addr);
-
-	/* if neighbor doesn't exists, notify user and exit */
-	if (nbr == NULL) {
-		vty_out(vty, "Neighbor with entered address doesn't exists.\n");
-		return CMD_WARNING;
-	}
-
-	/* execute hard reset on neighbor */
-	eigrp_nbr_hard_restart(nbr, vty);
-
-	return CMD_SUCCESS;
-}
-
-/*
- * Execute graceful restart for all neighbors
- */
-DEFUN (clear_ip_eigrp_neighbors_soft,
-       clear_ip_eigrp_neighbors_soft_cmd,
-       "clear ip eigrp neighbors soft",
-       CLEAR_STR
-       IP_STR
-       "Clear IP-EIGRP\n"
-       "Clear IP-EIGRP neighbors\n"
-       "Resync with peers without adjacency reset\n")
-{
-	struct eigrp *eigrp;
-
-	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	/* execute graceful restart on all neighbors */
-	eigrp_update_send_process_GR(eigrp, EIGRP_GR_MANUAL, vty);
-
-	return CMD_SUCCESS;
-}
-
-/*
- * Execute graceful restart for all neighbors on interface
- */
-DEFUN (clear_ip_eigrp_neighbors_int_soft,
-       clear_ip_eigrp_neighbors_int_soft_cmd,
-       "clear ip eigrp neighbors IFNAME soft",
-       CLEAR_STR
-       IP_STR
-       "Clear IP-EIGRP\n"
-       "Clear IP-EIGRP neighbors\n"
-       "Interface's name\n"
-       "Resync with peer without adjacency reset\n")
-{
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-
-	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	/* lookup interface by specified name */
-	ei = eigrp_if_lookup_by_name(eigrp, argv[4]->arg);
-	if (ei == NULL) {
-		vty_out(vty, " Interface (%s) doesn't exist\n", argv[4]->arg);
-		return CMD_WARNING;
-	}
-
-	/* execute graceful restart for all neighbors on interface */
-	eigrp_update_send_interface_GR(ei, EIGRP_GR_MANUAL, vty);
-	return CMD_SUCCESS;
-}
-
-/*
- * Execute graceful restart for neighbor specified by IP
- */
-DEFUN (clear_ip_eigrp_neighbors_IP_soft,
-       clear_ip_eigrp_neighbors_IP_soft_cmd,
-       "clear ip eigrp neighbors A.B.C.D soft",
-       CLEAR_STR
-       IP_STR
-       "Clear IP-EIGRP\n"
-       "Clear IP-EIGRP neighbors\n"
-       "IP-EIGRP neighbor address\n"
-       "Resync with peer without adjacency reset\n")
-{
-	struct eigrp *eigrp;
-	struct eigrp_neighbor *nbr;
-	struct in_addr nbr_addr;
-
-	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
-		vty_out(vty, "Unable to parse: %s", argv[4]->arg);
-		return CMD_WARNING;
-	}
-
-	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, " EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	/* lookup neighbor in whole process */
-	nbr = eigrp_nbr_lookup_by_addr_process(eigrp, nbr_addr);
-
-	/* if neighbor doesn't exists, notify user and exit */
-	if (nbr == NULL) {
-		vty_out(vty, "Neighbor with entered address doesn't exists.\n");
-		return CMD_WARNING;
-	}
-
-	/* execute graceful restart on neighbor */
-	eigrp_update_send_GR(nbr, EIGRP_GR_MANUAL, vty);
-
-	return CMD_SUCCESS;
-}
-
-static struct cmd_node eigrp_node = {EIGRP_NODE, "%s(config-router)# ", 1};
-
-/* Save EIGRP configuration */
-static int eigrp_config_write(struct vty *vty)
-{
-	struct eigrp *eigrp;
-
-	int write = 0;
-
-	eigrp = eigrp_lookup();
-	if (eigrp != NULL) {
-		/* Writes 'router eigrp' section to config */
-		config_write_eigrp_router(vty, eigrp);
-
-		/* Interface config print */
-		config_write_interfaces(vty, eigrp);
-		//
-		//      /* static neighbor print. */
-		//      config_write_eigrp_nbr_nbma (vty, eigrp);
-		//
-		//      /* Virtual-Link print. */
-		//      config_write_virtual_link (vty, eigrp);
-		//
-		//      /* Default metric configuration.  */
-		//      config_write_eigrp_default_metric (vty, eigrp);
-		//
-		//      /* Distribute-list and default-information print. */
-		//      config_write_eigrp_distribute (vty, eigrp);
-		//
-		//      /* Distance configuration. */
-		//      config_write_eigrp_distance (vty, eigrp)
-	}
-
-	return write;
-}
-
-void eigrp_vty_show_init(void)
-{
-	install_element(VIEW_NODE, &show_ip_eigrp_interfaces_cmd);
-
-	install_element(VIEW_NODE, &show_ip_eigrp_neighbors_cmd);
-
-	install_element(VIEW_NODE, &show_ip_eigrp_topology_cmd);
-
-	install_element(VIEW_NODE, &show_ip_eigrp_topology_detail_cmd);
-}
-
-/* eigrpd's interface node. */
-static struct cmd_node eigrp_interface_node = {INTERFACE_NODE,
-					       "%s(config-if)# ", 1};
-
-void eigrp_vty_if_init(void)
-{
-	install_node(&eigrp_interface_node, eigrp_write_interface);
-	if_cmd_init();
-
-	/* Delay and bandwidth configuration commands*/
-	install_element(INTERFACE_NODE, &eigrp_if_delay_cmd);
-	install_element(INTERFACE_NODE, &no_eigrp_if_delay_cmd);
-	install_element(INTERFACE_NODE, &eigrp_if_bandwidth_cmd);
-	install_element(INTERFACE_NODE, &no_eigrp_if_bandwidth_cmd);
-
-	/*Hello-interval and hold-time interval configuration commands*/
-	install_element(INTERFACE_NODE, &eigrp_if_ip_holdinterval_cmd);
-	install_element(INTERFACE_NODE, &no_eigrp_if_ip_holdinterval_cmd);
-	install_element(INTERFACE_NODE, &eigrp_if_ip_hellointerval_cmd);
-	install_element(INTERFACE_NODE, &no_eigrp_if_ip_hellointerval_cmd);
-
-	/* "Authentication configuration commands */
-	install_element(INTERFACE_NODE, &eigrp_authentication_mode_cmd);
-	install_element(INTERFACE_NODE, &no_eigrp_authentication_mode_cmd);
-	install_element(INTERFACE_NODE, &eigrp_authentication_keychain_cmd);
-	install_element(INTERFACE_NODE, &no_eigrp_authentication_keychain_cmd);
-
-	/*EIGRP Summarization commands*/
-	install_element(INTERFACE_NODE, &eigrp_ip_summary_address_cmd);
-	install_element(INTERFACE_NODE, &no_eigrp_ip_summary_address_cmd);
-}
-
-static void eigrp_vty_zebra_init(void)
-{
-	install_element(EIGRP_NODE, &eigrp_redistribute_source_metric_cmd);
-	install_element(EIGRP_NODE, &no_eigrp_redistribute_source_metric_cmd);
-}
-
-/* Install EIGRP related vty commands. */
-void eigrp_vty_init(void)
-{
-	install_node(&eigrp_node, eigrp_config_write);
-
-	install_default(EIGRP_NODE);
-
-	install_element(CONFIG_NODE, &router_eigrp_cmd);
-	install_element(CONFIG_NODE, &no_router_eigrp_cmd);
-	install_element(EIGRP_NODE, &eigrp_network_cmd);
-	install_element(EIGRP_NODE, &no_eigrp_network_cmd);
-	install_element(EIGRP_NODE, &eigrp_variance_cmd);
-	install_element(EIGRP_NODE, &no_eigrp_variance_cmd);
-	install_element(EIGRP_NODE, &eigrp_router_id_cmd);
-	install_element(EIGRP_NODE, &no_eigrp_router_id_cmd);
-	install_element(EIGRP_NODE, &eigrp_passive_interface_cmd);
-	install_element(EIGRP_NODE, &no_eigrp_passive_interface_cmd);
-	install_element(EIGRP_NODE, &eigrp_timers_active_cmd);
-	install_element(EIGRP_NODE, &no_eigrp_timers_active_cmd);
-	install_element(EIGRP_NODE, &eigrp_metric_weights_cmd);
-	install_element(EIGRP_NODE, &no_eigrp_metric_weights_cmd);
-	install_element(EIGRP_NODE, &eigrp_maximum_paths_cmd);
-	install_element(EIGRP_NODE, &no_eigrp_maximum_paths_cmd);
-	install_element(EIGRP_NODE, &eigrp_neighbor_cmd);
-	install_element(EIGRP_NODE, &no_eigrp_neighbor_cmd);
-
-	/* commands for manual hard restart */
-	install_element(ENABLE_NODE, &clear_ip_eigrp_neighbors_cmd);
-	install_element(ENABLE_NODE, &clear_ip_eigrp_neighbors_int_cmd);
-	install_element(ENABLE_NODE, &clear_ip_eigrp_neighbors_IP_cmd);
-	/* commands for manual graceful restart */
-	install_element(ENABLE_NODE, &clear_ip_eigrp_neighbors_soft_cmd);
-	install_element(ENABLE_NODE, &clear_ip_eigrp_neighbors_int_soft_cmd);
-	install_element(ENABLE_NODE, &clear_ip_eigrp_neighbors_IP_soft_cmd);
-
-	eigrp_vty_zebra_init();
-}
+/**EIGRPVTYInterface.*Copyright(C)2013-2016*Authors:*DonnieSavage*JanJanovic*Mat
+ejPerina*PeterOrsag*PeterPaluch*FrantisekGazo*TomasHvorkovy*MartinKontsek*LukasK
+oribsky**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeita
+nd/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoft
+wareFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistr
+ibutedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwa
+rrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLi
+censeformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealon
+g*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.
+,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"memor
+y.h"#include"thread.h"#include"prefix.h"#include"table.h"#include"vty.h"#include
+"command.h"#include"plist.h"#include"log.h"#include"zclient.h"#include"keychain.
+h"#include"linklist.h"#include"distribute.h"#include"eigrpd/eigrp_structs.h"#inc
+lude"eigrpd/eigrpd.h"#include"eigrpd/eigrp_interface.h"#include"eigrpd/eigrp_nei
+ghbor.h"#include"eigrpd/eigrp_packet.h"#include"eigrpd/eigrp_zebra.h"#include"ei
+grpd/eigrp_vty.h"#include"eigrpd/eigrp_network.h"#include"eigrpd/eigrp_dump.h"#i
+nclude"eigrpd/eigrp_const.h"staticintconfig_write_network(structvty*vty,structei
+grp*eigrp){structroute_node*rn;inti;/*`networkarea'print.*/for(rn=route_top(eigr
+p->networks);rn;rn=route_next(rn))if(rn->info){/*Networkprint.*/vty_out(vty,"net
+work%s/%d\n",inet_ntoa(rn->p.u.prefix4),rn->p.prefixlen);}if(eigrp->max_paths!=E
+IGRP_MAX_PATHS_DEFAULT)vty_out(vty,"maximum-paths%d\n",eigrp->max_paths);if(eigr
+p->variance!=EIGRP_VARIANCE_DEFAULT)vty_out(vty,"variance%d\n",eigrp->variance);
+for(i=0;i<ZEBRA_ROUTE_MAX;i++)if(i!=zclient->redist_default&&vrf_bitmap_check(zc
+lient->redist[AFI_IP][i],VRF_DEFAULT))vty_out(vty,"redistribute%s\n",zebra_route
+_string(i));/*SeparateEIGRPconfigurationfromtherestoftheconfig*/vty_out(vty,"!\n
+");return0;}staticintconfig_write_interfaces(structvty*vty,structeigrp*eigrp){st
+ructeigrp_interface*ei;structlistnode*node;for(ALL_LIST_ELEMENTS_RO(eigrp->eifli
+st,node,ei)){vty_frame(vty,"interface%s\n",ei->ifp->name);if(ei->params.auth_typ
+e==EIGRP_AUTH_TYPE_MD5){vty_out(vty,"ipauthenticationmodeeigrp%dmd5\n",eigrp->AS
+);}if(ei->params.auth_type==EIGRP_AUTH_TYPE_SHA256){vty_out(vty,"ipauthenticatio
+nmodeeigrp%dhmac-sha-256\n",eigrp->AS);}if(ei->params.auth_keychain){vty_out(vty
+,"ipauthenticationkey-chaineigrp%d%s\n",eigrp->AS,ei->params.auth_keychain);}if(
+ei->params.v_hello!=EIGRP_HELLO_INTERVAL_DEFAULT){vty_out(vty,"iphello-intervale
+igrp%d\n",ei->params.v_hello);}if(ei->params.v_wait!=EIGRP_HOLD_INTERVAL_DEFAULT
+){vty_out(vty,"iphold-timeeigrp%d\n",ei->params.v_wait);}/*SeparatethisEIGRPinte
+rfaceconfigurationfromtheothers*/vty_endframe(vty,"!\n");}return0;}staticinteigr
+p_write_interface(structvty*vty){structvrf*vrf=vrf_lookup_by_id(VRF_DEFAULT);str
+uctinterface*ifp;structeigrp_interface*ei;FOR_ALL_INTERFACES(vrf,ifp){ei=ifp->in
+fo;if(!ei)continue;vty_frame(vty,"interface%s\n",ifp->name);if(ifp->desc)vty_out
+(vty,"description%s\n",ifp->desc);if(ei->params.bandwidth!=EIGRP_BANDWIDTH_DEFAU
+LT)vty_out(vty,"bandwidth%u\n",ei->params.bandwidth);if(ei->params.delay!=EIGRP_
+DELAY_DEFAULT)vty_out(vty,"delay%u\n",ei->params.delay);if(ei->params.v_hello!=E
+IGRP_HELLO_INTERVAL_DEFAULT)vty_out(vty,"iphello-intervaleigrp%u\n",ei->params.v
+_hello);if(ei->params.v_wait!=EIGRP_HOLD_INTERVAL_DEFAULT)vty_out(vty,"iphold-ti
+meeigrp%u\n",ei->params.v_wait);vty_endframe(vty,"!\n");}return0;}/***Writesdist
+ributeliststoconfig*/staticintconfig_write_eigrp_distribute(structvty*vty,struct
+eigrp*eigrp){intwrite=0;/*Distributeconfiguration.*/write+=config_write_distribu
+te(vty);returnwrite;}/***Writes'routereigrp'sectiontoconfig*/staticintconfig_wri
+te_eigrp_router(structvty*vty,structeigrp*eigrp){intwrite=0;/*`routereigrp'print
+.*/vty_out(vty,"routereigrp%d\n",eigrp->AS);write++;if(!eigrp->networks)returnwr
+ite;/*RouterIDprint.*/if(eigrp->router_id_static!=0){structin_addrrouter_id_stat
+ic;router_id_static.s_addr=htonl(eigrp->router_id_static);vty_out(vty,"eigrprout
+er-id%s\n",inet_ntoa(router_id_static));}/*Networkareaprint.*/config_write_netwo
+rk(vty,eigrp);/*Distribute-listanddefault-informationprint.*/config_write_eigrp_
+distribute(vty,eigrp);/*SeparateEIGRPconfigurationfromtherestoftheconfig*/vty_ou
+t(vty,"!\n");returnwrite;}DEFUN_NOSH(router_eigrp,router_eigrp_cmd,"routereigrp(
+1-65535)","Enablearoutingprocess\n""StartEIGRPconfiguration\n""ASNumbertouse\n")
+{structeigrp*eigrp=eigrp_get(argv[2]->arg);VTY_PUSH_CONTEXT(EIGRP_NODE,eigrp);re
+turnCMD_SUCCESS;}DEFUN(no_router_eigrp,no_router_eigrp_cmd,"noroutereigrp(1-6553
+5)",NO_STR"Routingprocess\n""EIGRPconfiguration\n""ASnumbertouse\n"){vty->node=C
+ONFIG_NODE;structeigrp*eigrp;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"E
+IGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}if(eigrp->AS!=atoi(argv[3]->
+arg)){vty_out(vty,"%%Attemptingtodeconfigurenon-existentAS\n");returnCMD_WARNING
+_CONFIG_FAILED;}eigrp_finish_final(eigrp);returnCMD_SUCCESS;}DEFUN(eigrp_router_
+id,eigrp_router_id_cmd,"eigrprouter-idA.B.C.D","EIGRPspecificcommands\n""RouterI
+DforthisEIGRPprocess\n""EIGRPRouter-IDinIPaddressformat\n"){//structeigrp*eigrp=
+vty->index;/*TODO:*/returnCMD_SUCCESS;}DEFUN(no_eigrp_router_id,no_eigrp_router_
+id_cmd,"noeigrprouter-idA.B.C.D",NO_STR"EIGRPspecificcommands\n""RouterIDforthis
+EIGRPprocess\n""EIGRPRouter-IDinIPaddressformat\n"){//structeigrp*eigrp=vty->ind
+ex;/*TODO:*/returnCMD_SUCCESS;}DEFUN(eigrp_passive_interface,eigrp_passive_inter
+face_cmd,"passive-interfaceIFNAME","Suppressroutingupdatesonaninterface\n""Inter
+facetosuppresson\n"){VTY_DECLVAR_CONTEXT(eigrp,eigrp);structeigrp_interface*ei;s
+tructlistnode*node;char*ifname=argv[1]->arg;for(ALL_LIST_ELEMENTS_RO(eigrp->eifl
+ist,node,ei)){if(strcmp(ifname,ei->ifp->name)==0){ei->params.passive_interface=E
+IGRP_IF_PASSIVE;returnCMD_SUCCESS;}}returnCMD_SUCCESS;}DEFUN(no_eigrp_passive_in
+terface,no_eigrp_passive_interface_cmd,"nopassive-interfaceIFNAME",NO_STR"Suppre
+ssroutingupdatesonaninterface\n""Interfacetosuppresson\n"){VTY_DECLVAR_CONTEXT(e
+igrp,eigrp);structeigrp_interface*ei;structlistnode*node;char*ifname=argv[2]->ar
+g;for(ALL_LIST_ELEMENTS_RO(eigrp->eiflist,node,ei)){if(strcmp(ifname,ei->ifp->na
+me)==0){ei->params.passive_interface=EIGRP_IF_ACTIVE;returnCMD_SUCCESS;}}returnC
+MD_SUCCESS;}DEFUN(eigrp_timers_active,eigrp_timers_active_cmd,"timersactive-time
+<(1-65535)|disabled>","Adjustroutingtimers\n""Timelimitforactivestate\n""Actives
+tatetimelimitinminutes\n""Disabletimelimitforactivestate\n"){//structeigrp*eigrp
+=vty->index;/*TODO:*/returnCMD_SUCCESS;}DEFUN(no_eigrp_timers_active,no_eigrp_ti
+mers_active_cmd,"notimersactive-time<(1-65535)|disabled>",NO_STR"Adjustroutingti
+mers\n""Timelimitforactivestate\n""Activestatetimelimitinminutes\n""Disabletimel
+imitforactivestate\n"){//structeigrp*eigrp=vty->index;/*TODO:*/returnCMD_SUCCESS
+;}DEFUN(eigrp_metric_weights,eigrp_metric_weights_cmd,"metricweights(0-255)(0-25
+5)(0-255)(0-255)(0-255)","Modifymetricsandparametersforadvertisement\n""Modifyme
+triccoefficients\n""K1\n""K2\n""K3\n""K4\n""K5\n"){//structeigrp*eigrp=vty->inde
+x;/*TODO:*/returnCMD_SUCCESS;}DEFUN(no_eigrp_metric_weights,no_eigrp_metric_weig
+hts_cmd,"nometricweights<0-255><0-255><0-255><0-255><0-255>",NO_STR"Modifymetric
+sandparametersforadvertisement\n""Modifymetriccoefficients\n""K1\n""K2\n""K3\n""
+K4\n""K5\n"){//structeigrp*eigrp=vty->index;/*TODO:*/returnCMD_SUCCESS;}DEFUN(ei
+grp_network,eigrp_network_cmd,"networkA.B.C.D/M","EnableroutingonanIPnetwork\n""
+EIGRPnetworkprefix\n"){VTY_DECLVAR_CONTEXT(eigrp,eigrp);structprefixp;intret;(vo
+id)str2prefix(argv[1]->arg,&p);ret=eigrp_network_set(eigrp,&p);if(ret==0){vty_ou
+t(vty,"Thereisalreadysamenetworkstatement.\n");returnCMD_WARNING;}returnCMD_SUCC
+ESS;}DEFUN(no_eigrp_network,no_eigrp_network_cmd,"nonetworkA.B.C.D/M",NO_STR"Dis
+ableroutingonanIPnetwork\n""EIGRPnetworkprefix\n"){VTY_DECLVAR_CONTEXT(eigrp,eig
+rp);structprefixp;intret;(void)str2prefix(argv[2]->arg,&p);ret=eigrp_network_uns
+et(eigrp,&p);if(ret==0){vty_out(vty,"Can'tfindspecifiednetworkconfiguration.\n")
+;returnCMD_WARNING_CONFIG_FAILED;}returnCMD_SUCCESS;}DEFUN(eigrp_neighbor,eigrp_
+neighbor_cmd,"neighborA.B.C.D","Specifyaneighborrouter\n""Neighboraddress\n"){//
+structeigrp*eigrp=vty->index;returnCMD_SUCCESS;}DEFUN(no_eigrp_neighbor,no_eigrp
+_neighbor_cmd,"noneighborA.B.C.D",NO_STR"Specifyaneighborrouter\n""Neighboraddre
+ss\n"){//structeigrp*eigrp=vty->index;returnCMD_SUCCESS;}DEFUN(show_ip_eigrp_top
+ology,show_ip_eigrp_topology_cmd,"showipeigrptopology[all-links]",SHOW_STRIP_STR
+"IP-EIGRPshowcommands\n""IP-EIGRPtopology\n""Showalllinksintopologytable\n"){str
+ucteigrp*eigrp;structlistnode*node;structeigrp_prefix_entry*tn;structeigrp_nexth
+op_entry*te;structroute_node*rn;intfirst;eigrp=eigrp_lookup();if(eigrp==NULL){vt
+y_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}show_ip_eigrp_to
+pology_header(vty,eigrp);for(rn=route_top(eigrp->topology_table);rn;rn=route_nex
+t(rn)){if(!rn->info)continue;tn=rn->info;first=1;for(ALL_LIST_ELEMENTS_RO(tn->en
+tries,node,te)){if(argc==5||(((te->flags&EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)==EI
+GRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)||((te->flags&EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FL
+AG)==EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG))){show_ip_eigrp_nexthop_entry(vty,eigr
+p,te,&first);first=0;}}}returnCMD_SUCCESS;}ALIAS(show_ip_eigrp_topology,show_ip_
+eigrp_topology_detail_cmd,"showipeigrptopology<A.B.C.D|A.B.C.D/M|detail|summary>
+",SHOW_STRIP_STR"IP-EIGRPshowcommands\n""IP-EIGRPtopology\n""Netwoktodisplayinfo
+rmationabout\n""IPprefix<network>/<length>,e.g.,192.168.0.0/16\n""Showalllinksin
+topologytable\n""Showasummaryofthetopologytable\n")DEFUN(show_ip_eigrp_interface
+s,show_ip_eigrp_interfaces_cmd,"showipeigrpinterfaces[IFNAME][detail]",SHOW_STRI
+P_STR"IP-EIGRPshowcommands\n""IP-EIGRPinterfaces\n""Interfacenametolookat\n""Det
+ailedinformation\n"){structeigrp_interface*ei;structeigrp*eigrp;structlistnode*n
+ode;intidx=0;booldetail=false;constchar*ifname=NULL;eigrp=eigrp_lookup();if(eigr
+p==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}if(ar
+gv_find(argv,argc,"IFNAME",&idx))ifname=argv[idx]->arg;if(argv_find(argv,argc,"d
+etail",&idx))detail=true;if(!ifname)show_ip_eigrp_interface_header(vty,eigrp);fo
+r(ALL_LIST_ELEMENTS_RO(eigrp->eiflist,node,ei)){if(!ifname||strcmp(ei->ifp->name
+,ifname)==0){show_ip_eigrp_interface_sub(vty,eigrp,ei);if(detail)show_ip_eigrp_i
+nterface_detail(vty,eigrp,ei);}}returnCMD_SUCCESS;}DEFUN(show_ip_eigrp_neighbors
+,show_ip_eigrp_neighbors_cmd,"showipeigrpneighbors[IFNAME][detail]",SHOW_STRIP_S
+TR"IP-EIGRPshowcommands\n""IP-EIGRPneighbors\n""Interfacetoshowon\n""DetailedInf
+ormation\n"){structeigrp*eigrp;structeigrp_interface*ei;structlistnode*node,*nod
+e2,*nnode2;structeigrp_neighbor*nbr;booldetail=false;intidx=0;constchar*ifname=N
+ULL;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenab
+led\n");returnCMD_SUCCESS;}if(argv_find(argv,argc,"IFNAME",&idx))ifname=argv[idx
+]->arg;detail=(argv_find(argv,argc,"detail",&idx));show_ip_eigrp_neighbor_header
+(vty,eigrp);for(ALL_LIST_ELEMENTS_RO(eigrp->eiflist,node,ei)){if(!ifname||strcmp
+(ei->ifp->name,ifname)==0){for(ALL_LIST_ELEMENTS(ei->nbrs,node2,nnode2,nbr)){if(
+detail||(nbr->state==EIGRP_NEIGHBOR_UP))show_ip_eigrp_neighbor_sub(vty,nbr,detai
+l);}}}returnCMD_SUCCESS;}DEFUN(eigrp_if_delay,eigrp_if_delay_cmd,"delay(1-167772
+15)","Specifyinterfacethroughputdelay\n""Throughputdelay(tensofmicroseconds)\n")
+{VTY_DECLVAR_CONTEXT(interface,ifp);structeigrp_interface*ei=ifp->info;structeig
+rp*eigrp;uint32_tdelay;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRo
+utingProcessnotenabled\n");returnCMD_SUCCESS;}if(!ei){vty_out(vty,"EIGRPnotconfi
+guredonthisinterface\n");returnCMD_SUCCESS;}delay=atoi(argv[1]->arg);ei->params.
+delay=delay;eigrp_if_reset(ifp);returnCMD_SUCCESS;}DEFUN(no_eigrp_if_delay,no_ei
+grp_if_delay_cmd,"nodelay(1-16777215)",NO_STR"Specifyinterfacethroughputdelay\n"
+"Throughputdelay(tensofmicroseconds)\n"){VTY_DECLVAR_CONTEXT(interface,ifp);stru
+cteigrp_interface*ei=ifp->info;structeigrp*eigrp;eigrp=eigrp_lookup();if(eigrp==
+NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}if(!ei){
+vty_out(vty,"EIGRPnotconfiguredonthisinterface\n");returnCMD_SUCCESS;}ei->params
+.delay=EIGRP_DELAY_DEFAULT;eigrp_if_reset(ifp);returnCMD_SUCCESS;}DEFUN(eigrp_if
+_bandwidth,eigrp_if_bandwidth_cmd,"eigrpbandwidth(1-10000000)","EIGRPspecificcom
+mands\n""Setbandwidthinformationalparameter\n""Bandwidthinkilobits\n"){VTY_DECLV
+AR_CONTEXT(interface,ifp);structeigrp_interface*ei=ifp->info;uint32_tbandwidth;s
+tructeigrp*eigrp;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingP
+rocessnotenabled\n");returnCMD_SUCCESS;}if(!ei){vty_out(vty,"EIGRPnotconfiguredo
+nthisinterface\n");returnCMD_SUCCESS;}bandwidth=atoi(argv[1]->arg);ei->params.ba
+ndwidth=bandwidth;eigrp_if_reset(ifp);returnCMD_SUCCESS;}DEFUN(no_eigrp_if_bandw
+idth,no_eigrp_if_bandwidth_cmd,"noeigrpbandwidth[(1-10000000)]",NO_STR"EIGRPspec
+ificcommands\n""Setbandwidthinformationalparameter\n""Bandwidthinkilobits\n"){VT
+Y_DECLVAR_CONTEXT(interface,ifp);structeigrp_interface*ei=ifp->info;structeigrp*
+eigrp;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnoten
+abled\n");returnCMD_SUCCESS;}if(!ei){vty_out(vty,"EIGRPnotconfiguredonthisinterf
+ace\n");returnCMD_SUCCESS;}ei->params.bandwidth=EIGRP_BANDWIDTH_DEFAULT;eigrp_if
+_reset(ifp);returnCMD_SUCCESS;}DEFUN(eigrp_if_ip_hellointerval,eigrp_if_ip_hello
+interval_cmd,"iphello-intervaleigrp(1-65535)","InterfaceInternetProtocolconfigco
+mmands\n""ConfiguresEIGRPhellointerval\n""EnhancedInteriorGatewayRoutingProtocol
+(EIGRP)\n""Secondsbetweenhellotransmissions\n"){VTY_DECLVAR_CONTEXT(interface,if
+p);structeigrp_interface*ei=ifp->info;uint32_thello;structeigrp*eigrp;eigrp=eigr
+p_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");return
+CMD_SUCCESS;}if(!ei){vty_out(vty,"EIGRPnotconfiguredonthisinterface\n");returnCM
+D_SUCCESS;}hello=atoi(argv[3]->arg);ei->params.v_hello=hello;returnCMD_SUCCESS;}
+DEFUN(no_eigrp_if_ip_hellointerval,no_eigrp_if_ip_hellointerval_cmd,"noiphello-i
+ntervaleigrp[(1-65535)]",NO_STR"InterfaceInternetProtocolconfigcommands\n""Confi
+guresEIGRPhellointerval\n""EnhancedInteriorGatewayRoutingProtocol(EIGRP)\n""Seco
+ndsbetweenhellotransmissions\n"){VTY_DECLVAR_CONTEXT(interface,ifp);structeigrp_
+interface*ei=ifp->info;structeigrp*eigrp;eigrp=eigrp_lookup();if(eigrp==NULL){vt
+y_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}if(!ei){vty_out(
+vty,"EIGRPnotconfiguredonthisinterface\n");returnCMD_SUCCESS;}ei->params.v_hello
+=EIGRP_HELLO_INTERVAL_DEFAULT;THREAD_TIMER_OFF(ei->t_hello);thread_add_timer(mas
+ter,eigrp_hello_timer,ei,1,&ei->t_hello);returnCMD_SUCCESS;}DEFUN(eigrp_if_ip_ho
+ldinterval,eigrp_if_ip_holdinterval_cmd,"iphold-timeeigrp(1-65535)","InterfaceIn
+ternetProtocolconfigcommands\n""ConfiguresEIGRPIPv4holdtime\n""EnhancedInteriorG
+atewayRoutingProtocol(EIGRP)\n""Secondsbeforeneighborisconsidereddown\n"){VTY_DE
+CLVAR_CONTEXT(interface,ifp);structeigrp_interface*ei=ifp->info;uint32_thold;str
+ucteigrp*eigrp;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingPro
+cessnotenabled\n");returnCMD_SUCCESS;}if(!ei){vty_out(vty,"EIGRPnotconfiguredont
+hisinterface\n");returnCMD_SUCCESS;}hold=atoi(argv[3]->arg);ei->params.v_wait=ho
+ld;returnCMD_SUCCESS;}DEFUN(eigrp_ip_summary_address,eigrp_ip_summary_address_cm
+d,"ipsummary-addresseigrp(1-65535)A.B.C.D/M","InterfaceInternetProtocolconfigcom
+mands\n""Performaddresssummarization\n""EnhancedInteriorGatewayRoutingProtocol(E
+IGRP)\n""ASnumber\n""Summary<network>/<length>,e.g.192.168.0.0/16\n"){//VTY_DECL
+VAR_CONTEXT(interface,ifp);//uint32_tAS;structeigrp*eigrp;eigrp=eigrp_lookup();i
+f(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;
+}//AS=atoi(argv[3]->arg);/*TODO:*/returnCMD_SUCCESS;}DEFUN(no_eigrp_ip_summary_a
+ddress,no_eigrp_ip_summary_address_cmd,"noipsummary-addresseigrp(1-65535)A.B.C.D
+/M",NO_STR"InterfaceInternetProtocolconfigcommands\n""Performaddresssummarizatio
+n\n""EnhancedInteriorGatewayRoutingProtocol(EIGRP)\n""ASnumber\n""Summary<networ
+k>/<length>,e.g.192.168.0.0/16\n"){//VTY_DECLVAR_CONTEXT(interface,ifp);//uint32
+_tAS;structeigrp*eigrp;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRo
+utingProcessnotenabled\n");returnCMD_SUCCESS;}//AS=atoi(argv[4]->arg);/*TODO:*/r
+eturnCMD_SUCCESS;}DEFUN(no_eigrp_if_ip_holdinterval,no_eigrp_if_ip_holdinterval_
+cmd,"noiphold-timeeigrp",NO_STR"InterfaceInternetProtocolconfigcommands\n""Confi
+guresEIGRPhellointerval\n""EnhancedInteriorGatewayRoutingProtocol(EIGRP)\n"){VTY
+_DECLVAR_CONTEXT(interface,ifp);structeigrp_interface*ei=ifp->info;structeigrp*e
+igrp;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotena
+bled\n");returnCMD_SUCCESS;}if(!ei){vty_out(vty,"EIGRPnotconfiguredonthisinterfa
+ce\n");returnCMD_SUCCESS;}ei->params.v_wait=EIGRP_HOLD_INTERVAL_DEFAULT;returnCM
+D_SUCCESS;}staticintstr2auth_type(constchar*str,structeigrp_interface*ei){/*Sani
+tycheck.*/if(str==NULL)returnCMD_WARNING_CONFIG_FAILED;if(strncmp(str,"md5",3)==
+0){ei->params.auth_type=EIGRP_AUTH_TYPE_MD5;returnCMD_SUCCESS;}elseif(strncmp(st
+r,"hmac-sha-256",12)==0){ei->params.auth_type=EIGRP_AUTH_TYPE_SHA256;returnCMD_S
+UCCESS;}returnCMD_WARNING_CONFIG_FAILED;}DEFUN(eigrp_authentication_mode,eigrp_a
+uthentication_mode_cmd,"ipauthenticationmodeeigrp(1-65535)<md5|hmac-sha-256>","I
+nterfaceInternetProtocolconfigcommands\n""Authenticationsubcommands\n""Mode\n""E
+nhancedInteriorGatewayRoutingProtocol(EIGRP)\n""Autonomoussystemnumber\n""Keyedm
+essagedigest\n""HMACSHA256algorithm\n"){VTY_DECLVAR_CONTEXT(interface,ifp);struc
+teigrp_interface*ei=ifp->info;structeigrp*eigrp;eigrp=eigrp_lookup();if(eigrp==N
+ULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}if(!ei){v
+ty_out(vty,"EIGRPnotconfiguredonthisinterface\n");returnCMD_SUCCESS;}//if(strncm
+p(argv[2],"md5",3))//IF_DEF_PARAMS(ifp)->auth_type=EIGRP_AUTH_TYPE_MD5;//elseif(
+strncmp(argv[2],"hmac-sha-256",12))//IF_DEF_PARAMS(ifp)->auth_type=EIGRP_AUTH_TY
+PE_SHA256;returnstr2auth_type(argv[5]->arg,ei);}DEFUN(no_eigrp_authentication_mo
+de,no_eigrp_authentication_mode_cmd,"noipauthenticationmodeeigrp(1-65535)<md5|hm
+ac-sha-256>","Disable\n""InterfaceInternetProtocolconfigcommands\n""Authenticati
+onsubcommands\n""Mode\n""EnhancedInteriorGatewayRoutingProtocol(EIGRP)\n""Autono
+moussystemnumber\n""Keyedmessagedigest\n""HMACSHA256algorithm\n"){VTY_DECLVAR_CO
+NTEXT(interface,ifp);structeigrp_interface*ei=ifp->info;structeigrp*eigrp;eigrp=
+eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");re
+turnCMD_SUCCESS;}if(!ei){vty_out(vty,"EIGRPnotconfiguredonthisinterface\n");retu
+rnCMD_SUCCESS;}ei->params.auth_type=EIGRP_AUTH_TYPE_NONE;returnCMD_SUCCESS;}DEFU
+N(eigrp_authentication_keychain,eigrp_authentication_keychain_cmd,"ipauthenticat
+ionkey-chaineigrp(1-65535)WORD","InterfaceInternetProtocolconfigcommands\n""Auth
+enticationsubcommands\n""Key-chain\n""EnhancedInteriorGatewayRoutingProtocol(EIG
+RP)\n""Autonomoussystemnumber\n""Nameofkey-chain\n"){VTY_DECLVAR_CONTEXT(interfa
+ce,ifp);structeigrp_interface*ei=ifp->info;structeigrp*eigrp;structkeychain*keyc
+hain;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotena
+bled\n");returnCMD_SUCCESS;}if(!ei){vty_out(vty,"EIGRPnotconfiguredonthisinterfa
+ce\n");returnCMD_SUCCESS;}keychain=keychain_lookup(argv[4]->arg);if(keychain!=NU
+LL){if(ei->params.auth_keychain){free(ei->params.auth_keychain);ei->params.auth_
+keychain=strdup(keychain->name);}elseei->params.auth_keychain=strdup(keychain->n
+ame);}elsevty_out(vty,"Keychainwithspecifiednamenotfound\n");returnCMD_SUCCESS;}
+DEFUN(no_eigrp_authentication_keychain,no_eigrp_authentication_keychain_cmd,"noi
+pauthenticationkey-chaineigrp(1-65535)WORD","Disable\n""InterfaceInternetProtoco
+lconfigcommands\n""Authenticationsubcommands\n""Key-chain\n""EnhancedInteriorGat
+ewayRoutingProtocol(EIGRP)\n""Autonomoussystemnumber\n""Nameofkey-chain\n"){VTY_
+DECLVAR_CONTEXT(interface,ifp);structeigrp_interface*ei=ifp->info;structeigrp*ei
+grp;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenab
+led\n");returnCMD_SUCCESS;}if(!ei){vty_out(vty,"EIGRPnotconfiguredonthisinterfac
+e\n");returnCMD_SUCCESS;}if((ei->params.auth_keychain!=NULL)&&(strcmp(ei->params
+.auth_keychain,argv[5]->arg)==0)){free(ei->params.auth_keychain);ei->params.auth
+_keychain=NULL;}elsevty_out(vty,"Keychainwithspecifiednamenotconfiguredoninterfa
+ce\n");returnCMD_SUCCESS;}DEFUN(eigrp_redistribute_source_metric,eigrp_redistrib
+ute_source_metric_cmd,"redistribute"FRR_REDIST_STR_EIGRPD"[metric(1-4294967295)(
+0-4294967295)(0-255)(1-255)(1-65535)]",REDIST_STRFRR_REDIST_HELP_STR_EIGRPD"Metr
+icforredistributedroutes\n""BandwidthmetricinKbitspersecond\n""EIGRPdelaymetric,
+in10microsecondunits\n""EIGRPreliabilitymetricwhere255is100%reliable2?\n""EIGRPE
+ffectivebandwidthmetric(Loading)where255is100%loaded\n""EIGRPMTUofthepath\n"){VT
+Y_DECLVAR_CONTEXT(eigrp,eigrp);structeigrp_metricsmetrics_from_command={0};intso
+urce;intidx=0;/*Getdistributesource.*/argv_find(argv,argc,"redistribute",&idx);s
+ource=proto_redistnum(AFI_IP,argv[idx+1]->text);if(source<0){vty_out(vty,"%%Inva
+lidroutetype\n");returnCMD_WARNING_CONFIG_FAILED;}/*Getmetricsvalues*/returneigr
+p_redistribute_set(eigrp,source,metrics_from_command);}DEFUN(no_eigrp_redistribu
+te_source_metric,no_eigrp_redistribute_source_metric_cmd,"noredistribute"FRR_RED
+IST_STR_EIGRPD"metric(1-4294967295)(0-4294967295)(0-255)(1-255)(1-65535)","Disab
+le\n"REDIST_STRFRR_REDIST_HELP_STR_EIGRPD"Metricforredistributedroutes\n""Bandwi
+dthmetricinKbitspersecond\n""EIGRPdelaymetric,in10microsecondunits\n""EIGRPrelia
+bilitymetricwhere255is100%reliable2?\n""EIGRPEffectivebandwidthmetric(Loading)wh
+ere255is100%loaded\n""EIGRPMTUofthepath\n"){VTY_DECLVAR_CONTEXT(eigrp,eigrp);int
+source;intidx=0;/*Getdistributesource.*/argv_find(argv,argc,"redistribute",&idx)
+;source=proto_redistnum(AFI_IP,argv[idx+1]->text);if(source<0){vty_out(vty,"%%In
+validroutetype\n");returnCMD_WARNING_CONFIG_FAILED;}/*Getmetricsvalues*/returnei
+grp_redistribute_unset(eigrp,source);}DEFUN(eigrp_variance,eigrp_variance_cmd,"v
+ariance(1-128)","Controlloadbalancingvariance\n""Metricvariancemultiplier\n"){st
+ructeigrp*eigrp;uint8_tvariance;eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty
+,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}variance=atoi(argv[1]->ar
+g);eigrp->variance=variance;/*TODO:*/returnCMD_SUCCESS;}DEFUN(no_eigrp_variance,
+no_eigrp_variance_cmd,"novariance(1-128)","Disable\n""Controlloadbalancingvarian
+ce\n""Metricvariancemultiplier\n"){structeigrp*eigrp;eigrp=eigrp_lookup();if(eig
+rp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}eigr
+p->variance=EIGRP_VARIANCE_DEFAULT;/*TODO:*/returnCMD_SUCCESS;}DEFUN(eigrp_maxim
+um_paths,eigrp_maximum_paths_cmd,"maximum-paths(1-32)","Forwardpacketsovermultip
+lepaths\n""Numberofpaths\n"){structeigrp*eigrp;uint8_tmax;eigrp=eigrp_lookup();i
+f(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;
+}max=atoi(argv[1]->arg);eigrp->max_paths=max;/*TODO:*/returnCMD_SUCCESS;}DEFUN(n
+o_eigrp_maximum_paths,no_eigrp_maximum_paths_cmd,"nomaximum-paths<1-32>",NO_STR"
+Forwardpacketsovermultiplepaths\n""Numberofpaths\n"){structeigrp*eigrp;eigrp=eig
+rp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");retur
+nCMD_SUCCESS;}eigrp->max_paths=EIGRP_MAX_PATHS_DEFAULT;/*TODO:*/returnCMD_SUCCES
+S;}/**Executehardrestartforallneighbors*/DEFUN(clear_ip_eigrp_neighbors,clear_ip
+_eigrp_neighbors_cmd,"clearipeigrpneighbors",CLEAR_STRIP_STR"ClearIP-EIGRP\n""Cl
+earIP-EIGRPneighbors\n"){structeigrp*eigrp;structeigrp_interface*ei;structlistno
+de*node,*node2,*nnode2;structeigrp_neighbor*nbr;/*Checkifeigrpprocessisenabled*/
+eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\
+n");returnCMD_SUCCESS;}/*iterateoveralleigrpinterfaces*/for(ALL_LIST_ELEMENTS_RO
+(eigrp->eiflist,node,ei)){/*sendGoodbyeHello*/eigrp_hello_send(ei,EIGRP_HELLO_GR
+ACEFUL_SHUTDOWN,NULL);/*iterateoverallneighborsoneigrpinterface*/for(ALL_LIST_EL
+EMENTS(ei->nbrs,node2,nnode2,nbr)){if(nbr->state!=EIGRP_NEIGHBOR_DOWN){zlog_debu
+g("Neighbor%s(%s)isdown:manuallycleared",inet_ntoa(nbr->src),ifindex2ifname(nbr-
+>ei->ifp->ifindex,VRF_DEFAULT));vty_time_print(vty,0);vty_out(vty,"Neighbor%s(%s
+)isdown:manuallycleared\n",inet_ntoa(nbr->src),ifindex2ifname(nbr->ei->ifp->ifin
+dex,VRF_DEFAULT));/*setneighbortoDOWN*/nbr->state=EIGRP_NEIGHBOR_DOWN;/*deletene
+ighbor*/eigrp_nbr_delete(nbr);}}}returnCMD_SUCCESS;}/**Executehardrestartforalln
+eighborsoninterface*/DEFUN(clear_ip_eigrp_neighbors_int,clear_ip_eigrp_neighbors
+_int_cmd,"clearipeigrpneighborsIFNAME",CLEAR_STRIP_STR"ClearIP-EIGRP\n""ClearIP-
+EIGRPneighbors\n""Interface'sname\n"){structeigrp*eigrp;structeigrp_interface*ei
+;structlistnode*node2,*nnode2;structeigrp_neighbor*nbr;intidx=0;/*Checkifeigrppr
+ocessisenabled*/eigrp=eigrp_lookup();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingPr
+ocessnotenabled\n");returnCMD_SUCCESS;}/*lookupinterfacebyspecifiedname*/argv_fi
+nd(argv,argc,"IFNAME",&idx);ei=eigrp_if_lookup_by_name(eigrp,argv[idx]->arg);if(
+ei==NULL){vty_out(vty,"Interface(%s)doesn'texist\n",argv[idx]->arg);returnCMD_WA
+RNING;}/*sendGoodbyeHello*/eigrp_hello_send(ei,EIGRP_HELLO_GRACEFUL_SHUTDOWN,NUL
+L);/*iterateoverallneighborsoneigrpinterface*/for(ALL_LIST_ELEMENTS(ei->nbrs,nod
+e2,nnode2,nbr)){if(nbr->state!=EIGRP_NEIGHBOR_DOWN){zlog_debug("Neighbor%s(%s)is
+down:manuallycleared",inet_ntoa(nbr->src),ifindex2ifname(nbr->ei->ifp->ifindex,V
+RF_DEFAULT));vty_time_print(vty,0);vty_out(vty,"Neighbor%s(%s)isdown:manuallycle
+ared\n",inet_ntoa(nbr->src),ifindex2ifname(nbr->ei->ifp->ifindex,VRF_DEFAULT));/
+*setneighbortoDOWN*/nbr->state=EIGRP_NEIGHBOR_DOWN;/*deleteneighbor*/eigrp_nbr_d
+elete(nbr);}}returnCMD_SUCCESS;}/**ExecutehardrestartforneighborspecifiedbyIP*/D
+EFUN(clear_ip_eigrp_neighbors_IP,clear_ip_eigrp_neighbors_IP_cmd,"clearipeigrpne
+ighborsA.B.C.D",CLEAR_STRIP_STR"ClearIP-EIGRP\n""ClearIP-EIGRPneighbors\n""IP-EI
+GRPneighboraddress\n"){structeigrp*eigrp;structeigrp_neighbor*nbr;structin_addrn
+br_addr;if(!inet_aton(argv[4]->arg,&nbr_addr)){vty_out(vty,"Unabletoparse%s",arg
+v[4]->arg);returnCMD_WARNING;}/*Checkifeigrpprocessisenabled*/eigrp=eigrp_lookup
+();if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCC
+ESS;}/*lookupneighborinwholeprocess*/nbr=eigrp_nbr_lookup_by_addr_process(eigrp,
+nbr_addr);/*ifneighbordoesn'texists,notifyuserandexit*/if(nbr==NULL){vty_out(vty
+,"Neighborwithenteredaddressdoesn'texists.\n");returnCMD_WARNING;}/*executehardr
+esetonneighbor*/eigrp_nbr_hard_restart(nbr,vty);returnCMD_SUCCESS;}/**Executegra
+cefulrestartforallneighbors*/DEFUN(clear_ip_eigrp_neighbors_soft,clear_ip_eigrp_
+neighbors_soft_cmd,"clearipeigrpneighborssoft",CLEAR_STRIP_STR"ClearIP-EIGRP\n""
+ClearIP-EIGRPneighbors\n""Resyncwithpeerswithoutadjacencyreset\n"){structeigrp*e
+igrp;/*Checkifeigrpprocessisenabled*/eigrp=eigrp_lookup();if(eigrp==NULL){vty_ou
+t(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}/*executegracefulres
+tartonallneighbors*/eigrp_update_send_process_GR(eigrp,EIGRP_GR_MANUAL,vty);retu
+rnCMD_SUCCESS;}/**Executegracefulrestartforallneighborsoninterface*/DEFUN(clear_
+ip_eigrp_neighbors_int_soft,clear_ip_eigrp_neighbors_int_soft_cmd,"clearipeigrpn
+eighborsIFNAMEsoft",CLEAR_STRIP_STR"ClearIP-EIGRP\n""ClearIP-EIGRPneighbors\n""I
+nterface'sname\n""Resyncwithpeerwithoutadjacencyreset\n"){structeigrp*eigrp;stru
+cteigrp_interface*ei;/*Checkifeigrpprocessisenabled*/eigrp=eigrp_lookup();if(eig
+rp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS;}/*lo
+okupinterfacebyspecifiedname*/ei=eigrp_if_lookup_by_name(eigrp,argv[4]->arg);if(
+ei==NULL){vty_out(vty,"Interface(%s)doesn'texist\n",argv[4]->arg);returnCMD_WARN
+ING;}/*executegracefulrestartforallneighborsoninterface*/eigrp_update_send_inter
+face_GR(ei,EIGRP_GR_MANUAL,vty);returnCMD_SUCCESS;}/**Executegracefulrestartforn
+eighborspecifiedbyIP*/DEFUN(clear_ip_eigrp_neighbors_IP_soft,clear_ip_eigrp_neig
+hbors_IP_soft_cmd,"clearipeigrpneighborsA.B.C.Dsoft",CLEAR_STRIP_STR"ClearIP-EIG
+RP\n""ClearIP-EIGRPneighbors\n""IP-EIGRPneighboraddress\n""Resyncwithpeerwithout
+adjacencyreset\n"){structeigrp*eigrp;structeigrp_neighbor*nbr;structin_addrnbr_a
+ddr;if(!inet_aton(argv[4]->arg,&nbr_addr)){vty_out(vty,"Unabletoparse:%s",argv[4
+]->arg);returnCMD_WARNING;}/*Checkifeigrpprocessisenabled*/eigrp=eigrp_lookup();
+if(eigrp==NULL){vty_out(vty,"EIGRPRoutingProcessnotenabled\n");returnCMD_SUCCESS
+;}/*lookupneighborinwholeprocess*/nbr=eigrp_nbr_lookup_by_addr_process(eigrp,nbr
+_addr);/*ifneighbordoesn'texists,notifyuserandexit*/if(nbr==NULL){vty_out(vty,"N
+eighborwithenteredaddressdoesn'texists.\n");returnCMD_WARNING;}/*executegraceful
+restartonneighbor*/eigrp_update_send_GR(nbr,EIGRP_GR_MANUAL,vty);returnCMD_SUCCE
+SS;}staticstructcmd_nodeeigrp_node={EIGRP_NODE,"%s(config-router)#",1};/*SaveEIG
+RPconfiguration*/staticinteigrp_config_write(structvty*vty){structeigrp*eigrp;in
+twrite=0;eigrp=eigrp_lookup();if(eigrp!=NULL){/*Writes'routereigrp'sectiontoconf
+ig*/config_write_eigrp_router(vty,eigrp);/*Interfaceconfigprint*/config_write_in
+terfaces(vty,eigrp);/////*staticneighborprint.*///config_write_eigrp_nbr_nbma(vt
+y,eigrp);/////*Virtual-Linkprint.*///config_write_virtual_link(vty,eigrp);/////*
+Defaultmetricconfiguration.*///config_write_eigrp_default_metric(vty,eigrp);////
+/*Distribute-listanddefault-informationprint.*///config_write_eigrp_distribute(v
+ty,eigrp);/////*Distanceconfiguration.*///config_write_eigrp_distance(vty,eigrp)
+}returnwrite;}voideigrp_vty_show_init(void){install_element(VIEW_NODE,&show_ip_e
+igrp_interfaces_cmd);install_element(VIEW_NODE,&show_ip_eigrp_neighbors_cmd);ins
+tall_element(VIEW_NODE,&show_ip_eigrp_topology_cmd);install_element(VIEW_NODE,&s
+how_ip_eigrp_topology_detail_cmd);}/*eigrpd'sinterfacenode.*/staticstructcmd_nod
+eeigrp_interface_node={INTERFACE_NODE,"%s(config-if)#",1};voideigrp_vty_if_init(
+void){install_node(&eigrp_interface_node,eigrp_write_interface);if_cmd_init();/*
+Delayandbandwidthconfigurationcommands*/install_element(INTERFACE_NODE,&eigrp_if
+_delay_cmd);install_element(INTERFACE_NODE,&no_eigrp_if_delay_cmd);install_eleme
+nt(INTERFACE_NODE,&eigrp_if_bandwidth_cmd);install_element(INTERFACE_NODE,&no_ei
+grp_if_bandwidth_cmd);/*Hello-intervalandhold-timeintervalconfigurationcommands*
+/install_element(INTERFACE_NODE,&eigrp_if_ip_holdinterval_cmd);install_element(I
+NTERFACE_NODE,&no_eigrp_if_ip_holdinterval_cmd);install_element(INTERFACE_NODE,&
+eigrp_if_ip_hellointerval_cmd);install_element(INTERFACE_NODE,&no_eigrp_if_ip_he
+llointerval_cmd);/*"Authenticationconfigurationcommands*/install_element(INTERFA
+CE_NODE,&eigrp_authentication_mode_cmd);install_element(INTERFACE_NODE,&no_eigrp
+_authentication_mode_cmd);install_element(INTERFACE_NODE,&eigrp_authentication_k
+eychain_cmd);install_element(INTERFACE_NODE,&no_eigrp_authentication_keychain_cm
+d);/*EIGRPSummarizationcommands*/install_element(INTERFACE_NODE,&eigrp_ip_summar
+y_address_cmd);install_element(INTERFACE_NODE,&no_eigrp_ip_summary_address_cmd);
+}staticvoideigrp_vty_zebra_init(void){install_element(EIGRP_NODE,&eigrp_redistri
+bute_source_metric_cmd);install_element(EIGRP_NODE,&no_eigrp_redistribute_source
+_metric_cmd);}/*InstallEIGRPrelatedvtycommands.*/voideigrp_vty_init(void){instal
+l_node(&eigrp_node,eigrp_config_write);install_default(EIGRP_NODE);install_eleme
+nt(CONFIG_NODE,&router_eigrp_cmd);install_element(CONFIG_NODE,&no_router_eigrp_c
+md);install_element(EIGRP_NODE,&eigrp_network_cmd);install_element(EIGRP_NODE,&n
+o_eigrp_network_cmd);install_element(EIGRP_NODE,&eigrp_variance_cmd);install_ele
+ment(EIGRP_NODE,&no_eigrp_variance_cmd);install_element(EIGRP_NODE,&eigrp_router
+_id_cmd);install_element(EIGRP_NODE,&no_eigrp_router_id_cmd);install_element(EIG
+RP_NODE,&eigrp_passive_interface_cmd);install_element(EIGRP_NODE,&no_eigrp_passi
+ve_interface_cmd);install_element(EIGRP_NODE,&eigrp_timers_active_cmd);install_e
+lement(EIGRP_NODE,&no_eigrp_timers_active_cmd);install_element(EIGRP_NODE,&eigrp
+_metric_weights_cmd);install_element(EIGRP_NODE,&no_eigrp_metric_weights_cmd);in
+stall_element(EIGRP_NODE,&eigrp_maximum_paths_cmd);install_element(EIGRP_NODE,&n
+o_eigrp_maximum_paths_cmd);install_element(EIGRP_NODE,&eigrp_neighbor_cmd);insta
+ll_element(EIGRP_NODE,&no_eigrp_neighbor_cmd);/*commandsformanualhardrestart*/in
+stall_element(ENABLE_NODE,&clear_ip_eigrp_neighbors_cmd);install_element(ENABLE_
+NODE,&clear_ip_eigrp_neighbors_int_cmd);install_element(ENABLE_NODE,&clear_ip_ei
+grp_neighbors_IP_cmd);/*commandsformanualgracefulrestart*/install_element(ENABLE
+_NODE,&clear_ip_eigrp_neighbors_soft_cmd);install_element(ENABLE_NODE,&clear_ip_
+eigrp_neighbors_int_soft_cmd);install_element(ENABLE_NODE,&clear_ip_eigrp_neighb
+ors_IP_soft_cmd);eigrp_vty_zebra_init();}

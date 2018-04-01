@@ -1,310 +1,107 @@
-/*	$OpenBSD$ */
-
-/*
- * Copyright (c) 2013, 2016 Renato Westphal <renato@openbsd.org>
- * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
- * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-#ifndef _LDPE_H_
-#define _LDPE_H_
-
-#include "queue.h"
-#include "openbsd-tree.h"
-#ifdef __OpenBSD__
-#include <net/pfkeyv2.h>
-#endif
-
-#include "ldpd.h"
-
-#define min(x,y) ((x) <= (y) ? (x) : (y))
-#define max(x,y) ((x) > (y) ? (x) : (y))
-
-/* forward declarations */
-TAILQ_HEAD(mapping_head, mapping_entry);
-
-struct hello_source {
-	enum hello_type		 type;
-	struct {
-		struct iface_af	*ia;
-		union ldpd_addr	 src_addr;
-	} link;
-	struct tnbr		*target;
-};
-
-struct adj {
-	RB_ENTRY(adj)		 global_entry, nbr_entry, ia_entry;
-	struct in_addr		 lsr_id;
-	struct nbr		*nbr;
-	int			 ds_tlv;
-	struct hello_source	 source;
-	struct thread		*inactivity_timer;
-	uint16_t		 holdtime;
-	union ldpd_addr		 trans_addr;
-};
-RB_PROTOTYPE(global_adj_head, adj, global_entry, adj_compare)
-RB_PROTOTYPE(nbr_adj_head, adj, nbr_entry, adj_compare)
-RB_PROTOTYPE(ia_adj_head, adj, ia_entry, adj_compare)
-
-struct tcp_conn {
-	struct nbr		*nbr;
-	int			 fd;
-	struct ibuf_read	*rbuf;
-	struct evbuf		 wbuf;
-	struct thread		*rev;
-	in_port_t		 lport;
-	in_port_t		 rport;
-};
-
-struct nbr {
-	RB_ENTRY(nbr)		 id_tree, addr_tree, pid_tree;
-	struct tcp_conn		*tcp;
-	struct nbr_adj_head	 adj_tree;	/* adjacencies */
-	struct thread		*ev_connect;
-	struct thread		*keepalive_timer;
-	struct thread		*keepalive_timeout;
-	struct thread		*init_timeout;
-	struct thread		*initdelay_timer;
-
-	struct mapping_head	 mapping_list;
-	struct mapping_head	 withdraw_list;
-	struct mapping_head	 request_list;
-	struct mapping_head	 release_list;
-	struct mapping_head	 abortreq_list;
-
-	uint32_t		 peerid;	/* unique ID in DB */
-	int			 af;
-	int			 ds_tlv;
-	int			 v4_enabled;	/* announce/process v4 msgs */
-	int			 v6_enabled;	/* announce/process v6 msgs */
-	struct in_addr		 id;		/* lsr id */
-	union ldpd_addr		 laddr;		/* local address */
-	union ldpd_addr		 raddr;		/* remote address */
-	uint32_t		 raddr_scope;	/* remote address scope (v6) */
-	time_t			 uptime;
-	int			 fd;
-	int			 state;
-	uint32_t		 conf_seqnum;
-	int			 idtimer_cnt;
-	uint16_t		 keepalive;
-	uint16_t		 max_pdu_len;
-	struct ldp_stats	 stats;
-
-	struct {
-		uint8_t			established;
-		uint32_t		spi_in;
-		uint32_t		spi_out;
-		enum auth_method	method;
-		char			md5key[TCP_MD5_KEY_LEN];
-	} auth;
-	int			 flags;
-};
-#define F_NBR_GTSM_NEGOTIATED	 0x01
-#define F_NBR_CAP_DYNAMIC	 0x02
-#define F_NBR_CAP_TWCARD	 0x04
-#define F_NBR_CAP_UNOTIF	 0x08
-
-RB_HEAD(nbr_id_head, nbr);
-RB_PROTOTYPE(nbr_id_head, nbr, id_tree, nbr_id_compare)
-RB_HEAD(nbr_addr_head, nbr);
-RB_PROTOTYPE(nbr_addr_head, nbr, addr_tree, nbr_addr_compare)
-RB_HEAD(nbr_pid_head, nbr);
-RB_PROTOTYPE(nbr_pid_head, nbr, pid_tree, nbr_pid_compare)
-
-struct pending_conn {
-	TAILQ_ENTRY(pending_conn)	 entry;
-	int				 fd;
-	int				 af;
-	union ldpd_addr			 addr;
-	struct thread			*ev_timeout;
-};
-#define PENDING_CONN_TIMEOUT	5
-
-struct mapping_entry {
-	TAILQ_ENTRY(mapping_entry)	entry;
-	struct map			map;
-};
-
-struct ldpd_sysdep {
-	uint8_t		no_pfkey;
-	uint8_t		no_md5sig;
-};
-
-extern struct ldpd_conf		*leconf;
-extern struct ldpd_sysdep	 sysdep;
-extern struct nbr_id_head	 nbrs_by_id;
-extern struct nbr_addr_head	 nbrs_by_addr;
-extern struct nbr_pid_head	 nbrs_by_pid;
-
-/* accept.c */
-void	accept_init(void);
-int	accept_add(int, int (*)(struct thread *), void *);
-void	accept_del(int);
-void	accept_pause(void);
-void	accept_unpause(void);
-
-/* hello.c */
-int	 send_hello(enum hello_type, struct iface_af *, struct tnbr *);
-void	 recv_hello(struct in_addr, struct ldp_msg *, int, union ldpd_addr *,
-	    struct iface *, int, char *, uint16_t);
-
-/* init.c */
-void	 send_init(struct nbr *);
-int	 recv_init(struct nbr *, char *, uint16_t);
-void	 send_capability(struct nbr *, uint16_t, int);
-int	 recv_capability(struct nbr *, char *, uint16_t);
-
-/* keepalive.c */
-void	 send_keepalive(struct nbr *);
-int	 recv_keepalive(struct nbr *, char *, uint16_t);
-
-/* notification.c */
-void	 send_notification_full(struct tcp_conn *, struct notify_msg *);
-void	 send_notification(struct tcp_conn *, uint32_t, uint32_t, uint16_t);
-void	 send_notification_rtlvs(struct nbr *, uint32_t, uint32_t, uint16_t,
-	    uint16_t, uint16_t, char *);
-int	 recv_notification(struct nbr *, char *, uint16_t);
-int	 gen_status_tlv(struct ibuf *, uint32_t, uint32_t, uint16_t);
-
-/* address.c */
-void	 send_address_single(struct nbr *, struct if_addr *, int);
-void	 send_address_all(struct nbr *, int);
-void	 send_mac_withdrawal(struct nbr *, struct map *, uint8_t *);
-int	 recv_address(struct nbr *, char *, uint16_t);
-
-/* labelmapping.c */
-#define PREFIX_SIZE(x)	(((x) + 7) / 8)
-void	 send_labelmessage(struct nbr *, uint16_t, struct mapping_head *);
-int	 recv_labelmessage(struct nbr *, char *, uint16_t, uint16_t);
-int	 gen_pw_status_tlv(struct ibuf *, uint32_t);
-uint16_t len_fec_tlv(struct map *);
-int	 gen_fec_tlv(struct ibuf *, struct map *);
-int	 tlv_decode_fec_elm(struct nbr *, struct ldp_msg *, char *,
-	    uint16_t, struct map *);
-
-/* ldpe.c */
-void		 ldpe(void);
-void		 ldpe_init(struct ldpd_init *);
-int		 ldpe_imsg_compose_parent(int, pid_t, void *,
-		    uint16_t);
-void		 ldpe_imsg_compose_parent_sync(int, pid_t, void *, uint16_t);
-int		 ldpe_imsg_compose_lde(int, uint32_t, pid_t, void *,
-		    uint16_t);
-int		 ldpe_acl_check(char *, int, union ldpd_addr *, uint8_t);
-void		 ldpe_reset_nbrs(int);
-void		 ldpe_reset_ds_nbrs(void);
-void		 ldpe_remove_dynamic_tnbrs(int);
-void		 ldpe_stop_init_backoff(int);
-struct ctl_conn;
-void		 ldpe_iface_ctl(struct ctl_conn *, unsigned int);
-void		 ldpe_adj_ctl(struct ctl_conn *);
-void		 ldpe_adj_detail_ctl(struct ctl_conn *);
-void		 ldpe_nbr_ctl(struct ctl_conn *);
-void		 mapping_list_add(struct mapping_head *, struct map *);
-void		 mapping_list_clr(struct mapping_head *);
-
-/* interface.c */
-struct iface	*if_new(const char *);
-void		 ldpe_if_init(struct iface *);
-void		 ldpe_if_exit(struct iface *);
-struct iface	*if_lookup(struct ldpd_conf *, unsigned short);
-struct iface	*if_lookup_name(struct ldpd_conf *, const char *);
-void		 if_update_info(struct iface *, struct kif *);
-struct iface_af *iface_af_get(struct iface *, int);
-void		 if_addr_add(struct kaddr *);
-void		 if_addr_del(struct kaddr *);
-void		 ldp_if_update(struct iface *, int);
-void		 if_update_all(int);
-uint16_t	 if_get_hello_holdtime(struct iface_af *);
-uint16_t	 if_get_hello_interval(struct iface_af *);
-struct ctl_iface *if_to_ctl(struct iface_af *);
-in_addr_t	 if_get_ipv4_addr(struct iface *);
-
-/* adjacency.c */
-struct adj	*adj_new(struct in_addr, struct hello_source *,
-		    union ldpd_addr *);
-void		 adj_del(struct adj *, uint32_t);
-struct adj	*adj_find(struct in_addr, struct hello_source *);
-int		 adj_get_af(const struct adj *adj);
-void		 adj_start_itimer(struct adj *);
-void		 adj_stop_itimer(struct adj *);
-struct tnbr	*tnbr_new(int, union ldpd_addr *);
-struct tnbr	*tnbr_find(struct ldpd_conf *, int, union ldpd_addr *);
-struct tnbr	*tnbr_check(struct ldpd_conf *, struct tnbr *);
-void		 tnbr_update(struct tnbr *);
-void		 tnbr_update_all(int);
-uint16_t	 tnbr_get_hello_holdtime(struct tnbr *);
-uint16_t	 tnbr_get_hello_interval(struct tnbr *);
-struct ctl_adj	*adj_to_ctl(struct adj *);
-
-/* neighbor.c */
-int			 nbr_fsm(struct nbr *, enum nbr_event);
-struct nbr		*nbr_new(struct in_addr, int, int, union ldpd_addr *,
-			    uint32_t);
-void			 nbr_del(struct nbr *);
-struct nbr		*nbr_find_ldpid(uint32_t);
-struct nbr		*nbr_find_addr(int, union ldpd_addr *);
-struct nbr		*nbr_find_peerid(uint32_t);
-int			 nbr_adj_count(struct nbr *, int);
-int			 nbr_session_active_role(struct nbr *);
-void			 nbr_stop_ktimer(struct nbr *);
-void			 nbr_stop_ktimeout(struct nbr *);
-void			 nbr_stop_itimeout(struct nbr *);
-void			 nbr_start_idtimer(struct nbr *);
-void			 nbr_stop_idtimer(struct nbr *);
-int			 nbr_pending_idtimer(struct nbr *);
-int			 nbr_pending_connect(struct nbr *);
-int			 nbr_establish_connection(struct nbr *);
-int			 nbr_gtsm_enabled(struct nbr *, struct nbr_params *);
-int			 nbr_gtsm_setup(int, int, struct nbr_params *);
-int			 nbr_gtsm_check(int, struct nbr *, struct nbr_params *);
-struct nbr_params	*nbr_params_new(struct in_addr);
-struct nbr_params	*nbr_params_find(struct ldpd_conf *, struct in_addr);
-uint16_t		 nbr_get_keepalive(int, struct in_addr);
-struct ctl_nbr		*nbr_to_ctl(struct nbr *);
-void			 nbr_clear_ctl(struct ctl_nbr *);
-
-/* packet.c */
-int			 gen_ldp_hdr(struct ibuf *, uint16_t);
-int			 gen_msg_hdr(struct ibuf *, uint16_t, uint16_t);
-int			 send_packet(int, int, union ldpd_addr *,
-			    struct iface_af *, void *, size_t);
-int			 disc_recv_packet(struct thread *);
-int			 session_accept(struct thread *);
-void			 session_accept_nbr(struct nbr *, int);
-void			 session_shutdown(struct nbr *, uint32_t, uint32_t,
-			    uint32_t);
-void			 session_close(struct nbr *);
-struct tcp_conn		*tcp_new(int, struct nbr *);
-void			 pending_conn_del(struct pending_conn *);
-struct pending_conn	*pending_conn_find(int, union ldpd_addr *);
-
-char	*pkt_ptr;	/* packet buffer */
-
-/* pfkey.c */
-#ifdef __OpenBSD__
-int	pfkey_read(int, struct sadb_msg *);
-int	pfkey_establish(struct nbr *, struct nbr_params *);
-int	pfkey_remove(struct nbr *);
-int	pfkey_init(void);
-#endif
-
-/* l2vpn.c */
-void	ldpe_l2vpn_init(struct l2vpn *);
-void	ldpe_l2vpn_exit(struct l2vpn *);
-void	ldpe_l2vpn_pw_init(struct l2vpn_pw *);
-void	ldpe_l2vpn_pw_exit(struct l2vpn_pw *);
-
-#endif	/* _LDPE_H_ */
+/*$OpenBSD$*//**Copyright(c)2013,2016RenatoWestphal<renato@openbsd.org>*Copyrigh
+t(c)2009MicheleMarchetto<michele@openbsd.org>*Copyright(c)2004,2005,2008EsbenNor
+by<norby@openbsd.org>**Permissiontouse,copy,modify,anddistributethissoftwarefora
+ny*purposewithorwithoutfeeisherebygranted,providedthattheabove*copyrightnoticean
+dthispermissionnoticeappearinallcopies.**THESOFTWAREISPROVIDED"ASIS"ANDTHEAUTHOR
+DISCLAIMSALLWARRANTIES*WITHREGARDTOTHISSOFTWAREINCLUDINGALLIMPLIEDWARRANTIESOF*M
+ERCHANTABILITYANDFITNESS.INNOEVENTSHALLTHEAUTHORBELIABLEFOR*ANYSPECIAL,DIRECT,IN
+DIRECT,ORCONSEQUENTIALDAMAGESORANYDAMAGES*WHATSOEVERRESULTINGFROMLOSSOFUSE,DATAO
+RPROFITS,WHETHERINAN*ACTIONOFCONTRACT,NEGLIGENCEOROTHERTORTIOUSACTION,ARISINGOUT
+OF*ORINCONNECTIONWITHTHEUSEORPERFORMANCEOFTHISSOFTWARE.*/#ifndef_LDPE_H_#define_
+LDPE_H_#include"queue.h"#include"openbsd-tree.h"#ifdef__OpenBSD__#include<net/pf
+keyv2.h>#endif#include"ldpd.h"#definemin(x,y)((x)<=(y)?(x):(y))#definemax(x,y)((
+x)>(y)?(x):(y))/*forwarddeclarations*/TAILQ_HEAD(mapping_head,mapping_entry);str
+ucthello_source{enumhello_typetype;struct{structiface_af*ia;unionldpd_addrsrc_ad
+dr;}link;structtnbr*target;};structadj{RB_ENTRY(adj)global_entry,nbr_entry,ia_en
+try;structin_addrlsr_id;structnbr*nbr;intds_tlv;structhello_sourcesource;structt
+hread*inactivity_timer;uint16_tholdtime;unionldpd_addrtrans_addr;};RB_PROTOTYPE(
+global_adj_head,adj,global_entry,adj_compare)RB_PROTOTYPE(nbr_adj_head,adj,nbr_e
+ntry,adj_compare)RB_PROTOTYPE(ia_adj_head,adj,ia_entry,adj_compare)structtcp_con
+n{structnbr*nbr;intfd;structibuf_read*rbuf;structevbufwbuf;structthread*rev;in_p
+ort_tlport;in_port_trport;};structnbr{RB_ENTRY(nbr)id_tree,addr_tree,pid_tree;st
+ructtcp_conn*tcp;structnbr_adj_headadj_tree;/*adjacencies*/structthread*ev_conne
+ct;structthread*keepalive_timer;structthread*keepalive_timeout;structthread*init
+_timeout;structthread*initdelay_timer;structmapping_headmapping_list;structmappi
+ng_headwithdraw_list;structmapping_headrequest_list;structmapping_headrelease_li
+st;structmapping_headabortreq_list;uint32_tpeerid;/*uniqueIDinDB*/intaf;intds_tl
+v;intv4_enabled;/*announce/processv4msgs*/intv6_enabled;/*announce/processv6msgs
+*/structin_addrid;/*lsrid*/unionldpd_addrladdr;/*localaddress*/unionldpd_addrrad
+dr;/*remoteaddress*/uint32_traddr_scope;/*remoteaddressscope(v6)*/time_tuptime;i
+ntfd;intstate;uint32_tconf_seqnum;intidtimer_cnt;uint16_tkeepalive;uint16_tmax_p
+du_len;structldp_statsstats;struct{uint8_testablished;uint32_tspi_in;uint32_tspi
+_out;enumauth_methodmethod;charmd5key[TCP_MD5_KEY_LEN];}auth;intflags;};#defineF
+_NBR_GTSM_NEGOTIATED0x01#defineF_NBR_CAP_DYNAMIC0x02#defineF_NBR_CAP_TWCARD0x04#
+defineF_NBR_CAP_UNOTIF0x08RB_HEAD(nbr_id_head,nbr);RB_PROTOTYPE(nbr_id_head,nbr,
+id_tree,nbr_id_compare)RB_HEAD(nbr_addr_head,nbr);RB_PROTOTYPE(nbr_addr_head,nbr
+,addr_tree,nbr_addr_compare)RB_HEAD(nbr_pid_head,nbr);RB_PROTOTYPE(nbr_pid_head,
+nbr,pid_tree,nbr_pid_compare)structpending_conn{TAILQ_ENTRY(pending_conn)entry;i
+ntfd;intaf;unionldpd_addraddr;structthread*ev_timeout;};#definePENDING_CONN_TIME
+OUT5structmapping_entry{TAILQ_ENTRY(mapping_entry)entry;structmapmap;};structldp
+d_sysdep{uint8_tno_pfkey;uint8_tno_md5sig;};externstructldpd_conf*leconf;externs
+tructldpd_sysdepsysdep;externstructnbr_id_headnbrs_by_id;externstructnbr_addr_he
+adnbrs_by_addr;externstructnbr_pid_headnbrs_by_pid;/*accept.c*/voidaccept_init(v
+oid);intaccept_add(int,int(*)(structthread*),void*);voidaccept_del(int);voidacce
+pt_pause(void);voidaccept_unpause(void);/*hello.c*/intsend_hello(enumhello_type,
+structiface_af*,structtnbr*);voidrecv_hello(structin_addr,structldp_msg*,int,uni
+onldpd_addr*,structiface*,int,char*,uint16_t);/*init.c*/voidsend_init(structnbr*
+);intrecv_init(structnbr*,char*,uint16_t);voidsend_capability(structnbr*,uint16_
+t,int);intrecv_capability(structnbr*,char*,uint16_t);/*keepalive.c*/voidsend_kee
+palive(structnbr*);intrecv_keepalive(structnbr*,char*,uint16_t);/*notification.c
+*/voidsend_notification_full(structtcp_conn*,structnotify_msg*);voidsend_notific
+ation(structtcp_conn*,uint32_t,uint32_t,uint16_t);voidsend_notification_rtlvs(st
+ructnbr*,uint32_t,uint32_t,uint16_t,uint16_t,uint16_t,char*);intrecv_notificatio
+n(structnbr*,char*,uint16_t);intgen_status_tlv(structibuf*,uint32_t,uint32_t,uin
+t16_t);/*address.c*/voidsend_address_single(structnbr*,structif_addr*,int);voids
+end_address_all(structnbr*,int);voidsend_mac_withdrawal(structnbr*,structmap*,ui
+nt8_t*);intrecv_address(structnbr*,char*,uint16_t);/*labelmapping.c*/#definePREF
+IX_SIZE(x)(((x)+7)/8)voidsend_labelmessage(structnbr*,uint16_t,structmapping_hea
+d*);intrecv_labelmessage(structnbr*,char*,uint16_t,uint16_t);intgen_pw_status_tl
+v(structibuf*,uint32_t);uint16_tlen_fec_tlv(structmap*);intgen_fec_tlv(structibu
+f*,structmap*);inttlv_decode_fec_elm(structnbr*,structldp_msg*,char*,uint16_t,st
+ructmap*);/*ldpe.c*/voidldpe(void);voidldpe_init(structldpd_init*);intldpe_imsg_
+compose_parent(int,pid_t,void*,uint16_t);voidldpe_imsg_compose_parent_sync(int,p
+id_t,void*,uint16_t);intldpe_imsg_compose_lde(int,uint32_t,pid_t,void*,uint16_t)
+;intldpe_acl_check(char*,int,unionldpd_addr*,uint8_t);voidldpe_reset_nbrs(int);v
+oidldpe_reset_ds_nbrs(void);voidldpe_remove_dynamic_tnbrs(int);voidldpe_stop_ini
+t_backoff(int);structctl_conn;voidldpe_iface_ctl(structctl_conn*,unsignedint);vo
+idldpe_adj_ctl(structctl_conn*);voidldpe_adj_detail_ctl(structctl_conn*);voidldp
+e_nbr_ctl(structctl_conn*);voidmapping_list_add(structmapping_head*,structmap*);
+voidmapping_list_clr(structmapping_head*);/*interface.c*/structiface*if_new(cons
+tchar*);voidldpe_if_init(structiface*);voidldpe_if_exit(structiface*);structifac
+e*if_lookup(structldpd_conf*,unsignedshort);structiface*if_lookup_name(structldp
+d_conf*,constchar*);voidif_update_info(structiface*,structkif*);structiface_af*i
+face_af_get(structiface*,int);voidif_addr_add(structkaddr*);voidif_addr_del(stru
+ctkaddr*);voidldp_if_update(structiface*,int);voidif_update_all(int);uint16_tif_
+get_hello_holdtime(structiface_af*);uint16_tif_get_hello_interval(structiface_af
+*);structctl_iface*if_to_ctl(structiface_af*);in_addr_tif_get_ipv4_addr(structif
+ace*);/*adjacency.c*/structadj*adj_new(structin_addr,structhello_source*,unionld
+pd_addr*);voidadj_del(structadj*,uint32_t);structadj*adj_find(structin_addr,stru
+cthello_source*);intadj_get_af(conststructadj*adj);voidadj_start_itimer(structad
+j*);voidadj_stop_itimer(structadj*);structtnbr*tnbr_new(int,unionldpd_addr*);str
+ucttnbr*tnbr_find(structldpd_conf*,int,unionldpd_addr*);structtnbr*tnbr_check(st
+ructldpd_conf*,structtnbr*);voidtnbr_update(structtnbr*);voidtnbr_update_all(int
+);uint16_ttnbr_get_hello_holdtime(structtnbr*);uint16_ttnbr_get_hello_interval(s
+tructtnbr*);structctl_adj*adj_to_ctl(structadj*);/*neighbor.c*/intnbr_fsm(struct
+nbr*,enumnbr_event);structnbr*nbr_new(structin_addr,int,int,unionldpd_addr*,uint
+32_t);voidnbr_del(structnbr*);structnbr*nbr_find_ldpid(uint32_t);structnbr*nbr_f
+ind_addr(int,unionldpd_addr*);structnbr*nbr_find_peerid(uint32_t);intnbr_adj_cou
+nt(structnbr*,int);intnbr_session_active_role(structnbr*);voidnbr_stop_ktimer(st
+ructnbr*);voidnbr_stop_ktimeout(structnbr*);voidnbr_stop_itimeout(structnbr*);vo
+idnbr_start_idtimer(structnbr*);voidnbr_stop_idtimer(structnbr*);intnbr_pending_
+idtimer(structnbr*);intnbr_pending_connect(structnbr*);intnbr_establish_connecti
+on(structnbr*);intnbr_gtsm_enabled(structnbr*,structnbr_params*);intnbr_gtsm_set
+up(int,int,structnbr_params*);intnbr_gtsm_check(int,structnbr*,structnbr_params*
+);structnbr_params*nbr_params_new(structin_addr);structnbr_params*nbr_params_fin
+d(structldpd_conf*,structin_addr);uint16_tnbr_get_keepalive(int,structin_addr);s
+tructctl_nbr*nbr_to_ctl(structnbr*);voidnbr_clear_ctl(structctl_nbr*);/*packet.c
+*/intgen_ldp_hdr(structibuf*,uint16_t);intgen_msg_hdr(structibuf*,uint16_t,uint1
+6_t);intsend_packet(int,int,unionldpd_addr*,structiface_af*,void*,size_t);intdis
+c_recv_packet(structthread*);intsession_accept(structthread*);voidsession_accept
+_nbr(structnbr*,int);voidsession_shutdown(structnbr*,uint32_t,uint32_t,uint32_t)
+;voidsession_close(structnbr*);structtcp_conn*tcp_new(int,structnbr*);voidpendin
+g_conn_del(structpending_conn*);structpending_conn*pending_conn_find(int,unionld
+pd_addr*);char*pkt_ptr;/*packetbuffer*//*pfkey.c*/#ifdef__OpenBSD__intpfkey_read
+(int,structsadb_msg*);intpfkey_establish(structnbr*,structnbr_params*);intpfkey_
+remove(structnbr*);intpfkey_init(void);#endif/*l2vpn.c*/voidldpe_l2vpn_init(stru
+ctl2vpn*);voidldpe_l2vpn_exit(structl2vpn*);voidldpe_l2vpn_pw_init(structl2vpn_p
+w*);voidldpe_l2vpn_pw_exit(structl2vpn_pw*);#endif/*_LDPE_H_*/

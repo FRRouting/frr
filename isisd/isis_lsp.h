@@ -1,105 +1,44 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_lsp.h
- *                             LSP processing
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_ISIS_LSP_H
-#define _ZEBRA_ISIS_LSP_H
-
-#include "isisd/isis_pdu.h"
-
-/* Structure for isis_lsp, this structure will only support the fixed
- * System ID (Currently 6) (atleast for now). In order to support more
- * We will have to split the header into two parts, and for readability
- * sake it should better be avoided */
-struct isis_lsp {
-	struct isis_lsp_hdr hdr;
-	struct stream *pdu; /* full pdu lsp */
-	union {
-		struct list *frags;
-		struct isis_lsp *zero_lsp;
-	} lspu;
-	uint32_t SRMflags[ISIS_MAX_CIRCUITS];
-	uint32_t SSNflags[ISIS_MAX_CIRCUITS];
-	int level;     /* L1 or L2? */
-	int scheduled; /* scheduled for sending */
-	time_t installed;
-	time_t last_generated;
-	int own_lsp;
-	/* used for 60 second counting when rem_lifetime is zero */
-	int age_out;
-	struct isis_area *area;
-	struct isis_tlvs *tlvs;
-};
-
-dict_t *lsp_db_init(void);
-void lsp_db_destroy(dict_t *lspdb);
-int lsp_tick(struct thread *thread);
-
-int lsp_generate(struct isis_area *area, int level);
-int lsp_regenerate_schedule(struct isis_area *area, int level, int all_pseudo);
-int lsp_generate_pseudo(struct isis_circuit *circuit, int level);
-int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level);
-
-struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
-			 uint16_t rem_lifetime, uint32_t seq_num,
-			 uint8_t lsp_bits, uint16_t checksum,
-			 struct isis_lsp *lsp0, int level);
-struct isis_lsp *lsp_new_from_recv(struct isis_lsp_hdr *hdr,
-				   struct isis_tlvs *tlvs,
-				   struct stream *stream, struct isis_lsp *lsp0,
-				   struct isis_area *area, int level);
-void lsp_insert(struct isis_lsp *lsp, dict_t *lspdb);
-struct isis_lsp *lsp_search(uint8_t *id, dict_t *lspdb);
-
-void lsp_build_list(uint8_t *start_id, uint8_t *stop_id, uint8_t num_lsps,
-		    struct list *list, dict_t *lspdb);
-void lsp_build_list_nonzero_ht(uint8_t *start_id, uint8_t *stop_id,
-			       struct list *list, dict_t *lspdb);
-void lsp_search_and_destroy(uint8_t *id, dict_t *lspdb);
-void lsp_purge_pseudo(uint8_t *id, struct isis_circuit *circuit, int level);
-void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
-			 struct isis_area *area);
-
-#define LSP_EQUAL 1
-#define LSP_NEWER 2
-#define LSP_OLDER 3
-
-#define LSP_PSEUDO_ID(I) ((I)[ISIS_SYS_ID_LEN])
-#define LSP_FRAGMENT(I) ((I)[ISIS_SYS_ID_LEN + 1])
-#define OWNLSPID(I)                                                            \
-	memcpy((I), isis->sysid, ISIS_SYS_ID_LEN);                             \
-	(I)[ISIS_SYS_ID_LEN] = 0;                                              \
-	(I)[ISIS_SYS_ID_LEN + 1] = 0
-int lsp_id_cmp(uint8_t *id1, uint8_t *id2);
-int lsp_compare(char *areatag, struct isis_lsp *lsp, uint32_t seqno,
-		uint16_t checksum, uint16_t rem_lifetime);
-void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
-		struct isis_tlvs *tlvs, struct stream *stream,
-		struct isis_area *area, int level, bool confusion);
-void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno);
-void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost);
-void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost);
-int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);
-/* sets SRMflags for all active circuits of an lsp */
-void lsp_set_all_srmflags(struct isis_lsp *lsp);
-
-#endif /* ISIS_LSP */
+/**IS-ISRout(e)ingprotocol-isis_lsp.h*LSPprocessing**Copyright(C)2001,2002SampoS
+aaristo*TampereUniversityofTechnology*InstituteofCommunicationsEngineering**This
+programisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGe
+neralPublicLicenseaspublishedbytheFree*SoftwareFoundation;eitherversion2oftheLic
+ense,or(atyouroption)*anylaterversion.**Thisprogramisdistributedinthehopethatitw
+illbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHANTABILIT
+Yor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*moredetails.**
+YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seet
+hefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFlo
+or,Boston,MA02110-1301USA*/#ifndef_ZEBRA_ISIS_LSP_H#define_ZEBRA_ISIS_LSP_H#incl
+ude"isisd/isis_pdu.h"/*Structureforisis_lsp,thisstructurewillonlysupportthefixed
+*SystemID(Currently6)(atleastfornow).Inordertosupportmore*Wewillhavetosplitthehe
+aderintotwoparts,andforreadability*sakeitshouldbetterbeavoided*/structisis_lsp{s
+tructisis_lsp_hdrhdr;structstream*pdu;/*fullpdulsp*/union{structlist*frags;struc
+tisis_lsp*zero_lsp;}lspu;uint32_tSRMflags[ISIS_MAX_CIRCUITS];uint32_tSSNflags[IS
+IS_MAX_CIRCUITS];intlevel;/*L1orL2?*/intscheduled;/*scheduledforsending*/time_ti
+nstalled;time_tlast_generated;intown_lsp;/*usedfor60secondcountingwhenrem_lifeti
+meiszero*/intage_out;structisis_area*area;structisis_tlvs*tlvs;};dict_t*lsp_db_i
+nit(void);voidlsp_db_destroy(dict_t*lspdb);intlsp_tick(structthread*thread);intl
+sp_generate(structisis_area*area,intlevel);intlsp_regenerate_schedule(structisis
+_area*area,intlevel,intall_pseudo);intlsp_generate_pseudo(structisis_circuit*cir
+cuit,intlevel);intlsp_regenerate_schedule_pseudo(structisis_circuit*circuit,intl
+evel);structisis_lsp*lsp_new(structisis_area*area,uint8_t*lsp_id,uint16_trem_lif
+etime,uint32_tseq_num,uint8_tlsp_bits,uint16_tchecksum,structisis_lsp*lsp0,intle
+vel);structisis_lsp*lsp_new_from_recv(structisis_lsp_hdr*hdr,structisis_tlvs*tlv
+s,structstream*stream,structisis_lsp*lsp0,structisis_area*area,intlevel);voidlsp
+_insert(structisis_lsp*lsp,dict_t*lspdb);structisis_lsp*lsp_search(uint8_t*id,di
+ct_t*lspdb);voidlsp_build_list(uint8_t*start_id,uint8_t*stop_id,uint8_tnum_lsps,
+structlist*list,dict_t*lspdb);voidlsp_build_list_nonzero_ht(uint8_t*start_id,uin
+t8_t*stop_id,structlist*list,dict_t*lspdb);voidlsp_search_and_destroy(uint8_t*id
+,dict_t*lspdb);voidlsp_purge_pseudo(uint8_t*id,structisis_circuit*circuit,intlev
+el);voidlsp_purge_non_exist(intlevel,structisis_lsp_hdr*hdr,structisis_area*area
+);#defineLSP_EQUAL1#defineLSP_NEWER2#defineLSP_OLDER3#defineLSP_PSEUDO_ID(I)((I)
+[ISIS_SYS_ID_LEN])#defineLSP_FRAGMENT(I)((I)[ISIS_SYS_ID_LEN+1])#defineOWNLSPID(
+I)\memcpy((I),isis->sysid,ISIS_SYS_ID_LEN);\(I)[ISIS_SYS_ID_LEN]=0;\(I)[ISIS_SYS
+_ID_LEN+1]=0intlsp_id_cmp(uint8_t*id1,uint8_t*id2);intlsp_compare(char*areatag,s
+tructisis_lsp*lsp,uint32_tseqno,uint16_tchecksum,uint16_trem_lifetime);voidlsp_u
+pdate(structisis_lsp*lsp,structisis_lsp_hdr*hdr,structisis_tlvs*tlvs,structstrea
+m*stream,structisis_area*area,intlevel,boolconfusion);voidlsp_inc_seqno(structis
+is_lsp*lsp,uint32_tseqno);voidlsp_print(structisis_lsp*lsp,structvty*vty,chardyn
+host);voidlsp_print_detail(structisis_lsp*lsp,structvty*vty,chardynhost);intlsp_
+print_all(structvty*vty,dict_t*lspdb,chardetail,chardynhost);/*setsSRMflagsforal
+lactivecircuitsofanlsp*/voidlsp_set_all_srmflags(structisis_lsp*lsp);#endif/*ISI
+S_LSP*/

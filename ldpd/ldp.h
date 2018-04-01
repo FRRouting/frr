@@ -1,338 +1,90 @@
-/*	$OpenBSD$ */
-
-/*
- * Copyright (c) 2013, 2016 Renato Westphal <renato@openbsd.org>
- * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
- * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-/* LDP protocol definitions */
-
-#ifndef _LDP_H_
-#define _LDP_H_
-
-/* misc */
-#define LDP_VERSION		1
-#define LDP_PORT		646
-#define LDP_MAX_LEN		4096
-
-/* All Routers on this Subnet group multicast addresses */
-#define AllRouters_v4		"224.0.0.2"
-#define AllRouters_v6		"ff02::2"
-
-#define LINK_DFLT_HOLDTIME	15
-#define TARGETED_DFLT_HOLDTIME	45
-#define MIN_HOLDTIME		3
-#define MAX_HOLDTIME		0xffff
-#define	INFINITE_HOLDTIME	0xffff
-
-#define DEFAULT_KEEPALIVE	180
-#define MIN_KEEPALIVE		3
-#define MAX_KEEPALIVE		0xffff
-#define KEEPALIVE_PER_PERIOD	3
-#define INIT_FSM_TIMEOUT	15
-
-#define	DEFAULT_HELLO_INTERVAL	5
-#define	MIN_HELLO_INTERVAL	1
-#define	MAX_HELLO_INTERVAL	0xffff
-
-#define	INIT_DELAY_TMR		15
-#define	MAX_DELAY_TMR		120
-
-#define	MIN_PWID_ID		1
-#define	MAX_PWID_ID		0xffffffff
-
-#define	DEFAULT_L2VPN_MTU	1500
-#define	MIN_L2VPN_MTU		512
-#define	MAX_L2VPN_MTU		0xffff
-
-/* LDP message types */
-#define MSG_TYPE_NOTIFICATION	0x0001
-#define MSG_TYPE_HELLO		0x0100
-#define MSG_TYPE_INIT		0x0200
-#define MSG_TYPE_KEEPALIVE	0x0201
-#define MSG_TYPE_CAPABILITY	0x0202 /* RFC 5561 */
-#define MSG_TYPE_ADDR		0x0300
-#define MSG_TYPE_ADDRWITHDRAW	0x0301
-#define MSG_TYPE_LABELMAPPING	0x0400
-#define MSG_TYPE_LABELREQUEST	0x0401
-#define MSG_TYPE_LABELWITHDRAW	0x0402
-#define MSG_TYPE_LABELRELEASE	0x0403
-#define MSG_TYPE_LABELABORTREQ	0x0404
-
-/* LDP TLV types */
-#define TLV_TYPE_FEC		0x0100
-#define TLV_TYPE_ADDRLIST	0x0101
-#define TLV_TYPE_HOPCOUNT	0x0103
-#define TLV_TYPE_PATHVECTOR	0x0104
-#define TLV_TYPE_GENERICLABEL	0x0200
-#define TLV_TYPE_ATMLABEL	0x0201
-#define TLV_TYPE_FRLABEL	0x0202
-#define TLV_TYPE_STATUS		0x0300
-#define TLV_TYPE_EXTSTATUS	0x0301
-#define TLV_TYPE_RETURNEDPDU	0x0302
-#define TLV_TYPE_RETURNEDMSG	0x0303
-#define TLV_TYPE_COMMONHELLO	0x0400
-#define TLV_TYPE_IPV4TRANSADDR	0x0401
-#define TLV_TYPE_CONFIG		0x0402
-#define TLV_TYPE_IPV6TRANSADDR	0x0403
-#define TLV_TYPE_COMMONSESSION	0x0500
-#define TLV_TYPE_ATMSESSIONPAR	0x0501
-#define TLV_TYPE_FRSESSION	0x0502
-#define TLV_TYPE_LABELREQUEST	0x0600
-/* RFC 4447 */
-#define TLV_TYPE_MAC_LIST	0x8404
-#define TLV_TYPE_PW_STATUS	0x896A
-#define TLV_TYPE_PW_IF_PARAM	0x096B
-#define TLV_TYPE_PW_GROUP_ID	0x096C
-/* RFC 5561 */
-#define TLV_TYPE_RETURNED_TLVS	0x8304
-#define TLV_TYPE_DYNAMIC_CAP	0x8506
-/* RFC 5918 */
-#define TLV_TYPE_TWCARD_CAP	0x850B
-/* RFC 5919 */
-#define TLV_TYPE_UNOTIF_CAP	0x8603
-/* RFC 7552 */
-#define TLV_TYPE_DUALSTACK	0x8701
-
-/* LDP header */
-struct ldp_hdr {
-	uint16_t	version;
-	uint16_t	length;
-	uint32_t	lsr_id;
-	uint16_t	lspace_id;
-} __attribute__ ((packed));
-
-#define	LDP_HDR_SIZE		10	/* actual size of the LDP header */
-#define	LDP_HDR_PDU_LEN		6	/* minimum "PDU Length" */
-#define LDP_HDR_DEAD_LEN	4
-
-/* TLV record */
-struct tlv {
-	uint16_t	type;
-	uint16_t	length;
-};
-#define	TLV_HDR_SIZE		4
-
-struct ldp_msg {
-	uint16_t	type;
-	uint16_t	length;
-	uint32_t	id;
-	/* Mandatory Parameters */
-	/* Optional Parameters */
-} __attribute__ ((packed));
-
-#define LDP_MSG_SIZE		8	/* minimum size of LDP message */
-#define LDP_MSG_LEN		4	/* minimum "Message Length" */
-#define LDP_MSG_DEAD_LEN	4
-
-#define	UNKNOWN_FLAG		0x8000
-#define	FORWARD_FLAG		0xc000
-
-struct hello_prms_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint16_t	holdtime;
-	uint16_t	flags;
-};
-#define F_HELLO_TARGETED	0x8000
-#define F_HELLO_REQ_TARG	0x4000
-#define F_HELLO_GTSM		0x2000
-
-struct hello_prms_opt4_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint32_t	value;
-};
-
-struct hello_prms_opt16_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint8_t		value[16];
-};
-
-#define DUAL_STACK_LDPOV4	4
-#define DUAL_STACK_LDPOV6	6
-
-#define F_HELLO_TLV_RCVD_ADDR	0x01
-#define F_HELLO_TLV_RCVD_CONF	0x02
-#define F_HELLO_TLV_RCVD_DS	0x04
-
-#define	S_SUCCESS	0x00000000
-#define	S_BAD_LDP_ID	0x80000001
-#define	S_BAD_PROTO_VER	0x80000002
-#define	S_BAD_PDU_LEN	0x80000003
-#define	S_UNKNOWN_MSG	0x00000004
-#define	S_BAD_MSG_LEN	0x80000005
-#define	S_UNKNOWN_TLV	0x00000006
-#define	S_BAD_TLV_LEN	0x80000007
-#define	S_BAD_TLV_VAL	0x80000008
-#define	S_HOLDTIME_EXP	0x80000009
-#define	S_SHUTDOWN	0x8000000A
-#define	S_LOOP_DETECTED	0x0000000B
-#define	S_UNKNOWN_FEC	0x0000000C
-#define	S_NO_ROUTE	0x0000000D
-#define	S_NO_LABEL_RES	0x0000000E
-#define	S_AVAILABLE	0x0000000F
-#define	S_NO_HELLO	0x80000010
-#define	S_PARM_ADV_MODE	0x80000011
-#define	S_MAX_PDU_LEN	0x80000012
-#define	S_PARM_L_RANGE	0x80000013
-#define	S_KEEPALIVE_TMR	0x80000014
-#define	S_LAB_REQ_ABRT	0x00000015
-#define	S_MISS_MSG	0x00000016
-#define	S_UNSUP_ADDR	0x00000017
-#define	S_KEEPALIVE_BAD	0x80000018
-#define	S_INTERN_ERR	0x80000019
-/* RFC 4447 */
-#define S_ILLEGAL_CBIT	0x00000024
-#define S_WRONG_CBIT	0x00000025
-#define S_INCPT_BITRATE	0x00000026
-#define S_CEP_MISCONF	0x00000027
-#define S_PW_STATUS	0x00000028
-#define S_UNASSIGN_TAI	0x00000029
-#define S_MISCONF_ERR	0x0000002A
-#define S_WITHDRAW_MTHD	0x0000002B
-/* RFC 5561 */
-#define	S_UNSSUPORTDCAP	0x0000002E
-/* RFC 5919 */
-#define	S_ENDOFLIB	0x0000002F
-/* RFC 7552 */
-#define	S_TRANS_MISMTCH	0x80000032
-#define	S_DS_NONCMPLNCE	0x80000033
-
-struct sess_prms_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint16_t	proto_version;
-	uint16_t	keepalive_time;
-	uint8_t		reserved;
-	uint8_t		pvlim;
-	uint16_t	max_pdu_len;
-	uint32_t	lsr_id;
-	uint16_t	lspace_id;
-} __attribute__ ((packed));
-
-#define SESS_PRMS_SIZE		18
-#define SESS_PRMS_LEN		14
-
-struct status_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint32_t	status_code;
-	uint32_t	msg_id;
-	uint16_t	msg_type;
-} __attribute__ ((packed));
-
-#define STATUS_SIZE		14
-#define STATUS_TLV_LEN		10
-#define	STATUS_FATAL		0x80000000
-
-struct capability_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint8_t		reserved;
-};
-#define STATE_BIT		0x80
-
-#define F_CAP_TLV_RCVD_DYNAMIC	0x01
-#define F_CAP_TLV_RCVD_TWCARD	0x02
-#define F_CAP_TLV_RCVD_UNOTIF	0x04
-
-#define CAP_TLV_DYNAMIC_SIZE	5
-#define CAP_TLV_DYNAMIC_LEN	1
-
-#define CAP_TLV_TWCARD_SIZE	5
-#define CAP_TLV_TWCARD_LEN	1
-
-#define CAP_TLV_UNOTIF_SIZE	5
-#define CAP_TLV_UNOTIF_LEN	1
-
-#define	AF_IPV4			0x1
-#define	AF_IPV6			0x2
-
-struct address_list_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint16_t	family;
-	/* address entries */
-} __attribute__ ((packed));
-
-#define ADDR_LIST_SIZE		6
-
-#define FEC_ELM_WCARD_LEN	1
-#define FEC_ELM_PREFIX_MIN_LEN	4
-#define FEC_PWID_ELM_MIN_LEN	8
-#define FEC_PWID_SIZE		4
-#define FEC_ELM_TWCARD_MIN_LEN	3
-
-#define	MAP_TYPE_WILDCARD	0x01
-#define	MAP_TYPE_PREFIX		0x02
-#define	MAP_TYPE_TYPED_WCARD	0x05
-#define	MAP_TYPE_PWID		0x80
-#define	MAP_TYPE_GENPWID	0x81
-
-#define CONTROL_WORD_FLAG	0x8000
-#define DEFAULT_PW_TYPE		PW_TYPE_ETHERNET
-
-#define PW_TWCARD_RESERVED_BIT	0x8000
-
-/* RFC 4447 Sub-TLV record */
-struct subtlv {
-	uint8_t		type;
-	uint8_t		length;
-};
-#define	SUBTLV_HDR_SIZE		2
-
-#define SUBTLV_IFMTU		0x01
-#define SUBTLV_VLANID		0x06
-
-#define FEC_SUBTLV_IFMTU_SIZE	4
-#define FEC_SUBTLV_VLANID_SIZE	4
-
-struct label_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint32_t	label;
-};
-#define LABEL_TLV_SIZE		8
-#define LABEL_TLV_LEN		4
-
-struct reqid_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint32_t	reqid;
-};
-#define REQID_TLV_SIZE		8
-#define REQID_TLV_LEN		4
-
-struct pw_status_tlv {
-	uint16_t	type;
-	uint16_t	length;
-	uint32_t	value;
-};
-#define PW_STATUS_TLV_SIZE	8
-#define PW_STATUS_TLV_LEN	4
-
-#define PW_FORWARDING		0
-#define PW_NOT_FORWARDING	(1 << 0)
-#define PW_LOCAL_RX_FAULT	(1 << 1)
-#define PW_LOCAL_TX_FAULT	(1 << 2)
-#define PW_PSN_RX_FAULT		(1 << 3)
-#define PW_PSN_TX_FAULT		(1 << 4)
-
-#define	NO_LABEL		UINT32_MAX
-
-#endif /* !_LDP_H_ */
+/*$OpenBSD$*//**Copyright(c)2013,2016RenatoWestphal<renato@openbsd.org>*Copyrigh
+t(c)2009MicheleMarchetto<michele@openbsd.org>*Copyright(c)2004,2005,2008EsbenNor
+by<norby@openbsd.org>**Permissiontouse,copy,modify,anddistributethissoftwarefora
+ny*purposewithorwithoutfeeisherebygranted,providedthattheabove*copyrightnoticean
+dthispermissionnoticeappearinallcopies.**THESOFTWAREISPROVIDED"ASIS"ANDTHEAUTHOR
+DISCLAIMSALLWARRANTIES*WITHREGARDTOTHISSOFTWAREINCLUDINGALLIMPLIEDWARRANTIESOF*M
+ERCHANTABILITYANDFITNESS.INNOEVENTSHALLTHEAUTHORBELIABLEFOR*ANYSPECIAL,DIRECT,IN
+DIRECT,ORCONSEQUENTIALDAMAGESORANYDAMAGES*WHATSOEVERRESULTINGFROMLOSSOFUSE,DATAO
+RPROFITS,WHETHERINAN*ACTIONOFCONTRACT,NEGLIGENCEOROTHERTORTIOUSACTION,ARISINGOUT
+OF*ORINCONNECTIONWITHTHEUSEORPERFORMANCEOFTHISSOFTWARE.*//*LDPprotocoldefinition
+s*/#ifndef_LDP_H_#define_LDP_H_/*misc*/#defineLDP_VERSION1#defineLDP_PORT646#def
+ineLDP_MAX_LEN4096/*AllRoutersonthisSubnetgroupmulticastaddresses*/#defineAllRou
+ters_v4"224.0.0.2"#defineAllRouters_v6"ff02::2"#defineLINK_DFLT_HOLDTIME15#defin
+eTARGETED_DFLT_HOLDTIME45#defineMIN_HOLDTIME3#defineMAX_HOLDTIME0xffff#defineINF
+INITE_HOLDTIME0xffff#defineDEFAULT_KEEPALIVE180#defineMIN_KEEPALIVE3#defineMAX_K
+EEPALIVE0xffff#defineKEEPALIVE_PER_PERIOD3#defineINIT_FSM_TIMEOUT15#defineDEFAUL
+T_HELLO_INTERVAL5#defineMIN_HELLO_INTERVAL1#defineMAX_HELLO_INTERVAL0xffff#defin
+eINIT_DELAY_TMR15#defineMAX_DELAY_TMR120#defineMIN_PWID_ID1#defineMAX_PWID_ID0xf
+fffffff#defineDEFAULT_L2VPN_MTU1500#defineMIN_L2VPN_MTU512#defineMAX_L2VPN_MTU0x
+ffff/*LDPmessagetypes*/#defineMSG_TYPE_NOTIFICATION0x0001#defineMSG_TYPE_HELLO0x
+0100#defineMSG_TYPE_INIT0x0200#defineMSG_TYPE_KEEPALIVE0x0201#defineMSG_TYPE_CAP
+ABILITY0x0202/*RFC5561*/#defineMSG_TYPE_ADDR0x0300#defineMSG_TYPE_ADDRWITHDRAW0x
+0301#defineMSG_TYPE_LABELMAPPING0x0400#defineMSG_TYPE_LABELREQUEST0x0401#defineM
+SG_TYPE_LABELWITHDRAW0x0402#defineMSG_TYPE_LABELRELEASE0x0403#defineMSG_TYPE_LAB
+ELABORTREQ0x0404/*LDPTLVtypes*/#defineTLV_TYPE_FEC0x0100#defineTLV_TYPE_ADDRLIST
+0x0101#defineTLV_TYPE_HOPCOUNT0x0103#defineTLV_TYPE_PATHVECTOR0x0104#defineTLV_T
+YPE_GENERICLABEL0x0200#defineTLV_TYPE_ATMLABEL0x0201#defineTLV_TYPE_FRLABEL0x020
+2#defineTLV_TYPE_STATUS0x0300#defineTLV_TYPE_EXTSTATUS0x0301#defineTLV_TYPE_RETU
+RNEDPDU0x0302#defineTLV_TYPE_RETURNEDMSG0x0303#defineTLV_TYPE_COMMONHELLO0x0400#
+defineTLV_TYPE_IPV4TRANSADDR0x0401#defineTLV_TYPE_CONFIG0x0402#defineTLV_TYPE_IP
+V6TRANSADDR0x0403#defineTLV_TYPE_COMMONSESSION0x0500#defineTLV_TYPE_ATMSESSIONPA
+R0x0501#defineTLV_TYPE_FRSESSION0x0502#defineTLV_TYPE_LABELREQUEST0x0600/*RFC444
+7*/#defineTLV_TYPE_MAC_LIST0x8404#defineTLV_TYPE_PW_STATUS0x896A#defineTLV_TYPE_
+PW_IF_PARAM0x096B#defineTLV_TYPE_PW_GROUP_ID0x096C/*RFC5561*/#defineTLV_TYPE_RET
+URNED_TLVS0x8304#defineTLV_TYPE_DYNAMIC_CAP0x8506/*RFC5918*/#defineTLV_TYPE_TWCA
+RD_CAP0x850B/*RFC5919*/#defineTLV_TYPE_UNOTIF_CAP0x8603/*RFC7552*/#defineTLV_TYP
+E_DUALSTACK0x8701/*LDPheader*/structldp_hdr{uint16_tversion;uint16_tlength;uint3
+2_tlsr_id;uint16_tlspace_id;}__attribute__((packed));#defineLDP_HDR_SIZE10/*actu
+alsizeoftheLDPheader*/#defineLDP_HDR_PDU_LEN6/*minimum"PDULength"*/#defineLDP_HD
+R_DEAD_LEN4/*TLVrecord*/structtlv{uint16_ttype;uint16_tlength;};#defineTLV_HDR_S
+IZE4structldp_msg{uint16_ttype;uint16_tlength;uint32_tid;/*MandatoryParameters*/
+/*OptionalParameters*/}__attribute__((packed));#defineLDP_MSG_SIZE8/*minimumsize
+ofLDPmessage*/#defineLDP_MSG_LEN4/*minimum"MessageLength"*/#defineLDP_MSG_DEAD_L
+EN4#defineUNKNOWN_FLAG0x8000#defineFORWARD_FLAG0xc000structhello_prms_tlv{uint16
+_ttype;uint16_tlength;uint16_tholdtime;uint16_tflags;};#defineF_HELLO_TARGETED0x
+8000#defineF_HELLO_REQ_TARG0x4000#defineF_HELLO_GTSM0x2000structhello_prms_opt4_
+tlv{uint16_ttype;uint16_tlength;uint32_tvalue;};structhello_prms_opt16_tlv{uint1
+6_ttype;uint16_tlength;uint8_tvalue[16];};#defineDUAL_STACK_LDPOV44#defineDUAL_S
+TACK_LDPOV66#defineF_HELLO_TLV_RCVD_ADDR0x01#defineF_HELLO_TLV_RCVD_CONF0x02#def
+ineF_HELLO_TLV_RCVD_DS0x04#defineS_SUCCESS0x00000000#defineS_BAD_LDP_ID0x8000000
+1#defineS_BAD_PROTO_VER0x80000002#defineS_BAD_PDU_LEN0x80000003#defineS_UNKNOWN_
+MSG0x00000004#defineS_BAD_MSG_LEN0x80000005#defineS_UNKNOWN_TLV0x00000006#define
+S_BAD_TLV_LEN0x80000007#defineS_BAD_TLV_VAL0x80000008#defineS_HOLDTIME_EXP0x8000
+0009#defineS_SHUTDOWN0x8000000A#defineS_LOOP_DETECTED0x0000000B#defineS_UNKNOWN_
+FEC0x0000000C#defineS_NO_ROUTE0x0000000D#defineS_NO_LABEL_RES0x0000000E#defineS_
+AVAILABLE0x0000000F#defineS_NO_HELLO0x80000010#defineS_PARM_ADV_MODE0x80000011#d
+efineS_MAX_PDU_LEN0x80000012#defineS_PARM_L_RANGE0x80000013#defineS_KEEPALIVE_TM
+R0x80000014#defineS_LAB_REQ_ABRT0x00000015#defineS_MISS_MSG0x00000016#defineS_UN
+SUP_ADDR0x00000017#defineS_KEEPALIVE_BAD0x80000018#defineS_INTERN_ERR0x80000019/
+*RFC4447*/#defineS_ILLEGAL_CBIT0x00000024#defineS_WRONG_CBIT0x00000025#defineS_I
+NCPT_BITRATE0x00000026#defineS_CEP_MISCONF0x00000027#defineS_PW_STATUS0x00000028
+#defineS_UNASSIGN_TAI0x00000029#defineS_MISCONF_ERR0x0000002A#defineS_WITHDRAW_M
+THD0x0000002B/*RFC5561*/#defineS_UNSSUPORTDCAP0x0000002E/*RFC5919*/#defineS_ENDO
+FLIB0x0000002F/*RFC7552*/#defineS_TRANS_MISMTCH0x80000032#defineS_DS_NONCMPLNCE0
+x80000033structsess_prms_tlv{uint16_ttype;uint16_tlength;uint16_tproto_version;u
+int16_tkeepalive_time;uint8_treserved;uint8_tpvlim;uint16_tmax_pdu_len;uint32_tl
+sr_id;uint16_tlspace_id;}__attribute__((packed));#defineSESS_PRMS_SIZE18#defineS
+ESS_PRMS_LEN14structstatus_tlv{uint16_ttype;uint16_tlength;uint32_tstatus_code;u
+int32_tmsg_id;uint16_tmsg_type;}__attribute__((packed));#defineSTATUS_SIZE14#def
+ineSTATUS_TLV_LEN10#defineSTATUS_FATAL0x80000000structcapability_tlv{uint16_ttyp
+e;uint16_tlength;uint8_treserved;};#defineSTATE_BIT0x80#defineF_CAP_TLV_RCVD_DYN
+AMIC0x01#defineF_CAP_TLV_RCVD_TWCARD0x02#defineF_CAP_TLV_RCVD_UNOTIF0x04#defineC
+AP_TLV_DYNAMIC_SIZE5#defineCAP_TLV_DYNAMIC_LEN1#defineCAP_TLV_TWCARD_SIZE5#defin
+eCAP_TLV_TWCARD_LEN1#defineCAP_TLV_UNOTIF_SIZE5#defineCAP_TLV_UNOTIF_LEN1#define
+AF_IPV40x1#defineAF_IPV60x2structaddress_list_tlv{uint16_ttype;uint16_tlength;ui
+nt16_tfamily;/*addressentries*/}__attribute__((packed));#defineADDR_LIST_SIZE6#d
+efineFEC_ELM_WCARD_LEN1#defineFEC_ELM_PREFIX_MIN_LEN4#defineFEC_PWID_ELM_MIN_LEN
+8#defineFEC_PWID_SIZE4#defineFEC_ELM_TWCARD_MIN_LEN3#defineMAP_TYPE_WILDCARD0x01
+#defineMAP_TYPE_PREFIX0x02#defineMAP_TYPE_TYPED_WCARD0x05#defineMAP_TYPE_PWID0x8
+0#defineMAP_TYPE_GENPWID0x81#defineCONTROL_WORD_FLAG0x8000#defineDEFAULT_PW_TYPE
+PW_TYPE_ETHERNET#definePW_TWCARD_RESERVED_BIT0x8000/*RFC4447Sub-TLVrecord*/struc
+tsubtlv{uint8_ttype;uint8_tlength;};#defineSUBTLV_HDR_SIZE2#defineSUBTLV_IFMTU0x
+01#defineSUBTLV_VLANID0x06#defineFEC_SUBTLV_IFMTU_SIZE4#defineFEC_SUBTLV_VLANID_
+SIZE4structlabel_tlv{uint16_ttype;uint16_tlength;uint32_tlabel;};#defineLABEL_TL
+V_SIZE8#defineLABEL_TLV_LEN4structreqid_tlv{uint16_ttype;uint16_tlength;uint32_t
+reqid;};#defineREQID_TLV_SIZE8#defineREQID_TLV_LEN4structpw_status_tlv{uint16_tt
+ype;uint16_tlength;uint32_tvalue;};#definePW_STATUS_TLV_SIZE8#definePW_STATUS_TL
+V_LEN4#definePW_FORWARDING0#definePW_NOT_FORWARDING(1<<0)#definePW_LOCAL_RX_FAUL
+T(1<<1)#definePW_LOCAL_TX_FAULT(1<<2)#definePW_PSN_RX_FAULT(1<<3)#definePW_PSN_T
+X_FAULT(1<<4)#defineNO_LABELUINT32_MAX#endif/*!_LDP_H_*/

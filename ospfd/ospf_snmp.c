@@ -1,2720 +1,697 @@
-/* OSPFv2 SNMP support
- * Copyright (C) 2005 6WIND <alain.ritoux@6wind.com>
- * Copyright (C) 2000 IP Infusion Inc.
- *
- * Written by Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include <net-snmp/net-snmp-config.h>
-#include <net-snmp/net-snmp-includes.h>
-
-#include "if.h"
-#include "log.h"
-#include "prefix.h"
-#include "table.h"
-#include "command.h"
-#include "memory.h"
-#include "smux.h"
-#include "libfrr.h"
-#include "version.h"
-
-#include "ospfd/ospfd.h"
-#include "ospfd/ospf_interface.h"
-#include "ospfd/ospf_asbr.h"
-#include "ospfd/ospf_lsa.h"
-#include "ospfd/ospf_lsdb.h"
-#include "ospfd/ospf_abr.h"
-#include "ospfd/ospf_neighbor.h"
-#include "ospfd/ospf_nsm.h"
-#include "ospfd/ospf_flood.h"
-#include "ospfd/ospf_ism.h"
-#include "ospfd/ospf_dump.h"
-#include "ospfd/ospf_zebra.h"
-
-/* OSPF2-MIB. */
-#define OSPF2MIB 1,3,6,1,2,1,14
-
-/* OSPF MIB General Group values. */
-#define OSPFROUTERID                     1
-#define OSPFADMINSTAT                    2
-#define OSPFVERSIONNUMBER                3
-#define OSPFAREABDRRTRSTATUS             4
-#define OSPFASBDRRTRSTATUS               5
-#define OSPFEXTERNLSACOUNT               6
-#define OSPFEXTERNLSACKSUMSUM            7
-#define OSPFTOSSUPPORT                   8
-#define OSPFORIGINATENEWLSAS             9
-#define OSPFRXNEWLSAS                    10
-#define OSPFEXTLSDBLIMIT                 11
-#define OSPFMULTICASTEXTENSIONS          12
-#define OSPFEXITOVERFLOWINTERVAL         13
-#define OSPFDEMANDEXTENSIONS             14
-
-/* OSPF MIB ospfAreaTable. */
-#define OSPFAREAID                       1
-#define OSPFAUTHTYPE                     2
-#define OSPFIMPORTASEXTERN               3
-#define OSPFSPFRUNS                      4
-#define OSPFAREABDRRTRCOUNT              5
-#define OSPFASBDRRTRCOUNT                6
-#define OSPFAREALSACOUNT                 7
-#define OSPFAREALSACKSUMSUM              8
-#define OSPFAREASUMMARY                  9
-#define OSPFAREASTATUS                   10
-
-/* OSPF MIB ospfStubAreaTable. */
-#define OSPFSTUBAREAID                   1
-#define OSPFSTUBTOS                      2
-#define OSPFSTUBMETRIC                   3
-#define OSPFSTUBSTATUS                   4
-#define OSPFSTUBMETRICTYPE               5
-
-/* OSPF MIB ospfLsdbTable. */
-#define OSPFLSDBAREAID                   1
-#define OSPFLSDBTYPE                     2
-#define OSPFLSDBLSID                     3
-#define OSPFLSDBROUTERID                 4
-#define OSPFLSDBSEQUENCE                 5
-#define OSPFLSDBAGE                      6
-#define OSPFLSDBCHECKSUM                 7
-#define OSPFLSDBADVERTISEMENT            8
-
-/* OSPF MIB ospfAreaRangeTable. */
-#define OSPFAREARANGEAREAID              1
-#define OSPFAREARANGENET                 2
-#define OSPFAREARANGEMASK                3
-#define OSPFAREARANGESTATUS              4
-#define OSPFAREARANGEEFFECT              5
-
-/* OSPF MIB ospfHostTable. */
-#define OSPFHOSTIPADDRESS                1
-#define OSPFHOSTTOS                      2
-#define OSPFHOSTMETRIC                   3
-#define OSPFHOSTSTATUS                   4
-#define OSPFHOSTAREAID                   5
-
-/* OSPF MIB ospfIfTable. */
-#define OSPFIFIPADDRESS                  1
-#define OSPFADDRESSLESSIF                2
-#define OSPFIFAREAID                     3
-#define OSPFIFTYPE                       4
-#define OSPFIFADMINSTAT                  5
-#define OSPFIFRTRPRIORITY                6
-#define OSPFIFTRANSITDELAY               7
-#define OSPFIFRETRANSINTERVAL            8
-#define OSPFIFHELLOINTERVAL              9
-#define OSPFIFRTRDEADINTERVAL            10
-#define OSPFIFPOLLINTERVAL               11
-#define OSPFIFSTATE                      12
-#define OSPFIFDESIGNATEDROUTER           13
-#define OSPFIFBACKUPDESIGNATEDROUTER     14
-#define OSPFIFEVENTS                     15
-#define OSPFIFAUTHKEY                    16
-#define OSPFIFSTATUS                     17
-#define OSPFIFMULTICASTFORWARDING        18
-#define OSPFIFDEMAND                     19
-#define OSPFIFAUTHTYPE                   20
-
-/* OSPF MIB ospfIfMetricTable. */
-#define OSPFIFMETRICIPADDRESS            1
-#define OSPFIFMETRICADDRESSLESSIF        2
-#define OSPFIFMETRICTOS                  3
-#define OSPFIFMETRICVALUE                4
-#define OSPFIFMETRICSTATUS               5
-
-/* OSPF MIB ospfVirtIfTable. */
-#define OSPFVIRTIFAREAID                 1
-#define OSPFVIRTIFNEIGHBOR               2
-#define OSPFVIRTIFTRANSITDELAY           3
-#define OSPFVIRTIFRETRANSINTERVAL        4
-#define OSPFVIRTIFHELLOINTERVAL          5
-#define OSPFVIRTIFRTRDEADINTERVAL        6
-#define OSPFVIRTIFSTATE                  7
-#define OSPFVIRTIFEVENTS                 8
-#define OSPFVIRTIFAUTHKEY                9
-#define OSPFVIRTIFSTATUS                 10
-#define OSPFVIRTIFAUTHTYPE               11
-
-/* OSPF MIB ospfNbrTable. */
-#define OSPFNBRIPADDR                    1
-#define OSPFNBRADDRESSLESSINDEX          2
-#define OSPFNBRRTRID                     3
-#define OSPFNBROPTIONS                   4
-#define OSPFNBRPRIORITY                  5
-#define OSPFNBRSTATE                     6
-#define OSPFNBREVENTS                    7
-#define OSPFNBRLSRETRANSQLEN             8
-#define OSPFNBMANBRSTATUS                9
-#define OSPFNBMANBRPERMANENCE            10
-#define OSPFNBRHELLOSUPPRESSED           11
-
-/* OSPF MIB ospfVirtNbrTable. */
-#define OSPFVIRTNBRAREA                  1
-#define OSPFVIRTNBRRTRID                 2
-#define OSPFVIRTNBRIPADDR                3
-#define OSPFVIRTNBROPTIONS               4
-#define OSPFVIRTNBRSTATE                 5
-#define OSPFVIRTNBREVENTS                6
-#define OSPFVIRTNBRLSRETRANSQLEN         7
-#define OSPFVIRTNBRHELLOSUPPRESSED       8
-
-/* OSPF MIB ospfExtLsdbTable. */
-#define OSPFEXTLSDBTYPE                  1
-#define OSPFEXTLSDBLSID                  2
-#define OSPFEXTLSDBROUTERID              3
-#define OSPFEXTLSDBSEQUENCE              4
-#define OSPFEXTLSDBAGE                   5
-#define OSPFEXTLSDBCHECKSUM              6
-#define OSPFEXTLSDBADVERTISEMENT         7
-
-/* OSPF MIB ospfAreaAggregateTable. */
-#define OSPFAREAAGGREGATEAREAID          1
-#define OSPFAREAAGGREGATELSDBTYPE        2
-#define OSPFAREAAGGREGATENET             3
-#define OSPFAREAAGGREGATEMASK            4
-#define OSPFAREAAGGREGATESTATUS          5
-#define OSPFAREAAGGREGATEEFFECT          6
-
-/* SYNTAX Status from OSPF-MIB. */
-#define OSPF_STATUS_ENABLED  1
-#define OSPF_STATUS_DISABLED 2
-
-/* SNMP value hack. */
-#define COUNTER     ASN_COUNTER
-#define INTEGER     ASN_INTEGER
-#define GAUGE       ASN_GAUGE
-#define TIMETICKS   ASN_TIMETICKS
-#define IPADDRESS   ASN_IPADDRESS
-#define STRING      ASN_OCTET_STR
-
-/* Because DR/DROther values are exhanged wrt RFC */
-#define ISM_SNMP(x)                                                            \
-	(((x) == ISM_DROther) ? ISM_DR : ((x) == ISM_DR) ? ISM_DROther : (x))
-
-/* Declare static local variables for convenience. */
-SNMP_LOCAL_VARIABLES
-
-/* OSPF-MIB instances. */
-static oid ospf_oid[] = {OSPF2MIB};
-static oid ospf_trap_oid[] = {OSPF2MIB, 16, 2}; /* Not reverse mappable! */
-
-/* IP address 0.0.0.0. */
-static struct in_addr ospf_empty_addr = {.s_addr = 0};
-
-/* Hook functions. */
-static uint8_t *ospfGeneralGroup(struct variable *, oid *, size_t *, int,
-				 size_t *, WriteMethod **);
-static uint8_t *ospfAreaEntry(struct variable *, oid *, size_t *, int, size_t *,
-			      WriteMethod **);
-static uint8_t *ospfStubAreaEntry(struct variable *, oid *, size_t *, int,
-				  size_t *, WriteMethod **);
-static uint8_t *ospfLsdbEntry(struct variable *, oid *, size_t *, int, size_t *,
-			      WriteMethod **);
-static uint8_t *ospfAreaRangeEntry(struct variable *, oid *, size_t *, int,
-				   size_t *, WriteMethod **);
-static uint8_t *ospfHostEntry(struct variable *, oid *, size_t *, int, size_t *,
-			      WriteMethod **);
-static uint8_t *ospfIfEntry(struct variable *, oid *, size_t *, int, size_t *,
-			    WriteMethod **);
-static uint8_t *ospfIfMetricEntry(struct variable *, oid *, size_t *, int,
-				  size_t *, WriteMethod **);
-static uint8_t *ospfVirtIfEntry(struct variable *, oid *, size_t *, int,
-				size_t *, WriteMethod **);
-static uint8_t *ospfNbrEntry(struct variable *, oid *, size_t *, int, size_t *,
-			     WriteMethod **);
-static uint8_t *ospfVirtNbrEntry(struct variable *, oid *, size_t *, int,
-				 size_t *, WriteMethod **);
-static uint8_t *ospfExtLsdbEntry(struct variable *, oid *, size_t *, int,
-				 size_t *, WriteMethod **);
-static uint8_t *ospfAreaAggregateEntry(struct variable *, oid *, size_t *, int,
-				       size_t *, WriteMethod **);
-
-static struct variable ospf_variables[] = {
-	/* OSPF general variables */
-	{OSPFROUTERID, IPADDRESS, RWRITE, ospfGeneralGroup, 2, {1, 1}},
-	{OSPFADMINSTAT, INTEGER, RWRITE, ospfGeneralGroup, 2, {1, 2}},
-	{OSPFVERSIONNUMBER, INTEGER, RONLY, ospfGeneralGroup, 2, {1, 3}},
-	{OSPFAREABDRRTRSTATUS, INTEGER, RONLY, ospfGeneralGroup, 2, {1, 4}},
-	{OSPFASBDRRTRSTATUS, INTEGER, RWRITE, ospfGeneralGroup, 2, {1, 5}},
-	{OSPFEXTERNLSACOUNT, GAUGE, RONLY, ospfGeneralGroup, 2, {1, 6}},
-	{OSPFEXTERNLSACKSUMSUM, INTEGER, RONLY, ospfGeneralGroup, 2, {1, 7}},
-	{OSPFTOSSUPPORT, INTEGER, RWRITE, ospfGeneralGroup, 2, {1, 8}},
-	{OSPFORIGINATENEWLSAS, COUNTER, RONLY, ospfGeneralGroup, 2, {1, 9}},
-	{OSPFRXNEWLSAS, COUNTER, RONLY, ospfGeneralGroup, 2, {1, 10}},
-	{OSPFEXTLSDBLIMIT, INTEGER, RWRITE, ospfGeneralGroup, 2, {1, 11}},
-	{OSPFMULTICASTEXTENSIONS,
-	 INTEGER,
-	 RWRITE,
-	 ospfGeneralGroup,
-	 2,
-	 {1, 12}},
-	{OSPFEXITOVERFLOWINTERVAL,
-	 INTEGER,
-	 RWRITE,
-	 ospfGeneralGroup,
-	 2,
-	 {1, 13}},
-	{OSPFDEMANDEXTENSIONS, INTEGER, RWRITE, ospfGeneralGroup, 2, {1, 14}},
-
-	/* OSPF area data structure. */
-	{OSPFAREAID, IPADDRESS, RONLY, ospfAreaEntry, 3, {2, 1, 1}},
-	{OSPFAUTHTYPE, INTEGER, RWRITE, ospfAreaEntry, 3, {2, 1, 2}},
-	{OSPFIMPORTASEXTERN, INTEGER, RWRITE, ospfAreaEntry, 3, {2, 1, 3}},
-	{OSPFSPFRUNS, COUNTER, RONLY, ospfAreaEntry, 3, {2, 1, 4}},
-	{OSPFAREABDRRTRCOUNT, GAUGE, RONLY, ospfAreaEntry, 3, {2, 1, 5}},
-	{OSPFASBDRRTRCOUNT, GAUGE, RONLY, ospfAreaEntry, 3, {2, 1, 6}},
-	{OSPFAREALSACOUNT, GAUGE, RONLY, ospfAreaEntry, 3, {2, 1, 7}},
-	{OSPFAREALSACKSUMSUM, INTEGER, RONLY, ospfAreaEntry, 3, {2, 1, 8}},
-	{OSPFAREASUMMARY, INTEGER, RWRITE, ospfAreaEntry, 3, {2, 1, 9}},
-	{OSPFAREASTATUS, INTEGER, RWRITE, ospfAreaEntry, 3, {2, 1, 10}},
-
-	/* OSPF stub area information. */
-	{OSPFSTUBAREAID, IPADDRESS, RONLY, ospfStubAreaEntry, 3, {3, 1, 1}},
-	{OSPFSTUBTOS, INTEGER, RONLY, ospfStubAreaEntry, 3, {3, 1, 2}},
-	{OSPFSTUBMETRIC, INTEGER, RWRITE, ospfStubAreaEntry, 3, {3, 1, 3}},
-	{OSPFSTUBSTATUS, INTEGER, RWRITE, ospfStubAreaEntry, 3, {3, 1, 4}},
-	{OSPFSTUBMETRICTYPE, INTEGER, RWRITE, ospfStubAreaEntry, 3, {3, 1, 5}},
-
-	/* OSPF link state database. */
-	{OSPFLSDBAREAID, IPADDRESS, RONLY, ospfLsdbEntry, 3, {4, 1, 1}},
-	{OSPFLSDBTYPE, INTEGER, RONLY, ospfLsdbEntry, 3, {4, 1, 2}},
-	{OSPFLSDBLSID, IPADDRESS, RONLY, ospfLsdbEntry, 3, {4, 1, 3}},
-	{OSPFLSDBROUTERID, IPADDRESS, RONLY, ospfLsdbEntry, 3, {4, 1, 4}},
-	{OSPFLSDBSEQUENCE, INTEGER, RONLY, ospfLsdbEntry, 3, {4, 1, 5}},
-	{OSPFLSDBAGE, INTEGER, RONLY, ospfLsdbEntry, 3, {4, 1, 6}},
-	{OSPFLSDBCHECKSUM, INTEGER, RONLY, ospfLsdbEntry, 3, {4, 1, 7}},
-	{OSPFLSDBADVERTISEMENT, STRING, RONLY, ospfLsdbEntry, 3, {4, 1, 8}},
-
-	/* Area range table. */
-	{OSPFAREARANGEAREAID,
-	 IPADDRESS,
-	 RONLY,
-	 ospfAreaRangeEntry,
-	 3,
-	 {5, 1, 1}},
-	{OSPFAREARANGENET, IPADDRESS, RONLY, ospfAreaRangeEntry, 3, {5, 1, 2}},
-	{OSPFAREARANGEMASK,
-	 IPADDRESS,
-	 RWRITE,
-	 ospfAreaRangeEntry,
-	 3,
-	 {5, 1, 3}},
-	{OSPFAREARANGESTATUS,
-	 INTEGER,
-	 RWRITE,
-	 ospfAreaRangeEntry,
-	 3,
-	 {5, 1, 4}},
-	{OSPFAREARANGEEFFECT,
-	 INTEGER,
-	 RWRITE,
-	 ospfAreaRangeEntry,
-	 3,
-	 {5, 1, 5}},
-
-	/* OSPF host table. */
-	{OSPFHOSTIPADDRESS, IPADDRESS, RONLY, ospfHostEntry, 3, {6, 1, 1}},
-	{OSPFHOSTTOS, INTEGER, RONLY, ospfHostEntry, 3, {6, 1, 2}},
-	{OSPFHOSTMETRIC, INTEGER, RWRITE, ospfHostEntry, 3, {6, 1, 3}},
-	{OSPFHOSTSTATUS, INTEGER, RWRITE, ospfHostEntry, 3, {6, 1, 4}},
-	{OSPFHOSTAREAID, IPADDRESS, RONLY, ospfHostEntry, 3, {6, 1, 5}},
-
-	/* OSPF interface table. */
-	{OSPFIFIPADDRESS, IPADDRESS, RONLY, ospfIfEntry, 3, {7, 1, 1}},
-	{OSPFADDRESSLESSIF, INTEGER, RONLY, ospfIfEntry, 3, {7, 1, 2}},
-	{OSPFIFAREAID, IPADDRESS, RWRITE, ospfIfEntry, 3, {7, 1, 3}},
-	{OSPFIFTYPE, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 4}},
-	{OSPFIFADMINSTAT, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 5}},
-	{OSPFIFRTRPRIORITY, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 6}},
-	{OSPFIFTRANSITDELAY, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 7}},
-	{OSPFIFRETRANSINTERVAL, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 8}},
-	{OSPFIFHELLOINTERVAL, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 9}},
-	{OSPFIFRTRDEADINTERVAL, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 10}},
-	{OSPFIFPOLLINTERVAL, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 11}},
-	{OSPFIFSTATE, INTEGER, RONLY, ospfIfEntry, 3, {7, 1, 12}},
-	{OSPFIFDESIGNATEDROUTER, IPADDRESS, RONLY, ospfIfEntry, 3, {7, 1, 13}},
-	{OSPFIFBACKUPDESIGNATEDROUTER,
-	 IPADDRESS,
-	 RONLY,
-	 ospfIfEntry,
-	 3,
-	 {7, 1, 14}},
-	{OSPFIFEVENTS, COUNTER, RONLY, ospfIfEntry, 3, {7, 1, 15}},
-	{OSPFIFAUTHKEY, STRING, RWRITE, ospfIfEntry, 3, {7, 1, 16}},
-	{OSPFIFSTATUS, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 17}},
-	{OSPFIFMULTICASTFORWARDING,
-	 INTEGER,
-	 RWRITE,
-	 ospfIfEntry,
-	 3,
-	 {7, 1, 18}},
-	{OSPFIFDEMAND, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 19}},
-	{OSPFIFAUTHTYPE, INTEGER, RWRITE, ospfIfEntry, 3, {7, 1, 20}},
-
-	/* OSPF interface metric table. */
-	{OSPFIFMETRICIPADDRESS,
-	 IPADDRESS,
-	 RONLY,
-	 ospfIfMetricEntry,
-	 3,
-	 {8, 1, 1}},
-	{OSPFIFMETRICADDRESSLESSIF,
-	 INTEGER,
-	 RONLY,
-	 ospfIfMetricEntry,
-	 3,
-	 {8, 1, 2}},
-	{OSPFIFMETRICTOS, INTEGER, RONLY, ospfIfMetricEntry, 3, {8, 1, 3}},
-	{OSPFIFMETRICVALUE, INTEGER, RWRITE, ospfIfMetricEntry, 3, {8, 1, 4}},
-	{OSPFIFMETRICSTATUS, INTEGER, RWRITE, ospfIfMetricEntry, 3, {8, 1, 5}},
-
-	/* OSPF virtual interface table. */
-	{OSPFVIRTIFAREAID, IPADDRESS, RONLY, ospfVirtIfEntry, 3, {9, 1, 1}},
-	{OSPFVIRTIFNEIGHBOR, IPADDRESS, RONLY, ospfVirtIfEntry, 3, {9, 1, 2}},
-	{OSPFVIRTIFTRANSITDELAY,
-	 INTEGER,
-	 RWRITE,
-	 ospfVirtIfEntry,
-	 3,
-	 {9, 1, 3}},
-	{OSPFVIRTIFRETRANSINTERVAL,
-	 INTEGER,
-	 RWRITE,
-	 ospfVirtIfEntry,
-	 3,
-	 {9, 1, 4}},
-	{OSPFVIRTIFHELLOINTERVAL,
-	 INTEGER,
-	 RWRITE,
-	 ospfVirtIfEntry,
-	 3,
-	 {9, 1, 5}},
-	{OSPFVIRTIFRTRDEADINTERVAL,
-	 INTEGER,
-	 RWRITE,
-	 ospfVirtIfEntry,
-	 3,
-	 {9, 1, 6}},
-	{OSPFVIRTIFSTATE, INTEGER, RONLY, ospfVirtIfEntry, 3, {9, 1, 7}},
-	{OSPFVIRTIFEVENTS, COUNTER, RONLY, ospfVirtIfEntry, 3, {9, 1, 8}},
-	{OSPFVIRTIFAUTHKEY, STRING, RWRITE, ospfVirtIfEntry, 3, {9, 1, 9}},
-	{OSPFVIRTIFSTATUS, INTEGER, RWRITE, ospfVirtIfEntry, 3, {9, 1, 10}},
-	{OSPFVIRTIFAUTHTYPE, INTEGER, RWRITE, ospfVirtIfEntry, 3, {9, 1, 11}},
-
-	/* OSPF neighbor table. */
-	{OSPFNBRIPADDR, IPADDRESS, RONLY, ospfNbrEntry, 3, {10, 1, 1}},
-	{OSPFNBRADDRESSLESSINDEX, INTEGER, RONLY, ospfNbrEntry, 3, {10, 1, 2}},
-	{OSPFNBRRTRID, IPADDRESS, RONLY, ospfNbrEntry, 3, {10, 1, 3}},
-	{OSPFNBROPTIONS, INTEGER, RONLY, ospfNbrEntry, 3, {10, 1, 4}},
-	{OSPFNBRPRIORITY, INTEGER, RWRITE, ospfNbrEntry, 3, {10, 1, 5}},
-	{OSPFNBRSTATE, INTEGER, RONLY, ospfNbrEntry, 3, {10, 1, 6}},
-	{OSPFNBREVENTS, COUNTER, RONLY, ospfNbrEntry, 3, {10, 1, 7}},
-	{OSPFNBRLSRETRANSQLEN, GAUGE, RONLY, ospfNbrEntry, 3, {10, 1, 8}},
-	{OSPFNBMANBRSTATUS, INTEGER, RWRITE, ospfNbrEntry, 3, {10, 1, 9}},
-	{OSPFNBMANBRPERMANENCE, INTEGER, RONLY, ospfNbrEntry, 3, {10, 1, 10}},
-	{OSPFNBRHELLOSUPPRESSED, INTEGER, RONLY, ospfNbrEntry, 3, {10, 1, 11}},
-
-	/* OSPF virtual neighbor table. */
-	{OSPFVIRTNBRAREA, IPADDRESS, RONLY, ospfVirtNbrEntry, 3, {11, 1, 1}},
-	{OSPFVIRTNBRRTRID, IPADDRESS, RONLY, ospfVirtNbrEntry, 3, {11, 1, 2}},
-	{OSPFVIRTNBRIPADDR, IPADDRESS, RONLY, ospfVirtNbrEntry, 3, {11, 1, 3}},
-	{OSPFVIRTNBROPTIONS, INTEGER, RONLY, ospfVirtNbrEntry, 3, {11, 1, 4}},
-	{OSPFVIRTNBRSTATE, INTEGER, RONLY, ospfVirtNbrEntry, 3, {11, 1, 5}},
-	{OSPFVIRTNBREVENTS, COUNTER, RONLY, ospfVirtNbrEntry, 3, {11, 1, 6}},
-	{OSPFVIRTNBRLSRETRANSQLEN,
-	 INTEGER,
-	 RONLY,
-	 ospfVirtNbrEntry,
-	 3,
-	 {11, 1, 7}},
-	{OSPFVIRTNBRHELLOSUPPRESSED,
-	 INTEGER,
-	 RONLY,
-	 ospfVirtNbrEntry,
-	 3,
-	 {11, 1, 8}},
-
-	/* OSPF link state database, external. */
-	{OSPFEXTLSDBTYPE, INTEGER, RONLY, ospfExtLsdbEntry, 3, {12, 1, 1}},
-	{OSPFEXTLSDBLSID, IPADDRESS, RONLY, ospfExtLsdbEntry, 3, {12, 1, 2}},
-	{OSPFEXTLSDBROUTERID,
-	 IPADDRESS,
-	 RONLY,
-	 ospfExtLsdbEntry,
-	 3,
-	 {12, 1, 3}},
-	{OSPFEXTLSDBSEQUENCE, INTEGER, RONLY, ospfExtLsdbEntry, 3, {12, 1, 4}},
-	{OSPFEXTLSDBAGE, INTEGER, RONLY, ospfExtLsdbEntry, 3, {12, 1, 5}},
-	{OSPFEXTLSDBCHECKSUM, INTEGER, RONLY, ospfExtLsdbEntry, 3, {12, 1, 6}},
-	{OSPFEXTLSDBADVERTISEMENT,
-	 STRING,
-	 RONLY,
-	 ospfExtLsdbEntry,
-	 3,
-	 {12, 1, 7}},
-
-	/* OSPF area aggregate table. */
-	{OSPFAREAAGGREGATEAREAID,
-	 IPADDRESS,
-	 RONLY,
-	 ospfAreaAggregateEntry,
-	 3,
-	 {14, 1, 1}},
-	{OSPFAREAAGGREGATELSDBTYPE,
-	 INTEGER,
-	 RONLY,
-	 ospfAreaAggregateEntry,
-	 3,
-	 {14, 1, 2}},
-	{OSPFAREAAGGREGATENET,
-	 IPADDRESS,
-	 RONLY,
-	 ospfAreaAggregateEntry,
-	 3,
-	 {14, 1, 3}},
-	{OSPFAREAAGGREGATEMASK,
-	 IPADDRESS,
-	 RONLY,
-	 ospfAreaAggregateEntry,
-	 3,
-	 {14, 1, 4}},
-	{OSPFAREAAGGREGATESTATUS,
-	 INTEGER,
-	 RWRITE,
-	 ospfAreaAggregateEntry,
-	 3,
-	 {14, 1, 5}},
-	{OSPFAREAAGGREGATEEFFECT,
-	 INTEGER,
-	 RWRITE,
-	 ospfAreaAggregateEntry,
-	 3,
-	 {14, 1, 6}}};
-
-/* The administrative status of OSPF.  When OSPF is enbled on at least
-   one interface return 1. */
-static int ospf_admin_stat(struct ospf *ospf)
-{
-	struct listnode *node;
-	struct ospf_interface *oi;
-
-	if (ospf == NULL)
-		return 0;
-
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
-		if (oi && oi->address)
-			return 1;
-
-	return 0;
-}
-
-static uint8_t *ospfGeneralGroup(struct variable *v, oid *name, size_t *length,
-				 int exact, size_t *var_len,
-				 WriteMethod **write_method)
-{
-	struct ospf *ospf;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
-	/* Check whether the instance identifier is valid */
-	if (smux_header_generic(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFROUTERID: /* 1 */
-		/* Router-ID of this OSPF instance. */
-		if (ospf)
-			return SNMP_IPADDRESS(ospf->router_id);
-		else
-			return SNMP_IPADDRESS(ospf_empty_addr);
-		break;
-	case OSPFADMINSTAT: /* 2 */
-		/* The administrative status of OSPF in the router. */
-		if (ospf_admin_stat(ospf))
-			return SNMP_INTEGER(OSPF_STATUS_ENABLED);
-		else
-			return SNMP_INTEGER(OSPF_STATUS_DISABLED);
-		break;
-	case OSPFVERSIONNUMBER: /* 3 */
-		/* OSPF version 2. */
-		return SNMP_INTEGER(OSPF_VERSION);
-		break;
-	case OSPFAREABDRRTRSTATUS: /* 4 */
-		/* Area Border router status. */
-		if (ospf && CHECK_FLAG(ospf->flags, OSPF_FLAG_ABR))
-			return SNMP_INTEGER(SNMP_TRUE);
-		else
-			return SNMP_INTEGER(SNMP_FALSE);
-		break;
-	case OSPFASBDRRTRSTATUS: /* 5 */
-		/* AS Border router status. */
-		if (ospf && CHECK_FLAG(ospf->flags, OSPF_FLAG_ASBR))
-			return SNMP_INTEGER(SNMP_TRUE);
-		else
-			return SNMP_INTEGER(SNMP_FALSE);
-		break;
-	case OSPFEXTERNLSACOUNT: /* 6 */
-		/* External LSA counts. */
-		if (ospf)
-			return SNMP_INTEGER(ospf_lsdb_count_all(ospf->lsdb));
-		else
-			return SNMP_INTEGER(0);
-		break;
-	case OSPFEXTERNLSACKSUMSUM: /* 7 */
-		/* External LSA checksum. */
-		return SNMP_INTEGER(0);
-		break;
-	case OSPFTOSSUPPORT: /* 8 */
-		/* TOS is not supported. */
-		return SNMP_INTEGER(SNMP_FALSE);
-		break;
-	case OSPFORIGINATENEWLSAS: /* 9 */
-		/* The number of new link-state advertisements. */
-		if (ospf)
-			return SNMP_INTEGER(ospf->lsa_originate_count);
-		else
-			return SNMP_INTEGER(0);
-		break;
-	case OSPFRXNEWLSAS: /* 10 */
-		/* The number of link-state advertisements received determined
-		   to be new instantiations. */
-		if (ospf)
-			return SNMP_INTEGER(ospf->rx_lsa_count);
-		else
-			return SNMP_INTEGER(0);
-		break;
-	case OSPFEXTLSDBLIMIT: /* 11 */
-		/* There is no limit for the number of non-default
-		   AS-external-LSAs. */
-		return SNMP_INTEGER(-1);
-		break;
-	case OSPFMULTICASTEXTENSIONS: /* 12 */
-		/* Multicast Extensions to OSPF is not supported. */
-		return SNMP_INTEGER(0);
-		break;
-	case OSPFEXITOVERFLOWINTERVAL: /* 13 */
-		/* Overflow is not supported. */
-		return SNMP_INTEGER(0);
-		break;
-	case OSPFDEMANDEXTENSIONS: /* 14 */
-		/* Demand routing is not supported. */
-		return SNMP_INTEGER(SNMP_FALSE);
-		break;
-	default:
-		return NULL;
-	}
-	return NULL;
-}
-
-static struct ospf_area *
-ospf_area_lookup_next(struct ospf *ospf, struct in_addr *area_id, int first)
-{
-	struct ospf_area *area;
-	struct listnode *node;
-
-	if (ospf == NULL)
-		return NULL;
-
-	if (first) {
-		node = listhead(ospf->areas);
-		if (node) {
-			area = listgetdata(node);
-			*area_id = area->area_id;
-			return area;
-		}
-		return NULL;
-	}
-	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
-		if (ntohl(area->area_id.s_addr) > ntohl(area_id->s_addr)) {
-			*area_id = area->area_id;
-			return area;
-		}
-	}
-	return NULL;
-}
-
-static struct ospf_area *ospfAreaLookup(struct variable *v, oid name[],
-					size_t *length, struct in_addr *addr,
-					int exact)
-{
-	struct ospf *ospf;
-	struct ospf_area *area;
-	int len;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	if (exact) {
-		/* Length is insufficient to lookup OSPF area. */
-		if (*length - v->namelen != sizeof(struct in_addr))
-			return NULL;
-
-		oid2in_addr(name + v->namelen, sizeof(struct in_addr), addr);
-
-		area = ospf_area_lookup_by_area_id(ospf, *addr);
-
-		return area;
-	} else {
-		len = *length - v->namelen;
-		if (len > 4)
-			len = 4;
-
-		oid2in_addr(name + v->namelen, len, addr);
-
-		area = ospf_area_lookup_next(ospf, addr, len == 0 ? 1 : 0);
-
-		if (area == NULL)
-			return NULL;
-
-		oid_copy_addr(name + v->namelen, addr, sizeof(struct in_addr));
-		*length = sizeof(struct in_addr) + v->namelen;
-
-		return area;
-	}
-	return NULL;
-}
-
-static uint8_t *ospfAreaEntry(struct variable *v, oid *name, size_t *length,
-			      int exact, size_t *var_len,
-			      WriteMethod **write_method)
-{
-	struct ospf_area *area;
-	struct in_addr addr;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	memset(&addr, 0, sizeof(struct in_addr));
-
-	area = ospfAreaLookup(v, name, length, &addr, exact);
-	if (!area)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFAREAID: /* 1 */
-		return SNMP_IPADDRESS(area->area_id);
-		break;
-	case OSPFAUTHTYPE: /* 2 */
-		return SNMP_INTEGER(area->auth_type);
-		break;
-	case OSPFIMPORTASEXTERN: /* 3 */
-		return SNMP_INTEGER(area->external_routing + 1);
-		break;
-	case OSPFSPFRUNS: /* 4 */
-		return SNMP_INTEGER(area->spf_calculation);
-		break;
-	case OSPFAREABDRRTRCOUNT: /* 5 */
-		return SNMP_INTEGER(area->abr_count);
-		break;
-	case OSPFASBDRRTRCOUNT: /* 6 */
-		return SNMP_INTEGER(area->asbr_count);
-		break;
-	case OSPFAREALSACOUNT: /* 7 */
-		return SNMP_INTEGER(area->lsdb->total);
-		break;
-	case OSPFAREALSACKSUMSUM: /* 8 */
-		return SNMP_INTEGER(0);
-		break;
-	case OSPFAREASUMMARY: /* 9 */
-#define OSPF_noAreaSummary   1
-#define OSPF_sendAreaSummary 2
-		if (area->no_summary)
-			return SNMP_INTEGER(OSPF_noAreaSummary);
-		else
-			return SNMP_INTEGER(OSPF_sendAreaSummary);
-		break;
-	case OSPFAREASTATUS: /* 10 */
-		return SNMP_INTEGER(SNMP_VALID);
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static struct ospf_area *ospf_stub_area_lookup_next(struct in_addr *area_id,
-						    int first)
-{
-	struct ospf_area *area;
-	struct listnode *node;
-	struct ospf *ospf;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {
-		if (area->external_routing == OSPF_AREA_STUB) {
-			if (first) {
-				*area_id = area->area_id;
-				return area;
-			} else if (ntohl(area->area_id.s_addr)
-				   > ntohl(area_id->s_addr)) {
-				*area_id = area->area_id;
-				return area;
-			}
-		}
-	}
-	return NULL;
-}
-
-static struct ospf_area *ospfStubAreaLookup(struct variable *v, oid name[],
-					    size_t *length,
-					    struct in_addr *addr, int exact)
-{
-	struct ospf *ospf;
-	struct ospf_area *area;
-	int len;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	/* Exact lookup. */
-	if (exact) {
-		/* ospfStubAreaID + ospfStubTOS. */
-		if (*length != v->namelen + sizeof(struct in_addr) + 1)
-			return NULL;
-
-		/* Check ospfStubTOS is zero. */
-		if (name[*length - 1] != 0)
-			return NULL;
-
-		oid2in_addr(name + v->namelen, sizeof(struct in_addr), addr);
-
-		area = ospf_area_lookup_by_area_id(ospf, *addr);
-
-		if (area->external_routing == OSPF_AREA_STUB)
-			return area;
-		else
-			return NULL;
-	} else {
-		len = *length - v->namelen;
-		if (len > 4)
-			len = 4;
-
-		oid2in_addr(name + v->namelen, len, addr);
-
-		area = ospf_stub_area_lookup_next(addr, len == 0 ? 1 : 0);
-
-		if (area == NULL)
-			return NULL;
-
-		oid_copy_addr(name + v->namelen, addr, sizeof(struct in_addr));
-		/* Set TOS 0. */
-		name[v->namelen + sizeof(struct in_addr)] = 0;
-		*length = v->namelen + sizeof(struct in_addr) + 1;
-
-		return area;
-	}
-	return NULL;
-}
-
-static uint8_t *ospfStubAreaEntry(struct variable *v, oid *name, size_t *length,
-				  int exact, size_t *var_len,
-				  WriteMethod **write_method)
-{
-	struct ospf_area *area;
-	struct in_addr addr;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	memset(&addr, 0, sizeof(struct in_addr));
-
-	area = ospfStubAreaLookup(v, name, length, &addr, exact);
-	if (!area)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFSTUBAREAID: /* 1 */
-		/* OSPF stub area id. */
-		return SNMP_IPADDRESS(area->area_id);
-		break;
-	case OSPFSTUBTOS: /* 2 */
-		/* TOS value is not supported. */
-		return SNMP_INTEGER(0);
-		break;
-	case OSPFSTUBMETRIC: /* 3 */
-		/* Default cost to stub area. */
-		return SNMP_INTEGER(area->default_cost);
-		break;
-	case OSPFSTUBSTATUS: /* 4 */
-		/* Status of the stub area. */
-		return SNMP_INTEGER(SNMP_VALID);
-		break;
-	case OSPFSTUBMETRICTYPE: /* 5 */
-				 /* OSPF Metric type. */
-#define OSPF_ospfMetric     1
-#define OSPF_comparableCost 2
-#define OSPF_nonComparable  3
-		return SNMP_INTEGER(OSPF_ospfMetric);
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static struct ospf_lsa *lsdb_lookup_next(struct ospf_area *area, uint8_t *type,
-					 int type_next, struct in_addr *ls_id,
-					 int ls_id_next,
-					 struct in_addr *router_id,
-					 int router_id_next)
-{
-	struct ospf_lsa *lsa;
-	int i;
-
-	if (type_next)
-		i = OSPF_MIN_LSA;
-	else
-		i = *type;
-
-	/* Sanity check, if LSA type unknwon
-	   merley skip any LSA */
-	if ((i < OSPF_MIN_LSA) || (i >= OSPF_MAX_LSA)) {
-		zlog_debug("Strange request with LSA type %d\n", i);
-		return NULL;
-	}
-
-	for (; i < OSPF_MAX_LSA; i++) {
-		*type = i;
-
-		lsa = ospf_lsdb_lookup_by_id_next(area->lsdb, *type, *ls_id,
-						  *router_id, ls_id_next);
-		if (lsa)
-			return lsa;
-
-		ls_id_next = 1;
-	}
-	return NULL;
-}
-
-static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
-				       size_t *length, struct in_addr *area_id,
-				       uint8_t *type, struct in_addr *ls_id,
-				       struct in_addr *router_id, int exact)
-{
-	struct ospf *ospf;
-	struct ospf_area *area;
-	struct ospf_lsa *lsa;
-	int len;
-	int type_next;
-	int ls_id_next;
-	int router_id_next;
-	oid *offset;
-	int offsetlen;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
-#define OSPF_LSDB_ENTRY_OFFSET (IN_ADDR_SIZE + 1 + IN_ADDR_SIZE + IN_ADDR_SIZE)
-
-	if (exact) {
-		/* Area ID + Type + LS ID + Router ID. */
-		if (*length - v->namelen != OSPF_LSDB_ENTRY_OFFSET)
-			return NULL;
-
-		/* Set OID offset for Area ID. */
-		offset = name + v->namelen;
-
-		/* Lookup area first. */
-		oid2in_addr(offset, IN_ADDR_SIZE, area_id);
-		area = ospf_area_lookup_by_area_id(ospf, *area_id);
-		if (!area)
-			return NULL;
-		offset += IN_ADDR_SIZE;
-
-		/* Type. */
-		*type = *offset;
-		offset++;
-
-		/* LS ID. */
-		oid2in_addr(offset, IN_ADDR_SIZE, ls_id);
-		offset += IN_ADDR_SIZE;
-
-		/* Router ID. */
-		oid2in_addr(offset, IN_ADDR_SIZE, router_id);
-
-		/* Lookup LSDB. */
-		return ospf_lsdb_lookup_by_id(area->lsdb, *type, *ls_id,
-					      *router_id);
-	} else {
-		/* Get variable length. */
-		offset = name + v->namelen;
-		offsetlen = *length - v->namelen;
-		len = offsetlen;
-
-		if (len > (int)IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-
-		oid2in_addr(offset, len, area_id);
-
-		/* First we search area. */
-		if (len == IN_ADDR_SIZE)
-			area = ospf_area_lookup_by_area_id(ospf, *area_id);
-		else
-			area = ospf_area_lookup_next(ospf, area_id, 1);
-
-		if (area == NULL)
-			return NULL;
-
-		do {
-			/* Next we lookup type. */
-			offset += len;
-			offsetlen -= len;
-			len = offsetlen;
-
-			if (len <= 0)
-				type_next = 1;
-			else {
-				len = 1;
-				type_next = 0;
-				*type = *offset;
-			}
-
-			/* LS ID. */
-			offset++;
-			offsetlen--;
-			len = offsetlen;
-
-			if (len <= 0)
-				ls_id_next = 1;
-			else {
-				ls_id_next = 0;
-				if (len > (int)IN_ADDR_SIZE)
-					len = IN_ADDR_SIZE;
-
-				oid2in_addr(offset, len, ls_id);
-			}
-
-			/* Router ID. */
-			offset += IN_ADDR_SIZE;
-			offsetlen -= IN_ADDR_SIZE;
-			len = offsetlen;
-
-			if (len <= 0)
-				router_id_next = 1;
-			else {
-				router_id_next = 0;
-				if (len > (int)IN_ADDR_SIZE)
-					len = IN_ADDR_SIZE;
-
-				oid2in_addr(offset, len, router_id);
-			}
-
-			lsa = lsdb_lookup_next(area, type, type_next, ls_id,
-					       ls_id_next, router_id,
-					       router_id_next);
-
-			if (lsa) {
-				/* Fill in length. */
-				*length = v->namelen + OSPF_LSDB_ENTRY_OFFSET;
-
-				/* Fill in value. */
-				offset = name + v->namelen;
-				oid_copy_addr(offset, area_id, IN_ADDR_SIZE);
-				offset += IN_ADDR_SIZE;
-				*offset = lsa->data->type;
-				offset++;
-				oid_copy_addr(offset, &lsa->data->id,
-					      IN_ADDR_SIZE);
-				offset += IN_ADDR_SIZE;
-				oid_copy_addr(offset, &lsa->data->adv_router,
-					      IN_ADDR_SIZE);
-
-				return lsa;
-			}
-		} while ((area = ospf_area_lookup_next(ospf, area_id, 0))
-			 != NULL);
-	}
-	return NULL;
-}
-
-static uint8_t *ospfLsdbEntry(struct variable *v, oid *name, size_t *length,
-			      int exact, size_t *var_len,
-			      WriteMethod **write_method)
-{
-	struct ospf_lsa *lsa;
-	struct lsa_header *lsah;
-	struct in_addr area_id;
-	uint8_t type;
-	struct in_addr ls_id;
-	struct in_addr router_id;
-	struct ospf *ospf;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	/* INDEX { ospfLsdbAreaId, ospfLsdbType,
-	   ospfLsdbLsid, ospfLsdbRouterId } */
-
-	memset(&area_id, 0, sizeof(struct in_addr));
-	type = 0;
-	memset(&ls_id, 0, sizeof(struct in_addr));
-	memset(&router_id, 0, sizeof(struct in_addr));
-
-	/* Check OSPF instance. */
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	lsa = ospfLsdbLookup(v, name, length, &area_id, &type, &ls_id,
-			     &router_id, exact);
-	if (!lsa)
-		return NULL;
-
-	lsah = lsa->data;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFLSDBAREAID: /* 1 */
-		return SNMP_IPADDRESS(lsa->area->area_id);
-		break;
-	case OSPFLSDBTYPE: /* 2 */
-		return SNMP_INTEGER(lsah->type);
-		break;
-	case OSPFLSDBLSID: /* 3 */
-		return SNMP_IPADDRESS(lsah->id);
-		break;
-	case OSPFLSDBROUTERID: /* 4 */
-		return SNMP_IPADDRESS(lsah->adv_router);
-		break;
-	case OSPFLSDBSEQUENCE: /* 5 */
-		return SNMP_INTEGER(lsah->ls_seqnum);
-		break;
-	case OSPFLSDBAGE: /* 6 */
-		return SNMP_INTEGER(lsah->ls_age);
-		break;
-	case OSPFLSDBCHECKSUM: /* 7 */
-		return SNMP_INTEGER(lsah->checksum);
-		break;
-	case OSPFLSDBADVERTISEMENT: /* 8 */
-		*var_len = ntohs(lsah->length);
-		return (uint8_t *)lsah;
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
-						   oid *name, size_t *length,
-						   struct in_addr *area_id,
-						   struct in_addr *range_net,
-						   int exact)
-{
-	oid *offset;
-	int offsetlen;
-	int len;
-	struct ospf *ospf;
-	struct ospf_area *area;
-	struct ospf_area_range *range;
-	struct prefix_ipv4 p;
-	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_BITLEN;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
-	if (exact) {
-		/* Area ID + Range Network. */
-		if (v->namelen + IN_ADDR_SIZE + IN_ADDR_SIZE != *length)
-			return NULL;
-
-		/* Set OID offset for Area ID. */
-		offset = name + v->namelen;
-
-		/* Lookup area first. */
-		oid2in_addr(offset, IN_ADDR_SIZE, area_id);
-
-		area = ospf_area_lookup_by_area_id(ospf, *area_id);
-		if (!area)
-			return NULL;
-
-		offset += IN_ADDR_SIZE;
-
-		/* Lookup area range. */
-		oid2in_addr(offset, IN_ADDR_SIZE, range_net);
-		p.prefix = *range_net;
-
-		return ospf_area_range_lookup(area, &p);
-	} else {
-		/* Set OID offset for Area ID. */
-		offset = name + v->namelen;
-		offsetlen = *length - v->namelen;
-
-		len = offsetlen;
-		if (len > (int)IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-
-		oid2in_addr(offset, len, area_id);
-
-		/* First we search area. */
-		if (len == IN_ADDR_SIZE)
-			area = ospf_area_lookup_by_area_id(ospf, *area_id);
-		else
-			area = ospf_area_lookup_next(ospf, area_id,
-						     len == 0 ? 1 : 0);
-
-		if (area == NULL)
-			return NULL;
-
-		do {
-			offset += IN_ADDR_SIZE;
-			offsetlen -= IN_ADDR_SIZE;
-			len = offsetlen;
-
-			if (len < 0)
-				len = 0;
-			if (len > (int)IN_ADDR_SIZE)
-				len = IN_ADDR_SIZE;
-
-			oid2in_addr(offset, len, range_net);
-
-			range = ospf_area_range_lookup_next(area, range_net,
-							    len == 0 ? 1 : 0);
-
-			if (range) {
-				/* Fill in length. */
-				*length = v->namelen + IN_ADDR_SIZE
-					  + IN_ADDR_SIZE;
-
-				/* Fill in value. */
-				offset = name + v->namelen;
-				oid_copy_addr(offset, area_id, IN_ADDR_SIZE);
-				offset += IN_ADDR_SIZE;
-				oid_copy_addr(offset, range_net, IN_ADDR_SIZE);
-
-				return range;
-			}
-		} while ((area = ospf_area_lookup_next(ospf, area_id, 0))
-			 != NULL);
-	}
-	return NULL;
-}
-
-static uint8_t *ospfAreaRangeEntry(struct variable *v, oid *name,
-				   size_t *length, int exact, size_t *var_len,
-				   WriteMethod **write_method)
-{
-	struct ospf_area_range *range;
-	struct in_addr area_id;
-	struct in_addr range_net;
-	struct in_addr mask;
-	struct ospf *ospf;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	/* Check OSPF instance. */
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	memset(&area_id, 0, IN_ADDR_SIZE);
-	memset(&range_net, 0, IN_ADDR_SIZE);
-
-	range = ospfAreaRangeLookup(v, name, length, &area_id, &range_net,
-				    exact);
-	if (!range)
-		return NULL;
-
-	/* Convert prefixlen to network mask format. */
-	masklen2ip(range->subst_masklen, &mask);
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFAREARANGEAREAID: /* 1 */
-		return SNMP_IPADDRESS(area_id);
-		break;
-	case OSPFAREARANGENET: /* 2 */
-		return SNMP_IPADDRESS(range_net);
-		break;
-	case OSPFAREARANGEMASK: /* 3 */
-		return SNMP_IPADDRESS(mask);
-		break;
-	case OSPFAREARANGESTATUS: /* 4 */
-		return SNMP_INTEGER(SNMP_VALID);
-		break;
-	case OSPFAREARANGEEFFECT: /* 5 */
-#define OSPF_advertiseMatching      1
-#define OSPF_doNotAdvertiseMatching 2
-		return SNMP_INTEGER(OSPF_advertiseMatching);
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static struct ospf_nbr_nbma *ospfHostLookup(struct variable *v, oid *name,
-					    size_t *length,
-					    struct in_addr *addr, int exact)
-{
-	int len;
-	struct ospf_nbr_nbma *nbr_nbma;
-	struct ospf *ospf;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	if (exact) {
-		/* INDEX { ospfHostIpAddress, ospfHostTOS } */
-		if (*length != v->namelen + IN_ADDR_SIZE + 1)
-			return NULL;
-
-		/* Check ospfHostTOS. */
-		if (name[*length - 1] != 0)
-			return NULL;
-
-		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, addr);
-
-		nbr_nbma = ospf_nbr_nbma_lookup(ospf, *addr);
-
-		return nbr_nbma;
-	} else {
-		len = *length - v->namelen;
-		if (len > 4)
-			len = 4;
-
-		oid2in_addr(name + v->namelen, len, addr);
-
-		nbr_nbma =
-			ospf_nbr_nbma_lookup_next(ospf, addr, len == 0 ? 1 : 0);
-
-		if (nbr_nbma == NULL)
-			return NULL;
-
-		oid_copy_addr(name + v->namelen, addr, IN_ADDR_SIZE);
-
-		/* Set TOS 0. */
-		name[v->namelen + IN_ADDR_SIZE] = 0;
-
-		*length = v->namelen + IN_ADDR_SIZE + 1;
-
-		return nbr_nbma;
-	}
-	return NULL;
-}
-
-static uint8_t *ospfHostEntry(struct variable *v, oid *name, size_t *length,
-			      int exact, size_t *var_len,
-			      WriteMethod **write_method)
-{
-	struct ospf_nbr_nbma *nbr_nbma;
-	struct ospf_interface *oi;
-	struct in_addr addr;
-	struct ospf *ospf;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	/* Check OSPF instance. */
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	memset(&addr, 0, sizeof(struct in_addr));
-
-	nbr_nbma = ospfHostLookup(v, name, length, &addr, exact);
-	if (nbr_nbma == NULL)
-		return NULL;
-
-	oi = nbr_nbma->oi;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFHOSTIPADDRESS: /* 1 */
-		return SNMP_IPADDRESS(nbr_nbma->addr);
-		break;
-	case OSPFHOSTTOS: /* 2 */
-		return SNMP_INTEGER(0);
-		break;
-	case OSPFHOSTMETRIC: /* 3 */
-		if (oi)
-			return SNMP_INTEGER(oi->output_cost);
-		else
-			return SNMP_INTEGER(1);
-		break;
-	case OSPFHOSTSTATUS: /* 4 */
-		return SNMP_INTEGER(SNMP_VALID);
-		break;
-	case OSPFHOSTAREAID: /* 5 */
-		if (oi && oi->area)
-			return SNMP_IPADDRESS(oi->area->area_id);
-		else
-			return SNMP_IPADDRESS(ospf_empty_addr);
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static struct list *ospf_snmp_iflist;
-
-struct ospf_snmp_if {
-	struct in_addr addr;
-	ifindex_t ifindex;
-	struct interface *ifp;
-};
-
-static struct ospf_snmp_if *ospf_snmp_if_new(void)
-{
-	return XCALLOC(MTYPE_TMP, sizeof(struct ospf_snmp_if));
-}
-
-static void ospf_snmp_if_free(struct ospf_snmp_if *osif)
-{
-	XFREE(MTYPE_TMP, osif);
-}
-
-static int ospf_snmp_if_delete(struct interface *ifp)
-{
-	struct listnode *node, *nnode;
-	struct ospf_snmp_if *osif;
-
-	for (ALL_LIST_ELEMENTS(ospf_snmp_iflist, node, nnode, osif)) {
-		if (osif->ifp == ifp) {
-			list_delete_node(ospf_snmp_iflist, node);
-			ospf_snmp_if_free(osif);
-			break;
-		}
-	}
-	return 0;
-}
-
-static int ospf_snmp_if_update(struct interface *ifp)
-{
-	struct listnode *node;
-	struct listnode *pn;
-	struct connected *ifc;
-	struct prefix *p;
-	struct ospf_snmp_if *osif;
-	struct in_addr *addr;
-	ifindex_t ifindex;
-
-	ospf_snmp_if_delete(ifp);
-
-	p = NULL;
-	addr = NULL;
-	ifindex = 0;
-
-	/* Lookup first IPv4 address entry. */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
-		p = CONNECTED_ID(ifc);
-
-		if (p->family == AF_INET) {
-			addr = &p->u.prefix4;
-			break;
-		}
-	}
-	if (!addr)
-		ifindex = ifp->ifindex;
-
-	/* Add interface to the list. */
-	pn = NULL;
-	for (ALL_LIST_ELEMENTS_RO(ospf_snmp_iflist, node, osif)) {
-		if (addr) {
-			/* Usual interfaces --> Sort them based on interface
-			 * IPv4 addresses */
-			if (ntohl(osif->addr.s_addr) > ntohl(addr->s_addr))
-				break;
-		} else {
-			/* Unnumbered interfaces --> Sort them based on
-			 * interface indexes */
-			if (osif->addr.s_addr != 0 || osif->ifindex > ifindex)
-				break;
-		}
-		pn = node;
-	}
-
-	osif = ospf_snmp_if_new();
-	if (addr) /* Usual interface */
-	{
-		osif->addr = *addr;
-
-		/* This field is used for storing ospfAddressLessIf OID value,
-		 * conform to RFC1850 OSPF-MIB specification, it must be 0 for
-		 * usual interface */
-		osif->ifindex = 0;
-	} else /* Unnumbered interface */
-		osif->ifindex = ifindex;
-	osif->ifp = ifp;
-
-	listnode_add_after(ospf_snmp_iflist, pn, osif);
-	return 0;
-}
-
-static int ospf_snmp_is_if_have_addr(struct interface *ifp)
-{
-	struct listnode *nn;
-	struct connected *ifc;
-
-	/* Is this interface having any connected IPv4 address ? */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, nn, ifc)) {
-		if (CONNECTED_PREFIX(ifc)->family == AF_INET)
-			return 1;
-	}
-
-	return 0;
-}
-
-static struct ospf_interface *ospf_snmp_if_lookup(struct in_addr *ifaddr,
-						  ifindex_t *ifindex)
-{
-	struct listnode *node;
-	struct ospf_snmp_if *osif;
-	struct ospf_interface *oi = NULL;
-	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
-	for (ALL_LIST_ELEMENTS_RO(ospf_snmp_iflist, node, osif)) {
-		if (ifaddr->s_addr) {
-			if (IPV4_ADDR_SAME(&osif->addr, ifaddr))
-				oi = ospf_if_lookup_by_local_addr(
-					ospf, osif->ifp, *ifaddr);
-		} else {
-			if (osif->ifindex == *ifindex)
-				oi = ospf_if_lookup_by_local_addr(
-					ospf, osif->ifp, *ifaddr);
-		}
-	}
-	return oi;
-}
-
-static struct ospf_interface *ospf_snmp_if_lookup_next(struct in_addr *ifaddr,
-						       ifindex_t *ifindex,
-						       int ifaddr_next,
-						       ifindex_t ifindex_next)
-{
-	struct ospf_snmp_if *osif;
-	struct listnode *nn;
-	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	struct ospf_interface *oi = NULL;
-
-	if (ospf == NULL)
-		return NULL;
-
-	/* No instance is specified --> Return the first OSPF interface */
-	if (ifaddr_next) {
-		for (ALL_LIST_ELEMENTS_RO(ospf_snmp_iflist, nn, osif)) {
-			osif = listgetdata(nn);
-			*ifaddr = osif->addr;
-			*ifindex = osif->ifindex;
-			/* Because no instance is specified, we don't care about
-			 * the kind of
-			 * interface (usual or unnumbered), just returning the
-			 * first valid
-			 * OSPF interface */
-			oi = ospf_if_lookup_by_local_addr(ospf, osif->ifp,
-							  *ifaddr);
-			if (oi)
-				return (oi);
-		}
-		return NULL;
-	}
-
-	/* An instance is specified --> Return the next OSPF interface */
-	for (ALL_LIST_ELEMENTS_RO(ospf_snmp_iflist, nn, osif)) {
-		/* Usual interface */
-		if (ifaddr->s_addr) {
-			/* The interface must have valid AF_INET connected
-			 * address */
-			/* it must have lager IPv4 address value than the lookup
-			 * entry */
-			if ((ospf_snmp_is_if_have_addr(osif->ifp))
-			    && (ntohl(osif->addr.s_addr)
-				> ntohl(ifaddr->s_addr))) {
-				*ifaddr = osif->addr;
-				*ifindex = osif->ifindex;
-
-				/* and it must be an OSPF interface */
-				oi = ospf_if_lookup_by_local_addr(
-					ospf, osif->ifp, *ifaddr);
-				if (oi)
-					return oi;
-			}
-		}
-		/* Unnumbered interface */
-		else
-			/* The interface must NOT have valid AF_INET connected
-			   address */
-			/* it must have lager interface index than the lookup
-			   entry */
-			if ((!ospf_snmp_is_if_have_addr(osif->ifp))
-			    && (osif->ifindex > *ifindex)) {
-			*ifaddr = osif->addr;
-			*ifindex = osif->ifindex;
-
-			/* and it must be an OSPF interface */
-			oi = ospf_if_lookup_by_local_addr(ospf, osif->ifp,
-							  *ifaddr);
-			if (oi)
-				return oi;
-		}
-	}
-	return NULL;
-}
-
-static int ospf_snmp_iftype(struct interface *ifp)
-{
-#define ospf_snmp_iftype_broadcast         1
-#define ospf_snmp_iftype_nbma              2
-#define ospf_snmp_iftype_pointToPoint      3
-#define ospf_snmp_iftype_pointToMultipoint 5
-	if (if_is_broadcast(ifp))
-		return ospf_snmp_iftype_broadcast;
-	if (if_is_pointopoint(ifp))
-		return ospf_snmp_iftype_pointToPoint;
-	return ospf_snmp_iftype_broadcast;
-}
-
-static struct ospf_interface *ospfIfLookup(struct variable *v, oid *name,
-					   size_t *length,
-					   struct in_addr *ifaddr,
-					   ifindex_t *ifindex, int exact)
-{
-	unsigned int len;
-	int ifaddr_next = 0;
-	ifindex_t ifindex_next = 0;
-	struct ospf_interface *oi;
-	oid *offset;
-
-	if (exact) {
-		if (*length != v->namelen + IN_ADDR_SIZE + 1)
-			return NULL;
-
-		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, ifaddr);
-		*ifindex = name[v->namelen + IN_ADDR_SIZE];
-
-		return ospf_snmp_if_lookup(ifaddr, ifindex);
-	} else {
-		len = *length - v->namelen;
-		if (len >= IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-		if (len <= 0)
-			ifaddr_next = 1;
-
-		oid2in_addr(name + v->namelen, len, ifaddr);
-
-		len = *length - v->namelen - IN_ADDR_SIZE;
-		if (len >= 1)
-			len = 1;
-		else
-			ifindex_next = 1;
-
-		if (len == 1)
-			*ifindex = name[v->namelen + IN_ADDR_SIZE];
-
-		oi = ospf_snmp_if_lookup_next(ifaddr, ifindex, ifaddr_next,
-					      ifindex_next);
-		if (oi) {
-			*length = v->namelen + IN_ADDR_SIZE + 1;
-			offset = name + v->namelen;
-			oid_copy_addr(offset, ifaddr, IN_ADDR_SIZE);
-			offset += IN_ADDR_SIZE;
-			*offset = *ifindex;
-			return oi;
-		}
-	}
-	return NULL;
-}
-
-static uint8_t *ospfIfEntry(struct variable *v, oid *name, size_t *length,
-			    int exact, size_t *var_len,
-			    WriteMethod **write_method)
-{
-	ifindex_t ifindex;
-	struct in_addr ifaddr;
-	struct ospf_interface *oi;
-	struct ospf *ospf;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	ifindex = 0;
-	memset(&ifaddr, 0, sizeof(struct in_addr));
-
-	/* Check OSPF instance. */
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	oi = ospfIfLookup(v, name, length, &ifaddr, &ifindex, exact);
-	if (oi == NULL)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFIFIPADDRESS: /* 1 */
-		return SNMP_IPADDRESS(ifaddr);
-		break;
-	case OSPFADDRESSLESSIF: /* 2 */
-		return SNMP_INTEGER(ifindex);
-		break;
-	case OSPFIFAREAID: /* 3 */
-		if (oi->area)
-			return SNMP_IPADDRESS(oi->area->area_id);
-		else
-			return SNMP_IPADDRESS(ospf_empty_addr);
-		break;
-	case OSPFIFTYPE: /* 4 */
-		return SNMP_INTEGER(ospf_snmp_iftype(oi->ifp));
-		break;
-	case OSPFIFADMINSTAT: /* 5 */
-		if (oi)
-			return SNMP_INTEGER(OSPF_STATUS_ENABLED);
-		else
-			return SNMP_INTEGER(OSPF_STATUS_DISABLED);
-		break;
-	case OSPFIFRTRPRIORITY: /* 6 */
-		return SNMP_INTEGER(PRIORITY(oi));
-		break;
-	case OSPFIFTRANSITDELAY: /* 7 */
-		return SNMP_INTEGER(OSPF_IF_PARAM(oi, transmit_delay));
-		break;
-	case OSPFIFRETRANSINTERVAL: /* 8 */
-		return SNMP_INTEGER(OSPF_IF_PARAM(oi, retransmit_interval));
-		break;
-	case OSPFIFHELLOINTERVAL: /* 9 */
-		return SNMP_INTEGER(OSPF_IF_PARAM(oi, v_hello));
-		break;
-	case OSPFIFRTRDEADINTERVAL: /* 10 */
-		return SNMP_INTEGER(OSPF_IF_PARAM(oi, v_wait));
-		break;
-	case OSPFIFPOLLINTERVAL: /* 11 */
-		return SNMP_INTEGER(OSPF_POLL_INTERVAL_DEFAULT);
-		break;
-	case OSPFIFSTATE: /* 12 */
-		return SNMP_INTEGER(ISM_SNMP(oi->state));
-		break;
-	case OSPFIFDESIGNATEDROUTER: /* 13 */
-		return SNMP_IPADDRESS(DR(oi));
-		break;
-	case OSPFIFBACKUPDESIGNATEDROUTER: /* 14 */
-		return SNMP_IPADDRESS(BDR(oi));
-		break;
-	case OSPFIFEVENTS: /* 15 */
-		return SNMP_INTEGER(oi->state_change);
-		break;
-	case OSPFIFAUTHKEY: /* 16 */
-		*var_len = 0;
-		return (uint8_t *)OSPF_IF_PARAM(oi, auth_simple);
-		break;
-	case OSPFIFSTATUS: /* 17 */
-		return SNMP_INTEGER(SNMP_VALID);
-		break;
-	case OSPFIFMULTICASTFORWARDING: /* 18 */
-#define ospf_snmp_multiforward_blocked    1
-#define ospf_snmp_multiforward_multicast  2
-#define ospf_snmp_multiforward_unicast    3
-		return SNMP_INTEGER(ospf_snmp_multiforward_blocked);
-		break;
-	case OSPFIFDEMAND: /* 19 */
-		return SNMP_INTEGER(SNMP_FALSE);
-		break;
-	case OSPFIFAUTHTYPE: /* 20 */
-		if (oi->area)
-			return SNMP_INTEGER(oi->area->auth_type);
-		else
-			return SNMP_INTEGER(0);
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-#define OSPF_SNMP_METRIC_VALUE 1
-
-static struct ospf_interface *ospfIfMetricLookup(struct variable *v, oid *name,
-						 size_t *length,
-						 struct in_addr *ifaddr,
-						 ifindex_t *ifindex, int exact)
-{
-	unsigned int len;
-	int ifaddr_next = 0;
-	ifindex_t ifindex_next = 0;
-	struct ospf_interface *oi;
-	oid *offset;
-	int metric;
-
-	if (exact) {
-		if (*length != v->namelen + IN_ADDR_SIZE + 1 + 1)
-			return NULL;
-
-		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, ifaddr);
-		*ifindex = name[v->namelen + IN_ADDR_SIZE];
-		metric = name[v->namelen + IN_ADDR_SIZE + 1];
-
-		if (metric != OSPF_SNMP_METRIC_VALUE)
-			return NULL;
-
-		return ospf_snmp_if_lookup(ifaddr, ifindex);
-	} else {
-		len = *length - v->namelen;
-		if (len >= IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-		else
-			ifaddr_next = 1;
-
-		oid2in_addr(name + v->namelen, len, ifaddr);
-
-		len = *length - v->namelen - IN_ADDR_SIZE;
-		if (len >= 1)
-			len = 1;
-		else
-			ifindex_next = 1;
-
-		if (len == 1)
-			*ifindex = name[v->namelen + IN_ADDR_SIZE];
-
-		oi = ospf_snmp_if_lookup_next(ifaddr, ifindex, ifaddr_next,
-					      ifindex_next);
-		if (oi) {
-			*length = v->namelen + IN_ADDR_SIZE + 1 + 1;
-			offset = name + v->namelen;
-			oid_copy_addr(offset, ifaddr, IN_ADDR_SIZE);
-			offset += IN_ADDR_SIZE;
-			*offset = *ifindex;
-			offset++;
-			*offset = OSPF_SNMP_METRIC_VALUE;
-			return oi;
-		}
-	}
-	return NULL;
-}
-
-static uint8_t *ospfIfMetricEntry(struct variable *v, oid *name, size_t *length,
-				  int exact, size_t *var_len,
-				  WriteMethod **write_method)
-{
-	/* Currently we support metric 1 only. */
-	ifindex_t ifindex;
-	struct in_addr ifaddr;
-	struct ospf_interface *oi;
-	struct ospf *ospf;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	ifindex = 0;
-	memset(&ifaddr, 0, sizeof(struct in_addr));
-
-	/* Check OSPF instance. */
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	oi = ospfIfMetricLookup(v, name, length, &ifaddr, &ifindex, exact);
-	if (oi == NULL)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFIFMETRICIPADDRESS:
-		return SNMP_IPADDRESS(ifaddr);
-		break;
-	case OSPFIFMETRICADDRESSLESSIF:
-		return SNMP_INTEGER(ifindex);
-		break;
-	case OSPFIFMETRICTOS:
-		return SNMP_INTEGER(0);
-		break;
-	case OSPFIFMETRICVALUE:
-		return SNMP_INTEGER(OSPF_SNMP_METRIC_VALUE);
-		break;
-	case OSPFIFMETRICSTATUS:
-		return SNMP_INTEGER(1);
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static struct route_table *ospf_snmp_vl_table;
-
-static int ospf_snmp_vl_add(struct ospf_vl_data *vl_data)
-{
-	struct prefix_ls lp;
-	struct route_node *rn;
-
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
-	lp.prefixlen = 64;
-	lp.id = vl_data->vl_area_id;
-	lp.adv_router = vl_data->vl_peer;
-
-	rn = route_node_get(ospf_snmp_vl_table, (struct prefix *)&lp);
-	if (rn->info)
-		route_unlock_node(rn);
-
-	rn->info = vl_data;
-	return 0;
-}
-
-static int ospf_snmp_vl_delete(struct ospf_vl_data *vl_data)
-{
-	struct prefix_ls lp;
-	struct route_node *rn;
-
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
-	lp.prefixlen = 64;
-	lp.id = vl_data->vl_area_id;
-	lp.adv_router = vl_data->vl_peer;
-
-	rn = route_node_lookup(ospf_snmp_vl_table, (struct prefix *)&lp);
-	if (!rn)
-		return 0;
-	rn->info = NULL;
-	route_unlock_node(rn);
-	route_unlock_node(rn);
-	return 0;
-}
-
-static struct ospf_vl_data *ospf_snmp_vl_lookup(struct in_addr *area_id,
-						struct in_addr *neighbor)
-{
-	struct prefix_ls lp;
-	struct route_node *rn;
-	struct ospf_vl_data *vl_data;
-
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
-	lp.prefixlen = 64;
-	lp.id = *area_id;
-	lp.adv_router = *neighbor;
-
-	rn = route_node_lookup(ospf_snmp_vl_table, (struct prefix *)&lp);
-	if (rn) {
-		vl_data = rn->info;
-		route_unlock_node(rn);
-		return vl_data;
-	}
-	return NULL;
-}
-
-static struct ospf_vl_data *ospf_snmp_vl_lookup_next(struct in_addr *area_id,
-						     struct in_addr *neighbor,
-						     int first)
-{
-	struct prefix_ls lp;
-	struct route_node *rn;
-	struct ospf_vl_data *vl_data;
-
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
-	lp.prefixlen = 64;
-	lp.id = *area_id;
-	lp.adv_router = *neighbor;
-
-	if (first)
-		rn = route_top(ospf_snmp_vl_table);
-	else {
-		rn = route_node_get(ospf_snmp_vl_table, (struct prefix *)&lp);
-		rn = route_next(rn);
-	}
-
-	for (; rn; rn = route_next(rn))
-		if (rn->info)
-			break;
-
-	if (rn && rn->info) {
-		vl_data = rn->info;
-		*area_id = vl_data->vl_area_id;
-		*neighbor = vl_data->vl_peer;
-		route_unlock_node(rn);
-		return vl_data;
-	}
-	return NULL;
-}
-
-static struct ospf_vl_data *
-ospfVirtIfLookup(struct variable *v, oid *name, size_t *length,
-		 struct in_addr *area_id, struct in_addr *neighbor, int exact)
-{
-	int first;
-	unsigned int len;
-	struct ospf_vl_data *vl_data;
-
-	if (exact) {
-		if (*length != v->namelen + IN_ADDR_SIZE + IN_ADDR_SIZE)
-			return NULL;
-
-		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, area_id);
-		oid2in_addr(name + v->namelen + IN_ADDR_SIZE, IN_ADDR_SIZE,
-			    neighbor);
-
-		return ospf_snmp_vl_lookup(area_id, neighbor);
-	} else {
-		first = 0;
-
-		len = *length - v->namelen;
-		if (len <= 0)
-			first = 1;
-		if (len > IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-		oid2in_addr(name + v->namelen, len, area_id);
-
-		len = *length - v->namelen - IN_ADDR_SIZE;
-		if (len > IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-		oid2in_addr(name + v->namelen + IN_ADDR_SIZE, len, neighbor);
-
-		vl_data = ospf_snmp_vl_lookup_next(area_id, neighbor, first);
-
-		if (vl_data) {
-			*length = v->namelen + IN_ADDR_SIZE + IN_ADDR_SIZE;
-			oid_copy_addr(name + v->namelen, area_id, IN_ADDR_SIZE);
-			oid_copy_addr(name + v->namelen + IN_ADDR_SIZE,
-				      neighbor, IN_ADDR_SIZE);
-			return vl_data;
-		}
-	}
-	return NULL;
-}
-
-static uint8_t *ospfVirtIfEntry(struct variable *v, oid *name, size_t *length,
-				int exact, size_t *var_len,
-				WriteMethod **write_method)
-{
-	struct ospf_vl_data *vl_data;
-	struct ospf_interface *oi;
-	struct in_addr area_id;
-	struct in_addr neighbor;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	memset(&area_id, 0, sizeof(struct in_addr));
-	memset(&neighbor, 0, sizeof(struct in_addr));
-
-	vl_data = ospfVirtIfLookup(v, name, length, &area_id, &neighbor, exact);
-	if (!vl_data)
-		return NULL;
-	oi = vl_data->vl_oi;
-	if (!oi)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFVIRTIFAREAID:
-		return SNMP_IPADDRESS(area_id);
-		break;
-	case OSPFVIRTIFNEIGHBOR:
-		return SNMP_IPADDRESS(neighbor);
-		break;
-	case OSPFVIRTIFTRANSITDELAY:
-		return SNMP_INTEGER(OSPF_IF_PARAM(oi, transmit_delay));
-		break;
-	case OSPFVIRTIFRETRANSINTERVAL:
-		return SNMP_INTEGER(OSPF_IF_PARAM(oi, retransmit_interval));
-		break;
-	case OSPFVIRTIFHELLOINTERVAL:
-		return SNMP_INTEGER(OSPF_IF_PARAM(oi, v_hello));
-		break;
-	case OSPFVIRTIFRTRDEADINTERVAL:
-		return SNMP_INTEGER(OSPF_IF_PARAM(oi, v_wait));
-		break;
-	case OSPFVIRTIFSTATE:
-		return SNMP_INTEGER(oi->state);
-		break;
-	case OSPFVIRTIFEVENTS:
-		return SNMP_INTEGER(oi->state_change);
-		break;
-	case OSPFVIRTIFAUTHKEY:
-		*var_len = 0;
-		return (uint8_t *)OSPF_IF_PARAM(oi, auth_simple);
-		break;
-	case OSPFVIRTIFSTATUS:
-		return SNMP_INTEGER(SNMP_VALID);
-		break;
-	case OSPFVIRTIFAUTHTYPE:
-		if (oi->area)
-			return SNMP_INTEGER(oi->area->auth_type);
-		else
-			return SNMP_INTEGER(0);
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static struct ospf_neighbor *ospf_snmp_nbr_lookup(struct ospf *ospf,
-						  struct in_addr *nbr_addr,
-						  ifindex_t *ifindex)
-{
-	struct listnode *node, *nnode;
-	struct ospf_interface *oi;
-	struct ospf_neighbor *nbr;
-	struct route_node *rn;
-
-	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
-		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-			if ((nbr = rn->info) != NULL && nbr != oi->nbr_self
-			    /* If EXACT match is needed, provide ALL entry found
-					&& nbr->state != NSM_Down
-			     */
-			    && nbr->src.s_addr != 0) {
-				if (IPV4_ADDR_SAME(&nbr->src, nbr_addr)) {
-					route_unlock_node(rn);
-					return nbr;
-				}
-			}
-	}
-	return NULL;
-}
-
-static struct ospf_neighbor *ospf_snmp_nbr_lookup_next(struct in_addr *nbr_addr,
-						       ifindex_t *ifindex,
-						       int first)
-{
-	struct listnode *nn;
-	struct ospf_interface *oi;
-	struct ospf_neighbor *nbr;
-	struct route_node *rn;
-	struct ospf_neighbor *min = NULL;
-	struct ospf *ospf = ospf;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, nn, oi)) {
-		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-			if ((nbr = rn->info) != NULL && nbr != oi->nbr_self
-			    && nbr->state != NSM_Down && nbr->src.s_addr != 0) {
-				if (first) {
-					if (!min)
-						min = nbr;
-					else if (ntohl(nbr->src.s_addr)
-						 < ntohl(min->src.s_addr))
-						min = nbr;
-				} else if (ntohl(nbr->src.s_addr)
-					   > ntohl(nbr_addr->s_addr)) {
-					if (!min)
-						min = nbr;
-					else if (ntohl(nbr->src.s_addr)
-						 < ntohl(min->src.s_addr))
-						min = nbr;
-				}
-			}
-	}
-	if (min) {
-		*nbr_addr = min->src;
-		*ifindex = 0;
-		return min;
-	}
-	return NULL;
-}
-
-static struct ospf_neighbor *ospfNbrLookup(struct variable *v, oid *name,
-					   size_t *length,
-					   struct in_addr *nbr_addr,
-					   ifindex_t *ifindex, int exact)
-{
-	unsigned int len;
-	int first;
-	struct ospf_neighbor *nbr;
-	struct ospf *ospf;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
-	if (!ospf)
-		return NULL;
-
-	if (exact) {
-		if (*length != v->namelen + IN_ADDR_SIZE + 1)
-			return NULL;
-
-		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, nbr_addr);
-		*ifindex = name[v->namelen + IN_ADDR_SIZE];
-
-		return ospf_snmp_nbr_lookup(ospf, nbr_addr, ifindex);
-	} else {
-		first = 0;
-		len = *length - v->namelen;
-
-		if (len <= 0)
-			first = 1;
-
-		if (len > IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-
-		oid2in_addr(name + v->namelen, len, nbr_addr);
-
-		len = *length - v->namelen - IN_ADDR_SIZE;
-		if (len >= 1)
-			*ifindex = name[v->namelen + IN_ADDR_SIZE];
-
-		nbr = ospf_snmp_nbr_lookup_next(nbr_addr, ifindex, first);
-
-		if (nbr) {
-			*length = v->namelen + IN_ADDR_SIZE + 1;
-			oid_copy_addr(name + v->namelen, nbr_addr,
-				      IN_ADDR_SIZE);
-			name[v->namelen + IN_ADDR_SIZE] = *ifindex;
-			return nbr;
-		}
-	}
-	return NULL;
-}
-
-/* map internal quagga neighbor states to official MIB values:
-
-ospfNbrState OBJECT-TYPE
-	SYNTAX   INTEGER    {
-		    down (1),
-		    attempt (2),
-		    init (3),
-		    twoWay (4),
-		    exchangeStart (5),
-		    exchange (6),
-		    loading (7),
-		    full (8)
-		  }
-*/
-static int32_t ospf_snmp_neighbor_state(uint8_t nst)
-{
-	switch (nst) {
-	case NSM_Attempt:
-		return 2;
-	case NSM_Init:
-		return 3;
-	case NSM_TwoWay:
-		return 4;
-	case NSM_ExStart:
-		return 5;
-	case NSM_Exchange:
-		return 6;
-	case NSM_Loading:
-		return 7;
-	case NSM_Full:
-		return 8;
-	default:
-		return 1; /* down */
-	}
-}
-
-static uint8_t *ospfNbrEntry(struct variable *v, oid *name, size_t *length,
-			     int exact, size_t *var_len,
-			     WriteMethod **write_method)
-{
-	struct in_addr nbr_addr;
-	ifindex_t ifindex;
-	struct ospf_neighbor *nbr;
-	struct ospf_interface *oi;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	memset(&nbr_addr, 0, sizeof(struct in_addr));
-	ifindex = 0;
-
-	nbr = ospfNbrLookup(v, name, length, &nbr_addr, &ifindex, exact);
-	if (!nbr)
-		return NULL;
-	oi = nbr->oi;
-	if (!oi)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFNBRIPADDR:
-		return SNMP_IPADDRESS(nbr_addr);
-		break;
-	case OSPFNBRADDRESSLESSINDEX:
-		return SNMP_INTEGER(ifindex);
-		break;
-	case OSPFNBRRTRID:
-		return SNMP_IPADDRESS(nbr->router_id);
-		break;
-	case OSPFNBROPTIONS:
-		return SNMP_INTEGER(oi->nbr_self->options);
-		break;
-	case OSPFNBRPRIORITY:
-		return SNMP_INTEGER(nbr->priority);
-		break;
-	case OSPFNBRSTATE:
-		return SNMP_INTEGER(ospf_snmp_neighbor_state(nbr->state));
-		break;
-	case OSPFNBREVENTS:
-		return SNMP_INTEGER(nbr->state_change);
-		break;
-	case OSPFNBRLSRETRANSQLEN:
-		return SNMP_INTEGER(ospf_ls_retransmit_count(nbr));
-		break;
-	case OSPFNBMANBRSTATUS:
-		return SNMP_INTEGER(SNMP_VALID);
-		break;
-	case OSPFNBMANBRPERMANENCE:
-		return SNMP_INTEGER(2);
-		break;
-	case OSPFNBRHELLOSUPPRESSED:
-		return SNMP_INTEGER(SNMP_FALSE);
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static uint8_t *ospfVirtNbrEntry(struct variable *v, oid *name, size_t *length,
-				 int exact, size_t *var_len,
-				 WriteMethod **write_method)
-{
-	struct ospf_vl_data *vl_data;
-	struct in_addr area_id;
-	struct in_addr neighbor;
-	struct ospf *ospf;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	memset(&area_id, 0, sizeof(struct in_addr));
-	memset(&neighbor, 0, sizeof(struct in_addr));
-
-	/* Check OSPF instance. */
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	vl_data = ospfVirtIfLookup(v, name, length, &area_id, &neighbor, exact);
-	if (!vl_data)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFVIRTNBRAREA:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFVIRTNBRRTRID:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFVIRTNBRIPADDR:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFVIRTNBROPTIONS:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFVIRTNBRSTATE:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFVIRTNBREVENTS:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFVIRTNBRLSRETRANSQLEN:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFVIRTNBRHELLOSUPPRESSED:
-		return (uint8_t *)NULL;
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
-					  size_t *length, uint8_t *type,
-					  struct in_addr *ls_id,
-					  struct in_addr *router_id, int exact)
-{
-	int first;
-	oid *offset;
-	int offsetlen;
-	uint8_t lsa_type;
-	unsigned int len;
-	struct ospf_lsa *lsa;
-	struct ospf *ospf;
-
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (exact) {
-		if (*length != v->namelen + 1 + IN_ADDR_SIZE + IN_ADDR_SIZE)
-			return NULL;
-
-		offset = name + v->namelen;
-
-		/* Make it sure given value match to type. */
-		lsa_type = *offset;
-		offset++;
-
-		if (lsa_type != *type)
-			return NULL;
-
-		/* LS ID. */
-		oid2in_addr(offset, IN_ADDR_SIZE, ls_id);
-		offset += IN_ADDR_SIZE;
-
-		/* Router ID. */
-		oid2in_addr(offset, IN_ADDR_SIZE, router_id);
-
-		return ospf_lsdb_lookup_by_id(ospf->lsdb, *type, *ls_id,
-					      *router_id);
-	} else {
-		/* Get variable length. */
-		first = 0;
-		offset = name + v->namelen;
-		offsetlen = *length - v->namelen;
-
-		/* LSA type value. */
-		lsa_type = *offset;
-		offset++;
-		offsetlen--;
-
-		if (offsetlen <= 0 || lsa_type < OSPF_AS_EXTERNAL_LSA)
-			first = 1;
-
-		/* LS ID. */
-		len = offsetlen;
-		if (len > IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-
-		oid2in_addr(offset, len, ls_id);
-
-		offset += IN_ADDR_SIZE;
-		offsetlen -= IN_ADDR_SIZE;
-
-		/* Router ID. */
-		len = offsetlen;
-		if (len > IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-
-		oid2in_addr(offset, len, router_id);
-
-		lsa = ospf_lsdb_lookup_by_id_next(ospf->lsdb, *type, *ls_id,
-						  *router_id, first);
-
-		if (lsa) {
-			/* Fill in length. */
-			*length = v->namelen + 1 + IN_ADDR_SIZE + IN_ADDR_SIZE;
-
-			/* Fill in value. */
-			offset = name + v->namelen;
-
-			*offset = OSPF_AS_EXTERNAL_LSA;
-			offset++;
-			oid_copy_addr(offset, &lsa->data->id, IN_ADDR_SIZE);
-			offset += IN_ADDR_SIZE;
-			oid_copy_addr(offset, &lsa->data->adv_router,
-				      IN_ADDR_SIZE);
-
-			return lsa;
-		}
-	}
-	return NULL;
-}
-
-static uint8_t *ospfExtLsdbEntry(struct variable *v, oid *name, size_t *length,
-				 int exact, size_t *var_len,
-				 WriteMethod **write_method)
-{
-	struct ospf_lsa *lsa;
-	struct lsa_header *lsah;
-	uint8_t type;
-	struct in_addr ls_id;
-	struct in_addr router_id;
-	struct ospf *ospf;
-
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	type = OSPF_AS_EXTERNAL_LSA;
-	memset(&ls_id, 0, sizeof(struct in_addr));
-	memset(&router_id, 0, sizeof(struct in_addr));
-
-	/* Check OSPF instance. */
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	if (ospf == NULL)
-		return NULL;
-
-	lsa = ospfExtLsdbLookup(v, name, length, &type, &ls_id, &router_id,
-				exact);
-	if (!lsa)
-		return NULL;
-
-	lsah = lsa->data;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFEXTLSDBTYPE:
-		return SNMP_INTEGER(OSPF_AS_EXTERNAL_LSA);
-		break;
-	case OSPFEXTLSDBLSID:
-		return SNMP_IPADDRESS(lsah->id);
-		break;
-	case OSPFEXTLSDBROUTERID:
-		return SNMP_IPADDRESS(lsah->adv_router);
-		break;
-	case OSPFEXTLSDBSEQUENCE:
-		return SNMP_INTEGER(lsah->ls_seqnum);
-		break;
-	case OSPFEXTLSDBAGE:
-		return SNMP_INTEGER(lsah->ls_age);
-		break;
-	case OSPFEXTLSDBCHECKSUM:
-		return SNMP_INTEGER(lsah->checksum);
-		break;
-	case OSPFEXTLSDBADVERTISEMENT:
-		*var_len = ntohs(lsah->length);
-		return (uint8_t *)lsah;
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-static uint8_t *ospfAreaAggregateEntry(struct variable *v, oid *name,
-				       size_t *length, int exact,
-				       size_t *var_len,
-				       WriteMethod **write_method)
-{
-	if (smux_header_table(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case OSPFAREAAGGREGATEAREAID:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFAREAAGGREGATELSDBTYPE:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFAREAAGGREGATENET:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFAREAAGGREGATEMASK:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFAREAAGGREGATESTATUS:
-		return (uint8_t *)NULL;
-		break;
-	case OSPFAREAAGGREGATEEFFECT:
-		return (uint8_t *)NULL;
-		break;
-	default:
-		return NULL;
-		break;
-	}
-	return NULL;
-}
-
-/* OSPF Traps. */
-#define IFSTATECHANGE      16
-#define VIRTIFSTATECHANGE   1
-#define NBRSTATECHANGE      2
-#define VIRTNBRSTATECHANGE  3
-
-static struct trap_object ospfNbrTrapList[] = {{-2, {1, OSPFROUTERID}},
-					       {3, {10, 1, OSPFNBRIPADDR}},
-					       {3, {10, 1, OSPFNBRRTRID}},
-					       {3, {10, 1, OSPFNBRSTATE}}};
-
-
-static struct trap_object ospfVirtNbrTrapList[] = {
-	{-2, {1, 1}},
-	{3, {11, 1, OSPFVIRTNBRAREA}},
-	{3, {11, 1, OSPFVIRTNBRRTRID}},
-	{3, {11, 1, OSPFVIRTNBRSTATE}}};
-
-static struct trap_object ospfIfTrapList[] = {{-2, {1, OSPFROUTERID}},
-					      {3, {7, 1, OSPFIFIPADDRESS}},
-					      {3, {7, 1, OSPFADDRESSLESSIF}},
-					      {3, {7, 1, OSPFIFSTATE}}};
-
-static struct trap_object ospfVirtIfTrapList[] = {
-	{-2, {1, OSPFROUTERID}},
-	{3, {9, 1, OSPFVIRTIFAREAID}},
-	{3, {9, 1, OSPFVIRTIFNEIGHBOR}},
-	{3, {9, 1, OSPFVIRTIFSTATE}}};
-
-static void ospfTrapNbrStateChange(struct ospf_neighbor *on)
-{
-	oid index[sizeof(oid) * (IN_ADDR_SIZE + 1)];
-	char msgbuf[16];
-
-	ospf_nbr_state_message(on, msgbuf, sizeof(msgbuf));
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_info("%s: trap sent: %s now %s", __PRETTY_FUNCTION__,
-			  inet_ntoa(on->address.u.prefix4), msgbuf);
-
-	oid_copy_addr(index, &(on->address.u.prefix4), IN_ADDR_SIZE);
-	index[IN_ADDR_SIZE] = 0;
-
-	smux_trap(ospf_variables,
-		  sizeof ospf_variables / sizeof(struct variable),
-		  ospf_trap_oid, sizeof ospf_trap_oid / sizeof(oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
-		  ospfNbrTrapList,
-		  sizeof ospfNbrTrapList / sizeof(struct trap_object),
-		  NBRSTATECHANGE);
-}
-
-static void ospfTrapVirtNbrStateChange(struct ospf_neighbor *on)
-{
-	oid index[sizeof(oid) * (IN_ADDR_SIZE + 1)];
-
-	zlog_info("ospfTrapVirtNbrStateChange trap sent");
-
-	oid_copy_addr(index, &(on->address.u.prefix4), IN_ADDR_SIZE);
-	index[IN_ADDR_SIZE] = 0;
-
-	smux_trap(ospf_variables,
-		  sizeof ospf_variables / sizeof(struct variable),
-		  ospf_trap_oid, sizeof ospf_trap_oid / sizeof(oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
-		  ospfVirtNbrTrapList,
-		  sizeof ospfVirtNbrTrapList / sizeof(struct trap_object),
-		  VIRTNBRSTATECHANGE);
-}
-
-static int ospf_snmp_nsm_change(struct ospf_neighbor *nbr, int next_state,
-				int old_state)
-{
-	/* Terminal state or regression */
-	if ((next_state == NSM_Full) || (next_state == NSM_TwoWay)
-	    || (next_state < old_state)) {
-		/* ospfVirtNbrStateChange */
-		if (nbr->oi->type == OSPF_IFTYPE_VIRTUALLINK)
-			ospfTrapVirtNbrStateChange(nbr);
-		/* ospfNbrStateChange trap  */
-		else
-			/* To/From FULL, only managed by DR */
-			if (((next_state != NSM_Full)
-			     && (nbr->state != NSM_Full))
-			    || (nbr->oi->state == ISM_DR))
-			ospfTrapNbrStateChange(nbr);
-	}
-	return 0;
-}
-
-static void ospfTrapIfStateChange(struct ospf_interface *oi)
-{
-	oid index[sizeof(oid) * (IN_ADDR_SIZE + 1)];
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_info("%s: trap sent: %s now %s", __PRETTY_FUNCTION__,
-			  inet_ntoa(oi->address->u.prefix4),
-			  lookup_msg(ospf_ism_state_msg, oi->state, NULL));
-
-	oid_copy_addr(index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
-	index[IN_ADDR_SIZE] = 0;
-
-	smux_trap(ospf_variables,
-		  sizeof ospf_variables / sizeof(struct variable),
-		  ospf_trap_oid, sizeof ospf_trap_oid / sizeof(oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
-		  ospfIfTrapList,
-		  sizeof ospfIfTrapList / sizeof(struct trap_object),
-		  IFSTATECHANGE);
-}
-
-static void ospfTrapVirtIfStateChange(struct ospf_interface *oi)
-{
-	oid index[sizeof(oid) * (IN_ADDR_SIZE + 1)];
-
-	zlog_info("ospfTrapVirtIfStateChange trap sent");
-
-	oid_copy_addr(index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
-	index[IN_ADDR_SIZE] = 0;
-
-	smux_trap(ospf_variables,
-		  sizeof ospf_variables / sizeof(struct variable),
-		  ospf_trap_oid, sizeof ospf_trap_oid / sizeof(oid), ospf_oid,
-		  sizeof ospf_oid / sizeof(oid), index, IN_ADDR_SIZE + 1,
-		  ospfVirtIfTrapList,
-		  sizeof ospfVirtIfTrapList / sizeof(struct trap_object),
-		  VIRTIFSTATECHANGE);
-}
-
-static int ospf_snmp_ism_change(struct ospf_interface *oi, int state,
-				int old_state)
-{
-	/* Terminal state or regression */
-	if ((state == ISM_DR) || (state == ISM_Backup) || (state == ISM_DROther)
-	    || (state == ISM_PointToPoint) || (state < old_state)) {
-		/* ospfVirtIfStateChange */
-		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-			ospfTrapVirtIfStateChange(oi);
-		/* ospfIfStateChange */
-		else
-			ospfTrapIfStateChange(oi);
-	}
-	return 0;
-}
-
-/* Register OSPF2-MIB. */
-static int ospf_snmp_init(struct thread_master *tm)
-{
-	ospf_snmp_iflist = list_new();
-	ospf_snmp_vl_table = route_table_init();
-	smux_init(tm);
-	REGISTER_MIB("mibII/ospf", ospf_variables, variable, ospf_oid);
-	return 0;
-}
-
-static int ospf_snmp_module_init(void)
-{
-	hook_register(ospf_if_update, ospf_snmp_if_update);
-	hook_register(ospf_if_delete, ospf_snmp_if_delete);
-	hook_register(ospf_vl_add, ospf_snmp_vl_add);
-	hook_register(ospf_vl_delete, ospf_snmp_vl_delete);
-	hook_register(ospf_ism_change, ospf_snmp_ism_change);
-	hook_register(ospf_nsm_change, ospf_snmp_nsm_change);
-
-	hook_register(frr_late_init, ospf_snmp_init);
-	return 0;
-}
-
-FRR_MODULE_SETUP(.name = "ospfd_snmp", .version = FRR_VERSION,
-		 .description = "ospfd AgentX SNMP module",
-		 .init = ospf_snmp_module_init, )
+/*OSPFv2SNMPsupport*Copyright(C)20056WIND<alain.ritoux@6wind.com>*Copyright(C)20
+00IPInfusionInc.**WrittenbyKunihiroIshiguro<kunihiro@zebra.org>**Thisfileisparto
+fGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthete
+rmsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherver
+sion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwil
+lbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITY
+orFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yo
+ushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethe
+fileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor
+,Boston,MA02110-1301USA*/#include<zebra.h>#include<net-snmp/net-snmp-config.h>#i
+nclude<net-snmp/net-snmp-includes.h>#include"if.h"#include"log.h"#include"prefix
+.h"#include"table.h"#include"command.h"#include"memory.h"#include"smux.h"#includ
+e"libfrr.h"#include"version.h"#include"ospfd/ospfd.h"#include"ospfd/ospf_interfa
+ce.h"#include"ospfd/ospf_asbr.h"#include"ospfd/ospf_lsa.h"#include"ospfd/ospf_ls
+db.h"#include"ospfd/ospf_abr.h"#include"ospfd/ospf_neighbor.h"#include"ospfd/osp
+f_nsm.h"#include"ospfd/ospf_flood.h"#include"ospfd/ospf_ism.h"#include"ospfd/osp
+f_dump.h"#include"ospfd/ospf_zebra.h"/*OSPF2-MIB.*/#defineOSPF2MIB1,3,6,1,2,1,14
+/*OSPFMIBGeneralGroupvalues.*/#defineOSPFROUTERID1#defineOSPFADMINSTAT2#defineOS
+PFVERSIONNUMBER3#defineOSPFAREABDRRTRSTATUS4#defineOSPFASBDRRTRSTATUS5#defineOSP
+FEXTERNLSACOUNT6#defineOSPFEXTERNLSACKSUMSUM7#defineOSPFTOSSUPPORT8#defineOSPFOR
+IGINATENEWLSAS9#defineOSPFRXNEWLSAS10#defineOSPFEXTLSDBLIMIT11#defineOSPFMULTICA
+STEXTENSIONS12#defineOSPFEXITOVERFLOWINTERVAL13#defineOSPFDEMANDEXTENSIONS14/*OS
+PFMIBospfAreaTable.*/#defineOSPFAREAID1#defineOSPFAUTHTYPE2#defineOSPFIMPORTASEX
+TERN3#defineOSPFSPFRUNS4#defineOSPFAREABDRRTRCOUNT5#defineOSPFASBDRRTRCOUNT6#def
+ineOSPFAREALSACOUNT7#defineOSPFAREALSACKSUMSUM8#defineOSPFAREASUMMARY9#defineOSP
+FAREASTATUS10/*OSPFMIBospfStubAreaTable.*/#defineOSPFSTUBAREAID1#defineOSPFSTUBT
+OS2#defineOSPFSTUBMETRIC3#defineOSPFSTUBSTATUS4#defineOSPFSTUBMETRICTYPE5/*OSPFM
+IBospfLsdbTable.*/#defineOSPFLSDBAREAID1#defineOSPFLSDBTYPE2#defineOSPFLSDBLSID3
+#defineOSPFLSDBROUTERID4#defineOSPFLSDBSEQUENCE5#defineOSPFLSDBAGE6#defineOSPFLS
+DBCHECKSUM7#defineOSPFLSDBADVERTISEMENT8/*OSPFMIBospfAreaRangeTable.*/#defineOSP
+FAREARANGEAREAID1#defineOSPFAREARANGENET2#defineOSPFAREARANGEMASK3#defineOSPFARE
+ARANGESTATUS4#defineOSPFAREARANGEEFFECT5/*OSPFMIBospfHostTable.*/#defineOSPFHOST
+IPADDRESS1#defineOSPFHOSTTOS2#defineOSPFHOSTMETRIC3#defineOSPFHOSTSTATUS4#define
+OSPFHOSTAREAID5/*OSPFMIBospfIfTable.*/#defineOSPFIFIPADDRESS1#defineOSPFADDRESSL
+ESSIF2#defineOSPFIFAREAID3#defineOSPFIFTYPE4#defineOSPFIFADMINSTAT5#defineOSPFIF
+RTRPRIORITY6#defineOSPFIFTRANSITDELAY7#defineOSPFIFRETRANSINTERVAL8#defineOSPFIF
+HELLOINTERVAL9#defineOSPFIFRTRDEADINTERVAL10#defineOSPFIFPOLLINTERVAL11#defineOS
+PFIFSTATE12#defineOSPFIFDESIGNATEDROUTER13#defineOSPFIFBACKUPDESIGNATEDROUTER14#
+defineOSPFIFEVENTS15#defineOSPFIFAUTHKEY16#defineOSPFIFSTATUS17#defineOSPFIFMULT
+ICASTFORWARDING18#defineOSPFIFDEMAND19#defineOSPFIFAUTHTYPE20/*OSPFMIBospfIfMetr
+icTable.*/#defineOSPFIFMETRICIPADDRESS1#defineOSPFIFMETRICADDRESSLESSIF2#defineO
+SPFIFMETRICTOS3#defineOSPFIFMETRICVALUE4#defineOSPFIFMETRICSTATUS5/*OSPFMIBospfV
+irtIfTable.*/#defineOSPFVIRTIFAREAID1#defineOSPFVIRTIFNEIGHBOR2#defineOSPFVIRTIF
+TRANSITDELAY3#defineOSPFVIRTIFRETRANSINTERVAL4#defineOSPFVIRTIFHELLOINTERVAL5#de
+fineOSPFVIRTIFRTRDEADINTERVAL6#defineOSPFVIRTIFSTATE7#defineOSPFVIRTIFEVENTS8#de
+fineOSPFVIRTIFAUTHKEY9#defineOSPFVIRTIFSTATUS10#defineOSPFVIRTIFAUTHTYPE11/*OSPF
+MIBospfNbrTable.*/#defineOSPFNBRIPADDR1#defineOSPFNBRADDRESSLESSINDEX2#defineOSP
+FNBRRTRID3#defineOSPFNBROPTIONS4#defineOSPFNBRPRIORITY5#defineOSPFNBRSTATE6#defi
+neOSPFNBREVENTS7#defineOSPFNBRLSRETRANSQLEN8#defineOSPFNBMANBRSTATUS9#defineOSPF
+NBMANBRPERMANENCE10#defineOSPFNBRHELLOSUPPRESSED11/*OSPFMIBospfVirtNbrTable.*/#d
+efineOSPFVIRTNBRAREA1#defineOSPFVIRTNBRRTRID2#defineOSPFVIRTNBRIPADDR3#defineOSP
+FVIRTNBROPTIONS4#defineOSPFVIRTNBRSTATE5#defineOSPFVIRTNBREVENTS6#defineOSPFVIRT
+NBRLSRETRANSQLEN7#defineOSPFVIRTNBRHELLOSUPPRESSED8/*OSPFMIBospfExtLsdbTable.*/#
+defineOSPFEXTLSDBTYPE1#defineOSPFEXTLSDBLSID2#defineOSPFEXTLSDBROUTERID3#defineO
+SPFEXTLSDBSEQUENCE4#defineOSPFEXTLSDBAGE5#defineOSPFEXTLSDBCHECKSUM6#defineOSPFE
+XTLSDBADVERTISEMENT7/*OSPFMIBospfAreaAggregateTable.*/#defineOSPFAREAAGGREGATEAR
+EAID1#defineOSPFAREAAGGREGATELSDBTYPE2#defineOSPFAREAAGGREGATENET3#defineOSPFARE
+AAGGREGATEMASK4#defineOSPFAREAAGGREGATESTATUS5#defineOSPFAREAAGGREGATEEFFECT6/*S
+YNTAXStatusfromOSPF-MIB.*/#defineOSPF_STATUS_ENABLED1#defineOSPF_STATUS_DISABLED
+2/*SNMPvaluehack.*/#defineCOUNTERASN_COUNTER#defineINTEGERASN_INTEGER#defineGAUG
+EASN_GAUGE#defineTIMETICKSASN_TIMETICKS#defineIPADDRESSASN_IPADDRESS#defineSTRIN
+GASN_OCTET_STR/*BecauseDR/DROthervaluesareexhangedwrtRFC*/#defineISM_SNMP(x)\(((
+x)==ISM_DROther)?ISM_DR:((x)==ISM_DR)?ISM_DROther:(x))/*Declarestaticlocalvariab
+lesforconvenience.*/SNMP_LOCAL_VARIABLES/*OSPF-MIBinstances.*/staticoidospf_oid[
+]={OSPF2MIB};staticoidospf_trap_oid[]={OSPF2MIB,16,2};/*Notreversemappable!*//*I
+Paddress0.0.0.0.*/staticstructin_addrospf_empty_addr={.s_addr=0};/*Hookfunctions
+.*/staticuint8_t*ospfGeneralGroup(structvariable*,oid*,size_t*,int,size_t*,Write
+Method**);staticuint8_t*ospfAreaEntry(structvariable*,oid*,size_t*,int,size_t*,W
+riteMethod**);staticuint8_t*ospfStubAreaEntry(structvariable*,oid*,size_t*,int,s
+ize_t*,WriteMethod**);staticuint8_t*ospfLsdbEntry(structvariable*,oid*,size_t*,i
+nt,size_t*,WriteMethod**);staticuint8_t*ospfAreaRangeEntry(structvariable*,oid*,
+size_t*,int,size_t*,WriteMethod**);staticuint8_t*ospfHostEntry(structvariable*,o
+id*,size_t*,int,size_t*,WriteMethod**);staticuint8_t*ospfIfEntry(structvariable*
+,oid*,size_t*,int,size_t*,WriteMethod**);staticuint8_t*ospfIfMetricEntry(structv
+ariable*,oid*,size_t*,int,size_t*,WriteMethod**);staticuint8_t*ospfVirtIfEntry(s
+tructvariable*,oid*,size_t*,int,size_t*,WriteMethod**);staticuint8_t*ospfNbrEntr
+y(structvariable*,oid*,size_t*,int,size_t*,WriteMethod**);staticuint8_t*ospfVirt
+NbrEntry(structvariable*,oid*,size_t*,int,size_t*,WriteMethod**);staticuint8_t*o
+spfExtLsdbEntry(structvariable*,oid*,size_t*,int,size_t*,WriteMethod**);staticui
+nt8_t*ospfAreaAggregateEntry(structvariable*,oid*,size_t*,int,size_t*,WriteMetho
+d**);staticstructvariableospf_variables[]={/*OSPFgeneralvariables*/{OSPFROUTERID
+,IPADDRESS,RWRITE,ospfGeneralGroup,2,{1,1}},{OSPFADMINSTAT,INTEGER,RWRITE,ospfGe
+neralGroup,2,{1,2}},{OSPFVERSIONNUMBER,INTEGER,RONLY,ospfGeneralGroup,2,{1,3}},{
+OSPFAREABDRRTRSTATUS,INTEGER,RONLY,ospfGeneralGroup,2,{1,4}},{OSPFASBDRRTRSTATUS
+,INTEGER,RWRITE,ospfGeneralGroup,2,{1,5}},{OSPFEXTERNLSACOUNT,GAUGE,RONLY,ospfGe
+neralGroup,2,{1,6}},{OSPFEXTERNLSACKSUMSUM,INTEGER,RONLY,ospfGeneralGroup,2,{1,7
+}},{OSPFTOSSUPPORT,INTEGER,RWRITE,ospfGeneralGroup,2,{1,8}},{OSPFORIGINATENEWLSA
+S,COUNTER,RONLY,ospfGeneralGroup,2,{1,9}},{OSPFRXNEWLSAS,COUNTER,RONLY,ospfGener
+alGroup,2,{1,10}},{OSPFEXTLSDBLIMIT,INTEGER,RWRITE,ospfGeneralGroup,2,{1,11}},{O
+SPFMULTICASTEXTENSIONS,INTEGER,RWRITE,ospfGeneralGroup,2,{1,12}},{OSPFEXITOVERFL
+OWINTERVAL,INTEGER,RWRITE,ospfGeneralGroup,2,{1,13}},{OSPFDEMANDEXTENSIONS,INTEG
+ER,RWRITE,ospfGeneralGroup,2,{1,14}},/*OSPFareadatastructure.*/{OSPFAREAID,IPADD
+RESS,RONLY,ospfAreaEntry,3,{2,1,1}},{OSPFAUTHTYPE,INTEGER,RWRITE,ospfAreaEntry,3
+,{2,1,2}},{OSPFIMPORTASEXTERN,INTEGER,RWRITE,ospfAreaEntry,3,{2,1,3}},{OSPFSPFRU
+NS,COUNTER,RONLY,ospfAreaEntry,3,{2,1,4}},{OSPFAREABDRRTRCOUNT,GAUGE,RONLY,ospfA
+reaEntry,3,{2,1,5}},{OSPFASBDRRTRCOUNT,GAUGE,RONLY,ospfAreaEntry,3,{2,1,6}},{OSP
+FAREALSACOUNT,GAUGE,RONLY,ospfAreaEntry,3,{2,1,7}},{OSPFAREALSACKSUMSUM,INTEGER,
+RONLY,ospfAreaEntry,3,{2,1,8}},{OSPFAREASUMMARY,INTEGER,RWRITE,ospfAreaEntry,3,{
+2,1,9}},{OSPFAREASTATUS,INTEGER,RWRITE,ospfAreaEntry,3,{2,1,10}},/*OSPFstubareai
+nformation.*/{OSPFSTUBAREAID,IPADDRESS,RONLY,ospfStubAreaEntry,3,{3,1,1}},{OSPFS
+TUBTOS,INTEGER,RONLY,ospfStubAreaEntry,3,{3,1,2}},{OSPFSTUBMETRIC,INTEGER,RWRITE
+,ospfStubAreaEntry,3,{3,1,3}},{OSPFSTUBSTATUS,INTEGER,RWRITE,ospfStubAreaEntry,3
+,{3,1,4}},{OSPFSTUBMETRICTYPE,INTEGER,RWRITE,ospfStubAreaEntry,3,{3,1,5}},/*OSPF
+linkstatedatabase.*/{OSPFLSDBAREAID,IPADDRESS,RONLY,ospfLsdbEntry,3,{4,1,1}},{OS
+PFLSDBTYPE,INTEGER,RONLY,ospfLsdbEntry,3,{4,1,2}},{OSPFLSDBLSID,IPADDRESS,RONLY,
+ospfLsdbEntry,3,{4,1,3}},{OSPFLSDBROUTERID,IPADDRESS,RONLY,ospfLsdbEntry,3,{4,1,
+4}},{OSPFLSDBSEQUENCE,INTEGER,RONLY,ospfLsdbEntry,3,{4,1,5}},{OSPFLSDBAGE,INTEGE
+R,RONLY,ospfLsdbEntry,3,{4,1,6}},{OSPFLSDBCHECKSUM,INTEGER,RONLY,ospfLsdbEntry,3
+,{4,1,7}},{OSPFLSDBADVERTISEMENT,STRING,RONLY,ospfLsdbEntry,3,{4,1,8}},/*Arearan
+getable.*/{OSPFAREARANGEAREAID,IPADDRESS,RONLY,ospfAreaRangeEntry,3,{5,1,1}},{OS
+PFAREARANGENET,IPADDRESS,RONLY,ospfAreaRangeEntry,3,{5,1,2}},{OSPFAREARANGEMASK,
+IPADDRESS,RWRITE,ospfAreaRangeEntry,3,{5,1,3}},{OSPFAREARANGESTATUS,INTEGER,RWRI
+TE,ospfAreaRangeEntry,3,{5,1,4}},{OSPFAREARANGEEFFECT,INTEGER,RWRITE,ospfAreaRan
+geEntry,3,{5,1,5}},/*OSPFhosttable.*/{OSPFHOSTIPADDRESS,IPADDRESS,RONLY,ospfHost
+Entry,3,{6,1,1}},{OSPFHOSTTOS,INTEGER,RONLY,ospfHostEntry,3,{6,1,2}},{OSPFHOSTME
+TRIC,INTEGER,RWRITE,ospfHostEntry,3,{6,1,3}},{OSPFHOSTSTATUS,INTEGER,RWRITE,ospf
+HostEntry,3,{6,1,4}},{OSPFHOSTAREAID,IPADDRESS,RONLY,ospfHostEntry,3,{6,1,5}},/*
+OSPFinterfacetable.*/{OSPFIFIPADDRESS,IPADDRESS,RONLY,ospfIfEntry,3,{7,1,1}},{OS
+PFADDRESSLESSIF,INTEGER,RONLY,ospfIfEntry,3,{7,1,2}},{OSPFIFAREAID,IPADDRESS,RWR
+ITE,ospfIfEntry,3,{7,1,3}},{OSPFIFTYPE,INTEGER,RWRITE,ospfIfEntry,3,{7,1,4}},{OS
+PFIFADMINSTAT,INTEGER,RWRITE,ospfIfEntry,3,{7,1,5}},{OSPFIFRTRPRIORITY,INTEGER,R
+WRITE,ospfIfEntry,3,{7,1,6}},{OSPFIFTRANSITDELAY,INTEGER,RWRITE,ospfIfEntry,3,{7
+,1,7}},{OSPFIFRETRANSINTERVAL,INTEGER,RWRITE,ospfIfEntry,3,{7,1,8}},{OSPFIFHELLO
+INTERVAL,INTEGER,RWRITE,ospfIfEntry,3,{7,1,9}},{OSPFIFRTRDEADINTERVAL,INTEGER,RW
+RITE,ospfIfEntry,3,{7,1,10}},{OSPFIFPOLLINTERVAL,INTEGER,RWRITE,ospfIfEntry,3,{7
+,1,11}},{OSPFIFSTATE,INTEGER,RONLY,ospfIfEntry,3,{7,1,12}},{OSPFIFDESIGNATEDROUT
+ER,IPADDRESS,RONLY,ospfIfEntry,3,{7,1,13}},{OSPFIFBACKUPDESIGNATEDROUTER,IPADDRE
+SS,RONLY,ospfIfEntry,3,{7,1,14}},{OSPFIFEVENTS,COUNTER,RONLY,ospfIfEntry,3,{7,1,
+15}},{OSPFIFAUTHKEY,STRING,RWRITE,ospfIfEntry,3,{7,1,16}},{OSPFIFSTATUS,INTEGER,
+RWRITE,ospfIfEntry,3,{7,1,17}},{OSPFIFMULTICASTFORWARDING,INTEGER,RWRITE,ospfIfE
+ntry,3,{7,1,18}},{OSPFIFDEMAND,INTEGER,RWRITE,ospfIfEntry,3,{7,1,19}},{OSPFIFAUT
+HTYPE,INTEGER,RWRITE,ospfIfEntry,3,{7,1,20}},/*OSPFinterfacemetrictable.*/{OSPFI
+FMETRICIPADDRESS,IPADDRESS,RONLY,ospfIfMetricEntry,3,{8,1,1}},{OSPFIFMETRICADDRE
+SSLESSIF,INTEGER,RONLY,ospfIfMetricEntry,3,{8,1,2}},{OSPFIFMETRICTOS,INTEGER,RON
+LY,ospfIfMetricEntry,3,{8,1,3}},{OSPFIFMETRICVALUE,INTEGER,RWRITE,ospfIfMetricEn
+try,3,{8,1,4}},{OSPFIFMETRICSTATUS,INTEGER,RWRITE,ospfIfMetricEntry,3,{8,1,5}},/
+*OSPFvirtualinterfacetable.*/{OSPFVIRTIFAREAID,IPADDRESS,RONLY,ospfVirtIfEntry,3
+,{9,1,1}},{OSPFVIRTIFNEIGHBOR,IPADDRESS,RONLY,ospfVirtIfEntry,3,{9,1,2}},{OSPFVI
+RTIFTRANSITDELAY,INTEGER,RWRITE,ospfVirtIfEntry,3,{9,1,3}},{OSPFVIRTIFRETRANSINT
+ERVAL,INTEGER,RWRITE,ospfVirtIfEntry,3,{9,1,4}},{OSPFVIRTIFHELLOINTERVAL,INTEGER
+,RWRITE,ospfVirtIfEntry,3,{9,1,5}},{OSPFVIRTIFRTRDEADINTERVAL,INTEGER,RWRITE,osp
+fVirtIfEntry,3,{9,1,6}},{OSPFVIRTIFSTATE,INTEGER,RONLY,ospfVirtIfEntry,3,{9,1,7}
+},{OSPFVIRTIFEVENTS,COUNTER,RONLY,ospfVirtIfEntry,3,{9,1,8}},{OSPFVIRTIFAUTHKEY,
+STRING,RWRITE,ospfVirtIfEntry,3,{9,1,9}},{OSPFVIRTIFSTATUS,INTEGER,RWRITE,ospfVi
+rtIfEntry,3,{9,1,10}},{OSPFVIRTIFAUTHTYPE,INTEGER,RWRITE,ospfVirtIfEntry,3,{9,1,
+11}},/*OSPFneighbortable.*/{OSPFNBRIPADDR,IPADDRESS,RONLY,ospfNbrEntry,3,{10,1,1
+}},{OSPFNBRADDRESSLESSINDEX,INTEGER,RONLY,ospfNbrEntry,3,{10,1,2}},{OSPFNBRRTRID
+,IPADDRESS,RONLY,ospfNbrEntry,3,{10,1,3}},{OSPFNBROPTIONS,INTEGER,RONLY,ospfNbrE
+ntry,3,{10,1,4}},{OSPFNBRPRIORITY,INTEGER,RWRITE,ospfNbrEntry,3,{10,1,5}},{OSPFN
+BRSTATE,INTEGER,RONLY,ospfNbrEntry,3,{10,1,6}},{OSPFNBREVENTS,COUNTER,RONLY,ospf
+NbrEntry,3,{10,1,7}},{OSPFNBRLSRETRANSQLEN,GAUGE,RONLY,ospfNbrEntry,3,{10,1,8}},
+{OSPFNBMANBRSTATUS,INTEGER,RWRITE,ospfNbrEntry,3,{10,1,9}},{OSPFNBMANBRPERMANENC
+E,INTEGER,RONLY,ospfNbrEntry,3,{10,1,10}},{OSPFNBRHELLOSUPPRESSED,INTEGER,RONLY,
+ospfNbrEntry,3,{10,1,11}},/*OSPFvirtualneighbortable.*/{OSPFVIRTNBRAREA,IPADDRES
+S,RONLY,ospfVirtNbrEntry,3,{11,1,1}},{OSPFVIRTNBRRTRID,IPADDRESS,RONLY,ospfVirtN
+brEntry,3,{11,1,2}},{OSPFVIRTNBRIPADDR,IPADDRESS,RONLY,ospfVirtNbrEntry,3,{11,1,
+3}},{OSPFVIRTNBROPTIONS,INTEGER,RONLY,ospfVirtNbrEntry,3,{11,1,4}},{OSPFVIRTNBRS
+TATE,INTEGER,RONLY,ospfVirtNbrEntry,3,{11,1,5}},{OSPFVIRTNBREVENTS,COUNTER,RONLY
+,ospfVirtNbrEntry,3,{11,1,6}},{OSPFVIRTNBRLSRETRANSQLEN,INTEGER,RONLY,ospfVirtNb
+rEntry,3,{11,1,7}},{OSPFVIRTNBRHELLOSUPPRESSED,INTEGER,RONLY,ospfVirtNbrEntry,3,
+{11,1,8}},/*OSPFlinkstatedatabase,external.*/{OSPFEXTLSDBTYPE,INTEGER,RONLY,ospf
+ExtLsdbEntry,3,{12,1,1}},{OSPFEXTLSDBLSID,IPADDRESS,RONLY,ospfExtLsdbEntry,3,{12
+,1,2}},{OSPFEXTLSDBROUTERID,IPADDRESS,RONLY,ospfExtLsdbEntry,3,{12,1,3}},{OSPFEX
+TLSDBSEQUENCE,INTEGER,RONLY,ospfExtLsdbEntry,3,{12,1,4}},{OSPFEXTLSDBAGE,INTEGER
+,RONLY,ospfExtLsdbEntry,3,{12,1,5}},{OSPFEXTLSDBCHECKSUM,INTEGER,RONLY,ospfExtLs
+dbEntry,3,{12,1,6}},{OSPFEXTLSDBADVERTISEMENT,STRING,RONLY,ospfExtLsdbEntry,3,{1
+2,1,7}},/*OSPFareaaggregatetable.*/{OSPFAREAAGGREGATEAREAID,IPADDRESS,RONLY,ospf
+AreaAggregateEntry,3,{14,1,1}},{OSPFAREAAGGREGATELSDBTYPE,INTEGER,RONLY,ospfArea
+AggregateEntry,3,{14,1,2}},{OSPFAREAAGGREGATENET,IPADDRESS,RONLY,ospfAreaAggrega
+teEntry,3,{14,1,3}},{OSPFAREAAGGREGATEMASK,IPADDRESS,RONLY,ospfAreaAggregateEntr
+y,3,{14,1,4}},{OSPFAREAAGGREGATESTATUS,INTEGER,RWRITE,ospfAreaAggregateEntry,3,{
+14,1,5}},{OSPFAREAAGGREGATEEFFECT,INTEGER,RWRITE,ospfAreaAggregateEntry,3,{14,1,
+6}}};/*TheadministrativestatusofOSPF.WhenOSPFisenbledonatleastoneinterfacereturn
+1.*/staticintospf_admin_stat(structospf*ospf){structlistnode*node;structospf_int
+erface*oi;if(ospf==NULL)return0;for(ALL_LIST_ELEMENTS_RO(ospf->oiflist,node,oi))
+if(oi&&oi->address)return1;return0;}staticuint8_t*ospfGeneralGroup(structvariabl
+e*v,oid*name,size_t*length,intexact,size_t*var_len,WriteMethod**write_method){st
+ructospf*ospf;ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);/*Checkwhethertheinstancei
+dentifierisvalid*/if(smux_header_generic(v,name,length,exact,var_len,write_metho
+d)==MATCH_FAILED)returnNULL;/*Returnthecurrentvalueofthevariable*/switch(v->magi
+c){caseOSPFROUTERID:/*1*//*Router-IDofthisOSPFinstance.*/if(ospf)returnSNMP_IPAD
+DRESS(ospf->router_id);elsereturnSNMP_IPADDRESS(ospf_empty_addr);break;caseOSPFA
+DMINSTAT:/*2*//*TheadministrativestatusofOSPFintherouter.*/if(ospf_admin_stat(os
+pf))returnSNMP_INTEGER(OSPF_STATUS_ENABLED);elsereturnSNMP_INTEGER(OSPF_STATUS_D
+ISABLED);break;caseOSPFVERSIONNUMBER:/*3*//*OSPFversion2.*/returnSNMP_INTEGER(OS
+PF_VERSION);break;caseOSPFAREABDRRTRSTATUS:/*4*//*AreaBorderrouterstatus.*/if(os
+pf&&CHECK_FLAG(ospf->flags,OSPF_FLAG_ABR))returnSNMP_INTEGER(SNMP_TRUE);elseretu
+rnSNMP_INTEGER(SNMP_FALSE);break;caseOSPFASBDRRTRSTATUS:/*5*//*ASBorderroutersta
+tus.*/if(ospf&&CHECK_FLAG(ospf->flags,OSPF_FLAG_ASBR))returnSNMP_INTEGER(SNMP_TR
+UE);elsereturnSNMP_INTEGER(SNMP_FALSE);break;caseOSPFEXTERNLSACOUNT:/*6*//*Exter
+nalLSAcounts.*/if(ospf)returnSNMP_INTEGER(ospf_lsdb_count_all(ospf->lsdb));elser
+eturnSNMP_INTEGER(0);break;caseOSPFEXTERNLSACKSUMSUM:/*7*//*ExternalLSAchecksum.
+*/returnSNMP_INTEGER(0);break;caseOSPFTOSSUPPORT:/*8*//*TOSisnotsupported.*/retu
+rnSNMP_INTEGER(SNMP_FALSE);break;caseOSPFORIGINATENEWLSAS:/*9*//*Thenumberofnewl
+ink-stateadvertisements.*/if(ospf)returnSNMP_INTEGER(ospf->lsa_originate_count);
+elsereturnSNMP_INTEGER(0);break;caseOSPFRXNEWLSAS:/*10*//*Thenumberoflink-statea
+dvertisementsreceiveddeterminedtobenewinstantiations.*/if(ospf)returnSNMP_INTEGE
+R(ospf->rx_lsa_count);elsereturnSNMP_INTEGER(0);break;caseOSPFEXTLSDBLIMIT:/*11*
+//*Thereisnolimitforthenumberofnon-defaultAS-external-LSAs.*/returnSNMP_INTEGER(
+-1);break;caseOSPFMULTICASTEXTENSIONS:/*12*//*MulticastExtensionstoOSPFisnotsupp
+orted.*/returnSNMP_INTEGER(0);break;caseOSPFEXITOVERFLOWINTERVAL:/*13*//*Overflo
+wisnotsupported.*/returnSNMP_INTEGER(0);break;caseOSPFDEMANDEXTENSIONS:/*14*//*D
+emandroutingisnotsupported.*/returnSNMP_INTEGER(SNMP_FALSE);break;default:return
+NULL;}returnNULL;}staticstructospf_area*ospf_area_lookup_next(structospf*ospf,st
+ructin_addr*area_id,intfirst){structospf_area*area;structlistnode*node;if(ospf==
+NULL)returnNULL;if(first){node=listhead(ospf->areas);if(node){area=listgetdata(n
+ode);*area_id=area->area_id;returnarea;}returnNULL;}for(ALL_LIST_ELEMENTS_RO(osp
+f->areas,node,area)){if(ntohl(area->area_id.s_addr)>ntohl(area_id->s_addr)){*are
+a_id=area->area_id;returnarea;}}returnNULL;}staticstructospf_area*ospfAreaLookup
+(structvariable*v,oidname[],size_t*length,structin_addr*addr,intexact){structosp
+f*ospf;structospf_area*area;intlen;ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);if(os
+pf==NULL)returnNULL;if(exact){/*LengthisinsufficienttolookupOSPFarea.*/if(*lengt
+h-v->namelen!=sizeof(structin_addr))returnNULL;oid2in_addr(name+v->namelen,sizeo
+f(structin_addr),addr);area=ospf_area_lookup_by_area_id(ospf,*addr);returnarea;}
+else{len=*length-v->namelen;if(len>4)len=4;oid2in_addr(name+v->namelen,len,addr)
+;area=ospf_area_lookup_next(ospf,addr,len==0?1:0);if(area==NULL)returnNULL;oid_c
+opy_addr(name+v->namelen,addr,sizeof(structin_addr));*length=sizeof(structin_add
+r)+v->namelen;returnarea;}returnNULL;}staticuint8_t*ospfAreaEntry(structvariable
+*v,oid*name,size_t*length,intexact,size_t*var_len,WriteMethod**write_method){str
+uctospf_area*area;structin_addraddr;if(smux_header_table(v,name,length,exact,var
+_len,write_method)==MATCH_FAILED)returnNULL;memset(&addr,0,sizeof(structin_addr)
+);area=ospfAreaLookup(v,name,length,&addr,exact);if(!area)returnNULL;/*Returnthe
+currentvalueofthevariable*/switch(v->magic){caseOSPFAREAID:/*1*/returnSNMP_IPADD
+RESS(area->area_id);break;caseOSPFAUTHTYPE:/*2*/returnSNMP_INTEGER(area->auth_ty
+pe);break;caseOSPFIMPORTASEXTERN:/*3*/returnSNMP_INTEGER(area->external_routing+
+1);break;caseOSPFSPFRUNS:/*4*/returnSNMP_INTEGER(area->spf_calculation);break;ca
+seOSPFAREABDRRTRCOUNT:/*5*/returnSNMP_INTEGER(area->abr_count);break;caseOSPFASB
+DRRTRCOUNT:/*6*/returnSNMP_INTEGER(area->asbr_count);break;caseOSPFAREALSACOUNT:
+/*7*/returnSNMP_INTEGER(area->lsdb->total);break;caseOSPFAREALSACKSUMSUM:/*8*/re
+turnSNMP_INTEGER(0);break;caseOSPFAREASUMMARY:/*9*/#defineOSPF_noAreaSummary1#de
+fineOSPF_sendAreaSummary2if(area->no_summary)returnSNMP_INTEGER(OSPF_noAreaSumma
+ry);elsereturnSNMP_INTEGER(OSPF_sendAreaSummary);break;caseOSPFAREASTATUS:/*10*/
+returnSNMP_INTEGER(SNMP_VALID);break;default:returnNULL;break;}returnNULL;}stati
+cstructospf_area*ospf_stub_area_lookup_next(structin_addr*area_id,intfirst){stru
+ctospf_area*area;structlistnode*node;structospf*ospf;ospf=ospf_lookup_by_vrf_id(
+VRF_DEFAULT);if(ospf==NULL)returnNULL;for(ALL_LIST_ELEMENTS_RO(ospf->areas,node,
+area)){if(area->external_routing==OSPF_AREA_STUB){if(first){*area_id=area->area_
+id;returnarea;}elseif(ntohl(area->area_id.s_addr)>ntohl(area_id->s_addr)){*area_
+id=area->area_id;returnarea;}}}returnNULL;}staticstructospf_area*ospfStubAreaLoo
+kup(structvariable*v,oidname[],size_t*length,structin_addr*addr,intexact){struct
+ospf*ospf;structospf_area*area;intlen;ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);if
+(ospf==NULL)returnNULL;/*Exactlookup.*/if(exact){/*ospfStubAreaID+ospfStubTOS.*/
+if(*length!=v->namelen+sizeof(structin_addr)+1)returnNULL;/*CheckospfStubTOSisze
+ro.*/if(name[*length-1]!=0)returnNULL;oid2in_addr(name+v->namelen,sizeof(structi
+n_addr),addr);area=ospf_area_lookup_by_area_id(ospf,*addr);if(area->external_rou
+ting==OSPF_AREA_STUB)returnarea;elsereturnNULL;}else{len=*length-v->namelen;if(l
+en>4)len=4;oid2in_addr(name+v->namelen,len,addr);area=ospf_stub_area_lookup_next
+(addr,len==0?1:0);if(area==NULL)returnNULL;oid_copy_addr(name+v->namelen,addr,si
+zeof(structin_addr));/*SetTOS0.*/name[v->namelen+sizeof(structin_addr)]=0;*lengt
+h=v->namelen+sizeof(structin_addr)+1;returnarea;}returnNULL;}staticuint8_t*ospfS
+tubAreaEntry(structvariable*v,oid*name,size_t*length,intexact,size_t*var_len,Wri
+teMethod**write_method){structospf_area*area;structin_addraddr;if(smux_header_ta
+ble(v,name,length,exact,var_len,write_method)==MATCH_FAILED)returnNULL;memset(&a
+ddr,0,sizeof(structin_addr));area=ospfStubAreaLookup(v,name,length,&addr,exact);
+if(!area)returnNULL;/*Returnthecurrentvalueofthevariable*/switch(v->magic){caseO
+SPFSTUBAREAID:/*1*//*OSPFstubareaid.*/returnSNMP_IPADDRESS(area->area_id);break;
+caseOSPFSTUBTOS:/*2*//*TOSvalueisnotsupported.*/returnSNMP_INTEGER(0);break;case
+OSPFSTUBMETRIC:/*3*//*Defaultcosttostubarea.*/returnSNMP_INTEGER(area->default_c
+ost);break;caseOSPFSTUBSTATUS:/*4*//*Statusofthestubarea.*/returnSNMP_INTEGER(SN
+MP_VALID);break;caseOSPFSTUBMETRICTYPE:/*5*//*OSPFMetrictype.*/#defineOSPF_ospfM
+etric1#defineOSPF_comparableCost2#defineOSPF_nonComparable3returnSNMP_INTEGER(OS
+PF_ospfMetric);break;default:returnNULL;break;}returnNULL;}staticstructospf_lsa*
+lsdb_lookup_next(structospf_area*area,uint8_t*type,inttype_next,structin_addr*ls
+_id,intls_id_next,structin_addr*router_id,introuter_id_next){structospf_lsa*lsa;
+inti;if(type_next)i=OSPF_MIN_LSA;elsei=*type;/*Sanitycheck,ifLSAtypeunknwonmerle
+yskipanyLSA*/if((i<OSPF_MIN_LSA)||(i>=OSPF_MAX_LSA)){zlog_debug("Strangerequestw
+ithLSAtype%d\n",i);returnNULL;}for(;i<OSPF_MAX_LSA;i++){*type=i;lsa=ospf_lsdb_lo
+okup_by_id_next(area->lsdb,*type,*ls_id,*router_id,ls_id_next);if(lsa)returnlsa;
+ls_id_next=1;}returnNULL;}staticstructospf_lsa*ospfLsdbLookup(structvariable*v,o
+id*name,size_t*length,structin_addr*area_id,uint8_t*type,structin_addr*ls_id,str
+uctin_addr*router_id,intexact){structospf*ospf;structospf_area*area;structospf_l
+sa*lsa;intlen;inttype_next;intls_id_next;introuter_id_next;oid*offset;intoffsetl
+en;ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);#defineOSPF_LSDB_ENTRY_OFFSET(IN_ADDR
+_SIZE+1+IN_ADDR_SIZE+IN_ADDR_SIZE)if(exact){/*AreaID+Type+LSID+RouterID.*/if(*le
+ngth-v->namelen!=OSPF_LSDB_ENTRY_OFFSET)returnNULL;/*SetOIDoffsetforAreaID.*/off
+set=name+v->namelen;/*Lookupareafirst.*/oid2in_addr(offset,IN_ADDR_SIZE,area_id)
+;area=ospf_area_lookup_by_area_id(ospf,*area_id);if(!area)returnNULL;offset+=IN_
+ADDR_SIZE;/*Type.*/*type=*offset;offset++;/*LSID.*/oid2in_addr(offset,IN_ADDR_SI
+ZE,ls_id);offset+=IN_ADDR_SIZE;/*RouterID.*/oid2in_addr(offset,IN_ADDR_SIZE,rout
+er_id);/*LookupLSDB.*/returnospf_lsdb_lookup_by_id(area->lsdb,*type,*ls_id,*rout
+er_id);}else{/*Getvariablelength.*/offset=name+v->namelen;offsetlen=*length-v->n
+amelen;len=offsetlen;if(len>(int)IN_ADDR_SIZE)len=IN_ADDR_SIZE;oid2in_addr(offse
+t,len,area_id);/*Firstwesearcharea.*/if(len==IN_ADDR_SIZE)area=ospf_area_lookup_
+by_area_id(ospf,*area_id);elsearea=ospf_area_lookup_next(ospf,area_id,1);if(area
+==NULL)returnNULL;do{/*Nextwelookuptype.*/offset+=len;offsetlen-=len;len=offsetl
+en;if(len<=0)type_next=1;else{len=1;type_next=0;*type=*offset;}/*LSID.*/offset++
+;offsetlen--;len=offsetlen;if(len<=0)ls_id_next=1;else{ls_id_next=0;if(len>(int)
+IN_ADDR_SIZE)len=IN_ADDR_SIZE;oid2in_addr(offset,len,ls_id);}/*RouterID.*/offset
++=IN_ADDR_SIZE;offsetlen-=IN_ADDR_SIZE;len=offsetlen;if(len<=0)router_id_next=1;
+else{router_id_next=0;if(len>(int)IN_ADDR_SIZE)len=IN_ADDR_SIZE;oid2in_addr(offs
+et,len,router_id);}lsa=lsdb_lookup_next(area,type,type_next,ls_id,ls_id_next,rou
+ter_id,router_id_next);if(lsa){/*Fillinlength.*/*length=v->namelen+OSPF_LSDB_ENT
+RY_OFFSET;/*Fillinvalue.*/offset=name+v->namelen;oid_copy_addr(offset,area_id,IN
+_ADDR_SIZE);offset+=IN_ADDR_SIZE;*offset=lsa->data->type;offset++;oid_copy_addr(
+offset,&lsa->data->id,IN_ADDR_SIZE);offset+=IN_ADDR_SIZE;oid_copy_addr(offset,&l
+sa->data->adv_router,IN_ADDR_SIZE);returnlsa;}}while((area=ospf_area_lookup_next
+(ospf,area_id,0))!=NULL);}returnNULL;}staticuint8_t*ospfLsdbEntry(structvariable
+*v,oid*name,size_t*length,intexact,size_t*var_len,WriteMethod**write_method){str
+uctospf_lsa*lsa;structlsa_header*lsah;structin_addrarea_id;uint8_ttype;structin_
+addrls_id;structin_addrrouter_id;structospf*ospf;if(smux_header_table(v,name,len
+gth,exact,var_len,write_method)==MATCH_FAILED)returnNULL;/*INDEX{ospfLsdbAreaId,
+ospfLsdbType,ospfLsdbLsid,ospfLsdbRouterId}*/memset(&area_id,0,sizeof(structin_a
+ddr));type=0;memset(&ls_id,0,sizeof(structin_addr));memset(&router_id,0,sizeof(s
+tructin_addr));/*CheckOSPFinstance.*/ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);if(
+ospf==NULL)returnNULL;lsa=ospfLsdbLookup(v,name,length,&area_id,&type,&ls_id,&ro
+uter_id,exact);if(!lsa)returnNULL;lsah=lsa->data;/*Returnthecurrentvalueofthevar
+iable*/switch(v->magic){caseOSPFLSDBAREAID:/*1*/returnSNMP_IPADDRESS(lsa->area->
+area_id);break;caseOSPFLSDBTYPE:/*2*/returnSNMP_INTEGER(lsah->type);break;caseOS
+PFLSDBLSID:/*3*/returnSNMP_IPADDRESS(lsah->id);break;caseOSPFLSDBROUTERID:/*4*/r
+eturnSNMP_IPADDRESS(lsah->adv_router);break;caseOSPFLSDBSEQUENCE:/*5*/returnSNMP
+_INTEGER(lsah->ls_seqnum);break;caseOSPFLSDBAGE:/*6*/returnSNMP_INTEGER(lsah->ls
+_age);break;caseOSPFLSDBCHECKSUM:/*7*/returnSNMP_INTEGER(lsah->checksum);break;c
+aseOSPFLSDBADVERTISEMENT:/*8*/*var_len=ntohs(lsah->length);return(uint8_t*)lsah;
+break;default:returnNULL;break;}returnNULL;}staticstructospf_area_range*ospfArea
+RangeLookup(structvariable*v,oid*name,size_t*length,structin_addr*area_id,struct
+in_addr*range_net,intexact){oid*offset;intoffsetlen;intlen;structospf*ospf;struc
+tospf_area*area;structospf_area_range*range;structprefix_ipv4p;p.family=AF_INET;
+p.prefixlen=IPV4_MAX_BITLEN;ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);if(exact){/*
+AreaID+RangeNetwork.*/if(v->namelen+IN_ADDR_SIZE+IN_ADDR_SIZE!=*length)returnNUL
+L;/*SetOIDoffsetforAreaID.*/offset=name+v->namelen;/*Lookupareafirst.*/oid2in_ad
+dr(offset,IN_ADDR_SIZE,area_id);area=ospf_area_lookup_by_area_id(ospf,*area_id);
+if(!area)returnNULL;offset+=IN_ADDR_SIZE;/*Lookuparearange.*/oid2in_addr(offset,
+IN_ADDR_SIZE,range_net);p.prefix=*range_net;returnospf_area_range_lookup(area,&p
+);}else{/*SetOIDoffsetforAreaID.*/offset=name+v->namelen;offsetlen=*length-v->na
+melen;len=offsetlen;if(len>(int)IN_ADDR_SIZE)len=IN_ADDR_SIZE;oid2in_addr(offset
+,len,area_id);/*Firstwesearcharea.*/if(len==IN_ADDR_SIZE)area=ospf_area_lookup_b
+y_area_id(ospf,*area_id);elsearea=ospf_area_lookup_next(ospf,area_id,len==0?1:0)
+;if(area==NULL)returnNULL;do{offset+=IN_ADDR_SIZE;offsetlen-=IN_ADDR_SIZE;len=of
+fsetlen;if(len<0)len=0;if(len>(int)IN_ADDR_SIZE)len=IN_ADDR_SIZE;oid2in_addr(off
+set,len,range_net);range=ospf_area_range_lookup_next(area,range_net,len==0?1:0);
+if(range){/*Fillinlength.*/*length=v->namelen+IN_ADDR_SIZE+IN_ADDR_SIZE;/*Fillin
+value.*/offset=name+v->namelen;oid_copy_addr(offset,area_id,IN_ADDR_SIZE);offset
++=IN_ADDR_SIZE;oid_copy_addr(offset,range_net,IN_ADDR_SIZE);returnrange;}}while(
+(area=ospf_area_lookup_next(ospf,area_id,0))!=NULL);}returnNULL;}staticuint8_t*o
+spfAreaRangeEntry(structvariable*v,oid*name,size_t*length,intexact,size_t*var_le
+n,WriteMethod**write_method){structospf_area_range*range;structin_addrarea_id;st
+ructin_addrrange_net;structin_addrmask;structospf*ospf;if(smux_header_table(v,na
+me,length,exact,var_len,write_method)==MATCH_FAILED)returnNULL;/*CheckOSPFinstan
+ce.*/ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);if(ospf==NULL)returnNULL;memset(&ar
+ea_id,0,IN_ADDR_SIZE);memset(&range_net,0,IN_ADDR_SIZE);range=ospfAreaRangeLooku
+p(v,name,length,&area_id,&range_net,exact);if(!range)returnNULL;/*Convertprefixl
+entonetworkmaskformat.*/masklen2ip(range->subst_masklen,&mask);/*Returnthecurren
+tvalueofthevariable*/switch(v->magic){caseOSPFAREARANGEAREAID:/*1*/returnSNMP_IP
+ADDRESS(area_id);break;caseOSPFAREARANGENET:/*2*/returnSNMP_IPADDRESS(range_net)
+;break;caseOSPFAREARANGEMASK:/*3*/returnSNMP_IPADDRESS(mask);break;caseOSPFAREAR
+ANGESTATUS:/*4*/returnSNMP_INTEGER(SNMP_VALID);break;caseOSPFAREARANGEEFFECT:/*5
+*/#defineOSPF_advertiseMatching1#defineOSPF_doNotAdvertiseMatching2returnSNMP_IN
+TEGER(OSPF_advertiseMatching);break;default:returnNULL;break;}returnNULL;}static
+structospf_nbr_nbma*ospfHostLookup(structvariable*v,oid*name,size_t*length,struc
+tin_addr*addr,intexact){intlen;structospf_nbr_nbma*nbr_nbma;structospf*ospf;ospf
+=ospf_lookup_by_vrf_id(VRF_DEFAULT);if(ospf==NULL)returnNULL;if(exact){/*INDEX{o
+spfHostIpAddress,ospfHostTOS}*/if(*length!=v->namelen+IN_ADDR_SIZE+1)returnNULL;
+/*CheckospfHostTOS.*/if(name[*length-1]!=0)returnNULL;oid2in_addr(name+v->namele
+n,IN_ADDR_SIZE,addr);nbr_nbma=ospf_nbr_nbma_lookup(ospf,*addr);returnnbr_nbma;}e
+lse{len=*length-v->namelen;if(len>4)len=4;oid2in_addr(name+v->namelen,len,addr);
+nbr_nbma=ospf_nbr_nbma_lookup_next(ospf,addr,len==0?1:0);if(nbr_nbma==NULL)retur
+nNULL;oid_copy_addr(name+v->namelen,addr,IN_ADDR_SIZE);/*SetTOS0.*/name[v->namel
+en+IN_ADDR_SIZE]=0;*length=v->namelen+IN_ADDR_SIZE+1;returnnbr_nbma;}returnNULL;
+}staticuint8_t*ospfHostEntry(structvariable*v,oid*name,size_t*length,intexact,si
+ze_t*var_len,WriteMethod**write_method){structospf_nbr_nbma*nbr_nbma;structospf_
+interface*oi;structin_addraddr;structospf*ospf;if(smux_header_table(v,name,lengt
+h,exact,var_len,write_method)==MATCH_FAILED)returnNULL;/*CheckOSPFinstance.*/osp
+f=ospf_lookup_by_vrf_id(VRF_DEFAULT);if(ospf==NULL)returnNULL;memset(&addr,0,siz
+eof(structin_addr));nbr_nbma=ospfHostLookup(v,name,length,&addr,exact);if(nbr_nb
+ma==NULL)returnNULL;oi=nbr_nbma->oi;/*Returnthecurrentvalueofthevariable*/switch
+(v->magic){caseOSPFHOSTIPADDRESS:/*1*/returnSNMP_IPADDRESS(nbr_nbma->addr);break
+;caseOSPFHOSTTOS:/*2*/returnSNMP_INTEGER(0);break;caseOSPFHOSTMETRIC:/*3*/if(oi)
+returnSNMP_INTEGER(oi->output_cost);elsereturnSNMP_INTEGER(1);break;caseOSPFHOST
+STATUS:/*4*/returnSNMP_INTEGER(SNMP_VALID);break;caseOSPFHOSTAREAID:/*5*/if(oi&&
+oi->area)returnSNMP_IPADDRESS(oi->area->area_id);elsereturnSNMP_IPADDRESS(ospf_e
+mpty_addr);break;default:returnNULL;break;}returnNULL;}staticstructlist*ospf_snm
+p_iflist;structospf_snmp_if{structin_addraddr;ifindex_tifindex;structinterface*i
+fp;};staticstructospf_snmp_if*ospf_snmp_if_new(void){returnXCALLOC(MTYPE_TMP,siz
+eof(structospf_snmp_if));}staticvoidospf_snmp_if_free(structospf_snmp_if*osif){X
+FREE(MTYPE_TMP,osif);}staticintospf_snmp_if_delete(structinterface*ifp){structli
+stnode*node,*nnode;structospf_snmp_if*osif;for(ALL_LIST_ELEMENTS(ospf_snmp_iflis
+t,node,nnode,osif)){if(osif->ifp==ifp){list_delete_node(ospf_snmp_iflist,node);o
+spf_snmp_if_free(osif);break;}}return0;}staticintospf_snmp_if_update(structinter
+face*ifp){structlistnode*node;structlistnode*pn;structconnected*ifc;structprefix
+*p;structospf_snmp_if*osif;structin_addr*addr;ifindex_tifindex;ospf_snmp_if_dele
+te(ifp);p=NULL;addr=NULL;ifindex=0;/*LookupfirstIPv4addressentry.*/for(ALL_LIST_
+ELEMENTS_RO(ifp->connected,node,ifc)){p=CONNECTED_ID(ifc);if(p->family==AF_INET)
+{addr=&p->u.prefix4;break;}}if(!addr)ifindex=ifp->ifindex;/*Addinterfacetothelis
+t.*/pn=NULL;for(ALL_LIST_ELEMENTS_RO(ospf_snmp_iflist,node,osif)){if(addr){/*Usu
+alinterfaces-->Sortthembasedoninterface*IPv4addresses*/if(ntohl(osif->addr.s_add
+r)>ntohl(addr->s_addr))break;}else{/*Unnumberedinterfaces-->Sortthembasedon*inte
+rfaceindexes*/if(osif->addr.s_addr!=0||osif->ifindex>ifindex)break;}pn=node;}osi
+f=ospf_snmp_if_new();if(addr)/*Usualinterface*/{osif->addr=*addr;/*Thisfieldisus
+edforstoringospfAddressLessIfOIDvalue,*conformtoRFC1850OSPF-MIBspecification,itm
+ustbe0for*usualinterface*/osif->ifindex=0;}else/*Unnumberedinterface*/osif->ifin
+dex=ifindex;osif->ifp=ifp;listnode_add_after(ospf_snmp_iflist,pn,osif);return0;}
+staticintospf_snmp_is_if_have_addr(structinterface*ifp){structlistnode*nn;struct
+connected*ifc;/*IsthisinterfacehavinganyconnectedIPv4address?*/for(ALL_LIST_ELEM
+ENTS_RO(ifp->connected,nn,ifc)){if(CONNECTED_PREFIX(ifc)->family==AF_INET)return
+1;}return0;}staticstructospf_interface*ospf_snmp_if_lookup(structin_addr*ifaddr,
+ifindex_t*ifindex){structlistnode*node;structospf_snmp_if*osif;structospf_interf
+ace*oi=NULL;structospf*ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);for(ALL_LIST_ELEM
+ENTS_RO(ospf_snmp_iflist,node,osif)){if(ifaddr->s_addr){if(IPV4_ADDR_SAME(&osif-
+>addr,ifaddr))oi=ospf_if_lookup_by_local_addr(ospf,osif->ifp,*ifaddr);}else{if(o
+sif->ifindex==*ifindex)oi=ospf_if_lookup_by_local_addr(ospf,osif->ifp,*ifaddr);}
+}returnoi;}staticstructospf_interface*ospf_snmp_if_lookup_next(structin_addr*ifa
+ddr,ifindex_t*ifindex,intifaddr_next,ifindex_tifindex_next){structospf_snmp_if*o
+sif;structlistnode*nn;structospf*ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);structo
+spf_interface*oi=NULL;if(ospf==NULL)returnNULL;/*Noinstanceisspecified-->Returnt
+hefirstOSPFinterface*/if(ifaddr_next){for(ALL_LIST_ELEMENTS_RO(ospf_snmp_iflist,
+nn,osif)){osif=listgetdata(nn);*ifaddr=osif->addr;*ifindex=osif->ifindex;/*Becau
+senoinstanceisspecified,wedon'tcareabout*thekindof*interface(usualorunnumbered),
+justreturningthe*firstvalid*OSPFinterface*/oi=ospf_if_lookup_by_local_addr(ospf,
+osif->ifp,*ifaddr);if(oi)return(oi);}returnNULL;}/*Aninstanceisspecified-->Retur
+nthenextOSPFinterface*/for(ALL_LIST_ELEMENTS_RO(ospf_snmp_iflist,nn,osif)){/*Usu
+alinterface*/if(ifaddr->s_addr){/*TheinterfacemusthavevalidAF_INETconnected*addr
+ess*//*itmusthavelagerIPv4addressvaluethanthelookup*entry*/if((ospf_snmp_is_if_h
+ave_addr(osif->ifp))&&(ntohl(osif->addr.s_addr)>ntohl(ifaddr->s_addr))){*ifaddr=
+osif->addr;*ifindex=osif->ifindex;/*anditmustbeanOSPFinterface*/oi=ospf_if_looku
+p_by_local_addr(ospf,osif->ifp,*ifaddr);if(oi)returnoi;}}/*Unnumberedinterface*/
+else/*TheinterfacemustNOThavevalidAF_INETconnectedaddress*//*itmusthavelagerinte
+rfaceindexthanthelookupentry*/if((!ospf_snmp_is_if_have_addr(osif->ifp))&&(osif-
+>ifindex>*ifindex)){*ifaddr=osif->addr;*ifindex=osif->ifindex;/*anditmustbeanOSP
+Finterface*/oi=ospf_if_lookup_by_local_addr(ospf,osif->ifp,*ifaddr);if(oi)return
+oi;}}returnNULL;}staticintospf_snmp_iftype(structinterface*ifp){#defineospf_snmp
+_iftype_broadcast1#defineospf_snmp_iftype_nbma2#defineospf_snmp_iftype_pointToPo
+int3#defineospf_snmp_iftype_pointToMultipoint5if(if_is_broadcast(ifp))returnospf
+_snmp_iftype_broadcast;if(if_is_pointopoint(ifp))returnospf_snmp_iftype_pointToP
+oint;returnospf_snmp_iftype_broadcast;}staticstructospf_interface*ospfIfLookup(s
+tructvariable*v,oid*name,size_t*length,structin_addr*ifaddr,ifindex_t*ifindex,in
+texact){unsignedintlen;intifaddr_next=0;ifindex_tifindex_next=0;structospf_inter
+face*oi;oid*offset;if(exact){if(*length!=v->namelen+IN_ADDR_SIZE+1)returnNULL;oi
+d2in_addr(name+v->namelen,IN_ADDR_SIZE,ifaddr);*ifindex=name[v->namelen+IN_ADDR_
+SIZE];returnospf_snmp_if_lookup(ifaddr,ifindex);}else{len=*length-v->namelen;if(
+len>=IN_ADDR_SIZE)len=IN_ADDR_SIZE;if(len<=0)ifaddr_next=1;oid2in_addr(name+v->n
+amelen,len,ifaddr);len=*length-v->namelen-IN_ADDR_SIZE;if(len>=1)len=1;elseifind
+ex_next=1;if(len==1)*ifindex=name[v->namelen+IN_ADDR_SIZE];oi=ospf_snmp_if_looku
+p_next(ifaddr,ifindex,ifaddr_next,ifindex_next);if(oi){*length=v->namelen+IN_ADD
+R_SIZE+1;offset=name+v->namelen;oid_copy_addr(offset,ifaddr,IN_ADDR_SIZE);offset
++=IN_ADDR_SIZE;*offset=*ifindex;returnoi;}}returnNULL;}staticuint8_t*ospfIfEntry
+(structvariable*v,oid*name,size_t*length,intexact,size_t*var_len,WriteMethod**wr
+ite_method){ifindex_tifindex;structin_addrifaddr;structospf_interface*oi;structo
+spf*ospf;if(smux_header_table(v,name,length,exact,var_len,write_method)==MATCH_F
+AILED)returnNULL;ifindex=0;memset(&ifaddr,0,sizeof(structin_addr));/*CheckOSPFin
+stance.*/ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);if(ospf==NULL)returnNULL;oi=osp
+fIfLookup(v,name,length,&ifaddr,&ifindex,exact);if(oi==NULL)returnNULL;/*Returnt
+hecurrentvalueofthevariable*/switch(v->magic){caseOSPFIFIPADDRESS:/*1*/returnSNM
+P_IPADDRESS(ifaddr);break;caseOSPFADDRESSLESSIF:/*2*/returnSNMP_INTEGER(ifindex)
+;break;caseOSPFIFAREAID:/*3*/if(oi->area)returnSNMP_IPADDRESS(oi->area->area_id)
+;elsereturnSNMP_IPADDRESS(ospf_empty_addr);break;caseOSPFIFTYPE:/*4*/returnSNMP_
+INTEGER(ospf_snmp_iftype(oi->ifp));break;caseOSPFIFADMINSTAT:/*5*/if(oi)returnSN
+MP_INTEGER(OSPF_STATUS_ENABLED);elsereturnSNMP_INTEGER(OSPF_STATUS_DISABLED);bre
+ak;caseOSPFIFRTRPRIORITY:/*6*/returnSNMP_INTEGER(PRIORITY(oi));break;caseOSPFIFT
+RANSITDELAY:/*7*/returnSNMP_INTEGER(OSPF_IF_PARAM(oi,transmit_delay));break;case
+OSPFIFRETRANSINTERVAL:/*8*/returnSNMP_INTEGER(OSPF_IF_PARAM(oi,retransmit_interv
+al));break;caseOSPFIFHELLOINTERVAL:/*9*/returnSNMP_INTEGER(OSPF_IF_PARAM(oi,v_he
+llo));break;caseOSPFIFRTRDEADINTERVAL:/*10*/returnSNMP_INTEGER(OSPF_IF_PARAM(oi,
+v_wait));break;caseOSPFIFPOLLINTERVAL:/*11*/returnSNMP_INTEGER(OSPF_POLL_INTERVA
+L_DEFAULT);break;caseOSPFIFSTATE:/*12*/returnSNMP_INTEGER(ISM_SNMP(oi->state));b
+reak;caseOSPFIFDESIGNATEDROUTER:/*13*/returnSNMP_IPADDRESS(DR(oi));break;caseOSP
+FIFBACKUPDESIGNATEDROUTER:/*14*/returnSNMP_IPADDRESS(BDR(oi));break;caseOSPFIFEV
+ENTS:/*15*/returnSNMP_INTEGER(oi->state_change);break;caseOSPFIFAUTHKEY:/*16*/*v
+ar_len=0;return(uint8_t*)OSPF_IF_PARAM(oi,auth_simple);break;caseOSPFIFSTATUS:/*
+17*/returnSNMP_INTEGER(SNMP_VALID);break;caseOSPFIFMULTICASTFORWARDING:/*18*/#de
+fineospf_snmp_multiforward_blocked1#defineospf_snmp_multiforward_multicast2#defi
+neospf_snmp_multiforward_unicast3returnSNMP_INTEGER(ospf_snmp_multiforward_block
+ed);break;caseOSPFIFDEMAND:/*19*/returnSNMP_INTEGER(SNMP_FALSE);break;caseOSPFIF
+AUTHTYPE:/*20*/if(oi->area)returnSNMP_INTEGER(oi->area->auth_type);elsereturnSNM
+P_INTEGER(0);break;default:returnNULL;break;}returnNULL;}#defineOSPF_SNMP_METRIC
+_VALUE1staticstructospf_interface*ospfIfMetricLookup(structvariable*v,oid*name,s
+ize_t*length,structin_addr*ifaddr,ifindex_t*ifindex,intexact){unsignedintlen;int
+ifaddr_next=0;ifindex_tifindex_next=0;structospf_interface*oi;oid*offset;intmetr
+ic;if(exact){if(*length!=v->namelen+IN_ADDR_SIZE+1+1)returnNULL;oid2in_addr(name
++v->namelen,IN_ADDR_SIZE,ifaddr);*ifindex=name[v->namelen+IN_ADDR_SIZE];metric=n
+ame[v->namelen+IN_ADDR_SIZE+1];if(metric!=OSPF_SNMP_METRIC_VALUE)returnNULL;retu
+rnospf_snmp_if_lookup(ifaddr,ifindex);}else{len=*length-v->namelen;if(len>=IN_AD
+DR_SIZE)len=IN_ADDR_SIZE;elseifaddr_next=1;oid2in_addr(name+v->namelen,len,ifadd
+r);len=*length-v->namelen-IN_ADDR_SIZE;if(len>=1)len=1;elseifindex_next=1;if(len
+==1)*ifindex=name[v->namelen+IN_ADDR_SIZE];oi=ospf_snmp_if_lookup_next(ifaddr,if
+index,ifaddr_next,ifindex_next);if(oi){*length=v->namelen+IN_ADDR_SIZE+1+1;offse
+t=name+v->namelen;oid_copy_addr(offset,ifaddr,IN_ADDR_SIZE);offset+=IN_ADDR_SIZE
+;*offset=*ifindex;offset++;*offset=OSPF_SNMP_METRIC_VALUE;returnoi;}}returnNULL;
+}staticuint8_t*ospfIfMetricEntry(structvariable*v,oid*name,size_t*length,intexac
+t,size_t*var_len,WriteMethod**write_method){/*Currentlywesupportmetric1only.*/if
+index_tifindex;structin_addrifaddr;structospf_interface*oi;structospf*ospf;if(sm
+ux_header_table(v,name,length,exact,var_len,write_method)==MATCH_FAILED)returnNU
+LL;ifindex=0;memset(&ifaddr,0,sizeof(structin_addr));/*CheckOSPFinstance.*/ospf=
+ospf_lookup_by_vrf_id(VRF_DEFAULT);if(ospf==NULL)returnNULL;oi=ospfIfMetricLooku
+p(v,name,length,&ifaddr,&ifindex,exact);if(oi==NULL)returnNULL;/*Returnthecurren
+tvalueofthevariable*/switch(v->magic){caseOSPFIFMETRICIPADDRESS:returnSNMP_IPADD
+RESS(ifaddr);break;caseOSPFIFMETRICADDRESSLESSIF:returnSNMP_INTEGER(ifindex);bre
+ak;caseOSPFIFMETRICTOS:returnSNMP_INTEGER(0);break;caseOSPFIFMETRICVALUE:returnS
+NMP_INTEGER(OSPF_SNMP_METRIC_VALUE);break;caseOSPFIFMETRICSTATUS:returnSNMP_INTE
+GER(1);break;default:returnNULL;break;}returnNULL;}staticstructroute_table*ospf_
+snmp_vl_table;staticintospf_snmp_vl_add(structospf_vl_data*vl_data){structprefix
+_lslp;structroute_node*rn;memset(&lp,0,sizeof(structprefix_ls));lp.family=0;lp.p
+refixlen=64;lp.id=vl_data->vl_area_id;lp.adv_router=vl_data->vl_peer;rn=route_no
+de_get(ospf_snmp_vl_table,(structprefix*)&lp);if(rn->info)route_unlock_node(rn);
+rn->info=vl_data;return0;}staticintospf_snmp_vl_delete(structospf_vl_data*vl_dat
+a){structprefix_lslp;structroute_node*rn;memset(&lp,0,sizeof(structprefix_ls));l
+p.family=0;lp.prefixlen=64;lp.id=vl_data->vl_area_id;lp.adv_router=vl_data->vl_p
+eer;rn=route_node_lookup(ospf_snmp_vl_table,(structprefix*)&lp);if(!rn)return0;r
+n->info=NULL;route_unlock_node(rn);route_unlock_node(rn);return0;}staticstructos
+pf_vl_data*ospf_snmp_vl_lookup(structin_addr*area_id,structin_addr*neighbor){str
+uctprefix_lslp;structroute_node*rn;structospf_vl_data*vl_data;memset(&lp,0,sizeo
+f(structprefix_ls));lp.family=0;lp.prefixlen=64;lp.id=*area_id;lp.adv_router=*ne
+ighbor;rn=route_node_lookup(ospf_snmp_vl_table,(structprefix*)&lp);if(rn){vl_dat
+a=rn->info;route_unlock_node(rn);returnvl_data;}returnNULL;}staticstructospf_vl_
+data*ospf_snmp_vl_lookup_next(structin_addr*area_id,structin_addr*neighbor,intfi
+rst){structprefix_lslp;structroute_node*rn;structospf_vl_data*vl_data;memset(&lp
+,0,sizeof(structprefix_ls));lp.family=0;lp.prefixlen=64;lp.id=*area_id;lp.adv_ro
+uter=*neighbor;if(first)rn=route_top(ospf_snmp_vl_table);else{rn=route_node_get(
+ospf_snmp_vl_table,(structprefix*)&lp);rn=route_next(rn);}for(;rn;rn=route_next(
+rn))if(rn->info)break;if(rn&&rn->info){vl_data=rn->info;*area_id=vl_data->vl_are
+a_id;*neighbor=vl_data->vl_peer;route_unlock_node(rn);returnvl_data;}returnNULL;
+}staticstructospf_vl_data*ospfVirtIfLookup(structvariable*v,oid*name,size_t*leng
+th,structin_addr*area_id,structin_addr*neighbor,intexact){intfirst;unsignedintle
+n;structospf_vl_data*vl_data;if(exact){if(*length!=v->namelen+IN_ADDR_SIZE+IN_AD
+DR_SIZE)returnNULL;oid2in_addr(name+v->namelen,IN_ADDR_SIZE,area_id);oid2in_addr
+(name+v->namelen+IN_ADDR_SIZE,IN_ADDR_SIZE,neighbor);returnospf_snmp_vl_lookup(a
+rea_id,neighbor);}else{first=0;len=*length-v->namelen;if(len<=0)first=1;if(len>I
+N_ADDR_SIZE)len=IN_ADDR_SIZE;oid2in_addr(name+v->namelen,len,area_id);len=*lengt
+h-v->namelen-IN_ADDR_SIZE;if(len>IN_ADDR_SIZE)len=IN_ADDR_SIZE;oid2in_addr(name+
+v->namelen+IN_ADDR_SIZE,len,neighbor);vl_data=ospf_snmp_vl_lookup_next(area_id,n
+eighbor,first);if(vl_data){*length=v->namelen+IN_ADDR_SIZE+IN_ADDR_SIZE;oid_copy
+_addr(name+v->namelen,area_id,IN_ADDR_SIZE);oid_copy_addr(name+v->namelen+IN_ADD
+R_SIZE,neighbor,IN_ADDR_SIZE);returnvl_data;}}returnNULL;}staticuint8_t*ospfVirt
+IfEntry(structvariable*v,oid*name,size_t*length,intexact,size_t*var_len,WriteMet
+hod**write_method){structospf_vl_data*vl_data;structospf_interface*oi;structin_a
+ddrarea_id;structin_addrneighbor;if(smux_header_table(v,name,length,exact,var_le
+n,write_method)==MATCH_FAILED)returnNULL;memset(&area_id,0,sizeof(structin_addr)
+);memset(&neighbor,0,sizeof(structin_addr));vl_data=ospfVirtIfLookup(v,name,leng
+th,&area_id,&neighbor,exact);if(!vl_data)returnNULL;oi=vl_data->vl_oi;if(!oi)ret
+urnNULL;/*Returnthecurrentvalueofthevariable*/switch(v->magic){caseOSPFVIRTIFARE
+AID:returnSNMP_IPADDRESS(area_id);break;caseOSPFVIRTIFNEIGHBOR:returnSNMP_IPADDR
+ESS(neighbor);break;caseOSPFVIRTIFTRANSITDELAY:returnSNMP_INTEGER(OSPF_IF_PARAM(
+oi,transmit_delay));break;caseOSPFVIRTIFRETRANSINTERVAL:returnSNMP_INTEGER(OSPF_
+IF_PARAM(oi,retransmit_interval));break;caseOSPFVIRTIFHELLOINTERVAL:returnSNMP_I
+NTEGER(OSPF_IF_PARAM(oi,v_hello));break;caseOSPFVIRTIFRTRDEADINTERVAL:returnSNMP
+_INTEGER(OSPF_IF_PARAM(oi,v_wait));break;caseOSPFVIRTIFSTATE:returnSNMP_INTEGER(
+oi->state);break;caseOSPFVIRTIFEVENTS:returnSNMP_INTEGER(oi->state_change);break
+;caseOSPFVIRTIFAUTHKEY:*var_len=0;return(uint8_t*)OSPF_IF_PARAM(oi,auth_simple);
+break;caseOSPFVIRTIFSTATUS:returnSNMP_INTEGER(SNMP_VALID);break;caseOSPFVIRTIFAU
+THTYPE:if(oi->area)returnSNMP_INTEGER(oi->area->auth_type);elsereturnSNMP_INTEGE
+R(0);break;default:returnNULL;break;}returnNULL;}staticstructospf_neighbor*ospf_
+snmp_nbr_lookup(structospf*ospf,structin_addr*nbr_addr,ifindex_t*ifindex){struct
+listnode*node,*nnode;structospf_interface*oi;structospf_neighbor*nbr;structroute
+_node*rn;for(ALL_LIST_ELEMENTS(ospf->oiflist,node,nnode,oi)){for(rn=route_top(oi
+->nbrs);rn;rn=route_next(rn))if((nbr=rn->info)!=NULL&&nbr!=oi->nbr_self/*IfEXACT
+matchisneeded,provideALLentryfound&&nbr->state!=NSM_Down*/&&nbr->src.s_addr!=0){
+if(IPV4_ADDR_SAME(&nbr->src,nbr_addr)){route_unlock_node(rn);returnnbr;}}}return
+NULL;}staticstructospf_neighbor*ospf_snmp_nbr_lookup_next(structin_addr*nbr_addr
+,ifindex_t*ifindex,intfirst){structlistnode*nn;structospf_interface*oi;structosp
+f_neighbor*nbr;structroute_node*rn;structospf_neighbor*min=NULL;structospf*ospf=
+ospf;ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);for(ALL_LIST_ELEMENTS_RO(ospf->oifl
+ist,nn,oi)){for(rn=route_top(oi->nbrs);rn;rn=route_next(rn))if((nbr=rn->info)!=N
+ULL&&nbr!=oi->nbr_self&&nbr->state!=NSM_Down&&nbr->src.s_addr!=0){if(first){if(!
+min)min=nbr;elseif(ntohl(nbr->src.s_addr)<ntohl(min->src.s_addr))min=nbr;}elseif
+(ntohl(nbr->src.s_addr)>ntohl(nbr_addr->s_addr)){if(!min)min=nbr;elseif(ntohl(nb
+r->src.s_addr)<ntohl(min->src.s_addr))min=nbr;}}}if(min){*nbr_addr=min->src;*ifi
+ndex=0;returnmin;}returnNULL;}staticstructospf_neighbor*ospfNbrLookup(structvari
+able*v,oid*name,size_t*length,structin_addr*nbr_addr,ifindex_t*ifindex,intexact)
+{unsignedintlen;intfirst;structospf_neighbor*nbr;structospf*ospf;ospf=ospf_looku
+p_by_vrf_id(VRF_DEFAULT);if(!ospf)returnNULL;if(exact){if(*length!=v->namelen+IN
+_ADDR_SIZE+1)returnNULL;oid2in_addr(name+v->namelen,IN_ADDR_SIZE,nbr_addr);*ifin
+dex=name[v->namelen+IN_ADDR_SIZE];returnospf_snmp_nbr_lookup(ospf,nbr_addr,ifind
+ex);}else{first=0;len=*length-v->namelen;if(len<=0)first=1;if(len>IN_ADDR_SIZE)l
+en=IN_ADDR_SIZE;oid2in_addr(name+v->namelen,len,nbr_addr);len=*length-v->namelen
+-IN_ADDR_SIZE;if(len>=1)*ifindex=name[v->namelen+IN_ADDR_SIZE];nbr=ospf_snmp_nbr
+_lookup_next(nbr_addr,ifindex,first);if(nbr){*length=v->namelen+IN_ADDR_SIZE+1;o
+id_copy_addr(name+v->namelen,nbr_addr,IN_ADDR_SIZE);name[v->namelen+IN_ADDR_SIZE
+]=*ifindex;returnnbr;}}returnNULL;}/*mapinternalquagganeighborstatestoofficialMI
+Bvalues:ospfNbrStateOBJECT-TYPESYNTAXINTEGER{down(1),attempt(2),init(3),twoWay(4
+),exchangeStart(5),exchange(6),loading(7),full(8)}*/staticint32_tospf_snmp_neigh
+bor_state(uint8_tnst){switch(nst){caseNSM_Attempt:return2;caseNSM_Init:return3;c
+aseNSM_TwoWay:return4;caseNSM_ExStart:return5;caseNSM_Exchange:return6;caseNSM_L
+oading:return7;caseNSM_Full:return8;default:return1;/*down*/}}staticuint8_t*ospf
+NbrEntry(structvariable*v,oid*name,size_t*length,intexact,size_t*var_len,WriteMe
+thod**write_method){structin_addrnbr_addr;ifindex_tifindex;structospf_neighbor*n
+br;structospf_interface*oi;if(smux_header_table(v,name,length,exact,var_len,writ
+e_method)==MATCH_FAILED)returnNULL;memset(&nbr_addr,0,sizeof(structin_addr));ifi
+ndex=0;nbr=ospfNbrLookup(v,name,length,&nbr_addr,&ifindex,exact);if(!nbr)returnN
+ULL;oi=nbr->oi;if(!oi)returnNULL;/*Returnthecurrentvalueofthevariable*/switch(v-
+>magic){caseOSPFNBRIPADDR:returnSNMP_IPADDRESS(nbr_addr);break;caseOSPFNBRADDRES
+SLESSINDEX:returnSNMP_INTEGER(ifindex);break;caseOSPFNBRRTRID:returnSNMP_IPADDRE
+SS(nbr->router_id);break;caseOSPFNBROPTIONS:returnSNMP_INTEGER(oi->nbr_self->opt
+ions);break;caseOSPFNBRPRIORITY:returnSNMP_INTEGER(nbr->priority);break;caseOSPF
+NBRSTATE:returnSNMP_INTEGER(ospf_snmp_neighbor_state(nbr->state));break;caseOSPF
+NBREVENTS:returnSNMP_INTEGER(nbr->state_change);break;caseOSPFNBRLSRETRANSQLEN:r
+eturnSNMP_INTEGER(ospf_ls_retransmit_count(nbr));break;caseOSPFNBMANBRSTATUS:ret
+urnSNMP_INTEGER(SNMP_VALID);break;caseOSPFNBMANBRPERMANENCE:returnSNMP_INTEGER(2
+);break;caseOSPFNBRHELLOSUPPRESSED:returnSNMP_INTEGER(SNMP_FALSE);break;default:
+returnNULL;break;}returnNULL;}staticuint8_t*ospfVirtNbrEntry(structvariable*v,oi
+d*name,size_t*length,intexact,size_t*var_len,WriteMethod**write_method){structos
+pf_vl_data*vl_data;structin_addrarea_id;structin_addrneighbor;structospf*ospf;if
+(smux_header_table(v,name,length,exact,var_len,write_method)==MATCH_FAILED)retur
+nNULL;memset(&area_id,0,sizeof(structin_addr));memset(&neighbor,0,sizeof(structi
+n_addr));/*CheckOSPFinstance.*/ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT);if(ospf==
+NULL)returnNULL;vl_data=ospfVirtIfLookup(v,name,length,&area_id,&neighbor,exact)
+;if(!vl_data)returnNULL;/*Returnthecurrentvalueofthevariable*/switch(v->magic){c
+aseOSPFVIRTNBRAREA:return(uint8_t*)NULL;break;caseOSPFVIRTNBRRTRID:return(uint8_
+t*)NULL;break;caseOSPFVIRTNBRIPADDR:return(uint8_t*)NULL;break;caseOSPFVIRTNBROP
+TIONS:return(uint8_t*)NULL;break;caseOSPFVIRTNBRSTATE:return(uint8_t*)NULL;break
+;caseOSPFVIRTNBREVENTS:return(uint8_t*)NULL;break;caseOSPFVIRTNBRLSRETRANSQLEN:r
+eturn(uint8_t*)NULL;break;caseOSPFVIRTNBRHELLOSUPPRESSED:return(uint8_t*)NULL;br
+eak;default:returnNULL;break;}returnNULL;}staticstructospf_lsa*ospfExtLsdbLookup
+(structvariable*v,oid*name,size_t*length,uint8_t*type,structin_addr*ls_id,struct
+in_addr*router_id,intexact){intfirst;oid*offset;intoffsetlen;uint8_tlsa_type;uns
+ignedintlen;structospf_lsa*lsa;structospf*ospf;ospf=ospf_lookup_by_vrf_id(VRF_DE
+FAULT);if(exact){if(*length!=v->namelen+1+IN_ADDR_SIZE+IN_ADDR_SIZE)returnNULL;o
+ffset=name+v->namelen;/*Makeitsuregivenvaluematchtotype.*/lsa_type=*offset;offse
+t++;if(lsa_type!=*type)returnNULL;/*LSID.*/oid2in_addr(offset,IN_ADDR_SIZE,ls_id
+);offset+=IN_ADDR_SIZE;/*RouterID.*/oid2in_addr(offset,IN_ADDR_SIZE,router_id);r
+eturnospf_lsdb_lookup_by_id(ospf->lsdb,*type,*ls_id,*router_id);}else{/*Getvaria
+blelength.*/first=0;offset=name+v->namelen;offsetlen=*length-v->namelen;/*LSAtyp
+evalue.*/lsa_type=*offset;offset++;offsetlen--;if(offsetlen<=0||lsa_type<OSPF_AS
+_EXTERNAL_LSA)first=1;/*LSID.*/len=offsetlen;if(len>IN_ADDR_SIZE)len=IN_ADDR_SIZ
+E;oid2in_addr(offset,len,ls_id);offset+=IN_ADDR_SIZE;offsetlen-=IN_ADDR_SIZE;/*R
+outerID.*/len=offsetlen;if(len>IN_ADDR_SIZE)len=IN_ADDR_SIZE;oid2in_addr(offset,
+len,router_id);lsa=ospf_lsdb_lookup_by_id_next(ospf->lsdb,*type,*ls_id,*router_i
+d,first);if(lsa){/*Fillinlength.*/*length=v->namelen+1+IN_ADDR_SIZE+IN_ADDR_SIZE
+;/*Fillinvalue.*/offset=name+v->namelen;*offset=OSPF_AS_EXTERNAL_LSA;offset++;oi
+d_copy_addr(offset,&lsa->data->id,IN_ADDR_SIZE);offset+=IN_ADDR_SIZE;oid_copy_ad
+dr(offset,&lsa->data->adv_router,IN_ADDR_SIZE);returnlsa;}}returnNULL;}staticuin
+t8_t*ospfExtLsdbEntry(structvariable*v,oid*name,size_t*length,intexact,size_t*va
+r_len,WriteMethod**write_method){structospf_lsa*lsa;structlsa_header*lsah;uint8_
+ttype;structin_addrls_id;structin_addrrouter_id;structospf*ospf;if(smux_header_t
+able(v,name,length,exact,var_len,write_method)==MATCH_FAILED)returnNULL;type=OSP
+F_AS_EXTERNAL_LSA;memset(&ls_id,0,sizeof(structin_addr));memset(&router_id,0,siz
+eof(structin_addr));/*CheckOSPFinstance.*/ospf=ospf_lookup_by_vrf_id(VRF_DEFAULT
+);if(ospf==NULL)returnNULL;lsa=ospfExtLsdbLookup(v,name,length,&type,&ls_id,&rou
+ter_id,exact);if(!lsa)returnNULL;lsah=lsa->data;/*Returnthecurrentvalueofthevari
+able*/switch(v->magic){caseOSPFEXTLSDBTYPE:returnSNMP_INTEGER(OSPF_AS_EXTERNAL_L
+SA);break;caseOSPFEXTLSDBLSID:returnSNMP_IPADDRESS(lsah->id);break;caseOSPFEXTLS
+DBROUTERID:returnSNMP_IPADDRESS(lsah->adv_router);break;caseOSPFEXTLSDBSEQUENCE:
+returnSNMP_INTEGER(lsah->ls_seqnum);break;caseOSPFEXTLSDBAGE:returnSNMP_INTEGER(
+lsah->ls_age);break;caseOSPFEXTLSDBCHECKSUM:returnSNMP_INTEGER(lsah->checksum);b
+reak;caseOSPFEXTLSDBADVERTISEMENT:*var_len=ntohs(lsah->length);return(uint8_t*)l
+sah;break;default:returnNULL;break;}returnNULL;}staticuint8_t*ospfAreaAggregateE
+ntry(structvariable*v,oid*name,size_t*length,intexact,size_t*var_len,WriteMethod
+**write_method){if(smux_header_table(v,name,length,exact,var_len,write_method)==
+MATCH_FAILED)returnNULL;/*Returnthecurrentvalueofthevariable*/switch(v->magic){c
+aseOSPFAREAAGGREGATEAREAID:return(uint8_t*)NULL;break;caseOSPFAREAAGGREGATELSDBT
+YPE:return(uint8_t*)NULL;break;caseOSPFAREAAGGREGATENET:return(uint8_t*)NULL;bre
+ak;caseOSPFAREAAGGREGATEMASK:return(uint8_t*)NULL;break;caseOSPFAREAAGGREGATESTA
+TUS:return(uint8_t*)NULL;break;caseOSPFAREAAGGREGATEEFFECT:return(uint8_t*)NULL;
+break;default:returnNULL;break;}returnNULL;}/*OSPFTraps.*/#defineIFSTATECHANGE16
+#defineVIRTIFSTATECHANGE1#defineNBRSTATECHANGE2#defineVIRTNBRSTATECHANGE3statics
+tructtrap_objectospfNbrTrapList[]={{-2,{1,OSPFROUTERID}},{3,{10,1,OSPFNBRIPADDR}
+},{3,{10,1,OSPFNBRRTRID}},{3,{10,1,OSPFNBRSTATE}}};staticstructtrap_objectospfVi
+rtNbrTrapList[]={{-2,{1,1}},{3,{11,1,OSPFVIRTNBRAREA}},{3,{11,1,OSPFVIRTNBRRTRID
+}},{3,{11,1,OSPFVIRTNBRSTATE}}};staticstructtrap_objectospfIfTrapList[]={{-2,{1,
+OSPFROUTERID}},{3,{7,1,OSPFIFIPADDRESS}},{3,{7,1,OSPFADDRESSLESSIF}},{3,{7,1,OSP
+FIFSTATE}}};staticstructtrap_objectospfVirtIfTrapList[]={{-2,{1,OSPFROUTERID}},{
+3,{9,1,OSPFVIRTIFAREAID}},{3,{9,1,OSPFVIRTIFNEIGHBOR}},{3,{9,1,OSPFVIRTIFSTATE}}
+};staticvoidospfTrapNbrStateChange(structospf_neighbor*on){oidindex[sizeof(oid)*
+(IN_ADDR_SIZE+1)];charmsgbuf[16];ospf_nbr_state_message(on,msgbuf,sizeof(msgbuf)
+);if(IS_DEBUG_OSPF_EVENT)zlog_info("%s:trapsent:%snow%s",__PRETTY_FUNCTION__,ine
+t_ntoa(on->address.u.prefix4),msgbuf);oid_copy_addr(index,&(on->address.u.prefix
+4),IN_ADDR_SIZE);index[IN_ADDR_SIZE]=0;smux_trap(ospf_variables,sizeofospf_varia
+bles/sizeof(structvariable),ospf_trap_oid,sizeofospf_trap_oid/sizeof(oid),ospf_o
+id,sizeofospf_oid/sizeof(oid),index,IN_ADDR_SIZE+1,ospfNbrTrapList,sizeofospfNbr
+TrapList/sizeof(structtrap_object),NBRSTATECHANGE);}staticvoidospfTrapVirtNbrSta
+teChange(structospf_neighbor*on){oidindex[sizeof(oid)*(IN_ADDR_SIZE+1)];zlog_inf
+o("ospfTrapVirtNbrStateChangetrapsent");oid_copy_addr(index,&(on->address.u.pref
+ix4),IN_ADDR_SIZE);index[IN_ADDR_SIZE]=0;smux_trap(ospf_variables,sizeofospf_var
+iables/sizeof(structvariable),ospf_trap_oid,sizeofospf_trap_oid/sizeof(oid),ospf
+_oid,sizeofospf_oid/sizeof(oid),index,IN_ADDR_SIZE+1,ospfVirtNbrTrapList,sizeofo
+spfVirtNbrTrapList/sizeof(structtrap_object),VIRTNBRSTATECHANGE);}staticintospf_
+snmp_nsm_change(structospf_neighbor*nbr,intnext_state,intold_state){/*Terminalst
+ateorregression*/if((next_state==NSM_Full)||(next_state==NSM_TwoWay)||(next_stat
+e<old_state)){/*ospfVirtNbrStateChange*/if(nbr->oi->type==OSPF_IFTYPE_VIRTUALLIN
+K)ospfTrapVirtNbrStateChange(nbr);/*ospfNbrStateChangetrap*/else/*To/FromFULL,on
+lymanagedbyDR*/if(((next_state!=NSM_Full)&&(nbr->state!=NSM_Full))||(nbr->oi->st
+ate==ISM_DR))ospfTrapNbrStateChange(nbr);}return0;}staticvoidospfTrapIfStateChan
+ge(structospf_interface*oi){oidindex[sizeof(oid)*(IN_ADDR_SIZE+1)];if(IS_DEBUG_O
+SPF_EVENT)zlog_info("%s:trapsent:%snow%s",__PRETTY_FUNCTION__,inet_ntoa(oi->addr
+ess->u.prefix4),lookup_msg(ospf_ism_state_msg,oi->state,NULL));oid_copy_addr(ind
+ex,&(oi->address->u.prefix4),IN_ADDR_SIZE);index[IN_ADDR_SIZE]=0;smux_trap(ospf_
+variables,sizeofospf_variables/sizeof(structvariable),ospf_trap_oid,sizeofospf_t
+rap_oid/sizeof(oid),ospf_oid,sizeofospf_oid/sizeof(oid),index,IN_ADDR_SIZE+1,osp
+fIfTrapList,sizeofospfIfTrapList/sizeof(structtrap_object),IFSTATECHANGE);}stati
+cvoidospfTrapVirtIfStateChange(structospf_interface*oi){oidindex[sizeof(oid)*(IN
+_ADDR_SIZE+1)];zlog_info("ospfTrapVirtIfStateChangetrapsent");oid_copy_addr(inde
+x,&(oi->address->u.prefix4),IN_ADDR_SIZE);index[IN_ADDR_SIZE]=0;smux_trap(ospf_v
+ariables,sizeofospf_variables/sizeof(structvariable),ospf_trap_oid,sizeofospf_tr
+ap_oid/sizeof(oid),ospf_oid,sizeofospf_oid/sizeof(oid),index,IN_ADDR_SIZE+1,ospf
+VirtIfTrapList,sizeofospfVirtIfTrapList/sizeof(structtrap_object),VIRTIFSTATECHA
+NGE);}staticintospf_snmp_ism_change(structospf_interface*oi,intstate,intold_stat
+e){/*Terminalstateorregression*/if((state==ISM_DR)||(state==ISM_Backup)||(state=
+=ISM_DROther)||(state==ISM_PointToPoint)||(state<old_state)){/*ospfVirtIfStateCh
+ange*/if(oi->type==OSPF_IFTYPE_VIRTUALLINK)ospfTrapVirtIfStateChange(oi);/*ospfI
+fStateChange*/elseospfTrapIfStateChange(oi);}return0;}/*RegisterOSPF2-MIB.*/stat
+icintospf_snmp_init(structthread_master*tm){ospf_snmp_iflist=list_new();ospf_snm
+p_vl_table=route_table_init();smux_init(tm);REGISTER_MIB("mibII/ospf",ospf_varia
+bles,variable,ospf_oid);return0;}staticintospf_snmp_module_init(void){hook_regis
+ter(ospf_if_update,ospf_snmp_if_update);hook_register(ospf_if_delete,ospf_snmp_i
+f_delete);hook_register(ospf_vl_add,ospf_snmp_vl_add);hook_register(ospf_vl_dele
+te,ospf_snmp_vl_delete);hook_register(ospf_ism_change,ospf_snmp_ism_change);hook
+_register(ospf_nsm_change,ospf_snmp_nsm_change);hook_register(frr_late_init,ospf
+_snmp_init);return0;}FRR_MODULE_SETUP(.name="ospfd_snmp",.version=FRR_VERSION,.d
+escription="ospfdAgentXSNMPmodule",.init=ospf_snmp_module_init,)

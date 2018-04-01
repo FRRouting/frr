@@ -1,75 +1,23 @@
-/* PIM Route-map Code
- * Copyright (C) 2016 Cumulus Networks <sharpd@cumulusnetworks.com>
- * Copyright (C) 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of Quagga
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#include <zebra.h>
-
-#include "if.h"
-#include "vty.h"
-#include "routemap.h"
-
-#include "pimd.h"
-
-
-static void pim_route_map_mark_update(const char *rmap_name)
-{
-	// placeholder
-	return;
-}
-
-static void pim_route_map_add(const char *rmap_name)
-{
-	if (route_map_mark_updated(rmap_name, 0) == 0)
-		pim_route_map_mark_update(rmap_name);
-
-	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
-}
-
-static void pim_route_map_delete(const char *rmap_name)
-{
-	if (route_map_mark_updated(rmap_name, 1) == 0)
-		pim_route_map_mark_update(rmap_name);
-
-	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_DELETED);
-}
-
-static void pim_route_map_event(route_map_event_t event, const char *rmap_name)
-{
-	if (route_map_mark_updated(rmap_name, 0) == 0)
-		pim_route_map_mark_update(rmap_name);
-
-	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
-}
-
-void pim_route_map_init(void)
-{
-	route_map_init();
-
-	route_map_add_hook(pim_route_map_add);
-	route_map_delete_hook(pim_route_map_delete);
-	route_map_event_hook(pim_route_map_event);
-}
-
-void pim_route_map_terminate(void)
-{
-	route_map_add_hook(NULL);
-	route_map_delete_hook(NULL);
-	route_map_event_hook(NULL);
-	route_map_finish();
-}
+/*PIMRoute-mapCode*Copyright(C)2016CumulusNetworks<sharpd@cumulusnetworks.com>*C
+opyright(C)1999KunihiroIshiguro<kunihiro@zebra.org>**ThisfileispartofQuagga**Qua
+ggaisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGenera
+lPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyourop
+tion)any*laterversion.**Quaggaisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#include<zebra.h>#include"if.h"#include"vty.h"#include"routemap.h"#include
+"pimd.h"staticvoidpim_route_map_mark_update(constchar*rmap_name){//placeholderre
+turn;}staticvoidpim_route_map_add(constchar*rmap_name){if(route_map_mark_updated
+(rmap_name,0)==0)pim_route_map_mark_update(rmap_name);route_map_notify_dependenc
+ies(rmap_name,RMAP_EVENT_MATCH_ADDED);}staticvoidpim_route_map_delete(constchar*
+rmap_name){if(route_map_mark_updated(rmap_name,1)==0)pim_route_map_mark_update(r
+map_name);route_map_notify_dependencies(rmap_name,RMAP_EVENT_MATCH_DELETED);}sta
+ticvoidpim_route_map_event(route_map_event_tevent,constchar*rmap_name){if(route_
+map_mark_updated(rmap_name,0)==0)pim_route_map_mark_update(rmap_name);route_map_
+notify_dependencies(rmap_name,RMAP_EVENT_MATCH_ADDED);}voidpim_route_map_init(vo
+id){route_map_init();route_map_add_hook(pim_route_map_add);route_map_delete_hook
+(pim_route_map_delete);route_map_event_hook(pim_route_map_event);}voidpim_route_
+map_terminate(void){route_map_add_hook(NULL);route_map_delete_hook(NULL);route_m
+ap_event_hook(NULL);route_map_finish();}

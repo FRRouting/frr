@@ -1,50 +1,19 @@
-/*
- * PIM for FRR - J/P Aggregation
- * Copyright (C) 2017 Cumulus Networks, Inc.
- * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#ifndef __PIM_JP_AGG_H__
-#define __PIM_JP_AGG_H__
-
-struct pim_jp_sources {
-	struct pim_upstream *up;
-	int is_join;
-};
-
-struct pim_jp_agg_group {
-	struct in_addr group;
-	struct list *sources;
-};
-
-void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore);
-int pim_jp_agg_is_in_list(struct list *group, struct pim_upstream *up);
-
-void pim_jp_agg_group_list_free(struct pim_jp_agg_group *jag);
-int pim_jp_agg_group_list_cmp(void *arg1, void *arg2);
-
-void pim_jp_agg_clear_group(struct list *group);
-void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up);
-
-void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
-			  bool is_join);
-
-void pim_jp_agg_switch_interface(struct pim_rpf *orpf, struct pim_rpf *nrpf,
-				 struct pim_upstream *up);
-
-void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
-				     struct pim_upstream *up, bool is_join);
-#endif
+/**PIMforFRR-J/PAggregation*Copyright(C)2017CumulusNetworks,Inc.*DonaldSharp**Th
+isprogramisfreesoftware;youcanredistributeitand/ormodify*itunderthetermsoftheGNU
+GeneralPublicLicenseaspublishedby*theFreeSoftwareFoundation;eitherversion2oftheL
+icense,or*(atyouroption)anylaterversion.**Thisprogramisdistributedinthehopethati
+twillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABI
+LITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.
+**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;se
+ethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthF
+loor,Boston,MA02110-1301USA*/#ifndef__PIM_JP_AGG_H__#define__PIM_JP_AGG_H__struc
+tpim_jp_sources{structpim_upstream*up;intis_join;};structpim_jp_agg_group{struct
+in_addrgroup;structlist*sources;};voidpim_jp_agg_upstream_verification(structpim
+_upstream*up,boolignore);intpim_jp_agg_is_in_list(structlist*group,structpim_ups
+tream*up);voidpim_jp_agg_group_list_free(structpim_jp_agg_group*jag);intpim_jp_a
+gg_group_list_cmp(void*arg1,void*arg2);voidpim_jp_agg_clear_group(structlist*gro
+up);voidpim_jp_agg_remove_group(structlist*group,structpim_upstream*up);voidpim_
+jp_agg_add_group(structlist*group,structpim_upstream*up,boolis_join);voidpim_jp_
+agg_switch_interface(structpim_rpf*orpf,structpim_rpf*nrpf,structpim_upstream*up
+);voidpim_jp_agg_single_upstream_send(structpim_rpf*rpf,structpim_upstream*up,bo
+olis_join);#endif

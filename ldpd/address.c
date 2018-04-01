@@ -1,425 +1,104 @@
-/*	$OpenBSD$ */
-
-/*
- * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-#include <zebra.h>
-
-#include "ldpd.h"
-#include "ldpe.h"
-#include "lde.h"
-#include "log.h"
-#include "ldp_debug.h"
-
-static void	 send_address(struct nbr *, int, struct if_addr_head *,
-		    unsigned int, int);
-static int	 gen_address_list_tlv(struct ibuf *, int, struct if_addr_head *,
-		    unsigned int);
-static int	 gen_mac_list_tlv(struct ibuf *, uint8_t *);
-static void	 address_list_add(struct if_addr_head *, struct if_addr *);
-static void	 address_list_clr(struct if_addr_head *);
-static void	 log_msg_address(int, uint16_t, struct nbr *, int,
-		    union ldpd_addr *);
-static void	 log_msg_mac_withdrawal(int, struct nbr *, uint8_t *);
-
-static void
-send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
-    unsigned int addr_count, int withdraw)
-{
-	struct ibuf	*buf;
-	uint16_t	 msg_type;
-	uint8_t		 addr_size;
-	struct if_addr	*if_addr;
-	uint16_t	 size;
-	unsigned int	 tlv_addr_count = 0;
-	int		 err = 0;
-
-	/* nothing to send */
-	if (LIST_EMPTY(addr_list))
-		return;
-
-	if (!withdraw)
-		msg_type = MSG_TYPE_ADDR;
-	else
-		msg_type = MSG_TYPE_ADDRWITHDRAW;
-
-	switch (af) {
-	case AF_INET:
-		addr_size = sizeof(struct in_addr);
-		break;
-	case AF_INET6:
-		addr_size = sizeof(struct in6_addr);
-		break;
-	default:
-		fatalx("send_address: unknown af");
-	}
-
-	while ((if_addr = LIST_FIRST(addr_list)) != NULL) {
-		/*
-		 * Send as many addresses as possible - respect the session's
-		 * negotiated maximum pdu length.
-		 */
-		size = LDP_HDR_SIZE + LDP_MSG_SIZE + ADDR_LIST_SIZE;
-		if (size + addr_count * addr_size <= nbr->max_pdu_len)
-			tlv_addr_count = addr_count;
-		else
-			tlv_addr_count = (nbr->max_pdu_len - size) / addr_size;
-		size += tlv_addr_count * addr_size;
-		addr_count -= tlv_addr_count;
-
-		if ((buf = ibuf_open(size)) == NULL)
-			fatal(__func__);
-
-		err |= gen_ldp_hdr(buf, size);
-		size -= LDP_HDR_SIZE;
-		err |= gen_msg_hdr(buf, msg_type, size);
-		size -= LDP_MSG_SIZE;
-		err |= gen_address_list_tlv(buf, af, addr_list, tlv_addr_count);
-		(void)size;
-		if (err) {
-			address_list_clr(addr_list);
-			ibuf_free(buf);
-			return;
-		}
-
-		while ((if_addr = LIST_FIRST(addr_list)) != NULL) {
-			log_msg_address(1, msg_type, nbr, af, &if_addr->addr);
-
-			LIST_REMOVE(if_addr, entry);
-			assert(if_addr != LIST_FIRST(addr_list));
-			free(if_addr);
-			if (--tlv_addr_count == 0)
-				break;
-		}
-
-		evbuf_enqueue(&nbr->tcp->wbuf, buf);
-
-		/* no errors - update per neighbor message counters */
-		switch (msg_type) {
-		case MSG_TYPE_ADDR:
-			nbr->stats.addr_sent++;
-			break;
-		case MSG_TYPE_ADDRWITHDRAW:
-			nbr->stats.addrwdraw_sent++;
-			break;
-		default:
-			break;
-		}
-	}
-
-	nbr_fsm(nbr, NBR_EVT_PDU_SENT);
-}
-
-void
-send_address_single(struct nbr *nbr, struct if_addr *if_addr, int withdraw)
-{
-	struct if_addr_head	 addr_list;
-
-	LIST_INIT(&addr_list);
-	address_list_add(&addr_list, if_addr);
-	send_address(nbr, if_addr->af, &addr_list, 1, withdraw);
-}
-
-void
-send_address_all(struct nbr *nbr, int af)
-{
-	struct if_addr_head	 addr_list;
-	struct if_addr		*if_addr;
-	unsigned int		 addr_count = 0;
-
-	LIST_INIT(&addr_list);
-	LIST_FOREACH(if_addr, &global.addr_list, entry) {
-		if (if_addr->af != af)
-			continue;
-
-		address_list_add(&addr_list, if_addr);
-		addr_count++;
-	}
-
-	send_address(nbr, af, &addr_list, addr_count, 0);
-}
-
-void
-send_mac_withdrawal(struct nbr *nbr, struct map *fec, uint8_t *mac)
-{
-	struct ibuf	*buf;
-	uint16_t	 size;
-	int		 err;
-
-	size = LDP_HDR_SIZE + LDP_MSG_SIZE + ADDR_LIST_SIZE + len_fec_tlv(fec) +
-	    TLV_HDR_SIZE;
-	if (mac)
-		size += ETH_ALEN;
-
-	if ((buf = ibuf_open(size)) == NULL)
-		fatal(__func__);
-
-	err = gen_ldp_hdr(buf, size);
-	size -= LDP_HDR_SIZE;
-	err |= gen_msg_hdr(buf, MSG_TYPE_ADDRWITHDRAW, size);
-	err |= gen_address_list_tlv(buf, AF_INET, NULL, 0);
-	err |= gen_fec_tlv(buf, fec);
-	err |= gen_mac_list_tlv(buf, mac);
-	if (err) {
-		ibuf_free(buf);
-		return;
-	}
-
-	log_msg_mac_withdrawal(1, nbr, mac);
-
-	evbuf_enqueue(&nbr->tcp->wbuf, buf);
-
-	nbr_fsm(nbr, NBR_EVT_PDU_SENT);
-}
-
-int
-recv_address(struct nbr *nbr, char *buf, uint16_t len)
-{
-	struct ldp_msg		msg;
-	uint16_t		msg_type;
-	enum imsg_type		type;
-	struct address_list_tlv	alt;
-	uint16_t		alt_len;
-	uint16_t		alt_family;
-	struct lde_addr		lde_addr;
-
-	memcpy(&msg, buf, sizeof(msg));
-	msg_type = ntohs(msg.type);
-	switch (msg_type) {
-	case MSG_TYPE_ADDR:
-		type = IMSG_ADDRESS_ADD;
-		break;
-	case MSG_TYPE_ADDRWITHDRAW:
-		type = IMSG_ADDRESS_DEL;
-		break;
-	default:
-		fatalx("recv_address: unexpected msg type");
-	}
-	buf += LDP_MSG_SIZE;
-	len -= LDP_MSG_SIZE;
-
-	/* Address List TLV */
-	if (len < ADDR_LIST_SIZE) {
-		session_shutdown(nbr, S_BAD_MSG_LEN, msg.id, msg.type);
-		return (-1);
-	}
-	memcpy(&alt, buf, sizeof(alt));
-	alt_len = ntohs(alt.length);
-	alt_family = ntohs(alt.family);
-	if (alt_len > len - TLV_HDR_SIZE) {
-		session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
-		return (-1);
-	}
-	if (ntohs(alt.type) != TLV_TYPE_ADDRLIST) {
-		send_notification(nbr->tcp, S_MISS_MSG, msg.id, msg.type);
-		return (-1);
-	}
-	switch (alt_family) {
-	case AF_IPV4:
-		if (!nbr->v4_enabled)
-			/* just ignore the message */
-			return (0);
-		break;
-	case AF_IPV6:
-		if (!nbr->v6_enabled)
-			/* just ignore the message */
-			return (0);
-		break;
-	default:
-		send_notification(nbr->tcp, S_UNSUP_ADDR, msg.id, msg.type);
-		return (-1);
-	}
-	alt_len -= sizeof(alt.family);
-	buf += sizeof(alt);
-	len -= sizeof(alt);
-
-	/* Process all received addresses */
-	while (alt_len > 0) {
-		switch (alt_family) {
-		case AF_IPV4:
-			if (alt_len < sizeof(struct in_addr)) {
-				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
-				    msg.type);
-				return (-1);
-			}
-
-			memset(&lde_addr, 0, sizeof(lde_addr));
-			lde_addr.af = AF_INET;
-			memcpy(&lde_addr.addr, buf, sizeof(struct in_addr));
-
-			buf += sizeof(struct in_addr);
-			len -= sizeof(struct in_addr);
-			alt_len -= sizeof(struct in_addr);
-			break;
-		case AF_IPV6:
-			if (alt_len < sizeof(struct in6_addr)) {
-				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
-				    msg.type);
-				return (-1);
-			}
-
-			memset(&lde_addr, 0, sizeof(lde_addr));
-			lde_addr.af = AF_INET6;
-			memcpy(&lde_addr.addr, buf, sizeof(struct in6_addr));
-
-			buf += sizeof(struct in6_addr);
-			len -= sizeof(struct in6_addr);
-			alt_len -= sizeof(struct in6_addr);
-			break;
-		default:
-			fatalx("recv_address: unknown af");
-		}
-
-		log_msg_address(0, msg_type, nbr, lde_addr.af, &lde_addr.addr);
-
-		ldpe_imsg_compose_lde(type, nbr->peerid, 0, &lde_addr,
-		    sizeof(lde_addr));
-	}
-
-	/* Optional Parameters */
-	while (len > 0) {
-		struct tlv 	tlv;
-		uint16_t	tlv_type;
-		uint16_t	tlv_len;
-
-		if (len < sizeof(tlv)) {
-			session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
-			return (-1);
-		}
-
-		memcpy(&tlv, buf, TLV_HDR_SIZE);
-		tlv_type = ntohs(tlv.type);
-		tlv_len = ntohs(tlv.length);
-		if (tlv_len + TLV_HDR_SIZE > len) {
-			session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
-			return (-1);
-		}
-		buf += TLV_HDR_SIZE;
-		len -= TLV_HDR_SIZE;
-
-		switch (tlv_type) {
-		default:
-			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
-				send_notification_rtlvs(nbr, S_UNKNOWN_TLV,
-				    msg.id, msg.type, tlv_type, tlv_len, buf);
-			/* ignore unknown tlv */
-			break;
-		}
-		buf += tlv_len;
-		len -= tlv_len;
-	}
-
-	return (0);
-}
-
-static int
-gen_address_list_tlv(struct ibuf *buf, int af, struct if_addr_head *addr_list,
-    unsigned int tlv_addr_count)
-{
-	struct address_list_tlv	 alt;
-	uint16_t		 addr_size;
-	struct if_addr		*if_addr;
-	int			 err = 0;
-
-	memset(&alt, 0, sizeof(alt));
-	alt.type = htons(TLV_TYPE_ADDRLIST);
-
-	switch (af) {
-	case AF_INET:
-		alt.family = htons(AF_IPV4);
-		addr_size = sizeof(struct in_addr);
-		break;
-	case AF_INET6:
-		alt.family = htons(AF_IPV6);
-		addr_size = sizeof(struct in6_addr);
-		break;
-	default:
-		fatalx("gen_address_list_tlv: unknown af");
-	}
-	alt.length = htons(sizeof(alt.family) + addr_size * tlv_addr_count);
-
-	err |= ibuf_add(buf, &alt, sizeof(alt));
-	if (addr_list == NULL)
-		return (err);
-
-	LIST_FOREACH(if_addr, addr_list, entry) {
-		err |= ibuf_add(buf, &if_addr->addr, addr_size);
-		if (--tlv_addr_count == 0)
-			break;
-	}
-
-	return (err);
-}
-
-static int
-gen_mac_list_tlv(struct ibuf *buf, uint8_t *mac)
-{
-	struct tlv	 tlv;
-	int		 err;
-
-	memset(&tlv, 0, sizeof(tlv));
-	tlv.type = htons(TLV_TYPE_MAC_LIST);
-	if (mac)
-		tlv.length = htons(ETH_ALEN);
-	err = ibuf_add(buf, &tlv, sizeof(tlv));
-	if (mac)
-		err |= ibuf_add(buf, mac, ETH_ALEN);
-
-	return (err);
-}
-
-static void
-address_list_add(struct if_addr_head *addr_list, struct if_addr *if_addr)
-{
-	struct if_addr		*new;
-
-	new = malloc(sizeof(*new));
-	if (new == NULL)
-		fatal(__func__);
-	*new = *if_addr;
-
-	LIST_INSERT_HEAD(addr_list, new, entry);
-}
-
-static void
-address_list_clr(struct if_addr_head *addr_list)
-{
-	struct if_addr		*if_addr;
-
-	while ((if_addr = LIST_FIRST(addr_list)) != NULL) {
-		LIST_REMOVE(if_addr, entry);
-		assert(if_addr != LIST_FIRST(addr_list));
-		free(if_addr);
-	}
-}
-
-static void
-log_msg_address(int out, uint16_t msg_type, struct nbr *nbr, int af,
-    union ldpd_addr *addr)
-{
-	debug_msg(out, "%s: lsr-id %s, address %s", msg_name(msg_type),
-	    inet_ntoa(nbr->id), log_addr(af, addr));
-}
-
-static void
-log_msg_mac_withdrawal(int out, struct nbr *nbr, uint8_t *mac)
-{
-	char buf[ETHER_ADDR_STRLEN];
-
-	debug_msg(out, "mac withdrawal: lsr-id %s, mac %s", inet_ntoa(nbr->id),
-	    (mac) ? prefix_mac2str((struct ethaddr *)mac, buf, sizeof(buf)) :
-	    "wildcard");
-}
+/*$OpenBSD$*//**Copyright(c)2009MicheleMarchetto<michele@openbsd.org>**Permissio
+ntouse,copy,modify,anddistributethissoftwareforany*purposewithorwithoutfeeishere
+bygranted,providedthattheabove*copyrightnoticeandthispermissionnoticeappearinall
+copies.**THESOFTWAREISPROVIDED"ASIS"ANDTHEAUTHORDISCLAIMSALLWARRANTIES*WITHREGAR
+DTOTHISSOFTWAREINCLUDINGALLIMPLIEDWARRANTIESOF*MERCHANTABILITYANDFITNESS.INNOEVE
+NTSHALLTHEAUTHORBELIABLEFOR*ANYSPECIAL,DIRECT,INDIRECT,ORCONSEQUENTIALDAMAGESORA
+NYDAMAGES*WHATSOEVERRESULTINGFROMLOSSOFUSE,DATAORPROFITS,WHETHERINAN*ACTIONOFCON
+TRACT,NEGLIGENCEOROTHERTORTIOUSACTION,ARISINGOUTOF*ORINCONNECTIONWITHTHEUSEORPER
+FORMANCEOFTHISSOFTWARE.*/#include<zebra.h>#include"ldpd.h"#include"ldpe.h"#inclu
+de"lde.h"#include"log.h"#include"ldp_debug.h"staticvoidsend_address(structnbr*,i
+nt,structif_addr_head*,unsignedint,int);staticintgen_address_list_tlv(structibuf
+*,int,structif_addr_head*,unsignedint);staticintgen_mac_list_tlv(structibuf*,uin
+t8_t*);staticvoidaddress_list_add(structif_addr_head*,structif_addr*);staticvoid
+address_list_clr(structif_addr_head*);staticvoidlog_msg_address(int,uint16_t,str
+uctnbr*,int,unionldpd_addr*);staticvoidlog_msg_mac_withdrawal(int,structnbr*,uin
+t8_t*);staticvoidsend_address(structnbr*nbr,intaf,structif_addr_head*addr_list,u
+nsignedintaddr_count,intwithdraw){structibuf*buf;uint16_tmsg_type;uint8_taddr_si
+ze;structif_addr*if_addr;uint16_tsize;unsignedinttlv_addr_count=0;interr=0;/*not
+hingtosend*/if(LIST_EMPTY(addr_list))return;if(!withdraw)msg_type=MSG_TYPE_ADDR;
+elsemsg_type=MSG_TYPE_ADDRWITHDRAW;switch(af){caseAF_INET:addr_size=sizeof(struc
+tin_addr);break;caseAF_INET6:addr_size=sizeof(structin6_addr);break;default:fata
+lx("send_address:unknownaf");}while((if_addr=LIST_FIRST(addr_list))!=NULL){/**Se
+ndasmanyaddressesaspossible-respectthesession's*negotiatedmaximumpdulength.*/siz
+e=LDP_HDR_SIZE+LDP_MSG_SIZE+ADDR_LIST_SIZE;if(size+addr_count*addr_size<=nbr->ma
+x_pdu_len)tlv_addr_count=addr_count;elsetlv_addr_count=(nbr->max_pdu_len-size)/a
+ddr_size;size+=tlv_addr_count*addr_size;addr_count-=tlv_addr_count;if((buf=ibuf_
+open(size))==NULL)fatal(__func__);err|=gen_ldp_hdr(buf,size);size-=LDP_HDR_SIZE;
+err|=gen_msg_hdr(buf,msg_type,size);size-=LDP_MSG_SIZE;err|=gen_address_list_tlv
+(buf,af,addr_list,tlv_addr_count);(void)size;if(err){address_list_clr(addr_list)
+;ibuf_free(buf);return;}while((if_addr=LIST_FIRST(addr_list))!=NULL){log_msg_add
+ress(1,msg_type,nbr,af,&if_addr->addr);LIST_REMOVE(if_addr,entry);assert(if_addr
+!=LIST_FIRST(addr_list));free(if_addr);if(--tlv_addr_count==0)break;}evbuf_enque
+ue(&nbr->tcp->wbuf,buf);/*noerrors-updateperneighbormessagecounters*/switch(msg_
+type){caseMSG_TYPE_ADDR:nbr->stats.addr_sent++;break;caseMSG_TYPE_ADDRWITHDRAW:n
+br->stats.addrwdraw_sent++;break;default:break;}}nbr_fsm(nbr,NBR_EVT_PDU_SENT);}
+voidsend_address_single(structnbr*nbr,structif_addr*if_addr,intwithdraw){structi
+f_addr_headaddr_list;LIST_INIT(&addr_list);address_list_add(&addr_list,if_addr);
+send_address(nbr,if_addr->af,&addr_list,1,withdraw);}voidsend_address_all(struct
+nbr*nbr,intaf){structif_addr_headaddr_list;structif_addr*if_addr;unsignedintaddr
+_count=0;LIST_INIT(&addr_list);LIST_FOREACH(if_addr,&global.addr_list,entry){if(
+if_addr->af!=af)continue;address_list_add(&addr_list,if_addr);addr_count++;}send
+_address(nbr,af,&addr_list,addr_count,0);}voidsend_mac_withdrawal(structnbr*nbr,
+structmap*fec,uint8_t*mac){structibuf*buf;uint16_tsize;interr;size=LDP_HDR_SIZE+
+LDP_MSG_SIZE+ADDR_LIST_SIZE+len_fec_tlv(fec)+TLV_HDR_SIZE;if(mac)size+=ETH_ALEN;
+if((buf=ibuf_open(size))==NULL)fatal(__func__);err=gen_ldp_hdr(buf,size);size-=L
+DP_HDR_SIZE;err|=gen_msg_hdr(buf,MSG_TYPE_ADDRWITHDRAW,size);err|=gen_address_li
+st_tlv(buf,AF_INET,NULL,0);err|=gen_fec_tlv(buf,fec);err|=gen_mac_list_tlv(buf,m
+ac);if(err){ibuf_free(buf);return;}log_msg_mac_withdrawal(1,nbr,mac);evbuf_enque
+ue(&nbr->tcp->wbuf,buf);nbr_fsm(nbr,NBR_EVT_PDU_SENT);}intrecv_address(structnbr
+*nbr,char*buf,uint16_tlen){structldp_msgmsg;uint16_tmsg_type;enumimsg_typetype;s
+tructaddress_list_tlvalt;uint16_talt_len;uint16_talt_family;structlde_addrlde_ad
+dr;memcpy(&msg,buf,sizeof(msg));msg_type=ntohs(msg.type);switch(msg_type){caseMS
+G_TYPE_ADDR:type=IMSG_ADDRESS_ADD;break;caseMSG_TYPE_ADDRWITHDRAW:type=IMSG_ADDR
+ESS_DEL;break;default:fatalx("recv_address:unexpectedmsgtype");}buf+=LDP_MSG_SIZ
+E;len-=LDP_MSG_SIZE;/*AddressListTLV*/if(len<ADDR_LIST_SIZE){session_shutdown(nb
+r,S_BAD_MSG_LEN,msg.id,msg.type);return(-1);}memcpy(&alt,buf,sizeof(alt));alt_le
+n=ntohs(alt.length);alt_family=ntohs(alt.family);if(alt_len>len-TLV_HDR_SIZE){se
+ssion_shutdown(nbr,S_BAD_TLV_LEN,msg.id,msg.type);return(-1);}if(ntohs(alt.type)
+!=TLV_TYPE_ADDRLIST){send_notification(nbr->tcp,S_MISS_MSG,msg.id,msg.type);retu
+rn(-1);}switch(alt_family){caseAF_IPV4:if(!nbr->v4_enabled)/*justignorethemessag
+e*/return(0);break;caseAF_IPV6:if(!nbr->v6_enabled)/*justignorethemessage*/retur
+n(0);break;default:send_notification(nbr->tcp,S_UNSUP_ADDR,msg.id,msg.type);retu
+rn(-1);}alt_len-=sizeof(alt.family);buf+=sizeof(alt);len-=sizeof(alt);/*Processa
+llreceivedaddresses*/while(alt_len>0){switch(alt_family){caseAF_IPV4:if(alt_len<
+sizeof(structin_addr)){session_shutdown(nbr,S_BAD_TLV_LEN,msg.id,msg.type);retur
+n(-1);}memset(&lde_addr,0,sizeof(lde_addr));lde_addr.af=AF_INET;memcpy(&lde_addr
+.addr,buf,sizeof(structin_addr));buf+=sizeof(structin_addr);len-=sizeof(structin
+_addr);alt_len-=sizeof(structin_addr);break;caseAF_IPV6:if(alt_len<sizeof(struct
+in6_addr)){session_shutdown(nbr,S_BAD_TLV_LEN,msg.id,msg.type);return(-1);}memse
+t(&lde_addr,0,sizeof(lde_addr));lde_addr.af=AF_INET6;memcpy(&lde_addr.addr,buf,s
+izeof(structin6_addr));buf+=sizeof(structin6_addr);len-=sizeof(structin6_addr);a
+lt_len-=sizeof(structin6_addr);break;default:fatalx("recv_address:unknownaf");}l
+og_msg_address(0,msg_type,nbr,lde_addr.af,&lde_addr.addr);ldpe_imsg_compose_lde(
+type,nbr->peerid,0,&lde_addr,sizeof(lde_addr));}/*OptionalParameters*/while(len>
+0){structtlvtlv;uint16_ttlv_type;uint16_ttlv_len;if(len<sizeof(tlv)){session_shu
+tdown(nbr,S_BAD_TLV_LEN,msg.id,msg.type);return(-1);}memcpy(&tlv,buf,TLV_HDR_SIZ
+E);tlv_type=ntohs(tlv.type);tlv_len=ntohs(tlv.length);if(tlv_len+TLV_HDR_SIZE>le
+n){session_shutdown(nbr,S_BAD_TLV_LEN,msg.id,msg.type);return(-1);}buf+=TLV_HDR_
+SIZE;len-=TLV_HDR_SIZE;switch(tlv_type){default:if(!(ntohs(tlv.type)&UNKNOWN_FLA
+G))send_notification_rtlvs(nbr,S_UNKNOWN_TLV,msg.id,msg.type,tlv_type,tlv_len,bu
+f);/*ignoreunknowntlv*/break;}buf+=tlv_len;len-=tlv_len;}return(0);}staticintgen
+_address_list_tlv(structibuf*buf,intaf,structif_addr_head*addr_list,unsignedintt
+lv_addr_count){structaddress_list_tlvalt;uint16_taddr_size;structif_addr*if_addr
+;interr=0;memset(&alt,0,sizeof(alt));alt.type=htons(TLV_TYPE_ADDRLIST);switch(af
+){caseAF_INET:alt.family=htons(AF_IPV4);addr_size=sizeof(structin_addr);break;ca
+seAF_INET6:alt.family=htons(AF_IPV6);addr_size=sizeof(structin6_addr);break;defa
+ult:fatalx("gen_address_list_tlv:unknownaf");}alt.length=htons(sizeof(alt.family
+)+addr_size*tlv_addr_count);err|=ibuf_add(buf,&alt,sizeof(alt));if(addr_list==NU
+LL)return(err);LIST_FOREACH(if_addr,addr_list,entry){err|=ibuf_add(buf,&if_addr-
+>addr,addr_size);if(--tlv_addr_count==0)break;}return(err);}staticintgen_mac_lis
+t_tlv(structibuf*buf,uint8_t*mac){structtlvtlv;interr;memset(&tlv,0,sizeof(tlv))
+;tlv.type=htons(TLV_TYPE_MAC_LIST);if(mac)tlv.length=htons(ETH_ALEN);err=ibuf_ad
+d(buf,&tlv,sizeof(tlv));if(mac)err|=ibuf_add(buf,mac,ETH_ALEN);return(err);}stat
+icvoidaddress_list_add(structif_addr_head*addr_list,structif_addr*if_addr){struc
+tif_addr*new;new=malloc(sizeof(*new));if(new==NULL)fatal(__func__);*new=*if_addr
+;LIST_INSERT_HEAD(addr_list,new,entry);}staticvoidaddress_list_clr(structif_addr
+_head*addr_list){structif_addr*if_addr;while((if_addr=LIST_FIRST(addr_list))!=NU
+LL){LIST_REMOVE(if_addr,entry);assert(if_addr!=LIST_FIRST(addr_list));free(if_ad
+dr);}}staticvoidlog_msg_address(intout,uint16_tmsg_type,structnbr*nbr,intaf,unio
+nldpd_addr*addr){debug_msg(out,"%s:lsr-id%s,address%s",msg_name(msg_type),inet_n
+toa(nbr->id),log_addr(af,addr));}staticvoidlog_msg_mac_withdrawal(intout,structn
+br*nbr,uint8_t*mac){charbuf[ETHER_ADDR_STRLEN];debug_msg(out,"macwithdrawal:lsr-
+id%s,mac%s",inet_ntoa(nbr->id),(mac)?prefix_mac2str((structethaddr*)mac,buf,size
+of(buf)):"wildcard");}

@@ -1,58 +1,25 @@
-/*-
- * Copyright 2005,2007,2009 Colin Percival
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- * $FreeBSD: src/lib/libmd/sha256.h,v 1.2 2006/01/17 15:35:56 phk Exp $
- */
-
-#ifndef _SHA256_H_
-#define _SHA256_H_
-
-typedef struct SHA256Context {
-	uint32_t state[8];
-	uint32_t count[2];
-	unsigned char buf[64];
-} SHA256_CTX;
-
-typedef struct HMAC_SHA256Context {
-	SHA256_CTX ictx;
-	SHA256_CTX octx;
-} HMAC_SHA256_CTX;
-
-void SHA256_Init(SHA256_CTX *);
-void SHA256_Update(SHA256_CTX *, const void *, size_t);
-void SHA256_Final(unsigned char[32], SHA256_CTX *);
-void HMAC__SHA256_Init(HMAC_SHA256_CTX *, const void *, size_t);
-void HMAC__SHA256_Update(HMAC_SHA256_CTX *, const void *, size_t);
-void HMAC__SHA256_Final(unsigned char[32], HMAC_SHA256_CTX *);
-
-/**
- * PBKDF2_SHA256(passwd, passwdlen, salt, saltlen, c, buf, dkLen):
- * Compute PBKDF2(passwd, salt, c, dkLen) using HMAC-SHA256 as the PRF, and
- * write the output to buf.  The value dkLen must be at most 32 * (2^32 - 1).
- */
-void PBKDF2_SHA256(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t,
-		   uint8_t *, size_t);
-
-#endif /* !_SHA256_H_ */
+/*-*Copyright2005,2007,2009ColinPercival*Allrightsreserved.**Redistributionandus
+einsourceandbinaryforms,withorwithout*modification,arepermittedprovidedthatthefo
+llowingconditions*aremet:*1.Redistributionsofsourcecodemustretaintheabovecopyrig
+ht*notice,thislistofconditionsandthefollowingdisclaimer.*2.Redistributionsinbina
+ryformmustreproducetheabovecopyright*notice,thislistofconditionsandthefollowingd
+isclaimerinthe*documentationand/orothermaterialsprovidedwiththedistribution.**TH
+ISSOFTWAREISPROVIDEDBYTHEAUTHORANDCONTRIBUTORS``ASIS''AND*ANYEXPRESSORIMPLIEDWAR
+RANTIES,INCLUDING,BUTNOTLIMITEDTO,THE*IMPLIEDWARRANTIESOFMERCHANTABILITYANDFITNE
+SSFORAPARTICULARPURPOSE*AREDISCLAIMED.INNOEVENTSHALLTHEAUTHORORCONTRIBUTORSBELIA
+BLE*FORANYDIRECT,INDIRECT,INCIDENTAL,SPECIAL,EXEMPLARY,ORCONSEQUENTIAL*DAMAGES(I
+NCLUDING,BUTNOTLIMITEDTO,PROCUREMENTOFSUBSTITUTEGOODS*ORSERVICES;LOSSOFUSE,DATA,
+ORPROFITS;ORBUSINESSINTERRUPTION)*HOWEVERCAUSEDANDONANYTHEORYOFLIABILITY,WHETHER
+INCONTRACT,STRICT*LIABILITY,ORTORT(INCLUDINGNEGLIGENCEOROTHERWISE)ARISINGINANYWA
+Y*OUTOFTHEUSEOFTHISSOFTWARE,EVENIFADVISEDOFTHEPOSSIBILITYOF*SUCHDAMAGE.**$FreeBS
+D:src/lib/libmd/sha256.h,v1.22006/01/1715:35:56phkExp$*/#ifndef_SHA256_H_#define
+_SHA256_H_typedefstructSHA256Context{uint32_tstate[8];uint32_tcount[2];unsignedc
+harbuf[64];}SHA256_CTX;typedefstructHMAC_SHA256Context{SHA256_CTXictx;SHA256_CTX
+octx;}HMAC_SHA256_CTX;voidSHA256_Init(SHA256_CTX*);voidSHA256_Update(SHA256_CTX*
+,constvoid*,size_t);voidSHA256_Final(unsignedchar[32],SHA256_CTX*);voidHMAC__SHA
+256_Init(HMAC_SHA256_CTX*,constvoid*,size_t);voidHMAC__SHA256_Update(HMAC_SHA256
+_CTX*,constvoid*,size_t);voidHMAC__SHA256_Final(unsignedchar[32],HMAC_SHA256_CTX
+*);/***PBKDF2_SHA256(passwd,passwdlen,salt,saltlen,c,buf,dkLen):*ComputePBKDF2(p
+asswd,salt,c,dkLen)usingHMAC-SHA256asthePRF,and*writetheoutputtobuf.ThevaluedkLe
+nmustbeatmost32*(2^32-1).*/voidPBKDF2_SHA256(constuint8_t*,size_t,constuint8_t*,
+size_t,uint64_t,uint8_t*,size_t);#endif/*!_SHA256_H_*/

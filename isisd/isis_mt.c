@@ -1,541 +1,143 @@
-/*
- * IS-IS Rout(e)ing protocol - Multi Topology Support
- *
- * Copyright (C) 2017 Christian Franke
- *
- * This file is part of FreeRangeRouting (FRR)
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#include <zebra.h>
-#include "isisd/isisd.h"
-#include "isisd/isis_memory.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isis_adjacency.h"
-#include "isisd/isis_misc.h"
-#include "isisd/isis_lsp.h"
-#include "isisd/isis_mt.h"
-#include "isisd/isis_tlvs.h"
-
-DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting")
-DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting")
-DEFINE_MTYPE_STATIC(ISISD, MT_ADJ_INFO, "ISIS MT Adjacency Info")
-
-uint16_t isis_area_ipv6_topology(struct isis_area *area)
-{
-	struct isis_area_mt_setting *area_mt_setting;
-	area_mt_setting = area_lookup_mt_setting(area, ISIS_MT_IPV6_UNICAST);
-
-	if (area_mt_setting && area_mt_setting->enabled)
-		return ISIS_MT_IPV6_UNICAST;
-	return ISIS_MT_IPV4_UNICAST;
-}
-
-/* MT naming api */
-const char *isis_mtid2str(uint16_t mtid)
-{
-	static char buf[sizeof("65535")];
-
-	switch (mtid) {
-	case ISIS_MT_IPV4_UNICAST:
-		return "ipv4-unicast";
-	case ISIS_MT_IPV4_MGMT:
-		return "ipv4-mgmt";
-	case ISIS_MT_IPV6_UNICAST:
-		return "ipv6-unicast";
-	case ISIS_MT_IPV4_MULTICAST:
-		return "ipv4-multicast";
-	case ISIS_MT_IPV6_MULTICAST:
-		return "ipv6-multicast";
-	case ISIS_MT_IPV6_MGMT:
-		return "ipv6-mgmt";
-	default:
-		snprintf(buf, sizeof(buf), "%" PRIu16, mtid);
-		return buf;
-	}
-}
-
-uint16_t isis_str2mtid(const char *name)
-{
-	if (!strcmp(name, "ipv4-unicast"))
-		return ISIS_MT_IPV4_UNICAST;
-	if (!strcmp(name, "ipv4-mgmt"))
-		return ISIS_MT_IPV4_MGMT;
-	if (!strcmp(name, "ipv6-unicast"))
-		return ISIS_MT_IPV6_UNICAST;
-	if (!strcmp(name, "ipv4-multicast"))
-		return ISIS_MT_IPV4_MULTICAST;
-	if (!strcmp(name, "ipv6-multicast"))
-		return ISIS_MT_IPV6_MULTICAST;
-	if (!strcmp(name, "ipv6-mgmt"))
-		return ISIS_MT_IPV6_MGMT;
-	return -1;
-}
-
-/* General MT settings api */
-
-struct mt_setting {
-	ISIS_MT_INFO_FIELDS;
-};
-
-static void *lookup_mt_setting(struct list *mt_list, uint16_t mtid)
-{
-	struct listnode *node;
-	struct mt_setting *setting;
-
-	for (ALL_LIST_ELEMENTS_RO(mt_list, node, setting)) {
-		if (setting->mtid == mtid)
-			return setting;
-	}
-	return NULL;
-}
-
-static void add_mt_setting(struct list **mt_list, void *setting)
-{
-	if (!*mt_list)
-		*mt_list = list_new();
-	listnode_add(*mt_list, setting);
-}
-
-/* Area specific MT settings api */
-
-struct isis_area_mt_setting *area_lookup_mt_setting(struct isis_area *area,
-						    uint16_t mtid)
-{
-	return lookup_mt_setting(area->mt_settings, mtid);
-}
-
-struct isis_area_mt_setting *area_new_mt_setting(struct isis_area *area,
-						 uint16_t mtid)
-{
-	struct isis_area_mt_setting *setting;
-
-	setting = XCALLOC(MTYPE_MT_AREA_SETTING, sizeof(*setting));
-	setting->mtid = mtid;
-	return setting;
-}
-
-static void area_free_mt_setting(void *setting)
-{
-	XFREE(MTYPE_MT_AREA_SETTING, setting);
-}
-
-void area_add_mt_setting(struct isis_area *area,
-			 struct isis_area_mt_setting *setting)
-{
-	add_mt_setting(&area->mt_settings, setting);
-}
-
-void area_mt_init(struct isis_area *area)
-{
-	struct isis_area_mt_setting *v4_unicast_setting;
-
-	/* MTID 0 is always enabled */
-	v4_unicast_setting = area_new_mt_setting(area, ISIS_MT_IPV4_UNICAST);
-	v4_unicast_setting->enabled = true;
-	add_mt_setting(&area->mt_settings, v4_unicast_setting);
-	area->mt_settings->del = area_free_mt_setting;
-}
-
-void area_mt_finish(struct isis_area *area)
-{
-	list_delete_and_null(&area->mt_settings);
-}
-
-struct isis_area_mt_setting *area_get_mt_setting(struct isis_area *area,
-						 uint16_t mtid)
-{
-	struct isis_area_mt_setting *setting;
-
-	setting = area_lookup_mt_setting(area, mtid);
-	if (!setting) {
-		setting = area_new_mt_setting(area, mtid);
-		area_add_mt_setting(area, setting);
-	}
-	return setting;
-}
-
-int area_write_mt_settings(struct isis_area *area, struct vty *vty)
-{
-	int written = 0;
-	struct listnode *node;
-	struct isis_area_mt_setting *setting;
-
-	for (ALL_LIST_ELEMENTS_RO(area->mt_settings, node, setting)) {
-		const char *name = isis_mtid2str(setting->mtid);
-		if (name && setting->enabled) {
-			if (setting->mtid == ISIS_MT_IPV4_UNICAST)
-				continue; /* always enabled, no need to write
-					     out config */
-			vty_out(vty, " topology %s%s\n", name,
-				setting->overload ? " overload" : "");
-			written++;
-		}
-	}
-	return written;
-}
-
-bool area_is_mt(struct isis_area *area)
-{
-	struct listnode *node, *node2;
-	struct isis_area_mt_setting *setting;
-	struct isis_circuit *circuit;
-	struct isis_circuit_mt_setting *csetting;
-
-	for (ALL_LIST_ELEMENTS_RO(area->mt_settings, node, setting)) {
-		if (setting->enabled && setting->mtid != ISIS_MT_IPV4_UNICAST)
-			return true;
-	}
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-		for (ALL_LIST_ELEMENTS_RO(circuit->mt_settings, node2,
-					  csetting)) {
-			if (!csetting->enabled
-			    && csetting->mtid == ISIS_MT_IPV4_UNICAST)
-				return true;
-		}
-	}
-
-	return false;
-}
-
-struct isis_area_mt_setting **area_mt_settings(struct isis_area *area,
-					       unsigned int *mt_count)
-{
-	static unsigned int size = 0;
-	static struct isis_area_mt_setting **rv = NULL;
-
-	unsigned int count = 0;
-	struct listnode *node;
-	struct isis_area_mt_setting *setting;
-
-	for (ALL_LIST_ELEMENTS_RO(area->mt_settings, node, setting)) {
-		if (!setting->enabled)
-			continue;
-
-		count++;
-		if (count > size) {
-			rv = XREALLOC(MTYPE_TMP, rv, count * sizeof(*rv));
-			size = count;
-		}
-		rv[count - 1] = setting;
-	}
-
-	*mt_count = count;
-	return rv;
-}
-
-/* Circuit specific MT settings api */
-
-struct isis_circuit_mt_setting *
-circuit_lookup_mt_setting(struct isis_circuit *circuit, uint16_t mtid)
-{
-	return lookup_mt_setting(circuit->mt_settings, mtid);
-}
-
-struct isis_circuit_mt_setting *
-circuit_new_mt_setting(struct isis_circuit *circuit, uint16_t mtid)
-{
-	struct isis_circuit_mt_setting *setting;
-
-	setting = XCALLOC(MTYPE_MT_CIRCUIT_SETTING, sizeof(*setting));
-	setting->mtid = mtid;
-	setting->enabled = true; /* Enabled is default for circuit */
-	return setting;
-}
-
-static void circuit_free_mt_setting(void *setting)
-{
-	XFREE(MTYPE_MT_CIRCUIT_SETTING, setting);
-}
-
-void circuit_add_mt_setting(struct isis_circuit *circuit,
-			    struct isis_circuit_mt_setting *setting)
-{
-	add_mt_setting(&circuit->mt_settings, setting);
-}
-
-void circuit_mt_init(struct isis_circuit *circuit)
-{
-	circuit->mt_settings = list_new();
-	circuit->mt_settings->del = circuit_free_mt_setting;
-}
-
-void circuit_mt_finish(struct isis_circuit *circuit)
-{
-	list_delete_and_null(&circuit->mt_settings);
-}
-
-struct isis_circuit_mt_setting *
-circuit_get_mt_setting(struct isis_circuit *circuit, uint16_t mtid)
-{
-	struct isis_circuit_mt_setting *setting;
-
-	setting = circuit_lookup_mt_setting(circuit, mtid);
-	if (!setting) {
-		setting = circuit_new_mt_setting(circuit, mtid);
-		circuit_add_mt_setting(circuit, setting);
-	}
-	return setting;
-}
-
-int circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty)
-{
-	int written = 0;
-	struct listnode *node;
-	struct isis_circuit_mt_setting *setting;
-
-	for (ALL_LIST_ELEMENTS_RO(circuit->mt_settings, node, setting)) {
-		const char *name = isis_mtid2str(setting->mtid);
-		if (name && !setting->enabled) {
-			vty_out(vty, " no isis topology %s\n", name);
-			written++;
-		}
-	}
-	return written;
-}
-
-struct isis_circuit_mt_setting **
-circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count)
-{
-	static unsigned int size = 0;
-	static struct isis_circuit_mt_setting **rv = NULL;
-
-	struct isis_area_mt_setting **area_settings;
-	unsigned int area_count;
-
-	unsigned int count = 0;
-
-	struct listnode *node;
-	struct isis_circuit_mt_setting *setting;
-
-	area_settings = area_mt_settings(circuit->area, &area_count);
-
-	for (unsigned int i = 0; i < area_count; i++) {
-		for (ALL_LIST_ELEMENTS_RO(circuit->mt_settings, node,
-					  setting)) {
-			if (setting->mtid != area_settings[i]->mtid)
-				continue;
-			break;
-		}
-		if (!setting)
-			setting = circuit_get_mt_setting(
-				circuit, area_settings[i]->mtid);
-
-		if (!setting->enabled)
-			continue;
-
-		count++;
-		if (count > size) {
-			rv = XREALLOC(MTYPE_TMP, rv, count * sizeof(*rv));
-			size = count;
-		}
-		rv[count - 1] = setting;
-	}
-
-	*mt_count = count;
-	return rv;
-}
-
-/* ADJ specific MT API */
-static void adj_mt_set(struct isis_adjacency *adj, unsigned int index,
-		       uint16_t mtid)
-{
-	if (adj->mt_count < index + 1) {
-		adj->mt_set = XREALLOC(MTYPE_MT_ADJ_INFO, adj->mt_set,
-				       (index + 1) * sizeof(*adj->mt_set));
-		adj->mt_count = index + 1;
-	}
-	adj->mt_set[index] = mtid;
-}
-
-bool tlvs_to_adj_mt_set(struct isis_tlvs *tlvs, bool v4_usable, bool v6_usable,
-			struct isis_adjacency *adj)
-{
-	struct isis_circuit_mt_setting **mt_settings;
-	unsigned int circuit_mt_count;
-
-	unsigned int intersect_count = 0;
-
-	uint16_t *old_mt_set = NULL;
-	unsigned int old_mt_count;
-
-	old_mt_count = adj->mt_count;
-	if (old_mt_count) {
-		old_mt_set =
-			XCALLOC(MTYPE_TMP, old_mt_count * sizeof(*old_mt_set));
-		memcpy(old_mt_set, adj->mt_set,
-		       old_mt_count * sizeof(*old_mt_set));
-	}
-
-	mt_settings = circuit_mt_settings(adj->circuit, &circuit_mt_count);
-	for (unsigned int i = 0; i < circuit_mt_count; i++) {
-		if (!tlvs->mt_router_info.count
-		    && !tlvs->mt_router_info_empty) {
-			/* Other end does not have MT enabled */
-			if (mt_settings[i]->mtid == ISIS_MT_IPV4_UNICAST
-			    && v4_usable)
-				adj_mt_set(adj, intersect_count++,
-					   ISIS_MT_IPV4_UNICAST);
-		} else {
-			struct isis_mt_router_info *info_head;
-
-			info_head = (struct isis_mt_router_info *)
-					    tlvs->mt_router_info.head;
-			for (struct isis_mt_router_info *info = info_head; info;
-			     info = info->next) {
-				if (mt_settings[i]->mtid == info->mtid) {
-					bool usable;
-					switch (info->mtid) {
-					case ISIS_MT_IPV4_UNICAST:
-					case ISIS_MT_IPV4_MGMT:
-					case ISIS_MT_IPV4_MULTICAST:
-						usable = v4_usable;
-						break;
-					case ISIS_MT_IPV6_UNICAST:
-					case ISIS_MT_IPV6_MGMT:
-					case ISIS_MT_IPV6_MULTICAST:
-						usable = v6_usable;
-						break;
-					default:
-						usable = true;
-						break;
-					}
-					if (usable)
-						adj_mt_set(adj,
-							   intersect_count++,
-							   info->mtid);
-				}
-			}
-		}
-	}
-	adj->mt_count = intersect_count;
-
-	bool changed = false;
-
-	if (adj->mt_count != old_mt_count)
-		changed = true;
-
-	if (!changed && old_mt_count
-	    && memcmp(adj->mt_set, old_mt_set,
-		      old_mt_count * sizeof(*old_mt_set)))
-		changed = true;
-
-	if (old_mt_count)
-		XFREE(MTYPE_TMP, old_mt_set);
-
-	return changed;
-}
-
-bool adj_has_mt(struct isis_adjacency *adj, uint16_t mtid)
-{
-	for (unsigned int i = 0; i < adj->mt_count; i++)
-		if (adj->mt_set[i] == mtid)
-			return true;
-	return false;
-}
-
-void adj_mt_finish(struct isis_adjacency *adj)
-{
-	XFREE(MTYPE_MT_ADJ_INFO, adj->mt_set);
-	adj->mt_count = 0;
-}
-
-static void mt_set_add(uint16_t **mt_set, unsigned int *size,
-		       unsigned int *index, uint16_t mtid)
-{
-	for (unsigned int i = 0; i < *index; i++) {
-		if ((*mt_set)[i] == mtid)
-			return;
-	}
-
-	if (*index >= *size) {
-		*mt_set = XREALLOC(MTYPE_TMP, *mt_set,
-				   sizeof(**mt_set) * ((*index) + 1));
-		*size = (*index) + 1;
-	}
-
-	(*mt_set)[*index] = mtid;
-	*index = (*index) + 1;
-}
-
-static uint16_t *circuit_bcast_mt_set(struct isis_circuit *circuit, int level,
-				      unsigned int *mt_count)
-{
-	static uint16_t *rv;
-	static unsigned int size;
-	struct listnode *node;
-	struct isis_adjacency *adj;
-
-	unsigned int count = 0;
-
-	if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
-		*mt_count = 0;
-		return NULL;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(circuit->u.bc.adjdb[level - 1], node, adj)) {
-		if (adj->adj_state != ISIS_ADJ_UP)
-			continue;
-		for (unsigned int i = 0; i < adj->mt_count; i++)
-			mt_set_add(&rv, &size, &count, adj->mt_set[i]);
-	}
-
-	*mt_count = count;
-	return rv;
-}
-
-static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
-			    unsigned int mt_count, uint16_t *mt_set,
-			    uint8_t *id, uint32_t metric, uint8_t *subtlvs,
-			    uint8_t subtlv_len)
-{
-	for (unsigned int i = 0; i < mt_count; i++) {
-		uint16_t mtid = mt_set[i];
-		if (mt_set[i] == ISIS_MT_IPV4_UNICAST) {
-			lsp_debug(
-				"ISIS (%s): Adding %s.%02x as te-style neighbor",
-				area->area_tag, sysid_print(id),
-				LSP_PSEUDO_ID(id));
-		} else {
-			lsp_debug(
-				"ISIS (%s): Adding %s.%02x as mt-style neighbor for %s",
-				area->area_tag, sysid_print(id),
-				LSP_PSEUDO_ID(id), isis_mtid2str(mtid));
-		}
-		isis_tlvs_add_extended_reach(tlvs, mtid, id, metric, subtlvs,
-					     subtlv_len);
-	}
-}
-
-void tlvs_add_mt_bcast(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
-		       int level, uint8_t *id, uint32_t metric,
-		       uint8_t *subtlvs, uint8_t subtlv_len)
-{
-	unsigned int mt_count;
-	uint16_t *mt_set = circuit_bcast_mt_set(circuit, level, &mt_count);
-
-	tlvs_add_mt_set(circuit->area, tlvs, mt_count, mt_set, id, metric,
-			subtlvs, subtlv_len);
-}
-
-void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
-		     uint8_t *id, uint32_t metric, uint8_t *subtlvs,
-		     uint8_t subtlv_len)
-{
-	struct isis_adjacency *adj = circuit->u.p2p.neighbor;
-
-	tlvs_add_mt_set(circuit->area, tlvs, adj->mt_count, adj->mt_set, id,
-			metric, subtlvs, subtlv_len);
-}
+/**IS-ISRout(e)ingprotocol-MultiTopologySupport**Copyright(C)2017ChristianFranke
+**ThisfileispartofFreeRangeRouting(FRR)**FRRisfreesoftware;youcanredistributeita
+nd/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoft
+wareFoundation;eitherversion2,or(atyouroption)any*laterversion.**FRRisdistribute
+dinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrant
+yof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicense
+formoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*wit
+hthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51Fr
+anklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"isisd/isis
+d.h"#include"isisd/isis_memory.h"#include"isisd/isis_circuit.h"#include"isisd/is
+is_adjacency.h"#include"isisd/isis_misc.h"#include"isisd/isis_lsp.h"#include"isi
+sd/isis_mt.h"#include"isisd/isis_tlvs.h"DEFINE_MTYPE_STATIC(ISISD,MT_AREA_SETTIN
+G,"ISISMTAreaSetting")DEFINE_MTYPE_STATIC(ISISD,MT_CIRCUIT_SETTING,"ISISMTCircui
+tSetting")DEFINE_MTYPE_STATIC(ISISD,MT_ADJ_INFO,"ISISMTAdjacencyInfo")uint16_tis
+is_area_ipv6_topology(structisis_area*area){structisis_area_mt_setting*area_mt_s
+etting;area_mt_setting=area_lookup_mt_setting(area,ISIS_MT_IPV6_UNICAST);if(area
+_mt_setting&&area_mt_setting->enabled)returnISIS_MT_IPV6_UNICAST;returnISIS_MT_I
+PV4_UNICAST;}/*MTnamingapi*/constchar*isis_mtid2str(uint16_tmtid){staticcharbuf[
+sizeof("65535")];switch(mtid){caseISIS_MT_IPV4_UNICAST:return"ipv4-unicast";case
+ISIS_MT_IPV4_MGMT:return"ipv4-mgmt";caseISIS_MT_IPV6_UNICAST:return"ipv6-unicast
+";caseISIS_MT_IPV4_MULTICAST:return"ipv4-multicast";caseISIS_MT_IPV6_MULTICAST:r
+eturn"ipv6-multicast";caseISIS_MT_IPV6_MGMT:return"ipv6-mgmt";default:snprintf(b
+uf,sizeof(buf),"%"PRIu16,mtid);returnbuf;}}uint16_tisis_str2mtid(constchar*name)
+{if(!strcmp(name,"ipv4-unicast"))returnISIS_MT_IPV4_UNICAST;if(!strcmp(name,"ipv
+4-mgmt"))returnISIS_MT_IPV4_MGMT;if(!strcmp(name,"ipv6-unicast"))returnISIS_MT_I
+PV6_UNICAST;if(!strcmp(name,"ipv4-multicast"))returnISIS_MT_IPV4_MULTICAST;if(!s
+trcmp(name,"ipv6-multicast"))returnISIS_MT_IPV6_MULTICAST;if(!strcmp(name,"ipv6-
+mgmt"))returnISIS_MT_IPV6_MGMT;return-1;}/*GeneralMTsettingsapi*/structmt_settin
+g{ISIS_MT_INFO_FIELDS;};staticvoid*lookup_mt_setting(structlist*mt_list,uint16_t
+mtid){structlistnode*node;structmt_setting*setting;for(ALL_LIST_ELEMENTS_RO(mt_l
+ist,node,setting)){if(setting->mtid==mtid)returnsetting;}returnNULL;}staticvoida
+dd_mt_setting(structlist**mt_list,void*setting){if(!*mt_list)*mt_list=list_new()
+;listnode_add(*mt_list,setting);}/*AreaspecificMTsettingsapi*/structisis_area_mt
+_setting*area_lookup_mt_setting(structisis_area*area,uint16_tmtid){returnlookup_
+mt_setting(area->mt_settings,mtid);}structisis_area_mt_setting*area_new_mt_setti
+ng(structisis_area*area,uint16_tmtid){structisis_area_mt_setting*setting;setting
+=XCALLOC(MTYPE_MT_AREA_SETTING,sizeof(*setting));setting->mtid=mtid;returnsettin
+g;}staticvoidarea_free_mt_setting(void*setting){XFREE(MTYPE_MT_AREA_SETTING,sett
+ing);}voidarea_add_mt_setting(structisis_area*area,structisis_area_mt_setting*se
+tting){add_mt_setting(&area->mt_settings,setting);}voidarea_mt_init(structisis_a
+rea*area){structisis_area_mt_setting*v4_unicast_setting;/*MTID0isalwaysenabled*/
+v4_unicast_setting=area_new_mt_setting(area,ISIS_MT_IPV4_UNICAST);v4_unicast_set
+ting->enabled=true;add_mt_setting(&area->mt_settings,v4_unicast_setting);area->m
+t_settings->del=area_free_mt_setting;}voidarea_mt_finish(structisis_area*area){l
+ist_delete_and_null(&area->mt_settings);}structisis_area_mt_setting*area_get_mt_
+setting(structisis_area*area,uint16_tmtid){structisis_area_mt_setting*setting;se
+tting=area_lookup_mt_setting(area,mtid);if(!setting){setting=area_new_mt_setting
+(area,mtid);area_add_mt_setting(area,setting);}returnsetting;}intarea_write_mt_s
+ettings(structisis_area*area,structvty*vty){intwritten=0;structlistnode*node;str
+uctisis_area_mt_setting*setting;for(ALL_LIST_ELEMENTS_RO(area->mt_settings,node,
+setting)){constchar*name=isis_mtid2str(setting->mtid);if(name&&setting->enabled)
+{if(setting->mtid==ISIS_MT_IPV4_UNICAST)continue;/*alwaysenabled,noneedtowriteou
+tconfig*/vty_out(vty,"topology%s%s\n",name,setting->overload?"overload":"");writ
+ten++;}}returnwritten;}boolarea_is_mt(structisis_area*area){structlistnode*node,
+*node2;structisis_area_mt_setting*setting;structisis_circuit*circuit;structisis_
+circuit_mt_setting*csetting;for(ALL_LIST_ELEMENTS_RO(area->mt_settings,node,sett
+ing)){if(setting->enabled&&setting->mtid!=ISIS_MT_IPV4_UNICAST)returntrue;}for(A
+LL_LIST_ELEMENTS_RO(area->circuit_list,node,circuit)){for(ALL_LIST_ELEMENTS_RO(c
+ircuit->mt_settings,node2,csetting)){if(!csetting->enabled&&csetting->mtid==ISIS
+_MT_IPV4_UNICAST)returntrue;}}returnfalse;}structisis_area_mt_setting**area_mt_s
+ettings(structisis_area*area,unsignedint*mt_count){staticunsignedintsize=0;stati
+cstructisis_area_mt_setting**rv=NULL;unsignedintcount=0;structlistnode*node;stru
+ctisis_area_mt_setting*setting;for(ALL_LIST_ELEMENTS_RO(area->mt_settings,node,s
+etting)){if(!setting->enabled)continue;count++;if(count>size){rv=XREALLOC(MTYPE_
+TMP,rv,count*sizeof(*rv));size=count;}rv[count-1]=setting;}*mt_count=count;retur
+nrv;}/*CircuitspecificMTsettingsapi*/structisis_circuit_mt_setting*circuit_looku
+p_mt_setting(structisis_circuit*circuit,uint16_tmtid){returnlookup_mt_setting(ci
+rcuit->mt_settings,mtid);}structisis_circuit_mt_setting*circuit_new_mt_setting(s
+tructisis_circuit*circuit,uint16_tmtid){structisis_circuit_mt_setting*setting;se
+tting=XCALLOC(MTYPE_MT_CIRCUIT_SETTING,sizeof(*setting));setting->mtid=mtid;sett
+ing->enabled=true;/*Enabledisdefaultforcircuit*/returnsetting;}staticvoidcircuit
+_free_mt_setting(void*setting){XFREE(MTYPE_MT_CIRCUIT_SETTING,setting);}voidcirc
+uit_add_mt_setting(structisis_circuit*circuit,structisis_circuit_mt_setting*sett
+ing){add_mt_setting(&circuit->mt_settings,setting);}voidcircuit_mt_init(structis
+is_circuit*circuit){circuit->mt_settings=list_new();circuit->mt_settings->del=ci
+rcuit_free_mt_setting;}voidcircuit_mt_finish(structisis_circuit*circuit){list_de
+lete_and_null(&circuit->mt_settings);}structisis_circuit_mt_setting*circuit_get_
+mt_setting(structisis_circuit*circuit,uint16_tmtid){structisis_circuit_mt_settin
+g*setting;setting=circuit_lookup_mt_setting(circuit,mtid);if(!setting){setting=c
+ircuit_new_mt_setting(circuit,mtid);circuit_add_mt_setting(circuit,setting);}ret
+urnsetting;}intcircuit_write_mt_settings(structisis_circuit*circuit,structvty*vt
+y){intwritten=0;structlistnode*node;structisis_circuit_mt_setting*setting;for(AL
+L_LIST_ELEMENTS_RO(circuit->mt_settings,node,setting)){constchar*name=isis_mtid2
+str(setting->mtid);if(name&&!setting->enabled){vty_out(vty,"noisistopology%s\n",
+name);written++;}}returnwritten;}structisis_circuit_mt_setting**circuit_mt_setti
+ngs(structisis_circuit*circuit,unsignedint*mt_count){staticunsignedintsize=0;sta
+ticstructisis_circuit_mt_setting**rv=NULL;structisis_area_mt_setting**area_setti
+ngs;unsignedintarea_count;unsignedintcount=0;structlistnode*node;structisis_circ
+uit_mt_setting*setting;area_settings=area_mt_settings(circuit->area,&area_count)
+;for(unsignedinti=0;i<area_count;i++){for(ALL_LIST_ELEMENTS_RO(circuit->mt_setti
+ngs,node,setting)){if(setting->mtid!=area_settings[i]->mtid)continue;break;}if(!
+setting)setting=circuit_get_mt_setting(circuit,area_settings[i]->mtid);if(!setti
+ng->enabled)continue;count++;if(count>size){rv=XREALLOC(MTYPE_TMP,rv,count*sizeo
+f(*rv));size=count;}rv[count-1]=setting;}*mt_count=count;returnrv;}/*ADJspecific
+MTAPI*/staticvoidadj_mt_set(structisis_adjacency*adj,unsignedintindex,uint16_tmt
+id){if(adj->mt_count<index+1){adj->mt_set=XREALLOC(MTYPE_MT_ADJ_INFO,adj->mt_set
+,(index+1)*sizeof(*adj->mt_set));adj->mt_count=index+1;}adj->mt_set[index]=mtid;
+}booltlvs_to_adj_mt_set(structisis_tlvs*tlvs,boolv4_usable,boolv6_usable,structi
+sis_adjacency*adj){structisis_circuit_mt_setting**mt_settings;unsignedintcircuit
+_mt_count;unsignedintintersect_count=0;uint16_t*old_mt_set=NULL;unsignedintold_m
+t_count;old_mt_count=adj->mt_count;if(old_mt_count){old_mt_set=XCALLOC(MTYPE_TMP
+,old_mt_count*sizeof(*old_mt_set));memcpy(old_mt_set,adj->mt_set,old_mt_count*si
+zeof(*old_mt_set));}mt_settings=circuit_mt_settings(adj->circuit,&circuit_mt_cou
+nt);for(unsignedinti=0;i<circuit_mt_count;i++){if(!tlvs->mt_router_info.count&&!
+tlvs->mt_router_info_empty){/*OtherenddoesnothaveMTenabled*/if(mt_settings[i]->m
+tid==ISIS_MT_IPV4_UNICAST&&v4_usable)adj_mt_set(adj,intersect_count++,ISIS_MT_IP
+V4_UNICAST);}else{structisis_mt_router_info*info_head;info_head=(structisis_mt_r
+outer_info*)tlvs->mt_router_info.head;for(structisis_mt_router_info*info=info_he
+ad;info;info=info->next){if(mt_settings[i]->mtid==info->mtid){boolusable;switch(
+info->mtid){caseISIS_MT_IPV4_UNICAST:caseISIS_MT_IPV4_MGMT:caseISIS_MT_IPV4_MULT
+ICAST:usable=v4_usable;break;caseISIS_MT_IPV6_UNICAST:caseISIS_MT_IPV6_MGMT:case
+ISIS_MT_IPV6_MULTICAST:usable=v6_usable;break;default:usable=true;break;}if(usab
+le)adj_mt_set(adj,intersect_count++,info->mtid);}}}}adj->mt_count=intersect_coun
+t;boolchanged=false;if(adj->mt_count!=old_mt_count)changed=true;if(!changed&&old
+_mt_count&&memcmp(adj->mt_set,old_mt_set,old_mt_count*sizeof(*old_mt_set)))chang
+ed=true;if(old_mt_count)XFREE(MTYPE_TMP,old_mt_set);returnchanged;}booladj_has_m
+t(structisis_adjacency*adj,uint16_tmtid){for(unsignedinti=0;i<adj->mt_count;i++)
+if(adj->mt_set[i]==mtid)returntrue;returnfalse;}voidadj_mt_finish(structisis_adj
+acency*adj){XFREE(MTYPE_MT_ADJ_INFO,adj->mt_set);adj->mt_count=0;}staticvoidmt_s
+et_add(uint16_t**mt_set,unsignedint*size,unsignedint*index,uint16_tmtid){for(uns
+ignedinti=0;i<*index;i++){if((*mt_set)[i]==mtid)return;}if(*index>=*size){*mt_se
+t=XREALLOC(MTYPE_TMP,*mt_set,sizeof(**mt_set)*((*index)+1));*size=(*index)+1;}(*
+mt_set)[*index]=mtid;*index=(*index)+1;}staticuint16_t*circuit_bcast_mt_set(stru
+ctisis_circuit*circuit,intlevel,unsignedint*mt_count){staticuint16_t*rv;staticun
+signedintsize;structlistnode*node;structisis_adjacency*adj;unsignedintcount=0;if
+(circuit->circ_type!=CIRCUIT_T_BROADCAST){*mt_count=0;returnNULL;}for(ALL_LIST_E
+LEMENTS_RO(circuit->u.bc.adjdb[level-1],node,adj)){if(adj->adj_state!=ISIS_ADJ_U
+P)continue;for(unsignedinti=0;i<adj->mt_count;i++)mt_set_add(&rv,&size,&count,ad
+j->mt_set[i]);}*mt_count=count;returnrv;}staticvoidtlvs_add_mt_set(structisis_ar
+ea*area,structisis_tlvs*tlvs,unsignedintmt_count,uint16_t*mt_set,uint8_t*id,uint
+32_tmetric,uint8_t*subtlvs,uint8_tsubtlv_len){for(unsignedinti=0;i<mt_count;i++)
+{uint16_tmtid=mt_set[i];if(mt_set[i]==ISIS_MT_IPV4_UNICAST){lsp_debug("ISIS(%s):
+Adding%s.%02xaste-styleneighbor",area->area_tag,sysid_print(id),LSP_PSEUDO_ID(id
+));}else{lsp_debug("ISIS(%s):Adding%s.%02xasmt-styleneighborfor%s",area->area_ta
+g,sysid_print(id),LSP_PSEUDO_ID(id),isis_mtid2str(mtid));}isis_tlvs_add_extended
+_reach(tlvs,mtid,id,metric,subtlvs,subtlv_len);}}voidtlvs_add_mt_bcast(structisi
+s_tlvs*tlvs,structisis_circuit*circuit,intlevel,uint8_t*id,uint32_tmetric,uint8_
+t*subtlvs,uint8_tsubtlv_len){unsignedintmt_count;uint16_t*mt_set=circuit_bcast_m
+t_set(circuit,level,&mt_count);tlvs_add_mt_set(circuit->area,tlvs,mt_count,mt_se
+t,id,metric,subtlvs,subtlv_len);}voidtlvs_add_mt_p2p(structisis_tlvs*tlvs,struct
+isis_circuit*circuit,uint8_t*id,uint32_tmetric,uint8_t*subtlvs,uint8_tsubtlv_len
+){structisis_adjacency*adj=circuit->u.p2p.neighbor;tlvs_add_mt_set(circuit->area
+,tlvs,adj->mt_count,adj->mt_set,id,metric,subtlvs,subtlv_len);}

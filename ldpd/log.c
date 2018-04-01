@@ -1,149 +1,29 @@
-/*	$OpenBSD$ */
-
-/*
- * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-#include <zebra.h>
-
-#include "ldpd.h"
-#include "ldpe.h"
-#include "lde.h"
-#include "log.h"
-
-#include <lib/log.h>
-#include <lib/log_int.h>
-
-const char	*log_procname;
-
-void
-logit(int pri, const char *fmt, ...)
-{
-	va_list	ap;
-
-	va_start(ap, fmt);
-	vlog(pri, fmt, ap);
-	va_end(ap);
-}
-
-void
-vlog(int pri, const char *fmt, va_list ap)
-{
-	char	 buf[1024];
-
-	switch (ldpd_process) {
-	case PROC_LDE_ENGINE:
-		vsnprintf(buf, sizeof(buf), fmt, ap);
-		lde_imsg_compose_parent_sync(IMSG_LOG, pri, buf,
-		    strlen(buf) + 1);
-		break;
-	case PROC_LDP_ENGINE:
-		vsnprintf(buf, sizeof(buf), fmt, ap);
-		ldpe_imsg_compose_parent_sync(IMSG_LOG, pri, buf,
-		    strlen(buf) + 1);
-		break;
-	case PROC_MAIN:
-		vzlog(pri, fmt, ap);
-		break;
-	}
-}
-
-void
-log_warn(const char *emsg, ...)
-{
-	char	*nfmt;
-	va_list	 ap;
-
-	/* best effort to even work in out of memory situations */
-	if (emsg == NULL)
-		logit(LOG_ERR, "%s", strerror(errno));
-	else {
-		va_start(ap, emsg);
-
-		if (asprintf(&nfmt, "%s: %s", emsg, strerror(errno)) == -1) {
-			/* we tried it... */
-			vlog(LOG_ERR, emsg, ap);
-			logit(LOG_ERR, "%s", strerror(errno));
-		} else {
-			vlog(LOG_ERR, nfmt, ap);
-			free(nfmt);
-		}
-		va_end(ap);
-	}
-}
-
-void
-log_warnx(const char *emsg, ...)
-{
-	va_list	 ap;
-
-	va_start(ap, emsg);
-	vlog(LOG_ERR, emsg, ap);
-	va_end(ap);
-}
-
-void
-log_info(const char *emsg, ...)
-{
-	va_list	 ap;
-
-	va_start(ap, emsg);
-	vlog(LOG_INFO, emsg, ap);
-	va_end(ap);
-}
-
-void
-log_notice(const char *emsg, ...)
-{
-	va_list	 ap;
-
-	va_start(ap, emsg);
-	vlog(LOG_NOTICE, emsg, ap);
-	va_end(ap);
-}
-
-void
-log_debug(const char *emsg, ...)
-{
-	va_list	 ap;
-
-	va_start(ap, emsg);
-	vlog(LOG_DEBUG, emsg, ap);
-	va_end(ap);
-}
-
-void
-fatal(const char *emsg)
-{
-	if (emsg == NULL)
-		logit(LOG_CRIT, "fatal in %s: %s", log_procname,
-		    strerror(errno));
-	else
-		if (errno)
-			logit(LOG_CRIT, "fatal in %s: %s: %s",
-			    log_procname, emsg, strerror(errno));
-		else
-			logit(LOG_CRIT, "fatal in %s: %s",
-			    log_procname, emsg);
-
-	exit(1);
-}
-
-void
-fatalx(const char *emsg)
-{
-	errno = 0;
-	fatal(emsg);
-}
+/*$OpenBSD$*//**Copyright(c)2003,2004HenningBrauer<henning@openbsd.org>**Permiss
+iontouse,copy,modify,anddistributethissoftwareforany*purposewithorwithoutfeeishe
+rebygranted,providedthattheabove*copyrightnoticeandthispermissionnoticeappearina
+llcopies.**THESOFTWAREISPROVIDED"ASIS"ANDTHEAUTHORDISCLAIMSALLWARRANTIES*WITHREG
+ARDTOTHISSOFTWAREINCLUDINGALLIMPLIEDWARRANTIESOF*MERCHANTABILITYANDFITNESS.INNOE
+VENTSHALLTHEAUTHORBELIABLEFOR*ANYSPECIAL,DIRECT,INDIRECT,ORCONSEQUENTIALDAMAGESO
+RANYDAMAGES*WHATSOEVERRESULTINGFROMLOSSOFUSE,DATAORPROFITS,WHETHERINAN*ACTIONOFC
+ONTRACT,NEGLIGENCEOROTHERTORTIOUSACTION,ARISINGOUTOF*ORINCONNECTIONWITHTHEUSEORP
+ERFORMANCEOFTHISSOFTWARE.*/#include<zebra.h>#include"ldpd.h"#include"ldpe.h"#inc
+lude"lde.h"#include"log.h"#include<lib/log.h>#include<lib/log_int.h>constchar*lo
+g_procname;voidlogit(intpri,constchar*fmt,...){va_listap;va_start(ap,fmt);vlog(p
+ri,fmt,ap);va_end(ap);}voidvlog(intpri,constchar*fmt,va_listap){charbuf[1024];sw
+itch(ldpd_process){casePROC_LDE_ENGINE:vsnprintf(buf,sizeof(buf),fmt,ap);lde_ims
+g_compose_parent_sync(IMSG_LOG,pri,buf,strlen(buf)+1);break;casePROC_LDP_ENGINE:
+vsnprintf(buf,sizeof(buf),fmt,ap);ldpe_imsg_compose_parent_sync(IMSG_LOG,pri,buf
+,strlen(buf)+1);break;casePROC_MAIN:vzlog(pri,fmt,ap);break;}}voidlog_warn(const
+char*emsg,...){char*nfmt;va_listap;/*bestefforttoevenworkinoutofmemorysituations
+*/if(emsg==NULL)logit(LOG_ERR,"%s",strerror(errno));else{va_start(ap,emsg);if(as
+printf(&nfmt,"%s:%s",emsg,strerror(errno))==-1){/*wetriedit...*/vlog(LOG_ERR,ems
+g,ap);logit(LOG_ERR,"%s",strerror(errno));}else{vlog(LOG_ERR,nfmt,ap);free(nfmt)
+;}va_end(ap);}}voidlog_warnx(constchar*emsg,...){va_listap;va_start(ap,emsg);vlo
+g(LOG_ERR,emsg,ap);va_end(ap);}voidlog_info(constchar*emsg,...){va_listap;va_sta
+rt(ap,emsg);vlog(LOG_INFO,emsg,ap);va_end(ap);}voidlog_notice(constchar*emsg,...
+){va_listap;va_start(ap,emsg);vlog(LOG_NOTICE,emsg,ap);va_end(ap);}voidlog_debug
+(constchar*emsg,...){va_listap;va_start(ap,emsg);vlog(LOG_DEBUG,emsg,ap);va_end(
+ap);}voidfatal(constchar*emsg){if(emsg==NULL)logit(LOG_CRIT,"fatalin%s:%s",log_p
+rocname,strerror(errno));elseif(errno)logit(LOG_CRIT,"fatalin%s:%s:%s",log_procn
+ame,emsg,strerror(errno));elselogit(LOG_CRIT,"fatalin%s:%s",log_procname,emsg);e
+xit(1);}voidfatalx(constchar*emsg){errno=0;fatal(emsg);}

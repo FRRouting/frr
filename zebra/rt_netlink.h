@@ -1,76 +1,25 @@
-/* Header file exported by rt_netlink.c to zebra.
- * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_RT_NETLINK_H
-#define _ZEBRA_RT_NETLINK_H
-
-#ifdef HAVE_NETLINK
-
-#include "zebra/zebra_mpls.h"
-
-#define NL_DEFAULT_ROUTE_METRIC 20
-
-/*
- * Additional protocol strings to push into routes
- * If we add anything new here please make sure
- * to update:
- * zebra2proto                 Function
- * proto2zebra                 Function
- * is_selfroute                Function
- * tools/frr                   To flush the route upon exit
- *
- * Finally update this file to allow iproute2 to
- * know about this new route.
- * tools/etc/iproute2/rt_protos.d
- */
-#define RTPROT_BGP         186
-#define RTPROT_ISIS        187
-#define RTPROT_OSPF        188
-#define RTPROT_RIP         189
-#define RTPROT_RIPNG       190
-#if !defined(RTPROT_BABEL)
-#define RTPROT_BABEL        42
-#endif
-#define RTPROT_NHRP        191
-#define RTPROT_EIGRP       192
-#define RTPROT_LDP         193
-#define RTPROT_SHARP       194
-
-void rt_netlink_init(void);
-
-extern int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp);
-
-extern int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-				ns_id_t ns_id, int startup);
-extern int netlink_route_read(struct zebra_ns *zns);
-
-extern int netlink_neigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-				ns_id_t ns_id);
-extern int netlink_macfdb_read(struct zebra_ns *zns);
-extern int netlink_macfdb_read_for_bridge(struct zebra_ns *zns,
-					  struct interface *ifp,
-					  struct interface *br_if);
-extern int netlink_neigh_read(struct zebra_ns *zns);
-extern int netlink_neigh_read_for_vlan(struct zebra_ns *zns,
-				       struct interface *vlan_if);
-
-#endif /* HAVE_NETLINK */
-
-#endif /* _ZEBRA_RT_NETLINK_H */
+/*Headerfileexportedbyrt_netlink.ctozebra.*Copyright(C)1997,98,99KunihiroIshigur
+o**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/orm
+odifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFo
+undation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributed
+inthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarranty
+of*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicensef
+ormoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*with
+thisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51Fra
+nklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_RT_NETLINK_H#define_ZEB
+RA_RT_NETLINK_H#ifdefHAVE_NETLINK#include"zebra/zebra_mpls.h"#defineNL_DEFAULT_R
+OUTE_METRIC20/**Additionalprotocolstringstopushintoroutes*Ifweaddanythingnewhere
+pleasemakesure*toupdate:*zebra2protoFunction*proto2zebraFunction*is_selfrouteFun
+ction*tools/frrToflushtherouteuponexit**Finallyupdatethisfiletoallowiproute2to*k
+nowaboutthisnewroute.*tools/etc/iproute2/rt_protos.d*/#defineRTPROT_BGP186#defin
+eRTPROT_ISIS187#defineRTPROT_OSPF188#defineRTPROT_RIP189#defineRTPROT_RIPNG190#i
+f!defined(RTPROT_BABEL)#defineRTPROT_BABEL42#endif#defineRTPROT_NHRP191#defineRT
+PROT_EIGRP192#defineRTPROT_LDP193#defineRTPROT_SHARP194voidrt_netlink_init(void)
+;externintnetlink_mpls_multipath(intcmd,zebra_lsp_t*lsp);externintnetlink_route_
+change(structsockaddr_nl*snl,structnlmsghdr*h,ns_id_tns_id,intstartup);externint
+netlink_route_read(structzebra_ns*zns);externintnetlink_neigh_change(structsocka
+ddr_nl*snl,structnlmsghdr*h,ns_id_tns_id);externintnetlink_macfdb_read(structzeb
+ra_ns*zns);externintnetlink_macfdb_read_for_bridge(structzebra_ns*zns,structinte
+rface*ifp,structinterface*br_if);externintnetlink_neigh_read(structzebra_ns*zns)
+;externintnetlink_neigh_read_for_vlan(structzebra_ns*zns,structinterface*vlan_if
+);#endif/*HAVE_NETLINK*/#endif/*_ZEBRA_RT_NETLINK_H*/

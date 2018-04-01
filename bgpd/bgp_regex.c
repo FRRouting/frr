@@ -1,89 +1,23 @@
-/* AS regular expression routine
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "log.h"
-#include "command.h"
-#include "memory.h"
-#include "queue.h"
-#include "filter.h"
-
-#include "bgpd.h"
-#include "bgp_aspath.h"
-#include "bgp_regex.h"
-
-/* Character `_' has special mean.  It represents [,{}() ] and the
-   beginning of the line(^) and the end of the line ($).
-
-   (^|[,{}() ]|$) */
-
-regex_t *bgp_regcomp(const char *regstr)
-{
-	/* Convert _ character to generic regular expression. */
-	int i, j;
-	int len;
-	int magic = 0;
-	char *magic_str;
-	char magic_regexp[] = "(^|[,{}() ]|$)";
-	int ret;
-	regex_t *regex;
-
-	len = strlen(regstr);
-	for (i = 0; i < len; i++)
-		if (regstr[i] == '_')
-			magic++;
-
-	magic_str = XMALLOC(MTYPE_TMP, len + (14 * magic) + 1);
-
-	for (i = 0, j = 0; i < len; i++) {
-		if (regstr[i] == '_') {
-			memcpy(magic_str + j, magic_regexp,
-			       strlen(magic_regexp));
-			j += strlen(magic_regexp);
-		} else
-			magic_str[j++] = regstr[i];
-	}
-	magic_str[j] = '\0';
-
-	regex = XMALLOC(MTYPE_BGP_REGEXP, sizeof(regex_t));
-
-	ret = regcomp(regex, magic_str, REG_EXTENDED | REG_NOSUB);
-
-	XFREE(MTYPE_TMP, magic_str);
-
-	if (ret != 0) {
-		XFREE(MTYPE_BGP_REGEXP, regex);
-		return NULL;
-	}
-
-	return regex;
-}
-
-int bgp_regexec(regex_t *regex, struct aspath *aspath)
-{
-	return regexec(regex, aspath->str, 0, NULL, 0);
-}
-
-void bgp_regex_free(regex_t *regex)
-{
-	regfree(regex);
-	XFREE(MTYPE_BGP_REGEXP, regex);
-}
+/*ASregularexpressionroutine*Copyright(C)1999KunihiroIshiguro**ThisfileispartofG
+NUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*undertheterm
+softheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversi
+on2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillb
+euseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYor
+FITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yous
+houldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefi
+leCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,B
+oston,MA02110-1301USA*/#include<zebra.h>#include"log.h"#include"command.h"#inclu
+de"memory.h"#include"queue.h"#include"filter.h"#include"bgpd.h"#include"bgp_aspa
+th.h"#include"bgp_regex.h"/*Character`_'hasspecialmean.Itrepresents[,{}()]andthe
+beginningoftheline(^)andtheendoftheline($).(^|[,{}()]|$)*/regex_t*bgp_regcomp(co
+nstchar*regstr){/*Convert_charactertogenericregularexpression.*/inti,j;intlen;in
+tmagic=0;char*magic_str;charmagic_regexp[]="(^|[,{}()]|$)";intret;regex_t*regex;
+len=strlen(regstr);for(i=0;i<len;i++)if(regstr[i]=='_')magic++;magic_str=XMALLOC
+(MTYPE_TMP,len+(14*magic)+1);for(i=0,j=0;i<len;i++){if(regstr[i]=='_'){memcpy(ma
+gic_str+j,magic_regexp,strlen(magic_regexp));j+=strlen(magic_regexp);}elsemagic_
+str[j++]=regstr[i];}magic_str[j]='\0';regex=XMALLOC(MTYPE_BGP_REGEXP,sizeof(rege
+x_t));ret=regcomp(regex,magic_str,REG_EXTENDED|REG_NOSUB);XFREE(MTYPE_TMP,magic_
+str);if(ret!=0){XFREE(MTYPE_BGP_REGEXP,regex);returnNULL;}returnregex;}intbgp_re
+gexec(regex_t*regex,structaspath*aspath){returnregexec(regex,aspath->str,0,NULL,
+0);}voidbgp_regex_free(regex_t*regex){regfree(regex);XFREE(MTYPE_BGP_REGEXP,rege
+x);}

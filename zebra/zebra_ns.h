@@ -1,96 +1,27 @@
-/*
- * Zebra NS header
- * Copyright (C) 2016 Cumulus Networks, Inc.
- *                    Donald Sharp
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#if !defined(__ZEBRA_NS_H__)
-#define __ZEBRA_NS_H__
-
-#include <lib/ns.h>
-#include <lib/vrf.h>
-
-#ifdef HAVE_NETLINK
-/* Socket interface to kernel */
-struct nlsock {
-	int sock;
-	int seq;
-	struct sockaddr_nl snl;
-	char name[64];
-};
-#endif
-
-struct zebra_ns_table {
-	RB_ENTRY(zebra_ns_table) zebra_ns_table_entry;
-
-	uint32_t tableid;
-	afi_t afi;
-
-	struct route_table *table;
-};
-RB_HEAD(zebra_ns_table_head, zebra_ns_table);
-RB_PROTOTYPE(zebra_ns_table_head, zebra_ns_table, zebra_ns_table_entry,
-	     zebra_ns_table_entry_compare)
-
-struct zebra_ns {
-	/* net-ns name.  */
-	char name[VRF_NAMSIZ];
-
-	/* Identifier. */
-	ns_id_t ns_id;
-
-#ifdef HAVE_NETLINK
-	struct nlsock netlink;     /* kernel messages */
-	struct nlsock netlink_cmd; /* command channel */
-	struct thread *t_netlink;
-#endif
-
-	struct route_table *if_table;
-
-	/* L3-VNI hash table (for EVPN). Only in default instance */
-	struct hash *l3vni_table;
-
-#if defined(HAVE_RTADV)
-	struct rtadv rtadv;
-#endif /* HAVE_RTADV */
-
-	struct zebra_ns_table_head ns_tables;
-
-	struct hash *rules_hash;
-
-	/* Back pointer */
-	struct ns *ns;
-};
-
-struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
-
-int zebra_ns_init(void);
-int zebra_ns_enable(ns_id_t ns_id, void **info);
-int zebra_ns_disabled(struct ns *ns);
-int zebra_ns_disable(ns_id_t ns_id, void **info);
-
-extern struct route_table *zebra_ns_find_table(struct zebra_ns *zns,
-					       uint32_t tableid, afi_t afi);
-extern struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
-					      struct zebra_vrf *zvrf,
-					      uint32_t tableid, afi_t afi);
-int zebra_ns_config_write(struct vty *vty, struct ns *ns);
-
-unsigned long zebra_ns_score_proto(uint8_t proto, unsigned short instance);
-void zebra_ns_sweep_route(void);
-#endif
+/**ZebraNSheader*Copyright(C)2016CumulusNetworks,Inc.*DonaldSharp**Thisfileispar
+tofQuagga.**Quaggaisfreesoftware;youcanredistributeitand/ormodifyit*undertheterm
+softheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversi
+on2,or(atyouroption)any*laterversion.**Quaggaisdistributedinthehopethatitwillbeu
+seful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFI
+TNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yousho
+uldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefile
+COPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bos
+ton,MA02110-1301USA*/#if!defined(__ZEBRA_NS_H__)#define__ZEBRA_NS_H__#include<li
+b/ns.h>#include<lib/vrf.h>#ifdefHAVE_NETLINK/*Socketinterfacetokernel*/structnls
+ock{intsock;intseq;structsockaddr_nlsnl;charname[64];};#endifstructzebra_ns_tabl
+e{RB_ENTRY(zebra_ns_table)zebra_ns_table_entry;uint32_ttableid;afi_tafi;structro
+ute_table*table;};RB_HEAD(zebra_ns_table_head,zebra_ns_table);RB_PROTOTYPE(zebra
+_ns_table_head,zebra_ns_table,zebra_ns_table_entry,zebra_ns_table_entry_compare)
+structzebra_ns{/*net-nsname.*/charname[VRF_NAMSIZ];/*Identifier.*/ns_id_tns_id;#
+ifdefHAVE_NETLINKstructnlsocknetlink;/*kernelmessages*/structnlsocknetlink_cmd;/
+*commandchannel*/structthread*t_netlink;#endifstructroute_table*if_table;/*L3-VN
+Ihashtable(forEVPN).Onlyindefaultinstance*/structhash*l3vni_table;#ifdefined(HAV
+E_RTADV)structrtadvrtadv;#endif/*HAVE_RTADV*/structzebra_ns_table_headns_tables;
+structhash*rules_hash;/*Backpointer*/structns*ns;};structzebra_ns*zebra_ns_looku
+p(ns_id_tns_id);intzebra_ns_init(void);intzebra_ns_enable(ns_id_tns_id,void**inf
+o);intzebra_ns_disabled(structns*ns);intzebra_ns_disable(ns_id_tns_id,void**info
+);externstructroute_table*zebra_ns_find_table(structzebra_ns*zns,uint32_ttableid
+,afi_tafi);externstructroute_table*zebra_ns_get_table(structzebra_ns*zns,structz
+ebra_vrf*zvrf,uint32_ttableid,afi_tafi);intzebra_ns_config_write(structvty*vty,s
+tructns*ns);unsignedlongzebra_ns_score_proto(uint8_tproto,unsignedshortinstance)
+;voidzebra_ns_sweep_route(void);#endif

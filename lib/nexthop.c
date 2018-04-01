@@ -1,312 +1,80 @@
-/* A generic nexthop structure
- * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#include <zebra.h>
-
-#include "prefix.h"
-#include "table.h"
-#include "memory.h"
-#include "command.h"
-#include "if.h"
-#include "log.h"
-#include "sockunion.h"
-#include "linklist.h"
-#include "thread.h"
-#include "prefix.h"
-#include "nexthop.h"
-#include "mpls.h"
-
-DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
-DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
-
-/* check if nexthops are same, non-recursive */
-int nexthop_same_no_recurse(const struct nexthop *next1,
-			    const struct nexthop *next2)
-{
-	if (next1->type != next2->type)
-		return 0;
-
-	switch (next1->type) {
-	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (!IPV4_ADDR_SAME(&next1->gate.ipv4, &next2->gate.ipv4))
-			return 0;
-		if (next1->ifindex && (next1->ifindex != next2->ifindex))
-			return 0;
-		break;
-	case NEXTHOP_TYPE_IFINDEX:
-		if (next1->ifindex != next2->ifindex)
-			return 0;
-		break;
-	case NEXTHOP_TYPE_IPV6:
-		if (!IPV6_ADDR_SAME(&next1->gate.ipv6, &next2->gate.ipv6))
-			return 0;
-		break;
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (!IPV6_ADDR_SAME(&next1->gate.ipv6, &next2->gate.ipv6))
-			return 0;
-		if (next1->ifindex != next2->ifindex)
-			return 0;
-		break;
-	default:
-		/* do nothing */
-		break;
-	}
-	return 1;
-}
-
-int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2)
-{
-	int type1 = NEXTHOP_FIRSTHOPTYPE(next1->type);
-	int type2 = NEXTHOP_FIRSTHOPTYPE(next2->type);
-
-	if (type1 != type2)
-		return 0;
-	switch (type1) {
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (!IPV4_ADDR_SAME(&next1->gate.ipv4, &next2->gate.ipv4))
-			return 0;
-		if (next1->ifindex != next2->ifindex)
-			return 0;
-		break;
-	case NEXTHOP_TYPE_IFINDEX:
-		if (next1->ifindex != next2->ifindex)
-			return 0;
-		break;
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (!IPV6_ADDR_SAME(&next1->gate.ipv6, &next2->gate.ipv6))
-			return 0;
-		if (next1->ifindex != next2->ifindex)
-			return 0;
-		break;
-	default:
-		/* do nothing */
-		break;
-	}
-	return 1;
-}
-
-/*
- * nexthop_type_to_str
- */
-const char *nexthop_type_to_str(enum nexthop_types_t nh_type)
-{
-	static const char *desc[] = {
-		"none",		 "Directly connected",
-		"IPv4 nexthop",  "IPv4 nexthop with ifindex",
-		"IPv6 nexthop",  "IPv6 nexthop with ifindex",
-		"Null0 nexthop",
-	};
-
-	return desc[nh_type];
-}
-
-/*
- * Check if the labels match for the 2 nexthops specified.
- */
-int nexthop_labels_match(struct nexthop *nh1, struct nexthop *nh2)
-{
-	struct mpls_label_stack *nhl1, *nhl2;
-
-	nhl1 = nh1->nh_label;
-	nhl2 = nh2->nh_label;
-	if (!nhl1 || !nhl2)
-		return 0;
-
-	if (nhl1->num_labels != nhl2->num_labels)
-		return 0;
-
-	if (memcmp(nhl1->label, nhl2->label, nhl1->num_labels))
-		return 0;
-
-	return 1;
-}
-
-struct nexthop *nexthop_new(void)
-{
-	return XCALLOC(MTYPE_NEXTHOP, sizeof(struct nexthop));
-}
-
-/* Free nexthop. */
-void nexthop_free(struct nexthop *nexthop)
-{
-	nexthop_del_labels(nexthop);
-	if (nexthop->resolved)
-		nexthops_free(nexthop->resolved);
-	XFREE(MTYPE_NEXTHOP, nexthop);
-}
-
-/* Frees a list of nexthops */
-void nexthops_free(struct nexthop *nexthop)
-{
-	struct nexthop *nh, *next;
-
-	for (nh = nexthop; nh; nh = next) {
-		next = nh->next;
-		nexthop_free(nh);
-	}
-}
-
-bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
-{
-	if (nh1 && !nh2)
-		return false;
-
-	if (!nh1 && nh2)
-		return false;
-
-	if (nh1 == nh2)
-		return true;
-
-	if (nh1->vrf_id != nh2->vrf_id)
-		return false;
-
-	if (nh1->type != nh2->type)
-		return false;
-
-	switch (nh1->type) {
-	case NEXTHOP_TYPE_IFINDEX:
-		if (nh1->ifindex != nh2->ifindex)
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV4:
-		if (nh1->gate.ipv4.s_addr != nh2->gate.ipv4.s_addr)
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (nh1->gate.ipv4.s_addr != nh2->gate.ipv4.s_addr)
-			return false;
-		if (nh1->ifindex != nh2->ifindex)
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV6:
-		if (memcmp(&nh1->gate.ipv6, &nh2->gate.ipv6, 16))
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (memcmp(&nh1->gate.ipv6, &nh2->gate.ipv6, 16))
-			return false;
-		if (nh1->ifindex != nh2->ifindex)
-			return false;
-		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
-		if (nh1->bh_type != nh2->bh_type)
-			return false;
-		break;
-	}
-
-	return true;
-}
-
-/* Update nexthop with label information. */
-void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
-			uint8_t num_labels, mpls_label_t *label)
-{
-	struct mpls_label_stack *nh_label;
-	int i;
-
-	nexthop->nh_label_type = type;
-	nh_label = XCALLOC(MTYPE_NH_LABEL,
-			   sizeof(struct mpls_label_stack)
-				   + num_labels * sizeof(mpls_label_t));
-	nh_label->num_labels = num_labels;
-	for (i = 0; i < num_labels; i++)
-		nh_label->label[i] = *(label + i);
-	nexthop->nh_label = nh_label;
-}
-
-/* Free label information of nexthop, if present. */
-void nexthop_del_labels(struct nexthop *nexthop)
-{
-	if (nexthop->nh_label) {
-		XFREE(MTYPE_NH_LABEL, nexthop->nh_label);
-		nexthop->nh_label_type = ZEBRA_LSP_NONE;
-	}
-}
-
-const char *nexthop2str(struct nexthop *nexthop, char *str, int size)
-{
-	switch (nexthop->type) {
-	case NEXTHOP_TYPE_IFINDEX:
-		snprintf(str, size, "if %u", nexthop->ifindex);
-		break;
-	case NEXTHOP_TYPE_IPV4:
-		snprintf(str, size, "%s", inet_ntoa(nexthop->gate.ipv4));
-		break;
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		snprintf(str, size, "%s if %u", inet_ntoa(nexthop->gate.ipv4),
-			 nexthop->ifindex);
-		break;
-	case NEXTHOP_TYPE_IPV6:
-		snprintf(str, size, "%s", inet6_ntoa(nexthop->gate.ipv6));
-		break;
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		snprintf(str, size, "%s if %u", inet6_ntoa(nexthop->gate.ipv6),
-			 nexthop->ifindex);
-		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
-		snprintf(str, size, "blackhole");
-		break;
-	default:
-		snprintf(str, size, "unknown");
-		break;
-	}
-
-	return str;
-}
-
-/*
- * Iteration step for ALL_NEXTHOPS macro:
- * This is the tricky part. Check if `nexthop' has
- * NEXTHOP_FLAG_RECURSIVE set. If yes, this implies that `nexthop' has
- * at least one nexthop attached to `nexthop->resolved', which will be
- * the next one.
- *
- * If NEXTHOP_FLAG_RECURSIVE is not set, `nexthop' will progress in its
- * current chain. In case its current chain end is reached, it will move
- * upwards in the recursion levels and progress there. Whenever a step
- * forward in a chain is done, recursion will be checked again.
- * In a nustshell, it's equivalent to a pre-traversal order assuming that
- * left branch is 'resolved' and right branch is 'next':
- * https://en.wikipedia.org/wiki/Tree_traversal#/media/File:Sorted_binary_tree_preorder.svg
- */
-struct nexthop *nexthop_next(struct nexthop *nexthop)
-{
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-		return nexthop->resolved;
-
-	if (nexthop->next)
-		return nexthop->next;
-
-	for (struct nexthop *par = nexthop->rparent; par; par = par->rparent)
-		if (par->next)
-			return par->next;
-
-	return NULL;
-}
-
-unsigned int nexthop_level(struct nexthop *nexthop)
-{
-	unsigned int rv = 0;
-
-	for (struct nexthop *par = nexthop->rparent; par; par = par->rparent)
-		rv++;
-
-	return rv;
-}
+/*Agenericnexthopstructure*Copyright(C)2013CumulusNetworks,Inc.**Thisfileisparto
+fQuagga.**Quaggaisfreesoftware;youcanredistributeitand/ormodifyit*underthetermso
+ftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion
+2,or(atyouroption)any*laterversion.**Quaggaisdistributedinthehopethatitwillbeuse
+ful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITN
+ESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshoul
+dhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCO
+PYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bosto
+n,MA02110-1301USA*/#include<zebra.h>#include"prefix.h"#include"table.h"#include"
+memory.h"#include"command.h"#include"if.h"#include"log.h"#include"sockunion.h"#i
+nclude"linklist.h"#include"thread.h"#include"prefix.h"#include"nexthop.h"#includ
+e"mpls.h"DEFINE_MTYPE_STATIC(LIB,NEXTHOP,"Nexthop")DEFINE_MTYPE_STATIC(LIB,NH_LA
+BEL,"Nexthoplabel")/*checkifnexthopsaresame,non-recursive*/intnexthop_same_no_re
+curse(conststructnexthop*next1,conststructnexthop*next2){if(next1->type!=next2->
+type)return0;switch(next1->type){caseNEXTHOP_TYPE_IPV4:caseNEXTHOP_TYPE_IPV4_IFI
+NDEX:if(!IPV4_ADDR_SAME(&next1->gate.ipv4,&next2->gate.ipv4))return0;if(next1->i
+findex&&(next1->ifindex!=next2->ifindex))return0;break;caseNEXTHOP_TYPE_IFINDEX:
+if(next1->ifindex!=next2->ifindex)return0;break;caseNEXTHOP_TYPE_IPV6:if(!IPV6_A
+DDR_SAME(&next1->gate.ipv6,&next2->gate.ipv6))return0;break;caseNEXTHOP_TYPE_IPV
+6_IFINDEX:if(!IPV6_ADDR_SAME(&next1->gate.ipv6,&next2->gate.ipv6))return0;if(nex
+t1->ifindex!=next2->ifindex)return0;break;default:/*donothing*/break;}return1;}i
+ntnexthop_same_firsthop(structnexthop*next1,structnexthop*next2){inttype1=NEXTHO
+P_FIRSTHOPTYPE(next1->type);inttype2=NEXTHOP_FIRSTHOPTYPE(next2->type);if(type1!
+=type2)return0;switch(type1){caseNEXTHOP_TYPE_IPV4_IFINDEX:if(!IPV4_ADDR_SAME(&n
+ext1->gate.ipv4,&next2->gate.ipv4))return0;if(next1->ifindex!=next2->ifindex)ret
+urn0;break;caseNEXTHOP_TYPE_IFINDEX:if(next1->ifindex!=next2->ifindex)return0;br
+eak;caseNEXTHOP_TYPE_IPV6_IFINDEX:if(!IPV6_ADDR_SAME(&next1->gate.ipv6,&next2->g
+ate.ipv6))return0;if(next1->ifindex!=next2->ifindex)return0;break;default:/*dono
+thing*/break;}return1;}/**nexthop_type_to_str*/constchar*nexthop_type_to_str(enu
+mnexthop_types_tnh_type){staticconstchar*desc[]={"none","Directlyconnected","IPv
+4nexthop","IPv4nexthopwithifindex","IPv6nexthop","IPv6nexthopwithifindex","Null0
+nexthop",};returndesc[nh_type];}/**Checkifthelabelsmatchforthe2nexthopsspecified
+.*/intnexthop_labels_match(structnexthop*nh1,structnexthop*nh2){structmpls_label
+_stack*nhl1,*nhl2;nhl1=nh1->nh_label;nhl2=nh2->nh_label;if(!nhl1||!nhl2)return0;
+if(nhl1->num_labels!=nhl2->num_labels)return0;if(memcmp(nhl1->label,nhl2->label,
+nhl1->num_labels))return0;return1;}structnexthop*nexthop_new(void){returnXCALLOC
+(MTYPE_NEXTHOP,sizeof(structnexthop));}/*Freenexthop.*/voidnexthop_free(structne
+xthop*nexthop){nexthop_del_labels(nexthop);if(nexthop->resolved)nexthops_free(ne
+xthop->resolved);XFREE(MTYPE_NEXTHOP,nexthop);}/*Freesalistofnexthops*/voidnexth
+ops_free(structnexthop*nexthop){structnexthop*nh,*next;for(nh=nexthop;nh;nh=next
+){next=nh->next;nexthop_free(nh);}}boolnexthop_same(conststructnexthop*nh1,const
+structnexthop*nh2){if(nh1&&!nh2)returnfalse;if(!nh1&&nh2)returnfalse;if(nh1==nh2
+)returntrue;if(nh1->vrf_id!=nh2->vrf_id)returnfalse;if(nh1->type!=nh2->type)retu
+rnfalse;switch(nh1->type){caseNEXTHOP_TYPE_IFINDEX:if(nh1->ifindex!=nh2->ifindex
+)returnfalse;break;caseNEXTHOP_TYPE_IPV4:if(nh1->gate.ipv4.s_addr!=nh2->gate.ipv
+4.s_addr)returnfalse;break;caseNEXTHOP_TYPE_IPV4_IFINDEX:if(nh1->gate.ipv4.s_add
+r!=nh2->gate.ipv4.s_addr)returnfalse;if(nh1->ifindex!=nh2->ifindex)returnfalse;b
+reak;caseNEXTHOP_TYPE_IPV6:if(memcmp(&nh1->gate.ipv6,&nh2->gate.ipv6,16))returnf
+alse;break;caseNEXTHOP_TYPE_IPV6_IFINDEX:if(memcmp(&nh1->gate.ipv6,&nh2->gate.ip
+v6,16))returnfalse;if(nh1->ifindex!=nh2->ifindex)returnfalse;break;caseNEXTHOP_T
+YPE_BLACKHOLE:if(nh1->bh_type!=nh2->bh_type)returnfalse;break;}returntrue;}/*Upd
+atenexthopwithlabelinformation.*/voidnexthop_add_labels(structnexthop*nexthop,en
+umlsp_types_ttype,uint8_tnum_labels,mpls_label_t*label){structmpls_label_stack*n
+h_label;inti;nexthop->nh_label_type=type;nh_label=XCALLOC(MTYPE_NH_LABEL,sizeof(
+structmpls_label_stack)+num_labels*sizeof(mpls_label_t));nh_label->num_labels=nu
+m_labels;for(i=0;i<num_labels;i++)nh_label->label[i]=*(label+i);nexthop->nh_labe
+l=nh_label;}/*Freelabelinformationofnexthop,ifpresent.*/voidnexthop_del_labels(s
+tructnexthop*nexthop){if(nexthop->nh_label){XFREE(MTYPE_NH_LABEL,nexthop->nh_lab
+el);nexthop->nh_label_type=ZEBRA_LSP_NONE;}}constchar*nexthop2str(structnexthop*
+nexthop,char*str,intsize){switch(nexthop->type){caseNEXTHOP_TYPE_IFINDEX:snprint
+f(str,size,"if%u",nexthop->ifindex);break;caseNEXTHOP_TYPE_IPV4:snprintf(str,siz
+e,"%s",inet_ntoa(nexthop->gate.ipv4));break;caseNEXTHOP_TYPE_IPV4_IFINDEX:snprin
+tf(str,size,"%sif%u",inet_ntoa(nexthop->gate.ipv4),nexthop->ifindex);break;caseN
+EXTHOP_TYPE_IPV6:snprintf(str,size,"%s",inet6_ntoa(nexthop->gate.ipv6));break;ca
+seNEXTHOP_TYPE_IPV6_IFINDEX:snprintf(str,size,"%sif%u",inet6_ntoa(nexthop->gate.
+ipv6),nexthop->ifindex);break;caseNEXTHOP_TYPE_BLACKHOLE:snprintf(str,size,"blac
+khole");break;default:snprintf(str,size,"unknown");break;}returnstr;}/**Iteratio
+nstepforALL_NEXTHOPSmacro:*Thisisthetrickypart.Checkif`nexthop'has*NEXTHOP_FLAG_
+RECURSIVEset.Ifyes,thisimpliesthat`nexthop'has*atleastonenexthopattachedto`nexth
+op->resolved',whichwillbe*thenextone.**IfNEXTHOP_FLAG_RECURSIVEisnotset,`nexthop
+'willprogressinits*currentchain.Incaseitscurrentchainendisreached,itwillmove*upw
+ardsintherecursionlevelsandprogressthere.Wheneverastep*forwardinachainisdone,rec
+ursionwillbecheckedagain.*Inanustshell,it'sequivalenttoapre-traversalorderassumi
+ngthat*leftbranchis'resolved'andrightbranchis'next':*https://en.wikipedia.org/wi
+ki/Tree_traversal#/media/File:Sorted_binary_tree_preorder.svg*/structnexthop*nex
+thop_next(structnexthop*nexthop){if(CHECK_FLAG(nexthop->flags,NEXTHOP_FLAG_RECUR
+SIVE))returnnexthop->resolved;if(nexthop->next)returnnexthop->next;for(structnex
+thop*par=nexthop->rparent;par;par=par->rparent)if(par->next)returnpar->next;retu
+rnNULL;}unsignedintnexthop_level(structnexthop*nexthop){unsignedintrv=0;for(stru
+ctnexthop*par=nexthop->rparent;par;par=par->rparent)rv++;returnrv;}

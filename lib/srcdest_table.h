@@ -1,94 +1,33 @@
-/*
- * SRC-DEST Routing Table
- *
- * Copyright (C) 2017 by David Lamparter & Christian Franke,
- *                       Open Source Routing / NetDEF Inc.
- *
- * This file is part of FreeRangeRouting (FRR)
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_SRC_DEST_TABLE_H
-#define _ZEBRA_SRC_DEST_TABLE_H
-
-/* old/IPv4/non-srcdest:
- * table -> route_node .info -> [obj]
- *
- * new/IPv6/srcdest:
- * table -...-> srcdest_rnode [prefix = dest] .info -> [obj]
- *                                            .src_table ->
- *         srcdest table -...-> route_node [prefix = src] .info -> [obj]
- *
- * non-srcdest routes (src = ::/0) are treated just like before, their
- * information being directly there in the info pointer.
- *
- * srcdest routes are found by looking up destination first, then looking
- * up the source in the "src_table".  src_table contains normal route_nodes,
- * whose prefix is the _source_ prefix.
- *
- * NB: info can be NULL on the destination rnode, if there are only srcdest
- * routes for a particular destination prefix.
- */
-
-#include "prefix.h"
-#include "table.h"
-
-#define SRCDEST2STR_BUFFER (2*PREFIX2STR_BUFFER + sizeof(" from "))
-
-/* extended route node for IPv6 srcdest routing */
-struct srcdest_rnode;
-
-extern route_table_delegate_t _srcdest_dstnode_delegate;
-extern route_table_delegate_t _srcdest_srcnode_delegate;
-
-extern struct route_table *srcdest_table_init(void);
-extern struct route_node *srcdest_rnode_get(struct route_table *table,
-					    union prefixptr dst_pu,
-					    struct prefix_ipv6 *src_p);
-extern struct route_node *srcdest_rnode_lookup(struct route_table *table,
-					       union prefixptr dst_pu,
-					       struct prefix_ipv6 *src_p);
-extern void srcdest_rnode_prefixes(struct route_node *rn, struct prefix **p,
-				   struct prefix **src_p);
-extern const char *srcdest_rnode2str(struct route_node *rn, char *str,
-				     int size);
-extern struct route_node *srcdest_route_next(struct route_node *rn);
-
-static inline int rnode_is_dstnode(struct route_node *rn)
-{
-	return rn->table->delegate == &_srcdest_dstnode_delegate;
-}
-
-static inline int rnode_is_srcnode(struct route_node *rn)
-{
-	return rn->table->delegate == &_srcdest_srcnode_delegate;
-}
-
-static inline struct route_table *srcdest_rnode_table(struct route_node *rn)
-{
-	if (rnode_is_srcnode(rn)) {
-		struct route_node *dst_rn = rn->table->info;
-		return dst_rn->table;
-	} else {
-		return rn->table;
-	}
-}
-static inline void *srcdest_rnode_table_info(struct route_node *rn)
-{
-	return srcdest_rnode_table(rn)->info;
-}
-
-#endif /* _ZEBRA_SRC_DEST_TABLE_H */
+/**SRC-DESTRoutingTable**Copyright(C)2017byDavidLamparter&ChristianFranke,*OpenS
+ourceRouting/NetDEFInc.**ThisfileispartofFreeRangeRouting(FRR)**FRRisfreesoftwar
+e;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseas
+publishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*laterve
+rsion.**FRRisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;witho
+uteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheG
+NU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGenera
+lPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftwa
+re*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA
+_SRC_DEST_TABLE_H#define_ZEBRA_SRC_DEST_TABLE_H/*old/IPv4/non-srcdest:*table->ro
+ute_node.info->[obj]**new/IPv6/srcdest:*table-...->srcdest_rnode[prefix=dest].in
+fo->[obj]*.src_table->*srcdesttable-...->route_node[prefix=src].info->[obj]**non
+-srcdestroutes(src=::/0)aretreatedjustlikebefore,their*informationbeingdirectlyt
+hereintheinfopointer.**srcdestroutesarefoundbylookingupdestinationfirst,thenlook
+ing*upthesourceinthe"src_table".src_tablecontainsnormalroute_nodes,*whoseprefixi
+sthe_source_prefix.**NB:infocanbeNULLonthedestinationrnode,ifthereareonlysrcdest
+*routesforaparticulardestinationprefix.*/#include"prefix.h"#include"table.h"#def
+ineSRCDEST2STR_BUFFER(2*PREFIX2STR_BUFFER+sizeof("from"))/*extendedroutenodeforI
+Pv6srcdestrouting*/structsrcdest_rnode;externroute_table_delegate_t_srcdest_dstn
+ode_delegate;externroute_table_delegate_t_srcdest_srcnode_delegate;externstructr
+oute_table*srcdest_table_init(void);externstructroute_node*srcdest_rnode_get(str
+uctroute_table*table,unionprefixptrdst_pu,structprefix_ipv6*src_p);externstructr
+oute_node*srcdest_rnode_lookup(structroute_table*table,unionprefixptrdst_pu,stru
+ctprefix_ipv6*src_p);externvoidsrcdest_rnode_prefixes(structroute_node*rn,struct
+prefix**p,structprefix**src_p);externconstchar*srcdest_rnode2str(structroute_nod
+e*rn,char*str,intsize);externstructroute_node*srcdest_route_next(structroute_nod
+e*rn);staticinlineintrnode_is_dstnode(structroute_node*rn){returnrn->table->dele
+gate==&_srcdest_dstnode_delegate;}staticinlineintrnode_is_srcnode(structroute_no
+de*rn){returnrn->table->delegate==&_srcdest_srcnode_delegate;}staticinlinestruct
+route_table*srcdest_rnode_table(structroute_node*rn){if(rnode_is_srcnode(rn)){st
+ructroute_node*dst_rn=rn->table->info;returndst_rn->table;}else{returnrn->table;
+}}staticinlinevoid*srcdest_rnode_table_info(structroute_node*rn){returnsrcdest_r
+node_table(rn)->info;}#endif/*_ZEBRA_SRC_DEST_TABLE_H*/

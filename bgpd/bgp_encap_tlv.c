@@ -1,1005 +1,270 @@
-/*
- * Copyright 2015, LabN Consulting, L.L.C.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "command.h"
-#include "memory.h"
-#include "prefix.h"
-#include "filter.h"
-#include "stream.h"
-
-#include "bgpd.h"
-#include "bgp_attr.h"
-
-#include "bgp_encap_types.h"
-#include "bgp_encap_tlv.h"
-
-/***********************************************************************
- *			SUBTLV ENCODE
- ***********************************************************************/
-
-/* rfc5512 4.1 */
-static struct bgp_attr_encap_subtlv *subtlv_encode_encap_l2tpv3_over_ip(
-	struct bgp_tea_subtlv_encap_l2tpv3_over_ip *st)
-{
-	struct bgp_attr_encap_subtlv *new;
-	uint8_t *p;
-	int total = 4 + st->cookie_length;
-
-	/* sanity check */
-	assert(st->cookie_length <= sizeof(st->cookie));
-	assert(total <= 0xff);
-
-	new = XCALLOC(MTYPE_ENCAP_TLV,
-		      sizeof(struct bgp_attr_encap_subtlv) + total);
-	assert(new);
-	new->type = BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION;
-	new->length = total;
-	p = new->value;
-
-	*p++ = (st->sessionid & 0xff000000) >> 24;
-	*p++ = (st->sessionid & 0xff0000) >> 16;
-	*p++ = (st->sessionid & 0xff00) >> 8;
-	*p++ = (st->sessionid & 0xff);
-	memcpy(p, st->cookie, st->cookie_length);
-	return new;
-}
-
-/* rfc5512 4.1 */
-static struct bgp_attr_encap_subtlv *
-subtlv_encode_encap_gre(struct bgp_tea_subtlv_encap_gre_key *st)
-{
-	struct bgp_attr_encap_subtlv *new;
-	uint8_t *p;
-	int total = 4;
-
-	assert(total <= 0xff);
-
-	new = XCALLOC(MTYPE_ENCAP_TLV,
-		      sizeof(struct bgp_attr_encap_subtlv) + total);
-	assert(new);
-	new->type = BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION;
-	new->length = total;
-	p = new->value;
-
-	*p++ = (st->gre_key & 0xff000000) >> 24;
-	*p++ = (st->gre_key & 0xff0000) >> 16;
-	*p++ = (st->gre_key & 0xff00) >> 8;
-	*p++ = (st->gre_key & 0xff);
-	return new;
-}
-
-static struct bgp_attr_encap_subtlv *
-subtlv_encode_encap_pbb(struct bgp_tea_subtlv_encap_pbb *st)
-{
-	struct bgp_attr_encap_subtlv *new;
-	uint8_t *p;
-	int total = 1 + 3 + 6 + 2; /* flags + isid + madaddr + vid */
-
-	assert(total <= 0xff);
-
-	new = XCALLOC(MTYPE_ENCAP_TLV,
-		      sizeof(struct bgp_attr_encap_subtlv) + total);
-	assert(new);
-	new->type = BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION;
-	new->length = total;
-	p = new->value;
-
-	*p++ = (st->flag_isid ? 0x80 : 0) | (st->flag_vid ? 0x40 : 0) | 0;
-	if (st->flag_isid) {
-		*p = (st->isid & 0xff0000) >> 16;
-		*(p + 1) = (st->isid & 0xff00) >> 8;
-		*(p + 2) = (st->isid & 0xff);
-	}
-	p += 3;
-	memcpy(p, st->macaddr, 6);
-	p += 6;
-	if (st->flag_vid) {
-		*p++ = (st->vid & 0xf00) >> 8;
-		*p++ = st->vid & 0xff;
-	}
-	return new;
-}
-
-/* rfc5512 4.2 */
-static struct bgp_attr_encap_subtlv *
-subtlv_encode_proto_type(struct bgp_tea_subtlv_proto_type *st)
-{
-	struct bgp_attr_encap_subtlv *new;
-	uint8_t *p;
-	int total = 2;
-
-	assert(total <= 0xff);
-
-	new = XCALLOC(MTYPE_ENCAP_TLV,
-		      sizeof(struct bgp_attr_encap_subtlv) + total);
-	assert(new);
-	new->type = BGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE;
-	new->length = total;
-	p = new->value;
-
-	*p++ = (st->proto & 0xff00) >> 8;
-	*p++ = (st->proto & 0xff);
-	return new;
-}
-
-/* rfc5512 4.3 */
-static struct bgp_attr_encap_subtlv *
-subtlv_encode_color(struct bgp_tea_subtlv_color *st)
-{
-	struct bgp_attr_encap_subtlv *new;
-	uint8_t *p;
-	int total = 8;
-
-	assert(total <= 0xff);
-
-	new = XCALLOC(MTYPE_ENCAP_TLV,
-		      sizeof(struct bgp_attr_encap_subtlv) + total);
-	assert(new);
-	new->type = BGP_ENCAP_SUBTLV_TYPE_COLOR;
-	new->length = total;
-	p = new->value;
-
-	*p++ = 0x03; /* transitive*/
-	*p++ = 0x0b;
-	*p++ = 0; /* reserved */
-	*p++ = 0; /* reserved */
-
-	*p++ = (st->color & 0xff000000) >> 24;
-	*p++ = (st->color & 0xff0000) >> 16;
-	*p++ = (st->color & 0xff00) >> 8;
-	*p++ = (st->color & 0xff);
-
-	return new;
-}
-
-/* rfc 5566 4. */
-static struct bgp_attr_encap_subtlv *
-subtlv_encode_ipsec_ta(struct bgp_tea_subtlv_ipsec_ta *st)
-{
-	struct bgp_attr_encap_subtlv *new;
-	uint8_t *p;
-	int total = 2 + st->authenticator_length;
-
-	/* sanity check */
-	assert(st->authenticator_length <= sizeof(st->value));
-	assert(total <= 0xff);
-
-	new = XCALLOC(MTYPE_ENCAP_TLV,
-		      sizeof(struct bgp_attr_encap_subtlv) + total);
-	assert(new);
-	new->type = BGP_ENCAP_SUBTLV_TYPE_IPSEC_TA;
-	new->length = total;
-	p = new->value;
-
-	*p++ = (st->authenticator_type & 0xff00) >> 8;
-	*p++ = st->authenticator_type & 0xff;
-	memcpy(p, st->value, st->authenticator_length);
-	return new;
-}
-
-/* draft-rosen-idr-tunnel-encaps 2.1 */
-static struct bgp_attr_encap_subtlv *
-subtlv_encode_remote_endpoint(struct bgp_tea_subtlv_remote_endpoint *st)
-{
-	struct bgp_attr_encap_subtlv *new;
-	uint8_t *p;
-
-	int total = (st->family == AF_INET ? 8 : 20);
-
-	assert(total <= 0xff);
-
-	new = XCALLOC(MTYPE_ENCAP_TLV,
-		      sizeof(struct bgp_attr_encap_subtlv) + total);
-	assert(new);
-	new->type = BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT;
-	new->length = total;
-	p = new->value;
-	if (st->family == AF_INET) {
-		memcpy(p, &(st->ip_address.v4.s_addr), 4);
-		p += 4;
-	} else {
-		assert(st->family == AF_INET6);
-		memcpy(p, &(st->ip_address.v6.s6_addr), 16);
-		p += 16;
-	}
-	memcpy(p, &(st->as4), 4);
-	return new;
-}
-
-/***********************************************************************
- *		TUNNEL TYPE-SPECIFIC TLV ENCODE
- ***********************************************************************/
-
-/*
- * requires "extra" and "last" to be defined in caller
- */
-#define ENC_SUBTLV(flag, function, field)                                      \
-	do {                                                                   \
-		struct bgp_attr_encap_subtlv *new;                             \
-		if (CHECK_FLAG(bet->valid_subtlvs, (flag))) {                  \
-			new = function(&bet->field);                           \
-			if (last) {                                            \
-				last->next = new;                              \
-			} else {                                               \
-				attr->encap_subtlvs = new;                     \
-			}                                                      \
-			last = new;                                            \
-		}                                                              \
-	} while (0)
-
-void bgp_encap_type_l2tpv3overip_to_tlv(
-	struct bgp_encap_type_l2tpv3_over_ip *bet, /* input structure */
-	struct attr *attr)
-{
-	struct bgp_attr_encap_subtlv *last;
-
-	/* advance to last subtlv */
-	for (last = attr->encap_subtlvs; last && last->next; last = last->next)
-		;
-
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_L2TPV3_OVER_IP;
-
-	assert(CHECK_FLAG(bet->valid_subtlvs, BGP_TEA_SUBTLV_ENCAP));
-
-	ENC_SUBTLV(BGP_TEA_SUBTLV_ENCAP, subtlv_encode_encap_l2tpv3_over_ip,
-		   st_encap);
-	ENC_SUBTLV(BGP_TEA_SUBTLV_PROTO_TYPE, subtlv_encode_proto_type,
-		   st_proto);
-	ENC_SUBTLV(BGP_TEA_SUBTLV_COLOR, subtlv_encode_color, st_color);
-	ENC_SUBTLV(BGP_TEA_SUBTLV_REMOTE_ENDPOINT,
-		   subtlv_encode_remote_endpoint, st_endpoint);
-}
-
-void bgp_encap_type_gre_to_tlv(
-	struct bgp_encap_type_gre *bet, /* input structure */
-	struct attr *attr)
-{
-	struct bgp_attr_encap_subtlv *last;
-
-	/* advance to last subtlv */
-	for (last = attr->encap_subtlvs; last && last->next; last = last->next)
-		;
-
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_GRE;
-
-	ENC_SUBTLV(BGP_TEA_SUBTLV_ENCAP, subtlv_encode_encap_gre, st_encap);
-	ENC_SUBTLV(BGP_TEA_SUBTLV_PROTO_TYPE, subtlv_encode_proto_type,
-		   st_proto);
-	ENC_SUBTLV(BGP_TEA_SUBTLV_COLOR, subtlv_encode_color, st_color);
-	ENC_SUBTLV(BGP_TEA_SUBTLV_REMOTE_ENDPOINT,
-		   subtlv_encode_remote_endpoint, st_endpoint);
-}
-
-void bgp_encap_type_ip_in_ip_to_tlv(
-	struct bgp_encap_type_ip_in_ip *bet, /* input structure */
-	struct attr *attr)
-{
-	struct bgp_attr_encap_subtlv *last;
-
-	/* advance to last subtlv */
-	for (last = attr->encap_subtlvs; last && last->next; last = last->next)
-		;
-
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_IP_IN_IP;
-
-	ENC_SUBTLV(BGP_TEA_SUBTLV_PROTO_TYPE, subtlv_encode_proto_type,
-		   st_proto);
-	ENC_SUBTLV(BGP_TEA_SUBTLV_COLOR, subtlv_encode_color, st_color);
-	ENC_SUBTLV(BGP_TEA_SUBTLV_REMOTE_ENDPOINT,
-		   subtlv_encode_remote_endpoint, st_endpoint);
-}
-
-void bgp_encap_type_transmit_tunnel_endpoint(
-	struct bgp_encap_type_transmit_tunnel_endpoint
-		*bet, /* input structure */
-	struct attr *attr)
-{
-	struct bgp_attr_encap_subtlv *last;
-
-	/* advance to last subtlv */
-	for (last = attr->encap_subtlvs; last && last->next; last = last->next)
-		;
-
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_TRANSMIT_TUNNEL_ENDPOINT;
-
-	/* no subtlvs for this type */
-}
-
-void bgp_encap_type_ipsec_in_tunnel_mode_to_tlv(
-	struct bgp_encap_type_ipsec_in_tunnel_mode *bet, /* input structure */
-	struct attr *attr)
-{
-	struct bgp_attr_encap_subtlv *last;
-
-	/* advance to last subtlv */
-	for (last = attr->encap_subtlvs; last && last->next; last = last->next)
-		;
-
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_IPSEC_IN_TUNNEL_MODE;
-
-	ENC_SUBTLV(BGP_TEA_SUBTLV_IPSEC_TA, subtlv_encode_ipsec_ta,
-		   st_ipsec_ta);
-}
-
-void bgp_encap_type_ip_in_ip_tunnel_with_ipsec_transport_mode_to_tlv(
-	struct bgp_encap_type_ip_in_ip_tunnel_with_ipsec_transport_mode
-		*bet, /* input structure */
-	struct attr *attr)
-{
-	struct bgp_attr_encap_subtlv *last;
-
-	/* advance to last subtlv */
-	for (last = attr->encap_subtlvs; last && last->next; last = last->next)
-		;
-
-	attr->encap_tunneltype =
-		BGP_ENCAP_TYPE_IP_IN_IP_TUNNEL_WITH_IPSEC_TRANSPORT_MODE;
-
-	ENC_SUBTLV(BGP_TEA_SUBTLV_IPSEC_TA, subtlv_encode_ipsec_ta,
-		   st_ipsec_ta);
-}
-
-void bgp_encap_type_mpls_in_ip_tunnel_with_ipsec_transport_mode_to_tlv(
-	struct bgp_encap_type_mpls_in_ip_tunnel_with_ipsec_transport_mode
-		*bet, /* input structure */
-	struct attr *attr)
-{
-	struct bgp_attr_encap_subtlv *last;
-
-	/* advance to last subtlv */
-	for (last = attr->encap_subtlvs; last && last->next; last = last->next)
-		;
-
-	attr->encap_tunneltype =
-		BGP_ENCAP_TYPE_MPLS_IN_IP_TUNNEL_WITH_IPSEC_TRANSPORT_MODE;
-
-	ENC_SUBTLV(BGP_TEA_SUBTLV_IPSEC_TA, subtlv_encode_ipsec_ta,
-		   st_ipsec_ta);
-}
-
-void bgp_encap_type_pbb_to_tlv(
-	struct bgp_encap_type_pbb *bet, /* input structure */
-	struct attr *attr)
-{
-	struct bgp_attr_encap_subtlv *last;
-
-	/* advance to last subtlv */
-	for (last = attr->encap_subtlvs; last && last->next; last = last->next)
-		;
-
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_PBB;
-
-	assert(CHECK_FLAG(bet->valid_subtlvs, BGP_TEA_SUBTLV_ENCAP));
-	ENC_SUBTLV(BGP_TEA_SUBTLV_ENCAP, subtlv_encode_encap_pbb, st_encap);
-}
-
-void bgp_encap_type_vxlan_to_tlv(
-	struct bgp_encap_type_vxlan *bet, /* input structure */
-	struct attr *attr)
-{
-	struct bgp_attr_encap_subtlv *tlv;
-	uint32_t vnid;
-
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_VXLAN;
-
-	if (bet == NULL || !bet->vnid)
-		return;
-	if (attr->encap_subtlvs)
-		XFREE(MTYPE_ENCAP_TLV, attr->encap_subtlvs);
-	tlv = XCALLOC(MTYPE_ENCAP_TLV,
-		      sizeof(struct bgp_attr_encap_subtlv) + 12);
-	tlv->type = 1; /* encapsulation type */
-	tlv->length = 12;
-	if (bet->vnid) {
-		vnid = htonl(bet->vnid | VXLAN_ENCAP_MASK_VNID_VALID);
-		memcpy(&tlv->value, &vnid, 4);
-	}
-	if (bet->mac_address) {
-		char *ptr = (char *)&tlv->value + 4;
-		memcpy(ptr, bet->mac_address, 6);
-	}
-	attr->encap_subtlvs = tlv;
-	return;
-}
-
-void bgp_encap_type_nvgre_to_tlv(
-	struct bgp_encap_type_nvgre *bet, /* input structure */
-	struct attr *attr)
-{
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_NVGRE;
-}
-
-void bgp_encap_type_mpls_to_tlv(
-	struct bgp_encap_type_mpls *bet, /* input structure */
-	struct attr *attr)
-{
-	return; /* no encap attribute for MPLS */
-}
-
-void bgp_encap_type_mpls_in_gre_to_tlv(
-	struct bgp_encap_type_mpls_in_gre *bet, /* input structure */
-	struct attr *attr)
-{
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_MPLS_IN_GRE;
-}
-
-void bgp_encap_type_vxlan_gpe_to_tlv(
-	struct bgp_encap_type_vxlan_gpe *bet, /* input structure */
-	struct attr *attr)
-{
-
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_VXLAN_GPE;
-}
-
-void bgp_encap_type_mpls_in_udp_to_tlv(
-	struct bgp_encap_type_mpls_in_udp *bet, /* input structure */
-	struct attr *attr)
-{
-
-	attr->encap_tunneltype = BGP_ENCAP_TYPE_MPLS_IN_UDP;
-}
-
-
-/***********************************************************************
- *			SUBTLV DECODE
- ***********************************************************************/
-/* rfc5512 4.1 */
-static int subtlv_decode_encap_l2tpv3_over_ip(
-	struct bgp_attr_encap_subtlv *subtlv,
-	struct bgp_tea_subtlv_encap_l2tpv3_over_ip *st)
-{
-	if (subtlv->length < 4) {
-		zlog_debug("%s, subtlv length %d is less than 4", __func__,
-			   subtlv->length);
-		return -1;
-	}
-
-	ptr_get_be32(subtlv->value, &st->sessionid);
-	st->cookie_length = subtlv->length - 4;
-	if (st->cookie_length > sizeof(st->cookie)) {
-		zlog_debug("%s, subtlv length %d is greater than %d", __func__,
-			   st->cookie_length, (int)sizeof(st->cookie));
-		return -1;
-	}
-	memcpy(st->cookie, subtlv->value + 4, st->cookie_length);
-	return 0;
-}
-
-/* rfc5512 4.1 */
-static int subtlv_decode_encap_gre(struct bgp_attr_encap_subtlv *subtlv,
-				   struct bgp_tea_subtlv_encap_gre_key *st)
-{
-	if (subtlv->length != 4) {
-		zlog_debug("%s, subtlv length %d does not equal 4", __func__,
-			   subtlv->length);
-		return -1;
-	}
-	ptr_get_be32(subtlv->value, &st->gre_key);
-	return 0;
-}
-
-static int subtlv_decode_encap_pbb(struct bgp_attr_encap_subtlv *subtlv,
-				   struct bgp_tea_subtlv_encap_pbb *st)
-{
-	if (subtlv->length != 1 + 3 + 6 + 2) {
-		zlog_debug("%s, subtlv length %d does not equal %d", __func__,
-			   subtlv->length, 1 + 3 + 6 + 2);
-		return -1;
-	}
-	if (subtlv->value[0] & 0x80) {
-		st->flag_isid = 1;
-		st->isid = (subtlv->value[1] << 16) | (subtlv->value[2] << 8)
-			   | subtlv->value[3];
-	}
-	if (subtlv->value[0] & 0x40) {
-		st->flag_vid = 1;
-		st->vid = ((subtlv->value[10] & 0x0f) << 8) | subtlv->value[11];
-	}
-	memcpy(st->macaddr, subtlv->value + 4, 6);
-	return 0;
-}
-
-/* rfc5512 4.2 */
-static int subtlv_decode_proto_type(struct bgp_attr_encap_subtlv *subtlv,
-				    struct bgp_tea_subtlv_proto_type *st)
-{
-	if (subtlv->length != 2) {
-		zlog_debug("%s, subtlv length %d does not equal 2", __func__,
-			   subtlv->length);
-		return -1;
-	}
-	st->proto = (subtlv->value[0] << 8) | subtlv->value[1];
-	return 0;
-}
-
-/* rfc5512 4.3 */
-static int subtlv_decode_color(struct bgp_attr_encap_subtlv *subtlv,
-			       struct bgp_tea_subtlv_color *st)
-{
-	if (subtlv->length != 8) {
-		zlog_debug("%s, subtlv length %d does not equal 8", __func__,
-			   subtlv->length);
-		return -1;
-	}
-	if ((subtlv->value[0] != 0x03) || (subtlv->value[1] != 0x0b)
-	    || (subtlv->value[2] != 0) || (subtlv->value[3] != 0)) {
-		zlog_debug("%s, subtlv value 1st 4 bytes are not 0x030b0000",
-			   __func__);
-		return -1;
-	}
-	ptr_get_be32(subtlv->value + 4, &st->color);
-	return 0;
-}
-
-/* rfc 5566 4. */
-static int subtlv_decode_ipsec_ta(struct bgp_attr_encap_subtlv *subtlv,
-				  struct bgp_tea_subtlv_ipsec_ta *st)
-{
-	st->authenticator_length = subtlv->length - 2;
-	if (st->authenticator_length > sizeof(st->value)) {
-		zlog_debug(
-			"%s, authenticator length %d exceeds storage maximum %d",
-			__func__, st->authenticator_length,
-			(int)sizeof(st->value));
-		return -1;
-	}
-	st->authenticator_type = (subtlv->value[0] << 8) | subtlv->value[1];
-	memcpy(st->value, subtlv->value + 2, st->authenticator_length);
-	return 0;
-}
-
-/* draft-rosen-idr-tunnel-encaps 2.1 */
-static int
-subtlv_decode_remote_endpoint(struct bgp_attr_encap_subtlv *subtlv,
-			      struct bgp_tea_subtlv_remote_endpoint *st)
-{
-	int i;
-	if (subtlv->length != 8 && subtlv->length != 20) {
-		zlog_debug("%s, subtlv length %d does not equal 8 or 20",
-			   __func__, subtlv->length);
-		return -1;
-	}
-	if (subtlv->length == 8) {
-		st->family = AF_INET;
-		memcpy(&st->ip_address.v4.s_addr, subtlv->value, 4);
-	} else {
-		st->family = AF_INET6;
-		memcpy(&(st->ip_address.v6.s6_addr), subtlv->value, 16);
-	}
-	i = subtlv->length - 4;
-	ptr_get_be32(subtlv->value + i, &st->as4);
-	return 0;
-}
-
-/***********************************************************************
- *		TUNNEL TYPE-SPECIFIC TLV DECODE
- ***********************************************************************/
-
-int tlv_to_bgp_encap_type_l2tpv3overip(
-	struct bgp_attr_encap_subtlv *stlv,	/* subtlv chain */
-	struct bgp_encap_type_l2tpv3_over_ip *bet) /* caller-allocated */
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-		case BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION:
-			rc |= subtlv_decode_encap_l2tpv3_over_ip(
-				st, &bet->st_encap);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_ENCAP);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE:
-			rc |= subtlv_decode_proto_type(st, &bet->st_proto);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_PROTO_TYPE);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_COLOR:
-			rc |= subtlv_decode_color(st, &bet->st_color);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_COLOR);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_gre(
-	struct bgp_attr_encap_subtlv *stlv, /* subtlv chain */
-	struct bgp_encap_type_gre *bet)     /* caller-allocated */
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-		case BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION:
-			rc |= subtlv_decode_encap_gre(st, &bet->st_encap);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_ENCAP);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE:
-			rc |= subtlv_decode_proto_type(st, &bet->st_proto);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_PROTO_TYPE);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_COLOR:
-			rc |= subtlv_decode_color(st, &bet->st_color);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_COLOR);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_ip_in_ip(
-	struct bgp_attr_encap_subtlv *stlv,  /* subtlv chain */
-	struct bgp_encap_type_ip_in_ip *bet) /* caller-allocated */
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-		case BGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE:
-			rc |= subtlv_decode_proto_type(st, &bet->st_proto);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_PROTO_TYPE);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_COLOR:
-			rc |= subtlv_decode_color(st, &bet->st_color);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_COLOR);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_transmit_tunnel_endpoint(
-	struct bgp_attr_encap_subtlv *stlv,
-	struct bgp_encap_type_transmit_tunnel_endpoint *bet)
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_ipsec_in_tunnel_mode(
-	struct bgp_attr_encap_subtlv *stlv,		 /* subtlv chain */
-	struct bgp_encap_type_ipsec_in_tunnel_mode *bet) /* caller-allocated */
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-		case BGP_ENCAP_SUBTLV_TYPE_IPSEC_TA:
-			rc |= subtlv_decode_ipsec_ta(st, &bet->st_ipsec_ta);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_IPSEC_TA);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_ip_in_ip_tunnel_with_ipsec_transport_mode(
-	struct bgp_attr_encap_subtlv *stlv,
-	struct bgp_encap_type_ip_in_ip_tunnel_with_ipsec_transport_mode *bet)
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-		case BGP_ENCAP_SUBTLV_TYPE_IPSEC_TA:
-			rc |= subtlv_decode_ipsec_ta(st, &bet->st_ipsec_ta);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_IPSEC_TA);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_mpls_in_ip_tunnel_with_ipsec_transport_mode(
-	struct bgp_attr_encap_subtlv *stlv,
-	struct bgp_encap_type_mpls_in_ip_tunnel_with_ipsec_transport_mode *bet)
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-		case BGP_ENCAP_SUBTLV_TYPE_IPSEC_TA:
-			rc |= subtlv_decode_ipsec_ta(st, &bet->st_ipsec_ta);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_IPSEC_TA);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_vxlan(struct bgp_attr_encap_subtlv *stlv,
-				struct bgp_encap_type_vxlan *bet)
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_nvgre(struct bgp_attr_encap_subtlv *stlv,
-				struct bgp_encap_type_nvgre *bet)
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_mpls(struct bgp_attr_encap_subtlv *stlv,
-			       struct bgp_encap_type_mpls *bet)
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_mpls_in_gre(struct bgp_attr_encap_subtlv *stlv,
-				      struct bgp_encap_type_mpls_in_gre *bet)
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_vxlan_gpe(struct bgp_attr_encap_subtlv *stlv,
-				    struct bgp_encap_type_vxlan_gpe *bet)
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_mpls_in_udp(struct bgp_attr_encap_subtlv *stlv,
-				      struct bgp_encap_type_mpls_in_udp *bet)
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
-
-int tlv_to_bgp_encap_type_pbb(
-	struct bgp_attr_encap_subtlv *stlv, /* subtlv chain */
-	struct bgp_encap_type_pbb *bet)     /* caller-allocated */
-{
-	struct bgp_attr_encap_subtlv *st;
-	int rc = 0;
-
-	for (st = stlv; st; st = st->next) {
-		switch (st->type) {
-		case BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION:
-			rc |= subtlv_decode_encap_pbb(st, &bet->st_encap);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_ENCAP);
-			break;
-
-		case BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
-			rc |= subtlv_decode_remote_endpoint(st,
-							    &bet->st_endpoint);
-			SET_SUBTLV_FLAG(bet, BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
-			break;
-
-		default:
-			zlog_debug("%s: unexpected subtlv type %d", __func__,
-				   st->type);
-			rc |= -1;
-			break;
-		}
-	}
-	return rc;
-}
+/**Copyright2015,LabNConsulting,L.L.C.**Thisprogramisfreesoftware;youcanredistri
+buteitand/or*modifyitunderthetermsoftheGNUGeneralPublicLicense*aspublishedbytheF
+reeSoftwareFoundation;eitherversion2*oftheLicense,or(atyouroption)anylaterversio
+n.**Thisprogramisdistributedinthehopethatitwillbeuseful,*butWITHOUTANYWARRANTY;w
+ithouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.See
+the*GNUGeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGe
+neralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSo
+ftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<
+zebra.h>#include"command.h"#include"memory.h"#include"prefix.h"#include"filter.h
+"#include"stream.h"#include"bgpd.h"#include"bgp_attr.h"#include"bgp_encap_types.
+h"#include"bgp_encap_tlv.h"/****************************************************
+********************SUBTLVENCODE************************************************
+***********************//*rfc55124.1*/staticstructbgp_attr_encap_subtlv*subtlv_e
+ncode_encap_l2tpv3_over_ip(structbgp_tea_subtlv_encap_l2tpv3_over_ip*st){structb
+gp_attr_encap_subtlv*new;uint8_t*p;inttotal=4+st->cookie_length;/*sanitycheck*/a
+ssert(st->cookie_length<=sizeof(st->cookie));assert(total<=0xff);new=XCALLOC(MTY
+PE_ENCAP_TLV,sizeof(structbgp_attr_encap_subtlv)+total);assert(new);new->type=BG
+P_ENCAP_SUBTLV_TYPE_ENCAPSULATION;new->length=total;p=new->value;*p++=(st->sessi
+onid&0xff000000)>>24;*p++=(st->sessionid&0xff0000)>>16;*p++=(st->sessionid&0xff0
+0)>>8;*p++=(st->sessionid&0xff);memcpy(p,st->cookie,st->cookie_length);returnnew
+;}/*rfc55124.1*/staticstructbgp_attr_encap_subtlv*subtlv_encode_encap_gre(struct
+bgp_tea_subtlv_encap_gre_key*st){structbgp_attr_encap_subtlv*new;uint8_t*p;intto
+tal=4;assert(total<=0xff);new=XCALLOC(MTYPE_ENCAP_TLV,sizeof(structbgp_attr_enca
+p_subtlv)+total);assert(new);new->type=BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION;new->
+length=total;p=new->value;*p++=(st->gre_key&0xff000000)>>24;*p++=(st->gre_key&0x
+ff0000)>>16;*p++=(st->gre_key&0xff00)>>8;*p++=(st->gre_key&0xff);returnnew;}stat
+icstructbgp_attr_encap_subtlv*subtlv_encode_encap_pbb(structbgp_tea_subtlv_encap
+_pbb*st){structbgp_attr_encap_subtlv*new;uint8_t*p;inttotal=1+3+6+2;/*flags+isid
++madaddr+vid*/assert(total<=0xff);new=XCALLOC(MTYPE_ENCAP_TLV,sizeof(structbgp_a
+ttr_encap_subtlv)+total);assert(new);new->type=BGP_ENCAP_SUBTLV_TYPE_ENCAPSULATI
+ON;new->length=total;p=new->value;*p++=(st->flag_isid?0x80:0)|(st->flag_vid?0x40
+:0)|0;if(st->flag_isid){*p=(st->isid&0xff0000)>>16;*(p+1)=(st->isid&0xff00)>>8;*
+(p+2)=(st->isid&0xff);}p+=3;memcpy(p,st->macaddr,6);p+=6;if(st->flag_vid){*p++=(
+st->vid&0xf00)>>8;*p++=st->vid&0xff;}returnnew;}/*rfc55124.2*/staticstructbgp_at
+tr_encap_subtlv*subtlv_encode_proto_type(structbgp_tea_subtlv_proto_type*st){str
+uctbgp_attr_encap_subtlv*new;uint8_t*p;inttotal=2;assert(total<=0xff);new=XCALLO
+C(MTYPE_ENCAP_TLV,sizeof(structbgp_attr_encap_subtlv)+total);assert(new);new->ty
+pe=BGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE;new->length=total;p=new->value;*p++=(st->pro
+to&0xff00)>>8;*p++=(st->proto&0xff);returnnew;}/*rfc55124.3*/staticstructbgp_att
+r_encap_subtlv*subtlv_encode_color(structbgp_tea_subtlv_color*st){structbgp_attr
+_encap_subtlv*new;uint8_t*p;inttotal=8;assert(total<=0xff);new=XCALLOC(MTYPE_ENC
+AP_TLV,sizeof(structbgp_attr_encap_subtlv)+total);assert(new);new->type=BGP_ENCA
+P_SUBTLV_TYPE_COLOR;new->length=total;p=new->value;*p++=0x03;/*transitive*/*p++=
+0x0b;*p++=0;/*reserved*/*p++=0;/*reserved*/*p++=(st->color&0xff000000)>>24;*p++=
+(st->color&0xff0000)>>16;*p++=(st->color&0xff00)>>8;*p++=(st->color&0xff);return
+new;}/*rfc55664.*/staticstructbgp_attr_encap_subtlv*subtlv_encode_ipsec_ta(struc
+tbgp_tea_subtlv_ipsec_ta*st){structbgp_attr_encap_subtlv*new;uint8_t*p;inttotal=
+2+st->authenticator_length;/*sanitycheck*/assert(st->authenticator_length<=sizeo
+f(st->value));assert(total<=0xff);new=XCALLOC(MTYPE_ENCAP_TLV,sizeof(structbgp_a
+ttr_encap_subtlv)+total);assert(new);new->type=BGP_ENCAP_SUBTLV_TYPE_IPSEC_TA;ne
+w->length=total;p=new->value;*p++=(st->authenticator_type&0xff00)>>8;*p++=st->au
+thenticator_type&0xff;memcpy(p,st->value,st->authenticator_length);returnnew;}/*
+draft-rosen-idr-tunnel-encaps2.1*/staticstructbgp_attr_encap_subtlv*subtlv_encod
+e_remote_endpoint(structbgp_tea_subtlv_remote_endpoint*st){structbgp_attr_encap_
+subtlv*new;uint8_t*p;inttotal=(st->family==AF_INET?8:20);assert(total<=0xff);new
+=XCALLOC(MTYPE_ENCAP_TLV,sizeof(structbgp_attr_encap_subtlv)+total);assert(new);
+new->type=BGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT;new->length=total;p=new->value;i
+f(st->family==AF_INET){memcpy(p,&(st->ip_address.v4.s_addr),4);p+=4;}else{assert
+(st->family==AF_INET6);memcpy(p,&(st->ip_address.v6.s6_addr),16);p+=16;}memcpy(p
+,&(st->as4),4);returnnew;}/*****************************************************
+*******************TUNNELTYPE-SPECIFICTLVENCODE*********************************
+**************************************//**requires"extra"and"last"tobedefinedinc
+aller*/#defineENC_SUBTLV(flag,function,field)\do{\structbgp_attr_encap_subtlv*ne
+w;\if(CHECK_FLAG(bet->valid_subtlvs,(flag))){\new=function(&bet->field);\if(last
+){\last->next=new;\}else{\attr->encap_subtlvs=new;\}\last=new;\}\}while(0)voidbg
+p_encap_type_l2tpv3overip_to_tlv(structbgp_encap_type_l2tpv3_over_ip*bet,/*input
+structure*/structattr*attr){structbgp_attr_encap_subtlv*last;/*advancetolastsubt
+lv*/for(last=attr->encap_subtlvs;last&&last->next;last=last->next);attr->encap_t
+unneltype=BGP_ENCAP_TYPE_L2TPV3_OVER_IP;assert(CHECK_FLAG(bet->valid_subtlvs,BGP
+_TEA_SUBTLV_ENCAP));ENC_SUBTLV(BGP_TEA_SUBTLV_ENCAP,subtlv_encode_encap_l2tpv3_o
+ver_ip,st_encap);ENC_SUBTLV(BGP_TEA_SUBTLV_PROTO_TYPE,subtlv_encode_proto_type,s
+t_proto);ENC_SUBTLV(BGP_TEA_SUBTLV_COLOR,subtlv_encode_color,st_color);ENC_SUBTL
+V(BGP_TEA_SUBTLV_REMOTE_ENDPOINT,subtlv_encode_remote_endpoint,st_endpoint);}voi
+dbgp_encap_type_gre_to_tlv(structbgp_encap_type_gre*bet,/*inputstructure*/struct
+attr*attr){structbgp_attr_encap_subtlv*last;/*advancetolastsubtlv*/for(last=attr
+->encap_subtlvs;last&&last->next;last=last->next);attr->encap_tunneltype=BGP_ENC
+AP_TYPE_GRE;ENC_SUBTLV(BGP_TEA_SUBTLV_ENCAP,subtlv_encode_encap_gre,st_encap);EN
+C_SUBTLV(BGP_TEA_SUBTLV_PROTO_TYPE,subtlv_encode_proto_type,st_proto);ENC_SUBTLV
+(BGP_TEA_SUBTLV_COLOR,subtlv_encode_color,st_color);ENC_SUBTLV(BGP_TEA_SUBTLV_RE
+MOTE_ENDPOINT,subtlv_encode_remote_endpoint,st_endpoint);}voidbgp_encap_type_ip_
+in_ip_to_tlv(structbgp_encap_type_ip_in_ip*bet,/*inputstructure*/structattr*attr
+){structbgp_attr_encap_subtlv*last;/*advancetolastsubtlv*/for(last=attr->encap_s
+ubtlvs;last&&last->next;last=last->next);attr->encap_tunneltype=BGP_ENCAP_TYPE_I
+P_IN_IP;ENC_SUBTLV(BGP_TEA_SUBTLV_PROTO_TYPE,subtlv_encode_proto_type,st_proto);
+ENC_SUBTLV(BGP_TEA_SUBTLV_COLOR,subtlv_encode_color,st_color);ENC_SUBTLV(BGP_TEA
+_SUBTLV_REMOTE_ENDPOINT,subtlv_encode_remote_endpoint,st_endpoint);}voidbgp_enca
+p_type_transmit_tunnel_endpoint(structbgp_encap_type_transmit_tunnel_endpoint*be
+t,/*inputstructure*/structattr*attr){structbgp_attr_encap_subtlv*last;/*advancet
+olastsubtlv*/for(last=attr->encap_subtlvs;last&&last->next;last=last->next);attr
+->encap_tunneltype=BGP_ENCAP_TYPE_TRANSMIT_TUNNEL_ENDPOINT;/*nosubtlvsforthistyp
+e*/}voidbgp_encap_type_ipsec_in_tunnel_mode_to_tlv(structbgp_encap_type_ipsec_in
+_tunnel_mode*bet,/*inputstructure*/structattr*attr){structbgp_attr_encap_subtlv*
+last;/*advancetolastsubtlv*/for(last=attr->encap_subtlvs;last&&last->next;last=l
+ast->next);attr->encap_tunneltype=BGP_ENCAP_TYPE_IPSEC_IN_TUNNEL_MODE;ENC_SUBTLV
+(BGP_TEA_SUBTLV_IPSEC_TA,subtlv_encode_ipsec_ta,st_ipsec_ta);}voidbgp_encap_type
+_ip_in_ip_tunnel_with_ipsec_transport_mode_to_tlv(structbgp_encap_type_ip_in_ip_
+tunnel_with_ipsec_transport_mode*bet,/*inputstructure*/structattr*attr){structbg
+p_attr_encap_subtlv*last;/*advancetolastsubtlv*/for(last=attr->encap_subtlvs;las
+t&&last->next;last=last->next);attr->encap_tunneltype=BGP_ENCAP_TYPE_IP_IN_IP_TU
+NNEL_WITH_IPSEC_TRANSPORT_MODE;ENC_SUBTLV(BGP_TEA_SUBTLV_IPSEC_TA,subtlv_encode_
+ipsec_ta,st_ipsec_ta);}voidbgp_encap_type_mpls_in_ip_tunnel_with_ipsec_transport
+_mode_to_tlv(structbgp_encap_type_mpls_in_ip_tunnel_with_ipsec_transport_mode*be
+t,/*inputstructure*/structattr*attr){structbgp_attr_encap_subtlv*last;/*advancet
+olastsubtlv*/for(last=attr->encap_subtlvs;last&&last->next;last=last->next);attr
+->encap_tunneltype=BGP_ENCAP_TYPE_MPLS_IN_IP_TUNNEL_WITH_IPSEC_TRANSPORT_MODE;EN
+C_SUBTLV(BGP_TEA_SUBTLV_IPSEC_TA,subtlv_encode_ipsec_ta,st_ipsec_ta);}voidbgp_en
+cap_type_pbb_to_tlv(structbgp_encap_type_pbb*bet,/*inputstructure*/structattr*at
+tr){structbgp_attr_encap_subtlv*last;/*advancetolastsubtlv*/for(last=attr->encap
+_subtlvs;last&&last->next;last=last->next);attr->encap_tunneltype=BGP_ENCAP_TYPE
+_PBB;assert(CHECK_FLAG(bet->valid_subtlvs,BGP_TEA_SUBTLV_ENCAP));ENC_SUBTLV(BGP_
+TEA_SUBTLV_ENCAP,subtlv_encode_encap_pbb,st_encap);}voidbgp_encap_type_vxlan_to_
+tlv(structbgp_encap_type_vxlan*bet,/*inputstructure*/structattr*attr){structbgp_
+attr_encap_subtlv*tlv;uint32_tvnid;attr->encap_tunneltype=BGP_ENCAP_TYPE_VXLAN;i
+f(bet==NULL||!bet->vnid)return;if(attr->encap_subtlvs)XFREE(MTYPE_ENCAP_TLV,attr
+->encap_subtlvs);tlv=XCALLOC(MTYPE_ENCAP_TLV,sizeof(structbgp_attr_encap_subtlv)
++12);tlv->type=1;/*encapsulationtype*/tlv->length=12;if(bet->vnid){vnid=htonl(be
+t->vnid|VXLAN_ENCAP_MASK_VNID_VALID);memcpy(&tlv->value,&vnid,4);}if(bet->mac_ad
+dress){char*ptr=(char*)&tlv->value+4;memcpy(ptr,bet->mac_address,6);}attr->encap
+_subtlvs=tlv;return;}voidbgp_encap_type_nvgre_to_tlv(structbgp_encap_type_nvgre*
+bet,/*inputstructure*/structattr*attr){attr->encap_tunneltype=BGP_ENCAP_TYPE_NVG
+RE;}voidbgp_encap_type_mpls_to_tlv(structbgp_encap_type_mpls*bet,/*inputstructur
+e*/structattr*attr){return;/*noencapattributeforMPLS*/}voidbgp_encap_type_mpls_i
+n_gre_to_tlv(structbgp_encap_type_mpls_in_gre*bet,/*inputstructure*/structattr*a
+ttr){attr->encap_tunneltype=BGP_ENCAP_TYPE_MPLS_IN_GRE;}voidbgp_encap_type_vxlan
+_gpe_to_tlv(structbgp_encap_type_vxlan_gpe*bet,/*inputstructure*/structattr*attr
+){attr->encap_tunneltype=BGP_ENCAP_TYPE_VXLAN_GPE;}voidbgp_encap_type_mpls_in_ud
+p_to_tlv(structbgp_encap_type_mpls_in_udp*bet,/*inputstructure*/structattr*attr)
+{attr->encap_tunneltype=BGP_ENCAP_TYPE_MPLS_IN_UDP;}/***************************
+*********************************************SUBTLVDECODE***********************
+************************************************//*rfc55124.1*/staticintsubtlv_d
+ecode_encap_l2tpv3_over_ip(structbgp_attr_encap_subtlv*subtlv,structbgp_tea_subt
+lv_encap_l2tpv3_over_ip*st){if(subtlv->length<4){zlog_debug("%s,subtlvlength%dis
+lessthan4",__func__,subtlv->length);return-1;}ptr_get_be32(subtlv->value,&st->se
+ssionid);st->cookie_length=subtlv->length-4;if(st->cookie_length>sizeof(st->cook
+ie)){zlog_debug("%s,subtlvlength%disgreaterthan%d",__func__,st->cookie_length,(i
+nt)sizeof(st->cookie));return-1;}memcpy(st->cookie,subtlv->value+4,st->cookie_le
+ngth);return0;}/*rfc55124.1*/staticintsubtlv_decode_encap_gre(structbgp_attr_enc
+ap_subtlv*subtlv,structbgp_tea_subtlv_encap_gre_key*st){if(subtlv->length!=4){zl
+og_debug("%s,subtlvlength%ddoesnotequal4",__func__,subtlv->length);return-1;}ptr
+_get_be32(subtlv->value,&st->gre_key);return0;}staticintsubtlv_decode_encap_pbb(
+structbgp_attr_encap_subtlv*subtlv,structbgp_tea_subtlv_encap_pbb*st){if(subtlv-
+>length!=1+3+6+2){zlog_debug("%s,subtlvlength%ddoesnotequal%d",__func__,subtlv->
+length,1+3+6+2);return-1;}if(subtlv->value[0]&0x80){st->flag_isid=1;st->isid=(su
+btlv->value[1]<<16)|(subtlv->value[2]<<8)|subtlv->value[3];}if(subtlv->value[0]&
+0x40){st->flag_vid=1;st->vid=((subtlv->value[10]&0x0f)<<8)|subtlv->value[11];}me
+mcpy(st->macaddr,subtlv->value+4,6);return0;}/*rfc55124.2*/staticintsubtlv_decod
+e_proto_type(structbgp_attr_encap_subtlv*subtlv,structbgp_tea_subtlv_proto_type*
+st){if(subtlv->length!=2){zlog_debug("%s,subtlvlength%ddoesnotequal2",__func__,s
+ubtlv->length);return-1;}st->proto=(subtlv->value[0]<<8)|subtlv->value[1];return
+0;}/*rfc55124.3*/staticintsubtlv_decode_color(structbgp_attr_encap_subtlv*subtlv
+,structbgp_tea_subtlv_color*st){if(subtlv->length!=8){zlog_debug("%s,subtlvlengt
+h%ddoesnotequal8",__func__,subtlv->length);return-1;}if((subtlv->value[0]!=0x03)
+||(subtlv->value[1]!=0x0b)||(subtlv->value[2]!=0)||(subtlv->value[3]!=0)){zlog_d
+ebug("%s,subtlvvalue1st4bytesarenot0x030b0000",__func__);return-1;}ptr_get_be32(
+subtlv->value+4,&st->color);return0;}/*rfc55664.*/staticintsubtlv_decode_ipsec_t
+a(structbgp_attr_encap_subtlv*subtlv,structbgp_tea_subtlv_ipsec_ta*st){st->authe
+nticator_length=subtlv->length-2;if(st->authenticator_length>sizeof(st->value)){
+zlog_debug("%s,authenticatorlength%dexceedsstoragemaximum%d",__func__,st->authen
+ticator_length,(int)sizeof(st->value));return-1;}st->authenticator_type=(subtlv-
+>value[0]<<8)|subtlv->value[1];memcpy(st->value,subtlv->value+2,st->authenticato
+r_length);return0;}/*draft-rosen-idr-tunnel-encaps2.1*/staticintsubtlv_decode_re
+mote_endpoint(structbgp_attr_encap_subtlv*subtlv,structbgp_tea_subtlv_remote_end
+point*st){inti;if(subtlv->length!=8&&subtlv->length!=20){zlog_debug("%s,subtlvle
+ngth%ddoesnotequal8or20",__func__,subtlv->length);return-1;}if(subtlv->length==8
+){st->family=AF_INET;memcpy(&st->ip_address.v4.s_addr,subtlv->value,4);}else{st-
+>family=AF_INET6;memcpy(&(st->ip_address.v6.s6_addr),subtlv->value,16);}i=subtlv
+->length-4;ptr_get_be32(subtlv->value+i,&st->as4);return0;}/********************
+****************************************************TUNNELTYPE-SPECIFICTLVDECODE
+***********************************************************************/inttlv_t
+o_bgp_encap_type_l2tpv3overip(structbgp_attr_encap_subtlv*stlv,/*subtlvchain*/st
+ructbgp_encap_type_l2tpv3_over_ip*bet)/*caller-allocated*/{structbgp_attr_encap_
+subtlv*st;intrc=0;for(st=stlv;st;st=st->next){switch(st->type){caseBGP_ENCAP_SUB
+TLV_TYPE_ENCAPSULATION:rc|=subtlv_decode_encap_l2tpv3_over_ip(st,&bet->st_encap)
+;SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_ENCAP);break;caseBGP_ENCAP_SUBTLV_TYPE_PROTO
+_TYPE:rc|=subtlv_decode_proto_type(st,&bet->st_proto);SET_SUBTLV_FLAG(bet,BGP_TE
+A_SUBTLV_PROTO_TYPE);break;caseBGP_ENCAP_SUBTLV_TYPE_COLOR:rc|=subtlv_decode_col
+or(st,&bet->st_color);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_COLOR);break;caseBGP_EN
+CAP_SUBTLV_TYPE_REMOTE_ENDPOINT:rc|=subtlv_decode_remote_endpoint(st,&bet->st_en
+dpoint);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_REMOTE_ENDPOINT);break;default:zlog_d
+ebug("%s:unexpectedsubtlvtype%d",__func__,st->type);rc|=-1;break;}}returnrc;}int
+tlv_to_bgp_encap_type_gre(structbgp_attr_encap_subtlv*stlv,/*subtlvchain*/struct
+bgp_encap_type_gre*bet)/*caller-allocated*/{structbgp_attr_encap_subtlv*st;intrc
+=0;for(st=stlv;st;st=st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_ENCAPS
+ULATION:rc|=subtlv_decode_encap_gre(st,&bet->st_encap);SET_SUBTLV_FLAG(bet,BGP_T
+EA_SUBTLV_ENCAP);break;caseBGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE:rc|=subtlv_decode_pr
+oto_type(st,&bet->st_proto);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_PROTO_TYPE);break
+;caseBGP_ENCAP_SUBTLV_TYPE_COLOR:rc|=subtlv_decode_color(st,&bet->st_color);SET_
+SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_COLOR);break;caseBGP_ENCAP_SUBTLV_TYPE_REMOTE_END
+POINT:rc|=subtlv_decode_remote_endpoint(st,&bet->st_endpoint);SET_SUBTLV_FLAG(be
+t,BGP_TEA_SUBTLV_REMOTE_ENDPOINT);break;default:zlog_debug("%s:unexpectedsubtlvt
+ype%d",__func__,st->type);rc|=-1;break;}}returnrc;}inttlv_to_bgp_encap_type_ip_i
+n_ip(structbgp_attr_encap_subtlv*stlv,/*subtlvchain*/structbgp_encap_type_ip_in_
+ip*bet)/*caller-allocated*/{structbgp_attr_encap_subtlv*st;intrc=0;for(st=stlv;s
+t;st=st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_PROTO_TYPE:rc|=subtlv_
+decode_proto_type(st,&bet->st_proto);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_PROTO_TY
+PE);break;caseBGP_ENCAP_SUBTLV_TYPE_COLOR:rc|=subtlv_decode_color(st,&bet->st_co
+lor);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_COLOR);break;caseBGP_ENCAP_SUBTLV_TYPE_R
+EMOTE_ENDPOINT:rc|=subtlv_decode_remote_endpoint(st,&bet->st_endpoint);SET_SUBTL
+V_FLAG(bet,BGP_TEA_SUBTLV_REMOTE_ENDPOINT);break;default:zlog_debug("%s:unexpect
+edsubtlvtype%d",__func__,st->type);rc|=-1;break;}}returnrc;}inttlv_to_bgp_encap_
+type_transmit_tunnel_endpoint(structbgp_attr_encap_subtlv*stlv,structbgp_encap_t
+ype_transmit_tunnel_endpoint*bet){structbgp_attr_encap_subtlv*st;intrc=0;for(st=
+stlv;st;st=st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:
+rc|=subtlv_decode_remote_endpoint(st,&bet->st_endpoint);SET_SUBTLV_FLAG(bet,BGP_
+TEA_SUBTLV_REMOTE_ENDPOINT);break;default:zlog_debug("%s:unexpectedsubtlvtype%d"
+,__func__,st->type);rc|=-1;break;}}returnrc;}inttlv_to_bgp_encap_type_ipsec_in_t
+unnel_mode(structbgp_attr_encap_subtlv*stlv,/*subtlvchain*/structbgp_encap_type_
+ipsec_in_tunnel_mode*bet)/*caller-allocated*/{structbgp_attr_encap_subtlv*st;int
+rc=0;for(st=stlv;st;st=st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_IPSE
+C_TA:rc|=subtlv_decode_ipsec_ta(st,&bet->st_ipsec_ta);SET_SUBTLV_FLAG(bet,BGP_TE
+A_SUBTLV_IPSEC_TA);break;caseBGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:rc|=subtlv_de
+code_remote_endpoint(st,&bet->st_endpoint);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_RE
+MOTE_ENDPOINT);break;default:zlog_debug("%s:unexpectedsubtlvtype%d",__func__,st-
+>type);rc|=-1;break;}}returnrc;}inttlv_to_bgp_encap_type_ip_in_ip_tunnel_with_ip
+sec_transport_mode(structbgp_attr_encap_subtlv*stlv,structbgp_encap_type_ip_in_i
+p_tunnel_with_ipsec_transport_mode*bet){structbgp_attr_encap_subtlv*st;intrc=0;f
+or(st=stlv;st;st=st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_IPSEC_TA:r
+c|=subtlv_decode_ipsec_ta(st,&bet->st_ipsec_ta);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBT
+LV_IPSEC_TA);break;caseBGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:rc|=subtlv_decode_r
+emote_endpoint(st,&bet->st_endpoint);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_REMOTE_E
+NDPOINT);break;default:zlog_debug("%s:unexpectedsubtlvtype%d",__func__,st->type)
+;rc|=-1;break;}}returnrc;}inttlv_to_bgp_encap_type_mpls_in_ip_tunnel_with_ipsec_
+transport_mode(structbgp_attr_encap_subtlv*stlv,structbgp_encap_type_mpls_in_ip_
+tunnel_with_ipsec_transport_mode*bet){structbgp_attr_encap_subtlv*st;intrc=0;for
+(st=stlv;st;st=st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_IPSEC_TA:rc|
+=subtlv_decode_ipsec_ta(st,&bet->st_ipsec_ta);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV
+_IPSEC_TA);break;caseBGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:rc|=subtlv_decode_rem
+ote_endpoint(st,&bet->st_endpoint);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_REMOTE_END
+POINT);break;default:zlog_debug("%s:unexpectedsubtlvtype%d",__func__,st->type);r
+c|=-1;break;}}returnrc;}inttlv_to_bgp_encap_type_vxlan(structbgp_attr_encap_subt
+lv*stlv,structbgp_encap_type_vxlan*bet){structbgp_attr_encap_subtlv*st;intrc=0;f
+or(st=stlv;st;st=st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_REMOTE_END
+POINT:rc|=subtlv_decode_remote_endpoint(st,&bet->st_endpoint);SET_SUBTLV_FLAG(be
+t,BGP_TEA_SUBTLV_REMOTE_ENDPOINT);break;default:zlog_debug("%s:unexpectedsubtlvt
+ype%d",__func__,st->type);rc|=-1;break;}}returnrc;}inttlv_to_bgp_encap_type_nvgr
+e(structbgp_attr_encap_subtlv*stlv,structbgp_encap_type_nvgre*bet){structbgp_att
+r_encap_subtlv*st;intrc=0;for(st=stlv;st;st=st->next){switch(st->type){caseBGP_E
+NCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:rc|=subtlv_decode_remote_endpoint(st,&bet->st_e
+ndpoint);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_REMOTE_ENDPOINT);break;default:zlog_
+debug("%s:unexpectedsubtlvtype%d",__func__,st->type);rc|=-1;break;}}returnrc;}in
+ttlv_to_bgp_encap_type_mpls(structbgp_attr_encap_subtlv*stlv,structbgp_encap_typ
+e_mpls*bet){structbgp_attr_encap_subtlv*st;intrc=0;for(st=stlv;st;st=st->next){s
+witch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:rc|=subtlv_decode_remo
+te_endpoint(st,&bet->st_endpoint);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_REMOTE_ENDP
+OINT);break;default:zlog_debug("%s:unexpectedsubtlvtype%d",__func__,st->type);rc
+|=-1;break;}}returnrc;}inttlv_to_bgp_encap_type_mpls_in_gre(structbgp_attr_encap
+_subtlv*stlv,structbgp_encap_type_mpls_in_gre*bet){structbgp_attr_encap_subtlv*s
+t;intrc=0;for(st=stlv;st;st=st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE
+_REMOTE_ENDPOINT:rc|=subtlv_decode_remote_endpoint(st,&bet->st_endpoint);SET_SUB
+TLV_FLAG(bet,BGP_TEA_SUBTLV_REMOTE_ENDPOINT);break;default:zlog_debug("%s:unexpe
+ctedsubtlvtype%d",__func__,st->type);rc|=-1;break;}}returnrc;}inttlv_to_bgp_enca
+p_type_vxlan_gpe(structbgp_attr_encap_subtlv*stlv,structbgp_encap_type_vxlan_gpe
+*bet){structbgp_attr_encap_subtlv*st;intrc=0;for(st=stlv;st;st=st->next){switch(
+st->type){caseBGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:rc|=subtlv_decode_remote_end
+point(st,&bet->st_endpoint);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_REMOTE_ENDPOINT);
+break;default:zlog_debug("%s:unexpectedsubtlvtype%d",__func__,st->type);rc|=-1;b
+reak;}}returnrc;}inttlv_to_bgp_encap_type_mpls_in_udp(structbgp_attr_encap_subtl
+v*stlv,structbgp_encap_type_mpls_in_udp*bet){structbgp_attr_encap_subtlv*st;intr
+c=0;for(st=stlv;st;st=st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_REMOT
+E_ENDPOINT:rc|=subtlv_decode_remote_endpoint(st,&bet->st_endpoint);SET_SUBTLV_FL
+AG(bet,BGP_TEA_SUBTLV_REMOTE_ENDPOINT);break;default:zlog_debug("%s:unexpectedsu
+btlvtype%d",__func__,st->type);rc|=-1;break;}}returnrc;}inttlv_to_bgp_encap_type
+_pbb(structbgp_attr_encap_subtlv*stlv,/*subtlvchain*/structbgp_encap_type_pbb*be
+t)/*caller-allocated*/{structbgp_attr_encap_subtlv*st;intrc=0;for(st=stlv;st;st=
+st->next){switch(st->type){caseBGP_ENCAP_SUBTLV_TYPE_ENCAPSULATION:rc|=subtlv_de
+code_encap_pbb(st,&bet->st_encap);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_ENCAP);brea
+k;caseBGP_ENCAP_SUBTLV_TYPE_REMOTE_ENDPOINT:rc|=subtlv_decode_remote_endpoint(st
+,&bet->st_endpoint);SET_SUBTLV_FLAG(bet,BGP_TEA_SUBTLV_REMOTE_ENDPOINT);break;de
+fault:zlog_debug("%s:unexpectedsubtlvtype%d",__func__,st->type);rc|=-1;break;}}r
+eturnrc;}

@@ -1,41 +1,16 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_dr.h
- *                             IS-IS designated router related routines
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_ISIS_DR_H
-#define _ZEBRA_ISIS_DR_H
-
-int isis_run_dr_l1(struct thread *thread);
-int isis_run_dr_l2(struct thread *thread);
-int isis_dr_elect(struct isis_circuit *circuit, int level);
-int isis_dr_resign(struct isis_circuit *circuit, int level);
-int isis_dr_commence(struct isis_circuit *circuit, int level);
-const char *isis_disflag2string(int disflag);
-
-enum isis_dis_state {
-	ISIS_IS_NOT_DIS,
-	ISIS_IS_DIS,
-	ISIS_WAS_DIS,
-	ISIS_UNKNOWN_DIS
-};
-
-#endif /* _ZEBRA_ISIS_DR_H */
+/**IS-ISRout(e)ingprotocol-isis_dr.h*IS-ISdesignatedrouterrelatedroutines**Copyr
+ight(C)2001,2002SampoSaaristo*TampereUniversityofTechnology*InstituteofCommunica
+tionsEngineering**Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*u
+nderthetermsoftheGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;
+eitherversion2oftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistr
+ibutedinthehopethatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwa
+rrantyofMERCHANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLic
+ensefor*moredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealon
+g*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.
+,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_ISIS_DR_H#define_
+ZEBRA_ISIS_DR_Hintisis_run_dr_l1(structthread*thread);intisis_run_dr_l2(structth
+read*thread);intisis_dr_elect(structisis_circuit*circuit,intlevel);intisis_dr_re
+sign(structisis_circuit*circuit,intlevel);intisis_dr_commence(structisis_circuit
+*circuit,intlevel);constchar*isis_disflag2string(intdisflag);enumisis_dis_state{
+ISIS_IS_NOT_DIS,ISIS_IS_DIS,ISIS_WAS_DIS,ISIS_UNKNOWN_DIS};#endif/*_ZEBRA_ISIS_D
+R_H*/

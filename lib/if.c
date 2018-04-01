@@ -1,1203 +1,310 @@
-/*
- * Interface functions.
- * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "linklist.h"
-#include "vector.h"
-#include "vty.h"
-#include "command.h"
-#include "vrf.h"
-#include "if.h"
-#include "sockunion.h"
-#include "prefix.h"
-#include "memory.h"
-#include "table.h"
-#include "buffer.h"
-#include "log.h"
-
-DEFINE_MTYPE(LIB, IF, "Interface")
-DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected")
-DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected")
-DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label")
-DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters")
-
-static int if_cmp_func(const struct interface *, const struct interface *);
-static int if_cmp_index_func(const struct interface *ifp1,
-			     const struct interface *ifp2);
-RB_GENERATE(if_name_head, interface, name_entry, if_cmp_func);
-RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
-
-DEFINE_QOBJ_TYPE(interface)
-
-DEFINE_HOOK(if_add, (struct interface * ifp), (ifp))
-DEFINE_KOOH(if_del, (struct interface * ifp), (ifp))
-
-/* List of interfaces in only the default VRF */
-int ptm_enable = 0;
-
-/* Compare interface names, returning an integer greater than, equal to, or
- * less than 0, (following the strcmp convention), according to the
- * relationship between ifp1 and ifp2.  Interface names consist of an
- * alphabetic prefix and a numeric suffix.  The primary sort key is
- * lexicographic by name, and then numeric by number.  No number sorts
- * before all numbers.  Examples: de0 < de1, de100 < fxp0 < xl0, devpty <
- * devpty0, de0 < del0
- */
-int if_cmp_name_func(char *p1, char *p2)
-{
-	unsigned int l1, l2;
-	long int x1, x2;
-	int res;
-
-	while (*p1 && *p2) {
-		/* look up to any number */
-		l1 = strcspn(p1, "0123456789");
-		l2 = strcspn(p2, "0123456789");
-
-		/* name lengths are different -> compare names */
-		if (l1 != l2)
-			return (strcmp(p1, p2));
-
-		/* Note that this relies on all numbers being less than all
-		 * letters, so
-		 * that de0 < del0.
-		 */
-		res = strncmp(p1, p2, l1);
-
-		/* names are different -> compare them */
-		if (res)
-			return res;
-
-		/* with identical name part, go to numeric part */
-		p1 += l1;
-		p2 += l1;
-
-		if (!*p1 && !*p2)
-			return 0;
-		if (!*p1)
-			return -1;
-		if (!*p2)
-			return 1;
-
-		x1 = strtol(p1, &p1, 10);
-		x2 = strtol(p2, &p2, 10);
-
-		/* let's compare numbers now */
-		if (x1 < x2)
-			return -1;
-		if (x1 > x2)
-			return 1;
-
-		/* numbers were equal, lets do it again..
-		(it happens with name like "eth123.456:789") */
-	}
-	if (*p1)
-		return 1;
-	if (*p2)
-		return -1;
-	return 0;
-}
-
-static int if_cmp_func(const struct interface *ifp1,
-		       const struct interface *ifp2)
-{
-	return if_cmp_name_func((char *)ifp1->name, (char *)ifp2->name);
-}
-
-static int if_cmp_index_func(const struct interface *ifp1,
-			     const struct interface *ifp2)
-{
-	return ifp1->ifindex - ifp2->ifindex;
-}
-
-/* Create new interface structure. */
-struct interface *if_create(const char *name, vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_get(vrf_id, NULL);
-	struct interface *ifp;
-
-	ifp = XCALLOC(MTYPE_IF, sizeof(struct interface));
-	ifp->ifindex = IFINDEX_INTERNAL;
-
-	assert(name);
-	strlcpy(ifp->name, name, sizeof(ifp->name));
-	ifp->vrf_id = vrf_id;
-	IFNAME_RB_INSERT(vrf, ifp);
-	ifp->connected = list_new();
-	ifp->connected->del = (void (*)(void *))connected_free;
-
-	ifp->nbr_connected = list_new();
-	ifp->nbr_connected->del = (void (*)(void *))nbr_connected_free;
-
-	/* Enable Link-detection by default */
-	SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
-
-	QOBJ_REG(ifp, interface);
-	hook_call(if_add, ifp);
-	return ifp;
-}
-
-/* Create new interface structure. */
-void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
-{
-	struct vrf *vrf;
-
-	/* remove interface from old master vrf list */
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	if (vrf) {
-		IFNAME_RB_REMOVE(vrf, ifp);
-		if (ifp->ifindex != IFINDEX_INTERNAL)
-			IFINDEX_RB_REMOVE(vrf, ifp);
-	}
-
-	ifp->vrf_id = vrf_id;
-	vrf = vrf_get(ifp->vrf_id, NULL);
-
-	IFNAME_RB_INSERT(vrf, ifp);
-	if (ifp->ifindex != IFINDEX_INTERNAL)
-		IFINDEX_RB_INSERT(vrf, ifp);
-}
-
-
-/* Delete interface structure. */
-void if_delete_retain(struct interface *ifp)
-{
-	hook_call(if_del, ifp);
-	QOBJ_UNREG(ifp);
-
-	/* Free connected address list */
-	list_delete_all_node(ifp->connected);
-
-	/* Free connected nbr address list */
-	list_delete_all_node(ifp->nbr_connected);
-}
-
-/* Delete and free interface structure. */
-void if_delete(struct interface *ifp)
-{
-	struct vrf *vrf;
-
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	assert(vrf);
-
-	IFNAME_RB_REMOVE(vrf, ifp);
-	if (ifp->ifindex != IFINDEX_INTERNAL)
-		IFINDEX_RB_REMOVE(vrf, ifp);
-
-	if_delete_retain(ifp);
-
-	list_delete_and_null(&ifp->connected);
-	list_delete_and_null(&ifp->nbr_connected);
-
-	if_link_params_free(ifp);
-
-	if (ifp->desc)
-		XFREE(MTYPE_TMP, ifp->desc);
-
-	XFREE(MTYPE_IF, ifp);
-}
-
-/* Interface existance check by index. */
-struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
-{
-	struct vrf *vrf;
-	struct interface if_tmp;
-
-	if (vrf_id == VRF_UNKNOWN) {
-		struct interface *ifp;
-
-		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-			ifp = if_lookup_by_index(ifindex, vrf->vrf_id);
-			if (ifp)
-				return ifp;
-		}
-
-		return NULL;
-	}
-
-	vrf = vrf_lookup_by_id(vrf_id);
-	if (!vrf)
-		return NULL;
-
-	if_tmp.ifindex = ifindex;
-	return RB_FIND(if_index_head, &vrf->ifaces_by_index, &if_tmp);
-}
-
-const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id)
-{
-	struct interface *ifp;
-
-	return ((ifp = if_lookup_by_index(ifindex, vrf_id)) != NULL)
-		       ? ifp->name
-		       : "unknown";
-}
-
-ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
-{
-	struct interface *ifp;
-
-	return ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
-		       ? ifp->ifindex
-		       : IFINDEX_INTERNAL;
-}
-
-/* Interface existance check by interface name. */
-struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct interface if_tmp;
-
-	if (!vrf || !name
-	    || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
-		return NULL;
-
-	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
-	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
-}
-
-struct interface *if_lookup_by_name_all_vrf(const char *name)
-{
-	struct vrf *vrf;
-	struct interface *ifp;
-
-	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
-		return NULL;
-
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		ifp = if_lookup_by_name(name, vrf->vrf_id);
-		if (ifp)
-			return ifp;
-	}
-
-	return NULL;
-}
-
-/* Lookup interface by IPv4 address. */
-struct interface *if_lookup_exact_address(void *src, int family,
-					  vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct listnode *cnode;
-	struct interface *ifp;
-	struct prefix *p;
-	struct connected *c;
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-			p = c->address;
-
-			if (p && (p->family == family)) {
-				if (family == AF_INET) {
-					if (IPV4_ADDR_SAME(
-						    &p->u.prefix4,
-						    (struct in_addr *)src))
-						return ifp;
-				} else if (family == AF_INET6) {
-					if (IPV6_ADDR_SAME(
-						    &p->u.prefix6,
-						    (struct in6_addr *)src))
-						return ifp;
-				}
-			}
-		}
-	}
-	return NULL;
-}
-
-/* Lookup interface by IPv4 address. */
-struct connected *if_lookup_address(void *matchaddr, int family,
-				    vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct prefix addr;
-	int bestlen = 0;
-	struct listnode *cnode;
-	struct interface *ifp;
-	struct connected *c;
-	struct connected *match;
-
-	if (family == AF_INET) {
-		addr.family = AF_INET;
-		addr.u.prefix4 = *((struct in_addr *)matchaddr);
-		addr.prefixlen = IPV4_MAX_BITLEN;
-	} else if (family == AF_INET6) {
-		addr.family = AF_INET6;
-		addr.u.prefix6 = *((struct in6_addr *)matchaddr);
-		addr.prefixlen = IPV6_MAX_BITLEN;
-	}
-
-	match = NULL;
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-			if (c->address && (c->address->family == AF_INET)
-			    && prefix_match(CONNECTED_PREFIX(c), &addr)
-			    && (c->address->prefixlen > bestlen)) {
-				bestlen = c->address->prefixlen;
-				match = c;
-			}
-		}
-	}
-	return match;
-}
-
-/* Lookup interface by prefix */
-struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct listnode *cnode;
-	struct interface *ifp;
-	struct connected *c;
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-			if (prefix_cmp(c->address, prefix) == 0) {
-				return ifp;
-			}
-		}
-	}
-	return NULL;
-}
-
-/* Get interface by name if given name interface doesn't exist create
-   one. */
-struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
-{
-	struct interface *ifp;
-
-	ifp = if_lookup_by_name(name, vrf_id);
-	if (ifp)
-		return ifp;
-	/* Not Found on same VRF. If the interface command
-	 * was entered in vty without a VRF (passed as VRF_DEFAULT),
-	 * accept the ifp we found. If a vrf was entered and there is
-	 * a mismatch, reject it if from vty.
-	 */
-	ifp = if_lookup_by_name_all_vrf(name);
-	if (!ifp)
-		return if_create(name, vrf_id);
-	if (vty) {
-		if (vrf_id == VRF_DEFAULT)
-			return ifp;
-		return NULL;
-	}
-	/* if vrf backend uses NETNS, then
-	 * this should not be considered as an update
-	 * then create the new interface
-	 */
-	if (ifp->vrf_id != vrf_id && vrf_is_mapped_on_netns(vrf_id))
-		return if_create(name, vrf_id);
-	/* If it came from the kernel
-	 * or by way of zclient, believe it and update
-	 * the ifp accordingly.
-	 */
-	if_update_to_new_vrf(ifp, vrf_id);
-	return ifp;
-}
-
-void if_set_index(struct interface *ifp, ifindex_t ifindex)
-{
-	struct vrf *vrf;
-
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	assert(vrf);
-
-	if (ifp->ifindex == ifindex)
-		return;
-
-	if (ifp->ifindex != IFINDEX_INTERNAL)
-		IFINDEX_RB_REMOVE(vrf, ifp)
-
-	ifp->ifindex = ifindex;
-
-	if (ifp->ifindex != IFINDEX_INTERNAL)
-		IFINDEX_RB_INSERT(vrf, ifp)
-}
-
-/* Does interface up ? */
-int if_is_up(struct interface *ifp)
-{
-	return ifp->flags & IFF_UP;
-}
-
-/* Is interface running? */
-int if_is_running(struct interface *ifp)
-{
-	return ifp->flags & IFF_RUNNING;
-}
-
-/* Is the interface operative, eg. either UP & RUNNING
-   or UP & !ZEBRA_INTERFACE_LINK_DETECTION and
-   if ptm checking is enabled, then ptm check has passed */
-int if_is_operative(struct interface *ifp)
-{
-	return ((ifp->flags & IFF_UP)
-		&& (((ifp->flags & IFF_RUNNING)
-		     && (ifp->ptm_status || !ifp->ptm_enable))
-		    || !CHECK_FLAG(ifp->status,
-				   ZEBRA_INTERFACE_LINKDETECTION)));
-}
-
-/* Is the interface operative, eg. either UP & RUNNING
-   or UP & !ZEBRA_INTERFACE_LINK_DETECTION, without PTM check */
-int if_is_no_ptm_operative(struct interface *ifp)
-{
-	return ((ifp->flags & IFF_UP)
-		&& ((ifp->flags & IFF_RUNNING)
-		    || !CHECK_FLAG(ifp->status,
-				   ZEBRA_INTERFACE_LINKDETECTION)));
-}
-
-/* Is this loopback interface ? */
-int if_is_loopback(struct interface *ifp)
-{
-	/* XXX: Do this better, eg what if IFF_WHATEVER means X on platform M
-	 * but Y on platform N?
-	 */
-	return (ifp->flags & (IFF_LOOPBACK | IFF_NOXMIT | IFF_VIRTUAL));
-}
-
-/* Check interface is VRF */
-int if_is_vrf(struct interface *ifp)
-{
-	return CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
-}
-
-/* Does this interface support broadcast ? */
-int if_is_broadcast(struct interface *ifp)
-{
-	return ifp->flags & IFF_BROADCAST;
-}
-
-/* Does this interface support broadcast ? */
-int if_is_pointopoint(struct interface *ifp)
-{
-	return ifp->flags & IFF_POINTOPOINT;
-}
-
-/* Does this interface support multicast ? */
-int if_is_multicast(struct interface *ifp)
-{
-	return ifp->flags & IFF_MULTICAST;
-}
-
-/* Printout flag information into log */
-const char *if_flag_dump(unsigned long flag)
-{
-	int separator = 0;
-	static char logbuf[BUFSIZ];
-
-#define IFF_OUT_LOG(X, STR)                                                    \
-	if (flag & (X)) {                                                      \
-		if (separator)                                                 \
-			strlcat(logbuf, ",", BUFSIZ);                          \
-		else                                                           \
-			separator = 1;                                         \
-		strlcat(logbuf, STR, BUFSIZ);                                  \
-	}
-
-	strlcpy(logbuf, "<", BUFSIZ);
-	IFF_OUT_LOG(IFF_UP, "UP");
-	IFF_OUT_LOG(IFF_BROADCAST, "BROADCAST");
-	IFF_OUT_LOG(IFF_DEBUG, "DEBUG");
-	IFF_OUT_LOG(IFF_LOOPBACK, "LOOPBACK");
-	IFF_OUT_LOG(IFF_POINTOPOINT, "POINTOPOINT");
-	IFF_OUT_LOG(IFF_NOTRAILERS, "NOTRAILERS");
-	IFF_OUT_LOG(IFF_RUNNING, "RUNNING");
-	IFF_OUT_LOG(IFF_NOARP, "NOARP");
-	IFF_OUT_LOG(IFF_PROMISC, "PROMISC");
-	IFF_OUT_LOG(IFF_ALLMULTI, "ALLMULTI");
-	IFF_OUT_LOG(IFF_OACTIVE, "OACTIVE");
-	IFF_OUT_LOG(IFF_SIMPLEX, "SIMPLEX");
-	IFF_OUT_LOG(IFF_LINK0, "LINK0");
-	IFF_OUT_LOG(IFF_LINK1, "LINK1");
-	IFF_OUT_LOG(IFF_LINK2, "LINK2");
-	IFF_OUT_LOG(IFF_MULTICAST, "MULTICAST");
-	IFF_OUT_LOG(IFF_NOXMIT, "NOXMIT");
-	IFF_OUT_LOG(IFF_NORTEXCH, "NORTEXCH");
-	IFF_OUT_LOG(IFF_VIRTUAL, "VIRTUAL");
-	IFF_OUT_LOG(IFF_IPV4, "IPv4");
-	IFF_OUT_LOG(IFF_IPV6, "IPv6");
-
-	strlcat(logbuf, ">", BUFSIZ);
-
-	return logbuf;
-#undef IFF_OUT_LOG
-}
-
-/* For debugging */
-static void if_dump(const struct interface *ifp)
-{
-	struct listnode *node;
-	struct connected *c __attribute__((unused));
-
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, c))
-		zlog_info(
-			"Interface %s vrf %u index %d metric %d mtu %d "
-			"mtu6 %d %s",
-			ifp->name, ifp->vrf_id, ifp->ifindex, ifp->metric,
-			ifp->mtu, ifp->mtu6, if_flag_dump(ifp->flags));
-}
-
-/* Interface printing for all interface. */
-void if_dump_all(void)
-{
-	struct vrf *vrf;
-	void *ifp;
-
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-		FOR_ALL_INTERFACES (vrf, ifp)
-			if_dump(ifp);
-}
-
-DEFUN (interface_desc,
-       interface_desc_cmd,
-       "description LINE...",
-       "Interface specific description\n"
-       "Characters describing this interface\n")
-{
-	int idx_line = 1;
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	if (ifp->desc)
-		XFREE(MTYPE_TMP, ifp->desc);
-	ifp->desc = argv_concat(argv, argc, idx_line);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_interface_desc,
-       no_interface_desc_cmd,
-       "no description",
-       NO_STR
-       "Interface specific description\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-
-	if (ifp->desc)
-		XFREE(MTYPE_TMP, ifp->desc);
-	ifp->desc = NULL;
-
-	return CMD_SUCCESS;
-}
-
-#ifdef SUNOS_5
-/* Need to handle upgrade from SUNWzebra to Quagga. SUNWzebra created
- * a seperate struct interface for each logical interface, so config
- * file may be full of 'interface fooX:Y'. Solaris however does not
- * expose logical interfaces via PF_ROUTE, so trying to track logical
- * interfaces can be fruitless, for that reason Quagga only tracks
- * the primary IP interface.
- *
- * We try accomodate SUNWzebra by:
- * - looking up the interface name, to see whether it exists, if so
- *   its useable
- *   - for protocol daemons, this could only because zebra told us of
- *     the interface
- *   - for zebra, only because it learnt from kernel
- * - if not:
- *   - search the name to see if it contains a sub-ipif / logical interface
- *     seperator, the ':' char. If it does:
- *     - text up to that char must be the primary name - get that name.
- *     if not:
- *     - no idea, just get the name in its entirety.
- */
-static struct interface *if_sunwzebra_get(char *name, vrf_id_t vrf_id)
-{
-	struct interface *ifp;
-	char *cp;
-
-	if ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
-		return ifp;
-
-	/* hunt the primary interface name... */
-	cp = strchr(name, ':');
-	if (cp)
-		*cp = '\0';
-
-	return if_get_by_name(name, vrf_id, 1);
-}
-#endif /* SUNOS_5 */
-
-DEFUN (interface,
-       interface_cmd,
-       "interface IFNAME [vrf NAME]",
-       "Select an interface to configure\n"
-       "Interface's name\n"
-       VRF_CMD_HELP_STR)
-{
-	int idx_ifname = 1;
-	int idx_vrf = 3;
-	const char *ifname = argv[idx_ifname]->arg;
-	const char *vrfname = (argc > 2) ? argv[idx_vrf]->arg : NULL;
-
-	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (strlen(ifname) > INTERFACE_NAMSIZ) {
-		vty_out(vty,
-			"%% Interface name %s is invalid: length exceeds "
-			"%d characters\n",
-			ifname, INTERFACE_NAMSIZ);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/*Pending: need proper vrf name based lookup/(possible creation of VRF)
-	 Imagine forward reference of a vrf by name in this interface config */
-	if (vrfname)
-		VRF_GET_ID(vrf_id, vrfname);
-
-#ifdef SUNOS_5
-	ifp = if_sunwzebra_get(ifname, vrf_id);
-#else
-	ifp = if_get_by_name(ifname, vrf_id, 1);
-#endif /* SUNOS_5 */
-
-	if (!ifp) {
-		vty_out(vty, "%% interface %s not in %s\n", ifname, vrfname);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (no_interface,
-           no_interface_cmd,
-           "no interface IFNAME [vrf NAME]",
-           NO_STR
-           "Delete a pseudo interface's configuration\n"
-           "Interface's name\n"
-           VRF_CMD_HELP_STR)
-{
-	int idx_vrf = 4;
-	const char *ifname = argv[2]->arg;
-	const char *vrfname = (argc > 3) ? argv[idx_vrf]->arg : NULL;
-
-	// deleting interface
-	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (argc > 3)
-		VRF_GET_ID(vrf_id, vrfname);
-
-	ifp = if_lookup_by_name(ifname, vrf_id);
-
-	if (ifp == NULL) {
-		vty_out(vty, "%% Interface %s does not exist\n", ifname);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		vty_out(vty, "%% Only inactive interfaces can be deleted\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if_delete(ifp);
-
-	return CMD_SUCCESS;
-}
-
-static void if_autocomplete(vector comps, struct cmd_token *token)
-{
-	struct interface *ifp;
-	struct vrf *vrf = NULL;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, ifp->name));
-		}
-	}
-}
-
-static const struct cmd_variable_handler if_var_handlers[] = {
-	{/* "interface NAME" */
-	 .varname = "interface",
-	 .completions = if_autocomplete},
-	{.tokenname = "IFNAME", .completions = if_autocomplete},
-	{.tokenname = "INTERFACE", .completions = if_autocomplete},
-	{.completions = NULL}};
-
-void if_cmd_init(void)
-{
-	cmd_variable_handler_register(if_var_handlers);
-
-	install_element(CONFIG_NODE, &interface_cmd);
-	install_element(CONFIG_NODE, &no_interface_cmd);
-
-	install_default(INTERFACE_NODE);
-	install_element(INTERFACE_NODE, &interface_desc_cmd);
-	install_element(INTERFACE_NODE, &no_interface_desc_cmd);
-}
-
-#if 0
-/* For debug purpose. */
-DEFUN (show_address,
-       show_address_cmd,
-       "show address [vrf NAME]",
-       SHOW_STR
-       "address\n"
-       VRF_CMD_HELP_STR)
-{
-  int idx_vrf = 3;
-  struct listnode *node;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
-  vrf_id_t vrf_id = VRF_DEFAULT;
-
-  if (argc > 2)
-    VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
-
-  FOR_ALL_INTERFACES (vrf, ifp)
-    {
-      for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-	{
-	  p = ifc->address;
-
-	  if (p->family == AF_INET)
-	    vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
-	}
-    }
-  return CMD_SUCCESS;
-}
-
-DEFUN (show_address_vrf_all,
-       show_address_vrf_all_cmd,
-       "show address vrf all",
-       SHOW_STR
-       "address\n"
-       VRF_ALL_CMD_HELP_STR)
-{
-  struct vrf *vrf;
-  struct listnode *node;
-  struct interface *ifp;
-  struct connected *ifc;
-  struct prefix *p;
-
-  RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-    {
-      if (RB_EMPTY (if_name_head, &vrf->ifaces_by_name))
-        continue;
-
-      vty_out (vty, "\nVRF %u\n\n", vrf->vrf_id);
-
-      FOR_ALL_INTERFACES (vrf, ifp)
-        {
-          for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-            {
-              p = ifc->address;
-
-              if (p->family == AF_INET)
-                vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
-            }
-        }
-    }
-  return CMD_SUCCESS;
-}
-#endif
-
-/* Allocate connected structure. */
-struct connected *connected_new(void)
-{
-	return XCALLOC(MTYPE_CONNECTED, sizeof(struct connected));
-}
-
-/* Allocate nbr connected structure. */
-struct nbr_connected *nbr_connected_new(void)
-{
-	return XCALLOC(MTYPE_NBR_CONNECTED, sizeof(struct nbr_connected));
-}
-
-/* Free connected structure. */
-void connected_free(struct connected *connected)
-{
-	if (connected->address)
-		prefix_free(connected->address);
-
-	if (connected->destination)
-		prefix_free(connected->destination);
-
-	if (connected->label)
-		XFREE(MTYPE_CONNECTED_LABEL, connected->label);
-
-	XFREE(MTYPE_CONNECTED, connected);
-}
-
-/* Free nbr connected structure. */
-void nbr_connected_free(struct nbr_connected *connected)
-{
-	if (connected->address)
-		prefix_free(connected->address);
-
-	XFREE(MTYPE_NBR_CONNECTED, connected);
-}
-
-/* If same interface nbr address already exists... */
-struct nbr_connected *nbr_connected_check(struct interface *ifp,
-					  struct prefix *p)
-{
-	struct nbr_connected *ifc;
-	struct listnode *node;
-
-	for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, ifc))
-		if (prefix_same(ifc->address, p))
-			return ifc;
-
-	return NULL;
-}
-
-/* Print if_addr structure. */
-static void __attribute__((unused))
-connected_log(struct connected *connected, char *str)
-{
-	struct prefix *p;
-	struct interface *ifp;
-	char logbuf[BUFSIZ];
-	char buf[BUFSIZ];
-
-	ifp = connected->ifp;
-	p = connected->address;
-
-	snprintf(logbuf, BUFSIZ, "%s interface %s vrf %u %s %s/%d ", str,
-		 ifp->name, ifp->vrf_id, prefix_family_str(p),
-		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
-
-	p = connected->destination;
-	if (p) {
-		strncat(logbuf, inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-			BUFSIZ - strlen(logbuf));
-	}
-	zlog_info("%s", logbuf);
-}
-
-/* Print if_addr structure. */
-static void __attribute__((unused))
-nbr_connected_log(struct nbr_connected *connected, char *str)
-{
-	struct prefix *p;
-	struct interface *ifp;
-	char logbuf[BUFSIZ];
-	char buf[BUFSIZ];
-
-	ifp = connected->ifp;
-	p = connected->address;
-
-	snprintf(logbuf, BUFSIZ, "%s interface %s %s %s/%d ", str, ifp->name,
-		 prefix_family_str(p),
-		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
-
-	zlog_info("%s", logbuf);
-}
-
-/* If two connected address has same prefix return 1. */
-static int connected_same_prefix(struct prefix *p1, struct prefix *p2)
-{
-	if (p1->family == p2->family) {
-		if (p1->family == AF_INET
-		    && IPV4_ADDR_SAME(&p1->u.prefix4, &p2->u.prefix4))
-			return 1;
-		if (p1->family == AF_INET6
-		    && IPV6_ADDR_SAME(&p1->u.prefix6, &p2->u.prefix6))
-			return 1;
-	}
-	return 0;
-}
-
-struct connected *connected_lookup_prefix_exact(struct interface *ifp,
-						struct prefix *p)
-{
-	struct listnode *node;
-	struct listnode *next;
-	struct connected *ifc;
-
-	for (node = listhead(ifp->connected); node; node = next) {
-		ifc = listgetdata(node);
-		next = node->next;
-
-		if (connected_same_prefix(ifc->address, p))
-			return ifc;
-	}
-	return NULL;
-}
-
-struct connected *connected_delete_by_prefix(struct interface *ifp,
-					     struct prefix *p)
-{
-	struct listnode *node;
-	struct listnode *next;
-	struct connected *ifc;
-
-	/* In case of same prefix come, replace it with new one. */
-	for (node = listhead(ifp->connected); node; node = next) {
-		ifc = listgetdata(node);
-		next = node->next;
-
-		if (connected_same_prefix(ifc->address, p)) {
-			listnode_delete(ifp->connected, ifc);
-			return ifc;
-		}
-	}
-	return NULL;
-}
-
-/* Find the address on our side that will be used when packets
-   are sent to dst. */
-struct connected *connected_lookup_prefix(struct interface *ifp,
-					  struct prefix *addr)
-{
-	struct listnode *cnode;
-	struct connected *c;
-	struct connected *match;
-
-	match = NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-		if (c->address && (c->address->family == addr->family)
-		    && prefix_match(CONNECTED_PREFIX(c), addr)
-		    && (!match
-			|| (c->address->prefixlen > match->address->prefixlen)))
-			match = c;
-	}
-	return match;
-}
-
-struct connected *connected_add_by_prefix(struct interface *ifp,
-					  struct prefix *p,
-					  struct prefix *destination)
-{
-	struct connected *ifc;
-
-	/* Allocate new connected address. */
-	ifc = connected_new();
-	ifc->ifp = ifp;
-
-	/* Fetch interface address */
-	ifc->address = prefix_new();
-	memcpy(ifc->address, p, sizeof(struct prefix));
-
-	/* Fetch dest address */
-	if (destination) {
-		ifc->destination = prefix_new();
-		memcpy(ifc->destination, destination, sizeof(struct prefix));
-	}
-
-	/* Add connected address to the interface. */
-	listnode_add(ifp->connected, ifc);
-	return ifc;
-}
-
-#if 0  /* this route_table of struct connected's is unused                     \
-	* however, it would be good to use a route_table rather than           \
-	* a list..                                                             \
-	*/
-/* Interface looking up by interface's address. */
-/* Interface's IPv4 address reverse lookup table. */
-struct route_table *ifaddr_ipv4_table;
-/* struct route_table *ifaddr_ipv6_table; */
-
-static void
-ifaddr_ipv4_add (struct in_addr *ifaddr, struct interface *ifp)
-{
-  struct route_node *rn;
-  struct prefix_ipv4 p;
-
-  p.family = AF_INET;
-  p.prefixlen = IPV4_MAX_PREFIXLEN;
-  p.prefix = *ifaddr;
-
-  rn = route_node_get (ifaddr_ipv4_table, (struct prefix *) &p);
-  if (rn)
-    {
-      route_unlock_node (rn);
-      zlog_info ("ifaddr_ipv4_add(): address %s is already added",
-		 inet_ntoa (*ifaddr));
-      return;
-    }
-  rn->info = ifp;
-}
-
-static void
-ifaddr_ipv4_delete (struct in_addr *ifaddr, struct interface *ifp)
-{
-  struct route_node *rn;
-  struct prefix_ipv4 p;
-
-  p.family = AF_INET;
-  p.prefixlen = IPV4_MAX_PREFIXLEN;
-  p.prefix = *ifaddr;
-
-  rn = route_node_lookup (ifaddr_ipv4_table, (struct prefix *) &p);
-  if (! rn)
-    {
-      zlog_info ("ifaddr_ipv4_delete(): can't find address %s",
-		 inet_ntoa (*ifaddr));
-      return;
-    }
-  rn->info = NULL;
-  route_unlock_node (rn);
-  route_unlock_node (rn);
-}
-
-/* Lookup interface by interface's IP address or interface index. */
-static struct interface *
-ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
-{
-  struct prefix_ipv4 p;
-  struct route_node *rn;
-  struct interface *ifp;
-
-  if (addr)
-    {
-      p.family = AF_INET;
-      p.prefixlen = IPV4_MAX_PREFIXLEN;
-      p.prefix = *addr;
-
-      rn = route_node_lookup (ifaddr_ipv4_table, (struct prefix *) &p);
-      if (! rn)
-	return NULL;
-
-      ifp = rn->info;
-      route_unlock_node (rn);
-      return ifp;
-    }
-  else
-    return if_lookup_by_index(ifindex, VRF_DEFAULT);
-}
-#endif /* ifaddr_ipv4_table */
-
-void if_terminate(struct vrf *vrf)
-{
-	struct interface *ifp;
-
-	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
-		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
-
-		if (ifp->node) {
-			ifp->node->info = NULL;
-			route_unlock_node(ifp->node);
-		}
-		if_delete(ifp);
-	}
-}
-
-const char *if_link_type_str(enum zebra_link_type llt)
-{
-	switch (llt) {
-#define llts(T,S) case (T): return (S)
-		llts(ZEBRA_LLT_UNKNOWN, "Unknown");
-		llts(ZEBRA_LLT_ETHER, "Ethernet");
-		llts(ZEBRA_LLT_EETHER, "Experimental Ethernet");
-		llts(ZEBRA_LLT_AX25, "AX.25 Level 2");
-		llts(ZEBRA_LLT_PRONET, "PROnet token ring");
-		llts(ZEBRA_LLT_IEEE802, "IEEE 802.2 Ethernet/TR/TB");
-		llts(ZEBRA_LLT_ARCNET, "ARCnet");
-		llts(ZEBRA_LLT_APPLETLK, "AppleTalk");
-		llts(ZEBRA_LLT_DLCI, "Frame Relay DLCI");
-		llts(ZEBRA_LLT_ATM, "ATM");
-		llts(ZEBRA_LLT_METRICOM, "Metricom STRIP");
-		llts(ZEBRA_LLT_IEEE1394, "IEEE 1394 IPv4");
-		llts(ZEBRA_LLT_EUI64, "EUI-64");
-		llts(ZEBRA_LLT_INFINIBAND, "InfiniBand");
-		llts(ZEBRA_LLT_SLIP, "SLIP");
-		llts(ZEBRA_LLT_CSLIP, "Compressed SLIP");
-		llts(ZEBRA_LLT_SLIP6, "SLIPv6");
-		llts(ZEBRA_LLT_CSLIP6, "Compressed SLIPv6");
-		llts(ZEBRA_LLT_ROSE, "ROSE packet radio");
-		llts(ZEBRA_LLT_X25, "CCITT X.25");
-		llts(ZEBRA_LLT_PPP, "PPP");
-		llts(ZEBRA_LLT_CHDLC, "Cisco HDLC");
-		llts(ZEBRA_LLT_RAWHDLC, "Raw HDLC");
-		llts(ZEBRA_LLT_LAPB, "LAPB");
-		llts(ZEBRA_LLT_IPIP, "IPIP Tunnel");
-		llts(ZEBRA_LLT_IPIP6, "IPIP6 Tunnel");
-		llts(ZEBRA_LLT_FRAD, "FRAD");
-		llts(ZEBRA_LLT_SKIP, "SKIP vif");
-		llts(ZEBRA_LLT_LOOPBACK, "Loopback");
-		llts(ZEBRA_LLT_LOCALTLK, "Localtalk");
-		llts(ZEBRA_LLT_FDDI, "FDDI");
-		llts(ZEBRA_LLT_SIT, "IPv6-in-IPv4 SIT");
-		llts(ZEBRA_LLT_IPDDP, "IP-in-DDP tunnel");
-		llts(ZEBRA_LLT_IPGRE, "GRE over IP");
-		llts(ZEBRA_LLT_PIMREG, "PIMSM registration");
-		llts(ZEBRA_LLT_HIPPI, "HiPPI");
-		llts(ZEBRA_LLT_IRDA, "IrDA");
-		llts(ZEBRA_LLT_FCPP, "Fibre-Channel PtP");
-		llts(ZEBRA_LLT_FCAL, "Fibre-Channel Arbitrated Loop");
-		llts(ZEBRA_LLT_FCPL, "Fibre-Channel Public Loop");
-		llts(ZEBRA_LLT_FCFABRIC, "Fibre-Channel Fabric");
-		llts(ZEBRA_LLT_IEEE802_TR, "IEEE 802.2 Token Ring");
-		llts(ZEBRA_LLT_IEEE80211, "IEEE 802.11");
-		llts(ZEBRA_LLT_IEEE80211_RADIOTAP, "IEEE 802.11 Radiotap");
-		llts(ZEBRA_LLT_IEEE802154, "IEEE 802.15.4");
-		llts(ZEBRA_LLT_IEEE802154_PHY, "IEEE 802.15.4 Phy");
-	default:
-		zlog_warn("Unknown value %d", llt);
-		return "Unknown type!";
-#undef llts
-	}
-	return NULL;
-}
-
-struct if_link_params *if_link_params_get(struct interface *ifp)
-{
-	int i;
-
-	if (ifp->link_params != NULL)
-		return ifp->link_params;
-
-	struct if_link_params *iflp =
-		XCALLOC(MTYPE_IF_LINK_PARAMS, sizeof(struct if_link_params));
-	if (iflp == NULL)
-		return NULL;
-
-	/* Set TE metric equal to standard metric */
-	iflp->te_metric = ifp->metric;
-
-	/* Compute default bandwidth based on interface */
-	iflp->default_bw =
-		((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
-		 * TE_KILO_BIT / TE_BYTE);
-
-	/* Set Max, Reservable and Unreserved Bandwidth */
-	iflp->max_bw = iflp->default_bw;
-	iflp->max_rsv_bw = iflp->default_bw;
-	for (i = 0; i < MAX_CLASS_TYPE; i++)
-		iflp->unrsv_bw[i] = iflp->default_bw;
-
-	/* Update Link parameters status */
-	iflp->lp_status =
-		LP_TE_METRIC | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
-
-	/* Finally attach newly created Link Parameters */
-	ifp->link_params = iflp;
-
-	return iflp;
-}
-
-void if_link_params_free(struct interface *ifp)
-{
-	if (ifp->link_params == NULL)
-		return;
-	XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
-	ifp->link_params = NULL;
-}
+/**Interfacefunctions.*Copyright(C)1997,98KunihiroIshiguro**ThisfileispartofGNUZ
+ebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itunderthetermsof
+theGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversion2
+,or(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatitwillbeus
+eful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFIT
+NESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshou
+ldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileC
+OPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bost
+on,MA02110-1301USA*/#include<zebra.h>#include"linklist.h"#include"vector.h"#incl
+ude"vty.h"#include"command.h"#include"vrf.h"#include"if.h"#include"sockunion.h"#
+include"prefix.h"#include"memory.h"#include"table.h"#include"buffer.h"#include"l
+og.h"DEFINE_MTYPE(LIB,IF,"Interface")DEFINE_MTYPE_STATIC(LIB,CONNECTED,"Connecte
+d")DEFINE_MTYPE_STATIC(LIB,NBR_CONNECTED,"NeighborConnected")DEFINE_MTYPE(LIB,CO
+NNECTED_LABEL,"Connectedinterfacelabel")DEFINE_MTYPE_STATIC(LIB,IF_LINK_PARAMS,"
+InformationalLinkParameters")staticintif_cmp_func(conststructinterface*,conststr
+uctinterface*);staticintif_cmp_index_func(conststructinterface*ifp1,conststructi
+nterface*ifp2);RB_GENERATE(if_name_head,interface,name_entry,if_cmp_func);RB_GEN
+ERATE(if_index_head,interface,index_entry,if_cmp_index_func);DEFINE_QOBJ_TYPE(in
+terface)DEFINE_HOOK(if_add,(structinterface*ifp),(ifp))DEFINE_KOOH(if_del,(struc
+tinterface*ifp),(ifp))/*ListofinterfacesinonlythedefaultVRF*/intptm_enable=0;/*C
+ompareinterfacenames,returninganintegergreaterthan,equalto,or*lessthan0,(followi
+ngthestrcmpconvention),accordingtothe*relationshipbetweenifp1andifp2.Interfacena
+mesconsistofan*alphabeticprefixandanumericsuffix.Theprimarysortkeyis*lexicograph
+icbyname,andthennumericbynumber.Nonumbersorts*beforeallnumbers.Examples:de0<de1,
+de100<fxp0<xl0,devpty<*devpty0,de0<del0*/intif_cmp_name_func(char*p1,char*p2){un
+signedintl1,l2;longintx1,x2;intres;while(*p1&&*p2){/*lookuptoanynumber*/l1=strcs
+pn(p1,"0123456789");l2=strcspn(p2,"0123456789");/*namelengthsaredifferent->compa
+renames*/if(l1!=l2)return(strcmp(p1,p2));/*Notethatthisreliesonallnumbersbeingle
+ssthanall*letters,so*thatde0<del0.*/res=strncmp(p1,p2,l1);/*namesaredifferent->c
+omparethem*/if(res)returnres;/*withidenticalnamepart,gotonumericpart*/p1+=l1;p2+
+=l1;if(!*p1&&!*p2)return0;if(!*p1)return-1;if(!*p2)return1;x1=strtol(p1,&p1,10);
+x2=strtol(p2,&p2,10);/*let'scomparenumbersnow*/if(x1<x2)return-1;if(x1>x2)return
+1;/*numberswereequal,letsdoitagain..(ithappenswithnamelike"eth123.456:789")*/}if
+(*p1)return1;if(*p2)return-1;return0;}staticintif_cmp_func(conststructinterface*
+ifp1,conststructinterface*ifp2){returnif_cmp_name_func((char*)ifp1->name,(char*)
+ifp2->name);}staticintif_cmp_index_func(conststructinterface*ifp1,conststructint
+erface*ifp2){returnifp1->ifindex-ifp2->ifindex;}/*Createnewinterfacestructure.*/
+structinterface*if_create(constchar*name,vrf_id_tvrf_id){structvrf*vrf=vrf_get(v
+rf_id,NULL);structinterface*ifp;ifp=XCALLOC(MTYPE_IF,sizeof(structinterface));if
+p->ifindex=IFINDEX_INTERNAL;assert(name);strlcpy(ifp->name,name,sizeof(ifp->name
+));ifp->vrf_id=vrf_id;IFNAME_RB_INSERT(vrf,ifp);ifp->connected=list_new();ifp->c
+onnected->del=(void(*)(void*))connected_free;ifp->nbr_connected=list_new();ifp->
+nbr_connected->del=(void(*)(void*))nbr_connected_free;/*EnableLink-detectionbyde
+fault*/SET_FLAG(ifp->status,ZEBRA_INTERFACE_LINKDETECTION);QOBJ_REG(ifp,interfac
+e);hook_call(if_add,ifp);returnifp;}/*Createnewinterfacestructure.*/voidif_updat
+e_to_new_vrf(structinterface*ifp,vrf_id_tvrf_id){structvrf*vrf;/*removeinterface
+fromoldmastervrflist*/vrf=vrf_lookup_by_id(ifp->vrf_id);if(vrf){IFNAME_RB_REMOVE
+(vrf,ifp);if(ifp->ifindex!=IFINDEX_INTERNAL)IFINDEX_RB_REMOVE(vrf,ifp);}ifp->vrf
+_id=vrf_id;vrf=vrf_get(ifp->vrf_id,NULL);IFNAME_RB_INSERT(vrf,ifp);if(ifp->ifind
+ex!=IFINDEX_INTERNAL)IFINDEX_RB_INSERT(vrf,ifp);}/*Deleteinterfacestructure.*/vo
+idif_delete_retain(structinterface*ifp){hook_call(if_del,ifp);QOBJ_UNREG(ifp);/*
+Freeconnectedaddresslist*/list_delete_all_node(ifp->connected);/*Freeconnectednb
+raddresslist*/list_delete_all_node(ifp->nbr_connected);}/*Deleteandfreeinterface
+structure.*/voidif_delete(structinterface*ifp){structvrf*vrf;vrf=vrf_lookup_by_i
+d(ifp->vrf_id);assert(vrf);IFNAME_RB_REMOVE(vrf,ifp);if(ifp->ifindex!=IFINDEX_IN
+TERNAL)IFINDEX_RB_REMOVE(vrf,ifp);if_delete_retain(ifp);list_delete_and_null(&if
+p->connected);list_delete_and_null(&ifp->nbr_connected);if_link_params_free(ifp)
+;if(ifp->desc)XFREE(MTYPE_TMP,ifp->desc);XFREE(MTYPE_IF,ifp);}/*Interfaceexistan
+cecheckbyindex.*/structinterface*if_lookup_by_index(ifindex_tifindex,vrf_id_tvrf
+_id){structvrf*vrf;structinterfaceif_tmp;if(vrf_id==VRF_UNKNOWN){structinterface
+*ifp;RB_FOREACH(vrf,vrf_id_head,&vrfs_by_id){ifp=if_lookup_by_index(ifindex,vrf-
+>vrf_id);if(ifp)returnifp;}returnNULL;}vrf=vrf_lookup_by_id(vrf_id);if(!vrf)retu
+rnNULL;if_tmp.ifindex=ifindex;returnRB_FIND(if_index_head,&vrf->ifaces_by_index,
+&if_tmp);}constchar*ifindex2ifname(ifindex_tifindex,vrf_id_tvrf_id){structinterf
+ace*ifp;return((ifp=if_lookup_by_index(ifindex,vrf_id))!=NULL)?ifp->name:"unknow
+n";}ifindex_tifname2ifindex(constchar*name,vrf_id_tvrf_id){structinterface*ifp;r
+eturn((ifp=if_lookup_by_name(name,vrf_id))!=NULL)?ifp->ifindex:IFINDEX_INTERNAL;
+}/*Interfaceexistancecheckbyinterfacename.*/structinterface*if_lookup_by_name(co
+nstchar*name,vrf_id_tvrf_id){structvrf*vrf=vrf_lookup_by_id(vrf_id);structinterf
+aceif_tmp;if(!vrf||!name||strnlen(name,INTERFACE_NAMSIZ)==INTERFACE_NAMSIZ)retur
+nNULL;strlcpy(if_tmp.name,name,sizeof(if_tmp.name));returnRB_FIND(if_name_head,&
+vrf->ifaces_by_name,&if_tmp);}structinterface*if_lookup_by_name_all_vrf(constcha
+r*name){structvrf*vrf;structinterface*ifp;if(!name||strnlen(name,INTERFACE_NAMSI
+Z)==INTERFACE_NAMSIZ)returnNULL;RB_FOREACH(vrf,vrf_id_head,&vrfs_by_id){ifp=if_l
+ookup_by_name(name,vrf->vrf_id);if(ifp)returnifp;}returnNULL;}/*Lookupinterfaceb
+yIPv4address.*/structinterface*if_lookup_exact_address(void*src,intfamily,vrf_id
+_tvrf_id){structvrf*vrf=vrf_lookup_by_id(vrf_id);structlistnode*cnode;structinte
+rface*ifp;structprefix*p;structconnected*c;FOR_ALL_INTERFACES(vrf,ifp){for(ALL_L
+IST_ELEMENTS_RO(ifp->connected,cnode,c)){p=c->address;if(p&&(p->family==family))
+{if(family==AF_INET){if(IPV4_ADDR_SAME(&p->u.prefix4,(structin_addr*)src))return
+ifp;}elseif(family==AF_INET6){if(IPV6_ADDR_SAME(&p->u.prefix6,(structin6_addr*)s
+rc))returnifp;}}}}returnNULL;}/*LookupinterfacebyIPv4address.*/structconnected*i
+f_lookup_address(void*matchaddr,intfamily,vrf_id_tvrf_id){structvrf*vrf=vrf_look
+up_by_id(vrf_id);structprefixaddr;intbestlen=0;structlistnode*cnode;structinterf
+ace*ifp;structconnected*c;structconnected*match;if(family==AF_INET){addr.family=
+AF_INET;addr.u.prefix4=*((structin_addr*)matchaddr);addr.prefixlen=IPV4_MAX_BITL
+EN;}elseif(family==AF_INET6){addr.family=AF_INET6;addr.u.prefix6=*((structin6_ad
+dr*)matchaddr);addr.prefixlen=IPV6_MAX_BITLEN;}match=NULL;FOR_ALL_INTERFACES(vrf
+,ifp){for(ALL_LIST_ELEMENTS_RO(ifp->connected,cnode,c)){if(c->address&&(c->addre
+ss->family==AF_INET)&&prefix_match(CONNECTED_PREFIX(c),&addr)&&(c->address->pref
+ixlen>bestlen)){bestlen=c->address->prefixlen;match=c;}}}returnmatch;}/*Lookupin
+terfacebyprefix*/structinterface*if_lookup_prefix(structprefix*prefix,vrf_id_tvr
+f_id){structvrf*vrf=vrf_lookup_by_id(vrf_id);structlistnode*cnode;structinterfac
+e*ifp;structconnected*c;FOR_ALL_INTERFACES(vrf,ifp){for(ALL_LIST_ELEMENTS_RO(ifp
+->connected,cnode,c)){if(prefix_cmp(c->address,prefix)==0){returnifp;}}}returnNU
+LL;}/*Getinterfacebynameifgivennameinterfacedoesn'texistcreateone.*/structinterf
+ace*if_get_by_name(constchar*name,vrf_id_tvrf_id,intvty){structinterface*ifp;ifp
+=if_lookup_by_name(name,vrf_id);if(ifp)returnifp;/*NotFoundonsameVRF.Iftheinterf
+acecommand*wasenteredinvtywithoutaVRF(passedasVRF_DEFAULT),*accepttheifpwefound.
+Ifavrfwasenteredandthereis*amismatch,rejectitiffromvty.*/ifp=if_lookup_by_name_a
+ll_vrf(name);if(!ifp)returnif_create(name,vrf_id);if(vty){if(vrf_id==VRF_DEFAULT
+)returnifp;returnNULL;}/*ifvrfbackendusesNETNS,then*thisshouldnotbeconsideredasa
+nupdate*thencreatethenewinterface*/if(ifp->vrf_id!=vrf_id&&vrf_is_mapped_on_netn
+s(vrf_id))returnif_create(name,vrf_id);/*Ifitcamefromthekernel*orbywayofzclient,
+believeitandupdate*theifpaccordingly.*/if_update_to_new_vrf(ifp,vrf_id);returnif
+p;}voidif_set_index(structinterface*ifp,ifindex_tifindex){structvrf*vrf;vrf=vrf_
+lookup_by_id(ifp->vrf_id);assert(vrf);if(ifp->ifindex==ifindex)return;if(ifp->if
+index!=IFINDEX_INTERNAL)IFINDEX_RB_REMOVE(vrf,ifp)ifp->ifindex=ifindex;if(ifp->i
+findex!=IFINDEX_INTERNAL)IFINDEX_RB_INSERT(vrf,ifp)}/*Doesinterfaceup?*/intif_is
+_up(structinterface*ifp){returnifp->flags&IFF_UP;}/*Isinterfacerunning?*/intif_i
+s_running(structinterface*ifp){returnifp->flags&IFF_RUNNING;}/*Istheinterfaceope
+rative,eg.eitherUP&RUNNINGorUP&!ZEBRA_INTERFACE_LINK_DETECTIONandifptmcheckingis
+enabled,thenptmcheckhaspassed*/intif_is_operative(structinterface*ifp){return((i
+fp->flags&IFF_UP)&&(((ifp->flags&IFF_RUNNING)&&(ifp->ptm_status||!ifp->ptm_enabl
+e))||!CHECK_FLAG(ifp->status,ZEBRA_INTERFACE_LINKDETECTION)));}/*Istheinterfaceo
+perative,eg.eitherUP&RUNNINGorUP&!ZEBRA_INTERFACE_LINK_DETECTION,withoutPTMcheck
+*/intif_is_no_ptm_operative(structinterface*ifp){return((ifp->flags&IFF_UP)&&((i
+fp->flags&IFF_RUNNING)||!CHECK_FLAG(ifp->status,ZEBRA_INTERFACE_LINKDETECTION)))
+;}/*Isthisloopbackinterface?*/intif_is_loopback(structinterface*ifp){/*XXX:Dothi
+sbetter,egwhatifIFF_WHATEVERmeansXonplatformM*butYonplatformN?*/return(ifp->flag
+s&(IFF_LOOPBACK|IFF_NOXMIT|IFF_VIRTUAL));}/*CheckinterfaceisVRF*/intif_is_vrf(st
+ructinterface*ifp){returnCHECK_FLAG(ifp->status,ZEBRA_INTERFACE_VRF_LOOPBACK);}/
+*Doesthisinterfacesupportbroadcast?*/intif_is_broadcast(structinterface*ifp){ret
+urnifp->flags&IFF_BROADCAST;}/*Doesthisinterfacesupportbroadcast?*/intif_is_poin
+topoint(structinterface*ifp){returnifp->flags&IFF_POINTOPOINT;}/*Doesthisinterfa
+cesupportmulticast?*/intif_is_multicast(structinterface*ifp){returnifp->flags&IF
+F_MULTICAST;}/*Printoutflaginformationintolog*/constchar*if_flag_dump(unsignedlo
+ngflag){intseparator=0;staticcharlogbuf[BUFSIZ];#defineIFF_OUT_LOG(X,STR)\if(fla
+g&(X)){\if(separator)\strlcat(logbuf,",",BUFSIZ);\else\separator=1;\strlcat(logb
+uf,STR,BUFSIZ);\}strlcpy(logbuf,"<",BUFSIZ);IFF_OUT_LOG(IFF_UP,"UP");IFF_OUT_LOG
+(IFF_BROADCAST,"BROADCAST");IFF_OUT_LOG(IFF_DEBUG,"DEBUG");IFF_OUT_LOG(IFF_LOOPB
+ACK,"LOOPBACK");IFF_OUT_LOG(IFF_POINTOPOINT,"POINTOPOINT");IFF_OUT_LOG(IFF_NOTRA
+ILERS,"NOTRAILERS");IFF_OUT_LOG(IFF_RUNNING,"RUNNING");IFF_OUT_LOG(IFF_NOARP,"NO
+ARP");IFF_OUT_LOG(IFF_PROMISC,"PROMISC");IFF_OUT_LOG(IFF_ALLMULTI,"ALLMULTI");IF
+F_OUT_LOG(IFF_OACTIVE,"OACTIVE");IFF_OUT_LOG(IFF_SIMPLEX,"SIMPLEX");IFF_OUT_LOG(
+IFF_LINK0,"LINK0");IFF_OUT_LOG(IFF_LINK1,"LINK1");IFF_OUT_LOG(IFF_LINK2,"LINK2")
+;IFF_OUT_LOG(IFF_MULTICAST,"MULTICAST");IFF_OUT_LOG(IFF_NOXMIT,"NOXMIT");IFF_OUT
+_LOG(IFF_NORTEXCH,"NORTEXCH");IFF_OUT_LOG(IFF_VIRTUAL,"VIRTUAL");IFF_OUT_LOG(IFF
+_IPV4,"IPv4");IFF_OUT_LOG(IFF_IPV6,"IPv6");strlcat(logbuf,">",BUFSIZ);returnlogb
+uf;#undefIFF_OUT_LOG}/*Fordebugging*/staticvoidif_dump(conststructinterface*ifp)
+{structlistnode*node;structconnected*c__attribute__((unused));for(ALL_LIST_ELEME
+NTS_RO(ifp->connected,node,c))zlog_info("Interface%svrf%uindex%dmetric%dmtu%d""m
+tu6%d%s",ifp->name,ifp->vrf_id,ifp->ifindex,ifp->metric,ifp->mtu,ifp->mtu6,if_fl
+ag_dump(ifp->flags));}/*Interfaceprintingforallinterface.*/voidif_dump_all(void)
+{structvrf*vrf;void*ifp;RB_FOREACH(vrf,vrf_id_head,&vrfs_by_id)FOR_ALL_INTERFACE
+S(vrf,ifp)if_dump(ifp);}DEFUN(interface_desc,interface_desc_cmd,"descriptionLINE
+...","Interfacespecificdescription\n""Charactersdescribingthisinterface\n"){inti
+dx_line=1;VTY_DECLVAR_CONTEXT(interface,ifp);if(ifp->desc)XFREE(MTYPE_TMP,ifp->d
+esc);ifp->desc=argv_concat(argv,argc,idx_line);returnCMD_SUCCESS;}DEFUN(no_inter
+face_desc,no_interface_desc_cmd,"nodescription",NO_STR"Interfacespecificdescript
+ion\n"){VTY_DECLVAR_CONTEXT(interface,ifp);if(ifp->desc)XFREE(MTYPE_TMP,ifp->des
+c);ifp->desc=NULL;returnCMD_SUCCESS;}#ifdefSUNOS_5/*NeedtohandleupgradefromSUNWz
+ebratoQuagga.SUNWzebracreated*aseperatestructinterfaceforeachlogicalinterface,so
+config*filemaybefullof'interfacefooX:Y'.Solarishoweverdoesnot*exposelogicalinter
+facesviaPF_ROUTE,sotryingtotracklogical*interfacescanbefruitless,forthatreasonQu
+aggaonlytracks*theprimaryIPinterface.**WetryaccomodateSUNWzebraby:*-lookingupthe
+interfacename,toseewhetheritexists,ifso*itsuseable*-forprotocoldaemons,thiscould
+onlybecausezebratoldusof*theinterface*-forzebra,onlybecauseitlearntfromkernel*-i
+fnot:*-searchthenametoseeifitcontainsasub-ipif/logicalinterface*seperator,the':'
+char.Ifitdoes:*-textuptothatcharmustbetheprimaryname-getthatname.*ifnot:*-noidea
+,justgetthenameinitsentirety.*/staticstructinterface*if_sunwzebra_get(char*name,
+vrf_id_tvrf_id){structinterface*ifp;char*cp;if((ifp=if_lookup_by_name(name,vrf_i
+d))!=NULL)returnifp;/*hunttheprimaryinterfacename...*/cp=strchr(name,':');if(cp)
+*cp='\0';returnif_get_by_name(name,vrf_id,1);}#endif/*SUNOS_5*/DEFUN(interface,i
+nterface_cmd,"interfaceIFNAME[vrfNAME]","Selectaninterfacetoconfigure\n""Interfa
+ce'sname\n"VRF_CMD_HELP_STR){intidx_ifname=1;intidx_vrf=3;constchar*ifname=argv[
+idx_ifname]->arg;constchar*vrfname=(argc>2)?argv[idx_vrf]->arg:NULL;structinterf
+ace*ifp;vrf_id_tvrf_id=VRF_DEFAULT;if(strlen(ifname)>INTERFACE_NAMSIZ){vty_out(v
+ty,"%%Interfacename%sisinvalid:lengthexceeds""%dcharacters\n",ifname,INTERFACE_N
+AMSIZ);returnCMD_WARNING_CONFIG_FAILED;}/*Pending:needpropervrfnamebasedlookup/(
+possiblecreationofVRF)Imagineforwardreferenceofavrfbynameinthisinterfaceconfig*/
+if(vrfname)VRF_GET_ID(vrf_id,vrfname);#ifdefSUNOS_5ifp=if_sunwzebra_get(ifname,v
+rf_id);#elseifp=if_get_by_name(ifname,vrf_id,1);#endif/*SUNOS_5*/if(!ifp){vty_ou
+t(vty,"%%interface%snotin%s\n",ifname,vrfname);returnCMD_WARNING_CONFIG_FAILED;}
+VTY_PUSH_CONTEXT(INTERFACE_NODE,ifp);returnCMD_SUCCESS;}DEFUN_NOSH(no_interface,
+no_interface_cmd,"nointerfaceIFNAME[vrfNAME]",NO_STR"Deleteapseudointerface'scon
+figuration\n""Interface'sname\n"VRF_CMD_HELP_STR){intidx_vrf=4;constchar*ifname=
+argv[2]->arg;constchar*vrfname=(argc>3)?argv[idx_vrf]->arg:NULL;//deletinginterf
+acestructinterface*ifp;vrf_id_tvrf_id=VRF_DEFAULT;if(argc>3)VRF_GET_ID(vrf_id,vr
+fname);ifp=if_lookup_by_name(ifname,vrf_id);if(ifp==NULL){vty_out(vty,"%%Interfa
+ce%sdoesnotexist\n",ifname);returnCMD_WARNING_CONFIG_FAILED;}if(CHECK_FLAG(ifp->
+status,ZEBRA_INTERFACE_ACTIVE)){vty_out(vty,"%%Onlyinactiveinterfacescanbedelete
+d\n");returnCMD_WARNING_CONFIG_FAILED;}if_delete(ifp);returnCMD_SUCCESS;}staticv
+oidif_autocomplete(vectorcomps,structcmd_token*token){structinterface*ifp;struct
+vrf*vrf=NULL;RB_FOREACH(vrf,vrf_name_head,&vrfs_by_name){FOR_ALL_INTERFACES(vrf,
+ifp){vector_set(comps,XSTRDUP(MTYPE_COMPLETION,ifp->name));}}}staticconststructc
+md_variable_handlerif_var_handlers[]={{/*"interfaceNAME"*/.varname="interface",.
+completions=if_autocomplete},{.tokenname="IFNAME",.completions=if_autocomplete},
+{.tokenname="INTERFACE",.completions=if_autocomplete},{.completions=NULL}};voidi
+f_cmd_init(void){cmd_variable_handler_register(if_var_handlers);install_element(
+CONFIG_NODE,&interface_cmd);install_element(CONFIG_NODE,&no_interface_cmd);insta
+ll_default(INTERFACE_NODE);install_element(INTERFACE_NODE,&interface_desc_cmd);i
+nstall_element(INTERFACE_NODE,&no_interface_desc_cmd);}#if0/*Fordebugpurpose.*/D
+EFUN(show_address,show_address_cmd,"showaddress[vrfNAME]",SHOW_STR"address\n"VRF
+_CMD_HELP_STR){intidx_vrf=3;structlistnode*node;structinterface*ifp;structconnec
+ted*ifc;structprefix*p;vrf_id_tvrf_id=VRF_DEFAULT;if(argc>2)VRF_GET_ID(vrf_id,ar
+gv[idx_vrf]->arg);FOR_ALL_INTERFACES(vrf,ifp){for(ALL_LIST_ELEMENTS_RO(ifp->conn
+ected,node,ifc)){p=ifc->address;if(p->family==AF_INET)vty_out(vty,"%s/%d\n",inet
+_ntoa(p->u.prefix4),p->prefixlen);}}returnCMD_SUCCESS;}DEFUN(show_address_vrf_al
+l,show_address_vrf_all_cmd,"showaddressvrfall",SHOW_STR"address\n"VRF_ALL_CMD_HE
+LP_STR){structvrf*vrf;structlistnode*node;structinterface*ifp;structconnected*if
+c;structprefix*p;RB_FOREACH(vrf,vrf_name_head,&vrfs_by_name){if(RB_EMPTY(if_name
+_head,&vrf->ifaces_by_name))continue;vty_out(vty,"\nVRF%u\n\n",vrf->vrf_id);FOR_
+ALL_INTERFACES(vrf,ifp){for(ALL_LIST_ELEMENTS_RO(ifp->connected,node,ifc)){p=ifc
+->address;if(p->family==AF_INET)vty_out(vty,"%s/%d\n",inet_ntoa(p->u.prefix4),p-
+>prefixlen);}}}returnCMD_SUCCESS;}#endif/*Allocateconnectedstructure.*/structcon
+nected*connected_new(void){returnXCALLOC(MTYPE_CONNECTED,sizeof(structconnected)
+);}/*Allocatenbrconnectedstructure.*/structnbr_connected*nbr_connected_new(void)
+{returnXCALLOC(MTYPE_NBR_CONNECTED,sizeof(structnbr_connected));}/*Freeconnected
+structure.*/voidconnected_free(structconnected*connected){if(connected->address)
+prefix_free(connected->address);if(connected->destination)prefix_free(connected-
+>destination);if(connected->label)XFREE(MTYPE_CONNECTED_LABEL,connected->label);
+XFREE(MTYPE_CONNECTED,connected);}/*Freenbrconnectedstructure.*/voidnbr_connecte
+d_free(structnbr_connected*connected){if(connected->address)prefix_free(connecte
+d->address);XFREE(MTYPE_NBR_CONNECTED,connected);}/*Ifsameinterfacenbraddressalr
+eadyexists...*/structnbr_connected*nbr_connected_check(structinterface*ifp,struc
+tprefix*p){structnbr_connected*ifc;structlistnode*node;for(ALL_LIST_ELEMENTS_RO(
+ifp->nbr_connected,node,ifc))if(prefix_same(ifc->address,p))returnifc;returnNULL
+;}/*Printif_addrstructure.*/staticvoid__attribute__((unused))connected_log(struc
+tconnected*connected,char*str){structprefix*p;structinterface*ifp;charlogbuf[BUF
+SIZ];charbuf[BUFSIZ];ifp=connected->ifp;p=connected->address;snprintf(logbuf,BUF
+SIZ,"%sinterface%svrf%u%s%s/%d",str,ifp->name,ifp->vrf_id,prefix_family_str(p),i
+net_ntop(p->family,&p->u.prefix,buf,BUFSIZ),p->prefixlen);p=connected->destinati
+on;if(p){strncat(logbuf,inet_ntop(p->family,&p->u.prefix,buf,BUFSIZ),BUFSIZ-strl
+en(logbuf));}zlog_info("%s",logbuf);}/*Printif_addrstructure.*/staticvoid__attri
+bute__((unused))nbr_connected_log(structnbr_connected*connected,char*str){struct
+prefix*p;structinterface*ifp;charlogbuf[BUFSIZ];charbuf[BUFSIZ];ifp=connected->i
+fp;p=connected->address;snprintf(logbuf,BUFSIZ,"%sinterface%s%s%s/%d",str,ifp->n
+ame,prefix_family_str(p),inet_ntop(p->family,&p->u.prefix,buf,BUFSIZ),p->prefixl
+en);zlog_info("%s",logbuf);}/*Iftwoconnectedaddresshassameprefixreturn1.*/static
+intconnected_same_prefix(structprefix*p1,structprefix*p2){if(p1->family==p2->fam
+ily){if(p1->family==AF_INET&&IPV4_ADDR_SAME(&p1->u.prefix4,&p2->u.prefix4))retur
+n1;if(p1->family==AF_INET6&&IPV6_ADDR_SAME(&p1->u.prefix6,&p2->u.prefix6))return
+1;}return0;}structconnected*connected_lookup_prefix_exact(structinterface*ifp,st
+ructprefix*p){structlistnode*node;structlistnode*next;structconnected*ifc;for(no
+de=listhead(ifp->connected);node;node=next){ifc=listgetdata(node);next=node->nex
+t;if(connected_same_prefix(ifc->address,p))returnifc;}returnNULL;}structconnecte
+d*connected_delete_by_prefix(structinterface*ifp,structprefix*p){structlistnode*
+node;structlistnode*next;structconnected*ifc;/*Incaseofsameprefixcome,replaceitw
+ithnewone.*/for(node=listhead(ifp->connected);node;node=next){ifc=listgetdata(no
+de);next=node->next;if(connected_same_prefix(ifc->address,p)){listnode_delete(if
+p->connected,ifc);returnifc;}}returnNULL;}/*Findtheaddressonoursidethatwillbeuse
+dwhenpacketsaresenttodst.*/structconnected*connected_lookup_prefix(structinterfa
+ce*ifp,structprefix*addr){structlistnode*cnode;structconnected*c;structconnected
+*match;match=NULL;for(ALL_LIST_ELEMENTS_RO(ifp->connected,cnode,c)){if(c->addres
+s&&(c->address->family==addr->family)&&prefix_match(CONNECTED_PREFIX(c),addr)&&(
+!match||(c->address->prefixlen>match->address->prefixlen)))match=c;}returnmatch;
+}structconnected*connected_add_by_prefix(structinterface*ifp,structprefix*p,stru
+ctprefix*destination){structconnected*ifc;/*Allocatenewconnectedaddress.*/ifc=co
+nnected_new();ifc->ifp=ifp;/*Fetchinterfaceaddress*/ifc->address=prefix_new();me
+mcpy(ifc->address,p,sizeof(structprefix));/*Fetchdestaddress*/if(destination){if
+c->destination=prefix_new();memcpy(ifc->destination,destination,sizeof(structpre
+fix));}/*Addconnectedaddresstotheinterface.*/listnode_add(ifp->connected,ifc);re
+turnifc;}#if0/*thisroute_tableofstructconnected'sisunused\*however,itwouldbegood
+tousearoute_tableratherthan\*alist..\*//*Interfacelookingupbyinterface'saddress.
+*//*Interface'sIPv4addressreverselookuptable.*/structroute_table*ifaddr_ipv4_tab
+le;/*structroute_table*ifaddr_ipv6_table;*/staticvoidifaddr_ipv4_add(structin_ad
+dr*ifaddr,structinterface*ifp){structroute_node*rn;structprefix_ipv4p;p.family=A
+F_INET;p.prefixlen=IPV4_MAX_PREFIXLEN;p.prefix=*ifaddr;rn=route_node_get(ifaddr_
+ipv4_table,(structprefix*)&p);if(rn){route_unlock_node(rn);zlog_info("ifaddr_ipv
+4_add():address%sisalreadyadded",inet_ntoa(*ifaddr));return;}rn->info=ifp;}stati
+cvoidifaddr_ipv4_delete(structin_addr*ifaddr,structinterface*ifp){structroute_no
+de*rn;structprefix_ipv4p;p.family=AF_INET;p.prefixlen=IPV4_MAX_PREFIXLEN;p.prefi
+x=*ifaddr;rn=route_node_lookup(ifaddr_ipv4_table,(structprefix*)&p);if(!rn){zlog
+_info("ifaddr_ipv4_delete():can'tfindaddress%s",inet_ntoa(*ifaddr));return;}rn->
+info=NULL;route_unlock_node(rn);route_unlock_node(rn);}/*Lookupinterfacebyinterf
+ace'sIPaddressorinterfaceindex.*/staticstructinterface*ifaddr_ipv4_lookup(struct
+in_addr*addr,ifindex_tifindex){structprefix_ipv4p;structroute_node*rn;structinte
+rface*ifp;if(addr){p.family=AF_INET;p.prefixlen=IPV4_MAX_PREFIXLEN;p.prefix=*add
+r;rn=route_node_lookup(ifaddr_ipv4_table,(structprefix*)&p);if(!rn)returnNULL;if
+p=rn->info;route_unlock_node(rn);returnifp;}elsereturnif_lookup_by_index(ifindex
+,VRF_DEFAULT);}#endif/*ifaddr_ipv4_table*/voidif_terminate(structvrf*vrf){struct
+interface*ifp;while(!RB_EMPTY(if_name_head,&vrf->ifaces_by_name)){ifp=RB_ROOT(if
+_name_head,&vrf->ifaces_by_name);if(ifp->node){ifp->node->info=NULL;route_unlock
+_node(ifp->node);}if_delete(ifp);}}constchar*if_link_type_str(enumzebra_link_typ
+ellt){switch(llt){#definellts(T,S)case(T):return(S)llts(ZEBRA_LLT_UNKNOWN,"Unkno
+wn");llts(ZEBRA_LLT_ETHER,"Ethernet");llts(ZEBRA_LLT_EETHER,"ExperimentalEtherne
+t");llts(ZEBRA_LLT_AX25,"AX.25Level2");llts(ZEBRA_LLT_PRONET,"PROnettokenring");
+llts(ZEBRA_LLT_IEEE802,"IEEE802.2Ethernet/TR/TB");llts(ZEBRA_LLT_ARCNET,"ARCnet"
+);llts(ZEBRA_LLT_APPLETLK,"AppleTalk");llts(ZEBRA_LLT_DLCI,"FrameRelayDLCI");llt
+s(ZEBRA_LLT_ATM,"ATM");llts(ZEBRA_LLT_METRICOM,"MetricomSTRIP");llts(ZEBRA_LLT_I
+EEE1394,"IEEE1394IPv4");llts(ZEBRA_LLT_EUI64,"EUI-64");llts(ZEBRA_LLT_INFINIBAND
+,"InfiniBand");llts(ZEBRA_LLT_SLIP,"SLIP");llts(ZEBRA_LLT_CSLIP,"CompressedSLIP"
+);llts(ZEBRA_LLT_SLIP6,"SLIPv6");llts(ZEBRA_LLT_CSLIP6,"CompressedSLIPv6");llts(
+ZEBRA_LLT_ROSE,"ROSEpacketradio");llts(ZEBRA_LLT_X25,"CCITTX.25");llts(ZEBRA_LLT
+_PPP,"PPP");llts(ZEBRA_LLT_CHDLC,"CiscoHDLC");llts(ZEBRA_LLT_RAWHDLC,"RawHDLC");
+llts(ZEBRA_LLT_LAPB,"LAPB");llts(ZEBRA_LLT_IPIP,"IPIPTunnel");llts(ZEBRA_LLT_IPI
+P6,"IPIP6Tunnel");llts(ZEBRA_LLT_FRAD,"FRAD");llts(ZEBRA_LLT_SKIP,"SKIPvif");llt
+s(ZEBRA_LLT_LOOPBACK,"Loopback");llts(ZEBRA_LLT_LOCALTLK,"Localtalk");llts(ZEBRA
+_LLT_FDDI,"FDDI");llts(ZEBRA_LLT_SIT,"IPv6-in-IPv4SIT");llts(ZEBRA_LLT_IPDDP,"IP
+-in-DDPtunnel");llts(ZEBRA_LLT_IPGRE,"GREoverIP");llts(ZEBRA_LLT_PIMREG,"PIMSMre
+gistration");llts(ZEBRA_LLT_HIPPI,"HiPPI");llts(ZEBRA_LLT_IRDA,"IrDA");llts(ZEBR
+A_LLT_FCPP,"Fibre-ChannelPtP");llts(ZEBRA_LLT_FCAL,"Fibre-ChannelArbitratedLoop"
+);llts(ZEBRA_LLT_FCPL,"Fibre-ChannelPublicLoop");llts(ZEBRA_LLT_FCFABRIC,"Fibre-
+ChannelFabric");llts(ZEBRA_LLT_IEEE802_TR,"IEEE802.2TokenRing");llts(ZEBRA_LLT_I
+EEE80211,"IEEE802.11");llts(ZEBRA_LLT_IEEE80211_RADIOTAP,"IEEE802.11Radiotap");l
+lts(ZEBRA_LLT_IEEE802154,"IEEE802.15.4");llts(ZEBRA_LLT_IEEE802154_PHY,"IEEE802.
+15.4Phy");default:zlog_warn("Unknownvalue%d",llt);return"Unknowntype!";#undefllt
+s}returnNULL;}structif_link_params*if_link_params_get(structinterface*ifp){inti;
+if(ifp->link_params!=NULL)returnifp->link_params;structif_link_params*iflp=XCALL
+OC(MTYPE_IF_LINK_PARAMS,sizeof(structif_link_params));if(iflp==NULL)returnNULL;/
+*SetTEmetricequaltostandardmetric*/iflp->te_metric=ifp->metric;/*Computedefaultb
+andwidthbasedoninterface*/iflp->default_bw=((ifp->bandwidth?ifp->bandwidth:DEFAU
+LT_BANDWIDTH)*TE_KILO_BIT/TE_BYTE);/*SetMax,ReservableandUnreservedBandwidth*/if
+lp->max_bw=iflp->default_bw;iflp->max_rsv_bw=iflp->default_bw;for(i=0;i<MAX_CLAS
+S_TYPE;i++)iflp->unrsv_bw[i]=iflp->default_bw;/*UpdateLinkparametersstatus*/iflp
+->lp_status=LP_TE_METRIC|LP_MAX_BW|LP_MAX_RSV_BW|LP_UNRSV_BW;/*Finallyattachnewl
+ycreatedLinkParameters*/ifp->link_params=iflp;returniflp;}voidif_link_params_fre
+e(structinterface*ifp){if(ifp->link_params==NULL)return;XFREE(MTYPE_IF_LINK_PARA
+MS,ifp->link_params);ifp->link_params=NULL;}

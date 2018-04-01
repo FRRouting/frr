@@ -1,1407 +1,335 @@
-/*
- * EIGRP SNMP Support.
- * Copyright (C) 2013-2014
- * Authors:
- *   Donnie Savage
- *   Jan Janovic
- *   Matej Perina
- *   Peter Orsag
- *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#ifdef HAVE_SNMP
-#include <net-snmp/net-snmp-config.h>
-#include <net-snmp/net-snmp-includes.h>
-
-#include "thread.h"
-#include "memory.h"
-#include "linklist.h"
-#include "prefix.h"
-#include "if.h"
-#include "table.h"
-#include "sockunion.h"
-#include "stream.h"
-#include "log.h"
-#include "sockopt.h"
-#include "checksum.h"
-#include "md5.h"
-#include "keychain.h"
-#include "smux.h"
-
-#include "eigrpd/eigrp_structs.h"
-#include "eigrpd/eigrpd.h"
-#include "eigrpd/eigrp_interface.h"
-#include "eigrpd/eigrp_neighbor.h"
-#include "eigrpd/eigrp_packet.h"
-#include "eigrpd/eigrp_zebra.h"
-#include "eigrpd/eigrp_vty.h"
-#include "eigrpd/eigrp_dump.h"
-#include "eigrpd/eigrp_network.h"
-#include "eigrpd/eigrp_topology.h"
-#include "eigrpd/eigrp_fsm.h"
-#include "eigrpd/eigrp_snmp.h"
-
-struct list *eigrp_snmp_iflist;
-
-/* Declare static local variables for convenience. */
-SNMP_LOCAL_VARIABLES
-
-/* EIGRP-MIB - 1.3.6.1.4.1.9.9.449.1*/
-#define EIGRPMIB 1,3,6,1,4,1,9,9,449,1
-
-/* EIGRP-MIB instances. */
-oid eigrp_oid[] = {EIGRPMIB};
-
-/* EIGRP VPN entry */
-#define EIGRPVPNID						1
-#define EIGRPVPNNAME						2
-
-/* EIGRP Traffic statistics entry */
-#define EIGRPASNUMBER					1
-#define EIGRPNBRCOUNT					2
-#define EIGRPHELLOSSENT					3
-#define EIGRPHELLOSRCVD					4
-#define EIGRPUPDATESSENT				5
-#define EIGRPUPDATESRCVD				6
-#define EIGRPQUERIESSENT				7
-#define EIGRPQUERIESRCVD				8
-#define EIGRPREPLIESSENT				9
-#define EIGRPREPLIESRCVD				10
-#define EIGRPACKSSENT					11
-#define EIGRPACKSRCVD					12
-#define EIGRPINPUTQHIGHMARK				13
-#define EIGRPINPUTQDROPS				14
-#define EIGRPSIAQUERIESSENT				15
-#define EIGRPSIAQUERIESRCVD				16
-#define EIGRPASROUTERIDTYPE				17
-#define EIGRPASROUTERID					18
-#define EIGRPTOPOROUTES					19
-#define EIGRPHEADSERIAL					20
-#define EIGRPNEXTSERIAL					21
-#define EIGRPXMITPENDREPLIES				22
-#define EIGRPXMITDUMMIES				23
-
-/* EIGRP topology entry */
-#define EIGRPDESTNETTYPE				1
-#define EIGRPDESTNET					2
-#define EIGRPDESTNETPREFIXLEN				4
-#define EIGRPACTIVE					5
-#define EIGRPSTUCKINACTIVE				6
-#define EIGRPDESTSUCCESSORS				7
-#define EIGRPFDISTANCE					8
-#define EIGRPROUTEORIGINTYPE				9
-#define EIGRPROUTEORIGINADDRTYPE			10
-#define EIGRPROUTEORIGINADDR				11
-#define EIGRPNEXTHOPADDRESSTYPE				12
-#define EIGRPNEXTHOPADDRESS				13
-#define EIGRPNEXTHOPINTERFACE				14
-#define EIGRPDISTANCE					15
-#define EIGRPREPORTDISTANCE				16
-
-/* EIGRP peer entry */
-#define EIGRPHANDLE							1
-#define EIGRPPEERADDRTYPE					2
-#define EIGRPPEERADDR						3
-#define EIGRPPEERIFINDEX					4
-#define EIGRPHOLDTIME						5
-#define EIGRPUPTIME							6
-#define EIGRPSRTT							7
-#define EIGRPRTO							8
-#define EIGRPPKTSENQUEUED					9
-#define EIGRPLASTSEQ						10
-#define EIGRPVERSION						11
-#define EIGRPRETRANS						12
-#define EIGRPRETRIES						13
-
-/* EIGRP interface entry */
-#define EIGRPPEERCOUNT						3
-#define EIGRPXMITRELIABLEQ					4
-#define EIGRPXMITUNRELIABLEQ	        	5
-#define EIGRPMEANSRTT						6
-#define EIGRPPACINGRELIABLE					7
-#define EIGRPPACINGUNRELIABLE		        8
-#define EIGRPMFLOWTIMER						9
-#define EIGRPPENDINGROUTES					10
-#define EIGRPHELLOINTERVAL					11
-#define EIGRPXMITNEXTSERIAL					12
-#define EIGRPUMCASTS						13
-#define EIGRPRMCASTS						14
-#define EIGRPUUCASTS						15
-#define EIGRPRUCASTS						16
-#define EIGRPMCASTEXCEPTS					17
-#define EIGRPCRPKTS							18
-#define EIGRPACKSSUPPRESSED					19
-#define EIGRPRETRANSSENT					20
-#define EIGRPOOSRCVD						21
-#define EIGRPAUTHMODE						22
-#define EIGRPAUTHKEYCHAIN					23
-
-/* SNMP value hack. */
-#define COUNTER                 ASN_COUNTER
-#define INTEGER                 ASN_INTEGER
-#define GAUGE                   ASN_GAUGE
-#define TIMETICKS               ASN_TIMETICKS
-#define IPADDRESS               ASN_IPADDRESS
-#define STRING                  ASN_OCTET_STR
-#define IPADDRESSPREFIXLEN      ASN_INTEGER
-#define IPADDRESSTYPE           ASN_INTEGER
-#define INTERFACEINDEXORZERO    ASN_INTEGER
-#define UINTEGER                ASN_UNSIGNED
-
-/* Hook functions. */
-static uint8_t *eigrpVpnEntry(struct variable *, oid *, size_t *, int, size_t *,
-			      WriteMethod **);
-static uint8_t *eigrpTraffStatsEntry(struct variable *, oid *, size_t *, int,
-				     size_t *, WriteMethod **);
-static uint8_t *eigrpTopologyEntry(struct variable *, oid *, size_t *, int,
-				   size_t *, WriteMethod **);
-static uint8_t *eigrpPeerEntry(struct variable *, oid *, size_t *, int,
-			       size_t *, WriteMethod **);
-static uint8_t *eigrpInterfaceEntry(struct variable *, oid *, size_t *, int,
-				    size_t *, WriteMethod **);
-
-
-struct variable eigrp_variables[] = {
-	/* EIGRP vpn variables */
-	{EIGRPVPNID, INTEGER, NOACCESS, eigrpVpnEntry, 4, {1, 1, 1, 1}},
-	{EIGRPVPNNAME, STRING, RONLY, eigrpVpnEntry, 4, {1, 1, 1, 2}},
-
-	/* EIGRP traffic stats variables */
-	{EIGRPASNUMBER,
-	 UINTEGER,
-	 NOACCESS,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 1}},
-	{EIGRPNBRCOUNT, UINTEGER, RONLY, eigrpTraffStatsEntry, 4, {2, 1, 1, 2}},
-	{EIGRPHELLOSSENT,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 3}},
-	{EIGRPHELLOSRCVD,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 4}},
-	{EIGRPUPDATESSENT,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 5}},
-	{EIGRPUPDATESRCVD,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 6}},
-	{EIGRPQUERIESSENT,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 7}},
-	{EIGRPQUERIESRCVD,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 8}},
-	{EIGRPREPLIESSENT,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 9}},
-	{EIGRPREPLIESRCVD,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 10}},
-	{EIGRPACKSSENT, COUNTER, RONLY, eigrpTraffStatsEntry, 4, {2, 1, 1, 11}},
-	{EIGRPACKSRCVD, COUNTER, RONLY, eigrpTraffStatsEntry, 4, {2, 1, 1, 12}},
-	{EIGRPINPUTQHIGHMARK,
-	 INTEGER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 13}},
-	{EIGRPINPUTQDROPS,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 14}},
-	{EIGRPSIAQUERIESSENT,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 15}},
-	{EIGRPSIAQUERIESRCVD,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 16}},
-	{EIGRPASROUTERIDTYPE,
-	 IPADDRESSTYPE,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 17}},
-	{EIGRPASROUTERID,
-	 IPADDRESS,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 18}},
-	{EIGRPTOPOROUTES,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 19}},
-	{EIGRPHEADSERIAL,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 20}},
-	{EIGRPNEXTSERIAL,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 21}},
-	{EIGRPXMITPENDREPLIES,
-	 INTEGER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 22}},
-	{EIGRPXMITDUMMIES,
-	 COUNTER,
-	 RONLY,
-	 eigrpTraffStatsEntry,
-	 4,
-	 {2, 1, 1, 23}},
-
-	/* EIGRP topology variables */
-	{EIGRPDESTNETTYPE,
-	 IPADDRESSTYPE,
-	 NOACCESS,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 1}},
-	{EIGRPDESTNET,
-	 IPADDRESSPREFIXLEN,
-	 NOACCESS,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 2}},
-	{EIGRPDESTNETPREFIXLEN,
-	 IPADDRESSTYPE,
-	 NOACCESS,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 4}},
-	{EIGRPACTIVE, INTEGER, RONLY, eigrpTopologyEntry, 4, {3, 1, 1, 5}},
-	{EIGRPSTUCKINACTIVE,
-	 INTEGER,
-	 RONLY,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 6}},
-	{EIGRPDESTSUCCESSORS,
-	 INTEGER,
-	 RONLY,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 7}},
-	{EIGRPFDISTANCE, INTEGER, RONLY, eigrpTopologyEntry, 4, {3, 1, 1, 8}},
-	{EIGRPROUTEORIGINTYPE,
-	 STRING,
-	 RONLY,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 9}},
-	{EIGRPROUTEORIGINADDRTYPE,
-	 IPADDRESSTYPE,
-	 RONLY,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 10}},
-	{EIGRPROUTEORIGINADDR,
-	 IPADDRESS,
-	 RONLY,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 11}},
-	{EIGRPNEXTHOPADDRESSTYPE,
-	 IPADDRESSTYPE,
-	 RONLY,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 12}},
-	{EIGRPNEXTHOPADDRESS,
-	 IPADDRESS,
-	 RONLY,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 13}},
-	{EIGRPNEXTHOPINTERFACE,
-	 STRING,
-	 RONLY,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 14}},
-	{EIGRPDISTANCE, INTEGER, RONLY, eigrpTopologyEntry, 4, {3, 1, 1, 15}},
-	{EIGRPREPORTDISTANCE,
-	 INTEGER,
-	 RONLY,
-	 eigrpTopologyEntry,
-	 4,
-	 {3, 1, 1, 16}},
-
-	/* EIGRP peer variables */
-	{EIGRPHANDLE, INTEGER, NOACCESS, eigrpPeerEntry, 4, {4, 1, 1, 1}},
-	{EIGRPPEERADDRTYPE,
-	 IPADDRESSTYPE,
-	 RONLY,
-	 eigrpPeerEntry,
-	 4,
-	 {4, 1, 1, 2}},
-	{EIGRPPEERADDR, IPADDRESS, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 3}},
-	{EIGRPPEERIFINDEX,
-	 INTERFACEINDEXORZERO,
-	 RONLY,
-	 eigrpPeerEntry,
-	 4,
-	 {4, 1, 1, 4}},
-	{EIGRPHOLDTIME, INTEGER, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 5}},
-	{EIGRPUPTIME, STRING, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 6}},
-	{EIGRPSRTT, INTEGER, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 7}},
-	{EIGRPRTO, INTEGER, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 8}},
-	{EIGRPPKTSENQUEUED, INTEGER, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 9}},
-	{EIGRPLASTSEQ, INTEGER, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 10}},
-	{EIGRPVERSION, STRING, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 11}},
-	{EIGRPRETRANS, COUNTER, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 12}},
-	{EIGRPRETRIES, INTEGER, RONLY, eigrpPeerEntry, 4, {4, 1, 1, 13}},
-
-	/* EIGRP interface variables */
-	{EIGRPPEERCOUNT, GAUGE, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 3}},
-	{EIGRPXMITRELIABLEQ,
-	 GAUGE,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 4}},
-	{EIGRPXMITUNRELIABLEQ,
-	 GAUGE,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 5}},
-	{EIGRPMEANSRTT, INTEGER, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 6}},
-	{EIGRPPACINGRELIABLE,
-	 INTEGER,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 7}},
-	{EIGRPPACINGUNRELIABLE,
-	 INTEGER,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 8}},
-	{EIGRPMFLOWTIMER, INTEGER, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 9}},
-	{EIGRPPENDINGROUTES,
-	 GAUGE,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 10}},
-	{EIGRPHELLOINTERVAL,
-	 INTEGER,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 11}},
-	{EIGRPXMITNEXTSERIAL,
-	 COUNTER,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 12}},
-	{EIGRPUMCASTS, COUNTER, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 13}},
-	{EIGRPRMCASTS, COUNTER, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 14}},
-	{EIGRPUUCASTS, COUNTER, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 15}},
-	{EIGRPRUCASTS, COUNTER, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 16}},
-	{EIGRPMCASTEXCEPTS,
-	 COUNTER,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 17}},
-	{EIGRPCRPKTS, COUNTER, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 18}},
-	{EIGRPACKSSUPPRESSED,
-	 COUNTER,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 19}},
-	{EIGRPRETRANSSENT,
-	 COUNTER,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 20}},
-	{EIGRPOOSRCVD, COUNTER, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 21}},
-	{EIGRPAUTHMODE, INTEGER, RONLY, eigrpInterfaceEntry, 4, {5, 1, 1, 22}},
-	{EIGRPAUTHKEYCHAIN,
-	 STRING,
-	 RONLY,
-	 eigrpInterfaceEntry,
-	 4,
-	 {5, 1, 1, 23}}};
-
-static struct eigrp_neighbor *eigrp_snmp_nbr_lookup(struct eigrp *eigrp,
-						    struct in_addr *nbr_addr,
-						    unsigned int *ifindex)
-{
-	struct listnode *node, *nnode, *node2, *nnode2;
-	struct eigrp_interface *ei;
-	struct eigrp_neighbor *nbr;
-
-	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
-		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-			if (IPV4_ADDR_SAME(&nbr->src, nbr_addr)) {
-				return nbr;
-			}
-		}
-	}
-	return NULL;
-}
-
-static struct eigrp_neighbor *
-eigrp_snmp_nbr_lookup_next(struct in_addr *nbr_addr, unsigned int *ifindex,
-			   int first)
-{
-	struct listnode *node, *nnode, *node2, *nnode2;
-	struct eigrp_interface *ei;
-	struct eigrp_neighbor *nbr;
-	struct route_node *rn;
-	struct eigrp_neighbor *min = NULL;
-	struct eigrp *eigrp = eigrp;
-
-	eigrp = eigrp_lookup();
-
-	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
-		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-			if (first) {
-				if (!min)
-					min = nbr;
-				else if (ntohl(nbr->src.s_addr)
-					 < ntohl(min->src.s_addr))
-					min = nbr;
-			} else if (ntohl(nbr->src.s_addr)
-				   > ntohl(nbr_addr->s_addr)) {
-				if (!min)
-					min = nbr;
-				else if (ntohl(nbr->src.s_addr)
-					 < ntohl(min->src.s_addr))
-					min = nbr;
-			}
-		}
-	}
-	if (min) {
-		*nbr_addr = min->src;
-		*ifindex = 0;
-		return min;
-	}
-	return NULL;
-}
-
-static struct eigrp_neighbor *eigrpNbrLookup(struct variable *v, oid *name,
-					     size_t *length,
-					     struct in_addr *nbr_addr,
-					     unsigned int *ifindex, int exact)
-{
-	unsigned int len;
-	int first;
-	struct eigrp_neighbor *nbr;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-
-	if (!eigrp)
-		return NULL;
-
-	if (exact) {
-		if (*length != v->namelen + IN_ADDR_SIZE + 1)
-			return NULL;
-
-		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, nbr_addr);
-		*ifindex = name[v->namelen + IN_ADDR_SIZE];
-
-		return eigrp_snmp_nbr_lookup(eigrp, nbr_addr, ifindex);
-	} else {
-		first = 0;
-		len = *length - v->namelen;
-
-		if (len <= 0)
-			first = 1;
-
-		if (len > IN_ADDR_SIZE)
-			len = IN_ADDR_SIZE;
-
-		oid2in_addr(name + v->namelen, len, nbr_addr);
-
-		len = *length - v->namelen - IN_ADDR_SIZE;
-		if (len >= 1)
-			*ifindex = name[v->namelen + IN_ADDR_SIZE];
-
-		nbr = eigrp_snmp_nbr_lookup_next(nbr_addr, ifindex, first);
-
-		if (nbr) {
-			*length = v->namelen + IN_ADDR_SIZE + 1;
-			oid_copy_addr(name + v->namelen, nbr_addr,
-				      IN_ADDR_SIZE);
-			name[v->namelen + IN_ADDR_SIZE] = *ifindex;
-			return nbr;
-		}
-	}
-	return NULL;
-}
-
-
-static uint8_t *eigrpVpnEntry(struct variable *v, oid *name, size_t *length,
-			      int exact, size_t *var_len,
-			      WriteMethod **write_method)
-{
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-
-	/* Check whether the instance identifier is valid */
-	if (smux_header_generic(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case EIGRPVPNID: /* 1 */
-		/* The unique VPN identifier */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPVPNNAME: /* 2 */
-		/* The name given to the VPN */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	default:
-		return NULL;
-	}
-	return NULL;
-}
-
-static uint32_t eigrp_neighbor_count(struct eigrp *eigrp)
-{
-	uint32_t count;
-	struct eigrp_interface *ei;
-	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
-
-	if (eigrp == NULL) {
-		return 0;
-	}
-
-	count = 0;
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-			if (nbr->state == EIGRP_NEIGHBOR_UP)
-				count++;
-		}
-	}
-
-	return count;
-}
-
-
-static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
-				     size_t *length, int exact, size_t *var_len,
-				     WriteMethod **write_method)
-{
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node, *nnode;
-	int counter;
-
-	eigrp = eigrp_lookup();
-
-	/* Check whether the instance identifier is valid */
-	if (smux_header_generic(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case EIGRPASNUMBER: /* 1 */
-		/* AS-number of this EIGRP instance. */
-		if (eigrp)
-			return SNMP_INTEGER(eigrp->AS);
-		else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPNBRCOUNT: /* 2 */
-		/* Neighbor count of this EIGRP instance */
-		if (eigrp)
-			return SNMP_INTEGER(eigrp_neighbor_count(eigrp));
-		else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPHELLOSSENT: /* 3 */
-		/* Hello packets output count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->hello_out;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPHELLOSRCVD: /* 4 */
-		/* Hello packets input count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->hello_in;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPUPDATESSENT: /* 5 */
-		/* Update packets output count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->update_out;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPUPDATESRCVD: /* 6 */
-		/* Update packets input count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->update_in;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPQUERIESSENT: /* 7 */
-		/* Querry packets output count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->query_out;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPQUERIESRCVD: /* 8 */
-		/* Querry packets input count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->query_in;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPREPLIESSENT: /* 9 */
-		/* Reply packets output count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->reply_out;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPREPLIESRCVD: /* 10 */
-		/* Reply packets input count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->reply_in;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPACKSSENT: /* 11 */
-		/* Acknowledgement packets output count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->ack_out;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPACKSRCVD: /* 12 */
-		/* Acknowledgement packets input count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->ack_in;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPINPUTQHIGHMARK: /* 13 */
-		/* The highest number of EIGRP packets in the input queue */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPINPUTQDROPS: /* 14 */
-		/* The number of EIGRP packets dropped from the input queue */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPSIAQUERIESSENT: /* 15 */
-		/* SIA querry packets output count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->siaQuery_out;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPSIAQUERIESRCVD: /* 16 */
-		/* SIA querry packets input count */
-		if (eigrp) {
-			counter = 0;
-			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
-					       ei)) {
-				counter += ei->siaQuery_in;
-			}
-			return SNMP_INTEGER(counter);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPASROUTERIDTYPE: /* 17 */
-		/* Whether the router ID is set manually or automatically */
-		if (eigrp)
-			if (eigrp->router_id_static != 0)
-				return SNMP_INTEGER(1);
-			else
-				return SNMP_INTEGER(1);
-		else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPASROUTERID: /* 18 */
-		/* Router ID for this EIGRP AS */
-		if (eigrp)
-			if (eigrp->router_id_static != 0)
-				return SNMP_INTEGER(eigrp->router_id_static);
-			else
-				return SNMP_INTEGER(eigrp->router_id);
-		else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPTOPOROUTES: /* 19 */
-		/* The total number of EIGRP derived routes currently existing
-		   in the topology table for the AS */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPHEADSERIAL: /* 20 */
-		/* The serial number of the first route in the internal
-		   sequence for an AS*/
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPNEXTSERIAL: /* 21 */
-		/* The serial number that would be assigned to the next new
-		 or changed route in the topology table for the AS*/
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPXMITPENDREPLIES: /* 22 */
-		/* Total number of outstanding replies expected to queries
-		   that have been sent to peers in the current AS*/
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPXMITDUMMIES: /* 23 */
-		/* Total number of currently existing dummies associated with
-		 * the AS*/
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	default:
-		return NULL;
-	}
-	return NULL;
-}
-
-static uint8_t *eigrpTopologyEntry(struct variable *v, oid *name,
-				   size_t *length, int exact, size_t *var_len,
-				   WriteMethod **write_method)
-{
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node, *nnode;
-
-	eigrp = eigrp_lookup();
-
-	/* Check whether the instance identifier is valid */
-	if (smux_header_generic(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case EIGRPDESTNETTYPE: /* 1 */
-		/* The format of the destination IP network number for a single
-		   route in the topology table*/
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPDESTNET: /* 2 */
-		/* The destination IP network number for a single route in the
-		 * topology table*/
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPDESTNETPREFIXLEN: /* 4 */
-		/* The prefix length associated with the destination IP network
-		   address
-		   for a single route in the topology table in the AS*/
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPACTIVE: /* 5 */
-		/* A value of true(1) indicates the route to the destination
-		   network has failed
-		   A value of false(2) indicates the route is stable
-		   (passive).*/
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPSTUCKINACTIVE: /* 6 */
-		/* A value of true(1) indicates that that this route which is in
-		   active state
-		   has not received any replies to queries for alternate paths
-		   */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPDESTSUCCESSORS: /* 7 */
-		/* Next routing hop for a path to the destination IP network */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPFDISTANCE: /* 8 */
-		/* Minimum distance from this router to the destination IP
-		 * network */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPROUTEORIGINTYPE: /* 9 */
-		/* Text string describing the internal origin of the EIGRP route
-		 */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPROUTEORIGINADDRTYPE: /* 10 */
-		/* The format of the IP address defined as the origin of this
-		   topology route entry */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPROUTEORIGINADDR: /* 11 */
-		/* If the origin of the topology route entry is external to this
-		   router,
-		   then this object is the IP address of the router from which
-		   it originated */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPNEXTHOPADDRESSTYPE: /* 12 */
-		/* The format of the next hop IP address */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPNEXTHOPADDRESS: /* 13 */
-		/* Next hop IP address for the route */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPNEXTHOPINTERFACE: /* 14 */
-		/* The interface through which the next hop IP address is
-		 * reached */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPDISTANCE: /* 15 */
-		/* The computed distance to the destination network entry from
-		 * this router */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPREPORTDISTANCE: /* 16 */
-		/* The computed distance to the destination network in the
-		   topology entry
-		   reported to this router by the originator of this route */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	default:
-		return NULL;
-	}
-	return NULL;
-}
-
-static uint8_t *eigrpPeerEntry(struct variable *v, oid *name, size_t *length,
-			       int exact, size_t *var_len,
-			       WriteMethod **write_method)
-{
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node, *nnode;
-	struct eigrp_neighbor *nbr;
-	struct in_addr nbr_addr;
-	unsigned int ifindex;
-
-	eigrp = eigrp_lookup();
-
-	/* Check whether the instance identifier is valid */
-	if (smux_header_generic(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	memset(&nbr_addr, 0, sizeof(struct in_addr));
-	ifindex = 0;
-
-	nbr = eigrpNbrLookup(v, name, length, &nbr_addr, &ifindex, exact);
-	if (!nbr)
-		return NULL;
-	ei = nbr->ei;
-	if (!ei)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case EIGRPHANDLE: /* 1 */
-		/* The unique internal identifier for the peer in the AS */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPPEERADDRTYPE: /* 2 */
-		/* The format of the remote source IP address used by the peer
-		 */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPPEERADDR: /* 3 */
-		/* The source IP address used by the peer */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPPEERIFINDEX: /* 4 */
-		/* The ifIndex of the interface on this router */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPHOLDTIME: /* 5 */
-		/* How much time must pass without receiving a hello packet from
-		   this
-		   EIGRP peer before this router declares the peer down */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPUPTIME: /* 6 */
-		/* The elapsed time since the EIGRP adjacency was first
-		 * established */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPSRTT: /* 7 */
-		/* The computed smooth round trip time for packets to and from
-		 * the peer */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPRTO: /* 8 */
-		/* The computed retransmission timeout for the peer */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPPKTSENQUEUED: /* 9 */
-		/* The number of any EIGRP packets currently enqueued */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPLASTSEQ: /* 10 */
-		/* sequence number of the last EIGRP packet sent to this peer */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPVERSION: /* 11 */
-		/* The EIGRP version information reported by the remote peer */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPRETRANS: /* 12 */
-		/* The cumulative number of retransmissions to this peer */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPRETRIES: /* 13 */
-		/* The number of times the current unacknowledged packet has
-		 * been retried */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	default:
-		return NULL;
-	}
-	return NULL;
-}
-
-static uint8_t *eigrpInterfaceEntry(struct variable *v, oid *name,
-				    size_t *length, int exact, size_t *var_len,
-				    WriteMethod **write_method)
-{
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node, *nnode;
-	struct keychain *keychain;
-	struct list *keylist;
-	int counter;
-
-	eigrp = eigrp_lookup();
-
-	/* Check whether the instance identifier is valid */
-	if (smux_header_generic(v, name, length, exact, var_len, write_method)
-	    == MATCH_FAILED)
-		return NULL;
-
-	/* Return the current value of the variable */
-	switch (v->magic) {
-	case EIGRPPEERCOUNT: /* 3 */
-		/* The number of EIGRP adjacencies currently formed with
-		   peers reached through this interface */
-		if (eigrp) {
-			return SNMP_INTEGER(eigrp_neighbor_count(eigrp));
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPXMITRELIABLEQ: /* 4 */
-		/* The number of EIGRP packets currently waiting in the reliable
-		   transport transmission queue */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPXMITUNRELIABLEQ: /* 5 */
-		/* The number of EIGRP packets currently waiting in the
-		   unreliable
-		   transport transmission queue */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPMEANSRTT: /* 6 */
-		/* The average of all the computed smooth round trip time values
-		   for a packet to and from all peers established on this
-		   interface */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPPACINGRELIABLE: /* 7 */
-		/* The configured time interval between EIGRP packet
-		 * transmissions */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPPACINGUNRELIABLE: /* 8 */
-		/* The configured time interval between EIGRP packet
-		   transmissions
-		   on the interface when the unreliable transport method is used
-		   */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPMFLOWTIMER: /* 9 */
-		/* The configured multicast flow control timer value */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPPENDINGROUTES: /* 10 */
-		/* The number of queued EIGRP routing updates awaiting
-		 * transmission */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPHELLOINTERVAL: /* 11 */
-		/* The configured time interval between Hello packet
-		 * transmissions */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPXMITNEXTSERIAL: /* 12 */
-		/* The serial number of the next EIGRP packet that is to be
-		   queued
-		   for transmission */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPUMCASTS: /* 13 */
-		/* The total number of unreliable EIGRP multicast packets sent
-		   on this interface */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPRMCASTS: /* 14 */
-		/* The total number of reliable EIGRP multicast packets sent
-		   on this interface */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPUUCASTS: /* 15 */
-		/* The total number of unreliable EIGRP unicast packets sent
-		   on this interface */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPRUCASTS: /* 16 */
-		/* The total number of reliable EIGRP unicast packets sent
-		   on this interface */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPMCASTEXCEPTS: /* 17 */
-		/* The total number of EIGRP multicast exception transmissions
-		 */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPCRPKTS: /* 18 */
-		/* The total number EIGRP Conditional-Receive packets sent on
-		 * this interface */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPACKSSUPPRESSED: /* 19 */
-		/* The total number of individual EIGRP acknowledgement packets
-		   that have been
-		   suppressed and combined in an already enqueued outbound
-		   reliable packet on this interface */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPRETRANSSENT: /* 20 */
-		/* The total number EIGRP packet retransmissions sent on the
-		 * interface */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPOOSRCVD: /* 21 */
-		/* The total number of out-of-sequence EIGRP packets received */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPAUTHMODE: /* 22 */
-		/* The EIGRP authentication mode of the interface */
-		if (eigrp) {
-			return SNMP_INTEGER(1);
-		} else
-			return SNMP_INTEGER(0);
-		break;
-	case EIGRPAUTHKEYCHAIN: /* 23 */
-		/* The name of the authentication key-chain configured
-		   on this interface. */
-		keylist = keychain_list_get();
-		for (ALL_LIST_ELEMENTS(keylist, node, nnode, keychain)) {
-			return (uint8_t *)keychain->name;
-		}
-		if (eigrp && keychain) {
-			*var_len = str_len(keychain->name);
-			return (uint8_t *)keychain->name;
-		} else
-			return (uint8_t *)"TEST";
-		break;
-	default:
-		return NULL;
-	}
-	return NULL;
-}
-
-/* Register EIGRP-MIB. */
-void eigrp_snmp_init()
-{
-	eigrp_snmp_iflist = list_new();
-	smux_init(eigrp_om->master);
-	REGISTER_MIB("ciscoEigrpMIB", eigrp_variables, variable, eigrp_oid);
-}
-#endif
+/**EIGRPSNMPSupport.*Copyright(C)2013-2014*Authors:*DonnieSavage*JanJanovic*Mate
+jPerina*PeterOrsag*PeterPaluch**ThisfileispartofGNUZebra.**GNUZebraisfreesoftwar
+e;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseas
+publishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*laterve
+rsion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;
+withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.Se
+etheGNU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUG
+eneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeS
+oftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include
+<zebra.h>#ifdefHAVE_SNMP#include<net-snmp/net-snmp-config.h>#include<net-snmp/ne
+t-snmp-includes.h>#include"thread.h"#include"memory.h"#include"linklist.h"#inclu
+de"prefix.h"#include"if.h"#include"table.h"#include"sockunion.h"#include"stream.
+h"#include"log.h"#include"sockopt.h"#include"checksum.h"#include"md5.h"#include"
+keychain.h"#include"smux.h"#include"eigrpd/eigrp_structs.h"#include"eigrpd/eigrp
+d.h"#include"eigrpd/eigrp_interface.h"#include"eigrpd/eigrp_neighbor.h"#include"
+eigrpd/eigrp_packet.h"#include"eigrpd/eigrp_zebra.h"#include"eigrpd/eigrp_vty.h"
+#include"eigrpd/eigrp_dump.h"#include"eigrpd/eigrp_network.h"#include"eigrpd/eig
+rp_topology.h"#include"eigrpd/eigrp_fsm.h"#include"eigrpd/eigrp_snmp.h"structlis
+t*eigrp_snmp_iflist;/*Declarestaticlocalvariablesforconvenience.*/SNMP_LOCAL_VAR
+IABLES/*EIGRP-MIB-1.3.6.1.4.1.9.9.449.1*/#defineEIGRPMIB1,3,6,1,4,1,9,9,449,1/*E
+IGRP-MIBinstances.*/oideigrp_oid[]={EIGRPMIB};/*EIGRPVPNentry*/#defineEIGRPVPNID
+1#defineEIGRPVPNNAME2/*EIGRPTrafficstatisticsentry*/#defineEIGRPASNUMBER1#define
+EIGRPNBRCOUNT2#defineEIGRPHELLOSSENT3#defineEIGRPHELLOSRCVD4#defineEIGRPUPDATESS
+ENT5#defineEIGRPUPDATESRCVD6#defineEIGRPQUERIESSENT7#defineEIGRPQUERIESRCVD8#def
+ineEIGRPREPLIESSENT9#defineEIGRPREPLIESRCVD10#defineEIGRPACKSSENT11#defineEIGRPA
+CKSRCVD12#defineEIGRPINPUTQHIGHMARK13#defineEIGRPINPUTQDROPS14#defineEIGRPSIAQUE
+RIESSENT15#defineEIGRPSIAQUERIESRCVD16#defineEIGRPASROUTERIDTYPE17#defineEIGRPAS
+ROUTERID18#defineEIGRPTOPOROUTES19#defineEIGRPHEADSERIAL20#defineEIGRPNEXTSERIAL
+21#defineEIGRPXMITPENDREPLIES22#defineEIGRPXMITDUMMIES23/*EIGRPtopologyentry*/#d
+efineEIGRPDESTNETTYPE1#defineEIGRPDESTNET2#defineEIGRPDESTNETPREFIXLEN4#defineEI
+GRPACTIVE5#defineEIGRPSTUCKINACTIVE6#defineEIGRPDESTSUCCESSORS7#defineEIGRPFDIST
+ANCE8#defineEIGRPROUTEORIGINTYPE9#defineEIGRPROUTEORIGINADDRTYPE10#defineEIGRPRO
+UTEORIGINADDR11#defineEIGRPNEXTHOPADDRESSTYPE12#defineEIGRPNEXTHOPADDRESS13#defi
+neEIGRPNEXTHOPINTERFACE14#defineEIGRPDISTANCE15#defineEIGRPREPORTDISTANCE16/*EIG
+RPpeerentry*/#defineEIGRPHANDLE1#defineEIGRPPEERADDRTYPE2#defineEIGRPPEERADDR3#d
+efineEIGRPPEERIFINDEX4#defineEIGRPHOLDTIME5#defineEIGRPUPTIME6#defineEIGRPSRTT7#
+defineEIGRPRTO8#defineEIGRPPKTSENQUEUED9#defineEIGRPLASTSEQ10#defineEIGRPVERSION
+11#defineEIGRPRETRANS12#defineEIGRPRETRIES13/*EIGRPinterfaceentry*/#defineEIGRPP
+EERCOUNT3#defineEIGRPXMITRELIABLEQ4#defineEIGRPXMITUNRELIABLEQ5#defineEIGRPMEANS
+RTT6#defineEIGRPPACINGRELIABLE7#defineEIGRPPACINGUNRELIABLE8#defineEIGRPMFLOWTIM
+ER9#defineEIGRPPENDINGROUTES10#defineEIGRPHELLOINTERVAL11#defineEIGRPXMITNEXTSER
+IAL12#defineEIGRPUMCASTS13#defineEIGRPRMCASTS14#defineEIGRPUUCASTS15#defineEIGRP
+RUCASTS16#defineEIGRPMCASTEXCEPTS17#defineEIGRPCRPKTS18#defineEIGRPACKSSUPPRESSE
+D19#defineEIGRPRETRANSSENT20#defineEIGRPOOSRCVD21#defineEIGRPAUTHMODE22#defineEI
+GRPAUTHKEYCHAIN23/*SNMPvaluehack.*/#defineCOUNTERASN_COUNTER#defineINTEGERASN_IN
+TEGER#defineGAUGEASN_GAUGE#defineTIMETICKSASN_TIMETICKS#defineIPADDRESSASN_IPADD
+RESS#defineSTRINGASN_OCTET_STR#defineIPADDRESSPREFIXLENASN_INTEGER#defineIPADDRE
+SSTYPEASN_INTEGER#defineINTERFACEINDEXORZEROASN_INTEGER#defineUINTEGERASN_UNSIGN
+ED/*Hookfunctions.*/staticuint8_t*eigrpVpnEntry(structvariable*,oid*,size_t*,int
+,size_t*,WriteMethod**);staticuint8_t*eigrpTraffStatsEntry(structvariable*,oid*,
+size_t*,int,size_t*,WriteMethod**);staticuint8_t*eigrpTopologyEntry(structvariab
+le*,oid*,size_t*,int,size_t*,WriteMethod**);staticuint8_t*eigrpPeerEntry(structv
+ariable*,oid*,size_t*,int,size_t*,WriteMethod**);staticuint8_t*eigrpInterfaceEnt
+ry(structvariable*,oid*,size_t*,int,size_t*,WriteMethod**);structvariableeigrp_v
+ariables[]={/*EIGRPvpnvariables*/{EIGRPVPNID,INTEGER,NOACCESS,eigrpVpnEntry,4,{1
+,1,1,1}},{EIGRPVPNNAME,STRING,RONLY,eigrpVpnEntry,4,{1,1,1,2}},/*EIGRPtrafficsta
+tsvariables*/{EIGRPASNUMBER,UINTEGER,NOACCESS,eigrpTraffStatsEntry,4,{2,1,1,1}},
+{EIGRPNBRCOUNT,UINTEGER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,2}},{EIGRPHELLOSSENT
+,COUNTER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,3}},{EIGRPHELLOSRCVD,COUNTER,RONLY,
+eigrpTraffStatsEntry,4,{2,1,1,4}},{EIGRPUPDATESSENT,COUNTER,RONLY,eigrpTraffStat
+sEntry,4,{2,1,1,5}},{EIGRPUPDATESRCVD,COUNTER,RONLY,eigrpTraffStatsEntry,4,{2,1,
+1,6}},{EIGRPQUERIESSENT,COUNTER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,7}},{EIGRPQU
+ERIESRCVD,COUNTER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,8}},{EIGRPREPLIESSENT,COUN
+TER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,9}},{EIGRPREPLIESRCVD,COUNTER,RONLY,eigr
+pTraffStatsEntry,4,{2,1,1,10}},{EIGRPACKSSENT,COUNTER,RONLY,eigrpTraffStatsEntry
+,4,{2,1,1,11}},{EIGRPACKSRCVD,COUNTER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,12}},{
+EIGRPINPUTQHIGHMARK,INTEGER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,13}},{EIGRPINPUT
+QDROPS,COUNTER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,14}},{EIGRPSIAQUERIESSENT,COU
+NTER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,15}},{EIGRPSIAQUERIESRCVD,COUNTER,RONLY
+,eigrpTraffStatsEntry,4,{2,1,1,16}},{EIGRPASROUTERIDTYPE,IPADDRESSTYPE,RONLY,eig
+rpTraffStatsEntry,4,{2,1,1,17}},{EIGRPASROUTERID,IPADDRESS,RONLY,eigrpTraffStats
+Entry,4,{2,1,1,18}},{EIGRPTOPOROUTES,COUNTER,RONLY,eigrpTraffStatsEntry,4,{2,1,1
+,19}},{EIGRPHEADSERIAL,COUNTER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,20}},{EIGRPNE
+XTSERIAL,COUNTER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,21}},{EIGRPXMITPENDREPLIES,
+INTEGER,RONLY,eigrpTraffStatsEntry,4,{2,1,1,22}},{EIGRPXMITDUMMIES,COUNTER,RONLY
+,eigrpTraffStatsEntry,4,{2,1,1,23}},/*EIGRPtopologyvariables*/{EIGRPDESTNETTYPE,
+IPADDRESSTYPE,NOACCESS,eigrpTopologyEntry,4,{3,1,1,1}},{EIGRPDESTNET,IPADDRESSPR
+EFIXLEN,NOACCESS,eigrpTopologyEntry,4,{3,1,1,2}},{EIGRPDESTNETPREFIXLEN,IPADDRES
+STYPE,NOACCESS,eigrpTopologyEntry,4,{3,1,1,4}},{EIGRPACTIVE,INTEGER,RONLY,eigrpT
+opologyEntry,4,{3,1,1,5}},{EIGRPSTUCKINACTIVE,INTEGER,RONLY,eigrpTopologyEntry,4
+,{3,1,1,6}},{EIGRPDESTSUCCESSORS,INTEGER,RONLY,eigrpTopologyEntry,4,{3,1,1,7}},{
+EIGRPFDISTANCE,INTEGER,RONLY,eigrpTopologyEntry,4,{3,1,1,8}},{EIGRPROUTEORIGINTY
+PE,STRING,RONLY,eigrpTopologyEntry,4,{3,1,1,9}},{EIGRPROUTEORIGINADDRTYPE,IPADDR
+ESSTYPE,RONLY,eigrpTopologyEntry,4,{3,1,1,10}},{EIGRPROUTEORIGINADDR,IPADDRESS,R
+ONLY,eigrpTopologyEntry,4,{3,1,1,11}},{EIGRPNEXTHOPADDRESSTYPE,IPADDRESSTYPE,RON
+LY,eigrpTopologyEntry,4,{3,1,1,12}},{EIGRPNEXTHOPADDRESS,IPADDRESS,RONLY,eigrpTo
+pologyEntry,4,{3,1,1,13}},{EIGRPNEXTHOPINTERFACE,STRING,RONLY,eigrpTopologyEntry
+,4,{3,1,1,14}},{EIGRPDISTANCE,INTEGER,RONLY,eigrpTopologyEntry,4,{3,1,1,15}},{EI
+GRPREPORTDISTANCE,INTEGER,RONLY,eigrpTopologyEntry,4,{3,1,1,16}},/*EIGRPpeervari
+ables*/{EIGRPHANDLE,INTEGER,NOACCESS,eigrpPeerEntry,4,{4,1,1,1}},{EIGRPPEERADDRT
+YPE,IPADDRESSTYPE,RONLY,eigrpPeerEntry,4,{4,1,1,2}},{EIGRPPEERADDR,IPADDRESS,RON
+LY,eigrpPeerEntry,4,{4,1,1,3}},{EIGRPPEERIFINDEX,INTERFACEINDEXORZERO,RONLY,eigr
+pPeerEntry,4,{4,1,1,4}},{EIGRPHOLDTIME,INTEGER,RONLY,eigrpPeerEntry,4,{4,1,1,5}}
+,{EIGRPUPTIME,STRING,RONLY,eigrpPeerEntry,4,{4,1,1,6}},{EIGRPSRTT,INTEGER,RONLY,
+eigrpPeerEntry,4,{4,1,1,7}},{EIGRPRTO,INTEGER,RONLY,eigrpPeerEntry,4,{4,1,1,8}},
+{EIGRPPKTSENQUEUED,INTEGER,RONLY,eigrpPeerEntry,4,{4,1,1,9}},{EIGRPLASTSEQ,INTEG
+ER,RONLY,eigrpPeerEntry,4,{4,1,1,10}},{EIGRPVERSION,STRING,RONLY,eigrpPeerEntry,
+4,{4,1,1,11}},{EIGRPRETRANS,COUNTER,RONLY,eigrpPeerEntry,4,{4,1,1,12}},{EIGRPRET
+RIES,INTEGER,RONLY,eigrpPeerEntry,4,{4,1,1,13}},/*EIGRPinterfacevariables*/{EIGR
+PPEERCOUNT,GAUGE,RONLY,eigrpInterfaceEntry,4,{5,1,1,3}},{EIGRPXMITRELIABLEQ,GAUG
+E,RONLY,eigrpInterfaceEntry,4,{5,1,1,4}},{EIGRPXMITUNRELIABLEQ,GAUGE,RONLY,eigrp
+InterfaceEntry,4,{5,1,1,5}},{EIGRPMEANSRTT,INTEGER,RONLY,eigrpInterfaceEntry,4,{
+5,1,1,6}},{EIGRPPACINGRELIABLE,INTEGER,RONLY,eigrpInterfaceEntry,4,{5,1,1,7}},{E
+IGRPPACINGUNRELIABLE,INTEGER,RONLY,eigrpInterfaceEntry,4,{5,1,1,8}},{EIGRPMFLOWT
+IMER,INTEGER,RONLY,eigrpInterfaceEntry,4,{5,1,1,9}},{EIGRPPENDINGROUTES,GAUGE,RO
+NLY,eigrpInterfaceEntry,4,{5,1,1,10}},{EIGRPHELLOINTERVAL,INTEGER,RONLY,eigrpInt
+erfaceEntry,4,{5,1,1,11}},{EIGRPXMITNEXTSERIAL,COUNTER,RONLY,eigrpInterfaceEntry
+,4,{5,1,1,12}},{EIGRPUMCASTS,COUNTER,RONLY,eigrpInterfaceEntry,4,{5,1,1,13}},{EI
+GRPRMCASTS,COUNTER,RONLY,eigrpInterfaceEntry,4,{5,1,1,14}},{EIGRPUUCASTS,COUNTER
+,RONLY,eigrpInterfaceEntry,4,{5,1,1,15}},{EIGRPRUCASTS,COUNTER,RONLY,eigrpInterf
+aceEntry,4,{5,1,1,16}},{EIGRPMCASTEXCEPTS,COUNTER,RONLY,eigrpInterfaceEntry,4,{5
+,1,1,17}},{EIGRPCRPKTS,COUNTER,RONLY,eigrpInterfaceEntry,4,{5,1,1,18}},{EIGRPACK
+SSUPPRESSED,COUNTER,RONLY,eigrpInterfaceEntry,4,{5,1,1,19}},{EIGRPRETRANSSENT,CO
+UNTER,RONLY,eigrpInterfaceEntry,4,{5,1,1,20}},{EIGRPOOSRCVD,COUNTER,RONLY,eigrpI
+nterfaceEntry,4,{5,1,1,21}},{EIGRPAUTHMODE,INTEGER,RONLY,eigrpInterfaceEntry,4,{
+5,1,1,22}},{EIGRPAUTHKEYCHAIN,STRING,RONLY,eigrpInterfaceEntry,4,{5,1,1,23}}};st
+aticstructeigrp_neighbor*eigrp_snmp_nbr_lookup(structeigrp*eigrp,structin_addr*n
+br_addr,unsignedint*ifindex){structlistnode*node,*nnode,*node2,*nnode2;structeig
+rp_interface*ei;structeigrp_neighbor*nbr;for(ALL_LIST_ELEMENTS(eigrp->eiflist,no
+de,nnode,ei)){for(ALL_LIST_ELEMENTS(ei->nbrs,node2,nnode2,nbr)){if(IPV4_ADDR_SAM
+E(&nbr->src,nbr_addr)){returnnbr;}}}returnNULL;}staticstructeigrp_neighbor*eigrp
+_snmp_nbr_lookup_next(structin_addr*nbr_addr,unsignedint*ifindex,intfirst){struc
+tlistnode*node,*nnode,*node2,*nnode2;structeigrp_interface*ei;structeigrp_neighb
+or*nbr;structroute_node*rn;structeigrp_neighbor*min=NULL;structeigrp*eigrp=eigrp
+;eigrp=eigrp_lookup();for(ALL_LIST_ELEMENTS(eigrp->eiflist,node,nnode,ei)){for(A
+LL_LIST_ELEMENTS(ei->nbrs,node2,nnode2,nbr)){if(first){if(!min)min=nbr;elseif(nt
+ohl(nbr->src.s_addr)<ntohl(min->src.s_addr))min=nbr;}elseif(ntohl(nbr->src.s_add
+r)>ntohl(nbr_addr->s_addr)){if(!min)min=nbr;elseif(ntohl(nbr->src.s_addr)<ntohl(
+min->src.s_addr))min=nbr;}}}if(min){*nbr_addr=min->src;*ifindex=0;returnmin;}ret
+urnNULL;}staticstructeigrp_neighbor*eigrpNbrLookup(structvariable*v,oid*name,siz
+e_t*length,structin_addr*nbr_addr,unsignedint*ifindex,intexact){unsignedintlen;i
+ntfirst;structeigrp_neighbor*nbr;structeigrp*eigrp;eigrp=eigrp_lookup();if(!eigr
+p)returnNULL;if(exact){if(*length!=v->namelen+IN_ADDR_SIZE+1)returnNULL;oid2in_a
+ddr(name+v->namelen,IN_ADDR_SIZE,nbr_addr);*ifindex=name[v->namelen+IN_ADDR_SIZE
+];returneigrp_snmp_nbr_lookup(eigrp,nbr_addr,ifindex);}else{first=0;len=*length-
+v->namelen;if(len<=0)first=1;if(len>IN_ADDR_SIZE)len=IN_ADDR_SIZE;oid2in_addr(na
+me+v->namelen,len,nbr_addr);len=*length-v->namelen-IN_ADDR_SIZE;if(len>=1)*ifind
+ex=name[v->namelen+IN_ADDR_SIZE];nbr=eigrp_snmp_nbr_lookup_next(nbr_addr,ifindex
+,first);if(nbr){*length=v->namelen+IN_ADDR_SIZE+1;oid_copy_addr(name+v->namelen,
+nbr_addr,IN_ADDR_SIZE);name[v->namelen+IN_ADDR_SIZE]=*ifindex;returnnbr;}}return
+NULL;}staticuint8_t*eigrpVpnEntry(structvariable*v,oid*name,size_t*length,intexa
+ct,size_t*var_len,WriteMethod**write_method){structeigrp*eigrp;eigrp=eigrp_looku
+p();/*Checkwhethertheinstanceidentifierisvalid*/if(smux_header_generic(v,name,le
+ngth,exact,var_len,write_method)==MATCH_FAILED)returnNULL;/*Returnthecurrentvalu
+eofthevariable*/switch(v->magic){caseEIGRPVPNID:/*1*//*TheuniqueVPNidentifier*/i
+f(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPVPNNAME
+:/*2*//*ThenamegiventotheVPN*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_IN
+TEGER(0);break;default:returnNULL;}returnNULL;}staticuint32_teigrp_neighbor_coun
+t(structeigrp*eigrp){uint32_tcount;structeigrp_interface*ei;structlistnode*node,
+*node2,*nnode2;structeigrp_neighbor*nbr;if(eigrp==NULL){return0;}count=0;for(ALL
+_LIST_ELEMENTS_RO(eigrp->eiflist,node,ei)){for(ALL_LIST_ELEMENTS(ei->nbrs,node2,
+nnode2,nbr)){if(nbr->state==EIGRP_NEIGHBOR_UP)count++;}}returncount;}staticuint8
+_t*eigrpTraffStatsEntry(structvariable*v,oid*name,size_t*length,intexact,size_t*
+var_len,WriteMethod**write_method){structeigrp*eigrp;structeigrp_interface*ei;st
+ructlistnode*node,*nnode;intcounter;eigrp=eigrp_lookup();/*Checkwhethertheinstan
+ceidentifierisvalid*/if(smux_header_generic(v,name,length,exact,var_len,write_me
+thod)==MATCH_FAILED)returnNULL;/*Returnthecurrentvalueofthevariable*/switch(v->m
+agic){caseEIGRPASNUMBER:/*1*//*AS-numberofthisEIGRPinstance.*/if(eigrp)returnSNM
+P_INTEGER(eigrp->AS);elsereturnSNMP_INTEGER(0);break;caseEIGRPNBRCOUNT:/*2*//*Ne
+ighborcountofthisEIGRPinstance*/if(eigrp)returnSNMP_INTEGER(eigrp_neighbor_count
+(eigrp));elsereturnSNMP_INTEGER(0);break;caseEIGRPHELLOSSENT:/*3*//*Hellopackets
+outputcount*/if(eigrp){counter=0;for(ALL_LIST_ELEMENTS(eigrp->eiflist,node,nnode
+,ei)){counter+=ei->hello_out;}returnSNMP_INTEGER(counter);}elsereturnSNMP_INTEGE
+R(0);break;caseEIGRPHELLOSRCVD:/*4*//*Hellopacketsinputcount*/if(eigrp){counter=
+0;for(ALL_LIST_ELEMENTS(eigrp->eiflist,node,nnode,ei)){counter+=ei->hello_in;}re
+turnSNMP_INTEGER(counter);}elsereturnSNMP_INTEGER(0);break;caseEIGRPUPDATESSENT:
+/*5*//*Updatepacketsoutputcount*/if(eigrp){counter=0;for(ALL_LIST_ELEMENTS(eigrp
+->eiflist,node,nnode,ei)){counter+=ei->update_out;}returnSNMP_INTEGER(counter);}
+elsereturnSNMP_INTEGER(0);break;caseEIGRPUPDATESRCVD:/*6*//*Updatepacketsinputco
+unt*/if(eigrp){counter=0;for(ALL_LIST_ELEMENTS(eigrp->eiflist,node,nnode,ei)){co
+unter+=ei->update_in;}returnSNMP_INTEGER(counter);}elsereturnSNMP_INTEGER(0);bre
+ak;caseEIGRPQUERIESSENT:/*7*//*Querrypacketsoutputcount*/if(eigrp){counter=0;for
+(ALL_LIST_ELEMENTS(eigrp->eiflist,node,nnode,ei)){counter+=ei->query_out;}return
+SNMP_INTEGER(counter);}elsereturnSNMP_INTEGER(0);break;caseEIGRPQUERIESRCVD:/*8*
+//*Querrypacketsinputcount*/if(eigrp){counter=0;for(ALL_LIST_ELEMENTS(eigrp->eif
+list,node,nnode,ei)){counter+=ei->query_in;}returnSNMP_INTEGER(counter);}elseret
+urnSNMP_INTEGER(0);break;caseEIGRPREPLIESSENT:/*9*//*Replypacketsoutputcount*/if
+(eigrp){counter=0;for(ALL_LIST_ELEMENTS(eigrp->eiflist,node,nnode,ei)){counter+=
+ei->reply_out;}returnSNMP_INTEGER(counter);}elsereturnSNMP_INTEGER(0);break;case
+EIGRPREPLIESRCVD:/*10*//*Replypacketsinputcount*/if(eigrp){counter=0;for(ALL_LIS
+T_ELEMENTS(eigrp->eiflist,node,nnode,ei)){counter+=ei->reply_in;}returnSNMP_INTE
+GER(counter);}elsereturnSNMP_INTEGER(0);break;caseEIGRPACKSSENT:/*11*//*Acknowle
+dgementpacketsoutputcount*/if(eigrp){counter=0;for(ALL_LIST_ELEMENTS(eigrp->eifl
+ist,node,nnode,ei)){counter+=ei->ack_out;}returnSNMP_INTEGER(counter);}elseretur
+nSNMP_INTEGER(0);break;caseEIGRPACKSRCVD:/*12*//*Acknowledgementpacketsinputcoun
+t*/if(eigrp){counter=0;for(ALL_LIST_ELEMENTS(eigrp->eiflist,node,nnode,ei)){coun
+ter+=ei->ack_in;}returnSNMP_INTEGER(counter);}elsereturnSNMP_INTEGER(0);break;ca
+seEIGRPINPUTQHIGHMARK:/*13*//*ThehighestnumberofEIGRPpacketsintheinputqueue*/if(
+eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPINPUTQDRO
+PS:/*14*//*ThenumberofEIGRPpacketsdroppedfromtheinputqueue*/if(eigrp){returnSNMP
+_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPSIAQUERIESSENT:/*15*//*SIA
+querrypacketsoutputcount*/if(eigrp){counter=0;for(ALL_LIST_ELEMENTS(eigrp->eifli
+st,node,nnode,ei)){counter+=ei->siaQuery_out;}returnSNMP_INTEGER(counter);}elser
+eturnSNMP_INTEGER(0);break;caseEIGRPSIAQUERIESRCVD:/*16*//*SIAquerrypacketsinput
+count*/if(eigrp){counter=0;for(ALL_LIST_ELEMENTS(eigrp->eiflist,node,nnode,ei)){
+counter+=ei->siaQuery_in;}returnSNMP_INTEGER(counter);}elsereturnSNMP_INTEGER(0)
+;break;caseEIGRPASROUTERIDTYPE:/*17*//*WhethertherouterIDissetmanuallyorautomati
+cally*/if(eigrp)if(eigrp->router_id_static!=0)returnSNMP_INTEGER(1);elsereturnSN
+MP_INTEGER(1);elsereturnSNMP_INTEGER(0);break;caseEIGRPASROUTERID:/*18*//*Router
+IDforthisEIGRPAS*/if(eigrp)if(eigrp->router_id_static!=0)returnSNMP_INTEGER(eigr
+p->router_id_static);elsereturnSNMP_INTEGER(eigrp->router_id);elsereturnSNMP_INT
+EGER(0);break;caseEIGRPTOPOROUTES:/*19*//*ThetotalnumberofEIGRPderivedroutescurr
+entlyexistinginthetopologytablefortheAS*/if(eigrp){returnSNMP_INTEGER(1);}elsere
+turnSNMP_INTEGER(0);break;caseEIGRPHEADSERIAL:/*20*//*Theserialnumberofthefirstr
+outeintheinternalsequenceforanAS*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNM
+P_INTEGER(0);break;caseEIGRPNEXTSERIAL:/*21*//*Theserialnumberthatwouldbeassigne
+dtothenextneworchangedrouteinthetopologytablefortheAS*/if(eigrp){returnSNMP_INTE
+GER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPXMITPENDREPLIES:/*22*//*Totalnu
+mberofoutstandingrepliesexpectedtoqueriesthathavebeensenttopeersinthecurrentAS*/
+if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPXMITDU
+MMIES:/*23*//*Totalnumberofcurrentlyexistingdummiesassociatedwith*theAS*/if(eigr
+p){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;default:returnNULL;}re
+turnNULL;}staticuint8_t*eigrpTopologyEntry(structvariable*v,oid*name,size_t*leng
+th,intexact,size_t*var_len,WriteMethod**write_method){structeigrp*eigrp;structei
+grp_interface*ei;structlistnode*node,*nnode;eigrp=eigrp_lookup();/*Checkwhethert
+heinstanceidentifierisvalid*/if(smux_header_generic(v,name,length,exact,var_len,
+write_method)==MATCH_FAILED)returnNULL;/*Returnthecurrentvalueofthevariable*/swi
+tch(v->magic){caseEIGRPDESTNETTYPE:/*1*//*TheformatofthedestinationIPnetworknumb
+erforasinglerouteinthetopologytable*/if(eigrp){returnSNMP_INTEGER(1);}elsereturn
+SNMP_INTEGER(0);break;caseEIGRPDESTNET:/*2*//*ThedestinationIPnetworknumberforas
+inglerouteinthe*topologytable*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_I
+NTEGER(0);break;caseEIGRPDESTNETPREFIXLEN:/*4*//*Theprefixlengthassociatedwithth
+edestinationIPnetworkaddressforasinglerouteinthetopologytableintheAS*/if(eigrp){
+returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPACTIVE:/*5*//*Av
+alueoftrue(1)indicatestheroutetothedestinationnetworkhasfailedAvalueoffalse(2)in
+dicatestherouteisstable(passive).*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSN
+MP_INTEGER(0);break;caseEIGRPSTUCKINACTIVE:/*6*//*Avalueoftrue(1)indicatesthatth
+atthisroutewhichisinactivestatehasnotreceivedanyrepliestoqueriesforalternatepath
+s*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPDES
+TSUCCESSORS:/*7*//*NextroutinghopforapathtothedestinationIPnetwork*/if(eigrp){re
+turnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPFDISTANCE:/*8*//*M
+inimumdistancefromthisroutertothedestinationIP*network*/if(eigrp){returnSNMP_INT
+EGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPROUTEORIGINTYPE:/*9*//*Textstr
+ingdescribingtheinternaloriginoftheEIGRProute*/if(eigrp){returnSNMP_INTEGER(1);}
+elsereturnSNMP_INTEGER(0);break;caseEIGRPROUTEORIGINADDRTYPE:/*10*//*Theformatof
+theIPaddressdefinedastheoriginofthistopologyrouteentry*/if(eigrp){returnSNMP_INT
+EGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPROUTEORIGINADDR:/*11*//*Iftheo
+riginofthetopologyrouteentryisexternaltothisrouter,thenthisobjectistheIPaddresso
+ftherouterfromwhichitoriginated*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP
+_INTEGER(0);break;caseEIGRPNEXTHOPADDRESSTYPE:/*12*//*TheformatofthenexthopIPadd
+ress*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRP
+NEXTHOPADDRESS:/*13*//*NexthopIPaddressfortheroute*/if(eigrp){returnSNMP_INTEGER
+(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPNEXTHOPINTERFACE:/*14*//*Theinterf
+acethroughwhichthenexthopIPaddressis*reached*/if(eigrp){returnSNMP_INTEGER(1);}e
+lsereturnSNMP_INTEGER(0);break;caseEIGRPDISTANCE:/*15*//*Thecomputeddistancetoth
+edestinationnetworkentryfrom*thisrouter*/if(eigrp){returnSNMP_INTEGER(1);}elsere
+turnSNMP_INTEGER(0);break;caseEIGRPREPORTDISTANCE:/*16*//*Thecomputeddistancetot
+hedestinationnetworkinthetopologyentryreportedtothisrouterbytheoriginatorofthisr
+oute*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;default:r
+eturnNULL;}returnNULL;}staticuint8_t*eigrpPeerEntry(structvariable*v,oid*name,si
+ze_t*length,intexact,size_t*var_len,WriteMethod**write_method){structeigrp*eigrp
+;structeigrp_interface*ei;structlistnode*node,*nnode;structeigrp_neighbor*nbr;st
+ructin_addrnbr_addr;unsignedintifindex;eigrp=eigrp_lookup();/*Checkwhethertheins
+tanceidentifierisvalid*/if(smux_header_generic(v,name,length,exact,var_len,write
+_method)==MATCH_FAILED)returnNULL;memset(&nbr_addr,0,sizeof(structin_addr));ifin
+dex=0;nbr=eigrpNbrLookup(v,name,length,&nbr_addr,&ifindex,exact);if(!nbr)returnN
+ULL;ei=nbr->ei;if(!ei)returnNULL;/*Returnthecurrentvalueofthevariable*/switch(v-
+>magic){caseEIGRPHANDLE:/*1*//*TheuniqueinternalidentifierforthepeerintheAS*/if(
+eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPPEERADDRT
+YPE:/*2*//*TheformatoftheremotesourceIPaddressusedbythepeer*/if(eigrp){returnSNM
+P_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPPEERADDR:/*3*//*Thesource
+IPaddressusedbythepeer*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(
+0);break;caseEIGRPPEERIFINDEX:/*4*//*TheifIndexoftheinterfaceonthisrouter*/if(ei
+grp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPHOLDTIME:/*
+5*//*HowmuchtimemustpasswithoutreceivingahellopacketfromthisEIGRPpeerbeforethisr
+outerdeclaresthepeerdown*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGE
+R(0);break;caseEIGRPUPTIME:/*6*//*TheelapsedtimesincetheEIGRPadjacencywasfirst*e
+stablished*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;cas
+eEIGRPSRTT:/*7*//*Thecomputedsmoothroundtriptimeforpacketstoandfrom*thepeer*/if(
+eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPRTO:/*8*/
+/*Thecomputedretransmissiontimeoutforthepeer*/if(eigrp){returnSNMP_INTEGER(1);}e
+lsereturnSNMP_INTEGER(0);break;caseEIGRPPKTSENQUEUED:/*9*//*ThenumberofanyEIGRPp
+acketscurrentlyenqueued*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER
+(0);break;caseEIGRPLASTSEQ:/*10*//*sequencenumberofthelastEIGRPpacketsenttothisp
+eer*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPV
+ERSION:/*11*//*TheEIGRPversioninformationreportedbytheremotepeer*/if(eigrp){retu
+rnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPRETRANS:/*12*//*Thec
+umulativenumberofretransmissionstothispeer*/if(eigrp){returnSNMP_INTEGER(1);}els
+ereturnSNMP_INTEGER(0);break;caseEIGRPRETRIES:/*13*//*Thenumberoftimesthecurrent
+unacknowledgedpackethas*beenretried*/if(eigrp){returnSNMP_INTEGER(1);}elsereturn
+SNMP_INTEGER(0);break;default:returnNULL;}returnNULL;}staticuint8_t*eigrpInterfa
+ceEntry(structvariable*v,oid*name,size_t*length,intexact,size_t*var_len,WriteMet
+hod**write_method){structeigrp*eigrp;structeigrp_interface*ei;structlistnode*nod
+e,*nnode;structkeychain*keychain;structlist*keylist;intcounter;eigrp=eigrp_looku
+p();/*Checkwhethertheinstanceidentifierisvalid*/if(smux_header_generic(v,name,le
+ngth,exact,var_len,write_method)==MATCH_FAILED)returnNULL;/*Returnthecurrentvalu
+eofthevariable*/switch(v->magic){caseEIGRPPEERCOUNT:/*3*//*ThenumberofEIGRPadjac
+enciescurrentlyformedwithpeersreachedthroughthisinterface*/if(eigrp){returnSNMP_
+INTEGER(eigrp_neighbor_count(eigrp));}elsereturnSNMP_INTEGER(0);break;caseEIGRPX
+MITRELIABLEQ:/*4*//*ThenumberofEIGRPpacketscurrentlywaitinginthereliabletranspor
+ttransmissionqueue*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);b
+reak;caseEIGRPXMITUNRELIABLEQ:/*5*//*ThenumberofEIGRPpacketscurrentlywaitinginth
+eunreliabletransporttransmissionqueue*/if(eigrp){returnSNMP_INTEGER(1);}elseretu
+rnSNMP_INTEGER(0);break;caseEIGRPMEANSRTT:/*6*//*Theaverageofallthecomputedsmoot
+hroundtriptimevaluesforapackettoandfromallpeersestablishedonthisinterface*/if(ei
+grp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPPACINGRELIA
+BLE:/*7*//*TheconfiguredtimeintervalbetweenEIGRPpacket*transmissions*/if(eigrp){
+returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPPACINGUNRELIABLE
+:/*8*//*TheconfiguredtimeintervalbetweenEIGRPpackettransmissionsontheinterfacewh
+entheunreliabletransportmethodisused*/if(eigrp){returnSNMP_INTEGER(1);}elseretur
+nSNMP_INTEGER(0);break;caseEIGRPMFLOWTIMER:/*9*//*Theconfiguredmulticastflowcont
+roltimervalue*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;
+caseEIGRPPENDINGROUTES:/*10*//*ThenumberofqueuedEIGRProutingupdatesawaiting*tran
+smission*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseE
+IGRPHELLOINTERVAL:/*11*//*TheconfiguredtimeintervalbetweenHellopacket*transmissi
+ons*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPX
+MITNEXTSERIAL:/*12*//*TheserialnumberofthenextEIGRPpacketthatistobequeuedfortran
+smission*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseE
+IGRPUMCASTS:/*13*//*ThetotalnumberofunreliableEIGRPmulticastpacketssentonthisint
+erface*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIG
+RPRMCASTS:/*14*//*ThetotalnumberofreliableEIGRPmulticastpacketssentonthisinterfa
+ce*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPUU
+CASTS:/*15*//*ThetotalnumberofunreliableEIGRPunicastpacketssentonthisinterface*/
+if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPRUCAST
+S:/*16*//*ThetotalnumberofreliableEIGRPunicastpacketssentonthisinterface*/if(eig
+rp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPMCASTEXCEPTS
+:/*17*//*ThetotalnumberofEIGRPmulticastexceptiontransmissions*/if(eigrp){returnS
+NMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPCRPKTS:/*18*//*Thetotal
+numberEIGRPConditional-Receivepacketssenton*thisinterface*/if(eigrp){returnSNMP_
+INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPACKSSUPPRESSED:/*19*//*Thet
+otalnumberofindividualEIGRPacknowledgementpacketsthathavebeensuppressedandcombin
+edinanalreadyenqueuedoutboundreliablepacketonthisinterface*/if(eigrp){returnSNMP
+_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPRETRANSSENT:/*20*//*Thetot
+alnumberEIGRPpacketretransmissionssentonthe*interface*/if(eigrp){returnSNMP_INTE
+GER(1);}elsereturnSNMP_INTEGER(0);break;caseEIGRPOOSRCVD:/*21*//*Thetotalnumbero
+fout-of-sequenceEIGRPpacketsreceived*/if(eigrp){returnSNMP_INTEGER(1);}elseretur
+nSNMP_INTEGER(0);break;caseEIGRPAUTHMODE:/*22*//*TheEIGRPauthenticationmodeofthe
+interface*/if(eigrp){returnSNMP_INTEGER(1);}elsereturnSNMP_INTEGER(0);break;case
+EIGRPAUTHKEYCHAIN:/*23*//*Thenameoftheauthenticationkey-chainconfiguredonthisint
+erface.*/keylist=keychain_list_get();for(ALL_LIST_ELEMENTS(keylist,node,nnode,ke
+ychain)){return(uint8_t*)keychain->name;}if(eigrp&&keychain){*var_len=str_len(ke
+ychain->name);return(uint8_t*)keychain->name;}elsereturn(uint8_t*)"TEST";break;d
+efault:returnNULL;}returnNULL;}/*RegisterEIGRP-MIB.*/voideigrp_snmp_init(){eigrp
+_snmp_iflist=list_new();smux_init(eigrp_om->master);REGISTER_MIB("ciscoEigrpMIB"
+,eigrp_variables,variable,eigrp_oid);}#endif

@@ -1,926 +1,222 @@
-/*
- * libfrr overall management functions
- *
- * Copyright (C) 2016  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#include <sys/un.h>
-
-#include <sys/types.h>
-#include <sys/wait.h>
-
-#include "libfrr.h"
-#include "getopt.h"
-#include "privs.h"
-#include "vty.h"
-#include "command.h"
-#include "version.h"
-#include "memory_vty.h"
-#include "zclient.h"
-#include "log_int.h"
-#include "module.h"
-#include "network.h"
-
-DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
-DEFINE_KOOH(frr_early_fini, (), ())
-DEFINE_KOOH(frr_fini, (), ())
-
-const char frr_sysconfdir[] = SYSCONFDIR;
-const char frr_vtydir[] = DAEMON_VTY_DIR;
-const char frr_moduledir[] = MODULE_PATH;
-
-char frr_protoname[256] = "NONE";
-char frr_protonameinst[256] = "NONE";
-
-char config_default[256];
-char frr_zclientpath[256];
-static char pidfile_default[256];
-static char vtypath_default[256];
-
-bool debug_memstats_at_exit = 0;
-
-static char comb_optstr[256];
-static struct option comb_lo[64];
-static struct option *comb_next_lo = &comb_lo[0];
-static char comb_helpstr[4096];
-
-struct optspec {
-	const char *optstr;
-	const char *helpstr;
-	const struct option *longopts;
-};
-
-static void opt_extend(const struct optspec *os)
-{
-	const struct option *lo;
-
-	strcat(comb_optstr, os->optstr);
-	strcat(comb_helpstr, os->helpstr);
-	for (lo = os->longopts; lo->name; lo++)
-		memcpy(comb_next_lo++, lo, sizeof(*lo));
-}
-
-
-#define OPTION_VTYSOCK   1000
-#define OPTION_MODULEDIR 1002
-
-static const struct option lo_always[] = {
-	{"help", no_argument, NULL, 'h'},
-	{"version", no_argument, NULL, 'v'},
-	{"daemon", no_argument, NULL, 'd'},
-	{"module", no_argument, NULL, 'M'},
-	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
-	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
-	{NULL}};
-static const struct optspec os_always = {
-	"hvdM:",
-	"  -h, --help         Display this help and exit\n"
-	"  -v, --version      Print program version\n"
-	"  -d, --daemon       Runs in daemon mode\n"
-	"  -M, --module       Load specified module\n"
-	"      --vty_socket   Override vty socket path\n"
-	"      --moduledir    Override modules directory\n",
-	lo_always};
-
-
-static const struct option lo_cfg_pid_dry[] = {
-	{"pid_file", required_argument, NULL, 'i'},
-	{"config_file", required_argument, NULL, 'f'},
-	{"pathspace", required_argument, NULL, 'N'},
-	{"dryrun", no_argument, NULL, 'C'},
-	{"terminal", no_argument, NULL, 't'},
-	{NULL}};
-static const struct optspec os_cfg_pid_dry = {
-	"f:i:CtN:",
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-	"  -N, --pathspace    Insert prefix into config & socket paths\n"
-	"  -C, --dryrun       Check configuration for validity and exit\n"
-	"  -t, --terminal     Open terminal session on stdio\n"
-	"  -d -t              Daemonize after terminal session ends\n",
-	lo_cfg_pid_dry};
-
-
-static const struct option lo_zclient[] = {
-	{"socket", required_argument, NULL, 'z'},
-	{NULL}};
-static const struct optspec os_zclient = {
-	"z:", "  -z, --socket       Set path of zebra socket\n", lo_zclient};
-
-
-static const struct option lo_vty[] = {
-	{"vty_addr", required_argument, NULL, 'A'},
-	{"vty_port", required_argument, NULL, 'P'},
-	{NULL}};
-static const struct optspec os_vty = {
-	"A:P:",
-	"  -A, --vty_addr     Set vty's bind address\n"
-	"  -P, --vty_port     Set vty's port number\n",
-	lo_vty};
-
-
-static const struct option lo_user[] = {{"user", required_argument, NULL, 'u'},
-					{"group", required_argument, NULL, 'g'},
-					{NULL}};
-static const struct optspec os_user = {"u:g:",
-				       "  -u, --user         User to run as\n"
-				       "  -g, --group        Group to run as\n",
-				       lo_user};
-
-
-bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
-		      const char *path)
-{
-	memset(sa, 0, sizeof(*sa));
-
-	if (!path)
-		path = ZEBRA_SERV_PATH;
-
-	if (!strncmp(path, ZAPI_TCP_PATHNAME, strlen(ZAPI_TCP_PATHNAME))) {
-		/* note: this functionality is disabled at bottom */
-		int af;
-		int port = ZEBRA_PORT;
-		char *err = NULL;
-		struct sockaddr_in *sin = NULL;
-		struct sockaddr_in6 *sin6 = NULL;
-
-		path += strlen(ZAPI_TCP_PATHNAME);
-
-		switch (path[0]) {
-		case '4':
-			path++;
-			af = AF_INET;
-			break;
-		case '6':
-			path++;
-		/* fallthrough */
-		default:
-			af = AF_INET6;
-			break;
-		}
-
-		switch (path[0]) {
-		case '\0':
-			break;
-		case ':':
-			path++;
-			port = strtoul(path, &err, 10);
-			if (*err || !*path)
-				return false;
-			break;
-		default:
-			return false;
-		}
-
-		sa->ss_family = af;
-		switch (af) {
-		case AF_INET:
-			sin = (struct sockaddr_in *)sa;
-			sin->sin_port = htons(port);
-			sin->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-			*sa_len = sizeof(struct sockaddr_in);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-			sin->sin_len = *sa_len;
-#endif
-			break;
-		case AF_INET6:
-			sin6 = (struct sockaddr_in6 *)sa;
-			sin6->sin6_port = htons(port);
-			inet_pton(AF_INET6, "::1", &sin6->sin6_addr);
-			*sa_len = sizeof(struct sockaddr_in6);
-#ifdef SIN6_LEN
-			sin6->sin6_len = *sa_len;
-#endif
-			break;
-		}
-
-#if 1
-		/* force-disable this path, because tcp-zebra is a
-		 * SECURITY ISSUE.  there are no checks at all against
-		 * untrusted users on the local system connecting on TCP
-		 * and injecting bogus routing data into the entire routing
-		 * domain.
-		 *
-		 * The functionality is only left here because it may be
-		 * useful during development, in order to be able to get
-		 * tcpdump or wireshark watching ZAPI as TCP.  If you want
-		 * to do that, flip the #if 1 above to #if 0. */
-		memset(sa, 0, sizeof(*sa));
-		return false;
-#endif
-	} else {
-		/* "sun" is a #define on solaris */
-		struct sockaddr_un *suna = (struct sockaddr_un *)sa;
-
-		suna->sun_family = AF_UNIX;
-		strlcpy(suna->sun_path, path, sizeof(suna->sun_path));
-#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
-		*sa_len = suna->sun_len = SUN_LEN(suna);
-#else
-		*sa_len = sizeof(suna->sun_family) + strlen(suna->sun_path);
-#endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
-#if 0
-		/* this is left here for future reference;  Linux abstract
-		 * socket namespace support can be enabled by replacing
-		 * above #if 0 with #ifdef GNU_LINUX.
-		 *
-		 * THIS IS A SECURITY ISSUE, the abstract socket namespace
-		 * does not have user/group permission control on sockets.
-		 * we'd need to implement SCM_CREDENTIALS support first to
-		 * check that only proper users can connect to abstract
-		 * sockets. (same problem as tcp-zebra, except there is a
-		 * fix with SCM_CREDENTIALS.  tcp-zebra has no such fix.)
-		 */
-		if (suna->sun_path[0] == '@')
-			suna->sun_path[0] = '\0';
-#endif
-	}
-	return true;
-}
-
-static struct frr_daemon_info *di = NULL;
-
-void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
-{
-	di = daemon;
-
-	/* basename(), opencoded. */
-	char *p = strrchr(argv[0], '/');
-	di->progname = p ? p + 1 : argv[0];
-
-	umask(0027);
-
-	opt_extend(&os_always);
-	if (!(di->flags & FRR_NO_CFG_PID_DRY))
-		opt_extend(&os_cfg_pid_dry);
-	if (!(di->flags & FRR_NO_PRIVSEP))
-		opt_extend(&os_user);
-	if (!(di->flags & FRR_NO_ZCLIENT))
-		opt_extend(&os_zclient);
-	if (!(di->flags & FRR_NO_TCPVTY))
-		opt_extend(&os_vty);
-
-	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
-		 frr_sysconfdir, di->name);
-	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
-		 frr_vtydir, di->name);
-
-	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
-	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
-
-	strlcpy(frr_zclientpath, ZEBRA_SERV_PATH, sizeof(frr_zclientpath));
-}
-
-void frr_opt_add(const char *optstr, const struct option *longopts,
-		 const char *helpstr)
-{
-	const struct optspec main_opts = {optstr, helpstr, longopts};
-	opt_extend(&main_opts);
-}
-
-void frr_help_exit(int status)
-{
-	FILE *target = status ? stderr : stdout;
-
-	if (status != 0)
-		fprintf(stderr, "Invalid options.\n\n");
-
-	if (di->printhelp)
-		di->printhelp(target);
-	else
-		fprintf(target, "Usage: %s [OPTION...]\n\n%s%s%s\n\n%s",
-			di->progname, di->proghelp, di->copyright ? "\n\n" : "",
-			di->copyright ? di->copyright : "", comb_helpstr);
-	fprintf(target, "\nReport bugs to %s\n", FRR_BUG_ADDRESS);
-	exit(status);
-}
-
-struct option_chain {
-	struct option_chain *next;
-	const char *arg;
-};
-
-static struct option_chain *modules = NULL, **modnext = &modules;
-static int errors = 0;
-
-static int frr_opt(int opt)
-{
-	static int vty_port_set = 0;
-	static int vty_addr_set = 0;
-	struct option_chain *oc;
-	char *err;
-
-	switch (opt) {
-	case 'h':
-		frr_help_exit(0);
-		break;
-	case 'v':
-		print_version(di->progname);
-		exit(0);
-		break;
-	case 'd':
-		di->daemon_mode = 1;
-		break;
-	case 'M':
-		oc = XMALLOC(MTYPE_TMP, sizeof(*oc));
-		oc->arg = optarg;
-		oc->next = NULL;
-		*modnext = oc;
-		modnext = &oc->next;
-		break;
-	case 'i':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
-			return 1;
-		di->pid_file = optarg;
-		break;
-	case 'f':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
-			return 1;
-		di->config_file = optarg;
-		break;
-	case 'N':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
-			return 1;
-		if (di->pathspace) {
-			fprintf(stderr,
-				"-N/--pathspace option specified more than once!\n");
-			errors++;
-			break;
-		}
-		if (strchr(optarg, '/') || strchr(optarg, '.')) {
-			fprintf(stderr,
-				"slashes or dots are not permitted in the --pathspace option.\n");
-			errors++;
-			break;
-		}
-		di->pathspace = optarg;
-		break;
-	case 'C':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
-			return 1;
-		di->dryrun = 1;
-		break;
-	case 't':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
-			return 1;
-		di->terminal = 1;
-		break;
-	case 'z':
-		if (di->flags & FRR_NO_ZCLIENT)
-			return 1;
-		strlcpy(frr_zclientpath, optarg, sizeof(frr_zclientpath));
-		break;
-	case 'A':
-		if (di->flags & FRR_NO_TCPVTY)
-			return 1;
-		if (vty_addr_set) {
-			fprintf(stderr,
-				"-A option specified more than once!\n");
-			errors++;
-			break;
-		}
-		vty_addr_set = 1;
-		di->vty_addr = optarg;
-		break;
-	case 'P':
-		if (di->flags & FRR_NO_TCPVTY)
-			return 1;
-		if (vty_port_set) {
-			fprintf(stderr,
-				"-P option specified more than once!\n");
-			errors++;
-			break;
-		}
-		vty_port_set = 1;
-		di->vty_port = strtoul(optarg, &err, 0);
-		if (*err || !*optarg) {
-			fprintf(stderr,
-				"invalid port number \"%s\" for -P option\n",
-				optarg);
-			errors++;
-			break;
-		}
-		break;
-	case OPTION_VTYSOCK:
-		if (di->vty_sock_path) {
-			fprintf(stderr,
-				"--vty_socket option specified more than once!\n");
-			errors++;
-			break;
-		}
-		di->vty_sock_path = optarg;
-		break;
-	case OPTION_MODULEDIR:
-		if (di->module_path) {
-			fprintf(stderr,
-				"----moduledir option specified more than once!\n");
-			errors++;
-			break;
-		}
-		di->module_path = optarg;
-		break;
-	case 'u':
-		if (di->flags & FRR_NO_PRIVSEP)
-			return 1;
-		di->privs->user = optarg;
-		break;
-	case 'g':
-		if (di->flags & FRR_NO_PRIVSEP)
-			return 1;
-		di->privs->group = optarg;
-		break;
-	default:
-		return 1;
-	}
-	return 0;
-}
-
-int frr_getopt(int argc, char *const argv[], int *longindex)
-{
-	int opt;
-	int lidx;
-
-	comb_next_lo->name = NULL;
-
-	do {
-		opt = getopt_long(argc, argv, comb_optstr, comb_lo, &lidx);
-		if (frr_opt(opt))
-			break;
-	} while (opt != -1);
-
-	if (opt == -1 && errors)
-		frr_help_exit(1);
-	if (longindex)
-		*longindex = lidx;
-	return opt;
-}
-
-static void frr_mkdir(const char *path, bool strip)
-{
-	char buf[256];
-	mode_t prev;
-	int ret;
-	struct zprivs_ids_t ids;
-
-	if (strip) {
-		char *slash = strrchr(path, '/');
-		size_t plen;
-		if (!slash)
-			return;
-		plen = slash - path;
-		if (plen > sizeof(buf) - 1)
-			return;
-		memcpy(buf, path, plen);
-		buf[plen] = '\0';
-		path = buf;
-	}
-
-	/* o+rx (..5) is needed for the frrvty group to work properly;
-	 * without it, users in the frrvty group can't access the vty sockets.
-	 */
-	prev = umask(0022);
-	ret = mkdir(path, 0755);
-	umask(prev);
-
-	if (ret != 0) {
-		/* if EEXIST, return without touching the permissions,
-		 * so user-set custom permissions are left in place
-		 */
-		if (errno == EEXIST)
-			return;
-
-		zlog_warn("failed to mkdir \"%s\": %s", path, strerror(errno));
-		return;
-	}
-
-	zprivs_get_ids(&ids);
-	if (chown(path, ids.uid_normal, ids.gid_normal))
-		zlog_warn("failed to chown \"%s\": %s", path, strerror(errno));
-}
-
-static struct thread_master *master;
-struct thread_master *frr_init(void)
-{
-	struct option_chain *oc;
-	struct frrmod_runtime *module;
-	char moderr[256];
-	char p_instance[16] = "", p_pathspace[256] = "";
-	const char *dir;
-	dir = di->module_path ? di->module_path : frr_moduledir;
-
-	srandom(time(NULL));
-
-	if (di->instance) {
-		snprintf(frr_protonameinst, sizeof(frr_protonameinst), "%s[%u]",
-			 di->logname, di->instance);
-		snprintf(p_instance, sizeof(p_instance), "-%d", di->instance);
-	}
-	if (di->pathspace)
-		snprintf(p_pathspace, sizeof(p_pathspace), "/%s",
-			 di->pathspace);
-
-	snprintf(config_default, sizeof(config_default), "%s%s%s%s.conf",
-		 frr_sysconfdir, p_pathspace, di->name, p_instance);
-	snprintf(pidfile_default, sizeof(pidfile_default), "%s%s/%s%s.pid",
-		 frr_vtydir, p_pathspace, di->name, p_instance);
-
-	zprivs_preinit(di->privs);
-
-	openzlog(di->progname, di->logname, di->instance,
-		 LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-#if defined(HAVE_CUMULUS)
-	zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
-#endif
-
-	if (!frr_zclient_addr(&zclient_addr, &zclient_addr_len,
-			      frr_zclientpath)) {
-		fprintf(stderr, "Invalid zserv socket path: %s\n",
-			frr_zclientpath);
-		exit(1);
-	}
-
-	/* don't mkdir these as root... */
-	if (!(di->flags & FRR_NO_PRIVSEP)) {
-		if (!di->pid_file || !di->vty_path)
-			frr_mkdir(frr_vtydir, false);
-		if (di->pid_file)
-			frr_mkdir(di->pid_file, true);
-		if (di->vty_path)
-			frr_mkdir(di->vty_path, true);
-	}
-
-	frrmod_init(di->module);
-	while (modules) {
-		modules = (oc = modules)->next;
-		module = frrmod_load(oc->arg, dir, moderr, sizeof(moderr));
-		if (!module) {
-			fprintf(stderr, "%s\n", moderr);
-			exit(1);
-		}
-		XFREE(MTYPE_TMP, oc);
-	}
-
-	zprivs_init(di->privs);
-
-	master = thread_master_create(NULL);
-	signal_init(master, di->n_signals, di->signals);
-
-	if (di->flags & FRR_LIMITED_CLI)
-		cmd_init(-1);
-	else
-		cmd_init(1);
-	vty_init(master);
-	memory_init();
-
-	return master;
-}
-
-static int rcvd_signal = 0;
-
-static void rcv_signal(int signum)
-{
-	rcvd_signal = signum;
-	/* poll() is interrupted by the signal; handled below */
-}
-
-static void frr_daemon_wait(int fd)
-{
-	struct pollfd pfd[1];
-	int ret;
-	pid_t exitpid;
-	int exitstat;
-	sigset_t sigs, prevsigs;
-
-	sigemptyset(&sigs);
-	sigaddset(&sigs, SIGTSTP);
-	sigaddset(&sigs, SIGQUIT);
-	sigaddset(&sigs, SIGINT);
-	sigprocmask(SIG_BLOCK, &sigs, &prevsigs);
-
-	struct sigaction sa = {
-		.sa_handler = rcv_signal, .sa_flags = SA_RESETHAND,
-	};
-	sigemptyset(&sa.sa_mask);
-	sigaction(SIGTSTP, &sa, NULL);
-	sigaction(SIGQUIT, &sa, NULL);
-	sigaction(SIGINT, &sa, NULL);
-
-	do {
-		char buf[1];
-		ssize_t nrecv;
-
-		pfd[0].fd = fd;
-		pfd[0].events = POLLIN;
-
-		rcvd_signal = 0;
-
-#if defined(HAVE_PPOLL)
-		ret = ppoll(pfd, 1, NULL, &prevsigs);
-#elif defined(HAVE_POLLTS)
-		ret = pollts(pfd, 1, NULL, &prevsigs);
-#else
-		/* racy -- only used on FreeBSD 9 */
-		sigset_t tmpsigs;
-		sigprocmask(SIG_SETMASK, &prevsigs, &tmpsigs);
-		ret = poll(pfd, 1, -1);
-		sigprocmask(SIG_SETMASK, &tmpsigs, NULL);
-#endif
-		if (ret < 0 && errno != EINTR && errno != EAGAIN) {
-			perror("poll()");
-			exit(1);
-		}
-		switch (rcvd_signal) {
-		case SIGTSTP:
-			send(fd, "S", 1, 0);
-			do {
-				nrecv = recv(fd, buf, sizeof(buf), 0);
-			} while (nrecv == -1
-				 && (errno == EINTR || errno == EAGAIN));
-
-			raise(SIGTSTP);
-			sigaction(SIGTSTP, &sa, NULL);
-			send(fd, "R", 1, 0);
-			break;
-		case SIGINT:
-			send(fd, "I", 1, 0);
-			break;
-		case SIGQUIT:
-			send(fd, "Q", 1, 0);
-			break;
-		}
-	} while (ret <= 0);
-
-	exitpid = waitpid(-1, &exitstat, WNOHANG);
-	if (exitpid == 0)
-		/* child successfully went to main loop & closed socket */
-		exit(0);
-
-	/* child failed one way or another ... */
-	if (WIFEXITED(exitstat) && WEXITSTATUS(exitstat) == 0)
-		/* can happen in --terminal case if exit is fast enough */
-		(void)0;
-	else if (WIFEXITED(exitstat))
-		fprintf(stderr, "%s failed to start, exited %d\n", di->name,
-			WEXITSTATUS(exitstat));
-	else if (WIFSIGNALED(exitstat))
-		fprintf(stderr, "%s crashed in startup, signal %d\n", di->name,
-			WTERMSIG(exitstat));
-	else
-		fprintf(stderr, "%s failed to start, unknown problem\n",
-			di->name);
-	exit(1);
-}
-
-static int daemon_ctl_sock = -1;
-
-static void frr_daemonize(void)
-{
-	int fds[2];
-	pid_t pid;
-
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds)) {
-		perror("socketpair() for daemon control");
-		exit(1);
-	}
-	set_cloexec(fds[0]);
-	set_cloexec(fds[1]);
-
-	pid = fork();
-	if (pid < 0) {
-		perror("fork()");
-		exit(1);
-	}
-	if (pid == 0) {
-		/* child */
-		close(fds[0]);
-		if (setsid() < 0) {
-			perror("setsid()");
-			exit(1);
-		}
-
-		daemon_ctl_sock = fds[1];
-		return;
-	}
-
-	close(fds[1]);
-	frr_daemon_wait(fds[0]);
-}
-
-void frr_config_fork(void)
-{
-	hook_call(frr_late_init, master);
-
-	vty_read_config(di->config_file, config_default);
-
-	/* Don't start execution if we are in dry-run mode */
-	if (di->dryrun)
-		exit(0);
-
-	if (di->daemon_mode || di->terminal)
-		frr_daemonize();
-
-	if (!di->pid_file)
-		di->pid_file = pidfile_default;
-	pid_output(di->pid_file);
-}
-
-void frr_vty_serv(void)
-{
-	/* allow explicit override of vty_path in the future
-	 * (not currently set anywhere) */
-	if (!di->vty_path) {
-		const char *dir;
-		char defvtydir[256];
-
-		snprintf(defvtydir, sizeof(defvtydir), "%s%s%s", frr_vtydir,
-			 di->pathspace ? "/" : "",
-			 di->pathspace ? di->pathspace : "");
-
-		dir = di->vty_sock_path ? di->vty_sock_path : defvtydir;
-
-		if (di->instance)
-			snprintf(vtypath_default, sizeof(vtypath_default),
-				 "%s/%s-%d.vty", dir, di->name, di->instance);
-		else
-			snprintf(vtypath_default, sizeof(vtypath_default),
-				 "%s/%s.vty", dir, di->name);
-
-		di->vty_path = vtypath_default;
-	}
-
-	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
-}
-
-static void frr_terminal_close(int isexit)
-{
-	int nullfd;
-
-	if (daemon_ctl_sock != -1) {
-		close(daemon_ctl_sock);
-		daemon_ctl_sock = -1;
-	}
-
-	if (!di->daemon_mode || isexit) {
-		printf("\n%s exiting\n", di->name);
-		if (!isexit)
-			raise(SIGINT);
-		return;
-	} else {
-		printf("\n%s daemonizing\n", di->name);
-		fflush(stdout);
-	}
-
-	nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
-	if (nullfd == -1) {
-		zlog_err("%s: failed to open /dev/null: %s", __func__,
-			 safe_strerror(errno));
-	} else {
-		dup2(nullfd, 0);
-		dup2(nullfd, 1);
-		dup2(nullfd, 2);
-		close(nullfd);
-	}
-}
-
-static struct thread *daemon_ctl_thread = NULL;
-
-static int frr_daemon_ctl(struct thread *t)
-{
-	char buf[1];
-	ssize_t nr;
-
-	nr = recv(daemon_ctl_sock, buf, sizeof(buf), 0);
-	if (nr < 0 && (errno == EINTR || errno == EAGAIN))
-		goto out;
-	if (nr <= 0)
-		return 0;
-
-	switch (buf[0]) {
-	case 'S': /* SIGTSTP */
-		vty_stdio_suspend();
-		send(daemon_ctl_sock, "s", 1, 0);
-		break;
-	case 'R': /* SIGTCNT [implicit] */
-		vty_stdio_resume();
-		break;
-	case 'I': /* SIGINT */
-		di->daemon_mode = false;
-		raise(SIGINT);
-		break;
-	case 'Q': /* SIGQUIT */
-		di->daemon_mode = true;
-		vty_stdio_close();
-		break;
-	}
-
-out:
-	thread_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
-			&daemon_ctl_thread);
-	return 0;
-}
-
-void frr_run(struct thread_master *master)
-{
-	char instanceinfo[64] = "";
-
-	frr_vty_serv();
-
-	if (di->instance)
-		snprintf(instanceinfo, sizeof(instanceinfo), "instance %u ",
-			 di->instance);
-
-	zlog_notice("%s %s starting: %svty@%d%s", di->name, FRR_VERSION,
-		    instanceinfo, di->vty_port, di->startinfo);
-
-	if (di->terminal) {
-		vty_stdio(frr_terminal_close);
-		if (daemon_ctl_sock != -1) {
-			set_nonblocking(daemon_ctl_sock);
-			thread_add_read(master, frr_daemon_ctl, NULL,
-					daemon_ctl_sock, &daemon_ctl_thread);
-		}
-	} else if (di->daemon_mode) {
-		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
-		if (nullfd == -1) {
-			zlog_err("%s: failed to open /dev/null: %s", __func__,
-				 safe_strerror(errno));
-		} else {
-			dup2(nullfd, 0);
-			dup2(nullfd, 1);
-			dup2(nullfd, 2);
-			close(nullfd);
-		}
-
-		if (daemon_ctl_sock != -1)
-			close(daemon_ctl_sock);
-		daemon_ctl_sock = -1;
-	}
-
-	/* end fixed stderr startup logging */
-	zlog_startup_stderr = false;
-
-	struct thread thread;
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
-}
-
-void frr_early_fini(void)
-{
-	hook_call(frr_early_fini);
-}
-
-void frr_fini(void)
-{
-	FILE *fp;
-	char filename[128];
-	int have_leftovers;
-
-	hook_call(frr_fini);
-
-	/* memory_init -> nothing needed */
-	vty_terminate();
-	cmd_terminate();
-	zprivs_terminate(di->privs);
-	/* signal_init -> nothing needed */
-	thread_master_free(master);
-	master = NULL;
-	closezlog();
-	/* frrmod_init -> nothing needed / hooks */
-
-	if (!debug_memstats_at_exit)
-		return;
-
-	have_leftovers = log_memstats(stderr, di->name);
-
-	/* in case we decide at runtime that we want exit-memstats for
-	 * a daemon, but it has no stderr because it's daemonized
-	 * (only do this if we actually have something to print though)
-	 */
-	if (!have_leftovers)
-		return;
-
-	snprintf(filename, sizeof(filename), "/tmp/frr-memstats-%s-%llu-%llu",
-		 di->name, (unsigned long long)getpid(),
-		 (unsigned long long)time(NULL));
-
-	fp = fopen(filename, "w");
-	if (fp) {
-		log_memstats(fp, di->name);
-		fclose(fp);
-	}
-}
+/**libfrroverallmanagementfunctions**Copyright(C)2016DavidLamparterforNetDEF,Inc
+.**Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoft
+heGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;eitherversion2o
+ftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistributedinthehope
+thatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHAN
+TABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*moredet
+ails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogr
+am;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,F
+ifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include<sys/un.h>#include<sy
+s/types.h>#include<sys/wait.h>#include"libfrr.h"#include"getopt.h"#include"privs
+.h"#include"vty.h"#include"command.h"#include"version.h"#include"memory_vty.h"#i
+nclude"zclient.h"#include"log_int.h"#include"module.h"#include"network.h"DEFINE_
+HOOK(frr_late_init,(structthread_master*tm),(tm))DEFINE_KOOH(frr_early_fini,(),(
+))DEFINE_KOOH(frr_fini,(),())constcharfrr_sysconfdir[]=SYSCONFDIR;constcharfrr_v
+tydir[]=DAEMON_VTY_DIR;constcharfrr_moduledir[]=MODULE_PATH;charfrr_protoname[25
+6]="NONE";charfrr_protonameinst[256]="NONE";charconfig_default[256];charfrr_zcli
+entpath[256];staticcharpidfile_default[256];staticcharvtypath_default[256];boold
+ebug_memstats_at_exit=0;staticcharcomb_optstr[256];staticstructoptioncomb_lo[64]
+;staticstructoption*comb_next_lo=&comb_lo[0];staticcharcomb_helpstr[4096];struct
+optspec{constchar*optstr;constchar*helpstr;conststructoption*longopts;};staticvo
+idopt_extend(conststructoptspec*os){conststructoption*lo;strcat(comb_optstr,os->
+optstr);strcat(comb_helpstr,os->helpstr);for(lo=os->longopts;lo->name;lo++)memcp
+y(comb_next_lo++,lo,sizeof(*lo));}#defineOPTION_VTYSOCK1000#defineOPTION_MODULED
+IR1002staticconststructoptionlo_always[]={{"help",no_argument,NULL,'h'},{"versio
+n",no_argument,NULL,'v'},{"daemon",no_argument,NULL,'d'},{"module",no_argument,N
+ULL,'M'},{"vty_socket",required_argument,NULL,OPTION_VTYSOCK},{"moduledir",requi
+red_argument,NULL,OPTION_MODULEDIR},{NULL}};staticconststructoptspecos_always={"
+hvdM:","-h,--helpDisplaythishelpandexit\n""-v,--versionPrintprogramversion\n""-d
+,--daemonRunsindaemonmode\n""-M,--moduleLoadspecifiedmodule\n""--vty_socketOverr
+idevtysocketpath\n""--moduledirOverridemodulesdirectory\n",lo_always};staticcons
+tstructoptionlo_cfg_pid_dry[]={{"pid_file",required_argument,NULL,'i'},{"config_
+file",required_argument,NULL,'f'},{"pathspace",required_argument,NULL,'N'},{"dry
+run",no_argument,NULL,'C'},{"terminal",no_argument,NULL,'t'},{NULL}};staticconst
+structoptspecos_cfg_pid_dry={"f:i:CtN:","-f,--config_fileSetconfigurationfilenam
+e\n""-i,--pid_fileSetprocessidentifierfilename\n""-N,--pathspaceInsertprefixinto
+config&socketpaths\n""-C,--dryrunCheckconfigurationforvalidityandexit\n""-t,--te
+rminalOpenterminalsessiononstdio\n""-d-tDaemonizeafterterminalsessionends\n",lo_
+cfg_pid_dry};staticconststructoptionlo_zclient[]={{"socket",required_argument,NU
+LL,'z'},{NULL}};staticconststructoptspecos_zclient={"z:","-z,--socketSetpathofze
+brasocket\n",lo_zclient};staticconststructoptionlo_vty[]={{"vty_addr",required_a
+rgument,NULL,'A'},{"vty_port",required_argument,NULL,'P'},{NULL}};staticconststr
+uctoptspecos_vty={"A:P:","-A,--vty_addrSetvty'sbindaddress\n""-P,--vty_portSetvt
+y'sportnumber\n",lo_vty};staticconststructoptionlo_user[]={{"user",required_argu
+ment,NULL,'u'},{"group",required_argument,NULL,'g'},{NULL}};staticconststructopt
+specos_user={"u:g:","-u,--userUsertorunas\n""-g,--groupGrouptorunas\n",lo_user};
+boolfrr_zclient_addr(structsockaddr_storage*sa,socklen_t*sa_len,constchar*path){
+memset(sa,0,sizeof(*sa));if(!path)path=ZEBRA_SERV_PATH;if(!strncmp(path,ZAPI_TCP
+_PATHNAME,strlen(ZAPI_TCP_PATHNAME))){/*note:thisfunctionalityisdisabledatbottom
+*/intaf;intport=ZEBRA_PORT;char*err=NULL;structsockaddr_in*sin=NULL;structsockad
+dr_in6*sin6=NULL;path+=strlen(ZAPI_TCP_PATHNAME);switch(path[0]){case'4':path++;
+af=AF_INET;break;case'6':path++;/*fallthrough*/default:af=AF_INET6;break;}switch
+(path[0]){case'\0':break;case':':path++;port=strtoul(path,&err,10);if(*err||!*pa
+th)returnfalse;break;default:returnfalse;}sa->ss_family=af;switch(af){caseAF_INE
+T:sin=(structsockaddr_in*)sa;sin->sin_port=htons(port);sin->sin_addr.s_addr=hton
+l(INADDR_LOOPBACK);*sa_len=sizeof(structsockaddr_in);#ifdefHAVE_STRUCT_SOCKADDR_
+IN_SIN_LENsin->sin_len=*sa_len;#endifbreak;caseAF_INET6:sin6=(structsockaddr_in6
+*)sa;sin6->sin6_port=htons(port);inet_pton(AF_INET6,"::1",&sin6->sin6_addr);*sa_
+len=sizeof(structsockaddr_in6);#ifdefSIN6_LENsin6->sin6_len=*sa_len;#endifbreak;
+}#if1/*force-disablethispath,becausetcp-zebraisa*SECURITYISSUE.therearenochecksa
+tallagainst*untrustedusersonthelocalsystemconnectingonTCP*andinjectingbogusrouti
+ngdataintotheentirerouting*domain.**Thefunctionalityisonlyleftherebecauseitmaybe
+*usefulduringdevelopment,inordertobeabletoget*tcpdumporwiresharkwatchingZAPIasTC
+P.Ifyouwant*todothat,flipthe#if1aboveto#if0.*/memset(sa,0,sizeof(*sa));returnfal
+se;#endif}else{/*"sun"isa#defineonsolaris*/structsockaddr_un*suna=(structsockadd
+r_un*)sa;suna->sun_family=AF_UNIX;strlcpy(suna->sun_path,path,sizeof(suna->sun_p
+ath));#ifdefHAVE_STRUCT_SOCKADDR_UN_SUN_LEN*sa_len=suna->sun_len=SUN_LEN(suna);#
+else*sa_len=sizeof(suna->sun_family)+strlen(suna->sun_path);#endif/*HAVE_STRUCT_
+SOCKADDR_UN_SUN_LEN*/#if0/*thisislefthereforfuturereference;Linuxabstract*socket
+namespacesupportcanbeenabledbyreplacing*above#if0with#ifdefGNU_LINUX.**THISISASE
+CURITYISSUE,theabstractsocketnamespace*doesnothaveuser/grouppermissioncontrolons
+ockets.*we'dneedtoimplementSCM_CREDENTIALSsupportfirstto*checkthatonlyproperuser
+scanconnecttoabstract*sockets.(sameproblemastcp-zebra,exceptthereisa*fixwithSCM_
+CREDENTIALS.tcp-zebrahasnosuchfix.)*/if(suna->sun_path[0]=='@')suna->sun_path[0]
+='\0';#endif}returntrue;}staticstructfrr_daemon_info*di=NULL;voidfrr_preinit(str
+uctfrr_daemon_info*daemon,intargc,char**argv){di=daemon;/*basename(),opencoded.*
+/char*p=strrchr(argv[0],'/');di->progname=p?p+1:argv[0];umask(0027);opt_extend(&
+os_always);if(!(di->flags&FRR_NO_CFG_PID_DRY))opt_extend(&os_cfg_pid_dry);if(!(d
+i->flags&FRR_NO_PRIVSEP))opt_extend(&os_user);if(!(di->flags&FRR_NO_ZCLIENT))opt
+_extend(&os_zclient);if(!(di->flags&FRR_NO_TCPVTY))opt_extend(&os_vty);snprintf(
+config_default,sizeof(config_default),"%s/%s.conf",frr_sysconfdir,di->name);snpr
+intf(pidfile_default,sizeof(pidfile_default),"%s/%s.pid",frr_vtydir,di->name);st
+rlcpy(frr_protoname,di->logname,sizeof(frr_protoname));strlcpy(frr_protonameinst
+,di->logname,sizeof(frr_protonameinst));strlcpy(frr_zclientpath,ZEBRA_SERV_PATH,
+sizeof(frr_zclientpath));}voidfrr_opt_add(constchar*optstr,conststructoption*lon
+gopts,constchar*helpstr){conststructoptspecmain_opts={optstr,helpstr,longopts};o
+pt_extend(&main_opts);}voidfrr_help_exit(intstatus){FILE*target=status?stderr:st
+dout;if(status!=0)fprintf(stderr,"Invalidoptions.\n\n");if(di->printhelp)di->pri
+nthelp(target);elsefprintf(target,"Usage:%s[OPTION...]\n\n%s%s%s\n\n%s",di->prog
+name,di->proghelp,di->copyright?"\n\n":"",di->copyright?di->copyright:"",comb_he
+lpstr);fprintf(target,"\nReportbugsto%s\n",FRR_BUG_ADDRESS);exit(status);}struct
+option_chain{structoption_chain*next;constchar*arg;};staticstructoption_chain*mo
+dules=NULL,**modnext=&modules;staticinterrors=0;staticintfrr_opt(intopt){statici
+ntvty_port_set=0;staticintvty_addr_set=0;structoption_chain*oc;char*err;switch(o
+pt){case'h':frr_help_exit(0);break;case'v':print_version(di->progname);exit(0);b
+reak;case'd':di->daemon_mode=1;break;case'M':oc=XMALLOC(MTYPE_TMP,sizeof(*oc));o
+c->arg=optarg;oc->next=NULL;*modnext=oc;modnext=&oc->next;break;case'i':if(di->f
+lags&FRR_NO_CFG_PID_DRY)return1;di->pid_file=optarg;break;case'f':if(di->flags&F
+RR_NO_CFG_PID_DRY)return1;di->config_file=optarg;break;case'N':if(di->flags&FRR_
+NO_CFG_PID_DRY)return1;if(di->pathspace){fprintf(stderr,"-N/--pathspaceoptionspe
+cifiedmorethanonce!\n");errors++;break;}if(strchr(optarg,'/')||strchr(optarg,'.'
+)){fprintf(stderr,"slashesordotsarenotpermittedinthe--pathspaceoption.\n");error
+s++;break;}di->pathspace=optarg;break;case'C':if(di->flags&FRR_NO_CFG_PID_DRY)re
+turn1;di->dryrun=1;break;case't':if(di->flags&FRR_NO_CFG_PID_DRY)return1;di->ter
+minal=1;break;case'z':if(di->flags&FRR_NO_ZCLIENT)return1;strlcpy(frr_zclientpat
+h,optarg,sizeof(frr_zclientpath));break;case'A':if(di->flags&FRR_NO_TCPVTY)retur
+n1;if(vty_addr_set){fprintf(stderr,"-Aoptionspecifiedmorethanonce!\n");errors++;
+break;}vty_addr_set=1;di->vty_addr=optarg;break;case'P':if(di->flags&FRR_NO_TCPV
+TY)return1;if(vty_port_set){fprintf(stderr,"-Poptionspecifiedmorethanonce!\n");e
+rrors++;break;}vty_port_set=1;di->vty_port=strtoul(optarg,&err,0);if(*err||!*opt
+arg){fprintf(stderr,"invalidportnumber\"%s\"for-Poption\n",optarg);errors++;brea
+k;}break;caseOPTION_VTYSOCK:if(di->vty_sock_path){fprintf(stderr,"--vty_socketop
+tionspecifiedmorethanonce!\n");errors++;break;}di->vty_sock_path=optarg;break;ca
+seOPTION_MODULEDIR:if(di->module_path){fprintf(stderr,"----modulediroptionspecif
+iedmorethanonce!\n");errors++;break;}di->module_path=optarg;break;case'u':if(di-
+>flags&FRR_NO_PRIVSEP)return1;di->privs->user=optarg;break;case'g':if(di->flags&
+FRR_NO_PRIVSEP)return1;di->privs->group=optarg;break;default:return1;}return0;}i
+ntfrr_getopt(intargc,char*constargv[],int*longindex){intopt;intlidx;comb_next_lo
+->name=NULL;do{opt=getopt_long(argc,argv,comb_optstr,comb_lo,&lidx);if(frr_opt(o
+pt))break;}while(opt!=-1);if(opt==-1&&errors)frr_help_exit(1);if(longindex)*long
+index=lidx;returnopt;}staticvoidfrr_mkdir(constchar*path,boolstrip){charbuf[256]
+;mode_tprev;intret;structzprivs_ids_tids;if(strip){char*slash=strrchr(path,'/');
+size_tplen;if(!slash)return;plen=slash-path;if(plen>sizeof(buf)-1)return;memcpy(
+buf,path,plen);buf[plen]='\0';path=buf;}/*o+rx(..5)isneededforthefrrvtygrouptowo
+rkproperly;*withoutit,usersinthefrrvtygroupcan'taccessthevtysockets.*/prev=umask
+(0022);ret=mkdir(path,0755);umask(prev);if(ret!=0){/*ifEEXIST,returnwithouttouch
+ingthepermissions,*souser-setcustompermissionsareleftinplace*/if(errno==EEXIST)r
+eturn;zlog_warn("failedtomkdir\"%s\":%s",path,strerror(errno));return;}zprivs_ge
+t_ids(&ids);if(chown(path,ids.uid_normal,ids.gid_normal))zlog_warn("failedtochow
+n\"%s\":%s",path,strerror(errno));}staticstructthread_master*master;structthread
+_master*frr_init(void){structoption_chain*oc;structfrrmod_runtime*module;charmod
+err[256];charp_instance[16]="",p_pathspace[256]="";constchar*dir;dir=di->module_
+path?di->module_path:frr_moduledir;srandom(time(NULL));if(di->instance){snprintf
+(frr_protonameinst,sizeof(frr_protonameinst),"%s[%u]",di->logname,di->instance);
+snprintf(p_instance,sizeof(p_instance),"-%d",di->instance);}if(di->pathspace)snp
+rintf(p_pathspace,sizeof(p_pathspace),"/%s",di->pathspace);snprintf(config_defau
+lt,sizeof(config_default),"%s%s%s%s.conf",frr_sysconfdir,p_pathspace,di->name,p_
+instance);snprintf(pidfile_default,sizeof(pidfile_default),"%s%s/%s%s.pid",frr_v
+tydir,p_pathspace,di->name,p_instance);zprivs_preinit(di->privs);openzlog(di->pr
+ogname,di->logname,di->instance,LOG_CONS|LOG_NDELAY|LOG_PID,LOG_DAEMON);#ifdefin
+ed(HAVE_CUMULUS)zlog_set_level(ZLOG_DEST_SYSLOG,zlog_default->default_lvl);#endi
+fif(!frr_zclient_addr(&zclient_addr,&zclient_addr_len,frr_zclientpath)){fprintf(
+stderr,"Invalidzservsocketpath:%s\n",frr_zclientpath);exit(1);}/*don'tmkdirthese
+asroot...*/if(!(di->flags&FRR_NO_PRIVSEP)){if(!di->pid_file||!di->vty_path)frr_m
+kdir(frr_vtydir,false);if(di->pid_file)frr_mkdir(di->pid_file,true);if(di->vty_p
+ath)frr_mkdir(di->vty_path,true);}frrmod_init(di->module);while(modules){modules
+=(oc=modules)->next;module=frrmod_load(oc->arg,dir,moderr,sizeof(moderr));if(!mo
+dule){fprintf(stderr,"%s\n",moderr);exit(1);}XFREE(MTYPE_TMP,oc);}zprivs_init(di
+->privs);master=thread_master_create(NULL);signal_init(master,di->n_signals,di->
+signals);if(di->flags&FRR_LIMITED_CLI)cmd_init(-1);elsecmd_init(1);vty_init(mast
+er);memory_init();returnmaster;}staticintrcvd_signal=0;staticvoidrcv_signal(ints
+ignum){rcvd_signal=signum;/*poll()isinterruptedbythesignal;handledbelow*/}static
+voidfrr_daemon_wait(intfd){structpollfdpfd[1];intret;pid_texitpid;intexitstat;si
+gset_tsigs,prevsigs;sigemptyset(&sigs);sigaddset(&sigs,SIGTSTP);sigaddset(&sigs,
+SIGQUIT);sigaddset(&sigs,SIGINT);sigprocmask(SIG_BLOCK,&sigs,&prevsigs);structsi
+gactionsa={.sa_handler=rcv_signal,.sa_flags=SA_RESETHAND,};sigemptyset(&sa.sa_ma
+sk);sigaction(SIGTSTP,&sa,NULL);sigaction(SIGQUIT,&sa,NULL);sigaction(SIGINT,&sa
+,NULL);do{charbuf[1];ssize_tnrecv;pfd[0].fd=fd;pfd[0].events=POLLIN;rcvd_signal=
+0;#ifdefined(HAVE_PPOLL)ret=ppoll(pfd,1,NULL,&prevsigs);#elifdefined(HAVE_POLLTS
+)ret=pollts(pfd,1,NULL,&prevsigs);#else/*racy--onlyusedonFreeBSD9*/sigset_ttmpsi
+gs;sigprocmask(SIG_SETMASK,&prevsigs,&tmpsigs);ret=poll(pfd,1,-1);sigprocmask(SI
+G_SETMASK,&tmpsigs,NULL);#endifif(ret<0&&errno!=EINTR&&errno!=EAGAIN){perror("po
+ll()");exit(1);}switch(rcvd_signal){caseSIGTSTP:send(fd,"S",1,0);do{nrecv=recv(f
+d,buf,sizeof(buf),0);}while(nrecv==-1&&(errno==EINTR||errno==EAGAIN));raise(SIGT
+STP);sigaction(SIGTSTP,&sa,NULL);send(fd,"R",1,0);break;caseSIGINT:send(fd,"I",1
+,0);break;caseSIGQUIT:send(fd,"Q",1,0);break;}}while(ret<=0);exitpid=waitpid(-1,
+&exitstat,WNOHANG);if(exitpid==0)/*childsuccessfullywenttomainloop&closedsocket*
+/exit(0);/*childfailedonewayoranother...*/if(WIFEXITED(exitstat)&&WEXITSTATUS(ex
+itstat)==0)/*canhappenin--terminalcaseifexitisfastenough*/(void)0;elseif(WIFEXIT
+ED(exitstat))fprintf(stderr,"%sfailedtostart,exited%d\n",di->name,WEXITSTATUS(ex
+itstat));elseif(WIFSIGNALED(exitstat))fprintf(stderr,"%scrashedinstartup,signal%
+d\n",di->name,WTERMSIG(exitstat));elsefprintf(stderr,"%sfailedtostart,unknownpro
+blem\n",di->name);exit(1);}staticintdaemon_ctl_sock=-1;staticvoidfrr_daemonize(v
+oid){intfds[2];pid_tpid;if(socketpair(AF_UNIX,SOCK_STREAM,0,fds)){perror("socket
+pair()fordaemoncontrol");exit(1);}set_cloexec(fds[0]);set_cloexec(fds[1]);pid=fo
+rk();if(pid<0){perror("fork()");exit(1);}if(pid==0){/*child*/close(fds[0]);if(se
+tsid()<0){perror("setsid()");exit(1);}daemon_ctl_sock=fds[1];return;}close(fds[1
+]);frr_daemon_wait(fds[0]);}voidfrr_config_fork(void){hook_call(frr_late_init,ma
+ster);vty_read_config(di->config_file,config_default);/*Don'tstartexecutionifwea
+reindry-runmode*/if(di->dryrun)exit(0);if(di->daemon_mode||di->terminal)frr_daem
+onize();if(!di->pid_file)di->pid_file=pidfile_default;pid_output(di->pid_file);}
+voidfrr_vty_serv(void){/*allowexplicitoverrideofvty_pathinthefuture*(notcurrentl
+ysetanywhere)*/if(!di->vty_path){constchar*dir;chardefvtydir[256];snprintf(defvt
+ydir,sizeof(defvtydir),"%s%s%s",frr_vtydir,di->pathspace?"/":"",di->pathspace?di
+->pathspace:"");dir=di->vty_sock_path?di->vty_sock_path:defvtydir;if(di->instanc
+e)snprintf(vtypath_default,sizeof(vtypath_default),"%s/%s-%d.vty",dir,di->name,d
+i->instance);elsesnprintf(vtypath_default,sizeof(vtypath_default),"%s/%s.vty",di
+r,di->name);di->vty_path=vtypath_default;}vty_serv_sock(di->vty_addr,di->vty_por
+t,di->vty_path);}staticvoidfrr_terminal_close(intisexit){intnullfd;if(daemon_ctl
+_sock!=-1){close(daemon_ctl_sock);daemon_ctl_sock=-1;}if(!di->daemon_mode||isexi
+t){printf("\n%sexiting\n",di->name);if(!isexit)raise(SIGINT);return;}else{printf
+("\n%sdaemonizing\n",di->name);fflush(stdout);}nullfd=open("/dev/null",O_RDONLY|
+O_NOCTTY);if(nullfd==-1){zlog_err("%s:failedtoopen/dev/null:%s",__func__,safe_st
+rerror(errno));}else{dup2(nullfd,0);dup2(nullfd,1);dup2(nullfd,2);close(nullfd);
+}}staticstructthread*daemon_ctl_thread=NULL;staticintfrr_daemon_ctl(structthread
+*t){charbuf[1];ssize_tnr;nr=recv(daemon_ctl_sock,buf,sizeof(buf),0);if(nr<0&&(er
+rno==EINTR||errno==EAGAIN))gotoout;if(nr<=0)return0;switch(buf[0]){case'S':/*SIG
+TSTP*/vty_stdio_suspend();send(daemon_ctl_sock,"s",1,0);break;case'R':/*SIGTCNT[
+implicit]*/vty_stdio_resume();break;case'I':/*SIGINT*/di->daemon_mode=false;rais
+e(SIGINT);break;case'Q':/*SIGQUIT*/di->daemon_mode=true;vty_stdio_close();break;
+}out:thread_add_read(master,frr_daemon_ctl,NULL,daemon_ctl_sock,&daemon_ctl_thre
+ad);return0;}voidfrr_run(structthread_master*master){charinstanceinfo[64]="";frr
+_vty_serv();if(di->instance)snprintf(instanceinfo,sizeof(instanceinfo),"instance
+%u",di->instance);zlog_notice("%s%sstarting:%svty@%d%s",di->name,FRR_VERSION,ins
+tanceinfo,di->vty_port,di->startinfo);if(di->terminal){vty_stdio(frr_terminal_cl
+ose);if(daemon_ctl_sock!=-1){set_nonblocking(daemon_ctl_sock);thread_add_read(ma
+ster,frr_daemon_ctl,NULL,daemon_ctl_sock,&daemon_ctl_thread);}}elseif(di->daemon
+_mode){intnullfd=open("/dev/null",O_RDONLY|O_NOCTTY);if(nullfd==-1){zlog_err("%s
+:failedtoopen/dev/null:%s",__func__,safe_strerror(errno));}else{dup2(nullfd,0);d
+up2(nullfd,1);dup2(nullfd,2);close(nullfd);}if(daemon_ctl_sock!=-1)close(daemon_
+ctl_sock);daemon_ctl_sock=-1;}/*endfixedstderrstartuplogging*/zlog_startup_stder
+r=false;structthreadthread;while(thread_fetch(master,&thread))thread_call(&threa
+d);}voidfrr_early_fini(void){hook_call(frr_early_fini);}voidfrr_fini(void){FILE*
+fp;charfilename[128];inthave_leftovers;hook_call(frr_fini);/*memory_init->nothin
+gneeded*/vty_terminate();cmd_terminate();zprivs_terminate(di->privs);/*signal_in
+it->nothingneeded*/thread_master_free(master);master=NULL;closezlog();/*frrmod_i
+nit->nothingneeded/hooks*/if(!debug_memstats_at_exit)return;have_leftovers=log_m
+emstats(stderr,di->name);/*incasewedecideatruntimethatwewantexit-memstatsfor*ada
+emon,butithasnostderrbecauseit'sdaemonized*(onlydothisifweactuallyhavesomethingt
+oprintthough)*/if(!have_leftovers)return;snprintf(filename,sizeof(filename),"/tm
+p/frr-memstats-%s-%llu-%llu",di->name,(unsignedlonglong)getpid(),(unsignedlonglo
+ng)time(NULL));fp=fopen(filename,"w");if(fp){log_memstats(fp,di->name);fclose(fp
+);}}

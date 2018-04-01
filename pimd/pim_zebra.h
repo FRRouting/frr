@@ -1,49 +1,19 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_ZEBRA_H
-#define PIM_ZEBRA_H
-
-#include <zebra.h>
-#include "zclient.h"
-
-#include "pim_igmp.h"
-#include "pim_ifchannel.h"
-
-void pim_zebra_init(void);
-void pim_zebra_zclient_update(struct vty *vty);
-
-void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index);
-void pim_scan_oil(struct pim_instance *pim_matcher);
-
-void igmp_anysource_forward_start(struct pim_instance *pim,
-				  struct igmp_group *group);
-void igmp_anysource_forward_stop(struct igmp_group *group);
-
-void igmp_source_forward_start(struct pim_instance *pim,
-			       struct igmp_source *source);
-void igmp_source_forward_stop(struct igmp_source *source);
-void igmp_source_forward_reevaluate_all(struct pim_instance *pim);
-
-void pim_forward_start(struct pim_ifchannel *ch);
-void pim_forward_stop(struct pim_ifchannel *ch, bool install_it);
-
-void sched_rpf_cache_refresh(struct pim_instance *pim);
-struct zclient *pim_zebra_zclient_get(void);
-#endif /* PIM_ZEBRA_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_ZEBRA_H#definePIM_ZEBRA_H#include<zebra.h>#include"zclient.h"#i
+nclude"pim_igmp.h"#include"pim_ifchannel.h"voidpim_zebra_init(void);voidpim_zebr
+a_zclient_update(structvty*vty);voidpim_scan_individual_oil(structchannel_oil*c_
+oil,intin_vif_index);voidpim_scan_oil(structpim_instance*pim_matcher);voidigmp_a
+nysource_forward_start(structpim_instance*pim,structigmp_group*group);voidigmp_a
+nysource_forward_stop(structigmp_group*group);voidigmp_source_forward_start(stru
+ctpim_instance*pim,structigmp_source*source);voidigmp_source_forward_stop(struct
+igmp_source*source);voidigmp_source_forward_reevaluate_all(structpim_instance*pi
+m);voidpim_forward_start(structpim_ifchannel*ch);voidpim_forward_stop(structpim_
+ifchannel*ch,boolinstall_it);voidsched_rpf_cache_refresh(structpim_instance*pim)
+;structzclient*pim_zebra_zclient_get(void);#endif/*PIM_ZEBRA_H*/

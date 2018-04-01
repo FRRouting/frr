@@ -1,23 +1,7 @@
-/* Copyright (c) 2015 6WIND S.A.
- * Author: Nicolas Dichtel <nicolas.dichtel@6wind.com>
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- */
-#ifndef _LINUX_NET_NAMESPACE_H_
-#define _LINUX_NET_NAMESPACE_H_
-
-/* Attributes of RTM_NEWNSID/RTM_GETNSID messages */
-enum {
-	NETNSA_NONE,
-#define NETNSA_NSID_NOT_ASSIGNED -1
-	NETNSA_NSID,
-	NETNSA_PID,
-	NETNSA_FD,
-	__NETNSA_MAX,
-};
-
-#define NETNSA_MAX		(__NETNSA_MAX - 1)
-
-#endif /* _LINUX_NET_NAMESPACE_H_ */
+/*Copyright(c)20156WINDS.A.*Author:NicolasDichtel<nicolas.dichtel@6wind.com>**Th
+isprogramisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsandcondi
+tionsoftheGNUGeneralPublicLicense,*version2,aspublishedbytheFreeSoftwareFoundati
+on.*/#ifndef_LINUX_NET_NAMESPACE_H_#define_LINUX_NET_NAMESPACE_H_/*AttributesofR
+TM_NEWNSID/RTM_GETNSIDmessages*/enum{NETNSA_NONE,#defineNETNSA_NSID_NOT_ASSIGNED
+-1NETNSA_NSID,NETNSA_PID,NETNSA_FD,__NETNSA_MAX,};#defineNETNSA_MAX(__NETNSA_MAX
+-1)#endif/*_LINUX_NET_NAMESPACE_H_*/

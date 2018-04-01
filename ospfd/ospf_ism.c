@@ -1,603 +1,170 @@
-/*
- * OSPF version 2  Interface State Machine
- *   From RFC2328 [OSPF Version 2]
- * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "thread.h"
-#include "linklist.h"
-#include "prefix.h"
-#include "if.h"
-#include "table.h"
-#include "log.h"
-
-#include "ospfd/ospfd.h"
-#include "ospfd/ospf_interface.h"
-#include "ospfd/ospf_ism.h"
-#include "ospfd/ospf_asbr.h"
-#include "ospfd/ospf_lsa.h"
-#include "ospfd/ospf_lsdb.h"
-#include "ospfd/ospf_neighbor.h"
-#include "ospfd/ospf_nsm.h"
-#include "ospfd/ospf_network.h"
-#include "ospfd/ospf_dump.h"
-#include "ospfd/ospf_packet.h"
-#include "ospfd/ospf_flood.h"
-#include "ospfd/ospf_abr.h"
-
-DEFINE_HOOK(ospf_ism_change,
-	    (struct ospf_interface * oi, int state, int oldstate),
-	    (oi, state, oldstate))
-
-/* elect DR and BDR. Refer to RFC2319 section 9.4 */
-static struct ospf_neighbor *ospf_dr_election_sub(struct list *routers)
-{
-	struct listnode *node;
-	struct ospf_neighbor *nbr, *max = NULL;
-
-	/* Choose highest router priority.
-	   In case of tie, choose highest Router ID. */
-	for (ALL_LIST_ELEMENTS_RO(routers, node, nbr)) {
-		if (max == NULL)
-			max = nbr;
-		else {
-			if (max->priority < nbr->priority)
-				max = nbr;
-			else if (max->priority == nbr->priority)
-				if (IPV4_ADDR_CMP(&max->router_id,
-						  &nbr->router_id)
-				    < 0)
-					max = nbr;
-		}
-	}
-
-	return max;
-}
-
-static struct ospf_neighbor *ospf_elect_dr(struct ospf_interface *oi,
-					   struct list *el_list)
-{
-	struct list *dr_list;
-	struct listnode *node;
-	struct ospf_neighbor *nbr, *dr = NULL, *bdr = NULL;
-
-	dr_list = list_new();
-
-	/* Add neighbors to the list. */
-	for (ALL_LIST_ELEMENTS_RO(el_list, node, nbr)) {
-		/* neighbor declared to be DR. */
-		if (NBR_IS_DR(nbr))
-			listnode_add(dr_list, nbr);
-
-		/* Preserve neighbor BDR. */
-		if (IPV4_ADDR_SAME(&BDR(oi), &nbr->address.u.prefix4))
-			bdr = nbr;
-	}
-
-	/* Elect Designated Router. */
-	if (listcount(dr_list) > 0)
-		dr = ospf_dr_election_sub(dr_list);
-	else
-		dr = bdr;
-
-	/* Set DR to interface. */
-	if (dr)
-		DR(oi) = dr->address.u.prefix4;
-	else
-		DR(oi).s_addr = 0;
-
-	list_delete_and_null(&dr_list);
-
-	return dr;
-}
-
-static struct ospf_neighbor *ospf_elect_bdr(struct ospf_interface *oi,
-					    struct list *el_list)
-{
-	struct list *bdr_list, *no_dr_list;
-	struct listnode *node;
-	struct ospf_neighbor *nbr, *bdr = NULL;
-
-	bdr_list = list_new();
-	no_dr_list = list_new();
-
-	/* Add neighbors to the list. */
-	for (ALL_LIST_ELEMENTS_RO(el_list, node, nbr)) {
-		/* neighbor declared to be DR. */
-		if (NBR_IS_DR(nbr))
-			continue;
-
-		/* neighbor declared to be BDR. */
-		if (NBR_IS_BDR(nbr))
-			listnode_add(bdr_list, nbr);
-
-		listnode_add(no_dr_list, nbr);
-	}
-
-	/* Elect Backup Designated Router. */
-	if (listcount(bdr_list) > 0)
-		bdr = ospf_dr_election_sub(bdr_list);
-	else
-		bdr = ospf_dr_election_sub(no_dr_list);
-
-	/* Set BDR to interface. */
-	if (bdr)
-		BDR(oi) = bdr->address.u.prefix4;
-	else
-		BDR(oi).s_addr = 0;
-
-	list_delete_and_null(&bdr_list);
-	list_delete_and_null(&no_dr_list);
-
-	return bdr;
-}
-
-static int ospf_ism_state(struct ospf_interface *oi)
-{
-	if (IPV4_ADDR_SAME(&DR(oi), &oi->address->u.prefix4))
-		return ISM_DR;
-	else if (IPV4_ADDR_SAME(&BDR(oi), &oi->address->u.prefix4))
-		return ISM_Backup;
-	else
-		return ISM_DROther;
-}
-
-static void ospf_dr_eligible_routers(struct route_table *nbrs,
-				     struct list *el_list)
-{
-	struct route_node *rn;
-	struct ospf_neighbor *nbr;
-
-	for (rn = route_top(nbrs); rn; rn = route_next(rn))
-		if ((nbr = rn->info) != NULL)
-			/* Ignore 0.0.0.0 node*/
-			if (nbr->router_id.s_addr != 0)
-				/* Is neighbor eligible? */
-				if (nbr->priority > 0)
-					/* Is neighbor upper 2-Way? */
-					if (nbr->state >= NSM_TwoWay)
-						listnode_add(el_list, nbr);
-}
-
-/* Generate AdjOK? NSM event. */
-static void ospf_dr_change(struct ospf *ospf, struct route_table *nbrs)
-{
-	struct route_node *rn;
-	struct ospf_neighbor *nbr;
-
-	for (rn = route_top(nbrs); rn; rn = route_next(rn))
-		if ((nbr = rn->info) != NULL)
-			/* Ignore 0.0.0.0 node*/
-			if (nbr->router_id.s_addr != 0)
-				/* Is neighbor upper 2-Way? */
-				if (nbr->state >= NSM_TwoWay)
-					/* Ignore myself. */
-					if (!IPV4_ADDR_SAME(&nbr->router_id,
-							    &ospf->router_id))
-						OSPF_NSM_EVENT_SCHEDULE(
-							nbr, NSM_AdjOK);
-}
-
-static int ospf_dr_election(struct ospf_interface *oi)
-{
-	struct in_addr old_dr, old_bdr;
-	int old_state, new_state;
-	struct list *el_list;
-
-	/* backup current values. */
-	old_dr = DR(oi);
-	old_bdr = BDR(oi);
-	old_state = oi->state;
-
-	el_list = list_new();
-
-	/* List eligible routers. */
-	ospf_dr_eligible_routers(oi->nbrs, el_list);
-
-	/* First election of DR and BDR. */
-	ospf_elect_bdr(oi, el_list);
-	ospf_elect_dr(oi, el_list);
-
-	new_state = ospf_ism_state(oi);
-
-	zlog_debug("DR-Election[1st]: Backup %s", inet_ntoa(BDR(oi)));
-	zlog_debug("DR-Election[1st]: DR     %s", inet_ntoa(DR(oi)));
-
-	if (new_state != old_state
-	    && !(new_state == ISM_DROther && old_state < ISM_DROther)) {
-		ospf_elect_bdr(oi, el_list);
-		ospf_elect_dr(oi, el_list);
-
-		new_state = ospf_ism_state(oi);
-
-		zlog_debug("DR-Election[2nd]: Backup %s", inet_ntoa(BDR(oi)));
-		zlog_debug("DR-Election[2nd]: DR     %s", inet_ntoa(DR(oi)));
-	}
-
-	list_delete_and_null(&el_list);
-
-	/* if DR or BDR changes, cause AdjOK? neighbor event. */
-	if (!IPV4_ADDR_SAME(&old_dr, &DR(oi))
-	    || !IPV4_ADDR_SAME(&old_bdr, &BDR(oi)))
-		ospf_dr_change(oi->ospf, oi->nbrs);
-
-	return new_state;
-}
-
-
-int ospf_hello_timer(struct thread *thread)
-{
-	struct ospf_interface *oi;
-
-	oi = THREAD_ARG(thread);
-	oi->t_hello = NULL;
-
-	if (IS_DEBUG_OSPF(ism, ISM_TIMERS))
-		zlog_debug("ISM[%s]: Timer (Hello timer expire)", IF_NAME(oi));
-
-	/* Sending hello packet. */
-	ospf_hello_send(oi);
-
-	/* Hello timer set. */
-	OSPF_HELLO_TIMER_ON(oi);
-
-	return 0;
-}
-
-static int ospf_wait_timer(struct thread *thread)
-{
-	struct ospf_interface *oi;
-
-	oi = THREAD_ARG(thread);
-	oi->t_wait = NULL;
-
-	if (IS_DEBUG_OSPF(ism, ISM_TIMERS))
-		zlog_debug("ISM[%s]: Timer (Wait timer expire)", IF_NAME(oi));
-
-	OSPF_ISM_EVENT_SCHEDULE(oi, ISM_WaitTimer);
-
-	return 0;
-}
-
-/* Hook function called after ospf ISM event is occured. And vty's
-   network command invoke this function after making interface
-   structure. */
-static void ism_timer_set(struct ospf_interface *oi)
-{
-	switch (oi->state) {
-	case ISM_Down:
-		/* First entry point of ospf interface state machine. In this
-		   state
-		   interface parameters must be set to initial values, and
-		   timers are
-		   reset also. */
-		OSPF_ISM_TIMER_OFF(oi->t_hello);
-		OSPF_ISM_TIMER_OFF(oi->t_wait);
-		OSPF_ISM_TIMER_OFF(oi->t_ls_ack);
-		break;
-	case ISM_Loopback:
-		/* In this state, the interface may be looped back and will be
-		   unavailable for regular data traffic. */
-		OSPF_ISM_TIMER_OFF(oi->t_hello);
-		OSPF_ISM_TIMER_OFF(oi->t_wait);
-		OSPF_ISM_TIMER_OFF(oi->t_ls_ack);
-		break;
-	case ISM_Waiting:
-		/* The router is trying to determine the identity of DRouter and
-		   BDRouter. The router begin to receive and send Hello Packets.
-		   */
-		/* send first hello immediately */
-		OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
-		OSPF_ISM_TIMER_ON(oi->t_wait, ospf_wait_timer,
-				  OSPF_IF_PARAM(oi, v_wait));
-		OSPF_ISM_TIMER_OFF(oi->t_ls_ack);
-		break;
-	case ISM_PointToPoint:
-		/* The interface connects to a physical Point-to-point network
-		   or
-		   virtual link. The router attempts to form an adjacency with
-		   neighboring router. Hello packets are also sent. */
-		/* send first hello immediately */
-		OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
-		OSPF_ISM_TIMER_OFF(oi->t_wait);
-		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
-				  oi->v_ls_ack);
-		break;
-	case ISM_DROther:
-		/* The network type of the interface is broadcast or NBMA
-		   network,
-		   and the router itself is neither Designated Router nor
-		   Backup Designated Router. */
-		OSPF_HELLO_TIMER_ON(oi);
-		OSPF_ISM_TIMER_OFF(oi->t_wait);
-		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
-				  oi->v_ls_ack);
-		break;
-	case ISM_Backup:
-		/* The network type of the interface is broadcast os NBMA
-		   network,
-		   and the router is Backup Designated Router. */
-		OSPF_HELLO_TIMER_ON(oi);
-		OSPF_ISM_TIMER_OFF(oi->t_wait);
-		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
-				  oi->v_ls_ack);
-		break;
-	case ISM_DR:
-		/* The network type of the interface is broadcast or NBMA
-		   network,
-		   and the router is Designated Router. */
-		OSPF_HELLO_TIMER_ON(oi);
-		OSPF_ISM_TIMER_OFF(oi->t_wait);
-		OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer,
-				  oi->v_ls_ack);
-		break;
-	}
-}
-
-static int ism_interface_up(struct ospf_interface *oi)
-{
-	int next_state = 0;
-
-	/* if network type is point-to-point, Point-to-MultiPoint or virtual
-	   link,
-	   the state transitions to Point-to-Point. */
-	if (oi->type == OSPF_IFTYPE_POINTOPOINT
-	    || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
-	    || oi->type == OSPF_IFTYPE_VIRTUALLINK)
-		next_state = ISM_PointToPoint;
-	/* Else if the router is not eligible to DR, the state transitions to
-	   DROther. */
-	else if (PRIORITY(oi) == 0) /* router is eligible? */
-		next_state = ISM_DROther;
-	else
-		/* Otherwise, the state transitions to Waiting. */
-		next_state = ISM_Waiting;
-
-	if (oi->type == OSPF_IFTYPE_NBMA)
-		ospf_nbr_nbma_if_update(oi->ospf, oi);
-
-	/*  ospf_ism_event (t); */
-	return next_state;
-}
-
-static int ism_loop_ind(struct ospf_interface *oi)
-{
-	int ret = 0;
-
-	/* call ism_interface_down. */
-	/* ret = ism_interface_down (oi); */
-
-	return ret;
-}
-
-/* Interface down event handler. */
-static int ism_interface_down(struct ospf_interface *oi)
-{
-	ospf_if_cleanup(oi);
-	return 0;
-}
-
-
-static int ism_backup_seen(struct ospf_interface *oi)
-{
-	return ospf_dr_election(oi);
-}
-
-static int ism_wait_timer(struct ospf_interface *oi)
-{
-	return ospf_dr_election(oi);
-}
-
-static int ism_neighbor_change(struct ospf_interface *oi)
-{
-	return ospf_dr_election(oi);
-}
-
-static int ism_ignore(struct ospf_interface *oi)
-{
-	if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
-		zlog_debug("ISM[%s]: ism_ignore called", IF_NAME(oi));
-
-	return 0;
-}
-
-/* Interface State Machine */
-struct {
-	int (*func)(struct ospf_interface *);
-	int next_state;
-} ISM[OSPF_ISM_STATE_MAX][OSPF_ISM_EVENT_MAX] = {
-	{
-		/* DependUpon: dummy state. */
-		{ism_ignore, ISM_DependUpon}, /* NoEvent        */
-		{ism_ignore, ISM_DependUpon}, /* InterfaceUp    */
-		{ism_ignore, ISM_DependUpon}, /* WaitTimer      */
-		{ism_ignore, ISM_DependUpon}, /* BackupSeen     */
-		{ism_ignore, ISM_DependUpon}, /* NeighborChange */
-		{ism_ignore, ISM_DependUpon}, /* LoopInd        */
-		{ism_ignore, ISM_DependUpon}, /* UnloopInd      */
-		{ism_ignore, ISM_DependUpon}, /* InterfaceDown  */
-	},
-	{
-		/* Down:*/
-		{ism_ignore, ISM_DependUpon},       /* NoEvent        */
-		{ism_interface_up, ISM_DependUpon}, /* InterfaceUp    */
-		{ism_ignore, ISM_Down},		    /* WaitTimer      */
-		{ism_ignore, ISM_Down},		    /* BackupSeen     */
-		{ism_ignore, ISM_Down},		    /* NeighborChange */
-		{ism_loop_ind, ISM_Loopback},       /* LoopInd        */
-		{ism_ignore, ISM_Down},		    /* UnloopInd      */
-		{ism_interface_down, ISM_Down},     /* InterfaceDown  */
-	},
-	{
-		/* Loopback: */
-		{ism_ignore, ISM_DependUpon},   /* NoEvent        */
-		{ism_ignore, ISM_Loopback},     /* InterfaceUp    */
-		{ism_ignore, ISM_Loopback},     /* WaitTimer      */
-		{ism_ignore, ISM_Loopback},     /* BackupSeen     */
-		{ism_ignore, ISM_Loopback},     /* NeighborChange */
-		{ism_ignore, ISM_Loopback},     /* LoopInd        */
-		{ism_ignore, ISM_Down},		/* UnloopInd      */
-		{ism_interface_down, ISM_Down}, /* InterfaceDown  */
-	},
-	{
-		/* Waiting: */
-		{ism_ignore, ISM_DependUpon},      /* NoEvent        */
-		{ism_ignore, ISM_Waiting},	 /* InterfaceUp    */
-		{ism_wait_timer, ISM_DependUpon},  /* WaitTimer      */
-		{ism_backup_seen, ISM_DependUpon}, /* BackupSeen     */
-		{ism_ignore, ISM_Waiting},	 /* NeighborChange */
-		{ism_loop_ind, ISM_Loopback},      /* LoopInd        */
-		{ism_ignore, ISM_Waiting},	 /* UnloopInd      */
-		{ism_interface_down, ISM_Down},    /* InterfaceDown  */
-	},
-	{
-		/* Point-to-Point: */
-		{ism_ignore, ISM_DependUpon},   /* NoEvent        */
-		{ism_ignore, ISM_PointToPoint}, /* InterfaceUp    */
-		{ism_ignore, ISM_PointToPoint}, /* WaitTimer      */
-		{ism_ignore, ISM_PointToPoint}, /* BackupSeen     */
-		{ism_ignore, ISM_PointToPoint}, /* NeighborChange */
-		{ism_loop_ind, ISM_Loopback},   /* LoopInd        */
-		{ism_ignore, ISM_PointToPoint}, /* UnloopInd      */
-		{ism_interface_down, ISM_Down}, /* InterfaceDown  */
-	},
-	{
-		/* DROther: */
-		{ism_ignore, ISM_DependUpon},	  /* NoEvent        */
-		{ism_ignore, ISM_DROther},	     /* InterfaceUp    */
-		{ism_ignore, ISM_DROther},	     /* WaitTimer      */
-		{ism_ignore, ISM_DROther},	     /* BackupSeen     */
-		{ism_neighbor_change, ISM_DependUpon}, /* NeighborChange */
-		{ism_loop_ind, ISM_Loopback},	  /* LoopInd        */
-		{ism_ignore, ISM_DROther},	     /* UnloopInd      */
-		{ism_interface_down, ISM_Down},	/* InterfaceDown  */
-	},
-	{
-		/* Backup: */
-		{ism_ignore, ISM_DependUpon},	  /* NoEvent        */
-		{ism_ignore, ISM_Backup},	      /* InterfaceUp    */
-		{ism_ignore, ISM_Backup},	      /* WaitTimer      */
-		{ism_ignore, ISM_Backup},	      /* BackupSeen     */
-		{ism_neighbor_change, ISM_DependUpon}, /* NeighborChange */
-		{ism_loop_ind, ISM_Loopback},	  /* LoopInd        */
-		{ism_ignore, ISM_Backup},	      /* UnloopInd      */
-		{ism_interface_down, ISM_Down},	/* InterfaceDown  */
-	},
-	{
-		/* DR: */
-		{ism_ignore, ISM_DependUpon},	  /* NoEvent        */
-		{ism_ignore, ISM_DR},		       /* InterfaceUp    */
-		{ism_ignore, ISM_DR},		       /* WaitTimer      */
-		{ism_ignore, ISM_DR},		       /* BackupSeen     */
-		{ism_neighbor_change, ISM_DependUpon}, /* NeighborChange */
-		{ism_loop_ind, ISM_Loopback},	  /* LoopInd        */
-		{ism_ignore, ISM_DR},		       /* UnloopInd      */
-		{ism_interface_down, ISM_Down},	/* InterfaceDown  */
-	},
-};
-
-static const char *ospf_ism_event_str[] = {
-	"NoEvent",	"InterfaceUp", "WaitTimer", "BackupSeen",
-	"NeighborChange", "LoopInd",     "UnLoopInd", "InterfaceDown",
-};
-
-static void ism_change_state(struct ospf_interface *oi, int state)
-{
-	int old_state;
-	struct ospf_lsa *lsa;
-
-	/* Logging change of state. */
-	if (IS_DEBUG_OSPF(ism, ISM_STATUS))
-		zlog_debug("ISM[%s]: State change %s -> %s", IF_NAME(oi),
-			   lookup_msg(ospf_ism_state_msg, oi->state, NULL),
-			   lookup_msg(ospf_ism_state_msg, state, NULL));
-
-	old_state = oi->state;
-	oi->state = state;
-	oi->state_change++;
-
-	hook_call(ospf_ism_change, oi, state, old_state);
-
-	/* Set multicast memberships appropriately for new state. */
-	ospf_if_set_multicast(oi);
-
-	if (old_state == ISM_Down || state == ISM_Down)
-		ospf_check_abr_status(oi->ospf);
-
-	/* Originate router-LSA. */
-	if (state == ISM_Down) {
-		if (oi->area->act_ints > 0)
-			oi->area->act_ints--;
-	} else if (old_state == ISM_Down)
-		oi->area->act_ints++;
-
-	/* schedule router-LSA originate. */
-	ospf_router_lsa_update_area(oi->area);
-
-	/* Originate network-LSA. */
-	if (old_state != ISM_DR && state == ISM_DR)
-		ospf_network_lsa_update(oi);
-	else if (old_state == ISM_DR && state != ISM_DR) {
-		/* Free self originated network LSA. */
-		lsa = oi->network_lsa_self;
-		if (lsa)
-			ospf_lsa_flush_area(lsa, oi->area);
-
-		ospf_lsa_unlock(&oi->network_lsa_self);
-		oi->network_lsa_self = NULL;
-	}
-
-	ospf_opaque_ism_change(oi, old_state);
-
-	/* Check area border status.  */
-	ospf_check_abr_status(oi->ospf);
-}
-
-/* Execute ISM event process. */
-int ospf_ism_event(struct thread *thread)
-{
-	int event;
-	int next_state;
-	struct ospf_interface *oi;
-
-	oi = THREAD_ARG(thread);
-	event = THREAD_VAL(thread);
-
-	/* Call function. */
-	next_state = (*(ISM[oi->state][event].func))(oi);
-
-	if (!next_state)
-		next_state = ISM[oi->state][event].next_state;
-
-	if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
-		zlog_debug("ISM[%s]: %s (%s)", IF_NAME(oi),
-			   lookup_msg(ospf_ism_state_msg, oi->state, NULL),
-			   ospf_ism_event_str[event]);
-
-	/* If state is changed. */
-	if (next_state != oi->state)
-		ism_change_state(oi, next_state);
-
-	/* Make sure timer is set. */
-	ism_timer_set(oi);
-
-	return 0;
-}
+/**OSPFversion2InterfaceStateMachine*FromRFC2328[OSPFVersion2]*Copyright(C)1999,
+2000ToshiakiTakada**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredi
+stributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbyt
+he*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZ
+ebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withoutevent
+heimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*Gene
+ralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublic
+Licensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foun
+dation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#in
+clude"thread.h"#include"linklist.h"#include"prefix.h"#include"if.h"#include"tabl
+e.h"#include"log.h"#include"ospfd/ospfd.h"#include"ospfd/ospf_interface.h"#inclu
+de"ospfd/ospf_ism.h"#include"ospfd/ospf_asbr.h"#include"ospfd/ospf_lsa.h"#includ
+e"ospfd/ospf_lsdb.h"#include"ospfd/ospf_neighbor.h"#include"ospfd/ospf_nsm.h"#in
+clude"ospfd/ospf_network.h"#include"ospfd/ospf_dump.h"#include"ospfd/ospf_packet
+.h"#include"ospfd/ospf_flood.h"#include"ospfd/ospf_abr.h"DEFINE_HOOK(ospf_ism_ch
+ange,(structospf_interface*oi,intstate,intoldstate),(oi,state,oldstate))/*electD
+RandBDR.RefertoRFC2319section9.4*/staticstructospf_neighbor*ospf_dr_election_sub
+(structlist*routers){structlistnode*node;structospf_neighbor*nbr,*max=NULL;/*Cho
+osehighestrouterpriority.Incaseoftie,choosehighestRouterID.*/for(ALL_LIST_ELEMEN
+TS_RO(routers,node,nbr)){if(max==NULL)max=nbr;else{if(max->priority<nbr->priorit
+y)max=nbr;elseif(max->priority==nbr->priority)if(IPV4_ADDR_CMP(&max->router_id,&
+nbr->router_id)<0)max=nbr;}}returnmax;}staticstructospf_neighbor*ospf_elect_dr(s
+tructospf_interface*oi,structlist*el_list){structlist*dr_list;structlistnode*nod
+e;structospf_neighbor*nbr,*dr=NULL,*bdr=NULL;dr_list=list_new();/*Addneighborsto
+thelist.*/for(ALL_LIST_ELEMENTS_RO(el_list,node,nbr)){/*neighbordeclaredtobeDR.*
+/if(NBR_IS_DR(nbr))listnode_add(dr_list,nbr);/*PreserveneighborBDR.*/if(IPV4_ADD
+R_SAME(&BDR(oi),&nbr->address.u.prefix4))bdr=nbr;}/*ElectDesignatedRouter.*/if(l
+istcount(dr_list)>0)dr=ospf_dr_election_sub(dr_list);elsedr=bdr;/*SetDRtointerfa
+ce.*/if(dr)DR(oi)=dr->address.u.prefix4;elseDR(oi).s_addr=0;list_delete_and_null
+(&dr_list);returndr;}staticstructospf_neighbor*ospf_elect_bdr(structospf_interfa
+ce*oi,structlist*el_list){structlist*bdr_list,*no_dr_list;structlistnode*node;st
+ructospf_neighbor*nbr,*bdr=NULL;bdr_list=list_new();no_dr_list=list_new();/*Addn
+eighborstothelist.*/for(ALL_LIST_ELEMENTS_RO(el_list,node,nbr)){/*neighbordeclar
+edtobeDR.*/if(NBR_IS_DR(nbr))continue;/*neighbordeclaredtobeBDR.*/if(NBR_IS_BDR(
+nbr))listnode_add(bdr_list,nbr);listnode_add(no_dr_list,nbr);}/*ElectBackupDesig
+natedRouter.*/if(listcount(bdr_list)>0)bdr=ospf_dr_election_sub(bdr_list);elsebd
+r=ospf_dr_election_sub(no_dr_list);/*SetBDRtointerface.*/if(bdr)BDR(oi)=bdr->add
+ress.u.prefix4;elseBDR(oi).s_addr=0;list_delete_and_null(&bdr_list);list_delete_
+and_null(&no_dr_list);returnbdr;}staticintospf_ism_state(structospf_interface*oi
+){if(IPV4_ADDR_SAME(&DR(oi),&oi->address->u.prefix4))returnISM_DR;elseif(IPV4_AD
+DR_SAME(&BDR(oi),&oi->address->u.prefix4))returnISM_Backup;elsereturnISM_DROther
+;}staticvoidospf_dr_eligible_routers(structroute_table*nbrs,structlist*el_list){
+structroute_node*rn;structospf_neighbor*nbr;for(rn=route_top(nbrs);rn;rn=route_n
+ext(rn))if((nbr=rn->info)!=NULL)/*Ignore0.0.0.0node*/if(nbr->router_id.s_addr!=0
+)/*Isneighboreligible?*/if(nbr->priority>0)/*Isneighborupper2-Way?*/if(nbr->stat
+e>=NSM_TwoWay)listnode_add(el_list,nbr);}/*GenerateAdjOK?NSMevent.*/staticvoidos
+pf_dr_change(structospf*ospf,structroute_table*nbrs){structroute_node*rn;structo
+spf_neighbor*nbr;for(rn=route_top(nbrs);rn;rn=route_next(rn))if((nbr=rn->info)!=
+NULL)/*Ignore0.0.0.0node*/if(nbr->router_id.s_addr!=0)/*Isneighborupper2-Way?*/i
+f(nbr->state>=NSM_TwoWay)/*Ignoremyself.*/if(!IPV4_ADDR_SAME(&nbr->router_id,&os
+pf->router_id))OSPF_NSM_EVENT_SCHEDULE(nbr,NSM_AdjOK);}staticintospf_dr_election
+(structospf_interface*oi){structin_addrold_dr,old_bdr;intold_state,new_state;str
+uctlist*el_list;/*backupcurrentvalues.*/old_dr=DR(oi);old_bdr=BDR(oi);old_state=
+oi->state;el_list=list_new();/*Listeligiblerouters.*/ospf_dr_eligible_routers(oi
+->nbrs,el_list);/*FirstelectionofDRandBDR.*/ospf_elect_bdr(oi,el_list);ospf_elec
+t_dr(oi,el_list);new_state=ospf_ism_state(oi);zlog_debug("DR-Election[1st]:Backu
+p%s",inet_ntoa(BDR(oi)));zlog_debug("DR-Election[1st]:DR%s",inet_ntoa(DR(oi)));i
+f(new_state!=old_state&&!(new_state==ISM_DROther&&old_state<ISM_DROther)){ospf_e
+lect_bdr(oi,el_list);ospf_elect_dr(oi,el_list);new_state=ospf_ism_state(oi);zlog
+_debug("DR-Election[2nd]:Backup%s",inet_ntoa(BDR(oi)));zlog_debug("DR-Election[2
+nd]:DR%s",inet_ntoa(DR(oi)));}list_delete_and_null(&el_list);/*ifDRorBDRchanges,
+causeAdjOK?neighborevent.*/if(!IPV4_ADDR_SAME(&old_dr,&DR(oi))||!IPV4_ADDR_SAME(
+&old_bdr,&BDR(oi)))ospf_dr_change(oi->ospf,oi->nbrs);returnnew_state;}intospf_he
+llo_timer(structthread*thread){structospf_interface*oi;oi=THREAD_ARG(thread);oi-
+>t_hello=NULL;if(IS_DEBUG_OSPF(ism,ISM_TIMERS))zlog_debug("ISM[%s]:Timer(Helloti
+merexpire)",IF_NAME(oi));/*Sendinghellopacket.*/ospf_hello_send(oi);/*Hellotimer
+set.*/OSPF_HELLO_TIMER_ON(oi);return0;}staticintospf_wait_timer(structthread*thr
+ead){structospf_interface*oi;oi=THREAD_ARG(thread);oi->t_wait=NULL;if(IS_DEBUG_O
+SPF(ism,ISM_TIMERS))zlog_debug("ISM[%s]:Timer(Waittimerexpire)",IF_NAME(oi));OSP
+F_ISM_EVENT_SCHEDULE(oi,ISM_WaitTimer);return0;}/*HookfunctioncalledafterospfISM
+eventisoccured.Andvty'snetworkcommandinvokethisfunctionaftermakinginterfacestruc
+ture.*/staticvoidism_timer_set(structospf_interface*oi){switch(oi->state){caseIS
+M_Down:/*Firstentrypointofospfinterfacestatemachine.Inthisstateinterfaceparamete
+rsmustbesettoinitialvalues,andtimersareresetalso.*/OSPF_ISM_TIMER_OFF(oi->t_hell
+o);OSPF_ISM_TIMER_OFF(oi->t_wait);OSPF_ISM_TIMER_OFF(oi->t_ls_ack);break;caseISM
+_Loopback:/*Inthisstate,theinterfacemaybeloopedbackandwillbeunavailableforregula
+rdatatraffic.*/OSPF_ISM_TIMER_OFF(oi->t_hello);OSPF_ISM_TIMER_OFF(oi->t_wait);OS
+PF_ISM_TIMER_OFF(oi->t_ls_ack);break;caseISM_Waiting:/*Therouteristryingtodeterm
+inetheidentityofDRouterandBDRouter.TherouterbegintoreceiveandsendHelloPackets.*/
+/*sendfirsthelloimmediately*/OSPF_ISM_TIMER_MSEC_ON(oi->t_hello,ospf_hello_timer
+,1);OSPF_ISM_TIMER_ON(oi->t_wait,ospf_wait_timer,OSPF_IF_PARAM(oi,v_wait));OSPF_
+ISM_TIMER_OFF(oi->t_ls_ack);break;caseISM_PointToPoint:/*Theinterfaceconnectstoa
+physicalPoint-to-pointnetworkorvirtuallink.Therouterattemptstoformanadjacencywit
+hneighboringrouter.Hellopacketsarealsosent.*//*sendfirsthelloimmediately*/OSPF_I
+SM_TIMER_MSEC_ON(oi->t_hello,ospf_hello_timer,1);OSPF_ISM_TIMER_OFF(oi->t_wait);
+OSPF_ISM_TIMER_ON(oi->t_ls_ack,ospf_ls_ack_timer,oi->v_ls_ack);break;caseISM_DRO
+ther:/*ThenetworktypeoftheinterfaceisbroadcastorNBMAnetwork,andtherouteritselfis
+neitherDesignatedRouternorBackupDesignatedRouter.*/OSPF_HELLO_TIMER_ON(oi);OSPF_
+ISM_TIMER_OFF(oi->t_wait);OSPF_ISM_TIMER_ON(oi->t_ls_ack,ospf_ls_ack_timer,oi->v
+_ls_ack);break;caseISM_Backup:/*ThenetworktypeoftheinterfaceisbroadcastosNBMAnet
+work,andtherouterisBackupDesignatedRouter.*/OSPF_HELLO_TIMER_ON(oi);OSPF_ISM_TIM
+ER_OFF(oi->t_wait);OSPF_ISM_TIMER_ON(oi->t_ls_ack,ospf_ls_ack_timer,oi->v_ls_ack
+);break;caseISM_DR:/*ThenetworktypeoftheinterfaceisbroadcastorNBMAnetwork,andthe
+routerisDesignatedRouter.*/OSPF_HELLO_TIMER_ON(oi);OSPF_ISM_TIMER_OFF(oi->t_wait
+);OSPF_ISM_TIMER_ON(oi->t_ls_ack,ospf_ls_ack_timer,oi->v_ls_ack);break;}}statici
+ntism_interface_up(structospf_interface*oi){intnext_state=0;/*ifnetworktypeispoi
+nt-to-point,Point-to-MultiPointorvirtuallink,thestatetransitionstoPoint-to-Point
+.*/if(oi->type==OSPF_IFTYPE_POINTOPOINT||oi->type==OSPF_IFTYPE_POINTOMULTIPOINT|
+|oi->type==OSPF_IFTYPE_VIRTUALLINK)next_state=ISM_PointToPoint;/*Elseiftherouter
+isnoteligibletoDR,thestatetransitionstoDROther.*/elseif(PRIORITY(oi)==0)/*router
+iseligible?*/next_state=ISM_DROther;else/*Otherwise,thestatetransitionstoWaiting
+.*/next_state=ISM_Waiting;if(oi->type==OSPF_IFTYPE_NBMA)ospf_nbr_nbma_if_update(
+oi->ospf,oi);/*ospf_ism_event(t);*/returnnext_state;}staticintism_loop_ind(struc
+tospf_interface*oi){intret=0;/*callism_interface_down.*//*ret=ism_interface_down
+(oi);*/returnret;}/*Interfacedowneventhandler.*/staticintism_interface_down(stru
+ctospf_interface*oi){ospf_if_cleanup(oi);return0;}staticintism_backup_seen(struc
+tospf_interface*oi){returnospf_dr_election(oi);}staticintism_wait_timer(structos
+pf_interface*oi){returnospf_dr_election(oi);}staticintism_neighbor_change(struct
+ospf_interface*oi){returnospf_dr_election(oi);}staticintism_ignore(structospf_in
+terface*oi){if(IS_DEBUG_OSPF(ism,ISM_EVENTS))zlog_debug("ISM[%s]:ism_ignorecalle
+d",IF_NAME(oi));return0;}/*InterfaceStateMachine*/struct{int(*func)(structospf_i
+nterface*);intnext_state;}ISM[OSPF_ISM_STATE_MAX][OSPF_ISM_EVENT_MAX]={{/*Depend
+Upon:dummystate.*/{ism_ignore,ISM_DependUpon},/*NoEvent*/{ism_ignore,ISM_DependU
+pon},/*InterfaceUp*/{ism_ignore,ISM_DependUpon},/*WaitTimer*/{ism_ignore,ISM_Dep
+endUpon},/*BackupSeen*/{ism_ignore,ISM_DependUpon},/*NeighborChange*/{ism_ignore
+,ISM_DependUpon},/*LoopInd*/{ism_ignore,ISM_DependUpon},/*UnloopInd*/{ism_ignore
+,ISM_DependUpon},/*InterfaceDown*/},{/*Down:*/{ism_ignore,ISM_DependUpon},/*NoEv
+ent*/{ism_interface_up,ISM_DependUpon},/*InterfaceUp*/{ism_ignore,ISM_Down},/*Wa
+itTimer*/{ism_ignore,ISM_Down},/*BackupSeen*/{ism_ignore,ISM_Down},/*NeighborCha
+nge*/{ism_loop_ind,ISM_Loopback},/*LoopInd*/{ism_ignore,ISM_Down},/*UnloopInd*/{
+ism_interface_down,ISM_Down},/*InterfaceDown*/},{/*Loopback:*/{ism_ignore,ISM_De
+pendUpon},/*NoEvent*/{ism_ignore,ISM_Loopback},/*InterfaceUp*/{ism_ignore,ISM_Lo
+opback},/*WaitTimer*/{ism_ignore,ISM_Loopback},/*BackupSeen*/{ism_ignore,ISM_Loo
+pback},/*NeighborChange*/{ism_ignore,ISM_Loopback},/*LoopInd*/{ism_ignore,ISM_Do
+wn},/*UnloopInd*/{ism_interface_down,ISM_Down},/*InterfaceDown*/},{/*Waiting:*/{
+ism_ignore,ISM_DependUpon},/*NoEvent*/{ism_ignore,ISM_Waiting},/*InterfaceUp*/{i
+sm_wait_timer,ISM_DependUpon},/*WaitTimer*/{ism_backup_seen,ISM_DependUpon},/*Ba
+ckupSeen*/{ism_ignore,ISM_Waiting},/*NeighborChange*/{ism_loop_ind,ISM_Loopback}
+,/*LoopInd*/{ism_ignore,ISM_Waiting},/*UnloopInd*/{ism_interface_down,ISM_Down},
+/*InterfaceDown*/},{/*Point-to-Point:*/{ism_ignore,ISM_DependUpon},/*NoEvent*/{i
+sm_ignore,ISM_PointToPoint},/*InterfaceUp*/{ism_ignore,ISM_PointToPoint},/*WaitT
+imer*/{ism_ignore,ISM_PointToPoint},/*BackupSeen*/{ism_ignore,ISM_PointToPoint},
+/*NeighborChange*/{ism_loop_ind,ISM_Loopback},/*LoopInd*/{ism_ignore,ISM_PointTo
+Point},/*UnloopInd*/{ism_interface_down,ISM_Down},/*InterfaceDown*/},{/*DROther:
+*/{ism_ignore,ISM_DependUpon},/*NoEvent*/{ism_ignore,ISM_DROther},/*InterfaceUp*
+/{ism_ignore,ISM_DROther},/*WaitTimer*/{ism_ignore,ISM_DROther},/*BackupSeen*/{i
+sm_neighbor_change,ISM_DependUpon},/*NeighborChange*/{ism_loop_ind,ISM_Loopback}
+,/*LoopInd*/{ism_ignore,ISM_DROther},/*UnloopInd*/{ism_interface_down,ISM_Down},
+/*InterfaceDown*/},{/*Backup:*/{ism_ignore,ISM_DependUpon},/*NoEvent*/{ism_ignor
+e,ISM_Backup},/*InterfaceUp*/{ism_ignore,ISM_Backup},/*WaitTimer*/{ism_ignore,IS
+M_Backup},/*BackupSeen*/{ism_neighbor_change,ISM_DependUpon},/*NeighborChange*/{
+ism_loop_ind,ISM_Loopback},/*LoopInd*/{ism_ignore,ISM_Backup},/*UnloopInd*/{ism_
+interface_down,ISM_Down},/*InterfaceDown*/},{/*DR:*/{ism_ignore,ISM_DependUpon},
+/*NoEvent*/{ism_ignore,ISM_DR},/*InterfaceUp*/{ism_ignore,ISM_DR},/*WaitTimer*/{
+ism_ignore,ISM_DR},/*BackupSeen*/{ism_neighbor_change,ISM_DependUpon},/*Neighbor
+Change*/{ism_loop_ind,ISM_Loopback},/*LoopInd*/{ism_ignore,ISM_DR},/*UnloopInd*/
+{ism_interface_down,ISM_Down},/*InterfaceDown*/},};staticconstchar*ospf_ism_even
+t_str[]={"NoEvent","InterfaceUp","WaitTimer","BackupSeen","NeighborChange","Loop
+Ind","UnLoopInd","InterfaceDown",};staticvoidism_change_state(structospf_interfa
+ce*oi,intstate){intold_state;structospf_lsa*lsa;/*Loggingchangeofstate.*/if(IS_D
+EBUG_OSPF(ism,ISM_STATUS))zlog_debug("ISM[%s]:Statechange%s->%s",IF_NAME(oi),loo
+kup_msg(ospf_ism_state_msg,oi->state,NULL),lookup_msg(ospf_ism_state_msg,state,N
+ULL));old_state=oi->state;oi->state=state;oi->state_change++;hook_call(ospf_ism_
+change,oi,state,old_state);/*Setmulticastmembershipsappropriatelyfornewstate.*/o
+spf_if_set_multicast(oi);if(old_state==ISM_Down||state==ISM_Down)ospf_check_abr_
+status(oi->ospf);/*Originaterouter-LSA.*/if(state==ISM_Down){if(oi->area->act_in
+ts>0)oi->area->act_ints--;}elseif(old_state==ISM_Down)oi->area->act_ints++;/*sch
+edulerouter-LSAoriginate.*/ospf_router_lsa_update_area(oi->area);/*Originatenetw
+ork-LSA.*/if(old_state!=ISM_DR&&state==ISM_DR)ospf_network_lsa_update(oi);elseif
+(old_state==ISM_DR&&state!=ISM_DR){/*FreeselforiginatednetworkLSA.*/lsa=oi->netw
+ork_lsa_self;if(lsa)ospf_lsa_flush_area(lsa,oi->area);ospf_lsa_unlock(&oi->netwo
+rk_lsa_self);oi->network_lsa_self=NULL;}ospf_opaque_ism_change(oi,old_state);/*C
+heckareaborderstatus.*/ospf_check_abr_status(oi->ospf);}/*ExecuteISMeventprocess
+.*/intospf_ism_event(structthread*thread){intevent;intnext_state;structospf_inte
+rface*oi;oi=THREAD_ARG(thread);event=THREAD_VAL(thread);/*Callfunction.*/next_st
+ate=(*(ISM[oi->state][event].func))(oi);if(!next_state)next_state=ISM[oi->state]
+[event].next_state;if(IS_DEBUG_OSPF(ism,ISM_EVENTS))zlog_debug("ISM[%s]:%s(%s)",
+IF_NAME(oi),lookup_msg(ospf_ism_state_msg,oi->state,NULL),ospf_ism_event_str[eve
+nt]);/*Ifstateischanged.*/if(next_state!=oi->state)ism_change_state(oi,next_stat
+e);/*Makesuretimerisset.*/ism_timer_set(oi);return0;}

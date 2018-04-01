@@ -1,2614 +1,731 @@
-/*
- * This is an implementation of RFC3630
- * Copyright (C) 2001 KDD R&D Laboratories, Inc.
- * http://www.kddlabs.co.jp/
- *
- * Copyright (C) 2012 Orange Labs
- * http://www.orange.com
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/* Add support of RFC7471 */
-/* Add support of RFC5392, RFC6827 */
-
-#include <zebra.h>
-#include <math.h>
-
-#include "linklist.h"
-#include "prefix.h"
-#include "vrf.h"
-#include "if.h"
-#include "table.h"
-#include "memory.h"
-#include "command.h"
-#include "vty.h"
-#include "stream.h"
-#include "log.h"
-#include "thread.h"
-#include "hash.h"
-#include "sockunion.h" /* for inet_aton() */
-#include "network.h"
-
-#include "ospfd/ospfd.h"
-#include "ospfd/ospf_interface.h"
-#include "ospfd/ospf_ism.h"
-#include "ospfd/ospf_asbr.h"
-#include "ospfd/ospf_lsa.h"
-#include "ospfd/ospf_lsdb.h"
-#include "ospfd/ospf_neighbor.h"
-#include "ospfd/ospf_nsm.h"
-#include "ospfd/ospf_flood.h"
-#include "ospfd/ospf_packet.h"
-#include "ospfd/ospf_spf.h"
-#include "ospfd/ospf_dump.h"
-#include "ospfd/ospf_route.h"
-#include "ospfd/ospf_ase.h"
-#include "ospfd/ospf_zebra.h"
-#include "ospfd/ospf_te.h"
-#include "ospfd/ospf_vty.h"
-
-/*
- * Global variable to manage Opaque-LSA/MPLS-TE on this node.
- * Note that all parameter values are stored in network byte order.
- */
-struct ospf_mpls_te OspfMplsTE;
-
-const char *mode2text[] = {"Off", "AS", "Area"};
-
-/*------------------------------------------------------------------------*
- * Followings are initialize/terminate functions for MPLS-TE handling.
- *------------------------------------------------------------------------*/
-
-static int ospf_mpls_te_new_if(struct interface *ifp);
-static int ospf_mpls_te_del_if(struct interface *ifp);
-static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_status);
-static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_status);
-static void ospf_mpls_te_config_write_router(struct vty *vty);
-static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa);
-static int ospf_mpls_te_lsa_originate_area(void *arg);
-static int ospf_mpls_te_lsa_originate_as(void *arg);
-static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa);
-
-static void del_mpls_te_link(void *val);
-static void ospf_mpls_te_register_vty(void);
-
-int ospf_mpls_te_init(void)
-{
-	int rc;
-
-	rc = ospf_register_opaque_functab(
-		OSPF_OPAQUE_AREA_LSA, OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA,
-		ospf_mpls_te_new_if, ospf_mpls_te_del_if,
-		ospf_mpls_te_ism_change, ospf_mpls_te_nsm_change,
-		ospf_mpls_te_config_write_router,
-		NULL, /*ospf_mpls_te_config_write_if */
-		NULL, /* ospf_mpls_te_config_write_debug */
-		ospf_mpls_te_show_info, ospf_mpls_te_lsa_originate_area,
-		ospf_mpls_te_lsa_refresh, NULL, /* ospf_mpls_te_new_lsa_hook */
-		NULL /* ospf_mpls_te_del_lsa_hook */);
-	if (rc != 0) {
-		zlog_warn(
-			"ospf_mpls_te_init: Failed to register Traffic Engineering functions");
-		return rc;
-	}
-
-	memset(&OspfMplsTE, 0, sizeof(struct ospf_mpls_te));
-	OspfMplsTE.enabled = false;
-	OspfMplsTE.inter_as = Off;
-	OspfMplsTE.iflist = list_new();
-	OspfMplsTE.iflist->del = del_mpls_te_link;
-
-	ospf_mpls_te_register_vty();
-
-	return rc;
-}
-
-/* Additional register for RFC5392 support */
-static int ospf_mpls_te_register(enum inter_as_mode mode)
-{
-	int rc = 0;
-	uint8_t scope;
-
-	if (OspfMplsTE.inter_as != Off)
-		return rc;
-
-	if (mode == AS)
-		scope = OSPF_OPAQUE_AS_LSA;
-	else
-		scope = OSPF_OPAQUE_AREA_LSA;
-
-	rc = ospf_register_opaque_functab(scope, OPAQUE_TYPE_INTER_AS_LSA, NULL,
-					  NULL, NULL, NULL, NULL, NULL, NULL,
-					  ospf_mpls_te_show_info,
-					  ospf_mpls_te_lsa_originate_as,
-					  ospf_mpls_te_lsa_refresh, NULL, NULL);
-
-	if (rc != 0) {
-		zlog_warn(
-			"ospf_router_info_init: Failed to register Inter-AS functions");
-		return rc;
-	}
-
-	return rc;
-}
-
-static int ospf_mpls_te_unregister()
-{
-	uint8_t scope;
-
-	if (OspfMplsTE.inter_as == Off)
-		return 0;
-
-	if (OspfMplsTE.inter_as == AS)
-		scope = OSPF_OPAQUE_AS_LSA;
-	else
-		scope = OSPF_OPAQUE_AREA_LSA;
-
-	ospf_delete_opaque_functab(scope, OPAQUE_TYPE_INTER_AS_LSA);
-
-	return 0;
-}
-
-void ospf_mpls_te_term(void)
-{
-	list_delete_and_null(&OspfMplsTE.iflist);
-
-	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
-				   OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);
-
-	OspfMplsTE.enabled = false;
-
-	ospf_mpls_te_unregister();
-	OspfMplsTE.inter_as = Off;
-
-	return;
-}
-
-void ospf_mpls_te_finish(void)
-{
-	// list_delete_all_node(OspfMplsTE.iflist);
-
-	OspfMplsTE.enabled = false;
-	OspfMplsTE.inter_as = Off;
-}
-
-/*------------------------------------------------------------------------*
- * Followings are control functions for MPLS-TE parameters management.
- *------------------------------------------------------------------------*/
-
-static void del_mpls_te_link(void *val)
-{
-	XFREE(MTYPE_OSPF_MPLS_TE, val);
-	return;
-}
-
-static uint32_t get_mpls_te_instance_value(void)
-{
-	static uint32_t seqno = 0;
-
-	if (seqno < MAX_LEGAL_TE_INSTANCE_NUM)
-		seqno += 1;
-	else
-		seqno = 1; /* Avoid zero. */
-
-	return seqno;
-}
-
-static struct mpls_te_link *lookup_linkparams_by_ifp(struct interface *ifp)
-{
-	struct listnode *node, *nnode;
-	struct mpls_te_link *lp;
-
-	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp))
-		if (lp->ifp == ifp)
-			return lp;
-
-	return NULL;
-}
-
-static struct mpls_te_link *lookup_linkparams_by_instance(struct ospf_lsa *lsa)
-{
-	struct listnode *node;
-	struct mpls_te_link *lp;
-	unsigned int key = GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr));
-
-	for (ALL_LIST_ELEMENTS_RO(OspfMplsTE.iflist, node, lp))
-		if (lp->instance == key)
-			return lp;
-
-	zlog_warn("lookup_linkparams_by_instance: Entry not found: key(%x)",
-		  key);
-	return NULL;
-}
-
-static void ospf_mpls_te_foreach_area(
-	void (*func)(struct mpls_te_link *lp, enum lsa_opcode sched_opcode),
-	enum lsa_opcode sched_opcode)
-{
-	struct listnode *node, *nnode;
-	struct listnode *node2;
-	struct mpls_te_link *lp;
-	struct ospf_area *area;
-
-	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
-		/* Skip Inter-AS TEv2 Links */
-		if (IS_INTER_AS(lp->type))
-			continue;
-		if ((area = lp->area) == NULL)
-			continue;
-		if (CHECK_FLAG(lp->flags, LPFLG_LOOKUP_DONE))
-			continue;
-
-		if (func != NULL)
-			(*func)(lp, sched_opcode);
-
-		for (node2 = listnextnode(node); node2;
-		     node2 = listnextnode(node2))
-			if ((lp = listgetdata(node2)) != NULL)
-				if (lp->area != NULL)
-					if (IPV4_ADDR_SAME(&lp->area->area_id,
-							   &area->area_id))
-						SET_FLAG(lp->flags,
-							 LPFLG_LOOKUP_DONE);
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(OspfMplsTE.iflist, node, lp))
-		if (lp->area != NULL)
-			UNSET_FLAG(lp->flags, LPFLG_LOOKUP_DONE);
-
-	return;
-}
-
-static void set_mpls_te_router_addr(struct in_addr ipv4)
-{
-	OspfMplsTE.router_addr.header.type = htons(TE_TLV_ROUTER_ADDR);
-	OspfMplsTE.router_addr.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	OspfMplsTE.router_addr.value = ipv4;
-	return;
-}
-
-static void set_linkparams_link_header(struct mpls_te_link *lp)
-{
-	uint16_t length = 0;
-
-	/* TE_LINK_SUBTLV_LINK_TYPE */
-	if (ntohs(lp->link_type.header.type) != 0)
-		length += TLV_SIZE(&lp->link_type.header);
-
-	/* TE_LINK_SUBTLV_LINK_ID */
-	if (ntohs(lp->link_id.header.type) != 0)
-		length += TLV_SIZE(&lp->link_id.header);
-
-	/* TE_LINK_SUBTLV_LCLIF_IPADDR */
-	if (lp->lclif_ipaddr.header.type != 0)
-		length += TLV_SIZE(&lp->lclif_ipaddr.header);
-
-	/* TE_LINK_SUBTLV_RMTIF_IPADDR */
-	if (lp->rmtif_ipaddr.header.type != 0)
-		length += TLV_SIZE(&lp->rmtif_ipaddr.header);
-
-	/* TE_LINK_SUBTLV_TE_METRIC */
-	if (ntohs(lp->te_metric.header.type) != 0)
-		length += TLV_SIZE(&lp->te_metric.header);
-
-	/* TE_LINK_SUBTLV_MAX_BW */
-	if (ntohs(lp->max_bw.header.type) != 0)
-		length += TLV_SIZE(&lp->max_bw.header);
-
-	/* TE_LINK_SUBTLV_MAX_RSV_BW */
-	if (ntohs(lp->max_rsv_bw.header.type) != 0)
-		length += TLV_SIZE(&lp->max_rsv_bw.header);
-
-	/* TE_LINK_SUBTLV_UNRSV_BW */
-	if (ntohs(lp->unrsv_bw.header.type) != 0)
-		length += TLV_SIZE(&lp->unrsv_bw.header);
-
-	/* TE_LINK_SUBTLV_RSC_CLSCLR */
-	if (ntohs(lp->rsc_clsclr.header.type) != 0)
-		length += TLV_SIZE(&lp->rsc_clsclr.header);
-
-	/* TE_LINK_SUBTLV_LLRI */
-	if (ntohs(lp->llri.header.type) != 0)
-		length += TLV_SIZE(&lp->llri.header);
-
-	/* TE_LINK_SUBTLV_RIP */
-	if (ntohs(lp->rip.header.type) != 0)
-		length += TLV_SIZE(&lp->rip.header);
-
-	/* TE_LINK_SUBTLV_RAS */
-	if (ntohs(lp->ras.header.type) != 0)
-		length += TLV_SIZE(&lp->ras.header);
-
-	/* TE_LINK_SUBTLV_LRRID */
-	if (ntohs(lp->lrrid.header.type) != 0)
-		length += TLV_SIZE(&lp->lrrid.header);
-
-	/* TE_LINK_SUBTLV_AV_DELAY */
-	if (ntohs(lp->av_delay.header.type) != 0)
-		length += TLV_SIZE(&lp->av_delay.header);
-
-	/* TE_LINK_SUBTLV_MM_DELAY */
-	if (ntohs(lp->mm_delay.header.type) != 0)
-		length += TLV_SIZE(&lp->mm_delay.header);
-
-	/* TE_LINK_SUBTLV_DELAY_VAR */
-	if (ntohs(lp->delay_var.header.type) != 0)
-		length += TLV_SIZE(&lp->delay_var.header);
-
-	/* TE_LINK_SUBTLV_PKT_LOSS */
-	if (ntohs(lp->pkt_loss.header.type) != 0)
-		length += TLV_SIZE(&lp->pkt_loss.header);
-
-	/* TE_LINK_SUBTLV_RES_BW */
-	if (ntohs(lp->res_bw.header.type) != 0)
-		length += TLV_SIZE(&lp->res_bw.header);
-
-	/* TE_LINK_SUBTLV_AVA_BW */
-	if (ntohs(lp->ava_bw.header.type) != 0)
-		length += TLV_SIZE(&lp->ava_bw.header);
-
-	/* TE_LINK_SUBTLV_USE_BW */
-	if (ntohs(lp->use_bw.header.type) != 0)
-		length += TLV_SIZE(&lp->use_bw.header);
-
-	lp->link_header.header.type = htons(TE_TLV_LINK);
-	lp->link_header.header.length = htons(length);
-
-	return;
-}
-
-static void set_linkparams_link_type(struct ospf_interface *oi,
-				     struct mpls_te_link *lp)
-{
-	lp->link_type.header.type = htons(TE_LINK_SUBTLV_LINK_TYPE);
-	lp->link_type.header.length = htons(TE_LINK_SUBTLV_TYPE_SIZE);
-
-	switch (oi->type) {
-	case OSPF_IFTYPE_POINTOPOINT:
-		lp->link_type.link_type.value = LINK_TYPE_SUBTLV_VALUE_PTP;
-		break;
-	case OSPF_IFTYPE_BROADCAST:
-	case OSPF_IFTYPE_NBMA:
-		lp->link_type.link_type.value = LINK_TYPE_SUBTLV_VALUE_MA;
-		break;
-	default:
-		/* Not supported yet. */ /* XXX */
-		lp->link_type.header.type = htons(0);
-		break;
-	}
-	return;
-}
-
-static void set_linkparams_link_id(struct ospf_interface *oi,
-				   struct mpls_te_link *lp)
-{
-	struct ospf_neighbor *nbr;
-	int done = 0;
-
-	lp->link_id.header.type = htons(TE_LINK_SUBTLV_LINK_ID);
-	lp->link_id.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-
-	/*
-	 * The Link ID is identical to the contents of the Link ID field
-	 * in the Router LSA for these link types.
-	 */
-	switch (oi->type) {
-	case OSPF_IFTYPE_POINTOPOINT:
-		/* Take the router ID of the neighbor. */
-		if ((nbr = ospf_nbr_lookup_ptop(oi))
-		    && nbr->state == NSM_Full) {
-			lp->link_id.value = nbr->router_id;
-			done = 1;
-		}
-		break;
-	case OSPF_IFTYPE_BROADCAST:
-	case OSPF_IFTYPE_NBMA:
-		/* Take the interface address of the designated router. */
-		if ((nbr = ospf_nbr_lookup_by_addr(oi->nbrs, &DR(oi))) == NULL)
-			break;
-
-		if (nbr->state == NSM_Full
-		    || (IPV4_ADDR_SAME(&oi->address->u.prefix4, &DR(oi))
-			&& ospf_nbr_count(oi, NSM_Full) > 0)) {
-			lp->link_id.value = DR(oi);
-			done = 1;
-		}
-		break;
-	default:
-		/* Not supported yet. */ /* XXX */
-		lp->link_id.header.type = htons(0);
-		break;
-	}
-
-	if (!done) {
-		struct in_addr mask;
-		masklen2ip(oi->address->prefixlen, &mask);
-		lp->link_id.value.s_addr =
-			oi->address->u.prefix4.s_addr & mask.s_addr;
-	}
-	return;
-}
-
-static void set_linkparams_lclif_ipaddr(struct mpls_te_link *lp,
-					struct in_addr lclif)
-{
-
-	lp->lclif_ipaddr.header.type = htons(TE_LINK_SUBTLV_LCLIF_IPADDR);
-	lp->lclif_ipaddr.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->lclif_ipaddr.value[0] = lclif;
-	return;
-}
-
-static void set_linkparams_rmtif_ipaddr(struct mpls_te_link *lp,
-					struct in_addr rmtif)
-{
-
-	lp->rmtif_ipaddr.header.type = htons(TE_LINK_SUBTLV_RMTIF_IPADDR);
-	lp->rmtif_ipaddr.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->rmtif_ipaddr.value[0] = rmtif;
-	return;
-}
-
-static void set_linkparams_te_metric(struct mpls_te_link *lp,
-				     uint32_t te_metric)
-{
-	lp->te_metric.header.type = htons(TE_LINK_SUBTLV_TE_METRIC);
-	lp->te_metric.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->te_metric.value = htonl(te_metric);
-	return;
-}
-
-static void set_linkparams_max_bw(struct mpls_te_link *lp, float fp)
-{
-	lp->max_bw.header.type = htons(TE_LINK_SUBTLV_MAX_BW);
-	lp->max_bw.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->max_bw.value = htonf(fp);
-	return;
-}
-
-static void set_linkparams_max_rsv_bw(struct mpls_te_link *lp, float fp)
-{
-	lp->max_rsv_bw.header.type = htons(TE_LINK_SUBTLV_MAX_RSV_BW);
-	lp->max_rsv_bw.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->max_rsv_bw.value = htonf(fp);
-	return;
-}
-
-static void set_linkparams_unrsv_bw(struct mpls_te_link *lp, int priority,
-				    float fp)
-{
-	/* Note that TLV-length field is the size of array. */
-	lp->unrsv_bw.header.type = htons(TE_LINK_SUBTLV_UNRSV_BW);
-	lp->unrsv_bw.header.length = htons(TE_LINK_SUBTLV_UNRSV_SIZE);
-	lp->unrsv_bw.value[priority] = htonf(fp);
-	return;
-}
-
-static void set_linkparams_rsc_clsclr(struct mpls_te_link *lp,
-				      uint32_t classcolor)
-{
-	lp->rsc_clsclr.header.type = htons(TE_LINK_SUBTLV_RSC_CLSCLR);
-	lp->rsc_clsclr.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->rsc_clsclr.value = htonl(classcolor);
-	return;
-}
-
-static void set_linkparams_inter_as(struct mpls_te_link *lp,
-				    struct in_addr addr, uint32_t as)
-{
-
-	/* Set the Remote ASBR IP address and then the associated AS number */
-	lp->rip.header.type = htons(TE_LINK_SUBTLV_RIP);
-	lp->rip.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->rip.value = addr;
-
-	lp->ras.header.type = htons(TE_LINK_SUBTLV_RAS);
-	lp->ras.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->ras.value = htonl(as);
-}
-
-static void unset_linkparams_inter_as(struct mpls_te_link *lp)
-{
-
-	/* Reset the Remote ASBR IP address and then the associated AS number */
-	lp->rip.header.type = htons(0);
-	lp->rip.header.length = htons(0);
-	lp->rip.value.s_addr = htonl(0);
-
-	lp->ras.header.type = htons(0);
-	lp->ras.header.length = htons(0);
-	lp->ras.value = htonl(0);
-}
-
-void set_linkparams_llri(struct mpls_te_link *lp, uint32_t local,
-			 uint32_t remote)
-{
-
-	lp->llri.header.type = htons(TE_LINK_SUBTLV_LLRI);
-	lp->llri.header.length = htons(TE_LINK_SUBTLV_LLRI_SIZE);
-	lp->llri.local = htonl(local);
-	lp->llri.remote = htonl(remote);
-}
-
-void set_linkparams_lrrid(struct mpls_te_link *lp, struct in_addr local,
-			  struct in_addr remote)
-{
-
-	lp->lrrid.header.type = htons(TE_LINK_SUBTLV_LRRID);
-	lp->lrrid.header.length = htons(TE_LINK_SUBTLV_LRRID_SIZE);
-	lp->lrrid.local.s_addr = local.s_addr;
-	lp->lrrid.remote.s_addr = remote.s_addr;
-}
-
-static void set_linkparams_av_delay(struct mpls_te_link *lp, uint32_t delay,
-				    uint8_t anormal)
-{
-	uint32_t tmp;
-	/* Note that TLV-length field is the size of array. */
-	lp->av_delay.header.type = htons(TE_LINK_SUBTLV_AV_DELAY);
-	lp->av_delay.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	tmp = delay & TE_EXT_MASK;
-	if (anormal)
-		tmp |= TE_EXT_ANORMAL;
-	lp->av_delay.value = htonl(tmp);
-	return;
-}
-
-static void set_linkparams_mm_delay(struct mpls_te_link *lp, uint32_t low,
-				    uint32_t high, uint8_t anormal)
-{
-	uint32_t tmp;
-	/* Note that TLV-length field is the size of array. */
-	lp->mm_delay.header.type = htons(TE_LINK_SUBTLV_MM_DELAY);
-	lp->mm_delay.header.length = htons(TE_LINK_SUBTLV_MM_DELAY_SIZE);
-	tmp = low & TE_EXT_MASK;
-	if (anormal)
-		tmp |= TE_EXT_ANORMAL;
-	lp->mm_delay.low = htonl(tmp);
-	lp->mm_delay.high = htonl(high);
-	return;
-}
-
-static void set_linkparams_delay_var(struct mpls_te_link *lp, uint32_t jitter)
-{
-	/* Note that TLV-length field is the size of array. */
-	lp->delay_var.header.type = htons(TE_LINK_SUBTLV_DELAY_VAR);
-	lp->delay_var.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->delay_var.value = htonl(jitter & TE_EXT_MASK);
-	return;
-}
-
-static void set_linkparams_pkt_loss(struct mpls_te_link *lp, uint32_t loss,
-				    uint8_t anormal)
-{
-	uint32_t tmp;
-	/* Note that TLV-length field is the size of array. */
-	lp->pkt_loss.header.type = htons(TE_LINK_SUBTLV_PKT_LOSS);
-	lp->pkt_loss.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	tmp = loss & TE_EXT_MASK;
-	if (anormal)
-		tmp |= TE_EXT_ANORMAL;
-	lp->pkt_loss.value = htonl(tmp);
-	return;
-}
-
-static void set_linkparams_res_bw(struct mpls_te_link *lp, float fp)
-{
-	/* Note that TLV-length field is the size of array. */
-	lp->res_bw.header.type = htons(TE_LINK_SUBTLV_RES_BW);
-	lp->res_bw.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->res_bw.value = htonf(fp);
-	return;
-}
-
-static void set_linkparams_ava_bw(struct mpls_te_link *lp, float fp)
-{
-	/* Note that TLV-length field is the size of array. */
-	lp->ava_bw.header.type = htons(TE_LINK_SUBTLV_AVA_BW);
-	lp->ava_bw.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->ava_bw.value = htonf(fp);
-	return;
-}
-
-static void set_linkparams_use_bw(struct mpls_te_link *lp, float fp)
-{
-	/* Note that TLV-length field is the size of array. */
-	lp->use_bw.header.type = htons(TE_LINK_SUBTLV_USE_BW);
-	lp->use_bw.header.length = htons(TE_LINK_SUBTLV_DEF_SIZE);
-	lp->use_bw.value = htonf(fp);
-	return;
-}
-
-/* Update TE parameters from Interface */
-static void update_linkparams(struct mpls_te_link *lp)
-{
-	int i;
-	struct interface *ifp;
-
-	/* Get the Interface structure */
-	if ((ifp = lp->ifp) == NULL) {
-		if (IS_DEBUG_OSPF_TE)
-			zlog_debug(
-				"OSPF MPLS-TE: Abort update TE parameters: no interface associated to Link Parameters");
-		return;
-	}
-	if (!HAS_LINK_PARAMS(ifp)) {
-		if (IS_DEBUG_OSPF_TE)
-			zlog_debug(
-				"OSPF MPLS-TE: Abort update TE parameters: no Link Parameters for interface");
-		return;
-	}
-
-	/* RFC3630 metrics */
-	if (IS_PARAM_SET(ifp->link_params, LP_ADM_GRP))
-		set_linkparams_rsc_clsclr(lp, ifp->link_params->admin_grp);
-	else
-		TLV_TYPE(lp->rsc_clsclr) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_MAX_BW))
-		set_linkparams_max_bw(lp, ifp->link_params->max_bw);
-	else
-		TLV_TYPE(lp->max_bw) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_MAX_RSV_BW))
-		set_linkparams_max_rsv_bw(lp, ifp->link_params->max_rsv_bw);
-	else
-		TLV_TYPE(lp->max_rsv_bw) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_UNRSV_BW))
-		for (i = 0; i < MAX_CLASS_TYPE; i++)
-			set_linkparams_unrsv_bw(lp, i,
-						ifp->link_params->unrsv_bw[i]);
-	else
-		TLV_TYPE(lp->unrsv_bw) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_TE_METRIC))
-		set_linkparams_te_metric(lp, ifp->link_params->te_metric);
-	else
-		TLV_TYPE(lp->te_metric) = 0;
-
-	/* TE metric Extensions */
-	if (IS_PARAM_SET(ifp->link_params, LP_DELAY))
-		set_linkparams_av_delay(lp, ifp->link_params->av_delay, 0);
-	else
-		TLV_TYPE(lp->av_delay) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_MM_DELAY))
-		set_linkparams_mm_delay(lp, ifp->link_params->min_delay,
-					ifp->link_params->max_delay, 0);
-	else
-		TLV_TYPE(lp->mm_delay) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_DELAY_VAR))
-		set_linkparams_delay_var(lp, ifp->link_params->delay_var);
-	else
-		TLV_TYPE(lp->delay_var) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_PKT_LOSS))
-		set_linkparams_pkt_loss(lp, ifp->link_params->pkt_loss, 0);
-	else
-		TLV_TYPE(lp->pkt_loss) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_RES_BW))
-		set_linkparams_res_bw(lp, ifp->link_params->res_bw);
-	else
-		TLV_TYPE(lp->res_bw) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_AVA_BW))
-		set_linkparams_ava_bw(lp, ifp->link_params->ava_bw);
-	else
-		TLV_TYPE(lp->ava_bw) = 0;
-
-	if (IS_PARAM_SET(ifp->link_params, LP_USE_BW))
-		set_linkparams_use_bw(lp, ifp->link_params->use_bw);
-	else
-		TLV_TYPE(lp->use_bw) = 0;
-
-	/* RFC5392 */
-	if (IS_PARAM_SET(ifp->link_params, LP_RMT_AS)) {
-		/* Flush LSA if it engaged and was previously a STD_TE one */
-		if (IS_STD_TE(lp->type)
-		    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
-			if (IS_DEBUG_OSPF_TE)
-				zlog_debug(
-					"OSPF MPLS-TE Update IF: Switch from Standard LSA to INTER-AS for %s[%d/%d]",
-					ifp->name, lp->flags, lp->type);
-
-			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-			/* Then, switch it to INTER-AS */
-			if (OspfMplsTE.inter_as == AS)
-				lp->flags = INTER_AS | FLOOD_AS;
-			else {
-				lp->flags = INTER_AS | FLOOD_AREA;
-				lp->area = ospf_area_lookup_by_area_id(
-					ospf_lookup_by_vrf_id(VRF_DEFAULT),
-					OspfMplsTE.interas_areaid);
-			}
-		}
-		set_linkparams_inter_as(lp, ifp->link_params->rmt_ip,
-					ifp->link_params->rmt_as);
-	} else {
-		if (IS_DEBUG_OSPF_TE)
-			zlog_debug(
-				"OSPF MPLS-TE Update IF: Switch from INTER-AS LSA to Standard for %s[%d/%d]",
-				ifp->name, lp->flags, lp->type);
-
-		/* reset inter-as TE params */
-		/* Flush LSA if it engaged and was previously an INTER_AS one */
-		if (IS_INTER_AS(lp->type)
-		    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
-			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-			/* Then, switch it to Standard TE */
-			lp->flags = STD_TE | FLOOD_AREA;
-		}
-		unset_linkparams_inter_as(lp);
-	}
-}
-
-static void initialize_linkparams(struct mpls_te_link *lp)
-{
-	struct interface *ifp = lp->ifp;
-	struct ospf_interface *oi = NULL;
-	struct route_node *rn;
-
-	if (IS_DEBUG_OSPF_TE)
-		zlog_debug(
-			"MPLS-TE(initialize_linkparams) Initialize Link Parameters for interface %s",
-			ifp->name);
-
-	/* Search OSPF Interface parameters for this interface */
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-
-		if ((oi = rn->info) == NULL)
-			continue;
-
-		if (oi->ifp == ifp)
-			break;
-	}
-
-	if ((oi == NULL) || (oi->ifp != ifp)) {
-		if (IS_DEBUG_OSPF_TE)
-			zlog_warn(
-				"MPLS-TE(initialize_linkparams) Could not find corresponding OSPF Interface for %s",
-				ifp->name);
-		return;
-	}
-
-	/*
-	 * Try to set initial values those can be derived from
-	 * zebra-interface information.
-	 */
-	set_linkparams_link_type(oi, lp);
-
-	/* Set local IP addr */
-	set_linkparams_lclif_ipaddr(lp, oi->address->u.prefix4);
-
-	/* Set Remote IP addr if Point to Point Interface */
-	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
-		struct prefix *pref = CONNECTED_PREFIX(oi->connected);
-		if (pref != NULL)
-			set_linkparams_rmtif_ipaddr(lp, pref->u.prefix4);
-	}
-
-	/* Keep Area information in combination with link parameters. */
-	lp->area = oi->area;
-
-	return;
-}
-
-static int is_mandated_params_set(struct mpls_te_link *lp)
-{
-	int rc = 0;
-
-	if (ntohs(OspfMplsTE.router_addr.header.type) == 0) {
-		zlog_warn(
-			"MPLS-TE(is_mandated_params_set) Missing Router Address");
-		return rc;
-	}
-
-	if (ntohs(lp->link_type.header.type) == 0) {
-		zlog_warn("MPLS-TE(is_mandated_params_set) Missing Link Type");
-		return rc;
-	}
-
-	if (!IS_INTER_AS(lp->type) && (ntohs(lp->link_id.header.type) == 0)) {
-		zlog_warn("MPLS-TE(is_mandated_params_set) Missing Link ID");
-		return rc;
-	}
-
-	rc = 1;
-	return rc;
-}
-
-/*------------------------------------------------------------------------*
- * Followings are callback functions against generic Opaque-LSAs handling.
- *------------------------------------------------------------------------*/
-
-static int ospf_mpls_te_new_if(struct interface *ifp)
-{
-	struct mpls_te_link *new;
-	int rc = -1;
-
-	if (IS_DEBUG_OSPF_TE)
-		zlog_debug(
-			"MPLS-TE(ospf_mpls_te_new_if) Add new %s interface %s to MPLS-TE list",
-			ifp->link_params ? "Active" : "Inactive", ifp->name);
-
-	if (lookup_linkparams_by_ifp(ifp) != NULL) {
-		zlog_warn("ospf_mpls_te_new_if: ifp(%p) already in use?",
-			  (void *)ifp);
-		rc = 0; /* Do nothing here. */
-		return rc;
-	}
-
-	new = XCALLOC(MTYPE_OSPF_MPLS_TE, sizeof(struct mpls_te_link));
-	if (new == NULL) {
-		zlog_warn("ospf_mpls_te_new_if: XMALLOC: %s",
-			  safe_strerror(errno));
-		return rc;
-	}
-
-	new->instance = get_mpls_te_instance_value();
-	new->ifp = ifp;
-	/* By default TE-Link is RFC3630 compatible flooding in Area and not
-	 * active */
-	/* This default behavior will be adapted with call to
-	 * ospf_mpls_te_update_if() */
-	new->type = STD_TE | FLOOD_AREA;
-	new->flags = LPFLG_LSA_INACTIVE;
-
-	/* Initialize Link Parameters from Interface */
-	initialize_linkparams(new);
-
-	/* Set TE Parameters from Interface */
-	update_linkparams(new);
-
-	/* Add Link Parameters structure to the list */
-	listnode_add(OspfMplsTE.iflist, new);
-
-	if (IS_DEBUG_OSPF_TE)
-		zlog_debug(
-			"OSPF MPLS-TE New IF: Add new LP context for %s[%d/%d]",
-			ifp->name, new->flags, new->type);
-
-	/* Schedule Opaque-LSA refresh. */ /* XXX */
-
-	rc = 0;
-	return rc;
-}
-
-static int ospf_mpls_te_del_if(struct interface *ifp)
-{
-	struct mpls_te_link *lp;
-	int rc = -1;
-
-	if ((lp = lookup_linkparams_by_ifp(ifp)) != NULL) {
-		struct list *iflist = OspfMplsTE.iflist;
-
-		/* Dequeue listnode entry from the list. */
-		listnode_delete(iflist, lp);
-
-		/* Avoid misjudgement in the next lookup. */
-		if (listcount(iflist) == 0)
-			iflist->head = iflist->tail = NULL;
-
-		XFREE(MTYPE_OSPF_MPLS_TE, lp);
-	}
-
-	/* Schedule Opaque-LSA refresh. */ /* XXX */
-
-	rc = 0;
-	return rc;
-}
-
-/* Main initialization / update function of the MPLS TE Link context */
-
-/* Call when interface TE Link parameters are modified */
-void ospf_mpls_te_update_if(struct interface *ifp)
-{
-	struct mpls_te_link *lp;
-
-	if (IS_DEBUG_OSPF_TE)
-		zlog_debug(
-			"OSPF MPLS-TE: Update LSA parameters for interface %s [%s]",
-			ifp->name, HAS_LINK_PARAMS(ifp) ? "ON" : "OFF");
-
-	/* Get Link context from interface */
-	if ((lp = lookup_linkparams_by_ifp(ifp)) == NULL) {
-		zlog_warn(
-			"OSPF MPLS-TE Update: Did not find Link Parameters context for interface %s",
-			ifp->name);
-		return;
-	}
-
-	/* Fulfill MPLS-TE Link TLV from Interface TE Link parameters */
-	if (HAS_LINK_PARAMS(ifp)) {
-		SET_FLAG(lp->flags, LPFLG_LSA_ACTIVE);
-
-		/* Update TE parameters */
-		update_linkparams(lp);
-
-		/* Finally Re-Originate or Refresh Opaque LSA if MPLS_TE is
-		 * enabled */
-		if (OspfMplsTE.enabled)
-			if (lp->area != NULL) {
-				if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
-					ospf_mpls_te_lsa_schedule(
-						lp, REFRESH_THIS_LSA);
-				else
-					ospf_mpls_te_lsa_schedule(
-						lp, REORIGINATE_THIS_LSA);
-			}
-	} else {
-		/* If MPLS TE is disable on this interface, flush LSA if it is
-		 * already engaged */
-		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
-			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-		else
-			/* Reset Activity flag */
-			lp->flags = LPFLG_LSA_INACTIVE;
-	}
-
-	return;
-}
-
-static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
-{
-	struct te_link_subtlv_link_type old_type;
-	struct te_link_subtlv_link_id old_id;
-	struct mpls_te_link *lp;
-
-	if ((lp = lookup_linkparams_by_ifp(oi->ifp)) == NULL) {
-		zlog_warn(
-			"ospf_mpls_te_ism_change: Cannot get linkparams from OI(%s)?",
-			IF_NAME(oi));
-		return;
-	}
-
-	if (oi->area == NULL || oi->area->ospf == NULL) {
-		zlog_warn(
-			"ospf_mpls_te_ism_change: Cannot refer to OSPF from OI(%s)?",
-			IF_NAME(oi));
-		return;
-	}
-#ifdef notyet
-	if ((lp->area != NULL
-	     && !IPV4_ADDR_SAME(&lp->area->area_id, &oi->area->area_id))
-	    || (lp->area != NULL && oi->area == NULL)) {
-		/* How should we consider this case? */
-		zlog_warn(
-			"MPLS-TE: Area for OI(%s) has changed to [%s], flush previous LSAs",
-			IF_NAME(oi),
-			oi->area ? inet_ntoa(oi->area->area_id) : "N/A");
-		ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-	}
-#endif
-	/* Keep Area information in combination with linkparams. */
-	lp->area = oi->area;
-
-	/* Keep interface MPLS-TE status */
-	lp->flags = HAS_LINK_PARAMS(oi->ifp);
-
-	switch (oi->state) {
-	case ISM_PointToPoint:
-	case ISM_DROther:
-	case ISM_Backup:
-	case ISM_DR:
-		old_type = lp->link_type;
-		old_id = lp->link_id;
-
-		/* Set Link type, Link ID, Local and Remote IP addr */
-		set_linkparams_link_type(oi, lp);
-		set_linkparams_link_id(oi, lp);
-		set_linkparams_lclif_ipaddr(lp, oi->address->u.prefix4);
-
-		if (oi->type == LINK_TYPE_SUBTLV_VALUE_PTP) {
-			struct prefix *pref = CONNECTED_PREFIX(oi->connected);
-			if (pref != NULL)
-				set_linkparams_rmtif_ipaddr(lp,
-							    pref->u.prefix4);
-		}
-
-		/* Update TE parameters */
-		update_linkparams(lp);
-
-		/* Try to Schedule LSA */
-		if ((ntohs(old_type.header.type)
-			     != ntohs(lp->link_type.header.type)
-		     || old_type.link_type.value
-				!= lp->link_type.link_type.value)
-		    || (ntohs(old_id.header.type)
-				!= ntohs(lp->link_id.header.type)
-			|| ntohl(old_id.value.s_addr)
-				   != ntohl(lp->link_id.value.s_addr))) {
-			if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
-				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
-			else
-				ospf_mpls_te_lsa_schedule(lp,
-							  REORIGINATE_THIS_LSA);
-		}
-		break;
-	default:
-		lp->link_type.header.type = htons(0);
-		lp->link_id.header.type = htons(0);
-
-		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
-			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-		break;
-	}
-
-	return;
-}
-
-static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
-{
-	/* Nothing to do here */
-	return;
-}
-
-/*------------------------------------------------------------------------*
- * Followings are OSPF protocol processing functions for MPLS-TE.
- *------------------------------------------------------------------------*/
-
-static void build_tlv_header(struct stream *s, struct tlv_header *tlvh)
-{
-	stream_put(s, tlvh, sizeof(struct tlv_header));
-	return;
-}
-
-static void build_router_tlv(struct stream *s)
-{
-	struct tlv_header *tlvh = &OspfMplsTE.router_addr.header;
-	if (ntohs(tlvh->type) != 0) {
-		build_tlv_header(s, tlvh);
-		stream_put(s, TLV_DATA(tlvh), TLV_BODY_SIZE(tlvh));
-	}
-	return;
-}
-
-static void build_link_subtlv(struct stream *s, struct tlv_header *tlvh)
-{
-
-	if ((tlvh != NULL) && (ntohs(tlvh->type) != 0)) {
-		build_tlv_header(s, tlvh);
-		stream_put(s, TLV_DATA(tlvh), TLV_BODY_SIZE(tlvh));
-	}
-	return;
-}
-
-static void build_link_tlv(struct stream *s, struct mpls_te_link *lp)
-{
-	set_linkparams_link_header(lp);
-	build_tlv_header(s, &lp->link_header.header);
-
-	build_link_subtlv(s, &lp->link_type.header);
-	build_link_subtlv(s, &lp->link_id.header);
-	build_link_subtlv(s, &lp->lclif_ipaddr.header);
-	build_link_subtlv(s, &lp->rmtif_ipaddr.header);
-	build_link_subtlv(s, &lp->te_metric.header);
-	build_link_subtlv(s, &lp->max_bw.header);
-	build_link_subtlv(s, &lp->max_rsv_bw.header);
-	build_link_subtlv(s, &lp->unrsv_bw.header);
-	build_link_subtlv(s, &lp->rsc_clsclr.header);
-	build_link_subtlv(s, &lp->lrrid.header);
-	build_link_subtlv(s, &lp->llri.header);
-	build_link_subtlv(s, &lp->rip.header);
-	build_link_subtlv(s, &lp->ras.header);
-	build_link_subtlv(s, &lp->av_delay.header);
-	build_link_subtlv(s, &lp->mm_delay.header);
-	build_link_subtlv(s, &lp->delay_var.header);
-	build_link_subtlv(s, &lp->pkt_loss.header);
-	build_link_subtlv(s, &lp->res_bw.header);
-	build_link_subtlv(s, &lp->ava_bw.header);
-	build_link_subtlv(s, &lp->use_bw.header);
-
-	return;
-}
-
-static void ospf_mpls_te_lsa_body_set(struct stream *s, struct mpls_te_link *lp)
-{
-	/*
-	 * The router address TLV is type 1, and ...
-	 *                                      It must appear in exactly one
-	 * Traffic Engineering LSA originated by a router.
-	 */
-	build_router_tlv(s);
-
-	/*
-	 * Only one Link TLV shall be carried in each LSA, allowing for fine
-	 * granularity changes in topology.
-	 */
-	build_link_tlv(s, lp);
-	return;
-}
-
-/* Create new opaque-LSA. */
-static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
-					     struct ospf_area *area,
-					     struct mpls_te_link *lp)
-{
-	struct stream *s;
-	struct lsa_header *lsah;
-	struct ospf_lsa *new = NULL;
-	uint8_t options, lsa_type = 0;
-	struct in_addr lsa_id;
-	uint32_t tmp;
-	uint16_t length;
-
-	/* Create a stream for LSA. */
-	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
-		zlog_warn("ospf_mpls_te_lsa_new: stream_new() ?");
-		return NULL;
-	}
-	lsah = (struct lsa_header *)STREAM_DATA(s);
-
-	options = OSPF_OPTION_O; /* Don't forget this :-) */
-
-	/* Set opaque-LSA header fields depending of the type of RFC */
-	if (IS_INTER_AS(lp->type)) {
-		if
-			IS_FLOOD_AS(lp->type)
-			{
-				options |= OSPF_OPTION_E; /* Enable AS external
-							     as we flood
-							     Inter-AS with
-							     Opaque Type 11 */
-				lsa_type = OSPF_OPAQUE_AS_LSA;
-			}
-		else {
-			options |= LSA_OPTIONS_GET(
-				area); /* Get area default option */
-			options |= LSA_OPTIONS_NSSA_GET(area);
-			lsa_type = OSPF_OPAQUE_AREA_LSA;
-		}
-		tmp = SET_OPAQUE_LSID(OPAQUE_TYPE_INTER_AS_LSA, lp->instance);
-		lsa_id.s_addr = htonl(tmp);
-
-		if (!ospf) {
-			stream_free(s);
-			return NULL;
-		}
-
-		lsa_header_set(s, options, lsa_type, lsa_id, ospf->router_id);
-	} else {
-		options |= LSA_OPTIONS_GET(area); /* Get area default option */
-		options |= LSA_OPTIONS_NSSA_GET(area);
-		lsa_type = OSPF_OPAQUE_AREA_LSA;
-		tmp = SET_OPAQUE_LSID(OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA,
-				      lp->instance);
-		lsa_id.s_addr = htonl(tmp);
-		lsa_header_set(s, options, lsa_type, lsa_id,
-			       area->ospf->router_id);
-	}
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug(
-			"LSA[Type%d:%s]: Create an Opaque-LSA/MPLS-TE instance",
-			lsa_type, inet_ntoa(lsa_id));
-
-	/* Set opaque-LSA body fields. */
-	ospf_mpls_te_lsa_body_set(s, lp);
-
-	/* Set length. */
-	length = stream_get_endp(s);
-	lsah->length = htons(length);
-
-	/* Now, create an OSPF LSA instance. */
-	if ((new = ospf_lsa_new()) == NULL) {
-		zlog_warn("ospf_mpls_te_lsa_new: ospf_lsa_new() ?");
-		stream_free(s);
-		return NULL;
-	}
-	if ((new->data = ospf_lsa_data_new(length)) == NULL) {
-		zlog_warn("ospf_mpls_te_lsa_new: ospf_lsa_data_new() ?");
-		ospf_lsa_unlock(&new);
-		new = NULL;
-		stream_free(s);
-		return new;
-	}
-
-	new->vrf_id = ospf->vrf_id;
-	if (area && area->ospf)
-		new->vrf_id = area->ospf->vrf_id;
-	new->area = area;
-	SET_FLAG(new->flags, OSPF_LSA_SELF);
-	memcpy(new->data, lsah, length);
-	stream_free(s);
-
-	return new;
-}
-
-static int ospf_mpls_te_lsa_originate1(struct ospf_area *area,
-				       struct mpls_te_link *lp)
-{
-	struct ospf_lsa *new = NULL;
-	int rc = -1;
-
-	/* Create new Opaque-LSA/MPLS-TE instance. */
-	new = ospf_mpls_te_lsa_new(area->ospf, area, lp);
-	if (new == NULL) {
-		zlog_warn(
-			"ospf_mpls_te_lsa_originate1: ospf_mpls_te_lsa_new() ?");
-		return rc;
-	}
-
-	/* Install this LSA into LSDB. */
-	if (ospf_lsa_install(area->ospf, NULL /*oi*/, new) == NULL) {
-		zlog_warn("ospf_mpls_te_lsa_originate1: ospf_lsa_install() ?");
-		ospf_lsa_unlock(&new);
-		return rc;
-	}
-
-	/* Now this link-parameter entry has associated LSA. */
-	SET_FLAG(lp->flags, LPFLG_LSA_ENGAGED);
-	/* Update new LSA origination count. */
-	area->ospf->lsa_originate_count++;
-
-	/* Flood new LSA through area. */
-	ospf_flood_through_area(area, NULL /*nbr*/, new);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		char area_id[INET_ADDRSTRLEN];
-		strlcpy(area_id, inet_ntoa(area->area_id), sizeof(area_id));
-		zlog_debug(
-			"LSA[Type%d:%s]: Originate Opaque-LSA/MPLS-TE: Area(%s), Link(%s)",
-			new->data->type, inet_ntoa(new->data->id), area_id,
-			lp->ifp->name);
-		ospf_lsa_header_dump(new->data);
-	}
-
-	rc = 0;
-	return rc;
-}
-
-static int ospf_mpls_te_lsa_originate_area(void *arg)
-{
-	struct ospf_area *area = (struct ospf_area *)arg;
-	struct listnode *node, *nnode;
-	struct mpls_te_link *lp;
-	int rc = -1;
-
-	if (!OspfMplsTE.enabled) {
-		zlog_info(
-			"ospf_mpls_te_lsa_originate_area: MPLS-TE is disabled now.");
-		rc = 0; /* This is not an error case. */
-		return rc;
-	}
-
-	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
-		/* Process only enabled LSA with area scope flooding */
-		if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE)
-		    || IS_FLOOD_AS(lp->type))
-			continue;
-
-		if (lp->area == NULL)
-			continue;
-
-		if (!IPV4_ADDR_SAME(&lp->area->area_id, &area->area_id))
-			continue;
-
-		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
-			if (CHECK_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH)) {
-				UNSET_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH);
-				zlog_warn(
-					"OSPF MPLS-TE (ospf_mpls_te_lsa_originate_area): Refresh instead of Originate");
-				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
-			}
-			continue;
-		}
-
-		if (!is_mandated_params_set(lp)) {
-			zlog_warn(
-				"ospf_mpls_te_lsa_originate_area: Link(%s) lacks some mandated MPLS-TE parameters.",
-				lp->ifp ? lp->ifp->name : "?");
-			continue;
-		}
-
-		/* Ok, let's try to originate an LSA for this area and Link. */
-		if (IS_DEBUG_OSPF_TE)
-			zlog_debug(
-				"MPLS-TE(ospf_mpls_te_lsa_originate_area) Let's finally reoriginate the LSA %d through the Area %s for Link %s",
-				lp->instance, inet_ntoa(area->area_id),
-				lp->ifp ? lp->ifp->name : "?");
-		if (ospf_mpls_te_lsa_originate1(area, lp) != 0)
-			return rc;
-	}
-
-	rc = 0;
-	return rc;
-}
-
-static int ospf_mpls_te_lsa_originate2(struct ospf *top,
-				       struct mpls_te_link *lp)
-{
-	struct ospf_lsa *new;
-	int rc = -1;
-
-	/* Create new Opaque-LSA/Inter-AS instance. */
-	new = ospf_mpls_te_lsa_new(top, NULL, lp);
-	if (new == NULL) {
-		zlog_warn(
-			"ospf_mpls_te_lsa_originate2: ospf_router_info_lsa_new() ?");
-		return rc;
-	}
-	new->vrf_id = top->vrf_id;
-
-	/* Install this LSA into LSDB. */
-	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		zlog_warn("ospf_mpls_te_lsa_originate2: ospf_lsa_install() ?");
-		ospf_lsa_unlock(&new);
-		return rc;
-	}
-
-	/* Now this Router Info parameter entry has associated LSA. */
-	SET_FLAG(lp->flags, LPFLG_LSA_ENGAGED);
-	/* Update new LSA origination count. */
-	top->lsa_originate_count++;
-
-	/* Flood new LSA through AS. */
-	ospf_flood_through_as(top, NULL /*nbr */, new);
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug(
-			"LSA[Type%d:%s]: Originate Opaque-LSA/MPLS-TE Inter-AS",
-			new->data->type, inet_ntoa(new->data->id));
-		ospf_lsa_header_dump(new->data);
-	}
-
-	rc = 0;
-	return rc;
-}
-
-static int ospf_mpls_te_lsa_originate_as(void *arg)
-{
-	struct ospf *top;
-	struct ospf_area *area;
-	struct listnode *node, *nnode;
-	struct mpls_te_link *lp;
-	int rc = -1;
-
-	if ((!OspfMplsTE.enabled) || (OspfMplsTE.inter_as == Off)) {
-		zlog_info(
-			"ospf_mpls_te_lsa_originate_as: MPLS-TE Inter-AS is disabled for now.");
-		rc = 0; /* This is not an error case. */
-		return rc;
-	}
-
-	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
-		/* Process only enabled INTER_AS Links or Pseudo-Links */
-		if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE)
-		    || !IS_INTER_AS(lp->type))
-			continue;
-
-		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
-			if (CHECK_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH)) {
-				UNSET_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH);
-				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
-			}
-			continue;
-		}
-
-		if (!is_mandated_params_set(lp)) {
-			zlog_warn(
-				"ospf_mpls_te_lsa_originate_as: Link(%s) lacks some mandated MPLS-TE parameters.",
-				lp->ifp ? lp->ifp->name : "?");
-			continue;
-		}
-
-		/* Ok, let's try to originate an LSA for this AS and Link. */
-		if (IS_DEBUG_OSPF_TE)
-			zlog_debug(
-				"MPLS-TE(ospf_mpls_te_lsa_originate_as) Let's finally re-originate the Inter-AS LSA %d through the %s for Link %s",
-				lp->instance,
-				IS_FLOOD_AS(lp->type) ? "AS" : "Area",
-				lp->ifp ? lp->ifp->name : "Unknown");
-
-		if (IS_FLOOD_AS(lp->type)) {
-			top = (struct ospf *)arg;
-			ospf_mpls_te_lsa_originate2(top, lp);
-		} else {
-			area = (struct ospf_area *)arg;
-			ospf_mpls_te_lsa_originate1(area, lp);
-		}
-	}
-
-	rc = 0;
-	return rc;
-}
-
-static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
-{
-	struct mpls_te_link *lp;
-	struct ospf_area *area = lsa->area;
-	struct ospf *top;
-	struct ospf_lsa *new = NULL;
-
-	if (!OspfMplsTE.enabled) {
-		/*
-		 * This LSA must have flushed before due to MPLS-TE status
-		 * change.
-		 * It seems a slip among routers in the routing domain.
-		 */
-		zlog_info("ospf_mpls_te_lsa_refresh: MPLS-TE is disabled now.");
-		lsa->data->ls_age =
-			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
-	}
-
-	/* At first, resolve lsa/lp relationship. */
-	if ((lp = lookup_linkparams_by_instance(lsa)) == NULL) {
-		zlog_warn("ospf_mpls_te_lsa_refresh: Invalid parameter?");
-		lsa->data->ls_age =
-			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
-	}
-
-	/* Check if lp was not disable in the interval */
-	if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE)) {
-		zlog_warn(
-			"ospf_mpls_te_lsa_refresh: lp was disabled: Flush it!");
-		lsa->data->ls_age =
-			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
-	}
-
-	/* If the lsa's age reached to MaxAge, start flushing procedure. */
-	if (IS_LSA_MAXAGE(lsa)) {
-		if (lp)
-			UNSET_FLAG(lp->flags, LPFLG_LSA_ENGAGED);
-		ospf_opaque_lsa_flush_schedule(lsa);
-		return NULL;
-	}
-	top = ospf_lookup_by_vrf_id(lsa->vrf_id);
-	/* Create new Opaque-LSA/MPLS-TE instance. */
-	new = ospf_mpls_te_lsa_new(top, area, lp);
-	if (new == NULL) {
-		zlog_warn("ospf_mpls_te_lsa_refresh: ospf_mpls_te_lsa_new() ?");
-		return NULL;
-	}
-	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
-
-	/* Install this LSA into LSDB. */
-	/* Given "lsa" will be freed in the next function. */
-	/* As area could be NULL i.e. when using OPAQUE_LSA_AS, we prefer to use
-	 * ospf_lookup() to get ospf instance */
-	if (area)
-		top = area->ospf;
-
-	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		zlog_warn("ospf_mpls_te_lsa_refresh: ospf_lsa_install() ?");
-		ospf_lsa_unlock(&new);
-		return NULL;
-	}
-
-	/* Flood updated LSA through AS or Area depending of the RFC of the link
-	 */
-	if (IS_FLOOD_AS(lp->type))
-		ospf_flood_through_as(top, NULL, new);
-	else
-		ospf_flood_through_area(area, NULL /*nbr*/, new);
-
-	/* Debug logging. */
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug("LSA[Type%d:%s]: Refresh Opaque-LSA/MPLS-TE",
-			   new->data->type, inet_ntoa(new->data->id));
-		ospf_lsa_header_dump(new->data);
-	}
-
-	return new;
-}
-
-void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
-{
-	struct ospf_lsa lsa;
-	struct lsa_header lsah;
-	struct ospf *top;
-	uint32_t tmp;
-
-	memset(&lsa, 0, sizeof(lsa));
-	memset(&lsah, 0, sizeof(lsah));
-	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
-	/* Check if the pseudo link is ready to flood */
-	if (!(CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE))
-	    || !(IS_FLOOD_AREA(lp->type) || IS_FLOOD_AS(lp->type))) {
-		return;
-	}
-
-	lsa.area = lp->area;
-	lsa.data = &lsah;
-	if (IS_FLOOD_AS(lp->type)) {
-		lsah.type = OSPF_OPAQUE_AS_LSA;
-		tmp = SET_OPAQUE_LSID(OPAQUE_TYPE_INTER_AS_LSA, lp->instance);
-		lsah.id.s_addr = htonl(tmp);
-	} else {
-		lsah.type = OSPF_OPAQUE_AREA_LSA;
-		if (IS_INTER_AS(lp->type)) {
-			/* Set the area context if not know */
-			if (lp->area == NULL)
-				lp->area = ospf_area_lookup_by_area_id(
-					top, OspfMplsTE.interas_areaid);
-			/* Unable to set the area context. Abort! */
-			if (lp->area == NULL) {
-				zlog_warn(
-					"MPLS-TE(ospf_mpls_te_lsa_schedule) Area context is null. Abort !");
-				return;
-			}
-			tmp = SET_OPAQUE_LSID(OPAQUE_TYPE_INTER_AS_LSA,
-					      lp->instance);
-		} else
-			tmp = SET_OPAQUE_LSID(
-				OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA,
-				lp->instance);
-		lsah.id.s_addr = htonl(tmp);
-	}
-
-	switch (opcode) {
-	case REORIGINATE_THIS_LSA:
-		if (IS_FLOOD_AS(lp->type)) {
-			ospf_opaque_lsa_reoriginate_schedule(
-				(void *)top, OSPF_OPAQUE_AS_LSA,
-				OPAQUE_TYPE_INTER_AS_LSA);
-			break;
-		}
-
-		if (IS_FLOOD_AREA(lp->type)) {
-			if (IS_INTER_AS(lp->type))
-				ospf_opaque_lsa_reoriginate_schedule(
-					(void *)lp->area, OSPF_OPAQUE_AREA_LSA,
-					OPAQUE_TYPE_INTER_AS_LSA);
-			else
-				ospf_opaque_lsa_reoriginate_schedule(
-					(void *)lp->area, OSPF_OPAQUE_AREA_LSA,
-					OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);
-			break;
-		}
-		break;
-	case REFRESH_THIS_LSA:
-		ospf_opaque_lsa_refresh_schedule(&lsa);
-		break;
-	case FLUSH_THIS_LSA:
-		/* Reset Activity flag */
-		lp->flags = LPFLG_LSA_INACTIVE;
-		ospf_opaque_lsa_flush_schedule(&lsa);
-		break;
-	default:
-		zlog_warn("ospf_mpls_te_lsa_schedule: Unknown opcode (%u)",
-			  opcode);
-		break;
-	}
-
-	return;
-}
-
-
-/*------------------------------------------------------------------------*
- * Followings are vty session control functions.
- *------------------------------------------------------------------------*/
-
-static uint16_t show_vty_router_addr(struct vty *vty, struct tlv_header *tlvh)
-{
-	struct te_tlv_router_addr *top = (struct te_tlv_router_addr *)tlvh;
-
-	if (vty != NULL)
-		vty_out(vty, "  Router-Address: %s\n", inet_ntoa(top->value));
-	else
-		zlog_debug("    Router-Address: %s", inet_ntoa(top->value));
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_header(struct vty *vty, struct tlv_header *tlvh)
-{
-	struct te_tlv_link *top = (struct te_tlv_link *)tlvh;
-
-	if (vty != NULL)
-		vty_out(vty, "  Link: %u octets of data\n",
-			ntohs(top->header.length));
-	else
-		zlog_debug("    Link: %u octets of data",
-			   ntohs(top->header.length));
-
-	return TLV_HDR_SIZE; /* Here is special, not "TLV_SIZE". */
-}
-
-static uint16_t show_vty_link_subtlv_link_type(struct vty *vty,
-					       struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_link_type *top;
-	const char *cp = "Unknown";
-
-	top = (struct te_link_subtlv_link_type *)tlvh;
-	switch (top->link_type.value) {
-	case LINK_TYPE_SUBTLV_VALUE_PTP:
-		cp = "Point-to-point";
-		break;
-	case LINK_TYPE_SUBTLV_VALUE_MA:
-		cp = "Multiaccess";
-		break;
-	default:
-		break;
-	}
-
-	if (vty != NULL)
-		vty_out(vty, "  Link-Type: %s (%u)\n", cp,
-			top->link_type.value);
-	else
-		zlog_debug("    Link-Type: %s (%u)", cp, top->link_type.value);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_link_id(struct vty *vty,
-					     struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_link_id *top;
-
-	top = (struct te_link_subtlv_link_id *)tlvh;
-	if (vty != NULL)
-		vty_out(vty, "  Link-ID: %s\n", inet_ntoa(top->value));
-	else
-		zlog_debug("    Link-ID: %s", inet_ntoa(top->value));
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_lclif_ipaddr(struct vty *vty,
-						  struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_lclif_ipaddr *top;
-	int i, n;
-
-	top = (struct te_link_subtlv_lclif_ipaddr *)tlvh;
-	n = ntohs(tlvh->length) / sizeof(top->value[0]);
-
-	if (vty != NULL)
-		vty_out(vty, "  Local Interface IP Address(es): %d\n", n);
-	else
-		zlog_debug("    Local Interface IP Address(es): %d", n);
-
-	for (i = 0; i < n; i++) {
-		if (vty != NULL)
-			vty_out(vty, "    #%d: %s\n", i,
-				inet_ntoa(top->value[i]));
-		else
-			zlog_debug("      #%d: %s", i,
-				   inet_ntoa(top->value[i]));
-	}
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_rmtif_ipaddr(struct vty *vty,
-						  struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_rmtif_ipaddr *top;
-	int i, n;
-
-	top = (struct te_link_subtlv_rmtif_ipaddr *)tlvh;
-	n = ntohs(tlvh->length) / sizeof(top->value[0]);
-	if (vty != NULL)
-		vty_out(vty, "  Remote Interface IP Address(es): %d\n", n);
-	else
-		zlog_debug("    Remote Interface IP Address(es): %d", n);
-
-	for (i = 0; i < n; i++) {
-		if (vty != NULL)
-			vty_out(vty, "    #%d: %s\n", i,
-				inet_ntoa(top->value[i]));
-		else
-			zlog_debug("      #%d: %s", i,
-				   inet_ntoa(top->value[i]));
-	}
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_te_metric(struct vty *vty,
-					       struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_te_metric *top;
-
-	top = (struct te_link_subtlv_te_metric *)tlvh;
-	if (vty != NULL)
-		vty_out(vty, "  Traffic Engineering Metric: %u\n",
-			(uint32_t)ntohl(top->value));
-	else
-		zlog_debug("    Traffic Engineering Metric: %u",
-			   (uint32_t)ntohl(top->value));
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_max_bw(struct vty *vty,
-					    struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_max_bw *top;
-	float fval;
-
-	top = (struct te_link_subtlv_max_bw *)tlvh;
-	fval = ntohf(top->value);
-
-	if (vty != NULL)
-		vty_out(vty, "  Maximum Bandwidth: %g (Bytes/sec)\n", fval);
-	else
-		zlog_debug("    Maximum Bandwidth: %g (Bytes/sec)", fval);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_max_rsv_bw(struct vty *vty,
-						struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_max_rsv_bw *top;
-	float fval;
-
-	top = (struct te_link_subtlv_max_rsv_bw *)tlvh;
-	fval = ntohf(top->value);
-
-	if (vty != NULL)
-		vty_out(vty, "  Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
-			fval);
-	else
-		zlog_debug("    Maximum Reservable Bandwidth: %g (Bytes/sec)",
-			   fval);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_unrsv_bw(struct vty *vty,
-					      struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_unrsv_bw *top;
-	float fval1, fval2;
-	int i;
-
-	top = (struct te_link_subtlv_unrsv_bw *)tlvh;
-	if (vty != NULL)
-		vty_out(vty,
-			"  Unreserved Bandwidth per Class Type in Byte/s:\n");
-	else
-		zlog_debug(
-			"    Unreserved Bandwidth per Class Type in Byte/s:");
-	for (i = 0; i < MAX_CLASS_TYPE; i += 2) {
-		fval1 = ntohf(top->value[i]);
-		fval2 = ntohf(top->value[i + 1]);
-
-		if (vty != NULL)
-			vty_out(vty,
-				"    [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
-				i, fval1, i + 1, fval2);
-		else
-			zlog_debug(
-				"      [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)",
-				i, fval1, i + 1, fval2);
-	}
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_rsc_clsclr(struct vty *vty,
-						struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_rsc_clsclr *top;
-
-	top = (struct te_link_subtlv_rsc_clsclr *)tlvh;
-	if (vty != NULL)
-		vty_out(vty, "  Resource class/color: 0x%x\n",
-			(uint32_t)ntohl(top->value));
-	else
-		zlog_debug("    Resource Class/Color: 0x%x",
-			   (uint32_t)ntohl(top->value));
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_lrrid(struct vty *vty,
-					   struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_lrrid *top;
-
-	top = (struct te_link_subtlv_lrrid *)tlvh;
-
-	if (vty != NULL) {
-		vty_out(vty, "  Local  TE Router ID: %s\n",
-			inet_ntoa(top->local));
-		vty_out(vty, "  Remote TE Router ID: %s\n",
-			inet_ntoa(top->remote));
-	} else {
-		zlog_debug("    Local  TE Router ID: %s",
-			   inet_ntoa(top->local));
-		zlog_debug("    Remote TE Router ID: %s",
-			   inet_ntoa(top->remote));
-	}
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_llri(struct vty *vty,
-					  struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_llri *top;
-
-	top = (struct te_link_subtlv_llri *)tlvh;
-
-	if (vty != NULL) {
-		vty_out(vty, "  Link Local  ID: %d\n",
-			(uint32_t)ntohl(top->local));
-		vty_out(vty, "  Link Remote ID: %d\n",
-			(uint32_t)ntohl(top->remote));
-	} else {
-		zlog_debug("    Link Local  ID: %d",
-			   (uint32_t)ntohl(top->local));
-		zlog_debug("    Link Remote ID: %d",
-			   (uint32_t)ntohl(top->remote));
-	}
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_rip(struct vty *vty,
-					 struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_rip *top;
-
-	top = (struct te_link_subtlv_rip *)tlvh;
-
-	if (vty != NULL)
-		vty_out(vty, "  Inter-AS TE Remote ASBR IP address: %s\n",
-			inet_ntoa(top->value));
-	else
-		zlog_debug("    Inter-AS TE Remote ASBR IP address: %s",
-			   inet_ntoa(top->value));
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_ras(struct vty *vty,
-					 struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_ras *top;
-
-	top = (struct te_link_subtlv_ras *)tlvh;
-
-	if (vty != NULL)
-		vty_out(vty, "  Inter-AS TE Remote AS number: %u\n",
-			ntohl(top->value));
-	else
-		zlog_debug("    Inter-AS TE Remote AS number: %u",
-			   ntohl(top->value));
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_av_delay(struct vty *vty,
-					      struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_av_delay *top;
-	uint32_t delay;
-	uint32_t anomalous;
-
-	top = (struct te_link_subtlv_av_delay *)tlvh;
-	delay = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
-	anomalous = (uint32_t)ntohl(top->value) & TE_EXT_ANORMAL;
-
-	if (vty != NULL)
-		vty_out(vty, "  %s Average Link Delay: %d (micro-sec)\n",
-			anomalous ? "Anomalous" : "Normal", delay);
-	else
-		zlog_debug("    %s Average Link Delay: %d (micro-sec)",
-			   anomalous ? "Anomalous" : "Normal", delay);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_mm_delay(struct vty *vty,
-					      struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_mm_delay *top;
-	uint32_t low, high;
-	uint32_t anomalous;
-
-	top = (struct te_link_subtlv_mm_delay *)tlvh;
-	low = (uint32_t)ntohl(top->low) & TE_EXT_MASK;
-	anomalous = (uint32_t)ntohl(top->low) & TE_EXT_ANORMAL;
-	high = (uint32_t)ntohl(top->high);
-
-	if (vty != NULL)
-		vty_out(vty, "  %s Min/Max Link Delay: %d/%d (micro-sec)\n",
-			anomalous ? "Anomalous" : "Normal", low, high);
-	else
-		zlog_debug("    %s Min/Max Link Delay: %d/%d (micro-sec)",
-			   anomalous ? "Anomalous" : "Normal", low, high);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_delay_var(struct vty *vty,
-					       struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_delay_var *top;
-	uint32_t jitter;
-
-	top = (struct te_link_subtlv_delay_var *)tlvh;
-	jitter = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
-
-	if (vty != NULL)
-		vty_out(vty, "  Delay Variation: %d (micro-sec)\n", jitter);
-	else
-		zlog_debug("    Delay Variation: %d (micro-sec)", jitter);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_pkt_loss(struct vty *vty,
-					      struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_pkt_loss *top;
-	uint32_t loss;
-	uint32_t anomalous;
-	float fval;
-
-	top = (struct te_link_subtlv_pkt_loss *)tlvh;
-	loss = (uint32_t)ntohl(top->value) & TE_EXT_MASK;
-	fval = (float)(loss * LOSS_PRECISION);
-	anomalous = (uint32_t)ntohl(top->value) & TE_EXT_ANORMAL;
-
-	if (vty != NULL)
-		vty_out(vty, "  %s Link Loss: %g (%%)\n",
-			anomalous ? "Anomalous" : "Normal", fval);
-	else
-		zlog_debug("    %s Link Loss: %g (%%)",
-			   anomalous ? "Anomalous" : "Normal", fval);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_res_bw(struct vty *vty,
-					    struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_res_bw *top;
-	float fval;
-
-	top = (struct te_link_subtlv_res_bw *)tlvh;
-	fval = ntohf(top->value);
-
-	if (vty != NULL)
-		vty_out(vty,
-			"  Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
-			fval);
-	else
-		zlog_debug(
-			"    Unidirectional Residual Bandwidth: %g (Bytes/sec)",
-			fval);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_ava_bw(struct vty *vty,
-					    struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_ava_bw *top;
-	float fval;
-
-	top = (struct te_link_subtlv_ava_bw *)tlvh;
-	fval = ntohf(top->value);
-
-	if (vty != NULL)
-		vty_out(vty,
-			"  Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
-			fval);
-	else
-		zlog_debug(
-			"    Unidirectional Available Bandwidth: %g (Bytes/sec)",
-			fval);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_link_subtlv_use_bw(struct vty *vty,
-					    struct tlv_header *tlvh)
-{
-	struct te_link_subtlv_use_bw *top;
-	float fval;
-
-	top = (struct te_link_subtlv_use_bw *)tlvh;
-	fval = ntohf(top->value);
-
-	if (vty != NULL)
-		vty_out(vty,
-			"  Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
-			fval);
-	else
-		zlog_debug(
-			"    Unidirectional Utilized Bandwidth: %g (Bytes/sec)",
-			fval);
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
-{
-	if (vty != NULL)
-		vty_out(vty, "  Unknown TLV: [type(0x%x), length(0x%x)]\n",
-			ntohs(tlvh->type), ntohs(tlvh->length));
-	else
-		zlog_debug("    Unknown TLV: [type(0x%x), length(0x%x)]",
-			   ntohs(tlvh->type), ntohs(tlvh->length));
-
-	return TLV_SIZE(tlvh);
-}
-
-static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
-					      struct tlv_header *tlvh0,
-					      uint16_t subtotal, uint16_t total)
-{
-	struct tlv_header *tlvh, *next;
-	uint16_t sum = subtotal;
-
-	for (tlvh = tlvh0; sum < total;
-	     tlvh = (next ? next : TLV_HDR_NEXT(tlvh))) {
-		next = NULL;
-		switch (ntohs(tlvh->type)) {
-		case TE_LINK_SUBTLV_LINK_TYPE:
-			sum += show_vty_link_subtlv_link_type(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_LINK_ID:
-			sum += show_vty_link_subtlv_link_id(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_LCLIF_IPADDR:
-			sum += show_vty_link_subtlv_lclif_ipaddr(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_RMTIF_IPADDR:
-			sum += show_vty_link_subtlv_rmtif_ipaddr(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_TE_METRIC:
-			sum += show_vty_link_subtlv_te_metric(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_MAX_BW:
-			sum += show_vty_link_subtlv_max_bw(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_MAX_RSV_BW:
-			sum += show_vty_link_subtlv_max_rsv_bw(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_UNRSV_BW:
-			sum += show_vty_link_subtlv_unrsv_bw(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_RSC_CLSCLR:
-			sum += show_vty_link_subtlv_rsc_clsclr(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_LRRID:
-			sum += show_vty_link_subtlv_lrrid(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_LLRI:
-			sum += show_vty_link_subtlv_llri(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_RIP:
-			sum += show_vty_link_subtlv_rip(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_RAS:
-			sum += show_vty_link_subtlv_ras(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_AV_DELAY:
-			sum += show_vty_link_subtlv_av_delay(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_MM_DELAY:
-			sum += show_vty_link_subtlv_mm_delay(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_DELAY_VAR:
-			sum += show_vty_link_subtlv_delay_var(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_PKT_LOSS:
-			sum += show_vty_link_subtlv_pkt_loss(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_RES_BW:
-			sum += show_vty_link_subtlv_res_bw(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_AVA_BW:
-			sum += show_vty_link_subtlv_ava_bw(vty, tlvh);
-			break;
-		case TE_LINK_SUBTLV_USE_BW:
-			sum += show_vty_link_subtlv_use_bw(vty, tlvh);
-			break;
-		default:
-			sum += show_vty_unknown_tlv(vty, tlvh);
-			break;
-		}
-	}
-	return sum;
-}
-
-static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa)
-{
-	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
-	struct tlv_header *tlvh, *next;
-	uint16_t sum, total;
-	uint16_t (*subfunc)(struct vty * vty, struct tlv_header * tlvh,
-			    uint16_t subtotal, uint16_t total) = NULL;
-
-	sum = 0;
-	total = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
-
-	for (tlvh = TLV_HDR_TOP(lsah); sum < total;
-	     tlvh = (next ? next : TLV_HDR_NEXT(tlvh))) {
-		if (subfunc != NULL) {
-			sum = (*subfunc)(vty, tlvh, sum, total);
-			next = (struct tlv_header *)((char *)tlvh + sum);
-			subfunc = NULL;
-			continue;
-		}
-
-		next = NULL;
-		switch (ntohs(tlvh->type)) {
-		case TE_TLV_ROUTER_ADDR:
-			sum += show_vty_router_addr(vty, tlvh);
-			break;
-		case TE_TLV_LINK:
-			sum += show_vty_link_header(vty, tlvh);
-			subfunc = ospf_mpls_te_show_link_subtlv;
-			next = TLV_DATA(tlvh);
-			break;
-		default:
-			sum += show_vty_unknown_tlv(vty, tlvh);
-			break;
-		}
-	}
-	return;
-}
-
-static void ospf_mpls_te_config_write_router(struct vty *vty)
-{
-
-	if (OspfMplsTE.enabled) {
-		vty_out(vty, " mpls-te on\n");
-		vty_out(vty, " mpls-te router-address %s\n",
-			inet_ntoa(OspfMplsTE.router_addr.value));
-	}
-
-	if (OspfMplsTE.inter_as == AS)
-		vty_out(vty, "  mpls-te inter-as as\n");
-	if (OspfMplsTE.inter_as == Area)
-		vty_out(vty, "  mpls-te inter-as area %s \n",
-			inet_ntoa(OspfMplsTE.interas_areaid));
-
-	return;
-}
-
-/*------------------------------------------------------------------------*
- * Followings are vty command functions.
- *------------------------------------------------------------------------*/
-
-DEFUN (ospf_mpls_te_on,
-       ospf_mpls_te_on_cmd,
-       "mpls-te on",
-       MPLS_TE_STR
-       "Enable the MPLS-TE functionality\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct listnode *node;
-	struct mpls_te_link *lp;
-
-	if (OspfMplsTE.enabled)
-		return CMD_SUCCESS;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("MPLS-TE: OFF -> ON");
-
-	OspfMplsTE.enabled = true;
-
-	/* Reoriginate RFC3630 & RFC6827 Links */
-	ospf_mpls_te_foreach_area(ospf_mpls_te_lsa_schedule,
-				  REORIGINATE_THIS_LSA);
-
-	/* Reoriginate LSA if INTER-AS is always on */
-	if (OspfMplsTE.inter_as != Off) {
-		for (ALL_LIST_ELEMENTS_RO(OspfMplsTE.iflist, node, lp)) {
-			if (IS_INTER_AS(lp->type)) {
-				ospf_mpls_te_lsa_schedule(lp,
-							  REORIGINATE_THIS_LSA);
-			}
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_mpls_te,
-       no_ospf_mpls_te_cmd,
-       "no mpls-te [on]",
-       NO_STR
-       MPLS_TE_STR
-       "Disable the MPLS-TE functionality\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct listnode *node, *nnode;
-	struct mpls_te_link *lp;
-
-	if (!OspfMplsTE.enabled)
-		return CMD_SUCCESS;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("MPLS-TE: ON -> OFF");
-
-	OspfMplsTE.enabled = false;
-
-	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp))
-		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
-			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (ospf_mpls_te_router_addr,
-       ospf_mpls_te_router_addr_cmd,
-       "mpls-te router-address A.B.C.D",
-       MPLS_TE_STR
-       "Stable IP address of the advertising router\n"
-       "MPLS-TE router address in IPv4 address format\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4 = 2;
-	struct te_tlv_router_addr *ra = &OspfMplsTE.router_addr;
-	struct in_addr value;
-
-	if (!inet_aton(argv[idx_ipv4]->arg, &value)) {
-		vty_out(vty, "Please specify Router-Addr by A.B.C.D\n");
-		return CMD_WARNING;
-	}
-
-	if (ntohs(ra->header.type) == 0
-	    || ntohl(ra->value.s_addr) != ntohl(value.s_addr)) {
-		struct listnode *node, *nnode;
-		struct mpls_te_link *lp;
-		int need_to_reoriginate = 0;
-
-		set_mpls_te_router_addr(value);
-
-		if (!OspfMplsTE.enabled)
-			return CMD_SUCCESS;
-
-		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
-			if ((lp->area == NULL) || IS_FLOOD_AS(lp->type))
-				continue;
-
-			if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
-				need_to_reoriginate = 1;
-				break;
-			}
-		}
-
-		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
-			if ((lp->area == NULL) || IS_FLOOD_AS(lp->type))
-				continue;
-
-			if (need_to_reoriginate)
-				SET_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH);
-			else
-				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
-		}
-
-		if (need_to_reoriginate)
-			ospf_mpls_te_foreach_area(ospf_mpls_te_lsa_schedule,
-						  REORIGINATE_THIS_LSA);
-	}
-
-	return CMD_SUCCESS;
-}
-
-static int set_inter_as_mode(struct vty *vty, const char *mode_name,
-			     const char *area_id)
-{
-	enum inter_as_mode mode;
-	struct listnode *node;
-	struct mpls_te_link *lp;
-	int format;
-
-	if (OspfMplsTE.enabled) {
-
-		/* Read and Check inter_as mode */
-		if (strcmp(mode_name, "as") == 0)
-			mode = AS;
-		else if (strcmp(mode_name, "area") == 0) {
-			mode = Area;
-			VTY_GET_OSPF_AREA_ID(OspfMplsTE.interas_areaid, format,
-					     area_id);
-		} else {
-			vty_out(vty,
-				"Unknown mode. Please choose between as or area\n");
-			return CMD_WARNING;
-		}
-
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"MPLS-TE: Inter-AS enable with %s flooding support",
-				mode2text[mode]);
-
-		/* Register new callbacks regarding the flooding scope (AS or
-		 * Area) */
-		if (ospf_mpls_te_register(mode) < 0) {
-			vty_out(vty,
-				"Internal error: Unable to register Inter-AS functions\n");
-			return CMD_WARNING;
-		}
-
-		/* Enable mode and re-originate LSA if needed */
-		if ((OspfMplsTE.inter_as == Off)
-		    && (mode != OspfMplsTE.inter_as)) {
-			OspfMplsTE.inter_as = mode;
-			/* Re-originate all InterAS-TEv2 LSA */
-			for (ALL_LIST_ELEMENTS_RO(OspfMplsTE.iflist, node,
-						  lp)) {
-				if (IS_INTER_AS(lp->type)) {
-					if (mode == AS)
-						lp->type |= FLOOD_AS;
-					else
-						lp->type |= FLOOD_AREA;
-					ospf_mpls_te_lsa_schedule(
-						lp, REORIGINATE_THIS_LSA);
-				}
-			}
-		} else {
-			vty_out(vty,
-				"Please change Inter-AS support to disable first before going to mode %s\n",
-				mode2text[mode]);
-			return CMD_WARNING;
-		}
-	} else {
-		vty_out(vty, "mpls-te has not been turned on\n");
-		return CMD_WARNING;
-	}
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (ospf_mpls_te_inter_as_as,
-       ospf_mpls_te_inter_as_cmd,
-       "mpls-te inter-as as",
-       MPLS_TE_STR
-       "Configure MPLS-TE Inter-AS support\n"
-       "AS native mode self originate INTER_AS LSA with Type 11 (as flooding scope)\n")
-{
-	return set_inter_as_mode(vty, "as", "");
-}
-
-DEFUN (ospf_mpls_te_inter_as_area,
-       ospf_mpls_te_inter_as_area_cmd,
-       "mpls-te inter-as area <A.B.C.D|(0-4294967295)>",
-       MPLS_TE_STR
-       "Configure MPLS-TE Inter-AS support\n"
-       "AREA native mode self originate INTER_AS LSA with Type 10 (area flooding scope)\n"
-       "OSPF area ID in IP format\n"
-       "OSPF area ID as decimal value\n")
-{
-	int idx_ipv4_number = 3;
-	return set_inter_as_mode(vty, "area", argv[idx_ipv4_number]->arg);
-}
-
-DEFUN (no_ospf_mpls_te_inter_as,
-       no_ospf_mpls_te_inter_as_cmd,
-       "no mpls-te inter-as",
-       NO_STR
-       MPLS_TE_STR
-       "Disable MPLS-TE Inter-AS support\n")
-{
-
-	struct listnode *node, *nnode;
-	struct mpls_te_link *lp;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("MPLS-TE: Inter-AS support OFF");
-
-	if ((OspfMplsTE.enabled) && (OspfMplsTE.inter_as != Off)) {
-		OspfMplsTE.inter_as = Off;
-		/* Flush all Inter-AS LSA */
-		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp))
-			if (IS_INTER_AS(lp->type)
-			    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
-				ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-	}
-
-	/* Deregister the Callbacks for Inter-AS suport */
-	ospf_mpls_te_unregister();
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_ospf_mpls_te_router,
-       show_ip_ospf_mpls_te_router_cmd,
-       "show ip ospf mpls-te router",
-       SHOW_STR
-       IP_STR
-       OSPF_STR
-       "MPLS-TE information\n"
-       "MPLS-TE Router parameters\n")
-{
-	if (OspfMplsTE.enabled) {
-		vty_out(vty, "--- MPLS-TE router parameters ---\n");
-
-		if (ntohs(OspfMplsTE.router_addr.header.type) != 0)
-			show_vty_router_addr(vty,
-					     &OspfMplsTE.router_addr.header);
-		else
-			vty_out(vty, "  N/A\n");
-	}
-	return CMD_SUCCESS;
-}
-
-static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
-{
-	struct mpls_te_link *lp;
-
-	if ((OspfMplsTE.enabled) && HAS_LINK_PARAMS(ifp) && !if_is_loopback(ifp)
-	    && if_is_up(ifp)
-	    && ((lp = lookup_linkparams_by_ifp(ifp)) != NULL)) {
-		/* Continue only if interface is not passive or support Inter-AS
-		 * TEv2 */
-		if (!(ospf_oi_count(ifp) > 0)) {
-			if (IS_INTER_AS(lp->type)) {
-				vty_out(vty,
-					"-- Inter-AS TEv2 link parameters for %s --\n",
-					ifp->name);
-			} else {
-				/* MPLS-TE is not activate on this interface */
-				/* or this interface is passive and Inter-AS
-				 * TEv2 is not activate */
-				vty_out(vty,
-					"  %s: MPLS-TE is disabled on this interface\n",
-					ifp->name);
-				return;
-			}
-		} else {
-			vty_out(vty, "-- MPLS-TE link parameters for %s --\n",
-				ifp->name);
-		}
-
-		if (TLV_TYPE(lp->link_type) != 0)
-			show_vty_link_subtlv_link_type(vty,
-						       &lp->link_type.header);
-		if (TLV_TYPE(lp->link_id) != 0)
-			show_vty_link_subtlv_link_id(vty, &lp->link_id.header);
-		if (TLV_TYPE(lp->lclif_ipaddr) != 0)
-			show_vty_link_subtlv_lclif_ipaddr(
-				vty, &lp->lclif_ipaddr.header);
-		if (TLV_TYPE(lp->rmtif_ipaddr) != 0)
-			show_vty_link_subtlv_rmtif_ipaddr(
-				vty, &lp->rmtif_ipaddr.header);
-		if (TLV_TYPE(lp->rip) != 0)
-			show_vty_link_subtlv_rip(vty, &lp->rip.header);
-		if (TLV_TYPE(lp->ras) != 0)
-			show_vty_link_subtlv_ras(vty, &lp->ras.header);
-		if (TLV_TYPE(lp->te_metric) != 0)
-			show_vty_link_subtlv_te_metric(vty,
-						       &lp->te_metric.header);
-		if (TLV_TYPE(lp->max_bw) != 0)
-			show_vty_link_subtlv_max_bw(vty, &lp->max_bw.header);
-		if (TLV_TYPE(lp->max_rsv_bw) != 0)
-			show_vty_link_subtlv_max_rsv_bw(vty,
-							&lp->max_rsv_bw.header);
-		if (TLV_TYPE(lp->unrsv_bw) != 0)
-			show_vty_link_subtlv_unrsv_bw(vty,
-						      &lp->unrsv_bw.header);
-		if (TLV_TYPE(lp->rsc_clsclr) != 0)
-			show_vty_link_subtlv_rsc_clsclr(vty,
-							&lp->rsc_clsclr.header);
-		if (TLV_TYPE(lp->av_delay) != 0)
-			show_vty_link_subtlv_av_delay(vty,
-						      &lp->av_delay.header);
-		if (TLV_TYPE(lp->mm_delay) != 0)
-			show_vty_link_subtlv_mm_delay(vty,
-						      &lp->mm_delay.header);
-		if (TLV_TYPE(lp->delay_var) != 0)
-			show_vty_link_subtlv_delay_var(vty,
-						       &lp->delay_var.header);
-		if (TLV_TYPE(lp->pkt_loss) != 0)
-			show_vty_link_subtlv_pkt_loss(vty,
-						      &lp->pkt_loss.header);
-		if (TLV_TYPE(lp->res_bw) != 0)
-			show_vty_link_subtlv_res_bw(vty, &lp->res_bw.header);
-		if (TLV_TYPE(lp->ava_bw) != 0)
-			show_vty_link_subtlv_ava_bw(vty, &lp->ava_bw.header);
-		if (TLV_TYPE(lp->use_bw) != 0)
-			show_vty_link_subtlv_use_bw(vty, &lp->use_bw.header);
-		vty_out(vty, "---------------\n\n");
-	} else {
-		vty_out(vty, "  %s: MPLS-TE is disabled on this interface\n",
-			ifp->name);
-	}
-
-	return;
-}
-
-DEFUN (show_ip_ospf_mpls_te_link,
-       show_ip_ospf_mpls_te_link_cmd,
-       "show ip ospf [vrf <NAME|all>] mpls-te interface [INTERFACE]",
-       SHOW_STR
-       IP_STR
-       OSPF_STR
-       VRF_CMD_HELP_STR
-       "All VRFs\n"
-       "MPLS-TE information\n"
-       "Interface information\n"
-       "Interface name\n")
-{
-	struct vrf *vrf;
-	int idx_interface = 5;
-	struct interface *ifp;
-	struct listnode *node;
-	char *vrf_name = NULL;
-	bool all_vrf;
-	int inst = 0;
-	int idx_vrf = 0;
-	struct ospf *ospf = NULL;
-
-	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
-		vrf_name = argv[idx_vrf + 1]->arg;
-		all_vrf = strmatch(vrf_name, "all");
-	}
-
-	/* vrf input is provided could be all or specific vrf*/
-	if (vrf_name) {
-		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
-				if (!ospf->oi_running)
-					continue;
-				vrf = vrf_lookup_by_id(ospf->vrf_id);
-				FOR_ALL_INTERFACES (vrf, ifp)
-					show_mpls_te_link_sub(vty, ifp);
-			}
-			return CMD_SUCCESS;
-		}
-		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
-		if (ospf == NULL || !ospf->oi_running)
-			return CMD_SUCCESS;
-		vrf = vrf_lookup_by_id(ospf->vrf_id);
-		FOR_ALL_INTERFACES (vrf, ifp)
-			show_mpls_te_link_sub(vty, ifp);
-		return CMD_SUCCESS;
-	}
-	/* Show All Interfaces. */
-	if (argc == 5) {
-		for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
-			if (!ospf->oi_running)
-				continue;
-			vrf = vrf_lookup_by_id(ospf->vrf_id);
-			FOR_ALL_INTERFACES (vrf, ifp)
-				show_mpls_te_link_sub(vty, ifp);
-		}
-	}
-	/* Interface name is specified. */
-	else {
-		ifp = if_lookup_by_name_all_vrf(argv[idx_interface]->arg);
-		if (ifp == NULL)
-			vty_out(vty, "No such interface name\n");
-		else
-			show_mpls_te_link_sub(vty, ifp);
-	}
-
-	return CMD_SUCCESS;
-}
-
-static void ospf_mpls_te_register_vty(void)
-{
-	install_element(VIEW_NODE, &show_ip_ospf_mpls_te_router_cmd);
-	install_element(VIEW_NODE, &show_ip_ospf_mpls_te_link_cmd);
-
-	install_element(OSPF_NODE, &ospf_mpls_te_on_cmd);
-	install_element(OSPF_NODE, &no_ospf_mpls_te_cmd);
-	install_element(OSPF_NODE, &ospf_mpls_te_router_addr_cmd);
-	install_element(OSPF_NODE, &ospf_mpls_te_inter_as_cmd);
-	install_element(OSPF_NODE, &ospf_mpls_te_inter_as_area_cmd);
-	install_element(OSPF_NODE, &no_ospf_mpls_te_inter_as_cmd);
-
-	return;
-}
+/**ThisisanimplementationofRFC3630*Copyright(C)2001KDDR&DLaboratories,Inc.*http:
+//www.kddlabs.co.jp/**Copyright(C)2012OrangeLabs*http://www.orange.com**Thisfile
+ispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*und
+erthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;ei
+therversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopeth
+atitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANT
+ABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetai
+ls.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram
+;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,Fif
+thFloor,Boston,MA02110-1301USA*//*AddsupportofRFC7471*//*AddsupportofRFC5392,RFC
+6827*/#include<zebra.h>#include<math.h>#include"linklist.h"#include"prefix.h"#in
+clude"vrf.h"#include"if.h"#include"table.h"#include"memory.h"#include"command.h"
+#include"vty.h"#include"stream.h"#include"log.h"#include"thread.h"#include"hash.
+h"#include"sockunion.h"/*forinet_aton()*/#include"network.h"#include"ospfd/ospfd
+.h"#include"ospfd/ospf_interface.h"#include"ospfd/ospf_ism.h"#include"ospfd/ospf
+_asbr.h"#include"ospfd/ospf_lsa.h"#include"ospfd/ospf_lsdb.h"#include"ospfd/ospf
+_neighbor.h"#include"ospfd/ospf_nsm.h"#include"ospfd/ospf_flood.h"#include"ospfd
+/ospf_packet.h"#include"ospfd/ospf_spf.h"#include"ospfd/ospf_dump.h"#include"osp
+fd/ospf_route.h"#include"ospfd/ospf_ase.h"#include"ospfd/ospf_zebra.h"#include"o
+spfd/ospf_te.h"#include"ospfd/ospf_vty.h"/**GlobalvariabletomanageOpaque-LSA/MPL
+S-TEonthisnode.*Notethatallparametervaluesarestoredinnetworkbyteorder.*/structos
+pf_mpls_teOspfMplsTE;constchar*mode2text[]={"Off","AS","Area"};/*---------------
+---------------------------------------------------------**Followingsareinitiali
+ze/terminatefunctionsforMPLS-TEhandling.*---------------------------------------
+---------------------------------*/staticintospf_mpls_te_new_if(structinterface*
+ifp);staticintospf_mpls_te_del_if(structinterface*ifp);staticvoidospf_mpls_te_is
+m_change(structospf_interface*oi,intold_status);staticvoidospf_mpls_te_nsm_chang
+e(structospf_neighbor*nbr,intold_status);staticvoidospf_mpls_te_config_write_rou
+ter(structvty*vty);staticvoidospf_mpls_te_show_info(structvty*vty,structospf_lsa
+*lsa);staticintospf_mpls_te_lsa_originate_area(void*arg);staticintospf_mpls_te_l
+sa_originate_as(void*arg);staticstructospf_lsa*ospf_mpls_te_lsa_refresh(structos
+pf_lsa*lsa);staticvoiddel_mpls_te_link(void*val);staticvoidospf_mpls_te_register
+_vty(void);intospf_mpls_te_init(void){intrc;rc=ospf_register_opaque_functab(OSPF
+_OPAQUE_AREA_LSA,OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA,ospf_mpls_te_new_if,ospf_mp
+ls_te_del_if,ospf_mpls_te_ism_change,ospf_mpls_te_nsm_change,ospf_mpls_te_config
+_write_router,NULL,/*ospf_mpls_te_config_write_if*/NULL,/*ospf_mpls_te_config_wr
+ite_debug*/ospf_mpls_te_show_info,ospf_mpls_te_lsa_originate_area,ospf_mpls_te_l
+sa_refresh,NULL,/*ospf_mpls_te_new_lsa_hook*/NULL/*ospf_mpls_te_del_lsa_hook*/);
+if(rc!=0){zlog_warn("ospf_mpls_te_init:FailedtoregisterTrafficEngineeringfunctio
+ns");returnrc;}memset(&OspfMplsTE,0,sizeof(structospf_mpls_te));OspfMplsTE.enabl
+ed=false;OspfMplsTE.inter_as=Off;OspfMplsTE.iflist=list_new();OspfMplsTE.iflist-
+>del=del_mpls_te_link;ospf_mpls_te_register_vty();returnrc;}/*Additionalregister
+forRFC5392support*/staticintospf_mpls_te_register(enuminter_as_modemode){intrc=0
+;uint8_tscope;if(OspfMplsTE.inter_as!=Off)returnrc;if(mode==AS)scope=OSPF_OPAQUE
+_AS_LSA;elsescope=OSPF_OPAQUE_AREA_LSA;rc=ospf_register_opaque_functab(scope,OPA
+QUE_TYPE_INTER_AS_LSA,NULL,NULL,NULL,NULL,NULL,NULL,NULL,ospf_mpls_te_show_info,
+ospf_mpls_te_lsa_originate_as,ospf_mpls_te_lsa_refresh,NULL,NULL);if(rc!=0){zlog
+_warn("ospf_router_info_init:FailedtoregisterInter-ASfunctions");returnrc;}retur
+nrc;}staticintospf_mpls_te_unregister(){uint8_tscope;if(OspfMplsTE.inter_as==Off
+)return0;if(OspfMplsTE.inter_as==AS)scope=OSPF_OPAQUE_AS_LSA;elsescope=OSPF_OPAQ
+UE_AREA_LSA;ospf_delete_opaque_functab(scope,OPAQUE_TYPE_INTER_AS_LSA);return0;}
+voidospf_mpls_te_term(void){list_delete_and_null(&OspfMplsTE.iflist);ospf_delete
+_opaque_functab(OSPF_OPAQUE_AREA_LSA,OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);OspfMp
+lsTE.enabled=false;ospf_mpls_te_unregister();OspfMplsTE.inter_as=Off;return;}voi
+dospf_mpls_te_finish(void){//list_delete_all_node(OspfMplsTE.iflist);OspfMplsTE.
+enabled=false;OspfMplsTE.inter_as=Off;}/*---------------------------------------
+---------------------------------**FollowingsarecontrolfunctionsforMPLS-TEparame
+tersmanagement.*----------------------------------------------------------------
+--------*/staticvoiddel_mpls_te_link(void*val){XFREE(MTYPE_OSPF_MPLS_TE,val);ret
+urn;}staticuint32_tget_mpls_te_instance_value(void){staticuint32_tseqno=0;if(seq
+no<MAX_LEGAL_TE_INSTANCE_NUM)seqno+=1;elseseqno=1;/*Avoidzero.*/returnseqno;}sta
+ticstructmpls_te_link*lookup_linkparams_by_ifp(structinterface*ifp){structlistno
+de*node,*nnode;structmpls_te_link*lp;for(ALL_LIST_ELEMENTS(OspfMplsTE.iflist,nod
+e,nnode,lp))if(lp->ifp==ifp)returnlp;returnNULL;}staticstructmpls_te_link*lookup
+_linkparams_by_instance(structospf_lsa*lsa){structlistnode*node;structmpls_te_li
+nk*lp;unsignedintkey=GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr));for(ALL_LIST_ELE
+MENTS_RO(OspfMplsTE.iflist,node,lp))if(lp->instance==key)returnlp;zlog_warn("loo
+kup_linkparams_by_instance:Entrynotfound:key(%x)",key);returnNULL;}staticvoidosp
+f_mpls_te_foreach_area(void(*func)(structmpls_te_link*lp,enumlsa_opcodesched_opc
+ode),enumlsa_opcodesched_opcode){structlistnode*node,*nnode;structlistnode*node2
+;structmpls_te_link*lp;structospf_area*area;for(ALL_LIST_ELEMENTS(OspfMplsTE.ifl
+ist,node,nnode,lp)){/*SkipInter-ASTEv2Links*/if(IS_INTER_AS(lp->type))continue;i
+f((area=lp->area)==NULL)continue;if(CHECK_FLAG(lp->flags,LPFLG_LOOKUP_DONE))cont
+inue;if(func!=NULL)(*func)(lp,sched_opcode);for(node2=listnextnode(node);node2;n
+ode2=listnextnode(node2))if((lp=listgetdata(node2))!=NULL)if(lp->area!=NULL)if(I
+PV4_ADDR_SAME(&lp->area->area_id,&area->area_id))SET_FLAG(lp->flags,LPFLG_LOOKUP
+_DONE);}for(ALL_LIST_ELEMENTS_RO(OspfMplsTE.iflist,node,lp))if(lp->area!=NULL)UN
+SET_FLAG(lp->flags,LPFLG_LOOKUP_DONE);return;}staticvoidset_mpls_te_router_addr(
+structin_addripv4){OspfMplsTE.router_addr.header.type=htons(TE_TLV_ROUTER_ADDR);
+OspfMplsTE.router_addr.header.length=htons(TE_LINK_SUBTLV_DEF_SIZE);OspfMplsTE.r
+outer_addr.value=ipv4;return;}staticvoidset_linkparams_link_header(structmpls_te
+_link*lp){uint16_tlength=0;/*TE_LINK_SUBTLV_LINK_TYPE*/if(ntohs(lp->link_type.he
+ader.type)!=0)length+=TLV_SIZE(&lp->link_type.header);/*TE_LINK_SUBTLV_LINK_ID*/
+if(ntohs(lp->link_id.header.type)!=0)length+=TLV_SIZE(&lp->link_id.header);/*TE_
+LINK_SUBTLV_LCLIF_IPADDR*/if(lp->lclif_ipaddr.header.type!=0)length+=TLV_SIZE(&l
+p->lclif_ipaddr.header);/*TE_LINK_SUBTLV_RMTIF_IPADDR*/if(lp->rmtif_ipaddr.heade
+r.type!=0)length+=TLV_SIZE(&lp->rmtif_ipaddr.header);/*TE_LINK_SUBTLV_TE_METRIC*
+/if(ntohs(lp->te_metric.header.type)!=0)length+=TLV_SIZE(&lp->te_metric.header);
+/*TE_LINK_SUBTLV_MAX_BW*/if(ntohs(lp->max_bw.header.type)!=0)length+=TLV_SIZE(&l
+p->max_bw.header);/*TE_LINK_SUBTLV_MAX_RSV_BW*/if(ntohs(lp->max_rsv_bw.header.ty
+pe)!=0)length+=TLV_SIZE(&lp->max_rsv_bw.header);/*TE_LINK_SUBTLV_UNRSV_BW*/if(nt
+ohs(lp->unrsv_bw.header.type)!=0)length+=TLV_SIZE(&lp->unrsv_bw.header);/*TE_LIN
+K_SUBTLV_RSC_CLSCLR*/if(ntohs(lp->rsc_clsclr.header.type)!=0)length+=TLV_SIZE(&l
+p->rsc_clsclr.header);/*TE_LINK_SUBTLV_LLRI*/if(ntohs(lp->llri.header.type)!=0)l
+ength+=TLV_SIZE(&lp->llri.header);/*TE_LINK_SUBTLV_RIP*/if(ntohs(lp->rip.header.
+type)!=0)length+=TLV_SIZE(&lp->rip.header);/*TE_LINK_SUBTLV_RAS*/if(ntohs(lp->ra
+s.header.type)!=0)length+=TLV_SIZE(&lp->ras.header);/*TE_LINK_SUBTLV_LRRID*/if(n
+tohs(lp->lrrid.header.type)!=0)length+=TLV_SIZE(&lp->lrrid.header);/*TE_LINK_SUB
+TLV_AV_DELAY*/if(ntohs(lp->av_delay.header.type)!=0)length+=TLV_SIZE(&lp->av_del
+ay.header);/*TE_LINK_SUBTLV_MM_DELAY*/if(ntohs(lp->mm_delay.header.type)!=0)leng
+th+=TLV_SIZE(&lp->mm_delay.header);/*TE_LINK_SUBTLV_DELAY_VAR*/if(ntohs(lp->dela
+y_var.header.type)!=0)length+=TLV_SIZE(&lp->delay_var.header);/*TE_LINK_SUBTLV_P
+KT_LOSS*/if(ntohs(lp->pkt_loss.header.type)!=0)length+=TLV_SIZE(&lp->pkt_loss.he
+ader);/*TE_LINK_SUBTLV_RES_BW*/if(ntohs(lp->res_bw.header.type)!=0)length+=TLV_S
+IZE(&lp->res_bw.header);/*TE_LINK_SUBTLV_AVA_BW*/if(ntohs(lp->ava_bw.header.type
+)!=0)length+=TLV_SIZE(&lp->ava_bw.header);/*TE_LINK_SUBTLV_USE_BW*/if(ntohs(lp->
+use_bw.header.type)!=0)length+=TLV_SIZE(&lp->use_bw.header);lp->link_header.head
+er.type=htons(TE_TLV_LINK);lp->link_header.header.length=htons(length);return;}s
+taticvoidset_linkparams_link_type(structospf_interface*oi,structmpls_te_link*lp)
+{lp->link_type.header.type=htons(TE_LINK_SUBTLV_LINK_TYPE);lp->link_type.header.
+length=htons(TE_LINK_SUBTLV_TYPE_SIZE);switch(oi->type){caseOSPF_IFTYPE_POINTOPO
+INT:lp->link_type.link_type.value=LINK_TYPE_SUBTLV_VALUE_PTP;break;caseOSPF_IFTY
+PE_BROADCAST:caseOSPF_IFTYPE_NBMA:lp->link_type.link_type.value=LINK_TYPE_SUBTLV
+_VALUE_MA;break;default:/*Notsupportedyet.*//*XXX*/lp->link_type.header.type=hto
+ns(0);break;}return;}staticvoidset_linkparams_link_id(structospf_interface*oi,st
+ructmpls_te_link*lp){structospf_neighbor*nbr;intdone=0;lp->link_id.header.type=h
+tons(TE_LINK_SUBTLV_LINK_ID);lp->link_id.header.length=htons(TE_LINK_SUBTLV_DEF_
+SIZE);/**TheLinkIDisidenticaltothecontentsoftheLinkIDfield*intheRouterLSAforthes
+elinktypes.*/switch(oi->type){caseOSPF_IFTYPE_POINTOPOINT:/*TaketherouterIDofthe
+neighbor.*/if((nbr=ospf_nbr_lookup_ptop(oi))&&nbr->state==NSM_Full){lp->link_id.
+value=nbr->router_id;done=1;}break;caseOSPF_IFTYPE_BROADCAST:caseOSPF_IFTYPE_NBM
+A:/*Taketheinterfaceaddressofthedesignatedrouter.*/if((nbr=ospf_nbr_lookup_by_ad
+dr(oi->nbrs,&DR(oi)))==NULL)break;if(nbr->state==NSM_Full||(IPV4_ADDR_SAME(&oi->
+address->u.prefix4,&DR(oi))&&ospf_nbr_count(oi,NSM_Full)>0)){lp->link_id.value=D
+R(oi);done=1;}break;default:/*Notsupportedyet.*//*XXX*/lp->link_id.header.type=h
+tons(0);break;}if(!done){structin_addrmask;masklen2ip(oi->address->prefixlen,&ma
+sk);lp->link_id.value.s_addr=oi->address->u.prefix4.s_addr&mask.s_addr;}return;}
+staticvoidset_linkparams_lclif_ipaddr(structmpls_te_link*lp,structin_addrlclif){
+lp->lclif_ipaddr.header.type=htons(TE_LINK_SUBTLV_LCLIF_IPADDR);lp->lclif_ipaddr
+.header.length=htons(TE_LINK_SUBTLV_DEF_SIZE);lp->lclif_ipaddr.value[0]=lclif;re
+turn;}staticvoidset_linkparams_rmtif_ipaddr(structmpls_te_link*lp,structin_addrr
+mtif){lp->rmtif_ipaddr.header.type=htons(TE_LINK_SUBTLV_RMTIF_IPADDR);lp->rmtif_
+ipaddr.header.length=htons(TE_LINK_SUBTLV_DEF_SIZE);lp->rmtif_ipaddr.value[0]=rm
+tif;return;}staticvoidset_linkparams_te_metric(structmpls_te_link*lp,uint32_tte_
+metric){lp->te_metric.header.type=htons(TE_LINK_SUBTLV_TE_METRIC);lp->te_metric.
+header.length=htons(TE_LINK_SUBTLV_DEF_SIZE);lp->te_metric.value=htonl(te_metric
+);return;}staticvoidset_linkparams_max_bw(structmpls_te_link*lp,floatfp){lp->max
+_bw.header.type=htons(TE_LINK_SUBTLV_MAX_BW);lp->max_bw.header.length=htons(TE_L
+INK_SUBTLV_DEF_SIZE);lp->max_bw.value=htonf(fp);return;}staticvoidset_linkparams
+_max_rsv_bw(structmpls_te_link*lp,floatfp){lp->max_rsv_bw.header.type=htons(TE_L
+INK_SUBTLV_MAX_RSV_BW);lp->max_rsv_bw.header.length=htons(TE_LINK_SUBTLV_DEF_SIZ
+E);lp->max_rsv_bw.value=htonf(fp);return;}staticvoidset_linkparams_unrsv_bw(stru
+ctmpls_te_link*lp,intpriority,floatfp){/*NotethatTLV-lengthfieldisthesizeofarray
+.*/lp->unrsv_bw.header.type=htons(TE_LINK_SUBTLV_UNRSV_BW);lp->unrsv_bw.header.l
+ength=htons(TE_LINK_SUBTLV_UNRSV_SIZE);lp->unrsv_bw.value[priority]=htonf(fp);re
+turn;}staticvoidset_linkparams_rsc_clsclr(structmpls_te_link*lp,uint32_tclasscol
+or){lp->rsc_clsclr.header.type=htons(TE_LINK_SUBTLV_RSC_CLSCLR);lp->rsc_clsclr.h
+eader.length=htons(TE_LINK_SUBTLV_DEF_SIZE);lp->rsc_clsclr.value=htonl(classcolo
+r);return;}staticvoidset_linkparams_inter_as(structmpls_te_link*lp,structin_addr
+addr,uint32_tas){/*SettheRemoteASBRIPaddressandthentheassociatedASnumber*/lp->ri
+p.header.type=htons(TE_LINK_SUBTLV_RIP);lp->rip.header.length=htons(TE_LINK_SUBT
+LV_DEF_SIZE);lp->rip.value=addr;lp->ras.header.type=htons(TE_LINK_SUBTLV_RAS);lp
+->ras.header.length=htons(TE_LINK_SUBTLV_DEF_SIZE);lp->ras.value=htonl(as);}stat
+icvoidunset_linkparams_inter_as(structmpls_te_link*lp){/*ResettheRemoteASBRIPadd
+ressandthentheassociatedASnumber*/lp->rip.header.type=htons(0);lp->rip.header.le
+ngth=htons(0);lp->rip.value.s_addr=htonl(0);lp->ras.header.type=htons(0);lp->ras
+.header.length=htons(0);lp->ras.value=htonl(0);}voidset_linkparams_llri(structmp
+ls_te_link*lp,uint32_tlocal,uint32_tremote){lp->llri.header.type=htons(TE_LINK_S
+UBTLV_LLRI);lp->llri.header.length=htons(TE_LINK_SUBTLV_LLRI_SIZE);lp->llri.loca
+l=htonl(local);lp->llri.remote=htonl(remote);}voidset_linkparams_lrrid(structmpl
+s_te_link*lp,structin_addrlocal,structin_addrremote){lp->lrrid.header.type=htons
+(TE_LINK_SUBTLV_LRRID);lp->lrrid.header.length=htons(TE_LINK_SUBTLV_LRRID_SIZE);
+lp->lrrid.local.s_addr=local.s_addr;lp->lrrid.remote.s_addr=remote.s_addr;}stati
+cvoidset_linkparams_av_delay(structmpls_te_link*lp,uint32_tdelay,uint8_tanormal)
+{uint32_ttmp;/*NotethatTLV-lengthfieldisthesizeofarray.*/lp->av_delay.header.typ
+e=htons(TE_LINK_SUBTLV_AV_DELAY);lp->av_delay.header.length=htons(TE_LINK_SUBTLV
+_DEF_SIZE);tmp=delay&TE_EXT_MASK;if(anormal)tmp|=TE_EXT_ANORMAL;lp->av_delay.val
+ue=htonl(tmp);return;}staticvoidset_linkparams_mm_delay(structmpls_te_link*lp,ui
+nt32_tlow,uint32_thigh,uint8_tanormal){uint32_ttmp;/*NotethatTLV-lengthfieldisth
+esizeofarray.*/lp->mm_delay.header.type=htons(TE_LINK_SUBTLV_MM_DELAY);lp->mm_de
+lay.header.length=htons(TE_LINK_SUBTLV_MM_DELAY_SIZE);tmp=low&TE_EXT_MASK;if(ano
+rmal)tmp|=TE_EXT_ANORMAL;lp->mm_delay.low=htonl(tmp);lp->mm_delay.high=htonl(hig
+h);return;}staticvoidset_linkparams_delay_var(structmpls_te_link*lp,uint32_tjitt
+er){/*NotethatTLV-lengthfieldisthesizeofarray.*/lp->delay_var.header.type=htons(
+TE_LINK_SUBTLV_DELAY_VAR);lp->delay_var.header.length=htons(TE_LINK_SUBTLV_DEF_S
+IZE);lp->delay_var.value=htonl(jitter&TE_EXT_MASK);return;}staticvoidset_linkpar
+ams_pkt_loss(structmpls_te_link*lp,uint32_tloss,uint8_tanormal){uint32_ttmp;/*No
+tethatTLV-lengthfieldisthesizeofarray.*/lp->pkt_loss.header.type=htons(TE_LINK_S
+UBTLV_PKT_LOSS);lp->pkt_loss.header.length=htons(TE_LINK_SUBTLV_DEF_SIZE);tmp=lo
+ss&TE_EXT_MASK;if(anormal)tmp|=TE_EXT_ANORMAL;lp->pkt_loss.value=htonl(tmp);retu
+rn;}staticvoidset_linkparams_res_bw(structmpls_te_link*lp,floatfp){/*NotethatTLV
+-lengthfieldisthesizeofarray.*/lp->res_bw.header.type=htons(TE_LINK_SUBTLV_RES_B
+W);lp->res_bw.header.length=htons(TE_LINK_SUBTLV_DEF_SIZE);lp->res_bw.value=hton
+f(fp);return;}staticvoidset_linkparams_ava_bw(structmpls_te_link*lp,floatfp){/*N
+otethatTLV-lengthfieldisthesizeofarray.*/lp->ava_bw.header.type=htons(TE_LINK_SU
+BTLV_AVA_BW);lp->ava_bw.header.length=htons(TE_LINK_SUBTLV_DEF_SIZE);lp->ava_bw.
+value=htonf(fp);return;}staticvoidset_linkparams_use_bw(structmpls_te_link*lp,fl
+oatfp){/*NotethatTLV-lengthfieldisthesizeofarray.*/lp->use_bw.header.type=htons(
+TE_LINK_SUBTLV_USE_BW);lp->use_bw.header.length=htons(TE_LINK_SUBTLV_DEF_SIZE);l
+p->use_bw.value=htonf(fp);return;}/*UpdateTEparametersfromInterface*/staticvoidu
+pdate_linkparams(structmpls_te_link*lp){inti;structinterface*ifp;/*GettheInterfa
+cestructure*/if((ifp=lp->ifp)==NULL){if(IS_DEBUG_OSPF_TE)zlog_debug("OSPFMPLS-TE
+:AbortupdateTEparameters:nointerfaceassociatedtoLinkParameters");return;}if(!HAS
+_LINK_PARAMS(ifp)){if(IS_DEBUG_OSPF_TE)zlog_debug("OSPFMPLS-TE:AbortupdateTEpara
+meters:noLinkParametersforinterface");return;}/*RFC3630metrics*/if(IS_PARAM_SET(
+ifp->link_params,LP_ADM_GRP))set_linkparams_rsc_clsclr(lp,ifp->link_params->admi
+n_grp);elseTLV_TYPE(lp->rsc_clsclr)=0;if(IS_PARAM_SET(ifp->link_params,LP_MAX_BW
+))set_linkparams_max_bw(lp,ifp->link_params->max_bw);elseTLV_TYPE(lp->max_bw)=0;
+if(IS_PARAM_SET(ifp->link_params,LP_MAX_RSV_BW))set_linkparams_max_rsv_bw(lp,ifp
+->link_params->max_rsv_bw);elseTLV_TYPE(lp->max_rsv_bw)=0;if(IS_PARAM_SET(ifp->l
+ink_params,LP_UNRSV_BW))for(i=0;i<MAX_CLASS_TYPE;i++)set_linkparams_unrsv_bw(lp,
+i,ifp->link_params->unrsv_bw[i]);elseTLV_TYPE(lp->unrsv_bw)=0;if(IS_PARAM_SET(if
+p->link_params,LP_TE_METRIC))set_linkparams_te_metric(lp,ifp->link_params->te_me
+tric);elseTLV_TYPE(lp->te_metric)=0;/*TEmetricExtensions*/if(IS_PARAM_SET(ifp->l
+ink_params,LP_DELAY))set_linkparams_av_delay(lp,ifp->link_params->av_delay,0);el
+seTLV_TYPE(lp->av_delay)=0;if(IS_PARAM_SET(ifp->link_params,LP_MM_DELAY))set_lin
+kparams_mm_delay(lp,ifp->link_params->min_delay,ifp->link_params->max_delay,0);e
+lseTLV_TYPE(lp->mm_delay)=0;if(IS_PARAM_SET(ifp->link_params,LP_DELAY_VAR))set_l
+inkparams_delay_var(lp,ifp->link_params->delay_var);elseTLV_TYPE(lp->delay_var)=
+0;if(IS_PARAM_SET(ifp->link_params,LP_PKT_LOSS))set_linkparams_pkt_loss(lp,ifp->
+link_params->pkt_loss,0);elseTLV_TYPE(lp->pkt_loss)=0;if(IS_PARAM_SET(ifp->link_
+params,LP_RES_BW))set_linkparams_res_bw(lp,ifp->link_params->res_bw);elseTLV_TYP
+E(lp->res_bw)=0;if(IS_PARAM_SET(ifp->link_params,LP_AVA_BW))set_linkparams_ava_b
+w(lp,ifp->link_params->ava_bw);elseTLV_TYPE(lp->ava_bw)=0;if(IS_PARAM_SET(ifp->l
+ink_params,LP_USE_BW))set_linkparams_use_bw(lp,ifp->link_params->use_bw);elseTLV
+_TYPE(lp->use_bw)=0;/*RFC5392*/if(IS_PARAM_SET(ifp->link_params,LP_RMT_AS)){/*Fl
+ushLSAifitengagedandwaspreviouslyaSTD_TEone*/if(IS_STD_TE(lp->type)&&CHECK_FLAG(
+lp->flags,LPFLG_LSA_ENGAGED)){if(IS_DEBUG_OSPF_TE)zlog_debug("OSPFMPLS-TEUpdateI
+F:SwitchfromStandardLSAtoINTER-ASfor%s[%d/%d]",ifp->name,lp->flags,lp->type);osp
+f_mpls_te_lsa_schedule(lp,FLUSH_THIS_LSA);/*Then,switchittoINTER-AS*/if(OspfMpls
+TE.inter_as==AS)lp->flags=INTER_AS|FLOOD_AS;else{lp->flags=INTER_AS|FLOOD_AREA;l
+p->area=ospf_area_lookup_by_area_id(ospf_lookup_by_vrf_id(VRF_DEFAULT),OspfMplsT
+E.interas_areaid);}}set_linkparams_inter_as(lp,ifp->link_params->rmt_ip,ifp->lin
+k_params->rmt_as);}else{if(IS_DEBUG_OSPF_TE)zlog_debug("OSPFMPLS-TEUpdateIF:Swit
+chfromINTER-ASLSAtoStandardfor%s[%d/%d]",ifp->name,lp->flags,lp->type);/*resetin
+ter-asTEparams*//*FlushLSAifitengagedandwaspreviouslyanINTER_ASone*/if(IS_INTER_
+AS(lp->type)&&CHECK_FLAG(lp->flags,LPFLG_LSA_ENGAGED)){ospf_mpls_te_lsa_schedule
+(lp,FLUSH_THIS_LSA);/*Then,switchittoStandardTE*/lp->flags=STD_TE|FLOOD_AREA;}un
+set_linkparams_inter_as(lp);}}staticvoidinitialize_linkparams(structmpls_te_link
+*lp){structinterface*ifp=lp->ifp;structospf_interface*oi=NULL;structroute_node*r
+n;if(IS_DEBUG_OSPF_TE)zlog_debug("MPLS-TE(initialize_linkparams)InitializeLinkPa
+rametersforinterface%s",ifp->name);/*SearchOSPFInterfaceparametersforthisinterfa
+ce*/for(rn=route_top(IF_OIFS(ifp));rn;rn=route_next(rn)){if((oi=rn->info)==NULL)
+continue;if(oi->ifp==ifp)break;}if((oi==NULL)||(oi->ifp!=ifp)){if(IS_DEBUG_OSPF_
+TE)zlog_warn("MPLS-TE(initialize_linkparams)CouldnotfindcorrespondingOSPFInterfa
+cefor%s",ifp->name);return;}/**Trytosetinitialvaluesthosecanbederivedfrom*zebra-
+interfaceinformation.*/set_linkparams_link_type(oi,lp);/*SetlocalIPaddr*/set_lin
+kparams_lclif_ipaddr(lp,oi->address->u.prefix4);/*SetRemoteIPaddrifPointtoPointI
+nterface*/if(oi->type==OSPF_IFTYPE_POINTOPOINT){structprefix*pref=CONNECTED_PREF
+IX(oi->connected);if(pref!=NULL)set_linkparams_rmtif_ipaddr(lp,pref->u.prefix4);
+}/*KeepAreainformationincombinationwithlinkparameters.*/lp->area=oi->area;return
+;}staticintis_mandated_params_set(structmpls_te_link*lp){intrc=0;if(ntohs(OspfMp
+lsTE.router_addr.header.type)==0){zlog_warn("MPLS-TE(is_mandated_params_set)Miss
+ingRouterAddress");returnrc;}if(ntohs(lp->link_type.header.type)==0){zlog_warn("
+MPLS-TE(is_mandated_params_set)MissingLinkType");returnrc;}if(!IS_INTER_AS(lp->t
+ype)&&(ntohs(lp->link_id.header.type)==0)){zlog_warn("MPLS-TE(is_mandated_params
+_set)MissingLinkID");returnrc;}rc=1;returnrc;}/*--------------------------------
+----------------------------------------**Followingsarecallbackfunctionsagainstg
+enericOpaque-LSAshandling.*-----------------------------------------------------
+-------------------*/staticintospf_mpls_te_new_if(structinterface*ifp){structmpl
+s_te_link*new;intrc=-1;if(IS_DEBUG_OSPF_TE)zlog_debug("MPLS-TE(ospf_mpls_te_new_
+if)Addnew%sinterface%stoMPLS-TElist",ifp->link_params?"Active":"Inactive",ifp->n
+ame);if(lookup_linkparams_by_ifp(ifp)!=NULL){zlog_warn("ospf_mpls_te_new_if:ifp(
+%p)alreadyinuse?",(void*)ifp);rc=0;/*Donothinghere.*/returnrc;}new=XCALLOC(MTYPE
+_OSPF_MPLS_TE,sizeof(structmpls_te_link));if(new==NULL){zlog_warn("ospf_mpls_te_
+new_if:XMALLOC:%s",safe_strerror(errno));returnrc;}new->instance=get_mpls_te_ins
+tance_value();new->ifp=ifp;/*BydefaultTE-LinkisRFC3630compatiblefloodinginAreaan
+dnot*active*//*Thisdefaultbehaviorwillbeadaptedwithcallto*ospf_mpls_te_update_if
+()*/new->type=STD_TE|FLOOD_AREA;new->flags=LPFLG_LSA_INACTIVE;/*InitializeLinkPa
+rametersfromInterface*/initialize_linkparams(new);/*SetTEParametersfromInterface
+*/update_linkparams(new);/*AddLinkParametersstructuretothelist*/listnode_add(Osp
+fMplsTE.iflist,new);if(IS_DEBUG_OSPF_TE)zlog_debug("OSPFMPLS-TENewIF:AddnewLPcon
+textfor%s[%d/%d]",ifp->name,new->flags,new->type);/*ScheduleOpaque-LSArefresh.*/
+/*XXX*/rc=0;returnrc;}staticintospf_mpls_te_del_if(structinterface*ifp){structmp
+ls_te_link*lp;intrc=-1;if((lp=lookup_linkparams_by_ifp(ifp))!=NULL){structlist*i
+flist=OspfMplsTE.iflist;/*Dequeuelistnodeentryfromthelist.*/listnode_delete(ifli
+st,lp);/*Avoidmisjudgementinthenextlookup.*/if(listcount(iflist)==0)iflist->head
+=iflist->tail=NULL;XFREE(MTYPE_OSPF_MPLS_TE,lp);}/*ScheduleOpaque-LSArefresh.*//
+*XXX*/rc=0;returnrc;}/*Maininitialization/updatefunctionoftheMPLSTELinkcontext*/
+/*CallwheninterfaceTELinkparametersaremodified*/voidospf_mpls_te_update_if(struc
+tinterface*ifp){structmpls_te_link*lp;if(IS_DEBUG_OSPF_TE)zlog_debug("OSPFMPLS-T
+E:UpdateLSAparametersforinterface%s[%s]",ifp->name,HAS_LINK_PARAMS(ifp)?"ON":"OF
+F");/*GetLinkcontextfrominterface*/if((lp=lookup_linkparams_by_ifp(ifp))==NULL){
+zlog_warn("OSPFMPLS-TEUpdate:DidnotfindLinkParameterscontextforinterface%s",ifp-
+>name);return;}/*FulfillMPLS-TELinkTLVfromInterfaceTELinkparameters*/if(HAS_LINK
+_PARAMS(ifp)){SET_FLAG(lp->flags,LPFLG_LSA_ACTIVE);/*UpdateTEparameters*/update_
+linkparams(lp);/*FinallyRe-OriginateorRefreshOpaqueLSAifMPLS_TEis*enabled*/if(Os
+pfMplsTE.enabled)if(lp->area!=NULL){if(CHECK_FLAG(lp->flags,LPFLG_LSA_ENGAGED))o
+spf_mpls_te_lsa_schedule(lp,REFRESH_THIS_LSA);elseospf_mpls_te_lsa_schedule(lp,R
+EORIGINATE_THIS_LSA);}}else{/*IfMPLSTEisdisableonthisinterface,flushLSAifitis*al
+readyengaged*/if(CHECK_FLAG(lp->flags,LPFLG_LSA_ENGAGED))ospf_mpls_te_lsa_schedu
+le(lp,FLUSH_THIS_LSA);else/*ResetActivityflag*/lp->flags=LPFLG_LSA_INACTIVE;}ret
+urn;}staticvoidospf_mpls_te_ism_change(structospf_interface*oi,intold_state){str
+uctte_link_subtlv_link_typeold_type;structte_link_subtlv_link_idold_id;structmpl
+s_te_link*lp;if((lp=lookup_linkparams_by_ifp(oi->ifp))==NULL){zlog_warn("ospf_mp
+ls_te_ism_change:CannotgetlinkparamsfromOI(%s)?",IF_NAME(oi));return;}if(oi->are
+a==NULL||oi->area->ospf==NULL){zlog_warn("ospf_mpls_te_ism_change:CannotrefertoO
+SPFfromOI(%s)?",IF_NAME(oi));return;}#ifdefnotyetif((lp->area!=NULL&&!IPV4_ADDR_
+SAME(&lp->area->area_id,&oi->area->area_id))||(lp->area!=NULL&&oi->area==NULL)){
+/*Howshouldweconsiderthiscase?*/zlog_warn("MPLS-TE:AreaforOI(%s)haschangedto[%s]
+,flushpreviousLSAs",IF_NAME(oi),oi->area?inet_ntoa(oi->area->area_id):"N/A");osp
+f_mpls_te_lsa_schedule(lp,FLUSH_THIS_LSA);}#endif/*KeepAreainformationincombinat
+ionwithlinkparams.*/lp->area=oi->area;/*KeepinterfaceMPLS-TEstatus*/lp->flags=HA
+S_LINK_PARAMS(oi->ifp);switch(oi->state){caseISM_PointToPoint:caseISM_DROther:ca
+seISM_Backup:caseISM_DR:old_type=lp->link_type;old_id=lp->link_id;/*SetLinktype,
+LinkID,LocalandRemoteIPaddr*/set_linkparams_link_type(oi,lp);set_linkparams_link
+_id(oi,lp);set_linkparams_lclif_ipaddr(lp,oi->address->u.prefix4);if(oi->type==L
+INK_TYPE_SUBTLV_VALUE_PTP){structprefix*pref=CONNECTED_PREFIX(oi->connected);if(
+pref!=NULL)set_linkparams_rmtif_ipaddr(lp,pref->u.prefix4);}/*UpdateTEparameters
+*/update_linkparams(lp);/*TrytoScheduleLSA*/if((ntohs(old_type.header.type)!=nto
+hs(lp->link_type.header.type)||old_type.link_type.value!=lp->link_type.link_type
+.value)||(ntohs(old_id.header.type)!=ntohs(lp->link_id.header.type)||ntohl(old_i
+d.value.s_addr)!=ntohl(lp->link_id.value.s_addr))){if(CHECK_FLAG(lp->flags,LPFLG
+_LSA_ENGAGED))ospf_mpls_te_lsa_schedule(lp,REFRESH_THIS_LSA);elseospf_mpls_te_ls
+a_schedule(lp,REORIGINATE_THIS_LSA);}break;default:lp->link_type.header.type=hto
+ns(0);lp->link_id.header.type=htons(0);if(CHECK_FLAG(lp->flags,LPFLG_LSA_ENGAGED
+))ospf_mpls_te_lsa_schedule(lp,FLUSH_THIS_LSA);break;}return;}staticvoidospf_mpl
+s_te_nsm_change(structospf_neighbor*nbr,intold_state){/*Nothingtodohere*/return;
+}/*------------------------------------------------------------------------**Fol
+lowingsareOSPFprotocolprocessingfunctionsforMPLS-TE.*---------------------------
+---------------------------------------------*/staticvoidbuild_tlv_header(struct
+stream*s,structtlv_header*tlvh){stream_put(s,tlvh,sizeof(structtlv_header));retu
+rn;}staticvoidbuild_router_tlv(structstream*s){structtlv_header*tlvh=&OspfMplsTE
+.router_addr.header;if(ntohs(tlvh->type)!=0){build_tlv_header(s,tlvh);stream_put
+(s,TLV_DATA(tlvh),TLV_BODY_SIZE(tlvh));}return;}staticvoidbuild_link_subtlv(stru
+ctstream*s,structtlv_header*tlvh){if((tlvh!=NULL)&&(ntohs(tlvh->type)!=0)){build
+_tlv_header(s,tlvh);stream_put(s,TLV_DATA(tlvh),TLV_BODY_SIZE(tlvh));}return;}st
+aticvoidbuild_link_tlv(structstream*s,structmpls_te_link*lp){set_linkparams_link
+_header(lp);build_tlv_header(s,&lp->link_header.header);build_link_subtlv(s,&lp-
+>link_type.header);build_link_subtlv(s,&lp->link_id.header);build_link_subtlv(s,
+&lp->lclif_ipaddr.header);build_link_subtlv(s,&lp->rmtif_ipaddr.header);build_li
+nk_subtlv(s,&lp->te_metric.header);build_link_subtlv(s,&lp->max_bw.header);build
+_link_subtlv(s,&lp->max_rsv_bw.header);build_link_subtlv(s,&lp->unrsv_bw.header)
+;build_link_subtlv(s,&lp->rsc_clsclr.header);build_link_subtlv(s,&lp->lrrid.head
+er);build_link_subtlv(s,&lp->llri.header);build_link_subtlv(s,&lp->rip.header);b
+uild_link_subtlv(s,&lp->ras.header);build_link_subtlv(s,&lp->av_delay.header);bu
+ild_link_subtlv(s,&lp->mm_delay.header);build_link_subtlv(s,&lp->delay_var.heade
+r);build_link_subtlv(s,&lp->pkt_loss.header);build_link_subtlv(s,&lp->res_bw.hea
+der);build_link_subtlv(s,&lp->ava_bw.header);build_link_subtlv(s,&lp->use_bw.hea
+der);return;}staticvoidospf_mpls_te_lsa_body_set(structstream*s,structmpls_te_li
+nk*lp){/**TherouteraddressTLVistype1,and...*Itmustappearinexactlyone*TrafficEngi
+neeringLSAoriginatedbyarouter.*/build_router_tlv(s);/**OnlyoneLinkTLVshallbecarr
+iedineachLSA,allowingforfine*granularitychangesintopology.*/build_link_tlv(s,lp)
+;return;}/*Createnewopaque-LSA.*/staticstructospf_lsa*ospf_mpls_te_lsa_new(struc
+tospf*ospf,structospf_area*area,structmpls_te_link*lp){structstream*s;structlsa_
+header*lsah;structospf_lsa*new=NULL;uint8_toptions,lsa_type=0;structin_addrlsa_i
+d;uint32_ttmp;uint16_tlength;/*CreateastreamforLSA.*/if((s=stream_new(OSPF_MAX_L
+SA_SIZE))==NULL){zlog_warn("ospf_mpls_te_lsa_new:stream_new()?");returnNULL;}lsa
+h=(structlsa_header*)STREAM_DATA(s);options=OSPF_OPTION_O;/*Don'tforgetthis:-)*/
+/*Setopaque-LSAheaderfieldsdependingofthetypeofRFC*/if(IS_INTER_AS(lp->type)){if
+IS_FLOOD_AS(lp->type){options|=OSPF_OPTION_E;/*EnableASexternalaswefloodInter-AS
+withOpaqueType11*/lsa_type=OSPF_OPAQUE_AS_LSA;}else{options|=LSA_OPTIONS_GET(are
+a);/*Getareadefaultoption*/options|=LSA_OPTIONS_NSSA_GET(area);lsa_type=OSPF_OPA
+QUE_AREA_LSA;}tmp=SET_OPAQUE_LSID(OPAQUE_TYPE_INTER_AS_LSA,lp->instance);lsa_id.
+s_addr=htonl(tmp);if(!ospf){stream_free(s);returnNULL;}lsa_header_set(s,options,
+lsa_type,lsa_id,ospf->router_id);}else{options|=LSA_OPTIONS_GET(area);/*Getaread
+efaultoption*/options|=LSA_OPTIONS_NSSA_GET(area);lsa_type=OSPF_OPAQUE_AREA_LSA;
+tmp=SET_OPAQUE_LSID(OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA,lp->instance);lsa_id.s_a
+ddr=htonl(tmp);lsa_header_set(s,options,lsa_type,lsa_id,area->ospf->router_id);}
+if(IS_DEBUG_OSPF(lsa,LSA_GENERATE))zlog_debug("LSA[Type%d:%s]:CreateanOpaque-LSA
+/MPLS-TEinstance",lsa_type,inet_ntoa(lsa_id));/*Setopaque-LSAbodyfields.*/ospf_m
+pls_te_lsa_body_set(s,lp);/*Setlength.*/length=stream_get_endp(s);lsah->length=h
+tons(length);/*Now,createanOSPFLSAinstance.*/if((new=ospf_lsa_new())==NULL){zlog
+_warn("ospf_mpls_te_lsa_new:ospf_lsa_new()?");stream_free(s);returnNULL;}if((new
+->data=ospf_lsa_data_new(length))==NULL){zlog_warn("ospf_mpls_te_lsa_new:ospf_ls
+a_data_new()?");ospf_lsa_unlock(&new);new=NULL;stream_free(s);returnnew;}new->vr
+f_id=ospf->vrf_id;if(area&&area->ospf)new->vrf_id=area->ospf->vrf_id;new->area=a
+rea;SET_FLAG(new->flags,OSPF_LSA_SELF);memcpy(new->data,lsah,length);stream_free
+(s);returnnew;}staticintospf_mpls_te_lsa_originate1(structospf_area*area,structm
+pls_te_link*lp){structospf_lsa*new=NULL;intrc=-1;/*CreatenewOpaque-LSA/MPLS-TEin
+stance.*/new=ospf_mpls_te_lsa_new(area->ospf,area,lp);if(new==NULL){zlog_warn("o
+spf_mpls_te_lsa_originate1:ospf_mpls_te_lsa_new()?");returnrc;}/*InstallthisLSAi
+ntoLSDB.*/if(ospf_lsa_install(area->ospf,NULL/*oi*/,new)==NULL){zlog_warn("ospf_
+mpls_te_lsa_originate1:ospf_lsa_install()?");ospf_lsa_unlock(&new);returnrc;}/*N
+owthislink-parameterentryhasassociatedLSA.*/SET_FLAG(lp->flags,LPFLG_LSA_ENGAGED
+);/*UpdatenewLSAoriginationcount.*/area->ospf->lsa_originate_count++;/*FloodnewL
+SAthrougharea.*/ospf_flood_through_area(area,NULL/*nbr*/,new);if(IS_DEBUG_OSPF(l
+sa,LSA_GENERATE)){chararea_id[INET_ADDRSTRLEN];strlcpy(area_id,inet_ntoa(area->a
+rea_id),sizeof(area_id));zlog_debug("LSA[Type%d:%s]:OriginateOpaque-LSA/MPLS-TE:
+Area(%s),Link(%s)",new->data->type,inet_ntoa(new->data->id),area_id,lp->ifp->nam
+e);ospf_lsa_header_dump(new->data);}rc=0;returnrc;}staticintospf_mpls_te_lsa_ori
+ginate_area(void*arg){structospf_area*area=(structospf_area*)arg;structlistnode*
+node,*nnode;structmpls_te_link*lp;intrc=-1;if(!OspfMplsTE.enabled){zlog_info("os
+pf_mpls_te_lsa_originate_area:MPLS-TEisdisablednow.");rc=0;/*Thisisnotanerrorcas
+e.*/returnrc;}for(ALL_LIST_ELEMENTS(OspfMplsTE.iflist,node,nnode,lp)){/*Processo
+nlyenabledLSAwithareascopeflooding*/if(!CHECK_FLAG(lp->flags,LPFLG_LSA_ACTIVE)||
+IS_FLOOD_AS(lp->type))continue;if(lp->area==NULL)continue;if(!IPV4_ADDR_SAME(&lp
+->area->area_id,&area->area_id))continue;if(CHECK_FLAG(lp->flags,LPFLG_LSA_ENGAG
+ED)){if(CHECK_FLAG(lp->flags,LPFLG_LSA_FORCED_REFRESH)){UNSET_FLAG(lp->flags,LPF
+LG_LSA_FORCED_REFRESH);zlog_warn("OSPFMPLS-TE(ospf_mpls_te_lsa_originate_area):R
+efreshinsteadofOriginate");ospf_mpls_te_lsa_schedule(lp,REFRESH_THIS_LSA);}conti
+nue;}if(!is_mandated_params_set(lp)){zlog_warn("ospf_mpls_te_lsa_originate_area:
+Link(%s)lackssomemandatedMPLS-TEparameters.",lp->ifp?lp->ifp->name:"?");continue
+;}/*Ok,let'strytooriginateanLSAforthisareaandLink.*/if(IS_DEBUG_OSPF_TE)zlog_deb
+ug("MPLS-TE(ospf_mpls_te_lsa_originate_area)Let'sfinallyreoriginatetheLSA%dthrou
+ghtheArea%sforLink%s",lp->instance,inet_ntoa(area->area_id),lp->ifp?lp->ifp->nam
+e:"?");if(ospf_mpls_te_lsa_originate1(area,lp)!=0)returnrc;}rc=0;returnrc;}stati
+cintospf_mpls_te_lsa_originate2(structospf*top,structmpls_te_link*lp){structospf
+_lsa*new;intrc=-1;/*CreatenewOpaque-LSA/Inter-ASinstance.*/new=ospf_mpls_te_lsa_
+new(top,NULL,lp);if(new==NULL){zlog_warn("ospf_mpls_te_lsa_originate2:ospf_route
+r_info_lsa_new()?");returnrc;}new->vrf_id=top->vrf_id;/*InstallthisLSAintoLSDB.*
+/if(ospf_lsa_install(top,NULL/*oi*/,new)==NULL){zlog_warn("ospf_mpls_te_lsa_orig
+inate2:ospf_lsa_install()?");ospf_lsa_unlock(&new);returnrc;}/*NowthisRouterInfo
+parameterentryhasassociatedLSA.*/SET_FLAG(lp->flags,LPFLG_LSA_ENGAGED);/*Updaten
+ewLSAoriginationcount.*/top->lsa_originate_count++;/*FloodnewLSAthroughAS.*/ospf
+_flood_through_as(top,NULL/*nbr*/,new);if(IS_DEBUG_OSPF(lsa,LSA_GENERATE)){zlog_
+debug("LSA[Type%d:%s]:OriginateOpaque-LSA/MPLS-TEInter-AS",new->data->type,inet_
+ntoa(new->data->id));ospf_lsa_header_dump(new->data);}rc=0;returnrc;}staticintos
+pf_mpls_te_lsa_originate_as(void*arg){structospf*top;structospf_area*area;struct
+listnode*node,*nnode;structmpls_te_link*lp;intrc=-1;if((!OspfMplsTE.enabled)||(O
+spfMplsTE.inter_as==Off)){zlog_info("ospf_mpls_te_lsa_originate_as:MPLS-TEInter-
+ASisdisabledfornow.");rc=0;/*Thisisnotanerrorcase.*/returnrc;}for(ALL_LIST_ELEME
+NTS(OspfMplsTE.iflist,node,nnode,lp)){/*ProcessonlyenabledINTER_ASLinksorPseudo-
+Links*/if(!CHECK_FLAG(lp->flags,LPFLG_LSA_ACTIVE)||!IS_INTER_AS(lp->type))contin
+ue;if(CHECK_FLAG(lp->flags,LPFLG_LSA_ENGAGED)){if(CHECK_FLAG(lp->flags,LPFLG_LSA
+_FORCED_REFRESH)){UNSET_FLAG(lp->flags,LPFLG_LSA_FORCED_REFRESH);ospf_mpls_te_ls
+a_schedule(lp,REFRESH_THIS_LSA);}continue;}if(!is_mandated_params_set(lp)){zlog_
+warn("ospf_mpls_te_lsa_originate_as:Link(%s)lackssomemandatedMPLS-TEparameters."
+,lp->ifp?lp->ifp->name:"?");continue;}/*Ok,let'strytooriginateanLSAforthisASandL
+ink.*/if(IS_DEBUG_OSPF_TE)zlog_debug("MPLS-TE(ospf_mpls_te_lsa_originate_as)Let'
+sfinallyre-originatetheInter-ASLSA%dthroughthe%sforLink%s",lp->instance,IS_FLOOD
+_AS(lp->type)?"AS":"Area",lp->ifp?lp->ifp->name:"Unknown");if(IS_FLOOD_AS(lp->ty
+pe)){top=(structospf*)arg;ospf_mpls_te_lsa_originate2(top,lp);}else{area=(struct
+ospf_area*)arg;ospf_mpls_te_lsa_originate1(area,lp);}}rc=0;returnrc;}staticstruc
+tospf_lsa*ospf_mpls_te_lsa_refresh(structospf_lsa*lsa){structmpls_te_link*lp;str
+uctospf_area*area=lsa->area;structospf*top;structospf_lsa*new=NULL;if(!OspfMplsT
+E.enabled){/**ThisLSAmusthaveflushedbeforeduetoMPLS-TEstatus*change.*Itseemsasli
+pamongroutersintheroutingdomain.*/zlog_info("ospf_mpls_te_lsa_refresh:MPLS-TEisd
+isablednow.");lsa->data->ls_age=htons(OSPF_LSA_MAXAGE);/*Flushitanyway.*/}/*Atfi
+rst,resolvelsa/lprelationship.*/if((lp=lookup_linkparams_by_instance(lsa))==NULL
+){zlog_warn("ospf_mpls_te_lsa_refresh:Invalidparameter?");lsa->data->ls_age=hton
+s(OSPF_LSA_MAXAGE);/*Flushitanyway.*/}/*Checkiflpwasnotdisableintheinterval*/if(
+!CHECK_FLAG(lp->flags,LPFLG_LSA_ACTIVE)){zlog_warn("ospf_mpls_te_lsa_refresh:lpw
+asdisabled:Flushit!");lsa->data->ls_age=htons(OSPF_LSA_MAXAGE);/*Flushitanyway.*
+/}/*Ifthelsa'sagereachedtoMaxAge,startflushingprocedure.*/if(IS_LSA_MAXAGE(lsa))
+{if(lp)UNSET_FLAG(lp->flags,LPFLG_LSA_ENGAGED);ospf_opaque_lsa_flush_schedule(ls
+a);returnNULL;}top=ospf_lookup_by_vrf_id(lsa->vrf_id);/*CreatenewOpaque-LSA/MPLS
+-TEinstance.*/new=ospf_mpls_te_lsa_new(top,area,lp);if(new==NULL){zlog_warn("osp
+f_mpls_te_lsa_refresh:ospf_mpls_te_lsa_new()?");returnNULL;}new->data->ls_seqnum
+=lsa_seqnum_increment(lsa);/*InstallthisLSAintoLSDB.*//*Given"lsa"willbefreedint
+henextfunction.*//*AsareacouldbeNULLi.e.whenusingOPAQUE_LSA_AS,weprefertouse*osp
+f_lookup()togetospfinstance*/if(area)top=area->ospf;if(ospf_lsa_install(top,NULL
+/*oi*/,new)==NULL){zlog_warn("ospf_mpls_te_lsa_refresh:ospf_lsa_install()?");osp
+f_lsa_unlock(&new);returnNULL;}/*FloodupdatedLSAthroughASorAreadependingoftheRFC
+ofthelink*/if(IS_FLOOD_AS(lp->type))ospf_flood_through_as(top,NULL,new);elseospf
+_flood_through_area(area,NULL/*nbr*/,new);/*Debuglogging.*/if(IS_DEBUG_OSPF(lsa,
+LSA_GENERATE)){zlog_debug("LSA[Type%d:%s]:RefreshOpaque-LSA/MPLS-TE",new->data->
+type,inet_ntoa(new->data->id));ospf_lsa_header_dump(new->data);}returnnew;}voido
+spf_mpls_te_lsa_schedule(structmpls_te_link*lp,enumlsa_opcodeopcode){structospf_
+lsalsa;structlsa_headerlsah;structospf*top;uint32_ttmp;memset(&lsa,0,sizeof(lsa)
+);memset(&lsah,0,sizeof(lsah));top=ospf_lookup_by_vrf_id(VRF_DEFAULT);/*Checkift
+hepseudolinkisreadytoflood*/if(!(CHECK_FLAG(lp->flags,LPFLG_LSA_ACTIVE))||!(IS_F
+LOOD_AREA(lp->type)||IS_FLOOD_AS(lp->type))){return;}lsa.area=lp->area;lsa.data=
+&lsah;if(IS_FLOOD_AS(lp->type)){lsah.type=OSPF_OPAQUE_AS_LSA;tmp=SET_OPAQUE_LSID
+(OPAQUE_TYPE_INTER_AS_LSA,lp->instance);lsah.id.s_addr=htonl(tmp);}else{lsah.typ
+e=OSPF_OPAQUE_AREA_LSA;if(IS_INTER_AS(lp->type)){/*Settheareacontextifnotknow*/i
+f(lp->area==NULL)lp->area=ospf_area_lookup_by_area_id(top,OspfMplsTE.interas_are
+aid);/*Unabletosettheareacontext.Abort!*/if(lp->area==NULL){zlog_warn("MPLS-TE(o
+spf_mpls_te_lsa_schedule)Areacontextisnull.Abort!");return;}tmp=SET_OPAQUE_LSID(
+OPAQUE_TYPE_INTER_AS_LSA,lp->instance);}elsetmp=SET_OPAQUE_LSID(OPAQUE_TYPE_TRAF
+FIC_ENGINEERING_LSA,lp->instance);lsah.id.s_addr=htonl(tmp);}switch(opcode){case
+REORIGINATE_THIS_LSA:if(IS_FLOOD_AS(lp->type)){ospf_opaque_lsa_reoriginate_sched
+ule((void*)top,OSPF_OPAQUE_AS_LSA,OPAQUE_TYPE_INTER_AS_LSA);break;}if(IS_FLOOD_A
+REA(lp->type)){if(IS_INTER_AS(lp->type))ospf_opaque_lsa_reoriginate_schedule((vo
+id*)lp->area,OSPF_OPAQUE_AREA_LSA,OPAQUE_TYPE_INTER_AS_LSA);elseospf_opaque_lsa_
+reoriginate_schedule((void*)lp->area,OSPF_OPAQUE_AREA_LSA,OPAQUE_TYPE_TRAFFIC_EN
+GINEERING_LSA);break;}break;caseREFRESH_THIS_LSA:ospf_opaque_lsa_refresh_schedul
+e(&lsa);break;caseFLUSH_THIS_LSA:/*ResetActivityflag*/lp->flags=LPFLG_LSA_INACTI
+VE;ospf_opaque_lsa_flush_schedule(&lsa);break;default:zlog_warn("ospf_mpls_te_ls
+a_schedule:Unknownopcode(%u)",opcode);break;}return;}/*-------------------------
+-----------------------------------------------**Followingsarevtysessioncontrolf
+unctions.*----------------------------------------------------------------------
+--*/staticuint16_tshow_vty_router_addr(structvty*vty,structtlv_header*tlvh){stru
+ctte_tlv_router_addr*top=(structte_tlv_router_addr*)tlvh;if(vty!=NULL)vty_out(vt
+y,"Router-Address:%s\n",inet_ntoa(top->value));elsezlog_debug("Router-Address:%s
+",inet_ntoa(top->value));returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_heade
+r(structvty*vty,structtlv_header*tlvh){structte_tlv_link*top=(structte_tlv_link*
+)tlvh;if(vty!=NULL)vty_out(vty,"Link:%uoctetsofdata\n",ntohs(top->header.length)
+);elsezlog_debug("Link:%uoctetsofdata",ntohs(top->header.length));returnTLV_HDR_
+SIZE;/*Hereisspecial,not"TLV_SIZE".*/}staticuint16_tshow_vty_link_subtlv_link_ty
+pe(structvty*vty,structtlv_header*tlvh){structte_link_subtlv_link_type*top;const
+char*cp="Unknown";top=(structte_link_subtlv_link_type*)tlvh;switch(top->link_typ
+e.value){caseLINK_TYPE_SUBTLV_VALUE_PTP:cp="Point-to-point";break;caseLINK_TYPE_
+SUBTLV_VALUE_MA:cp="Multiaccess";break;default:break;}if(vty!=NULL)vty_out(vty,"
+Link-Type:%s(%u)\n",cp,top->link_type.value);elsezlog_debug("Link-Type:%s(%u)",c
+p,top->link_type.value);returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv
+_link_id(structvty*vty,structtlv_header*tlvh){structte_link_subtlv_link_id*top;t
+op=(structte_link_subtlv_link_id*)tlvh;if(vty!=NULL)vty_out(vty,"Link-ID:%s\n",i
+net_ntoa(top->value));elsezlog_debug("Link-ID:%s",inet_ntoa(top->value));returnT
+LV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_lclif_ipaddr(structvty*vty,str
+ucttlv_header*tlvh){structte_link_subtlv_lclif_ipaddr*top;inti,n;top=(structte_l
+ink_subtlv_lclif_ipaddr*)tlvh;n=ntohs(tlvh->length)/sizeof(top->value[0]);if(vty
+!=NULL)vty_out(vty,"LocalInterfaceIPAddress(es):%d\n",n);elsezlog_debug("LocalIn
+terfaceIPAddress(es):%d",n);for(i=0;i<n;i++){if(vty!=NULL)vty_out(vty,"#%d:%s\n"
+,i,inet_ntoa(top->value[i]));elsezlog_debug("#%d:%s",i,inet_ntoa(top->value[i]))
+;}returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_rmtif_ipaddr(structvt
+y*vty,structtlv_header*tlvh){structte_link_subtlv_rmtif_ipaddr*top;inti,n;top=(s
+tructte_link_subtlv_rmtif_ipaddr*)tlvh;n=ntohs(tlvh->length)/sizeof(top->value[0
+]);if(vty!=NULL)vty_out(vty,"RemoteInterfaceIPAddress(es):%d\n",n);elsezlog_debu
+g("RemoteInterfaceIPAddress(es):%d",n);for(i=0;i<n;i++){if(vty!=NULL)vty_out(vty
+,"#%d:%s\n",i,inet_ntoa(top->value[i]));elsezlog_debug("#%d:%s",i,inet_ntoa(top-
+>value[i]));}returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_te_metric(
+structvty*vty,structtlv_header*tlvh){structte_link_subtlv_te_metric*top;top=(str
+uctte_link_subtlv_te_metric*)tlvh;if(vty!=NULL)vty_out(vty,"TrafficEngineeringMe
+tric:%u\n",(uint32_t)ntohl(top->value));elsezlog_debug("TrafficEngineeringMetric
+:%u",(uint32_t)ntohl(top->value));returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_l
+ink_subtlv_max_bw(structvty*vty,structtlv_header*tlvh){structte_link_subtlv_max_
+bw*top;floatfval;top=(structte_link_subtlv_max_bw*)tlvh;fval=ntohf(top->value);i
+f(vty!=NULL)vty_out(vty,"MaximumBandwidth:%g(Bytes/sec)\n",fval);elsezlog_debug(
+"MaximumBandwidth:%g(Bytes/sec)",fval);returnTLV_SIZE(tlvh);}staticuint16_tshow_
+vty_link_subtlv_max_rsv_bw(structvty*vty,structtlv_header*tlvh){structte_link_su
+btlv_max_rsv_bw*top;floatfval;top=(structte_link_subtlv_max_rsv_bw*)tlvh;fval=nt
+ohf(top->value);if(vty!=NULL)vty_out(vty,"MaximumReservableBandwidth:%g(Bytes/se
+c)\n",fval);elsezlog_debug("MaximumReservableBandwidth:%g(Bytes/sec)",fval);retu
+rnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_unrsv_bw(structvty*vty,stru
+cttlv_header*tlvh){structte_link_subtlv_unrsv_bw*top;floatfval1,fval2;inti;top=(
+structte_link_subtlv_unrsv_bw*)tlvh;if(vty!=NULL)vty_out(vty,"UnreservedBandwidt
+hperClassTypeinByte/s:\n");elsezlog_debug("UnreservedBandwidthperClassTypeinByte
+/s:");for(i=0;i<MAX_CLASS_TYPE;i+=2){fval1=ntohf(top->value[i]);fval2=ntohf(top-
+>value[i+1]);if(vty!=NULL)vty_out(vty,"[%d]:%g(Bytes/sec),\t[%d]:%g(Bytes/sec)\n
+",i,fval1,i+1,fval2);elsezlog_debug("[%d]:%g(Bytes/sec),\t[%d]:%g(Bytes/sec)",i,
+fval1,i+1,fval2);}returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_rsc_c
+lsclr(structvty*vty,structtlv_header*tlvh){structte_link_subtlv_rsc_clsclr*top;t
+op=(structte_link_subtlv_rsc_clsclr*)tlvh;if(vty!=NULL)vty_out(vty,"Resourceclas
+s/color:0x%x\n",(uint32_t)ntohl(top->value));elsezlog_debug("ResourceClass/Color
+:0x%x",(uint32_t)ntohl(top->value));returnTLV_SIZE(tlvh);}staticuint16_tshow_vty
+_link_subtlv_lrrid(structvty*vty,structtlv_header*tlvh){structte_link_subtlv_lrr
+id*top;top=(structte_link_subtlv_lrrid*)tlvh;if(vty!=NULL){vty_out(vty,"LocalTER
+outerID:%s\n",inet_ntoa(top->local));vty_out(vty,"RemoteTERouterID:%s\n",inet_nt
+oa(top->remote));}else{zlog_debug("LocalTERouterID:%s",inet_ntoa(top->local));zl
+og_debug("RemoteTERouterID:%s",inet_ntoa(top->remote));}returnTLV_SIZE(tlvh);}st
+aticuint16_tshow_vty_link_subtlv_llri(structvty*vty,structtlv_header*tlvh){struc
+tte_link_subtlv_llri*top;top=(structte_link_subtlv_llri*)tlvh;if(vty!=NULL){vty_
+out(vty,"LinkLocalID:%d\n",(uint32_t)ntohl(top->local));vty_out(vty,"LinkRemoteI
+D:%d\n",(uint32_t)ntohl(top->remote));}else{zlog_debug("LinkLocalID:%d",(uint32_
+t)ntohl(top->local));zlog_debug("LinkRemoteID:%d",(uint32_t)ntohl(top->remote));
+}returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_rip(structvty*vty,stru
+cttlv_header*tlvh){structte_link_subtlv_rip*top;top=(structte_link_subtlv_rip*)t
+lvh;if(vty!=NULL)vty_out(vty,"Inter-ASTERemoteASBRIPaddress:%s\n",inet_ntoa(top-
+>value));elsezlog_debug("Inter-ASTERemoteASBRIPaddress:%s",inet_ntoa(top->value)
+);returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_ras(structvty*vty,str
+ucttlv_header*tlvh){structte_link_subtlv_ras*top;top=(structte_link_subtlv_ras*)
+tlvh;if(vty!=NULL)vty_out(vty,"Inter-ASTERemoteASnumber:%u\n",ntohl(top->value))
+;elsezlog_debug("Inter-ASTERemoteASnumber:%u",ntohl(top->value));returnTLV_SIZE(
+tlvh);}staticuint16_tshow_vty_link_subtlv_av_delay(structvty*vty,structtlv_heade
+r*tlvh){structte_link_subtlv_av_delay*top;uint32_tdelay;uint32_tanomalous;top=(s
+tructte_link_subtlv_av_delay*)tlvh;delay=(uint32_t)ntohl(top->value)&TE_EXT_MASK
+;anomalous=(uint32_t)ntohl(top->value)&TE_EXT_ANORMAL;if(vty!=NULL)vty_out(vty,"
+%sAverageLinkDelay:%d(micro-sec)\n",anomalous?"Anomalous":"Normal",delay);elsezl
+og_debug("%sAverageLinkDelay:%d(micro-sec)",anomalous?"Anomalous":"Normal",delay
+);returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_mm_delay(structvty*vt
+y,structtlv_header*tlvh){structte_link_subtlv_mm_delay*top;uint32_tlow,high;uint
+32_tanomalous;top=(structte_link_subtlv_mm_delay*)tlvh;low=(uint32_t)ntohl(top->
+low)&TE_EXT_MASK;anomalous=(uint32_t)ntohl(top->low)&TE_EXT_ANORMAL;high=(uint32
+_t)ntohl(top->high);if(vty!=NULL)vty_out(vty,"%sMin/MaxLinkDelay:%d/%d(micro-sec
+)\n",anomalous?"Anomalous":"Normal",low,high);elsezlog_debug("%sMin/MaxLinkDelay
+:%d/%d(micro-sec)",anomalous?"Anomalous":"Normal",low,high);returnTLV_SIZE(tlvh)
+;}staticuint16_tshow_vty_link_subtlv_delay_var(structvty*vty,structtlv_header*tl
+vh){structte_link_subtlv_delay_var*top;uint32_tjitter;top=(structte_link_subtlv_
+delay_var*)tlvh;jitter=(uint32_t)ntohl(top->value)&TE_EXT_MASK;if(vty!=NULL)vty_
+out(vty,"DelayVariation:%d(micro-sec)\n",jitter);elsezlog_debug("DelayVariation:
+%d(micro-sec)",jitter);returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_
+pkt_loss(structvty*vty,structtlv_header*tlvh){structte_link_subtlv_pkt_loss*top;
+uint32_tloss;uint32_tanomalous;floatfval;top=(structte_link_subtlv_pkt_loss*)tlv
+h;loss=(uint32_t)ntohl(top->value)&TE_EXT_MASK;fval=(float)(loss*LOSS_PRECISION)
+;anomalous=(uint32_t)ntohl(top->value)&TE_EXT_ANORMAL;if(vty!=NULL)vty_out(vty,"
+%sLinkLoss:%g(%%)\n",anomalous?"Anomalous":"Normal",fval);elsezlog_debug("%sLink
+Loss:%g(%%)",anomalous?"Anomalous":"Normal",fval);returnTLV_SIZE(tlvh);}staticui
+nt16_tshow_vty_link_subtlv_res_bw(structvty*vty,structtlv_header*tlvh){structte_
+link_subtlv_res_bw*top;floatfval;top=(structte_link_subtlv_res_bw*)tlvh;fval=nto
+hf(top->value);if(vty!=NULL)vty_out(vty,"UnidirectionalResidualBandwidth:%g(Byte
+s/sec)\n",fval);elsezlog_debug("UnidirectionalResidualBandwidth:%g(Bytes/sec)",f
+val);returnTLV_SIZE(tlvh);}staticuint16_tshow_vty_link_subtlv_ava_bw(structvty*v
+ty,structtlv_header*tlvh){structte_link_subtlv_ava_bw*top;floatfval;top=(structt
+e_link_subtlv_ava_bw*)tlvh;fval=ntohf(top->value);if(vty!=NULL)vty_out(vty,"Unid
+irectionalAvailableBandwidth:%g(Bytes/sec)\n",fval);elsezlog_debug("Unidirection
+alAvailableBandwidth:%g(Bytes/sec)",fval);returnTLV_SIZE(tlvh);}staticuint16_tsh
+ow_vty_link_subtlv_use_bw(structvty*vty,structtlv_header*tlvh){structte_link_sub
+tlv_use_bw*top;floatfval;top=(structte_link_subtlv_use_bw*)tlvh;fval=ntohf(top->
+value);if(vty!=NULL)vty_out(vty,"UnidirectionalUtilizedBandwidth:%g(Bytes/sec)\n
+",fval);elsezlog_debug("UnidirectionalUtilizedBandwidth:%g(Bytes/sec)",fval);ret
+urnTLV_SIZE(tlvh);}staticuint16_tshow_vty_unknown_tlv(structvty*vty,structtlv_he
+ader*tlvh){if(vty!=NULL)vty_out(vty,"UnknownTLV:[type(0x%x),length(0x%x)]\n",nto
+hs(tlvh->type),ntohs(tlvh->length));elsezlog_debug("UnknownTLV:[type(0x%x),lengt
+h(0x%x)]",ntohs(tlvh->type),ntohs(tlvh->length));returnTLV_SIZE(tlvh);}staticuin
+t16_tospf_mpls_te_show_link_subtlv(structvty*vty,structtlv_header*tlvh0,uint16_t
+subtotal,uint16_ttotal){structtlv_header*tlvh,*next;uint16_tsum=subtotal;for(tlv
+h=tlvh0;sum<total;tlvh=(next?next:TLV_HDR_NEXT(tlvh))){next=NULL;switch(ntohs(tl
+vh->type)){caseTE_LINK_SUBTLV_LINK_TYPE:sum+=show_vty_link_subtlv_link_type(vty,
+tlvh);break;caseTE_LINK_SUBTLV_LINK_ID:sum+=show_vty_link_subtlv_link_id(vty,tlv
+h);break;caseTE_LINK_SUBTLV_LCLIF_IPADDR:sum+=show_vty_link_subtlv_lclif_ipaddr(
+vty,tlvh);break;caseTE_LINK_SUBTLV_RMTIF_IPADDR:sum+=show_vty_link_subtlv_rmtif_
+ipaddr(vty,tlvh);break;caseTE_LINK_SUBTLV_TE_METRIC:sum+=show_vty_link_subtlv_te
+_metric(vty,tlvh);break;caseTE_LINK_SUBTLV_MAX_BW:sum+=show_vty_link_subtlv_max_
+bw(vty,tlvh);break;caseTE_LINK_SUBTLV_MAX_RSV_BW:sum+=show_vty_link_subtlv_max_r
+sv_bw(vty,tlvh);break;caseTE_LINK_SUBTLV_UNRSV_BW:sum+=show_vty_link_subtlv_unrs
+v_bw(vty,tlvh);break;caseTE_LINK_SUBTLV_RSC_CLSCLR:sum+=show_vty_link_subtlv_rsc
+_clsclr(vty,tlvh);break;caseTE_LINK_SUBTLV_LRRID:sum+=show_vty_link_subtlv_lrrid
+(vty,tlvh);break;caseTE_LINK_SUBTLV_LLRI:sum+=show_vty_link_subtlv_llri(vty,tlvh
+);break;caseTE_LINK_SUBTLV_RIP:sum+=show_vty_link_subtlv_rip(vty,tlvh);break;cas
+eTE_LINK_SUBTLV_RAS:sum+=show_vty_link_subtlv_ras(vty,tlvh);break;caseTE_LINK_SU
+BTLV_AV_DELAY:sum+=show_vty_link_subtlv_av_delay(vty,tlvh);break;caseTE_LINK_SUB
+TLV_MM_DELAY:sum+=show_vty_link_subtlv_mm_delay(vty,tlvh);break;caseTE_LINK_SUBT
+LV_DELAY_VAR:sum+=show_vty_link_subtlv_delay_var(vty,tlvh);break;caseTE_LINK_SUB
+TLV_PKT_LOSS:sum+=show_vty_link_subtlv_pkt_loss(vty,tlvh);break;caseTE_LINK_SUBT
+LV_RES_BW:sum+=show_vty_link_subtlv_res_bw(vty,tlvh);break;caseTE_LINK_SUBTLV_AV
+A_BW:sum+=show_vty_link_subtlv_ava_bw(vty,tlvh);break;caseTE_LINK_SUBTLV_USE_BW:
+sum+=show_vty_link_subtlv_use_bw(vty,tlvh);break;default:sum+=show_vty_unknown_t
+lv(vty,tlvh);break;}}returnsum;}staticvoidospf_mpls_te_show_info(structvty*vty,s
+tructospf_lsa*lsa){structlsa_header*lsah=(structlsa_header*)lsa->data;structtlv_
+header*tlvh,*next;uint16_tsum,total;uint16_t(*subfunc)(structvty*vty,structtlv_h
+eader*tlvh,uint16_tsubtotal,uint16_ttotal)=NULL;sum=0;total=ntohs(lsah->length)-
+OSPF_LSA_HEADER_SIZE;for(tlvh=TLV_HDR_TOP(lsah);sum<total;tlvh=(next?next:TLV_HD
+R_NEXT(tlvh))){if(subfunc!=NULL){sum=(*subfunc)(vty,tlvh,sum,total);next=(struct
+tlv_header*)((char*)tlvh+sum);subfunc=NULL;continue;}next=NULL;switch(ntohs(tlvh
+->type)){caseTE_TLV_ROUTER_ADDR:sum+=show_vty_router_addr(vty,tlvh);break;caseTE
+_TLV_LINK:sum+=show_vty_link_header(vty,tlvh);subfunc=ospf_mpls_te_show_link_sub
+tlv;next=TLV_DATA(tlvh);break;default:sum+=show_vty_unknown_tlv(vty,tlvh);break;
+}}return;}staticvoidospf_mpls_te_config_write_router(structvty*vty){if(OspfMplsT
+E.enabled){vty_out(vty,"mpls-teon\n");vty_out(vty,"mpls-terouter-address%s\n",in
+et_ntoa(OspfMplsTE.router_addr.value));}if(OspfMplsTE.inter_as==AS)vty_out(vty,"
+mpls-teinter-asas\n");if(OspfMplsTE.inter_as==Area)vty_out(vty,"mpls-teinter-asa
+rea%s\n",inet_ntoa(OspfMplsTE.interas_areaid));return;}/*-----------------------
+-------------------------------------------------**Followingsarevtycommandfuncti
+ons.*------------------------------------------------------------------------*/D
+EFUN(ospf_mpls_te_on,ospf_mpls_te_on_cmd,"mpls-teon",MPLS_TE_STR"EnabletheMPLS-T
+Efunctionality\n"){VTY_DECLVAR_INSTANCE_CONTEXT(ospf,ospf);structlistnode*node;s
+tructmpls_te_link*lp;if(OspfMplsTE.enabled)returnCMD_SUCCESS;if(IS_DEBUG_OSPF_EV
+ENT)zlog_debug("MPLS-TE:OFF->ON");OspfMplsTE.enabled=true;/*ReoriginateRFC3630&R
+FC6827Links*/ospf_mpls_te_foreach_area(ospf_mpls_te_lsa_schedule,REORIGINATE_THI
+S_LSA);/*ReoriginateLSAifINTER-ASisalwayson*/if(OspfMplsTE.inter_as!=Off){for(AL
+L_LIST_ELEMENTS_RO(OspfMplsTE.iflist,node,lp)){if(IS_INTER_AS(lp->type)){ospf_mp
+ls_te_lsa_schedule(lp,REORIGINATE_THIS_LSA);}}}returnCMD_SUCCESS;}DEFUN(no_ospf_
+mpls_te,no_ospf_mpls_te_cmd,"nompls-te[on]",NO_STRMPLS_TE_STR"DisabletheMPLS-TEf
+unctionality\n"){VTY_DECLVAR_INSTANCE_CONTEXT(ospf,ospf);structlistnode*node,*nn
+ode;structmpls_te_link*lp;if(!OspfMplsTE.enabled)returnCMD_SUCCESS;if(IS_DEBUG_O
+SPF_EVENT)zlog_debug("MPLS-TE:ON->OFF");OspfMplsTE.enabled=false;for(ALL_LIST_EL
+EMENTS(OspfMplsTE.iflist,node,nnode,lp))if(CHECK_FLAG(lp->flags,LPFLG_LSA_ENGAGE
+D))ospf_mpls_te_lsa_schedule(lp,FLUSH_THIS_LSA);returnCMD_SUCCESS;}DEFUN(ospf_mp
+ls_te_router_addr,ospf_mpls_te_router_addr_cmd,"mpls-terouter-addressA.B.C.D",MP
+LS_TE_STR"StableIPaddressoftheadvertisingrouter\n""MPLS-TErouteraddressinIPv4add
+ressformat\n"){VTY_DECLVAR_INSTANCE_CONTEXT(ospf,ospf);intidx_ipv4=2;structte_tl
+v_router_addr*ra=&OspfMplsTE.router_addr;structin_addrvalue;if(!inet_aton(argv[i
+dx_ipv4]->arg,&value)){vty_out(vty,"PleasespecifyRouter-AddrbyA.B.C.D\n");return
+CMD_WARNING;}if(ntohs(ra->header.type)==0||ntohl(ra->value.s_addr)!=ntohl(value.
+s_addr)){structlistnode*node,*nnode;structmpls_te_link*lp;intneed_to_reoriginate
+=0;set_mpls_te_router_addr(value);if(!OspfMplsTE.enabled)returnCMD_SUCCESS;for(A
+LL_LIST_ELEMENTS(OspfMplsTE.iflist,node,nnode,lp)){if((lp->area==NULL)||IS_FLOOD
+_AS(lp->type))continue;if(!CHECK_FLAG(lp->flags,LPFLG_LSA_ENGAGED)){need_to_reor
+iginate=1;break;}}for(ALL_LIST_ELEMENTS(OspfMplsTE.iflist,node,nnode,lp)){if((lp
+->area==NULL)||IS_FLOOD_AS(lp->type))continue;if(need_to_reoriginate)SET_FLAG(lp
+->flags,LPFLG_LSA_FORCED_REFRESH);elseospf_mpls_te_lsa_schedule(lp,REFRESH_THIS_
+LSA);}if(need_to_reoriginate)ospf_mpls_te_foreach_area(ospf_mpls_te_lsa_schedule
+,REORIGINATE_THIS_LSA);}returnCMD_SUCCESS;}staticintset_inter_as_mode(structvty*
+vty,constchar*mode_name,constchar*area_id){enuminter_as_modemode;structlistnode*
+node;structmpls_te_link*lp;intformat;if(OspfMplsTE.enabled){/*ReadandCheckinter_
+asmode*/if(strcmp(mode_name,"as")==0)mode=AS;elseif(strcmp(mode_name,"area")==0)
+{mode=Area;VTY_GET_OSPF_AREA_ID(OspfMplsTE.interas_areaid,format,area_id);}else{
+vty_out(vty,"Unknownmode.Pleasechoosebetweenasorarea\n");returnCMD_WARNING;}if(I
+S_DEBUG_OSPF_EVENT)zlog_debug("MPLS-TE:Inter-ASenablewith%sfloodingsupport",mode
+2text[mode]);/*Registernewcallbacksregardingthefloodingscope(ASor*Area)*/if(ospf
+_mpls_te_register(mode)<0){vty_out(vty,"Internalerror:UnabletoregisterInter-ASfu
+nctions\n");returnCMD_WARNING;}/*Enablemodeandre-originateLSAifneeded*/if((OspfM
+plsTE.inter_as==Off)&&(mode!=OspfMplsTE.inter_as)){OspfMplsTE.inter_as=mode;/*Re
+-originateallInterAS-TEv2LSA*/for(ALL_LIST_ELEMENTS_RO(OspfMplsTE.iflist,node,lp
+)){if(IS_INTER_AS(lp->type)){if(mode==AS)lp->type|=FLOOD_AS;elselp->type|=FLOOD_
+AREA;ospf_mpls_te_lsa_schedule(lp,REORIGINATE_THIS_LSA);}}}else{vty_out(vty,"Ple
+asechangeInter-ASsupporttodisablefirstbeforegoingtomode%s\n",mode2text[mode]);re
+turnCMD_WARNING;}}else{vty_out(vty,"mpls-tehasnotbeenturnedon\n");returnCMD_WARN
+ING;}returnCMD_SUCCESS;}DEFUN(ospf_mpls_te_inter_as_as,ospf_mpls_te_inter_as_cmd
+,"mpls-teinter-asas",MPLS_TE_STR"ConfigureMPLS-TEInter-ASsupport\n""ASnativemode
+selforiginateINTER_ASLSAwithType11(asfloodingscope)\n"){returnset_inter_as_mode(
+vty,"as","");}DEFUN(ospf_mpls_te_inter_as_area,ospf_mpls_te_inter_as_area_cmd,"m
+pls-teinter-asarea<A.B.C.D|(0-4294967295)>",MPLS_TE_STR"ConfigureMPLS-TEInter-AS
+support\n""AREAnativemodeselforiginateINTER_ASLSAwithType10(areafloodingscope)\n
+""OSPFareaIDinIPformat\n""OSPFareaIDasdecimalvalue\n"){intidx_ipv4_number=3;retu
+rnset_inter_as_mode(vty,"area",argv[idx_ipv4_number]->arg);}DEFUN(no_ospf_mpls_t
+e_inter_as,no_ospf_mpls_te_inter_as_cmd,"nompls-teinter-as",NO_STRMPLS_TE_STR"Di
+sableMPLS-TEInter-ASsupport\n"){structlistnode*node,*nnode;structmpls_te_link*lp
+;if(IS_DEBUG_OSPF_EVENT)zlog_debug("MPLS-TE:Inter-ASsupportOFF");if((OspfMplsTE.
+enabled)&&(OspfMplsTE.inter_as!=Off)){OspfMplsTE.inter_as=Off;/*FlushallInter-AS
+LSA*/for(ALL_LIST_ELEMENTS(OspfMplsTE.iflist,node,nnode,lp))if(IS_INTER_AS(lp->t
+ype)&&CHECK_FLAG(lp->flags,LPFLG_LSA_ENGAGED))ospf_mpls_te_lsa_schedule(lp,FLUSH
+_THIS_LSA);}/*DeregistertheCallbacksforInter-ASsuport*/ospf_mpls_te_unregister()
+;returnCMD_SUCCESS;}DEFUN(show_ip_ospf_mpls_te_router,show_ip_ospf_mpls_te_route
+r_cmd,"showipospfmpls-terouter",SHOW_STRIP_STROSPF_STR"MPLS-TEinformation\n""MPL
+S-TERouterparameters\n"){if(OspfMplsTE.enabled){vty_out(vty,"---MPLS-TErouterpar
+ameters---\n");if(ntohs(OspfMplsTE.router_addr.header.type)!=0)show_vty_router_a
+ddr(vty,&OspfMplsTE.router_addr.header);elsevty_out(vty,"N/A\n");}returnCMD_SUCC
+ESS;}staticvoidshow_mpls_te_link_sub(structvty*vty,structinterface*ifp){structmp
+ls_te_link*lp;if((OspfMplsTE.enabled)&&HAS_LINK_PARAMS(ifp)&&!if_is_loopback(ifp
+)&&if_is_up(ifp)&&((lp=lookup_linkparams_by_ifp(ifp))!=NULL)){/*Continueonlyifin
+terfaceisnotpassiveorsupportInter-AS*TEv2*/if(!(ospf_oi_count(ifp)>0)){if(IS_INT
+ER_AS(lp->type)){vty_out(vty,"--Inter-ASTEv2linkparametersfor%s--\n",ifp->name);
+}else{/*MPLS-TEisnotactivateonthisinterface*//*orthisinterfaceispassiveandInter-
+AS*TEv2isnotactivate*/vty_out(vty,"%s:MPLS-TEisdisabledonthisinterface\n",ifp->n
+ame);return;}}else{vty_out(vty,"--MPLS-TElinkparametersfor%s--\n",ifp->name);}if
+(TLV_TYPE(lp->link_type)!=0)show_vty_link_subtlv_link_type(vty,&lp->link_type.he
+ader);if(TLV_TYPE(lp->link_id)!=0)show_vty_link_subtlv_link_id(vty,&lp->link_id.
+header);if(TLV_TYPE(lp->lclif_ipaddr)!=0)show_vty_link_subtlv_lclif_ipaddr(vty,&
+lp->lclif_ipaddr.header);if(TLV_TYPE(lp->rmtif_ipaddr)!=0)show_vty_link_subtlv_r
+mtif_ipaddr(vty,&lp->rmtif_ipaddr.header);if(TLV_TYPE(lp->rip)!=0)show_vty_link_
+subtlv_rip(vty,&lp->rip.header);if(TLV_TYPE(lp->ras)!=0)show_vty_link_subtlv_ras
+(vty,&lp->ras.header);if(TLV_TYPE(lp->te_metric)!=0)show_vty_link_subtlv_te_metr
+ic(vty,&lp->te_metric.header);if(TLV_TYPE(lp->max_bw)!=0)show_vty_link_subtlv_ma
+x_bw(vty,&lp->max_bw.header);if(TLV_TYPE(lp->max_rsv_bw)!=0)show_vty_link_subtlv
+_max_rsv_bw(vty,&lp->max_rsv_bw.header);if(TLV_TYPE(lp->unrsv_bw)!=0)show_vty_li
+nk_subtlv_unrsv_bw(vty,&lp->unrsv_bw.header);if(TLV_TYPE(lp->rsc_clsclr)!=0)show
+_vty_link_subtlv_rsc_clsclr(vty,&lp->rsc_clsclr.header);if(TLV_TYPE(lp->av_delay
+)!=0)show_vty_link_subtlv_av_delay(vty,&lp->av_delay.header);if(TLV_TYPE(lp->mm_
+delay)!=0)show_vty_link_subtlv_mm_delay(vty,&lp->mm_delay.header);if(TLV_TYPE(lp
+->delay_var)!=0)show_vty_link_subtlv_delay_var(vty,&lp->delay_var.header);if(TLV
+_TYPE(lp->pkt_loss)!=0)show_vty_link_subtlv_pkt_loss(vty,&lp->pkt_loss.header);i
+f(TLV_TYPE(lp->res_bw)!=0)show_vty_link_subtlv_res_bw(vty,&lp->res_bw.header);if
+(TLV_TYPE(lp->ava_bw)!=0)show_vty_link_subtlv_ava_bw(vty,&lp->ava_bw.header);if(
+TLV_TYPE(lp->use_bw)!=0)show_vty_link_subtlv_use_bw(vty,&lp->use_bw.header);vty_
+out(vty,"---------------\n\n");}else{vty_out(vty,"%s:MPLS-TEisdisabledonthisinte
+rface\n",ifp->name);}return;}DEFUN(show_ip_ospf_mpls_te_link,show_ip_ospf_mpls_t
+e_link_cmd,"showipospf[vrf<NAME|all>]mpls-teinterface[INTERFACE]",SHOW_STRIP_STR
+OSPF_STRVRF_CMD_HELP_STR"AllVRFs\n""MPLS-TEinformation\n""Interfaceinformation\n
+""Interfacename\n"){structvrf*vrf;intidx_interface=5;structinterface*ifp;structl
+istnode*node;char*vrf_name=NULL;boolall_vrf;intinst=0;intidx_vrf=0;structospf*os
+pf=NULL;if(argv_find(argv,argc,"vrf",&idx_vrf)){vrf_name=argv[idx_vrf+1]->arg;al
+l_vrf=strmatch(vrf_name,"all");}/*vrfinputisprovidedcouldbeallorspecificvrf*/if(
+vrf_name){if(all_vrf){for(ALL_LIST_ELEMENTS_RO(om->ospf,node,ospf)){if(!ospf->oi
+_running)continue;vrf=vrf_lookup_by_id(ospf->vrf_id);FOR_ALL_INTERFACES(vrf,ifp)
+show_mpls_te_link_sub(vty,ifp);}returnCMD_SUCCESS;}ospf=ospf_lookup_by_inst_name
+(inst,vrf_name);if(ospf==NULL||!ospf->oi_running)returnCMD_SUCCESS;vrf=vrf_looku
+p_by_id(ospf->vrf_id);FOR_ALL_INTERFACES(vrf,ifp)show_mpls_te_link_sub(vty,ifp);
+returnCMD_SUCCESS;}/*ShowAllInterfaces.*/if(argc==5){for(ALL_LIST_ELEMENTS_RO(om
+->ospf,node,ospf)){if(!ospf->oi_running)continue;vrf=vrf_lookup_by_id(ospf->vrf_
+id);FOR_ALL_INTERFACES(vrf,ifp)show_mpls_te_link_sub(vty,ifp);}}/*Interfacenamei
+sspecified.*/else{ifp=if_lookup_by_name_all_vrf(argv[idx_interface]->arg);if(ifp
+==NULL)vty_out(vty,"Nosuchinterfacename\n");elseshow_mpls_te_link_sub(vty,ifp);}
+returnCMD_SUCCESS;}staticvoidospf_mpls_te_register_vty(void){install_element(VIE
+W_NODE,&show_ip_ospf_mpls_te_router_cmd);install_element(VIEW_NODE,&show_ip_ospf
+_mpls_te_link_cmd);install_element(OSPF_NODE,&ospf_mpls_te_on_cmd);install_eleme
+nt(OSPF_NODE,&no_ospf_mpls_te_cmd);install_element(OSPF_NODE,&ospf_mpls_te_route
+r_addr_cmd);install_element(OSPF_NODE,&ospf_mpls_te_inter_as_cmd);install_elemen
+t(OSPF_NODE,&ospf_mpls_te_inter_as_area_cmd);install_element(OSPF_NODE,&no_ospf_
+mpls_te_inter_as_cmd);return;}

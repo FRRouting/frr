@@ -1,475 +1,127 @@
-/*
- * Zebra connect library for EIGRP.
- * Copyright (C) 2013-2014
- * Authors:
- *   Donnie Savage
- *   Jan Janovic
- *   Matej Perina
- *   Peter Orsag
- *   Peter Paluch
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "thread.h"
-#include "command.h"
-#include "network.h"
-#include "prefix.h"
-#include "routemap.h"
-#include "table.h"
-#include "stream.h"
-#include "memory.h"
-#include "zclient.h"
-#include "filter.h"
-#include "plist.h"
-#include "log.h"
-#include "nexthop.h"
-
-#include "eigrpd/eigrp_structs.h"
-#include "eigrpd/eigrpd.h"
-#include "eigrpd/eigrp_interface.h"
-#include "eigrpd/eigrp_neighbor.h"
-#include "eigrpd/eigrp_packet.h"
-#include "eigrpd/eigrp_zebra.h"
-#include "eigrpd/eigrp_vty.h"
-#include "eigrpd/eigrp_dump.h"
-#include "eigrpd/eigrp_network.h"
-#include "eigrpd/eigrp_topology.h"
-#include "eigrpd/eigrp_fsm.h"
-
-static int eigrp_interface_add(int, struct zclient *, zebra_size_t, vrf_id_t);
-static int eigrp_interface_delete(int, struct zclient *, zebra_size_t,
-				  vrf_id_t);
-static int eigrp_interface_address_add(int, struct zclient *, zebra_size_t,
-				       vrf_id_t vrf_id);
-static int eigrp_interface_address_delete(int, struct zclient *, zebra_size_t,
-					  vrf_id_t vrf_id);
-static int eigrp_interface_state_up(int, struct zclient *, zebra_size_t,
-				    vrf_id_t vrf_id);
-static int eigrp_interface_state_down(int, struct zclient *, zebra_size_t,
-				      vrf_id_t vrf_id);
-static struct interface *zebra_interface_if_lookup(struct stream *);
-
-static int eigrp_zebra_read_route(int, struct zclient *, zebra_size_t,
-				  vrf_id_t vrf_id);
-
-/* Zebra structure to hold current status. */
-struct zclient *zclient = NULL;
-
-/* For registering threads. */
-extern struct thread_master *master;
-struct in_addr router_id_zebra;
-
-/* Router-id update message from zebra. */
-static int eigrp_router_id_update_zebra(int command, struct zclient *zclient,
-					zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct eigrp *eigrp;
-	struct prefix router_id;
-	zebra_router_id_update_read(zclient->ibuf, &router_id);
-
-	router_id_zebra = router_id.u.prefix4;
-
-	eigrp = eigrp_lookup();
-
-	if (eigrp != NULL)
-		eigrp_router_id_update(eigrp);
-
-	return 0;
-}
-
-static int eigrp_zebra_route_notify_owner(int command, struct zclient *zclient,
-					  zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct prefix p;
-	enum zapi_route_notify_owner note;
-	uint32_t table;
-
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note))
-		return -1;
-
-	return 0;
-}
-
-static void eigrp_zebra_connected(struct zclient *zclient)
-{
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
-}
-
-void eigrp_zebra_init(void)
-{
-	struct zclient_options opt = {.receive_notify = false};
-
-	zclient = zclient_new_notify(master, &opt);
-
-	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
-	zclient->zebra_connected = eigrp_zebra_connected;
-	zclient->router_id_update = eigrp_router_id_update_zebra;
-	zclient->interface_add = eigrp_interface_add;
-	zclient->interface_delete = eigrp_interface_delete;
-	zclient->interface_up = eigrp_interface_state_up;
-	zclient->interface_down = eigrp_interface_state_down;
-	zclient->interface_address_add = eigrp_interface_address_add;
-	zclient->interface_address_delete = eigrp_interface_address_delete;
-	zclient->redistribute_route_add = eigrp_zebra_read_route;
-	zclient->redistribute_route_del = eigrp_zebra_read_route;
-	zclient->route_notify_owner = eigrp_zebra_route_notify_owner;
-}
-
-
-/* Zebra route add and delete treatment. */
-static int eigrp_zebra_read_route(int command, struct zclient *zclient,
-				  zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct zapi_route api;
-	struct eigrp *eigrp;
-
-	if (zapi_route_decode(zclient->ibuf, &api) < 0)
-		return -1;
-
-	if (IPV4_NET127(ntohl(api.prefix.u.prefix4.s_addr)))
-		return 0;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL)
-		return 0;
-
-	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
-
-	} else /* if (command == ZEBRA_REDISTRIBUTE_ROUTE_DEL) */
-	{
-	}
-
-	return 0;
-}
-
-/* Inteface addition message from zebra. */
-static int eigrp_interface_add(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct interface *ifp;
-	struct eigrp_interface *ei;
-
-	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
-
-	if (!ifp->info)
-		return 0;
-
-	ei = ifp->info;
-
-	ei->params.type = eigrp_default_iftype(ifp);
-
-	eigrp_if_update(ifp);
-
-	return 0;
-}
-
-static int eigrp_interface_delete(int command, struct zclient *zclient,
-				  zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct interface *ifp;
-	struct stream *s;
-
-	s = zclient->ibuf;
-	/* zebra_interface_state_read () updates interface structure in iflist
-	 */
-	ifp = zebra_interface_state_read(s, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if (if_is_up(ifp))
-		zlog_warn("Zebra: got delete of %s, but interface is still up",
-			  ifp->name);
-
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-		zlog_debug(
-			"Zebra: interface delete %s index %d flags %llx metric %d mtu %d",
-			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
-			ifp->metric, ifp->mtu);
-
-	if (ifp->info)
-		eigrp_if_free(ifp->info, INTERFACE_DOWN_BY_ZEBRA);
-
-	if_set_index(ifp, IFINDEX_INTERNAL);
-	return 0;
-}
-
-static int eigrp_interface_address_add(int command, struct zclient *zclient,
-				       zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct connected *c;
-
-	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
-
-	if (c == NULL)
-		return 0;
-
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE)) {
-		char buf[128];
-		prefix2str(c->address, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s address add %s", c->ifp->name,
-			   buf);
-	}
-
-	eigrp_if_update(c->ifp);
-
-	return 0;
-}
-
-static int eigrp_interface_address_delete(int command, struct zclient *zclient,
-					  zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct connected *c;
-	struct interface *ifp;
-	struct eigrp_interface *ei;
-
-	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
-
-	if (c == NULL)
-		return 0;
-
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE)) {
-		char buf[128];
-		prefix2str(c->address, buf, sizeof(buf));
-		zlog_debug("Zebra: interface %s address delete %s",
-			   c->ifp->name, buf);
-	}
-
-	ifp = c->ifp;
-	ei = ifp->info;
-	if (!ei)
-		return 0;
-
-	/* Call interface hook functions to clean up */
-	eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
-
-	connected_free(c);
-
-	return 0;
-}
-
-static int eigrp_interface_state_up(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct interface *ifp;
-
-	ifp = zebra_interface_if_lookup(zclient->ibuf);
-
-	if (ifp == NULL)
-		return 0;
-
-	/* Interface is already up. */
-	if (if_is_operative(ifp)) {
-		/* Temporarily keep ifp values. */
-		struct interface if_tmp;
-		memcpy(&if_tmp, ifp, sizeof(struct interface));
-
-		zebra_interface_if_set_value(zclient->ibuf, ifp);
-
-		if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-			zlog_debug("Zebra: Interface[%s] state update.",
-				   ifp->name);
-
-		if (if_tmp.bandwidth != ifp->bandwidth) {
-			if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-				zlog_debug(
-					"Zebra: Interface[%s] bandwidth change %d -> %d.",
-					ifp->name, if_tmp.bandwidth,
-					ifp->bandwidth);
-
-			//          eigrp_if_recalculate_output_cost (ifp);
-		}
-
-		if (if_tmp.mtu != ifp->mtu) {
-			if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-				zlog_debug(
-					"Zebra: Interface[%s] MTU change %u -> %u.",
-					ifp->name, if_tmp.mtu, ifp->mtu);
-
-			/* Must reset the interface (simulate down/up) when MTU
-			 * changes. */
-			eigrp_if_reset(ifp);
-		}
-		return 0;
-	}
-
-	zebra_interface_if_set_value(zclient->ibuf, ifp);
-
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: Interface[%s] state change to up.",
-			   ifp->name);
-
-	if (ifp->info)
-		eigrp_if_up(ifp->info);
-
-	return 0;
-}
-
-static int eigrp_interface_state_down(int command, struct zclient *zclient,
-				      zebra_size_t length, vrf_id_t vrf_id)
-{
-	struct interface *ifp;
-
-	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
-
-	if (ifp == NULL)
-		return 0;
-
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: Interface[%s] state change to down.",
-			   ifp->name);
-
-	if (ifp->info)
-		eigrp_if_down(ifp->info);
-
-	return 0;
-}
-
-static struct interface *zebra_interface_if_lookup(struct stream *s)
-{
-	char ifname_tmp[INTERFACE_NAMSIZ];
-
-	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
-
-	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
-}
-
-void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
-{
-	struct zapi_route api;
-	struct zapi_nexthop *api_nh;
-	struct eigrp_nexthop_entry *te;
-	struct listnode *node;
-	int count = 0;
-
-	if (!zclient->redist[AFI_IP][ZEBRA_ROUTE_EIGRP])
-		return;
-
-	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
-	api.type = ZEBRA_ROUTE_EIGRP;
-	api.safi = SAFI_UNICAST;
-	memcpy(&api.prefix, p, sizeof(*p));
-
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-
-	/* Nexthop, ifindex, distance and metric information. */
-	for (ALL_LIST_ELEMENTS_RO(successors, node, te)) {
-		if (count >= MULTIPATH_NUM)
-			break;
-		api_nh = &api.nexthops[count];
-		api_nh->vrf_id = VRF_DEFAULT;
-		if (te->adv_router->src.s_addr) {
-			api_nh->gate.ipv4 = te->adv_router->src;
-			api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-		} else
-			api_nh->type = NEXTHOP_TYPE_IFINDEX;
-		api_nh->ifindex = te->ei->ifp->ifindex;
-
-		count++;
-	}
-	api.nexthop_num = count;
-
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[2][PREFIX_STRLEN];
-		zlog_debug("Zebra: Route add %s nexthop %s",
-			   prefix2str(p, buf[0], PREFIX_STRLEN),
-			   inet_ntop(AF_INET, 0, buf[1], PREFIX_STRLEN));
-	}
-
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
-}
-
-void eigrp_zebra_route_delete(struct prefix *p)
-{
-	struct zapi_route api;
-
-	if (!zclient->redist[AFI_IP][ZEBRA_ROUTE_EIGRP])
-		return;
-
-	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
-	api.type = ZEBRA_ROUTE_EIGRP;
-	api.safi = SAFI_UNICAST;
-	memcpy(&api.prefix, p, sizeof(*p));
-	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
-
-	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[PREFIX_STRLEN];
-		zlog_debug("Zebra: Route del %s",
-			   prefix2str(p, buf, PREFIX_STRLEN));
-	}
-
-	return;
-}
-
-int eigrp_is_type_redistributed(int type)
-{
-	return ((DEFAULT_ROUTE_TYPE(type))
-			? vrf_bitmap_check(zclient->default_information,
-					   VRF_DEFAULT)
-			: vrf_bitmap_check(zclient->redist[AFI_IP][type],
-					   VRF_DEFAULT));
-}
-
-int eigrp_redistribute_set(struct eigrp *eigrp, int type,
-			   struct eigrp_metrics metric)
-{
-
-	if (eigrp_is_type_redistributed(type)) {
-		if (eigrp_metrics_is_same(metric, eigrp->dmetric[type])) {
-			eigrp->dmetric[type] = metric;
-		}
-
-		eigrp_external_routes_refresh(eigrp, type);
-
-		//      if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE))
-		//        zlog_debug ("Redistribute[%s]: Refresh  Type[%d],
-		//        Metric[%d]",
-		//                   eigrp_redist_string(type),
-		//                   metric_type (eigrp, type), metric_value
-		//                   (eigrp, type));
-		return CMD_SUCCESS;
-	}
-
-	eigrp->dmetric[type] = metric;
-
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0,
-			     VRF_DEFAULT);
-
-	++eigrp->redistribute;
-
-	return CMD_SUCCESS;
-}
-
-int eigrp_redistribute_unset(struct eigrp *eigrp, int type)
-{
-
-	if (eigrp_is_type_redistributed(type)) {
-		memset(&eigrp->dmetric[type], 0, sizeof(struct eigrp_metrics));
-		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP,
-				     type, 0, VRF_DEFAULT);
-		--eigrp->redistribute;
-	}
-
-	return CMD_SUCCESS;
-}
+/**ZebraconnectlibraryforEIGRP.*Copyright(C)2013-2014*Authors:*DonnieSavage*JanJ
+anovic*MatejPerina*PeterOrsag*PeterPaluch**ThisfileispartofGNUZebra.**GNUZebrais
+freesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPubl
+icLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)
+any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTA
+NYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULA
+RPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceivedaco
+pyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writ
+etotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301US
+A*/#include<zebra.h>#include"thread.h"#include"command.h"#include"network.h"#inc
+lude"prefix.h"#include"routemap.h"#include"table.h"#include"stream.h"#include"me
+mory.h"#include"zclient.h"#include"filter.h"#include"plist.h"#include"log.h"#inc
+lude"nexthop.h"#include"eigrpd/eigrp_structs.h"#include"eigrpd/eigrpd.h"#include
+"eigrpd/eigrp_interface.h"#include"eigrpd/eigrp_neighbor.h"#include"eigrpd/eigrp
+_packet.h"#include"eigrpd/eigrp_zebra.h"#include"eigrpd/eigrp_vty.h"#include"eig
+rpd/eigrp_dump.h"#include"eigrpd/eigrp_network.h"#include"eigrpd/eigrp_topology.
+h"#include"eigrpd/eigrp_fsm.h"staticinteigrp_interface_add(int,structzclient*,ze
+bra_size_t,vrf_id_t);staticinteigrp_interface_delete(int,structzclient*,zebra_si
+ze_t,vrf_id_t);staticinteigrp_interface_address_add(int,structzclient*,zebra_siz
+e_t,vrf_id_tvrf_id);staticinteigrp_interface_address_delete(int,structzclient*,z
+ebra_size_t,vrf_id_tvrf_id);staticinteigrp_interface_state_up(int,structzclient*
+,zebra_size_t,vrf_id_tvrf_id);staticinteigrp_interface_state_down(int,structzcli
+ent*,zebra_size_t,vrf_id_tvrf_id);staticstructinterface*zebra_interface_if_looku
+p(structstream*);staticinteigrp_zebra_read_route(int,structzclient*,zebra_size_t
+,vrf_id_tvrf_id);/*Zebrastructuretoholdcurrentstatus.*/structzclient*zclient=NUL
+L;/*Forregisteringthreads.*/externstructthread_master*master;structin_addrrouter
+_id_zebra;/*Router-idupdatemessagefromzebra.*/staticinteigrp_router_id_update_ze
+bra(intcommand,structzclient*zclient,zebra_size_tlength,vrf_id_tvrf_id){structei
+grp*eigrp;structprefixrouter_id;zebra_router_id_update_read(zclient->ibuf,&route
+r_id);router_id_zebra=router_id.u.prefix4;eigrp=eigrp_lookup();if(eigrp!=NULL)ei
+grp_router_id_update(eigrp);return0;}staticinteigrp_zebra_route_notify_owner(int
+command,structzclient*zclient,zebra_size_tlength,vrf_id_tvrf_id){structprefixp;e
+numzapi_route_notify_ownernote;uint32_ttable;if(!zapi_route_notify_decode(zclien
+t->ibuf,&p,&table,&note))return-1;return0;}staticvoideigrp_zebra_connected(struc
+tzclient*zclient){zclient_send_reg_requests(zclient,VRF_DEFAULT);}voideigrp_zebr
+a_init(void){structzclient_optionsopt={.receive_notify=false};zclient=zclient_ne
+w_notify(master,&opt);zclient_init(zclient,ZEBRA_ROUTE_EIGRP,0,&eigrpd_privs);zc
+lient->zebra_connected=eigrp_zebra_connected;zclient->router_id_update=eigrp_rou
+ter_id_update_zebra;zclient->interface_add=eigrp_interface_add;zclient->interfac
+e_delete=eigrp_interface_delete;zclient->interface_up=eigrp_interface_state_up;z
+client->interface_down=eigrp_interface_state_down;zclient->interface_address_add
+=eigrp_interface_address_add;zclient->interface_address_delete=eigrp_interface_a
+ddress_delete;zclient->redistribute_route_add=eigrp_zebra_read_route;zclient->re
+distribute_route_del=eigrp_zebra_read_route;zclient->route_notify_owner=eigrp_ze
+bra_route_notify_owner;}/*Zebrarouteaddanddeletetreatment.*/staticinteigrp_zebra
+_read_route(intcommand,structzclient*zclient,zebra_size_tlength,vrf_id_tvrf_id){
+structzapi_routeapi;structeigrp*eigrp;if(zapi_route_decode(zclient->ibuf,&api)<0
+)return-1;if(IPV4_NET127(ntohl(api.prefix.u.prefix4.s_addr)))return0;eigrp=eigrp
+_lookup();if(eigrp==NULL)return0;if(command==ZEBRA_REDISTRIBUTE_ROUTE_ADD){}else
+/*if(command==ZEBRA_REDISTRIBUTE_ROUTE_DEL)*/{}return0;}/*Intefaceadditionmessag
+efromzebra.*/staticinteigrp_interface_add(intcommand,structzclient*zclient,zebra
+_size_tlength,vrf_id_tvrf_id){structinterface*ifp;structeigrp_interface*ei;ifp=z
+ebra_interface_add_read(zclient->ibuf,vrf_id);if(!ifp->info)return0;ei=ifp->info
+;ei->params.type=eigrp_default_iftype(ifp);eigrp_if_update(ifp);return0;}statici
+nteigrp_interface_delete(intcommand,structzclient*zclient,zebra_size_tlength,vrf
+_id_tvrf_id){structinterface*ifp;structstream*s;s=zclient->ibuf;/*zebra_interfac
+e_state_read()updatesinterfacestructureiniflist*/ifp=zebra_interface_state_read(
+s,vrf_id);if(ifp==NULL)return0;if(if_is_up(ifp))zlog_warn("Zebra:gotdeleteof%s,b
+utinterfaceisstillup",ifp->name);if(IS_DEBUG_EIGRP(zebra,ZEBRA_INTERFACE))zlog_d
+ebug("Zebra:interfacedelete%sindex%dflags%llxmetric%dmtu%d",ifp->name,ifp->ifind
+ex,(unsignedlonglong)ifp->flags,ifp->metric,ifp->mtu);if(ifp->info)eigrp_if_free
+(ifp->info,INTERFACE_DOWN_BY_ZEBRA);if_set_index(ifp,IFINDEX_INTERNAL);return0;}
+staticinteigrp_interface_address_add(intcommand,structzclient*zclient,zebra_size
+_tlength,vrf_id_tvrf_id){structconnected*c;c=zebra_interface_address_read(comman
+d,zclient->ibuf,vrf_id);if(c==NULL)return0;if(IS_DEBUG_EIGRP(zebra,ZEBRA_INTERFA
+CE)){charbuf[128];prefix2str(c->address,buf,sizeof(buf));zlog_debug("Zebra:inter
+face%saddressadd%s",c->ifp->name,buf);}eigrp_if_update(c->ifp);return0;}staticin
+teigrp_interface_address_delete(intcommand,structzclient*zclient,zebra_size_tlen
+gth,vrf_id_tvrf_id){structconnected*c;structinterface*ifp;structeigrp_interface*
+ei;c=zebra_interface_address_read(command,zclient->ibuf,vrf_id);if(c==NULL)retur
+n0;if(IS_DEBUG_EIGRP(zebra,ZEBRA_INTERFACE)){charbuf[128];prefix2str(c->address,
+buf,sizeof(buf));zlog_debug("Zebra:interface%saddressdelete%s",c->ifp->name,buf)
+;}ifp=c->ifp;ei=ifp->info;if(!ei)return0;/*Callinterfacehookfunctionstocleanup*/
+eigrp_if_free(ei,INTERFACE_DOWN_BY_ZEBRA);connected_free(c);return0;}staticintei
+grp_interface_state_up(intcommand,structzclient*zclient,zebra_size_tlength,vrf_i
+d_tvrf_id){structinterface*ifp;ifp=zebra_interface_if_lookup(zclient->ibuf);if(i
+fp==NULL)return0;/*Interfaceisalreadyup.*/if(if_is_operative(ifp)){/*Temporarily
+keepifpvalues.*/structinterfaceif_tmp;memcpy(&if_tmp,ifp,sizeof(structinterface)
+);zebra_interface_if_set_value(zclient->ibuf,ifp);if(IS_DEBUG_EIGRP(zebra,ZEBRA_
+INTERFACE))zlog_debug("Zebra:Interface[%s]stateupdate.",ifp->name);if(if_tmp.ban
+dwidth!=ifp->bandwidth){if(IS_DEBUG_EIGRP(zebra,ZEBRA_INTERFACE))zlog_debug("Zeb
+ra:Interface[%s]bandwidthchange%d->%d.",ifp->name,if_tmp.bandwidth,ifp->bandwidt
+h);//eigrp_if_recalculate_output_cost(ifp);}if(if_tmp.mtu!=ifp->mtu){if(IS_DEBUG
+_EIGRP(zebra,ZEBRA_INTERFACE))zlog_debug("Zebra:Interface[%s]MTUchange%u->%u.",i
+fp->name,if_tmp.mtu,ifp->mtu);/*Mustresettheinterface(simulatedown/up)whenMTU*ch
+anges.*/eigrp_if_reset(ifp);}return0;}zebra_interface_if_set_value(zclient->ibuf
+,ifp);if(IS_DEBUG_EIGRP(zebra,ZEBRA_INTERFACE))zlog_debug("Zebra:Interface[%s]st
+atechangetoup.",ifp->name);if(ifp->info)eigrp_if_up(ifp->info);return0;}staticin
+teigrp_interface_state_down(intcommand,structzclient*zclient,zebra_size_tlength,
+vrf_id_tvrf_id){structinterface*ifp;ifp=zebra_interface_state_read(zclient->ibuf
+,vrf_id);if(ifp==NULL)return0;if(IS_DEBUG_EIGRP(zebra,ZEBRA_INTERFACE))zlog_debu
+g("Zebra:Interface[%s]statechangetodown.",ifp->name);if(ifp->info)eigrp_if_down(
+ifp->info);return0;}staticstructinterface*zebra_interface_if_lookup(structstream
+*s){charifname_tmp[INTERFACE_NAMSIZ];/*Readinterfacename.*/stream_get(ifname_tmp
+,s,INTERFACE_NAMSIZ);/*Andlookitup.*/returnif_lookup_by_name(ifname_tmp,VRF_DEFA
+ULT);}voideigrp_zebra_route_add(structprefix*p,structlist*successors){structzapi
+_routeapi;structzapi_nexthop*api_nh;structeigrp_nexthop_entry*te;structlistnode*
+node;intcount=0;if(!zclient->redist[AFI_IP][ZEBRA_ROUTE_EIGRP])return;memset(&ap
+i,0,sizeof(api));api.vrf_id=VRF_DEFAULT;api.type=ZEBRA_ROUTE_EIGRP;api.safi=SAFI
+_UNICAST;memcpy(&api.prefix,p,sizeof(*p));SET_FLAG(api.message,ZAPI_MESSAGE_NEXT
+HOP);/*Nexthop,ifindex,distanceandmetricinformation.*/for(ALL_LIST_ELEMENTS_RO(s
+uccessors,node,te)){if(count>=MULTIPATH_NUM)break;api_nh=&api.nexthops[count];ap
+i_nh->vrf_id=VRF_DEFAULT;if(te->adv_router->src.s_addr){api_nh->gate.ipv4=te->ad
+v_router->src;api_nh->type=NEXTHOP_TYPE_IPV4_IFINDEX;}elseapi_nh->type=NEXTHOP_T
+YPE_IFINDEX;api_nh->ifindex=te->ei->ifp->ifindex;count++;}api.nexthop_num=count;
+if(IS_DEBUG_EIGRP(zebra,ZEBRA_REDISTRIBUTE)){charbuf[2][PREFIX_STRLEN];zlog_debu
+g("Zebra:Routeadd%snexthop%s",prefix2str(p,buf[0],PREFIX_STRLEN),inet_ntop(AF_IN
+ET,0,buf[1],PREFIX_STRLEN));}zclient_route_send(ZEBRA_ROUTE_ADD,zclient,&api);}v
+oideigrp_zebra_route_delete(structprefix*p){structzapi_routeapi;if(!zclient->red
+ist[AFI_IP][ZEBRA_ROUTE_EIGRP])return;memset(&api,0,sizeof(api));api.vrf_id=VRF_
+DEFAULT;api.type=ZEBRA_ROUTE_EIGRP;api.safi=SAFI_UNICAST;memcpy(&api.prefix,p,si
+zeof(*p));zclient_route_send(ZEBRA_ROUTE_DELETE,zclient,&api);if(IS_DEBUG_EIGRP(
+zebra,ZEBRA_REDISTRIBUTE)){charbuf[PREFIX_STRLEN];zlog_debug("Zebra:Routedel%s",
+prefix2str(p,buf,PREFIX_STRLEN));}return;}inteigrp_is_type_redistributed(inttype
+){return((DEFAULT_ROUTE_TYPE(type))?vrf_bitmap_check(zclient->default_informatio
+n,VRF_DEFAULT):vrf_bitmap_check(zclient->redist[AFI_IP][type],VRF_DEFAULT));}int
+eigrp_redistribute_set(structeigrp*eigrp,inttype,structeigrp_metricsmetric){if(e
+igrp_is_type_redistributed(type)){if(eigrp_metrics_is_same(metric,eigrp->dmetric
+[type])){eigrp->dmetric[type]=metric;}eigrp_external_routes_refresh(eigrp,type);
+//if(IS_DEBUG_EIGRP(zebra,ZEBRA_REDISTRIBUTE))//zlog_debug("Redistribute[%s]:Ref
+reshType[%d],//Metric[%d]",//eigrp_redist_string(type),//metric_type(eigrp,type)
+,metric_value//(eigrp,type));returnCMD_SUCCESS;}eigrp->dmetric[type]=metric;zcli
+ent_redistribute(ZEBRA_REDISTRIBUTE_ADD,zclient,AFI_IP,type,0,VRF_DEFAULT);++eig
+rp->redistribute;returnCMD_SUCCESS;}inteigrp_redistribute_unset(structeigrp*eigr
+p,inttype){if(eigrp_is_type_redistributed(type)){memset(&eigrp->dmetric[type],0,
+sizeof(structeigrp_metrics));zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE,zcli
+ent,AFI_IP,type,0,VRF_DEFAULT);--eigrp->redistribute;}returnCMD_SUCCESS;}

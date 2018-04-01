@@ -1,106 +1,32 @@
-/*
- * OSPF version 2  Interface State Machine.
- *   From RFC2328 [OSPF Version 2]
- * Copyright (C) 1999 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_OSPF_ISM_H
-#define _ZEBRA_OSPF_ISM_H
-
-#include "hook.h"
-
-/* OSPF Interface State Machine Status. */
-#define ISM_DependUpon                    0
-#define ISM_Down                          1
-#define ISM_Loopback                      2
-#define ISM_Waiting                       3
-#define ISM_PointToPoint                  4
-#define ISM_DROther                       5
-#define ISM_Backup                        6
-#define ISM_DR                            7
-#define OSPF_ISM_STATE_MAX   	          8
-
-/* OSPF Interface State Machine Event. */
-#define ISM_NoEvent                       0
-#define ISM_InterfaceUp                   1
-#define ISM_WaitTimer                     2
-#define ISM_BackupSeen                    3
-#define ISM_NeighborChange                4
-#define ISM_LoopInd                       5
-#define ISM_UnloopInd                     6
-#define ISM_InterfaceDown                 7
-#define OSPF_ISM_EVENT_MAX                8
-
-#define OSPF_ISM_WRITE_ON(O)                                                   \
-	do {                                                                   \
-		if (oi->on_write_q == 0) {                                     \
-			listnode_add((O)->oi_write_q, oi);                     \
-			oi->on_write_q = 1;                                    \
-		}                                                              \
-		thread_add_write(master, ospf_write, (O), (O)->fd,             \
-				 &(O)->t_write);                               \
-	} while (0)
-
-/* Macro for OSPF ISM timer turn on. */
-#define OSPF_ISM_TIMER_ON(T, F, V) thread_add_timer(master, (F), oi, (V), &(T))
-
-#define OSPF_ISM_TIMER_MSEC_ON(T, F, V)                                        \
-	thread_add_timer_msec(master, (F), oi, (V), &(T))
-
-/* convenience macro to set hello timer correctly, according to
- * whether fast-hello is set or not
- */
-#define OSPF_HELLO_TIMER_ON(O)                                                 \
-	do {                                                                   \
-		if (OSPF_IF_PARAM((O), fast_hello))                            \
-			OSPF_ISM_TIMER_MSEC_ON(                                \
-				(O)->t_hello, ospf_hello_timer,                \
-				1000 / OSPF_IF_PARAM((O), fast_hello));        \
-		else                                                           \
-			OSPF_ISM_TIMER_ON((O)->t_hello, ospf_hello_timer,      \
-					  OSPF_IF_PARAM((O), v_hello));        \
-	} while (0)
-
-/* Macro for OSPF ISM timer turn off. */
-#define OSPF_ISM_TIMER_OFF(X)                                                  \
-	do {                                                                   \
-		if (X) {                                                       \
-			thread_cancel(X);                                      \
-			(X) = NULL;                                            \
-		}                                                              \
-	} while (0)
-
-/* Macro for OSPF schedule event. */
-#define OSPF_ISM_EVENT_SCHEDULE(I, E)                                          \
-	thread_add_event(master, ospf_ism_event, (I), (E), NULL)
-
-/* Macro for OSPF execute event. */
-#define OSPF_ISM_EVENT_EXECUTE(I, E)                                           \
-	thread_execute(master, ospf_ism_event, (I), (E))
-
-/* Prototypes. */
-extern int ospf_ism_event(struct thread *);
-extern void ism_change_status(struct ospf_interface *, int);
-extern int ospf_hello_timer(struct thread *thread);
-
-DECLARE_HOOK(ospf_ism_change,
-	     (struct ospf_interface * oi, int state, int oldstate),
-	     (oi, state, oldstate))
-
-#endif /* _ZEBRA_OSPF_ISM_H */
+/**OSPFversion2InterfaceStateMachine.*FromRFC2328[OSPFVersion2]*Copyright(C)1999
+ToshiakiTakada**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistri
+buteitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*F
+reeSoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebra
+isdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheim
+pliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralP
+ublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLice
+nsealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundati
+on,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_OSPF_ISM_H
+#define_ZEBRA_OSPF_ISM_H#include"hook.h"/*OSPFInterfaceStateMachineStatus.*/#def
+ineISM_DependUpon0#defineISM_Down1#defineISM_Loopback2#defineISM_Waiting3#define
+ISM_PointToPoint4#defineISM_DROther5#defineISM_Backup6#defineISM_DR7#defineOSPF_
+ISM_STATE_MAX8/*OSPFInterfaceStateMachineEvent.*/#defineISM_NoEvent0#defineISM_I
+nterfaceUp1#defineISM_WaitTimer2#defineISM_BackupSeen3#defineISM_NeighborChange4
+#defineISM_LoopInd5#defineISM_UnloopInd6#defineISM_InterfaceDown7#defineOSPF_ISM
+_EVENT_MAX8#defineOSPF_ISM_WRITE_ON(O)\do{\if(oi->on_write_q==0){\listnode_add((
+O)->oi_write_q,oi);\oi->on_write_q=1;\}\thread_add_write(master,ospf_write,(O),(
+O)->fd,\&(O)->t_write);\}while(0)/*MacroforOSPFISMtimerturnon.*/#defineOSPF_ISM_
+TIMER_ON(T,F,V)thread_add_timer(master,(F),oi,(V),&(T))#defineOSPF_ISM_TIMER_MSE
+C_ON(T,F,V)\thread_add_timer_msec(master,(F),oi,(V),&(T))/*conveniencemacrotoset
+hellotimercorrectly,accordingto*whetherfast-helloissetornot*/#defineOSPF_HELLO_T
+IMER_ON(O)\do{\if(OSPF_IF_PARAM((O),fast_hello))\OSPF_ISM_TIMER_MSEC_ON(\(O)->t_
+hello,ospf_hello_timer,\1000/OSPF_IF_PARAM((O),fast_hello));\else\OSPF_ISM_TIMER
+_ON((O)->t_hello,ospf_hello_timer,\OSPF_IF_PARAM((O),v_hello));\}while(0)/*Macro
+forOSPFISMtimerturnoff.*/#defineOSPF_ISM_TIMER_OFF(X)\do{\if(X){\thread_cancel(X
+);\(X)=NULL;\}\}while(0)/*MacroforOSPFscheduleevent.*/#defineOSPF_ISM_EVENT_SCHE
+DULE(I,E)\thread_add_event(master,ospf_ism_event,(I),(E),NULL)/*MacroforOSPFexec
+uteevent.*/#defineOSPF_ISM_EVENT_EXECUTE(I,E)\thread_execute(master,ospf_ism_eve
+nt,(I),(E))/*Prototypes.*/externintospf_ism_event(structthread*);externvoidism_c
+hange_status(structospf_interface*,int);externintospf_hello_timer(structthread*t
+hread);DECLARE_HOOK(ospf_ism_change,(structospf_interface*oi,intstate,intoldstat
+e),(oi,state,oldstate))#endif/*_ZEBRA_OSPF_ISM_H*/

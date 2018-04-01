@@ -1,7693 +1,2118 @@
-/* BGP-4, BGP-4+ daemon program
- * Copyright (C) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "prefix.h"
-#include "thread.h"
-#include "buffer.h"
-#include "stream.h"
-#include "ringbuf.h"
-#include "command.h"
-#include "sockunion.h"
-#include "sockopt.h"
-#include "network.h"
-#include "memory.h"
-#include "filter.h"
-#include "routemap.h"
-#include "log.h"
-#include "plist.h"
-#include "linklist.h"
-#include "workqueue.h"
-#include "queue.h"
-#include "zclient.h"
-#include "bfd.h"
-#include "hash.h"
-#include "jhash.h"
-#include "table.h"
-#include "lib/json.h"
-#include "frr_pthread.h"
-
-#include "bgpd/bgpd.h"
-#include "bgpd/bgp_table.h"
-#include "bgpd/bgp_aspath.h"
-#include "bgpd/bgp_route.h"
-#include "bgpd/bgp_dump.h"
-#include "bgpd/bgp_debug.h"
-#include "bgpd/bgp_community.h"
-#include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_regex.h"
-#include "bgpd/bgp_clist.h"
-#include "bgpd/bgp_fsm.h"
-#include "bgpd/bgp_packet.h"
-#include "bgpd/bgp_zebra.h"
-#include "bgpd/bgp_open.h"
-#include "bgpd/bgp_filter.h"
-#include "bgpd/bgp_nexthop.h"
-#include "bgpd/bgp_damp.h"
-#include "bgpd/bgp_mplsvpn.h"
-#if ENABLE_BGP_VNC
-#include "bgpd/rfapi/bgp_rfapi_cfg.h"
-#include "bgpd/rfapi/rfapi_backend.h"
-#endif
-#include "bgpd/bgp_evpn.h"
-#include "bgpd/bgp_advertise.h"
-#include "bgpd/bgp_network.h"
-#include "bgpd/bgp_vty.h"
-#include "bgpd/bgp_mpath.h"
-#include "bgpd/bgp_nht.h"
-#include "bgpd/bgp_updgrp.h"
-#include "bgpd/bgp_bfd.h"
-#include "bgpd/bgp_memory.h"
-#include "bgpd/bgp_evpn_vty.h"
-#include "bgpd/bgp_keepalives.h"
-#include "bgpd/bgp_io.h"
-#include "bgpd/bgp_ecommunity.h"
-#include "bgpd/bgp_flowspec.h"
-
-
-DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
-DEFINE_QOBJ_TYPE(bgp_master)
-DEFINE_QOBJ_TYPE(bgp)
-DEFINE_QOBJ_TYPE(peer)
-
-/* BGP process wide configuration.  */
-static struct bgp_master bgp_master;
-
-/* BGP process wide configuration pointer to export.  */
-struct bgp_master *bm;
-
-/* BGP community-list.  */
-struct community_list_handler *bgp_clist;
-
-unsigned int multipath_num = MULTIPATH_NUM;
-
-static void bgp_if_finish(struct bgp *bgp);
-
-extern struct zclient *zclient;
-
-/* handle main socket creation or deletion */
-static int bgp_check_main_socket(bool create, struct bgp *bgp)
-{
-	static int bgp_server_main_created;
-	struct listnode *bgpnode, *nbgpnode;
-	struct bgp *bgp_temp;
-
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF &&
-	    vrf_is_mapped_on_netns(bgp->vrf_id))
-		return 0;
-	if (create == true) {
-		if (bgp_server_main_created)
-			return 0;
-		if (bgp_socket(bgp, bm->port, bm->address) < 0)
-			return BGP_ERR_INVALID_VALUE;
-		bgp_server_main_created = 1;
-		return 0;
-	}
-	if (!bgp_server_main_created)
-		return 0;
-	/* only delete socket on some cases */
-	for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp_temp)) {
-		/* do not count with current bgp */
-		if (bgp_temp == bgp)
-			continue;
-		/* if other instance non VRF, do not delete socket */
-		if (bgp_temp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			return 0;
-		/* vrf lite, do not delete socket */
-		if (!vrf_is_mapped_on_netns(bgp_temp->vrf_id))
-			return 0;
-	}
-	bgp_close();
-	bgp_server_main_created = 0;
-	return 0;
-}
-
-void bgp_session_reset(struct peer *peer)
-{
-	if (peer->doppelganger && (peer->doppelganger->status != Deleted)
-	    && !(CHECK_FLAG(peer->doppelganger->flags, PEER_FLAG_CONFIG_NODE)))
-		peer_delete(peer->doppelganger);
-
-	BGP_EVENT_ADD(peer, BGP_Stop);
-}
-
-/*
- * During session reset, we may delete the doppelganger peer, which would
- * be the next node to the current node. If the session reset was invoked
- * during walk of peer list, we would end up accessing the freed next
- * node. This function moves the next node along.
- */
-static void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode)
-{
-	struct listnode *n;
-	struct peer *npeer;
-
-	n = (nnode) ? *nnode : NULL;
-	npeer = (n) ? listgetdata(n) : NULL;
-
-	if (peer->doppelganger && (peer->doppelganger->status != Deleted)
-	    && !(CHECK_FLAG(peer->doppelganger->flags,
-			    PEER_FLAG_CONFIG_NODE))) {
-		if (peer->doppelganger == npeer)
-			/* nnode and *nnode are confirmed to be non-NULL here */
-			*nnode = (*nnode)->next;
-		peer_delete(peer->doppelganger);
-	}
-
-	BGP_EVENT_ADD(peer, BGP_Stop);
-}
-
-/* BGP global flag manipulation.  */
-int bgp_option_set(int flag)
-{
-	switch (flag) {
-	case BGP_OPT_NO_FIB:
-	case BGP_OPT_MULTIPLE_INSTANCE:
-	case BGP_OPT_CONFIG_CISCO:
-	case BGP_OPT_NO_LISTEN:
-		SET_FLAG(bm->options, flag);
-		break;
-	default:
-		return BGP_ERR_INVALID_FLAG;
-	}
-	return 0;
-}
-
-int bgp_option_unset(int flag)
-{
-	switch (flag) {
-	case BGP_OPT_MULTIPLE_INSTANCE:
-		if (listcount(bm->bgp) > 1)
-			return BGP_ERR_MULTIPLE_INSTANCE_USED;
-	/* Fall through.  */
-	case BGP_OPT_NO_FIB:
-	case BGP_OPT_CONFIG_CISCO:
-		UNSET_FLAG(bm->options, flag);
-		break;
-	default:
-		return BGP_ERR_INVALID_FLAG;
-	}
-	return 0;
-}
-
-int bgp_option_check(int flag)
-{
-	return CHECK_FLAG(bm->options, flag);
-}
-
-/* BGP flag manipulation.  */
-int bgp_flag_set(struct bgp *bgp, int flag)
-{
-	SET_FLAG(bgp->flags, flag);
-	return 0;
-}
-
-int bgp_flag_unset(struct bgp *bgp, int flag)
-{
-	UNSET_FLAG(bgp->flags, flag);
-	return 0;
-}
-
-int bgp_flag_check(struct bgp *bgp, int flag)
-{
-	return CHECK_FLAG(bgp->flags, flag);
-}
-
-/* Internal function to set BGP structure configureation flag.  */
-static void bgp_config_set(struct bgp *bgp, int config)
-{
-	SET_FLAG(bgp->config, config);
-}
-
-static void bgp_config_unset(struct bgp *bgp, int config)
-{
-	UNSET_FLAG(bgp->config, config);
-}
-
-static int bgp_config_check(struct bgp *bgp, int config)
-{
-	return CHECK_FLAG(bgp->config, config);
-}
-
-/* Set BGP router identifier. */
-static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
-{
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	if (IPV4_ADDR_SAME(&bgp->router_id, id))
-		return 0;
-
-	/* EVPN uses router id in RD, withdraw them */
-	if (is_evpn_enabled())
-		bgp_evpn_handle_router_id_update(bgp, TRUE);
-
-	IPV4_ADDR_COPY(&bgp->router_id, id);
-
-	/* Set all peer's local identifier with this value. */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		IPV4_ADDR_COPY(&peer->local_id, id);
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_RID_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		}
-	}
-
-	/* EVPN uses router id in RD, update them */
-	if (is_evpn_enabled())
-		bgp_evpn_handle_router_id_update(bgp, FALSE);
-
-	return 0;
-}
-
-void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
-{
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-
-	if (vrf_id == VRF_DEFAULT) {
-		/* Router-id change for default VRF has to also update all
-		 * views. */
-		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-			if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-				continue;
-
-			bgp->router_id_zebra = router_id->u.prefix4;
-			if (!bgp->router_id_static.s_addr)
-				bgp_router_id_set(bgp, &router_id->u.prefix4);
-		}
-	} else {
-		bgp = bgp_lookup_by_vrf_id(vrf_id);
-		if (bgp) {
-			bgp->router_id_zebra = router_id->u.prefix4;
-
-			if (!bgp->router_id_static.s_addr)
-				bgp_router_id_set(bgp, &router_id->u.prefix4);
-		}
-	}
-}
-
-int bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
-{
-	bgp->router_id_static = id;
-	bgp_router_id_set(bgp, id.s_addr ? &id : &bgp->router_id_zebra);
-	return 0;
-}
-
-/* BGP's cluster-id control. */
-int bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id)
-{
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	if (bgp_config_check(bgp, BGP_CONFIG_CLUSTER_ID)
-	    && IPV4_ADDR_SAME(&bgp->cluster_id, cluster_id))
-		return 0;
-
-	IPV4_ADDR_COPY(&bgp->cluster_id, cluster_id);
-	bgp_config_set(bgp, BGP_CONFIG_CLUSTER_ID);
-
-	/* Clear all IBGP peer. */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->sort != BGP_PEER_IBGP)
-			continue;
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_CLID_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		}
-	}
-	return 0;
-}
-
-int bgp_cluster_id_unset(struct bgp *bgp)
-{
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	if (!bgp_config_check(bgp, BGP_CONFIG_CLUSTER_ID))
-		return 0;
-
-	bgp->cluster_id.s_addr = 0;
-	bgp_config_unset(bgp, BGP_CONFIG_CLUSTER_ID);
-
-	/* Clear all IBGP peer. */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->sort != BGP_PEER_IBGP)
-			continue;
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_CLID_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		}
-	}
-	return 0;
-}
-
-/* time_t value that is monotonicly increasing
- * and uneffected by adjustments to system clock
- */
-time_t bgp_clock(void)
-{
-	struct timeval tv;
-
-	monotime(&tv);
-	return tv.tv_sec;
-}
-
-/* BGP timer configuration.  */
-int bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime)
-{
-	bgp->default_keepalive =
-		(keepalive < holdtime / 3 ? keepalive : holdtime / 3);
-	bgp->default_holdtime = holdtime;
-
-	return 0;
-}
-
-int bgp_timers_unset(struct bgp *bgp)
-{
-	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
-	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
-
-	return 0;
-}
-
-/* BGP confederation configuration.  */
-int bgp_confederation_id_set(struct bgp *bgp, as_t as)
-{
-	struct peer *peer;
-	struct listnode *node, *nnode;
-	int already_confed;
-
-	if (as == 0)
-		return BGP_ERR_INVALID_AS;
-
-	/* Remember - were we doing confederation before? */
-	already_confed = bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION);
-	bgp->confed_id = as;
-	bgp_config_set(bgp, BGP_CONFIG_CONFEDERATION);
-
-	/* If we were doing confederation already, this is just an external
-	   AS change.  Just Reset EBGP sessions, not CONFED sessions.  If we
-	   were not doing confederation before, reset all EBGP sessions.  */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		/* We're looking for peers who's AS is not local or part of our
-		   confederation.  */
-		if (already_confed) {
-			if (peer_sort(peer) == BGP_PEER_EBGP) {
-				peer->local_as = as;
-				if (BGP_IS_VALID_STATE_FOR_NOTIF(
-					    peer->status)) {
-					peer->last_reset =
-						PEER_DOWN_CONFED_ID_CHANGE;
-					bgp_notify_send(
-						peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-				} else
-					bgp_session_reset_safe(peer, &nnode);
-			}
-		} else {
-			/* Not doign confederation before, so reset every
-			   non-local
-			   session */
-			if (peer_sort(peer) != BGP_PEER_IBGP) {
-				/* Reset the local_as to be our EBGP one */
-				if (peer_sort(peer) == BGP_PEER_EBGP)
-					peer->local_as = as;
-				if (BGP_IS_VALID_STATE_FOR_NOTIF(
-					    peer->status)) {
-					peer->last_reset =
-						PEER_DOWN_CONFED_ID_CHANGE;
-					bgp_notify_send(
-						peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-				} else
-					bgp_session_reset_safe(peer, &nnode);
-			}
-		}
-	}
-	return 0;
-}
-
-int bgp_confederation_id_unset(struct bgp *bgp)
-{
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	bgp->confed_id = 0;
-	bgp_config_unset(bgp, BGP_CONFIG_CONFEDERATION);
-
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		/* We're looking for peers who's AS is not local */
-		if (peer_sort(peer) != BGP_PEER_IBGP) {
-			peer->local_as = bgp->as;
-			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-				peer->last_reset = PEER_DOWN_CONFED_ID_CHANGE;
-				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-			}
-
-			else
-				bgp_session_reset_safe(peer, &nnode);
-		}
-	}
-	return 0;
-}
-
-/* Is an AS part of the confed or not? */
-int bgp_confederation_peers_check(struct bgp *bgp, as_t as)
-{
-	int i;
-
-	if (!bgp)
-		return 0;
-
-	for (i = 0; i < bgp->confed_peers_cnt; i++)
-		if (bgp->confed_peers[i] == as)
-			return 1;
-
-	return 0;
-}
-
-/* Add an AS to the confederation set.  */
-int bgp_confederation_peers_add(struct bgp *bgp, as_t as)
-{
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	if (!bgp)
-		return BGP_ERR_INVALID_BGP;
-
-	if (bgp->as == as)
-		return BGP_ERR_INVALID_AS;
-
-	if (bgp_confederation_peers_check(bgp, as))
-		return -1;
-
-	if (bgp->confed_peers)
-		bgp->confed_peers =
-			XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
-				 (bgp->confed_peers_cnt + 1) * sizeof(as_t));
-	else
-		bgp->confed_peers =
-			XMALLOC(MTYPE_BGP_CONFED_LIST,
-				(bgp->confed_peers_cnt + 1) * sizeof(as_t));
-
-	bgp->confed_peers[bgp->confed_peers_cnt] = as;
-	bgp->confed_peers_cnt++;
-
-	if (bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION)) {
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (peer->as == as) {
-				peer->local_as = bgp->as;
-				if (BGP_IS_VALID_STATE_FOR_NOTIF(
-					    peer->status)) {
-					peer->last_reset =
-						PEER_DOWN_CONFED_PEER_CHANGE;
-					bgp_notify_send(
-						peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-				} else
-					bgp_session_reset_safe(peer, &nnode);
-			}
-		}
-	}
-	return 0;
-}
-
-/* Delete an AS from the confederation set.  */
-int bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
-{
-	int i;
-	int j;
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	if (!bgp)
-		return -1;
-
-	if (!bgp_confederation_peers_check(bgp, as))
-		return -1;
-
-	for (i = 0; i < bgp->confed_peers_cnt; i++)
-		if (bgp->confed_peers[i] == as)
-			for (j = i + 1; j < bgp->confed_peers_cnt; j++)
-				bgp->confed_peers[j - 1] = bgp->confed_peers[j];
-
-	bgp->confed_peers_cnt--;
-
-	if (bgp->confed_peers_cnt == 0) {
-		if (bgp->confed_peers)
-			XFREE(MTYPE_BGP_CONFED_LIST, bgp->confed_peers);
-		bgp->confed_peers = NULL;
-	} else
-		bgp->confed_peers =
-			XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
-				 bgp->confed_peers_cnt * sizeof(as_t));
-
-	/* Now reset any peer who's remote AS has just been removed from the
-	   CONFED */
-	if (bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION)) {
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (peer->as == as) {
-				peer->local_as = bgp->confed_id;
-				if (BGP_IS_VALID_STATE_FOR_NOTIF(
-					    peer->status)) {
-					peer->last_reset =
-						PEER_DOWN_CONFED_PEER_CHANGE;
-					bgp_notify_send(
-						peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-				} else
-					bgp_session_reset_safe(peer, &nnode);
-			}
-		}
-	}
-
-	return 0;
-}
-
-/* Local preference configuration.  */
-int bgp_default_local_preference_set(struct bgp *bgp, uint32_t local_pref)
-{
-	if (!bgp)
-		return -1;
-
-	bgp->default_local_pref = local_pref;
-
-	return 0;
-}
-
-int bgp_default_local_preference_unset(struct bgp *bgp)
-{
-	if (!bgp)
-		return -1;
-
-	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
-
-	return 0;
-}
-
-/* Local preference configuration.  */
-int bgp_default_subgroup_pkt_queue_max_set(struct bgp *bgp, uint32_t queue_size)
-{
-	if (!bgp)
-		return -1;
-
-	bgp->default_subgroup_pkt_queue_max = queue_size;
-
-	return 0;
-}
-
-int bgp_default_subgroup_pkt_queue_max_unset(struct bgp *bgp)
-{
-	if (!bgp)
-		return -1;
-	bgp->default_subgroup_pkt_queue_max =
-		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
-
-	return 0;
-}
-
-/* Listen limit configuration.  */
-int bgp_listen_limit_set(struct bgp *bgp, int listen_limit)
-{
-	if (!bgp)
-		return -1;
-
-	bgp->dynamic_neighbors_limit = listen_limit;
-
-	return 0;
-}
-
-int bgp_listen_limit_unset(struct bgp *bgp)
-{
-	if (!bgp)
-		return -1;
-
-	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
-
-	return 0;
-}
-
-int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, iana_safi_t pkt_safi,
-			      afi_t *afi, safi_t *safi)
-{
-	/* Map from IANA values to internal values, return error if
-	 * values are unrecognized.
-	 */
-	*afi = afi_iana2int(pkt_afi);
-	*safi = safi_iana2int(pkt_safi);
-	if (*afi == AFI_MAX || *safi == SAFI_MAX)
-		return -1;
-
-	return 0;
-}
-
-int bgp_map_afi_safi_int2iana(afi_t afi, safi_t safi, iana_afi_t *pkt_afi,
-			      iana_safi_t *pkt_safi)
-{
-	/* Map from internal values to IANA values, return error if
-	 * internal values are bad (unexpected).
-	 */
-	if (afi == AFI_MAX || safi == SAFI_MAX)
-		return -1;
-	*pkt_afi = afi_int2iana(afi);
-	*pkt_safi = safi_int2iana(safi);
-	return 0;
-}
-
-struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi)
-{
-	struct peer_af *af;
-	int afid;
-
-	if (!peer)
-		return NULL;
-
-	afid = afindex(afi, safi);
-	if (afid >= BGP_AF_MAX)
-		return NULL;
-
-	assert(peer->peer_af_array[afid] == NULL);
-
-	/* Allocate new peer af */
-	af = XCALLOC(MTYPE_BGP_PEER_AF, sizeof(struct peer_af));
-
-	if (af == NULL) {
-		zlog_err("Could not create af structure for peer %s",
-			 peer->host);
-		return NULL;
-	}
-
-	peer->peer_af_array[afid] = af;
-	af->afi = afi;
-	af->safi = safi;
-	af->afid = afid;
-	af->peer = peer;
-
-	return af;
-}
-
-struct peer_af *peer_af_find(struct peer *peer, afi_t afi, safi_t safi)
-{
-	int afid;
-
-	if (!peer)
-		return NULL;
-
-	afid = afindex(afi, safi);
-	if (afid >= BGP_AF_MAX)
-		return NULL;
-
-	return peer->peer_af_array[afid];
-}
-
-int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
-{
-	struct peer_af *af;
-	int afid;
-
-	if (!peer)
-		return -1;
-
-	afid = afindex(afi, safi);
-	if (afid >= BGP_AF_MAX)
-		return -1;
-
-	af = peer->peer_af_array[afid];
-	if (!af)
-		return -1;
-
-	bgp_stop_announce_route_timer(af);
-
-	if (PAF_SUBGRP(af)) {
-		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-			zlog_debug("u%" PRIu64 ":s%" PRIu64 " remove peer %s",
-				   af->subgroup->update_group->id,
-				   af->subgroup->id, peer->host);
-	}
-
-	update_subgroup_remove_peer(af->subgroup, af);
-
-	peer->peer_af_array[afid] = NULL;
-	XFREE(MTYPE_BGP_PEER_AF, af);
-	return 0;
-}
-
-/* Peer comparison function for sorting.  */
-int peer_cmp(struct peer *p1, struct peer *p2)
-{
-	if (p1->group && !p2->group)
-		return -1;
-
-	if (!p1->group && p2->group)
-		return 1;
-
-	if (p1->group == p2->group) {
-		if (p1->conf_if && !p2->conf_if)
-			return -1;
-
-		if (!p1->conf_if && p2->conf_if)
-			return 1;
-
-		if (p1->conf_if && p2->conf_if)
-			return if_cmp_name_func(p1->conf_if, p2->conf_if);
-	} else
-		return strcmp(p1->group->name, p2->group->name);
-
-	return sockunion_cmp(&p1->su, &p2->su);
-}
-
-static unsigned int peer_hash_key_make(void *p)
-{
-	struct peer *peer = p;
-	return sockunion_hash(&peer->su);
-}
-
-static int peer_hash_same(const void *p1, const void *p2)
-{
-	const struct peer *peer1 = p1;
-	const struct peer *peer2 = p2;
-	return (sockunion_same(&peer1->su, &peer2->su)
-		&& CHECK_FLAG(peer1->flags, PEER_FLAG_CONFIG_NODE)
-			   == CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
-}
-
-int peer_af_flag_check(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
-{
-	return CHECK_FLAG(peer->af_flags[afi][safi], flag);
-}
-
-/* Return true if flag is set for the peer but not the peer-group */
-static int peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
-				   uint32_t flag)
-{
-	struct peer *g_peer = NULL;
-
-	if (peer_af_flag_check(peer, afi, safi, flag)) {
-		if (peer_group_active(peer)) {
-			g_peer = peer->group->conf;
-
-			/* If this flag is not set for the peer's peer-group
-			 * then return true */
-			if (!peer_af_flag_check(g_peer, afi, safi, flag)) {
-				return 1;
-			}
-		}
-
-		/* peer is not in a peer-group but the flag is set to return
-		   true */
-		else {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-/* Reset all address family specific configuration.  */
-static void peer_af_flag_reset(struct peer *peer, afi_t afi, safi_t safi)
-{
-	int i;
-	struct bgp_filter *filter;
-	char orf_name[BUFSIZ];
-
-	filter = &peer->filter[afi][safi];
-
-	/* Clear neighbor filter and route-map */
-	for (i = FILTER_IN; i < FILTER_MAX; i++) {
-		if (filter->dlist[i].name) {
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->dlist[i].name);
-			filter->dlist[i].name = NULL;
-		}
-		if (filter->plist[i].name) {
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->plist[i].name);
-			filter->plist[i].name = NULL;
-		}
-		if (filter->aslist[i].name) {
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->aslist[i].name);
-			filter->aslist[i].name = NULL;
-		}
-	}
-	for (i = RMAP_IN; i < RMAP_MAX; i++) {
-		if (filter->map[i].name) {
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[i].name);
-			filter->map[i].name = NULL;
-		}
-	}
-
-	/* Clear unsuppress map.  */
-	if (filter->usmap.name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-	filter->usmap.name = NULL;
-	filter->usmap.map = NULL;
-
-	/* Clear neighbor's all address family flags.  */
-	peer->af_flags[afi][safi] = 0;
-
-	/* Clear neighbor's all address family sflags. */
-	peer->af_sflags[afi][safi] = 0;
-
-	/* Clear neighbor's all address family capabilities. */
-	peer->af_cap[afi][safi] = 0;
-
-	/* Clear ORF info */
-	peer->orf_plist[afi][safi] = NULL;
-	sprintf(orf_name, "%s.%d.%d", peer->host, afi, safi);
-	prefix_bgp_orf_remove_all(afi, orf_name);
-
-	/* Set default neighbor send-community.  */
-	if (!bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
-		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY);
-		SET_FLAG(peer->af_flags[afi][safi],
-			 PEER_FLAG_SEND_EXT_COMMUNITY);
-		SET_FLAG(peer->af_flags[afi][safi],
-			 PEER_FLAG_SEND_LARGE_COMMUNITY);
-	}
-
-	/* Clear neighbor default_originate_rmap */
-	if (peer->default_rmap[afi][safi].name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, peer->default_rmap[afi][safi].name);
-	peer->default_rmap[afi][safi].name = NULL;
-	peer->default_rmap[afi][safi].map = NULL;
-
-	/* Clear neighbor maximum-prefix */
-	peer->pmax[afi][safi] = 0;
-	peer->pmax_threshold[afi][safi] = MAXIMUM_PREFIX_THRESHOLD_DEFAULT;
-}
-
-/* peer global config reset */
-static void peer_global_config_reset(struct peer *peer)
-{
-	int saved_flags = 0;
-
-	peer->change_local_as = 0;
-	peer->ttl = (peer_sort(peer) == BGP_PEER_IBGP ? MAXTTL : 1);
-	if (peer->update_source) {
-		sockunion_free(peer->update_source);
-		peer->update_source = NULL;
-	}
-	if (peer->update_if) {
-		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		peer->update_if = NULL;
-	}
-
-	if (peer_sort(peer) == BGP_PEER_IBGP)
-		peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-	else
-		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-
-	/* These are per-peer specific flags and so we must preserve them */
-	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN);
-	peer->flags = 0;
-	SET_FLAG(peer->flags, saved_flags);
-
-	peer->config = 0;
-	peer->holdtime = 0;
-	peer->keepalive = 0;
-	peer->connect = 0;
-	peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
-
-	/* Reset some other configs back to defaults. */
-	peer->v_start = BGP_INIT_START_TIMER;
-	peer->password = NULL;
-	peer->local_id = peer->bgp->router_id;
-	peer->v_holdtime = peer->bgp->default_holdtime;
-	peer->v_keepalive = peer->bgp->default_keepalive;
-
-	bfd_info_free(&(peer->bfd_info));
-
-	/* Set back the CONFIG_NODE flag. */
-	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
-}
-
-/* Check peer's AS number and determines if this peer is IBGP or EBGP */
-static inline bgp_peer_sort_t peer_calc_sort(struct peer *peer)
-{
-	struct bgp *bgp;
-
-	bgp = peer->bgp;
-
-	/* Peer-group */
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (peer->as_type == AS_INTERNAL)
-			return BGP_PEER_IBGP;
-
-		else if (peer->as_type == AS_EXTERNAL)
-			return BGP_PEER_EBGP;
-
-		else if (peer->as_type == AS_SPECIFIED && peer->as)
-			return (bgp->as == peer->as ? BGP_PEER_IBGP
-						    : BGP_PEER_EBGP);
-
-		else {
-			struct peer *peer1;
-			peer1 = listnode_head(peer->group->peer);
-
-			if (peer1)
-				return peer1->sort;
-		}
-		return BGP_PEER_INTERNAL;
-	}
-
-	/* Normal peer */
-	if (bgp && CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
-		if (peer->local_as == 0)
-			return BGP_PEER_INTERNAL;
-
-		if (peer->local_as == peer->as) {
-			if (bgp->as == bgp->confed_id) {
-				if (peer->local_as == bgp->as)
-					return BGP_PEER_IBGP;
-				else
-					return BGP_PEER_EBGP;
-			} else {
-				if (peer->local_as == bgp->confed_id)
-					return BGP_PEER_EBGP;
-				else
-					return BGP_PEER_IBGP;
-			}
-		}
-
-		if (bgp_confederation_peers_check(bgp, peer->as))
-			return BGP_PEER_CONFED;
-
-		return BGP_PEER_EBGP;
-	} else {
-		if (peer->as_type != AS_SPECIFIED)
-			return (peer->as_type == AS_INTERNAL ? BGP_PEER_IBGP
-							     : BGP_PEER_EBGP);
-
-		return (peer->local_as == 0
-				? BGP_PEER_INTERNAL
-				: peer->local_as == peer->as ? BGP_PEER_IBGP
-							     : BGP_PEER_EBGP);
-	}
-}
-
-/* Calculate and cache the peer "sort" */
-bgp_peer_sort_t peer_sort(struct peer *peer)
-{
-	peer->sort = peer_calc_sort(peer);
-	return peer->sort;
-}
-
-static void peer_free(struct peer *peer)
-{
-	assert(peer->status == Deleted);
-
-	QOBJ_UNREG(peer);
-
-	/* this /ought/ to have been done already through bgp_stop earlier,
-	 * but just to be sure..
-	 */
-	bgp_timer_set(peer);
-	bgp_reads_off(peer);
-	bgp_writes_off(peer);
-	assert(!peer->t_write);
-	assert(!peer->t_read);
-	BGP_EVENT_FLUSH(peer);
-
-	pthread_mutex_destroy(&peer->io_mtx);
-
-	/* Free connected nexthop, if present */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
-	    && !peer_dynamic_neighbor(peer))
-		bgp_delete_connected_nexthop(family2afi(peer->su.sa.sa_family),
-					     peer);
-
-	XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
-
-	if (peer->desc) {
-		XFREE(MTYPE_PEER_DESC, peer->desc);
-		peer->desc = NULL;
-	}
-
-	/* Free allocated host character. */
-	if (peer->host) {
-		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
-		peer->host = NULL;
-	}
-
-	if (peer->domainname) {
-		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-		peer->domainname = NULL;
-	}
-
-	if (peer->ifname) {
-		XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
-		peer->ifname = NULL;
-	}
-
-	/* Update source configuration.  */
-	if (peer->update_source) {
-		sockunion_free(peer->update_source);
-		peer->update_source = NULL;
-	}
-
-	if (peer->update_if) {
-		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		peer->update_if = NULL;
-	}
-
-	if (peer->notify.data)
-		XFREE(MTYPE_TMP, peer->notify.data);
-	memset(&peer->notify, 0, sizeof(struct bgp_notify));
-
-	if (peer->clear_node_queue)
-		work_queue_free_and_null(&peer->clear_node_queue);
-
-	bgp_sync_delete(peer);
-
-	if (peer->conf_if) {
-		XFREE(MTYPE_PEER_CONF_IF, peer->conf_if);
-		peer->conf_if = NULL;
-	}
-
-	bfd_info_free(&(peer->bfd_info));
-
-	bgp_unlock(peer->bgp);
-
-	memset(peer, 0, sizeof(struct peer));
-
-	XFREE(MTYPE_BGP_PEER, peer);
-}
-
-/* increase reference count on a struct peer */
-struct peer *peer_lock_with_caller(const char *name, struct peer *peer)
-{
-	assert(peer && (peer->lock >= 0));
-
-#if 0
-    zlog_debug("%s peer_lock %p %d", name, peer, peer->lock);
-#endif
-
-	peer->lock++;
-
-	return peer;
-}
-
-/* decrease reference count on a struct peer
- * struct peer is freed and NULL returned if last reference
- */
-struct peer *peer_unlock_with_caller(const char *name, struct peer *peer)
-{
-	assert(peer && (peer->lock > 0));
-
-#if 0
-  zlog_debug("%s peer_unlock %p %d", name, peer, peer->lock);
-#endif
-
-	peer->lock--;
-
-	if (peer->lock == 0) {
-		peer_free(peer);
-		return NULL;
-	}
-
-	return peer;
-}
-
-/* Allocate new peer object, implicitely locked.  */
-struct peer *peer_new(struct bgp *bgp)
-{
-	afi_t afi;
-	safi_t safi;
-	struct peer *peer;
-	struct servent *sp;
-
-	/* bgp argument is absolutely required */
-	assert(bgp);
-	if (!bgp)
-		return NULL;
-
-	/* Allocate new peer. */
-	peer = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer));
-
-	/* Set default value. */
-	peer->fd = -1;
-	peer->v_start = BGP_INIT_START_TIMER;
-	peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
-	peer->status = Idle;
-	peer->ostatus = Idle;
-	peer->cur_event = peer->last_event = peer->last_major_event = 0;
-	peer->bgp = bgp_lock(bgp);
-	peer = peer_lock(peer); /* initial reference */
-	peer->password = NULL;
-
-	/* Set default flags.  */
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
-			SET_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_SEND_COMMUNITY);
-			SET_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_SEND_EXT_COMMUNITY);
-			SET_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_SEND_LARGE_COMMUNITY);
-		}
-		peer->orf_plist[afi][safi] = NULL;
-	}
-	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
-
-	/* Create buffers.  */
-	peer->ibuf = stream_fifo_new();
-	peer->obuf = stream_fifo_new();
-	pthread_mutex_init(&peer->io_mtx, NULL);
-
-	/* We use a larger buffer for peer->obuf_work in the event that:
-	 * - We RX a BGP_UPDATE where the attributes alone are just
-	 *   under BGP_MAX_PACKET_SIZE
-	 * - The user configures an outbound route-map that does many as-path
-	 *   prepends or adds many communities. At most they can have
-	 *   CMD_ARGC_MAX args in a route-map so there is a finite limit on how
-	 *   large they can make the attributes.
-	 *
-	 * Having a buffer with BGP_MAX_PACKET_SIZE_OVERFLOW allows us to avoid
-	 * bounds checking for every single attribute as we construct an
-	 * UPDATE.
-	 */
-	peer->obuf_work =
-		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	peer->ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
-
-	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
-
-	bgp_sync_init(peer);
-
-	/* Get service port number.  */
-	sp = getservbyname("bgp", "tcp");
-	peer->port = (sp == NULL) ? BGP_PORT_DEFAULT : ntohs(sp->s_port);
-
-	QOBJ_REG(peer, peer);
-	return peer;
-}
-
-/*
- * This function is invoked when a duplicate peer structure associated with
- * a neighbor is being deleted. If this about-to-be-deleted structure is
- * the one with all the config, then we have to copy over the info.
- */
-void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
-{
-	struct peer_af *paf;
-	afi_t afi;
-	safi_t safi;
-	int afidx;
-
-	assert(peer_src);
-	assert(peer_dst);
-
-	/* The following function is used by both peer group config copy to
-	 * individual peer and when we transfer config
-	 */
-	if (peer_src->change_local_as)
-		peer_dst->change_local_as = peer_src->change_local_as;
-
-	/* peer flags apply */
-	peer_dst->flags = peer_src->flags;
-	peer_dst->cap = peer_src->cap;
-	peer_dst->config = peer_src->config;
-
-	peer_dst->local_as = peer_src->local_as;
-	peer_dst->port = peer_src->port;
-	(void)peer_sort(peer_dst);
-	peer_dst->rmap_type = peer_src->rmap_type;
-
-	/* Timers */
-	peer_dst->holdtime = peer_src->holdtime;
-	peer_dst->keepalive = peer_src->keepalive;
-	peer_dst->connect = peer_src->connect;
-	peer_dst->v_holdtime = peer_src->v_holdtime;
-	peer_dst->v_keepalive = peer_src->v_keepalive;
-	peer_dst->routeadv = peer_src->routeadv;
-	peer_dst->v_routeadv = peer_src->v_routeadv;
-
-	/* password apply */
-	if (peer_src->password && !peer_dst->password)
-		peer_dst->password =
-			XSTRDUP(MTYPE_PEER_PASSWORD, peer_src->password);
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		peer_dst->afc[afi][safi] = peer_src->afc[afi][safi];
-		peer_dst->af_flags[afi][safi] = peer_src->af_flags[afi][safi];
-		peer_dst->allowas_in[afi][safi] =
-			peer_src->allowas_in[afi][safi];
-		peer_dst->weight[afi][safi] = peer_src->weight[afi][safi];
-	}
-
-	for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++) {
-		paf = peer_src->peer_af_array[afidx];
-		if (paf != NULL)
-			peer_af_create(peer_dst, paf->afi, paf->safi);
-	}
-
-	/* update-source apply */
-	if (peer_src->update_source) {
-		if (peer_dst->update_source)
-			sockunion_free(peer_dst->update_source);
-		if (peer_dst->update_if) {
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer_dst->update_if);
-			peer_dst->update_if = NULL;
-		}
-		peer_dst->update_source =
-			sockunion_dup(peer_src->update_source);
-	} else if (peer_src->update_if) {
-		if (peer_dst->update_if)
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer_dst->update_if);
-		if (peer_dst->update_source) {
-			sockunion_free(peer_dst->update_source);
-			peer_dst->update_source = NULL;
-		}
-		peer_dst->update_if =
-			XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, peer_src->update_if);
-	}
-
-	if (peer_src->ifname) {
-		if (peer_dst->ifname)
-			XFREE(MTYPE_BGP_PEER_IFNAME, peer_dst->ifname);
-
-		peer_dst->ifname =
-			XSTRDUP(MTYPE_BGP_PEER_IFNAME, peer_src->ifname);
-	}
-}
-
-static int bgp_peer_conf_if_to_su_update_v4(struct peer *peer,
-					    struct interface *ifp)
-{
-	struct connected *ifc;
-	struct prefix p;
-	uint32_t addr;
-	struct listnode *node;
-
-	/* If our IPv4 address on the interface is /30 or /31, we can derive the
-	 * IPv4 address of the other end.
-	 */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
-		if (ifc->address && (ifc->address->family == AF_INET)) {
-			PREFIX_COPY_IPV4(&p, CONNECTED_PREFIX(ifc));
-			if (p.prefixlen == 30) {
-				peer->su.sa.sa_family = AF_INET;
-				addr = ntohl(p.u.prefix4.s_addr);
-				if (addr % 4 == 1)
-					peer->su.sin.sin_addr.s_addr =
-						htonl(addr + 1);
-				else if (addr % 4 == 2)
-					peer->su.sin.sin_addr.s_addr =
-						htonl(addr - 1);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-				peer->su.sin.sin_len =
-					sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-				return 1;
-			} else if (p.prefixlen == 31) {
-				peer->su.sa.sa_family = AF_INET;
-				addr = ntohl(p.u.prefix4.s_addr);
-				if (addr % 2 == 0)
-					peer->su.sin.sin_addr.s_addr =
-						htonl(addr + 1);
-				else
-					peer->su.sin.sin_addr.s_addr =
-						htonl(addr - 1);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-				peer->su.sin.sin_len =
-					sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-				return 1;
-			} else if (bgp_debug_neighbor_events(peer))
-				zlog_debug(
-					"%s: IPv4 interface address is not /30 or /31, v4 session not started",
-					peer->conf_if);
-		}
-	}
-
-	return 0;
-}
-
-static int bgp_peer_conf_if_to_su_update_v6(struct peer *peer,
-					    struct interface *ifp)
-{
-	struct nbr_connected *ifc_nbr;
-
-	/* Have we learnt the peer's IPv6 link-local address? */
-	if (ifp->nbr_connected
-	    && (ifc_nbr = listnode_head(ifp->nbr_connected))) {
-		peer->su.sa.sa_family = AF_INET6;
-		memcpy(&peer->su.sin6.sin6_addr, &ifc_nbr->address->u.prefix,
-		       sizeof(struct in6_addr));
-#ifdef SIN6_LEN
-		peer->su.sin6.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-		peer->su.sin6.sin6_scope_id = ifp->ifindex;
-		return 1;
-	}
-
-	return 0;
-}
-
-/*
- * Set or reset the peer address socketunion structure based on the
- * learnt/derived peer address. If the address has changed, update the
- * password on the listen socket, if needed.
- */
-void bgp_peer_conf_if_to_su_update(struct peer *peer)
-{
-	struct interface *ifp;
-	int prev_family;
-	int peer_addr_updated = 0;
-
-	if (!peer->conf_if)
-		return;
-
-	prev_family = peer->su.sa.sa_family;
-	if ((ifp = if_lookup_by_name(peer->conf_if, peer->bgp->vrf_id))) {
-		peer->ifp = ifp;
-		/* If BGP unnumbered is not "v6only", we first see if we can
-		 * derive the
-		 * peer's IPv4 address.
-		 */
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
-			peer_addr_updated =
-				bgp_peer_conf_if_to_su_update_v4(peer, ifp);
-
-		/* If "v6only" or we can't derive peer's IPv4 address, see if
-		 * we've
-		 * learnt the peer's IPv6 link-local address. This is from the
-		 * source
-		 * IPv6 address in router advertisement.
-		 */
-		if (!peer_addr_updated)
-			peer_addr_updated =
-				bgp_peer_conf_if_to_su_update_v6(peer, ifp);
-	}
-	/* If we could derive the peer address, we may need to install the
-	 * password
-	 * configured for the peer, if any, on the listen socket. Otherwise,
-	 * mark
-	 * that peer's address is not available and uninstall the password, if
-	 * needed.
-	 */
-	if (peer_addr_updated) {
-		if (peer->password && prev_family == AF_UNSPEC)
-			bgp_md5_set(peer);
-	} else {
-		if (peer->password && prev_family != AF_UNSPEC)
-			bgp_md5_unset(peer);
-		peer->su.sa.sa_family = AF_UNSPEC;
-		memset(&peer->su.sin6.sin6_addr, 0, sizeof(struct in6_addr));
-	}
-
-	/* Since our su changed we need to del/add peer to the peerhash */
-	hash_release(peer->bgp->peerhash, peer);
-	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
-}
-
-static void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
-					       safi_t safi)
-{
-	struct bgp_node *rn, *nrn;
-
-	for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
-	     rn = bgp_route_next(rn)) {
-		if (rn->info != NULL) {
-			/* Special handling for 2-level routing
-			 * tables. */
-			if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
-			    || safi == SAFI_EVPN) {
-				for (nrn = bgp_table_top(
-					     (struct bgp_table *)(rn->info));
-				     nrn; nrn = bgp_route_next(nrn))
-					bgp_process(bgp, nrn, afi, safi);
-			} else
-				bgp_process(bgp, rn, afi, safi);
-		}
-	}
-}
-
-/* Force a bestpath recalculation for all prefixes.  This is used
- * when 'bgp bestpath' commands are entered.
- */
-void bgp_recalculate_all_bestpaths(struct bgp *bgp)
-{
-	afi_t afi;
-	safi_t safi;
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi);
-	}
-}
-
-/* Create new BGP peer.  */
-struct peer *peer_create(union sockunion *su, const char *conf_if,
-			 struct bgp *bgp, as_t local_as, as_t remote_as,
-			 int as_type, afi_t afi, safi_t safi,
-			 struct peer_group *group)
-{
-	int active;
-	struct peer *peer;
-	char buf[SU_ADDRSTRLEN];
-
-	peer = peer_new(bgp);
-	if (conf_if) {
-		peer->conf_if = XSTRDUP(MTYPE_PEER_CONF_IF, conf_if);
-		bgp_peer_conf_if_to_su_update(peer);
-		if (peer->host)
-			XFREE(MTYPE_BGP_PEER_HOST, peer->host);
-		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, conf_if);
-	} else if (su) {
-		peer->su = *su;
-		sockunion2str(su, buf, SU_ADDRSTRLEN);
-		if (peer->host)
-			XFREE(MTYPE_BGP_PEER_HOST, peer->host);
-		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, buf);
-	}
-	peer->local_as = local_as;
-	peer->as = remote_as;
-	peer->as_type = as_type;
-	peer->local_id = bgp->router_id;
-	peer->v_holdtime = bgp->default_holdtime;
-	peer->v_keepalive = bgp->default_keepalive;
-	if (peer_sort(peer) == BGP_PEER_IBGP)
-		peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-	else
-		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-
-	peer = peer_lock(peer); /* bgp peer list reference */
-	peer->group = group;
-	listnode_add_sort(bgp->peer, peer);
-	hash_get(bgp->peerhash, peer, hash_alloc_intern);
-
-	/* Adjust update-group coalesce timer heuristics for # peers. */
-	if (bgp->heuristic_coalesce) {
-		long ct = BGP_DEFAULT_SUBGROUP_COALESCE_TIME
-			  + (bgp->peer->count
-			     * BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME);
-		bgp->coalesce_time = MIN(BGP_MAX_SUBGROUP_COALESCE_TIME, ct);
-	}
-
-	active = peer_active(peer);
-
-	/* Last read and reset time set */
-	peer->readtime = peer->resettime = bgp_clock();
-
-	/* Default TTL set. */
-	peer->ttl = (peer->sort == BGP_PEER_IBGP) ? MAXTTL : 1;
-
-	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
-
-	if (afi && safi) {
-		peer->afc[afi][safi] = 1;
-		peer_af_create(peer, afi, safi);
-	}
-
-	/* auto shutdown if configured */
-	if (bgp->autoshutdown)
-		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
-	/* Set up peer's events and timers. */
-	else if (!active && peer_active(peer))
-		bgp_timer_set(peer);
-
-	return peer;
-}
-
-/* Make accept BGP peer. This function is only called from the test code */
-struct peer *peer_create_accept(struct bgp *bgp)
-{
-	struct peer *peer;
-
-	peer = peer_new(bgp);
-
-	peer = peer_lock(peer); /* bgp peer list reference */
-	listnode_add_sort(bgp->peer, peer);
-
-	return peer;
-}
-
-/*
- * Return true if we have a peer configured to use this afi/safi
- */
-int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
-{
-	struct listnode *node;
-	struct peer *peer;
-
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
-			continue;
-
-		if (peer->afc[afi][safi])
-			return 1;
-	}
-
-	return 0;
-}
-
-/* Change peer's AS number.  */
-void peer_as_change(struct peer *peer, as_t as, int as_specified)
-{
-	bgp_peer_sort_t type;
-	struct peer *conf;
-
-	/* Stop peer. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_REMOTE_AS_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-	}
-	type = peer_sort(peer);
-	peer->as = as;
-	peer->as_type = as_specified;
-
-	if (bgp_config_check(peer->bgp, BGP_CONFIG_CONFEDERATION)
-	    && !bgp_confederation_peers_check(peer->bgp, as)
-	    && peer->bgp->as != as)
-		peer->local_as = peer->bgp->confed_id;
-	else
-		peer->local_as = peer->bgp->as;
-
-	/* Advertisement-interval reset */
-	conf = NULL;
-	if (peer->group)
-		conf = peer->group->conf;
-
-	if (conf && CHECK_FLAG(conf->config, PEER_CONFIG_ROUTEADV)) {
-		peer->v_routeadv = conf->routeadv;
-	}
-	/* Only go back to the default advertisement-interval if the user had
-	 * not
-	 * already configured it */
-	else if (!CHECK_FLAG(peer->config, PEER_CONFIG_ROUTEADV)) {
-		if (peer_sort(peer) == BGP_PEER_IBGP)
-			peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-		else
-			peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-	}
-	/* TTL reset */
-	if (peer_sort(peer) == BGP_PEER_IBGP)
-		peer->ttl = MAXTTL;
-	else if (type == BGP_PEER_IBGP)
-		peer->ttl = 1;
-
-	/* reflector-client reset */
-	if (peer_sort(peer) != BGP_PEER_IBGP) {
-		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_UNICAST],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_MULTICAST],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_LABELED_UNICAST],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_MPLS_VPN],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_ENCAP],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_FLOWSPEC],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP6][SAFI_UNICAST],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP6][SAFI_MULTICAST],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP6][SAFI_LABELED_UNICAST],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP6][SAFI_MPLS_VPN],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP6][SAFI_ENCAP],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_IP6][SAFI_FLOWSPEC],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-		UNSET_FLAG(peer->af_flags[AFI_L2VPN][SAFI_EVPN],
-			   PEER_FLAG_REFLECTOR_CLIENT);
-	}
-
-	/* local-as reset */
-	if (peer_sort(peer) != BGP_PEER_EBGP) {
-		peer->change_local_as = 0;
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-	}
-}
-
-/* If peer does not exist, create new one.  If peer already exists,
-   set AS number to the peer.  */
-int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
-		   as_t *as, int as_type, afi_t afi, safi_t safi)
-{
-	struct peer *peer;
-	as_t local_as;
-
-	if (conf_if)
-		peer = peer_lookup_by_conf_if(bgp, conf_if);
-	else
-		peer = peer_lookup(bgp, su);
-
-	if (peer) {
-		/* Not allowed for a dynamic peer. */
-		if (peer_dynamic_neighbor(peer)) {
-			*as = peer->as;
-			return BGP_ERR_INVALID_FOR_DYNAMIC_PEER;
-		}
-
-		/* When this peer is a member of peer-group.  */
-		if (peer->group) {
-			if (peer->group->conf->as) {
-				/* Return peer group's AS number.  */
-				*as = peer->group->conf->as;
-				return BGP_ERR_PEER_GROUP_MEMBER;
-			}
-			if (peer_sort(peer->group->conf) == BGP_PEER_IBGP) {
-				if ((as_type != AS_INTERNAL)
-				    && (bgp->as != *as)) {
-					*as = peer->as;
-					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
-				}
-			} else {
-				if ((as_type != AS_EXTERNAL)
-				    && (bgp->as == *as)) {
-					*as = peer->as;
-					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
-				}
-			}
-		}
-
-		/* Existing peer's AS number change. */
-		if (((peer->as_type == AS_SPECIFIED) && peer->as != *as)
-		    || (peer->as_type != as_type))
-			peer_as_change(peer, *as, as_type);
-	} else {
-		if (conf_if)
-			return BGP_ERR_NO_INTERFACE_CONFIG;
-
-		/* If the peer is not part of our confederation, and its not an
-		   iBGP peer then spoof the source AS */
-		if (bgp_config_check(bgp, BGP_CONFIG_CONFEDERATION)
-		    && !bgp_confederation_peers_check(bgp, *as)
-		    && bgp->as != *as)
-			local_as = bgp->confed_id;
-		else
-			local_as = bgp->as;
-
-		/* If this is IPv4 unicast configuration and "no bgp default
-		   ipv4-unicast" is specified. */
-
-		if (bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4)
-		    && afi == AFI_IP && safi == SAFI_UNICAST)
-			peer_create(su, conf_if, bgp, local_as, *as, as_type, 0,
-				    0, NULL);
-		else
-			peer_create(su, conf_if, bgp, local_as, *as, as_type,
-				    afi, safi, NULL);
-	}
-
-	return 0;
-}
-
-static void peer_group2peer_config_copy_af(struct peer_group *group,
-					   struct peer *peer, afi_t afi,
-					   safi_t safi)
-{
-	int in = FILTER_IN;
-	int out = FILTER_OUT;
-	struct peer *conf;
-	struct bgp_filter *pfilter;
-	struct bgp_filter *gfilter;
-
-	conf = group->conf;
-	pfilter = &peer->filter[afi][safi];
-	gfilter = &conf->filter[afi][safi];
-
-	/* peer af_flags apply */
-	peer->af_flags[afi][safi] = conf->af_flags[afi][safi];
-
-	/* maximum-prefix */
-	peer->pmax[afi][safi] = conf->pmax[afi][safi];
-	peer->pmax_threshold[afi][safi] = conf->pmax_threshold[afi][safi];
-	peer->pmax_restart[afi][safi] = conf->pmax_restart[afi][safi];
-
-	/* allowas-in */
-	peer->allowas_in[afi][safi] = conf->allowas_in[afi][safi];
-
-	/* weight */
-	peer->weight[afi][safi] = conf->weight[afi][safi];
-
-	/* default-originate route-map */
-	if (conf->default_rmap[afi][safi].name) {
-		if (peer->default_rmap[afi][safi].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      peer->default_rmap[afi][safi].name);
-		peer->default_rmap[afi][safi].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME,
-				conf->default_rmap[afi][safi].name);
-		peer->default_rmap[afi][safi].map =
-			conf->default_rmap[afi][safi].map;
-	}
-
-	/* inbound filter apply */
-	if (gfilter->dlist[in].name && !pfilter->dlist[in].name) {
-		if (pfilter->dlist[in].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[in].name);
-		pfilter->dlist[in].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->dlist[in].name);
-		pfilter->dlist[in].alist = gfilter->dlist[in].alist;
-	}
-
-	if (gfilter->plist[in].name && !pfilter->plist[in].name) {
-		if (pfilter->plist[in].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[in].name);
-		pfilter->plist[in].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->plist[in].name);
-		pfilter->plist[in].plist = gfilter->plist[in].plist;
-	}
-
-	if (gfilter->aslist[in].name && !pfilter->aslist[in].name) {
-		if (pfilter->aslist[in].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[in].name);
-		pfilter->aslist[in].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						   gfilter->aslist[in].name);
-		pfilter->aslist[in].aslist = gfilter->aslist[in].aslist;
-	}
-
-	if (gfilter->map[RMAP_IN].name && !pfilter->map[RMAP_IN].name) {
-		if (pfilter->map[RMAP_IN].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      pfilter->map[RMAP_IN].name);
-		pfilter->map[RMAP_IN].name = XSTRDUP(
-			MTYPE_BGP_FILTER_NAME, gfilter->map[RMAP_IN].name);
-		pfilter->map[RMAP_IN].map = gfilter->map[RMAP_IN].map;
-	}
-
-	/* outbound filter apply */
-	if (gfilter->dlist[out].name) {
-		if (pfilter->dlist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[out].name);
-		pfilter->dlist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						   gfilter->dlist[out].name);
-		pfilter->dlist[out].alist = gfilter->dlist[out].alist;
-	} else {
-		if (pfilter->dlist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[out].name);
-		pfilter->dlist[out].name = NULL;
-		pfilter->dlist[out].alist = NULL;
-	}
-
-	if (gfilter->plist[out].name) {
-		if (pfilter->plist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[out].name);
-		pfilter->plist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						   gfilter->plist[out].name);
-		pfilter->plist[out].plist = gfilter->plist[out].plist;
-	} else {
-		if (pfilter->plist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[out].name);
-		pfilter->plist[out].name = NULL;
-		pfilter->plist[out].plist = NULL;
-	}
-
-	if (gfilter->aslist[out].name) {
-		if (pfilter->aslist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[out].name);
-		pfilter->aslist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						    gfilter->aslist[out].name);
-		pfilter->aslist[out].aslist = gfilter->aslist[out].aslist;
-	} else {
-		if (pfilter->aslist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[out].name);
-		pfilter->aslist[out].name = NULL;
-		pfilter->aslist[out].aslist = NULL;
-	}
-
-	if (gfilter->map[RMAP_OUT].name) {
-		if (pfilter->map[RMAP_OUT].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      pfilter->map[RMAP_OUT].name);
-		pfilter->map[RMAP_OUT].name = XSTRDUP(
-			MTYPE_BGP_FILTER_NAME, gfilter->map[RMAP_OUT].name);
-		pfilter->map[RMAP_OUT].map = gfilter->map[RMAP_OUT].map;
-	} else {
-		if (pfilter->map[RMAP_OUT].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      pfilter->map[RMAP_OUT].name);
-		pfilter->map[RMAP_OUT].name = NULL;
-		pfilter->map[RMAP_OUT].map = NULL;
-	}
-
-	if (gfilter->usmap.name) {
-		if (pfilter->usmap.name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->usmap.name);
-		pfilter->usmap.name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->usmap.name);
-		pfilter->usmap.map = gfilter->usmap.map;
-	} else {
-		if (pfilter->usmap.name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->usmap.name);
-		pfilter->usmap.name = NULL;
-		pfilter->usmap.map = NULL;
-	}
-}
-
-static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
-{
-	int active;
-
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		zlog_err("%s was called for peer-group %s", __func__,
-			 peer->host);
-		return 1;
-	}
-
-	/* Do not activate a peer for both SAFI_UNICAST and SAFI_LABELED_UNICAST
-	 */
-	if ((safi == SAFI_UNICAST && peer->afc[afi][SAFI_LABELED_UNICAST])
-	    || (safi == SAFI_LABELED_UNICAST && peer->afc[afi][SAFI_UNICAST]))
-		return BGP_ERR_PEER_SAFI_CONFLICT;
-
-	/* Nothing to do if we've already activated this peer */
-	if (peer->afc[afi][safi])
-		return 0;
-
-	if (peer_af_create(peer, afi, safi) == NULL)
-		return 1;
-
-	active = peer_active(peer);
-	peer->afc[afi][safi] = 1;
-
-	if (peer->group)
-		peer_group2peer_config_copy_af(peer->group, peer, afi, safi);
-
-	if (!active && peer_active(peer)) {
-		bgp_timer_set(peer);
-	} else {
-		if (peer->status == Established) {
-			if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
-				peer->afc_adv[afi][safi] = 1;
-				bgp_capability_send(peer, afi, safi,
-						    CAPABILITY_CODE_MP,
-						    CAPABILITY_ACTION_SET);
-				if (peer->afc_recv[afi][safi]) {
-					peer->afc_nego[afi][safi] = 1;
-					bgp_announce_route(peer, afi, safi);
-				}
-			} else {
-				peer->last_reset = PEER_DOWN_AF_ACTIVATE;
-				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-			}
-		}
-		if (peer->status == OpenSent || peer->status == OpenConfirm) {
-			peer->last_reset = PEER_DOWN_AF_ACTIVATE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		}
-	}
-
-	return 0;
-}
-
-/* Activate the peer or peer group for specified AFI and SAFI.  */
-int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
-{
-	int ret = 0;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-	struct peer *tmp_peer;
-	struct bgp *bgp;
-
-	/* Nothing to do if we've already activated this peer */
-	if (peer->afc[afi][safi])
-		return ret;
-
-	bgp = peer->bgp;
-
-	/* This is a peer-group so activate all of the members of the
-	 * peer-group as well */
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-
-		/* Do not activate a peer for both SAFI_UNICAST and
-		 * SAFI_LABELED_UNICAST */
-		if ((safi == SAFI_UNICAST
-		     && peer->afc[afi][SAFI_LABELED_UNICAST])
-		    || (safi == SAFI_LABELED_UNICAST
-			&& peer->afc[afi][SAFI_UNICAST]))
-			return BGP_ERR_PEER_SAFI_CONFLICT;
-
-		peer->afc[afi][safi] = 1;
-		group = peer->group;
-
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-			ret |= peer_activate_af(tmp_peer, afi, safi);
-		}
-	} else {
-		ret |= peer_activate_af(peer, afi, safi);
-	}
-
-	/* If this is the first peer to be activated for this
-	 * afi/labeled-unicast recalc bestpaths to trigger label allocation */
-	if (safi == SAFI_LABELED_UNICAST
-	    && !bgp->allocate_mpls_labels[afi][SAFI_UNICAST]) {
-
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_info(
-				"peer(s) are now active for labeled-unicast, allocate MPLS labels");
-
-		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 1;
-		bgp_recalculate_afi_safi_bestpaths(bgp, afi, SAFI_UNICAST);
-	}
-
-	if (safi == SAFI_FLOWSPEC) {
-		/* connect to table manager */
-		bgp_zebra_init_tm_connect();
-	}
-	return ret;
-}
-
-static int non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
-				       safi_t safi)
-{
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		zlog_err("%s was called for peer-group %s", __func__,
-			 peer->host);
-		return 1;
-	}
-
-	/* Nothing to do if we've already deactivated this peer */
-	if (!peer->afc[afi][safi])
-		return 0;
-
-	/* De-activate the address family configuration. */
-	peer->afc[afi][safi] = 0;
-
-	if (peer_af_delete(peer, afi, safi) != 0) {
-		zlog_err("couldn't delete af structure for peer %s",
-			 peer->host);
-		return 1;
-	}
-
-	if (peer->status == Established) {
-		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
-			peer->afc_adv[afi][safi] = 0;
-			peer->afc_nego[afi][safi] = 0;
-
-			if (peer_active_nego(peer)) {
-				bgp_capability_send(peer, afi, safi,
-						    CAPABILITY_CODE_MP,
-						    CAPABILITY_ACTION_UNSET);
-				bgp_clear_route(peer, afi, safi);
-				peer->pcount[afi][safi] = 0;
-			} else {
-				peer->last_reset = PEER_DOWN_NEIGHBOR_DELETE;
-				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-			}
-		} else {
-			peer->last_reset = PEER_DOWN_NEIGHBOR_DELETE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		}
-	}
-
-	return 0;
-}
-
-int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
-{
-	int ret = 0;
-	struct peer_group *group;
-	struct peer *tmp_peer;
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-
-	/* Nothing to do if we've already de-activated this peer */
-	if (!peer->afc[afi][safi])
-		return ret;
-
-	/* This is a peer-group so de-activate all of the members of the
-	 * peer-group as well */
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer->afc[afi][safi] = 0;
-		group = peer->group;
-
-		if (peer_af_delete(peer, afi, safi) != 0) {
-			zlog_err("couldn't delete af structure for peer %s",
-				 peer->host);
-		}
-
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-			ret |= non_peergroup_deactivate_af(tmp_peer, afi, safi);
-		}
-	} else {
-		ret |= non_peergroup_deactivate_af(peer, afi, safi);
-	}
-
-	bgp = peer->bgp;
-
-	/* If this is the last peer to be deactivated for this
-	 * afi/labeled-unicast recalc bestpaths to trigger label deallocation */
-	if (safi == SAFI_LABELED_UNICAST
-	    && bgp->allocate_mpls_labels[afi][SAFI_UNICAST]
-	    && !bgp_afi_safi_peer_exists(bgp, afi, safi)) {
-
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_info(
-				"peer(s) are no longer active for labeled-unicast, deallocate MPLS labels");
-
-		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 0;
-		bgp_recalculate_afi_safi_bestpaths(bgp, afi, SAFI_UNICAST);
-	}
-	return ret;
-}
-
-int peer_afc_set(struct peer *peer, afi_t afi, safi_t safi, int enable)
-{
-	if (enable)
-		return peer_activate(peer, afi, safi);
-	else
-		return peer_deactivate(peer, afi, safi);
-}
-
-static void peer_nsf_stop(struct peer *peer)
-{
-	afi_t afi;
-	safi_t safi;
-
-	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
-	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
-
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
-			peer->nsf[afi][safi] = 0;
-
-	if (peer->t_gr_restart) {
-		BGP_TIMER_OFF(peer->t_gr_restart);
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s graceful restart timer stopped",
-				   peer->host);
-	}
-	if (peer->t_gr_stale) {
-		BGP_TIMER_OFF(peer->t_gr_stale);
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug(
-				"%s graceful restart stalepath timer stopped",
-				peer->host);
-	}
-	bgp_clear_route_all(peer);
-}
-
-/* Delete peer from confguration.
- *
- * The peer is moved to a dead-end "Deleted" neighbour-state, to allow
- * it to "cool off" and refcounts to hit 0, at which state it is freed.
- *
- * This function /should/ take care to be idempotent, to guard against
- * it being called multiple times through stray events that come in
- * that happen to result in this function being called again.  That
- * said, getting here for a "Deleted" peer is a bug in the neighbour
- * FSM.
- */
-int peer_delete(struct peer *peer)
-{
-	int i;
-	afi_t afi;
-	safi_t safi;
-	struct bgp *bgp;
-	struct bgp_filter *filter;
-	struct listnode *pn;
-	int accept_peer;
-
-	assert(peer->status != Deleted);
-
-	bgp = peer->bgp;
-	accept_peer = CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
-
-	bgp_reads_off(peer);
-	bgp_writes_off(peer);
-	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
-	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
-
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
-		peer_nsf_stop(peer);
-
-	SET_FLAG(peer->flags, PEER_FLAG_DELETE);
-
-	/* If this peer belongs to peer group, clear up the
-	   relationship.  */
-	if (peer->group) {
-		if (peer_dynamic_neighbor(peer))
-			peer_drop_dynamic_neighbor(peer);
-
-		if ((pn = listnode_lookup(peer->group->peer, peer))) {
-			peer = peer_unlock(
-				peer); /* group->peer list reference */
-			list_delete_node(peer->group->peer, pn);
-		}
-		peer->group = NULL;
-	}
-
-	/* Withdraw all information from routing table.  We can not use
-	 * BGP_EVENT_ADD (peer, BGP_Stop) at here.  Because the event is
-	 * executed after peer structure is deleted.
-	 */
-	peer->last_reset = PEER_DOWN_NEIGHBOR_DELETE;
-	bgp_stop(peer);
-	UNSET_FLAG(peer->flags, PEER_FLAG_DELETE);
-
-	if (peer->doppelganger) {
-		peer->doppelganger->doppelganger = NULL;
-		peer->doppelganger = NULL;
-	}
-
-	UNSET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
-	bgp_fsm_change_status(peer, Deleted);
-
-	/* Remove from NHT */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
-		bgp_unlink_nexthop_by_peer(peer);
-
-	/* Password configuration */
-	if (peer->password) {
-		XFREE(MTYPE_PEER_PASSWORD, peer->password);
-		peer->password = NULL;
-
-		if (!accept_peer && !BGP_PEER_SU_UNSPEC(peer)
-		    && !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-			bgp_md5_unset(peer);
-	}
-
-	bgp_timer_set(peer); /* stops all timers for Deleted */
-
-	/* Delete from all peer list. */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-	    && (pn = listnode_lookup(bgp->peer, peer))) {
-		peer_unlock(peer); /* bgp peer list reference */
-		list_delete_node(bgp->peer, pn);
-		hash_release(bgp->peerhash, peer);
-	}
-
-	/* Buffers.  */
-	if (peer->ibuf) {
-		stream_fifo_free(peer->ibuf);
-		peer->ibuf = NULL;
-	}
-
-	if (peer->obuf) {
-		stream_fifo_free(peer->obuf);
-		peer->obuf = NULL;
-	}
-
-	if (peer->ibuf_work) {
-		ringbuf_del(peer->ibuf_work);
-		peer->ibuf_work = NULL;
-	}
-
-	if (peer->obuf_work) {
-		stream_free(peer->obuf_work);
-		peer->obuf_work = NULL;
-	}
-
-	if (peer->scratch) {
-		stream_free(peer->scratch);
-		peer->scratch = NULL;
-	}
-
-	/* Local and remote addresses. */
-	if (peer->su_local) {
-		sockunion_free(peer->su_local);
-		peer->su_local = NULL;
-	}
-
-	if (peer->su_remote) {
-		sockunion_free(peer->su_remote);
-		peer->su_remote = NULL;
-	}
-
-	/* Free filter related memory.  */
-	FOREACH_AFI_SAFI (afi, safi) {
-		filter = &peer->filter[afi][safi];
-
-		for (i = FILTER_IN; i < FILTER_MAX; i++) {
-			if (filter->dlist[i].name) {
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->dlist[i].name);
-				filter->dlist[i].name = NULL;
-			}
-
-			if (filter->plist[i].name) {
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->plist[i].name);
-				filter->plist[i].name = NULL;
-			}
-
-			if (filter->aslist[i].name) {
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->aslist[i].name);
-				filter->aslist[i].name = NULL;
-			}
-		}
-
-		for (i = RMAP_IN; i < RMAP_MAX; i++) {
-			if (filter->map[i].name) {
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->map[i].name);
-				filter->map[i].name = NULL;
-			}
-		}
-
-		if (filter->usmap.name) {
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-			filter->usmap.name = NULL;
-		}
-
-		if (peer->default_rmap[afi][safi].name) {
-			XFREE(MTYPE_ROUTE_MAP_NAME,
-			      peer->default_rmap[afi][safi].name);
-			peer->default_rmap[afi][safi].name = NULL;
-		}
-	}
-
-	FOREACH_AFI_SAFI (afi, safi)
-		peer_af_delete(peer, afi, safi);
-
-	if (peer->hostname) {
-		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-		peer->hostname = NULL;
-	}
-
-	if (peer->domainname) {
-		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-		peer->domainname = NULL;
-	}
-
-	peer_unlock(peer); /* initial reference */
-
-	return 0;
-}
-
-static int peer_group_cmp(struct peer_group *g1, struct peer_group *g2)
-{
-	return strcmp(g1->name, g2->name);
-}
-
-/* Peer group cofiguration. */
-static struct peer_group *peer_group_new(void)
-{
-	return (struct peer_group *)XCALLOC(MTYPE_PEER_GROUP,
-					    sizeof(struct peer_group));
-}
-
-static void peer_group_free(struct peer_group *group)
-{
-	XFREE(MTYPE_PEER_GROUP, group);
-}
-
-struct peer_group *peer_group_lookup(struct bgp *bgp, const char *name)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-		if (strcmp(group->name, name) == 0)
-			return group;
-	}
-	return NULL;
-}
-
-struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
-{
-	struct peer_group *group;
-	afi_t afi;
-
-	group = peer_group_lookup(bgp, name);
-	if (group)
-		return group;
-
-	group = peer_group_new();
-	group->bgp = bgp;
-	if (group->name)
-		XFREE(MTYPE_PEER_GROUP_HOST, group->name);
-	group->name = XSTRDUP(MTYPE_PEER_GROUP_HOST, name);
-	group->peer = list_new();
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		group->listen_range[afi] = list_new();
-	group->conf = peer_new(bgp);
-	if (!bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4))
-		group->conf->afc[AFI_IP][SAFI_UNICAST] = 1;
-	if (group->conf->host)
-		XFREE(MTYPE_BGP_PEER_HOST, group->conf->host);
-	group->conf->host = XSTRDUP(MTYPE_BGP_PEER_HOST, name);
-	group->conf->group = group;
-	group->conf->as = 0;
-	group->conf->ttl = 1;
-	group->conf->gtsm_hops = 0;
-	group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-	UNSET_FLAG(group->conf->config, PEER_CONFIG_TIMER);
-	UNSET_FLAG(group->conf->config, PEER_GROUP_CONFIG_TIMER);
-	UNSET_FLAG(group->conf->config, PEER_CONFIG_CONNECT);
-	group->conf->keepalive = 0;
-	group->conf->holdtime = 0;
-	group->conf->connect = 0;
-	SET_FLAG(group->conf->sflags, PEER_STATUS_GROUP);
-	listnode_add_sort(bgp->group, group);
-
-	return group;
-}
-
-static void peer_group2peer_config_copy(struct peer_group *group,
-					struct peer *peer)
-{
-	struct peer *conf;
-	int saved_flags = 0;
-
-	conf = group->conf;
-
-	/* remote-as */
-	if (conf->as)
-		peer->as = conf->as;
-
-	/* remote-as */
-	if (conf->change_local_as)
-		peer->change_local_as = conf->change_local_as;
-
-	/* TTL */
-	peer->ttl = conf->ttl;
-
-	/* GTSM hops */
-	peer->gtsm_hops = conf->gtsm_hops;
-
-	/* These are per-peer specific flags and so we must preserve them */
-	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN);
-	peer->flags = conf->flags;
-	SET_FLAG(peer->flags, saved_flags);
-
-	/* peer config apply */
-	peer->config = conf->config;
-
-	/* peer timers apply */
-	peer->holdtime = conf->holdtime;
-	peer->keepalive = conf->keepalive;
-	peer->connect = conf->connect;
-	if (CHECK_FLAG(conf->config, PEER_CONFIG_CONNECT))
-		peer->v_connect = conf->connect;
-	else
-		peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
-
-	/* advertisement-interval reset */
-	if (CHECK_FLAG(conf->config, PEER_CONFIG_ROUTEADV))
-		peer->v_routeadv = conf->routeadv;
-	else if (peer_sort(peer) == BGP_PEER_IBGP)
-		peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-	else
-		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-
-	/* password apply */
-	if (conf->password && !peer->password)
-		peer->password = XSTRDUP(MTYPE_PEER_PASSWORD, conf->password);
-
-	if (!BGP_PEER_SU_UNSPEC(peer))
-		bgp_md5_set(peer);
-
-	/* update-source apply */
-	if (conf->update_source) {
-		if (peer->update_source)
-			sockunion_free(peer->update_source);
-		if (peer->update_if) {
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-			peer->update_if = NULL;
-		}
-		peer->update_source = sockunion_dup(conf->update_source);
-	} else if (conf->update_if) {
-		if (peer->update_if)
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		if (peer->update_source) {
-			sockunion_free(peer->update_source);
-			peer->update_source = NULL;
-		}
-		peer->update_if =
-			XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, conf->update_if);
-	}
-
-	bgp_bfd_peer_group2peer_copy(conf, peer);
-}
-
-/* Peer group's remote AS configuration.  */
-int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
-			 int as_type)
-{
-	struct peer_group *group;
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	group = peer_group_lookup(bgp, group_name);
-	if (!group)
-		return -1;
-
-	if ((as_type == group->conf->as_type) && (group->conf->as == *as))
-		return 0;
-
-
-	/* When we setup peer-group AS number all peer group member's AS
-	   number must be updated to same number.  */
-	peer_as_change(group->conf, *as, as_type);
-
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (((peer->as_type == AS_SPECIFIED) && peer->as != *as)
-		    || (peer->as_type != as_type))
-			peer_as_change(peer, *as, as_type);
-	}
-
-	return 0;
-}
-
-int peer_group_delete(struct peer_group *group)
-{
-	struct bgp *bgp;
-	struct peer *peer;
-	struct prefix *prefix;
-	struct peer *other;
-	struct listnode *node, *nnode;
-	afi_t afi;
-
-	bgp = group->bgp;
-
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		other = peer->doppelganger;
-		peer_delete(peer);
-		if (other && other->status != Deleted) {
-			other->group = NULL;
-			peer_delete(other);
-		}
-	}
-	list_delete_and_null(&group->peer);
-
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode,
-				       prefix)) {
-			prefix_free(prefix);
-		}
-		list_delete_and_null(&group->listen_range[afi]);
-	}
-
-	XFREE(MTYPE_PEER_GROUP_HOST, group->name);
-	group->name = NULL;
-
-	bfd_info_free(&(group->conf->bfd_info));
-
-	group->conf->group = NULL;
-	peer_delete(group->conf);
-
-	/* Delete from all peer_group list. */
-	listnode_delete(bgp->group, group);
-
-	peer_group_free(group);
-
-	return 0;
-}
-
-int peer_group_remote_as_delete(struct peer_group *group)
-{
-	struct peer *peer, *other;
-	struct listnode *node, *nnode;
-
-	if ((group->conf->as_type == AS_UNSPECIFIED)
-	    || ((!group->conf->as) && (group->conf->as_type == AS_SPECIFIED)))
-		return 0;
-
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		other = peer->doppelganger;
-
-		peer_delete(peer);
-
-		if (other && other->status != Deleted) {
-			other->group = NULL;
-			peer_delete(other);
-		}
-	}
-	list_delete_all_node(group->peer);
-
-	group->conf->as = 0;
-	group->conf->as_type = AS_UNSPECIFIED;
-
-	return 0;
-}
-
-int peer_group_listen_range_add(struct peer_group *group, struct prefix *range)
-{
-	struct prefix *prefix;
-	struct listnode *node, *nnode;
-	afi_t afi;
-
-	afi = family2afi(range->family);
-
-	/* Group needs remote AS configured. */
-	if (group->conf->as_type == AS_UNSPECIFIED)
-		return BGP_ERR_PEER_GROUP_NO_REMOTE_AS;
-
-	/* Ensure no duplicates. Currently we don't care about overlaps. */
-	for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode, prefix)) {
-		if (prefix_same(range, prefix))
-			return 0;
-	}
-
-	prefix = prefix_new();
-	prefix_copy(prefix, range);
-	listnode_add(group->listen_range[afi], prefix);
-	return 0;
-}
-
-int peer_group_listen_range_del(struct peer_group *group, struct prefix *range)
-{
-	struct prefix *prefix, prefix2;
-	struct listnode *node, *nnode;
-	struct peer *peer;
-	afi_t afi;
-	char buf[PREFIX2STR_BUFFER];
-
-	afi = family2afi(range->family);
-
-	/* Identify the listen range. */
-	for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode, prefix)) {
-		if (prefix_same(range, prefix))
-			break;
-	}
-
-	if (!prefix)
-		return BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND;
-
-	prefix2str(prefix, buf, sizeof(buf));
-
-	/* Dispose off any dynamic neighbors that exist due to this listen range
-	 */
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (!peer_dynamic_neighbor(peer))
-			continue;
-
-		sockunion2hostprefix(&peer->su, &prefix2);
-		if (prefix_match(prefix, &prefix2)) {
-			if (bgp_debug_neighbor_events(peer))
-				zlog_debug(
-					"Deleting dynamic neighbor %s group %s upon "
-					"delete of listen range %s",
-					peer->host, group->name, buf);
-			peer_delete(peer);
-		}
-	}
-
-	/* Get rid of the listen range */
-	listnode_delete(group->listen_range[afi], prefix);
-
-	return 0;
-}
-
-/* Bind specified peer to peer group.  */
-int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
-		    struct peer_group *group, as_t *as)
-{
-	int first_member = 0;
-	afi_t afi;
-	safi_t safi;
-	int cap_enhe_preset = 0;
-
-	/* Lookup the peer.  */
-	if (!peer)
-		peer = peer_lookup(bgp, su);
-
-	/* The peer exist, bind it to the peer-group */
-	if (peer) {
-		/* When the peer already belongs to a peer-group, check the
-		 * consistency.  */
-		if (peer_group_active(peer)) {
-
-			/* The peer is already bound to the peer-group,
-			 * nothing to do
-			 */
-			if (strcmp(peer->group->name, group->name) == 0)
-				return 0;
-			else
-				return BGP_ERR_PEER_GROUP_CANT_CHANGE;
-		}
-
-		/* The peer has not specified a remote-as, inherit it from the
-		 * peer-group */
-		if (peer->as_type == AS_UNSPECIFIED) {
-			peer->as_type = group->conf->as_type;
-			peer->as = group->conf->as;
-		}
-
-		if (!group->conf->as) {
-			if (peer_sort(group->conf) != BGP_PEER_INTERNAL
-			    && peer_sort(group->conf) != peer_sort(peer)) {
-				if (as)
-					*as = peer->as;
-				return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
-			}
-
-			if (peer_sort(group->conf) == BGP_PEER_INTERNAL)
-				first_member = 1;
-		}
-
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
-			cap_enhe_preset = 1;
-
-		peer_group2peer_config_copy(group, peer);
-
-		/*
-		 * Capability extended-nexthop is enabled for an interface
-		 * neighbor by
-		 * default. So, fix that up here.
-		 */
-		if (peer->conf_if && cap_enhe_preset)
-			peer_flag_set(peer, PEER_FLAG_CAPABILITY_ENHE);
-
-		FOREACH_AFI_SAFI (afi, safi) {
-			if (group->conf->afc[afi][safi]) {
-				peer->afc[afi][safi] = 1;
-
-				if (peer_af_find(peer, afi, safi)
-				    || peer_af_create(peer, afi, safi)) {
-					peer_group2peer_config_copy_af(
-						group, peer, afi, safi);
-				}
-			} else if (peer->afc[afi][safi])
-				peer_deactivate(peer, afi, safi);
-		}
-
-		if (peer->group) {
-			assert(group && peer->group == group);
-		} else {
-			struct listnode *pn;
-			pn = listnode_lookup(bgp->peer, peer);
-			list_delete_node(bgp->peer, pn);
-			peer->group = group;
-			listnode_add_sort(bgp->peer, peer);
-
-			peer = peer_lock(peer); /* group->peer list reference */
-			listnode_add(group->peer, peer);
-		}
-
-		if (first_member) {
-			/* Advertisement-interval reset */
-			if (!CHECK_FLAG(group->conf->config,
-					PEER_CONFIG_ROUTEADV)) {
-				if (peer_sort(group->conf) == BGP_PEER_IBGP)
-					group->conf->v_routeadv =
-						BGP_DEFAULT_IBGP_ROUTEADV;
-				else
-					group->conf->v_routeadv =
-						BGP_DEFAULT_EBGP_ROUTEADV;
-			}
-
-			/* ebgp-multihop reset */
-			if (peer_sort(group->conf) == BGP_PEER_IBGP)
-				group->conf->ttl = MAXTTL;
-
-			/* local-as reset */
-			if (peer_sort(group->conf) != BGP_PEER_EBGP) {
-				group->conf->change_local_as = 0;
-				UNSET_FLAG(peer->flags,
-					   PEER_FLAG_LOCAL_AS_NO_PREPEND);
-				UNSET_FLAG(peer->flags,
-					   PEER_FLAG_LOCAL_AS_REPLACE_AS);
-			}
-		}
-
-		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_RMAP_BIND;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else {
-			bgp_session_reset(peer);
-		}
-	}
-
-	/* Create a new peer. */
-	else {
-		if ((group->conf->as_type == AS_SPECIFIED)
-		    && (!group->conf->as)) {
-			return BGP_ERR_PEER_GROUP_NO_REMOTE_AS;
-		}
-
-		peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-				   group->conf->as_type, 0, 0, group);
-
-		peer = peer_lock(peer); /* group->peer list reference */
-		listnode_add(group->peer, peer);
-
-		peer_group2peer_config_copy(group, peer);
-
-		/* If the peer-group is active for this afi/safi then activate
-		 * for this peer */
-		FOREACH_AFI_SAFI (afi, safi) {
-			if (group->conf->afc[afi][safi]) {
-				peer->afc[afi][safi] = 1;
-				peer_af_create(peer, afi, safi);
-				peer_group2peer_config_copy_af(group, peer, afi,
-							       safi);
-			} else if (peer->afc[afi][safi])
-				peer_deactivate(peer, afi, safi);
-		}
-
-		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
-
-		/* Set up peer's events and timers. */
-		if (peer_active(peer))
-			bgp_timer_set(peer);
-	}
-
-	return 0;
-}
-
-int peer_group_unbind(struct bgp *bgp, struct peer *peer,
-		      struct peer_group *group)
-{
-	struct peer *other;
-	afi_t afi;
-	safi_t safi;
-
-	if (group != peer->group)
-		return BGP_ERR_PEER_GROUP_MISMATCH;
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (peer->afc[afi][safi]) {
-			peer->afc[afi][safi] = 0;
-			peer_af_flag_reset(peer, afi, safi);
-
-			if (peer_af_delete(peer, afi, safi) != 0) {
-				zlog_err(
-					"couldn't delete af structure for peer %s",
-					peer->host);
-			}
-		}
-	}
-
-	assert(listnode_lookup(group->peer, peer));
-	peer_unlock(peer); /* peer group list reference */
-	listnode_delete(group->peer, peer);
-	peer->group = NULL;
-	other = peer->doppelganger;
-
-	if (group->conf->as) {
-		peer_delete(peer);
-		if (other && other->status != Deleted) {
-			if (other->group) {
-				peer_unlock(other);
-				listnode_delete(group->peer, other);
-			}
-			other->group = NULL;
-			peer_delete(other);
-		}
-		return 0;
-	}
-
-	bgp_bfd_deregister_peer(peer);
-	peer_global_config_reset(peer);
-
-	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-		peer->last_reset = PEER_DOWN_RMAP_UNBIND;
-		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-	} else
-		bgp_session_reset(peer);
-
-	return 0;
-}
-
-static int bgp_startup_timer_expire(struct thread *thread)
-{
-	struct bgp *bgp;
-
-	bgp = THREAD_ARG(thread);
-	bgp->t_startup = NULL;
-
-	return 0;
-}
-
-/* BGP instance creation by `router bgp' commands. */
-static struct bgp *bgp_create(as_t *as, const char *name,
-			      enum bgp_instance_type inst_type)
-{
-	struct bgp *bgp;
-	afi_t afi;
-	safi_t safi;
-
-	if ((bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp))) == NULL)
-		return NULL;
-
-	if (BGP_DEBUG(zebra, ZEBRA)) {
-		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			zlog_debug("Creating Default VRF, AS %u", *as);
-		else
-			zlog_debug("Creating %s %s, AS %u",
-				   (inst_type == BGP_INSTANCE_TYPE_VRF)
-					   ? "VRF"
-					   : "VIEW",
-				   name, *as);
-	}
-
-	bgp_lock(bgp);
-	bgp->heuristic_coalesce = true;
-	bgp->inst_type = inst_type;
-	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
-							       : VRF_UNKNOWN;
-	bgp->peer_self = peer_new(bgp);
-	if (bgp->peer_self->host)
-		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
-	bgp->peer_self->host =
-		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
-	if (bgp->peer_self->hostname != NULL) {
-		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->hostname);
-		bgp->peer_self->hostname = NULL;
-	}
-	if (cmd_hostname_get())
-		bgp->peer_self->hostname =
-			XSTRDUP(MTYPE_BGP_PEER_HOST, cmd_hostname_get());
-
-	if (bgp->peer_self->domainname != NULL) {
-		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->domainname);
-		bgp->peer_self->domainname = NULL;
-	}
-	if (cmd_domainname_get())
-		bgp->peer_self->domainname =
-			XSTRDUP(MTYPE_BGP_PEER_HOST, cmd_domainname_get());
-	bgp->peer = list_new();
-	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
-	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same,
-				    "BGP Peer Hash");
-	bgp->peerhash->max_size = BGP_PEER_MAX_HASH_SIZE;
-
-	bgp->group = list_new();
-	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		bgp->route[afi][safi] = bgp_table_init(afi, safi);
-		bgp->aggregate[afi][safi] = bgp_table_init(afi, safi);
-		bgp->rib[afi][safi] = bgp_table_init(afi, safi);
-
-		/* Enable maximum-paths */
-		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP,
-				      multipath_num, 0);
-		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
-				      multipath_num, 0);
-	}
-
-	bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;
-	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
-	bgp->default_subgroup_pkt_queue_max =
-		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
-	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
-	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
-	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
-	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
-	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
-	bgp->dynamic_neighbors_count = 0;
-#if DFLT_BGP_IMPORT_CHECK
-	bgp_flag_set(bgp, BGP_FLAG_IMPORT_CHECK);
-#endif
-#if DFLT_BGP_SHOW_HOSTNAME
-	bgp_flag_set(bgp, BGP_FLAG_SHOW_HOSTNAME);
-#endif
-#if DFLT_BGP_LOG_NEIGHBOR_CHANGES
-	bgp_flag_set(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
-#endif
-#if DFLT_BGP_DETERMINISTIC_MED
-	bgp_flag_set(bgp, BGP_FLAG_DETERMINISTIC_MED);
-#endif
-	bgp->addpath_tx_id = BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE;
-
-	bgp->as = *as;
-
-#if ENABLE_BGP_VNC
-	if (inst_type != BGP_INSTANCE_TYPE_VRF) {
-		bgp->rfapi = bgp_rfapi_new(bgp);
-		assert(bgp->rfapi);
-		assert(bgp->rfapi_cfg);
-	}
-#endif /* ENABLE_BGP_VNC */
-
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
-		bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent =
-			MPLS_LABEL_NONE;
-	}
-	if (name) {
-		bgp->name = XSTRDUP(MTYPE_BGP, name);
-	} else {
-		/* TODO - The startup timer needs to be run for the whole of BGP
-		 */
-		thread_add_timer(bm->master, bgp_startup_timer_expire, bgp,
-				 bgp->restart_time, &bgp->t_startup);
-	}
-
-	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_MAX,
-			      memory_order_relaxed);
-	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_MAX,
-			      memory_order_relaxed);
-	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
-
-	QOBJ_REG(bgp, bgp);
-
-	update_bgp_group_init(bgp);
-	bgp_evpn_init(bgp);
-	return bgp;
-}
-
-/* Return the "default VRF" instance of BGP. */
-struct bgp *bgp_get_default(void)
-{
-	struct bgp *bgp;
-	struct listnode *node, *nnode;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			return bgp;
-	return NULL;
-}
-
-/* Lookup BGP entry. */
-struct bgp *bgp_lookup(as_t as, const char *name)
-{
-	struct bgp *bgp;
-	struct listnode *node, *nnode;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-		if (bgp->as == as
-		    && ((bgp->name == NULL && name == NULL)
-			|| (bgp->name && name && strcmp(bgp->name, name) == 0)))
-			return bgp;
-	return NULL;
-}
-
-/* Lookup BGP structure by view name. */
-struct bgp *bgp_lookup_by_name(const char *name)
-{
-	struct bgp *bgp;
-	struct listnode *node, *nnode;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
-		if ((bgp->name == NULL && name == NULL)
-		    || (bgp->name && name && strcmp(bgp->name, name) == 0))
-			return bgp;
-	return NULL;
-}
-
-/* Lookup BGP instance based on VRF id. */
-/* Note: Only to be used for incoming messages from Zebra. */
-struct bgp *bgp_lookup_by_vrf_id(vrf_id_t vrf_id)
-{
-	struct vrf *vrf;
-
-	/* Lookup VRF (in tree) and follow link. */
-	vrf = vrf_lookup_by_id(vrf_id);
-	if (!vrf)
-		return NULL;
-	return (vrf->info) ? (struct bgp *)vrf->info : NULL;
-}
-
-/* handle socket creation or deletion, if necessary
- * this is called for all new BGP instances
- */
-int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
-		      bool create)
-{
-	int ret = 0;
-
-	/* Create BGP server socket, if listen mode not disabled */
-	if (!bgp || bgp_option_check(BGP_OPT_NO_LISTEN))
-		return 0;
-	if (bgp->name && bgp->inst_type == BGP_INSTANCE_TYPE_VRF && vrf) {
-		/*
-		 * suppress vrf socket
-		 */
-		if (create == FALSE) {
-			if (vrf_is_mapped_on_netns(vrf->vrf_id))
-				bgp_close_vrf_socket(bgp);
-			else
-				ret = bgp_check_main_socket(create, bgp);
-			return ret;
-		}
-		/* do nothing
-		 * if vrf_id did not change
-		 */
-		if (vrf->vrf_id == old_vrf_id)
-			return 0;
-		if (old_vrf_id != VRF_UNKNOWN) {
-			/* look for old socket. close it. */
-			bgp_close_vrf_socket(bgp);
-		}
-		/* if backend is not yet identified ( VRF_UNKNOWN) then
-		 *   creation will be done later
-		 */
-		if (vrf->vrf_id == VRF_UNKNOWN)
-			return 0;
-		/* if BGP VRF instance requested
-		 * if backend is NETNS, create BGP server socket in the NETNS
-		 */
-		if (vrf_is_mapped_on_netns(bgp->vrf_id)) {
-			ret = bgp_socket(bgp, bm->port, bm->address);
-			if (ret < 0)
-				return BGP_ERR_INVALID_VALUE;
-			return 0;
-		}
-	}
-	/* if BGP VRF instance requested or VRF lite backend
-	 * if BGP non VRF instance, create it
-	 *  if not already done
-	 */
-	return bgp_check_main_socket(create, bgp);
-}
-
-/* Called from VTY commands. */
-int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
-	    enum bgp_instance_type inst_type)
-{
-	struct bgp *bgp;
-	struct vrf *vrf = NULL;
-
-	/* Multiple instance check. */
-	if (bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
-		if (name)
-			bgp = bgp_lookup_by_name(name);
-		else
-			bgp = bgp_get_default();
-
-		/* Already exists. */
-		if (bgp) {
-			if (bgp->as != *as) {
-				*as = bgp->as;
-				return BGP_ERR_INSTANCE_MISMATCH;
-			}
-			if (bgp->inst_type != inst_type)
-				return BGP_ERR_INSTANCE_MISMATCH;
-			*bgp_val = bgp;
-			return 0;
-		}
-	} else {
-		/* BGP instance name can not be specified for single instance.
-		 */
-		if (name)
-			return BGP_ERR_MULTIPLE_INSTANCE_NOT_SET;
-
-		/* Get default BGP structure if exists. */
-		bgp = bgp_get_default();
-
-		if (bgp) {
-			if (bgp->as != *as) {
-				*as = bgp->as;
-				return BGP_ERR_AS_MISMATCH;
-			}
-			*bgp_val = bgp;
-			return 0;
-		}
-	}
-
-	bgp = bgp_create(as, name, inst_type);
-	bgp_router_id_set(bgp, &bgp->router_id_zebra);
-	bgp_address_init(bgp);
-	bgp_tip_hash_init(bgp);
-	bgp_scan_init(bgp);
-	*bgp_val = bgp;
-
-	bgp->t_rmap_def_originate_eval = NULL;
-
-	/* If Default instance or VRF, link to the VRF structure, if present. */
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-	    || bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
-		vrf = bgp_vrf_lookup_by_instance_type(bgp);
-		if (vrf)
-			bgp_vrf_link(bgp, vrf);
-	}
-	/* BGP server socket already processed if BGP instance
-	 * already part of the list
-	 */
-	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
-	listnode_add(bm->bgp, bgp);
-
-	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
-		bgp_zebra_instance_register(bgp);
-
-
-	return 0;
-}
-
-/*
- * Make BGP instance "up". Applies only to VRFs (non-default) and
- * implies the VRF has been learnt from Zebra.
- */
-void bgp_instance_up(struct bgp *bgp)
-{
-	struct peer *peer;
-	struct listnode *node, *next;
-
-	/* Register with zebra. */
-	bgp_zebra_instance_register(bgp);
-
-	/* Kick off any peers that may have been configured. */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
-		if (!BGP_PEER_START_SUPPRESSED(peer))
-			BGP_EVENT_ADD(peer, BGP_Start);
-	}
-
-	/* Process any networks that have been configured. */
-	bgp_static_add(bgp);
-}
-
-/*
- * Make BGP instance "down". Applies only to VRFs (non-default) and
- * implies the VRF has been deleted by Zebra.
- */
-void bgp_instance_down(struct bgp *bgp)
-{
-	struct peer *peer;
-	struct listnode *node;
-	struct listnode *next;
-
-	/* Stop timers. */
-	if (bgp->t_rmap_def_originate_eval) {
-		BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
-		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
-				    why? */
-	}
-
-	/* Bring down peers, so corresponding routes are purged. */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
-		else
-			bgp_session_reset(peer);
-	}
-
-	/* Purge network and redistributed routes. */
-	bgp_purge_static_redist_routes(bgp);
-
-	/* Cleanup registered nexthops (flags) */
-	bgp_cleanup_nexthops(bgp);
-}
-
-/* Delete BGP instance. */
-int bgp_delete(struct bgp *bgp)
-{
-	struct peer *peer;
-	struct peer_group *group;
-	struct listnode *node, *next;
-	struct vrf *vrf;
-	afi_t afi;
-	int i;
-
-	THREAD_OFF(bgp->t_startup);
-
-	if (BGP_DEBUG(zebra, ZEBRA)) {
-		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			zlog_debug("Deleting Default VRF");
-		else
-			zlog_debug("Deleting %s %s",
-				   (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-					   ? "VRF"
-					   : "VIEW",
-				   bgp->name);
-	}
-
-	/* unmap from RT list */
-	bgp_evpn_vrf_delete(bgp);
-
-	/* Stop timers. */
-	if (bgp->t_rmap_def_originate_eval) {
-		BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
-		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
-				    why? */
-	}
-
-	/* Inform peers we're going down. */
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
-	}
-
-	/* Delete static routes (networks). */
-	bgp_static_delete(bgp);
-
-	/* Unset redistribution. */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (i != ZEBRA_ROUTE_BGP)
-				bgp_redistribute_unset(bgp, afi, i, 0);
-
-	/* Free peers and peer-groups. */
-	for (ALL_LIST_ELEMENTS(bgp->group, node, next, group))
-		peer_group_delete(group);
-
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer))
-		peer_delete(peer);
-
-	if (bgp->peer_self) {
-		peer_delete(bgp->peer_self);
-		bgp->peer_self = NULL;
-	}
-
-	update_bgp_group_free(bgp);
-
-/* TODO - Other memory may need to be freed - e.g., NHT */
-
-#if ENABLE_BGP_VNC
-	rfapi_delete(bgp);
-#endif
-	bgp_cleanup_routes(bgp);
-
-	for (afi = 0; afi < AFI_MAX; ++afi) {
-		if (!bgp->vpn_policy[afi].import_redirect_rtlist)
-			continue;
-		ecommunity_free(
-				&bgp->vpn_policy[afi]
-				.import_redirect_rtlist);
-		bgp->vpn_policy[afi].import_redirect_rtlist = NULL;
-	}
-	/* Remove visibility via the master list - there may however still be
-	 * routes to be processed still referencing the struct bgp.
-	 */
-	listnode_delete(bm->bgp, bgp);
-
-	/* Deregister from Zebra, if needed */
-	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
-		bgp_zebra_instance_deregister(bgp);
-
-	/* Free interfaces in this instance. */
-	bgp_if_finish(bgp);
-
-	vrf = bgp_vrf_lookup_by_instance_type(bgp);
-	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
-	if (vrf)
-		bgp_vrf_unlink(bgp, vrf);
-
-	thread_master_free_unused(bm->master);
-	bgp_unlock(bgp); /* initial reference */
-
-	return 0;
-}
-
-void bgp_free(struct bgp *bgp)
-{
-	afi_t afi;
-	safi_t safi;
-	struct bgp_table *table;
-	struct bgp_node *rn;
-	struct bgp_rmap *rmap;
-
-	QOBJ_UNREG(bgp);
-
-	list_delete_and_null(&bgp->group);
-	list_delete_and_null(&bgp->peer);
-
-	if (bgp->peerhash) {
-		hash_free(bgp->peerhash);
-		bgp->peerhash = NULL;
-	}
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		/* Special handling for 2-level routing tables. */
-		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
-		    || safi == SAFI_EVPN) {
-			for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
-			     rn = bgp_route_next(rn)) {
-				table = (struct bgp_table *)rn->info;
-				bgp_table_finish(&table);
-			}
-		}
-		if (bgp->route[afi][safi])
-			bgp_table_finish(&bgp->route[afi][safi]);
-		if (bgp->aggregate[afi][safi])
-			bgp_table_finish(&bgp->aggregate[afi][safi]);
-		if (bgp->rib[afi][safi])
-			bgp_table_finish(&bgp->rib[afi][safi]);
-		rmap = &bgp->table_map[afi][safi];
-		if (rmap->name)
-			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
-	}
-
-	bgp_scan_finish(bgp);
-	bgp_address_destroy(bgp);
-	bgp_tip_hash_destroy(bgp);
-
-	bgp_evpn_cleanup(bgp);
-
-	if (bgp->name)
-		XFREE(MTYPE_BGP, bgp->name);
-
-	XFREE(MTYPE_BGP, bgp);
-}
-
-struct peer *peer_lookup_by_conf_if(struct bgp *bgp, const char *conf_if)
-{
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	if (!conf_if)
-		return NULL;
-
-	if (bgp != NULL) {
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			if (peer->conf_if && !strcmp(peer->conf_if, conf_if)
-			    && !CHECK_FLAG(peer->sflags,
-					   PEER_STATUS_ACCEPT_PEER))
-				return peer;
-	} else if (bm->bgp != NULL) {
-		struct listnode *bgpnode, *nbgpnode;
-
-		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				if (peer->conf_if
-				    && !strcmp(peer->conf_if, conf_if)
-				    && !CHECK_FLAG(peer->sflags,
-						   PEER_STATUS_ACCEPT_PEER))
-					return peer;
-	}
-	return NULL;
-}
-
-struct peer *peer_lookup_by_hostname(struct bgp *bgp, const char *hostname)
-{
-	struct peer *peer;
-	struct listnode *node, *nnode;
-
-	if (!hostname)
-		return NULL;
-
-	if (bgp != NULL) {
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			if (peer->hostname && !strcmp(peer->hostname, hostname)
-			    && !CHECK_FLAG(peer->sflags,
-					   PEER_STATUS_ACCEPT_PEER))
-				return peer;
-	} else if (bm->bgp != NULL) {
-		struct listnode *bgpnode, *nbgpnode;
-
-		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				if (peer->hostname
-				    && !strcmp(peer->hostname, hostname)
-				    && !CHECK_FLAG(peer->sflags,
-						   PEER_STATUS_ACCEPT_PEER))
-					return peer;
-	}
-	return NULL;
-}
-
-struct peer *peer_lookup(struct bgp *bgp, union sockunion *su)
-{
-	struct peer *peer = NULL;
-	struct peer tmp_peer;
-
-	memset(&tmp_peer, 0, sizeof(struct peer));
-
-	/*
-	 * We do not want to find the doppelganger peer so search for the peer
-	 * in
-	 * the hash that has PEER_FLAG_CONFIG_NODE
-	 */
-	SET_FLAG(tmp_peer.flags, PEER_FLAG_CONFIG_NODE);
-
-	tmp_peer.su = *su;
-
-	if (bgp != NULL) {
-		peer = hash_lookup(bgp->peerhash, &tmp_peer);
-	} else if (bm->bgp != NULL) {
-		struct listnode *bgpnode, *nbgpnode;
-
-		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp)) {
-			/* Skip VRFs Lite only, this function will not be
-			 * invoked without an instance
-			 * when examining VRFs.
-			 */
-			if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-			    && !vrf_is_mapped_on_netns(bgp->vrf_id))
-				continue;
-
-			peer = hash_lookup(bgp->peerhash, &tmp_peer);
-
-			if (peer)
-				break;
-		}
-	}
-
-	return peer;
-}
-
-struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
-					       union sockunion *su,
-					       struct peer_group *group)
-{
-	struct peer *peer;
-	afi_t afi;
-	safi_t safi;
-
-	/* Create peer first; we've already checked group config is valid. */
-	peer = peer_create(su, NULL, bgp, bgp->as, group->conf->as,
-			   group->conf->as_type, 0, 0, group);
-	if (!peer)
-		return NULL;
-
-	/* Link to group */
-	peer = peer_lock(peer);
-	listnode_add(group->peer, peer);
-
-	peer_group2peer_config_copy(group, peer);
-
-	/*
-	 * Bind peer for all AFs configured for the group. We don't call
-	 * peer_group_bind as that is sub-optimal and does some stuff we don't
-	 * want.
-	 */
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!group->conf->afc[afi][safi])
-			continue;
-		peer->afc[afi][safi] = 1;
-
-		if (!peer_af_find(peer, afi, safi))
-			peer_af_create(peer, afi, safi);
-
-		peer_group2peer_config_copy_af(group, peer, afi, safi);
-	}
-
-	/* Mark as dynamic, but also as a "config node" for other things to
-	 * work. */
-	SET_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR);
-	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
-
-	return peer;
-}
-
-struct prefix *
-peer_group_lookup_dynamic_neighbor_range(struct peer_group *group,
-					 struct prefix *prefix)
-{
-	struct listnode *node, *nnode;
-	struct prefix *range;
-	afi_t afi;
-
-	afi = family2afi(prefix->family);
-
-	if (group->listen_range[afi])
-		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode,
-				       range))
-			if (prefix_match(range, prefix))
-				return range;
-
-	return NULL;
-}
-
-struct peer_group *
-peer_group_lookup_dynamic_neighbor(struct bgp *bgp, struct prefix *prefix,
-				   struct prefix **listen_range)
-{
-	struct prefix *range = NULL;
-	struct peer_group *group = NULL;
-	struct listnode *node, *nnode;
-
-	*listen_range = NULL;
-	if (bgp != NULL) {
-		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
-			if ((range = peer_group_lookup_dynamic_neighbor_range(
-				     group, prefix)))
-				break;
-	} else if (bm->bgp != NULL) {
-		struct listnode *bgpnode, *nbgpnode;
-
-		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
-			for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
-				if ((range = peer_group_lookup_dynamic_neighbor_range(
-					     group, prefix)))
-					goto found_range;
-	}
-
-found_range:
-	*listen_range = range;
-	return (group && range) ? group : NULL;
-}
-
-struct peer *peer_lookup_dynamic_neighbor(struct bgp *bgp, union sockunion *su)
-{
-	struct peer_group *group;
-	struct bgp *gbgp;
-	struct peer *peer;
-	struct prefix prefix;
-	struct prefix *listen_range;
-	int dncount;
-	char buf[PREFIX2STR_BUFFER];
-	char buf1[PREFIX2STR_BUFFER];
-
-	sockunion2hostprefix(su, &prefix);
-
-	/* See if incoming connection matches a configured listen range. */
-	group = peer_group_lookup_dynamic_neighbor(bgp, &prefix, &listen_range);
-
-	if (!group)
-		return NULL;
-
-
-	gbgp = group->bgp;
-
-	if (!gbgp)
-		return NULL;
-
-	prefix2str(&prefix, buf, sizeof(buf));
-	prefix2str(listen_range, buf1, sizeof(buf1));
-
-	if (bgp_debug_neighbor_events(NULL))
-		zlog_debug(
-			"Dynamic Neighbor %s matches group %s listen range %s",
-			buf, group->name, buf1);
-
-	/* Are we within the listen limit? */
-	dncount = gbgp->dynamic_neighbors_count;
-
-	if (dncount >= gbgp->dynamic_neighbors_limit) {
-		if (bgp_debug_neighbor_events(NULL))
-			zlog_debug("Dynamic Neighbor %s rejected - at limit %d",
-				   inet_sutop(su, buf),
-				   gbgp->dynamic_neighbors_limit);
-		return NULL;
-	}
-
-	/* Ensure group is not disabled. */
-	if (CHECK_FLAG(group->conf->flags, PEER_FLAG_SHUTDOWN)) {
-		if (bgp_debug_neighbor_events(NULL))
-			zlog_debug(
-				"Dynamic Neighbor %s rejected - group %s disabled",
-				buf, group->name);
-		return NULL;
-	}
-
-	/* Check that at least one AF is activated for the group. */
-	if (!peer_group_af_configured(group)) {
-		if (bgp_debug_neighbor_events(NULL))
-			zlog_debug(
-				"Dynamic Neighbor %s rejected - no AF activated for group %s",
-				buf, group->name);
-		return NULL;
-	}
-
-	/* Create dynamic peer and bind to associated group. */
-	peer = peer_create_bind_dynamic_neighbor(gbgp, su, group);
-	assert(peer);
-
-	gbgp->dynamic_neighbors_count = ++dncount;
-
-	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s Dynamic Neighbor added, group %s count %d",
-			   peer->host, group->name, dncount);
-
-	return peer;
-}
-
-void peer_drop_dynamic_neighbor(struct peer *peer)
-{
-	int dncount = -1;
-	if (peer->group && peer->group->bgp) {
-		dncount = peer->group->bgp->dynamic_neighbors_count;
-		if (dncount)
-			peer->group->bgp->dynamic_neighbors_count = --dncount;
-	}
-	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s dropped from group %s, count %d", peer->host,
-			   peer->group->name, dncount);
-}
-
-
-/* If peer is configured at least one address family return 1. */
-int peer_active(struct peer *peer)
-{
-	if (BGP_PEER_SU_UNSPEC(peer))
-		return 0;
-	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP]
-	    || peer->afc[AFI_IP][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_IP6][SAFI_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
-	    || peer->afc[AFI_IP6][SAFI_ENCAP]
-	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_L2VPN][SAFI_EVPN])
-		return 1;
-	return 0;
-}
-
-/* If peer is negotiated at least one address family return 1. */
-int peer_active_nego(struct peer *peer)
-{
-	if (peer->afc_nego[AFI_IP][SAFI_UNICAST]
-	    || peer->afc_nego[AFI_IP][SAFI_MULTICAST]
-	    || peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST]
-	    || peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
-	    || peer->afc_nego[AFI_IP][SAFI_ENCAP]
-	    || peer->afc_nego[AFI_IP][SAFI_FLOWSPEC]
-	    || peer->afc_nego[AFI_IP6][SAFI_UNICAST]
-	    || peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
-	    || peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
-	    || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
-	    || peer->afc_nego[AFI_IP6][SAFI_ENCAP]
-	    || peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc_nego[AFI_L2VPN][SAFI_EVPN])
-		return 1;
-	return 0;
-}
-
-/* peer_flag_change_type. */
-enum peer_change_type {
-	peer_change_none,
-	peer_change_reset,
-	peer_change_reset_in,
-	peer_change_reset_out,
-};
-
-static void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
-			       enum peer_change_type type)
-{
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return;
-
-	if (peer->status != Established)
-		return;
-
-	if (type == peer_change_reset) {
-		/* If we're resetting session, we've to delete both peer struct
-		 */
-		if ((peer->doppelganger)
-		    && (peer->doppelganger->status != Deleted)
-		    && (!CHECK_FLAG(peer->doppelganger->flags,
-				    PEER_FLAG_CONFIG_NODE)))
-			peer_delete(peer->doppelganger);
-
-		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-	} else if (type == peer_change_reset_in) {
-		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
-		    || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0);
-		else {
-			if ((peer->doppelganger)
-			    && (peer->doppelganger->status != Deleted)
-			    && (!CHECK_FLAG(peer->doppelganger->flags,
-					    PEER_FLAG_CONFIG_NODE)))
-				peer_delete(peer->doppelganger);
-
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		}
-	} else if (type == peer_change_reset_out) {
-		update_group_adjust_peer(peer_af_find(peer, afi, safi));
-		bgp_announce_route(peer, afi, safi);
-	}
-}
-
-struct peer_flag_action {
-	/* Peer's flag.  */
-	uint32_t flag;
-
-	/* This flag can be set for peer-group member.  */
-	uint8_t not_for_member;
-
-	/* Action when the flag is changed.  */
-	enum peer_change_type type;
-
-	/* Peer down cause */
-	uint8_t peer_down;
-};
-
-static const struct peer_flag_action peer_flag_action_list[] = {
-	{PEER_FLAG_PASSIVE, 0, peer_change_reset},
-	{PEER_FLAG_SHUTDOWN, 0, peer_change_reset},
-	{PEER_FLAG_DONT_CAPABILITY, 0, peer_change_none},
-	{PEER_FLAG_OVERRIDE_CAPABILITY, 0, peer_change_none},
-	{PEER_FLAG_STRICT_CAP_MATCH, 0, peer_change_none},
-	{PEER_FLAG_DYNAMIC_CAPABILITY, 0, peer_change_reset},
-	{PEER_FLAG_DISABLE_CONNECTED_CHECK, 0, peer_change_reset},
-	{PEER_FLAG_CAPABILITY_ENHE, 0, peer_change_reset},
-	{0, 0, 0}};
-
-static const struct peer_flag_action peer_af_flag_action_list[] = {
-	{PEER_FLAG_SEND_COMMUNITY, 1, peer_change_reset_out},
-	{PEER_FLAG_SEND_EXT_COMMUNITY, 1, peer_change_reset_out},
-	{PEER_FLAG_SEND_LARGE_COMMUNITY, 1, peer_change_reset_out},
-	{PEER_FLAG_NEXTHOP_SELF, 1, peer_change_reset_out},
-	{PEER_FLAG_REFLECTOR_CLIENT, 1, peer_change_reset},
-	{PEER_FLAG_RSERVER_CLIENT, 1, peer_change_reset},
-	{PEER_FLAG_SOFT_RECONFIG, 0, peer_change_reset_in},
-	{PEER_FLAG_AS_PATH_UNCHANGED, 1, peer_change_reset_out},
-	{PEER_FLAG_NEXTHOP_UNCHANGED, 1, peer_change_reset_out},
-	{PEER_FLAG_MED_UNCHANGED, 1, peer_change_reset_out},
-	// PEER_FLAG_DEFAULT_ORIGINATE
-	{PEER_FLAG_REMOVE_PRIVATE_AS, 1, peer_change_reset_out},
-	{PEER_FLAG_ALLOWAS_IN, 0, peer_change_reset_in},
-	{PEER_FLAG_ALLOWAS_IN_ORIGIN, 0, peer_change_reset_in},
-	{PEER_FLAG_ORF_PREFIX_SM, 1, peer_change_reset},
-	{PEER_FLAG_ORF_PREFIX_RM, 1, peer_change_reset},
-	// PEER_FLAG_MAX_PREFIX
-	// PEER_FLAG_MAX_PREFIX_WARNING
-	{PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED, 0, peer_change_reset_out},
-	{PEER_FLAG_FORCE_NEXTHOP_SELF, 1, peer_change_reset_out},
-	{PEER_FLAG_REMOVE_PRIVATE_AS_ALL, 1, peer_change_reset_out},
-	{PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE, 1, peer_change_reset_out},
-	{PEER_FLAG_AS_OVERRIDE, 1, peer_change_reset_out},
-	{PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE, 1, peer_change_reset_out},
-	{PEER_FLAG_ADDPATH_TX_ALL_PATHS, 1, peer_change_reset},
-	{PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS, 1, peer_change_reset},
-	{PEER_FLAG_WEIGHT, 0, peer_change_reset_in},
-	{0, 0, 0}};
-
-/* Proper action set. */
-static int peer_flag_action_set(const struct peer_flag_action *action_list,
-				int size, struct peer_flag_action *action,
-				uint32_t flag)
-{
-	int i;
-	int found = 0;
-	int reset_in = 0;
-	int reset_out = 0;
-	const struct peer_flag_action *match = NULL;
-
-	/* Check peer's frag action.  */
-	for (i = 0; i < size; i++) {
-		match = &action_list[i];
-
-		if (match->flag == 0)
-			break;
-
-		if (match->flag & flag) {
-			found = 1;
-
-			if (match->type == peer_change_reset_in)
-				reset_in = 1;
-			if (match->type == peer_change_reset_out)
-				reset_out = 1;
-			if (match->type == peer_change_reset) {
-				reset_in = 1;
-				reset_out = 1;
-			}
-			if (match->not_for_member)
-				action->not_for_member = 1;
-		}
-	}
-
-	/* Set peer clear type.  */
-	if (reset_in && reset_out)
-		action->type = peer_change_reset;
-	else if (reset_in)
-		action->type = peer_change_reset_in;
-	else if (reset_out)
-		action->type = peer_change_reset_out;
-	else
-		action->type = peer_change_none;
-
-	return found;
-}
-
-static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
-{
-	if (flag == PEER_FLAG_SHUTDOWN) {
-		if (CHECK_FLAG(peer->flags, flag)) {
-			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
-				peer_nsf_stop(peer);
-
-			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-			if (peer->t_pmax_restart) {
-				BGP_TIMER_OFF(peer->t_pmax_restart);
-				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"%s Maximum-prefix restart timer canceled",
-						peer->host);
-			}
-
-			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
-				peer_nsf_stop(peer);
-
-			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-				char *msg = peer->tx_shutdown_message;
-				size_t msglen;
-
-				if (!msg && peer_group_active(peer))
-					msg = peer->group->conf
-						      ->tx_shutdown_message;
-				msglen = msg ? strlen(msg) : 0;
-				if (msglen > 128)
-					msglen = 128;
-
-				if (msglen) {
-					uint8_t msgbuf[129];
-
-					msgbuf[0] = msglen;
-					memcpy(msgbuf + 1, msg, msglen);
-
-					bgp_notify_send_with_data(
-						peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN,
-						msgbuf, msglen + 1);
-				} else
-					bgp_notify_send(
-						peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
-			} else
-				bgp_session_reset(peer);
-		} else {
-			peer->v_start = BGP_INIT_START_TIMER;
-			BGP_EVENT_ADD(peer, BGP_Stop);
-		}
-	} else if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-		if (flag == PEER_FLAG_DYNAMIC_CAPABILITY)
-			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
-		else if (flag == PEER_FLAG_PASSIVE)
-			peer->last_reset = PEER_DOWN_PASSIVE_CHANGE;
-		else if (flag == PEER_FLAG_DISABLE_CONNECTED_CHECK)
-			peer->last_reset = PEER_DOWN_MULTIHOP_CHANGE;
-
-		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-	} else
-		bgp_session_reset(peer);
-}
-
-/* Change specified peer flag. */
-static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
-{
-	int found;
-	int size;
-	struct peer_group *group;
-	struct peer *tmp_peer;
-	struct listnode *node, *nnode;
-	struct peer_flag_action action;
-
-	memset(&action, 0, sizeof(struct peer_flag_action));
-	size = sizeof peer_flag_action_list / sizeof(struct peer_flag_action);
-
-	found = peer_flag_action_set(peer_flag_action_list, size, &action,
-				     flag);
-
-	/* No flag action is found.  */
-	if (!found)
-		return BGP_ERR_INVALID_FLAG;
-
-	/* When unset the peer-group member's flag we have to check
-	   peer-group configuration.  */
-	if (!set && peer_group_active(peer))
-		if (CHECK_FLAG(peer->group->conf->flags, flag)) {
-			if (flag == PEER_FLAG_SHUTDOWN)
-				return BGP_ERR_PEER_GROUP_SHUTDOWN;
-		}
-
-	/* Flag conflict check.  */
-	if (set && CHECK_FLAG(peer->flags | flag, PEER_FLAG_STRICT_CAP_MATCH)
-	    && CHECK_FLAG(peer->flags | flag, PEER_FLAG_OVERRIDE_CAPABILITY))
-		return BGP_ERR_PEER_FLAG_CONFLICT;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (set && CHECK_FLAG(peer->flags, flag) == flag)
-			return 0;
-		if (!set && !CHECK_FLAG(peer->flags, flag))
-			return 0;
-	}
-
-	if (set)
-		SET_FLAG(peer->flags, flag);
-	else
-		UNSET_FLAG(peer->flags, flag);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (action.type == peer_change_reset)
-			peer_flag_modify_action(peer, flag);
-
-		return 0;
-	}
-
-	/* peer-group member updates. */
-	group = peer->group;
-
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-
-		if (set && CHECK_FLAG(tmp_peer->flags, flag) == flag)
-			continue;
-
-		if (!set && !CHECK_FLAG(tmp_peer->flags, flag))
-			continue;
-
-		if (set)
-			SET_FLAG(tmp_peer->flags, flag);
-		else
-			UNSET_FLAG(tmp_peer->flags, flag);
-
-		if (action.type == peer_change_reset)
-			peer_flag_modify_action(tmp_peer, flag);
-	}
-	return 0;
-}
-
-int peer_flag_set(struct peer *peer, uint32_t flag)
-{
-	return peer_flag_modify(peer, flag, 1);
-}
-
-int peer_flag_unset(struct peer *peer, uint32_t flag)
-{
-	return peer_flag_modify(peer, flag, 0);
-}
-
-static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
-			       uint32_t flag, int set)
-{
-	int found;
-	int size;
-	struct listnode *node, *nnode;
-	struct peer_group *group;
-	struct peer_flag_action action;
-	struct peer *tmp_peer;
-	struct bgp *bgp;
-	int addpath_tx_used;
-
-	memset(&action, 0, sizeof(struct peer_flag_action));
-	size = sizeof peer_af_flag_action_list
-	       / sizeof(struct peer_flag_action);
-
-	found = peer_flag_action_set(peer_af_flag_action_list, size, &action,
-				     flag);
-
-	/* No flag action is found.  */
-	if (!found)
-		return BGP_ERR_INVALID_FLAG;
-
-	/* Special check for reflector client.  */
-	if (flag & PEER_FLAG_REFLECTOR_CLIENT
-	    && peer_sort(peer) != BGP_PEER_IBGP)
-		return BGP_ERR_NOT_INTERNAL_PEER;
-
-	/* Special check for remove-private-AS.  */
-	if (flag & PEER_FLAG_REMOVE_PRIVATE_AS
-	    && peer_sort(peer) == BGP_PEER_IBGP)
-		return BGP_ERR_REMOVE_PRIVATE_AS;
-
-	/* as-override is not allowed for IBGP peers */
-	if (flag & PEER_FLAG_AS_OVERRIDE && peer_sort(peer) == BGP_PEER_IBGP)
-		return BGP_ERR_AS_OVERRIDE;
-
-	/* When current flag configuration is same as requested one.  */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (set && CHECK_FLAG(peer->af_flags[afi][safi], flag) == flag)
-			return 0;
-		if (!set && !CHECK_FLAG(peer->af_flags[afi][safi], flag))
-			return 0;
-	}
-
-	if (set)
-		SET_FLAG(peer->af_flags[afi][safi], flag);
-	else
-		UNSET_FLAG(peer->af_flags[afi][safi], flag);
-
-	/* Execute action when peer is established.  */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-	    && peer->status == Established) {
-		if (!set && flag == PEER_FLAG_SOFT_RECONFIG)
-			bgp_clear_adj_in(peer, afi, safi);
-		else {
-			if (flag == PEER_FLAG_REFLECTOR_CLIENT)
-				peer->last_reset = PEER_DOWN_RR_CLIENT_CHANGE;
-			else if (flag == PEER_FLAG_RSERVER_CLIENT)
-				peer->last_reset = PEER_DOWN_RS_CLIENT_CHANGE;
-			else if (flag == PEER_FLAG_ORF_PREFIX_SM)
-				peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
-			else if (flag == PEER_FLAG_ORF_PREFIX_RM)
-				peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
-
-			peer_change_action(peer, afi, safi, action.type);
-		}
-	}
-
-	/* Peer group member updates.  */
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		group = peer->group;
-
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-			if (set
-			    && CHECK_FLAG(tmp_peer->af_flags[afi][safi], flag)
-				       == flag)
-				continue;
-
-			if (!set
-			    && !CHECK_FLAG(tmp_peer->af_flags[afi][safi], flag))
-				continue;
-
-			if (set)
-				SET_FLAG(tmp_peer->af_flags[afi][safi], flag);
-			else
-				UNSET_FLAG(tmp_peer->af_flags[afi][safi], flag);
-
-			if (tmp_peer->status == Established) {
-				if (!set && flag == PEER_FLAG_SOFT_RECONFIG)
-					bgp_clear_adj_in(tmp_peer, afi, safi);
-				else {
-					if (flag == PEER_FLAG_REFLECTOR_CLIENT)
-						tmp_peer->last_reset =
-							PEER_DOWN_RR_CLIENT_CHANGE;
-					else if (flag
-						 == PEER_FLAG_RSERVER_CLIENT)
-						tmp_peer->last_reset =
-							PEER_DOWN_RS_CLIENT_CHANGE;
-					else if (flag
-						 == PEER_FLAG_ORF_PREFIX_SM)
-						tmp_peer->last_reset =
-							PEER_DOWN_CAPABILITY_CHANGE;
-					else if (flag
-						 == PEER_FLAG_ORF_PREFIX_RM)
-						tmp_peer->last_reset =
-							PEER_DOWN_CAPABILITY_CHANGE;
-
-					peer_change_action(tmp_peer, afi, safi,
-							   action.type);
-				}
-			}
-		}
-	}
-
-	/* Track if addpath TX is in use */
-	if (flag & (PEER_FLAG_ADDPATH_TX_ALL_PATHS
-		    | PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
-		bgp = peer->bgp;
-		addpath_tx_used = 0;
-
-		if (set) {
-			addpath_tx_used = 1;
-
-			if (flag & PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS) {
-				if (!bgp_flag_check(
-					    bgp, BGP_FLAG_DETERMINISTIC_MED)) {
-					zlog_warn(
-						"%s: enabling bgp deterministic-med, this is required"
-						" for addpath-tx-bestpath-per-AS",
-						peer->host);
-					bgp_flag_set(
-						bgp,
-						BGP_FLAG_DETERMINISTIC_MED);
-					bgp_recalculate_all_bestpaths(bgp);
-				}
-			}
-		} else {
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode,
-					       tmp_peer)) {
-				if (CHECK_FLAG(tmp_peer->af_flags[afi][safi],
-					       PEER_FLAG_ADDPATH_TX_ALL_PATHS)
-				    || CHECK_FLAG(
-					       tmp_peer->af_flags[afi][safi],
-					       PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
-					addpath_tx_used = 1;
-					break;
-				}
-			}
-		}
-
-		bgp->addpath_tx_used[afi][safi] = addpath_tx_used;
-	}
-
-	return 0;
-}
-
-int peer_af_flag_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
-{
-	return peer_af_flag_modify(peer, afi, safi, flag, 1);
-}
-
-int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
-{
-	return peer_af_flag_modify(peer, afi, safi, flag, 0);
-}
-
-
-int peer_tx_shutdown_message_set(struct peer *peer, const char *msg)
-{
-	XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
-	peer->tx_shutdown_message =
-		msg ? XSTRDUP(MTYPE_PEER_TX_SHUTDOWN_MSG, msg) : NULL;
-	return 0;
-}
-
-int peer_tx_shutdown_message_unset(struct peer *peer)
-{
-	XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG, peer->tx_shutdown_message);
-	return 0;
-}
-
-
-/* EBGP multihop configuration. */
-int peer_ebgp_multihop_set(struct peer *peer, int ttl)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-	struct peer *peer1;
-
-	if (peer->sort == BGP_PEER_IBGP || peer->conf_if)
-		return 0;
-
-	/* see comment in peer_ttl_security_hops_set() */
-	if (ttl != MAXTTL) {
-		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-			group = peer->group;
-			if (group->conf->gtsm_hops != 0)
-				return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
-
-			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
-					       peer1)) {
-				if (peer1->sort == BGP_PEER_IBGP)
-					continue;
-
-				if (peer1->gtsm_hops != 0)
-					return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
-			}
-		} else {
-			if (peer->gtsm_hops != 0)
-				return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
-		}
-	}
-
-	peer->ttl = ttl;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (peer->fd >= 0 && peer->sort != BGP_PEER_IBGP) {
-			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-			else
-				bgp_session_reset(peer);
-		}
-	} else {
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (peer->sort == BGP_PEER_IBGP)
-				continue;
-
-			peer->ttl = group->conf->ttl;
-
-			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-			else
-				bgp_session_reset(peer);
-		}
-	}
-	return 0;
-}
-
-int peer_ebgp_multihop_unset(struct peer *peer)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (peer->sort == BGP_PEER_IBGP)
-		return 0;
-
-	if (peer->gtsm_hops != 0 && peer->ttl != MAXTTL)
-		return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
-
-	if (peer_group_active(peer))
-		peer->ttl = peer->group->conf->ttl;
-	else
-		peer->ttl = 1;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		else
-			bgp_session_reset(peer);
-	} else {
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (peer->sort == BGP_PEER_IBGP)
-				continue;
-
-			peer->ttl = 1;
-
-			if (peer->fd >= 0) {
-				if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-					bgp_notify_send(
-						peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-				else
-					bgp_session_reset(peer);
-			}
-		}
-	}
-	return 0;
-}
-
-/* Neighbor description. */
-int peer_description_set(struct peer *peer, const char *desc)
-{
-	if (peer->desc)
-		XFREE(MTYPE_PEER_DESC, peer->desc);
-
-	peer->desc = XSTRDUP(MTYPE_PEER_DESC, desc);
-
-	return 0;
-}
-
-int peer_description_unset(struct peer *peer)
-{
-	if (peer->desc)
-		XFREE(MTYPE_PEER_DESC, peer->desc);
-
-	peer->desc = NULL;
-
-	return 0;
-}
-
-/* Neighbor update-source. */
-int peer_update_source_if_set(struct peer *peer, const char *ifname)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (peer->update_if) {
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-		    && strcmp(peer->update_if, ifname) == 0)
-			return 0;
-
-		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		peer->update_if = NULL;
-	}
-
-	if (peer->update_source) {
-		sockunion_free(peer->update_source);
-		peer->update_source = NULL;
-	}
-
-	peer->update_if = XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, ifname);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-		return 0;
-	}
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (peer->update_if) {
-			if (strcmp(peer->update_if, ifname) == 0)
-				continue;
-
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-			peer->update_if = NULL;
-		}
-
-		if (peer->update_source) {
-			sockunion_free(peer->update_source);
-			peer->update_source = NULL;
-		}
-
-		peer->update_if = XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, ifname);
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-	}
-	return 0;
-}
-
-int peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (peer->update_source) {
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-		    && sockunion_cmp(peer->update_source, su) == 0)
-			return 0;
-		sockunion_free(peer->update_source);
-		peer->update_source = NULL;
-	}
-
-	if (peer->update_if) {
-		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		peer->update_if = NULL;
-	}
-
-	peer->update_source = sockunion_dup(su);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-		return 0;
-	}
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (peer->update_source) {
-			if (sockunion_cmp(peer->update_source, su) == 0)
-				continue;
-			sockunion_free(peer->update_source);
-			peer->update_source = NULL;
-		}
-
-		if (peer->update_if) {
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-			peer->update_if = NULL;
-		}
-
-		peer->update_source = sockunion_dup(su);
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-	}
-	return 0;
-}
-
-int peer_update_source_unset(struct peer *peer)
-{
-	union sockunion *su;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) && !peer->update_source
-	    && !peer->update_if)
-		return 0;
-
-	if (peer->update_source) {
-		sockunion_free(peer->update_source);
-		peer->update_source = NULL;
-	}
-	if (peer->update_if) {
-		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		peer->update_if = NULL;
-	}
-
-	if (peer_group_active(peer)) {
-		group = peer->group;
-
-		if (group->conf->update_source) {
-			su = sockunion_dup(group->conf->update_source);
-			peer->update_source = su;
-		} else if (group->conf->update_if)
-			peer->update_if = XSTRDUP(MTYPE_PEER_UPDATE_SOURCE,
-						  group->conf->update_if);
-	}
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-		return 0;
-	}
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (!peer->update_source && !peer->update_if)
-			continue;
-
-		if (peer->update_source) {
-			sockunion_free(peer->update_source);
-			peer->update_source = NULL;
-		}
-
-		if (peer->update_if) {
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-			peer->update_if = NULL;
-		}
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-	}
-	return 0;
-}
-
-int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
-			       const char *rmap)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE)
-	    || (rmap && !peer->default_rmap[afi][safi].name)
-	    || (rmap
-		&& strcmp(rmap, peer->default_rmap[afi][safi].name) != 0)) {
-		SET_FLAG(peer->af_flags[afi][safi],
-			 PEER_FLAG_DEFAULT_ORIGINATE);
-
-		if (rmap) {
-			if (peer->default_rmap[afi][safi].name)
-				XFREE(MTYPE_ROUTE_MAP_NAME,
-				      peer->default_rmap[afi][safi].name);
-			peer->default_rmap[afi][safi].name =
-				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
-			peer->default_rmap[afi][safi].map =
-				route_map_lookup_by_name(rmap);
-		}
-	}
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (peer->status == Established && peer->afc_nego[afi][safi]) {
-			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, 0);
-			bgp_announce_route(peer, afi, safi);
-		}
-		return 0;
-	}
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		SET_FLAG(peer->af_flags[afi][safi],
-			 PEER_FLAG_DEFAULT_ORIGINATE);
-
-		if (rmap) {
-			if (peer->default_rmap[afi][safi].name)
-				XFREE(MTYPE_ROUTE_MAP_NAME,
-				      peer->default_rmap[afi][safi].name);
-			peer->default_rmap[afi][safi].name =
-				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
-			peer->default_rmap[afi][safi].map =
-				route_map_lookup_by_name(rmap);
-		}
-
-		if (peer->status == Established && peer->afc_nego[afi][safi]) {
-			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, 0);
-			bgp_announce_route(peer, afi, safi);
-		}
-	}
-	return 0;
-}
-
-int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (CHECK_FLAG(peer->af_flags[afi][safi],
-		       PEER_FLAG_DEFAULT_ORIGINATE)) {
-		UNSET_FLAG(peer->af_flags[afi][safi],
-			   PEER_FLAG_DEFAULT_ORIGINATE);
-
-		if (peer->default_rmap[afi][safi].name)
-			XFREE(MTYPE_ROUTE_MAP_NAME,
-			      peer->default_rmap[afi][safi].name);
-		peer->default_rmap[afi][safi].name = NULL;
-		peer->default_rmap[afi][safi].map = NULL;
-	}
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (peer->status == Established && peer->afc_nego[afi][safi]) {
-			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, 1);
-			bgp_announce_route(peer, afi, safi);
-		}
-		return 0;
-	}
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		UNSET_FLAG(peer->af_flags[afi][safi],
-			   PEER_FLAG_DEFAULT_ORIGINATE);
-
-		if (peer->default_rmap[afi][safi].name)
-			XFREE(MTYPE_ROUTE_MAP_NAME,
-			      peer->default_rmap[afi][safi].name);
-		peer->default_rmap[afi][safi].name = NULL;
-		peer->default_rmap[afi][safi].map = NULL;
-
-		if (peer->status == Established && peer->afc_nego[afi][safi]) {
-			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, 1);
-			bgp_announce_route(peer, afi, safi);
-		}
-	}
-	return 0;
-}
-
-int peer_port_set(struct peer *peer, uint16_t port)
-{
-	peer->port = port;
-	return 0;
-}
-
-int peer_port_unset(struct peer *peer)
-{
-	peer->port = BGP_PORT_DEFAULT;
-	return 0;
-}
-
-/*
- * Helper function that is called after the name of the policy
- * being used by a peer has changed (AF specific). Automatically
- * initiates inbound or outbound processing as needed.
- */
-static void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
-				  int outbound)
-{
-	if (outbound) {
-		update_group_adjust_peer(peer_af_find(peer, afi, safi));
-		if (peer->status == Established)
-			bgp_announce_route(peer, afi, safi);
-	} else {
-		if (peer->status != Established)
-			return;
-
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG))
-			bgp_soft_reconfig_in(peer, afi, safi);
-		else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
-			 || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0);
-	}
-}
-
-
-/* neighbor weight. */
-int peer_weight_set(struct peer *peer, afi_t afi, safi_t safi, uint16_t weight)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (peer->weight[afi][safi] != weight) {
-		peer->weight[afi][safi] = weight;
-		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_WEIGHT);
-		peer_on_policy_change(peer, afi, safi, 0);
-	}
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (peer->weight[afi][safi] != weight) {
-			peer->weight[afi][safi] = weight;
-			SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_WEIGHT);
-			peer_on_policy_change(peer, afi, safi, 0);
-		}
-	}
-	return 0;
-}
-
-int peer_weight_unset(struct peer *peer, afi_t afi, safi_t safi)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	/* not the peer-group itself but a peer in a peer-group */
-	if (peer_group_active(peer)) {
-		group = peer->group;
-
-		/* inherit weight from the peer-group */
-		if (CHECK_FLAG(group->conf->af_flags[afi][safi],
-			       PEER_FLAG_WEIGHT)) {
-			peer->weight[afi][safi] =
-				group->conf->weight[afi][safi];
-			peer_af_flag_set(peer, afi, safi, PEER_FLAG_WEIGHT);
-			peer_on_policy_change(peer, afi, safi, 0);
-		} else {
-			if (CHECK_FLAG(peer->af_flags[afi][safi],
-				       PEER_FLAG_WEIGHT)) {
-				peer->weight[afi][safi] = 0;
-				peer_af_flag_unset(peer, afi, safi,
-						   PEER_FLAG_WEIGHT);
-				peer_on_policy_change(peer, afi, safi, 0);
-			}
-		}
-	}
-
-	else {
-		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_WEIGHT)) {
-			peer->weight[afi][safi] = 0;
-			peer_af_flag_unset(peer, afi, safi, PEER_FLAG_WEIGHT);
-			peer_on_policy_change(peer, afi, safi, 0);
-		}
-
-		/* peer-group member updates. */
-		group = peer->group;
-
-		if (group) {
-			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
-					       peer)) {
-				if (CHECK_FLAG(peer->af_flags[afi][safi],
-					       PEER_FLAG_WEIGHT)) {
-					peer->weight[afi][safi] = 0;
-					peer_af_flag_unset(peer, afi, safi,
-							   PEER_FLAG_WEIGHT);
-					peer_on_policy_change(peer, afi, safi,
-							      0);
-				}
-			}
-		}
-	}
-	return 0;
-}
-
-int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	/* keepalive value check.  */
-	if (keepalive > 65535)
-		return BGP_ERR_INVALID_VALUE;
-
-	/* Holdtime value check.  */
-	if (holdtime > 65535)
-		return BGP_ERR_INVALID_VALUE;
-
-	/* Holdtime value must be either 0 or greater than 3.  */
-	if (holdtime < 3 && holdtime != 0)
-		return BGP_ERR_INVALID_VALUE;
-
-	/* Set value to the configuration. */
-	peer->holdtime = holdtime;
-	peer->keepalive = (keepalive < holdtime / 3 ? keepalive : holdtime / 3);
-
-	/* First work on real peers with timers */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		SET_FLAG(peer->config, PEER_CONFIG_TIMER);
-		UNSET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
-	} else {
-		/* Now work on the peer-group timers */
-		SET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
-
-		/* peer-group member updates. */
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			/* Skip peers that have their own timers */
-			if (CHECK_FLAG(peer->config, PEER_CONFIG_TIMER))
-				continue;
-
-			SET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
-			peer->holdtime = group->conf->holdtime;
-			peer->keepalive = group->conf->keepalive;
-		}
-	}
-
-	return 0;
-}
-
-int peer_timers_unset(struct peer *peer)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	/* First work on real peers vs the peer-group */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		UNSET_FLAG(peer->config, PEER_CONFIG_TIMER);
-		peer->keepalive = 0;
-		peer->holdtime = 0;
-
-		if (peer->group && peer->group->conf->holdtime) {
-			SET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
-			peer->keepalive = peer->group->conf->keepalive;
-			peer->holdtime = peer->group->conf->holdtime;
-		}
-	} else {
-		/* peer-group member updates. */
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (!CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)) {
-				UNSET_FLAG(peer->config,
-					   PEER_GROUP_CONFIG_TIMER);
-				peer->holdtime = 0;
-				peer->keepalive = 0;
-			}
-		}
-
-		UNSET_FLAG(group->conf->config, PEER_GROUP_CONFIG_TIMER);
-		group->conf->holdtime = 0;
-		group->conf->keepalive = 0;
-	}
-
-	return 0;
-}
-
-int peer_timers_connect_set(struct peer *peer, uint32_t connect)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (connect > 65535)
-		return BGP_ERR_INVALID_VALUE;
-
-	/* Set value to the configuration. */
-	SET_FLAG(peer->config, PEER_CONFIG_CONNECT);
-	peer->connect = connect;
-
-	/* Set value to timer setting. */
-	peer->v_connect = connect;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		SET_FLAG(peer->config, PEER_CONFIG_CONNECT);
-		peer->connect = connect;
-		peer->v_connect = connect;
-	}
-	return 0;
-}
-
-int peer_timers_connect_unset(struct peer *peer)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	/* Clear configuration. */
-	UNSET_FLAG(peer->config, PEER_CONFIG_CONNECT);
-	peer->connect = 0;
-
-	/* Set timer setting to default value. */
-	peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		UNSET_FLAG(peer->config, PEER_CONFIG_CONNECT);
-		peer->connect = 0;
-		peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
-	}
-	return 0;
-}
-
-int peer_advertise_interval_set(struct peer *peer, uint32_t routeadv)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (routeadv > 600)
-		return BGP_ERR_INVALID_VALUE;
-
-	SET_FLAG(peer->config, PEER_CONFIG_ROUTEADV);
-	peer->routeadv = routeadv;
-	peer->v_routeadv = routeadv;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		update_group_adjust_peer_afs(peer);
-		if (peer->status == Established)
-			bgp_announce_route_all(peer);
-		return 0;
-	}
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		SET_FLAG(peer->config, PEER_CONFIG_ROUTEADV);
-		peer->routeadv = routeadv;
-		peer->v_routeadv = routeadv;
-		update_group_adjust_peer_afs(peer);
-		if (peer->status == Established)
-			bgp_announce_route_all(peer);
-	}
-
-	return 0;
-}
-
-int peer_advertise_interval_unset(struct peer *peer)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	UNSET_FLAG(peer->config, PEER_CONFIG_ROUTEADV);
-	peer->routeadv = 0;
-
-	if (peer->sort == BGP_PEER_IBGP)
-		peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-	else
-		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		update_group_adjust_peer_afs(peer);
-		if (peer->status == Established)
-			bgp_announce_route_all(peer);
-		return 0;
-	}
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		UNSET_FLAG(peer->config, PEER_CONFIG_ROUTEADV);
-		peer->routeadv = 0;
-
-		if (peer->sort == BGP_PEER_IBGP)
-			peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-		else
-			peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-
-		update_group_adjust_peer_afs(peer);
-		if (peer->status == Established)
-			bgp_announce_route_all(peer);
-	}
-
-	return 0;
-}
-
-/* neighbor interface */
-void peer_interface_set(struct peer *peer, const char *str)
-{
-	if (peer->ifname)
-		XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
-	peer->ifname = XSTRDUP(MTYPE_BGP_PEER_IFNAME, str);
-}
-
-void peer_interface_unset(struct peer *peer)
-{
-	if (peer->ifname)
-		XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
-	peer->ifname = NULL;
-}
-
-/* Allow-as in.  */
-int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi,
-			int allow_num, int origin)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (origin) {
-		if (peer->allowas_in[afi][safi]
-		    || CHECK_FLAG(peer->af_flags[afi][safi],
-				  PEER_FLAG_ALLOWAS_IN)
-		    || !CHECK_FLAG(peer->af_flags[afi][safi],
-				   PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-			peer->allowas_in[afi][safi] = 0;
-			peer_af_flag_unset(peer, afi, safi,
-					   PEER_FLAG_ALLOWAS_IN);
-			peer_af_flag_set(peer, afi, safi,
-					 PEER_FLAG_ALLOWAS_IN_ORIGIN);
-			peer_on_policy_change(peer, afi, safi, 0);
-		}
-
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-			return 0;
-
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (peer->allowas_in[afi][safi]
-			    || CHECK_FLAG(peer->af_flags[afi][safi],
-					  PEER_FLAG_ALLOWAS_IN)
-			    || !CHECK_FLAG(peer->af_flags[afi][safi],
-					   PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-				peer->allowas_in[afi][safi] = 0;
-				peer_af_flag_unset(peer, afi, safi,
-						   PEER_FLAG_ALLOWAS_IN);
-				peer_af_flag_set(peer, afi, safi,
-						 PEER_FLAG_ALLOWAS_IN_ORIGIN);
-				peer_on_policy_change(peer, afi, safi, 0);
-			}
-		}
-	} else {
-		if (allow_num < 1 || allow_num > 10)
-			return BGP_ERR_INVALID_VALUE;
-
-		if (peer->allowas_in[afi][safi] != allow_num
-		    || CHECK_FLAG(peer->af_flags[afi][safi],
-				  PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-			peer->allowas_in[afi][safi] = allow_num;
-			peer_af_flag_set(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
-			peer_af_flag_unset(peer, afi, safi,
-					   PEER_FLAG_ALLOWAS_IN_ORIGIN);
-			peer_on_policy_change(peer, afi, safi, 0);
-		}
-
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-			return 0;
-
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (peer->allowas_in[afi][safi] != allow_num
-			    || CHECK_FLAG(peer->af_flags[afi][safi],
-					  PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-				peer->allowas_in[afi][safi] = allow_num;
-				peer_af_flag_set(peer, afi, safi,
-						 PEER_FLAG_ALLOWAS_IN);
-				peer_af_flag_unset(peer, afi, safi,
-						   PEER_FLAG_ALLOWAS_IN_ORIGIN);
-				peer_on_policy_change(peer, afi, safi, 0);
-			}
-		}
-	}
-
-	return 0;
-}
-
-int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
-{
-	struct peer_group *group;
-	struct peer *tmp_peer;
-	struct listnode *node, *nnode;
-
-	/* If this is a peer-group we must first clear the flags for all of the
-	 * peer-group members
-	 */
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-			if (CHECK_FLAG(tmp_peer->af_flags[afi][safi],
-				       PEER_FLAG_ALLOWAS_IN)
-			    || CHECK_FLAG(tmp_peer->af_flags[afi][safi],
-					  PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-				tmp_peer->allowas_in[afi][safi] = 0;
-				peer_af_flag_unset(tmp_peer, afi, safi,
-						   PEER_FLAG_ALLOWAS_IN);
-				peer_af_flag_unset(tmp_peer, afi, safi,
-						   PEER_FLAG_ALLOWAS_IN_ORIGIN);
-				peer_on_policy_change(tmp_peer, afi, safi, 0);
-			}
-		}
-	}
-
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN)
-	    || CHECK_FLAG(peer->af_flags[afi][safi],
-			  PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-		peer->allowas_in[afi][safi] = 0;
-		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
-		peer_af_flag_unset(peer, afi, safi,
-				   PEER_FLAG_ALLOWAS_IN_ORIGIN);
-		peer_on_policy_change(peer, afi, safi, 0);
-	}
-
-	return 0;
-}
-
-int peer_local_as_set(struct peer *peer, as_t as, int no_prepend,
-		      int replace_as)
-{
-	struct bgp *bgp = peer->bgp;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (peer_sort(peer) != BGP_PEER_EBGP
-	    && peer_sort(peer) != BGP_PEER_INTERNAL)
-		return BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP;
-
-	if (bgp->as == as)
-		return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS;
-
-	if (peer->as == as)
-		return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS;
-
-	if (peer->change_local_as == as
-	    && ((CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND)
-		 && no_prepend)
-		|| (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND)
-		    && !no_prepend))
-	    && ((CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)
-		 && replace_as)
-		|| (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)
-		    && !replace_as)))
-		return 0;
-
-	peer->change_local_as = as;
-	if (no_prepend)
-		SET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-	else
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-
-	if (replace_as)
-		SET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-	else
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		peer->change_local_as = as;
-		if (no_prepend)
-			SET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-		else
-			UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-
-		if (replace_as)
-			SET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-		else
-			UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			BGP_EVENT_ADD(peer, BGP_Stop);
-	}
-
-	return 0;
-}
-
-int peer_local_as_unset(struct peer *peer)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (!peer->change_local_as)
-		return 0;
-
-	peer->change_local_as = 0;
-	UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-	UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			BGP_EVENT_ADD(peer, BGP_Stop);
-
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		peer->change_local_as = 0;
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		} else
-			bgp_session_reset(peer);
-	}
-	return 0;
-}
-
-/* Set password for authenticating with the peer. */
-int peer_password_set(struct peer *peer, const char *password)
-{
-	struct listnode *nn, *nnode;
-	int len = password ? strlen(password) : 0;
-	int ret = BGP_SUCCESS;
-
-	if ((len < PEER_PASSWORD_MINLEN) || (len > PEER_PASSWORD_MAXLEN))
-		return BGP_ERR_INVALID_VALUE;
-
-	if (peer->password && strcmp(peer->password, password) == 0
-	    && !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	if (peer->password)
-		XFREE(MTYPE_PEER_PASSWORD, peer->password);
-
-	peer->password = XSTRDUP(MTYPE_PEER_PASSWORD, password);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		else
-			bgp_session_reset(peer);
-
-		if (BGP_PEER_SU_UNSPEC(peer))
-			return BGP_SUCCESS;
-
-		return (bgp_md5_set(peer) >= 0) ? BGP_SUCCESS
-						: BGP_ERR_TCPSIG_FAILED;
-	}
-
-	for (ALL_LIST_ELEMENTS(peer->group->peer, nn, nnode, peer)) {
-		if (peer->password && strcmp(peer->password, password) == 0)
-			continue;
-
-		if (peer->password)
-			XFREE(MTYPE_PEER_PASSWORD, peer->password);
-
-		peer->password = XSTRDUP(MTYPE_PEER_PASSWORD, password);
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		else
-			bgp_session_reset(peer);
-
-		if (!BGP_PEER_SU_UNSPEC(peer)) {
-			if (bgp_md5_set(peer) < 0)
-				ret = BGP_ERR_TCPSIG_FAILED;
-		}
-	}
-
-	return ret;
-}
-
-int peer_password_unset(struct peer *peer)
-{
-	struct listnode *nn, *nnode;
-
-	if (!peer->password && !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		else
-			bgp_session_reset(peer);
-
-		if (peer->password)
-			XFREE(MTYPE_PEER_PASSWORD, peer->password);
-
-		peer->password = NULL;
-
-		if (!BGP_PEER_SU_UNSPEC(peer))
-			bgp_md5_unset(peer);
-
-		return 0;
-	}
-
-	XFREE(MTYPE_PEER_PASSWORD, peer->password);
-	peer->password = NULL;
-
-	for (ALL_LIST_ELEMENTS(peer->group->peer, nn, nnode, peer)) {
-		if (!peer->password)
-			continue;
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-		else
-			bgp_session_reset(peer);
-
-		XFREE(MTYPE_PEER_PASSWORD, peer->password);
-		peer->password = NULL;
-
-		if (!BGP_PEER_SU_UNSPEC(peer))
-			bgp_md5_unset(peer);
-	}
-
-	return 0;
-}
-
-
-/* Set distribute list to the peer. */
-int peer_distribute_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
-			const char *name)
-{
-	struct bgp_filter *filter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (direct != FILTER_IN && direct != FILTER_OUT)
-		return BGP_ERR_INVALID_VALUE;
-
-	filter = &peer->filter[afi][safi];
-
-	if (filter->plist[direct].name)
-		return BGP_ERR_PEER_FILTER_CONFLICT;
-
-	if (filter->dlist[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->dlist[direct].name);
-	filter->dlist[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-	filter->dlist[direct].alist = access_list_lookup(afi, name);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->dlist[direct].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      filter->dlist[direct].name);
-		filter->dlist[direct].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-		filter->dlist[direct].alist = access_list_lookup(afi, name);
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-	}
-
-	return 0;
-}
-
-int peer_distribute_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
-{
-	struct bgp_filter *filter;
-	struct bgp_filter *gfilter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (direct != FILTER_IN && direct != FILTER_OUT)
-		return BGP_ERR_INVALID_VALUE;
-
-	filter = &peer->filter[afi][safi];
-
-	/* apply peer-group filter */
-	if (peer_group_active(peer)) {
-		gfilter = &peer->group->conf->filter[afi][safi];
-
-		if (gfilter->dlist[direct].name) {
-			if (filter->dlist[direct].name)
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->dlist[direct].name);
-			filter->dlist[direct].name =
-				XSTRDUP(MTYPE_BGP_FILTER_NAME,
-					gfilter->dlist[direct].name);
-			filter->dlist[direct].alist =
-				gfilter->dlist[direct].alist;
-			peer_on_policy_change(peer, afi, safi,
-					      (direct == FILTER_OUT) ? 1 : 0);
-			return 0;
-		}
-	}
-
-	if (filter->dlist[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->dlist[direct].name);
-	filter->dlist[direct].name = NULL;
-	filter->dlist[direct].alist = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->dlist[direct].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      filter->dlist[direct].name);
-		filter->dlist[direct].name = NULL;
-		filter->dlist[direct].alist = NULL;
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-	}
-
-	return 0;
-}
-
-/* Update distribute list. */
-static void peer_distribute_update(struct access_list *access)
-{
-	afi_t afi;
-	safi_t safi;
-	int direct;
-	struct listnode *mnode, *mnnode;
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-	struct peer *peer;
-	struct peer_group *group;
-	struct bgp_filter *filter;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
-		if (access->name)
-			update_group_policy_update(bgp, BGP_POLICY_FILTER_LIST,
-						   access->name, 0, 0);
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				filter = &peer->filter[afi][safi];
-
-				for (direct = FILTER_IN; direct < FILTER_MAX;
-				     direct++) {
-					if (filter->dlist[direct].name)
-						filter->dlist[direct]
-							.alist = access_list_lookup(
-							afi,
-							filter->dlist[direct]
-								.name);
-					else
-						filter->dlist[direct].alist =
-							NULL;
-				}
-			}
-		}
-		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				filter = &group->conf->filter[afi][safi];
-
-				for (direct = FILTER_IN; direct < FILTER_MAX;
-				     direct++) {
-					if (filter->dlist[direct].name)
-						filter->dlist[direct]
-							.alist = access_list_lookup(
-							afi,
-							filter->dlist[direct]
-								.name);
-					else
-						filter->dlist[direct].alist =
-							NULL;
-				}
-			}
-		}
-#if ENABLE_BGP_VNC
-		vnc_prefix_list_update(bgp);
-#endif
-	}
-}
-
-/* Set prefix list to the peer. */
-int peer_prefix_list_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
-			 const char *name)
-{
-	struct bgp_filter *filter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (direct != FILTER_IN && direct != FILTER_OUT)
-		return BGP_ERR_INVALID_VALUE;
-
-	filter = &peer->filter[afi][safi];
-
-	if (filter->dlist[direct].name)
-		return BGP_ERR_PEER_FILTER_CONFLICT;
-
-	if (filter->plist[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->plist[direct].name);
-	filter->plist[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-	filter->plist[direct].plist = prefix_list_lookup(afi, name);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->plist[direct].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      filter->plist[direct].name);
-		filter->plist[direct].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-		filter->plist[direct].plist = prefix_list_lookup(afi, name);
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-	}
-	return 0;
-}
-
-int peer_prefix_list_unset(struct peer *peer, afi_t afi, safi_t safi,
-			   int direct)
-{
-	struct bgp_filter *filter;
-	struct bgp_filter *gfilter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (direct != FILTER_IN && direct != FILTER_OUT)
-		return BGP_ERR_INVALID_VALUE;
-
-	filter = &peer->filter[afi][safi];
-
-	/* apply peer-group filter */
-	if (peer_group_active(peer)) {
-		gfilter = &peer->group->conf->filter[afi][safi];
-
-		if (gfilter->plist[direct].name) {
-			if (filter->plist[direct].name)
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->plist[direct].name);
-			filter->plist[direct].name =
-				XSTRDUP(MTYPE_BGP_FILTER_NAME,
-					gfilter->plist[direct].name);
-			filter->plist[direct].plist =
-				gfilter->plist[direct].plist;
-			peer_on_policy_change(peer, afi, safi,
-					      (direct == FILTER_OUT) ? 1 : 0);
-			return 0;
-		}
-	}
-
-	if (filter->plist[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->plist[direct].name);
-	filter->plist[direct].name = NULL;
-	filter->plist[direct].plist = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->plist[direct].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      filter->plist[direct].name);
-		filter->plist[direct].name = NULL;
-		filter->plist[direct].plist = NULL;
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-	}
-
-	return 0;
-}
-
-/* Update prefix-list list. */
-static void peer_prefix_list_update(struct prefix_list *plist)
-{
-	struct listnode *mnode, *mnnode;
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-	struct peer *peer;
-	struct peer_group *group;
-	struct bgp_filter *filter;
-	afi_t afi;
-	safi_t safi;
-	int direct;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
-
-		/*
-		 * Update the prefix-list on update groups.
-		 */
-		update_group_policy_update(
-			bgp, BGP_POLICY_PREFIX_LIST,
-			plist ? prefix_list_name(plist) : NULL, 0, 0);
-
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				filter = &peer->filter[afi][safi];
-
-				for (direct = FILTER_IN; direct < FILTER_MAX;
-				     direct++) {
-					if (filter->plist[direct].name)
-						filter->plist[direct]
-							.plist = prefix_list_lookup(
-							afi,
-							filter->plist[direct]
-								.name);
-					else
-						filter->plist[direct].plist =
-							NULL;
-				}
-			}
-		}
-		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				filter = &group->conf->filter[afi][safi];
-
-				for (direct = FILTER_IN; direct < FILTER_MAX;
-				     direct++) {
-					if (filter->plist[direct].name)
-						filter->plist[direct]
-							.plist = prefix_list_lookup(
-							afi,
-							filter->plist[direct]
-								.name);
-					else
-						filter->plist[direct].plist =
-							NULL;
-				}
-			}
-		}
-	}
-}
-
-int peer_aslist_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
-		    const char *name)
-{
-	struct bgp_filter *filter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (direct != FILTER_IN && direct != FILTER_OUT)
-		return BGP_ERR_INVALID_VALUE;
-
-	filter = &peer->filter[afi][safi];
-
-	if (filter->aslist[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->aslist[direct].name);
-	filter->aslist[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-	filter->aslist[direct].aslist = as_list_lookup(name);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->aslist[direct].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      filter->aslist[direct].name);
-		filter->aslist[direct].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-		filter->aslist[direct].aslist = as_list_lookup(name);
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-	}
-	return 0;
-}
-
-int peer_aslist_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
-{
-	struct bgp_filter *filter;
-	struct bgp_filter *gfilter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (direct != FILTER_IN && direct != FILTER_OUT)
-		return BGP_ERR_INVALID_VALUE;
-
-	filter = &peer->filter[afi][safi];
-
-	/* apply peer-group filter */
-	if (peer_group_active(peer)) {
-		gfilter = &peer->group->conf->filter[afi][safi];
-
-		if (gfilter->aslist[direct].name) {
-			if (filter->aslist[direct].name)
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->aslist[direct].name);
-			filter->aslist[direct].name =
-				XSTRDUP(MTYPE_BGP_FILTER_NAME,
-					gfilter->aslist[direct].name);
-			filter->aslist[direct].aslist =
-				gfilter->aslist[direct].aslist;
-			peer_on_policy_change(peer, afi, safi,
-					      (direct == FILTER_OUT) ? 1 : 0);
-			return 0;
-		}
-	}
-
-	if (filter->aslist[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->aslist[direct].name);
-	filter->aslist[direct].name = NULL;
-	filter->aslist[direct].aslist = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->aslist[direct].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      filter->aslist[direct].name);
-		filter->aslist[direct].name = NULL;
-		filter->aslist[direct].aslist = NULL;
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-	}
-
-	return 0;
-}
-
-static void peer_aslist_update(const char *aslist_name)
-{
-	afi_t afi;
-	safi_t safi;
-	int direct;
-	struct listnode *mnode, *mnnode;
-	struct listnode *node, *nnode;
-	struct bgp *bgp;
-	struct peer *peer;
-	struct peer_group *group;
-	struct bgp_filter *filter;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
-		update_group_policy_update(bgp, BGP_POLICY_FILTER_LIST,
-					   aslist_name, 0, 0);
-
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				filter = &peer->filter[afi][safi];
-
-				for (direct = FILTER_IN; direct < FILTER_MAX;
-				     direct++) {
-					if (filter->aslist[direct].name)
-						filter->aslist[direct]
-							.aslist = as_list_lookup(
-							filter->aslist[direct]
-								.name);
-					else
-						filter->aslist[direct].aslist =
-							NULL;
-				}
-			}
-		}
-		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				filter = &group->conf->filter[afi][safi];
-
-				for (direct = FILTER_IN; direct < FILTER_MAX;
-				     direct++) {
-					if (filter->aslist[direct].name)
-						filter->aslist[direct]
-							.aslist = as_list_lookup(
-							filter->aslist[direct]
-								.name);
-					else
-						filter->aslist[direct].aslist =
-							NULL;
-				}
-			}
-		}
-	}
-}
-
-static void peer_aslist_add(char *aslist_name)
-{
-	peer_aslist_update(aslist_name);
-	route_map_notify_dependencies((char *)aslist_name,
-				      RMAP_EVENT_ASLIST_ADDED);
-}
-
-static void peer_aslist_del(const char *aslist_name)
-{
-	peer_aslist_update(aslist_name);
-	route_map_notify_dependencies(aslist_name, RMAP_EVENT_ASLIST_DELETED);
-}
-
-
-int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
-		       const char *name)
-{
-	struct bgp_filter *filter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (direct != RMAP_IN && direct != RMAP_OUT)
-		return BGP_ERR_INVALID_VALUE;
-
-	filter = &peer->filter[afi][safi];
-
-	if (filter->map[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
-
-	filter->map[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-	filter->map[direct].map = route_map_lookup_by_name(name);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == RMAP_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->map[direct].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
-		filter->map[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-		filter->map[direct].map = route_map_lookup_by_name(name);
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == RMAP_OUT) ? 1 : 0);
-	}
-	return 0;
-}
-
-/* Unset route-map from the peer. */
-int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
-{
-	struct bgp_filter *filter;
-	struct bgp_filter *gfilter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	if (direct != RMAP_IN && direct != RMAP_OUT)
-		return BGP_ERR_INVALID_VALUE;
-
-	filter = &peer->filter[afi][safi];
-
-	/* apply peer-group filter */
-	if (peer_group_active(peer)) {
-		gfilter = &peer->group->conf->filter[afi][safi];
-
-		if (gfilter->map[direct].name) {
-			if (filter->map[direct].name)
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->map[direct].name);
-			filter->map[direct].name =
-				XSTRDUP(MTYPE_BGP_FILTER_NAME,
-					gfilter->map[direct].name);
-			filter->map[direct].map = gfilter->map[direct].map;
-			peer_on_policy_change(peer, afi, safi,
-					      (direct == RMAP_OUT) ? 1 : 0);
-			return 0;
-		}
-	}
-
-	if (filter->map[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
-	filter->map[direct].name = NULL;
-	filter->map[direct].map = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == RMAP_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->map[direct].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
-		filter->map[direct].name = NULL;
-		filter->map[direct].map = NULL;
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == RMAP_OUT) ? 1 : 0);
-	}
-	return 0;
-}
-
-/* Set unsuppress-map to the peer. */
-int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
-			    const char *name)
-{
-	struct bgp_filter *filter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	filter = &peer->filter[afi][safi];
-
-	if (filter->usmap.name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-
-	filter->usmap.name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-	filter->usmap.map = route_map_lookup_by_name(name);
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi, 1);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->usmap.name)
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-		filter->usmap.name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
-		filter->usmap.map = route_map_lookup_by_name(name);
-		peer_on_policy_change(peer, afi, safi, 1);
-	}
-	return 0;
-}
-
-/* Unset route-map from the peer. */
-int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
-{
-	struct bgp_filter *filter;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	filter = &peer->filter[afi][safi];
-
-	if (filter->usmap.name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-	filter->usmap.name = NULL;
-	filter->usmap.map = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi, 1);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
-
-		if (filter->usmap.name)
-			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-		filter->usmap.name = NULL;
-		filter->usmap.map = NULL;
-		peer_on_policy_change(peer, afi, safi, 1);
-	}
-	return 0;
-}
-
-int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
-			    uint32_t max, uint8_t threshold, int warning,
-			    uint16_t restart)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
-	peer->pmax[afi][safi] = max;
-	peer->pmax_threshold[afi][safi] = threshold;
-	peer->pmax_restart[afi][safi] = restart;
-	if (warning)
-		SET_FLAG(peer->af_flags[afi][safi],
-			 PEER_FLAG_MAX_PREFIX_WARNING);
-	else
-		UNSET_FLAG(peer->af_flags[afi][safi],
-			   PEER_FLAG_MAX_PREFIX_WARNING);
-
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			SET_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_MAX_PREFIX);
-			peer->pmax[afi][safi] = max;
-			peer->pmax_threshold[afi][safi] = threshold;
-			peer->pmax_restart[afi][safi] = restart;
-			if (warning)
-				SET_FLAG(peer->af_flags[afi][safi],
-					 PEER_FLAG_MAX_PREFIX_WARNING);
-			else
-				UNSET_FLAG(peer->af_flags[afi][safi],
-					   PEER_FLAG_MAX_PREFIX_WARNING);
-
-			if ((peer->status == Established)
-			    && (peer->afc[afi][safi]))
-				bgp_maximum_prefix_overflow(peer, afi, safi, 1);
-		}
-	} else {
-		if ((peer->status == Established) && (peer->afc[afi][safi]))
-			bgp_maximum_prefix_overflow(peer, afi, safi, 1);
-	}
-
-	return 0;
-}
-
-int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-	/* apply peer-group config */
-	if (peer_group_active(peer)) {
-		if (CHECK_FLAG(peer->group->conf->af_flags[afi][safi],
-			       PEER_FLAG_MAX_PREFIX))
-			SET_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_MAX_PREFIX);
-		else
-			UNSET_FLAG(peer->af_flags[afi][safi],
-				   PEER_FLAG_MAX_PREFIX);
-
-		if (CHECK_FLAG(peer->group->conf->af_flags[afi][safi],
-			       PEER_FLAG_MAX_PREFIX_WARNING))
-			SET_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_MAX_PREFIX_WARNING);
-		else
-			UNSET_FLAG(peer->af_flags[afi][safi],
-				   PEER_FLAG_MAX_PREFIX_WARNING);
-
-		peer->pmax[afi][safi] = peer->group->conf->pmax[afi][safi];
-		peer->pmax_threshold[afi][safi] =
-			peer->group->conf->pmax_threshold[afi][safi];
-		peer->pmax_restart[afi][safi] =
-			peer->group->conf->pmax_restart[afi][safi];
-		return 0;
-	}
-
-	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
-	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
-	peer->pmax[afi][safi] = 0;
-	peer->pmax_threshold[afi][safi] = 0;
-	peer->pmax_restart[afi][safi] = 0;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
-		UNSET_FLAG(peer->af_flags[afi][safi],
-			   PEER_FLAG_MAX_PREFIX_WARNING);
-		peer->pmax[afi][safi] = 0;
-		peer->pmax_threshold[afi][safi] = 0;
-		peer->pmax_restart[afi][safi] = 0;
-	}
-	return 0;
-}
-
-int is_ebgp_multihop_configured(struct peer *peer)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-	struct peer *peer1;
-
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		group = peer->group;
-		if ((peer_sort(peer) != BGP_PEER_IBGP)
-		    && (group->conf->ttl != 1))
-			return 1;
-
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer1)) {
-			if ((peer_sort(peer1) != BGP_PEER_IBGP)
-			    && (peer1->ttl != 1))
-				return 1;
-		}
-	} else {
-		if ((peer_sort(peer) != BGP_PEER_IBGP) && (peer->ttl != 1))
-			return 1;
-	}
-	return 0;
-}
-
-/* Set # of hops between us and BGP peer. */
-int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-	int ret;
-
-	zlog_debug("peer_ttl_security_hops_set: set gtsm_hops to %d for %s",
-		   gtsm_hops, peer->host);
-
-	/* We cannot configure ttl-security hops when ebgp-multihop is already
-	   set.  For non peer-groups, the check is simple.  For peer-groups,
-	   it's
-	   slightly messy, because we need to check both the peer-group
-	   structure
-	   and all peer-group members for any trace of ebgp-multihop
-	   configuration
-	   before actually applying the ttl-security rules.  Cisco really made a
-	   mess of this configuration parameter, and OpenBGPD got it right.
-	*/
-
-	if ((peer->gtsm_hops == 0) && (peer->sort != BGP_PEER_IBGP)) {
-		if (is_ebgp_multihop_configured(peer))
-			return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
-
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-			peer->gtsm_hops = gtsm_hops;
-
-			/* Calling ebgp multihop also resets the session.
-			 * On restart, NHT will get setup correctly as will the
-			 * min & max ttls on the socket. The return value is
-			 * irrelevant.
-			 */
-			ret = peer_ebgp_multihop_set(peer, MAXTTL);
-
-			if (ret != 0)
-				return ret;
-		} else {
-			group = peer->group;
-			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
-					       peer)) {
-				peer->gtsm_hops = group->conf->gtsm_hops;
-
-				/* Calling ebgp multihop also resets the
-				 * session.
-				 * On restart, NHT will get setup correctly as
-				 * will the
-				 * min & max ttls on the socket. The return
-				 * value is
-				 * irrelevant.
-				 */
-				peer_ebgp_multihop_set(peer, MAXTTL);
-			}
-		}
-	} else {
-		/* Post the first gtsm setup or if its ibgp, maxttl setting
-		 * isn't
-		 * necessary, just set the minttl.
-		 */
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-			peer->gtsm_hops = gtsm_hops;
-
-			if (peer->fd >= 0)
-				sockopt_minttl(peer->su.sa.sa_family, peer->fd,
-					       MAXTTL + 1 - gtsm_hops);
-			if ((peer->status < Established) && peer->doppelganger
-			    && (peer->doppelganger->fd >= 0))
-				sockopt_minttl(peer->su.sa.sa_family,
-					       peer->doppelganger->fd,
-					       MAXTTL + 1 - gtsm_hops);
-		} else {
-			group = peer->group;
-			for (ALL_LIST_ELEMENTS(group->peer, node, nnode,
-					       peer)) {
-				peer->gtsm_hops = group->conf->gtsm_hops;
-
-				/* Change setting of existing peer
-				 *   established then change value (may break
-				 * connectivity)
-				 *   not established yet (teardown session and
-				 * restart)
-				 *   no session then do nothing (will get
-				 * handled by next connection)
-				 */
-				if (peer->fd >= 0 && peer->gtsm_hops != 0)
-					sockopt_minttl(
-						peer->su.sa.sa_family, peer->fd,
-						MAXTTL + 1 - peer->gtsm_hops);
-				if ((peer->status < Established)
-				    && peer->doppelganger
-				    && (peer->doppelganger->fd >= 0))
-					sockopt_minttl(peer->su.sa.sa_family,
-						       peer->doppelganger->fd,
-						       MAXTTL + 1 - gtsm_hops);
-			}
-		}
-	}
-
-	return 0;
-}
-
-int peer_ttl_security_hops_unset(struct peer *peer)
-{
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-	int ret = 0;
-
-	zlog_debug("peer_ttl_security_hops_unset: set gtsm_hops to zero for %s",
-		   peer->host);
-
-	/* if a peer-group member, then reset to peer-group default rather than
-	 * 0 */
-	if (peer_group_active(peer))
-		peer->gtsm_hops = peer->group->conf->gtsm_hops;
-	else
-		peer->gtsm_hops = 0;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		/* Invoking ebgp_multihop_set will set the TTL back to the
-		 * original
-		 * value as well as restting the NHT and such. The session is
-		 * reset.
-		 */
-		if (peer->sort == BGP_PEER_EBGP)
-			ret = peer_ebgp_multihop_unset(peer);
-		else {
-			if (peer->fd >= 0)
-				sockopt_minttl(peer->su.sa.sa_family, peer->fd,
-					       0);
-
-			if ((peer->status < Established) && peer->doppelganger
-			    && (peer->doppelganger->fd >= 0))
-				sockopt_minttl(peer->su.sa.sa_family,
-					       peer->doppelganger->fd, 0);
-		}
-	} else {
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			peer->gtsm_hops = 0;
-			if (peer->sort == BGP_PEER_EBGP)
-				ret = peer_ebgp_multihop_unset(peer);
-			else {
-				if (peer->fd >= 0)
-					sockopt_minttl(peer->su.sa.sa_family,
-						       peer->fd, 0);
-
-				if ((peer->status < Established)
-				    && peer->doppelganger
-				    && (peer->doppelganger->fd >= 0))
-					sockopt_minttl(peer->su.sa.sa_family,
-						       peer->doppelganger->fd,
-						       0);
-			}
-		}
-	}
-
-	return ret;
-}
-
-/*
- * If peer clear is invoked in a loop for all peers on the BGP instance,
- * it may end up freeing the doppelganger, and if this was the next node
- * to the current node, we would end up accessing the freed next node.
- * Pass along additional parameter which can be updated if next node
- * is freed; only required when walking the peer list on BGP instance.
- */
-int peer_clear(struct peer *peer, struct listnode **nnode)
-{
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)) {
-		if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW)) {
-			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-			if (peer->t_pmax_restart) {
-				BGP_TIMER_OFF(peer->t_pmax_restart);
-				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"%s Maximum-prefix restart timer canceled",
-						peer->host);
-			}
-			BGP_EVENT_ADD(peer, BGP_Start);
-			return 0;
-		}
-
-		peer->v_start = BGP_INIT_START_TIMER;
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_ADMIN_RESET);
-		else
-			bgp_session_reset_safe(peer, nnode);
-	}
-	return 0;
-}
-
-int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
-		    enum bgp_clear_type stype)
-{
-	struct peer_af *paf;
-
-	if (peer->status != Established)
-		return 0;
-
-	if (!peer->afc[afi][safi])
-		return BGP_ERR_AF_UNCONFIGURED;
-
-	peer->rtt = sockopt_tcp_rtt(peer->fd);
-
-	if (stype == BGP_CLEAR_SOFT_OUT || stype == BGP_CLEAR_SOFT_BOTH) {
-		/* Clear the "neighbor x.x.x.x default-originate" flag */
-		paf = peer_af_find(peer, afi, safi);
-		if (paf && paf->subgroup
-		    && CHECK_FLAG(paf->subgroup->sflags,
-				  SUBGRP_STATUS_DEFAULT_ORIGINATE))
-			UNSET_FLAG(paf->subgroup->sflags,
-				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-
-		bgp_announce_route(peer, afi, safi);
-	}
-
-	if (stype == BGP_CLEAR_SOFT_IN_ORF_PREFIX) {
-		if (CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_ORF_PREFIX_SM_ADV)
-		    && (CHECK_FLAG(peer->af_cap[afi][safi],
-				   PEER_CAP_ORF_PREFIX_RM_RCV)
-			|| CHECK_FLAG(peer->af_cap[afi][safi],
-				      PEER_CAP_ORF_PREFIX_RM_OLD_RCV))) {
-			struct bgp_filter *filter = &peer->filter[afi][safi];
-			uint8_t prefix_type;
-
-			if (CHECK_FLAG(peer->af_cap[afi][safi],
-				       PEER_CAP_ORF_PREFIX_RM_RCV))
-				prefix_type = ORF_TYPE_PREFIX;
-			else
-				prefix_type = ORF_TYPE_PREFIX_OLD;
-
-			if (filter->plist[FILTER_IN].plist) {
-				if (CHECK_FLAG(peer->af_sflags[afi][safi],
-					       PEER_STATUS_ORF_PREFIX_SEND))
-					bgp_route_refresh_send(
-						peer, afi, safi, prefix_type,
-						REFRESH_DEFER, 1);
-				bgp_route_refresh_send(peer, afi, safi,
-						       prefix_type,
-						       REFRESH_IMMEDIATE, 0);
-			} else {
-				if (CHECK_FLAG(peer->af_sflags[afi][safi],
-					       PEER_STATUS_ORF_PREFIX_SEND))
-					bgp_route_refresh_send(
-						peer, afi, safi, prefix_type,
-						REFRESH_IMMEDIATE, 1);
-				else
-					bgp_route_refresh_send(peer, afi, safi,
-							       0, 0, 0);
-			}
-			return 0;
-		}
-	}
-
-	if (stype == BGP_CLEAR_SOFT_IN || stype == BGP_CLEAR_SOFT_BOTH
-	    || stype == BGP_CLEAR_SOFT_IN_ORF_PREFIX) {
-		/* If neighbor has soft reconfiguration inbound flag.
-		   Use Adj-RIB-In database. */
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_SOFT_RECONFIG))
-			bgp_soft_reconfig_in(peer, afi, safi);
-		else {
-			/* If neighbor has route refresh capability, send route
-			   refresh
-			   message to the peer. */
-			if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
-			    || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-				bgp_route_refresh_send(peer, afi, safi, 0, 0,
-						       0);
-			else
-				return BGP_ERR_SOFT_RECONFIG_UNCONFIGURED;
-		}
-	}
-	return 0;
-}
-
-/* Display peer uptime.*/
-char *peer_uptime(time_t uptime2, char *buf, size_t len, uint8_t use_json,
-		  json_object *json)
-{
-	time_t uptime1, epoch_tbuf;
-	struct tm *tm;
-
-	/* Check buffer length. */
-	if (len < BGP_UPTIME_LEN) {
-		if (!use_json) {
-			zlog_warn("peer_uptime (): buffer shortage %lu",
-				  (unsigned long)len);
-			/* XXX: should return status instead of buf... */
-			snprintf(buf, len, "<error> ");
-		}
-		return buf;
-	}
-
-	/* If there is no connection has been done before print `never'. */
-	if (uptime2 == 0) {
-		if (use_json) {
-			json_object_string_add(json, "peerUptime", "never");
-			json_object_int_add(json, "peerUptimeMsec", 0);
-		} else
-			snprintf(buf, len, "never");
-		return buf;
-	}
-
-	/* Get current time. */
-	uptime1 = bgp_clock();
-	uptime1 -= uptime2;
-	tm = gmtime(&uptime1);
-
-	if (uptime1 < ONE_DAY_SECOND)
-		snprintf(buf, len, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			 tm->tm_sec);
-	else if (uptime1 < ONE_WEEK_SECOND)
-		snprintf(buf, len, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			 tm->tm_min);
-	else if (uptime1 < ONE_YEAR_SECOND)
-		snprintf(buf, len, "%02dw%dd%02dh", tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
-	else
-		snprintf(buf, len, "%02dy%02dw%dd", tm->tm_year - 70,
-			 tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7));
-
-	if (use_json) {
-		epoch_tbuf = time(NULL) - uptime1;
-		json_object_string_add(json, "peerUptime", buf);
-		json_object_int_add(json, "peerUptimeMsec", uptime1 * 1000);
-		json_object_int_add(json, "peerUptimeEstablishedEpoch",
-				    epoch_tbuf);
-	}
-
-	return buf;
-}
-
-static void bgp_config_write_filter(struct vty *vty, struct peer *peer,
-				    afi_t afi, safi_t safi)
-{
-	struct bgp_filter *filter;
-	struct bgp_filter *gfilter = NULL;
-	char *addr;
-	int in = FILTER_IN;
-	int out = FILTER_OUT;
-
-	addr = peer->host;
-	filter = &peer->filter[afi][safi];
-
-	if (peer_group_active(peer))
-		gfilter = &peer->group->conf->filter[afi][safi];
-
-	/* distribute-list. */
-	if (filter->dlist[in].name)
-		if (!gfilter || !gfilter->dlist[in].name
-		    || strcmp(filter->dlist[in].name, gfilter->dlist[in].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s distribute-list %s in\n",
-				addr, filter->dlist[in].name);
-		}
-
-	if (filter->dlist[out].name && !gfilter) {
-		vty_out(vty, "  neighbor %s distribute-list %s out\n", addr,
-			filter->dlist[out].name);
-	}
-
-	/* prefix-list. */
-	if (filter->plist[in].name)
-		if (!gfilter || !gfilter->plist[in].name
-		    || strcmp(filter->plist[in].name, gfilter->plist[in].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s prefix-list %s in\n", addr,
-				filter->plist[in].name);
-		}
-
-	if (filter->plist[out].name)
-		if (!gfilter || !gfilter->plist[out].name
-		    || strcmp(filter->plist[out].name, gfilter->plist[out].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s prefix-list %s out\n", addr,
-				filter->plist[out].name);
-		}
-
-	/* route-map. */
-	if (filter->map[RMAP_IN].name)
-		if (!gfilter || !gfilter->map[RMAP_IN].name
-		    || strcmp(filter->map[RMAP_IN].name,
-			      gfilter->map[RMAP_IN].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s route-map %s in\n", addr,
-				filter->map[RMAP_IN].name);
-		}
-
-	if (filter->map[RMAP_OUT].name)
-		if (!gfilter || !gfilter->map[RMAP_OUT].name
-		    || strcmp(filter->map[RMAP_OUT].name,
-			      gfilter->map[RMAP_OUT].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s route-map %s out\n", addr,
-				filter->map[RMAP_OUT].name);
-		}
-
-	/* unsuppress-map */
-	if (filter->usmap.name && !gfilter) {
-		vty_out(vty, "  neighbor %s unsuppress-map %s\n", addr,
-			filter->usmap.name);
-	}
-
-	/* filter-list. */
-	if (filter->aslist[in].name)
-		if (!gfilter || !gfilter->aslist[in].name
-		    || strcmp(filter->aslist[in].name, gfilter->aslist[in].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s filter-list %s in\n", addr,
-				filter->aslist[in].name);
-		}
-
-	if (filter->aslist[out].name && !gfilter) {
-		vty_out(vty, "  neighbor %s filter-list %s out\n", addr,
-			filter->aslist[out].name);
-	}
-}
-
-/* BGP peer configuration display function. */
-static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
-					 struct peer *peer)
-{
-	struct peer *g_peer = NULL;
-	char buf[SU_ADDRSTRLEN];
-	char *addr;
-	int if_pg_printed = FALSE;
-	int if_ras_printed = FALSE;
-
-	/* Skip dynamic neighbors. */
-	if (peer_dynamic_neighbor(peer))
-		return;
-
-	if (peer->conf_if)
-		addr = peer->conf_if;
-	else
-		addr = peer->host;
-
-	/************************************
-	 ****** Global to the neighbor ******
-	 ************************************/
-	if (peer->conf_if) {
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
-			vty_out(vty, " neighbor %s interface v6only", addr);
-		else
-			vty_out(vty, " neighbor %s interface", addr);
-
-		if (peer_group_active(peer)) {
-			vty_out(vty, " peer-group %s", peer->group->name);
-			if_pg_printed = TRUE;
-		} else if (peer->as_type == AS_SPECIFIED) {
-			vty_out(vty, " remote-as %u", peer->as);
-			if_ras_printed = TRUE;
-		} else if (peer->as_type == AS_INTERNAL) {
-			vty_out(vty, " remote-as internal");
-			if_ras_printed = TRUE;
-		} else if (peer->as_type == AS_EXTERNAL) {
-			vty_out(vty, " remote-as external");
-			if_ras_printed = TRUE;
-		}
-
-		vty_out(vty, "\n");
-	}
-
-	/* remote-as and peer-group */
-	/* peer is a member of a peer-group */
-	if (peer_group_active(peer)) {
-		g_peer = peer->group->conf;
-
-		if (g_peer->as_type == AS_UNSPECIFIED && !if_ras_printed) {
-			if (peer->as_type == AS_SPECIFIED) {
-				vty_out(vty, " neighbor %s remote-as %u\n",
-					addr, peer->as);
-			} else if (peer->as_type == AS_INTERNAL) {
-				vty_out(vty,
-					" neighbor %s remote-as internal\n",
-					addr);
-			} else if (peer->as_type == AS_EXTERNAL) {
-				vty_out(vty,
-					" neighbor %s remote-as external\n",
-					addr);
-			}
-		}
-
-		/* For swpX peers we displayed the peer-group
-		 * via 'neighbor swpX interface peer-group WORD' */
-		if (!if_pg_printed)
-			vty_out(vty, " neighbor %s peer-group %s\n", addr,
-				peer->group->name);
-	}
-
-	/* peer is NOT a member of a peer-group */
-	else {
-		/* peer is a peer-group, declare the peer-group */
-		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-			vty_out(vty, " neighbor %s peer-group\n", addr);
-		}
-
-		if (!if_ras_printed) {
-			if (peer->as_type == AS_SPECIFIED) {
-				vty_out(vty, " neighbor %s remote-as %u\n",
-					addr, peer->as);
-			} else if (peer->as_type == AS_INTERNAL) {
-				vty_out(vty,
-					" neighbor %s remote-as internal\n",
-					addr);
-			} else if (peer->as_type == AS_EXTERNAL) {
-				vty_out(vty,
-					" neighbor %s remote-as external\n",
-					addr);
-			}
-		}
-	}
-
-	/* local-as */
-	if (peer->change_local_as) {
-		if (!peer_group_active(peer)
-		    || peer->change_local_as != g_peer->change_local_as
-		    || (CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND)
-			!= CHECK_FLAG(g_peer->flags,
-				      PEER_FLAG_LOCAL_AS_NO_PREPEND))
-		    || (CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)
-			!= CHECK_FLAG(g_peer->flags,
-				      PEER_FLAG_LOCAL_AS_REPLACE_AS))) {
-			vty_out(vty, " neighbor %s local-as %u%s%s\n", addr,
-				peer->change_local_as,
-				CHECK_FLAG(peer->flags,
-					   PEER_FLAG_LOCAL_AS_NO_PREPEND)
-					? " no-prepend"
-					: "",
-				CHECK_FLAG(peer->flags,
-					   PEER_FLAG_LOCAL_AS_REPLACE_AS)
-					? " replace-as"
-					: "");
-		}
-	}
-
-	/* description */
-	if (peer->desc) {
-		vty_out(vty, " neighbor %s description %s\n", addr, peer->desc);
-	}
-
-	/* shutdown */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_SHUTDOWN)
-		    || peer->tx_shutdown_message) {
-			if (peer->tx_shutdown_message)
-				vty_out(vty,
-					" neighbor %s shutdown message %s\n",
-					addr, peer->tx_shutdown_message);
-			else
-				vty_out(vty, " neighbor %s shutdown\n", addr);
-		}
-	}
-
-	/* bfd */
-	if (peer->bfd_info) {
-		if (!peer_group_active(peer) || !g_peer->bfd_info) {
-			bgp_bfd_peer_config_write(vty, peer, addr);
-		}
-	}
-
-	/* password */
-	if (peer->password) {
-		if (!peer_group_active(peer) || !g_peer->password
-		    || strcmp(peer->password, g_peer->password) != 0) {
-			vty_out(vty, " neighbor %s password %s\n", addr,
-				peer->password);
-		}
-	}
-
-	/* neighbor solo */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)) {
-		if (!peer_group_active(peer)) {
-			vty_out(vty, " neighbor %s solo\n", addr);
-		}
-	}
-
-	/* BGP port */
-	if (peer->port != BGP_PORT_DEFAULT) {
-		vty_out(vty, " neighbor %s port %d\n", addr, peer->port);
-	}
-
-	/* Local interface name */
-	if (peer->ifname) {
-		vty_out(vty, " neighbor %s interface %s\n", addr, peer->ifname);
-	}
-
-	/* passive */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_PASSIVE)) {
-			vty_out(vty, " neighbor %s passive\n", addr);
-		}
-	}
-
-	/* ebgp-multihop */
-	if (peer->sort != BGP_PEER_IBGP && peer->ttl != 1
-	    && !(peer->gtsm_hops != 0 && peer->ttl == MAXTTL)) {
-		if (!peer_group_active(peer) || g_peer->ttl != peer->ttl) {
-			vty_out(vty, " neighbor %s ebgp-multihop %d\n", addr,
-				peer->ttl);
-		}
-	}
-
-	/* ttl-security hops */
-	if (peer->gtsm_hops != 0) {
-		if (!peer_group_active(peer)
-		    || g_peer->gtsm_hops != peer->gtsm_hops) {
-			vty_out(vty, " neighbor %s ttl-security hops %d\n",
-				addr, peer->gtsm_hops);
-		}
-	}
-
-	/* disable-connected-check */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags,
-				   PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
-			vty_out(vty, " neighbor %s disable-connected-check\n",
-				addr);
-		}
-	}
-
-	/* update-source */
-	if (peer->update_if) {
-		if (!peer_group_active(peer) || !g_peer->update_if
-		    || strcmp(g_peer->update_if, peer->update_if) != 0) {
-			vty_out(vty, " neighbor %s update-source %s\n", addr,
-				peer->update_if);
-		}
-	}
-	if (peer->update_source) {
-		if (!peer_group_active(peer) || !g_peer->update_source
-		    || sockunion_cmp(g_peer->update_source, peer->update_source)
-			       != 0) {
-			vty_out(vty, " neighbor %s update-source %s\n", addr,
-				sockunion2str(peer->update_source, buf,
-					      SU_ADDRSTRLEN));
-		}
-	}
-
-	/* advertisement-interval */
-	if (CHECK_FLAG(peer->config, PEER_CONFIG_ROUTEADV)
-	    && ((!peer_group_active(peer)
-		 && peer->v_routeadv != BGP_DEFAULT_EBGP_ROUTEADV)
-		|| (peer_group_active(peer)
-		    && peer->v_routeadv != g_peer->v_routeadv))) {
-		vty_out(vty, " neighbor %s advertisement-interval %u\n", addr,
-			peer->v_routeadv);
-	}
-
-	/* timers */
-	if ((PEER_OR_GROUP_TIMER_SET(peer))
-	    && ((!peer_group_active(peer)
-		 && (peer->keepalive != BGP_DEFAULT_KEEPALIVE
-		     || peer->holdtime != BGP_DEFAULT_HOLDTIME))
-		|| (peer_group_active(peer)
-		    && (peer->keepalive != g_peer->keepalive
-			|| peer->holdtime != g_peer->holdtime)))) {
-		vty_out(vty, " neighbor %s timers %u %u\n", addr,
-			peer->keepalive, peer->holdtime);
-	}
-
-	if (CHECK_FLAG(peer->config, PEER_CONFIG_CONNECT)
-	    && ((!peer_group_active(peer)
-		 && peer->connect != BGP_DEFAULT_CONNECT_RETRY)
-		|| (peer_group_active(peer)
-		    && peer->connect != g_peer->connect)))
-
-	{
-		vty_out(vty, " neighbor %s timers connect %u\n", addr,
-			peer->connect);
-	}
-
-	/* capability dynamic */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags,
-				   PEER_FLAG_DYNAMIC_CAPABILITY)) {
-			vty_out(vty, " neighbor %s capability dynamic\n", addr);
-		}
-	}
-
-	/* capability extended-nexthop */
-	if (peer->ifp && !CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_CAPABILITY_ENHE)) {
-			vty_out(vty,
-				" no neighbor %s capability extended-nexthop\n",
-				addr);
-		}
-	}
-
-	if (!peer->ifp && CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_CAPABILITY_ENHE)) {
-			vty_out(vty,
-				" neighbor %s capability extended-nexthop\n",
-				addr);
-		}
-	}
-
-	/* dont-capability-negotiation */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_DONT_CAPABILITY)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_DONT_CAPABILITY)) {
-			vty_out(vty, " neighbor %s dont-capability-negotiate\n",
-				addr);
-		}
-	}
-
-	/* override-capability */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_OVERRIDE_CAPABILITY)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags,
-				   PEER_FLAG_OVERRIDE_CAPABILITY)) {
-			vty_out(vty, " neighbor %s override-capability\n",
-				addr);
-		}
-	}
-
-	/* strict-capability-match */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_CAP_MATCH)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_STRICT_CAP_MATCH)) {
-			vty_out(vty, " neighbor %s strict-capability-match\n",
-				addr);
-		}
-	}
-}
-
-/* BGP peer configuration display function. */
-static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
-				     struct peer *peer, afi_t afi, safi_t safi)
-{
-	struct peer *g_peer = NULL;
-	char *addr;
-
-	/* Skip dynamic neighbors. */
-	if (peer_dynamic_neighbor(peer))
-		return;
-
-	if (peer->conf_if)
-		addr = peer->conf_if;
-	else
-		addr = peer->host;
-
-	/************************************
-	 ****** Per AF to the neighbor ******
-	 ************************************/
-	if (peer_group_active(peer)) {
-		g_peer = peer->group->conf;
-
-		/* If the peer-group is active but peer is not, print a 'no
-		 * activate' */
-		if (g_peer->afc[afi][safi] && !peer->afc[afi][safi]) {
-			vty_out(vty, "  no neighbor %s activate\n", addr);
-		}
-
-		/* If the peer-group is not active but peer is, print an
-		   'activate' */
-		else if (!g_peer->afc[afi][safi] && peer->afc[afi][safi]) {
-			vty_out(vty, "  neighbor %s activate\n", addr);
-		}
-	} else {
-		if (peer->afc[afi][safi]) {
-			if ((afi == AFI_IP) && (safi == SAFI_UNICAST)) {
-				if (bgp_flag_check(bgp,
-						   BGP_FLAG_NO_DEFAULT_IPV4)) {
-					vty_out(vty, "  neighbor %s activate\n",
-						addr);
-				}
-			} else
-				vty_out(vty, "  neighbor %s activate\n", addr);
-		} else {
-			if ((afi == AFI_IP) && (safi == SAFI_UNICAST)) {
-				if (!bgp_flag_check(bgp,
-						    BGP_FLAG_NO_DEFAULT_IPV4)) {
-					vty_out(vty,
-						"  no neighbor %s activate\n",
-						addr);
-				}
-			}
-		}
-	}
-
-	/* addpath TX knobs */
-	if (peergroup_af_flag_check(peer, afi, safi,
-				    PEER_FLAG_ADDPATH_TX_ALL_PATHS)) {
-		vty_out(vty, "  neighbor %s addpath-tx-all-paths\n", addr);
-	}
-
-	if (peergroup_af_flag_check(peer, afi, safi,
-				    PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
-		vty_out(vty, "  neighbor %s addpath-tx-bestpath-per-AS\n",
-			addr);
-	}
-
-	/* ORF capability.  */
-	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM)
-	    || peergroup_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_ORF_PREFIX_RM)) {
-		vty_out(vty, "  neighbor %s capability orf prefix-list", addr);
-
-		if (peergroup_af_flag_check(peer, afi, safi,
-					    PEER_FLAG_ORF_PREFIX_SM)
-		    && peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_ORF_PREFIX_RM))
-			vty_out(vty, " both");
-		else if (peergroup_af_flag_check(peer, afi, safi,
-						 PEER_FLAG_ORF_PREFIX_SM))
-			vty_out(vty, " send");
-		else
-			vty_out(vty, " receive");
-		vty_out(vty, "\n");
-	}
-
-	/* Route reflector client. */
-	if (peergroup_af_flag_check(peer, afi, safi,
-				    PEER_FLAG_REFLECTOR_CLIENT)) {
-		vty_out(vty, "  neighbor %s route-reflector-client\n", addr);
-	}
-
-	/* next-hop-self force */
-	if (peergroup_af_flag_check(peer, afi, safi,
-				    PEER_FLAG_FORCE_NEXTHOP_SELF)) {
-		vty_out(vty, "  neighbor %s next-hop-self force\n", addr);
-	}
-
-	/* next-hop-self */
-	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_NEXTHOP_SELF)) {
-		vty_out(vty, "  neighbor %s next-hop-self\n", addr);
-	}
-
-	/* remove-private-AS */
-	if (peergroup_af_flag_check(peer, afi, safi,
-				    PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE)) {
-		vty_out(vty, "  neighbor %s remove-private-AS all replace-AS\n",
-			addr);
-	}
-
-	else if (peergroup_af_flag_check(peer, afi, safi,
-					 PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE)) {
-		vty_out(vty, "  neighbor %s remove-private-AS replace-AS\n",
-			addr);
-	}
-
-	else if (peergroup_af_flag_check(peer, afi, safi,
-					 PEER_FLAG_REMOVE_PRIVATE_AS_ALL)) {
-		vty_out(vty, "  neighbor %s remove-private-AS all\n", addr);
-	}
-
-	else if (peergroup_af_flag_check(peer, afi, safi,
-					 PEER_FLAG_REMOVE_PRIVATE_AS)) {
-		vty_out(vty, "  neighbor %s remove-private-AS\n", addr);
-	}
-
-	/* as-override */
-	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_AS_OVERRIDE)) {
-		vty_out(vty, "  neighbor %s as-override\n", addr);
-	}
-
-	/* send-community print. */
-	if (bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
-		if (peergroup_af_flag_check(peer, afi, safi,
-					    PEER_FLAG_SEND_COMMUNITY)
-		    && peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_SEND_EXT_COMMUNITY)
-		    && peergroup_af_flag_check(
-			       peer, afi, safi,
-			       PEER_FLAG_SEND_LARGE_COMMUNITY)) {
-			vty_out(vty, "  neighbor %s send-community all\n",
-				addr);
-		} else if (peergroup_af_flag_check(
-				   peer, afi, safi,
-				   PEER_FLAG_SEND_LARGE_COMMUNITY)) {
-			vty_out(vty, "  neighbor %s send-community large\n",
-				addr);
-		} else if (peergroup_af_flag_check(
-				   peer, afi, safi,
-				   PEER_FLAG_SEND_EXT_COMMUNITY)) {
-			vty_out(vty, "  neighbor %s send-community extended\n",
-				addr);
-		} else if (peergroup_af_flag_check(peer, afi, safi,
-						   PEER_FLAG_SEND_COMMUNITY)) {
-			vty_out(vty, "  neighbor %s send-community\n", addr);
-		}
-	} else {
-		if (!peer_af_flag_check(peer, afi, safi,
-					PEER_FLAG_SEND_COMMUNITY)
-		    && (!g_peer || peer_af_flag_check(g_peer, afi, safi,
-						      PEER_FLAG_SEND_COMMUNITY))
-		    && !peer_af_flag_check(peer, afi, safi,
-					   PEER_FLAG_SEND_EXT_COMMUNITY)
-		    && (!g_peer
-			|| peer_af_flag_check(g_peer, afi, safi,
-					      PEER_FLAG_SEND_EXT_COMMUNITY))
-		    && !peer_af_flag_check(peer, afi, safi,
-					   PEER_FLAG_SEND_LARGE_COMMUNITY)
-		    && (!g_peer || peer_af_flag_check(
-					   g_peer, afi, safi,
-					   PEER_FLAG_SEND_LARGE_COMMUNITY))) {
-			vty_out(vty, "  no neighbor %s send-community all\n",
-				addr);
-		} else {
-			if (!peer_af_flag_check(peer, afi, safi,
-						PEER_FLAG_SEND_LARGE_COMMUNITY)
-			    && (!g_peer
-				|| peer_af_flag_check(
-					   g_peer, afi, safi,
-					   PEER_FLAG_SEND_LARGE_COMMUNITY))) {
-				vty_out(vty,
-					"  no neighbor %s send-community large\n",
-					addr);
-			}
-
-			if (!peer_af_flag_check(peer, afi, safi,
-						PEER_FLAG_SEND_EXT_COMMUNITY)
-			    && (!g_peer
-				|| peer_af_flag_check(
-					   g_peer, afi, safi,
-					   PEER_FLAG_SEND_EXT_COMMUNITY))) {
-				vty_out(vty,
-					"  no neighbor %s send-community extended\n",
-					addr);
-			}
-
-			if (!peer_af_flag_check(peer, afi, safi,
-						PEER_FLAG_SEND_COMMUNITY)
-			    && (!g_peer || peer_af_flag_check(
-						   g_peer, afi, safi,
-						   PEER_FLAG_SEND_COMMUNITY))) {
-				vty_out(vty,
-					"  no neighbor %s send-community\n",
-					addr);
-			}
-		}
-	}
-
-	/* Default information */
-	if (peergroup_af_flag_check(peer, afi, safi,
-				    PEER_FLAG_DEFAULT_ORIGINATE)
-	    || (g_peer
-		&& ((peer->default_rmap[afi][safi].name
-		     && !g_peer->default_rmap[afi][safi].name)
-		    || (!peer->default_rmap[afi][safi].name
-			&& g_peer->default_rmap[afi][safi].name)
-		    || (peer->default_rmap[afi][safi].name
-			&& strcmp(peer->default_rmap[afi][safi].name,
-				  g_peer->default_rmap[afi][safi].name))))) {
-		vty_out(vty, "  neighbor %s default-originate", addr);
-		if (peer->default_rmap[afi][safi].name)
-			vty_out(vty, " route-map %s",
-				peer->default_rmap[afi][safi].name);
-		vty_out(vty, "\n");
-	}
-
-	/* Soft reconfiguration inbound. */
-	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_SOFT_RECONFIG)) {
-		vty_out(vty, "  neighbor %s soft-reconfiguration inbound\n",
-			addr);
-	}
-
-	/* maximum-prefix. */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
-		if (!peer_group_active(peer)
-		    || g_peer->pmax[afi][safi] != peer->pmax[afi][safi]
-		    || g_peer->pmax_threshold[afi][safi]
-			       != peer->pmax_threshold[afi][safi]
-		    || CHECK_FLAG(g_peer->af_flags[afi][safi],
-				  PEER_FLAG_MAX_PREFIX_WARNING)
-			       != CHECK_FLAG(peer->af_flags[afi][safi],
-					     PEER_FLAG_MAX_PREFIX_WARNING)) {
-			vty_out(vty, "  neighbor %s maximum-prefix %lu", addr,
-				peer->pmax[afi][safi]);
-			if (peer->pmax_threshold[afi][safi]
-			    != MAXIMUM_PREFIX_THRESHOLD_DEFAULT)
-				vty_out(vty, " %u",
-					peer->pmax_threshold[afi][safi]);
-			if (CHECK_FLAG(peer->af_flags[afi][safi],
-				       PEER_FLAG_MAX_PREFIX_WARNING))
-				vty_out(vty, " warning-only");
-			if (peer->pmax_restart[afi][safi])
-				vty_out(vty, " restart %u",
-					peer->pmax_restart[afi][safi]);
-			vty_out(vty, "\n");
-		}
-
-	/* Route server client. */
-	if (peergroup_af_flag_check(peer, afi, safi,
-				    PEER_FLAG_RSERVER_CLIENT)) {
-		vty_out(vty, "  neighbor %s route-server-client\n", addr);
-	}
-
-	/* Nexthop-local unchanged. */
-	if (peergroup_af_flag_check(peer, afi, safi,
-				    PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) {
-		vty_out(vty, "  neighbor %s nexthop-local unchanged\n", addr);
-	}
-
-	/* allowas-in <1-10> */
-	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ALLOWAS_IN)) {
-		if (!peer_group_active(peer)
-		    || !peer_af_flag_check(g_peer, afi, safi,
-					   PEER_FLAG_ALLOWAS_IN)
-		    || peer->allowas_in[afi][safi]
-			       != g_peer->allowas_in[afi][safi]) {
-			if (peer->allowas_in[afi][safi] == 3) {
-				vty_out(vty, "  neighbor %s allowas-in\n",
-					addr);
-			} else {
-				vty_out(vty, "  neighbor %s allowas-in %d\n",
-					addr, peer->allowas_in[afi][safi]);
-			}
-		}
-	}
-
-	/* allowas-in origin */
-	else if (peer_af_flag_check(peer, afi, safi,
-				    PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-		if (!peer_group_active(peer)
-		    || !peer_af_flag_check(g_peer, afi, safi,
-					   PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-			vty_out(vty, "  neighbor %s allowas-in origin\n", addr);
-		}
-	}
-
-	/* weight */
-	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_WEIGHT))
-		if (!peer_group_active(peer)
-		    || !peer_af_flag_check(g_peer, afi, safi, PEER_FLAG_WEIGHT)
-		    || peer->weight[afi][safi] != g_peer->weight[afi][safi]) {
-			if (peer->weight[afi][safi]) {
-				vty_out(vty, "  neighbor %s weight %lu\n", addr,
-					peer->weight[afi][safi]);
-			}
-		}
-
-	/* Filter. */
-	bgp_config_write_filter(vty, peer, afi, safi);
-
-	/* atribute-unchanged. */
-	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_PATH_UNCHANGED)
-	    || peer_af_flag_check(peer, afi, safi, PEER_FLAG_NEXTHOP_UNCHANGED)
-	    || peer_af_flag_check(peer, afi, safi, PEER_FLAG_MED_UNCHANGED)) {
-
-		if (!peer_group_active(peer)
-		    || peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_AS_PATH_UNCHANGED)
-		    || peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_NEXTHOP_UNCHANGED)
-		    || peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_MED_UNCHANGED)) {
-
-			vty_out(vty,
-				"  neighbor %s attribute-unchanged%s%s%s\n",
-				addr,
-				peer_af_flag_check(peer, afi, safi,
-						   PEER_FLAG_AS_PATH_UNCHANGED)
-					? " as-path"
-					: "",
-				peer_af_flag_check(peer, afi, safi,
-						   PEER_FLAG_NEXTHOP_UNCHANGED)
-					? " next-hop"
-					: "",
-				peer_af_flag_check(peer, afi, safi,
-						   PEER_FLAG_MED_UNCHANGED)
-					? " med"
-					: "");
-		}
-	}
-}
-
-/* Address family based peer configuration display.  */
-static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
-				    safi_t safi)
-{
-	struct peer *peer;
-	struct peer_group *group;
-	struct listnode *node, *nnode;
-
-
-	vty_frame(vty, " !\n address-family ");
-	if (afi == AFI_IP) {
-		if (safi == SAFI_UNICAST)
-			vty_frame(vty, "ipv4 unicast");
-		else if (safi == SAFI_LABELED_UNICAST)
-			vty_frame(vty, "ipv4 labeled-unicast");
-		else if (safi == SAFI_MULTICAST)
-			vty_frame(vty, "ipv4 multicast");
-		else if (safi == SAFI_MPLS_VPN)
-			vty_frame(vty, "ipv4 vpn");
-		else if (safi == SAFI_ENCAP)
-			vty_frame(vty, "ipv4 encap");
-		else if (safi == SAFI_FLOWSPEC)
-			vty_frame(vty, "ipv4 flowspec");
-	} else if (afi == AFI_IP6) {
-		if (safi == SAFI_UNICAST)
-			vty_frame(vty, "ipv6 unicast");
-		else if (safi == SAFI_LABELED_UNICAST)
-			vty_frame(vty, "ipv6 labeled-unicast");
-		else if (safi == SAFI_MULTICAST)
-			vty_frame(vty, "ipv6 multicast");
-		else if (safi == SAFI_MPLS_VPN)
-			vty_frame(vty, "ipv6 vpn");
-		else if (safi == SAFI_ENCAP)
-			vty_frame(vty, "ipv6 encap");
-		else if (safi == SAFI_FLOWSPEC)
-			vty_frame(vty, "ipv6 flowspec");
-	} else if (afi == AFI_L2VPN) {
-		if (safi == SAFI_EVPN)
-			vty_frame(vty, "l2vpn evpn");
-	}
-	vty_frame(vty, "\n");
-
-	bgp_config_write_distance(vty, bgp, afi, safi);
-
-	bgp_config_write_network(vty, bgp, afi, safi);
-
-	bgp_config_write_redistribute(vty, bgp, afi, safi);
-
-	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
-		bgp_config_write_peer_af(vty, bgp, group->conf, afi, safi);
-
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		/* Skip dynamic neighbors. */
-		if (peer_dynamic_neighbor(peer))
-			continue;
-
-		/* Do not display doppelganger peers */
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
-			bgp_config_write_peer_af(vty, bgp, peer, afi, safi);
-	}
-
-	bgp_config_write_maxpaths(vty, bgp, afi, safi);
-	bgp_config_write_table_map(vty, bgp, afi, safi);
-
-	if (safi == SAFI_EVPN)
-		bgp_config_write_evpn_info(vty, bgp, afi, safi);
-
-	if (safi == SAFI_UNICAST) {
-		bgp_vpn_policy_config_write_afi(vty, bgp, afi);
-		if (CHECK_FLAG(bgp->af_flags[afi][safi],
-			       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)) {
-
-			vty_out(vty, "  export vpn\n");
-		}
-		if (CHECK_FLAG(bgp->af_flags[afi][safi],
-			       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
-
-			vty_out(vty, "  import vpn\n");
-		}
-	}
-
-	vty_endframe(vty, " exit-address-family\n");
-}
-
-int bgp_config_write(struct vty *vty)
-{
-	int write = 0;
-	struct bgp *bgp;
-	struct peer_group *group;
-	struct peer *peer;
-	struct listnode *node, *nnode;
-	struct listnode *mnode, *mnnode;
-
-	/* BGP Multiple instance. */
-	if (!bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
-		vty_out(vty, "no bgp multiple-instance\n");
-		write++;
-	}
-
-	/* BGP Config type. */
-	if (bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
-		vty_out(vty, "bgp config-type cisco\n");
-		write++;
-	}
-
-	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
-		vty_out(vty, "bgp route-map delay-timer %u\n",
-			bm->rmap_update_timer);
-
-	if (write)
-		vty_out(vty, "!\n");
-
-	/* BGP configuration. */
-	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
-
-		/* skip all auto created vrf as they dont have user config */
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
-			continue;
-
-		/* Router bgp ASN */
-		vty_out(vty, "router bgp %u", bgp->as);
-
-		if (bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
-			if (bgp->name)
-				vty_out(vty, " %s %s",
-					(bgp->inst_type
-					 == BGP_INSTANCE_TYPE_VIEW)
-						? "view"
-						: "vrf",
-					bgp->name);
-		}
-		vty_out(vty, "\n");
-
-		/* No Synchronization */
-		if (bgp_option_check(BGP_OPT_CONFIG_CISCO))
-			vty_out(vty, " no synchronization\n");
-
-		/* BGP fast-external-failover. */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER))
-			vty_out(vty, " no bgp fast-external-failover\n");
-
-		/* BGP router ID. */
-		if (bgp->router_id_static.s_addr != 0)
-			vty_out(vty, " bgp router-id %s\n",
-				inet_ntoa(bgp->router_id_static));
-
-		/* BGP log-neighbor-changes. */
-		if (!!bgp_flag_check(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
-		    != DFLT_BGP_LOG_NEIGHBOR_CHANGES)
-			vty_out(vty, " %sbgp log-neighbor-changes\n",
-				bgp_flag_check(bgp,
-					       BGP_FLAG_LOG_NEIGHBOR_CHANGES)
-					? ""
-					: "no ");
-
-		/* BGP configuration. */
-		if (bgp_flag_check(bgp, BGP_FLAG_ALWAYS_COMPARE_MED))
-			vty_out(vty, " bgp always-compare-med\n");
-
-		/* BGP default ipv4-unicast. */
-		if (bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4))
-			vty_out(vty, " no bgp default ipv4-unicast\n");
-
-		/* BGP default local-preference. */
-		if (bgp->default_local_pref != BGP_DEFAULT_LOCAL_PREF)
-			vty_out(vty, " bgp default local-preference %u\n",
-				bgp->default_local_pref);
-
-		/* BGP default show-hostname */
-		if (!!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
-		    != DFLT_BGP_SHOW_HOSTNAME)
-			vty_out(vty, " %sbgp default show-hostname\n",
-				bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
-					? ""
-					: "no ");
-
-		/* BGP default subgroup-pkt-queue-max. */
-		if (bgp->default_subgroup_pkt_queue_max
-		    != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
-			vty_out(vty, " bgp default subgroup-pkt-queue-max %u\n",
-				bgp->default_subgroup_pkt_queue_max);
-
-		/* BGP default autoshutdown neighbors */
-		if (bgp->autoshutdown)
-			vty_out(vty, " bgp default shutdown\n");
-
-		/* BGP client-to-client reflection. */
-		if (bgp_flag_check(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
-			vty_out(vty, " no bgp client-to-client reflection\n");
-
-		/* BGP cluster ID. */
-		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
-			vty_out(vty, " bgp cluster-id %s\n",
-				inet_ntoa(bgp->cluster_id));
-
-		/* Disable ebgp connected nexthop check */
-		if (bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-			vty_out(vty,
-				" bgp disable-ebgp-connected-route-check\n");
-
-		/* Confederation identifier*/
-		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
-			vty_out(vty, " bgp confederation identifier %i\n",
-				bgp->confed_id);
-
-		/* Confederation peer */
-		if (bgp->confed_peers_cnt > 0) {
-			int i;
-
-			vty_out(vty, " bgp confederation peers");
-
-			for (i = 0; i < bgp->confed_peers_cnt; i++)
-				vty_out(vty, " %u", bgp->confed_peers[i]);
-
-			vty_out(vty, "\n");
-		}
-
-		/* BGP enforce-first-as. */
-		if (bgp_flag_check(bgp, BGP_FLAG_ENFORCE_FIRST_AS))
-			vty_out(vty, " bgp enforce-first-as\n");
-
-		/* BGP deterministic-med. */
-		if (!!bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
-		    != DFLT_BGP_DETERMINISTIC_MED)
-			vty_out(vty, " %sbgp deterministic-med\n",
-				bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
-					? ""
-					: "no ");
-
-		/* BGP update-delay. */
-		bgp_config_write_update_delay(vty, bgp);
-
-		if (bgp->v_maxmed_onstartup
-		    != BGP_MAXMED_ONSTARTUP_UNCONFIGURED) {
-			vty_out(vty, " bgp max-med on-startup %u",
-				bgp->v_maxmed_onstartup);
-			if (bgp->maxmed_onstartup_value
-			    != BGP_MAXMED_VALUE_DEFAULT)
-				vty_out(vty, " %u",
-					bgp->maxmed_onstartup_value);
-			vty_out(vty, "\n");
-		}
-		if (bgp->v_maxmed_admin != BGP_MAXMED_ADMIN_UNCONFIGURED) {
-			vty_out(vty, " bgp max-med administrative");
-			if (bgp->maxmed_admin_value != BGP_MAXMED_VALUE_DEFAULT)
-				vty_out(vty, " %u", bgp->maxmed_admin_value);
-			vty_out(vty, "\n");
-		}
-
-		/* write quanta */
-		bgp_config_write_wpkt_quanta(vty, bgp);
-		/* read quanta */
-		bgp_config_write_rpkt_quanta(vty, bgp);
-
-		/* coalesce time */
-		bgp_config_write_coalesce_time(vty, bgp);
-
-		/* BGP graceful-restart. */
-		if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
-			vty_out(vty,
-				" bgp graceful-restart stalepath-time %u\n",
-				bgp->stalepath_time);
-		if (bgp->restart_time != BGP_DEFAULT_RESTART_TIME)
-			vty_out(vty, " bgp graceful-restart restart-time %u\n",
-				bgp->restart_time);
-		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_RESTART))
-			vty_out(vty, " bgp graceful-restart\n");
-
-		/* BGP graceful-shutdown */
-		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
-			vty_out(vty, " bgp graceful-shutdown\n");
-
-		/* BGP graceful-restart Preserve State F bit. */
-		if (bgp_flag_check(bgp, BGP_FLAG_GR_PRESERVE_FWD))
-			vty_out(vty,
-				" bgp graceful-restart preserve-fw-state\n");
-
-		/* BGP bestpath method. */
-		if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_IGNORE))
-			vty_out(vty, " bgp bestpath as-path ignore\n");
-		if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_CONFED))
-			vty_out(vty, " bgp bestpath as-path confed\n");
-
-		if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
-			if (bgp_flag_check(bgp,
-					   BGP_FLAG_MULTIPATH_RELAX_AS_SET)) {
-				vty_out(vty,
-					" bgp bestpath as-path multipath-relax as-set\n");
-			} else {
-				vty_out(vty,
-					" bgp bestpath as-path multipath-relax\n");
-			}
-		}
-
-		if (bgp_flag_check(bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
-			vty_out(vty,
-				" bgp route-reflector allow-outbound-policy\n");
-		}
-		if (bgp_flag_check(bgp, BGP_FLAG_COMPARE_ROUTER_ID))
-			vty_out(vty, " bgp bestpath compare-routerid\n");
-		if (bgp_flag_check(bgp, BGP_FLAG_MED_CONFED)
-		    || bgp_flag_check(bgp, BGP_FLAG_MED_MISSING_AS_WORST)) {
-			vty_out(vty, " bgp bestpath med");
-			if (bgp_flag_check(bgp, BGP_FLAG_MED_CONFED))
-				vty_out(vty, " confed");
-			if (bgp_flag_check(bgp, BGP_FLAG_MED_MISSING_AS_WORST))
-				vty_out(vty, " missing-as-worst");
-			vty_out(vty, "\n");
-		}
-
-		/* BGP network import check. */
-		if (!!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
-		    != DFLT_BGP_IMPORT_CHECK)
-			vty_out(vty, " %sbgp network import-check\n",
-				bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
-					? ""
-					: "no ");
-
-		/* BGP flag dampening. */
-		if (CHECK_FLAG(bgp->af_flags[AFI_IP][SAFI_UNICAST],
-			       BGP_CONFIG_DAMPENING))
-			bgp_config_write_damp(vty);
-
-		/* BGP timers configuration. */
-		if (bgp->default_keepalive != BGP_DEFAULT_KEEPALIVE
-		    && bgp->default_holdtime != BGP_DEFAULT_HOLDTIME)
-			vty_out(vty, " timers bgp %u %u\n",
-				bgp->default_keepalive, bgp->default_holdtime);
-
-		/* peer-group */
-		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-			bgp_config_write_peer_global(vty, bgp, group->conf);
-		}
-
-		/* Normal neighbor configuration. */
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
-				bgp_config_write_peer_global(vty, bgp, peer);
-		}
-
-		/* listen range and limit for dynamic BGP neighbors */
-		bgp_config_write_listen(vty, bgp);
-
-		/* No auto-summary */
-		if (bgp_option_check(BGP_OPT_CONFIG_CISCO))
-			vty_out(vty, " no auto-summary\n");
-
-		/* IPv4 unicast configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
-
-		/* IPv4 multicast configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_MULTICAST);
-
-		/* IPv4 labeled-unicast configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_LABELED_UNICAST);
-
-		/* IPv4 VPN configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_MPLS_VPN);
-
-		/* ENCAPv4 configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_ENCAP);
-
-		/* FLOWSPEC v4 configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_FLOWSPEC);
-
-		/* IPv6 unicast configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP6, SAFI_UNICAST);
-
-		/* IPv6 multicast configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP6, SAFI_MULTICAST);
-
-		/* IPv6 labeled-unicast configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP6,
-					SAFI_LABELED_UNICAST);
-
-		/* IPv6 VPN configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP6, SAFI_MPLS_VPN);
-
-		/* ENCAPv6 configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP6, SAFI_ENCAP);
-
-		/* FLOWSPEC v6 configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_IP6, SAFI_FLOWSPEC);
-
-		/* EVPN configuration.  */
-		bgp_config_write_family(vty, bgp, AFI_L2VPN, SAFI_EVPN);
-
-#if ENABLE_BGP_VNC
-		bgp_rfapi_cfg_write(vty, bgp);
-#endif
-
-		vty_out(vty, "!\n");
-	}
-	return 0;
-}
-
-void bgp_master_init(struct thread_master *master)
-{
-	qobj_init();
-
-	memset(&bgp_master, 0, sizeof(struct bgp_master));
-
-	bm = &bgp_master;
-	bm->bgp = list_new();
-	bm->listen_sockets = list_new();
-	bm->port = BGP_PORT_DEFAULT;
-	bm->master = master;
-	bm->start_time = bgp_clock();
-	bm->t_rmap_update = NULL;
-	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
-
-	bgp_process_queue_init();
-
-	/* init the rd id space.
-	   assign 0th index in the bitfield,
-	   so that we start with id 1
-	 */
-	bf_init(bm->rd_idspace, UINT16_MAX);
-	bf_assign_zero_index(bm->rd_idspace);
-
-	/* Enable multiple instances by default. */
-	bgp_option_set(BGP_OPT_MULTIPLE_INSTANCE);
-
-	QOBJ_REG(bm, bgp_master);
-}
-
-/*
- * Free up connected routes and interfaces for a BGP instance. Invoked upon
- * instance delete (non-default only) or BGP exit.
- */
-static void bgp_if_finish(struct bgp *bgp)
-{
-	struct vrf *vrf = vrf_lookup_by_id(bgp->vrf_id);
-	struct interface *ifp;
-
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW || !vrf)
-		return;
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		struct listnode *c_node, *c_nnode;
-		struct connected *c;
-
-		for (ALL_LIST_ELEMENTS(ifp->connected, c_node, c_nnode, c))
-			bgp_connected_delete(bgp, c);
-	}
-}
-
-extern void bgp_snmp_init(void);
-
-static void bgp_viewvrf_autocomplete(vector comps, struct cmd_token *token)
-{
-	struct vrf *vrf = NULL;
-	struct listnode *next;
-	struct bgp *bgp;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, vrf->name));
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
-			continue;
-
-		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, bgp->name));
-	}
-}
-
-static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
-	{.tokenname = "VIEWVRFNAME", .completions = bgp_viewvrf_autocomplete},
-	{.completions = NULL},
-};
-
-static void bgp_pthreads_init()
-{
-	frr_pthread_init();
-
-	struct frr_pthread_attr io = {
-		.id = PTHREAD_IO,
-		.start = frr_pthread_attr_default.start,
-		.stop = frr_pthread_attr_default.stop,
-	};
-	struct frr_pthread_attr ka = {
-		.id = PTHREAD_KEEPALIVES,
-		.start = bgp_keepalives_start,
-		.stop = bgp_keepalives_stop,
-	};
-	frr_pthread_new(&io, "BGP I/O thread");
-	frr_pthread_new(&ka, "BGP Keepalives thread");
-}
-
-void bgp_pthreads_run()
-{
-	struct frr_pthread *io = frr_pthread_get(PTHREAD_IO);
-	struct frr_pthread *ka = frr_pthread_get(PTHREAD_KEEPALIVES);
-
-	frr_pthread_run(io, NULL);
-	frr_pthread_run(ka, NULL);
-
-	/* Wait until threads are ready. */
-	frr_pthread_wait_running(io);
-	frr_pthread_wait_running(ka);
-}
-
-void bgp_pthreads_finish()
-{
-	frr_pthread_stop_all();
-	frr_pthread_finish();
-}
-
-void bgp_init(void)
-{
-
-	/* allocates some vital data structures used by peer commands in
-	 * vty_init */
-
-	/* pre-init pthreads */
-	bgp_pthreads_init();
-
-	/* Init zebra. */
-	bgp_zebra_init(bm->master);
-
-#if ENABLE_BGP_VNC
-	vnc_zebra_init(bm->master);
-#endif
-
-	/* BGP VTY commands installation.  */
-	bgp_vty_init();
-
-	/* BGP inits. */
-	bgp_attr_init();
-	bgp_debug_init();
-	bgp_dump_init();
-	bgp_route_init();
-	bgp_route_map_init();
-	bgp_scan_vty_init();
-	bgp_mplsvpn_init();
-#if ENABLE_BGP_VNC
-	rfapi_init();
-#endif
-	bgp_ethernetvpn_init();
-	bgp_flowspec_vty_init();
-
-	/* Access list initialize. */
-	access_list_init();
-	access_list_add_hook(peer_distribute_update);
-	access_list_delete_hook(peer_distribute_update);
-
-	/* Filter list initialize. */
-	bgp_filter_init();
-	as_list_add_hook(peer_aslist_add);
-	as_list_delete_hook(peer_aslist_del);
-
-	/* Prefix list initialize.*/
-	prefix_list_init();
-	prefix_list_add_hook(peer_prefix_list_update);
-	prefix_list_delete_hook(peer_prefix_list_update);
-
-	/* Community list initialize. */
-	bgp_clist = community_list_init();
-
-	/* BFD init */
-	bgp_bfd_init();
-
-	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
-}
-
-void bgp_terminate(void)
-{
-	struct bgp *bgp;
-	struct peer *peer;
-	struct listnode *node, *nnode;
-	struct listnode *mnode, *mnnode;
-
-	QOBJ_UNREG(bm);
-
-	/* Close the listener sockets first as this prevents peers from
-	 * attempting
-	 * to reconnect on receiving the peer unconfig message. In the presence
-	 * of a large number of peers this will ensure that no peer is left with
-	 * a dangling connection
-	 */
-	/* reverse bgp_master_init */
-	bgp_close();
-
-	if (bm->listen_sockets)
-		list_delete_and_null(&bm->listen_sockets);
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp))
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			if (peer->status == Established
-			    || peer->status == OpenSent
-			    || peer->status == OpenConfirm)
-				bgp_notify_send(peer, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_PEER_UNCONFIG);
-
-	if (bm->process_main_queue)
-		work_queue_free_and_null(&bm->process_main_queue);
-
-	if (bm->t_rmap_update)
-		BGP_TIMER_OFF(bm->t_rmap_update);
-}
+/*BGP-4,BGP-4+daemonprogram*Copyright(C)1996,97,98,99,2000KunihiroIshiguro**This
+fileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit
+*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundatio
+n;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedintheho
+pethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERC
+HANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformored
+etails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthispro
+gram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt
+,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"prefix.h"#include"
+thread.h"#include"buffer.h"#include"stream.h"#include"ringbuf.h"#include"command
+.h"#include"sockunion.h"#include"sockopt.h"#include"network.h"#include"memory.h"
+#include"filter.h"#include"routemap.h"#include"log.h"#include"plist.h"#include"l
+inklist.h"#include"workqueue.h"#include"queue.h"#include"zclient.h"#include"bfd.
+h"#include"hash.h"#include"jhash.h"#include"table.h"#include"lib/json.h"#include
+"frr_pthread.h"#include"bgpd/bgpd.h"#include"bgpd/bgp_table.h"#include"bgpd/bgp_
+aspath.h"#include"bgpd/bgp_route.h"#include"bgpd/bgp_dump.h"#include"bgpd/bgp_de
+bug.h"#include"bgpd/bgp_community.h"#include"bgpd/bgp_attr.h"#include"bgpd/bgp_r
+egex.h"#include"bgpd/bgp_clist.h"#include"bgpd/bgp_fsm.h"#include"bgpd/bgp_packe
+t.h"#include"bgpd/bgp_zebra.h"#include"bgpd/bgp_open.h"#include"bgpd/bgp_filter.
+h"#include"bgpd/bgp_nexthop.h"#include"bgpd/bgp_damp.h"#include"bgpd/bgp_mplsvpn
+.h"#ifENABLE_BGP_VNC#include"bgpd/rfapi/bgp_rfapi_cfg.h"#include"bgpd/rfapi/rfap
+i_backend.h"#endif#include"bgpd/bgp_evpn.h"#include"bgpd/bgp_advertise.h"#includ
+e"bgpd/bgp_network.h"#include"bgpd/bgp_vty.h"#include"bgpd/bgp_mpath.h"#include"
+bgpd/bgp_nht.h"#include"bgpd/bgp_updgrp.h"#include"bgpd/bgp_bfd.h"#include"bgpd/
+bgp_memory.h"#include"bgpd/bgp_evpn_vty.h"#include"bgpd/bgp_keepalives.h"#includ
+e"bgpd/bgp_io.h"#include"bgpd/bgp_ecommunity.h"#include"bgpd/bgp_flowspec.h"DEFI
+NE_MTYPE_STATIC(BGPD,PEER_TX_SHUTDOWN_MSG,"Peershutdownmessage(TX)");DEFINE_QOBJ
+_TYPE(bgp_master)DEFINE_QOBJ_TYPE(bgp)DEFINE_QOBJ_TYPE(peer)/*BGPprocesswideconf
+iguration.*/staticstructbgp_masterbgp_master;/*BGPprocesswideconfigurationpointe
+rtoexport.*/structbgp_master*bm;/*BGPcommunity-list.*/structcommunity_list_handl
+er*bgp_clist;unsignedintmultipath_num=MULTIPATH_NUM;staticvoidbgp_if_finish(stru
+ctbgp*bgp);externstructzclient*zclient;/*handlemainsocketcreationordeletion*/sta
+ticintbgp_check_main_socket(boolcreate,structbgp*bgp){staticintbgp_server_main_c
+reated;structlistnode*bgpnode,*nbgpnode;structbgp*bgp_temp;if(bgp->inst_type==BG
+P_INSTANCE_TYPE_VRF&&vrf_is_mapped_on_netns(bgp->vrf_id))return0;if(create==true
+){if(bgp_server_main_created)return0;if(bgp_socket(bgp,bm->port,bm->address)<0)r
+eturnBGP_ERR_INVALID_VALUE;bgp_server_main_created=1;return0;}if(!bgp_server_mai
+n_created)return0;/*onlydeletesocketonsomecases*/for(ALL_LIST_ELEMENTS(bm->bgp,b
+gpnode,nbgpnode,bgp_temp)){/*donotcountwithcurrentbgp*/if(bgp_temp==bgp)continue
+;/*ifotherinstancenonVRF,donotdeletesocket*/if(bgp_temp->inst_type==BGP_INSTANCE
+_TYPE_DEFAULT)return0;/*vrflite,donotdeletesocket*/if(!vrf_is_mapped_on_netns(bg
+p_temp->vrf_id))return0;}bgp_close();bgp_server_main_created=0;return0;}voidbgp_
+session_reset(structpeer*peer){if(peer->doppelganger&&(peer->doppelganger->statu
+s!=Deleted)&&!(CHECK_FLAG(peer->doppelganger->flags,PEER_FLAG_CONFIG_NODE)))peer
+_delete(peer->doppelganger);BGP_EVENT_ADD(peer,BGP_Stop);}/**Duringsessionreset,
+wemaydeletethedoppelgangerpeer,whichwould*bethenextnodetothecurrentnode.Iftheses
+sionresetwasinvoked*duringwalkofpeerlist,wewouldendupaccessingthefreednext*node.
+Thisfunctionmovesthenextnodealong.*/staticvoidbgp_session_reset_safe(structpeer*
+peer,structlistnode**nnode){structlistnode*n;structpeer*npeer;n=(nnode)?*nnode:N
+ULL;npeer=(n)?listgetdata(n):NULL;if(peer->doppelganger&&(peer->doppelganger->st
+atus!=Deleted)&&!(CHECK_FLAG(peer->doppelganger->flags,PEER_FLAG_CONFIG_NODE))){
+if(peer->doppelganger==npeer)/*nnodeand*nnodeareconfirmedtobenon-NULLhere*/*nnod
+e=(*nnode)->next;peer_delete(peer->doppelganger);}BGP_EVENT_ADD(peer,BGP_Stop);}
+/*BGPglobalflagmanipulation.*/intbgp_option_set(intflag){switch(flag){caseBGP_OP
+T_NO_FIB:caseBGP_OPT_MULTIPLE_INSTANCE:caseBGP_OPT_CONFIG_CISCO:caseBGP_OPT_NO_L
+ISTEN:SET_FLAG(bm->options,flag);break;default:returnBGP_ERR_INVALID_FLAG;}retur
+n0;}intbgp_option_unset(intflag){switch(flag){caseBGP_OPT_MULTIPLE_INSTANCE:if(l
+istcount(bm->bgp)>1)returnBGP_ERR_MULTIPLE_INSTANCE_USED;/*Fallthrough.*/caseBGP
+_OPT_NO_FIB:caseBGP_OPT_CONFIG_CISCO:UNSET_FLAG(bm->options,flag);break;default:
+returnBGP_ERR_INVALID_FLAG;}return0;}intbgp_option_check(intflag){returnCHECK_FL
+AG(bm->options,flag);}/*BGPflagmanipulation.*/intbgp_flag_set(structbgp*bgp,intf
+lag){SET_FLAG(bgp->flags,flag);return0;}intbgp_flag_unset(structbgp*bgp,intflag)
+{UNSET_FLAG(bgp->flags,flag);return0;}intbgp_flag_check(structbgp*bgp,intflag){r
+eturnCHECK_FLAG(bgp->flags,flag);}/*InternalfunctiontosetBGPstructureconfigureat
+ionflag.*/staticvoidbgp_config_set(structbgp*bgp,intconfig){SET_FLAG(bgp->config
+,config);}staticvoidbgp_config_unset(structbgp*bgp,intconfig){UNSET_FLAG(bgp->co
+nfig,config);}staticintbgp_config_check(structbgp*bgp,intconfig){returnCHECK_FLA
+G(bgp->config,config);}/*SetBGProuteridentifier.*/staticintbgp_router_id_set(str
+uctbgp*bgp,conststructin_addr*id){structpeer*peer;structlistnode*node,*nnode;if(
+IPV4_ADDR_SAME(&bgp->router_id,id))return0;/*EVPNusesrouteridinRD,withdrawthem*/
+if(is_evpn_enabled())bgp_evpn_handle_router_id_update(bgp,TRUE);IPV4_ADDR_COPY(&
+bgp->router_id,id);/*Setallpeer'slocalidentifierwiththisvalue.*/for(ALL_LIST_ELE
+MENTS(bgp->peer,node,nnode,peer)){IPV4_ADDR_COPY(&peer->local_id,id);if(BGP_IS_V
+ALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_RID_CHANGE;bgp_no
+tify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}}/*EVPNusesrout
+eridinRD,updatethem*/if(is_evpn_enabled())bgp_evpn_handle_router_id_update(bgp,F
+ALSE);return0;}voidbgp_router_id_zebra_bump(vrf_id_tvrf_id,conststructprefix*rou
+ter_id){structlistnode*node,*nnode;structbgp*bgp;if(vrf_id==VRF_DEFAULT){/*Route
+r-idchangefordefaultVRFhastoalsoupdateall*views.*/for(ALL_LIST_ELEMENTS(bm->bgp,
+node,nnode,bgp)){if(bgp->inst_type==BGP_INSTANCE_TYPE_VRF)continue;bgp->router_i
+d_zebra=router_id->u.prefix4;if(!bgp->router_id_static.s_addr)bgp_router_id_set(
+bgp,&router_id->u.prefix4);}}else{bgp=bgp_lookup_by_vrf_id(vrf_id);if(bgp){bgp->
+router_id_zebra=router_id->u.prefix4;if(!bgp->router_id_static.s_addr)bgp_router
+_id_set(bgp,&router_id->u.prefix4);}}}intbgp_router_id_static_set(structbgp*bgp,
+structin_addrid){bgp->router_id_static=id;bgp_router_id_set(bgp,id.s_addr?&id:&b
+gp->router_id_zebra);return0;}/*BGP'scluster-idcontrol.*/intbgp_cluster_id_set(s
+tructbgp*bgp,structin_addr*cluster_id){structpeer*peer;structlistnode*node,*nnod
+e;if(bgp_config_check(bgp,BGP_CONFIG_CLUSTER_ID)&&IPV4_ADDR_SAME(&bgp->cluster_i
+d,cluster_id))return0;IPV4_ADDR_COPY(&bgp->cluster_id,cluster_id);bgp_config_set
+(bgp,BGP_CONFIG_CLUSTER_ID);/*ClearallIBGPpeer.*/for(ALL_LIST_ELEMENTS(bgp->peer
+,node,nnode,peer)){if(peer->sort!=BGP_PEER_IBGP)continue;if(BGP_IS_VALID_STATE_F
+OR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_CLID_CHANGE;bgp_notify_send(p
+eer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}}return0;}intbgp_cluster_i
+d_unset(structbgp*bgp){structpeer*peer;structlistnode*node,*nnode;if(!bgp_config
+_check(bgp,BGP_CONFIG_CLUSTER_ID))return0;bgp->cluster_id.s_addr=0;bgp_config_un
+set(bgp,BGP_CONFIG_CLUSTER_ID);/*ClearallIBGPpeer.*/for(ALL_LIST_ELEMENTS(bgp->p
+eer,node,nnode,peer)){if(peer->sort!=BGP_PEER_IBGP)continue;if(BGP_IS_VALID_STAT
+E_FOR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_CLID_CHANGE;bgp_notify_sen
+d(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}}return0;}/*time_tvalue
+thatismonotoniclyincreasing*anduneffectedbyadjustmentstosystemclock*/time_tbgp_c
+lock(void){structtimevaltv;monotime(&tv);returntv.tv_sec;}/*BGPtimerconfiguratio
+n.*/intbgp_timers_set(structbgp*bgp,uint32_tkeepalive,uint32_tholdtime){bgp->def
+ault_keepalive=(keepalive<holdtime/3?keepalive:holdtime/3);bgp->default_holdtime
+=holdtime;return0;}intbgp_timers_unset(structbgp*bgp){bgp->default_keepalive=BGP
+_DEFAULT_KEEPALIVE;bgp->default_holdtime=BGP_DEFAULT_HOLDTIME;return0;}/*BGPconf
+ederationconfiguration.*/intbgp_confederation_id_set(structbgp*bgp,as_tas){struc
+tpeer*peer;structlistnode*node,*nnode;intalready_confed;if(as==0)returnBGP_ERR_I
+NVALID_AS;/*Remember-werewedoingconfederationbefore?*/already_confed=bgp_config_
+check(bgp,BGP_CONFIG_CONFEDERATION);bgp->confed_id=as;bgp_config_set(bgp,BGP_CON
+FIG_CONFEDERATION);/*Ifweweredoingconfederationalready,thisisjustanexternalAScha
+nge.JustResetEBGPsessions,notCONFEDsessions.Ifwewerenotdoingconfederationbefore,
+resetallEBGPsessions.*/for(ALL_LIST_ELEMENTS(bgp->peer,node,nnode,peer)){/*We're
+lookingforpeerswho'sASisnotlocalorpartofourconfederation.*/if(already_confed){if
+(peer_sort(peer)==BGP_PEER_EBGP){peer->local_as=as;if(BGP_IS_VALID_STATE_FOR_NOT
+IF(peer->status)){peer->last_reset=PEER_DOWN_CONFED_ID_CHANGE;bgp_notify_send(pe
+er,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}elsebgp_session_reset_safe(
+peer,&nnode);}}else{/*Notdoignconfederationbefore,soreseteverynon-localsession*/
+if(peer_sort(peer)!=BGP_PEER_IBGP){/*Resetthelocal_astobeourEBGPone*/if(peer_sor
+t(peer)==BGP_PEER_EBGP)peer->local_as=as;if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->s
+tatus)){peer->last_reset=PEER_DOWN_CONFED_ID_CHANGE;bgp_notify_send(peer,BGP_NOT
+IFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}elsebgp_session_reset_safe(peer,&nnod
+e);}}}return0;}intbgp_confederation_id_unset(structbgp*bgp){structpeer*peer;stru
+ctlistnode*node,*nnode;bgp->confed_id=0;bgp_config_unset(bgp,BGP_CONFIG_CONFEDER
+ATION);for(ALL_LIST_ELEMENTS(bgp->peer,node,nnode,peer)){/*We'relookingforpeersw
+ho'sASisnotlocal*/if(peer_sort(peer)!=BGP_PEER_IBGP){peer->local_as=bgp->as;if(B
+GP_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_CONFED_ID_
+CHANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}el
+sebgp_session_reset_safe(peer,&nnode);}}return0;}/*IsanASpartoftheconfedornot?*/
+intbgp_confederation_peers_check(structbgp*bgp,as_tas){inti;if(!bgp)return0;for(
+i=0;i<bgp->confed_peers_cnt;i++)if(bgp->confed_peers[i]==as)return1;return0;}/*A
+ddanAStotheconfederationset.*/intbgp_confederation_peers_add(structbgp*bgp,as_ta
+s){structpeer*peer;structlistnode*node,*nnode;if(!bgp)returnBGP_ERR_INVALID_BGP;
+if(bgp->as==as)returnBGP_ERR_INVALID_AS;if(bgp_confederation_peers_check(bgp,as)
+)return-1;if(bgp->confed_peers)bgp->confed_peers=XREALLOC(MTYPE_BGP_CONFED_LIST,
+bgp->confed_peers,(bgp->confed_peers_cnt+1)*sizeof(as_t));elsebgp->confed_peers=
+XMALLOC(MTYPE_BGP_CONFED_LIST,(bgp->confed_peers_cnt+1)*sizeof(as_t));bgp->confe
+d_peers[bgp->confed_peers_cnt]=as;bgp->confed_peers_cnt++;if(bgp_config_check(bg
+p,BGP_CONFIG_CONFEDERATION)){for(ALL_LIST_ELEMENTS(bgp->peer,node,nnode,peer)){i
+f(peer->as==as){peer->local_as=bgp->as;if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->sta
+tus)){peer->last_reset=PEER_DOWN_CONFED_PEER_CHANGE;bgp_notify_send(peer,BGP_NOT
+IFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}elsebgp_session_reset_safe(peer,&nnod
+e);}}}return0;}/*DeleteanASfromtheconfederationset.*/intbgp_confederation_peers_
+remove(structbgp*bgp,as_tas){inti;intj;structpeer*peer;structlistnode*node,*nnod
+e;if(!bgp)return-1;if(!bgp_confederation_peers_check(bgp,as))return-1;for(i=0;i<
+bgp->confed_peers_cnt;i++)if(bgp->confed_peers[i]==as)for(j=i+1;j<bgp->confed_pe
+ers_cnt;j++)bgp->confed_peers[j-1]=bgp->confed_peers[j];bgp->confed_peers_cnt--;
+if(bgp->confed_peers_cnt==0){if(bgp->confed_peers)XFREE(MTYPE_BGP_CONFED_LIST,bg
+p->confed_peers);bgp->confed_peers=NULL;}elsebgp->confed_peers=XREALLOC(MTYPE_BG
+P_CONFED_LIST,bgp->confed_peers,bgp->confed_peers_cnt*sizeof(as_t));/*Nowresetan
+ypeerwho'sremoteAShasjustbeenremovedfromtheCONFED*/if(bgp_config_check(bgp,BGP_C
+ONFIG_CONFEDERATION)){for(ALL_LIST_ELEMENTS(bgp->peer,node,nnode,peer)){if(peer-
+>as==as){peer->local_as=bgp->confed_id;if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->sta
+tus)){peer->last_reset=PEER_DOWN_CONFED_PEER_CHANGE;bgp_notify_send(peer,BGP_NOT
+IFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}elsebgp_session_reset_safe(peer,&nnod
+e);}}}return0;}/*Localpreferenceconfiguration.*/intbgp_default_local_preference_
+set(structbgp*bgp,uint32_tlocal_pref){if(!bgp)return-1;bgp->default_local_pref=l
+ocal_pref;return0;}intbgp_default_local_preference_unset(structbgp*bgp){if(!bgp)
+return-1;bgp->default_local_pref=BGP_DEFAULT_LOCAL_PREF;return0;}/*Localpreferen
+ceconfiguration.*/intbgp_default_subgroup_pkt_queue_max_set(structbgp*bgp,uint32
+_tqueue_size){if(!bgp)return-1;bgp->default_subgroup_pkt_queue_max=queue_size;re
+turn0;}intbgp_default_subgroup_pkt_queue_max_unset(structbgp*bgp){if(!bgp)return
+-1;bgp->default_subgroup_pkt_queue_max=BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;return
+0;}/*Listenlimitconfiguration.*/intbgp_listen_limit_set(structbgp*bgp,intlisten_
+limit){if(!bgp)return-1;bgp->dynamic_neighbors_limit=listen_limit;return0;}intbg
+p_listen_limit_unset(structbgp*bgp){if(!bgp)return-1;bgp->dynamic_neighbors_limi
+t=BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;return0;}intbgp_map_afi_safi_iana2int(iana
+_afi_tpkt_afi,iana_safi_tpkt_safi,afi_t*afi,safi_t*safi){/*MapfromIANAvaluestoin
+ternalvalues,returnerrorif*valuesareunrecognized.*/*afi=afi_iana2int(pkt_afi);*s
+afi=safi_iana2int(pkt_safi);if(*afi==AFI_MAX||*safi==SAFI_MAX)return-1;return0;}
+intbgp_map_afi_safi_int2iana(afi_tafi,safi_tsafi,iana_afi_t*pkt_afi,iana_safi_t*
+pkt_safi){/*MapfrominternalvaluestoIANAvalues,returnerrorif*internalvaluesarebad
+(unexpected).*/if(afi==AFI_MAX||safi==SAFI_MAX)return-1;*pkt_afi=afi_int2iana(af
+i);*pkt_safi=safi_int2iana(safi);return0;}structpeer_af*peer_af_create(structpee
+r*peer,afi_tafi,safi_tsafi){structpeer_af*af;intafid;if(!peer)returnNULL;afid=af
+index(afi,safi);if(afid>=BGP_AF_MAX)returnNULL;assert(peer->peer_af_array[afid]=
+=NULL);/*Allocatenewpeeraf*/af=XCALLOC(MTYPE_BGP_PEER_AF,sizeof(structpeer_af));
+if(af==NULL){zlog_err("Couldnotcreateafstructureforpeer%s",peer->host);returnNUL
+L;}peer->peer_af_array[afid]=af;af->afi=afi;af->safi=safi;af->afid=afid;af->peer
+=peer;returnaf;}structpeer_af*peer_af_find(structpeer*peer,afi_tafi,safi_tsafi){
+intafid;if(!peer)returnNULL;afid=afindex(afi,safi);if(afid>=BGP_AF_MAX)returnNUL
+L;returnpeer->peer_af_array[afid];}intpeer_af_delete(structpeer*peer,afi_tafi,sa
+fi_tsafi){structpeer_af*af;intafid;if(!peer)return-1;afid=afindex(afi,safi);if(a
+fid>=BGP_AF_MAX)return-1;af=peer->peer_af_array[afid];if(!af)return-1;bgp_stop_a
+nnounce_route_timer(af);if(PAF_SUBGRP(af)){if(BGP_DEBUG(update_groups,UPDATE_GRO
+UPS))zlog_debug("u%"PRIu64":s%"PRIu64"removepeer%s",af->subgroup->update_group->
+id,af->subgroup->id,peer->host);}update_subgroup_remove_peer(af->subgroup,af);pe
+er->peer_af_array[afid]=NULL;XFREE(MTYPE_BGP_PEER_AF,af);return0;}/*Peercomparis
+onfunctionforsorting.*/intpeer_cmp(structpeer*p1,structpeer*p2){if(p1->group&&!p
+2->group)return-1;if(!p1->group&&p2->group)return1;if(p1->group==p2->group){if(p
+1->conf_if&&!p2->conf_if)return-1;if(!p1->conf_if&&p2->conf_if)return1;if(p1->co
+nf_if&&p2->conf_if)returnif_cmp_name_func(p1->conf_if,p2->conf_if);}elsereturnst
+rcmp(p1->group->name,p2->group->name);returnsockunion_cmp(&p1->su,&p2->su);}stat
+icunsignedintpeer_hash_key_make(void*p){structpeer*peer=p;returnsockunion_hash(&
+peer->su);}staticintpeer_hash_same(constvoid*p1,constvoid*p2){conststructpeer*pe
+er1=p1;conststructpeer*peer2=p2;return(sockunion_same(&peer1->su,&peer2->su)&&CH
+ECK_FLAG(peer1->flags,PEER_FLAG_CONFIG_NODE)==CHECK_FLAG(peer2->flags,PEER_FLAG_
+CONFIG_NODE));}intpeer_af_flag_check(structpeer*peer,afi_tafi,safi_tsafi,uint32_
+tflag){returnCHECK_FLAG(peer->af_flags[afi][safi],flag);}/*Returntrueifflagisset
+forthepeerbutnotthepeer-group*/staticintpeergroup_af_flag_check(structpeer*peer,
+afi_tafi,safi_tsafi,uint32_tflag){structpeer*g_peer=NULL;if(peer_af_flag_check(p
+eer,afi,safi,flag)){if(peer_group_active(peer)){g_peer=peer->group->conf;/*Ifthi
+sflagisnotsetforthepeer'speer-group*thenreturntrue*/if(!peer_af_flag_check(g_pee
+r,afi,safi,flag)){return1;}}/*peerisnotinapeer-groupbuttheflagissettoreturntrue*
+/else{return1;}}return0;}/*Resetalladdressfamilyspecificconfiguration.*/staticvo
+idpeer_af_flag_reset(structpeer*peer,afi_tafi,safi_tsafi){inti;structbgp_filter*
+filter;charorf_name[BUFSIZ];filter=&peer->filter[afi][safi];/*Clearneighborfilte
+randroute-map*/for(i=FILTER_IN;i<FILTER_MAX;i++){if(filter->dlist[i].name){XFREE
+(MTYPE_BGP_FILTER_NAME,filter->dlist[i].name);filter->dlist[i].name=NULL;}if(fil
+ter->plist[i].name){XFREE(MTYPE_BGP_FILTER_NAME,filter->plist[i].name);filter->p
+list[i].name=NULL;}if(filter->aslist[i].name){XFREE(MTYPE_BGP_FILTER_NAME,filter
+->aslist[i].name);filter->aslist[i].name=NULL;}}for(i=RMAP_IN;i<RMAP_MAX;i++){if
+(filter->map[i].name){XFREE(MTYPE_BGP_FILTER_NAME,filter->map[i].name);filter->m
+ap[i].name=NULL;}}/*Clearunsuppressmap.*/if(filter->usmap.name)XFREE(MTYPE_BGP_F
+ILTER_NAME,filter->usmap.name);filter->usmap.name=NULL;filter->usmap.map=NULL;/*
+Clearneighbor'salladdressfamilyflags.*/peer->af_flags[afi][safi]=0;/*Clearneighb
+or'salladdressfamilysflags.*/peer->af_sflags[afi][safi]=0;/*Clearneighbor'sallad
+dressfamilycapabilities.*/peer->af_cap[afi][safi]=0;/*ClearORFinfo*/peer->orf_pl
+ist[afi][safi]=NULL;sprintf(orf_name,"%s.%d.%d",peer->host,afi,safi);prefix_bgp_
+orf_remove_all(afi,orf_name);/*Setdefaultneighborsend-community.*/if(!bgp_option
+_check(BGP_OPT_CONFIG_CISCO)){SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_SEND_
+COMMUNITY);SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_SEND_EXT_COMMUNITY);SET_
+FLAG(peer->af_flags[afi][safi],PEER_FLAG_SEND_LARGE_COMMUNITY);}/*Clearneighbord
+efault_originate_rmap*/if(peer->default_rmap[afi][safi].name)XFREE(MTYPE_ROUTE_M
+AP_NAME,peer->default_rmap[afi][safi].name);peer->default_rmap[afi][safi].name=N
+ULL;peer->default_rmap[afi][safi].map=NULL;/*Clearneighbormaximum-prefix*/peer->
+pmax[afi][safi]=0;peer->pmax_threshold[afi][safi]=MAXIMUM_PREFIX_THRESHOLD_DEFAU
+LT;}/*peerglobalconfigreset*/staticvoidpeer_global_config_reset(structpeer*peer)
+{intsaved_flags=0;peer->change_local_as=0;peer->ttl=(peer_sort(peer)==BGP_PEER_I
+BGP?MAXTTL:1);if(peer->update_source){sockunion_free(peer->update_source);peer->
+update_source=NULL;}if(peer->update_if){XFREE(MTYPE_PEER_UPDATE_SOURCE,peer->upd
+ate_if);peer->update_if=NULL;}if(peer_sort(peer)==BGP_PEER_IBGP)peer->v_routeadv
+=BGP_DEFAULT_IBGP_ROUTEADV;elsepeer->v_routeadv=BGP_DEFAULT_EBGP_ROUTEADV;/*Thes
+eareper-peerspecificflagsandsowemustpreservethem*/saved_flags|=CHECK_FLAG(peer->
+flags,PEER_FLAG_IFPEER_V6ONLY);saved_flags|=CHECK_FLAG(peer->flags,PEER_FLAG_SHU
+TDOWN);peer->flags=0;SET_FLAG(peer->flags,saved_flags);peer->config=0;peer->hold
+time=0;peer->keepalive=0;peer->connect=0;peer->v_connect=BGP_DEFAULT_CONNECT_RET
+RY;/*Resetsomeotherconfigsbacktodefaults.*/peer->v_start=BGP_INIT_START_TIMER;pe
+er->password=NULL;peer->local_id=peer->bgp->router_id;peer->v_holdtime=peer->bgp
+->default_holdtime;peer->v_keepalive=peer->bgp->default_keepalive;bfd_info_free(
+&(peer->bfd_info));/*SetbacktheCONFIG_NODEflag.*/SET_FLAG(peer->flags,PEER_FLAG_
+CONFIG_NODE);}/*Checkpeer'sASnumberanddeterminesifthispeerisIBGPorEBGP*/staticin
+linebgp_peer_sort_tpeer_calc_sort(structpeer*peer){structbgp*bgp;bgp=peer->bgp;/
+*Peer-group*/if(CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){if(peer->as_type==AS
+_INTERNAL)returnBGP_PEER_IBGP;elseif(peer->as_type==AS_EXTERNAL)returnBGP_PEER_E
+BGP;elseif(peer->as_type==AS_SPECIFIED&&peer->as)return(bgp->as==peer->as?BGP_PE
+ER_IBGP:BGP_PEER_EBGP);else{structpeer*peer1;peer1=listnode_head(peer->group->pe
+er);if(peer1)returnpeer1->sort;}returnBGP_PEER_INTERNAL;}/*Normalpeer*/if(bgp&&C
+HECK_FLAG(bgp->config,BGP_CONFIG_CONFEDERATION)){if(peer->local_as==0)returnBGP_
+PEER_INTERNAL;if(peer->local_as==peer->as){if(bgp->as==bgp->confed_id){if(peer->
+local_as==bgp->as)returnBGP_PEER_IBGP;elsereturnBGP_PEER_EBGP;}else{if(peer->loc
+al_as==bgp->confed_id)returnBGP_PEER_EBGP;elsereturnBGP_PEER_IBGP;}}if(bgp_confe
+deration_peers_check(bgp,peer->as))returnBGP_PEER_CONFED;returnBGP_PEER_EBGP;}el
+se{if(peer->as_type!=AS_SPECIFIED)return(peer->as_type==AS_INTERNAL?BGP_PEER_IBG
+P:BGP_PEER_EBGP);return(peer->local_as==0?BGP_PEER_INTERNAL:peer->local_as==peer
+->as?BGP_PEER_IBGP:BGP_PEER_EBGP);}}/*Calculateandcachethepeer"sort"*/bgp_peer_s
+ort_tpeer_sort(structpeer*peer){peer->sort=peer_calc_sort(peer);returnpeer->sort
+;}staticvoidpeer_free(structpeer*peer){assert(peer->status==Deleted);QOBJ_UNREG(
+peer);/*this/ought/tohavebeendonealreadythroughbgp_stopearlier,*butjusttobesure.
+.*/bgp_timer_set(peer);bgp_reads_off(peer);bgp_writes_off(peer);assert(!peer->t_
+write);assert(!peer->t_read);BGP_EVENT_FLUSH(peer);pthread_mutex_destroy(&peer->
+io_mtx);/*Freeconnectednexthop,ifpresent*/if(CHECK_FLAG(peer->flags,PEER_FLAG_CO
+NFIG_NODE)&&!peer_dynamic_neighbor(peer))bgp_delete_connected_nexthop(family2afi
+(peer->su.sa.sa_family),peer);XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG,peer->tx_shutdown
+_message);if(peer->desc){XFREE(MTYPE_PEER_DESC,peer->desc);peer->desc=NULL;}/*Fr
+eeallocatedhostcharacter.*/if(peer->host){XFREE(MTYPE_BGP_PEER_HOST,peer->host);
+peer->host=NULL;}if(peer->domainname){XFREE(MTYPE_BGP_PEER_HOST,peer->domainname
+);peer->domainname=NULL;}if(peer->ifname){XFREE(MTYPE_BGP_PEER_IFNAME,peer->ifna
+me);peer->ifname=NULL;}/*Updatesourceconfiguration.*/if(peer->update_source){soc
+kunion_free(peer->update_source);peer->update_source=NULL;}if(peer->update_if){X
+FREE(MTYPE_PEER_UPDATE_SOURCE,peer->update_if);peer->update_if=NULL;}if(peer->no
+tify.data)XFREE(MTYPE_TMP,peer->notify.data);memset(&peer->notify,0,sizeof(struc
+tbgp_notify));if(peer->clear_node_queue)work_queue_free_and_null(&peer->clear_no
+de_queue);bgp_sync_delete(peer);if(peer->conf_if){XFREE(MTYPE_PEER_CONF_IF,peer-
+>conf_if);peer->conf_if=NULL;}bfd_info_free(&(peer->bfd_info));bgp_unlock(peer->
+bgp);memset(peer,0,sizeof(structpeer));XFREE(MTYPE_BGP_PEER,peer);}/*increaseref
+erencecountonastructpeer*/structpeer*peer_lock_with_caller(constchar*name,struct
+peer*peer){assert(peer&&(peer->lock>=0));#if0zlog_debug("%speer_lock%p%d",name,p
+eer,peer->lock);#endifpeer->lock++;returnpeer;}/*decreasereferencecountonastruct
+peer*structpeerisfreedandNULLreturnediflastreference*/structpeer*peer_unlock_wit
+h_caller(constchar*name,structpeer*peer){assert(peer&&(peer->lock>0));#if0zlog_d
+ebug("%speer_unlock%p%d",name,peer,peer->lock);#endifpeer->lock--;if(peer->lock=
+=0){peer_free(peer);returnNULL;}returnpeer;}/*Allocatenewpeerobject,implicitelyl
+ocked.*/structpeer*peer_new(structbgp*bgp){afi_tafi;safi_tsafi;structpeer*peer;s
+tructservent*sp;/*bgpargumentisabsolutelyrequired*/assert(bgp);if(!bgp)returnNUL
+L;/*Allocatenewpeer.*/peer=XCALLOC(MTYPE_BGP_PEER,sizeof(structpeer));/*Setdefau
+ltvalue.*/peer->fd=-1;peer->v_start=BGP_INIT_START_TIMER;peer->v_connect=BGP_DEF
+AULT_CONNECT_RETRY;peer->status=Idle;peer->ostatus=Idle;peer->cur_event=peer->la
+st_event=peer->last_major_event=0;peer->bgp=bgp_lock(bgp);peer=peer_lock(peer);/
+*initialreference*/peer->password=NULL;/*Setdefaultflags.*/FOREACH_AFI_SAFI(afi,
+safi){if(!bgp_option_check(BGP_OPT_CONFIG_CISCO)){SET_FLAG(peer->af_flags[afi][s
+afi],PEER_FLAG_SEND_COMMUNITY);SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_SEND
+_EXT_COMMUNITY);SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_SEND_LARGE_COMMUNIT
+Y);}peer->orf_plist[afi][safi]=NULL;}SET_FLAG(peer->sflags,PEER_STATUS_CAPABILIT
+Y_OPEN);/*Createbuffers.*/peer->ibuf=stream_fifo_new();peer->obuf=stream_fifo_ne
+w();pthread_mutex_init(&peer->io_mtx,NULL);/*Weusealargerbufferforpeer->obuf_wor
+kintheeventthat:*-WeRXaBGP_UPDATEwheretheattributesalonearejust*underBGP_MAX_PAC
+KET_SIZE*-Theuserconfiguresanoutboundroute-mapthatdoesmanyas-path*prependsoradds
+manycommunities.Atmosttheycanhave*CMD_ARGC_MAXargsinaroute-mapsothereisafiniteli
+mitonhow*largetheycanmaketheattributes.**HavingabufferwithBGP_MAX_PACKET_SIZE_OV
+ERFLOWallowsustoavoid*boundscheckingforeverysingleattributeasweconstructan*UPDAT
+E.*/peer->obuf_work=stream_new(BGP_MAX_PACKET_SIZE+BGP_MAX_PACKET_SIZE_OVERFLOW)
+;peer->ibuf_work=ringbuf_new(BGP_MAX_PACKET_SIZE*BGP_READ_PACKET_MAX);peer->scra
+tch=stream_new(BGP_MAX_PACKET_SIZE);bgp_sync_init(peer);/*Getserviceportnumber.*
+/sp=getservbyname("bgp","tcp");peer->port=(sp==NULL)?BGP_PORT_DEFAULT:ntohs(sp->
+s_port);QOBJ_REG(peer,peer);returnpeer;}/**Thisfunctionisinvokedwhenaduplicatepe
+erstructureassociatedwith*aneighborisbeingdeleted.Ifthisabout-to-be-deletedstruc
+tureis*theonewithalltheconfig,thenwehavetocopyovertheinfo.*/voidpeer_xfer_config
+(structpeer*peer_dst,structpeer*peer_src){structpeer_af*paf;afi_tafi;safi_tsafi;
+intafidx;assert(peer_src);assert(peer_dst);/*Thefollowingfunctionisusedbybothpee
+rgroupconfigcopyto*individualpeerandwhenwetransferconfig*/if(peer_src->change_lo
+cal_as)peer_dst->change_local_as=peer_src->change_local_as;/*peerflagsapply*/pee
+r_dst->flags=peer_src->flags;peer_dst->cap=peer_src->cap;peer_dst->config=peer_s
+rc->config;peer_dst->local_as=peer_src->local_as;peer_dst->port=peer_src->port;(
+void)peer_sort(peer_dst);peer_dst->rmap_type=peer_src->rmap_type;/*Timers*/peer_
+dst->holdtime=peer_src->holdtime;peer_dst->keepalive=peer_src->keepalive;peer_ds
+t->connect=peer_src->connect;peer_dst->v_holdtime=peer_src->v_holdtime;peer_dst-
+>v_keepalive=peer_src->v_keepalive;peer_dst->routeadv=peer_src->routeadv;peer_ds
+t->v_routeadv=peer_src->v_routeadv;/*passwordapply*/if(peer_src->password&&!peer
+_dst->password)peer_dst->password=XSTRDUP(MTYPE_PEER_PASSWORD,peer_src->password
+);FOREACH_AFI_SAFI(afi,safi){peer_dst->afc[afi][safi]=peer_src->afc[afi][safi];p
+eer_dst->af_flags[afi][safi]=peer_src->af_flags[afi][safi];peer_dst->allowas_in[
+afi][safi]=peer_src->allowas_in[afi][safi];peer_dst->weight[afi][safi]=peer_src-
+>weight[afi][safi];}for(afidx=BGP_AF_START;afidx<BGP_AF_MAX;afidx++){paf=peer_sr
+c->peer_af_array[afidx];if(paf!=NULL)peer_af_create(peer_dst,paf->afi,paf->safi)
+;}/*update-sourceapply*/if(peer_src->update_source){if(peer_dst->update_source)s
+ockunion_free(peer_dst->update_source);if(peer_dst->update_if){XFREE(MTYPE_PEER_
+UPDATE_SOURCE,peer_dst->update_if);peer_dst->update_if=NULL;}peer_dst->update_so
+urce=sockunion_dup(peer_src->update_source);}elseif(peer_src->update_if){if(peer
+_dst->update_if)XFREE(MTYPE_PEER_UPDATE_SOURCE,peer_dst->update_if);if(peer_dst-
+>update_source){sockunion_free(peer_dst->update_source);peer_dst->update_source=
+NULL;}peer_dst->update_if=XSTRDUP(MTYPE_PEER_UPDATE_SOURCE,peer_src->update_if);
+}if(peer_src->ifname){if(peer_dst->ifname)XFREE(MTYPE_BGP_PEER_IFNAME,peer_dst->
+ifname);peer_dst->ifname=XSTRDUP(MTYPE_BGP_PEER_IFNAME,peer_src->ifname);}}stati
+cintbgp_peer_conf_if_to_su_update_v4(structpeer*peer,structinterface*ifp){struct
+connected*ifc;structprefixp;uint32_taddr;structlistnode*node;/*IfourIPv4addresso
+ntheinterfaceis/30or/31,wecanderivethe*IPv4addressoftheotherend.*/for(ALL_LIST_E
+LEMENTS_RO(ifp->connected,node,ifc)){if(ifc->address&&(ifc->address->family==AF_
+INET)){PREFIX_COPY_IPV4(&p,CONNECTED_PREFIX(ifc));if(p.prefixlen==30){peer->su.s
+a.sa_family=AF_INET;addr=ntohl(p.u.prefix4.s_addr);if(addr%4==1)peer->su.sin.sin
+_addr.s_addr=htonl(addr+1);elseif(addr%4==2)peer->su.sin.sin_addr.s_addr=htonl(a
+ddr-1);#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENpeer->su.sin.sin_len=sizeof(structso
+ckaddr_in);#endif/*HAVE_STRUCT_SOCKADDR_IN_SIN_LEN*/return1;}elseif(p.prefixlen=
+=31){peer->su.sa.sa_family=AF_INET;addr=ntohl(p.u.prefix4.s_addr);if(addr%2==0)p
+eer->su.sin.sin_addr.s_addr=htonl(addr+1);elsepeer->su.sin.sin_addr.s_addr=htonl
+(addr-1);#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENpeer->su.sin.sin_len=sizeof(struct
+sockaddr_in);#endif/*HAVE_STRUCT_SOCKADDR_IN_SIN_LEN*/return1;}elseif(bgp_debug_
+neighbor_events(peer))zlog_debug("%s:IPv4interfaceaddressisnot/30or/31,v4session
+notstarted",peer->conf_if);}}return0;}staticintbgp_peer_conf_if_to_su_update_v6(
+structpeer*peer,structinterface*ifp){structnbr_connected*ifc_nbr;/*Havewelearntt
+hepeer'sIPv6link-localaddress?*/if(ifp->nbr_connected&&(ifc_nbr=listnode_head(if
+p->nbr_connected))){peer->su.sa.sa_family=AF_INET6;memcpy(&peer->su.sin6.sin6_ad
+dr,&ifc_nbr->address->u.prefix,sizeof(structin6_addr));#ifdefSIN6_LENpeer->su.si
+n6.sin6_len=sizeof(structsockaddr_in6);#endifpeer->su.sin6.sin6_scope_id=ifp->if
+index;return1;}return0;}/**Setorresetthepeeraddresssocketunionstructurebasedonth
+e*learnt/derivedpeeraddress.Iftheaddresshaschanged,updatethe*passwordonthelisten
+socket,ifneeded.*/voidbgp_peer_conf_if_to_su_update(structpeer*peer){structinter
+face*ifp;intprev_family;intpeer_addr_updated=0;if(!peer->conf_if)return;prev_fam
+ily=peer->su.sa.sa_family;if((ifp=if_lookup_by_name(peer->conf_if,peer->bgp->vrf
+_id))){peer->ifp=ifp;/*IfBGPunnumberedisnot"v6only",wefirstseeifwecan*derivethe*
+peer'sIPv4address.*/if(!CHECK_FLAG(peer->flags,PEER_FLAG_IFPEER_V6ONLY))peer_add
+r_updated=bgp_peer_conf_if_to_su_update_v4(peer,ifp);/*If"v6only"orwecan'tderive
+peer'sIPv4address,seeif*we've*learntthepeer'sIPv6link-localaddress.Thisisfromthe
+*source*IPv6addressinrouteradvertisement.*/if(!peer_addr_updated)peer_addr_updat
+ed=bgp_peer_conf_if_to_su_update_v6(peer,ifp);}/*Ifwecouldderivethepeeraddress,w
+emayneedtoinstallthe*password*configuredforthepeer,ifany,onthelistensocket.Other
+wise,*mark*thatpeer'saddressisnotavailableanduninstallthepassword,if*needed.*/if
+(peer_addr_updated){if(peer->password&&prev_family==AF_UNSPEC)bgp_md5_set(peer);
+}else{if(peer->password&&prev_family!=AF_UNSPEC)bgp_md5_unset(peer);peer->su.sa.
+sa_family=AF_UNSPEC;memset(&peer->su.sin6.sin6_addr,0,sizeof(structin6_addr));}/
+*Sinceoursuchangedweneedtodel/addpeertothepeerhash*/hash_release(peer->bgp->peer
+hash,peer);hash_get(peer->bgp->peerhash,peer,hash_alloc_intern);}staticvoidbgp_r
+ecalculate_afi_safi_bestpaths(structbgp*bgp,afi_tafi,safi_tsafi){structbgp_node*
+rn,*nrn;for(rn=bgp_table_top(bgp->rib[afi][safi]);rn;rn=bgp_route_next(rn)){if(r
+n->info!=NULL){/*Specialhandlingfor2-levelrouting*tables.*/if(safi==SAFI_MPLS_VP
+N||safi==SAFI_ENCAP||safi==SAFI_EVPN){for(nrn=bgp_table_top((structbgp_table*)(r
+n->info));nrn;nrn=bgp_route_next(nrn))bgp_process(bgp,nrn,afi,safi);}elsebgp_pro
+cess(bgp,rn,afi,safi);}}}/*Forceabestpathrecalculationforallprefixes.Thisisused*
+when'bgpbestpath'commandsareentered.*/voidbgp_recalculate_all_bestpaths(structbg
+p*bgp){afi_tafi;safi_tsafi;FOREACH_AFI_SAFI(afi,safi){bgp_recalculate_afi_safi_b
+estpaths(bgp,afi,safi);}}/*CreatenewBGPpeer.*/structpeer*peer_create(unionsockun
+ion*su,constchar*conf_if,structbgp*bgp,as_tlocal_as,as_tremote_as,intas_type,afi
+_tafi,safi_tsafi,structpeer_group*group){intactive;structpeer*peer;charbuf[SU_AD
+DRSTRLEN];peer=peer_new(bgp);if(conf_if){peer->conf_if=XSTRDUP(MTYPE_PEER_CONF_I
+F,conf_if);bgp_peer_conf_if_to_su_update(peer);if(peer->host)XFREE(MTYPE_BGP_PEE
+R_HOST,peer->host);peer->host=XSTRDUP(MTYPE_BGP_PEER_HOST,conf_if);}elseif(su){p
+eer->su=*su;sockunion2str(su,buf,SU_ADDRSTRLEN);if(peer->host)XFREE(MTYPE_BGP_PE
+ER_HOST,peer->host);peer->host=XSTRDUP(MTYPE_BGP_PEER_HOST,buf);}peer->local_as=
+local_as;peer->as=remote_as;peer->as_type=as_type;peer->local_id=bgp->router_id;
+peer->v_holdtime=bgp->default_holdtime;peer->v_keepalive=bgp->default_keepalive;
+if(peer_sort(peer)==BGP_PEER_IBGP)peer->v_routeadv=BGP_DEFAULT_IBGP_ROUTEADV;els
+epeer->v_routeadv=BGP_DEFAULT_EBGP_ROUTEADV;peer=peer_lock(peer);/*bgppeerlistre
+ference*/peer->group=group;listnode_add_sort(bgp->peer,peer);hash_get(bgp->peerh
+ash,peer,hash_alloc_intern);/*Adjustupdate-groupcoalescetimerheuristicsfor#peers
+.*/if(bgp->heuristic_coalesce){longct=BGP_DEFAULT_SUBGROUP_COALESCE_TIME+(bgp->p
+eer->count*BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME);bgp->coalesce_time=MIN(BGP_MA
+X_SUBGROUP_COALESCE_TIME,ct);}active=peer_active(peer);/*Lastreadandresettimeset
+*/peer->readtime=peer->resettime=bgp_clock();/*DefaultTTLset.*/peer->ttl=(peer->
+sort==BGP_PEER_IBGP)?MAXTTL:1;SET_FLAG(peer->flags,PEER_FLAG_CONFIG_NODE);if(afi
+&&safi){peer->afc[afi][safi]=1;peer_af_create(peer,afi,safi);}/*autoshutdownifco
+nfigured*/if(bgp->autoshutdown)peer_flag_set(peer,PEER_FLAG_SHUTDOWN);/*Setuppee
+r'seventsandtimers.*/elseif(!active&&peer_active(peer))bgp_timer_set(peer);retur
+npeer;}/*MakeacceptBGPpeer.Thisfunctionisonlycalledfromthetestcode*/structpeer*p
+eer_create_accept(structbgp*bgp){structpeer*peer;peer=peer_new(bgp);peer=peer_lo
+ck(peer);/*bgppeerlistreference*/listnode_add_sort(bgp->peer,peer);returnpeer;}/
+**Returntrueifwehaveapeerconfiguredtousethisafi/safi*/intbgp_afi_safi_peer_exist
+s(structbgp*bgp,afi_tafi,safi_tsafi){structlistnode*node;structpeer*peer;for(ALL
+_LIST_ELEMENTS_RO(bgp->peer,node,peer)){if(!CHECK_FLAG(peer->flags,PEER_FLAG_CON
+FIG_NODE))continue;if(peer->afc[afi][safi])return1;}return0;}/*Changepeer'sASnum
+ber.*/voidpeer_as_change(structpeer*peer,as_tas,intas_specified){bgp_peer_sort_t
+type;structpeer*conf;/*Stoppeer.*/if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)
+){if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_REMO
+TE_AS_CHANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANG
+E);}elsebgp_session_reset(peer);}type=peer_sort(peer);peer->as=as;peer->as_type=
+as_specified;if(bgp_config_check(peer->bgp,BGP_CONFIG_CONFEDERATION)&&!bgp_confe
+deration_peers_check(peer->bgp,as)&&peer->bgp->as!=as)peer->local_as=peer->bgp->
+confed_id;elsepeer->local_as=peer->bgp->as;/*Advertisement-intervalreset*/conf=N
+ULL;if(peer->group)conf=peer->group->conf;if(conf&&CHECK_FLAG(conf->config,PEER_
+CONFIG_ROUTEADV)){peer->v_routeadv=conf->routeadv;}/*Onlygobacktothedefaultadver
+tisement-intervaliftheuserhad*not*alreadyconfiguredit*/elseif(!CHECK_FLAG(peer->
+config,PEER_CONFIG_ROUTEADV)){if(peer_sort(peer)==BGP_PEER_IBGP)peer->v_routeadv
+=BGP_DEFAULT_IBGP_ROUTEADV;elsepeer->v_routeadv=BGP_DEFAULT_EBGP_ROUTEADV;}/*TTL
+reset*/if(peer_sort(peer)==BGP_PEER_IBGP)peer->ttl=MAXTTL;elseif(type==BGP_PEER_
+IBGP)peer->ttl=1;/*reflector-clientreset*/if(peer_sort(peer)!=BGP_PEER_IBGP){UNS
+ET_FLAG(peer->af_flags[AFI_IP][SAFI_UNICAST],PEER_FLAG_REFLECTOR_CLIENT);UNSET_F
+LAG(peer->af_flags[AFI_IP][SAFI_MULTICAST],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FLA
+G(peer->af_flags[AFI_IP][SAFI_LABELED_UNICAST],PEER_FLAG_REFLECTOR_CLIENT);UNSET
+_FLAG(peer->af_flags[AFI_IP][SAFI_MPLS_VPN],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FL
+AG(peer->af_flags[AFI_IP][SAFI_ENCAP],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FLAG(pee
+r->af_flags[AFI_IP][SAFI_FLOWSPEC],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FLAG(peer->
+af_flags[AFI_IP6][SAFI_UNICAST],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FLAG(peer->af_
+flags[AFI_IP6][SAFI_MULTICAST],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FLAG(peer->af_f
+lags[AFI_IP6][SAFI_LABELED_UNICAST],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FLAG(peer-
+>af_flags[AFI_IP6][SAFI_MPLS_VPN],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FLAG(peer->a
+f_flags[AFI_IP6][SAFI_ENCAP],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FLAG(peer->af_fla
+gs[AFI_IP6][SAFI_FLOWSPEC],PEER_FLAG_REFLECTOR_CLIENT);UNSET_FLAG(peer->af_flags
+[AFI_L2VPN][SAFI_EVPN],PEER_FLAG_REFLECTOR_CLIENT);}/*local-asreset*/if(peer_sor
+t(peer)!=BGP_PEER_EBGP){peer->change_local_as=0;UNSET_FLAG(peer->flags,PEER_FLAG
+_LOCAL_AS_NO_PREPEND);UNSET_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_REPLACE_AS);}}/*
+Ifpeerdoesnotexist,createnewone.Ifpeeralreadyexists,setASnumbertothepeer.*/intpe
+er_remote_as(structbgp*bgp,unionsockunion*su,constchar*conf_if,as_t*as,intas_typ
+e,afi_tafi,safi_tsafi){structpeer*peer;as_tlocal_as;if(conf_if)peer=peer_lookup_
+by_conf_if(bgp,conf_if);elsepeer=peer_lookup(bgp,su);if(peer){/*Notallowedforady
+namicpeer.*/if(peer_dynamic_neighbor(peer)){*as=peer->as;returnBGP_ERR_INVALID_F
+OR_DYNAMIC_PEER;}/*Whenthispeerisamemberofpeer-group.*/if(peer->group){if(peer->
+group->conf->as){/*Returnpeergroup'sASnumber.*/*as=peer->group->conf->as;returnB
+GP_ERR_PEER_GROUP_MEMBER;}if(peer_sort(peer->group->conf)==BGP_PEER_IBGP){if((as
+_type!=AS_INTERNAL)&&(bgp->as!=*as)){*as=peer->as;returnBGP_ERR_PEER_GROUP_PEER_
+TYPE_DIFFERENT;}}else{if((as_type!=AS_EXTERNAL)&&(bgp->as==*as)){*as=peer->as;re
+turnBGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;}}}/*Existingpeer'sASnumberchange.*/i
+f(((peer->as_type==AS_SPECIFIED)&&peer->as!=*as)||(peer->as_type!=as_type))peer_
+as_change(peer,*as,as_type);}else{if(conf_if)returnBGP_ERR_NO_INTERFACE_CONFIG;/
+*Ifthepeerisnotpartofourconfederation,anditsnotaniBGPpeerthenspoofthesourceAS*/i
+f(bgp_config_check(bgp,BGP_CONFIG_CONFEDERATION)&&!bgp_confederation_peers_check
+(bgp,*as)&&bgp->as!=*as)local_as=bgp->confed_id;elselocal_as=bgp->as;/*IfthisisI
+Pv4unicastconfigurationand"nobgpdefaultipv4-unicast"isspecified.*/if(bgp_flag_ch
+eck(bgp,BGP_FLAG_NO_DEFAULT_IPV4)&&afi==AFI_IP&&safi==SAFI_UNICAST)peer_create(s
+u,conf_if,bgp,local_as,*as,as_type,0,0,NULL);elsepeer_create(su,conf_if,bgp,loca
+l_as,*as,as_type,afi,safi,NULL);}return0;}staticvoidpeer_group2peer_config_copy_
+af(structpeer_group*group,structpeer*peer,afi_tafi,safi_tsafi){intin=FILTER_IN;i
+ntout=FILTER_OUT;structpeer*conf;structbgp_filter*pfilter;structbgp_filter*gfilt
+er;conf=group->conf;pfilter=&peer->filter[afi][safi];gfilter=&conf->filter[afi][
+safi];/*peeraf_flagsapply*/peer->af_flags[afi][safi]=conf->af_flags[afi][safi];/
+*maximum-prefix*/peer->pmax[afi][safi]=conf->pmax[afi][safi];peer->pmax_threshol
+d[afi][safi]=conf->pmax_threshold[afi][safi];peer->pmax_restart[afi][safi]=conf-
+>pmax_restart[afi][safi];/*allowas-in*/peer->allowas_in[afi][safi]=conf->allowas
+_in[afi][safi];/*weight*/peer->weight[afi][safi]=conf->weight[afi][safi];/*defau
+lt-originateroute-map*/if(conf->default_rmap[afi][safi].name){if(peer->default_r
+map[afi][safi].name)XFREE(MTYPE_BGP_FILTER_NAME,peer->default_rmap[afi][safi].na
+me);peer->default_rmap[afi][safi].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,conf->defau
+lt_rmap[afi][safi].name);peer->default_rmap[afi][safi].map=conf->default_rmap[af
+i][safi].map;}/*inboundfilterapply*/if(gfilter->dlist[in].name&&!pfilter->dlist[
+in].name){if(pfilter->dlist[in].name)XFREE(MTYPE_BGP_FILTER_NAME,pfilter->dlist[
+in].name);pfilter->dlist[in].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,gfilter->dlist[i
+n].name);pfilter->dlist[in].alist=gfilter->dlist[in].alist;}if(gfilter->plist[in
+].name&&!pfilter->plist[in].name){if(pfilter->plist[in].name)XFREE(MTYPE_BGP_FIL
+TER_NAME,pfilter->plist[in].name);pfilter->plist[in].name=XSTRDUP(MTYPE_BGP_FILT
+ER_NAME,gfilter->plist[in].name);pfilter->plist[in].plist=gfilter->plist[in].pli
+st;}if(gfilter->aslist[in].name&&!pfilter->aslist[in].name){if(pfilter->aslist[i
+n].name)XFREE(MTYPE_BGP_FILTER_NAME,pfilter->aslist[in].name);pfilter->aslist[in
+].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,gfilter->aslist[in].name);pfilter->aslist[i
+n].aslist=gfilter->aslist[in].aslist;}if(gfilter->map[RMAP_IN].name&&!pfilter->m
+ap[RMAP_IN].name){if(pfilter->map[RMAP_IN].name)XFREE(MTYPE_BGP_FILTER_NAME,pfil
+ter->map[RMAP_IN].name);pfilter->map[RMAP_IN].name=XSTRDUP(MTYPE_BGP_FILTER_NAME
+,gfilter->map[RMAP_IN].name);pfilter->map[RMAP_IN].map=gfilter->map[RMAP_IN].map
+;}/*outboundfilterapply*/if(gfilter->dlist[out].name){if(pfilter->dlist[out].nam
+e)XFREE(MTYPE_BGP_FILTER_NAME,pfilter->dlist[out].name);pfilter->dlist[out].name
+=XSTRDUP(MTYPE_BGP_FILTER_NAME,gfilter->dlist[out].name);pfilter->dlist[out].ali
+st=gfilter->dlist[out].alist;}else{if(pfilter->dlist[out].name)XFREE(MTYPE_BGP_F
+ILTER_NAME,pfilter->dlist[out].name);pfilter->dlist[out].name=NULL;pfilter->dlis
+t[out].alist=NULL;}if(gfilter->plist[out].name){if(pfilter->plist[out].name)XFRE
+E(MTYPE_BGP_FILTER_NAME,pfilter->plist[out].name);pfilter->plist[out].name=XSTRD
+UP(MTYPE_BGP_FILTER_NAME,gfilter->plist[out].name);pfilter->plist[out].plist=gfi
+lter->plist[out].plist;}else{if(pfilter->plist[out].name)XFREE(MTYPE_BGP_FILTER_
+NAME,pfilter->plist[out].name);pfilter->plist[out].name=NULL;pfilter->plist[out]
+.plist=NULL;}if(gfilter->aslist[out].name){if(pfilter->aslist[out].name)XFREE(MT
+YPE_BGP_FILTER_NAME,pfilter->aslist[out].name);pfilter->aslist[out].name=XSTRDUP
+(MTYPE_BGP_FILTER_NAME,gfilter->aslist[out].name);pfilter->aslist[out].aslist=gf
+ilter->aslist[out].aslist;}else{if(pfilter->aslist[out].name)XFREE(MTYPE_BGP_FIL
+TER_NAME,pfilter->aslist[out].name);pfilter->aslist[out].name=NULL;pfilter->asli
+st[out].aslist=NULL;}if(gfilter->map[RMAP_OUT].name){if(pfilter->map[RMAP_OUT].n
+ame)XFREE(MTYPE_BGP_FILTER_NAME,pfilter->map[RMAP_OUT].name);pfilter->map[RMAP_O
+UT].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,gfilter->map[RMAP_OUT].name);pfilter->map
+[RMAP_OUT].map=gfilter->map[RMAP_OUT].map;}else{if(pfilter->map[RMAP_OUT].name)X
+FREE(MTYPE_BGP_FILTER_NAME,pfilter->map[RMAP_OUT].name);pfilter->map[RMAP_OUT].n
+ame=NULL;pfilter->map[RMAP_OUT].map=NULL;}if(gfilter->usmap.name){if(pfilter->us
+map.name)XFREE(MTYPE_BGP_FILTER_NAME,pfilter->usmap.name);pfilter->usmap.name=XS
+TRDUP(MTYPE_BGP_FILTER_NAME,gfilter->usmap.name);pfilter->usmap.map=gfilter->usm
+ap.map;}else{if(pfilter->usmap.name)XFREE(MTYPE_BGP_FILTER_NAME,pfilter->usmap.n
+ame);pfilter->usmap.name=NULL;pfilter->usmap.map=NULL;}}staticintpeer_activate_a
+f(structpeer*peer,afi_tafi,safi_tsafi){intactive;if(CHECK_FLAG(peer->sflags,PEER
+_STATUS_GROUP)){zlog_err("%swascalledforpeer-group%s",__func__,peer->host);retur
+n1;}/*DonotactivateapeerforbothSAFI_UNICASTandSAFI_LABELED_UNICAST*/if((safi==SA
+FI_UNICAST&&peer->afc[afi][SAFI_LABELED_UNICAST])||(safi==SAFI_LABELED_UNICAST&&
+peer->afc[afi][SAFI_UNICAST]))returnBGP_ERR_PEER_SAFI_CONFLICT;/*Nothingtodoifwe
+'vealreadyactivatedthispeer*/if(peer->afc[afi][safi])return0;if(peer_af_create(p
+eer,afi,safi)==NULL)return1;active=peer_active(peer);peer->afc[afi][safi]=1;if(p
+eer->group)peer_group2peer_config_copy_af(peer->group,peer,afi,safi);if(!active&
+&peer_active(peer)){bgp_timer_set(peer);}else{if(peer->status==Established){if(C
+HECK_FLAG(peer->cap,PEER_CAP_DYNAMIC_RCV)){peer->afc_adv[afi][safi]=1;bgp_capabi
+lity_send(peer,afi,safi,CAPABILITY_CODE_MP,CAPABILITY_ACTION_SET);if(peer->afc_r
+ecv[afi][safi]){peer->afc_nego[afi][safi]=1;bgp_announce_route(peer,afi,safi);}}
+else{peer->last_reset=PEER_DOWN_AF_ACTIVATE;bgp_notify_send(peer,BGP_NOTIFY_CEAS
+E,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}}if(peer->status==OpenSent||peer->status==Ope
+nConfirm){peer->last_reset=PEER_DOWN_AF_ACTIVATE;bgp_notify_send(peer,BGP_NOTIFY
+_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}}return0;}/*Activatethepeerorpeergroupfo
+rspecifiedAFIandSAFI.*/intpeer_activate(structpeer*peer,afi_tafi,safi_tsafi){int
+ret=0;structpeer_group*group;structlistnode*node,*nnode;structpeer*tmp_peer;stru
+ctbgp*bgp;/*Nothingtodoifwe'vealreadyactivatedthispeer*/if(peer->afc[afi][safi])
+returnret;bgp=peer->bgp;/*Thisisapeer-groupsoactivateallofthemembersofthe*peer-g
+roupaswell*/if(CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){/*Donotactivateapeerf
+orbothSAFI_UNICASTand*SAFI_LABELED_UNICAST*/if((safi==SAFI_UNICAST&&peer->afc[af
+i][SAFI_LABELED_UNICAST])||(safi==SAFI_LABELED_UNICAST&&peer->afc[afi][SAFI_UNIC
+AST]))returnBGP_ERR_PEER_SAFI_CONFLICT;peer->afc[afi][safi]=1;group=peer->group;
+for(ALL_LIST_ELEMENTS(group->peer,node,nnode,tmp_peer)){ret|=peer_activate_af(tm
+p_peer,afi,safi);}}else{ret|=peer_activate_af(peer,afi,safi);}/*Ifthisisthefirst
+peertobeactivatedforthis*afi/labeled-unicastrecalcbestpathstotriggerlabelallocat
+ion*/if(safi==SAFI_LABELED_UNICAST&&!bgp->allocate_mpls_labels[afi][SAFI_UNICAST
+]){if(BGP_DEBUG(zebra,ZEBRA))zlog_info("peer(s)arenowactiveforlabeled-unicast,al
+locateMPLSlabels");bgp->allocate_mpls_labels[afi][SAFI_UNICAST]=1;bgp_recalculat
+e_afi_safi_bestpaths(bgp,afi,SAFI_UNICAST);}if(safi==SAFI_FLOWSPEC){/*connecttot
+ablemanager*/bgp_zebra_init_tm_connect();}returnret;}staticintnon_peergroup_deac
+tivate_af(structpeer*peer,afi_tafi,safi_tsafi){if(CHECK_FLAG(peer->sflags,PEER_S
+TATUS_GROUP)){zlog_err("%swascalledforpeer-group%s",__func__,peer->host);return1
+;}/*Nothingtodoifwe'vealreadydeactivatedthispeer*/if(!peer->afc[afi][safi])retur
+n0;/*De-activatetheaddressfamilyconfiguration.*/peer->afc[afi][safi]=0;if(peer_a
+f_delete(peer,afi,safi)!=0){zlog_err("couldn'tdeleteafstructureforpeer%s",peer->
+host);return1;}if(peer->status==Established){if(CHECK_FLAG(peer->cap,PEER_CAP_DY
+NAMIC_RCV)){peer->afc_adv[afi][safi]=0;peer->afc_nego[afi][safi]=0;if(peer_activ
+e_nego(peer)){bgp_capability_send(peer,afi,safi,CAPABILITY_CODE_MP,CAPABILITY_AC
+TION_UNSET);bgp_clear_route(peer,afi,safi);peer->pcount[afi][safi]=0;}else{peer-
+>last_reset=PEER_DOWN_NEIGHBOR_DELETE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_
+NOTIFY_CEASE_CONFIG_CHANGE);}}else{peer->last_reset=PEER_DOWN_NEIGHBOR_DELETE;bg
+p_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}}return0;}i
+ntpeer_deactivate(structpeer*peer,afi_tafi,safi_tsafi){intret=0;structpeer_group
+*group;structpeer*tmp_peer;structlistnode*node,*nnode;structbgp*bgp;/*Nothingtod
+oifwe'vealreadyde-activatedthispeer*/if(!peer->afc[afi][safi])returnret;/*Thisis
+apeer-groupsode-activateallofthemembersofthe*peer-groupaswell*/if(CHECK_FLAG(pee
+r->sflags,PEER_STATUS_GROUP)){peer->afc[afi][safi]=0;group=peer->group;if(peer_a
+f_delete(peer,afi,safi)!=0){zlog_err("couldn'tdeleteafstructureforpeer%s",peer->
+host);}for(ALL_LIST_ELEMENTS(group->peer,node,nnode,tmp_peer)){ret|=non_peergrou
+p_deactivate_af(tmp_peer,afi,safi);}}else{ret|=non_peergroup_deactivate_af(peer,
+afi,safi);}bgp=peer->bgp;/*Ifthisisthelastpeertobedeactivatedforthis*afi/labeled
+-unicastrecalcbestpathstotriggerlabeldeallocation*/if(safi==SAFI_LABELED_UNICAST
+&&bgp->allocate_mpls_labels[afi][SAFI_UNICAST]&&!bgp_afi_safi_peer_exists(bgp,af
+i,safi)){if(BGP_DEBUG(zebra,ZEBRA))zlog_info("peer(s)arenolongeractiveforlabeled
+-unicast,deallocateMPLSlabels");bgp->allocate_mpls_labels[afi][SAFI_UNICAST]=0;b
+gp_recalculate_afi_safi_bestpaths(bgp,afi,SAFI_UNICAST);}returnret;}intpeer_afc_
+set(structpeer*peer,afi_tafi,safi_tsafi,intenable){if(enable)returnpeer_activate
+(peer,afi,safi);elsereturnpeer_deactivate(peer,afi,safi);}staticvoidpeer_nsf_sto
+p(structpeer*peer){afi_tafi;safi_tsafi;UNSET_FLAG(peer->sflags,PEER_STATUS_NSF_W
+AIT);UNSET_FLAG(peer->sflags,PEER_STATUS_NSF_MODE);for(afi=AFI_IP;afi<AFI_MAX;af
+i++)for(safi=SAFI_UNICAST;safi<=SAFI_MPLS_VPN;safi++)peer->nsf[afi][safi]=0;if(p
+eer->t_gr_restart){BGP_TIMER_OFF(peer->t_gr_restart);if(bgp_debug_neighbor_event
+s(peer))zlog_debug("%sgracefulrestarttimerstopped",peer->host);}if(peer->t_gr_st
+ale){BGP_TIMER_OFF(peer->t_gr_stale);if(bgp_debug_neighbor_events(peer))zlog_deb
+ug("%sgracefulrestartstalepathtimerstopped",peer->host);}bgp_clear_route_all(pee
+r);}/*Deletepeerfromconfguration.**Thepeerismovedtoadead-end"Deleted"neighbour-s
+tate,toallow*itto"cooloff"andrefcountstohit0,atwhichstateitisfreed.**Thisfunctio
+n/should/takecaretobeidempotent,toguardagainst*itbeingcalledmultipletimesthrough
+strayeventsthatcomein*thathappentoresultinthisfunctionbeingcalledagain.That*said
+,gettingherefora"Deleted"peerisabugintheneighbour*FSM.*/intpeer_delete(structpee
+r*peer){inti;afi_tafi;safi_tsafi;structbgp*bgp;structbgp_filter*filter;structlis
+tnode*pn;intaccept_peer;assert(peer->status!=Deleted);bgp=peer->bgp;accept_peer=
+CHECK_FLAG(peer->sflags,PEER_STATUS_ACCEPT_PEER);bgp_reads_off(peer);bgp_writes_
+off(peer);assert(!CHECK_FLAG(peer->thread_flags,PEER_THREAD_WRITES_ON));assert(!
+CHECK_FLAG(peer->thread_flags,PEER_THREAD_READS_ON));if(CHECK_FLAG(peer->sflags,
+PEER_STATUS_NSF_WAIT))peer_nsf_stop(peer);SET_FLAG(peer->flags,PEER_FLAG_DELETE)
+;/*Ifthispeerbelongstopeergroup,clearuptherelationship.*/if(peer->group){if(peer
+_dynamic_neighbor(peer))peer_drop_dynamic_neighbor(peer);if((pn=listnode_lookup(
+peer->group->peer,peer))){peer=peer_unlock(peer);/*group->peerlistreference*/lis
+t_delete_node(peer->group->peer,pn);}peer->group=NULL;}/*Withdrawallinformationf
+romroutingtable.Wecannotuse*BGP_EVENT_ADD(peer,BGP_Stop)athere.Becausetheeventis
+*executedafterpeerstructureisdeleted.*/peer->last_reset=PEER_DOWN_NEIGHBOR_DELET
+E;bgp_stop(peer);UNSET_FLAG(peer->flags,PEER_FLAG_DELETE);if(peer->doppelganger)
+{peer->doppelganger->doppelganger=NULL;peer->doppelganger=NULL;}UNSET_FLAG(peer-
+>sflags,PEER_STATUS_ACCEPT_PEER);bgp_fsm_change_status(peer,Deleted);/*Removefro
+mNHT*/if(CHECK_FLAG(peer->flags,PEER_FLAG_CONFIG_NODE))bgp_unlink_nexthop_by_pee
+r(peer);/*Passwordconfiguration*/if(peer->password){XFREE(MTYPE_PEER_PASSWORD,pe
+er->password);peer->password=NULL;if(!accept_peer&&!BGP_PEER_SU_UNSPEC(peer)&&!C
+HECK_FLAG(peer->sflags,PEER_STATUS_GROUP))bgp_md5_unset(peer);}bgp_timer_set(pee
+r);/*stopsalltimersforDeleted*//*Deletefromallpeerlist.*/if(!CHECK_FLAG(peer->sf
+lags,PEER_STATUS_GROUP)&&(pn=listnode_lookup(bgp->peer,peer))){peer_unlock(peer)
+;/*bgppeerlistreference*/list_delete_node(bgp->peer,pn);hash_release(bgp->peerha
+sh,peer);}/*Buffers.*/if(peer->ibuf){stream_fifo_free(peer->ibuf);peer->ibuf=NUL
+L;}if(peer->obuf){stream_fifo_free(peer->obuf);peer->obuf=NULL;}if(peer->ibuf_wo
+rk){ringbuf_del(peer->ibuf_work);peer->ibuf_work=NULL;}if(peer->obuf_work){strea
+m_free(peer->obuf_work);peer->obuf_work=NULL;}if(peer->scratch){stream_free(peer
+->scratch);peer->scratch=NULL;}/*Localandremoteaddresses.*/if(peer->su_local){so
+ckunion_free(peer->su_local);peer->su_local=NULL;}if(peer->su_remote){sockunion_
+free(peer->su_remote);peer->su_remote=NULL;}/*Freefilterrelatedmemory.*/FOREACH_
+AFI_SAFI(afi,safi){filter=&peer->filter[afi][safi];for(i=FILTER_IN;i<FILTER_MAX;
+i++){if(filter->dlist[i].name){XFREE(MTYPE_BGP_FILTER_NAME,filter->dlist[i].name
+);filter->dlist[i].name=NULL;}if(filter->plist[i].name){XFREE(MTYPE_BGP_FILTER_N
+AME,filter->plist[i].name);filter->plist[i].name=NULL;}if(filter->aslist[i].name
+){XFREE(MTYPE_BGP_FILTER_NAME,filter->aslist[i].name);filter->aslist[i].name=NUL
+L;}}for(i=RMAP_IN;i<RMAP_MAX;i++){if(filter->map[i].name){XFREE(MTYPE_BGP_FILTER
+_NAME,filter->map[i].name);filter->map[i].name=NULL;}}if(filter->usmap.name){XFR
+EE(MTYPE_BGP_FILTER_NAME,filter->usmap.name);filter->usmap.name=NULL;}if(peer->d
+efault_rmap[afi][safi].name){XFREE(MTYPE_ROUTE_MAP_NAME,peer->default_rmap[afi][
+safi].name);peer->default_rmap[afi][safi].name=NULL;}}FOREACH_AFI_SAFI(afi,safi)
+peer_af_delete(peer,afi,safi);if(peer->hostname){XFREE(MTYPE_BGP_PEER_HOST,peer-
+>hostname);peer->hostname=NULL;}if(peer->domainname){XFREE(MTYPE_BGP_PEER_HOST,p
+eer->domainname);peer->domainname=NULL;}peer_unlock(peer);/*initialreference*/re
+turn0;}staticintpeer_group_cmp(structpeer_group*g1,structpeer_group*g2){returnst
+rcmp(g1->name,g2->name);}/*Peergroupcofiguration.*/staticstructpeer_group*peer_g
+roup_new(void){return(structpeer_group*)XCALLOC(MTYPE_PEER_GROUP,sizeof(structpe
+er_group));}staticvoidpeer_group_free(structpeer_group*group){XFREE(MTYPE_PEER_G
+ROUP,group);}structpeer_group*peer_group_lookup(structbgp*bgp,constchar*name){st
+ructpeer_group*group;structlistnode*node,*nnode;for(ALL_LIST_ELEMENTS(bgp->group
+,node,nnode,group)){if(strcmp(group->name,name)==0)returngroup;}returnNULL;}stru
+ctpeer_group*peer_group_get(structbgp*bgp,constchar*name){structpeer_group*group
+;afi_tafi;group=peer_group_lookup(bgp,name);if(group)returngroup;group=peer_grou
+p_new();group->bgp=bgp;if(group->name)XFREE(MTYPE_PEER_GROUP_HOST,group->name);g
+roup->name=XSTRDUP(MTYPE_PEER_GROUP_HOST,name);group->peer=list_new();for(afi=AF
+I_IP;afi<AFI_MAX;afi++)group->listen_range[afi]=list_new();group->conf=peer_new(
+bgp);if(!bgp_flag_check(bgp,BGP_FLAG_NO_DEFAULT_IPV4))group->conf->afc[AFI_IP][S
+AFI_UNICAST]=1;if(group->conf->host)XFREE(MTYPE_BGP_PEER_HOST,group->conf->host)
+;group->conf->host=XSTRDUP(MTYPE_BGP_PEER_HOST,name);group->conf->group=group;gr
+oup->conf->as=0;group->conf->ttl=1;group->conf->gtsm_hops=0;group->conf->v_route
+adv=BGP_DEFAULT_EBGP_ROUTEADV;UNSET_FLAG(group->conf->config,PEER_CONFIG_TIMER);
+UNSET_FLAG(group->conf->config,PEER_GROUP_CONFIG_TIMER);UNSET_FLAG(group->conf->
+config,PEER_CONFIG_CONNECT);group->conf->keepalive=0;group->conf->holdtime=0;gro
+up->conf->connect=0;SET_FLAG(group->conf->sflags,PEER_STATUS_GROUP);listnode_add
+_sort(bgp->group,group);returngroup;}staticvoidpeer_group2peer_config_copy(struc
+tpeer_group*group,structpeer*peer){structpeer*conf;intsaved_flags=0;conf=group->
+conf;/*remote-as*/if(conf->as)peer->as=conf->as;/*remote-as*/if(conf->change_loc
+al_as)peer->change_local_as=conf->change_local_as;/*TTL*/peer->ttl=conf->ttl;/*G
+TSMhops*/peer->gtsm_hops=conf->gtsm_hops;/*Theseareper-peerspecificflagsandsowem
+ustpreservethem*/saved_flags|=CHECK_FLAG(peer->flags,PEER_FLAG_IFPEER_V6ONLY);sa
+ved_flags|=CHECK_FLAG(peer->flags,PEER_FLAG_SHUTDOWN);peer->flags=conf->flags;SE
+T_FLAG(peer->flags,saved_flags);/*peerconfigapply*/peer->config=conf->config;/*p
+eertimersapply*/peer->holdtime=conf->holdtime;peer->keepalive=conf->keepalive;pe
+er->connect=conf->connect;if(CHECK_FLAG(conf->config,PEER_CONFIG_CONNECT))peer->
+v_connect=conf->connect;elsepeer->v_connect=BGP_DEFAULT_CONNECT_RETRY;/*advertis
+ement-intervalreset*/if(CHECK_FLAG(conf->config,PEER_CONFIG_ROUTEADV))peer->v_ro
+uteadv=conf->routeadv;elseif(peer_sort(peer)==BGP_PEER_IBGP)peer->v_routeadv=BGP
+_DEFAULT_IBGP_ROUTEADV;elsepeer->v_routeadv=BGP_DEFAULT_EBGP_ROUTEADV;/*password
+apply*/if(conf->password&&!peer->password)peer->password=XSTRDUP(MTYPE_PEER_PASS
+WORD,conf->password);if(!BGP_PEER_SU_UNSPEC(peer))bgp_md5_set(peer);/*update-sou
+rceapply*/if(conf->update_source){if(peer->update_source)sockunion_free(peer->up
+date_source);if(peer->update_if){XFREE(MTYPE_PEER_UPDATE_SOURCE,peer->update_if)
+;peer->update_if=NULL;}peer->update_source=sockunion_dup(conf->update_source);}e
+lseif(conf->update_if){if(peer->update_if)XFREE(MTYPE_PEER_UPDATE_SOURCE,peer->u
+pdate_if);if(peer->update_source){sockunion_free(peer->update_source);peer->upda
+te_source=NULL;}peer->update_if=XSTRDUP(MTYPE_PEER_UPDATE_SOURCE,conf->update_if
+);}bgp_bfd_peer_group2peer_copy(conf,peer);}/*Peergroup'sremoteASconfiguration.*
+/intpeer_group_remote_as(structbgp*bgp,constchar*group_name,as_t*as,intas_type){
+structpeer_group*group;structpeer*peer;structlistnode*node,*nnode;group=peer_gro
+up_lookup(bgp,group_name);if(!group)return-1;if((as_type==group->conf->as_type)&
+&(group->conf->as==*as))return0;/*Whenwesetuppeer-groupASnumberallpeergroupmembe
+r'sASnumbermustbeupdatedtosamenumber.*/peer_as_change(group->conf,*as,as_type);f
+or(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){if(((peer->as_type==AS_SPECIF
+IED)&&peer->as!=*as)||(peer->as_type!=as_type))peer_as_change(peer,*as,as_type);
+}return0;}intpeer_group_delete(structpeer_group*group){structbgp*bgp;structpeer*
+peer;structprefix*prefix;structpeer*other;structlistnode*node,*nnode;afi_tafi;bg
+p=group->bgp;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){other=peer->dop
+pelganger;peer_delete(peer);if(other&&other->status!=Deleted){other->group=NULL;
+peer_delete(other);}}list_delete_and_null(&group->peer);for(afi=AFI_IP;afi<AFI_M
+AX;afi++){for(ALL_LIST_ELEMENTS(group->listen_range[afi],node,nnode,prefix)){pre
+fix_free(prefix);}list_delete_and_null(&group->listen_range[afi]);}XFREE(MTYPE_P
+EER_GROUP_HOST,group->name);group->name=NULL;bfd_info_free(&(group->conf->bfd_in
+fo));group->conf->group=NULL;peer_delete(group->conf);/*Deletefromallpeer_groupl
+ist.*/listnode_delete(bgp->group,group);peer_group_free(group);return0;}intpeer_
+group_remote_as_delete(structpeer_group*group){structpeer*peer,*other;structlist
+node*node,*nnode;if((group->conf->as_type==AS_UNSPECIFIED)||((!group->conf->as)&
+&(group->conf->as_type==AS_SPECIFIED)))return0;for(ALL_LIST_ELEMENTS(group->peer
+,node,nnode,peer)){other=peer->doppelganger;peer_delete(peer);if(other&&other->s
+tatus!=Deleted){other->group=NULL;peer_delete(other);}}list_delete_all_node(grou
+p->peer);group->conf->as=0;group->conf->as_type=AS_UNSPECIFIED;return0;}intpeer_
+group_listen_range_add(structpeer_group*group,structprefix*range){structprefix*p
+refix;structlistnode*node,*nnode;afi_tafi;afi=family2afi(range->family);/*Groupn
+eedsremoteASconfigured.*/if(group->conf->as_type==AS_UNSPECIFIED)returnBGP_ERR_P
+EER_GROUP_NO_REMOTE_AS;/*Ensurenoduplicates.Currentlywedon'tcareaboutoverlaps.*/
+for(ALL_LIST_ELEMENTS(group->listen_range[afi],node,nnode,prefix)){if(prefix_sam
+e(range,prefix))return0;}prefix=prefix_new();prefix_copy(prefix,range);listnode_
+add(group->listen_range[afi],prefix);return0;}intpeer_group_listen_range_del(str
+uctpeer_group*group,structprefix*range){structprefix*prefix,prefix2;structlistno
+de*node,*nnode;structpeer*peer;afi_tafi;charbuf[PREFIX2STR_BUFFER];afi=family2af
+i(range->family);/*Identifythelistenrange.*/for(ALL_LIST_ELEMENTS(group->listen_
+range[afi],node,nnode,prefix)){if(prefix_same(range,prefix))break;}if(!prefix)re
+turnBGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND;prefix2str(prefix,buf,sizeof(buf))
+;/*Disposeoffanydynamicneighborsthatexistduetothislistenrange*/for(ALL_LIST_ELEM
+ENTS(group->peer,node,nnode,peer)){if(!peer_dynamic_neighbor(peer))continue;sock
+union2hostprefix(&peer->su,&prefix2);if(prefix_match(prefix,&prefix2)){if(bgp_de
+bug_neighbor_events(peer))zlog_debug("Deletingdynamicneighbor%sgroup%supon""dele
+teoflistenrange%s",peer->host,group->name,buf);peer_delete(peer);}}/*Getridofthe
+listenrange*/listnode_delete(group->listen_range[afi],prefix);return0;}/*Bindspe
+cifiedpeertopeergroup.*/intpeer_group_bind(structbgp*bgp,unionsockunion*su,struc
+tpeer*peer,structpeer_group*group,as_t*as){intfirst_member=0;afi_tafi;safi_tsafi
+;intcap_enhe_preset=0;/*Lookupthepeer.*/if(!peer)peer=peer_lookup(bgp,su);/*Thep
+eerexist,bindittothepeer-group*/if(peer){/*Whenthepeeralreadybelongstoapeer-grou
+p,checkthe*consistency.*/if(peer_group_active(peer)){/*Thepeerisalreadyboundtoth
+epeer-group,*nothingtodo*/if(strcmp(peer->group->name,group->name)==0)return0;el
+sereturnBGP_ERR_PEER_GROUP_CANT_CHANGE;}/*Thepeerhasnotspecifiedaremote-as,inher
+ititfromthe*peer-group*/if(peer->as_type==AS_UNSPECIFIED){peer->as_type=group->c
+onf->as_type;peer->as=group->conf->as;}if(!group->conf->as){if(peer_sort(group->
+conf)!=BGP_PEER_INTERNAL&&peer_sort(group->conf)!=peer_sort(peer)){if(as)*as=pee
+r->as;returnBGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;}if(peer_sort(group->conf)==B
+GP_PEER_INTERNAL)first_member=1;}if(CHECK_FLAG(peer->flags,PEER_FLAG_CAPABILITY_
+ENHE))cap_enhe_preset=1;peer_group2peer_config_copy(group,peer);/**Capabilityext
+ended-nexthopisenabledforaninterface*neighborby*default.So,fixthatuphere.*/if(pe
+er->conf_if&&cap_enhe_preset)peer_flag_set(peer,PEER_FLAG_CAPABILITY_ENHE);FOREA
+CH_AFI_SAFI(afi,safi){if(group->conf->afc[afi][safi]){peer->afc[afi][safi]=1;if(
+peer_af_find(peer,afi,safi)||peer_af_create(peer,afi,safi)){peer_group2peer_conf
+ig_copy_af(group,peer,afi,safi);}}elseif(peer->afc[afi][safi])peer_deactivate(pe
+er,afi,safi);}if(peer->group){assert(group&&peer->group==group);}else{structlist
+node*pn;pn=listnode_lookup(bgp->peer,peer);list_delete_node(bgp->peer,pn);peer->
+group=group;listnode_add_sort(bgp->peer,peer);peer=peer_lock(peer);/*group->peer
+listreference*/listnode_add(group->peer,peer);}if(first_member){/*Advertisement-
+intervalreset*/if(!CHECK_FLAG(group->conf->config,PEER_CONFIG_ROUTEADV)){if(peer
+_sort(group->conf)==BGP_PEER_IBGP)group->conf->v_routeadv=BGP_DEFAULT_IBGP_ROUTE
+ADV;elsegroup->conf->v_routeadv=BGP_DEFAULT_EBGP_ROUTEADV;}/*ebgp-multihopreset*
+/if(peer_sort(group->conf)==BGP_PEER_IBGP)group->conf->ttl=MAXTTL;/*local-asrese
+t*/if(peer_sort(group->conf)!=BGP_PEER_EBGP){group->conf->change_local_as=0;UNSE
+T_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_NO_PREPEND);UNSET_FLAG(peer->flags,PEER_FL
+AG_LOCAL_AS_REPLACE_AS);}}SET_FLAG(peer->flags,PEER_FLAG_CONFIG_NODE);if(BGP_IS_
+VALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_RMAP_BIND;bgp_no
+tify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}else{bgp_sessio
+n_reset(peer);}}/*Createanewpeer.*/else{if((group->conf->as_type==AS_SPECIFIED)&
+&(!group->conf->as)){returnBGP_ERR_PEER_GROUP_NO_REMOTE_AS;}peer=peer_create(su,
+NULL,bgp,bgp->as,group->conf->as,group->conf->as_type,0,0,group);peer=peer_lock(
+peer);/*group->peerlistreference*/listnode_add(group->peer,peer);peer_group2peer
+_config_copy(group,peer);/*Ifthepeer-groupisactiveforthisafi/safithenactivate*fo
+rthispeer*/FOREACH_AFI_SAFI(afi,safi){if(group->conf->afc[afi][safi]){peer->afc[
+afi][safi]=1;peer_af_create(peer,afi,safi);peer_group2peer_config_copy_af(group,
+peer,afi,safi);}elseif(peer->afc[afi][safi])peer_deactivate(peer,afi,safi);}SET_
+FLAG(peer->flags,PEER_FLAG_CONFIG_NODE);/*Setuppeer'seventsandtimers.*/if(peer_a
+ctive(peer))bgp_timer_set(peer);}return0;}intpeer_group_unbind(structbgp*bgp,str
+uctpeer*peer,structpeer_group*group){structpeer*other;afi_tafi;safi_tsafi;if(gro
+up!=peer->group)returnBGP_ERR_PEER_GROUP_MISMATCH;FOREACH_AFI_SAFI(afi,safi){if(
+peer->afc[afi][safi]){peer->afc[afi][safi]=0;peer_af_flag_reset(peer,afi,safi);i
+f(peer_af_delete(peer,afi,safi)!=0){zlog_err("couldn'tdeleteafstructureforpeer%s
+",peer->host);}}}assert(listnode_lookup(group->peer,peer));peer_unlock(peer);/*p
+eergrouplistreference*/listnode_delete(group->peer,peer);peer->group=NULL;other=
+peer->doppelganger;if(group->conf->as){peer_delete(peer);if(other&&other->status
+!=Deleted){if(other->group){peer_unlock(other);listnode_delete(group->peer,other
+);}other->group=NULL;peer_delete(other);}return0;}bgp_bfd_deregister_peer(peer);
+peer_global_config_reset(peer);if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){pe
+er->last_reset=PEER_DOWN_RMAP_UNBIND;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_N
+OTIFY_CEASE_CONFIG_CHANGE);}elsebgp_session_reset(peer);return0;}staticintbgp_st
+artup_timer_expire(structthread*thread){structbgp*bgp;bgp=THREAD_ARG(thread);bgp
+->t_startup=NULL;return0;}/*BGPinstancecreationby`routerbgp'commands.*/staticstr
+uctbgp*bgp_create(as_t*as,constchar*name,enumbgp_instance_typeinst_type){structb
+gp*bgp;afi_tafi;safi_tsafi;if((bgp=XCALLOC(MTYPE_BGP,sizeof(structbgp)))==NULL)r
+eturnNULL;if(BGP_DEBUG(zebra,ZEBRA)){if(inst_type==BGP_INSTANCE_TYPE_DEFAULT)zlo
+g_debug("CreatingDefaultVRF,AS%u",*as);elsezlog_debug("Creating%s%s,AS%u",(inst_
+type==BGP_INSTANCE_TYPE_VRF)?"VRF":"VIEW",name,*as);}bgp_lock(bgp);bgp->heuristi
+c_coalesce=true;bgp->inst_type=inst_type;bgp->vrf_id=(inst_type==BGP_INSTANCE_TY
+PE_DEFAULT)?VRF_DEFAULT:VRF_UNKNOWN;bgp->peer_self=peer_new(bgp);if(bgp->peer_se
+lf->host)XFREE(MTYPE_BGP_PEER_HOST,bgp->peer_self->host);bgp->peer_self->host=XS
+TRDUP(MTYPE_BGP_PEER_HOST,"Staticannouncement");if(bgp->peer_self->hostname!=NUL
+L){XFREE(MTYPE_BGP_PEER_HOST,bgp->peer_self->hostname);bgp->peer_self->hostname=
+NULL;}if(cmd_hostname_get())bgp->peer_self->hostname=XSTRDUP(MTYPE_BGP_PEER_HOST
+,cmd_hostname_get());if(bgp->peer_self->domainname!=NULL){XFREE(MTYPE_BGP_PEER_H
+OST,bgp->peer_self->domainname);bgp->peer_self->domainname=NULL;}if(cmd_domainna
+me_get())bgp->peer_self->domainname=XSTRDUP(MTYPE_BGP_PEER_HOST,cmd_domainname_g
+et());bgp->peer=list_new();bgp->peer->cmp=(int(*)(void*,void*))peer_cmp;bgp->pee
+rhash=hash_create(peer_hash_key_make,peer_hash_same,"BGPPeerHash");bgp->peerhash
+->max_size=BGP_PEER_MAX_HASH_SIZE;bgp->group=list_new();bgp->group->cmp=(int(*)(
+void*,void*))peer_group_cmp;FOREACH_AFI_SAFI(afi,safi){bgp->route[afi][safi]=bgp
+_table_init(afi,safi);bgp->aggregate[afi][safi]=bgp_table_init(afi,safi);bgp->ri
+b[afi][safi]=bgp_table_init(afi,safi);/*Enablemaximum-paths*/bgp_maximum_paths_s
+et(bgp,afi,safi,BGP_PEER_EBGP,multipath_num,0);bgp_maximum_paths_set(bgp,afi,saf
+i,BGP_PEER_IBGP,multipath_num,0);}bgp->v_update_delay=BGP_UPDATE_DELAY_DEF;bgp->
+default_local_pref=BGP_DEFAULT_LOCAL_PREF;bgp->default_subgroup_pkt_queue_max=BG
+P_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;bgp->default_holdtime=BGP_DEFAULT_HOLDTIME;bgp-
+>default_keepalive=BGP_DEFAULT_KEEPALIVE;bgp->restart_time=BGP_DEFAULT_RESTART_T
+IME;bgp->stalepath_time=BGP_DEFAULT_STALEPATH_TIME;bgp->dynamic_neighbors_limit=
+BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;bgp->dynamic_neighbors_count=0;#ifDFLT_BGP_I
+MPORT_CHECKbgp_flag_set(bgp,BGP_FLAG_IMPORT_CHECK);#endif#ifDFLT_BGP_SHOW_HOSTNA
+MEbgp_flag_set(bgp,BGP_FLAG_SHOW_HOSTNAME);#endif#ifDFLT_BGP_LOG_NEIGHBOR_CHANGE
+Sbgp_flag_set(bgp,BGP_FLAG_LOG_NEIGHBOR_CHANGES);#endif#ifDFLT_BGP_DETERMINISTIC
+_MEDbgp_flag_set(bgp,BGP_FLAG_DETERMINISTIC_MED);#endifbgp->addpath_tx_id=BGP_AD
+DPATH_TX_ID_FOR_DEFAULT_ORIGINATE;bgp->as=*as;#ifENABLE_BGP_VNCif(inst_type!=BGP
+_INSTANCE_TYPE_VRF){bgp->rfapi=bgp_rfapi_new(bgp);assert(bgp->rfapi);assert(bgp-
+>rfapi_cfg);}#endif/*ENABLE_BGP_VNC*/for(afi=AFI_IP;afi<AFI_MAX;afi++){bgp->vpn_
+policy[afi].tovpn_label=MPLS_LABEL_NONE;bgp->vpn_policy[afi].tovpn_zebra_vrf_lab
+el_last_sent=MPLS_LABEL_NONE;}if(name){bgp->name=XSTRDUP(MTYPE_BGP,name);}else{/
+*TODO-ThestartuptimerneedstoberunforthewholeofBGP*/thread_add_timer(bm->master,b
+gp_startup_timer_expire,bgp,bgp->restart_time,&bgp->t_startup);}atomic_store_exp
+licit(&bgp->wpkt_quanta,BGP_WRITE_PACKET_MAX,memory_order_relaxed);atomic_store_
+explicit(&bgp->rpkt_quanta,BGP_READ_PACKET_MAX,memory_order_relaxed);bgp->coales
+ce_time=BGP_DEFAULT_SUBGROUP_COALESCE_TIME;QOBJ_REG(bgp,bgp);update_bgp_group_in
+it(bgp);bgp_evpn_init(bgp);returnbgp;}/*Returnthe"defaultVRF"instanceofBGP.*/str
+uctbgp*bgp_get_default(void){structbgp*bgp;structlistnode*node,*nnode;for(ALL_LI
+ST_ELEMENTS(bm->bgp,node,nnode,bgp))if(bgp->inst_type==BGP_INSTANCE_TYPE_DEFAULT
+)returnbgp;returnNULL;}/*LookupBGPentry.*/structbgp*bgp_lookup(as_tas,constchar*
+name){structbgp*bgp;structlistnode*node,*nnode;for(ALL_LIST_ELEMENTS(bm->bgp,nod
+e,nnode,bgp))if(bgp->as==as&&((bgp->name==NULL&&name==NULL)||(bgp->name&&name&&s
+trcmp(bgp->name,name)==0)))returnbgp;returnNULL;}/*LookupBGPstructurebyviewname.
+*/structbgp*bgp_lookup_by_name(constchar*name){structbgp*bgp;structlistnode*node
+,*nnode;for(ALL_LIST_ELEMENTS(bm->bgp,node,nnode,bgp))if((bgp->name==NULL&&name=
+=NULL)||(bgp->name&&name&&strcmp(bgp->name,name)==0))returnbgp;returnNULL;}/*Loo
+kupBGPinstancebasedonVRFid.*//*Note:OnlytobeusedforincomingmessagesfromZebra.*/s
+tructbgp*bgp_lookup_by_vrf_id(vrf_id_tvrf_id){structvrf*vrf;/*LookupVRF(intree)a
+ndfollowlink.*/vrf=vrf_lookup_by_id(vrf_id);if(!vrf)returnNULL;return(vrf->info)
+?(structbgp*)vrf->info:NULL;}/*handlesocketcreationordeletion,ifnecessary*thisis
+calledforallnewBGPinstances*/intbgp_handle_socket(structbgp*bgp,structvrf*vrf,vr
+f_id_told_vrf_id,boolcreate){intret=0;/*CreateBGPserversocket,iflistenmodenotdis
+abled*/if(!bgp||bgp_option_check(BGP_OPT_NO_LISTEN))return0;if(bgp->name&&bgp->i
+nst_type==BGP_INSTANCE_TYPE_VRF&&vrf){/**suppressvrfsocket*/if(create==FALSE){if
+(vrf_is_mapped_on_netns(vrf->vrf_id))bgp_close_vrf_socket(bgp);elseret=bgp_check
+_main_socket(create,bgp);returnret;}/*donothing*ifvrf_iddidnotchange*/if(vrf->vr
+f_id==old_vrf_id)return0;if(old_vrf_id!=VRF_UNKNOWN){/*lookforoldsocket.closeit.
+*/bgp_close_vrf_socket(bgp);}/*ifbackendisnotyetidentified(VRF_UNKNOWN)then*crea
+tionwillbedonelater*/if(vrf->vrf_id==VRF_UNKNOWN)return0;/*ifBGPVRFinstancereque
+sted*ifbackendisNETNS,createBGPserversocketintheNETNS*/if(vrf_is_mapped_on_netns
+(bgp->vrf_id)){ret=bgp_socket(bgp,bm->port,bm->address);if(ret<0)returnBGP_ERR_I
+NVALID_VALUE;return0;}}/*ifBGPVRFinstancerequestedorVRFlitebackend*ifBGPnonVRFin
+stance,createit*ifnotalreadydone*/returnbgp_check_main_socket(create,bgp);}/*Cal
+ledfromVTYcommands.*/intbgp_get(structbgp**bgp_val,as_t*as,constchar*name,enumbg
+p_instance_typeinst_type){structbgp*bgp;structvrf*vrf=NULL;/*Multipleinstanceche
+ck.*/if(bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)){if(name)bgp=bgp_lookup_by_n
+ame(name);elsebgp=bgp_get_default();/*Alreadyexists.*/if(bgp){if(bgp->as!=*as){*
+as=bgp->as;returnBGP_ERR_INSTANCE_MISMATCH;}if(bgp->inst_type!=inst_type)returnB
+GP_ERR_INSTANCE_MISMATCH;*bgp_val=bgp;return0;}}else{/*BGPinstancenamecannotbesp
+ecifiedforsingleinstance.*/if(name)returnBGP_ERR_MULTIPLE_INSTANCE_NOT_SET;/*Get
+defaultBGPstructureifexists.*/bgp=bgp_get_default();if(bgp){if(bgp->as!=*as){*as
+=bgp->as;returnBGP_ERR_AS_MISMATCH;}*bgp_val=bgp;return0;}}bgp=bgp_create(as,nam
+e,inst_type);bgp_router_id_set(bgp,&bgp->router_id_zebra);bgp_address_init(bgp);
+bgp_tip_hash_init(bgp);bgp_scan_init(bgp);*bgp_val=bgp;bgp->t_rmap_def_originate
+_eval=NULL;/*IfDefaultinstanceorVRF,linktotheVRFstructure,ifpresent.*/if(bgp->in
+st_type==BGP_INSTANCE_TYPE_DEFAULT||bgp->inst_type==BGP_INSTANCE_TYPE_VRF){vrf=b
+gp_vrf_lookup_by_instance_type(bgp);if(vrf)bgp_vrf_link(bgp,vrf);}/*BGPserversoc
+ketalreadyprocessedifBGPinstance*alreadypartofthelist*/bgp_handle_socket(bgp,vrf
+,VRF_UNKNOWN,true);listnode_add(bm->bgp,bgp);if(IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+bgp_zebra_instance_register(bgp);return0;}/**MakeBGPinstance"up".AppliesonlytoVR
+Fs(non-default)and*impliestheVRFhasbeenlearntfromZebra.*/voidbgp_instance_up(str
+uctbgp*bgp){structpeer*peer;structlistnode*node,*next;/*Registerwithzebra.*/bgp_
+zebra_instance_register(bgp);/*Kickoffanypeersthatmayhavebeenconfigured.*/for(AL
+L_LIST_ELEMENTS(bgp->peer,node,next,peer)){if(!BGP_PEER_START_SUPPRESSED(peer))B
+GP_EVENT_ADD(peer,BGP_Start);}/*Processanynetworksthathavebeenconfigured.*/bgp_s
+tatic_add(bgp);}/**MakeBGPinstance"down".AppliesonlytoVRFs(non-default)and*impli
+estheVRFhasbeendeletedbyZebra.*/voidbgp_instance_down(structbgp*bgp){structpeer*
+peer;structlistnode*node;structlistnode*next;/*Stoptimers.*/if(bgp->t_rmap_def_o
+riginate_eval){BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);bgp_unlock(bgp);/*T
+ODO-Thistimerisstartedwithalock-why?*/}/*Bringdownpeers,socorrespondingroutesare
+purged.*/for(ALL_LIST_ELEMENTS(bgp->peer,node,next,peer)){if(BGP_IS_VALID_STATE_
+FOR_NOTIF(peer->status))bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_A
+DMIN_SHUTDOWN);elsebgp_session_reset(peer);}/*Purgenetworkandredistributedroutes
+.*/bgp_purge_static_redist_routes(bgp);/*Cleanupregisterednexthops(flags)*/bgp_c
+leanup_nexthops(bgp);}/*DeleteBGPinstance.*/intbgp_delete(structbgp*bgp){structp
+eer*peer;structpeer_group*group;structlistnode*node,*next;structvrf*vrf;afi_tafi
+;inti;THREAD_OFF(bgp->t_startup);if(BGP_DEBUG(zebra,ZEBRA)){if(bgp->inst_type==B
+GP_INSTANCE_TYPE_DEFAULT)zlog_debug("DeletingDefaultVRF");elsezlog_debug("Deleti
+ng%s%s",(bgp->inst_type==BGP_INSTANCE_TYPE_VRF)?"VRF":"VIEW",bgp->name);}/*unmap
+fromRTlist*/bgp_evpn_vrf_delete(bgp);/*Stoptimers.*/if(bgp->t_rmap_def_originate
+_eval){BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);bgp_unlock(bgp);/*TODO-This
+timerisstartedwithalock-why?*/}/*Informpeerswe'regoingdown.*/for(ALL_LIST_ELEMEN
+TS(bgp->peer,node,next,peer)){if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))bgp_
+notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);}/*Deletestat
+icroutes(networks).*/bgp_static_delete(bgp);/*Unsetredistribution.*/for(afi=AFI_
+IP;afi<AFI_MAX;afi++)for(i=0;i<ZEBRA_ROUTE_MAX;i++)if(i!=ZEBRA_ROUTE_BGP)bgp_red
+istribute_unset(bgp,afi,i,0);/*Freepeersandpeer-groups.*/for(ALL_LIST_ELEMENTS(b
+gp->group,node,next,group))peer_group_delete(group);for(ALL_LIST_ELEMENTS(bgp->p
+eer,node,next,peer))peer_delete(peer);if(bgp->peer_self){peer_delete(bgp->peer_s
+elf);bgp->peer_self=NULL;}update_bgp_group_free(bgp);/*TODO-Othermemorymayneedto
+befreed-e.g.,NHT*/#ifENABLE_BGP_VNCrfapi_delete(bgp);#endifbgp_cleanup_routes(bg
+p);for(afi=0;afi<AFI_MAX;++afi){if(!bgp->vpn_policy[afi].import_redirect_rtlist)
+continue;ecommunity_free(&bgp->vpn_policy[afi].import_redirect_rtlist);bgp->vpn_
+policy[afi].import_redirect_rtlist=NULL;}/*Removevisibilityviathemasterlist-ther
+emayhoweverstillbe*routestobeprocessedstillreferencingthestructbgp.*/listnode_de
+lete(bm->bgp,bgp);/*DeregisterfromZebra,ifneeded*/if(IS_BGP_INST_KNOWN_TO_ZEBRA(
+bgp))bgp_zebra_instance_deregister(bgp);/*Freeinterfacesinthisinstance.*/bgp_if_
+finish(bgp);vrf=bgp_vrf_lookup_by_instance_type(bgp);bgp_handle_socket(bgp,vrf,V
+RF_UNKNOWN,false);if(vrf)bgp_vrf_unlink(bgp,vrf);thread_master_free_unused(bm->m
+aster);bgp_unlock(bgp);/*initialreference*/return0;}voidbgp_free(structbgp*bgp){
+afi_tafi;safi_tsafi;structbgp_table*table;structbgp_node*rn;structbgp_rmap*rmap;
+QOBJ_UNREG(bgp);list_delete_and_null(&bgp->group);list_delete_and_null(&bgp->pee
+r);if(bgp->peerhash){hash_free(bgp->peerhash);bgp->peerhash=NULL;}FOREACH_AFI_SA
+FI(afi,safi){/*Specialhandlingfor2-levelroutingtables.*/if(safi==SAFI_MPLS_VPN||
+safi==SAFI_ENCAP||safi==SAFI_EVPN){for(rn=bgp_table_top(bgp->rib[afi][safi]);rn;
+rn=bgp_route_next(rn)){table=(structbgp_table*)rn->info;bgp_table_finish(&table)
+;}}if(bgp->route[afi][safi])bgp_table_finish(&bgp->route[afi][safi]);if(bgp->agg
+regate[afi][safi])bgp_table_finish(&bgp->aggregate[afi][safi]);if(bgp->rib[afi][
+safi])bgp_table_finish(&bgp->rib[afi][safi]);rmap=&bgp->table_map[afi][safi];if(
+rmap->name)XFREE(MTYPE_ROUTE_MAP_NAME,rmap->name);}bgp_scan_finish(bgp);bgp_addr
+ess_destroy(bgp);bgp_tip_hash_destroy(bgp);bgp_evpn_cleanup(bgp);if(bgp->name)XF
+REE(MTYPE_BGP,bgp->name);XFREE(MTYPE_BGP,bgp);}structpeer*peer_lookup_by_conf_if
+(structbgp*bgp,constchar*conf_if){structpeer*peer;structlistnode*node,*nnode;if(
+!conf_if)returnNULL;if(bgp!=NULL){for(ALL_LIST_ELEMENTS(bgp->peer,node,nnode,pee
+r))if(peer->conf_if&&!strcmp(peer->conf_if,conf_if)&&!CHECK_FLAG(peer->sflags,PE
+ER_STATUS_ACCEPT_PEER))returnpeer;}elseif(bm->bgp!=NULL){structlistnode*bgpnode,
+*nbgpnode;for(ALL_LIST_ELEMENTS(bm->bgp,bgpnode,nbgpnode,bgp))for(ALL_LIST_ELEME
+NTS(bgp->peer,node,nnode,peer))if(peer->conf_if&&!strcmp(peer->conf_if,conf_if)&
+&!CHECK_FLAG(peer->sflags,PEER_STATUS_ACCEPT_PEER))returnpeer;}returnNULL;}struc
+tpeer*peer_lookup_by_hostname(structbgp*bgp,constchar*hostname){structpeer*peer;
+structlistnode*node,*nnode;if(!hostname)returnNULL;if(bgp!=NULL){for(ALL_LIST_EL
+EMENTS(bgp->peer,node,nnode,peer))if(peer->hostname&&!strcmp(peer->hostname,host
+name)&&!CHECK_FLAG(peer->sflags,PEER_STATUS_ACCEPT_PEER))returnpeer;}elseif(bm->
+bgp!=NULL){structlistnode*bgpnode,*nbgpnode;for(ALL_LIST_ELEMENTS(bm->bgp,bgpnod
+e,nbgpnode,bgp))for(ALL_LIST_ELEMENTS(bgp->peer,node,nnode,peer))if(peer->hostna
+me&&!strcmp(peer->hostname,hostname)&&!CHECK_FLAG(peer->sflags,PEER_STATUS_ACCEP
+T_PEER))returnpeer;}returnNULL;}structpeer*peer_lookup(structbgp*bgp,unionsockun
+ion*su){structpeer*peer=NULL;structpeertmp_peer;memset(&tmp_peer,0,sizeof(struct
+peer));/**Wedonotwanttofindthedoppelgangerpeersosearchforthepeer*in*thehashthath
+asPEER_FLAG_CONFIG_NODE*/SET_FLAG(tmp_peer.flags,PEER_FLAG_CONFIG_NODE);tmp_peer
+.su=*su;if(bgp!=NULL){peer=hash_lookup(bgp->peerhash,&tmp_peer);}elseif(bm->bgp!
+=NULL){structlistnode*bgpnode,*nbgpnode;for(ALL_LIST_ELEMENTS(bm->bgp,bgpnode,nb
+gpnode,bgp)){/*SkipVRFsLiteonly,thisfunctionwillnotbe*invokedwithoutaninstance*w
+henexaminingVRFs.*/if((bgp->inst_type==BGP_INSTANCE_TYPE_VRF)&&!vrf_is_mapped_on
+_netns(bgp->vrf_id))continue;peer=hash_lookup(bgp->peerhash,&tmp_peer);if(peer)b
+reak;}}returnpeer;}structpeer*peer_create_bind_dynamic_neighbor(structbgp*bgp,un
+ionsockunion*su,structpeer_group*group){structpeer*peer;afi_tafi;safi_tsafi;/*Cr
+eatepeerfirst;we'vealreadycheckedgroupconfigisvalid.*/peer=peer_create(su,NULL,b
+gp,bgp->as,group->conf->as,group->conf->as_type,0,0,group);if(!peer)returnNULL;/
+*Linktogroup*/peer=peer_lock(peer);listnode_add(group->peer,peer);peer_group2pee
+r_config_copy(group,peer);/**BindpeerforallAFsconfiguredforthegroup.Wedon'tcall*
+peer_group_bindasthatissub-optimalanddoessomestuffwedon't*want.*/FOREACH_AFI_SAF
+I(afi,safi){if(!group->conf->afc[afi][safi])continue;peer->afc[afi][safi]=1;if(!
+peer_af_find(peer,afi,safi))peer_af_create(peer,afi,safi);peer_group2peer_config
+_copy_af(group,peer,afi,safi);}/*Markasdynamic,butalsoasa"confignode"forotherthi
+ngsto*work.*/SET_FLAG(peer->flags,PEER_FLAG_DYNAMIC_NEIGHBOR);SET_FLAG(peer->fla
+gs,PEER_FLAG_CONFIG_NODE);returnpeer;}structprefix*peer_group_lookup_dynamic_nei
+ghbor_range(structpeer_group*group,structprefix*prefix){structlistnode*node,*nno
+de;structprefix*range;afi_tafi;afi=family2afi(prefix->family);if(group->listen_r
+ange[afi])for(ALL_LIST_ELEMENTS(group->listen_range[afi],node,nnode,range))if(pr
+efix_match(range,prefix))returnrange;returnNULL;}structpeer_group*peer_group_loo
+kup_dynamic_neighbor(structbgp*bgp,structprefix*prefix,structprefix**listen_rang
+e){structprefix*range=NULL;structpeer_group*group=NULL;structlistnode*node,*nnod
+e;*listen_range=NULL;if(bgp!=NULL){for(ALL_LIST_ELEMENTS(bgp->group,node,nnode,g
+roup))if((range=peer_group_lookup_dynamic_neighbor_range(group,prefix)))break;}e
+lseif(bm->bgp!=NULL){structlistnode*bgpnode,*nbgpnode;for(ALL_LIST_ELEMENTS(bm->
+bgp,bgpnode,nbgpnode,bgp))for(ALL_LIST_ELEMENTS(bgp->group,node,nnode,group))if(
+(range=peer_group_lookup_dynamic_neighbor_range(group,prefix)))gotofound_range;}
+found_range:*listen_range=range;return(group&&range)?group:NULL;}structpeer*peer
+_lookup_dynamic_neighbor(structbgp*bgp,unionsockunion*su){structpeer_group*group
+;structbgp*gbgp;structpeer*peer;structprefixprefix;structprefix*listen_range;int
+dncount;charbuf[PREFIX2STR_BUFFER];charbuf1[PREFIX2STR_BUFFER];sockunion2hostpre
+fix(su,&prefix);/*Seeifincomingconnectionmatchesaconfiguredlistenrange.*/group=p
+eer_group_lookup_dynamic_neighbor(bgp,&prefix,&listen_range);if(!group)returnNUL
+L;gbgp=group->bgp;if(!gbgp)returnNULL;prefix2str(&prefix,buf,sizeof(buf));prefix
+2str(listen_range,buf1,sizeof(buf1));if(bgp_debug_neighbor_events(NULL))zlog_deb
+ug("DynamicNeighbor%smatchesgroup%slistenrange%s",buf,group->name,buf1);/*Arewew
+ithinthelistenlimit?*/dncount=gbgp->dynamic_neighbors_count;if(dncount>=gbgp->dy
+namic_neighbors_limit){if(bgp_debug_neighbor_events(NULL))zlog_debug("DynamicNei
+ghbor%srejected-atlimit%d",inet_sutop(su,buf),gbgp->dynamic_neighbors_limit);ret
+urnNULL;}/*Ensuregroupisnotdisabled.*/if(CHECK_FLAG(group->conf->flags,PEER_FLAG
+_SHUTDOWN)){if(bgp_debug_neighbor_events(NULL))zlog_debug("DynamicNeighbor%sreje
+cted-group%sdisabled",buf,group->name);returnNULL;}/*CheckthatatleastoneAFisacti
+vatedforthegroup.*/if(!peer_group_af_configured(group)){if(bgp_debug_neighbor_ev
+ents(NULL))zlog_debug("DynamicNeighbor%srejected-noAFactivatedforgroup%s",buf,gr
+oup->name);returnNULL;}/*Createdynamicpeerandbindtoassociatedgroup.*/peer=peer_c
+reate_bind_dynamic_neighbor(gbgp,su,group);assert(peer);gbgp->dynamic_neighbors_
+count=++dncount;if(bgp_debug_neighbor_events(peer))zlog_debug("%sDynamicNeighbor
+added,group%scount%d",peer->host,group->name,dncount);returnpeer;}voidpeer_drop_
+dynamic_neighbor(structpeer*peer){intdncount=-1;if(peer->group&&peer->group->bgp
+){dncount=peer->group->bgp->dynamic_neighbors_count;if(dncount)peer->group->bgp-
+>dynamic_neighbors_count=--dncount;}if(bgp_debug_neighbor_events(peer))zlog_debu
+g("%sdroppedfromgroup%s,count%d",peer->host,peer->group->name,dncount);}/*Ifpeer
+isconfiguredatleastoneaddressfamilyreturn1.*/intpeer_active(structpeer*peer){if(
+BGP_PEER_SU_UNSPEC(peer))return0;if(peer->afc[AFI_IP][SAFI_UNICAST]||peer->afc[A
+FI_IP][SAFI_MULTICAST]||peer->afc[AFI_IP][SAFI_LABELED_UNICAST]||peer->afc[AFI_I
+P][SAFI_MPLS_VPN]||peer->afc[AFI_IP][SAFI_ENCAP]||peer->afc[AFI_IP][SAFI_FLOWSPE
+C]||peer->afc[AFI_IP6][SAFI_UNICAST]||peer->afc[AFI_IP6][SAFI_MULTICAST]||peer->
+afc[AFI_IP6][SAFI_LABELED_UNICAST]||peer->afc[AFI_IP6][SAFI_MPLS_VPN]||peer->afc
+[AFI_IP6][SAFI_ENCAP]||peer->afc[AFI_IP6][SAFI_FLOWSPEC]||peer->afc[AFI_L2VPN][S
+AFI_EVPN])return1;return0;}/*Ifpeerisnegotiatedatleastoneaddressfamilyreturn1.*/
+intpeer_active_nego(structpeer*peer){if(peer->afc_nego[AFI_IP][SAFI_UNICAST]||pe
+er->afc_nego[AFI_IP][SAFI_MULTICAST]||peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAS
+T]||peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]||peer->afc_nego[AFI_IP][SAFI_ENCAP]||p
+eer->afc_nego[AFI_IP][SAFI_FLOWSPEC]||peer->afc_nego[AFI_IP6][SAFI_UNICAST]||pee
+r->afc_nego[AFI_IP6][SAFI_MULTICAST]||peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICA
+ST]||peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]||peer->afc_nego[AFI_IP6][SAFI_ENCAP]
+||peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]||peer->afc_nego[AFI_L2VPN][SAFI_EVPN])r
+eturn1;return0;}/*peer_flag_change_type.*/enumpeer_change_type{peer_change_none,
+peer_change_reset,peer_change_reset_in,peer_change_reset_out,};staticvoidpeer_ch
+ange_action(structpeer*peer,afi_tafi,safi_tsafi,enumpeer_change_typetype){if(CHE
+CK_FLAG(peer->sflags,PEER_STATUS_GROUP))return;if(peer->status!=Established)retu
+rn;if(type==peer_change_reset){/*Ifwe'reresettingsession,we'vetodeletebothpeerst
+ruct*/if((peer->doppelganger)&&(peer->doppelganger->status!=Deleted)&&(!CHECK_FL
+AG(peer->doppelganger->flags,PEER_FLAG_CONFIG_NODE)))peer_delete(peer->doppelgan
+ger);bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}else
+if(type==peer_change_reset_in){if(CHECK_FLAG(peer->cap,PEER_CAP_REFRESH_OLD_RCV)
+||CHECK_FLAG(peer->cap,PEER_CAP_REFRESH_NEW_RCV))bgp_route_refresh_send(peer,afi
+,safi,0,0,0);else{if((peer->doppelganger)&&(peer->doppelganger->status!=Deleted)
+&&(!CHECK_FLAG(peer->doppelganger->flags,PEER_FLAG_CONFIG_NODE)))peer_delete(pee
+r->doppelganger);bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_C
+HANGE);}}elseif(type==peer_change_reset_out){update_group_adjust_peer(peer_af_fi
+nd(peer,afi,safi));bgp_announce_route(peer,afi,safi);}}structpeer_flag_action{/*
+Peer'sflag.*/uint32_tflag;/*Thisflagcanbesetforpeer-groupmember.*/uint8_tnot_for
+_member;/*Actionwhentheflagischanged.*/enumpeer_change_typetype;/*Peerdowncause*
+/uint8_tpeer_down;};staticconststructpeer_flag_actionpeer_flag_action_list[]={{P
+EER_FLAG_PASSIVE,0,peer_change_reset},{PEER_FLAG_SHUTDOWN,0,peer_change_reset},{
+PEER_FLAG_DONT_CAPABILITY,0,peer_change_none},{PEER_FLAG_OVERRIDE_CAPABILITY,0,p
+eer_change_none},{PEER_FLAG_STRICT_CAP_MATCH,0,peer_change_none},{PEER_FLAG_DYNA
+MIC_CAPABILITY,0,peer_change_reset},{PEER_FLAG_DISABLE_CONNECTED_CHECK,0,peer_ch
+ange_reset},{PEER_FLAG_CAPABILITY_ENHE,0,peer_change_reset},{0,0,0}};staticconst
+structpeer_flag_actionpeer_af_flag_action_list[]={{PEER_FLAG_SEND_COMMUNITY,1,pe
+er_change_reset_out},{PEER_FLAG_SEND_EXT_COMMUNITY,1,peer_change_reset_out},{PEE
+R_FLAG_SEND_LARGE_COMMUNITY,1,peer_change_reset_out},{PEER_FLAG_NEXTHOP_SELF,1,p
+eer_change_reset_out},{PEER_FLAG_REFLECTOR_CLIENT,1,peer_change_reset},{PEER_FLA
+G_RSERVER_CLIENT,1,peer_change_reset},{PEER_FLAG_SOFT_RECONFIG,0,peer_change_res
+et_in},{PEER_FLAG_AS_PATH_UNCHANGED,1,peer_change_reset_out},{PEER_FLAG_NEXTHOP_
+UNCHANGED,1,peer_change_reset_out},{PEER_FLAG_MED_UNCHANGED,1,peer_change_reset_
+out},//PEER_FLAG_DEFAULT_ORIGINATE{PEER_FLAG_REMOVE_PRIVATE_AS,1,peer_change_res
+et_out},{PEER_FLAG_ALLOWAS_IN,0,peer_change_reset_in},{PEER_FLAG_ALLOWAS_IN_ORIG
+IN,0,peer_change_reset_in},{PEER_FLAG_ORF_PREFIX_SM,1,peer_change_reset},{PEER_F
+LAG_ORF_PREFIX_RM,1,peer_change_reset},//PEER_FLAG_MAX_PREFIX//PEER_FLAG_MAX_PRE
+FIX_WARNING{PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED,0,peer_change_reset_out},{PEER_FLA
+G_FORCE_NEXTHOP_SELF,1,peer_change_reset_out},{PEER_FLAG_REMOVE_PRIVATE_AS_ALL,1
+,peer_change_reset_out},{PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,1,peer_change_reset
+_out},{PEER_FLAG_AS_OVERRIDE,1,peer_change_reset_out},{PEER_FLAG_REMOVE_PRIVATE_
+AS_ALL_REPLACE,1,peer_change_reset_out},{PEER_FLAG_ADDPATH_TX_ALL_PATHS,1,peer_c
+hange_reset},{PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS,1,peer_change_reset},{PEER_FL
+AG_WEIGHT,0,peer_change_reset_in},{0,0,0}};/*Properactionset.*/staticintpeer_fla
+g_action_set(conststructpeer_flag_action*action_list,intsize,structpeer_flag_act
+ion*action,uint32_tflag){inti;intfound=0;intreset_in=0;intreset_out=0;conststruc
+tpeer_flag_action*match=NULL;/*Checkpeer'sfragaction.*/for(i=0;i<size;i++){match
+=&action_list[i];if(match->flag==0)break;if(match->flag&flag){found=1;if(match->
+type==peer_change_reset_in)reset_in=1;if(match->type==peer_change_reset_out)rese
+t_out=1;if(match->type==peer_change_reset){reset_in=1;reset_out=1;}if(match->not
+_for_member)action->not_for_member=1;}}/*Setpeercleartype.*/if(reset_in&&reset_o
+ut)action->type=peer_change_reset;elseif(reset_in)action->type=peer_change_reset
+_in;elseif(reset_out)action->type=peer_change_reset_out;elseaction->type=peer_ch
+ange_none;returnfound;}staticvoidpeer_flag_modify_action(structpeer*peer,uint32_
+tflag){if(flag==PEER_FLAG_SHUTDOWN){if(CHECK_FLAG(peer->flags,flag)){if(CHECK_FL
+AG(peer->sflags,PEER_STATUS_NSF_WAIT))peer_nsf_stop(peer);UNSET_FLAG(peer->sflag
+s,PEER_STATUS_PREFIX_OVERFLOW);if(peer->t_pmax_restart){BGP_TIMER_OFF(peer->t_pm
+ax_restart);if(bgp_debug_neighbor_events(peer))zlog_debug("%sMaximum-prefixresta
+rttimercanceled",peer->host);}if(CHECK_FLAG(peer->sflags,PEER_STATUS_NSF_WAIT))p
+eer_nsf_stop(peer);if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){char*msg=peer-
+>tx_shutdown_message;size_tmsglen;if(!msg&&peer_group_active(peer))msg=peer->gro
+up->conf->tx_shutdown_message;msglen=msg?strlen(msg):0;if(msglen>128)msglen=128;
+if(msglen){uint8_tmsgbuf[129];msgbuf[0]=msglen;memcpy(msgbuf+1,msg,msglen);bgp_n
+otify_send_with_data(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN,msgbu
+f,msglen+1);}elsebgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_ADMIN_SH
+UTDOWN);}elsebgp_session_reset(peer);}else{peer->v_start=BGP_INIT_START_TIMER;BG
+P_EVENT_ADD(peer,BGP_Stop);}}elseif(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){
+if(flag==PEER_FLAG_DYNAMIC_CAPABILITY)peer->last_reset=PEER_DOWN_CAPABILITY_CHAN
+GE;elseif(flag==PEER_FLAG_PASSIVE)peer->last_reset=PEER_DOWN_PASSIVE_CHANGE;else
+if(flag==PEER_FLAG_DISABLE_CONNECTED_CHECK)peer->last_reset=PEER_DOWN_MULTIHOP_C
+HANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}els
+ebgp_session_reset(peer);}/*Changespecifiedpeerflag.*/staticintpeer_flag_modify(
+structpeer*peer,uint32_tflag,intset){intfound;intsize;structpeer_group*group;str
+uctpeer*tmp_peer;structlistnode*node,*nnode;structpeer_flag_actionaction;memset(
+&action,0,sizeof(structpeer_flag_action));size=sizeofpeer_flag_action_list/sizeo
+f(structpeer_flag_action);found=peer_flag_action_set(peer_flag_action_list,size,
+&action,flag);/*Noflagactionisfound.*/if(!found)returnBGP_ERR_INVALID_FLAG;/*Whe
+nunsetthepeer-groupmember'sflagwehavetocheckpeer-groupconfiguration.*/if(!set&&p
+eer_group_active(peer))if(CHECK_FLAG(peer->group->conf->flags,flag)){if(flag==PE
+ER_FLAG_SHUTDOWN)returnBGP_ERR_PEER_GROUP_SHUTDOWN;}/*Flagconflictcheck.*/if(set
+&&CHECK_FLAG(peer->flags|flag,PEER_FLAG_STRICT_CAP_MATCH)&&CHECK_FLAG(peer->flag
+s|flag,PEER_FLAG_OVERRIDE_CAPABILITY))returnBGP_ERR_PEER_FLAG_CONFLICT;if(!CHECK
+_FLAG(peer->sflags,PEER_STATUS_GROUP)){if(set&&CHECK_FLAG(peer->flags,flag)==fla
+g)return0;if(!set&&!CHECK_FLAG(peer->flags,flag))return0;}if(set)SET_FLAG(peer->
+flags,flag);elseUNSET_FLAG(peer->flags,flag);if(!CHECK_FLAG(peer->sflags,PEER_ST
+ATUS_GROUP)){if(action.type==peer_change_reset)peer_flag_modify_action(peer,flag
+);return0;}/*peer-groupmemberupdates.*/group=peer->group;for(ALL_LIST_ELEMENTS(g
+roup->peer,node,nnode,tmp_peer)){if(set&&CHECK_FLAG(tmp_peer->flags,flag)==flag)
+continue;if(!set&&!CHECK_FLAG(tmp_peer->flags,flag))continue;if(set)SET_FLAG(tmp
+_peer->flags,flag);elseUNSET_FLAG(tmp_peer->flags,flag);if(action.type==peer_cha
+nge_reset)peer_flag_modify_action(tmp_peer,flag);}return0;}intpeer_flag_set(stru
+ctpeer*peer,uint32_tflag){returnpeer_flag_modify(peer,flag,1);}intpeer_flag_unse
+t(structpeer*peer,uint32_tflag){returnpeer_flag_modify(peer,flag,0);}staticintpe
+er_af_flag_modify(structpeer*peer,afi_tafi,safi_tsafi,uint32_tflag,intset){intfo
+und;intsize;structlistnode*node,*nnode;structpeer_group*group;structpeer_flag_ac
+tionaction;structpeer*tmp_peer;structbgp*bgp;intaddpath_tx_used;memset(&action,0
+,sizeof(structpeer_flag_action));size=sizeofpeer_af_flag_action_list/sizeof(stru
+ctpeer_flag_action);found=peer_flag_action_set(peer_af_flag_action_list,size,&ac
+tion,flag);/*Noflagactionisfound.*/if(!found)returnBGP_ERR_INVALID_FLAG;/*Specia
+lcheckforreflectorclient.*/if(flag&PEER_FLAG_REFLECTOR_CLIENT&&peer_sort(peer)!=
+BGP_PEER_IBGP)returnBGP_ERR_NOT_INTERNAL_PEER;/*Specialcheckforremove-private-AS
+.*/if(flag&PEER_FLAG_REMOVE_PRIVATE_AS&&peer_sort(peer)==BGP_PEER_IBGP)returnBGP
+_ERR_REMOVE_PRIVATE_AS;/*as-overrideisnotallowedforIBGPpeers*/if(flag&PEER_FLAG_
+AS_OVERRIDE&&peer_sort(peer)==BGP_PEER_IBGP)returnBGP_ERR_AS_OVERRIDE;/*Whencurr
+entflagconfigurationissameasrequestedone.*/if(!CHECK_FLAG(peer->sflags,PEER_STAT
+US_GROUP)){if(set&&CHECK_FLAG(peer->af_flags[afi][safi],flag)==flag)return0;if(!
+set&&!CHECK_FLAG(peer->af_flags[afi][safi],flag))return0;}if(set)SET_FLAG(peer->
+af_flags[afi][safi],flag);elseUNSET_FLAG(peer->af_flags[afi][safi],flag);/*Execu
+teactionwhenpeerisestablished.*/if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)&&
+peer->status==Established){if(!set&&flag==PEER_FLAG_SOFT_RECONFIG)bgp_clear_adj_
+in(peer,afi,safi);else{if(flag==PEER_FLAG_REFLECTOR_CLIENT)peer->last_reset=PEER
+_DOWN_RR_CLIENT_CHANGE;elseif(flag==PEER_FLAG_RSERVER_CLIENT)peer->last_reset=PE
+ER_DOWN_RS_CLIENT_CHANGE;elseif(flag==PEER_FLAG_ORF_PREFIX_SM)peer->last_reset=P
+EER_DOWN_CAPABILITY_CHANGE;elseif(flag==PEER_FLAG_ORF_PREFIX_RM)peer->last_reset
+=PEER_DOWN_CAPABILITY_CHANGE;peer_change_action(peer,afi,safi,action.type);}}/*P
+eergroupmemberupdates.*/if(CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){group=pee
+r->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,tmp_peer)){if(set&&CHECK_F
+LAG(tmp_peer->af_flags[afi][safi],flag)==flag)continue;if(!set&&!CHECK_FLAG(tmp_
+peer->af_flags[afi][safi],flag))continue;if(set)SET_FLAG(tmp_peer->af_flags[afi]
+[safi],flag);elseUNSET_FLAG(tmp_peer->af_flags[afi][safi],flag);if(tmp_peer->sta
+tus==Established){if(!set&&flag==PEER_FLAG_SOFT_RECONFIG)bgp_clear_adj_in(tmp_pe
+er,afi,safi);else{if(flag==PEER_FLAG_REFLECTOR_CLIENT)tmp_peer->last_reset=PEER_
+DOWN_RR_CLIENT_CHANGE;elseif(flag==PEER_FLAG_RSERVER_CLIENT)tmp_peer->last_reset
+=PEER_DOWN_RS_CLIENT_CHANGE;elseif(flag==PEER_FLAG_ORF_PREFIX_SM)tmp_peer->last_
+reset=PEER_DOWN_CAPABILITY_CHANGE;elseif(flag==PEER_FLAG_ORF_PREFIX_RM)tmp_peer-
+>last_reset=PEER_DOWN_CAPABILITY_CHANGE;peer_change_action(tmp_peer,afi,safi,act
+ion.type);}}}}/*TrackifaddpathTXisinuse*/if(flag&(PEER_FLAG_ADDPATH_TX_ALL_PATHS
+|PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)){bgp=peer->bgp;addpath_tx_used=0;if(set){
+addpath_tx_used=1;if(flag&PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS){if(!bgp_flag_che
+ck(bgp,BGP_FLAG_DETERMINISTIC_MED)){zlog_warn("%s:enablingbgpdeterministic-med,t
+hisisrequired""foraddpath-tx-bestpath-per-AS",peer->host);bgp_flag_set(bgp,BGP_F
+LAG_DETERMINISTIC_MED);bgp_recalculate_all_bestpaths(bgp);}}}else{for(ALL_LIST_E
+LEMENTS(bgp->peer,node,nnode,tmp_peer)){if(CHECK_FLAG(tmp_peer->af_flags[afi][sa
+fi],PEER_FLAG_ADDPATH_TX_ALL_PATHS)||CHECK_FLAG(tmp_peer->af_flags[afi][safi],PE
+ER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)){addpath_tx_used=1;break;}}}bgp->addpath_tx_
+used[afi][safi]=addpath_tx_used;}return0;}intpeer_af_flag_set(structpeer*peer,af
+i_tafi,safi_tsafi,uint32_tflag){returnpeer_af_flag_modify(peer,afi,safi,flag,1);
+}intpeer_af_flag_unset(structpeer*peer,afi_tafi,safi_tsafi,uint32_tflag){returnp
+eer_af_flag_modify(peer,afi,safi,flag,0);}intpeer_tx_shutdown_message_set(struct
+peer*peer,constchar*msg){XFREE(MTYPE_PEER_TX_SHUTDOWN_MSG,peer->tx_shutdown_mess
+age);peer->tx_shutdown_message=msg?XSTRDUP(MTYPE_PEER_TX_SHUTDOWN_MSG,msg):NULL;
+return0;}intpeer_tx_shutdown_message_unset(structpeer*peer){XFREE(MTYPE_PEER_TX_
+SHUTDOWN_MSG,peer->tx_shutdown_message);return0;}/*EBGPmultihopconfiguration.*/i
+ntpeer_ebgp_multihop_set(structpeer*peer,intttl){structpeer_group*group;structli
+stnode*node,*nnode;structpeer*peer1;if(peer->sort==BGP_PEER_IBGP||peer->conf_if)
+return0;/*seecommentinpeer_ttl_security_hops_set()*/if(ttl!=MAXTTL){if(CHECK_FLA
+G(peer->sflags,PEER_STATUS_GROUP)){group=peer->group;if(group->conf->gtsm_hops!=
+0)returnBGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;for(ALL_LIST_ELEMENTS(group->peer,
+node,nnode,peer1)){if(peer1->sort==BGP_PEER_IBGP)continue;if(peer1->gtsm_hops!=0
+)returnBGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;}}else{if(peer->gtsm_hops!=0)return
+BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;}}peer->ttl=ttl;if(!CHECK_FLAG(peer->sflag
+s,PEER_STATUS_GROUP)){if(peer->fd>=0&&peer->sort!=BGP_PEER_IBGP){if(BGP_IS_VALID
+_STATE_FOR_NOTIF(peer->status))bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_
+CEASE_CONFIG_CHANGE);elsebgp_session_reset(peer);}}else{group=peer->group;for(AL
+L_LIST_ELEMENTS(group->peer,node,nnode,peer)){if(peer->sort==BGP_PEER_IBGP)conti
+nue;peer->ttl=group->conf->ttl;if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))bgp
+_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);elsebgp_sessi
+on_reset(peer);}}return0;}intpeer_ebgp_multihop_unset(structpeer*peer){structpee
+r_group*group;structlistnode*node,*nnode;if(peer->sort==BGP_PEER_IBGP)return0;if
+(peer->gtsm_hops!=0&&peer->ttl!=MAXTTL)returnBGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHA
+CK;if(peer_group_active(peer))peer->ttl=peer->group->conf->ttl;elsepeer->ttl=1;i
+f(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){if(BGP_IS_VALID_STATE_FOR_NOTIF(p
+eer->status))bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANG
+E);elsebgp_session_reset(peer);}else{group=peer->group;for(ALL_LIST_ELEMENTS(gro
+up->peer,node,nnode,peer)){if(peer->sort==BGP_PEER_IBGP)continue;peer->ttl=1;if(
+peer->fd>=0){if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))bgp_notify_send(peer,
+BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);elsebgp_session_reset(peer);}}}
+return0;}/*Neighbordescription.*/intpeer_description_set(structpeer*peer,constch
+ar*desc){if(peer->desc)XFREE(MTYPE_PEER_DESC,peer->desc);peer->desc=XSTRDUP(MTYP
+E_PEER_DESC,desc);return0;}intpeer_description_unset(structpeer*peer){if(peer->d
+esc)XFREE(MTYPE_PEER_DESC,peer->desc);peer->desc=NULL;return0;}/*Neighborupdate-
+source.*/intpeer_update_source_if_set(structpeer*peer,constchar*ifname){structpe
+er_group*group;structlistnode*node,*nnode;if(peer->update_if){if(!CHECK_FLAG(pee
+r->sflags,PEER_STATUS_GROUP)&&strcmp(peer->update_if,ifname)==0)return0;XFREE(MT
+YPE_PEER_UPDATE_SOURCE,peer->update_if);peer->update_if=NULL;}if(peer->update_so
+urce){sockunion_free(peer->update_source);peer->update_source=NULL;}peer->update
+_if=XSTRDUP(MTYPE_PEER_UPDATE_SOURCE,ifname);if(!CHECK_FLAG(peer->sflags,PEER_ST
+ATUS_GROUP)){if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEE
+R_DOWN_UPDATE_SOURCE_CHANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEA
+SE_CONFIG_CHANGE);}elsebgp_session_reset(peer);return0;}/*peer-groupmemberupdate
+s.*/group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){if(pee
+r->update_if){if(strcmp(peer->update_if,ifname)==0)continue;XFREE(MTYPE_PEER_UPD
+ATE_SOURCE,peer->update_if);peer->update_if=NULL;}if(peer->update_source){sockun
+ion_free(peer->update_source);peer->update_source=NULL;}peer->update_if=XSTRDUP(
+MTYPE_PEER_UPDATE_SOURCE,ifname);if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){
+peer->last_reset=PEER_DOWN_UPDATE_SOURCE_CHANGE;bgp_notify_send(peer,BGP_NOTIFY_
+CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}elsebgp_session_reset(peer);}return0;}int
+peer_update_source_addr_set(structpeer*peer,constunionsockunion*su){structpeer_g
+roup*group;structlistnode*node,*nnode;if(peer->update_source){if(!CHECK_FLAG(pee
+r->sflags,PEER_STATUS_GROUP)&&sockunion_cmp(peer->update_source,su)==0)return0;s
+ockunion_free(peer->update_source);peer->update_source=NULL;}if(peer->update_if)
+{XFREE(MTYPE_PEER_UPDATE_SOURCE,peer->update_if);peer->update_if=NULL;}peer->upd
+ate_source=sockunion_dup(su);if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){if(
+BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_UPDATE_SO
+URCE_CHANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE
+);}elsebgp_session_reset(peer);return0;}/*peer-groupmemberupdates.*/group=peer->
+group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){if(peer->update_source
+){if(sockunion_cmp(peer->update_source,su)==0)continue;sockunion_free(peer->upda
+te_source);peer->update_source=NULL;}if(peer->update_if){XFREE(MTYPE_PEER_UPDATE
+_SOURCE,peer->update_if);peer->update_if=NULL;}peer->update_source=sockunion_dup
+(su);if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_U
+PDATE_SOURCE_CHANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFI
+G_CHANGE);}elsebgp_session_reset(peer);}return0;}intpeer_update_source_unset(str
+uctpeer*peer){unionsockunion*su;structpeer_group*group;structlistnode*node,*nnod
+e;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)&&!peer->update_source&&!peer->u
+pdate_if)return0;if(peer->update_source){sockunion_free(peer->update_source);pee
+r->update_source=NULL;}if(peer->update_if){XFREE(MTYPE_PEER_UPDATE_SOURCE,peer->
+update_if);peer->update_if=NULL;}if(peer_group_active(peer)){group=peer->group;i
+f(group->conf->update_source){su=sockunion_dup(group->conf->update_source);peer-
+>update_source=su;}elseif(group->conf->update_if)peer->update_if=XSTRDUP(MTYPE_P
+EER_UPDATE_SOURCE,group->conf->update_if);}if(!CHECK_FLAG(peer->sflags,PEER_STAT
+US_GROUP)){if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEER_
+DOWN_UPDATE_SOURCE_CHANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE
+_CONFIG_CHANGE);}elsebgp_session_reset(peer);return0;}/*peer-groupmemberupdates.
+*/group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){if(!peer
+->update_source&&!peer->update_if)continue;if(peer->update_source){sockunion_fre
+e(peer->update_source);peer->update_source=NULL;}if(peer->update_if){XFREE(MTYPE
+_PEER_UPDATE_SOURCE,peer->update_if);peer->update_if=NULL;}if(BGP_IS_VALID_STATE
+_FOR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_UPDATE_SOURCE_CHANGE;bgp_no
+tify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}elsebgp_session
+_reset(peer);}return0;}intpeer_default_originate_set(structpeer*peer,afi_tafi,sa
+fi_tsafi,constchar*rmap){structpeer_group*group;structlistnode*node,*nnode;if(!C
+HECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_DEFAULT_ORIGINATE)||(rmap&&!peer->
+default_rmap[afi][safi].name)||(rmap&&strcmp(rmap,peer->default_rmap[afi][safi].
+name)!=0)){SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_DEFAULT_ORIGINATE);if(rm
+ap){if(peer->default_rmap[afi][safi].name)XFREE(MTYPE_ROUTE_MAP_NAME,peer->defau
+lt_rmap[afi][safi].name);peer->default_rmap[afi][safi].name=XSTRDUP(MTYPE_ROUTE_
+MAP_NAME,rmap);peer->default_rmap[afi][safi].map=route_map_lookup_by_name(rmap);
+}}if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){if(peer->status==Established&&
+peer->afc_nego[afi][safi]){update_group_adjust_peer(peer_af_find(peer,afi,safi))
+;bgp_default_originate(peer,afi,safi,0);bgp_announce_route(peer,afi,safi);}retur
+n0;}/*peer-groupmemberupdates.*/group=peer->group;for(ALL_LIST_ELEMENTS(group->p
+eer,node,nnode,peer)){SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_DEFAULT_ORIGI
+NATE);if(rmap){if(peer->default_rmap[afi][safi].name)XFREE(MTYPE_ROUTE_MAP_NAME,
+peer->default_rmap[afi][safi].name);peer->default_rmap[afi][safi].name=XSTRDUP(M
+TYPE_ROUTE_MAP_NAME,rmap);peer->default_rmap[afi][safi].map=route_map_lookup_by_
+name(rmap);}if(peer->status==Established&&peer->afc_nego[afi][safi]){update_grou
+p_adjust_peer(peer_af_find(peer,afi,safi));bgp_default_originate(peer,afi,safi,0
+);bgp_announce_route(peer,afi,safi);}}return0;}intpeer_default_originate_unset(s
+tructpeer*peer,afi_tafi,safi_tsafi){structpeer_group*group;structlistnode*node,*
+nnode;if(CHECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_DEFAULT_ORIGINATE)){UNSE
+T_FLAG(peer->af_flags[afi][safi],PEER_FLAG_DEFAULT_ORIGINATE);if(peer->default_r
+map[afi][safi].name)XFREE(MTYPE_ROUTE_MAP_NAME,peer->default_rmap[afi][safi].nam
+e);peer->default_rmap[afi][safi].name=NULL;peer->default_rmap[afi][safi].map=NUL
+L;}if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){if(peer->status==Established&
+&peer->afc_nego[afi][safi]){update_group_adjust_peer(peer_af_find(peer,afi,safi)
+);bgp_default_originate(peer,afi,safi,1);bgp_announce_route(peer,afi,safi);}retu
+rn0;}/*peer-groupmemberupdates.*/group=peer->group;for(ALL_LIST_ELEMENTS(group->
+peer,node,nnode,peer)){UNSET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_DEFAULT_OR
+IGINATE);if(peer->default_rmap[afi][safi].name)XFREE(MTYPE_ROUTE_MAP_NAME,peer->
+default_rmap[afi][safi].name);peer->default_rmap[afi][safi].name=NULL;peer->defa
+ult_rmap[afi][safi].map=NULL;if(peer->status==Established&&peer->afc_nego[afi][s
+afi]){update_group_adjust_peer(peer_af_find(peer,afi,safi));bgp_default_originat
+e(peer,afi,safi,1);bgp_announce_route(peer,afi,safi);}}return0;}intpeer_port_set
+(structpeer*peer,uint16_tport){peer->port=port;return0;}intpeer_port_unset(struc
+tpeer*peer){peer->port=BGP_PORT_DEFAULT;return0;}/**Helperfunctionthatiscalledaf
+terthenameofthepolicy*beingusedbyapeerhaschanged(AFspecific).Automatically*initi
+atesinboundoroutboundprocessingasneeded.*/staticvoidpeer_on_policy_change(struct
+peer*peer,afi_tafi,safi_tsafi,intoutbound){if(outbound){update_group_adjust_peer
+(peer_af_find(peer,afi,safi));if(peer->status==Established)bgp_announce_route(pe
+er,afi,safi);}else{if(peer->status!=Established)return;if(CHECK_FLAG(peer->af_fl
+ags[afi][safi],PEER_FLAG_SOFT_RECONFIG))bgp_soft_reconfig_in(peer,afi,safi);else
+if(CHECK_FLAG(peer->cap,PEER_CAP_REFRESH_OLD_RCV)||CHECK_FLAG(peer->cap,PEER_CAP
+_REFRESH_NEW_RCV))bgp_route_refresh_send(peer,afi,safi,0,0,0);}}/*neighborweight
+.*/intpeer_weight_set(structpeer*peer,afi_tafi,safi_tsafi,uint16_tweight){struct
+peer_group*group;structlistnode*node,*nnode;if(peer->weight[afi][safi]!=weight){
+peer->weight[afi][safi]=weight;SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_WEIG
+HT);peer_on_policy_change(peer,afi,safi,0);}if(!CHECK_FLAG(peer->sflags,PEER_STA
+TUS_GROUP))return0;/*peer-groupmemberupdates.*/group=peer->group;for(ALL_LIST_EL
+EMENTS(group->peer,node,nnode,peer)){if(peer->weight[afi][safi]!=weight){peer->w
+eight[afi][safi]=weight;SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_WEIGHT);pee
+r_on_policy_change(peer,afi,safi,0);}}return0;}intpeer_weight_unset(structpeer*p
+eer,afi_tafi,safi_tsafi){structpeer_group*group;structlistnode*node,*nnode;/*not
+thepeer-groupitselfbutapeerinapeer-group*/if(peer_group_active(peer)){group=peer
+->group;/*inheritweightfromthepeer-group*/if(CHECK_FLAG(group->conf->af_flags[af
+i][safi],PEER_FLAG_WEIGHT)){peer->weight[afi][safi]=group->conf->weight[afi][saf
+i];peer_af_flag_set(peer,afi,safi,PEER_FLAG_WEIGHT);peer_on_policy_change(peer,a
+fi,safi,0);}else{if(CHECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_WEIGHT)){peer
+->weight[afi][safi]=0;peer_af_flag_unset(peer,afi,safi,PEER_FLAG_WEIGHT);peer_on
+_policy_change(peer,afi,safi,0);}}}else{if(CHECK_FLAG(peer->af_flags[afi][safi],
+PEER_FLAG_WEIGHT)){peer->weight[afi][safi]=0;peer_af_flag_unset(peer,afi,safi,PE
+ER_FLAG_WEIGHT);peer_on_policy_change(peer,afi,safi,0);}/*peer-groupmemberupdate
+s.*/group=peer->group;if(group){for(ALL_LIST_ELEMENTS(group->peer,node,nnode,pee
+r)){if(CHECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_WEIGHT)){peer->weight[afi]
+[safi]=0;peer_af_flag_unset(peer,afi,safi,PEER_FLAG_WEIGHT);peer_on_policy_chang
+e(peer,afi,safi,0);}}}}return0;}intpeer_timers_set(structpeer*peer,uint32_tkeepa
+live,uint32_tholdtime){structpeer_group*group;structlistnode*node,*nnode;/*keepa
+livevaluecheck.*/if(keepalive>65535)returnBGP_ERR_INVALID_VALUE;/*Holdtimevaluec
+heck.*/if(holdtime>65535)returnBGP_ERR_INVALID_VALUE;/*Holdtimevaluemustbeeither
+0orgreaterthan3.*/if(holdtime<3&&holdtime!=0)returnBGP_ERR_INVALID_VALUE;/*Setva
+luetotheconfiguration.*/peer->holdtime=holdtime;peer->keepalive=(keepalive<holdt
+ime/3?keepalive:holdtime/3);/*Firstworkonrealpeerswithtimers*/if(!CHECK_FLAG(pee
+r->sflags,PEER_STATUS_GROUP)){SET_FLAG(peer->config,PEER_CONFIG_TIMER);UNSET_FLA
+G(peer->config,PEER_GROUP_CONFIG_TIMER);}else{/*Nowworkonthepeer-grouptimers*/SE
+T_FLAG(peer->config,PEER_GROUP_CONFIG_TIMER);/*peer-groupmemberupdates.*/group=p
+eer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){/*Skippeersthatha
+vetheirowntimers*/if(CHECK_FLAG(peer->config,PEER_CONFIG_TIMER))continue;SET_FLA
+G(peer->config,PEER_GROUP_CONFIG_TIMER);peer->holdtime=group->conf->holdtime;pee
+r->keepalive=group->conf->keepalive;}}return0;}intpeer_timers_unset(structpeer*p
+eer){structpeer_group*group;structlistnode*node,*nnode;/*Firstworkonrealpeersvst
+hepeer-group*/if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){UNSET_FLAG(peer->c
+onfig,PEER_CONFIG_TIMER);peer->keepalive=0;peer->holdtime=0;if(peer->group&&peer
+->group->conf->holdtime){SET_FLAG(peer->config,PEER_GROUP_CONFIG_TIMER);peer->ke
+epalive=peer->group->conf->keepalive;peer->holdtime=peer->group->conf->holdtime;
+}}else{/*peer-groupmemberupdates.*/group=peer->group;for(ALL_LIST_ELEMENTS(group
+->peer,node,nnode,peer)){if(!CHECK_FLAG(peer->config,PEER_CONFIG_TIMER)){UNSET_F
+LAG(peer->config,PEER_GROUP_CONFIG_TIMER);peer->holdtime=0;peer->keepalive=0;}}U
+NSET_FLAG(group->conf->config,PEER_GROUP_CONFIG_TIMER);group->conf->holdtime=0;g
+roup->conf->keepalive=0;}return0;}intpeer_timers_connect_set(structpeer*peer,uin
+t32_tconnect){structpeer_group*group;structlistnode*node,*nnode;if(connect>65535
+)returnBGP_ERR_INVALID_VALUE;/*Setvaluetotheconfiguration.*/SET_FLAG(peer->confi
+g,PEER_CONFIG_CONNECT);peer->connect=connect;/*Setvaluetotimersetting.*/peer->v_
+connect=connect;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP))return0;/*peer-gr
+oupmemberupdates.*/group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnod
+e,peer)){SET_FLAG(peer->config,PEER_CONFIG_CONNECT);peer->connect=connect;peer->
+v_connect=connect;}return0;}intpeer_timers_connect_unset(structpeer*peer){struct
+peer_group*group;structlistnode*node,*nnode;/*Clearconfiguration.*/UNSET_FLAG(pe
+er->config,PEER_CONFIG_CONNECT);peer->connect=0;/*Settimersettingtodefaultvalue.
+*/peer->v_connect=BGP_DEFAULT_CONNECT_RETRY;if(!CHECK_FLAG(peer->sflags,PEER_STA
+TUS_GROUP))return0;/*peer-groupmemberupdates.*/group=peer->group;for(ALL_LIST_EL
+EMENTS(group->peer,node,nnode,peer)){UNSET_FLAG(peer->config,PEER_CONFIG_CONNECT
+);peer->connect=0;peer->v_connect=BGP_DEFAULT_CONNECT_RETRY;}return0;}intpeer_ad
+vertise_interval_set(structpeer*peer,uint32_trouteadv){structpeer_group*group;st
+ructlistnode*node,*nnode;if(routeadv>600)returnBGP_ERR_INVALID_VALUE;SET_FLAG(pe
+er->config,PEER_CONFIG_ROUTEADV);peer->routeadv=routeadv;peer->v_routeadv=routea
+dv;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){update_group_adjust_peer_afs(
+peer);if(peer->status==Established)bgp_announce_route_all(peer);return0;}/*peer-
+groupmemberupdates.*/group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nn
+ode,peer)){SET_FLAG(peer->config,PEER_CONFIG_ROUTEADV);peer->routeadv=routeadv;p
+eer->v_routeadv=routeadv;update_group_adjust_peer_afs(peer);if(peer->status==Est
+ablished)bgp_announce_route_all(peer);}return0;}intpeer_advertise_interval_unset
+(structpeer*peer){structpeer_group*group;structlistnode*node,*nnode;UNSET_FLAG(p
+eer->config,PEER_CONFIG_ROUTEADV);peer->routeadv=0;if(peer->sort==BGP_PEER_IBGP)
+peer->v_routeadv=BGP_DEFAULT_IBGP_ROUTEADV;elsepeer->v_routeadv=BGP_DEFAULT_EBGP
+_ROUTEADV;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){update_group_adjust_pe
+er_afs(peer);if(peer->status==Established)bgp_announce_route_all(peer);return0;}
+/*peer-groupmemberupdates.*/group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,
+node,nnode,peer)){UNSET_FLAG(peer->config,PEER_CONFIG_ROUTEADV);peer->routeadv=0
+;if(peer->sort==BGP_PEER_IBGP)peer->v_routeadv=BGP_DEFAULT_IBGP_ROUTEADV;elsepee
+r->v_routeadv=BGP_DEFAULT_EBGP_ROUTEADV;update_group_adjust_peer_afs(peer);if(pe
+er->status==Established)bgp_announce_route_all(peer);}return0;}/*neighborinterfa
+ce*/voidpeer_interface_set(structpeer*peer,constchar*str){if(peer->ifname)XFREE(
+MTYPE_BGP_PEER_IFNAME,peer->ifname);peer->ifname=XSTRDUP(MTYPE_BGP_PEER_IFNAME,s
+tr);}voidpeer_interface_unset(structpeer*peer){if(peer->ifname)XFREE(MTYPE_BGP_P
+EER_IFNAME,peer->ifname);peer->ifname=NULL;}/*Allow-asin.*/intpeer_allowas_in_se
+t(structpeer*peer,afi_tafi,safi_tsafi,intallow_num,intorigin){structpeer_group*g
+roup;structlistnode*node,*nnode;if(origin){if(peer->allowas_in[afi][safi]||CHECK
+_FLAG(peer->af_flags[afi][safi],PEER_FLAG_ALLOWAS_IN)||!CHECK_FLAG(peer->af_flag
+s[afi][safi],PEER_FLAG_ALLOWAS_IN_ORIGIN)){peer->allowas_in[afi][safi]=0;peer_af
+_flag_unset(peer,afi,safi,PEER_FLAG_ALLOWAS_IN);peer_af_flag_set(peer,afi,safi,P
+EER_FLAG_ALLOWAS_IN_ORIGIN);peer_on_policy_change(peer,afi,safi,0);}if(!CHECK_FL
+AG(peer->sflags,PEER_STATUS_GROUP))return0;group=peer->group;for(ALL_LIST_ELEMEN
+TS(group->peer,node,nnode,peer)){if(peer->allowas_in[afi][safi]||CHECK_FLAG(peer
+->af_flags[afi][safi],PEER_FLAG_ALLOWAS_IN)||!CHECK_FLAG(peer->af_flags[afi][saf
+i],PEER_FLAG_ALLOWAS_IN_ORIGIN)){peer->allowas_in[afi][safi]=0;peer_af_flag_unse
+t(peer,afi,safi,PEER_FLAG_ALLOWAS_IN);peer_af_flag_set(peer,afi,safi,PEER_FLAG_A
+LLOWAS_IN_ORIGIN);peer_on_policy_change(peer,afi,safi,0);}}}else{if(allow_num<1|
+|allow_num>10)returnBGP_ERR_INVALID_VALUE;if(peer->allowas_in[afi][safi]!=allow_
+num||CHECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_ALLOWAS_IN_ORIGIN)){peer->al
+lowas_in[afi][safi]=allow_num;peer_af_flag_set(peer,afi,safi,PEER_FLAG_ALLOWAS_I
+N);peer_af_flag_unset(peer,afi,safi,PEER_FLAG_ALLOWAS_IN_ORIGIN);peer_on_policy_
+change(peer,afi,safi,0);}if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP))return0;
+group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){if(peer->a
+llowas_in[afi][safi]!=allow_num||CHECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_
+ALLOWAS_IN_ORIGIN)){peer->allowas_in[afi][safi]=allow_num;peer_af_flag_set(peer,
+afi,safi,PEER_FLAG_ALLOWAS_IN);peer_af_flag_unset(peer,afi,safi,PEER_FLAG_ALLOWA
+S_IN_ORIGIN);peer_on_policy_change(peer,afi,safi,0);}}}return0;}intpeer_allowas_
+in_unset(structpeer*peer,afi_tafi,safi_tsafi){structpeer_group*group;structpeer*
+tmp_peer;structlistnode*node,*nnode;/*Ifthisisapeer-groupwemustfirstcleartheflag
+sforallofthe*peer-groupmembers*/if(CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){g
+roup=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,tmp_peer)){if(CHEC
+K_FLAG(tmp_peer->af_flags[afi][safi],PEER_FLAG_ALLOWAS_IN)||CHECK_FLAG(tmp_peer-
+>af_flags[afi][safi],PEER_FLAG_ALLOWAS_IN_ORIGIN)){tmp_peer->allowas_in[afi][saf
+i]=0;peer_af_flag_unset(tmp_peer,afi,safi,PEER_FLAG_ALLOWAS_IN);peer_af_flag_uns
+et(tmp_peer,afi,safi,PEER_FLAG_ALLOWAS_IN_ORIGIN);peer_on_policy_change(tmp_peer
+,afi,safi,0);}}}if(CHECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_ALLOWAS_IN)||C
+HECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_ALLOWAS_IN_ORIGIN)){peer->allowas_
+in[afi][safi]=0;peer_af_flag_unset(peer,afi,safi,PEER_FLAG_ALLOWAS_IN);peer_af_f
+lag_unset(peer,afi,safi,PEER_FLAG_ALLOWAS_IN_ORIGIN);peer_on_policy_change(peer,
+afi,safi,0);}return0;}intpeer_local_as_set(structpeer*peer,as_tas,intno_prepend,
+intreplace_as){structbgp*bgp=peer->bgp;structpeer_group*group;structlistnode*nod
+e,*nnode;if(peer_sort(peer)!=BGP_PEER_EBGP&&peer_sort(peer)!=BGP_PEER_INTERNAL)r
+eturnBGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP;if(bgp->as==as)returnBGP_ERR_CANNOT_
+HAVE_LOCAL_AS_SAME_AS;if(peer->as==as)returnBGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS
+_REMOTE_AS;if(peer->change_local_as==as&&((CHECK_FLAG(peer->flags,PEER_FLAG_LOCA
+L_AS_NO_PREPEND)&&no_prepend)||(!CHECK_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_NO_PR
+EPEND)&&!no_prepend))&&((CHECK_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_REPLACE_AS)&&
+replace_as)||(!CHECK_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_REPLACE_AS)&&!replace_a
+s)))return0;peer->change_local_as=as;if(no_prepend)SET_FLAG(peer->flags,PEER_FLA
+G_LOCAL_AS_NO_PREPEND);elseUNSET_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_NO_PREPEND)
+;if(replace_as)SET_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_REPLACE_AS);elseUNSET_FLA
+G(peer->flags,PEER_FLAG_LOCAL_AS_REPLACE_AS);if(!CHECK_FLAG(peer->sflags,PEER_ST
+ATUS_GROUP)){if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEE
+R_DOWN_LOCAL_AS_CHANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CO
+NFIG_CHANGE);}elsebgp_session_reset(peer);return0;}group=peer->group;for(ALL_LIS
+T_ELEMENTS(group->peer,node,nnode,peer)){peer->change_local_as=as;if(no_prepend)
+SET_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_NO_PREPEND);elseUNSET_FLAG(peer->flags,P
+EER_FLAG_LOCAL_AS_NO_PREPEND);if(replace_as)SET_FLAG(peer->flags,PEER_FLAG_LOCAL
+_AS_REPLACE_AS);elseUNSET_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_REPLACE_AS);if(BGP
+_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->last_reset=PEER_DOWN_LOCAL_AS_CHA
+NGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);}elseB
+GP_EVENT_ADD(peer,BGP_Stop);}return0;}intpeer_local_as_unset(structpeer*peer){st
+ructpeer_group*group;structlistnode*node,*nnode;if(!peer->change_local_as)return
+0;peer->change_local_as=0;UNSET_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_NO_PREPEND);
+UNSET_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_REPLACE_AS);if(!CHECK_FLAG(peer->sflag
+s,PEER_STATUS_GROUP)){if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->last_
+reset=PEER_DOWN_LOCAL_AS_CHANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY
+_CEASE_CONFIG_CHANGE);}elseBGP_EVENT_ADD(peer,BGP_Stop);return0;}group=peer->gro
+up;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){peer->change_local_as=0;U
+NSET_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_NO_PREPEND);UNSET_FLAG(peer->flags,PEER
+_FLAG_LOCAL_AS_REPLACE_AS);if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)){peer->
+last_reset=PEER_DOWN_LOCAL_AS_CHANGE;bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_N
+OTIFY_CEASE_CONFIG_CHANGE);}elsebgp_session_reset(peer);}return0;}/*Setpasswordf
+orauthenticatingwiththepeer.*/intpeer_password_set(structpeer*peer,constchar*pas
+sword){structlistnode*nn,*nnode;intlen=password?strlen(password):0;intret=BGP_SU
+CCESS;if((len<PEER_PASSWORD_MINLEN)||(len>PEER_PASSWORD_MAXLEN))returnBGP_ERR_IN
+VALID_VALUE;if(peer->password&&strcmp(peer->password,password)==0&&!CHECK_FLAG(p
+eer->sflags,PEER_STATUS_GROUP))return0;if(peer->password)XFREE(MTYPE_PEER_PASSWO
+RD,peer->password);peer->password=XSTRDUP(MTYPE_PEER_PASSWORD,password);if(!CHEC
+K_FLAG(peer->sflags,PEER_STATUS_GROUP)){if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->st
+atus))bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);else
+bgp_session_reset(peer);if(BGP_PEER_SU_UNSPEC(peer))returnBGP_SUCCESS;return(bgp
+_md5_set(peer)>=0)?BGP_SUCCESS:BGP_ERR_TCPSIG_FAILED;}for(ALL_LIST_ELEMENTS(peer
+->group->peer,nn,nnode,peer)){if(peer->password&&strcmp(peer->password,password)
+==0)continue;if(peer->password)XFREE(MTYPE_PEER_PASSWORD,peer->password);peer->p
+assword=XSTRDUP(MTYPE_PEER_PASSWORD,password);if(BGP_IS_VALID_STATE_FOR_NOTIF(pe
+er->status))bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE
+);elsebgp_session_reset(peer);if(!BGP_PEER_SU_UNSPEC(peer)){if(bgp_md5_set(peer)
+<0)ret=BGP_ERR_TCPSIG_FAILED;}}returnret;}intpeer_password_unset(structpeer*peer
+){structlistnode*nn,*nnode;if(!peer->password&&!CHECK_FLAG(peer->sflags,PEER_STA
+TUS_GROUP))return0;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){if(BGP_IS_VAL
+ID_STATE_FOR_NOTIF(peer->status))bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIF
+Y_CEASE_CONFIG_CHANGE);elsebgp_session_reset(peer);if(peer->password)XFREE(MTYPE
+_PEER_PASSWORD,peer->password);peer->password=NULL;if(!BGP_PEER_SU_UNSPEC(peer))
+bgp_md5_unset(peer);return0;}XFREE(MTYPE_PEER_PASSWORD,peer->password);peer->pas
+sword=NULL;for(ALL_LIST_ELEMENTS(peer->group->peer,nn,nnode,peer)){if(!peer->pas
+sword)continue;if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))bgp_notify_send(pee
+r,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_CONFIG_CHANGE);elsebgp_session_reset(peer);X
+FREE(MTYPE_PEER_PASSWORD,peer->password);peer->password=NULL;if(!BGP_PEER_SU_UNS
+PEC(peer))bgp_md5_unset(peer);}return0;}/*Setdistributelisttothepeer.*/intpeer_d
+istribute_set(structpeer*peer,afi_tafi,safi_tsafi,intdirect,constchar*name){stru
+ctbgp_filter*filter;structpeer_group*group;structlistnode*node,*nnode;if(direct!
+=FILTER_IN&&direct!=FILTER_OUT)returnBGP_ERR_INVALID_VALUE;filter=&peer->filter[
+afi][safi];if(filter->plist[direct].name)returnBGP_ERR_PEER_FILTER_CONFLICT;if(f
+ilter->dlist[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->dlist[direct].name
+);filter->dlist[direct].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,name);filter->dlist[d
+irect].alist=access_list_lookup(afi,name);if(!CHECK_FLAG(peer->sflags,PEER_STATU
+S_GROUP)){peer_on_policy_change(peer,afi,safi,(direct==FILTER_OUT)?1:0);return0;
+}group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){filter=&p
+eer->filter[afi][safi];if(filter->dlist[direct].name)XFREE(MTYPE_BGP_FILTER_NAME
+,filter->dlist[direct].name);filter->dlist[direct].name=XSTRDUP(MTYPE_BGP_FILTER
+_NAME,name);filter->dlist[direct].alist=access_list_lookup(afi,name);peer_on_pol
+icy_change(peer,afi,safi,(direct==FILTER_OUT)?1:0);}return0;}intpeer_distribute_
+unset(structpeer*peer,afi_tafi,safi_tsafi,intdirect){structbgp_filter*filter;str
+uctbgp_filter*gfilter;structpeer_group*group;structlistnode*node,*nnode;if(direc
+t!=FILTER_IN&&direct!=FILTER_OUT)returnBGP_ERR_INVALID_VALUE;filter=&peer->filte
+r[afi][safi];/*applypeer-groupfilter*/if(peer_group_active(peer)){gfilter=&peer-
+>group->conf->filter[afi][safi];if(gfilter->dlist[direct].name){if(filter->dlist
+[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->dlist[direct].name);filter->dl
+ist[direct].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,gfilter->dlist[direct].name);filt
+er->dlist[direct].alist=gfilter->dlist[direct].alist;peer_on_policy_change(peer,
+afi,safi,(direct==FILTER_OUT)?1:0);return0;}}if(filter->dlist[direct].name)XFREE
+(MTYPE_BGP_FILTER_NAME,filter->dlist[direct].name);filter->dlist[direct].name=NU
+LL;filter->dlist[direct].alist=NULL;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROU
+P)){peer_on_policy_change(peer,afi,safi,(direct==FILTER_OUT)?1:0);return0;}group
+=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){filter=&peer->f
+ilter[afi][safi];if(filter->dlist[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filte
+r->dlist[direct].name);filter->dlist[direct].name=NULL;filter->dlist[direct].ali
+st=NULL;peer_on_policy_change(peer,afi,safi,(direct==FILTER_OUT)?1:0);}return0;}
+/*Updatedistributelist.*/staticvoidpeer_distribute_update(structaccess_list*acce
+ss){afi_tafi;safi_tsafi;intdirect;structlistnode*mnode,*mnnode;structlistnode*no
+de,*nnode;structbgp*bgp;structpeer*peer;structpeer_group*group;structbgp_filter*
+filter;for(ALL_LIST_ELEMENTS(bm->bgp,mnode,mnnode,bgp)){if(access->name)update_g
+roup_policy_update(bgp,BGP_POLICY_FILTER_LIST,access->name,0,0);for(ALL_LIST_ELE
+MENTS(bgp->peer,node,nnode,peer)){FOREACH_AFI_SAFI(afi,safi){filter=&peer->filte
+r[afi][safi];for(direct=FILTER_IN;direct<FILTER_MAX;direct++){if(filter->dlist[d
+irect].name)filter->dlist[direct].alist=access_list_lookup(afi,filter->dlist[dir
+ect].name);elsefilter->dlist[direct].alist=NULL;}}}for(ALL_LIST_ELEMENTS(bgp->gr
+oup,node,nnode,group)){FOREACH_AFI_SAFI(afi,safi){filter=&group->conf->filter[af
+i][safi];for(direct=FILTER_IN;direct<FILTER_MAX;direct++){if(filter->dlist[direc
+t].name)filter->dlist[direct].alist=access_list_lookup(afi,filter->dlist[direct]
+.name);elsefilter->dlist[direct].alist=NULL;}}}#ifENABLE_BGP_VNCvnc_prefix_list_
+update(bgp);#endif}}/*Setprefixlisttothepeer.*/intpeer_prefix_list_set(structpee
+r*peer,afi_tafi,safi_tsafi,intdirect,constchar*name){structbgp_filter*filter;str
+uctpeer_group*group;structlistnode*node,*nnode;if(direct!=FILTER_IN&&direct!=FIL
+TER_OUT)returnBGP_ERR_INVALID_VALUE;filter=&peer->filter[afi][safi];if(filter->d
+list[direct].name)returnBGP_ERR_PEER_FILTER_CONFLICT;if(filter->plist[direct].na
+me)XFREE(MTYPE_BGP_FILTER_NAME,filter->plist[direct].name);filter->plist[direct]
+.name=XSTRDUP(MTYPE_BGP_FILTER_NAME,name);filter->plist[direct].plist=prefix_lis
+t_lookup(afi,name);if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){peer_on_polic
+y_change(peer,afi,safi,(direct==FILTER_OUT)?1:0);return0;}group=peer->group;for(
+ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){filter=&peer->filter[afi][safi];
+if(filter->plist[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->plist[direct].
+name);filter->plist[direct].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,name);filter->pli
+st[direct].plist=prefix_list_lookup(afi,name);peer_on_policy_change(peer,afi,saf
+i,(direct==FILTER_OUT)?1:0);}return0;}intpeer_prefix_list_unset(structpeer*peer,
+afi_tafi,safi_tsafi,intdirect){structbgp_filter*filter;structbgp_filter*gfilter;
+structpeer_group*group;structlistnode*node,*nnode;if(direct!=FILTER_IN&&direct!=
+FILTER_OUT)returnBGP_ERR_INVALID_VALUE;filter=&peer->filter[afi][safi];/*applype
+er-groupfilter*/if(peer_group_active(peer)){gfilter=&peer->group->conf->filter[a
+fi][safi];if(gfilter->plist[direct].name){if(filter->plist[direct].name)XFREE(MT
+YPE_BGP_FILTER_NAME,filter->plist[direct].name);filter->plist[direct].name=XSTRD
+UP(MTYPE_BGP_FILTER_NAME,gfilter->plist[direct].name);filter->plist[direct].plis
+t=gfilter->plist[direct].plist;peer_on_policy_change(peer,afi,safi,(direct==FILT
+ER_OUT)?1:0);return0;}}if(filter->plist[direct].name)XFREE(MTYPE_BGP_FILTER_NAME
+,filter->plist[direct].name);filter->plist[direct].name=NULL;filter->plist[direc
+t].plist=NULL;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){peer_on_policy_cha
+nge(peer,afi,safi,(direct==FILTER_OUT)?1:0);return0;}group=peer->group;for(ALL_L
+IST_ELEMENTS(group->peer,node,nnode,peer)){filter=&peer->filter[afi][safi];if(fi
+lter->plist[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->plist[direct].name)
+;filter->plist[direct].name=NULL;filter->plist[direct].plist=NULL;peer_on_policy
+_change(peer,afi,safi,(direct==FILTER_OUT)?1:0);}return0;}/*Updateprefix-listlis
+t.*/staticvoidpeer_prefix_list_update(structprefix_list*plist){structlistnode*mn
+ode,*mnnode;structlistnode*node,*nnode;structbgp*bgp;structpeer*peer;structpeer_
+group*group;structbgp_filter*filter;afi_tafi;safi_tsafi;intdirect;for(ALL_LIST_E
+LEMENTS(bm->bgp,mnode,mnnode,bgp)){/**Updatetheprefix-listonupdategroups.*/updat
+e_group_policy_update(bgp,BGP_POLICY_PREFIX_LIST,plist?prefix_list_name(plist):N
+ULL,0,0);for(ALL_LIST_ELEMENTS(bgp->peer,node,nnode,peer)){FOREACH_AFI_SAFI(afi,
+safi){filter=&peer->filter[afi][safi];for(direct=FILTER_IN;direct<FILTER_MAX;dir
+ect++){if(filter->plist[direct].name)filter->plist[direct].plist=prefix_list_loo
+kup(afi,filter->plist[direct].name);elsefilter->plist[direct].plist=NULL;}}}for(
+ALL_LIST_ELEMENTS(bgp->group,node,nnode,group)){FOREACH_AFI_SAFI(afi,safi){filte
+r=&group->conf->filter[afi][safi];for(direct=FILTER_IN;direct<FILTER_MAX;direct+
++){if(filter->plist[direct].name)filter->plist[direct].plist=prefix_list_lookup(
+afi,filter->plist[direct].name);elsefilter->plist[direct].plist=NULL;}}}}}intpee
+r_aslist_set(structpeer*peer,afi_tafi,safi_tsafi,intdirect,constchar*name){struc
+tbgp_filter*filter;structpeer_group*group;structlistnode*node,*nnode;if(direct!=
+FILTER_IN&&direct!=FILTER_OUT)returnBGP_ERR_INVALID_VALUE;filter=&peer->filter[a
+fi][safi];if(filter->aslist[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->asl
+ist[direct].name);filter->aslist[direct].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,name
+);filter->aslist[direct].aslist=as_list_lookup(name);if(!CHECK_FLAG(peer->sflags
+,PEER_STATUS_GROUP)){peer_on_policy_change(peer,afi,safi,(direct==FILTER_OUT)?1:
+0);return0;}group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)
+){filter=&peer->filter[afi][safi];if(filter->aslist[direct].name)XFREE(MTYPE_BGP
+_FILTER_NAME,filter->aslist[direct].name);filter->aslist[direct].name=XSTRDUP(MT
+YPE_BGP_FILTER_NAME,name);filter->aslist[direct].aslist=as_list_lookup(name);pee
+r_on_policy_change(peer,afi,safi,(direct==FILTER_OUT)?1:0);}return0;}intpeer_asl
+ist_unset(structpeer*peer,afi_tafi,safi_tsafi,intdirect){structbgp_filter*filter
+;structbgp_filter*gfilter;structpeer_group*group;structlistnode*node,*nnode;if(d
+irect!=FILTER_IN&&direct!=FILTER_OUT)returnBGP_ERR_INVALID_VALUE;filter=&peer->f
+ilter[afi][safi];/*applypeer-groupfilter*/if(peer_group_active(peer)){gfilter=&p
+eer->group->conf->filter[afi][safi];if(gfilter->aslist[direct].name){if(filter->
+aslist[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->aslist[direct].name);fil
+ter->aslist[direct].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,gfilter->aslist[direct].n
+ame);filter->aslist[direct].aslist=gfilter->aslist[direct].aslist;peer_on_policy
+_change(peer,afi,safi,(direct==FILTER_OUT)?1:0);return0;}}if(filter->aslist[dire
+ct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->aslist[direct].name);filter->aslist
+[direct].name=NULL;filter->aslist[direct].aslist=NULL;if(!CHECK_FLAG(peer->sflag
+s,PEER_STATUS_GROUP)){peer_on_policy_change(peer,afi,safi,(direct==FILTER_OUT)?1
+:0);return0;}group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer
+)){filter=&peer->filter[afi][safi];if(filter->aslist[direct].name)XFREE(MTYPE_BG
+P_FILTER_NAME,filter->aslist[direct].name);filter->aslist[direct].name=NULL;filt
+er->aslist[direct].aslist=NULL;peer_on_policy_change(peer,afi,safi,(direct==FILT
+ER_OUT)?1:0);}return0;}staticvoidpeer_aslist_update(constchar*aslist_name){afi_t
+afi;safi_tsafi;intdirect;structlistnode*mnode,*mnnode;structlistnode*node,*nnode
+;structbgp*bgp;structpeer*peer;structpeer_group*group;structbgp_filter*filter;fo
+r(ALL_LIST_ELEMENTS(bm->bgp,mnode,mnnode,bgp)){update_group_policy_update(bgp,BG
+P_POLICY_FILTER_LIST,aslist_name,0,0);for(ALL_LIST_ELEMENTS(bgp->peer,node,nnode
+,peer)){FOREACH_AFI_SAFI(afi,safi){filter=&peer->filter[afi][safi];for(direct=FI
+LTER_IN;direct<FILTER_MAX;direct++){if(filter->aslist[direct].name)filter->aslis
+t[direct].aslist=as_list_lookup(filter->aslist[direct].name);elsefilter->aslist[
+direct].aslist=NULL;}}}for(ALL_LIST_ELEMENTS(bgp->group,node,nnode,group)){FOREA
+CH_AFI_SAFI(afi,safi){filter=&group->conf->filter[afi][safi];for(direct=FILTER_I
+N;direct<FILTER_MAX;direct++){if(filter->aslist[direct].name)filter->aslist[dire
+ct].aslist=as_list_lookup(filter->aslist[direct].name);elsefilter->aslist[direct
+].aslist=NULL;}}}}}staticvoidpeer_aslist_add(char*aslist_name){peer_aslist_updat
+e(aslist_name);route_map_notify_dependencies((char*)aslist_name,RMAP_EVENT_ASLIS
+T_ADDED);}staticvoidpeer_aslist_del(constchar*aslist_name){peer_aslist_update(as
+list_name);route_map_notify_dependencies(aslist_name,RMAP_EVENT_ASLIST_DELETED);
+}intpeer_route_map_set(structpeer*peer,afi_tafi,safi_tsafi,intdirect,constchar*n
+ame){structbgp_filter*filter;structpeer_group*group;structlistnode*node,*nnode;i
+f(direct!=RMAP_IN&&direct!=RMAP_OUT)returnBGP_ERR_INVALID_VALUE;filter=&peer->fi
+lter[afi][safi];if(filter->map[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->
+map[direct].name);filter->map[direct].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,name);f
+ilter->map[direct].map=route_map_lookup_by_name(name);if(!CHECK_FLAG(peer->sflag
+s,PEER_STATUS_GROUP)){peer_on_policy_change(peer,afi,safi,(direct==RMAP_OUT)?1:0
+);return0;}group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer))
+{filter=&peer->filter[afi][safi];if(filter->map[direct].name)XFREE(MTYPE_BGP_FIL
+TER_NAME,filter->map[direct].name);filter->map[direct].name=XSTRDUP(MTYPE_BGP_FI
+LTER_NAME,name);filter->map[direct].map=route_map_lookup_by_name(name);peer_on_p
+olicy_change(peer,afi,safi,(direct==RMAP_OUT)?1:0);}return0;}/*Unsetroute-mapfro
+mthepeer.*/intpeer_route_map_unset(structpeer*peer,afi_tafi,safi_tsafi,intdirect
+){structbgp_filter*filter;structbgp_filter*gfilter;structpeer_group*group;struct
+listnode*node,*nnode;if(direct!=RMAP_IN&&direct!=RMAP_OUT)returnBGP_ERR_INVALID_
+VALUE;filter=&peer->filter[afi][safi];/*applypeer-groupfilter*/if(peer_group_act
+ive(peer)){gfilter=&peer->group->conf->filter[afi][safi];if(gfilter->map[direct]
+.name){if(filter->map[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->map[direc
+t].name);filter->map[direct].name=XSTRDUP(MTYPE_BGP_FILTER_NAME,gfilter->map[dir
+ect].name);filter->map[direct].map=gfilter->map[direct].map;peer_on_policy_chang
+e(peer,afi,safi,(direct==RMAP_OUT)?1:0);return0;}}if(filter->map[direct].name)XF
+REE(MTYPE_BGP_FILTER_NAME,filter->map[direct].name);filter->map[direct].name=NUL
+L;filter->map[direct].map=NULL;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){p
+eer_on_policy_change(peer,afi,safi,(direct==RMAP_OUT)?1:0);return0;}group=peer->
+group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){filter=&peer->filter[a
+fi][safi];if(filter->map[direct].name)XFREE(MTYPE_BGP_FILTER_NAME,filter->map[di
+rect].name);filter->map[direct].name=NULL;filter->map[direct].map=NULL;peer_on_p
+olicy_change(peer,afi,safi,(direct==RMAP_OUT)?1:0);}return0;}/*Setunsuppress-map
+tothepeer.*/intpeer_unsuppress_map_set(structpeer*peer,afi_tafi,safi_tsafi,const
+char*name){structbgp_filter*filter;structpeer_group*group;structlistnode*node,*n
+node;filter=&peer->filter[afi][safi];if(filter->usmap.name)XFREE(MTYPE_BGP_FILTE
+R_NAME,filter->usmap.name);filter->usmap.name=XSTRDUP(MTYPE_BGP_FILTER_NAME,name
+);filter->usmap.map=route_map_lookup_by_name(name);if(!CHECK_FLAG(peer->sflags,P
+EER_STATUS_GROUP)){peer_on_policy_change(peer,afi,safi,1);return0;}group=peer->g
+roup;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){filter=&peer->filter[af
+i][safi];if(filter->usmap.name)XFREE(MTYPE_BGP_FILTER_NAME,filter->usmap.name);f
+ilter->usmap.name=XSTRDUP(MTYPE_BGP_FILTER_NAME,name);filter->usmap.map=route_ma
+p_lookup_by_name(name);peer_on_policy_change(peer,afi,safi,1);}return0;}/*Unsetr
+oute-mapfromthepeer.*/intpeer_unsuppress_map_unset(structpeer*peer,afi_tafi,safi
+_tsafi){structbgp_filter*filter;structpeer_group*group;structlistnode*node,*nnod
+e;filter=&peer->filter[afi][safi];if(filter->usmap.name)XFREE(MTYPE_BGP_FILTER_N
+AME,filter->usmap.name);filter->usmap.name=NULL;filter->usmap.map=NULL;if(!CHECK
+_FLAG(peer->sflags,PEER_STATUS_GROUP)){peer_on_policy_change(peer,afi,safi,1);re
+turn0;}group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){fil
+ter=&peer->filter[afi][safi];if(filter->usmap.name)XFREE(MTYPE_BGP_FILTER_NAME,f
+ilter->usmap.name);filter->usmap.name=NULL;filter->usmap.map=NULL;peer_on_policy
+_change(peer,afi,safi,1);}return0;}intpeer_maximum_prefix_set(structpeer*peer,af
+i_tafi,safi_tsafi,uint32_tmax,uint8_tthreshold,intwarning,uint16_trestart){struc
+tpeer_group*group;structlistnode*node,*nnode;SET_FLAG(peer->af_flags[afi][safi],
+PEER_FLAG_MAX_PREFIX);peer->pmax[afi][safi]=max;peer->pmax_threshold[afi][safi]=
+threshold;peer->pmax_restart[afi][safi]=restart;if(warning)SET_FLAG(peer->af_fla
+gs[afi][safi],PEER_FLAG_MAX_PREFIX_WARNING);elseUNSET_FLAG(peer->af_flags[afi][s
+afi],PEER_FLAG_MAX_PREFIX_WARNING);if(CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)
+){group=peer->group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){SET_FLAG
+(peer->af_flags[afi][safi],PEER_FLAG_MAX_PREFIX);peer->pmax[afi][safi]=max;peer-
+>pmax_threshold[afi][safi]=threshold;peer->pmax_restart[afi][safi]=restart;if(wa
+rning)SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_MAX_PREFIX_WARNING);elseUNSET
+_FLAG(peer->af_flags[afi][safi],PEER_FLAG_MAX_PREFIX_WARNING);if((peer->status==
+Established)&&(peer->afc[afi][safi]))bgp_maximum_prefix_overflow(peer,afi,safi,1
+);}}else{if((peer->status==Established)&&(peer->afc[afi][safi]))bgp_maximum_pref
+ix_overflow(peer,afi,safi,1);}return0;}intpeer_maximum_prefix_unset(structpeer*p
+eer,afi_tafi,safi_tsafi){structpeer_group*group;structlistnode*node,*nnode;/*app
+lypeer-groupconfig*/if(peer_group_active(peer)){if(CHECK_FLAG(peer->group->conf-
+>af_flags[afi][safi],PEER_FLAG_MAX_PREFIX))SET_FLAG(peer->af_flags[afi][safi],PE
+ER_FLAG_MAX_PREFIX);elseUNSET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_MAX_PREFI
+X);if(CHECK_FLAG(peer->group->conf->af_flags[afi][safi],PEER_FLAG_MAX_PREFIX_WAR
+NING))SET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_MAX_PREFIX_WARNING);elseUNSET
+_FLAG(peer->af_flags[afi][safi],PEER_FLAG_MAX_PREFIX_WARNING);peer->pmax[afi][sa
+fi]=peer->group->conf->pmax[afi][safi];peer->pmax_threshold[afi][safi]=peer->gro
+up->conf->pmax_threshold[afi][safi];peer->pmax_restart[afi][safi]=peer->group->c
+onf->pmax_restart[afi][safi];return0;}UNSET_FLAG(peer->af_flags[afi][safi],PEER_
+FLAG_MAX_PREFIX);UNSET_FLAG(peer->af_flags[afi][safi],PEER_FLAG_MAX_PREFIX_WARNI
+NG);peer->pmax[afi][safi]=0;peer->pmax_threshold[afi][safi]=0;peer->pmax_restart
+[afi][safi]=0;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP))return0;group=peer-
+>group;for(ALL_LIST_ELEMENTS(group->peer,node,nnode,peer)){UNSET_FLAG(peer->af_f
+lags[afi][safi],PEER_FLAG_MAX_PREFIX);UNSET_FLAG(peer->af_flags[afi][safi],PEER_
+FLAG_MAX_PREFIX_WARNING);peer->pmax[afi][safi]=0;peer->pmax_threshold[afi][safi]
+=0;peer->pmax_restart[afi][safi]=0;}return0;}intis_ebgp_multihop_configured(stru
+ctpeer*peer){structpeer_group*group;structlistnode*node,*nnode;structpeer*peer1;
+if(CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){group=peer->group;if((peer_sort(p
+eer)!=BGP_PEER_IBGP)&&(group->conf->ttl!=1))return1;for(ALL_LIST_ELEMENTS(group-
+>peer,node,nnode,peer1)){if((peer_sort(peer1)!=BGP_PEER_IBGP)&&(peer1->ttl!=1))r
+eturn1;}}else{if((peer_sort(peer)!=BGP_PEER_IBGP)&&(peer->ttl!=1))return1;}retur
+n0;}/*Set#ofhopsbetweenusandBGPpeer.*/intpeer_ttl_security_hops_set(structpeer*p
+eer,intgtsm_hops){structpeer_group*group;structlistnode*node,*nnode;intret;zlog_
+debug("peer_ttl_security_hops_set:setgtsm_hopsto%dfor%s",gtsm_hops,peer->host);/
+*Wecannotconfigurettl-securityhopswhenebgp-multihopisalreadyset.Fornonpeer-group
+s,thecheckissimple.Forpeer-groups,it'sslightlymessy,becauseweneedtocheckboththep
+eer-groupstructureandallpeer-groupmembersforanytraceofebgp-multihopconfiguration
+beforeactuallyapplyingthettl-securityrules.Ciscoreallymadeamessofthisconfigurati
+onparameter,andOpenBGPDgotitright.*/if((peer->gtsm_hops==0)&&(peer->sort!=BGP_PE
+ER_IBGP)){if(is_ebgp_multihop_configured(peer))returnBGP_ERR_NO_EBGP_MULTIHOP_WI
+TH_TTLHACK;if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){peer->gtsm_hops=gtsm_
+hops;/*Callingebgpmultihopalsoresetsthesession.*Onrestart,NHTwillgetsetupcorrect
+lyaswillthe*min&maxttlsonthesocket.Thereturnvalueis*irrelevant.*/ret=peer_ebgp_m
+ultihop_set(peer,MAXTTL);if(ret!=0)returnret;}else{group=peer->group;for(ALL_LIS
+T_ELEMENTS(group->peer,node,nnode,peer)){peer->gtsm_hops=group->conf->gtsm_hops;
+/*Callingebgpmultihopalsoresetsthe*session.*Onrestart,NHTwillgetsetupcorrectlyas
+*willthe*min&maxttlsonthesocket.Thereturn*valueis*irrelevant.*/peer_ebgp_multiho
+p_set(peer,MAXTTL);}}}else{/*Postthefirstgtsmsetuporifitsibgp,maxttlsetting*isn'
+t*necessary,justsettheminttl.*/if(!CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){p
+eer->gtsm_hops=gtsm_hops;if(peer->fd>=0)sockopt_minttl(peer->su.sa.sa_family,pee
+r->fd,MAXTTL+1-gtsm_hops);if((peer->status<Established)&&peer->doppelganger&&(pe
+er->doppelganger->fd>=0))sockopt_minttl(peer->su.sa.sa_family,peer->doppelganger
+->fd,MAXTTL+1-gtsm_hops);}else{group=peer->group;for(ALL_LIST_ELEMENTS(group->pe
+er,node,nnode,peer)){peer->gtsm_hops=group->conf->gtsm_hops;/*Changesettingofexi
+stingpeer*establishedthenchangevalue(maybreak*connectivity)*notestablishedyet(te
+ardownsessionand*restart)*nosessionthendonothing(willget*handledbynextconnection
+)*/if(peer->fd>=0&&peer->gtsm_hops!=0)sockopt_minttl(peer->su.sa.sa_family,peer-
+>fd,MAXTTL+1-peer->gtsm_hops);if((peer->status<Established)&&peer->doppelganger&
+&(peer->doppelganger->fd>=0))sockopt_minttl(peer->su.sa.sa_family,peer->doppelga
+nger->fd,MAXTTL+1-gtsm_hops);}}}return0;}intpeer_ttl_security_hops_unset(structp
+eer*peer){structpeer_group*group;structlistnode*node,*nnode;intret=0;zlog_debug(
+"peer_ttl_security_hops_unset:setgtsm_hopstozerofor%s",peer->host);/*ifapeer-gro
+upmember,thenresettopeer-groupdefaultratherthan*0*/if(peer_group_active(peer))pe
+er->gtsm_hops=peer->group->conf->gtsm_hops;elsepeer->gtsm_hops=0;if(!CHECK_FLAG(
+peer->sflags,PEER_STATUS_GROUP)){/*Invokingebgp_multihop_setwillsettheTTLbacktot
+he*original*valueaswellasresttingtheNHTandsuch.Thesessionis*reset.*/if(peer->sor
+t==BGP_PEER_EBGP)ret=peer_ebgp_multihop_unset(peer);else{if(peer->fd>=0)sockopt_
+minttl(peer->su.sa.sa_family,peer->fd,0);if((peer->status<Established)&&peer->do
+ppelganger&&(peer->doppelganger->fd>=0))sockopt_minttl(peer->su.sa.sa_family,pee
+r->doppelganger->fd,0);}}else{group=peer->group;for(ALL_LIST_ELEMENTS(group->pee
+r,node,nnode,peer)){peer->gtsm_hops=0;if(peer->sort==BGP_PEER_EBGP)ret=peer_ebgp
+_multihop_unset(peer);else{if(peer->fd>=0)sockopt_minttl(peer->su.sa.sa_family,p
+eer->fd,0);if((peer->status<Established)&&peer->doppelganger&&(peer->doppelgange
+r->fd>=0))sockopt_minttl(peer->su.sa.sa_family,peer->doppelganger->fd,0);}}}retu
+rnret;}/**IfpeerclearisinvokedinaloopforallpeersontheBGPinstance,*itmayendupfree
+ingthedoppelganger,andifthiswasthenextnode*tothecurrentnode,wewouldendupaccessin
+gthefreednextnode.*Passalongadditionalparameterwhichcanbeupdatedifnextnode*isfre
+ed;onlyrequiredwhenwalkingthepeerlistonBGPinstance.*/intpeer_clear(structpeer*pe
+er,structlistnode**nnode){if(!CHECK_FLAG(peer->flags,PEER_FLAG_SHUTDOWN)){if(CHE
+CK_FLAG(peer->sflags,PEER_STATUS_PREFIX_OVERFLOW)){UNSET_FLAG(peer->sflags,PEER_
+STATUS_PREFIX_OVERFLOW);if(peer->t_pmax_restart){BGP_TIMER_OFF(peer->t_pmax_rest
+art);if(bgp_debug_neighbor_events(peer))zlog_debug("%sMaximum-prefixrestarttimer
+canceled",peer->host);}BGP_EVENT_ADD(peer,BGP_Start);return0;}peer->v_start=BGP_
+INIT_START_TIMER;if(BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))bgp_notify_send(p
+eer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_ADMIN_RESET);elsebgp_session_reset_safe(pe
+er,nnode);}return0;}intpeer_clear_soft(structpeer*peer,afi_tafi,safi_tsafi,enumb
+gp_clear_typestype){structpeer_af*paf;if(peer->status!=Established)return0;if(!p
+eer->afc[afi][safi])returnBGP_ERR_AF_UNCONFIGURED;peer->rtt=sockopt_tcp_rtt(peer
+->fd);if(stype==BGP_CLEAR_SOFT_OUT||stype==BGP_CLEAR_SOFT_BOTH){/*Clearthe"neigh
+borx.x.x.xdefault-originate"flag*/paf=peer_af_find(peer,afi,safi);if(paf&&paf->s
+ubgroup&&CHECK_FLAG(paf->subgroup->sflags,SUBGRP_STATUS_DEFAULT_ORIGINATE))UNSET
+_FLAG(paf->subgroup->sflags,SUBGRP_STATUS_DEFAULT_ORIGINATE);bgp_announce_route(
+peer,afi,safi);}if(stype==BGP_CLEAR_SOFT_IN_ORF_PREFIX){if(CHECK_FLAG(peer->af_c
+ap[afi][safi],PEER_CAP_ORF_PREFIX_SM_ADV)&&(CHECK_FLAG(peer->af_cap[afi][safi],P
+EER_CAP_ORF_PREFIX_RM_RCV)||CHECK_FLAG(peer->af_cap[afi][safi],PEER_CAP_ORF_PREF
+IX_RM_OLD_RCV))){structbgp_filter*filter=&peer->filter[afi][safi];uint8_tprefix_
+type;if(CHECK_FLAG(peer->af_cap[afi][safi],PEER_CAP_ORF_PREFIX_RM_RCV))prefix_ty
+pe=ORF_TYPE_PREFIX;elseprefix_type=ORF_TYPE_PREFIX_OLD;if(filter->plist[FILTER_I
+N].plist){if(CHECK_FLAG(peer->af_sflags[afi][safi],PEER_STATUS_ORF_PREFIX_SEND))
+bgp_route_refresh_send(peer,afi,safi,prefix_type,REFRESH_DEFER,1);bgp_route_refr
+esh_send(peer,afi,safi,prefix_type,REFRESH_IMMEDIATE,0);}else{if(CHECK_FLAG(peer
+->af_sflags[afi][safi],PEER_STATUS_ORF_PREFIX_SEND))bgp_route_refresh_send(peer,
+afi,safi,prefix_type,REFRESH_IMMEDIATE,1);elsebgp_route_refresh_send(peer,afi,sa
+fi,0,0,0);}return0;}}if(stype==BGP_CLEAR_SOFT_IN||stype==BGP_CLEAR_SOFT_BOTH||st
+ype==BGP_CLEAR_SOFT_IN_ORF_PREFIX){/*Ifneighborhassoftreconfigurationinboundflag
+.UseAdj-RIB-Indatabase.*/if(CHECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_SOFT_
+RECONFIG))bgp_soft_reconfig_in(peer,afi,safi);else{/*Ifneighborhasrouterefreshca
+pability,sendrouterefreshmessagetothepeer.*/if(CHECK_FLAG(peer->cap,PEER_CAP_REF
+RESH_OLD_RCV)||CHECK_FLAG(peer->cap,PEER_CAP_REFRESH_NEW_RCV))bgp_route_refresh_
+send(peer,afi,safi,0,0,0);elsereturnBGP_ERR_SOFT_RECONFIG_UNCONFIGURED;}}return0
+;}/*Displaypeeruptime.*/char*peer_uptime(time_tuptime2,char*buf,size_tlen,uint8_
+tuse_json,json_object*json){time_tuptime1,epoch_tbuf;structtm*tm;/*Checkbufferle
+ngth.*/if(len<BGP_UPTIME_LEN){if(!use_json){zlog_warn("peer_uptime():buffershort
+age%lu",(unsignedlong)len);/*XXX:shouldreturnstatusinsteadofbuf...*/snprintf(buf
+,len,"<error>");}returnbuf;}/*Ifthereisnoconnectionhasbeendonebeforeprint`never'
+.*/if(uptime2==0){if(use_json){json_object_string_add(json,"peerUptime","never")
+;json_object_int_add(json,"peerUptimeMsec",0);}elsesnprintf(buf,len,"never");ret
+urnbuf;}/*Getcurrenttime.*/uptime1=bgp_clock();uptime1-=uptime2;tm=gmtime(&uptim
+e1);if(uptime1<ONE_DAY_SECOND)snprintf(buf,len,"%02d:%02d:%02d",tm->tm_hour,tm->
+tm_min,tm->tm_sec);elseif(uptime1<ONE_WEEK_SECOND)snprintf(buf,len,"%dd%02dh%02d
+m",tm->tm_yday,tm->tm_hour,tm->tm_min);elseif(uptime1<ONE_YEAR_SECOND)snprintf(b
+uf,len,"%02dw%dd%02dh",tm->tm_yday/7,tm->tm_yday-((tm->tm_yday/7)*7),tm->tm_hour
+);elsesnprintf(buf,len,"%02dy%02dw%dd",tm->tm_year-70,tm->tm_yday/7,tm->tm_yday-
+((tm->tm_yday/7)*7));if(use_json){epoch_tbuf=time(NULL)-uptime1;json_object_stri
+ng_add(json,"peerUptime",buf);json_object_int_add(json,"peerUptimeMsec",uptime1*
+1000);json_object_int_add(json,"peerUptimeEstablishedEpoch",epoch_tbuf);}returnb
+uf;}staticvoidbgp_config_write_filter(structvty*vty,structpeer*peer,afi_tafi,saf
+i_tsafi){structbgp_filter*filter;structbgp_filter*gfilter=NULL;char*addr;intin=F
+ILTER_IN;intout=FILTER_OUT;addr=peer->host;filter=&peer->filter[afi][safi];if(pe
+er_group_active(peer))gfilter=&peer->group->conf->filter[afi][safi];/*distribute
+-list.*/if(filter->dlist[in].name)if(!gfilter||!gfilter->dlist[in].name||strcmp(
+filter->dlist[in].name,gfilter->dlist[in].name)!=0){vty_out(vty,"neighbor%sdistr
+ibute-list%sin\n",addr,filter->dlist[in].name);}if(filter->dlist[out].name&&!gfi
+lter){vty_out(vty,"neighbor%sdistribute-list%sout\n",addr,filter->dlist[out].nam
+e);}/*prefix-list.*/if(filter->plist[in].name)if(!gfilter||!gfilter->plist[in].n
+ame||strcmp(filter->plist[in].name,gfilter->plist[in].name)!=0){vty_out(vty,"nei
+ghbor%sprefix-list%sin\n",addr,filter->plist[in].name);}if(filter->plist[out].na
+me)if(!gfilter||!gfilter->plist[out].name||strcmp(filter->plist[out].name,gfilte
+r->plist[out].name)!=0){vty_out(vty,"neighbor%sprefix-list%sout\n",addr,filter->
+plist[out].name);}/*route-map.*/if(filter->map[RMAP_IN].name)if(!gfilter||!gfilt
+er->map[RMAP_IN].name||strcmp(filter->map[RMAP_IN].name,gfilter->map[RMAP_IN].na
+me)!=0){vty_out(vty,"neighbor%sroute-map%sin\n",addr,filter->map[RMAP_IN].name);
+}if(filter->map[RMAP_OUT].name)if(!gfilter||!gfilter->map[RMAP_OUT].name||strcmp
+(filter->map[RMAP_OUT].name,gfilter->map[RMAP_OUT].name)!=0){vty_out(vty,"neighb
+or%sroute-map%sout\n",addr,filter->map[RMAP_OUT].name);}/*unsuppress-map*/if(fil
+ter->usmap.name&&!gfilter){vty_out(vty,"neighbor%sunsuppress-map%s\n",addr,filte
+r->usmap.name);}/*filter-list.*/if(filter->aslist[in].name)if(!gfilter||!gfilter
+->aslist[in].name||strcmp(filter->aslist[in].name,gfilter->aslist[in].name)!=0){
+vty_out(vty,"neighbor%sfilter-list%sin\n",addr,filter->aslist[in].name);}if(filt
+er->aslist[out].name&&!gfilter){vty_out(vty,"neighbor%sfilter-list%sout\n",addr,
+filter->aslist[out].name);}}/*BGPpeerconfigurationdisplayfunction.*/staticvoidbg
+p_config_write_peer_global(structvty*vty,structbgp*bgp,structpeer*peer){structpe
+er*g_peer=NULL;charbuf[SU_ADDRSTRLEN];char*addr;intif_pg_printed=FALSE;intif_ras
+_printed=FALSE;/*Skipdynamicneighbors.*/if(peer_dynamic_neighbor(peer))return;if
+(peer->conf_if)addr=peer->conf_if;elseaddr=peer->host;/*************************
+*****************Globaltotheneighbor******************************************/i
+f(peer->conf_if){if(CHECK_FLAG(peer->flags,PEER_FLAG_IFPEER_V6ONLY))vty_out(vty,
+"neighbor%sinterfacev6only",addr);elsevty_out(vty,"neighbor%sinterface",addr);if
+(peer_group_active(peer)){vty_out(vty,"peer-group%s",peer->group->name);if_pg_pr
+inted=TRUE;}elseif(peer->as_type==AS_SPECIFIED){vty_out(vty,"remote-as%u",peer->
+as);if_ras_printed=TRUE;}elseif(peer->as_type==AS_INTERNAL){vty_out(vty,"remote-
+asinternal");if_ras_printed=TRUE;}elseif(peer->as_type==AS_EXTERNAL){vty_out(vty
+,"remote-asexternal");if_ras_printed=TRUE;}vty_out(vty,"\n");}/*remote-asandpeer
+-group*//*peerisamemberofapeer-group*/if(peer_group_active(peer)){g_peer=peer->g
+roup->conf;if(g_peer->as_type==AS_UNSPECIFIED&&!if_ras_printed){if(peer->as_type
+==AS_SPECIFIED){vty_out(vty,"neighbor%sremote-as%u\n",addr,peer->as);}elseif(pee
+r->as_type==AS_INTERNAL){vty_out(vty,"neighbor%sremote-asinternal\n",addr);}else
+if(peer->as_type==AS_EXTERNAL){vty_out(vty,"neighbor%sremote-asexternal\n",addr)
+;}}/*ForswpXpeerswedisplayedthepeer-group*via'neighborswpXinterfacepeer-groupWOR
+D'*/if(!if_pg_printed)vty_out(vty,"neighbor%speer-group%s\n",addr,peer->group->n
+ame);}/*peerisNOTamemberofapeer-group*/else{/*peerisapeer-group,declarethepeer-g
+roup*/if(CHECK_FLAG(peer->sflags,PEER_STATUS_GROUP)){vty_out(vty,"neighbor%speer
+-group\n",addr);}if(!if_ras_printed){if(peer->as_type==AS_SPECIFIED){vty_out(vty
+,"neighbor%sremote-as%u\n",addr,peer->as);}elseif(peer->as_type==AS_INTERNAL){vt
+y_out(vty,"neighbor%sremote-asinternal\n",addr);}elseif(peer->as_type==AS_EXTERN
+AL){vty_out(vty,"neighbor%sremote-asexternal\n",addr);}}}/*local-as*/if(peer->ch
+ange_local_as){if(!peer_group_active(peer)||peer->change_local_as!=g_peer->chang
+e_local_as||(CHECK_FLAG(peer->flags,PEER_FLAG_LOCAL_AS_NO_PREPEND)!=CHECK_FLAG(g
+_peer->flags,PEER_FLAG_LOCAL_AS_NO_PREPEND))||(CHECK_FLAG(peer->flags,PEER_FLAG_
+LOCAL_AS_REPLACE_AS)!=CHECK_FLAG(g_peer->flags,PEER_FLAG_LOCAL_AS_REPLACE_AS))){
+vty_out(vty,"neighbor%slocal-as%u%s%s\n",addr,peer->change_local_as,CHECK_FLAG(p
+eer->flags,PEER_FLAG_LOCAL_AS_NO_PREPEND)?"no-prepend":"",CHECK_FLAG(peer->flags
+,PEER_FLAG_LOCAL_AS_REPLACE_AS)?"replace-as":"");}}/*description*/if(peer->desc)
+{vty_out(vty,"neighbor%sdescription%s\n",addr,peer->desc);}/*shutdown*/if(CHECK_
+FLAG(peer->flags,PEER_FLAG_SHUTDOWN)){if(!peer_group_active(peer)||!CHECK_FLAG(g
+_peer->flags,PEER_FLAG_SHUTDOWN)||peer->tx_shutdown_message){if(peer->tx_shutdow
+n_message)vty_out(vty,"neighbor%sshutdownmessage%s\n",addr,peer->tx_shutdown_mes
+sage);elsevty_out(vty,"neighbor%sshutdown\n",addr);}}/*bfd*/if(peer->bfd_info){i
+f(!peer_group_active(peer)||!g_peer->bfd_info){bgp_bfd_peer_config_write(vty,pee
+r,addr);}}/*password*/if(peer->password){if(!peer_group_active(peer)||!g_peer->p
+assword||strcmp(peer->password,g_peer->password)!=0){vty_out(vty,"neighbor%spass
+word%s\n",addr,peer->password);}}/*neighborsolo*/if(CHECK_FLAG(peer->flags,PEER_
+FLAG_LONESOUL)){if(!peer_group_active(peer)){vty_out(vty,"neighbor%ssolo\n",addr
+);}}/*BGPport*/if(peer->port!=BGP_PORT_DEFAULT){vty_out(vty,"neighbor%sport%d\n"
+,addr,peer->port);}/*Localinterfacename*/if(peer->ifname){vty_out(vty,"neighbor%
+sinterface%s\n",addr,peer->ifname);}/*passive*/if(CHECK_FLAG(peer->flags,PEER_FL
+AG_PASSIVE)){if(!peer_group_active(peer)||!CHECK_FLAG(g_peer->flags,PEER_FLAG_PA
+SSIVE)){vty_out(vty,"neighbor%spassive\n",addr);}}/*ebgp-multihop*/if(peer->sort
+!=BGP_PEER_IBGP&&peer->ttl!=1&&!(peer->gtsm_hops!=0&&peer->ttl==MAXTTL)){if(!pee
+r_group_active(peer)||g_peer->ttl!=peer->ttl){vty_out(vty,"neighbor%sebgp-multih
+op%d\n",addr,peer->ttl);}}/*ttl-securityhops*/if(peer->gtsm_hops!=0){if(!peer_gr
+oup_active(peer)||g_peer->gtsm_hops!=peer->gtsm_hops){vty_out(vty,"neighbor%sttl
+-securityhops%d\n",addr,peer->gtsm_hops);}}/*disable-connected-check*/if(CHECK_F
+LAG(peer->flags,PEER_FLAG_DISABLE_CONNECTED_CHECK)){if(!peer_group_active(peer)|
+|!CHECK_FLAG(g_peer->flags,PEER_FLAG_DISABLE_CONNECTED_CHECK)){vty_out(vty,"neig
+hbor%sdisable-connected-check\n",addr);}}/*update-source*/if(peer->update_if){if
+(!peer_group_active(peer)||!g_peer->update_if||strcmp(g_peer->update_if,peer->up
+date_if)!=0){vty_out(vty,"neighbor%supdate-source%s\n",addr,peer->update_if);}}i
+f(peer->update_source){if(!peer_group_active(peer)||!g_peer->update_source||sock
+union_cmp(g_peer->update_source,peer->update_source)!=0){vty_out(vty,"neighbor%s
+update-source%s\n",addr,sockunion2str(peer->update_source,buf,SU_ADDRSTRLEN));}}
+/*advertisement-interval*/if(CHECK_FLAG(peer->config,PEER_CONFIG_ROUTEADV)&&((!p
+eer_group_active(peer)&&peer->v_routeadv!=BGP_DEFAULT_EBGP_ROUTEADV)||(peer_grou
+p_active(peer)&&peer->v_routeadv!=g_peer->v_routeadv))){vty_out(vty,"neighbor%sa
+dvertisement-interval%u\n",addr,peer->v_routeadv);}/*timers*/if((PEER_OR_GROUP_T
+IMER_SET(peer))&&((!peer_group_active(peer)&&(peer->keepalive!=BGP_DEFAULT_KEEPA
+LIVE||peer->holdtime!=BGP_DEFAULT_HOLDTIME))||(peer_group_active(peer)&&(peer->k
+eepalive!=g_peer->keepalive||peer->holdtime!=g_peer->holdtime)))){vty_out(vty,"n
+eighbor%stimers%u%u\n",addr,peer->keepalive,peer->holdtime);}if(CHECK_FLAG(peer-
+>config,PEER_CONFIG_CONNECT)&&((!peer_group_active(peer)&&peer->connect!=BGP_DEF
+AULT_CONNECT_RETRY)||(peer_group_active(peer)&&peer->connect!=g_peer->connect)))
+{vty_out(vty,"neighbor%stimersconnect%u\n",addr,peer->connect);}/*capabilitydyna
+mic*/if(CHECK_FLAG(peer->flags,PEER_FLAG_DYNAMIC_CAPABILITY)){if(!peer_group_act
+ive(peer)||!CHECK_FLAG(g_peer->flags,PEER_FLAG_DYNAMIC_CAPABILITY)){vty_out(vty,
+"neighbor%scapabilitydynamic\n",addr);}}/*capabilityextended-nexthop*/if(peer->i
+fp&&!CHECK_FLAG(peer->flags,PEER_FLAG_CAPABILITY_ENHE)){if(!peer_group_active(pe
+er)||!CHECK_FLAG(g_peer->flags,PEER_FLAG_CAPABILITY_ENHE)){vty_out(vty,"noneighb
+or%scapabilityextended-nexthop\n",addr);}}if(!peer->ifp&&CHECK_FLAG(peer->flags,
+PEER_FLAG_CAPABILITY_ENHE)){if(!peer_group_active(peer)||!CHECK_FLAG(g_peer->fla
+gs,PEER_FLAG_CAPABILITY_ENHE)){vty_out(vty,"neighbor%scapabilityextended-nexthop
+\n",addr);}}/*dont-capability-negotiation*/if(CHECK_FLAG(peer->flags,PEER_FLAG_D
+ONT_CAPABILITY)){if(!peer_group_active(peer)||!CHECK_FLAG(g_peer->flags,PEER_FLA
+G_DONT_CAPABILITY)){vty_out(vty,"neighbor%sdont-capability-negotiate\n",addr);}}
+/*override-capability*/if(CHECK_FLAG(peer->flags,PEER_FLAG_OVERRIDE_CAPABILITY))
+{if(!peer_group_active(peer)||!CHECK_FLAG(g_peer->flags,PEER_FLAG_OVERRIDE_CAPAB
+ILITY)){vty_out(vty,"neighbor%soverride-capability\n",addr);}}/*strict-capabilit
+y-match*/if(CHECK_FLAG(peer->flags,PEER_FLAG_STRICT_CAP_MATCH)){if(!peer_group_a
+ctive(peer)||!CHECK_FLAG(g_peer->flags,PEER_FLAG_STRICT_CAP_MATCH)){vty_out(vty,
+"neighbor%sstrict-capability-match\n",addr);}}}/*BGPpeerconfigurationdisplayfunc
+tion.*/staticvoidbgp_config_write_peer_af(structvty*vty,structbgp*bgp,structpeer
+*peer,afi_tafi,safi_tsafi){structpeer*g_peer=NULL;char*addr;/*Skipdynamicneighbo
+rs.*/if(peer_dynamic_neighbor(peer))return;if(peer->conf_if)addr=peer->conf_if;e
+lseaddr=peer->host;/******************************************PerAFtotheneighbor
+******************************************/if(peer_group_active(peer)){g_peer=pe
+er->group->conf;/*Ifthepeer-groupisactivebutpeerisnot,printa'no*activate'*/if(g_
+peer->afc[afi][safi]&&!peer->afc[afi][safi]){vty_out(vty,"noneighbor%sactivate\n
+",addr);}/*Ifthepeer-groupisnotactivebutpeeris,printan'activate'*/elseif(!g_peer
+->afc[afi][safi]&&peer->afc[afi][safi]){vty_out(vty,"neighbor%sactivate\n",addr)
+;}}else{if(peer->afc[afi][safi]){if((afi==AFI_IP)&&(safi==SAFI_UNICAST)){if(bgp_
+flag_check(bgp,BGP_FLAG_NO_DEFAULT_IPV4)){vty_out(vty,"neighbor%sactivate\n",add
+r);}}elsevty_out(vty,"neighbor%sactivate\n",addr);}else{if((afi==AFI_IP)&&(safi=
+=SAFI_UNICAST)){if(!bgp_flag_check(bgp,BGP_FLAG_NO_DEFAULT_IPV4)){vty_out(vty,"n
+oneighbor%sactivate\n",addr);}}}}/*addpathTXknobs*/if(peergroup_af_flag_check(pe
+er,afi,safi,PEER_FLAG_ADDPATH_TX_ALL_PATHS)){vty_out(vty,"neighbor%saddpath-tx-a
+ll-paths\n",addr);}if(peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_ADDPATH_TX
+_BESTPATH_PER_AS)){vty_out(vty,"neighbor%saddpath-tx-bestpath-per-AS\n",addr);}/
+*ORFcapability.*/if(peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_ORF_PREFIX_S
+M)||peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_ORF_PREFIX_RM)){vty_out(vty,
+"neighbor%scapabilityorfprefix-list",addr);if(peergroup_af_flag_check(peer,afi,s
+afi,PEER_FLAG_ORF_PREFIX_SM)&&peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_OR
+F_PREFIX_RM))vty_out(vty,"both");elseif(peergroup_af_flag_check(peer,afi,safi,PE
+ER_FLAG_ORF_PREFIX_SM))vty_out(vty,"send");elsevty_out(vty,"receive");vty_out(vt
+y,"\n");}/*Routereflectorclient.*/if(peergroup_af_flag_check(peer,afi,safi,PEER_
+FLAG_REFLECTOR_CLIENT)){vty_out(vty,"neighbor%sroute-reflector-client\n",addr);}
+/*next-hop-selfforce*/if(peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_FORCE_N
+EXTHOP_SELF)){vty_out(vty,"neighbor%snext-hop-selfforce\n",addr);}/*next-hop-sel
+f*/if(peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_NEXTHOP_SELF)){vty_out(vty
+,"neighbor%snext-hop-self\n",addr);}/*remove-private-AS*/if(peergroup_af_flag_ch
+eck(peer,afi,safi,PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE)){vty_out(vty,"neighbo
+r%sremove-private-ASallreplace-AS\n",addr);}elseif(peergroup_af_flag_check(peer,
+afi,safi,PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE)){vty_out(vty,"neighbor%sremove-pri
+vate-ASreplace-AS\n",addr);}elseif(peergroup_af_flag_check(peer,afi,safi,PEER_FL
+AG_REMOVE_PRIVATE_AS_ALL)){vty_out(vty,"neighbor%sremove-private-ASall\n",addr);
+}elseif(peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_REMOVE_PRIVATE_AS)){vty_
+out(vty,"neighbor%sremove-private-AS\n",addr);}/*as-override*/if(peergroup_af_fl
+ag_check(peer,afi,safi,PEER_FLAG_AS_OVERRIDE)){vty_out(vty,"neighbor%sas-overrid
+e\n",addr);}/*send-communityprint.*/if(bgp_option_check(BGP_OPT_CONFIG_CISCO)){i
+f(peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_SEND_COMMUNITY)&&peergroup_af_
+flag_check(peer,afi,safi,PEER_FLAG_SEND_EXT_COMMUNITY)&&peergroup_af_flag_check(
+peer,afi,safi,PEER_FLAG_SEND_LARGE_COMMUNITY)){vty_out(vty,"neighbor%ssend-commu
+nityall\n",addr);}elseif(peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_SEND_LA
+RGE_COMMUNITY)){vty_out(vty,"neighbor%ssend-communitylarge\n",addr);}elseif(peer
+group_af_flag_check(peer,afi,safi,PEER_FLAG_SEND_EXT_COMMUNITY)){vty_out(vty,"ne
+ighbor%ssend-communityextended\n",addr);}elseif(peergroup_af_flag_check(peer,afi
+,safi,PEER_FLAG_SEND_COMMUNITY)){vty_out(vty,"neighbor%ssend-community\n",addr);
+}}else{if(!peer_af_flag_check(peer,afi,safi,PEER_FLAG_SEND_COMMUNITY)&&(!g_peer|
+|peer_af_flag_check(g_peer,afi,safi,PEER_FLAG_SEND_COMMUNITY))&&!peer_af_flag_ch
+eck(peer,afi,safi,PEER_FLAG_SEND_EXT_COMMUNITY)&&(!g_peer||peer_af_flag_check(g_
+peer,afi,safi,PEER_FLAG_SEND_EXT_COMMUNITY))&&!peer_af_flag_check(peer,afi,safi,
+PEER_FLAG_SEND_LARGE_COMMUNITY)&&(!g_peer||peer_af_flag_check(g_peer,afi,safi,PE
+ER_FLAG_SEND_LARGE_COMMUNITY))){vty_out(vty,"noneighbor%ssend-communityall\n",ad
+dr);}else{if(!peer_af_flag_check(peer,afi,safi,PEER_FLAG_SEND_LARGE_COMMUNITY)&&
+(!g_peer||peer_af_flag_check(g_peer,afi,safi,PEER_FLAG_SEND_LARGE_COMMUNITY))){v
+ty_out(vty,"noneighbor%ssend-communitylarge\n",addr);}if(!peer_af_flag_check(pee
+r,afi,safi,PEER_FLAG_SEND_EXT_COMMUNITY)&&(!g_peer||peer_af_flag_check(g_peer,af
+i,safi,PEER_FLAG_SEND_EXT_COMMUNITY))){vty_out(vty,"noneighbor%ssend-communityex
+tended\n",addr);}if(!peer_af_flag_check(peer,afi,safi,PEER_FLAG_SEND_COMMUNITY)&
+&(!g_peer||peer_af_flag_check(g_peer,afi,safi,PEER_FLAG_SEND_COMMUNITY))){vty_ou
+t(vty,"noneighbor%ssend-community\n",addr);}}}/*Defaultinformation*/if(peergroup
+_af_flag_check(peer,afi,safi,PEER_FLAG_DEFAULT_ORIGINATE)||(g_peer&&((peer->defa
+ult_rmap[afi][safi].name&&!g_peer->default_rmap[afi][safi].name)||(!peer->defaul
+t_rmap[afi][safi].name&&g_peer->default_rmap[afi][safi].name)||(peer->default_rm
+ap[afi][safi].name&&strcmp(peer->default_rmap[afi][safi].name,g_peer->default_rm
+ap[afi][safi].name))))){vty_out(vty,"neighbor%sdefault-originate",addr);if(peer-
+>default_rmap[afi][safi].name)vty_out(vty,"route-map%s",peer->default_rmap[afi][
+safi].name);vty_out(vty,"\n");}/*Softreconfigurationinbound.*/if(peergroup_af_fl
+ag_check(peer,afi,safi,PEER_FLAG_SOFT_RECONFIG)){vty_out(vty,"neighbor%ssoft-rec
+onfigurationinbound\n",addr);}/*maximum-prefix.*/if(CHECK_FLAG(peer->af_flags[af
+i][safi],PEER_FLAG_MAX_PREFIX))if(!peer_group_active(peer)||g_peer->pmax[afi][sa
+fi]!=peer->pmax[afi][safi]||g_peer->pmax_threshold[afi][safi]!=peer->pmax_thresh
+old[afi][safi]||CHECK_FLAG(g_peer->af_flags[afi][safi],PEER_FLAG_MAX_PREFIX_WARN
+ING)!=CHECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_MAX_PREFIX_WARNING)){vty_ou
+t(vty,"neighbor%smaximum-prefix%lu",addr,peer->pmax[afi][safi]);if(peer->pmax_th
+reshold[afi][safi]!=MAXIMUM_PREFIX_THRESHOLD_DEFAULT)vty_out(vty,"%u",peer->pmax
+_threshold[afi][safi]);if(CHECK_FLAG(peer->af_flags[afi][safi],PEER_FLAG_MAX_PRE
+FIX_WARNING))vty_out(vty,"warning-only");if(peer->pmax_restart[afi][safi])vty_ou
+t(vty,"restart%u",peer->pmax_restart[afi][safi]);vty_out(vty,"\n");}/*Routeserve
+rclient.*/if(peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_RSERVER_CLIENT)){vt
+y_out(vty,"neighbor%sroute-server-client\n",addr);}/*Nexthop-localunchanged.*/if
+(peergroup_af_flag_check(peer,afi,safi,PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)){vty_o
+ut(vty,"neighbor%snexthop-localunchanged\n",addr);}/*allowas-in<1-10>*/if(peer_a
+f_flag_check(peer,afi,safi,PEER_FLAG_ALLOWAS_IN)){if(!peer_group_active(peer)||!
+peer_af_flag_check(g_peer,afi,safi,PEER_FLAG_ALLOWAS_IN)||peer->allowas_in[afi][
+safi]!=g_peer->allowas_in[afi][safi]){if(peer->allowas_in[afi][safi]==3){vty_out
+(vty,"neighbor%sallowas-in\n",addr);}else{vty_out(vty,"neighbor%sallowas-in%d\n"
+,addr,peer->allowas_in[afi][safi]);}}}/*allowas-inorigin*/elseif(peer_af_flag_ch
+eck(peer,afi,safi,PEER_FLAG_ALLOWAS_IN_ORIGIN)){if(!peer_group_active(peer)||!pe
+er_af_flag_check(g_peer,afi,safi,PEER_FLAG_ALLOWAS_IN_ORIGIN)){vty_out(vty,"neig
+hbor%sallowas-inorigin\n",addr);}}/*weight*/if(peer_af_flag_check(peer,afi,safi,
+PEER_FLAG_WEIGHT))if(!peer_group_active(peer)||!peer_af_flag_check(g_peer,afi,sa
+fi,PEER_FLAG_WEIGHT)||peer->weight[afi][safi]!=g_peer->weight[afi][safi]){if(pee
+r->weight[afi][safi]){vty_out(vty,"neighbor%sweight%lu\n",addr,peer->weight[afi]
+[safi]);}}/*Filter.*/bgp_config_write_filter(vty,peer,afi,safi);/*atribute-uncha
+nged.*/if(peer_af_flag_check(peer,afi,safi,PEER_FLAG_AS_PATH_UNCHANGED)||peer_af
+_flag_check(peer,afi,safi,PEER_FLAG_NEXTHOP_UNCHANGED)||peer_af_flag_check(peer,
+afi,safi,PEER_FLAG_MED_UNCHANGED)){if(!peer_group_active(peer)||peergroup_af_fla
+g_check(peer,afi,safi,PEER_FLAG_AS_PATH_UNCHANGED)||peergroup_af_flag_check(peer
+,afi,safi,PEER_FLAG_NEXTHOP_UNCHANGED)||peergroup_af_flag_check(peer,afi,safi,PE
+ER_FLAG_MED_UNCHANGED)){vty_out(vty,"neighbor%sattribute-unchanged%s%s%s\n",addr
+,peer_af_flag_check(peer,afi,safi,PEER_FLAG_AS_PATH_UNCHANGED)?"as-path":"",peer
+_af_flag_check(peer,afi,safi,PEER_FLAG_NEXTHOP_UNCHANGED)?"next-hop":"",peer_af_
+flag_check(peer,afi,safi,PEER_FLAG_MED_UNCHANGED)?"med":"");}}}/*Addressfamilyba
+sedpeerconfigurationdisplay.*/staticvoidbgp_config_write_family(structvty*vty,st
+ructbgp*bgp,afi_tafi,safi_tsafi){structpeer*peer;structpeer_group*group;structli
+stnode*node,*nnode;vty_frame(vty,"!\naddress-family");if(afi==AFI_IP){if(safi==S
+AFI_UNICAST)vty_frame(vty,"ipv4unicast");elseif(safi==SAFI_LABELED_UNICAST)vty_f
+rame(vty,"ipv4labeled-unicast");elseif(safi==SAFI_MULTICAST)vty_frame(vty,"ipv4m
+ulticast");elseif(safi==SAFI_MPLS_VPN)vty_frame(vty,"ipv4vpn");elseif(safi==SAFI
+_ENCAP)vty_frame(vty,"ipv4encap");elseif(safi==SAFI_FLOWSPEC)vty_frame(vty,"ipv4
+flowspec");}elseif(afi==AFI_IP6){if(safi==SAFI_UNICAST)vty_frame(vty,"ipv6unicas
+t");elseif(safi==SAFI_LABELED_UNICAST)vty_frame(vty,"ipv6labeled-unicast");elsei
+f(safi==SAFI_MULTICAST)vty_frame(vty,"ipv6multicast");elseif(safi==SAFI_MPLS_VPN
+)vty_frame(vty,"ipv6vpn");elseif(safi==SAFI_ENCAP)vty_frame(vty,"ipv6encap");els
+eif(safi==SAFI_FLOWSPEC)vty_frame(vty,"ipv6flowspec");}elseif(afi==AFI_L2VPN){if
+(safi==SAFI_EVPN)vty_frame(vty,"l2vpnevpn");}vty_frame(vty,"\n");bgp_config_writ
+e_distance(vty,bgp,afi,safi);bgp_config_write_network(vty,bgp,afi,safi);bgp_conf
+ig_write_redistribute(vty,bgp,afi,safi);for(ALL_LIST_ELEMENTS(bgp->group,node,nn
+ode,group))bgp_config_write_peer_af(vty,bgp,group->conf,afi,safi);for(ALL_LIST_E
+LEMENTS(bgp->peer,node,nnode,peer)){/*Skipdynamicneighbors.*/if(peer_dynamic_nei
+ghbor(peer))continue;/*Donotdisplaydoppelgangerpeers*/if(CHECK_FLAG(peer->flags,
+PEER_FLAG_CONFIG_NODE))bgp_config_write_peer_af(vty,bgp,peer,afi,safi);}bgp_conf
+ig_write_maxpaths(vty,bgp,afi,safi);bgp_config_write_table_map(vty,bgp,afi,safi)
+;if(safi==SAFI_EVPN)bgp_config_write_evpn_info(vty,bgp,afi,safi);if(safi==SAFI_U
+NICAST){bgp_vpn_policy_config_write_afi(vty,bgp,afi);if(CHECK_FLAG(bgp->af_flags
+[afi][safi],BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)){vty_out(vty,"exportvpn\n");}if(CH
+ECK_FLAG(bgp->af_flags[afi][safi],BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)){vty_out(vty
+,"importvpn\n");}}vty_endframe(vty,"exit-address-family\n");}intbgp_config_write
+(structvty*vty){intwrite=0;structbgp*bgp;structpeer_group*group;structpeer*peer;
+structlistnode*node,*nnode;structlistnode*mnode,*mnnode;/*BGPMultipleinstance.*/
+if(!bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)){vty_out(vty,"nobgpmultiple-inst
+ance\n");write++;}/*BGPConfigtype.*/if(bgp_option_check(BGP_OPT_CONFIG_CISCO)){v
+ty_out(vty,"bgpconfig-typecisco\n");write++;}if(bm->rmap_update_timer!=RMAP_DEFA
+ULT_UPDATE_TIMER)vty_out(vty,"bgproute-mapdelay-timer%u\n",bm->rmap_update_timer
+);if(write)vty_out(vty,"!\n");/*BGPconfiguration.*/for(ALL_LIST_ELEMENTS(bm->bgp
+,mnode,mnnode,bgp)){/*skipallautocreatedvrfastheydonthaveuserconfig*/if(CHECK_FL
+AG(bgp->vrf_flags,BGP_VRF_AUTO))continue;/*RouterbgpASN*/vty_out(vty,"routerbgp%
+u",bgp->as);if(bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)){if(bgp->name)vty_out
+(vty,"%s%s",(bgp->inst_type==BGP_INSTANCE_TYPE_VIEW)?"view":"vrf",bgp->name);}vt
+y_out(vty,"\n");/*NoSynchronization*/if(bgp_option_check(BGP_OPT_CONFIG_CISCO))v
+ty_out(vty,"nosynchronization\n");/*BGPfast-external-failover.*/if(CHECK_FLAG(bg
+p->flags,BGP_FLAG_NO_FAST_EXT_FAILOVER))vty_out(vty,"nobgpfast-external-failover
+\n");/*BGProuterID.*/if(bgp->router_id_static.s_addr!=0)vty_out(vty,"bgprouter-i
+d%s\n",inet_ntoa(bgp->router_id_static));/*BGPlog-neighbor-changes.*/if(!!bgp_fl
+ag_check(bgp,BGP_FLAG_LOG_NEIGHBOR_CHANGES)!=DFLT_BGP_LOG_NEIGHBOR_CHANGES)vty_o
+ut(vty,"%sbgplog-neighbor-changes\n",bgp_flag_check(bgp,BGP_FLAG_LOG_NEIGHBOR_CH
+ANGES)?"":"no");/*BGPconfiguration.*/if(bgp_flag_check(bgp,BGP_FLAG_ALWAYS_COMPA
+RE_MED))vty_out(vty,"bgpalways-compare-med\n");/*BGPdefaultipv4-unicast.*/if(bgp
+_flag_check(bgp,BGP_FLAG_NO_DEFAULT_IPV4))vty_out(vty,"nobgpdefaultipv4-unicast\
+n");/*BGPdefaultlocal-preference.*/if(bgp->default_local_pref!=BGP_DEFAULT_LOCAL
+_PREF)vty_out(vty,"bgpdefaultlocal-preference%u\n",bgp->default_local_pref);/*BG
+Pdefaultshow-hostname*/if(!!bgp_flag_check(bgp,BGP_FLAG_SHOW_HOSTNAME)!=DFLT_BGP
+_SHOW_HOSTNAME)vty_out(vty,"%sbgpdefaultshow-hostname\n",bgp_flag_check(bgp,BGP_
+FLAG_SHOW_HOSTNAME)?"":"no");/*BGPdefaultsubgroup-pkt-queue-max.*/if(bgp->defaul
+t_subgroup_pkt_queue_max!=BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)vty_out(vty,"bgpdef
+aultsubgroup-pkt-queue-max%u\n",bgp->default_subgroup_pkt_queue_max);/*BGPdefaul
+tautoshutdownneighbors*/if(bgp->autoshutdown)vty_out(vty,"bgpdefaultshutdown\n")
+;/*BGPclient-to-clientreflection.*/if(bgp_flag_check(bgp,BGP_FLAG_NO_CLIENT_TO_C
+LIENT))vty_out(vty,"nobgpclient-to-clientreflection\n");/*BGPclusterID.*/if(CHEC
+K_FLAG(bgp->config,BGP_CONFIG_CLUSTER_ID))vty_out(vty,"bgpcluster-id%s\n",inet_n
+toa(bgp->cluster_id));/*Disableebgpconnectednexthopcheck*/if(bgp_flag_check(bgp,
+BGP_FLAG_DISABLE_NH_CONNECTED_CHK))vty_out(vty,"bgpdisable-ebgp-connected-route-
+check\n");/*Confederationidentifier*/if(CHECK_FLAG(bgp->config,BGP_CONFIG_CONFED
+ERATION))vty_out(vty,"bgpconfederationidentifier%i\n",bgp->confed_id);/*Confeder
+ationpeer*/if(bgp->confed_peers_cnt>0){inti;vty_out(vty,"bgpconfederationpeers")
+;for(i=0;i<bgp->confed_peers_cnt;i++)vty_out(vty,"%u",bgp->confed_peers[i]);vty_
+out(vty,"\n");}/*BGPenforce-first-as.*/if(bgp_flag_check(bgp,BGP_FLAG_ENFORCE_FI
+RST_AS))vty_out(vty,"bgpenforce-first-as\n");/*BGPdeterministic-med.*/if(!!bgp_f
+lag_check(bgp,BGP_FLAG_DETERMINISTIC_MED)!=DFLT_BGP_DETERMINISTIC_MED)vty_out(vt
+y,"%sbgpdeterministic-med\n",bgp_flag_check(bgp,BGP_FLAG_DETERMINISTIC_MED)?"":"
+no");/*BGPupdate-delay.*/bgp_config_write_update_delay(vty,bgp);if(bgp->v_maxmed
+_onstartup!=BGP_MAXMED_ONSTARTUP_UNCONFIGURED){vty_out(vty,"bgpmax-medon-startup
+%u",bgp->v_maxmed_onstartup);if(bgp->maxmed_onstartup_value!=BGP_MAXMED_VALUE_DE
+FAULT)vty_out(vty,"%u",bgp->maxmed_onstartup_value);vty_out(vty,"\n");}if(bgp->v
+_maxmed_admin!=BGP_MAXMED_ADMIN_UNCONFIGURED){vty_out(vty,"bgpmax-medadministrat
+ive");if(bgp->maxmed_admin_value!=BGP_MAXMED_VALUE_DEFAULT)vty_out(vty,"%u",bgp-
+>maxmed_admin_value);vty_out(vty,"\n");}/*writequanta*/bgp_config_write_wpkt_qua
+nta(vty,bgp);/*readquanta*/bgp_config_write_rpkt_quanta(vty,bgp);/*coalescetime*
+/bgp_config_write_coalesce_time(vty,bgp);/*BGPgraceful-restart.*/if(bgp->stalepa
+th_time!=BGP_DEFAULT_STALEPATH_TIME)vty_out(vty,"bgpgraceful-restartstalepath-ti
+me%u\n",bgp->stalepath_time);if(bgp->restart_time!=BGP_DEFAULT_RESTART_TIME)vty_
+out(vty,"bgpgraceful-restartrestart-time%u\n",bgp->restart_time);if(bgp_flag_che
+ck(bgp,BGP_FLAG_GRACEFUL_RESTART))vty_out(vty,"bgpgraceful-restart\n");/*BGPgrac
+eful-shutdown*/if(bgp_flag_check(bgp,BGP_FLAG_GRACEFUL_SHUTDOWN))vty_out(vty,"bg
+pgraceful-shutdown\n");/*BGPgraceful-restartPreserveStateFbit.*/if(bgp_flag_chec
+k(bgp,BGP_FLAG_GR_PRESERVE_FWD))vty_out(vty,"bgpgraceful-restartpreserve-fw-stat
+e\n");/*BGPbestpathmethod.*/if(bgp_flag_check(bgp,BGP_FLAG_ASPATH_IGNORE))vty_ou
+t(vty,"bgpbestpathas-pathignore\n");if(bgp_flag_check(bgp,BGP_FLAG_ASPATH_CONFED
+))vty_out(vty,"bgpbestpathas-pathconfed\n");if(bgp_flag_check(bgp,BGP_FLAG_ASPAT
+H_MULTIPATH_RELAX)){if(bgp_flag_check(bgp,BGP_FLAG_MULTIPATH_RELAX_AS_SET)){vty_
+out(vty,"bgpbestpathas-pathmultipath-relaxas-set\n");}else{vty_out(vty,"bgpbestp
+athas-pathmultipath-relax\n");}}if(bgp_flag_check(bgp,BGP_FLAG_RR_ALLOW_OUTBOUND
+_POLICY)){vty_out(vty,"bgproute-reflectorallow-outbound-policy\n");}if(bgp_flag_
+check(bgp,BGP_FLAG_COMPARE_ROUTER_ID))vty_out(vty,"bgpbestpathcompare-routerid\n
+");if(bgp_flag_check(bgp,BGP_FLAG_MED_CONFED)||bgp_flag_check(bgp,BGP_FLAG_MED_M
+ISSING_AS_WORST)){vty_out(vty,"bgpbestpathmed");if(bgp_flag_check(bgp,BGP_FLAG_M
+ED_CONFED))vty_out(vty,"confed");if(bgp_flag_check(bgp,BGP_FLAG_MED_MISSING_AS_W
+ORST))vty_out(vty,"missing-as-worst");vty_out(vty,"\n");}/*BGPnetworkimportcheck
+.*/if(!!bgp_flag_check(bgp,BGP_FLAG_IMPORT_CHECK)!=DFLT_BGP_IMPORT_CHECK)vty_out
+(vty,"%sbgpnetworkimport-check\n",bgp_flag_check(bgp,BGP_FLAG_IMPORT_CHECK)?"":"
+no");/*BGPflagdampening.*/if(CHECK_FLAG(bgp->af_flags[AFI_IP][SAFI_UNICAST],BGP_
+CONFIG_DAMPENING))bgp_config_write_damp(vty);/*BGPtimersconfiguration.*/if(bgp->
+default_keepalive!=BGP_DEFAULT_KEEPALIVE&&bgp->default_holdtime!=BGP_DEFAULT_HOL
+DTIME)vty_out(vty,"timersbgp%u%u\n",bgp->default_keepalive,bgp->default_holdtime
+);/*peer-group*/for(ALL_LIST_ELEMENTS(bgp->group,node,nnode,group)){bgp_config_w
+rite_peer_global(vty,bgp,group->conf);}/*Normalneighborconfiguration.*/for(ALL_L
+IST_ELEMENTS(bgp->peer,node,nnode,peer)){if(CHECK_FLAG(peer->flags,PEER_FLAG_CON
+FIG_NODE))bgp_config_write_peer_global(vty,bgp,peer);}/*listenrangeandlimitfordy
+namicBGPneighbors*/bgp_config_write_listen(vty,bgp);/*Noauto-summary*/if(bgp_opt
+ion_check(BGP_OPT_CONFIG_CISCO))vty_out(vty,"noauto-summary\n");/*IPv4unicastcon
+figuration.*/bgp_config_write_family(vty,bgp,AFI_IP,SAFI_UNICAST);/*IPv4multicas
+tconfiguration.*/bgp_config_write_family(vty,bgp,AFI_IP,SAFI_MULTICAST);/*IPv4la
+beled-unicastconfiguration.*/bgp_config_write_family(vty,bgp,AFI_IP,SAFI_LABELED
+_UNICAST);/*IPv4VPNconfiguration.*/bgp_config_write_family(vty,bgp,AFI_IP,SAFI_M
+PLS_VPN);/*ENCAPv4configuration.*/bgp_config_write_family(vty,bgp,AFI_IP,SAFI_EN
+CAP);/*FLOWSPECv4configuration.*/bgp_config_write_family(vty,bgp,AFI_IP,SAFI_FLO
+WSPEC);/*IPv6unicastconfiguration.*/bgp_config_write_family(vty,bgp,AFI_IP6,SAFI
+_UNICAST);/*IPv6multicastconfiguration.*/bgp_config_write_family(vty,bgp,AFI_IP6
+,SAFI_MULTICAST);/*IPv6labeled-unicastconfiguration.*/bgp_config_write_family(vt
+y,bgp,AFI_IP6,SAFI_LABELED_UNICAST);/*IPv6VPNconfiguration.*/bgp_config_write_fa
+mily(vty,bgp,AFI_IP6,SAFI_MPLS_VPN);/*ENCAPv6configuration.*/bgp_config_write_fa
+mily(vty,bgp,AFI_IP6,SAFI_ENCAP);/*FLOWSPECv6configuration.*/bgp_config_write_fa
+mily(vty,bgp,AFI_IP6,SAFI_FLOWSPEC);/*EVPNconfiguration.*/bgp_config_write_famil
+y(vty,bgp,AFI_L2VPN,SAFI_EVPN);#ifENABLE_BGP_VNCbgp_rfapi_cfg_write(vty,bgp);#en
+difvty_out(vty,"!\n");}return0;}voidbgp_master_init(structthread_master*master){
+qobj_init();memset(&bgp_master,0,sizeof(structbgp_master));bm=&bgp_master;bm->bg
+p=list_new();bm->listen_sockets=list_new();bm->port=BGP_PORT_DEFAULT;bm->master=
+master;bm->start_time=bgp_clock();bm->t_rmap_update=NULL;bm->rmap_update_timer=R
+MAP_DEFAULT_UPDATE_TIMER;bgp_process_queue_init();/*inittherdidspace.assign0thin
+dexinthebitfield,sothatwestartwithid1*/bf_init(bm->rd_idspace,UINT16_MAX);bf_ass
+ign_zero_index(bm->rd_idspace);/*Enablemultipleinstancesbydefault.*/bgp_option_s
+et(BGP_OPT_MULTIPLE_INSTANCE);QOBJ_REG(bm,bgp_master);}/**Freeupconnectedroutesa
+ndinterfacesforaBGPinstance.Invokedupon*instancedelete(non-defaultonly)orBGPexit
+.*/staticvoidbgp_if_finish(structbgp*bgp){structvrf*vrf=vrf_lookup_by_id(bgp->vr
+f_id);structinterface*ifp;if(bgp->inst_type==BGP_INSTANCE_TYPE_VIEW||!vrf)return
+;FOR_ALL_INTERFACES(vrf,ifp){structlistnode*c_node,*c_nnode;structconnected*c;fo
+r(ALL_LIST_ELEMENTS(ifp->connected,c_node,c_nnode,c))bgp_connected_delete(bgp,c)
+;}}externvoidbgp_snmp_init(void);staticvoidbgp_viewvrf_autocomplete(vectorcomps,
+structcmd_token*token){structvrf*vrf=NULL;structlistnode*next;structbgp*bgp;RB_F
+OREACH(vrf,vrf_name_head,&vrfs_by_name){if(vrf->vrf_id!=VRF_DEFAULT)vector_set(c
+omps,XSTRDUP(MTYPE_COMPLETION,vrf->name));}for(ALL_LIST_ELEMENTS_RO(bm->bgp,next
+,bgp)){if(bgp->inst_type!=BGP_INSTANCE_TYPE_VIEW)continue;vector_set(comps,XSTRD
+UP(MTYPE_COMPLETION,bgp->name));}}staticconststructcmd_variable_handlerbgp_viewv
+rf_var_handlers[]={{.tokenname="VIEWVRFNAME",.completions=bgp_viewvrf_autocomple
+te},{.completions=NULL},};staticvoidbgp_pthreads_init(){frr_pthread_init();struc
+tfrr_pthread_attrio={.id=PTHREAD_IO,.start=frr_pthread_attr_default.start,.stop=
+frr_pthread_attr_default.stop,};structfrr_pthread_attrka={.id=PTHREAD_KEEPALIVES
+,.start=bgp_keepalives_start,.stop=bgp_keepalives_stop,};frr_pthread_new(&io,"BG
+PI/Othread");frr_pthread_new(&ka,"BGPKeepalivesthread");}voidbgp_pthreads_run(){
+structfrr_pthread*io=frr_pthread_get(PTHREAD_IO);structfrr_pthread*ka=frr_pthrea
+d_get(PTHREAD_KEEPALIVES);frr_pthread_run(io,NULL);frr_pthread_run(ka,NULL);/*Wa
+ituntilthreadsareready.*/frr_pthread_wait_running(io);frr_pthread_wait_running(k
+a);}voidbgp_pthreads_finish(){frr_pthread_stop_all();frr_pthread_finish();}voidb
+gp_init(void){/*allocatessomevitaldatastructuresusedbypeercommandsin*vty_init*//
+*pre-initpthreads*/bgp_pthreads_init();/*Initzebra.*/bgp_zebra_init(bm->master);
+#ifENABLE_BGP_VNCvnc_zebra_init(bm->master);#endif/*BGPVTYcommandsinstallation.*
+/bgp_vty_init();/*BGPinits.*/bgp_attr_init();bgp_debug_init();bgp_dump_init();bg
+p_route_init();bgp_route_map_init();bgp_scan_vty_init();bgp_mplsvpn_init();#ifEN
+ABLE_BGP_VNCrfapi_init();#endifbgp_ethernetvpn_init();bgp_flowspec_vty_init();/*
+Accesslistinitialize.*/access_list_init();access_list_add_hook(peer_distribute_u
+pdate);access_list_delete_hook(peer_distribute_update);/*Filterlistinitialize.*/
+bgp_filter_init();as_list_add_hook(peer_aslist_add);as_list_delete_hook(peer_asl
+ist_del);/*Prefixlistinitialize.*/prefix_list_init();prefix_list_add_hook(peer_p
+refix_list_update);prefix_list_delete_hook(peer_prefix_list_update);/*Communityl
+istinitialize.*/bgp_clist=community_list_init();/*BFDinit*/bgp_bfd_init();cmd_va
+riable_handler_register(bgp_viewvrf_var_handlers);}voidbgp_terminate(void){struc
+tbgp*bgp;structpeer*peer;structlistnode*node,*nnode;structlistnode*mnode,*mnnode
+;QOBJ_UNREG(bm);/*Closethelistenersocketsfirstasthispreventspeersfrom*attempting
+*toreconnectonreceivingthepeerunconfigmessage.Inthepresence*ofalargenumberofpeer
+sthiswillensurethatnopeerisleftwith*adanglingconnection*//*reversebgp_master_ini
+t*/bgp_close();if(bm->listen_sockets)list_delete_and_null(&bm->listen_sockets);f
+or(ALL_LIST_ELEMENTS(bm->bgp,mnode,mnnode,bgp))for(ALL_LIST_ELEMENTS(bgp->peer,n
+ode,nnode,peer))if(peer->status==Established||peer->status==OpenSent||peer->stat
+us==OpenConfirm)bgp_notify_send(peer,BGP_NOTIFY_CEASE,BGP_NOTIFY_CEASE_PEER_UNCO
+NFIG);if(bm->process_main_queue)work_queue_free_and_null(&bm->process_main_queue
+);if(bm->t_rmap_update)BGP_TIMER_OFF(bm->t_rmap_update);}

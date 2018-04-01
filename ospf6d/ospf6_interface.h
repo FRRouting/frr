@@ -1,201 +1,58 @@
-/*
- * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef OSPF6_INTERFACE_H
-#define OSPF6_INTERFACE_H
-
-#include "qobj.h"
-#include "hook.h"
-#include "if.h"
-
-/* Debug option */
-extern unsigned char conf_debug_ospf6_interface;
-#define OSPF6_DEBUG_INTERFACE_ON() (conf_debug_ospf6_interface = 1)
-#define OSPF6_DEBUG_INTERFACE_OFF() (conf_debug_ospf6_interface = 0)
-#define IS_OSPF6_DEBUG_INTERFACE (conf_debug_ospf6_interface)
-
-/* Interface structure */
-struct ospf6_interface {
-	/* IF info from zebra */
-	struct interface *interface;
-
-	/* back pointer */
-	struct ospf6_area *area;
-
-	/* list of ospf6 neighbor */
-	struct list *neighbor_list;
-
-	/* linklocal address of this I/F */
-	struct in6_addr *linklocal_addr;
-
-	/* Interface ID; use interface->ifindex */
-
-	/* ospf6 instance id */
-	uint8_t instance_id;
-
-	/* I/F transmission delay */
-	uint32_t transdelay;
-
-	/* Network Type */
-	uint8_t type;
-
-	/* Router Priority */
-	uint8_t priority;
-
-	/* Time Interval */
-	uint16_t hello_interval;
-	uint16_t dead_interval;
-	uint32_t rxmt_interval;
-
-	uint32_t state_change;
-
-	/* Cost */
-	uint32_t cost;
-
-	/* I/F MTU */
-	uint32_t ifmtu;
-
-	/* Configured MTU */
-	uint32_t c_ifmtu;
-
-	/* Interface State */
-	uint8_t state;
-
-	/* Interface socket setting trial counter, resets on success */
-	uint8_t sso_try_cnt;
-
-	/* OSPF6 Interface flag */
-	char flag;
-
-	/* MTU mismatch check */
-	uint8_t mtu_ignore;
-
-	/* Decision of DR Election */
-	uint32_t drouter;
-	uint32_t bdrouter;
-	uint32_t prev_drouter;
-	uint32_t prev_bdrouter;
-
-	/* Linklocal LSA Database: includes Link-LSA */
-	struct ospf6_lsdb *lsdb;
-	struct ospf6_lsdb *lsdb_self;
-
-	struct ospf6_lsdb *lsupdate_list;
-	struct ospf6_lsdb *lsack_list;
-
-	/* Ongoing Tasks */
-	struct thread *thread_send_hello;
-	struct thread *thread_send_lsupdate;
-	struct thread *thread_send_lsack;
-
-	struct thread *thread_network_lsa;
-	struct thread *thread_link_lsa;
-	struct thread *thread_intra_prefix_lsa;
-	struct thread *thread_as_extern_lsa;
-
-	struct ospf6_route_table *route_connected;
-
-	/* prefix-list name to filter connected prefix */
-	char *plist_name;
-
-	/* BFD information */
-	void *bfd_info;
-
-	/* Statistics Fields */
-	uint32_t hello_in;
-	uint32_t hello_out;
-	uint32_t db_desc_in;
-	uint32_t db_desc_out;
-	uint32_t ls_req_in;
-	uint32_t ls_req_out;
-	uint32_t ls_upd_in;
-	uint32_t ls_upd_out;
-	uint32_t ls_ack_in;
-	uint32_t ls_ack_out;
-	uint32_t discarded;
-
-	QOBJ_FIELDS
-};
-DECLARE_QOBJ_TYPE(ospf6_interface)
-
-/* interface state */
-#define OSPF6_INTERFACE_NONE             0
-#define OSPF6_INTERFACE_DOWN             1
-#define OSPF6_INTERFACE_LOOPBACK         2
-#define OSPF6_INTERFACE_WAITING          3
-#define OSPF6_INTERFACE_POINTTOPOINT     4
-#define OSPF6_INTERFACE_DROTHER          5
-#define OSPF6_INTERFACE_BDR              6
-#define OSPF6_INTERFACE_DR               7
-#define OSPF6_INTERFACE_MAX              8
-
-extern const char *ospf6_interface_state_str[];
-
-/* flags */
-#define OSPF6_INTERFACE_DISABLE      0x01
-#define OSPF6_INTERFACE_PASSIVE      0x02
-#define OSPF6_INTERFACE_NOAUTOCOST   0x04
-
-/* default values */
-#define OSPF6_INTERFACE_HELLO_INTERVAL 10
-#define OSPF6_INTERFACE_DEAD_INTERVAL  40
-#define OSPF6_INTERFACE_RXMT_INTERVAL  5
-#define OSPF6_INTERFACE_COST           1
-#define OSPF6_INTERFACE_PRIORITY       1
-#define OSPF6_INTERFACE_TRANSDELAY     1
-#define OSPF6_INTERFACE_INSTANCE_ID    0
-#define OSPF6_INTERFACE_BANDWIDTH      10000   /* Mbps */
-#define OSPF6_REFERENCE_BANDWIDTH      100000  /* Mbps */
-#define OSPF6_INTERFACE_SSO_RETRY_INT  1
-#define OSPF6_INTERFACE_SSO_RETRY_MAX  5
-
-/* Function Prototypes */
-
-extern struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t);
-extern struct ospf6_interface *ospf6_interface_create(struct interface *);
-extern void ospf6_interface_delete(struct ospf6_interface *);
-
-extern void ospf6_interface_enable(struct ospf6_interface *);
-extern void ospf6_interface_disable(struct ospf6_interface *);
-
-extern void ospf6_interface_if_add(struct interface *);
-extern void ospf6_interface_if_del(struct interface *);
-extern void ospf6_interface_state_update(struct interface *);
-extern void ospf6_interface_connected_route_update(struct interface *);
-
-/* interface event */
-extern int interface_up(struct thread *);
-extern int interface_down(struct thread *);
-extern int wait_timer(struct thread *);
-extern int backup_seen(struct thread *);
-extern int neighbor_change(struct thread *);
-
-extern void ospf6_interface_init(void);
-
-extern void install_element_ospf6_clear_interface(void);
-
-extern int config_write_ospf6_debug_interface(struct vty *vty);
-extern void install_element_ospf6_debug_interface(void);
-
-DECLARE_HOOK(ospf6_interface_change,
-	     (struct ospf6_interface * oi, int state, int old_state),
-	     (oi, state, old_state))
-
-#endif /* OSPF6_INTERFACE_H */
+/**Copyright(C)2003YasuhiroOhara**ThisfileispartofGNUZebra.**GNUZebraisfreesoftw
+are;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicense
+aspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*later
+version.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANT
+Y;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.
+SeetheGNU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGN
+UGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFre
+eSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifnde
+fOSPF6_INTERFACE_H#defineOSPF6_INTERFACE_H#include"qobj.h"#include"hook.h"#inclu
+de"if.h"/*Debugoption*/externunsignedcharconf_debug_ospf6_interface;#defineOSPF6
+_DEBUG_INTERFACE_ON()(conf_debug_ospf6_interface=1)#defineOSPF6_DEBUG_INTERFACE_
+OFF()(conf_debug_ospf6_interface=0)#defineIS_OSPF6_DEBUG_INTERFACE(conf_debug_os
+pf6_interface)/*Interfacestructure*/structospf6_interface{/*IFinfofromzebra*/str
+uctinterface*interface;/*backpointer*/structospf6_area*area;/*listofospf6neighbo
+r*/structlist*neighbor_list;/*linklocaladdressofthisI/F*/structin6_addr*linkloca
+l_addr;/*InterfaceID;useinterface->ifindex*//*ospf6instanceid*/uint8_tinstance_i
+d;/*I/Ftransmissiondelay*/uint32_ttransdelay;/*NetworkType*/uint8_ttype;/*Router
+Priority*/uint8_tpriority;/*TimeInterval*/uint16_thello_interval;uint16_tdead_in
+terval;uint32_trxmt_interval;uint32_tstate_change;/*Cost*/uint32_tcost;/*I/FMTU*
+/uint32_tifmtu;/*ConfiguredMTU*/uint32_tc_ifmtu;/*InterfaceState*/uint8_tstate;/
+*Interfacesocketsettingtrialcounter,resetsonsuccess*/uint8_tsso_try_cnt;/*OSPF6I
+nterfaceflag*/charflag;/*MTUmismatchcheck*/uint8_tmtu_ignore;/*DecisionofDRElect
+ion*/uint32_tdrouter;uint32_tbdrouter;uint32_tprev_drouter;uint32_tprev_bdrouter
+;/*LinklocalLSADatabase:includesLink-LSA*/structospf6_lsdb*lsdb;structospf6_lsdb
+*lsdb_self;structospf6_lsdb*lsupdate_list;structospf6_lsdb*lsack_list;/*OngoingT
+asks*/structthread*thread_send_hello;structthread*thread_send_lsupdate;structthr
+ead*thread_send_lsack;structthread*thread_network_lsa;structthread*thread_link_l
+sa;structthread*thread_intra_prefix_lsa;structthread*thread_as_extern_lsa;struct
+ospf6_route_table*route_connected;/*prefix-listnametofilterconnectedprefix*/char
+*plist_name;/*BFDinformation*/void*bfd_info;/*StatisticsFields*/uint32_thello_in
+;uint32_thello_out;uint32_tdb_desc_in;uint32_tdb_desc_out;uint32_tls_req_in;uint
+32_tls_req_out;uint32_tls_upd_in;uint32_tls_upd_out;uint32_tls_ack_in;uint32_tls
+_ack_out;uint32_tdiscarded;QOBJ_FIELDS};DECLARE_QOBJ_TYPE(ospf6_interface)/*inte
+rfacestate*/#defineOSPF6_INTERFACE_NONE0#defineOSPF6_INTERFACE_DOWN1#defineOSPF6
+_INTERFACE_LOOPBACK2#defineOSPF6_INTERFACE_WAITING3#defineOSPF6_INTERFACE_POINTT
+OPOINT4#defineOSPF6_INTERFACE_DROTHER5#defineOSPF6_INTERFACE_BDR6#defineOSPF6_IN
+TERFACE_DR7#defineOSPF6_INTERFACE_MAX8externconstchar*ospf6_interface_state_str[
+];/*flags*/#defineOSPF6_INTERFACE_DISABLE0x01#defineOSPF6_INTERFACE_PASSIVE0x02#
+defineOSPF6_INTERFACE_NOAUTOCOST0x04/*defaultvalues*/#defineOSPF6_INTERFACE_HELL
+O_INTERVAL10#defineOSPF6_INTERFACE_DEAD_INTERVAL40#defineOSPF6_INTERFACE_RXMT_IN
+TERVAL5#defineOSPF6_INTERFACE_COST1#defineOSPF6_INTERFACE_PRIORITY1#defineOSPF6_
+INTERFACE_TRANSDELAY1#defineOSPF6_INTERFACE_INSTANCE_ID0#defineOSPF6_INTERFACE_B
+ANDWIDTH10000/*Mbps*/#defineOSPF6_REFERENCE_BANDWIDTH100000/*Mbps*/#defineOSPF6_
+INTERFACE_SSO_RETRY_INT1#defineOSPF6_INTERFACE_SSO_RETRY_MAX5/*FunctionPrototype
+s*/externstructospf6_interface*ospf6_interface_lookup_by_ifindex(ifindex_t);exte
+rnstructospf6_interface*ospf6_interface_create(structinterface*);externvoidospf6
+_interface_delete(structospf6_interface*);externvoidospf6_interface_enable(struc
+tospf6_interface*);externvoidospf6_interface_disable(structospf6_interface*);ext
+ernvoidospf6_interface_if_add(structinterface*);externvoidospf6_interface_if_del
+(structinterface*);externvoidospf6_interface_state_update(structinterface*);exte
+rnvoidospf6_interface_connected_route_update(structinterface*);/*interfaceevent*
+/externintinterface_up(structthread*);externintinterface_down(structthread*);ext
+ernintwait_timer(structthread*);externintbackup_seen(structthread*);externintnei
+ghbor_change(structthread*);externvoidospf6_interface_init(void);externvoidinsta
+ll_element_ospf6_clear_interface(void);externintconfig_write_ospf6_debug_interfa
+ce(structvty*vty);externvoidinstall_element_ospf6_debug_interface(void);DECLARE_
+HOOK(ospf6_interface_change,(structospf6_interface*oi,intstate,intold_state),(oi
+,state,old_state))#endif/*OSPF6_INTERFACE_H*/

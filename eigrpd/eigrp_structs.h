@@ -1,506 +1,132 @@
-/*
- * EIGRP Definition of Data Structures.
- * Copyright (C) 2013-2016
- * Authors:
- *   Donnie Savage
- *   Jan Janovic
- *   Matej Perina
- *   Peter Orsag
- *   Peter Paluch
- *   Frantisek Gazo
- *   Tomas Hvorkovy
- *   Martin Kontsek
- *   Lukas Koribsky
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_EIGRP_STRUCTS_H_
-#define _ZEBRA_EIGRP_STRUCTS_H_
-
-#include "filter.h"
-
-#include "eigrpd/eigrp_const.h"
-#include "eigrpd/eigrp_macros.h"
-
-/* EIGRP master for system wide configuration and variables. */
-struct eigrp_master {
-	/* EIGRP instance. */
-	struct list *eigrp;
-
-	/* EIGRP thread master. */
-	struct thread_master *master;
-
-	/* Zebra interface list. */
-	struct list *iflist;
-
-	/* EIGRP start time. */
-	time_t start_time;
-
-	/* Various EIGRP global configuration. */
-	uint8_t options;
-
-#define EIGRP_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
-};
-
-struct eigrp_metrics {
-	uint32_t delay;
-	uint32_t bandwidth;
-	unsigned char mtu[3];
-	uint8_t hop_count;
-	uint8_t reliability;
-	uint8_t load;
-	uint8_t tag;
-	uint8_t flags;
-};
-
-struct eigrp {
-	uint16_t AS;	 /* Autonomous system number */
-	uint16_t vrid;       /* Virtual Router ID */
-	uint8_t k_values[6]; /*Array for K values configuration*/
-	uint8_t variance;    /*Metric variance multiplier*/
-	uint8_t max_paths;   /*Maximum allowed paths for 1 prefix*/
-
-	/*Name of this EIGRP instance*/
-	char *name;
-
-	/* EIGRP Router ID. */
-	uint32_t router_id;	/* Configured automatically. */
-	uint32_t router_id_static; /* Configured manually. */
-
-	struct list *eiflist;		  /* eigrp interfaces */
-	uint8_t passive_interface_default; /* passive-interface default */
-
-	unsigned int fd;
-	unsigned int maxsndbuflen;
-
-	uint32_t sequence_number; /*Global EIGRP sequence number*/
-
-	struct stream *ibuf;
-	struct list *oi_write_q;
-
-	/*Threads*/
-	struct thread *t_write;
-	struct thread *t_read;
-	struct thread *t_distribute; /* timer for distribute list */
-
-	struct route_table *networks; /* EIGRP config networks. */
-
-	struct route_table *topology_table;
-
-	uint64_t serno; /* Global serial number counter for topology entry
-			   changes*/
-	uint64_t serno_last_update; /* Highest serial number of information send
-				       by last update*/
-	struct list *topology_changes_internalIPV4;
-	struct list *topology_changes_externalIPV4;
-
-	/*Neighbor self*/
-	struct eigrp_neighbor *neighbor_self;
-
-	/*Configured metric for redistributed routes*/
-	struct eigrp_metrics dmetric[ZEBRA_ROUTE_MAX + 1];
-	int redistribute; /* Num of redistributed protocols. */
-
-	/* Access-list. */
-	struct access_list *list[EIGRP_FILTER_MAX];
-	/* Prefix-list. */
-	struct prefix_list *prefix[EIGRP_FILTER_MAX];
-	/* Route-map. */
-	struct route_map *routemap[EIGRP_FILTER_MAX];
-
-	/* For redistribute route map. */
-	struct {
-		char *name;
-		struct route_map *map;
-		int metric_config;
-		uint32_t metric;
-	} route_map[ZEBRA_ROUTE_MAX];
-
-	QOBJ_FIELDS
-};
-DECLARE_QOBJ_TYPE(eigrp)
-
-struct eigrp_if_params {
-	uint8_t passive_interface;
-	uint32_t v_hello;
-	uint16_t v_wait;
-	uint8_t type; /* type of interface */
-	uint32_t bandwidth;
-	uint32_t delay;
-	uint8_t reliability;
-	uint8_t load;
-
-	char *auth_keychain; /* Associated keychain with interface*/
-	int auth_type;       /* EIGRP authentication type */
-};
-
-enum { MEMBER_ALLROUTERS = 0,
-       MEMBER_MAX,
-};
-
-/*EIGRP interface structure*/
-struct eigrp_interface {
-	struct eigrp_if_params params;
-
-	/*multicast group refcnts */
-	bool member_allrouters;
-
-	/* This interface's parent eigrp instance. */
-	struct eigrp *eigrp;
-
-	/* Interface data from zebra. */
-	struct interface *ifp;
-
-	/* Packet send buffer. */
-	struct eigrp_fifo *obuf; /* Output queue */
-
-	/* To which multicast groups do we currently belong? */
-
-
-	uint8_t multicast_memberships;
-
-	/* EIGRP Network Type. */
-	uint8_t type;
-
-	struct prefix *address;      /* Interface prefix */
-	struct connected *connected; /* Pointer to connected */
-
-	/* Neighbor information. */
-	struct list *nbrs; /* EIGRP Neighbor List */
-
-	/* Threads. */
-	struct thread *t_hello;      /* timer */
-	struct thread *t_distribute; /* timer for distribute list */
-
-	int on_write_q;
-
-	/* Statistics fields. */
-	uint32_t hello_in;   /* Hello message input count. */
-	uint32_t update_in;  /* Update message input count. */
-	uint32_t query_in;   /* Querry message input count. */
-	uint32_t reply_in;   /* Reply message input count. */
-	uint32_t hello_out;  /* Hello message output count. */
-	uint32_t update_out; /* Update message output count. */
-	uint32_t query_out;  /* Query message output count. */
-	uint32_t reply_out;  /* Reply message output count. */
-	uint32_t siaQuery_in;
-	uint32_t siaQuery_out;
-	uint32_t siaReply_in;
-	uint32_t siaReply_out;
-	uint32_t ack_out;
-	uint32_t ack_in;
-
-	uint32_t crypt_seqnum; /* Cryptographic Sequence Number */
-
-	/* Access-list. */
-	struct access_list *list[EIGRP_FILTER_MAX];
-	/* Prefix-list. */
-	struct prefix_list *prefix[EIGRP_FILTER_MAX];
-	/* Route-map. */
-	struct route_map *routemap[EIGRP_FILTER_MAX];
-};
-
-/* Determines if it is first or last packet
- * when packet consists of multiple packet
- * chunks because of many route TLV
- * (all won't fit into one packet) */
-enum Packet_part_type {
-	EIGRP_PACKET_PART_NA,
-	EIGRP_PACKET_PART_FIRST,
-	EIGRP_PACKET_PART_LAST
-};
-
-/* Neighbor Data Structure */
-struct eigrp_neighbor {
-	/* This neighbor's parent eigrp interface. */
-	struct eigrp_interface *ei;
-
-	/* EIGRP neighbor Information */
-	uint8_t state; /* neigbor status. */
-
-	uint32_t recv_sequence_number; /* Last received sequence Number. */
-	uint32_t init_sequence_number;
-
-	/*If packet is unacknowledged, we try to send it again 16 times*/
-	uint8_t retrans_counter;
-
-	struct in_addr src; /* Neighbor Src address. */
-
-	uint8_t os_rel_major;  // system version - just for show
-	uint8_t os_rel_minor;  // system version - just for show
-	uint8_t tlv_rel_major; // eigrp version - tells us what TLV format to
-			       // use
-	uint8_t tlv_rel_minor; // eigrp version - tells us what TLV format to
-			       // use
-
-	uint8_t K1;
-	uint8_t K2;
-	uint8_t K3;
-	uint8_t K4;
-	uint8_t K5;
-	uint8_t K6;
-
-	/* Timer values. */
-	uint16_t v_holddown;
-
-	/* Threads. */
-	struct thread *t_holddown;
-	struct thread *t_nbr_send_gr; /* thread for sending multiple GR packet
-					 chunks */
-
-	struct eigrp_fifo *retrans_queue;
-	struct eigrp_fifo *multicast_queue;
-
-	uint32_t crypt_seqnum; /* Cryptographic Sequence Number. */
-
-	/* prefixes not received from neighbor during Graceful restart */
-	struct list *nbr_gr_prefixes;
-	/* prefixes not yet send to neighbor during Graceful restart */
-	struct list *nbr_gr_prefixes_send;
-	/* if packet is first or last during Graceful restart */
-	enum Packet_part_type nbr_gr_packet_type;
-};
-
-//---------------------------------------------------------------------------------------------------------------------------------------------
-
-
-struct eigrp_packet {
-	struct eigrp_packet *next;
-	struct eigrp_packet *previous;
-
-	/* Pointer to data stream. */
-	struct stream *s;
-
-	/* IP destination address. */
-	struct in_addr dst;
-
-	/*Packet retransmission thread*/
-	struct thread *t_retrans_timer;
-
-	/*Packet retransmission counter*/
-	uint8_t retrans_counter;
-
-	uint32_t sequence_number;
-
-	/* EIGRP packet length. */
-	uint16_t length;
-
-	struct eigrp_neighbor *nbr;
-};
-
-struct eigrp_fifo {
-	struct eigrp_packet *head;
-	struct eigrp_packet *tail;
-
-	unsigned long count;
-};
-
-struct eigrp_header {
-	uint8_t version;
-	uint8_t opcode;
-	uint16_t checksum;
-	uint32_t flags;
-	uint32_t sequence;
-	uint32_t ack;
-	uint16_t vrid;
-	uint16_t ASNumber;
-	char *tlv[0];
-
-} __attribute__((packed));
-
-
-/**
- * Generic TLV type used for packet decoding.
- *
- *      +-----+------------------+
- *      |     |     |            |
- *      | Type| Len |    Vector  |
- *      |     |     |            |
- *      +-----+------------------+
- */
-struct eigrp_tlv_hdr_type {
-	uint16_t type;
-	uint16_t length;
-	uint8_t value[0];
-} __attribute__((packed));
-
-struct TLV_Parameter_Type {
-	uint16_t type;
-	uint16_t length;
-	uint8_t K1;
-	uint8_t K2;
-	uint8_t K3;
-	uint8_t K4;
-	uint8_t K5;
-	uint8_t K6;
-	uint16_t hold_time;
-} __attribute__((packed));
-
-struct TLV_MD5_Authentication_Type {
-	uint16_t type;
-	uint16_t length;
-	uint16_t auth_type;
-	uint16_t auth_length;
-	uint32_t key_id;
-	uint32_t key_sequence;
-	uint8_t Nullpad[8];
-	uint8_t digest[EIGRP_AUTH_TYPE_MD5_LEN];
-
-} __attribute__((packed));
-
-struct TLV_SHA256_Authentication_Type {
-	uint16_t type;
-	uint16_t length;
-	uint16_t auth_type;
-	uint16_t auth_length;
-	uint32_t key_id;
-	uint32_t key_sequence;
-	uint8_t Nullpad[8];
-	uint8_t digest[EIGRP_AUTH_TYPE_SHA256_LEN];
-
-} __attribute__((packed));
-
-struct TLV_Sequence_Type {
-	uint16_t type;
-	uint16_t length;
-	uint8_t addr_length;
-	struct in_addr *addresses;
-} __attribute__((packed));
-
-struct TLV_Next_Multicast_Sequence {
-	uint16_t type;
-	uint16_t length;
-	uint32_t multicast_sequence;
-} __attribute__((packed));
-
-struct TLV_Software_Type {
-	uint16_t type;
-	uint16_t length;
-	uint8_t vender_major;
-	uint8_t vender_minor;
-	uint8_t eigrp_major;
-	uint8_t eigrp_minor;
-} __attribute__((packed));
-
-struct TLV_IPv4_Internal_type {
-	uint16_t type;
-	uint16_t length;
-	struct in_addr forward;
-
-	/*Metrics*/
-	struct eigrp_metrics metric;
-
-	uint8_t prefix_length;
-
-	unsigned char destination_part[4];
-	struct in_addr destination;
-} __attribute__((packed));
-
-struct TLV_IPv4_External_type {
-	uint16_t type;
-	uint16_t length;
-	struct in_addr next_hop;
-	struct in_addr originating_router;
-	uint32_t originating_as;
-	uint32_t administrative_tag;
-	uint32_t external_metric;
-	uint16_t reserved;
-	uint8_t external_protocol;
-	uint8_t external_flags;
-
-	/*Metrics*/
-	struct eigrp_metrics metric;
-
-	uint8_t prefix_length;
-	unsigned char destination_part[4];
-	struct in_addr destination;
-} __attribute__((packed));
-
-/* EIGRP Peer Termination TLV - used for hard restart */
-struct TLV_Peer_Termination_type {
-	uint16_t type;
-	uint16_t length;
-	uint8_t unknown;
-	uint32_t neighbor_ip;
-} __attribute__((packed));
-
-/* Who executed Graceful restart */
-enum GR_type { EIGRP_GR_MANUAL, EIGRP_GR_FILTER };
-
-//---------------------------------------------------------------------------------------------------------------------------------------------
-
-/* EIGRP Topology table node structure */
-struct eigrp_prefix_entry {
-	struct list *entries, *rij;
-	uint32_t fdistance;		      // FD
-	uint32_t rdistance;		      // RD
-	uint32_t distance;		      // D
-	struct eigrp_metrics reported_metric; // RD for sending
-
-	uint8_t nt;	 // network type
-	uint8_t state;      // route fsm state
-	uint8_t af;	 // address family
-	uint8_t req_action; // required action
-
-	struct prefix *destination;
-
-	// If network type is REMOTE_EXTERNAL, pointer will have reference to
-	// its external TLV
-	struct TLV_IPv4_External_type *extTLV;
-
-	uint64_t serno; /*Serial number for this entry. Increased with each
-			   change of entry*/
-};
-
-/* EIGRP Topology table record structure */
-struct eigrp_nexthop_entry {
-	struct eigrp_prefix_entry *prefix;
-	uint32_t reported_distance; // distance reported by neighbor
-	uint32_t distance;	  // sum of reported distance and link cost to
-				    // advertised neighbor
-
-	struct eigrp_metrics reported_metric;
-	struct eigrp_metrics total_metric;
-
-	struct eigrp_neighbor *adv_router; // ip address of advertising neighbor
-	uint8_t flags;			   // used for marking successor and FS
-
-	struct eigrp_interface *ei; // pointer for case of connected entry
-};
-
-//---------------------------------------------------------------------------------------------------------------------------------------------
-typedef enum {
-	EIGRP_CONNECTED,
-	EIGRP_INT,
-	EIGRP_EXT,
-} msg_data_t;
-
-/* EIGRP Finite State Machine */
-
-struct eigrp_fsm_action_message {
-	uint8_t packet_type;		   // UPDATE, QUERY, SIAQUERY, SIAREPLY
-	struct eigrp *eigrp;		   // which thread sent mesg
-	struct eigrp_neighbor *adv_router; // advertising neighbor
-	struct eigrp_nexthop_entry *entry;
-	struct eigrp_prefix_entry *prefix;
-	msg_data_t data_type; // internal or external tlv type
-	struct eigrp_metrics metrics;
-	enum metric_change change;
-};
-
-#endif /* _ZEBRA_EIGRP_STRUCTURES_H_ */
+/**EIGRPDefinitionofDataStructures.*Copyright(C)2013-2016*Authors:*DonnieSavage*
+JanJanovic*MatejPerina*PeterOrsag*PeterPaluch*FrantisekGazo*TomasHvorkovy*Martin
+Kontsek*LukasKoribsky**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanr
+edistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublished
+bythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**G
+NUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withoutev
+entheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*G
+eneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPub
+licLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*F
+oundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_EIG
+RP_STRUCTS_H_#define_ZEBRA_EIGRP_STRUCTS_H_#include"filter.h"#include"eigrpd/eig
+rp_const.h"#include"eigrpd/eigrp_macros.h"/*EIGRPmasterforsystemwideconfiguratio
+nandvariables.*/structeigrp_master{/*EIGRPinstance.*/structlist*eigrp;/*EIGRPthr
+eadmaster.*/structthread_master*master;/*Zebrainterfacelist.*/structlist*iflist;
+/*EIGRPstarttime.*/time_tstart_time;/*VariousEIGRPglobalconfiguration.*/uint8_to
+ptions;#defineEIGRP_MASTER_SHUTDOWN(1<<0)/*deferred-shutdown*/};structeigrp_metr
+ics{uint32_tdelay;uint32_tbandwidth;unsignedcharmtu[3];uint8_thop_count;uint8_tr
+eliability;uint8_tload;uint8_ttag;uint8_tflags;};structeigrp{uint16_tAS;/*Autono
+moussystemnumber*/uint16_tvrid;/*VirtualRouterID*/uint8_tk_values[6];/*ArrayforK
+valuesconfiguration*/uint8_tvariance;/*Metricvariancemultiplier*/uint8_tmax_path
+s;/*Maximumallowedpathsfor1prefix*//*NameofthisEIGRPinstance*/char*name;/*EIGRPR
+outerID.*/uint32_trouter_id;/*Configuredautomatically.*/uint32_trouter_id_static
+;/*Configuredmanually.*/structlist*eiflist;/*eigrpinterfaces*/uint8_tpassive_int
+erface_default;/*passive-interfacedefault*/unsignedintfd;unsignedintmaxsndbuflen
+;uint32_tsequence_number;/*GlobalEIGRPsequencenumber*/structstream*ibuf;structli
+st*oi_write_q;/*Threads*/structthread*t_write;structthread*t_read;structthread*t
+_distribute;/*timerfordistributelist*/structroute_table*networks;/*EIGRPconfigne
+tworks.*/structroute_table*topology_table;uint64_tserno;/*Globalserialnumbercoun
+terfortopologyentrychanges*/uint64_tserno_last_update;/*Highestserialnumberofinf
+ormationsendbylastupdate*/structlist*topology_changes_internalIPV4;structlist*to
+pology_changes_externalIPV4;/*Neighborself*/structeigrp_neighbor*neighbor_self;/
+*Configuredmetricforredistributedroutes*/structeigrp_metricsdmetric[ZEBRA_ROUTE_
+MAX+1];intredistribute;/*Numofredistributedprotocols.*//*Access-list.*/structacc
+ess_list*list[EIGRP_FILTER_MAX];/*Prefix-list.*/structprefix_list*prefix[EIGRP_F
+ILTER_MAX];/*Route-map.*/structroute_map*routemap[EIGRP_FILTER_MAX];/*Forredistr
+ibuteroutemap.*/struct{char*name;structroute_map*map;intmetric_config;uint32_tme
+tric;}route_map[ZEBRA_ROUTE_MAX];QOBJ_FIELDS};DECLARE_QOBJ_TYPE(eigrp)structeigr
+p_if_params{uint8_tpassive_interface;uint32_tv_hello;uint16_tv_wait;uint8_ttype;
+/*typeofinterface*/uint32_tbandwidth;uint32_tdelay;uint8_treliability;uint8_tloa
+d;char*auth_keychain;/*Associatedkeychainwithinterface*/intauth_type;/*EIGRPauth
+enticationtype*/};enum{MEMBER_ALLROUTERS=0,MEMBER_MAX,};/*EIGRPinterfacestructur
+e*/structeigrp_interface{structeigrp_if_paramsparams;/*multicastgrouprefcnts*/bo
+olmember_allrouters;/*Thisinterface'sparenteigrpinstance.*/structeigrp*eigrp;/*I
+nterfacedatafromzebra.*/structinterface*ifp;/*Packetsendbuffer.*/structeigrp_fif
+o*obuf;/*Outputqueue*//*Towhichmulticastgroupsdowecurrentlybelong?*/uint8_tmulti
+cast_memberships;/*EIGRPNetworkType.*/uint8_ttype;structprefix*address;/*Interfa
+ceprefix*/structconnected*connected;/*Pointertoconnected*//*Neighborinformation.
+*/structlist*nbrs;/*EIGRPNeighborList*//*Threads.*/structthread*t_hello;/*timer*
+/structthread*t_distribute;/*timerfordistributelist*/inton_write_q;/*Statisticsf
+ields.*/uint32_thello_in;/*Hellomessageinputcount.*/uint32_tupdate_in;/*Updateme
+ssageinputcount.*/uint32_tquery_in;/*Querrymessageinputcount.*/uint32_treply_in;
+/*Replymessageinputcount.*/uint32_thello_out;/*Hellomessageoutputcount.*/uint32_
+tupdate_out;/*Updatemessageoutputcount.*/uint32_tquery_out;/*Querymessageoutputc
+ount.*/uint32_treply_out;/*Replymessageoutputcount.*/uint32_tsiaQuery_in;uint32_
+tsiaQuery_out;uint32_tsiaReply_in;uint32_tsiaReply_out;uint32_tack_out;uint32_ta
+ck_in;uint32_tcrypt_seqnum;/*CryptographicSequenceNumber*//*Access-list.*/struct
+access_list*list[EIGRP_FILTER_MAX];/*Prefix-list.*/structprefix_list*prefix[EIGR
+P_FILTER_MAX];/*Route-map.*/structroute_map*routemap[EIGRP_FILTER_MAX];};/*Deter
+minesifitisfirstorlastpacket*whenpacketconsistsofmultiplepacket*chunksbecauseofm
+anyrouteTLV*(allwon'tfitintoonepacket)*/enumPacket_part_type{EIGRP_PACKET_PART_N
+A,EIGRP_PACKET_PART_FIRST,EIGRP_PACKET_PART_LAST};/*NeighborDataStructure*/struc
+teigrp_neighbor{/*Thisneighbor'sparenteigrpinterface.*/structeigrp_interface*ei;
+/*EIGRPneighborInformation*/uint8_tstate;/*neigborstatus.*/uint32_trecv_sequence
+_number;/*LastreceivedsequenceNumber.*/uint32_tinit_sequence_number;/*Ifpacketis
+unacknowledged,wetrytosenditagain16times*/uint8_tretrans_counter;structin_addrsr
+c;/*NeighborSrcaddress.*/uint8_tos_rel_major;//systemversion-justforshowuint8_to
+s_rel_minor;//systemversion-justforshowuint8_ttlv_rel_major;//eigrpversion-tells
+uswhatTLVformatto//useuint8_ttlv_rel_minor;//eigrpversion-tellsuswhatTLVformatto
+//useuint8_tK1;uint8_tK2;uint8_tK3;uint8_tK4;uint8_tK5;uint8_tK6;/*Timervalues.*
+/uint16_tv_holddown;/*Threads.*/structthread*t_holddown;structthread*t_nbr_send_
+gr;/*threadforsendingmultipleGRpacketchunks*/structeigrp_fifo*retrans_queue;stru
+cteigrp_fifo*multicast_queue;uint32_tcrypt_seqnum;/*CryptographicSequenceNumber.
+*//*prefixesnotreceivedfromneighborduringGracefulrestart*/structlist*nbr_gr_pref
+ixes;/*prefixesnotyetsendtoneighborduringGracefulrestart*/structlist*nbr_gr_pref
+ixes_send;/*ifpacketisfirstorlastduringGracefulrestart*/enumPacket_part_typenbr_
+gr_packet_type;};//-------------------------------------------------------------
+--------------------------------------------------------------------------------
+structeigrp_packet{structeigrp_packet*next;structeigrp_packet*previous;/*Pointer
+todatastream.*/structstream*s;/*IPdestinationaddress.*/structin_addrdst;/*Packet
+retransmissionthread*/structthread*t_retrans_timer;/*Packetretransmissioncounter
+*/uint8_tretrans_counter;uint32_tsequence_number;/*EIGRPpacketlength.*/uint16_tl
+ength;structeigrp_neighbor*nbr;};structeigrp_fifo{structeigrp_packet*head;struct
+eigrp_packet*tail;unsignedlongcount;};structeigrp_header{uint8_tversion;uint8_to
+pcode;uint16_tchecksum;uint32_tflags;uint32_tsequence;uint32_tack;uint16_tvrid;u
+int16_tASNumber;char*tlv[0];}__attribute__((packed));/***GenericTLVtypeusedforpa
+cketdecoding.**+-----+------------------+*||||*|Type|Len|Vector|*||||*+-----+---
+---------------+*/structeigrp_tlv_hdr_type{uint16_ttype;uint16_tlength;uint8_tva
+lue[0];}__attribute__((packed));structTLV_Parameter_Type{uint16_ttype;uint16_tle
+ngth;uint8_tK1;uint8_tK2;uint8_tK3;uint8_tK4;uint8_tK5;uint8_tK6;uint16_thold_ti
+me;}__attribute__((packed));structTLV_MD5_Authentication_Type{uint16_ttype;uint1
+6_tlength;uint16_tauth_type;uint16_tauth_length;uint32_tkey_id;uint32_tkey_seque
+nce;uint8_tNullpad[8];uint8_tdigest[EIGRP_AUTH_TYPE_MD5_LEN];}__attribute__((pac
+ked));structTLV_SHA256_Authentication_Type{uint16_ttype;uint16_tlength;uint16_ta
+uth_type;uint16_tauth_length;uint32_tkey_id;uint32_tkey_sequence;uint8_tNullpad[
+8];uint8_tdigest[EIGRP_AUTH_TYPE_SHA256_LEN];}__attribute__((packed));structTLV_
+Sequence_Type{uint16_ttype;uint16_tlength;uint8_taddr_length;structin_addr*addre
+sses;}__attribute__((packed));structTLV_Next_Multicast_Sequence{uint16_ttype;uin
+t16_tlength;uint32_tmulticast_sequence;}__attribute__((packed));structTLV_Softwa
+re_Type{uint16_ttype;uint16_tlength;uint8_tvender_major;uint8_tvender_minor;uint
+8_teigrp_major;uint8_teigrp_minor;}__attribute__((packed));structTLV_IPv4_Intern
+al_type{uint16_ttype;uint16_tlength;structin_addrforward;/*Metrics*/structeigrp_
+metricsmetric;uint8_tprefix_length;unsignedchardestination_part[4];structin_addr
+destination;}__attribute__((packed));structTLV_IPv4_External_type{uint16_ttype;u
+int16_tlength;structin_addrnext_hop;structin_addroriginating_router;uint32_torig
+inating_as;uint32_tadministrative_tag;uint32_texternal_metric;uint16_treserved;u
+int8_texternal_protocol;uint8_texternal_flags;/*Metrics*/structeigrp_metricsmetr
+ic;uint8_tprefix_length;unsignedchardestination_part[4];structin_addrdestination
+;}__attribute__((packed));/*EIGRPPeerTerminationTLV-usedforhardrestart*/structTL
+V_Peer_Termination_type{uint16_ttype;uint16_tlength;uint8_tunknown;uint32_tneigh
+bor_ip;}__attribute__((packed));/*WhoexecutedGracefulrestart*/enumGR_type{EIGRP_
+GR_MANUAL,EIGRP_GR_FILTER};//---------------------------------------------------
+--------------------------------------------------------------------------------
+----------/*EIGRPTopologytablenodestructure*/structeigrp_prefix_entry{structlist
+*entries,*rij;uint32_tfdistance;//FDuint32_trdistance;//RDuint32_tdistance;//Dst
+ructeigrp_metricsreported_metric;//RDforsendinguint8_tnt;//networktypeuint8_tsta
+te;//routefsmstateuint8_taf;//addressfamilyuint8_treq_action;//requiredactionstr
+uctprefix*destination;//IfnetworktypeisREMOTE_EXTERNAL,pointerwillhavereferencet
+o//itsexternalTLVstructTLV_IPv4_External_type*extTLV;uint64_tserno;/*Serialnumbe
+rforthisentry.Increasedwitheachchangeofentry*/};/*EIGRPTopologytablerecordstruct
+ure*/structeigrp_nexthop_entry{structeigrp_prefix_entry*prefix;uint32_treported_
+distance;//distancereportedbyneighboruint32_tdistance;//sumofreporteddistanceand
+linkcostto//advertisedneighborstructeigrp_metricsreported_metric;structeigrp_met
+ricstotal_metric;structeigrp_neighbor*adv_router;//ipaddressofadvertisingneighbo
+ruint8_tflags;//usedformarkingsuccessorandFSstructeigrp_interface*ei;//pointerfo
+rcaseofconnectedentry};//-------------------------------------------------------
+--------------------------------------------------------------------------------
+------typedefenum{EIGRP_CONNECTED,EIGRP_INT,EIGRP_EXT,}msg_data_t;/*EIGRPFiniteS
+tateMachine*/structeigrp_fsm_action_message{uint8_tpacket_type;//UPDATE,QUERY,SI
+AQUERY,SIAREPLYstructeigrp*eigrp;//whichthreadsentmesgstructeigrp_neighbor*adv_r
+outer;//advertisingneighborstructeigrp_nexthop_entry*entry;structeigrp_prefix_en
+try*prefix;msg_data_tdata_type;//internalorexternaltlvtypestructeigrp_metricsmet
+rics;enummetric_changechange;};#endif/*_ZEBRA_EIGRP_STRUCTURES_H_*/

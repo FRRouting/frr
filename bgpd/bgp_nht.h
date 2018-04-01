@@ -1,75 +1,27 @@
-/* BGP Nexthop tracking
- * Copyright (C) 2013 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _BGP_NHT_H
-#define _BGP_NHT_H
-
-/**
- * bgp_parse_nexthop_update() - parse a nexthop update message from Zebra.
- */
-extern void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id);
-
-/**
- * bgp_find_nexthop() - lookup the nexthop cache table for the bnc object
- * ARGUMENTS:
- *   p - path for which the nexthop object is being looked up
- *   connected - True if NH MUST be a connected route
- */
-extern int bgp_find_nexthop(struct bgp_info *p, int connected);
-
-/**
- * bgp_find_or_add_nexthop() - lookup the nexthop cache table for the bnc
- *  object. If not found, create a new object and register with ZEBRA for
- *  nexthop notification.
- * ARGUMENTS:
- *   bgp - BGP instance
- *   a - afi: AFI_IP or AF_IP6
- *   p - path for which the nexthop object is being looked up
- *   peer - The BGP peer associated with this NHT
- *   connected - True if NH MUST be a connected route
- */
-extern int bgp_find_or_add_nexthop(struct bgp *bgp, afi_t a, struct bgp_info *p,
-				   struct peer *peer, int connected);
-
-/**
- * bgp_unlink_nexthop() - Unlink the nexthop object from the path structure.
- * ARGUMENTS:
- *   p - path structure.
- */
-extern void bgp_unlink_nexthop(struct bgp_info *p);
-void bgp_unlink_nexthop_by_peer(struct peer *);
-
-/**
- * bgp_delete_connected_nexthop() - Reset the 'peer' pointer for a connected
- * nexthop entry. If no paths reference the nexthop, it will be unregistered
- * and freed.
- * ARGUMENTS:
- *   afi - afi: AFI_IP or AF_IP6
- *   peer - Ptr to peer
- */
-extern void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer);
-
-/*
- * Cleanup nexthop registration and status information for BGP nexthops
- * pertaining to this VRF. This is invoked upon VRF deletion.
- */
-extern void bgp_cleanup_nexthops(struct bgp *bgp);
-
-#endif /* _BGP_NHT_H */
+/*BGPNexthoptracking*Copyright(C)2013CumulusNetworks,Inc.**ThisfileispartofGNUZe
+bra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoft
+heGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,
+or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuse
+ful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITN
+ESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshoul
+dhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCO
+PYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bosto
+n,MA02110-1301USA*/#ifndef_BGP_NHT_H#define_BGP_NHT_H/***bgp_parse_nexthop_updat
+e()-parseanexthopupdatemessagefromZebra.*/externvoidbgp_parse_nexthop_update(int
+command,vrf_id_tvrf_id);/***bgp_find_nexthop()-lookupthenexthopcachetablefortheb
+ncobject*ARGUMENTS:*p-pathforwhichthenexthopobjectisbeinglookedup*connected-True
+ifNHMUSTbeaconnectedroute*/externintbgp_find_nexthop(structbgp_info*p,intconnect
+ed);/***bgp_find_or_add_nexthop()-lookupthenexthopcachetableforthebnc*object.Ifn
+otfound,createanewobjectandregisterwithZEBRAfor*nexthopnotification.*ARGUMENTS:*
+bgp-BGPinstance*a-afi:AFI_IPorAF_IP6*p-pathforwhichthenexthopobjectisbeinglooked
+up*peer-TheBGPpeerassociatedwiththisNHT*connected-TrueifNHMUSTbeaconnectedroute*
+/externintbgp_find_or_add_nexthop(structbgp*bgp,afi_ta,structbgp_info*p,structpe
+er*peer,intconnected);/***bgp_unlink_nexthop()-Unlinkthenexthopobjectfromthepath
+structure.*ARGUMENTS:*p-pathstructure.*/externvoidbgp_unlink_nexthop(structbgp_i
+nfo*p);voidbgp_unlink_nexthop_by_peer(structpeer*);/***bgp_delete_connected_next
+hop()-Resetthe'peer'pointerforaconnected*nexthopentry.Ifnopathsreferencethenexth
+op,itwillbeunregistered*andfreed.*ARGUMENTS:*afi-afi:AFI_IPorAF_IP6*peer-Ptrtope
+er*/externvoidbgp_delete_connected_nexthop(afi_tafi,structpeer*peer);/**Cleanupn
+exthopregistrationandstatusinformationforBGPnexthops*pertainingtothisVRF.Thisisi
+nvokeduponVRFdeletion.*/externvoidbgp_cleanup_nexthops(structbgp*bgp);#endif/*_B
+GP_NHT_H*/

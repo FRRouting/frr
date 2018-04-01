@@ -1,89 +1,29 @@
-/*
- * OSPF version 2  Neighbor State Machine
- *   From RFC2328 [OSPF Version 2]
- *   Copyright (C) 1999 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_OSPF_NSM_H
-#define _ZEBRA_OSPF_NSM_H
-
-#include "hook.h"
-
-/* OSPF Neighbor State Machine State. */
-#define NSM_DependUpon          0
-#define NSM_Deleted		1
-#define NSM_Down		2
-#define NSM_Attempt		3
-#define NSM_Init		4
-#define NSM_TwoWay		5
-#define NSM_ExStart		6
-#define NSM_Exchange		7
-#define NSM_Loading		8
-#define NSM_Full		9
-#define OSPF_NSM_STATE_MAX     10
-
-/* OSPF Neighbor State Machine Event. */
-#define NSM_NoEvent	        0
-#define NSM_PacketReceived	1 /* HelloReceived in the protocol */
-#define NSM_Start		2
-#define NSM_TwoWayReceived	3
-#define NSM_NegotiationDone	4
-#define NSM_ExchangeDone	5
-#define NSM_BadLSReq		6
-#define NSM_LoadingDone		7
-#define NSM_AdjOK		8
-#define NSM_SeqNumberMismatch	9
-#define NSM_OneWayReceived     10
-#define NSM_KillNbr	       11
-#define NSM_InactivityTimer    12
-#define NSM_LLDown	       13
-#define OSPF_NSM_EVENT_MAX     14
-
-/* Macro for OSPF NSM timer turn on. */
-#define OSPF_NSM_TIMER_ON(T,F,V) thread_add_timer (master, (F), nbr, (V), &(T))
-
-/* Macro for OSPF NSM timer turn off. */
-#define OSPF_NSM_TIMER_OFF(X)                                                  \
-	do {                                                                   \
-		if (X) {                                                       \
-			thread_cancel(X);                                      \
-			(X) = NULL;                                            \
-		}                                                              \
-	} while (0)
-
-/* Macro for OSPF NSM schedule event. */
-#define OSPF_NSM_EVENT_SCHEDULE(N, E)                                          \
-	thread_add_event(master, ospf_nsm_event, (N), (E), NULL)
-
-/* Macro for OSPF NSM execute event. */
-#define OSPF_NSM_EVENT_EXECUTE(N, E)                                           \
-	thread_execute(master, ospf_nsm_event, (N), (E))
-
-/* Prototypes. */
-extern int ospf_nsm_event(struct thread *);
-extern void ospf_check_nbr_loading(struct ospf_neighbor *);
-extern int ospf_db_summary_isempty(struct ospf_neighbor *);
-extern int ospf_db_summary_count(struct ospf_neighbor *);
-extern void ospf_db_summary_clear(struct ospf_neighbor *);
-
-DECLARE_HOOK(ospf_nsm_change,
-	     (struct ospf_neighbor * on, int state, int oldstate),
-	     (on, state, oldstate))
-
-#endif /* _ZEBRA_OSPF_NSM_H */
+/**OSPFversion2NeighborStateMachine*FromRFC2328[OSPFVersion2]*Copyright(C)1999To
+shiakiTakada**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistribu
+teitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*Fre
+eSoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebrais
+distributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpl
+iedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPub
+licLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicens
+ealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation
+,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_OSPF_NSM_H#d
+efine_ZEBRA_OSPF_NSM_H#include"hook.h"/*OSPFNeighborStateMachineState.*/#defineN
+SM_DependUpon0#defineNSM_Deleted1#defineNSM_Down2#defineNSM_Attempt3#defineNSM_I
+nit4#defineNSM_TwoWay5#defineNSM_ExStart6#defineNSM_Exchange7#defineNSM_Loading8
+#defineNSM_Full9#defineOSPF_NSM_STATE_MAX10/*OSPFNeighborStateMachineEvent.*/#de
+fineNSM_NoEvent0#defineNSM_PacketReceived1/*HelloReceivedintheprotocol*/#defineN
+SM_Start2#defineNSM_TwoWayReceived3#defineNSM_NegotiationDone4#defineNSM_Exchang
+eDone5#defineNSM_BadLSReq6#defineNSM_LoadingDone7#defineNSM_AdjOK8#defineNSM_Seq
+NumberMismatch9#defineNSM_OneWayReceived10#defineNSM_KillNbr11#defineNSM_Inactiv
+ityTimer12#defineNSM_LLDown13#defineOSPF_NSM_EVENT_MAX14/*MacroforOSPFNSMtimertu
+rnon.*/#defineOSPF_NSM_TIMER_ON(T,F,V)thread_add_timer(master,(F),nbr,(V),&(T))/
+*MacroforOSPFNSMtimerturnoff.*/#defineOSPF_NSM_TIMER_OFF(X)\do{\if(X){\thread_ca
+ncel(X);\(X)=NULL;\}\}while(0)/*MacroforOSPFNSMscheduleevent.*/#defineOSPF_NSM_E
+VENT_SCHEDULE(N,E)\thread_add_event(master,ospf_nsm_event,(N),(E),NULL)/*Macrofo
+rOSPFNSMexecuteevent.*/#defineOSPF_NSM_EVENT_EXECUTE(N,E)\thread_execute(master,
+ospf_nsm_event,(N),(E))/*Prototypes.*/externintospf_nsm_event(structthread*);ext
+ernvoidospf_check_nbr_loading(structospf_neighbor*);externintospf_db_summary_ise
+mpty(structospf_neighbor*);externintospf_db_summary_count(structospf_neighbor*);
+externvoidospf_db_summary_clear(structospf_neighbor*);DECLARE_HOOK(ospf_nsm_chan
+ge,(structospf_neighbor*on,intstate,intoldstate),(on,state,oldstate))#endif/*_ZE
+BRA_OSPF_NSM_H*/

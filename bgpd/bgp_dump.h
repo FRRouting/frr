@@ -1,57 +1,21 @@
-/* BGP dump routine.
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_BGP_DUMP_H
-#define _QUAGGA_BGP_DUMP_H
-
-/* MRT compatible packet dump values.  */
-/* type value */
-#define MSG_PROTOCOL_BGP4MP    16
-#define MSG_PROTOCOL_BGP4MP_ET 17
-
-/* subtype value */
-#define BGP4MP_STATE_CHANGE          0
-#define BGP4MP_MESSAGE               1
-#define BGP4MP_ENTRY                 2
-#define BGP4MP_SNAPSHOT              3
-#define BGP4MP_MESSAGE_AS4           4
-#define BGP4MP_STATE_CHANGE_AS4      5
-
-#define BGP_DUMP_HEADER_SIZE 12
-#define BGP_DUMP_MSG_HEADER  40
-
-#define TABLE_DUMP_V2_PEER_INDEX_TABLE   1
-#define TABLE_DUMP_V2_RIB_IPV4_UNICAST   2
-#define TABLE_DUMP_V2_RIB_IPV4_MULTICAST 3
-#define TABLE_DUMP_V2_RIB_IPV6_UNICAST   4
-#define TABLE_DUMP_V2_RIB_IPV6_MULTICAST 5
-#define TABLE_DUMP_V2_RIB_GENERIC        6
-
-#define TABLE_DUMP_V2_PEER_INDEX_TABLE_IP  0
-#define TABLE_DUMP_V2_PEER_INDEX_TABLE_IP6 1
-#define TABLE_DUMP_V2_PEER_INDEX_TABLE_AS2 0
-#define TABLE_DUMP_V2_PEER_INDEX_TABLE_AS4 2
-
-extern void bgp_dump_init(void);
-extern void bgp_dump_finish(void);
-extern void bgp_dump_state(struct peer *, int, int);
-extern void bgp_dump_packet(struct peer *, int, struct stream *);
-
-#endif /* _QUAGGA_BGP_DUMP_H */
+/*BGPdumproutine.*Copyright(C)1999KunihiroIshiguro**ThisfileispartofGNUZebra.**G
+NUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGe
+neralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyo
+uroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but
+*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORA
+PARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavere
+ceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;i
+fnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA021
+10-1301USA*/#ifndef_QUAGGA_BGP_DUMP_H#define_QUAGGA_BGP_DUMP_H/*MRTcompatiblepac
+ketdumpvalues.*//*typevalue*/#defineMSG_PROTOCOL_BGP4MP16#defineMSG_PROTOCOL_BGP
+4MP_ET17/*subtypevalue*/#defineBGP4MP_STATE_CHANGE0#defineBGP4MP_MESSAGE1#define
+BGP4MP_ENTRY2#defineBGP4MP_SNAPSHOT3#defineBGP4MP_MESSAGE_AS44#defineBGP4MP_STAT
+E_CHANGE_AS45#defineBGP_DUMP_HEADER_SIZE12#defineBGP_DUMP_MSG_HEADER40#defineTAB
+LE_DUMP_V2_PEER_INDEX_TABLE1#defineTABLE_DUMP_V2_RIB_IPV4_UNICAST2#defineTABLE_D
+UMP_V2_RIB_IPV4_MULTICAST3#defineTABLE_DUMP_V2_RIB_IPV6_UNICAST4#defineTABLE_DUM
+P_V2_RIB_IPV6_MULTICAST5#defineTABLE_DUMP_V2_RIB_GENERIC6#defineTABLE_DUMP_V2_PE
+ER_INDEX_TABLE_IP0#defineTABLE_DUMP_V2_PEER_INDEX_TABLE_IP61#defineTABLE_DUMP_V2
+_PEER_INDEX_TABLE_AS20#defineTABLE_DUMP_V2_PEER_INDEX_TABLE_AS42externvoidbgp_du
+mp_init(void);externvoidbgp_dump_finish(void);externvoidbgp_dump_state(structpee
+r*,int,int);externvoidbgp_dump_packet(structpeer*,int,structstream*);#endif/*_QU
+AGGA_BGP_DUMP_H*/

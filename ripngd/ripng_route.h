@@ -1,55 +1,18 @@
-/*
- * RIPng daemon
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_RIPNG_ROUTE_H
-#define _ZEBRA_RIPNG_ROUTE_H
-
-struct ripng_aggregate {
-	/* Aggregate route count. */
-	unsigned int count;
-
-	/* Suppressed route count. */
-	unsigned int suppress;
-
-	/* Metric of this route.  */
-	uint8_t metric;
-
-	/* Tag field of RIPng packet.*/
-	uint16_t tag;
-
-	/* Route-map futures - this variables can be changed. */
-	struct in6_addr nexthop_out;
-	uint8_t metric_set;
-	uint8_t metric_out;
-	uint16_t tag_out;
-};
-
-extern void ripng_aggregate_increment(struct route_node *rp,
-				      struct ripng_info *rinfo);
-extern void ripng_aggregate_decrement(struct route_node *rp,
-				      struct ripng_info *rinfo);
-extern void ripng_aggregate_decrement_list(struct route_node *rp,
-					   struct list *list);
-extern int ripng_aggregate_add(struct prefix *p);
-extern int ripng_aggregate_delete(struct prefix *p);
-extern void ripng_aggregate_free(struct ripng_aggregate *aggregate);
-
-#endif /* _ZEBRA_RIPNG_ROUTE_H */
+/**RIPngdaemon*Copyright(C)1998KunihiroIshiguro**ThisfileispartofGNUZebra.**GNUZ
+ebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGener
+alPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouro
+ption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WI
+THOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPAR
+TICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhaverecei
+vedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifno
+t,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-
+1301USA*/#ifndef_ZEBRA_RIPNG_ROUTE_H#define_ZEBRA_RIPNG_ROUTE_Hstructripng_aggre
+gate{/*Aggregateroutecount.*/unsignedintcount;/*Suppressedroutecount.*/unsignedi
+ntsuppress;/*Metricofthisroute.*/uint8_tmetric;/*TagfieldofRIPngpacket.*/uint16_
+ttag;/*Route-mapfutures-thisvariablescanbechanged.*/structin6_addrnexthop_out;ui
+nt8_tmetric_set;uint8_tmetric_out;uint16_ttag_out;};externvoidripng_aggregate_in
+crement(structroute_node*rp,structripng_info*rinfo);externvoidripng_aggregate_de
+crement(structroute_node*rp,structripng_info*rinfo);externvoidripng_aggregate_de
+crement_list(structroute_node*rp,structlist*list);externintripng_aggregate_add(s
+tructprefix*p);externintripng_aggregate_delete(structprefix*p);externvoidripng_a
+ggregate_free(structripng_aggregate*aggregate);#endif/*_ZEBRA_RIPNG_ROUTE_H*/

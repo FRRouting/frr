@@ -1,420 +1,116 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "log.h"
-#include "prefix.h"
-#include "vty.h"
-#include "plist.h"
-
-#include "pimd.h"
-#include "pim_macro.h"
-#include "pim_iface.h"
-#include "pim_ifchannel.h"
-#include "pim_rp.h"
-
-/*
-  DownstreamJPState(S,G,I) is the per-interface state machine for
-  receiving (S,G) Join/Prune messages.
-
-  DownstreamJPState(S,G,I) is either Join or Prune-Pending
-  DownstreamJPState(*,G,I) is either Join or Prune-Pending
-*/
-static int downstream_jpstate_isjoined(const struct pim_ifchannel *ch)
-{
-	switch (ch->ifjoin_state) {
-	case PIM_IFJOIN_NOINFO:
-	case PIM_IFJOIN_PRUNE:
-	case PIM_IFJOIN_PRUNE_TMP:
-	case PIM_IFJOIN_PRUNE_PENDING_TMP:
-		return 0;
-		break;
-	case PIM_IFJOIN_JOIN:
-	case PIM_IFJOIN_PRUNE_PENDING:
-		return 1;
-		break;
-	}
-	return 0;
-}
-
-/*
-  The clause "local_receiver_include(S,G,I)" is true if the IGMP/MLD
-  module or other local membership mechanism has determined that local
-  members on interface I desire to receive traffic sent specifically
-  by S to G.
-*/
-static int local_receiver_include(const struct pim_ifchannel *ch)
-{
-	/* local_receiver_include(S,G,I) ? */
-	return ch->local_ifmembership == PIM_IFMEMBERSHIP_INCLUDE;
-}
-
-/*
-  RFC 4601: 4.1.6.  State Summarization Macros
-
-   The set "joins(S,G)" is the set of all interfaces on which the
-   router has received (S,G) Joins:
-
-   joins(S,G) =
-       { all interfaces I such that
-	 DownstreamJPState(S,G,I) is either Join or Prune-Pending }
-
-  DownstreamJPState(S,G,I) is either Join or Prune-Pending ?
-*/
-int pim_macro_chisin_joins(const struct pim_ifchannel *ch)
-{
-	return downstream_jpstate_isjoined(ch);
-}
-
-/*
-  RFC 4601: 4.6.5.  Assert State Macros
-
-   The set "lost_assert(S,G)" is the set of all interfaces on which the
-   router has received (S,G) joins but has lost an (S,G) assert.
-
-   lost_assert(S,G) =
-       { all interfaces I such that
-	 lost_assert(S,G,I) == TRUE }
-
-     bool lost_assert(S,G,I) {
-       if ( RPF_interface(S) == I ) {
-	  return FALSE
-       } else {
-	  return ( AssertWinner(S,G,I) != NULL AND
-		   AssertWinner(S,G,I) != me  AND
-		   (AssertWinnerMetric(S,G,I) is better
-		      than spt_assert_metric(S,I) )
-       }
-     }
-
-  AssertWinner(S,G,I) is the IP source address of the Assert(S,G)
-  packet that won an Assert.
-*/
-int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
-{
-	struct interface *ifp;
-	struct pim_interface *pim_ifp;
-	struct pim_assert_metric spt_assert_metric;
-
-	ifp = ch->interface;
-	if (!ifp) {
-		zlog_warn("%s: (S,G)=%s: null interface", __PRETTY_FUNCTION__,
-			  ch->sg_str);
-		return 0; /* false */
-	}
-
-	/* RPF_interface(S) == I ? */
-	if (ch->upstream->rpf.source_nexthop.interface == ifp)
-		return 0; /* false */
-
-	pim_ifp = ifp->info;
-	if (!pim_ifp) {
-		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, ifp->name);
-		return 0; /* false */
-	}
-
-	if (PIM_INADDR_IS_ANY(ch->ifassert_winner))
-		return 0; /* false */
-
-	/* AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
-		return 0; /* false */
-
-	spt_assert_metric = pim_macro_spt_assert_metric(
-		&ch->upstream->rpf, pim_ifp->primary_address);
-
-	return pim_assert_metric_better(&ch->ifassert_winner_metric,
-					&spt_assert_metric);
-}
-
-/*
-  RFC 4601: 4.1.6.  State Summarization Macros
-
-   pim_include(S,G) =
-       { all interfaces I such that:
-	 ( (I_am_DR( I ) AND lost_assert(S,G,I) == FALSE )
-	   OR AssertWinner(S,G,I) == me )
-	  AND  local_receiver_include(S,G,I) }
-
-   AssertWinner(S,G,I) is the IP source address of the Assert(S,G)
-   packet that won an Assert.
-*/
-int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
-{
-	struct pim_interface *pim_ifp = ch->interface->info;
-
-	if (!pim_ifp) {
-		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, ch->interface->name);
-		return 0; /* false */
-	}
-
-	/* local_receiver_include(S,G,I) ? */
-	if (!local_receiver_include(ch))
-		return 0; /* false */
-
-	/* OR AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
-		return 1; /* true */
-
-	return (
-		/* I_am_DR( I ) ? */
-		PIM_I_am_DR(pim_ifp) &&
-		/* lost_assert(S,G,I) == FALSE ? */
-		(!pim_macro_ch_lost_assert(ch)));
-}
-
-int pim_macro_chisin_joins_or_include(const struct pim_ifchannel *ch)
-{
-	if (pim_macro_chisin_joins(ch))
-		return 1; /* true */
-
-	return pim_macro_chisin_pim_include(ch);
-}
-
-/*
-  RFC 4601: 4.6.1.  (S,G) Assert Message State Machine
-
-  CouldAssert(S,G,I) =
-  SPTbit(S,G)==TRUE
-  AND (RPF_interface(S) != I)
-  AND (I in ( ( joins(*,*,RP(G)) (+) joins(*,G) (-) prunes(S,G,rpt) )
-		 (+) ( pim_include(*,G) (-) pim_exclude(S,G) )
-		 (-) lost_assert(*,G)
-		 (+) joins(S,G) (+) pim_include(S,G) ) )
-
-  CouldAssert(S,G,I) is true for downstream interfaces that would be in
-  the inherited_olist(S,G) if (S,G) assert information was not taken
-  into account.
-
-  CouldAssert(S,G,I) may be affected by changes in the following:
-
-  pim_ifp->primary_address
-  pim_ifp->pim_dr_addr
-  ch->ifassert_winner_metric
-  ch->ifassert_winner
-  ch->local_ifmembership
-  ch->ifjoin_state
-  ch->upstream->rpf.source_nexthop.mrib_metric_preference
-  ch->upstream->rpf.source_nexthop.mrib_route_metric
-  ch->upstream->rpf.source_nexthop.interface
-*/
-int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
-{
-	struct interface *ifp;
-
-	ifp = ch->interface;
-	if (!ifp) {
-		zlog_warn("%s: (S,G)=%s: null interface", __PRETTY_FUNCTION__,
-			  ch->sg_str);
-		return 0; /* false */
-	}
-
-	/* SPTbit(S,G) == TRUE */
-	if (ch->upstream->sptbit == PIM_UPSTREAM_SPTBIT_FALSE)
-		return 0; /* false */
-
-	/* RPF_interface(S) != I ? */
-	if (ch->upstream->rpf.source_nexthop.interface == ifp)
-		return 0; /* false */
-
-	/* I in joins(S,G) (+) pim_include(S,G) ? */
-	return pim_macro_chisin_joins_or_include(ch);
-}
-
-/*
-  RFC 4601: 4.6.3.  Assert Metrics
-
-   spt_assert_metric(S,I) gives the assert metric we use if we're
-   sending an assert based on active (S,G) forwarding state:
-
-    assert_metric
-    spt_assert_metric(S,I) {
-      return {0,MRIB.pref(S),MRIB.metric(S),my_ip_address(I)}
-    }
-*/
-struct pim_assert_metric pim_macro_spt_assert_metric(const struct pim_rpf *rpf,
-						     struct in_addr ifaddr)
-{
-	struct pim_assert_metric metric;
-
-	metric.rpt_bit_flag = 0;
-	metric.metric_preference = rpf->source_nexthop.mrib_metric_preference;
-	metric.route_metric = rpf->source_nexthop.mrib_route_metric;
-	metric.ip_address = ifaddr;
-
-	return metric;
-}
-
-/*
-  RFC 4601: 4.6.3.  Assert Metrics
-
-   An assert metric for (S,G) to include in (or compare against) an
-   Assert message sent on interface I should be computed using the
-   following pseudocode:
-
-  assert_metric  my_assert_metric(S,G,I) {
-    if( CouldAssert(S,G,I) == TRUE ) {
-      return spt_assert_metric(S,I)
-    } else if( CouldAssert(*,G,I) == TRUE ) {
-      return rpt_assert_metric(G,I)
-    } else {
-      return infinite_assert_metric()
-    }
-  }
-*/
-struct pim_assert_metric
-pim_macro_ch_my_assert_metric_eval(const struct pim_ifchannel *ch)
-{
-	struct pim_interface *pim_ifp;
-
-	pim_ifp = ch->interface->info;
-
-	if (pim_ifp) {
-		if (PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags)) {
-			return pim_macro_spt_assert_metric(
-				&ch->upstream->rpf, pim_ifp->primary_address);
-		}
-	}
-
-	return qpim_infinite_assert_metric;
-}
-
-/*
-  RFC 4601 4.2.  Data Packet Forwarding Rules
-
-  Macro:
-  inherited_olist(S,G) =
-    inherited_olist(S,G,rpt) (+)
-    joins(S,G) (+) pim_include(S,G) (-) lost_assert(S,G)
-*/
-static int pim_macro_chisin_inherited_olist(const struct pim_ifchannel *ch)
-{
-	if (pim_macro_ch_lost_assert(ch))
-		return 0; /* false */
-
-	return pim_macro_chisin_joins_or_include(ch);
-}
-
-/*
-  RFC 4601 4.2.  Data Packet Forwarding Rules
-  RFC 4601 4.8.2.  PIM-SSM-Only Routers
-
-  Additionally, the Packet forwarding rules of Section 4.2 can be
-  simplified in a PIM-SSM-only router:
-
-  iif is the incoming interface of the packet.
-  oiflist = NULL
-  if (iif == RPF_interface(S) AND UpstreamJPState(S,G) == Joined) {
-    oiflist = inherited_olist(S,G)
-  } else if (iif is in inherited_olist(S,G)) {
-    send Assert(S,G) on iif
-  }
-  oiflist = oiflist (-) iif
-  forward packet on all interfaces in oiflist
-
-  Macro:
-  inherited_olist(S,G) =
-    joins(S,G) (+) pim_include(S,G) (-) lost_assert(S,G)
-
-  Note:
-  - The following test is performed as response to WRONGVIF kernel
-    upcall:
-    if (iif is in inherited_olist(S,G)) {
-      send Assert(S,G) on iif
-    }
-    See pim_mroute.c mroute_msg().
-*/
-int pim_macro_chisin_oiflist(const struct pim_ifchannel *ch)
-{
-	if (ch->upstream->join_state == PIM_UPSTREAM_NOTJOINED) {
-		/* oiflist is NULL */
-		return 0; /* false */
-	}
-
-	/* oiflist = oiflist (-) iif */
-	if (ch->interface == ch->upstream->rpf.source_nexthop.interface)
-		return 0; /* false */
-
-	return pim_macro_chisin_inherited_olist(ch);
-}
-
-/*
-  RFC 4601: 4.6.1.  (S,G) Assert Message State Machine
-
-  AssertTrackingDesired(S,G,I) =
-  (I in ( ( joins(*,*,RP(G)) (+) joins(*,G) (-) prunes(S,G,rpt) )
-	(+) ( pim_include(*,G) (-) pim_exclude(S,G) )
-	(-) lost_assert(*,G)
-	(+) joins(S,G) ) )
-     OR (local_receiver_include(S,G,I) == TRUE
-	 AND (I_am_DR(I) OR (AssertWinner(S,G,I) == me)))
-     OR ((RPF_interface(S) == I) AND (JoinDesired(S,G) == TRUE))
-     OR ((RPF_interface(RP(G)) == I) AND (JoinDesired(*,G) == TRUE)
-	 AND (SPTbit(S,G) == FALSE))
-
-  AssertTrackingDesired(S,G,I) is true on any interface in which an
-  (S,G) assert might affect our behavior.
-*/
-int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
-{
-	struct pim_interface *pim_ifp;
-	struct interface *ifp;
-
-	ifp = ch->interface;
-	if (!ifp) {
-		zlog_warn("%s: (S,G)=%s: null interface", __PRETTY_FUNCTION__,
-			  ch->sg_str);
-		return 0; /* false */
-	}
-
-	pim_ifp = ifp->info;
-	if (!pim_ifp) {
-		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ch->sg_str, ch->interface->name);
-		return 0; /* false */
-	}
-
-	/* I in joins(S,G) ? */
-	if (pim_macro_chisin_joins(ch))
-		return 1; /* true */
-
-	/* local_receiver_include(S,G,I) ? */
-	if (local_receiver_include(ch)) {
-		/* I_am_DR(I) ? */
-		if (PIM_I_am_DR(pim_ifp))
-			return 1; /* true */
-
-		/* AssertWinner(S,G,I) == me ? */
-		if (ch->ifassert_winner.s_addr
-		    == pim_ifp->primary_address.s_addr)
-			return 1; /* true */
-	}
-
-	/* RPF_interface(S) == I ? */
-	if (ch->upstream->rpf.source_nexthop.interface == ifp) {
-		/* JoinDesired(S,G) ? */
-		if (PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(ch->upstream->flags))
-			return 1; /* true */
-	}
-
-	return 0; /* false */
-}
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#include<zebra.h>#include"log.h"#include"prefix.h"#include"vty.h"#include"
+plist.h"#include"pimd.h"#include"pim_macro.h"#include"pim_iface.h"#include"pim_i
+fchannel.h"#include"pim_rp.h"/*DownstreamJPState(S,G,I)istheper-interfacestatema
+chineforreceiving(S,G)Join/Prunemessages.DownstreamJPState(S,G,I)iseitherJoinorP
+rune-PendingDownstreamJPState(*,G,I)iseitherJoinorPrune-Pending*/staticintdownst
+ream_jpstate_isjoined(conststructpim_ifchannel*ch){switch(ch->ifjoin_state){case
+PIM_IFJOIN_NOINFO:casePIM_IFJOIN_PRUNE:casePIM_IFJOIN_PRUNE_TMP:casePIM_IFJOIN_P
+RUNE_PENDING_TMP:return0;break;casePIM_IFJOIN_JOIN:casePIM_IFJOIN_PRUNE_PENDING:
+return1;break;}return0;}/*Theclause"local_receiver_include(S,G,I)"istrueiftheIGM
+P/MLDmoduleorotherlocalmembershipmechanismhasdeterminedthatlocalmembersoninterfa
+ceIdesiretoreceivetrafficsentspecificallybyStoG.*/staticintlocal_receiver_includ
+e(conststructpim_ifchannel*ch){/*local_receiver_include(S,G,I)?*/returnch->local
+_ifmembership==PIM_IFMEMBERSHIP_INCLUDE;}/*RFC4601:4.1.6.StateSummarizationMacro
+sTheset"joins(S,G)"isthesetofallinterfacesonwhichtherouterhasreceived(S,G)Joins:
+joins(S,G)={allinterfacesIsuchthatDownstreamJPState(S,G,I)iseitherJoinorPrune-Pe
+nding}DownstreamJPState(S,G,I)iseitherJoinorPrune-Pending?*/intpim_macro_chisin_
+joins(conststructpim_ifchannel*ch){returndownstream_jpstate_isjoined(ch);}/*RFC4
+601:4.6.5.AssertStateMacrosTheset"lost_assert(S,G)"isthesetofallinterfacesonwhic
+htherouterhasreceived(S,G)joinsbuthaslostan(S,G)assert.lost_assert(S,G)={allinte
+rfacesIsuchthatlost_assert(S,G,I)==TRUE}boollost_assert(S,G,I){if(RPF_interface(
+S)==I){returnFALSE}else{return(AssertWinner(S,G,I)!=NULLANDAssertWinner(S,G,I)!=
+meAND(AssertWinnerMetric(S,G,I)isbetterthanspt_assert_metric(S,I))}}AssertWinner
+(S,G,I)istheIPsourceaddressoftheAssert(S,G)packetthatwonanAssert.*/intpim_macro_
+ch_lost_assert(conststructpim_ifchannel*ch){structinterface*ifp;structpim_interf
+ace*pim_ifp;structpim_assert_metricspt_assert_metric;ifp=ch->interface;if(!ifp){
+zlog_warn("%s:(S,G)=%s:nullinterface",__PRETTY_FUNCTION__,ch->sg_str);return0;/*
+false*/}/*RPF_interface(S)==I?*/if(ch->upstream->rpf.source_nexthop.interface==i
+fp)return0;/*false*/pim_ifp=ifp->info;if(!pim_ifp){zlog_warn("%s:(S,G)=%s:multic
+astnotenabledoninterface%s",__PRETTY_FUNCTION__,ch->sg_str,ifp->name);return0;/*
+false*/}if(PIM_INADDR_IS_ANY(ch->ifassert_winner))return0;/*false*//*AssertWinne
+r(S,G,I)==me?*/if(ch->ifassert_winner.s_addr==pim_ifp->primary_address.s_addr)re
+turn0;/*false*/spt_assert_metric=pim_macro_spt_assert_metric(&ch->upstream->rpf,
+pim_ifp->primary_address);returnpim_assert_metric_better(&ch->ifassert_winner_me
+tric,&spt_assert_metric);}/*RFC4601:4.1.6.StateSummarizationMacrospim_include(S,
+G)={allinterfacesIsuchthat:((I_am_DR(I)ANDlost_assert(S,G,I)==FALSE)ORAssertWinn
+er(S,G,I)==me)ANDlocal_receiver_include(S,G,I)}AssertWinner(S,G,I)istheIPsourcea
+ddressoftheAssert(S,G)packetthatwonanAssert.*/intpim_macro_chisin_pim_include(co
+nststructpim_ifchannel*ch){structpim_interface*pim_ifp=ch->interface->info;if(!p
+im_ifp){zlog_warn("%s:(S,G)=%s:multicastnotenabledoninterface%s",__PRETTY_FUNCTI
+ON__,ch->sg_str,ch->interface->name);return0;/*false*/}/*local_receiver_include(
+S,G,I)?*/if(!local_receiver_include(ch))return0;/*false*//*ORAssertWinner(S,G,I)
+==me?*/if(ch->ifassert_winner.s_addr==pim_ifp->primary_address.s_addr)return1;/*
+true*/return(/*I_am_DR(I)?*/PIM_I_am_DR(pim_ifp)&&/*lost_assert(S,G,I)==FALSE?*/
+(!pim_macro_ch_lost_assert(ch)));}intpim_macro_chisin_joins_or_include(conststru
+ctpim_ifchannel*ch){if(pim_macro_chisin_joins(ch))return1;/*true*/returnpim_macr
+o_chisin_pim_include(ch);}/*RFC4601:4.6.1.(S,G)AssertMessageStateMachineCouldAss
+ert(S,G,I)=SPTbit(S,G)==TRUEAND(RPF_interface(S)!=I)AND(Iin((joins(*,*,RP(G))(+)
+joins(*,G)(-)prunes(S,G,rpt))(+)(pim_include(*,G)(-)pim_exclude(S,G))(-)lost_ass
+ert(*,G)(+)joins(S,G)(+)pim_include(S,G)))CouldAssert(S,G,I)istruefordownstreami
+nterfacesthatwouldbeintheinherited_olist(S,G)if(S,G)assertinformationwasnottaken
+intoaccount.CouldAssert(S,G,I)maybeaffectedbychangesinthefollowing:pim_ifp->prim
+ary_addresspim_ifp->pim_dr_addrch->ifassert_winner_metricch->ifassert_winnerch->
+local_ifmembershipch->ifjoin_statech->upstream->rpf.source_nexthop.mrib_metric_p
+referencech->upstream->rpf.source_nexthop.mrib_route_metricch->upstream->rpf.sou
+rce_nexthop.interface*/intpim_macro_ch_could_assert_eval(conststructpim_ifchanne
+l*ch){structinterface*ifp;ifp=ch->interface;if(!ifp){zlog_warn("%s:(S,G)=%s:null
+interface",__PRETTY_FUNCTION__,ch->sg_str);return0;/*false*/}/*SPTbit(S,G)==TRUE
+*/if(ch->upstream->sptbit==PIM_UPSTREAM_SPTBIT_FALSE)return0;/*false*//*RPF_inte
+rface(S)!=I?*/if(ch->upstream->rpf.source_nexthop.interface==ifp)return0;/*false
+*//*Iinjoins(S,G)(+)pim_include(S,G)?*/returnpim_macro_chisin_joins_or_include(c
+h);}/*RFC4601:4.6.3.AssertMetricsspt_assert_metric(S,I)givestheassertmetricweuse
+ifwe'resendinganassertbasedonactive(S,G)forwardingstate:assert_metricspt_assert_
+metric(S,I){return{0,MRIB.pref(S),MRIB.metric(S),my_ip_address(I)}}*/structpim_a
+ssert_metricpim_macro_spt_assert_metric(conststructpim_rpf*rpf,structin_addrifad
+dr){structpim_assert_metricmetric;metric.rpt_bit_flag=0;metric.metric_preference
+=rpf->source_nexthop.mrib_metric_preference;metric.route_metric=rpf->source_next
+hop.mrib_route_metric;metric.ip_address=ifaddr;returnmetric;}/*RFC4601:4.6.3.Ass
+ertMetricsAnassertmetricfor(S,G)toincludein(orcompareagainst)anAssertmessagesent
+oninterfaceIshouldbecomputedusingthefollowingpseudocode:assert_metricmy_assert_m
+etric(S,G,I){if(CouldAssert(S,G,I)==TRUE){returnspt_assert_metric(S,I)}elseif(Co
+uldAssert(*,G,I)==TRUE){returnrpt_assert_metric(G,I)}else{returninfinite_assert_
+metric()}}*/structpim_assert_metricpim_macro_ch_my_assert_metric_eval(conststruc
+tpim_ifchannel*ch){structpim_interface*pim_ifp;pim_ifp=ch->interface->info;if(pi
+m_ifp){if(PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags)){returnpim_macro_spt_assert_m
+etric(&ch->upstream->rpf,pim_ifp->primary_address);}}returnqpim_infinite_assert_
+metric;}/*RFC46014.2.DataPacketForwardingRulesMacro:inherited_olist(S,G)=inherit
+ed_olist(S,G,rpt)(+)joins(S,G)(+)pim_include(S,G)(-)lost_assert(S,G)*/staticintp
+im_macro_chisin_inherited_olist(conststructpim_ifchannel*ch){if(pim_macro_ch_los
+t_assert(ch))return0;/*false*/returnpim_macro_chisin_joins_or_include(ch);}/*RFC
+46014.2.DataPacketForwardingRulesRFC46014.8.2.PIM-SSM-OnlyRoutersAdditionally,th
+ePacketforwardingrulesofSection4.2canbesimplifiedinaPIM-SSM-onlyrouter:iifisthei
+ncominginterfaceofthepacket.oiflist=NULLif(iif==RPF_interface(S)ANDUpstreamJPSta
+te(S,G)==Joined){oiflist=inherited_olist(S,G)}elseif(iifisininherited_olist(S,G)
+){sendAssert(S,G)oniif}oiflist=oiflist(-)iifforwardpacketonallinterfacesinoiflis
+tMacro:inherited_olist(S,G)=joins(S,G)(+)pim_include(S,G)(-)lost_assert(S,G)Note
+:-ThefollowingtestisperformedasresponsetoWRONGVIFkernelupcall:if(iifisininherite
+d_olist(S,G)){sendAssert(S,G)oniif}Seepim_mroute.cmroute_msg().*/intpim_macro_ch
+isin_oiflist(conststructpim_ifchannel*ch){if(ch->upstream->join_state==PIM_UPSTR
+EAM_NOTJOINED){/*oiflistisNULL*/return0;/*false*/}/*oiflist=oiflist(-)iif*/if(ch
+->interface==ch->upstream->rpf.source_nexthop.interface)return0;/*false*/returnp
+im_macro_chisin_inherited_olist(ch);}/*RFC4601:4.6.1.(S,G)AssertMessageStateMach
+ineAssertTrackingDesired(S,G,I)=(Iin((joins(*,*,RP(G))(+)joins(*,G)(-)prunes(S,G
+,rpt))(+)(pim_include(*,G)(-)pim_exclude(S,G))(-)lost_assert(*,G)(+)joins(S,G)))
+OR(local_receiver_include(S,G,I)==TRUEAND(I_am_DR(I)OR(AssertWinner(S,G,I)==me))
+)OR((RPF_interface(S)==I)AND(JoinDesired(S,G)==TRUE))OR((RPF_interface(RP(G))==I
+)AND(JoinDesired(*,G)==TRUE)AND(SPTbit(S,G)==FALSE))AssertTrackingDesired(S,G,I)
+istrueonanyinterfaceinwhichan(S,G)assertmightaffectourbehavior.*/intpim_macro_as
+sert_tracking_desired_eval(conststructpim_ifchannel*ch){structpim_interface*pim_
+ifp;structinterface*ifp;ifp=ch->interface;if(!ifp){zlog_warn("%s:(S,G)=%s:nullin
+terface",__PRETTY_FUNCTION__,ch->sg_str);return0;/*false*/}pim_ifp=ifp->info;if(
+!pim_ifp){zlog_warn("%s:(S,G)=%s:multicastnotenabledoninterface%s",__PRETTY_FUNC
+TION__,ch->sg_str,ch->interface->name);return0;/*false*/}/*Iinjoins(S,G)?*/if(pi
+m_macro_chisin_joins(ch))return1;/*true*//*local_receiver_include(S,G,I)?*/if(lo
+cal_receiver_include(ch)){/*I_am_DR(I)?*/if(PIM_I_am_DR(pim_ifp))return1;/*true*
+//*AssertWinner(S,G,I)==me?*/if(ch->ifassert_winner.s_addr==pim_ifp->primary_add
+ress.s_addr)return1;/*true*/}/*RPF_interface(S)==I?*/if(ch->upstream->rpf.source
+_nexthop.interface==ifp){/*JoinDesired(S,G)?*/if(PIM_UPSTREAM_FLAG_TEST_DR_JOIN_
+DESIRED(ch->upstream->flags))return1;/*true*/}return0;/*false*/}

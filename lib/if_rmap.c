@@ -1,304 +1,76 @@
-/* route-map for interface.
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "hash.h"
-#include "command.h"
-#include "memory.h"
-#include "if.h"
-#include "if_rmap.h"
-
-DEFINE_MTYPE_STATIC(LIB, IF_RMAP, "Interface route map")
-DEFINE_MTYPE_STATIC(LIB, IF_RMAP_NAME, "I.f. route map name")
-
-struct hash *ifrmaphash;
-
-/* Hook functions. */
-static void (*if_rmap_add_hook)(struct if_rmap *) = NULL;
-static void (*if_rmap_delete_hook)(struct if_rmap *) = NULL;
-
-static struct if_rmap *if_rmap_new(void)
-{
-	struct if_rmap *new;
-
-	new = XCALLOC(MTYPE_IF_RMAP, sizeof(struct if_rmap));
-
-	return new;
-}
-
-static void if_rmap_free(struct if_rmap *if_rmap)
-{
-	if (if_rmap->ifname)
-		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->ifname);
-
-	if (if_rmap->routemap[IF_RMAP_IN])
-		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_IN]);
-	if (if_rmap->routemap[IF_RMAP_OUT])
-		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_OUT]);
-
-	XFREE(MTYPE_IF_RMAP, if_rmap);
-}
-
-struct if_rmap *if_rmap_lookup(const char *ifname)
-{
-	struct if_rmap key;
-	struct if_rmap *if_rmap;
-
-	/* temporary copy */
-	key.ifname = (ifname) ? XSTRDUP(MTYPE_IF_RMAP_NAME, ifname) : NULL;
-
-	if_rmap = hash_lookup(ifrmaphash, &key);
-
-	if (key.ifname)
-		XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
-
-	return if_rmap;
-}
-
-void if_rmap_hook_add(void (*func)(struct if_rmap *))
-{
-	if_rmap_add_hook = func;
-}
-
-void if_rmap_hook_delete(void (*func)(struct if_rmap *))
-{
-	if_rmap_delete_hook = func;
-}
-
-static void *if_rmap_hash_alloc(void *arg)
-{
-	struct if_rmap *ifarg = (struct if_rmap *)arg;
-	struct if_rmap *if_rmap;
-
-	if_rmap = if_rmap_new();
-	if_rmap->ifname = XSTRDUP(MTYPE_IF_RMAP_NAME, ifarg->ifname);
-
-	return if_rmap;
-}
-
-static struct if_rmap *if_rmap_get(const char *ifname)
-{
-	struct if_rmap key;
-	struct if_rmap *ret;
-
-	/* temporary copy */
-	key.ifname = (ifname) ? XSTRDUP(MTYPE_IF_RMAP_NAME, ifname) : NULL;
-
-	ret = hash_get(ifrmaphash, &key, if_rmap_hash_alloc);
-
-	if (key.ifname)
-		XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
-
-	return ret;
-}
-
-static unsigned int if_rmap_hash_make(void *data)
-{
-	const struct if_rmap *if_rmap = data;
-
-	return string_hash_make(if_rmap->ifname);
-}
-
-static int if_rmap_hash_cmp(const void *arg1, const void *arg2)
-{
-	const struct if_rmap *if_rmap1 = arg1;
-	const struct if_rmap *if_rmap2 = arg2;
-
-	return strcmp(if_rmap1->ifname, if_rmap2->ifname) == 0;
-}
-
-static struct if_rmap *if_rmap_set(const char *ifname, enum if_rmap_type type,
-				   const char *routemap_name)
-{
-	struct if_rmap *if_rmap;
-
-	if_rmap = if_rmap_get(ifname);
-
-	if (type == IF_RMAP_IN) {
-		if (if_rmap->routemap[IF_RMAP_IN])
-			XFREE(MTYPE_IF_RMAP_NAME,
-			      if_rmap->routemap[IF_RMAP_IN]);
-		if_rmap->routemap[IF_RMAP_IN] =
-			XSTRDUP(MTYPE_IF_RMAP_NAME, routemap_name);
-	}
-	if (type == IF_RMAP_OUT) {
-		if (if_rmap->routemap[IF_RMAP_OUT])
-			XFREE(MTYPE_IF_RMAP_NAME,
-			      if_rmap->routemap[IF_RMAP_OUT]);
-		if_rmap->routemap[IF_RMAP_OUT] =
-			XSTRDUP(MTYPE_IF_RMAP_NAME, routemap_name);
-	}
-
-	if (if_rmap_add_hook)
-		(*if_rmap_add_hook)(if_rmap);
-
-	return if_rmap;
-}
-
-static int if_rmap_unset(const char *ifname, enum if_rmap_type type,
-			 const char *routemap_name)
-{
-	struct if_rmap *if_rmap;
-
-	if_rmap = if_rmap_lookup(ifname);
-	if (!if_rmap)
-		return 0;
-
-	if (type == IF_RMAP_IN) {
-		if (!if_rmap->routemap[IF_RMAP_IN])
-			return 0;
-		if (strcmp(if_rmap->routemap[IF_RMAP_IN], routemap_name) != 0)
-			return 0;
-
-		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_IN]);
-		if_rmap->routemap[IF_RMAP_IN] = NULL;
-	}
-
-	if (type == IF_RMAP_OUT) {
-		if (!if_rmap->routemap[IF_RMAP_OUT])
-			return 0;
-		if (strcmp(if_rmap->routemap[IF_RMAP_OUT], routemap_name) != 0)
-			return 0;
-
-		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_OUT]);
-		if_rmap->routemap[IF_RMAP_OUT] = NULL;
-	}
-
-	if (if_rmap_delete_hook)
-		(*if_rmap_delete_hook)(if_rmap);
-
-	if (if_rmap->routemap[IF_RMAP_IN] == NULL
-	    && if_rmap->routemap[IF_RMAP_OUT] == NULL) {
-		hash_release(ifrmaphash, if_rmap);
-		if_rmap_free(if_rmap);
-	}
-
-	return 1;
-}
-
-DEFUN (if_rmap,
-       if_rmap_cmd,
-       "route-map RMAP_NAME <in|out> IFNAME",
-       "Route map set\n"
-       "Route map name\n"
-       "Route map set for input filtering\n"
-       "Route map set for output filtering\n"
-       "Route map interface name\n")
-{
-	int idx_rmap_name = 1;
-	int idx_in_out = 2;
-	int idx_ifname = 3;
-	enum if_rmap_type type;
-
-	if (strncmp(argv[idx_in_out]->text, "in", 1) == 0)
-		type = IF_RMAP_IN;
-	else if (strncmp(argv[idx_in_out]->text, "out", 1) == 0)
-		type = IF_RMAP_OUT;
-	else {
-		vty_out(vty, "route-map direction must be [in|out]\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if_rmap_set(argv[idx_ifname]->arg, type, argv[idx_rmap_name]->arg);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_if_rmap,
-       no_if_rmap_cmd,
-       "no route-map ROUTEMAP_NAME <in|out> IFNAME",
-       NO_STR
-       "Route map unset\n"
-       "Route map name\n"
-       "Route map for input filtering\n"
-       "Route map for output filtering\n"
-       "Route map interface name\n")
-{
-	int idx_routemap_name = 2;
-	int idx_in_out = 3;
-	int idx_ifname = 4;
-	int ret;
-	enum if_rmap_type type;
-
-	if (strncmp(argv[idx_in_out]->arg, "i", 1) == 0)
-		type = IF_RMAP_IN;
-	else if (strncmp(argv[idx_in_out]->arg, "o", 1) == 0)
-		type = IF_RMAP_OUT;
-	else {
-		vty_out(vty, "route-map direction must be [in|out]\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = if_rmap_unset(argv[idx_ifname]->arg, type,
-			    argv[idx_routemap_name]->arg);
-	if (!ret) {
-		vty_out(vty, "route-map doesn't exist\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
-}
-
-
-/* Configuration write function. */
-int config_write_if_rmap(struct vty *vty)
-{
-	unsigned int i;
-	struct hash_backet *mp;
-	int write = 0;
-
-	for (i = 0; i < ifrmaphash->size; i++)
-		for (mp = ifrmaphash->index[i]; mp; mp = mp->next) {
-			struct if_rmap *if_rmap;
-
-			if_rmap = mp->data;
-
-			if (if_rmap->routemap[IF_RMAP_IN]) {
-				vty_out(vty, " route-map %s in %s\n",
-					if_rmap->routemap[IF_RMAP_IN],
-					if_rmap->ifname);
-				write++;
-			}
-
-			if (if_rmap->routemap[IF_RMAP_OUT]) {
-				vty_out(vty, " route-map %s out %s\n",
-					if_rmap->routemap[IF_RMAP_OUT],
-					if_rmap->ifname);
-				write++;
-			}
-		}
-	return write;
-}
-
-void if_rmap_reset()
-{
-	hash_clean(ifrmaphash, (void (*)(void *))if_rmap_free);
-}
-
-void if_rmap_init(int node)
-{
-	ifrmaphash = hash_create_size(4, if_rmap_hash_make, if_rmap_hash_cmp,
-				      "Interface Route-Map Hash");
-	if (node == RIPNG_NODE) {
-	} else if (node == RIP_NODE) {
-		install_element(RIP_NODE, &if_rmap_cmd);
-		install_element(RIP_NODE, &no_if_rmap_cmd);
-	}
-}
+/*route-mapforinterface.*Copyright(C)1999KunihiroIshiguro**ThisfileispartofGNUZe
+bra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoft
+heGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,
+or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuse
+ful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITN
+ESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshoul
+dhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCO
+PYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bosto
+n,MA02110-1301USA*/#include<zebra.h>#include"hash.h"#include"command.h"#include"
+memory.h"#include"if.h"#include"if_rmap.h"DEFINE_MTYPE_STATIC(LIB,IF_RMAP,"Inter
+faceroutemap")DEFINE_MTYPE_STATIC(LIB,IF_RMAP_NAME,"I.f.routemapname")structhash
+*ifrmaphash;/*Hookfunctions.*/staticvoid(*if_rmap_add_hook)(structif_rmap*)=NULL
+;staticvoid(*if_rmap_delete_hook)(structif_rmap*)=NULL;staticstructif_rmap*if_rm
+ap_new(void){structif_rmap*new;new=XCALLOC(MTYPE_IF_RMAP,sizeof(structif_rmap));
+returnnew;}staticvoidif_rmap_free(structif_rmap*if_rmap){if(if_rmap->ifname)XFRE
+E(MTYPE_IF_RMAP_NAME,if_rmap->ifname);if(if_rmap->routemap[IF_RMAP_IN])XFREE(MTY
+PE_IF_RMAP_NAME,if_rmap->routemap[IF_RMAP_IN]);if(if_rmap->routemap[IF_RMAP_OUT]
+)XFREE(MTYPE_IF_RMAP_NAME,if_rmap->routemap[IF_RMAP_OUT]);XFREE(MTYPE_IF_RMAP,if
+_rmap);}structif_rmap*if_rmap_lookup(constchar*ifname){structif_rmapkey;structif
+_rmap*if_rmap;/*temporarycopy*/key.ifname=(ifname)?XSTRDUP(MTYPE_IF_RMAP_NAME,if
+name):NULL;if_rmap=hash_lookup(ifrmaphash,&key);if(key.ifname)XFREE(MTYPE_IF_RMA
+P_NAME,key.ifname);returnif_rmap;}voidif_rmap_hook_add(void(*func)(structif_rmap
+*)){if_rmap_add_hook=func;}voidif_rmap_hook_delete(void(*func)(structif_rmap*)){
+if_rmap_delete_hook=func;}staticvoid*if_rmap_hash_alloc(void*arg){structif_rmap*
+ifarg=(structif_rmap*)arg;structif_rmap*if_rmap;if_rmap=if_rmap_new();if_rmap->i
+fname=XSTRDUP(MTYPE_IF_RMAP_NAME,ifarg->ifname);returnif_rmap;}staticstructif_rm
+ap*if_rmap_get(constchar*ifname){structif_rmapkey;structif_rmap*ret;/*temporaryc
+opy*/key.ifname=(ifname)?XSTRDUP(MTYPE_IF_RMAP_NAME,ifname):NULL;ret=hash_get(if
+rmaphash,&key,if_rmap_hash_alloc);if(key.ifname)XFREE(MTYPE_IF_RMAP_NAME,key.ifn
+ame);returnret;}staticunsignedintif_rmap_hash_make(void*data){conststructif_rmap
+*if_rmap=data;returnstring_hash_make(if_rmap->ifname);}staticintif_rmap_hash_cmp
+(constvoid*arg1,constvoid*arg2){conststructif_rmap*if_rmap1=arg1;conststructif_r
+map*if_rmap2=arg2;returnstrcmp(if_rmap1->ifname,if_rmap2->ifname)==0;}staticstru
+ctif_rmap*if_rmap_set(constchar*ifname,enumif_rmap_typetype,constchar*routemap_n
+ame){structif_rmap*if_rmap;if_rmap=if_rmap_get(ifname);if(type==IF_RMAP_IN){if(i
+f_rmap->routemap[IF_RMAP_IN])XFREE(MTYPE_IF_RMAP_NAME,if_rmap->routemap[IF_RMAP_
+IN]);if_rmap->routemap[IF_RMAP_IN]=XSTRDUP(MTYPE_IF_RMAP_NAME,routemap_name);}if
+(type==IF_RMAP_OUT){if(if_rmap->routemap[IF_RMAP_OUT])XFREE(MTYPE_IF_RMAP_NAME,i
+f_rmap->routemap[IF_RMAP_OUT]);if_rmap->routemap[IF_RMAP_OUT]=XSTRDUP(MTYPE_IF_R
+MAP_NAME,routemap_name);}if(if_rmap_add_hook)(*if_rmap_add_hook)(if_rmap);return
+if_rmap;}staticintif_rmap_unset(constchar*ifname,enumif_rmap_typetype,constchar*
+routemap_name){structif_rmap*if_rmap;if_rmap=if_rmap_lookup(ifname);if(!if_rmap)
+return0;if(type==IF_RMAP_IN){if(!if_rmap->routemap[IF_RMAP_IN])return0;if(strcmp
+(if_rmap->routemap[IF_RMAP_IN],routemap_name)!=0)return0;XFREE(MTYPE_IF_RMAP_NAM
+E,if_rmap->routemap[IF_RMAP_IN]);if_rmap->routemap[IF_RMAP_IN]=NULL;}if(type==IF
+_RMAP_OUT){if(!if_rmap->routemap[IF_RMAP_OUT])return0;if(strcmp(if_rmap->routema
+p[IF_RMAP_OUT],routemap_name)!=0)return0;XFREE(MTYPE_IF_RMAP_NAME,if_rmap->route
+map[IF_RMAP_OUT]);if_rmap->routemap[IF_RMAP_OUT]=NULL;}if(if_rmap_delete_hook)(*
+if_rmap_delete_hook)(if_rmap);if(if_rmap->routemap[IF_RMAP_IN]==NULL&&if_rmap->r
+outemap[IF_RMAP_OUT]==NULL){hash_release(ifrmaphash,if_rmap);if_rmap_free(if_rma
+p);}return1;}DEFUN(if_rmap,if_rmap_cmd,"route-mapRMAP_NAME<in|out>IFNAME","Route
+mapset\n""Routemapname\n""Routemapsetforinputfiltering\n""Routemapsetforoutputfi
+ltering\n""Routemapinterfacename\n"){intidx_rmap_name=1;intidx_in_out=2;intidx_i
+fname=3;enumif_rmap_typetype;if(strncmp(argv[idx_in_out]->text,"in",1)==0)type=I
+F_RMAP_IN;elseif(strncmp(argv[idx_in_out]->text,"out",1)==0)type=IF_RMAP_OUT;els
+e{vty_out(vty,"route-mapdirectionmustbe[in|out]\n");returnCMD_WARNING_CONFIG_FAI
+LED;}if_rmap_set(argv[idx_ifname]->arg,type,argv[idx_rmap_name]->arg);returnCMD_
+SUCCESS;}DEFUN(no_if_rmap,no_if_rmap_cmd,"noroute-mapROUTEMAP_NAME<in|out>IFNAME
+",NO_STR"Routemapunset\n""Routemapname\n""Routemapforinputfiltering\n""Routemapf
+oroutputfiltering\n""Routemapinterfacename\n"){intidx_routemap_name=2;intidx_in_
+out=3;intidx_ifname=4;intret;enumif_rmap_typetype;if(strncmp(argv[idx_in_out]->a
+rg,"i",1)==0)type=IF_RMAP_IN;elseif(strncmp(argv[idx_in_out]->arg,"o",1)==0)type
+=IF_RMAP_OUT;else{vty_out(vty,"route-mapdirectionmustbe[in|out]\n");returnCMD_WA
+RNING_CONFIG_FAILED;}ret=if_rmap_unset(argv[idx_ifname]->arg,type,argv[idx_route
+map_name]->arg);if(!ret){vty_out(vty,"route-mapdoesn'texist\n");returnCMD_WARNIN
+G_CONFIG_FAILED;}returnCMD_SUCCESS;}/*Configurationwritefunction.*/intconfig_wri
+te_if_rmap(structvty*vty){unsignedinti;structhash_backet*mp;intwrite=0;for(i=0;i
+<ifrmaphash->size;i++)for(mp=ifrmaphash->index[i];mp;mp=mp->next){structif_rmap*
+if_rmap;if_rmap=mp->data;if(if_rmap->routemap[IF_RMAP_IN]){vty_out(vty,"route-ma
+p%sin%s\n",if_rmap->routemap[IF_RMAP_IN],if_rmap->ifname);write++;}if(if_rmap->r
+outemap[IF_RMAP_OUT]){vty_out(vty,"route-map%sout%s\n",if_rmap->routemap[IF_RMAP
+_OUT],if_rmap->ifname);write++;}}returnwrite;}voidif_rmap_reset(){hash_clean(ifr
+maphash,(void(*)(void*))if_rmap_free);}voidif_rmap_init(intnode){ifrmaphash=hash
+_create_size(4,if_rmap_hash_make,if_rmap_hash_cmp,"InterfaceRoute-MapHash");if(n
+ode==RIPNG_NODE){}elseif(node==RIP_NODE){install_element(RIP_NODE,&if_rmap_cmd);
+install_element(RIP_NODE,&no_if_rmap_cmd);}}

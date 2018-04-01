@@ -1,304 +1,72 @@
-/*
- * OSPF LSDB support.
- * Copyright (C) 1999, 2000 Alex Zinin, Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "prefix.h"
-#include "table.h"
-#include "memory.h"
-#include "log.h"
-
-#include "ospfd/ospfd.h"
-#include "ospfd/ospf_asbr.h"
-#include "ospfd/ospf_lsa.h"
-#include "ospfd/ospf_lsdb.h"
-
-struct ospf_lsdb *ospf_lsdb_new()
-{
-	struct ospf_lsdb *new;
-
-	new = XCALLOC(MTYPE_OSPF_LSDB, sizeof(struct ospf_lsdb));
-	ospf_lsdb_init(new);
-
-	return new;
-}
-
-void ospf_lsdb_init(struct ospf_lsdb *lsdb)
-{
-	int i;
-
-	for (i = OSPF_MIN_LSA; i < OSPF_MAX_LSA; i++)
-		lsdb->type[i].db = route_table_init();
-}
-
-void ospf_lsdb_free(struct ospf_lsdb *lsdb)
-{
-	ospf_lsdb_cleanup(lsdb);
-	XFREE(MTYPE_OSPF_LSDB, lsdb);
-}
-
-void ospf_lsdb_cleanup(struct ospf_lsdb *lsdb)
-{
-	int i;
-	assert(lsdb);
-	assert(lsdb->total == 0);
-
-	ospf_lsdb_delete_all(lsdb);
-
-	for (i = OSPF_MIN_LSA; i < OSPF_MAX_LSA; i++)
-		route_table_finish(lsdb->type[i].db);
-}
-
-void ls_prefix_set(struct prefix_ls *lp, struct ospf_lsa *lsa)
-{
-	if (lp && lsa && lsa->data) {
-		lp->family = 0;
-		lp->prefixlen = 64;
-		lp->id = lsa->data->id;
-		lp->adv_router = lsa->data->adv_router;
-	}
-}
-
-static void ospf_lsdb_delete_entry(struct ospf_lsdb *lsdb,
-				   struct route_node *rn)
-{
-	struct ospf_lsa *lsa = rn->info;
-
-	if (!lsa)
-		return;
-
-	assert(rn->table == lsdb->type[lsa->data->type].db);
-
-	if (IS_LSA_SELF(lsa))
-		lsdb->type[lsa->data->type].count_self--;
-	lsdb->type[lsa->data->type].count--;
-	lsdb->type[lsa->data->type].checksum -= ntohs(lsa->data->checksum);
-	lsdb->total--;
-	rn->info = NULL;
-	route_unlock_node(rn);
-#ifdef MONITOR_LSDB_CHANGE
-	if (lsdb->del_lsa_hook != NULL)
-		(*lsdb->del_lsa_hook)(lsa);
-#endif			       /* MONITOR_LSDB_CHANGE */
-	ospf_lsa_unlock(&lsa); /* lsdb */
-	return;
-}
-
-/* Add new LSA to lsdb. */
-void ospf_lsdb_add(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
-{
-	struct route_table *table;
-	struct prefix_ls lp;
-	struct route_node *rn;
-
-	table = lsdb->type[lsa->data->type].db;
-	ls_prefix_set(&lp, lsa);
-	rn = route_node_get(table, (struct prefix *)&lp);
-
-	/* nothing to do? */
-	if (rn->info && rn->info == lsa) {
-		route_unlock_node(rn);
-		return;
-	}
-
-	/* purge old entry? */
-	if (rn->info)
-		ospf_lsdb_delete_entry(lsdb, rn);
-
-	if (IS_LSA_SELF(lsa))
-		lsdb->type[lsa->data->type].count_self++;
-	lsdb->type[lsa->data->type].count++;
-	lsdb->total++;
-
-#ifdef MONITOR_LSDB_CHANGE
-	if (lsdb->new_lsa_hook != NULL)
-		(*lsdb->new_lsa_hook)(lsa);
-#endif /* MONITOR_LSDB_CHANGE */
-	lsdb->type[lsa->data->type].checksum += ntohs(lsa->data->checksum);
-	rn->info = ospf_lsa_lock(lsa); /* lsdb */
-}
-
-void ospf_lsdb_delete(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
-{
-	struct route_table *table;
-	struct prefix_ls lp;
-	struct route_node *rn;
-
-	if (!lsdb) {
-		zlog_warn("%s: Called with NULL LSDB", __func__);
-		if (lsa)
-			zlog_warn("LSA[Type%d:%s]: LSA %p, lsa->lsdb %p",
-				  lsa->data->type, inet_ntoa(lsa->data->id),
-				  (void *)lsa, (void *)lsa->lsdb);
-		return;
-	}
-
-	if (!lsa) {
-		zlog_warn("%s: Called with NULL LSA", __func__);
-		return;
-	}
-
-	assert(lsa->data->type < OSPF_MAX_LSA);
-	table = lsdb->type[lsa->data->type].db;
-	ls_prefix_set(&lp, lsa);
-	if ((rn = route_node_lookup(table, (struct prefix *)&lp))) {
-		if (rn->info == lsa)
-			ospf_lsdb_delete_entry(lsdb, rn);
-		route_unlock_node(rn); /* route_node_lookup */
-	}
-}
-
-void ospf_lsdb_delete_all(struct ospf_lsdb *lsdb)
-{
-	struct route_table *table;
-	struct route_node *rn;
-	int i;
-
-	for (i = OSPF_MIN_LSA; i < OSPF_MAX_LSA; i++) {
-		table = lsdb->type[i].db;
-		for (rn = route_top(table); rn; rn = route_next(rn))
-			if (rn->info != NULL)
-				ospf_lsdb_delete_entry(lsdb, rn);
-	}
-}
-
-void ospf_lsdb_clean_stat(struct ospf_lsdb *lsdb)
-{
-	struct route_table *table;
-	struct route_node *rn;
-	struct ospf_lsa *lsa;
-	int i;
-
-	for (i = OSPF_MIN_LSA; i < OSPF_MAX_LSA; i++) {
-		table = lsdb->type[i].db;
-		for (rn = route_top(table); rn; rn = route_next(rn))
-			if ((lsa = (rn->info)) != NULL)
-				lsa->stat = LSA_SPF_NOT_EXPLORED;
-	}
-}
-
-struct ospf_lsa *ospf_lsdb_lookup(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
-{
-	struct route_table *table;
-	struct prefix_ls lp;
-	struct route_node *rn;
-	struct ospf_lsa *find;
-
-	table = lsdb->type[lsa->data->type].db;
-	ls_prefix_set(&lp, lsa);
-	rn = route_node_lookup(table, (struct prefix *)&lp);
-	if (rn) {
-		find = rn->info;
-		route_unlock_node(rn);
-		return find;
-	}
-	return NULL;
-}
-
-struct ospf_lsa *ospf_lsdb_lookup_by_id(struct ospf_lsdb *lsdb, uint8_t type,
-					struct in_addr id,
-					struct in_addr adv_router)
-{
-	struct route_table *table;
-	struct prefix_ls lp;
-	struct route_node *rn;
-	struct ospf_lsa *find;
-
-	table = lsdb->type[type].db;
-
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
-	lp.prefixlen = 64;
-	lp.id = id;
-	lp.adv_router = adv_router;
-
-	rn = route_node_lookup(table, (struct prefix *)&lp);
-	if (rn) {
-		find = rn->info;
-		route_unlock_node(rn);
-		return find;
-	}
-	return NULL;
-}
-
-struct ospf_lsa *ospf_lsdb_lookup_by_id_next(struct ospf_lsdb *lsdb,
-					     uint8_t type, struct in_addr id,
-					     struct in_addr adv_router,
-					     int first)
-{
-	struct route_table *table;
-	struct prefix_ls lp;
-	struct route_node *rn;
-	struct ospf_lsa *find;
-
-	table = lsdb->type[type].db;
-
-	memset(&lp, 0, sizeof(struct prefix_ls));
-	lp.family = 0;
-	lp.prefixlen = 64;
-	lp.id = id;
-	lp.adv_router = adv_router;
-
-	if (first)
-		rn = route_top(table);
-	else {
-		if ((rn = route_node_lookup(table, (struct prefix *)&lp))
-		    == NULL)
-			return NULL;
-		rn = route_next(rn);
-	}
-
-	for (; rn; rn = route_next(rn))
-		if (rn->info)
-			break;
-
-	if (rn && rn->info) {
-		find = rn->info;
-		route_unlock_node(rn);
-		return find;
-	}
-	return NULL;
-}
-
-unsigned long ospf_lsdb_count_all(struct ospf_lsdb *lsdb)
-{
-	return lsdb->total;
-}
-
-unsigned long ospf_lsdb_count(struct ospf_lsdb *lsdb, int type)
-{
-	return lsdb->type[type].count;
-}
-
-unsigned long ospf_lsdb_count_self(struct ospf_lsdb *lsdb, int type)
-{
-	return lsdb->type[type].count_self;
-}
-
-unsigned int ospf_lsdb_checksum(struct ospf_lsdb *lsdb, int type)
-{
-	return lsdb->type[type].checksum;
-}
-
-unsigned long ospf_lsdb_isempty(struct ospf_lsdb *lsdb)
-{
-	return (lsdb->total == 0);
-}
+/**OSPFLSDBsupport.*Copyright(C)1999,2000AlexZinin,KunihiroIshiguro,ToshiakiTaka
+da**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/or
+modifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareF
+oundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistribute
+dinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrant
+yof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicense
+formoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*wit
+hthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51Fr
+anklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"prefix.h"#
+include"table.h"#include"memory.h"#include"log.h"#include"ospfd/ospfd.h"#include
+"ospfd/ospf_asbr.h"#include"ospfd/ospf_lsa.h"#include"ospfd/ospf_lsdb.h"structos
+pf_lsdb*ospf_lsdb_new(){structospf_lsdb*new;new=XCALLOC(MTYPE_OSPF_LSDB,sizeof(s
+tructospf_lsdb));ospf_lsdb_init(new);returnnew;}voidospf_lsdb_init(structospf_ls
+db*lsdb){inti;for(i=OSPF_MIN_LSA;i<OSPF_MAX_LSA;i++)lsdb->type[i].db=route_table
+_init();}voidospf_lsdb_free(structospf_lsdb*lsdb){ospf_lsdb_cleanup(lsdb);XFREE(
+MTYPE_OSPF_LSDB,lsdb);}voidospf_lsdb_cleanup(structospf_lsdb*lsdb){inti;assert(l
+sdb);assert(lsdb->total==0);ospf_lsdb_delete_all(lsdb);for(i=OSPF_MIN_LSA;i<OSPF
+_MAX_LSA;i++)route_table_finish(lsdb->type[i].db);}voidls_prefix_set(structprefi
+x_ls*lp,structospf_lsa*lsa){if(lp&&lsa&&lsa->data){lp->family=0;lp->prefixlen=64
+;lp->id=lsa->data->id;lp->adv_router=lsa->data->adv_router;}}staticvoidospf_lsdb
+_delete_entry(structospf_lsdb*lsdb,structroute_node*rn){structospf_lsa*lsa=rn->i
+nfo;if(!lsa)return;assert(rn->table==lsdb->type[lsa->data->type].db);if(IS_LSA_S
+ELF(lsa))lsdb->type[lsa->data->type].count_self--;lsdb->type[lsa->data->type].co
+unt--;lsdb->type[lsa->data->type].checksum-=ntohs(lsa->data->checksum);lsdb->tot
+al--;rn->info=NULL;route_unlock_node(rn);#ifdefMONITOR_LSDB_CHANGEif(lsdb->del_l
+sa_hook!=NULL)(*lsdb->del_lsa_hook)(lsa);#endif/*MONITOR_LSDB_CHANGE*/ospf_lsa_u
+nlock(&lsa);/*lsdb*/return;}/*AddnewLSAtolsdb.*/voidospf_lsdb_add(structospf_lsd
+b*lsdb,structospf_lsa*lsa){structroute_table*table;structprefix_lslp;structroute
+_node*rn;table=lsdb->type[lsa->data->type].db;ls_prefix_set(&lp,lsa);rn=route_no
+de_get(table,(structprefix*)&lp);/*nothingtodo?*/if(rn->info&&rn->info==lsa){rou
+te_unlock_node(rn);return;}/*purgeoldentry?*/if(rn->info)ospf_lsdb_delete_entry(
+lsdb,rn);if(IS_LSA_SELF(lsa))lsdb->type[lsa->data->type].count_self++;lsdb->type
+[lsa->data->type].count++;lsdb->total++;#ifdefMONITOR_LSDB_CHANGEif(lsdb->new_ls
+a_hook!=NULL)(*lsdb->new_lsa_hook)(lsa);#endif/*MONITOR_LSDB_CHANGE*/lsdb->type[
+lsa->data->type].checksum+=ntohs(lsa->data->checksum);rn->info=ospf_lsa_lock(lsa
+);/*lsdb*/}voidospf_lsdb_delete(structospf_lsdb*lsdb,structospf_lsa*lsa){structr
+oute_table*table;structprefix_lslp;structroute_node*rn;if(!lsdb){zlog_warn("%s:C
+alledwithNULLLSDB",__func__);if(lsa)zlog_warn("LSA[Type%d:%s]:LSA%p,lsa->lsdb%p"
+,lsa->data->type,inet_ntoa(lsa->data->id),(void*)lsa,(void*)lsa->lsdb);return;}i
+f(!lsa){zlog_warn("%s:CalledwithNULLLSA",__func__);return;}assert(lsa->data->typ
+e<OSPF_MAX_LSA);table=lsdb->type[lsa->data->type].db;ls_prefix_set(&lp,lsa);if((
+rn=route_node_lookup(table,(structprefix*)&lp))){if(rn->info==lsa)ospf_lsdb_dele
+te_entry(lsdb,rn);route_unlock_node(rn);/*route_node_lookup*/}}voidospf_lsdb_del
+ete_all(structospf_lsdb*lsdb){structroute_table*table;structroute_node*rn;inti;f
+or(i=OSPF_MIN_LSA;i<OSPF_MAX_LSA;i++){table=lsdb->type[i].db;for(rn=route_top(ta
+ble);rn;rn=route_next(rn))if(rn->info!=NULL)ospf_lsdb_delete_entry(lsdb,rn);}}vo
+idospf_lsdb_clean_stat(structospf_lsdb*lsdb){structroute_table*table;structroute
+_node*rn;structospf_lsa*lsa;inti;for(i=OSPF_MIN_LSA;i<OSPF_MAX_LSA;i++){table=ls
+db->type[i].db;for(rn=route_top(table);rn;rn=route_next(rn))if((lsa=(rn->info))!
+=NULL)lsa->stat=LSA_SPF_NOT_EXPLORED;}}structospf_lsa*ospf_lsdb_lookup(structosp
+f_lsdb*lsdb,structospf_lsa*lsa){structroute_table*table;structprefix_lslp;struct
+route_node*rn;structospf_lsa*find;table=lsdb->type[lsa->data->type].db;ls_prefix
+_set(&lp,lsa);rn=route_node_lookup(table,(structprefix*)&lp);if(rn){find=rn->inf
+o;route_unlock_node(rn);returnfind;}returnNULL;}structospf_lsa*ospf_lsdb_lookup_
+by_id(structospf_lsdb*lsdb,uint8_ttype,structin_addrid,structin_addradv_router){
+structroute_table*table;structprefix_lslp;structroute_node*rn;structospf_lsa*fin
+d;table=lsdb->type[type].db;memset(&lp,0,sizeof(structprefix_ls));lp.family=0;lp
+.prefixlen=64;lp.id=id;lp.adv_router=adv_router;rn=route_node_lookup(table,(stru
+ctprefix*)&lp);if(rn){find=rn->info;route_unlock_node(rn);returnfind;}returnNULL
+;}structospf_lsa*ospf_lsdb_lookup_by_id_next(structospf_lsdb*lsdb,uint8_ttype,st
+ructin_addrid,structin_addradv_router,intfirst){structroute_table*table;structpr
+efix_lslp;structroute_node*rn;structospf_lsa*find;table=lsdb->type[type].db;mems
+et(&lp,0,sizeof(structprefix_ls));lp.family=0;lp.prefixlen=64;lp.id=id;lp.adv_ro
+uter=adv_router;if(first)rn=route_top(table);else{if((rn=route_node_lookup(table
+,(structprefix*)&lp))==NULL)returnNULL;rn=route_next(rn);}for(;rn;rn=route_next(
+rn))if(rn->info)break;if(rn&&rn->info){find=rn->info;route_unlock_node(rn);retur
+nfind;}returnNULL;}unsignedlongospf_lsdb_count_all(structospf_lsdb*lsdb){returnl
+sdb->total;}unsignedlongospf_lsdb_count(structospf_lsdb*lsdb,inttype){returnlsdb
+->type[type].count;}unsignedlongospf_lsdb_count_self(structospf_lsdb*lsdb,inttyp
+e){returnlsdb->type[type].count_self;}unsignedintospf_lsdb_checksum(structospf_l
+sdb*lsdb,inttype){returnlsdb->type[type].checksum;}unsignedlongospf_lsdb_isempty
+(structospf_lsdb*lsdb){return(lsdb->total==0);}

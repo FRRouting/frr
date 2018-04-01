@@ -1,109 +1,54 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_TLV_H
-#define PIM_TLV_H
-
-#include <zebra.h>
-
-#include "config.h"
-#include "if.h"
-#include "linklist.h"
-
-#define PIM_MSG_OPTION_TYPE_HOLDTIME         (1)
-#define PIM_MSG_OPTION_TYPE_LAN_PRUNE_DELAY  (2)
-#define PIM_MSG_OPTION_TYPE_DR_PRIORITY      (19)
-#define PIM_MSG_OPTION_TYPE_GENERATION_ID    (20)
-#define PIM_MSG_OPTION_TYPE_DM_STATE_REFRESH (21)
-#define PIM_MSG_OPTION_TYPE_ADDRESS_LIST     (24)
-
-typedef uint32_t pim_hello_options;
-#define PIM_OPTION_MASK_HOLDTIME                     (1 << 0) /* recv holdtime */
-#define PIM_OPTION_MASK_LAN_PRUNE_DELAY              (1 << 1) /* recv lan_prune_delay */
-#define PIM_OPTION_MASK_DR_PRIORITY                  (1 << 2) /* recv dr_priority */
-#define PIM_OPTION_MASK_GENERATION_ID                (1 << 3) /* recv generation_id */
-#define PIM_OPTION_MASK_ADDRESS_LIST                 (1 << 4) /* recv secondary address list */
-#define PIM_OPTION_MASK_CAN_DISABLE_JOIN_SUPPRESSION (1 << 5) /* T bit value (valid if recv lan_prune_delay) */
-
-#define PIM_RPT_BIT_MASK      (1 << 0)
-#define PIM_WILDCARD_BIT_MASK (1 << 1)
-
-#define PIM_OPTION_SET(options, option_mask) ((options) |= (option_mask))
-#define PIM_OPTION_UNSET(options, option_mask) ((options) &= ~(option_mask))
-#define PIM_OPTION_IS_SET(options, option_mask) ((options) & (option_mask))
-
-#define PIM_TLV_GET_UINT16(buf) ntohs(*(const uint16_t *)(buf))
-#define PIM_TLV_GET_UINT32(buf) ntohl(*(const uint32_t *)(buf))
-#define PIM_TLV_GET_TYPE(buf) PIM_TLV_GET_UINT16(buf)
-#define PIM_TLV_GET_LENGTH(buf) PIM_TLV_GET_UINT16(buf)
-#define PIM_TLV_GET_HOLDTIME(buf) PIM_TLV_GET_UINT16(buf)
-#define PIM_TLV_GET_PROPAGATION_DELAY(buf) (PIM_TLV_GET_UINT16(buf) & 0x7FFF)
-#define PIM_TLV_GET_OVERRIDE_INTERVAL(buf) PIM_TLV_GET_UINT16(buf)
-#define PIM_TLV_GET_CAN_DISABLE_JOIN_SUPPRESSION(buf) ((*(const uint8_t *)(buf)) & 0x80)
-#define PIM_TLV_GET_DR_PRIORITY(buf) PIM_TLV_GET_UINT32(buf)
-#define PIM_TLV_GET_GENERATION_ID(buf) PIM_TLV_GET_UINT32(buf)
-
-#define PIM_TLV_TYPE_SIZE               (2)
-#define PIM_TLV_LENGTH_SIZE             (2)
-#define PIM_TLV_MIN_SIZE                (PIM_TLV_TYPE_SIZE + PIM_TLV_LENGTH_SIZE)
-#define PIM_TLV_OPTION_SIZE(option_len) (PIM_TLV_MIN_SIZE + (option_len))
-
-uint8_t *pim_tlv_append_uint16(uint8_t *buf, const uint8_t *buf_pastend,
-			       uint16_t option_type, uint16_t option_value);
-uint8_t *pim_tlv_append_2uint16(uint8_t *buf, const uint8_t *buf_pastend,
-				uint16_t option_type, uint16_t option_value1,
-				uint16_t option_value2);
-uint8_t *pim_tlv_append_uint32(uint8_t *buf, const uint8_t *buf_pastend,
-			       uint16_t option_type, uint32_t option_value);
-uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
-				       struct list *ifconnected, int family);
-
-int pim_tlv_parse_holdtime(const char *ifname, struct in_addr src_addr,
-			   pim_hello_options *hello_options,
-			   uint16_t *hello_option_holdtime, uint16_t option_len,
-			   const uint8_t *tlv_curr);
-int pim_tlv_parse_lan_prune_delay(const char *ifname, struct in_addr src_addr,
-				  pim_hello_options *hello_options,
-				  uint16_t *hello_option_propagation_delay,
-				  uint16_t *hello_option_override_interval,
-				  uint16_t option_len, const uint8_t *tlv_curr);
-int pim_tlv_parse_dr_priority(const char *ifname, struct in_addr src_addr,
-			      pim_hello_options *hello_options,
-			      uint32_t *hello_option_dr_priority,
-			      uint16_t option_len, const uint8_t *tlv_curr);
-int pim_tlv_parse_generation_id(const char *ifname, struct in_addr src_addr,
-				pim_hello_options *hello_options,
-				uint32_t *hello_option_generation_id,
-				uint16_t option_len, const uint8_t *tlv_curr);
-int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
-			    pim_hello_options *hello_options,
-			    struct list **hello_option_addr_list,
-			    uint16_t option_len, const uint8_t *tlv_curr);
-
-int pim_encode_addr_ucast(uint8_t *buf, struct prefix *p);
-int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
-			  struct in_addr group);
-
-int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size);
-int pim_parse_addr_group(struct prefix_sg *sg, const uint8_t *buf,
-			 int buf_size);
-int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
-			  const uint8_t *buf, int buf_size);
-
-#endif /* PIM_TLV_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_TLV_H#definePIM_TLV_H#include<zebra.h>#include"config.h"#includ
+e"if.h"#include"linklist.h"#definePIM_MSG_OPTION_TYPE_HOLDTIME(1)#definePIM_MSG_
+OPTION_TYPE_LAN_PRUNE_DELAY(2)#definePIM_MSG_OPTION_TYPE_DR_PRIORITY(19)#defineP
+IM_MSG_OPTION_TYPE_GENERATION_ID(20)#definePIM_MSG_OPTION_TYPE_DM_STATE_REFRESH(
+21)#definePIM_MSG_OPTION_TYPE_ADDRESS_LIST(24)typedefuint32_tpim_hello_options;#
+definePIM_OPTION_MASK_HOLDTIME(1<<0)/*recvholdtime*/#definePIM_OPTION_MASK_LAN_P
+RUNE_DELAY(1<<1)/*recvlan_prune_delay*/#definePIM_OPTION_MASK_DR_PRIORITY(1<<2)/
+*recvdr_priority*/#definePIM_OPTION_MASK_GENERATION_ID(1<<3)/*recvgeneration_id*
+/#definePIM_OPTION_MASK_ADDRESS_LIST(1<<4)/*recvsecondaryaddresslist*/#definePIM
+_OPTION_MASK_CAN_DISABLE_JOIN_SUPPRESSION(1<<5)/*Tbitvalue(validifrecvlan_prune_
+delay)*/#definePIM_RPT_BIT_MASK(1<<0)#definePIM_WILDCARD_BIT_MASK(1<<1)#definePI
+M_OPTION_SET(options,option_mask)((options)|=(option_mask))#definePIM_OPTION_UNS
+ET(options,option_mask)((options)&=~(option_mask))#definePIM_OPTION_IS_SET(optio
+ns,option_mask)((options)&(option_mask))#definePIM_TLV_GET_UINT16(buf)ntohs(*(co
+nstuint16_t*)(buf))#definePIM_TLV_GET_UINT32(buf)ntohl(*(constuint32_t*)(buf))#d
+efinePIM_TLV_GET_TYPE(buf)PIM_TLV_GET_UINT16(buf)#definePIM_TLV_GET_LENGTH(buf)P
+IM_TLV_GET_UINT16(buf)#definePIM_TLV_GET_HOLDTIME(buf)PIM_TLV_GET_UINT16(buf)#de
+finePIM_TLV_GET_PROPAGATION_DELAY(buf)(PIM_TLV_GET_UINT16(buf)&0x7FFF)#definePIM
+_TLV_GET_OVERRIDE_INTERVAL(buf)PIM_TLV_GET_UINT16(buf)#definePIM_TLV_GET_CAN_DIS
+ABLE_JOIN_SUPPRESSION(buf)((*(constuint8_t*)(buf))&0x80)#definePIM_TLV_GET_DR_PR
+IORITY(buf)PIM_TLV_GET_UINT32(buf)#definePIM_TLV_GET_GENERATION_ID(buf)PIM_TLV_G
+ET_UINT32(buf)#definePIM_TLV_TYPE_SIZE(2)#definePIM_TLV_LENGTH_SIZE(2)#definePIM
+_TLV_MIN_SIZE(PIM_TLV_TYPE_SIZE+PIM_TLV_LENGTH_SIZE)#definePIM_TLV_OPTION_SIZE(o
+ption_len)(PIM_TLV_MIN_SIZE+(option_len))uint8_t*pim_tlv_append_uint16(uint8_t*b
+uf,constuint8_t*buf_pastend,uint16_toption_type,uint16_toption_value);uint8_t*pi
+m_tlv_append_2uint16(uint8_t*buf,constuint8_t*buf_pastend,uint16_toption_type,ui
+nt16_toption_value1,uint16_toption_value2);uint8_t*pim_tlv_append_uint32(uint8_t
+*buf,constuint8_t*buf_pastend,uint16_toption_type,uint32_toption_value);uint8_t*
+pim_tlv_append_addrlist_ucast(uint8_t*buf,constuint8_t*buf_pastend,structlist*if
+connected,intfamily);intpim_tlv_parse_holdtime(constchar*ifname,structin_addrsrc
+_addr,pim_hello_options*hello_options,uint16_t*hello_option_holdtime,uint16_topt
+ion_len,constuint8_t*tlv_curr);intpim_tlv_parse_lan_prune_delay(constchar*ifname
+,structin_addrsrc_addr,pim_hello_options*hello_options,uint16_t*hello_option_pro
+pagation_delay,uint16_t*hello_option_override_interval,uint16_toption_len,constu
+int8_t*tlv_curr);intpim_tlv_parse_dr_priority(constchar*ifname,structin_addrsrc_
+addr,pim_hello_options*hello_options,uint32_t*hello_option_dr_priority,uint16_to
+ption_len,constuint8_t*tlv_curr);intpim_tlv_parse_generation_id(constchar*ifname
+,structin_addrsrc_addr,pim_hello_options*hello_options,uint32_t*hello_option_gen
+eration_id,uint16_toption_len,constuint8_t*tlv_curr);intpim_tlv_parse_addr_list(
+constchar*ifname,structin_addrsrc_addr,pim_hello_options*hello_options,structlis
+t**hello_option_addr_list,uint16_toption_len,constuint8_t*tlv_curr);intpim_encod
+e_addr_ucast(uint8_t*buf,structprefix*p);intpim_encode_addr_group(uint8_t*buf,af
+i_tafi,intbidir,intscope,structin_addrgroup);intpim_parse_addr_ucast(structprefi
+x*p,constuint8_t*buf,intbuf_size);intpim_parse_addr_group(structprefix_sg*sg,con
+stuint8_t*buf,intbuf_size);intpim_parse_addr_source(structprefix_sg*sg,uint8_t*f
+lags,constuint8_t*buf,intbuf_size);#endif/*PIM_TLV_H*/

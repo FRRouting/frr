@@ -1,76 +1,29 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_NEIGHBOR_H
-#define PIM_NEIGHBOR_H
-
-#include <zebra.h>
-
-#include "if.h"
-#include "linklist.h"
-#include "prefix.h"
-
-#include "pim_tlv.h"
-
-struct pim_neighbor {
-	int64_t creation; /* timestamp of creation */
-	struct in_addr source_addr;
-	pim_hello_options hello_options;
-	uint16_t holdtime;
-	uint16_t propagation_delay_msec;
-	uint16_t override_interval_msec;
-	uint32_t dr_priority;
-	uint32_t generation_id;
-	struct list *prefix_list; /* list of struct prefix */
-	struct thread *t_expire_timer;
-	struct interface *interface;
-
-	struct thread *jp_timer;
-	struct list *upstream_jp_agg;
-	struct bfd_info *bfd_info;
-};
-
-void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime);
-void pim_neighbor_free(struct pim_neighbor *neigh);
-struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
-				       struct in_addr source_addr);
-struct pim_neighbor *pim_neighbor_find_by_secondary(struct interface *ifp,
-						    struct prefix *src);
-struct pim_neighbor *pim_neighbor_find_if(struct interface *ifp);
-
-
-#define PIM_NEIGHBOR_SEND_DELAY 0
-#define PIM_NEIGHBOR_SEND_NOW   1
-struct pim_neighbor *
-pim_neighbor_add(struct interface *ifp, struct in_addr source_addr,
-		 pim_hello_options hello_options, uint16_t holdtime,
-		 uint16_t propagation_delay, uint16_t override_interval,
-		 uint32_t dr_priority, uint32_t generation_id,
-		 struct list *addr_list, int send_hello_now);
-void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
-			 const char *delete_message);
-void pim_neighbor_delete_all(struct interface *ifp, const char *delete_message);
-void pim_neighbor_update(struct pim_neighbor *neigh,
-			 pim_hello_options hello_options, uint16_t holdtime,
-			 uint32_t dr_priority, struct list *addr_list);
-struct prefix *pim_neighbor_find_secondary(struct pim_neighbor *neigh,
-					   struct prefix *addr);
-int pim_if_dr_election(struct interface *ifp);
-
-#endif /* PIM_NEIGHBOR_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_NEIGHBOR_H#definePIM_NEIGHBOR_H#include<zebra.h>#include"if.h"#
+include"linklist.h"#include"prefix.h"#include"pim_tlv.h"structpim_neighbor{int64
+_tcreation;/*timestampofcreation*/structin_addrsource_addr;pim_hello_optionshell
+o_options;uint16_tholdtime;uint16_tpropagation_delay_msec;uint16_toverride_inter
+val_msec;uint32_tdr_priority;uint32_tgeneration_id;structlist*prefix_list;/*list
+ofstructprefix*/structthread*t_expire_timer;structinterface*interface;structthre
+ad*jp_timer;structlist*upstream_jp_agg;structbfd_info*bfd_info;};voidpim_neighbo
+r_timer_reset(structpim_neighbor*neigh,uint16_tholdtime);voidpim_neighbor_free(s
+tructpim_neighbor*neigh);structpim_neighbor*pim_neighbor_find(structinterface*if
+p,structin_addrsource_addr);structpim_neighbor*pim_neighbor_find_by_secondary(st
+ructinterface*ifp,structprefix*src);structpim_neighbor*pim_neighbor_find_if(stru
+ctinterface*ifp);#definePIM_NEIGHBOR_SEND_DELAY0#definePIM_NEIGHBOR_SEND_NOW1str
+uctpim_neighbor*pim_neighbor_add(structinterface*ifp,structin_addrsource_addr,pi
+m_hello_optionshello_options,uint16_tholdtime,uint16_tpropagation_delay,uint16_t
+override_interval,uint32_tdr_priority,uint32_tgeneration_id,structlist*addr_list
+,intsend_hello_now);voidpim_neighbor_delete(structinterface*ifp,structpim_neighb
+or*neigh,constchar*delete_message);voidpim_neighbor_delete_all(structinterface*i
+fp,constchar*delete_message);voidpim_neighbor_update(structpim_neighbor*neigh,pi
+m_hello_optionshello_options,uint16_tholdtime,uint32_tdr_priority,structlist*add
+r_list);structprefix*pim_neighbor_find_secondary(structpim_neighbor*neigh,struct
+prefix*addr);intpim_if_dr_election(structinterface*ifp);#endif/*PIM_NEIGHBOR_H*/

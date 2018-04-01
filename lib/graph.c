@@ -1,138 +1,38 @@
-/*
- * Graph data structure.
- *
- * --
- * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#include <zebra.h>
-#include "graph.h"
-#include "memory.h"
-
-DEFINE_MTYPE_STATIC(LIB, GRAPH, "Graph")
-DEFINE_MTYPE_STATIC(LIB, GRAPH_NODE, "Graph Node")
-struct graph *graph_new()
-{
-	struct graph *graph = XCALLOC(MTYPE_GRAPH, sizeof(struct graph));
-	graph->nodes = vector_init(VECTOR_MIN_SIZE);
-
-	return graph;
-}
-
-struct graph_node *graph_new_node(struct graph *graph, void *data,
-				  void (*del)(void *))
-{
-	struct graph_node *node =
-		XCALLOC(MTYPE_GRAPH_NODE, sizeof(struct graph_node));
-
-	node->from = vector_init(VECTOR_MIN_SIZE);
-	node->to = vector_init(VECTOR_MIN_SIZE);
-	node->data = data;
-	node->del = del;
-
-	vector_set(graph->nodes, node);
-
-	return node;
-}
-
-static void vector_remove(vector v, unsigned int ix)
-{
-	if (ix >= v->active)
-		return;
-
-	/* v->active is guaranteed >= 1 because ix can't be lower than 0
-	 * and v->active is > ix. */
-	v->active--;
-	/* if ix == v->active--, we set the item to itself, then to NULL...
-	 * still correct, no check neccessary. */
-	v->index[ix] = v->index[v->active];
-	v->index[v->active] = NULL;
-}
-
-void graph_delete_node(struct graph *graph, struct graph_node *node)
-{
-	if (!node)
-		return;
-
-	// an adjacent node
-	struct graph_node *adj;
-
-	// remove all edges from other nodes to us
-	for (unsigned int i = vector_active(node->from); i--; /**/) {
-		adj = vector_slot(node->from, i);
-		graph_remove_edge(adj, node);
-	}
-
-	// remove all edges from us to other nodes
-	for (unsigned int i = vector_active(node->to); i--; /**/) {
-		adj = vector_slot(node->to, i);
-		graph_remove_edge(node, adj);
-	}
-
-	// if there is a deletion callback, call it
-	if (node->del && node->data)
-		(*node->del)(node->data);
-
-	// free adjacency lists
-	vector_free(node->to);
-	vector_free(node->from);
-
-	// remove node from graph->nodes
-	for (unsigned int i = vector_active(graph->nodes); i--; /**/)
-		if (vector_slot(graph->nodes, i) == node) {
-			vector_remove(graph->nodes, i);
-			break;
-		}
-
-	// free the node itself
-	XFREE(MTYPE_GRAPH_NODE, node);
-}
-
-struct graph_node *graph_add_edge(struct graph_node *from,
-				  struct graph_node *to)
-{
-	vector_set(from->to, to);
-	vector_set(to->from, from);
-	return to;
-}
-
-void graph_remove_edge(struct graph_node *from, struct graph_node *to)
-{
-	// remove from from to->from
-	for (unsigned int i = vector_active(to->from); i--; /**/)
-		if (vector_slot(to->from, i) == from) {
-			vector_remove(to->from, i);
-			break;
-		}
-	// remove to from from->to
-	for (unsigned int i = vector_active(from->to); i--; /**/)
-		if (vector_slot(from->to, i) == to) {
-			vector_remove(from->to, i);
-			break;
-		}
-}
-
-void graph_delete_graph(struct graph *graph)
-{
-	// delete each node in the graph
-	for (unsigned int i = vector_active(graph->nodes); i--; /**/)
-		graph_delete_node(graph, vector_slot(graph->nodes, i));
-
-	vector_free(graph->nodes);
-	XFREE(MTYPE_GRAPH, graph);
-}
+/**Graphdatastructure.**--*Copyright(C)2016CumulusNetworks,Inc.**Thisfileisparto
+fGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthete
+rmsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherver
+sion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwil
+lbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITY
+orFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yo
+ushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethe
+fileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor
+,Boston,MA02110-1301USA*/#include<zebra.h>#include"graph.h"#include"memory.h"DEF
+INE_MTYPE_STATIC(LIB,GRAPH,"Graph")DEFINE_MTYPE_STATIC(LIB,GRAPH_NODE,"GraphNode
+")structgraph*graph_new(){structgraph*graph=XCALLOC(MTYPE_GRAPH,sizeof(structgra
+ph));graph->nodes=vector_init(VECTOR_MIN_SIZE);returngraph;}structgraph_node*gra
+ph_new_node(structgraph*graph,void*data,void(*del)(void*)){structgraph_node*node
+=XCALLOC(MTYPE_GRAPH_NODE,sizeof(structgraph_node));node->from=vector_init(VECTO
+R_MIN_SIZE);node->to=vector_init(VECTOR_MIN_SIZE);node->data=data;node->del=del;
+vector_set(graph->nodes,node);returnnode;}staticvoidvector_remove(vectorv,unsign
+edintix){if(ix>=v->active)return;/*v->activeisguaranteed>=1becauseixcan'tbelower
+than0*andv->activeis>ix.*/v->active--;/*ifix==v->active--,wesettheitemtoitself,t
+hentoNULL...*stillcorrect,nocheckneccessary.*/v->index[ix]=v->index[v->active];v
+->index[v->active]=NULL;}voidgraph_delete_node(structgraph*graph,structgraph_nod
+e*node){if(!node)return;//anadjacentnodestructgraph_node*adj;//removealledgesfro
+mothernodestousfor(unsignedinti=vector_active(node->from);i--;/**/){adj=vector_s
+lot(node->from,i);graph_remove_edge(adj,node);}//removealledgesfromustoothernode
+sfor(unsignedinti=vector_active(node->to);i--;/**/){adj=vector_slot(node->to,i);
+graph_remove_edge(node,adj);}//ifthereisadeletioncallback,callitif(node->del&&no
+de->data)(*node->del)(node->data);//freeadjacencylistsvector_free(node->to);vect
+or_free(node->from);//removenodefromgraph->nodesfor(unsignedinti=vector_active(g
+raph->nodes);i--;/**/)if(vector_slot(graph->nodes,i)==node){vector_remove(graph-
+>nodes,i);break;}//freethenodeitselfXFREE(MTYPE_GRAPH_NODE,node);}structgraph_no
+de*graph_add_edge(structgraph_node*from,structgraph_node*to){vector_set(from->to
+,to);vector_set(to->from,from);returnto;}voidgraph_remove_edge(structgraph_node*
+from,structgraph_node*to){//removefromfromto->fromfor(unsignedinti=vector_active
+(to->from);i--;/**/)if(vector_slot(to->from,i)==from){vector_remove(to->from,i);
+break;}//removetofromfrom->tofor(unsignedinti=vector_active(from->to);i--;/**/)i
+f(vector_slot(from->to,i)==to){vector_remove(from->to,i);break;}}voidgraph_delet
+e_graph(structgraph*graph){//deleteeachnodeinthegraphfor(unsignedinti=vector_act
+ive(graph->nodes);i--;/**/)graph_delete_node(graph,vector_slot(graph->nodes,i));
+vector_free(graph->nodes);XFREE(MTYPE_GRAPH,graph);}

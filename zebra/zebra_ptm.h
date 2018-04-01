@@ -1,78 +1,28 @@
-/*
- * Definitions for prescriptive topology module (PTM).
- * Copyright (C) 1998, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_PTM_H
-#define _ZEBRA_PTM_H
-
-extern const char ZEBRA_PTM_SOCK_NAME[];
-#define ZEBRA_PTM_MAX_SOCKBUF 3200 /* 25B *128 ports */
-#define ZEBRA_PTM_SEND_MAX_SOCKBUF 512
-
-#define ZEBRA_PTM_BFD_CLIENT_FLAG_REG   (1 << 1) /* client registered with BFD */
-
-#include "zebra/zserv.h"
-
-/* Zebra ptm context block */
-struct zebra_ptm_cb {
-	int ptm_sock; /* ptm file descriptor. */
-
-	struct buffer *wb; /* Buffer of data waiting to be written to ptm. */
-
-	struct thread *t_read;  /* Thread for read */
-	struct thread *t_write; /* Thread for write */
-	struct thread *t_timer; /* Thread for timer */
-
-	char *out_data;
-	char *in_data;
-	int reconnect_time;
-
-	int ptm_enable;
-	int pid;
-	uint8_t client_flags[ZEBRA_ROUTE_MAX];
-};
-
-#define ZEBRA_PTM_STATUS_DOWN 0
-#define ZEBRA_PTM_STATUS_UP 1
-#define ZEBRA_PTM_STATUS_UNKNOWN 2
-
-/* For interface ptm-enable configuration. */
-#define ZEBRA_IF_PTM_ENABLE_OFF    0
-#define ZEBRA_IF_PTM_ENABLE_ON     1
-#define ZEBRA_IF_PTM_ENABLE_UNSPEC 2
-
-void zebra_ptm_init(void);
-void zebra_ptm_finish(void);
-int zebra_ptm_connect(struct thread *t);
-void zebra_ptm_write(struct vty *vty);
-int zebra_ptm_get_enable_state(void);
-
-/* ZAPI message handlers */
-void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS);
-void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS);
-void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS);
-
-void zebra_ptm_show_status(struct vty *vty, struct interface *ifp);
-void zebra_ptm_if_init(struct zebra_if *zebra_ifp);
-void zebra_ptm_if_set_ptm_state(struct interface *ifp,
-				struct zebra_if *zebra_ifp);
-void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp);
-void zebra_ptm_bfd_client_deregister(int proto);
-#endif
+/**Definitionsforprescriptivetopologymodule(PTM).*Copyright(C)1998,99,2000Kunihi
+roIshiguro,ToshiakiTakada**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;you
+canredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspubli
+shedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion
+.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;witho
+uteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheG
+NU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGenera
+lPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftwa
+re*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA
+_PTM_H#define_ZEBRA_PTM_HexternconstcharZEBRA_PTM_SOCK_NAME[];#defineZEBRA_PTM_M
+AX_SOCKBUF3200/*25B*128ports*/#defineZEBRA_PTM_SEND_MAX_SOCKBUF512#defineZEBRA_P
+TM_BFD_CLIENT_FLAG_REG(1<<1)/*clientregisteredwithBFD*/#include"zebra/zserv.h"/*
+Zebraptmcontextblock*/structzebra_ptm_cb{intptm_sock;/*ptmfiledescriptor.*/struc
+tbuffer*wb;/*Bufferofdatawaitingtobewrittentoptm.*/structthread*t_read;/*Threadf
+orread*/structthread*t_write;/*Threadforwrite*/structthread*t_timer;/*Threadfort
+imer*/char*out_data;char*in_data;intreconnect_time;intptm_enable;intpid;uint8_tc
+lient_flags[ZEBRA_ROUTE_MAX];};#defineZEBRA_PTM_STATUS_DOWN0#defineZEBRA_PTM_STA
+TUS_UP1#defineZEBRA_PTM_STATUS_UNKNOWN2/*Forinterfaceptm-enableconfiguration.*/#
+defineZEBRA_IF_PTM_ENABLE_OFF0#defineZEBRA_IF_PTM_ENABLE_ON1#defineZEBRA_IF_PTM_
+ENABLE_UNSPEC2voidzebra_ptm_init(void);voidzebra_ptm_finish(void);intzebra_ptm_c
+onnect(structthread*t);voidzebra_ptm_write(structvty*vty);intzebra_ptm_get_enabl
+e_state(void);/*ZAPImessagehandlers*/voidzebra_ptm_bfd_dst_register(ZAPI_HANDLER
+_ARGS);voidzebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS);voidzebra_ptm_bfd_cli
+ent_register(ZAPI_HANDLER_ARGS);voidzebra_ptm_show_status(structvty*vty,structin
+terface*ifp);voidzebra_ptm_if_init(structzebra_if*zebra_ifp);voidzebra_ptm_if_se
+t_ptm_state(structinterface*ifp,structzebra_if*zebra_ifp);voidzebra_ptm_if_write
+(structvty*vty,structzebra_if*zebra_ifp);voidzebra_ptm_bfd_client_deregister(int
+proto);#endif

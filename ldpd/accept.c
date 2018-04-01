@@ -1,141 +1,31 @@
-/*	$OpenBSD$ */
-
-/*
- * Copyright (c) 2012 Claudio Jeker <claudio@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-#include <zebra.h>
-
-#include "ldpd.h"
-#include "ldpe.h"
-#include "log.h"
-
-struct accept_ev {
-	LIST_ENTRY(accept_ev)	 entry;
-	struct thread		*ev;
-	int			(*accept_cb)(struct thread *);
-	void			*arg;
-	int			 fd;
-};
-
-struct {
-	LIST_HEAD(, accept_ev)	 queue;
-	struct thread		*evt;
-} accept_queue;
-
-static void	accept_arm(void);
-static void	accept_unarm(void);
-static int	accept_cb(struct thread *);
-static int	accept_timeout(struct thread *);
-
-void
-accept_init(void)
-{
-	LIST_INIT(&accept_queue.queue);
-}
-
-int
-accept_add(int fd, int (*cb)(struct thread *), void *arg)
-{
-	struct accept_ev	*av;
-
-	if ((av = calloc(1, sizeof(*av))) == NULL)
-		return (-1);
-	av->fd = fd;
-	av->accept_cb = cb;
-	av->arg = arg;
-	LIST_INSERT_HEAD(&accept_queue.queue, av, entry);
-
-	av->ev = NULL;
-	thread_add_read(master, accept_cb, av, av->fd, &av->ev);
-
-	log_debug("%s: accepting on fd %d", __func__, fd);
-
-	return (0);
-}
-
-void
-accept_del(int fd)
-{
-	struct accept_ev	*av;
-
-	LIST_FOREACH(av, &accept_queue.queue, entry)
-		if (av->fd == fd) {
-			log_debug("%s: %d removed from queue", __func__, fd);
-			THREAD_READ_OFF(av->ev);
-			LIST_REMOVE(av, entry);
-			free(av);
-			return;
-		}
-}
-
-void
-accept_pause(void)
-{
-	log_debug(__func__);
-	accept_unarm();
-	accept_queue.evt = NULL;
-	thread_add_timer(master, accept_timeout, NULL, 1, &accept_queue.evt);
-}
-
-void
-accept_unpause(void)
-{
-	if (accept_queue.evt != NULL) {
-		log_debug(__func__);
-		THREAD_TIMER_OFF(accept_queue.evt);
-		accept_arm();
-	}
-}
-
-static void
-accept_arm(void)
-{
-	struct accept_ev	*av;
-	LIST_FOREACH(av, &accept_queue.queue, entry) {
-		av->ev = NULL;
-		thread_add_read(master, accept_cb, av, av->fd, &av->ev);
-	}
-}
-
-static void
-accept_unarm(void)
-{
-	struct accept_ev	*av;
-	LIST_FOREACH(av, &accept_queue.queue, entry)
-		THREAD_READ_OFF(av->ev);
-}
-
-static int
-accept_cb(struct thread *thread)
-{
-	struct accept_ev	*av = THREAD_ARG(thread);
-	av->ev = NULL;
-	thread_add_read(master, accept_cb, av, av->fd, &av->ev);
-	av->accept_cb(thread);
-
-	return (0);
-}
-
-static int
-accept_timeout(struct thread *thread)
-{
-	accept_queue.evt = NULL;
-
-	log_debug(__func__);
-	accept_arm();
-
-	return (0);
-}
+/*$OpenBSD$*//**Copyright(c)2012ClaudioJeker<claudio@openbsd.org>**Permissiontou
+se,copy,modify,anddistributethissoftwareforany*purposewithorwithoutfeeisherebygr
+anted,providedthattheabove*copyrightnoticeandthispermissionnoticeappearinallcopi
+es.**THESOFTWAREISPROVIDED"ASIS"ANDTHEAUTHORDISCLAIMSALLWARRANTIES*WITHREGARDTOT
+HISSOFTWAREINCLUDINGALLIMPLIEDWARRANTIESOF*MERCHANTABILITYANDFITNESS.INNOEVENTSH
+ALLTHEAUTHORBELIABLEFOR*ANYSPECIAL,DIRECT,INDIRECT,ORCONSEQUENTIALDAMAGESORANYDA
+MAGES*WHATSOEVERRESULTINGFROMLOSSOFUSE,DATAORPROFITS,WHETHERINAN*ACTIONOFCONTRAC
+T,NEGLIGENCEOROTHERTORTIOUSACTION,ARISINGOUTOF*ORINCONNECTIONWITHTHEUSEORPERFORM
+ANCEOFTHISSOFTWARE.*/#include<zebra.h>#include"ldpd.h"#include"ldpe.h"#include"l
+og.h"structaccept_ev{LIST_ENTRY(accept_ev)entry;structthread*ev;int(*accept_cb)(
+structthread*);void*arg;intfd;};struct{LIST_HEAD(,accept_ev)queue;structthread*e
+vt;}accept_queue;staticvoidaccept_arm(void);staticvoidaccept_unarm(void);statici
+ntaccept_cb(structthread*);staticintaccept_timeout(structthread*);voidaccept_ini
+t(void){LIST_INIT(&accept_queue.queue);}intaccept_add(intfd,int(*cb)(structthrea
+d*),void*arg){structaccept_ev*av;if((av=calloc(1,sizeof(*av)))==NULL)return(-1);
+av->fd=fd;av->accept_cb=cb;av->arg=arg;LIST_INSERT_HEAD(&accept_queue.queue,av,e
+ntry);av->ev=NULL;thread_add_read(master,accept_cb,av,av->fd,&av->ev);log_debug(
+"%s:acceptingonfd%d",__func__,fd);return(0);}voidaccept_del(intfd){structaccept_
+ev*av;LIST_FOREACH(av,&accept_queue.queue,entry)if(av->fd==fd){log_debug("%s:%dr
+emovedfromqueue",__func__,fd);THREAD_READ_OFF(av->ev);LIST_REMOVE(av,entry);free
+(av);return;}}voidaccept_pause(void){log_debug(__func__);accept_unarm();accept_q
+ueue.evt=NULL;thread_add_timer(master,accept_timeout,NULL,1,&accept_queue.evt);}
+voidaccept_unpause(void){if(accept_queue.evt!=NULL){log_debug(__func__);THREAD_T
+IMER_OFF(accept_queue.evt);accept_arm();}}staticvoidaccept_arm(void){structaccep
+t_ev*av;LIST_FOREACH(av,&accept_queue.queue,entry){av->ev=NULL;thread_add_read(m
+aster,accept_cb,av,av->fd,&av->ev);}}staticvoidaccept_unarm(void){structaccept_e
+v*av;LIST_FOREACH(av,&accept_queue.queue,entry)THREAD_READ_OFF(av->ev);}staticin
+taccept_cb(structthread*thread){structaccept_ev*av=THREAD_ARG(thread);av->ev=NUL
+L;thread_add_read(master,accept_cb,av,av->fd,&av->ev);av->accept_cb(thread);retu
+rn(0);}staticintaccept_timeout(structthread*thread){accept_queue.evt=NULL;log_de
+bug(__func__);accept_arm();return(0);}

@@ -1,42 +1,18 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_MACRO_H
-#define PIM_MACRO_H
-
-#include <zebra.h>
-
-#include "if.h"
-
-#include "pim_upstream.h"
-#include "pim_ifchannel.h"
-
-int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch);
-int pim_macro_chisin_joins(const struct pim_ifchannel *ch);
-int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch);
-int pim_macro_chisin_joins_or_include(const struct pim_ifchannel *ch);
-int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch);
-struct pim_assert_metric pim_macro_spt_assert_metric(const struct pim_rpf *rpf,
-						     struct in_addr ifaddr);
-struct pim_assert_metric
-pim_macro_ch_my_assert_metric_eval(const struct pim_ifchannel *ch);
-int pim_macro_chisin_oiflist(const struct pim_ifchannel *ch);
-int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch);
-
-#endif /* PIM_MACRO_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_MACRO_H#definePIM_MACRO_H#include<zebra.h>#include"if.h"#includ
+e"pim_upstream.h"#include"pim_ifchannel.h"intpim_macro_ch_lost_assert(conststruc
+tpim_ifchannel*ch);intpim_macro_chisin_joins(conststructpim_ifchannel*ch);intpim
+_macro_chisin_pim_include(conststructpim_ifchannel*ch);intpim_macro_chisin_joins
+_or_include(conststructpim_ifchannel*ch);intpim_macro_ch_could_assert_eval(const
+structpim_ifchannel*ch);structpim_assert_metricpim_macro_spt_assert_metric(const
+structpim_rpf*rpf,structin_addrifaddr);structpim_assert_metricpim_macro_ch_my_as
+sert_metric_eval(conststructpim_ifchannel*ch);intpim_macro_chisin_oiflist(consts
+tructpim_ifchannel*ch);intpim_macro_assert_tracking_desired_eval(conststructpim_
+ifchannel*ch);#endif/*PIM_MACRO_H*/

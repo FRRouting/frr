@@ -1,56 +1,22 @@
-/*
- * Common ioctl functions.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_IOCTL_H
-#define _ZEBRA_IOCTL_H
-
-/* Prototypes. */
-extern void ifreq_set_name(struct ifreq *, struct interface *);
-extern int if_ioctl(unsigned long, caddr_t);
-extern int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id);
-
-extern int if_set_flags(struct interface *, uint64_t);
-extern int if_unset_flags(struct interface *, uint64_t);
-extern void if_get_flags(struct interface *);
-
-extern int if_set_prefix(struct interface *, struct connected *);
-extern int if_unset_prefix(struct interface *, struct connected *);
-
-extern void if_get_metric(struct interface *);
-extern void if_get_mtu(struct interface *);
-
-extern int if_prefix_add_ipv6(struct interface *, struct connected *);
-extern int if_prefix_delete_ipv6(struct interface *, struct connected *);
-
-#ifdef SOLARIS_IPV6
-extern int if_ioctl_ipv6(unsigned long, caddr_t);
-extern struct connected *if_lookup_linklocal(struct interface *);
-
-#define AF_IOCTL(af, request, buffer)                                          \
-	((af) == AF_INET ? if_ioctl(request, buffer)                           \
-			 : if_ioctl_ipv6(request, buffer))
-#else  /* SOLARIS_IPV6 */
-
-#define AF_IOCTL(af, request, buffer)  if_ioctl(request, buffer)
-
-#endif /* SOLARIS_IPV6 */
-
-#endif /* _ZEBRA_IOCTL_H */
+/**Commonioctlfunctions.*Copyright(C)1998KunihiroIshiguro**ThisfileispartofGNUZe
+bra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoft
+heGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,
+or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuse
+ful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITN
+ESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshoul
+dhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCO
+PYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bosto
+n,MA02110-1301USA*/#ifndef_ZEBRA_IOCTL_H#define_ZEBRA_IOCTL_H/*Prototypes.*/exte
+rnvoidifreq_set_name(structifreq*,structinterface*);externintif_ioctl(unsignedlo
+ng,caddr_t);externintvrf_if_ioctl(unsignedlongrequest,caddr_tbuffer,vrf_id_tvrf_
+id);externintif_set_flags(structinterface*,uint64_t);externintif_unset_flags(str
+uctinterface*,uint64_t);externvoidif_get_flags(structinterface*);externintif_set
+_prefix(structinterface*,structconnected*);externintif_unset_prefix(structinterf
+ace*,structconnected*);externvoidif_get_metric(structinterface*);externvoidif_ge
+t_mtu(structinterface*);externintif_prefix_add_ipv6(structinterface*,structconne
+cted*);externintif_prefix_delete_ipv6(structinterface*,structconnected*);#ifdefS
+OLARIS_IPV6externintif_ioctl_ipv6(unsignedlong,caddr_t);externstructconnected*if
+_lookup_linklocal(structinterface*);#defineAF_IOCTL(af,request,buffer)\((af)==AF
+_INET?if_ioctl(request,buffer)\:if_ioctl_ipv6(request,buffer))#else/*SOLARIS_IPV
+6*/#defineAF_IOCTL(af,request,buffer)if_ioctl(request,buffer)#endif/*SOLARIS_IPV
+6*/#endif/*_ZEBRA_IOCTL_H*/

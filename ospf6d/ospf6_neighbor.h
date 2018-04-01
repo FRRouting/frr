@@ -1,175 +1,58 @@
-/*
- * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef OSPF6_NEIGHBOR_H
-#define OSPF6_NEIGHBOR_H
-
-#include "hook.h"
-
-/* Debug option */
-extern unsigned char conf_debug_ospf6_neighbor;
-#define OSPF6_DEBUG_NEIGHBOR_STATE   0x01
-#define OSPF6_DEBUG_NEIGHBOR_EVENT   0x02
-#define OSPF6_DEBUG_NEIGHBOR_ON(level) (conf_debug_ospf6_neighbor |= (level))
-#define OSPF6_DEBUG_NEIGHBOR_OFF(level) (conf_debug_ospf6_neighbor &= ~(level))
-#define IS_OSPF6_DEBUG_NEIGHBOR(level)                                         \
-	(conf_debug_ospf6_neighbor & OSPF6_DEBUG_NEIGHBOR_##level)
-
-/* Neighbor structure */
-struct ospf6_neighbor {
-	/* Neighbor Router ID String */
-	char name[32];
-
-	/* OSPFv3 Interface this neighbor belongs to */
-	struct ospf6_interface *ospf6_if;
-
-	/* Neighbor state */
-	uint8_t state;
-
-	/* timestamp of last changing state */
-	uint32_t state_change;
-	struct timeval last_changed;
-
-	/* Neighbor Router ID */
-	uint32_t router_id;
-
-	/* Neighbor Interface ID */
-	ifindex_t ifindex;
-
-	/* Router Priority of this neighbor */
-	uint8_t priority;
-
-	uint32_t drouter;
-	uint32_t bdrouter;
-	uint32_t prev_drouter;
-	uint32_t prev_bdrouter;
-
-	/* Options field (Capability) */
-	char options[3];
-
-	/* IPaddr of I/F on our side link */
-	struct in6_addr linklocal_addr;
-
-	/* For Database Exchange */
-	uint8_t dbdesc_bits;
-	uint32_t dbdesc_seqnum;
-	/* Last received Database Description packet */
-	struct ospf6_dbdesc dbdesc_last;
-
-	/* LS-list */
-	struct ospf6_lsdb *summary_list;
-	struct ospf6_lsdb *request_list;
-	struct ospf6_lsdb *retrans_list;
-
-	/* LSA list for message transmission */
-	struct ospf6_lsdb *dbdesc_list;
-	struct ospf6_lsdb *lsreq_list;
-	struct ospf6_lsdb *lsupdate_list;
-	struct ospf6_lsdb *lsack_list;
-
-	struct ospf6_lsa *last_ls_req;
-
-	/* Inactivity timer */
-	struct thread *inactivity_timer;
-
-	/* Thread for sending message */
-	struct thread *thread_send_dbdesc;
-	struct thread *thread_send_lsreq;
-	struct thread *thread_send_lsupdate;
-	struct thread *thread_send_lsack;
-
-	/* BFD information */
-	void *bfd_info;
-};
-
-/* Neighbor state */
-#define OSPF6_NEIGHBOR_DOWN     1
-#define OSPF6_NEIGHBOR_ATTEMPT  2
-#define OSPF6_NEIGHBOR_INIT     3
-#define OSPF6_NEIGHBOR_TWOWAY   4
-#define OSPF6_NEIGHBOR_EXSTART  5
-#define OSPF6_NEIGHBOR_EXCHANGE 6
-#define OSPF6_NEIGHBOR_LOADING  7
-#define OSPF6_NEIGHBOR_FULL     8
-
-/* Neighbor Events */
-#define OSPF6_NEIGHBOR_EVENT_NO_EVENT             0
-#define OSPF6_NEIGHBOR_EVENT_HELLO_RCVD           1
-#define OSPF6_NEIGHBOR_EVENT_TWOWAY_RCVD          2
-#define OSPF6_NEIGHBOR_EVENT_NEGOTIATION_DONE     3
-#define OSPF6_NEIGHBOR_EVENT_EXCHANGE_DONE        4
-#define OSPF6_NEIGHBOR_EVENT_LOADING_DONE         5
-#define OSPF6_NEIGHBOR_EVENT_ADJ_OK               6
-#define OSPF6_NEIGHBOR_EVENT_SEQNUMBER_MISMATCH   7
-#define OSPF6_NEIGHBOR_EVENT_BAD_LSREQ            8
-#define OSPF6_NEIGHBOR_EVENT_ONEWAY_RCVD          9
-#define OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER    10
-#define OSPF6_NEIGHBOR_EVENT_MAX_EVENT           11
-
-static const char *ospf6_neighbor_event_str[] = {
-	"NoEvent",      "HelloReceived", "2-WayReceived",   "NegotiationDone",
-	"ExchangeDone", "LoadingDone",   "AdjOK?",	  "SeqNumberMismatch",
-	"BadLSReq",     "1-WayReceived", "InactivityTimer",
-};
-
-static inline const char *ospf6_neighbor_event_string(int event)
-{
-#define OSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING "UnknownEvent"
-
-	if (event < OSPF6_NEIGHBOR_EVENT_MAX_EVENT)
-		return ospf6_neighbor_event_str[event];
-	return OSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING;
-}
-
-extern const char *ospf6_neighbor_state_str[];
-
-
-/* Function Prototypes */
-int ospf6_neighbor_cmp(void *va, void *vb);
-void ospf6_neighbor_dbex_init(struct ospf6_neighbor *on);
-
-struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t,
-					     struct ospf6_interface *);
-struct ospf6_neighbor *ospf6_neighbor_create(uint32_t,
-					     struct ospf6_interface *);
-void ospf6_neighbor_delete(struct ospf6_neighbor *);
-
-/* Neighbor event */
-extern int hello_received(struct thread *);
-extern int twoway_received(struct thread *);
-extern int negotiation_done(struct thread *);
-extern int exchange_done(struct thread *);
-extern int loading_done(struct thread *);
-extern int adj_ok(struct thread *);
-extern int seqnumber_mismatch(struct thread *);
-extern int bad_lsreq(struct thread *);
-extern int oneway_received(struct thread *);
-extern int inactivity_timer(struct thread *);
-extern void ospf6_check_nbr_loading(struct ospf6_neighbor *);
-
-extern void ospf6_neighbor_init(void);
-extern int config_write_ospf6_debug_neighbor(struct vty *vty);
-extern void install_element_ospf6_debug_neighbor(void);
-
-DECLARE_HOOK(ospf6_neighbor_change,
-	     (struct ospf6_neighbor * on, int state, int next_state),
-	     (on, state, next_state))
-
-#endif /* OSPF6_NEIGHBOR_H */
+/**Copyright(C)2003YasuhiroOhara**ThisfileispartofGNUZebra.**GNUZebraisfreesoftw
+are;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicense
+aspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*later
+version.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANT
+Y;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.
+SeetheGNU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGN
+UGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFre
+eSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifnde
+fOSPF6_NEIGHBOR_H#defineOSPF6_NEIGHBOR_H#include"hook.h"/*Debugoption*/externuns
+ignedcharconf_debug_ospf6_neighbor;#defineOSPF6_DEBUG_NEIGHBOR_STATE0x01#defineO
+SPF6_DEBUG_NEIGHBOR_EVENT0x02#defineOSPF6_DEBUG_NEIGHBOR_ON(level)(conf_debug_os
+pf6_neighbor|=(level))#defineOSPF6_DEBUG_NEIGHBOR_OFF(level)(conf_debug_ospf6_ne
+ighbor&=~(level))#defineIS_OSPF6_DEBUG_NEIGHBOR(level)\(conf_debug_ospf6_neighbo
+r&OSPF6_DEBUG_NEIGHBOR_##level)/*Neighborstructure*/structospf6_neighbor{/*Neigh
+borRouterIDString*/charname[32];/*OSPFv3Interfacethisneighborbelongsto*/structos
+pf6_interface*ospf6_if;/*Neighborstate*/uint8_tstate;/*timestampoflastchangingst
+ate*/uint32_tstate_change;structtimevallast_changed;/*NeighborRouterID*/uint32_t
+router_id;/*NeighborInterfaceID*/ifindex_tifindex;/*RouterPriorityofthisneighbor
+*/uint8_tpriority;uint32_tdrouter;uint32_tbdrouter;uint32_tprev_drouter;uint32_t
+prev_bdrouter;/*Optionsfield(Capability)*/charoptions[3];/*IPaddrofI/Fonoursidel
+ink*/structin6_addrlinklocal_addr;/*ForDatabaseExchange*/uint8_tdbdesc_bits;uint
+32_tdbdesc_seqnum;/*LastreceivedDatabaseDescriptionpacket*/structospf6_dbdescdbd
+esc_last;/*LS-list*/structospf6_lsdb*summary_list;structospf6_lsdb*request_list;
+structospf6_lsdb*retrans_list;/*LSAlistformessagetransmission*/structospf6_lsdb*
+dbdesc_list;structospf6_lsdb*lsreq_list;structospf6_lsdb*lsupdate_list;structosp
+f6_lsdb*lsack_list;structospf6_lsa*last_ls_req;/*Inactivitytimer*/structthread*i
+nactivity_timer;/*Threadforsendingmessage*/structthread*thread_send_dbdesc;struc
+tthread*thread_send_lsreq;structthread*thread_send_lsupdate;structthread*thread_
+send_lsack;/*BFDinformation*/void*bfd_info;};/*Neighborstate*/#defineOSPF6_NEIGH
+BOR_DOWN1#defineOSPF6_NEIGHBOR_ATTEMPT2#defineOSPF6_NEIGHBOR_INIT3#defineOSPF6_N
+EIGHBOR_TWOWAY4#defineOSPF6_NEIGHBOR_EXSTART5#defineOSPF6_NEIGHBOR_EXCHANGE6#def
+ineOSPF6_NEIGHBOR_LOADING7#defineOSPF6_NEIGHBOR_FULL8/*NeighborEvents*/#defineOS
+PF6_NEIGHBOR_EVENT_NO_EVENT0#defineOSPF6_NEIGHBOR_EVENT_HELLO_RCVD1#defineOSPF6_
+NEIGHBOR_EVENT_TWOWAY_RCVD2#defineOSPF6_NEIGHBOR_EVENT_NEGOTIATION_DONE3#defineO
+SPF6_NEIGHBOR_EVENT_EXCHANGE_DONE4#defineOSPF6_NEIGHBOR_EVENT_LOADING_DONE5#defi
+neOSPF6_NEIGHBOR_EVENT_ADJ_OK6#defineOSPF6_NEIGHBOR_EVENT_SEQNUMBER_MISMATCH7#de
+fineOSPF6_NEIGHBOR_EVENT_BAD_LSREQ8#defineOSPF6_NEIGHBOR_EVENT_ONEWAY_RCVD9#defi
+neOSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER10#defineOSPF6_NEIGHBOR_EVENT_MAX_EVENT11
+staticconstchar*ospf6_neighbor_event_str[]={"NoEvent","HelloReceived","2-WayRece
+ived","NegotiationDone","ExchangeDone","LoadingDone","AdjOK?","SeqNumberMismatch
+","BadLSReq","1-WayReceived","InactivityTimer",};staticinlineconstchar*ospf6_nei
+ghbor_event_string(intevent){#defineOSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING"UnknownE
+vent"if(event<OSPF6_NEIGHBOR_EVENT_MAX_EVENT)returnospf6_neighbor_event_str[even
+t];returnOSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING;}externconstchar*ospf6_neighbor_sta
+te_str[];/*FunctionPrototypes*/intospf6_neighbor_cmp(void*va,void*vb);voidospf6_
+neighbor_dbex_init(structospf6_neighbor*on);structospf6_neighbor*ospf6_neighbor_
+lookup(uint32_t,structospf6_interface*);structospf6_neighbor*ospf6_neighbor_crea
+te(uint32_t,structospf6_interface*);voidospf6_neighbor_delete(structospf6_neighb
+or*);/*Neighborevent*/externinthello_received(structthread*);externinttwoway_rec
+eived(structthread*);externintnegotiation_done(structthread*);externintexchange_
+done(structthread*);externintloading_done(structthread*);externintadj_ok(structt
+hread*);externintseqnumber_mismatch(structthread*);externintbad_lsreq(structthre
+ad*);externintoneway_received(structthread*);externintinactivity_timer(structthr
+ead*);externvoidospf6_check_nbr_loading(structospf6_neighbor*);externvoidospf6_n
+eighbor_init(void);externintconfig_write_ospf6_debug_neighbor(structvty*vty);ext
+ernvoidinstall_element_ospf6_debug_neighbor(void);DECLARE_HOOK(ospf6_neighbor_ch
+ange,(structospf6_neighbor*on,intstate,intnext_state),(on,state,next_state))#end
+if/*OSPF6_NEIGHBOR_H*/

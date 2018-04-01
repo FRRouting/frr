@@ -1,332 +1,96 @@
-/*
- * IS-IS TLV Serializer/Deserializer
- *
- * Copyright (C) 2015,2017 Christian Franke
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- */
-#ifndef ISIS_TLVS_H
-#define ISIS_TLVS_H
-
-#include "openbsd-tree.h"
-#include "prefix.h"
-#include "isisd/dict.h"
-
-struct isis_subtlvs;
-
-struct isis_area_address;
-struct isis_area_address {
-	struct isis_area_address *next;
-
-	uint8_t addr[20];
-	uint8_t len;
-};
-
-struct isis_oldstyle_reach;
-struct isis_oldstyle_reach {
-	struct isis_oldstyle_reach *next;
-
-	uint8_t id[7];
-	uint8_t metric;
-};
-
-struct isis_oldstyle_ip_reach;
-struct isis_oldstyle_ip_reach {
-	struct isis_oldstyle_ip_reach *next;
-
-	uint8_t metric;
-	struct prefix_ipv4 prefix;
-};
-
-struct isis_lsp_entry;
-struct isis_lsp_entry {
-	struct isis_lsp_entry *next;
-
-	uint16_t rem_lifetime;
-	uint8_t id[8];
-	uint16_t checksum;
-	uint32_t seqno;
-
-	struct isis_lsp *lsp;
-};
-
-struct isis_extended_reach;
-struct isis_extended_reach {
-	struct isis_extended_reach *next;
-
-	uint8_t id[7];
-	uint32_t metric;
-
-	uint8_t *subtlvs;
-	uint8_t subtlv_len;
-};
-
-struct isis_extended_ip_reach;
-struct isis_extended_ip_reach {
-	struct isis_extended_ip_reach *next;
-
-	uint32_t metric;
-	bool down;
-	struct prefix_ipv4 prefix;
-};
-
-struct isis_ipv6_reach;
-struct isis_ipv6_reach {
-	struct isis_ipv6_reach *next;
-
-	uint32_t metric;
-	bool down;
-	bool external;
-
-	struct prefix_ipv6 prefix;
-
-	struct isis_subtlvs *subtlvs;
-};
-
-struct isis_protocols_supported {
-	uint8_t count;
-	uint8_t *protocols;
-};
-
-enum isis_threeway_state {
-	ISIS_THREEWAY_DOWN = 2,
-	ISIS_THREEWAY_INITIALIZING = 1,
-	ISIS_THREEWAY_UP = 0
-};
-
-struct isis_threeway_adj {
-	enum isis_threeway_state state;
-	uint32_t local_circuit_id;
-	bool neighbor_set;
-	uint8_t neighbor_id[6];
-	uint32_t neighbor_circuit_id;
-};
-
-struct isis_item;
-struct isis_item {
-	struct isis_item *next;
-};
-
-struct isis_lan_neighbor;
-struct isis_lan_neighbor {
-	struct isis_lan_neighbor *next;
-
-	uint8_t mac[6];
-};
-
-struct isis_ipv4_address;
-struct isis_ipv4_address {
-	struct isis_ipv4_address *next;
-
-	struct in_addr addr;
-};
-
-struct isis_ipv6_address;
-struct isis_ipv6_address {
-	struct isis_ipv6_address *next;
-
-	struct in6_addr addr;
-};
-
-struct isis_mt_router_info;
-struct isis_mt_router_info {
-	struct isis_mt_router_info *next;
-
-	bool overload;
-	bool attached;
-	uint16_t mtid;
-};
-
-struct isis_auth;
-struct isis_auth {
-	struct isis_auth *next;
-
-	uint8_t type;
-	uint8_t length;
-	uint8_t value[256];
-
-	uint8_t plength;
-	uint8_t passwd[256];
-
-	size_t offset; /* Only valid after packing */
-};
-
-struct isis_item_list;
-struct isis_item_list {
-	struct isis_item *head;
-	struct isis_item **tail;
-
-	RB_ENTRY(isis_item_list) mt_tree;
-	uint16_t mtid;
-	unsigned int count;
-};
-
-RB_HEAD(isis_mt_item_list, isis_item_list);
-
-struct isis_item_list *isis_get_mt_items(struct isis_mt_item_list *m,
-					 uint16_t mtid);
-struct isis_item_list *isis_lookup_mt_items(struct isis_mt_item_list *m,
-					    uint16_t mtid);
-
-struct isis_tlvs {
-	struct isis_item_list isis_auth;
-	struct isis_item_list area_addresses;
-	struct isis_item_list oldstyle_reach;
-	struct isis_item_list lan_neighbor;
-	struct isis_item_list lsp_entries;
-	struct isis_item_list extended_reach;
-	struct isis_mt_item_list mt_reach;
-	struct isis_item_list oldstyle_ip_reach;
-	struct isis_protocols_supported protocols_supported;
-	struct isis_item_list oldstyle_ip_reach_ext;
-	struct isis_item_list ipv4_address;
-	struct isis_item_list ipv6_address;
-	struct isis_item_list mt_router_info;
-	bool mt_router_info_empty;
-	struct in_addr *te_router_id;
-	struct isis_item_list extended_ip_reach;
-	struct isis_mt_item_list mt_ip_reach;
-	char *hostname;
-	struct isis_item_list ipv6_reach;
-	struct isis_mt_item_list mt_ipv6_reach;
-	struct isis_threeway_adj *threeway_adj;
-};
-
-struct isis_subtlvs {
-	/* draft-baker-ipv6-isis-dst-src-routing-06 */
-	struct prefix_ipv6 *source_prefix;
-};
-
-enum isis_tlv_context {
-	ISIS_CONTEXT_LSP,
-	ISIS_CONTEXT_SUBTLV_NE_REACH,
-	ISIS_CONTEXT_SUBTLV_IP_REACH,
-	ISIS_CONTEXT_SUBTLV_IPV6_REACH,
-	ISIS_CONTEXT_MAX
-};
-
-enum isis_tlv_type {
-	ISIS_TLV_AREA_ADDRESSES = 1,
-	ISIS_TLV_OLDSTYLE_REACH = 2,
-	ISIS_TLV_LAN_NEIGHBORS = 6,
-	ISIS_TLV_PADDING = 8,
-	ISIS_TLV_LSP_ENTRY = 9,
-	ISIS_TLV_AUTH = 10,
-	ISIS_TLV_EXTENDED_REACH = 22,
-
-	ISIS_TLV_OLDSTYLE_IP_REACH = 128,
-	ISIS_TLV_PROTOCOLS_SUPPORTED = 129,
-	ISIS_TLV_OLDSTYLE_IP_REACH_EXT = 130,
-	ISIS_TLV_IPV4_ADDRESS = 132,
-	ISIS_TLV_TE_ROUTER_ID = 134,
-	ISIS_TLV_EXTENDED_IP_REACH = 135,
-	ISIS_TLV_DYNAMIC_HOSTNAME = 137,
-	ISIS_TLV_MT_REACH = 222,
-	ISIS_TLV_MT_ROUTER_INFO = 229,
-	ISIS_TLV_IPV6_ADDRESS = 232,
-	ISIS_TLV_MT_IP_REACH = 235,
-	ISIS_TLV_IPV6_REACH = 236,
-	ISIS_TLV_MT_IPV6_REACH = 237,
-	ISIS_TLV_THREE_WAY_ADJ = 240,
-	ISIS_TLV_MAX = 256,
-
-	ISIS_SUBTLV_IPV6_SOURCE_PREFIX = 22
-};
-
-#define IS_COMPAT_MT_TLV(tlv_type)                                             \
-	((tlv_type == ISIS_TLV_MT_REACH) || (tlv_type == ISIS_TLV_MT_IP_REACH) \
-	 || (tlv_type == ISIS_TLV_MT_IPV6_REACH))
-
-struct stream;
-int isis_pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
-		   size_t len_pointer, bool pad, bool is_lsp);
-void isis_free_tlvs(struct isis_tlvs *tlvs);
-struct isis_tlvs *isis_alloc_tlvs(void);
-int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
-		     struct isis_tlvs **dest, const char **error_log);
-const char *isis_format_tlvs(struct isis_tlvs *tlvs);
-struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs);
-struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
-
-#define ISIS_EXTENDED_IP_REACH_DOWN 0x80
-#define ISIS_EXTENDED_IP_REACH_SUBTLV 0x40
-
-#define ISIS_IPV6_REACH_DOWN 0x80
-#define ISIS_IPV6_REACH_EXTERNAL 0x40
-#define ISIS_IPV6_REACH_SUBTLV 0x20
-
-#ifndef ISIS_MT_MASK
-#define ISIS_MT_MASK           0x0fff
-#define ISIS_MT_OL_MASK        0x8000
-#define ISIS_MT_AT_MASK        0x4000
-#endif
-
-
-void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
-void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs,
-				  struct list *addresses);
-void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs,
-				 struct list *neighbors);
-void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs,
-				       struct nlpids *nlpids);
-void isis_tlvs_add_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid,
-				  bool overload, bool attached);
-void isis_tlvs_add_ipv4_address(struct isis_tlvs *tlvs, struct in_addr *addr);
-void isis_tlvs_add_ipv4_addresses(struct isis_tlvs *tlvs,
-				  struct list *addresses);
-void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs,
-				  struct list *addresses);
-bool isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
-			     struct stream *stream, bool is_lsp);
-bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs,
-				    struct list *addresses);
-struct isis_adjacency;
-void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
-		      bool *changed);
-bool isis_tlvs_own_snpa_found(struct isis_tlvs *tlvs, uint8_t *snpa);
-void isis_tlvs_add_lsp_entry(struct isis_tlvs *tlvs, struct isis_lsp *lsp);
-void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id,
-				uint8_t *stop_id, uint16_t num_lsps,
-				dict_t *lspdb, struct isis_lsp **last_lsp);
-void isis_tlvs_set_dynamic_hostname(struct isis_tlvs *tlvs,
-				    const char *hostname);
-void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
-				const struct in_addr *id);
-void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
-				     struct prefix_ipv4 *dest, uint8_t metric);
-void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
-				     struct prefix_ipv4 *dest, uint32_t metric);
-void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
-			      struct prefix_ipv6 *dest, uint32_t metric);
-void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id,
-				  uint8_t metric);
-void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid,
-				  uint8_t *id, uint32_t metric,
-				  uint8_t *subtlvs, uint8_t subtlv_len);
-
-const char *isis_threeway_state_name(enum isis_threeway_state state);
-
-void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs,
-				enum isis_threeway_state state,
-				uint32_t local_circuit_id,
-				const uint8_t *neighbor_id,
-				uint32_t neighbor_circuit_id);
-
-struct isis_mt_router_info *
-isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);
-#endif
+/**IS-ISTLVSerializer/Deserializer**Copyright(C)2015,2017ChristianFranke**Thisfi
+leispartofFRR.**FRRisfreesoftware;youcanredistributeitand/ormodifyit*undertheter
+msoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eithervers
+ion2,or(atyouroption)any*laterversion.**FRRisdistributedinthehopethatitwillbeuse
+ful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITN
+ESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshoul
+dhavereceivedacopyoftheGNUGeneralPublicLicense*alongwithFRR;seethefileCOPYING.If
+not,writetotheFree*SoftwareFoundation,Inc.,59TemplePlace-Suite330,Boston,MA*0211
+1-1307,USA.*/#ifndefISIS_TLVS_H#defineISIS_TLVS_H#include"openbsd-tree.h"#includ
+e"prefix.h"#include"isisd/dict.h"structisis_subtlvs;structisis_area_address;stru
+ctisis_area_address{structisis_area_address*next;uint8_taddr[20];uint8_tlen;};st
+ructisis_oldstyle_reach;structisis_oldstyle_reach{structisis_oldstyle_reach*next
+;uint8_tid[7];uint8_tmetric;};structisis_oldstyle_ip_reach;structisis_oldstyle_i
+p_reach{structisis_oldstyle_ip_reach*next;uint8_tmetric;structprefix_ipv4prefix;
+};structisis_lsp_entry;structisis_lsp_entry{structisis_lsp_entry*next;uint16_tre
+m_lifetime;uint8_tid[8];uint16_tchecksum;uint32_tseqno;structisis_lsp*lsp;};stru
+ctisis_extended_reach;structisis_extended_reach{structisis_extended_reach*next;u
+int8_tid[7];uint32_tmetric;uint8_t*subtlvs;uint8_tsubtlv_len;};structisis_extend
+ed_ip_reach;structisis_extended_ip_reach{structisis_extended_ip_reach*next;uint3
+2_tmetric;booldown;structprefix_ipv4prefix;};structisis_ipv6_reach;structisis_ip
+v6_reach{structisis_ipv6_reach*next;uint32_tmetric;booldown;boolexternal;structp
+refix_ipv6prefix;structisis_subtlvs*subtlvs;};structisis_protocols_supported{uin
+t8_tcount;uint8_t*protocols;};enumisis_threeway_state{ISIS_THREEWAY_DOWN=2,ISIS_
+THREEWAY_INITIALIZING=1,ISIS_THREEWAY_UP=0};structisis_threeway_adj{enumisis_thr
+eeway_statestate;uint32_tlocal_circuit_id;boolneighbor_set;uint8_tneighbor_id[6]
+;uint32_tneighbor_circuit_id;};structisis_item;structisis_item{structisis_item*n
+ext;};structisis_lan_neighbor;structisis_lan_neighbor{structisis_lan_neighbor*ne
+xt;uint8_tmac[6];};structisis_ipv4_address;structisis_ipv4_address{structisis_ip
+v4_address*next;structin_addraddr;};structisis_ipv6_address;structisis_ipv6_addr
+ess{structisis_ipv6_address*next;structin6_addraddr;};structisis_mt_router_info;
+structisis_mt_router_info{structisis_mt_router_info*next;booloverload;boolattach
+ed;uint16_tmtid;};structisis_auth;structisis_auth{structisis_auth*next;uint8_tty
+pe;uint8_tlength;uint8_tvalue[256];uint8_tplength;uint8_tpasswd[256];size_toffse
+t;/*Onlyvalidafterpacking*/};structisis_item_list;structisis_item_list{structisi
+s_item*head;structisis_item**tail;RB_ENTRY(isis_item_list)mt_tree;uint16_tmtid;u
+nsignedintcount;};RB_HEAD(isis_mt_item_list,isis_item_list);structisis_item_list
+*isis_get_mt_items(structisis_mt_item_list*m,uint16_tmtid);structisis_item_list*
+isis_lookup_mt_items(structisis_mt_item_list*m,uint16_tmtid);structisis_tlvs{str
+uctisis_item_listisis_auth;structisis_item_listarea_addresses;structisis_item_li
+stoldstyle_reach;structisis_item_listlan_neighbor;structisis_item_listlsp_entrie
+s;structisis_item_listextended_reach;structisis_mt_item_listmt_reach;structisis_
+item_listoldstyle_ip_reach;structisis_protocols_supportedprotocols_supported;str
+uctisis_item_listoldstyle_ip_reach_ext;structisis_item_listipv4_address;structis
+is_item_listipv6_address;structisis_item_listmt_router_info;boolmt_router_info_e
+mpty;structin_addr*te_router_id;structisis_item_listextended_ip_reach;structisis
+_mt_item_listmt_ip_reach;char*hostname;structisis_item_listipv6_reach;structisis
+_mt_item_listmt_ipv6_reach;structisis_threeway_adj*threeway_adj;};structisis_sub
+tlvs{/*draft-baker-ipv6-isis-dst-src-routing-06*/structprefix_ipv6*source_prefix
+;};enumisis_tlv_context{ISIS_CONTEXT_LSP,ISIS_CONTEXT_SUBTLV_NE_REACH,ISIS_CONTE
+XT_SUBTLV_IP_REACH,ISIS_CONTEXT_SUBTLV_IPV6_REACH,ISIS_CONTEXT_MAX};enumisis_tlv
+_type{ISIS_TLV_AREA_ADDRESSES=1,ISIS_TLV_OLDSTYLE_REACH=2,ISIS_TLV_LAN_NEIGHBORS
+=6,ISIS_TLV_PADDING=8,ISIS_TLV_LSP_ENTRY=9,ISIS_TLV_AUTH=10,ISIS_TLV_EXTENDED_RE
+ACH=22,ISIS_TLV_OLDSTYLE_IP_REACH=128,ISIS_TLV_PROTOCOLS_SUPPORTED=129,ISIS_TLV_
+OLDSTYLE_IP_REACH_EXT=130,ISIS_TLV_IPV4_ADDRESS=132,ISIS_TLV_TE_ROUTER_ID=134,IS
+IS_TLV_EXTENDED_IP_REACH=135,ISIS_TLV_DYNAMIC_HOSTNAME=137,ISIS_TLV_MT_REACH=222
+,ISIS_TLV_MT_ROUTER_INFO=229,ISIS_TLV_IPV6_ADDRESS=232,ISIS_TLV_MT_IP_REACH=235,
+ISIS_TLV_IPV6_REACH=236,ISIS_TLV_MT_IPV6_REACH=237,ISIS_TLV_THREE_WAY_ADJ=240,IS
+IS_TLV_MAX=256,ISIS_SUBTLV_IPV6_SOURCE_PREFIX=22};#defineIS_COMPAT_MT_TLV(tlv_ty
+pe)\((tlv_type==ISIS_TLV_MT_REACH)||(tlv_type==ISIS_TLV_MT_IP_REACH)\||(tlv_type
+==ISIS_TLV_MT_IPV6_REACH))structstream;intisis_pack_tlvs(structisis_tlvs*tlvs,st
+ructstream*stream,size_tlen_pointer,boolpad,boolis_lsp);voidisis_free_tlvs(struc
+tisis_tlvs*tlvs);structisis_tlvs*isis_alloc_tlvs(void);intisis_unpack_tlvs(size_
+tavail_len,structstream*stream,structisis_tlvs**dest,constchar**error_log);const
+char*isis_format_tlvs(structisis_tlvs*tlvs);structisis_tlvs*isis_copy_tlvs(struc
+tisis_tlvs*tlvs);structlist*isis_fragment_tlvs(structisis_tlvs*tlvs,size_tsize);
+#defineISIS_EXTENDED_IP_REACH_DOWN0x80#defineISIS_EXTENDED_IP_REACH_SUBTLV0x40#d
+efineISIS_IPV6_REACH_DOWN0x80#defineISIS_IPV6_REACH_EXTERNAL0x40#defineISIS_IPV6
+_REACH_SUBTLV0x20#ifndefISIS_MT_MASK#defineISIS_MT_MASK0x0fff#defineISIS_MT_OL_M
+ASK0x8000#defineISIS_MT_AT_MASK0x4000#endifvoidisis_tlvs_add_auth(structisis_tlv
+s*tlvs,structisis_passwd*passwd);voidisis_tlvs_add_area_addresses(structisis_tlv
+s*tlvs,structlist*addresses);voidisis_tlvs_add_lan_neighbors(structisis_tlvs*tlv
+s,structlist*neighbors);voidisis_tlvs_set_protocols_supported(structisis_tlvs*tl
+vs,structnlpids*nlpids);voidisis_tlvs_add_mt_router_info(structisis_tlvs*tlvs,ui
+nt16_tmtid,booloverload,boolattached);voidisis_tlvs_add_ipv4_address(structisis_
+tlvs*tlvs,structin_addr*addr);voidisis_tlvs_add_ipv4_addresses(structisis_tlvs*t
+lvs,structlist*addresses);voidisis_tlvs_add_ipv6_addresses(structisis_tlvs*tlvs,
+structlist*addresses);boolisis_tlvs_auth_is_valid(structisis_tlvs*tlvs,structisi
+s_passwd*passwd,structstream*stream,boolis_lsp);boolisis_tlvs_area_addresses_mat
+ch(structisis_tlvs*tlvs,structlist*addresses);structisis_adjacency;voidisis_tlvs
+_to_adj(structisis_tlvs*tlvs,structisis_adjacency*adj,bool*changed);boolisis_tlv
+s_own_snpa_found(structisis_tlvs*tlvs,uint8_t*snpa);voidisis_tlvs_add_lsp_entry(
+structisis_tlvs*tlvs,structisis_lsp*lsp);voidisis_tlvs_add_csnp_entries(structis
+is_tlvs*tlvs,uint8_t*start_id,uint8_t*stop_id,uint16_tnum_lsps,dict_t*lspdb,stru
+ctisis_lsp**last_lsp);voidisis_tlvs_set_dynamic_hostname(structisis_tlvs*tlvs,co
+nstchar*hostname);voidisis_tlvs_set_te_router_id(structisis_tlvs*tlvs,conststruc
+tin_addr*id);voidisis_tlvs_add_oldstyle_ip_reach(structisis_tlvs*tlvs,structpref
+ix_ipv4*dest,uint8_tmetric);voidisis_tlvs_add_extended_ip_reach(structisis_tlvs*
+tlvs,structprefix_ipv4*dest,uint32_tmetric);voidisis_tlvs_add_ipv6_reach(structi
+sis_tlvs*tlvs,uint16_tmtid,structprefix_ipv6*dest,uint32_tmetric);voidisis_tlvs_
+add_oldstyle_reach(structisis_tlvs*tlvs,uint8_t*id,uint8_tmetric);voidisis_tlvs_
+add_extended_reach(structisis_tlvs*tlvs,uint16_tmtid,uint8_t*id,uint32_tmetric,u
+int8_t*subtlvs,uint8_tsubtlv_len);constchar*isis_threeway_state_name(enumisis_th
+reeway_statestate);voidisis_tlvs_add_threeway_adj(structisis_tlvs*tlvs,enumisis_
+threeway_statestate,uint32_tlocal_circuit_id,constuint8_t*neighbor_id,uint32_tne
+ighbor_circuit_id);structisis_mt_router_info*isis_tlvs_lookup_mt_router_info(str
+uctisis_tlvs*tlvs,uint16_tmtid);#endif

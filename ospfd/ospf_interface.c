@@ -1,1220 +1,315 @@
-/*
- * OSPF Interface functions.
- * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "thread.h"
-#include "linklist.h"
-#include "prefix.h"
-#include "if.h"
-#include "table.h"
-#include "memory.h"
-#include "command.h"
-#include "stream.h"
-#include "log.h"
-#include "zclient.h"
-#include "bfd.h"
-
-#include "ospfd/ospfd.h"
-#include "ospfd/ospf_spf.h"
-#include "ospfd/ospf_interface.h"
-#include "ospfd/ospf_ism.h"
-#include "ospfd/ospf_asbr.h"
-#include "ospfd/ospf_lsa.h"
-#include "ospfd/ospf_lsdb.h"
-#include "ospfd/ospf_neighbor.h"
-#include "ospfd/ospf_nsm.h"
-#include "ospfd/ospf_packet.h"
-#include "ospfd/ospf_abr.h"
-#include "ospfd/ospf_network.h"
-#include "ospfd/ospf_dump.h"
-
-DEFINE_QOBJ_TYPE(ospf_interface)
-DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
-DEFINE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
-
-int ospf_interface_neighbor_count(struct ospf_interface *oi)
-{
-	int count = 0;
-	struct route_node *rn;
-	struct ospf_neighbor *nbr = NULL;
-
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
-		nbr = rn->info;
-		if (nbr) {
-			/* Do not show myself. */
-			if (nbr == oi->nbr_self)
-				continue;
-			/* Down state is not shown. */
-			if (nbr->state == NSM_Down)
-				continue;
-			count++;
-		}
-	}
-
-	return count;
-}
-
-int ospf_if_get_output_cost(struct ospf_interface *oi)
-{
-	/* If all else fails, use default OSPF cost */
-	uint32_t cost;
-	uint32_t bw, refbw;
-
-	/* ifp speed and bw can be 0 in some platforms, use ospf default bw
-	   if bw is configured under interface it would be used.
-	 */
-	if (!oi->ifp->bandwidth && oi->ifp->speed)
-		bw = oi->ifp->speed;
-	else
-		bw = oi->ifp->bandwidth ? oi->ifp->bandwidth
-					: OSPF_DEFAULT_BANDWIDTH;
-	refbw = oi->ospf->ref_bandwidth;
-
-	/* A specifed ip ospf cost overrides a calculated one. */
-	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp), output_cost_cmd)
-	    || OSPF_IF_PARAM_CONFIGURED(oi->params, output_cost_cmd))
-		cost = OSPF_IF_PARAM(oi, output_cost_cmd);
-	/* See if a cost can be calculated from the zebra processes
-	   interface bandwidth field. */
-	else {
-		cost = (uint32_t)((double)refbw / (double)bw + (double)0.5);
-		if (cost < 1)
-			cost = 1;
-		else if (cost > 65535)
-			cost = 65535;
-	}
-
-	return cost;
-}
-
-void ospf_if_recalculate_output_cost(struct interface *ifp)
-{
-	uint32_t newcost;
-	struct route_node *rn;
-
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		struct ospf_interface *oi;
-
-		if ((oi = rn->info) == NULL)
-			continue;
-
-		newcost = ospf_if_get_output_cost(oi);
-
-		/* Is actual output cost changed? */
-		if (oi->output_cost != newcost) {
-			oi->output_cost = newcost;
-			ospf_router_lsa_update_area(oi->area);
-		}
-	}
-}
-
-/* Simulate down/up on the interface.  This is needed, for example, when
-   the MTU changes. */
-void ospf_if_reset(struct interface *ifp)
-{
-	struct route_node *rn;
-
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		struct ospf_interface *oi;
-
-		if ((oi = rn->info) == NULL)
-			continue;
-
-		ospf_if_down(oi);
-		ospf_if_up(oi);
-	}
-}
-
-void ospf_if_reset_variables(struct ospf_interface *oi)
-{
-	/* Set default values. */
-	/* don't clear this flag.  oi->flag = OSPF_IF_DISABLE; */
-
-	if (oi->vl_data)
-		oi->type = OSPF_IFTYPE_VIRTUALLINK;
-	else
-		/* preserve network-type */
-		if (oi->type != OSPF_IFTYPE_NBMA)
-		oi->type = OSPF_IFTYPE_BROADCAST;
-
-	oi->state = ISM_Down;
-
-	oi->crypt_seqnum = 0;
-
-	/* This must be short, (less than RxmtInterval)
-	   - RFC 2328 Section 13.5 para 3.  Set to 1 second to avoid Acks being
-	     held back for too long - MAG */
-	oi->v_ls_ack = 1;
-}
-
-/* lookup oi for specified prefix/ifp */
-struct ospf_interface *ospf_if_table_lookup(struct interface *ifp,
-					    struct prefix *prefix)
-{
-	struct prefix p;
-	struct route_node *rn;
-	struct ospf_interface *rninfo = NULL;
-
-	p = *prefix;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
-
-	/* route_node_get implicitely locks */
-	if ((rn = route_node_lookup(IF_OIFS(ifp), &p))) {
-		rninfo = (struct ospf_interface *)rn->info;
-		route_unlock_node(rn);
-	}
-
-	return rninfo;
-}
-
-static void ospf_add_to_if(struct interface *ifp, struct ospf_interface *oi)
-{
-	struct route_node *rn;
-	struct prefix p;
-
-	p = *oi->address;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
-	apply_mask(&p);
-
-	rn = route_node_get(IF_OIFS(ifp), &p);
-	/* rn->info should either be NULL or equal to this oi
-	 * as route_node_get may return an existing node
-	 */
-	assert(!rn->info || rn->info == oi);
-	rn->info = oi;
-}
-
-static void ospf_delete_from_if(struct interface *ifp,
-				struct ospf_interface *oi)
-{
-	struct route_node *rn;
-	struct prefix p;
-
-	p = *oi->address;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
-
-	rn = route_node_lookup(IF_OIFS(oi->ifp), &p);
-	assert(rn);
-	assert(rn->info);
-	rn->info = NULL;
-	route_unlock_node(rn);
-	route_unlock_node(rn);
-}
-
-struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
-				   struct prefix *p)
-{
-	struct ospf_interface *oi;
-
-	if ((oi = ospf_if_table_lookup(ifp, p)) == NULL) {
-		oi = XCALLOC(MTYPE_OSPF_IF, sizeof(struct ospf_interface));
-		memset(oi, 0, sizeof(struct ospf_interface));
-	} else
-		return oi;
-
-	/* Set zebra interface pointer. */
-	oi->ifp = ifp;
-	oi->address = p;
-
-	ospf_add_to_if(ifp, oi);
-	listnode_add(ospf->oiflist, oi);
-
-	/* Initialize neighbor list. */
-	oi->nbrs = route_table_init();
-
-	/* Initialize static neighbor list. */
-	oi->nbr_nbma = list_new();
-
-	/* Initialize Link State Acknowledgment list. */
-	oi->ls_ack = list_new();
-	oi->ls_ack_direct.ls_ack = list_new();
-
-	/* Set default values. */
-	ospf_if_reset_variables(oi);
-
-	/* Set pseudo neighbor to Null */
-	oi->nbr_self = NULL;
-
-	oi->ls_upd_queue = route_table_init();
-	oi->t_ls_upd_event = NULL;
-	oi->t_ls_ack_direct = NULL;
-
-	oi->crypt_seqnum = time(NULL);
-
-	ospf_opaque_type9_lsa_init(oi);
-
-	oi->ospf = ospf;
-	QOBJ_REG(oi, ospf_interface);
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: ospf interface %s vrf %s id %u created",
-			   __PRETTY_FUNCTION__, ifp->name,
-			   ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id);
-
-	return oi;
-}
-
-/* Restore an interface to its pre UP state
-   Used from ism_interface_down only */
-void ospf_if_cleanup(struct ospf_interface *oi)
-{
-	struct route_node *rn;
-	struct listnode *node, *nnode;
-	struct ospf_neighbor *nbr;
-	struct ospf_nbr_nbma *nbr_nbma;
-	struct ospf_lsa *lsa;
-
-	/* oi->nbrs and oi->nbr_nbma should be deleted on InterfaceDown event */
-	/* delete all static neighbors attached to this interface */
-	for (ALL_LIST_ELEMENTS(oi->nbr_nbma, node, nnode, nbr_nbma)) {
-		OSPF_POLL_TIMER_OFF(nbr_nbma->t_poll);
-
-		if (nbr_nbma->nbr) {
-			nbr_nbma->nbr->nbr_nbma = NULL;
-			nbr_nbma->nbr = NULL;
-		}
-
-		nbr_nbma->oi = NULL;
-
-		listnode_delete(oi->nbr_nbma, nbr_nbma);
-	}
-
-	/* send Neighbor event KillNbr to all associated neighbors. */
-	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-		if ((nbr = rn->info) != NULL)
-			if (nbr != oi->nbr_self)
-				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
-
-	/* Cleanup Link State Acknowlegdment list. */
-	for (ALL_LIST_ELEMENTS(oi->ls_ack, node, nnode, lsa))
-		ospf_lsa_unlock(&lsa); /* oi->ls_ack */
-	list_delete_all_node(oi->ls_ack);
-
-	oi->crypt_seqnum = 0;
-
-	/* Empty link state update queue */
-	ospf_ls_upd_queue_empty(oi);
-
-	/* Reset pseudo neighbor. */
-	ospf_nbr_self_reset(oi, oi->ospf->router_id);
-}
-
-void ospf_if_free(struct ospf_interface *oi)
-{
-	ospf_if_down(oi);
-
-	assert(oi->state == ISM_Down);
-
-	ospf_opaque_type9_lsa_term(oi);
-
-	QOBJ_UNREG(oi);
-
-	/* Free Pseudo Neighbour */
-	ospf_nbr_delete(oi->nbr_self);
-
-	route_table_finish(oi->nbrs);
-	route_table_finish(oi->ls_upd_queue);
-
-	/* Free any lists that should be freed */
-	list_delete_and_null(&oi->nbr_nbma);
-
-	list_delete_and_null(&oi->ls_ack);
-	list_delete_and_null(&oi->ls_ack_direct.ls_ack);
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
-			   __PRETTY_FUNCTION__, oi->ifp->name,
-			   ospf_vrf_id_to_name(oi->ifp->vrf_id),
-			   oi->ifp->vrf_id);
-
-	ospf_delete_from_if(oi->ifp, oi);
-
-	listnode_delete(oi->ospf->oiflist, oi);
-	listnode_delete(oi->area->oiflist, oi);
-
-	thread_cancel_event(master, oi);
-
-	memset(oi, 0, sizeof(*oi));
-	XFREE(MTYPE_OSPF_IF, oi);
-}
-
-int ospf_if_is_up(struct ospf_interface *oi)
-{
-	return if_is_up(oi->ifp);
-}
-
-struct ospf_interface *ospf_if_exists(struct ospf_interface *oic)
-{
-	struct listnode *node;
-	struct ospf *ospf;
-	struct ospf_interface *oi;
-
-	if (!oic)
-		return NULL;
-
-	ospf = oic->ospf;
-	if (ospf == NULL)
-		return NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
-		if (oi == oic)
-			return oi;
-
-	return NULL;
-}
-
-/* Lookup OSPF interface by router LSA posistion */
-struct ospf_interface *ospf_if_lookup_by_lsa_pos(struct ospf_area *area,
-						 int lsa_pos)
-{
-	struct listnode *node;
-	struct ospf_interface *oi;
-
-	for (ALL_LIST_ELEMENTS_RO(area->oiflist, node, oi)) {
-		if (lsa_pos >= oi->lsa_pos_beg && lsa_pos < oi->lsa_pos_end)
-			return oi;
-	}
-	return NULL;
-}
-
-struct ospf_interface *ospf_if_lookup_by_local_addr(struct ospf *ospf,
-						    struct interface *ifp,
-						    struct in_addr address)
-{
-	struct listnode *node;
-	struct ospf_interface *oi;
-
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
-		if (oi->type != OSPF_IFTYPE_VIRTUALLINK) {
-			if (ifp && oi->ifp != ifp)
-				continue;
-
-			if (IPV4_ADDR_SAME(&address, &oi->address->u.prefix4))
-				return oi;
-		}
-
-	return NULL;
-}
-
-struct ospf_interface *ospf_if_lookup_by_prefix(struct ospf *ospf,
-						struct prefix_ipv4 *p)
-{
-	struct listnode *node;
-	struct ospf_interface *oi;
-
-	/* Check each Interface. */
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
-		if (oi->type != OSPF_IFTYPE_VIRTUALLINK) {
-			struct prefix ptmp;
-
-			prefix_copy(&ptmp, CONNECTED_PREFIX(oi->connected));
-			apply_mask(&ptmp);
-			if (prefix_same(&ptmp, (struct prefix *)p))
-				return oi;
-		}
-	}
-	return NULL;
-}
-
-/* determine receiving interface by ifp and source address */
-struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
-					      struct in_addr src,
-					      struct interface *ifp)
-{
-	struct route_node *rn;
-	struct prefix_ipv4 addr;
-	struct ospf_interface *oi, *match;
-
-	addr.family = AF_INET;
-	addr.prefix = src;
-	addr.prefixlen = IPV4_MAX_BITLEN;
-
-	match = NULL;
-
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		oi = rn->info;
-
-		if (!oi) /* oi can be NULL for PtP aliases */
-			continue;
-
-		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-			continue;
-
-		if (if_is_loopback(oi->ifp) || if_is_vrf(oi->ifp))
-			continue;
-
-		if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED))
-			match = oi;
-		else if (prefix_match(CONNECTED_PREFIX(oi->connected),
-				      (struct prefix *)&addr)) {
-			if ((match == NULL) || (match->address->prefixlen
-						< oi->address->prefixlen))
-				match = oi;
-		}
-	}
-
-	return match;
-}
-
-static void ospf_if_reset_stats(struct ospf_interface *oi)
-{
-	oi->hello_in = oi->hello_out = 0;
-	oi->db_desc_in = oi->db_desc_out = 0;
-	oi->ls_req_in = oi->ls_req_out = 0;
-	oi->ls_upd_in = oi->ls_upd_out = 0;
-	oi->ls_ack_in = oi->ls_ack_out = 0;
-}
-
-void ospf_if_stream_set(struct ospf_interface *oi)
-{
-	/* set output fifo queue. */
-	if (oi->obuf == NULL)
-		oi->obuf = ospf_fifo_new();
-}
-
-void ospf_if_stream_unset(struct ospf_interface *oi)
-{
-	struct ospf *ospf = oi->ospf;
-
-	if (oi->obuf) {
-		ospf_fifo_free(oi->obuf);
-		oi->obuf = NULL;
-
-		/*reset protocol stats */
-		ospf_if_reset_stats(oi);
-
-		if (oi->on_write_q) {
-			listnode_delete(ospf->oi_write_q, oi);
-			if (list_isempty(ospf->oi_write_q))
-				OSPF_TIMER_OFF(ospf->t_write);
-			oi->on_write_q = 0;
-		}
-	}
-}
-
-
-static struct ospf_if_params *ospf_new_if_params(void)
-{
-	struct ospf_if_params *oip;
-
-	oip = XCALLOC(MTYPE_OSPF_IF_PARAMS, sizeof(struct ospf_if_params));
-
-	if (!oip)
-		return NULL;
-
-	UNSET_IF_PARAM(oip, output_cost_cmd);
-	UNSET_IF_PARAM(oip, transmit_delay);
-	UNSET_IF_PARAM(oip, retransmit_interval);
-	UNSET_IF_PARAM(oip, passive_interface);
-	UNSET_IF_PARAM(oip, v_hello);
-	UNSET_IF_PARAM(oip, fast_hello);
-	UNSET_IF_PARAM(oip, v_wait);
-	UNSET_IF_PARAM(oip, priority);
-	UNSET_IF_PARAM(oip, type);
-	UNSET_IF_PARAM(oip, auth_simple);
-	UNSET_IF_PARAM(oip, auth_crypt);
-	UNSET_IF_PARAM(oip, auth_type);
-
-	oip->auth_crypt = list_new();
-
-	oip->network_lsa_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
-
-	return oip;
-}
-
-void ospf_del_if_params(struct ospf_if_params *oip)
-{
-	list_delete_and_null(&oip->auth_crypt);
-	bfd_info_free(&(oip->bfd_info));
-	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
-}
-
-void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
-{
-	struct ospf_if_params *oip;
-	struct prefix_ipv4 p;
-	struct route_node *rn;
-
-	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
-	p.prefix = addr;
-	rn = route_node_lookup(IF_OIFS_PARAMS(ifp), (struct prefix *)&p);
-	if (!rn || !rn->info)
-		return;
-
-	oip = rn->info;
-	route_unlock_node(rn);
-
-	if (!OSPF_IF_PARAM_CONFIGURED(oip, output_cost_cmd)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, transmit_delay)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_interval)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, passive_interface)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, v_hello)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, fast_hello)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, v_wait)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, priority)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, type)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_simple)
-	    && !OSPF_IF_PARAM_CONFIGURED(oip, auth_type)
-	    && listcount(oip->auth_crypt) == 0
-	    && ntohl(oip->network_lsa_seqnum) != OSPF_INITIAL_SEQUENCE_NUMBER) {
-		ospf_del_if_params(oip);
-		rn->info = NULL;
-		route_unlock_node(rn);
-	}
-}
-
-struct ospf_if_params *ospf_lookup_if_params(struct interface *ifp,
-					     struct in_addr addr)
-{
-	struct prefix_ipv4 p;
-	struct route_node *rn;
-
-	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
-	p.prefix = addr;
-
-	rn = route_node_lookup(IF_OIFS_PARAMS(ifp), (struct prefix *)&p);
-
-	if (rn) {
-		route_unlock_node(rn);
-		return rn->info;
-	}
-
-	return NULL;
-}
-
-struct ospf_if_params *ospf_get_if_params(struct interface *ifp,
-					  struct in_addr addr)
-{
-	struct prefix_ipv4 p;
-	struct route_node *rn;
-
-	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
-	p.prefix = addr;
-	apply_mask_ipv4(&p);
-
-	rn = route_node_get(IF_OIFS_PARAMS(ifp), (struct prefix *)&p);
-
-	if (rn->info == NULL)
-		rn->info = ospf_new_if_params();
-	else
-		route_unlock_node(rn);
-
-	return rn->info;
-}
-
-void ospf_if_update_params(struct interface *ifp, struct in_addr addr)
-{
-	struct route_node *rn;
-	struct ospf_interface *oi;
-
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		if ((oi = rn->info) == NULL)
-			continue;
-
-		if (IPV4_ADDR_SAME(&oi->address->u.prefix4, &addr))
-			oi->params = ospf_lookup_if_params(
-				ifp, oi->address->u.prefix4);
-	}
-}
-
-int ospf_if_new_hook(struct interface *ifp)
-{
-	int rc = 0;
-
-	ifp->info = XCALLOC(MTYPE_OSPF_IF_INFO, sizeof(struct ospf_if_info));
-
-	IF_OIFS(ifp) = route_table_init();
-	IF_OIFS_PARAMS(ifp) = route_table_init();
-
-	IF_DEF_PARAMS(ifp) = ospf_new_if_params();
-
-	SET_IF_PARAM(IF_DEF_PARAMS(ifp), transmit_delay);
-	IF_DEF_PARAMS(ifp)->transmit_delay = OSPF_TRANSMIT_DELAY_DEFAULT;
-
-	SET_IF_PARAM(IF_DEF_PARAMS(ifp), retransmit_interval);
-	IF_DEF_PARAMS(ifp)->retransmit_interval =
-		OSPF_RETRANSMIT_INTERVAL_DEFAULT;
-
-	SET_IF_PARAM(IF_DEF_PARAMS(ifp), priority);
-	IF_DEF_PARAMS(ifp)->priority = OSPF_ROUTER_PRIORITY_DEFAULT;
-
-	IF_DEF_PARAMS(ifp)->mtu_ignore = OSPF_MTU_IGNORE_DEFAULT;
-
-	SET_IF_PARAM(IF_DEF_PARAMS(ifp), v_hello);
-	IF_DEF_PARAMS(ifp)->v_hello = OSPF_HELLO_INTERVAL_DEFAULT;
-
-	SET_IF_PARAM(IF_DEF_PARAMS(ifp), fast_hello);
-	IF_DEF_PARAMS(ifp)->fast_hello = OSPF_FAST_HELLO_DEFAULT;
-
-	SET_IF_PARAM(IF_DEF_PARAMS(ifp), v_wait);
-	IF_DEF_PARAMS(ifp)->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
-
-	SET_IF_PARAM(IF_DEF_PARAMS(ifp), auth_simple);
-	memset(IF_DEF_PARAMS(ifp)->auth_simple, 0, OSPF_AUTH_SIMPLE_SIZE);
-
-	SET_IF_PARAM(IF_DEF_PARAMS(ifp), auth_type);
-	IF_DEF_PARAMS(ifp)->auth_type = OSPF_AUTH_NOTSET;
-
-	rc = ospf_opaque_new_if(ifp);
-	return rc;
-}
-
-static int ospf_if_delete_hook(struct interface *ifp)
-{
-	int rc = 0;
-	struct route_node *rn;
-	rc = ospf_opaque_del_if(ifp);
-
-	route_table_finish(IF_OIFS(ifp));
-
-	for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
-		if (rn->info)
-			ospf_del_if_params(rn->info);
-	route_table_finish(IF_OIFS_PARAMS(ifp));
-
-	ospf_del_if_params((struct ospf_if_params *)IF_DEF_PARAMS(ifp));
-	XFREE(MTYPE_OSPF_IF_INFO, ifp->info);
-	ifp->info = NULL;
-
-	return rc;
-}
-
-int ospf_if_is_enable(struct ospf_interface *oi)
-{
-	if (!(if_is_loopback(oi->ifp) || if_is_vrf(oi->ifp)))
-		if (if_is_up(oi->ifp))
-			return 1;
-
-	return 0;
-}
-
-void ospf_if_set_multicast(struct ospf_interface *oi)
-{
-	if ((oi->state > ISM_Loopback) && (oi->type != OSPF_IFTYPE_LOOPBACK)
-	    && (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-	    && (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_ACTIVE)) {
-		/* The interface should belong to the OSPF-all-routers group. */
-		if (!OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS)
-		    && (ospf_if_add_allspfrouters(oi->ospf, oi->address,
-						  oi->ifp->ifindex)
-			>= 0))
-			/* Set the flag only if the system call to join
-			 * succeeded. */
-			OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
-	} else {
-		/* The interface should NOT belong to the OSPF-all-routers
-		 * group. */
-		if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS)) {
-			/* Only actually drop if this is the last reference */
-			if (OI_MEMBER_COUNT(oi, MEMBER_ALLROUTERS) == 1)
-				ospf_if_drop_allspfrouters(oi->ospf,
-							   oi->address,
-							   oi->ifp->ifindex);
-			/* Unset the flag regardless of whether the system call
-			   to leave
-			   the group succeeded, since it's much safer to assume
-			   that
-			   we are not a member. */
-			OI_MEMBER_LEFT(oi, MEMBER_ALLROUTERS);
-		}
-	}
-
-	if (((oi->type == OSPF_IFTYPE_BROADCAST)
-	     || (oi->type == OSPF_IFTYPE_POINTOPOINT))
-	    && ((oi->state == ISM_DR) || (oi->state == ISM_Backup))
-	    && (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_ACTIVE)) {
-		/* The interface should belong to the OSPF-designated-routers
-		 * group. */
-		if (!OI_MEMBER_CHECK(oi, MEMBER_DROUTERS)
-		    && (ospf_if_add_alldrouters(oi->ospf, oi->address,
-						oi->ifp->ifindex)
-			>= 0))
-			/* Set the flag only if the system call to join
-			 * succeeded. */
-			OI_MEMBER_JOINED(oi, MEMBER_DROUTERS);
-	} else {
-		/* The interface should NOT belong to the
-		 * OSPF-designated-routers group */
-		if (OI_MEMBER_CHECK(oi, MEMBER_DROUTERS)) {
-			/* drop only if last reference */
-			if (OI_MEMBER_COUNT(oi, MEMBER_DROUTERS) == 1)
-				ospf_if_drop_alldrouters(oi->ospf, oi->address,
-							 oi->ifp->ifindex);
-
-			/* Unset the flag regardless of whether the system call
-			   to leave
-			   the group succeeded, since it's much safer to assume
-			   that
-			   we are not a member. */
-			OI_MEMBER_LEFT(oi, MEMBER_DROUTERS);
-		}
-	}
-}
-
-int ospf_if_up(struct ospf_interface *oi)
-{
-	if (oi == NULL)
-		return 0;
-
-	if (oi->type == OSPF_IFTYPE_LOOPBACK)
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_LoopInd);
-	else {
-		ospf_if_stream_set(oi);
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_InterfaceUp);
-	}
-
-	return 1;
-}
-
-int ospf_if_down(struct ospf_interface *oi)
-{
-	if (oi == NULL)
-		return 0;
-
-	OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
-	/* delete position in router LSA */
-	oi->lsa_pos_beg = 0;
-	oi->lsa_pos_end = 0;
-	/* Shutdown packet reception and sending */
-	ospf_if_stream_unset(oi);
-
-	return 1;
-}
-
-
-/* Virtual Link related functions. */
-
-struct ospf_vl_data *ospf_vl_data_new(struct ospf_area *area,
-				      struct in_addr vl_peer)
-{
-	struct ospf_vl_data *vl_data;
-
-	vl_data = XCALLOC(MTYPE_OSPF_VL_DATA, sizeof(struct ospf_vl_data));
-
-	vl_data->vl_peer.s_addr = vl_peer.s_addr;
-	vl_data->vl_area_id = area->area_id;
-	vl_data->vl_area_id_fmt = area->area_id_fmt;
-
-	return vl_data;
-}
-
-void ospf_vl_data_free(struct ospf_vl_data *vl_data)
-{
-	XFREE(MTYPE_OSPF_VL_DATA, vl_data);
-}
-
-unsigned int vlink_count = 0;
-
-struct ospf_interface *ospf_vl_new(struct ospf *ospf,
-				   struct ospf_vl_data *vl_data)
-{
-	struct ospf_interface *voi;
-	struct interface *vi;
-	char ifname[INTERFACE_NAMSIZ];
-	struct ospf_area *area;
-	struct in_addr area_id;
-	struct connected *co;
-	struct prefix_ipv4 *p;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): Start");
-	if (vlink_count == OSPF_VL_MAX_COUNT) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_vl_new(): Alarm: "
-				"cannot create more than OSPF_MAX_VL_COUNT virtual links");
-		return NULL;
-	}
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_vl_new(): creating pseudo zebra interface vrf id %u",
-			ospf->vrf_id);
-
-	snprintf(ifname, sizeof(ifname), "VLINK%d", vlink_count);
-	vi = if_create(ifname, ospf->vrf_id);
-	/*
-	 * if_create sets ZEBRA_INTERFACE_LINKDETECTION
-	 * virtual links don't need this.
-	 */
-	UNSET_FLAG(vi->status, ZEBRA_INTERFACE_LINKDETECTION);
-	co = connected_new();
-	co->ifp = vi;
-	listnode_add(vi->connected, co);
-
-	p = prefix_ipv4_new();
-	p->family = AF_INET;
-	p->prefix.s_addr = 0;
-	p->prefixlen = 0;
-
-	co->address = (struct prefix *)p;
-
-	voi = ospf_if_new(ospf, vi, co->address);
-	if (voi == NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_vl_new(): Alarm: OSPF int structure is not created");
-		return NULL;
-	}
-	voi->connected = co;
-	voi->vl_data = vl_data;
-	voi->ifp->mtu = OSPF_VL_MTU;
-	voi->type = OSPF_IFTYPE_VIRTUALLINK;
-
-	vlink_count++;
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): Created name: %s", ifname);
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): set if->name to %s", vi->name);
-
-	area_id.s_addr = 0;
-	area = ospf_area_get(ospf, area_id);
-	voi->area = area;
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_vl_new(): set associated area to the backbone");
-
-	/* Add pseudo neighbor. */
-	ospf_nbr_self_reset(voi, voi->ospf->router_id);
-
-	ospf_area_add_if(voi->area, voi);
-
-	ospf_if_stream_set(voi);
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): Stop");
-	return voi;
-}
-
-static void ospf_vl_if_delete(struct ospf_vl_data *vl_data)
-{
-	struct interface *ifp = vl_data->vl_oi->ifp;
-	vl_data->vl_oi->address->u.prefix4.s_addr = 0;
-	vl_data->vl_oi->address->prefixlen = 0;
-	ospf_if_free(vl_data->vl_oi);
-	if_delete(ifp);
-	vlink_count--;
-}
-
-/* Look up vl_data for given peer, optionally qualified to be in the
- * specified area. NULL area returns first found..
- */
-struct ospf_vl_data *ospf_vl_lookup(struct ospf *ospf, struct ospf_area *area,
-				    struct in_addr vl_peer)
-{
-	struct ospf_vl_data *vl_data;
-	struct listnode *node;
-
-	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("%s: Looking for %s", __func__, inet_ntoa(vl_peer));
-		if (area)
-			zlog_debug("%s: in area %s", __func__,
-				   inet_ntoa(area->area_id));
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(ospf->vlinks, node, vl_data)) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: VL %s, peer %s", __func__,
-				   vl_data->vl_oi->ifp->name,
-				   inet_ntoa(vl_data->vl_peer));
-
-		if (area
-		    && !IPV4_ADDR_SAME(&vl_data->vl_area_id, &area->area_id))
-			continue;
-
-		if (IPV4_ADDR_SAME(&vl_data->vl_peer, &vl_peer))
-			return vl_data;
-	}
-
-	return NULL;
-}
-
-static void ospf_vl_shutdown(struct ospf_vl_data *vl_data)
-{
-	struct ospf_interface *oi;
-
-	if ((oi = vl_data->vl_oi) == NULL)
-		return;
-
-	oi->address->u.prefix4.s_addr = 0;
-	oi->address->prefixlen = 0;
-
-	UNSET_FLAG(oi->ifp->flags, IFF_UP);
-	/* OSPF_ISM_EVENT_SCHEDULE (oi, ISM_InterfaceDown); */
-	OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
-}
-
-void ospf_vl_add(struct ospf *ospf, struct ospf_vl_data *vl_data)
-{
-	listnode_add(ospf->vlinks, vl_data);
-	hook_call(ospf_vl_add, vl_data);
-}
-
-void ospf_vl_delete(struct ospf *ospf, struct ospf_vl_data *vl_data)
-{
-	ospf_vl_shutdown(vl_data);
-	ospf_vl_if_delete(vl_data);
-
-	hook_call(ospf_vl_delete, vl_data);
-	listnode_delete(ospf->vlinks, vl_data);
-
-	ospf_vl_data_free(vl_data);
-}
-
-static int ospf_vl_set_params(struct ospf_vl_data *vl_data, struct vertex *v)
-{
-	int changed = 0;
-	struct ospf_interface *voi;
-	struct listnode *node;
-	struct vertex_parent *vp = NULL;
-	unsigned int i;
-	struct router_lsa *rl;
-
-	voi = vl_data->vl_oi;
-
-	if (voi->output_cost != v->distance) {
-
-		voi->output_cost = v->distance;
-		changed = 1;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(v->parents, node, vp)) {
-		vl_data->nexthop.oi = vp->nexthop->oi;
-		vl_data->nexthop.router = vp->nexthop->router;
-
-		if (!IPV4_ADDR_SAME(&voi->address->u.prefix4,
-				    &vl_data->nexthop.oi->address->u.prefix4))
-			changed = 1;
-
-		voi->address->u.prefix4 =
-			vl_data->nexthop.oi->address->u.prefix4;
-		voi->address->prefixlen =
-			vl_data->nexthop.oi->address->prefixlen;
-
-		break; /* We take the first interface. */
-	}
-
-	rl = (struct router_lsa *)v->lsa;
-
-	/* use SPF determined backlink index in struct vertex
-	 * for virtual link destination address
-	 */
-	if (vp && vp->backlink >= 0) {
-		if (!IPV4_ADDR_SAME(&vl_data->peer_addr,
-				    &rl->link[vp->backlink].link_data))
-			changed = 1;
-		vl_data->peer_addr = rl->link[vp->backlink].link_data;
-	} else {
-		/* This is highly odd, there is no backlink index
-		 * there should be due to the ospf_spf_has_link() check
-		 * in SPF. Lets warn and try pick a link anyway.
-		 */
-		zlog_warn("ospf_vl_set_params: No backlink for %s!",
-			  vl_data->vl_oi->ifp->name);
-		for (i = 0; i < ntohs(rl->links); i++) {
-			switch (rl->link[i].type) {
-			case LSA_LINK_TYPE_VIRTUALLINK:
-				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"found back link through VL");
-			/* fallthru */
-			case LSA_LINK_TYPE_TRANSIT:
-			case LSA_LINK_TYPE_POINTOPOINT:
-				if (!IPV4_ADDR_SAME(&vl_data->peer_addr,
-						    &rl->link[i].link_data))
-					changed = 1;
-				vl_data->peer_addr = rl->link[i].link_data;
-			}
-		}
-	}
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: %s peer address: %s, cost: %d,%schanged",
-			   __func__, vl_data->vl_oi->ifp->name,
-			   inet_ntoa(vl_data->peer_addr), voi->output_cost,
-			   (changed ? " " : " un"));
-
-	return changed;
-}
-
-
-void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
-		      struct vertex *v)
-{
-	struct ospf *ospf = area->ospf;
-	struct listnode *node;
-	struct ospf_vl_data *vl_data;
-	struct ospf_interface *oi;
-
-	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("ospf_vl_up_check(): Start");
-		zlog_debug("ospf_vl_up_check(): Router ID is %s",
-			   inet_ntoa(rid));
-		zlog_debug("ospf_vl_up_check(): Area is %s",
-			   inet_ntoa(area->area_id));
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(ospf->vlinks, node, vl_data)) {
-		if (IS_DEBUG_OSPF_EVENT) {
-			zlog_debug("%s: considering VL, %s in area %s",
-				   __func__, vl_data->vl_oi->ifp->name,
-				   inet_ntoa(vl_data->vl_area_id));
-			zlog_debug("%s: peer ID: %s", __func__,
-				   inet_ntoa(vl_data->vl_peer));
-		}
-
-		if (IPV4_ADDR_SAME(&vl_data->vl_peer, &rid)
-		    && IPV4_ADDR_SAME(&vl_data->vl_area_id, &area->area_id)) {
-			oi = vl_data->vl_oi;
-			SET_FLAG(vl_data->flags, OSPF_VL_FLAG_APPROVED);
-
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_vl_up_check(): this VL matched");
-
-			if (oi->state == ISM_Down) {
-				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"ospf_vl_up_check(): VL is down, waking it up");
-				SET_FLAG(oi->ifp->flags, IFF_UP);
-				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
-			}
-
-			if (ospf_vl_set_params(vl_data, v)) {
-				if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
-					zlog_debug(
-						"ospf_vl_up_check: VL cost change,"
-						" scheduling router lsa refresh");
-				if (ospf->backbone)
-					ospf_router_lsa_update_area(
-						ospf->backbone);
-				else if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
-					zlog_debug(
-						"ospf_vl_up_check: VL cost change, no backbone!");
-			}
-		}
-	}
-}
-
-void ospf_vl_unapprove(struct ospf *ospf)
-{
-	struct listnode *node;
-	struct ospf_vl_data *vl_data;
-
-	for (ALL_LIST_ELEMENTS_RO(ospf->vlinks, node, vl_data))
-		UNSET_FLAG(vl_data->flags, OSPF_VL_FLAG_APPROVED);
-}
-
-void ospf_vl_shut_unapproved(struct ospf *ospf)
-{
-	struct listnode *node, *nnode;
-	struct ospf_vl_data *vl_data;
-
-	for (ALL_LIST_ELEMENTS(ospf->vlinks, node, nnode, vl_data))
-		if (!CHECK_FLAG(vl_data->flags, OSPF_VL_FLAG_APPROVED))
-			ospf_vl_shutdown(vl_data);
-}
-
-int ospf_full_virtual_nbrs(struct ospf_area *area)
-{
-	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug(
-			"counting fully adjacent virtual neighbors in area %s",
-			inet_ntoa(area->area_id));
-		zlog_debug("there are %d of them", area->full_vls);
-	}
-
-	return area->full_vls;
-}
-
-int ospf_vls_in_area(struct ospf_area *area)
-{
-	struct listnode *node;
-	struct ospf_vl_data *vl_data;
-	int c = 0;
-
-	for (ALL_LIST_ELEMENTS_RO(area->ospf->vlinks, node, vl_data))
-		if (IPV4_ADDR_SAME(&vl_data->vl_area_id, &area->area_id))
-			c++;
-
-	return c;
-}
-
-
-struct crypt_key *ospf_crypt_key_new()
-{
-	return XCALLOC(MTYPE_OSPF_CRYPT_KEY, sizeof(struct crypt_key));
-}
-
-void ospf_crypt_key_add(struct list *crypt, struct crypt_key *ck)
-{
-	listnode_add(crypt, ck);
-}
-
-struct crypt_key *ospf_crypt_key_lookup(struct list *auth_crypt, uint8_t key_id)
-{
-	struct listnode *node;
-	struct crypt_key *ck;
-
-	for (ALL_LIST_ELEMENTS_RO(auth_crypt, node, ck))
-		if (ck->key_id == key_id)
-			return ck;
-
-	return NULL;
-}
-
-int ospf_crypt_key_delete(struct list *auth_crypt, uint8_t key_id)
-{
-	struct listnode *node, *nnode;
-	struct crypt_key *ck;
-
-	for (ALL_LIST_ELEMENTS(auth_crypt, node, nnode, ck)) {
-		if (ck->key_id == key_id) {
-			listnode_delete(auth_crypt, ck);
-			XFREE(MTYPE_OSPF_CRYPT_KEY, ck);
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-uint8_t ospf_default_iftype(struct interface *ifp)
-{
-	if (if_is_pointopoint(ifp))
-		return OSPF_IFTYPE_POINTOPOINT;
-	else if (if_is_loopback(ifp) || if_is_vrf(ifp))
-		return OSPF_IFTYPE_LOOPBACK;
-	else
-		return OSPF_IFTYPE_BROADCAST;
-}
-
-void ospf_if_init()
-{
-	/* Initialize Zebra interface data structure. */
-	hook_register_prio(if_add, 0, ospf_if_new_hook);
-	hook_register_prio(if_del, 0, ospf_if_delete_hook);
-}
+/**OSPFInterfacefunctions.*Copyright(C)1999,2000ToshiakiTakada**Thisfileispartof
+GNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itundertheter
+msoftheGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;eithervers
+ion2,or(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatitwill
+beuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYo
+rFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**You
+shouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethef
+ileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,
+Boston,MA02110-1301USA*/#include<zebra.h>#include"thread.h"#include"linklist.h"#
+include"prefix.h"#include"if.h"#include"table.h"#include"memory.h"#include"comma
+nd.h"#include"stream.h"#include"log.h"#include"zclient.h"#include"bfd.h"#include
+"ospfd/ospfd.h"#include"ospfd/ospf_spf.h"#include"ospfd/ospf_interface.h"#includ
+e"ospfd/ospf_ism.h"#include"ospfd/ospf_asbr.h"#include"ospfd/ospf_lsa.h"#include
+"ospfd/ospf_lsdb.h"#include"ospfd/ospf_neighbor.h"#include"ospfd/ospf_nsm.h"#inc
+lude"ospfd/ospf_packet.h"#include"ospfd/ospf_abr.h"#include"ospfd/ospf_network.h
+"#include"ospfd/ospf_dump.h"DEFINE_QOBJ_TYPE(ospf_interface)DEFINE_HOOK(ospf_vl_
+add,(structospf_vl_data*vd),(vd))DEFINE_HOOK(ospf_vl_delete,(structospf_vl_data*
+vd),(vd))intospf_interface_neighbor_count(structospf_interface*oi){intcount=0;st
+ructroute_node*rn;structospf_neighbor*nbr=NULL;for(rn=route_top(oi->nbrs);rn;rn=
+route_next(rn)){nbr=rn->info;if(nbr){/*Donotshowmyself.*/if(nbr==oi->nbr_self)co
+ntinue;/*Downstateisnotshown.*/if(nbr->state==NSM_Down)continue;count++;}}return
+count;}intospf_if_get_output_cost(structospf_interface*oi){/*Ifallelsefails,used
+efaultOSPFcost*/uint32_tcost;uint32_tbw,refbw;/*ifpspeedandbwcanbe0insomeplatfor
+ms,useospfdefaultbwifbwisconfiguredunderinterfaceitwouldbeused.*/if(!oi->ifp->ba
+ndwidth&&oi->ifp->speed)bw=oi->ifp->speed;elsebw=oi->ifp->bandwidth?oi->ifp->ban
+dwidth:OSPF_DEFAULT_BANDWIDTH;refbw=oi->ospf->ref_bandwidth;/*Aspecifedipospfcos
+toverridesacalculatedone.*/if(OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp),ou
+tput_cost_cmd)||OSPF_IF_PARAM_CONFIGURED(oi->params,output_cost_cmd))cost=OSPF_I
+F_PARAM(oi,output_cost_cmd);/*Seeifacostcanbecalculatedfromthezebraprocessesinte
+rfacebandwidthfield.*/else{cost=(uint32_t)((double)refbw/(double)bw+(double)0.5)
+;if(cost<1)cost=1;elseif(cost>65535)cost=65535;}returncost;}voidospf_if_recalcul
+ate_output_cost(structinterface*ifp){uint32_tnewcost;structroute_node*rn;for(rn=
+route_top(IF_OIFS(ifp));rn;rn=route_next(rn)){structospf_interface*oi;if((oi=rn-
+>info)==NULL)continue;newcost=ospf_if_get_output_cost(oi);/*Isactualoutputcostch
+anged?*/if(oi->output_cost!=newcost){oi->output_cost=newcost;ospf_router_lsa_upd
+ate_area(oi->area);}}}/*Simulatedown/upontheinterface.Thisisneeded,forexample,wh
+entheMTUchanges.*/voidospf_if_reset(structinterface*ifp){structroute_node*rn;for
+(rn=route_top(IF_OIFS(ifp));rn;rn=route_next(rn)){structospf_interface*oi;if((oi
+=rn->info)==NULL)continue;ospf_if_down(oi);ospf_if_up(oi);}}voidospf_if_reset_va
+riables(structospf_interface*oi){/*Setdefaultvalues.*//*don'tclearthisflag.oi->f
+lag=OSPF_IF_DISABLE;*/if(oi->vl_data)oi->type=OSPF_IFTYPE_VIRTUALLINK;else/*pres
+ervenetwork-type*/if(oi->type!=OSPF_IFTYPE_NBMA)oi->type=OSPF_IFTYPE_BROADCAST;o
+i->state=ISM_Down;oi->crypt_seqnum=0;/*Thismustbeshort,(lessthanRxmtInterval)-RF
+C2328Section13.5para3.Setto1secondtoavoidAcksbeingheldbackfortoolong-MAG*/oi->v_
+ls_ack=1;}/*lookupoiforspecifiedprefix/ifp*/structospf_interface*ospf_if_table_l
+ookup(structinterface*ifp,structprefix*prefix){structprefixp;structroute_node*rn
+;structospf_interface*rninfo=NULL;p=*prefix;p.prefixlen=IPV4_MAX_PREFIXLEN;/*rou
+te_node_getimplicitelylocks*/if((rn=route_node_lookup(IF_OIFS(ifp),&p))){rninfo=
+(structospf_interface*)rn->info;route_unlock_node(rn);}returnrninfo;}staticvoido
+spf_add_to_if(structinterface*ifp,structospf_interface*oi){structroute_node*rn;s
+tructprefixp;p=*oi->address;p.prefixlen=IPV4_MAX_PREFIXLEN;apply_mask(&p);rn=rou
+te_node_get(IF_OIFS(ifp),&p);/*rn->infoshouldeitherbeNULLorequaltothisoi*asroute
+_node_getmayreturnanexistingnode*/assert(!rn->info||rn->info==oi);rn->info=oi;}s
+taticvoidospf_delete_from_if(structinterface*ifp,structospf_interface*oi){struct
+route_node*rn;structprefixp;p=*oi->address;p.prefixlen=IPV4_MAX_PREFIXLEN;rn=rou
+te_node_lookup(IF_OIFS(oi->ifp),&p);assert(rn);assert(rn->info);rn->info=NULL;ro
+ute_unlock_node(rn);route_unlock_node(rn);}structospf_interface*ospf_if_new(stru
+ctospf*ospf,structinterface*ifp,structprefix*p){structospf_interface*oi;if((oi=o
+spf_if_table_lookup(ifp,p))==NULL){oi=XCALLOC(MTYPE_OSPF_IF,sizeof(structospf_in
+terface));memset(oi,0,sizeof(structospf_interface));}elsereturnoi;/*Setzebrainte
+rfacepointer.*/oi->ifp=ifp;oi->address=p;ospf_add_to_if(ifp,oi);listnode_add(osp
+f->oiflist,oi);/*Initializeneighborlist.*/oi->nbrs=route_table_init();/*Initiali
+zestaticneighborlist.*/oi->nbr_nbma=list_new();/*InitializeLinkStateAcknowledgme
+ntlist.*/oi->ls_ack=list_new();oi->ls_ack_direct.ls_ack=list_new();/*Setdefaultv
+alues.*/ospf_if_reset_variables(oi);/*SetpseudoneighbortoNull*/oi->nbr_self=NULL
+;oi->ls_upd_queue=route_table_init();oi->t_ls_upd_event=NULL;oi->t_ls_ack_direct
+=NULL;oi->crypt_seqnum=time(NULL);ospf_opaque_type9_lsa_init(oi);oi->ospf=ospf;Q
+OBJ_REG(oi,ospf_interface);if(IS_DEBUG_OSPF_EVENT)zlog_debug("%s:ospfinterface%s
+vrf%sid%ucreated",__PRETTY_FUNCTION__,ifp->name,ospf_vrf_id_to_name(ospf->vrf_id
+),ospf->vrf_id);returnoi;}/*RestoreaninterfacetoitspreUPstateUsedfromism_interfa
+ce_downonly*/voidospf_if_cleanup(structospf_interface*oi){structroute_node*rn;st
+ructlistnode*node,*nnode;structospf_neighbor*nbr;structospf_nbr_nbma*nbr_nbma;st
+ructospf_lsa*lsa;/*oi->nbrsandoi->nbr_nbmashouldbedeletedonInterfaceDownevent*//
+*deleteallstaticneighborsattachedtothisinterface*/for(ALL_LIST_ELEMENTS(oi->nbr_
+nbma,node,nnode,nbr_nbma)){OSPF_POLL_TIMER_OFF(nbr_nbma->t_poll);if(nbr_nbma->nb
+r){nbr_nbma->nbr->nbr_nbma=NULL;nbr_nbma->nbr=NULL;}nbr_nbma->oi=NULL;listnode_d
+elete(oi->nbr_nbma,nbr_nbma);}/*sendNeighboreventKillNbrtoallassociatedneighbors
+.*/for(rn=route_top(oi->nbrs);rn;rn=route_next(rn))if((nbr=rn->info)!=NULL)if(nb
+r!=oi->nbr_self)OSPF_NSM_EVENT_EXECUTE(nbr,NSM_KillNbr);/*CleanupLinkStateAcknow
+legdmentlist.*/for(ALL_LIST_ELEMENTS(oi->ls_ack,node,nnode,lsa))ospf_lsa_unlock(
+&lsa);/*oi->ls_ack*/list_delete_all_node(oi->ls_ack);oi->crypt_seqnum=0;/*Emptyl
+inkstateupdatequeue*/ospf_ls_upd_queue_empty(oi);/*Resetpseudoneighbor.*/ospf_nb
+r_self_reset(oi,oi->ospf->router_id);}voidospf_if_free(structospf_interface*oi){
+ospf_if_down(oi);assert(oi->state==ISM_Down);ospf_opaque_type9_lsa_term(oi);QOBJ
+_UNREG(oi);/*FreePseudoNeighbour*/ospf_nbr_delete(oi->nbr_self);route_table_fini
+sh(oi->nbrs);route_table_finish(oi->ls_upd_queue);/*Freeanyliststhatshouldbefree
+d*/list_delete_and_null(&oi->nbr_nbma);list_delete_and_null(&oi->ls_ack);list_de
+lete_and_null(&oi->ls_ack_direct.ls_ack);if(IS_DEBUG_OSPF_EVENT)zlog_debug("%s:o
+spfinterface%svrf%sid%udeleted",__PRETTY_FUNCTION__,oi->ifp->name,ospf_vrf_id_to
+_name(oi->ifp->vrf_id),oi->ifp->vrf_id);ospf_delete_from_if(oi->ifp,oi);listnode
+_delete(oi->ospf->oiflist,oi);listnode_delete(oi->area->oiflist,oi);thread_cance
+l_event(master,oi);memset(oi,0,sizeof(*oi));XFREE(MTYPE_OSPF_IF,oi);}intospf_if_
+is_up(structospf_interface*oi){returnif_is_up(oi->ifp);}structospf_interface*osp
+f_if_exists(structospf_interface*oic){structlistnode*node;structospf*ospf;struct
+ospf_interface*oi;if(!oic)returnNULL;ospf=oic->ospf;if(ospf==NULL)returnNULL;for
+(ALL_LIST_ELEMENTS_RO(ospf->oiflist,node,oi))if(oi==oic)returnoi;returnNULL;}/*L
+ookupOSPFinterfacebyrouterLSAposistion*/structospf_interface*ospf_if_lookup_by_l
+sa_pos(structospf_area*area,intlsa_pos){structlistnode*node;structospf_interface
+*oi;for(ALL_LIST_ELEMENTS_RO(area->oiflist,node,oi)){if(lsa_pos>=oi->lsa_pos_beg
+&&lsa_pos<oi->lsa_pos_end)returnoi;}returnNULL;}structospf_interface*ospf_if_loo
+kup_by_local_addr(structospf*ospf,structinterface*ifp,structin_addraddress){stru
+ctlistnode*node;structospf_interface*oi;for(ALL_LIST_ELEMENTS_RO(ospf->oiflist,n
+ode,oi))if(oi->type!=OSPF_IFTYPE_VIRTUALLINK){if(ifp&&oi->ifp!=ifp)continue;if(I
+PV4_ADDR_SAME(&address,&oi->address->u.prefix4))returnoi;}returnNULL;}structospf
+_interface*ospf_if_lookup_by_prefix(structospf*ospf,structprefix_ipv4*p){structl
+istnode*node;structospf_interface*oi;/*CheckeachInterface.*/for(ALL_LIST_ELEMENT
+S_RO(ospf->oiflist,node,oi)){if(oi->type!=OSPF_IFTYPE_VIRTUALLINK){structprefixp
+tmp;prefix_copy(&ptmp,CONNECTED_PREFIX(oi->connected));apply_mask(&ptmp);if(pref
+ix_same(&ptmp,(structprefix*)p))returnoi;}}returnNULL;}/*determinereceivinginter
+facebyifpandsourceaddress*/structospf_interface*ospf_if_lookup_recv_if(structosp
+f*ospf,structin_addrsrc,structinterface*ifp){structroute_node*rn;structprefix_ip
+v4addr;structospf_interface*oi,*match;addr.family=AF_INET;addr.prefix=src;addr.p
+refixlen=IPV4_MAX_BITLEN;match=NULL;for(rn=route_top(IF_OIFS(ifp));rn;rn=route_n
+ext(rn)){oi=rn->info;if(!oi)/*oicanbeNULLforPtPaliases*/continue;if(oi->type==OS
+PF_IFTYPE_VIRTUALLINK)continue;if(if_is_loopback(oi->ifp)||if_is_vrf(oi->ifp))co
+ntinue;if(CHECK_FLAG(oi->connected->flags,ZEBRA_IFA_UNNUMBERED))match=oi;elseif(
+prefix_match(CONNECTED_PREFIX(oi->connected),(structprefix*)&addr)){if((match==N
+ULL)||(match->address->prefixlen<oi->address->prefixlen))match=oi;}}returnmatch;
+}staticvoidospf_if_reset_stats(structospf_interface*oi){oi->hello_in=oi->hello_o
+ut=0;oi->db_desc_in=oi->db_desc_out=0;oi->ls_req_in=oi->ls_req_out=0;oi->ls_upd_
+in=oi->ls_upd_out=0;oi->ls_ack_in=oi->ls_ack_out=0;}voidospf_if_stream_set(struc
+tospf_interface*oi){/*setoutputfifoqueue.*/if(oi->obuf==NULL)oi->obuf=ospf_fifo_
+new();}voidospf_if_stream_unset(structospf_interface*oi){structospf*ospf=oi->osp
+f;if(oi->obuf){ospf_fifo_free(oi->obuf);oi->obuf=NULL;/*resetprotocolstats*/ospf
+_if_reset_stats(oi);if(oi->on_write_q){listnode_delete(ospf->oi_write_q,oi);if(l
+ist_isempty(ospf->oi_write_q))OSPF_TIMER_OFF(ospf->t_write);oi->on_write_q=0;}}}
+staticstructospf_if_params*ospf_new_if_params(void){structospf_if_params*oip;oip
+=XCALLOC(MTYPE_OSPF_IF_PARAMS,sizeof(structospf_if_params));if(!oip)returnNULL;U
+NSET_IF_PARAM(oip,output_cost_cmd);UNSET_IF_PARAM(oip,transmit_delay);UNSET_IF_P
+ARAM(oip,retransmit_interval);UNSET_IF_PARAM(oip,passive_interface);UNSET_IF_PAR
+AM(oip,v_hello);UNSET_IF_PARAM(oip,fast_hello);UNSET_IF_PARAM(oip,v_wait);UNSET_
+IF_PARAM(oip,priority);UNSET_IF_PARAM(oip,type);UNSET_IF_PARAM(oip,auth_simple);
+UNSET_IF_PARAM(oip,auth_crypt);UNSET_IF_PARAM(oip,auth_type);oip->auth_crypt=lis
+t_new();oip->network_lsa_seqnum=htonl(OSPF_INITIAL_SEQUENCE_NUMBER);returnoip;}v
+oidospf_del_if_params(structospf_if_params*oip){list_delete_and_null(&oip->auth_
+crypt);bfd_info_free(&(oip->bfd_info));XFREE(MTYPE_OSPF_IF_PARAMS,oip);}voidospf
+_free_if_params(structinterface*ifp,structin_addraddr){structospf_if_params*oip;
+structprefix_ipv4p;structroute_node*rn;p.family=AF_INET;p.prefixlen=IPV4_MAX_PRE
+FIXLEN;p.prefix=addr;rn=route_node_lookup(IF_OIFS_PARAMS(ifp),(structprefix*)&p)
+;if(!rn||!rn->info)return;oip=rn->info;route_unlock_node(rn);if(!OSPF_IF_PARAM_C
+ONFIGURED(oip,output_cost_cmd)&&!OSPF_IF_PARAM_CONFIGURED(oip,transmit_delay)&&!
+OSPF_IF_PARAM_CONFIGURED(oip,retransmit_interval)&&!OSPF_IF_PARAM_CONFIGURED(oip
+,passive_interface)&&!OSPF_IF_PARAM_CONFIGURED(oip,v_hello)&&!OSPF_IF_PARAM_CONF
+IGURED(oip,fast_hello)&&!OSPF_IF_PARAM_CONFIGURED(oip,v_wait)&&!OSPF_IF_PARAM_CO
+NFIGURED(oip,priority)&&!OSPF_IF_PARAM_CONFIGURED(oip,type)&&!OSPF_IF_PARAM_CONF
+IGURED(oip,auth_simple)&&!OSPF_IF_PARAM_CONFIGURED(oip,auth_type)&&listcount(oip
+->auth_crypt)==0&&ntohl(oip->network_lsa_seqnum)!=OSPF_INITIAL_SEQUENCE_NUMBER){
+ospf_del_if_params(oip);rn->info=NULL;route_unlock_node(rn);}}structospf_if_para
+ms*ospf_lookup_if_params(structinterface*ifp,structin_addraddr){structprefix_ipv
+4p;structroute_node*rn;p.family=AF_INET;p.prefixlen=IPV4_MAX_PREFIXLEN;p.prefix=
+addr;rn=route_node_lookup(IF_OIFS_PARAMS(ifp),(structprefix*)&p);if(rn){route_un
+lock_node(rn);returnrn->info;}returnNULL;}structospf_if_params*ospf_get_if_param
+s(structinterface*ifp,structin_addraddr){structprefix_ipv4p;structroute_node*rn;
+p.family=AF_INET;p.prefixlen=IPV4_MAX_PREFIXLEN;p.prefix=addr;apply_mask_ipv4(&p
+);rn=route_node_get(IF_OIFS_PARAMS(ifp),(structprefix*)&p);if(rn->info==NULL)rn-
+>info=ospf_new_if_params();elseroute_unlock_node(rn);returnrn->info;}voidospf_if
+_update_params(structinterface*ifp,structin_addraddr){structroute_node*rn;struct
+ospf_interface*oi;for(rn=route_top(IF_OIFS(ifp));rn;rn=route_next(rn)){if((oi=rn
+->info)==NULL)continue;if(IPV4_ADDR_SAME(&oi->address->u.prefix4,&addr))oi->para
+ms=ospf_lookup_if_params(ifp,oi->address->u.prefix4);}}intospf_if_new_hook(struc
+tinterface*ifp){intrc=0;ifp->info=XCALLOC(MTYPE_OSPF_IF_INFO,sizeof(structospf_i
+f_info));IF_OIFS(ifp)=route_table_init();IF_OIFS_PARAMS(ifp)=route_table_init();
+IF_DEF_PARAMS(ifp)=ospf_new_if_params();SET_IF_PARAM(IF_DEF_PARAMS(ifp),transmit
+_delay);IF_DEF_PARAMS(ifp)->transmit_delay=OSPF_TRANSMIT_DELAY_DEFAULT;SET_IF_PA
+RAM(IF_DEF_PARAMS(ifp),retransmit_interval);IF_DEF_PARAMS(ifp)->retransmit_inter
+val=OSPF_RETRANSMIT_INTERVAL_DEFAULT;SET_IF_PARAM(IF_DEF_PARAMS(ifp),priority);I
+F_DEF_PARAMS(ifp)->priority=OSPF_ROUTER_PRIORITY_DEFAULT;IF_DEF_PARAMS(ifp)->mtu
+_ignore=OSPF_MTU_IGNORE_DEFAULT;SET_IF_PARAM(IF_DEF_PARAMS(ifp),v_hello);IF_DEF_
+PARAMS(ifp)->v_hello=OSPF_HELLO_INTERVAL_DEFAULT;SET_IF_PARAM(IF_DEF_PARAMS(ifp)
+,fast_hello);IF_DEF_PARAMS(ifp)->fast_hello=OSPF_FAST_HELLO_DEFAULT;SET_IF_PARAM
+(IF_DEF_PARAMS(ifp),v_wait);IF_DEF_PARAMS(ifp)->v_wait=OSPF_ROUTER_DEAD_INTERVAL
+_DEFAULT;SET_IF_PARAM(IF_DEF_PARAMS(ifp),auth_simple);memset(IF_DEF_PARAMS(ifp)-
+>auth_simple,0,OSPF_AUTH_SIMPLE_SIZE);SET_IF_PARAM(IF_DEF_PARAMS(ifp),auth_type)
+;IF_DEF_PARAMS(ifp)->auth_type=OSPF_AUTH_NOTSET;rc=ospf_opaque_new_if(ifp);retur
+nrc;}staticintospf_if_delete_hook(structinterface*ifp){intrc=0;structroute_node*
+rn;rc=ospf_opaque_del_if(ifp);route_table_finish(IF_OIFS(ifp));for(rn=route_top(
+IF_OIFS_PARAMS(ifp));rn;rn=route_next(rn))if(rn->info)ospf_del_if_params(rn->inf
+o);route_table_finish(IF_OIFS_PARAMS(ifp));ospf_del_if_params((structospf_if_par
+ams*)IF_DEF_PARAMS(ifp));XFREE(MTYPE_OSPF_IF_INFO,ifp->info);ifp->info=NULL;retu
+rnrc;}intospf_if_is_enable(structospf_interface*oi){if(!(if_is_loopback(oi->ifp)
+||if_is_vrf(oi->ifp)))if(if_is_up(oi->ifp))return1;return0;}voidospf_if_set_mult
+icast(structospf_interface*oi){if((oi->state>ISM_Loopback)&&(oi->type!=OSPF_IFTY
+PE_LOOPBACK)&&(oi->type!=OSPF_IFTYPE_VIRTUALLINK)&&(OSPF_IF_PASSIVE_STATUS(oi)==
+OSPF_IF_ACTIVE)){/*TheinterfaceshouldbelongtotheOSPF-all-routersgroup.*/if(!OI_M
+EMBER_CHECK(oi,MEMBER_ALLROUTERS)&&(ospf_if_add_allspfrouters(oi->ospf,oi->addre
+ss,oi->ifp->ifindex)>=0))/*Settheflagonlyifthesystemcalltojoin*succeeded.*/OI_ME
+MBER_JOINED(oi,MEMBER_ALLROUTERS);}else{/*TheinterfaceshouldNOTbelongtotheOSPF-a
+ll-routers*group.*/if(OI_MEMBER_CHECK(oi,MEMBER_ALLROUTERS)){/*Onlyactuallydropi
+fthisisthelastreference*/if(OI_MEMBER_COUNT(oi,MEMBER_ALLROUTERS)==1)ospf_if_dro
+p_allspfrouters(oi->ospf,oi->address,oi->ifp->ifindex);/*Unsettheflagregardlesso
+fwhetherthesystemcalltoleavethegroupsucceeded,sinceit'smuchsafertoassumethatwear
+enotamember.*/OI_MEMBER_LEFT(oi,MEMBER_ALLROUTERS);}}if(((oi->type==OSPF_IFTYPE_
+BROADCAST)||(oi->type==OSPF_IFTYPE_POINTOPOINT))&&((oi->state==ISM_DR)||(oi->sta
+te==ISM_Backup))&&(OSPF_IF_PASSIVE_STATUS(oi)==OSPF_IF_ACTIVE)){/*Theinterfacesh
+ouldbelongtotheOSPF-designated-routers*group.*/if(!OI_MEMBER_CHECK(oi,MEMBER_DRO
+UTERS)&&(ospf_if_add_alldrouters(oi->ospf,oi->address,oi->ifp->ifindex)>=0))/*Se
+ttheflagonlyifthesystemcalltojoin*succeeded.*/OI_MEMBER_JOINED(oi,MEMBER_DROUTER
+S);}else{/*TheinterfaceshouldNOTbelongtothe*OSPF-designated-routersgroup*/if(OI_
+MEMBER_CHECK(oi,MEMBER_DROUTERS)){/*droponlyiflastreference*/if(OI_MEMBER_COUNT(
+oi,MEMBER_DROUTERS)==1)ospf_if_drop_alldrouters(oi->ospf,oi->address,oi->ifp->if
+index);/*Unsettheflagregardlessofwhetherthesystemcalltoleavethegroupsucceeded,si
+nceit'smuchsafertoassumethatwearenotamember.*/OI_MEMBER_LEFT(oi,MEMBER_DROUTERS)
+;}}}intospf_if_up(structospf_interface*oi){if(oi==NULL)return0;if(oi->type==OSPF
+_IFTYPE_LOOPBACK)OSPF_ISM_EVENT_SCHEDULE(oi,ISM_LoopInd);else{ospf_if_stream_set
+(oi);OSPF_ISM_EVENT_SCHEDULE(oi,ISM_InterfaceUp);}return1;}intospf_if_down(struc
+tospf_interface*oi){if(oi==NULL)return0;OSPF_ISM_EVENT_EXECUTE(oi,ISM_InterfaceD
+own);/*deletepositioninrouterLSA*/oi->lsa_pos_beg=0;oi->lsa_pos_end=0;/*Shutdown
+packetreceptionandsending*/ospf_if_stream_unset(oi);return1;}/*VirtualLinkrelate
+dfunctions.*/structospf_vl_data*ospf_vl_data_new(structospf_area*area,structin_a
+ddrvl_peer){structospf_vl_data*vl_data;vl_data=XCALLOC(MTYPE_OSPF_VL_DATA,sizeof
+(structospf_vl_data));vl_data->vl_peer.s_addr=vl_peer.s_addr;vl_data->vl_area_id
+=area->area_id;vl_data->vl_area_id_fmt=area->area_id_fmt;returnvl_data;}voidospf
+_vl_data_free(structospf_vl_data*vl_data){XFREE(MTYPE_OSPF_VL_DATA,vl_data);}uns
+ignedintvlink_count=0;structospf_interface*ospf_vl_new(structospf*ospf,structosp
+f_vl_data*vl_data){structospf_interface*voi;structinterface*vi;charifname[INTERF
+ACE_NAMSIZ];structospf_area*area;structin_addrarea_id;structconnected*co;structp
+refix_ipv4*p;if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_vl_new():Start");if(vlink_c
+ount==OSPF_VL_MAX_COUNT){if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_vl_new():Alarm:
+""cannotcreatemorethanOSPF_MAX_VL_COUNTvirtuallinks");returnNULL;}if(IS_DEBUG_OS
+PF_EVENT)zlog_debug("ospf_vl_new():creatingpseudozebrainterfacevrfid%u",ospf->vr
+f_id);snprintf(ifname,sizeof(ifname),"VLINK%d",vlink_count);vi=if_create(ifname,
+ospf->vrf_id);/**if_createsetsZEBRA_INTERFACE_LINKDETECTION*virtuallinksdon'tnee
+dthis.*/UNSET_FLAG(vi->status,ZEBRA_INTERFACE_LINKDETECTION);co=connected_new();
+co->ifp=vi;listnode_add(vi->connected,co);p=prefix_ipv4_new();p->family=AF_INET;
+p->prefix.s_addr=0;p->prefixlen=0;co->address=(structprefix*)p;voi=ospf_if_new(o
+spf,vi,co->address);if(voi==NULL){if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_vl_new
+():Alarm:OSPFintstructureisnotcreated");returnNULL;}voi->connected=co;voi->vl_da
+ta=vl_data;voi->ifp->mtu=OSPF_VL_MTU;voi->type=OSPF_IFTYPE_VIRTUALLINK;vlink_cou
+nt++;if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_vl_new():Createdname:%s",ifname);if
+(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_vl_new():setif->nameto%s",vi->name);area_i
+d.s_addr=0;area=ospf_area_get(ospf,area_id);voi->area=area;if(IS_DEBUG_OSPF_EVEN
+T)zlog_debug("ospf_vl_new():setassociatedareatothebackbone");/*Addpseudoneighbor
+.*/ospf_nbr_self_reset(voi,voi->ospf->router_id);ospf_area_add_if(voi->area,voi)
+;ospf_if_stream_set(voi);if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_vl_new():Stop")
+;returnvoi;}staticvoidospf_vl_if_delete(structospf_vl_data*vl_data){structinterf
+ace*ifp=vl_data->vl_oi->ifp;vl_data->vl_oi->address->u.prefix4.s_addr=0;vl_data-
+>vl_oi->address->prefixlen=0;ospf_if_free(vl_data->vl_oi);if_delete(ifp);vlink_c
+ount--;}/*Lookupvl_dataforgivenpeer,optionallyqualifiedtobeinthe*specifiedarea.N
+ULLareareturnsfirstfound..*/structospf_vl_data*ospf_vl_lookup(structospf*ospf,st
+ructospf_area*area,structin_addrvl_peer){structospf_vl_data*vl_data;structlistno
+de*node;if(IS_DEBUG_OSPF_EVENT){zlog_debug("%s:Lookingfor%s",__func__,inet_ntoa(
+vl_peer));if(area)zlog_debug("%s:inarea%s",__func__,inet_ntoa(area->area_id));}f
+or(ALL_LIST_ELEMENTS_RO(ospf->vlinks,node,vl_data)){if(IS_DEBUG_OSPF_EVENT)zlog_
+debug("%s:VL%s,peer%s",__func__,vl_data->vl_oi->ifp->name,inet_ntoa(vl_data->vl_
+peer));if(area&&!IPV4_ADDR_SAME(&vl_data->vl_area_id,&area->area_id))continue;if
+(IPV4_ADDR_SAME(&vl_data->vl_peer,&vl_peer))returnvl_data;}returnNULL;}staticvoi
+dospf_vl_shutdown(structospf_vl_data*vl_data){structospf_interface*oi;if((oi=vl_
+data->vl_oi)==NULL)return;oi->address->u.prefix4.s_addr=0;oi->address->prefixlen
+=0;UNSET_FLAG(oi->ifp->flags,IFF_UP);/*OSPF_ISM_EVENT_SCHEDULE(oi,ISM_InterfaceD
+own);*/OSPF_ISM_EVENT_EXECUTE(oi,ISM_InterfaceDown);}voidospf_vl_add(structospf*
+ospf,structospf_vl_data*vl_data){listnode_add(ospf->vlinks,vl_data);hook_call(os
+pf_vl_add,vl_data);}voidospf_vl_delete(structospf*ospf,structospf_vl_data*vl_dat
+a){ospf_vl_shutdown(vl_data);ospf_vl_if_delete(vl_data);hook_call(ospf_vl_delete
+,vl_data);listnode_delete(ospf->vlinks,vl_data);ospf_vl_data_free(vl_data);}stat
+icintospf_vl_set_params(structospf_vl_data*vl_data,structvertex*v){intchanged=0;
+structospf_interface*voi;structlistnode*node;structvertex_parent*vp=NULL;unsigne
+dinti;structrouter_lsa*rl;voi=vl_data->vl_oi;if(voi->output_cost!=v->distance){v
+oi->output_cost=v->distance;changed=1;}for(ALL_LIST_ELEMENTS_RO(v->parents,node,
+vp)){vl_data->nexthop.oi=vp->nexthop->oi;vl_data->nexthop.router=vp->nexthop->ro
+uter;if(!IPV4_ADDR_SAME(&voi->address->u.prefix4,&vl_data->nexthop.oi->address->
+u.prefix4))changed=1;voi->address->u.prefix4=vl_data->nexthop.oi->address->u.pre
+fix4;voi->address->prefixlen=vl_data->nexthop.oi->address->prefixlen;break;/*Wet
+akethefirstinterface.*/}rl=(structrouter_lsa*)v->lsa;/*useSPFdeterminedbacklinki
+ndexinstructvertex*forvirtuallinkdestinationaddress*/if(vp&&vp->backlink>=0){if(
+!IPV4_ADDR_SAME(&vl_data->peer_addr,&rl->link[vp->backlink].link_data))changed=1
+;vl_data->peer_addr=rl->link[vp->backlink].link_data;}else{/*Thisishighlyodd,the
+reisnobacklinkindex*thereshouldbeduetotheospf_spf_has_link()check*inSPF.Letswarn
+andtrypickalinkanyway.*/zlog_warn("ospf_vl_set_params:Nobacklinkfor%s!",vl_data-
+>vl_oi->ifp->name);for(i=0;i<ntohs(rl->links);i++){switch(rl->link[i].type){case
+LSA_LINK_TYPE_VIRTUALLINK:if(IS_DEBUG_OSPF_EVENT)zlog_debug("foundbacklinkthroug
+hVL");/*fallthru*/caseLSA_LINK_TYPE_TRANSIT:caseLSA_LINK_TYPE_POINTOPOINT:if(!IP
+V4_ADDR_SAME(&vl_data->peer_addr,&rl->link[i].link_data))changed=1;vl_data->peer
+_addr=rl->link[i].link_data;}}}if(IS_DEBUG_OSPF_EVENT)zlog_debug("%s:%speeraddre
+ss:%s,cost:%d,%schanged",__func__,vl_data->vl_oi->ifp->name,inet_ntoa(vl_data->p
+eer_addr),voi->output_cost,(changed?"":"un"));returnchanged;}voidospf_vl_up_chec
+k(structospf_area*area,structin_addrrid,structvertex*v){structospf*ospf=area->os
+pf;structlistnode*node;structospf_vl_data*vl_data;structospf_interface*oi;if(IS_
+DEBUG_OSPF_EVENT){zlog_debug("ospf_vl_up_check():Start");zlog_debug("ospf_vl_up_
+check():RouterIDis%s",inet_ntoa(rid));zlog_debug("ospf_vl_up_check():Areais%s",i
+net_ntoa(area->area_id));}for(ALL_LIST_ELEMENTS_RO(ospf->vlinks,node,vl_data)){i
+f(IS_DEBUG_OSPF_EVENT){zlog_debug("%s:consideringVL,%sinarea%s",__func__,vl_data
+->vl_oi->ifp->name,inet_ntoa(vl_data->vl_area_id));zlog_debug("%s:peerID:%s",__f
+unc__,inet_ntoa(vl_data->vl_peer));}if(IPV4_ADDR_SAME(&vl_data->vl_peer,&rid)&&I
+PV4_ADDR_SAME(&vl_data->vl_area_id,&area->area_id)){oi=vl_data->vl_oi;SET_FLAG(v
+l_data->flags,OSPF_VL_FLAG_APPROVED);if(IS_DEBUG_OSPF_EVENT)zlog_debug("ospf_vl_
+up_check():thisVLmatched");if(oi->state==ISM_Down){if(IS_DEBUG_OSPF_EVENT)zlog_d
+ebug("ospf_vl_up_check():VLisdown,wakingitup");SET_FLAG(oi->ifp->flags,IFF_UP);O
+SPF_ISM_EVENT_EXECUTE(oi,ISM_InterfaceUp);}if(ospf_vl_set_params(vl_data,v)){if(
+IS_DEBUG_OSPF(ism,ISM_EVENTS))zlog_debug("ospf_vl_up_check:VLcostchange,""schedu
+lingrouterlsarefresh");if(ospf->backbone)ospf_router_lsa_update_area(ospf->backb
+one);elseif(IS_DEBUG_OSPF(ism,ISM_EVENTS))zlog_debug("ospf_vl_up_check:VLcostcha
+nge,nobackbone!");}}}}voidospf_vl_unapprove(structospf*ospf){structlistnode*node
+;structospf_vl_data*vl_data;for(ALL_LIST_ELEMENTS_RO(ospf->vlinks,node,vl_data))
+UNSET_FLAG(vl_data->flags,OSPF_VL_FLAG_APPROVED);}voidospf_vl_shut_unapproved(st
+ructospf*ospf){structlistnode*node,*nnode;structospf_vl_data*vl_data;for(ALL_LIS
+T_ELEMENTS(ospf->vlinks,node,nnode,vl_data))if(!CHECK_FLAG(vl_data->flags,OSPF_V
+L_FLAG_APPROVED))ospf_vl_shutdown(vl_data);}intospf_full_virtual_nbrs(structospf
+_area*area){if(IS_DEBUG_OSPF_EVENT){zlog_debug("countingfullyadjacentvirtualneig
+hborsinarea%s",inet_ntoa(area->area_id));zlog_debug("thereare%dofthem",area->ful
+l_vls);}returnarea->full_vls;}intospf_vls_in_area(structospf_area*area){structli
+stnode*node;structospf_vl_data*vl_data;intc=0;for(ALL_LIST_ELEMENTS_RO(area->osp
+f->vlinks,node,vl_data))if(IPV4_ADDR_SAME(&vl_data->vl_area_id,&area->area_id))c
+++;returnc;}structcrypt_key*ospf_crypt_key_new(){returnXCALLOC(MTYPE_OSPF_CRYPT_
+KEY,sizeof(structcrypt_key));}voidospf_crypt_key_add(structlist*crypt,structcryp
+t_key*ck){listnode_add(crypt,ck);}structcrypt_key*ospf_crypt_key_lookup(structli
+st*auth_crypt,uint8_tkey_id){structlistnode*node;structcrypt_key*ck;for(ALL_LIST
+_ELEMENTS_RO(auth_crypt,node,ck))if(ck->key_id==key_id)returnck;returnNULL;}into
+spf_crypt_key_delete(structlist*auth_crypt,uint8_tkey_id){structlistnode*node,*n
+node;structcrypt_key*ck;for(ALL_LIST_ELEMENTS(auth_crypt,node,nnode,ck)){if(ck->
+key_id==key_id){listnode_delete(auth_crypt,ck);XFREE(MTYPE_OSPF_CRYPT_KEY,ck);re
+turn1;}}return0;}uint8_tospf_default_iftype(structinterface*ifp){if(if_is_pointo
+point(ifp))returnOSPF_IFTYPE_POINTOPOINT;elseif(if_is_loopback(ifp)||if_is_vrf(i
+fp))returnOSPF_IFTYPE_LOOPBACK;elsereturnOSPF_IFTYPE_BROADCAST;}voidospf_if_init
+(){/*InitializeZebrainterfacedatastructure.*/hook_register_prio(if_add,0,ospf_if
+_new_hook);hook_register_prio(if_del,0,ospf_if_delete_hook);}

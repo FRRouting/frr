@@ -1,69 +1,34 @@
-/*
- * OSPF Flooding -- RFC2328 Section 13.
- * Copyright (C) 1999, 2000 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_OSPF_FLOOD_H
-#define _ZEBRA_OSPF_FLOOD_H
-
-extern int ospf_flood(struct ospf *, struct ospf_neighbor *, struct ospf_lsa *,
-		      struct ospf_lsa *);
-extern int ospf_flood_through(struct ospf *, struct ospf_neighbor *,
-			      struct ospf_lsa *);
-extern int ospf_flood_through_area(struct ospf_area *, struct ospf_neighbor *,
-				   struct ospf_lsa *);
-extern int ospf_flood_through_as(struct ospf *, struct ospf_neighbor *,
-				 struct ospf_lsa *);
-
-extern unsigned long ospf_ls_request_count(struct ospf_neighbor *);
-extern int ospf_ls_request_isempty(struct ospf_neighbor *);
-extern struct ospf_lsa *ospf_ls_request_new(struct lsa_header *);
-extern void ospf_ls_request_free(struct ospf_lsa *);
-extern void ospf_ls_request_add(struct ospf_neighbor *, struct ospf_lsa *);
-extern void ospf_ls_request_delete(struct ospf_neighbor *, struct ospf_lsa *);
-extern void ospf_ls_request_delete_all(struct ospf_neighbor *);
-extern struct ospf_lsa *ospf_ls_request_lookup(struct ospf_neighbor *,
-					       struct ospf_lsa *);
-
-extern unsigned long ospf_ls_retransmit_count(struct ospf_neighbor *);
-extern unsigned long ospf_ls_retransmit_count_self(struct ospf_neighbor *, int);
-extern int ospf_ls_retransmit_isempty(struct ospf_neighbor *);
-extern void ospf_ls_retransmit_add(struct ospf_neighbor *, struct ospf_lsa *);
-extern void ospf_ls_retransmit_delete(struct ospf_neighbor *,
-				      struct ospf_lsa *);
-extern void ospf_ls_retransmit_clear(struct ospf_neighbor *);
-extern struct ospf_lsa *ospf_ls_retransmit_lookup(struct ospf_neighbor *,
-						  struct ospf_lsa *);
-extern void ospf_ls_retransmit_delete_nbr_area(struct ospf_area *,
-					       struct ospf_lsa *);
-extern void ospf_ls_retransmit_delete_nbr_as(struct ospf *, struct ospf_lsa *);
-extern void ospf_ls_retransmit_add_nbr_all(struct ospf_interface *,
-					   struct ospf_lsa *);
-
-extern void ospf_flood_lsa_area(struct ospf_lsa *, struct ospf_area *);
-extern void ospf_flood_lsa_as(struct ospf_lsa *);
-extern void ospf_lsa_flush_area(struct ospf_lsa *, struct ospf_area *);
-extern void ospf_lsa_flush_as(struct ospf *, struct ospf_lsa *);
-extern void ospf_lsa_flush(struct ospf *, struct ospf_lsa *);
-extern struct external_info *ospf_external_info_check(struct ospf *,
-						      struct ospf_lsa *);
-
-extern void ospf_lsdb_init(struct ospf_lsdb *);
-
-#endif /* _ZEBRA_OSPF_FLOOD_H */
+/**OSPFFlooding--RFC2328Section13.*Copyright(C)1999,2000ToshiakiTakada**Thisfile
+ispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itund
+erthetermsoftheGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;ei
+therversion2,or(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopeth
+atitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANT
+ABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetai
+ls.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram
+;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,Fif
+thFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_OSPF_FLOOD_H#define_ZEBRA_OSPF_FLO
+OD_Hexternintospf_flood(structospf*,structospf_neighbor*,structospf_lsa*,structo
+spf_lsa*);externintospf_flood_through(structospf*,structospf_neighbor*,structosp
+f_lsa*);externintospf_flood_through_area(structospf_area*,structospf_neighbor*,s
+tructospf_lsa*);externintospf_flood_through_as(structospf*,structospf_neighbor*,
+structospf_lsa*);externunsignedlongospf_ls_request_count(structospf_neighbor*);e
+xternintospf_ls_request_isempty(structospf_neighbor*);externstructospf_lsa*ospf_
+ls_request_new(structlsa_header*);externvoidospf_ls_request_free(structospf_lsa*
+);externvoidospf_ls_request_add(structospf_neighbor*,structospf_lsa*);externvoid
+ospf_ls_request_delete(structospf_neighbor*,structospf_lsa*);externvoidospf_ls_r
+equest_delete_all(structospf_neighbor*);externstructospf_lsa*ospf_ls_request_loo
+kup(structospf_neighbor*,structospf_lsa*);externunsignedlongospf_ls_retransmit_c
+ount(structospf_neighbor*);externunsignedlongospf_ls_retransmit_count_self(struc
+tospf_neighbor*,int);externintospf_ls_retransmit_isempty(structospf_neighbor*);e
+xternvoidospf_ls_retransmit_add(structospf_neighbor*,structospf_lsa*);externvoid
+ospf_ls_retransmit_delete(structospf_neighbor*,structospf_lsa*);externvoidospf_l
+s_retransmit_clear(structospf_neighbor*);externstructospf_lsa*ospf_ls_retransmit
+_lookup(structospf_neighbor*,structospf_lsa*);externvoidospf_ls_retransmit_delet
+e_nbr_area(structospf_area*,structospf_lsa*);externvoidospf_ls_retransmit_delete
+_nbr_as(structospf*,structospf_lsa*);externvoidospf_ls_retransmit_add_nbr_all(st
+ructospf_interface*,structospf_lsa*);externvoidospf_flood_lsa_area(structospf_ls
+a*,structospf_area*);externvoidospf_flood_lsa_as(structospf_lsa*);externvoidospf
+_lsa_flush_area(structospf_lsa*,structospf_area*);externvoidospf_lsa_flush_as(st
+ructospf*,structospf_lsa*);externvoidospf_lsa_flush(structospf*,structospf_lsa*)
+;externstructexternal_info*ospf_external_info_check(structospf*,structospf_lsa*)
+;externvoidospf_lsdb_init(structospf_lsdb*);#endif/*_ZEBRA_OSPF_FLOOD_H*/

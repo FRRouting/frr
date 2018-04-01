@@ -1,103 +1,27 @@
-/*
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/* This programme shows the effects of 'heavy' long-running functions
- * on the cooperative threading model.
- *
- * Run it with a config file containing 'password whatever', telnet to it
- * (it defaults to port 4000) and enter the 'clear foo string' command.
- * then type whatever and observe that the vty interface is unresponsive
- * for quite a period of time, due to the clear_something command
- * taking a very long time to complete.
- */
-#include <zebra.h>
-
-#include "thread.h"
-#include "vty.h"
-#include "command.h"
-#include "memory.h"
-#include <math.h>
-
-#include "tests.h"
-
-enum { ITERS_FIRST = 0,
-       ITERS_ERR = 100,
-       ITERS_LATER = 400,
-       ITERS_PRINT = 10,
-       ITERS_MAX = 1000,
-};
-
-static void slow_func(struct vty *vty, const char *str, const int i)
-{
-	double x = 1;
-	int j;
-
-	for (j = 0; j < 300; j++)
-		x += sin(x) * j;
-
-	if ((i % ITERS_LATER) == 0)
-		printf("%s: %d, temporary error, save this somehow and do it later..\n",
-		       __func__, i);
-
-	if ((i % ITERS_ERR) == 0)
-		printf("%s: hard error\n", __func__);
-
-	if ((i % ITERS_PRINT) == 0)
-		printf("%s did %d, x = %g\n", str, i, x);
-}
-
-static void clear_something(struct vty *vty, const char *str)
-{
-	int i;
-
-	/* this could be like iterating through 150k of route_table
-	 * or worse, iterating through a list of peers, to bgp_stop them with
-	 * each having 150k route tables to process...
-	 */
-	for (i = ITERS_FIRST; i < ITERS_MAX; i++)
-		slow_func(vty, str, i);
-}
-
-DEFUN (clear_foo,
-       clear_foo_cmd,
-       "clear foo LINE...",
-       "clear command\n"
-       "arbitrary string\n")
-{
-	char *str;
-	if (!argc) {
-		vty_out(vty, "%% string argument required\n");
-		return CMD_WARNING;
-	}
-
-	str = argv_concat(argv, argc, 0);
-
-	clear_something(vty, str);
-	XFREE(MTYPE_TMP, str);
-	return CMD_SUCCESS;
-}
-
-static void slow_vty_init()
-{
-	install_element(VIEW_NODE, &clear_foo_cmd);
-}
-
-void test_init()
-{
-	slow_vty_init();
-}
+/**ThisfileispartofQuagga.**Quaggaisfreesoftware;youcanredistributeitand/ormodif
+yit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFounda
+tion;eitherversion2,or(atyouroption)any*laterversion.**Quaggaisdistributedintheh
+opethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MER
+CHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformore
+details.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthispr
+ogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinS
+t,FifthFloor,Boston,MA02110-1301USA*//*Thisprogrammeshowstheeffectsof'heavy'long
+-runningfunctions*onthecooperativethreadingmodel.**Runitwithaconfigfilecontainin
+g'passwordwhatever',telnettoit*(itdefaultstoport4000)andenterthe'clearfoostring'
+command.*thentypewhateverandobservethatthevtyinterfaceisunresponsive*forquiteape
+riodoftime,duetotheclear_somethingcommand*takingaverylongtimetocomplete.*/#inclu
+de<zebra.h>#include"thread.h"#include"vty.h"#include"command.h"#include"memory.h
+"#include<math.h>#include"tests.h"enum{ITERS_FIRST=0,ITERS_ERR=100,ITERS_LATER=4
+00,ITERS_PRINT=10,ITERS_MAX=1000,};staticvoidslow_func(structvty*vty,constchar*s
+tr,constinti){doublex=1;intj;for(j=0;j<300;j++)x+=sin(x)*j;if((i%ITERS_LATER)==0
+)printf("%s:%d,temporaryerror,savethissomehowanddoitlater..\n",__func__,i);if((i
+%ITERS_ERR)==0)printf("%s:harderror\n",__func__);if((i%ITERS_PRINT)==0)printf("%
+sdid%d,x=%g\n",str,i,x);}staticvoidclear_something(structvty*vty,constchar*str){
+inti;/*thiscouldbelikeiteratingthrough150kofroute_table*orworse,iteratingthrough
+alistofpeers,tobgp_stopthemwith*eachhaving150kroutetablestoprocess...*/for(i=ITE
+RS_FIRST;i<ITERS_MAX;i++)slow_func(vty,str,i);}DEFUN(clear_foo,clear_foo_cmd,"cl
+earfooLINE...","clearcommand\n""arbitrarystring\n"){char*str;if(!argc){vty_out(v
+ty,"%%stringargumentrequired\n");returnCMD_WARNING;}str=argv_concat(argv,argc,0)
+;clear_something(vty,str);XFREE(MTYPE_TMP,str);returnCMD_SUCCESS;}staticvoidslow
+_vty_init(){install_element(VIEW_NODE,&clear_foo_cmd);}voidtest_init(){slow_vty_
+init();}

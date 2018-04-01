@@ -1,5022 +1,1269 @@
-/*
- *
- * Copyright 2009-2016, LabN Consulting, L.L.C.
- *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-
-#include <errno.h>
-
-#include "lib/zebra.h"
-#include "lib/prefix.h"
-#include "lib/table.h"
-#include "lib/vty.h"
-#include "lib/memory.h"
-#include "lib/routemap.h"
-#include "lib/log.h"
-#include "lib/log_int.h"
-#include "lib/linklist.h"
-#include "lib/command.h"
-
-#include "bgpd/bgpd.h"
-#include "bgpd/bgp_ecommunity.h"
-#include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_route.h"
-#include "bgpd/bgp_mplsvpn.h"
-
-#include "bgpd/rfapi/bgp_rfapi_cfg.h"
-#include "bgpd/rfapi/rfapi.h"
-#include "bgpd/rfapi/rfapi_backend.h"
-
-#include "bgpd/bgp_route.h"
-#include "bgpd/bgp_aspath.h"
-#include "bgpd/bgp_community.h"
-#include "bgpd/bgp_vnc_types.h"
-
-#include "bgpd/rfapi/rfapi_import.h"
-#include "bgpd/rfapi/rfapi_private.h"
-#include "bgpd/rfapi/rfapi_monitor.h"
-#include "bgpd/rfapi/rfapi_rib.h"
-#include "bgpd/rfapi/rfapi_vty.h"
-#include "bgpd/rfapi/rfapi_ap.h"
-#include "bgpd/rfapi/rfapi_encap_tlv.h"
-#include "bgpd/rfapi/vnc_debug.h"
-
-#define DEBUG_L2_EXTRA 0
-#define DEBUG_SHOW_EXTRA 0
-
-#define VNC_SHOW_STR "VNC information\n"
-
-/* format related utilies */
-
-
-#define FMT_MIN      60         /* seconds */
-#define FMT_HOUR    (60  * FMT_MIN)
-#define FMT_DAY     (24  * FMT_HOUR)
-#define FMT_YEAR    (365 * FMT_DAY)
-
-char *rfapiFormatSeconds(uint32_t seconds, char *buf, size_t len)
-{
-	int year, day, hour, min;
-
-	if (seconds >= FMT_YEAR) {
-		year = seconds / FMT_YEAR;
-		seconds -= year * FMT_YEAR;
-	} else
-		year = 0;
-
-	if (seconds >= FMT_DAY) {
-		day = seconds / FMT_DAY;
-		seconds -= day * FMT_DAY;
-	} else
-		day = 0;
-
-	if (seconds >= FMT_HOUR) {
-		hour = seconds / FMT_HOUR;
-		seconds -= hour * FMT_HOUR;
-	} else
-		hour = 0;
-
-	if (seconds >= FMT_MIN) {
-		min = seconds / FMT_MIN;
-		seconds -= min * FMT_MIN;
-	} else
-		min = 0;
-
-	if (year > 0) {
-		snprintf(buf, len, "%dy%dd%dh", year, day, hour);
-	} else if (day > 0) {
-		snprintf(buf, len, "%dd%dh%dm", day, hour, min);
-	} else {
-		snprintf(buf, len, "%02d:%02d:%02d", hour, min, seconds);
-	}
-
-	return buf;
-}
-
-char *rfapiFormatAge(time_t age, char *buf, size_t len)
-{
-	time_t now, age_adjusted;
-
-	now = rfapi_time(NULL);
-	age_adjusted = now - age;
-
-	return rfapiFormatSeconds(age_adjusted, buf, len);
-}
-
-
-/*
- * Reimplementation of quagga/lib/prefix.c function, but
- * for RFAPI-style prefixes
- */
-void rfapiRprefixApplyMask(struct rfapi_ip_prefix *rprefix)
-{
-	uint8_t *pnt;
-	int index;
-	int offset;
-
-	static uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
-				    0xf8, 0xfc, 0xfe, 0xff};
-
-	switch (rprefix->prefix.addr_family) {
-	case AF_INET:
-		index = rprefix->length / 8;
-		if (index < 4) {
-			pnt = (uint8_t *)&rprefix->prefix.addr.v4;
-			offset = rprefix->length % 8;
-			pnt[index] &= maskbit[offset];
-			index++;
-			while (index < 4)
-				pnt[index++] = 0;
-		}
-		break;
-
-	case AF_INET6:
-		index = rprefix->length / 8;
-		if (index < 16) {
-			pnt = (uint8_t *)&rprefix->prefix.addr.v6;
-			offset = rprefix->length % 8;
-			pnt[index] &= maskbit[offset];
-			index++;
-			while (index < 16)
-				pnt[index++] = 0;
-		}
-		break;
-
-	default:
-		assert(0);
-	}
-}
-
-/*
- * translate a quagga prefix into a rfapi IP address. The
- * prefix is REQUIRED to be 32 bits for IPv4 and 128 bits for IPv6
- *
- * RETURNS:
- *
- *	0	Success
- *	<0	Error
- */
-int rfapiQprefix2Raddr(struct prefix *qprefix, struct rfapi_ip_addr *raddr)
-{
-	memset(raddr, 0, sizeof(struct rfapi_ip_addr));
-	raddr->addr_family = qprefix->family;
-	switch (qprefix->family) {
-	case AF_INET:
-		if (qprefix->prefixlen != 32)
-			return -1;
-		raddr->addr.v4 = qprefix->u.prefix4;
-		break;
-	case AF_INET6:
-		if (qprefix->prefixlen != 128)
-			return -1;
-		raddr->addr.v6 = qprefix->u.prefix6;
-		break;
-	default:
-		return -1;
-	}
-	return 0;
-}
-
-/*
- * Translate Quagga prefix to RFAPI prefix
- */
-/* rprefix->cost set to 0 */
-void rfapiQprefix2Rprefix(struct prefix *qprefix,
-			  struct rfapi_ip_prefix *rprefix)
-{
-	memset(rprefix, 0, sizeof(struct rfapi_ip_prefix));
-	rprefix->length = qprefix->prefixlen;
-	rprefix->prefix.addr_family = qprefix->family;
-	switch (qprefix->family) {
-	case AF_INET:
-		rprefix->prefix.addr.v4 = qprefix->u.prefix4;
-		break;
-	case AF_INET6:
-		rprefix->prefix.addr.v6 = qprefix->u.prefix6;
-		break;
-	default:
-		assert(0);
-	}
-}
-
-int rfapiRprefix2Qprefix(struct rfapi_ip_prefix *rprefix,
-			 struct prefix *qprefix)
-{
-	memset(qprefix, 0, sizeof(struct prefix));
-	qprefix->prefixlen = rprefix->length;
-	qprefix->family = rprefix->prefix.addr_family;
-
-	switch (rprefix->prefix.addr_family) {
-	case AF_INET:
-		qprefix->u.prefix4 = rprefix->prefix.addr.v4;
-		break;
-	case AF_INET6:
-		qprefix->u.prefix6 = rprefix->prefix.addr.v6;
-		break;
-	default:
-		return EAFNOSUPPORT;
-	}
-	return 0;
-}
-
-/*
- * returns 1 if prefixes have same addr family, prefix len, and address
- * Note that host bits matter in this comparison!
- *
- * For paralellism with quagga/lib/prefix.c. if we need a comparison
- * where host bits are ignored, call that function rfapiRprefixCmp.
- */
-int rfapiRprefixSame(struct rfapi_ip_prefix *hp1, struct rfapi_ip_prefix *hp2)
-{
-	if (hp1->prefix.addr_family != hp2->prefix.addr_family)
-		return 0;
-	if (hp1->length != hp2->length)
-		return 0;
-	if (hp1->prefix.addr_family == AF_INET)
-		if (IPV4_ADDR_SAME(&hp1->prefix.addr.v4, &hp2->prefix.addr.v4))
-			return 1;
-	if (hp1->prefix.addr_family == AF_INET6)
-		if (IPV6_ADDR_SAME(&hp1->prefix.addr.v6, &hp2->prefix.addr.v6))
-			return 1;
-	return 0;
-}
-
-int rfapiRaddr2Qprefix(struct rfapi_ip_addr *hia, struct prefix *pfx)
-{
-	memset(pfx, 0, sizeof(struct prefix));
-	pfx->family = hia->addr_family;
-
-	switch (hia->addr_family) {
-	case AF_INET:
-		pfx->prefixlen = 32;
-		pfx->u.prefix4 = hia->addr.v4;
-		break;
-	case AF_INET6:
-		pfx->prefixlen = 128;
-		pfx->u.prefix6 = hia->addr.v6;
-		break;
-	default:
-		return EAFNOSUPPORT;
-	}
-	return 0;
-}
-
-void rfapiL2o2Qprefix(struct rfapi_l2address_option *l2o, struct prefix *pfx)
-{
-	memset(pfx, 0, sizeof(struct prefix));
-	pfx->family = AF_ETHERNET;
-	pfx->prefixlen = 48;
-	pfx->u.prefix_eth = l2o->macaddr;
-}
-
-char *rfapiEthAddr2Str(const struct ethaddr *ea, char *buf, int bufsize)
-{
-	return prefix_mac2str(ea, buf, bufsize);
-}
-
-int rfapiStr2EthAddr(const char *str, struct ethaddr *ea)
-{
-	unsigned int a[6];
-	int i;
-
-	if (sscanf(str, "%2x:%2x:%2x:%2x:%2x:%2x", a + 0, a + 1, a + 2, a + 3,
-		   a + 4, a + 5)
-	    != 6) {
-
-		return EINVAL;
-	}
-
-	for (i = 0; i < 6; ++i)
-		ea->octet[i] = a[i] & 0xff;
-
-	return 0;
-}
-
-const char *rfapi_ntop(int af, const void *src, char *buf, socklen_t size)
-{
-	if (af == AF_ETHERNET) {
-		return rfapiEthAddr2Str((const struct ethaddr *)src, buf, size);
-	}
-
-	return inet_ntop(af, src, buf, size);
-}
-
-int rfapiDebugPrintf(void *dummy, const char *format, ...)
-{
-	va_list args;
-	va_start(args, format);
-	vzlog(LOG_DEBUG, format, args);
-	va_end(args);
-	return 0;
-}
-
-static int rfapiStdioPrintf(void *stream, const char *format, ...)
-{
-	FILE *file = NULL;
-
-	va_list args;
-	va_start(args, format);
-
-	switch ((uintptr_t)stream) {
-	case 1:
-		file = stdout;
-		break;
-	case 2:
-		file = stderr;
-		break;
-	default:
-		assert(0);
-	}
-
-	vfprintf(file, format, args);
-	va_end(args);
-	return 0;
-}
-
-/* Fake out for debug logging */
-static struct vty vty_dummy_zlog;
-static struct vty vty_dummy_stdio;
-#define HVTYNL ((vty == &vty_dummy_zlog)? "": "\n")
-
-static const char *str_vty_newline(struct vty *vty)
-{
-	if (vty == &vty_dummy_zlog)
-		return "";
-	return "\n";
-}
-
-int rfapiStream2Vty(void *stream,			   /* input */
-		    int (**fp)(void *, const char *, ...), /* output */
-		    struct vty **vty,			   /* output */
-		    void **outstream,			   /* output */
-		    const char **vty_newline)		   /* output */
-{
-
-	if (!stream) {
-		vty_dummy_zlog.type = VTY_SHELL; /* for VTYNL */
-		*vty = &vty_dummy_zlog;
-		*fp = (int (*)(void *, const char *, ...))rfapiDebugPrintf;
-		*outstream = NULL;
-		*vty_newline = str_vty_newline(*vty);
-		return (vzlog_test(LOG_DEBUG));
-	}
-
-	if (((uintptr_t)stream == (uintptr_t)1)
-	    || ((uintptr_t)stream == (uintptr_t)2)) {
-
-		vty_dummy_stdio.type = VTY_SHELL; /* for VTYNL */
-		*vty = &vty_dummy_stdio;
-		*fp = (int (*)(void *, const char *, ...))rfapiStdioPrintf;
-		*outstream = stream;
-		*vty_newline = str_vty_newline(*vty);
-		return 1;
-	}
-
-	if (stream) {
-		*vty = stream; /* VTYNL requires vty to be legit */
-		*fp = (int (*)(void *, const char *, ...))vty_out;
-		*outstream = stream;
-		*vty_newline = str_vty_newline(*vty);
-		return 1;
-	}
-
-	return 0;
-}
-
-/* called from bgpd/bgp_vty.c'route_vty_out() */
-void rfapi_vty_out_vncinfo(struct vty *vty, struct prefix *p,
-			   struct bgp_info *bi, safi_t safi)
-{
-	char *s;
-	uint32_t lifetime;
-
-	/*
-	 * Print, on an indented line:
-	 *  UN address [if VPN route and VNC UN addr subtlv]
-	 *  EC list
-	 *  VNC lifetime
-	 */
-	vty_out(vty, "    ");
-
-	if (safi == SAFI_MPLS_VPN) {
-		struct prefix pfx_un;
-
-		if (!rfapiGetVncTunnelUnAddr(bi->attr, &pfx_un)) {
-			char buf[BUFSIZ];
-			vty_out(vty, "UN=%s",
-				inet_ntop(pfx_un.family, pfx_un.u.val, buf,
-					  BUFSIZ));
-		}
-	}
-
-	if (bi->attr && bi->attr->ecommunity) {
-		s = ecommunity_ecom2str(bi->attr->ecommunity,
-					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		vty_out(vty, " EC{%s}", s);
-		XFREE(MTYPE_ECOMMUNITY_STR, s);
-	}
-
-	if (bi->extra != NULL)
-		vty_out(vty, " label=%u", decode_label(&bi->extra->label[0]));
-
-	if (!rfapiGetVncLifetime(bi->attr, &lifetime)) {
-		vty_out(vty, " life=%d", lifetime);
-	}
-
-	vty_out(vty, " type=%s, subtype=%d", zebra_route_string(bi->type),
-		bi->sub_type);
-
-	vty_out(vty, "%s", HVTYNL);
-}
-
-void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
-{
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-
-	char buf[BUFSIZ];
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	fp(out, "Attr[%p]:%s", attr, HVTYNL);
-	if (!attr)
-		return;
-
-	/* IPv4 Nexthop */
-	inet_ntop(AF_INET, &attr->nexthop, buf, BUFSIZ);
-	fp(out, "  nexthop=%s%s", buf, HVTYNL);
-
-	fp(out, "  aspath=%p, refcnt=%d%s", attr->aspath,
-	   (attr->aspath ? attr->aspath->refcnt : 0), HVTYNL);
-	fp(out, "  community=%p, refcnt=%d%s", attr->community,
-	   (attr->community ? attr->community->refcnt : 0), HVTYNL);
-
-	fp(out, "  ecommunity=%p, refcnt=%d%s", attr->ecommunity,
-	   (attr->ecommunity ? attr->ecommunity->refcnt : 0), HVTYNL);
-	fp(out, "  cluster=%p, refcnt=%d%s", attr->cluster,
-	   (attr->cluster ? attr->cluster->refcnt : 0), HVTYNL);
-	fp(out, "  transit=%p, refcnt=%d%s", attr->transit,
-	   (attr->transit ? attr->transit->refcnt : 0), HVTYNL);
-}
-
-/*
- * Print BI in an Import Table
- */
-void rfapiPrintBi(void *stream, struct bgp_info *bi)
-{
-	char buf[BUFSIZ];
-	char *s;
-
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-
-	char line[BUFSIZ];
-	char *p = line;
-	int r;
-	int has_macaddr = 0;
-	struct ethaddr macaddr = {{0}};
-	struct rfapi_l2address_option l2o_buf;
-	uint8_t l2hid = 0; /* valid if has_macaddr */
-
-#define REMAIN (BUFSIZ - (p-line))
-#define INCP {p += (r > REMAIN)? REMAIN: r;}
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	if (!bi)
-		return;
-
-	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED) && bi->extra
-	    && bi->extra->vnc.import.timer) {
-		struct thread *t = (struct thread *)bi->extra->vnc.import.timer;
-		r = snprintf(p, REMAIN, " [%4lu] ",
-			     thread_timer_remain_second(t));
-		INCP;
-
-	} else {
-		r = snprintf(p, REMAIN, "        ");
-		INCP;
-	}
-
-	if (bi->extra) {
-		/* TBD This valid only for SAFI_MPLS_VPN, but not for encap */
-		if (decode_rd_type(bi->extra->vnc.import.rd.val)
-		    == RD_TYPE_VNC_ETH) {
-			has_macaddr = 1;
-			memcpy(macaddr.octet, bi->extra->vnc.import.rd.val + 2,
-			       6);
-			l2hid = bi->extra->vnc.import.rd.val[1];
-		}
-	}
-
-	/*
-	 * Print these items:
-	 *          type/subtype
-	 *          nexthop address
-	 *          lifetime
-	 *          RFP option sizes (they are opaque values)
-	 *          extended communities (RTs)
-	 */
-	if (bi->attr) {
-		uint32_t lifetime;
-		int printed_1st_gol = 0;
-		struct bgp_attr_encap_subtlv *pEncap;
-		struct prefix pfx_un;
-		int af = BGP_MP_NEXTHOP_FAMILY(bi->attr->mp_nexthop_len);
-
-		/* Nexthop */
-		if (af == AF_INET) {
-			r = snprintf(p, REMAIN, "%s",
-				     inet_ntop(AF_INET,
-					       &bi->attr->mp_nexthop_global_in,
-					       buf, BUFSIZ));
-			INCP;
-		} else if (af == AF_INET6) {
-			r = snprintf(p, REMAIN, "%s",
-				     inet_ntop(AF_INET6,
-					       &bi->attr->mp_nexthop_global,
-					       buf, BUFSIZ));
-			INCP;
-		} else {
-			r = snprintf(p, REMAIN, "?");
-			INCP;
-		}
-
-		/*
-		 * VNC tunnel subtlv, if present, contains UN address
-		 */
-		if (!rfapiGetVncTunnelUnAddr(bi->attr, &pfx_un)) {
-			r = snprintf(p, REMAIN, " un=%s",
-				     inet_ntop(pfx_un.family, pfx_un.u.val, buf,
-					       BUFSIZ));
-			INCP;
-		}
-
-		/* Lifetime */
-		if (rfapiGetVncLifetime(bi->attr, &lifetime)) {
-			r = snprintf(p, REMAIN, " nolife");
-			INCP;
-		} else {
-			if (lifetime == 0xffffffff)
-				r = snprintf(p, REMAIN, " %6s", "infini");
-			else
-				r = snprintf(p, REMAIN, " %6u", lifetime);
-			INCP;
-		}
-
-		/* RFP option lengths */
-		for (pEncap = bi->attr->vnc_subtlvs; pEncap;
-		     pEncap = pEncap->next) {
-
-			if (pEncap->type == BGP_VNC_SUBTLV_TYPE_RFPOPTION) {
-				if (printed_1st_gol) {
-					r = snprintf(p, REMAIN, ",");
-					INCP;
-				} else {
-					r = snprintf(p, REMAIN,
-						     " "); /* leading space */
-					INCP;
-				}
-				r = snprintf(p, REMAIN, "%d", pEncap->length);
-				INCP;
-				printed_1st_gol = 1;
-			}
-		}
-
-		/* RT list */
-		if (bi->attr->ecommunity) {
-			s = ecommunity_ecom2str(bi->attr->ecommunity,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-			r = snprintf(p, REMAIN, " %s", s);
-			INCP;
-			XFREE(MTYPE_ECOMMUNITY_STR, s);
-		}
-	}
-
-	r = snprintf(p, REMAIN, " bi@%p", bi);
-	INCP;
-
-	r = snprintf(p, REMAIN, " p@%p", bi->peer);
-	INCP;
-
-	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
-		r = snprintf(p, REMAIN, " HD=yes");
-		INCP;
-	} else {
-		r = snprintf(p, REMAIN, " HD=no");
-		INCP;
-	}
-
-	if (bi->attr) {
-
-		if (bi->attr->weight) {
-			r = snprintf(p, REMAIN, " W=%d", bi->attr->weight);
-			INCP;
-		}
-
-		if (bi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
-			r = snprintf(p, REMAIN, " LP=%d", bi->attr->local_pref);
-			INCP;
-		} else {
-			r = snprintf(p, REMAIN, " LP=unset");
-			INCP;
-		}
-	}
-
-	r = snprintf(p, REMAIN, " %c:%u", zebra_route_char(bi->type),
-		     bi->sub_type);
-	INCP;
-
-	fp(out, "%s%s", line, HVTYNL);
-
-	if (has_macaddr) {
-		fp(out, "        RD HID=%d ETH=%02x:%02x:%02x:%02x:%02x:%02x%s",
-		   l2hid, macaddr.octet[0], macaddr.octet[1], macaddr.octet[2],
-		   macaddr.octet[3], macaddr.octet[4], macaddr.octet[5],
-		   HVTYNL);
-	}
-
-	if (!rfapiGetL2o(bi->attr, &l2o_buf)) {
-		fp(out,
-		   "        L2O ETH=%02x:%02x:%02x:%02x:%02x:%02x LBL=%d LNI=%d LHI=%hhu%s",
-		   l2o_buf.macaddr.octet[0], l2o_buf.macaddr.octet[1],
-		   l2o_buf.macaddr.octet[2], l2o_buf.macaddr.octet[3],
-		   l2o_buf.macaddr.octet[4], l2o_buf.macaddr.octet[5],
-		   l2o_buf.label, l2o_buf.logical_net_id, l2o_buf.local_nve_id,
-		   HVTYNL);
-	}
-	if (bi->extra && bi->extra->vnc.import.aux_prefix.family) {
-		char buf[BUFSIZ];
-		const char *sp;
-
-		sp = rfapi_ntop(bi->extra->vnc.import.aux_prefix.family,
-				&bi->extra->vnc.import.aux_prefix.u.prefix, buf,
-				BUFSIZ);
-		buf[BUFSIZ - 1] = 0;
-		if (sp) {
-			fp(out, "        IP: %s%s", sp, HVTYNL);
-		}
-	}
-	{
-		struct rfapi_un_option *uo =
-			rfapi_encap_tlv_to_un_option(bi->attr);
-		if (uo) {
-			rfapi_print_tunneltype_option(stream, 8, &uo->v.tunnel);
-			rfapi_un_options_free(uo);
-		}
-	}
-}
-
-char *rfapiMonitorVpn2Str(struct rfapi_monitor_vpn *m, char *buf, int size)
-{
-	char buf_pfx[BUFSIZ];
-	char buf_vn[BUFSIZ];
-	char buf_un[BUFSIZ];
-	int rc;
-
-	rfapiRfapiIpAddr2Str(&m->rfd->un_addr, buf_vn, BUFSIZ);
-	rfapiRfapiIpAddr2Str(&m->rfd->vn_addr, buf_un, BUFSIZ);
-
-	rc = snprintf(buf, size,
-		      "m=%p, next=%p, rfd=%p(vn=%s un=%s), p=%s/%d, node=%p", m,
-		      m->next, m->rfd, buf_vn, buf_un,
-		      inet_ntop(m->p.family, &m->p.u.prefix, buf_pfx, BUFSIZ),
-		      m->p.prefixlen, m->node);
-	buf[size - 1] = 0;
-	if (rc >= size)
-		return NULL;
-	return buf;
-}
-
-static void rfapiDebugPrintMonitorVpn(void *stream, struct rfapi_monitor_vpn *m)
-{
-	char buf[BUFSIZ];
-
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	rfapiMonitorVpn2Str(m, buf, BUFSIZ);
-	fp(out, "    Mon %s%s", buf, HVTYNL);
-}
-
-static void rfapiDebugPrintMonitorEncap(void *stream,
-					struct rfapi_monitor_encap *m)
-{
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out = NULL;
-	const char *vty_newline;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	fp(out, "    Mon m=%p, next=%p, node=%p, bi=%p%s", m, m->next, m->node,
-	   m->bi, HVTYNL);
-}
-
-void rfapiShowItNode(void *stream, struct route_node *rn)
-{
-	struct bgp_info *bi;
-	char buf[BUFSIZ];
-
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	fp(out, "%s/%d @%p #%d%s",
-	   rfapi_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
-	   rn->p.prefixlen, rn, rn->lock, HVTYNL);
-
-	for (bi = rn->info; bi; bi = bi->next) {
-		rfapiPrintBi(stream, bi);
-	}
-
-	/* doesn't show montors */
-}
-
-void rfapiShowImportTable(void *stream, const char *label,
-			  struct route_table *rt, int isvpn)
-{
-	struct route_node *rn;
-	char buf[BUFSIZ];
-
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	fp(out, "Import Table [%s]%s", label, HVTYNL);
-
-	for (rn = route_top(rt); rn; rn = route_next(rn)) {
-		struct bgp_info *bi;
-
-		if (rn->p.family == AF_ETHERNET) {
-			rfapiEthAddr2Str(&rn->p.u.prefix_eth, buf, BUFSIZ);
-		} else {
-			inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ);
-		}
-
-		fp(out, "%s/%d @%p #%d%s", buf, rn->p.prefixlen, rn,
-		   rn->lock - 1, /* account for loop iterator locking */
-		   HVTYNL);
-
-		for (bi = rn->info; bi; bi = bi->next) {
-			rfapiPrintBi(stream, bi);
-		}
-
-		if (isvpn) {
-			struct rfapi_monitor_vpn *m;
-			for (m = RFAPI_MONITOR_VPN(rn); m; m = m->next) {
-				rfapiDebugPrintMonitorVpn(stream, m);
-			}
-		} else {
-			struct rfapi_monitor_encap *m;
-			for (m = RFAPI_MONITOR_ENCAP(rn); m; m = m->next) {
-				rfapiDebugPrintMonitorEncap(stream, m);
-			}
-		}
-	}
-}
-
-int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
-{
-	struct bgp *bgp;
-	struct rfapi *h;
-	struct listnode *node;
-	struct rfapi_descriptor *rfd;
-
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-
-	int printedheader = 0;
-
-	int nves_total = 0;
-	int nves_with_queries = 0;
-	int nves_displayed = 0;
-
-	int queries_total = 0;
-	int queries_displayed = 0;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return CMD_WARNING;
-
-	bgp = bgp_get_default(); /* assume 1 instance for now */
-	if (!bgp) {
-		vty_out(vty, "No BGP instance\n");
-		return CMD_WARNING;
-	}
-
-	h = bgp->rfapi;
-	if (!h) {
-		vty_out(vty, "No RFAPI instance\n");
-		return CMD_WARNING;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(&h->descriptors, node, rfd)) {
-
-		struct route_node *rn;
-		int printedquerier = 0;
-
-
-		++nves_total;
-
-		if (rfd->mon
-		    || (rfd->mon_eth && skiplist_count(rfd->mon_eth))) {
-			++nves_with_queries;
-		} else {
-			continue;
-		}
-
-		/*
-		 * IP Queries
-		 */
-		if (rfd->mon) {
-			for (rn = route_top(rfd->mon); rn;
-			     rn = route_next(rn)) {
-				struct rfapi_monitor_vpn *m;
-				char buf_remain[BUFSIZ];
-				char buf_pfx[BUFSIZ];
-
-				if (!rn->info)
-					continue;
-
-				m = rn->info;
-
-				++queries_total;
-
-				if (pfx_match
-				    && !prefix_match(pfx_match, &rn->p)
-				    && !prefix_match(&rn->p, pfx_match))
-					continue;
-
-				++queries_displayed;
-
-				if (!printedheader) {
-					++printedheader;
-					fp(out, "\n");
-					fp(out, "%-15s %-15s %-15s %-10s\n",
-					   "VN Address", "UN Address", "Target",
-					   "Remaining");
-				}
-
-				if (!printedquerier) {
-					char buf_vn[BUFSIZ];
-					char buf_un[BUFSIZ];
-
-					rfapiRfapiIpAddr2Str(&rfd->un_addr,
-							     buf_un, BUFSIZ);
-					rfapiRfapiIpAddr2Str(&rfd->vn_addr,
-							     buf_vn, BUFSIZ);
-
-					fp(out, "%-15s %-15s", buf_vn, buf_un);
-					printedquerier = 1;
-
-					++nves_displayed;
-				} else
-					fp(out, "%-15s %-15s", "", "");
-				buf_remain[0] = 0;
-				if (m->timer) {
-					rfapiFormatSeconds(
-						thread_timer_remain_second(
-							m->timer),
-						buf_remain, BUFSIZ);
-				}
-				fp(out, " %-15s %-10s\n",
-				   inet_ntop(m->p.family, &m->p.u.prefix,
-					     buf_pfx, BUFSIZ),
-				   buf_remain);
-			}
-		}
-
-		/*
-		 * Ethernet Queries
-		 */
-		if (rfd->mon_eth && skiplist_count(rfd->mon_eth)) {
-
-			int rc;
-			void *cursor;
-			struct rfapi_monitor_eth *mon_eth;
-
-			for (cursor = NULL,
-			    rc = skiplist_next(rfd->mon_eth, NULL,
-					       (void **)&mon_eth, &cursor);
-			     rc == 0;
-			     rc = skiplist_next(rfd->mon_eth, NULL,
-						(void **)&mon_eth, &cursor)) {
-
-				char buf_remain[BUFSIZ];
-				char buf_pfx[BUFSIZ];
-				struct prefix pfx_mac;
-
-				++queries_total;
-
-				vnc_zlog_debug_verbose(
-					"%s: checking rfd=%p mon_eth=%p",
-					__func__, rfd, mon_eth);
-
-				memset((void *)&pfx_mac, 0,
-				       sizeof(struct prefix));
-				pfx_mac.family = AF_ETHERNET;
-				pfx_mac.prefixlen = 48;
-				pfx_mac.u.prefix_eth = mon_eth->macaddr;
-
-				if (pfx_match
-				    && !prefix_match(pfx_match, &pfx_mac)
-				    && !prefix_match(&pfx_mac, pfx_match))
-					continue;
-
-				++queries_displayed;
-
-				if (!printedheader) {
-					++printedheader;
-					fp(out, "\n");
-					fp(out,
-					   "%-15s %-15s %-17s %10s %-10s\n",
-					   "VN Address", "UN Address", "Target",
-					   "LNI", "Remaining");
-				}
-
-				if (!printedquerier) {
-					char buf_vn[BUFSIZ];
-					char buf_un[BUFSIZ];
-
-					rfapiRfapiIpAddr2Str(&rfd->un_addr,
-							     buf_un, BUFSIZ);
-					rfapiRfapiIpAddr2Str(&rfd->vn_addr,
-							     buf_vn, BUFSIZ);
-
-					fp(out, "%-15s %-15s", buf_vn, buf_un);
-					printedquerier = 1;
-
-					++nves_displayed;
-				} else
-					fp(out, "%-15s %-15s", "", "");
-				buf_remain[0] = 0;
-				if (mon_eth->timer) {
-					rfapiFormatSeconds(
-						thread_timer_remain_second(
-							mon_eth->timer),
-						buf_remain, BUFSIZ);
-				}
-				fp(out, " %-17s %10d %-10s\n",
-				   rfapi_ntop(pfx_mac.family, &pfx_mac.u.prefix,
-					      buf_pfx, BUFSIZ),
-				   mon_eth->logical_net_id, buf_remain);
-			}
-		}
-	}
-
-	if (queries_total) {
-		fp(out, "\n");
-		fp(out, "Displayed %d out of %d total queries\n",
-		   queries_displayed, queries_total);
-	}
-	return CMD_SUCCESS;
-}
-
-static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
-				 struct route_node *rn, struct bgp_info *bi)
-{
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-	struct prefix pfx_un;
-	struct prefix pfx_vn;
-	uint8_t cost;
-	uint32_t lifetime;
-	bgp_encap_types tun_type;
-
-	char buf_pfx[BUFSIZ];
-	char buf_ntop[BUFSIZ];
-	char buf_un[BUFSIZ];
-	char buf_vn[BUFSIZ];
-	char buf_lifetime[BUFSIZ];
-	int nlines = 0;
-
-	if (!stream)
-		return 0; /* for debug log, print into buf & call output once */
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return 0;
-
-	/*
-	 * Prefix
-	 */
-	buf_pfx[0] = 0;
-	snprintf(buf_pfx, BUFSIZ, "%s/%d",
-		 rfapi_ntop(rn->p.family, &rn->p.u.prefix, buf_ntop, BUFSIZ),
-		 rn->p.prefixlen);
-	buf_pfx[BUFSIZ - 1] = 0;
-	nlines++;
-
-	/*
-	 * UN addr
-	 */
-	buf_un[0] = 0;
-	if (!rfapiGetUnAddrOfVpnBi(bi, &pfx_un)) {
-		snprintf(buf_un, BUFSIZ, "%s",
-			 inet_ntop(pfx_un.family, &pfx_un.u.prefix, buf_ntop,
-				   BUFSIZ));
-	}
-
-	rfapiGetTunnelType(bi->attr, &tun_type);
-	/*
-	 * VN addr
-	 */
-	buf_vn[0] = 0;
-	rfapiNexthop2Prefix(bi->attr, &pfx_vn);
-	if (tun_type == BGP_ENCAP_TYPE_MPLS) {
-		/* MPLS carries un in nrli next hop (same as vn for IP tunnels)
-		 */
-		snprintf(buf_un, BUFSIZ, "%s",
-			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
-				   BUFSIZ));
-		if (bi->extra) {
-			uint32_t l = decode_label(&bi->extra->label[0]);
-			snprintf(buf_vn, BUFSIZ, "Label: %d", l);
-		} else /* should never happen */
-		{
-			snprintf(buf_vn, BUFSIZ, "Label: N/A");
-		}
-	} else {
-		snprintf(buf_vn, BUFSIZ, "%s",
-			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
-				   BUFSIZ));
-	}
-	buf_vn[BUFSIZ - 1] = 0;
-	buf_un[BUFSIZ - 1] = 0;
-
-	/*
-	 * Cost is encoded in local_pref as (255-cost)
-	 * See rfapi_import.c'rfapiRouteInfo2NextHopEntry() for conversion
-	 * back to cost.
-	 */
-	if (bi->attr) {
-		uint32_t local_pref;
-		if (bi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
-			local_pref = bi->attr->local_pref;
-		else
-			local_pref = 0;
-		cost = (local_pref > 255) ? 0 : 255 - local_pref;
-	} else {
-		cost = 0;
-	}
-
-	fp(out, "%-20s ", buf_pfx);
-	fp(out, "%-15s ", buf_vn);
-	fp(out, "%-15s ", buf_un);
-	fp(out, "%-4d ", cost);
-
-	/* Lifetime */
-	/* NB rfapiGetVncLifetime sets infinite value when returning !0 */
-	if (rfapiGetVncLifetime(bi->attr, &lifetime)
-	    || (lifetime == RFAPI_INFINITE_LIFETIME)) {
-
-		fp(out, "%-10s ", "infinite");
-	} else {
-		time_t t_lifetime = lifetime;
-		rfapiFormatSeconds(t_lifetime, buf_lifetime, BUFSIZ);
-		fp(out, "%-10s ", buf_lifetime);
-	}
-
-	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED) && bi->extra
-	    && bi->extra->vnc.import.timer) {
-
-		uint32_t remaining;
-		time_t age;
-		char buf_age[BUFSIZ];
-
-		struct thread *t = (struct thread *)bi->extra->vnc.import.timer;
-		remaining = thread_timer_remain_second(t);
-
-#if RFAPI_REGISTRATIONS_REPORT_AGE
-		/*
-		 * Calculate when the timer started. Doing so here saves
-		 * us a timestamp field in "struct bgp_info".
-		 *
-		 * See rfapi_import.c'rfapiBiStartWithdrawTimer() for the
-		 * original calculation.
-		 */
-		age = rfapiGetHolddownFromLifetime(lifetime, factor)
-		      - remaining;
-#else /* report remaining time */
-		age = remaining;
-#endif
-		rfapiFormatSeconds(age, buf_age, BUFSIZ);
-
-		fp(out, "%-10s ", buf_age);
-
-	} else if (RFAPI_LOCAL_BI(bi)) {
-
-		char buf_age[BUFSIZ];
-
-		if (bi->extra && bi->extra->vnc.import.create_time) {
-			rfapiFormatAge(bi->extra->vnc.import.create_time,
-				       buf_age, BUFSIZ);
-		} else {
-			buf_age[0] = '?';
-			buf_age[1] = 0;
-		}
-		fp(out, "%-10s ", buf_age);
-	}
-	fp(out, "%s", HVTYNL);
-
-	if (rn->p.family == AF_ETHERNET) {
-		/*
-		 * If there is a corresponding IP address && != VN address,
-		 * print that on the next line
-		 */
-
-		if (bi->extra && bi->extra->vnc.import.aux_prefix.family) {
-			const char *sp;
-
-			sp = rfapi_ntop(
-				bi->extra->vnc.import.aux_prefix.family,
-				&bi->extra->vnc.import.aux_prefix.u.prefix,
-				buf_ntop, BUFSIZ);
-			buf_ntop[BUFSIZ - 1] = 0;
-
-			if (sp && strcmp(buf_vn, sp) != 0) {
-				fp(out, "  IP: %s", sp);
-				if (nlines == 1)
-					nlines++;
-			}
-		}
-	}
-	if (tun_type != BGP_ENCAP_TYPE_MPLS && bi->extra) {
-		uint32_t l = decode_label(&bi->extra->label[0]);
-		if (!MPLS_LABEL_IS_NULL(l)) {
-			fp(out, "  Label: %d", l);
-			if (nlines == 1)
-				nlines++;
-		}
-	}
-	if (nlines > 1)
-		fp(out, "%s", HVTYNL);
-
-	return 1;
-}
-
-static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
-					  struct rfapi_import_table *it,
-					  struct prefix *prefix_only,
-					  int show_expiring, /* either/or */
-					  int show_local, int show_remote,
-					  int show_imported, /* either/or */
-					  uint32_t *pLni) /* AFI_L2VPN only */
-{
-	afi_t afi;
-	int printed_rtlist_hdr = 0;
-
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-	int total = 0;
-	int printed = 0;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return printed;
-
-	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-
-		struct route_node *rn;
-
-		if (!it->imported_vpn[afi])
-			continue;
-
-		for (rn = route_top(it->imported_vpn[afi]); rn;
-		     rn = route_next(rn)) {
-
-			struct bgp_info *bi;
-			int count_only;
-
-			/* allow for wider or more narrow mask from user */
-			if (prefix_only && !prefix_match(prefix_only, &rn->p)
-			    && !prefix_match(&rn->p, prefix_only))
-				count_only = 1;
-			else
-				count_only = 0;
-
-			for (bi = rn->info; bi; bi = bi->next) {
-
-				if (!show_local && RFAPI_LOCAL_BI(bi)) {
-
-					/* local route from RFP */
-					continue;
-				}
-
-				if (!show_remote && !RFAPI_LOCAL_BI(bi)) {
-
-					/* remote route */
-					continue;
-				}
-
-				if (show_expiring
-				    && !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
-					continue;
-
-				if (!show_expiring
-				    && CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
-					continue;
-
-				if (bi->type == ZEBRA_ROUTE_BGP_DIRECT
-				    || bi->type == ZEBRA_ROUTE_BGP_DIRECT_EXT) {
-					if (!show_imported)
-						continue;
-				} else {
-					if (show_imported)
-						continue;
-				}
-
-				total++;
-				if (count_only == 1)
-					continue;
-				if (!printed_rtlist_hdr) {
-					const char *agetype = "";
-					char *s;
-					const char *type = "";
-					if (show_imported) {
-						type = "Imported";
-					} else {
-						if (show_expiring) {
-							type = "Holddown";
-						} else {
-							if (RFAPI_LOCAL_BI(
-								    bi)) {
-								type = "Local";
-							} else {
-								type = "Remote";
-							}
-						}
-					}
-
-					s = ecommunity_ecom2str(
-						it->rt_import_list,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-
-					if (pLni) {
-						fp(out,
-						   "%s[%s] L2VPN Network 0x%x (%u) RT={%s}",
-						   HVTYNL, type, *pLni,
-						   (*pLni & 0xfff), s);
-					} else {
-						fp(out, "%s[%s] Prefix RT={%s}",
-						   HVTYNL, type, s);
-					}
-					XFREE(MTYPE_ECOMMUNITY_STR, s);
-
-					if (it->rfg && it->rfg->name) {
-						fp(out, " %s \"%s\"",
-						   (it->rfg->type == RFAPI_GROUP_CFG_VRF
-							    ? "VRF"
-							    : "NVE group"),
-						   it->rfg->name);
-					}
-					fp(out, "%s", HVTYNL);
-					if (show_expiring) {
-#if RFAPI_REGISTRATIONS_REPORT_AGE
-						agetype = "Age";
-#else
-						agetype = "Remaining";
-#endif
-					} else if (show_local) {
-						agetype = "Age";
-					}
-
-					printed_rtlist_hdr = 1;
-
-					fp(out,
-					   "%-20s %-15s %-15s %4s %-10s %-10s%s",
-					   (pLni ? "L2 Address/IP" : "Prefix"),
-					   "VN Address", "UN Address", "Cost",
-					   "Lifetime", agetype, HVTYNL);
-				}
-				printed += rfapiPrintRemoteRegBi(bgp, stream,
-								 rn, bi);
-			}
-		}
-	}
-
-	if (printed > 0) {
-
-		const char *type = "prefixes";
-
-		if (show_imported) {
-			type = "imported prefixes";
-		} else {
-			if (show_expiring) {
-				type = "prefixes in holddown";
-			} else {
-				if (show_local && !show_remote) {
-					type = "locally registered prefixes";
-				} else if (!show_local && show_remote) {
-					type = "remotely registered prefixes";
-				}
-			}
-		}
-
-		fp(out, "Displayed %d out of %d %s%s", printed, total, type,
-		   HVTYNL);
-#if DEBUG_SHOW_EXTRA
-		fp(out, "IT table above: it=%p%s", it, HVTYNL);
-#endif
-	}
-	return printed;
-}
-
-
-/*
- * rfapiShowRemoteRegistrations
- *
- * Similar to rfapiShowImportTable() above. This function
- * is mean to produce the "remote" portion of the output
- * of "show vnc registrations".
- */
-int rfapiShowRemoteRegistrations(void *stream, struct prefix *prefix_only,
-				 int show_expiring, int show_local,
-				 int show_remote, int show_imported)
-{
-	struct bgp *bgp;
-	struct rfapi *h;
-	struct rfapi_import_table *it;
-	int printed = 0;
-
-	bgp = bgp_get_default();
-	if (!bgp) {
-		return printed;
-	}
-
-	h = bgp->rfapi;
-	if (!h) {
-		return printed;
-	}
-
-	for (it = h->imports; it; it = it->next) {
-		printed += rfapiShowRemoteRegistrationsIt(
-			bgp, stream, it, prefix_only, show_expiring, show_local,
-			show_remote, show_imported, NULL);
-	}
-
-	if (h->import_mac) {
-		void *cursor = NULL;
-		int rc;
-		uintptr_t lni_as_ptr;
-		uint32_t lni;
-		uint32_t *pLni;
-
-		for (rc = skiplist_next(h->import_mac, (void **)&lni_as_ptr,
-					(void **)&it, &cursor);
-		     !rc;
-		     rc = skiplist_next(h->import_mac, (void **)&lni_as_ptr,
-					(void **)&it, &cursor)) {
-			pLni = NULL;
-			if ((lni_as_ptr & 0xffffffff) == lni_as_ptr) {
-				lni = (uint32_t)(lni_as_ptr & 0xffffffff);
-				pLni = &lni;
-			}
-
-			printed += rfapiShowRemoteRegistrationsIt(
-				bgp, stream, it, prefix_only, show_expiring,
-				show_local, show_remote, show_imported, pLni);
-		}
-	}
-
-	return printed;
-}
-
-/*------------------------------------------
- * rfapiRfapiIpAddr2Str
- *
- * UI helper: generate string from rfapi_ip_addr
- *
- * input:
- *	a			IP v4/v6 address
- *
- * output
- *	buf			put string here
- *	bufsize			max space to write
- *
- * return value:
- *	NULL			conversion failed
- *	non-NULL		pointer to buf
- --------------------------------------------*/
-const char *rfapiRfapiIpAddr2Str(struct rfapi_ip_addr *a, char *buf,
-				 int bufsize)
-{
-	const char *rc = NULL;
-
-	switch (a->addr_family) {
-	case AF_INET:
-		rc = inet_ntop(a->addr_family, &a->addr.v4, buf, bufsize);
-		break;
-	case AF_INET6:
-		rc = inet_ntop(a->addr_family, &a->addr.v6, buf, bufsize);
-		break;
-	}
-	return rc;
-}
-
-void rfapiPrintRfapiIpAddr(void *stream, struct rfapi_ip_addr *a)
-{
-	char buf[BUFSIZ];
-	const char *rc = NULL;
-
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out = NULL;
-	const char *vty_newline;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	rc = rfapiRfapiIpAddr2Str(a, buf, BUFSIZ);
-
-	if (rc)
-		fp(out, "%s", buf);
-}
-
-const char *rfapiRfapiIpPrefix2Str(struct rfapi_ip_prefix *p, char *buf,
-				   int bufsize)
-{
-	struct rfapi_ip_addr *a = &p->prefix;
-	const char *rc = NULL;
-
-	switch (a->addr_family) {
-	case AF_INET:
-		rc = inet_ntop(a->addr_family, &a->addr.v4, buf, bufsize);
-		break;
-	case AF_INET6:
-		rc = inet_ntop(a->addr_family, &a->addr.v6, buf, bufsize);
-		break;
-	}
-
-	if (rc) {
-		int alen = strlen(buf);
-		int remaining = bufsize - alen - 1;
-		int slen;
-
-		if (remaining > 0) {
-			slen = snprintf(buf + alen, remaining, "/%u",
-					p->length);
-			if (slen < remaining) /* see man page for snprintf(3) */
-				return rc;
-		}
-	}
-
-	return NULL;
-}
-
-void rfapiPrintRfapiIpPrefix(void *stream, struct rfapi_ip_prefix *p)
-{
-	char buf[BUFSIZ];
-	const char *rc;
-
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out = NULL;
-	const char *vty_newline;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	rc = rfapiRfapiIpPrefix2Str(p, buf, BUFSIZ);
-
-	if (rc)
-		fp(out, "%s:%u", buf, p->cost);
-	else
-		fp(out, "?/?:?");
-}
-
-void rfapiPrintRd(struct vty *vty, struct prefix_rd *prd)
-{
-	char buf[RD_ADDRSTRLEN];
-
-	prefix_rd2str(prd, buf, sizeof(buf));
-	vty_out(vty, "%s", buf);
-}
-
-void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
-			      safi_t safi, struct prefix *p)
-{
-	afi_t afi; /* of the VN address */
-	struct bgp_node *bn;
-	struct bgp_info *bi;
-	uint8_t type = ZEBRA_ROUTE_BGP;
-	struct bgp *bgp;
-	int printed = 0;
-	struct prefix_rd prd0;
-	struct prefix_rd *prd;
-
-	/*
-	 * Find the bgp_info in the RIB corresponding to this
-	 * prefix and rfd
-	 */
-
-	afi = family2afi(p->family);
-	assert(afi == AFI_IP || afi == AFI_IP6);
-
-	bgp = bgp_get_default(); /* assume 1 instance for now */
-	assert(bgp);
-
-	if (safi == SAFI_ENCAP) {
-		memset(&prd0, 0, sizeof(prd0));
-		prd0.family = AF_UNSPEC;
-		prd0.prefixlen = 64;
-		prd = &prd0;
-	} else {
-		prd = &rfd->rd;
-	}
-	bn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
-
-	vty_out(vty, "  bn=%p%s", bn, HVTYNL);
-
-	for (bi = bn->info; bi; bi = bi->next) {
-		if (bi->peer == rfd->peer && bi->type == type
-		    && bi->sub_type == BGP_ROUTE_RFP && bi->extra
-		    && bi->extra->vnc.export.rfapi_handle == (void *)rfd) {
-
-			rfapiPrintBi(vty, bi);
-			printed = 1;
-		}
-	}
-
-	if (!printed) {
-		vty_out(vty, "    --?--%s", HVTYNL);
-		return;
-	}
-}
-
-void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
-{
-	/* pHD un-addr vn-addr pCB cookie rd lifetime */
-	/* RT export list */
-	/* RT import list */
-	/* list of advertised prefixes */
-	/* dump import table */
-
-	char *s;
-	void *cursor;
-	int rc;
-	afi_t afi;
-	struct rfapi_adb *adb;
-	char buf[PREFIX_STRLEN];
-
-	vty_out(vty, "%-10p ", rfd);
-	rfapiPrintRfapiIpAddr(vty, &rfd->un_addr);
-	vty_out(vty, " ");
-	rfapiPrintRfapiIpAddr(vty, &rfd->vn_addr);
-	vty_out(vty, " %p %p ", rfd->response_cb, rfd->cookie);
-	rfapiPrintRd(vty, &rfd->rd);
-	vty_out(vty, " %d", rfd->response_lifetime);
-	vty_out(vty, " %s", (rfd->rfg ? rfd->rfg->name : "<orphaned>"));
-	vty_out(vty, "%s", HVTYNL);
-
-	vty_out(vty, " Peer %p #%d%s", rfd->peer, rfd->peer->lock, HVTYNL);
-
-	/* export RT list */
-	if (rfd->rt_export_list) {
-		s = ecommunity_ecom2str(rfd->rt_export_list,
-					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		vty_out(vty, " Export %s%s", s, HVTYNL);
-		XFREE(MTYPE_ECOMMUNITY_STR, s);
-	} else {
-		vty_out(vty, " Export (nil)%s", HVTYNL);
-	}
-
-	/* import RT list */
-	if (rfd->import_table) {
-		s = ecommunity_ecom2str(rfd->import_table->rt_import_list,
-					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		vty_out(vty, " Import %s%s", s, HVTYNL);
-		XFREE(MTYPE_ECOMMUNITY_STR, s);
-	} else {
-		vty_out(vty, " Import (nil)%s", HVTYNL);
-	}
-
-	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-		uint8_t family;
-
-		family = afi2family(afi);
-		if (!family)
-			continue;
-
-		cursor = NULL;
-		for (rc = skiplist_next(rfd->advertised.ipN_by_prefix, NULL,
-					(void **)&adb, &cursor);
-		     rc == 0;
-		     rc = skiplist_next(rfd->advertised.ipN_by_prefix, NULL,
-					(void **)&adb, &cursor)) {
-
-			/* group like family prefixes together in output */
-			if (family != adb->u.s.prefix_ip.family)
-				continue;
-
-			prefix2str(&adb->u.s.prefix_ip, buf, sizeof(buf));
-
-			vty_out(vty, "  Adv Pfx: %s%s", buf, HVTYNL);
-			rfapiPrintAdvertisedInfo(vty, rfd, SAFI_MPLS_VPN,
-						 &adb->u.s.prefix_ip);
-		}
-	}
-	for (rc = skiplist_next(rfd->advertised.ip0_by_ether, NULL,
-				(void **)&adb, &cursor);
-	     rc == 0; rc = skiplist_next(rfd->advertised.ip0_by_ether, NULL,
-					 (void **)&adb, &cursor)) {
-
-		prefix2str(&adb->u.s.prefix_eth, buf, sizeof(buf));
-
-		vty_out(vty, "  Adv Pfx: %s%s", buf, HVTYNL);
-
-		/* TBD update the following function to print ethernet info */
-		/* Also need to pass/use rd */
-		rfapiPrintAdvertisedInfo(vty, rfd, SAFI_MPLS_VPN,
-					 &adb->u.s.prefix_ip);
-	}
-	vty_out(vty, "%s", HVTYNL);
-}
-
-/*
- * test scripts rely on first line for each nve starting in 1st column,
- * leading whitespace for additional detail of that nve
- */
-void rfapiPrintMatchingDescriptors(struct vty *vty, struct prefix *vn_prefix,
-				   struct prefix *un_prefix)
-{
-	struct bgp *bgp;
-	struct rfapi *h;
-	struct listnode *ln;
-	struct rfapi_descriptor *rfd;
-	int printed = 0;
-
-	bgp = bgp_get_default(); /* assume 1 instance for now */
-	if (!bgp)
-		return;
-
-	h = bgp->rfapi;
-	assert(h);
-
-	for (ln = listhead(&h->descriptors); ln; ln = listnextnode(ln)) {
-		rfd = listgetdata(ln);
-
-		struct prefix pfx;
-
-		if (vn_prefix) {
-			assert(!rfapiRaddr2Qprefix(&rfd->vn_addr, &pfx));
-			if (!prefix_match(vn_prefix, &pfx))
-				continue;
-		}
-
-		if (un_prefix) {
-			assert(!rfapiRaddr2Qprefix(&rfd->un_addr, &pfx));
-			if (!prefix_match(un_prefix, &pfx))
-				continue;
-		}
-
-		if (!printed) {
-			/* print column header */
-			vty_out(vty, "%s %s %s %s %s %s %s %s%s", "descriptor",
-				"un-addr", "vn-addr", "callback", "cookie",
-				"RD", "lifetime", "group", HVTYNL);
-		}
-		rfapiPrintDescriptor(vty, rfd);
-		printed = 1;
-	}
-}
-
-
-/*
- * Parse an address and put into a struct prefix
- */
-int rfapiCliGetPrefixAddr(struct vty *vty, const char *str, struct prefix *p)
-{
-	if (!str2prefix(str, p)) {
-		vty_out(vty, "Malformed address \"%s\"%s", str, HVTYNL);
-		return CMD_WARNING;
-	}
-	switch (p->family) {
-	case AF_INET:
-		if (p->prefixlen != 32) {
-			vty_out(vty, "Not a host address: \"%s\"%s", str,
-				HVTYNL);
-			return CMD_WARNING;
-		}
-		break;
-	case AF_INET6:
-		if (p->prefixlen != 128) {
-			vty_out(vty, "Not a host address: \"%s\"%s", str,
-				HVTYNL);
-			return CMD_WARNING;
-		}
-		break;
-	default:
-		vty_out(vty, "Invalid address \"%s\"%s", str, HVTYNL);
-		return CMD_WARNING;
-	}
-	return 0;
-}
-
-int rfapiCliGetRfapiIpAddr(struct vty *vty, const char *str,
-			   struct rfapi_ip_addr *hai)
-{
-	struct prefix pfx;
-	int rc;
-
-	rc = rfapiCliGetPrefixAddr(vty, str, &pfx);
-	if (rc)
-		return rc;
-
-	hai->addr_family = pfx.family;
-	if (pfx.family == AF_INET)
-		hai->addr.v4 = pfx.u.prefix4;
-	else
-		hai->addr.v6 = pfx.u.prefix6;
-
-	return 0;
-}
-
-/*
- * Note: this function does not flush vty output, so if it is called
- * with a stream pointing to a vty, the user will have to type something
- * before the callback output shows up
- */
-void rfapiPrintNhl(void *stream, struct rfapi_next_hop_entry *next_hops)
-{
-	struct rfapi_next_hop_entry *nh;
-	int count;
-
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-
-#define REMAIN (BUFSIZ - (p-line))
-#define INCP {p += (r > REMAIN)? REMAIN: r;}
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	for (nh = next_hops, count = 1; nh; nh = nh->next, ++count) {
-
-		char line[BUFSIZ];
-		char *p = line;
-		int r;
-
-		r = snprintf(p, REMAIN, "%3d  pfx=", count);
-		INCP;
-
-		if (rfapiRfapiIpPrefix2Str(&nh->prefix, p, REMAIN)) {
-			/* it fit, so count length */
-			r = strlen(p);
-		} else {
-			/* didn't fit */
-			goto truncate;
-		}
-		INCP;
-
-		r = snprintf(p, REMAIN, ", un=");
-		INCP;
-
-		if (rfapiRfapiIpAddr2Str(&nh->un_address, p, REMAIN)) {
-			/* it fit, so count length */
-			r = strlen(p);
-		} else {
-			/* didn't fit */
-			goto truncate;
-		}
-		INCP;
-
-		r = snprintf(p, REMAIN, ", vn=");
-		INCP;
-
-		if (rfapiRfapiIpAddr2Str(&nh->vn_address, p, REMAIN)) {
-			/* it fit, so count length */
-			r = strlen(p);
-		} else {
-			/* didn't fit */
-			goto truncate;
-		}
-		INCP;
-
-	truncate:
-		line[BUFSIZ - 1] = 0;
-		fp(out, "%s%s", line, HVTYNL);
-
-		/*
-		 * options
-		 */
-		if (nh->vn_options) {
-			struct rfapi_vn_option *vo;
-			char offset[] = "     ";
-
-			for (vo = nh->vn_options; vo; vo = vo->next) {
-				char pbuf[100];
-
-				switch (vo->type) {
-				case RFAPI_VN_OPTION_TYPE_L2ADDR:
-					rfapiEthAddr2Str(&vo->v.l2addr.macaddr,
-							 pbuf, sizeof(pbuf));
-					fp(out,
-					   "%sL2 %s LBL=0x%06x NETID=0x%06x NVEID=%d%s",
-					   offset, pbuf,
-					   (vo->v.l2addr.label & 0x00ffffff),
-					   (vo->v.l2addr.logical_net_id
-					    & 0x00ffffff),
-					   vo->v.l2addr.local_nve_id, HVTYNL);
-					break;
-
-				case RFAPI_VN_OPTION_TYPE_LOCAL_NEXTHOP:
-					prefix2str(&vo->v.local_nexthop.addr,
-						   pbuf, sizeof(pbuf));
-					fp(out, "%sLNH %s cost=%d%s", offset,
-					   pbuf, vo->v.local_nexthop.cost,
-					   HVTYNL);
-					break;
-
-				default:
-					fp(out,
-					   "%svn option type %d (unknown)%s",
-					   offset, vo->type, HVTYNL);
-					break;
-				}
-			}
-		}
-		if (nh->un_options) {
-			struct rfapi_un_option *uo;
-			char offset[] = "     ";
-
-			for (uo = nh->un_options; uo; uo = uo->next) {
-				switch (uo->type) {
-				case RFAPI_UN_OPTION_TYPE_TUNNELTYPE:
-					rfapi_print_tunneltype_option(
-						stream, 8, &uo->v.tunnel);
-					break;
-				default:
-					fp(out, "%sUN Option type %d%s", offset,
-					   uo->type, vty_newline);
-					break;
-				}
-			}
-		}
-	}
-}
-
-/***********************************************************************
- *			STATIC ROUTES
- ***********************************************************************/
-
-/*
- * Add another nexthop to the NHL
- */
-static void rfapiAddDeleteLocalRfpPrefix(struct rfapi_ip_addr *un_addr,
-					 struct rfapi_ip_addr *vn_addr,
-					 struct rfapi_ip_prefix *rprefix,
-					 int is_add,
-					 uint32_t lifetime, /* add only */
-					 struct rfapi_vn_option *vn_options,
-					 struct rfapi_next_hop_entry **head,
-					 struct rfapi_next_hop_entry **tail)
-{
-	struct rfapi_next_hop_entry *new;
-
-	/*
-	 * construct NHL
-	 */
-
-	new = XCALLOC(MTYPE_RFAPI_NEXTHOP, sizeof(struct rfapi_next_hop_entry));
-	new->prefix = *rprefix;
-	new->un_address = *un_addr;
-	new->vn_address = *vn_addr;
-
-	new->vn_options = vn_options;
-	if (is_add) {
-		new->lifetime = lifetime;
-	} else {
-		new->lifetime = RFAPI_REMOVE_RESPONSE_LIFETIME;
-	}
-
-	if (*tail)
-		(*tail)->next = new;
-	*tail = new;
-	if (!*head) {
-		*head = new;
-	}
-}
-
-
-static int
-register_add(struct vty *vty, struct cmd_token *carg_prefix,
-	     struct cmd_token *carg_vn, struct cmd_token *carg_un,
-	     struct cmd_token *carg_cost,     /* optional */
-	     struct cmd_token *carg_lifetime, /* optional */
-	     struct cmd_token *carg_macaddr,  /* optional */
-	     struct cmd_token
-		     *carg_vni, /* mac present=>mandatory Virtual Network ID */
-	     int argc, struct cmd_token **argv)
-{
-	const char *arg_prefix = carg_prefix ? carg_prefix->arg : NULL;
-	const char *arg_vn = carg_vn ? carg_vn->arg : NULL;
-	const char *arg_un = carg_un ? carg_un->arg : NULL;
-	const char *arg_cost = carg_cost ? carg_cost->arg : NULL;
-	const char *arg_lifetime = carg_lifetime ? carg_lifetime->arg : NULL;
-	const char *arg_macaddr = carg_macaddr ? carg_macaddr->arg : NULL;
-	const char *arg_vni = carg_vni ? carg_vni->arg : NULL;
-	struct rfapi_ip_addr vn_address;
-	struct rfapi_ip_addr un_address;
-	struct prefix pfx;
-	struct rfapi_ip_prefix rpfx;
-	uint32_t cost;
-	uint32_t lnh_cost;
-	uint32_t lifetime;
-	rfapi_handle rfd;
-	struct rfapi_vn_option optary[10]; /* XXX must be big enough */
-	struct rfapi_vn_option *opt = NULL;
-	int opt_next = 0;
-
-	int rc = CMD_WARNING_CONFIG_FAILED;
-	char *endptr;
-	struct bgp *bgp;
-	struct rfapi *h;
-	struct rfapi_cfg *rfapi_cfg;
-
-	const char *arg_lnh = NULL;
-	const char *arg_lnh_cost = NULL;
-
-	bgp = bgp_get_default(); /* assume 1 instance for now */
-	if (!bgp) {
-		if (vty)
-			vty_out(vty, "BGP not configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	h = bgp->rfapi;
-	rfapi_cfg = bgp->rfapi_cfg;
-	if (!h || !rfapi_cfg) {
-		if (vty)
-			vty_out(vty, "RFAPI not configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	for (; argc; --argc, ++argv) {
-		if (strmatch(argv[0]->text, "local-next-hop")) {
-			if (arg_lnh) {
-				vty_out(vty,
-					"local-next-hop specified more than once\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-			if (argc <= 1) {
-				vty_out(vty,
-					"Missing parameter for local-next-hop\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-			++argv, --argc;
-			arg_lnh = argv[0]->arg;
-		}
-		if (strmatch(argv[0]->text, "local-cost")) {
-			if (arg_lnh_cost) {
-				vty_out(vty,
-					"local-cost specified more than once\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-			if (argc <= 1) {
-				vty_out(vty,
-					"Missing parameter for local-cost\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-			++argv, --argc;
-			arg_lnh_cost = argv[0]->arg;
-		}
-	}
-
-	if ((rc = rfapiCliGetRfapiIpAddr(vty, arg_vn, &vn_address)))
-		goto fail;
-	if ((rc = rfapiCliGetRfapiIpAddr(vty, arg_un, &un_address)))
-		goto fail;
-
-	/* arg_prefix is optional if mac address is given */
-	if (arg_macaddr && !arg_prefix) {
-		/*
-		 * fake up a 0/32 or 0/128 prefix
-		 */
-		switch (vn_address.addr_family) {
-		case AF_INET:
-			arg_prefix = "0.0.0.0/32";
-			break;
-		case AF_INET6:
-			arg_prefix = "0::0/128";
-			break;
-		default:
-			vty_out(vty,
-				"Internal error, unknown VN address family\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	if (!str2prefix(arg_prefix, &pfx)) {
-		vty_out(vty, "Malformed prefix \"%s\"\n", arg_prefix);
-		goto fail;
-	}
-	if (pfx.family != AF_INET && pfx.family != AF_INET6) {
-		vty_out(vty, "prefix \"%s\" has invalid address family\n",
-			arg_prefix);
-		goto fail;
-	}
-
-
-	memset(optary, 0, sizeof(optary));
-
-	if (arg_cost) {
-		endptr = NULL;
-		cost = strtoul(arg_cost, &endptr, 10);
-		if (*endptr != '\0' || cost > 255) {
-			vty_out(vty, "%% Invalid %s value\n", "cost");
-			goto fail;
-		}
-	} else {
-		cost = 255;
-	}
-
-	if (arg_lifetime) {
-		if (!strcmp(arg_lifetime, "infinite")) {
-			lifetime = RFAPI_INFINITE_LIFETIME;
-		} else {
-			endptr = NULL;
-			lifetime = strtoul(arg_lifetime, &endptr, 10);
-			if (*endptr != '\0') {
-				vty_out(vty, "%% Invalid %s value\n",
-					"lifetime");
-				goto fail;
-			}
-		}
-	} else {
-		lifetime = RFAPI_INFINITE_LIFETIME; /* default infinite */
-	}
-
-	if (arg_lnh_cost) {
-		if (!arg_lnh) {
-			vty_out(vty,
-				"%% %s may only be specified with local-next-hop\n",
-				"local-cost");
-			goto fail;
-		}
-		endptr = NULL;
-		lnh_cost = strtoul(arg_lnh_cost, &endptr, 10);
-		if (*endptr != '\0' || lnh_cost > 255) {
-			vty_out(vty, "%% Invalid %s value\n", "local-cost");
-			goto fail;
-		}
-	} else {
-		lnh_cost = 255;
-	}
-
-	if (arg_lnh) {
-		if (!arg_prefix) {
-			vty_out(vty,
-				"%% %s may only be specified with prefix\n",
-				"local-next-hop");
-			goto fail;
-		}
-		if ((rc = rfapiCliGetPrefixAddr(
-			     vty, arg_lnh,
-			     &optary[opt_next].v.local_nexthop.addr))) {
-
-			goto fail;
-		}
-
-		optary[opt_next].v.local_nexthop.cost = lnh_cost;
-		optary[opt_next].type = RFAPI_VN_OPTION_TYPE_LOCAL_NEXTHOP;
-
-		if (opt_next) {
-			optary[opt_next - 1].next = optary + opt_next;
-		} else {
-			opt = optary;
-		}
-		++opt_next;
-	}
-
-	if (arg_vni && !arg_macaddr) {
-		vty_out(vty, "%% %s may only be specified with mac address\n",
-			"virtual-network-identifier");
-		goto fail;
-	}
-
-	if (arg_macaddr) {
-		if (!arg_vni) {
-			vty_out(vty,
-				"Missing \"vni\" parameter (mandatory with mac)\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		optary[opt_next].v.l2addr.logical_net_id =
-			strtoul(arg_vni, NULL, 10);
-
-		if ((rc = rfapiStr2EthAddr(
-			     arg_macaddr,
-			     &optary[opt_next].v.l2addr.macaddr))) {
-			vty_out(vty, "Invalid %s value\n", "mac address");
-			goto fail;
-		}
-		/* TBD label, NVE ID */
-
-		optary[opt_next].type = RFAPI_VN_OPTION_TYPE_L2ADDR;
-
-		if (opt_next) {
-			optary[opt_next - 1].next = optary + opt_next;
-		} else {
-			opt = optary;
-		}
-		++opt_next;
-	}
-
-	vnc_zlog_debug_verbose(
-		"%s: vn=%s, un=%s, prefix=%s, cost=%s, lifetime=%s, lnh=%s",
-		__func__, arg_vn, arg_un, arg_prefix,
-		(arg_cost ? arg_cost : "NULL"),
-		(arg_lifetime ? arg_lifetime : "NULL"),
-		(arg_lnh ? arg_lnh : "NULL"));
-
-	rfapiQprefix2Rprefix(&pfx, &rpfx);
-
-	rpfx.cost = cost & 255;
-
-	/* look up rf descriptor, call open if it doesn't exist  */
-	rc = rfapi_find_rfd(bgp, &vn_address, &un_address,
-			    (struct rfapi_descriptor **)&rfd);
-	if (rc) {
-		if (ENOENT == rc) {
-			struct rfapi_un_option uo;
-
-			/*
-			 * flag descriptor as provisionally opened for static
-			 * route
-			 * registration so that we can fix up the other
-			 * parameters
-			 * when the real open comes along
-			 */
-			memset(&uo, 0, sizeof(uo));
-			uo.type = RFAPI_UN_OPTION_TYPE_PROVISIONAL;
-
-			rc = rfapi_open(rfapi_get_rfp_start_val_by_bgp(bgp),
-					&vn_address, &un_address,
-					&uo,	/* flags */
-					NULL, NULL, /* no userdata */
-					&rfd);
-			if (rc) {
-				vty_out(vty,
-					"Can't open session for this NVE: %s\n",
-					rfapi_error_str(rc));
-				rc = CMD_WARNING_CONFIG_FAILED;
-				goto fail;
-			}
-		} else {
-			vty_out(vty, "Can't find session for this NVE: %s\n",
-				rfapi_error_str(rc));
-			goto fail;
-		}
-	}
-
-	rc = rfapi_register(rfd, &rpfx, lifetime, NULL, opt,
-			    RFAPI_REGISTER_ADD);
-	if (!rc) {
-		struct rfapi_next_hop_entry *head = NULL;
-		struct rfapi_next_hop_entry *tail = NULL;
-		struct rfapi_vn_option *vn_opt_new;
-
-		vnc_zlog_debug_verbose(
-			"%s: rfapi_register succeeded, returning 0", __func__);
-
-		if (h->rfp_methods.local_cb) {
-			struct rfapi_descriptor *r =
-				(struct rfapi_descriptor *)rfd;
-			vn_opt_new = rfapi_vn_options_dup(opt);
-
-			rfapiAddDeleteLocalRfpPrefix(&r->un_addr, &r->vn_addr,
-						     &rpfx, 1, lifetime,
-						     vn_opt_new, &head, &tail);
-			if (head) {
-				h->flags |= RFAPI_INCALLBACK;
-				(*h->rfp_methods.local_cb)(head, r->cookie);
-				h->flags &= ~RFAPI_INCALLBACK;
-			}
-			head = tail = NULL;
-		}
-		return 0;
-	}
-
-	vnc_zlog_debug_verbose("%s: rfapi_register failed", __func__);
-	vty_out(vty, "\n");
-	vty_out(vty, "Registration failed.\n");
-	vty_out(vty,
-		"Confirm that either the VN or UN address matches a configured NVE group.\n");
-	return CMD_WARNING_CONFIG_FAILED;
-
-fail:
-	vnc_zlog_debug_verbose("%s: fail, rc=%d", __func__, rc);
-	return rc;
-}
-
-/************************************************************************
- *		Add prefix With LNH_OPTIONS...
- ************************************************************************/
-DEFUN (add_vnc_prefix_cost_life_lnh,
-       add_vnc_prefix_cost_life_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295) LNH_OPTIONS...",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], argv[9], argv[11],
-			    /* mac vni */
-			    NULL, NULL, argc - 12, argv + 12);
-}
-
-DEFUN (add_vnc_prefix_life_cost_lnh,
-       add_vnc_prefix_life_cost_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255) LNH_OPTIONS...",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], argv[11], argv[9],
-			    /* mac vni */
-			    NULL, NULL, argc - 12, argv + 12);
-}
-
-DEFUN (add_vnc_prefix_cost_lnh,
-       add_vnc_prefix_cost_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) LNH_OPTIONS...",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], argv[9], NULL,
-			    /* mac vni */
-			    NULL, NULL, argc - 10, argv + 10);
-}
-
-DEFUN (add_vnc_prefix_life_lnh,
-       add_vnc_prefix_life_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) LNH_OPTIONS...",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], NULL, argv[9],
-			    /* mac vni */
-			    NULL, NULL, argc - 10, argv + 10);
-}
-
-DEFUN (add_vnc_prefix_lnh,
-       add_vnc_prefix_lnh_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> LNH_OPTIONS...",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], NULL, NULL,
-			    /* mac vni */
-			    NULL, NULL, argc - 8, argv + 8);
-}
-
-/************************************************************************
- *		Add prefix Without LNH_OPTIONS...
- ************************************************************************/
-DEFUN (add_vnc_prefix_cost_life,
-       add_vnc_prefix_cost_life_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], argv[9], argv[11],
-			    /* mac vni */
-			    NULL, NULL, 0, NULL);
-}
-
-DEFUN (add_vnc_prefix_life_cost,
-       add_vnc_prefix_life_cost_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295) cost (0-255)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], argv[11], argv[9],
-			    /* mac vni */
-			    NULL, NULL, 0, NULL);
-}
-
-DEFUN (add_vnc_prefix_cost,
-       add_vnc_prefix_cost_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], argv[9], NULL,
-			    /* mac vni */
-			    NULL, NULL, 0, NULL);
-}
-
-DEFUN (add_vnc_prefix_life,
-       add_vnc_prefix_life_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], NULL, argv[9],
-			    /* mac vni */
-			    NULL, NULL, 0, NULL);
-}
-
-DEFUN (add_vnc_prefix,
-       add_vnc_prefix_cmd,
-       "add vnc prefix <A.B.C.D/M|X:X::X:X/M> vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[3], argv[5], argv[7], NULL, NULL,
-			    /* mac vni */
-			    NULL, NULL, 0, NULL);
-}
-
-/************************************************************************
- *			Mac address registrations
- ************************************************************************/
-DEFUN (add_vnc_mac_vni_prefix_cost_life,
-       add_vnc_mac_vni_prefix_cost_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255) lifetime (1-4294967295)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify mac address information\n"
-       "MAC address\n"
-       "Virtual Network Identifier follows\n"
-       "Virtual Network Identifier\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[11], argv[7], argv[9], argv[13], argv[15],
-			    /* mac vni */
-			    argv[3], argv[5], 0, NULL);
-}
-
-
-DEFUN (add_vnc_mac_vni_prefix_life,
-       add_vnc_mac_vni_prefix_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime (1-4294967295)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify mac address information\n"
-       "MAC address\n"
-       "Virtual Network Identifier follows\n"
-       "Virtual Network Identifier\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[11], argv[7], argv[9], NULL, argv[13],
-			    /* mac vni */
-			    argv[3], argv[5], 0, NULL);
-}
-
-DEFUN (add_vnc_mac_vni_prefix_cost,
-       add_vnc_mac_vni_prefix_cost_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> cost (0-255)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify mac address information\n"
-       "MAC address\n"
-       "Virtual Network Identifier follows\n"
-       "Virtual Network Identifier\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "Administrative cost   [default: 255]\n" "Administrative cost\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[11], argv[7], argv[9], argv[13], NULL,
-			    /* mac vni */
-			    argv[3], argv[5], 0, NULL);
-}
-
-DEFUN (add_vnc_mac_vni_prefix,
-       add_vnc_mac_vni_prefix_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify mac address information\n"
-       "MAC address\n"
-       "Virtual Network Identifier follows\n"
-       "Virtual Network Identifier\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n" "IPv6 prefix\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, argv[11], argv[7], argv[9], NULL, NULL,
-			    /* mac vni */
-			    argv[3], argv[5], 0, NULL);
-}
-
-DEFUN (add_vnc_mac_vni_cost_life,
-       add_vnc_mac_vni_cost_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255) lifetime (1-4294967295)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify mac address information\n"
-       "MAC address\n"
-       "Virtual Network Identifier follows\n"
-       "Virtual Network Identifier\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n")
-{
-	/*                       pfx      vn       un       cost     life */
-	return register_add(vty, NULL, argv[7], argv[9], argv[11], argv[13],
-			    /* mac vni */
-			    argv[3], argv[5], 0, NULL);
-}
-
-
-DEFUN (add_vnc_mac_vni_cost,
-       add_vnc_mac_vni_cost_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify mac address information\n"
-       "MAC address\n"
-       "Virtual Network Identifier follows\n"
-       "Virtual Network Identifier\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Administrative cost   [default: 255]\n" "Administrative cost\n")
-{
-	/*                       pfx      vn       un    cost     life */
-	return register_add(vty, NULL, argv[7], argv[9], argv[11], NULL,
-			    /* mac vni */
-			    argv[3], argv[5], 0, NULL);
-}
-
-
-DEFUN (add_vnc_mac_vni_life,
-       add_vnc_mac_vni_life_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lifetime (1-4294967295)",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify mac address information\n"
-       "MAC address\n"
-       "Virtual Network Identifier follows\n"
-       "Virtual Network Identifier\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n")
-{
-	/*                       pfx      vn       un    cost  life */
-	return register_add(vty, NULL, argv[7], argv[9], NULL, argv[11],
-			    /* mac vni */
-			    argv[3], argv[5], 0, NULL);
-}
-
-
-DEFUN (add_vnc_mac_vni,
-       add_vnc_mac_vni_cmd,
-       "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
-       "Add registration\n"
-       "VNC Information\n"
-       "Add/modify mac address information\n"
-       "MAC address\n"
-       "Virtual Network Identifier follows\n"
-       "Virtual Network Identifier\n"
-       "VN address of NVE\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "UN IPv4 interface address\n" "UN IPv6 interface address\n")
-{
-	/*                       pfx      vn       un    cost  life */
-	return register_add(vty, NULL, argv[7], argv[9], NULL, NULL,
-			    /* mac vni */
-			    argv[3], argv[5], 0, NULL);
-}
-
-/************************************************************************
- *			Delete prefix
- ************************************************************************/
-
-struct rfapi_local_reg_delete_arg {
-	/*
-	 * match parameters
-	 */
-	struct bgp *bgp;
-	struct rfapi_ip_addr un_address; /* AF==0: wildcard */
-	struct rfapi_ip_addr vn_address; /* AF==0: wildcard */
-	struct prefix prefix;		 /* AF==0: wildcard */
-	struct prefix_rd rd;		 /* plen!=64: wildcard */
-	struct rfapi_nve_group_cfg *rfg; /* NULL: wildcard */
-
-	struct rfapi_l2address_option_match l2o;
-
-	/*
-	 * result parameters
-	 */
-	struct vty *vty;
-	uint32_t reg_count;
-	uint32_t pfx_count;
-	uint32_t query_count;
-
-	uint32_t failed_pfx_count;
-
-	uint32_t nve_count;
-	struct skiplist *nves;
-
-	uint32_t remote_active_nve_count;
-	uint32_t remote_active_pfx_count;
-	uint32_t remote_holddown_nve_count;
-	uint32_t remote_holddown_pfx_count;
-};
-
-struct nve_addr {
-	struct rfapi_ip_addr vn;
-	struct rfapi_ip_addr un;
-	struct rfapi_descriptor *rfd;
-	struct rfapi_local_reg_delete_arg *cda;
-};
-
-static void nve_addr_free(void *hap)
-{
-	((struct nve_addr *)hap)->cda->nve_count += 1;
-	XFREE(MTYPE_RFAPI_NVE_ADDR, hap);
-}
-
-static int nve_addr_cmp(void *k1, void *k2)
-{
-	struct nve_addr *a = (struct nve_addr *)k1;
-	struct nve_addr *b = (struct nve_addr *)k2;
-	int ret = 0;
-
-	if (!a || !b) {
-		return (a - b);
-	}
-	if (a->un.addr_family != b->un.addr_family) {
-		return (a->un.addr_family - b->un.addr_family);
-	}
-	if (a->vn.addr_family != b->vn.addr_family) {
-		return (a->vn.addr_family - b->vn.addr_family);
-	}
-	if (a->un.addr_family == AF_INET) {
-		ret = IPV4_ADDR_CMP(&a->un.addr.v4, &b->un.addr.v4);
-		if (ret != 0) {
-			return ret;
-		}
-	} else if (a->un.addr_family == AF_INET6) {
-		ret = IPV6_ADDR_CMP(&a->un.addr.v6, &b->un.addr.v6);
-		if (ret != 0) {
-			return ret;
-		}
-	} else {
-		assert(0);
-	}
-	if (a->vn.addr_family == AF_INET) {
-		ret = IPV4_ADDR_CMP(&a->vn.addr.v4, &b->vn.addr.v4);
-		if (ret != 0)
-			return ret;
-	} else if (a->vn.addr_family == AF_INET6) {
-		ret = IPV6_ADDR_CMP(&a->vn.addr.v6, &b->vn.addr.v6);
-		if (ret == 0) {
-			return ret;
-		}
-	} else {
-		assert(0);
-	}
-	return 0;
-}
-
-static int parse_deleter_args(struct vty *vty, struct bgp *bgp,
-			      const char *arg_prefix, const char *arg_vn,
-			      const char *arg_un, const char *arg_l2addr,
-			      const char *arg_vni, const char *arg_rd,
-			      struct rfapi_nve_group_cfg *arg_rfg,
-			      struct rfapi_local_reg_delete_arg *rcdarg)
-{
-	int rc = CMD_WARNING;
-
-	memset(rcdarg, 0, sizeof(struct rfapi_local_reg_delete_arg));
-
-	rcdarg->vty = vty;
-	if (bgp == NULL)
-		bgp = bgp_get_default();
-	rcdarg->bgp = bgp;
-	rcdarg->rfg = arg_rfg; /* may be NULL */
-
-	if (arg_vn && strcmp(arg_vn, "*")) {
-		if ((rc = rfapiCliGetRfapiIpAddr(vty, arg_vn,
-						 &rcdarg->vn_address)))
-			return rc;
-	}
-	if (arg_un && strcmp(arg_un, "*")) {
-		if ((rc = rfapiCliGetRfapiIpAddr(vty, arg_un,
-						 &rcdarg->un_address)))
-			return rc;
-	}
-	if (arg_prefix && strcmp(arg_prefix, "*")) {
-
-		if (!str2prefix(arg_prefix, &rcdarg->prefix)) {
-			vty_out(vty, "Malformed prefix \"%s\"\n", arg_prefix);
-			return rc;
-		}
-	}
-
-	if (arg_l2addr) {
-		if (!arg_vni) {
-			vty_out(vty, "Missing VNI\n");
-			return rc;
-		}
-		if (strcmp(arg_l2addr, "*")) {
-			if ((rc = rfapiStr2EthAddr(arg_l2addr,
-						   &rcdarg->l2o.o.macaddr))) {
-				vty_out(vty, "Malformed L2 Address \"%s\"\n",
-					arg_l2addr);
-				return rc;
-			}
-			rcdarg->l2o.flags |= RFAPI_L2O_MACADDR;
-		}
-		if (strcmp(arg_vni, "*")) {
-			rcdarg->l2o.o.logical_net_id =
-				strtoul(arg_vni, NULL, 10);
-			rcdarg->l2o.flags |= RFAPI_L2O_LNI;
-		}
-	}
-	if (arg_rd) {
-		if (!str2prefix_rd(arg_rd, &rcdarg->rd)) {
-			vty_out(vty, "Malformed RD \"%s\"\n", arg_rd);
-			return rc;
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-static int
-parse_deleter_tokens(struct vty *vty, struct bgp *bgp,
-		     struct cmd_token *carg_prefix, struct cmd_token *carg_vn,
-		     struct cmd_token *carg_un, struct cmd_token *carg_l2addr,
-		     struct cmd_token *carg_vni, struct cmd_token *carg_rd,
-		     struct rfapi_nve_group_cfg *arg_rfg,
-		     struct rfapi_local_reg_delete_arg *rcdarg)
-{
-	const char *arg_prefix = carg_prefix ? carg_prefix->arg : NULL;
-	const char *arg_vn = carg_vn ? carg_vn->arg : NULL;
-	const char *arg_un = carg_un ? carg_un->arg : NULL;
-	const char *arg_l2addr = carg_l2addr ? carg_l2addr->arg : NULL;
-	const char *arg_vni = carg_vni ? carg_vni->arg : NULL;
-	const char *arg_rd = carg_rd ? carg_rd->arg : NULL;
-	return parse_deleter_args(vty, bgp, arg_prefix, arg_vn, arg_un,
-				  arg_l2addr, arg_vni, arg_rd, arg_rfg, rcdarg);
-}
-
-static void record_nve_in_cda_list(struct rfapi_local_reg_delete_arg *cda,
-				   struct rfapi_ip_addr *un_address,
-				   struct rfapi_ip_addr *vn_address,
-				   struct rfapi_descriptor *rfd)
-{
-	struct nve_addr ha;
-	struct nve_addr *hap;
-
-	memset(&ha, 0, sizeof(ha));
-	ha.un = *un_address;
-	ha.vn = *vn_address;
-	ha.rfd = rfd;
-
-	if (!cda->nves)
-		cda->nves = skiplist_new(0, nve_addr_cmp, nve_addr_free);
-
-	if (skiplist_search(cda->nves, &ha, (void *)&hap)) {
-		hap = XCALLOC(MTYPE_RFAPI_NVE_ADDR, sizeof(struct nve_addr));
-		assert(hap);
-		ha.cda = cda;
-		*hap = ha;
-		skiplist_insert(cda->nves, hap, hap);
-	}
-}
-
-static void clear_vnc_responses(struct rfapi_local_reg_delete_arg *cda)
-{
-	struct rfapi *h;
-	struct rfapi_descriptor *rfd;
-	int query_count = 0;
-	struct listnode *node;
-	struct bgp *bgp_default = bgp_get_default();
-
-	if (cda->vn_address.addr_family && cda->un_address.addr_family) {
-		/*
-		 * Single nve case
-		 */
-		if (rfapi_find_rfd(bgp_default, &cda->vn_address,
-				   &cda->un_address, &rfd))
-			return;
-
-		rfapiRibClear(rfd);
-		rfapi_query_done_all(rfd, &query_count);
-		cda->query_count += query_count;
-
-		/*
-		 * Track unique nves seen
-		 */
-		record_nve_in_cda_list(cda, &rfd->un_addr, &rfd->vn_addr, rfd);
-		return;
-	}
-
-	/*
-	 * wildcard case
-	 */
-
-	if (!bgp_default)
-		return; /* ENXIO */
-
-	h = bgp_default->rfapi;
-
-	if (!h)
-		return; /* ENXIO */
-
-	for (ALL_LIST_ELEMENTS_RO(&h->descriptors, node, rfd)) {
-		/*
-		 * match un, vn addresses of NVEs
-		 */
-		if (cda->un_address.addr_family
-		    && rfapi_ip_addr_cmp(&cda->un_address, &rfd->un_addr)) {
-			continue;
-		}
-		if (cda->vn_address.addr_family
-		    && rfapi_ip_addr_cmp(&cda->vn_address, &rfd->vn_addr)) {
-			continue;
-		}
-
-		rfapiRibClear(rfd);
-
-		rfapi_query_done_all(rfd, &query_count);
-		cda->query_count += query_count;
-
-		/*
-		 * Track unique nves seen
-		 */
-		record_nve_in_cda_list(cda, &rfd->un_addr, &rfd->vn_addr, rfd);
-	}
-}
-
-/*
- * TBD need to count deleted prefixes and nves?
- *
- * ENXIO	BGP or VNC not configured
- */
-static int rfapiDeleteLocalPrefixesByRFD(struct rfapi_local_reg_delete_arg *cda,
-					 struct rfapi_descriptor *rfd)
-{
-	struct rfapi_ip_addr *pUn; /* NULL = wildcard */
-	struct rfapi_ip_addr *pVn; /* NULL = wildcard */
-	struct prefix *pPrefix;    /* NULL = wildcard */
-	struct prefix_rd *pPrd;    /* NULL = wildcard */
-
-	struct rfapi_ip_prefix rprefix;
-	struct rfapi_next_hop_entry *head = NULL;
-	struct rfapi_next_hop_entry *tail = NULL;
-
-#if DEBUG_L2_EXTRA
-	vnc_zlog_debug_verbose("%s: entry", __func__);
-#endif
-
-	pUn = (cda->un_address.addr_family ? &cda->un_address : NULL);
-	pVn = (cda->vn_address.addr_family ? &cda->vn_address : NULL);
-	pPrefix = (cda->prefix.family ? &cda->prefix : NULL);
-	pPrd = (cda->rd.prefixlen == 64 ? &cda->rd : NULL);
-
-	if (pPrefix) {
-		rfapiQprefix2Rprefix(pPrefix, &rprefix);
-	}
-
-	do /* to preserve old code structure */
-	{
-		struct rfapi *h = cda->bgp->rfapi;
-		;
-		struct rfapi_adb *adb;
-		int rc;
-		int deleted_from_this_nve;
-		struct nve_addr ha;
-		struct nve_addr *hap;
-
-#if DEBUG_L2_EXTRA
-		vnc_zlog_debug_verbose("%s: rfd=%p", __func__, rfd);
-#endif
-
-		/*
-		 * match un, vn addresses of NVEs
-		 */
-		if (pUn && (rfapi_ip_addr_cmp(pUn, &rfd->un_addr)))
-			continue;
-		if (pVn && (rfapi_ip_addr_cmp(pVn, &rfd->vn_addr)))
-			continue;
-
-#if DEBUG_L2_EXTRA
-		vnc_zlog_debug_verbose("%s: un, vn match", __func__);
-#endif
-
-		/*
-		 * match prefix
-		 */
-
-		deleted_from_this_nve = 0;
-
-		{
-			struct skiplist *sl;
-			struct rfapi_ip_prefix rp;
-			void *cursor;
-			struct list *adb_delete_list;
-
-			/*
-			 * The advertisements are stored in a skiplist.
-			 * Withdrawing
-			 * the registration deletes the advertisement from the
-			 * skiplist, which we can't do while iterating over that
-			 * same skiplist using the current skiplist API.
-			 *
-			 * Strategy: iterate over the skiplist and build another
-			 * list containing only the matching ADBs. Then delete
-			 * _everything_ in that second list (which can be done
-			 * using either skiplists or quagga linklists).
-			 */
-			adb_delete_list = list_new();
-
-			/*
-			 * Advertised IP prefixes (not 0/32 or 0/128)
-			 */
-			sl = rfd->advertised.ipN_by_prefix;
-
-			for (cursor = NULL,
-			    rc = skiplist_next(sl, NULL, (void **)&adb,
-					       &cursor);
-			     !rc; rc = skiplist_next(sl, NULL, (void **)&adb,
-						     &cursor)) {
-
-				if (pPrefix) {
-					if (!prefix_same(pPrefix,
-							 &adb->u.s.prefix_ip)) {
-#if DEBUG_L2_EXTRA
-						vnc_zlog_debug_verbose(
-							"%s: adb=%p, prefix doesn't match, skipping",
-							__func__, adb);
-#endif
-						continue;
-					}
-				}
-				if (pPrd) {
-					if (memcmp(pPrd->val, adb->u.s.prd.val,
-						   8)
-					    != 0) {
-#if DEBUG_L2_EXTRA
-						vnc_zlog_debug_verbose(
-							"%s: adb=%p, RD doesn't match, skipping",
-							__func__, adb);
-#endif
-						continue;
-					}
-				}
-				if (CHECK_FLAG(cda->l2o.flags,
-					       RFAPI_L2O_MACADDR)) {
-					if (memcmp(cda->l2o.o.macaddr.octet,
-						   adb->u.s.prefix_eth.u
-							   .prefix_eth.octet,
-						   ETH_ALEN)) {
-#if DEBUG_L2_EXTRA
-						vnc_zlog_debug_verbose(
-							"%s: adb=%p, macaddr doesn't match, skipping",
-							__func__, adb);
-#endif
-						continue;
-					}
-				}
-
-				if (CHECK_FLAG(cda->l2o.flags, RFAPI_L2O_LNI)) {
-					if (cda->l2o.o.logical_net_id
-					    != adb->l2o.logical_net_id) {
-#if DEBUG_L2_EXTRA
-						vnc_zlog_debug_verbose(
-							"%s: adb=%p, LNI doesn't match, skipping",
-							__func__, adb);
-#endif
-						continue;
-					}
-				}
-
-#if DEBUG_L2_EXTRA
-				vnc_zlog_debug_verbose(
-					"%s: ipN adding adb %p to delete list",
-					__func__, adb);
-#endif
-
-				listnode_add(adb_delete_list, adb);
-			}
-
-			struct listnode *node;
-
-			for (ALL_LIST_ELEMENTS_RO(adb_delete_list, node, adb)) {
-				int this_advertisement_prefix_count;
-				struct rfapi_vn_option optary[3];
-				struct rfapi_vn_option *opt = NULL;
-				int cur_opt = 0;
-
-				this_advertisement_prefix_count = 1;
-
-				rfapiQprefix2Rprefix(&adb->u.s.prefix_ip, &rp);
-
-				memset(optary, 0, sizeof(optary));
-
-				/* if mac addr present in advert,  make l2o vn
-				 * option */
-				if (adb->u.s.prefix_eth.family == AF_ETHERNET) {
-					if (opt != NULL)
-						opt->next = &optary[cur_opt];
-					opt = &optary[cur_opt++];
-					opt->type = RFAPI_VN_OPTION_TYPE_L2ADDR;
-					opt->v.l2addr.macaddr =
-						adb->u.s.prefix_eth.u
-							.prefix_eth;
-					++this_advertisement_prefix_count;
-				}
-				/*
-				 * use saved RD value instead of trying to
-				 * invert
-				 * complex RD computation in rfapi_register()
-				 */
-				if (opt != NULL)
-					opt->next = &optary[cur_opt];
-				opt = &optary[cur_opt++];
-				opt->type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
-				opt->v.internal_rd = adb->u.s.prd;
-
-#if DEBUG_L2_EXTRA
-				vnc_zlog_debug_verbose(
-					"%s: ipN killing reg from adb %p ",
-					__func__, adb);
-#endif
-
-				rc = rfapi_register(rfd, &rp, 0, NULL,
-						    (cur_opt ? optary : NULL),
-						    RFAPI_REGISTER_KILL);
-				if (!rc) {
-					cda->pfx_count +=
-						this_advertisement_prefix_count;
-					cda->reg_count += 1;
-					deleted_from_this_nve = 1;
-				}
-				if (h->rfp_methods.local_cb) {
-					rfapiAddDeleteLocalRfpPrefix(
-						&rfd->un_addr, &rfd->vn_addr,
-						&rp, 0, 0, NULL, &head, &tail);
-				}
-			}
-			list_delete_all_node(adb_delete_list);
-
-			if (!(pPrefix && !RFAPI_0_PREFIX(pPrefix))) {
-				void *cursor;
-
-				/*
-				 * Caller didn't specify a prefix, or specified
-				 * (0/32 or 0/128)
-				 */
-
-				/*
-				 * Advertised 0/32 and 0/128 (indexed by
-				 * ethernet address)
-				 */
-				sl = rfd->advertised.ip0_by_ether;
-
-				for (cursor = NULL,
-				    rc = skiplist_next(sl, NULL, (void **)&adb,
-						       &cursor);
-				     !rc;
-				     rc = skiplist_next(sl, NULL, (void **)&adb,
-							&cursor)) {
-
-					if (CHECK_FLAG(cda->l2o.flags,
-						       RFAPI_L2O_MACADDR)) {
-						if (memcmp(cda->l2o.o.macaddr
-								   .octet,
-							   adb->u.s.prefix_eth.u
-								   .prefix_eth
-								   .octet,
-							   ETH_ALEN)) {
-
-							continue;
-						}
-					}
-					if (CHECK_FLAG(cda->l2o.flags,
-						       RFAPI_L2O_LNI)) {
-						if (cda->l2o.o.logical_net_id
-						    != adb->l2o.logical_net_id) {
-							continue;
-						}
-					}
-#if DEBUG_L2_EXTRA
-					vnc_zlog_debug_verbose(
-						"%s: ip0 adding adb %p to delete list",
-						__func__, adb);
-#endif
-					listnode_add(adb_delete_list, adb);
-				}
-
-
-				for (ALL_LIST_ELEMENTS_RO(adb_delete_list, node,
-							  adb)) {
-
-					struct rfapi_vn_option vn;
-
-					rfapiQprefix2Rprefix(
-						&adb->u.s.prefix_ip, &rp);
-
-					memset(&vn, 0, sizeof(vn));
-					vn.type = RFAPI_VN_OPTION_TYPE_L2ADDR;
-					vn.v.l2addr = adb->l2o;
-
-#if DEBUG_L2_EXTRA
-					vnc_zlog_debug_verbose(
-						"%s: ip0 killing reg from adb %p ",
-						__func__, adb);
-#endif
-
-					rc = rfapi_register(
-						rfd, &rp, 0, NULL, &vn,
-						RFAPI_REGISTER_KILL);
-					if (!rc) {
-						cda->pfx_count += 1;
-						cda->reg_count += 1;
-						deleted_from_this_nve = 1;
-					}
-					if (h->rfp_methods.local_cb) {
-						struct rfapi_vn_option
-							*vn_opt_new;
-
-						vn_opt_new =
-							rfapi_vn_options_dup(
-								&vn);
-						rfapiAddDeleteLocalRfpPrefix(
-							&rfd->un_addr,
-							&rfd->vn_addr, &rp, 0,
-							0, vn_opt_new, &head,
-							&tail);
-					}
-				}
-				list_delete_all_node(adb_delete_list);
-			}
-			list_delete_and_null(&adb_delete_list);
-		}
-
-
-		if (head) { /* should not be set if (NULL ==
-			       rfapi_cfg->local_cb) */
-			h->flags |= RFAPI_INCALLBACK;
-			(*h->rfp_methods.local_cb)(head, rfd->cookie);
-			h->flags &= ~RFAPI_INCALLBACK;
-			head = tail = NULL;
-		}
-
-		if (deleted_from_this_nve) {
-			/*
-			 * track unique NVEs seen
-			 */
-			memset(&ha, 0, sizeof(ha));
-			ha.un = rfd->un_addr;
-			ha.vn = rfd->vn_addr;
-
-			if (!cda->nves)
-				cda->nves = skiplist_new(0, nve_addr_cmp,
-							 nve_addr_free);
-			if (skiplist_search(cda->nves, &ha, (void **)&hap)) {
-				hap = XCALLOC(MTYPE_RFAPI_NVE_ADDR,
-					      sizeof(struct nve_addr));
-				assert(hap);
-				ha.cda = cda;
-				*hap = ha;
-				skiplist_insert(cda->nves, hap, hap);
-			}
-		}
-	} while (0); /*  to preserve old code structure */
-
-	return 0;
-}
-
-static int rfapiDeleteLocalPrefixes(struct rfapi_local_reg_delete_arg *cda)
-{
-	int rc = 0;
-
-	if (cda->rfg) {
-		if (cda->rfg->rfd) /* if not open, nothing to delete */
-			rc = rfapiDeleteLocalPrefixesByRFD(cda, cda->rfg->rfd);
-	} else {
-		struct bgp *bgp = cda->bgp;
-		struct rfapi *h;
-		struct rfapi_cfg *rfapi_cfg;
-
-		struct listnode *node;
-		struct rfapi_descriptor *rfd;
-		if (!bgp)
-			return ENXIO;
-		h = bgp->rfapi;
-		rfapi_cfg = bgp->rfapi_cfg;
-		if (!h || !rfapi_cfg)
-			return ENXIO;
-		vnc_zlog_debug_verbose("%s: starting descriptor loop",
-				       __func__);
-		for (ALL_LIST_ELEMENTS_RO(&h->descriptors, node, rfd)) {
-			rc = rfapiDeleteLocalPrefixesByRFD(cda, rfd);
-		}
-	}
-	return rc;
-}
-
-/*
- * clear_vnc_prefix
- *
- * Deletes local and remote prefixes that match
- */
-static void clear_vnc_prefix(struct rfapi_local_reg_delete_arg *cda)
-{
-	struct prefix pfx_un;
-	struct prefix pfx_vn;
-
-	struct prefix *pUN = NULL;
-	struct prefix *pVN = NULL;
-	struct prefix *pPrefix = NULL;
-
-	struct rfapi_import_table *it = NULL;
-
-	/*
-	 * Delete matching remote prefixes in holddown
-	 */
-	if (cda->vn_address.addr_family) {
-		if (!rfapiRaddr2Qprefix(&cda->vn_address, &pfx_vn))
-			pVN = &pfx_vn;
-	}
-	if (cda->un_address.addr_family) {
-		if (!rfapiRaddr2Qprefix(&cda->un_address, &pfx_un))
-			pUN = &pfx_un;
-	}
-	if (cda->prefix.family) {
-		pPrefix = &cda->prefix;
-	}
-	if (cda->rfg) {
-		it = cda->rfg->rfapi_import_table;
-	}
-	rfapiDeleteRemotePrefixes(
-		pUN, pVN, pPrefix, it, 0, 1, &cda->remote_active_pfx_count,
-		&cda->remote_active_nve_count, &cda->remote_holddown_pfx_count,
-		&cda->remote_holddown_nve_count);
-
-	/*
-	 * Now do local prefixes
-	 */
-	rfapiDeleteLocalPrefixes(cda);
-}
-
-static void print_cleared_stats(struct rfapi_local_reg_delete_arg *cda)
-{
-	struct vty *vty = cda->vty; /* for benefit of VTYNL */
-
-	/* Our special element-deleting function counts nves */
-	if (cda->nves) {
-		skiplist_free(cda->nves);
-		cda->nves = NULL;
-	}
-	if (cda->failed_pfx_count)
-		vty_out(vty, "Failed to delete %d prefixes\n",
-			cda->failed_pfx_count);
-
-	/* left as "prefixes" even in single case for ease of machine parsing */
-	vty_out(vty,
-		"[Local] Cleared %u registrations, %u prefixes, %u responses from %d NVEs\n",
-		cda->reg_count, cda->pfx_count, cda->query_count,
-		cda->nve_count);
-
-	/*
-	 * We don't currently allow deletion of active remote prefixes from
-	 * the command line
-	 */
-
-	vty_out(vty, "[Holddown] Cleared %u prefixes from %u NVEs\n",
-		cda->remote_holddown_pfx_count, cda->remote_holddown_nve_count);
-}
-
-/*
- * Caller has already deleted registrations and queries for this/these
- * NVEs. Now we just have to close their descriptors.
- */
-static void clear_vnc_nve_closer(struct rfapi_local_reg_delete_arg *cda)
-{
-	struct skiplist *sl = cda->nves; /* contains affected NVEs */
-	struct nve_addr *pKey;
-	struct nve_addr *pValue;
-	void *cursor = NULL;
-	int rc;
-
-	if (!sl)
-		return;
-
-	for (rc = skiplist_next(sl, (void **)&pKey, (void **)&pValue, &cursor);
-	     !rc; rc = skiplist_next(sl, (void **)&pKey, (void **)&pValue,
-				     &cursor)) {
-
-		if (pValue->rfd) {
-			((struct rfapi_descriptor *)pValue->rfd)->flags |=
-				RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY;
-			rfapi_close(pValue->rfd);
-		}
-	}
-}
-
-DEFUN (clear_vnc_nve_all,
-       clear_vnc_nve_all_cmd,
-       "clear vnc nve *",
-       "clear\n"
-       "VNC Information\n"
-       "Clear per NVE information\n"
-       "For all NVEs\n")
-{
-
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_args(vty, NULL, NULL, NULL, NULL, NULL, NULL,
-				     NULL, NULL, &cda)))
-		return rc;
-
-	cda.vty = vty;
-
-	clear_vnc_responses(&cda);
-	clear_vnc_prefix(&cda);
-	clear_vnc_nve_closer(&cda);
-
-	print_cleared_stats(&cda);
-
-	return 0;
-}
-
-DEFUN (clear_vnc_nve_vn_un,
-       clear_vnc_nve_vn_un_cmd,
-       "clear vnc nve vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear prefix registration information\n"
-       "VN address of NVE\n"
-       "For all NVEs\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "For all UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_tokens(vty, NULL, NULL, argv[4], argv[6], NULL,
-				       NULL, NULL, NULL, &cda)))
-		return rc;
-
-	cda.vty = vty;
-
-	clear_vnc_responses(&cda);
-	clear_vnc_prefix(&cda);
-	clear_vnc_nve_closer(&cda);
-
-	print_cleared_stats(&cda);
-
-	return 0;
-}
-
-DEFUN (clear_vnc_nve_un_vn,
-       clear_vnc_nve_un_vn_cmd,
-       "clear vnc nve un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear prefix registration information\n"
-       "UN address of NVE\n"
-       "For all un NVEs\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "VN address of NVE\n"
-       "For all vn NVEs\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_tokens(vty, NULL, NULL, argv[6], argv[4], NULL,
-				       NULL, NULL, NULL, &cda)))
-		return rc;
-
-	cda.vty = vty;
-
-	clear_vnc_responses(&cda);
-	clear_vnc_prefix(&cda);
-	clear_vnc_nve_closer(&cda);
-
-	print_cleared_stats(&cda);
-
-	return 0;
-}
-
-DEFUN (clear_vnc_nve_vn,
-       clear_vnc_nve_vn_cmd,
-       "clear vnc nve vn <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear prefix registration information\n"
-       "VN address of NVE\n"
-       "All addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_tokens(vty, NULL, NULL, argv[4], NULL, NULL,
-				       NULL, NULL, NULL, &cda)))
-		return rc;
-
-	cda.vty = vty;
-
-	clear_vnc_responses(&cda);
-	clear_vnc_prefix(&cda);
-	clear_vnc_nve_closer(&cda);
-
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_nve_un,
-       clear_vnc_nve_un_cmd,
-       "clear vnc nve un <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear prefix registration information\n"
-       "UN address of NVE\n"
-       "All un nves\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_tokens(vty, NULL, NULL, NULL, argv[4], NULL,
-				       NULL, NULL, NULL, &cda)))
-		return rc;
-
-	cda.vty = vty;
-
-	clear_vnc_responses(&cda);
-	clear_vnc_prefix(&cda);
-	clear_vnc_nve_closer(&cda);
-
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-/*-------------------------------------------------
- *		Clear VNC Prefix
- *-------------------------------------------------*/
-
-/*
- * This function is defined in this file (rather than in rfp_registration.c)
- * because here we have access to all the task handles.
- */
-DEFUN (clear_vnc_prefix_vn_un,
-       clear_vnc_prefix_vn_un_cmd,
-       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "VN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "All UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[3], argv[5], argv[7],
-				       NULL, NULL, NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_prefix_un_vn,
-       clear_vnc_prefix_un_vn_cmd,
-       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "UN address of NVE\n"
-       "All UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "VN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[3], argv[7], argv[5],
-				       NULL, NULL, NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_prefix_un,
-       clear_vnc_prefix_un_cmd,
-       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> un <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "UN address of NVE\n"
-       "All UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[3], NULL, argv[5], NULL,
-				       NULL, NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_prefix_vn,
-       clear_vnc_prefix_vn_cmd,
-       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> vn <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "UN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[3], argv[5], NULL, NULL,
-				       NULL, NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_prefix_all,
-       clear_vnc_prefix_all_cmd,
-       "clear vnc prefix <*|A.B.C.D/M|X:X::X:X/M> *",
-       "clear\n"
-       "VNC Information\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "From any NVE\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[3], NULL, NULL, NULL,
-				       NULL, NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-/*-------------------------------------------------
- *		Clear VNC MAC
- *-------------------------------------------------*/
-
-/*
- * This function is defined in this file (rather than in rfp_registration.c)
- * because here we have access to all the task handles.
- */
-DEFUN (clear_vnc_mac_vn_un,
-       clear_vnc_mac_vn_un_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "VN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "All UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, NULL, argv[7], argv[9],
-				       argv[3], argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_mac_un_vn,
-       clear_vnc_mac_un_vn_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "UN address of NVE\n"
-       "All UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "VN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, NULL, argv[9], argv[7],
-				       argv[3], argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_mac_un,
-       clear_vnc_mac_un_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "UN address of NVE\n"
-       "All UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, NULL, NULL, argv[7], argv[3],
-				       argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_mac_vn,
-       clear_vnc_mac_vn_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "UN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, NULL, argv[7], NULL, argv[3],
-				       argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_mac_all,
-       clear_vnc_mac_all_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> *",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "From any NVE\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, NULL, NULL, NULL, argv[3],
-				       argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-/*-------------------------------------------------
- *		Clear VNC MAC PREFIX
- *-------------------------------------------------*/
-
-DEFUN (clear_vnc_mac_vn_un_prefix,
-       clear_vnc_mac_vn_un_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> un <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "VN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "UN address of NVE\n"
-       "All UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[11], argv[7], argv[9],
-				       argv[3], argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_mac_un_vn_prefix,
-       clear_vnc_mac_un_vn_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> vn <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M> prefix <*|A.B.C.D/M|X:X::X:X/M>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "UN address of NVE\n"
-       "All UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "VN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[11], argv[9], argv[7],
-				       argv[3], argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_mac_un_prefix,
-       clear_vnc_mac_un_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> un <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "UN address of NVE\n"
-       "All UN addresses\n"
-       "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 Prefix\n"
-       "IPv6 Prefix\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[9], NULL, argv[7],
-				       argv[3], argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_mac_vn_prefix,
-       clear_vnc_mac_vn_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> vn <*|A.B.C.D|X:X::X:X> prefix <*|A.B.C.D/M|X:X::X:X/M>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "UN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n"
-       "Clear prefix registration information\n"
-       "All prefixes\n"
-       "IPv4 Prefix\n"
-       "IPv6 Prefix\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[9], argv[7], NULL,
-				       argv[3], argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-DEFUN (clear_vnc_mac_all_prefix,
-       clear_vnc_mac_all_prefix_cmd,
-       "clear vnc mac <*|YY:YY:YY:YY:YY:YY> virtual-network-identifier <*|(1-4294967295)> prefix <*|A.B.C.D/M|X:X::X:X/M>",
-       "clear\n"
-       "VNC Information\n"
-       "Clear mac registration information\n"
-       "All macs\n"
-       "MAC address\n"
-       "VNI keyword\n"
-       "Any virtual network identifier\n"
-       "Virtual network identifier\n"
-       "UN address of NVE\n"
-       "All VN addresses\n"
-       "VN IPv4 interface address\n"
-       "VN IPv6 interface address\n")
-{
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-
-	/* pfx vn un L2 VNI */
-	if ((rc = parse_deleter_tokens(vty, NULL, argv[7], NULL, NULL, argv[3],
-				       argv[5], NULL, NULL, &cda)))
-		return rc;
-	cda.vty = vty;
-	clear_vnc_prefix(&cda);
-	print_cleared_stats(&cda);
-	return 0;
-}
-
-/************************************************************************
- *			Show commands
- ************************************************************************/
-
-
-/* copied from rfp_vty.c */
-static int check_and_display_is_vnc_running(struct vty *vty)
-{
-	if (bgp_rfapi_is_vnc_configured(NULL) == 0)
-		return 1; /* is running */
-
-	if (vty) {
-		vty_out(vty, "VNC is not configured.\n");
-	}
-	return 0; /* not running */
-}
-
-static int rfapi_vty_show_nve_summary(struct vty *vty,
-				      show_nve_summary_t show_type)
-{
-	struct bgp *bgp_default = bgp_get_default();
-	struct rfapi *h;
-	int is_vnc_running = (bgp_rfapi_is_vnc_configured(bgp_default) == 0);
-
-	int active_local_routes;
-	int active_remote_routes;
-	int holddown_remote_routes;
-	int imported_remote_routes;
-
-	if (!bgp_default)
-		goto notcfg;
-
-	h = bgp_default->rfapi;
-
-	if (!h)
-		goto notcfg;
-
-	/* don't show local info if not running RFP */
-	if (is_vnc_running || show_type == SHOW_NVE_SUMMARY_REGISTERED) {
-
-		switch (show_type) {
-
-		case SHOW_NVE_SUMMARY_ACTIVE_NVES:
-			vty_out(vty, "%-24s ", "NVEs:");
-			vty_out(vty, "%-8s %-8u ",
-				"Active:", h->descriptors.count);
-			vty_out(vty, "%-8s %-8u ",
-				"Maximum:", h->stat.max_descriptors);
-			vty_out(vty, "%-8s %-8u",
-				"Unknown:", h->stat.count_unknown_nves);
-			break;
-
-		case SHOW_NVE_SUMMARY_REGISTERED:
-			/*
-			 * NB: With the introduction of L2 route support, we no
-			 * longer have a one-to-one correspondence between
-			 * locally-originated route advertisements and routes in
-			 * the import tables that have local origin. This
-			 * discrepancy arises because a single advertisement
-			 * may contain both an IP prefix and a MAC address.
-			 * Such an advertisement results in two import table
-			 * entries: one indexed by IP prefix, the other indexed
-			 * by MAC address.
-			 *
-			 * TBD: update computation and display of registration
-			 * statistics to reflect the underlying semantics.
-			 */
-			if (is_vnc_running) {
-				vty_out(vty, "%-24s ", "Registrations:");
-				vty_out(vty, "%-8s %-8u ", "Active:",
-					rfapiApCountAll(bgp_default));
-				vty_out(vty, "%-8s %-8u ", "Failed:",
-					h->stat.count_registrations_failed);
-				vty_out(vty, "%-8s %-8u",
-					"Total:", h->stat.count_registrations);
-				vty_out(vty, "\n");
-			}
-			vty_out(vty, "%-24s ", "Prefixes registered:");
-			vty_out(vty, "\n");
-
-			rfapiCountAllItRoutes(&active_local_routes,
-					      &active_remote_routes,
-					      &holddown_remote_routes,
-					      &imported_remote_routes);
-
-			/* local */
-			if (is_vnc_running) {
-				vty_out(vty, "    %-20s ", "Locally:");
-				vty_out(vty, "%-8s %-8u ",
-					"Active:", active_local_routes);
-				vty_out(vty, "\n");
-			}
-
-
-			vty_out(vty, "    %-20s ", "Remotely:");
-			vty_out(vty, "%-8s %-8u",
-				"Active:", active_remote_routes);
-			vty_out(vty, "\n");
-			vty_out(vty, "    %-20s ", "In Holddown:");
-			vty_out(vty, "%-8s %-8u",
-				"Active:", holddown_remote_routes);
-			vty_out(vty, "\n");
-			vty_out(vty, "    %-20s ", "Imported:");
-			vty_out(vty, "%-8s %-8u",
-				"Active:", imported_remote_routes);
-			break;
-
-		case SHOW_NVE_SUMMARY_QUERIES:
-			vty_out(vty, "%-24s ", "Queries:");
-			vty_out(vty, "%-8s %-8u ",
-				"Active:", rfapi_monitor_count(NULL));
-			vty_out(vty, "%-8s %-8u ",
-				"Failed:", h->stat.count_queries_failed);
-			vty_out(vty, "%-8s %-8u",
-				"Total:", h->stat.count_queries);
-			break;
-
-		case SHOW_NVE_SUMMARY_RESPONSES:
-			rfapiRibShowResponsesSummary(vty);
-
-		default:
-			break;
-		}
-		vty_out(vty, "\n");
-	}
-	return 0;
-
-notcfg:
-	vty_out(vty, "VNC is not configured.\n");
-	return CMD_WARNING;
-}
-
-static int rfapi_show_nves(struct vty *vty, struct prefix *vn_prefix,
-			   struct prefix *un_prefix)
-{
-	// struct hash                      *rfds;
-	// struct rfp_rfapi_descriptor_param param;
-
-	struct bgp *bgp_default = bgp_get_default();
-	struct rfapi *h;
-	struct listnode *node;
-	struct rfapi_descriptor *rfd;
-
-	int total = 0;
-	int printed = 0;
-	int rc;
-
-	if (!bgp_default)
-		goto notcfg;
-
-	h = bgp_default->rfapi;
-
-	if (!h)
-		goto notcfg;
-
-	rc = rfapi_vty_show_nve_summary(vty, SHOW_NVE_SUMMARY_ACTIVE_NVES);
-	if (rc)
-		return rc;
-
-	for (ALL_LIST_ELEMENTS_RO(&h->descriptors, node, rfd)) {
-		struct prefix pfx;
-		char vn_addr_buf[INET6_ADDRSTRLEN] = {
-			0,
-		};
-		char un_addr_buf[INET6_ADDRSTRLEN] = {
-			0,
-		};
-		char age[10];
-
-		++total;
-
-		if (vn_prefix) {
-			assert(!rfapiRaddr2Qprefix(&rfd->vn_addr, &pfx));
-			if (!prefix_match(vn_prefix, &pfx))
-				continue;
-		}
-
-		if (un_prefix) {
-			assert(!rfapiRaddr2Qprefix(&rfd->un_addr, &pfx));
-			if (!prefix_match(un_prefix, &pfx))
-				continue;
-		}
-
-		rfapiRfapiIpAddr2Str(&rfd->vn_addr, vn_addr_buf,
-				     INET6_ADDRSTRLEN);
-		rfapiRfapiIpAddr2Str(&rfd->un_addr, un_addr_buf,
-				     INET6_ADDRSTRLEN);
-
-		if (!printed) {
-			/* print out a header */
-			vty_out(vty,
-				"                                Active      Next Hops\n");
-			vty_out(vty, "%-15s %-15s %-5s %-5s %-6s %-6s %s\n",
-				"VN Address", "UN Address", "Regis", "Resps",
-				"Reach", "Remove", "Age");
-		}
-
-		++printed;
-
-		vty_out(vty, "%-15s %-15s %-5u %-5u %-6u %-6u %s\n",
-			vn_addr_buf, un_addr_buf, rfapiApCount(rfd),
-			rfapi_monitor_count(rfd), rfd->stat_count_nh_reachable,
-			rfd->stat_count_nh_removal,
-			rfapiFormatAge(rfd->open_time, age, 10));
-	}
-
-	if (printed > 0 || vn_prefix || un_prefix)
-		vty_out(vty, "Displayed %d out of %d active NVEs\n", printed,
-			total);
-
-	return 0;
-
-notcfg:
-	vty_out(vty, "VNC is not configured.\n");
-	return CMD_WARNING;
-}
-
-
-DEFUN (vnc_show_summary,
-       vnc_show_summary_cmd,
-       "show vnc summary",
-       SHOW_STR
-       VNC_SHOW_STR
-       "Display VNC status summary\n")
-{
-	if (!check_and_display_is_vnc_running(vty))
-		return CMD_SUCCESS;
-	bgp_rfapi_show_summary(bgp_get_default(), vty);
-	vty_out(vty, "\n");
-	rfapi_vty_show_nve_summary(vty, SHOW_NVE_SUMMARY_ACTIVE_NVES);
-	rfapi_vty_show_nve_summary(vty, SHOW_NVE_SUMMARY_QUERIES);
-	rfapi_vty_show_nve_summary(vty, SHOW_NVE_SUMMARY_RESPONSES);
-	rfapi_vty_show_nve_summary(vty, SHOW_NVE_SUMMARY_REGISTERED);
-	return CMD_SUCCESS;
-}
-
-DEFUN (vnc_show_nves,
-       vnc_show_nves_cmd,
-       "show vnc nves",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List known NVEs\n")
-{
-	rfapi_show_nves(vty, NULL, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (vnc_show_nves_ptct,
-       vnc_show_nves_ptct_cmd,
-       "show vnc nves <vn|un> <A.B.C.D|X:X::X:X>",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List known NVEs\n"
-       "VN address of NVE\n"
-       "UN address of NVE\n"
-       "IPv4 interface address\n"
-       "IPv6 interface address\n")
-{
-	struct prefix pfx;
-
-	if (!check_and_display_is_vnc_running(vty))
-		return CMD_SUCCESS;
-
-	if (!str2prefix(argv[4]->arg, &pfx)) {
-		vty_out(vty, "Malformed address \"%s\"\n", argv[4]->arg);
-		return CMD_WARNING;
-	}
-	if (pfx.family != AF_INET && pfx.family != AF_INET6) {
-		vty_out(vty, "Invalid address \"%s\"\n", argv[4]->arg);
-		return CMD_WARNING;
-	}
-
-	if (argv[3]->arg[0] == 'u') {
-		rfapi_show_nves(vty, NULL, &pfx);
-	} else {
-		rfapi_show_nves(vty, &pfx, NULL);
-	}
-
-	return CMD_SUCCESS;
-}
-
-/* adapted from rfp_registration_cache_log() */
-static void rfapi_show_registrations(struct vty *vty,
-				     struct prefix *restrict_to, int show_local,
-				     int show_remote, int show_holddown,
-				     int show_imported)
-{
-	int printed = 0;
-
-	if (!vty)
-		return;
-
-	rfapi_vty_show_nve_summary(vty, SHOW_NVE_SUMMARY_REGISTERED);
-
-	if (show_local) {
-		/* non-expiring, local */
-		printed += rfapiShowRemoteRegistrations(vty, restrict_to, 0, 1,
-							0, 0);
-	}
-	if (show_remote) {
-		/* non-expiring, non-local */
-		printed += rfapiShowRemoteRegistrations(vty, restrict_to, 0, 0,
-							1, 0);
-	}
-	if (show_holddown) {
-		/* expiring, including local */
-		printed += rfapiShowRemoteRegistrations(vty, restrict_to, 1, 1,
-							1, 0);
-	}
-	if (show_imported) {
-		/* non-expiring, non-local */
-		printed += rfapiShowRemoteRegistrations(vty, restrict_to, 0, 0,
-							1, 1);
-	}
-	if (!printed) {
-		vty_out(vty, "\n");
-	}
-}
-
-DEFUN (vnc_show_registrations_pfx,
-       vnc_show_registrations_pfx_cmd,
-       "show vnc registrations [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List active prefix registrations\n"
-       "Limit output to a particular IPv4 prefix\n"
-       "Limit output to a particular IPv6 prefix\n"
-       "Limit output to a particular IPv6 address\n")
-{
-	struct prefix p;
-	struct prefix *p_addr = NULL;
-
-	if (argc > 3) {
-		if (!str2prefix(argv[3]->arg, &p)) {
-			vty_out(vty, "Invalid prefix: %s\n", argv[3]->arg);
-			return CMD_SUCCESS;
-		} else {
-			p_addr = &p;
-		}
-	}
-
-	rfapi_show_registrations(vty, p_addr, 1, 1, 1, 1);
-	return CMD_SUCCESS;
-}
-
-DEFUN (vnc_show_registrations_some_pfx,
-         vnc_show_registrations_some_pfx_cmd,
-         "show vnc registrations <all|holddown|imported|local|remote> [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
-         SHOW_STR
-         VNC_SHOW_STR
-         "List active prefix registrations\n"
-         "show all registrations\n"
-         "show only registrations in holddown\n"
-         "show only imported prefixes\n"
-         "show only local registrations\n"
-         "show only remote registrations\n"
-         "Limit output to a particular prefix or address\n"
-         "Limit output to a particular prefix or address\n"
-         "Limit output to a particular prefix or address\n")
-{
-	struct prefix p;
-	struct prefix *p_addr = NULL;
-
-	int show_local = 0;
-	int show_remote = 0;
-	int show_holddown = 0;
-	int show_imported = 0;
-
-	if (argc > 4) {
-		if (!str2prefix(argv[4]->arg, &p)) {
-			vty_out(vty, "Invalid prefix: %s\n", argv[4]->arg);
-			return CMD_SUCCESS;
-		} else {
-			p_addr = &p;
-		}
-	}
-	switch (argv[3]->arg[0]) {
-	case 'a':
-		show_local = 1;
-		show_remote = 1;
-		show_holddown = 1;
-		show_imported = 1;
-		break;
-
-	case 'h':
-		show_holddown = 1;
-		break;
-
-	case 'i':
-		show_imported = 1;
-		break;
-
-	case 'l':
-		show_local = 1;
-		break;
-
-	case 'r':
-		show_remote = 1;
-		break;
-	}
-
-	rfapi_show_registrations(vty, p_addr, show_local, show_remote,
-				 show_holddown, show_imported);
-	return CMD_SUCCESS;
-}
-
-DEFUN (vnc_show_responses_pfx,
-       vnc_show_responses_pfx_cmd,
-       "show vnc responses [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List recent query responses\n"
-       "Limit output to a particular IPv4 prefix\n"
-       "Limit output to a particular IPv6 prefix\n"
-       "Limit output to a particular IPv6 address\n" )
-{
-	struct prefix p;
-	struct prefix *p_addr = NULL;
-
-	if (argc > 3) {
-		if (!str2prefix(argv[3]->arg, &p)) {
-			vty_out(vty, "Invalid prefix: %s\n", argv[3]->arg);
-			return CMD_SUCCESS;
-		} else {
-			p_addr = &p;
-		}
-	}
-	rfapi_vty_show_nve_summary(vty, SHOW_NVE_SUMMARY_QUERIES);
-
-	rfapiRibShowResponsesSummary(vty);
-
-	rfapiRibShowResponses(vty, p_addr, 0);
-	rfapiRibShowResponses(vty, p_addr, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (vnc_show_responses_some_pfx,
-       vnc_show_responses_some_pfx_cmd,
-       "show vnc responses <active|removed> [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List recent query responses\n"
-       "show only active query responses\n"
-       "show only removed query responses\n"
-       "Limit output to a particular IPv4 prefix\n"
-       "Limit output to a particular IPv6 prefix\n"
-       "Limit output to a particular IPV6 address\n")
-{
-	struct prefix p;
-	struct prefix *p_addr = NULL;
-
-	int show_active = 0;
-	int show_removed = 0;
-
-	if (!check_and_display_is_vnc_running(vty))
-		return CMD_SUCCESS;
-
-	if (argc > 4) {
-		if (!str2prefix(argv[4]->arg, &p)) {
-			vty_out(vty, "Invalid prefix: %s\n", argv[4]->arg);
-			return CMD_SUCCESS;
-		} else {
-			p_addr = &p;
-		}
-	}
-
-	switch (argv[3]->arg[0]) {
-	case 'a':
-		show_active = 1;
-		break;
-
-	case 'r':
-		show_removed = 1;
-		break;
-	}
-
-	rfapi_vty_show_nve_summary(vty, SHOW_NVE_SUMMARY_QUERIES);
-
-	rfapiRibShowResponsesSummary(vty);
-
-	if (show_active)
-		rfapiRibShowResponses(vty, p_addr, 0);
-	if (show_removed)
-		rfapiRibShowResponses(vty, p_addr, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_vnc_queries_pfx,
-       show_vnc_queries_pfx_cmd,
-       "show vnc queries [<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",
-       SHOW_STR
-       VNC_SHOW_STR
-       "List active queries\n"
-       "Limit output to a particular IPv4 prefix or address\n"
-       "Limit output to a particular IPv6 prefix\n"
-       "Limit output to a particualr IPV6 address\n")
-{
-	struct prefix pfx;
-	struct prefix *p = NULL;
-
-	if (argc > 3) {
-		if (!str2prefix(argv[3]->arg, &pfx)) {
-			vty_out(vty, "Invalid prefix: %s\n", argv[3]->arg);
-			return CMD_WARNING;
-		}
-		p = &pfx;
-	}
-
-	rfapi_vty_show_nve_summary(vty, SHOW_NVE_SUMMARY_QUERIES);
-
-	return rfapiShowVncQueries(vty, p);
-}
-
-DEFUN (vnc_clear_counters,
-       vnc_clear_counters_cmd,
-       "clear vnc counters",
-       CLEAR_STR
-       VNC_SHOW_STR
-       "Reset VNC counters\n")
-{
-	struct bgp *bgp_default = bgp_get_default();
-	struct rfapi *h;
-	struct listnode *node;
-	struct rfapi_descriptor *rfd;
-
-	if (!bgp_default)
-		goto notcfg;
-
-	h = bgp_default->rfapi;
-
-	if (!h)
-		goto notcfg;
-
-	/* per-rfd */
-	for (ALL_LIST_ELEMENTS_RO(&h->descriptors, node, rfd)) {
-		rfd->stat_count_nh_reachable = 0;
-		rfd->stat_count_nh_removal = 0;
-	}
-
-	/* global */
-	memset(&h->stat, 0, sizeof(h->stat));
-
-	/*
-	 * 151122 per bug 103, set count_registrations = number active.
-	 * Do same for queries
-	 */
-	h->stat.count_registrations = rfapiApCountAll(bgp_default);
-	h->stat.count_queries = rfapi_monitor_count(NULL);
-
-	rfapiRibShowResponsesSummaryClear();
-
-	return CMD_SUCCESS;
-
-notcfg:
-	vty_out(vty, "VNC is not configured.\n");
-	return CMD_WARNING;
-}
-
-/************************************************************************
- *		Add prefix with vrf
- *
- * add [vrf <vrf-name>] prefix <prefix>
- *     [rd <value>] [label <value>] [local-preference <0-4294967295>]
- ************************************************************************/
-void vnc_add_vrf_opener(struct bgp *bgp, struct rfapi_nve_group_cfg *rfg)
-{
-	if (rfg->rfd == NULL) { /* need new rfapi_handle */
-		/* based on rfapi_open */
-		struct rfapi_descriptor *rfd;
-
-		rfd = XCALLOC(MTYPE_RFAPI_DESC,
-			      sizeof(struct rfapi_descriptor));
-		rfd->bgp = bgp;
-		rfg->rfd = rfd;
-		/* leave most fields empty as will get from (dynamic) config
-		 * when needed */
-		rfd->default_tunneltype_option.type = BGP_ENCAP_TYPE_MPLS;
-		rfd->cookie = rfg;
-		if (rfg->vn_prefix.family
-		    && !CHECK_FLAG(rfg->flags, RFAPI_RFG_VPN_NH_SELF)) {
-			rfapiQprefix2Raddr(&rfg->vn_prefix, &rfd->vn_addr);
-		} else {
-			memset(&rfd->vn_addr, 0, sizeof(struct rfapi_ip_addr));
-			rfd->vn_addr.addr_family = AF_INET;
-			rfd->vn_addr.addr.v4 = bgp->router_id;
-		}
-		rfd->un_addr = rfd->vn_addr; /* sigh, need something in UN for
-						lookups */
-		vnc_zlog_debug_verbose("%s: Opening RFD for VRF %s", __func__,
-				       rfg->name);
-		rfapi_init_and_open(bgp, rfd, rfg);
-	}
-}
-
-/* NOTE: this functions parallels vnc_direct_add_rn_group_rd */
-static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
-			      const char *arg_prefix,
-			      const char *arg_rd,    /* optional */
-			      const char *arg_label, /* optional */
-			      const char *arg_pref)  /* optional */
-{
-	struct bgp *bgp;
-	struct rfapi_nve_group_cfg *rfg;
-	struct prefix pfx;
-	struct rfapi_ip_prefix rpfx;
-	uint32_t pref = 0;
-	struct rfapi_vn_option optary[3];
-	struct rfapi_vn_option *opt = NULL;
-	int cur_opt = 0;
-
-	bgp = bgp_get_default(); /* assume main instance for now */
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (!bgp->rfapi || !bgp->rfapi_cfg) {
-		vty_out(vty, "VRF support not configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rfg = bgp_rfapi_cfg_match_byname(bgp, arg_vrf, RFAPI_GROUP_CFG_VRF);
-	/* arg checks */
-	if (!rfg) {
-		vty_out(vty, "VRF \"%s\" appears not to be configured.\n",
-			arg_vrf);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (!rfg->rt_export_list || !rfg->rfapi_import_table) {
-		vty_out(vty,
-			"VRF \"%s\" is missing RT import/export RT configuration.\n",
-			arg_vrf);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (!rfg->rd.prefixlen && !arg_rd) {
-		vty_out(vty,
-			"VRF \"%s\" isn't configured with an RD, so RD must be provided.\n",
-			arg_vrf);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (rfg->label > MPLS_LABEL_MAX && !arg_label) {
-		vty_out(vty,
-			"VRF \"%s\" isn't configured with a default labels, so a label must be provided.\n",
-			arg_vrf);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (!str2prefix(arg_prefix, &pfx)) {
-		vty_out(vty, "Malformed prefix \"%s\"\n", arg_prefix);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	rfapiQprefix2Rprefix(&pfx, &rpfx);
-	memset(optary, 0, sizeof(optary));
-	if (arg_rd) {
-		if (opt != NULL)
-			opt->next = &optary[cur_opt];
-		opt = &optary[cur_opt++];
-		opt->type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
-		if (!str2prefix_rd(arg_rd, &opt->v.internal_rd)) {
-			vty_out(vty, "Malformed RD \"%s\"\n", arg_rd);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-	if (rfg->label <= MPLS_LABEL_MAX || arg_label) {
-		struct rfapi_l2address_option *l2o;
-		if (opt != NULL)
-			opt->next = &optary[cur_opt];
-		opt = &optary[cur_opt++];
-		opt->type = RFAPI_VN_OPTION_TYPE_L2ADDR;
-		l2o = &opt->v.l2addr;
-		if (arg_label) {
-			int32_t label;
-			label = strtoul(arg_label, NULL, 10);
-			l2o->label = label;
-		} else
-			l2o->label = rfg->label;
-	}
-	if (arg_pref) {
-		char *endptr = NULL;
-		pref = strtoul(arg_pref, &endptr, 10);
-		if (*endptr != '\0') {
-			vty_out(vty,
-				"%% Invalid local-preference value \"%s\"\n",
-				arg_pref);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-	rpfx.cost = 255 - (pref & 255);
-	vnc_add_vrf_opener(bgp, rfg);
-
-	if (!rfapi_register(rfg->rfd, &rpfx, RFAPI_INFINITE_LIFETIME, NULL,
-			    (cur_opt ? optary : NULL), RFAPI_REGISTER_ADD)) {
-		struct rfapi_next_hop_entry *head = NULL;
-		struct rfapi_next_hop_entry *tail = NULL;
-		struct rfapi_vn_option *vn_opt_new;
-
-		vnc_zlog_debug_verbose("%s: rfapi_register succeeded",
-				       __func__);
-
-		if (bgp->rfapi->rfp_methods.local_cb) {
-			struct rfapi_descriptor *r =
-				(struct rfapi_descriptor *)rfg->rfd;
-			vn_opt_new = rfapi_vn_options_dup(opt);
-
-			rfapiAddDeleteLocalRfpPrefix(&r->un_addr, &r->vn_addr,
-						     &rpfx, 1,
-						     RFAPI_INFINITE_LIFETIME,
-						     vn_opt_new, &head, &tail);
-			if (head) {
-				bgp->rfapi->flags |= RFAPI_INCALLBACK;
-				(*bgp->rfapi->rfp_methods.local_cb)(head,
-								    r->cookie);
-				bgp->rfapi->flags &= ~RFAPI_INCALLBACK;
-			}
-			head = tail = NULL;
-		}
-		vnc_zlog_debug_verbose(
-			"%s completed, count=%d/%d", __func__,
-			rfg->rfapi_import_table->local_count[AFI_IP],
-			rfg->rfapi_import_table->local_count[AFI_IP6]);
-		return CMD_SUCCESS;
-	}
-
-	vnc_zlog_debug_verbose("%s: rfapi_register failed", __func__);
-	vty_out(vty, "Add failed.\n");
-	return CMD_WARNING_CONFIG_FAILED;
-}
-
-DEFUN (add_vrf_prefix_rd_label_pref,
-       add_vrf_prefix_rd_label_pref_cmd,
-      "add vrf NAME prefix <A.B.C.D/M|X:X::X:X/M> [{rd ASN:NN_OR_IP-ADDRESS|label (0-1048575)|preference (0-4294967295)}]",
-       "Add\n"
-       "To a VRF\n"
-       "VRF name\n"
-       "Add/modify prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "Override configured VRF Route Distinguisher\n"
-       "<as-number>:<number> or <ip-address>:<number>\n"
-       "Override configured VRF label\n"
-       "Label Value <0-1048575>\n"
-       "Set advertised local preference\n"
-       "local preference (higher=more preferred)\n")
-{
-	char *arg_vrf = argv[2]->arg;
-	char *arg_prefix = argv[4]->arg;
-	char *arg_rd = NULL;    /* optional */
-	char *arg_label = NULL; /* optional */
-	char *arg_pref = NULL;  /* optional */
-	int pargc = 5;
-	argc--; /* don't parse argument */
-	while (pargc < argc) {
-		switch (argv[pargc++]->arg[0]) {
-		case 'r':
-			arg_rd = argv[pargc]->arg;
-			break;
-		case 'l':
-			arg_label = argv[pargc]->arg;
-			break;
-		case 'p':
-			arg_pref = argv[pargc]->arg;
-			break;
-		default:
-			break;
-		}
-		pargc++;
-	}
-
-	return vnc_add_vrf_prefix(vty, arg_vrf, arg_prefix, arg_rd, arg_label,
-				  arg_pref);
-}
-
-/************************************************************************
- *		del prefix with vrf
- *
- * clear [vrf <vrf-name>] prefix <prefix> [rd <value>]
- ************************************************************************/
-static int rfapi_cfg_group_it_count(struct rfapi_nve_group_cfg *rfg)
-{
-	int count = 0;
-	afi_t afi = AFI_MAX;
-	while (afi-- > 0) {
-		count += rfg->rfapi_import_table->local_count[afi];
-	}
-	return count;
-}
-
-void clear_vnc_vrf_closer(struct rfapi_nve_group_cfg *rfg)
-{
-	struct rfapi_descriptor *rfd = rfg->rfd;
-	afi_t afi;
-
-	if (rfd == NULL)
-		return;
-	/* check if IT is empty */
-	for (afi = 0;
-	     afi < AFI_MAX && rfg->rfapi_import_table->local_count[afi] == 0;
-	     afi++)
-		;
-
-	if (afi == AFI_MAX) {
-		vnc_zlog_debug_verbose("%s: closing RFD for VRF %s", __func__,
-				       rfg->name);
-		rfg->rfd = NULL;
-		rfapi_close(rfd);
-	} else {
-		vnc_zlog_debug_verbose(
-			"%s: VRF %s afi=%d count=%d", __func__, rfg->name, afi,
-			rfg->rfapi_import_table->local_count[afi]);
-	}
-}
-
-static int vnc_clear_vrf(struct vty *vty, struct bgp *bgp, const char *arg_vrf,
-			 const char *arg_prefix, /* NULL = all */
-			 const char *arg_rd)     /* optional */
-{
-	struct rfapi_nve_group_cfg *rfg;
-	struct rfapi_local_reg_delete_arg cda;
-	int rc;
-	int start_count;
-
-	if (bgp == NULL)
-		bgp = bgp_get_default(); /* assume main instance for now */
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING;
-	}
-	if (!bgp->rfapi || !bgp->rfapi_cfg) {
-		vty_out(vty, "VRF support not configured\n");
-		return CMD_WARNING;
-	}
-	rfg = bgp_rfapi_cfg_match_byname(bgp, arg_vrf, RFAPI_GROUP_CFG_VRF);
-	/* arg checks */
-	if (!rfg) {
-		vty_out(vty, "VRF \"%s\" appears not to be configured.\n",
-			arg_vrf);
-		return CMD_WARNING;
-	}
-	rc = parse_deleter_args(vty, bgp, arg_prefix, NULL, NULL, NULL, NULL,
-				arg_rd, rfg, &cda);
-	if (rc != CMD_SUCCESS) /* parse error */
-		return rc;
-
-	start_count = rfapi_cfg_group_it_count(rfg);
-	clear_vnc_prefix(&cda);
-	vty_out(vty, "Cleared %u out of %d prefixes.\n", cda.pfx_count,
-		start_count);
-	return CMD_SUCCESS;
-}
-
-DEFUN (clear_vrf_prefix_rd,
-       clear_vrf_prefix_rd_cmd,
-       "clear vrf NAME [prefix <A.B.C.D/M|X:X::X:X/M>] [rd ASN:NN_OR_IP-ADDRESS]",
-       "Clear stored data\n"
-       "From a VRF\n"
-       "VRF name\n"
-       "Prefix related information\n"
-       "IPv4 prefix\n"
-       "IPv6 prefix\n"
-       "Specific VRF Route Distinguisher\n"
-       "<as-number>:<number> or <ip-address>:<number>\n")
-{
-	char *arg_vrf = argv[2]->arg;
-	char *arg_prefix = NULL; /* optional */
-	char *arg_rd = NULL;     /* optional */
-	int pargc = 3;
-	argc--; /* don't check parameter */
-	while (pargc < argc) {
-		switch (argv[pargc++]->arg[0]) {
-		case 'r':
-			arg_rd = argv[pargc]->arg;
-			break;
-		case 'p':
-			arg_prefix = argv[pargc]->arg;
-			break;
-		default:
-			break;
-		}
-		pargc++;
-	}
-	return vnc_clear_vrf(vty, NULL, arg_vrf, arg_prefix, arg_rd);
-}
-
-DEFUN (clear_vrf_all,
-       clear_vrf_all_cmd,
-       "clear vrf NAME all",
-       "Clear stored data\n"
-       "From a VRF\n"
-       "VRF name\n"
-       "All prefixes\n")
-{
-	char *arg_vrf = argv[2]->arg;
-	return vnc_clear_vrf(vty, NULL, arg_vrf, NULL, NULL);
-}
-
-void rfapi_vty_init()
-{
-	install_element(ENABLE_NODE, &add_vnc_prefix_cost_life_lnh_cmd);
-	install_element(ENABLE_NODE, &add_vnc_prefix_life_cost_lnh_cmd);
-	install_element(ENABLE_NODE, &add_vnc_prefix_cost_lnh_cmd);
-	install_element(ENABLE_NODE, &add_vnc_prefix_life_lnh_cmd);
-	install_element(ENABLE_NODE, &add_vnc_prefix_lnh_cmd);
-
-	install_element(ENABLE_NODE, &add_vnc_prefix_cost_life_cmd);
-	install_element(ENABLE_NODE, &add_vnc_prefix_life_cost_cmd);
-	install_element(ENABLE_NODE, &add_vnc_prefix_cost_cmd);
-	install_element(ENABLE_NODE, &add_vnc_prefix_life_cmd);
-	install_element(ENABLE_NODE, &add_vnc_prefix_cmd);
-
-	install_element(ENABLE_NODE, &add_vnc_mac_vni_prefix_cost_life_cmd);
-	install_element(ENABLE_NODE, &add_vnc_mac_vni_prefix_life_cmd);
-	install_element(ENABLE_NODE, &add_vnc_mac_vni_prefix_cost_cmd);
-	install_element(ENABLE_NODE, &add_vnc_mac_vni_prefix_cmd);
-	install_element(ENABLE_NODE, &add_vnc_mac_vni_cost_life_cmd);
-	install_element(ENABLE_NODE, &add_vnc_mac_vni_cost_cmd);
-	install_element(ENABLE_NODE, &add_vnc_mac_vni_life_cmd);
-	install_element(ENABLE_NODE, &add_vnc_mac_vni_cmd);
-
-	install_element(ENABLE_NODE, &add_vrf_prefix_rd_label_pref_cmd);
-
-	install_element(ENABLE_NODE, &clear_vnc_nve_all_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_nve_vn_un_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_nve_un_vn_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_nve_vn_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_nve_un_cmd);
-
-	install_element(ENABLE_NODE, &clear_vnc_prefix_vn_un_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_prefix_un_vn_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_prefix_un_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_prefix_vn_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_prefix_all_cmd);
-
-	install_element(ENABLE_NODE, &clear_vnc_mac_vn_un_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_mac_un_vn_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_mac_un_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_mac_vn_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_mac_all_cmd);
-
-	install_element(ENABLE_NODE, &clear_vnc_mac_vn_un_prefix_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_mac_un_vn_prefix_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_mac_un_prefix_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_mac_vn_prefix_cmd);
-	install_element(ENABLE_NODE, &clear_vnc_mac_all_prefix_cmd);
-
-	install_element(ENABLE_NODE, &clear_vrf_prefix_rd_cmd);
-	install_element(ENABLE_NODE, &clear_vrf_all_cmd);
-
-	install_element(ENABLE_NODE, &vnc_clear_counters_cmd);
-
-	install_element(VIEW_NODE, &vnc_show_summary_cmd);
-	install_element(VIEW_NODE, &vnc_show_nves_cmd);
-	install_element(VIEW_NODE, &vnc_show_nves_ptct_cmd);
-
-	install_element(VIEW_NODE, &vnc_show_registrations_pfx_cmd);
-	install_element(VIEW_NODE, &vnc_show_registrations_some_pfx_cmd);
-	install_element(VIEW_NODE, &vnc_show_responses_pfx_cmd);
-	install_element(VIEW_NODE, &vnc_show_responses_some_pfx_cmd);
-	install_element(VIEW_NODE, &show_vnc_queries_pfx_cmd);
-}
+/***Copyright2009-2016,LabNConsulting,L.L.C.***Thisprogramisfreesoftware;youcanr
+edistributeitand/or*modifyitunderthetermsoftheGNUGeneralPublicLicense*aspublishe
+dbytheFreeSoftwareFoundation;eitherversion2*oftheLicense,or(atyouroption)anylate
+rversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,*butWITHOUTANYWAR
+RANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURP
+OSE.Seethe*GNUGeneralPublicLicenseformoredetails.**Youshouldhavereceivedacopyoft
+heGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetoth
+eFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#i
+nclude<errno.h>#include"lib/zebra.h"#include"lib/prefix.h"#include"lib/table.h"#
+include"lib/vty.h"#include"lib/memory.h"#include"lib/routemap.h"#include"lib/log
+.h"#include"lib/log_int.h"#include"lib/linklist.h"#include"lib/command.h"#includ
+e"bgpd/bgpd.h"#include"bgpd/bgp_ecommunity.h"#include"bgpd/bgp_attr.h"#include"b
+gpd/bgp_route.h"#include"bgpd/bgp_mplsvpn.h"#include"bgpd/rfapi/bgp_rfapi_cfg.h"
+#include"bgpd/rfapi/rfapi.h"#include"bgpd/rfapi/rfapi_backend.h"#include"bgpd/bg
+p_route.h"#include"bgpd/bgp_aspath.h"#include"bgpd/bgp_community.h"#include"bgpd
+/bgp_vnc_types.h"#include"bgpd/rfapi/rfapi_import.h"#include"bgpd/rfapi/rfapi_pr
+ivate.h"#include"bgpd/rfapi/rfapi_monitor.h"#include"bgpd/rfapi/rfapi_rib.h"#inc
+lude"bgpd/rfapi/rfapi_vty.h"#include"bgpd/rfapi/rfapi_ap.h"#include"bgpd/rfapi/r
+fapi_encap_tlv.h"#include"bgpd/rfapi/vnc_debug.h"#defineDEBUG_L2_EXTRA0#defineDE
+BUG_SHOW_EXTRA0#defineVNC_SHOW_STR"VNCinformation\n"/*formatrelatedutilies*/#def
+ineFMT_MIN60/*seconds*/#defineFMT_HOUR(60*FMT_MIN)#defineFMT_DAY(24*FMT_HOUR)#de
+fineFMT_YEAR(365*FMT_DAY)char*rfapiFormatSeconds(uint32_tseconds,char*buf,size_t
+len){intyear,day,hour,min;if(seconds>=FMT_YEAR){year=seconds/FMT_YEAR;seconds-=y
+ear*FMT_YEAR;}elseyear=0;if(seconds>=FMT_DAY){day=seconds/FMT_DAY;seconds-=day*F
+MT_DAY;}elseday=0;if(seconds>=FMT_HOUR){hour=seconds/FMT_HOUR;seconds-=hour*FMT_
+HOUR;}elsehour=0;if(seconds>=FMT_MIN){min=seconds/FMT_MIN;seconds-=min*FMT_MIN;}
+elsemin=0;if(year>0){snprintf(buf,len,"%dy%dd%dh",year,day,hour);}elseif(day>0){
+snprintf(buf,len,"%dd%dh%dm",day,hour,min);}else{snprintf(buf,len,"%02d:%02d:%02
+d",hour,min,seconds);}returnbuf;}char*rfapiFormatAge(time_tage,char*buf,size_tle
+n){time_tnow,age_adjusted;now=rfapi_time(NULL);age_adjusted=now-age;returnrfapiF
+ormatSeconds(age_adjusted,buf,len);}/**Reimplementationofquagga/lib/prefix.cfunc
+tion,but*forRFAPI-styleprefixes*/voidrfapiRprefixApplyMask(structrfapi_ip_prefix
+*rprefix){uint8_t*pnt;intindex;intoffset;staticuint8_tmaskbit[]={0x00,0x80,0xc0,
+0xe0,0xf0,0xf8,0xfc,0xfe,0xff};switch(rprefix->prefix.addr_family){caseAF_INET:i
+ndex=rprefix->length/8;if(index<4){pnt=(uint8_t*)&rprefix->prefix.addr.v4;offset
+=rprefix->length%8;pnt[index]&=maskbit[offset];index++;while(index<4)pnt[index++
+]=0;}break;caseAF_INET6:index=rprefix->length/8;if(index<16){pnt=(uint8_t*)&rpre
+fix->prefix.addr.v6;offset=rprefix->length%8;pnt[index]&=maskbit[offset];index++
+;while(index<16)pnt[index++]=0;}break;default:assert(0);}}/**translateaquaggapre
+fixintoarfapiIPaddress.The*prefixisREQUIREDtobe32bitsforIPv4and128bitsforIPv6**R
+ETURNS:**0Success*<0Error*/intrfapiQprefix2Raddr(structprefix*qprefix,structrfap
+i_ip_addr*raddr){memset(raddr,0,sizeof(structrfapi_ip_addr));raddr->addr_family=
+qprefix->family;switch(qprefix->family){caseAF_INET:if(qprefix->prefixlen!=32)re
+turn-1;raddr->addr.v4=qprefix->u.prefix4;break;caseAF_INET6:if(qprefix->prefixle
+n!=128)return-1;raddr->addr.v6=qprefix->u.prefix6;break;default:return-1;}return
+0;}/**TranslateQuaggaprefixtoRFAPIprefix*//*rprefix->costsetto0*/voidrfapiQprefi
+x2Rprefix(structprefix*qprefix,structrfapi_ip_prefix*rprefix){memset(rprefix,0,s
+izeof(structrfapi_ip_prefix));rprefix->length=qprefix->prefixlen;rprefix->prefix
+.addr_family=qprefix->family;switch(qprefix->family){caseAF_INET:rprefix->prefix
+.addr.v4=qprefix->u.prefix4;break;caseAF_INET6:rprefix->prefix.addr.v6=qprefix->
+u.prefix6;break;default:assert(0);}}intrfapiRprefix2Qprefix(structrfapi_ip_prefi
+x*rprefix,structprefix*qprefix){memset(qprefix,0,sizeof(structprefix));qprefix->
+prefixlen=rprefix->length;qprefix->family=rprefix->prefix.addr_family;switch(rpr
+efix->prefix.addr_family){caseAF_INET:qprefix->u.prefix4=rprefix->prefix.addr.v4
+;break;caseAF_INET6:qprefix->u.prefix6=rprefix->prefix.addr.v6;break;default:ret
+urnEAFNOSUPPORT;}return0;}/**returns1ifprefixeshavesameaddrfamily,prefixlen,anda
+ddress*Notethathostbitsmatterinthiscomparison!**Forparalellismwithquagga/lib/pre
+fix.c.ifweneedacomparison*wherehostbitsareignored,callthatfunctionrfapiRprefixCm
+p.*/intrfapiRprefixSame(structrfapi_ip_prefix*hp1,structrfapi_ip_prefix*hp2){if(
+hp1->prefix.addr_family!=hp2->prefix.addr_family)return0;if(hp1->length!=hp2->le
+ngth)return0;if(hp1->prefix.addr_family==AF_INET)if(IPV4_ADDR_SAME(&hp1->prefix.
+addr.v4,&hp2->prefix.addr.v4))return1;if(hp1->prefix.addr_family==AF_INET6)if(IP
+V6_ADDR_SAME(&hp1->prefix.addr.v6,&hp2->prefix.addr.v6))return1;return0;}intrfap
+iRaddr2Qprefix(structrfapi_ip_addr*hia,structprefix*pfx){memset(pfx,0,sizeof(str
+uctprefix));pfx->family=hia->addr_family;switch(hia->addr_family){caseAF_INET:pf
+x->prefixlen=32;pfx->u.prefix4=hia->addr.v4;break;caseAF_INET6:pfx->prefixlen=12
+8;pfx->u.prefix6=hia->addr.v6;break;default:returnEAFNOSUPPORT;}return0;}voidrfa
+piL2o2Qprefix(structrfapi_l2address_option*l2o,structprefix*pfx){memset(pfx,0,si
+zeof(structprefix));pfx->family=AF_ETHERNET;pfx->prefixlen=48;pfx->u.prefix_eth=
+l2o->macaddr;}char*rfapiEthAddr2Str(conststructethaddr*ea,char*buf,intbufsize){r
+eturnprefix_mac2str(ea,buf,bufsize);}intrfapiStr2EthAddr(constchar*str,structeth
+addr*ea){unsignedinta[6];inti;if(sscanf(str,"%2x:%2x:%2x:%2x:%2x:%2x",a+0,a+1,a+
+2,a+3,a+4,a+5)!=6){returnEINVAL;}for(i=0;i<6;++i)ea->octet[i]=a[i]&0xff;return0;
+}constchar*rfapi_ntop(intaf,constvoid*src,char*buf,socklen_tsize){if(af==AF_ETHE
+RNET){returnrfapiEthAddr2Str((conststructethaddr*)src,buf,size);}returninet_ntop
+(af,src,buf,size);}intrfapiDebugPrintf(void*dummy,constchar*format,...){va_lista
+rgs;va_start(args,format);vzlog(LOG_DEBUG,format,args);va_end(args);return0;}sta
+ticintrfapiStdioPrintf(void*stream,constchar*format,...){FILE*file=NULL;va_lista
+rgs;va_start(args,format);switch((uintptr_t)stream){case1:file=stdout;break;case
+2:file=stderr;break;default:assert(0);}vfprintf(file,format,args);va_end(args);r
+eturn0;}/*Fakeoutfordebuglogging*/staticstructvtyvty_dummy_zlog;staticstructvtyv
+ty_dummy_stdio;#defineHVTYNL((vty==&vty_dummy_zlog)?"":"\n")staticconstchar*str_
+vty_newline(structvty*vty){if(vty==&vty_dummy_zlog)return"";return"\n";}intrfapi
+Stream2Vty(void*stream,/*input*/int(**fp)(void*,constchar*,...),/*output*/struct
+vty**vty,/*output*/void**outstream,/*output*/constchar**vty_newline)/*output*/{i
+f(!stream){vty_dummy_zlog.type=VTY_SHELL;/*forVTYNL*/*vty=&vty_dummy_zlog;*fp=(i
+nt(*)(void*,constchar*,...))rfapiDebugPrintf;*outstream=NULL;*vty_newline=str_vt
+y_newline(*vty);return(vzlog_test(LOG_DEBUG));}if(((uintptr_t)stream==(uintptr_t
+)1)||((uintptr_t)stream==(uintptr_t)2)){vty_dummy_stdio.type=VTY_SHELL;/*forVTYN
+L*/*vty=&vty_dummy_stdio;*fp=(int(*)(void*,constchar*,...))rfapiStdioPrintf;*out
+stream=stream;*vty_newline=str_vty_newline(*vty);return1;}if(stream){*vty=stream
+;/*VTYNLrequiresvtytobelegit*/*fp=(int(*)(void*,constchar*,...))vty_out;*outstre
+am=stream;*vty_newline=str_vty_newline(*vty);return1;}return0;}/*calledfrombgpd/
+bgp_vty.c'route_vty_out()*/voidrfapi_vty_out_vncinfo(structvty*vty,structprefix*
+p,structbgp_info*bi,safi_tsafi){char*s;uint32_tlifetime;/**Print,onanindentedlin
+e:*UNaddress[ifVPNrouteandVNCUNaddrsubtlv]*EClist*VNClifetime*/vty_out(vty,"");i
+f(safi==SAFI_MPLS_VPN){structprefixpfx_un;if(!rfapiGetVncTunnelUnAddr(bi->attr,&
+pfx_un)){charbuf[BUFSIZ];vty_out(vty,"UN=%s",inet_ntop(pfx_un.family,pfx_un.u.va
+l,buf,BUFSIZ));}}if(bi->attr&&bi->attr->ecommunity){s=ecommunity_ecom2str(bi->at
+tr->ecommunity,ECOMMUNITY_FORMAT_ROUTE_MAP,0);vty_out(vty,"EC{%s}",s);XFREE(MTYP
+E_ECOMMUNITY_STR,s);}if(bi->extra!=NULL)vty_out(vty,"label=%u",decode_label(&bi-
+>extra->label[0]));if(!rfapiGetVncLifetime(bi->attr,&lifetime)){vty_out(vty,"lif
+e=%d",lifetime);}vty_out(vty,"type=%s,subtype=%d",zebra_route_string(bi->type),b
+i->sub_type);vty_out(vty,"%s",HVTYNL);}voidrfapiPrintAttrPtrs(void*stream,struct
+attr*attr){int(*fp)(void*,constchar*,...);structvty*vty;void*out;constchar*vty_n
+ewline;charbuf[BUFSIZ];if(rfapiStream2Vty(stream,&fp,&vty,&out,&vty_newline)==0)
+return;fp(out,"Attr[%p]:%s",attr,HVTYNL);if(!attr)return;/*IPv4Nexthop*/inet_nto
+p(AF_INET,&attr->nexthop,buf,BUFSIZ);fp(out,"nexthop=%s%s",buf,HVTYNL);fp(out,"a
+spath=%p,refcnt=%d%s",attr->aspath,(attr->aspath?attr->aspath->refcnt:0),HVTYNL)
+;fp(out,"community=%p,refcnt=%d%s",attr->community,(attr->community?attr->commun
+ity->refcnt:0),HVTYNL);fp(out,"ecommunity=%p,refcnt=%d%s",attr->ecommunity,(attr
+->ecommunity?attr->ecommunity->refcnt:0),HVTYNL);fp(out,"cluster=%p,refcnt=%d%s"
+,attr->cluster,(attr->cluster?attr->cluster->refcnt:0),HVTYNL);fp(out,"transit=%
+p,refcnt=%d%s",attr->transit,(attr->transit?attr->transit->refcnt:0),HVTYNL);}/*
+*PrintBIinanImportTable*/voidrfapiPrintBi(void*stream,structbgp_info*bi){charbuf
+[BUFSIZ];char*s;int(*fp)(void*,constchar*,...);structvty*vty;void*out;constchar*
+vty_newline;charline[BUFSIZ];char*p=line;intr;inthas_macaddr=0;structethaddrmaca
+ddr={{0}};structrfapi_l2address_optionl2o_buf;uint8_tl2hid=0;/*validifhas_macadd
+r*/#defineREMAIN(BUFSIZ-(p-line))#defineINCP{p+=(r>REMAIN)?REMAIN:r;}if(rfapiStr
+eam2Vty(stream,&fp,&vty,&out,&vty_newline)==0)return;if(!bi)return;if(CHECK_FLAG
+(bi->flags,BGP_INFO_REMOVED)&&bi->extra&&bi->extra->vnc.import.timer){structthre
+ad*t=(structthread*)bi->extra->vnc.import.timer;r=snprintf(p,REMAIN,"[%4lu]",thr
+ead_timer_remain_second(t));INCP;}else{r=snprintf(p,REMAIN,"");INCP;}if(bi->extr
+a){/*TBDThisvalidonlyforSAFI_MPLS_VPN,butnotforencap*/if(decode_rd_type(bi->extr
+a->vnc.import.rd.val)==RD_TYPE_VNC_ETH){has_macaddr=1;memcpy(macaddr.octet,bi->e
+xtra->vnc.import.rd.val+2,6);l2hid=bi->extra->vnc.import.rd.val[1];}}/**Printthe
+seitems:*type/subtype*nexthopaddress*lifetime*RFPoptionsizes(theyareopaquevalues
+)*extendedcommunities(RTs)*/if(bi->attr){uint32_tlifetime;intprinted_1st_gol=0;s
+tructbgp_attr_encap_subtlv*pEncap;structprefixpfx_un;intaf=BGP_MP_NEXTHOP_FAMILY
+(bi->attr->mp_nexthop_len);/*Nexthop*/if(af==AF_INET){r=snprintf(p,REMAIN,"%s",i
+net_ntop(AF_INET,&bi->attr->mp_nexthop_global_in,buf,BUFSIZ));INCP;}elseif(af==A
+F_INET6){r=snprintf(p,REMAIN,"%s",inet_ntop(AF_INET6,&bi->attr->mp_nexthop_globa
+l,buf,BUFSIZ));INCP;}else{r=snprintf(p,REMAIN,"?");INCP;}/**VNCtunnelsubtlv,ifpr
+esent,containsUNaddress*/if(!rfapiGetVncTunnelUnAddr(bi->attr,&pfx_un)){r=snprin
+tf(p,REMAIN,"un=%s",inet_ntop(pfx_un.family,pfx_un.u.val,buf,BUFSIZ));INCP;}/*Li
+fetime*/if(rfapiGetVncLifetime(bi->attr,&lifetime)){r=snprintf(p,REMAIN,"nolife"
+);INCP;}else{if(lifetime==0xffffffff)r=snprintf(p,REMAIN,"%6s","infini");elser=s
+nprintf(p,REMAIN,"%6u",lifetime);INCP;}/*RFPoptionlengths*/for(pEncap=bi->attr->
+vnc_subtlvs;pEncap;pEncap=pEncap->next){if(pEncap->type==BGP_VNC_SUBTLV_TYPE_RFP
+OPTION){if(printed_1st_gol){r=snprintf(p,REMAIN,",");INCP;}else{r=snprintf(p,REM
+AIN,"");/*leadingspace*/INCP;}r=snprintf(p,REMAIN,"%d",pEncap->length);INCP;prin
+ted_1st_gol=1;}}/*RTlist*/if(bi->attr->ecommunity){s=ecommunity_ecom2str(bi->att
+r->ecommunity,ECOMMUNITY_FORMAT_ROUTE_MAP,0);r=snprintf(p,REMAIN,"%s",s);INCP;XF
+REE(MTYPE_ECOMMUNITY_STR,s);}}r=snprintf(p,REMAIN,"bi@%p",bi);INCP;r=snprintf(p,
+REMAIN,"p@%p",bi->peer);INCP;if(CHECK_FLAG(bi->flags,BGP_INFO_REMOVED)){r=snprin
+tf(p,REMAIN,"HD=yes");INCP;}else{r=snprintf(p,REMAIN,"HD=no");INCP;}if(bi->attr)
+{if(bi->attr->weight){r=snprintf(p,REMAIN,"W=%d",bi->attr->weight);INCP;}if(bi->
+attr->flag&ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)){r=snprintf(p,REMAIN,"LP=%d",bi->a
+ttr->local_pref);INCP;}else{r=snprintf(p,REMAIN,"LP=unset");INCP;}}r=snprintf(p,
+REMAIN,"%c:%u",zebra_route_char(bi->type),bi->sub_type);INCP;fp(out,"%s%s",line,
+HVTYNL);if(has_macaddr){fp(out,"RDHID=%dETH=%02x:%02x:%02x:%02x:%02x:%02x%s",l2h
+id,macaddr.octet[0],macaddr.octet[1],macaddr.octet[2],macaddr.octet[3],macaddr.o
+ctet[4],macaddr.octet[5],HVTYNL);}if(!rfapiGetL2o(bi->attr,&l2o_buf)){fp(out,"L2
+OETH=%02x:%02x:%02x:%02x:%02x:%02xLBL=%dLNI=%dLHI=%hhu%s",l2o_buf.macaddr.octet[
+0],l2o_buf.macaddr.octet[1],l2o_buf.macaddr.octet[2],l2o_buf.macaddr.octet[3],l2
+o_buf.macaddr.octet[4],l2o_buf.macaddr.octet[5],l2o_buf.label,l2o_buf.logical_ne
+t_id,l2o_buf.local_nve_id,HVTYNL);}if(bi->extra&&bi->extra->vnc.import.aux_prefi
+x.family){charbuf[BUFSIZ];constchar*sp;sp=rfapi_ntop(bi->extra->vnc.import.aux_p
+refix.family,&bi->extra->vnc.import.aux_prefix.u.prefix,buf,BUFSIZ);buf[BUFSIZ-1
+]=0;if(sp){fp(out,"IP:%s%s",sp,HVTYNL);}}{structrfapi_un_option*uo=rfapi_encap_t
+lv_to_un_option(bi->attr);if(uo){rfapi_print_tunneltype_option(stream,8,&uo->v.t
+unnel);rfapi_un_options_free(uo);}}}char*rfapiMonitorVpn2Str(structrfapi_monitor
+_vpn*m,char*buf,intsize){charbuf_pfx[BUFSIZ];charbuf_vn[BUFSIZ];charbuf_un[BUFSI
+Z];intrc;rfapiRfapiIpAddr2Str(&m->rfd->un_addr,buf_vn,BUFSIZ);rfapiRfapiIpAddr2S
+tr(&m->rfd->vn_addr,buf_un,BUFSIZ);rc=snprintf(buf,size,"m=%p,next=%p,rfd=%p(vn=
+%sun=%s),p=%s/%d,node=%p",m,m->next,m->rfd,buf_vn,buf_un,inet_ntop(m->p.family,&
+m->p.u.prefix,buf_pfx,BUFSIZ),m->p.prefixlen,m->node);buf[size-1]=0;if(rc>=size)
+returnNULL;returnbuf;}staticvoidrfapiDebugPrintMonitorVpn(void*stream,structrfap
+i_monitor_vpn*m){charbuf[BUFSIZ];int(*fp)(void*,constchar*,...);structvty*vty;vo
+id*out;constchar*vty_newline;if(rfapiStream2Vty(stream,&fp,&vty,&out,&vty_newlin
+e)==0)return;rfapiMonitorVpn2Str(m,buf,BUFSIZ);fp(out,"Mon%s%s",buf,HVTYNL);}sta
+ticvoidrfapiDebugPrintMonitorEncap(void*stream,structrfapi_monitor_encap*m){int(
+*fp)(void*,constchar*,...);structvty*vty;void*out=NULL;constchar*vty_newline;if(
+rfapiStream2Vty(stream,&fp,&vty,&out,&vty_newline)==0)return;fp(out,"Monm=%p,nex
+t=%p,node=%p,bi=%p%s",m,m->next,m->node,m->bi,HVTYNL);}voidrfapiShowItNode(void*
+stream,structroute_node*rn){structbgp_info*bi;charbuf[BUFSIZ];int(*fp)(void*,con
+stchar*,...);structvty*vty;void*out;constchar*vty_newline;if(rfapiStream2Vty(str
+eam,&fp,&vty,&out,&vty_newline)==0)return;fp(out,"%s/%d@%p#%d%s",rfapi_ntop(rn->
+p.family,&rn->p.u.prefix,buf,BUFSIZ),rn->p.prefixlen,rn,rn->lock,HVTYNL);for(bi=
+rn->info;bi;bi=bi->next){rfapiPrintBi(stream,bi);}/*doesn'tshowmontors*/}voidrfa
+piShowImportTable(void*stream,constchar*label,structroute_table*rt,intisvpn){str
+uctroute_node*rn;charbuf[BUFSIZ];int(*fp)(void*,constchar*,...);structvty*vty;vo
+id*out;constchar*vty_newline;if(rfapiStream2Vty(stream,&fp,&vty,&out,&vty_newlin
+e)==0)return;fp(out,"ImportTable[%s]%s",label,HVTYNL);for(rn=route_top(rt);rn;rn
+=route_next(rn)){structbgp_info*bi;if(rn->p.family==AF_ETHERNET){rfapiEthAddr2St
+r(&rn->p.u.prefix_eth,buf,BUFSIZ);}else{inet_ntop(rn->p.family,&rn->p.u.prefix,b
+uf,BUFSIZ);}fp(out,"%s/%d@%p#%d%s",buf,rn->p.prefixlen,rn,rn->lock-1,/*accountfo
+rloopiteratorlocking*/HVTYNL);for(bi=rn->info;bi;bi=bi->next){rfapiPrintBi(strea
+m,bi);}if(isvpn){structrfapi_monitor_vpn*m;for(m=RFAPI_MONITOR_VPN(rn);m;m=m->ne
+xt){rfapiDebugPrintMonitorVpn(stream,m);}}else{structrfapi_monitor_encap*m;for(m
+=RFAPI_MONITOR_ENCAP(rn);m;m=m->next){rfapiDebugPrintMonitorEncap(stream,m);}}}}
+intrfapiShowVncQueries(void*stream,structprefix*pfx_match){structbgp*bgp;structr
+fapi*h;structlistnode*node;structrfapi_descriptor*rfd;int(*fp)(void*,constchar*,
+...);structvty*vty;void*out;constchar*vty_newline;intprintedheader=0;intnves_tot
+al=0;intnves_with_queries=0;intnves_displayed=0;intqueries_total=0;intqueries_di
+splayed=0;if(rfapiStream2Vty(stream,&fp,&vty,&out,&vty_newline)==0)returnCMD_WAR
+NING;bgp=bgp_get_default();/*assume1instancefornow*/if(!bgp){vty_out(vty,"NoBGPi
+nstance\n");returnCMD_WARNING;}h=bgp->rfapi;if(!h){vty_out(vty,"NoRFAPIinstance\
+n");returnCMD_WARNING;}for(ALL_LIST_ELEMENTS_RO(&h->descriptors,node,rfd)){struc
+troute_node*rn;intprintedquerier=0;++nves_total;if(rfd->mon||(rfd->mon_eth&&skip
+list_count(rfd->mon_eth))){++nves_with_queries;}else{continue;}/**IPQueries*/if(
+rfd->mon){for(rn=route_top(rfd->mon);rn;rn=route_next(rn)){structrfapi_monitor_v
+pn*m;charbuf_remain[BUFSIZ];charbuf_pfx[BUFSIZ];if(!rn->info)continue;m=rn->info
+;++queries_total;if(pfx_match&&!prefix_match(pfx_match,&rn->p)&&!prefix_match(&r
+n->p,pfx_match))continue;++queries_displayed;if(!printedheader){++printedheader;
+fp(out,"\n");fp(out,"%-15s%-15s%-15s%-10s\n","VNAddress","UNAddress","Target","R
+emaining");}if(!printedquerier){charbuf_vn[BUFSIZ];charbuf_un[BUFSIZ];rfapiRfapi
+IpAddr2Str(&rfd->un_addr,buf_un,BUFSIZ);rfapiRfapiIpAddr2Str(&rfd->vn_addr,buf_v
+n,BUFSIZ);fp(out,"%-15s%-15s",buf_vn,buf_un);printedquerier=1;++nves_displayed;}
+elsefp(out,"%-15s%-15s","","");buf_remain[0]=0;if(m->timer){rfapiFormatSeconds(t
+hread_timer_remain_second(m->timer),buf_remain,BUFSIZ);}fp(out,"%-15s%-10s\n",in
+et_ntop(m->p.family,&m->p.u.prefix,buf_pfx,BUFSIZ),buf_remain);}}/**EthernetQuer
+ies*/if(rfd->mon_eth&&skiplist_count(rfd->mon_eth)){intrc;void*cursor;structrfap
+i_monitor_eth*mon_eth;for(cursor=NULL,rc=skiplist_next(rfd->mon_eth,NULL,(void**
+)&mon_eth,&cursor);rc==0;rc=skiplist_next(rfd->mon_eth,NULL,(void**)&mon_eth,&cu
+rsor)){charbuf_remain[BUFSIZ];charbuf_pfx[BUFSIZ];structprefixpfx_mac;++queries_
+total;vnc_zlog_debug_verbose("%s:checkingrfd=%pmon_eth=%p",__func__,rfd,mon_eth)
+;memset((void*)&pfx_mac,0,sizeof(structprefix));pfx_mac.family=AF_ETHERNET;pfx_m
+ac.prefixlen=48;pfx_mac.u.prefix_eth=mon_eth->macaddr;if(pfx_match&&!prefix_matc
+h(pfx_match,&pfx_mac)&&!prefix_match(&pfx_mac,pfx_match))continue;++queries_disp
+layed;if(!printedheader){++printedheader;fp(out,"\n");fp(out,"%-15s%-15s%-17s%10
+s%-10s\n","VNAddress","UNAddress","Target","LNI","Remaining");}if(!printedquerie
+r){charbuf_vn[BUFSIZ];charbuf_un[BUFSIZ];rfapiRfapiIpAddr2Str(&rfd->un_addr,buf_
+un,BUFSIZ);rfapiRfapiIpAddr2Str(&rfd->vn_addr,buf_vn,BUFSIZ);fp(out,"%-15s%-15s"
+,buf_vn,buf_un);printedquerier=1;++nves_displayed;}elsefp(out,"%-15s%-15s","",""
+);buf_remain[0]=0;if(mon_eth->timer){rfapiFormatSeconds(thread_timer_remain_seco
+nd(mon_eth->timer),buf_remain,BUFSIZ);}fp(out,"%-17s%10d%-10s\n",rfapi_ntop(pfx_
+mac.family,&pfx_mac.u.prefix,buf_pfx,BUFSIZ),mon_eth->logical_net_id,buf_remain)
+;}}}if(queries_total){fp(out,"\n");fp(out,"Displayed%doutof%dtotalqueries\n",que
+ries_displayed,queries_total);}returnCMD_SUCCESS;}staticintrfapiPrintRemoteRegBi
+(structbgp*bgp,void*stream,structroute_node*rn,structbgp_info*bi){int(*fp)(void*
+,constchar*,...);structvty*vty;void*out;constchar*vty_newline;structprefixpfx_un
+;structprefixpfx_vn;uint8_tcost;uint32_tlifetime;bgp_encap_typestun_type;charbuf
+_pfx[BUFSIZ];charbuf_ntop[BUFSIZ];charbuf_un[BUFSIZ];charbuf_vn[BUFSIZ];charbuf_
+lifetime[BUFSIZ];intnlines=0;if(!stream)return0;/*fordebuglog,printintobuf&callo
+utputonce*/if(rfapiStream2Vty(stream,&fp,&vty,&out,&vty_newline)==0)return0;/**P
+refix*/buf_pfx[0]=0;snprintf(buf_pfx,BUFSIZ,"%s/%d",rfapi_ntop(rn->p.family,&rn-
+>p.u.prefix,buf_ntop,BUFSIZ),rn->p.prefixlen);buf_pfx[BUFSIZ-1]=0;nlines++;/**UN
+addr*/buf_un[0]=0;if(!rfapiGetUnAddrOfVpnBi(bi,&pfx_un)){snprintf(buf_un,BUFSIZ,
+"%s",inet_ntop(pfx_un.family,&pfx_un.u.prefix,buf_ntop,BUFSIZ));}rfapiGetTunnelT
+ype(bi->attr,&tun_type);/**VNaddr*/buf_vn[0]=0;rfapiNexthop2Prefix(bi->attr,&pfx
+_vn);if(tun_type==BGP_ENCAP_TYPE_MPLS){/*MPLScarriesuninnrlinexthop(sameasvnforI
+Ptunnels)*/snprintf(buf_un,BUFSIZ,"%s",inet_ntop(pfx_vn.family,&pfx_vn.u.prefix,
+buf_ntop,BUFSIZ));if(bi->extra){uint32_tl=decode_label(&bi->extra->label[0]);snp
+rintf(buf_vn,BUFSIZ,"Label:%d",l);}else/*shouldneverhappen*/{snprintf(buf_vn,BUF
+SIZ,"Label:N/A");}}else{snprintf(buf_vn,BUFSIZ,"%s",inet_ntop(pfx_vn.family,&pfx
+_vn.u.prefix,buf_ntop,BUFSIZ));}buf_vn[BUFSIZ-1]=0;buf_un[BUFSIZ-1]=0;/**Costise
+ncodedinlocal_prefas(255-cost)*Seerfapi_import.c'rfapiRouteInfo2NextHopEntry()fo
+rconversion*backtocost.*/if(bi->attr){uint32_tlocal_pref;if(bi->attr->flag&ATTR_
+FLAG_BIT(BGP_ATTR_LOCAL_PREF))local_pref=bi->attr->local_pref;elselocal_pref=0;c
+ost=(local_pref>255)?0:255-local_pref;}else{cost=0;}fp(out,"%-20s",buf_pfx);fp(o
+ut,"%-15s",buf_vn);fp(out,"%-15s",buf_un);fp(out,"%-4d",cost);/*Lifetime*//*NBrf
+apiGetVncLifetimesetsinfinitevaluewhenreturning!0*/if(rfapiGetVncLifetime(bi->at
+tr,&lifetime)||(lifetime==RFAPI_INFINITE_LIFETIME)){fp(out,"%-10s","infinite");}
+else{time_tt_lifetime=lifetime;rfapiFormatSeconds(t_lifetime,buf_lifetime,BUFSIZ
+);fp(out,"%-10s",buf_lifetime);}if(CHECK_FLAG(bi->flags,BGP_INFO_REMOVED)&&bi->e
+xtra&&bi->extra->vnc.import.timer){uint32_tremaining;time_tage;charbuf_age[BUFSI
+Z];structthread*t=(structthread*)bi->extra->vnc.import.timer;remaining=thread_ti
+mer_remain_second(t);#ifRFAPI_REGISTRATIONS_REPORT_AGE/**Calculatewhenthetimerst
+arted.Doingsoheresaves*usatimestampfieldin"structbgp_info".**Seerfapi_import.c'r
+fapiBiStartWithdrawTimer()forthe*originalcalculation.*/age=rfapiGetHolddownFromL
+ifetime(lifetime,factor)-remaining;#else/*reportremainingtime*/age=remaining;#en
+difrfapiFormatSeconds(age,buf_age,BUFSIZ);fp(out,"%-10s",buf_age);}elseif(RFAPI_
+LOCAL_BI(bi)){charbuf_age[BUFSIZ];if(bi->extra&&bi->extra->vnc.import.create_tim
+e){rfapiFormatAge(bi->extra->vnc.import.create_time,buf_age,BUFSIZ);}else{buf_ag
+e[0]='?';buf_age[1]=0;}fp(out,"%-10s",buf_age);}fp(out,"%s",HVTYNL);if(rn->p.fam
+ily==AF_ETHERNET){/**IfthereisacorrespondingIPaddress&&!=VNaddress,*printthatont
+henextline*/if(bi->extra&&bi->extra->vnc.import.aux_prefix.family){constchar*sp;
+sp=rfapi_ntop(bi->extra->vnc.import.aux_prefix.family,&bi->extra->vnc.import.aux
+_prefix.u.prefix,buf_ntop,BUFSIZ);buf_ntop[BUFSIZ-1]=0;if(sp&&strcmp(buf_vn,sp)!
+=0){fp(out,"IP:%s",sp);if(nlines==1)nlines++;}}}if(tun_type!=BGP_ENCAP_TYPE_MPLS
+&&bi->extra){uint32_tl=decode_label(&bi->extra->label[0]);if(!MPLS_LABEL_IS_NULL
+(l)){fp(out,"Label:%d",l);if(nlines==1)nlines++;}}if(nlines>1)fp(out,"%s",HVTYNL
+);return1;}staticintrfapiShowRemoteRegistrationsIt(structbgp*bgp,void*stream,str
+uctrfapi_import_table*it,structprefix*prefix_only,intshow_expiring,/*either/or*/
+intshow_local,intshow_remote,intshow_imported,/*either/or*/uint32_t*pLni)/*AFI_L
+2VPNonly*/{afi_tafi;intprinted_rtlist_hdr=0;int(*fp)(void*,constchar*,...);struc
+tvty*vty;void*out;constchar*vty_newline;inttotal=0;intprinted=0;if(rfapiStream2V
+ty(stream,&fp,&vty,&out,&vty_newline)==0)returnprinted;for(afi=AFI_IP;afi<AFI_MA
+X;++afi){structroute_node*rn;if(!it->imported_vpn[afi])continue;for(rn=route_top
+(it->imported_vpn[afi]);rn;rn=route_next(rn)){structbgp_info*bi;intcount_only;/*
+allowforwiderormorenarrowmaskfromuser*/if(prefix_only&&!prefix_match(prefix_only
+,&rn->p)&&!prefix_match(&rn->p,prefix_only))count_only=1;elsecount_only=0;for(bi
+=rn->info;bi;bi=bi->next){if(!show_local&&RFAPI_LOCAL_BI(bi)){/*localroutefromRF
+P*/continue;}if(!show_remote&&!RFAPI_LOCAL_BI(bi)){/*remoteroute*/continue;}if(s
+how_expiring&&!CHECK_FLAG(bi->flags,BGP_INFO_REMOVED))continue;if(!show_expiring
+&&CHECK_FLAG(bi->flags,BGP_INFO_REMOVED))continue;if(bi->type==ZEBRA_ROUTE_BGP_D
+IRECT||bi->type==ZEBRA_ROUTE_BGP_DIRECT_EXT){if(!show_imported)continue;}else{if
+(show_imported)continue;}total++;if(count_only==1)continue;if(!printed_rtlist_hd
+r){constchar*agetype="";char*s;constchar*type="";if(show_imported){type="Importe
+d";}else{if(show_expiring){type="Holddown";}else{if(RFAPI_LOCAL_BI(bi)){type="Lo
+cal";}else{type="Remote";}}}s=ecommunity_ecom2str(it->rt_import_list,ECOMMUNITY_
+FORMAT_ROUTE_MAP,0);if(pLni){fp(out,"%s[%s]L2VPNNetwork0x%x(%u)RT={%s}",HVTYNL,t
+ype,*pLni,(*pLni&0xfff),s);}else{fp(out,"%s[%s]PrefixRT={%s}",HVTYNL,type,s);}XF
+REE(MTYPE_ECOMMUNITY_STR,s);if(it->rfg&&it->rfg->name){fp(out,"%s\"%s\"",(it->rf
+g->type==RFAPI_GROUP_CFG_VRF?"VRF":"NVEgroup"),it->rfg->name);}fp(out,"%s",HVTYN
+L);if(show_expiring){#ifRFAPI_REGISTRATIONS_REPORT_AGEagetype="Age";#elseagetype
+="Remaining";#endif}elseif(show_local){agetype="Age";}printed_rtlist_hdr=1;fp(ou
+t,"%-20s%-15s%-15s%4s%-10s%-10s%s",(pLni?"L2Address/IP":"Prefix"),"VNAddress","U
+NAddress","Cost","Lifetime",agetype,HVTYNL);}printed+=rfapiPrintRemoteRegBi(bgp,
+stream,rn,bi);}}}if(printed>0){constchar*type="prefixes";if(show_imported){type=
+"importedprefixes";}else{if(show_expiring){type="prefixesinholddown";}else{if(sh
+ow_local&&!show_remote){type="locallyregisteredprefixes";}elseif(!show_local&&sh
+ow_remote){type="remotelyregisteredprefixes";}}}fp(out,"Displayed%doutof%d%s%s",
+printed,total,type,HVTYNL);#ifDEBUG_SHOW_EXTRAfp(out,"ITtableabove:it=%p%s",it,H
+VTYNL);#endif}returnprinted;}/**rfapiShowRemoteRegistrations**SimilartorfapiShow
+ImportTable()above.Thisfunction*ismeantoproducethe"remote"portionoftheoutput*of"
+showvncregistrations".*/intrfapiShowRemoteRegistrations(void*stream,structprefix
+*prefix_only,intshow_expiring,intshow_local,intshow_remote,intshow_imported){str
+uctbgp*bgp;structrfapi*h;structrfapi_import_table*it;intprinted=0;bgp=bgp_get_de
+fault();if(!bgp){returnprinted;}h=bgp->rfapi;if(!h){returnprinted;}for(it=h->imp
+orts;it;it=it->next){printed+=rfapiShowRemoteRegistrationsIt(bgp,stream,it,prefi
+x_only,show_expiring,show_local,show_remote,show_imported,NULL);}if(h->import_ma
+c){void*cursor=NULL;intrc;uintptr_tlni_as_ptr;uint32_tlni;uint32_t*pLni;for(rc=s
+kiplist_next(h->import_mac,(void**)&lni_as_ptr,(void**)&it,&cursor);!rc;rc=skipl
+ist_next(h->import_mac,(void**)&lni_as_ptr,(void**)&it,&cursor)){pLni=NULL;if((l
+ni_as_ptr&0xffffffff)==lni_as_ptr){lni=(uint32_t)(lni_as_ptr&0xffffffff);pLni=&l
+ni;}printed+=rfapiShowRemoteRegistrationsIt(bgp,stream,it,prefix_only,show_expir
+ing,show_local,show_remote,show_imported,pLni);}}returnprinted;}/*--------------
+----------------------------*rfapiRfapiIpAddr2Str**UIhelper:generatestringfromrf
+api_ip_addr**input:*aIPv4/v6address**output*bufputstringhere*bufsizemaxspacetowr
+ite**returnvalue:*NULLconversionfailed*non-NULLpointertobuf---------------------
+-----------------------*/constchar*rfapiRfapiIpAddr2Str(structrfapi_ip_addr*a,ch
+ar*buf,intbufsize){constchar*rc=NULL;switch(a->addr_family){caseAF_INET:rc=inet_
+ntop(a->addr_family,&a->addr.v4,buf,bufsize);break;caseAF_INET6:rc=inet_ntop(a->
+addr_family,&a->addr.v6,buf,bufsize);break;}returnrc;}voidrfapiPrintRfapiIpAddr(
+void*stream,structrfapi_ip_addr*a){charbuf[BUFSIZ];constchar*rc=NULL;int(*fp)(vo
+id*,constchar*,...);structvty*vty;void*out=NULL;constchar*vty_newline;if(rfapiSt
+ream2Vty(stream,&fp,&vty,&out,&vty_newline)==0)return;rc=rfapiRfapiIpAddr2Str(a,
+buf,BUFSIZ);if(rc)fp(out,"%s",buf);}constchar*rfapiRfapiIpPrefix2Str(structrfapi
+_ip_prefix*p,char*buf,intbufsize){structrfapi_ip_addr*a=&p->prefix;constchar*rc=
+NULL;switch(a->addr_family){caseAF_INET:rc=inet_ntop(a->addr_family,&a->addr.v4,
+buf,bufsize);break;caseAF_INET6:rc=inet_ntop(a->addr_family,&a->addr.v6,buf,bufs
+ize);break;}if(rc){intalen=strlen(buf);intremaining=bufsize-alen-1;intslen;if(re
+maining>0){slen=snprintf(buf+alen,remaining,"/%u",p->length);if(slen<remaining)/
+*seemanpageforsnprintf(3)*/returnrc;}}returnNULL;}voidrfapiPrintRfapiIpPrefix(vo
+id*stream,structrfapi_ip_prefix*p){charbuf[BUFSIZ];constchar*rc;int(*fp)(void*,c
+onstchar*,...);structvty*vty;void*out=NULL;constchar*vty_newline;if(rfapiStream2
+Vty(stream,&fp,&vty,&out,&vty_newline)==0)return;rc=rfapiRfapiIpPrefix2Str(p,buf
+,BUFSIZ);if(rc)fp(out,"%s:%u",buf,p->cost);elsefp(out,"?/?:?");}voidrfapiPrintRd
+(structvty*vty,structprefix_rd*prd){charbuf[RD_ADDRSTRLEN];prefix_rd2str(prd,buf
+,sizeof(buf));vty_out(vty,"%s",buf);}voidrfapiPrintAdvertisedInfo(structvty*vty,
+structrfapi_descriptor*rfd,safi_tsafi,structprefix*p){afi_tafi;/*oftheVNaddress*
+/structbgp_node*bn;structbgp_info*bi;uint8_ttype=ZEBRA_ROUTE_BGP;structbgp*bgp;i
+ntprinted=0;structprefix_rdprd0;structprefix_rd*prd;/**Findthebgp_infointheRIBco
+rrespondingtothis*prefixandrfd*/afi=family2afi(p->family);assert(afi==AFI_IP||af
+i==AFI_IP6);bgp=bgp_get_default();/*assume1instancefornow*/assert(bgp);if(safi==
+SAFI_ENCAP){memset(&prd0,0,sizeof(prd0));prd0.family=AF_UNSPEC;prd0.prefixlen=64
+;prd=&prd0;}else{prd=&rfd->rd;}bn=bgp_afi_node_get(bgp->rib[afi][safi],afi,safi,
+p,prd);vty_out(vty,"bn=%p%s",bn,HVTYNL);for(bi=bn->info;bi;bi=bi->next){if(bi->p
+eer==rfd->peer&&bi->type==type&&bi->sub_type==BGP_ROUTE_RFP&&bi->extra&&bi->extr
+a->vnc.export.rfapi_handle==(void*)rfd){rfapiPrintBi(vty,bi);printed=1;}}if(!pri
+nted){vty_out(vty,"--?--%s",HVTYNL);return;}}voidrfapiPrintDescriptor(structvty*
+vty,structrfapi_descriptor*rfd){/*pHDun-addrvn-addrpCBcookierdlifetime*//*RTexpo
+rtlist*//*RTimportlist*//*listofadvertisedprefixes*//*dumpimporttable*/char*s;vo
+id*cursor;intrc;afi_tafi;structrfapi_adb*adb;charbuf[PREFIX_STRLEN];vty_out(vty,
+"%-10p",rfd);rfapiPrintRfapiIpAddr(vty,&rfd->un_addr);vty_out(vty,"");rfapiPrint
+RfapiIpAddr(vty,&rfd->vn_addr);vty_out(vty,"%p%p",rfd->response_cb,rfd->cookie);
+rfapiPrintRd(vty,&rfd->rd);vty_out(vty,"%d",rfd->response_lifetime);vty_out(vty,
+"%s",(rfd->rfg?rfd->rfg->name:"<orphaned>"));vty_out(vty,"%s",HVTYNL);vty_out(vt
+y,"Peer%p#%d%s",rfd->peer,rfd->peer->lock,HVTYNL);/*exportRTlist*/if(rfd->rt_exp
+ort_list){s=ecommunity_ecom2str(rfd->rt_export_list,ECOMMUNITY_FORMAT_ROUTE_MAP,
+0);vty_out(vty,"Export%s%s",s,HVTYNL);XFREE(MTYPE_ECOMMUNITY_STR,s);}else{vty_ou
+t(vty,"Export(nil)%s",HVTYNL);}/*importRTlist*/if(rfd->import_table){s=ecommunit
+y_ecom2str(rfd->import_table->rt_import_list,ECOMMUNITY_FORMAT_ROUTE_MAP,0);vty_
+out(vty,"Import%s%s",s,HVTYNL);XFREE(MTYPE_ECOMMUNITY_STR,s);}else{vty_out(vty,"
+Import(nil)%s",HVTYNL);}for(afi=AFI_IP;afi<AFI_MAX;++afi){uint8_tfamily;family=a
+fi2family(afi);if(!family)continue;cursor=NULL;for(rc=skiplist_next(rfd->adverti
+sed.ipN_by_prefix,NULL,(void**)&adb,&cursor);rc==0;rc=skiplist_next(rfd->adverti
+sed.ipN_by_prefix,NULL,(void**)&adb,&cursor)){/*grouplikefamilyprefixestogetheri
+noutput*/if(family!=adb->u.s.prefix_ip.family)continue;prefix2str(&adb->u.s.pref
+ix_ip,buf,sizeof(buf));vty_out(vty,"AdvPfx:%s%s",buf,HVTYNL);rfapiPrintAdvertise
+dInfo(vty,rfd,SAFI_MPLS_VPN,&adb->u.s.prefix_ip);}}for(rc=skiplist_next(rfd->adv
+ertised.ip0_by_ether,NULL,(void**)&adb,&cursor);rc==0;rc=skiplist_next(rfd->adve
+rtised.ip0_by_ether,NULL,(void**)&adb,&cursor)){prefix2str(&adb->u.s.prefix_eth,
+buf,sizeof(buf));vty_out(vty,"AdvPfx:%s%s",buf,HVTYNL);/*TBDupdatethefollowingfu
+nctiontoprintethernetinfo*//*Alsoneedtopass/userd*/rfapiPrintAdvertisedInfo(vty,
+rfd,SAFI_MPLS_VPN,&adb->u.s.prefix_ip);}vty_out(vty,"%s",HVTYNL);}/**testscripts
+relyonfirstlineforeachnvestartingin1stcolumn,*leadingwhitespaceforadditionaldeta
+ilofthatnve*/voidrfapiPrintMatchingDescriptors(structvty*vty,structprefix*vn_pre
+fix,structprefix*un_prefix){structbgp*bgp;structrfapi*h;structlistnode*ln;struct
+rfapi_descriptor*rfd;intprinted=0;bgp=bgp_get_default();/*assume1instancefornow*
+/if(!bgp)return;h=bgp->rfapi;assert(h);for(ln=listhead(&h->descriptors);ln;ln=li
+stnextnode(ln)){rfd=listgetdata(ln);structprefixpfx;if(vn_prefix){assert(!rfapiR
+addr2Qprefix(&rfd->vn_addr,&pfx));if(!prefix_match(vn_prefix,&pfx))continue;}if(
+un_prefix){assert(!rfapiRaddr2Qprefix(&rfd->un_addr,&pfx));if(!prefix_match(un_p
+refix,&pfx))continue;}if(!printed){/*printcolumnheader*/vty_out(vty,"%s%s%s%s%s%
+s%s%s%s","descriptor","un-addr","vn-addr","callback","cookie","RD","lifetime","g
+roup",HVTYNL);}rfapiPrintDescriptor(vty,rfd);printed=1;}}/**Parseanaddressandput
+intoastructprefix*/intrfapiCliGetPrefixAddr(structvty*vty,constchar*str,structpr
+efix*p){if(!str2prefix(str,p)){vty_out(vty,"Malformedaddress\"%s\"%s",str,HVTYNL
+);returnCMD_WARNING;}switch(p->family){caseAF_INET:if(p->prefixlen!=32){vty_out(
+vty,"Notahostaddress:\"%s\"%s",str,HVTYNL);returnCMD_WARNING;}break;caseAF_INET6
+:if(p->prefixlen!=128){vty_out(vty,"Notahostaddress:\"%s\"%s",str,HVTYNL);return
+CMD_WARNING;}break;default:vty_out(vty,"Invalidaddress\"%s\"%s",str,HVTYNL);retu
+rnCMD_WARNING;}return0;}intrfapiCliGetRfapiIpAddr(structvty*vty,constchar*str,st
+ructrfapi_ip_addr*hai){structprefixpfx;intrc;rc=rfapiCliGetPrefixAddr(vty,str,&p
+fx);if(rc)returnrc;hai->addr_family=pfx.family;if(pfx.family==AF_INET)hai->addr.
+v4=pfx.u.prefix4;elsehai->addr.v6=pfx.u.prefix6;return0;}/**Note:thisfunctiondoe
+snotflushvtyoutput,soifitiscalled*withastreampointingtoavty,theuserwillhavetotyp
+esomething*beforethecallbackoutputshowsup*/voidrfapiPrintNhl(void*stream,structr
+fapi_next_hop_entry*next_hops){structrfapi_next_hop_entry*nh;intcount;int(*fp)(v
+oid*,constchar*,...);structvty*vty;void*out;constchar*vty_newline;#defineREMAIN(
+BUFSIZ-(p-line))#defineINCP{p+=(r>REMAIN)?REMAIN:r;}if(rfapiStream2Vty(stream,&f
+p,&vty,&out,&vty_newline)==0)return;for(nh=next_hops,count=1;nh;nh=nh->next,++co
+unt){charline[BUFSIZ];char*p=line;intr;r=snprintf(p,REMAIN,"%3dpfx=",count);INCP
+;if(rfapiRfapiIpPrefix2Str(&nh->prefix,p,REMAIN)){/*itfit,socountlength*/r=strle
+n(p);}else{/*didn'tfit*/gototruncate;}INCP;r=snprintf(p,REMAIN,",un=");INCP;if(r
+fapiRfapiIpAddr2Str(&nh->un_address,p,REMAIN)){/*itfit,socountlength*/r=strlen(p
+);}else{/*didn'tfit*/gototruncate;}INCP;r=snprintf(p,REMAIN,",vn=");INCP;if(rfap
+iRfapiIpAddr2Str(&nh->vn_address,p,REMAIN)){/*itfit,socountlength*/r=strlen(p);}
+else{/*didn'tfit*/gototruncate;}INCP;truncate:line[BUFSIZ-1]=0;fp(out,"%s%s",lin
+e,HVTYNL);/**options*/if(nh->vn_options){structrfapi_vn_option*vo;charoffset[]="
+";for(vo=nh->vn_options;vo;vo=vo->next){charpbuf[100];switch(vo->type){caseRFAPI
+_VN_OPTION_TYPE_L2ADDR:rfapiEthAddr2Str(&vo->v.l2addr.macaddr,pbuf,sizeof(pbuf))
+;fp(out,"%sL2%sLBL=0x%06xNETID=0x%06xNVEID=%d%s",offset,pbuf,(vo->v.l2addr.label
+&0x00ffffff),(vo->v.l2addr.logical_net_id&0x00ffffff),vo->v.l2addr.local_nve_id,
+HVTYNL);break;caseRFAPI_VN_OPTION_TYPE_LOCAL_NEXTHOP:prefix2str(&vo->v.local_nex
+thop.addr,pbuf,sizeof(pbuf));fp(out,"%sLNH%scost=%d%s",offset,pbuf,vo->v.local_n
+exthop.cost,HVTYNL);break;default:fp(out,"%svnoptiontype%d(unknown)%s",offset,vo
+->type,HVTYNL);break;}}}if(nh->un_options){structrfapi_un_option*uo;charoffset[]
+="";for(uo=nh->un_options;uo;uo=uo->next){switch(uo->type){caseRFAPI_UN_OPTION_T
+YPE_TUNNELTYPE:rfapi_print_tunneltype_option(stream,8,&uo->v.tunnel);break;defau
+lt:fp(out,"%sUNOptiontype%d%s",offset,uo->type,vty_newline);break;}}}}}/********
+****************************************************************STATICROUTES****
+*******************************************************************//**Addanothe
+rnexthoptotheNHL*/staticvoidrfapiAddDeleteLocalRfpPrefix(structrfapi_ip_addr*un_
+addr,structrfapi_ip_addr*vn_addr,structrfapi_ip_prefix*rprefix,intis_add,uint32_
+tlifetime,/*addonly*/structrfapi_vn_option*vn_options,structrfapi_next_hop_entry
+**head,structrfapi_next_hop_entry**tail){structrfapi_next_hop_entry*new;/**const
+ructNHL*/new=XCALLOC(MTYPE_RFAPI_NEXTHOP,sizeof(structrfapi_next_hop_entry));new
+->prefix=*rprefix;new->un_address=*un_addr;new->vn_address=*vn_addr;new->vn_opti
+ons=vn_options;if(is_add){new->lifetime=lifetime;}else{new->lifetime=RFAPI_REMOV
+E_RESPONSE_LIFETIME;}if(*tail)(*tail)->next=new;*tail=new;if(!*head){*head=new;}
+}staticintregister_add(structvty*vty,structcmd_token*carg_prefix,structcmd_token
+*carg_vn,structcmd_token*carg_un,structcmd_token*carg_cost,/*optional*/structcmd
+_token*carg_lifetime,/*optional*/structcmd_token*carg_macaddr,/*optional*/struct
+cmd_token*carg_vni,/*macpresent=>mandatoryVirtualNetworkID*/intargc,structcmd_to
+ken**argv){constchar*arg_prefix=carg_prefix?carg_prefix->arg:NULL;constchar*arg_
+vn=carg_vn?carg_vn->arg:NULL;constchar*arg_un=carg_un?carg_un->arg:NULL;constcha
+r*arg_cost=carg_cost?carg_cost->arg:NULL;constchar*arg_lifetime=carg_lifetime?ca
+rg_lifetime->arg:NULL;constchar*arg_macaddr=carg_macaddr?carg_macaddr->arg:NULL;
+constchar*arg_vni=carg_vni?carg_vni->arg:NULL;structrfapi_ip_addrvn_address;stru
+ctrfapi_ip_addrun_address;structprefixpfx;structrfapi_ip_prefixrpfx;uint32_tcost
+;uint32_tlnh_cost;uint32_tlifetime;rfapi_handlerfd;structrfapi_vn_optionoptary[1
+0];/*XXXmustbebigenough*/structrfapi_vn_option*opt=NULL;intopt_next=0;intrc=CMD_
+WARNING_CONFIG_FAILED;char*endptr;structbgp*bgp;structrfapi*h;structrfapi_cfg*rf
+api_cfg;constchar*arg_lnh=NULL;constchar*arg_lnh_cost=NULL;bgp=bgp_get_default()
+;/*assume1instancefornow*/if(!bgp){if(vty)vty_out(vty,"BGPnotconfigured\n");retu
+rnCMD_WARNING_CONFIG_FAILED;}h=bgp->rfapi;rfapi_cfg=bgp->rfapi_cfg;if(!h||!rfapi
+_cfg){if(vty)vty_out(vty,"RFAPInotconfigured\n");returnCMD_WARNING_CONFIG_FAILED
+;}for(;argc;--argc,++argv){if(strmatch(argv[0]->text,"local-next-hop")){if(arg_l
+nh){vty_out(vty,"local-next-hopspecifiedmorethanonce\n");returnCMD_WARNING_CONFI
+G_FAILED;}if(argc<=1){vty_out(vty,"Missingparameterforlocal-next-hop\n");returnC
+MD_WARNING_CONFIG_FAILED;}++argv,--argc;arg_lnh=argv[0]->arg;}if(strmatch(argv[0
+]->text,"local-cost")){if(arg_lnh_cost){vty_out(vty,"local-costspecifiedmorethan
+once\n");returnCMD_WARNING_CONFIG_FAILED;}if(argc<=1){vty_out(vty,"Missingparame
+terforlocal-cost\n");returnCMD_WARNING_CONFIG_FAILED;}++argv,--argc;arg_lnh_cost
+=argv[0]->arg;}}if((rc=rfapiCliGetRfapiIpAddr(vty,arg_vn,&vn_address)))gotofail;
+if((rc=rfapiCliGetRfapiIpAddr(vty,arg_un,&un_address)))gotofail;/*arg_prefixisop
+tionalifmacaddressisgiven*/if(arg_macaddr&&!arg_prefix){/**fakeupa0/32or0/128pre
+fix*/switch(vn_address.addr_family){caseAF_INET:arg_prefix="0.0.0.0/32";break;ca
+seAF_INET6:arg_prefix="0::0/128";break;default:vty_out(vty,"Internalerror,unknow
+nVNaddressfamily\n");returnCMD_WARNING_CONFIG_FAILED;}}if(!str2prefix(arg_prefix
+,&pfx)){vty_out(vty,"Malformedprefix\"%s\"\n",arg_prefix);gotofail;}if(pfx.famil
+y!=AF_INET&&pfx.family!=AF_INET6){vty_out(vty,"prefix\"%s\"hasinvalidaddressfami
+ly\n",arg_prefix);gotofail;}memset(optary,0,sizeof(optary));if(arg_cost){endptr=
+NULL;cost=strtoul(arg_cost,&endptr,10);if(*endptr!='\0'||cost>255){vty_out(vty,"
+%%Invalid%svalue\n","cost");gotofail;}}else{cost=255;}if(arg_lifetime){if(!strcm
+p(arg_lifetime,"infinite")){lifetime=RFAPI_INFINITE_LIFETIME;}else{endptr=NULL;l
+ifetime=strtoul(arg_lifetime,&endptr,10);if(*endptr!='\0'){vty_out(vty,"%%Invali
+d%svalue\n","lifetime");gotofail;}}}else{lifetime=RFAPI_INFINITE_LIFETIME;/*defa
+ultinfinite*/}if(arg_lnh_cost){if(!arg_lnh){vty_out(vty,"%%%smayonlybespecifiedw
+ithlocal-next-hop\n","local-cost");gotofail;}endptr=NULL;lnh_cost=strtoul(arg_ln
+h_cost,&endptr,10);if(*endptr!='\0'||lnh_cost>255){vty_out(vty,"%%Invalid%svalue
+\n","local-cost");gotofail;}}else{lnh_cost=255;}if(arg_lnh){if(!arg_prefix){vty_
+out(vty,"%%%smayonlybespecifiedwithprefix\n","local-next-hop");gotofail;}if((rc=
+rfapiCliGetPrefixAddr(vty,arg_lnh,&optary[opt_next].v.local_nexthop.addr))){goto
+fail;}optary[opt_next].v.local_nexthop.cost=lnh_cost;optary[opt_next].type=RFAPI
+_VN_OPTION_TYPE_LOCAL_NEXTHOP;if(opt_next){optary[opt_next-1].next=optary+opt_ne
+xt;}else{opt=optary;}++opt_next;}if(arg_vni&&!arg_macaddr){vty_out(vty,"%%%smayo
+nlybespecifiedwithmacaddress\n","virtual-network-identifier");gotofail;}if(arg_m
+acaddr){if(!arg_vni){vty_out(vty,"Missing\"vni\"parameter(mandatorywithmac)\n");
+returnCMD_WARNING_CONFIG_FAILED;}optary[opt_next].v.l2addr.logical_net_id=strtou
+l(arg_vni,NULL,10);if((rc=rfapiStr2EthAddr(arg_macaddr,&optary[opt_next].v.l2add
+r.macaddr))){vty_out(vty,"Invalid%svalue\n","macaddress");gotofail;}/*TBDlabel,N
+VEID*/optary[opt_next].type=RFAPI_VN_OPTION_TYPE_L2ADDR;if(opt_next){optary[opt_
+next-1].next=optary+opt_next;}else{opt=optary;}++opt_next;}vnc_zlog_debug_verbos
+e("%s:vn=%s,un=%s,prefix=%s,cost=%s,lifetime=%s,lnh=%s",__func__,arg_vn,arg_un,a
+rg_prefix,(arg_cost?arg_cost:"NULL"),(arg_lifetime?arg_lifetime:"NULL"),(arg_lnh
+?arg_lnh:"NULL"));rfapiQprefix2Rprefix(&pfx,&rpfx);rpfx.cost=cost&255;/*lookuprf
+descriptor,callopenifitdoesn'texist*/rc=rfapi_find_rfd(bgp,&vn_address,&un_addre
+ss,(structrfapi_descriptor**)&rfd);if(rc){if(ENOENT==rc){structrfapi_un_optionuo
+;/**flagdescriptorasprovisionallyopenedforstatic*route*registrationsothatwecanfi
+xuptheother*parameters*whentherealopencomesalong*/memset(&uo,0,sizeof(uo));uo.ty
+pe=RFAPI_UN_OPTION_TYPE_PROVISIONAL;rc=rfapi_open(rfapi_get_rfp_start_val_by_bgp
+(bgp),&vn_address,&un_address,&uo,/*flags*/NULL,NULL,/*nouserdata*/&rfd);if(rc){
+vty_out(vty,"Can'topensessionforthisNVE:%s\n",rfapi_error_str(rc));rc=CMD_WARNIN
+G_CONFIG_FAILED;gotofail;}}else{vty_out(vty,"Can'tfindsessionforthisNVE:%s\n",rf
+api_error_str(rc));gotofail;}}rc=rfapi_register(rfd,&rpfx,lifetime,NULL,opt,RFAP
+I_REGISTER_ADD);if(!rc){structrfapi_next_hop_entry*head=NULL;structrfapi_next_ho
+p_entry*tail=NULL;structrfapi_vn_option*vn_opt_new;vnc_zlog_debug_verbose("%s:rf
+api_registersucceeded,returning0",__func__);if(h->rfp_methods.local_cb){structrf
+api_descriptor*r=(structrfapi_descriptor*)rfd;vn_opt_new=rfapi_vn_options_dup(op
+t);rfapiAddDeleteLocalRfpPrefix(&r->un_addr,&r->vn_addr,&rpfx,1,lifetime,vn_opt_
+new,&head,&tail);if(head){h->flags|=RFAPI_INCALLBACK;(*h->rfp_methods.local_cb)(
+head,r->cookie);h->flags&=~RFAPI_INCALLBACK;}head=tail=NULL;}return0;}vnc_zlog_d
+ebug_verbose("%s:rfapi_registerfailed",__func__);vty_out(vty,"\n");vty_out(vty,"
+Registrationfailed.\n");vty_out(vty,"ConfirmthateithertheVNorUNaddressmatchesaco
+nfiguredNVEgroup.\n");returnCMD_WARNING_CONFIG_FAILED;fail:vnc_zlog_debug_verbos
+e("%s:fail,rc=%d",__func__,rc);returnrc;}/**************************************
+***********************************AddprefixWithLNH_OPTIONS...******************
+******************************************************/DEFUN(add_vnc_prefix_cost
+_life_lnh,add_vnc_prefix_cost_life_lnh_cmd,"addvncprefix<A.B.C.D/M|X:X::X:X/M>vn
+<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>cost(0-255)lifetime(1-4294967295)LNH_OPTIO
+NS...","Addregistration\n""VNCInformation\n""Add/modifyprefixrelatedinformation\
+n""IPv4prefix\n""IPv6prefix\n""VNaddressofNVE\n""VNIPv4interfaceaddress\n""VNIPv
+6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceaddress\n""UNIPv6interface
+address\n""Administrativecost[default:255]\n""Administrativecost\n""Registration
+lifetime[default:infinite]\n""Lifetimevalueinseconds\n""[local-next-hop(A.B.C.D|
+X:X::X:X)][local-cost<0-255>]\n"){/*pfxvnuncostlife*/returnregister_add(vty,argv
+[3],argv[5],argv[7],argv[9],argv[11],/*macvni*/NULL,NULL,argc-12,argv+12);}DEFUN
+(add_vnc_prefix_life_cost_lnh,add_vnc_prefix_life_cost_lnh_cmd,"addvncprefix<A.B
+.C.D/M|X:X::X:X/M>vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>lifetime(1-4294967295)
+cost(0-255)LNH_OPTIONS...","Addregistration\n""VNCInformation\n""Add/modifyprefi
+xrelatedinformation\n""IPv4prefix\n""IPv6prefix\n""VNaddressofNVE\n""VNIPv4inter
+faceaddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceaddres
+s\n""UNIPv6interfaceaddress\n""Registrationlifetime[default:infinite]\n""Lifetim
+evalueinseconds\n""Administrativecost[default:255]\n""Administrativecost\n""[loc
+al-next-hop(A.B.C.D|X:X::X:X)][local-cost<0-255>]\n"){/*pfxvnuncostlife*/returnr
+egister_add(vty,argv[3],argv[5],argv[7],argv[11],argv[9],/*macvni*/NULL,NULL,arg
+c-12,argv+12);}DEFUN(add_vnc_prefix_cost_lnh,add_vnc_prefix_cost_lnh_cmd,"addvnc
+prefix<A.B.C.D/M|X:X::X:X/M>vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>cost(0-255)L
+NH_OPTIONS...","Addregistration\n""VNCInformation\n""Add/modifyprefixrelatedinfo
+rmation\n""IPv4prefix\n""IPv6prefix\n""VNaddressofNVE\n""VNIPv4interfaceaddress\
+n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceaddress\n""UNIPv6i
+nterfaceaddress\n""Administrativecost[default:255]\n""Administrativecost\n""[loc
+al-next-hop(A.B.C.D|X:X::X:X)][local-cost<0-255>]\n"){/*pfxvnuncostlife*/returnr
+egister_add(vty,argv[3],argv[5],argv[7],argv[9],NULL,/*macvni*/NULL,NULL,argc-10
+,argv+10);}DEFUN(add_vnc_prefix_life_lnh,add_vnc_prefix_life_lnh_cmd,"addvncpref
+ix<A.B.C.D/M|X:X::X:X/M>vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>lifetime(1-42949
+67295)LNH_OPTIONS...","Addregistration\n""VNCInformation\n""Add/modifyprefixrela
+tedinformation\n""IPv4prefix\n""IPv6prefix\n""VNaddressofNVE\n""VNIPv4interfacea
+ddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceaddress\n""
+UNIPv6interfaceaddress\n""Registrationlifetime[default:infinite]\n""Lifetimevalu
+einseconds\n""[local-next-hop(A.B.C.D|X:X::X:X)][local-cost<0-255>]\n"){/*pfxvnu
+ncostlife*/returnregister_add(vty,argv[3],argv[5],argv[7],NULL,argv[9],/*macvni*
+/NULL,NULL,argc-10,argv+10);}DEFUN(add_vnc_prefix_lnh,add_vnc_prefix_lnh_cmd,"ad
+dvncprefix<A.B.C.D/M|X:X::X:X/M>vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>LNH_OPTI
+ONS...","Addregistration\n""VNCInformation\n""Add/modifyprefixrelatedinformation
+\n""IPv4prefix\n""IPv6prefix\n""VNaddressofNVE\n""VNIPv4interfaceaddress\n""VNIP
+v6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceaddress\n""UNIPv6interfac
+eaddress\n""[local-next-hop(A.B.C.D|X:X::X:X)][local-cost<0-255>]\n"){/*pfxvnunc
+ostlife*/returnregister_add(vty,argv[3],argv[5],argv[7],NULL,NULL,/*macvni*/NULL
+,NULL,argc-8,argv+8);}/*********************************************************
+****************AddprefixWithoutLNH_OPTIONS...**********************************
+**************************************/DEFUN(add_vnc_prefix_cost_life,add_vnc_pr
+efix_cost_life_cmd,"addvncprefix<A.B.C.D/M|X:X::X:X/M>vn<A.B.C.D|X:X::X:X>un<A.B
+.C.D|X:X::X:X>cost(0-255)lifetime(1-4294967295)","Addregistration\n""VNCInformat
+ion\n""Add/modifyprefixrelatedinformation\n""IPv4prefix\n""IPv6prefix\n""VNaddre
+ssofNVE\n""VNIPv4interfaceaddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n"
+"UNIPv4interfaceaddress\n""UNIPv6interfaceaddress\n""Administrativecost[default:
+255]\n""Administrativecost\n""Registrationlifetime[default:infinite]\n""Lifetime
+valueinseconds\n"){/*pfxvnuncostlife*/returnregister_add(vty,argv[3],argv[5],arg
+v[7],argv[9],argv[11],/*macvni*/NULL,NULL,0,NULL);}DEFUN(add_vnc_prefix_life_cos
+t,add_vnc_prefix_life_cost_cmd,"addvncprefix<A.B.C.D/M|X:X::X:X/M>vn<A.B.C.D|X:X
+::X:X>un<A.B.C.D|X:X::X:X>lifetime(1-4294967295)cost(0-255)","Addregistration\n"
+"VNCInformation\n""Add/modifyprefixrelatedinformation\n""IPv4prefix\n""IPv6prefi
+x\n""VNaddressofNVE\n""VNIPv4interfaceaddress\n""VNIPv6interfaceaddress\n""UNadd
+ressofNVE\n""UNIPv4interfaceaddress\n""UNIPv6interfaceaddress\n""Registrationlif
+etime[default:infinite]\n""Lifetimevalueinseconds\n""Administrativecost[default:
+255]\n""Administrativecost\n"){/*pfxvnuncostlife*/returnregister_add(vty,argv[3]
+,argv[5],argv[7],argv[11],argv[9],/*macvni*/NULL,NULL,0,NULL);}DEFUN(add_vnc_pre
+fix_cost,add_vnc_prefix_cost_cmd,"addvncprefix<A.B.C.D/M|X:X::X:X/M>vn<A.B.C.D|X
+:X::X:X>un<A.B.C.D|X:X::X:X>cost(0-255)","Addregistration\n""VNCInformation\n""A
+dd/modifyprefixrelatedinformation\n""IPv4prefix\n""IPv6prefix\n""VNaddressofNVE\
+n""VNIPv4interfaceaddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4i
+nterfaceaddress\n""UNIPv6interfaceaddress\n""Administrativecost[default:255]\n""
+Administrativecost\n"){/*pfxvnuncostlife*/returnregister_add(vty,argv[3],argv[5]
+,argv[7],argv[9],NULL,/*macvni*/NULL,NULL,0,NULL);}DEFUN(add_vnc_prefix_life,add
+_vnc_prefix_life_cmd,"addvncprefix<A.B.C.D/M|X:X::X:X/M>vn<A.B.C.D|X:X::X:X>un<A
+.B.C.D|X:X::X:X>lifetime(1-4294967295)","Addregistration\n""VNCInformation\n""Ad
+d/modifyprefixrelatedinformation\n""IPv4prefix\n""IPv6prefix\n""VNaddressofNVE\n
+""VNIPv4interfaceaddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4in
+terfaceaddress\n""UNIPv6interfaceaddress\n""Registrationlifetime[default:infinit
+e]\n""Lifetimevalueinseconds\n"){/*pfxvnuncostlife*/returnregister_add(vty,argv[
+3],argv[5],argv[7],NULL,argv[9],/*macvni*/NULL,NULL,0,NULL);}DEFUN(add_vnc_prefi
+x,add_vnc_prefix_cmd,"addvncprefix<A.B.C.D/M|X:X::X:X/M>vn<A.B.C.D|X:X::X:X>un<A
+.B.C.D|X:X::X:X>","Addregistration\n""VNCInformation\n""Add/modifyprefixrelatedi
+nformation\n""IPv4prefix\n""IPv6prefix\n""VNaddressofNVE\n""VNIPv4interfaceaddre
+ss\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceaddress\n""UNIP
+v6interfaceaddress\n"){/*pfxvnuncostlife*/returnregister_add(vty,argv[3],argv[5]
+,argv[7],NULL,NULL,/*macvni*/NULL,NULL,0,NULL);}/*******************************
+******************************************Macaddressregistrations***************
+*********************************************************/DEFUN(add_vnc_mac_vni_
+prefix_cost_life,add_vnc_mac_vni_prefix_cost_life_cmd,"addvncmacYY:YY:YY:YY:YY:Y
+Yvirtual-network-identifier(1-4294967295)vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X
+>prefix<A.B.C.D/M|X:X::X:X/M>cost(0-255)lifetime(1-4294967295)","Addregistration
+\n""VNCInformation\n""Add/modifymacaddressinformation\n""MACaddress\n""VirtualNe
+tworkIdentifierfollows\n""VirtualNetworkIdentifier\n""VNaddressofNVE\n""VNIPv4in
+terfaceaddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceadd
+ress\n""UNIPv6interfaceaddress\n""Add/modifyprefixrelatedinformation\n""IPv4pref
+ix\n""IPv6prefix\n""Administrativecost[default:255]\n""Administrativecost\n""Reg
+istrationlifetime[default:infinite]\n""Lifetimevalueinseconds\n"){/*pfxvnuncostl
+ife*/returnregister_add(vty,argv[11],argv[7],argv[9],argv[13],argv[15],/*macvni*
+/argv[3],argv[5],0,NULL);}DEFUN(add_vnc_mac_vni_prefix_life,add_vnc_mac_vni_pref
+ix_life_cmd,"addvncmacYY:YY:YY:YY:YY:YYvirtual-network-identifier(1-4294967295)v
+n<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>prefix<A.B.C.D/M|X:X::X:X/M>lifetime(1-42
+94967295)","Addregistration\n""VNCInformation\n""Add/modifymacaddressinformation
+\n""MACaddress\n""VirtualNetworkIdentifierfollows\n""VirtualNetworkIdentifier\n"
+"VNaddressofNVE\n""VNIPv4interfaceaddress\n""VNIPv6interfaceaddress\n""UNaddress
+ofNVE\n""UNIPv4interfaceaddress\n""UNIPv6interfaceaddress\n""Add/modifyprefixrel
+atedinformation\n""IPv4prefix\n""IPv6prefix\n""Registrationlifetime[default:infi
+nite]\n""Lifetimevalueinseconds\n"){/*pfxvnuncostlife*/returnregister_add(vty,ar
+gv[11],argv[7],argv[9],NULL,argv[13],/*macvni*/argv[3],argv[5],0,NULL);}DEFUN(ad
+d_vnc_mac_vni_prefix_cost,add_vnc_mac_vni_prefix_cost_cmd,"addvncmacYY:YY:YY:YY:
+YY:YYvirtual-network-identifier(1-4294967295)vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X:
+:X:X>prefix<A.B.C.D/M|X:X::X:X/M>cost(0-255)","Addregistration\n""VNCInformation
+\n""Add/modifymacaddressinformation\n""MACaddress\n""VirtualNetworkIdentifierfol
+lows\n""VirtualNetworkIdentifier\n""VNaddressofNVE\n""VNIPv4interfaceaddress\n""
+VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceaddress\n""UNIPv6inte
+rfaceaddress\n""Add/modifyprefixrelatedinformation\n""IPv4prefix\n""IPv6prefix\n
+""Administrativecost[default:255]\n""Administrativecost\n"){/*pfxvnuncostlife*/r
+eturnregister_add(vty,argv[11],argv[7],argv[9],argv[13],NULL,/*macvni*/argv[3],a
+rgv[5],0,NULL);}DEFUN(add_vnc_mac_vni_prefix,add_vnc_mac_vni_prefix_cmd,"addvncm
+acYY:YY:YY:YY:YY:YYvirtual-network-identifier(1-4294967295)vn<A.B.C.D|X:X::X:X>u
+n<A.B.C.D|X:X::X:X>prefix<A.B.C.D/M|X:X::X:X/M>","Addregistration\n""VNCInformat
+ion\n""Add/modifymacaddressinformation\n""MACaddress\n""VirtualNetworkIdentifier
+follows\n""VirtualNetworkIdentifier\n""VNaddressofNVE\n""VNIPv4interfaceaddress\
+n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceaddress\n""UNIPv6i
+nterfaceaddress\n""Add/modifyprefixrelatedinformation\n""IPv4prefix\n""IPv6prefi
+x\n"){/*pfxvnuncostlife*/returnregister_add(vty,argv[11],argv[7],argv[9],NULL,NU
+LL,/*macvni*/argv[3],argv[5],0,NULL);}DEFUN(add_vnc_mac_vni_cost_life,add_vnc_ma
+c_vni_cost_life_cmd,"addvncmacYY:YY:YY:YY:YY:YYvirtual-network-identifier(1-4294
+967295)vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>cost(0-255)lifetime(1-4294967295)
+","Addregistration\n""VNCInformation\n""Add/modifymacaddressinformation\n""MACad
+dress\n""VirtualNetworkIdentifierfollows\n""VirtualNetworkIdentifier\n""VNaddres
+sofNVE\n""VNIPv4interfaceaddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""
+UNIPv4interfaceaddress\n""UNIPv6interfaceaddress\n""Administrativecost[default:2
+55]\n""Administrativecost\n""Registrationlifetime[default:infinite]\n""Lifetimev
+alueinseconds\n"){/*pfxvnuncostlife*/returnregister_add(vty,NULL,argv[7],argv[9]
+,argv[11],argv[13],/*macvni*/argv[3],argv[5],0,NULL);}DEFUN(add_vnc_mac_vni_cost
+,add_vnc_mac_vni_cost_cmd,"addvncmacYY:YY:YY:YY:YY:YYvirtual-network-identifier(
+1-4294967295)vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>cost(0-255)","Addregistrati
+on\n""VNCInformation\n""Add/modifymacaddressinformation\n""MACaddress\n""Virtual
+NetworkIdentifierfollows\n""VirtualNetworkIdentifier\n""VNaddressofNVE\n""VNIPv4
+interfaceaddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfacea
+ddress\n""UNIPv6interfaceaddress\n""Administrativecost[default:255]\n""Administr
+ativecost\n"){/*pfxvnuncostlife*/returnregister_add(vty,NULL,argv[7],argv[9],arg
+v[11],NULL,/*macvni*/argv[3],argv[5],0,NULL);}DEFUN(add_vnc_mac_vni_life,add_vnc
+_mac_vni_life_cmd,"addvncmacYY:YY:YY:YY:YY:YYvirtual-network-identifier(1-429496
+7295)vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>lifetime(1-4294967295)","Addregistr
+ation\n""VNCInformation\n""Add/modifymacaddressinformation\n""MACaddress\n""Virt
+ualNetworkIdentifierfollows\n""VirtualNetworkIdentifier\n""VNaddressofNVE\n""VNI
+Pv4interfaceaddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfa
+ceaddress\n""UNIPv6interfaceaddress\n""Registrationlifetime[default:infinite]\n"
+"Lifetimevalueinseconds\n"){/*pfxvnuncostlife*/returnregister_add(vty,NULL,argv[
+7],argv[9],NULL,argv[11],/*macvni*/argv[3],argv[5],0,NULL);}DEFUN(add_vnc_mac_vn
+i,add_vnc_mac_vni_cmd,"addvncmacYY:YY:YY:YY:YY:YYvirtual-network-identifier(1-42
+94967295)vn<A.B.C.D|X:X::X:X>un<A.B.C.D|X:X::X:X>","Addregistration\n""VNCInform
+ation\n""Add/modifymacaddressinformation\n""MACaddress\n""VirtualNetworkIdentifi
+erfollows\n""VirtualNetworkIdentifier\n""VNaddressofNVE\n""VNIPv4interfaceaddres
+s\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""UNIPv4interfaceaddress\n""UNIPv
+6interfaceaddress\n"){/*pfxvnuncostlife*/returnregister_add(vty,NULL,argv[7],arg
+v[9],NULL,NULL,/*macvni*/argv[3],argv[5],0,NULL);}/*****************************
+********************************************Deleteprefix************************
+************************************************/structrfapi_local_reg_delete_ar
+g{/**matchparameters*/structbgp*bgp;structrfapi_ip_addrun_address;/*AF==0:wildca
+rd*/structrfapi_ip_addrvn_address;/*AF==0:wildcard*/structprefixprefix;/*AF==0:w
+ildcard*/structprefix_rdrd;/*plen!=64:wildcard*/structrfapi_nve_group_cfg*rfg;/*
+NULL:wildcard*/structrfapi_l2address_option_matchl2o;/**resultparameters*/struct
+vty*vty;uint32_treg_count;uint32_tpfx_count;uint32_tquery_count;uint32_tfailed_p
+fx_count;uint32_tnve_count;structskiplist*nves;uint32_tremote_active_nve_count;u
+int32_tremote_active_pfx_count;uint32_tremote_holddown_nve_count;uint32_tremote_
+holddown_pfx_count;};structnve_addr{structrfapi_ip_addrvn;structrfapi_ip_addrun;
+structrfapi_descriptor*rfd;structrfapi_local_reg_delete_arg*cda;};staticvoidnve_
+addr_free(void*hap){((structnve_addr*)hap)->cda->nve_count+=1;XFREE(MTYPE_RFAPI_
+NVE_ADDR,hap);}staticintnve_addr_cmp(void*k1,void*k2){structnve_addr*a=(structnv
+e_addr*)k1;structnve_addr*b=(structnve_addr*)k2;intret=0;if(!a||!b){return(a-b);
+}if(a->un.addr_family!=b->un.addr_family){return(a->un.addr_family-b->un.addr_fa
+mily);}if(a->vn.addr_family!=b->vn.addr_family){return(a->vn.addr_family-b->vn.a
+ddr_family);}if(a->un.addr_family==AF_INET){ret=IPV4_ADDR_CMP(&a->un.addr.v4,&b-
+>un.addr.v4);if(ret!=0){returnret;}}elseif(a->un.addr_family==AF_INET6){ret=IPV6
+_ADDR_CMP(&a->un.addr.v6,&b->un.addr.v6);if(ret!=0){returnret;}}else{assert(0);}
+if(a->vn.addr_family==AF_INET){ret=IPV4_ADDR_CMP(&a->vn.addr.v4,&b->vn.addr.v4);
+if(ret!=0)returnret;}elseif(a->vn.addr_family==AF_INET6){ret=IPV6_ADDR_CMP(&a->v
+n.addr.v6,&b->vn.addr.v6);if(ret==0){returnret;}}else{assert(0);}return0;}static
+intparse_deleter_args(structvty*vty,structbgp*bgp,constchar*arg_prefix,constchar
+*arg_vn,constchar*arg_un,constchar*arg_l2addr,constchar*arg_vni,constchar*arg_rd
+,structrfapi_nve_group_cfg*arg_rfg,structrfapi_local_reg_delete_arg*rcdarg){intr
+c=CMD_WARNING;memset(rcdarg,0,sizeof(structrfapi_local_reg_delete_arg));rcdarg->
+vty=vty;if(bgp==NULL)bgp=bgp_get_default();rcdarg->bgp=bgp;rcdarg->rfg=arg_rfg;/
+*maybeNULL*/if(arg_vn&&strcmp(arg_vn,"*")){if((rc=rfapiCliGetRfapiIpAddr(vty,arg
+_vn,&rcdarg->vn_address)))returnrc;}if(arg_un&&strcmp(arg_un,"*")){if((rc=rfapiC
+liGetRfapiIpAddr(vty,arg_un,&rcdarg->un_address)))returnrc;}if(arg_prefix&&strcm
+p(arg_prefix,"*")){if(!str2prefix(arg_prefix,&rcdarg->prefix)){vty_out(vty,"Malf
+ormedprefix\"%s\"\n",arg_prefix);returnrc;}}if(arg_l2addr){if(!arg_vni){vty_out(
+vty,"MissingVNI\n");returnrc;}if(strcmp(arg_l2addr,"*")){if((rc=rfapiStr2EthAddr
+(arg_l2addr,&rcdarg->l2o.o.macaddr))){vty_out(vty,"MalformedL2Address\"%s\"\n",a
+rg_l2addr);returnrc;}rcdarg->l2o.flags|=RFAPI_L2O_MACADDR;}if(strcmp(arg_vni,"*"
+)){rcdarg->l2o.o.logical_net_id=strtoul(arg_vni,NULL,10);rcdarg->l2o.flags|=RFAP
+I_L2O_LNI;}}if(arg_rd){if(!str2prefix_rd(arg_rd,&rcdarg->rd)){vty_out(vty,"Malfo
+rmedRD\"%s\"\n",arg_rd);returnrc;}}returnCMD_SUCCESS;}staticintparse_deleter_tok
+ens(structvty*vty,structbgp*bgp,structcmd_token*carg_prefix,structcmd_token*carg
+_vn,structcmd_token*carg_un,structcmd_token*carg_l2addr,structcmd_token*carg_vni
+,structcmd_token*carg_rd,structrfapi_nve_group_cfg*arg_rfg,structrfapi_local_reg
+_delete_arg*rcdarg){constchar*arg_prefix=carg_prefix?carg_prefix->arg:NULL;const
+char*arg_vn=carg_vn?carg_vn->arg:NULL;constchar*arg_un=carg_un?carg_un->arg:NULL
+;constchar*arg_l2addr=carg_l2addr?carg_l2addr->arg:NULL;constchar*arg_vni=carg_v
+ni?carg_vni->arg:NULL;constchar*arg_rd=carg_rd?carg_rd->arg:NULL;returnparse_del
+eter_args(vty,bgp,arg_prefix,arg_vn,arg_un,arg_l2addr,arg_vni,arg_rd,arg_rfg,rcd
+arg);}staticvoidrecord_nve_in_cda_list(structrfapi_local_reg_delete_arg*cda,stru
+ctrfapi_ip_addr*un_address,structrfapi_ip_addr*vn_address,structrfapi_descriptor
+*rfd){structnve_addrha;structnve_addr*hap;memset(&ha,0,sizeof(ha));ha.un=*un_add
+ress;ha.vn=*vn_address;ha.rfd=rfd;if(!cda->nves)cda->nves=skiplist_new(0,nve_add
+r_cmp,nve_addr_free);if(skiplist_search(cda->nves,&ha,(void*)&hap)){hap=XCALLOC(
+MTYPE_RFAPI_NVE_ADDR,sizeof(structnve_addr));assert(hap);ha.cda=cda;*hap=ha;skip
+list_insert(cda->nves,hap,hap);}}staticvoidclear_vnc_responses(structrfapi_local
+_reg_delete_arg*cda){structrfapi*h;structrfapi_descriptor*rfd;intquery_count=0;s
+tructlistnode*node;structbgp*bgp_default=bgp_get_default();if(cda->vn_address.ad
+dr_family&&cda->un_address.addr_family){/**Singlenvecase*/if(rfapi_find_rfd(bgp_
+default,&cda->vn_address,&cda->un_address,&rfd))return;rfapiRibClear(rfd);rfapi_
+query_done_all(rfd,&query_count);cda->query_count+=query_count;/**Trackuniquenve
+sseen*/record_nve_in_cda_list(cda,&rfd->un_addr,&rfd->vn_addr,rfd);return;}/**wi
+ldcardcase*/if(!bgp_default)return;/*ENXIO*/h=bgp_default->rfapi;if(!h)return;/*
+ENXIO*/for(ALL_LIST_ELEMENTS_RO(&h->descriptors,node,rfd)){/**matchun,vnaddresse
+sofNVEs*/if(cda->un_address.addr_family&&rfapi_ip_addr_cmp(&cda->un_address,&rfd
+->un_addr)){continue;}if(cda->vn_address.addr_family&&rfapi_ip_addr_cmp(&cda->vn
+_address,&rfd->vn_addr)){continue;}rfapiRibClear(rfd);rfapi_query_done_all(rfd,&
+query_count);cda->query_count+=query_count;/**Trackuniquenvesseen*/record_nve_in
+_cda_list(cda,&rfd->un_addr,&rfd->vn_addr,rfd);}}/**TBDneedtocountdeletedprefixe
+sandnves?**ENXIOBGPorVNCnotconfigured*/staticintrfapiDeleteLocalPrefixesByRFD(st
+ructrfapi_local_reg_delete_arg*cda,structrfapi_descriptor*rfd){structrfapi_ip_ad
+dr*pUn;/*NULL=wildcard*/structrfapi_ip_addr*pVn;/*NULL=wildcard*/structprefix*pP
+refix;/*NULL=wildcard*/structprefix_rd*pPrd;/*NULL=wildcard*/structrfapi_ip_pref
+ixrprefix;structrfapi_next_hop_entry*head=NULL;structrfapi_next_hop_entry*tail=N
+ULL;#ifDEBUG_L2_EXTRAvnc_zlog_debug_verbose("%s:entry",__func__);#endifpUn=(cda-
+>un_address.addr_family?&cda->un_address:NULL);pVn=(cda->vn_address.addr_family?
+&cda->vn_address:NULL);pPrefix=(cda->prefix.family?&cda->prefix:NULL);pPrd=(cda-
+>rd.prefixlen==64?&cda->rd:NULL);if(pPrefix){rfapiQprefix2Rprefix(pPrefix,&rpref
+ix);}do/*topreserveoldcodestructure*/{structrfapi*h=cda->bgp->rfapi;;structrfapi
+_adb*adb;intrc;intdeleted_from_this_nve;structnve_addrha;structnve_addr*hap;#ifD
+EBUG_L2_EXTRAvnc_zlog_debug_verbose("%s:rfd=%p",__func__,rfd);#endif/**matchun,v
+naddressesofNVEs*/if(pUn&&(rfapi_ip_addr_cmp(pUn,&rfd->un_addr)))continue;if(pVn
+&&(rfapi_ip_addr_cmp(pVn,&rfd->vn_addr)))continue;#ifDEBUG_L2_EXTRAvnc_zlog_debu
+g_verbose("%s:un,vnmatch",__func__);#endif/**matchprefix*/deleted_from_this_nve=
+0;{structskiplist*sl;structrfapi_ip_prefixrp;void*cursor;structlist*adb_delete_l
+ist;/**Theadvertisementsarestoredinaskiplist.*Withdrawing*theregistrationdeletes
+theadvertisementfromthe*skiplist,whichwecan'tdowhileiteratingoverthat*sameskipli
+stusingthecurrentskiplistAPI.**Strategy:iterateovertheskiplistandbuildanother*li
+stcontainingonlythematchingADBs.Thendelete*_everything_inthatsecondlist(whichcan
+bedone*usingeitherskiplistsorquaggalinklists).*/adb_delete_list=list_new();/**Ad
+vertisedIPprefixes(not0/32or0/128)*/sl=rfd->advertised.ipN_by_prefix;for(cursor=
+NULL,rc=skiplist_next(sl,NULL,(void**)&adb,&cursor);!rc;rc=skiplist_next(sl,NULL
+,(void**)&adb,&cursor)){if(pPrefix){if(!prefix_same(pPrefix,&adb->u.s.prefix_ip)
+){#ifDEBUG_L2_EXTRAvnc_zlog_debug_verbose("%s:adb=%p,prefixdoesn'tmatch,skipping
+",__func__,adb);#endifcontinue;}}if(pPrd){if(memcmp(pPrd->val,adb->u.s.prd.val,8
+)!=0){#ifDEBUG_L2_EXTRAvnc_zlog_debug_verbose("%s:adb=%p,RDdoesn'tmatch,skipping
+",__func__,adb);#endifcontinue;}}if(CHECK_FLAG(cda->l2o.flags,RFAPI_L2O_MACADDR)
+){if(memcmp(cda->l2o.o.macaddr.octet,adb->u.s.prefix_eth.u.prefix_eth.octet,ETH_
+ALEN)){#ifDEBUG_L2_EXTRAvnc_zlog_debug_verbose("%s:adb=%p,macaddrdoesn'tmatch,sk
+ipping",__func__,adb);#endifcontinue;}}if(CHECK_FLAG(cda->l2o.flags,RFAPI_L2O_LN
+I)){if(cda->l2o.o.logical_net_id!=adb->l2o.logical_net_id){#ifDEBUG_L2_EXTRAvnc_
+zlog_debug_verbose("%s:adb=%p,LNIdoesn'tmatch,skipping",__func__,adb);#endifcont
+inue;}}#ifDEBUG_L2_EXTRAvnc_zlog_debug_verbose("%s:ipNaddingadb%ptodeletelist",_
+_func__,adb);#endiflistnode_add(adb_delete_list,adb);}structlistnode*node;for(AL
+L_LIST_ELEMENTS_RO(adb_delete_list,node,adb)){intthis_advertisement_prefix_count
+;structrfapi_vn_optionoptary[3];structrfapi_vn_option*opt=NULL;intcur_opt=0;this
+_advertisement_prefix_count=1;rfapiQprefix2Rprefix(&adb->u.s.prefix_ip,&rp);mems
+et(optary,0,sizeof(optary));/*ifmacaddrpresentinadvert,makel2ovn*option*/if(adb-
+>u.s.prefix_eth.family==AF_ETHERNET){if(opt!=NULL)opt->next=&optary[cur_opt];opt
+=&optary[cur_opt++];opt->type=RFAPI_VN_OPTION_TYPE_L2ADDR;opt->v.l2addr.macaddr=
+adb->u.s.prefix_eth.u.prefix_eth;++this_advertisement_prefix_count;}/**usesavedR
+Dvalueinsteadoftryingto*invert*complexRDcomputationinrfapi_register()*/if(opt!=N
+ULL)opt->next=&optary[cur_opt];opt=&optary[cur_opt++];opt->type=RFAPI_VN_OPTION_
+TYPE_INTERNAL_RD;opt->v.internal_rd=adb->u.s.prd;#ifDEBUG_L2_EXTRAvnc_zlog_debug
+_verbose("%s:ipNkillingregfromadb%p",__func__,adb);#endifrc=rfapi_register(rfd,&
+rp,0,NULL,(cur_opt?optary:NULL),RFAPI_REGISTER_KILL);if(!rc){cda->pfx_count+=thi
+s_advertisement_prefix_count;cda->reg_count+=1;deleted_from_this_nve=1;}if(h->rf
+p_methods.local_cb){rfapiAddDeleteLocalRfpPrefix(&rfd->un_addr,&rfd->vn_addr,&rp
+,0,0,NULL,&head,&tail);}}list_delete_all_node(adb_delete_list);if(!(pPrefix&&!RF
+API_0_PREFIX(pPrefix))){void*cursor;/**Callerdidn'tspecifyaprefix,orspecified*(0
+/32or0/128)*//**Advertised0/32and0/128(indexedby*ethernetaddress)*/sl=rfd->adver
+tised.ip0_by_ether;for(cursor=NULL,rc=skiplist_next(sl,NULL,(void**)&adb,&cursor
+);!rc;rc=skiplist_next(sl,NULL,(void**)&adb,&cursor)){if(CHECK_FLAG(cda->l2o.fla
+gs,RFAPI_L2O_MACADDR)){if(memcmp(cda->l2o.o.macaddr.octet,adb->u.s.prefix_eth.u.
+prefix_eth.octet,ETH_ALEN)){continue;}}if(CHECK_FLAG(cda->l2o.flags,RFAPI_L2O_LN
+I)){if(cda->l2o.o.logical_net_id!=adb->l2o.logical_net_id){continue;}}#ifDEBUG_L
+2_EXTRAvnc_zlog_debug_verbose("%s:ip0addingadb%ptodeletelist",__func__,adb);#end
+iflistnode_add(adb_delete_list,adb);}for(ALL_LIST_ELEMENTS_RO(adb_delete_list,no
+de,adb)){structrfapi_vn_optionvn;rfapiQprefix2Rprefix(&adb->u.s.prefix_ip,&rp);m
+emset(&vn,0,sizeof(vn));vn.type=RFAPI_VN_OPTION_TYPE_L2ADDR;vn.v.l2addr=adb->l2o
+;#ifDEBUG_L2_EXTRAvnc_zlog_debug_verbose("%s:ip0killingregfromadb%p",__func__,ad
+b);#endifrc=rfapi_register(rfd,&rp,0,NULL,&vn,RFAPI_REGISTER_KILL);if(!rc){cda->
+pfx_count+=1;cda->reg_count+=1;deleted_from_this_nve=1;}if(h->rfp_methods.local_
+cb){structrfapi_vn_option*vn_opt_new;vn_opt_new=rfapi_vn_options_dup(&vn);rfapiA
+ddDeleteLocalRfpPrefix(&rfd->un_addr,&rfd->vn_addr,&rp,0,0,vn_opt_new,&head,&tai
+l);}}list_delete_all_node(adb_delete_list);}list_delete_and_null(&adb_delete_lis
+t);}if(head){/*shouldnotbesetif(NULL==rfapi_cfg->local_cb)*/h->flags|=RFAPI_INCA
+LLBACK;(*h->rfp_methods.local_cb)(head,rfd->cookie);h->flags&=~RFAPI_INCALLBACK;
+head=tail=NULL;}if(deleted_from_this_nve){/**trackuniqueNVEsseen*/memset(&ha,0,s
+izeof(ha));ha.un=rfd->un_addr;ha.vn=rfd->vn_addr;if(!cda->nves)cda->nves=skiplis
+t_new(0,nve_addr_cmp,nve_addr_free);if(skiplist_search(cda->nves,&ha,(void**)&ha
+p)){hap=XCALLOC(MTYPE_RFAPI_NVE_ADDR,sizeof(structnve_addr));assert(hap);ha.cda=
+cda;*hap=ha;skiplist_insert(cda->nves,hap,hap);}}}while(0);/*topreserveoldcodest
+ructure*/return0;}staticintrfapiDeleteLocalPrefixes(structrfapi_local_reg_delete
+_arg*cda){intrc=0;if(cda->rfg){if(cda->rfg->rfd)/*ifnotopen,nothingtodelete*/rc=
+rfapiDeleteLocalPrefixesByRFD(cda,cda->rfg->rfd);}else{structbgp*bgp=cda->bgp;st
+ructrfapi*h;structrfapi_cfg*rfapi_cfg;structlistnode*node;structrfapi_descriptor
+*rfd;if(!bgp)returnENXIO;h=bgp->rfapi;rfapi_cfg=bgp->rfapi_cfg;if(!h||!rfapi_cfg
+)returnENXIO;vnc_zlog_debug_verbose("%s:startingdescriptorloop",__func__);for(AL
+L_LIST_ELEMENTS_RO(&h->descriptors,node,rfd)){rc=rfapiDeleteLocalPrefixesByRFD(c
+da,rfd);}}returnrc;}/**clear_vnc_prefix**Deleteslocalandremoteprefixesthatmatch*
+/staticvoidclear_vnc_prefix(structrfapi_local_reg_delete_arg*cda){structprefixpf
+x_un;structprefixpfx_vn;structprefix*pUN=NULL;structprefix*pVN=NULL;structprefix
+*pPrefix=NULL;structrfapi_import_table*it=NULL;/**Deletematchingremoteprefixesin
+holddown*/if(cda->vn_address.addr_family){if(!rfapiRaddr2Qprefix(&cda->vn_addres
+s,&pfx_vn))pVN=&pfx_vn;}if(cda->un_address.addr_family){if(!rfapiRaddr2Qprefix(&
+cda->un_address,&pfx_un))pUN=&pfx_un;}if(cda->prefix.family){pPrefix=&cda->prefi
+x;}if(cda->rfg){it=cda->rfg->rfapi_import_table;}rfapiDeleteRemotePrefixes(pUN,p
+VN,pPrefix,it,0,1,&cda->remote_active_pfx_count,&cda->remote_active_nve_count,&c
+da->remote_holddown_pfx_count,&cda->remote_holddown_nve_count);/**Nowdolocalpref
+ixes*/rfapiDeleteLocalPrefixes(cda);}staticvoidprint_cleared_stats(structrfapi_l
+ocal_reg_delete_arg*cda){structvty*vty=cda->vty;/*forbenefitofVTYNL*//*Ourspecia
+lelement-deletingfunctioncountsnves*/if(cda->nves){skiplist_free(cda->nves);cda-
+>nves=NULL;}if(cda->failed_pfx_count)vty_out(vty,"Failedtodelete%dprefixes\n",cd
+a->failed_pfx_count);/*leftas"prefixes"eveninsinglecaseforeaseofmachineparsing*/
+vty_out(vty,"[Local]Cleared%uregistrations,%uprefixes,%uresponsesfrom%dNVEs\n",c
+da->reg_count,cda->pfx_count,cda->query_count,cda->nve_count);/**Wedon'tcurrentl
+yallowdeletionofactiveremoteprefixesfrom*thecommandline*/vty_out(vty,"[Holddown]
+Cleared%uprefixesfrom%uNVEs\n",cda->remote_holddown_pfx_count,cda->remote_holddo
+wn_nve_count);}/**Callerhasalreadydeletedregistrationsandqueriesforthis/these*NV
+Es.Nowwejusthavetoclosetheirdescriptors.*/staticvoidclear_vnc_nve_closer(structr
+fapi_local_reg_delete_arg*cda){structskiplist*sl=cda->nves;/*containsaffectedNVE
+s*/structnve_addr*pKey;structnve_addr*pValue;void*cursor=NULL;intrc;if(!sl)retur
+n;for(rc=skiplist_next(sl,(void**)&pKey,(void**)&pValue,&cursor);!rc;rc=skiplist
+_next(sl,(void**)&pKey,(void**)&pValue,&cursor)){if(pValue->rfd){((structrfapi_d
+escriptor*)pValue->rfd)->flags|=RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY;rfapi_clo
+se(pValue->rfd);}}}DEFUN(clear_vnc_nve_all,clear_vnc_nve_all_cmd,"clearvncnve*",
+"clear\n""VNCInformation\n""ClearperNVEinformation\n""ForallNVEs\n"){structrfapi
+_local_reg_delete_argcda;intrc;if((rc=parse_deleter_args(vty,NULL,NULL,NULL,NULL
+,NULL,NULL,NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc_responses(&cda);clear
+_vnc_prefix(&cda);clear_vnc_nve_closer(&cda);print_cleared_stats(&cda);return0;}
+DEFUN(clear_vnc_nve_vn_un,clear_vnc_nve_vn_un_cmd,"clearvncnvevn<*|A.B.C.D|X:X::
+X:X>un<*|A.B.C.D|X:X::X:X>","clear\n""VNCInformation\n""Clearprefixregistrationi
+nformation\n""VNaddressofNVE\n""ForallNVEs\n""VNIPv4interfaceaddress\n""VNIPv6in
+terfaceaddress\n""UNaddressofNVE\n""ForallUNaddresses\n""UNIPv4interfaceaddress\
+n""UNIPv6interfaceaddress\n"){structrfapi_local_reg_delete_argcda;intrc;if((rc=p
+arse_deleter_tokens(vty,NULL,NULL,argv[4],argv[6],NULL,NULL,NULL,NULL,&cda)))ret
+urnrc;cda.vty=vty;clear_vnc_responses(&cda);clear_vnc_prefix(&cda);clear_vnc_nve
+_closer(&cda);print_cleared_stats(&cda);return0;}DEFUN(clear_vnc_nve_un_vn,clear
+_vnc_nve_un_vn_cmd,"clearvncnveun<*|A.B.C.D|X:X::X:X>vn<*|A.B.C.D|X:X::X:X>","cl
+ear\n""VNCInformation\n""Clearprefixregistrationinformation\n""UNaddressofNVE\n"
+"ForallunNVEs\n""UNIPv4interfaceaddress\n""UNIPv6interfaceaddress\n""VNaddressof
+NVE\n""ForallvnNVEs\n""VNIPv4interfaceaddress\n""VNIPv6interfaceaddress\n"){stru
+ctrfapi_local_reg_delete_argcda;intrc;if((rc=parse_deleter_tokens(vty,NULL,NULL,
+argv[6],argv[4],NULL,NULL,NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc_respon
+ses(&cda);clear_vnc_prefix(&cda);clear_vnc_nve_closer(&cda);print_cleared_stats(
+&cda);return0;}DEFUN(clear_vnc_nve_vn,clear_vnc_nve_vn_cmd,"clearvncnvevn<*|A.B.
+C.D|X:X::X:X>","clear\n""VNCInformation\n""Clearprefixregistrationinformation\n"
+"VNaddressofNVE\n""Alladdresses\n""VNIPv4interfaceaddress\n""VNIPv6interfaceaddr
+ess\n"){structrfapi_local_reg_delete_argcda;intrc;if((rc=parse_deleter_tokens(vt
+y,NULL,NULL,argv[4],NULL,NULL,NULL,NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_v
+nc_responses(&cda);clear_vnc_prefix(&cda);clear_vnc_nve_closer(&cda);print_clear
+ed_stats(&cda);return0;}DEFUN(clear_vnc_nve_un,clear_vnc_nve_un_cmd,"clearvncnve
+un<*|A.B.C.D|X:X::X:X>","clear\n""VNCInformation\n""Clearprefixregistrationinfor
+mation\n""UNaddressofNVE\n""Allunnves\n""UNIPv4interfaceaddress\n""UNIPv6interfa
+ceaddress\n"){structrfapi_local_reg_delete_argcda;intrc;if((rc=parse_deleter_tok
+ens(vty,NULL,NULL,NULL,argv[4],NULL,NULL,NULL,NULL,&cda)))returnrc;cda.vty=vty;c
+lear_vnc_responses(&cda);clear_vnc_prefix(&cda);clear_vnc_nve_closer(&cda);print
+_cleared_stats(&cda);return0;}/*------------------------------------------------
+-*ClearVNCPrefix*-------------------------------------------------*//**Thisfunct
+ionisdefinedinthisfile(ratherthaninrfp_registration.c)*becauseherewehaveaccessto
+allthetaskhandles.*/DEFUN(clear_vnc_prefix_vn_un,clear_vnc_prefix_vn_un_cmd,"cle
+arvncprefix<*|A.B.C.D/M|X:X::X:X/M>vn<*|A.B.C.D|X:X::X:X>un<*|A.B.C.D|X:X::X:X>"
+,"clear\n""VNCInformation\n""Clearprefixregistrationinformation\n""Allprefixes\n
+""IPv4prefix\n""IPv6prefix\n""VNaddressofNVE\n""AllVNaddresses\n""VNIPv4interfac
+eaddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""AllUNaddresses\n""UNIPv4
+interfaceaddress\n""UNIPv6interfaceaddress\n"){structrfapi_local_reg_delete_argc
+da;intrc;if((rc=parse_deleter_tokens(vty,NULL,argv[3],argv[5],argv[7],NULL,NULL,
+NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);print_cleared_stats
+(&cda);return0;}DEFUN(clear_vnc_prefix_un_vn,clear_vnc_prefix_un_vn_cmd,"clearvn
+cprefix<*|A.B.C.D/M|X:X::X:X/M>un<*|A.B.C.D|X:X::X:X>vn<*|A.B.C.D|X:X::X:X>","cl
+ear\n""VNCInformation\n""Clearprefixregistrationinformation\n""Allprefixes\n""IP
+v4prefix\n""IPv6prefix\n""UNaddressofNVE\n""AllUNaddresses\n""UNIPv4interfaceadd
+ress\n""UNIPv6interfaceaddress\n""VNaddressofNVE\n""AllVNaddresses\n""VNIPv4inte
+rfaceaddress\n""VNIPv6interfaceaddress\n"){structrfapi_local_reg_delete_argcda;i
+ntrc;if((rc=parse_deleter_tokens(vty,NULL,argv[3],argv[7],argv[5],NULL,NULL,NULL
+,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);print_cleared_stats(&cd
+a);return0;}DEFUN(clear_vnc_prefix_un,clear_vnc_prefix_un_cmd,"clearvncprefix<*|
+A.B.C.D/M|X:X::X:X/M>un<*|A.B.C.D|X:X::X:X>","clear\n""VNCInformation\n""Clearpr
+efixregistrationinformation\n""Allprefixes\n""IPv4prefix\n""IPv6prefix\n""UNaddr
+essofNVE\n""AllUNaddresses\n""UNIPv4interfaceaddress\n""UNIPv6interfaceaddress\n
+"){structrfapi_local_reg_delete_argcda;intrc;if((rc=parse_deleter_tokens(vty,NUL
+L,argv[3],NULL,argv[5],NULL,NULL,NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc
+_prefix(&cda);print_cleared_stats(&cda);return0;}DEFUN(clear_vnc_prefix_vn,clear
+_vnc_prefix_vn_cmd,"clearvncprefix<*|A.B.C.D/M|X:X::X:X/M>vn<*|A.B.C.D|X:X::X:X>
+","clear\n""VNCInformation\n""Clearprefixregistrationinformation\n""Allprefixes\
+n""IPv4prefix\n""IPv6prefix\n""UNaddressofNVE\n""AllVNaddresses\n""VNIPv4interfa
+ceaddress\n""VNIPv6interfaceaddress\n"){structrfapi_local_reg_delete_argcda;intr
+c;if((rc=parse_deleter_tokens(vty,NULL,argv[3],argv[5],NULL,NULL,NULL,NULL,NULL,
+&cda)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);print_cleared_stats(&cda);ret
+urn0;}DEFUN(clear_vnc_prefix_all,clear_vnc_prefix_all_cmd,"clearvncprefix<*|A.B.
+C.D/M|X:X::X:X/M>*","clear\n""VNCInformation\n""Clearprefixregistrationinformati
+on\n""Allprefixes\n""IPv4prefix\n""IPv6prefix\n""FromanyNVE\n"){structrfapi_loca
+l_reg_delete_argcda;intrc;if((rc=parse_deleter_tokens(vty,NULL,argv[3],NULL,NULL
+,NULL,NULL,NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);print_cl
+eared_stats(&cda);return0;}/*-------------------------------------------------*C
+learVNCMAC*-------------------------------------------------*//**Thisfunctionisd
+efinedinthisfile(ratherthaninrfp_registration.c)*becauseherewehaveaccesstoallthe
+taskhandles.*/DEFUN(clear_vnc_mac_vn_un,clear_vnc_mac_vn_un_cmd,"clearvncmac<*|Y
+Y:YY:YY:YY:YY:YY>virtual-network-identifier<*|(1-4294967295)>vn<*|A.B.C.D|X:X::X
+:X>un<*|A.B.C.D|X:X::X:X>","clear\n""VNCInformation\n""Clearmacregistrationinfor
+mation\n""Allmacs\n""MACaddress\n""VNIkeyword\n""Anyvirtualnetworkidentifier\n""
+Virtualnetworkidentifier\n""VNaddressofNVE\n""AllVNaddresses\n""VNIPv4interfacea
+ddress\n""VNIPv6interfaceaddress\n""UNaddressofNVE\n""AllUNaddresses\n""UNIPv4in
+terfaceaddress\n""UNIPv6interfaceaddress\n"){structrfapi_local_reg_delete_argcda
+;intrc;/*pfxvnunL2VNI*/if((rc=parse_deleter_tokens(vty,NULL,NULL,argv[7],argv[9]
+,argv[3],argv[5],NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);pr
+int_cleared_stats(&cda);return0;}DEFUN(clear_vnc_mac_un_vn,clear_vnc_mac_un_vn_c
+md,"clearvncmac<*|YY:YY:YY:YY:YY:YY>virtual-network-identifier<*|(1-4294967295)>
+un<*|A.B.C.D|X:X::X:X>vn<*|A.B.C.D|X:X::X:X>","clear\n""VNCInformation\n""Clearm
+acregistrationinformation\n""Allmacs\n""MACaddress\n""VNIkeyword\n""Anyvirtualne
+tworkidentifier\n""Virtualnetworkidentifier\n""UNaddressofNVE\n""AllUNaddresses\
+n""UNIPv4interfaceaddress\n""UNIPv6interfaceaddress\n""VNaddressofNVE\n""AllVNad
+dresses\n""VNIPv4interfaceaddress\n""VNIPv6interfaceaddress\n"){structrfapi_loca
+l_reg_delete_argcda;intrc;/*pfxvnunL2VNI*/if((rc=parse_deleter_tokens(vty,NULL,N
+ULL,argv[9],argv[7],argv[3],argv[5],NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_
+vnc_prefix(&cda);print_cleared_stats(&cda);return0;}DEFUN(clear_vnc_mac_un,clear
+_vnc_mac_un_cmd,"clearvncmac<*|YY:YY:YY:YY:YY:YY>virtual-network-identifier<*|(1
+-4294967295)>un<*|A.B.C.D|X:X::X:X>","clear\n""VNCInformation\n""Clearmacregistr
+ationinformation\n""Allmacs\n""MACaddress\n""VNIkeyword\n""Anyvirtualnetworkiden
+tifier\n""Virtualnetworkidentifier\n""UNaddressofNVE\n""AllUNaddresses\n""UNIPv4
+interfaceaddress\n""UNIPv6interfaceaddress\n"){structrfapi_local_reg_delete_argc
+da;intrc;/*pfxvnunL2VNI*/if((rc=parse_deleter_tokens(vty,NULL,NULL,NULL,argv[7],
+argv[3],argv[5],NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);pri
+nt_cleared_stats(&cda);return0;}DEFUN(clear_vnc_mac_vn,clear_vnc_mac_vn_cmd,"cle
+arvncmac<*|YY:YY:YY:YY:YY:YY>virtual-network-identifier<*|(1-4294967295)>vn<*|A.
+B.C.D|X:X::X:X>","clear\n""VNCInformation\n""Clearmacregistrationinformation\n""
+Allmacs\n""MACaddress\n""VNIkeyword\n""Anyvirtualnetworkidentifier\n""Virtualnet
+workidentifier\n""UNaddressofNVE\n""AllVNaddresses\n""VNIPv4interfaceaddress\n""
+VNIPv6interfaceaddress\n"){structrfapi_local_reg_delete_argcda;intrc;/*pfxvnunL2
+VNI*/if((rc=parse_deleter_tokens(vty,NULL,NULL,argv[7],NULL,argv[3],argv[5],NULL
+,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);print_cleared_stats(&cd
+a);return0;}DEFUN(clear_vnc_mac_all,clear_vnc_mac_all_cmd,"clearvncmac<*|YY:YY:Y
+Y:YY:YY:YY>virtual-network-identifier<*|(1-4294967295)>*","clear\n""VNCInformati
+on\n""Clearmacregistrationinformation\n""Allmacs\n""MACaddress\n""VNIkeyword\n""
+Anyvirtualnetworkidentifier\n""Virtualnetworkidentifier\n""FromanyNVE\n"){struct
+rfapi_local_reg_delete_argcda;intrc;/*pfxvnunL2VNI*/if((rc=parse_deleter_tokens(
+vty,NULL,NULL,NULL,NULL,argv[3],argv[5],NULL,NULL,&cda)))returnrc;cda.vty=vty;cl
+ear_vnc_prefix(&cda);print_cleared_stats(&cda);return0;}/*----------------------
+---------------------------*ClearVNCMACPREFIX*----------------------------------
+---------------*/DEFUN(clear_vnc_mac_vn_un_prefix,clear_vnc_mac_vn_un_prefix_cmd
+,"clearvncmac<*|YY:YY:YY:YY:YY:YY>virtual-network-identifier<*|(1-4294967295)>vn
+<*|A.B.C.D|X:X::X:X>un<*|A.B.C.D|X:X::X:X>prefix<*|A.B.C.D/M|X:X::X:X/M>","clear
+\n""VNCInformation\n""Clearmacregistrationinformation\n""Allmacs\n""MACaddress\n
+""VNIkeyword\n""Anyvirtualnetworkidentifier\n""Virtualnetworkidentifier\n""VNadd
+ressofNVE\n""AllVNaddresses\n""VNIPv4interfaceaddress\n""VNIPv6interfaceaddress\
+n""UNaddressofNVE\n""AllUNaddresses\n""UNIPv4interfaceaddress\n""UNIPv6interface
+address\n""Clearprefixregistrationinformation\n""Allprefixes\n""IPv4prefix\n""IP
+v6prefix\n"){structrfapi_local_reg_delete_argcda;intrc;/*pfxvnunL2VNI*/if((rc=pa
+rse_deleter_tokens(vty,NULL,argv[11],argv[7],argv[9],argv[3],argv[5],NULL,NULL,&
+cda)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);print_cleared_stats(&cda);retu
+rn0;}DEFUN(clear_vnc_mac_un_vn_prefix,clear_vnc_mac_un_vn_prefix_cmd,"clearvncma
+c<*|YY:YY:YY:YY:YY:YY>virtual-network-identifier<*|(1-4294967295)>un<*|A.B.C.D|X
+:X::X:X>vn<*|A.B.C.D|X:X::X:X>prefix<*|A.B.C.D/M|X:X::X:X/M>prefix<*|A.B.C.D/M|X
+:X::X:X/M>","clear\n""VNCInformation\n""Clearmacregistrationinformation\n""Allma
+cs\n""MACaddress\n""VNIkeyword\n""Anyvirtualnetworkidentifier\n""Virtualnetworki
+dentifier\n""UNaddressofNVE\n""AllUNaddresses\n""UNIPv4interfaceaddress\n""UNIPv
+6interfaceaddress\n""VNaddressofNVE\n""AllVNaddresses\n""VNIPv4interfaceaddress\
+n""VNIPv6interfaceaddress\n""Clearprefixregistrationinformation\n""Allprefixes\n
+""IPv4prefix\n""IPv6prefix\n""Clearprefixregistrationinformation\n""Allprefixes\
+n""IPv4prefix\n""IPv6prefix\n"){structrfapi_local_reg_delete_argcda;intrc;/*pfxv
+nunL2VNI*/if((rc=parse_deleter_tokens(vty,NULL,argv[11],argv[9],argv[7],argv[3],
+argv[5],NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);print_clear
+ed_stats(&cda);return0;}DEFUN(clear_vnc_mac_un_prefix,clear_vnc_mac_un_prefix_cm
+d,"clearvncmac<*|YY:YY:YY:YY:YY:YY>virtual-network-identifier<*|(1-4294967295)>u
+n<*|A.B.C.D|X:X::X:X>prefix<*|A.B.C.D/M|X:X::X:X/M>","clear\n""VNCInformation\n"
+"Clearmacregistrationinformation\n""Allmacs\n""MACaddress\n""VNIkeyword\n""Anyvi
+rtualnetworkidentifier\n""Virtualnetworkidentifier\n""UNaddressofNVE\n""AllUNadd
+resses\n""UNIPv4interfaceaddress\n""UNIPv6interfaceaddress\n""Clearprefixregistr
+ationinformation\n""Allprefixes\n""IPv4Prefix\n""IPv6Prefix\n"){structrfapi_loca
+l_reg_delete_argcda;intrc;/*pfxvnunL2VNI*/if((rc=parse_deleter_tokens(vty,NULL,a
+rgv[9],NULL,argv[7],argv[3],argv[5],NULL,NULL,&cda)))returnrc;cda.vty=vty;clear_
+vnc_prefix(&cda);print_cleared_stats(&cda);return0;}DEFUN(clear_vnc_mac_vn_prefi
+x,clear_vnc_mac_vn_prefix_cmd,"clearvncmac<*|YY:YY:YY:YY:YY:YY>virtual-network-i
+dentifier<*|(1-4294967295)>vn<*|A.B.C.D|X:X::X:X>prefix<*|A.B.C.D/M|X:X::X:X/M>"
+,"clear\n""VNCInformation\n""Clearmacregistrationinformation\n""Allmacs\n""MACad
+dress\n""VNIkeyword\n""Anyvirtualnetworkidentifier\n""Virtualnetworkidentifier\n
+""UNaddressofNVE\n""AllVNaddresses\n""VNIPv4interfaceaddress\n""VNIPv6interfacea
+ddress\n""Clearprefixregistrationinformation\n""Allprefixes\n""IPv4Prefix\n""IPv
+6Prefix\n"){structrfapi_local_reg_delete_argcda;intrc;/*pfxvnunL2VNI*/if((rc=par
+se_deleter_tokens(vty,NULL,argv[9],argv[7],NULL,argv[3],argv[5],NULL,NULL,&cda))
+)returnrc;cda.vty=vty;clear_vnc_prefix(&cda);print_cleared_stats(&cda);return0;}
+DEFUN(clear_vnc_mac_all_prefix,clear_vnc_mac_all_prefix_cmd,"clearvncmac<*|YY:YY
+:YY:YY:YY:YY>virtual-network-identifier<*|(1-4294967295)>prefix<*|A.B.C.D/M|X:X:
+:X:X/M>","clear\n""VNCInformation\n""Clearmacregistrationinformation\n""Allmacs\
+n""MACaddress\n""VNIkeyword\n""Anyvirtualnetworkidentifier\n""Virtualnetworkiden
+tifier\n""UNaddressofNVE\n""AllVNaddresses\n""VNIPv4interfaceaddress\n""VNIPv6in
+terfaceaddress\n"){structrfapi_local_reg_delete_argcda;intrc;/*pfxvnunL2VNI*/if(
+(rc=parse_deleter_tokens(vty,NULL,argv[7],NULL,NULL,argv[3],argv[5],NULL,NULL,&c
+da)))returnrc;cda.vty=vty;clear_vnc_prefix(&cda);print_cleared_stats(&cda);retur
+n0;}/*************************************************************************Sh
+owcommands**********************************************************************
+**//*copiedfromrfp_vty.c*/staticintcheck_and_display_is_vnc_running(structvty*vt
+y){if(bgp_rfapi_is_vnc_configured(NULL)==0)return1;/*isrunning*/if(vty){vty_out(
+vty,"VNCisnotconfigured.\n");}return0;/*notrunning*/}staticintrfapi_vty_show_nve
+_summary(structvty*vty,show_nve_summary_tshow_type){structbgp*bgp_default=bgp_ge
+t_default();structrfapi*h;intis_vnc_running=(bgp_rfapi_is_vnc_configured(bgp_def
+ault)==0);intactive_local_routes;intactive_remote_routes;intholddown_remote_rout
+es;intimported_remote_routes;if(!bgp_default)gotonotcfg;h=bgp_default->rfapi;if(
+!h)gotonotcfg;/*don'tshowlocalinfoifnotrunningRFP*/if(is_vnc_running||show_type=
+=SHOW_NVE_SUMMARY_REGISTERED){switch(show_type){caseSHOW_NVE_SUMMARY_ACTIVE_NVES
+:vty_out(vty,"%-24s","NVEs:");vty_out(vty,"%-8s%-8u","Active:",h->descriptors.co
+unt);vty_out(vty,"%-8s%-8u","Maximum:",h->stat.max_descriptors);vty_out(vty,"%-8
+s%-8u","Unknown:",h->stat.count_unknown_nves);break;caseSHOW_NVE_SUMMARY_REGISTE
+RED:/**NB:WiththeintroductionofL2routesupport,weno*longerhaveaone-to-onecorrespo
+ndencebetween*locally-originatedrouteadvertisementsandroutesin*theimporttablesth
+athavelocalorigin.This*discrepancyarisesbecauseasingleadvertisement*maycontainbo
+thanIPprefixandaMACaddress.*Suchanadvertisementresultsintwoimporttable*entries:o
+neindexedbyIPprefix,theotherindexed*byMACaddress.**TBD:updatecomputationanddispl
+ayofregistration*statisticstoreflecttheunderlyingsemantics.*/if(is_vnc_running){
+vty_out(vty,"%-24s","Registrations:");vty_out(vty,"%-8s%-8u","Active:",rfapiApCo
+untAll(bgp_default));vty_out(vty,"%-8s%-8u","Failed:",h->stat.count_registration
+s_failed);vty_out(vty,"%-8s%-8u","Total:",h->stat.count_registrations);vty_out(v
+ty,"\n");}vty_out(vty,"%-24s","Prefixesregistered:");vty_out(vty,"\n");rfapiCoun
+tAllItRoutes(&active_local_routes,&active_remote_routes,&holddown_remote_routes,
+&imported_remote_routes);/*local*/if(is_vnc_running){vty_out(vty,"%-20s","Locall
+y:");vty_out(vty,"%-8s%-8u","Active:",active_local_routes);vty_out(vty,"\n");}vt
+y_out(vty,"%-20s","Remotely:");vty_out(vty,"%-8s%-8u","Active:",active_remote_ro
+utes);vty_out(vty,"\n");vty_out(vty,"%-20s","InHolddown:");vty_out(vty,"%-8s%-8u
+","Active:",holddown_remote_routes);vty_out(vty,"\n");vty_out(vty,"%-20s","Impor
+ted:");vty_out(vty,"%-8s%-8u","Active:",imported_remote_routes);break;caseSHOW_N
+VE_SUMMARY_QUERIES:vty_out(vty,"%-24s","Queries:");vty_out(vty,"%-8s%-8u","Activ
+e:",rfapi_monitor_count(NULL));vty_out(vty,"%-8s%-8u","Failed:",h->stat.count_qu
+eries_failed);vty_out(vty,"%-8s%-8u","Total:",h->stat.count_queries);break;caseS
+HOW_NVE_SUMMARY_RESPONSES:rfapiRibShowResponsesSummary(vty);default:break;}vty_o
+ut(vty,"\n");}return0;notcfg:vty_out(vty,"VNCisnotconfigured.\n");returnCMD_WARN
+ING;}staticintrfapi_show_nves(structvty*vty,structprefix*vn_prefix,structprefix*
+un_prefix){//structhash*rfds;//structrfp_rfapi_descriptor_paramparam;structbgp*b
+gp_default=bgp_get_default();structrfapi*h;structlistnode*node;structrfapi_descr
+iptor*rfd;inttotal=0;intprinted=0;intrc;if(!bgp_default)gotonotcfg;h=bgp_default
+->rfapi;if(!h)gotonotcfg;rc=rfapi_vty_show_nve_summary(vty,SHOW_NVE_SUMMARY_ACTI
+VE_NVES);if(rc)returnrc;for(ALL_LIST_ELEMENTS_RO(&h->descriptors,node,rfd)){stru
+ctprefixpfx;charvn_addr_buf[INET6_ADDRSTRLEN]={0,};charun_addr_buf[INET6_ADDRSTR
+LEN]={0,};charage[10];++total;if(vn_prefix){assert(!rfapiRaddr2Qprefix(&rfd->vn_
+addr,&pfx));if(!prefix_match(vn_prefix,&pfx))continue;}if(un_prefix){assert(!rfa
+piRaddr2Qprefix(&rfd->un_addr,&pfx));if(!prefix_match(un_prefix,&pfx))continue;}
+rfapiRfapiIpAddr2Str(&rfd->vn_addr,vn_addr_buf,INET6_ADDRSTRLEN);rfapiRfapiIpAdd
+r2Str(&rfd->un_addr,un_addr_buf,INET6_ADDRSTRLEN);if(!printed){/*printoutaheader
+*/vty_out(vty,"ActiveNextHops\n");vty_out(vty,"%-15s%-15s%-5s%-5s%-6s%-6s%s\n","
+VNAddress","UNAddress","Regis","Resps","Reach","Remove","Age");}++printed;vty_ou
+t(vty,"%-15s%-15s%-5u%-5u%-6u%-6u%s\n",vn_addr_buf,un_addr_buf,rfapiApCount(rfd)
+,rfapi_monitor_count(rfd),rfd->stat_count_nh_reachable,rfd->stat_count_nh_remova
+l,rfapiFormatAge(rfd->open_time,age,10));}if(printed>0||vn_prefix||un_prefix)vty
+_out(vty,"Displayed%doutof%dactiveNVEs\n",printed,total);return0;notcfg:vty_out(
+vty,"VNCisnotconfigured.\n");returnCMD_WARNING;}DEFUN(vnc_show_summary,vnc_show_
+summary_cmd,"showvncsummary",SHOW_STRVNC_SHOW_STR"DisplayVNCstatussummary\n"){if
+(!check_and_display_is_vnc_running(vty))returnCMD_SUCCESS;bgp_rfapi_show_summary
+(bgp_get_default(),vty);vty_out(vty,"\n");rfapi_vty_show_nve_summary(vty,SHOW_NV
+E_SUMMARY_ACTIVE_NVES);rfapi_vty_show_nve_summary(vty,SHOW_NVE_SUMMARY_QUERIES);
+rfapi_vty_show_nve_summary(vty,SHOW_NVE_SUMMARY_RESPONSES);rfapi_vty_show_nve_su
+mmary(vty,SHOW_NVE_SUMMARY_REGISTERED);returnCMD_SUCCESS;}DEFUN(vnc_show_nves,vn
+c_show_nves_cmd,"showvncnves",SHOW_STRVNC_SHOW_STR"ListknownNVEs\n"){rfapi_show_
+nves(vty,NULL,NULL);returnCMD_SUCCESS;}DEFUN(vnc_show_nves_ptct,vnc_show_nves_pt
+ct_cmd,"showvncnves<vn|un><A.B.C.D|X:X::X:X>",SHOW_STRVNC_SHOW_STR"ListknownNVEs
+\n""VNaddressofNVE\n""UNaddressofNVE\n""IPv4interfaceaddress\n""IPv6interfaceadd
+ress\n"){structprefixpfx;if(!check_and_display_is_vnc_running(vty))returnCMD_SUC
+CESS;if(!str2prefix(argv[4]->arg,&pfx)){vty_out(vty,"Malformedaddress\"%s\"\n",a
+rgv[4]->arg);returnCMD_WARNING;}if(pfx.family!=AF_INET&&pfx.family!=AF_INET6){vt
+y_out(vty,"Invalidaddress\"%s\"\n",argv[4]->arg);returnCMD_WARNING;}if(argv[3]->
+arg[0]=='u'){rfapi_show_nves(vty,NULL,&pfx);}else{rfapi_show_nves(vty,&pfx,NULL)
+;}returnCMD_SUCCESS;}/*adaptedfromrfp_registration_cache_log()*/staticvoidrfapi_
+show_registrations(structvty*vty,structprefix*restrict_to,intshow_local,intshow_
+remote,intshow_holddown,intshow_imported){intprinted=0;if(!vty)return;rfapi_vty_
+show_nve_summary(vty,SHOW_NVE_SUMMARY_REGISTERED);if(show_local){/*non-expiring,
+local*/printed+=rfapiShowRemoteRegistrations(vty,restrict_to,0,1,0,0);}if(show_r
+emote){/*non-expiring,non-local*/printed+=rfapiShowRemoteRegistrations(vty,restr
+ict_to,0,0,1,0);}if(show_holddown){/*expiring,includinglocal*/printed+=rfapiShow
+RemoteRegistrations(vty,restrict_to,1,1,1,0);}if(show_imported){/*non-expiring,n
+on-local*/printed+=rfapiShowRemoteRegistrations(vty,restrict_to,0,0,1,1);}if(!pr
+inted){vty_out(vty,"\n");}}DEFUN(vnc_show_registrations_pfx,vnc_show_registratio
+ns_pfx_cmd,"showvncregistrations[<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",SHOW
+_STRVNC_SHOW_STR"Listactiveprefixregistrations\n""LimitoutputtoaparticularIPv4pr
+efix\n""LimitoutputtoaparticularIPv6prefix\n""LimitoutputtoaparticularIPv6addres
+s\n"){structprefixp;structprefix*p_addr=NULL;if(argc>3){if(!str2prefix(argv[3]->
+arg,&p)){vty_out(vty,"Invalidprefix:%s\n",argv[3]->arg);returnCMD_SUCCESS;}else{
+p_addr=&p;}}rfapi_show_registrations(vty,p_addr,1,1,1,1);returnCMD_SUCCESS;}DEFU
+N(vnc_show_registrations_some_pfx,vnc_show_registrations_some_pfx_cmd,"showvncre
+gistrations<all|holddown|imported|local|remote>[<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:Y
+Y:YY:YY>]",SHOW_STRVNC_SHOW_STR"Listactiveprefixregistrations\n""showallregistra
+tions\n""showonlyregistrationsinholddown\n""showonlyimportedprefixes\n""showonly
+localregistrations\n""showonlyremoteregistrations\n""Limitoutputtoaparticularpre
+fixoraddress\n""Limitoutputtoaparticularprefixoraddress\n""Limitoutputtoaparticu
+larprefixoraddress\n"){structprefixp;structprefix*p_addr=NULL;intshow_local=0;in
+tshow_remote=0;intshow_holddown=0;intshow_imported=0;if(argc>4){if(!str2prefix(a
+rgv[4]->arg,&p)){vty_out(vty,"Invalidprefix:%s\n",argv[4]->arg);returnCMD_SUCCES
+S;}else{p_addr=&p;}}switch(argv[3]->arg[0]){case'a':show_local=1;show_remote=1;s
+how_holddown=1;show_imported=1;break;case'h':show_holddown=1;break;case'i':show_
+imported=1;break;case'l':show_local=1;break;case'r':show_remote=1;break;}rfapi_s
+how_registrations(vty,p_addr,show_local,show_remote,show_holddown,show_imported)
+;returnCMD_SUCCESS;}DEFUN(vnc_show_responses_pfx,vnc_show_responses_pfx_cmd,"sho
+wvncresponses[<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",SHOW_STRVNC_SHOW_STR"Li
+strecentqueryresponses\n""LimitoutputtoaparticularIPv4prefix\n""Limitoutputtoapa
+rticularIPv6prefix\n""LimitoutputtoaparticularIPv6address\n"){structprefixp;stru
+ctprefix*p_addr=NULL;if(argc>3){if(!str2prefix(argv[3]->arg,&p)){vty_out(vty,"In
+validprefix:%s\n",argv[3]->arg);returnCMD_SUCCESS;}else{p_addr=&p;}}rfapi_vty_sh
+ow_nve_summary(vty,SHOW_NVE_SUMMARY_QUERIES);rfapiRibShowResponsesSummary(vty);r
+fapiRibShowResponses(vty,p_addr,0);rfapiRibShowResponses(vty,p_addr,1);returnCMD
+_SUCCESS;}DEFUN(vnc_show_responses_some_pfx,vnc_show_responses_some_pfx_cmd,"sho
+wvncresponses<active|removed>[<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY:YY:YY>]",SHOW_ST
+RVNC_SHOW_STR"Listrecentqueryresponses\n""showonlyactivequeryresponses\n""showon
+lyremovedqueryresponses\n""LimitoutputtoaparticularIPv4prefix\n""Limitoutputtoap
+articularIPv6prefix\n""LimitoutputtoaparticularIPV6address\n"){structprefixp;str
+uctprefix*p_addr=NULL;intshow_active=0;intshow_removed=0;if(!check_and_display_i
+s_vnc_running(vty))returnCMD_SUCCESS;if(argc>4){if(!str2prefix(argv[4]->arg,&p))
+{vty_out(vty,"Invalidprefix:%s\n",argv[4]->arg);returnCMD_SUCCESS;}else{p_addr=&
+p;}}switch(argv[3]->arg[0]){case'a':show_active=1;break;case'r':show_removed=1;b
+reak;}rfapi_vty_show_nve_summary(vty,SHOW_NVE_SUMMARY_QUERIES);rfapiRibShowRespo
+nsesSummary(vty);if(show_active)rfapiRibShowResponses(vty,p_addr,0);if(show_remo
+ved)rfapiRibShowResponses(vty,p_addr,1);returnCMD_SUCCESS;}DEFUN(show_vnc_querie
+s_pfx,show_vnc_queries_pfx_cmd,"showvncqueries[<A.B.C.D/M|X:X::X:X/M|YY:YY:YY:YY
+:YY:YY>]",SHOW_STRVNC_SHOW_STR"Listactivequeries\n""LimitoutputtoaparticularIPv4
+prefixoraddress\n""LimitoutputtoaparticularIPv6prefix\n""Limitoutputtoaparticual
+rIPV6address\n"){structprefixpfx;structprefix*p=NULL;if(argc>3){if(!str2prefix(a
+rgv[3]->arg,&pfx)){vty_out(vty,"Invalidprefix:%s\n",argv[3]->arg);returnCMD_WARN
+ING;}p=&pfx;}rfapi_vty_show_nve_summary(vty,SHOW_NVE_SUMMARY_QUERIES);returnrfap
+iShowVncQueries(vty,p);}DEFUN(vnc_clear_counters,vnc_clear_counters_cmd,"clearvn
+ccounters",CLEAR_STRVNC_SHOW_STR"ResetVNCcounters\n"){structbgp*bgp_default=bgp_
+get_default();structrfapi*h;structlistnode*node;structrfapi_descriptor*rfd;if(!b
+gp_default)gotonotcfg;h=bgp_default->rfapi;if(!h)gotonotcfg;/*per-rfd*/for(ALL_L
+IST_ELEMENTS_RO(&h->descriptors,node,rfd)){rfd->stat_count_nh_reachable=0;rfd->s
+tat_count_nh_removal=0;}/*global*/memset(&h->stat,0,sizeof(h->stat));/**151122pe
+rbug103,setcount_registrations=numberactive.*Dosameforqueries*/h->stat.count_reg
+istrations=rfapiApCountAll(bgp_default);h->stat.count_queries=rfapi_monitor_coun
+t(NULL);rfapiRibShowResponsesSummaryClear();returnCMD_SUCCESS;notcfg:vty_out(vty
+,"VNCisnotconfigured.\n");returnCMD_WARNING;}/**********************************
+***************************************Addprefixwithvrf**add[vrf<vrf-name>]prefi
+x<prefix>*[rd<value>][label<value>][local-preference<0-4294967295>]*************
+***********************************************************/voidvnc_add_vrf_open
+er(structbgp*bgp,structrfapi_nve_group_cfg*rfg){if(rfg->rfd==NULL){/*neednewrfap
+i_handle*//*basedonrfapi_open*/structrfapi_descriptor*rfd;rfd=XCALLOC(MTYPE_RFAP
+I_DESC,sizeof(structrfapi_descriptor));rfd->bgp=bgp;rfg->rfd=rfd;/*leavemostfiel
+dsemptyaswillgetfrom(dynamic)config*whenneeded*/rfd->default_tunneltype_option.t
+ype=BGP_ENCAP_TYPE_MPLS;rfd->cookie=rfg;if(rfg->vn_prefix.family&&!CHECK_FLAG(rf
+g->flags,RFAPI_RFG_VPN_NH_SELF)){rfapiQprefix2Raddr(&rfg->vn_prefix,&rfd->vn_add
+r);}else{memset(&rfd->vn_addr,0,sizeof(structrfapi_ip_addr));rfd->vn_addr.addr_f
+amily=AF_INET;rfd->vn_addr.addr.v4=bgp->router_id;}rfd->un_addr=rfd->vn_addr;/*s
+igh,needsomethinginUNforlookups*/vnc_zlog_debug_verbose("%s:OpeningRFDforVRF%s",
+__func__,rfg->name);rfapi_init_and_open(bgp,rfd,rfg);}}/*NOTE:thisfunctionsparal
+lelsvnc_direct_add_rn_group_rd*/staticintvnc_add_vrf_prefix(structvty*vty,constc
+har*arg_vrf,constchar*arg_prefix,constchar*arg_rd,/*optional*/constchar*arg_labe
+l,/*optional*/constchar*arg_pref)/*optional*/{structbgp*bgp;structrfapi_nve_grou
+p_cfg*rfg;structprefixpfx;structrfapi_ip_prefixrpfx;uint32_tpref=0;structrfapi_v
+n_optionoptary[3];structrfapi_vn_option*opt=NULL;intcur_opt=0;bgp=bgp_get_defaul
+t();/*assumemaininstancefornow*/if(!bgp){vty_out(vty,"NoBGPprocessisconfigured\n
+");returnCMD_WARNING_CONFIG_FAILED;}if(!bgp->rfapi||!bgp->rfapi_cfg){vty_out(vty
+,"VRFsupportnotconfigured\n");returnCMD_WARNING_CONFIG_FAILED;}rfg=bgp_rfapi_cfg
+_match_byname(bgp,arg_vrf,RFAPI_GROUP_CFG_VRF);/*argchecks*/if(!rfg){vty_out(vty
+,"VRF\"%s\"appearsnottobeconfigured.\n",arg_vrf);returnCMD_WARNING_CONFIG_FAILED
+;}if(!rfg->rt_export_list||!rfg->rfapi_import_table){vty_out(vty,"VRF\"%s\"ismis
+singRTimport/exportRTconfiguration.\n",arg_vrf);returnCMD_WARNING_CONFIG_FAILED;
+}if(!rfg->rd.prefixlen&&!arg_rd){vty_out(vty,"VRF\"%s\"isn'tconfiguredwithanRD,s
+oRDmustbeprovided.\n",arg_vrf);returnCMD_WARNING_CONFIG_FAILED;}if(rfg->label>MP
+LS_LABEL_MAX&&!arg_label){vty_out(vty,"VRF\"%s\"isn'tconfiguredwithadefaultlabel
+s,soalabelmustbeprovided.\n",arg_vrf);returnCMD_WARNING_CONFIG_FAILED;}if(!str2p
+refix(arg_prefix,&pfx)){vty_out(vty,"Malformedprefix\"%s\"\n",arg_prefix);return
+CMD_WARNING_CONFIG_FAILED;}rfapiQprefix2Rprefix(&pfx,&rpfx);memset(optary,0,size
+of(optary));if(arg_rd){if(opt!=NULL)opt->next=&optary[cur_opt];opt=&optary[cur_o
+pt++];opt->type=RFAPI_VN_OPTION_TYPE_INTERNAL_RD;if(!str2prefix_rd(arg_rd,&opt->
+v.internal_rd)){vty_out(vty,"MalformedRD\"%s\"\n",arg_rd);returnCMD_WARNING_CONF
+IG_FAILED;}}if(rfg->label<=MPLS_LABEL_MAX||arg_label){structrfapi_l2address_opti
+on*l2o;if(opt!=NULL)opt->next=&optary[cur_opt];opt=&optary[cur_opt++];opt->type=
+RFAPI_VN_OPTION_TYPE_L2ADDR;l2o=&opt->v.l2addr;if(arg_label){int32_tlabel;label=
+strtoul(arg_label,NULL,10);l2o->label=label;}elsel2o->label=rfg->label;}if(arg_p
+ref){char*endptr=NULL;pref=strtoul(arg_pref,&endptr,10);if(*endptr!='\0'){vty_ou
+t(vty,"%%Invalidlocal-preferencevalue\"%s\"\n",arg_pref);returnCMD_WARNING_CONFI
+G_FAILED;}}rpfx.cost=255-(pref&255);vnc_add_vrf_opener(bgp,rfg);if(!rfapi_regist
+er(rfg->rfd,&rpfx,RFAPI_INFINITE_LIFETIME,NULL,(cur_opt?optary:NULL),RFAPI_REGIS
+TER_ADD)){structrfapi_next_hop_entry*head=NULL;structrfapi_next_hop_entry*tail=N
+ULL;structrfapi_vn_option*vn_opt_new;vnc_zlog_debug_verbose("%s:rfapi_registersu
+cceeded",__func__);if(bgp->rfapi->rfp_methods.local_cb){structrfapi_descriptor*r
+=(structrfapi_descriptor*)rfg->rfd;vn_opt_new=rfapi_vn_options_dup(opt);rfapiAdd
+DeleteLocalRfpPrefix(&r->un_addr,&r->vn_addr,&rpfx,1,RFAPI_INFINITE_LIFETIME,vn_
+opt_new,&head,&tail);if(head){bgp->rfapi->flags|=RFAPI_INCALLBACK;(*bgp->rfapi->
+rfp_methods.local_cb)(head,r->cookie);bgp->rfapi->flags&=~RFAPI_INCALLBACK;}head
+=tail=NULL;}vnc_zlog_debug_verbose("%scompleted,count=%d/%d",__func__,rfg->rfapi
+_import_table->local_count[AFI_IP],rfg->rfapi_import_table->local_count[AFI_IP6]
+);returnCMD_SUCCESS;}vnc_zlog_debug_verbose("%s:rfapi_registerfailed",__func__);
+vty_out(vty,"Addfailed.\n");returnCMD_WARNING_CONFIG_FAILED;}DEFUN(add_vrf_prefi
+x_rd_label_pref,add_vrf_prefix_rd_label_pref_cmd,"addvrfNAMEprefix<A.B.C.D/M|X:X
+::X:X/M>[{rdASN:NN_OR_IP-ADDRESS|label(0-1048575)|preference(0-4294967295)}]","A
+dd\n""ToaVRF\n""VRFname\n""Add/modifyprefixrelatedinformation\n""IPv4prefix\n""I
+Pv6prefix\n""OverrideconfiguredVRFRouteDistinguisher\n""<as-number>:<number>or<i
+p-address>:<number>\n""OverrideconfiguredVRFlabel\n""LabelValue<0-1048575>\n""Se
+tadvertisedlocalpreference\n""localpreference(higher=morepreferred)\n"){char*arg
+_vrf=argv[2]->arg;char*arg_prefix=argv[4]->arg;char*arg_rd=NULL;/*optional*/char
+*arg_label=NULL;/*optional*/char*arg_pref=NULL;/*optional*/intpargc=5;argc--;/*d
+on'tparseargument*/while(pargc<argc){switch(argv[pargc++]->arg[0]){case'r':arg_r
+d=argv[pargc]->arg;break;case'l':arg_label=argv[pargc]->arg;break;case'p':arg_pr
+ef=argv[pargc]->arg;break;default:break;}pargc++;}returnvnc_add_vrf_prefix(vty,a
+rg_vrf,arg_prefix,arg_rd,arg_label,arg_pref);}/*********************************
+****************************************delprefixwithvrf**clear[vrf<vrf-name>]pr
+efix<prefix>[rd<value>]*********************************************************
+***************/staticintrfapi_cfg_group_it_count(structrfapi_nve_group_cfg*rfg)
+{intcount=0;afi_tafi=AFI_MAX;while(afi-->0){count+=rfg->rfapi_import_table->loca
+l_count[afi];}returncount;}voidclear_vnc_vrf_closer(structrfapi_nve_group_cfg*rf
+g){structrfapi_descriptor*rfd=rfg->rfd;afi_tafi;if(rfd==NULL)return;/*checkifITi
+sempty*/for(afi=0;afi<AFI_MAX&&rfg->rfapi_import_table->local_count[afi]==0;afi+
++);if(afi==AFI_MAX){vnc_zlog_debug_verbose("%s:closingRFDforVRF%s",__func__,rfg-
+>name);rfg->rfd=NULL;rfapi_close(rfd);}else{vnc_zlog_debug_verbose("%s:VRF%safi=
+%dcount=%d",__func__,rfg->name,afi,rfg->rfapi_import_table->local_count[afi]);}}
+staticintvnc_clear_vrf(structvty*vty,structbgp*bgp,constchar*arg_vrf,constchar*a
+rg_prefix,/*NULL=all*/constchar*arg_rd)/*optional*/{structrfapi_nve_group_cfg*rf
+g;structrfapi_local_reg_delete_argcda;intrc;intstart_count;if(bgp==NULL)bgp=bgp_
+get_default();/*assumemaininstancefornow*/if(!bgp){vty_out(vty,"NoBGPprocessisco
+nfigured\n");returnCMD_WARNING;}if(!bgp->rfapi||!bgp->rfapi_cfg){vty_out(vty,"VR
+Fsupportnotconfigured\n");returnCMD_WARNING;}rfg=bgp_rfapi_cfg_match_byname(bgp,
+arg_vrf,RFAPI_GROUP_CFG_VRF);/*argchecks*/if(!rfg){vty_out(vty,"VRF\"%s\"appears
+nottobeconfigured.\n",arg_vrf);returnCMD_WARNING;}rc=parse_deleter_args(vty,bgp,
+arg_prefix,NULL,NULL,NULL,NULL,arg_rd,rfg,&cda);if(rc!=CMD_SUCCESS)/*parseerror*
+/returnrc;start_count=rfapi_cfg_group_it_count(rfg);clear_vnc_prefix(&cda);vty_o
+ut(vty,"Cleared%uoutof%dprefixes.\n",cda.pfx_count,start_count);returnCMD_SUCCES
+S;}DEFUN(clear_vrf_prefix_rd,clear_vrf_prefix_rd_cmd,"clearvrfNAME[prefix<A.B.C.
+D/M|X:X::X:X/M>][rdASN:NN_OR_IP-ADDRESS]","Clearstoreddata\n""FromaVRF\n""VRFnam
+e\n""Prefixrelatedinformation\n""IPv4prefix\n""IPv6prefix\n""SpecificVRFRouteDis
+tinguisher\n""<as-number>:<number>or<ip-address>:<number>\n"){char*arg_vrf=argv[
+2]->arg;char*arg_prefix=NULL;/*optional*/char*arg_rd=NULL;/*optional*/intpargc=3
+;argc--;/*don'tcheckparameter*/while(pargc<argc){switch(argv[pargc++]->arg[0]){c
+ase'r':arg_rd=argv[pargc]->arg;break;case'p':arg_prefix=argv[pargc]->arg;break;d
+efault:break;}pargc++;}returnvnc_clear_vrf(vty,NULL,arg_vrf,arg_prefix,arg_rd);}
+DEFUN(clear_vrf_all,clear_vrf_all_cmd,"clearvrfNAMEall","Clearstoreddata\n""From
+aVRF\n""VRFname\n""Allprefixes\n"){char*arg_vrf=argv[2]->arg;returnvnc_clear_vrf
+(vty,NULL,arg_vrf,NULL,NULL);}voidrfapi_vty_init(){install_element(ENABLE_NODE,&
+add_vnc_prefix_cost_life_lnh_cmd);install_element(ENABLE_NODE,&add_vnc_prefix_li
+fe_cost_lnh_cmd);install_element(ENABLE_NODE,&add_vnc_prefix_cost_lnh_cmd);insta
+ll_element(ENABLE_NODE,&add_vnc_prefix_life_lnh_cmd);install_element(ENABLE_NODE
+,&add_vnc_prefix_lnh_cmd);install_element(ENABLE_NODE,&add_vnc_prefix_cost_life_
+cmd);install_element(ENABLE_NODE,&add_vnc_prefix_life_cost_cmd);install_element(
+ENABLE_NODE,&add_vnc_prefix_cost_cmd);install_element(ENABLE_NODE,&add_vnc_prefi
+x_life_cmd);install_element(ENABLE_NODE,&add_vnc_prefix_cmd);install_element(ENA
+BLE_NODE,&add_vnc_mac_vni_prefix_cost_life_cmd);install_element(ENABLE_NODE,&add
+_vnc_mac_vni_prefix_life_cmd);install_element(ENABLE_NODE,&add_vnc_mac_vni_prefi
+x_cost_cmd);install_element(ENABLE_NODE,&add_vnc_mac_vni_prefix_cmd);install_ele
+ment(ENABLE_NODE,&add_vnc_mac_vni_cost_life_cmd);install_element(ENABLE_NODE,&ad
+d_vnc_mac_vni_cost_cmd);install_element(ENABLE_NODE,&add_vnc_mac_vni_life_cmd);i
+nstall_element(ENABLE_NODE,&add_vnc_mac_vni_cmd);install_element(ENABLE_NODE,&ad
+d_vrf_prefix_rd_label_pref_cmd);install_element(ENABLE_NODE,&clear_vnc_nve_all_c
+md);install_element(ENABLE_NODE,&clear_vnc_nve_vn_un_cmd);install_element(ENABLE
+_NODE,&clear_vnc_nve_un_vn_cmd);install_element(ENABLE_NODE,&clear_vnc_nve_vn_cm
+d);install_element(ENABLE_NODE,&clear_vnc_nve_un_cmd);install_element(ENABLE_NOD
+E,&clear_vnc_prefix_vn_un_cmd);install_element(ENABLE_NODE,&clear_vnc_prefix_un_
+vn_cmd);install_element(ENABLE_NODE,&clear_vnc_prefix_un_cmd);install_element(EN
+ABLE_NODE,&clear_vnc_prefix_vn_cmd);install_element(ENABLE_NODE,&clear_vnc_prefi
+x_all_cmd);install_element(ENABLE_NODE,&clear_vnc_mac_vn_un_cmd);install_element
+(ENABLE_NODE,&clear_vnc_mac_un_vn_cmd);install_element(ENABLE_NODE,&clear_vnc_ma
+c_un_cmd);install_element(ENABLE_NODE,&clear_vnc_mac_vn_cmd);install_element(ENA
+BLE_NODE,&clear_vnc_mac_all_cmd);install_element(ENABLE_NODE,&clear_vnc_mac_vn_u
+n_prefix_cmd);install_element(ENABLE_NODE,&clear_vnc_mac_un_vn_prefix_cmd);insta
+ll_element(ENABLE_NODE,&clear_vnc_mac_un_prefix_cmd);install_element(ENABLE_NODE
+,&clear_vnc_mac_vn_prefix_cmd);install_element(ENABLE_NODE,&clear_vnc_mac_all_pr
+efix_cmd);install_element(ENABLE_NODE,&clear_vrf_prefix_rd_cmd);install_element(
+ENABLE_NODE,&clear_vrf_all_cmd);install_element(ENABLE_NODE,&vnc_clear_counters_
+cmd);install_element(VIEW_NODE,&vnc_show_summary_cmd);install_element(VIEW_NODE,
+&vnc_show_nves_cmd);install_element(VIEW_NODE,&vnc_show_nves_ptct_cmd);install_e
+lement(VIEW_NODE,&vnc_show_registrations_pfx_cmd);install_element(VIEW_NODE,&vnc
+_show_registrations_some_pfx_cmd);install_element(VIEW_NODE,&vnc_show_responses_
+pfx_cmd);install_element(VIEW_NODE,&vnc_show_responses_some_pfx_cmd);install_ele
+ment(VIEW_NODE,&show_vnc_queries_pfx_cmd);}
