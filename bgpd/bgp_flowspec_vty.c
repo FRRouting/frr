@@ -1,414 +1,117 @@
-/* BGP FlowSpec VTY
- * Copyright (C) 2018 6WIND
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#include "command.h"
-
-#include "bgpd/bgpd.h"
-#include "bgpd/bgp_table.h"
-#include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_ecommunity.h"
-#include "bgpd/bgp_vty.h"
-#include "bgpd/bgp_route.h"
-#include "bgpd/bgp_aspath.h"
-#include "bgpd/bgp_flowspec.h"
-#include "bgpd/bgp_flowspec_util.h"
-#include "bgpd/bgp_flowspec_private.h"
-#include "bgpd/bgp_debug.h"
-
-/* Local Structures and variables declarations
- * This code block hosts the struct declared that host the flowspec rules
- * as well as some structure used to convert to stringx
- */
-
-static const struct message bgp_flowspec_display_large[] = {
-	{FLOWSPEC_DEST_PREFIX, "Destination Address"},
-	{FLOWSPEC_SRC_PREFIX, "Source Address"},
-	{FLOWSPEC_IP_PROTOCOL, "IP Protocol"},
-	{FLOWSPEC_PORT, "Port"},
-	{FLOWSPEC_DEST_PORT, "Destination Port"},
-	{FLOWSPEC_SRC_PORT, "Source Port"},
-	{FLOWSPEC_ICMP_TYPE, "ICMP Type"},
-	{FLOWSPEC_ICMP_CODE, "ICMP Code"},
-	{FLOWSPEC_TCP_FLAGS, "TCP Flags"},
-	{FLOWSPEC_PKT_LEN, "Packet Length"},
-	{FLOWSPEC_DSCP, "DSCP field"},
-	{FLOWSPEC_FRAGMENT, "Packet Fragment"},
-	{0}
-};
-
-static const struct message bgp_flowspec_display_min[] = {
-	{FLOWSPEC_DEST_PREFIX, "to"},
-	{FLOWSPEC_SRC_PREFIX, "from"},
-	{FLOWSPEC_IP_PROTOCOL, "proto"},
-	{FLOWSPEC_PORT, "port"},
-	{FLOWSPEC_DEST_PORT, "dstp"},
-	{FLOWSPEC_SRC_PORT, "srcp"},
-	{FLOWSPEC_ICMP_TYPE, "type"},
-	{FLOWSPEC_ICMP_CODE, "code"},
-	{FLOWSPEC_TCP_FLAGS, "flags"},
-	{FLOWSPEC_PKT_LEN, "pktlen"},
-	{FLOWSPEC_DSCP, "dscp"},
-	{FLOWSPEC_FRAGMENT, "pktfrag"},
-	{0}
-};
-
-#define	FS_STRING_UPDATE(count, ptr, format, remaining_len) do {	\
-		int _len_written;					\
-									\
-		if (((format) == NLRI_STRING_FORMAT_DEBUG) && (count)) {\
-			_len_written = snprintf((ptr), (remaining_len),	\
-						", ");			\
-			(remaining_len) -= _len_written;		\
-			(ptr) += _len_written;				\
-		} else if (((format) == NLRI_STRING_FORMAT_MIN) 	\
-			   && (count)) {				\
-			_len_written = snprintf((ptr), (remaining_len),	\
-						" ");			\
-			(remaining_len) -= _len_written;		\
-			(ptr) += _len_written;				\
-		}							\
-		count++;						\
-	} while (0)
-
-/* Parse FLOWSPEC NLRI
- * passed return_string string has assumed length
- * BGP_FLOWSPEC_STRING_DISPLAY_MAX
- */
-void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
-			    char *return_string, int format,
-			    json_object *json_path)
-{
-	uint32_t offset = 0;
-	int type;
-	int ret = 0, error = 0;
-	char *ptr = return_string;
-	char local_string[BGP_FLOWSPEC_STRING_DISPLAY_MAX];
-	int count = 0;
-	char extra[2] = "";
-	char pre_extra[2] = "";
-	const struct message *bgp_flowspec_display;
-	enum bgp_flowspec_util_nlri_t type_util;
-	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
-	int len_written;
-
-	if (format == NLRI_STRING_FORMAT_LARGE) {
-		snprintf(pre_extra, sizeof(pre_extra), "\t");
-		snprintf(extra, sizeof(extra), "\n");
-		bgp_flowspec_display = bgp_flowspec_display_large;
-	} else
-		bgp_flowspec_display = bgp_flowspec_display_min;
-	/* if needed. type_util can be set to other values */
-	type_util = BGP_FLOWSPEC_RETURN_STRING;
-	error = 0;
-	while (offset < len-1 && error >= 0) {
-		type = nlri_content[offset];
-		offset++;
-		switch (type) {
-		case FLOWSPEC_DEST_PREFIX:
-		case FLOWSPEC_SRC_PREFIX:
-			ret = bgp_flowspec_ip_address(
-						type_util,
-						nlri_content+offset,
-						len - offset,
-						local_string, &error);
-			if (ret <= 0)
-				break;
-			if (json_path) {
-				json_object_string_add(json_path,
-				     lookup_msg(bgp_flowspec_display, type, ""),
-				     local_string);
-				break;
-			}
-			FS_STRING_UPDATE(count, ptr, format, len_string);
-			len_written = snprintf(ptr, len_string, "%s%s %s%s",
-					pre_extra,
-					lookup_msg(bgp_flowspec_display,
-						   type, ""),
-					local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
-			break;
-		case FLOWSPEC_IP_PROTOCOL:
-		case FLOWSPEC_PORT:
-		case FLOWSPEC_DEST_PORT:
-		case FLOWSPEC_SRC_PORT:
-		case FLOWSPEC_ICMP_TYPE:
-		case FLOWSPEC_ICMP_CODE:
-			ret = bgp_flowspec_op_decode(type_util,
-						     nlri_content+offset,
-						     len - offset,
-						     local_string, &error);
-			if (ret <= 0)
-				break;
-			if (json_path) {
-				json_object_string_add(json_path,
-				     lookup_msg(bgp_flowspec_display, type, ""),
-				     local_string);
-				break;
-			}
-			FS_STRING_UPDATE(count, ptr, format, len_string);
-			len_written = snprintf(ptr, len_string, "%s%s %s%s",
-					pre_extra,
-					lookup_msg(bgp_flowspec_display,
-					type, ""),
-				     local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
-			break;
-		case FLOWSPEC_TCP_FLAGS:
-			ret = bgp_flowspec_tcpflags_decode(
-					      type_util,
-					      nlri_content+offset,
-					      len - offset,
-					      local_string, &error);
-			if (ret <= 0)
-				break;
-			if (json_path) {
-				json_object_string_add(json_path,
-				     lookup_msg(bgp_flowspec_display,
-						type, ""),
-				     local_string);
-				break;
-			}
-			FS_STRING_UPDATE(count, ptr, format, len_string);
-			len_written = snprintf(ptr, len_string, "%s%s %s%s",
-					pre_extra,
-					lookup_msg(bgp_flowspec_display,
-						   type, ""),
-					local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
-			break;
-		case FLOWSPEC_PKT_LEN:
-		case FLOWSPEC_DSCP:
-			ret = bgp_flowspec_op_decode(
-						type_util,
-						nlri_content + offset,
-						len - offset, local_string,
-						&error);
-			if (ret <= 0)
-				break;
-			if (json_path) {
-				json_object_string_add(json_path,
-				    lookup_msg(bgp_flowspec_display, type, ""),
-				    local_string);
-				break;
-			}
-			FS_STRING_UPDATE(count, ptr, format, len_string);
-			len_written = snprintf(ptr, len_string, "%s%s %s%s",
-					pre_extra,
-					lookup_msg(bgp_flowspec_display,
-					type, ""),
-				     local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
-			break;
-		case FLOWSPEC_FRAGMENT:
-			ret = bgp_flowspec_fragment_type_decode(
-						type_util,
-						nlri_content + offset,
-						len - offset, local_string,
-						&error);
-			if (ret <= 0)
-				break;
-			if (json_path) {
-				json_object_string_add(json_path,
-				    lookup_msg(bgp_flowspec_display,
-					       type, ""),
-				    local_string);
-				break;
-			}
-			FS_STRING_UPDATE(count, ptr, format, len_string);
-			len_written = snprintf(ptr, len_string, "%s%s %s%s",
-					pre_extra,
-					lookup_msg(bgp_flowspec_display,
-					type, ""),
-					local_string, extra);
-			len_string -= len_written;
-			ptr += len_written;
-			break;
-		default:
-			error = -1;
-			break;
-		}
-		offset += ret;
-	}
-}
-
-void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
-			    struct bgp_info *binfo,
-			    int display, json_object *json_paths)
-{
-	struct attr *attr;
-	char return_string[BGP_FLOWSPEC_STRING_DISPLAY_MAX];
-	char *s;
-	json_object *json_nlri_path = NULL;
-	json_object *json_ecom_path = NULL;
-	json_object *json_time_path = NULL;
-	char timebuf[BGP_UPTIME_LEN];
-
-	/* Print prefix */
-	if (p != NULL) {
-		if (p->family != AF_FLOWSPEC)
-			return;
-		if (json_paths) {
-			if (display == NLRI_STRING_FORMAT_JSON)
-				json_nlri_path = json_object_new_object();
-			else
-				json_nlri_path = json_paths;
-		}
-		if (display == NLRI_STRING_FORMAT_LARGE)
-			vty_out(vty, "BGP flowspec entry: (flags 0x%x)\n",
-				binfo->flags);
-		bgp_fs_nlri_get_string((unsigned char *)
-				       p->u.prefix_flowspec.ptr,
-				       p->u.prefix_flowspec.prefixlen,
-				       return_string,
-				       display,
-				       json_nlri_path);
-		if (display == NLRI_STRING_FORMAT_LARGE)
-			vty_out(vty, "%s", return_string);
-		else if (display == NLRI_STRING_FORMAT_DEBUG)
-			vty_out(vty, "%s", return_string);
-		else if (display == NLRI_STRING_FORMAT_MIN)
-			vty_out(vty, " %-30s", return_string);
-		else if (json_paths && display == NLRI_STRING_FORMAT_JSON)
-			json_object_array_add(json_paths, json_nlri_path);
-	}
-	if (!binfo)
-		return;
-	if (binfo->attr && binfo->attr->ecommunity) {
-		/* Print attribute */
-		attr = binfo->attr;
-		s = ecommunity_ecom2str(attr->ecommunity,
-					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		if (!s)
-			return;
-		if (display == NLRI_STRING_FORMAT_LARGE)
-			vty_out(vty, "\t%s\n", s);
-		else if (display == NLRI_STRING_FORMAT_MIN)
-			vty_out(vty, "%s", s);
-		else if (json_paths) {
-			json_ecom_path = json_object_new_object();
-			json_object_string_add(json_ecom_path,
-				       "ecomlist", s);
-			if (display == NLRI_STRING_FORMAT_JSON)
-				json_object_array_add(json_paths,
-						      json_ecom_path);
-		}
-		XFREE(MTYPE_ECOMMUNITY_STR, s);
-	}
-	peer_uptime(binfo->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);
-	if (display == NLRI_STRING_FORMAT_LARGE)
-		vty_out(vty, "\tup for %8s\n", timebuf);
-	else if (json_paths) {
-		json_time_path = json_object_new_object();
-		json_object_string_add(json_time_path,
-				       "time", timebuf);
-		if (display == NLRI_STRING_FORMAT_JSON)
-			json_object_array_add(json_paths, json_time_path);
-	}
-
-}
-
-int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
-			    struct bgp_table *table, enum bgp_show_type type,
-			    void *output_arg, uint8_t use_json,
-			    int is_last, unsigned long *output_cum,
-			    unsigned long *total_cum)
-{
-	struct bgp_info *ri;
-	struct bgp_node *rn;
-	unsigned long total_count = 0;
-	json_object *json_paths = NULL;
-	int display = NLRI_STRING_FORMAT_LARGE;
-
-	if (type != bgp_show_type_detail)
-		return CMD_SUCCESS;
-
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		if (rn->info == NULL)
-			continue;
-		if (use_json) {
-			json_paths = json_object_new_array();
-			display = NLRI_STRING_FORMAT_JSON;
-		}
-		for (ri = rn->info; ri; ri = ri->next) {
-			total_count++;
-			route_vty_out_flowspec(vty, &rn->p,
-					       ri, display,
-					       json_paths);
-
-		}
-		if (use_json) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-						json_paths,
-						JSON_C_TO_STRING_PRETTY));
-			json_object_free(json_paths);
-			json_paths = NULL;
-		}
-	}
-	if (total_count && !use_json)
-		vty_out(vty,
-			"\nDisplayed  %ld flowspec entries\n",
-			total_count);
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_bgp_flowspec,
-       debug_bgp_flowspec_cmd,
-       "debug bgp flowspec",
-       DEBUG_STR
-       BGP_STR
-       "BGP allow flowspec debugging entries\n")
-{
-	if (vty->node == CONFIG_NODE)
-		DEBUG_ON(flowspec, FLOWSPEC);
-	else {
-		TERM_DEBUG_ON(flowspec, FLOWSPEC);
-		vty_out(vty, "BGP flowspec debugging is on\n");
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_bgp_flowspec,
-       no_debug_bgp_flowspec_cmd,
-       "no debug bgp flowspec",
-       NO_STR
-       DEBUG_STR
-       BGP_STR
-       "BGP allow flowspec debugging entries\n")
-{
-	if (vty->node == CONFIG_NODE)
-		DEBUG_OFF(flowspec, FLOWSPEC);
-	else {
-		TERM_DEBUG_OFF(flowspec, FLOWSPEC);
-		vty_out(vty, "BGP flowspec debugging is off\n");
-	}
-	return CMD_SUCCESS;
-}
-
-void bgp_flowspec_vty_init(void)
-{
-	install_element(ENABLE_NODE, &debug_bgp_flowspec_cmd);
-	install_element(CONFIG_NODE, &debug_bgp_flowspec_cmd);
-	install_element(ENABLE_NODE, &no_debug_bgp_flowspec_cmd);
-	install_element(CONFIG_NODE, &no_debug_bgp_flowspec_cmd);
-}
+/*BGPFlowSpecVTY*Copyright(C)20186WIND**FRRoutingisfreesoftware;youcanredistribu
+teitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*Fre
+eSoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**FRRoutingi
+sdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimp
+liedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPu
+blicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicen
+sealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundatio
+n,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include
+"command.h"#include"bgpd/bgpd.h"#include"bgpd/bgp_table.h"#include"bgpd/bgp_attr
+.h"#include"bgpd/bgp_ecommunity.h"#include"bgpd/bgp_vty.h"#include"bgpd/bgp_rout
+e.h"#include"bgpd/bgp_aspath.h"#include"bgpd/bgp_flowspec.h"#include"bgpd/bgp_fl
+owspec_util.h"#include"bgpd/bgp_flowspec_private.h"#include"bgpd/bgp_debug.h"/*L
+ocalStructuresandvariablesdeclarations*Thiscodeblockhoststhestructdeclaredthatho
+sttheflowspecrules*aswellassomestructureusedtoconverttostringx*/staticconststruc
+tmessagebgp_flowspec_display_large[]={{FLOWSPEC_DEST_PREFIX,"DestinationAddress"
+},{FLOWSPEC_SRC_PREFIX,"SourceAddress"},{FLOWSPEC_IP_PROTOCOL,"IPProtocol"},{FLO
+WSPEC_PORT,"Port"},{FLOWSPEC_DEST_PORT,"DestinationPort"},{FLOWSPEC_SRC_PORT,"So
+urcePort"},{FLOWSPEC_ICMP_TYPE,"ICMPType"},{FLOWSPEC_ICMP_CODE,"ICMPCode"},{FLOW
+SPEC_TCP_FLAGS,"TCPFlags"},{FLOWSPEC_PKT_LEN,"PacketLength"},{FLOWSPEC_DSCP,"DSC
+Pfield"},{FLOWSPEC_FRAGMENT,"PacketFragment"},{0}};staticconststructmessagebgp_f
+lowspec_display_min[]={{FLOWSPEC_DEST_PREFIX,"to"},{FLOWSPEC_SRC_PREFIX,"from"},
+{FLOWSPEC_IP_PROTOCOL,"proto"},{FLOWSPEC_PORT,"port"},{FLOWSPEC_DEST_PORT,"dstp"
+},{FLOWSPEC_SRC_PORT,"srcp"},{FLOWSPEC_ICMP_TYPE,"type"},{FLOWSPEC_ICMP_CODE,"co
+de"},{FLOWSPEC_TCP_FLAGS,"flags"},{FLOWSPEC_PKT_LEN,"pktlen"},{FLOWSPEC_DSCP,"ds
+cp"},{FLOWSPEC_FRAGMENT,"pktfrag"},{0}};#defineFS_STRING_UPDATE(count,ptr,format
+,remaining_len)do{\int_len_written;\\if(((format)==NLRI_STRING_FORMAT_DEBUG)&&(c
+ount)){\_len_written=snprintf((ptr),(remaining_len),\",");\(remaining_len)-=_len
+_written;\(ptr)+=_len_written;\}elseif(((format)==NLRI_STRING_FORMAT_MIN)\&&(cou
+nt)){\_len_written=snprintf((ptr),(remaining_len),\"");\(remaining_len)-=_len_wr
+itten;\(ptr)+=_len_written;\}\count++;\}while(0)/*ParseFLOWSPECNLRI*passedreturn
+_stringstringhasassumedlength*BGP_FLOWSPEC_STRING_DISPLAY_MAX*/voidbgp_fs_nlri_g
+et_string(unsignedchar*nlri_content,size_tlen,char*return_string,intformat,json_
+object*json_path){uint32_toffset=0;inttype;intret=0,error=0;char*ptr=return_stri
+ng;charlocal_string[BGP_FLOWSPEC_STRING_DISPLAY_MAX];intcount=0;charextra[2]="";
+charpre_extra[2]="";conststructmessage*bgp_flowspec_display;enumbgp_flowspec_uti
+l_nlri_ttype_util;intlen_string=BGP_FLOWSPEC_STRING_DISPLAY_MAX;intlen_written;i
+f(format==NLRI_STRING_FORMAT_LARGE){snprintf(pre_extra,sizeof(pre_extra),"\t");s
+nprintf(extra,sizeof(extra),"\n");bgp_flowspec_display=bgp_flowspec_display_larg
+e;}elsebgp_flowspec_display=bgp_flowspec_display_min;/*ifneeded.type_utilcanbese
+ttoothervalues*/type_util=BGP_FLOWSPEC_RETURN_STRING;error=0;while(offset<len-1&
+&error>=0){type=nlri_content[offset];offset++;switch(type){caseFLOWSPEC_DEST_PRE
+FIX:caseFLOWSPEC_SRC_PREFIX:ret=bgp_flowspec_ip_address(type_util,nlri_content+o
+ffset,len-offset,local_string,&error);if(ret<=0)break;if(json_path){json_object_
+string_add(json_path,lookup_msg(bgp_flowspec_display,type,""),local_string);brea
+k;}FS_STRING_UPDATE(count,ptr,format,len_string);len_written=snprintf(ptr,len_st
+ring,"%s%s%s%s",pre_extra,lookup_msg(bgp_flowspec_display,type,""),local_string,
+extra);len_string-=len_written;ptr+=len_written;break;caseFLOWSPEC_IP_PROTOCOL:c
+aseFLOWSPEC_PORT:caseFLOWSPEC_DEST_PORT:caseFLOWSPEC_SRC_PORT:caseFLOWSPEC_ICMP_
+TYPE:caseFLOWSPEC_ICMP_CODE:ret=bgp_flowspec_op_decode(type_util,nlri_content+of
+fset,len-offset,local_string,&error);if(ret<=0)break;if(json_path){json_object_s
+tring_add(json_path,lookup_msg(bgp_flowspec_display,type,""),local_string);break
+;}FS_STRING_UPDATE(count,ptr,format,len_string);len_written=snprintf(ptr,len_str
+ing,"%s%s%s%s",pre_extra,lookup_msg(bgp_flowspec_display,type,""),local_string,e
+xtra);len_string-=len_written;ptr+=len_written;break;caseFLOWSPEC_TCP_FLAGS:ret=
+bgp_flowspec_tcpflags_decode(type_util,nlri_content+offset,len-offset,local_stri
+ng,&error);if(ret<=0)break;if(json_path){json_object_string_add(json_path,lookup
+_msg(bgp_flowspec_display,type,""),local_string);break;}FS_STRING_UPDATE(count,p
+tr,format,len_string);len_written=snprintf(ptr,len_string,"%s%s%s%s",pre_extra,l
+ookup_msg(bgp_flowspec_display,type,""),local_string,extra);len_string-=len_writ
+ten;ptr+=len_written;break;caseFLOWSPEC_PKT_LEN:caseFLOWSPEC_DSCP:ret=bgp_flowsp
+ec_op_decode(type_util,nlri_content+offset,len-offset,local_string,&error);if(re
+t<=0)break;if(json_path){json_object_string_add(json_path,lookup_msg(bgp_flowspe
+c_display,type,""),local_string);break;}FS_STRING_UPDATE(count,ptr,format,len_st
+ring);len_written=snprintf(ptr,len_string,"%s%s%s%s",pre_extra,lookup_msg(bgp_fl
+owspec_display,type,""),local_string,extra);len_string-=len_written;ptr+=len_wri
+tten;break;caseFLOWSPEC_FRAGMENT:ret=bgp_flowspec_fragment_type_decode(type_util
+,nlri_content+offset,len-offset,local_string,&error);if(ret<=0)break;if(json_pat
+h){json_object_string_add(json_path,lookup_msg(bgp_flowspec_display,type,""),loc
+al_string);break;}FS_STRING_UPDATE(count,ptr,format,len_string);len_written=snpr
+intf(ptr,len_string,"%s%s%s%s",pre_extra,lookup_msg(bgp_flowspec_display,type,""
+),local_string,extra);len_string-=len_written;ptr+=len_written;break;default:err
+or=-1;break;}offset+=ret;}}voidroute_vty_out_flowspec(structvty*vty,structprefix
+*p,structbgp_info*binfo,intdisplay,json_object*json_paths){structattr*attr;charr
+eturn_string[BGP_FLOWSPEC_STRING_DISPLAY_MAX];char*s;json_object*json_nlri_path=
+NULL;json_object*json_ecom_path=NULL;json_object*json_time_path=NULL;chartimebuf
+[BGP_UPTIME_LEN];/*Printprefix*/if(p!=NULL){if(p->family!=AF_FLOWSPEC)return;if(
+json_paths){if(display==NLRI_STRING_FORMAT_JSON)json_nlri_path=json_object_new_o
+bject();elsejson_nlri_path=json_paths;}if(display==NLRI_STRING_FORMAT_LARGE)vty_
+out(vty,"BGPflowspecentry:(flags0x%x)\n",binfo->flags);bgp_fs_nlri_get_string((u
+nsignedchar*)p->u.prefix_flowspec.ptr,p->u.prefix_flowspec.prefixlen,return_stri
+ng,display,json_nlri_path);if(display==NLRI_STRING_FORMAT_LARGE)vty_out(vty,"%s"
+,return_string);elseif(display==NLRI_STRING_FORMAT_DEBUG)vty_out(vty,"%s",return
+_string);elseif(display==NLRI_STRING_FORMAT_MIN)vty_out(vty,"%-30s",return_strin
+g);elseif(json_paths&&display==NLRI_STRING_FORMAT_JSON)json_object_array_add(jso
+n_paths,json_nlri_path);}if(!binfo)return;if(binfo->attr&&binfo->attr->ecommunit
+y){/*Printattribute*/attr=binfo->attr;s=ecommunity_ecom2str(attr->ecommunity,ECO
+MMUNITY_FORMAT_ROUTE_MAP,0);if(!s)return;if(display==NLRI_STRING_FORMAT_LARGE)vt
+y_out(vty,"\t%s\n",s);elseif(display==NLRI_STRING_FORMAT_MIN)vty_out(vty,"%s",s)
+;elseif(json_paths){json_ecom_path=json_object_new_object();json_object_string_a
+dd(json_ecom_path,"ecomlist",s);if(display==NLRI_STRING_FORMAT_JSON)json_object_
+array_add(json_paths,json_ecom_path);}XFREE(MTYPE_ECOMMUNITY_STR,s);}peer_uptime
+(binfo->uptime,timebuf,BGP_UPTIME_LEN,0,NULL);if(display==NLRI_STRING_FORMAT_LAR
+GE)vty_out(vty,"\tupfor%8s\n",timebuf);elseif(json_paths){json_time_path=json_ob
+ject_new_object();json_object_string_add(json_time_path,"time",timebuf);if(displ
+ay==NLRI_STRING_FORMAT_JSON)json_object_array_add(json_paths,json_time_path);}}i
+ntbgp_show_table_flowspec(structvty*vty,structbgp*bgp,afi_tafi,structbgp_table*t
+able,enumbgp_show_typetype,void*output_arg,uint8_tuse_json,intis_last,unsignedlo
+ng*output_cum,unsignedlong*total_cum){structbgp_info*ri;structbgp_node*rn;unsign
+edlongtotal_count=0;json_object*json_paths=NULL;intdisplay=NLRI_STRING_FORMAT_LA
+RGE;if(type!=bgp_show_type_detail)returnCMD_SUCCESS;for(rn=bgp_table_top(table);
+rn;rn=bgp_route_next(rn)){if(rn->info==NULL)continue;if(use_json){json_paths=jso
+n_object_new_array();display=NLRI_STRING_FORMAT_JSON;}for(ri=rn->info;ri;ri=ri->
+next){total_count++;route_vty_out_flowspec(vty,&rn->p,ri,display,json_paths);}if
+(use_json){vty_out(vty,"%s\n",json_object_to_json_string_ext(json_paths,JSON_C_T
+O_STRING_PRETTY));json_object_free(json_paths);json_paths=NULL;}}if(total_count&
+&!use_json)vty_out(vty,"\nDisplayed%ldflowspecentries\n",total_count);returnCMD_
+SUCCESS;}DEFUN(debug_bgp_flowspec,debug_bgp_flowspec_cmd,"debugbgpflowspec",DEBU
+G_STRBGP_STR"BGPallowflowspecdebuggingentries\n"){if(vty->node==CONFIG_NODE)DEBU
+G_ON(flowspec,FLOWSPEC);else{TERM_DEBUG_ON(flowspec,FLOWSPEC);vty_out(vty,"BGPfl
+owspecdebuggingison\n");}returnCMD_SUCCESS;}DEFUN(no_debug_bgp_flowspec,no_debug
+_bgp_flowspec_cmd,"nodebugbgpflowspec",NO_STRDEBUG_STRBGP_STR"BGPallowflowspecde
+buggingentries\n"){if(vty->node==CONFIG_NODE)DEBUG_OFF(flowspec,FLOWSPEC);else{T
+ERM_DEBUG_OFF(flowspec,FLOWSPEC);vty_out(vty,"BGPflowspecdebuggingisoff\n");}ret
+urnCMD_SUCCESS;}voidbgp_flowspec_vty_init(void){install_element(ENABLE_NODE,&deb
+ug_bgp_flowspec_cmd);install_element(CONFIG_NODE,&debug_bgp_flowspec_cmd);instal
+l_element(ENABLE_NODE,&no_debug_bgp_flowspec_cmd);install_element(CONFIG_NODE,&n
+o_debug_bgp_flowspec_cmd);}

@@ -1,44 +1,14 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include <string.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-#include "pim_int.h"
-
-uint32_t pim_read_uint32_host(const uint8_t *buf)
-{
-	uint32_t val;
-	memcpy(&val, buf, sizeof(val));
-	/* val is in netorder */
-	val = ntohl(val);
-	/* val is in hostorder */
-	return val;
-}
-
-void pim_write_uint32(uint8_t *buf, uint32_t val_host)
-{
-	/* val_host is in host order */
-	val_host = htonl(val_host);
-	/* val_host is in netorder */
-	memcpy(buf, &val_host, sizeof(val_host));
-}
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#include<zebra.h>#include<string.h>#include<netinet/in.h>#include<arpa/ine
+t.h>#include"pim_int.h"uint32_tpim_read_uint32_host(constuint8_t*buf){uint32_tva
+l;memcpy(&val,buf,sizeof(val));/*valisinnetorder*/val=ntohl(val);/*valisinhostor
+der*/returnval;}voidpim_write_uint32(uint8_t*buf,uint32_tval_host){/*val_hostisi
+nhostorder*/val_host=htonl(val_host);/*val_hostisinnetorder*/memcpy(buf,&val_hos
+t,sizeof(val_host));}

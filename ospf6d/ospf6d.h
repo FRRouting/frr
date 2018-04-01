@@ -1,105 +1,32 @@
-/*
- * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef OSPF6D_H
-#define OSPF6D_H
-
-#include "libospf.h"
-#include "thread.h"
-
-#include "ospf6_memory.h"
-
-/* global variables */
-extern struct thread_master *master;
-
-/* Historical for KAME.  */
-#ifndef IPV6_JOIN_GROUP
-#ifdef IPV6_ADD_MEMBERSHIP
-#define IPV6_JOIN_GROUP IPV6_ADD_MEMBERSHIP
-#endif /* IPV6_ADD_MEMBERSHIP. */
-#ifdef IPV6_JOIN_MEMBERSHIP
-#define IPV6_JOIN_GROUP  IPV6_JOIN_MEMBERSHIP
-#endif /* IPV6_JOIN_MEMBERSHIP. */
-#endif /* ! IPV6_JOIN_GROUP*/
-
-#ifndef IPV6_LEAVE_GROUP
-#ifdef IPV6_DROP_MEMBERSHIP
-#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
-#endif /* IPV6_DROP_MEMBERSHIP */
-#endif /* ! IPV6_LEAVE_GROUP */
-
-#define MSG_OK    0
-#define MSG_NG    1
-
-/* cast macro: XXX - these *must* die, ick ick. */
-#define OSPF6_PROCESS(x) ((struct ospf6 *) (x))
-#define OSPF6_AREA(x) ((struct ospf6_area *) (x))
-#define OSPF6_INTERFACE(x) ((struct ospf6_interface *) (x))
-#define OSPF6_NEIGHBOR(x) ((struct ospf6_neighbor *) (x))
-
-/* operation on timeval structure */
-#define timerstring(tv, buf, size)                                             \
-	do {                                                                   \
-		if ((tv)->tv_sec / 60 / 60 / 24)                               \
-			snprintf(buf, size, "%lldd%02lld:%02lld:%02lld",       \
-				 (tv)->tv_sec / 60LL / 60 / 24,                \
-				 (tv)->tv_sec / 60LL / 60 % 24,                \
-				 (tv)->tv_sec / 60LL % 60,                     \
-				 (tv)->tv_sec % 60LL);                         \
-		else                                                           \
-			snprintf(buf, size, "%02lld:%02lld:%02lld",            \
-				 (tv)->tv_sec / 60LL / 60 % 24,                \
-				 (tv)->tv_sec / 60LL % 60,                     \
-				 (tv)->tv_sec % 60LL);                         \
-	} while (0)
-
-#define threadtimer_string(now, t, buf, size)                                  \
-	do {                                                                   \
-		struct timeval result;                                         \
-		if (!t)                                                        \
-			snprintf(buf, size, "inactive");                       \
-		else {                                                         \
-			timersub(&t->u.sands, &now, &result);                  \
-			timerstring(&result, buf, size);                       \
-		}                                                              \
-	} while (0)
-
-/* for commands */
-#define OSPF6_AREA_STR      "Area information\n"
-#define OSPF6_AREA_ID_STR   "Area ID (as an IPv4 notation)\n"
-#define OSPF6_SPF_STR       "Shortest Path First tree information\n"
-#define OSPF6_ROUTER_ID_STR "Specify Router-ID\n"
-#define OSPF6_LS_ID_STR     "Specify Link State ID\n"
-
-#define OSPF6_CMD_CHECK_RUNNING()                                              \
-	if (ospf6 == NULL) {                                                   \
-		vty_out(vty, "OSPFv3 is not running\n");                       \
-		return CMD_SUCCESS;                                            \
-	}
-
-extern struct zebra_privs_t ospf6d_privs;
-
-/* Function Prototypes */
-extern struct route_node *route_prev(struct route_node *node);
-
-extern void ospf6_debug(void);
-extern void ospf6_init(void);
-
-#endif /* OSPF6D_H */
+/**Copyright(C)2003YasuhiroOhara**ThisfileispartofGNUZebra.**GNUZebraisfreesoftw
+are;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicense
+aspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*later
+version.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANT
+Y;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.
+SeetheGNU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGN
+UGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFre
+eSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifnde
+fOSPF6D_H#defineOSPF6D_H#include"libospf.h"#include"thread.h"#include"ospf6_memo
+ry.h"/*globalvariables*/externstructthread_master*master;/*HistoricalforKAME.*/#
+ifndefIPV6_JOIN_GROUP#ifdefIPV6_ADD_MEMBERSHIP#defineIPV6_JOIN_GROUPIPV6_ADD_MEM
+BERSHIP#endif/*IPV6_ADD_MEMBERSHIP.*/#ifdefIPV6_JOIN_MEMBERSHIP#defineIPV6_JOIN_
+GROUPIPV6_JOIN_MEMBERSHIP#endif/*IPV6_JOIN_MEMBERSHIP.*/#endif/*!IPV6_JOIN_GROUP
+*/#ifndefIPV6_LEAVE_GROUP#ifdefIPV6_DROP_MEMBERSHIP#defineIPV6_LEAVE_GROUPIPV6_D
+ROP_MEMBERSHIP#endif/*IPV6_DROP_MEMBERSHIP*/#endif/*!IPV6_LEAVE_GROUP*/#defineMS
+G_OK0#defineMSG_NG1/*castmacro:XXX-these*must*die,ickick.*/#defineOSPF6_PROCESS(
+x)((structospf6*)(x))#defineOSPF6_AREA(x)((structospf6_area*)(x))#defineOSPF6_IN
+TERFACE(x)((structospf6_interface*)(x))#defineOSPF6_NEIGHBOR(x)((structospf6_nei
+ghbor*)(x))/*operationontimevalstructure*/#definetimerstring(tv,buf,size)\do{\if
+((tv)->tv_sec/60/60/24)\snprintf(buf,size,"%lldd%02lld:%02lld:%02lld",\(tv)->tv_
+sec/60LL/60/24,\(tv)->tv_sec/60LL/60%24,\(tv)->tv_sec/60LL%60,\(tv)->tv_sec%60LL
+);\else\snprintf(buf,size,"%02lld:%02lld:%02lld",\(tv)->tv_sec/60LL/60%24,\(tv)-
+>tv_sec/60LL%60,\(tv)->tv_sec%60LL);\}while(0)#definethreadtimer_string(now,t,bu
+f,size)\do{\structtimevalresult;\if(!t)\snprintf(buf,size,"inactive");\else{\tim
+ersub(&t->u.sands,&now,&result);\timerstring(&result,buf,size);\}\}while(0)/*for
+commands*/#defineOSPF6_AREA_STR"Areainformation\n"#defineOSPF6_AREA_ID_STR"AreaI
+D(asanIPv4notation)\n"#defineOSPF6_SPF_STR"ShortestPathFirsttreeinformation\n"#d
+efineOSPF6_ROUTER_ID_STR"SpecifyRouter-ID\n"#defineOSPF6_LS_ID_STR"SpecifyLinkSt
+ateID\n"#defineOSPF6_CMD_CHECK_RUNNING()\if(ospf6==NULL){\vty_out(vty,"OSPFv3isn
+otrunning\n");\returnCMD_SUCCESS;\}externstructzebra_privs_tospf6d_privs;/*Funct
+ionPrototypes*/externstructroute_node*route_prev(structroute_node*node);externvo
+idospf6_debug(void);externvoidospf6_init(void);#endif/*OSPF6D_H*/

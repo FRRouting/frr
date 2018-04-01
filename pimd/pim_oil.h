@@ -1,104 +1,33 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_OIL_H
-#define PIM_OIL_H
-
-#include "pim_mroute.h"
-
-/*
- * Where did we get this (S,G) from?
- *
- * IGMP - Learned from IGMP
- * PIM - Learned from PIM
- * SOURCE - Learned from Source multicast packet received
- * STAR - Inherited
- */
-#define PIM_OIF_FLAG_PROTO_IGMP   (1 << 0)
-#define PIM_OIF_FLAG_PROTO_PIM    (1 << 1)
-#define PIM_OIF_FLAG_PROTO_SOURCE (1 << 2)
-#define PIM_OIF_FLAG_PROTO_STAR   (1 << 3)
-#define PIM_OIF_FLAG_PROTO_ANY                                                 \
-	(PIM_OIF_FLAG_PROTO_IGMP | PIM_OIF_FLAG_PROTO_PIM                      \
-	 | PIM_OIF_FLAG_PROTO_SOURCE | PIM_OIF_FLAG_PROTO_STAR)
-
-/*
- * We need a pimreg vif id from the kernel.
- * Since ifindex == vif id for most cases and the number
- * of expected interfaces is at most 100, using MAXVIFS -1
- * is probably ok.
- * Don't come running to me if this assumption is bad,
- * fix it.
- */
-#define PIM_OIF_PIM_REGISTER_VIF   0
-#define PIM_MAX_USABLE_VIFS        (MAXVIFS - 1)
-
-struct channel_counts {
-	unsigned long long lastused;
-	unsigned long pktcnt;
-	unsigned long oldpktcnt;
-	unsigned long bytecnt;
-	unsigned long oldbytecnt;
-	unsigned long wrong_if;
-	unsigned long oldwrong_if;
-};
-
-/*
-  qpim_channel_oil_list holds a list of struct channel_oil.
-
-  Each channel_oil.oil is used to control an (S,G) entry in the Kernel
-  Multicast Forwarding Cache.
-*/
-
-struct channel_oil {
-	struct pim_instance *pim;
-
-	struct mfcctl oil;
-	int installed;
-	int oil_inherited_rescan;
-	int oil_size;
-	int oil_ref_count;
-	time_t oif_creation[MAXVIFS];
-	uint32_t oif_flags[MAXVIFS];
-	struct channel_counts cc;
-	struct pim_upstream *up;
-};
-
-extern struct list *pim_channel_oil_list;
-
-void pim_oil_init(struct pim_instance *pim);
-void pim_oil_terminate(struct pim_instance *pim);
-
-void pim_channel_oil_free(struct channel_oil *c_oil);
-struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
-					 struct prefix_sg *sg);
-struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
-					struct prefix_sg *sg,
-					int input_vif_index);
-void pim_channel_oil_del(struct channel_oil *c_oil);
-
-int pim_channel_add_oif(struct channel_oil *c_oil, struct interface *oif,
-			uint32_t proto_mask);
-int pim_channel_del_oif(struct channel_oil *c_oil, struct interface *oif,
-			uint32_t proto_mask);
-
-int pim_channel_oil_empty(struct channel_oil *c_oil);
-
-char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size);
-#endif /* PIM_OIL_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_OIL_H#definePIM_OIL_H#include"pim_mroute.h"/**Wheredidwegetthis
+(S,G)from?**IGMP-LearnedfromIGMP*PIM-LearnedfromPIM*SOURCE-LearnedfromSourcemult
+icastpacketreceived*STAR-Inherited*/#definePIM_OIF_FLAG_PROTO_IGMP(1<<0)#defineP
+IM_OIF_FLAG_PROTO_PIM(1<<1)#definePIM_OIF_FLAG_PROTO_SOURCE(1<<2)#definePIM_OIF_
+FLAG_PROTO_STAR(1<<3)#definePIM_OIF_FLAG_PROTO_ANY\(PIM_OIF_FLAG_PROTO_IGMP|PIM_
+OIF_FLAG_PROTO_PIM\|PIM_OIF_FLAG_PROTO_SOURCE|PIM_OIF_FLAG_PROTO_STAR)/**Weneeda
+pimregvifidfromthekernel.*Sinceifindex==vifidformostcasesandthenumber*ofexpected
+interfacesisatmost100,usingMAXVIFS-1*isprobablyok.*Don'tcomerunningtomeifthisass
+umptionisbad,*fixit.*/#definePIM_OIF_PIM_REGISTER_VIF0#definePIM_MAX_USABLE_VIFS
+(MAXVIFS-1)structchannel_counts{unsignedlonglonglastused;unsignedlongpktcnt;unsi
+gnedlongoldpktcnt;unsignedlongbytecnt;unsignedlongoldbytecnt;unsignedlongwrong_i
+f;unsignedlongoldwrong_if;};/*qpim_channel_oil_listholdsalistofstructchannel_oil
+.Eachchannel_oil.oilisusedtocontrolan(S,G)entryintheKernelMulticastForwardingCac
+he.*/structchannel_oil{structpim_instance*pim;structmfcctloil;intinstalled;intoi
+l_inherited_rescan;intoil_size;intoil_ref_count;time_toif_creation[MAXVIFS];uint
+32_toif_flags[MAXVIFS];structchannel_countscc;structpim_upstream*up;};externstru
+ctlist*pim_channel_oil_list;voidpim_oil_init(structpim_instance*pim);voidpim_oil
+_terminate(structpim_instance*pim);voidpim_channel_oil_free(structchannel_oil*c_
+oil);structchannel_oil*pim_find_channel_oil(structpim_instance*pim,structprefix_
+sg*sg);structchannel_oil*pim_channel_oil_add(structpim_instance*pim,structprefix
+_sg*sg,intinput_vif_index);voidpim_channel_oil_del(structchannel_oil*c_oil);intp
+im_channel_add_oif(structchannel_oil*c_oil,structinterface*oif,uint32_tproto_mas
+k);intpim_channel_del_oif(structchannel_oil*c_oil,structinterface*oif,uint32_tpr
+oto_mask);intpim_channel_oil_empty(structchannel_oil*c_oil);char*pim_channel_oil
+_dump(structchannel_oil*c_oil,char*buf,size_tsize);#endif/*PIM_OIL_H*/

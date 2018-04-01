@@ -1,1299 +1,362 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_te.c
- *
- * This is an implementation of RFC5305 & RFC 7810
- *
- *      Copyright (C) 2014 Orange Labs
- *      http://www.orange.com
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#include <math.h>
-
-#include "linklist.h"
-#include "thread.h"
-#include "vty.h"
-#include "stream.h"
-#include "memory.h"
-#include "log.h"
-#include "prefix.h"
-#include "command.h"
-#include "hash.h"
-#include "if.h"
-#include "vrf.h"
-#include "checksum.h"
-#include "md5.h"
-#include "sockunion.h"
-#include "network.h"
-#include "sbuf.h"
-
-#include "isisd/dict.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_common.h"
-#include "isisd/isis_flags.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isisd.h"
-#include "isisd/isis_lsp.h"
-#include "isisd/isis_pdu.h"
-#include "isisd/isis_dynhn.h"
-#include "isisd/isis_misc.h"
-#include "isisd/isis_csm.h"
-#include "isisd/isis_adjacency.h"
-#include "isisd/isis_spf.h"
-#include "isisd/isis_te.h"
-
-/* Global varial for MPLS TE management */
-struct isis_mpls_te isisMplsTE;
-
-const char *mode2text[] = {"Disable", "Area", "AS", "Emulate"};
-
-/*------------------------------------------------------------------------*
- * Followings are control functions for MPLS-TE parameters management.
- *------------------------------------------------------------------------*/
-
-/* Search MPLS TE Circuit context from Interface */
-static struct mpls_te_circuit *lookup_mpls_params_by_ifp(struct interface *ifp)
-{
-	struct isis_circuit *circuit;
-
-	if ((circuit = circuit_scan_by_ifp(ifp)) == NULL)
-		return NULL;
-
-	return circuit->mtc;
-}
-
-/* Create new MPLS TE Circuit context */
-struct mpls_te_circuit *mpls_te_circuit_new()
-{
-	struct mpls_te_circuit *mtc;
-
-	zlog_debug("ISIS MPLS-TE: Create new MPLS TE Circuit context");
-
-	mtc = XCALLOC(MTYPE_ISIS_MPLS_TE, sizeof(struct mpls_te_circuit));
-
-	if (mtc == NULL)
-		return NULL;
-
-	mtc->status = disable;
-	mtc->type = STD_TE;
-	mtc->length = 0;
-
-	return mtc;
-}
-
-/* Copy SUB TLVs parameters into a buffer - No space verification are performed
- */
-/* Caller must verify before that there is enough free space in the buffer */
-uint8_t add_te_subtlvs(uint8_t *buf, struct mpls_te_circuit *mtc)
-{
-	uint8_t size, *tlvs = buf;
-
-	zlog_debug("ISIS MPLS-TE: Add TE Sub TLVs to buffer");
-
-	if (mtc == NULL) {
-		zlog_debug(
-			"ISIS MPLS-TE: Abort! No MPLS TE Circuit available has been specified");
-		return 0;
-	}
-
-	/* Create buffer if not provided */
-	if (buf == NULL) {
-		zlog_debug("ISIS MPLS-TE: Abort! No Buffer has been specified");
-		return 0;
-	}
-
-	/* TE_SUBTLV_ADMIN_GRP */
-	if (SUBTLV_TYPE(mtc->admin_grp) != 0) {
-		size = SUBTLV_SIZE(&(mtc->admin_grp.header));
-		memcpy(tlvs, &(mtc->admin_grp), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_LLRI */
-	if (SUBTLV_TYPE(mtc->llri) != 0) {
-		size = SUBTLV_SIZE(&(mtc->llri.header));
-		memcpy(tlvs, &(mtc->llri), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_LCLIF_IPADDR */
-	if (SUBTLV_TYPE(mtc->local_ipaddr) != 0) {
-		size = SUBTLV_SIZE(&(mtc->local_ipaddr.header));
-		memcpy(tlvs, &(mtc->local_ipaddr), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_RMTIF_IPADDR */
-	if (SUBTLV_TYPE(mtc->rmt_ipaddr) != 0) {
-		size = SUBTLV_SIZE(&(mtc->rmt_ipaddr.header));
-		memcpy(tlvs, &(mtc->rmt_ipaddr), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_MAX_BW */
-	if (SUBTLV_TYPE(mtc->max_bw) != 0) {
-		size = SUBTLV_SIZE(&(mtc->max_bw.header));
-		memcpy(tlvs, &(mtc->max_bw), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_MAX_RSV_BW */
-	if (SUBTLV_TYPE(mtc->max_rsv_bw) != 0) {
-		size = SUBTLV_SIZE(&(mtc->max_rsv_bw.header));
-		memcpy(tlvs, &(mtc->max_rsv_bw), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_UNRSV_BW */
-	if (SUBTLV_TYPE(mtc->unrsv_bw) != 0) {
-		size = SUBTLV_SIZE(&(mtc->unrsv_bw.header));
-		memcpy(tlvs, &(mtc->unrsv_bw), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_TE_METRIC */
-	if (SUBTLV_TYPE(mtc->te_metric) != 0) {
-		size = SUBTLV_SIZE(&(mtc->te_metric.header));
-		memcpy(tlvs, &(mtc->te_metric), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_AV_DELAY */
-	if (SUBTLV_TYPE(mtc->av_delay) != 0) {
-		size = SUBTLV_SIZE(&(mtc->av_delay.header));
-		memcpy(tlvs, &(mtc->av_delay), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_MM_DELAY */
-	if (SUBTLV_TYPE(mtc->mm_delay) != 0) {
-		size = SUBTLV_SIZE(&(mtc->mm_delay.header));
-		memcpy(tlvs, &(mtc->mm_delay), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_DELAY_VAR */
-	if (SUBTLV_TYPE(mtc->delay_var) != 0) {
-		size = SUBTLV_SIZE(&(mtc->delay_var.header));
-		memcpy(tlvs, &(mtc->delay_var), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_PKT_LOSS */
-	if (SUBTLV_TYPE(mtc->pkt_loss) != 0) {
-		size = SUBTLV_SIZE(&(mtc->pkt_loss.header));
-		memcpy(tlvs, &(mtc->pkt_loss), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_RES_BW */
-	if (SUBTLV_TYPE(mtc->res_bw) != 0) {
-		size = SUBTLV_SIZE(&(mtc->res_bw.header));
-		memcpy(tlvs, &(mtc->res_bw), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_AVA_BW */
-	if (SUBTLV_TYPE(mtc->ava_bw) != 0) {
-		size = SUBTLV_SIZE(&(mtc->ava_bw.header));
-		memcpy(tlvs, &(mtc->ava_bw), size);
-		tlvs += size;
-	}
-
-	/* TE_SUBTLV_USE_BW */
-	if (SUBTLV_TYPE(mtc->use_bw) != 0) {
-		size = SUBTLV_SIZE(&(mtc->use_bw.header));
-		memcpy(tlvs, &(mtc->use_bw), size);
-		tlvs += size;
-	}
-
-	/* Add before this line any other parsing of TLV */
-	(void)tlvs;
-
-	/* Update SubTLVs length */
-	mtc->length = subtlvs_len(mtc);
-
-	zlog_debug("ISIS MPLS-TE: Add %d bytes length SubTLVs", mtc->length);
-
-	return mtc->length;
-}
-
-/* Compute total Sub-TLVs size */
-uint8_t subtlvs_len(struct mpls_te_circuit *mtc)
-{
-	int length = 0;
-
-	/* Sanity Check */
-	if (mtc == NULL)
-		return 0;
-
-	/* TE_SUBTLV_ADMIN_GRP */
-	if (SUBTLV_TYPE(mtc->admin_grp) != 0)
-		length += SUBTLV_SIZE(&(mtc->admin_grp.header));
-
-	/* TE_SUBTLV_LLRI */
-	if (SUBTLV_TYPE(mtc->llri) != 0)
-		length += SUBTLV_SIZE(&mtc->llri.header);
-
-	/* TE_SUBTLV_LCLIF_IPADDR */
-	if (SUBTLV_TYPE(mtc->local_ipaddr) != 0)
-		length += SUBTLV_SIZE(&mtc->local_ipaddr.header);
-
-	/* TE_SUBTLV_RMTIF_IPADDR */
-	if (SUBTLV_TYPE(mtc->rmt_ipaddr) != 0)
-		length += SUBTLV_SIZE(&mtc->rmt_ipaddr.header);
-
-	/* TE_SUBTLV_MAX_BW */
-	if (SUBTLV_TYPE(mtc->max_bw) != 0)
-		length += SUBTLV_SIZE(&mtc->max_bw.header);
-
-	/* TE_SUBTLV_MAX_RSV_BW */
-	if (SUBTLV_TYPE(mtc->max_rsv_bw) != 0)
-		length += SUBTLV_SIZE(&mtc->max_rsv_bw.header);
-
-	/* TE_SUBTLV_UNRSV_BW */
-	if (SUBTLV_TYPE(mtc->unrsv_bw) != 0)
-		length += SUBTLV_SIZE(&mtc->unrsv_bw.header);
-
-	/* TE_SUBTLV_TE_METRIC */
-	if (SUBTLV_TYPE(mtc->te_metric) != 0)
-		length += SUBTLV_SIZE(&mtc->te_metric.header);
-
-	/* TE_SUBTLV_AV_DELAY */
-	if (SUBTLV_TYPE(mtc->av_delay) != 0)
-		length += SUBTLV_SIZE(&mtc->av_delay.header);
-
-	/* TE_SUBTLV_MM_DELAY */
-	if (SUBTLV_TYPE(mtc->mm_delay) != 0)
-		length += SUBTLV_SIZE(&mtc->mm_delay.header);
-
-	/* TE_SUBTLV_DELAY_VAR */
-	if (SUBTLV_TYPE(mtc->delay_var) != 0)
-		length += SUBTLV_SIZE(&mtc->delay_var.header);
-
-	/* TE_SUBTLV_PKT_LOSS */
-	if (SUBTLV_TYPE(mtc->pkt_loss) != 0)
-		length += SUBTLV_SIZE(&mtc->pkt_loss.header);
-
-	/* TE_SUBTLV_RES_BW */
-	if (SUBTLV_TYPE(mtc->res_bw) != 0)
-		length += SUBTLV_SIZE(&mtc->res_bw.header);
-
-	/* TE_SUBTLV_AVA_BW */
-	if (SUBTLV_TYPE(mtc->ava_bw) != 0)
-		length += SUBTLV_SIZE(&mtc->ava_bw.header);
-
-	/* TE_SUBTLV_USE_BW */
-	if (SUBTLV_TYPE(mtc->use_bw) != 0)
-		length += SUBTLV_SIZE(&mtc->use_bw.header);
-
-	/* Check that length is lower than the MAXIMUM SUBTLV size i.e. 256 */
-	if (length > MAX_SUBTLV_SIZE) {
-		mtc->length = 0;
-		return 0;
-	}
-
-	mtc->length = (uint8_t)length;
-
-	return mtc->length;
-}
-
-/* Following are various functions to set MPLS TE parameters */
-static void set_circuitparams_admin_grp(struct mpls_te_circuit *mtc,
-					uint32_t admingrp)
-{
-	SUBTLV_TYPE(mtc->admin_grp) = TE_SUBTLV_ADMIN_GRP;
-	SUBTLV_LEN(mtc->admin_grp) = SUBTLV_DEF_SIZE;
-	mtc->admin_grp.value = htonl(admingrp);
-	return;
-}
-
-static void __attribute__((unused))
-set_circuitparams_llri(struct mpls_te_circuit *mtc, uint32_t local,
-		       uint32_t remote)
-{
-	SUBTLV_TYPE(mtc->llri) = TE_SUBTLV_LLRI;
-	SUBTLV_LEN(mtc->llri) = TE_SUBTLV_LLRI_SIZE;
-	mtc->llri.local = htonl(local);
-	mtc->llri.remote = htonl(remote);
-}
-
-void set_circuitparams_local_ipaddr(struct mpls_te_circuit *mtc,
-				    struct in_addr addr)
-{
-
-	SUBTLV_TYPE(mtc->local_ipaddr) = TE_SUBTLV_LOCAL_IPADDR;
-	SUBTLV_LEN(mtc->local_ipaddr) = SUBTLV_DEF_SIZE;
-	mtc->local_ipaddr.value.s_addr = addr.s_addr;
-	return;
-}
-
-void set_circuitparams_rmt_ipaddr(struct mpls_te_circuit *mtc,
-				  struct in_addr addr)
-{
-
-	SUBTLV_TYPE(mtc->rmt_ipaddr) = TE_SUBTLV_RMT_IPADDR;
-	SUBTLV_LEN(mtc->rmt_ipaddr) = SUBTLV_DEF_SIZE;
-	mtc->rmt_ipaddr.value.s_addr = addr.s_addr;
-	return;
-}
-
-static void set_circuitparams_max_bw(struct mpls_te_circuit *mtc, float fp)
-{
-	SUBTLV_TYPE(mtc->max_bw) = TE_SUBTLV_MAX_BW;
-	SUBTLV_LEN(mtc->max_bw) = SUBTLV_DEF_SIZE;
-	mtc->max_bw.value = htonf(fp);
-	return;
-}
-
-static void set_circuitparams_max_rsv_bw(struct mpls_te_circuit *mtc, float fp)
-{
-	SUBTLV_TYPE(mtc->max_rsv_bw) = TE_SUBTLV_MAX_RSV_BW;
-	SUBTLV_LEN(mtc->max_rsv_bw) = SUBTLV_DEF_SIZE;
-	mtc->max_rsv_bw.value = htonf(fp);
-	return;
-}
-
-static void set_circuitparams_unrsv_bw(struct mpls_te_circuit *mtc,
-				       int priority, float fp)
-{
-	/* Note that TLV-length field is the size of array. */
-	SUBTLV_TYPE(mtc->unrsv_bw) = TE_SUBTLV_UNRSV_BW;
-	SUBTLV_LEN(mtc->unrsv_bw) = TE_SUBTLV_UNRSV_SIZE;
-	mtc->unrsv_bw.value[priority] = htonf(fp);
-	return;
-}
-
-static void set_circuitparams_te_metric(struct mpls_te_circuit *mtc,
-					uint32_t te_metric)
-{
-	SUBTLV_TYPE(mtc->te_metric) = TE_SUBTLV_TE_METRIC;
-	SUBTLV_LEN(mtc->te_metric) = TE_SUBTLV_TE_METRIC_SIZE;
-	mtc->te_metric.value[0] = (te_metric >> 16) & 0xFF;
-	mtc->te_metric.value[1] = (te_metric >> 8) & 0xFF;
-	mtc->te_metric.value[2] = te_metric & 0xFF;
-	return;
-}
-
-static void set_circuitparams_inter_as(struct mpls_te_circuit *mtc,
-				       struct in_addr addr, uint32_t as)
-{
-
-	/* Set the Remote ASBR IP address and then the associated AS number */
-	SUBTLV_TYPE(mtc->rip) = TE_SUBTLV_RIP;
-	SUBTLV_LEN(mtc->rip) = SUBTLV_DEF_SIZE;
-	mtc->rip.value.s_addr = addr.s_addr;
-
-	SUBTLV_TYPE(mtc->ras) = TE_SUBTLV_RAS;
-	SUBTLV_LEN(mtc->ras) = SUBTLV_DEF_SIZE;
-	mtc->ras.value = htonl(as);
-}
-
-static void unset_circuitparams_inter_as(struct mpls_te_circuit *mtc)
-{
-
-	/* Reset the Remote ASBR IP address and then the associated AS number */
-	SUBTLV_TYPE(mtc->rip) = 0;
-	SUBTLV_LEN(mtc->rip) = 0;
-	mtc->rip.value.s_addr = 0;
-
-	SUBTLV_TYPE(mtc->ras) = 0;
-	SUBTLV_LEN(mtc->ras) = 0;
-	mtc->ras.value = 0;
-}
-
-static void set_circuitparams_av_delay(struct mpls_te_circuit *mtc,
-				       uint32_t delay, uint8_t anormal)
-{
-	uint32_t tmp;
-	/* Note that TLV-length field is the size of array. */
-	SUBTLV_TYPE(mtc->av_delay) = TE_SUBTLV_AV_DELAY;
-	SUBTLV_LEN(mtc->av_delay) = SUBTLV_DEF_SIZE;
-	tmp = delay & TE_EXT_MASK;
-	if (anormal)
-		tmp |= TE_EXT_ANORMAL;
-	mtc->av_delay.value = htonl(tmp);
-	return;
-}
-
-static void set_circuitparams_mm_delay(struct mpls_te_circuit *mtc,
-				       uint32_t low, uint32_t high,
-				       uint8_t anormal)
-{
-	uint32_t tmp;
-	/* Note that TLV-length field is the size of array. */
-	SUBTLV_TYPE(mtc->mm_delay) = TE_SUBTLV_MM_DELAY;
-	SUBTLV_LEN(mtc->mm_delay) = TE_SUBTLV_MM_DELAY_SIZE;
-	tmp = low & TE_EXT_MASK;
-	if (anormal)
-		tmp |= TE_EXT_ANORMAL;
-	mtc->mm_delay.low = htonl(tmp);
-	mtc->mm_delay.high = htonl(high);
-	return;
-}
-
-static void set_circuitparams_delay_var(struct mpls_te_circuit *mtc,
-					uint32_t jitter)
-{
-	/* Note that TLV-length field is the size of array. */
-	SUBTLV_TYPE(mtc->delay_var) = TE_SUBTLV_DELAY_VAR;
-	SUBTLV_LEN(mtc->delay_var) = SUBTLV_DEF_SIZE;
-	mtc->delay_var.value = htonl(jitter & TE_EXT_MASK);
-	return;
-}
-
-static void set_circuitparams_pkt_loss(struct mpls_te_circuit *mtc,
-				       uint32_t loss, uint8_t anormal)
-{
-	uint32_t tmp;
-	/* Note that TLV-length field is the size of array. */
-	SUBTLV_TYPE(mtc->pkt_loss) = TE_SUBTLV_PKT_LOSS;
-	SUBTLV_LEN(mtc->pkt_loss) = SUBTLV_DEF_SIZE;
-	tmp = loss & TE_EXT_MASK;
-	if (anormal)
-		tmp |= TE_EXT_ANORMAL;
-	mtc->pkt_loss.value = htonl(tmp);
-	return;
-}
-
-static void set_circuitparams_res_bw(struct mpls_te_circuit *mtc, float fp)
-{
-	/* Note that TLV-length field is the size of array. */
-	SUBTLV_TYPE(mtc->res_bw) = TE_SUBTLV_RES_BW;
-	SUBTLV_LEN(mtc->res_bw) = SUBTLV_DEF_SIZE;
-	mtc->res_bw.value = htonf(fp);
-	return;
-}
-
-static void set_circuitparams_ava_bw(struct mpls_te_circuit *mtc, float fp)
-{
-	/* Note that TLV-length field is the size of array. */
-	SUBTLV_TYPE(mtc->ava_bw) = TE_SUBTLV_AVA_BW;
-	SUBTLV_LEN(mtc->ava_bw) = SUBTLV_DEF_SIZE;
-	mtc->ava_bw.value = htonf(fp);
-	return;
-}
-
-static void set_circuitparams_use_bw(struct mpls_te_circuit *mtc, float fp)
-{
-	/* Note that TLV-length field is the size of array. */
-	SUBTLV_TYPE(mtc->use_bw) = TE_SUBTLV_USE_BW;
-	SUBTLV_LEN(mtc->use_bw) = SUBTLV_DEF_SIZE;
-	mtc->use_bw.value = htonf(fp);
-	return;
-}
-
-/* Main initialization / update function of the MPLS TE Circuit context */
-/* Call when interface TE Link parameters are modified */
-void isis_link_params_update(struct isis_circuit *circuit,
-			     struct interface *ifp)
-{
-	int i;
-	struct prefix_ipv4 *addr;
-	struct mpls_te_circuit *mtc;
-
-	/* Sanity Check */
-	if ((circuit == NULL) || (ifp == NULL))
-		return;
-
-	zlog_info("MPLS-TE: Initialize circuit parameters for interface %s",
-		  ifp->name);
-
-	/* Check if MPLS TE Circuit context has not been already created */
-	if (circuit->mtc == NULL)
-		circuit->mtc = mpls_te_circuit_new();
-
-	mtc = circuit->mtc;
-
-	/* Fulfil MTC TLV from ifp TE Link parameters */
-	if (HAS_LINK_PARAMS(ifp)) {
-		mtc->status = enable;
-		/* STD_TE metrics */
-		if (IS_PARAM_SET(ifp->link_params, LP_ADM_GRP))
-			set_circuitparams_admin_grp(
-				mtc, ifp->link_params->admin_grp);
-		else
-			SUBTLV_TYPE(mtc->admin_grp) = 0;
-
-		/* If not already set, register local IP addr from ip_addr list
-		 * if it exists */
-		if (SUBTLV_TYPE(mtc->local_ipaddr) == 0) {
-			if (circuit->ip_addrs != NULL
-			    && listcount(circuit->ip_addrs) != 0) {
-				addr = (struct prefix_ipv4 *)listgetdata(
-					(struct listnode *)listhead(
-						circuit->ip_addrs));
-				set_circuitparams_local_ipaddr(mtc,
-							       addr->prefix);
-			}
-		}
-
-		/* If not already set, try to determine Remote IP addr if
-		 * circuit is P2P */
-		if ((SUBTLV_TYPE(mtc->rmt_ipaddr) == 0)
-		    && (circuit->circ_type == CIRCUIT_T_P2P)) {
-			struct isis_adjacency *adj = circuit->u.p2p.neighbor;
-			if (adj && adj->adj_state == ISIS_ADJ_UP
-			    && adj->ipv4_address_count) {
-				set_circuitparams_rmt_ipaddr(
-					mtc, adj->ipv4_addresses[0]);
-			}
-		}
-
-		if (IS_PARAM_SET(ifp->link_params, LP_MAX_BW))
-			set_circuitparams_max_bw(mtc, ifp->link_params->max_bw);
-		else
-			SUBTLV_TYPE(mtc->max_bw) = 0;
-
-		if (IS_PARAM_SET(ifp->link_params, LP_MAX_RSV_BW))
-			set_circuitparams_max_rsv_bw(
-				mtc, ifp->link_params->max_rsv_bw);
-		else
-			SUBTLV_TYPE(mtc->max_rsv_bw) = 0;
-
-		if (IS_PARAM_SET(ifp->link_params, LP_UNRSV_BW))
-			for (i = 0; i < MAX_CLASS_TYPE; i++)
-				set_circuitparams_unrsv_bw(
-					mtc, i, ifp->link_params->unrsv_bw[i]);
-		else
-			SUBTLV_TYPE(mtc->unrsv_bw) = 0;
-
-		if (IS_PARAM_SET(ifp->link_params, LP_TE_METRIC))
-			set_circuitparams_te_metric(
-				mtc, ifp->link_params->te_metric);
-		else
-			SUBTLV_TYPE(mtc->te_metric) = 0;
-
-		/* TE metric Extensions */
-		if (IS_PARAM_SET(ifp->link_params, LP_DELAY))
-			set_circuitparams_av_delay(
-				mtc, ifp->link_params->av_delay, 0);
-		else
-			SUBTLV_TYPE(mtc->av_delay) = 0;
-
-		if (IS_PARAM_SET(ifp->link_params, LP_MM_DELAY))
-			set_circuitparams_mm_delay(
-				mtc, ifp->link_params->min_delay,
-				ifp->link_params->max_delay, 0);
-		else
-			SUBTLV_TYPE(mtc->mm_delay) = 0;
-
-		if (IS_PARAM_SET(ifp->link_params, LP_DELAY_VAR))
-			set_circuitparams_delay_var(
-				mtc, ifp->link_params->delay_var);
-		else
-			SUBTLV_TYPE(mtc->delay_var) = 0;
-
-		if (IS_PARAM_SET(ifp->link_params, LP_PKT_LOSS))
-			set_circuitparams_pkt_loss(
-				mtc, ifp->link_params->pkt_loss, 0);
-		else
-			SUBTLV_TYPE(mtc->pkt_loss) = 0;
-
-		if (IS_PARAM_SET(ifp->link_params, LP_RES_BW))
-			set_circuitparams_res_bw(mtc, ifp->link_params->res_bw);
-		else
-			SUBTLV_TYPE(mtc->res_bw) = 0;
-
-		if (IS_PARAM_SET(ifp->link_params, LP_AVA_BW))
-			set_circuitparams_ava_bw(mtc, ifp->link_params->ava_bw);
-		else
-			SUBTLV_TYPE(mtc->ava_bw) = 0;
-
-		if (IS_PARAM_SET(ifp->link_params, LP_USE_BW))
-			set_circuitparams_use_bw(mtc, ifp->link_params->use_bw);
-		else
-			SUBTLV_TYPE(mtc->use_bw) = 0;
-
-		/* INTER_AS */
-		if (IS_PARAM_SET(ifp->link_params, LP_RMT_AS))
-			set_circuitparams_inter_as(mtc,
-						   ifp->link_params->rmt_ip,
-						   ifp->link_params->rmt_as);
-		else
-			/* reset inter-as TE params */
-			unset_circuitparams_inter_as(mtc);
-
-		/* Compute total length of SUB TLVs */
-		mtc->length = subtlvs_len(mtc);
-
-	} else
-		mtc->status = disable;
-
-/* Finally Update LSP */
-#if 0
-  if (IS_MPLS_TE(isisMplsTE) && circuit->area)
-       lsp_regenerate_schedule (circuit->area, circuit->is_type, 0);
-#endif
-	return;
-}
-
-void isis_mpls_te_update(struct interface *ifp)
-{
-	struct isis_circuit *circuit;
-
-	/* Sanity Check */
-	if (ifp == NULL)
-		return;
-
-	/* Get circuit context from interface */
-	if ((circuit = circuit_scan_by_ifp(ifp)) == NULL)
-		return;
-
-	/* Update TE TLVs ... */
-	isis_link_params_update(circuit, ifp);
-
-	/* ... and LSP */
-	if (IS_MPLS_TE(isisMplsTE) && circuit->area)
-		lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
-
-	return;
-}
-
-/*------------------------------------------------------------------------*
- * Followings are vty session control functions.
- *------------------------------------------------------------------------*/
-
-static uint8_t print_subtlv_admin_grp(struct sbuf *buf, int indent,
-				      struct te_subtlv_admin_grp *tlv)
-{
-	sbuf_push(buf, indent, "Administrative Group: 0x%" PRIx32 "\n",
-		  ntohl(tlv->value));
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_llri(struct sbuf *buf, int indent,
-				 struct te_subtlv_llri *tlv)
-{
-	sbuf_push(buf, indent, "Link Local  ID: %" PRIu32 "\n",
-		  ntohl(tlv->local));
-	sbuf_push(buf, indent, "Link Remote ID: %" PRIu32 "\n",
-		  ntohl(tlv->remote));
-
-	return (SUBTLV_HDR_SIZE + TE_SUBTLV_LLRI_SIZE);
-}
-
-static uint8_t print_subtlv_local_ipaddr(struct sbuf *buf, int indent,
-					 struct te_subtlv_local_ipaddr *tlv)
-{
-	sbuf_push(buf, indent, "Local Interface IP Address(es): %s\n",
-		  inet_ntoa(tlv->value));
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_rmt_ipaddr(struct sbuf *buf, int indent,
-				       struct te_subtlv_rmt_ipaddr *tlv)
-{
-	sbuf_push(buf, indent, "Remote Interface IP Address(es): %s\n",
-		  inet_ntoa(tlv->value));
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_max_bw(struct sbuf *buf, int indent,
-				   struct te_subtlv_max_bw *tlv)
-{
-	float fval;
-
-	fval = ntohf(tlv->value);
-
-	sbuf_push(buf, indent, "Maximum Bandwidth: %g (Bytes/sec)\n", fval);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_max_rsv_bw(struct sbuf *buf, int indent,
-				       struct te_subtlv_max_rsv_bw *tlv)
-{
-	float fval;
-
-	fval = ntohf(tlv->value);
-
-	sbuf_push(buf, indent, "Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
-		  fval);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_unrsv_bw(struct sbuf *buf, int indent,
-				     struct te_subtlv_unrsv_bw *tlv)
-{
-	float fval1, fval2;
-	int i;
-
-	sbuf_push(buf, indent, "Unreserved Bandwidth:\n");
-
-	for (i = 0; i < MAX_CLASS_TYPE; i += 2) {
-		fval1 = ntohf(tlv->value[i]);
-		fval2 = ntohf(tlv->value[i + 1]);
-		sbuf_push(buf, indent + 2,
-			  "[%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n", i,
-			  fval1, i + 1, fval2);
-	}
-
-	return (SUBTLV_HDR_SIZE + TE_SUBTLV_UNRSV_SIZE);
-}
-
-static uint8_t print_subtlv_te_metric(struct sbuf *buf, int indent,
-				      struct te_subtlv_te_metric *tlv)
-{
-	uint32_t te_metric;
-
-	te_metric = tlv->value[2] | tlv->value[1] << 8 | tlv->value[0] << 16;
-	sbuf_push(buf, indent, "Traffic Engineering Metric: %u\n", te_metric);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_ras(struct sbuf *buf, int indent,
-				struct te_subtlv_ras *tlv)
-{
-	sbuf_push(buf, indent, "Inter-AS TE Remote AS number: %" PRIu32 "\n",
-		  ntohl(tlv->value));
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_rip(struct sbuf *buf, int indent,
-				struct te_subtlv_rip *tlv)
-{
-	sbuf_push(buf, indent, "Inter-AS TE Remote ASBR IP address: %s\n",
-		  inet_ntoa(tlv->value));
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_av_delay(struct sbuf *buf, int indent,
-				     struct te_subtlv_av_delay *tlv)
-{
-	uint32_t delay;
-	uint32_t A;
-
-	delay = (uint32_t)ntohl(tlv->value) & TE_EXT_MASK;
-	A = (uint32_t)ntohl(tlv->value) & TE_EXT_ANORMAL;
-
-	sbuf_push(buf, indent,
-		  "%s Average Link Delay: %" PRIu32 " (micro-sec)\n",
-		  A ? "Anomalous" : "Normal", delay);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_mm_delay(struct sbuf *buf, int indent,
-				     struct te_subtlv_mm_delay *tlv)
-{
-	uint32_t low, high;
-	uint32_t A;
-
-	low = (uint32_t)ntohl(tlv->low) & TE_EXT_MASK;
-	A = (uint32_t)ntohl(tlv->low) & TE_EXT_ANORMAL;
-	high = (uint32_t)ntohl(tlv->high) & TE_EXT_MASK;
-
-	sbuf_push(buf, indent, "%s Min/Max Link Delay: %" PRIu32 " / %" PRIu32 " (micro-sec)\n",
-		  A ? "Anomalous" : "Normal", low, high);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_delay_var(struct sbuf *buf, int indent,
-				      struct te_subtlv_delay_var *tlv)
-{
-	uint32_t jitter;
-
-	jitter = (uint32_t)ntohl(tlv->value) & TE_EXT_MASK;
-
-	sbuf_push(buf, indent, "Delay Variation: %" PRIu32 " (micro-sec)\n",
-		  jitter);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_pkt_loss(struct sbuf *buf, int indent,
-				     struct te_subtlv_pkt_loss *tlv)
-{
-	uint32_t loss;
-	uint32_t A;
-	float fval;
-
-	loss = (uint32_t)ntohl(tlv->value) & TE_EXT_MASK;
-	fval = (float)(loss * LOSS_PRECISION);
-	A = (uint32_t)ntohl(tlv->value) & TE_EXT_ANORMAL;
-
-	sbuf_push(buf, indent, "%s Link Packet Loss: %g (%%)\n",
-		  A ? "Anomalous" : "Normal", fval);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_res_bw(struct sbuf *buf, int indent,
-				   struct te_subtlv_res_bw *tlv)
-{
-	float fval;
-
-	fval = ntohf(tlv->value);
-
-	sbuf_push(buf, indent,
-		  "Unidirectional Residual Bandwidth: %g (Bytes/sec)\n", fval);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_ava_bw(struct sbuf *buf, int indent,
-				   struct te_subtlv_ava_bw *tlv)
-{
-	float fval;
-
-	fval = ntohf(tlv->value);
-
-	sbuf_push(buf, indent,
-		  "Unidirectional Available Bandwidth: %g (Bytes/sec)\n", fval);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_subtlv_use_bw(struct sbuf *buf, int indent,
-				   struct te_subtlv_use_bw *tlv)
-{
-	float fval;
-
-	fval = ntohf(tlv->value);
-
-	sbuf_push(buf, indent,
-		  "Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n", fval);
-
-	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
-}
-
-static uint8_t print_unknown_tlv(struct sbuf *buf, int indent,
-				 struct subtlv_header *tlvh)
-{
-	int i, rtn = 1;
-	uint8_t *v = (uint8_t *)tlvh;
-
-	if (tlvh->length != 0) {
-		sbuf_push(buf, indent,
-			  "Unknown TLV: [type(%#.2x), length(%#.2x)]\n",
-			  tlvh->type, tlvh->length);
-		sbuf_push(buf, indent + 2, "Dump: [00]");
-		rtn = 1; /* initialize end of line counter */
-		for (i = 0; i < tlvh->length; i++) {
-			sbuf_push(buf, 0, " %#.2x", v[i]);
-			if (rtn == 8) {
-				sbuf_push(buf, 0, "\n");
-				sbuf_push(buf, indent + 8, "[%.2x]", i + 1);
-				rtn = 1;
-			} else
-				rtn++;
-		}
-		sbuf_push(buf, 0, "\n");
-	} else {
-		sbuf_push(buf, indent,
-			  "Unknown TLV: [type(%#.2x), length(%#.2x)]\n",
-			  tlvh->type, tlvh->length);
-	}
-
-	return SUBTLV_SIZE(tlvh);
-}
-
-/* Main Show function */
-void mpls_te_print_detail(struct sbuf *buf, int indent,
-			  uint8_t *subtlvs, uint8_t subtlv_len)
-{
-	struct subtlv_header *tlvh = (struct subtlv_header *)subtlvs;
-	uint16_t sum = 0;
-
-	for (; sum < subtlv_len; tlvh = SUBTLV_HDR_NEXT(tlvh)) {
-		switch (tlvh->type) {
-		case TE_SUBTLV_ADMIN_GRP:
-			sum += print_subtlv_admin_grp(buf, indent,
-				(struct te_subtlv_admin_grp *)tlvh);
-			break;
-		case TE_SUBTLV_LLRI:
-			sum += print_subtlv_llri(buf, indent,
-						 (struct te_subtlv_llri *)tlvh);
-			break;
-		case TE_SUBTLV_LOCAL_IPADDR:
-			sum += print_subtlv_local_ipaddr(buf, indent,
-				(struct te_subtlv_local_ipaddr *)tlvh);
-			break;
-		case TE_SUBTLV_RMT_IPADDR:
-			sum += print_subtlv_rmt_ipaddr(buf, indent,
-				(struct te_subtlv_rmt_ipaddr *)tlvh);
-			break;
-		case TE_SUBTLV_MAX_BW:
-			sum += print_subtlv_max_bw(buf, indent,
-				(struct te_subtlv_max_bw *)tlvh);
-			break;
-		case TE_SUBTLV_MAX_RSV_BW:
-			sum += print_subtlv_max_rsv_bw(buf, indent,
-				(struct te_subtlv_max_rsv_bw *)tlvh);
-			break;
-		case TE_SUBTLV_UNRSV_BW:
-			sum += print_subtlv_unrsv_bw(buf, indent,
-				(struct te_subtlv_unrsv_bw *)tlvh);
-			break;
-		case TE_SUBTLV_TE_METRIC:
-			sum += print_subtlv_te_metric(buf, indent,
-				(struct te_subtlv_te_metric *)tlvh);
-			break;
-		case TE_SUBTLV_RAS:
-			sum += print_subtlv_ras(buf, indent,
-						(struct te_subtlv_ras *)tlvh);
-			break;
-		case TE_SUBTLV_RIP:
-			sum += print_subtlv_rip(buf, indent,
-						(struct te_subtlv_rip *)tlvh);
-			break;
-		case TE_SUBTLV_AV_DELAY:
-			sum += print_subtlv_av_delay(buf, indent,
-				(struct te_subtlv_av_delay *)tlvh);
-			break;
-		case TE_SUBTLV_MM_DELAY:
-			sum += print_subtlv_mm_delay(buf, indent,
-				(struct te_subtlv_mm_delay *)tlvh);
-			break;
-		case TE_SUBTLV_DELAY_VAR:
-			sum += print_subtlv_delay_var(buf, indent,
-				(struct te_subtlv_delay_var *)tlvh);
-			break;
-		case TE_SUBTLV_PKT_LOSS:
-			sum += print_subtlv_pkt_loss(buf, indent,
-				(struct te_subtlv_pkt_loss *)tlvh);
-			break;
-		case TE_SUBTLV_RES_BW:
-			sum += print_subtlv_res_bw(buf, indent,
-				(struct te_subtlv_res_bw *)tlvh);
-			break;
-		case TE_SUBTLV_AVA_BW:
-			sum += print_subtlv_ava_bw(buf, indent,
-				(struct te_subtlv_ava_bw *)tlvh);
-			break;
-		case TE_SUBTLV_USE_BW:
-			sum += print_subtlv_use_bw(buf, indent,
-				(struct te_subtlv_use_bw *)tlvh);
-			break;
-		default:
-			sum += print_unknown_tlv(buf, indent, tlvh);
-			break;
-		}
-	}
-	return;
-}
-
-/* Specific MPLS TE router parameters write function */
-void isis_mpls_te_config_write_router(struct vty *vty)
-{
-	if (IS_MPLS_TE(isisMplsTE)) {
-		vty_out(vty, "  mpls-te on\n");
-		vty_out(vty, "  mpls-te router-address %s\n",
-			inet_ntoa(isisMplsTE.router_id));
-	}
-
-	return;
-}
-
-
-/*------------------------------------------------------------------------*
- * Followings are vty command functions.
- *------------------------------------------------------------------------*/
-
-DEFUN (isis_mpls_te_on,
-       isis_mpls_te_on_cmd,
-       "mpls-te on",
-       MPLS_TE_STR
-       "Enable MPLS-TE functionality\n")
-{
-	struct listnode *node;
-	struct isis_circuit *circuit;
-
-	if (IS_MPLS_TE(isisMplsTE))
-		return CMD_SUCCESS;
-
-	if (IS_DEBUG_ISIS(DEBUG_TE))
-		zlog_debug("ISIS MPLS-TE: OFF -> ON");
-
-	isisMplsTE.status = enable;
-
-	/*
-	 * Following code is intended to handle two cases;
-	 *
-	 * 1) MPLS-TE was disabled at startup time, but now become enabled.
-	 * In this case, we must enable MPLS-TE Circuit regarding interface
-	 * MPLS_TE flag
-	 * 2) MPLS-TE was once enabled then disabled, and now enabled again.
-	 */
-	for (ALL_LIST_ELEMENTS_RO(isisMplsTE.cir_list, node, circuit)) {
-		if (circuit->mtc == NULL || IS_FLOOD_AS(circuit->mtc->type))
-			continue;
-
-		if ((circuit->mtc->status == disable)
-		    && HAS_LINK_PARAMS(circuit->interface))
-			circuit->mtc->status = enable;
-		else
-			continue;
-
-		/* Reoriginate STD_TE & GMPLS circuits */
-		if (circuit->area)
-			lsp_regenerate_schedule(circuit->area, circuit->is_type,
-						0);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_mpls_te_on,
-       no_isis_mpls_te_on_cmd,
-       "no mpls-te",
-       NO_STR
-       "Disable the MPLS-TE functionality\n")
-{
-	struct listnode *node;
-	struct isis_circuit *circuit;
-
-	if (isisMplsTE.status == disable)
-		return CMD_SUCCESS;
-
-	if (IS_DEBUG_ISIS(DEBUG_TE))
-		zlog_debug("ISIS MPLS-TE: ON -> OFF");
-
-	isisMplsTE.status = disable;
-
-	/* Flush LSP if circuit engage */
-	for (ALL_LIST_ELEMENTS_RO(isisMplsTE.cir_list, node, circuit)) {
-		if (circuit->mtc == NULL || (circuit->mtc->status == disable))
-			continue;
-
-		/* disable MPLS_TE Circuit */
-		circuit->mtc->status = disable;
-
-		/* Re-originate circuit without STD_TE & GMPLS parameters */
-		if (circuit->area)
-			lsp_regenerate_schedule(circuit->area, circuit->is_type,
-						0);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (isis_mpls_te_router_addr,
-       isis_mpls_te_router_addr_cmd,
-       "mpls-te router-address A.B.C.D",
-       MPLS_TE_STR
-       "Stable IP address of the advertising router\n"
-       "MPLS-TE router address in IPv4 address format\n")
-{
-	int idx_ipv4 = 2;
-	struct in_addr value;
-	struct listnode *node;
-	struct isis_area *area;
-
-	if (!inet_aton(argv[idx_ipv4]->arg, &value)) {
-		vty_out(vty, "Please specify Router-Addr by A.B.C.D\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	isisMplsTE.router_id.s_addr = value.s_addr;
-
-	if (isisMplsTE.status == disable)
-		return CMD_SUCCESS;
-
-	/* Update main Router ID in isis global structure */
-	isis->router_id = value.s_addr;
-	/* And re-schedule LSP update */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
-		if (listcount(area->area_addrs) > 0)
-			lsp_regenerate_schedule(area, area->is_type, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (isis_mpls_te_inter_as,
-       isis_mpls_te_inter_as_cmd,
-       "mpls-te inter-as <level-1|level-1-2|level-2-only>",
-       MPLS_TE_STR
-       "Configure MPLS-TE Inter-AS support\n"
-       "AREA native mode self originate INTER-AS LSP with L1 only flooding scope)\n"
-       "AREA native mode self originate INTER-AS LSP with L1 and L2 flooding scope)\n"
-       "AS native mode self originate INTER-AS LSP with L2 only flooding scope\n")
-{
-	vty_out(vty, "Not yet supported\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_mpls_te_inter_as,
-       no_isis_mpls_te_inter_as_cmd,
-       "no mpls-te inter-as",
-       NO_STR
-       "Disable the MPLS-TE functionality\n"
-       "Disable MPLS-TE Inter-AS support\n")
-{
-
-	vty_out(vty, "Not yet supported\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_isis_mpls_te_router,
-       show_isis_mpls_te_router_cmd,
-       "show isis mpls-te router",
-       SHOW_STR
-       ISIS_STR
-       MPLS_TE_STR
-       "Router information\n")
-{
-	if (IS_MPLS_TE(isisMplsTE)) {
-		vty_out(vty, "--- MPLS-TE router parameters ---\n");
-
-		if (ntohs(isisMplsTE.router_id.s_addr) != 0)
-			vty_out(vty, "  Router-Address: %s\n",
-				inet_ntoa(isisMplsTE.router_id));
-		else
-			vty_out(vty, "  N/A\n");
-	} else
-		vty_out(vty, "  MPLS-TE is disable on this router\n");
-
-	return CMD_SUCCESS;
-}
-
-static void show_mpls_te_sub(struct vty *vty, struct interface *ifp)
-{
-	struct mpls_te_circuit *mtc;
-	struct sbuf buf;
-
-	sbuf_init(&buf, NULL, 0);
-
-	if ((IS_MPLS_TE(isisMplsTE))
-	    && ((mtc = lookup_mpls_params_by_ifp(ifp)) != NULL)) {
-		/* Continue only if interface is not passive or support Inter-AS
-		 * TEv2 */
-		if (mtc->status != enable) {
-			if (IS_INTER_AS(mtc->type)) {
-				vty_out(vty,
-					"-- Inter-AS TEv2 link parameters for %s --\n",
-					ifp->name);
-			} else {
-				/* MPLS-TE is not activate on this interface */
-				/* or this interface is passive and Inter-AS
-				 * TEv2 is not activate */
-				vty_out(vty,
-					"  %s: MPLS-TE is disabled on this interface\n",
-					ifp->name);
-				return;
-			}
-		} else {
-			vty_out(vty, "-- MPLS-TE link parameters for %s --\n",
-				ifp->name);
-		}
-
-		sbuf_reset(&buf);
-		print_subtlv_admin_grp(&buf, 4, &mtc->admin_grp);
-
-		if (SUBTLV_TYPE(mtc->local_ipaddr) != 0)
-			print_subtlv_local_ipaddr(&buf, 4, &mtc->local_ipaddr);
-		if (SUBTLV_TYPE(mtc->rmt_ipaddr) != 0)
-			print_subtlv_rmt_ipaddr(&buf, 4, &mtc->rmt_ipaddr);
-
-		print_subtlv_max_bw(&buf, 4, &mtc->max_bw);
-		print_subtlv_max_rsv_bw(&buf, 4, &mtc->max_rsv_bw);
-		print_subtlv_unrsv_bw(&buf, 4, &mtc->unrsv_bw);
-		print_subtlv_te_metric(&buf, 4, &mtc->te_metric);
-
-		if (IS_INTER_AS(mtc->type)) {
-			if (SUBTLV_TYPE(mtc->ras) != 0)
-				print_subtlv_ras(&buf, 4, &mtc->ras);
-			if (SUBTLV_TYPE(mtc->rip) != 0)
-				print_subtlv_rip(&buf, 4, &mtc->rip);
-		}
-
-		print_subtlv_av_delay(&buf, 4, &mtc->av_delay);
-		print_subtlv_mm_delay(&buf, 4, &mtc->mm_delay);
-		print_subtlv_delay_var(&buf, 4, &mtc->delay_var);
-		print_subtlv_pkt_loss(&buf, 4, &mtc->pkt_loss);
-		print_subtlv_res_bw(&buf, 4, &mtc->res_bw);
-		print_subtlv_ava_bw(&buf, 4, &mtc->ava_bw);
-		print_subtlv_use_bw(&buf, 4, &mtc->use_bw);
-
-		vty_multiline(vty, "", "%s", sbuf_buf(&buf));
-		vty_out(vty, "---------------\n\n");
-	} else {
-		vty_out(vty, "  %s: MPLS-TE is disabled on this interface\n",
-			ifp->name);
-	}
-
-	sbuf_free(&buf);
-	return;
-}
-
-DEFUN (show_isis_mpls_te_interface,
-       show_isis_mpls_te_interface_cmd,
-       "show isis mpls-te interface [INTERFACE]",
-       SHOW_STR
-       ISIS_STR
-       MPLS_TE_STR
-       "Interface information\n"
-       "Interface name\n")
-{
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	int idx_interface = 4;
-	struct interface *ifp;
-
-	/* Show All Interfaces. */
-	if (argc == 4) {
-		FOR_ALL_INTERFACES (vrf, ifp)
-			show_mpls_te_sub(vty, ifp);
-	}
-	/* Interface name is specified. */
-	else {
-		if ((ifp = if_lookup_by_name(argv[idx_interface]->arg,
-					     VRF_DEFAULT))
-		    == NULL)
-			vty_out(vty, "No such interface name\n");
-		else
-			show_mpls_te_sub(vty, ifp);
-	}
-
-	return CMD_SUCCESS;
-}
-
-/* Initialize MPLS_TE */
-void isis_mpls_te_init(void)
-{
-
-	zlog_debug("ISIS MPLS-TE: Initialize");
-
-	/* Initialize MPLS_TE structure */
-	isisMplsTE.status = disable;
-	isisMplsTE.level = 0;
-	isisMplsTE.inter_as = off;
-	isisMplsTE.interas_areaid.s_addr = 0;
-	isisMplsTE.cir_list = list_new();
-	isisMplsTE.router_id.s_addr = 0;
-
-	/* Register new VTY commands */
-	install_element(VIEW_NODE, &show_isis_mpls_te_router_cmd);
-	install_element(VIEW_NODE, &show_isis_mpls_te_interface_cmd);
-
-	install_element(ISIS_NODE, &isis_mpls_te_on_cmd);
-	install_element(ISIS_NODE, &no_isis_mpls_te_on_cmd);
-	install_element(ISIS_NODE, &isis_mpls_te_router_addr_cmd);
-	install_element(ISIS_NODE, &isis_mpls_te_inter_as_cmd);
-	install_element(ISIS_NODE, &no_isis_mpls_te_inter_as_cmd);
-
-	return;
-}
+/**IS-ISRout(e)ingprotocol-isis_te.c**ThisisanimplementationofRFC5305&RFC7810**C
+opyright(C)2014OrangeLabs*http://www.orange.com**ThisfileispartofGNUZebra.**GNUZ
+ebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGener
+alPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouro
+ption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WI
+THOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPAR
+TICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhaverecei
+vedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifno
+t,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-
+1301USA*/#include<zebra.h>#include<math.h>#include"linklist.h"#include"thread.h"
+#include"vty.h"#include"stream.h"#include"memory.h"#include"log.h"#include"prefi
+x.h"#include"command.h"#include"hash.h"#include"if.h"#include"vrf.h"#include"che
+cksum.h"#include"md5.h"#include"sockunion.h"#include"network.h"#include"sbuf.h"#
+include"isisd/dict.h"#include"isisd/isis_constants.h"#include"isisd/isis_common.
+h"#include"isisd/isis_flags.h"#include"isisd/isis_circuit.h"#include"isisd/isisd
+.h"#include"isisd/isis_lsp.h"#include"isisd/isis_pdu.h"#include"isisd/isis_dynhn
+.h"#include"isisd/isis_misc.h"#include"isisd/isis_csm.h"#include"isisd/isis_adja
+cency.h"#include"isisd/isis_spf.h"#include"isisd/isis_te.h"/*GlobalvarialforMPLS
+TEmanagement*/structisis_mpls_teisisMplsTE;constchar*mode2text[]={"Disable","Are
+a","AS","Emulate"};/*-----------------------------------------------------------
+-------------**FollowingsarecontrolfunctionsforMPLS-TEparametersmanagement.*----
+--------------------------------------------------------------------*//*SearchMP
+LSTECircuitcontextfromInterface*/staticstructmpls_te_circuit*lookup_mpls_params_
+by_ifp(structinterface*ifp){structisis_circuit*circuit;if((circuit=circuit_scan_
+by_ifp(ifp))==NULL)returnNULL;returncircuit->mtc;}/*CreatenewMPLSTECircuitcontex
+t*/structmpls_te_circuit*mpls_te_circuit_new(){structmpls_te_circuit*mtc;zlog_de
+bug("ISISMPLS-TE:CreatenewMPLSTECircuitcontext");mtc=XCALLOC(MTYPE_ISIS_MPLS_TE,
+sizeof(structmpls_te_circuit));if(mtc==NULL)returnNULL;mtc->status=disable;mtc->
+type=STD_TE;mtc->length=0;returnmtc;}/*CopySUBTLVsparametersintoabuffer-Nospacev
+erificationareperformed*//*Callermustverifybeforethatthereisenoughfreespaceinthe
+buffer*/uint8_tadd_te_subtlvs(uint8_t*buf,structmpls_te_circuit*mtc){uint8_tsize
+,*tlvs=buf;zlog_debug("ISISMPLS-TE:AddTESubTLVstobuffer");if(mtc==NULL){zlog_deb
+ug("ISISMPLS-TE:Abort!NoMPLSTECircuitavailablehasbeenspecified");return0;}/*Crea
+tebufferifnotprovided*/if(buf==NULL){zlog_debug("ISISMPLS-TE:Abort!NoBufferhasbe
+enspecified");return0;}/*TE_SUBTLV_ADMIN_GRP*/if(SUBTLV_TYPE(mtc->admin_grp)!=0)
+{size=SUBTLV_SIZE(&(mtc->admin_grp.header));memcpy(tlvs,&(mtc->admin_grp),size);
+tlvs+=size;}/*TE_SUBTLV_LLRI*/if(SUBTLV_TYPE(mtc->llri)!=0){size=SUBTLV_SIZE(&(m
+tc->llri.header));memcpy(tlvs,&(mtc->llri),size);tlvs+=size;}/*TE_SUBTLV_LCLIF_I
+PADDR*/if(SUBTLV_TYPE(mtc->local_ipaddr)!=0){size=SUBTLV_SIZE(&(mtc->local_ipadd
+r.header));memcpy(tlvs,&(mtc->local_ipaddr),size);tlvs+=size;}/*TE_SUBTLV_RMTIF_
+IPADDR*/if(SUBTLV_TYPE(mtc->rmt_ipaddr)!=0){size=SUBTLV_SIZE(&(mtc->rmt_ipaddr.h
+eader));memcpy(tlvs,&(mtc->rmt_ipaddr),size);tlvs+=size;}/*TE_SUBTLV_MAX_BW*/if(
+SUBTLV_TYPE(mtc->max_bw)!=0){size=SUBTLV_SIZE(&(mtc->max_bw.header));memcpy(tlvs
+,&(mtc->max_bw),size);tlvs+=size;}/*TE_SUBTLV_MAX_RSV_BW*/if(SUBTLV_TYPE(mtc->ma
+x_rsv_bw)!=0){size=SUBTLV_SIZE(&(mtc->max_rsv_bw.header));memcpy(tlvs,&(mtc->max
+_rsv_bw),size);tlvs+=size;}/*TE_SUBTLV_UNRSV_BW*/if(SUBTLV_TYPE(mtc->unrsv_bw)!=
+0){size=SUBTLV_SIZE(&(mtc->unrsv_bw.header));memcpy(tlvs,&(mtc->unrsv_bw),size);
+tlvs+=size;}/*TE_SUBTLV_TE_METRIC*/if(SUBTLV_TYPE(mtc->te_metric)!=0){size=SUBTL
+V_SIZE(&(mtc->te_metric.header));memcpy(tlvs,&(mtc->te_metric),size);tlvs+=size;
+}/*TE_SUBTLV_AV_DELAY*/if(SUBTLV_TYPE(mtc->av_delay)!=0){size=SUBTLV_SIZE(&(mtc-
+>av_delay.header));memcpy(tlvs,&(mtc->av_delay),size);tlvs+=size;}/*TE_SUBTLV_MM
+_DELAY*/if(SUBTLV_TYPE(mtc->mm_delay)!=0){size=SUBTLV_SIZE(&(mtc->mm_delay.heade
+r));memcpy(tlvs,&(mtc->mm_delay),size);tlvs+=size;}/*TE_SUBTLV_DELAY_VAR*/if(SUB
+TLV_TYPE(mtc->delay_var)!=0){size=SUBTLV_SIZE(&(mtc->delay_var.header));memcpy(t
+lvs,&(mtc->delay_var),size);tlvs+=size;}/*TE_SUBTLV_PKT_LOSS*/if(SUBTLV_TYPE(mtc
+->pkt_loss)!=0){size=SUBTLV_SIZE(&(mtc->pkt_loss.header));memcpy(tlvs,&(mtc->pkt
+_loss),size);tlvs+=size;}/*TE_SUBTLV_RES_BW*/if(SUBTLV_TYPE(mtc->res_bw)!=0){siz
+e=SUBTLV_SIZE(&(mtc->res_bw.header));memcpy(tlvs,&(mtc->res_bw),size);tlvs+=size
+;}/*TE_SUBTLV_AVA_BW*/if(SUBTLV_TYPE(mtc->ava_bw)!=0){size=SUBTLV_SIZE(&(mtc->av
+a_bw.header));memcpy(tlvs,&(mtc->ava_bw),size);tlvs+=size;}/*TE_SUBTLV_USE_BW*/i
+f(SUBTLV_TYPE(mtc->use_bw)!=0){size=SUBTLV_SIZE(&(mtc->use_bw.header));memcpy(tl
+vs,&(mtc->use_bw),size);tlvs+=size;}/*AddbeforethislineanyotherparsingofTLV*/(vo
+id)tlvs;/*UpdateSubTLVslength*/mtc->length=subtlvs_len(mtc);zlog_debug("ISISMPLS
+-TE:Add%dbyteslengthSubTLVs",mtc->length);returnmtc->length;}/*ComputetotalSub-T
+LVssize*/uint8_tsubtlvs_len(structmpls_te_circuit*mtc){intlength=0;/*SanityCheck
+*/if(mtc==NULL)return0;/*TE_SUBTLV_ADMIN_GRP*/if(SUBTLV_TYPE(mtc->admin_grp)!=0)
+length+=SUBTLV_SIZE(&(mtc->admin_grp.header));/*TE_SUBTLV_LLRI*/if(SUBTLV_TYPE(m
+tc->llri)!=0)length+=SUBTLV_SIZE(&mtc->llri.header);/*TE_SUBTLV_LCLIF_IPADDR*/if
+(SUBTLV_TYPE(mtc->local_ipaddr)!=0)length+=SUBTLV_SIZE(&mtc->local_ipaddr.header
+);/*TE_SUBTLV_RMTIF_IPADDR*/if(SUBTLV_TYPE(mtc->rmt_ipaddr)!=0)length+=SUBTLV_SI
+ZE(&mtc->rmt_ipaddr.header);/*TE_SUBTLV_MAX_BW*/if(SUBTLV_TYPE(mtc->max_bw)!=0)l
+ength+=SUBTLV_SIZE(&mtc->max_bw.header);/*TE_SUBTLV_MAX_RSV_BW*/if(SUBTLV_TYPE(m
+tc->max_rsv_bw)!=0)length+=SUBTLV_SIZE(&mtc->max_rsv_bw.header);/*TE_SUBTLV_UNRS
+V_BW*/if(SUBTLV_TYPE(mtc->unrsv_bw)!=0)length+=SUBTLV_SIZE(&mtc->unrsv_bw.header
+);/*TE_SUBTLV_TE_METRIC*/if(SUBTLV_TYPE(mtc->te_metric)!=0)length+=SUBTLV_SIZE(&
+mtc->te_metric.header);/*TE_SUBTLV_AV_DELAY*/if(SUBTLV_TYPE(mtc->av_delay)!=0)le
+ngth+=SUBTLV_SIZE(&mtc->av_delay.header);/*TE_SUBTLV_MM_DELAY*/if(SUBTLV_TYPE(mt
+c->mm_delay)!=0)length+=SUBTLV_SIZE(&mtc->mm_delay.header);/*TE_SUBTLV_DELAY_VAR
+*/if(SUBTLV_TYPE(mtc->delay_var)!=0)length+=SUBTLV_SIZE(&mtc->delay_var.header);
+/*TE_SUBTLV_PKT_LOSS*/if(SUBTLV_TYPE(mtc->pkt_loss)!=0)length+=SUBTLV_SIZE(&mtc-
+>pkt_loss.header);/*TE_SUBTLV_RES_BW*/if(SUBTLV_TYPE(mtc->res_bw)!=0)length+=SUB
+TLV_SIZE(&mtc->res_bw.header);/*TE_SUBTLV_AVA_BW*/if(SUBTLV_TYPE(mtc->ava_bw)!=0
+)length+=SUBTLV_SIZE(&mtc->ava_bw.header);/*TE_SUBTLV_USE_BW*/if(SUBTLV_TYPE(mtc
+->use_bw)!=0)length+=SUBTLV_SIZE(&mtc->use_bw.header);/*Checkthatlengthislowerth
+antheMAXIMUMSUBTLVsizei.e.256*/if(length>MAX_SUBTLV_SIZE){mtc->length=0;return0;
+}mtc->length=(uint8_t)length;returnmtc->length;}/*Followingarevariousfunctionsto
+setMPLSTEparameters*/staticvoidset_circuitparams_admin_grp(structmpls_te_circuit
+*mtc,uint32_tadmingrp){SUBTLV_TYPE(mtc->admin_grp)=TE_SUBTLV_ADMIN_GRP;SUBTLV_LE
+N(mtc->admin_grp)=SUBTLV_DEF_SIZE;mtc->admin_grp.value=htonl(admingrp);return;}s
+taticvoid__attribute__((unused))set_circuitparams_llri(structmpls_te_circuit*mtc
+,uint32_tlocal,uint32_tremote){SUBTLV_TYPE(mtc->llri)=TE_SUBTLV_LLRI;SUBTLV_LEN(
+mtc->llri)=TE_SUBTLV_LLRI_SIZE;mtc->llri.local=htonl(local);mtc->llri.remote=hto
+nl(remote);}voidset_circuitparams_local_ipaddr(structmpls_te_circuit*mtc,structi
+n_addraddr){SUBTLV_TYPE(mtc->local_ipaddr)=TE_SUBTLV_LOCAL_IPADDR;SUBTLV_LEN(mtc
+->local_ipaddr)=SUBTLV_DEF_SIZE;mtc->local_ipaddr.value.s_addr=addr.s_addr;retur
+n;}voidset_circuitparams_rmt_ipaddr(structmpls_te_circuit*mtc,structin_addraddr)
+{SUBTLV_TYPE(mtc->rmt_ipaddr)=TE_SUBTLV_RMT_IPADDR;SUBTLV_LEN(mtc->rmt_ipaddr)=S
+UBTLV_DEF_SIZE;mtc->rmt_ipaddr.value.s_addr=addr.s_addr;return;}staticvoidset_ci
+rcuitparams_max_bw(structmpls_te_circuit*mtc,floatfp){SUBTLV_TYPE(mtc->max_bw)=T
+E_SUBTLV_MAX_BW;SUBTLV_LEN(mtc->max_bw)=SUBTLV_DEF_SIZE;mtc->max_bw.value=htonf(
+fp);return;}staticvoidset_circuitparams_max_rsv_bw(structmpls_te_circuit*mtc,flo
+atfp){SUBTLV_TYPE(mtc->max_rsv_bw)=TE_SUBTLV_MAX_RSV_BW;SUBTLV_LEN(mtc->max_rsv_
+bw)=SUBTLV_DEF_SIZE;mtc->max_rsv_bw.value=htonf(fp);return;}staticvoidset_circui
+tparams_unrsv_bw(structmpls_te_circuit*mtc,intpriority,floatfp){/*NotethatTLV-le
+ngthfieldisthesizeofarray.*/SUBTLV_TYPE(mtc->unrsv_bw)=TE_SUBTLV_UNRSV_BW;SUBTLV
+_LEN(mtc->unrsv_bw)=TE_SUBTLV_UNRSV_SIZE;mtc->unrsv_bw.value[priority]=htonf(fp)
+;return;}staticvoidset_circuitparams_te_metric(structmpls_te_circuit*mtc,uint32_
+tte_metric){SUBTLV_TYPE(mtc->te_metric)=TE_SUBTLV_TE_METRIC;SUBTLV_LEN(mtc->te_m
+etric)=TE_SUBTLV_TE_METRIC_SIZE;mtc->te_metric.value[0]=(te_metric>>16)&0xFF;mtc
+->te_metric.value[1]=(te_metric>>8)&0xFF;mtc->te_metric.value[2]=te_metric&0xFF;
+return;}staticvoidset_circuitparams_inter_as(structmpls_te_circuit*mtc,structin_
+addraddr,uint32_tas){/*SettheRemoteASBRIPaddressandthentheassociatedASnumber*/SU
+BTLV_TYPE(mtc->rip)=TE_SUBTLV_RIP;SUBTLV_LEN(mtc->rip)=SUBTLV_DEF_SIZE;mtc->rip.
+value.s_addr=addr.s_addr;SUBTLV_TYPE(mtc->ras)=TE_SUBTLV_RAS;SUBTLV_LEN(mtc->ras
+)=SUBTLV_DEF_SIZE;mtc->ras.value=htonl(as);}staticvoidunset_circuitparams_inter_
+as(structmpls_te_circuit*mtc){/*ResettheRemoteASBRIPaddressandthentheassociatedA
+Snumber*/SUBTLV_TYPE(mtc->rip)=0;SUBTLV_LEN(mtc->rip)=0;mtc->rip.value.s_addr=0;
+SUBTLV_TYPE(mtc->ras)=0;SUBTLV_LEN(mtc->ras)=0;mtc->ras.value=0;}staticvoidset_c
+ircuitparams_av_delay(structmpls_te_circuit*mtc,uint32_tdelay,uint8_tanormal){ui
+nt32_ttmp;/*NotethatTLV-lengthfieldisthesizeofarray.*/SUBTLV_TYPE(mtc->av_delay)
+=TE_SUBTLV_AV_DELAY;SUBTLV_LEN(mtc->av_delay)=SUBTLV_DEF_SIZE;tmp=delay&TE_EXT_M
+ASK;if(anormal)tmp|=TE_EXT_ANORMAL;mtc->av_delay.value=htonl(tmp);return;}static
+voidset_circuitparams_mm_delay(structmpls_te_circuit*mtc,uint32_tlow,uint32_thig
+h,uint8_tanormal){uint32_ttmp;/*NotethatTLV-lengthfieldisthesizeofarray.*/SUBTLV
+_TYPE(mtc->mm_delay)=TE_SUBTLV_MM_DELAY;SUBTLV_LEN(mtc->mm_delay)=TE_SUBTLV_MM_D
+ELAY_SIZE;tmp=low&TE_EXT_MASK;if(anormal)tmp|=TE_EXT_ANORMAL;mtc->mm_delay.low=h
+tonl(tmp);mtc->mm_delay.high=htonl(high);return;}staticvoidset_circuitparams_del
+ay_var(structmpls_te_circuit*mtc,uint32_tjitter){/*NotethatTLV-lengthfieldisthes
+izeofarray.*/SUBTLV_TYPE(mtc->delay_var)=TE_SUBTLV_DELAY_VAR;SUBTLV_LEN(mtc->del
+ay_var)=SUBTLV_DEF_SIZE;mtc->delay_var.value=htonl(jitter&TE_EXT_MASK);return;}s
+taticvoidset_circuitparams_pkt_loss(structmpls_te_circuit*mtc,uint32_tloss,uint8
+_tanormal){uint32_ttmp;/*NotethatTLV-lengthfieldisthesizeofarray.*/SUBTLV_TYPE(m
+tc->pkt_loss)=TE_SUBTLV_PKT_LOSS;SUBTLV_LEN(mtc->pkt_loss)=SUBTLV_DEF_SIZE;tmp=l
+oss&TE_EXT_MASK;if(anormal)tmp|=TE_EXT_ANORMAL;mtc->pkt_loss.value=htonl(tmp);re
+turn;}staticvoidset_circuitparams_res_bw(structmpls_te_circuit*mtc,floatfp){/*No
+tethatTLV-lengthfieldisthesizeofarray.*/SUBTLV_TYPE(mtc->res_bw)=TE_SUBTLV_RES_B
+W;SUBTLV_LEN(mtc->res_bw)=SUBTLV_DEF_SIZE;mtc->res_bw.value=htonf(fp);return;}st
+aticvoidset_circuitparams_ava_bw(structmpls_te_circuit*mtc,floatfp){/*NotethatTL
+V-lengthfieldisthesizeofarray.*/SUBTLV_TYPE(mtc->ava_bw)=TE_SUBTLV_AVA_BW;SUBTLV
+_LEN(mtc->ava_bw)=SUBTLV_DEF_SIZE;mtc->ava_bw.value=htonf(fp);return;}staticvoid
+set_circuitparams_use_bw(structmpls_te_circuit*mtc,floatfp){/*NotethatTLV-length
+fieldisthesizeofarray.*/SUBTLV_TYPE(mtc->use_bw)=TE_SUBTLV_USE_BW;SUBTLV_LEN(mtc
+->use_bw)=SUBTLV_DEF_SIZE;mtc->use_bw.value=htonf(fp);return;}/*Maininitializati
+on/updatefunctionoftheMPLSTECircuitcontext*//*CallwheninterfaceTELinkparametersa
+remodified*/voidisis_link_params_update(structisis_circuit*circuit,structinterfa
+ce*ifp){inti;structprefix_ipv4*addr;structmpls_te_circuit*mtc;/*SanityCheck*/if(
+(circuit==NULL)||(ifp==NULL))return;zlog_info("MPLS-TE:Initializecircuitparamete
+rsforinterface%s",ifp->name);/*CheckifMPLSTECircuitcontexthasnotbeenalreadycreat
+ed*/if(circuit->mtc==NULL)circuit->mtc=mpls_te_circuit_new();mtc=circuit->mtc;/*
+FulfilMTCTLVfromifpTELinkparameters*/if(HAS_LINK_PARAMS(ifp)){mtc->status=enable
+;/*STD_TEmetrics*/if(IS_PARAM_SET(ifp->link_params,LP_ADM_GRP))set_circuitparams
+_admin_grp(mtc,ifp->link_params->admin_grp);elseSUBTLV_TYPE(mtc->admin_grp)=0;/*
+Ifnotalreadyset,registerlocalIPaddrfromip_addrlist*ifitexists*/if(SUBTLV_TYPE(mt
+c->local_ipaddr)==0){if(circuit->ip_addrs!=NULL&&listcount(circuit->ip_addrs)!=0
+){addr=(structprefix_ipv4*)listgetdata((structlistnode*)listhead(circuit->ip_add
+rs));set_circuitparams_local_ipaddr(mtc,addr->prefix);}}/*Ifnotalreadyset,trytod
+etermineRemoteIPaddrif*circuitisP2P*/if((SUBTLV_TYPE(mtc->rmt_ipaddr)==0)&&(circ
+uit->circ_type==CIRCUIT_T_P2P)){structisis_adjacency*adj=circuit->u.p2p.neighbor
+;if(adj&&adj->adj_state==ISIS_ADJ_UP&&adj->ipv4_address_count){set_circuitparams
+_rmt_ipaddr(mtc,adj->ipv4_addresses[0]);}}if(IS_PARAM_SET(ifp->link_params,LP_MA
+X_BW))set_circuitparams_max_bw(mtc,ifp->link_params->max_bw);elseSUBTLV_TYPE(mtc
+->max_bw)=0;if(IS_PARAM_SET(ifp->link_params,LP_MAX_RSV_BW))set_circuitparams_ma
+x_rsv_bw(mtc,ifp->link_params->max_rsv_bw);elseSUBTLV_TYPE(mtc->max_rsv_bw)=0;if
+(IS_PARAM_SET(ifp->link_params,LP_UNRSV_BW))for(i=0;i<MAX_CLASS_TYPE;i++)set_cir
+cuitparams_unrsv_bw(mtc,i,ifp->link_params->unrsv_bw[i]);elseSUBTLV_TYPE(mtc->un
+rsv_bw)=0;if(IS_PARAM_SET(ifp->link_params,LP_TE_METRIC))set_circuitparams_te_me
+tric(mtc,ifp->link_params->te_metric);elseSUBTLV_TYPE(mtc->te_metric)=0;/*TEmetr
+icExtensions*/if(IS_PARAM_SET(ifp->link_params,LP_DELAY))set_circuitparams_av_de
+lay(mtc,ifp->link_params->av_delay,0);elseSUBTLV_TYPE(mtc->av_delay)=0;if(IS_PAR
+AM_SET(ifp->link_params,LP_MM_DELAY))set_circuitparams_mm_delay(mtc,ifp->link_pa
+rams->min_delay,ifp->link_params->max_delay,0);elseSUBTLV_TYPE(mtc->mm_delay)=0;
+if(IS_PARAM_SET(ifp->link_params,LP_DELAY_VAR))set_circuitparams_delay_var(mtc,i
+fp->link_params->delay_var);elseSUBTLV_TYPE(mtc->delay_var)=0;if(IS_PARAM_SET(if
+p->link_params,LP_PKT_LOSS))set_circuitparams_pkt_loss(mtc,ifp->link_params->pkt
+_loss,0);elseSUBTLV_TYPE(mtc->pkt_loss)=0;if(IS_PARAM_SET(ifp->link_params,LP_RE
+S_BW))set_circuitparams_res_bw(mtc,ifp->link_params->res_bw);elseSUBTLV_TYPE(mtc
+->res_bw)=0;if(IS_PARAM_SET(ifp->link_params,LP_AVA_BW))set_circuitparams_ava_bw
+(mtc,ifp->link_params->ava_bw);elseSUBTLV_TYPE(mtc->ava_bw)=0;if(IS_PARAM_SET(if
+p->link_params,LP_USE_BW))set_circuitparams_use_bw(mtc,ifp->link_params->use_bw)
+;elseSUBTLV_TYPE(mtc->use_bw)=0;/*INTER_AS*/if(IS_PARAM_SET(ifp->link_params,LP_
+RMT_AS))set_circuitparams_inter_as(mtc,ifp->link_params->rmt_ip,ifp->link_params
+->rmt_as);else/*resetinter-asTEparams*/unset_circuitparams_inter_as(mtc);/*Compu
+tetotallengthofSUBTLVs*/mtc->length=subtlvs_len(mtc);}elsemtc->status=disable;/*
+FinallyUpdateLSP*/#if0if(IS_MPLS_TE(isisMplsTE)&&circuit->area)lsp_regenerate_sc
+hedule(circuit->area,circuit->is_type,0);#endifreturn;}voidisis_mpls_te_update(s
+tructinterface*ifp){structisis_circuit*circuit;/*SanityCheck*/if(ifp==NULL)retur
+n;/*Getcircuitcontextfrominterface*/if((circuit=circuit_scan_by_ifp(ifp))==NULL)
+return;/*UpdateTETLVs...*/isis_link_params_update(circuit,ifp);/*...andLSP*/if(I
+S_MPLS_TE(isisMplsTE)&&circuit->area)lsp_regenerate_schedule(circuit->area,circu
+it->is_type,0);return;}/*-------------------------------------------------------
+-----------------**Followingsarevtysessioncontrolfunctions.*--------------------
+----------------------------------------------------*/staticuint8_tprint_subtlv_
+admin_grp(structsbuf*buf,intindent,structte_subtlv_admin_grp*tlv){sbuf_push(buf,
+indent,"AdministrativeGroup:0x%"PRIx32"\n",ntohl(tlv->value));return(SUBTLV_HDR_
+SIZE+SUBTLV_DEF_SIZE);}staticuint8_tprint_subtlv_llri(structsbuf*buf,intindent,s
+tructte_subtlv_llri*tlv){sbuf_push(buf,indent,"LinkLocalID:%"PRIu32"\n",ntohl(tl
+v->local));sbuf_push(buf,indent,"LinkRemoteID:%"PRIu32"\n",ntohl(tlv->remote));r
+eturn(SUBTLV_HDR_SIZE+TE_SUBTLV_LLRI_SIZE);}staticuint8_tprint_subtlv_local_ipad
+dr(structsbuf*buf,intindent,structte_subtlv_local_ipaddr*tlv){sbuf_push(buf,inde
+nt,"LocalInterfaceIPAddress(es):%s\n",inet_ntoa(tlv->value));return(SUBTLV_HDR_S
+IZE+SUBTLV_DEF_SIZE);}staticuint8_tprint_subtlv_rmt_ipaddr(structsbuf*buf,intind
+ent,structte_subtlv_rmt_ipaddr*tlv){sbuf_push(buf,indent,"RemoteInterfaceIPAddre
+ss(es):%s\n",inet_ntoa(tlv->value));return(SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}sta
+ticuint8_tprint_subtlv_max_bw(structsbuf*buf,intindent,structte_subtlv_max_bw*tl
+v){floatfval;fval=ntohf(tlv->value);sbuf_push(buf,indent,"MaximumBandwidth:%g(By
+tes/sec)\n",fval);return(SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}staticuint8_tprint_su
+btlv_max_rsv_bw(structsbuf*buf,intindent,structte_subtlv_max_rsv_bw*tlv){floatfv
+al;fval=ntohf(tlv->value);sbuf_push(buf,indent,"MaximumReservableBandwidth:%g(By
+tes/sec)\n",fval);return(SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}staticuint8_tprint_su
+btlv_unrsv_bw(structsbuf*buf,intindent,structte_subtlv_unrsv_bw*tlv){floatfval1,
+fval2;inti;sbuf_push(buf,indent,"UnreservedBandwidth:\n");for(i=0;i<MAX_CLASS_TY
+PE;i+=2){fval1=ntohf(tlv->value[i]);fval2=ntohf(tlv->value[i+1]);sbuf_push(buf,i
+ndent+2,"[%d]:%g(Bytes/sec),\t[%d]:%g(Bytes/sec)\n",i,fval1,i+1,fval2);}return(S
+UBTLV_HDR_SIZE+TE_SUBTLV_UNRSV_SIZE);}staticuint8_tprint_subtlv_te_metric(struct
+sbuf*buf,intindent,structte_subtlv_te_metric*tlv){uint32_tte_metric;te_metric=tl
+v->value[2]|tlv->value[1]<<8|tlv->value[0]<<16;sbuf_push(buf,indent,"TrafficEngi
+neeringMetric:%u\n",te_metric);return(SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}staticui
+nt8_tprint_subtlv_ras(structsbuf*buf,intindent,structte_subtlv_ras*tlv){sbuf_pus
+h(buf,indent,"Inter-ASTERemoteASnumber:%"PRIu32"\n",ntohl(tlv->value));return(SU
+BTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}staticuint8_tprint_subtlv_rip(structsbuf*buf,int
+indent,structte_subtlv_rip*tlv){sbuf_push(buf,indent,"Inter-ASTERemoteASBRIPaddr
+ess:%s\n",inet_ntoa(tlv->value));return(SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}static
+uint8_tprint_subtlv_av_delay(structsbuf*buf,intindent,structte_subtlv_av_delay*t
+lv){uint32_tdelay;uint32_tA;delay=(uint32_t)ntohl(tlv->value)&TE_EXT_MASK;A=(uin
+t32_t)ntohl(tlv->value)&TE_EXT_ANORMAL;sbuf_push(buf,indent,"%sAverageLinkDelay:
+%"PRIu32"(micro-sec)\n",A?"Anomalous":"Normal",delay);return(SUBTLV_HDR_SIZE+SUB
+TLV_DEF_SIZE);}staticuint8_tprint_subtlv_mm_delay(structsbuf*buf,intindent,struc
+tte_subtlv_mm_delay*tlv){uint32_tlow,high;uint32_tA;low=(uint32_t)ntohl(tlv->low
+)&TE_EXT_MASK;A=(uint32_t)ntohl(tlv->low)&TE_EXT_ANORMAL;high=(uint32_t)ntohl(tl
+v->high)&TE_EXT_MASK;sbuf_push(buf,indent,"%sMin/MaxLinkDelay:%"PRIu32"/%"PRIu32
+"(micro-sec)\n",A?"Anomalous":"Normal",low,high);return(SUBTLV_HDR_SIZE+SUBTLV_D
+EF_SIZE);}staticuint8_tprint_subtlv_delay_var(structsbuf*buf,intindent,structte_
+subtlv_delay_var*tlv){uint32_tjitter;jitter=(uint32_t)ntohl(tlv->value)&TE_EXT_M
+ASK;sbuf_push(buf,indent,"DelayVariation:%"PRIu32"(micro-sec)\n",jitter);return(
+SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}staticuint8_tprint_subtlv_pkt_loss(structsbuf*
+buf,intindent,structte_subtlv_pkt_loss*tlv){uint32_tloss;uint32_tA;floatfval;los
+s=(uint32_t)ntohl(tlv->value)&TE_EXT_MASK;fval=(float)(loss*LOSS_PRECISION);A=(u
+int32_t)ntohl(tlv->value)&TE_EXT_ANORMAL;sbuf_push(buf,indent,"%sLinkPacketLoss:
+%g(%%)\n",A?"Anomalous":"Normal",fval);return(SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}
+staticuint8_tprint_subtlv_res_bw(structsbuf*buf,intindent,structte_subtlv_res_bw
+*tlv){floatfval;fval=ntohf(tlv->value);sbuf_push(buf,indent,"UnidirectionalResid
+ualBandwidth:%g(Bytes/sec)\n",fval);return(SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}sta
+ticuint8_tprint_subtlv_ava_bw(structsbuf*buf,intindent,structte_subtlv_ava_bw*tl
+v){floatfval;fval=ntohf(tlv->value);sbuf_push(buf,indent,"UnidirectionalAvailabl
+eBandwidth:%g(Bytes/sec)\n",fval);return(SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}stati
+cuint8_tprint_subtlv_use_bw(structsbuf*buf,intindent,structte_subtlv_use_bw*tlv)
+{floatfval;fval=ntohf(tlv->value);sbuf_push(buf,indent,"UnidirectionalUtilizedBa
+ndwidth:%g(Bytes/sec)\n",fval);return(SUBTLV_HDR_SIZE+SUBTLV_DEF_SIZE);}staticui
+nt8_tprint_unknown_tlv(structsbuf*buf,intindent,structsubtlv_header*tlvh){inti,r
+tn=1;uint8_t*v=(uint8_t*)tlvh;if(tlvh->length!=0){sbuf_push(buf,indent,"UnknownT
+LV:[type(%#.2x),length(%#.2x)]\n",tlvh->type,tlvh->length);sbuf_push(buf,indent+
+2,"Dump:[00]");rtn=1;/*initializeendoflinecounter*/for(i=0;i<tlvh->length;i++){s
+buf_push(buf,0,"%#.2x",v[i]);if(rtn==8){sbuf_push(buf,0,"\n");sbuf_push(buf,inde
+nt+8,"[%.2x]",i+1);rtn=1;}elsertn++;}sbuf_push(buf,0,"\n");}else{sbuf_push(buf,i
+ndent,"UnknownTLV:[type(%#.2x),length(%#.2x)]\n",tlvh->type,tlvh->length);}retur
+nSUBTLV_SIZE(tlvh);}/*MainShowfunction*/voidmpls_te_print_detail(structsbuf*buf,
+intindent,uint8_t*subtlvs,uint8_tsubtlv_len){structsubtlv_header*tlvh=(structsub
+tlv_header*)subtlvs;uint16_tsum=0;for(;sum<subtlv_len;tlvh=SUBTLV_HDR_NEXT(tlvh)
+){switch(tlvh->type){caseTE_SUBTLV_ADMIN_GRP:sum+=print_subtlv_admin_grp(buf,ind
+ent,(structte_subtlv_admin_grp*)tlvh);break;caseTE_SUBTLV_LLRI:sum+=print_subtlv
+_llri(buf,indent,(structte_subtlv_llri*)tlvh);break;caseTE_SUBTLV_LOCAL_IPADDR:s
+um+=print_subtlv_local_ipaddr(buf,indent,(structte_subtlv_local_ipaddr*)tlvh);br
+eak;caseTE_SUBTLV_RMT_IPADDR:sum+=print_subtlv_rmt_ipaddr(buf,indent,(structte_s
+ubtlv_rmt_ipaddr*)tlvh);break;caseTE_SUBTLV_MAX_BW:sum+=print_subtlv_max_bw(buf,
+indent,(structte_subtlv_max_bw*)tlvh);break;caseTE_SUBTLV_MAX_RSV_BW:sum+=print_
+subtlv_max_rsv_bw(buf,indent,(structte_subtlv_max_rsv_bw*)tlvh);break;caseTE_SUB
+TLV_UNRSV_BW:sum+=print_subtlv_unrsv_bw(buf,indent,(structte_subtlv_unrsv_bw*)tl
+vh);break;caseTE_SUBTLV_TE_METRIC:sum+=print_subtlv_te_metric(buf,indent,(struct
+te_subtlv_te_metric*)tlvh);break;caseTE_SUBTLV_RAS:sum+=print_subtlv_ras(buf,ind
+ent,(structte_subtlv_ras*)tlvh);break;caseTE_SUBTLV_RIP:sum+=print_subtlv_rip(bu
+f,indent,(structte_subtlv_rip*)tlvh);break;caseTE_SUBTLV_AV_DELAY:sum+=print_sub
+tlv_av_delay(buf,indent,(structte_subtlv_av_delay*)tlvh);break;caseTE_SUBTLV_MM_
+DELAY:sum+=print_subtlv_mm_delay(buf,indent,(structte_subtlv_mm_delay*)tlvh);bre
+ak;caseTE_SUBTLV_DELAY_VAR:sum+=print_subtlv_delay_var(buf,indent,(structte_subt
+lv_delay_var*)tlvh);break;caseTE_SUBTLV_PKT_LOSS:sum+=print_subtlv_pkt_loss(buf,
+indent,(structte_subtlv_pkt_loss*)tlvh);break;caseTE_SUBTLV_RES_BW:sum+=print_su
+btlv_res_bw(buf,indent,(structte_subtlv_res_bw*)tlvh);break;caseTE_SUBTLV_AVA_BW
+:sum+=print_subtlv_ava_bw(buf,indent,(structte_subtlv_ava_bw*)tlvh);break;caseTE
+_SUBTLV_USE_BW:sum+=print_subtlv_use_bw(buf,indent,(structte_subtlv_use_bw*)tlvh
+);break;default:sum+=print_unknown_tlv(buf,indent,tlvh);break;}}return;}/*Specif
+icMPLSTErouterparameterswritefunction*/voidisis_mpls_te_config_write_router(stru
+ctvty*vty){if(IS_MPLS_TE(isisMplsTE)){vty_out(vty,"mpls-teon\n");vty_out(vty,"mp
+ls-terouter-address%s\n",inet_ntoa(isisMplsTE.router_id));}return;}/*-----------
+-------------------------------------------------------------**Followingsarevtyc
+ommandfunctions.*---------------------------------------------------------------
+---------*/DEFUN(isis_mpls_te_on,isis_mpls_te_on_cmd,"mpls-teon",MPLS_TE_STR"Ena
+bleMPLS-TEfunctionality\n"){structlistnode*node;structisis_circuit*circuit;if(IS
+_MPLS_TE(isisMplsTE))returnCMD_SUCCESS;if(IS_DEBUG_ISIS(DEBUG_TE))zlog_debug("IS
+ISMPLS-TE:OFF->ON");isisMplsTE.status=enable;/**Followingcodeisintendedtohandlet
+wocases;**1)MPLS-TEwasdisabledatstartuptime,butnowbecomeenabled.*Inthiscase,wemu
+stenableMPLS-TECircuitregardinginterface*MPLS_TEflag*2)MPLS-TEwasonceenabledthen
+disabled,andnowenabledagain.*/for(ALL_LIST_ELEMENTS_RO(isisMplsTE.cir_list,node,
+circuit)){if(circuit->mtc==NULL||IS_FLOOD_AS(circuit->mtc->type))continue;if((ci
+rcuit->mtc->status==disable)&&HAS_LINK_PARAMS(circuit->interface))circuit->mtc->
+status=enable;elsecontinue;/*ReoriginateSTD_TE&GMPLScircuits*/if(circuit->area)l
+sp_regenerate_schedule(circuit->area,circuit->is_type,0);}returnCMD_SUCCESS;}DEF
+UN(no_isis_mpls_te_on,no_isis_mpls_te_on_cmd,"nompls-te",NO_STR"DisabletheMPLS-T
+Efunctionality\n"){structlistnode*node;structisis_circuit*circuit;if(isisMplsTE.
+status==disable)returnCMD_SUCCESS;if(IS_DEBUG_ISIS(DEBUG_TE))zlog_debug("ISISMPL
+S-TE:ON->OFF");isisMplsTE.status=disable;/*FlushLSPifcircuitengage*/for(ALL_LIST
+_ELEMENTS_RO(isisMplsTE.cir_list,node,circuit)){if(circuit->mtc==NULL||(circuit-
+>mtc->status==disable))continue;/*disableMPLS_TECircuit*/circuit->mtc->status=di
+sable;/*Re-originatecircuitwithoutSTD_TE&GMPLSparameters*/if(circuit->area)lsp_r
+egenerate_schedule(circuit->area,circuit->is_type,0);}returnCMD_SUCCESS;}DEFUN(i
+sis_mpls_te_router_addr,isis_mpls_te_router_addr_cmd,"mpls-terouter-addressA.B.C
+.D",MPLS_TE_STR"StableIPaddressoftheadvertisingrouter\n""MPLS-TErouteraddressinI
+Pv4addressformat\n"){intidx_ipv4=2;structin_addrvalue;structlistnode*node;struct
+isis_area*area;if(!inet_aton(argv[idx_ipv4]->arg,&value)){vty_out(vty,"Pleasespe
+cifyRouter-AddrbyA.B.C.D\n");returnCMD_WARNING_CONFIG_FAILED;}isisMplsTE.router_
+id.s_addr=value.s_addr;if(isisMplsTE.status==disable)returnCMD_SUCCESS;/*Updatem
+ainRouterIDinisisglobalstructure*/isis->router_id=value.s_addr;/*Andre-scheduleL
+SPupdate*/for(ALL_LIST_ELEMENTS_RO(isis->area_list,node,area))if(listcount(area-
+>area_addrs)>0)lsp_regenerate_schedule(area,area->is_type,0);returnCMD_SUCCESS;}
+DEFUN(isis_mpls_te_inter_as,isis_mpls_te_inter_as_cmd,"mpls-teinter-as<level-1|l
+evel-1-2|level-2-only>",MPLS_TE_STR"ConfigureMPLS-TEInter-ASsupport\n""AREAnativ
+emodeselforiginateINTER-ASLSPwithL1onlyfloodingscope)\n""AREAnativemodeselforigi
+nateINTER-ASLSPwithL1andL2floodingscope)\n""ASnativemodeselforiginateINTER-ASLSP
+withL2onlyfloodingscope\n"){vty_out(vty,"Notyetsupported\n");returnCMD_SUCCESS;}
+DEFUN(no_isis_mpls_te_inter_as,no_isis_mpls_te_inter_as_cmd,"nompls-teinter-as",
+NO_STR"DisabletheMPLS-TEfunctionality\n""DisableMPLS-TEInter-ASsupport\n"){vty_o
+ut(vty,"Notyetsupported\n");returnCMD_SUCCESS;}DEFUN(show_isis_mpls_te_router,sh
+ow_isis_mpls_te_router_cmd,"showisismpls-terouter",SHOW_STRISIS_STRMPLS_TE_STR"R
+outerinformation\n"){if(IS_MPLS_TE(isisMplsTE)){vty_out(vty,"---MPLS-TErouterpar
+ameters---\n");if(ntohs(isisMplsTE.router_id.s_addr)!=0)vty_out(vty,"Router-Addr
+ess:%s\n",inet_ntoa(isisMplsTE.router_id));elsevty_out(vty,"N/A\n");}elsevty_out
+(vty,"MPLS-TEisdisableonthisrouter\n");returnCMD_SUCCESS;}staticvoidshow_mpls_te
+_sub(structvty*vty,structinterface*ifp){structmpls_te_circuit*mtc;structsbufbuf;
+sbuf_init(&buf,NULL,0);if((IS_MPLS_TE(isisMplsTE))&&((mtc=lookup_mpls_params_by_
+ifp(ifp))!=NULL)){/*ContinueonlyifinterfaceisnotpassiveorsupportInter-AS*TEv2*/i
+f(mtc->status!=enable){if(IS_INTER_AS(mtc->type)){vty_out(vty,"--Inter-ASTEv2lin
+kparametersfor%s--\n",ifp->name);}else{/*MPLS-TEisnotactivateonthisinterface*//*
+orthisinterfaceispassiveandInter-AS*TEv2isnotactivate*/vty_out(vty,"%s:MPLS-TEis
+disabledonthisinterface\n",ifp->name);return;}}else{vty_out(vty,"--MPLS-TElinkpa
+rametersfor%s--\n",ifp->name);}sbuf_reset(&buf);print_subtlv_admin_grp(&buf,4,&m
+tc->admin_grp);if(SUBTLV_TYPE(mtc->local_ipaddr)!=0)print_subtlv_local_ipaddr(&b
+uf,4,&mtc->local_ipaddr);if(SUBTLV_TYPE(mtc->rmt_ipaddr)!=0)print_subtlv_rmt_ipa
+ddr(&buf,4,&mtc->rmt_ipaddr);print_subtlv_max_bw(&buf,4,&mtc->max_bw);print_subt
+lv_max_rsv_bw(&buf,4,&mtc->max_rsv_bw);print_subtlv_unrsv_bw(&buf,4,&mtc->unrsv_
+bw);print_subtlv_te_metric(&buf,4,&mtc->te_metric);if(IS_INTER_AS(mtc->type)){if
+(SUBTLV_TYPE(mtc->ras)!=0)print_subtlv_ras(&buf,4,&mtc->ras);if(SUBTLV_TYPE(mtc-
+>rip)!=0)print_subtlv_rip(&buf,4,&mtc->rip);}print_subtlv_av_delay(&buf,4,&mtc->
+av_delay);print_subtlv_mm_delay(&buf,4,&mtc->mm_delay);print_subtlv_delay_var(&b
+uf,4,&mtc->delay_var);print_subtlv_pkt_loss(&buf,4,&mtc->pkt_loss);print_subtlv_
+res_bw(&buf,4,&mtc->res_bw);print_subtlv_ava_bw(&buf,4,&mtc->ava_bw);print_subtl
+v_use_bw(&buf,4,&mtc->use_bw);vty_multiline(vty,"","%s",sbuf_buf(&buf));vty_out(
+vty,"---------------\n\n");}else{vty_out(vty,"%s:MPLS-TEisdisabledonthisinterfac
+e\n",ifp->name);}sbuf_free(&buf);return;}DEFUN(show_isis_mpls_te_interface,show_
+isis_mpls_te_interface_cmd,"showisismpls-teinterface[INTERFACE]",SHOW_STRISIS_ST
+RMPLS_TE_STR"Interfaceinformation\n""Interfacename\n"){structvrf*vrf=vrf_lookup_
+by_id(VRF_DEFAULT);intidx_interface=4;structinterface*ifp;/*ShowAllInterfaces.*/
+if(argc==4){FOR_ALL_INTERFACES(vrf,ifp)show_mpls_te_sub(vty,ifp);}/*Interfacenam
+eisspecified.*/else{if((ifp=if_lookup_by_name(argv[idx_interface]->arg,VRF_DEFAU
+LT))==NULL)vty_out(vty,"Nosuchinterfacename\n");elseshow_mpls_te_sub(vty,ifp);}r
+eturnCMD_SUCCESS;}/*InitializeMPLS_TE*/voidisis_mpls_te_init(void){zlog_debug("I
+SISMPLS-TE:Initialize");/*InitializeMPLS_TEstructure*/isisMplsTE.status=disable;
+isisMplsTE.level=0;isisMplsTE.inter_as=off;isisMplsTE.interas_areaid.s_addr=0;is
+isMplsTE.cir_list=list_new();isisMplsTE.router_id.s_addr=0;/*RegisternewVTYcomma
+nds*/install_element(VIEW_NODE,&show_isis_mpls_te_router_cmd);install_element(VI
+EW_NODE,&show_isis_mpls_te_interface_cmd);install_element(ISIS_NODE,&isis_mpls_t
+e_on_cmd);install_element(ISIS_NODE,&no_isis_mpls_te_on_cmd);install_element(ISI
+S_NODE,&isis_mpls_te_router_addr_cmd);install_element(ISIS_NODE,&isis_mpls_te_in
+ter_as_cmd);install_element(ISIS_NODE,&no_isis_mpls_te_inter_as_cmd);return;}

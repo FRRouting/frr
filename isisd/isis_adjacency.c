@@ -1,579 +1,148 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_adjacency.c
- *                             handling of IS-IS adjacencies
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "log.h"
-#include "memory.h"
-#include "hash.h"
-#include "vty.h"
-#include "linklist.h"
-#include "thread.h"
-#include "if.h"
-#include "stream.h"
-
-#include "isisd/dict.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_common.h"
-#include "isisd/isis_flags.h"
-#include "isisd/isisd.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isis_adjacency.h"
-#include "isisd/isis_misc.h"
-#include "isisd/isis_dr.h"
-#include "isisd/isis_dynhn.h"
-#include "isisd/isis_pdu.h"
-#include "isisd/isis_lsp.h"
-#include "isisd/isis_spf.h"
-#include "isisd/isis_events.h"
-#include "isisd/isis_mt.h"
-#include "isisd/isis_tlvs.h"
-
-extern struct isis *isis;
-
-static struct isis_adjacency *adj_alloc(const uint8_t *id)
-{
-	struct isis_adjacency *adj;
-
-	adj = XCALLOC(MTYPE_ISIS_ADJACENCY, sizeof(struct isis_adjacency));
-	memcpy(adj->sysid, id, ISIS_SYS_ID_LEN);
-
-	return adj;
-}
-
-struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
-				    int level, struct isis_circuit *circuit)
-{
-	struct isis_adjacency *adj;
-	int i;
-
-	adj = adj_alloc(id); /* P2P kludge */
-
-	if (snpa) {
-		memcpy(adj->snpa, snpa, ETH_ALEN);
-	} else {
-		memset(adj->snpa, ' ', ETH_ALEN);
-	}
-
-	adj->circuit = circuit;
-	adj->level = level;
-	adj->flaps = 0;
-	adj->last_flap = time(NULL);
-	adj->threeway_state = ISIS_THREEWAY_DOWN;
-	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		listnode_add(circuit->u.bc.adjdb[level - 1], adj);
-		adj->dischanges[level - 1] = 0;
-		for (i = 0; i < DIS_RECORDS;
-		     i++) /* clear N DIS state change records */
-		{
-			adj->dis_record[(i * ISIS_LEVELS) + level - 1].dis =
-				ISIS_UNKNOWN_DIS;
-			adj->dis_record[(i * ISIS_LEVELS) + level - 1]
-				.last_dis_change = time(NULL);
-		}
-	}
-
-	return adj;
-}
-
-struct isis_adjacency *isis_adj_lookup(const uint8_t *sysid, struct list *adjdb)
-{
-	struct isis_adjacency *adj;
-	struct listnode *node;
-
-	for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj))
-		if (memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN) == 0)
-			return adj;
-
-	return NULL;
-}
-
-struct isis_adjacency *isis_adj_lookup_snpa(const uint8_t *ssnpa,
-					    struct list *adjdb)
-{
-	struct listnode *node;
-	struct isis_adjacency *adj;
-
-	for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj))
-		if (memcmp(adj->snpa, ssnpa, ETH_ALEN) == 0)
-			return adj;
-
-	return NULL;
-}
-
-void isis_delete_adj(void *arg)
-{
-	struct isis_adjacency *adj = arg;
-
-	if (!adj)
-		return;
-
-	THREAD_TIMER_OFF(adj->t_expire);
-
-	/* remove from SPF trees */
-	spftree_area_adj_del(adj->circuit->area, adj);
-
-	if (adj->area_addresses)
-		XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->area_addresses);
-	if (adj->ipv4_addresses)
-		XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv4_addresses);
-	if (adj->ipv6_addresses)
-		XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv6_addresses);
-
-	adj_mt_finish(adj);
-
-	XFREE(MTYPE_ISIS_ADJACENCY, adj);
-	return;
-}
-
-static const char *adj_state2string(int state)
-{
-
-	switch (state) {
-	case ISIS_ADJ_INITIALIZING:
-		return "Initializing";
-	case ISIS_ADJ_UP:
-		return "Up";
-	case ISIS_ADJ_DOWN:
-		return "Down";
-	default:
-		return "Unknown";
-	}
-
-	return NULL; /* not reached */
-}
-
-void isis_adj_process_threeway(struct isis_adjacency *adj,
-			       struct isis_threeway_adj *tw_adj,
-			       enum isis_adj_usage adj_usage)
-{
-	enum isis_threeway_state next_tw_state = ISIS_THREEWAY_DOWN;
-
-	if (tw_adj && !adj->circuit->disable_threeway_adj) {
-		if (tw_adj->state == ISIS_THREEWAY_DOWN) {
-			next_tw_state = ISIS_THREEWAY_INITIALIZING;
-		} else if (tw_adj->state == ISIS_THREEWAY_INITIALIZING) {
-			next_tw_state = ISIS_THREEWAY_UP;
-		} else if (tw_adj->state == ISIS_THREEWAY_UP) {
-			if (adj->threeway_state == ISIS_THREEWAY_DOWN)
-				next_tw_state = ISIS_THREEWAY_DOWN;
-			else
-				next_tw_state = ISIS_THREEWAY_UP;
-		}
-	} else {
-		next_tw_state = ISIS_THREEWAY_UP;
-	}
-
-	if (next_tw_state != adj->threeway_state) {
-		if (isis->debugs & DEBUG_ADJ_PACKETS) {
-			zlog_info("ISIS-Adj (%s): Threeway state change %s to %s",
-				  adj->circuit->area->area_tag,
-				  isis_threeway_state_name(adj->threeway_state),
-				  isis_threeway_state_name(next_tw_state));
-		}
-	}
-
-	if (next_tw_state == ISIS_THREEWAY_DOWN) {
-		isis_adj_state_change(adj, ISIS_ADJ_DOWN, "Neighbor restarted");
-		return;
-	}
-
-	if (next_tw_state == ISIS_THREEWAY_UP) {
-		if (adj->adj_state != ISIS_ADJ_UP) {
-			isis_adj_state_change(adj, ISIS_ADJ_UP, NULL);
-			adj->adj_usage = adj_usage;
-		}
-	}
-
-	adj->threeway_state = next_tw_state;
-}
-
-void isis_adj_state_change(struct isis_adjacency *adj,
-			   enum isis_adj_state new_state, const char *reason)
-{
-	int old_state;
-	int level;
-	struct isis_circuit *circuit;
-	bool del;
-
-	old_state = adj->adj_state;
-	adj->adj_state = new_state;
-
-	circuit = adj->circuit;
-
-	if (isis->debugs & DEBUG_ADJ_PACKETS) {
-		zlog_debug("ISIS-Adj (%s): Adjacency state change %d->%d: %s",
-			   circuit->area->area_tag, old_state, new_state,
-			   reason ? reason : "unspecified");
-	}
-
-	if (circuit->area->log_adj_changes) {
-		const char *adj_name;
-		struct isis_dynhn *dyn;
-
-		dyn = dynhn_find_by_id(adj->sysid);
-		if (dyn)
-			adj_name = dyn->hostname;
-		else
-			adj_name = sysid_print(adj->sysid);
-
-		zlog_info(
-			"%%ADJCHANGE: Adjacency to %s (%s) changed from %s to %s, %s",
-			adj_name, adj->circuit->interface->name,
-			adj_state2string(old_state),
-			adj_state2string(new_state),
-			reason ? reason : "unspecified");
-	}
-
-	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		del = false;
-		for (level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
-			if ((adj->level & level) == 0)
-				continue;
-			if (new_state == ISIS_ADJ_UP) {
-				circuit->upadjcount[level - 1]++;
-				isis_event_adjacency_state_change(adj,
-								  new_state);
-				/* update counter & timers for debugging
-				 * purposes */
-				adj->last_flap = time(NULL);
-				adj->flaps++;
-			} else if (new_state == ISIS_ADJ_DOWN) {
-				listnode_delete(circuit->u.bc.adjdb[level - 1],
-						adj);
-
-				circuit->upadjcount[level - 1]--;
-				if (circuit->upadjcount[level - 1] == 0)
-					isis_circuit_lsp_queue_clean(circuit);
-
-				isis_event_adjacency_state_change(adj,
-								  new_state);
-				del = true;
-			}
-
-			if (circuit->u.bc.lan_neighs[level - 1]) {
-				list_delete_all_node(
-					circuit->u.bc.lan_neighs[level - 1]);
-				isis_adj_build_neigh_list(
-					circuit->u.bc.adjdb[level - 1],
-					circuit->u.bc.lan_neighs[level - 1]);
-			}
-
-			/* On adjacency state change send new pseudo LSP if we
-			 * are the DR */
-			if (circuit->u.bc.is_dr[level - 1])
-				lsp_regenerate_schedule_pseudo(circuit, level);
-		}
-
-		if (del)
-			isis_delete_adj(adj);
-
-		adj = NULL;
-	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
-		del = false;
-		for (level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
-			if ((adj->level & level) == 0)
-				continue;
-			if (new_state == ISIS_ADJ_UP) {
-				circuit->upadjcount[level - 1]++;
-				isis_event_adjacency_state_change(adj,
-								  new_state);
-
-				if (adj->sys_type == ISIS_SYSTYPE_UNKNOWN)
-					send_hello(circuit, level);
-
-				/* update counter & timers for debugging
-				 * purposes */
-				adj->last_flap = time(NULL);
-				adj->flaps++;
-
-				/* 7.3.17 - going up on P2P -> send CSNP */
-				/* FIXME: yup, I know its wrong... but i will do
-				 * it! (for now) */
-				send_csnp(circuit, level);
-			} else if (new_state == ISIS_ADJ_DOWN) {
-				if (adj->circuit->u.p2p.neighbor == adj)
-					adj->circuit->u.p2p.neighbor = NULL;
-				circuit->upadjcount[level - 1]--;
-				if (circuit->upadjcount[level - 1] == 0)
-					isis_circuit_lsp_queue_clean(circuit);
-
-				isis_event_adjacency_state_change(adj,
-								  new_state);
-				del = true;
-			}
-		}
-
-		if (del)
-			isis_delete_adj(adj);
-
-		adj = NULL;
-	}
-
-	return;
-}
-
-
-void isis_adj_print(struct isis_adjacency *adj)
-{
-	struct isis_dynhn *dyn;
-
-	if (!adj)
-		return;
-	dyn = dynhn_find_by_id(adj->sysid);
-	if (dyn)
-		zlog_debug("%s", dyn->hostname);
-
-	zlog_debug("SystemId %20s SNPA %s, level %d\nHolding Time %d",
-		   sysid_print(adj->sysid), snpa_print(adj->snpa), adj->level,
-		   adj->hold_time);
-	if (adj->ipv4_address_count) {
-		zlog_debug("IPv4 Address(es):");
-		for (unsigned int i = 0; i < adj->ipv4_address_count; i++)
-			zlog_debug("%s", inet_ntoa(adj->ipv4_addresses[i]));
-	}
-
-	if (adj->ipv6_address_count) {
-		zlog_debug("IPv6 Address(es):");
-		for (unsigned int i = 0; i < adj->ipv6_address_count; i++) {
-			char buf[INET6_ADDRSTRLEN];
-			inet_ntop(AF_INET6, &adj->ipv6_addresses[i], buf,
-				  sizeof(buf));
-			zlog_debug("%s", buf);
-		}
-	}
-	zlog_debug("Speaks: %s", nlpid2string(&adj->nlpids));
-
-	return;
-}
-
-int isis_adj_expire(struct thread *thread)
-{
-	struct isis_adjacency *adj;
-
-	/*
-	 * Get the adjacency
-	 */
-	adj = THREAD_ARG(thread);
-	assert(adj);
-	adj->t_expire = NULL;
-
-	/* trigger the adj expire event */
-	isis_adj_state_change(adj, ISIS_ADJ_DOWN, "holding time expired");
-
-	return 0;
-}
-
-/*
- * show isis neighbor [detail]
- */
-void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
-			char detail)
-{
-	time_t now;
-	struct isis_dynhn *dyn;
-	int level;
-
-	dyn = dynhn_find_by_id(adj->sysid);
-	if (dyn)
-		vty_out(vty, "  %-20s", dyn->hostname);
-	else
-		vty_out(vty, "  %-20s", sysid_print(adj->sysid));
-
-	if (detail == ISIS_UI_LEVEL_BRIEF) {
-		if (adj->circuit)
-			vty_out(vty, "%-12s", adj->circuit->interface->name);
-		else
-			vty_out(vty, "NULL circuit!");
-		vty_out(vty, "%-3u", adj->level); /* level */
-		vty_out(vty, "%-13s", adj_state2string(adj->adj_state));
-		now = time(NULL);
-		if (adj->last_upd)
-			vty_out(vty, "%-9llu",
-				(unsigned long long)adj->last_upd
-					+ adj->hold_time - now);
-		else
-			vty_out(vty, "-        ");
-		vty_out(vty, "%-10s", snpa_print(adj->snpa));
-		vty_out(vty, "\n");
-	}
-
-	if (detail == ISIS_UI_LEVEL_DETAIL) {
-		level = adj->level;
-		vty_out(vty, "\n");
-		if (adj->circuit)
-			vty_out(vty, "    Interface: %s",
-				adj->circuit->interface->name);
-		else
-			vty_out(vty, "    Interface: NULL circuit");
-		vty_out(vty, ", Level: %u", adj->level); /* level */
-		vty_out(vty, ", State: %s", adj_state2string(adj->adj_state));
-		now = time(NULL);
-		if (adj->last_upd)
-			vty_out(vty, ", Expires in %s",
-				time2string(adj->last_upd + adj->hold_time
-					    - now));
-		else
-			vty_out(vty, ", Expires in %s",
-				time2string(adj->hold_time));
-		vty_out(vty, "\n");
-		vty_out(vty, "    Adjacency flaps: %u", adj->flaps);
-		vty_out(vty, ", Last: %s ago",
-			time2string(now - adj->last_flap));
-		vty_out(vty, "\n");
-		vty_out(vty, "    Circuit type: %s",
-			circuit_t2string(adj->circuit_t));
-		vty_out(vty, ", Speaks: %s", nlpid2string(&adj->nlpids));
-		vty_out(vty, "\n");
-		if (adj->mt_count != 1
-		    || adj->mt_set[0] != ISIS_MT_IPV4_UNICAST) {
-			vty_out(vty, "    Topologies:\n");
-			for (unsigned int i = 0; i < adj->mt_count; i++)
-				vty_out(vty, "      %s\n",
-					isis_mtid2str(adj->mt_set[i]));
-		}
-		vty_out(vty, "    SNPA: %s", snpa_print(adj->snpa));
-		if (adj->circuit
-		    && (adj->circuit->circ_type == CIRCUIT_T_BROADCAST)) {
-			dyn = dynhn_find_by_id(adj->lanid);
-			if (dyn)
-				vty_out(vty, ", LAN id: %s.%02x", dyn->hostname,
-					adj->lanid[ISIS_SYS_ID_LEN]);
-			else
-				vty_out(vty, ", LAN id: %s.%02x",
-					sysid_print(adj->lanid),
-					adj->lanid[ISIS_SYS_ID_LEN]);
-
-			vty_out(vty, "\n");
-			vty_out(vty, "    LAN Priority: %u",
-				adj->prio[adj->level - 1]);
-
-			vty_out(vty, ", %s, DIS flaps: %u, Last: %s ago",
-				isis_disflag2string(
-					adj->dis_record[ISIS_LEVELS + level - 1]
-						.dis),
-				adj->dischanges[level - 1],
-				time2string(now - (adj->dis_record[ISIS_LEVELS
-								   + level - 1]
-							   .last_dis_change)));
-		}
-		vty_out(vty, "\n");
-
-		if (adj->area_address_count) {
-			vty_out(vty, "    Area Address(es):\n");
-			for (unsigned int i = 0; i < adj->area_address_count;
-			     i++) {
-				vty_out(vty, "      %s\n",
-					isonet_print(adj->area_addresses[i]
-							     .area_addr,
-						     adj->area_addresses[i]
-							     .addr_len));
-			}
-		}
-		if (adj->ipv4_address_count) {
-			vty_out(vty, "    IPv4 Address(es):\n");
-			for (unsigned int i = 0; i < adj->ipv4_address_count;
-			     i++)
-				vty_out(vty, "      %s\n",
-					inet_ntoa(adj->ipv4_addresses[i]));
-		}
-		if (adj->ipv6_address_count) {
-			vty_out(vty, "    IPv6 Address(es):\n");
-			for (unsigned int i = 0; i < adj->ipv6_address_count;
-			     i++) {
-				char buf[INET6_ADDRSTRLEN];
-				inet_ntop(AF_INET6, &adj->ipv6_addresses[i],
-					  buf, sizeof(buf));
-				vty_out(vty, "      %s\n", buf);
-			}
-		}
-		vty_out(vty, "\n");
-	}
-	return;
-}
-
-void isis_adj_build_neigh_list(struct list *adjdb, struct list *list)
-{
-	struct isis_adjacency *adj;
-	struct listnode *node;
-
-	if (!list) {
-		zlog_warn("isis_adj_build_neigh_list(): NULL list");
-		return;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj)) {
-		if (!adj) {
-			zlog_warn("isis_adj_build_neigh_list(): NULL adj");
-			return;
-		}
-
-		if ((adj->adj_state == ISIS_ADJ_UP
-		     || adj->adj_state == ISIS_ADJ_INITIALIZING))
-			listnode_add(list, adj->snpa);
-	}
-	return;
-}
-
-void isis_adj_build_up_list(struct list *adjdb, struct list *list)
-{
-	struct isis_adjacency *adj;
-	struct listnode *node;
-
-	if (adjdb == NULL) {
-		zlog_warn("isis_adj_build_up_list(): adjacency DB is empty");
-		return;
-	}
-
-	if (!list) {
-		zlog_warn("isis_adj_build_up_list(): NULL list");
-		return;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj)) {
-		if (!adj) {
-			zlog_warn("isis_adj_build_up_list(): NULL adj");
-			return;
-		}
-
-		if (adj->adj_state == ISIS_ADJ_UP)
-			listnode_add(list, adj);
-	}
-
-	return;
-}
-
-int isis_adj_usage2levels(enum isis_adj_usage usage)
-{
-	switch (usage) {
-	case ISIS_ADJ_LEVEL1:
-		return IS_LEVEL_1;
-	case ISIS_ADJ_LEVEL2:
-		return IS_LEVEL_2;
-	case ISIS_ADJ_LEVEL1AND2:
-		return IS_LEVEL_1 | IS_LEVEL_2;
-	default:
-		break;
-	}
-	return 0;
-}
+/**IS-ISRout(e)ingprotocol-isis_adjacency.c*handlingofIS-ISadjacencies**Copyrigh
+t(C)2001,2002SampoSaaristo*TampereUniversityofTechnology*InstituteofCommunicatio
+nsEngineering**Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*unde
+rthetermsoftheGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;eit
+herversion2oftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistribu
+tedinthehopethatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarra
+ntyofMERCHANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicens
+efor*moredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*w
+iththisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51
+FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"log.h"#i
+nclude"memory.h"#include"hash.h"#include"vty.h"#include"linklist.h"#include"thre
+ad.h"#include"if.h"#include"stream.h"#include"isisd/dict.h"#include"isisd/isis_c
+onstants.h"#include"isisd/isis_common.h"#include"isisd/isis_flags.h"#include"isi
+sd/isisd.h"#include"isisd/isis_circuit.h"#include"isisd/isis_adjacency.h"#includ
+e"isisd/isis_misc.h"#include"isisd/isis_dr.h"#include"isisd/isis_dynhn.h"#includ
+e"isisd/isis_pdu.h"#include"isisd/isis_lsp.h"#include"isisd/isis_spf.h"#include"
+isisd/isis_events.h"#include"isisd/isis_mt.h"#include"isisd/isis_tlvs.h"externst
+ructisis*isis;staticstructisis_adjacency*adj_alloc(constuint8_t*id){structisis_a
+djacency*adj;adj=XCALLOC(MTYPE_ISIS_ADJACENCY,sizeof(structisis_adjacency));memc
+py(adj->sysid,id,ISIS_SYS_ID_LEN);returnadj;}structisis_adjacency*isis_new_adj(c
+onstuint8_t*id,constuint8_t*snpa,intlevel,structisis_circuit*circuit){structisis
+_adjacency*adj;inti;adj=adj_alloc(id);/*P2Pkludge*/if(snpa){memcpy(adj->snpa,snp
+a,ETH_ALEN);}else{memset(adj->snpa,'',ETH_ALEN);}adj->circuit=circuit;adj->level
+=level;adj->flaps=0;adj->last_flap=time(NULL);adj->threeway_state=ISIS_THREEWAY_
+DOWN;if(circuit->circ_type==CIRCUIT_T_BROADCAST){listnode_add(circuit->u.bc.adjd
+b[level-1],adj);adj->dischanges[level-1]=0;for(i=0;i<DIS_RECORDS;i++)/*clearNDIS
+statechangerecords*/{adj->dis_record[(i*ISIS_LEVELS)+level-1].dis=ISIS_UNKNOWN_D
+IS;adj->dis_record[(i*ISIS_LEVELS)+level-1].last_dis_change=time(NULL);}}returna
+dj;}structisis_adjacency*isis_adj_lookup(constuint8_t*sysid,structlist*adjdb){st
+ructisis_adjacency*adj;structlistnode*node;for(ALL_LIST_ELEMENTS_RO(adjdb,node,a
+dj))if(memcmp(adj->sysid,sysid,ISIS_SYS_ID_LEN)==0)returnadj;returnNULL;}structi
+sis_adjacency*isis_adj_lookup_snpa(constuint8_t*ssnpa,structlist*adjdb){structli
+stnode*node;structisis_adjacency*adj;for(ALL_LIST_ELEMENTS_RO(adjdb,node,adj))if
+(memcmp(adj->snpa,ssnpa,ETH_ALEN)==0)returnadj;returnNULL;}voidisis_delete_adj(v
+oid*arg){structisis_adjacency*adj=arg;if(!adj)return;THREAD_TIMER_OFF(adj->t_exp
+ire);/*removefromSPFtrees*/spftree_area_adj_del(adj->circuit->area,adj);if(adj->
+area_addresses)XFREE(MTYPE_ISIS_ADJACENCY_INFO,adj->area_addresses);if(adj->ipv4
+_addresses)XFREE(MTYPE_ISIS_ADJACENCY_INFO,adj->ipv4_addresses);if(adj->ipv6_add
+resses)XFREE(MTYPE_ISIS_ADJACENCY_INFO,adj->ipv6_addresses);adj_mt_finish(adj);X
+FREE(MTYPE_ISIS_ADJACENCY,adj);return;}staticconstchar*adj_state2string(intstate
+){switch(state){caseISIS_ADJ_INITIALIZING:return"Initializing";caseISIS_ADJ_UP:r
+eturn"Up";caseISIS_ADJ_DOWN:return"Down";default:return"Unknown";}returnNULL;/*n
+otreached*/}voidisis_adj_process_threeway(structisis_adjacency*adj,structisis_th
+reeway_adj*tw_adj,enumisis_adj_usageadj_usage){enumisis_threeway_statenext_tw_st
+ate=ISIS_THREEWAY_DOWN;if(tw_adj&&!adj->circuit->disable_threeway_adj){if(tw_adj
+->state==ISIS_THREEWAY_DOWN){next_tw_state=ISIS_THREEWAY_INITIALIZING;}elseif(tw
+_adj->state==ISIS_THREEWAY_INITIALIZING){next_tw_state=ISIS_THREEWAY_UP;}elseif(
+tw_adj->state==ISIS_THREEWAY_UP){if(adj->threeway_state==ISIS_THREEWAY_DOWN)next
+_tw_state=ISIS_THREEWAY_DOWN;elsenext_tw_state=ISIS_THREEWAY_UP;}}else{next_tw_s
+tate=ISIS_THREEWAY_UP;}if(next_tw_state!=adj->threeway_state){if(isis->debugs&DE
+BUG_ADJ_PACKETS){zlog_info("ISIS-Adj(%s):Threewaystatechange%sto%s",adj->circuit
+->area->area_tag,isis_threeway_state_name(adj->threeway_state),isis_threeway_sta
+te_name(next_tw_state));}}if(next_tw_state==ISIS_THREEWAY_DOWN){isis_adj_state_c
+hange(adj,ISIS_ADJ_DOWN,"Neighborrestarted");return;}if(next_tw_state==ISIS_THRE
+EWAY_UP){if(adj->adj_state!=ISIS_ADJ_UP){isis_adj_state_change(adj,ISIS_ADJ_UP,N
+ULL);adj->adj_usage=adj_usage;}}adj->threeway_state=next_tw_state;}voidisis_adj_
+state_change(structisis_adjacency*adj,enumisis_adj_statenew_state,constchar*reas
+on){intold_state;intlevel;structisis_circuit*circuit;booldel;old_state=adj->adj_
+state;adj->adj_state=new_state;circuit=adj->circuit;if(isis->debugs&DEBUG_ADJ_PA
+CKETS){zlog_debug("ISIS-Adj(%s):Adjacencystatechange%d->%d:%s",circuit->area->ar
+ea_tag,old_state,new_state,reason?reason:"unspecified");}if(circuit->area->log_a
+dj_changes){constchar*adj_name;structisis_dynhn*dyn;dyn=dynhn_find_by_id(adj->sy
+sid);if(dyn)adj_name=dyn->hostname;elseadj_name=sysid_print(adj->sysid);zlog_inf
+o("%%ADJCHANGE:Adjacencyto%s(%s)changedfrom%sto%s,%s",adj_name,adj->circuit->int
+erface->name,adj_state2string(old_state),adj_state2string(new_state),reason?reas
+on:"unspecified");}if(circuit->circ_type==CIRCUIT_T_BROADCAST){del=false;for(lev
+el=IS_LEVEL_1;level<=IS_LEVEL_2;level++){if((adj->level&level)==0)continue;if(ne
+w_state==ISIS_ADJ_UP){circuit->upadjcount[level-1]++;isis_event_adjacency_state_
+change(adj,new_state);/*updatecounter&timersfordebugging*purposes*/adj->last_fla
+p=time(NULL);adj->flaps++;}elseif(new_state==ISIS_ADJ_DOWN){listnode_delete(circ
+uit->u.bc.adjdb[level-1],adj);circuit->upadjcount[level-1]--;if(circuit->upadjco
+unt[level-1]==0)isis_circuit_lsp_queue_clean(circuit);isis_event_adjacency_state
+_change(adj,new_state);del=true;}if(circuit->u.bc.lan_neighs[level-1]){list_dele
+te_all_node(circuit->u.bc.lan_neighs[level-1]);isis_adj_build_neigh_list(circuit
+->u.bc.adjdb[level-1],circuit->u.bc.lan_neighs[level-1]);}/*Onadjacencystatechan
+gesendnewpseudoLSPifwe*aretheDR*/if(circuit->u.bc.is_dr[level-1])lsp_regenerate_
+schedule_pseudo(circuit,level);}if(del)isis_delete_adj(adj);adj=NULL;}elseif(cir
+cuit->circ_type==CIRCUIT_T_P2P){del=false;for(level=IS_LEVEL_1;level<=IS_LEVEL_2
+;level++){if((adj->level&level)==0)continue;if(new_state==ISIS_ADJ_UP){circuit->
+upadjcount[level-1]++;isis_event_adjacency_state_change(adj,new_state);if(adj->s
+ys_type==ISIS_SYSTYPE_UNKNOWN)send_hello(circuit,level);/*updatecounter&timersfo
+rdebugging*purposes*/adj->last_flap=time(NULL);adj->flaps++;/*7.3.17-goinguponP2
+P->sendCSNP*//*FIXME:yup,Iknowitswrong...butiwilldo*it!(fornow)*/send_csnp(circu
+it,level);}elseif(new_state==ISIS_ADJ_DOWN){if(adj->circuit->u.p2p.neighbor==adj
+)adj->circuit->u.p2p.neighbor=NULL;circuit->upadjcount[level-1]--;if(circuit->up
+adjcount[level-1]==0)isis_circuit_lsp_queue_clean(circuit);isis_event_adjacency_
+state_change(adj,new_state);del=true;}}if(del)isis_delete_adj(adj);adj=NULL;}ret
+urn;}voidisis_adj_print(structisis_adjacency*adj){structisis_dynhn*dyn;if(!adj)r
+eturn;dyn=dynhn_find_by_id(adj->sysid);if(dyn)zlog_debug("%s",dyn->hostname);zlo
+g_debug("SystemId%20sSNPA%s,level%d\nHoldingTime%d",sysid_print(adj->sysid),snpa
+_print(adj->snpa),adj->level,adj->hold_time);if(adj->ipv4_address_count){zlog_de
+bug("IPv4Address(es):");for(unsignedinti=0;i<adj->ipv4_address_count;i++)zlog_de
+bug("%s",inet_ntoa(adj->ipv4_addresses[i]));}if(adj->ipv6_address_count){zlog_de
+bug("IPv6Address(es):");for(unsignedinti=0;i<adj->ipv6_address_count;i++){charbu
+f[INET6_ADDRSTRLEN];inet_ntop(AF_INET6,&adj->ipv6_addresses[i],buf,sizeof(buf));
+zlog_debug("%s",buf);}}zlog_debug("Speaks:%s",nlpid2string(&adj->nlpids));return
+;}intisis_adj_expire(structthread*thread){structisis_adjacency*adj;/**Gettheadja
+cency*/adj=THREAD_ARG(thread);assert(adj);adj->t_expire=NULL;/*triggertheadjexpi
+reevent*/isis_adj_state_change(adj,ISIS_ADJ_DOWN,"holdingtimeexpired");return0;}
+/**showisisneighbor[detail]*/voidisis_adj_print_vty(structisis_adjacency*adj,str
+uctvty*vty,chardetail){time_tnow;structisis_dynhn*dyn;intlevel;dyn=dynhn_find_by
+_id(adj->sysid);if(dyn)vty_out(vty,"%-20s",dyn->hostname);elsevty_out(vty,"%-20s
+",sysid_print(adj->sysid));if(detail==ISIS_UI_LEVEL_BRIEF){if(adj->circuit)vty_o
+ut(vty,"%-12s",adj->circuit->interface->name);elsevty_out(vty,"NULLcircuit!");vt
+y_out(vty,"%-3u",adj->level);/*level*/vty_out(vty,"%-13s",adj_state2string(adj->
+adj_state));now=time(NULL);if(adj->last_upd)vty_out(vty,"%-9llu",(unsignedlonglo
+ng)adj->last_upd+adj->hold_time-now);elsevty_out(vty,"-");vty_out(vty,"%-10s",sn
+pa_print(adj->snpa));vty_out(vty,"\n");}if(detail==ISIS_UI_LEVEL_DETAIL){level=a
+dj->level;vty_out(vty,"\n");if(adj->circuit)vty_out(vty,"Interface:%s",adj->circ
+uit->interface->name);elsevty_out(vty,"Interface:NULLcircuit");vty_out(vty,",Lev
+el:%u",adj->level);/*level*/vty_out(vty,",State:%s",adj_state2string(adj->adj_st
+ate));now=time(NULL);if(adj->last_upd)vty_out(vty,",Expiresin%s",time2string(adj
+->last_upd+adj->hold_time-now));elsevty_out(vty,",Expiresin%s",time2string(adj->
+hold_time));vty_out(vty,"\n");vty_out(vty,"Adjacencyflaps:%u",adj->flaps);vty_ou
+t(vty,",Last:%sago",time2string(now-adj->last_flap));vty_out(vty,"\n");vty_out(v
+ty,"Circuittype:%s",circuit_t2string(adj->circuit_t));vty_out(vty,",Speaks:%s",n
+lpid2string(&adj->nlpids));vty_out(vty,"\n");if(adj->mt_count!=1||adj->mt_set[0]
+!=ISIS_MT_IPV4_UNICAST){vty_out(vty,"Topologies:\n");for(unsignedinti=0;i<adj->m
+t_count;i++)vty_out(vty,"%s\n",isis_mtid2str(adj->mt_set[i]));}vty_out(vty,"SNPA
+:%s",snpa_print(adj->snpa));if(adj->circuit&&(adj->circuit->circ_type==CIRCUIT_T
+_BROADCAST)){dyn=dynhn_find_by_id(adj->lanid);if(dyn)vty_out(vty,",LANid:%s.%02x
+",dyn->hostname,adj->lanid[ISIS_SYS_ID_LEN]);elsevty_out(vty,",LANid:%s.%02x",sy
+sid_print(adj->lanid),adj->lanid[ISIS_SYS_ID_LEN]);vty_out(vty,"\n");vty_out(vty
+,"LANPriority:%u",adj->prio[adj->level-1]);vty_out(vty,",%s,DISflaps:%u,Last:%sa
+go",isis_disflag2string(adj->dis_record[ISIS_LEVELS+level-1].dis),adj->dischange
+s[level-1],time2string(now-(adj->dis_record[ISIS_LEVELS+level-1].last_dis_change
+)));}vty_out(vty,"\n");if(adj->area_address_count){vty_out(vty,"AreaAddress(es):
+\n");for(unsignedinti=0;i<adj->area_address_count;i++){vty_out(vty,"%s\n",isonet
+_print(adj->area_addresses[i].area_addr,adj->area_addresses[i].addr_len));}}if(a
+dj->ipv4_address_count){vty_out(vty,"IPv4Address(es):\n");for(unsignedinti=0;i<a
+dj->ipv4_address_count;i++)vty_out(vty,"%s\n",inet_ntoa(adj->ipv4_addresses[i]))
+;}if(adj->ipv6_address_count){vty_out(vty,"IPv6Address(es):\n");for(unsignedinti
+=0;i<adj->ipv6_address_count;i++){charbuf[INET6_ADDRSTRLEN];inet_ntop(AF_INET6,&
+adj->ipv6_addresses[i],buf,sizeof(buf));vty_out(vty,"%s\n",buf);}}vty_out(vty,"\
+n");}return;}voidisis_adj_build_neigh_list(structlist*adjdb,structlist*list){str
+uctisis_adjacency*adj;structlistnode*node;if(!list){zlog_warn("isis_adj_build_ne
+igh_list():NULLlist");return;}for(ALL_LIST_ELEMENTS_RO(adjdb,node,adj)){if(!adj)
+{zlog_warn("isis_adj_build_neigh_list():NULLadj");return;}if((adj->adj_state==IS
+IS_ADJ_UP||adj->adj_state==ISIS_ADJ_INITIALIZING))listnode_add(list,adj->snpa);}
+return;}voidisis_adj_build_up_list(structlist*adjdb,structlist*list){structisis_
+adjacency*adj;structlistnode*node;if(adjdb==NULL){zlog_warn("isis_adj_build_up_l
+ist():adjacencyDBisempty");return;}if(!list){zlog_warn("isis_adj_build_up_list()
+:NULLlist");return;}for(ALL_LIST_ELEMENTS_RO(adjdb,node,adj)){if(!adj){zlog_warn
+("isis_adj_build_up_list():NULLadj");return;}if(adj->adj_state==ISIS_ADJ_UP)list
+node_add(list,adj);}return;}intisis_adj_usage2levels(enumisis_adj_usageusage){sw
+itch(usage){caseISIS_ADJ_LEVEL1:returnIS_LEVEL_1;caseISIS_ADJ_LEVEL2:returnIS_LE
+VEL_2;caseISIS_ADJ_LEVEL1AND2:returnIS_LEVEL_1|IS_LEVEL_2;default:break;}return0
+;}

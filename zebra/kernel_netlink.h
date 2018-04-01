@@ -1,61 +1,27 @@
-/* Declarations and definitions for kernel interaction over netlink
- * Copyright (C) 2016 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_KERNEL_NETLINK_H
-#define _ZEBRA_KERNEL_NETLINK_H
-
-#ifdef HAVE_NETLINK
-
-#define NL_PKT_BUF_SIZE         8192
-
-extern void netlink_parse_rtattr(struct rtattr **tb, int max,
-				 struct rtattr *rta, int len);
-extern int addattr_l(struct nlmsghdr *n, unsigned int maxlen, int type,
-		     void *data, unsigned int alen);
-extern int rta_addattr_l(struct rtattr *rta, unsigned int maxlen, int type,
-			 void *data, unsigned int alen);
-extern int addattr16(struct nlmsghdr *n, unsigned int maxlen, int type,
-		     uint16_t data);
-extern int addattr32(struct nlmsghdr *n, unsigned int maxlen, int type,
-		     int data);
-extern struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type);
-extern int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest);
-extern struct rtattr *rta_nest(struct rtattr *rta, int maxlen, int type);
-extern int rta_nest_end(struct rtattr *rta, struct rtattr *nest);
-extern const char *nl_msg_type_to_str(uint16_t msg_type);
-extern const char *nl_rtproto_to_str(uint8_t rtproto);
-extern const char *nl_family_to_str(uint8_t family);
-extern const char *nl_rttype_to_str(uint8_t rttype);
-
-extern int netlink_parse_info(int (*filter)(struct sockaddr_nl *,
-					    struct nlmsghdr *, ns_id_t, int),
-			      struct nlsock *nl, struct zebra_ns *zns,
-			      int count, int startup);
-extern int netlink_talk_filter(struct sockaddr_nl *, struct nlmsghdr *, ns_id_t,
-			       int startup);
-extern int netlink_talk(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *,
-				      ns_id_t, int startup),
-			struct nlmsghdr *n, struct nlsock *nl,
-			struct zebra_ns *zns, int startup);
-extern int netlink_request(struct nlsock *nl, struct nlmsghdr *n);
-
-#endif /* HAVE_NETLINK */
-
-#endif /* _ZEBRA_KERNEL_NETLINK_H */
+/*Declarationsanddefinitionsforkernelinteractionovernetlink*Copyright(C)2016Cumu
+lusNetworks,Inc.**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredist
+ributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe
+*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZeb
+raisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventhe
+impliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*Genera
+lPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLi
+censealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Founda
+tion,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_KERNEL_N
+ETLINK_H#define_ZEBRA_KERNEL_NETLINK_H#ifdefHAVE_NETLINK#defineNL_PKT_BUF_SIZE81
+92externvoidnetlink_parse_rtattr(structrtattr**tb,intmax,structrtattr*rta,intlen
+);externintaddattr_l(structnlmsghdr*n,unsignedintmaxlen,inttype,void*data,unsign
+edintalen);externintrta_addattr_l(structrtattr*rta,unsignedintmaxlen,inttype,voi
+d*data,unsignedintalen);externintaddattr16(structnlmsghdr*n,unsignedintmaxlen,in
+ttype,uint16_tdata);externintaddattr32(structnlmsghdr*n,unsignedintmaxlen,inttyp
+e,intdata);externstructrtattr*addattr_nest(structnlmsghdr*n,intmaxlen,inttype);e
+xternintaddattr_nest_end(structnlmsghdr*n,structrtattr*nest);externstructrtattr*
+rta_nest(structrtattr*rta,intmaxlen,inttype);externintrta_nest_end(structrtattr*
+rta,structrtattr*nest);externconstchar*nl_msg_type_to_str(uint16_tmsg_type);exte
+rnconstchar*nl_rtproto_to_str(uint8_trtproto);externconstchar*nl_family_to_str(u
+int8_tfamily);externconstchar*nl_rttype_to_str(uint8_trttype);externintnetlink_p
+arse_info(int(*filter)(structsockaddr_nl*,structnlmsghdr*,ns_id_t,int),structnls
+ock*nl,structzebra_ns*zns,intcount,intstartup);externintnetlink_talk_filter(stru
+ctsockaddr_nl*,structnlmsghdr*,ns_id_t,intstartup);externintnetlink_talk(int(*fi
+lter)(structsockaddr_nl*,structnlmsghdr*,ns_id_t,intstartup),structnlmsghdr*n,st
+ructnlsock*nl,structzebra_ns*zns,intstartup);externintnetlink_request(structnlso
+ck*nl,structnlmsghdr*n);#endif/*HAVE_NETLINK*/#endif/*_ZEBRA_KERNEL_NETLINK_H*/

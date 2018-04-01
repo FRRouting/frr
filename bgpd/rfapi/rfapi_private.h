@@ -1,416 +1,137 @@
-/*
- *
- * Copyright 2009-2016, LabN Consulting, L.L.C.
- *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/*
- * Internal definitions for RFAPI. Not for use by other code
- */
-
-#ifndef _QUAGGA_BGP_RFAPI_PRIVATE_H
-#define _QUAGGA_BGP_RFAPI_PRIVATE_H
-
-#include "lib/linklist.h"
-#include "lib/skiplist.h"
-#include "lib/workqueue.h"
-
-#include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_route.h"
-
-#include "rfapi.h"
-
-/*
- * Lists of rfapi_adb. Each rfapi_adb is referenced twice:
- *
- * 1. each is referenced in by_lifetime
- * 2. each is referenced by exactly one of: ipN_by_prefix, ip0_by_ether
- */
-struct rfapi_advertised_prefixes {
-	struct skiplist *ipN_by_prefix; /* all except 0/32, 0/128 */
-	struct skiplist *ip0_by_ether;  /* ip prefix 0/32, 0/128 */
-	struct skiplist *by_lifetime;   /* all */
-};
-
-struct rfapi_descriptor {
-	struct route_node *un_node; /* backref to un table */
-
-	struct rfapi_descriptor *next; /* next vn_addr */
-
-	/* supplied by client */
-	struct bgp *bgp; /* from rfp_start_val */
-	struct rfapi_ip_addr vn_addr;
-	struct rfapi_ip_addr un_addr;
-	rfapi_response_cb_t *response_cb; /* override per-bgp response_cb */
-	void *cookie;			  /* for callbacks */
-	struct rfapi_tunneltype_option default_tunneltype_option;
-
-	/* supplied by matched configuration */
-	struct prefix_rd rd;
-	struct ecommunity *rt_export_list;
-	uint32_t response_lifetime;
-
-	/* list of prefixes currently being advertised by this nve */
-	struct rfapi_advertised_prefixes advertised;
-
-	time_t open_time;
-
-	uint32_t max_prefix_lifetime;
-	uint32_t min_prefix_lifetime;
-
-	/* reference to this nve's import table */
-	struct rfapi_import_table *import_table;
-
-	uint32_t monitor_count;
-	struct route_table *mon;  /* rfapi_monitors */
-	struct skiplist *mon_eth; /* ethernet monitors */
-
-	/*
-	 * rib            RIB as seen by NVE
-	 * rib_pending    RIB containing nodes with updated info chains
-	 * rsp_times      last time we sent response containing pfx
-	 */
-	uint32_t rib_prefix_count; /* pfxes with routes */
-	struct route_table *rib[AFI_MAX];
-	struct route_table *rib_pending[AFI_MAX];
-	struct work_queue *updated_responses_queue;
-	struct route_table *rsp_times[AFI_MAX];
-
-	uint32_t rsp_counter;	 /* dedup initial rsp */
-	time_t rsp_time;	      /* dedup initial rsp */
-	time_t ftd_last_allowed_time; /* FTD filter */
-
-	unsigned int stat_count_nh_reachable;
-	unsigned int stat_count_nh_removal;
-
-	/*
-	 * points to the original nve group structure that matched
-	 * when this nve_descriptor was created. We use this pointer
-	 * in rfapi_close() to find the nve group structure and
-	 * delete its reference back to us.
-	 *
-	 * If the nve group structure is deleted (via configuration
-	 * change) while this nve_descriptor exists, this rfg pointer
-	 * will be set to NULL.
-	 */
-	struct rfapi_nve_group_cfg *rfg;
-
-	/*
-	 * This ~7kB structure is here to permit multiple routes for
-	 * a prefix to be injected to BGP. There are at least two
-	 * situations where such conditions obtain:
-	 *
-	 * When an VNC route is exported to BGP on behalf of the set of
-	 * NVEs that belong to the export NVE group, it is replicated
-	 * so that there is one route per NVE (and the route's nexthop
-	 * is the NVE's VN address).
-	 *
-	 * Each of these routes being injected to BGP must have a distinct
-	 * peer pointer (otherwise, if they have the same peer pointer, each
-	 * route will be considered an implicit waithdraw of the previous
-	 * route injected from that peer, and the new route will replace
-	 * rather than augment the old one(s)).
-	 */
-	struct peer *peer;
-
-	uint32_t flags;
-#define RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_IP		0x00000001
-#define RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_IP6	0x00000002
-#define RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_L2VPN	0x00000004
-#define RFAPI_HD_FLAG_PROVISIONAL			0x00000008
-#define RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY		0x00000010
-#define RFAPI_HD_FLAG_IS_VRF             		0x00000012
-};
-
-#define RFAPI_QUEUED_FLAG(afi)                                                      \
-	(((afi) == AFI_IP)                                                          \
-		 ? RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_IP                          \
-		 : (((afi) == AFI_IP6)                                              \
-			    ? RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_IP6              \
-			    : (((afi) == AFI_L2VPN)                                 \
-				       ? RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_L2VPN \
-				       : (assert(0), 0))))
-
-
-struct rfapi_global_stats {
-	time_t last_reset;
-	unsigned int max_descriptors;
-
-	unsigned int count_unknown_nves;
-
-	unsigned int count_queries;
-	unsigned int count_queries_failed;
-
-	unsigned int max_responses; /* semantics? */
-
-	unsigned int count_registrations;
-	unsigned int count_registrations_failed;
-
-	unsigned int count_updated_response_updates;
-	unsigned int count_updated_response_deletes;
-};
-
-/*
- * There is one of these per BGP instance.
- *
- * Radix tree is indexed by un address; follow chain and
- * check vn address to get exact match.
- */
-struct rfapi {
-	struct route_table *un[AFI_MAX];
-	struct rfapi_import_table *imports; /* IPv4, IPv6 */
-	struct list descriptors;	    /* debug & resolve-nve imports */
-
-	struct rfapi_global_stats stat;
-
-	/*
-	 * callbacks into RFP, set at startup time (bgp_rfapi_new() gets
-	 * values from rfp_start()) or via rfapi_rfp_set_cb_methods()
-	 * (otherwise NULL). Note that the response_cb method can also
-	 * be overridden per-rfd (currently used only for debug/test scenarios)
-	 */
-	struct rfapi_rfp_cb_methods rfp_methods;
-
-	/*
-	 * Import tables for Ethernet over IPSEC
-	 *
-	 * The skiplist keys are LNIs. Values are pointers
-	 * to struct rfapi_import_table.
-	 */
-	struct skiplist *import_mac; /* L2 */
-
-	/*
-	 * when exporting plain routes ("registered-nve" mode) to
-	 * bgp unicast or zebra, we need to keep track of information
-	 * related to expiring the routes according to the VNC lifetime
-	 */
-	struct route_table *rt_export_bgp[AFI_MAX];
-	struct route_table *rt_export_zebra[AFI_MAX];
-
-	/*
-	 * For VNC->BGP unicast exports in CE mode, we need a
-	 * routing table that collects all of the VPN routes
-	 * in a single tree. The VPN rib is split up according
-	 * to RD first, so we can't use that. This is an import
-	 * table that matches all RTs.
-	 */
-	struct rfapi_import_table *it_ce;
-
-	/*
-	 * when importing bgp-direct routes in resolve-nve mode,
-	 * this list maps unicast route nexthops to their bgp_infos
-	 * in the unicast table
-	 */
-	struct skiplist *resolve_nve_nexthop;
-
-	/*
-	 * Descriptors for which rfapi_close() was called during a callback.
-	 * They will be closed after the callback finishes.
-	 */
-	struct work_queue *deferred_close_q;
-
-	/*
-	 * For "show vnc responses"
-	 */
-	uint32_t response_immediate_count;
-	uint32_t response_updated_count;
-	uint32_t monitor_count;
-
-	uint32_t rib_prefix_count_total;
-	uint32_t rib_prefix_count_total_max;
-
-	uint32_t flags;
-#define RFAPI_INCALLBACK	0x00000001
-	void *rfp; /* from rfp_start */
-};
-
-#define RFAPI_RIB_PREFIX_COUNT_INCR(rfd, rfapi)                                \
-	do {                                                                   \
-		++(rfd)->rib_prefix_count;                                     \
-		++(rfapi)->rib_prefix_count_total;                             \
-		if ((rfapi)->rib_prefix_count_total                            \
-		    > (rfapi)->rib_prefix_count_total_max)                     \
-			++(rfapi)->rib_prefix_count_total_max;                 \
-	} while (0)
-
-#define RFAPI_RIB_PREFIX_COUNT_DECR(rfd, rfapi)                                \
-	do {                                                                   \
-		--(rfd)->rib_prefix_count;                                     \
-		--(rfapi)->rib_prefix_count_total;                             \
-	} while (0)
-
-#define RFAPI_0_PREFIX(prefix)                                                 \
-	((((prefix)->family == AF_INET)                                        \
-		  ? (prefix)->u.prefix4.s_addr == 0                            \
-		  : (((prefix)->family == AF_INET6)                            \
-			     ? (IN6_IS_ADDR_UNSPECIFIED(&(prefix)->u.prefix6)) \
-			     : 0)))
-
-#define RFAPI_0_ETHERADDR(ea)                                                  \
-	(((ea)->octet[0] | (ea)->octet[1] | (ea)->octet[2] | (ea)->octet[3]    \
-	  | (ea)->octet[4] | (ea)->octet[5])                                   \
-	 == 0)
-
-#define RFAPI_HOST_PREFIX(prefix)                                              \
-	(((prefix)->family == AF_INET)                                         \
-		 ? ((prefix)->prefixlen == 32)                                 \
-		 : (((prefix)->family == AF_INET6)                             \
-			    ? ((prefix)->prefixlen == 128)                     \
-			    : 0))
-
-extern void rfapiQprefix2Rprefix(struct prefix *qprefix,
-				 struct rfapi_ip_prefix *rprefix);
-
-extern int rfapi_find_rfd(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
-			  struct rfapi_ip_addr *un_addr,
-			  struct rfapi_descriptor **rfd);
-
-extern void
-add_vnc_route(struct rfapi_descriptor *rfd, /* cookie + UN addr for VPN */
-	      struct bgp *bgp, int safi, struct prefix *p,
-	      struct prefix_rd *prd, struct rfapi_ip_addr *nexthop,
-	      uint32_t *local_pref, /* host byte order */
-	      uint32_t *lifetime,   /* host byte order */
-	      struct bgp_tea_options *rfp_options,
-	      struct rfapi_un_option *options_un,
-	      struct rfapi_vn_option *options_vn,
-	      struct ecommunity *rt_export_list, uint32_t *med, uint32_t *label,
-	      uint8_t type, uint8_t sub_type, int flags);
-#define RFAPI_AHR_NO_TUNNEL_SUBTLV	0x00000001
-#define RFAPI_AHR_RFPOPT_IS_VNCTLV	0x00000002      /* hack! */
-#if 0 /* unused? */
-#  define RFAPI_AHR_SET_PFX_TO_NEXTHOP	0x00000004
-#endif
-
-extern void del_vnc_route(struct rfapi_descriptor *rfd, struct peer *peer,
-			  struct bgp *bgp, safi_t safi, struct prefix *p,
-			  struct prefix_rd *prd, uint8_t type, uint8_t sub_type,
-			  struct rfapi_nexthop *lnh, int kill);
-
-extern int rfapiCliGetPrefixAddr(struct vty *vty, const char *str,
-				 struct prefix *p);
-
-extern int rfapiGetVncLifetime(struct attr *attr, uint32_t *lifetime);
-
-extern int rfapiGetTunnelType(struct attr *attr, bgp_encap_types *type);
-
-extern int rfapiGetVncTunnelUnAddr(struct attr *attr, struct prefix *p);
-
-extern int rfapi_reopen(struct rfapi_descriptor *rfd, struct bgp *bgp);
-
-extern void vnc_import_bgp_add_rfp_host_route_mode_resolve_nve(
-	struct bgp *bgp, struct rfapi_descriptor *rfd, struct prefix *prefix);
-
-extern void vnc_import_bgp_del_rfp_host_route_mode_resolve_nve(
-	struct bgp *bgp, struct rfapi_descriptor *rfd, struct prefix *prefix);
-
-extern void rfapiFreeBgpTeaOptionChain(struct bgp_tea_options *p);
-
-extern struct rfapi_vn_option *rfapiVnOptionsDup(struct rfapi_vn_option *orig);
-
-extern struct rfapi_un_option *rfapiUnOptionsDup(struct rfapi_un_option *orig);
-
-extern struct bgp_tea_options *rfapiOptionsDup(struct bgp_tea_options *orig);
-
-extern int rfapi_ip_addr_cmp(struct rfapi_ip_addr *a1,
-			     struct rfapi_ip_addr *a2);
-
-extern uint32_t rfp_cost_to_localpref(uint8_t cost);
-
-extern int rfapi_set_autord_from_vn(struct prefix_rd *rd,
-				    struct rfapi_ip_addr *vn);
-
-extern struct rfapi_nexthop *rfapi_nexthop_new(struct rfapi_nexthop *copyme);
-
-extern void rfapi_nexthop_free(void *goner);
-
-extern struct rfapi_vn_option *
-rfapi_vn_options_dup(struct rfapi_vn_option *existing);
-
-extern void rfapi_un_options_free(struct rfapi_un_option *goner);
-
-extern void rfapi_vn_options_free(struct rfapi_vn_option *goner);
-
-extern void vnc_add_vrf_opener(struct bgp *bgp,
-			       struct rfapi_nve_group_cfg *rfg);
-extern void clear_vnc_vrf_closer(struct rfapi_nve_group_cfg *rfg);
-/*------------------------------------------
- * rfapi_extract_l2o
- *
- * Find Layer 2 options in an option chain
- *
- * input:
- *	pHop		option chain
- *
- * output:
- *	l2o		layer 2 options extracted
- *
- * return value:
- *	0		OK
- *	1		no options found
- *
- --------------------------------------------*/
-extern int rfapi_extract_l2o(
-	struct bgp_tea_options *pHop,	/* chain of options */
-	struct rfapi_l2address_option *l2o); /* return extracted value */
-
-/*
- * compaitibility to old quagga_time call
- * time_t value in terms of stabilised absolute time.
- * replacement for POSIX time()
- */
-extern time_t rfapi_time(time_t *t);
-
-DECLARE_MGROUP(RFAPI)
-DECLARE_MTYPE(RFAPI_CFG)
-DECLARE_MTYPE(RFAPI_GROUP_CFG)
-DECLARE_MTYPE(RFAPI_L2_CFG)
-DECLARE_MTYPE(RFAPI_RFP_GROUP_CFG)
-DECLARE_MTYPE(RFAPI)
-DECLARE_MTYPE(RFAPI_DESC)
-DECLARE_MTYPE(RFAPI_IMPORTTABLE)
-DECLARE_MTYPE(RFAPI_MONITOR)
-DECLARE_MTYPE(RFAPI_MONITOR_ENCAP)
-DECLARE_MTYPE(RFAPI_NEXTHOP)
-DECLARE_MTYPE(RFAPI_VN_OPTION)
-DECLARE_MTYPE(RFAPI_UN_OPTION)
-DECLARE_MTYPE(RFAPI_WITHDRAW)
-DECLARE_MTYPE(RFAPI_RFG_NAME)
-DECLARE_MTYPE(RFAPI_ADB)
-DECLARE_MTYPE(RFAPI_ETI)
-DECLARE_MTYPE(RFAPI_NVE_ADDR)
-DECLARE_MTYPE(RFAPI_PREFIX_BAG)
-DECLARE_MTYPE(RFAPI_IT_EXTRA)
-DECLARE_MTYPE(RFAPI_INFO)
-DECLARE_MTYPE(RFAPI_ADDR)
-DECLARE_MTYPE(RFAPI_UPDATED_RESPONSE_QUEUE)
-DECLARE_MTYPE(RFAPI_RECENT_DELETE)
-DECLARE_MTYPE(RFAPI_L2ADDR_OPT)
-DECLARE_MTYPE(RFAPI_AP)
-DECLARE_MTYPE(RFAPI_MONITOR_ETH)
-
-
-/*
- * Caller must supply an already-allocated rfd with the "caller"
- * fields already set (vn_addr, un_addr, callback, cookie)
- * The advertised_prefixes[] array elements should be NULL to
- * have this function set them to newly-allocated radix trees.
- */
-extern int rfapi_init_and_open(struct bgp *bgp, struct rfapi_descriptor *rfd,
-			       struct rfapi_nve_group_cfg *rfg);
-
-#endif /* _QUAGGA_BGP_RFAPI_PRIVATE_H */
+/***Copyright2009-2016,LabNConsulting,L.L.C.***Thisprogramisfreesoftware;youcanr
+edistributeitand/or*modifyitunderthetermsoftheGNUGeneralPublicLicense*aspublishe
+dbytheFreeSoftwareFoundation;eitherversion2*oftheLicense,or(atyouroption)anylate
+rversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,*butWITHOUTANYWAR
+RANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURP
+OSE.Seethe*GNUGeneralPublicLicenseformoredetails.**Youshouldhavereceivedacopyoft
+heGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetoth
+eFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*//*
+*InternaldefinitionsforRFAPI.Notforusebyothercode*/#ifndef_QUAGGA_BGP_RFAPI_PRIV
+ATE_H#define_QUAGGA_BGP_RFAPI_PRIVATE_H#include"lib/linklist.h"#include"lib/skip
+list.h"#include"lib/workqueue.h"#include"bgpd/bgp_attr.h"#include"bgpd/bgp_route
+.h"#include"rfapi.h"/**Listsofrfapi_adb.Eachrfapi_adbisreferencedtwice:**1.eachi
+sreferencedinby_lifetime*2.eachisreferencedbyexactlyoneof:ipN_by_prefix,ip0_by_e
+ther*/structrfapi_advertised_prefixes{structskiplist*ipN_by_prefix;/*allexcept0/
+32,0/128*/structskiplist*ip0_by_ether;/*ipprefix0/32,0/128*/structskiplist*by_li
+fetime;/*all*/};structrfapi_descriptor{structroute_node*un_node;/*backreftountab
+le*/structrfapi_descriptor*next;/*nextvn_addr*//*suppliedbyclient*/structbgp*bgp
+;/*fromrfp_start_val*/structrfapi_ip_addrvn_addr;structrfapi_ip_addrun_addr;rfap
+i_response_cb_t*response_cb;/*overrideper-bgpresponse_cb*/void*cookie;/*forcallb
+acks*/structrfapi_tunneltype_optiondefault_tunneltype_option;/*suppliedbymatched
+configuration*/structprefix_rdrd;structecommunity*rt_export_list;uint32_trespons
+e_lifetime;/*listofprefixescurrentlybeingadvertisedbythisnve*/structrfapi_advert
+ised_prefixesadvertised;time_topen_time;uint32_tmax_prefix_lifetime;uint32_tmin_
+prefix_lifetime;/*referencetothisnve'simporttable*/structrfapi_import_table*impo
+rt_table;uint32_tmonitor_count;structroute_table*mon;/*rfapi_monitors*/structski
+plist*mon_eth;/*ethernetmonitors*//**ribRIBasseenbyNVE*rib_pendingRIBcontainingn
+odeswithupdatedinfochains*rsp_timeslasttimewesentresponsecontainingpfx*/uint32_t
+rib_prefix_count;/*pfxeswithroutes*/structroute_table*rib[AFI_MAX];structroute_t
+able*rib_pending[AFI_MAX];structwork_queue*updated_responses_queue;structroute_t
+able*rsp_times[AFI_MAX];uint32_trsp_counter;/*dedupinitialrsp*/time_trsp_time;/*
+dedupinitialrsp*/time_tftd_last_allowed_time;/*FTDfilter*/unsignedintstat_count_
+nh_reachable;unsignedintstat_count_nh_removal;/**pointstotheoriginalnvegroupstru
+cturethatmatched*whenthisnve_descriptorwascreated.Weusethispointer*inrfapi_close
+()tofindthenvegroupstructureand*deleteitsreferencebacktous.**Ifthenvegroupstruct
+ureisdeleted(viaconfiguration*change)whilethisnve_descriptorexists,thisrfgpointe
+r*willbesettoNULL.*/structrfapi_nve_group_cfg*rfg;/**This~7kBstructureisheretope
+rmitmultipleroutesfor*aprefixtobeinjectedtoBGP.Thereareatleasttwo*situationswher
+esuchconditionsobtain:**WhenanVNCrouteisexportedtoBGPonbehalfofthesetof*NVEsthat
+belongtotheexportNVEgroup,itisreplicated*sothatthereisonerouteperNVE(andtheroute
+'snexthop*istheNVE'sVNaddress).**EachoftheseroutesbeinginjectedtoBGPmusthaveadis
+tinct*peerpointer(otherwise,iftheyhavethesamepeerpointer,each*routewillbeconside
+redanimplicitwaithdrawoftheprevious*routeinjectedfromthatpeer,andthenewroutewill
+replace*ratherthanaugmenttheoldone(s)).*/structpeer*peer;uint32_tflags;#defineRF
+API_HD_FLAG_CALLBACK_SCHEDULED_AFI_IP0x00000001#defineRFAPI_HD_FLAG_CALLBACK_SCH
+EDULED_AFI_IP60x00000002#defineRFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_L2VPN0x00000
+004#defineRFAPI_HD_FLAG_PROVISIONAL0x00000008#defineRFAPI_HD_FLAG_CLOSING_ADMINI
+STRATIVELY0x00000010#defineRFAPI_HD_FLAG_IS_VRF0x00000012};#defineRFAPI_QUEUED_F
+LAG(afi)\(((afi)==AFI_IP)\?RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_IP\:(((afi)==AFI
+_IP6)\?RFAPI_HD_FLAG_CALLBACK_SCHEDULED_AFI_IP6\:(((afi)==AFI_L2VPN)\?RFAPI_HD_F
+LAG_CALLBACK_SCHEDULED_AFI_L2VPN\:(assert(0),0))))structrfapi_global_stats{time_
+tlast_reset;unsignedintmax_descriptors;unsignedintcount_unknown_nves;unsignedint
+count_queries;unsignedintcount_queries_failed;unsignedintmax_responses;/*semanti
+cs?*/unsignedintcount_registrations;unsignedintcount_registrations_failed;unsign
+edintcount_updated_response_updates;unsignedintcount_updated_response_deletes;};
+/**ThereisoneoftheseperBGPinstance.**Radixtreeisindexedbyunaddress;followchainan
+d*checkvnaddresstogetexactmatch.*/structrfapi{structroute_table*un[AFI_MAX];stru
+ctrfapi_import_table*imports;/*IPv4,IPv6*/structlistdescriptors;/*debug&resolve-
+nveimports*/structrfapi_global_statsstat;/**callbacksintoRFP,setatstartuptime(bg
+p_rfapi_new()gets*valuesfromrfp_start())orviarfapi_rfp_set_cb_methods()*(otherwi
+seNULL).Notethattheresponse_cbmethodcanalso*beoverriddenper-rfd(currentlyusedonl
+yfordebug/testscenarios)*/structrfapi_rfp_cb_methodsrfp_methods;/**Importtablesf
+orEthernetoverIPSEC**TheskiplistkeysareLNIs.Valuesarepointers*tostructrfapi_impo
+rt_table.*/structskiplist*import_mac;/*L2*//**whenexportingplainroutes("register
+ed-nve"mode)to*bgpunicastorzebra,weneedtokeeptrackofinformation*relatedtoexpirin
+gtheroutesaccordingtotheVNClifetime*/structroute_table*rt_export_bgp[AFI_MAX];st
+ructroute_table*rt_export_zebra[AFI_MAX];/**ForVNC->BGPunicastexportsinCEmode,we
+needa*routingtablethatcollectsalloftheVPNroutes*inasingletree.TheVPNribissplitup
+according*toRDfirst,sowecan'tusethat.Thisisanimport*tablethatmatchesallRTs.*/str
+uctrfapi_import_table*it_ce;/**whenimportingbgp-directroutesinresolve-nvemode,*t
+hislistmapsunicastroutenexthopstotheirbgp_infos*intheunicasttable*/structskiplis
+t*resolve_nve_nexthop;/**Descriptorsforwhichrfapi_close()wascalledduringacallbac
+k.*Theywillbeclosedafterthecallbackfinishes.*/structwork_queue*deferred_close_q;
+/**For"showvncresponses"*/uint32_tresponse_immediate_count;uint32_tresponse_upda
+ted_count;uint32_tmonitor_count;uint32_trib_prefix_count_total;uint32_trib_prefi
+x_count_total_max;uint32_tflags;#defineRFAPI_INCALLBACK0x00000001void*rfp;/*from
+rfp_start*/};#defineRFAPI_RIB_PREFIX_COUNT_INCR(rfd,rfapi)\do{\++(rfd)->rib_pref
+ix_count;\++(rfapi)->rib_prefix_count_total;\if((rfapi)->rib_prefix_count_total\
+>(rfapi)->rib_prefix_count_total_max)\++(rfapi)->rib_prefix_count_total_max;\}wh
+ile(0)#defineRFAPI_RIB_PREFIX_COUNT_DECR(rfd,rfapi)\do{\--(rfd)->rib_prefix_coun
+t;\--(rfapi)->rib_prefix_count_total;\}while(0)#defineRFAPI_0_PREFIX(prefix)\(((
+(prefix)->family==AF_INET)\?(prefix)->u.prefix4.s_addr==0\:(((prefix)->family==A
+F_INET6)\?(IN6_IS_ADDR_UNSPECIFIED(&(prefix)->u.prefix6))\:0)))#defineRFAPI_0_ET
+HERADDR(ea)\(((ea)->octet[0]|(ea)->octet[1]|(ea)->octet[2]|(ea)->octet[3]\|(ea)-
+>octet[4]|(ea)->octet[5])\==0)#defineRFAPI_HOST_PREFIX(prefix)\(((prefix)->famil
+y==AF_INET)\?((prefix)->prefixlen==32)\:(((prefix)->family==AF_INET6)\?((prefix)
+->prefixlen==128)\:0))externvoidrfapiQprefix2Rprefix(structprefix*qprefix,struct
+rfapi_ip_prefix*rprefix);externintrfapi_find_rfd(structbgp*bgp,structrfapi_ip_ad
+dr*vn_addr,structrfapi_ip_addr*un_addr,structrfapi_descriptor**rfd);externvoidad
+d_vnc_route(structrfapi_descriptor*rfd,/*cookie+UNaddrforVPN*/structbgp*bgp,ints
+afi,structprefix*p,structprefix_rd*prd,structrfapi_ip_addr*nexthop,uint32_t*loca
+l_pref,/*hostbyteorder*/uint32_t*lifetime,/*hostbyteorder*/structbgp_tea_options
+*rfp_options,structrfapi_un_option*options_un,structrfapi_vn_option*options_vn,s
+tructecommunity*rt_export_list,uint32_t*med,uint32_t*label,uint8_ttype,uint8_tsu
+b_type,intflags);#defineRFAPI_AHR_NO_TUNNEL_SUBTLV0x00000001#defineRFAPI_AHR_RFP
+OPT_IS_VNCTLV0x00000002/*hack!*/#if0/*unused?*/#defineRFAPI_AHR_SET_PFX_TO_NEXTH
+OP0x00000004#endifexternvoiddel_vnc_route(structrfapi_descriptor*rfd,structpeer*
+peer,structbgp*bgp,safi_tsafi,structprefix*p,structprefix_rd*prd,uint8_ttype,uin
+t8_tsub_type,structrfapi_nexthop*lnh,intkill);externintrfapiCliGetPrefixAddr(str
+uctvty*vty,constchar*str,structprefix*p);externintrfapiGetVncLifetime(structattr
+*attr,uint32_t*lifetime);externintrfapiGetTunnelType(structattr*attr,bgp_encap_t
+ypes*type);externintrfapiGetVncTunnelUnAddr(structattr*attr,structprefix*p);exte
+rnintrfapi_reopen(structrfapi_descriptor*rfd,structbgp*bgp);externvoidvnc_import
+_bgp_add_rfp_host_route_mode_resolve_nve(structbgp*bgp,structrfapi_descriptor*rf
+d,structprefix*prefix);externvoidvnc_import_bgp_del_rfp_host_route_mode_resolve_
+nve(structbgp*bgp,structrfapi_descriptor*rfd,structprefix*prefix);externvoidrfap
+iFreeBgpTeaOptionChain(structbgp_tea_options*p);externstructrfapi_vn_option*rfap
+iVnOptionsDup(structrfapi_vn_option*orig);externstructrfapi_un_option*rfapiUnOpt
+ionsDup(structrfapi_un_option*orig);externstructbgp_tea_options*rfapiOptionsDup(
+structbgp_tea_options*orig);externintrfapi_ip_addr_cmp(structrfapi_ip_addr*a1,st
+ructrfapi_ip_addr*a2);externuint32_trfp_cost_to_localpref(uint8_tcost);externint
+rfapi_set_autord_from_vn(structprefix_rd*rd,structrfapi_ip_addr*vn);externstruct
+rfapi_nexthop*rfapi_nexthop_new(structrfapi_nexthop*copyme);externvoidrfapi_next
+hop_free(void*goner);externstructrfapi_vn_option*rfapi_vn_options_dup(structrfap
+i_vn_option*existing);externvoidrfapi_un_options_free(structrfapi_un_option*gone
+r);externvoidrfapi_vn_options_free(structrfapi_vn_option*goner);externvoidvnc_ad
+d_vrf_opener(structbgp*bgp,structrfapi_nve_group_cfg*rfg);externvoidclear_vnc_vr
+f_closer(structrfapi_nve_group_cfg*rfg);/*--------------------------------------
+----*rfapi_extract_l2o**FindLayer2optionsinanoptionchain**input:*pHopoptionchain
+**output:*l2olayer2optionsextracted**returnvalue:*0OK*1nooptionsfound*----------
+----------------------------------*/externintrfapi_extract_l2o(structbgp_tea_opt
+ions*pHop,/*chainofoptions*/structrfapi_l2address_option*l2o);/*returnextractedv
+alue*//**compaitibilitytooldquagga_timecall*time_tvalueintermsofstabilisedabsolu
+tetime.*replacementforPOSIXtime()*/externtime_trfapi_time(time_t*t);DECLARE_MGRO
+UP(RFAPI)DECLARE_MTYPE(RFAPI_CFG)DECLARE_MTYPE(RFAPI_GROUP_CFG)DECLARE_MTYPE(RFA
+PI_L2_CFG)DECLARE_MTYPE(RFAPI_RFP_GROUP_CFG)DECLARE_MTYPE(RFAPI)DECLARE_MTYPE(RF
+API_DESC)DECLARE_MTYPE(RFAPI_IMPORTTABLE)DECLARE_MTYPE(RFAPI_MONITOR)DECLARE_MTY
+PE(RFAPI_MONITOR_ENCAP)DECLARE_MTYPE(RFAPI_NEXTHOP)DECLARE_MTYPE(RFAPI_VN_OPTION
+)DECLARE_MTYPE(RFAPI_UN_OPTION)DECLARE_MTYPE(RFAPI_WITHDRAW)DECLARE_MTYPE(RFAPI_
+RFG_NAME)DECLARE_MTYPE(RFAPI_ADB)DECLARE_MTYPE(RFAPI_ETI)DECLARE_MTYPE(RFAPI_NVE
+_ADDR)DECLARE_MTYPE(RFAPI_PREFIX_BAG)DECLARE_MTYPE(RFAPI_IT_EXTRA)DECLARE_MTYPE(
+RFAPI_INFO)DECLARE_MTYPE(RFAPI_ADDR)DECLARE_MTYPE(RFAPI_UPDATED_RESPONSE_QUEUE)D
+ECLARE_MTYPE(RFAPI_RECENT_DELETE)DECLARE_MTYPE(RFAPI_L2ADDR_OPT)DECLARE_MTYPE(RF
+API_AP)DECLARE_MTYPE(RFAPI_MONITOR_ETH)/**Callermustsupplyanalready-allocatedrfd
+withthe"caller"*fieldsalreadyset(vn_addr,un_addr,callback,cookie)*Theadvertised_
+prefixes[]arrayelementsshouldbeNULLto*havethisfunctionsetthemtonewly-allocatedra
+dixtrees.*/externintrfapi_init_and_open(structbgp*bgp,structrfapi_descriptor*rfd
+,structrfapi_nve_group_cfg*rfg);#endif/*_QUAGGA_BGP_RFAPI_PRIVATE_H*/

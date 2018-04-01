@@ -1,350 +1,129 @@
-/* Route map function.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_ROUTEMAP_H
-#define _ZEBRA_ROUTEMAP_H
-
-#include "prefix.h"
-#include "memory.h"
-#include "qobj.h"
-#include "vty.h"
-
-DECLARE_MTYPE(ROUTE_MAP_NAME)
-DECLARE_MTYPE(ROUTE_MAP_RULE)
-DECLARE_MTYPE(ROUTE_MAP_COMPILED)
-
-/* Route map's type. */
-enum route_map_type { RMAP_PERMIT, RMAP_DENY, RMAP_ANY };
-
-typedef enum {
-	RMAP_MATCH,
-	RMAP_DENYMATCH,
-	RMAP_NOMATCH,
-	RMAP_ERROR,
-	RMAP_OKAY
-} route_map_result_t;
-
-typedef enum {
-	RMAP_RIP,
-	RMAP_RIPNG,
-	RMAP_OSPF,
-	RMAP_OSPF6,
-	RMAP_BGP,
-	RMAP_ZEBRA,
-	RMAP_ISIS,
-} route_map_object_t;
-
-typedef enum { RMAP_EXIT, RMAP_GOTO, RMAP_NEXT } route_map_end_t;
-
-typedef enum {
-	RMAP_EVENT_SET_ADDED,
-	RMAP_EVENT_SET_DELETED,
-	RMAP_EVENT_SET_REPLACED,
-	RMAP_EVENT_MATCH_ADDED,
-	RMAP_EVENT_MATCH_DELETED,
-	RMAP_EVENT_MATCH_REPLACED,
-	RMAP_EVENT_INDEX_ADDED,
-	RMAP_EVENT_INDEX_DELETED,
-	RMAP_EVENT_CALL_ADDED, /* call to another routemap added */
-	RMAP_EVENT_CALL_DELETED,
-	RMAP_EVENT_PLIST_ADDED,
-	RMAP_EVENT_PLIST_DELETED,
-	RMAP_EVENT_CLIST_ADDED,
-	RMAP_EVENT_CLIST_DELETED,
-	RMAP_EVENT_ECLIST_ADDED,
-	RMAP_EVENT_ECLIST_DELETED,
-	RMAP_EVENT_LLIST_ADDED,
-	RMAP_EVENT_LLIST_DELETED,
-	RMAP_EVENT_ASLIST_ADDED,
-	RMAP_EVENT_ASLIST_DELETED,
-	RMAP_EVENT_FILTER_ADDED,
-	RMAP_EVENT_FILTER_DELETED,
-} route_map_event_t;
-
-/* Depth limit in RMAP recursion using RMAP_CALL. */
-#define RMAP_RECURSION_LIMIT      10
-
-/* Route map rule structure for matching and setting. */
-struct route_map_rule_cmd {
-	/* Route map rule name (e.g. as-path, metric) */
-	const char *str;
-
-	/* Function for value set or match. */
-	route_map_result_t (*func_apply)(void *, struct prefix *,
-					 route_map_object_t, void *);
-
-	/* Compile argument and return result as void *. */
-	void *(*func_compile)(const char *);
-
-	/* Free allocated value by func_compile (). */
-	void (*func_free)(void *);
-};
-
-/* Route map apply error. */
-enum { RMAP_COMPILE_SUCCESS,
-
-       /* Route map rule is missing. */
-       RMAP_RULE_MISSING,
-
-       /* Route map rule can't compile */
-       RMAP_COMPILE_ERROR };
-
-/* Route map rule list. */
-struct route_map_rule_list {
-	struct route_map_rule *head;
-	struct route_map_rule *tail;
-};
-
-/* Route map index structure. */
-struct route_map_index {
-	struct route_map *map;
-	char *description;
-
-	/* Preference of this route map rule. */
-	int pref;
-
-	/* Route map type permit or deny. */
-	enum route_map_type type;
-
-	/* Do we follow old rules, or hop forward? */
-	route_map_end_t exitpolicy;
-
-	/* If we're using "GOTO", to where do we go? */
-	int nextpref;
-
-	/* If we're using "CALL", to which route-map do ew go? */
-	char *nextrm;
-
-	/* Matching rule list. */
-	struct route_map_rule_list match_list;
-	struct route_map_rule_list set_list;
-
-	/* Make linked list. */
-	struct route_map_index *next;
-	struct route_map_index *prev;
-
-	QOBJ_FIELDS
-};
-DECLARE_QOBJ_TYPE(route_map_index)
-
-/* Route map list structure. */
-struct route_map {
-	/* Name of route map. */
-	char *name;
-
-	/* Route map's rule. */
-	struct route_map_index *head;
-	struct route_map_index *tail;
-
-	/* Make linked list. */
-	struct route_map *next;
-	struct route_map *prev;
-
-	/* Maintain update info */
-	int to_be_processed; /* True if modification isn't acted on yet */
-	int deleted;	 /* If 1, then this node will be deleted */
-
-	QOBJ_FIELDS
-};
-DECLARE_QOBJ_TYPE(route_map)
-
-/* Prototypes. */
-extern void route_map_init(void);
-extern void route_map_finish(void);
-
-/* Add match statement to route map. */
-extern int route_map_add_match(struct route_map_index *index,
-			       const char *match_name, const char *match_arg);
-
-/* Delete specified route match rule. */
-extern int route_map_delete_match(struct route_map_index *index,
-				  const char *match_name,
-				  const char *match_arg);
-
-extern const char *route_map_get_match_arg(struct route_map_index *index,
-					   const char *match_name);
-
-/* Add route-map set statement to the route map. */
-extern int route_map_add_set(struct route_map_index *index,
-			     const char *set_name, const char *set_arg);
-
-/* Delete route map set rule. */
-extern int route_map_delete_set(struct route_map_index *index,
-				const char *set_name, const char *set_arg);
-
-/* Install rule command to the match list. */
-extern void route_map_install_match(struct route_map_rule_cmd *cmd);
-
-/*
- * Install rule command to the set list.
- *
- * When installing a particular item, Allow a difference of handling
- * of bad cli inputted(return NULL) -vs- this particular daemon cannot use
- * this form of the command(return a pointer and handle it appropriately
- * in the apply command).  See 'set metric' command
- * as it is handled in ripd/ripngd and ospfd.
- */
-extern void route_map_install_set(struct route_map_rule_cmd *cmd);
-
-/* Lookup route map by name. */
-extern struct route_map *route_map_lookup_by_name(const char *name);
-
-/* Apply route map to the object. */
-extern route_map_result_t route_map_apply(struct route_map *map,
-					  struct prefix *,
-					  route_map_object_t object_type,
-					  void *object);
-
-extern void route_map_add_hook(void (*func)(const char *));
-extern void route_map_delete_hook(void (*func)(const char *));
-extern void route_map_event_hook(void (*func)(route_map_event_t, const char *));
-extern int route_map_mark_updated(const char *name, int deleted);
-extern int route_map_clear_updated(struct route_map *rmap);
-extern void route_map_walk_update_list(int (*update_fn)(char *name));
-extern void route_map_upd8_dependency(route_map_event_t type, const char *arg,
-				      const char *rmap_name);
-extern void route_map_notify_dependencies(const char *affected_name,
-					  route_map_event_t event);
-
-extern int generic_match_add(struct vty *vty, struct route_map_index *index,
-			     const char *command, const char *arg,
-			     route_map_event_t type);
-
-extern int generic_match_delete(struct vty *vty, struct route_map_index *index,
-				const char *command, const char *arg,
-				route_map_event_t type);
-extern int generic_set_add(struct vty *vty, struct route_map_index *index,
-			   const char *command, const char *arg);
-extern int generic_set_delete(struct vty *vty, struct route_map_index *index,
-			      const char *command, const char *arg);
-
-
-/* match interface */
-extern void route_map_match_interface_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* no match interface */
-extern void route_map_no_match_interface_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* match ip address */
-extern void route_map_match_ip_address_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* no match ip address */
-extern void route_map_no_match_ip_address_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* match ip address prefix list */
-extern void route_map_match_ip_address_prefix_list_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* no match ip address prefix list */
-extern void route_map_no_match_ip_address_prefix_list_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* match ip next hop */
-extern void route_map_match_ip_next_hop_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* no match ip next hop */
-extern void route_map_no_match_ip_next_hop_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* match ip next hop prefix list */
-extern void route_map_match_ip_next_hop_prefix_list_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* no match ip next hop prefix list */
-extern void route_map_no_match_ip_next_hop_prefix_list_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* match ipv6 address */
-extern void route_map_match_ipv6_address_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* no match ipv6 address */
-extern void route_map_no_match_ipv6_address_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* match ipv6 address prefix list */
-extern void route_map_match_ipv6_address_prefix_list_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* no match ipv6 address prefix list */
-extern void route_map_no_match_ipv6_address_prefix_list_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* match metric */
-extern void route_map_match_metric_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* no match metric */
-extern void route_map_no_match_metric_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* match tag */
-extern void route_map_match_tag_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* no match tag */
-extern void route_map_no_match_tag_hook(int (*func)(
-	struct vty *vty, struct route_map_index *index, const char *command,
-	const char *arg, route_map_event_t type));
-/* set ip nexthop */
-extern void route_map_set_ip_nexthop_hook(
-	int (*func)(struct vty *vty, struct route_map_index *index,
-		    const char *command, const char *arg));
-/* no set ip nexthop */
-extern void route_map_no_set_ip_nexthop_hook(
-	int (*func)(struct vty *vty, struct route_map_index *index,
-		    const char *command, const char *arg));
-/* set ipv6 nexthop local */
-extern void route_map_set_ipv6_nexthop_local_hook(
-	int (*func)(struct vty *vty, struct route_map_index *index,
-		    const char *command, const char *arg));
-/* no set ipv6 nexthop local */
-extern void route_map_no_set_ipv6_nexthop_local_hook(
-	int (*func)(struct vty *vty, struct route_map_index *index,
-		    const char *command, const char *arg));
-/* set metric */
-extern void route_map_set_metric_hook(int (*func)(struct vty *vty,
-						  struct route_map_index *index,
-						  const char *command,
-						  const char *arg));
-/* no set metric */
-extern void route_map_no_set_metric_hook(
-	int (*func)(struct vty *vty, struct route_map_index *index,
-		    const char *command, const char *arg));
-/* set tag */
-extern void route_map_set_tag_hook(int (*func)(struct vty *vty,
-					       struct route_map_index *index,
-					       const char *command,
-					       const char *arg));
-/* no set tag */
-extern void route_map_no_set_tag_hook(int (*func)(struct vty *vty,
-						  struct route_map_index *index,
-						  const char *command,
-						  const char *arg));
-
-extern void *route_map_rule_tag_compile(const char *arg);
-extern void route_map_rule_tag_free(void *rule);
-
-#endif /* _ZEBRA_ROUTEMAP_H */
+/*Routemapfunction.*Copyright(C)1998KunihiroIshiguro**ThisfileispartofGNUZebra.*
+*GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNU
+GeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(at
+youroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,b
+ut*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFO
+RAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhave
+receivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING
+;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA0
+2110-1301USA*/#ifndef_ZEBRA_ROUTEMAP_H#define_ZEBRA_ROUTEMAP_H#include"prefix.h"
+#include"memory.h"#include"qobj.h"#include"vty.h"DECLARE_MTYPE(ROUTE_MAP_NAME)DE
+CLARE_MTYPE(ROUTE_MAP_RULE)DECLARE_MTYPE(ROUTE_MAP_COMPILED)/*Routemap'stype.*/e
+numroute_map_type{RMAP_PERMIT,RMAP_DENY,RMAP_ANY};typedefenum{RMAP_MATCH,RMAP_DE
+NYMATCH,RMAP_NOMATCH,RMAP_ERROR,RMAP_OKAY}route_map_result_t;typedefenum{RMAP_RI
+P,RMAP_RIPNG,RMAP_OSPF,RMAP_OSPF6,RMAP_BGP,RMAP_ZEBRA,RMAP_ISIS,}route_map_objec
+t_t;typedefenum{RMAP_EXIT,RMAP_GOTO,RMAP_NEXT}route_map_end_t;typedefenum{RMAP_E
+VENT_SET_ADDED,RMAP_EVENT_SET_DELETED,RMAP_EVENT_SET_REPLACED,RMAP_EVENT_MATCH_A
+DDED,RMAP_EVENT_MATCH_DELETED,RMAP_EVENT_MATCH_REPLACED,RMAP_EVENT_INDEX_ADDED,R
+MAP_EVENT_INDEX_DELETED,RMAP_EVENT_CALL_ADDED,/*calltoanotherroutemapadded*/RMAP
+_EVENT_CALL_DELETED,RMAP_EVENT_PLIST_ADDED,RMAP_EVENT_PLIST_DELETED,RMAP_EVENT_C
+LIST_ADDED,RMAP_EVENT_CLIST_DELETED,RMAP_EVENT_ECLIST_ADDED,RMAP_EVENT_ECLIST_DE
+LETED,RMAP_EVENT_LLIST_ADDED,RMAP_EVENT_LLIST_DELETED,RMAP_EVENT_ASLIST_ADDED,RM
+AP_EVENT_ASLIST_DELETED,RMAP_EVENT_FILTER_ADDED,RMAP_EVENT_FILTER_DELETED,}route
+_map_event_t;/*DepthlimitinRMAPrecursionusingRMAP_CALL.*/#defineRMAP_RECURSION_L
+IMIT10/*Routemaprulestructureformatchingandsetting.*/structroute_map_rule_cmd{/*
+Routemaprulename(e.g.as-path,metric)*/constchar*str;/*Functionforvaluesetormatch
+.*/route_map_result_t(*func_apply)(void*,structprefix*,route_map_object_t,void*)
+;/*Compileargumentandreturnresultasvoid*.*/void*(*func_compile)(constchar*);/*Fr
+eeallocatedvaluebyfunc_compile().*/void(*func_free)(void*);};/*Routemapapplyerro
+r.*/enum{RMAP_COMPILE_SUCCESS,/*Routemapruleismissing.*/RMAP_RULE_MISSING,/*Rout
+emaprulecan'tcompile*/RMAP_COMPILE_ERROR};/*Routemaprulelist.*/structroute_map_r
+ule_list{structroute_map_rule*head;structroute_map_rule*tail;};/*Routemapindexst
+ructure.*/structroute_map_index{structroute_map*map;char*description;/*Preferenc
+eofthisroutemaprule.*/intpref;/*Routemaptypepermitordeny.*/enumroute_map_typetyp
+e;/*Dowefollowoldrules,orhopforward?*/route_map_end_texitpolicy;/*Ifwe'reusing"G
+OTO",towheredowego?*/intnextpref;/*Ifwe'reusing"CALL",towhichroute-mapdoewgo?*/c
+har*nextrm;/*Matchingrulelist.*/structroute_map_rule_listmatch_list;structroute_
+map_rule_listset_list;/*Makelinkedlist.*/structroute_map_index*next;structroute_
+map_index*prev;QOBJ_FIELDS};DECLARE_QOBJ_TYPE(route_map_index)/*Routemapliststru
+cture.*/structroute_map{/*Nameofroutemap.*/char*name;/*Routemap'srule.*/structro
+ute_map_index*head;structroute_map_index*tail;/*Makelinkedlist.*/structroute_map
+*next;structroute_map*prev;/*Maintainupdateinfo*/intto_be_processed;/*Trueifmodi
+ficationisn'tactedonyet*/intdeleted;/*If1,thenthisnodewillbedeleted*/QOBJ_FIELDS
+};DECLARE_QOBJ_TYPE(route_map)/*Prototypes.*/externvoidroute_map_init(void);exte
+rnvoidroute_map_finish(void);/*Addmatchstatementtoroutemap.*/externintroute_map_
+add_match(structroute_map_index*index,constchar*match_name,constchar*match_arg);
+/*Deletespecifiedroutematchrule.*/externintroute_map_delete_match(structroute_ma
+p_index*index,constchar*match_name,constchar*match_arg);externconstchar*route_ma
+p_get_match_arg(structroute_map_index*index,constchar*match_name);/*Addroute-map
+setstatementtotheroutemap.*/externintroute_map_add_set(structroute_map_index*ind
+ex,constchar*set_name,constchar*set_arg);/*Deleteroutemapsetrule.*/externintrout
+e_map_delete_set(structroute_map_index*index,constchar*set_name,constchar*set_ar
+g);/*Installrulecommandtothematchlist.*/externvoidroute_map_install_match(struct
+route_map_rule_cmd*cmd);/**Installrulecommandtothesetlist.**Wheninstallingaparti
+cularitem,Allowadifferenceofhandling*ofbadcliinputted(returnNULL)-vs-thisparticu
+lardaemoncannotuse*thisformofthecommand(returnapointerandhandleitappropriately*i
+ntheapplycommand).See'setmetric'command*asitishandledinripd/ripngdandospfd.*/ext
+ernvoidroute_map_install_set(structroute_map_rule_cmd*cmd);/*Lookuproutemapbynam
+e.*/externstructroute_map*route_map_lookup_by_name(constchar*name);/*Applyroutem
+aptotheobject.*/externroute_map_result_troute_map_apply(structroute_map*map,stru
+ctprefix*,route_map_object_tobject_type,void*object);externvoidroute_map_add_hoo
+k(void(*func)(constchar*));externvoidroute_map_delete_hook(void(*func)(constchar
+*));externvoidroute_map_event_hook(void(*func)(route_map_event_t,constchar*));ex
+ternintroute_map_mark_updated(constchar*name,intdeleted);externintroute_map_clea
+r_updated(structroute_map*rmap);externvoidroute_map_walk_update_list(int(*update
+_fn)(char*name));externvoidroute_map_upd8_dependency(route_map_event_ttype,const
+char*arg,constchar*rmap_name);externvoidroute_map_notify_dependencies(constchar*
+affected_name,route_map_event_tevent);externintgeneric_match_add(structvty*vty,s
+tructroute_map_index*index,constchar*command,constchar*arg,route_map_event_ttype
+);externintgeneric_match_delete(structvty*vty,structroute_map_index*index,constc
+har*command,constchar*arg,route_map_event_ttype);externintgeneric_set_add(struct
+vty*vty,structroute_map_index*index,constchar*command,constchar*arg);externintge
+neric_set_delete(structvty*vty,structroute_map_index*index,constchar*command,con
+stchar*arg);/*matchinterface*/externvoidroute_map_match_interface_hook(int(*func
+)(structvty*vty,structroute_map_index*index,constchar*command,constchar*arg,rout
+e_map_event_ttype));/*nomatchinterface*/externvoidroute_map_no_match_interface_h
+ook(int(*func)(structvty*vty,structroute_map_index*index,constchar*command,const
+char*arg,route_map_event_ttype));/*matchipaddress*/externvoidroute_map_match_ip_
+address_hook(int(*func)(structvty*vty,structroute_map_index*index,constchar*comm
+and,constchar*arg,route_map_event_ttype));/*nomatchipaddress*/externvoidroute_ma
+p_no_match_ip_address_hook(int(*func)(structvty*vty,structroute_map_index*index,
+constchar*command,constchar*arg,route_map_event_ttype));/*matchipaddressprefixli
+st*/externvoidroute_map_match_ip_address_prefix_list_hook(int(*func)(structvty*v
+ty,structroute_map_index*index,constchar*command,constchar*arg,route_map_event_t
+type));/*nomatchipaddressprefixlist*/externvoidroute_map_no_match_ip_address_pre
+fix_list_hook(int(*func)(structvty*vty,structroute_map_index*index,constchar*com
+mand,constchar*arg,route_map_event_ttype));/*matchipnexthop*/externvoidroute_map
+_match_ip_next_hop_hook(int(*func)(structvty*vty,structroute_map_index*index,con
+stchar*command,constchar*arg,route_map_event_ttype));/*nomatchipnexthop*/externv
+oidroute_map_no_match_ip_next_hop_hook(int(*func)(structvty*vty,structroute_map_
+index*index,constchar*command,constchar*arg,route_map_event_ttype));/*matchipnex
+thopprefixlist*/externvoidroute_map_match_ip_next_hop_prefix_list_hook(int(*func
+)(structvty*vty,structroute_map_index*index,constchar*command,constchar*arg,rout
+e_map_event_ttype));/*nomatchipnexthopprefixlist*/externvoidroute_map_no_match_i
+p_next_hop_prefix_list_hook(int(*func)(structvty*vty,structroute_map_index*index
+,constchar*command,constchar*arg,route_map_event_ttype));/*matchipv6address*/ext
+ernvoidroute_map_match_ipv6_address_hook(int(*func)(structvty*vty,structroute_ma
+p_index*index,constchar*command,constchar*arg,route_map_event_ttype));/*nomatchi
+pv6address*/externvoidroute_map_no_match_ipv6_address_hook(int(*func)(structvty*
+vty,structroute_map_index*index,constchar*command,constchar*arg,route_map_event_
+ttype));/*matchipv6addressprefixlist*/externvoidroute_map_match_ipv6_address_pre
+fix_list_hook(int(*func)(structvty*vty,structroute_map_index*index,constchar*com
+mand,constchar*arg,route_map_event_ttype));/*nomatchipv6addressprefixlist*/exter
+nvoidroute_map_no_match_ipv6_address_prefix_list_hook(int(*func)(structvty*vty,s
+tructroute_map_index*index,constchar*command,constchar*arg,route_map_event_ttype
+));/*matchmetric*/externvoidroute_map_match_metric_hook(int(*func)(structvty*vty
+,structroute_map_index*index,constchar*command,constchar*arg,route_map_event_tty
+pe));/*nomatchmetric*/externvoidroute_map_no_match_metric_hook(int(*func)(struct
+vty*vty,structroute_map_index*index,constchar*command,constchar*arg,route_map_ev
+ent_ttype));/*matchtag*/externvoidroute_map_match_tag_hook(int(*func)(structvty*
+vty,structroute_map_index*index,constchar*command,constchar*arg,route_map_event_
+ttype));/*nomatchtag*/externvoidroute_map_no_match_tag_hook(int(*func)(structvty
+*vty,structroute_map_index*index,constchar*command,constchar*arg,route_map_event
+_ttype));/*setipnexthop*/externvoidroute_map_set_ip_nexthop_hook(int(*func)(stru
+ctvty*vty,structroute_map_index*index,constchar*command,constchar*arg));/*noseti
+pnexthop*/externvoidroute_map_no_set_ip_nexthop_hook(int(*func)(structvty*vty,st
+ructroute_map_index*index,constchar*command,constchar*arg));/*setipv6nexthoploca
+l*/externvoidroute_map_set_ipv6_nexthop_local_hook(int(*func)(structvty*vty,stru
+ctroute_map_index*index,constchar*command,constchar*arg));/*nosetipv6nexthoploca
+l*/externvoidroute_map_no_set_ipv6_nexthop_local_hook(int(*func)(structvty*vty,s
+tructroute_map_index*index,constchar*command,constchar*arg));/*setmetric*/extern
+voidroute_map_set_metric_hook(int(*func)(structvty*vty,structroute_map_index*ind
+ex,constchar*command,constchar*arg));/*nosetmetric*/externvoidroute_map_no_set_m
+etric_hook(int(*func)(structvty*vty,structroute_map_index*index,constchar*comman
+d,constchar*arg));/*settag*/externvoidroute_map_set_tag_hook(int(*func)(structvt
+y*vty,structroute_map_index*index,constchar*command,constchar*arg));/*nosettag*/
+externvoidroute_map_no_set_tag_hook(int(*func)(structvty*vty,structroute_map_ind
+ex*index,constchar*command,constchar*arg));externvoid*route_map_rule_tag_compile
+(constchar*arg);externvoidroute_map_rule_tag_free(void*rule);#endif/*_ZEBRA_ROUT
+EMAP_H*/

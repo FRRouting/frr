@@ -1,351 +1,100 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_dr.c
- *                             IS-IS designated router related routines
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-
-#include <zebra.h>
-
-#include "log.h"
-#include "hash.h"
-#include "thread.h"
-#include "linklist.h"
-#include "vty.h"
-#include "stream.h"
-#include "if.h"
-
-#include "isisd/dict.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_common.h"
-#include "isisd/isis_misc.h"
-#include "isisd/isis_flags.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isisd.h"
-#include "isisd/isis_adjacency.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_pdu.h"
-#include "isisd/isis_lsp.h"
-#include "isisd/isis_dr.h"
-#include "isisd/isis_events.h"
-
-const char *isis_disflag2string(int disflag)
-{
-
-	switch (disflag) {
-	case ISIS_IS_NOT_DIS:
-		return "is not DIS";
-	case ISIS_IS_DIS:
-		return "is DIS";
-	case ISIS_WAS_DIS:
-		return "was DIS";
-	default:
-		return "unknown DIS state";
-	}
-	return NULL; /* not reached */
-}
-
-int isis_run_dr_l1(struct thread *thread)
-{
-	struct isis_circuit *circuit;
-
-	circuit = THREAD_ARG(thread);
-	assert(circuit);
-
-	if (circuit->u.bc.run_dr_elect[0])
-		zlog_warn("isis_run_dr(): run_dr_elect already set for l1");
-
-	circuit->u.bc.t_run_dr[0] = NULL;
-	circuit->u.bc.run_dr_elect[0] = 1;
-
-	return ISIS_OK;
-}
-
-int isis_run_dr_l2(struct thread *thread)
-{
-	struct isis_circuit *circuit;
-
-	circuit = THREAD_ARG(thread);
-	assert(circuit);
-
-	if (circuit->u.bc.run_dr_elect[1])
-		zlog_warn("isis_run_dr(): run_dr_elect already set for l2");
-
-
-	circuit->u.bc.t_run_dr[1] = NULL;
-	circuit->u.bc.run_dr_elect[1] = 1;
-
-	return ISIS_OK;
-}
-
-static int isis_check_dr_change(struct isis_adjacency *adj, int level)
-{
-	int i;
-
-	if (adj->dis_record[level - 1].dis
-	    != adj->dis_record[(1 * ISIS_LEVELS) + level - 1].dis)
-	/* was there a DIS state transition ? */
-	{
-		adj->dischanges[level - 1]++;
-		/* ok rotate the history list through */
-		for (i = DIS_RECORDS - 1; i > 0; i--) {
-			adj->dis_record[(i * ISIS_LEVELS) + level - 1].dis =
-				adj->dis_record[((i - 1) * ISIS_LEVELS) + level
-						- 1]
-					.dis;
-			adj->dis_record[(i * ISIS_LEVELS) + level - 1]
-				.last_dis_change =
-				adj->dis_record[((i - 1) * ISIS_LEVELS) + level
-						- 1]
-					.last_dis_change;
-		}
-	}
-	return ISIS_OK;
-}
-
-int isis_dr_elect(struct isis_circuit *circuit, int level)
-{
-	struct list *adjdb;
-	struct listnode *node;
-	struct isis_adjacency *adj, *adj_dr = NULL;
-	struct list *list = list_new();
-	uint8_t own_prio;
-	int biggest_prio = -1;
-	int cmp_res, retval = ISIS_OK;
-
-	own_prio = circuit->priority[level - 1];
-	adjdb = circuit->u.bc.adjdb[level - 1];
-
-	if (!adjdb) {
-		zlog_warn("isis_dr_elect() adjdb == NULL");
-		list_delete_and_null(&list);
-		return ISIS_WARNING;
-	}
-	isis_adj_build_up_list(adjdb, list);
-
-	/*
-	 * Loop the adjacencies and find the one with the biggest priority
-	 */
-	for (ALL_LIST_ELEMENTS_RO(list, node, adj)) {
-		/* clear flag for show output */
-		adj->dis_record[level - 1].dis = ISIS_IS_NOT_DIS;
-		adj->dis_record[level - 1].last_dis_change = time(NULL);
-
-		if (adj->prio[level - 1] > biggest_prio) {
-			biggest_prio = adj->prio[level - 1];
-			adj_dr = adj;
-		} else if (adj->prio[level - 1] == biggest_prio) {
-			/*
-			 * Comparison of MACs breaks a tie
-			 */
-			if (adj_dr) {
-				cmp_res = memcmp(adj_dr->snpa, adj->snpa,
-						 ETH_ALEN);
-				if (cmp_res < 0) {
-					adj_dr = adj;
-				}
-				if (cmp_res == 0)
-					zlog_warn(
-						"isis_dr_elect(): multiple adjacencies with same SNPA");
-			} else {
-				adj_dr = adj;
-			}
-		}
-	}
-
-	if (!adj_dr) {
-		/*
-		 * Could not find the DR - means we are alone. Resign if we were
-		 * DR.
-		 */
-		if (circuit->u.bc.is_dr[level - 1])
-			retval = isis_dr_resign(circuit, level);
-		list_delete_and_null(&list);
-		return retval;
-	}
-
-	/*
-	 * Now we have the DR adjacency, compare it to self
-	 */
-	if (adj_dr->prio[level - 1] < own_prio
-	    || (adj_dr->prio[level - 1] == own_prio
-		&& memcmp(adj_dr->snpa, circuit->u.bc.snpa, ETH_ALEN) < 0)) {
-		adj_dr->dis_record[level - 1].dis = ISIS_IS_NOT_DIS;
-		adj_dr->dis_record[level - 1].last_dis_change = time(NULL);
-
-		/* rotate the history log */
-		for (ALL_LIST_ELEMENTS_RO(list, node, adj))
-			isis_check_dr_change(adj, level);
-
-		/* We are the DR, commence DR */
-		if (circuit->u.bc.is_dr[level - 1] == 0 && listcount(list) > 0)
-			retval = isis_dr_commence(circuit, level);
-	} else {
-		/* ok we have found the DIS - lets mark the adjacency */
-		/* set flag for show output */
-		adj_dr->dis_record[level - 1].dis = ISIS_IS_DIS;
-		adj_dr->dis_record[level - 1].last_dis_change = time(NULL);
-
-		/* now loop through a second time to check if there has been a
-		 * DIS change
-		 * if yes rotate the history log
-		 */
-
-		for (ALL_LIST_ELEMENTS_RO(list, node, adj))
-			isis_check_dr_change(adj, level);
-
-		/*
-		 * We are not DR - if we were -> resign
-		 */
-		if (circuit->u.bc.is_dr[level - 1])
-			retval = isis_dr_resign(circuit, level);
-	}
-	list_delete_and_null(&list);
-	return retval;
-}
-
-int isis_dr_resign(struct isis_circuit *circuit, int level)
-{
-	uint8_t id[ISIS_SYS_ID_LEN + 2];
-
-	zlog_debug("isis_dr_resign l%d", level);
-
-	circuit->u.bc.is_dr[level - 1] = 0;
-	circuit->u.bc.run_dr_elect[level - 1] = 0;
-	THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[level - 1]);
-	THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
-	circuit->lsp_regenerate_pending[level - 1] = 0;
-
-	memcpy(id, isis->sysid, ISIS_SYS_ID_LEN);
-	LSP_PSEUDO_ID(id) = circuit->circuit_id;
-	LSP_FRAGMENT(id) = 0;
-	lsp_purge_pseudo(id, circuit, level);
-
-	if (level == 1) {
-		memset(circuit->u.bc.l1_desig_is, 0, ISIS_SYS_ID_LEN + 1);
-
-		THREAD_TIMER_OFF(circuit->t_send_csnp[0]);
-
-		thread_add_timer(master, isis_run_dr_l1, circuit,
-				 2 * circuit->hello_interval[0],
-				 &circuit->u.bc.t_run_dr[0]);
-
-		thread_add_timer(master, send_l1_psnp, circuit,
-				 isis_jitter(circuit->psnp_interval[level - 1],
-					     PSNP_JITTER),
-				 &circuit->t_send_psnp[0]);
-	} else {
-		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
-
-		THREAD_TIMER_OFF(circuit->t_send_csnp[1]);
-
-		thread_add_timer(master, isis_run_dr_l2, circuit,
-				 2 * circuit->hello_interval[1],
-				 &circuit->u.bc.t_run_dr[1]);
-
-		thread_add_timer(master, send_l2_psnp, circuit,
-				 isis_jitter(circuit->psnp_interval[level - 1],
-					     PSNP_JITTER),
-				 &circuit->t_send_psnp[1]);
-	}
-
-	thread_add_event(master, isis_event_dis_status_change, circuit, 0,
-			 NULL);
-
-	return ISIS_OK;
-}
-
-int isis_dr_commence(struct isis_circuit *circuit, int level)
-{
-	uint8_t old_dr[ISIS_SYS_ID_LEN + 2];
-
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("isis_dr_commence l%d", level);
-
-	/* Lets keep a pause in DR election */
-	circuit->u.bc.run_dr_elect[level - 1] = 0;
-	if (level == 1)
-		thread_add_timer(master, isis_run_dr_l1, circuit,
-				 2 * circuit->hello_interval[0],
-				 &circuit->u.bc.t_run_dr[0]);
-	else
-		thread_add_timer(master, isis_run_dr_l2, circuit,
-				 2 * circuit->hello_interval[1],
-				 &circuit->u.bc.t_run_dr[1]);
-	circuit->u.bc.is_dr[level - 1] = 1;
-
-	if (level == 1) {
-		memcpy(old_dr, circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
-		LSP_FRAGMENT(old_dr) = 0;
-		if (LSP_PSEUDO_ID(old_dr)) {
-			/* there was a dr elected, purge its LSPs from the db */
-			lsp_purge_pseudo(old_dr, circuit, level);
-		}
-		memcpy(circuit->u.bc.l1_desig_is, isis->sysid, ISIS_SYS_ID_LEN);
-		*(circuit->u.bc.l1_desig_is + ISIS_SYS_ID_LEN) =
-			circuit->circuit_id;
-
-		assert(circuit->circuit_id); /* must be non-zero */
-		/*    if (circuit->t_send_l1_psnp)
-		   thread_cancel (circuit->t_send_l1_psnp); */
-		lsp_generate_pseudo(circuit, 1);
-
-		THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[0]);
-		thread_add_timer(master, isis_run_dr_l1, circuit,
-				 2 * circuit->hello_interval[0],
-				 &circuit->u.bc.t_run_dr[0]);
-
-		thread_add_timer(master, send_l1_csnp, circuit,
-				 isis_jitter(circuit->csnp_interval[level - 1],
-					     CSNP_JITTER),
-				 &circuit->t_send_csnp[0]);
-
-	} else {
-		memcpy(old_dr, circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
-		LSP_FRAGMENT(old_dr) = 0;
-		if (LSP_PSEUDO_ID(old_dr)) {
-			/* there was a dr elected, purge its LSPs from the db */
-			lsp_purge_pseudo(old_dr, circuit, level);
-		}
-		memcpy(circuit->u.bc.l2_desig_is, isis->sysid, ISIS_SYS_ID_LEN);
-		*(circuit->u.bc.l2_desig_is + ISIS_SYS_ID_LEN) =
-			circuit->circuit_id;
-
-		assert(circuit->circuit_id); /* must be non-zero */
-		/*    if (circuit->t_send_l1_psnp)
-		   thread_cancel (circuit->t_send_l1_psnp); */
-		lsp_generate_pseudo(circuit, 2);
-
-		THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[1]);
-		thread_add_timer(master, isis_run_dr_l2, circuit,
-				 2 * circuit->hello_interval[1],
-				 &circuit->u.bc.t_run_dr[1]);
-
-		thread_add_timer(master, send_l2_csnp, circuit,
-				 isis_jitter(circuit->csnp_interval[level - 1],
-					     CSNP_JITTER),
-				 &circuit->t_send_csnp[1]);
-	}
-
-	thread_add_event(master, isis_event_dis_status_change, circuit, 0,
-			 NULL);
-
-	return ISIS_OK;
-}
+/**IS-ISRout(e)ingprotocol-isis_dr.c*IS-ISdesignatedrouterrelatedroutines**Copyr
+ight(C)2001,2002SampoSaaristo*TampereUniversityofTechnology*InstituteofCommunica
+tionsEngineering**Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*u
+nderthetermsoftheGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;
+eitherversion2oftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistr
+ibutedinthehopethatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwa
+rrantyofMERCHANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLic
+ensefor*moredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealon
+g*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.
+,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"log.h
+"#include"hash.h"#include"thread.h"#include"linklist.h"#include"vty.h"#include"s
+tream.h"#include"if.h"#include"isisd/dict.h"#include"isisd/isis_constants.h"#inc
+lude"isisd/isis_common.h"#include"isisd/isis_misc.h"#include"isisd/isis_flags.h"
+#include"isisd/isis_circuit.h"#include"isisd/isisd.h"#include"isisd/isis_adjacen
+cy.h"#include"isisd/isis_constants.h"#include"isisd/isis_pdu.h"#include"isisd/is
+is_lsp.h"#include"isisd/isis_dr.h"#include"isisd/isis_events.h"constchar*isis_di
+sflag2string(intdisflag){switch(disflag){caseISIS_IS_NOT_DIS:return"isnotDIS";ca
+seISIS_IS_DIS:return"isDIS";caseISIS_WAS_DIS:return"wasDIS";default:return"unkno
+wnDISstate";}returnNULL;/*notreached*/}intisis_run_dr_l1(structthread*thread){st
+ructisis_circuit*circuit;circuit=THREAD_ARG(thread);assert(circuit);if(circuit->
+u.bc.run_dr_elect[0])zlog_warn("isis_run_dr():run_dr_electalreadysetforl1");circ
+uit->u.bc.t_run_dr[0]=NULL;circuit->u.bc.run_dr_elect[0]=1;returnISIS_OK;}intisi
+s_run_dr_l2(structthread*thread){structisis_circuit*circuit;circuit=THREAD_ARG(t
+hread);assert(circuit);if(circuit->u.bc.run_dr_elect[1])zlog_warn("isis_run_dr()
+:run_dr_electalreadysetforl2");circuit->u.bc.t_run_dr[1]=NULL;circuit->u.bc.run_
+dr_elect[1]=1;returnISIS_OK;}staticintisis_check_dr_change(structisis_adjacency*
+adj,intlevel){inti;if(adj->dis_record[level-1].dis!=adj->dis_record[(1*ISIS_LEVE
+LS)+level-1].dis)/*wasthereaDISstatetransition?*/{adj->dischanges[level-1]++;/*o
+krotatethehistorylistthrough*/for(i=DIS_RECORDS-1;i>0;i--){adj->dis_record[(i*IS
+IS_LEVELS)+level-1].dis=adj->dis_record[((i-1)*ISIS_LEVELS)+level-1].dis;adj->di
+s_record[(i*ISIS_LEVELS)+level-1].last_dis_change=adj->dis_record[((i-1)*ISIS_LE
+VELS)+level-1].last_dis_change;}}returnISIS_OK;}intisis_dr_elect(structisis_circ
+uit*circuit,intlevel){structlist*adjdb;structlistnode*node;structisis_adjacency*
+adj,*adj_dr=NULL;structlist*list=list_new();uint8_town_prio;intbiggest_prio=-1;i
+ntcmp_res,retval=ISIS_OK;own_prio=circuit->priority[level-1];adjdb=circuit->u.bc
+.adjdb[level-1];if(!adjdb){zlog_warn("isis_dr_elect()adjdb==NULL");list_delete_a
+nd_null(&list);returnISIS_WARNING;}isis_adj_build_up_list(adjdb,list);/**Loopthe
+adjacenciesandfindtheonewiththebiggestpriority*/for(ALL_LIST_ELEMENTS_RO(list,no
+de,adj)){/*clearflagforshowoutput*/adj->dis_record[level-1].dis=ISIS_IS_NOT_DIS;
+adj->dis_record[level-1].last_dis_change=time(NULL);if(adj->prio[level-1]>bigges
+t_prio){biggest_prio=adj->prio[level-1];adj_dr=adj;}elseif(adj->prio[level-1]==b
+iggest_prio){/**ComparisonofMACsbreaksatie*/if(adj_dr){cmp_res=memcmp(adj_dr->sn
+pa,adj->snpa,ETH_ALEN);if(cmp_res<0){adj_dr=adj;}if(cmp_res==0)zlog_warn("isis_d
+r_elect():multipleadjacencieswithsameSNPA");}else{adj_dr=adj;}}}if(!adj_dr){/**C
+ouldnotfindtheDR-meanswearealone.Resignifwewere*DR.*/if(circuit->u.bc.is_dr[leve
+l-1])retval=isis_dr_resign(circuit,level);list_delete_and_null(&list);returnretv
+al;}/**NowwehavetheDRadjacency,compareittoself*/if(adj_dr->prio[level-1]<own_pri
+o||(adj_dr->prio[level-1]==own_prio&&memcmp(adj_dr->snpa,circuit->u.bc.snpa,ETH_
+ALEN)<0)){adj_dr->dis_record[level-1].dis=ISIS_IS_NOT_DIS;adj_dr->dis_record[lev
+el-1].last_dis_change=time(NULL);/*rotatethehistorylog*/for(ALL_LIST_ELEMENTS_RO
+(list,node,adj))isis_check_dr_change(adj,level);/*WearetheDR,commenceDR*/if(circ
+uit->u.bc.is_dr[level-1]==0&&listcount(list)>0)retval=isis_dr_commence(circuit,l
+evel);}else{/*okwehavefoundtheDIS-letsmarktheadjacency*//*setflagforshowoutput*/
+adj_dr->dis_record[level-1].dis=ISIS_IS_DIS;adj_dr->dis_record[level-1].last_dis
+_change=time(NULL);/*nowloopthroughasecondtimetocheckiftherehasbeena*DISchange*i
+fyesrotatethehistorylog*/for(ALL_LIST_ELEMENTS_RO(list,node,adj))isis_check_dr_c
+hange(adj,level);/**WearenotDR-ifwewere->resign*/if(circuit->u.bc.is_dr[level-1]
+)retval=isis_dr_resign(circuit,level);}list_delete_and_null(&list);returnretval;
+}intisis_dr_resign(structisis_circuit*circuit,intlevel){uint8_tid[ISIS_SYS_ID_LE
+N+2];zlog_debug("isis_dr_resignl%d",level);circuit->u.bc.is_dr[level-1]=0;circui
+t->u.bc.run_dr_elect[level-1]=0;THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[level-1]
+);THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level-1]);circuit->lsp_reg
+enerate_pending[level-1]=0;memcpy(id,isis->sysid,ISIS_SYS_ID_LEN);LSP_PSEUDO_ID(
+id)=circuit->circuit_id;LSP_FRAGMENT(id)=0;lsp_purge_pseudo(id,circuit,level);if
+(level==1){memset(circuit->u.bc.l1_desig_is,0,ISIS_SYS_ID_LEN+1);THREAD_TIMER_OF
+F(circuit->t_send_csnp[0]);thread_add_timer(master,isis_run_dr_l1,circuit,2*circ
+uit->hello_interval[0],&circuit->u.bc.t_run_dr[0]);thread_add_timer(master,send_
+l1_psnp,circuit,isis_jitter(circuit->psnp_interval[level-1],PSNP_JITTER),&circui
+t->t_send_psnp[0]);}else{memset(circuit->u.bc.l2_desig_is,0,ISIS_SYS_ID_LEN+1);T
+HREAD_TIMER_OFF(circuit->t_send_csnp[1]);thread_add_timer(master,isis_run_dr_l2,
+circuit,2*circuit->hello_interval[1],&circuit->u.bc.t_run_dr[1]);thread_add_time
+r(master,send_l2_psnp,circuit,isis_jitter(circuit->psnp_interval[level-1],PSNP_J
+ITTER),&circuit->t_send_psnp[1]);}thread_add_event(master,isis_event_dis_status_
+change,circuit,0,NULL);returnISIS_OK;}intisis_dr_commence(structisis_circuit*cir
+cuit,intlevel){uint8_told_dr[ISIS_SYS_ID_LEN+2];if(isis->debugs&DEBUG_EVENTS)zlo
+g_debug("isis_dr_commencel%d",level);/*LetskeepapauseinDRelection*/circuit->u.bc
+.run_dr_elect[level-1]=0;if(level==1)thread_add_timer(master,isis_run_dr_l1,circ
+uit,2*circuit->hello_interval[0],&circuit->u.bc.t_run_dr[0]);elsethread_add_time
+r(master,isis_run_dr_l2,circuit,2*circuit->hello_interval[1],&circuit->u.bc.t_ru
+n_dr[1]);circuit->u.bc.is_dr[level-1]=1;if(level==1){memcpy(old_dr,circuit->u.bc
+.l1_desig_is,ISIS_SYS_ID_LEN+1);LSP_FRAGMENT(old_dr)=0;if(LSP_PSEUDO_ID(old_dr))
+{/*therewasadrelected,purgeitsLSPsfromthedb*/lsp_purge_pseudo(old_dr,circuit,lev
+el);}memcpy(circuit->u.bc.l1_desig_is,isis->sysid,ISIS_SYS_ID_LEN);*(circuit->u.
+bc.l1_desig_is+ISIS_SYS_ID_LEN)=circuit->circuit_id;assert(circuit->circuit_id);
+/*mustbenon-zero*//*if(circuit->t_send_l1_psnp)thread_cancel(circuit->t_send_l1_
+psnp);*/lsp_generate_pseudo(circuit,1);THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[0
+]);thread_add_timer(master,isis_run_dr_l1,circuit,2*circuit->hello_interval[0],&
+circuit->u.bc.t_run_dr[0]);thread_add_timer(master,send_l1_csnp,circuit,isis_jit
+ter(circuit->csnp_interval[level-1],CSNP_JITTER),&circuit->t_send_csnp[0]);}else
+{memcpy(old_dr,circuit->u.bc.l2_desig_is,ISIS_SYS_ID_LEN+1);LSP_FRAGMENT(old_dr)
+=0;if(LSP_PSEUDO_ID(old_dr)){/*therewasadrelected,purgeitsLSPsfromthedb*/lsp_pur
+ge_pseudo(old_dr,circuit,level);}memcpy(circuit->u.bc.l2_desig_is,isis->sysid,IS
+IS_SYS_ID_LEN);*(circuit->u.bc.l2_desig_is+ISIS_SYS_ID_LEN)=circuit->circuit_id;
+assert(circuit->circuit_id);/*mustbenon-zero*//*if(circuit->t_send_l1_psnp)threa
+d_cancel(circuit->t_send_l1_psnp);*/lsp_generate_pseudo(circuit,2);THREAD_TIMER_
+OFF(circuit->u.bc.t_run_dr[1]);thread_add_timer(master,isis_run_dr_l2,circuit,2*
+circuit->hello_interval[1],&circuit->u.bc.t_run_dr[1]);thread_add_timer(master,s
+end_l2_csnp,circuit,isis_jitter(circuit->csnp_interval[level-1],CSNP_JITTER),&ci
+rcuit->t_send_csnp[1]);}thread_add_event(master,isis_event_dis_status_change,cir
+cuit,0,NULL);returnISIS_OK;}

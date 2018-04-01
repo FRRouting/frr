@@ -1,79 +1,41 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_CMD_H
-#define PIM_CMD_H
-
-#define PIM_STR                                "PIM information\n"
-#define IGMP_STR                               "IGMP information\n"
-#define IGMP_GROUP_STR                         "IGMP groups information\n"
-#define IGMP_SOURCE_STR                        "IGMP sources information\n"
-#define CONF_SSMPINGD_STR                      "Enable ssmpingd operation\n"
-#define SHOW_SSMPINGD_STR                      "ssmpingd operation\n"
-#define IFACE_PIM_STR                          "Enable PIM SSM operation\n"
-#define IFACE_PIM_SM_STR                       "Enable PIM SM operation\n"
-#define IFACE_PIM_HELLO_STR                    "Hello Interval\n"
-#define IFACE_PIM_HELLO_TIME_STR               "Time in seconds for Hello Interval\n"
-#define IFACE_PIM_HELLO_HOLD_STR               "Time in seconds for Hold Interval\n"
-#define IFACE_IGMP_STR                         "Enable IGMP operation\n"
-#define IFACE_IGMP_QUERY_INTERVAL_STR          "IGMP host query interval\n"
-#define IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR      "IGMP max query response value (seconds)\n"
-#define IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR "IGMP max query response value (deciseconds)\n"
-#define DEBUG_IGMP_STR                              "IGMP protocol activity\n"
-#define DEBUG_IGMP_EVENTS_STR                       "IGMP protocol events\n"
-#define DEBUG_IGMP_PACKETS_STR                      "IGMP protocol packets\n"
-#define DEBUG_IGMP_TRACE_STR                        "IGMP internal daemon activity\n"
-#define DEBUG_MROUTE_STR                            "PIM interaction with kernel MFC cache\n"
-#define DEBUG_STATIC_STR                            "PIM Static Multicast Route activity\n"
-#define DEBUG_PIM_STR                               "PIM protocol activity\n"
-#define DEBUG_PIM_EVENTS_STR                        "PIM protocol events\n"
-#define DEBUG_PIM_PACKETS_STR                       "PIM protocol packets\n"
-#define DEBUG_PIM_HELLO_PACKETS_STR                 "PIM Hello protocol packets\n"
-#define DEBUG_PIM_J_P_PACKETS_STR                   "PIM Join/Prune protocol packets\n"
-#define DEBUG_PIM_PIM_REG_PACKETS_STR               "PIM Register/Reg-Stop protocol packets\n"
-#define DEBUG_PIM_PACKETDUMP_STR                    "PIM packet dump\n"
-#define DEBUG_PIM_PACKETDUMP_SEND_STR               "Dump sent packets\n"
-#define DEBUG_PIM_PACKETDUMP_RECV_STR               "Dump received packets\n"
-#define DEBUG_PIM_TRACE_STR                         "PIM internal daemon activity\n"
-#define DEBUG_PIM_ZEBRA_STR                         "ZEBRA protocol activity\n"
-#define DEBUG_SSMPINGD_STR                          "ssmpingd activity\n"
-#define CLEAR_IP_IGMP_STR                           "IGMP clear commands\n"
-#define CLEAR_IP_PIM_STR                            "PIM clear commands\n"
-#define MROUTE_STR                                  "IP multicast routing table\n"
-#define RIB_STR                                     "IP unicast routing table\n"
-#define CFG_MSDP_STR                                "Configure multicast source discovery protocol\n"
-#define MSDP_STR                                    "MSDP information\n"
-#define DEBUG_MSDP_STR                              "MSDP protocol activity\n"
-#define DEBUG_MSDP_EVENTS_STR                       "MSDP protocol events\n"
-#define DEBUG_MSDP_INTERNAL_STR                     "MSDP protocol internal\n"
-#define DEBUG_MSDP_PACKETS_STR                      "MSDP protocol packets\n"
-#define DEBUG_MTRACE_STR                            "Mtrace protocol activity\n"
-
-void pim_cmd_init(void);
-
-/*
- * Special Macro to allow us to get the correct pim_instance;
- */
-#define PIM_DECLVAR_CONTEXT(A, B)                                              \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct pim_instance *B =                                               \
-		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
-	vrf = (vrf) ? vrf : pim->vrf;
-
-#endif /* PIM_CMD_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_CMD_H#definePIM_CMD_H#definePIM_STR"PIMinformation\n"#defineIGM
+P_STR"IGMPinformation\n"#defineIGMP_GROUP_STR"IGMPgroupsinformation\n"#defineIGM
+P_SOURCE_STR"IGMPsourcesinformation\n"#defineCONF_SSMPINGD_STR"Enablessmpingdope
+ration\n"#defineSHOW_SSMPINGD_STR"ssmpingdoperation\n"#defineIFACE_PIM_STR"Enabl
+ePIMSSMoperation\n"#defineIFACE_PIM_SM_STR"EnablePIMSMoperation\n"#defineIFACE_P
+IM_HELLO_STR"HelloInterval\n"#defineIFACE_PIM_HELLO_TIME_STR"TimeinsecondsforHel
+loInterval\n"#defineIFACE_PIM_HELLO_HOLD_STR"TimeinsecondsforHoldInterval\n"#def
+ineIFACE_IGMP_STR"EnableIGMPoperation\n"#defineIFACE_IGMP_QUERY_INTERVAL_STR"IGM
+Phostqueryinterval\n"#defineIFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR"IGMPmaxqueryr
+esponsevalue(seconds)\n"#defineIFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR"IGMPm
+axqueryresponsevalue(deciseconds)\n"#defineDEBUG_IGMP_STR"IGMPprotocolactivity\n
+"#defineDEBUG_IGMP_EVENTS_STR"IGMPprotocolevents\n"#defineDEBUG_IGMP_PACKETS_STR
+"IGMPprotocolpackets\n"#defineDEBUG_IGMP_TRACE_STR"IGMPinternaldaemonactivity\n"
+#defineDEBUG_MROUTE_STR"PIMinteractionwithkernelMFCcache\n"#defineDEBUG_STATIC_S
+TR"PIMStaticMulticastRouteactivity\n"#defineDEBUG_PIM_STR"PIMprotocolactivity\n"
+#defineDEBUG_PIM_EVENTS_STR"PIMprotocolevents\n"#defineDEBUG_PIM_PACKETS_STR"PIM
+protocolpackets\n"#defineDEBUG_PIM_HELLO_PACKETS_STR"PIMHelloprotocolpackets\n"#
+defineDEBUG_PIM_J_P_PACKETS_STR"PIMJoin/Pruneprotocolpackets\n"#defineDEBUG_PIM_
+PIM_REG_PACKETS_STR"PIMRegister/Reg-Stopprotocolpackets\n"#defineDEBUG_PIM_PACKE
+TDUMP_STR"PIMpacketdump\n"#defineDEBUG_PIM_PACKETDUMP_SEND_STR"Dumpsentpackets\n
+"#defineDEBUG_PIM_PACKETDUMP_RECV_STR"Dumpreceivedpackets\n"#defineDEBUG_PIM_TRA
+CE_STR"PIMinternaldaemonactivity\n"#defineDEBUG_PIM_ZEBRA_STR"ZEBRAprotocolactiv
+ity\n"#defineDEBUG_SSMPINGD_STR"ssmpingdactivity\n"#defineCLEAR_IP_IGMP_STR"IGMP
+clearcommands\n"#defineCLEAR_IP_PIM_STR"PIMclearcommands\n"#defineMROUTE_STR"IPm
+ulticastroutingtable\n"#defineRIB_STR"IPunicastroutingtable\n"#defineCFG_MSDP_ST
+R"Configuremulticastsourcediscoveryprotocol\n"#defineMSDP_STR"MSDPinformation\n"
+#defineDEBUG_MSDP_STR"MSDPprotocolactivity\n"#defineDEBUG_MSDP_EVENTS_STR"MSDPpr
+otocolevents\n"#defineDEBUG_MSDP_INTERNAL_STR"MSDPprotocolinternal\n"#defineDEBU
+G_MSDP_PACKETS_STR"MSDPprotocolpackets\n"#defineDEBUG_MTRACE_STR"Mtraceprotocola
+ctivity\n"voidpim_cmd_init(void);/**SpecialMacrotoallowustogetthecorrectpim_inst
+ance;*/#definePIM_DECLVAR_CONTEXT(A,B)\structvrf*A=VTY_GET_CONTEXT(vrf);\structp
+im_instance*B=\(vrf)?vrf->info:pim_get_pim_instance(VRF_DEFAULT);\vrf=(vrf)?vrf:
+pim->vrf;#endif/*PIM_CMD_H*/

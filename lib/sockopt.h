@@ -1,101 +1,41 @@
-/* Router advertisement
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_SOCKOPT_H
-#define _ZEBRA_SOCKOPT_H
-
-#include "sockunion.h"
-
-extern void setsockopt_so_recvbuf(int sock, int size);
-extern void setsockopt_so_sendbuf(const int sock, int size);
-extern int getsockopt_so_sendbuf(const int sock);
-
-extern int setsockopt_ipv6_pktinfo(int, int);
-extern int setsockopt_ipv6_checksum(int, int);
-extern int setsockopt_ipv6_multicast_hops(int, int);
-extern int setsockopt_ipv6_unicast_hops(int, int);
-extern int setsockopt_ipv6_hoplimit(int, int);
-extern int setsockopt_ipv6_multicast_loop(int, int);
-extern int setsockopt_ipv6_tclass(int, int);
-
-#define SOPT_SIZE_CMSG_PKTINFO_IPV6() (sizeof (struct in6_pktinfo));
-
-/*
- * Size defines for control messages used to get ifindex.  We define
- * values for each method, and define a macro that can be used by code
- * that is unaware of which method is in use.
- * These values are without any alignment needed (see CMSG_SPACE in RFC3542).
- */
-#if defined(IP_PKTINFO)
-/* Linux in_pktinfo. */
-#define SOPT_SIZE_CMSG_PKTINFO_IPV4()  (CMSG_SPACE(sizeof (struct in_pktinfo)))
-/* XXX This should perhaps be defined even if IP_PKTINFO is not. */
-#define SOPT_SIZE_CMSG_PKTINFO(af)                                             \
-  ((af == AF_INET) ? SOPT_SIZE_CMSG_PKTINFO_IPV4() \
-                   : SOPT_SIZE_CMSG_PKTINFO_IPV6()
-#endif /* IP_PKTINFO */
-
-#if defined(IP_RECVIF)
-/* BSD/Solaris */
-
-#if defined(SUNOS_5)
-#define SOPT_SIZE_CMSG_RECVIF_IPV4()  (sizeof (uint_t))
-#else
-#define SOPT_SIZE_CMSG_RECVIF_IPV4()	(sizeof (struct sockaddr_dl))
-#endif /* SUNOS_5 */
-#endif /* IP_RECVIF */
-
-/* SOPT_SIZE_CMSG_IFINDEX_IPV4 - portable type */
-#if defined(SOPT_SIZE_CMSG_PKTINFO)
-#define SOPT_SIZE_CMSG_IFINDEX_IPV4() SOPT_SIZE_CMSG_PKTINFO_IPV4()
-#elif defined(SOPT_SIZE_CMSG_RECVIF_IPV4)
-#define SOPT_SIZE_CMSG_IFINDEX_IPV4() SOPT_SIZE_CMSG_RECVIF_IPV4()
-#else  /* Nothing available */
-#define SOPT_SIZE_CMSG_IFINDEX_IPV4() (sizeof (char *))
-#endif /* SOPT_SIZE_CMSG_IFINDEX_IPV4 */
-
-#define SOPT_SIZE_CMSG_IFINDEX(af)                                             \
-  (((af) == AF_INET) : SOPT_SIZE_CMSG_IFINDEX_IPV4() \
-                    ? SOPT_SIZE_CMSG_PKTINFO_IPV6())
-
-extern int setsockopt_ipv4_multicast_if(int sock, struct in_addr if_addr,
-					ifindex_t ifindex);
-extern int setsockopt_ipv4_multicast(int sock, int optname,
-				     struct in_addr if_addr,
-				     unsigned int mcast_addr,
-				     ifindex_t ifindex);
-extern int setsockopt_ipv4_multicast_loop(int sock, uint8_t val);
-
-extern int setsockopt_ipv4_tos(int sock, int tos);
-
-/* Ask for, and get, ifindex, by whatever method is supported. */
-extern int setsockopt_ifindex(int, int, ifindex_t);
-extern ifindex_t getsockopt_ifindex(int, struct msghdr *);
-
-/* swab the fields in iph between the host order and system order expected
- * for IP_HDRINCL.
- */
-extern void sockopt_iphdrincl_swab_htosys(struct ip *iph);
-extern void sockopt_iphdrincl_swab_systoh(struct ip *iph);
-
-extern int sockopt_tcp_rtt(int);
-extern int sockopt_tcp_signature(int sock, union sockunion *su,
-				 const char *password);
-#endif /*_ZEBRA_SOCKOPT_H */
+/*Routeradvertisement*Copyright(C)1999KunihiroIshiguro**ThisfileispartofGNUZebra
+.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheG
+NUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(
+atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful
+,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESS
+FORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldha
+vereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYI
+NG;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,M
+A02110-1301USA*/#ifndef_ZEBRA_SOCKOPT_H#define_ZEBRA_SOCKOPT_H#include"sockunion
+.h"externvoidsetsockopt_so_recvbuf(intsock,intsize);externvoidsetsockopt_so_send
+buf(constintsock,intsize);externintgetsockopt_so_sendbuf(constintsock);externint
+setsockopt_ipv6_pktinfo(int,int);externintsetsockopt_ipv6_checksum(int,int);exte
+rnintsetsockopt_ipv6_multicast_hops(int,int);externintsetsockopt_ipv6_unicast_ho
+ps(int,int);externintsetsockopt_ipv6_hoplimit(int,int);externintsetsockopt_ipv6_
+multicast_loop(int,int);externintsetsockopt_ipv6_tclass(int,int);#defineSOPT_SIZ
+E_CMSG_PKTINFO_IPV6()(sizeof(structin6_pktinfo));/**Sizedefinesforcontrolmessage
+susedtogetifindex.Wedefine*valuesforeachmethod,anddefineamacrothatcanbeusedbycod
+e*thatisunawareofwhichmethodisinuse.*Thesevaluesarewithoutanyalignmentneeded(see
+CMSG_SPACEinRFC3542).*/#ifdefined(IP_PKTINFO)/*Linuxin_pktinfo.*/#defineSOPT_SIZ
+E_CMSG_PKTINFO_IPV4()(CMSG_SPACE(sizeof(structin_pktinfo)))/*XXXThisshouldperhap
+sbedefinedevenifIP_PKTINFOisnot.*/#defineSOPT_SIZE_CMSG_PKTINFO(af)\((af==AF_INE
+T)?SOPT_SIZE_CMSG_PKTINFO_IPV4()\:SOPT_SIZE_CMSG_PKTINFO_IPV6()#endif/*IP_PKTINF
+O*/#ifdefined(IP_RECVIF)/*BSD/Solaris*/#ifdefined(SUNOS_5)#defineSOPT_SIZE_CMSG_
+RECVIF_IPV4()(sizeof(uint_t))#else#defineSOPT_SIZE_CMSG_RECVIF_IPV4()(sizeof(str
+uctsockaddr_dl))#endif/*SUNOS_5*/#endif/*IP_RECVIF*//*SOPT_SIZE_CMSG_IFINDEX_IPV
+4-portabletype*/#ifdefined(SOPT_SIZE_CMSG_PKTINFO)#defineSOPT_SIZE_CMSG_IFINDEX_
+IPV4()SOPT_SIZE_CMSG_PKTINFO_IPV4()#elifdefined(SOPT_SIZE_CMSG_RECVIF_IPV4)#defi
+neSOPT_SIZE_CMSG_IFINDEX_IPV4()SOPT_SIZE_CMSG_RECVIF_IPV4()#else/*Nothingavailab
+le*/#defineSOPT_SIZE_CMSG_IFINDEX_IPV4()(sizeof(char*))#endif/*SOPT_SIZE_CMSG_IF
+INDEX_IPV4*/#defineSOPT_SIZE_CMSG_IFINDEX(af)\(((af)==AF_INET):SOPT_SIZE_CMSG_IF
+INDEX_IPV4()\?SOPT_SIZE_CMSG_PKTINFO_IPV6())externintsetsockopt_ipv4_multicast_i
+f(intsock,structin_addrif_addr,ifindex_tifindex);externintsetsockopt_ipv4_multic
+ast(intsock,intoptname,structin_addrif_addr,unsignedintmcast_addr,ifindex_tifind
+ex);externintsetsockopt_ipv4_multicast_loop(intsock,uint8_tval);externintsetsock
+opt_ipv4_tos(intsock,inttos);/*Askfor,andget,ifindex,bywhatevermethodissupported
+.*/externintsetsockopt_ifindex(int,int,ifindex_t);externifindex_tgetsockopt_ifin
+dex(int,structmsghdr*);/*swabthefieldsiniphbetweenthehostorderandsystemorderexpe
+cted*forIP_HDRINCL.*/externvoidsockopt_iphdrincl_swab_htosys(structip*iph);exter
+nvoidsockopt_iphdrincl_swab_systoh(structip*iph);externintsockopt_tcp_rtt(int);e
+xternintsockopt_tcp_signature(intsock,unionsockunion*su,constchar*password);#end
+if/*_ZEBRA_SOCKOPT_H*/

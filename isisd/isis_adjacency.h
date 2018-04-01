@@ -1,127 +1,47 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_adjacency.h
- *                             IS-IS adjacency handling
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_ISIS_ADJACENCY_H
-#define _ZEBRA_ISIS_ADJACENCY_H
-
-#include "isisd/isis_tlvs.h"
-
-enum isis_adj_usage {
-	ISIS_ADJ_NONE,
-	ISIS_ADJ_LEVEL1,
-	ISIS_ADJ_LEVEL2,
-	ISIS_ADJ_LEVEL1AND2
-};
-
-enum isis_system_type {
-	ISIS_SYSTYPE_UNKNOWN,
-	ISIS_SYSTYPE_ES,
-	ISIS_SYSTYPE_IS,
-	ISIS_SYSTYPE_L1_IS,
-	ISIS_SYSTYPE_L2_IS
-};
-
-enum isis_adj_state {
-	ISIS_ADJ_UNKNOWN,
-	ISIS_ADJ_INITIALIZING,
-	ISIS_ADJ_UP,
-	ISIS_ADJ_DOWN
-};
-
-/*
- * we use the following codes to give an indication _why_
- * a specific adjacency is up or down
- */
-enum isis_adj_updown_reason {
-	ISIS_ADJ_REASON_SEENSELF,
-	ISIS_ADJ_REASON_AREA_MISMATCH,
-	ISIS_ADJ_REASON_HOLDTIMER_EXPIRED,
-	ISIS_ADJ_REASON_AUTH_FAILED,
-	ISIS_ADJ_REASON_CHECKSUM_FAILED
-};
-
-#define DIS_RECORDS 8	/* keep the last 8 DIS state changes on record */
-
-struct isis_dis_record {
-	int dis;		/* is our neighbor the DIS ? */
-	time_t last_dis_change; /* timestamp for last dis change */
-};
-
-struct isis_adjacency {
-	uint8_t snpa[ETH_ALEN];		    /* NeighbourSNPAAddress */
-	uint8_t sysid[ISIS_SYS_ID_LEN];     /* neighbourSystemIdentifier */
-	uint8_t lanid[ISIS_SYS_ID_LEN + 1]; /* LAN id on bcast circuits */
-	int dischanges[ISIS_LEVELS];       /* how many DIS changes ? */
-	/* an array of N levels for M records */
-	struct isis_dis_record dis_record[DIS_RECORDS * ISIS_LEVELS];
-	enum isis_adj_state adj_state;    /* adjacencyState */
-	enum isis_adj_usage adj_usage;    /* adjacencyUsage */
-	struct area_addr *area_addresses; /* areaAdressesOfNeighbour */
-	unsigned int area_address_count;
-	struct nlpids nlpids; /* protocols spoken ... */
-	struct in_addr *ipv4_addresses;
-	unsigned int ipv4_address_count;
-	struct in_addr router_address;
-	struct in6_addr *ipv6_addresses;
-	unsigned int ipv6_address_count;
-	struct in6_addr router_address6;
-	uint8_t prio[ISIS_LEVELS];      /* priorityOfNeighbour for DIS */
-	int circuit_t;			/* from hello PDU hdr */
-	int level;			/* level (1 or 2) */
-	enum isis_system_type sys_type; /* neighbourSystemType */
-	uint16_t hold_time;		/* entryRemainingTime */
-	uint32_t last_upd;
-	uint32_t last_flap; /* last time the adj flapped */
-	enum isis_threeway_state threeway_state;
-	uint32_t ext_circuit_id;
-	int flaps;		      /* number of adjacency flaps  */
-	struct thread *t_expire;      /* expire after hold_time  */
-	struct isis_circuit *circuit; /* back pointer */
-	uint16_t *mt_set;      /* Topologies this adjacency is valid for */
-	unsigned int mt_count; /* Number of entries in mt_set */
-};
-
-struct isis_threeway_adj;
-
-struct isis_adjacency *isis_adj_lookup(const uint8_t *sysid,
-				       struct list *adjdb);
-struct isis_adjacency *isis_adj_lookup_snpa(const uint8_t *ssnpa,
-					    struct list *adjdb);
-struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
-				    int level, struct isis_circuit *circuit);
-void isis_delete_adj(void *adj);
-void isis_adj_process_threeway(struct isis_adjacency *adj,
-			       struct isis_threeway_adj *tw_adj,
-			       enum isis_adj_usage adj_usage);
-void isis_adj_state_change(struct isis_adjacency *adj,
-			   enum isis_adj_state state, const char *reason);
-void isis_adj_print(struct isis_adjacency *adj);
-int isis_adj_expire(struct thread *thread);
-void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
-			char detail);
-void isis_adj_build_neigh_list(struct list *adjdb, struct list *list);
-void isis_adj_build_up_list(struct list *adjdb, struct list *list);
-int isis_adj_usage2levels(enum isis_adj_usage usage);
-
-#endif /* ISIS_ADJACENCY_H */
+/**IS-ISRout(e)ingprotocol-isis_adjacency.h*IS-ISadjacencyhandling**Copyright(C)
+2001,2002SampoSaaristo*TampereUniversityofTechnology*InstituteofCommunicationsEn
+gineering***Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*underth
+etermsoftheGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;either
+version2oftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistributed
+inthehopethatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarranty
+ofMERCHANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefo
+r*moredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*with
+thisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51Fra
+nklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_ISIS_ADJACENCY_H#define
+_ZEBRA_ISIS_ADJACENCY_H#include"isisd/isis_tlvs.h"enumisis_adj_usage{ISIS_ADJ_NO
+NE,ISIS_ADJ_LEVEL1,ISIS_ADJ_LEVEL2,ISIS_ADJ_LEVEL1AND2};enumisis_system_type{ISI
+S_SYSTYPE_UNKNOWN,ISIS_SYSTYPE_ES,ISIS_SYSTYPE_IS,ISIS_SYSTYPE_L1_IS,ISIS_SYSTYP
+E_L2_IS};enumisis_adj_state{ISIS_ADJ_UNKNOWN,ISIS_ADJ_INITIALIZING,ISIS_ADJ_UP,I
+SIS_ADJ_DOWN};/**weusethefollowingcodestogiveanindication_why_*aspecificadjacenc
+yisupordown*/enumisis_adj_updown_reason{ISIS_ADJ_REASON_SEENSELF,ISIS_ADJ_REASON
+_AREA_MISMATCH,ISIS_ADJ_REASON_HOLDTIMER_EXPIRED,ISIS_ADJ_REASON_AUTH_FAILED,ISI
+S_ADJ_REASON_CHECKSUM_FAILED};#defineDIS_RECORDS8/*keepthelast8DISstatechangeson
+record*/structisis_dis_record{intdis;/*isourneighbortheDIS?*/time_tlast_dis_chan
+ge;/*timestampforlastdischange*/};structisis_adjacency{uint8_tsnpa[ETH_ALEN];/*N
+eighbourSNPAAddress*/uint8_tsysid[ISIS_SYS_ID_LEN];/*neighbourSystemIdentifier*/
+uint8_tlanid[ISIS_SYS_ID_LEN+1];/*LANidonbcastcircuits*/intdischanges[ISIS_LEVEL
+S];/*howmanyDISchanges?*//*anarrayofNlevelsforMrecords*/structisis_dis_recorddis
+_record[DIS_RECORDS*ISIS_LEVELS];enumisis_adj_stateadj_state;/*adjacencyState*/e
+numisis_adj_usageadj_usage;/*adjacencyUsage*/structarea_addr*area_addresses;/*ar
+eaAdressesOfNeighbour*/unsignedintarea_address_count;structnlpidsnlpids;/*protoc
+olsspoken...*/structin_addr*ipv4_addresses;unsignedintipv4_address_count;structi
+n_addrrouter_address;structin6_addr*ipv6_addresses;unsignedintipv6_address_count
+;structin6_addrrouter_address6;uint8_tprio[ISIS_LEVELS];/*priorityOfNeighbourfor
+DIS*/intcircuit_t;/*fromhelloPDUhdr*/intlevel;/*level(1or2)*/enumisis_system_typ
+esys_type;/*neighbourSystemType*/uint16_thold_time;/*entryRemainingTime*/uint32_
+tlast_upd;uint32_tlast_flap;/*lasttimetheadjflapped*/enumisis_threeway_statethre
+eway_state;uint32_text_circuit_id;intflaps;/*numberofadjacencyflaps*/structthrea
+d*t_expire;/*expireafterhold_time*/structisis_circuit*circuit;/*backpointer*/uin
+t16_t*mt_set;/*Topologiesthisadjacencyisvalidfor*/unsignedintmt_count;/*Numberof
+entriesinmt_set*/};structisis_threeway_adj;structisis_adjacency*isis_adj_lookup(
+constuint8_t*sysid,structlist*adjdb);structisis_adjacency*isis_adj_lookup_snpa(c
+onstuint8_t*ssnpa,structlist*adjdb);structisis_adjacency*isis_new_adj(constuint8
+_t*id,constuint8_t*snpa,intlevel,structisis_circuit*circuit);voidisis_delete_adj
+(void*adj);voidisis_adj_process_threeway(structisis_adjacency*adj,structisis_thr
+eeway_adj*tw_adj,enumisis_adj_usageadj_usage);voidisis_adj_state_change(structis
+is_adjacency*adj,enumisis_adj_statestate,constchar*reason);voidisis_adj_print(st
+ructisis_adjacency*adj);intisis_adj_expire(structthread*thread);voidisis_adj_pri
+nt_vty(structisis_adjacency*adj,structvty*vty,chardetail);voidisis_adj_build_nei
+gh_list(structlist*adjdb,structlist*list);voidisis_adj_build_up_list(structlist*
+adjdb,structlist*list);intisis_adj_usage2levels(enumisis_adj_usageusage);#endif/
+*ISIS_ADJACENCY_H*/

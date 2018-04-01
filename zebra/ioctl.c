@@ -1,615 +1,166 @@
-/*
- * Common ioctl functions.
- * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "linklist.h"
-#include "if.h"
-#include "prefix.h"
-#include "ioctl.h"
-#include "log.h"
-#include "privs.h"
-
-#include "vty.h"
-#include "zebra/rib.h"
-#include "zebra/rt.h"
-#include "zebra/interface.h"
-
-#ifndef SUNOS_5
-
-#ifdef HAVE_BSD_LINK_DETECT
-#include <net/if_media.h>
-#endif /* HAVE_BSD_LINK_DETECT*/
-
-extern struct zebra_privs_t zserv_privs;
-
-/* clear and set interface name string */
-void ifreq_set_name(struct ifreq *ifreq, struct interface *ifp)
-{
-	strlcpy(ifreq->ifr_name, ifp->name, sizeof(ifreq->ifr_name));
-}
-
-/* call ioctl system call */
-int if_ioctl(unsigned long request, caddr_t buffer)
-{
-	int sock;
-	int ret;
-	int err = 0;
-
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-	sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock < 0) {
-		int save_errno = errno;
-
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
-		zlog_err("Cannot create UDP socket: %s",
-			 safe_strerror(save_errno));
-		exit(1);
-	}
-	if ((ret = ioctl(sock, request, buffer)) < 0)
-		err = errno;
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
-	close(sock);
-
-	if (ret < 0) {
-		errno = err;
-		return ret;
-	}
-	return 0;
-}
-
-/* call ioctl system call */
-int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
-{
-	int sock;
-	int ret;
-	int err = 0;
-
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-	sock = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf_id, NULL);
-	if (sock < 0) {
-		int save_errno = errno;
-
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
-		zlog_err("Cannot create UDP socket: %s",
-			 safe_strerror(save_errno));
-		exit(1);
-	}
-	ret = vrf_ioctl(vrf_id, sock, request, buffer);
-	if (ret < 0)
-		err = errno;
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
-	close(sock);
-
-	if (ret < 0) {
-		errno = err;
-		return ret;
-	}
-	return 0;
-}
-
-#ifndef HAVE_NETLINK
-static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
-{
-	int sock;
-	int ret;
-	int err = 0;
-
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-	sock = socket(AF_INET6, SOCK_DGRAM, 0);
-	if (sock < 0) {
-		int save_errno = errno;
-
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
-		zlog_err("Cannot create IPv6 datagram socket: %s",
-			 safe_strerror(save_errno));
-		exit(1);
-	}
-
-	if ((ret = ioctl(sock, request, buffer)) < 0)
-		err = errno;
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
-	close(sock);
-
-	if (ret < 0) {
-		errno = err;
-		return ret;
-	}
-	return 0;
-}
-#endif /* ! HAVE_NETLINK */
-
-/*
- * get interface metric
- *   -- if value is not avaliable set -1
- */
-void if_get_metric(struct interface *ifp)
-{
-#ifdef SIOCGIFMETRIC
-	struct ifreq ifreq;
-
-	ifreq_set_name(&ifreq, ifp);
-
-	if (vrf_if_ioctl(SIOCGIFMETRIC, (caddr_t)&ifreq, ifp->vrf_id) < 0)
-		return;
-	ifp->metric = ifreq.ifr_metric;
-	if (ifp->metric == 0)
-		ifp->metric = 1;
-#else  /* SIOCGIFMETRIC */
-	ifp->metric = -1;
-#endif /* SIOCGIFMETRIC */
-}
-
-/* get interface MTU */
-void if_get_mtu(struct interface *ifp)
-{
-	struct ifreq ifreq;
-
-	ifreq_set_name(&ifreq, ifp);
-
-#if defined(SIOCGIFMTU)
-	if (vrf_if_ioctl(SIOCGIFMTU, (caddr_t)&ifreq, ifp->vrf_id) < 0) {
-		zlog_info("Can't lookup mtu by ioctl(SIOCGIFMTU)");
-		ifp->mtu6 = ifp->mtu = -1;
-		return;
-	}
-
-#ifdef SUNOS_5
-	ifp->mtu6 = ifp->mtu = ifreq.ifr_metric;
-#else
-	ifp->mtu6 = ifp->mtu = ifreq.ifr_mtu;
-#endif /* SUNOS_5 */
-
-	/* propogate */
-	zebra_interface_up_update(ifp);
-
-#else
-	zlog_info("Can't lookup mtu on this system");
-	ifp->mtu6 = ifp->mtu = -1;
-#endif
-}
-
-#ifdef HAVE_NETLINK
-/* Interface address setting via netlink interface. */
-int if_set_prefix(struct interface *ifp, struct connected *ifc)
-{
-	return kernel_address_add_ipv4(ifp, ifc);
-}
-
-/* Interface address is removed using netlink interface. */
-int if_unset_prefix(struct interface *ifp, struct connected *ifc)
-{
-	return kernel_address_delete_ipv4(ifp, ifc);
-}
-#else /* ! HAVE_NETLINK */
-#ifdef HAVE_STRUCT_IFALIASREQ
-/* Set up interface's IP address, netmask (and broadcas? ).  *BSD may
-   has ifaliasreq structure.  */
-int if_set_prefix(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct ifaliasreq addreq;
-	struct sockaddr_in addr, mask, peer;
-	struct prefix_ipv4 *p;
-
-	/* don't configure PtP addresses on broadcast ifs or reverse */
-	if (!(ifp->flags & IFF_POINTOPOINT) != !CONNECTED_PEER(ifc)) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	p = (struct prefix_ipv4 *)ifc->address;
-	rib_lookup_and_pushup(p, ifp->vrf_id);
-
-	memset(&addreq, 0, sizeof addreq);
-	strncpy((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
-
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_addr = p->prefix;
-	addr.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	addr.sin_len = sizeof(struct sockaddr_in);
-#endif
-	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in));
-
-	if (CONNECTED_PEER(ifc)) {
-		p = (struct prefix_ipv4 *)ifc->destination;
-		memset(&mask, 0, sizeof(struct sockaddr_in));
-		peer.sin_addr = p->prefix;
-		peer.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		peer.sin_len = sizeof(struct sockaddr_in);
-#endif
-		memcpy(&addreq.ifra_broadaddr, &peer,
-		       sizeof(struct sockaddr_in));
-	}
-
-	memset(&mask, 0, sizeof(struct sockaddr_in));
-	masklen2ip(p->prefixlen, &mask.sin_addr);
-	mask.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	mask.sin_len = sizeof(struct sockaddr_in);
-#endif
-	memcpy(&addreq.ifra_mask, &mask, sizeof(struct sockaddr_in));
-
-	ret = if_ioctl(SIOCAIFADDR, (caddr_t)&addreq);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
-
-/* Set up interface's IP address, netmask (and broadcas? ).  *BSD may
-   has ifaliasreq structure.  */
-int if_unset_prefix(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct ifaliasreq addreq;
-	struct sockaddr_in addr, mask, peer;
-	struct prefix_ipv4 *p;
-
-	/* this would probably wreak havoc */
-	if (!(ifp->flags & IFF_POINTOPOINT) != !CONNECTED_PEER(ifc)) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	p = (struct prefix_ipv4 *)ifc->address;
-
-	memset(&addreq, 0, sizeof addreq);
-	strncpy((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
-
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_addr = p->prefix;
-	addr.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	addr.sin_len = sizeof(struct sockaddr_in);
-#endif
-	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in));
-
-	if (CONNECTED_PEER(ifc)) {
-		p = (struct prefix_ipv4 *)ifc->destination;
-		memset(&mask, 0, sizeof(struct sockaddr_in));
-		peer.sin_addr = p->prefix;
-		peer.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		peer.sin_len = sizeof(struct sockaddr_in);
-#endif
-		memcpy(&addreq.ifra_broadaddr, &peer,
-		       sizeof(struct sockaddr_in));
-	}
-
-	memset(&mask, 0, sizeof(struct sockaddr_in));
-	masklen2ip(p->prefixlen, &mask.sin_addr);
-	mask.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	mask.sin_len = sizeof(struct sockaddr_in);
-#endif
-	memcpy(&addreq.ifra_mask, &mask, sizeof(struct sockaddr_in));
-
-	ret = if_ioctl(SIOCDIFADDR, (caddr_t)&addreq);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
-#else
-/* Set up interface's address, netmask (and broadcas? ).  Linux or
-   Solaris uses ifname:number semantics to set IP address aliases. */
-int if_set_prefix(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct ifreq ifreq;
-	struct sockaddr_in addr;
-	struct sockaddr_in broad;
-	struct sockaddr_in mask;
-	struct prefix_ipv4 ifaddr;
-	struct prefix_ipv4 *p;
-
-	p = (struct prefix_ipv4 *)ifc->address;
-
-	ifaddr = *p;
-
-	ifreq_set_name(&ifreq, ifp);
-
-	addr.sin_addr = p->prefix;
-	addr.sin_family = p->family;
-	memcpy(&ifreq.ifr_addr, &addr, sizeof(struct sockaddr_in));
-	ret = if_ioctl(SIOCSIFADDR, (caddr_t)&ifreq);
-	if (ret < 0)
-		return ret;
-
-	/* We need mask for make broadcast addr. */
-	masklen2ip(p->prefixlen, &mask.sin_addr);
-
-	if (if_is_broadcast(ifp)) {
-		apply_mask_ipv4(&ifaddr);
-		addr.sin_addr = ifaddr.prefix;
-
-		broad.sin_addr.s_addr =
-			(addr.sin_addr.s_addr | ~mask.sin_addr.s_addr);
-		broad.sin_family = p->family;
-
-		memcpy(&ifreq.ifr_broadaddr, &broad,
-		       sizeof(struct sockaddr_in));
-		ret = if_ioctl(SIOCSIFBRDADDR, (caddr_t)&ifreq);
-		if (ret < 0)
-			return ret;
-	}
-
-	mask.sin_family = p->family;
-#ifdef SUNOS_5
-	memcpy(&mask, &ifreq.ifr_addr, sizeof(mask));
-#else
-	memcpy(&ifreq.ifr_netmask, &mask, sizeof(struct sockaddr_in));
-#endif /* SUNOS5 */
-	ret = if_ioctl(SIOCSIFNETMASK, (caddr_t)&ifreq);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-
-/* Set up interface's address, netmask (and broadcas? ).  Linux or
-   Solaris uses ifname:number semantics to set IP address aliases. */
-int if_unset_prefix(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct ifreq ifreq;
-	struct sockaddr_in addr;
-	struct prefix_ipv4 *p;
-
-	p = (struct prefix_ipv4 *)ifc->address;
-
-	ifreq_set_name(&ifreq, ifp);
-
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_family = p->family;
-	memcpy(&ifreq.ifr_addr, &addr, sizeof(struct sockaddr_in));
-	ret = if_ioctl(SIOCSIFADDR, (caddr_t)&ifreq);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-#endif /* HAVE_STRUCT_IFALIASREQ */
-#endif /* HAVE_NETLINK */
-
-/* get interface flags */
-void if_get_flags(struct interface *ifp)
-{
-	int ret;
-	struct ifreq ifreq;
-#ifdef HAVE_BSD_LINK_DETECT
-	struct ifmediareq ifmr;
-#endif /* HAVE_BSD_LINK_DETECT */
-
-	ifreq_set_name(&ifreq, ifp);
-
-	ret = vrf_if_ioctl(SIOCGIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
-	if (ret < 0) {
-		zlog_err("vrf_if_ioctl(SIOCGIFFLAGS) failed: %s",
-			 safe_strerror(errno));
-		return;
-	}
-#ifdef HAVE_BSD_LINK_DETECT /* Detect BSD link-state at start-up */
-
-	/* Per-default, IFF_RUNNING is held high, unless link-detect says
-	 * otherwise - we abuse IFF_RUNNING inside zebra as a link-state flag,
-	 * following practice on Linux and Solaris kernels
-	 */
-	SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
-
-	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)) {
-		(void)memset(&ifmr, 0, sizeof(ifmr));
-		strncpy(ifmr.ifm_name, ifp->name, IFNAMSIZ);
-
-		/* Seems not all interfaces implement this ioctl */
-		if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
-			zlog_err("if_ioctl(SIOCGIFMEDIA) failed: %s",
-				 safe_strerror(errno));
-		else if (ifmr.ifm_status & IFM_AVALID) /* Link state is valid */
-		{
-			if (ifmr.ifm_status & IFM_ACTIVE)
-				SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
-			else
-				UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
-		}
-	}
-#endif /* HAVE_BSD_LINK_DETECT */
-
-	if_flags_update(ifp, (ifreq.ifr_flags & 0x0000ffff));
-}
-
-/* Set interface flags */
-int if_set_flags(struct interface *ifp, uint64_t flags)
-{
-	int ret;
-	struct ifreq ifreq;
-
-	memset(&ifreq, 0, sizeof(struct ifreq));
-	ifreq_set_name(&ifreq, ifp);
-
-	ifreq.ifr_flags = ifp->flags;
-	ifreq.ifr_flags |= flags;
-
-	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
-
-	if (ret < 0) {
-		zlog_info("can't set interface flags");
-		return ret;
-	}
-	return 0;
-}
-
-/* Unset interface's flag. */
-int if_unset_flags(struct interface *ifp, uint64_t flags)
-{
-	int ret;
-	struct ifreq ifreq;
-
-	memset(&ifreq, 0, sizeof(struct ifreq));
-	ifreq_set_name(&ifreq, ifp);
-
-	ifreq.ifr_flags = ifp->flags;
-	ifreq.ifr_flags &= ~flags;
-
-	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
-
-	if (ret < 0) {
-		zlog_info("can't unset interface flags");
-		return ret;
-	}
-	return 0;
-}
-
-#ifdef LINUX_IPV6
-#ifndef _LINUX_IN6_H
-/* linux/include/net/ipv6.h */
-struct in6_ifreq {
-	struct in6_addr ifr6_addr;
-	uint32_t ifr6_prefixlen;
-	int ifr6_ifindex;
-};
-#endif /* _LINUX_IN6_H */
-/* Interface's address add/delete functions. */
-int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
-{
-#ifdef HAVE_NETLINK
-	return kernel_address_add_ipv6(ifp, ifc);
-#endif /* HAVE_NETLINK */
-}
-
-int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
-{
-#ifdef HAVE_NETLINK
-	return kernel_address_delete_ipv6(ifp, ifc);
-#endif /* HAVE_NETLINK */
-}
-#else /* LINUX_IPV6 */
-#ifdef HAVE_STRUCT_IN6_ALIASREQ
-#ifndef ND6_INFINITE_LIFETIME
-#define ND6_INFINITE_LIFETIME 0xffffffffL
-#endif /* ND6_INFINITE_LIFETIME */
-int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct in6_aliasreq addreq;
-	struct sockaddr_in6 addr;
-	struct sockaddr_in6 mask;
-	struct prefix_ipv6 *p;
-
-	p = (struct prefix_ipv6 *)ifc->address;
-
-	memset(&addreq, 0, sizeof addreq);
-	strncpy((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
-
-	memset(&addr, 0, sizeof(struct sockaddr_in6));
-	addr.sin6_addr = p->prefix;
-	addr.sin6_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	addr.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in6));
-
-	memset(&mask, 0, sizeof(struct sockaddr_in6));
-	masklen2ip6(p->prefixlen, &mask.sin6_addr);
-	mask.sin6_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	mask.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-	memcpy(&addreq.ifra_prefixmask, &mask, sizeof(struct sockaddr_in6));
-
-	addreq.ifra_lifetime.ia6t_vltime = 0xffffffff;
-	addreq.ifra_lifetime.ia6t_pltime = 0xffffffff;
-
-#ifdef HAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIME
-	addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-	addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-#endif
-
-	ret = if_ioctl_ipv6(SIOCAIFADDR_IN6, (caddr_t)&addreq);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
-
-int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct in6_aliasreq addreq;
-	struct sockaddr_in6 addr;
-	struct sockaddr_in6 mask;
-	struct prefix_ipv6 *p;
-
-	p = (struct prefix_ipv6 *)ifc->address;
-
-	memset(&addreq, 0, sizeof addreq);
-	strncpy((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
-
-	memset(&addr, 0, sizeof(struct sockaddr_in6));
-	addr.sin6_addr = p->prefix;
-	addr.sin6_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	addr.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in6));
-
-	memset(&mask, 0, sizeof(struct sockaddr_in6));
-	masklen2ip6(p->prefixlen, &mask.sin6_addr);
-	mask.sin6_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	mask.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-	memcpy(&addreq.ifra_prefixmask, &mask, sizeof(struct sockaddr_in6));
-
-#ifdef HAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIME
-	addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-	addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-#endif
-
-	ret = if_ioctl_ipv6(SIOCDIFADDR_IN6, (caddr_t)&addreq);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
-#else
-int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	return 0;
-}
-
-int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	return 0;
-}
-#endif /* HAVE_STRUCT_IN6_ALIASREQ */
-
-#endif /* LINUX_IPV6 */
-
-#endif /* !SUNOS_5 */
+/**Commonioctlfunctions.*Copyright(C)1997,98KunihiroIshiguro**ThisfileispartofGN
+UZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*undertheterms
+oftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversio
+n2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbe
+useful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorF
+ITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yoush
+ouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefil
+eCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bo
+ston,MA02110-1301USA*/#include<zebra.h>#include"linklist.h"#include"if.h"#includ
+e"prefix.h"#include"ioctl.h"#include"log.h"#include"privs.h"#include"vty.h"#incl
+ude"zebra/rib.h"#include"zebra/rt.h"#include"zebra/interface.h"#ifndefSUNOS_5#if
+defHAVE_BSD_LINK_DETECT#include<net/if_media.h>#endif/*HAVE_BSD_LINK_DETECT*/ext
+ernstructzebra_privs_tzserv_privs;/*clearandsetinterfacenamestring*/voidifreq_se
+t_name(structifreq*ifreq,structinterface*ifp){strlcpy(ifreq->ifr_name,ifp->name,
+sizeof(ifreq->ifr_name));}/*callioctlsystemcall*/intif_ioctl(unsignedlongrequest
+,caddr_tbuffer){intsock;intret;interr=0;if(zserv_privs.change(ZPRIVS_RAISE))zlog
+_err("Can'traiseprivileges");sock=socket(AF_INET,SOCK_DGRAM,0);if(sock<0){intsav
+e_errno=errno;if(zserv_privs.change(ZPRIVS_LOWER))zlog_err("Can'tlowerprivileges
+");zlog_err("CannotcreateUDPsocket:%s",safe_strerror(save_errno));exit(1);}if((r
+et=ioctl(sock,request,buffer))<0)err=errno;if(zserv_privs.change(ZPRIVS_LOWER))z
+log_err("Can'tlowerprivileges");close(sock);if(ret<0){errno=err;returnret;}retur
+n0;}/*callioctlsystemcall*/intvrf_if_ioctl(unsignedlongrequest,caddr_tbuffer,vrf
+_id_tvrf_id){intsock;intret;interr=0;if(zserv_privs.change(ZPRIVS_RAISE))zlog_er
+r("Can'traiseprivileges");sock=vrf_socket(AF_INET,SOCK_DGRAM,0,vrf_id,NULL);if(s
+ock<0){intsave_errno=errno;if(zserv_privs.change(ZPRIVS_LOWER))zlog_err("Can'tlo
+werprivileges");zlog_err("CannotcreateUDPsocket:%s",safe_strerror(save_errno));e
+xit(1);}ret=vrf_ioctl(vrf_id,sock,request,buffer);if(ret<0)err=errno;if(zserv_pr
+ivs.change(ZPRIVS_LOWER))zlog_err("Can'tlowerprivileges");close(sock);if(ret<0){
+errno=err;returnret;}return0;}#ifndefHAVE_NETLINKstaticintif_ioctl_ipv6(unsigned
+longrequest,caddr_tbuffer){intsock;intret;interr=0;if(zserv_privs.change(ZPRIVS_
+RAISE))zlog_err("Can'traiseprivileges");sock=socket(AF_INET6,SOCK_DGRAM,0);if(so
+ck<0){intsave_errno=errno;if(zserv_privs.change(ZPRIVS_LOWER))zlog_err("Can'tlow
+erprivileges");zlog_err("CannotcreateIPv6datagramsocket:%s",safe_strerror(save_e
+rrno));exit(1);}if((ret=ioctl(sock,request,buffer))<0)err=errno;if(zserv_privs.c
+hange(ZPRIVS_LOWER))zlog_err("Can'tlowerprivileges");close(sock);if(ret<0){errno
+=err;returnret;}return0;}#endif/*!HAVE_NETLINK*//**getinterfacemetric*--ifvaluei
+snotavaliableset-1*/voidif_get_metric(structinterface*ifp){#ifdefSIOCGIFMETRICst
+ructifreqifreq;ifreq_set_name(&ifreq,ifp);if(vrf_if_ioctl(SIOCGIFMETRIC,(caddr_t
+)&ifreq,ifp->vrf_id)<0)return;ifp->metric=ifreq.ifr_metric;if(ifp->metric==0)ifp
+->metric=1;#else/*SIOCGIFMETRIC*/ifp->metric=-1;#endif/*SIOCGIFMETRIC*/}/*getint
+erfaceMTU*/voidif_get_mtu(structinterface*ifp){structifreqifreq;ifreq_set_name(&
+ifreq,ifp);#ifdefined(SIOCGIFMTU)if(vrf_if_ioctl(SIOCGIFMTU,(caddr_t)&ifreq,ifp-
+>vrf_id)<0){zlog_info("Can'tlookupmtubyioctl(SIOCGIFMTU)");ifp->mtu6=ifp->mtu=-1
+;return;}#ifdefSUNOS_5ifp->mtu6=ifp->mtu=ifreq.ifr_metric;#elseifp->mtu6=ifp->mt
+u=ifreq.ifr_mtu;#endif/*SUNOS_5*//*propogate*/zebra_interface_up_update(ifp);#el
+sezlog_info("Can'tlookupmtuonthissystem");ifp->mtu6=ifp->mtu=-1;#endif}#ifdefHAV
+E_NETLINK/*Interfaceaddresssettingvianetlinkinterface.*/intif_set_prefix(structi
+nterface*ifp,structconnected*ifc){returnkernel_address_add_ipv4(ifp,ifc);}/*Inte
+rfaceaddressisremovedusingnetlinkinterface.*/intif_unset_prefix(structinterface*
+ifp,structconnected*ifc){returnkernel_address_delete_ipv4(ifp,ifc);}#else/*!HAVE
+_NETLINK*/#ifdefHAVE_STRUCT_IFALIASREQ/*Setupinterface'sIPaddress,netmask(andbro
+adcas?).*BSDmayhasifaliasreqstructure.*/intif_set_prefix(structinterface*ifp,str
+uctconnected*ifc){intret;structifaliasreqaddreq;structsockaddr_inaddr,mask,peer;
+structprefix_ipv4*p;/*don'tconfigurePtPaddressesonbroadcastifsorreverse*/if(!(if
+p->flags&IFF_POINTOPOINT)!=!CONNECTED_PEER(ifc)){errno=EINVAL;return-1;}p=(struc
+tprefix_ipv4*)ifc->address;rib_lookup_and_pushup(p,ifp->vrf_id);memset(&addreq,0
+,sizeofaddreq);strncpy((char*)&addreq.ifra_name,ifp->name,sizeofaddreq.ifra_name
+);memset(&addr,0,sizeof(structsockaddr_in));addr.sin_addr=p->prefix;addr.sin_fam
+ily=p->family;#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENaddr.sin_len=sizeof(structsoc
+kaddr_in);#endifmemcpy(&addreq.ifra_addr,&addr,sizeof(structsockaddr_in));if(CON
+NECTED_PEER(ifc)){p=(structprefix_ipv4*)ifc->destination;memset(&mask,0,sizeof(s
+tructsockaddr_in));peer.sin_addr=p->prefix;peer.sin_family=p->family;#ifdefHAVE_
+STRUCT_SOCKADDR_IN_SIN_LENpeer.sin_len=sizeof(structsockaddr_in);#endifmemcpy(&a
+ddreq.ifra_broadaddr,&peer,sizeof(structsockaddr_in));}memset(&mask,0,sizeof(str
+uctsockaddr_in));masklen2ip(p->prefixlen,&mask.sin_addr);mask.sin_family=p->fami
+ly;#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENmask.sin_len=sizeof(structsockaddr_in);#
+endifmemcpy(&addreq.ifra_mask,&mask,sizeof(structsockaddr_in));ret=if_ioctl(SIOC
+AIFADDR,(caddr_t)&addreq);if(ret<0)returnret;return0;}/*Setupinterface'sIPaddres
+s,netmask(andbroadcas?).*BSDmayhasifaliasreqstructure.*/intif_unset_prefix(struc
+tinterface*ifp,structconnected*ifc){intret;structifaliasreqaddreq;structsockaddr
+_inaddr,mask,peer;structprefix_ipv4*p;/*thiswouldprobablywreakhavoc*/if(!(ifp->f
+lags&IFF_POINTOPOINT)!=!CONNECTED_PEER(ifc)){errno=EINVAL;return-1;}p=(structpre
+fix_ipv4*)ifc->address;memset(&addreq,0,sizeofaddreq);strncpy((char*)&addreq.ifr
+a_name,ifp->name,sizeofaddreq.ifra_name);memset(&addr,0,sizeof(structsockaddr_in
+));addr.sin_addr=p->prefix;addr.sin_family=p->family;#ifdefHAVE_STRUCT_SOCKADDR_
+IN_SIN_LENaddr.sin_len=sizeof(structsockaddr_in);#endifmemcpy(&addreq.ifra_addr,
+&addr,sizeof(structsockaddr_in));if(CONNECTED_PEER(ifc)){p=(structprefix_ipv4*)i
+fc->destination;memset(&mask,0,sizeof(structsockaddr_in));peer.sin_addr=p->prefi
+x;peer.sin_family=p->family;#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENpeer.sin_len=si
+zeof(structsockaddr_in);#endifmemcpy(&addreq.ifra_broadaddr,&peer,sizeof(structs
+ockaddr_in));}memset(&mask,0,sizeof(structsockaddr_in));masklen2ip(p->prefixlen,
+&mask.sin_addr);mask.sin_family=p->family;#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENm
+ask.sin_len=sizeof(structsockaddr_in);#endifmemcpy(&addreq.ifra_mask,&mask,sizeo
+f(structsockaddr_in));ret=if_ioctl(SIOCDIFADDR,(caddr_t)&addreq);if(ret<0)return
+ret;return0;}#else/*Setupinterface'saddress,netmask(andbroadcas?).LinuxorSolaris
+usesifname:numbersemanticstosetIPaddressaliases.*/intif_set_prefix(structinterfa
+ce*ifp,structconnected*ifc){intret;structifreqifreq;structsockaddr_inaddr;struct
+sockaddr_inbroad;structsockaddr_inmask;structprefix_ipv4ifaddr;structprefix_ipv4
+*p;p=(structprefix_ipv4*)ifc->address;ifaddr=*p;ifreq_set_name(&ifreq,ifp);addr.
+sin_addr=p->prefix;addr.sin_family=p->family;memcpy(&ifreq.ifr_addr,&addr,sizeof
+(structsockaddr_in));ret=if_ioctl(SIOCSIFADDR,(caddr_t)&ifreq);if(ret<0)returnre
+t;/*Weneedmaskformakebroadcastaddr.*/masklen2ip(p->prefixlen,&mask.sin_addr);if(
+if_is_broadcast(ifp)){apply_mask_ipv4(&ifaddr);addr.sin_addr=ifaddr.prefix;broad
+.sin_addr.s_addr=(addr.sin_addr.s_addr|~mask.sin_addr.s_addr);broad.sin_family=p
+->family;memcpy(&ifreq.ifr_broadaddr,&broad,sizeof(structsockaddr_in));ret=if_io
+ctl(SIOCSIFBRDADDR,(caddr_t)&ifreq);if(ret<0)returnret;}mask.sin_family=p->famil
+y;#ifdefSUNOS_5memcpy(&mask,&ifreq.ifr_addr,sizeof(mask));#elsememcpy(&ifreq.ifr
+_netmask,&mask,sizeof(structsockaddr_in));#endif/*SUNOS5*/ret=if_ioctl(SIOCSIFNE
+TMASK,(caddr_t)&ifreq);if(ret<0)returnret;return0;}/*Setupinterface'saddress,net
+mask(andbroadcas?).LinuxorSolarisusesifname:numbersemanticstosetIPaddressaliases
+.*/intif_unset_prefix(structinterface*ifp,structconnected*ifc){intret;structifre
+qifreq;structsockaddr_inaddr;structprefix_ipv4*p;p=(structprefix_ipv4*)ifc->addr
+ess;ifreq_set_name(&ifreq,ifp);memset(&addr,0,sizeof(structsockaddr_in));addr.si
+n_family=p->family;memcpy(&ifreq.ifr_addr,&addr,sizeof(structsockaddr_in));ret=i
+f_ioctl(SIOCSIFADDR,(caddr_t)&ifreq);if(ret<0)returnret;return0;}#endif/*HAVE_ST
+RUCT_IFALIASREQ*/#endif/*HAVE_NETLINK*//*getinterfaceflags*/voidif_get_flags(str
+uctinterface*ifp){intret;structifreqifreq;#ifdefHAVE_BSD_LINK_DETECTstructifmedi
+areqifmr;#endif/*HAVE_BSD_LINK_DETECT*/ifreq_set_name(&ifreq,ifp);ret=vrf_if_ioc
+tl(SIOCGIFFLAGS,(caddr_t)&ifreq,ifp->vrf_id);if(ret<0){zlog_err("vrf_if_ioctl(SI
+OCGIFFLAGS)failed:%s",safe_strerror(errno));return;}#ifdefHAVE_BSD_LINK_DETECT/*
+DetectBSDlink-stateatstart-up*//*Per-default,IFF_RUNNINGisheldhigh,unlesslink-de
+tectsays*otherwise-weabuseIFF_RUNNINGinsidezebraasalink-stateflag,*followingprac
+ticeonLinuxandSolariskernels*/SET_FLAG(ifreq.ifr_flags,IFF_RUNNING);if(CHECK_FLA
+G(ifp->status,ZEBRA_INTERFACE_LINKDETECTION)){(void)memset(&ifmr,0,sizeof(ifmr))
+;strncpy(ifmr.ifm_name,ifp->name,IFNAMSIZ);/*Seemsnotallinterfacesimplementthisi
+octl*/if(if_ioctl(SIOCGIFMEDIA,(caddr_t)&ifmr)<0)zlog_err("if_ioctl(SIOCGIFMEDIA
+)failed:%s",safe_strerror(errno));elseif(ifmr.ifm_status&IFM_AVALID)/*Linkstatei
+svalid*/{if(ifmr.ifm_status&IFM_ACTIVE)SET_FLAG(ifreq.ifr_flags,IFF_RUNNING);els
+eUNSET_FLAG(ifreq.ifr_flags,IFF_RUNNING);}}#endif/*HAVE_BSD_LINK_DETECT*/if_flag
+s_update(ifp,(ifreq.ifr_flags&0x0000ffff));}/*Setinterfaceflags*/intif_set_flags
+(structinterface*ifp,uint64_tflags){intret;structifreqifreq;memset(&ifreq,0,size
+of(structifreq));ifreq_set_name(&ifreq,ifp);ifreq.ifr_flags=ifp->flags;ifreq.ifr
+_flags|=flags;ret=vrf_if_ioctl(SIOCSIFFLAGS,(caddr_t)&ifreq,ifp->vrf_id);if(ret<
+0){zlog_info("can'tsetinterfaceflags");returnret;}return0;}/*Unsetinterface'sfla
+g.*/intif_unset_flags(structinterface*ifp,uint64_tflags){intret;structifreqifreq
+;memset(&ifreq,0,sizeof(structifreq));ifreq_set_name(&ifreq,ifp);ifreq.ifr_flags
+=ifp->flags;ifreq.ifr_flags&=~flags;ret=vrf_if_ioctl(SIOCSIFFLAGS,(caddr_t)&ifre
+q,ifp->vrf_id);if(ret<0){zlog_info("can'tunsetinterfaceflags");returnret;}return
+0;}#ifdefLINUX_IPV6#ifndef_LINUX_IN6_H/*linux/include/net/ipv6.h*/structin6_ifre
+q{structin6_addrifr6_addr;uint32_tifr6_prefixlen;intifr6_ifindex;};#endif/*_LINU
+X_IN6_H*//*Interface'saddressadd/deletefunctions.*/intif_prefix_add_ipv6(structi
+nterface*ifp,structconnected*ifc){#ifdefHAVE_NETLINKreturnkernel_address_add_ipv
+6(ifp,ifc);#endif/*HAVE_NETLINK*/}intif_prefix_delete_ipv6(structinterface*ifp,s
+tructconnected*ifc){#ifdefHAVE_NETLINKreturnkernel_address_delete_ipv6(ifp,ifc);
+#endif/*HAVE_NETLINK*/}#else/*LINUX_IPV6*/#ifdefHAVE_STRUCT_IN6_ALIASREQ#ifndefN
+D6_INFINITE_LIFETIME#defineND6_INFINITE_LIFETIME0xffffffffL#endif/*ND6_INFINITE_
+LIFETIME*/intif_prefix_add_ipv6(structinterface*ifp,structconnected*ifc){intret;
+structin6_aliasreqaddreq;structsockaddr_in6addr;structsockaddr_in6mask;structpre
+fix_ipv6*p;p=(structprefix_ipv6*)ifc->address;memset(&addreq,0,sizeofaddreq);str
+ncpy((char*)&addreq.ifra_name,ifp->name,sizeofaddreq.ifra_name);memset(&addr,0,s
+izeof(structsockaddr_in6));addr.sin6_addr=p->prefix;addr.sin6_family=p->family;#
+ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENaddr.sin6_len=sizeof(structsockaddr_in6);#en
+difmemcpy(&addreq.ifra_addr,&addr,sizeof(structsockaddr_in6));memset(&mask,0,siz
+eof(structsockaddr_in6));masklen2ip6(p->prefixlen,&mask.sin6_addr);mask.sin6_fam
+ily=p->family;#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENmask.sin6_len=sizeof(structso
+ckaddr_in6);#endifmemcpy(&addreq.ifra_prefixmask,&mask,sizeof(structsockaddr_in6
+));addreq.ifra_lifetime.ia6t_vltime=0xffffffff;addreq.ifra_lifetime.ia6t_pltime=
+0xffffffff;#ifdefHAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIMEaddreq.ifra_lifetime.ia6t
+_pltime=ND6_INFINITE_LIFETIME;addreq.ifra_lifetime.ia6t_vltime=ND6_INFINITE_LIFE
+TIME;#endifret=if_ioctl_ipv6(SIOCAIFADDR_IN6,(caddr_t)&addreq);if(ret<0)returnre
+t;return0;}intif_prefix_delete_ipv6(structinterface*ifp,structconnected*ifc){int
+ret;structin6_aliasreqaddreq;structsockaddr_in6addr;structsockaddr_in6mask;struc
+tprefix_ipv6*p;p=(structprefix_ipv6*)ifc->address;memset(&addreq,0,sizeofaddreq)
+;strncpy((char*)&addreq.ifra_name,ifp->name,sizeofaddreq.ifra_name);memset(&addr
+,0,sizeof(structsockaddr_in6));addr.sin6_addr=p->prefix;addr.sin6_family=p->fami
+ly;#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENaddr.sin6_len=sizeof(structsockaddr_in6)
+;#endifmemcpy(&addreq.ifra_addr,&addr,sizeof(structsockaddr_in6));memset(&mask,0
+,sizeof(structsockaddr_in6));masklen2ip6(p->prefixlen,&mask.sin6_addr);mask.sin6
+_family=p->family;#ifdefHAVE_STRUCT_SOCKADDR_IN_SIN_LENmask.sin6_len=sizeof(stru
+ctsockaddr_in6);#endifmemcpy(&addreq.ifra_prefixmask,&mask,sizeof(structsockaddr
+_in6));#ifdefHAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIMEaddreq.ifra_lifetime.ia6t_plt
+ime=ND6_INFINITE_LIFETIME;addreq.ifra_lifetime.ia6t_vltime=ND6_INFINITE_LIFETIME
+;#endifret=if_ioctl_ipv6(SIOCDIFADDR_IN6,(caddr_t)&addreq);if(ret<0)returnret;re
+turn0;}#elseintif_prefix_add_ipv6(structinterface*ifp,structconnected*ifc){retur
+n0;}intif_prefix_delete_ipv6(structinterface*ifp,structconnected*ifc){return0;}#
+endif/*HAVE_STRUCT_IN6_ALIASREQ*/#endif/*LINUX_IPV6*/#endif/*!SUNOS_5*/

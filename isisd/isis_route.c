@@ -1,595 +1,164 @@
-/*
- * IS-IS Rout(e)ing protocol               - isis_route.c
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- *                                         based on ../ospf6d/ospf6_route.[ch]
- *                                         by Yasuhiro Ohara
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "thread.h"
-#include "linklist.h"
-#include "vty.h"
-#include "log.h"
-#include "memory.h"
-#include "prefix.h"
-#include "hash.h"
-#include "if.h"
-#include "table.h"
-
-#include "isis_constants.h"
-#include "isis_common.h"
-#include "isis_flags.h"
-#include "dict.h"
-#include "isisd.h"
-#include "isis_misc.h"
-#include "isis_adjacency.h"
-#include "isis_circuit.h"
-#include "isis_pdu.h"
-#include "isis_lsp.h"
-#include "isis_spf.h"
-#include "isis_route.h"
-#include "isis_zebra.h"
-
-static struct isis_nexthop *isis_nexthop_create(struct in_addr *ip,
-						ifindex_t ifindex)
-{
-	struct listnode *node;
-	struct isis_nexthop *nexthop;
-
-	for (ALL_LIST_ELEMENTS_RO(isis->nexthops, node, nexthop)) {
-		if (nexthop->ifindex != ifindex)
-			continue;
-		if (ip && memcmp(&nexthop->ip, ip, sizeof(struct in_addr)) != 0)
-			continue;
-
-		nexthop->lock++;
-		return nexthop;
-	}
-
-	nexthop = XCALLOC(MTYPE_ISIS_NEXTHOP, sizeof(struct isis_nexthop));
-
-	nexthop->ifindex = ifindex;
-	memcpy(&nexthop->ip, ip, sizeof(struct in_addr));
-	listnode_add(isis->nexthops, nexthop);
-	nexthop->lock++;
-
-	return nexthop;
-}
-
-static void isis_nexthop_delete(struct isis_nexthop *nexthop)
-{
-	nexthop->lock--;
-	if (nexthop->lock == 0) {
-		listnode_delete(isis->nexthops, nexthop);
-		XFREE(MTYPE_ISIS_NEXTHOP, nexthop);
-	}
-
-	return;
-}
-
-static int nexthoplookup(struct list *nexthops, struct in_addr *ip,
-			 ifindex_t ifindex)
-{
-	struct listnode *node;
-	struct isis_nexthop *nh;
-
-	for (ALL_LIST_ELEMENTS_RO(nexthops, node, nh)) {
-		if (!(memcmp(ip, &nh->ip, sizeof(struct in_addr)))
-		    && ifindex == nh->ifindex)
-			return 1;
-	}
-
-	return 0;
-}
-
-static struct isis_nexthop6 *isis_nexthop6_new(struct in6_addr *ip6,
-					       ifindex_t ifindex)
-{
-	struct isis_nexthop6 *nexthop6;
-
-	nexthop6 = XCALLOC(MTYPE_ISIS_NEXTHOP6, sizeof(struct isis_nexthop6));
-
-	nexthop6->ifindex = ifindex;
-	memcpy(&nexthop6->ip6, ip6, sizeof(struct in6_addr));
-	nexthop6->lock++;
-
-	return nexthop6;
-}
-
-static struct isis_nexthop6 *isis_nexthop6_create(struct in6_addr *ip6,
-						  ifindex_t ifindex)
-{
-	struct listnode *node;
-	struct isis_nexthop6 *nexthop6;
-
-	for (ALL_LIST_ELEMENTS_RO(isis->nexthops6, node, nexthop6)) {
-		if (nexthop6->ifindex != ifindex)
-			continue;
-		if (ip6
-		    && memcmp(&nexthop6->ip6, ip6, sizeof(struct in6_addr))
-			       != 0)
-			continue;
-
-		nexthop6->lock++;
-		return nexthop6;
-	}
-
-	nexthop6 = isis_nexthop6_new(ip6, ifindex);
-
-	return nexthop6;
-}
-
-static void isis_nexthop6_delete(struct isis_nexthop6 *nexthop6)
-{
-
-	nexthop6->lock--;
-	if (nexthop6->lock == 0) {
-		listnode_delete(isis->nexthops6, nexthop6);
-		XFREE(MTYPE_ISIS_NEXTHOP6, nexthop6);
-	}
-
-	return;
-}
-
-static int nexthop6lookup(struct list *nexthops6, struct in6_addr *ip6,
-			  ifindex_t ifindex)
-{
-	struct listnode *node;
-	struct isis_nexthop6 *nh6;
-
-	for (ALL_LIST_ELEMENTS_RO(nexthops6, node, nh6)) {
-		if (!(memcmp(ip6, &nh6->ip6, sizeof(struct in6_addr)))
-		    && ifindex == nh6->ifindex)
-			return 1;
-	}
-
-	return 0;
-}
-
-static void adjinfo2nexthop(struct list *nexthops, struct isis_adjacency *adj)
-{
-	struct isis_nexthop *nh;
-
-	for (unsigned int i = 0; i < adj->ipv4_address_count; i++) {
-		struct in_addr *ipv4_addr = &adj->ipv4_addresses[i];
-		if (!nexthoplookup(nexthops, ipv4_addr,
-				   adj->circuit->interface->ifindex)) {
-			nh = isis_nexthop_create(
-				ipv4_addr, adj->circuit->interface->ifindex);
-			nh->router_address = adj->router_address;
-			listnode_add(nexthops, nh);
-			return;
-		}
-	}
-}
-
-static void adjinfo2nexthop6(struct list *nexthops6, struct isis_adjacency *adj)
-{
-	struct isis_nexthop6 *nh6;
-
-	for (unsigned int i = 0; i < adj->ipv6_address_count; i++) {
-		struct in6_addr *ipv6_addr = &adj->ipv6_addresses[i];
-		if (!nexthop6lookup(nexthops6, ipv6_addr,
-				    adj->circuit->interface->ifindex)) {
-			nh6 = isis_nexthop6_create(
-				ipv6_addr, adj->circuit->interface->ifindex);
-			nh6->router_address6 = adj->router_address6;
-			listnode_add(nexthops6, nh6);
-			return;
-		}
-	}
-}
-
-static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
-						   uint32_t cost,
-						   uint32_t depth,
-						   struct list *adjacencies)
-{
-	struct isis_route_info *rinfo;
-	struct isis_adjacency *adj;
-	struct listnode *node;
-
-	rinfo = XCALLOC(MTYPE_ISIS_ROUTE_INFO, sizeof(struct isis_route_info));
-
-	if (prefix->family == AF_INET) {
-		rinfo->nexthops = list_new();
-		for (ALL_LIST_ELEMENTS_RO(adjacencies, node, adj)) {
-			/* check for force resync this route */
-			if (CHECK_FLAG(adj->circuit->flags,
-				       ISIS_CIRCUIT_FLAPPED_AFTER_SPF))
-				SET_FLAG(rinfo->flag,
-					 ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
-			/* update neighbor router address */
-			if (depth == 2 && prefix->prefixlen == 32)
-				adj->router_address = prefix->u.prefix4;
-			adjinfo2nexthop(rinfo->nexthops, adj);
-		}
-	}
-	if (prefix->family == AF_INET6) {
-		rinfo->nexthops6 = list_new();
-		for (ALL_LIST_ELEMENTS_RO(adjacencies, node, adj)) {
-			/* check for force resync this route */
-			if (CHECK_FLAG(adj->circuit->flags,
-				       ISIS_CIRCUIT_FLAPPED_AFTER_SPF))
-				SET_FLAG(rinfo->flag,
-					 ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
-			/* update neighbor router address */
-			if (depth == 2 && prefix->prefixlen == 128)
-				adj->router_address6 = prefix->u.prefix6;
-			adjinfo2nexthop6(rinfo->nexthops6, adj);
-		}
-	}
-
-	rinfo->cost = cost;
-	rinfo->depth = depth;
-
-	return rinfo;
-}
-
-static void isis_route_info_delete(struct isis_route_info *route_info)
-{
-	if (route_info->nexthops) {
-		route_info->nexthops->del =
-			(void (*)(void *))isis_nexthop_delete;
-		list_delete_and_null(&route_info->nexthops);
-	}
-
-	if (route_info->nexthops6) {
-		route_info->nexthops6->del =
-			(void (*)(void *))isis_nexthop6_delete;
-		list_delete_and_null(&route_info->nexthops6);
-	}
-
-	XFREE(MTYPE_ISIS_ROUTE_INFO, route_info);
-}
-
-static int isis_route_info_same_attrib(struct isis_route_info *new,
-				       struct isis_route_info *old)
-{
-	if (new->cost != old->cost)
-		return 0;
-	if (new->depth != old->depth)
-		return 0;
-
-	return 1;
-}
-
-static int isis_route_info_same(struct isis_route_info *new,
-				struct isis_route_info *old, uint8_t family)
-{
-	struct listnode *node;
-	struct isis_nexthop *nexthop;
-	struct isis_nexthop6 *nexthop6;
-
-	if (!CHECK_FLAG(old->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
-		return 0;
-
-	if (CHECK_FLAG(new->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC))
-		return 0;
-
-	if (!isis_route_info_same_attrib(new, old))
-		return 0;
-
-	if (family == AF_INET) {
-		for (ALL_LIST_ELEMENTS_RO(new->nexthops, node, nexthop))
-			if (nexthoplookup(old->nexthops, &nexthop->ip,
-					  nexthop->ifindex)
-			    == 0)
-				return 0;
-
-		for (ALL_LIST_ELEMENTS_RO(old->nexthops, node, nexthop))
-			if (nexthoplookup(new->nexthops, &nexthop->ip,
-					  nexthop->ifindex)
-			    == 0)
-				return 0;
-	} else if (family == AF_INET6) {
-		for (ALL_LIST_ELEMENTS_RO(new->nexthops6, node, nexthop6))
-			if (nexthop6lookup(old->nexthops6, &nexthop6->ip6,
-					   nexthop6->ifindex)
-			    == 0)
-				return 0;
-
-		for (ALL_LIST_ELEMENTS_RO(old->nexthops6, node, nexthop6))
-			if (nexthop6lookup(new->nexthops6, &nexthop6->ip6,
-					   nexthop6->ifindex)
-			    == 0)
-				return 0;
-	}
-
-	return 1;
-}
-
-struct isis_route_info *isis_route_create(struct prefix *prefix, uint32_t cost,
-					  uint32_t depth,
-					  struct list *adjacencies,
-					  struct isis_area *area, int level)
-{
-	struct route_node *route_node;
-	struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
-	char buff[PREFIX2STR_BUFFER];
-	uint8_t family;
-
-	family = prefix->family;
-	/* for debugs */
-	prefix2str(prefix, buff, sizeof(buff));
-
-	rinfo_new = isis_route_info_new(prefix, cost, depth, adjacencies);
-
-	if (family == AF_INET)
-		route_node =
-			route_node_get(area->route_table[level - 1], prefix);
-	else if (family == AF_INET6)
-		route_node =
-			route_node_get(area->route_table6[level - 1], prefix);
-	else {
-		isis_route_info_delete(rinfo_new);
-		return NULL;
-	}
-
-	rinfo_old = route_node->info;
-	if (!rinfo_old) {
-		if (isis->debugs & DEBUG_RTE_EVENTS)
-			zlog_debug("ISIS-Rte (%s) route created: %s",
-				   area->area_tag, buff);
-		route_info = rinfo_new;
-		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-	} else {
-		if (isis->debugs & DEBUG_RTE_EVENTS)
-			zlog_debug("ISIS-Rte (%s) route already exists: %s",
-				   area->area_tag, buff);
-		if (isis_route_info_same(rinfo_new, rinfo_old, family)) {
-			if (isis->debugs & DEBUG_RTE_EVENTS)
-				zlog_debug("ISIS-Rte (%s) route unchanged: %s",
-					   area->area_tag, buff);
-			isis_route_info_delete(rinfo_new);
-			route_info = rinfo_old;
-		} else {
-			if (isis->debugs & DEBUG_RTE_EVENTS)
-				zlog_debug("ISIS-Rte (%s) route changed: %s",
-					   area->area_tag, buff);
-			isis_route_info_delete(rinfo_old);
-			route_info = rinfo_new;
-			UNSET_FLAG(route_info->flag,
-				   ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-		}
-	}
-
-	SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ACTIVE);
-	route_node->info = route_info;
-
-	return route_info;
-}
-
-static void isis_route_delete(struct prefix *prefix, struct route_table *table)
-{
-	struct route_node *rode;
-	struct isis_route_info *rinfo;
-	char buff[PREFIX2STR_BUFFER];
-
-	/* for log */
-	prefix2str(prefix, buff, sizeof(buff));
-
-
-	rode = route_node_get(table, prefix);
-	rinfo = rode->info;
-
-	if (rinfo == NULL) {
-		if (isis->debugs & DEBUG_RTE_EVENTS)
-			zlog_debug(
-				"ISIS-Rte: tried to delete non-existant route %s",
-				buff);
-		return;
-	}
-
-	if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED)) {
-		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
-		if (isis->debugs & DEBUG_RTE_EVENTS)
-			zlog_debug("ISIS-Rte: route delete  %s", buff);
-		isis_zebra_route_update(prefix, rinfo);
-	}
-	isis_route_info_delete(rinfo);
-	rode->info = NULL;
-
-	return;
-}
-
-/* Validating routes in particular table. */
-static void isis_route_validate_table(struct isis_area *area,
-				      struct route_table *table)
-{
-	struct route_node *rnode, *drnode;
-	struct isis_route_info *rinfo;
-	char buff[PREFIX2STR_BUFFER];
-
-	for (rnode = route_top(table); rnode; rnode = route_next(rnode)) {
-		if (rnode->info == NULL)
-			continue;
-		rinfo = rnode->info;
-
-		if (isis->debugs & DEBUG_RTE_EVENTS) {
-			prefix2str(&rnode->p, buff, sizeof(buff));
-			zlog_debug(
-				"ISIS-Rte (%s): route validate: %s %s %s %s",
-				area->area_tag,
-				(CHECK_FLAG(rinfo->flag,
-					    ISIS_ROUTE_FLAG_ZEBRA_SYNCED)
-					 ? "synced"
-					 : "not-synced"),
-				(CHECK_FLAG(rinfo->flag,
-					    ISIS_ROUTE_FLAG_ZEBRA_RESYNC)
-					 ? "resync"
-					 : "not-resync"),
-				(CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE)
-					 ? "active"
-					 : "inactive"),
-				buff);
-		}
-
-		isis_zebra_route_update(&rnode->p, rinfo);
-		if (!CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
-			/* Area is either L1 or L2 => we use level route tables
-			 * directly for
-			 * validating => no problems with deleting routes. */
-			if (area->is_type != IS_LEVEL_1_AND_2) {
-				isis_route_delete(&rnode->p, table);
-				continue;
-			}
-			/* If area is L1L2, we work with merge table and
-			 * therefore must
-			 * delete node from level tables as well before deleting
-			 * route info.
-			 * FIXME: Is it performance problem? There has to be the
-			 * better way.
-			 * Like not to deal with it here at all (see the next
-			 * comment)? */
-			if (rnode->p.family == AF_INET) {
-				drnode = route_node_get(area->route_table[0],
-							&rnode->p);
-				if (drnode->info == rnode->info)
-					drnode->info = NULL;
-				drnode = route_node_get(area->route_table[1],
-							&rnode->p);
-				if (drnode->info == rnode->info)
-					drnode->info = NULL;
-			}
-
-			if (rnode->p.family == AF_INET6) {
-				drnode = route_node_get(area->route_table6[0],
-							&rnode->p);
-				if (drnode->info == rnode->info)
-					drnode->info = NULL;
-				drnode = route_node_get(area->route_table6[1],
-							&rnode->p);
-				if (drnode->info == rnode->info)
-					drnode->info = NULL;
-			}
-
-			isis_route_delete(&rnode->p, table);
-		}
-	}
-}
-
-/* Function to validate route tables for L1L2 areas. In this case we can't use
- * level route tables directly, we have to merge them at first. L1 routes are
- * preferred over the L2 ones.
- *
- * Merge algorithm is trivial (at least for now). All L1 paths are copied into
- * merge table at first, then L2 paths are added if L1 path for same prefix
- * doesn't already exists there.
- *
- * FIXME: Is it right place to do it at all? Maybe we should push both levels
- * to the RIB with different zebra route types and let RIB handle this? */
-static void isis_route_validate_merge(struct isis_area *area, int family)
-{
-	struct route_table *table = NULL;
-	struct route_table *merge;
-	struct route_node *rnode, *mrnode;
-
-	merge = route_table_init();
-
-	if (family == AF_INET)
-		table = area->route_table[0];
-	else if (family == AF_INET6)
-		table = area->route_table6[0];
-	else {
-		zlog_warn("ISIS-Rte (%s) %s called for unknown family %d",
-			  area->area_tag, __func__, family);
-		route_table_finish(merge);
-		return;
-	}
-
-	for (rnode = route_top(table); rnode; rnode = route_next(rnode)) {
-		if (rnode->info == NULL)
-			continue;
-		mrnode = route_node_get(merge, &rnode->p);
-		mrnode->info = rnode->info;
-	}
-
-	if (family == AF_INET)
-		table = area->route_table[1];
-	else if (family == AF_INET6)
-		table = area->route_table6[1];
-
-	for (rnode = route_top(table); rnode; rnode = route_next(rnode)) {
-		if (rnode->info == NULL)
-			continue;
-		mrnode = route_node_get(merge, &rnode->p);
-		if (mrnode->info != NULL)
-			continue;
-		mrnode->info = rnode->info;
-	}
-
-	isis_route_validate_table(area, merge);
-	route_table_finish(merge);
-}
-
-/* Walk through route tables and propagate necessary changes into RIB. In case
- * of L1L2 area, level tables have to be merged at first. */
-void isis_route_validate(struct isis_area *area)
-{
-	struct listnode *node;
-	struct isis_circuit *circuit;
-
-	if (area->is_type == IS_LEVEL_1)
-		isis_route_validate_table(area, area->route_table[0]);
-	else if (area->is_type == IS_LEVEL_2)
-		isis_route_validate_table(area, area->route_table[1]);
-	else
-		isis_route_validate_merge(area, AF_INET);
-
-	if (area->is_type == IS_LEVEL_1)
-		isis_route_validate_table(area, area->route_table6[0]);
-	else if (area->is_type == IS_LEVEL_2)
-		isis_route_validate_table(area, area->route_table6[1]);
-	else
-		isis_route_validate_merge(area, AF_INET6);
-
-	if (!area->circuit_list) {
-		return;
-	}
-	/* walk all circuits and reset any spf specific flags */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
-		UNSET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
-
-	return;
-}
-
-void isis_route_invalidate_table(struct isis_area *area,
-				 struct route_table *table)
-{
-	struct route_node *rode;
-	struct isis_route_info *rinfo;
-	for (rode = route_top(table); rode; rode = route_next(rode)) {
-		if (rode->info == NULL)
-			continue;
-		rinfo = rode->info;
-
-		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
-	}
-}
-
-void isis_route_invalidate(struct isis_area *area)
-{
-	if (area->is_type & IS_LEVEL_1)
-		isis_route_invalidate_table(area, area->route_table[0]);
-	if (area->is_type & IS_LEVEL_2)
-		isis_route_invalidate_table(area, area->route_table[1]);
-}
+/**IS-ISRout(e)ingprotocol-isis_route.c*Copyright(C)2001,2002SampoSaaristo*Tampe
+reUniversityofTechnology*InstituteofCommunicationsEngineering**basedon../ospf6d/
+ospf6_route.[ch]*byYasuhiroOhara**Thisprogramisfreesoftware;youcanredistributeit
+and/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbytheFree*Sof
+twareFoundation;eitherversion2oftheLicense,or(atyouroption)*anylaterversion.**Th
+isprogramisdistributedinthehopethatitwillbeuseful,butWITHOUT*ANYWARRANTY;without
+eventheimpliedwarrantyofMERCHANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNU
+GeneralPublicLicensefor*moredetails.**YoushouldhavereceivedacopyoftheGNUGeneralP
+ublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware
+*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.
+h>#include"thread.h"#include"linklist.h"#include"vty.h"#include"log.h"#include"m
+emory.h"#include"prefix.h"#include"hash.h"#include"if.h"#include"table.h"#includ
+e"isis_constants.h"#include"isis_common.h"#include"isis_flags.h"#include"dict.h"
+#include"isisd.h"#include"isis_misc.h"#include"isis_adjacency.h"#include"isis_ci
+rcuit.h"#include"isis_pdu.h"#include"isis_lsp.h"#include"isis_spf.h"#include"isi
+s_route.h"#include"isis_zebra.h"staticstructisis_nexthop*isis_nexthop_create(str
+uctin_addr*ip,ifindex_tifindex){structlistnode*node;structisis_nexthop*nexthop;f
+or(ALL_LIST_ELEMENTS_RO(isis->nexthops,node,nexthop)){if(nexthop->ifindex!=ifind
+ex)continue;if(ip&&memcmp(&nexthop->ip,ip,sizeof(structin_addr))!=0)continue;nex
+thop->lock++;returnnexthop;}nexthop=XCALLOC(MTYPE_ISIS_NEXTHOP,sizeof(structisis
+_nexthop));nexthop->ifindex=ifindex;memcpy(&nexthop->ip,ip,sizeof(structin_addr)
+);listnode_add(isis->nexthops,nexthop);nexthop->lock++;returnnexthop;}staticvoid
+isis_nexthop_delete(structisis_nexthop*nexthop){nexthop->lock--;if(nexthop->lock
+==0){listnode_delete(isis->nexthops,nexthop);XFREE(MTYPE_ISIS_NEXTHOP,nexthop);}
+return;}staticintnexthoplookup(structlist*nexthops,structin_addr*ip,ifindex_tifi
+ndex){structlistnode*node;structisis_nexthop*nh;for(ALL_LIST_ELEMENTS_RO(nexthop
+s,node,nh)){if(!(memcmp(ip,&nh->ip,sizeof(structin_addr)))&&ifindex==nh->ifindex
+)return1;}return0;}staticstructisis_nexthop6*isis_nexthop6_new(structin6_addr*ip
+6,ifindex_tifindex){structisis_nexthop6*nexthop6;nexthop6=XCALLOC(MTYPE_ISIS_NEX
+THOP6,sizeof(structisis_nexthop6));nexthop6->ifindex=ifindex;memcpy(&nexthop6->i
+p6,ip6,sizeof(structin6_addr));nexthop6->lock++;returnnexthop6;}staticstructisis
+_nexthop6*isis_nexthop6_create(structin6_addr*ip6,ifindex_tifindex){structlistno
+de*node;structisis_nexthop6*nexthop6;for(ALL_LIST_ELEMENTS_RO(isis->nexthops6,no
+de,nexthop6)){if(nexthop6->ifindex!=ifindex)continue;if(ip6&&memcmp(&nexthop6->i
+p6,ip6,sizeof(structin6_addr))!=0)continue;nexthop6->lock++;returnnexthop6;}next
+hop6=isis_nexthop6_new(ip6,ifindex);returnnexthop6;}staticvoidisis_nexthop6_dele
+te(structisis_nexthop6*nexthop6){nexthop6->lock--;if(nexthop6->lock==0){listnode
+_delete(isis->nexthops6,nexthop6);XFREE(MTYPE_ISIS_NEXTHOP6,nexthop6);}return;}s
+taticintnexthop6lookup(structlist*nexthops6,structin6_addr*ip6,ifindex_tifindex)
+{structlistnode*node;structisis_nexthop6*nh6;for(ALL_LIST_ELEMENTS_RO(nexthops6,
+node,nh6)){if(!(memcmp(ip6,&nh6->ip6,sizeof(structin6_addr)))&&ifindex==nh6->ifi
+ndex)return1;}return0;}staticvoidadjinfo2nexthop(structlist*nexthops,structisis_
+adjacency*adj){structisis_nexthop*nh;for(unsignedinti=0;i<adj->ipv4_address_coun
+t;i++){structin_addr*ipv4_addr=&adj->ipv4_addresses[i];if(!nexthoplookup(nexthop
+s,ipv4_addr,adj->circuit->interface->ifindex)){nh=isis_nexthop_create(ipv4_addr,
+adj->circuit->interface->ifindex);nh->router_address=adj->router_address;listnod
+e_add(nexthops,nh);return;}}}staticvoidadjinfo2nexthop6(structlist*nexthops6,str
+uctisis_adjacency*adj){structisis_nexthop6*nh6;for(unsignedinti=0;i<adj->ipv6_ad
+dress_count;i++){structin6_addr*ipv6_addr=&adj->ipv6_addresses[i];if(!nexthop6lo
+okup(nexthops6,ipv6_addr,adj->circuit->interface->ifindex)){nh6=isis_nexthop6_cr
+eate(ipv6_addr,adj->circuit->interface->ifindex);nh6->router_address6=adj->route
+r_address6;listnode_add(nexthops6,nh6);return;}}}staticstructisis_route_info*isi
+s_route_info_new(structprefix*prefix,uint32_tcost,uint32_tdepth,structlist*adjac
+encies){structisis_route_info*rinfo;structisis_adjacency*adj;structlistnode*node
+;rinfo=XCALLOC(MTYPE_ISIS_ROUTE_INFO,sizeof(structisis_route_info));if(prefix->f
+amily==AF_INET){rinfo->nexthops=list_new();for(ALL_LIST_ELEMENTS_RO(adjacencies,
+node,adj)){/*checkforforceresyncthisroute*/if(CHECK_FLAG(adj->circuit->flags,ISI
+S_CIRCUIT_FLAPPED_AFTER_SPF))SET_FLAG(rinfo->flag,ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
+/*updateneighborrouteraddress*/if(depth==2&&prefix->prefixlen==32)adj->router_ad
+dress=prefix->u.prefix4;adjinfo2nexthop(rinfo->nexthops,adj);}}if(prefix->family
+==AF_INET6){rinfo->nexthops6=list_new();for(ALL_LIST_ELEMENTS_RO(adjacencies,nod
+e,adj)){/*checkforforceresyncthisroute*/if(CHECK_FLAG(adj->circuit->flags,ISIS_C
+IRCUIT_FLAPPED_AFTER_SPF))SET_FLAG(rinfo->flag,ISIS_ROUTE_FLAG_ZEBRA_RESYNC);/*u
+pdateneighborrouteraddress*/if(depth==2&&prefix->prefixlen==128)adj->router_addr
+ess6=prefix->u.prefix6;adjinfo2nexthop6(rinfo->nexthops6,adj);}}rinfo->cost=cost
+;rinfo->depth=depth;returnrinfo;}staticvoidisis_route_info_delete(structisis_rou
+te_info*route_info){if(route_info->nexthops){route_info->nexthops->del=(void(*)(
+void*))isis_nexthop_delete;list_delete_and_null(&route_info->nexthops);}if(route
+_info->nexthops6){route_info->nexthops6->del=(void(*)(void*))isis_nexthop6_delet
+e;list_delete_and_null(&route_info->nexthops6);}XFREE(MTYPE_ISIS_ROUTE_INFO,rout
+e_info);}staticintisis_route_info_same_attrib(structisis_route_info*new,structis
+is_route_info*old){if(new->cost!=old->cost)return0;if(new->depth!=old->depth)ret
+urn0;return1;}staticintisis_route_info_same(structisis_route_info*new,structisis
+_route_info*old,uint8_tfamily){structlistnode*node;structisis_nexthop*nexthop;st
+ructisis_nexthop6*nexthop6;if(!CHECK_FLAG(old->flag,ISIS_ROUTE_FLAG_ZEBRA_SYNCED
+))return0;if(CHECK_FLAG(new->flag,ISIS_ROUTE_FLAG_ZEBRA_RESYNC))return0;if(!isis
+_route_info_same_attrib(new,old))return0;if(family==AF_INET){for(ALL_LIST_ELEMEN
+TS_RO(new->nexthops,node,nexthop))if(nexthoplookup(old->nexthops,&nexthop->ip,ne
+xthop->ifindex)==0)return0;for(ALL_LIST_ELEMENTS_RO(old->nexthops,node,nexthop))
+if(nexthoplookup(new->nexthops,&nexthop->ip,nexthop->ifindex)==0)return0;}elseif
+(family==AF_INET6){for(ALL_LIST_ELEMENTS_RO(new->nexthops6,node,nexthop6))if(nex
+thop6lookup(old->nexthops6,&nexthop6->ip6,nexthop6->ifindex)==0)return0;for(ALL_
+LIST_ELEMENTS_RO(old->nexthops6,node,nexthop6))if(nexthop6lookup(new->nexthops6,
+&nexthop6->ip6,nexthop6->ifindex)==0)return0;}return1;}structisis_route_info*isi
+s_route_create(structprefix*prefix,uint32_tcost,uint32_tdepth,structlist*adjacen
+cies,structisis_area*area,intlevel){structroute_node*route_node;structisis_route
+_info*rinfo_new,*rinfo_old,*route_info=NULL;charbuff[PREFIX2STR_BUFFER];uint8_tf
+amily;family=prefix->family;/*fordebugs*/prefix2str(prefix,buff,sizeof(buff));ri
+nfo_new=isis_route_info_new(prefix,cost,depth,adjacencies);if(family==AF_INET)ro
+ute_node=route_node_get(area->route_table[level-1],prefix);elseif(family==AF_INE
+T6)route_node=route_node_get(area->route_table6[level-1],prefix);else{isis_route
+_info_delete(rinfo_new);returnNULL;}rinfo_old=route_node->info;if(!rinfo_old){if
+(isis->debugs&DEBUG_RTE_EVENTS)zlog_debug("ISIS-Rte(%s)routecreated:%s",area->ar
+ea_tag,buff);route_info=rinfo_new;UNSET_FLAG(route_info->flag,ISIS_ROUTE_FLAG_ZE
+BRA_SYNCED);}else{if(isis->debugs&DEBUG_RTE_EVENTS)zlog_debug("ISIS-Rte(%s)route
+alreadyexists:%s",area->area_tag,buff);if(isis_route_info_same(rinfo_new,rinfo_o
+ld,family)){if(isis->debugs&DEBUG_RTE_EVENTS)zlog_debug("ISIS-Rte(%s)routeunchan
+ged:%s",area->area_tag,buff);isis_route_info_delete(rinfo_new);route_info=rinfo_
+old;}else{if(isis->debugs&DEBUG_RTE_EVENTS)zlog_debug("ISIS-Rte(%s)routechanged:
+%s",area->area_tag,buff);isis_route_info_delete(rinfo_old);route_info=rinfo_new;
+UNSET_FLAG(route_info->flag,ISIS_ROUTE_FLAG_ZEBRA_SYNCED);}}SET_FLAG(route_info-
+>flag,ISIS_ROUTE_FLAG_ACTIVE);route_node->info=route_info;returnroute_info;}stat
+icvoidisis_route_delete(structprefix*prefix,structroute_table*table){structroute
+_node*rode;structisis_route_info*rinfo;charbuff[PREFIX2STR_BUFFER];/*forlog*/pre
+fix2str(prefix,buff,sizeof(buff));rode=route_node_get(table,prefix);rinfo=rode->
+info;if(rinfo==NULL){if(isis->debugs&DEBUG_RTE_EVENTS)zlog_debug("ISIS-Rte:tried
+todeletenon-existantroute%s",buff);return;}if(CHECK_FLAG(rinfo->flag,ISIS_ROUTE_
+FLAG_ZEBRA_SYNCED)){UNSET_FLAG(rinfo->flag,ISIS_ROUTE_FLAG_ACTIVE);if(isis->debu
+gs&DEBUG_RTE_EVENTS)zlog_debug("ISIS-Rte:routedelete%s",buff);isis_zebra_route_u
+pdate(prefix,rinfo);}isis_route_info_delete(rinfo);rode->info=NULL;return;}/*Val
+idatingroutesinparticulartable.*/staticvoidisis_route_validate_table(structisis_
+area*area,structroute_table*table){structroute_node*rnode,*drnode;structisis_rou
+te_info*rinfo;charbuff[PREFIX2STR_BUFFER];for(rnode=route_top(table);rnode;rnode
+=route_next(rnode)){if(rnode->info==NULL)continue;rinfo=rnode->info;if(isis->deb
+ugs&DEBUG_RTE_EVENTS){prefix2str(&rnode->p,buff,sizeof(buff));zlog_debug("ISIS-R
+te(%s):routevalidate:%s%s%s%s",area->area_tag,(CHECK_FLAG(rinfo->flag,ISIS_ROUTE
+_FLAG_ZEBRA_SYNCED)?"synced":"not-synced"),(CHECK_FLAG(rinfo->flag,ISIS_ROUTE_FL
+AG_ZEBRA_RESYNC)?"resync":"not-resync"),(CHECK_FLAG(rinfo->flag,ISIS_ROUTE_FLAG_
+ACTIVE)?"active":"inactive"),buff);}isis_zebra_route_update(&rnode->p,rinfo);if(
+!CHECK_FLAG(rinfo->flag,ISIS_ROUTE_FLAG_ACTIVE)){/*AreaiseitherL1orL2=>weuseleve
+lroutetables*directlyfor*validating=>noproblemswithdeletingroutes.*/if(area->is_
+type!=IS_LEVEL_1_AND_2){isis_route_delete(&rnode->p,table);continue;}/*IfareaisL
+1L2,weworkwithmergetableand*thereforemust*deletenodefromleveltablesaswellbefored
+eleting*routeinfo.*FIXME:Isitperformanceproblem?Therehastobethe*betterway.*Liken
+ottodealwithithereatall(seethenext*comment)?*/if(rnode->p.family==AF_INET){drnod
+e=route_node_get(area->route_table[0],&rnode->p);if(drnode->info==rnode->info)dr
+node->info=NULL;drnode=route_node_get(area->route_table[1],&rnode->p);if(drnode-
+>info==rnode->info)drnode->info=NULL;}if(rnode->p.family==AF_INET6){drnode=route
+_node_get(area->route_table6[0],&rnode->p);if(drnode->info==rnode->info)drnode->
+info=NULL;drnode=route_node_get(area->route_table6[1],&rnode->p);if(drnode->info
+==rnode->info)drnode->info=NULL;}isis_route_delete(&rnode->p,table);}}}/*Functio
+ntovalidateroutetablesforL1L2areas.Inthiscasewecan'tuse*levelroutetablesdirectly
+,wehavetomergethematfirst.L1routesare*preferredovertheL2ones.**Mergealgorithmist
+rivial(atleastfornow).AllL1pathsarecopiedinto*mergetableatfirst,thenL2pathsaread
+dedifL1pathforsameprefix*doesn'talreadyexiststhere.**FIXME:Isitrightplacetodoita
+tall?Maybeweshouldpushbothlevels*totheRIBwithdifferentzebraroutetypesandletRIBha
+ndlethis?*/staticvoidisis_route_validate_merge(structisis_area*area,intfamily){s
+tructroute_table*table=NULL;structroute_table*merge;structroute_node*rnode,*mrno
+de;merge=route_table_init();if(family==AF_INET)table=area->route_table[0];elseif
+(family==AF_INET6)table=area->route_table6[0];else{zlog_warn("ISIS-Rte(%s)%scall
+edforunknownfamily%d",area->area_tag,__func__,family);route_table_finish(merge);
+return;}for(rnode=route_top(table);rnode;rnode=route_next(rnode)){if(rnode->info
+==NULL)continue;mrnode=route_node_get(merge,&rnode->p);mrnode->info=rnode->info;
+}if(family==AF_INET)table=area->route_table[1];elseif(family==AF_INET6)table=are
+a->route_table6[1];for(rnode=route_top(table);rnode;rnode=route_next(rnode)){if(
+rnode->info==NULL)continue;mrnode=route_node_get(merge,&rnode->p);if(mrnode->inf
+o!=NULL)continue;mrnode->info=rnode->info;}isis_route_validate_table(area,merge)
+;route_table_finish(merge);}/*Walkthroughroutetablesandpropagatenecessarychanges
+intoRIB.Incase*ofL1L2area,leveltableshavetobemergedatfirst.*/voidisis_route_vali
+date(structisis_area*area){structlistnode*node;structisis_circuit*circuit;if(are
+a->is_type==IS_LEVEL_1)isis_route_validate_table(area,area->route_table[0]);else
+if(area->is_type==IS_LEVEL_2)isis_route_validate_table(area,area->route_table[1]
+);elseisis_route_validate_merge(area,AF_INET);if(area->is_type==IS_LEVEL_1)isis_
+route_validate_table(area,area->route_table6[0]);elseif(area->is_type==IS_LEVEL_
+2)isis_route_validate_table(area,area->route_table6[1]);elseisis_route_validate_
+merge(area,AF_INET6);if(!area->circuit_list){return;}/*walkallcircuitsandresetan
+yspfspecificflags*/for(ALL_LIST_ELEMENTS_RO(area->circuit_list,node,circuit))UNS
+ET_FLAG(circuit->flags,ISIS_CIRCUIT_FLAPPED_AFTER_SPF);return;}voidisis_route_in
+validate_table(structisis_area*area,structroute_table*table){structroute_node*ro
+de;structisis_route_info*rinfo;for(rode=route_top(table);rode;rode=route_next(ro
+de)){if(rode->info==NULL)continue;rinfo=rode->info;UNSET_FLAG(rinfo->flag,ISIS_R
+OUTE_FLAG_ACTIVE);}}voidisis_route_invalidate(structisis_area*area){if(area->is_
+type&IS_LEVEL_1)isis_route_invalidate_table(area,area->route_table[0]);if(area->
+is_type&IS_LEVEL_2)isis_route_invalidate_table(area,area->route_table[1]);}

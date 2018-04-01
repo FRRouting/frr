@@ -1,125 +1,39 @@
-/*
- * Copyright 1990 William Pugh
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- * Permission to include in quagga provide on March 31, 2016
- */
-
-/*
- * Skip List impementation based on code from William Pugh.
- * ftp://ftp.cs.umd.edu/pub/skipLists/
- */
-
-/* skiplist.h */
-
-
-#ifndef _ZEBRA_SKIPLIST_H
-#define _ZEBRA_SKIPLIST_H
-
-#define SKIPLIST_0TIMER_DEBUG 1
-
-/*
- * skiplistnodes must always contain data to be valid. Adding an
- * empty node to a list is invalid
- */
-struct skiplistnode {
-	void *key;
-	void *value;
-#if SKIPLIST_0TIMER_DEBUG
-	int flags;
-#define SKIPLIST_NODE_FLAG_INSERTED 0x00000001
-#endif
-
-	struct skiplistnode *forward[1]; /* variable sized */
-};
-
-struct skiplist {
-	int flags;
-
-#define SKIPLIST_FLAG_ALLOW_DUPLICATES	0x00000001
-
-	int level; /* max lvl (1 + current # of levels in list) */
-	unsigned int count;
-	struct skiplistnode *header;
-	struct skiplistnode *stats;
-	struct skiplistnode
-		*last; /* last real list item (NULL if empty list) */
-
-	/*
-	 * Returns -1 if val1 < val2, 0 if equal?, 1 if val1 > val2.
-	 * Used as definition of sorted for listnode_add_sort
-	 */
-	int (*cmp)(void *val1, void *val2);
-
-	/* callback to free user-owned data when listnode is deleted. supplying
-	 * this callback is very much encouraged!
-	 */
-	void (*del)(void *val);
-};
-
-
-/* Prototypes. */
-extern struct skiplist *
-skiplist_new(/* encouraged: set list.del callback on new lists */
-	     int flags,
-	     int (*cmp)(void *key1, void *key2), /* NULL => default cmp */
-	     void (*del)(void *val));		 /* NULL => no auto val free */
-
-extern void skiplist_free(struct skiplist *);
-
-extern int skiplist_insert(register struct skiplist *l, register void *key,
-			   register void *value);
-
-extern int skiplist_delete(register struct skiplist *l, register void *key,
-			   register void *value);
-
-extern int skiplist_search(register struct skiplist *l, register void *key,
-			   void **valuePointer);
-
-extern int skiplist_first_value(register struct skiplist *l, /* in */
-				register void *key,	  /* in */
-				void **valuePointer,	 /* in/out */
-				void **cursor);		     /* out */
-
-extern int skiplist_next_value(register struct skiplist *l, /* in */
-			       register void *key,	  /* in */
-			       void **valuePointer,	 /* in/out */
-			       void **cursor);		    /* in/out */
-
-extern int skiplist_first(register struct skiplist *l, void **keyPointer,
-			  void **valuePointer);
-
-extern int skiplist_last(register struct skiplist *l, void **keyPointer,
-			 void **valuePointer);
-
-extern int skiplist_delete_first(register struct skiplist *l);
-
-extern int skiplist_next(register struct skiplist *l, /* in */
-			 void **keyPointer,	   /* out */
-			 void **valuePointer,	 /* out */
-			 void **cursor);	      /* in/out */
-
-extern int skiplist_empty(register struct skiplist *l); /* in */
-
-extern unsigned int skiplist_count(register struct skiplist *l); /* in */
-
-extern void skiplist_debug(struct vty *vty, struct skiplist *l);
-
-extern void skiplist_test(struct vty *vty);
-
-#endif /* _ZEBRA_SKIPLIST_H */
+/**Copyright1990WilliamPugh**Redistributionanduseinsourceandbinaryforms,withorwi
+thout*modification,arepermitted.**THISSOFTWAREISPROVIDEDBYTHEAUTHORANDCONTRIBUTO
+RS``ASIS''*ANDANYEXPRESSORIMPLIEDWARRANTIES,INCLUDING,BUTNOTLIMITED*TO,THEIMPLIE
+DWARRANTIESOFMERCHANTABILITYANDFITNESSFORA*PARTICULARPURPOSEAREDISCLAIMED.INNOEV
+ENTSHALLTHEAUTHOROR*CONTRIBUTORSBELIABLEFORANYDIRECT,INDIRECT,INCIDENTAL,*SPECIA
+L,EXEMPLARY,ORCONSEQUENTIALDAMAGES(INCLUDING,BUTNOT*LIMITEDTO,PROCUREMENTOFSUBST
+ITUTEGOODSORSERVICES;LOSSOF*USE,DATA,ORPROFITS;ORBUSINESSINTERRUPTION)HOWEVERCAU
+SEDAND*ONANYTHEORYOFLIABILITY,WHETHERINCONTRACT,STRICTLIABILITY,*ORTORT(INCLUDIN
+GNEGLIGENCEOROTHERWISE)ARISINGINANYWAYOUT*OFTHEUSEOFTHISSOFTWARE,EVENIFADVISEDOF
+THEPOSSIBILITYOF*SUCHDAMAGE.**PermissiontoincludeinquaggaprovideonMarch31,2016*/
+/**SkipListimpementationbasedoncodefromWilliamPugh.*ftp://ftp.cs.umd.edu/pub/ski
+pLists/*//*skiplist.h*/#ifndef_ZEBRA_SKIPLIST_H#define_ZEBRA_SKIPLIST_H#defineSK
+IPLIST_0TIMER_DEBUG1/**skiplistnodesmustalwayscontaindatatobevalid.Addingan*empt
+ynodetoalistisinvalid*/structskiplistnode{void*key;void*value;#ifSKIPLIST_0TIMER
+_DEBUGintflags;#defineSKIPLIST_NODE_FLAG_INSERTED0x00000001#endifstructskiplistn
+ode*forward[1];/*variablesized*/};structskiplist{intflags;#defineSKIPLIST_FLAG_A
+LLOW_DUPLICATES0x00000001intlevel;/*maxlvl(1+current#oflevelsinlist)*/unsignedin
+tcount;structskiplistnode*header;structskiplistnode*stats;structskiplistnode*las
+t;/*lastreallistitem(NULLifemptylist)*//**Returns-1ifval1<val2,0ifequal?,1ifval1
+>val2.*Usedasdefinitionofsortedforlistnode_add_sort*/int(*cmp)(void*val1,void*va
+l2);/*callbacktofreeuser-owneddatawhenlistnodeisdeleted.supplying*thiscallbackis
+verymuchencouraged!*/void(*del)(void*val);};/*Prototypes.*/externstructskiplist*
+skiplist_new(/*encouraged:setlist.delcallbackonnewlists*/intflags,int(*cmp)(void
+*key1,void*key2),/*NULL=>defaultcmp*/void(*del)(void*val));/*NULL=>noautovalfree
+*/externvoidskiplist_free(structskiplist*);externintskiplist_insert(registerstru
+ctskiplist*l,registervoid*key,registervoid*value);externintskiplist_delete(regis
+terstructskiplist*l,registervoid*key,registervoid*value);externintskiplist_searc
+h(registerstructskiplist*l,registervoid*key,void**valuePointer);externintskiplis
+t_first_value(registerstructskiplist*l,/*in*/registervoid*key,/*in*/void**valueP
+ointer,/*in/out*/void**cursor);/*out*/externintskiplist_next_value(registerstruc
+tskiplist*l,/*in*/registervoid*key,/*in*/void**valuePointer,/*in/out*/void**curs
+or);/*in/out*/externintskiplist_first(registerstructskiplist*l,void**keyPointer,
+void**valuePointer);externintskiplist_last(registerstructskiplist*l,void**keyPoi
+nter,void**valuePointer);externintskiplist_delete_first(registerstructskiplist*l
+);externintskiplist_next(registerstructskiplist*l,/*in*/void**keyPointer,/*out*/
+void**valuePointer,/*out*/void**cursor);/*in/out*/externintskiplist_empty(regist
+erstructskiplist*l);/*in*/externunsignedintskiplist_count(registerstructskiplist
+*l);/*in*/externvoidskiplist_debug(structvty*vty,structskiplist*l);externvoidski
+plist_test(structvty*vty);#endif/*_ZEBRA_SKIPLIST_H*/

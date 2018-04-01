@@ -1,154 +1,46 @@
-/*
- *
- * Copyright 2009-2016, LabN Consulting, L.L.C.
- *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/*
- * File:	rfapi_rib.h
- * Purpose:	per-nve rib
- */
-
-#ifndef QUAGGA_HGP_RFAPI_RIB_H
-#define QUAGGA_HGP_RFAPI_RIB_H
-
-/*
- * Key for indexing RIB and Pending RIB skiplists. For L3 RIBs,
- * the VN address is sufficient because it represents the actual next hop.
- *
- * For L2 RIBs, it is possible to have multiple routes to a given L2
- * prefix via a given VN address, but each route having a unique aux_prefix.
- */
-struct rfapi_rib_key {
-	struct prefix vn;
-	struct prefix_rd rd;
-
-	/*
-	 * for L2 routes: optional IP addr
-	 * .family == 0 means "none"
-	 */
-	struct prefix aux_prefix;
-};
-#include "rfapi.h"
-
-/*
- * RFAPI Advertisement Data Block
- *
- * Holds NVE prefix advertisement information
- */
-struct rfapi_adb {
-	union {
-		struct {
-			struct prefix prefix_ip;
-			struct prefix_rd prd;
-			struct prefix prefix_eth;
-		} s; /* mainly for legacy use */
-		struct rfapi_rib_key key;
-	} u;
-	uint32_t lifetime;
-	uint8_t cost;
-	struct rfapi_l2address_option l2o;
-};
-
-struct rfapi_info {
-	struct rfapi_rib_key rk; /* NVE VN addr + aux addr */
-	struct prefix un;
-	uint8_t cost;
-	uint32_t lifetime;
-	time_t last_sent_time;
-	uint32_t rsp_counter; /* dedup initial responses */
-	struct bgp_tea_options *tea_options;
-	struct rfapi_un_option *un_options;
-	struct rfapi_vn_option *vn_options;
-	struct thread *timer;
-};
-
-/*
- * Work item for updated responses queue
- */
-struct rfapi_updated_responses_queue {
-	struct rfapi_descriptor *rfd;
-	afi_t afi;
-};
-
-
-extern void rfapiRibClear(struct rfapi_descriptor *rfd);
-
-extern void rfapiRibFree(struct rfapi_descriptor *rfd);
-
-extern void rfapiRibUpdatePendingNode(struct bgp *bgp,
-				      struct rfapi_descriptor *rfd,
-				      struct rfapi_import_table *it,
-				      struct route_node *it_node,
-				      uint32_t lifetime);
-
-extern void rfapiRibUpdatePendingNodeSubtree(struct bgp *bgp,
-					     struct rfapi_descriptor *rfd,
-					     struct rfapi_import_table *it,
-					     struct route_node *it_node,
-					     struct route_node *omit_subtree,
-					     uint32_t lifetime);
-
-extern int rfapiRibPreloadBi(struct route_node *rfd_rib_node,
-			     struct prefix *pfx_vn, struct prefix *pfx_un,
-			     uint32_t lifetime, struct bgp_info *bi);
-
-extern struct rfapi_next_hop_entry *
-rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
-		struct rfapi_next_hop_entry *response, int use_eth_resolution);
-
-extern void rfapiRibPendingDeleteRoute(struct bgp *bgp,
-				       struct rfapi_import_table *it, afi_t afi,
-				       struct route_node *it_node);
-
-extern void rfapiRibShowResponsesSummary(void *stream);
-
-extern void rfapiRibShowResponsesSummaryClear(void);
-
-extern void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
-				  int show_removed);
-
-extern int rfapiRibFTDFilterRecentPrefix(
-	struct rfapi_descriptor *rfd,
-	struct route_node *it_rn,	    /* import table node */
-	struct prefix *pfx_target_original); /* query target */
-
-extern void rfapiFreeRfapiUnOptionChain(struct rfapi_un_option *p);
-
-extern void rfapiFreeRfapiVnOptionChain(struct rfapi_vn_option *p);
-
-extern void
-rfapiRibCheckCounts(int checkstats,       /* validate rfd & global counts */
-		    unsigned int offset); /* number of ri's held separately */
-
-/* enable for debugging; disable for performance */
-#if 0
-#define RFAPI_RIB_CHECK_COUNTS(checkstats, offset)	rfapiRibCheckCounts(checkstats, offset)
-#else
-#define RFAPI_RIB_CHECK_COUNTS(checkstats, offset)
-#endif
-
-extern void rfapi_rib_key_init(struct prefix *prefix, /* may be NULL */
-			       struct prefix_rd *rd,  /* may be NULL */
-			       struct prefix *aux,    /* may be NULL */
-			       struct rfapi_rib_key *rk);
-
-extern int rfapi_rib_key_cmp(void *k1, void *k2);
-
-extern void rfapiAdbFree(struct rfapi_adb *adb);
-
-#endif /* QUAGGA_HGP_RFAPI_RIB_H */
+/***Copyright2009-2016,LabNConsulting,L.L.C.***Thisprogramisfreesoftware;youcanr
+edistributeitand/or*modifyitunderthetermsoftheGNUGeneralPublicLicense*aspublishe
+dbytheFreeSoftwareFoundation;eitherversion2*oftheLicense,or(atyouroption)anylate
+rversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,*butWITHOUTANYWAR
+RANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURP
+OSE.Seethe*GNUGeneralPublicLicenseformoredetails.**Youshouldhavereceivedacopyoft
+heGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetoth
+eFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*//*
+*File:rfapi_rib.h*Purpose:per-nverib*/#ifndefQUAGGA_HGP_RFAPI_RIB_H#defineQUAGGA
+_HGP_RFAPI_RIB_H/**KeyforindexingRIBandPendingRIBskiplists.ForL3RIBs,*theVNaddre
+ssissufficientbecauseitrepresentstheactualnexthop.**ForL2RIBs,itispossibletohave
+multipleroutestoagivenL2*prefixviaagivenVNaddress,buteachroutehavingauniqueaux_p
+refix.*/structrfapi_rib_key{structprefixvn;structprefix_rdrd;/**forL2routes:opti
+onalIPaddr*.family==0means"none"*/structprefixaux_prefix;};#include"rfapi.h"/**R
+FAPIAdvertisementDataBlock**HoldsNVEprefixadvertisementinformation*/structrfapi_
+adb{union{struct{structprefixprefix_ip;structprefix_rdprd;structprefixprefix_eth
+;}s;/*mainlyforlegacyuse*/structrfapi_rib_keykey;}u;uint32_tlifetime;uint8_tcost
+;structrfapi_l2address_optionl2o;};structrfapi_info{structrfapi_rib_keyrk;/*NVEV
+Naddr+auxaddr*/structprefixun;uint8_tcost;uint32_tlifetime;time_tlast_sent_time;
+uint32_trsp_counter;/*dedupinitialresponses*/structbgp_tea_options*tea_options;s
+tructrfapi_un_option*un_options;structrfapi_vn_option*vn_options;structthread*ti
+mer;};/**Workitemforupdatedresponsesqueue*/structrfapi_updated_responses_queue{s
+tructrfapi_descriptor*rfd;afi_tafi;};externvoidrfapiRibClear(structrfapi_descrip
+tor*rfd);externvoidrfapiRibFree(structrfapi_descriptor*rfd);externvoidrfapiRibUp
+datePendingNode(structbgp*bgp,structrfapi_descriptor*rfd,structrfapi_import_tabl
+e*it,structroute_node*it_node,uint32_tlifetime);externvoidrfapiRibUpdatePendingN
+odeSubtree(structbgp*bgp,structrfapi_descriptor*rfd,structrfapi_import_table*it,
+structroute_node*it_node,structroute_node*omit_subtree,uint32_tlifetime);externi
+ntrfapiRibPreloadBi(structroute_node*rfd_rib_node,structprefix*pfx_vn,structpref
+ix*pfx_un,uint32_tlifetime,structbgp_info*bi);externstructrfapi_next_hop_entry*r
+fapiRibPreload(structbgp*bgp,structrfapi_descriptor*rfd,structrfapi_next_hop_ent
+ry*response,intuse_eth_resolution);externvoidrfapiRibPendingDeleteRoute(structbg
+p*bgp,structrfapi_import_table*it,afi_tafi,structroute_node*it_node);externvoidr
+fapiRibShowResponsesSummary(void*stream);externvoidrfapiRibShowResponsesSummaryC
+lear(void);externvoidrfapiRibShowResponses(void*stream,structprefix*pfx_match,in
+tshow_removed);externintrfapiRibFTDFilterRecentPrefix(structrfapi_descriptor*rfd
+,structroute_node*it_rn,/*importtablenode*/structprefix*pfx_target_original);/*q
+uerytarget*/externvoidrfapiFreeRfapiUnOptionChain(structrfapi_un_option*p);exter
+nvoidrfapiFreeRfapiVnOptionChain(structrfapi_vn_option*p);externvoidrfapiRibChec
+kCounts(intcheckstats,/*validaterfd&globalcounts*/unsignedintoffset);/*numberofr
+i'sheldseparately*//*enablefordebugging;disableforperformance*/#if0#defineRFAPI_
+RIB_CHECK_COUNTS(checkstats,offset)rfapiRibCheckCounts(checkstats,offset)#else#d
+efineRFAPI_RIB_CHECK_COUNTS(checkstats,offset)#endifexternvoidrfapi_rib_key_init
+(structprefix*prefix,/*maybeNULL*/structprefix_rd*rd,/*maybeNULL*/structprefix*a
+ux,/*maybeNULL*/structrfapi_rib_key*rk);externintrfapi_rib_key_cmp(void*k1,void*
+k2);externvoidrfapiAdbFree(structrfapi_adb*adb);#endif/*QUAGGA_HGP_RFAPI_RIB_H*/

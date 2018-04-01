@@ -1,234 +1,77 @@
-/* Thread management routine header.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_THREAD_H
-#define _ZEBRA_THREAD_H
-
-#include <zebra.h>
-#include <pthread.h>
-#include <poll.h>
-#include "monotime.h"
-
-struct rusage_t {
-	struct rusage cpu;
-	struct timeval real;
-};
-#define RUSAGE_T        struct rusage_t
-
-#define GETRUSAGE(X) thread_getrusage(X)
-
-/* Linked list of thread. */
-struct thread_list {
-	struct thread *head;
-	struct thread *tail;
-	int count;
-};
-
-struct pqueue;
-
-struct fd_handler {
-	/* number of pfd that fit in the allocated space of pfds. This is a
-	 * constant
-	 * and is the same for both pfds and copy. */
-	nfds_t pfdsize;
-
-	/* file descriptors to monitor for i/o */
-	struct pollfd *pfds;
-	/* number of pollfds stored in pfds */
-	nfds_t pfdcount;
-
-	/* chunk used for temp copy of pollfds */
-	struct pollfd *copy;
-	/* number of pollfds stored in copy */
-	nfds_t copycount;
-};
-
-struct cancel_req {
-	struct thread *thread;
-	void *eventobj;
-	struct thread **threadref;
-};
-
-/* Master of the theads. */
-struct thread_master {
-	char *name;
-
-	struct thread **read;
-	struct thread **write;
-	struct pqueue *timer;
-	struct thread_list event;
-	struct thread_list ready;
-	struct thread_list unuse;
-	struct list *cancel_req;
-	bool canceled;
-	pthread_cond_t cancel_cond;
-	struct hash *cpu_record;
-	int io_pipe[2];
-	int fd_limit;
-	struct fd_handler handler;
-	unsigned long alloc;
-	long selectpoll_timeout;
-	bool spin;
-	bool handle_signals;
-	pthread_mutex_t mtx;
-	pthread_t owner;
-};
-
-typedef unsigned char thread_type;
-
-/* Thread itself. */
-struct thread {
-	thread_type type;	     /* thread type */
-	thread_type add_type;	 /* thread type */
-	struct thread *next;	  /* next pointer of the thread */
-	struct thread *prev;	  /* previous pointer of the thread */
-	struct thread **ref;	  /* external reference (if given) */
-	struct thread_master *master; /* pointer to the struct thread_master */
-	int (*func)(struct thread *); /* event function */
-	void *arg;		      /* event argument */
-	union {
-		int val;	      /* second argument of the event. */
-		int fd;		      /* file descriptor in case of r/w */
-		struct timeval sands; /* rest of time sands value. */
-	} u;
-	int index; /* queue position for timers */
-	struct timeval real;
-	struct cpu_thread_history *hist; /* cache pointer to cpu_history */
-	unsigned long yield;		 /* yield time in microseconds */
-	const char *funcname;		 /* name of thread function */
-	const char *schedfrom; /* source file thread was scheduled from */
-	int schedfrom_line;    /* line number of source file */
-	pthread_mutex_t mtx;   /* mutex for thread.c functions */
-};
-
-struct cpu_thread_history {
-	int (*func)(struct thread *);
-	unsigned int total_calls;
-	unsigned int total_active;
-	struct time_stats {
-		unsigned long total, max;
-	} real;
-	struct time_stats cpu;
-	thread_type types;
-	const char *funcname;
-};
-
-/* Struct timeval's tv_usec one second value.  */
-#define TIMER_SECOND_MICRO 1000000L
-
-/* Thread types. */
-#define THREAD_READ           0
-#define THREAD_WRITE          1
-#define THREAD_TIMER          2
-#define THREAD_EVENT          3
-#define THREAD_READY          4
-#define THREAD_UNUSED         5
-#define THREAD_EXECUTE        6
-
-/* Thread yield time.  */
-#define THREAD_YIELD_TIME_SLOT     10 * 1000L /* 10ms */
-
-/* Macros. */
-#define THREAD_ARG(X) ((X)->arg)
-#define THREAD_FD(X)  ((X)->u.fd)
-#define THREAD_VAL(X) ((X)->u.val)
-
-#define THREAD_OFF(thread)                                                     \
-	do {                                                                   \
-		if (thread) {                                                  \
-			thread_cancel(thread);                                 \
-			thread = NULL;                                         \
-		}                                                              \
-	} while (0)
-
-#define THREAD_READ_OFF(thread)  THREAD_OFF(thread)
-#define THREAD_WRITE_OFF(thread)  THREAD_OFF(thread)
-#define THREAD_TIMER_OFF(thread)  THREAD_OFF(thread)
-
-#define debugargdef  const char *funcname, const char *schedfrom, int fromln
-
-#define thread_add_read(m,f,a,v,t) funcname_thread_add_read_write(THREAD_READ,m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_write(m,f,a,v,t) funcname_thread_add_read_write(THREAD_WRITE,m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_timer(m,f,a,v,t) funcname_thread_add_timer(m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_timer_msec(m,f,a,v,t) funcname_thread_add_timer_msec(m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_timer_tv(m,f,a,v,t) funcname_thread_add_timer_tv(m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_add_event(m,f,a,v,t) funcname_thread_add_event(m,f,a,v,t,#f,__FILE__,__LINE__)
-#define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f,__FILE__,__LINE__)
-
-/* Prototypes. */
-extern struct thread_master *thread_master_create(const char *);
-void thread_master_set_name(struct thread_master *master, const char *name);
-extern void thread_master_free(struct thread_master *);
-extern void thread_master_free_unused(struct thread_master *);
-
-extern struct thread *
-funcname_thread_add_read_write(int dir, struct thread_master *,
-			       int (*)(struct thread *), void *, int,
-			       struct thread **, debugargdef);
-
-extern struct thread *funcname_thread_add_timer(struct thread_master *,
-						int (*)(struct thread *),
-						void *, long, struct thread **,
-						debugargdef);
-
-extern struct thread *
-funcname_thread_add_timer_msec(struct thread_master *, int (*)(struct thread *),
-			       void *, long, struct thread **, debugargdef);
-
-extern struct thread *funcname_thread_add_timer_tv(struct thread_master *,
-						   int (*)(struct thread *),
-						   void *, struct timeval *,
-						   struct thread **,
-						   debugargdef);
-
-extern struct thread *funcname_thread_add_event(struct thread_master *,
-						int (*)(struct thread *),
-						void *, int, struct thread **,
-						debugargdef);
-
-extern void funcname_thread_execute(struct thread_master *,
-				    int (*)(struct thread *), void *, int,
-				    debugargdef);
-#undef debugargdef
-
-extern void thread_cancel(struct thread *);
-extern void thread_cancel_async(struct thread_master *, struct thread **,
-				void *);
-extern void thread_cancel_event(struct thread_master *, void *);
-extern struct thread *thread_fetch(struct thread_master *, struct thread *);
-extern void thread_call(struct thread *);
-extern unsigned long thread_timer_remain_second(struct thread *);
-extern struct timeval thread_timer_remain(struct thread *);
-extern int thread_should_yield(struct thread *);
-/* set yield time for thread */
-extern void thread_set_yield_time(struct thread *, unsigned long);
-
-/* Internal libfrr exports */
-extern void thread_getrusage(RUSAGE_T *);
-extern void thread_cmd_init(void);
-
-/* Returns elapsed real (wall clock) time. */
-extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
-					  unsigned long *cpu_time_elapsed);
-
-/* only for use in logging functions! */
-extern pthread_key_t thread_current;
-
-#endif /* _ZEBRA_THREAD_H */
+/*Threadmanagementroutineheader.*Copyright(C)1998KunihiroIshiguro**Thisfileispar
+tofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthe
+termsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherv
+ersion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitw
+illbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILI
+TYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**
+YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seet
+hefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFlo
+or,Boston,MA02110-1301USA*/#ifndef_ZEBRA_THREAD_H#define_ZEBRA_THREAD_H#include<
+zebra.h>#include<pthread.h>#include<poll.h>#include"monotime.h"structrusage_t{st
+ructrusagecpu;structtimevalreal;};#defineRUSAGE_Tstructrusage_t#defineGETRUSAGE(
+X)thread_getrusage(X)/*Linkedlistofthread.*/structthread_list{structthread*head;
+structthread*tail;intcount;};structpqueue;structfd_handler{/*numberofpfdthatfiti
+ntheallocatedspaceofpfds.Thisisa*constant*andisthesameforbothpfdsandcopy.*/nfds_
+tpfdsize;/*filedescriptorstomonitorfori/o*/structpollfd*pfds;/*numberofpollfdsst
+oredinpfds*/nfds_tpfdcount;/*chunkusedfortempcopyofpollfds*/structpollfd*copy;/*
+numberofpollfdsstoredincopy*/nfds_tcopycount;};structcancel_req{structthread*thr
+ead;void*eventobj;structthread**threadref;};/*Masterofthetheads.*/structthread_m
+aster{char*name;structthread**read;structthread**write;structpqueue*timer;struct
+thread_listevent;structthread_listready;structthread_listunuse;structlist*cancel
+_req;boolcanceled;pthread_cond_tcancel_cond;structhash*cpu_record;intio_pipe[2];
+intfd_limit;structfd_handlerhandler;unsignedlongalloc;longselectpoll_timeout;boo
+lspin;boolhandle_signals;pthread_mutex_tmtx;pthread_towner;};typedefunsignedchar
+thread_type;/*Threaditself.*/structthread{thread_typetype;/*threadtype*/thread_t
+ypeadd_type;/*threadtype*/structthread*next;/*nextpointerofthethread*/structthre
+ad*prev;/*previouspointerofthethread*/structthread**ref;/*externalreference(ifgi
+ven)*/structthread_master*master;/*pointertothestructthread_master*/int(*func)(s
+tructthread*);/*eventfunction*/void*arg;/*eventargument*/union{intval;/*secondar
+gumentoftheevent.*/intfd;/*filedescriptorincaseofr/w*/structtimevalsands;/*resto
+ftimesandsvalue.*/}u;intindex;/*queuepositionfortimers*/structtimevalreal;struct
+cpu_thread_history*hist;/*cachepointertocpu_history*/unsignedlongyield;/*yieldti
+meinmicroseconds*/constchar*funcname;/*nameofthreadfunction*/constchar*schedfrom
+;/*sourcefilethreadwasscheduledfrom*/intschedfrom_line;/*linenumberofsourcefile*
+/pthread_mutex_tmtx;/*mutexforthread.cfunctions*/};structcpu_thread_history{int(
+*func)(structthread*);unsignedinttotal_calls;unsignedinttotal_active;structtime_
+stats{unsignedlongtotal,max;}real;structtime_statscpu;thread_typetypes;constchar
+*funcname;};/*Structtimeval'stv_useconesecondvalue.*/#defineTIMER_SECOND_MICRO10
+00000L/*Threadtypes.*/#defineTHREAD_READ0#defineTHREAD_WRITE1#defineTHREAD_TIMER
+2#defineTHREAD_EVENT3#defineTHREAD_READY4#defineTHREAD_UNUSED5#defineTHREAD_EXEC
+UTE6/*Threadyieldtime.*/#defineTHREAD_YIELD_TIME_SLOT10*1000L/*10ms*//*Macros.*/
+#defineTHREAD_ARG(X)((X)->arg)#defineTHREAD_FD(X)((X)->u.fd)#defineTHREAD_VAL(X)
+((X)->u.val)#defineTHREAD_OFF(thread)\do{\if(thread){\thread_cancel(thread);\thr
+ead=NULL;\}\}while(0)#defineTHREAD_READ_OFF(thread)THREAD_OFF(thread)#defineTHRE
+AD_WRITE_OFF(thread)THREAD_OFF(thread)#defineTHREAD_TIMER_OFF(thread)THREAD_OFF(
+thread)#definedebugargdefconstchar*funcname,constchar*schedfrom,intfromln#define
+thread_add_read(m,f,a,v,t)funcname_thread_add_read_write(THREAD_READ,m,f,a,v,t,#
+f,__FILE__,__LINE__)#definethread_add_write(m,f,a,v,t)funcname_thread_add_read_w
+rite(THREAD_WRITE,m,f,a,v,t,#f,__FILE__,__LINE__)#definethread_add_timer(m,f,a,v
+,t)funcname_thread_add_timer(m,f,a,v,t,#f,__FILE__,__LINE__)#definethread_add_ti
+mer_msec(m,f,a,v,t)funcname_thread_add_timer_msec(m,f,a,v,t,#f,__FILE__,__LINE__
+)#definethread_add_timer_tv(m,f,a,v,t)funcname_thread_add_timer_tv(m,f,a,v,t,#f,
+__FILE__,__LINE__)#definethread_add_event(m,f,a,v,t)funcname_thread_add_event(m,
+f,a,v,t,#f,__FILE__,__LINE__)#definethread_execute(m,f,a,v)funcname_thread_execu
+te(m,f,a,v,#f,__FILE__,__LINE__)/*Prototypes.*/externstructthread_master*thread_
+master_create(constchar*);voidthread_master_set_name(structthread_master*master,
+constchar*name);externvoidthread_master_free(structthread_master*);externvoidthr
+ead_master_free_unused(structthread_master*);externstructthread*funcname_thread_
+add_read_write(intdir,structthread_master*,int(*)(structthread*),void*,int,struc
+tthread**,debugargdef);externstructthread*funcname_thread_add_timer(structthread
+_master*,int(*)(structthread*),void*,long,structthread**,debugargdef);externstru
+ctthread*funcname_thread_add_timer_msec(structthread_master*,int(*)(structthread
+*),void*,long,structthread**,debugargdef);externstructthread*funcname_thread_add
+_timer_tv(structthread_master*,int(*)(structthread*),void*,structtimeval*,struct
+thread**,debugargdef);externstructthread*funcname_thread_add_event(structthread_
+master*,int(*)(structthread*),void*,int,structthread**,debugargdef);externvoidfu
+ncname_thread_execute(structthread_master*,int(*)(structthread*),void*,int,debug
+argdef);#undefdebugargdefexternvoidthread_cancel(structthread*);externvoidthread
+_cancel_async(structthread_master*,structthread**,void*);externvoidthread_cancel
+_event(structthread_master*,void*);externstructthread*thread_fetch(structthread_
+master*,structthread*);externvoidthread_call(structthread*);externunsignedlongth
+read_timer_remain_second(structthread*);externstructtimevalthread_timer_remain(s
+tructthread*);externintthread_should_yield(structthread*);/*setyieldtimeforthrea
+d*/externvoidthread_set_yield_time(structthread*,unsignedlong);/*Internallibfrre
+xports*/externvoidthread_getrusage(RUSAGE_T*);externvoidthread_cmd_init(void);/*
+Returnselapsedreal(wallclock)time.*/externunsignedlongthread_consumed_time(RUSAG
+E_T*after,RUSAGE_T*before,unsignedlong*cpu_time_elapsed);/*onlyforuseinloggingfu
+nctions!*/externpthread_key_tthread_current;#endif/*_ZEBRA_THREAD_H*/

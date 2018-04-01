@@ -1,41 +1,14 @@
-/*
- *
- * Copyright 2009-2016, LabN Consulting, L.L.C.
- *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_RFAPI_VNC_EXPORT_BGP_H_
-#define _QUAGGA_RFAPI_VNC_EXPORT_BGP_H_
-
-#include "lib/zebra.h"
-#include "lib/prefix.h"
-
-#include "bgpd/bgpd.h"
-#include "bgpd/bgp_route.h"
-
-
-extern void vnc_direct_bgp_rh_reexport(struct bgp *bgp, afi_t afi);
-
-extern void vnc_export_bgp_prechange(struct bgp *bgp);
-
-extern void vnc_export_bgp_postchange(struct bgp *bgp);
-
-extern void vnc_export_bgp_enable(struct bgp *bgp, afi_t afi);
-
-extern void vnc_export_bgp_disable(struct bgp *bgp, afi_t afi);
-
-#endif /* _QUAGGA_RFAPI_VNC_EXPORT_BGP_H_ */
+/***Copyright2009-2016,LabNConsulting,L.L.C.***Thisprogramisfreesoftware;youcanr
+edistributeitand/or*modifyitunderthetermsoftheGNUGeneralPublicLicense*aspublishe
+dbytheFreeSoftwareFoundation;eitherversion2*oftheLicense,or(atyouroption)anylate
+rversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,*butWITHOUTANYWAR
+RANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURP
+OSE.Seethe*GNUGeneralPublicLicenseformoredetails.**Youshouldhavereceivedacopyoft
+heGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetoth
+eFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#i
+fndef_QUAGGA_RFAPI_VNC_EXPORT_BGP_H_#define_QUAGGA_RFAPI_VNC_EXPORT_BGP_H_#inclu
+de"lib/zebra.h"#include"lib/prefix.h"#include"bgpd/bgpd.h"#include"bgpd/bgp_rout
+e.h"externvoidvnc_direct_bgp_rh_reexport(structbgp*bgp,afi_tafi);externvoidvnc_e
+xport_bgp_prechange(structbgp*bgp);externvoidvnc_export_bgp_postchange(structbgp
+*bgp);externvoidvnc_export_bgp_enable(structbgp*bgp,afi_tafi);externvoidvnc_expo
+rt_bgp_disable(structbgp*bgp,afi_tafi);#endif/*_QUAGGA_RFAPI_VNC_EXPORT_BGP_H_*/

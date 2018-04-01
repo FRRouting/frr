@@ -1,616 +1,163 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_dlpi.c
- *
- * Copyright (C) 2001,2002    Sampo Saaristo
- *                            Tampere University of Technology
- *                            Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#if ISIS_METHOD == ISIS_METHOD_DLPI
-#include <net/if.h>
-#include <netinet/if_ether.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <stropts.h>
-#include <poll.h>
-#include <sys/dlpi.h>
-#include <sys/pfmod.h>
-
-#include "log.h"
-#include "network.h"
-#include "stream.h"
-#include "if.h"
-
-#include "isisd/dict.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_common.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isis_flags.h"
-#include "isisd/isisd.h"
-#include "isisd/isis_network.h"
-
-#include "privs.h"
-
-static t_uscalar_t dlpi_ctl[1024]; /* DLPI control messages */
-
-/*
- * Table 9 - Architectural constants for use with ISO 8802 subnetworks
- * ISO 10589 - 8.4.8
- */
-
-uint8_t ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
-uint8_t ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-uint8_t ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-uint8_t ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
-
-static uint8_t sock_buff[8192];
-
-static unsigned short pf_filter[] = {
-	ENF_PUSHWORD + 0,       /* Get the SSAP/DSAP values */
-	ENF_PUSHLIT | ENF_CAND, /* Check them */
-	ISO_SAP | (ISO_SAP << 8),
-	ENF_PUSHWORD + 1,      /* Get the control value */
-	ENF_PUSHLIT | ENF_AND, /* Isolate it */
-#ifdef _BIG_ENDIAN
-	0xFF00,
-#else
-	0x00FF,
-#endif
-	ENF_PUSHLIT | ENF_CAND, /* Test for expected value */
-#ifdef _BIG_ENDIAN
-	0x0300
-#else
-	0x0003
-#endif
-};
-
-/*
- * We would like to use something like libdlpi here, but that's not present on
- * all versions of Solaris or on any non-Solaris system, so it's nowhere near
- * as portable as we'd like.  Thus, we use the standards-conformant DLPI
- * interfaces plus the (optional; not needed) Solaris packet filter module.
- */
-
-static int dlpisend(int fd, const void *cbuf, size_t cbuflen, const void *dbuf,
-		    size_t dbuflen, int flags)
-{
-	const struct strbuf *ctlptr = NULL;
-	const struct strbuf *dataptr = NULL;
-	struct strbuf ctlbuf, databuf;
-	int rv;
-
-	if (cbuf != NULL) {
-		memset(&ctlbuf, 0, sizeof(ctlbuf));
-		ctlbuf.len = cbuflen;
-		ctlbuf.buf = (void *)cbuf;
-		ctlptr = &ctlbuf;
-	}
-
-	if (dbuf != NULL) {
-		memset(&databuf, 0, sizeof(databuf));
-		databuf.len = dbuflen;
-		databuf.buf = (void *)dbuf;
-		dataptr = &databuf;
-	}
-
-	/* We assume this doesn't happen often and isn't operationally
-	 * significant */
-	rv = putmsg(fd, ctlptr, dataptr, flags);
-	if (rv == -1 && dbuf == NULL) {
-		/*
-		 * For actual PDU transmission - recognizable buf dbuf != NULL,
-		 * the error is passed upwards and should not be printed here.
-		 */
-		zlog_debug("%s: putmsg: %s", __func__, safe_strerror(errno));
-	}
-	return rv;
-}
-
-static ssize_t dlpirctl(int fd)
-{
-	struct pollfd fds[1];
-	struct strbuf ctlbuf, databuf;
-	int flags, retv;
-
-	do {
-		/* Poll is used here in case the device doesn't speak DLPI
-		 * correctly */
-		memset(fds, 0, sizeof(fds));
-		fds[0].fd = fd;
-		fds[0].events = POLLIN | POLLPRI;
-		if (poll(fds, 1, 1000) <= 0)
-			return -1;
-
-		memset(&ctlbuf, 0, sizeof(ctlbuf));
-		memset(&databuf, 0, sizeof(databuf));
-		ctlbuf.maxlen = sizeof(dlpi_ctl);
-		ctlbuf.buf = (void *)dlpi_ctl;
-		databuf.maxlen = sizeof(sock_buff);
-		databuf.buf = (void *)sock_buff;
-		flags = 0;
-		retv = getmsg(fd, &ctlbuf, &databuf, &flags);
-
-		if (retv < 0)
-			return -1;
-	} while (ctlbuf.len == 0);
-
-	if (!(retv & MORECTL)) {
-		while (retv & MOREDATA) {
-			flags = 0;
-			retv = getmsg(fd, NULL, &databuf, &flags);
-		}
-		return ctlbuf.len;
-	}
-
-	while (retv & MORECTL) {
-		flags = 0;
-		retv = getmsg(fd, &ctlbuf, &databuf, &flags);
-	}
-	return -1;
-}
-
-static int dlpiok(int fd, t_uscalar_t oprim)
-{
-	int retv;
-	dl_ok_ack_t *doa = (dl_ok_ack_t *)dlpi_ctl;
-
-	retv = dlpirctl(fd);
-	if (retv < (ssize_t)DL_OK_ACK_SIZE || doa->dl_primitive != DL_OK_ACK
-	    || doa->dl_correct_primitive != oprim) {
-		return -1;
-	} else {
-		return 0;
-	}
-}
-
-static int dlpiinfo(int fd)
-{
-	dl_info_req_t dir;
-	ssize_t retv;
-
-	memset(&dir, 0, sizeof(dir));
-	dir.dl_primitive = DL_INFO_REQ;
-	/* Info_req uses M_PCPROTO. */
-	dlpisend(fd, &dir, sizeof(dir), NULL, 0, RS_HIPRI);
-	retv = dlpirctl(fd);
-	if (retv < (ssize_t)DL_INFO_ACK_SIZE || dlpi_ctl[0] != DL_INFO_ACK)
-		return -1;
-	else
-		return retv;
-}
-
-static int dlpiopen(const char *devpath, ssize_t *acklen)
-{
-	int fd, flags;
-
-	fd = open(devpath, O_RDWR | O_NONBLOCK | O_NOCTTY);
-	if (fd == -1)
-		return -1;
-
-	/* All that we want is for the open itself to be non-blocking, not I/O.
-	 */
-	flags = fcntl(fd, F_GETFL, 0);
-	if (flags != -1)
-		fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-
-	/* After opening, ask for information */
-	if ((*acklen = dlpiinfo(fd)) == -1) {
-		close(fd);
-		return -1;
-	}
-
-	return fd;
-}
-
-static int dlpiattach(int fd, int unit)
-{
-	dl_attach_req_t dar;
-
-	memset(&dar, 0, sizeof(dar));
-	dar.dl_primitive = DL_ATTACH_REQ;
-	dar.dl_ppa = unit;
-	dlpisend(fd, &dar, sizeof(dar), NULL, 0, 0);
-	return dlpiok(fd, dar.dl_primitive);
-}
-
-static int dlpibind(int fd)
-{
-	dl_bind_req_t dbr;
-	int retv;
-	dl_bind_ack_t *dba = (dl_bind_ack_t *)dlpi_ctl;
-
-	memset(&dbr, 0, sizeof(dbr));
-	dbr.dl_primitive = DL_BIND_REQ;
-	dbr.dl_service_mode = DL_CLDLS;
-	dlpisend(fd, &dbr, sizeof(dbr), NULL, 0, 0);
-
-	retv = dlpirctl(fd);
-	if (retv < (ssize_t)DL_BIND_ACK_SIZE
-	    || dba->dl_primitive != DL_BIND_ACK)
-		return -1;
-	else
-		return 0;
-}
-
-static int dlpimcast(int fd, const uint8_t *mcaddr)
-{
-	struct {
-		dl_enabmulti_req_t der;
-		uint8_t addr[ETHERADDRL];
-	} dler;
-
-	memset(&dler, 0, sizeof(dler));
-	dler.der.dl_primitive = DL_ENABMULTI_REQ;
-	dler.der.dl_addr_length = sizeof(dler.addr);
-	dler.der.dl_addr_offset = dler.addr - (uint8_t *)&dler;
-	memcpy(dler.addr, mcaddr, sizeof(dler.addr));
-	dlpisend(fd, &dler, sizeof(dler), NULL, 0, 0);
-	return dlpiok(fd, dler.der.dl_primitive);
-}
-
-static int dlpiaddr(int fd, uint8_t *addr)
-{
-	dl_phys_addr_req_t dpar;
-	dl_phys_addr_ack_t *dpaa = (dl_phys_addr_ack_t *)dlpi_ctl;
-	int retv;
-
-	memset(&dpar, 0, sizeof(dpar));
-	dpar.dl_primitive = DL_PHYS_ADDR_REQ;
-	dpar.dl_addr_type = DL_CURR_PHYS_ADDR;
-	dlpisend(fd, &dpar, sizeof(dpar), NULL, 0, 0);
-
-	retv = dlpirctl(fd);
-	if (retv < (ssize_t)DL_PHYS_ADDR_ACK_SIZE
-	    || dpaa->dl_primitive != DL_PHYS_ADDR_ACK)
-		return -1;
-
-	if (dpaa->dl_addr_offset < DL_PHYS_ADDR_ACK_SIZE
-	    || dpaa->dl_addr_length != ETHERADDRL
-	    || dpaa->dl_addr_offset + dpaa->dl_addr_length > (size_t)retv)
-		return -1;
-
-	bcopy((char *)dpaa + dpaa->dl_addr_offset, addr, ETHERADDRL);
-	return 0;
-}
-
-static int open_dlpi_dev(struct isis_circuit *circuit)
-{
-	int fd = -1, unit, retval;
-	char devpath[MAXPATHLEN];
-	dl_info_ack_t *dia = (dl_info_ack_t *)dlpi_ctl;
-	ssize_t acklen;
-
-	/* Only broadcast-type are supported at the moment */
-	if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
-		zlog_warn("%s: non-broadcast interface %s", __func__,
-			  circuit->interface->name);
-		return ISIS_WARNING;
-	}
-
-	/* Try the vanity node first, if permitted */
-	if (getenv("DLPI_DEVONLY") == NULL) {
-		(void)snprintf(devpath, sizeof(devpath), "/dev/net/%s",
-			       circuit->interface->name);
-		fd = dlpiopen(devpath, &acklen);
-	}
-
-	/* Now try as an ordinary Style 1 node */
-	if (fd == -1) {
-		(void)snprintf(devpath, sizeof(devpath), "/dev/%s",
-			       circuit->interface->name);
-		unit = -1;
-		fd = dlpiopen(devpath, &acklen);
-	}
-
-	/* If that fails, try again as Style 2 */
-	if (fd == -1) {
-		char *cp;
-
-		cp = devpath + strlen(devpath);
-		while (--cp >= devpath && isdigit(*cp))
-			;
-		unit = strtol(cp, NULL, 0);
-		*cp = '\0';
-		fd = dlpiopen(devpath, &acklen);
-
-		/* If that too fails, then the device really doesn't exist */
-		if (fd == -1) {
-			zlog_warn("%s: unknown interface %s", __func__,
-				  circuit->interface->name);
-			return ISIS_WARNING;
-		}
-
-		/* Double check the DLPI style */
-		if (dia->dl_provider_style != DL_STYLE2) {
-			zlog_warn(
-				"open_dlpi_dev(): interface %s: %s is not style 2",
-				circuit->interface->name, devpath);
-			close(fd);
-			return ISIS_WARNING;
-		}
-
-		/* If it succeeds, then we need to attach to the unit specified
-		 */
-		dlpiattach(fd, unit);
-
-		/* Reget the information, as it may be different per node */
-		if ((acklen = dlpiinfo(fd)) == -1) {
-			close(fd);
-			return ISIS_WARNING;
-		}
-	} else {
-		/* Double check the DLPI style */
-		if (dia->dl_provider_style != DL_STYLE1) {
-			zlog_warn(
-				"open_dlpi_dev(): interface %s: %s is not style 1",
-				circuit->interface->name, devpath);
-			close(fd);
-			return ISIS_WARNING;
-		}
-	}
-
-	/* Check that the interface we've got is the kind we expect */
-	if ((dia->dl_sap_length != 2 && dia->dl_sap_length != -2)
-	    || dia->dl_service_mode != DL_CLDLS
-	    || dia->dl_addr_length != ETHERADDRL + 2
-	    || dia->dl_brdcst_addr_length != ETHERADDRL) {
-		zlog_warn("%s: unsupported interface type for %s", __func__,
-			  circuit->interface->name);
-		close(fd);
-		return ISIS_WARNING;
-	}
-	switch (dia->dl_mac_type) {
-	case DL_CSMACD:
-	case DL_ETHER:
-	case DL_100VG:
-	case DL_100VGTPR:
-	case DL_ETH_CSMA:
-	case DL_100BT:
-		break;
-	default:
-		zlog_warn("%s: unexpected mac type on %s: %lld", __func__,
-			  circuit->interface->name,
-			  (long long)dia->dl_mac_type);
-		close(fd);
-		return ISIS_WARNING;
-	}
-
-	circuit->sap_length = dia->dl_sap_length;
-
-	/*
-	 * The local hardware address is something that should be provided by
-	 * way of
-	 * sockaddr_dl for the interface, but isn't on Solaris.  We set it here
-	 * based
-	 * on DLPI's reported address to avoid roto-tilling the world.
-	 * (Note that isis_circuit_if_add on Solaris doesn't set the snpa.)
-	 *
-	 * Unfortunately, GLD is broken and doesn't provide the address after
-	 * attach,
-	 * so we need to be careful and use DL_PHYS_ADDR_REQ instead.
-	 */
-	if (dlpiaddr(fd, circuit->u.bc.snpa) == -1) {
-		zlog_warn(
-			"open_dlpi_dev(): interface %s: unable to get MAC address",
-			circuit->interface->name);
-		close(fd);
-		return ISIS_WARNING;
-	}
-
-	/* Now bind to SAP 0.  This gives us 802-type traffic. */
-	if (dlpibind(fd) == -1) {
-		zlog_warn("%s: cannot bind SAP 0 on %s", __func__,
-			  circuit->interface->name);
-		close(fd);
-		return ISIS_WARNING;
-	}
-
-	/*
-	 * Join to multicast groups according to
-	 * 8.4.2 - Broadcast subnetwork IIH PDUs
-	 */
-	retval = 0;
-	retval |= dlpimcast(fd, ALL_L1_ISS);
-	retval |= dlpimcast(fd, ALL_ISS);
-	retval |= dlpimcast(fd, ALL_L2_ISS);
-
-	if (retval != 0) {
-		zlog_warn("%s: unable to join multicast on %s", __func__,
-			  circuit->interface->name);
-		close(fd);
-		return ISIS_WARNING;
-	}
-
-	/* Push on the packet filter to avoid stray 802 packets */
-	if (ioctl(fd, I_PUSH, "pfmod") == 0) {
-		struct packetfilt pfil;
-		struct strioctl sioc;
-
-		pfil.Pf_Priority = 0;
-		pfil.Pf_FilterLen = sizeof(pf_filter) / sizeof(unsigned short);
-		memcpy(pfil.Pf_Filter, pf_filter, sizeof(pf_filter));
-		/* pfmod does not support transparent ioctls */
-		sioc.ic_cmd = PFIOCSETF;
-		sioc.ic_timout = 5;
-		sioc.ic_len = sizeof(struct packetfilt);
-		sioc.ic_dp = (char *)&pfil;
-		if (ioctl(fd, I_STR, &sioc) == -1)
-			zlog_warn("%s: could not perform PF_IOCSETF on %s",
-				  __func__, circuit->interface->name);
-	}
-
-	circuit->fd = fd;
-
-	return ISIS_OK;
-}
-
-/*
- * Create the socket and set the tx/rx funcs
- */
-int isis_sock_init(struct isis_circuit *circuit)
-{
-	int retval = ISIS_OK;
-
-	if (isisd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs, %s", __func__,
-			 safe_strerror(errno));
-
-	retval = open_dlpi_dev(circuit);
-
-	if (retval != ISIS_OK) {
-		zlog_warn("%s: could not initialize the socket", __func__);
-		goto end;
-	}
-
-	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		circuit->tx = isis_send_pdu_bcast;
-		circuit->rx = isis_recv_pdu_bcast;
-	} else {
-		zlog_warn("isis_sock_init(): unknown circuit type");
-		retval = ISIS_WARNING;
-		goto end;
-	}
-
-end:
-	if (isisd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs, %s", __func__,
-			 safe_strerror(errno));
-
-	return retval;
-}
-
-int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
-{
-	struct pollfd fds[1];
-	struct strbuf ctlbuf, databuf;
-	int flags, retv;
-	dl_unitdata_ind_t *dui = (dl_unitdata_ind_t *)dlpi_ctl;
-
-	memset(fds, 0, sizeof(fds));
-	fds[0].fd = circuit->fd;
-	fds[0].events = POLLIN | POLLPRI;
-	if (poll(fds, 1, 0) <= 0)
-		return ISIS_WARNING;
-
-	memset(&ctlbuf, 0, sizeof(ctlbuf));
-	memset(&databuf, 0, sizeof(databuf));
-	ctlbuf.maxlen = sizeof(dlpi_ctl);
-	ctlbuf.buf = (void *)dlpi_ctl;
-	databuf.maxlen = sizeof(sock_buff);
-	databuf.buf = (void *)sock_buff;
-	flags = 0;
-	retv = getmsg(circuit->fd, &ctlbuf, &databuf, &flags);
-
-	if (retv < 0) {
-		zlog_warn("isis_recv_pdu_bcast: getmsg failed: %s",
-			  safe_strerror(errno));
-		return ISIS_WARNING;
-	}
-
-	if (retv & (MORECTL | MOREDATA)) {
-		while (retv & (MORECTL | MOREDATA)) {
-			flags = 0;
-			retv = getmsg(circuit->fd, &ctlbuf, &databuf, &flags);
-		}
-		return ISIS_WARNING;
-	}
-
-	if (ctlbuf.len < (ssize_t)DL_UNITDATA_IND_SIZE
-	    || dui->dl_primitive != DL_UNITDATA_IND)
-		return ISIS_WARNING;
-
-	if (dui->dl_src_addr_length != ETHERADDRL + 2
-	    || dui->dl_src_addr_offset < DL_UNITDATA_IND_SIZE
-	    || dui->dl_src_addr_offset + dui->dl_src_addr_length
-		       > (size_t)ctlbuf.len)
-		return ISIS_WARNING;
-
-	memcpy(ssnpa,
-	       (char *)dui + dui->dl_src_addr_offset
-		       + (circuit->sap_length > 0 ? circuit->sap_length : 0),
-	       ETHERADDRL);
-
-	if (databuf.len < LLC_LEN || sock_buff[0] != ISO_SAP
-	    || sock_buff[1] != ISO_SAP || sock_buff[2] != 3)
-		return ISIS_WARNING;
-
-	stream_write(circuit->rcv_stream, sock_buff + LLC_LEN,
-		     databuf.len - LLC_LEN);
-	stream_set_getp(circuit->rcv_stream, 0);
-
-	return ISIS_OK;
-}
-
-int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
-{
-	dl_unitdata_req_t *dur = (dl_unitdata_req_t *)dlpi_ctl;
-	char *dstaddr;
-	unsigned short *dstsap;
-	int buflen;
-	int rv;
-
-	buflen = stream_get_endp(circuit->snd_stream) + LLC_LEN;
-	if ((size_t)buflen > sizeof(sock_buff)) {
-		zlog_warn(
-			"isis_send_pdu_bcast: sock_buff size %zu is less than "
-			"output pdu size %d on circuit %s",
-			sizeof(sock_buff), buflen, circuit->interface->name);
-		return ISIS_WARNING;
-	}
-
-	stream_set_getp(circuit->snd_stream, 0);
-
-	memset(dur, 0, sizeof(*dur));
-	dur->dl_primitive = DL_UNITDATA_REQ;
-	dur->dl_dest_addr_length = ETHERADDRL + 2;
-	dur->dl_dest_addr_offset = sizeof(*dur);
-
-	dstaddr = (char *)(dur + 1);
-	if (circuit->sap_length < 0) {
-		dstsap = (unsigned short *)(dstaddr + ETHERADDRL);
-	} else {
-		dstsap = (unsigned short *)dstaddr;
-		dstaddr += circuit->sap_length;
-	}
-	if (level == 1)
-		memcpy(dstaddr, ALL_L1_ISS, ETHERADDRL);
-	else
-		memcpy(dstaddr, ALL_L2_ISS, ETHERADDRL);
-	/* Note: DLPI SAP values are in host byte order */
-	*dstsap = buflen;
-
-	sock_buff[0] = ISO_SAP;
-	sock_buff[1] = ISO_SAP;
-	sock_buff[2] = 0x03;
-	memcpy(sock_buff + LLC_LEN, circuit->snd_stream->data,
-	       stream_get_endp(circuit->snd_stream));
-	rv = dlpisend(circuit->fd, dur, sizeof(*dur) + dur->dl_dest_addr_length,
-		      sock_buff, buflen, 0);
-	if (rv < 0) {
-		zlog_warn("IS-IS dlpi: could not transmit packet on %s: %s",
-			  circuit->interface->name, safe_strerror(errno));
-		if (ERRNO_IO_RETRY(errno))
-			return ISIS_WARNING;
-		return ISIS_ERROR;
-	}
-
-	return ISIS_OK;
-}
-
-#endif /* ISIS_METHOD == ISIS_METHOD_DLPI */
+/**IS-ISRout(e)ingprotocol-isis_dlpi.c**Copyright(C)2001,2002SampoSaaristo*Tampe
+reUniversityofTechnology*InstituteofCommunicationsEngineering**Thisprogramisfree
+software;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLi
+censeaspublishedbytheFree*SoftwareFoundation;eitherversion2oftheLicense,or(atyou
+roption)*anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,b
+utWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHANTABILITYor*FITNESSFO
+RAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*moredetails.**Youshouldhave
+receivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING
+;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA0
+2110-1301USA*/#include<zebra.h>#ifISIS_METHOD==ISIS_METHOD_DLPI#include<net/if.h
+>#include<netinet/if_ether.h>#include<sys/types.h>#include<unistd.h>#include<fcn
+tl.h>#include<stropts.h>#include<poll.h>#include<sys/dlpi.h>#include<sys/pfmod.h
+>#include"log.h"#include"network.h"#include"stream.h"#include"if.h"#include"isis
+d/dict.h"#include"isisd/isis_constants.h"#include"isisd/isis_common.h"#include"i
+sisd/isis_circuit.h"#include"isisd/isis_flags.h"#include"isisd/isisd.h"#include"
+isisd/isis_network.h"#include"privs.h"statict_uscalar_tdlpi_ctl[1024];/*DLPIcont
+rolmessages*//**Table9-ArchitecturalconstantsforusewithISO8802subnetworks*ISO105
+89-8.4.8*/uint8_tALL_L1_ISS[6]={0x01,0x80,0xC2,0x00,0x00,0x14};uint8_tALL_L2_ISS
+[6]={0x01,0x80,0xC2,0x00,0x00,0x15};uint8_tALL_ISS[6]={0x09,0x00,0x2B,0x00,0x00,
+0x05};uint8_tALL_ESS[6]={0x09,0x00,0x2B,0x00,0x00,0x04};staticuint8_tsock_buff[8
+192];staticunsignedshortpf_filter[]={ENF_PUSHWORD+0,/*GettheSSAP/DSAPvalues*/ENF
+_PUSHLIT|ENF_CAND,/*Checkthem*/ISO_SAP|(ISO_SAP<<8),ENF_PUSHWORD+1,/*Getthecontr
+olvalue*/ENF_PUSHLIT|ENF_AND,/*Isolateit*/#ifdef_BIG_ENDIAN0xFF00,#else0x00FF,#e
+ndifENF_PUSHLIT|ENF_CAND,/*Testforexpectedvalue*/#ifdef_BIG_ENDIAN0x0300#else0x0
+003#endif};/**Wewouldliketousesomethinglikelibdlpihere,butthat'snotpresenton*all
+versionsofSolarisoronanynon-Solarissystem,soit'snowherenear*asportableaswe'dlike
+.Thus,weusethestandards-conformantDLPI*interfacesplusthe(optional;notneeded)Sola
+rispacketfiltermodule.*/staticintdlpisend(intfd,constvoid*cbuf,size_tcbuflen,con
+stvoid*dbuf,size_tdbuflen,intflags){conststructstrbuf*ctlptr=NULL;conststructstr
+buf*dataptr=NULL;structstrbufctlbuf,databuf;intrv;if(cbuf!=NULL){memset(&ctlbuf,
+0,sizeof(ctlbuf));ctlbuf.len=cbuflen;ctlbuf.buf=(void*)cbuf;ctlptr=&ctlbuf;}if(d
+buf!=NULL){memset(&databuf,0,sizeof(databuf));databuf.len=dbuflen;databuf.buf=(v
+oid*)dbuf;dataptr=&databuf;}/*Weassumethisdoesn'thappenoftenandisn'toperationall
+y*significant*/rv=putmsg(fd,ctlptr,dataptr,flags);if(rv==-1&&dbuf==NULL){/**Fora
+ctualPDUtransmission-recognizablebufdbuf!=NULL,*theerrorispassedupwardsandshould
+notbeprintedhere.*/zlog_debug("%s:putmsg:%s",__func__,safe_strerror(errno));}ret
+urnrv;}staticssize_tdlpirctl(intfd){structpollfdfds[1];structstrbufctlbuf,databu
+f;intflags,retv;do{/*Pollisusedhereincasethedevicedoesn'tspeakDLPI*correctly*/me
+mset(fds,0,sizeof(fds));fds[0].fd=fd;fds[0].events=POLLIN|POLLPRI;if(poll(fds,1,
+1000)<=0)return-1;memset(&ctlbuf,0,sizeof(ctlbuf));memset(&databuf,0,sizeof(data
+buf));ctlbuf.maxlen=sizeof(dlpi_ctl);ctlbuf.buf=(void*)dlpi_ctl;databuf.maxlen=s
+izeof(sock_buff);databuf.buf=(void*)sock_buff;flags=0;retv=getmsg(fd,&ctlbuf,&da
+tabuf,&flags);if(retv<0)return-1;}while(ctlbuf.len==0);if(!(retv&MORECTL)){while
+(retv&MOREDATA){flags=0;retv=getmsg(fd,NULL,&databuf,&flags);}returnctlbuf.len;}
+while(retv&MORECTL){flags=0;retv=getmsg(fd,&ctlbuf,&databuf,&flags);}return-1;}s
+taticintdlpiok(intfd,t_uscalar_toprim){intretv;dl_ok_ack_t*doa=(dl_ok_ack_t*)dlp
+i_ctl;retv=dlpirctl(fd);if(retv<(ssize_t)DL_OK_ACK_SIZE||doa->dl_primitive!=DL_O
+K_ACK||doa->dl_correct_primitive!=oprim){return-1;}else{return0;}}staticintdlpii
+nfo(intfd){dl_info_req_tdir;ssize_tretv;memset(&dir,0,sizeof(dir));dir.dl_primit
+ive=DL_INFO_REQ;/*Info_requsesM_PCPROTO.*/dlpisend(fd,&dir,sizeof(dir),NULL,0,RS
+_HIPRI);retv=dlpirctl(fd);if(retv<(ssize_t)DL_INFO_ACK_SIZE||dlpi_ctl[0]!=DL_INF
+O_ACK)return-1;elsereturnretv;}staticintdlpiopen(constchar*devpath,ssize_t*ackle
+n){intfd,flags;fd=open(devpath,O_RDWR|O_NONBLOCK|O_NOCTTY);if(fd==-1)return-1;/*
+Allthatwewantisfortheopenitselftobenon-blocking,notI/O.*/flags=fcntl(fd,F_GETFL,
+0);if(flags!=-1)fcntl(fd,F_SETFL,flags&~O_NONBLOCK);/*Afteropening,askforinforma
+tion*/if((*acklen=dlpiinfo(fd))==-1){close(fd);return-1;}returnfd;}staticintdlpi
+attach(intfd,intunit){dl_attach_req_tdar;memset(&dar,0,sizeof(dar));dar.dl_primi
+tive=DL_ATTACH_REQ;dar.dl_ppa=unit;dlpisend(fd,&dar,sizeof(dar),NULL,0,0);return
+dlpiok(fd,dar.dl_primitive);}staticintdlpibind(intfd){dl_bind_req_tdbr;intretv;d
+l_bind_ack_t*dba=(dl_bind_ack_t*)dlpi_ctl;memset(&dbr,0,sizeof(dbr));dbr.dl_prim
+itive=DL_BIND_REQ;dbr.dl_service_mode=DL_CLDLS;dlpisend(fd,&dbr,sizeof(dbr),NULL
+,0,0);retv=dlpirctl(fd);if(retv<(ssize_t)DL_BIND_ACK_SIZE||dba->dl_primitive!=DL
+_BIND_ACK)return-1;elsereturn0;}staticintdlpimcast(intfd,constuint8_t*mcaddr){st
+ruct{dl_enabmulti_req_tder;uint8_taddr[ETHERADDRL];}dler;memset(&dler,0,sizeof(d
+ler));dler.der.dl_primitive=DL_ENABMULTI_REQ;dler.der.dl_addr_length=sizeof(dler
+.addr);dler.der.dl_addr_offset=dler.addr-(uint8_t*)&dler;memcpy(dler.addr,mcaddr
+,sizeof(dler.addr));dlpisend(fd,&dler,sizeof(dler),NULL,0,0);returndlpiok(fd,dle
+r.der.dl_primitive);}staticintdlpiaddr(intfd,uint8_t*addr){dl_phys_addr_req_tdpa
+r;dl_phys_addr_ack_t*dpaa=(dl_phys_addr_ack_t*)dlpi_ctl;intretv;memset(&dpar,0,s
+izeof(dpar));dpar.dl_primitive=DL_PHYS_ADDR_REQ;dpar.dl_addr_type=DL_CURR_PHYS_A
+DDR;dlpisend(fd,&dpar,sizeof(dpar),NULL,0,0);retv=dlpirctl(fd);if(retv<(ssize_t)
+DL_PHYS_ADDR_ACK_SIZE||dpaa->dl_primitive!=DL_PHYS_ADDR_ACK)return-1;if(dpaa->dl
+_addr_offset<DL_PHYS_ADDR_ACK_SIZE||dpaa->dl_addr_length!=ETHERADDRL||dpaa->dl_a
+ddr_offset+dpaa->dl_addr_length>(size_t)retv)return-1;bcopy((char*)dpaa+dpaa->dl
+_addr_offset,addr,ETHERADDRL);return0;}staticintopen_dlpi_dev(structisis_circuit
+*circuit){intfd=-1,unit,retval;chardevpath[MAXPATHLEN];dl_info_ack_t*dia=(dl_inf
+o_ack_t*)dlpi_ctl;ssize_tacklen;/*Onlybroadcast-typearesupportedatthemoment*/if(
+circuit->circ_type!=CIRCUIT_T_BROADCAST){zlog_warn("%s:non-broadcastinterface%s"
+,__func__,circuit->interface->name);returnISIS_WARNING;}/*Trythevanitynodefirst,
+ifpermitted*/if(getenv("DLPI_DEVONLY")==NULL){(void)snprintf(devpath,sizeof(devp
+ath),"/dev/net/%s",circuit->interface->name);fd=dlpiopen(devpath,&acklen);}/*Now
+tryasanordinaryStyle1node*/if(fd==-1){(void)snprintf(devpath,sizeof(devpath),"/d
+ev/%s",circuit->interface->name);unit=-1;fd=dlpiopen(devpath,&acklen);}/*Ifthatf
+ails,tryagainasStyle2*/if(fd==-1){char*cp;cp=devpath+strlen(devpath);while(--cp>
+=devpath&&isdigit(*cp));unit=strtol(cp,NULL,0);*cp='\0';fd=dlpiopen(devpath,&ack
+len);/*Ifthattoofails,thenthedevicereallydoesn'texist*/if(fd==-1){zlog_warn("%s:
+unknowninterface%s",__func__,circuit->interface->name);returnISIS_WARNING;}/*Dou
+blechecktheDLPIstyle*/if(dia->dl_provider_style!=DL_STYLE2){zlog_warn("open_dlpi
+_dev():interface%s:%sisnotstyle2",circuit->interface->name,devpath);close(fd);re
+turnISIS_WARNING;}/*Ifitsucceeds,thenweneedtoattachtotheunitspecified*/dlpiattac
+h(fd,unit);/*Regettheinformation,asitmaybedifferentpernode*/if((acklen=dlpiinfo(
+fd))==-1){close(fd);returnISIS_WARNING;}}else{/*DoublechecktheDLPIstyle*/if(dia-
+>dl_provider_style!=DL_STYLE1){zlog_warn("open_dlpi_dev():interface%s:%sisnotsty
+le1",circuit->interface->name,devpath);close(fd);returnISIS_WARNING;}}/*Checktha
+ttheinterfacewe'vegotisthekindweexpect*/if((dia->dl_sap_length!=2&&dia->dl_sap_l
+ength!=-2)||dia->dl_service_mode!=DL_CLDLS||dia->dl_addr_length!=ETHERADDRL+2||d
+ia->dl_brdcst_addr_length!=ETHERADDRL){zlog_warn("%s:unsupportedinterfacetypefor
+%s",__func__,circuit->interface->name);close(fd);returnISIS_WARNING;}switch(dia-
+>dl_mac_type){caseDL_CSMACD:caseDL_ETHER:caseDL_100VG:caseDL_100VGTPR:caseDL_ETH
+_CSMA:caseDL_100BT:break;default:zlog_warn("%s:unexpectedmactypeon%s:%lld",__fun
+c__,circuit->interface->name,(longlong)dia->dl_mac_type);close(fd);returnISIS_WA
+RNING;}circuit->sap_length=dia->dl_sap_length;/**Thelocalhardwareaddressissometh
+ingthatshouldbeprovidedby*wayof*sockaddr_dlfortheinterface,butisn'tonSolaris.Wes
+etithere*based*onDLPI'sreportedaddresstoavoidroto-tillingtheworld.*(Notethatisis
+_circuit_if_addonSolarisdoesn'tsetthesnpa.)**Unfortunately,GLDisbrokenanddoesn't
+providetheaddressafter*attach,*soweneedtobecarefulanduseDL_PHYS_ADDR_REQinstead.
+*/if(dlpiaddr(fd,circuit->u.bc.snpa)==-1){zlog_warn("open_dlpi_dev():interface%s
+:unabletogetMACaddress",circuit->interface->name);close(fd);returnISIS_WARNING;}
+/*NowbindtoSAP0.Thisgivesus802-typetraffic.*/if(dlpibind(fd)==-1){zlog_warn("%s:
+cannotbindSAP0on%s",__func__,circuit->interface->name);close(fd);returnISIS_WARN
+ING;}/**Jointomulticastgroupsaccordingto*8.4.2-BroadcastsubnetworkIIHPDUs*/retva
+l=0;retval|=dlpimcast(fd,ALL_L1_ISS);retval|=dlpimcast(fd,ALL_ISS);retval|=dlpim
+cast(fd,ALL_L2_ISS);if(retval!=0){zlog_warn("%s:unabletojoinmulticaston%s",__fun
+c__,circuit->interface->name);close(fd);returnISIS_WARNING;}/*Pushonthepacketfil
+tertoavoidstray802packets*/if(ioctl(fd,I_PUSH,"pfmod")==0){structpacketfiltpfil;
+structstrioctlsioc;pfil.Pf_Priority=0;pfil.Pf_FilterLen=sizeof(pf_filter)/sizeof
+(unsignedshort);memcpy(pfil.Pf_Filter,pf_filter,sizeof(pf_filter));/*pfmoddoesno
+tsupporttransparentioctls*/sioc.ic_cmd=PFIOCSETF;sioc.ic_timout=5;sioc.ic_len=si
+zeof(structpacketfilt);sioc.ic_dp=(char*)&pfil;if(ioctl(fd,I_STR,&sioc)==-1)zlog
+_warn("%s:couldnotperformPF_IOCSETFon%s",__func__,circuit->interface->name);}cir
+cuit->fd=fd;returnISIS_OK;}/**Createthesocketandsetthetx/rxfuncs*/intisis_sock_i
+nit(structisis_circuit*circuit){intretval=ISIS_OK;if(isisd_privs.change(ZPRIVS_R
+AISE))zlog_err("%s:couldnotraiseprivs,%s",__func__,safe_strerror(errno));retval=
+open_dlpi_dev(circuit);if(retval!=ISIS_OK){zlog_warn("%s:couldnotinitializetheso
+cket",__func__);gotoend;}if(circuit->circ_type==CIRCUIT_T_BROADCAST){circuit->tx
+=isis_send_pdu_bcast;circuit->rx=isis_recv_pdu_bcast;}else{zlog_warn("isis_sock_
+init():unknowncircuittype");retval=ISIS_WARNING;gotoend;}end:if(isisd_privs.chan
+ge(ZPRIVS_LOWER))zlog_err("%s:couldnotlowerprivs,%s",__func__,safe_strerror(errn
+o));returnretval;}intisis_recv_pdu_bcast(structisis_circuit*circuit,uint8_t*ssnp
+a){structpollfdfds[1];structstrbufctlbuf,databuf;intflags,retv;dl_unitdata_ind_t
+*dui=(dl_unitdata_ind_t*)dlpi_ctl;memset(fds,0,sizeof(fds));fds[0].fd=circuit->f
+d;fds[0].events=POLLIN|POLLPRI;if(poll(fds,1,0)<=0)returnISIS_WARNING;memset(&ct
+lbuf,0,sizeof(ctlbuf));memset(&databuf,0,sizeof(databuf));ctlbuf.maxlen=sizeof(d
+lpi_ctl);ctlbuf.buf=(void*)dlpi_ctl;databuf.maxlen=sizeof(sock_buff);databuf.buf
+=(void*)sock_buff;flags=0;retv=getmsg(circuit->fd,&ctlbuf,&databuf,&flags);if(re
+tv<0){zlog_warn("isis_recv_pdu_bcast:getmsgfailed:%s",safe_strerror(errno));retu
+rnISIS_WARNING;}if(retv&(MORECTL|MOREDATA)){while(retv&(MORECTL|MOREDATA)){flags
+=0;retv=getmsg(circuit->fd,&ctlbuf,&databuf,&flags);}returnISIS_WARNING;}if(ctlb
+uf.len<(ssize_t)DL_UNITDATA_IND_SIZE||dui->dl_primitive!=DL_UNITDATA_IND)returnI
+SIS_WARNING;if(dui->dl_src_addr_length!=ETHERADDRL+2||dui->dl_src_addr_offset<DL
+_UNITDATA_IND_SIZE||dui->dl_src_addr_offset+dui->dl_src_addr_length>(size_t)ctlb
+uf.len)returnISIS_WARNING;memcpy(ssnpa,(char*)dui+dui->dl_src_addr_offset+(circu
+it->sap_length>0?circuit->sap_length:0),ETHERADDRL);if(databuf.len<LLC_LEN||sock
+_buff[0]!=ISO_SAP||sock_buff[1]!=ISO_SAP||sock_buff[2]!=3)returnISIS_WARNING;str
+eam_write(circuit->rcv_stream,sock_buff+LLC_LEN,databuf.len-LLC_LEN);stream_set_
+getp(circuit->rcv_stream,0);returnISIS_OK;}intisis_send_pdu_bcast(structisis_cir
+cuit*circuit,intlevel){dl_unitdata_req_t*dur=(dl_unitdata_req_t*)dlpi_ctl;char*d
+staddr;unsignedshort*dstsap;intbuflen;intrv;buflen=stream_get_endp(circuit->snd_
+stream)+LLC_LEN;if((size_t)buflen>sizeof(sock_buff)){zlog_warn("isis_send_pdu_bc
+ast:sock_buffsize%zuislessthan""outputpdusize%doncircuit%s",sizeof(sock_buff),bu
+flen,circuit->interface->name);returnISIS_WARNING;}stream_set_getp(circuit->snd_
+stream,0);memset(dur,0,sizeof(*dur));dur->dl_primitive=DL_UNITDATA_REQ;dur->dl_d
+est_addr_length=ETHERADDRL+2;dur->dl_dest_addr_offset=sizeof(*dur);dstaddr=(char
+*)(dur+1);if(circuit->sap_length<0){dstsap=(unsignedshort*)(dstaddr+ETHERADDRL);
+}else{dstsap=(unsignedshort*)dstaddr;dstaddr+=circuit->sap_length;}if(level==1)m
+emcpy(dstaddr,ALL_L1_ISS,ETHERADDRL);elsememcpy(dstaddr,ALL_L2_ISS,ETHERADDRL);/
+*Note:DLPISAPvaluesareinhostbyteorder*/*dstsap=buflen;sock_buff[0]=ISO_SAP;sock_
+buff[1]=ISO_SAP;sock_buff[2]=0x03;memcpy(sock_buff+LLC_LEN,circuit->snd_stream->
+data,stream_get_endp(circuit->snd_stream));rv=dlpisend(circuit->fd,dur,sizeof(*d
+ur)+dur->dl_dest_addr_length,sock_buff,buflen,0);if(rv<0){zlog_warn("IS-ISdlpi:c
+ouldnottransmitpacketon%s:%s",circuit->interface->name,safe_strerror(errno));if(
+ERRNO_IO_RETRY(errno))returnISIS_WARNING;returnISIS_ERROR;}returnISIS_OK;}#endif
+/*ISIS_METHOD==ISIS_METHOD_DLPI*/

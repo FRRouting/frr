@@ -1,139 +1,37 @@
-/*
- * Copyright (c) 2015-16  David Lamparter, for NetDEF, Inc.
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-#include <zebra.h>
-
-#include <stdlib.h>
-
-#include "memory.h"
-#include "log.h"
-
-static struct memgroup *mg_first = NULL;
-struct memgroup **mg_insert = &mg_first;
-
-DEFINE_MGROUP(LIB, "libfrr")
-DEFINE_MTYPE(LIB, TMP, "Temporary memory")
-DEFINE_MTYPE(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec")
-
-static inline void mt_count_alloc(struct memtype *mt, size_t size)
-{
-	size_t oldsize;
-
-	atomic_fetch_add_explicit(&mt->n_alloc, 1, memory_order_relaxed);
-
-	oldsize = atomic_load_explicit(&mt->size, memory_order_relaxed);
-	if (oldsize == 0)
-		oldsize = atomic_exchange_explicit(&mt->size, size,
-						   memory_order_relaxed);
-	if (oldsize != 0 && oldsize != size && oldsize != SIZE_VAR)
-		atomic_store_explicit(&mt->size, SIZE_VAR,
-				      memory_order_relaxed);
-}
-
-static inline void mt_count_free(struct memtype *mt)
-{
-	assert(mt->n_alloc);
-	atomic_fetch_sub_explicit(&mt->n_alloc, 1, memory_order_relaxed);
-}
-
-static inline void *mt_checkalloc(struct memtype *mt, void *ptr, size_t size)
-{
-	if (__builtin_expect(ptr == NULL, 0)) {
-		memory_oom(size, mt->name);
-		return NULL;
-	}
-	mt_count_alloc(mt, size);
-	return ptr;
-}
-
-void *qmalloc(struct memtype *mt, size_t size)
-{
-	return mt_checkalloc(mt, malloc(size), size);
-}
-
-void *qcalloc(struct memtype *mt, size_t size)
-{
-	return mt_checkalloc(mt, calloc(size, 1), size);
-}
-
-void *qrealloc(struct memtype *mt, void *ptr, size_t size)
-{
-	if (ptr)
-		mt_count_free(mt);
-	return mt_checkalloc(mt, ptr ? realloc(ptr, size) : malloc(size), size);
-}
-
-void *qstrdup(struct memtype *mt, const char *str)
-{
-	return mt_checkalloc(mt, strdup(str), strlen(str) + 1);
-}
-
-void qfree(struct memtype *mt, void *ptr)
-{
-	if (ptr)
-		mt_count_free(mt);
-	free(ptr);
-}
-
-int qmem_walk(qmem_walk_fn *func, void *arg)
-{
-	struct memgroup *mg;
-	struct memtype *mt;
-	int rv;
-
-	for (mg = mg_first; mg; mg = mg->next) {
-		if ((rv = func(arg, mg, NULL)))
-			return rv;
-		for (mt = mg->types; mt; mt = mt->next)
-			if ((rv = func(arg, mg, mt)))
-				return rv;
-	}
-	return 0;
-}
-
-struct exit_dump_args {
-	FILE *fp;
-	const char *prefix;
-	int error;
-};
-
-static int qmem_exit_walker(void *arg, struct memgroup *mg, struct memtype *mt)
-{
-	struct exit_dump_args *eda = arg;
-
-	if (!mt) {
-		fprintf(eda->fp,
-			"%s: showing active allocations in "
-			"memory group %s\n",
-			eda->prefix, mg->name);
-
-	} else if (mt->n_alloc) {
-		char size[32];
-		eda->error++;
-		snprintf(size, sizeof(size), "%10zu", mt->size);
-		fprintf(eda->fp, "%s: memstats:  %-30s: %6zu * %s\n",
-			eda->prefix, mt->name, mt->n_alloc,
-			mt->size == SIZE_VAR ? "(variably sized)" : size);
-	}
-	return 0;
-}
-
-int log_memstats(FILE *fp, const char *prefix)
-{
-	struct exit_dump_args eda = {.fp = fp, .prefix = prefix, .error = 0};
-	qmem_walk(qmem_exit_walker, &eda);
-	return eda.error;
-}
+/**Copyright(c)2015-16DavidLamparter,forNetDEF,Inc.**Permissiontouse,copy,modify
+,anddistributethissoftwareforany*purposewithorwithoutfeeisherebygranted,provided
+thattheabove*copyrightnoticeandthispermissionnoticeappearinallcopies.**THESOFTWA
+REISPROVIDED"ASIS"ANDTHEAUTHORDISCLAIMSALLWARRANTIES*WITHREGARDTOTHISSOFTWAREINC
+LUDINGALLIMPLIEDWARRANTIESOF*MERCHANTABILITYANDFITNESS.INNOEVENTSHALLTHEAUTHORBE
+LIABLEFOR*ANYSPECIAL,DIRECT,INDIRECT,ORCONSEQUENTIALDAMAGESORANYDAMAGES*WHATSOEV
+ERRESULTINGFROMLOSSOFUSE,DATAORPROFITS,WHETHERINAN*ACTIONOFCONTRACT,NEGLIGENCEOR
+OTHERTORTIOUSACTION,ARISINGOUTOF*ORINCONNECTIONWITHTHEUSEORPERFORMANCEOFTHISSOFT
+WARE.*/#include<zebra.h>#include<stdlib.h>#include"memory.h"#include"log.h"stati
+cstructmemgroup*mg_first=NULL;structmemgroup**mg_insert=&mg_first;DEFINE_MGROUP(
+LIB,"libfrr")DEFINE_MTYPE(LIB,TMP,"Temporarymemory")DEFINE_MTYPE(LIB,PREFIX_FLOW
+SPEC,"PrefixFlowspec")staticinlinevoidmt_count_alloc(structmemtype*mt,size_tsize
+){size_toldsize;atomic_fetch_add_explicit(&mt->n_alloc,1,memory_order_relaxed);o
+ldsize=atomic_load_explicit(&mt->size,memory_order_relaxed);if(oldsize==0)oldsiz
+e=atomic_exchange_explicit(&mt->size,size,memory_order_relaxed);if(oldsize!=0&&o
+ldsize!=size&&oldsize!=SIZE_VAR)atomic_store_explicit(&mt->size,SIZE_VAR,memory_
+order_relaxed);}staticinlinevoidmt_count_free(structmemtype*mt){assert(mt->n_all
+oc);atomic_fetch_sub_explicit(&mt->n_alloc,1,memory_order_relaxed);}staticinline
+void*mt_checkalloc(structmemtype*mt,void*ptr,size_tsize){if(__builtin_expect(ptr
+==NULL,0)){memory_oom(size,mt->name);returnNULL;}mt_count_alloc(mt,size);returnp
+tr;}void*qmalloc(structmemtype*mt,size_tsize){returnmt_checkalloc(mt,malloc(size
+),size);}void*qcalloc(structmemtype*mt,size_tsize){returnmt_checkalloc(mt,calloc
+(size,1),size);}void*qrealloc(structmemtype*mt,void*ptr,size_tsize){if(ptr)mt_co
+unt_free(mt);returnmt_checkalloc(mt,ptr?realloc(ptr,size):malloc(size),size);}vo
+id*qstrdup(structmemtype*mt,constchar*str){returnmt_checkalloc(mt,strdup(str),st
+rlen(str)+1);}voidqfree(structmemtype*mt,void*ptr){if(ptr)mt_count_free(mt);free
+(ptr);}intqmem_walk(qmem_walk_fn*func,void*arg){structmemgroup*mg;structmemtype*
+mt;intrv;for(mg=mg_first;mg;mg=mg->next){if((rv=func(arg,mg,NULL)))returnrv;for(
+mt=mg->types;mt;mt=mt->next)if((rv=func(arg,mg,mt)))returnrv;}return0;}structexi
+t_dump_args{FILE*fp;constchar*prefix;interror;};staticintqmem_exit_walker(void*a
+rg,structmemgroup*mg,structmemtype*mt){structexit_dump_args*eda=arg;if(!mt){fpri
+ntf(eda->fp,"%s:showingactiveallocationsin""memorygroup%s\n",eda->prefix,mg->nam
+e);}elseif(mt->n_alloc){charsize[32];eda->error++;snprintf(size,sizeof(size),"%1
+0zu",mt->size);fprintf(eda->fp,"%s:memstats:%-30s:%6zu*%s\n",eda->prefix,mt->nam
+e,mt->n_alloc,mt->size==SIZE_VAR?"(variablysized)":size);}return0;}intlog_memsta
+ts(FILE*fp,constchar*prefix){structexit_dump_argseda={.fp=fp,.prefix=prefix,.err
+or=0};qmem_walk(qmem_exit_walker,&eda);returneda.error;}

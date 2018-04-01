@@ -1,136 +1,47 @@
-/*
- * libnetlink.c	RTnetlink service routines.
- *
- *		This program is free software; you can redistribute it and/or
- *		modify it under the terms of the GNU General Public License
- *		as published by the Free Software Foundation; either version
- *		2 of the License, or (at your option) any later version.
- *
- * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
- *
- */
-
-#ifdef __linux__
-
-#ifndef __LIBNETLINK_H__
-#define __LIBNETLINK_H__ 1
-
-#include <asm/types.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/if_link.h>
-#include <linux/if_addr.h>
-#include <linux/neighbour.h>
-
-struct rtnl_handle {
-	int fd;
-	struct sockaddr_nl local;
-	struct sockaddr_nl peer;
-	__u32 seq;
-	__u32 dump;
-};
-
-extern int rcvbuf;
-
-extern int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions);
-extern int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
-			     int protocol);
-extern void rtnl_close(struct rtnl_handle *rth);
-extern int rtnl_wilddump_request(struct rtnl_handle *rth, int fam, int type);
-extern int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req,
-			     int len);
-
-typedef int (*rtnl_filter_t)(const struct sockaddr_nl *, struct nlmsghdr *n,
-			     void *);
-
-struct rtnl_dump_filter_arg {
-	rtnl_filter_t filter;
-	void *arg1;
-	rtnl_filter_t junk;
-	void *arg2;
-};
-
-extern int rtnl_dump_filter_l(struct rtnl_handle *rth,
-			      const struct rtnl_dump_filter_arg *arg);
-extern int rtnl_dump_filter(struct rtnl_handle *rth, rtnl_filter_t filter,
-			    void *arg1, rtnl_filter_t junk, void *arg2);
-
-extern int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
-		     unsigned groups, struct nlmsghdr *answer,
-		     rtnl_filter_t junk, void *jarg);
-extern int rtnl_send(struct rtnl_handle *rth, const char *buf, int);
-extern int rtnl_send_check(struct rtnl_handle *rth, const char *buf, int);
-
-extern int addattr32(struct nlmsghdr *n, int maxlen, int type, __u32 data);
-extern int addattr_l(struct nlmsghdr *n, int maxlen, int type, const void *data,
-		     int alen);
-extern int addraw_l(struct nlmsghdr *n, int maxlen, const void *data, int len);
-extern struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type);
-extern int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest);
-extern struct rtattr *addattr_nest_compat(struct nlmsghdr *n, int maxlen,
-					  int type, const void *data, int len);
-extern int addattr_nest_compat_end(struct nlmsghdr *n, struct rtattr *nest);
-extern int rta_addattr32(struct rtattr *rta, int maxlen, int type, __u32 data);
-extern int rta_addattr_l(struct rtattr *rta, int maxlen, int type,
-			 const void *data, int alen);
-
-extern int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta,
-			int len);
-extern int parse_rtattr_byindex(struct rtattr *tb[], int max,
-				struct rtattr *rta, int len);
-extern int __parse_rtattr_nested_compat(struct rtattr *tb[], int max,
-					struct rtattr *rta, int len);
-
-#define parse_rtattr_nested(tb, max, rta)                                      \
-	(parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta)))
-
-#define parse_rtattr_nested_compat(tb, max, rta, data, len)                    \
-	({                                                                     \
-		data = RTA_PAYLOAD(rta) >= len ? RTA_DATA(rta) : NULL;         \
-		__parse_rtattr_nested_compat(tb, max, rta, len);               \
-	})
-
-extern int rtnl_listen(struct rtnl_handle *, rtnl_filter_t handler, void *jarg);
-extern int rtnl_from_file(FILE *, rtnl_filter_t handler, void *jarg);
-
-#define NLMSG_TAIL(nmsg)                                                       \
-	((struct rtattr *)(((uint8_t *)(nmsg))                                 \
-			   + NLMSG_ALIGN((nmsg)->nlmsg_len)))
-
-#ifndef IFA_RTA
-#define IFA_RTA(r)                                                             \
-	((struct rtattr *)(((char *)(r))                                       \
-			   + NLMSG_ALIGN(sizeof(struct ifaddrmsg))))
-#endif
-#ifndef IFA_PAYLOAD
-#define IFA_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct ifaddrmsg))
-#endif
-
-#ifndef IFLA_RTA
-#define IFLA_RTA(r)                                                            \
-	((struct rtattr *)(((char *)(r))                                       \
-			   + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
-#endif
-#ifndef IFLA_PAYLOAD
-#define IFLA_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
-#endif
-
-#ifndef NDA_RTA
-#define NDA_RTA(r)                                                             \
-	((struct rtattr *)(((char *)(r)) + NLMSG_ALIGN(sizeof(struct ndmsg))))
-#endif
-#ifndef NDA_PAYLOAD
-#define NDA_PAYLOAD(n)	NLMSG_PAYLOAD(n,sizeof(struct ndmsg))
-#endif
-
-#ifndef NDTA_RTA
-#define NDTA_RTA(r)                                                            \
-	((struct rtattr *)(((char *)(r)) + NLMSG_ALIGN(sizeof(struct ndtmsg))))
-#endif
-#ifndef NDTA_PAYLOAD
-#define NDTA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ndtmsg))
-#endif
-
-#endif /* __LIBNETLINK_H__ */
-
-#endif /* __linux__ */
+/**libnetlink.cRTnetlinkserviceroutines.**Thisprogramisfreesoftware;youcanredist
+ributeitand/or*modifyitunderthetermsoftheGNUGeneralPublicLicense*aspublishedbyth
+eFreeSoftwareFoundation;eitherversion*2oftheLicense,or(atyouroption)anylatervers
+ion.**Authors:AlexeyKuznetsov,<kuznet@ms2.inr.ac.ru>**/#ifdef__linux__#ifndef__L
+IBNETLINK_H__#define__LIBNETLINK_H__1#include<asm/types.h>#include<linux/netlink
+.h>#include<linux/rtnetlink.h>#include<linux/if_link.h>#include<linux/if_addr.h>
+#include<linux/neighbour.h>structrtnl_handle{intfd;structsockaddr_nllocal;struct
+sockaddr_nlpeer;__u32seq;__u32dump;};externintrcvbuf;externintrtnl_open(structrt
+nl_handle*rth,unsignedsubscriptions);externintrtnl_open_byproto(structrtnl_handl
+e*rth,unsignedsubscriptions,intprotocol);externvoidrtnl_close(structrtnl_handle*
+rth);externintrtnl_wilddump_request(structrtnl_handle*rth,intfam,inttype);extern
+intrtnl_dump_request(structrtnl_handle*rth,inttype,void*req,intlen);typedefint(*
+rtnl_filter_t)(conststructsockaddr_nl*,structnlmsghdr*n,void*);structrtnl_dump_f
+ilter_arg{rtnl_filter_tfilter;void*arg1;rtnl_filter_tjunk;void*arg2;};externintr
+tnl_dump_filter_l(structrtnl_handle*rth,conststructrtnl_dump_filter_arg*arg);ext
+ernintrtnl_dump_filter(structrtnl_handle*rth,rtnl_filter_tfilter,void*arg1,rtnl_
+filter_tjunk,void*arg2);externintrtnl_talk(structrtnl_handle*rtnl,structnlmsghdr
+*n,pid_tpeer,unsignedgroups,structnlmsghdr*answer,rtnl_filter_tjunk,void*jarg);e
+xternintrtnl_send(structrtnl_handle*rth,constchar*buf,int);externintrtnl_send_ch
+eck(structrtnl_handle*rth,constchar*buf,int);externintaddattr32(structnlmsghdr*n
+,intmaxlen,inttype,__u32data);externintaddattr_l(structnlmsghdr*n,intmaxlen,intt
+ype,constvoid*data,intalen);externintaddraw_l(structnlmsghdr*n,intmaxlen,constvo
+id*data,intlen);externstructrtattr*addattr_nest(structnlmsghdr*n,intmaxlen,intty
+pe);externintaddattr_nest_end(structnlmsghdr*n,structrtattr*nest);externstructrt
+attr*addattr_nest_compat(structnlmsghdr*n,intmaxlen,inttype,constvoid*data,intle
+n);externintaddattr_nest_compat_end(structnlmsghdr*n,structrtattr*nest);externin
+trta_addattr32(structrtattr*rta,intmaxlen,inttype,__u32data);externintrta_addatt
+r_l(structrtattr*rta,intmaxlen,inttype,constvoid*data,intalen);externintparse_rt
+attr(structrtattr*tb[],intmax,structrtattr*rta,intlen);externintparse_rtattr_byi
+ndex(structrtattr*tb[],intmax,structrtattr*rta,intlen);externint__parse_rtattr_n
+ested_compat(structrtattr*tb[],intmax,structrtattr*rta,intlen);#defineparse_rtat
+tr_nested(tb,max,rta)\(parse_rtattr((tb),(max),RTA_DATA(rta),RTA_PAYLOAD(rta)))#
+defineparse_rtattr_nested_compat(tb,max,rta,data,len)\({\data=RTA_PAYLOAD(rta)>=
+len?RTA_DATA(rta):NULL;\__parse_rtattr_nested_compat(tb,max,rta,len);\})externin
+trtnl_listen(structrtnl_handle*,rtnl_filter_thandler,void*jarg);externintrtnl_fr
+om_file(FILE*,rtnl_filter_thandler,void*jarg);#defineNLMSG_TAIL(nmsg)\((structrt
+attr*)(((uint8_t*)(nmsg))\+NLMSG_ALIGN((nmsg)->nlmsg_len)))#ifndefIFA_RTA#define
+IFA_RTA(r)\((structrtattr*)(((char*)(r))\+NLMSG_ALIGN(sizeof(structifaddrmsg))))
+#endif#ifndefIFA_PAYLOAD#defineIFA_PAYLOAD(n)NLMSG_PAYLOAD(n,sizeof(structifaddr
+msg))#endif#ifndefIFLA_RTA#defineIFLA_RTA(r)\((structrtattr*)(((char*)(r))\+NLMS
+G_ALIGN(sizeof(structifinfomsg))))#endif#ifndefIFLA_PAYLOAD#defineIFLA_PAYLOAD(n
+)NLMSG_PAYLOAD(n,sizeof(structifinfomsg))#endif#ifndefNDA_RTA#defineNDA_RTA(r)\(
+(structrtattr*)(((char*)(r))+NLMSG_ALIGN(sizeof(structndmsg))))#endif#ifndefNDA_
+PAYLOAD#defineNDA_PAYLOAD(n)NLMSG_PAYLOAD(n,sizeof(structndmsg))#endif#ifndefNDT
+A_RTA#defineNDTA_RTA(r)\((structrtattr*)(((char*)(r))+NLMSG_ALIGN(sizeof(structn
+dtmsg))))#endif#ifndefNDTA_PAYLOAD#defineNDTA_PAYLOAD(n)NLMSG_PAYLOAD(n,sizeof(s
+tructndtmsg))#endif#endif/*__LIBNETLINK_H__*/#endif/*__linux__*/

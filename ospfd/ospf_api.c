@@ -1,652 +1,154 @@
-/*
- * API message handling module for OSPF daemon and client.
- * Copyright (C) 2001, 2002 Ralph Keller
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#ifdef SUPPORT_OSPF_API
-
-#include "linklist.h"
-#include "prefix.h"
-#include "if.h"
-#include "table.h"
-#include "memory.h"
-#include "command.h"
-#include "vty.h"
-#include "stream.h"
-#include "log.h"
-#include "thread.h"
-#include "hash.h"
-#include "sockunion.h" /* for inet_aton() */
-#include "buffer.h"
-#include "network.h"
-
-#include "ospfd/ospfd.h"
-#include "ospfd/ospf_interface.h"
-#include "ospfd/ospf_ism.h"
-#include "ospfd/ospf_asbr.h"
-#include "ospfd/ospf_lsa.h"
-#include "ospfd/ospf_lsdb.h"
-#include "ospfd/ospf_neighbor.h"
-#include "ospfd/ospf_nsm.h"
-#include "ospfd/ospf_flood.h"
-#include "ospfd/ospf_packet.h"
-#include "ospfd/ospf_spf.h"
-#include "ospfd/ospf_dump.h"
-#include "ospfd/ospf_route.h"
-#include "ospfd/ospf_ase.h"
-#include "ospfd/ospf_zebra.h"
-
-#include "ospfd/ospf_api.h"
-
-
-/* For debugging only, will be removed */
-void api_opaque_lsa_print(struct lsa_header *data)
-{
-	struct opaque_lsa {
-		struct lsa_header header;
-		uint8_t mydata[];
-	};
-
-	struct opaque_lsa *olsa;
-	int opaquelen;
-	int i;
-
-	ospf_lsa_header_dump(data);
-
-	olsa = (struct opaque_lsa *)data;
-
-	opaquelen = ntohs(data->length) - OSPF_LSA_HEADER_SIZE;
-	zlog_debug("apiserver_lsa_print: opaquelen=%d\n", opaquelen);
-
-	for (i = 0; i < opaquelen; i++) {
-		zlog_debug("0x%x ", olsa->mydata[i]);
-	}
-	zlog_debug("\n");
-}
-
-/* -----------------------------------------------------------
- * Generic messages
- * -----------------------------------------------------------
- */
-
-struct msg *msg_new(uint8_t msgtype, void *msgbody, uint32_t seqnum,
-		    uint16_t msglen)
-{
-	struct msg *new;
-
-	new = XCALLOC(MTYPE_OSPF_API_MSG, sizeof(struct msg));
-
-	new->hdr.version = OSPF_API_VERSION;
-	new->hdr.msgtype = msgtype;
-	new->hdr.msglen = htons(msglen);
-	new->hdr.msgseq = htonl(seqnum);
-
-	new->s = stream_new(msglen);
-	assert(new->s);
-	stream_put(new->s, msgbody, msglen);
-
-	return new;
-}
-
-
-/* Duplicate a message by copying content. */
-struct msg *msg_dup(struct msg *msg)
-{
-	struct msg *new;
-
-	assert(msg);
-
-	new = msg_new(msg->hdr.msgtype, STREAM_DATA(msg->s),
-		      ntohl(msg->hdr.msgseq), ntohs(msg->hdr.msglen));
-	return new;
-}
-
-
-/* XXX only for testing, will be removed */
-
-struct nametab {
-	int value;
-	const char *name;
-};
-
-const char *ospf_api_typename(int msgtype)
-{
-	struct nametab NameTab[] = {
-		{
-			MSG_REGISTER_OPAQUETYPE, "Register opaque-type",
-		},
-		{
-			MSG_UNREGISTER_OPAQUETYPE, "Unregister opaque-type",
-		},
-		{
-			MSG_REGISTER_EVENT, "Register event",
-		},
-		{
-			MSG_SYNC_LSDB, "Sync LSDB",
-		},
-		{
-			MSG_ORIGINATE_REQUEST, "Originate request",
-		},
-		{
-			MSG_DELETE_REQUEST, "Delete request",
-		},
-		{
-			MSG_REPLY, "Reply",
-		},
-		{
-			MSG_READY_NOTIFY, "Ready notify",
-		},
-		{
-			MSG_LSA_UPDATE_NOTIFY, "LSA update notify",
-		},
-		{
-			MSG_LSA_DELETE_NOTIFY, "LSA delete notify",
-		},
-		{
-			MSG_NEW_IF, "New interface",
-		},
-		{
-			MSG_DEL_IF, "Del interface",
-		},
-		{
-			MSG_ISM_CHANGE, "ISM change",
-		},
-		{
-			MSG_NSM_CHANGE, "NSM change",
-		},
-	};
-
-	int i, n = array_size(NameTab);
-	const char *name = NULL;
-
-	for (i = 0; i < n; i++) {
-		if (NameTab[i].value == msgtype) {
-			name = NameTab[i].name;
-			break;
-		}
-	}
-
-	return name ? name : "?";
-}
-
-const char *ospf_api_errname(int errcode)
-{
-	struct nametab NameTab[] = {
-		{
-			OSPF_API_OK, "OK",
-		},
-		{
-			OSPF_API_NOSUCHINTERFACE, "No such interface",
-		},
-		{
-			OSPF_API_NOSUCHAREA, "No such area",
-		},
-		{
-			OSPF_API_NOSUCHLSA, "No such LSA",
-		},
-		{
-			OSPF_API_ILLEGALLSATYPE, "Illegal LSA type",
-		},
-		{
-			OSPF_API_OPAQUETYPEINUSE, "Opaque type in use",
-		},
-		{
-			OSPF_API_OPAQUETYPENOTREGISTERED,
-			"Opaque type not registered",
-		},
-		{
-			OSPF_API_NOTREADY, "Not ready",
-		},
-		{
-			OSPF_API_NOMEMORY, "No memory",
-		},
-		{
-			OSPF_API_ERROR, "Other error",
-		},
-		{
-			OSPF_API_UNDEF, "Undefined",
-		},
-	};
-
-	int i, n = array_size(NameTab);
-	const char *name = NULL;
-
-	for (i = 0; i < n; i++) {
-		if (NameTab[i].value == errcode) {
-			name = NameTab[i].name;
-			break;
-		}
-	}
-
-	return name ? name : "?";
-}
-
-void msg_print(struct msg *msg)
-{
-	if (!msg) {
-		zlog_debug("msg_print msg=NULL!\n");
-		return;
-	}
-
-#ifdef ORIGINAL_CODING
-	zlog_debug(
-		"msg=%p msgtype=%d msglen=%d msgseq=%d streamdata=%p streamsize=%lu\n",
-		msg, msg->hdr.msgtype, ntohs(msg->hdr.msglen),
-		ntohl(msg->hdr.msgseq), STREAM_DATA(msg->s),
-		STREAM_SIZE(msg->s));
-#else /* ORIGINAL_CODING */
-	/* API message common header part. */
-	zlog_debug("API-msg [%s]: type(%d),len(%d),seq(%lu),data(%p),size(%zd)",
-		   ospf_api_typename(msg->hdr.msgtype), msg->hdr.msgtype,
-		   ntohs(msg->hdr.msglen),
-		   (unsigned long)ntohl(msg->hdr.msgseq), STREAM_DATA(msg->s),
-		   STREAM_SIZE(msg->s));
-
-/* API message body part. */
-#ifdef ndef
-	/* Generic Hex/Ascii dump */
-	DumpBuf(STREAM_DATA(msg->s), STREAM_SIZE(msg->s)); /* Sorry, deleted! */
-#else  /* ndef */
-/* Message-type dependent dump function. */
-#endif /* ndef */
-
-	return;
-#endif /* ORIGINAL_CODING */
-}
-
-void msg_free(struct msg *msg)
-{
-	if (msg->s)
-		stream_free(msg->s);
-
-	XFREE(MTYPE_OSPF_API_MSG, msg);
-}
-
-
-/* Set sequence number of message */
-void msg_set_seq(struct msg *msg, uint32_t seqnr)
-{
-	assert(msg);
-	msg->hdr.msgseq = htonl(seqnr);
-}
-
-/* Get sequence number of message */
-uint32_t msg_get_seq(struct msg *msg)
-{
-	assert(msg);
-	return ntohl(msg->hdr.msgseq);
-}
-
-/* -----------------------------------------------------------
- * Message fifo queues
- * -----------------------------------------------------------
- */
-
-struct msg_fifo *msg_fifo_new()
-{
-	return XCALLOC(MTYPE_OSPF_API_FIFO, sizeof(struct msg_fifo));
-}
-
-/* Add new message to fifo. */
-void msg_fifo_push(struct msg_fifo *fifo, struct msg *msg)
-{
-	if (fifo->tail)
-		fifo->tail->next = msg;
-	else
-		fifo->head = msg;
-
-	fifo->tail = msg;
-	fifo->count++;
-}
-
-
-/* Remove first message from fifo. */
-struct msg *msg_fifo_pop(struct msg_fifo *fifo)
-{
-	struct msg *msg;
-
-	msg = fifo->head;
-	if (msg) {
-		fifo->head = msg->next;
-
-		if (fifo->head == NULL)
-			fifo->tail = NULL;
-
-		fifo->count--;
-	}
-	return msg;
-}
-
-/* Return first fifo entry but do not remove it. */
-struct msg *msg_fifo_head(struct msg_fifo *fifo)
-{
-	return fifo->head;
-}
-
-/* Flush message fifo. */
-void msg_fifo_flush(struct msg_fifo *fifo)
-{
-	struct msg *op;
-	struct msg *next;
-
-	for (op = fifo->head; op; op = next) {
-		next = op->next;
-		msg_free(op);
-	}
-
-	fifo->head = fifo->tail = NULL;
-	fifo->count = 0;
-}
-
-/* Free API message fifo. */
-void msg_fifo_free(struct msg_fifo *fifo)
-{
-	msg_fifo_flush(fifo);
-
-	XFREE(MTYPE_OSPF_API_FIFO, fifo);
-}
-
-struct msg *msg_read(int fd)
-{
-	struct msg *msg;
-	struct apimsghdr hdr;
-	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
-	int bodylen;
-	int rlen;
-
-	/* Read message header */
-	rlen = readn(fd, (uint8_t *)&hdr, sizeof(struct apimsghdr));
-
-	if (rlen < 0) {
-		zlog_warn("msg_read: readn %s", safe_strerror(errno));
-		return NULL;
-	} else if (rlen == 0) {
-		zlog_warn("msg_read: Connection closed by peer");
-		return NULL;
-	} else if (rlen != sizeof(struct apimsghdr)) {
-		zlog_warn("msg_read: Cannot read message header!");
-		return NULL;
-	}
-
-	/* Check version of API protocol */
-	if (hdr.version != OSPF_API_VERSION) {
-		zlog_warn("msg_read: OSPF API protocol version mismatch");
-		return NULL;
-	}
-
-	/* Determine body length. */
-	bodylen = ntohs(hdr.msglen);
-	if (bodylen > 0) {
-
-		/* Read message body */
-		rlen = readn(fd, buf, bodylen);
-		if (rlen < 0) {
-			zlog_warn("msg_read: readn %s", safe_strerror(errno));
-			return NULL;
-		} else if (rlen == 0) {
-			zlog_warn("msg_read: Connection closed by peer");
-			return NULL;
-		} else if (rlen != bodylen) {
-			zlog_warn("msg_read: Cannot read message body!");
-			return NULL;
-		}
-	}
-
-	/* Allocate new message */
-	msg = msg_new(hdr.msgtype, buf, ntohl(hdr.msgseq), ntohs(hdr.msglen));
-
-	return msg;
-}
-
-int msg_write(int fd, struct msg *msg)
-{
-	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
-	int l;
-	int wlen;
-
-	assert(msg);
-	assert(msg->s);
-
-	/* Length of message including header */
-	l = sizeof(struct apimsghdr) + ntohs(msg->hdr.msglen);
-
-	/* Make contiguous memory buffer for message */
-	memcpy(buf, &msg->hdr, sizeof(struct apimsghdr));
-	memcpy(buf + sizeof(struct apimsghdr), STREAM_DATA(msg->s),
-	       ntohs(msg->hdr.msglen));
-
-	wlen = writen(fd, buf, l);
-	if (wlen < 0) {
-		zlog_warn("msg_write: writen %s", safe_strerror(errno));
-		return -1;
-	} else if (wlen == 0) {
-		zlog_warn("msg_write: Connection closed by peer");
-		return -1;
-	} else if (wlen != l) {
-		zlog_warn("msg_write: Cannot write API message");
-		return -1;
-	}
-	return 0;
-}
-
-/* -----------------------------------------------------------
- * Specific messages
- * -----------------------------------------------------------
- */
-
-struct msg *new_msg_register_opaque_type(uint32_t seqnum, uint8_t ltype,
-					 uint8_t otype)
-{
-	struct msg_register_opaque_type rmsg;
-
-	rmsg.lsatype = ltype;
-	rmsg.opaquetype = otype;
-	memset(&rmsg.pad, 0, sizeof(rmsg.pad));
-
-	return msg_new(MSG_REGISTER_OPAQUETYPE, &rmsg, seqnum,
-		       sizeof(struct msg_register_opaque_type));
-}
-
-struct msg *new_msg_register_event(uint32_t seqnum,
-				   struct lsa_filter_type *filter)
-{
-	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
-	struct msg_register_event *emsg;
-	unsigned int len;
-
-	emsg = (struct msg_register_event *)buf;
-	len = sizeof(struct msg_register_event)
-	      + filter->num_areas * sizeof(struct in_addr);
-	emsg->filter.typemask = htons(filter->typemask);
-	emsg->filter.origin = filter->origin;
-	emsg->filter.num_areas = filter->num_areas;
-	if (len > sizeof(buf))
-		len = sizeof(buf);
-	/* API broken - missing memcpy to fill data */
-	return msg_new(MSG_REGISTER_EVENT, emsg, seqnum, len);
-}
-
-struct msg *new_msg_sync_lsdb(uint32_t seqnum, struct lsa_filter_type *filter)
-{
-	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
-	struct msg_sync_lsdb *smsg;
-	unsigned int len;
-
-	smsg = (struct msg_sync_lsdb *)buf;
-	len = sizeof(struct msg_sync_lsdb)
-	      + filter->num_areas * sizeof(struct in_addr);
-	smsg->filter.typemask = htons(filter->typemask);
-	smsg->filter.origin = filter->origin;
-	smsg->filter.num_areas = filter->num_areas;
-	if (len > sizeof(buf))
-		len = sizeof(buf);
-	/* API broken - missing memcpy to fill data */
-	return msg_new(MSG_SYNC_LSDB, smsg, seqnum, len);
-}
-
-
-struct msg *new_msg_originate_request(uint32_t seqnum, struct in_addr ifaddr,
-				      struct in_addr area_id,
-				      struct lsa_header *data)
-{
-	struct msg_originate_request *omsg;
-	unsigned int omsglen;
-	char buf[OSPF_API_MAX_MSG_SIZE];
-
-	omsg = (struct msg_originate_request *)buf;
-	omsg->ifaddr = ifaddr;
-	omsg->area_id = area_id;
-
-	omsglen = ntohs(data->length);
-	if (omsglen
-	    > sizeof(buf) - offsetof(struct msg_originate_request, data))
-		omsglen = sizeof(buf)
-			  - offsetof(struct msg_originate_request, data);
-	memcpy(&omsg->data, data, omsglen);
-	omsglen += sizeof(struct msg_originate_request)
-		   - sizeof(struct lsa_header);
-
-	return msg_new(MSG_ORIGINATE_REQUEST, omsg, seqnum, omsglen);
-}
-
-struct msg *new_msg_delete_request(uint32_t seqnum, struct in_addr area_id,
-				   uint8_t lsa_type, uint8_t opaque_type,
-				   uint32_t opaque_id)
-{
-	struct msg_delete_request dmsg;
-	dmsg.area_id = area_id;
-	dmsg.lsa_type = lsa_type;
-	dmsg.opaque_type = opaque_type;
-	dmsg.opaque_id = htonl(opaque_id);
-	memset(&dmsg.pad, 0, sizeof(dmsg.pad));
-
-	return msg_new(MSG_DELETE_REQUEST, &dmsg, seqnum,
-		       sizeof(struct msg_delete_request));
-}
-
-
-struct msg *new_msg_reply(uint32_t seqnr, uint8_t rc)
-{
-	struct msg *msg;
-	struct msg_reply rmsg;
-
-	/* Set return code */
-	rmsg.errcode = rc;
-	memset(&rmsg.pad, 0, sizeof(rmsg.pad));
-
-	msg = msg_new(MSG_REPLY, &rmsg, seqnr, sizeof(struct msg_reply));
-
-	return msg;
-}
-
-struct msg *new_msg_ready_notify(uint32_t seqnr, uint8_t lsa_type,
-				 uint8_t opaque_type, struct in_addr addr)
-{
-	struct msg_ready_notify rmsg;
-
-	rmsg.lsa_type = lsa_type;
-	rmsg.opaque_type = opaque_type;
-	memset(&rmsg.pad, 0, sizeof(rmsg.pad));
-	rmsg.addr = addr;
-
-	return msg_new(MSG_READY_NOTIFY, &rmsg, seqnr,
-		       sizeof(struct msg_ready_notify));
-}
-
-struct msg *new_msg_new_if(uint32_t seqnr, struct in_addr ifaddr,
-			   struct in_addr area_id)
-{
-	struct msg_new_if nmsg;
-
-	nmsg.ifaddr = ifaddr;
-	nmsg.area_id = area_id;
-
-	return msg_new(MSG_NEW_IF, &nmsg, seqnr, sizeof(struct msg_new_if));
-}
-
-struct msg *new_msg_del_if(uint32_t seqnr, struct in_addr ifaddr)
-{
-	struct msg_del_if dmsg;
-
-	dmsg.ifaddr = ifaddr;
-
-	return msg_new(MSG_DEL_IF, &dmsg, seqnr, sizeof(struct msg_del_if));
-}
-
-struct msg *new_msg_ism_change(uint32_t seqnr, struct in_addr ifaddr,
-			       struct in_addr area_id, uint8_t status)
-{
-	struct msg_ism_change imsg;
-
-	imsg.ifaddr = ifaddr;
-	imsg.area_id = area_id;
-	imsg.status = status;
-	memset(&imsg.pad, 0, sizeof(imsg.pad));
-
-	return msg_new(MSG_ISM_CHANGE, &imsg, seqnr,
-		       sizeof(struct msg_ism_change));
-}
-
-struct msg *new_msg_nsm_change(uint32_t seqnr, struct in_addr ifaddr,
-			       struct in_addr nbraddr, struct in_addr router_id,
-			       uint8_t status)
-{
-	struct msg_nsm_change nmsg;
-
-	nmsg.ifaddr = ifaddr;
-	nmsg.nbraddr = nbraddr;
-	nmsg.router_id = router_id;
-	nmsg.status = status;
-	memset(&nmsg.pad, 0, sizeof(nmsg.pad));
-
-	return msg_new(MSG_NSM_CHANGE, &nmsg, seqnr,
-		       sizeof(struct msg_nsm_change));
-}
-
-struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
-				      struct in_addr ifaddr,
-				      struct in_addr area_id,
-				      uint8_t is_self_originated,
-				      struct lsa_header *data)
-{
-	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
-	struct msg_lsa_change_notify *nmsg;
-	unsigned int len;
-
-	assert(data);
-
-	nmsg = (struct msg_lsa_change_notify *)buf;
-	nmsg->ifaddr = ifaddr;
-	nmsg->area_id = area_id;
-	nmsg->is_self_originated = is_self_originated;
-	memset(&nmsg->pad, 0, sizeof(nmsg->pad));
-
-	len = ntohs(data->length);
-	if (len > sizeof(buf) - offsetof(struct msg_lsa_change_notify, data))
-		len = sizeof(buf)
-		      - offsetof(struct msg_lsa_change_notify, data);
-	memcpy(&nmsg->data, data, len);
-	len += sizeof(struct msg_lsa_change_notify) - sizeof(struct lsa_header);
-
-	return msg_new(msgtype, nmsg, seqnum, len);
-}
-
-#endif /* SUPPORT_OSPF_API */
+/**APImessagehandlingmoduleforOSPFdaemonandclient.*Copyright(C)2001,2002RalphKel
+ler**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/o
+rmodify*itunderthetermsoftheGNUGeneralPublicLicenseaspublished*bytheFreeSoftware
+Foundation;eitherversion2,or(atyour*option)anylaterversion.**GNUZebraisdistribut
+edinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarran
+tyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicens
+eformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*wi
+ththisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51F
+ranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#ifdefSUPPORT_OSPF
+_API#include"linklist.h"#include"prefix.h"#include"if.h"#include"table.h"#includ
+e"memory.h"#include"command.h"#include"vty.h"#include"stream.h"#include"log.h"#i
+nclude"thread.h"#include"hash.h"#include"sockunion.h"/*forinet_aton()*/#include"
+buffer.h"#include"network.h"#include"ospfd/ospfd.h"#include"ospfd/ospf_interface
+.h"#include"ospfd/ospf_ism.h"#include"ospfd/ospf_asbr.h"#include"ospfd/ospf_lsa.
+h"#include"ospfd/ospf_lsdb.h"#include"ospfd/ospf_neighbor.h"#include"ospfd/ospf_
+nsm.h"#include"ospfd/ospf_flood.h"#include"ospfd/ospf_packet.h"#include"ospfd/os
+pf_spf.h"#include"ospfd/ospf_dump.h"#include"ospfd/ospf_route.h"#include"ospfd/o
+spf_ase.h"#include"ospfd/ospf_zebra.h"#include"ospfd/ospf_api.h"/*Fordebuggingon
+ly,willberemoved*/voidapi_opaque_lsa_print(structlsa_header*data){structopaque_l
+sa{structlsa_headerheader;uint8_tmydata[];};structopaque_lsa*olsa;intopaquelen;i
+nti;ospf_lsa_header_dump(data);olsa=(structopaque_lsa*)data;opaquelen=ntohs(data
+->length)-OSPF_LSA_HEADER_SIZE;zlog_debug("apiserver_lsa_print:opaquelen=%d\n",o
+paquelen);for(i=0;i<opaquelen;i++){zlog_debug("0x%x",olsa->mydata[i]);}zlog_debu
+g("\n");}/*-----------------------------------------------------------*Genericme
+ssages*-----------------------------------------------------------*/structmsg*ms
+g_new(uint8_tmsgtype,void*msgbody,uint32_tseqnum,uint16_tmsglen){structmsg*new;n
+ew=XCALLOC(MTYPE_OSPF_API_MSG,sizeof(structmsg));new->hdr.version=OSPF_API_VERSI
+ON;new->hdr.msgtype=msgtype;new->hdr.msglen=htons(msglen);new->hdr.msgseq=htonl(
+seqnum);new->s=stream_new(msglen);assert(new->s);stream_put(new->s,msgbody,msgle
+n);returnnew;}/*Duplicateamessagebycopyingcontent.*/structmsg*msg_dup(structmsg*
+msg){structmsg*new;assert(msg);new=msg_new(msg->hdr.msgtype,STREAM_DATA(msg->s),
+ntohl(msg->hdr.msgseq),ntohs(msg->hdr.msglen));returnnew;}/*XXXonlyfortesting,wi
+llberemoved*/structnametab{intvalue;constchar*name;};constchar*ospf_api_typename
+(intmsgtype){structnametabNameTab[]={{MSG_REGISTER_OPAQUETYPE,"Registeropaque-ty
+pe",},{MSG_UNREGISTER_OPAQUETYPE,"Unregisteropaque-type",},{MSG_REGISTER_EVENT,"
+Registerevent",},{MSG_SYNC_LSDB,"SyncLSDB",},{MSG_ORIGINATE_REQUEST,"Originatere
+quest",},{MSG_DELETE_REQUEST,"Deleterequest",},{MSG_REPLY,"Reply",},{MSG_READY_N
+OTIFY,"Readynotify",},{MSG_LSA_UPDATE_NOTIFY,"LSAupdatenotify",},{MSG_LSA_DELETE
+_NOTIFY,"LSAdeletenotify",},{MSG_NEW_IF,"Newinterface",},{MSG_DEL_IF,"Delinterfa
+ce",},{MSG_ISM_CHANGE,"ISMchange",},{MSG_NSM_CHANGE,"NSMchange",},};inti,n=array
+_size(NameTab);constchar*name=NULL;for(i=0;i<n;i++){if(NameTab[i].value==msgtype
+){name=NameTab[i].name;break;}}returnname?name:"?";}constchar*ospf_api_errname(i
+nterrcode){structnametabNameTab[]={{OSPF_API_OK,"OK",},{OSPF_API_NOSUCHINTERFACE
+,"Nosuchinterface",},{OSPF_API_NOSUCHAREA,"Nosucharea",},{OSPF_API_NOSUCHLSA,"No
+suchLSA",},{OSPF_API_ILLEGALLSATYPE,"IllegalLSAtype",},{OSPF_API_OPAQUETYPEINUSE
+,"Opaquetypeinuse",},{OSPF_API_OPAQUETYPENOTREGISTERED,"Opaquetypenotregistered"
+,},{OSPF_API_NOTREADY,"Notready",},{OSPF_API_NOMEMORY,"Nomemory",},{OSPF_API_ERR
+OR,"Othererror",},{OSPF_API_UNDEF,"Undefined",},};inti,n=array_size(NameTab);con
+stchar*name=NULL;for(i=0;i<n;i++){if(NameTab[i].value==errcode){name=NameTab[i].
+name;break;}}returnname?name:"?";}voidmsg_print(structmsg*msg){if(!msg){zlog_deb
+ug("msg_printmsg=NULL!\n");return;}#ifdefORIGINAL_CODINGzlog_debug("msg=%pmsgtyp
+e=%dmsglen=%dmsgseq=%dstreamdata=%pstreamsize=%lu\n",msg,msg->hdr.msgtype,ntohs(
+msg->hdr.msglen),ntohl(msg->hdr.msgseq),STREAM_DATA(msg->s),STREAM_SIZE(msg->s))
+;#else/*ORIGINAL_CODING*//*APImessagecommonheaderpart.*/zlog_debug("API-msg[%s]:
+type(%d),len(%d),seq(%lu),data(%p),size(%zd)",ospf_api_typename(msg->hdr.msgtype
+),msg->hdr.msgtype,ntohs(msg->hdr.msglen),(unsignedlong)ntohl(msg->hdr.msgseq),S
+TREAM_DATA(msg->s),STREAM_SIZE(msg->s));/*APImessagebodypart.*/#ifdefndef/*Gener
+icHex/Asciidump*/DumpBuf(STREAM_DATA(msg->s),STREAM_SIZE(msg->s));/*Sorry,delete
+d!*/#else/*ndef*//*Message-typedependentdumpfunction.*/#endif/*ndef*/return;#end
+if/*ORIGINAL_CODING*/}voidmsg_free(structmsg*msg){if(msg->s)stream_free(msg->s);
+XFREE(MTYPE_OSPF_API_MSG,msg);}/*Setsequencenumberofmessage*/voidmsg_set_seq(str
+uctmsg*msg,uint32_tseqnr){assert(msg);msg->hdr.msgseq=htonl(seqnr);}/*Getsequenc
+enumberofmessage*/uint32_tmsg_get_seq(structmsg*msg){assert(msg);returnntohl(msg
+->hdr.msgseq);}/*-----------------------------------------------------------*Mes
+sagefifoqueues*-----------------------------------------------------------*/stru
+ctmsg_fifo*msg_fifo_new(){returnXCALLOC(MTYPE_OSPF_API_FIFO,sizeof(structmsg_fif
+o));}/*Addnewmessagetofifo.*/voidmsg_fifo_push(structmsg_fifo*fifo,structmsg*msg
+){if(fifo->tail)fifo->tail->next=msg;elsefifo->head=msg;fifo->tail=msg;fifo->cou
+nt++;}/*Removefirstmessagefromfifo.*/structmsg*msg_fifo_pop(structmsg_fifo*fifo)
+{structmsg*msg;msg=fifo->head;if(msg){fifo->head=msg->next;if(fifo->head==NULL)f
+ifo->tail=NULL;fifo->count--;}returnmsg;}/*Returnfirstfifoentrybutdonotremoveit.
+*/structmsg*msg_fifo_head(structmsg_fifo*fifo){returnfifo->head;}/*Flushmessagef
+ifo.*/voidmsg_fifo_flush(structmsg_fifo*fifo){structmsg*op;structmsg*next;for(op
+=fifo->head;op;op=next){next=op->next;msg_free(op);}fifo->head=fifo->tail=NULL;f
+ifo->count=0;}/*FreeAPImessagefifo.*/voidmsg_fifo_free(structmsg_fifo*fifo){msg_
+fifo_flush(fifo);XFREE(MTYPE_OSPF_API_FIFO,fifo);}structmsg*msg_read(intfd){stru
+ctmsg*msg;structapimsghdrhdr;uint8_tbuf[OSPF_API_MAX_MSG_SIZE];intbodylen;intrle
+n;/*Readmessageheader*/rlen=readn(fd,(uint8_t*)&hdr,sizeof(structapimsghdr));if(
+rlen<0){zlog_warn("msg_read:readn%s",safe_strerror(errno));returnNULL;}elseif(rl
+en==0){zlog_warn("msg_read:Connectionclosedbypeer");returnNULL;}elseif(rlen!=siz
+eof(structapimsghdr)){zlog_warn("msg_read:Cannotreadmessageheader!");returnNULL;
+}/*CheckversionofAPIprotocol*/if(hdr.version!=OSPF_API_VERSION){zlog_warn("msg_r
+ead:OSPFAPIprotocolversionmismatch");returnNULL;}/*Determinebodylength.*/bodylen
+=ntohs(hdr.msglen);if(bodylen>0){/*Readmessagebody*/rlen=readn(fd,buf,bodylen);i
+f(rlen<0){zlog_warn("msg_read:readn%s",safe_strerror(errno));returnNULL;}elseif(
+rlen==0){zlog_warn("msg_read:Connectionclosedbypeer");returnNULL;}elseif(rlen!=b
+odylen){zlog_warn("msg_read:Cannotreadmessagebody!");returnNULL;}}/*Allocatenewm
+essage*/msg=msg_new(hdr.msgtype,buf,ntohl(hdr.msgseq),ntohs(hdr.msglen));returnm
+sg;}intmsg_write(intfd,structmsg*msg){uint8_tbuf[OSPF_API_MAX_MSG_SIZE];intl;int
+wlen;assert(msg);assert(msg->s);/*Lengthofmessageincludingheader*/l=sizeof(struc
+tapimsghdr)+ntohs(msg->hdr.msglen);/*Makecontiguousmemorybufferformessage*/memcp
+y(buf,&msg->hdr,sizeof(structapimsghdr));memcpy(buf+sizeof(structapimsghdr),STRE
+AM_DATA(msg->s),ntohs(msg->hdr.msglen));wlen=writen(fd,buf,l);if(wlen<0){zlog_wa
+rn("msg_write:writen%s",safe_strerror(errno));return-1;}elseif(wlen==0){zlog_war
+n("msg_write:Connectionclosedbypeer");return-1;}elseif(wlen!=l){zlog_warn("msg_w
+rite:CannotwriteAPImessage");return-1;}return0;}/*------------------------------
+-----------------------------*Specificmessages*---------------------------------
+--------------------------*/structmsg*new_msg_register_opaque_type(uint32_tseqnu
+m,uint8_tltype,uint8_totype){structmsg_register_opaque_typermsg;rmsg.lsatype=lty
+pe;rmsg.opaquetype=otype;memset(&rmsg.pad,0,sizeof(rmsg.pad));returnmsg_new(MSG_
+REGISTER_OPAQUETYPE,&rmsg,seqnum,sizeof(structmsg_register_opaque_type));}struct
+msg*new_msg_register_event(uint32_tseqnum,structlsa_filter_type*filter){uint8_tb
+uf[OSPF_API_MAX_MSG_SIZE];structmsg_register_event*emsg;unsignedintlen;emsg=(str
+uctmsg_register_event*)buf;len=sizeof(structmsg_register_event)+filter->num_area
+s*sizeof(structin_addr);emsg->filter.typemask=htons(filter->typemask);emsg->filt
+er.origin=filter->origin;emsg->filter.num_areas=filter->num_areas;if(len>sizeof(
+buf))len=sizeof(buf);/*APIbroken-missingmemcpytofilldata*/returnmsg_new(MSG_REGI
+STER_EVENT,emsg,seqnum,len);}structmsg*new_msg_sync_lsdb(uint32_tseqnum,structls
+a_filter_type*filter){uint8_tbuf[OSPF_API_MAX_MSG_SIZE];structmsg_sync_lsdb*smsg
+;unsignedintlen;smsg=(structmsg_sync_lsdb*)buf;len=sizeof(structmsg_sync_lsdb)+f
+ilter->num_areas*sizeof(structin_addr);smsg->filter.typemask=htons(filter->typem
+ask);smsg->filter.origin=filter->origin;smsg->filter.num_areas=filter->num_areas
+;if(len>sizeof(buf))len=sizeof(buf);/*APIbroken-missingmemcpytofilldata*/returnm
+sg_new(MSG_SYNC_LSDB,smsg,seqnum,len);}structmsg*new_msg_originate_request(uint3
+2_tseqnum,structin_addrifaddr,structin_addrarea_id,structlsa_header*data){struct
+msg_originate_request*omsg;unsignedintomsglen;charbuf[OSPF_API_MAX_MSG_SIZE];oms
+g=(structmsg_originate_request*)buf;omsg->ifaddr=ifaddr;omsg->area_id=area_id;om
+sglen=ntohs(data->length);if(omsglen>sizeof(buf)-offsetof(structmsg_originate_re
+quest,data))omsglen=sizeof(buf)-offsetof(structmsg_originate_request,data);memcp
+y(&omsg->data,data,omsglen);omsglen+=sizeof(structmsg_originate_request)-sizeof(
+structlsa_header);returnmsg_new(MSG_ORIGINATE_REQUEST,omsg,seqnum,omsglen);}stru
+ctmsg*new_msg_delete_request(uint32_tseqnum,structin_addrarea_id,uint8_tlsa_type
+,uint8_topaque_type,uint32_topaque_id){structmsg_delete_requestdmsg;dmsg.area_id
+=area_id;dmsg.lsa_type=lsa_type;dmsg.opaque_type=opaque_type;dmsg.opaque_id=hton
+l(opaque_id);memset(&dmsg.pad,0,sizeof(dmsg.pad));returnmsg_new(MSG_DELETE_REQUE
+ST,&dmsg,seqnum,sizeof(structmsg_delete_request));}structmsg*new_msg_reply(uint3
+2_tseqnr,uint8_trc){structmsg*msg;structmsg_replyrmsg;/*Setreturncode*/rmsg.errc
+ode=rc;memset(&rmsg.pad,0,sizeof(rmsg.pad));msg=msg_new(MSG_REPLY,&rmsg,seqnr,si
+zeof(structmsg_reply));returnmsg;}structmsg*new_msg_ready_notify(uint32_tseqnr,u
+int8_tlsa_type,uint8_topaque_type,structin_addraddr){structmsg_ready_notifyrmsg;
+rmsg.lsa_type=lsa_type;rmsg.opaque_type=opaque_type;memset(&rmsg.pad,0,sizeof(rm
+sg.pad));rmsg.addr=addr;returnmsg_new(MSG_READY_NOTIFY,&rmsg,seqnr,sizeof(struct
+msg_ready_notify));}structmsg*new_msg_new_if(uint32_tseqnr,structin_addrifaddr,s
+tructin_addrarea_id){structmsg_new_ifnmsg;nmsg.ifaddr=ifaddr;nmsg.area_id=area_i
+d;returnmsg_new(MSG_NEW_IF,&nmsg,seqnr,sizeof(structmsg_new_if));}structmsg*new_
+msg_del_if(uint32_tseqnr,structin_addrifaddr){structmsg_del_ifdmsg;dmsg.ifaddr=i
+faddr;returnmsg_new(MSG_DEL_IF,&dmsg,seqnr,sizeof(structmsg_del_if));}structmsg*
+new_msg_ism_change(uint32_tseqnr,structin_addrifaddr,structin_addrarea_id,uint8_
+tstatus){structmsg_ism_changeimsg;imsg.ifaddr=ifaddr;imsg.area_id=area_id;imsg.s
+tatus=status;memset(&imsg.pad,0,sizeof(imsg.pad));returnmsg_new(MSG_ISM_CHANGE,&
+imsg,seqnr,sizeof(structmsg_ism_change));}structmsg*new_msg_nsm_change(uint32_ts
+eqnr,structin_addrifaddr,structin_addrnbraddr,structin_addrrouter_id,uint8_tstat
+us){structmsg_nsm_changenmsg;nmsg.ifaddr=ifaddr;nmsg.nbraddr=nbraddr;nmsg.router
+_id=router_id;nmsg.status=status;memset(&nmsg.pad,0,sizeof(nmsg.pad));returnmsg_
+new(MSG_NSM_CHANGE,&nmsg,seqnr,sizeof(structmsg_nsm_change));}structmsg*new_msg_
+lsa_change_notify(uint8_tmsgtype,uint32_tseqnum,structin_addrifaddr,structin_add
+rarea_id,uint8_tis_self_originated,structlsa_header*data){uint8_tbuf[OSPF_API_MA
+X_MSG_SIZE];structmsg_lsa_change_notify*nmsg;unsignedintlen;assert(data);nmsg=(s
+tructmsg_lsa_change_notify*)buf;nmsg->ifaddr=ifaddr;nmsg->area_id=area_id;nmsg->
+is_self_originated=is_self_originated;memset(&nmsg->pad,0,sizeof(nmsg->pad));len
+=ntohs(data->length);if(len>sizeof(buf)-offsetof(structmsg_lsa_change_notify,dat
+a))len=sizeof(buf)-offsetof(structmsg_lsa_change_notify,data);memcpy(&nmsg->data
+,data,len);len+=sizeof(structmsg_lsa_change_notify)-sizeof(structlsa_header);ret
+urnmsg_new(msgtype,nmsg,seqnum,len);}#endif/*SUPPORT_OSPF_API*/

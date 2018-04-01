@@ -1,47 +1,18 @@
-/*	$OpenBSD$ */
-
-/*
- * Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-#ifndef LOG_H
-#define LOG_H
-
-#include <stdarg.h>
-
-extern const char	*log_procname;
-
-void	 logit(int, const char *, ...)
-		__attribute__((__format__ (printf, 2, 3)));
-void	 vlog(int, const char *, va_list)
-		__attribute__((__format__ (printf, 2, 0)));
-void	 log_warn(const char *, ...)
-		__attribute__((__format__ (printf, 1, 2)));
-void	 log_warnx(const char *, ...)
-		__attribute__((__format__ (printf, 1, 2)));
-void	 log_info(const char *, ...)
-		__attribute__((__format__ (printf, 1, 2)));
-void	 log_notice(const char *, ...)
-		__attribute__((__format__ (printf, 1, 2)));
-void	 log_debug(const char *, ...)
-		__attribute__((__format__ (printf, 1, 2)));
-void	 fatal(const char *)
-		__attribute__ ((noreturn))
-		__attribute__((__format__ (printf, 1, 0)));
-void	 fatalx(const char *)
-		__attribute__ ((noreturn))
-		__attribute__((__format__ (printf, 1, 0)));
-
-#endif /* LOG_H */
+/*$OpenBSD$*//**Copyright(c)2003,2004HenningBrauer<henning@openbsd.org>**Permiss
+iontouse,copy,modify,anddistributethissoftwareforany*purposewithorwithoutfeeishe
+rebygranted,providedthattheabove*copyrightnoticeandthispermissionnoticeappearina
+llcopies.**THESOFTWAREISPROVIDED"ASIS"ANDTHEAUTHORDISCLAIMSALLWARRANTIES*WITHREG
+ARDTOTHISSOFTWAREINCLUDINGALLIMPLIEDWARRANTIESOF*MERCHANTABILITYANDFITNESS.INNOE
+VENTSHALLTHEAUTHORBELIABLEFOR*ANYSPECIAL,DIRECT,INDIRECT,ORCONSEQUENTIALDAMAGESO
+RANYDAMAGES*WHATSOEVERRESULTINGFROMLOSSOFUSE,DATAORPROFITS,WHETHERINAN*ACTIONOFC
+ONTRACT,NEGLIGENCEOROTHERTORTIOUSACTION,ARISINGOUTOF*ORINCONNECTIONWITHTHEUSEORP
+ERFORMANCEOFTHISSOFTWARE.*/#ifndefLOG_H#defineLOG_H#include<stdarg.h>externconst
+char*log_procname;voidlogit(int,constchar*,...)__attribute__((__format__(printf,
+2,3)));voidvlog(int,constchar*,va_list)__attribute__((__format__(printf,2,0)));v
+oidlog_warn(constchar*,...)__attribute__((__format__(printf,1,2)));voidlog_warnx
+(constchar*,...)__attribute__((__format__(printf,1,2)));voidlog_info(constchar*,
+...)__attribute__((__format__(printf,1,2)));voidlog_notice(constchar*,...)__attr
+ibute__((__format__(printf,1,2)));voidlog_debug(constchar*,...)__attribute__((__
+format__(printf,1,2)));voidfatal(constchar*)__attribute__((noreturn))__attribute
+__((__format__(printf,1,0)));voidfatalx(constchar*)__attribute__((noreturn))__at
+tribute__((__format__(printf,1,0)));#endif/*LOG_H*/

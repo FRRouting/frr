@@ -1,106 +1,35 @@
-/**
- * bfd.h: BFD definitions and structures
- *
- * @copyright Copyright (C) 2015 Cumulus Networks, Inc.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_BFD_H
-#define _ZEBRA_BFD_H
-
-#include "lib/json.h"
-
-#define BFD_DEF_MIN_RX 300
-#define BFD_MIN_MIN_RX 50
-#define BFD_MAX_MIN_RX 60000
-#define BFD_DEF_MIN_TX 300
-#define BFD_MIN_MIN_TX 50
-#define BFD_MAX_MIN_TX 60000
-#define BFD_DEF_DETECT_MULT 3
-#define BFD_MIN_DETECT_MULT 2
-#define BFD_MAX_DETECT_MULT 255
-
-#define BFD_GBL_FLAG_IN_SHUTDOWN (1 << 0) /* The daemon in shutdown */
-struct bfd_gbl {
-	uint16_t flags;
-};
-
-#define BFD_FLAG_PARAM_CFG (1 << 0) /* parameters have been configured */
-#define BFD_FLAG_BFD_REG   (1 << 1) /* Peer registered with BFD */
-#define BFD_FLAG_BFD_TYPE_MULTIHOP (1 << 2) /* Peer registered with BFD as multihop */
-
-#define BFD_STATUS_UNKNOWN (1 << 0) /* BFD session status never received */
-#define BFD_STATUS_DOWN    (1 << 1) /* BFD session status is down */
-#define BFD_STATUS_UP      (1 << 2) /* BFD session status is up */
-
-enum bfd_sess_type {
-	BFD_TYPE_NOT_CONFIGURED,
-	BFD_TYPE_SINGLEHOP,
-	BFD_TYPE_MULTIHOP
-};
-
-struct bfd_info {
-	uint16_t flags;
-	uint8_t detect_mult;
-	uint32_t desired_min_tx;
-	uint32_t required_min_rx;
-	time_t last_update;
-	uint8_t status;
-	enum bfd_sess_type type;
-};
-
-extern struct bfd_info *bfd_info_create(void);
-
-extern void bfd_info_free(struct bfd_info **bfd_info);
-
-extern int bfd_validate_param(struct vty *vty, const char *dm_str,
-			      const char *rx_str, const char *tx_str,
-			      uint8_t *dm_val, uint32_t *rx_val,
-			      uint32_t *tx_val);
-
-extern void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx,
-			  uint32_t min_tx, uint8_t detect_mult, int defaults,
-			  int *command);
-extern void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
-			     int family, void *dst_ip, void *src_ip,
-			     char *if_name, int ttl, int multihop, int command,
-			     int set_flag, vrf_id_t vrf_id);
-
-extern const char *bfd_get_command_dbg_str(int command);
-
-extern struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
-					   struct prefix *sp, int *status,
-					   vrf_id_t vrf_id);
-
-const char *bfd_get_status_str(int status);
-
-extern void bfd_show_param(struct vty *vty, struct bfd_info *bfd_info,
-			   int bfd_tag, int extra_space, uint8_t use_json,
-			   json_object *json_obj);
-
-extern void bfd_show_info(struct vty *vty, struct bfd_info *bfd_info,
-			  int multihop, int extra_space, uint8_t use_json,
-			  json_object *json_obj);
-
-extern void bfd_client_sendmsg(struct zclient *zclient, int command);
-
-extern void bfd_gbl_init(void);
-
-extern void bfd_gbl_exit(void);
-
-#endif /* _ZEBRA_BFD_H */
+/***bfd.h:BFDdefinitionsandstructures**@copyrightCopyright(C)2015CumulusNetworks
+,Inc.**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand
+/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwa
+reFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistrib
+utedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarr
+antyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLice
+nseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*
+withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,5
+1FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_BFD_H#define_ZEBRA_
+BFD_H#include"lib/json.h"#defineBFD_DEF_MIN_RX300#defineBFD_MIN_MIN_RX50#defineB
+FD_MAX_MIN_RX60000#defineBFD_DEF_MIN_TX300#defineBFD_MIN_MIN_TX50#defineBFD_MAX_
+MIN_TX60000#defineBFD_DEF_DETECT_MULT3#defineBFD_MIN_DETECT_MULT2#defineBFD_MAX_
+DETECT_MULT255#defineBFD_GBL_FLAG_IN_SHUTDOWN(1<<0)/*Thedaemoninshutdown*/struct
+bfd_gbl{uint16_tflags;};#defineBFD_FLAG_PARAM_CFG(1<<0)/*parametershavebeenconfi
+gured*/#defineBFD_FLAG_BFD_REG(1<<1)/*PeerregisteredwithBFD*/#defineBFD_FLAG_BFD
+_TYPE_MULTIHOP(1<<2)/*PeerregisteredwithBFDasmultihop*/#defineBFD_STATUS_UNKNOWN
+(1<<0)/*BFDsessionstatusneverreceived*/#defineBFD_STATUS_DOWN(1<<1)/*BFDsessions
+tatusisdown*/#defineBFD_STATUS_UP(1<<2)/*BFDsessionstatusisup*/enumbfd_sess_type
+{BFD_TYPE_NOT_CONFIGURED,BFD_TYPE_SINGLEHOP,BFD_TYPE_MULTIHOP};structbfd_info{ui
+nt16_tflags;uint8_tdetect_mult;uint32_tdesired_min_tx;uint32_trequired_min_rx;ti
+me_tlast_update;uint8_tstatus;enumbfd_sess_typetype;};externstructbfd_info*bfd_i
+nfo_create(void);externvoidbfd_info_free(structbfd_info**bfd_info);externintbfd_
+validate_param(structvty*vty,constchar*dm_str,constchar*rx_str,constchar*tx_str,
+uint8_t*dm_val,uint32_t*rx_val,uint32_t*tx_val);externvoidbfd_set_param(structbf
+d_info**bfd_info,uint32_tmin_rx,uint32_tmin_tx,uint8_tdetect_mult,intdefaults,in
+t*command);externvoidbfd_peer_sendmsg(structzclient*zclient,structbfd_info*bfd_i
+nfo,intfamily,void*dst_ip,void*src_ip,char*if_name,intttl,intmultihop,intcommand
+,intset_flag,vrf_id_tvrf_id);externconstchar*bfd_get_command_dbg_str(intcommand)
+;externstructinterface*bfd_get_peer_info(structstream*s,structprefix*dp,structpr
+efix*sp,int*status,vrf_id_tvrf_id);constchar*bfd_get_status_str(intstatus);exter
+nvoidbfd_show_param(structvty*vty,structbfd_info*bfd_info,intbfd_tag,intextra_sp
+ace,uint8_tuse_json,json_object*json_obj);externvoidbfd_show_info(structvty*vty,
+structbfd_info*bfd_info,intmultihop,intextra_space,uint8_tuse_json,json_object*j
+son_obj);externvoidbfd_client_sendmsg(structzclient*zclient,intcommand);externvo
+idbfd_gbl_init(void);externvoidbfd_gbl_exit(void);#endif/*_ZEBRA_BFD_H*/

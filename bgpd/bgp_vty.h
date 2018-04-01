@@ -1,77 +1,34 @@
-/* BGP VTY interface.
- * Copyright (C) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_BGP_VTY_H
-#define _QUAGGA_BGP_VTY_H
-
-struct bgp;
-
-#define BGP_INSTANCE_HELP_STR "BGP view\nBGP VRF\nView/VRF name\n"
-#define BGP_INSTANCE_ALL_HELP_STR "BGP view\nBGP VRF\nAll Views/VRFs\n"
-
-#define BGP_AFI_CMD_STR         "<ipv4|ipv6>"
-#define BGP_AFI_HELP_STR        "Address Family\nAddress Family\n"
-#define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn>"
-#define BGP_SAFI_HELP_STR                                                      \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"
-#define BGP_AFI_SAFI_CMD_STR    BGP_AFI_CMD_STR" "BGP_SAFI_CMD_STR
-#define BGP_AFI_SAFI_HELP_STR   BGP_AFI_HELP_STR BGP_SAFI_HELP_STR
-
-#define BGP_SAFI_WITH_LABEL_CMD_STR  "<unicast|multicast|vpn|labeled-unicast|flowspec>"
-#define BGP_SAFI_WITH_LABEL_HELP_STR                                           \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"                                            \
-	"Address Family modifier\n"
-
-extern void bgp_vty_init(void);
-extern const char *afi_safi_print(afi_t afi, safi_t safi);
-extern const char *afi_safi_json(afi_t afi, safi_t safi);
-extern void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp);
-extern void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp);
-extern void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp);
-extern void bgp_config_write_listen(struct vty *vty, struct bgp *bgp);
-extern void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp);
-extern int bgp_vty_return(struct vty *vty, int ret);
-extern struct peer *peer_and_group_lookup_vty(struct vty *vty,
-					      const char *peer_str);
-
-extern afi_t bgp_vty_afi_from_str(const char *afi_str);
-
-extern safi_t bgp_vty_safi_from_str(const char *safi_str);
-
-extern int argv_find_and_parse_afi(struct cmd_token **argv, int argc,
-				   int *index, afi_t *afi);
-
-extern int argv_find_and_parse_safi(struct cmd_token **argv, int argc,
-				    int *index, safi_t *safi);
-
-extern int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
-					       struct cmd_token **argv,
-					       int argc, int *idx, afi_t *afi,
-					       safi_t *safi, struct bgp **bgp);
-extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
-				safi_t safi, uint8_t use_json);
-extern void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
-					    afi_t afi);
-#endif /* _QUAGGA_BGP_VTY_H */
+/*BGPVTYinterface.*Copyright(C)1996,97,98,99,2000KunihiroIshiguro**Thisfileispar
+tofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthe
+termsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherv
+ersion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitw
+illbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILI
+TYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**
+YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seet
+hefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFlo
+or,Boston,MA02110-1301USA*/#ifndef_QUAGGA_BGP_VTY_H#define_QUAGGA_BGP_VTY_Hstruc
+tbgp;#defineBGP_INSTANCE_HELP_STR"BGPview\nBGPVRF\nView/VRFname\n"#defineBGP_INS
+TANCE_ALL_HELP_STR"BGPview\nBGPVRF\nAllViews/VRFs\n"#defineBGP_AFI_CMD_STR"<ipv4
+|ipv6>"#defineBGP_AFI_HELP_STR"AddressFamily\nAddressFamily\n"#defineBGP_SAFI_CM
+D_STR"<unicast|multicast|vpn>"#defineBGP_SAFI_HELP_STR\"AddressFamilymodifier\n"
+\"AddressFamilymodifier\n"\"AddressFamilymodifier\n"#defineBGP_AFI_SAFI_CMD_STRB
+GP_AFI_CMD_STR""BGP_SAFI_CMD_STR#defineBGP_AFI_SAFI_HELP_STRBGP_AFI_HELP_STRBGP_
+SAFI_HELP_STR#defineBGP_SAFI_WITH_LABEL_CMD_STR"<unicast|multicast|vpn|labeled-u
+nicast|flowspec>"#defineBGP_SAFI_WITH_LABEL_HELP_STR\"AddressFamilymodifier\n"\"
+AddressFamilymodifier\n"\"AddressFamilymodifier\n"\"AddressFamilymodifier\n"\"Ad
+dressFamilymodifier\n"externvoidbgp_vty_init(void);externconstchar*afi_safi_prin
+t(afi_tafi,safi_tsafi);externconstchar*afi_safi_json(afi_tafi,safi_tsafi);extern
+voidbgp_config_write_update_delay(structvty*vty,structbgp*bgp);externvoidbgp_con
+fig_write_wpkt_quanta(structvty*vty,structbgp*bgp);externvoidbgp_config_write_rp
+kt_quanta(structvty*vty,structbgp*bgp);externvoidbgp_config_write_listen(structv
+ty*vty,structbgp*bgp);externvoidbgp_config_write_coalesce_time(structvty*vty,str
+uctbgp*bgp);externintbgp_vty_return(structvty*vty,intret);externstructpeer*peer_
+and_group_lookup_vty(structvty*vty,constchar*peer_str);externafi_tbgp_vty_afi_fr
+om_str(constchar*afi_str);externsafi_tbgp_vty_safi_from_str(constchar*safi_str);
+externintargv_find_and_parse_afi(structcmd_token**argv,intargc,int*index,afi_t*a
+fi);externintargv_find_and_parse_safi(structcmd_token**argv,intargc,int*index,sa
+fi_t*safi);externintbgp_vty_find_and_parse_afi_safi_bgp(structvty*vty,structcmd_
+token**argv,intargc,int*idx,afi_t*afi,safi_t*safi,structbgp**bgp);externintbgp_s
+how_summary_vty(structvty*vty,constchar*name,afi_tafi,safi_tsafi,uint8_tuse_json
+);externvoidbgp_vpn_policy_config_write_afi(structvty*vty,structbgp*bgp,afi_tafi
+);#endif/*_QUAGGA_BGP_VTY_H*/

@@ -1,44 +1,17 @@
-/* BGP Flowspec header . private structs and defines
- * Copyright (C) 2018 6WIND
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _FRR_BGP_FLOWSPEC_PRIVATE_H
-#define _FRR_BGP_FLOWSPEC_PRIVATE_H
-
-#define FLOWSPEC_NLRI_SIZELIMIT			240
-
-/* Flowspec raffic action bit*/
-#define FLOWSPEC_TRAFFIC_ACTION_TERMINAL	1
-#define FLOWSPEC_TRAFFIC_ACTION_SAMPLE		0
-#define FLOWSPEC_TRAFFIC_ACTION_DISTRIBUTE	1
-
-/* Flow Spec Component Types */
-#define NUM_OF_FLOWSPEC_MATCH_TYPES		12
-#define FLOWSPEC_DEST_PREFIX		1
-#define FLOWSPEC_SRC_PREFIX		2
-#define FLOWSPEC_IP_PROTOCOL		3
-#define FLOWSPEC_PORT			4
-#define FLOWSPEC_DEST_PORT		5
-#define FLOWSPEC_SRC_PORT		6
-#define FLOWSPEC_ICMP_TYPE		7
-#define FLOWSPEC_ICMP_CODE		8
-#define FLOWSPEC_TCP_FLAGS		9
-#define FLOWSPEC_PKT_LEN		10
-#define FLOWSPEC_DSCP			11
-#define FLOWSPEC_FRAGMENT		12
-
-#endif /* _FRR_BGP_FLOWSPEC_PRIVATE_H */
+/*BGPFlowspecheader.privatestructsanddefines*Copyright(C)20186WIND**FRRoutingisf
+reesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPubli
+cLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)a
+ny*laterversion.**FRRoutingisdistributedinthehopethatitwillbeuseful,but*WITHOUTA
+NYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULA
+RPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceivedaco
+pyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writ
+etotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301US
+A*/#ifndef_FRR_BGP_FLOWSPEC_PRIVATE_H#define_FRR_BGP_FLOWSPEC_PRIVATE_H#defineFL
+OWSPEC_NLRI_SIZELIMIT240/*Flowspecrafficactionbit*/#defineFLOWSPEC_TRAFFIC_ACTIO
+N_TERMINAL1#defineFLOWSPEC_TRAFFIC_ACTION_SAMPLE0#defineFLOWSPEC_TRAFFIC_ACTION_
+DISTRIBUTE1/*FlowSpecComponentTypes*/#defineNUM_OF_FLOWSPEC_MATCH_TYPES12#define
+FLOWSPEC_DEST_PREFIX1#defineFLOWSPEC_SRC_PREFIX2#defineFLOWSPEC_IP_PROTOCOL3#def
+ineFLOWSPEC_PORT4#defineFLOWSPEC_DEST_PORT5#defineFLOWSPEC_SRC_PORT6#defineFLOWS
+PEC_ICMP_TYPE7#defineFLOWSPEC_ICMP_CODE8#defineFLOWSPEC_TCP_FLAGS9#defineFLOWSPE
+C_PKT_LEN10#defineFLOWSPEC_DSCP11#defineFLOWSPEC_FRAGMENT12#endif/*_FRR_BGP_FLOW
+SPEC_PRIVATE_H*/

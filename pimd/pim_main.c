@@ -1,157 +1,38 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "log.h"
-#include "privs.h"
-#include "version.h"
-#include <getopt.h>
-#include "command.h"
-#include "thread.h"
-#include <signal.h>
-
-#include "memory.h"
-#include "vrf.h"
-#include "memory_vty.h"
-#include "filter.h"
-#include "vty.h"
-#include "sigevent.h"
-#include "version.h"
-#include "prefix.h"
-#include "plist.h"
-#include "vrf.h"
-#include "libfrr.h"
-
-#include "pimd.h"
-#include "pim_instance.h"
-#include "pim_version.h"
-#include "pim_signals.h"
-#include "pim_zebra.h"
-#include "pim_msdp.h"
-#include "pim_iface.h"
-#include "pim_bfd.h"
-
-extern struct host host;
-
-struct option longopts[] = {{0}};
-
-/* pimd privileges */
-zebra_capabilities_t _caps_p[] = {
-	ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN, ZCAP_NET_RAW, ZCAP_BIND,
-};
-
-/* pimd privileges to run with */
-struct zebra_privs_t pimd_privs = {
-#if defined(FRR_USER) && defined(FRR_GROUP)
-	.user = FRR_USER,
-	.group = FRR_GROUP,
-#endif
-#ifdef VTY_GROUP
-	.vty_group = VTY_GROUP,
-#endif
-	.caps_p = _caps_p,
-	.cap_num_p = sizeof(_caps_p) / sizeof(_caps_p[0]),
-	.cap_num_i = 0};
-
-FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
-
-		.proghelp = "Implementation of the PIM routing protocol.",
-
-		.signals = pimd_signals,
-		.n_signals = 4 /* XXX array_size(pimd_signals) XXX*/,
-
-		.privs = &pimd_privs, )
-
-
-int main(int argc, char **argv, char **envp)
-{
-	frr_preinit(&pimd_di, argc, argv);
-	frr_opt_add("", longopts, "");
-
-	/* this while just reads the options */
-	while (1) {
-		int opt;
-
-		opt = frr_getopt(argc, argv, NULL);
-
-		if (opt == EOF)
-			break;
-
-		switch (opt) {
-		case 0:
-			break;
-		default:
-			frr_help_exit(1);
-			break;
-		}
-	}
-
-	master = frr_init();
-
-	/*
-	 * Initializations
-	 */
-	pim_vrf_init();
-	access_list_init();
-	prefix_list_init();
-	prefix_list_add_hook(pim_prefix_list_update);
-	prefix_list_delete_hook(pim_prefix_list_update);
-
-	pim_route_map_init();
-	pim_init();
-
-	/*
-	 * Initialize zclient "update" and "lookup" sockets
-	 */
-	pim_zebra_init();
-	pim_bfd_init();
-
-	frr_config_fork();
-
-#ifdef PIM_DEBUG_BYDEFAULT
-	zlog_notice("PIM_DEBUG_BYDEFAULT: Enabling all debug commands");
-	PIM_DO_DEBUG_PIM_EVENTS;
-	PIM_DO_DEBUG_PIM_PACKETS;
-	PIM_DO_DEBUG_PIM_TRACE;
-	PIM_DO_DEBUG_IGMP_EVENTS;
-	PIM_DO_DEBUG_IGMP_PACKETS;
-	PIM_DO_DEBUG_IGMP_TRACE;
-	PIM_DO_DEBUG_ZEBRA;
-#endif
-
-#ifdef PIM_CHECK_RECV_IFINDEX_SANITY
-	zlog_notice(
-		"PIM_CHECK_RECV_IFINDEX_SANITY: will match sock/recv ifindex");
-#ifdef PIM_REPORT_RECV_IFINDEX_MISMATCH
-	zlog_notice(
-		"PIM_REPORT_RECV_IFINDEX_MISMATCH: will report sock/recv ifindex mismatch");
-#endif
-#endif
-
-#ifdef PIM_UNEXPECTED_KERNEL_UPCALL
-	zlog_notice(
-		"PIM_UNEXPECTED_KERNEL_UPCALL: report unexpected kernel upcall");
-#endif
-
-	frr_run(master);
-
-	/* never reached */
-	return 0;
-}
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#include<zebra.h>#include"log.h"#include"privs.h"#include"version.h"#inclu
+de<getopt.h>#include"command.h"#include"thread.h"#include<signal.h>#include"memo
+ry.h"#include"vrf.h"#include"memory_vty.h"#include"filter.h"#include"vty.h"#incl
+ude"sigevent.h"#include"version.h"#include"prefix.h"#include"plist.h"#include"vr
+f.h"#include"libfrr.h"#include"pimd.h"#include"pim_instance.h"#include"pim_versi
+on.h"#include"pim_signals.h"#include"pim_zebra.h"#include"pim_msdp.h"#include"pi
+m_iface.h"#include"pim_bfd.h"externstructhosthost;structoptionlongopts[]={{0}};/
+*pimdprivileges*/zebra_capabilities_t_caps_p[]={ZCAP_NET_ADMIN,ZCAP_SYS_ADMIN,ZC
+AP_NET_RAW,ZCAP_BIND,};/*pimdprivilegestorunwith*/structzebra_privs_tpimd_privs=
+{#ifdefined(FRR_USER)&&defined(FRR_GROUP).user=FRR_USER,.group=FRR_GROUP,#endif#
+ifdefVTY_GROUP.vty_group=VTY_GROUP,#endif.caps_p=_caps_p,.cap_num_p=sizeof(_caps
+_p)/sizeof(_caps_p[0]),.cap_num_i=0};FRR_DAEMON_INFO(pimd,PIM,.vty_port=PIMD_VTY
+_PORT,.proghelp="ImplementationofthePIMroutingprotocol.",.signals=pimd_signals,.
+n_signals=4/*XXXarray_size(pimd_signals)XXX*/,.privs=&pimd_privs,)intmain(intarg
+c,char**argv,char**envp){frr_preinit(&pimd_di,argc,argv);frr_opt_add("",longopts
+,"");/*thiswhilejustreadstheoptions*/while(1){intopt;opt=frr_getopt(argc,argv,NU
+LL);if(opt==EOF)break;switch(opt){case0:break;default:frr_help_exit(1);break;}}m
+aster=frr_init();/**Initializations*/pim_vrf_init();access_list_init();prefix_li
+st_init();prefix_list_add_hook(pim_prefix_list_update);prefix_list_delete_hook(p
+im_prefix_list_update);pim_route_map_init();pim_init();/**Initializezclient"upda
+te"and"lookup"sockets*/pim_zebra_init();pim_bfd_init();frr_config_fork();#ifdefP
+IM_DEBUG_BYDEFAULTzlog_notice("PIM_DEBUG_BYDEFAULT:Enablingalldebugcommands");PI
+M_DO_DEBUG_PIM_EVENTS;PIM_DO_DEBUG_PIM_PACKETS;PIM_DO_DEBUG_PIM_TRACE;PIM_DO_DEB
+UG_IGMP_EVENTS;PIM_DO_DEBUG_IGMP_PACKETS;PIM_DO_DEBUG_IGMP_TRACE;PIM_DO_DEBUG_ZE
+BRA;#endif#ifdefPIM_CHECK_RECV_IFINDEX_SANITYzlog_notice("PIM_CHECK_RECV_IFINDEX
+_SANITY:willmatchsock/recvifindex");#ifdefPIM_REPORT_RECV_IFINDEX_MISMATCHzlog_n
+otice("PIM_REPORT_RECV_IFINDEX_MISMATCH:willreportsock/recvifindexmismatch");#en
+dif#endif#ifdefPIM_UNEXPECTED_KERNEL_UPCALLzlog_notice("PIM_UNEXPECTED_KERNEL_UP
+CALL:reportunexpectedkernelupcall");#endiffrr_run(master);/*neverreached*/return
+0;}

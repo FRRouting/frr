@@ -1,206 +1,88 @@
-/*
- * Server side of OSPF API.
- * Copyright (C) 2001, 2002 Ralph Keller
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _OSPF_APISERVER_H
-#define _OSPF_APISERVER_H
-
-/* MTYPE definition is not reflected to "memory.h". */
-#define MTYPE_OSPF_APISERVER MTYPE_TMP
-#define MTYPE_OSPF_APISERVER_MSGFILTER MTYPE_TMP
-
-/* List of opaque types that application registered */
-struct registered_opaque_type {
-	uint8_t lsa_type;
-	uint8_t opaque_type;
-};
-
-
-/* Server instance for each accepted client connection. */
-struct ospf_apiserver {
-	/* Socket connections for synchronous commands and asynchronous
-	   notifications */
-	int fd_sync; /* synchronous requests */
-	struct sockaddr_in peer_sync;
-
-	int fd_async; /* asynchronous notifications */
-	struct sockaddr_in peer_async;
-
-	/* List of all opaque types that application registers to use. Using
-	   a single connection with the OSPF daemon, multiple
-	   <lsa,opaque_type> pairs can be registered. However, each
-	   combination can only be registered once by all applications. */
-	struct list *opaque_types; /* of type registered_opaque_type */
-
-	/* Temporary storage for LSA instances to be refreshed. */
-	struct ospf_lsdb reserve;
-
-	/* filter for LSA update/delete notifies */
-	struct lsa_filter_type *filter;
-
-	/* Fifo buffers for outgoing messages */
-	struct msg_fifo *out_sync_fifo;
-	struct msg_fifo *out_async_fifo;
-
-	/* Read and write threads */
-	struct thread *t_sync_read;
-#ifdef USE_ASYNC_READ
-	struct thread *t_async_read;
-#endif /* USE_ASYNC_READ */
-	struct thread *t_sync_write;
-	struct thread *t_async_write;
-};
-
-enum event {
-	OSPF_APISERVER_ACCEPT,
-	OSPF_APISERVER_SYNC_READ,
-#ifdef USE_ASYNC_READ
-	OSPF_APISERVER_ASYNC_READ,
-#endif /* USE_ASYNC_READ */
-	OSPF_APISERVER_SYNC_WRITE,
-	OSPF_APISERVER_ASYNC_WRITE
-};
-
-/* -----------------------------------------------------------
- * Followings are functions to manage client connections.
- * -----------------------------------------------------------
- */
-
-extern unsigned short ospf_apiserver_getport(void);
-extern int ospf_apiserver_init(void);
-extern void ospf_apiserver_term(void);
-extern struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async);
-extern void ospf_apiserver_free(struct ospf_apiserver *apiserv);
-extern void ospf_apiserver_event(enum event event, int fd,
-				 struct ospf_apiserver *apiserv);
-extern int ospf_apiserver_serv_sock_family(unsigned short port, int family);
-extern int ospf_apiserver_accept(struct thread *thread);
-extern int ospf_apiserver_read(struct thread *thread);
-extern int ospf_apiserver_sync_write(struct thread *thread);
-extern int ospf_apiserver_async_write(struct thread *thread);
-extern int ospf_apiserver_send_reply(struct ospf_apiserver *apiserv,
-				     uint32_t seqnr, uint8_t rc);
-
-/* -----------------------------------------------------------
- * Followings are message handler functions
- * -----------------------------------------------------------
- */
-
-extern int ospf_apiserver_lsa9_originator(void *arg);
-extern int ospf_apiserver_lsa10_originator(void *arg);
-extern int ospf_apiserver_lsa11_originator(void *arg);
-
-extern void ospf_apiserver_clients_notify_all(struct msg *msg);
-
-extern void
-ospf_apiserver_clients_notify_ready_type9(struct ospf_interface *oi);
-extern void ospf_apiserver_clients_notify_ready_type10(struct ospf_area *area);
-extern void ospf_apiserver_clients_notify_ready_type11(struct ospf *top);
-
-extern void ospf_apiserver_clients_notify_new_if(struct ospf_interface *oi);
-extern void ospf_apiserver_clients_notify_del_if(struct ospf_interface *oi);
-extern void ospf_apiserver_clients_notify_ism_change(struct ospf_interface *oi);
-extern void ospf_apiserver_clients_notify_nsm_change(struct ospf_neighbor *nbr);
-
-extern int ospf_apiserver_is_ready_type9(struct ospf_interface *oi);
-extern int ospf_apiserver_is_ready_type10(struct ospf_area *area);
-extern int ospf_apiserver_is_ready_type11(struct ospf *ospf);
-
-extern void ospf_apiserver_notify_ready_type9(struct ospf_apiserver *apiserv);
-extern void ospf_apiserver_notify_ready_type10(struct ospf_apiserver *apiserv);
-extern void ospf_apiserver_notify_ready_type11(struct ospf_apiserver *apiserv);
-
-extern int ospf_apiserver_handle_msg(struct ospf_apiserver *apiserv,
-				     struct msg *msg);
-extern int
-ospf_apiserver_handle_register_opaque_type(struct ospf_apiserver *apiserv,
-					   struct msg *msg);
-extern int
-ospf_apiserver_handle_unregister_opaque_type(struct ospf_apiserver *apiserv,
-					     struct msg *msg);
-extern int ospf_apiserver_handle_register_event(struct ospf_apiserver *apiserv,
-						struct msg *msg);
-extern int
-ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
-					struct msg *msg);
-extern int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
-						struct msg *msg);
-extern int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
-					   struct msg *msg);
-
-
-/* -----------------------------------------------------------
- * Followings are functions for LSA origination/deletion
- * -----------------------------------------------------------
- */
-
-extern int ospf_apiserver_register_opaque_type(struct ospf_apiserver *apiserver,
-					       uint8_t lsa_type,
-					       uint8_t opaque_type);
-extern int
-ospf_apiserver_unregister_opaque_type(struct ospf_apiserver *apiserver,
-				      uint8_t lsa_type, uint8_t opaque_type);
-extern struct ospf_lsa *
-ospf_apiserver_opaque_lsa_new(struct ospf_area *area, struct ospf_interface *oi,
-			      struct lsa_header *protolsa);
-extern struct ospf_interface *
-ospf_apiserver_if_lookup_by_addr(struct in_addr address);
-extern struct ospf_interface *
-ospf_apiserver_if_lookup_by_ifp(struct interface *ifp);
-extern int ospf_apiserver_originate1(struct ospf_lsa *lsa);
-extern void ospf_apiserver_flood_opaque_lsa(struct ospf_lsa *lsa);
-
-
-/* -----------------------------------------------------------
- * Followings are callback functions to handle opaque types
- * -----------------------------------------------------------
- */
-
-extern int ospf_apiserver_new_if(struct interface *ifp);
-extern int ospf_apiserver_del_if(struct interface *ifp);
-extern void ospf_apiserver_ism_change(struct ospf_interface *oi,
-				      int old_status);
-extern void ospf_apiserver_nsm_change(struct ospf_neighbor *nbr,
-				      int old_status);
-extern void ospf_apiserver_config_write_router(struct vty *vty);
-extern void ospf_apiserver_config_write_if(struct vty *vty,
-					   struct interface *ifp);
-extern void ospf_apiserver_show_info(struct vty *vty, struct ospf_lsa *lsa);
-extern int ospf_ospf_apiserver_lsa_originator(void *arg);
-extern struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa);
-extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
-					    uint8_t lsa_type,
-					    uint8_t opaque_type);
-
-/* -----------------------------------------------------------
- * Followings are hooks when LSAs are updated or deleted
- * -----------------------------------------------------------
- */
-
-
-/* Hooks that are invoked from ospf opaque module */
-
-extern int ospf_apiserver_lsa_update(struct ospf_lsa *lsa);
-extern int ospf_apiserver_lsa_delete(struct ospf_lsa *lsa);
-
-extern void ospf_apiserver_clients_lsa_change_notify(uint8_t msgtype,
-						     struct ospf_lsa *lsa);
-
-#endif /* _OSPF_APISERVER_H */
+/**ServersideofOSPFAPI.*Copyright(C)2001,2002RalphKeller**ThisfileispartofGNUZeb
+ra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itunderthetermsofth
+eGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversion2,o
+r(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatitwillbeusef
+ul,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNE
+SSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshould
+havereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOP
+YING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston
+,MA02110-1301USA*/#ifndef_OSPF_APISERVER_H#define_OSPF_APISERVER_H/*MTYPEdefinit
+ionisnotreflectedto"memory.h".*/#defineMTYPE_OSPF_APISERVERMTYPE_TMP#defineMTYPE
+_OSPF_APISERVER_MSGFILTERMTYPE_TMP/*Listofopaquetypesthatapplicationregistered*/
+structregistered_opaque_type{uint8_tlsa_type;uint8_topaque_type;};/*Serverinstan
+ceforeachacceptedclientconnection.*/structospf_apiserver{/*Socketconnectionsfors
+ynchronouscommandsandasynchronousnotifications*/intfd_sync;/*synchronousrequests
+*/structsockaddr_inpeer_sync;intfd_async;/*asynchronousnotifications*/structsock
+addr_inpeer_async;/*Listofallopaquetypesthatapplicationregisterstouse.Usingasing
+leconnectionwiththeOSPFdaemon,multiple<lsa,opaque_type>pairscanberegistered.Howe
+ver,eachcombinationcanonlyberegisteredoncebyallapplications.*/structlist*opaque_
+types;/*oftyperegistered_opaque_type*//*TemporarystorageforLSAinstancestoberefre
+shed.*/structospf_lsdbreserve;/*filterforLSAupdate/deletenotifies*/structlsa_fil
+ter_type*filter;/*Fifobuffersforoutgoingmessages*/structmsg_fifo*out_sync_fifo;s
+tructmsg_fifo*out_async_fifo;/*Readandwritethreads*/structthread*t_sync_read;#if
+defUSE_ASYNC_READstructthread*t_async_read;#endif/*USE_ASYNC_READ*/structthread*
+t_sync_write;structthread*t_async_write;};enumevent{OSPF_APISERVER_ACCEPT,OSPF_A
+PISERVER_SYNC_READ,#ifdefUSE_ASYNC_READOSPF_APISERVER_ASYNC_READ,#endif/*USE_ASY
+NC_READ*/OSPF_APISERVER_SYNC_WRITE,OSPF_APISERVER_ASYNC_WRITE};/*---------------
+--------------------------------------------*Followingsarefunctionstomanageclien
+tconnections.*-----------------------------------------------------------*/exter
+nunsignedshortospf_apiserver_getport(void);externintospf_apiserver_init(void);ex
+ternvoidospf_apiserver_term(void);externstructospf_apiserver*ospf_apiserver_new(
+intfd_sync,intfd_async);externvoidospf_apiserver_free(structospf_apiserver*apise
+rv);externvoidospf_apiserver_event(enumeventevent,intfd,structospf_apiserver*api
+serv);externintospf_apiserver_serv_sock_family(unsignedshortport,intfamily);exte
+rnintospf_apiserver_accept(structthread*thread);externintospf_apiserver_read(str
+uctthread*thread);externintospf_apiserver_sync_write(structthread*thread);extern
+intospf_apiserver_async_write(structthread*thread);externintospf_apiserver_send_
+reply(structospf_apiserver*apiserv,uint32_tseqnr,uint8_trc);/*------------------
+-----------------------------------------*Followingsaremessagehandlerfunctions*-
+----------------------------------------------------------*/externintospf_apiser
+ver_lsa9_originator(void*arg);externintospf_apiserver_lsa10_originator(void*arg)
+;externintospf_apiserver_lsa11_originator(void*arg);externvoidospf_apiserver_cli
+ents_notify_all(structmsg*msg);externvoidospf_apiserver_clients_notify_ready_typ
+e9(structospf_interface*oi);externvoidospf_apiserver_clients_notify_ready_type10
+(structospf_area*area);externvoidospf_apiserver_clients_notify_ready_type11(stru
+ctospf*top);externvoidospf_apiserver_clients_notify_new_if(structospf_interface*
+oi);externvoidospf_apiserver_clients_notify_del_if(structospf_interface*oi);exte
+rnvoidospf_apiserver_clients_notify_ism_change(structospf_interface*oi);externvo
+idospf_apiserver_clients_notify_nsm_change(structospf_neighbor*nbr);externintosp
+f_apiserver_is_ready_type9(structospf_interface*oi);externintospf_apiserver_is_r
+eady_type10(structospf_area*area);externintospf_apiserver_is_ready_type11(struct
+ospf*ospf);externvoidospf_apiserver_notify_ready_type9(structospf_apiserver*apis
+erv);externvoidospf_apiserver_notify_ready_type10(structospf_apiserver*apiserv);
+externvoidospf_apiserver_notify_ready_type11(structospf_apiserver*apiserv);exter
+nintospf_apiserver_handle_msg(structospf_apiserver*apiserv,structmsg*msg);extern
+intospf_apiserver_handle_register_opaque_type(structospf_apiserver*apiserv,struc
+tmsg*msg);externintospf_apiserver_handle_unregister_opaque_type(structospf_apise
+rver*apiserv,structmsg*msg);externintospf_apiserver_handle_register_event(struct
+ospf_apiserver*apiserv,structmsg*msg);externintospf_apiserver_handle_originate_r
+equest(structospf_apiserver*apiserv,structmsg*msg);externintospf_apiserver_handl
+e_delete_request(structospf_apiserver*apiserv,structmsg*msg);externintospf_apise
+rver_handle_sync_lsdb(structospf_apiserver*apiserv,structmsg*msg);/*------------
+-----------------------------------------------*FollowingsarefunctionsforLSAorig
+ination/deletion*-----------------------------------------------------------*/ex
+ternintospf_apiserver_register_opaque_type(structospf_apiserver*apiserver,uint8_
+tlsa_type,uint8_topaque_type);externintospf_apiserver_unregister_opaque_type(str
+uctospf_apiserver*apiserver,uint8_tlsa_type,uint8_topaque_type);externstructospf
+_lsa*ospf_apiserver_opaque_lsa_new(structospf_area*area,structospf_interface*oi,
+structlsa_header*protolsa);externstructospf_interface*ospf_apiserver_if_lookup_b
+y_addr(structin_addraddress);externstructospf_interface*ospf_apiserver_if_lookup
+_by_ifp(structinterface*ifp);externintospf_apiserver_originate1(structospf_lsa*l
+sa);externvoidospf_apiserver_flood_opaque_lsa(structospf_lsa*lsa);/*------------
+-----------------------------------------------*Followingsarecallbackfunctionsto
+handleopaquetypes*-----------------------------------------------------------*/e
+xternintospf_apiserver_new_if(structinterface*ifp);externintospf_apiserver_del_i
+f(structinterface*ifp);externvoidospf_apiserver_ism_change(structospf_interface*
+oi,intold_status);externvoidospf_apiserver_nsm_change(structospf_neighbor*nbr,in
+told_status);externvoidospf_apiserver_config_write_router(structvty*vty);externv
+oidospf_apiserver_config_write_if(structvty*vty,structinterface*ifp);externvoido
+spf_apiserver_show_info(structvty*vty,structospf_lsa*lsa);externintospf_ospf_api
+server_lsa_originator(void*arg);externstructospf_lsa*ospf_apiserver_lsa_refreshe
+r(structospf_lsa*lsa);externvoidospf_apiserver_flush_opaque_lsa(structospf_apise
+rver*apiserv,uint8_tlsa_type,uint8_topaque_type);/*-----------------------------
+------------------------------*FollowingsarehookswhenLSAsareupdatedordeleted*---
+--------------------------------------------------------*//*Hooksthatareinvokedf
+romospfopaquemodule*/externintospf_apiserver_lsa_update(structospf_lsa*lsa);exte
+rnintospf_apiserver_lsa_delete(structospf_lsa*lsa);externvoidospf_apiserver_clie
+nts_lsa_change_notify(uint8_tmsgtype,structospf_lsa*lsa);#endif/*_OSPF_APISERVER
+_H*/

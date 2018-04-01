@@ -1,160 +1,64 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_IFCHANNEL_H
-#define PIM_IFCHANNEL_H
-
-#include <zebra.h>
-
-#include "if.h"
-#include "prefix.h"
-
-struct pim_ifchannel;
-#include "pim_upstream.h"
-
-enum pim_ifmembership { PIM_IFMEMBERSHIP_NOINFO, PIM_IFMEMBERSHIP_INCLUDE };
-
-enum pim_ifjoin_state {
-	PIM_IFJOIN_NOINFO,
-	PIM_IFJOIN_JOIN,
-	PIM_IFJOIN_PRUNE,
-	PIM_IFJOIN_PRUNE_PENDING,
-	PIM_IFJOIN_PRUNE_TMP,
-	PIM_IFJOIN_PRUNE_PENDING_TMP,
-};
-
-enum pim_ifassert_state {
-	PIM_IFASSERT_NOINFO,
-	PIM_IFASSERT_I_AM_WINNER,
-	PIM_IFASSERT_I_AM_LOSER
-};
-
-struct pim_assert_metric {
-	uint32_t rpt_bit_flag;
-	uint32_t metric_preference;
-	uint32_t route_metric;
-	struct in_addr ip_address; /* neighbor router that sourced the Assert
-				      message */
-};
-
-/*
-  Flag to detect change in CouldAssert(S,G,I)
-*/
-#define PIM_IF_FLAG_MASK_COULD_ASSERT (1 << 0)
-#define PIM_IF_FLAG_TEST_COULD_ASSERT(flags) ((flags) & PIM_IF_FLAG_MASK_COULD_ASSERT)
-#define PIM_IF_FLAG_SET_COULD_ASSERT(flags) ((flags) |= PIM_IF_FLAG_MASK_COULD_ASSERT)
-#define PIM_IF_FLAG_UNSET_COULD_ASSERT(flags) ((flags) &= ~PIM_IF_FLAG_MASK_COULD_ASSERT)
-/*
-  Flag to detect change in AssertTrackingDesired(S,G,I)
-*/
-#define PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED (1 << 1)
-#define PIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(flags) ((flags) & PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
-#define PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(flags) ((flags) |= PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
-#define PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(flags) ((flags) &= ~PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)
-
-/*
- * Flat to tell us if the ifchannel is (S,G,rpt)
- */
-#define PIM_IF_FLAG_MASK_S_G_RPT         (1 << 2)
-#define PIM_IF_FLAG_TEST_S_G_RPT(flags)  ((flags) & PIM_IF_FLAG_MASK_S_G_RPT)
-#define PIM_IF_FLAG_SET_S_G_RPT(flags)   ((flags) |= PIM_IF_FLAG_MASK_S_G_RPT)
-#define PIM_IF_FLAG_UNSET_S_G_RPT(flags) ((flags) &= ~PIM_IF_FLAG_MASK_S_G_RPT)
-
-/*
-  Per-interface (S,G) state
-*/
-struct pim_ifchannel {
-	RB_ENTRY(rb_ifchannel) pim_ifp_rb;
-
-	struct pim_ifchannel *parent;
-	struct list *sources;
-	struct prefix_sg sg;
-	char sg_str[PIM_SG_LEN];
-	struct interface *interface; /* backpointer to interface */
-	uint32_t flags;
-
-	/* IGMPv3 determined interface has local members for (S,G) ? */
-	enum pim_ifmembership local_ifmembership;
-
-	/* Per-interface (S,G) Join/Prune State (Section 4.1.4 of RFC4601) */
-	enum pim_ifjoin_state ifjoin_state;
-	struct thread *t_ifjoin_expiry_timer;
-	struct thread *t_ifjoin_prune_pending_timer;
-	int64_t ifjoin_creation; /* Record uptime of ifjoin state */
-
-	/* Per-interface (S,G) Assert State (Section 4.6.1 of RFC4601) */
-	enum pim_ifassert_state ifassert_state;
-	struct thread *t_ifassert_timer;
-	struct in_addr ifassert_winner;
-	struct pim_assert_metric ifassert_winner_metric;
-	int64_t ifassert_creation; /* Record uptime of ifassert state */
-	struct pim_assert_metric ifassert_my_metric;
-
-	/* Upstream (S,G) state */
-	struct pim_upstream *upstream;
-};
-
-RB_HEAD(pim_ifchannel_rb, pim_ifchannel);
-RB_PROTOTYPE(pim_ifchannel_rb, pim_ifchannel, pim_ifp_rb,
-	     pim_ifchannel_compare);
-
-void pim_ifchannel_free(struct pim_ifchannel *ch);
-void pim_ifchannel_delete(struct pim_ifchannel *ch);
-void pim_ifchannel_delete_all(struct interface *ifp);
-void pim_ifchannel_membership_clear(struct interface *ifp);
-void pim_ifchannel_delete_on_noinfo(struct interface *ifp);
-struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
-					 struct prefix_sg *sg);
-struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct prefix_sg *sg, uint8_t ch_flags,
-					int up_flags);
-void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
-			    struct in_addr upstream, struct prefix_sg *sg,
-			    uint8_t source_flags, uint16_t holdtime);
-void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
-			 struct prefix_sg *sg, uint8_t source_flags,
-			 uint16_t holdtime);
-int pim_ifchannel_local_membership_add(struct interface *ifp,
-				       struct prefix_sg *sg);
-void pim_ifchannel_local_membership_del(struct interface *ifp,
-					struct prefix_sg *sg);
-
-void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
-				 enum pim_ifjoin_state new_state);
-const char *pim_ifchannel_ifjoin_name(enum pim_ifjoin_state ifjoin_state,
-				      int flags);
-const char *pim_ifchannel_ifassert_name(enum pim_ifassert_state ifassert_state);
-
-int pim_ifchannel_isin_oiflist(struct pim_ifchannel *ch);
-
-void reset_ifassert_state(struct pim_ifchannel *ch);
-
-void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch);
-void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch);
-void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch);
-
-void pim_ifchannel_scan_forward_start(struct interface *new_ifp);
-void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
-					 uint8_t join);
-
-int pim_ifchannel_compare(const struct pim_ifchannel *ch1,
-			  const struct pim_ifchannel *ch2);
-
-unsigned int pim_ifchannel_hash_key(void *arg);
-#endif /* PIM_IFCHANNEL_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_IFCHANNEL_H#definePIM_IFCHANNEL_H#include<zebra.h>#include"if.h
+"#include"prefix.h"structpim_ifchannel;#include"pim_upstream.h"enumpim_ifmembers
+hip{PIM_IFMEMBERSHIP_NOINFO,PIM_IFMEMBERSHIP_INCLUDE};enumpim_ifjoin_state{PIM_I
+FJOIN_NOINFO,PIM_IFJOIN_JOIN,PIM_IFJOIN_PRUNE,PIM_IFJOIN_PRUNE_PENDING,PIM_IFJOI
+N_PRUNE_TMP,PIM_IFJOIN_PRUNE_PENDING_TMP,};enumpim_ifassert_state{PIM_IFASSERT_N
+OINFO,PIM_IFASSERT_I_AM_WINNER,PIM_IFASSERT_I_AM_LOSER};structpim_assert_metric{
+uint32_trpt_bit_flag;uint32_tmetric_preference;uint32_troute_metric;structin_add
+rip_address;/*neighborrouterthatsourcedtheAssertmessage*/};/*Flagtodetectchangei
+nCouldAssert(S,G,I)*/#definePIM_IF_FLAG_MASK_COULD_ASSERT(1<<0)#definePIM_IF_FLA
+G_TEST_COULD_ASSERT(flags)((flags)&PIM_IF_FLAG_MASK_COULD_ASSERT)#definePIM_IF_F
+LAG_SET_COULD_ASSERT(flags)((flags)|=PIM_IF_FLAG_MASK_COULD_ASSERT)#definePIM_IF
+_FLAG_UNSET_COULD_ASSERT(flags)((flags)&=~PIM_IF_FLAG_MASK_COULD_ASSERT)/*Flagto
+detectchangeinAssertTrackingDesired(S,G,I)*/#definePIM_IF_FLAG_MASK_ASSERT_TRACK
+ING_DESIRED(1<<1)#definePIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(flags)((flags)&
+PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)#definePIM_IF_FLAG_SET_ASSERT_TRACKING_
+DESIRED(flags)((flags)|=PIM_IF_FLAG_MASK_ASSERT_TRACKING_DESIRED)#definePIM_IF_F
+LAG_UNSET_ASSERT_TRACKING_DESIRED(flags)((flags)&=~PIM_IF_FLAG_MASK_ASSERT_TRACK
+ING_DESIRED)/**Flattotellusiftheifchannelis(S,G,rpt)*/#definePIM_IF_FLAG_MASK_S_
+G_RPT(1<<2)#definePIM_IF_FLAG_TEST_S_G_RPT(flags)((flags)&PIM_IF_FLAG_MASK_S_G_R
+PT)#definePIM_IF_FLAG_SET_S_G_RPT(flags)((flags)|=PIM_IF_FLAG_MASK_S_G_RPT)#defi
+nePIM_IF_FLAG_UNSET_S_G_RPT(flags)((flags)&=~PIM_IF_FLAG_MASK_S_G_RPT)/*Per-inte
+rface(S,G)state*/structpim_ifchannel{RB_ENTRY(rb_ifchannel)pim_ifp_rb;structpim_
+ifchannel*parent;structlist*sources;structprefix_sgsg;charsg_str[PIM_SG_LEN];str
+uctinterface*interface;/*backpointertointerface*/uint32_tflags;/*IGMPv3determine
+dinterfacehaslocalmembersfor(S,G)?*/enumpim_ifmembershiplocal_ifmembership;/*Per
+-interface(S,G)Join/PruneState(Section4.1.4ofRFC4601)*/enumpim_ifjoin_stateifjoi
+n_state;structthread*t_ifjoin_expiry_timer;structthread*t_ifjoin_prune_pending_t
+imer;int64_tifjoin_creation;/*Recorduptimeofifjoinstate*//*Per-interface(S,G)Ass
+ertState(Section4.6.1ofRFC4601)*/enumpim_ifassert_stateifassert_state;structthre
+ad*t_ifassert_timer;structin_addrifassert_winner;structpim_assert_metricifassert
+_winner_metric;int64_tifassert_creation;/*Recorduptimeofifassertstate*/structpim
+_assert_metricifassert_my_metric;/*Upstream(S,G)state*/structpim_upstream*upstre
+am;};RB_HEAD(pim_ifchannel_rb,pim_ifchannel);RB_PROTOTYPE(pim_ifchannel_rb,pim_i
+fchannel,pim_ifp_rb,pim_ifchannel_compare);voidpim_ifchannel_free(structpim_ifch
+annel*ch);voidpim_ifchannel_delete(structpim_ifchannel*ch);voidpim_ifchannel_del
+ete_all(structinterface*ifp);voidpim_ifchannel_membership_clear(structinterface*
+ifp);voidpim_ifchannel_delete_on_noinfo(structinterface*ifp);structpim_ifchannel
+*pim_ifchannel_find(structinterface*ifp,structprefix_sg*sg);structpim_ifchannel*
+pim_ifchannel_add(structinterface*ifp,structprefix_sg*sg,uint8_tch_flags,intup_f
+lags);voidpim_ifchannel_join_add(structinterface*ifp,structin_addrneigh_addr,str
+uctin_addrupstream,structprefix_sg*sg,uint8_tsource_flags,uint16_tholdtime);void
+pim_ifchannel_prune(structinterface*ifp,structin_addrupstream,structprefix_sg*sg
+,uint8_tsource_flags,uint16_tholdtime);intpim_ifchannel_local_membership_add(str
+uctinterface*ifp,structprefix_sg*sg);voidpim_ifchannel_local_membership_del(stru
+ctinterface*ifp,structprefix_sg*sg);voidpim_ifchannel_ifjoin_switch(constchar*ca
+ller,structpim_ifchannel*ch,enumpim_ifjoin_statenew_state);constchar*pim_ifchann
+el_ifjoin_name(enumpim_ifjoin_stateifjoin_state,intflags);constchar*pim_ifchanne
+l_ifassert_name(enumpim_ifassert_stateifassert_state);intpim_ifchannel_isin_oifl
+ist(structpim_ifchannel*ch);voidreset_ifassert_state(structpim_ifchannel*ch);voi
+dpim_ifchannel_update_could_assert(structpim_ifchannel*ch);voidpim_ifchannel_upd
+ate_my_assert_metric(structpim_ifchannel*ch);voidpim_ifchannel_update_assert_tra
+cking_desired(structpim_ifchannel*ch);voidpim_ifchannel_scan_forward_start(struc
+tinterface*new_ifp);voidpim_ifchannel_set_star_g_join_state(structpim_ifchannel*
+ch,inteom,uint8_tjoin);intpim_ifchannel_compare(conststructpim_ifchannel*ch1,con
+ststructpim_ifchannel*ch2);unsignedintpim_ifchannel_hash_key(void*arg);#endif/*P
+IM_IFCHANNEL_H*/

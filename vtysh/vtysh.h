@@ -1,103 +1,35 @@
-/* Virtual terminal interface shell.
- * Copyright (C) 2000 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef VTYSH_H
-#define VTYSH_H
-
-#include "memory.h"
-DECLARE_MGROUP(MVTYSH)
-
-#define VTYSH_ZEBRA  0x01
-#define VTYSH_RIPD   0x02
-#define VTYSH_RIPNGD 0x04
-#define VTYSH_OSPFD  0x08
-#define VTYSH_OSPF6D 0x10
-#define VTYSH_BGPD   0x20
-#define VTYSH_ISISD  0x40
-#define VTYSH_PIMD   0x100
-#define VTYSH_LDPD   0x200
-#define VTYSH_WATCHFRR 0x400
-#define VTYSH_NHRPD  0x800
-#define VTYSH_EIGRPD 0x1000
-#define VTYSH_BABELD 0x2000
-#define VTYSH_SHARPD 0x4000
-
-/* commands in REALLYALL are crucial to correct vtysh operation */
-#define VTYSH_REALLYALL	  ~0U
-/* watchfrr is not in ALL since library CLI functions should not be
- * run on it (logging & co. should stay in a fixed/frozen config, and
- * things like prefix lists are not even initialised) */
-#define VTYSH_ALL	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_LDPD|VTYSH_BGPD|VTYSH_ISISD|VTYSH_PIMD|VTYSH_NHRPD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_SHARPD
-#define VTYSH_RMAP	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ISISD|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_SHARPD
-#define VTYSH_INTERFACE	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_ISISD|VTYSH_PIMD|VTYSH_NHRPD|VTYSH_EIGRPD|VTYSH_BABELD
-#define VTYSH_NS          VTYSH_ZEBRA
-#define VTYSH_VRF	  VTYSH_ZEBRA|VTYSH_PIMD
-
-enum vtysh_write_integrated {
-	WRITE_INTEGRATED_UNSPECIFIED,
-	WRITE_INTEGRATED_NO,
-	WRITE_INTEGRATED_YES
-};
-
-extern enum vtysh_write_integrated vtysh_write_integrated;
-
-extern char frr_config[];
-extern char vtydir[];
-
-void vtysh_init_vty(void);
-void vtysh_uninit(void);
-void vtysh_init_cmd(void);
-extern int vtysh_connect_all(const char *optional_daemon_name);
-void vtysh_readline_init(void);
-void vtysh_user_init(void);
-
-int vtysh_execute(const char *);
-int vtysh_execute_no_pager(const char *);
-
-char *vtysh_prompt(void);
-
-void vtysh_config_write(void);
-
-int vtysh_config_from_file(struct vty *, FILE *);
-
-void config_add_line(struct list *, const char *);
-
-int vtysh_mark_file(const char *filename);
-
-int vtysh_read_config(const char *);
-int vtysh_write_config_integrated(void);
-
-void vtysh_config_parse_line(void *, const char *);
-
-void vtysh_config_dump(FILE *);
-
-void vtysh_config_init(void);
-
-void vtysh_pager_init(void);
-
-void suid_on(void);
-void suid_off(void);
-
-/* Child process execution flag. */
-extern int execute_flag;
-
-extern struct vty *vty;
-
-#endif /* VTYSH_H */
+/*Virtualterminalinterfaceshell.*Copyright(C)2000KunihiroIshiguro**Thisfileispar
+tofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthe
+termsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherv
+ersion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitw
+illbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILI
+TYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**
+YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seet
+hefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFlo
+or,Boston,MA02110-1301USA*/#ifndefVTYSH_H#defineVTYSH_H#include"memory.h"DECLARE
+_MGROUP(MVTYSH)#defineVTYSH_ZEBRA0x01#defineVTYSH_RIPD0x02#defineVTYSH_RIPNGD0x0
+4#defineVTYSH_OSPFD0x08#defineVTYSH_OSPF6D0x10#defineVTYSH_BGPD0x20#defineVTYSH_
+ISISD0x40#defineVTYSH_PIMD0x100#defineVTYSH_LDPD0x200#defineVTYSH_WATCHFRR0x400#
+defineVTYSH_NHRPD0x800#defineVTYSH_EIGRPD0x1000#defineVTYSH_BABELD0x2000#defineV
+TYSH_SHARPD0x4000/*commandsinREALLYALLarecrucialtocorrectvtyshoperation*/#define
+VTYSH_REALLYALL~0U/*watchfrrisnotinALLsincelibraryCLIfunctionsshouldnotbe*runoni
+t(logging&co.shouldstayinafixed/frozenconfig,and*thingslikeprefixlistsarenoteven
+initialised)*/#defineVTYSH_ALLVTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VT
+YSH_OSPF6D|VTYSH_LDPD|VTYSH_BGPD|VTYSH_ISISD|VTYSH_PIMD|VTYSH_NHRPD|VTYSH_EIGRPD
+|VTYSH_BABELD|VTYSH_SHARPD#defineVTYSH_RMAPVTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|V
+TYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ISISD|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_SHA
+RPD#defineVTYSH_INTERFACEVTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_O
+SPF6D|VTYSH_ISISD|VTYSH_PIMD|VTYSH_NHRPD|VTYSH_EIGRPD|VTYSH_BABELD#defineVTYSH_N
+SVTYSH_ZEBRA#defineVTYSH_VRFVTYSH_ZEBRA|VTYSH_PIMDenumvtysh_write_integrated{WRI
+TE_INTEGRATED_UNSPECIFIED,WRITE_INTEGRATED_NO,WRITE_INTEGRATED_YES};externenumvt
+ysh_write_integratedvtysh_write_integrated;externcharfrr_config[];externcharvtyd
+ir[];voidvtysh_init_vty(void);voidvtysh_uninit(void);voidvtysh_init_cmd(void);ex
+ternintvtysh_connect_all(constchar*optional_daemon_name);voidvtysh_readline_init
+(void);voidvtysh_user_init(void);intvtysh_execute(constchar*);intvtysh_execute_n
+o_pager(constchar*);char*vtysh_prompt(void);voidvtysh_config_write(void);intvtys
+h_config_from_file(structvty*,FILE*);voidconfig_add_line(structlist*,constchar*)
+;intvtysh_mark_file(constchar*filename);intvtysh_read_config(constchar*);intvtys
+h_write_config_integrated(void);voidvtysh_config_parse_line(void*,constchar*);vo
+idvtysh_config_dump(FILE*);voidvtysh_config_init(void);voidvtysh_pager_init(void
+);voidsuid_on(void);voidsuid_off(void);/*Childprocessexecutionflag.*/externintex
+ecute_flag;externstructvty*vty;#endif/*VTYSH_H*/

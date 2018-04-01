@@ -1,50 +1,18 @@
-/*
- * RIPng debug output routines
- * Copyright (C) 1998, 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_RIPNG_DEBUG_H
-#define _ZEBRA_RIPNG_DEBUG_H
-
-/* Debug flags. */
-#define RIPNG_DEBUG_EVENT   0x01
-
-#define RIPNG_DEBUG_PACKET  0x01
-#define RIPNG_DEBUG_SEND    0x20
-#define RIPNG_DEBUG_RECV    0x40
-
-#define RIPNG_DEBUG_ZEBRA   0x01
-
-/* Debug related macro. */
-#define IS_RIPNG_DEBUG_EVENT  (ripng_debug_event & RIPNG_DEBUG_EVENT)
-
-#define IS_RIPNG_DEBUG_PACKET (ripng_debug_packet & RIPNG_DEBUG_PACKET)
-#define IS_RIPNG_DEBUG_SEND   (ripng_debug_packet & RIPNG_DEBUG_SEND)
-#define IS_RIPNG_DEBUG_RECV   (ripng_debug_packet & RIPNG_DEBUG_RECV)
-
-#define IS_RIPNG_DEBUG_ZEBRA  (ripng_debug_zebra & RIPNG_DEBUG_ZEBRA)
-
-extern unsigned long ripng_debug_event;
-extern unsigned long ripng_debug_packet;
-extern unsigned long ripng_debug_zebra;
-
-extern void ripng_debug_init(void);
-extern void ripng_debug_reset(void);
-
-#endif /* _ZEBRA_RIPNG_DEBUG_H */
+/**RIPngdebugoutputroutines*Copyright(C)1998,1999KunihiroIshiguro**Thisfileispar
+tofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthe
+termsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherv
+ersion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitw
+illbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILI
+TYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**
+YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seet
+hefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFlo
+or,Boston,MA02110-1301USA*/#ifndef_ZEBRA_RIPNG_DEBUG_H#define_ZEBRA_RIPNG_DEBUG_
+H/*Debugflags.*/#defineRIPNG_DEBUG_EVENT0x01#defineRIPNG_DEBUG_PACKET0x01#define
+RIPNG_DEBUG_SEND0x20#defineRIPNG_DEBUG_RECV0x40#defineRIPNG_DEBUG_ZEBRA0x01/*Deb
+ugrelatedmacro.*/#defineIS_RIPNG_DEBUG_EVENT(ripng_debug_event&RIPNG_DEBUG_EVENT
+)#defineIS_RIPNG_DEBUG_PACKET(ripng_debug_packet&RIPNG_DEBUG_PACKET)#defineIS_RI
+PNG_DEBUG_SEND(ripng_debug_packet&RIPNG_DEBUG_SEND)#defineIS_RIPNG_DEBUG_RECV(ri
+png_debug_packet&RIPNG_DEBUG_RECV)#defineIS_RIPNG_DEBUG_ZEBRA(ripng_debug_zebra&
+RIPNG_DEBUG_ZEBRA)externunsignedlongripng_debug_event;externunsignedlongripng_de
+bug_packet;externunsignedlongripng_debug_zebra;externvoidripng_debug_init(void);
+externvoidripng_debug_reset(void);#endif/*_ZEBRA_RIPNG_DEBUG_H*/

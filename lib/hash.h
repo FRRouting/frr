@@ -1,113 +1,30 @@
-/* Hash routine.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_HASH_H
-#define _ZEBRA_HASH_H
-
-#include "memory.h"
-#include "frratomic.h"
-
-DECLARE_MTYPE(HASH)
-DECLARE_MTYPE(HASH_BACKET)
-
-/* Default hash table size.  */
-#define HASH_INITIAL_SIZE 256
-/* Expansion threshold */
-#define HASH_THRESHOLD(used, size) ((used) > (size))
-
-#define HASHWALK_CONTINUE 0
-#define HASHWALK_ABORT -1
-
-struct hash_backet {
-	/* if this backet is the head of the linked listed, len denotes the
-	 * number of
-	 * elements in the list */
-	int len;
-
-	/* Linked list.  */
-	struct hash_backet *next;
-
-	/* Hash key. */
-	unsigned int key;
-
-	/* Data.  */
-	void *data;
-};
-
-struct hashstats {
-	/* number of empty hash buckets */
-	_Atomic uint_fast32_t empty;
-	/* sum of squares of bucket length */
-	_Atomic uint_fast32_t ssq;
-};
-
-struct hash {
-	/* Hash backet. */
-	struct hash_backet **index;
-
-	/* Hash table size. Must be power of 2 */
-	unsigned int size;
-
-	/* If max_size is 0 there is no limit */
-	unsigned int max_size;
-
-	/* Key make function. */
-	unsigned int (*hash_key)(void *);
-
-	/* Data compare function. */
-	int (*hash_cmp)(const void *, const void *);
-
-	/* Backet alloc. */
-	unsigned long count;
-
-	struct hashstats stats;
-
-	/* hash name */
-	char *name;
-};
-
-#define hashcount(X) ((X)->count)
-
-extern struct hash *hash_create(unsigned int (*)(void *),
-				int (*)(const void *, const void *),
-				const char *);
-extern struct hash *hash_create_size(unsigned int, unsigned int (*)(void *),
-				     int (*)(const void *, const void *),
-				     const char *);
-
-extern void *hash_get(struct hash *, void *, void *(*)(void *));
-extern void *hash_alloc_intern(void *);
-extern void *hash_lookup(struct hash *, void *);
-extern void *hash_release(struct hash *, void *);
-
-extern void hash_iterate(struct hash *, void (*)(struct hash_backet *, void *),
-			 void *);
-
-extern void hash_walk(struct hash *, int (*)(struct hash_backet *, void *),
-		      void *);
-
-extern void hash_clean(struct hash *, void (*)(void *));
-extern void hash_free(struct hash *);
-
-extern unsigned int string_hash_make(const char *);
-
-extern void hash_cmd_init(void);
-
-#endif /* _ZEBRA_HASH_H */
+/*Hashroutine.*Copyright(C)1998KunihiroIshiguro**ThisfileispartofGNUZebra.**GNUZ
+ebraisfreesoftware;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGener
+alPublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversion2,or(atyour*
+option)anylaterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WI
+THOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPAR
+TICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhaverecei
+vedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifno
+t,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-
+1301USA*/#ifndef_ZEBRA_HASH_H#define_ZEBRA_HASH_H#include"memory.h"#include"frra
+tomic.h"DECLARE_MTYPE(HASH)DECLARE_MTYPE(HASH_BACKET)/*Defaulthashtablesize.*/#d
+efineHASH_INITIAL_SIZE256/*Expansionthreshold*/#defineHASH_THRESHOLD(used,size)(
+(used)>(size))#defineHASHWALK_CONTINUE0#defineHASHWALK_ABORT-1structhash_backet{
+/*ifthisbacketistheheadofthelinkedlisted,lendenotesthe*numberof*elementsinthelis
+t*/intlen;/*Linkedlist.*/structhash_backet*next;/*Hashkey.*/unsignedintkey;/*Dat
+a.*/void*data;};structhashstats{/*numberofemptyhashbuckets*/_Atomicuint_fast32_t
+empty;/*sumofsquaresofbucketlength*/_Atomicuint_fast32_tssq;};structhash{/*Hashb
+acket.*/structhash_backet**index;/*Hashtablesize.Mustbepowerof2*/unsignedintsize
+;/*Ifmax_sizeis0thereisnolimit*/unsignedintmax_size;/*Keymakefunction.*/unsigned
+int(*hash_key)(void*);/*Datacomparefunction.*/int(*hash_cmp)(constvoid*,constvoi
+d*);/*Backetalloc.*/unsignedlongcount;structhashstatsstats;/*hashname*/char*name
+;};#definehashcount(X)((X)->count)externstructhash*hash_create(unsignedint(*)(vo
+id*),int(*)(constvoid*,constvoid*),constchar*);externstructhash*hash_create_size
+(unsignedint,unsignedint(*)(void*),int(*)(constvoid*,constvoid*),constchar*);ext
+ernvoid*hash_get(structhash*,void*,void*(*)(void*));externvoid*hash_alloc_intern
+(void*);externvoid*hash_lookup(structhash*,void*);externvoid*hash_release(struct
+hash*,void*);externvoidhash_iterate(structhash*,void(*)(structhash_backet*,void*
+),void*);externvoidhash_walk(structhash*,int(*)(structhash_backet*,void*),void*)
+;externvoidhash_clean(structhash*,void(*)(void*));externvoidhash_free(structhash
+*);externunsignedintstring_hash_make(constchar*);externvoidhash_cmd_init(void);#
+endif/*_ZEBRA_HASH_H*/

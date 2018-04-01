@@ -1,77 +1,17 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include <signal.h>
-
-#include "sigevent.h"
-#include "memory.h"
-#include "log.h"
-#include "if.h"
-
-#include "pim_signals.h"
-#include "pimd.h"
-
-/*
- * Signal handlers
- */
-
-static void pim_sighup()
-{
-	zlog_info("SIGHUP received, ignoring");
-}
-
-static void pim_sigint()
-{
-	zlog_notice("Terminating on signal SIGINT");
-	pim_terminate();
-	exit(1);
-}
-
-static void pim_sigterm()
-{
-	zlog_notice("Terminating on signal SIGTERM");
-	pim_terminate();
-	exit(1);
-}
-
-static void pim_sigusr1()
-{
-	zlog_rotate();
-}
-
-struct quagga_signal_t pimd_signals[] = {
-	{
-		.signal = SIGHUP,
-		.handler = &pim_sighup,
-	},
-	{
-		.signal = SIGUSR1,
-		.handler = &pim_sigusr1,
-	},
-	{
-		.signal = SIGINT,
-		.handler = &pim_sigint,
-	},
-	{
-		.signal = SIGTERM,
-		.handler = &pim_sigterm,
-	},
-};
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#include<zebra.h>#include<signal.h>#include"sigevent.h"#include"memory.h"#
+include"log.h"#include"if.h"#include"pim_signals.h"#include"pimd.h"/**Signalhand
+lers*/staticvoidpim_sighup(){zlog_info("SIGHUPreceived,ignoring");}staticvoidpim
+_sigint(){zlog_notice("TerminatingonsignalSIGINT");pim_terminate();exit(1);}stat
+icvoidpim_sigterm(){zlog_notice("TerminatingonsignalSIGTERM");pim_terminate();ex
+it(1);}staticvoidpim_sigusr1(){zlog_rotate();}structquagga_signal_tpimd_signals[
+]={{.signal=SIGHUP,.handler=&pim_sighup,},{.signal=SIGUSR1,.handler=&pim_sigusr1
+,},{.signal=SIGINT,.handler=&pim_sigint,},{.signal=SIGTERM,.handler=&pim_sigterm
+,},};

@@ -1,67 +1,27 @@
-/* BGP packet management header.
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_BGP_PACKET_H
-#define _QUAGGA_BGP_PACKET_H
-
-#define BGP_NLRI_LENGTH       1U
-#define BGP_TOTAL_ATTR_LEN    2U
-#define BGP_UNFEASIBLE_LEN    2U
-
-/* When to refresh */
-#define REFRESH_IMMEDIATE 1
-#define REFRESH_DEFER     2 
-
-/* ORF Common part flag */
-#define ORF_COMMON_PART_ADD        0x00 
-#define ORF_COMMON_PART_REMOVE     0x80 
-#define ORF_COMMON_PART_REMOVE_ALL 0xC0 
-#define ORF_COMMON_PART_PERMIT     0x00 
-#define ORF_COMMON_PART_DENY       0x20 
-
-/* Packet send and receive function prototypes. */
-extern void bgp_keepalive_send(struct peer *);
-extern void bgp_open_send(struct peer *);
-extern void bgp_notify_send(struct peer *, uint8_t, uint8_t);
-extern void bgp_notify_send_with_data(struct peer *, uint8_t, uint8_t,
-				      uint8_t *, size_t);
-extern void bgp_route_refresh_send(struct peer *, afi_t, safi_t, uint8_t,
-				   uint8_t, int);
-extern void bgp_capability_send(struct peer *, afi_t, safi_t, int, int);
-extern void bgp_default_update_send(struct peer *, struct attr *, afi_t, safi_t,
-				    struct peer *);
-extern void bgp_default_withdraw_send(struct peer *, afi_t, safi_t);
-
-extern int bgp_capability_receive(struct peer *, bgp_size_t);
-
-extern int bgp_nlri_parse(struct peer *, struct attr *, struct bgp_nlri *,
-			  int mp_withdraw);
-
-extern void bgp_update_restarted_peers(struct peer *);
-extern void bgp_update_implicit_eors(struct peer *);
-extern void bgp_check_update_delay(struct bgp *);
-
-extern int bgp_packet_set_marker(struct stream *s, uint8_t type);
-extern int bgp_packet_set_size(struct stream *s);
-
-extern int bgp_generate_updgrp_packets(struct thread *);
-extern int bgp_process_packet(struct thread *);
-
-#endif /* _QUAGGA_BGP_PACKET_H */
+/*BGPpacketmanagementheader.*Copyright(C)1999KunihiroIshiguro**ThisfileispartofG
+NUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*undertheterm
+softheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversi
+on2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillb
+euseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYor
+FITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yous
+houldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefi
+leCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,B
+oston,MA02110-1301USA*/#ifndef_QUAGGA_BGP_PACKET_H#define_QUAGGA_BGP_PACKET_H#de
+fineBGP_NLRI_LENGTH1U#defineBGP_TOTAL_ATTR_LEN2U#defineBGP_UNFEASIBLE_LEN2U/*Whe
+ntorefresh*/#defineREFRESH_IMMEDIATE1#defineREFRESH_DEFER2/*ORFCommonpartflag*/#
+defineORF_COMMON_PART_ADD0x00#defineORF_COMMON_PART_REMOVE0x80#defineORF_COMMON_
+PART_REMOVE_ALL0xC0#defineORF_COMMON_PART_PERMIT0x00#defineORF_COMMON_PART_DENY0
+x20/*Packetsendandreceivefunctionprototypes.*/externvoidbgp_keepalive_send(struc
+tpeer*);externvoidbgp_open_send(structpeer*);externvoidbgp_notify_send(structpee
+r*,uint8_t,uint8_t);externvoidbgp_notify_send_with_data(structpeer*,uint8_t,uint
+8_t,uint8_t*,size_t);externvoidbgp_route_refresh_send(structpeer*,afi_t,safi_t,u
+int8_t,uint8_t,int);externvoidbgp_capability_send(structpeer*,afi_t,safi_t,int,i
+nt);externvoidbgp_default_update_send(structpeer*,structattr*,afi_t,safi_t,struc
+tpeer*);externvoidbgp_default_withdraw_send(structpeer*,afi_t,safi_t);externintb
+gp_capability_receive(structpeer*,bgp_size_t);externintbgp_nlri_parse(structpeer
+*,structattr*,structbgp_nlri*,intmp_withdraw);externvoidbgp_update_restarted_pee
+rs(structpeer*);externvoidbgp_update_implicit_eors(structpeer*);externvoidbgp_ch
+eck_update_delay(structbgp*);externintbgp_packet_set_marker(structstream*s,uint8
+_ttype);externintbgp_packet_set_size(structstream*s);externintbgp_generate_updgr
+p_packets(structthread*);externintbgp_process_packet(structthread*);#endif/*_QUA
+GGA_BGP_PACKET_H*/

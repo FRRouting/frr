@@ -1,374 +1,102 @@
-/* NHRP cache
- * Copyright (c) 2014-2015 Timo Teräs
- *
- * This file is free software: you may copy, redistribute and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- */
-
-#include "zebra.h"
-#include "memory.h"
-#include "thread.h"
-#include "hash.h"
-#include "nhrpd.h"
-
-#include "netlink.h"
-
-DEFINE_MTYPE_STATIC(NHRPD, NHRP_CACHE, "NHRP cache entry")
-
-unsigned long nhrp_cache_counts[NHRP_CACHE_NUM_TYPES];
-
-const char *const nhrp_cache_type_str[] = {
-		[NHRP_CACHE_INVALID] = "invalid",
-		[NHRP_CACHE_INCOMPLETE] = "incomplete",
-		[NHRP_CACHE_NEGATIVE] = "negative",
-		[NHRP_CACHE_CACHED] = "cached",
-		[NHRP_CACHE_DYNAMIC] = "dynamic",
-		[NHRP_CACHE_NHS] = "nhs",
-		[NHRP_CACHE_STATIC] = "static",
-		[NHRP_CACHE_LOCAL] = "local",
-};
-
-static unsigned int nhrp_cache_protocol_key(void *peer_data)
-{
-	struct nhrp_cache *p = peer_data;
-	return sockunion_hash(&p->remote_addr);
-}
-
-static int nhrp_cache_protocol_cmp(const void *cache_data, const void *key_data)
-{
-	const struct nhrp_cache *a = cache_data;
-	const struct nhrp_cache *b = key_data;
-	return sockunion_same(&a->remote_addr, &b->remote_addr);
-}
-
-static void *nhrp_cache_alloc(void *data)
-{
-	struct nhrp_cache *p, *key = data;
-
-	p = XMALLOC(MTYPE_NHRP_CACHE, sizeof(struct nhrp_cache));
-	if (p) {
-		*p = (struct nhrp_cache){
-			.cur.type = NHRP_CACHE_INVALID,
-			.new.type = NHRP_CACHE_INVALID,
-			.remote_addr = key->remote_addr,
-			.ifp = key->ifp,
-			.notifier_list =
-				NOTIFIER_LIST_INITIALIZER(&p->notifier_list),
-		};
-		nhrp_cache_counts[p->cur.type]++;
-	}
-
-	return p;
-}
-
-static void nhrp_cache_free(struct nhrp_cache *c)
-{
-	struct nhrp_interface *nifp = c->ifp->info;
-
-	zassert(c->cur.type == NHRP_CACHE_INVALID && c->cur.peer == NULL);
-	zassert(c->new.type == NHRP_CACHE_INVALID && c->new.peer == NULL);
-	nhrp_cache_counts[c->cur.type]--;
-	notifier_call(&c->notifier_list, NOTIFY_CACHE_DELETE);
-	zassert(!notifier_active(&c->notifier_list));
-	hash_release(nifp->cache_hash, c);
-	XFREE(MTYPE_NHRP_CACHE, c);
-}
-
-struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
-				  union sockunion *remote_addr, int create)
-{
-	struct nhrp_interface *nifp = ifp->info;
-	struct nhrp_cache key;
-
-	if (!nifp->cache_hash) {
-		nifp->cache_hash =
-			hash_create(nhrp_cache_protocol_key,
-				    nhrp_cache_protocol_cmp, "NHRP Cache");
-		if (!nifp->cache_hash)
-			return NULL;
-	}
-
-	key.remote_addr = *remote_addr;
-	key.ifp = ifp;
-
-	return hash_get(nifp->cache_hash, &key,
-			create ? nhrp_cache_alloc : NULL);
-}
-
-static int nhrp_cache_do_free(struct thread *t)
-{
-	struct nhrp_cache *c = THREAD_ARG(t);
-	c->t_timeout = NULL;
-	nhrp_cache_free(c);
-	return 0;
-}
-
-static int nhrp_cache_do_timeout(struct thread *t)
-{
-	struct nhrp_cache *c = THREAD_ARG(t);
-	c->t_timeout = NULL;
-	if (c->cur.type != NHRP_CACHE_INVALID)
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
-	return 0;
-}
-
-static void nhrp_cache_update_route(struct nhrp_cache *c)
-{
-	struct prefix pfx;
-	struct nhrp_peer *p = c->cur.peer;
-
-	sockunion2hostprefix(&c->remote_addr, &pfx);
-
-	if (p && nhrp_peer_check(p, 1)) {
-		netlink_update_binding(p->ifp, &c->remote_addr,
-				       &p->vc->remote.nbma);
-		nhrp_route_announce(1, c->cur.type, &pfx, c->ifp, NULL,
-				    c->cur.mtu);
-		if (c->cur.type >= NHRP_CACHE_DYNAMIC) {
-			nhrp_route_update_nhrp(&pfx, c->ifp);
-			c->nhrp_route_installed = 1;
-		} else if (c->nhrp_route_installed) {
-			nhrp_route_update_nhrp(&pfx, NULL);
-			c->nhrp_route_installed = 0;
-		}
-		if (!c->route_installed) {
-			notifier_call(&c->notifier_list, NOTIFY_CACHE_UP);
-			c->route_installed = 1;
-		}
-	} else {
-		if (c->nhrp_route_installed) {
-			nhrp_route_update_nhrp(&pfx, NULL);
-			c->nhrp_route_installed = 0;
-		}
-		if (c->route_installed) {
-			sockunion2hostprefix(&c->remote_addr, &pfx);
-			notifier_call(&c->notifier_list, NOTIFY_CACHE_DOWN);
-			nhrp_route_announce(0, c->cur.type, &pfx, NULL, NULL,
-					    0);
-			c->route_installed = 0;
-		}
-	}
-}
-
-static void nhrp_cache_peer_notifier(struct notifier_block *n,
-				     unsigned long cmd)
-{
-	struct nhrp_cache *c =
-		container_of(n, struct nhrp_cache, peer_notifier);
-
-	switch (cmd) {
-	case NOTIFY_PEER_UP:
-		nhrp_cache_update_route(c);
-		break;
-	case NOTIFY_PEER_DOWN:
-	case NOTIFY_PEER_IFCONFIG_CHANGED:
-		notifier_call(&c->notifier_list, NOTIFY_CACHE_DOWN);
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL);
-		break;
-	case NOTIFY_PEER_NBMA_CHANGING:
-		if (c->cur.type == NHRP_CACHE_DYNAMIC)
-			c->cur.peer->vc->abort_migration = 1;
-		break;
-	}
-}
-
-static void nhrp_cache_reset_new(struct nhrp_cache *c)
-{
-	THREAD_OFF(c->t_auth);
-	if (list_hashed(&c->newpeer_notifier.notifier_entry))
-		nhrp_peer_notify_del(c->new.peer, &c->newpeer_notifier);
-	nhrp_peer_unref(c->new.peer);
-	memset(&c->new, 0, sizeof(c->new));
-	c->new.type = NHRP_CACHE_INVALID;
-}
-
-static void nhrp_cache_update_timers(struct nhrp_cache *c)
-{
-	THREAD_OFF(c->t_timeout);
-
-	switch (c->cur.type) {
-	case NHRP_CACHE_INVALID:
-		if (!c->t_auth)
-			thread_add_timer_msec(master, nhrp_cache_do_free, c, 10,
-					      &c->t_timeout);
-		break;
-	default:
-		if (c->cur.expires)
-			thread_add_timer(master, nhrp_cache_do_timeout, c,
-					 c->cur.expires - monotime(NULL),
-					 &c->t_timeout);
-		break;
-	}
-}
-
-static void nhrp_cache_authorize_binding(struct nhrp_reqid *r, void *arg)
-{
-	struct nhrp_cache *c = container_of(r, struct nhrp_cache, eventid);
-	char buf[SU_ADDRSTRLEN];
-
-	debugf(NHRP_DEBUG_COMMON, "cache: %s %s: %s", c->ifp->name,
-	       sockunion2str(&c->remote_addr, buf, sizeof buf),
-	       (const char *)arg);
-
-	nhrp_reqid_free(&nhrp_event_reqid, r);
-
-	if (arg && strcmp(arg, "accept") == 0) {
-		if (c->cur.peer) {
-			netlink_update_binding(c->cur.peer->ifp,
-					       &c->remote_addr, NULL);
-			nhrp_peer_notify_del(c->cur.peer, &c->peer_notifier);
-			nhrp_peer_unref(c->cur.peer);
-		}
-		nhrp_cache_counts[c->cur.type]--;
-		nhrp_cache_counts[c->new.type]++;
-		c->cur = c->new;
-		c->cur.peer = nhrp_peer_ref(c->cur.peer);
-		nhrp_cache_reset_new(c);
-		if (c->cur.peer)
-			nhrp_peer_notify_add(c->cur.peer, &c->peer_notifier,
-					     nhrp_cache_peer_notifier);
-		nhrp_cache_update_route(c);
-		notifier_call(&c->notifier_list, NOTIFY_CACHE_BINDING_CHANGE);
-	} else {
-		nhrp_cache_reset_new(c);
-	}
-
-	nhrp_cache_update_timers(c);
-}
-
-static int nhrp_cache_do_auth_timeout(struct thread *t)
-{
-	struct nhrp_cache *c = THREAD_ARG(t);
-	c->t_auth = NULL;
-	nhrp_cache_authorize_binding(&c->eventid, (void *)"timeout");
-	return 0;
-}
-
-static void nhrp_cache_newpeer_notifier(struct notifier_block *n,
-					unsigned long cmd)
-{
-	struct nhrp_cache *c =
-		container_of(n, struct nhrp_cache, newpeer_notifier);
-
-	switch (cmd) {
-	case NOTIFY_PEER_UP:
-		if (nhrp_peer_check(c->new.peer, 1)) {
-			evmgr_notify("authorize-binding", c,
-				     nhrp_cache_authorize_binding);
-			thread_add_timer(master, nhrp_cache_do_auth_timeout, c,
-					 10, &c->t_auth);
-		}
-		break;
-	case NOTIFY_PEER_DOWN:
-	case NOTIFY_PEER_IFCONFIG_CHANGED:
-		nhrp_cache_reset_new(c);
-		break;
-	}
-}
-
-int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
-			      int holding_time, struct nhrp_peer *p,
-			      uint32_t mtu, union sockunion *nbma_oa)
-{
-	if (c->cur.type > type || c->new.type > type) {
-		nhrp_peer_unref(p);
-		return 0;
-	}
-
-	/* Sanitize MTU */
-	switch (sockunion_family(&c->remote_addr)) {
-	case AF_INET:
-		if (mtu < 576 || mtu >= 1500)
-			mtu = 0;
-		/* Opennhrp announces nbma mtu, but we use protocol mtu.
-		 * This heuristic tries to fix up it. */
-		if (mtu > 1420)
-			mtu = (mtu & -16) - 80;
-		break;
-	default:
-		mtu = 0;
-		break;
-	}
-
-	nhrp_cache_reset_new(c);
-	if (c->cur.type == type && c->cur.peer == p && c->cur.mtu == mtu) {
-		if (holding_time > 0)
-			c->cur.expires = monotime(NULL) + holding_time;
-		if (nbma_oa)
-			c->cur.remote_nbma_natoa = *nbma_oa;
-		else
-			memset(&c->cur.remote_nbma_natoa, 0,
-			       sizeof c->cur.remote_nbma_natoa);
-		nhrp_peer_unref(p);
-	} else {
-		c->new.type = type;
-		c->new.peer = p;
-		c->new.mtu = mtu;
-		if (nbma_oa)
-			c->new.remote_nbma_natoa = *nbma_oa;
-
-		if (holding_time > 0)
-			c->new.expires = monotime(NULL) + holding_time;
-		else if (holding_time < 0)
-			nhrp_cache_reset_new(c);
-
-		if (c->new.type == NHRP_CACHE_INVALID
-		    || c->new.type >= NHRP_CACHE_STATIC || c->map) {
-			nhrp_cache_authorize_binding(&c->eventid,
-						     (void *)"accept");
-		} else {
-			nhrp_peer_notify_add(c->new.peer, &c->newpeer_notifier,
-					     nhrp_cache_newpeer_notifier);
-			nhrp_cache_newpeer_notifier(&c->newpeer_notifier,
-						    NOTIFY_PEER_UP);
-			thread_add_timer(master, nhrp_cache_do_auth_timeout, c,
-					 60, &c->t_auth);
-		}
-	}
-	nhrp_cache_update_timers(c);
-
-	return 1;
-}
-
-void nhrp_cache_set_used(struct nhrp_cache *c, int used)
-{
-	c->used = used;
-	if (c->used)
-		notifier_call(&c->notifier_list, NOTIFY_CACHE_USED);
-}
-
-struct nhrp_cache_iterator_ctx {
-	void (*cb)(struct nhrp_cache *, void *);
-	void *ctx;
-};
-
-static void nhrp_cache_iterator(struct hash_backet *b, void *ctx)
-{
-	struct nhrp_cache_iterator_ctx *ic = ctx;
-	ic->cb(b->data, ic->ctx);
-}
-
-void nhrp_cache_foreach(struct interface *ifp,
-			void (*cb)(struct nhrp_cache *, void *), void *ctx)
-{
-	struct nhrp_interface *nifp = ifp->info;
-	struct nhrp_cache_iterator_ctx ic = {
-		.cb = cb, .ctx = ctx,
-	};
-
-	if (nifp->cache_hash)
-		hash_iterate(nifp->cache_hash, nhrp_cache_iterator, &ic);
-}
-
-void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *n,
-			   notifier_fn_t fn)
-{
-	notifier_add(n, &c->notifier_list, fn);
-}
-
-void nhrp_cache_notify_del(struct nhrp_cache *c, struct notifier_block *n)
-{
-	notifier_del(n);
-}
+/*NHRPcache*Copyright(c)2014-2015TimoTeräs**Thisfileisfreesoftware:youmaycopy,re
+distributeand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseaspublishedby*
+theFreeSoftwareFoundation,eitherversion2oftheLicense,or*(atyouroption)anylaterve
+rsion.*/#include"zebra.h"#include"memory.h"#include"thread.h"#include"hash.h"#in
+clude"nhrpd.h"#include"netlink.h"DEFINE_MTYPE_STATIC(NHRPD,NHRP_CACHE,"NHRPcache
+entry")unsignedlongnhrp_cache_counts[NHRP_CACHE_NUM_TYPES];constchar*constnhrp_c
+ache_type_str[]={[NHRP_CACHE_INVALID]="invalid",[NHRP_CACHE_INCOMPLETE]="incompl
+ete",[NHRP_CACHE_NEGATIVE]="negative",[NHRP_CACHE_CACHED]="cached",[NHRP_CACHE_D
+YNAMIC]="dynamic",[NHRP_CACHE_NHS]="nhs",[NHRP_CACHE_STATIC]="static",[NHRP_CACH
+E_LOCAL]="local",};staticunsignedintnhrp_cache_protocol_key(void*peer_data){stru
+ctnhrp_cache*p=peer_data;returnsockunion_hash(&p->remote_addr);}staticintnhrp_ca
+che_protocol_cmp(constvoid*cache_data,constvoid*key_data){conststructnhrp_cache*
+a=cache_data;conststructnhrp_cache*b=key_data;returnsockunion_same(&a->remote_ad
+dr,&b->remote_addr);}staticvoid*nhrp_cache_alloc(void*data){structnhrp_cache*p,*
+key=data;p=XMALLOC(MTYPE_NHRP_CACHE,sizeof(structnhrp_cache));if(p){*p=(structnh
+rp_cache){.cur.type=NHRP_CACHE_INVALID,.new.type=NHRP_CACHE_INVALID,.remote_addr
+=key->remote_addr,.ifp=key->ifp,.notifier_list=NOTIFIER_LIST_INITIALIZER(&p->not
+ifier_list),};nhrp_cache_counts[p->cur.type]++;}returnp;}staticvoidnhrp_cache_fr
+ee(structnhrp_cache*c){structnhrp_interface*nifp=c->ifp->info;zassert(c->cur.typ
+e==NHRP_CACHE_INVALID&&c->cur.peer==NULL);zassert(c->new.type==NHRP_CACHE_INVALI
+D&&c->new.peer==NULL);nhrp_cache_counts[c->cur.type]--;notifier_call(&c->notifie
+r_list,NOTIFY_CACHE_DELETE);zassert(!notifier_active(&c->notifier_list));hash_re
+lease(nifp->cache_hash,c);XFREE(MTYPE_NHRP_CACHE,c);}structnhrp_cache*nhrp_cache
+_get(structinterface*ifp,unionsockunion*remote_addr,intcreate){structnhrp_interf
+ace*nifp=ifp->info;structnhrp_cachekey;if(!nifp->cache_hash){nifp->cache_hash=ha
+sh_create(nhrp_cache_protocol_key,nhrp_cache_protocol_cmp,"NHRPCache");if(!nifp-
+>cache_hash)returnNULL;}key.remote_addr=*remote_addr;key.ifp=ifp;returnhash_get(
+nifp->cache_hash,&key,create?nhrp_cache_alloc:NULL);}staticintnhrp_cache_do_free
+(structthread*t){structnhrp_cache*c=THREAD_ARG(t);c->t_timeout=NULL;nhrp_cache_f
+ree(c);return0;}staticintnhrp_cache_do_timeout(structthread*t){structnhrp_cache*
+c=THREAD_ARG(t);c->t_timeout=NULL;if(c->cur.type!=NHRP_CACHE_INVALID)nhrp_cache_
+update_binding(c,c->cur.type,-1,NULL,0,NULL);return0;}staticvoidnhrp_cache_updat
+e_route(structnhrp_cache*c){structprefixpfx;structnhrp_peer*p=c->cur.peer;sockun
+ion2hostprefix(&c->remote_addr,&pfx);if(p&&nhrp_peer_check(p,1)){netlink_update_
+binding(p->ifp,&c->remote_addr,&p->vc->remote.nbma);nhrp_route_announce(1,c->cur
+.type,&pfx,c->ifp,NULL,c->cur.mtu);if(c->cur.type>=NHRP_CACHE_DYNAMIC){nhrp_rout
+e_update_nhrp(&pfx,c->ifp);c->nhrp_route_installed=1;}elseif(c->nhrp_route_insta
+lled){nhrp_route_update_nhrp(&pfx,NULL);c->nhrp_route_installed=0;}if(!c->route_
+installed){notifier_call(&c->notifier_list,NOTIFY_CACHE_UP);c->route_installed=1
+;}}else{if(c->nhrp_route_installed){nhrp_route_update_nhrp(&pfx,NULL);c->nhrp_ro
+ute_installed=0;}if(c->route_installed){sockunion2hostprefix(&c->remote_addr,&pf
+x);notifier_call(&c->notifier_list,NOTIFY_CACHE_DOWN);nhrp_route_announce(0,c->c
+ur.type,&pfx,NULL,NULL,0);c->route_installed=0;}}}staticvoidnhrp_cache_peer_noti
+fier(structnotifier_block*n,unsignedlongcmd){structnhrp_cache*c=container_of(n,s
+tructnhrp_cache,peer_notifier);switch(cmd){caseNOTIFY_PEER_UP:nhrp_cache_update_
+route(c);break;caseNOTIFY_PEER_DOWN:caseNOTIFY_PEER_IFCONFIG_CHANGED:notifier_ca
+ll(&c->notifier_list,NOTIFY_CACHE_DOWN);nhrp_cache_update_binding(c,c->cur.type,
+-1,NULL,0,NULL);break;caseNOTIFY_PEER_NBMA_CHANGING:if(c->cur.type==NHRP_CACHE_D
+YNAMIC)c->cur.peer->vc->abort_migration=1;break;}}staticvoidnhrp_cache_reset_new
+(structnhrp_cache*c){THREAD_OFF(c->t_auth);if(list_hashed(&c->newpeer_notifier.n
+otifier_entry))nhrp_peer_notify_del(c->new.peer,&c->newpeer_notifier);nhrp_peer_
+unref(c->new.peer);memset(&c->new,0,sizeof(c->new));c->new.type=NHRP_CACHE_INVAL
+ID;}staticvoidnhrp_cache_update_timers(structnhrp_cache*c){THREAD_OFF(c->t_timeo
+ut);switch(c->cur.type){caseNHRP_CACHE_INVALID:if(!c->t_auth)thread_add_timer_ms
+ec(master,nhrp_cache_do_free,c,10,&c->t_timeout);break;default:if(c->cur.expires
+)thread_add_timer(master,nhrp_cache_do_timeout,c,c->cur.expires-monotime(NULL),&
+c->t_timeout);break;}}staticvoidnhrp_cache_authorize_binding(structnhrp_reqid*r,
+void*arg){structnhrp_cache*c=container_of(r,structnhrp_cache,eventid);charbuf[SU
+_ADDRSTRLEN];debugf(NHRP_DEBUG_COMMON,"cache:%s%s:%s",c->ifp->name,sockunion2str
+(&c->remote_addr,buf,sizeofbuf),(constchar*)arg);nhrp_reqid_free(&nhrp_event_req
+id,r);if(arg&&strcmp(arg,"accept")==0){if(c->cur.peer){netlink_update_binding(c-
+>cur.peer->ifp,&c->remote_addr,NULL);nhrp_peer_notify_del(c->cur.peer,&c->peer_n
+otifier);nhrp_peer_unref(c->cur.peer);}nhrp_cache_counts[c->cur.type]--;nhrp_cac
+he_counts[c->new.type]++;c->cur=c->new;c->cur.peer=nhrp_peer_ref(c->cur.peer);nh
+rp_cache_reset_new(c);if(c->cur.peer)nhrp_peer_notify_add(c->cur.peer,&c->peer_n
+otifier,nhrp_cache_peer_notifier);nhrp_cache_update_route(c);notifier_call(&c->n
+otifier_list,NOTIFY_CACHE_BINDING_CHANGE);}else{nhrp_cache_reset_new(c);}nhrp_ca
+che_update_timers(c);}staticintnhrp_cache_do_auth_timeout(structthread*t){struct
+nhrp_cache*c=THREAD_ARG(t);c->t_auth=NULL;nhrp_cache_authorize_binding(&c->event
+id,(void*)"timeout");return0;}staticvoidnhrp_cache_newpeer_notifier(structnotifi
+er_block*n,unsignedlongcmd){structnhrp_cache*c=container_of(n,structnhrp_cache,n
+ewpeer_notifier);switch(cmd){caseNOTIFY_PEER_UP:if(nhrp_peer_check(c->new.peer,1
+)){evmgr_notify("authorize-binding",c,nhrp_cache_authorize_binding);thread_add_t
+imer(master,nhrp_cache_do_auth_timeout,c,10,&c->t_auth);}break;caseNOTIFY_PEER_D
+OWN:caseNOTIFY_PEER_IFCONFIG_CHANGED:nhrp_cache_reset_new(c);break;}}intnhrp_cac
+he_update_binding(structnhrp_cache*c,enumnhrp_cache_typetype,intholding_time,str
+uctnhrp_peer*p,uint32_tmtu,unionsockunion*nbma_oa){if(c->cur.type>type||c->new.t
+ype>type){nhrp_peer_unref(p);return0;}/*SanitizeMTU*/switch(sockunion_family(&c-
+>remote_addr)){caseAF_INET:if(mtu<576||mtu>=1500)mtu=0;/*Opennhrpannouncesnbmamt
+u,butweuseprotocolmtu.*Thisheuristictriestofixupit.*/if(mtu>1420)mtu=(mtu&-16)-8
+0;break;default:mtu=0;break;}nhrp_cache_reset_new(c);if(c->cur.type==type&&c->cu
+r.peer==p&&c->cur.mtu==mtu){if(holding_time>0)c->cur.expires=monotime(NULL)+hold
+ing_time;if(nbma_oa)c->cur.remote_nbma_natoa=*nbma_oa;elsememset(&c->cur.remote_
+nbma_natoa,0,sizeofc->cur.remote_nbma_natoa);nhrp_peer_unref(p);}else{c->new.typ
+e=type;c->new.peer=p;c->new.mtu=mtu;if(nbma_oa)c->new.remote_nbma_natoa=*nbma_oa
+;if(holding_time>0)c->new.expires=monotime(NULL)+holding_time;elseif(holding_tim
+e<0)nhrp_cache_reset_new(c);if(c->new.type==NHRP_CACHE_INVALID||c->new.type>=NHR
+P_CACHE_STATIC||c->map){nhrp_cache_authorize_binding(&c->eventid,(void*)"accept"
+);}else{nhrp_peer_notify_add(c->new.peer,&c->newpeer_notifier,nhrp_cache_newpeer
+_notifier);nhrp_cache_newpeer_notifier(&c->newpeer_notifier,NOTIFY_PEER_UP);thre
+ad_add_timer(master,nhrp_cache_do_auth_timeout,c,60,&c->t_auth);}}nhrp_cache_upd
+ate_timers(c);return1;}voidnhrp_cache_set_used(structnhrp_cache*c,intused){c->us
+ed=used;if(c->used)notifier_call(&c->notifier_list,NOTIFY_CACHE_USED);}structnhr
+p_cache_iterator_ctx{void(*cb)(structnhrp_cache*,void*);void*ctx;};staticvoidnhr
+p_cache_iterator(structhash_backet*b,void*ctx){structnhrp_cache_iterator_ctx*ic=
+ctx;ic->cb(b->data,ic->ctx);}voidnhrp_cache_foreach(structinterface*ifp,void(*cb
+)(structnhrp_cache*,void*),void*ctx){structnhrp_interface*nifp=ifp->info;structn
+hrp_cache_iterator_ctxic={.cb=cb,.ctx=ctx,};if(nifp->cache_hash)hash_iterate(nif
+p->cache_hash,nhrp_cache_iterator,&ic);}voidnhrp_cache_notify_add(structnhrp_cac
+he*c,structnotifier_block*n,notifier_fn_tfn){notifier_add(n,&c->notifier_list,fn
+);}voidnhrp_cache_notify_del(structnhrp_cache*c,structnotifier_block*n){notifier
+_del(n);}

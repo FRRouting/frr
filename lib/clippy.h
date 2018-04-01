@@ -1,28 +1,11 @@
-/*
- * clippy (CLI preparator in python)
- * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _FRR_CLIPPY_H
-#define _FRR_CLIPPY_H
-
-#include <Python.h>
-
-extern PyObject *clippy_parse(PyObject *self, PyObject *args);
-extern PyMODINIT_FUNC command_py_init(void);
-
-#endif /* _FRR_CLIPPY_H */
+/**clippy(CLIpreparatorinpython)*Copyright(C)2016-2017DavidLamparterforNetDEF,In
+c.**Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsof
+theGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;eitherversion2
+oftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistributedinthehop
+ethatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHA
+NTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*morede
+tails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprog
+ram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,
+FifthFloor,Boston,MA02110-1301USA*/#ifndef_FRR_CLIPPY_H#define_FRR_CLIPPY_H#incl
+ude<Python.h>externPyObject*clippy_parse(PyObject*self,PyObject*args);externPyMO
+DINIT_FUNCcommand_py_init(void);#endif/*_FRR_CLIPPY_H*/

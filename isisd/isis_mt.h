@@ -1,119 +1,43 @@
-/*
- * IS-IS Rout(e)ing protocol - Multi Topology Support
- *
- * Copyright (C) 2017 Christian Franke
- *
- * This file is part of FreeRangeRouting (FRR)
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#ifndef ISIS_MT_H
-#define ISIS_MT_H
-
-#define ISIS_MT_MASK           0x0fff
-#define ISIS_MT_OL_MASK        0x8000
-#define ISIS_MT_AT_MASK        0x4000
-
-#define ISIS_MT_IPV4_UNICAST   0
-#define ISIS_MT_IPV4_MGMT      1
-#define ISIS_MT_IPV6_UNICAST   2
-#define ISIS_MT_IPV4_MULTICAST 3
-#define ISIS_MT_IPV6_MULTICAST 4
-#define ISIS_MT_IPV6_MGMT      5
-
-#define ISIS_MT_NAMES                                                          \
-	"<ipv4-unicast"                                                        \
-	"|ipv4-mgmt"                                                           \
-	"|ipv6-unicast"                                                        \
-	"|ipv4-multicast"                                                      \
-	"|ipv6-multicast"                                                      \
-	"|ipv6-mgmt"                                                           \
-	">"
-
-#define ISIS_MT_DESCRIPTIONS                                                   \
-	"IPv4 unicast topology\n"                                              \
-	"IPv4 management topology\n"                                           \
-	"IPv6 unicast topology\n"                                              \
-	"IPv4 multicast topology\n"                                            \
-	"IPv6 multicast topology\n"                                            \
-	"IPv6 management topology\n"
-
-#define ISIS_MT_INFO_FIELDS uint16_t mtid;
-
-struct list;
-
-struct isis_area_mt_setting {
-	ISIS_MT_INFO_FIELDS
-	bool enabled;
-	bool overload;
-};
-
-struct isis_circuit_mt_setting {
-	ISIS_MT_INFO_FIELDS
-	bool enabled;
-};
-
-const char *isis_mtid2str(uint16_t mtid);
-uint16_t isis_str2mtid(const char *name);
-
-struct isis_adjacency;
-struct isis_area;
-struct isis_circuit;
-struct tlvs;
-struct te_is_neigh;
-struct isis_tlvs;
-
-uint16_t isis_area_ipv6_topology(struct isis_area *area);
-
-struct isis_area_mt_setting *area_lookup_mt_setting(struct isis_area *area,
-						    uint16_t mtid);
-struct isis_area_mt_setting *area_new_mt_setting(struct isis_area *area,
-						 uint16_t mtid);
-void area_add_mt_setting(struct isis_area *area,
-			 struct isis_area_mt_setting *setting);
-
-void area_mt_init(struct isis_area *area);
-void area_mt_finish(struct isis_area *area);
-struct isis_area_mt_setting *area_get_mt_setting(struct isis_area *area,
-						 uint16_t mtid);
-int area_write_mt_settings(struct isis_area *area, struct vty *vty);
-bool area_is_mt(struct isis_area *area);
-struct isis_area_mt_setting **area_mt_settings(struct isis_area *area,
-					       unsigned int *mt_count);
-
-struct isis_circuit_mt_setting *
-circuit_lookup_mt_setting(struct isis_circuit *circuit, uint16_t mtid);
-struct isis_circuit_mt_setting *
-circuit_new_mt_setting(struct isis_circuit *circuit, uint16_t mtid);
-void circuit_add_mt_setting(struct isis_circuit *circuit,
-			    struct isis_circuit_mt_setting *setting);
-void circuit_mt_init(struct isis_circuit *circuit);
-void circuit_mt_finish(struct isis_circuit *circuit);
-struct isis_circuit_mt_setting *
-circuit_get_mt_setting(struct isis_circuit *circuit, uint16_t mtid);
-int circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty);
-struct isis_circuit_mt_setting **
-circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count);
-bool tlvs_to_adj_mt_set(struct isis_tlvs *tlvs, bool v4_usable, bool v6_usable,
-			struct isis_adjacency *adj);
-bool adj_has_mt(struct isis_adjacency *adj, uint16_t mtid);
-void adj_mt_finish(struct isis_adjacency *adj);
-void tlvs_add_mt_bcast(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
-		       int level, uint8_t *id, uint32_t metric,
-		       uint8_t *subtlvs, uint8_t subtlv_len);
-void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
-		     uint8_t *id, uint32_t metric, uint8_t *subtlvs,
-		     uint8_t subtlv_len);
-#endif
+/**IS-ISRout(e)ingprotocol-MultiTopologySupport**Copyright(C)2017ChristianFranke
+**ThisfileispartofFreeRangeRouting(FRR)**FRRisfreesoftware;youcanredistributeita
+nd/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoft
+wareFoundation;eitherversion2,or(atyouroption)any*laterversion.**FRRisdistribute
+dinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrant
+yof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicense
+formoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*wit
+hthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51Fr
+anklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndefISIS_MT_H#defineISIS_MT_H#def
+ineISIS_MT_MASK0x0fff#defineISIS_MT_OL_MASK0x8000#defineISIS_MT_AT_MASK0x4000#de
+fineISIS_MT_IPV4_UNICAST0#defineISIS_MT_IPV4_MGMT1#defineISIS_MT_IPV6_UNICAST2#d
+efineISIS_MT_IPV4_MULTICAST3#defineISIS_MT_IPV6_MULTICAST4#defineISIS_MT_IPV6_MG
+MT5#defineISIS_MT_NAMES\"<ipv4-unicast"\"|ipv4-mgmt"\"|ipv6-unicast"\"|ipv4-mult
+icast"\"|ipv6-multicast"\"|ipv6-mgmt"\">"#defineISIS_MT_DESCRIPTIONS\"IPv4unicas
+ttopology\n"\"IPv4managementtopology\n"\"IPv6unicasttopology\n"\"IPv4multicastto
+pology\n"\"IPv6multicasttopology\n"\"IPv6managementtopology\n"#defineISIS_MT_INF
+O_FIELDSuint16_tmtid;structlist;structisis_area_mt_setting{ISIS_MT_INFO_FIELDSbo
+olenabled;booloverload;};structisis_circuit_mt_setting{ISIS_MT_INFO_FIELDSboolen
+abled;};constchar*isis_mtid2str(uint16_tmtid);uint16_tisis_str2mtid(constchar*na
+me);structisis_adjacency;structisis_area;structisis_circuit;structtlvs;structte_
+is_neigh;structisis_tlvs;uint16_tisis_area_ipv6_topology(structisis_area*area);s
+tructisis_area_mt_setting*area_lookup_mt_setting(structisis_area*area,uint16_tmt
+id);structisis_area_mt_setting*area_new_mt_setting(structisis_area*area,uint16_t
+mtid);voidarea_add_mt_setting(structisis_area*area,structisis_area_mt_setting*se
+tting);voidarea_mt_init(structisis_area*area);voidarea_mt_finish(structisis_area
+*area);structisis_area_mt_setting*area_get_mt_setting(structisis_area*area,uint1
+6_tmtid);intarea_write_mt_settings(structisis_area*area,structvty*vty);boolarea_
+is_mt(structisis_area*area);structisis_area_mt_setting**area_mt_settings(structi
+sis_area*area,unsignedint*mt_count);structisis_circuit_mt_setting*circuit_lookup
+_mt_setting(structisis_circuit*circuit,uint16_tmtid);structisis_circuit_mt_setti
+ng*circuit_new_mt_setting(structisis_circuit*circuit,uint16_tmtid);voidcircuit_a
+dd_mt_setting(structisis_circuit*circuit,structisis_circuit_mt_setting*setting);
+voidcircuit_mt_init(structisis_circuit*circuit);voidcircuit_mt_finish(structisis
+_circuit*circuit);structisis_circuit_mt_setting*circuit_get_mt_setting(structisi
+s_circuit*circuit,uint16_tmtid);intcircuit_write_mt_settings(structisis_circuit*
+circuit,structvty*vty);structisis_circuit_mt_setting**circuit_mt_settings(struct
+isis_circuit*circuit,unsignedint*mt_count);booltlvs_to_adj_mt_set(structisis_tlv
+s*tlvs,boolv4_usable,boolv6_usable,structisis_adjacency*adj);booladj_has_mt(stru
+ctisis_adjacency*adj,uint16_tmtid);voidadj_mt_finish(structisis_adjacency*adj);v
+oidtlvs_add_mt_bcast(structisis_tlvs*tlvs,structisis_circuit*circuit,intlevel,ui
+nt8_t*id,uint32_tmetric,uint8_t*subtlvs,uint8_tsubtlv_len);voidtlvs_add_mt_p2p(s
+tructisis_tlvs*tlvs,structisis_circuit*circuit,uint8_t*id,uint32_tmetric,uint8_t
+*subtlvs,uint8_tsubtlv_len);#endif

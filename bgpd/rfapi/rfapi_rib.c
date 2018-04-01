@@ -1,2495 +1,594 @@
-/*
- *
- * Copyright 2009-2016, LabN Consulting, L.L.C.
- *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/*
- * File:	rfapi_rib.c
- * Purpose:	maintain per-nve ribs and generate change lists
- */
-
-#include <errno.h>
-
-#include "lib/zebra.h"
-#include "lib/prefix.h"
-#include "lib/table.h"
-#include "lib/vty.h"
-#include "lib/memory.h"
-#include "lib/log.h"
-#include "lib/skiplist.h"
-#include "lib/workqueue.h"
-
-#include "bgpd/bgpd.h"
-#include "bgpd/bgp_route.h"
-#include "bgpd/bgp_ecommunity.h"
-#include "bgpd/bgp_mplsvpn.h"
-#include "bgpd/bgp_vnc_types.h"
-
-#include "bgpd/rfapi/rfapi.h"
-#include "bgpd/rfapi/bgp_rfapi_cfg.h"
-#include "bgpd/rfapi/rfapi_import.h"
-#include "bgpd/rfapi/rfapi_private.h"
-#include "bgpd/rfapi/rfapi_vty.h"
-#include "bgpd/rfapi/vnc_import_bgp.h"
-#include "bgpd/rfapi/rfapi_rib.h"
-#include "bgpd/rfapi/rfapi_monitor.h"
-#include "bgpd/rfapi/rfapi_encap_tlv.h"
-#include "bgpd/rfapi/vnc_debug.h"
-
-#define DEBUG_PROCESS_PENDING_NODE	0
-#define DEBUG_PENDING_DELETE_ROUTE	0
-#define DEBUG_NHL			0
-#define DEBUG_RIB_SL_RD                 0
-
-/* forward decl */
-#if DEBUG_NHL
-static void rfapiRibShowRibSl(void *stream, struct prefix *pfx,
-			      struct skiplist *sl);
-#endif
-
-/*
- * RIB
- * ---
- * Model of the set of routes currently in the NVE's RIB.
- *
- * node->info		ptr to "struct skiplist".
- *			MUST be NULL if there are no routes.
- *			key = ptr to struct prefix {vn}
- *			val = ptr to struct rfapi_info
- *			skiplist.del = NULL
- *			skiplist.cmp = vnc_prefix_cmp
- *
- * node->aggregate	ptr to "struct skiplist".
- *			key = ptr to struct prefix {vn}
- *			val = ptr to struct rfapi_info
- *			skiplist.del = rfapi_info_free
- *			skiplist.cmp = vnc_prefix_cmp
- *
- *			This skiplist at "aggregate"
- *			contains the routes recently
- *			deleted
- *
- *
- * Pending RIB
- * -----------
- * Sparse list of prefixes that need to be updated. Each node
- * will have the complete set of routes for the prefix.
- *
- * node->info		ptr to "struct list" (lib/linklist.h)
- *			"Cost List"
- *			List of routes sorted lowest cost first.
- *			This list is how the new complete set
- *			of routes should look.
- *			Set if there are updates to the prefix;
- *			MUST be NULL if there are no updates.
- *
- *			.data = ptr to struct rfapi_info
- *			list.cmp = NULL (sorted manually)
- *			list.del = rfapi_info_free
- *
- *			Special case: if node->info is 1, it means
- *			"delete all routes at this prefix".
- *
- * node->aggregate	ptr to struct skiplist
- *			key = ptr to struct prefix {vn} (part of ri)
- *			val =  struct rfapi_info
- *			skiplist.cmp = vnc_prefix_cmp
- *			skiplist.del = NULL
- *
- *			ptlist is rewritten anew each time
- *			rfapiRibUpdatePendingNode() is called
- *
- *			THE ptlist VALUES ARE REFERENCES TO THE
- *			rfapi_info STRUCTS IN THE node->info LIST.
- */
-
-/*
- * iterate over RIB to count responses, compare with running counters
- */
-void rfapiRibCheckCounts(
-	int checkstats,      /* validate rfd & global counts */
-	unsigned int offset) /* number of ri's held separately */
-{
-	struct rfapi_descriptor *rfd;
-	struct listnode *node;
-
-	struct bgp *bgp = bgp_get_default();
-
-	uint32_t t_pfx_active = 0;
-	uint32_t t_pfx_deleted = 0;
-
-	uint32_t t_ri_active = 0;
-	uint32_t t_ri_deleted = 0;
-	uint32_t t_ri_pend = 0;
-
-	unsigned int alloc_count;
-
-	/*
-	 * loop over NVEs
-	 */
-	for (ALL_LIST_ELEMENTS_RO(&bgp->rfapi->descriptors, node, rfd)) {
-
-		afi_t afi;
-		uint32_t pfx_active = 0;
-		uint32_t pfx_deleted = 0;
-
-		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-
-			struct route_node *rn;
-
-			for (rn = route_top(rfd->rib[afi]); rn;
-			     rn = route_next(rn)) {
-
-				struct skiplist *sl = rn->info;
-				struct skiplist *dsl = rn->aggregate;
-				uint32_t ri_active = 0;
-				uint32_t ri_deleted = 0;
-
-				if (sl) {
-					ri_active = skiplist_count(sl);
-					assert(ri_active);
-					t_ri_active += ri_active;
-					++pfx_active;
-					++t_pfx_active;
-				}
-
-				if (dsl) {
-					ri_deleted = skiplist_count(dsl);
-					t_ri_deleted += ri_deleted;
-					++pfx_deleted;
-					++t_pfx_deleted;
-				}
-			}
-			for (rn = route_top(rfd->rib_pending[afi]); rn;
-			     rn = route_next(rn)) {
-
-				struct list *l = rn->info; /* sorted by cost */
-				struct skiplist *sl = rn->aggregate;
-				uint32_t ri_pend_cost = 0;
-				uint32_t ri_pend_uniq = 0;
-
-				if (sl) {
-					ri_pend_uniq = skiplist_count(sl);
-				}
-
-				if (l && (l != (void *)1)) {
-					ri_pend_cost = l->count;
-					t_ri_pend += l->count;
-				}
-
-				assert(ri_pend_uniq == ri_pend_cost);
-			}
-		}
-
-		if (checkstats) {
-			if (pfx_active != rfd->rib_prefix_count) {
-				vnc_zlog_debug_verbose(
-					"%s: rfd %p actual pfx count %u != running %u",
-					__func__, rfd, pfx_active,
-					rfd->rib_prefix_count);
-				assert(0);
-			}
-		}
-	}
-
-	if (checkstats && bgp->rfapi) {
-		if (t_pfx_active != bgp->rfapi->rib_prefix_count_total) {
-			vnc_zlog_debug_verbose(
-				"%s: actual total pfx count %u != running %u",
-				__func__, t_pfx_active,
-				bgp->rfapi->rib_prefix_count_total);
-			assert(0);
-		}
-	}
-
-	/*
-	 * Check against memory allocation count
-	 */
-	alloc_count = mtype_stats_alloc(MTYPE_RFAPI_INFO);
-	assert(t_ri_active + t_ri_deleted + t_ri_pend + offset == alloc_count);
-}
-
-static struct rfapi_info *rfapi_info_new()
-{
-	return XCALLOC(MTYPE_RFAPI_INFO, sizeof(struct rfapi_info));
-}
-
-void rfapiFreeRfapiUnOptionChain(struct rfapi_un_option *p)
-{
-	while (p) {
-		struct rfapi_un_option *next;
-
-		next = p->next;
-		XFREE(MTYPE_RFAPI_UN_OPTION, p);
-		p = next;
-	}
-}
-
-void rfapiFreeRfapiVnOptionChain(struct rfapi_vn_option *p)
-{
-	while (p) {
-		struct rfapi_vn_option *next;
-
-		next = p->next;
-		XFREE(MTYPE_RFAPI_VN_OPTION, p);
-		p = next;
-	}
-}
-
-
-static void rfapi_info_free(struct rfapi_info *goner)
-{
-	if (goner) {
-		if (goner->tea_options) {
-			rfapiFreeBgpTeaOptionChain(goner->tea_options);
-			goner->tea_options = NULL;
-		}
-		if (goner->un_options) {
-			rfapiFreeRfapiUnOptionChain(goner->un_options);
-			goner->un_options = NULL;
-		}
-		if (goner->vn_options) {
-			rfapiFreeRfapiVnOptionChain(goner->vn_options);
-			goner->vn_options = NULL;
-		}
-		if (goner->timer) {
-			struct rfapi_rib_tcb *tcb;
-
-			tcb = ((struct thread *)goner->timer)->arg;
-			thread_cancel((struct thread *)goner->timer);
-			XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
-			goner->timer = NULL;
-		}
-		XFREE(MTYPE_RFAPI_INFO, goner);
-	}
-}
-
-/*
- * Timer control block for recently-deleted and expired routes
- */
-struct rfapi_rib_tcb {
-	struct rfapi_descriptor *rfd;
-	struct skiplist *sl;
-	struct rfapi_info *ri;
-	struct route_node *rn;
-	int flags;
-#define RFAPI_RIB_TCB_FLAG_DELETED	0x00000001
-};
-
-/*
- * remove route from rib
- */
-static int rfapiRibExpireTimer(struct thread *t)
-{
-	struct rfapi_rib_tcb *tcb = t->arg;
-
-	RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-	/*
-	 * Forget reference to thread. Otherwise rfapi_info_free() will
-	 * attempt to free thread pointer as an option chain
-	 */
-	tcb->ri->timer = NULL;
-
-	/* "deleted" skiplist frees ri, "active" doesn't */
-	assert(!skiplist_delete(tcb->sl, &tcb->ri->rk, NULL));
-	if (!tcb->sl->del) {
-		/*
-		 * XXX in this case, skiplist has no delete function: we must
-		 * therefore delete rfapi_info explicitly.
-		 */
-		rfapi_info_free(tcb->ri);
-	}
-
-	if (skiplist_empty(tcb->sl)) {
-		if (CHECK_FLAG(tcb->flags, RFAPI_RIB_TCB_FLAG_DELETED))
-			tcb->rn->aggregate = NULL;
-		else {
-			struct bgp *bgp = bgp_get_default();
-			tcb->rn->info = NULL;
-			RFAPI_RIB_PREFIX_COUNT_DECR(tcb->rfd, bgp->rfapi);
-		}
-		skiplist_free(tcb->sl);
-		route_unlock_node(tcb->rn);
-	}
-
-	XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
-
-	RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-	return 0;
-}
-
-static void
-rfapiRibStartTimer(struct rfapi_descriptor *rfd, struct rfapi_info *ri,
-		   struct route_node *rn, /* route node attached to */
-		   int deleted)
-{
-	struct thread *t = ri->timer;
-	struct rfapi_rib_tcb *tcb = NULL;
-	char buf_prefix[PREFIX_STRLEN];
-
-	if (t) {
-		tcb = t->arg;
-		thread_cancel(t);
-		ri->timer = NULL;
-	} else {
-		tcb = XCALLOC(MTYPE_RFAPI_RECENT_DELETE,
-			      sizeof(struct rfapi_rib_tcb));
-	}
-	tcb->rfd = rfd;
-	tcb->ri = ri;
-	tcb->rn = rn;
-	if (deleted) {
-		tcb->sl = (struct skiplist *)rn->aggregate;
-		SET_FLAG(tcb->flags, RFAPI_RIB_TCB_FLAG_DELETED);
-	} else {
-		tcb->sl = (struct skiplist *)rn->info;
-		UNSET_FLAG(tcb->flags, RFAPI_RIB_TCB_FLAG_DELETED);
-	}
-
-	prefix2str(&rn->p, buf_prefix, sizeof(buf_prefix));
-	vnc_zlog_debug_verbose("%s: rfd %p pfx %s life %u", __func__, rfd,
-			       buf_prefix, ri->lifetime);
-	ri->timer = NULL;
-	thread_add_timer(bm->master, rfapiRibExpireTimer, tcb, ri->lifetime,
-			 &ri->timer);
-	assert(ri->timer);
-}
-
-extern void rfapi_rib_key_init(struct prefix *prefix, /* may be NULL */
-			       struct prefix_rd *rd,  /* may be NULL */
-			       struct prefix *aux,    /* may be NULL */
-			       struct rfapi_rib_key *rk)
-
-{
-	memset((void *)rk, 0, sizeof(struct rfapi_rib_key));
-	if (prefix)
-		rk->vn = *prefix;
-	if (rd)
-		rk->rd = *rd;
-	if (aux)
-		rk->aux_prefix = *aux;
-}
-
-/*
- * Compares two <struct rfapi_rib_key>s
- */
-int rfapi_rib_key_cmp(void *k1, void *k2)
-{
-	struct rfapi_rib_key *a = (struct rfapi_rib_key *)k1;
-	struct rfapi_rib_key *b = (struct rfapi_rib_key *)k2;
-	int ret;
-
-	if (!a || !b)
-		return (a - b);
-
-	ret = vnc_prefix_cmp(&a->vn, &b->vn);
-	if (ret)
-		return ret;
-
-	ret = vnc_prefix_cmp(&a->rd, &b->rd);
-	if (ret)
-		return ret;
-
-	ret = vnc_prefix_cmp(&a->aux_prefix, &b->aux_prefix);
-
-	return ret;
-}
-
-
-/*
- * Note: this function will claim that two option chains are
- * different unless their option items are in identical order.
- * The consequence is that RFP updated responses can be sent
- * unnecessarily, or that they might contain nexthop items
- * that are not strictly needed.
- *
- * This function could be modified to compare option chains more
- * thoroughly, but it's not clear that the extra compuation would
- * be worth it.
- */
-static int bgp_tea_options_cmp(struct bgp_tea_options *a,
-			       struct bgp_tea_options *b)
-{
-	int rc;
-
-	if (!a || !b) {
-		return (a - b);
-	}
-
-	if (a->type != b->type)
-		return (a->type - b->type);
-	if (a->length != b->length)
-		return (a->length = b->length);
-	if ((rc = memcmp(a->value, b->value, a->length)))
-		return rc;
-	if (!a->next != !b->next) { /* logical xor */
-		return (a->next - b->next);
-	}
-	if (a->next)
-		return bgp_tea_options_cmp(a->next, b->next);
-	return 0;
-}
-
-static int rfapi_info_cmp(struct rfapi_info *a, struct rfapi_info *b)
-{
-	int rc;
-
-	if (!a || !b)
-		return (a - b);
-
-	if ((rc = rfapi_rib_key_cmp(&a->rk, &b->rk)))
-		return rc;
-
-	if ((rc = vnc_prefix_cmp(&a->un, &b->un)))
-		return rc;
-
-	if (a->cost != b->cost)
-		return (a->cost - b->cost);
-
-	if (a->lifetime != b->lifetime)
-		return (a->lifetime - b->lifetime);
-
-	if ((rc = bgp_tea_options_cmp(a->tea_options, b->tea_options)))
-		return rc;
-
-	return 0;
-}
-
-void rfapiRibClear(struct rfapi_descriptor *rfd)
-{
-	struct bgp *bgp;
-	afi_t afi;
-
-	if (rfd->bgp)
-		bgp = rfd->bgp;
-	else
-		bgp = bgp_get_default();
-#if DEBUG_L2_EXTRA
-	vnc_zlog_debug_verbose("%s: rfd=%p", __func__, rfd);
-#endif
-
-	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-		struct route_node *pn;
-		struct route_node *rn;
-
-		if (rfd->rib_pending[afi]) {
-			for (pn = route_top(rfd->rib_pending[afi]); pn;
-			     pn = route_next(pn)) {
-				if (pn->aggregate) {
-					/*
-					 * free references into the rfapi_info
-					 * structures before
-					 * freeing the structures themselves
-					 */
-					skiplist_free(
-						(struct skiplist
-							 *)(pn->aggregate));
-					pn->aggregate = NULL;
-					route_unlock_node(
-						pn); /* skiplist deleted */
-				}
-				/*
-				 * free the rfapi_info structures
-				 */
-				if (pn->info) {
-					if (pn->info != (void *)1) {
-						list_delete_and_null(
-							(struct list *
-								 *)(&pn->info));
-					}
-					pn->info = NULL;
-					/* linklist or 1 deleted */
-					route_unlock_node(pn);
-				}
-			}
-		}
-		if (rfd->rib[afi]) {
-			for (rn = route_top(rfd->rib[afi]); rn;
-			     rn = route_next(rn)) {
-				if (rn->info) {
-
-					struct rfapi_info *ri;
-
-					while (0 == skiplist_first(
-							    (struct skiplist *)
-								    rn->info,
-							    NULL,
-							    (void **)&ri)) {
-
-						rfapi_info_free(ri);
-						skiplist_delete_first(
-							(struct skiplist *)
-								rn->info);
-					}
-					skiplist_free(
-						(struct skiplist *)rn->info);
-					rn->info = NULL;
-					route_unlock_node(rn);
-					RFAPI_RIB_PREFIX_COUNT_DECR(rfd,
-								    bgp->rfapi);
-				}
-				if (rn->aggregate) {
-
-					struct rfapi_info *ri_del;
-
-					/* delete skiplist & contents */
-					while (!skiplist_first(
-						(struct skiplist
-							 *)(rn->aggregate),
-						NULL, (void **)&ri_del)) {
-
-						/* sl->del takes care of ri_del
-						 */
-						skiplist_delete_first((
-							struct skiplist
-								*)(rn->aggregate));
-					}
-					skiplist_free(
-						(struct skiplist
-							 *)(rn->aggregate));
-
-					rn->aggregate = NULL;
-					route_unlock_node(rn);
-				}
-			}
-		}
-	}
-	if (rfd->updated_responses_queue)
-		work_queue_free_and_null(&rfd->updated_responses_queue);
-}
-
-/*
- * Release all dynamically-allocated memory that is part of an HD's RIB
- */
-void rfapiRibFree(struct rfapi_descriptor *rfd)
-{
-	afi_t afi;
-
-
-	/*
-	 * NB rfd is typically detached from master list, so is not included
-	 * in the count performed by RFAPI_RIB_CHECK_COUNTS
-	 */
-
-	/*
-	 * Free routes attached to radix trees
-	 */
-	rfapiRibClear(rfd);
-
-	/* Now the uncounted rfapi_info's are freed, so the check should succeed
-	 */
-	RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-	/*
-	 * Free radix trees
-	 */
-	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-		route_table_finish(rfd->rib_pending[afi]);
-		rfd->rib_pending[afi] = NULL;
-
-		route_table_finish(rfd->rib[afi]);
-		rfd->rib[afi] = NULL;
-
-		/* NB route_table_finish frees only prefix nodes, not chained
-		 * info */
-		route_table_finish(rfd->rsp_times[afi]);
-		rfd->rib[afi] = NULL;
-	}
-}
-
-/*
- * Copies struct bgp_info to struct rfapi_info, except for rk fields and un
- */
-static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
-			  uint32_t lifetime)
-{
-	struct bgp_attr_encap_subtlv *pEncap;
-
-	ri->cost = rfapiRfpCost(bi->attr);
-	ri->lifetime = lifetime;
-
-	/* This loop based on rfapiRouteInfo2NextHopEntry() */
-	for (pEncap = bi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next) {
-		struct bgp_tea_options *hop;
-
-		switch (pEncap->type) {
-		case BGP_VNC_SUBTLV_TYPE_LIFETIME:
-			/* use configured lifetime, not attr lifetime */
-			break;
-
-		case BGP_VNC_SUBTLV_TYPE_RFPOPTION:
-			hop = XCALLOC(MTYPE_BGP_TEA_OPTIONS,
-				      sizeof(struct bgp_tea_options));
-			assert(hop);
-			hop->type = pEncap->value[0];
-			hop->length = pEncap->value[1];
-			hop->value = XCALLOC(MTYPE_BGP_TEA_OPTIONS_VALUE,
-					     pEncap->length - 2);
-			assert(hop->value);
-			memcpy(hop->value, pEncap->value + 2,
-			       pEncap->length - 2);
-			if (hop->length > pEncap->length - 2) {
-				zlog_warn(
-					"%s: VNC subtlv length mismatch: "
-					"RFP option says %d, attr says %d "
-					"(shrinking)",
-					__func__, hop->length,
-					pEncap->length - 2);
-				hop->length = pEncap->length - 2;
-			}
-			hop->next = ri->tea_options;
-			ri->tea_options = hop;
-			break;
-
-		default:
-			break;
-		}
-	}
-
-	rfapi_un_options_free(ri->un_options); /* maybe free old version */
-	ri->un_options = rfapi_encap_tlv_to_un_option(bi->attr);
-
-	/*
-	 * VN options
-	 */
-	if (bi->extra
-	    && decode_rd_type(bi->extra->vnc.import.rd.val)
-		       == RD_TYPE_VNC_ETH) {
-		/* ethernet route */
-
-		struct rfapi_vn_option *vo;
-
-		vo = XCALLOC(MTYPE_RFAPI_VN_OPTION,
-			     sizeof(struct rfapi_vn_option));
-		assert(vo);
-
-		vo->type = RFAPI_VN_OPTION_TYPE_L2ADDR;
-
-		/* copy from RD already stored in bi, so we don't need it_node
-		 */
-		memcpy(&vo->v.l2addr.macaddr, bi->extra->vnc.import.rd.val + 2,
-		       ETH_ALEN);
-
-		(void)rfapiEcommunityGetLNI(bi->attr->ecommunity,
-					    &vo->v.l2addr.logical_net_id);
-		(void)rfapiEcommunityGetEthernetTag(bi->attr->ecommunity,
-						    &vo->v.l2addr.tag_id);
-
-		/* local_nve_id comes from RD */
-		vo->v.l2addr.local_nve_id = bi->extra->vnc.import.rd.val[1];
-
-		/* label comes from MP_REACH_NLRI label */
-		vo->v.l2addr.label = decode_label(&bi->extra->label[0]);
-
-		rfapi_vn_options_free(
-			ri->vn_options); /* maybe free old version */
-		ri->vn_options = vo;
-	}
-
-	/*
-	 * If there is an auxiliary IP address (L2 can have it), copy it
-	 */
-	if (bi->extra && bi->extra->vnc.import.aux_prefix.family) {
-		ri->rk.aux_prefix = bi->extra->vnc.import.aux_prefix;
-	}
-}
-
-/*
- * rfapiRibPreloadBi
- *
- *	Install route into NVE RIB model so as to be consistent with
- *	caller's response to rfapi_query().
- *
- *	Also: return indication to caller whether this specific route
- *	should be included in the response to the NVE according to
- *	the following tests:
- *
- *	1. If there were prior duplicates of this route in this same
- *	   query response, don't include the route.
- *
- * RETURN VALUE:
- *
- *	0	OK to include route in response
- *	!0	do not include route in response
- */
-int rfapiRibPreloadBi(
-	struct route_node *rfd_rib_node, /* NULL = don't preload or filter */
-	struct prefix *pfx_vn, struct prefix *pfx_un, uint32_t lifetime,
-	struct bgp_info *bi)
-{
-	struct rfapi_descriptor *rfd;
-	struct skiplist *slRibPt = NULL;
-	struct rfapi_info *ori = NULL;
-	struct rfapi_rib_key rk;
-	struct route_node *trn;
-	afi_t afi;
-
-	if (!rfd_rib_node)
-		return 0;
-
-	afi = family2afi(rfd_rib_node->p.family);
-
-	rfd = (struct rfapi_descriptor *)(rfd_rib_node->table->info);
-
-	memset((void *)&rk, 0, sizeof(rk));
-	rk.vn = *pfx_vn;
-	rk.rd = bi->extra->vnc.import.rd;
-
-	/*
-	 * If there is an auxiliary IP address (L2 can have it), copy it
-	 */
-	if (bi->extra->vnc.import.aux_prefix.family) {
-		rk.aux_prefix = bi->extra->vnc.import.aux_prefix;
-	}
-
-	/*
-	 * is this route already in NVE's RIB?
-	 */
-	slRibPt = (struct skiplist *)rfd_rib_node->info;
-
-	if (slRibPt && !skiplist_search(slRibPt, &rk, (void **)&ori)) {
-
-		if ((ori->rsp_counter == rfd->rsp_counter)
-		    && (ori->last_sent_time == rfd->rsp_time)) {
-			return -1; /* duplicate in this response */
-		}
-
-		/* found: update contents of existing route in RIB */
-		ori->un = *pfx_un;
-		rfapiRibBi2Ri(bi, ori, lifetime);
-	} else {
-		/* not found: add new route to RIB */
-		ori = rfapi_info_new();
-		ori->rk = rk;
-		ori->un = *pfx_un;
-		rfapiRibBi2Ri(bi, ori, lifetime);
-
-		if (!slRibPt) {
-			slRibPt = skiplist_new(0, rfapi_rib_key_cmp, NULL);
-			rfd_rib_node->info = slRibPt;
-			route_lock_node(rfd_rib_node);
-			RFAPI_RIB_PREFIX_COUNT_INCR(rfd, rfd->bgp->rfapi);
-		}
-		skiplist_insert(slRibPt, &ori->rk, ori);
-	}
-
-	ori->last_sent_time = rfapi_time(NULL);
-
-	/*
-	 * poke timer
-	 */
-	RFAPI_RIB_CHECK_COUNTS(0, 0);
-	rfapiRibStartTimer(rfd, ori, rfd_rib_node, 0);
-	RFAPI_RIB_CHECK_COUNTS(0, 0);
-
-	/*
-	 * Update last sent time for prefix
-	 */
-	trn = route_node_get(rfd->rsp_times[afi],
-			     &rfd_rib_node->p); /* locks trn */
-	trn->info = (void *)(uintptr_t)bgp_clock();
-	if (trn->lock > 1)
-		route_unlock_node(trn);
-
-	return 0;
-}
-
-/*
- * Frees rfapi_info items at node
- *
- * Adjust 'rib' and 'rib_pending' as follows:
- *
- * If rib_pending node->info is 1 (magic value):
- *	callback: NHL = RIB NHL with lifetime = withdraw_lifetime_value
- *	RIB = remove all routes at the node
- *	DONE
- *
- * For each item at rib node:
- *  if not present in pending node, move RIB item to "delete list"
- *
- * For each item at pending rib node:
- *  if present (same vn/un) in rib node with same lifetime & options, drop
- *	matching item from pending node
- *
- * For each remaining item at pending rib node, add or replace item
- * at rib node.
- *
- * Construct NHL as concatenation of pending list + delete list
- *
- * Clear pending node
- */
-static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
-				 afi_t afi,
-				 struct route_node *pn, /* pending node */
-				 struct rfapi_next_hop_entry **head,
-				 struct rfapi_next_hop_entry **tail)
-{
-	struct listnode *node = NULL;
-	struct listnode *nnode = NULL;
-	struct rfapi_info *ri = NULL;    /* happy valgrind */
-	struct rfapi_ip_prefix hp = {0}; /* pfx to put in NHE */
-	struct route_node *rn = NULL;
-	struct skiplist *slRibPt = NULL; /* rib list */
-	struct skiplist *slPendPt = NULL;
-	struct list *lPendCost = NULL;
-	struct list *delete_list = NULL;
-	int printedprefix = 0;
-	char buf_prefix[PREFIX_STRLEN];
-	int rib_node_started_nonempty = 0;
-	int sendingsomeroutes = 0;
-
-#if DEBUG_PROCESS_PENDING_NODE
-	unsigned int count_rib_initial = 0;
-	unsigned int count_pend_vn_initial = 0;
-	unsigned int count_pend_cost_initial = 0;
-#endif
-
-	assert(pn);
-	prefix2str(&pn->p, buf_prefix, sizeof(buf_prefix));
-	vnc_zlog_debug_verbose("%s: afi=%d, %s pn->info=%p", __func__, afi,
-			       buf_prefix, pn->info);
-
-	if (AFI_L2VPN != afi) {
-		rfapiQprefix2Rprefix(&pn->p, &hp);
-	}
-
-	RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-	/*
-	 * Find corresponding RIB node
-	 */
-	rn = route_node_get(rfd->rib[afi], &pn->p); /* locks rn */
-
-	/*
-	 * RIB skiplist has key=rfapi_addr={vn,un}, val = rfapi_info,
-	 * skiplist.del = NULL
-	 */
-	slRibPt = (struct skiplist *)rn->info;
-	if (slRibPt)
-		rib_node_started_nonempty = 1;
-
-	slPendPt = (struct skiplist *)(pn->aggregate);
-	lPendCost = (struct list *)(pn->info);
-
-#if DEBUG_PROCESS_PENDING_NODE
-	/* debugging */
-	if (slRibPt)
-		count_rib_initial = skiplist_count(slRibPt);
-
-	if (slPendPt)
-		count_pend_vn_initial = skiplist_count(slPendPt);
-
-	if (lPendCost && lPendCost != (struct list *)1)
-		count_pend_cost_initial = lPendCost->count;
-#endif
-
-
-	/*
-	 * Handle special case: delete all routes at prefix
-	 */
-	if (lPendCost == (struct list *)1) {
-		vnc_zlog_debug_verbose("%s: lPendCost=1 => delete all",
-				       __func__);
-		if (slRibPt && !skiplist_empty(slRibPt)) {
-			delete_list = list_new();
-			while (0
-			       == skiplist_first(slRibPt, NULL, (void **)&ri)) {
-
-				char buf[PREFIX_STRLEN];
-				char buf2[PREFIX_STRLEN];
-
-				listnode_add(delete_list, ri);
-				vnc_zlog_debug_verbose(
-					"%s: after listnode_add, delete_list->count=%d",
-					__func__, delete_list->count);
-				rfapiFreeBgpTeaOptionChain(ri->tea_options);
-				ri->tea_options = NULL;
-
-				if (ri->timer) {
-					struct rfapi_rib_tcb *tcb;
-
-					tcb = ((struct thread *)ri->timer)->arg;
-					thread_cancel(ri->timer);
-					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
-					ri->timer = NULL;
-				}
-
-				prefix2str(&ri->rk.vn, buf, sizeof(buf));
-				prefix2str(&ri->un, buf2, sizeof(buf2));
-				vnc_zlog_debug_verbose(
-					"%s:   put dl pfx=%s vn=%s un=%s cost=%d life=%d vn_options=%p",
-					__func__, buf_prefix, buf, buf2,
-					ri->cost, ri->lifetime, ri->vn_options);
-
-				skiplist_delete_first(slRibPt);
-			}
-
-			assert(skiplist_empty(slRibPt));
-
-			skiplist_free(slRibPt);
-			rn->info = slRibPt = NULL;
-			route_unlock_node(rn);
-
-			lPendCost = pn->info = NULL;
-			route_unlock_node(pn);
-
-			goto callback;
-		}
-		if (slRibPt) {
-			skiplist_free(slRibPt);
-			rn->info = NULL;
-			route_unlock_node(rn);
-		}
-
-		assert(!slPendPt);
-		if (slPendPt) { /* TBD I think we can toss this block */
-			skiplist_free(slPendPt);
-			pn->aggregate = NULL;
-			route_unlock_node(pn);
-		}
-
-		pn->info = NULL;
-		route_unlock_node(pn);
-
-		route_unlock_node(rn); /* route_node_get() */
-
-		if (rib_node_started_nonempty) {
-			RFAPI_RIB_PREFIX_COUNT_DECR(rfd, bgp->rfapi);
-		}
-
-		RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-		return;
-	}
-
-	vnc_zlog_debug_verbose("%s:   lPendCost->count=%d, slRibPt->count=%d",
-			       __func__,
-			       (lPendCost ? (int)lPendCost->count : -1),
-			       (slRibPt ? (int)slRibPt->count : -1));
-
-	/*
-	 * Iterate over routes at RIB Node.
-	 * If not found at Pending Node, delete from RIB Node and add to
-	 * deletelist
-	 * If found at Pending Node
-	 *      If identical rfapi_info, delete from Pending Node
-	 */
-	if (slRibPt) {
-		void *cursor = NULL;
-		struct rfapi_info *ori;
-
-		/*
-		 * Iterate over RIB List
-		 *
-		 */
-		while (!skiplist_next(slRibPt, NULL, (void **)&ori, &cursor)) {
-
-			if (skiplist_search(slPendPt, &ori->rk, (void **)&ri)) {
-				/*
-				 * Not in Pending list, so it should be deleted
-				 */
-				if (!delete_list)
-					delete_list = list_new();
-				listnode_add(delete_list, ori);
-				rfapiFreeBgpTeaOptionChain(ori->tea_options);
-				ori->tea_options = NULL;
-				if (ori->timer) {
-					struct rfapi_rib_tcb *tcb;
-
-					tcb = ((struct thread *)ori->timer)
-						      ->arg;
-					thread_cancel(ori->timer);
-					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
-					ori->timer = NULL;
-				}
-
-#if DEBUG_PROCESS_PENDING_NODE
-				/* deleted from slRibPt below, after we're done
-				 * iterating */
-				vnc_zlog_debug_verbose(
-					"%s:   slRibPt ri %p not matched in pending list, delete",
-					__func__, ori);
-#endif
-
-			} else {
-				/*
-				 * Found in pending list. If same lifetime,
-				 * cost, options,
-				 * then remove from pending list because the
-				 * route
-				 * hasn't changed.
-				 */
-				if (!rfapi_info_cmp(ori, ri)) {
-					skiplist_delete(slPendPt, &ri->rk,
-							NULL);
-					assert(lPendCost);
-					if (lPendCost) {
-						/* linear walk: might need
-						 * optimization */
-						listnode_delete(lPendCost,
-								ri); /* XXX
-									doesn't
-									free
-									data!
-									bug? */
-						rfapi_info_free(
-							ri); /* grr... */
-					}
-				}
-#if DEBUG_PROCESS_PENDING_NODE
-				vnc_zlog_debug_verbose(
-					"%s:   slRibPt ri %p matched in pending list, %s",
-					__func__, ori,
-					(same ? "same info"
-					      : "different info"));
-#endif
-			}
-		}
-		/*
-		 * Go back and delete items from RIB
-		 */
-		if (delete_list) {
-			for (ALL_LIST_ELEMENTS_RO(delete_list, node, ri)) {
-				vnc_zlog_debug_verbose(
-					"%s:   deleting ri %p from slRibPt",
-					__func__, ri);
-				assert(!skiplist_delete(slRibPt, &ri->rk,
-							NULL));
-			}
-			if (skiplist_empty(slRibPt)) {
-				skiplist_free(slRibPt);
-				slRibPt = rn->info = NULL;
-				route_unlock_node(rn);
-			}
-		}
-	}
-
-	RFAPI_RIB_CHECK_COUNTS(0, (delete_list ? delete_list->count : 0));
-
-	/*
-	 * Iterate over routes at Pending Node
-	 *
-	 * If {vn} found at RIB Node, update RIB Node route contents to match PN
-	 * If {vn} NOT found at RIB Node, add copy to RIB Node
-	 */
-	if (lPendCost) {
-		for (ALL_LIST_ELEMENTS_RO(lPendCost, node, ri)) {
-
-			struct rfapi_info *ori;
-
-			if (slRibPt
-			    && !skiplist_search(slRibPt, &ri->rk,
-						(void **)&ori)) {
-
-				/* found: update contents of existing route in
-				 * RIB */
-				ori->un = ri->un;
-				ori->cost = ri->cost;
-				ori->lifetime = ri->lifetime;
-				rfapiFreeBgpTeaOptionChain(ori->tea_options);
-				ori->tea_options =
-					rfapiOptionsDup(ri->tea_options);
-				ori->last_sent_time = rfapi_time(NULL);
-
-				rfapiFreeRfapiVnOptionChain(ori->vn_options);
-				ori->vn_options =
-					rfapiVnOptionsDup(ri->vn_options);
-
-				rfapiFreeRfapiUnOptionChain(ori->un_options);
-				ori->un_options =
-					rfapiUnOptionsDup(ri->un_options);
-
-				vnc_zlog_debug_verbose(
-					"%s:   matched lPendCost item %p in slRibPt, rewrote",
-					__func__, ri);
-
-			} else {
-
-				char buf_rd[RD_ADDRSTRLEN];
-
-				/* not found: add new route to RIB */
-				ori = rfapi_info_new();
-				ori->rk = ri->rk;
-				ori->un = ri->un;
-				ori->cost = ri->cost;
-				ori->lifetime = ri->lifetime;
-				ori->tea_options =
-					rfapiOptionsDup(ri->tea_options);
-				ori->last_sent_time = rfapi_time(NULL);
-				ori->vn_options =
-					rfapiVnOptionsDup(ri->vn_options);
-				ori->un_options =
-					rfapiUnOptionsDup(ri->un_options);
-
-				if (!slRibPt) {
-					slRibPt = skiplist_new(
-						0, rfapi_rib_key_cmp, NULL);
-					rn->info = slRibPt;
-					route_lock_node(rn);
-				}
-				skiplist_insert(slRibPt, &ori->rk, ori);
-
-#if DEBUG_RIB_SL_RD
-				prefix_rd2str(&ori->rk.rd, buf_rd,
-					      sizeof(buf_rd));
-#else
-				buf_rd[0] = 0;
-#endif
-
-				vnc_zlog_debug_verbose(
-					"%s:   nomatch lPendCost item %p in slRibPt, added (rd=%s)",
-					__func__, ri, buf_rd);
-			}
-
-			/*
-			 * poke timer
-			 */
-			RFAPI_RIB_CHECK_COUNTS(
-				0, (delete_list ? delete_list->count : 0));
-			rfapiRibStartTimer(rfd, ori, rn, 0);
-			RFAPI_RIB_CHECK_COUNTS(
-				0, (delete_list ? delete_list->count : 0));
-		}
-	}
-
-
-callback:
-	/*
-	 * Construct NHL as concatenation of pending list + delete list
-	 */
-
-
-	RFAPI_RIB_CHECK_COUNTS(0, (delete_list ? delete_list->count : 0));
-
-	if (lPendCost) {
-
-		char buf[BUFSIZ];
-		char buf2[BUFSIZ];
-
-		vnc_zlog_debug_verbose("%s: lPendCost->count now %d", __func__,
-				       lPendCost->count);
-		vnc_zlog_debug_verbose("%s: For prefix %s (a)", __func__,
-				       buf_prefix);
-		printedprefix = 1;
-
-		for (ALL_LIST_ELEMENTS(lPendCost, node, nnode, ri)) {
-
-			struct rfapi_next_hop_entry *new;
-			struct route_node *trn;
-
-			new = XCALLOC(MTYPE_RFAPI_NEXTHOP,
-				      sizeof(struct rfapi_next_hop_entry));
-			assert(new);
-
-			if (ri->rk.aux_prefix.family) {
-				rfapiQprefix2Rprefix(&ri->rk.aux_prefix,
-						     &new->prefix);
-			} else {
-				new->prefix = hp;
-				if (AFI_L2VPN == afi) {
-					/* hp is 0; need to set length to match
-					 * AF of vn */
-					new->prefix.length =
-						(ri->rk.vn.family == AF_INET)
-							? 32
-							: 128;
-				}
-			}
-			new->prefix.cost = ri->cost;
-			new->lifetime = ri->lifetime;
-			rfapiQprefix2Raddr(&ri->rk.vn, &new->vn_address);
-			rfapiQprefix2Raddr(&ri->un, &new->un_address);
-			/* free option chain from ri */
-			rfapiFreeBgpTeaOptionChain(ri->tea_options);
-
-			ri->tea_options =
-				NULL; /* option chain was transferred to NHL */
-
-			new->vn_options = ri->vn_options;
-			ri->vn_options =
-				NULL; /* option chain was transferred to NHL */
-
-			new->un_options = ri->un_options;
-			ri->un_options =
-				NULL; /* option chain was transferred to NHL */
-
-			if (*tail)
-				(*tail)->next = new;
-			*tail = new;
-			if (!*head) {
-				*head = new;
-			}
-			sendingsomeroutes = 1;
-
-			++rfd->stat_count_nh_reachable;
-			++bgp->rfapi->stat.count_updated_response_updates;
-
-			/*
-			 * update this NVE's timestamp for this prefix
-			 */
-			trn = route_node_get(rfd->rsp_times[afi],
-					     &pn->p); /* locks trn */
-			trn->info = (void *)(uintptr_t)bgp_clock();
-			if (trn->lock > 1)
-				route_unlock_node(trn);
-
-			rfapiRfapiIpAddr2Str(&new->vn_address, buf, BUFSIZ);
-			rfapiRfapiIpAddr2Str(&new->un_address, buf2, BUFSIZ);
-			vnc_zlog_debug_verbose(
-				"%s:   add vn=%s un=%s cost=%d life=%d",
-				__func__, buf, buf2, new->prefix.cost,
-				new->lifetime);
-		}
-	}
-
-	RFAPI_RIB_CHECK_COUNTS(0, (delete_list ? delete_list->count : 0));
-
-	if (delete_list) {
-
-		char buf[BUFSIZ];
-		char buf2[BUFSIZ];
-
-		if (!printedprefix) {
-			vnc_zlog_debug_verbose("%s: For prefix %s (d)",
-					       __func__, buf_prefix);
-		}
-		vnc_zlog_debug_verbose("%s: delete_list has %d elements",
-				       __func__, delete_list->count);
-
-		RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
-		if (!CHECK_FLAG(bgp->rfapi_cfg->flags,
-				BGP_VNC_CONFIG_RESPONSE_REMOVAL_DISABLE)) {
-
-			for (ALL_LIST_ELEMENTS(delete_list, node, nnode, ri)) {
-
-				struct rfapi_next_hop_entry *new;
-				struct rfapi_info *ri_del;
-
-				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
-				new = XCALLOC(
-					MTYPE_RFAPI_NEXTHOP,
-					sizeof(struct rfapi_next_hop_entry));
-				assert(new);
-
-				if (ri->rk.aux_prefix.family) {
-					rfapiQprefix2Rprefix(&ri->rk.aux_prefix,
-							     &new->prefix);
-				} else {
-					new->prefix = hp;
-					if (AFI_L2VPN == afi) {
-						/* hp is 0; need to set length
-						 * to match AF of vn */
-						new->prefix.length =
-							(ri->rk.vn.family
-							 == AF_INET)
-								? 32
-								: 128;
-					}
-				}
-
-				new->prefix.cost = ri->cost;
-				new->lifetime = RFAPI_REMOVE_RESPONSE_LIFETIME;
-				rfapiQprefix2Raddr(&ri->rk.vn,
-						   &new->vn_address);
-				rfapiQprefix2Raddr(&ri->un, &new->un_address);
-
-				new->vn_options = ri->vn_options;
-				ri->vn_options = NULL; /* option chain was
-							  transferred to NHL */
-
-				new->un_options = ri->un_options;
-				ri->un_options = NULL; /* option chain was
-							  transferred to NHL */
-
-				if (*tail)
-					(*tail)->next = new;
-				*tail = new;
-				if (!*head) {
-					*head = new;
-				}
-				++rfd->stat_count_nh_removal;
-				++bgp->rfapi->stat
-					  .count_updated_response_deletes;
-
-				rfapiRfapiIpAddr2Str(&new->vn_address, buf,
-						     BUFSIZ);
-				rfapiRfapiIpAddr2Str(&new->un_address, buf2,
-						     BUFSIZ);
-				vnc_zlog_debug_verbose(
-					"%s:   DEL vn=%s un=%s cost=%d life=%d",
-					__func__, buf, buf2, new->prefix.cost,
-					new->lifetime);
-
-				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
-				/*
-				 * Update/add to list of recent deletions at
-				 * this prefix
-				 */
-				if (!rn->aggregate) {
-					rn->aggregate = skiplist_new(
-						0, rfapi_rib_key_cmp,
-						(void (*)(void *))
-							rfapi_info_free);
-					route_lock_node(rn);
-				}
-				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
-
-				/* sanity check lifetime */
-				if (ri->lifetime
-				    > RFAPI_LIFETIME_INFINITE_WITHDRAW_DELAY)
-					ri->lifetime =
-						RFAPI_LIFETIME_INFINITE_WITHDRAW_DELAY;
-
-				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
-				/* cancel normal expire timer */
-				if (ri->timer) {
-					struct rfapi_rib_tcb *tcb;
-
-					tcb = ((struct thread *)ri->timer)->arg;
-					thread_cancel(
-						(struct thread *)ri->timer);
-					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
-					ri->timer = NULL;
-				}
-				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
-
-				/*
-				 * Look in "recently-deleted" list
-				 */
-				if (skiplist_search(
-					    (struct skiplist *)(rn->aggregate),
-					    &ri->rk, (void **)&ri_del)) {
-
-					int rc;
-
-					RFAPI_RIB_CHECK_COUNTS(
-						0, delete_list->count);
-					/*
-					 * NOT in "recently-deleted" list
-					 */
-					list_delete_node(
-						delete_list,
-						node); /* does not free ri */
-					rc = skiplist_insert(
-						(struct skiplist
-							 *)(rn->aggregate),
-						&ri->rk, ri);
-					assert(!rc);
-
-					RFAPI_RIB_CHECK_COUNTS(
-						0, delete_list->count);
-					rfapiRibStartTimer(rfd, ri, rn, 1);
-					RFAPI_RIB_CHECK_COUNTS(
-						0, delete_list->count);
-					ri->last_sent_time = rfapi_time(NULL);
-#if DEBUG_RIB_SL_RD
-					{
-						char buf_rd[RD_ADDRSTRLEN];
-
-						vnc_zlog_debug_verbose(
-							"%s: move route to recently deleted list, rd=%s",
-							__func__,
-							prefix_rd2str(
-								&ri->rk.rd,
-								buf_rd,
-								sizeof(buf_rd)));
-					}
-#endif
-
-				} else {
-					/*
-					 * IN "recently-deleted" list
-					 */
-					RFAPI_RIB_CHECK_COUNTS(
-						0, delete_list->count);
-					rfapiRibStartTimer(rfd, ri_del, rn, 1);
-					RFAPI_RIB_CHECK_COUNTS(
-						0, delete_list->count);
-					ri->last_sent_time = rfapi_time(NULL);
-				}
-			}
-		} else {
-			vnc_zlog_debug_verbose(
-				"%s: response removal disabled, omitting removals",
-				__func__);
-		}
-
-		delete_list->del = (void (*)(void *))rfapi_info_free;
-		list_delete_and_null(&delete_list);
-	}
-
-	RFAPI_RIB_CHECK_COUNTS(0, 0);
-
-	/*
-	 * Reset pending lists. The final route_unlock_node() will probably
-	 * cause the pending node to be released.
-	 */
-	if (slPendPt) {
-		skiplist_free(slPendPt);
-		pn->aggregate = NULL;
-		route_unlock_node(pn);
-	}
-	if (lPendCost) {
-		list_delete_and_null(&lPendCost);
-		pn->info = NULL;
-		route_unlock_node(pn);
-	}
-	RFAPI_RIB_CHECK_COUNTS(0, 0);
-
-	if (rib_node_started_nonempty) {
-		if (!rn->info) {
-			RFAPI_RIB_PREFIX_COUNT_DECR(rfd, bgp->rfapi);
-		}
-	} else {
-		if (rn->info) {
-			RFAPI_RIB_PREFIX_COUNT_INCR(rfd, bgp->rfapi);
-		}
-	}
-
-	if (sendingsomeroutes)
-		rfapiMonitorTimersRestart(rfd, &pn->p);
-
-	route_unlock_node(rn); /* route_node_get() */
-
-	RFAPI_RIB_CHECK_COUNTS(1, 0);
-}
-
-/*
- * regardless of targets, construct a single callback by doing
- * only one traversal of the pending RIB
- *
- *
- * Do callback
- *
- */
-static void rib_do_callback_onepass(struct rfapi_descriptor *rfd, afi_t afi)
-{
-	struct bgp *bgp = bgp_get_default();
-	struct rfapi_next_hop_entry *head = NULL;
-	struct rfapi_next_hop_entry *tail = NULL;
-	struct route_node *rn;
-
-#if DEBUG_L2_EXTRA
-	vnc_zlog_debug_verbose("%s: rfd=%p, afi=%d", __func__, rfd, afi);
-#endif
-
-	if (!rfd->rib_pending[afi])
-		return;
-
-	assert(bgp->rfapi);
-
-	for (rn = route_top(rfd->rib_pending[afi]); rn; rn = route_next(rn)) {
-		process_pending_node(bgp, rfd, afi, rn, &head, &tail);
-	}
-
-	if (head) {
-		rfapi_response_cb_t *f;
-
-#if DEBUG_NHL
-		vnc_zlog_debug_verbose("%s: response callback NHL follows:",
-				       __func__);
-		rfapiPrintNhl(NULL, head);
-#endif
-
-		if (rfd->response_cb)
-			f = rfd->response_cb;
-		else
-			f = bgp->rfapi->rfp_methods.response_cb;
-
-		bgp->rfapi->flags |= RFAPI_INCALLBACK;
-		vnc_zlog_debug_verbose("%s: invoking updated response callback",
-				       __func__);
-		(*f)(head, rfd->cookie);
-		bgp->rfapi->flags &= ~RFAPI_INCALLBACK;
-		++bgp->rfapi->response_updated_count;
-	}
-}
-
-static wq_item_status rfapiRibDoQueuedCallback(struct work_queue *wq,
-					       void *data)
-{
-	struct rfapi_descriptor *rfd;
-	afi_t afi;
-	uint32_t queued_flag;
-
-	RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-	rfd = ((struct rfapi_updated_responses_queue *)data)->rfd;
-	afi = ((struct rfapi_updated_responses_queue *)data)->afi;
-
-	/* Make sure the HD wasn't closed after the work item was scheduled */
-	if (rfapi_check(rfd))
-		return WQ_SUCCESS;
-
-	rib_do_callback_onepass(rfd, afi);
-
-	queued_flag = RFAPI_QUEUED_FLAG(afi);
-
-	UNSET_FLAG(rfd->flags, queued_flag);
-
-	RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-	return WQ_SUCCESS;
-}
-
-static void rfapiRibQueueItemDelete(struct work_queue *wq, void *data)
-{
-	XFREE(MTYPE_RFAPI_UPDATED_RESPONSE_QUEUE, data);
-}
-
-static void updated_responses_queue_init(struct rfapi_descriptor *rfd)
-{
-	if (rfd->updated_responses_queue)
-		return;
-
-	rfd->updated_responses_queue =
-		work_queue_new(bm->master, "rfapi updated responses");
-	assert(rfd->updated_responses_queue);
-
-	rfd->updated_responses_queue->spec.workfunc = rfapiRibDoQueuedCallback;
-	rfd->updated_responses_queue->spec.del_item_data =
-		rfapiRibQueueItemDelete;
-	rfd->updated_responses_queue->spec.max_retries = 0;
-	rfd->updated_responses_queue->spec.hold = 1;
-}
-
-/*
- * Called when an import table node is modified. Construct a
- * new complete nexthop list, sorted by cost (lowest first),
- * based on the import table node.
- *
- * Filter out duplicate nexthops (vn address). There should be
- * only one UN address per VN address from the point of view of
- * a given import table, so we can probably ignore UN addresses
- * while filtering.
- *
- * Based on rfapiNhlAddNodeRoutes()
- */
-void rfapiRibUpdatePendingNode(
-	struct bgp *bgp, struct rfapi_descriptor *rfd,
-	struct rfapi_import_table *it, /* needed for L2 */
-	struct route_node *it_node, uint32_t lifetime)
-{
-	struct prefix *prefix;
-	struct bgp_info *bi;
-	struct route_node *pn;
-	afi_t afi;
-	uint32_t queued_flag;
-	int count = 0;
-	char buf[PREFIX_STRLEN];
-
-	vnc_zlog_debug_verbose("%s: entry", __func__);
-
-	if (CHECK_FLAG(bgp->rfapi_cfg->flags, BGP_VNC_CONFIG_CALLBACK_DISABLE))
-		return;
-
-	vnc_zlog_debug_verbose("%s: callbacks are not disabled", __func__);
-
-	RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-	prefix = &it_node->p;
-	afi = family2afi(prefix->family);
-	prefix2str(prefix, buf, sizeof(buf));
-	vnc_zlog_debug_verbose("%s: prefix=%s", __func__, buf);
-
-	pn = route_node_get(rfd->rib_pending[afi], prefix);
-	assert(pn);
-
-	vnc_zlog_debug_verbose("%s: pn->info=%p, pn->aggregate=%p", __func__,
-			       pn->info, pn->aggregate);
-
-	if (pn->aggregate) {
-		/*
-		 * free references into the rfapi_info structures before
-		 * freeing the structures themselves
-		 */
-		skiplist_free((struct skiplist *)(pn->aggregate));
-		pn->aggregate = NULL;
-		route_unlock_node(pn); /* skiplist deleted */
-	}
-
-
-	/*
-	 * free the rfapi_info structures
-	 */
-	if (pn->info) {
-		if (pn->info != (void *)1) {
-			list_delete_and_null((struct list **)(&pn->info));
-		}
-		pn->info = NULL;
-		route_unlock_node(pn); /* linklist or 1 deleted */
-	}
-
-	/*
-	 * The BIs in the import table are already sorted by cost
-	 */
-	for (bi = it_node->info; bi; bi = bi->next) {
-
-		struct rfapi_info *ri;
-		struct prefix pfx_nh;
-
-		if (!bi->attr) {
-			/* shouldn't happen */
-			/* TBD increment error stats counter */
-			continue;
-		}
-		if (!bi->extra) {
-			/* shouldn't happen */
-			/* TBD increment error stats counter */
-			continue;
-		}
-
-		rfapiNexthop2Prefix(bi->attr, &pfx_nh);
-
-		/*
-		 * Omit route if nexthop is self
-		 */
-		if (CHECK_FLAG(bgp->rfapi_cfg->flags,
-			       BGP_VNC_CONFIG_FILTER_SELF_FROM_RSP)) {
-
-			struct prefix pfx_vn;
-
-			assert(!rfapiRaddr2Qprefix(&rfd->vn_addr, &pfx_vn));
-			if (prefix_same(&pfx_vn, &pfx_nh))
-				continue;
-		}
-
-		ri = rfapi_info_new();
-		ri->rk.vn = pfx_nh;
-		ri->rk.rd = bi->extra->vnc.import.rd;
-		/*
-		 * If there is an auxiliary IP address (L2 can have it), copy it
-		 */
-		if (bi->extra->vnc.import.aux_prefix.family) {
-			ri->rk.aux_prefix = bi->extra->vnc.import.aux_prefix;
-		}
-
-		if (rfapiGetUnAddrOfVpnBi(bi, &ri->un)) {
-			rfapi_info_free(ri);
-			continue;
-		}
-
-		if (!pn->aggregate) {
-			pn->aggregate =
-				skiplist_new(0, rfapi_rib_key_cmp, NULL);
-			route_lock_node(pn);
-		}
-
-		/*
-		 * If we have already added this nexthop, the insert will fail.
-		 * Note that the skiplist key is a pointer INTO the rfapi_info
-		 * structure which will be added to the "info" list.
-		 * The skiplist entry VALUE is not used for anything but
-		 * might be useful during debugging.
-		 */
-		if (skiplist_insert((struct skiplist *)pn->aggregate, &ri->rk,
-				    ri)) {
-
-			/*
-			 * duplicate
-			 */
-			rfapi_info_free(ri);
-			continue;
-		}
-
-		rfapiRibBi2Ri(bi, ri, lifetime);
-
-		if (!pn->info) {
-			pn->info = list_new();
-			((struct list *)(pn->info))->del =
-				(void (*)(void *))rfapi_info_free;
-			route_lock_node(pn);
-		}
-
-		listnode_add((struct list *)(pn->info), ri);
-	}
-
-	if (pn->info) {
-		count = ((struct list *)(pn->info))->count;
-	}
-
-	if (!count) {
-		assert(!pn->info);
-		assert(!pn->aggregate);
-		pn->info = (void *)1; /* magic value means this node has no
-					 routes */
-		route_lock_node(pn);
-	}
-
-	route_unlock_node(pn); /* route_node_get */
-
-	queued_flag = RFAPI_QUEUED_FLAG(afi);
-
-	if (!CHECK_FLAG(rfd->flags, queued_flag)) {
-
-		struct rfapi_updated_responses_queue *urq;
-
-		urq = XCALLOC(MTYPE_RFAPI_UPDATED_RESPONSE_QUEUE,
-			      sizeof(struct rfapi_updated_responses_queue));
-		assert(urq);
-		if (!rfd->updated_responses_queue)
-			updated_responses_queue_init(rfd);
-
-		SET_FLAG(rfd->flags, queued_flag);
-		urq->rfd = rfd;
-		urq->afi = afi;
-		work_queue_add(rfd->updated_responses_queue, urq);
-	}
-	RFAPI_RIB_CHECK_COUNTS(1, 0);
-}
-
-void rfapiRibUpdatePendingNodeSubtree(
-	struct bgp *bgp, struct rfapi_descriptor *rfd,
-	struct rfapi_import_table *it, struct route_node *it_node,
-	struct route_node *omit_subtree, /* may be NULL */
-	uint32_t lifetime)
-{
-	/* FIXME: need to find a better way here to work without sticking our
-	 * hands in node->link */
-	if (it_node->l_left && (it_node->l_left != omit_subtree)) {
-		if (it_node->l_left->info)
-			rfapiRibUpdatePendingNode(bgp, rfd, it, it_node->l_left,
-						  lifetime);
-		rfapiRibUpdatePendingNodeSubtree(bgp, rfd, it, it_node->l_left,
-						 omit_subtree, lifetime);
-	}
-
-	if (it_node->l_right && (it_node->l_right != omit_subtree)) {
-		if (it_node->l_right->info)
-			rfapiRibUpdatePendingNode(bgp, rfd, it,
-						  it_node->l_right, lifetime);
-		rfapiRibUpdatePendingNodeSubtree(bgp, rfd, it, it_node->l_right,
-						 omit_subtree, lifetime);
-	}
-}
-
-/*
- * RETURN VALUE
- *
- *	0	allow prefix to be included in response
- *	!0	don't allow prefix to be included in response
- */
-int rfapiRibFTDFilterRecentPrefix(
-	struct rfapi_descriptor *rfd,
-	struct route_node *it_rn,	   /* import table node */
-	struct prefix *pfx_target_original) /* query target */
-{
-	struct bgp *bgp = rfd->bgp;
-	afi_t afi = family2afi(it_rn->p.family);
-	time_t prefix_time;
-	struct route_node *trn;
-
-	/*
-	 * Not in FTD mode, so allow prefix
-	 */
-	if (bgp->rfapi_cfg->rfp_cfg.download_type != RFAPI_RFP_DOWNLOAD_FULL)
-		return 0;
-
-	/*
-	 * TBD
-	 * This matches behavior of now-obsolete rfapiRibFTDFilterRecent(),
-	 * but we need to decide if that is correct.
-	 */
-	if (it_rn->p.family == AF_ETHERNET)
-		return 0;
-
-#if DEBUG_FTD_FILTER_RECENT
-	{
-		char buf_pfx[PREFIX_STRLEN];
-
-		prefix2str(&it_rn->p, buf_pfx, sizeof(buf_pfx));
-		vnc_zlog_debug_verbose("%s: prefix %s", __func__, buf_pfx);
-	}
-#endif
-
-	/*
-	 * prefix covers target address, so allow prefix
-	 */
-	if (prefix_match(&it_rn->p, pfx_target_original)) {
-#if DEBUG_FTD_FILTER_RECENT
-		vnc_zlog_debug_verbose("%s: prefix covers target, allowed",
-				       __func__);
-#endif
-		return 0;
-	}
-
-	/*
-	 * check this NVE's timestamp for this prefix
-	 */
-	trn = route_node_get(rfd->rsp_times[afi], &it_rn->p); /* locks trn */
-	prefix_time = (time_t)trn->info;
-	if (trn->lock > 1)
-		route_unlock_node(trn);
-
-#if DEBUG_FTD_FILTER_RECENT
-	vnc_zlog_debug_verbose("%s: last sent time %lu, last allowed time %lu",
-			       __func__, prefix_time,
-			       rfd->ftd_last_allowed_time);
-#endif
-
-	/*
-	 * haven't sent this prefix, which doesn't cover target address,
-	 * to NVE since ftd_advertisement_interval, so OK to send now.
-	 */
-	if (prefix_time <= rfd->ftd_last_allowed_time)
-		return 0;
-
-	return 1;
-}
-
-/*
- * Call when rfapi returns from rfapi_query() so the RIB reflects
- * the routes sent to the NVE before the first updated response
- *
- * Also: remove duplicates from response. Caller should use returned
- * value of nexthop chain.
- */
-struct rfapi_next_hop_entry *
-rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
-		struct rfapi_next_hop_entry *response, int use_eth_resolution)
-{
-	struct rfapi_next_hop_entry *nhp;
-	struct rfapi_next_hop_entry *nhp_next;
-	struct rfapi_next_hop_entry *head = NULL;
-	struct rfapi_next_hop_entry *tail = NULL;
-	time_t new_last_sent_time;
-
-	vnc_zlog_debug_verbose("%s: loading response=%p, use_eth_resolution=%d",
-			       __func__, response, use_eth_resolution);
-
-	new_last_sent_time = rfapi_time(NULL);
-
-	for (nhp = response; nhp; nhp = nhp_next) {
-
-		struct prefix pfx;
-		struct rfapi_rib_key rk;
-		afi_t afi;
-		struct rfapi_info *ri;
-		int need_insert;
-		struct route_node *rn;
-		int rib_node_started_nonempty = 0;
-		struct route_node *trn;
-		int allowed = 0;
-
-		/* save in case we delete nhp */
-		nhp_next = nhp->next;
-
-		if (nhp->lifetime == RFAPI_REMOVE_RESPONSE_LIFETIME) {
-			/*
-			 * weird, shouldn't happen
-			 */
-			vnc_zlog_debug_verbose(
-				"%s: got nhp->lifetime == RFAPI_REMOVE_RESPONSE_LIFETIME",
-				__func__);
-			continue;
-		}
-
-
-		if (use_eth_resolution) {
-			/* get the prefix of the ethernet address in the L2
-			 * option */
-			struct rfapi_l2address_option *pL2o;
-			struct rfapi_vn_option *vo;
-
-			/*
-			 * Look for VN option of type
-			 * RFAPI_VN_OPTION_TYPE_L2ADDR
-			 */
-			for (pL2o = NULL, vo = nhp->vn_options; vo;
-			     vo = vo->next) {
-				if (RFAPI_VN_OPTION_TYPE_L2ADDR == vo->type) {
-					pL2o = &vo->v.l2addr;
-					break;
-				}
-			}
-
-			if (!pL2o) {
-				/*
-				 * not supposed to happen
-				 */
-				vnc_zlog_debug_verbose("%s: missing L2 info",
-						       __func__);
-				continue;
-			}
-
-			afi = AFI_L2VPN;
-			rfapiL2o2Qprefix(pL2o, &pfx);
-		} else {
-			rfapiRprefix2Qprefix(&nhp->prefix, &pfx);
-			afi = family2afi(pfx.family);
-		}
-
-		/*
-		 * TBD for ethernet, rib must know the right way to distinguish
-		 * duplicate routes
-		 *
-		 * Current approach: prefix is key to radix tree; then
-		 * each prefix has a set of routes with unique VN addrs
-		 */
-
-		/*
-		 * Look up prefix in RIB
-		 */
-		rn = route_node_get(rfd->rib[afi], &pfx); /* locks rn */
-
-		if (rn->info) {
-			rib_node_started_nonempty = 1;
-		} else {
-			rn->info = skiplist_new(0, rfapi_rib_key_cmp, NULL);
-			route_lock_node(rn);
-		}
-
-		/*
-		 * Look up route at prefix
-		 */
-		need_insert = 0;
-		memset((void *)&rk, 0, sizeof(rk));
-		assert(!rfapiRaddr2Qprefix(&nhp->vn_address, &rk.vn));
-
-		if (use_eth_resolution) {
-			/* copy what came from aux_prefix to rk.aux_prefix */
-			rfapiRprefix2Qprefix(&nhp->prefix, &rk.aux_prefix);
-			if (RFAPI_0_PREFIX(&rk.aux_prefix)
-			    && RFAPI_HOST_PREFIX(&rk.aux_prefix)) {
-				/* mark as "none" if nhp->prefix is 0/32 or
-				 * 0/128 */
-				rk.aux_prefix.family = 0;
-			}
-		}
-
-#if DEBUG_NHL
-		{
-			char str_vn[PREFIX_STRLEN];
-			char str_aux_prefix[PREFIX_STRLEN];
-
-			str_vn[0] = 0;
-			str_aux_prefix[0] = 0;
-
-			prefix2str(&rk.vn, str_vn, sizeof(str_vn));
-			prefix2str(&rk.aux_prefix, str_aux_prefix,
-				   sizeof(str_aux_prefix));
-
-			if (!rk.aux_prefix.family) {
-			}
-			vnc_zlog_debug_verbose(
-				"%s:   rk.vn=%s rk.aux_prefix=%s", __func__,
-				str_vn,
-				(rk.aux_prefix.family ? str_aux_prefix : "-"));
-		}
-		vnc_zlog_debug_verbose(
-			"%s: RIB skiplist for this prefix follows", __func__);
-		rfapiRibShowRibSl(NULL, &rn->p, (struct skiplist *)rn->info);
-#endif
-
-
-		if (!skiplist_search((struct skiplist *)rn->info, &rk,
-				     (void **)&ri)) {
-			/*
-			 * Already have this route; make values match
-			 */
-			rfapiFreeRfapiUnOptionChain(ri->un_options);
-			ri->un_options = NULL;
-			rfapiFreeRfapiVnOptionChain(ri->vn_options);
-			ri->vn_options = NULL;
-
-#if DEBUG_NHL
-			vnc_zlog_debug_verbose("%s: found in RIB", __func__);
-#endif
-
-			/*
-			 * Filter duplicate routes from initial response.
-			 * Check timestamps to avoid wraparound problems
-			 */
-			if ((ri->rsp_counter != rfd->rsp_counter)
-			    || (ri->last_sent_time != new_last_sent_time)) {
-
-#if DEBUG_NHL
-				vnc_zlog_debug_verbose(
-					"%s: allowed due to counter/timestamp diff",
-					__func__);
-#endif
-				allowed = 1;
-			}
-
-		} else {
-
-#if DEBUG_NHL
-			vnc_zlog_debug_verbose(
-				"%s: allowed due to not yet in RIB", __func__);
-#endif
-			/* not found: add new route to RIB */
-			ri = rfapi_info_new();
-			need_insert = 1;
-			allowed = 1;
-		}
-
-		ri->rk = rk;
-		assert(!rfapiRaddr2Qprefix(&nhp->un_address, &ri->un));
-		ri->cost = nhp->prefix.cost;
-		ri->lifetime = nhp->lifetime;
-		ri->vn_options = rfapiVnOptionsDup(nhp->vn_options);
-		ri->rsp_counter = rfd->rsp_counter;
-		ri->last_sent_time = rfapi_time(NULL);
-
-		if (need_insert) {
-			int rc;
-			rc = skiplist_insert((struct skiplist *)rn->info,
-					     &ri->rk, ri);
-			assert(!rc);
-		}
-
-		if (!rib_node_started_nonempty) {
-			RFAPI_RIB_PREFIX_COUNT_INCR(rfd, bgp->rfapi);
-		}
-
-		RFAPI_RIB_CHECK_COUNTS(0, 0);
-		rfapiRibStartTimer(rfd, ri, rn, 0);
-		RFAPI_RIB_CHECK_COUNTS(0, 0);
-
-		route_unlock_node(rn);
-
-		/*
-		 * update this NVE's timestamp for this prefix
-		 */
-		trn = route_node_get(rfd->rsp_times[afi], &pfx); /* locks trn */
-		trn->info = (void *)(uintptr_t)bgp_clock();
-		if (trn->lock > 1)
-			route_unlock_node(trn);
-
-		{
-			char str_pfx[PREFIX_STRLEN];
-			char str_pfx_vn[PREFIX_STRLEN];
-
-			prefix2str(&pfx, str_pfx, sizeof(str_pfx));
-			prefix2str(&rk.vn, str_pfx_vn, sizeof(str_pfx_vn));
-			vnc_zlog_debug_verbose(
-				"%s:   added pfx=%s nh[vn]=%s, cost=%u, lifetime=%u, allowed=%d",
-				__func__, str_pfx, str_pfx_vn, nhp->prefix.cost,
-				nhp->lifetime, allowed);
-		}
-
-		if (allowed) {
-			if (tail)
-				(tail)->next = nhp;
-			tail = nhp;
-			if (!head) {
-				head = nhp;
-			}
-		} else {
-			rfapi_un_options_free(nhp->un_options);
-			nhp->un_options = NULL;
-			rfapi_vn_options_free(nhp->vn_options);
-			nhp->vn_options = NULL;
-
-			XFREE(MTYPE_RFAPI_NEXTHOP, nhp);
-			nhp = NULL;
-		}
-	}
-
-	if (tail)
-		tail->next = NULL;
-	return head;
-}
-
-void rfapiRibPendingDeleteRoute(struct bgp *bgp, struct rfapi_import_table *it,
-				afi_t afi, struct route_node *it_node)
-{
-	struct rfapi_descriptor *rfd;
-	struct listnode *node;
-	char buf[PREFIX_STRLEN];
-
-	prefix2str(&it_node->p, buf, sizeof(buf));
-	vnc_zlog_debug_verbose("%s: entry, it=%p, afi=%d, it_node=%p, pfx=%s",
-			       __func__, it, afi, it_node, buf);
-
-	if (AFI_L2VPN == afi) {
-		/*
-		 * ethernet import tables are per-LNI and each ethernet monitor
-		 * identifies the rfd that owns it.
-		 */
-		struct rfapi_monitor_eth *m;
-		struct route_node *rn;
-		struct skiplist *sl;
-		void *cursor;
-		int rc;
-
-		/*
-		 * route-specific monitors
-		 */
-		if ((sl = RFAPI_MONITOR_ETH(it_node))) {
-
-			vnc_zlog_debug_verbose(
-				"%s: route-specific skiplist: %p", __func__,
-				sl);
-
-			for (cursor = NULL,
-			    rc = skiplist_next(sl, NULL, (void **)&m,
-					       (void **)&cursor);
-			     !rc; rc = skiplist_next(sl, NULL, (void **)&m,
-						     (void **)&cursor)) {
-
-#if DEBUG_PENDING_DELETE_ROUTE
-				vnc_zlog_debug_verbose("%s: eth monitor rfd=%p",
-						       __func__, m->rfd);
-#endif
-				/*
-				 * If we have already sent a route with this
-				 * prefix to this
-				 * NVE, it's OK to send an update with the
-				 * delete
-				 */
-				if ((rn = route_node_lookup(m->rfd->rib[afi],
-							    &it_node->p))) {
-					rfapiRibUpdatePendingNode(
-						bgp, m->rfd, it, it_node,
-						m->rfd->response_lifetime);
-					route_unlock_node(rn);
-				}
-			}
-		}
-
-		/*
-		 * all-routes/FTD monitors
-		 */
-		for (m = it->eth0_queries; m; m = m->next) {
-#if DEBUG_PENDING_DELETE_ROUTE
-			vnc_zlog_debug_verbose("%s: eth0 monitor rfd=%p",
-					       __func__, m->rfd);
-#endif
-			/*
-			 * If we have already sent a route with this prefix to
-			 * this
-			 * NVE, it's OK to send an update with the delete
-			 */
-			if ((rn = route_node_lookup(m->rfd->rib[afi],
-						    &it_node->p))) {
-				rfapiRibUpdatePendingNode(
-					bgp, m->rfd, it, it_node,
-					m->rfd->response_lifetime);
-			}
-		}
-
-	} else {
-		/*
-		 * Find RFDs that reference this import table
-		 */
-		for (ALL_LIST_ELEMENTS_RO(&bgp->rfapi->descriptors, node,
-					  rfd)) {
-
-			struct route_node *rn;
-
-			vnc_zlog_debug_verbose(
-				"%s: comparing rfd(%p)->import_table=%p to it=%p",
-				__func__, rfd, rfd->import_table, it);
-
-			if (rfd->import_table != it)
-				continue;
-
-			vnc_zlog_debug_verbose("%s: matched rfd %p", __func__,
-					       rfd);
-
-			/*
-			 * If we have sent a response to this NVE with this
-			 * prefix
-			 * previously, we should send an updated response.
-			 */
-			if ((rn = route_node_lookup(rfd->rib[afi],
-						    &it_node->p))) {
-				rfapiRibUpdatePendingNode(
-					bgp, rfd, it, it_node,
-					rfd->response_lifetime);
-				route_unlock_node(rn);
-			}
-		}
-	}
-}
-
-void rfapiRibShowResponsesSummary(void *stream)
-{
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-	struct bgp *bgp = bgp_get_default();
-
-	int nves = 0;
-	int nves_with_nonempty_ribs = 0;
-	struct rfapi_descriptor *rfd;
-	struct listnode *node;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-	if (!bgp) {
-		fp(out, "Unable to find default BGP instance\n");
-		return;
-	}
-
-	fp(out, "%-24s ", "Responses: (Prefixes)");
-	fp(out, "%-8s %-8u ", "Active:", bgp->rfapi->rib_prefix_count_total);
-	fp(out, "%-8s %-8u",
-	   "Maximum:", bgp->rfapi->rib_prefix_count_total_max);
-	fp(out, "\n");
-
-	fp(out, "%-24s ", "           (Updated)");
-	fp(out, "%-8s %-8u ",
-	   "Update:", bgp->rfapi->stat.count_updated_response_updates);
-	fp(out, "%-8s %-8u",
-	   "Remove:", bgp->rfapi->stat.count_updated_response_deletes);
-	fp(out, "%-8s %-8u", "Total:",
-	   bgp->rfapi->stat.count_updated_response_updates
-		   + bgp->rfapi->stat.count_updated_response_deletes);
-	fp(out, "\n");
-
-	fp(out, "%-24s ", "           (NVEs)");
-	for (ALL_LIST_ELEMENTS_RO(&bgp->rfapi->descriptors, node, rfd)) {
-		++nves;
-		if (rfd->rib_prefix_count)
-			++nves_with_nonempty_ribs;
-	}
-	fp(out, "%-8s %-8u ", "Active:", nves_with_nonempty_ribs);
-	fp(out, "%-8s %-8u", "Total:", nves);
-	fp(out, "\n");
-}
-
-void rfapiRibShowResponsesSummaryClear(void)
-{
-	struct bgp *bgp = bgp_get_default();
-
-	bgp->rfapi->rib_prefix_count_total_max =
-		bgp->rfapi->rib_prefix_count_total;
-}
-
-static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
-			void *out, struct skiplist *sl, int deleted,
-			char *str_pfx, int *printedprefix)
-{
-	struct rfapi_info *ri;
-	int rc;
-	void *cursor;
-	int routes_displayed = 0;
-
-	cursor = NULL;
-	for (rc = skiplist_next(sl, NULL, (void **)&ri, &cursor); !rc;
-	     rc = skiplist_next(sl, NULL, (void **)&ri, &cursor)) {
-
-		char str_vn[PREFIX_STRLEN];
-		char str_un[PREFIX_STRLEN];
-		char str_lifetime[BUFSIZ];
-		char str_age[BUFSIZ];
-		char *p;
-		char str_rd[RD_ADDRSTRLEN];
-
-		++routes_displayed;
-
-		prefix2str(&ri->rk.vn, str_vn, sizeof(str_vn));
-		p = index(str_vn, '/');
-		if (p)
-			*p = 0;
-
-		prefix2str(&ri->un, str_un, sizeof(str_un));
-		p = index(str_un, '/');
-		if (p)
-			*p = 0;
-
-		rfapiFormatSeconds(ri->lifetime, str_lifetime, BUFSIZ);
-#if RFAPI_REGISTRATIONS_REPORT_AGE
-		rfapiFormatAge(ri->last_sent_time, str_age, BUFSIZ);
-#else
-		{
-			time_t now = rfapi_time(NULL);
-			time_t expire =
-				ri->last_sent_time + (time_t)ri->lifetime;
-			/* allow for delayed/async removal */
-			rfapiFormatSeconds((expire > now ? expire - now : 1),
-					   str_age, BUFSIZ);
-		}
-#endif
-
-		str_rd[0] = 0; /* start empty */
-#if DEBUG_RIB_SL_RD
-		prefix_rd2str(&ri->rk.rd, str_rd, sizeof(str_rd));
-#endif
-
-		fp(out, " %c %-20s %-15s %-15s %-4u %-8s %-8s %s\n",
-		   deleted ? 'r' : ' ', *printedprefix ? "" : str_pfx, str_vn,
-		   str_un, ri->cost, str_lifetime, str_age, str_rd);
-
-		if (!*printedprefix)
-			*printedprefix = 1;
-	}
-	return routes_displayed;
-}
-
-#if DEBUG_NHL
-/*
- * This one is for debugging (set stream to NULL to send output to log)
- */
-static void rfapiRibShowRibSl(void *stream, struct prefix *pfx,
-			      struct skiplist *sl)
-{
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-
-	int nhs_displayed = 0;
-	char str_pfx[PREFIX_STRLEN];
-	int printedprefix = 0;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-
-	prefix2str(pfx, str_pfx, sizeof(str_pfx));
-
-	nhs_displayed +=
-		print_rib_sl(fp, vty, out, sl, 0, str_pfx, &printedprefix);
-}
-#endif
-
-void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
-			   int show_removed)
-{
-	int (*fp)(void *, const char *, ...);
-	struct vty *vty;
-	void *out;
-	const char *vty_newline;
-
-	struct rfapi_descriptor *rfd;
-	struct listnode *node;
-
-	struct bgp *bgp = bgp_get_default();
-	int printedheader = 0;
-	int routes_total = 0;
-	int nhs_total = 0;
-	int prefixes_total = 0;
-	int prefixes_displayed = 0;
-	int nves_total = 0;
-	int nves_with_routes = 0;
-	int nves_displayed = 0;
-	int routes_displayed = 0;
-	int nhs_displayed = 0;
-
-	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
-		return;
-	if (!bgp) {
-		fp(out, "Unable to find default BGP instance\n");
-		return;
-	}
-
-	/*
-	 * loop over NVEs
-	 */
-	for (ALL_LIST_ELEMENTS_RO(&bgp->rfapi->descriptors, node, rfd)) {
-
-		int printednve = 0;
-		afi_t afi;
-
-		++nves_total;
-		if (rfd->rib_prefix_count)
-			++nves_with_routes;
-
-		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-
-			struct route_node *rn;
-
-			if (!rfd->rib[afi])
-				continue;
-
-			for (rn = route_top(rfd->rib[afi]); rn;
-			     rn = route_next(rn)) {
-
-				struct skiplist *sl;
-				char str_pfx[PREFIX_STRLEN];
-				int printedprefix = 0;
-
-				if (!show_removed)
-					sl = rn->info;
-				else
-					sl = rn->aggregate;
-
-				if (!sl)
-					continue;
-
-				routes_total++;
-				nhs_total += skiplist_count(sl);
-				++prefixes_total;
-
-				if (pfx_match
-				    && !prefix_match(pfx_match, &rn->p)
-				    && !prefix_match(&rn->p, pfx_match))
-					continue;
-
-				++prefixes_displayed;
-
-				if (!printedheader) {
-					++printedheader;
-
-					fp(out, "\n[%s]\n",
-					   show_removed ? "Removed" : "Active");
-					fp(out, "%-15s %-15s\n", "Querying VN",
-					   "Querying UN");
-					fp(out,
-					   "   %-20s %-15s %-15s %4s %-8s %-8s\n",
-					   "Prefix", "Registered VN",
-					   "Registered UN", "Cost", "Lifetime",
-#if RFAPI_REGISTRATIONS_REPORT_AGE
-					   "Age"
-#else
-					   "Remaining"
-#endif
-					   );
-				}
-				if (!printednve) {
-					char str_vn[BUFSIZ];
-					char str_un[BUFSIZ];
-
-					++printednve;
-					++nves_displayed;
-
-					fp(out, "%-15s %-15s\n",
-					   rfapiRfapiIpAddr2Str(&rfd->vn_addr,
-								str_vn, BUFSIZ),
-					   rfapiRfapiIpAddr2Str(&rfd->un_addr,
-								str_un,
-								BUFSIZ));
-				}
-				prefix2str(&rn->p, str_pfx, sizeof(str_pfx));
-				// fp(out, "  %s\n", buf);  /* prefix */
-
-				routes_displayed++;
-				nhs_displayed += print_rib_sl(
-					fp, vty, out, sl, show_removed, str_pfx,
-					&printedprefix);
-			}
-		}
-	}
-
-	if (routes_total) {
-		fp(out, "\n");
-		fp(out, "Displayed %u NVEs, and %u out of %u %s prefixes",
-		   nves_displayed, routes_displayed, routes_total,
-		   show_removed ? "removed" : "active");
-		if (nhs_displayed != routes_displayed
-		    || nhs_total != routes_total)
-			fp(out, " with %u out of %u next hops", nhs_displayed,
-			   nhs_total);
-		fp(out, "\n");
-	}
-}
+/***Copyright2009-2016,LabNConsulting,L.L.C.***Thisprogramisfreesoftware;youcanr
+edistributeitand/or*modifyitunderthetermsoftheGNUGeneralPublicLicense*aspublishe
+dbytheFreeSoftwareFoundation;eitherversion2*oftheLicense,or(atyouroption)anylate
+rversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,*butWITHOUTANYWAR
+RANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURP
+OSE.Seethe*GNUGeneralPublicLicenseformoredetails.**Youshouldhavereceivedacopyoft
+heGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetoth
+eFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*//*
+*File:rfapi_rib.c*Purpose:maintainper-nveribsandgeneratechangelists*/#include<er
+rno.h>#include"lib/zebra.h"#include"lib/prefix.h"#include"lib/table.h"#include"l
+ib/vty.h"#include"lib/memory.h"#include"lib/log.h"#include"lib/skiplist.h"#inclu
+de"lib/workqueue.h"#include"bgpd/bgpd.h"#include"bgpd/bgp_route.h"#include"bgpd/
+bgp_ecommunity.h"#include"bgpd/bgp_mplsvpn.h"#include"bgpd/bgp_vnc_types.h"#incl
+ude"bgpd/rfapi/rfapi.h"#include"bgpd/rfapi/bgp_rfapi_cfg.h"#include"bgpd/rfapi/r
+fapi_import.h"#include"bgpd/rfapi/rfapi_private.h"#include"bgpd/rfapi/rfapi_vty.
+h"#include"bgpd/rfapi/vnc_import_bgp.h"#include"bgpd/rfapi/rfapi_rib.h"#include"
+bgpd/rfapi/rfapi_monitor.h"#include"bgpd/rfapi/rfapi_encap_tlv.h"#include"bgpd/r
+fapi/vnc_debug.h"#defineDEBUG_PROCESS_PENDING_NODE0#defineDEBUG_PENDING_DELETE_R
+OUTE0#defineDEBUG_NHL0#defineDEBUG_RIB_SL_RD0/*forwarddecl*/#ifDEBUG_NHLstaticvo
+idrfapiRibShowRibSl(void*stream,structprefix*pfx,structskiplist*sl);#endif/**RIB
+*---*ModelofthesetofroutescurrentlyintheNVE'sRIB.**node->infoptrto"structskiplis
+t".*MUSTbeNULLiftherearenoroutes.*key=ptrtostructprefix{vn}*val=ptrtostructrfapi
+_info*skiplist.del=NULL*skiplist.cmp=vnc_prefix_cmp**node->aggregateptrto"struct
+skiplist".*key=ptrtostructprefix{vn}*val=ptrtostructrfapi_info*skiplist.del=rfap
+i_info_free*skiplist.cmp=vnc_prefix_cmp**Thisskiplistat"aggregate"*containsthero
+utesrecently*deleted***PendingRIB*-----------*Sparselistofprefixesthatneedtobeup
+dated.Eachnode*willhavethecompletesetofroutesfortheprefix.**node->infoptrto"stru
+ctlist"(lib/linklist.h)*"CostList"*Listofroutessortedlowestcostfirst.*Thislistis
+howthenewcompleteset*ofroutesshouldlook.*Setifthereareupdatestotheprefix;*MUSTbe
+NULLiftherearenoupdates.**.data=ptrtostructrfapi_info*list.cmp=NULL(sortedmanual
+ly)*list.del=rfapi_info_free**Specialcase:ifnode->infois1,itmeans*"deleteallrout
+esatthisprefix".**node->aggregateptrtostructskiplist*key=ptrtostructprefix{vn}(p
+artofri)*val=structrfapi_info*skiplist.cmp=vnc_prefix_cmp*skiplist.del=NULL**ptl
+istisrewrittenaneweachtime*rfapiRibUpdatePendingNode()iscalled**THEptlistVALUESA
+REREFERENCESTOTHE*rfapi_infoSTRUCTSINTHEnode->infoLIST.*//**iterateoverRIBtocoun
+tresponses,comparewithrunningcounters*/voidrfapiRibCheckCounts(intcheckstats,/*v
+alidaterfd&globalcounts*/unsignedintoffset)/*numberofri'sheldseparately*/{struct
+rfapi_descriptor*rfd;structlistnode*node;structbgp*bgp=bgp_get_default();uint32_
+tt_pfx_active=0;uint32_tt_pfx_deleted=0;uint32_tt_ri_active=0;uint32_tt_ri_delet
+ed=0;uint32_tt_ri_pend=0;unsignedintalloc_count;/**loopoverNVEs*/for(ALL_LIST_EL
+EMENTS_RO(&bgp->rfapi->descriptors,node,rfd)){afi_tafi;uint32_tpfx_active=0;uint
+32_tpfx_deleted=0;for(afi=AFI_IP;afi<AFI_MAX;++afi){structroute_node*rn;for(rn=r
+oute_top(rfd->rib[afi]);rn;rn=route_next(rn)){structskiplist*sl=rn->info;structs
+kiplist*dsl=rn->aggregate;uint32_tri_active=0;uint32_tri_deleted=0;if(sl){ri_act
+ive=skiplist_count(sl);assert(ri_active);t_ri_active+=ri_active;++pfx_active;++t
+_pfx_active;}if(dsl){ri_deleted=skiplist_count(dsl);t_ri_deleted+=ri_deleted;++p
+fx_deleted;++t_pfx_deleted;}}for(rn=route_top(rfd->rib_pending[afi]);rn;rn=route
+_next(rn)){structlist*l=rn->info;/*sortedbycost*/structskiplist*sl=rn->aggregate
+;uint32_tri_pend_cost=0;uint32_tri_pend_uniq=0;if(sl){ri_pend_uniq=skiplist_coun
+t(sl);}if(l&&(l!=(void*)1)){ri_pend_cost=l->count;t_ri_pend+=l->count;}assert(ri
+_pend_uniq==ri_pend_cost);}}if(checkstats){if(pfx_active!=rfd->rib_prefix_count)
+{vnc_zlog_debug_verbose("%s:rfd%pactualpfxcount%u!=running%u",__func__,rfd,pfx_a
+ctive,rfd->rib_prefix_count);assert(0);}}}if(checkstats&&bgp->rfapi){if(t_pfx_ac
+tive!=bgp->rfapi->rib_prefix_count_total){vnc_zlog_debug_verbose("%s:actualtotal
+pfxcount%u!=running%u",__func__,t_pfx_active,bgp->rfapi->rib_prefix_count_total)
+;assert(0);}}/**Checkagainstmemoryallocationcount*/alloc_count=mtype_stats_alloc
+(MTYPE_RFAPI_INFO);assert(t_ri_active+t_ri_deleted+t_ri_pend+offset==alloc_count
+);}staticstructrfapi_info*rfapi_info_new(){returnXCALLOC(MTYPE_RFAPI_INFO,sizeof
+(structrfapi_info));}voidrfapiFreeRfapiUnOptionChain(structrfapi_un_option*p){wh
+ile(p){structrfapi_un_option*next;next=p->next;XFREE(MTYPE_RFAPI_UN_OPTION,p);p=
+next;}}voidrfapiFreeRfapiVnOptionChain(structrfapi_vn_option*p){while(p){structr
+fapi_vn_option*next;next=p->next;XFREE(MTYPE_RFAPI_VN_OPTION,p);p=next;}}staticv
+oidrfapi_info_free(structrfapi_info*goner){if(goner){if(goner->tea_options){rfap
+iFreeBgpTeaOptionChain(goner->tea_options);goner->tea_options=NULL;}if(goner->un
+_options){rfapiFreeRfapiUnOptionChain(goner->un_options);goner->un_options=NULL;
+}if(goner->vn_options){rfapiFreeRfapiVnOptionChain(goner->vn_options);goner->vn_
+options=NULL;}if(goner->timer){structrfapi_rib_tcb*tcb;tcb=((structthread*)goner
+->timer)->arg;thread_cancel((structthread*)goner->timer);XFREE(MTYPE_RFAPI_RECEN
+T_DELETE,tcb);goner->timer=NULL;}XFREE(MTYPE_RFAPI_INFO,goner);}}/**Timercontrol
+blockforrecently-deletedandexpiredroutes*/structrfapi_rib_tcb{structrfapi_descri
+ptor*rfd;structskiplist*sl;structrfapi_info*ri;structroute_node*rn;intflags;#def
+ineRFAPI_RIB_TCB_FLAG_DELETED0x00000001};/**removeroutefromrib*/staticintrfapiRi
+bExpireTimer(structthread*t){structrfapi_rib_tcb*tcb=t->arg;RFAPI_RIB_CHECK_COUN
+TS(1,0);/**Forgetreferencetothread.Otherwiserfapi_info_free()will*attempttofreet
+hreadpointerasanoptionchain*/tcb->ri->timer=NULL;/*"deleted"skiplistfreesri,"act
+ive"doesn't*/assert(!skiplist_delete(tcb->sl,&tcb->ri->rk,NULL));if(!tcb->sl->de
+l){/**XXXinthiscase,skiplisthasnodeletefunction:wemust*thereforedeleterfapi_info
+explicitly.*/rfapi_info_free(tcb->ri);}if(skiplist_empty(tcb->sl)){if(CHECK_FLAG
+(tcb->flags,RFAPI_RIB_TCB_FLAG_DELETED))tcb->rn->aggregate=NULL;else{structbgp*b
+gp=bgp_get_default();tcb->rn->info=NULL;RFAPI_RIB_PREFIX_COUNT_DECR(tcb->rfd,bgp
+->rfapi);}skiplist_free(tcb->sl);route_unlock_node(tcb->rn);}XFREE(MTYPE_RFAPI_R
+ECENT_DELETE,tcb);RFAPI_RIB_CHECK_COUNTS(1,0);return0;}staticvoidrfapiRibStartTi
+mer(structrfapi_descriptor*rfd,structrfapi_info*ri,structroute_node*rn,/*routeno
+deattachedto*/intdeleted){structthread*t=ri->timer;structrfapi_rib_tcb*tcb=NULL;
+charbuf_prefix[PREFIX_STRLEN];if(t){tcb=t->arg;thread_cancel(t);ri->timer=NULL;}
+else{tcb=XCALLOC(MTYPE_RFAPI_RECENT_DELETE,sizeof(structrfapi_rib_tcb));}tcb->rf
+d=rfd;tcb->ri=ri;tcb->rn=rn;if(deleted){tcb->sl=(structskiplist*)rn->aggregate;S
+ET_FLAG(tcb->flags,RFAPI_RIB_TCB_FLAG_DELETED);}else{tcb->sl=(structskiplist*)rn
+->info;UNSET_FLAG(tcb->flags,RFAPI_RIB_TCB_FLAG_DELETED);}prefix2str(&rn->p,buf_
+prefix,sizeof(buf_prefix));vnc_zlog_debug_verbose("%s:rfd%ppfx%slife%u",__func__
+,rfd,buf_prefix,ri->lifetime);ri->timer=NULL;thread_add_timer(bm->master,rfapiRi
+bExpireTimer,tcb,ri->lifetime,&ri->timer);assert(ri->timer);}externvoidrfapi_rib
+_key_init(structprefix*prefix,/*maybeNULL*/structprefix_rd*rd,/*maybeNULL*/struc
+tprefix*aux,/*maybeNULL*/structrfapi_rib_key*rk){memset((void*)rk,0,sizeof(struc
+trfapi_rib_key));if(prefix)rk->vn=*prefix;if(rd)rk->rd=*rd;if(aux)rk->aux_prefix
+=*aux;}/**Comparestwo<structrfapi_rib_key>s*/intrfapi_rib_key_cmp(void*k1,void*k
+2){structrfapi_rib_key*a=(structrfapi_rib_key*)k1;structrfapi_rib_key*b=(structr
+fapi_rib_key*)k2;intret;if(!a||!b)return(a-b);ret=vnc_prefix_cmp(&a->vn,&b->vn);
+if(ret)returnret;ret=vnc_prefix_cmp(&a->rd,&b->rd);if(ret)returnret;ret=vnc_pref
+ix_cmp(&a->aux_prefix,&b->aux_prefix);returnret;}/**Note:thisfunctionwillclaimth
+attwooptionchainsare*differentunlesstheiroptionitemsareinidenticalorder.*Thecons
+equenceisthatRFPupdatedresponsescanbesent*unnecessarily,orthattheymightcontainne
+xthopitems*thatarenotstrictlyneeded.**Thisfunctioncouldbemodifiedtocompareoption
+chainsmore*thoroughly,butit'snotclearthattheextracompuationwould*beworthit.*/sta
+ticintbgp_tea_options_cmp(structbgp_tea_options*a,structbgp_tea_options*b){intrc
+;if(!a||!b){return(a-b);}if(a->type!=b->type)return(a->type-b->type);if(a->lengt
+h!=b->length)return(a->length=b->length);if((rc=memcmp(a->value,b->value,a->leng
+th)))returnrc;if(!a->next!=!b->next){/*logicalxor*/return(a->next-b->next);}if(a
+->next)returnbgp_tea_options_cmp(a->next,b->next);return0;}staticintrfapi_info_c
+mp(structrfapi_info*a,structrfapi_info*b){intrc;if(!a||!b)return(a-b);if((rc=rfa
+pi_rib_key_cmp(&a->rk,&b->rk)))returnrc;if((rc=vnc_prefix_cmp(&a->un,&b->un)))re
+turnrc;if(a->cost!=b->cost)return(a->cost-b->cost);if(a->lifetime!=b->lifetime)r
+eturn(a->lifetime-b->lifetime);if((rc=bgp_tea_options_cmp(a->tea_options,b->tea_
+options)))returnrc;return0;}voidrfapiRibClear(structrfapi_descriptor*rfd){struct
+bgp*bgp;afi_tafi;if(rfd->bgp)bgp=rfd->bgp;elsebgp=bgp_get_default();#ifDEBUG_L2_
+EXTRAvnc_zlog_debug_verbose("%s:rfd=%p",__func__,rfd);#endiffor(afi=AFI_IP;afi<A
+FI_MAX;++afi){structroute_node*pn;structroute_node*rn;if(rfd->rib_pending[afi]){
+for(pn=route_top(rfd->rib_pending[afi]);pn;pn=route_next(pn)){if(pn->aggregate){
+/**freereferencesintotherfapi_info*structuresbefore*freeingthestructuresthemselv
+es*/skiplist_free((structskiplist*)(pn->aggregate));pn->aggregate=NULL;route_unl
+ock_node(pn);/*skiplistdeleted*/}/**freetherfapi_infostructures*/if(pn->info){if
+(pn->info!=(void*)1){list_delete_and_null((structlist**)(&pn->info));}pn->info=N
+ULL;/*linklistor1deleted*/route_unlock_node(pn);}}}if(rfd->rib[afi]){for(rn=rout
+e_top(rfd->rib[afi]);rn;rn=route_next(rn)){if(rn->info){structrfapi_info*ri;whil
+e(0==skiplist_first((structskiplist*)rn->info,NULL,(void**)&ri)){rfapi_info_free
+(ri);skiplist_delete_first((structskiplist*)rn->info);}skiplist_free((structskip
+list*)rn->info);rn->info=NULL;route_unlock_node(rn);RFAPI_RIB_PREFIX_COUNT_DECR(
+rfd,bgp->rfapi);}if(rn->aggregate){structrfapi_info*ri_del;/*deleteskiplist&cont
+ents*/while(!skiplist_first((structskiplist*)(rn->aggregate),NULL,(void**)&ri_de
+l)){/*sl->deltakescareofri_del*/skiplist_delete_first((structskiplist*)(rn->aggr
+egate));}skiplist_free((structskiplist*)(rn->aggregate));rn->aggregate=NULL;rout
+e_unlock_node(rn);}}}}if(rfd->updated_responses_queue)work_queue_free_and_null(&
+rfd->updated_responses_queue);}/**Releasealldynamically-allocatedmemorythatispar
+tofanHD'sRIB*/voidrfapiRibFree(structrfapi_descriptor*rfd){afi_tafi;/**NBrfdisty
+picallydetachedfrommasterlist,soisnotincluded*inthecountperformedbyRFAPI_RIB_CHE
+CK_COUNTS*//**Freeroutesattachedtoradixtrees*/rfapiRibClear(rfd);/*Nowtheuncount
+edrfapi_info'sarefreed,sothecheckshouldsucceed*/RFAPI_RIB_CHECK_COUNTS(1,0);/**F
+reeradixtrees*/for(afi=AFI_IP;afi<AFI_MAX;++afi){route_table_finish(rfd->rib_pen
+ding[afi]);rfd->rib_pending[afi]=NULL;route_table_finish(rfd->rib[afi]);rfd->rib
+[afi]=NULL;/*NBroute_table_finishfreesonlyprefixnodes,notchained*info*/route_tab
+le_finish(rfd->rsp_times[afi]);rfd->rib[afi]=NULL;}}/**Copiesstructbgp_infotostr
+uctrfapi_info,exceptforrkfieldsandun*/staticvoidrfapiRibBi2Ri(structbgp_info*bi,
+structrfapi_info*ri,uint32_tlifetime){structbgp_attr_encap_subtlv*pEncap;ri->cos
+t=rfapiRfpCost(bi->attr);ri->lifetime=lifetime;/*ThisloopbasedonrfapiRouteInfo2N
+extHopEntry()*/for(pEncap=bi->attr->vnc_subtlvs;pEncap;pEncap=pEncap->next){stru
+ctbgp_tea_options*hop;switch(pEncap->type){caseBGP_VNC_SUBTLV_TYPE_LIFETIME:/*us
+econfiguredlifetime,notattrlifetime*/break;caseBGP_VNC_SUBTLV_TYPE_RFPOPTION:hop
+=XCALLOC(MTYPE_BGP_TEA_OPTIONS,sizeof(structbgp_tea_options));assert(hop);hop->t
+ype=pEncap->value[0];hop->length=pEncap->value[1];hop->value=XCALLOC(MTYPE_BGP_T
+EA_OPTIONS_VALUE,pEncap->length-2);assert(hop->value);memcpy(hop->value,pEncap->
+value+2,pEncap->length-2);if(hop->length>pEncap->length-2){zlog_warn("%s:VNCsubt
+lvlengthmismatch:""RFPoptionsays%d,attrsays%d""(shrinking)",__func__,hop->length
+,pEncap->length-2);hop->length=pEncap->length-2;}hop->next=ri->tea_options;ri->t
+ea_options=hop;break;default:break;}}rfapi_un_options_free(ri->un_options);/*may
+befreeoldversion*/ri->un_options=rfapi_encap_tlv_to_un_option(bi->attr);/**VNopt
+ions*/if(bi->extra&&decode_rd_type(bi->extra->vnc.import.rd.val)==RD_TYPE_VNC_ET
+H){/*ethernetroute*/structrfapi_vn_option*vo;vo=XCALLOC(MTYPE_RFAPI_VN_OPTION,si
+zeof(structrfapi_vn_option));assert(vo);vo->type=RFAPI_VN_OPTION_TYPE_L2ADDR;/*c
+opyfromRDalreadystoredinbi,sowedon'tneedit_node*/memcpy(&vo->v.l2addr.macaddr,bi
+->extra->vnc.import.rd.val+2,ETH_ALEN);(void)rfapiEcommunityGetLNI(bi->attr->eco
+mmunity,&vo->v.l2addr.logical_net_id);(void)rfapiEcommunityGetEthernetTag(bi->at
+tr->ecommunity,&vo->v.l2addr.tag_id);/*local_nve_idcomesfromRD*/vo->v.l2addr.loc
+al_nve_id=bi->extra->vnc.import.rd.val[1];/*labelcomesfromMP_REACH_NLRIlabel*/vo
+->v.l2addr.label=decode_label(&bi->extra->label[0]);rfapi_vn_options_free(ri->vn
+_options);/*maybefreeoldversion*/ri->vn_options=vo;}/**IfthereisanauxiliaryIPadd
+ress(L2canhaveit),copyit*/if(bi->extra&&bi->extra->vnc.import.aux_prefix.family)
+{ri->rk.aux_prefix=bi->extra->vnc.import.aux_prefix;}}/**rfapiRibPreloadBi**Inst
+allrouteintoNVERIBmodelsoastobeconsistentwith*caller'sresponsetorfapi_query().**
+Also:returnindicationtocallerwhetherthisspecificroute*shouldbeincludedintherespo
+nsetotheNVEaccordingto*thefollowingtests:**1.Iftherewerepriorduplicatesofthisrou
+teinthissame*queryresponse,don'tincludetheroute.**RETURNVALUE:**0OKtoincluderout
+einresponse*!0donotincluderouteinresponse*/intrfapiRibPreloadBi(structroute_node
+*rfd_rib_node,/*NULL=don'tpreloadorfilter*/structprefix*pfx_vn,structprefix*pfx_
+un,uint32_tlifetime,structbgp_info*bi){structrfapi_descriptor*rfd;structskiplist
+*slRibPt=NULL;structrfapi_info*ori=NULL;structrfapi_rib_keyrk;structroute_node*t
+rn;afi_tafi;if(!rfd_rib_node)return0;afi=family2afi(rfd_rib_node->p.family);rfd=
+(structrfapi_descriptor*)(rfd_rib_node->table->info);memset((void*)&rk,0,sizeof(
+rk));rk.vn=*pfx_vn;rk.rd=bi->extra->vnc.import.rd;/**IfthereisanauxiliaryIPaddre
+ss(L2canhaveit),copyit*/if(bi->extra->vnc.import.aux_prefix.family){rk.aux_prefi
+x=bi->extra->vnc.import.aux_prefix;}/**isthisroutealreadyinNVE'sRIB?*/slRibPt=(s
+tructskiplist*)rfd_rib_node->info;if(slRibPt&&!skiplist_search(slRibPt,&rk,(void
+**)&ori)){if((ori->rsp_counter==rfd->rsp_counter)&&(ori->last_sent_time==rfd->rs
+p_time)){return-1;/*duplicateinthisresponse*/}/*found:updatecontentsofexistingro
+uteinRIB*/ori->un=*pfx_un;rfapiRibBi2Ri(bi,ori,lifetime);}else{/*notfound:addnew
+routetoRIB*/ori=rfapi_info_new();ori->rk=rk;ori->un=*pfx_un;rfapiRibBi2Ri(bi,ori
+,lifetime);if(!slRibPt){slRibPt=skiplist_new(0,rfapi_rib_key_cmp,NULL);rfd_rib_n
+ode->info=slRibPt;route_lock_node(rfd_rib_node);RFAPI_RIB_PREFIX_COUNT_INCR(rfd,
+rfd->bgp->rfapi);}skiplist_insert(slRibPt,&ori->rk,ori);}ori->last_sent_time=rfa
+pi_time(NULL);/**poketimer*/RFAPI_RIB_CHECK_COUNTS(0,0);rfapiRibStartTimer(rfd,o
+ri,rfd_rib_node,0);RFAPI_RIB_CHECK_COUNTS(0,0);/**Updatelastsenttimeforprefix*/t
+rn=route_node_get(rfd->rsp_times[afi],&rfd_rib_node->p);/*lockstrn*/trn->info=(v
+oid*)(uintptr_t)bgp_clock();if(trn->lock>1)route_unlock_node(trn);return0;}/**Fr
+eesrfapi_infoitemsatnode**Adjust'rib'and'rib_pending'asfollows:**Ifrib_pendingno
+de->infois1(magicvalue):*callback:NHL=RIBNHLwithlifetime=withdraw_lifetime_value
+*RIB=removeallroutesatthenode*DONE**Foreachitematribnode:*ifnotpresentinpendingn
+ode,moveRIBitemto"deletelist"**Foreachitematpendingribnode:*ifpresent(samevn/un)
+inribnodewithsamelifetime&options,drop*matchingitemfrompendingnode**Foreachremai
+ningitematpendingribnode,addorreplaceitem*atribnode.**ConstructNHLasconcatenatio
+nofpendinglist+deletelist**Clearpendingnode*/staticvoidprocess_pending_node(stru
+ctbgp*bgp,structrfapi_descriptor*rfd,afi_tafi,structroute_node*pn,/*pendingnode*
+/structrfapi_next_hop_entry**head,structrfapi_next_hop_entry**tail){structlistno
+de*node=NULL;structlistnode*nnode=NULL;structrfapi_info*ri=NULL;/*happyvalgrind*
+/structrfapi_ip_prefixhp={0};/*pfxtoputinNHE*/structroute_node*rn=NULL;structski
+plist*slRibPt=NULL;/*riblist*/structskiplist*slPendPt=NULL;structlist*lPendCost=
+NULL;structlist*delete_list=NULL;intprintedprefix=0;charbuf_prefix[PREFIX_STRLEN
+];intrib_node_started_nonempty=0;intsendingsomeroutes=0;#ifDEBUG_PROCESS_PENDING
+_NODEunsignedintcount_rib_initial=0;unsignedintcount_pend_vn_initial=0;unsignedi
+ntcount_pend_cost_initial=0;#endifassert(pn);prefix2str(&pn->p,buf_prefix,sizeof
+(buf_prefix));vnc_zlog_debug_verbose("%s:afi=%d,%spn->info=%p",__func__,afi,buf_
+prefix,pn->info);if(AFI_L2VPN!=afi){rfapiQprefix2Rprefix(&pn->p,&hp);}RFAPI_RIB_
+CHECK_COUNTS(1,0);/**FindcorrespondingRIBnode*/rn=route_node_get(rfd->rib[afi],&
+pn->p);/*locksrn*//**RIBskiplisthaskey=rfapi_addr={vn,un},val=rfapi_info,*skipli
+st.del=NULL*/slRibPt=(structskiplist*)rn->info;if(slRibPt)rib_node_started_nonem
+pty=1;slPendPt=(structskiplist*)(pn->aggregate);lPendCost=(structlist*)(pn->info
+);#ifDEBUG_PROCESS_PENDING_NODE/*debugging*/if(slRibPt)count_rib_initial=skiplis
+t_count(slRibPt);if(slPendPt)count_pend_vn_initial=skiplist_count(slPendPt);if(l
+PendCost&&lPendCost!=(structlist*)1)count_pend_cost_initial=lPendCost->count;#en
+dif/**Handlespecialcase:deleteallroutesatprefix*/if(lPendCost==(structlist*)1){v
+nc_zlog_debug_verbose("%s:lPendCost=1=>deleteall",__func__);if(slRibPt&&!skiplis
+t_empty(slRibPt)){delete_list=list_new();while(0==skiplist_first(slRibPt,NULL,(v
+oid**)&ri)){charbuf[PREFIX_STRLEN];charbuf2[PREFIX_STRLEN];listnode_add(delete_l
+ist,ri);vnc_zlog_debug_verbose("%s:afterlistnode_add,delete_list->count=%d",__fu
+nc__,delete_list->count);rfapiFreeBgpTeaOptionChain(ri->tea_options);ri->tea_opt
+ions=NULL;if(ri->timer){structrfapi_rib_tcb*tcb;tcb=((structthread*)ri->timer)->
+arg;thread_cancel(ri->timer);XFREE(MTYPE_RFAPI_RECENT_DELETE,tcb);ri->timer=NULL
+;}prefix2str(&ri->rk.vn,buf,sizeof(buf));prefix2str(&ri->un,buf2,sizeof(buf2));v
+nc_zlog_debug_verbose("%s:putdlpfx=%svn=%sun=%scost=%dlife=%dvn_options=%p",__fu
+nc__,buf_prefix,buf,buf2,ri->cost,ri->lifetime,ri->vn_options);skiplist_delete_f
+irst(slRibPt);}assert(skiplist_empty(slRibPt));skiplist_free(slRibPt);rn->info=s
+lRibPt=NULL;route_unlock_node(rn);lPendCost=pn->info=NULL;route_unlock_node(pn);
+gotocallback;}if(slRibPt){skiplist_free(slRibPt);rn->info=NULL;route_unlock_node
+(rn);}assert(!slPendPt);if(slPendPt){/*TBDIthinkwecantossthisblock*/skiplist_fre
+e(slPendPt);pn->aggregate=NULL;route_unlock_node(pn);}pn->info=NULL;route_unlock
+_node(pn);route_unlock_node(rn);/*route_node_get()*/if(rib_node_started_nonempty
+){RFAPI_RIB_PREFIX_COUNT_DECR(rfd,bgp->rfapi);}RFAPI_RIB_CHECK_COUNTS(1,0);retur
+n;}vnc_zlog_debug_verbose("%s:lPendCost->count=%d,slRibPt->count=%d",__func__,(l
+PendCost?(int)lPendCost->count:-1),(slRibPt?(int)slRibPt->count:-1));/**Iterateo
+verroutesatRIBNode.*IfnotfoundatPendingNode,deletefromRIBNodeandaddto*deletelist
+*IffoundatPendingNode*Ifidenticalrfapi_info,deletefromPendingNode*/if(slRibPt){v
+oid*cursor=NULL;structrfapi_info*ori;/**IterateoverRIBList**/while(!skiplist_nex
+t(slRibPt,NULL,(void**)&ori,&cursor)){if(skiplist_search(slPendPt,&ori->rk,(void
+**)&ri)){/**NotinPendinglist,soitshouldbedeleted*/if(!delete_list)delete_list=li
+st_new();listnode_add(delete_list,ori);rfapiFreeBgpTeaOptionChain(ori->tea_optio
+ns);ori->tea_options=NULL;if(ori->timer){structrfapi_rib_tcb*tcb;tcb=((structthr
+ead*)ori->timer)->arg;thread_cancel(ori->timer);XFREE(MTYPE_RFAPI_RECENT_DELETE,
+tcb);ori->timer=NULL;}#ifDEBUG_PROCESS_PENDING_NODE/*deletedfromslRibPtbelow,aft
+erwe'redone*iterating*/vnc_zlog_debug_verbose("%s:slRibPtri%pnotmatchedinpending
+list,delete",__func__,ori);#endif}else{/**Foundinpendinglist.Ifsamelifetime,*cos
+t,options,*thenremovefrompendinglistbecausethe*route*hasn'tchanged.*/if(!rfapi_i
+nfo_cmp(ori,ri)){skiplist_delete(slPendPt,&ri->rk,NULL);assert(lPendCost);if(lPe
+ndCost){/*linearwalk:mightneed*optimization*/listnode_delete(lPendCost,ri);/*XXX
+doesn'tfreedata!bug?*/rfapi_info_free(ri);/*grr...*/}}#ifDEBUG_PROCESS_PENDING_N
+ODEvnc_zlog_debug_verbose("%s:slRibPtri%pmatchedinpendinglist,%s",__func__,ori,(
+same?"sameinfo":"differentinfo"));#endif}}/**GobackanddeleteitemsfromRIB*/if(del
+ete_list){for(ALL_LIST_ELEMENTS_RO(delete_list,node,ri)){vnc_zlog_debug_verbose(
+"%s:deletingri%pfromslRibPt",__func__,ri);assert(!skiplist_delete(slRibPt,&ri->r
+k,NULL));}if(skiplist_empty(slRibPt)){skiplist_free(slRibPt);slRibPt=rn->info=NU
+LL;route_unlock_node(rn);}}}RFAPI_RIB_CHECK_COUNTS(0,(delete_list?delete_list->c
+ount:0));/**IterateoverroutesatPendingNode**If{vn}foundatRIBNode,updateRIBNodero
+utecontentstomatchPN*If{vn}NOTfoundatRIBNode,addcopytoRIBNode*/if(lPendCost){for
+(ALL_LIST_ELEMENTS_RO(lPendCost,node,ri)){structrfapi_info*ori;if(slRibPt&&!skip
+list_search(slRibPt,&ri->rk,(void**)&ori)){/*found:updatecontentsofexistingroute
+in*RIB*/ori->un=ri->un;ori->cost=ri->cost;ori->lifetime=ri->lifetime;rfapiFreeBg
+pTeaOptionChain(ori->tea_options);ori->tea_options=rfapiOptionsDup(ri->tea_optio
+ns);ori->last_sent_time=rfapi_time(NULL);rfapiFreeRfapiVnOptionChain(ori->vn_opt
+ions);ori->vn_options=rfapiVnOptionsDup(ri->vn_options);rfapiFreeRfapiUnOptionCh
+ain(ori->un_options);ori->un_options=rfapiUnOptionsDup(ri->un_options);vnc_zlog_
+debug_verbose("%s:matchedlPendCostitem%pinslRibPt,rewrote",__func__,ri);}else{ch
+arbuf_rd[RD_ADDRSTRLEN];/*notfound:addnewroutetoRIB*/ori=rfapi_info_new();ori->r
+k=ri->rk;ori->un=ri->un;ori->cost=ri->cost;ori->lifetime=ri->lifetime;ori->tea_o
+ptions=rfapiOptionsDup(ri->tea_options);ori->last_sent_time=rfapi_time(NULL);ori
+->vn_options=rfapiVnOptionsDup(ri->vn_options);ori->un_options=rfapiUnOptionsDup
+(ri->un_options);if(!slRibPt){slRibPt=skiplist_new(0,rfapi_rib_key_cmp,NULL);rn-
+>info=slRibPt;route_lock_node(rn);}skiplist_insert(slRibPt,&ori->rk,ori);#ifDEBU
+G_RIB_SL_RDprefix_rd2str(&ori->rk.rd,buf_rd,sizeof(buf_rd));#elsebuf_rd[0]=0;#en
+difvnc_zlog_debug_verbose("%s:nomatchlPendCostitem%pinslRibPt,added(rd=%s)",__fu
+nc__,ri,buf_rd);}/**poketimer*/RFAPI_RIB_CHECK_COUNTS(0,(delete_list?delete_list
+->count:0));rfapiRibStartTimer(rfd,ori,rn,0);RFAPI_RIB_CHECK_COUNTS(0,(delete_li
+st?delete_list->count:0));}}callback:/**ConstructNHLasconcatenationofpendinglist
++deletelist*/RFAPI_RIB_CHECK_COUNTS(0,(delete_list?delete_list->count:0));if(lPe
+ndCost){charbuf[BUFSIZ];charbuf2[BUFSIZ];vnc_zlog_debug_verbose("%s:lPendCost->c
+ountnow%d",__func__,lPendCost->count);vnc_zlog_debug_verbose("%s:Forprefix%s(a)"
+,__func__,buf_prefix);printedprefix=1;for(ALL_LIST_ELEMENTS(lPendCost,node,nnode
+,ri)){structrfapi_next_hop_entry*new;structroute_node*trn;new=XCALLOC(MTYPE_RFAP
+I_NEXTHOP,sizeof(structrfapi_next_hop_entry));assert(new);if(ri->rk.aux_prefix.f
+amily){rfapiQprefix2Rprefix(&ri->rk.aux_prefix,&new->prefix);}else{new->prefix=h
+p;if(AFI_L2VPN==afi){/*hpis0;needtosetlengthtomatch*AFofvn*/new->prefix.length=(
+ri->rk.vn.family==AF_INET)?32:128;}}new->prefix.cost=ri->cost;new->lifetime=ri->
+lifetime;rfapiQprefix2Raddr(&ri->rk.vn,&new->vn_address);rfapiQprefix2Raddr(&ri-
+>un,&new->un_address);/*freeoptionchainfromri*/rfapiFreeBgpTeaOptionChain(ri->te
+a_options);ri->tea_options=NULL;/*optionchainwastransferredtoNHL*/new->vn_option
+s=ri->vn_options;ri->vn_options=NULL;/*optionchainwastransferredtoNHL*/new->un_o
+ptions=ri->un_options;ri->un_options=NULL;/*optionchainwastransferredtoNHL*/if(*
+tail)(*tail)->next=new;*tail=new;if(!*head){*head=new;}sendingsomeroutes=1;++rfd
+->stat_count_nh_reachable;++bgp->rfapi->stat.count_updated_response_updates;/**u
+pdatethisNVE'stimestampforthisprefix*/trn=route_node_get(rfd->rsp_times[afi],&pn
+->p);/*lockstrn*/trn->info=(void*)(uintptr_t)bgp_clock();if(trn->lock>1)route_un
+lock_node(trn);rfapiRfapiIpAddr2Str(&new->vn_address,buf,BUFSIZ);rfapiRfapiIpAdd
+r2Str(&new->un_address,buf2,BUFSIZ);vnc_zlog_debug_verbose("%s:addvn=%sun=%scost
+=%dlife=%d",__func__,buf,buf2,new->prefix.cost,new->lifetime);}}RFAPI_RIB_CHECK_
+COUNTS(0,(delete_list?delete_list->count:0));if(delete_list){charbuf[BUFSIZ];cha
+rbuf2[BUFSIZ];if(!printedprefix){vnc_zlog_debug_verbose("%s:Forprefix%s(d)",__fu
+nc__,buf_prefix);}vnc_zlog_debug_verbose("%s:delete_listhas%delements",__func__,
+delete_list->count);RFAPI_RIB_CHECK_COUNTS(0,delete_list->count);if(!CHECK_FLAG(
+bgp->rfapi_cfg->flags,BGP_VNC_CONFIG_RESPONSE_REMOVAL_DISABLE)){for(ALL_LIST_ELE
+MENTS(delete_list,node,nnode,ri)){structrfapi_next_hop_entry*new;structrfapi_inf
+o*ri_del;RFAPI_RIB_CHECK_COUNTS(0,delete_list->count);new=XCALLOC(MTYPE_RFAPI_NE
+XTHOP,sizeof(structrfapi_next_hop_entry));assert(new);if(ri->rk.aux_prefix.famil
+y){rfapiQprefix2Rprefix(&ri->rk.aux_prefix,&new->prefix);}else{new->prefix=hp;if
+(AFI_L2VPN==afi){/*hpis0;needtosetlength*tomatchAFofvn*/new->prefix.length=(ri->
+rk.vn.family==AF_INET)?32:128;}}new->prefix.cost=ri->cost;new->lifetime=RFAPI_RE
+MOVE_RESPONSE_LIFETIME;rfapiQprefix2Raddr(&ri->rk.vn,&new->vn_address);rfapiQpre
+fix2Raddr(&ri->un,&new->un_address);new->vn_options=ri->vn_options;ri->vn_option
+s=NULL;/*optionchainwastransferredtoNHL*/new->un_options=ri->un_options;ri->un_o
+ptions=NULL;/*optionchainwastransferredtoNHL*/if(*tail)(*tail)->next=new;*tail=n
+ew;if(!*head){*head=new;}++rfd->stat_count_nh_removal;++bgp->rfapi->stat.count_u
+pdated_response_deletes;rfapiRfapiIpAddr2Str(&new->vn_address,buf,BUFSIZ);rfapiR
+fapiIpAddr2Str(&new->un_address,buf2,BUFSIZ);vnc_zlog_debug_verbose("%s:DELvn=%s
+un=%scost=%dlife=%d",__func__,buf,buf2,new->prefix.cost,new->lifetime);RFAPI_RIB
+_CHECK_COUNTS(0,delete_list->count);/**Update/addtolistofrecentdeletionsat*thisp
+refix*/if(!rn->aggregate){rn->aggregate=skiplist_new(0,rfapi_rib_key_cmp,(void(*
+)(void*))rfapi_info_free);route_lock_node(rn);}RFAPI_RIB_CHECK_COUNTS(0,delete_l
+ist->count);/*sanitychecklifetime*/if(ri->lifetime>RFAPI_LIFETIME_INFINITE_WITHD
+RAW_DELAY)ri->lifetime=RFAPI_LIFETIME_INFINITE_WITHDRAW_DELAY;RFAPI_RIB_CHECK_CO
+UNTS(0,delete_list->count);/*cancelnormalexpiretimer*/if(ri->timer){structrfapi_
+rib_tcb*tcb;tcb=((structthread*)ri->timer)->arg;thread_cancel((structthread*)ri-
+>timer);XFREE(MTYPE_RFAPI_RECENT_DELETE,tcb);ri->timer=NULL;}RFAPI_RIB_CHECK_COU
+NTS(0,delete_list->count);/**Lookin"recently-deleted"list*/if(skiplist_search((s
+tructskiplist*)(rn->aggregate),&ri->rk,(void**)&ri_del)){intrc;RFAPI_RIB_CHECK_C
+OUNTS(0,delete_list->count);/**NOTin"recently-deleted"list*/list_delete_node(del
+ete_list,node);/*doesnotfreeri*/rc=skiplist_insert((structskiplist*)(rn->aggrega
+te),&ri->rk,ri);assert(!rc);RFAPI_RIB_CHECK_COUNTS(0,delete_list->count);rfapiRi
+bStartTimer(rfd,ri,rn,1);RFAPI_RIB_CHECK_COUNTS(0,delete_list->count);ri->last_s
+ent_time=rfapi_time(NULL);#ifDEBUG_RIB_SL_RD{charbuf_rd[RD_ADDRSTRLEN];vnc_zlog_
+debug_verbose("%s:moveroutetorecentlydeletedlist,rd=%s",__func__,prefix_rd2str(&
+ri->rk.rd,buf_rd,sizeof(buf_rd)));}#endif}else{/**IN"recently-deleted"list*/RFAP
+I_RIB_CHECK_COUNTS(0,delete_list->count);rfapiRibStartTimer(rfd,ri_del,rn,1);RFA
+PI_RIB_CHECK_COUNTS(0,delete_list->count);ri->last_sent_time=rfapi_time(NULL);}}
+}else{vnc_zlog_debug_verbose("%s:responseremovaldisabled,omittingremovals",__fun
+c__);}delete_list->del=(void(*)(void*))rfapi_info_free;list_delete_and_null(&del
+ete_list);}RFAPI_RIB_CHECK_COUNTS(0,0);/**Resetpendinglists.Thefinalroute_unlock
+_node()willprobably*causethependingnodetobereleased.*/if(slPendPt){skiplist_free
+(slPendPt);pn->aggregate=NULL;route_unlock_node(pn);}if(lPendCost){list_delete_a
+nd_null(&lPendCost);pn->info=NULL;route_unlock_node(pn);}RFAPI_RIB_CHECK_COUNTS(
+0,0);if(rib_node_started_nonempty){if(!rn->info){RFAPI_RIB_PREFIX_COUNT_DECR(rfd
+,bgp->rfapi);}}else{if(rn->info){RFAPI_RIB_PREFIX_COUNT_INCR(rfd,bgp->rfapi);}}i
+f(sendingsomeroutes)rfapiMonitorTimersRestart(rfd,&pn->p);route_unlock_node(rn);
+/*route_node_get()*/RFAPI_RIB_CHECK_COUNTS(1,0);}/**regardlessoftargets,construc
+tasinglecallbackbydoing*onlyonetraversalofthependingRIB***Docallback**/staticvoi
+drib_do_callback_onepass(structrfapi_descriptor*rfd,afi_tafi){structbgp*bgp=bgp_
+get_default();structrfapi_next_hop_entry*head=NULL;structrfapi_next_hop_entry*ta
+il=NULL;structroute_node*rn;#ifDEBUG_L2_EXTRAvnc_zlog_debug_verbose("%s:rfd=%p,a
+fi=%d",__func__,rfd,afi);#endifif(!rfd->rib_pending[afi])return;assert(bgp->rfap
+i);for(rn=route_top(rfd->rib_pending[afi]);rn;rn=route_next(rn)){process_pending
+_node(bgp,rfd,afi,rn,&head,&tail);}if(head){rfapi_response_cb_t*f;#ifDEBUG_NHLvn
+c_zlog_debug_verbose("%s:responsecallbackNHLfollows:",__func__);rfapiPrintNhl(NU
+LL,head);#endifif(rfd->response_cb)f=rfd->response_cb;elsef=bgp->rfapi->rfp_meth
+ods.response_cb;bgp->rfapi->flags|=RFAPI_INCALLBACK;vnc_zlog_debug_verbose("%s:i
+nvokingupdatedresponsecallback",__func__);(*f)(head,rfd->cookie);bgp->rfapi->fla
+gs&=~RFAPI_INCALLBACK;++bgp->rfapi->response_updated_count;}}staticwq_item_statu
+srfapiRibDoQueuedCallback(structwork_queue*wq,void*data){structrfapi_descriptor*
+rfd;afi_tafi;uint32_tqueued_flag;RFAPI_RIB_CHECK_COUNTS(1,0);rfd=((structrfapi_u
+pdated_responses_queue*)data)->rfd;afi=((structrfapi_updated_responses_queue*)da
+ta)->afi;/*MakesuretheHDwasn'tclosedaftertheworkitemwasscheduled*/if(rfapi_check
+(rfd))returnWQ_SUCCESS;rib_do_callback_onepass(rfd,afi);queued_flag=RFAPI_QUEUED
+_FLAG(afi);UNSET_FLAG(rfd->flags,queued_flag);RFAPI_RIB_CHECK_COUNTS(1,0);return
+WQ_SUCCESS;}staticvoidrfapiRibQueueItemDelete(structwork_queue*wq,void*data){XFR
+EE(MTYPE_RFAPI_UPDATED_RESPONSE_QUEUE,data);}staticvoidupdated_responses_queue_i
+nit(structrfapi_descriptor*rfd){if(rfd->updated_responses_queue)return;rfd->upda
+ted_responses_queue=work_queue_new(bm->master,"rfapiupdatedresponses");assert(rf
+d->updated_responses_queue);rfd->updated_responses_queue->spec.workfunc=rfapiRib
+DoQueuedCallback;rfd->updated_responses_queue->spec.del_item_data=rfapiRibQueueI
+temDelete;rfd->updated_responses_queue->spec.max_retries=0;rfd->updated_response
+s_queue->spec.hold=1;}/**Calledwhenanimporttablenodeismodified.Constructa*newcom
+pletenexthoplist,sortedbycost(lowestfirst),*basedontheimporttablenode.**Filterou
+tduplicatenexthops(vnaddress).Thereshouldbe*onlyoneUNaddressperVNaddressfromthep
+ointofviewof*agivenimporttable,sowecanprobablyignoreUNaddresses*whilefiltering.*
+*BasedonrfapiNhlAddNodeRoutes()*/voidrfapiRibUpdatePendingNode(structbgp*bgp,str
+uctrfapi_descriptor*rfd,structrfapi_import_table*it,/*neededforL2*/structroute_n
+ode*it_node,uint32_tlifetime){structprefix*prefix;structbgp_info*bi;structroute_
+node*pn;afi_tafi;uint32_tqueued_flag;intcount=0;charbuf[PREFIX_STRLEN];vnc_zlog_
+debug_verbose("%s:entry",__func__);if(CHECK_FLAG(bgp->rfapi_cfg->flags,BGP_VNC_C
+ONFIG_CALLBACK_DISABLE))return;vnc_zlog_debug_verbose("%s:callbacksarenotdisable
+d",__func__);RFAPI_RIB_CHECK_COUNTS(1,0);prefix=&it_node->p;afi=family2afi(prefi
+x->family);prefix2str(prefix,buf,sizeof(buf));vnc_zlog_debug_verbose("%s:prefix=
+%s",__func__,buf);pn=route_node_get(rfd->rib_pending[afi],prefix);assert(pn);vnc
+_zlog_debug_verbose("%s:pn->info=%p,pn->aggregate=%p",__func__,pn->info,pn->aggr
+egate);if(pn->aggregate){/**freereferencesintotherfapi_infostructuresbefore*free
+ingthestructuresthemselves*/skiplist_free((structskiplist*)(pn->aggregate));pn->
+aggregate=NULL;route_unlock_node(pn);/*skiplistdeleted*/}/**freetherfapi_infostr
+uctures*/if(pn->info){if(pn->info!=(void*)1){list_delete_and_null((structlist**)
+(&pn->info));}pn->info=NULL;route_unlock_node(pn);/*linklistor1deleted*/}/**TheB
+Isintheimporttablearealreadysortedbycost*/for(bi=it_node->info;bi;bi=bi->next){s
+tructrfapi_info*ri;structprefixpfx_nh;if(!bi->attr){/*shouldn'thappen*//*TBDincr
+ementerrorstatscounter*/continue;}if(!bi->extra){/*shouldn'thappen*//*TBDincreme
+nterrorstatscounter*/continue;}rfapiNexthop2Prefix(bi->attr,&pfx_nh);/**Omitrout
+eifnexthopisself*/if(CHECK_FLAG(bgp->rfapi_cfg->flags,BGP_VNC_CONFIG_FILTER_SELF
+_FROM_RSP)){structprefixpfx_vn;assert(!rfapiRaddr2Qprefix(&rfd->vn_addr,&pfx_vn)
+);if(prefix_same(&pfx_vn,&pfx_nh))continue;}ri=rfapi_info_new();ri->rk.vn=pfx_nh
+;ri->rk.rd=bi->extra->vnc.import.rd;/**IfthereisanauxiliaryIPaddress(L2canhaveit
+),copyit*/if(bi->extra->vnc.import.aux_prefix.family){ri->rk.aux_prefix=bi->extr
+a->vnc.import.aux_prefix;}if(rfapiGetUnAddrOfVpnBi(bi,&ri->un)){rfapi_info_free(
+ri);continue;}if(!pn->aggregate){pn->aggregate=skiplist_new(0,rfapi_rib_key_cmp,
+NULL);route_lock_node(pn);}/**Ifwehavealreadyaddedthisnexthop,theinsertwillfail.
+*NotethattheskiplistkeyisapointerINTOtherfapi_info*structurewhichwillbeaddedtoth
+e"info"list.*TheskiplistentryVALUEisnotusedforanythingbut*mightbeusefulduringdeb
+ugging.*/if(skiplist_insert((structskiplist*)pn->aggregate,&ri->rk,ri)){/**dupli
+cate*/rfapi_info_free(ri);continue;}rfapiRibBi2Ri(bi,ri,lifetime);if(!pn->info){
+pn->info=list_new();((structlist*)(pn->info))->del=(void(*)(void*))rfapi_info_fr
+ee;route_lock_node(pn);}listnode_add((structlist*)(pn->info),ri);}if(pn->info){c
+ount=((structlist*)(pn->info))->count;}if(!count){assert(!pn->info);assert(!pn->
+aggregate);pn->info=(void*)1;/*magicvaluemeansthisnodehasnoroutes*/route_lock_no
+de(pn);}route_unlock_node(pn);/*route_node_get*/queued_flag=RFAPI_QUEUED_FLAG(af
+i);if(!CHECK_FLAG(rfd->flags,queued_flag)){structrfapi_updated_responses_queue*u
+rq;urq=XCALLOC(MTYPE_RFAPI_UPDATED_RESPONSE_QUEUE,sizeof(structrfapi_updated_res
+ponses_queue));assert(urq);if(!rfd->updated_responses_queue)updated_responses_qu
+eue_init(rfd);SET_FLAG(rfd->flags,queued_flag);urq->rfd=rfd;urq->afi=afi;work_qu
+eue_add(rfd->updated_responses_queue,urq);}RFAPI_RIB_CHECK_COUNTS(1,0);}voidrfap
+iRibUpdatePendingNodeSubtree(structbgp*bgp,structrfapi_descriptor*rfd,structrfap
+i_import_table*it,structroute_node*it_node,structroute_node*omit_subtree,/*maybe
+NULL*/uint32_tlifetime){/*FIXME:needtofindabetterwayheretoworkwithoutstickingour
+*handsinnode->link*/if(it_node->l_left&&(it_node->l_left!=omit_subtree)){if(it_n
+ode->l_left->info)rfapiRibUpdatePendingNode(bgp,rfd,it,it_node->l_left,lifetime)
+;rfapiRibUpdatePendingNodeSubtree(bgp,rfd,it,it_node->l_left,omit_subtree,lifeti
+me);}if(it_node->l_right&&(it_node->l_right!=omit_subtree)){if(it_node->l_right-
+>info)rfapiRibUpdatePendingNode(bgp,rfd,it,it_node->l_right,lifetime);rfapiRibUp
+datePendingNodeSubtree(bgp,rfd,it,it_node->l_right,omit_subtree,lifetime);}}/**R
+ETURNVALUE**0allowprefixtobeincludedinresponse*!0don'tallowprefixtobeincludedinr
+esponse*/intrfapiRibFTDFilterRecentPrefix(structrfapi_descriptor*rfd,structroute
+_node*it_rn,/*importtablenode*/structprefix*pfx_target_original)/*querytarget*/{
+structbgp*bgp=rfd->bgp;afi_tafi=family2afi(it_rn->p.family);time_tprefix_time;st
+ructroute_node*trn;/**NotinFTDmode,soallowprefix*/if(bgp->rfapi_cfg->rfp_cfg.dow
+nload_type!=RFAPI_RFP_DOWNLOAD_FULL)return0;/**TBD*Thismatchesbehaviorofnow-obso
+leterfapiRibFTDFilterRecent(),*butweneedtodecideifthatiscorrect.*/if(it_rn->p.fa
+mily==AF_ETHERNET)return0;#ifDEBUG_FTD_FILTER_RECENT{charbuf_pfx[PREFIX_STRLEN];
+prefix2str(&it_rn->p,buf_pfx,sizeof(buf_pfx));vnc_zlog_debug_verbose("%s:prefix%
+s",__func__,buf_pfx);}#endif/**prefixcoverstargetaddress,soallowprefix*/if(prefi
+x_match(&it_rn->p,pfx_target_original)){#ifDEBUG_FTD_FILTER_RECENTvnc_zlog_debug
+_verbose("%s:prefixcoverstarget,allowed",__func__);#endifreturn0;}/**checkthisNV
+E'stimestampforthisprefix*/trn=route_node_get(rfd->rsp_times[afi],&it_rn->p);/*l
+ockstrn*/prefix_time=(time_t)trn->info;if(trn->lock>1)route_unlock_node(trn);#if
+DEBUG_FTD_FILTER_RECENTvnc_zlog_debug_verbose("%s:lastsenttime%lu,lastallowedtim
+e%lu",__func__,prefix_time,rfd->ftd_last_allowed_time);#endif/**haven'tsentthisp
+refix,whichdoesn'tcovertargetaddress,*toNVEsinceftd_advertisement_interval,soOKt
+osendnow.*/if(prefix_time<=rfd->ftd_last_allowed_time)return0;return1;}/**Callwh
+enrfapireturnsfromrfapi_query()sotheRIBreflects*theroutessenttotheNVEbeforethefi
+rstupdatedresponse**Also:removeduplicatesfromresponse.Callershouldusereturned*va
+lueofnexthopchain.*/structrfapi_next_hop_entry*rfapiRibPreload(structbgp*bgp,str
+uctrfapi_descriptor*rfd,structrfapi_next_hop_entry*response,intuse_eth_resolutio
+n){structrfapi_next_hop_entry*nhp;structrfapi_next_hop_entry*nhp_next;structrfap
+i_next_hop_entry*head=NULL;structrfapi_next_hop_entry*tail=NULL;time_tnew_last_s
+ent_time;vnc_zlog_debug_verbose("%s:loadingresponse=%p,use_eth_resolution=%d",__
+func__,response,use_eth_resolution);new_last_sent_time=rfapi_time(NULL);for(nhp=
+response;nhp;nhp=nhp_next){structprefixpfx;structrfapi_rib_keyrk;afi_tafi;struct
+rfapi_info*ri;intneed_insert;structroute_node*rn;intrib_node_started_nonempty=0;
+structroute_node*trn;intallowed=0;/*saveincasewedeletenhp*/nhp_next=nhp->next;if
+(nhp->lifetime==RFAPI_REMOVE_RESPONSE_LIFETIME){/**weird,shouldn'thappen*/vnc_zl
+og_debug_verbose("%s:gotnhp->lifetime==RFAPI_REMOVE_RESPONSE_LIFETIME",__func__)
+;continue;}if(use_eth_resolution){/*gettheprefixoftheethernetaddressintheL2*opti
+on*/structrfapi_l2address_option*pL2o;structrfapi_vn_option*vo;/**LookforVNoptio
+noftype*RFAPI_VN_OPTION_TYPE_L2ADDR*/for(pL2o=NULL,vo=nhp->vn_options;vo;vo=vo->
+next){if(RFAPI_VN_OPTION_TYPE_L2ADDR==vo->type){pL2o=&vo->v.l2addr;break;}}if(!p
+L2o){/**notsupposedtohappen*/vnc_zlog_debug_verbose("%s:missingL2info",__func__)
+;continue;}afi=AFI_L2VPN;rfapiL2o2Qprefix(pL2o,&pfx);}else{rfapiRprefix2Qprefix(
+&nhp->prefix,&pfx);afi=family2afi(pfx.family);}/**TBDforethernet,ribmustknowther
+ightwaytodistinguish*duplicateroutes**Currentapproach:prefixiskeytoradixtree;the
+n*eachprefixhasasetofrouteswithuniqueVNaddrs*//**LookupprefixinRIB*/rn=route_nod
+e_get(rfd->rib[afi],&pfx);/*locksrn*/if(rn->info){rib_node_started_nonempty=1;}e
+lse{rn->info=skiplist_new(0,rfapi_rib_key_cmp,NULL);route_lock_node(rn);}/**Look
+uprouteatprefix*/need_insert=0;memset((void*)&rk,0,sizeof(rk));assert(!rfapiRadd
+r2Qprefix(&nhp->vn_address,&rk.vn));if(use_eth_resolution){/*copywhatcamefromaux
+_prefixtork.aux_prefix*/rfapiRprefix2Qprefix(&nhp->prefix,&rk.aux_prefix);if(RFA
+PI_0_PREFIX(&rk.aux_prefix)&&RFAPI_HOST_PREFIX(&rk.aux_prefix)){/*markas"none"if
+nhp->prefixis0/32or*0/128*/rk.aux_prefix.family=0;}}#ifDEBUG_NHL{charstr_vn[PREF
+IX_STRLEN];charstr_aux_prefix[PREFIX_STRLEN];str_vn[0]=0;str_aux_prefix[0]=0;pre
+fix2str(&rk.vn,str_vn,sizeof(str_vn));prefix2str(&rk.aux_prefix,str_aux_prefix,s
+izeof(str_aux_prefix));if(!rk.aux_prefix.family){}vnc_zlog_debug_verbose("%s:rk.
+vn=%srk.aux_prefix=%s",__func__,str_vn,(rk.aux_prefix.family?str_aux_prefix:"-")
+);}vnc_zlog_debug_verbose("%s:RIBskiplistforthisprefixfollows",__func__);rfapiRi
+bShowRibSl(NULL,&rn->p,(structskiplist*)rn->info);#endifif(!skiplist_search((str
+uctskiplist*)rn->info,&rk,(void**)&ri)){/**Alreadyhavethisroute;makevaluesmatch*
+/rfapiFreeRfapiUnOptionChain(ri->un_options);ri->un_options=NULL;rfapiFreeRfapiV
+nOptionChain(ri->vn_options);ri->vn_options=NULL;#ifDEBUG_NHLvnc_zlog_debug_verb
+ose("%s:foundinRIB",__func__);#endif/**Filterduplicateroutesfrominitialresponse.
+*Checktimestampstoavoidwraparoundproblems*/if((ri->rsp_counter!=rfd->rsp_counter
+)||(ri->last_sent_time!=new_last_sent_time)){#ifDEBUG_NHLvnc_zlog_debug_verbose(
+"%s:allowedduetocounter/timestampdiff",__func__);#endifallowed=1;}}else{#ifDEBUG
+_NHLvnc_zlog_debug_verbose("%s:allowedduetonotyetinRIB",__func__);#endif/*notfou
+nd:addnewroutetoRIB*/ri=rfapi_info_new();need_insert=1;allowed=1;}ri->rk=rk;asse
+rt(!rfapiRaddr2Qprefix(&nhp->un_address,&ri->un));ri->cost=nhp->prefix.cost;ri->
+lifetime=nhp->lifetime;ri->vn_options=rfapiVnOptionsDup(nhp->vn_options);ri->rsp
+_counter=rfd->rsp_counter;ri->last_sent_time=rfapi_time(NULL);if(need_insert){in
+trc;rc=skiplist_insert((structskiplist*)rn->info,&ri->rk,ri);assert(!rc);}if(!ri
+b_node_started_nonempty){RFAPI_RIB_PREFIX_COUNT_INCR(rfd,bgp->rfapi);}RFAPI_RIB_
+CHECK_COUNTS(0,0);rfapiRibStartTimer(rfd,ri,rn,0);RFAPI_RIB_CHECK_COUNTS(0,0);ro
+ute_unlock_node(rn);/**updatethisNVE'stimestampforthisprefix*/trn=route_node_get
+(rfd->rsp_times[afi],&pfx);/*lockstrn*/trn->info=(void*)(uintptr_t)bgp_clock();i
+f(trn->lock>1)route_unlock_node(trn);{charstr_pfx[PREFIX_STRLEN];charstr_pfx_vn[
+PREFIX_STRLEN];prefix2str(&pfx,str_pfx,sizeof(str_pfx));prefix2str(&rk.vn,str_pf
+x_vn,sizeof(str_pfx_vn));vnc_zlog_debug_verbose("%s:addedpfx=%snh[vn]=%s,cost=%u
+,lifetime=%u,allowed=%d",__func__,str_pfx,str_pfx_vn,nhp->prefix.cost,nhp->lifet
+ime,allowed);}if(allowed){if(tail)(tail)->next=nhp;tail=nhp;if(!head){head=nhp;}
+}else{rfapi_un_options_free(nhp->un_options);nhp->un_options=NULL;rfapi_vn_optio
+ns_free(nhp->vn_options);nhp->vn_options=NULL;XFREE(MTYPE_RFAPI_NEXTHOP,nhp);nhp
+=NULL;}}if(tail)tail->next=NULL;returnhead;}voidrfapiRibPendingDeleteRoute(struc
+tbgp*bgp,structrfapi_import_table*it,afi_tafi,structroute_node*it_node){structrf
+api_descriptor*rfd;structlistnode*node;charbuf[PREFIX_STRLEN];prefix2str(&it_nod
+e->p,buf,sizeof(buf));vnc_zlog_debug_verbose("%s:entry,it=%p,afi=%d,it_node=%p,p
+fx=%s",__func__,it,afi,it_node,buf);if(AFI_L2VPN==afi){/**ethernetimporttablesar
+eper-LNIandeachethernetmonitor*identifiestherfdthatownsit.*/structrfapi_monitor_
+eth*m;structroute_node*rn;structskiplist*sl;void*cursor;intrc;/**route-specificm
+onitors*/if((sl=RFAPI_MONITOR_ETH(it_node))){vnc_zlog_debug_verbose("%s:route-sp
+ecificskiplist:%p",__func__,sl);for(cursor=NULL,rc=skiplist_next(sl,NULL,(void**
+)&m,(void**)&cursor);!rc;rc=skiplist_next(sl,NULL,(void**)&m,(void**)&cursor)){#
+ifDEBUG_PENDING_DELETE_ROUTEvnc_zlog_debug_verbose("%s:ethmonitorrfd=%p",__func_
+_,m->rfd);#endif/**Ifwehavealreadysentaroutewiththis*prefixtothis*NVE,it'sOKtose
+ndanupdatewiththe*delete*/if((rn=route_node_lookup(m->rfd->rib[afi],&it_node->p)
+)){rfapiRibUpdatePendingNode(bgp,m->rfd,it,it_node,m->rfd->response_lifetime);ro
+ute_unlock_node(rn);}}}/**all-routes/FTDmonitors*/for(m=it->eth0_queries;m;m=m->
+next){#ifDEBUG_PENDING_DELETE_ROUTEvnc_zlog_debug_verbose("%s:eth0monitorrfd=%p"
+,__func__,m->rfd);#endif/**Ifwehavealreadysentaroutewiththisprefixto*this*NVE,it
+'sOKtosendanupdatewiththedelete*/if((rn=route_node_lookup(m->rfd->rib[afi],&it_n
+ode->p))){rfapiRibUpdatePendingNode(bgp,m->rfd,it,it_node,m->rfd->response_lifet
+ime);}}}else{/**FindRFDsthatreferencethisimporttable*/for(ALL_LIST_ELEMENTS_RO(&
+bgp->rfapi->descriptors,node,rfd)){structroute_node*rn;vnc_zlog_debug_verbose("%
+s:comparingrfd(%p)->import_table=%ptoit=%p",__func__,rfd,rfd->import_table,it);i
+f(rfd->import_table!=it)continue;vnc_zlog_debug_verbose("%s:matchedrfd%p",__func
+__,rfd);/**IfwehavesentaresponsetothisNVEwiththis*prefix*previously,weshouldsend
+anupdatedresponse.*/if((rn=route_node_lookup(rfd->rib[afi],&it_node->p))){rfapiR
+ibUpdatePendingNode(bgp,rfd,it,it_node,rfd->response_lifetime);route_unlock_node
+(rn);}}}}voidrfapiRibShowResponsesSummary(void*stream){int(*fp)(void*,constchar*
+,...);structvty*vty;void*out;constchar*vty_newline;structbgp*bgp=bgp_get_default
+();intnves=0;intnves_with_nonempty_ribs=0;structrfapi_descriptor*rfd;structlistn
+ode*node;if(rfapiStream2Vty(stream,&fp,&vty,&out,&vty_newline)==0)return;if(!bgp
+){fp(out,"UnabletofinddefaultBGPinstance\n");return;}fp(out,"%-24s","Responses:(
+Prefixes)");fp(out,"%-8s%-8u","Active:",bgp->rfapi->rib_prefix_count_total);fp(o
+ut,"%-8s%-8u","Maximum:",bgp->rfapi->rib_prefix_count_total_max);fp(out,"\n");fp
+(out,"%-24s","(Updated)");fp(out,"%-8s%-8u","Update:",bgp->rfapi->stat.count_upd
+ated_response_updates);fp(out,"%-8s%-8u","Remove:",bgp->rfapi->stat.count_update
+d_response_deletes);fp(out,"%-8s%-8u","Total:",bgp->rfapi->stat.count_updated_re
+sponse_updates+bgp->rfapi->stat.count_updated_response_deletes);fp(out,"\n");fp(
+out,"%-24s","(NVEs)");for(ALL_LIST_ELEMENTS_RO(&bgp->rfapi->descriptors,node,rfd
+)){++nves;if(rfd->rib_prefix_count)++nves_with_nonempty_ribs;}fp(out,"%-8s%-8u",
+"Active:",nves_with_nonempty_ribs);fp(out,"%-8s%-8u","Total:",nves);fp(out,"\n")
+;}voidrfapiRibShowResponsesSummaryClear(void){structbgp*bgp=bgp_get_default();bg
+p->rfapi->rib_prefix_count_total_max=bgp->rfapi->rib_prefix_count_total;}statici
+ntprint_rib_sl(int(*fp)(void*,constchar*,...),structvty*vty,void*out,structskipl
+ist*sl,intdeleted,char*str_pfx,int*printedprefix){structrfapi_info*ri;intrc;void
+*cursor;introutes_displayed=0;cursor=NULL;for(rc=skiplist_next(sl,NULL,(void**)&
+ri,&cursor);!rc;rc=skiplist_next(sl,NULL,(void**)&ri,&cursor)){charstr_vn[PREFIX
+_STRLEN];charstr_un[PREFIX_STRLEN];charstr_lifetime[BUFSIZ];charstr_age[BUFSIZ];
+char*p;charstr_rd[RD_ADDRSTRLEN];++routes_displayed;prefix2str(&ri->rk.vn,str_vn
+,sizeof(str_vn));p=index(str_vn,'/');if(p)*p=0;prefix2str(&ri->un,str_un,sizeof(
+str_un));p=index(str_un,'/');if(p)*p=0;rfapiFormatSeconds(ri->lifetime,str_lifet
+ime,BUFSIZ);#ifRFAPI_REGISTRATIONS_REPORT_AGErfapiFormatAge(ri->last_sent_time,s
+tr_age,BUFSIZ);#else{time_tnow=rfapi_time(NULL);time_texpire=ri->last_sent_time+
+(time_t)ri->lifetime;/*allowfordelayed/asyncremoval*/rfapiFormatSeconds((expire>
+now?expire-now:1),str_age,BUFSIZ);}#endifstr_rd[0]=0;/*startempty*/#ifDEBUG_RIB_
+SL_RDprefix_rd2str(&ri->rk.rd,str_rd,sizeof(str_rd));#endiffp(out,"%c%-20s%-15s%
+-15s%-4u%-8s%-8s%s\n",deleted?'r':'',*printedprefix?"":str_pfx,str_vn,str_un,ri-
+>cost,str_lifetime,str_age,str_rd);if(!*printedprefix)*printedprefix=1;}returnro
+utes_displayed;}#ifDEBUG_NHL/**Thisoneisfordebugging(setstreamtoNULLtosendoutput
+tolog)*/staticvoidrfapiRibShowRibSl(void*stream,structprefix*pfx,structskiplist*
+sl){int(*fp)(void*,constchar*,...);structvty*vty;void*out;constchar*vty_newline;
+intnhs_displayed=0;charstr_pfx[PREFIX_STRLEN];intprintedprefix=0;if(rfapiStream2
+Vty(stream,&fp,&vty,&out,&vty_newline)==0)return;prefix2str(pfx,str_pfx,sizeof(s
+tr_pfx));nhs_displayed+=print_rib_sl(fp,vty,out,sl,0,str_pfx,&printedprefix);}#e
+ndifvoidrfapiRibShowResponses(void*stream,structprefix*pfx_match,intshow_removed
+){int(*fp)(void*,constchar*,...);structvty*vty;void*out;constchar*vty_newline;st
+ructrfapi_descriptor*rfd;structlistnode*node;structbgp*bgp=bgp_get_default();int
+printedheader=0;introutes_total=0;intnhs_total=0;intprefixes_total=0;intprefixes
+_displayed=0;intnves_total=0;intnves_with_routes=0;intnves_displayed=0;introutes
+_displayed=0;intnhs_displayed=0;if(rfapiStream2Vty(stream,&fp,&vty,&out,&vty_new
+line)==0)return;if(!bgp){fp(out,"UnabletofinddefaultBGPinstance\n");return;}/**l
+oopoverNVEs*/for(ALL_LIST_ELEMENTS_RO(&bgp->rfapi->descriptors,node,rfd)){intpri
+ntednve=0;afi_tafi;++nves_total;if(rfd->rib_prefix_count)++nves_with_routes;for(
+afi=AFI_IP;afi<AFI_MAX;++afi){structroute_node*rn;if(!rfd->rib[afi])continue;for
+(rn=route_top(rfd->rib[afi]);rn;rn=route_next(rn)){structskiplist*sl;charstr_pfx
+[PREFIX_STRLEN];intprintedprefix=0;if(!show_removed)sl=rn->info;elsesl=rn->aggre
+gate;if(!sl)continue;routes_total++;nhs_total+=skiplist_count(sl);++prefixes_tot
+al;if(pfx_match&&!prefix_match(pfx_match,&rn->p)&&!prefix_match(&rn->p,pfx_match
+))continue;++prefixes_displayed;if(!printedheader){++printedheader;fp(out,"\n[%s
+]\n",show_removed?"Removed":"Active");fp(out,"%-15s%-15s\n","QueryingVN","Queryi
+ngUN");fp(out,"%-20s%-15s%-15s%4s%-8s%-8s\n","Prefix","RegisteredVN","Registered
+UN","Cost","Lifetime",#ifRFAPI_REGISTRATIONS_REPORT_AGE"Age"#else"Remaining"#end
+if);}if(!printednve){charstr_vn[BUFSIZ];charstr_un[BUFSIZ];++printednve;++nves_d
+isplayed;fp(out,"%-15s%-15s\n",rfapiRfapiIpAddr2Str(&rfd->vn_addr,str_vn,BUFSIZ)
+,rfapiRfapiIpAddr2Str(&rfd->un_addr,str_un,BUFSIZ));}prefix2str(&rn->p,str_pfx,s
+izeof(str_pfx));//fp(out,"%s\n",buf);/*prefix*/routes_displayed++;nhs_displayed+
+=print_rib_sl(fp,vty,out,sl,show_removed,str_pfx,&printedprefix);}}}if(routes_to
+tal){fp(out,"\n");fp(out,"Displayed%uNVEs,and%uoutof%u%sprefixes",nves_displayed
+,routes_displayed,routes_total,show_removed?"removed":"active");if(nhs_displayed
+!=routes_displayed||nhs_total!=routes_total)fp(out,"with%uoutof%unexthops",nhs_d
+isplayed,nhs_total);fp(out,"\n");}}

@@ -1,63 +1,23 @@
-/*
- * Generic vector interface header.
- * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_VECTOR_H
-#define _ZEBRA_VECTOR_H
-
-#include "memory.h"
-
-/* struct for vector */
-struct _vector {
-	unsigned int active;  /* number of active slots */
-	unsigned int alloced; /* number of allocated slot */
-	void **index;	 /* index to data */
-};
-typedef struct _vector *vector;
-
-#define VECTOR_MIN_SIZE 1
-
-/* (Sometimes) usefull macros.  This macro convert index expression to
- array expression. */
-/* Reference slot at given index, caller must ensure slot is active */
-#define vector_slot(V,I)  ((V)->index[(I)])
-/* Number of active slots.
- * Note that this differs from vector_count() as it the count returned
- * will include any empty slots
- */
-#define vector_active(V) ((V)->active)
-
-/* Prototypes. */
-extern vector vector_init(unsigned int size);
-extern void vector_ensure(vector v, unsigned int num);
-extern int vector_empty_slot(vector v);
-extern int vector_set(vector v, void *val);
-extern int vector_set_index(vector v, unsigned int i, void *val);
-extern void vector_unset(vector v, unsigned int i);
-extern void vector_unset_value(vector v, void *val);
-
-extern unsigned int vector_count(vector v);
-extern void vector_free(vector v);
-extern vector vector_copy(vector v);
-
-extern void *vector_lookup(vector, unsigned int);
-extern void *vector_lookup_ensure(vector, unsigned int);
-
-#endif /* _ZEBRA_VECTOR_H */
+/**Genericvectorinterfaceheader.*Copyright(C)1997,98KunihiroIshiguro**Thisfileis
+partofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*under
+thetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eith
+erversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethat
+itwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTAB
+ILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails
+.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;s
+eethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,Fifth
+Floor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_VECTOR_H#define_ZEBRA_VECTOR_H#inclu
+de"memory.h"/*structforvector*/struct_vector{unsignedintactive;/*numberofactives
+lots*/unsignedintalloced;/*numberofallocatedslot*/void**index;/*indextodata*/};t
+ypedefstruct_vector*vector;#defineVECTOR_MIN_SIZE1/*(Sometimes)usefullmacros.Thi
+smacroconvertindexexpressiontoarrayexpression.*//*Referenceslotatgivenindex,call
+ermustensureslotisactive*/#definevector_slot(V,I)((V)->index[(I)])/*Numberofacti
+veslots.*Notethatthisdiffersfromvector_count()asitthecountreturned*willincludean
+yemptyslots*/#definevector_active(V)((V)->active)/*Prototypes.*/externvectorvect
+or_init(unsignedintsize);externvoidvector_ensure(vectorv,unsignedintnum);externi
+ntvector_empty_slot(vectorv);externintvector_set(vectorv,void*val);externintvect
+or_set_index(vectorv,unsignedinti,void*val);externvoidvector_unset(vectorv,unsig
+nedinti);externvoidvector_unset_value(vectorv,void*val);externunsignedintvector_
+count(vectorv);externvoidvector_free(vectorv);externvectorvector_copy(vectorv);e
+xternvoid*vector_lookup(vector,unsignedint);externvoid*vector_lookup_ensure(vect
+or,unsignedint);#endif/*_ZEBRA_VECTOR_H*/

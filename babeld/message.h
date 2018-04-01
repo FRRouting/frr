@@ -1,101 +1,42 @@
-/*
-Copyright (c) 2007, 2008 by Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-*/
-
-#ifndef BABEL_MESSAGE_H
-#define BABEL_MESSAGE_H
-
-#include "babel_interface.h"
-
-#define MAX_BUFFERED_UPDATES 200
-
-#define BUCKET_TOKENS_MAX 200
-#define BUCKET_TOKENS_PER_SEC 40
-
-/* A registry of assigned TLV and sub-TLV types is available at
-   http://www.pps.univ-paris-diderot.fr/~jch/software/babel/babel-tlv-registry.text
-*/
-#define MESSAGE_PAD1 0
-#define MESSAGE_PADN 1
-#define MESSAGE_ACK_REQ 2
-#define MESSAGE_ACK 3
-#define MESSAGE_HELLO 4
-#define MESSAGE_IHU 5
-#define MESSAGE_ROUTER_ID 6
-#define MESSAGE_NH 7
-#define MESSAGE_UPDATE 8
-#define MESSAGE_REQUEST 9
-#define MESSAGE_MH_REQUEST 10
-#define MESSAGE_MAX 10
-
-/* Protocol extension through sub-TLVs. */
-#define SUBTLV_PAD1 0
-#define SUBTLV_PADN 1
-#define SUBTLV_DIVERSITY 2 /* Also known as babelz. */
-#define SUBTLV_TIMESTAMP 3 /* Used to compute RTT. */
-
-extern unsigned short myseqno;
-
-extern int broadcast_ihu;
-extern int split_horizon;
-
-extern struct neighbour *unicast_neighbour;
-extern struct timeval unicast_flush_timeout;
-
-void parse_packet(const unsigned char *from, struct interface *ifp,
-                  const unsigned char *packet, int packetlen);
-void flushbuf(struct interface *ifp);
-void flushupdates(struct interface *ifp);
-void send_ack(struct neighbour *neigh, unsigned short nonce,
-              unsigned short interval);
-void send_hello_noupdate(struct interface *ifp, unsigned interval);
-void send_hello(struct interface *ifp);
-void flush_unicast(int dofree);
-void send_update(struct interface *ifp, int urgent,
-                 const unsigned char *prefix, unsigned char plen);
-void send_update_resend(struct interface *ifp,
-                        const unsigned char *prefix, unsigned char plen);
-void send_wildcard_retraction(struct interface *ifp);
-void update_myseqno(void);
-void send_self_update(struct interface *ifp);
-void send_ihu(struct neighbour *neigh, struct interface *ifp);
-void send_marginal_ihu(struct interface *ifp);
-void send_request(struct interface *ifp,
-                  const unsigned char *prefix, unsigned char plen);
-void send_unicast_request(struct neighbour *neigh,
-                          const unsigned char *prefix, unsigned char plen);
-void send_multihop_request(struct interface *ifp,
-                           const unsigned char *prefix, unsigned char plen,
-                           unsigned short seqno, const unsigned char *id,
-                           unsigned short hop_count);
-void
-send_unicast_multihop_request(struct neighbour *neigh,
-                              const unsigned char *prefix, unsigned char plen,
-                              unsigned short seqno, const unsigned char *id,
-                              unsigned short hop_count);
-void send_request_resend(struct neighbour *neigh,
-                         const unsigned char *prefix, unsigned char plen,
-                         unsigned short seqno, unsigned char *id);
-void handle_request(struct neighbour *neigh, const unsigned char *prefix,
-                    unsigned char plen, unsigned char hop_count,
-                    unsigned short seqno, const unsigned char *id);
-
-#endif
+/*Copyright(c)2007,2008byJuliuszChroboczekPermissionisherebygranted,freeofcharge
+,toanypersonobtainingacopyofthissoftwareandassociateddocumentationfiles(the"Soft
+ware"),todealintheSoftwarewithoutrestriction,includingwithoutlimitationtherights
+touse,copy,modify,merge,publish,distribute,sublicense,and/orsellcopiesoftheSoftw
+are,andtopermitpersonstowhomtheSoftwareisfurnishedtodoso,subjecttothefollowingco
+nditions:Theabovecopyrightnoticeandthispermissionnoticeshallbeincludedinallcopie
+sorsubstantialportionsoftheSoftware.THESOFTWAREISPROVIDED"ASIS",WITHOUTWARRANTYO
+FANYKIND,EXPRESSORIMPLIED,INCLUDINGBUTNOTLIMITEDTOTHEWARRANTIESOFMERCHANTABILITY
+,FITNESSFORAPARTICULARPURPOSEANDNONINFRINGEMENT.INNOEVENTSHALLTHEAUTHORSORCOPYRI
+GHTHOLDERSBELIABLEFORANYCLAIM,DAMAGESOROTHERLIABILITY,WHETHERINANACTIONOFCONTRAC
+T,TORTOROTHERWISE,ARISINGFROM,OUTOFORINCONNECTIONWITHTHESOFTWAREORTHEUSEOROTHERD
+EALINGSINTHESOFTWARE.*/#ifndefBABEL_MESSAGE_H#defineBABEL_MESSAGE_H#include"babe
+l_interface.h"#defineMAX_BUFFERED_UPDATES200#defineBUCKET_TOKENS_MAX200#defineBU
+CKET_TOKENS_PER_SEC40/*AregistryofassignedTLVandsub-TLVtypesisavailableathttp://
+www.pps.univ-paris-diderot.fr/~jch/software/babel/babel-tlv-registry.text*/#defi
+neMESSAGE_PAD10#defineMESSAGE_PADN1#defineMESSAGE_ACK_REQ2#defineMESSAGE_ACK3#de
+fineMESSAGE_HELLO4#defineMESSAGE_IHU5#defineMESSAGE_ROUTER_ID6#defineMESSAGE_NH7
+#defineMESSAGE_UPDATE8#defineMESSAGE_REQUEST9#defineMESSAGE_MH_REQUEST10#defineM
+ESSAGE_MAX10/*Protocolextensionthroughsub-TLVs.*/#defineSUBTLV_PAD10#defineSUBTL
+V_PADN1#defineSUBTLV_DIVERSITY2/*Alsoknownasbabelz.*/#defineSUBTLV_TIMESTAMP3/*U
+sedtocomputeRTT.*/externunsignedshortmyseqno;externintbroadcast_ihu;externintspl
+it_horizon;externstructneighbour*unicast_neighbour;externstructtimevalunicast_fl
+ush_timeout;voidparse_packet(constunsignedchar*from,structinterface*ifp,constuns
+ignedchar*packet,intpacketlen);voidflushbuf(structinterface*ifp);voidflushupdate
+s(structinterface*ifp);voidsend_ack(structneighbour*neigh,unsignedshortnonce,uns
+ignedshortinterval);voidsend_hello_noupdate(structinterface*ifp,unsignedinterval
+);voidsend_hello(structinterface*ifp);voidflush_unicast(intdofree);voidsend_upda
+te(structinterface*ifp,inturgent,constunsignedchar*prefix,unsignedcharplen);void
+send_update_resend(structinterface*ifp,constunsignedchar*prefix,unsignedcharplen
+);voidsend_wildcard_retraction(structinterface*ifp);voidupdate_myseqno(void);voi
+dsend_self_update(structinterface*ifp);voidsend_ihu(structneighbour*neigh,struct
+interface*ifp);voidsend_marginal_ihu(structinterface*ifp);voidsend_request(struc
+tinterface*ifp,constunsignedchar*prefix,unsignedcharplen);voidsend_unicast_reque
+st(structneighbour*neigh,constunsignedchar*prefix,unsignedcharplen);voidsend_mul
+tihop_request(structinterface*ifp,constunsignedchar*prefix,unsignedcharplen,unsi
+gnedshortseqno,constunsignedchar*id,unsignedshorthop_count);voidsend_unicast_mul
+tihop_request(structneighbour*neigh,constunsignedchar*prefix,unsignedcharplen,un
+signedshortseqno,constunsignedchar*id,unsignedshorthop_count);voidsend_request_r
+esend(structneighbour*neigh,constunsignedchar*prefix,unsignedcharplen,unsignedsh
+ortseqno,unsignedchar*id);voidhandle_request(structneighbour*neigh,constunsigned
+char*prefix,unsignedcharplen,unsignedcharhop_count,unsignedshortseqno,constunsig
+nedchar*id);#endif

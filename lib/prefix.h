@@ -1,422 +1,130 @@
-/*
- * Prefix structure.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_PREFIX_H
-#define _ZEBRA_PREFIX_H
-
-#ifdef SUNOS_5
-#include <sys/ethernet.h>
-#else
-#ifdef GNU_LINUX
-#include <net/ethernet.h>
-#else
-#include <netinet/if_ether.h>
-#endif
-#endif
-#include "sockunion.h"
-#include "ipaddr.h"
-#include "compiler.h"
-
-#ifndef ETH_ALEN
-#define ETH_ALEN 6
-#endif
-
-#define ETHER_ADDR_STRLEN (3*ETH_ALEN)
-/*
- * there isn't a portable ethernet address type. We define our
- * own to simplify internal handling
- */
-struct ethaddr {
-	uint8_t octet[ETH_ALEN];
-} __attribute__((packed));
-
-
-/* length is the number of valuable bits of prefix structure
-* 18 bytes is current length in structure, if address is ipv4
-* 30 bytes is in case of ipv6
-*/
-#define PREFIX_LEN_ROUTE_TYPE_5_IPV4 (18*8)
-#define PREFIX_LEN_ROUTE_TYPE_5_IPV6 (30*8)
-
-/* EVPN address (RFC 7432) */
-struct evpn_addr {
-	uint8_t route_type;
-	uint8_t ip_prefix_length;
-	struct ethaddr mac;
-	uint32_t eth_tag;
-	struct ipaddr ip;
-#if 0
-  union
-  {
-    uint8_t addr;
-    struct in_addr v4_addr;
-    struct in6_addr v6_addr;
-  } ip;
-#endif
-};
-
-#define IS_EVPN_PREFIX_IPADDR_NONE(evp)  IS_IPADDR_NONE(&(evp)->prefix.ip)
-#define IS_EVPN_PREFIX_IPADDR_V4(evp)    IS_IPADDR_V4(&(evp)->prefix.ip)
-#define IS_EVPN_PREFIX_IPADDR_V6(evp)    IS_IPADDR_V6(&(evp)->prefix.ip)
-
-/*
- * A struct prefix contains an address family, a prefix length, and an
- * address.  This can represent either a 'network prefix' as defined
- * by CIDR, where the 'host bits' of the prefix are 0
- * (e.g. AF_INET:10.0.0.0/8), or an address and netmask
- * (e.g. AF_INET:10.0.0.9/8), such as might be configured on an
- * interface.
- */
-
-/* different OSes use different names */
-#if defined(AF_PACKET)
-#define AF_ETHERNET AF_PACKET
-#else
-#if defined(AF_LINK)
-#define AF_ETHERNET AF_LINK
-#endif
-#endif
-
-/* The 'family' in the prefix structure is internal to FRR and need not
- * map to standard OS AF_ definitions except where needed for interacting
- * with the kernel. However, AF_ definitions are currently in use and
- * prevalent across the code. Define a new FRR-specific AF for EVPN to
- * distinguish between 'ethernet' (MAC-only) and 'evpn' prefixes and
- * ensure it does not conflict with any OS AF_ definition.
- */
-#if !defined(AF_EVPN)
-#define AF_EVPN (AF_MAX + 1)
-#endif
-
-#if !defined(AF_FLOWSPEC)
-#define AF_FLOWSPEC (AF_MAX + 2)
-#endif
-
-struct flowspec_prefix {
-	uint16_t prefixlen; /* length in bytes */
-	uintptr_t ptr;
-};
-
-/* FRR generic prefix structure. */
-struct prefix {
-	uint8_t family;
-	uint8_t prefixlen;
-	union {
-		uint8_t prefix;
-		struct in_addr prefix4;
-		struct in6_addr prefix6;
-		struct {
-			struct in_addr id;
-			struct in_addr adv_router;
-		} lp;
-		struct ethaddr prefix_eth; /* AF_ETHERNET */
-		uint8_t val[16];
-		uintptr_t ptr;
-		struct evpn_addr prefix_evpn; /* AF_EVPN */
-		struct flowspec_prefix prefix_flowspec; /* AF_FLOWSPEC */
-	} u __attribute__((aligned(8)));
-};
-
-/* IPv4 prefix structure. */
-struct prefix_ipv4 {
-	uint8_t family;
-	uint8_t prefixlen;
-	struct in_addr prefix __attribute__((aligned(8)));
-};
-
-/* IPv6 prefix structure. */
-struct prefix_ipv6 {
-	uint8_t family;
-	uint8_t prefixlen;
-	struct in6_addr prefix __attribute__((aligned(8)));
-};
-
-struct prefix_ls {
-	uint8_t family;
-	uint8_t prefixlen;
-	struct in_addr id __attribute__((aligned(8)));
-	struct in_addr adv_router;
-};
-
-/* Prefix for routing distinguisher. */
-struct prefix_rd {
-	uint8_t family;
-	uint8_t prefixlen;
-	uint8_t val[8] __attribute__((aligned(8)));
-};
-
-/* Prefix for ethernet. */
-struct prefix_eth {
-	uint8_t family;
-	uint8_t prefixlen;
-	struct ethaddr eth_addr __attribute__((aligned(8))); /* AF_ETHERNET */
-};
-
-/* EVPN prefix structure. */
-struct prefix_evpn {
-	uint8_t family;
-	uint8_t prefixlen;
-	struct evpn_addr prefix __attribute__((aligned(8)));
-};
-
-/* Prefix for a generic pointer */
-struct prefix_ptr {
-	uint8_t family;
-	uint8_t prefixlen;
-	uintptr_t prefix __attribute__((aligned(8)));
-};
-
-/* Prefix for a Flowspec entry */
-struct prefix_fs {
-	uint8_t family;
-	uint8_t prefixlen; /* unused */
-	struct flowspec_prefix  prefix __attribute__((aligned(8)));
-};
-
-struct prefix_sg {
-	uint8_t family;
-	uint8_t prefixlen;
-	struct in_addr src __attribute__((aligned(8)));
-	struct in_addr grp;
-};
-
-/* helper to get type safety/avoid casts on calls
- * (w/o this, functions accepting all prefix types need casts on the caller
- * side, which strips type safety since the cast will accept any pointer
- * type.)
- */
-union prefixptr {
-	struct prefix *p;
-	struct prefix_ipv4 *p4;
-	struct prefix_ipv6 *p6;
-	struct prefix_evpn *evp;
-	const struct prefix_fs *fs;
-} __attribute__((transparent_union));
-
-union prefixconstptr {
-	const struct prefix *p;
-	const struct prefix_ipv4 *p4;
-	const struct prefix_ipv6 *p6;
-	const struct prefix_evpn *evp;
-	const struct prefix_fs *fs;
-} __attribute__((transparent_union));
-
-#ifndef INET_ADDRSTRLEN
-#define INET_ADDRSTRLEN 16
-#endif /* INET_ADDRSTRLEN */
-
-#ifndef INET6_ADDRSTRLEN
-#define INET6_ADDRSTRLEN 46
-#endif /* INET6_ADDRSTRLEN */
-
-#ifndef INET6_BUFSIZ
-#define INET6_BUFSIZ 51
-#endif /* INET6_BUFSIZ */
-
-/* Maximum prefix string length (IPv6) */
-#define PREFIX_STRLEN 51
-
-/* Max bit/byte length of IPv4 address. */
-#define IPV4_MAX_BYTELEN    4
-#define IPV4_MAX_BITLEN    32
-#define IPV4_MAX_PREFIXLEN 32
-#define IPV4_ADDR_CMP(D,S)   memcmp ((D), (S), IPV4_MAX_BYTELEN)
-
-static inline bool ipv4_addr_same(const struct in_addr *a,
-				  const struct in_addr *b)
-{
-	return (a->s_addr == b->s_addr);
-}
-#define IPV4_ADDR_SAME(A,B)  ipv4_addr_same((A), (B))
-
-static inline void ipv4_addr_copy(struct in_addr *dst,
-				  const struct in_addr *src)
-{
-	dst->s_addr = src->s_addr;
-}
-#define IPV4_ADDR_COPY(D,S)  ipv4_addr_copy((D), (S))
-
-#define IPV4_NET0(a) ((((uint32_t)(a)) & 0xff000000) == 0x00000000)
-#define IPV4_NET127(a) ((((uint32_t)(a)) & 0xff000000) == 0x7f000000)
-#define IPV4_LINKLOCAL(a) ((((uint32_t)(a)) & 0xffff0000) == 0xa9fe0000)
-#define IPV4_CLASS_DE(a) ((((uint32_t)(a)) & 0xe0000000) == 0xe0000000)
-#define IPV4_MC_LINKLOCAL(a) ((((uint32_t)(a)) & 0xffffff00) == 0xe0000000)
-
-/* Max bit/byte length of IPv6 address. */
-#define IPV6_MAX_BYTELEN    16
-#define IPV6_MAX_BITLEN    128
-#define IPV6_MAX_PREFIXLEN 128
-#define IPV6_ADDR_CMP(D,S)   memcmp ((D), (S), IPV6_MAX_BYTELEN)
-#define IPV6_ADDR_SAME(D,S)  (memcmp ((D), (S), IPV6_MAX_BYTELEN) == 0)
-#define IPV6_ADDR_COPY(D,S)  memcpy ((D), (S), IPV6_MAX_BYTELEN)
-
-/* Count prefix size from mask length */
-#define PSIZE(a) (((a) + 7) / (8))
-
-#define BSIZE(a) ((a) * (8))
-
-/* Prefix's family member. */
-#define PREFIX_FAMILY(p)  ((p)->family)
-
-/* glibc defines s6_addr32 to __in6_u.__u6_addr32 if __USE_{MISC || GNU} */
-#ifndef s6_addr32
-#if defined(SUNOS_5)
-/* Some SunOS define s6_addr32 only to kernel */
-#define s6_addr32 _S6_un._S6_u32
-#else
-#define s6_addr32 __u6_addr.__u6_addr32
-#endif /* SUNOS_5 */
-#endif /*s6_addr32*/
-
-/* Prototypes. */
-extern int str2family(const char *);
-extern int afi2family(afi_t);
-extern afi_t family2afi(int);
-extern const char *safi2str(safi_t safi);
-extern const char *afi2str(afi_t afi);
-
-/* Check bit of the prefix. */
-extern unsigned int prefix_bit(const uint8_t *prefix, const uint8_t prefixlen);
-extern unsigned int prefix6_bit(const struct in6_addr *prefix,
-				const uint8_t prefixlen);
-
-extern struct prefix *prefix_new(void);
-extern void prefix_free(struct prefix *);
-extern const char *prefix_family_str(const struct prefix *);
-extern int prefix_blen(const struct prefix *);
-extern int str2prefix(const char *, struct prefix *);
-
-#define PREFIX2STR_BUFFER  PREFIX_STRLEN
-
-extern const char *prefix2str(union prefixconstptr, char *, int);
-extern int prefix_match(const struct prefix *, const struct prefix *);
-extern int prefix_match_network_statement(const struct prefix *,
-					  const struct prefix *);
-extern int prefix_same(const struct prefix *, const struct prefix *);
-extern int prefix_cmp(const struct prefix *, const struct prefix *);
-extern int prefix_common_bits(const struct prefix *, const struct prefix *);
-extern void prefix_copy(struct prefix *dest, const struct prefix *src);
-extern void apply_mask(struct prefix *);
-
-extern struct prefix *sockunion2prefix(const union sockunion *dest,
-				       const union sockunion *mask);
-extern struct prefix *sockunion2hostprefix(const union sockunion *,
-					   struct prefix *p);
-extern void prefix2sockunion(const struct prefix *, union sockunion *);
-
-extern int str2prefix_eth(const char *, struct prefix_eth *);
-
-extern struct prefix_ipv4 *prefix_ipv4_new(void);
-extern void prefix_ipv4_free(struct prefix_ipv4 *);
-extern int str2prefix_ipv4(const char *, struct prefix_ipv4 *);
-extern void apply_mask_ipv4(struct prefix_ipv4 *);
-
-#define PREFIX_COPY(DST, SRC)                                                  \
-	*((struct prefix *)(DST)) = *((const struct prefix *)(SRC))
-#define PREFIX_COPY_IPV4(DST, SRC)                                             \
-	*((struct prefix_ipv4 *)(DST)) = *((const struct prefix_ipv4 *)(SRC));
-
-extern int prefix_ipv4_any(const struct prefix_ipv4 *);
-extern void apply_classful_mask_ipv4(struct prefix_ipv4 *);
-
-extern uint8_t ip_masklen(struct in_addr);
-extern void masklen2ip(const int, struct in_addr *);
-/* returns the network portion of the host address */
-extern in_addr_t ipv4_network_addr(in_addr_t hostaddr, int masklen);
-/* given the address of a host on a network and the network mask length,
- * calculate the broadcast address for that network;
- * special treatment for /31: returns the address of the other host
- * on the network by flipping the host bit */
-extern in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen);
-
-extern int netmask_str2prefix_str(const char *, const char *, char *);
-
-extern struct prefix_ipv6 *prefix_ipv6_new(void);
-extern void prefix_ipv6_free(struct prefix_ipv6 *);
-extern int str2prefix_ipv6(const char *, struct prefix_ipv6 *);
-extern void apply_mask_ipv6(struct prefix_ipv6 *);
-
-#define PREFIX_COPY_IPV6(DST, SRC)                                             \
-	*((struct prefix_ipv6 *)(DST)) = *((const struct prefix_ipv6 *)(SRC));
-
-extern int ip6_masklen(struct in6_addr);
-extern void masklen2ip6(const int, struct in6_addr *);
-
-extern const char *inet6_ntoa(struct in6_addr);
-
-extern int is_zero_mac(struct ethaddr *mac);
-extern int prefix_str2mac(const char *str, struct ethaddr *mac);
-extern char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size);
-
-extern unsigned prefix_hash_key(void *pp);
-
-static inline int ipv6_martian(struct in6_addr *addr)
-{
-	struct in6_addr localhost_addr;
-
-	inet_pton(AF_INET6, "::1", &localhost_addr);
-
-	if (IPV6_ADDR_SAME(&localhost_addr, addr))
-		return 1;
-
-	return 0;
-}
-
-extern int all_digit(const char *);
-extern int macstr2prefix_evpn(const char *str, struct prefix_evpn *p);
-
-/* NOTE: This routine expects the address argument in network byte order. */
-static inline int ipv4_martian(struct in_addr *addr)
-{
-	in_addr_t ip = ntohl(addr->s_addr);
-
-	if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_DE(ip)) {
-		return 1;
-	}
-	return 0;
-}
-
-static inline int is_default_prefix(const struct prefix *p)
-{
-	if (!p)
-		return 0;
-
-	if ((p->family == AF_INET) && (p->u.prefix4.s_addr == INADDR_ANY)
-	    && (p->prefixlen == 0))
-		return 1;
-
-	if ((p->family == AF_INET6) && (p->prefixlen == 0)
-	    && (!memcmp(&p->u.prefix6, &in6addr_any, sizeof(struct in6_addr))))
-		return 1;
-
-	return 0;
-}
-
-static inline int is_host_route(struct prefix *p)
-{
-	if (p->family == AF_INET)
-		return (p->prefixlen == IPV4_MAX_BITLEN);
-	else if (p->family == AF_INET6)
-		return (p->prefixlen == IPV6_MAX_BITLEN);
-	return 0;
-}
-
-#endif /* _ZEBRA_PREFIX_H */
+/**Prefixstructure.*Copyright(C)1998KunihiroIshiguro**ThisfileispartofGNUZebra.*
+*GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNU
+GeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(at
+youroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,b
+ut*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFO
+RAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhave
+receivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING
+;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA0
+2110-1301USA*/#ifndef_ZEBRA_PREFIX_H#define_ZEBRA_PREFIX_H#ifdefSUNOS_5#include<
+sys/ethernet.h>#else#ifdefGNU_LINUX#include<net/ethernet.h>#else#include<netinet
+/if_ether.h>#endif#endif#include"sockunion.h"#include"ipaddr.h"#include"compiler
+.h"#ifndefETH_ALEN#defineETH_ALEN6#endif#defineETHER_ADDR_STRLEN(3*ETH_ALEN)/**t
+hereisn'taportableethernetaddresstype.Wedefineour*owntosimplifyinternalhandling*
+/structethaddr{uint8_toctet[ETH_ALEN];}__attribute__((packed));/*lengthisthenumb
+erofvaluablebitsofprefixstructure*18bytesiscurrentlengthinstructure,ifaddressisi
+pv4*30bytesisincaseofipv6*/#definePREFIX_LEN_ROUTE_TYPE_5_IPV4(18*8)#definePREFI
+X_LEN_ROUTE_TYPE_5_IPV6(30*8)/*EVPNaddress(RFC7432)*/structevpn_addr{uint8_trout
+e_type;uint8_tip_prefix_length;structethaddrmac;uint32_teth_tag;structipaddrip;#
+if0union{uint8_taddr;structin_addrv4_addr;structin6_addrv6_addr;}ip;#endif};#def
+ineIS_EVPN_PREFIX_IPADDR_NONE(evp)IS_IPADDR_NONE(&(evp)->prefix.ip)#defineIS_EVP
+N_PREFIX_IPADDR_V4(evp)IS_IPADDR_V4(&(evp)->prefix.ip)#defineIS_EVPN_PREFIX_IPAD
+DR_V6(evp)IS_IPADDR_V6(&(evp)->prefix.ip)/**Astructprefixcontainsanaddressfamily
+,aprefixlength,andan*address.Thiscanrepresenteithera'networkprefix'asdefined*byC
+IDR,wherethe'hostbits'oftheprefixare0*(e.g.AF_INET:10.0.0.0/8),oranaddressandnet
+mask*(e.g.AF_INET:10.0.0.9/8),suchasmightbeconfiguredonan*interface.*//*differen
+tOSesusedifferentnames*/#ifdefined(AF_PACKET)#defineAF_ETHERNETAF_PACKET#else#if
+defined(AF_LINK)#defineAF_ETHERNETAF_LINK#endif#endif/*The'family'intheprefixstr
+uctureisinternaltoFRRandneednot*maptostandardOSAF_definitionsexceptwhereneededfo
+rinteracting*withthekernel.However,AF_definitionsarecurrentlyinuseand*prevalenta
+crossthecode.DefineanewFRR-specificAFforEVPNto*distinguishbetween'ethernet'(MAC-
+only)and'evpn'prefixesand*ensureitdoesnotconflictwithanyOSAF_definition.*/#if!de
+fined(AF_EVPN)#defineAF_EVPN(AF_MAX+1)#endif#if!defined(AF_FLOWSPEC)#defineAF_FL
+OWSPEC(AF_MAX+2)#endifstructflowspec_prefix{uint16_tprefixlen;/*lengthinbytes*/u
+intptr_tptr;};/*FRRgenericprefixstructure.*/structprefix{uint8_tfamily;uint8_tpr
+efixlen;union{uint8_tprefix;structin_addrprefix4;structin6_addrprefix6;struct{st
+ructin_addrid;structin_addradv_router;}lp;structethaddrprefix_eth;/*AF_ETHERNET*
+/uint8_tval[16];uintptr_tptr;structevpn_addrprefix_evpn;/*AF_EVPN*/structflowspe
+c_prefixprefix_flowspec;/*AF_FLOWSPEC*/}u__attribute__((aligned(8)));};/*IPv4pre
+fixstructure.*/structprefix_ipv4{uint8_tfamily;uint8_tprefixlen;structin_addrpre
+fix__attribute__((aligned(8)));};/*IPv6prefixstructure.*/structprefix_ipv6{uint8
+_tfamily;uint8_tprefixlen;structin6_addrprefix__attribute__((aligned(8)));};stru
+ctprefix_ls{uint8_tfamily;uint8_tprefixlen;structin_addrid__attribute__((aligned
+(8)));structin_addradv_router;};/*Prefixforroutingdistinguisher.*/structprefix_r
+d{uint8_tfamily;uint8_tprefixlen;uint8_tval[8]__attribute__((aligned(8)));};/*Pr
+efixforethernet.*/structprefix_eth{uint8_tfamily;uint8_tprefixlen;structethaddre
+th_addr__attribute__((aligned(8)));/*AF_ETHERNET*/};/*EVPNprefixstructure.*/stru
+ctprefix_evpn{uint8_tfamily;uint8_tprefixlen;structevpn_addrprefix__attribute__(
+(aligned(8)));};/*Prefixforagenericpointer*/structprefix_ptr{uint8_tfamily;uint8
+_tprefixlen;uintptr_tprefix__attribute__((aligned(8)));};/*PrefixforaFlowspecent
+ry*/structprefix_fs{uint8_tfamily;uint8_tprefixlen;/*unused*/structflowspec_pref
+ixprefix__attribute__((aligned(8)));};structprefix_sg{uint8_tfamily;uint8_tprefi
+xlen;structin_addrsrc__attribute__((aligned(8)));structin_addrgrp;};/*helpertoge
+ttypesafety/avoidcastsoncalls*(w/othis,functionsacceptingallprefixtypesneedcasts
+onthecaller*side,whichstripstypesafetysincethecastwillacceptanypointer*type.)*/u
+nionprefixptr{structprefix*p;structprefix_ipv4*p4;structprefix_ipv6*p6;structpre
+fix_evpn*evp;conststructprefix_fs*fs;}__attribute__((transparent_union));unionpr
+efixconstptr{conststructprefix*p;conststructprefix_ipv4*p4;conststructprefix_ipv
+6*p6;conststructprefix_evpn*evp;conststructprefix_fs*fs;}__attribute__((transpar
+ent_union));#ifndefINET_ADDRSTRLEN#defineINET_ADDRSTRLEN16#endif/*INET_ADDRSTRLE
+N*/#ifndefINET6_ADDRSTRLEN#defineINET6_ADDRSTRLEN46#endif/*INET6_ADDRSTRLEN*/#if
+ndefINET6_BUFSIZ#defineINET6_BUFSIZ51#endif/*INET6_BUFSIZ*//*Maximumprefixstring
+length(IPv6)*/#definePREFIX_STRLEN51/*Maxbit/bytelengthofIPv4address.*/#defineIP
+V4_MAX_BYTELEN4#defineIPV4_MAX_BITLEN32#defineIPV4_MAX_PREFIXLEN32#defineIPV4_AD
+DR_CMP(D,S)memcmp((D),(S),IPV4_MAX_BYTELEN)staticinlineboolipv4_addr_same(consts
+tructin_addr*a,conststructin_addr*b){return(a->s_addr==b->s_addr);}#defineIPV4_A
+DDR_SAME(A,B)ipv4_addr_same((A),(B))staticinlinevoidipv4_addr_copy(structin_addr
+*dst,conststructin_addr*src){dst->s_addr=src->s_addr;}#defineIPV4_ADDR_COPY(D,S)
+ipv4_addr_copy((D),(S))#defineIPV4_NET0(a)((((uint32_t)(a))&0xff000000)==0x00000
+000)#defineIPV4_NET127(a)((((uint32_t)(a))&0xff000000)==0x7f000000)#defineIPV4_L
+INKLOCAL(a)((((uint32_t)(a))&0xffff0000)==0xa9fe0000)#defineIPV4_CLASS_DE(a)((((
+uint32_t)(a))&0xe0000000)==0xe0000000)#defineIPV4_MC_LINKLOCAL(a)((((uint32_t)(a
+))&0xffffff00)==0xe0000000)/*Maxbit/bytelengthofIPv6address.*/#defineIPV6_MAX_BY
+TELEN16#defineIPV6_MAX_BITLEN128#defineIPV6_MAX_PREFIXLEN128#defineIPV6_ADDR_CMP
+(D,S)memcmp((D),(S),IPV6_MAX_BYTELEN)#defineIPV6_ADDR_SAME(D,S)(memcmp((D),(S),I
+PV6_MAX_BYTELEN)==0)#defineIPV6_ADDR_COPY(D,S)memcpy((D),(S),IPV6_MAX_BYTELEN)/*
+Countprefixsizefrommasklength*/#definePSIZE(a)(((a)+7)/(8))#defineBSIZE(a)((a)*(
+8))/*Prefix'sfamilymember.*/#definePREFIX_FAMILY(p)((p)->family)/*glibcdefiness6
+_addr32to__in6_u.__u6_addr32if__USE_{MISC||GNU}*/#ifndefs6_addr32#ifdefined(SUNO
+S_5)/*SomeSunOSdefines6_addr32onlytokernel*/#defines6_addr32_S6_un._S6_u32#else#
+defines6_addr32__u6_addr.__u6_addr32#endif/*SUNOS_5*/#endif/*s6_addr32*//*Protot
+ypes.*/externintstr2family(constchar*);externintafi2family(afi_t);externafi_tfam
+ily2afi(int);externconstchar*safi2str(safi_tsafi);externconstchar*afi2str(afi_ta
+fi);/*Checkbitoftheprefix.*/externunsignedintprefix_bit(constuint8_t*prefix,cons
+tuint8_tprefixlen);externunsignedintprefix6_bit(conststructin6_addr*prefix,const
+uint8_tprefixlen);externstructprefix*prefix_new(void);externvoidprefix_free(stru
+ctprefix*);externconstchar*prefix_family_str(conststructprefix*);externintprefix
+_blen(conststructprefix*);externintstr2prefix(constchar*,structprefix*);#defineP
+REFIX2STR_BUFFERPREFIX_STRLENexternconstchar*prefix2str(unionprefixconstptr,char
+*,int);externintprefix_match(conststructprefix*,conststructprefix*);externintpre
+fix_match_network_statement(conststructprefix*,conststructprefix*);externintpref
+ix_same(conststructprefix*,conststructprefix*);externintprefix_cmp(conststructpr
+efix*,conststructprefix*);externintprefix_common_bits(conststructprefix*,constst
+ructprefix*);externvoidprefix_copy(structprefix*dest,conststructprefix*src);exte
+rnvoidapply_mask(structprefix*);externstructprefix*sockunion2prefix(constunionso
+ckunion*dest,constunionsockunion*mask);externstructprefix*sockunion2hostprefix(c
+onstunionsockunion*,structprefix*p);externvoidprefix2sockunion(conststructprefix
+*,unionsockunion*);externintstr2prefix_eth(constchar*,structprefix_eth*);externs
+tructprefix_ipv4*prefix_ipv4_new(void);externvoidprefix_ipv4_free(structprefix_i
+pv4*);externintstr2prefix_ipv4(constchar*,structprefix_ipv4*);externvoidapply_ma
+sk_ipv4(structprefix_ipv4*);#definePREFIX_COPY(DST,SRC)\*((structprefix*)(DST))=
+*((conststructprefix*)(SRC))#definePREFIX_COPY_IPV4(DST,SRC)\*((structprefix_ipv
+4*)(DST))=*((conststructprefix_ipv4*)(SRC));externintprefix_ipv4_any(conststruct
+prefix_ipv4*);externvoidapply_classful_mask_ipv4(structprefix_ipv4*);externuint8
+_tip_masklen(structin_addr);externvoidmasklen2ip(constint,structin_addr*);/*retu
+rnsthenetworkportionofthehostaddress*/externin_addr_tipv4_network_addr(in_addr_t
+hostaddr,intmasklen);/*giventheaddressofahostonanetworkandthenetworkmasklength,*
+calculatethebroadcastaddressforthatnetwork;*specialtreatmentfor/31:returnstheadd
+ressoftheotherhost*onthenetworkbyflippingthehostbit*/externin_addr_tipv4_broadca
+st_addr(in_addr_thostaddr,intmasklen);externintnetmask_str2prefix_str(constchar*
+,constchar*,char*);externstructprefix_ipv6*prefix_ipv6_new(void);externvoidprefi
+x_ipv6_free(structprefix_ipv6*);externintstr2prefix_ipv6(constchar*,structprefix
+_ipv6*);externvoidapply_mask_ipv6(structprefix_ipv6*);#definePREFIX_COPY_IPV6(DS
+T,SRC)\*((structprefix_ipv6*)(DST))=*((conststructprefix_ipv6*)(SRC));externinti
+p6_masklen(structin6_addr);externvoidmasklen2ip6(constint,structin6_addr*);exter
+nconstchar*inet6_ntoa(structin6_addr);externintis_zero_mac(structethaddr*mac);ex
+ternintprefix_str2mac(constchar*str,structethaddr*mac);externchar*prefix_mac2str
+(conststructethaddr*mac,char*buf,intsize);externunsignedprefix_hash_key(void*pp)
+;staticinlineintipv6_martian(structin6_addr*addr){structin6_addrlocalhost_addr;i
+net_pton(AF_INET6,"::1",&localhost_addr);if(IPV6_ADDR_SAME(&localhost_addr,addr)
+)return1;return0;}externintall_digit(constchar*);externintmacstr2prefix_evpn(con
+stchar*str,structprefix_evpn*p);/*NOTE:Thisroutineexpectstheaddressargumentinnet
+workbyteorder.*/staticinlineintipv4_martian(structin_addr*addr){in_addr_tip=ntoh
+l(addr->s_addr);if(IPV4_NET0(ip)||IPV4_NET127(ip)||IPV4_CLASS_DE(ip)){return1;}r
+eturn0;}staticinlineintis_default_prefix(conststructprefix*p){if(!p)return0;if((
+p->family==AF_INET)&&(p->u.prefix4.s_addr==INADDR_ANY)&&(p->prefixlen==0))return
+1;if((p->family==AF_INET6)&&(p->prefixlen==0)&&(!memcmp(&p->u.prefix6,&in6addr_a
+ny,sizeof(structin6_addr))))return1;return0;}staticinlineintis_host_route(struct
+prefix*p){if(p->family==AF_INET)return(p->prefixlen==IPV4_MAX_BITLEN);elseif(p->
+family==AF_INET6)return(p->prefixlen==IPV6_MAX_BITLEN);return0;}#endif/*_ZEBRA_P
+REFIX_H*/

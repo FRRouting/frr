@@ -1,1055 +1,261 @@
-/*
- * A rewrite of the original Debian's start-stop-daemon Perl script
- * in C (faster - it is executed many times during system startup).
- *
- * Written by Marek Michalkiewicz <marekm@i17linuxb.ists.pwr.wroc.pl>,
- * public domain.  Based conceptually on start-stop-daemon.pl, by Ian
- * Jackson <ijackson@gnu.ai.mit.edu>.  May be used and distributed
- * freely for any purpose.  Changes by Christian Schwarz
- * <schwarz@monet.m.isar.de>, to make output conform to the Debian
- * Console Message Standard, also placed in public domain.  Minor
- * changes by Klee Dienes <klee@debian.org>, also placed in the Public
- * Domain.
- *
- * Changes by Ben Collins <bcollins@debian.org>, added --chuid, --background
- * and --make-pidfile options, placed in public domain aswell.
- *
- * Port to OpenBSD by Sontri Tomo Huynh <huynh.29@osu.edu>
- *                 and Andreas Schuldei <andreas@schuldei.org>
- *
- * Changes by Ian Jackson: added --retry (and associated rearrangements).
- *
- * Modified for Gentoo rc-scripts by Donny Davies <woodchip@gentoo.org>:
- *   I removed the BSD/Hurd/OtherOS stuff, added #include <stddef.h>
- *   and stuck in a #define VERSION "1.9.18".  Now it compiles without
- *   the whole automake/config.h dance.
- */
-
-#ifdef HAVE_LXC
-#define _GNU_SOURCE
-#include <sched.h>
-#endif /* HAVE_LXC */
-
-#include <stddef.h>
-#define VERSION "1.9.18"
-
-#define MIN_POLL_INTERVAL 20000 /*us*/
-
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <signal.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <sys/time.h>
-#include <sys/queue.h>
-#include <unistd.h>
-#include <getopt.h>
-#include <pwd.h>
-#include <grp.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <termios.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <assert.h>
-#include <ctype.h>
-#ifdef linux
-#include <linux/sched.h>
-#endif
-
-static int testmode = 0;
-static int quietmode = 0;
-static int exitnodo = 1;
-static int start = 0;
-static int stop = 0;
-static int background = 0;
-static int mpidfile = 0;
-static int signal_nr = 15;
-static const char *signal_str = NULL;
-static int user_id = -1;
-static int runas_uid = -1;
-static int runas_gid = -1;
-static const char *userspec = NULL;
-static char *changeuser = NULL;
-static const char *changegroup = NULL;
-static char *changeroot = NULL;
-static const char *cmdname = NULL;
-static char *execname = NULL;
-static char *startas = NULL;
-static const char *pidfile = NULL;
-static char what_stop[1024];
-static const char *schedule_str = NULL;
-static const char *progname = "";
-static int nicelevel = 0;
-
-static struct stat exec_stat;
-
-struct pid_list {
-	struct pid_list *next;
-	pid_t pid;
-};
-
-static struct pid_list *found = NULL;
-static struct pid_list *killed = NULL;
-
-struct schedule_item {
-	enum { sched_timeout, sched_signal, sched_goto, sched_forever } type;
-	int value; /* seconds, signal no., or index into array */
-	/* sched_forever is only seen within parse_schedule and callees */
-};
-
-static int schedule_length;
-static struct schedule_item *schedule = NULL;
-
-LIST_HEAD(namespace_head, namespace);
-
-struct namespace
-{
-	LIST_ENTRY(namespace) list;
-	const char *path;
-	int nstype;
-};
-
-static struct namespace_head namespace_head;
-
-static void *xmalloc(int size);
-static void push(struct pid_list **list, pid_t pid);
-static void do_help(void);
-static void parse_options(int argc, char *const *argv);
-static int pid_is_user(pid_t pid, uid_t uid);
-static int pid_is_cmd(pid_t pid, const char *name);
-static void check(pid_t pid);
-static void do_pidfile(const char *name);
-static void do_stop(int signal_nr, int quietmode, int *n_killed,
-		    int *n_notkilled, int retry_nr);
-static int pid_is_exec(pid_t pid, const struct stat *esb);
-
-#ifdef __GNUC__
-static void fatal(const char *format, ...)
-	__attribute__((noreturn, format(printf, 1, 2)));
-static void badusage(const char *msg) __attribute__((noreturn));
-#else
-static void fatal(const char *format, ...);
-static void badusage(const char *msg);
-#endif
-
-/* This next part serves only to construct the TVCALC macro, which
- * is used for doing arithmetic on struct timeval's.  It works like this:
- *   TVCALC(result, expression);
- * where result is a struct timeval (and must be an lvalue) and
- * expression is the single expression for both components.  In this
- * expression you can use the special values TVELEM, which when fed a
- * const struct timeval* gives you the relevant component, and
- * TVADJUST.  TVADJUST is necessary when subtracting timevals, to make
- * it easier to renormalise.  Whenver you subtract timeval elements,
- * you must make sure that TVADJUST is added to the result of the
- * subtraction (before any resulting multiplication or what have you).
- * TVELEM must be linear in TVADJUST.
- */
-typedef long tvselector(const struct timeval *);
-static long tvselector_sec(const struct timeval *tv)
-{
-	return tv->tv_sec;
-}
-static long tvselector_usec(const struct timeval *tv)
-{
-	return tv->tv_usec;
-}
-#define TVCALC_ELEM(result, expr, sec, adj)                                    \
-	{                                                                      \
-		const long TVADJUST = adj;                                     \
-		long (*const TVELEM)(const struct timeval *) =                 \
-			tvselector_##sec;                                      \
-		(result).tv_##sec = (expr);                                    \
-	}
-#define TVCALC(result, expr)                                                   \
-	do {                                                                   \
-		TVCALC_ELEM(result, expr, sec, (-1));                          \
-		TVCALC_ELEM(result, expr, usec, (+1000000));                   \
-		(result).tv_sec += (result).tv_usec / 1000000;                 \
-		(result).tv_usec %= 1000000;                                   \
-	} while (0)
-
-
-static void fatal(const char *format, ...)
-{
-	va_list arglist;
-
-	fprintf(stderr, "%s: ", progname);
-	va_start(arglist, format);
-	vfprintf(stderr, format, arglist);
-	va_end(arglist);
-	putc('\n', stderr);
-	exit(2);
-}
-
-
-static void *xmalloc(int size)
-{
-	void *ptr;
-
-	ptr = malloc(size);
-	if (ptr)
-		return ptr;
-	fatal("malloc(%d) failed", size);
-}
-
-static void xgettimeofday(struct timeval *tv)
-{
-	if (gettimeofday(tv, 0) != 0)
-		fatal("gettimeofday failed: %s", strerror(errno));
-}
-
-static void push(struct pid_list **list, pid_t pid)
-{
-	struct pid_list *p;
-
-	p = xmalloc(sizeof(*p));
-	p->next = *list;
-	p->pid = pid;
-	*list = p;
-}
-
-static void clear(struct pid_list **list)
-{
-	struct pid_list *here, *next;
-
-	for (here = *list; here != NULL; here = next) {
-		next = here->next;
-		free(here);
-	}
-
-	*list = NULL;
-}
-
-#ifdef linux
-static const char *next_dirname(const char *s)
-{
-	const char *cur;
-
-	cur = (const char *)s;
-
-	if (*cur != '\0') {
-		for (; *cur != '/'; ++cur)
-			if (*cur == '\0')
-				return cur;
-
-		for (; *cur == '/'; ++cur)
-			;
-	}
-
-	return cur;
-}
-
-static void add_namespace(const char *path)
-{
-	int nstype;
-	const char *nsdirname, *nsname, *cur;
-	struct namespace *namespace;
-
-	cur = (const char *)path;
-	nsdirname = nsname = "";
-
-	while ((cur = next_dirname(cur))[0] != '\0') {
-		nsdirname = nsname;
-		nsname = cur;
-	}
-
-	if (!memcmp(nsdirname, "ipcns/", strlen("ipcns/")))
-		nstype = CLONE_NEWIPC;
-	else if (!memcmp(nsdirname, "netns/", strlen("netns/")))
-		nstype = CLONE_NEWNET;
-	else if (!memcmp(nsdirname, "utcns/", strlen("utcns/")))
-		nstype = CLONE_NEWUTS;
-	else
-		badusage("invalid namepspace path");
-
-	namespace = xmalloc(sizeof(*namespace));
-	namespace->path = (const char *)path;
-	namespace->nstype = nstype;
-	LIST_INSERT_HEAD(&namespace_head, namespace, list);
-}
-#endif
-
-#ifdef HAVE_LXC
-static void set_namespaces()
-{
-	struct namespace *namespace;
-	int fd;
-
-	LIST_FOREACH (namespace, &namespace_head, list) {
-		if ((fd = open(namespace->path, O_RDONLY)) == -1)
-			fatal("open namespace %s: %s", namespace->path,
-			      strerror(errno));
-		if (setns(fd, namespace->nstype) == -1)
-			fatal("setns %s: %s", namespace->path, strerror(errno));
-	}
-}
-#else
-static void set_namespaces()
-{
-	if (!LIST_EMPTY(&namespace_head))
-		fatal("LCX namespaces not supported");
-}
-#endif
-
-static void do_help(void)
-{
-	printf("start-stop-daemon " VERSION
-	       " for Debian - small and fast C version written by\n"
-	       "Marek Michalkiewicz <marekm@i17linuxb.ists.pwr.wroc.pl>, public domain.\n"
-	       "\n"
-	       "Usage:\n"
-	       "  start-stop-daemon -S|--start options ... -- arguments ...\n"
-	       "  start-stop-daemon -K|--stop options ...\n"
-	       "  start-stop-daemon -H|--help\n"
-	       "  start-stop-daemon -V|--version\n"
-	       "\n"
-	       "Options (at least one of --exec|--pidfile|--user is required):\n"
-	       "  -x|--exec <executable>        program to start/check if it is running\n"
-	       "  -p|--pidfile <pid-file>       pid file to check\n"
-	       "  -c|--chuid <name|uid[:group|gid]>\n"
-	       "  		change to this user/group before starting process\n"
-	       "  -u|--user <username>|<uid>    stop processes owned by this user\n"
-	       "  -n|--name <process-name>      stop processes with this name\n"
-	       "  -s|--signal <signal>          signal to send (default TERM)\n"
-	       "  -a|--startas <pathname>       program to start (default is <executable>)\n"
-	       "  -N|--nicelevel <incr>         add incr to the process's nice level\n"
-	       "  -b|--background               force the process to detach\n"
-	       "  -m|--make-pidfile             create the pidfile before starting\n"
-	       "  -R|--retry <schedule>         check whether processes die, and retry\n"
-	       "  -t|--test                     test mode, don't do anything\n"
-	       "  -o|--oknodo                   exit status 0 (not 1) if nothing done\n"
-	       "  -q|--quiet                    be more quiet\n"
-	       "  -v|--verbose                  be more verbose\n"
-	       "Retry <schedule> is <item>|/<item>/... where <item> is one of\n"
-	       " -<signal-num>|[-]<signal-name>  send that signal\n"
-	       " <timeout>                       wait that many seconds\n"
-	       " forever                         repeat remainder forever\n"
-	       "or <schedule> may be just <timeout>, meaning <signal>/<timeout>/KILL/<timeout>\n"
-	       "\n"
-	       "Exit status:  0 = done      1 = nothing done (=> 0 if --oknodo)\n"
-	       "              3 = trouble   2 = with --retry, processes wouldn't die\n");
-}
-
-
-static void badusage(const char *msg)
-{
-	if (msg)
-		fprintf(stderr, "%s: %s\n", progname, msg);
-	fprintf(stderr, "Try `%s --help' for more information.\n", progname);
-	exit(3);
-}
-
-struct sigpair {
-	const char *name;
-	int signal;
-};
-
-const struct sigpair siglist[] = {
-	{"ABRT", SIGABRT}, {"ALRM", SIGALRM}, {"FPE", SIGFPE},
-	{"HUP", SIGHUP},   {"ILL", SIGILL},   {"INT", SIGINT},
-	{"KILL", SIGKILL}, {"PIPE", SIGPIPE}, {"QUIT", SIGQUIT},
-	{"SEGV", SIGSEGV}, {"TERM", SIGTERM}, {"USR1", SIGUSR1},
-	{"USR2", SIGUSR2}, {"CHLD", SIGCHLD}, {"CONT", SIGCONT},
-	{"STOP", SIGSTOP}, {"TSTP", SIGTSTP}, {"TTIN", SIGTTIN},
-	{"TTOU", SIGTTOU}};
-
-static int parse_integer(const char *string, int *value_r)
-{
-	unsigned long ul;
-	char *ep;
-
-	if (!string[0])
-		return -1;
-
-	ul = strtoul(string, &ep, 10);
-	if (ul > INT_MAX || *ep != '\0')
-		return -1;
-
-	*value_r = ul;
-	return 0;
-}
-
-static int parse_signal(const char *signal_str, int *signal_nr)
-{
-	unsigned int i;
-
-	if (parse_integer(signal_str, signal_nr) == 0)
-		return 0;
-
-	for (i = 0; i < sizeof(siglist) / sizeof(siglist[0]); i++) {
-		if (strcmp(signal_str, siglist[i].name) == 0) {
-			*signal_nr = siglist[i].signal;
-			return 0;
-		}
-	}
-	return -1;
-}
-
-static void parse_schedule_item(const char *string, struct schedule_item *item)
-{
-	const char *after_hyph;
-
-	if (!strcmp(string, "forever")) {
-		item->type = sched_forever;
-	} else if (isdigit((int)string[0])) {
-		item->type = sched_timeout;
-		if (parse_integer(string, &item->value) != 0)
-			badusage("invalid timeout value in schedule");
-	} else if ((after_hyph = string + (string[0] == '-'))
-		   && parse_signal(after_hyph, &item->value) == 0) {
-		item->type = sched_signal;
-	} else {
-		badusage(
-			"invalid schedule item (must be [-]<signal-name>, "
-			"-<signal-number>, <timeout> or `forever'");
-	}
-}
-
-static void parse_schedule(const char *schedule_str)
-{
-	char item_buf[20];
-	const char *slash;
-	int count, repeatat;
-	ptrdiff_t str_len;
-
-	count = 0;
-	for (slash = schedule_str; *slash; slash++)
-		if (*slash == '/')
-			count++;
-
-	schedule_length = (count == 0) ? 4 : count + 1;
-	schedule = xmalloc(sizeof(*schedule) * schedule_length);
-
-	if (count == 0) {
-		schedule[0].type = sched_signal;
-		schedule[0].value = signal_nr;
-		parse_schedule_item(schedule_str, &schedule[1]);
-		if (schedule[1].type != sched_timeout) {
-			badusage(
-				"--retry takes timeout, or schedule list"
-				" of at least two items");
-		}
-		schedule[2].type = sched_signal;
-		schedule[2].value = SIGKILL;
-		schedule[3] = schedule[1];
-	} else {
-		count = 0;
-		repeatat = -1;
-		while (schedule_str != NULL) {
-			slash = strchr(schedule_str, '/');
-			str_len = slash ? slash - schedule_str
-					: (ptrdiff_t)strlen(schedule_str);
-			if (str_len >= (ptrdiff_t)sizeof(item_buf))
-				badusage(
-					"invalid schedule item: far too long"
-					" (you must delimit items with slashes)");
-			memcpy(item_buf, schedule_str, str_len);
-			item_buf[str_len] = 0;
-			schedule_str = slash ? slash + 1 : NULL;
-
-			parse_schedule_item(item_buf, &schedule[count]);
-			if (schedule[count].type == sched_forever) {
-				if (repeatat >= 0)
-					badusage(
-						"invalid schedule: `forever'"
-						" appears more than once");
-				repeatat = count;
-				continue;
-			}
-			count++;
-		}
-		if (repeatat >= 0) {
-			schedule[count].type = sched_goto;
-			schedule[count].value = repeatat;
-			count++;
-		}
-		assert(count == schedule_length);
-	}
-}
-
-static void parse_options(int argc, char *const *argv)
-{
-	static struct option longopts[] = {
-		{"help", 0, NULL, 'H'},       {"stop", 0, NULL, 'K'},
-		{"start", 0, NULL, 'S'},      {"version", 0, NULL, 'V'},
-		{"startas", 1, NULL, 'a'},    {"name", 1, NULL, 'n'},
-		{"oknodo", 0, NULL, 'o'},     {"pidfile", 1, NULL, 'p'},
-		{"quiet", 0, NULL, 'q'},      {"signal", 1, NULL, 's'},
-		{"test", 0, NULL, 't'},       {"user", 1, NULL, 'u'},
-		{"chroot", 1, NULL, 'r'},     {"namespace", 1, NULL, 'd'},
-		{"verbose", 0, NULL, 'v'},    {"exec", 1, NULL, 'x'},
-		{"chuid", 1, NULL, 'c'},      {"nicelevel", 1, NULL, 'N'},
-		{"background", 0, NULL, 'b'}, {"make-pidfile", 0, NULL, 'm'},
-		{"retry", 1, NULL, 'R'},      {NULL, 0, NULL, 0}};
-	int c;
-
-	for (;;) {
-		c = getopt_long(argc, argv,
-				"HKSVa:n:op:qr:d:s:tu:vx:c:N:bmR:", longopts,
-				(int *)0);
-		if (c == -1)
-			break;
-		switch (c) {
-		case 'H': /* --help */
-			do_help();
-			exit(0);
-		case 'K': /* --stop */
-			stop = 1;
-			break;
-		case 'S': /* --start */
-			start = 1;
-			break;
-		case 'V': /* --version */
-			printf("start-stop-daemon " VERSION "\n");
-			exit(0);
-		case 'a': /* --startas <pathname> */
-			startas = optarg;
-			break;
-		case 'n': /* --name <process-name> */
-			cmdname = optarg;
-			break;
-		case 'o': /* --oknodo */
-			exitnodo = 0;
-			break;
-		case 'p': /* --pidfile <pid-file> */
-			pidfile = optarg;
-			break;
-		case 'q': /* --quiet */
-			quietmode = 1;
-			break;
-		case 's': /* --signal <signal> */
-			signal_str = optarg;
-			break;
-		case 't': /* --test */
-			testmode = 1;
-			break;
-		case 'u': /* --user <username>|<uid> */
-			userspec = optarg;
-			break;
-		case 'v': /* --verbose */
-			quietmode = -1;
-			break;
-		case 'x': /* --exec <executable> */
-			execname = optarg;
-			break;
-		case 'c': /* --chuid <username>|<uid> */
-			changeuser = strtok(optarg, ":");
-			changegroup = strtok(NULL, ":");
-			break;
-		case 'r': /* --chroot /new/root */
-			changeroot = optarg;
-			break;
-		case 'd': /* --namespace /.../<ipcns>|<netns>|<utsns>/name */
-#ifdef linux
-			add_namespace(optarg);
-#endif
-			break;
-		case 'N': /* --nice */
-			nicelevel = atoi(optarg);
-			break;
-		case 'b': /* --background */
-			background = 1;
-			break;
-		case 'm': /* --make-pidfile */
-			mpidfile = 1;
-			break;
-		case 'R': /* --retry <schedule>|<timeout> */
-			schedule_str = optarg;
-			break;
-		default:
-			badusage(NULL); /* message printed by getopt */
-		}
-	}
-
-	if (signal_str != NULL) {
-		if (parse_signal(signal_str, &signal_nr) != 0)
-			badusage(
-				"signal value must be numeric or name"
-				" of signal (KILL, INTR, ...)");
-	}
-
-	if (schedule_str != NULL) {
-		parse_schedule(schedule_str);
-	}
-
-	if (start == stop)
-		badusage("need one of --start or --stop");
-
-	if (!execname && !pidfile && !userspec && !cmdname)
-		badusage(
-			"need at least one of --exec, --pidfile, --user or --name");
-
-	if (!startas)
-		startas = execname;
-
-	if (start && !startas)
-		badusage("--start needs --exec or --startas");
-
-	if (mpidfile && pidfile == NULL)
-		badusage("--make-pidfile is only relevant with --pidfile");
-
-	if (background && !start)
-		badusage("--background is only relevant with --start");
-}
-
-static int pid_is_exec(pid_t pid, const struct stat *esb)
-{
-	struct stat sb;
-	char buf[32];
-
-	sprintf(buf, "/proc/%d/exe", pid);
-	if (stat(buf, &sb) != 0)
-		return 0;
-	return (sb.st_dev == esb->st_dev && sb.st_ino == esb->st_ino);
-}
-
-
-static int pid_is_user(pid_t pid, uid_t uid)
-{
-	struct stat sb;
-	char buf[32];
-
-	sprintf(buf, "/proc/%d", pid);
-	if (stat(buf, &sb) != 0)
-		return 0;
-	return (sb.st_uid == uid);
-}
-
-
-static int pid_is_cmd(pid_t pid, const char *name)
-{
-	char buf[32];
-	FILE *f;
-	int c;
-
-	sprintf(buf, "/proc/%d/stat", pid);
-	f = fopen(buf, "r");
-	if (!f)
-		return 0;
-	while ((c = getc(f)) != EOF && c != '(')
-		;
-	if (c != '(') {
-		fclose(f);
-		return 0;
-	}
-	/* this hopefully handles command names containing ')' */
-	while ((c = getc(f)) != EOF && c == *name)
-		name++;
-	fclose(f);
-	return (c == ')' && *name == '\0');
-}
-
-
-static void check(pid_t pid)
-{
-	if (execname && !pid_is_exec(pid, &exec_stat))
-		return;
-	if (userspec && !pid_is_user(pid, user_id))
-		return;
-	if (cmdname && !pid_is_cmd(pid, cmdname))
-		return;
-	push(&found, pid);
-}
-
-static void do_pidfile(const char *name)
-{
-	FILE *f;
-	pid_t pid;
-
-	f = fopen(name, "r");
-	if (f) {
-		if (fscanf(f, "%d", &pid) == 1)
-			check(pid);
-		fclose(f);
-	} else if (errno != ENOENT)
-		fatal("open pidfile %s: %s", name, strerror(errno));
-}
-
-/* WTA: this  needs to be an autoconf check for /proc/pid existance.
- */
-static void do_procinit(void)
-{
-	DIR *procdir;
-	struct dirent *entry;
-	int foundany;
-	pid_t pid;
-
-	procdir = opendir("/proc");
-	if (!procdir)
-		fatal("opendir /proc: %s", strerror(errno));
-
-	foundany = 0;
-	while ((entry = readdir(procdir)) != NULL) {
-		if (sscanf(entry->d_name, "%d", &pid) != 1)
-			continue;
-		foundany++;
-		check(pid);
-	}
-	closedir(procdir);
-	if (!foundany)
-		fatal("nothing in /proc - not mounted?");
-}
-
-static void do_findprocs(void)
-{
-	clear(&found);
-
-	if (pidfile)
-		do_pidfile(pidfile);
-	else
-		do_procinit();
-}
-
-/* return 1 on failure */
-static void do_stop(int signal_nr, int quietmode, int *n_killed,
-		    int *n_notkilled, int retry_nr)
-{
-	struct pid_list *p;
-
-	do_findprocs();
-
-	*n_killed = 0;
-	*n_notkilled = 0;
-
-	if (!found)
-		return;
-
-	clear(&killed);
-
-	for (p = found; p; p = p->next) {
-		if (testmode)
-			printf("Would send signal %d to %d.\n", signal_nr,
-			       p->pid);
-		else if (kill(p->pid, signal_nr) == 0) {
-			push(&killed, p->pid);
-			(*n_killed)++;
-		} else {
-			printf("%s: warning: failed to kill %d: %s\n", progname,
-			       p->pid, strerror(errno));
-			(*n_notkilled)++;
-		}
-	}
-	if (quietmode < 0 && killed) {
-		printf("Stopped %s (pid", what_stop);
-		for (p = killed; p; p = p->next)
-			printf(" %d", p->pid);
-		putchar(')');
-		if (retry_nr > 0)
-			printf(", retry #%d", retry_nr);
-		printf(".\n");
-	}
-}
-
-
-static void set_what_stop(const char *str)
-{
-	strncpy(what_stop, str, sizeof(what_stop));
-	what_stop[sizeof(what_stop) - 1] = '\0';
-}
-
-static int run_stop_schedule(void)
-{
-	int r, position, n_killed, n_notkilled, value, ratio, anykilled,
-		retry_nr;
-	struct timeval stopat, before, after, interval, maxinterval;
-
-	if (testmode) {
-		if (schedule != NULL) {
-			printf("Ignoring --retry in test mode\n");
-			schedule = NULL;
-		}
-	}
-
-	if (cmdname)
-		set_what_stop(cmdname);
-	else if (execname)
-		set_what_stop(execname);
-	else if (pidfile)
-		sprintf(what_stop, "process in pidfile `%.200s'", pidfile);
-	else if (userspec)
-		sprintf(what_stop, "process(es) owned by `%.200s'", userspec);
-	else
-		fatal("internal error, please report");
-
-	anykilled = 0;
-	retry_nr = 0;
-	n_killed = 0;
-
-	if (schedule == NULL) {
-		do_stop(signal_nr, quietmode, &n_killed, &n_notkilled, 0);
-		if (n_notkilled > 0 && quietmode <= 0)
-			printf("%d pids were not killed\n", n_notkilled);
-		if (n_killed)
-			anykilled = 1;
-		goto x_finished;
-	}
-
-	for (position = 0; position < schedule_length;) {
-		value = schedule[position].value;
-		n_notkilled = 0;
-
-		switch (schedule[position].type) {
-
-		case sched_goto:
-			position = value;
-			continue;
-
-		case sched_signal:
-			do_stop(value, quietmode, &n_killed, &n_notkilled,
-				retry_nr++);
-			if (!n_killed)
-				goto x_finished;
-			else
-				anykilled = 1;
-			goto next_item;
-
-		case sched_timeout:
-			/* We want to keep polling for the processes, to see if
-			 * they've exited,
-			 * or until the timeout expires.
-			 *
-			 * This is a somewhat complicated algorithm to try to
-			 * ensure that we
-			 * notice reasonably quickly when all the processes have
-			 * exited, but
-			 * don't spend too much CPU time polling.  In
-			 * particular, on a fast
-			 * machine with quick-exiting daemons we don't want to
-			 * delay system
-			 * shutdown too much, whereas on a slow one, or where
-			 * processes are
-			 * taking some time to exit, we want to increase the
-			 * polling
-			 * interval.
-			 *
-			 * The algorithm is as follows: we measure the elapsed
-			 * time it takes
-			 * to do one poll(), and wait a multiple of this time
-			 * for the next
-			 * poll.  However, if that would put us past the end of
-			 * the timeout
-			 * period we wait only as long as the timeout period,
-			 * but in any case
-			 * we always wait at least MIN_POLL_INTERVAL (20ms).
-			 * The multiple
-			 * (`ratio') starts out as 2, and increases by 1 for
-			 * each poll to a
-			 * maximum of 10; so we use up to between 30% and 10% of
-			 * the
-			 * machine's resources (assuming a few reasonable things
-			 * about system
-			 * performance).
-			 */
-			xgettimeofday(&stopat);
-			stopat.tv_sec += value;
-			ratio = 1;
-			for (;;) {
-				xgettimeofday(&before);
-				if (timercmp(&before, &stopat, >))
-					goto next_item;
-
-				do_stop(0, 1, &n_killed, &n_notkilled, 0);
-				if (!n_killed)
-					goto x_finished;
-
-				xgettimeofday(&after);
-
-				if (!timercmp(&after, &stopat, <))
-					goto next_item;
-
-				if (ratio < 10)
-					ratio++;
-
-				TVCALC(interval,
-				       ratio * (TVELEM(&after) - TVELEM(&before)
-						+ TVADJUST));
-				TVCALC(maxinterval,
-				       TVELEM(&stopat) - TVELEM(&after)
-					       + TVADJUST);
-
-				if (timercmp(&interval, &maxinterval, >))
-					interval = maxinterval;
-
-				if (interval.tv_sec == 0
-				    && interval.tv_usec <= MIN_POLL_INTERVAL)
-					interval.tv_usec = MIN_POLL_INTERVAL;
-
-				r = select(0, 0, 0, 0, &interval);
-				if (r < 0 && errno != EINTR)
-					fatal("select() failed for pause: %s",
-					      strerror(errno));
-			}
-
-		default:
-			assert(!"schedule[].type value must be valid");
-		}
-
-	next_item:
-		position++;
-	}
-
-	if (quietmode <= 0)
-		printf("Program %s, %d process(es), refused to die.\n",
-		       what_stop, n_killed);
-
-	return 2;
-
-x_finished:
-	if (!anykilled) {
-		if (quietmode <= 0)
-			printf("No %s found running; none killed.\n",
-			       what_stop);
-		return exitnodo;
-	} else {
-		return 0;
-	}
-}
-
-/*
-int main(int argc, char **argv) NONRETURNING;
-*/
-
-int main(int argc, char **argv)
-{
-	progname = argv[0];
-
-	LIST_INIT(&namespace_head);
-
-	parse_options(argc, argv);
-	argc -= optind;
-	argv += optind;
-
-	if (execname && stat(execname, &exec_stat))
-		fatal("stat %s: %s", execname, strerror(errno));
-
-	if (userspec && sscanf(userspec, "%d", &user_id) != 1) {
-		struct passwd *pw;
-
-		pw = getpwnam(userspec);
-		if (!pw)
-			fatal("user `%s' not found\n", userspec);
-
-		user_id = pw->pw_uid;
-	}
-
-	if (changegroup && sscanf(changegroup, "%d", &runas_gid) != 1) {
-		struct group *gr = getgrnam(changegroup);
-		if (!gr)
-			fatal("group `%s' not found\n", changegroup);
-		runas_gid = gr->gr_gid;
-	}
-	if (changeuser && sscanf(changeuser, "%d", &runas_uid) != 1) {
-		struct passwd *pw = getpwnam(changeuser);
-		if (!pw)
-			fatal("user `%s' not found\n", changeuser);
-		runas_uid = pw->pw_uid;
-		if (changegroup
-		    == NULL) { /* pass the default group of this user */
-			changegroup = ""; /* just empty */
-			runas_gid = pw->pw_gid;
-		}
-	}
-
-	if (stop) {
-		int i = run_stop_schedule();
-		exit(i);
-	}
-
-	do_findprocs();
-
-	if (found) {
-		if (quietmode <= 0)
-			printf("%s already running.\n", execname);
-		exit(exitnodo);
-	}
-	if (testmode) {
-		printf("Would start %s ", startas);
-		while (argc-- > 0)
-			printf("%s ", *argv++);
-		if (changeuser != NULL) {
-			printf(" (as user %s[%d]", changeuser, runas_uid);
-			if (changegroup != NULL)
-				printf(", and group %s[%d])", changegroup,
-				       runas_gid);
-			else
-				printf(")");
-		}
-		if (changeroot != NULL)
-			printf(" in directory %s", changeroot);
-		if (nicelevel)
-			printf(", and add %i to the priority", nicelevel);
-		printf(".\n");
-		exit(0);
-	}
-	if (quietmode < 0)
-		printf("Starting %s...\n", startas);
-	*--argv = startas;
-	if (changeroot != NULL) {
-		if (chdir(changeroot) < 0)
-			fatal("Unable to chdir() to %s", changeroot);
-		if (chroot(changeroot) < 0)
-			fatal("Unable to chroot() to %s", changeroot);
-	}
-	if (changeuser != NULL) {
-		if (setgid(runas_gid))
-			fatal("Unable to set gid to %d", runas_gid);
-		if (initgroups(changeuser, runas_gid))
-			fatal("Unable to set initgroups() with gid %d",
-			      runas_gid);
-		if (setuid(runas_uid))
-			fatal("Unable to set uid to %s", changeuser);
-	}
-
-	if (background) { /* ok, we need to detach this process */
-		int i, fd;
-		if (quietmode < 0)
-			printf("Detatching to start %s...", startas);
-		i = fork();
-		if (i < 0) {
-			fatal("Unable to fork.\n");
-		}
-		if (i) { /* parent */
-			if (quietmode < 0)
-				printf("done.\n");
-			exit(0);
-		}
-		/* child continues here */
-		/* now close all extra fds */
-		for (i = getdtablesize() - 1; i >= 0; --i)
-			close(i);
-		/* change tty */
-		fd = open("/dev/tty", O_RDWR);
-		ioctl(fd, TIOCNOTTY, 0);
-		close(fd);
-		chdir("/");
-		umask(022);    /* set a default for dumb programs */
-		setpgid(0, 0); /* set the process group */
-		fd = open("/dev/null", O_RDWR); /* stdin */
-		dup(fd);			/* stdout */
-		dup(fd);			/* stderr */
-	}
-	if (nicelevel) {
-		errno = 0;
-		if (nice(nicelevel) < 0 && errno)
-			fatal("Unable to alter nice level by %i: %s", nicelevel,
-			      strerror(errno));
-	}
-	if (mpidfile
-	    && pidfile != NULL) { /* user wants _us_ to make the pidfile :) */
-		FILE *pidf = fopen(pidfile, "w");
-		pid_t pidt = getpid();
-		if (pidf == NULL)
-			fatal("Unable to open pidfile `%s' for writing: %s",
-			      pidfile, strerror(errno));
-		fprintf(pidf, "%d\n", pidt);
-		fclose(pidf);
-	}
-	set_namespaces();
-	execv(startas, argv);
-	fatal("Unable to start %s: %s", startas, strerror(errno));
-}
+/**ArewriteoftheoriginalDebian'sstart-stop-daemonPerlscript*inC(faster-itisexecu
+tedmanytimesduringsystemstartup).**WrittenbyMarekMichalkiewicz<marekm@i17linuxb.
+ists.pwr.wroc.pl>,*publicdomain.Basedconceptuallyonstart-stop-daemon.pl,byIan*Ja
+ckson<ijackson@gnu.ai.mit.edu>.Maybeusedanddistributed*freelyforanypurpose.Chang
+esbyChristianSchwarz*<schwarz@monet.m.isar.de>,tomakeoutputconformtotheDebian*Co
+nsoleMessageStandard,alsoplacedinpublicdomain.Minor*changesbyKleeDienes<klee@deb
+ian.org>,alsoplacedinthePublic*Domain.**ChangesbyBenCollins<bcollins@debian.org>
+,added--chuid,--background*and--make-pidfileoptions,placedinpublicdomainaswell.*
+*PorttoOpenBSDbySontriTomoHuynh<huynh.29@osu.edu>*andAndreasSchuldei<andreas@sch
+uldei.org>**ChangesbyIanJackson:added--retry(andassociatedrearrangements).**Modi
+fiedforGentoorc-scriptsbyDonnyDavies<woodchip@gentoo.org>:*IremovedtheBSD/Hurd/O
+therOSstuff,added#include<stddef.h>*andstuckina#defineVERSION"1.9.18".Nowitcompi
+leswithout*thewholeautomake/config.hdance.*/#ifdefHAVE_LXC#define_GNU_SOURCE#inc
+lude<sched.h>#endif/*HAVE_LXC*/#include<stddef.h>#defineVERSION"1.9.18"#defineMI
+N_POLL_INTERVAL20000/*us*/#include<errno.h>#include<stdio.h>#include<stdlib.h>#i
+nclude<string.h>#include<stdarg.h>#include<signal.h>#include<sys/stat.h>#include
+<dirent.h>#include<sys/time.h>#include<sys/queue.h>#include<unistd.h>#include<ge
+topt.h>#include<pwd.h>#include<grp.h>#include<sys/ioctl.h>#include<sys/types.h>#
+include<termios.h>#include<fcntl.h>#include<limits.h>#include<assert.h>#include<
+ctype.h>#ifdeflinux#include<linux/sched.h>#endifstaticinttestmode=0;staticintqui
+etmode=0;staticintexitnodo=1;staticintstart=0;staticintstop=0;staticintbackgroun
+d=0;staticintmpidfile=0;staticintsignal_nr=15;staticconstchar*signal_str=NULL;st
+aticintuser_id=-1;staticintrunas_uid=-1;staticintrunas_gid=-1;staticconstchar*us
+erspec=NULL;staticchar*changeuser=NULL;staticconstchar*changegroup=NULL;staticch
+ar*changeroot=NULL;staticconstchar*cmdname=NULL;staticchar*execname=NULL;staticc
+har*startas=NULL;staticconstchar*pidfile=NULL;staticcharwhat_stop[1024];staticco
+nstchar*schedule_str=NULL;staticconstchar*progname="";staticintnicelevel=0;stati
+cstructstatexec_stat;structpid_list{structpid_list*next;pid_tpid;};staticstructp
+id_list*found=NULL;staticstructpid_list*killed=NULL;structschedule_item{enum{sch
+ed_timeout,sched_signal,sched_goto,sched_forever}type;intvalue;/*seconds,signaln
+o.,orindexintoarray*//*sched_foreverisonlyseenwithinparse_scheduleandcallees*/};
+staticintschedule_length;staticstructschedule_item*schedule=NULL;LIST_HEAD(names
+pace_head,namespace);structnamespace{LIST_ENTRY(namespace)list;constchar*path;in
+tnstype;};staticstructnamespace_headnamespace_head;staticvoid*xmalloc(intsize);s
+taticvoidpush(structpid_list**list,pid_tpid);staticvoiddo_help(void);staticvoidp
+arse_options(intargc,char*const*argv);staticintpid_is_user(pid_tpid,uid_tuid);st
+aticintpid_is_cmd(pid_tpid,constchar*name);staticvoidcheck(pid_tpid);staticvoidd
+o_pidfile(constchar*name);staticvoiddo_stop(intsignal_nr,intquietmode,int*n_kill
+ed,int*n_notkilled,intretry_nr);staticintpid_is_exec(pid_tpid,conststructstat*es
+b);#ifdef__GNUC__staticvoidfatal(constchar*format,...)__attribute__((noreturn,fo
+rmat(printf,1,2)));staticvoidbadusage(constchar*msg)__attribute__((noreturn));#e
+lsestaticvoidfatal(constchar*format,...);staticvoidbadusage(constchar*msg);#endi
+f/*ThisnextpartservesonlytoconstructtheTVCALCmacro,which*isusedfordoingarithmeti
+constructtimeval's.Itworkslikethis:*TVCALC(result,expression);*whereresultisastr
+ucttimeval(andmustbeanlvalue)and*expressionisthesingleexpressionforbothcomponent
+s.Inthis*expressionyoucanusethespecialvaluesTVELEM,whichwhenfeda*conststructtime
+val*givesyoutherelevantcomponent,and*TVADJUST.TVADJUSTisnecessarywhensubtracting
+timevals,tomake*iteasiertorenormalise.Whenveryousubtracttimevalelements,*youmust
+makesurethatTVADJUSTisaddedtotheresultofthe*subtraction(beforeanyresultingmultip
+licationorwhathaveyou).*TVELEMmustbelinearinTVADJUST.*/typedeflongtvselector(con
+ststructtimeval*);staticlongtvselector_sec(conststructtimeval*tv){returntv->tv_s
+ec;}staticlongtvselector_usec(conststructtimeval*tv){returntv->tv_usec;}#defineT
+VCALC_ELEM(result,expr,sec,adj)\{\constlongTVADJUST=adj;\long(*constTVELEM)(cons
+tstructtimeval*)=\tvselector_##sec;\(result).tv_##sec=(expr);\}#defineTVCALC(res
+ult,expr)\do{\TVCALC_ELEM(result,expr,sec,(-1));\TVCALC_ELEM(result,expr,usec,(+
+1000000));\(result).tv_sec+=(result).tv_usec/1000000;\(result).tv_usec%=1000000;
+\}while(0)staticvoidfatal(constchar*format,...){va_listarglist;fprintf(stderr,"%
+s:",progname);va_start(arglist,format);vfprintf(stderr,format,arglist);va_end(ar
+glist);putc('\n',stderr);exit(2);}staticvoid*xmalloc(intsize){void*ptr;ptr=mallo
+c(size);if(ptr)returnptr;fatal("malloc(%d)failed",size);}staticvoidxgettimeofday
+(structtimeval*tv){if(gettimeofday(tv,0)!=0)fatal("gettimeofdayfailed:%s",strerr
+or(errno));}staticvoidpush(structpid_list**list,pid_tpid){structpid_list*p;p=xma
+lloc(sizeof(*p));p->next=*list;p->pid=pid;*list=p;}staticvoidclear(structpid_lis
+t**list){structpid_list*here,*next;for(here=*list;here!=NULL;here=next){next=her
+e->next;free(here);}*list=NULL;}#ifdeflinuxstaticconstchar*next_dirname(constcha
+r*s){constchar*cur;cur=(constchar*)s;if(*cur!='\0'){for(;*cur!='/';++cur)if(*cur
+=='\0')returncur;for(;*cur=='/';++cur);}returncur;}staticvoidadd_namespace(const
+char*path){intnstype;constchar*nsdirname,*nsname,*cur;structnamespace*namespace;
+cur=(constchar*)path;nsdirname=nsname="";while((cur=next_dirname(cur))[0]!='\0')
+{nsdirname=nsname;nsname=cur;}if(!memcmp(nsdirname,"ipcns/",strlen("ipcns/")))ns
+type=CLONE_NEWIPC;elseif(!memcmp(nsdirname,"netns/",strlen("netns/")))nstype=CLO
+NE_NEWNET;elseif(!memcmp(nsdirname,"utcns/",strlen("utcns/")))nstype=CLONE_NEWUT
+S;elsebadusage("invalidnamepspacepath");namespace=xmalloc(sizeof(*namespace));na
+mespace->path=(constchar*)path;namespace->nstype=nstype;LIST_INSERT_HEAD(&namesp
+ace_head,namespace,list);}#endif#ifdefHAVE_LXCstaticvoidset_namespaces(){structn
+amespace*namespace;intfd;LIST_FOREACH(namespace,&namespace_head,list){if((fd=ope
+n(namespace->path,O_RDONLY))==-1)fatal("opennamespace%s:%s",namespace->path,stre
+rror(errno));if(setns(fd,namespace->nstype)==-1)fatal("setns%s:%s",namespace->pa
+th,strerror(errno));}}#elsestaticvoidset_namespaces(){if(!LIST_EMPTY(&namespace_
+head))fatal("LCXnamespacesnotsupported");}#endifstaticvoiddo_help(void){printf("
+start-stop-daemon"VERSION"forDebian-smallandfastCversionwrittenby\n""MarekMichal
+kiewicz<marekm@i17linuxb.ists.pwr.wroc.pl>,publicdomain.\n""\n""Usage:\n""start-
+stop-daemon-S|--startoptions...--arguments...\n""start-stop-daemon-K|--stopoptio
+ns...\n""start-stop-daemon-H|--help\n""start-stop-daemon-V|--version\n""\n""Opti
+ons(atleastoneof--exec|--pidfile|--userisrequired):\n""-x|--exec<executable>prog
+ramtostart/checkifitisrunning\n""-p|--pidfile<pid-file>pidfiletocheck\n""-c|--ch
+uid<name|uid[:group|gid]>\n""changetothisuser/groupbeforestartingprocess\n""-u|-
+-user<username>|<uid>stopprocessesownedbythisuser\n""-n|--name<process-name>stop
+processeswiththisname\n""-s|--signal<signal>signaltosend(defaultTERM)\n""-a|--st
+artas<pathname>programtostart(defaultis<executable>)\n""-N|--nicelevel<incr>addi
+ncrtotheprocess'snicelevel\n""-b|--backgroundforcetheprocesstodetach\n""-m|--mak
+e-pidfilecreatethepidfilebeforestarting\n""-R|--retry<schedule>checkwhetherproce
+ssesdie,andretry\n""-t|--testtestmode,don'tdoanything\n""-o|--oknodoexitstatus0(
+not1)ifnothingdone\n""-q|--quietbemorequiet\n""-v|--verbosebemoreverbose\n""Retr
+y<schedule>is<item>|/<item>/...where<item>isoneof\n""-<signal-num>|[-]<signal-na
+me>sendthatsignal\n""<timeout>waitthatmanyseconds\n""foreverrepeatremainderforev
+er\n""or<schedule>maybejust<timeout>,meaning<signal>/<timeout>/KILL/<timeout>\n"
+"\n""Exitstatus:0=done1=nothingdone(=>0if--oknodo)\n""3=trouble2=with--retry,pro
+cesseswouldn'tdie\n");}staticvoidbadusage(constchar*msg){if(msg)fprintf(stderr,"
+%s:%s\n",progname,msg);fprintf(stderr,"Try`%s--help'formoreinformation.\n",progn
+ame);exit(3);}structsigpair{constchar*name;intsignal;};conststructsigpairsiglist
+[]={{"ABRT",SIGABRT},{"ALRM",SIGALRM},{"FPE",SIGFPE},{"HUP",SIGHUP},{"ILL",SIGIL
+L},{"INT",SIGINT},{"KILL",SIGKILL},{"PIPE",SIGPIPE},{"QUIT",SIGQUIT},{"SEGV",SIG
+SEGV},{"TERM",SIGTERM},{"USR1",SIGUSR1},{"USR2",SIGUSR2},{"CHLD",SIGCHLD},{"CONT
+",SIGCONT},{"STOP",SIGSTOP},{"TSTP",SIGTSTP},{"TTIN",SIGTTIN},{"TTOU",SIGTTOU}};
+staticintparse_integer(constchar*string,int*value_r){unsignedlongul;char*ep;if(!
+string[0])return-1;ul=strtoul(string,&ep,10);if(ul>INT_MAX||*ep!='\0')return-1;*
+value_r=ul;return0;}staticintparse_signal(constchar*signal_str,int*signal_nr){un
+signedinti;if(parse_integer(signal_str,signal_nr)==0)return0;for(i=0;i<sizeof(si
+glist)/sizeof(siglist[0]);i++){if(strcmp(signal_str,siglist[i].name)==0){*signal
+_nr=siglist[i].signal;return0;}}return-1;}staticvoidparse_schedule_item(constcha
+r*string,structschedule_item*item){constchar*after_hyph;if(!strcmp(string,"forev
+er")){item->type=sched_forever;}elseif(isdigit((int)string[0])){item->type=sched
+_timeout;if(parse_integer(string,&item->value)!=0)badusage("invalidtimeoutvaluei
+nschedule");}elseif((after_hyph=string+(string[0]=='-'))&&parse_signal(after_hyp
+h,&item->value)==0){item->type=sched_signal;}else{badusage("invalidscheduleitem(
+mustbe[-]<signal-name>,""-<signal-number>,<timeout>or`forever'");}}staticvoidpar
+se_schedule(constchar*schedule_str){charitem_buf[20];constchar*slash;intcount,re
+peatat;ptrdiff_tstr_len;count=0;for(slash=schedule_str;*slash;slash++)if(*slash=
+='/')count++;schedule_length=(count==0)?4:count+1;schedule=xmalloc(sizeof(*sched
+ule)*schedule_length);if(count==0){schedule[0].type=sched_signal;schedule[0].val
+ue=signal_nr;parse_schedule_item(schedule_str,&schedule[1]);if(schedule[1].type!
+=sched_timeout){badusage("--retrytakestimeout,orschedulelist""ofatleasttwoitems"
+);}schedule[2].type=sched_signal;schedule[2].value=SIGKILL;schedule[3]=schedule[
+1];}else{count=0;repeatat=-1;while(schedule_str!=NULL){slash=strchr(schedule_str
+,'/');str_len=slash?slash-schedule_str:(ptrdiff_t)strlen(schedule_str);if(str_le
+n>=(ptrdiff_t)sizeof(item_buf))badusage("invalidscheduleitem:fartoolong""(youmus
+tdelimititemswithslashes)");memcpy(item_buf,schedule_str,str_len);item_buf[str_l
+en]=0;schedule_str=slash?slash+1:NULL;parse_schedule_item(item_buf,&schedule[cou
+nt]);if(schedule[count].type==sched_forever){if(repeatat>=0)badusage("invalidsch
+edule:`forever'""appearsmorethanonce");repeatat=count;continue;}count++;}if(repe
+atat>=0){schedule[count].type=sched_goto;schedule[count].value=repeatat;count++;
+}assert(count==schedule_length);}}staticvoidparse_options(intargc,char*const*arg
+v){staticstructoptionlongopts[]={{"help",0,NULL,'H'},{"stop",0,NULL,'K'},{"start
+",0,NULL,'S'},{"version",0,NULL,'V'},{"startas",1,NULL,'a'},{"name",1,NULL,'n'},
+{"oknodo",0,NULL,'o'},{"pidfile",1,NULL,'p'},{"quiet",0,NULL,'q'},{"signal",1,NU
+LL,'s'},{"test",0,NULL,'t'},{"user",1,NULL,'u'},{"chroot",1,NULL,'r'},{"namespac
+e",1,NULL,'d'},{"verbose",0,NULL,'v'},{"exec",1,NULL,'x'},{"chuid",1,NULL,'c'},{
+"nicelevel",1,NULL,'N'},{"background",0,NULL,'b'},{"make-pidfile",0,NULL,'m'},{"
+retry",1,NULL,'R'},{NULL,0,NULL,0}};intc;for(;;){c=getopt_long(argc,argv,"HKSVa:
+n:op:qr:d:s:tu:vx:c:N:bmR:",longopts,(int*)0);if(c==-1)break;switch(c){case'H':/
+*--help*/do_help();exit(0);case'K':/*--stop*/stop=1;break;case'S':/*--start*/sta
+rt=1;break;case'V':/*--version*/printf("start-stop-daemon"VERSION"\n");exit(0);c
+ase'a':/*--startas<pathname>*/startas=optarg;break;case'n':/*--name<process-name
+>*/cmdname=optarg;break;case'o':/*--oknodo*/exitnodo=0;break;case'p':/*--pidfile
+<pid-file>*/pidfile=optarg;break;case'q':/*--quiet*/quietmode=1;break;case's':/*
+--signal<signal>*/signal_str=optarg;break;case't':/*--test*/testmode=1;break;cas
+e'u':/*--user<username>|<uid>*/userspec=optarg;break;case'v':/*--verbose*/quietm
+ode=-1;break;case'x':/*--exec<executable>*/execname=optarg;break;case'c':/*--chu
+id<username>|<uid>*/changeuser=strtok(optarg,":");changegroup=strtok(NULL,":");b
+reak;case'r':/*--chroot/new/root*/changeroot=optarg;break;case'd':/*--namespace/
+.../<ipcns>|<netns>|<utsns>/name*/#ifdeflinuxadd_namespace(optarg);#endifbreak;c
+ase'N':/*--nice*/nicelevel=atoi(optarg);break;case'b':/*--background*/background
+=1;break;case'm':/*--make-pidfile*/mpidfile=1;break;case'R':/*--retry<schedule>|
+<timeout>*/schedule_str=optarg;break;default:badusage(NULL);/*messageprintedbyge
+topt*/}}if(signal_str!=NULL){if(parse_signal(signal_str,&signal_nr)!=0)badusage(
+"signalvaluemustbenumericorname""ofsignal(KILL,INTR,...)");}if(schedule_str!=NUL
+L){parse_schedule(schedule_str);}if(start==stop)badusage("needoneof--startor--st
+op");if(!execname&&!pidfile&&!userspec&&!cmdname)badusage("needatleastoneof--exe
+c,--pidfile,--useror--name");if(!startas)startas=execname;if(start&&!startas)bad
+usage("--startneeds--execor--startas");if(mpidfile&&pidfile==NULL)badusage("--ma
+ke-pidfileisonlyrelevantwith--pidfile");if(background&&!start)badusage("--backgr
+oundisonlyrelevantwith--start");}staticintpid_is_exec(pid_tpid,conststructstat*e
+sb){structstatsb;charbuf[32];sprintf(buf,"/proc/%d/exe",pid);if(stat(buf,&sb)!=0
+)return0;return(sb.st_dev==esb->st_dev&&sb.st_ino==esb->st_ino);}staticintpid_is
+_user(pid_tpid,uid_tuid){structstatsb;charbuf[32];sprintf(buf,"/proc/%d",pid);if
+(stat(buf,&sb)!=0)return0;return(sb.st_uid==uid);}staticintpid_is_cmd(pid_tpid,c
+onstchar*name){charbuf[32];FILE*f;intc;sprintf(buf,"/proc/%d/stat",pid);f=fopen(
+buf,"r");if(!f)return0;while((c=getc(f))!=EOF&&c!='(');if(c!='('){fclose(f);retu
+rn0;}/*thishopefullyhandlescommandnamescontaining')'*/while((c=getc(f))!=EOF&&c=
+=*name)name++;fclose(f);return(c==')'&&*name=='\0');}staticvoidcheck(pid_tpid){i
+f(execname&&!pid_is_exec(pid,&exec_stat))return;if(userspec&&!pid_is_user(pid,us
+er_id))return;if(cmdname&&!pid_is_cmd(pid,cmdname))return;push(&found,pid);}stat
+icvoiddo_pidfile(constchar*name){FILE*f;pid_tpid;f=fopen(name,"r");if(f){if(fsca
+nf(f,"%d",&pid)==1)check(pid);fclose(f);}elseif(errno!=ENOENT)fatal("openpidfile
+%s:%s",name,strerror(errno));}/*WTA:thisneedstobeanautoconfcheckfor/proc/pidexis
+tance.*/staticvoiddo_procinit(void){DIR*procdir;structdirent*entry;intfoundany;p
+id_tpid;procdir=opendir("/proc");if(!procdir)fatal("opendir/proc:%s",strerror(er
+rno));foundany=0;while((entry=readdir(procdir))!=NULL){if(sscanf(entry->d_name,"
+%d",&pid)!=1)continue;foundany++;check(pid);}closedir(procdir);if(!foundany)fata
+l("nothingin/proc-notmounted?");}staticvoiddo_findprocs(void){clear(&found);if(p
+idfile)do_pidfile(pidfile);elsedo_procinit();}/*return1onfailure*/staticvoiddo_s
+top(intsignal_nr,intquietmode,int*n_killed,int*n_notkilled,intretry_nr){structpi
+d_list*p;do_findprocs();*n_killed=0;*n_notkilled=0;if(!found)return;clear(&kille
+d);for(p=found;p;p=p->next){if(testmode)printf("Wouldsendsignal%dto%d.\n",signal
+_nr,p->pid);elseif(kill(p->pid,signal_nr)==0){push(&killed,p->pid);(*n_killed)++
+;}else{printf("%s:warning:failedtokill%d:%s\n",progname,p->pid,strerror(errno));
+(*n_notkilled)++;}}if(quietmode<0&&killed){printf("Stopped%s(pid",what_stop);for
+(p=killed;p;p=p->next)printf("%d",p->pid);putchar(')');if(retry_nr>0)printf(",re
+try#%d",retry_nr);printf(".\n");}}staticvoidset_what_stop(constchar*str){strncpy
+(what_stop,str,sizeof(what_stop));what_stop[sizeof(what_stop)-1]='\0';}staticint
+run_stop_schedule(void){intr,position,n_killed,n_notkilled,value,ratio,anykilled
+,retry_nr;structtimevalstopat,before,after,interval,maxinterval;if(testmode){if(
+schedule!=NULL){printf("Ignoring--retryintestmode\n");schedule=NULL;}}if(cmdname
+)set_what_stop(cmdname);elseif(execname)set_what_stop(execname);elseif(pidfile)s
+printf(what_stop,"processinpidfile`%.200s'",pidfile);elseif(userspec)sprintf(wha
+t_stop,"process(es)ownedby`%.200s'",userspec);elsefatal("internalerror,pleaserep
+ort");anykilled=0;retry_nr=0;n_killed=0;if(schedule==NULL){do_stop(signal_nr,qui
+etmode,&n_killed,&n_notkilled,0);if(n_notkilled>0&&quietmode<=0)printf("%dpidswe
+renotkilled\n",n_notkilled);if(n_killed)anykilled=1;gotox_finished;}for(position
+=0;position<schedule_length;){value=schedule[position].value;n_notkilled=0;switc
+h(schedule[position].type){casesched_goto:position=value;continue;casesched_sign
+al:do_stop(value,quietmode,&n_killed,&n_notkilled,retry_nr++);if(!n_killed)gotox
+_finished;elseanykilled=1;gotonext_item;casesched_timeout:/*Wewanttokeeppollingf
+ortheprocesses,toseeif*they'veexited,*oruntilthetimeoutexpires.**Thisisasomewhat
+complicatedalgorithmtotryto*ensurethatwe*noticereasonablyquicklywhenalltheproces
+seshave*exited,but*don'tspendtoomuchCPUtimepolling.In*particular,onafast*machine
+withquick-exitingdaemonswedon'twantto*delaysystem*shutdowntoomuch,whereasonaslow
+one,orwhere*processesare*takingsometimetoexit,wewanttoincreasethe*polling*interv
+al.**Thealgorithmisasfollows:wemeasuretheelapsed*timeittakes*todoonepoll(),andwa
+itamultipleofthistime*forthenext*poll.However,ifthatwouldputuspasttheendof*theti
+meout*periodwewaitonlyaslongasthetimeoutperiod,*butinanycase*wealwayswaitatleast
+MIN_POLL_INTERVAL(20ms).*Themultiple*(`ratio')startsoutas2,andincreasesby1for*ea
+chpolltoa*maximumof10;soweuseuptobetween30%and10%of*the*machine'sresources(assum
+ingafewreasonablethings*aboutsystem*performance).*/xgettimeofday(&stopat);stopat
+.tv_sec+=value;ratio=1;for(;;){xgettimeofday(&before);if(timercmp(&before,&stopa
+t,>))gotonext_item;do_stop(0,1,&n_killed,&n_notkilled,0);if(!n_killed)gotox_fini
+shed;xgettimeofday(&after);if(!timercmp(&after,&stopat,<))gotonext_item;if(ratio
+<10)ratio++;TVCALC(interval,ratio*(TVELEM(&after)-TVELEM(&before)+TVADJUST));TVC
+ALC(maxinterval,TVELEM(&stopat)-TVELEM(&after)+TVADJUST);if(timercmp(&interval,&
+maxinterval,>))interval=maxinterval;if(interval.tv_sec==0&&interval.tv_usec<=MIN
+_POLL_INTERVAL)interval.tv_usec=MIN_POLL_INTERVAL;r=select(0,0,0,0,&interval);if
+(r<0&&errno!=EINTR)fatal("select()failedforpause:%s",strerror(errno));}default:a
+ssert(!"schedule[].typevaluemustbevalid");}next_item:position++;}if(quietmode<=0
+)printf("Program%s,%dprocess(es),refusedtodie.\n",what_stop,n_killed);return2;x_
+finished:if(!anykilled){if(quietmode<=0)printf("No%sfoundrunning;nonekilled.\n",
+what_stop);returnexitnodo;}else{return0;}}/*intmain(intargc,char**argv)NONRETURN
+ING;*/intmain(intargc,char**argv){progname=argv[0];LIST_INIT(&namespace_head);pa
+rse_options(argc,argv);argc-=optind;argv+=optind;if(execname&&stat(execname,&exe
+c_stat))fatal("stat%s:%s",execname,strerror(errno));if(userspec&&sscanf(userspec
+,"%d",&user_id)!=1){structpasswd*pw;pw=getpwnam(userspec);if(!pw)fatal("user`%s'
+notfound\n",userspec);user_id=pw->pw_uid;}if(changegroup&&sscanf(changegroup,"%d
+",&runas_gid)!=1){structgroup*gr=getgrnam(changegroup);if(!gr)fatal("group`%s'no
+tfound\n",changegroup);runas_gid=gr->gr_gid;}if(changeuser&&sscanf(changeuser,"%
+d",&runas_uid)!=1){structpasswd*pw=getpwnam(changeuser);if(!pw)fatal("user`%s'no
+tfound\n",changeuser);runas_uid=pw->pw_uid;if(changegroup==NULL){/*passthedefaul
+tgroupofthisuser*/changegroup="";/*justempty*/runas_gid=pw->pw_gid;}}if(stop){in
+ti=run_stop_schedule();exit(i);}do_findprocs();if(found){if(quietmode<=0)printf(
+"%salreadyrunning.\n",execname);exit(exitnodo);}if(testmode){printf("Wouldstart%
+s",startas);while(argc-->0)printf("%s",*argv++);if(changeuser!=NULL){printf("(as
+user%s[%d]",changeuser,runas_uid);if(changegroup!=NULL)printf(",andgroup%s[%d])"
+,changegroup,runas_gid);elseprintf(")");}if(changeroot!=NULL)printf("indirectory
+%s",changeroot);if(nicelevel)printf(",andadd%itothepriority",nicelevel);printf("
+.\n");exit(0);}if(quietmode<0)printf("Starting%s...\n",startas);*--argv=startas;
+if(changeroot!=NULL){if(chdir(changeroot)<0)fatal("Unabletochdir()to%s",changero
+ot);if(chroot(changeroot)<0)fatal("Unabletochroot()to%s",changeroot);}if(changeu
+ser!=NULL){if(setgid(runas_gid))fatal("Unabletosetgidto%d",runas_gid);if(initgro
+ups(changeuser,runas_gid))fatal("Unabletosetinitgroups()withgid%d",runas_gid);if
+(setuid(runas_uid))fatal("Unabletosetuidto%s",changeuser);}if(background){/*ok,w
+eneedtodetachthisprocess*/inti,fd;if(quietmode<0)printf("Detatchingtostart%s..."
+,startas);i=fork();if(i<0){fatal("Unabletofork.\n");}if(i){/*parent*/if(quietmod
+e<0)printf("done.\n");exit(0);}/*childcontinueshere*//*nowcloseallextrafds*/for(
+i=getdtablesize()-1;i>=0;--i)close(i);/*changetty*/fd=open("/dev/tty",O_RDWR);io
+ctl(fd,TIOCNOTTY,0);close(fd);chdir("/");umask(022);/*setadefaultfordumbprograms
+*/setpgid(0,0);/*settheprocessgroup*/fd=open("/dev/null",O_RDWR);/*stdin*/dup(fd
+);/*stdout*/dup(fd);/*stderr*/}if(nicelevel){errno=0;if(nice(nicelevel)<0&&errno
+)fatal("Unabletoalternicelevelby%i:%s",nicelevel,strerror(errno));}if(mpidfile&&
+pidfile!=NULL){/*userwants_us_tomakethepidfile:)*/FILE*pidf=fopen(pidfile,"w");p
+id_tpidt=getpid();if(pidf==NULL)fatal("Unabletoopenpidfile`%s'forwriting:%s",pid
+file,strerror(errno));fprintf(pidf,"%d\n",pidt);fclose(pidf);}set_namespaces();e
+xecv(startas,argv);fatal("Unabletostart%s:%s",startas,strerror(errno));}

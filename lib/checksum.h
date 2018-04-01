@@ -1,4 +1,2 @@
-extern int in_cksum(void *, int);
-#define FLETCHER_CHECKSUM_VALIDATE 0xffff
-extern uint16_t fletcher_checksum(uint8_t *, const size_t len,
-				  const uint16_t offset);
+externintin_cksum(void*,int);#defineFLETCHER_CHECKSUM_VALIDATE0xffffexternuint16
+_tfletcher_checksum(uint8_t*,constsize_tlen,constuint16_toffset);

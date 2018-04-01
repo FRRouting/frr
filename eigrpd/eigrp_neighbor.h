@@ -1,58 +1,23 @@
-/*
- * EIGRP Neighbor Handling.
- * Copyright (C) 2013-2016
- * Authors:
- *   Donnie Savage
- *   Jan Janovic
- *   Matej Perina
- *   Peter Orsag
- *   Peter Paluch
- *   Frantisek Gazo
- *   Tomas Hvorkovy
- *   Martin Kontsek
- *   Lukas Koribsky
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_EIGRP_NEIGHBOR_H
-#define _ZEBRA_EIGRP_NEIGHBOR_H
-
-/* Prototypes */
-extern struct eigrp_neighbor *eigrp_nbr_get(struct eigrp_interface *,
-					    struct eigrp_header *, struct ip *);
-extern struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *);
-extern void eigrp_nbr_delete(struct eigrp_neighbor *);
-
-extern int holddown_timer_expired(struct thread *);
-
-extern int eigrp_neighborship_check(struct eigrp_neighbor *,
-				    struct TLV_Parameter_Type *);
-extern void eigrp_nbr_state_update(struct eigrp_neighbor *);
-extern void eigrp_nbr_state_set(struct eigrp_neighbor *, uint8_t state);
-extern uint8_t eigrp_nbr_state_get(struct eigrp_neighbor *);
-extern int eigrp_nbr_count_get(void);
-extern const char *eigrp_nbr_state_str(struct eigrp_neighbor *);
-extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr(struct eigrp_interface *,
-						       struct in_addr *);
-extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *,
-							       struct in_addr);
-extern void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty);
-
-extern int eigrp_nbr_split_horizon_check(struct eigrp_nexthop_entry *ne,
-					 struct eigrp_interface *ei);
-#endif /* _ZEBRA_EIGRP_NEIGHBOR_H */
+/**EIGRPNeighborHandling.*Copyright(C)2013-2016*Authors:*DonnieSavage*JanJanovic
+*MatejPerina*PeterOrsag*PeterPaluch*FrantisekGazo*TomasHvorkovy*MartinKontsek*Lu
+kasKoribsky**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistribut
+eitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*Free
+SoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisd
+istributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpli
+edwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPubl
+icLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicense
+along*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,
+Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_EIGRP_NEIGHBO
+R_H#define_ZEBRA_EIGRP_NEIGHBOR_H/*Prototypes*/externstructeigrp_neighbor*eigrp_
+nbr_get(structeigrp_interface*,structeigrp_header*,structip*);externstructeigrp_
+neighbor*eigrp_nbr_new(structeigrp_interface*);externvoideigrp_nbr_delete(struct
+eigrp_neighbor*);externintholddown_timer_expired(structthread*);externinteigrp_n
+eighborship_check(structeigrp_neighbor*,structTLV_Parameter_Type*);externvoideig
+rp_nbr_state_update(structeigrp_neighbor*);externvoideigrp_nbr_state_set(structe
+igrp_neighbor*,uint8_tstate);externuint8_teigrp_nbr_state_get(structeigrp_neighb
+or*);externinteigrp_nbr_count_get(void);externconstchar*eigrp_nbr_state_str(stru
+cteigrp_neighbor*);externstructeigrp_neighbor*eigrp_nbr_lookup_by_addr(structeig
+rp_interface*,structin_addr*);externstructeigrp_neighbor*eigrp_nbr_lookup_by_add
+r_process(structeigrp*,structin_addr);externvoideigrp_nbr_hard_restart(structeig
+rp_neighbor*nbr,structvty*vty);externinteigrp_nbr_split_horizon_check(structeigr
+p_nexthop_entry*ne,structeigrp_interface*ei);#endif/*_ZEBRA_EIGRP_NEIGHBOR_H*/

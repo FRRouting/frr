@@ -1,75 +1,26 @@
-/*
- * OSPF calculation.
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_OSPF_SPF_H
-#define _QUAGGA_OSPF_SPF_H
-
-/* values for vertex->type */
-#define OSPF_VERTEX_ROUTER  1  /* for a Router-LSA */
-#define OSPF_VERTEX_NETWORK 2  /* for a Network-LSA */
-
-/* values for vertex->flags */
-#define OSPF_VERTEX_PROCESSED      0x01
-
-/* The "root" is the node running the SPF calculation */
-
-/* A router or network in an area */
-struct vertex {
-	uint8_t flags;
-	uint8_t type;		/* copied from LSA header */
-	struct in_addr id;      /* copied from LSA header */
-	struct lsa_header *lsa; /* Router or Network LSA */
-	int *stat;		/* Link to LSA status. */
-	uint32_t distance;      /* from root to this vertex */
-	struct list *parents;   /* list of parents in SPF tree */
-	struct list *children;  /* list of children in SPF tree*/
-};
-
-/* A nexthop taken on the root node to get to this (parent) vertex */
-struct vertex_nexthop {
-	struct ospf_interface *oi; /* output intf on root node */
-	struct in_addr router;     /* router address to send to */
-};
-
-struct vertex_parent {
-	struct vertex_nexthop
-		*nexthop;      /* link to nexthop info for this parent */
-	struct vertex *parent; /* parent vertex */
-	int backlink;	  /* index back to parent for router-lsa's */
-};
-
-/* What triggered the SPF ? */
-typedef enum {
-	SPF_FLAG_ROUTER_LSA_INSTALL = 1,
-	SPF_FLAG_NETWORK_LSA_INSTALL,
-	SPF_FLAG_SUMMARY_LSA_INSTALL,
-	SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL,
-	SPF_FLAG_MAXAGE,
-	SPF_FLAG_ABR_STATUS_CHANGE,
-	SPF_FLAG_ASBR_STATUS_CHANGE,
-	SPF_FLAG_CONFIG_CHANGE,
-} ospf_spf_reason_t;
-
-extern void ospf_spf_calculate_schedule(struct ospf *, ospf_spf_reason_t);
-extern void ospf_rtrs_free(struct route_table *);
-
-/* void ospf_spf_calculate_timer_add (); */
-#endif /* _QUAGGA_OSPF_SPF_H */
+/**OSPFcalculation.*Copyright(C)1999KunihiroIshiguro**ThisfileispartofGNUZebra.*
+*GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNU
+GeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(at
+youroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,b
+ut*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFO
+RAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhave
+receivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING
+;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA0
+2110-1301USA*/#ifndef_QUAGGA_OSPF_SPF_H#define_QUAGGA_OSPF_SPF_H/*valuesforverte
+x->type*/#defineOSPF_VERTEX_ROUTER1/*foraRouter-LSA*/#defineOSPF_VERTEX_NETWORK2
+/*foraNetwork-LSA*//*valuesforvertex->flags*/#defineOSPF_VERTEX_PROCESSED0x01/*T
+he"root"isthenoderunningtheSPFcalculation*//*Arouterornetworkinanarea*/structver
+tex{uint8_tflags;uint8_ttype;/*copiedfromLSAheader*/structin_addrid;/*copiedfrom
+LSAheader*/structlsa_header*lsa;/*RouterorNetworkLSA*/int*stat;/*LinktoLSAstatus
+.*/uint32_tdistance;/*fromroottothisvertex*/structlist*parents;/*listofparentsin
+SPFtree*/structlist*children;/*listofchildreninSPFtree*/};/*Anexthoptakenonthero
+otnodetogettothis(parent)vertex*/structvertex_nexthop{structospf_interface*oi;/*
+outputintfonrootnode*/structin_addrrouter;/*routeraddresstosendto*/};structverte
+x_parent{structvertex_nexthop*nexthop;/*linktonexthopinfoforthisparent*/structve
+rtex*parent;/*parentvertex*/intbacklink;/*indexbacktoparentforrouter-lsa's*/};/*
+WhattriggeredtheSPF?*/typedefenum{SPF_FLAG_ROUTER_LSA_INSTALL=1,SPF_FLAG_NETWORK
+_LSA_INSTALL,SPF_FLAG_SUMMARY_LSA_INSTALL,SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL,SPF_
+FLAG_MAXAGE,SPF_FLAG_ABR_STATUS_CHANGE,SPF_FLAG_ASBR_STATUS_CHANGE,SPF_FLAG_CONF
+IG_CHANGE,}ospf_spf_reason_t;externvoidospf_spf_calculate_schedule(structospf*,o
+spf_spf_reason_t);externvoidospf_rtrs_free(structroute_table*);/*voidospf_spf_ca
+lculate_timer_add();*/#endif/*_QUAGGA_OSPF_SPF_H*/

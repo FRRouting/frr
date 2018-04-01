@@ -1,1433 +1,385 @@
-/*
-Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-*/
-
-#include <zebra.h>
-#include "memory.h"
-#include "log.h"
-#include "command.h"
-#include "prefix.h"
-#include "vector.h"
-#include "distribute.h"
-
-#include "babel_main.h"
-#include "util.h"
-#include "kernel.h"
-#include "babel_interface.h"
-#include "message.h"
-#include "route.h"
-#include "babel_zebra.h"
-#include "neighbour.h"
-#include "route.h"
-#include "xroute.h"
-#include "babel_memory.h"
-
-#define IS_ENABLE(ifp) (babel_enable_if_lookup(ifp->name) >= 0)
-
-static int babel_enable_if_lookup (const char *ifname);
-static int babel_enable_if_add (const char *ifname);
-static int babel_enable_if_delete (const char *ifname);
-static int interface_recalculate(struct interface *ifp);
-static int interface_reset(struct interface *ifp);
-static int babel_if_new_hook    (struct interface *ifp);
-static int babel_if_delete_hook (struct interface *ifp);
-static int interface_config_write (struct vty *vty);
-static babel_interface_nfo * babel_interface_allocate (void);
-static void babel_interface_free (babel_interface_nfo *bi);
-
-
-static vector babel_enable_if;                 /* enable interfaces (by cmd). */
-static struct cmd_node babel_interface_node =  /* babeld's interface node.    */
-{
-    INTERFACE_NODE,
-    "%s(config-if)# ",
-    1 /* VTYSH */
-};
-
-
-int
-babel_interface_up (int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf)
-{
-    struct stream *s = NULL;
-    struct interface *ifp = NULL;
-
-    debugf(BABEL_DEBUG_IF, "receive a 'interface up'");
-
-    s = zclient->ibuf;
-    ifp = zebra_interface_state_read(s, vrf); /* it updates iflist */
-
-    if (ifp == NULL) {
-        return 0;
-    }
-
-    interface_recalculate(ifp);
-    return 0;
-}
-
-int
-babel_interface_down (int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf)
-{
-    struct stream *s = NULL;
-    struct interface *ifp = NULL;
-
-    debugf(BABEL_DEBUG_IF, "receive a 'interface down'");
-
-    s = zclient->ibuf;
-    ifp = zebra_interface_state_read(s, vrf); /* it updates iflist */
-
-    if (ifp == NULL) {
-        return 0;
-    }
-
-    interface_reset(ifp);
-    return 0;
-}
-
-int
-babel_interface_add (int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf)
-{
-    struct interface *ifp = NULL;
-
-    debugf(BABEL_DEBUG_IF, "receive a 'interface add'");
-
-    /* read and add the interface in the iflist. */
-    ifp = zebra_interface_add_read (zclient->ibuf, vrf);
-
-    if (ifp == NULL) {
-        return 0;
-    }
-
-    interface_recalculate(ifp);
-    return 0;
-}
-
-int
-babel_interface_delete (int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf)
-{
-    struct interface *ifp;
-    struct stream *s;
-
-    debugf(BABEL_DEBUG_IF, "receive a 'interface delete'");
-
-    s = zclient->ibuf;
-    ifp = zebra_interface_state_read(s, vrf); /* it updates iflist */
-
-    if (ifp == NULL)
-        return 0;
-
-    if (IS_ENABLE(ifp))
-        interface_reset(ifp);
-
-    /* To support pseudo interface do not free interface structure.  */
-    /* if_delete(ifp); */
-    if_set_index(ifp, IFINDEX_INTERNAL);
-
-    return 0;
-}
-
-int
-babel_interface_address_add (int cmd, struct zclient *client,
-                             zebra_size_t length, vrf_id_t vrf)
-{
-    babel_interface_nfo *babel_ifp;
-    struct connected *ifc;
-    struct prefix *prefix;
-
-    debugf(BABEL_DEBUG_IF, "receive a 'interface address add'");
-
-    ifc = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_ADD,
-                                        zclient->ibuf, vrf);
-
-    if (ifc == NULL)
-        return 0;
-
-    prefix = ifc->address;
-
-    if (prefix->family == AF_INET) {
-        flush_interface_routes(ifc->ifp, 0);
-        babel_ifp = babel_get_if_nfo(ifc->ifp);
-        if (babel_ifp->ipv4 == NULL) {
-            babel_ifp->ipv4 = malloc(4);
-            if (babel_ifp->ipv4 == NULL) {
-                zlog_err("not einough memory");
-            } else {
-                memcpy(babel_ifp->ipv4, &prefix->u.prefix4, 4);
-            }
-        }
-    }
-
-    send_request(ifc->ifp, NULL, 0);
-    send_update(ifc->ifp, 0, NULL, 0);
-
-    return 0;
-}
-
-int
-babel_interface_address_delete (int cmd, struct zclient *client,
-                                zebra_size_t length, vrf_id_t vrf)
-{
-    babel_interface_nfo *babel_ifp;
-    struct connected *ifc;
-    struct prefix *prefix;
-
-    debugf(BABEL_DEBUG_IF, "receive a 'interface address delete'");
-
-    ifc = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE,
-                                        zclient->ibuf, vrf);
-
-    if (ifc == NULL)
-        return 0;
-
-    prefix = ifc->address;
-
-    if (prefix->family == AF_INET) {
-        flush_interface_routes(ifc->ifp, 0);
-        babel_ifp = babel_get_if_nfo(ifc->ifp);
-        if (babel_ifp->ipv4 != NULL
-            && memcmp(babel_ifp->ipv4, &prefix->u.prefix4, 4) == 0) {
-            free(babel_ifp->ipv4);
-            babel_ifp->ipv4 = NULL;
-        }
-    }
-
-    send_request(ifc->ifp, NULL, 0);
-    send_update(ifc->ifp, 0, NULL, 0);
-
-    return 0;
-}
-
-/* Lookup function. */
-static int
-babel_enable_if_lookup (const char *ifname)
-{
-    unsigned int i;
-    char *str;
-
-    for (i = 0; i < vector_active (babel_enable_if); i++)
-        if ((str = vector_slot (babel_enable_if, i)) != NULL)
-            if (strcmp (str, ifname) == 0)
-                return i;
-    return -1;
-}
-
-/* Add interface to babel_enable_if. */
-static int
-babel_enable_if_add (const char *ifname)
-{
-    int ret;
-    struct interface *ifp = NULL;
-
-    ret = babel_enable_if_lookup (ifname);
-    if (ret >= 0)
-        return -1;
-
-    vector_set (babel_enable_if, strdup (ifname));
-
-    ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
-    if (ifp != NULL)
-        interface_recalculate(ifp);
-
-    return 1;
-}
-
-/* Delete interface from babel_enable_if. */
-static int
-babel_enable_if_delete (const char *ifname)
-{
-    int babel_enable_if_index;
-    char *str;
-    struct interface *ifp = NULL;
-
-    babel_enable_if_index = babel_enable_if_lookup (ifname);
-    if (babel_enable_if_index < 0)
-        return -1;
-
-    str = vector_slot (babel_enable_if, babel_enable_if_index);
-    free (str);
-    vector_unset (babel_enable_if, babel_enable_if_index);
-
-    ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
-    if (ifp != NULL)
-        interface_reset(ifp);
-
-    return 1;
-}
-
-/* [Babel Command] Babel enable on specified interface or matched network. */
-DEFUN (babel_network,
-       babel_network_cmd,
-       "network IF_OR_ADDR",
-       "Enable Babel protocol on specified interface or network.\n"
-       "Interface or address\n")
-{
-    int ret;
-    struct prefix p;
-
-    ret = str2prefix (argv[1]->arg, &p);
-
-    /* Given string is:               */
-    if (ret) /* an IPv4 or v6 network */
-        return CMD_ERR_NO_MATCH; /* not implemented yet */
-    else     /* an interface name     */
-        ret = babel_enable_if_add (argv[1]->arg);
-
-    if (ret < 0) {
-        vty_out (vty, "There is same network configuration %s\n",
-                   argv[1]->arg);
-        return CMD_WARNING;
-    }
-
-    return CMD_SUCCESS;
-}
-
-/* [Babel Command] Babel enable on specified interface or matched network. */
-DEFUN (no_babel_network,
-       no_babel_network_cmd,
-       "no network IF_OR_ADDR",
-       NO_STR
-       "Disable Babel protocol on specified interface or network.\n"
-       "Interface or address\n")
-{
-    int ret;
-    struct prefix p;
-
-    ret = str2prefix (argv[2]->arg, &p);
-
-    /* Given string is:               */
-    if (ret) /* an IPv4 or v6 network */
-        return CMD_ERR_NO_MATCH; /* not implemented yet */
-    else     /* an interface name     */
-        ret = babel_enable_if_delete (argv[2]->arg);
-
-    if (ret < 0) {
-        vty_out (vty, "can't find network %s\n",argv[2]->arg);
-        return CMD_WARNING_CONFIG_FAILED;
-    }
-
-    return CMD_SUCCESS;
-}
-
-/* There are a number of interface parameters that must be changed when
-   an interface becomes wired/wireless.  In Quagga, they cannot be
-   configured separately. */
-
-static void
-babel_set_wired_internal(babel_interface_nfo *babel_ifp, int wired)
-{
-    if(wired) {
-        babel_ifp->flags |= BABEL_IF_WIRED;
-        babel_ifp->flags |= BABEL_IF_SPLIT_HORIZON;
-        babel_ifp->cost = BABEL_DEFAULT_RXCOST_WIRED;
-        babel_ifp->channel = BABEL_IF_CHANNEL_NONINTERFERING;
-        babel_ifp->flags &= ~BABEL_IF_LQ;
-    } else {
-        babel_ifp->flags &= ~BABEL_IF_WIRED;
-        babel_ifp->flags &= ~BABEL_IF_SPLIT_HORIZON;
-        babel_ifp->cost = BABEL_DEFAULT_RXCOST_WIRELESS;
-        babel_ifp->channel = BABEL_IF_CHANNEL_INTERFERING;
-        babel_ifp->flags |= BABEL_IF_LQ;
-    }
-
-}
-
-/* [Interface Command] Tell the interface is wire. */
-DEFUN (babel_set_wired,
-       babel_set_wired_cmd,
-       "babel wired",
-       "Babel interface commands\n"
-       "Enable wired optimizations\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-
-    assert (babel_ifp != NULL);
-    babel_set_wired_internal(babel_ifp, 1);
-    return CMD_SUCCESS;
-}
-
-/* [Interface Command] Tell the interface is wireless (default). */
-DEFUN (babel_set_wireless,
-       babel_set_wireless_cmd,
-       "babel wireless",
-       "Babel interface commands\n"
-       "Disable wired optimizations (assume wireless)\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-
-    assert (babel_ifp != NULL);
-    babel_set_wired_internal(babel_ifp, 0);
-    return CMD_SUCCESS;
-}
-
-/* [Interface Command] Enable split horizon. */
-DEFUN (babel_split_horizon,
-       babel_split_horizon_cmd,
-       "babel split-horizon",
-       "Babel interface commands\n"
-       "Enable split horizon processing\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-
-    assert (babel_ifp != NULL);
-    babel_ifp->flags |= BABEL_IF_SPLIT_HORIZON;
-    return CMD_SUCCESS;
-}
-
-/* [Interface Command] Disable split horizon (default). */
-DEFUN (no_babel_split_horizon,
-       no_babel_split_horizon_cmd,
-       "no babel split-horizon",
-       NO_STR
-       "Babel interface commands\n"
-       "Disable split horizon processing\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-
-    assert (babel_ifp != NULL);
-    babel_ifp->flags &= ~BABEL_IF_SPLIT_HORIZON;
-    return CMD_SUCCESS;
-}
-
-/* [Interface Command]. */
-DEFUN (babel_set_hello_interval,
-       babel_set_hello_interval_cmd,
-       "babel hello-interval (20-655340)",
-       "Babel interface commands\n"
-       "Time between scheduled hellos\n"
-       "Milliseconds\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-    int interval;
-
-    interval = strtoul(argv[2]->arg, NULL, 10);
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->hello_interval = interval;
-    return CMD_SUCCESS;
-}
-
-/* [Interface Command]. */
-DEFUN (babel_set_update_interval,
-       babel_set_update_interval_cmd,
-       "babel update-interval (20-655340)",
-       "Babel interface commands\n"
-       "Time between scheduled updates\n"
-       "Milliseconds\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-    int interval;
-
-    interval = strtoul(argv[2]->arg, NULL, 10);
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->update_interval = interval;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_rxcost,
-       babel_set_rxcost_cmd,
-       "babel rxcost (1-65534)",
-       "Babel interface commands\n"
-       "Rxcost multiplier\n"
-       "Units\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-    int rxcost;
-
-    rxcost = strtoul(argv[2]->arg, NULL, 10);
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->cost = rxcost;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_rtt_decay,
-       babel_set_rtt_decay_cmd,
-       "babel rtt-decay (1-256)",
-       "Babel interface commands\n"
-       "Decay factor for exponential moving average of RTT samples\n"
-       "Units of 1/256\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-    int decay;
-
-    decay = strtoul(argv[2]->arg, NULL, 10);
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->rtt_decay = decay;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_rtt_min,
-       babel_set_rtt_min_cmd,
-       "babel rtt-min (1-65535)",
-       "Babel interface commands\n"
-       "Minimum RTT starting for increasing cost\n"
-       "Milliseconds\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-    int rtt;
-
-    rtt = strtoul(argv[2]->arg, NULL, 10);
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->rtt_min = rtt;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_rtt_max,
-       babel_set_rtt_max_cmd,
-       "babel rtt-max (1-65535)",
-       "Babel interface commands\n"
-       "Maximum RTT\n"
-       "Milliseconds\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-    int rtt;
-
-    rtt = strtoul(argv[2]->arg, NULL, 10);
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->rtt_max = rtt;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_max_rtt_penalty,
-       babel_set_max_rtt_penalty_cmd,
-       "babel max-rtt-penalty (0-65535)",
-       "Babel interface commands\n"
-       "Maximum additional cost due to RTT\n"
-       "Milliseconds\n")
-{
-  VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-    int penalty;
-
-    penalty = strtoul(argv[2]->arg, NULL, 10);
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->max_rtt_penalty = penalty;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_enable_timestamps,
-       babel_set_enable_timestamps_cmd,
-       "babel enable-timestamps",
-       "Babel interface commands\n"
-       "Enable timestamps\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->flags |= BABEL_IF_TIMESTAMPS;
-    return CMD_SUCCESS;
-}
-
-DEFUN (no_babel_set_enable_timestamps,
-       no_babel_set_enable_timestamps_cmd,
-       "no babel enable-timestamps",
-       NO_STR
-       "Babel interface commands\n"
-       "Disable timestamps\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->flags &= ~BABEL_IF_TIMESTAMPS;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_channel,
-       babel_set_channel_cmd,
-       "babel channel (1-254)",
-       "Babel interface commands\n"
-       "Channel number for diversity routing\n"
-       "Number\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-    int channel;
-
-    channel = strtoul(argv[2]->arg, NULL, 10);
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->channel = channel;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_channel_interfering,
-       babel_set_channel_interfering_cmd,
-       "babel channel interfering",
-       "Babel interface commands\n"
-       "Channel number for diversity routing\n"
-       "Mark channel as interfering\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->channel = BABEL_IF_CHANNEL_INTERFERING;
-    return CMD_SUCCESS;
-}
-
-DEFUN (babel_set_channel_noninterfering,
-       babel_set_channel_noninterfering_cmd,
-       "babel channel noninterfering",
-       "Babel interface commands\n"
-       "Channel number for diversity routing\n"
-       "Mark channel as noninterfering\n")
-{
-    VTY_DECLVAR_CONTEXT(interface, ifp);
-    babel_interface_nfo *babel_ifp;
-
-    babel_ifp = babel_get_if_nfo(ifp);
-    assert (babel_ifp != NULL);
-
-    babel_ifp->channel = BABEL_IF_CHANNEL_NONINTERFERING;
-    return CMD_SUCCESS;
-}
-
-/* This should be no more than half the hello interval, so that hellos
-   aren't sent late.  The result is in milliseconds. */
-unsigned
-jitter(babel_interface_nfo *babel_ifp, int urgent)
-{
-    unsigned interval = babel_ifp->hello_interval;
-    if(urgent)
-        interval = MIN(interval, 100);
-    else
-        interval = MIN(interval, 4000);
-    return roughly(interval) / 4;
-}
-
-unsigned
-update_jitter(babel_interface_nfo *babel_ifp, int urgent)
-{
-    unsigned interval = babel_ifp->hello_interval;
-    if(urgent)
-        interval = MIN(interval, 100);
-    else
-        interval = MIN(interval, 4000);
-    return roughly(interval);
-}
-
-/* calculate babeld's specific datas of an interface (change when the interface
- change) */
-static int
-interface_recalculate(struct interface *ifp)
-{
-    babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
-    unsigned char *tmp = NULL;
-    int mtu, rc;
-    struct ipv6_mreq mreq;
-
-    if (!IS_ENABLE(ifp))
-        return -1;
-
-    if (!if_is_operative(ifp) || !CHECK_FLAG(ifp->flags, IFF_RUNNING)) {
-        interface_reset(ifp);
-        return -1;
-    }
-
-    babel_ifp->flags |= BABEL_IF_IS_UP;
-
-    mtu = MIN(ifp->mtu, ifp->mtu6);
-
-    /* We need to be able to fit at least two messages into a packet,
-     so MTUs below 116 require lower layer fragmentation. */
-    /* In IPv6, the minimum MTU is 1280, and every host must be able
-     to reassemble up to 1500 bytes, but I'd rather not rely on this. */
-    if(mtu < 128) {
-        debugf(BABEL_DEBUG_IF, "Suspiciously low MTU %d on interface %s (%d).",
-               mtu, ifp->name, ifp->ifindex);
-        mtu = 128;
-    }
-
-    /* 4 for Babel header; 40 for IPv6 header, 8 for UDP header, 12 for good luck. */
-    babel_ifp->bufsize = mtu - 4 - 60;
-    tmp = babel_ifp->sendbuf;
-    babel_ifp->sendbuf = realloc(babel_ifp->sendbuf, babel_ifp->bufsize);
-    if(babel_ifp->sendbuf == NULL) {
-        zlog_err("Couldn't reallocate sendbuf.");
-        free(tmp);
-        babel_ifp->bufsize = 0;
-        return -1;
-    }
-    tmp = NULL;
-
-    rc = resize_receive_buffer(mtu);
-    if(rc < 0)
-        zlog_warn("couldn't resize "
-                  "receive buffer for interface %s (%d) (%d bytes).\n",
-                  ifp->name, ifp->ifindex, mtu);
-
-    memset(&mreq, 0, sizeof(mreq));
-    memcpy(&mreq.ipv6mr_multiaddr, protocol_group, 16);
-    mreq.ipv6mr_interface = ifp->ifindex;
-
-    rc = setsockopt(protocol_socket, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-                    (char*)&mreq, sizeof(mreq));
-    if(rc < 0) {
-        zlog_err("setsockopt(IPV6_JOIN_GROUP) on interface '%s': %s",
-                 ifp->name, safe_strerror(errno));
-        /* This is probably due to a missing link-local address,
-         so down this interface, and wait until the main loop
-         tries to up it again. */
-        interface_reset(ifp);
-        return -1;
-    }
-
-    set_timeout(&babel_ifp->hello_timeout, babel_ifp->hello_interval);
-    set_timeout(&babel_ifp->update_timeout, babel_ifp->update_interval);
-    send_hello(ifp);
-    send_request(ifp, NULL, 0);
-
-    update_interface_metric(ifp);
-
-    debugf(BABEL_DEBUG_COMMON,
-           "Upped interface %s (%s, cost=%d, channel=%d%s).",
-           ifp->name,
-           (babel_ifp->flags & BABEL_IF_WIRED) ? "wired" : "wireless",
-           babel_ifp->cost,
-           babel_ifp->channel,
-           babel_ifp->ipv4 ? ", IPv4" : "");
-
-    if(rc > 0)
-        send_update(ifp, 0, NULL, 0);
-
-    return 1;
-}
-
-/* Reset the interface as it was new: it's not removed from the interface list,
- and may be considered as a upped interface. */
-static int
-interface_reset(struct interface *ifp)
-{
-    int rc;
-    struct ipv6_mreq mreq;
-    babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
-
-    if (!(babel_ifp->flags & BABEL_IF_IS_UP))
-        return 0;
-
-    debugf(BABEL_DEBUG_IF, "interface reset: %s", ifp->name);
-    babel_ifp->flags &= ~BABEL_IF_IS_UP;
-
-    flush_interface_routes(ifp, 0);
-    babel_ifp->buffered = 0;
-    babel_ifp->bufsize = 0;
-    free(babel_ifp->sendbuf);
-    babel_ifp->num_buffered_updates = 0;
-    babel_ifp->update_bufsize = 0;
-    if(babel_ifp->buffered_updates)
-        free(babel_ifp->buffered_updates);
-    babel_ifp->buffered_updates = NULL;
-    babel_ifp->sendbuf = NULL;
-
-    if(ifp->ifindex > 0) {
-        memset(&mreq, 0, sizeof(mreq));
-        memcpy(&mreq.ipv6mr_multiaddr, protocol_group, 16);
-        mreq.ipv6mr_interface = ifp->ifindex;
-        rc = setsockopt(protocol_socket, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
-                        (char*)&mreq, sizeof(mreq));
-        if(rc < 0)
-            zlog_err("setsockopt(IPV6_LEAVE_GROUP) on interface '%s': %s",
-                     ifp->name, safe_strerror(errno));
-    }
-
-    update_interface_metric(ifp);
-
-    debugf(BABEL_DEBUG_COMMON,"Upped network %s (%s, cost=%d%s).",
-           ifp->name,
-           (babel_ifp->flags & BABEL_IF_WIRED) ? "wired" : "wireless",
-           babel_ifp->cost,
-           babel_ifp->ipv4 ? ", IPv4" : "");
-
-    return 1;
-}
-
-/* Send retraction to all, and reset all interfaces statistics. */
-void
-babel_interface_close_all(void)
-{
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-    struct interface *ifp = NULL;
-
-    FOR_ALL_INTERFACES(vrf, ifp) {
-        if(!if_up(ifp))
-            continue;
-        send_wildcard_retraction(ifp);
-        /* Make sure that we expire quickly from our neighbours'
-         association caches. */
-        send_hello_noupdate(ifp, 10);
-        flushbuf(ifp);
-        usleep(roughly(1000));
-        gettime(&babel_now);
-    }
-    FOR_ALL_INTERFACES(vrf, ifp) {
-        if(!if_up(ifp))
-            continue;
-        /* Make sure they got it. */
-        send_wildcard_retraction(ifp);
-        send_hello_noupdate(ifp, 1);
-        flushbuf(ifp);
-        usleep(roughly(10000));
-        gettime(&babel_now);
-        interface_reset(ifp);
-    }
-}
-
-/* return "true" if address is one of our ipv6 addresses */
-int
-is_interface_ll_address(struct interface *ifp, const unsigned char *address)
-{
-    struct connected *connected;
-    struct listnode *node;
-
-    if(!if_up(ifp))
-        return 0;
-
-    FOR_ALL_INTERFACES_ADDRESSES(ifp, connected, node) {
-        if(connected->address->family == AF_INET6 &&
-           memcmp(&connected->address->u.prefix6, address, 16) == 0)
-            return 1;
-    }
-
-    return 0;
-}
-
-static void
-show_babel_interface_sub (struct vty *vty, struct interface *ifp)
-{
-  int is_up;
-  babel_interface_nfo *babel_ifp;
-
-  vty_out (vty, "%s is %s\n", ifp->name,
-    ((is_up = if_is_operative(ifp)) ? "up" : "down"));
-  vty_out (vty, "  ifindex %u, MTU %u bytes %s\n",
-    ifp->ifindex, MIN(ifp->mtu, ifp->mtu6), if_flag_dump(ifp->flags));
-
-  if (!IS_ENABLE(ifp))
-  {
-    vty_out (vty, "  Babel protocol is not enabled on this interface\n");
-    return;
-  }
-  if (!is_up)
-  {
-    vty_out (vty,
-               "  Babel protocol is enabled, but not running on this interface\n");
-    return;
-  }
-  babel_ifp = babel_get_if_nfo (ifp);
-  vty_out (vty, "  Babel protocol is running on this interface\n");
-  vty_out (vty, "  Operating mode is \"%s\"\n",
-           CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless");
-  vty_out (vty, "  Split horizon mode is %s\n",
-           CHECK_FLAG(babel_ifp->flags, BABEL_IF_SPLIT_HORIZON) ? "On" : "Off");
-  vty_out (vty, "  Hello interval is %u ms\n", babel_ifp->hello_interval);
-  vty_out (vty, "  Update interval is %u ms\n", babel_ifp->update_interval);
-  vty_out (vty, "  Rxcost multiplier is %u\n", babel_ifp->cost);
-}
-
-DEFUN (show_babel_interface,
-       show_babel_interface_cmd,
-       "show babel interface [IFNAME]",
-       SHOW_STR
-       "Babel information\n"
-       "Interface information\n"
-       "Interface\n")
-{
-  struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-  struct interface *ifp;
-
-  if (argc == 3)
-  {
-    FOR_ALL_INTERFACES (vrf, ifp)
-      show_babel_interface_sub (vty, ifp);
-    return CMD_SUCCESS;
-  }
-  if ((ifp = if_lookup_by_name (argv[3]->arg, VRF_DEFAULT)) == NULL)
-  {
-    vty_out (vty, "No such interface name\n");
-    return CMD_WARNING;
-  }
-  show_babel_interface_sub (vty, ifp);
-  return CMD_SUCCESS;
-}
-
-static void
-show_babel_neighbour_sub (struct vty *vty, struct neighbour *neigh)
-{
-    vty_out (vty,
-             "Neighbour %s dev %s reach %04x rxcost %d txcost %d "
-             "rtt %s rttcost %d%s.\n",
-             format_address(neigh->address),
-             neigh->ifp->name,
-             neigh->reach,
-             neighbour_rxcost(neigh),
-             neigh->txcost,
-             format_thousands(neigh->rtt),
-             neighbour_rttcost(neigh),
-             if_up(neigh->ifp) ? "" : " (down)");
-}
-
-DEFUN (show_babel_neighbour,
-       show_babel_neighbour_cmd,
-       "show babel neighbor [IFNAME]",
-       SHOW_STR
-       "Babel information\n"
-       "Print neighbors\n"
-       "Interface\n")
-{
-    struct neighbour *neigh;
-    struct interface *ifp;
-
-    if (argc == 3) {
-        FOR_ALL_NEIGHBOURS(neigh) {
-            show_babel_neighbour_sub(vty, neigh);
-        }
-        return CMD_SUCCESS;
-    }
-    if ((ifp = if_lookup_by_name (argv[3]->arg, VRF_DEFAULT)) == NULL)
-    {
-        vty_out (vty, "No such interface name\n");
-        return CMD_WARNING;
-    }
-    FOR_ALL_NEIGHBOURS(neigh) {
-        if(ifp->ifindex == neigh->ifp->ifindex) {
-            show_babel_neighbour_sub(vty, neigh);
-        }
-    }
-    return CMD_SUCCESS;
-}
-
-static int
-babel_prefix_eq(struct prefix *prefix, unsigned char *p, int plen)
-{
-    if(prefix->family == AF_INET6) {
-        if(prefix->prefixlen != plen ||
-           memcmp(&prefix->u.prefix6, p, 16) != 0)
-            return 0;
-    } else if(prefix->family == AF_INET) {
-        if(plen < 96 || !v4mapped(p) || prefix->prefixlen != plen - 96 ||
-           memcmp(&prefix->u.prefix4, p + 12, 4) != 0)
-            return 0;
-    } else {
-        return 0;
-    }
-
-    return 1;
-}
-
-static void
-show_babel_routes_sub(struct babel_route *route, struct vty *vty,
-                      struct prefix *prefix)
-{
-    const unsigned char *nexthop =
-        memcmp(route->nexthop, route->neigh->address, 16) == 0 ?
-        NULL : route->nexthop;
-    char channels[100];
-
-    if(prefix && !babel_prefix_eq(prefix, route->src->prefix, route->src->plen))
-        return;
-
-    if(route->channels[0] == 0)
-        channels[0] = '\0';
-    else {
-        int k, j = 0;
-        snprintf(channels, 100, " chan (");
-        j = strlen(channels);
-        for(k = 0; k < DIVERSITY_HOPS; k++) {
-            if(route->channels[k] == 0)
-                break;
-            if(k > 0)
-                channels[j++] = ',';
-            snprintf(channels + j, 100 - j, "%d", route->channels[k]);
-            j = strlen(channels);
-        }
-        snprintf(channels + j, 100 - j, ")");
-        if(k == 0)
-            channels[0] = '\0';
-    }
-
-    vty_out (vty,
-            "%s metric %d refmetric %d id %s seqno %d%s age %d "
-            "via %s neigh %s%s%s%s\n",
-            format_prefix(route->src->prefix, route->src->plen),
-            route_metric(route), route->refmetric,
-            format_eui64(route->src->id),
-            (int)route->seqno,
-            channels,
-            (int)(babel_now.tv_sec - route->time),
-            route->neigh->ifp->name,
-            format_address(route->neigh->address),
-            nexthop ? " nexthop " : "",
-            nexthop ? format_address(nexthop) : "",
-            route->installed ? " (installed)" : route_feasible(route) ? " (feasible)" : "");
-}
-
-static void
-show_babel_xroutes_sub (struct xroute *xroute, struct vty *vty,
-                        struct prefix *prefix)
-{
-    if(prefix && !babel_prefix_eq(prefix, xroute->prefix, xroute->plen))
-        return;
-
-    vty_out (vty, "%s metric %d (exported)\n",
-            format_prefix(xroute->prefix, xroute->plen),
-            xroute->metric);
-}
-
-DEFUN (show_babel_route,
-       show_babel_route_cmd,
-       "show babel route",
-       SHOW_STR
-       "Babel information\n"
-       "Babel internal routing table\n")
-{
-    struct route_stream *routes = NULL;
-    struct xroute_stream *xroutes = NULL;
-    routes = route_stream(0);
-    if(routes) {
-        while(1) {
-            struct babel_route *route = route_stream_next(routes);
-            if(route == NULL)
-                break;
-            show_babel_routes_sub(route, vty, NULL);
-        }
-        route_stream_done(routes);
-    } else {
-        zlog_err("Couldn't allocate route stream.");
-    }
-    xroutes = xroute_stream();
-    if(xroutes) {
-        while(1) {
-            struct xroute *xroute = xroute_stream_next(xroutes);
-            if(xroute == NULL)
-                break;
-            show_babel_xroutes_sub(xroute, vty, NULL);
-        }
-        xroute_stream_done(xroutes);
-    } else {
-        zlog_err("Couldn't allocate route stream.");
-    }
-    return CMD_SUCCESS;
-}
-
-DEFUN (show_babel_route_prefix,
-       show_babel_route_prefix_cmd,
-       "show babel route <A.B.C.D/M|X:X::X:X/M>",
-       SHOW_STR
-       "Babel information\n"
-       "Babel internal routing table\n"
-       "IPv4 prefix <network>/<length>\n"
-       "IPv6 prefix <network>/<length>\n")
-{
-    struct route_stream *routes = NULL;
-    struct xroute_stream *xroutes = NULL;
-    struct prefix prefix;
-    int ret;
-
-    ret = str2prefix(argv[3]->arg, &prefix);
-    if(ret == 0) {
-      vty_out (vty, "%% Malformed address\n");
-      return CMD_WARNING;
-    }
-        
-    routes = route_stream(0);
-    if(routes) {
-        while(1) {
-            struct babel_route *route = route_stream_next(routes);
-            if(route == NULL)
-                break;
-            show_babel_routes_sub(route, vty, &prefix);
-        }
-        route_stream_done(routes);
-    } else {
-        zlog_err("Couldn't allocate route stream.");
-    }
-    xroutes = xroute_stream();
-    if(xroutes) {
-        while(1) {
-            struct xroute *xroute = xroute_stream_next(xroutes);
-            if(xroute == NULL)
-                break;
-            show_babel_xroutes_sub(xroute, vty, &prefix);
-        }
-        xroute_stream_done(xroutes);
-    } else {
-        zlog_err("Couldn't allocate route stream.");
-    }
-    return CMD_SUCCESS;
-}
-
-
-DEFUN (show_babel_route_addr,
-       show_babel_route_addr_cmd,
-       "show babel route A.B.C.D",
-       SHOW_STR
-       "Babel information\n"
-       "Babel internal routing table\n"
-       "IPv4 address <network>/<length>\n")
-{
-    struct in_addr addr;
-    char buf[INET_ADDRSTRLEN + 8];
-    struct route_stream *routes = NULL;
-    struct xroute_stream *xroutes = NULL;
-    struct prefix prefix;
-    int ret;
-
-    ret = inet_aton (argv[3]->arg, &addr);
-    if (ret <= 0) {
-        vty_out (vty, "%% Malformed address\n");
-        return CMD_WARNING;
-    }
-
-    /* Quagga has no convenient prefix constructors. */
-    snprintf(buf, sizeof(buf), "%s/%d", inet_ntoa(addr), 32);
-
-    ret = str2prefix(buf, &prefix);
-    if (ret == 0) {
-        vty_out (vty, "%% Parse error -- this shouldn't happen\n");
-        return CMD_WARNING;
-    }
-
-    routes = route_stream(0);
-    if(routes) {
-        while(1) {
-            struct babel_route *route = route_stream_next(routes);
-            if(route == NULL)
-                break;
-            show_babel_routes_sub(route, vty, &prefix);
-        }
-        route_stream_done(routes);
-    } else {
-        zlog_err("Couldn't allocate route stream.");
-    }
-    xroutes = xroute_stream();
-    if(xroutes) {
-        while(1) {
-            struct xroute *xroute = xroute_stream_next(xroutes);
-            if(xroute == NULL)
-                break;
-            show_babel_xroutes_sub(xroute, vty, &prefix);
-        }
-        xroute_stream_done(xroutes);
-    } else {
-        zlog_err("Couldn't allocate route stream.");
-    }
-    return CMD_SUCCESS;
-}
-
-DEFUN (show_babel_route_addr6,
-       show_babel_route_addr6_cmd,
-       "show babel route X:X::X:X",
-       SHOW_STR
-       "Babel information\n"
-       "Babel internal routing table\n"
-       "IPv6 address <network>/<length>\n")
-{
-    struct in6_addr addr;
-    char buf1[INET6_ADDRSTRLEN];
-    char buf[INET6_ADDRSTRLEN + 8];
-    struct route_stream *routes = NULL;
-    struct xroute_stream *xroutes = NULL;
-    struct prefix prefix;
-    int ret;
-
-    ret = inet_pton (AF_INET6, argv[3]->arg, &addr);
-    if (ret <= 0) {
-        vty_out (vty, "%% Malformed address\n");
-        return CMD_WARNING;
-    }
-
-    /* Quagga has no convenient prefix constructors. */
-    snprintf(buf, sizeof(buf), "%s/%d",
-             inet_ntop(AF_INET6, &addr, buf1, sizeof(buf1)), 128);
-
-    ret = str2prefix(buf, &prefix);
-    if (ret == 0) {
-        vty_out (vty, "%% Parse error -- this shouldn't happen\n");
-        return CMD_WARNING;
-    }
-
-    routes = route_stream(0);
-    if(routes) {
-        while(1) {
-            struct babel_route *route = route_stream_next(routes);
-            if(route == NULL)
-                break;
-            show_babel_routes_sub(route, vty, &prefix);
-        }
-        route_stream_done(routes);
-    } else {
-        zlog_err("Couldn't allocate route stream.");
-    }
-    xroutes = xroute_stream();
-    if(xroutes) {
-        while(1) {
-            struct xroute *xroute = xroute_stream_next(xroutes);
-            if(xroute == NULL)
-                break;
-            show_babel_xroutes_sub(xroute, vty, &prefix);
-        }
-        xroute_stream_done(xroutes);
-    } else {
-        zlog_err("Couldn't allocate route stream.");
-    }
-    return CMD_SUCCESS;
-}
-
-DEFUN (show_babel_parameters,
-       show_babel_parameters_cmd,
-       "show babel parameters",
-       SHOW_STR
-       "Babel information\n"
-       "Configuration information\n")
-{
-    vty_out (vty, "    -- Babel running configuration --\n");
-    show_babel_main_configuration(vty);
-    vty_out (vty, "    -- distribution lists --\n");
-    config_show_distribute(vty);
-
-    return CMD_SUCCESS;
-}
-
-void
-babel_if_init ()
-{
-    /* initialize interface list */
-    hook_register_prio(if_add, 0, babel_if_new_hook);
-    hook_register_prio(if_del, 0, babel_if_delete_hook);
-
-    babel_enable_if = vector_init (1);
-
-    /* install interface node and commands */
-    install_node (&babel_interface_node, interface_config_write);
-    if_cmd_init();
-
-    install_element(BABEL_NODE, &babel_network_cmd);
-    install_element(BABEL_NODE, &no_babel_network_cmd);
-    install_element(INTERFACE_NODE, &babel_split_horizon_cmd);
-    install_element(INTERFACE_NODE, &no_babel_split_horizon_cmd);
-    install_element(INTERFACE_NODE, &babel_set_wired_cmd);
-    install_element(INTERFACE_NODE, &babel_set_wireless_cmd);
-    install_element(INTERFACE_NODE, &babel_set_hello_interval_cmd);
-    install_element(INTERFACE_NODE, &babel_set_update_interval_cmd);
-    install_element(INTERFACE_NODE, &babel_set_rxcost_cmd);
-    install_element(INTERFACE_NODE, &babel_set_channel_cmd);
-    install_element(INTERFACE_NODE, &babel_set_rtt_decay_cmd);
-    install_element(INTERFACE_NODE, &babel_set_rtt_min_cmd);
-    install_element(INTERFACE_NODE, &babel_set_rtt_max_cmd);
-    install_element(INTERFACE_NODE, &babel_set_max_rtt_penalty_cmd);
-    install_element(INTERFACE_NODE, &babel_set_enable_timestamps_cmd);
-    install_element(INTERFACE_NODE, &no_babel_set_enable_timestamps_cmd);
-    install_element(INTERFACE_NODE, &babel_set_channel_interfering_cmd);
-    install_element(INTERFACE_NODE, &babel_set_channel_noninterfering_cmd);
-
-    /* "show babel ..." commands */
-    install_element(VIEW_NODE, &show_babel_interface_cmd);
-    install_element(VIEW_NODE, &show_babel_neighbour_cmd);
-    install_element(VIEW_NODE, &show_babel_route_cmd);
-    install_element(VIEW_NODE, &show_babel_route_prefix_cmd);
-    install_element(VIEW_NODE, &show_babel_route_addr_cmd);
-    install_element(VIEW_NODE, &show_babel_route_addr6_cmd);
-    install_element(VIEW_NODE, &show_babel_parameters_cmd);
-}
-
-/* hooks: functions called respectively when struct interface is
- created or deleted. */
-static int
-babel_if_new_hook (struct interface *ifp)
-{
-    ifp->info = babel_interface_allocate();
-    return 0;
-}
-
-static int
-babel_if_delete_hook (struct interface *ifp)
-{
-    babel_interface_free(ifp->info);
-    ifp->info = NULL;
-    return 0;
-}
-
-/* Output an "interface" section for each of the known interfaces with
-babeld-specific statement lines where appropriate. */
-static int
-interface_config_write (struct vty *vty)
-{
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-    struct interface *ifp;
-    int write = 0;
-
-    FOR_ALL_INTERFACES (vrf, ifp) {
-        vty_frame (vty, "interface %s\n",ifp->name);
-        if (ifp->desc)
-            vty_out (vty, " description %s\n",ifp->desc);
-        babel_interface_nfo *babel_ifp = babel_get_if_nfo (ifp);
-        /* wireless is the default*/
-        if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED))
-        {
-            vty_out (vty, " babel wired\n");
-            write++;
-        }
-        if (babel_ifp->hello_interval != BABEL_DEFAULT_HELLO_INTERVAL)
-        {
-            vty_out (vty, " babel hello-interval %u\n",
-                       babel_ifp->hello_interval);
-            write++;
-        }
-        if (babel_ifp->update_interval != BABEL_DEFAULT_UPDATE_INTERVAL)
-        {
-            vty_out (vty, " babel update-interval %u\n",
-                       babel_ifp->update_interval);
-            write++;
-        }
-        /* Some parameters have different defaults for wired/wireless. */
-        if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED)) {
-            if (!CHECK_FLAG (babel_ifp->flags, BABEL_IF_SPLIT_HORIZON)) {
-                vty_out (vty, " no babel split-horizon\n");
-                write++;
-            }
-            if (babel_ifp->cost != BABEL_DEFAULT_RXCOST_WIRED) {
-                vty_out (vty, " babel rxcost %u\n", babel_ifp->cost);
-                write++;
-            }
-            if (babel_ifp->channel == BABEL_IF_CHANNEL_INTERFERING) {
-                vty_out (vty, " babel channel interfering\n");
-                write++;
-            } else if(babel_ifp->channel != BABEL_IF_CHANNEL_NONINTERFERING) {
-                vty_out (vty, " babel channel %d\n",babel_ifp->channel);
-                write++;
-            }
-        } else {
-            if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_SPLIT_HORIZON)) {
-                vty_out (vty, " babel split-horizon\n");
-                write++;
-            }
-            if (babel_ifp->cost != BABEL_DEFAULT_RXCOST_WIRELESS) {
-                vty_out (vty, " babel rxcost %u\n", babel_ifp->cost);
-                write++;
-            }
-            if (babel_ifp->channel == BABEL_IF_CHANNEL_NONINTERFERING) {
-                vty_out (vty, " babel channel noninterfering\n");
-                write++;
-            } else if(babel_ifp->channel != BABEL_IF_CHANNEL_INTERFERING) {
-                vty_out (vty, " babel channel %d\n",babel_ifp->channel);
-                write++;
-            }
-        }
-        vty_endframe (vty, "!\n");
-        write++;
-    }
-    return write;
-}
-
-/* Output a "network" statement line for each of the enabled interfaces. */
-int
-babel_enable_if_config_write (struct vty * vty)
-{
-    unsigned int i, lines = 0;
-    char *str;
-
-    for (i = 0; i < vector_active (babel_enable_if); i++)
-        if ((str = vector_slot (babel_enable_if, i)) != NULL)
-        {
-            vty_out (vty, " network %s\n", str);
-            lines++;
-        }
-    return lines;
-}
-
-/* functions to allocate or free memory for a babel_interface_nfo, filling
- needed fields */
-static babel_interface_nfo *
-babel_interface_allocate (void)
-{
-    babel_interface_nfo *babel_ifp;
-    babel_ifp = XMALLOC(MTYPE_BABEL_IF, sizeof(babel_interface_nfo));
-    if(babel_ifp == NULL)
-        return NULL;
-
-    /* Here are set the default values for an interface. */
-    memset(babel_ifp, 0, sizeof(babel_interface_nfo));
-    /* All flags are unset */
-    babel_ifp->bucket_time = babel_now.tv_sec;
-    babel_ifp->bucket = BUCKET_TOKENS_MAX;
-    babel_ifp->hello_seqno = (random() & 0xFFFF);
-    babel_ifp->rtt_min = 10000;
-    babel_ifp->rtt_max = 120000;
-    babel_ifp->max_rtt_penalty = 150;
-    babel_ifp->hello_interval = BABEL_DEFAULT_HELLO_INTERVAL;
-    babel_ifp->update_interval = BABEL_DEFAULT_UPDATE_INTERVAL;
-    babel_ifp->channel = BABEL_IF_CHANNEL_INTERFERING;
-    babel_set_wired_internal(babel_ifp, 0);
-
-    return babel_ifp;
-}
-
-static void
-babel_interface_free (babel_interface_nfo *babel_ifp)
-{
-    XFREE(MTYPE_BABEL_IF, babel_ifp);
-}
+/*Copyright2011byMatthieuBoutierandJuliuszChroboczekPermissionisherebygranted,fr
+eeofcharge,toanypersonobtainingacopyofthissoftwareandassociateddocumentationfile
+s(the"Software"),todealintheSoftwarewithoutrestriction,includingwithoutlimitatio
+ntherightstouse,copy,modify,merge,publish,distribute,sublicense,and/orsellcopies
+oftheSoftware,andtopermitpersonstowhomtheSoftwareisfurnishedtodoso,subjecttothef
+ollowingconditions:Theabovecopyrightnoticeandthispermissionnoticeshallbeincluded
+inallcopiesorsubstantialportionsoftheSoftware.THESOFTWAREISPROVIDED"ASIS",WITHOU
+TWARRANTYOFANYKIND,EXPRESSORIMPLIED,INCLUDINGBUTNOTLIMITEDTOTHEWARRANTIESOFMERCH
+ANTABILITY,FITNESSFORAPARTICULARPURPOSEANDNONINFRINGEMENT.INNOEVENTSHALLTHEAUTHO
+RSORCOPYRIGHTHOLDERSBELIABLEFORANYCLAIM,DAMAGESOROTHERLIABILITY,WHETHERINANACTIO
+NOFCONTRACT,TORTOROTHERWISE,ARISINGFROM,OUTOFORINCONNECTIONWITHTHESOFTWAREORTHEU
+SEOROTHERDEALINGSINTHESOFTWARE.*/#include<zebra.h>#include"memory.h"#include"log
+.h"#include"command.h"#include"prefix.h"#include"vector.h"#include"distribute.h"
+#include"babel_main.h"#include"util.h"#include"kernel.h"#include"babel_interface
+.h"#include"message.h"#include"route.h"#include"babel_zebra.h"#include"neighbour
+.h"#include"route.h"#include"xroute.h"#include"babel_memory.h"#defineIS_ENABLE(i
+fp)(babel_enable_if_lookup(ifp->name)>=0)staticintbabel_enable_if_lookup(constch
+ar*ifname);staticintbabel_enable_if_add(constchar*ifname);staticintbabel_enable_
+if_delete(constchar*ifname);staticintinterface_recalculate(structinterface*ifp);
+staticintinterface_reset(structinterface*ifp);staticintbabel_if_new_hook(structi
+nterface*ifp);staticintbabel_if_delete_hook(structinterface*ifp);staticintinterf
+ace_config_write(structvty*vty);staticbabel_interface_nfo*babel_interface_alloca
+te(void);staticvoidbabel_interface_free(babel_interface_nfo*bi);staticvectorbabe
+l_enable_if;/*enableinterfaces(bycmd).*/staticstructcmd_nodebabel_interface_node
+=/*babeld'sinterfacenode.*/{INTERFACE_NODE,"%s(config-if)#",1/*VTYSH*/};intbabel
+_interface_up(intcmd,structzclient*client,zebra_size_tlength,vrf_id_tvrf){struct
+stream*s=NULL;structinterface*ifp=NULL;debugf(BABEL_DEBUG_IF,"receivea'interface
+up'");s=zclient->ibuf;ifp=zebra_interface_state_read(s,vrf);/*itupdatesiflist*/i
+f(ifp==NULL){return0;}interface_recalculate(ifp);return0;}intbabel_interface_dow
+n(intcmd,structzclient*client,zebra_size_tlength,vrf_id_tvrf){structstream*s=NUL
+L;structinterface*ifp=NULL;debugf(BABEL_DEBUG_IF,"receivea'interfacedown'");s=zc
+lient->ibuf;ifp=zebra_interface_state_read(s,vrf);/*itupdatesiflist*/if(ifp==NUL
+L){return0;}interface_reset(ifp);return0;}intbabel_interface_add(intcmd,structzc
+lient*client,zebra_size_tlength,vrf_id_tvrf){structinterface*ifp=NULL;debugf(BAB
+EL_DEBUG_IF,"receivea'interfaceadd'");/*readandaddtheinterfaceintheiflist.*/ifp=
+zebra_interface_add_read(zclient->ibuf,vrf);if(ifp==NULL){return0;}interface_rec
+alculate(ifp);return0;}intbabel_interface_delete(intcmd,structzclient*client,zeb
+ra_size_tlength,vrf_id_tvrf){structinterface*ifp;structstream*s;debugf(BABEL_DEB
+UG_IF,"receivea'interfacedelete'");s=zclient->ibuf;ifp=zebra_interface_state_rea
+d(s,vrf);/*itupdatesiflist*/if(ifp==NULL)return0;if(IS_ENABLE(ifp))interface_res
+et(ifp);/*Tosupportpseudointerfacedonotfreeinterfacestructure.*//*if_delete(ifp)
+;*/if_set_index(ifp,IFINDEX_INTERNAL);return0;}intbabel_interface_address_add(in
+tcmd,structzclient*client,zebra_size_tlength,vrf_id_tvrf){babel_interface_nfo*ba
+bel_ifp;structconnected*ifc;structprefix*prefix;debugf(BABEL_DEBUG_IF,"receivea'
+interfaceaddressadd'");ifc=zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_
+ADD,zclient->ibuf,vrf);if(ifc==NULL)return0;prefix=ifc->address;if(prefix->famil
+y==AF_INET){flush_interface_routes(ifc->ifp,0);babel_ifp=babel_get_if_nfo(ifc->i
+fp);if(babel_ifp->ipv4==NULL){babel_ifp->ipv4=malloc(4);if(babel_ifp->ipv4==NULL
+){zlog_err("noteinoughmemory");}else{memcpy(babel_ifp->ipv4,&prefix->u.prefix4,4
+);}}}send_request(ifc->ifp,NULL,0);send_update(ifc->ifp,0,NULL,0);return0;}intba
+bel_interface_address_delete(intcmd,structzclient*client,zebra_size_tlength,vrf_
+id_tvrf){babel_interface_nfo*babel_ifp;structconnected*ifc;structprefix*prefix;d
+ebugf(BABEL_DEBUG_IF,"receivea'interfaceaddressdelete'");ifc=zebra_interface_add
+ress_read(ZEBRA_INTERFACE_ADDRESS_DELETE,zclient->ibuf,vrf);if(ifc==NULL)return0
+;prefix=ifc->address;if(prefix->family==AF_INET){flush_interface_routes(ifc->ifp
+,0);babel_ifp=babel_get_if_nfo(ifc->ifp);if(babel_ifp->ipv4!=NULL&&memcmp(babel_
+ifp->ipv4,&prefix->u.prefix4,4)==0){free(babel_ifp->ipv4);babel_ifp->ipv4=NULL;}
+}send_request(ifc->ifp,NULL,0);send_update(ifc->ifp,0,NULL,0);return0;}/*Lookupf
+unction.*/staticintbabel_enable_if_lookup(constchar*ifname){unsignedinti;char*st
+r;for(i=0;i<vector_active(babel_enable_if);i++)if((str=vector_slot(babel_enable_
+if,i))!=NULL)if(strcmp(str,ifname)==0)returni;return-1;}/*Addinterfacetobabel_en
+able_if.*/staticintbabel_enable_if_add(constchar*ifname){intret;structinterface*
+ifp=NULL;ret=babel_enable_if_lookup(ifname);if(ret>=0)return-1;vector_set(babel_
+enable_if,strdup(ifname));ifp=if_lookup_by_name(ifname,VRF_DEFAULT);if(ifp!=NULL
+)interface_recalculate(ifp);return1;}/*Deleteinterfacefrombabel_enable_if.*/stat
+icintbabel_enable_if_delete(constchar*ifname){intbabel_enable_if_index;char*str;
+structinterface*ifp=NULL;babel_enable_if_index=babel_enable_if_lookup(ifname);if
+(babel_enable_if_index<0)return-1;str=vector_slot(babel_enable_if,babel_enable_i
+f_index);free(str);vector_unset(babel_enable_if,babel_enable_if_index);ifp=if_lo
+okup_by_name(ifname,VRF_DEFAULT);if(ifp!=NULL)interface_reset(ifp);return1;}/*[B
+abelCommand]Babelenableonspecifiedinterfaceormatchednetwork.*/DEFUN(babel_networ
+k,babel_network_cmd,"networkIF_OR_ADDR","EnableBabelprotocolonspecifiedinterface
+ornetwork.\n""Interfaceoraddress\n"){intret;structprefixp;ret=str2prefix(argv[1]
+->arg,&p);/*Givenstringis:*/if(ret)/*anIPv4orv6network*/returnCMD_ERR_NO_MATCH;/
+*notimplementedyet*/else/*aninterfacename*/ret=babel_enable_if_add(argv[1]->arg)
+;if(ret<0){vty_out(vty,"Thereissamenetworkconfiguration%s\n",argv[1]->arg);retur
+nCMD_WARNING;}returnCMD_SUCCESS;}/*[BabelCommand]Babelenableonspecifiedinterface
+ormatchednetwork.*/DEFUN(no_babel_network,no_babel_network_cmd,"nonetworkIF_OR_A
+DDR",NO_STR"DisableBabelprotocolonspecifiedinterfaceornetwork.\n""Interfaceoradd
+ress\n"){intret;structprefixp;ret=str2prefix(argv[2]->arg,&p);/*Givenstringis:*/
+if(ret)/*anIPv4orv6network*/returnCMD_ERR_NO_MATCH;/*notimplementedyet*/else/*an
+interfacename*/ret=babel_enable_if_delete(argv[2]->arg);if(ret<0){vty_out(vty,"c
+an'tfindnetwork%s\n",argv[2]->arg);returnCMD_WARNING_CONFIG_FAILED;}returnCMD_SU
+CCESS;}/*Thereareanumberofinterfaceparametersthatmustbechangedwhenaninterfacebec
+omeswired/wireless.InQuagga,theycannotbeconfiguredseparately.*/staticvoidbabel_s
+et_wired_internal(babel_interface_nfo*babel_ifp,intwired){if(wired){babel_ifp->f
+lags|=BABEL_IF_WIRED;babel_ifp->flags|=BABEL_IF_SPLIT_HORIZON;babel_ifp->cost=BA
+BEL_DEFAULT_RXCOST_WIRED;babel_ifp->channel=BABEL_IF_CHANNEL_NONINTERFERING;babe
+l_ifp->flags&=~BABEL_IF_LQ;}else{babel_ifp->flags&=~BABEL_IF_WIRED;babel_ifp->fl
+ags&=~BABEL_IF_SPLIT_HORIZON;babel_ifp->cost=BABEL_DEFAULT_RXCOST_WIRELESS;babel
+_ifp->channel=BABEL_IF_CHANNEL_INTERFERING;babel_ifp->flags|=BABEL_IF_LQ;}}/*[In
+terfaceCommand]Telltheinterfaceiswire.*/DEFUN(babel_set_wired,babel_set_wired_cm
+d,"babelwired","Babelinterfacecommands\n""Enablewiredoptimizations\n"){VTY_DECLV
+AR_CONTEXT(interface,ifp);babel_interface_nfo*babel_ifp;babel_ifp=babel_get_if_n
+fo(ifp);assert(babel_ifp!=NULL);babel_set_wired_internal(babel_ifp,1);returnCMD_
+SUCCESS;}/*[InterfaceCommand]Telltheinterfaceiswireless(default).*/DEFUN(babel_s
+et_wireless,babel_set_wireless_cmd,"babelwireless","Babelinterfacecommands\n""Di
+sablewiredoptimizations(assumewireless)\n"){VTY_DECLVAR_CONTEXT(interface,ifp);b
+abel_interface_nfo*babel_ifp;babel_ifp=babel_get_if_nfo(ifp);assert(babel_ifp!=N
+ULL);babel_set_wired_internal(babel_ifp,0);returnCMD_SUCCESS;}/*[InterfaceComman
+d]Enablesplithorizon.*/DEFUN(babel_split_horizon,babel_split_horizon_cmd,"babels
+plit-horizon","Babelinterfacecommands\n""Enablesplithorizonprocessing\n"){VTY_DE
+CLVAR_CONTEXT(interface,ifp);babel_interface_nfo*babel_ifp;babel_ifp=babel_get_i
+f_nfo(ifp);assert(babel_ifp!=NULL);babel_ifp->flags|=BABEL_IF_SPLIT_HORIZON;retu
+rnCMD_SUCCESS;}/*[InterfaceCommand]Disablesplithorizon(default).*/DEFUN(no_babel
+_split_horizon,no_babel_split_horizon_cmd,"nobabelsplit-horizon",NO_STR"Babelint
+erfacecommands\n""Disablesplithorizonprocessing\n"){VTY_DECLVAR_CONTEXT(interfac
+e,ifp);babel_interface_nfo*babel_ifp;babel_ifp=babel_get_if_nfo(ifp);assert(babe
+l_ifp!=NULL);babel_ifp->flags&=~BABEL_IF_SPLIT_HORIZON;returnCMD_SUCCESS;}/*[Int
+erfaceCommand].*/DEFUN(babel_set_hello_interval,babel_set_hello_interval_cmd,"ba
+belhello-interval(20-655340)","Babelinterfacecommands\n""Timebetweenscheduledhel
+los\n""Milliseconds\n"){VTY_DECLVAR_CONTEXT(interface,ifp);babel_interface_nfo*b
+abel_ifp;intinterval;interval=strtoul(argv[2]->arg,NULL,10);babel_ifp=babel_get_
+if_nfo(ifp);assert(babel_ifp!=NULL);babel_ifp->hello_interval=interval;returnCMD
+_SUCCESS;}/*[InterfaceCommand].*/DEFUN(babel_set_update_interval,babel_set_updat
+e_interval_cmd,"babelupdate-interval(20-655340)","Babelinterfacecommands\n""Time
+betweenscheduledupdates\n""Milliseconds\n"){VTY_DECLVAR_CONTEXT(interface,ifp);b
+abel_interface_nfo*babel_ifp;intinterval;interval=strtoul(argv[2]->arg,NULL,10);
+babel_ifp=babel_get_if_nfo(ifp);assert(babel_ifp!=NULL);babel_ifp->update_interv
+al=interval;returnCMD_SUCCESS;}DEFUN(babel_set_rxcost,babel_set_rxcost_cmd,"babe
+lrxcost(1-65534)","Babelinterfacecommands\n""Rxcostmultiplier\n""Units\n"){VTY_D
+ECLVAR_CONTEXT(interface,ifp);babel_interface_nfo*babel_ifp;intrxcost;rxcost=str
+toul(argv[2]->arg,NULL,10);babel_ifp=babel_get_if_nfo(ifp);assert(babel_ifp!=NUL
+L);babel_ifp->cost=rxcost;returnCMD_SUCCESS;}DEFUN(babel_set_rtt_decay,babel_set
+_rtt_decay_cmd,"babelrtt-decay(1-256)","Babelinterfacecommands\n""Decayfactorfor
+exponentialmovingaverageofRTTsamples\n""Unitsof1/256\n"){VTY_DECLVAR_CONTEXT(int
+erface,ifp);babel_interface_nfo*babel_ifp;intdecay;decay=strtoul(argv[2]->arg,NU
+LL,10);babel_ifp=babel_get_if_nfo(ifp);assert(babel_ifp!=NULL);babel_ifp->rtt_de
+cay=decay;returnCMD_SUCCESS;}DEFUN(babel_set_rtt_min,babel_set_rtt_min_cmd,"babe
+lrtt-min(1-65535)","Babelinterfacecommands\n""MinimumRTTstartingforincreasingcos
+t\n""Milliseconds\n"){VTY_DECLVAR_CONTEXT(interface,ifp);babel_interface_nfo*bab
+el_ifp;intrtt;rtt=strtoul(argv[2]->arg,NULL,10);babel_ifp=babel_get_if_nfo(ifp);
+assert(babel_ifp!=NULL);babel_ifp->rtt_min=rtt;returnCMD_SUCCESS;}DEFUN(babel_se
+t_rtt_max,babel_set_rtt_max_cmd,"babelrtt-max(1-65535)","Babelinterfacecommands\
+n""MaximumRTT\n""Milliseconds\n"){VTY_DECLVAR_CONTEXT(interface,ifp);babel_inter
+face_nfo*babel_ifp;intrtt;rtt=strtoul(argv[2]->arg,NULL,10);babel_ifp=babel_get_
+if_nfo(ifp);assert(babel_ifp!=NULL);babel_ifp->rtt_max=rtt;returnCMD_SUCCESS;}DE
+FUN(babel_set_max_rtt_penalty,babel_set_max_rtt_penalty_cmd,"babelmax-rtt-penalt
+y(0-65535)","Babelinterfacecommands\n""MaximumadditionalcostduetoRTT\n""Millisec
+onds\n"){VTY_DECLVAR_CONTEXT(interface,ifp);babel_interface_nfo*babel_ifp;intpen
+alty;penalty=strtoul(argv[2]->arg,NULL,10);babel_ifp=babel_get_if_nfo(ifp);asser
+t(babel_ifp!=NULL);babel_ifp->max_rtt_penalty=penalty;returnCMD_SUCCESS;}DEFUN(b
+abel_set_enable_timestamps,babel_set_enable_timestamps_cmd,"babelenable-timestam
+ps","Babelinterfacecommands\n""Enabletimestamps\n"){VTY_DECLVAR_CONTEXT(interfac
+e,ifp);babel_interface_nfo*babel_ifp;babel_ifp=babel_get_if_nfo(ifp);assert(babe
+l_ifp!=NULL);babel_ifp->flags|=BABEL_IF_TIMESTAMPS;returnCMD_SUCCESS;}DEFUN(no_b
+abel_set_enable_timestamps,no_babel_set_enable_timestamps_cmd,"nobabelenable-tim
+estamps",NO_STR"Babelinterfacecommands\n""Disabletimestamps\n"){VTY_DECLVAR_CONT
+EXT(interface,ifp);babel_interface_nfo*babel_ifp;babel_ifp=babel_get_if_nfo(ifp)
+;assert(babel_ifp!=NULL);babel_ifp->flags&=~BABEL_IF_TIMESTAMPS;returnCMD_SUCCES
+S;}DEFUN(babel_set_channel,babel_set_channel_cmd,"babelchannel(1-254)","Babelint
+erfacecommands\n""Channelnumberfordiversityrouting\n""Number\n"){VTY_DECLVAR_CON
+TEXT(interface,ifp);babel_interface_nfo*babel_ifp;intchannel;channel=strtoul(arg
+v[2]->arg,NULL,10);babel_ifp=babel_get_if_nfo(ifp);assert(babel_ifp!=NULL);babel
+_ifp->channel=channel;returnCMD_SUCCESS;}DEFUN(babel_set_channel_interfering,bab
+el_set_channel_interfering_cmd,"babelchannelinterfering","Babelinterfacecommands
+\n""Channelnumberfordiversityrouting\n""Markchannelasinterfering\n"){VTY_DECLVAR
+_CONTEXT(interface,ifp);babel_interface_nfo*babel_ifp;babel_ifp=babel_get_if_nfo
+(ifp);assert(babel_ifp!=NULL);babel_ifp->channel=BABEL_IF_CHANNEL_INTERFERING;re
+turnCMD_SUCCESS;}DEFUN(babel_set_channel_noninterfering,babel_set_channel_nonint
+erfering_cmd,"babelchannelnoninterfering","Babelinterfacecommands\n""Channelnumb
+erfordiversityrouting\n""Markchannelasnoninterfering\n"){VTY_DECLVAR_CONTEXT(int
+erface,ifp);babel_interface_nfo*babel_ifp;babel_ifp=babel_get_if_nfo(ifp);assert
+(babel_ifp!=NULL);babel_ifp->channel=BABEL_IF_CHANNEL_NONINTERFERING;returnCMD_S
+UCCESS;}/*Thisshouldbenomorethanhalfthehellointerval,sothathellosaren'tsentlate.
+Theresultisinmilliseconds.*/unsignedjitter(babel_interface_nfo*babel_ifp,inturge
+nt){unsignedinterval=babel_ifp->hello_interval;if(urgent)interval=MIN(interval,1
+00);elseinterval=MIN(interval,4000);returnroughly(interval)/4;}unsignedupdate_ji
+tter(babel_interface_nfo*babel_ifp,inturgent){unsignedinterval=babel_ifp->hello_
+interval;if(urgent)interval=MIN(interval,100);elseinterval=MIN(interval,4000);re
+turnroughly(interval);}/*calculatebabeld'sspecificdatasofaninterface(changewhent
+heinterfacechange)*/staticintinterface_recalculate(structinterface*ifp){babel_in
+terface_nfo*babel_ifp=babel_get_if_nfo(ifp);unsignedchar*tmp=NULL;intmtu,rc;stru
+ctipv6_mreqmreq;if(!IS_ENABLE(ifp))return-1;if(!if_is_operative(ifp)||!CHECK_FLA
+G(ifp->flags,IFF_RUNNING)){interface_reset(ifp);return-1;}babel_ifp->flags|=BABE
+L_IF_IS_UP;mtu=MIN(ifp->mtu,ifp->mtu6);/*Weneedtobeabletofitatleasttwomessagesin
+toapacket,soMTUsbelow116requirelowerlayerfragmentation.*//*InIPv6,theminimumMTUi
+s1280,andeveryhostmustbeabletoreassembleupto1500bytes,butI'drathernotrelyonthis.
+*/if(mtu<128){debugf(BABEL_DEBUG_IF,"SuspiciouslylowMTU%doninterface%s(%d).",mtu
+,ifp->name,ifp->ifindex);mtu=128;}/*4forBabelheader;40forIPv6header,8forUDPheade
+r,12forgoodluck.*/babel_ifp->bufsize=mtu-4-60;tmp=babel_ifp->sendbuf;babel_ifp->
+sendbuf=realloc(babel_ifp->sendbuf,babel_ifp->bufsize);if(babel_ifp->sendbuf==NU
+LL){zlog_err("Couldn'treallocatesendbuf.");free(tmp);babel_ifp->bufsize=0;return
+-1;}tmp=NULL;rc=resize_receive_buffer(mtu);if(rc<0)zlog_warn("couldn'tresize""re
+ceivebufferforinterface%s(%d)(%dbytes).\n",ifp->name,ifp->ifindex,mtu);memset(&m
+req,0,sizeof(mreq));memcpy(&mreq.ipv6mr_multiaddr,protocol_group,16);mreq.ipv6mr
+_interface=ifp->ifindex;rc=setsockopt(protocol_socket,IPPROTO_IPV6,IPV6_JOIN_GRO
+UP,(char*)&mreq,sizeof(mreq));if(rc<0){zlog_err("setsockopt(IPV6_JOIN_GROUP)onin
+terface'%s':%s",ifp->name,safe_strerror(errno));/*Thisisprobablyduetoamissinglin
+k-localaddress,sodownthisinterface,andwaituntilthemainlooptriestoupitagain.*/int
+erface_reset(ifp);return-1;}set_timeout(&babel_ifp->hello_timeout,babel_ifp->hel
+lo_interval);set_timeout(&babel_ifp->update_timeout,babel_ifp->update_interval);
+send_hello(ifp);send_request(ifp,NULL,0);update_interface_metric(ifp);debugf(BAB
+EL_DEBUG_COMMON,"Uppedinterface%s(%s,cost=%d,channel=%d%s).",ifp->name,(babel_if
+p->flags&BABEL_IF_WIRED)?"wired":"wireless",babel_ifp->cost,babel_ifp->channel,b
+abel_ifp->ipv4?",IPv4":"");if(rc>0)send_update(ifp,0,NULL,0);return1;}/*Resetthe
+interfaceasitwasnew:it'snotremovedfromtheinterfacelist,andmaybeconsideredasauppe
+dinterface.*/staticintinterface_reset(structinterface*ifp){intrc;structipv6_mreq
+mreq;babel_interface_nfo*babel_ifp=babel_get_if_nfo(ifp);if(!(babel_ifp->flags&B
+ABEL_IF_IS_UP))return0;debugf(BABEL_DEBUG_IF,"interfacereset:%s",ifp->name);babe
+l_ifp->flags&=~BABEL_IF_IS_UP;flush_interface_routes(ifp,0);babel_ifp->buffered=
+0;babel_ifp->bufsize=0;free(babel_ifp->sendbuf);babel_ifp->num_buffered_updates=
+0;babel_ifp->update_bufsize=0;if(babel_ifp->buffered_updates)free(babel_ifp->buf
+fered_updates);babel_ifp->buffered_updates=NULL;babel_ifp->sendbuf=NULL;if(ifp->
+ifindex>0){memset(&mreq,0,sizeof(mreq));memcpy(&mreq.ipv6mr_multiaddr,protocol_g
+roup,16);mreq.ipv6mr_interface=ifp->ifindex;rc=setsockopt(protocol_socket,IPPROT
+O_IPV6,IPV6_LEAVE_GROUP,(char*)&mreq,sizeof(mreq));if(rc<0)zlog_err("setsockopt(
+IPV6_LEAVE_GROUP)oninterface'%s':%s",ifp->name,safe_strerror(errno));}update_int
+erface_metric(ifp);debugf(BABEL_DEBUG_COMMON,"Uppednetwork%s(%s,cost=%d%s).",ifp
+->name,(babel_ifp->flags&BABEL_IF_WIRED)?"wired":"wireless",babel_ifp->cost,babe
+l_ifp->ipv4?",IPv4":"");return1;}/*Sendretractiontoall,andresetallinterfacesstat
+istics.*/voidbabel_interface_close_all(void){structvrf*vrf=vrf_lookup_by_id(VRF_
+DEFAULT);structinterface*ifp=NULL;FOR_ALL_INTERFACES(vrf,ifp){if(!if_up(ifp))con
+tinue;send_wildcard_retraction(ifp);/*Makesurethatweexpirequicklyfromourneighbou
+rs'associationcaches.*/send_hello_noupdate(ifp,10);flushbuf(ifp);usleep(roughly(
+1000));gettime(&babel_now);}FOR_ALL_INTERFACES(vrf,ifp){if(!if_up(ifp))continue;
+/*Makesuretheygotit.*/send_wildcard_retraction(ifp);send_hello_noupdate(ifp,1);f
+lushbuf(ifp);usleep(roughly(10000));gettime(&babel_now);interface_reset(ifp);}}/
+*return"true"ifaddressisoneofouripv6addresses*/intis_interface_ll_address(struct
+interface*ifp,constunsignedchar*address){structconnected*connected;structlistnod
+e*node;if(!if_up(ifp))return0;FOR_ALL_INTERFACES_ADDRESSES(ifp,connected,node){i
+f(connected->address->family==AF_INET6&&memcmp(&connected->address->u.prefix6,ad
+dress,16)==0)return1;}return0;}staticvoidshow_babel_interface_sub(structvty*vty,
+structinterface*ifp){intis_up;babel_interface_nfo*babel_ifp;vty_out(vty,"%sis%s\
+n",ifp->name,((is_up=if_is_operative(ifp))?"up":"down"));vty_out(vty,"ifindex%u,
+MTU%ubytes%s\n",ifp->ifindex,MIN(ifp->mtu,ifp->mtu6),if_flag_dump(ifp->flags));i
+f(!IS_ENABLE(ifp)){vty_out(vty,"Babelprotocolisnotenabledonthisinterface\n");ret
+urn;}if(!is_up){vty_out(vty,"Babelprotocolisenabled,butnotrunningonthisinterface
+\n");return;}babel_ifp=babel_get_if_nfo(ifp);vty_out(vty,"Babelprotocolisrunning
+onthisinterface\n");vty_out(vty,"Operatingmodeis\"%s\"\n",CHECK_FLAG(babel_ifp->
+flags,BABEL_IF_WIRED)?"wired":"wireless");vty_out(vty,"Splithorizonmodeis%s\n",C
+HECK_FLAG(babel_ifp->flags,BABEL_IF_SPLIT_HORIZON)?"On":"Off");vty_out(vty,"Hell
+ointervalis%ums\n",babel_ifp->hello_interval);vty_out(vty,"Updateintervalis%ums\
+n",babel_ifp->update_interval);vty_out(vty,"Rxcostmultiplieris%u\n",babel_ifp->c
+ost);}DEFUN(show_babel_interface,show_babel_interface_cmd,"showbabelinterface[IF
+NAME]",SHOW_STR"Babelinformation\n""Interfaceinformation\n""Interface\n"){struct
+vrf*vrf=vrf_lookup_by_id(VRF_DEFAULT);structinterface*ifp;if(argc==3){FOR_ALL_IN
+TERFACES(vrf,ifp)show_babel_interface_sub(vty,ifp);returnCMD_SUCCESS;}if((ifp=if
+_lookup_by_name(argv[3]->arg,VRF_DEFAULT))==NULL){vty_out(vty,"Nosuchinterfacena
+me\n");returnCMD_WARNING;}show_babel_interface_sub(vty,ifp);returnCMD_SUCCESS;}s
+taticvoidshow_babel_neighbour_sub(structvty*vty,structneighbour*neigh){vty_out(v
+ty,"Neighbour%sdev%sreach%04xrxcost%dtxcost%d""rtt%srttcost%d%s.\n",format_addre
+ss(neigh->address),neigh->ifp->name,neigh->reach,neighbour_rxcost(neigh),neigh->
+txcost,format_thousands(neigh->rtt),neighbour_rttcost(neigh),if_up(neigh->ifp)?"
+":"(down)");}DEFUN(show_babel_neighbour,show_babel_neighbour_cmd,"showbabelneigh
+bor[IFNAME]",SHOW_STR"Babelinformation\n""Printneighbors\n""Interface\n"){struct
+neighbour*neigh;structinterface*ifp;if(argc==3){FOR_ALL_NEIGHBOURS(neigh){show_b
+abel_neighbour_sub(vty,neigh);}returnCMD_SUCCESS;}if((ifp=if_lookup_by_name(argv
+[3]->arg,VRF_DEFAULT))==NULL){vty_out(vty,"Nosuchinterfacename\n");returnCMD_WAR
+NING;}FOR_ALL_NEIGHBOURS(neigh){if(ifp->ifindex==neigh->ifp->ifindex){show_babel
+_neighbour_sub(vty,neigh);}}returnCMD_SUCCESS;}staticintbabel_prefix_eq(structpr
+efix*prefix,unsignedchar*p,intplen){if(prefix->family==AF_INET6){if(prefix->pref
+ixlen!=plen||memcmp(&prefix->u.prefix6,p,16)!=0)return0;}elseif(prefix->family==
+AF_INET){if(plen<96||!v4mapped(p)||prefix->prefixlen!=plen-96||memcmp(&prefix->u
+.prefix4,p+12,4)!=0)return0;}else{return0;}return1;}staticvoidshow_babel_routes_
+sub(structbabel_route*route,structvty*vty,structprefix*prefix){constunsignedchar
+*nexthop=memcmp(route->nexthop,route->neigh->address,16)==0?NULL:route->nexthop;
+charchannels[100];if(prefix&&!babel_prefix_eq(prefix,route->src->prefix,route->s
+rc->plen))return;if(route->channels[0]==0)channels[0]='\0';else{intk,j=0;snprint
+f(channels,100,"chan(");j=strlen(channels);for(k=0;k<DIVERSITY_HOPS;k++){if(rout
+e->channels[k]==0)break;if(k>0)channels[j++]=',';snprintf(channels+j,100-j,"%d",
+route->channels[k]);j=strlen(channels);}snprintf(channels+j,100-j,")");if(k==0)c
+hannels[0]='\0';}vty_out(vty,"%smetric%drefmetric%did%sseqno%d%sage%d""via%sneig
+h%s%s%s%s\n",format_prefix(route->src->prefix,route->src->plen),route_metric(rou
+te),route->refmetric,format_eui64(route->src->id),(int)route->seqno,channels,(in
+t)(babel_now.tv_sec-route->time),route->neigh->ifp->name,format_address(route->n
+eigh->address),nexthop?"nexthop":"",nexthop?format_address(nexthop):"",route->in
+stalled?"(installed)":route_feasible(route)?"(feasible)":"");}staticvoidshow_bab
+el_xroutes_sub(structxroute*xroute,structvty*vty,structprefix*prefix){if(prefix&
+&!babel_prefix_eq(prefix,xroute->prefix,xroute->plen))return;vty_out(vty,"%smetr
+ic%d(exported)\n",format_prefix(xroute->prefix,xroute->plen),xroute->metric);}DE
+FUN(show_babel_route,show_babel_route_cmd,"showbabelroute",SHOW_STR"Babelinforma
+tion\n""Babelinternalroutingtable\n"){structroute_stream*routes=NULL;structxrout
+e_stream*xroutes=NULL;routes=route_stream(0);if(routes){while(1){structbabel_rou
+te*route=route_stream_next(routes);if(route==NULL)break;show_babel_routes_sub(ro
+ute,vty,NULL);}route_stream_done(routes);}else{zlog_err("Couldn'tallocateroutest
+ream.");}xroutes=xroute_stream();if(xroutes){while(1){structxroute*xroute=xroute
+_stream_next(xroutes);if(xroute==NULL)break;show_babel_xroutes_sub(xroute,vty,NU
+LL);}xroute_stream_done(xroutes);}else{zlog_err("Couldn'tallocateroutestream.");
+}returnCMD_SUCCESS;}DEFUN(show_babel_route_prefix,show_babel_route_prefix_cmd,"s
+howbabelroute<A.B.C.D/M|X:X::X:X/M>",SHOW_STR"Babelinformation\n""Babelinternalr
+outingtable\n""IPv4prefix<network>/<length>\n""IPv6prefix<network>/<length>\n"){
+structroute_stream*routes=NULL;structxroute_stream*xroutes=NULL;structprefixpref
+ix;intret;ret=str2prefix(argv[3]->arg,&prefix);if(ret==0){vty_out(vty,"%%Malform
+edaddress\n");returnCMD_WARNING;}routes=route_stream(0);if(routes){while(1){stru
+ctbabel_route*route=route_stream_next(routes);if(route==NULL)break;show_babel_ro
+utes_sub(route,vty,&prefix);}route_stream_done(routes);}else{zlog_err("Couldn'ta
+llocateroutestream.");}xroutes=xroute_stream();if(xroutes){while(1){structxroute
+*xroute=xroute_stream_next(xroutes);if(xroute==NULL)break;show_babel_xroutes_sub
+(xroute,vty,&prefix);}xroute_stream_done(xroutes);}else{zlog_err("Couldn'talloca
+teroutestream.");}returnCMD_SUCCESS;}DEFUN(show_babel_route_addr,show_babel_rout
+e_addr_cmd,"showbabelrouteA.B.C.D",SHOW_STR"Babelinformation\n""Babelinternalrou
+tingtable\n""IPv4address<network>/<length>\n"){structin_addraddr;charbuf[INET_AD
+DRSTRLEN+8];structroute_stream*routes=NULL;structxroute_stream*xroutes=NULL;stru
+ctprefixprefix;intret;ret=inet_aton(argv[3]->arg,&addr);if(ret<=0){vty_out(vty,"
+%%Malformedaddress\n");returnCMD_WARNING;}/*Quaggahasnoconvenientprefixconstruct
+ors.*/snprintf(buf,sizeof(buf),"%s/%d",inet_ntoa(addr),32);ret=str2prefix(buf,&p
+refix);if(ret==0){vty_out(vty,"%%Parseerror--thisshouldn'thappen\n");returnCMD_W
+ARNING;}routes=route_stream(0);if(routes){while(1){structbabel_route*route=route
+_stream_next(routes);if(route==NULL)break;show_babel_routes_sub(route,vty,&prefi
+x);}route_stream_done(routes);}else{zlog_err("Couldn'tallocateroutestream.");}xr
+outes=xroute_stream();if(xroutes){while(1){structxroute*xroute=xroute_stream_nex
+t(xroutes);if(xroute==NULL)break;show_babel_xroutes_sub(xroute,vty,&prefix);}xro
+ute_stream_done(xroutes);}else{zlog_err("Couldn'tallocateroutestream.");}returnC
+MD_SUCCESS;}DEFUN(show_babel_route_addr6,show_babel_route_addr6_cmd,"showbabelro
+uteX:X::X:X",SHOW_STR"Babelinformation\n""Babelinternalroutingtable\n""IPv6addre
+ss<network>/<length>\n"){structin6_addraddr;charbuf1[INET6_ADDRSTRLEN];charbuf[I
+NET6_ADDRSTRLEN+8];structroute_stream*routes=NULL;structxroute_stream*xroutes=NU
+LL;structprefixprefix;intret;ret=inet_pton(AF_INET6,argv[3]->arg,&addr);if(ret<=
+0){vty_out(vty,"%%Malformedaddress\n");returnCMD_WARNING;}/*Quaggahasnoconvenien
+tprefixconstructors.*/snprintf(buf,sizeof(buf),"%s/%d",inet_ntop(AF_INET6,&addr,
+buf1,sizeof(buf1)),128);ret=str2prefix(buf,&prefix);if(ret==0){vty_out(vty,"%%Pa
+rseerror--thisshouldn'thappen\n");returnCMD_WARNING;}routes=route_stream(0);if(r
+outes){while(1){structbabel_route*route=route_stream_next(routes);if(route==NULL
+)break;show_babel_routes_sub(route,vty,&prefix);}route_stream_done(routes);}else
+{zlog_err("Couldn'tallocateroutestream.");}xroutes=xroute_stream();if(xroutes){w
+hile(1){structxroute*xroute=xroute_stream_next(xroutes);if(xroute==NULL)break;sh
+ow_babel_xroutes_sub(xroute,vty,&prefix);}xroute_stream_done(xroutes);}else{zlog
+_err("Couldn'tallocateroutestream.");}returnCMD_SUCCESS;}DEFUN(show_babel_parame
+ters,show_babel_parameters_cmd,"showbabelparameters",SHOW_STR"Babelinformation\n
+""Configurationinformation\n"){vty_out(vty,"--Babelrunningconfiguration--\n");sh
+ow_babel_main_configuration(vty);vty_out(vty,"--distributionlists--\n");config_s
+how_distribute(vty);returnCMD_SUCCESS;}voidbabel_if_init(){/*initializeinterface
+list*/hook_register_prio(if_add,0,babel_if_new_hook);hook_register_prio(if_del,0
+,babel_if_delete_hook);babel_enable_if=vector_init(1);/*installinterfacenodeandc
+ommands*/install_node(&babel_interface_node,interface_config_write);if_cmd_init(
+);install_element(BABEL_NODE,&babel_network_cmd);install_element(BABEL_NODE,&no_
+babel_network_cmd);install_element(INTERFACE_NODE,&babel_split_horizon_cmd);inst
+all_element(INTERFACE_NODE,&no_babel_split_horizon_cmd);install_element(INTERFAC
+E_NODE,&babel_set_wired_cmd);install_element(INTERFACE_NODE,&babel_set_wireless_
+cmd);install_element(INTERFACE_NODE,&babel_set_hello_interval_cmd);install_eleme
+nt(INTERFACE_NODE,&babel_set_update_interval_cmd);install_element(INTERFACE_NODE
+,&babel_set_rxcost_cmd);install_element(INTERFACE_NODE,&babel_set_channel_cmd);i
+nstall_element(INTERFACE_NODE,&babel_set_rtt_decay_cmd);install_element(INTERFAC
+E_NODE,&babel_set_rtt_min_cmd);install_element(INTERFACE_NODE,&babel_set_rtt_max
+_cmd);install_element(INTERFACE_NODE,&babel_set_max_rtt_penalty_cmd);install_ele
+ment(INTERFACE_NODE,&babel_set_enable_timestamps_cmd);install_element(INTERFACE_
+NODE,&no_babel_set_enable_timestamps_cmd);install_element(INTERFACE_NODE,&babel_
+set_channel_interfering_cmd);install_element(INTERFACE_NODE,&babel_set_channel_n
+oninterfering_cmd);/*"showbabel..."commands*/install_element(VIEW_NODE,&show_bab
+el_interface_cmd);install_element(VIEW_NODE,&show_babel_neighbour_cmd);install_e
+lement(VIEW_NODE,&show_babel_route_cmd);install_element(VIEW_NODE,&show_babel_ro
+ute_prefix_cmd);install_element(VIEW_NODE,&show_babel_route_addr_cmd);install_el
+ement(VIEW_NODE,&show_babel_route_addr6_cmd);install_element(VIEW_NODE,&show_bab
+el_parameters_cmd);}/*hooks:functionscalledrespectivelywhenstructinterfaceiscrea
+tedordeleted.*/staticintbabel_if_new_hook(structinterface*ifp){ifp->info=babel_i
+nterface_allocate();return0;}staticintbabel_if_delete_hook(structinterface*ifp){
+babel_interface_free(ifp->info);ifp->info=NULL;return0;}/*Outputan"interface"sec
+tionforeachoftheknowninterfaceswithbabeld-specificstatementlineswhereappropriate
+.*/staticintinterface_config_write(structvty*vty){structvrf*vrf=vrf_lookup_by_id
+(VRF_DEFAULT);structinterface*ifp;intwrite=0;FOR_ALL_INTERFACES(vrf,ifp){vty_fra
+me(vty,"interface%s\n",ifp->name);if(ifp->desc)vty_out(vty,"description%s\n",ifp
+->desc);babel_interface_nfo*babel_ifp=babel_get_if_nfo(ifp);/*wirelessisthedefau
+lt*/if(CHECK_FLAG(babel_ifp->flags,BABEL_IF_WIRED)){vty_out(vty,"babelwired\n");
+write++;}if(babel_ifp->hello_interval!=BABEL_DEFAULT_HELLO_INTERVAL){vty_out(vty
+,"babelhello-interval%u\n",babel_ifp->hello_interval);write++;}if(babel_ifp->upd
+ate_interval!=BABEL_DEFAULT_UPDATE_INTERVAL){vty_out(vty,"babelupdate-interval%u
+\n",babel_ifp->update_interval);write++;}/*Someparametershavedifferentdefaultsfo
+rwired/wireless.*/if(CHECK_FLAG(babel_ifp->flags,BABEL_IF_WIRED)){if(!CHECK_FLAG
+(babel_ifp->flags,BABEL_IF_SPLIT_HORIZON)){vty_out(vty,"nobabelsplit-horizon\n")
+;write++;}if(babel_ifp->cost!=BABEL_DEFAULT_RXCOST_WIRED){vty_out(vty,"babelrxco
+st%u\n",babel_ifp->cost);write++;}if(babel_ifp->channel==BABEL_IF_CHANNEL_INTERF
+ERING){vty_out(vty,"babelchannelinterfering\n");write++;}elseif(babel_ifp->chann
+el!=BABEL_IF_CHANNEL_NONINTERFERING){vty_out(vty,"babelchannel%d\n",babel_ifp->c
+hannel);write++;}}else{if(CHECK_FLAG(babel_ifp->flags,BABEL_IF_SPLIT_HORIZON)){v
+ty_out(vty,"babelsplit-horizon\n");write++;}if(babel_ifp->cost!=BABEL_DEFAULT_RX
+COST_WIRELESS){vty_out(vty,"babelrxcost%u\n",babel_ifp->cost);write++;}if(babel_
+ifp->channel==BABEL_IF_CHANNEL_NONINTERFERING){vty_out(vty,"babelchannelnoninter
+fering\n");write++;}elseif(babel_ifp->channel!=BABEL_IF_CHANNEL_INTERFERING){vty
+_out(vty,"babelchannel%d\n",babel_ifp->channel);write++;}}vty_endframe(vty,"!\n"
+);write++;}returnwrite;}/*Outputa"network"statementlineforeachoftheenabledinterf
+aces.*/intbabel_enable_if_config_write(structvty*vty){unsignedinti,lines=0;char*
+str;for(i=0;i<vector_active(babel_enable_if);i++)if((str=vector_slot(babel_enabl
+e_if,i))!=NULL){vty_out(vty,"network%s\n",str);lines++;}returnlines;}/*functions
+toallocateorfreememoryforababel_interface_nfo,fillingneededfields*/staticbabel_i
+nterface_nfo*babel_interface_allocate(void){babel_interface_nfo*babel_ifp;babel_
+ifp=XMALLOC(MTYPE_BABEL_IF,sizeof(babel_interface_nfo));if(babel_ifp==NULL)retur
+nNULL;/*Herearesetthedefaultvaluesforaninterface.*/memset(babel_ifp,0,sizeof(bab
+el_interface_nfo));/*Allflagsareunset*/babel_ifp->bucket_time=babel_now.tv_sec;b
+abel_ifp->bucket=BUCKET_TOKENS_MAX;babel_ifp->hello_seqno=(random()&0xFFFF);babe
+l_ifp->rtt_min=10000;babel_ifp->rtt_max=120000;babel_ifp->max_rtt_penalty=150;ba
+bel_ifp->hello_interval=BABEL_DEFAULT_HELLO_INTERVAL;babel_ifp->update_interval=
+BABEL_DEFAULT_UPDATE_INTERVAL;babel_ifp->channel=BABEL_IF_CHANNEL_INTERFERING;ba
+bel_set_wired_internal(babel_ifp,0);returnbabel_ifp;}staticvoidbabel_interface_f
+ree(babel_interface_nfo*babel_ifp){XFREE(MTYPE_BABEL_IF,babel_ifp);}

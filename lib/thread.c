@@ -1,1564 +1,403 @@
-/* Thread management routine
- * Copyright (C) 1998, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-/* #define DEBUG */
-
-#include <zebra.h>
-#include <sys/resource.h>
-
-#include "thread.h"
-#include "memory.h"
-#include "log.h"
-#include "hash.h"
-#include "pqueue.h"
-#include "command.h"
-#include "sigevent.h"
-#include "network.h"
-#include "jhash.h"
-
-DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread")
-DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
-DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
-
-#if defined(__APPLE__)
-#include <mach/mach.h>
-#include <mach/mach_time.h>
-#endif
-
-#define AWAKEN(m)                                                              \
-	do {                                                                   \
-		static unsigned char wakebyte = 0x01;                          \
-		write(m->io_pipe[1], &wakebyte, 1);                            \
-	} while (0);
-
-/* control variable for initializer */
-pthread_once_t init_once = PTHREAD_ONCE_INIT;
-pthread_key_t thread_current;
-
-pthread_mutex_t masters_mtx = PTHREAD_MUTEX_INITIALIZER;
-static struct list *masters;
-
-
-/* CLI start ---------------------------------------------------------------- */
-static unsigned int cpu_record_hash_key(struct cpu_thread_history *a)
-{
-	int size = sizeof(&a->func);
-
-	return jhash(&a->func, size, 0);
-}
-
-static int cpu_record_hash_cmp(const struct cpu_thread_history *a,
-			       const struct cpu_thread_history *b)
-{
-	return a->func == b->func;
-}
-
-static void *cpu_record_hash_alloc(struct cpu_thread_history *a)
-{
-	struct cpu_thread_history *new;
-	new = XCALLOC(MTYPE_THREAD_STATS, sizeof(struct cpu_thread_history));
-	new->func = a->func;
-	new->funcname = a->funcname;
-	return new;
-}
-
-static void cpu_record_hash_free(void *a)
-{
-	struct cpu_thread_history *hist = a;
-
-	XFREE(MTYPE_THREAD_STATS, hist);
-}
-
-static void vty_out_cpu_thread_history(struct vty *vty,
-				       struct cpu_thread_history *a)
-{
-	vty_out(vty, "%5d %10lu.%03lu %9u %8lu %9lu %8lu %9lu", a->total_active,
-		a->cpu.total / 1000, a->cpu.total % 1000, a->total_calls,
-		a->cpu.total / a->total_calls, a->cpu.max,
-		a->real.total / a->total_calls, a->real.max);
-	vty_out(vty, " %c%c%c%c%c %s\n",
-		a->types & (1 << THREAD_READ) ? 'R' : ' ',
-		a->types & (1 << THREAD_WRITE) ? 'W' : ' ',
-		a->types & (1 << THREAD_TIMER) ? 'T' : ' ',
-		a->types & (1 << THREAD_EVENT) ? 'E' : ' ',
-		a->types & (1 << THREAD_EXECUTE) ? 'X' : ' ', a->funcname);
-}
-
-static void cpu_record_hash_print(struct hash_backet *bucket, void *args[])
-{
-	struct cpu_thread_history *totals = args[0];
-	struct vty *vty = args[1];
-	thread_type *filter = args[2];
-
-	struct cpu_thread_history *a = bucket->data;
-
-	if (!(a->types & *filter))
-		return;
-	vty_out_cpu_thread_history(vty, a);
-	totals->total_active += a->total_active;
-	totals->total_calls += a->total_calls;
-	totals->real.total += a->real.total;
-	if (totals->real.max < a->real.max)
-		totals->real.max = a->real.max;
-	totals->cpu.total += a->cpu.total;
-	if (totals->cpu.max < a->cpu.max)
-		totals->cpu.max = a->cpu.max;
-}
-
-static void cpu_record_print(struct vty *vty, thread_type filter)
-{
-	struct cpu_thread_history tmp;
-	void *args[3] = {&tmp, vty, &filter};
-	struct thread_master *m;
-	struct listnode *ln;
-
-	memset(&tmp, 0, sizeof tmp);
-	tmp.funcname = "TOTAL";
-	tmp.types = filter;
-
-	pthread_mutex_lock(&masters_mtx);
-	{
-		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
-			const char *name = m->name ? m->name : "main";
-
-			char underline[strlen(name) + 1];
-			memset(underline, '-', sizeof(underline));
-			underline[sizeof(underline)] = '\0';
-
-			vty_out(vty, "\n");
-			vty_out(vty, "Showing statistics for pthread %s\n",
-				name);
-			vty_out(vty, "-------------------------------%s\n",
-				underline);
-			vty_out(vty, "%21s %18s %18s\n", "",
-				"CPU (user+system):", "Real (wall-clock):");
-			vty_out(vty,
-				"Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
-			vty_out(vty, " Avg uSec Max uSecs");
-			vty_out(vty, "  Type  Thread\n");
-
-			if (m->cpu_record->count)
-				hash_iterate(
-					m->cpu_record,
-					(void (*)(struct hash_backet *,
-						  void *))cpu_record_hash_print,
-					args);
-			else
-				vty_out(vty, "No data to display yet.\n");
-
-			vty_out(vty, "\n");
-		}
-	}
-	pthread_mutex_unlock(&masters_mtx);
-
-	vty_out(vty, "\n");
-	vty_out(vty, "Total thread statistics\n");
-	vty_out(vty, "-------------------------\n");
-	vty_out(vty, "%21s %18s %18s\n", "",
-		"CPU (user+system):", "Real (wall-clock):");
-	vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
-	vty_out(vty, " Avg uSec Max uSecs");
-	vty_out(vty, "  Type  Thread\n");
-
-	if (tmp.total_calls > 0)
-		vty_out_cpu_thread_history(vty, &tmp);
-}
-
-static void cpu_record_hash_clear(struct hash_backet *bucket, void *args[])
-{
-	thread_type *filter = args[0];
-	struct hash *cpu_record = args[1];
-
-	struct cpu_thread_history *a = bucket->data;
-
-	if (!(a->types & *filter))
-		return;
-
-	hash_release(cpu_record, bucket->data);
-}
-
-static void cpu_record_clear(thread_type filter)
-{
-	thread_type *tmp = &filter;
-	struct thread_master *m;
-	struct listnode *ln;
-
-	pthread_mutex_lock(&masters_mtx);
-	{
-		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
-			pthread_mutex_lock(&m->mtx);
-			{
-				void *args[2] = {tmp, m->cpu_record};
-				hash_iterate(
-					m->cpu_record,
-					(void (*)(struct hash_backet *,
-						  void *))cpu_record_hash_clear,
-					args);
-			}
-			pthread_mutex_unlock(&m->mtx);
-		}
-	}
-	pthread_mutex_unlock(&masters_mtx);
-}
-
-static thread_type parse_filter(const char *filterstr)
-{
-	int i = 0;
-	int filter = 0;
-
-	while (filterstr[i] != '\0') {
-		switch (filterstr[i]) {
-		case 'r':
-		case 'R':
-			filter |= (1 << THREAD_READ);
-			break;
-		case 'w':
-		case 'W':
-			filter |= (1 << THREAD_WRITE);
-			break;
-		case 't':
-		case 'T':
-			filter |= (1 << THREAD_TIMER);
-			break;
-		case 'e':
-		case 'E':
-			filter |= (1 << THREAD_EVENT);
-			break;
-		case 'x':
-		case 'X':
-			filter |= (1 << THREAD_EXECUTE);
-			break;
-		default:
-			break;
-		}
-		++i;
-	}
-	return filter;
-}
-
-DEFUN (show_thread_cpu,
-       show_thread_cpu_cmd,
-       "show thread cpu [FILTER]",
-       SHOW_STR
-       "Thread information\n"
-       "Thread CPU usage\n"
-       "Display filter (rwtexb)\n")
-{
-	thread_type filter = (thread_type)-1U;
-	int idx = 0;
-
-	if (argv_find(argv, argc, "FILTER", &idx)) {
-		filter = parse_filter(argv[idx]->arg);
-		if (!filter) {
-			vty_out(vty,
-				"Invalid filter \"%s\" specified; must contain at least"
-				"one of 'RWTEXB'\n",
-				argv[idx]->arg);
-			return CMD_WARNING;
-		}
-	}
-
-	cpu_record_print(vty, filter);
-	return CMD_SUCCESS;
-}
-
-DEFUN (clear_thread_cpu,
-       clear_thread_cpu_cmd,
-       "clear thread cpu [FILTER]",
-       "Clear stored data in all pthreads\n"
-       "Thread information\n"
-       "Thread CPU usage\n"
-       "Display filter (rwtexb)\n")
-{
-	thread_type filter = (thread_type)-1U;
-	int idx = 0;
-
-	if (argv_find(argv, argc, "FILTER", &idx)) {
-		filter = parse_filter(argv[idx]->arg);
-		if (!filter) {
-			vty_out(vty,
-				"Invalid filter \"%s\" specified; must contain at least"
-				"one of 'RWTEXB'\n",
-				argv[idx]->arg);
-			return CMD_WARNING;
-		}
-	}
-
-	cpu_record_clear(filter);
-	return CMD_SUCCESS;
-}
-
-void thread_cmd_init(void)
-{
-	install_element(VIEW_NODE, &show_thread_cpu_cmd);
-	install_element(ENABLE_NODE, &clear_thread_cpu_cmd);
-}
-/* CLI end ------------------------------------------------------------------ */
-
-
-static int thread_timer_cmp(void *a, void *b)
-{
-	struct thread *thread_a = a;
-	struct thread *thread_b = b;
-
-	if (timercmp(&thread_a->u.sands, &thread_b->u.sands, <))
-		return -1;
-	if (timercmp(&thread_a->u.sands, &thread_b->u.sands, >))
-		return 1;
-	return 0;
-}
-
-static void thread_timer_update(void *node, int actual_position)
-{
-	struct thread *thread = node;
-
-	thread->index = actual_position;
-}
-
-static void cancelreq_del(void *cr)
-{
-	XFREE(MTYPE_TMP, cr);
-}
-
-/* initializer, only ever called once */
-static void initializer()
-{
-	pthread_key_create(&thread_current, NULL);
-}
-
-struct thread_master *thread_master_create(const char *name)
-{
-	struct thread_master *rv;
-	struct rlimit limit;
-
-	pthread_once(&init_once, &initializer);
-
-	rv = XCALLOC(MTYPE_THREAD_MASTER, sizeof(struct thread_master));
-	if (rv == NULL)
-		return NULL;
-
-	/* Initialize master mutex */
-	pthread_mutex_init(&rv->mtx, NULL);
-	pthread_cond_init(&rv->cancel_cond, NULL);
-
-	/* Set name */
-	rv->name = name ? XSTRDUP(MTYPE_THREAD_MASTER, name) : NULL;
-
-	/* Initialize I/O task data structures */
-	getrlimit(RLIMIT_NOFILE, &limit);
-	rv->fd_limit = (int)limit.rlim_cur;
-	rv->read =
-		XCALLOC(MTYPE_THREAD, sizeof(struct thread *) * rv->fd_limit);
-	if (rv->read == NULL) {
-		XFREE(MTYPE_THREAD_MASTER, rv);
-		return NULL;
-	}
-	rv->write =
-		XCALLOC(MTYPE_THREAD, sizeof(struct thread *) * rv->fd_limit);
-	if (rv->write == NULL) {
-		XFREE(MTYPE_THREAD, rv->read);
-		XFREE(MTYPE_THREAD_MASTER, rv);
-		return NULL;
-	}
-
-	rv->cpu_record = hash_create_size(
-		8, (unsigned int (*)(void *))cpu_record_hash_key,
-		(int (*)(const void *, const void *))cpu_record_hash_cmp,
-		"Thread Hash");
-
-
-	/* Initialize the timer queues */
-	rv->timer = pqueue_create();
-	rv->timer->cmp = thread_timer_cmp;
-	rv->timer->update = thread_timer_update;
-
-	/* Initialize thread_fetch() settings */
-	rv->spin = true;
-	rv->handle_signals = true;
-
-	/* Set pthread owner, should be updated by actual owner */
-	rv->owner = pthread_self();
-	rv->cancel_req = list_new();
-	rv->cancel_req->del = cancelreq_del;
-	rv->canceled = true;
-
-	/* Initialize pipe poker */
-	pipe(rv->io_pipe);
-	set_nonblocking(rv->io_pipe[0]);
-	set_nonblocking(rv->io_pipe[1]);
-
-	/* Initialize data structures for poll() */
-	rv->handler.pfdsize = rv->fd_limit;
-	rv->handler.pfdcount = 0;
-	rv->handler.pfds = XCALLOC(MTYPE_THREAD_MASTER,
-				   sizeof(struct pollfd) * rv->handler.pfdsize);
-	rv->handler.copy = XCALLOC(MTYPE_THREAD_MASTER,
-				   sizeof(struct pollfd) * rv->handler.pfdsize);
-
-	/* add to list of threadmasters */
-	pthread_mutex_lock(&masters_mtx);
-	{
-		if (!masters)
-			masters = list_new();
-
-		listnode_add(masters, rv);
-	}
-	pthread_mutex_unlock(&masters_mtx);
-
-	return rv;
-}
-
-void thread_master_set_name(struct thread_master *master, const char *name)
-{
-	pthread_mutex_lock(&master->mtx);
-	{
-		if (master->name)
-			XFREE(MTYPE_THREAD_MASTER, master->name);
-		master->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
-	}
-	pthread_mutex_unlock(&master->mtx);
-}
-
-/* Add a new thread to the list.  */
-static void thread_list_add(struct thread_list *list, struct thread *thread)
-{
-	thread->next = NULL;
-	thread->prev = list->tail;
-	if (list->tail)
-		list->tail->next = thread;
-	else
-		list->head = thread;
-	list->tail = thread;
-	list->count++;
-}
-
-/* Delete a thread from the list. */
-static struct thread *thread_list_delete(struct thread_list *list,
-					 struct thread *thread)
-{
-	if (thread->next)
-		thread->next->prev = thread->prev;
-	else
-		list->tail = thread->prev;
-	if (thread->prev)
-		thread->prev->next = thread->next;
-	else
-		list->head = thread->next;
-	thread->next = thread->prev = NULL;
-	list->count--;
-	return thread;
-}
-
-/* Thread list is empty or not.  */
-static int thread_empty(struct thread_list *list)
-{
-	return list->head ? 0 : 1;
-}
-
-/* Delete top of the list and return it. */
-static struct thread *thread_trim_head(struct thread_list *list)
-{
-	if (!thread_empty(list))
-		return thread_list_delete(list, list->head);
-	return NULL;
-}
-
-/* Move thread to unuse list. */
-static void thread_add_unuse(struct thread_master *m, struct thread *thread)
-{
-	assert(m != NULL && thread != NULL);
-	assert(thread->next == NULL);
-	assert(thread->prev == NULL);
-	thread->ref = NULL;
-
-	thread->type = THREAD_UNUSED;
-	thread->hist->total_active--;
-	thread_list_add(&m->unuse, thread);
-}
-
-/* Free all unused thread. */
-static void thread_list_free(struct thread_master *m, struct thread_list *list)
-{
-	struct thread *t;
-	struct thread *next;
-
-	for (t = list->head; t; t = next) {
-		next = t->next;
-		XFREE(MTYPE_THREAD, t);
-		list->count--;
-		m->alloc--;
-	}
-}
-
-static void thread_array_free(struct thread_master *m,
-			      struct thread **thread_array)
-{
-	struct thread *t;
-	int index;
-
-	for (index = 0; index < m->fd_limit; ++index) {
-		t = thread_array[index];
-		if (t) {
-			thread_array[index] = NULL;
-			XFREE(MTYPE_THREAD, t);
-			m->alloc--;
-		}
-	}
-	XFREE(MTYPE_THREAD, thread_array);
-}
-
-static void thread_queue_free(struct thread_master *m, struct pqueue *queue)
-{
-	int i;
-
-	for (i = 0; i < queue->size; i++)
-		XFREE(MTYPE_THREAD, queue->array[i]);
-
-	m->alloc -= queue->size;
-	pqueue_delete(queue);
-}
-
-/*
- * thread_master_free_unused
- *
- * As threads are finished with they are put on the
- * unuse list for later reuse.
- * If we are shutting down, Free up unused threads
- * So we can see if we forget to shut anything off
- */
-void thread_master_free_unused(struct thread_master *m)
-{
-	pthread_mutex_lock(&m->mtx);
-	{
-		struct thread *t;
-		while ((t = thread_trim_head(&m->unuse)) != NULL) {
-			pthread_mutex_destroy(&t->mtx);
-			XFREE(MTYPE_THREAD, t);
-		}
-	}
-	pthread_mutex_unlock(&m->mtx);
-}
-
-/* Stop thread scheduler. */
-void thread_master_free(struct thread_master *m)
-{
-	pthread_mutex_lock(&masters_mtx);
-	{
-		listnode_delete(masters, m);
-		if (masters->count == 0) {
-			list_delete_and_null(&masters);
-		}
-	}
-	pthread_mutex_unlock(&masters_mtx);
-
-	thread_array_free(m, m->read);
-	thread_array_free(m, m->write);
-	thread_queue_free(m, m->timer);
-	thread_list_free(m, &m->event);
-	thread_list_free(m, &m->ready);
-	thread_list_free(m, &m->unuse);
-	pthread_mutex_destroy(&m->mtx);
-	pthread_cond_destroy(&m->cancel_cond);
-	close(m->io_pipe[0]);
-	close(m->io_pipe[1]);
-	list_delete_and_null(&m->cancel_req);
-	m->cancel_req = NULL;
-
-	hash_clean(m->cpu_record, cpu_record_hash_free);
-	hash_free(m->cpu_record);
-	m->cpu_record = NULL;
-
-	if (m->name)
-		XFREE(MTYPE_THREAD_MASTER, m->name);
-	XFREE(MTYPE_THREAD_MASTER, m->handler.pfds);
-	XFREE(MTYPE_THREAD_MASTER, m->handler.copy);
-	XFREE(MTYPE_THREAD_MASTER, m);
-}
-
-/* Return remain time in second. */
-unsigned long thread_timer_remain_second(struct thread *thread)
-{
-	int64_t remain;
-
-	pthread_mutex_lock(&thread->mtx);
-	{
-		remain = monotime_until(&thread->u.sands, NULL) / 1000000LL;
-	}
-	pthread_mutex_unlock(&thread->mtx);
-
-	return remain < 0 ? 0 : remain;
-}
-
-#define debugargdef  const char *funcname, const char *schedfrom, int fromln
-#define debugargpass funcname, schedfrom, fromln
-
-struct timeval thread_timer_remain(struct thread *thread)
-{
-	struct timeval remain;
-	pthread_mutex_lock(&thread->mtx);
-	{
-		monotime_until(&thread->u.sands, &remain);
-	}
-	pthread_mutex_unlock(&thread->mtx);
-	return remain;
-}
-
-/* Get new thread.  */
-static struct thread *thread_get(struct thread_master *m, uint8_t type,
-				 int (*func)(struct thread *), void *arg,
-				 debugargdef)
-{
-	struct thread *thread = thread_trim_head(&m->unuse);
-	struct cpu_thread_history tmp;
-
-	if (!thread) {
-		thread = XCALLOC(MTYPE_THREAD, sizeof(struct thread));
-		/* mutex only needs to be initialized at struct creation. */
-		pthread_mutex_init(&thread->mtx, NULL);
-		m->alloc++;
-	}
-
-	thread->type = type;
-	thread->add_type = type;
-	thread->master = m;
-	thread->arg = arg;
-	thread->index = -1;
-	thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
-	thread->ref = NULL;
-
-	/*
-	 * So if the passed in funcname is not what we have
-	 * stored that means the thread->hist needs to be
-	 * updated.  We keep the last one around in unused
-	 * under the assumption that we are probably
-	 * going to immediately allocate the same
-	 * type of thread.
-	 * This hopefully saves us some serious
-	 * hash_get lookups.
-	 */
-	if (thread->funcname != funcname || thread->func != func) {
-		tmp.func = func;
-		tmp.funcname = funcname;
-		thread->hist =
-			hash_get(m->cpu_record, &tmp,
-				 (void *(*)(void *))cpu_record_hash_alloc);
-	}
-	thread->hist->total_active++;
-	thread->func = func;
-	thread->funcname = funcname;
-	thread->schedfrom = schedfrom;
-	thread->schedfrom_line = fromln;
-
-	return thread;
-}
-
-static int fd_poll(struct thread_master *m, struct pollfd *pfds, nfds_t pfdsize,
-		   nfds_t count, const struct timeval *timer_wait)
-{
-	/* If timer_wait is null here, that means poll() should block
-	 * indefinitely,
-	 * unless the thread_master has overriden it by setting
-	 * ->selectpoll_timeout.
-	 * If the value is positive, it specifies the maximum number of
-	 * milliseconds
-	 * to wait. If the timeout is -1, it specifies that we should never wait
-	 * and
-	 * always return immediately even if no event is detected. If the value
-	 * is
-	 * zero, the behavior is default. */
-	int timeout = -1;
-
-	/* number of file descriptors with events */
-	int num;
-
-	if (timer_wait != NULL
-	    && m->selectpoll_timeout == 0) // use the default value
-		timeout = (timer_wait->tv_sec * 1000)
-			  + (timer_wait->tv_usec / 1000);
-	else if (m->selectpoll_timeout > 0) // use the user's timeout
-		timeout = m->selectpoll_timeout;
-	else if (m->selectpoll_timeout
-		 < 0) // effect a poll (return immediately)
-		timeout = 0;
-
-	/* add poll pipe poker */
-	assert(count + 1 < pfdsize);
-	pfds[count].fd = m->io_pipe[0];
-	pfds[count].events = POLLIN;
-	pfds[count].revents = 0x00;
-
-	num = poll(pfds, count + 1, timeout);
-
-	unsigned char trash[64];
-	if (num > 0 && pfds[count].revents != 0 && num--)
-		while (read(m->io_pipe[0], &trash, sizeof(trash)) > 0)
-			;
-
-	return num;
-}
-
-/* Add new read thread. */
-struct thread *funcname_thread_add_read_write(int dir, struct thread_master *m,
-					      int (*func)(struct thread *),
-					      void *arg, int fd,
-					      struct thread **t_ptr,
-					      debugargdef)
-{
-	struct thread *thread = NULL;
-
-	pthread_mutex_lock(&m->mtx);
-	{
-		if (t_ptr
-		    && *t_ptr) // thread is already scheduled; don't reschedule
-		{
-			pthread_mutex_unlock(&m->mtx);
-			return NULL;
-		}
-
-		/* default to a new pollfd */
-		nfds_t queuepos = m->handler.pfdcount;
-
-		/* if we already have a pollfd for our file descriptor, find and
-		 * use it */
-		for (nfds_t i = 0; i < m->handler.pfdcount; i++)
-			if (m->handler.pfds[i].fd == fd) {
-				queuepos = i;
-				break;
-			}
-
-		/* make sure we have room for this fd + pipe poker fd */
-		assert(queuepos + 1 < m->handler.pfdsize);
-
-		thread = thread_get(m, dir, func, arg, debugargpass);
-
-		m->handler.pfds[queuepos].fd = fd;
-		m->handler.pfds[queuepos].events |=
-			(dir == THREAD_READ ? POLLIN : POLLOUT);
-
-		if (queuepos == m->handler.pfdcount)
-			m->handler.pfdcount++;
-
-		if (thread) {
-			pthread_mutex_lock(&thread->mtx);
-			{
-				thread->u.fd = fd;
-				if (dir == THREAD_READ)
-					m->read[thread->u.fd] = thread;
-				else
-					m->write[thread->u.fd] = thread;
-			}
-			pthread_mutex_unlock(&thread->mtx);
-
-			if (t_ptr) {
-				*t_ptr = thread;
-				thread->ref = t_ptr;
-			}
-		}
-
-		AWAKEN(m);
-	}
-	pthread_mutex_unlock(&m->mtx);
-
-	return thread;
-}
-
-static struct thread *
-funcname_thread_add_timer_timeval(struct thread_master *m,
-				  int (*func)(struct thread *), int type,
-				  void *arg, struct timeval *time_relative,
-				  struct thread **t_ptr, debugargdef)
-{
-	struct thread *thread;
-	struct pqueue *queue;
-
-	assert(m != NULL);
-
-	assert(type == THREAD_TIMER);
-	assert(time_relative);
-
-	pthread_mutex_lock(&m->mtx);
-	{
-		if (t_ptr
-		    && *t_ptr) // thread is already scheduled; don't reschedule
-		{
-			pthread_mutex_unlock(&m->mtx);
-			return NULL;
-		}
-
-		queue = m->timer;
-		thread = thread_get(m, type, func, arg, debugargpass);
-
-		pthread_mutex_lock(&thread->mtx);
-		{
-			monotime(&thread->u.sands);
-			timeradd(&thread->u.sands, time_relative,
-				 &thread->u.sands);
-			pqueue_enqueue(thread, queue);
-			if (t_ptr) {
-				*t_ptr = thread;
-				thread->ref = t_ptr;
-			}
-		}
-		pthread_mutex_unlock(&thread->mtx);
-
-		AWAKEN(m);
-	}
-	pthread_mutex_unlock(&m->mtx);
-
-	return thread;
-}
-
-
-/* Add timer event thread. */
-struct thread *funcname_thread_add_timer(struct thread_master *m,
-					 int (*func)(struct thread *),
-					 void *arg, long timer,
-					 struct thread **t_ptr, debugargdef)
-{
-	struct timeval trel;
-
-	assert(m != NULL);
-
-	trel.tv_sec = timer;
-	trel.tv_usec = 0;
-
-	return funcname_thread_add_timer_timeval(m, func, THREAD_TIMER, arg,
-						 &trel, t_ptr, debugargpass);
-}
-
-/* Add timer event thread with "millisecond" resolution */
-struct thread *funcname_thread_add_timer_msec(struct thread_master *m,
-					      int (*func)(struct thread *),
-					      void *arg, long timer,
-					      struct thread **t_ptr,
-					      debugargdef)
-{
-	struct timeval trel;
-
-	assert(m != NULL);
-
-	trel.tv_sec = timer / 1000;
-	trel.tv_usec = 1000 * (timer % 1000);
-
-	return funcname_thread_add_timer_timeval(m, func, THREAD_TIMER, arg,
-						 &trel, t_ptr, debugargpass);
-}
-
-/* Add timer event thread with "millisecond" resolution */
-struct thread *funcname_thread_add_timer_tv(struct thread_master *m,
-					    int (*func)(struct thread *),
-					    void *arg, struct timeval *tv,
-					    struct thread **t_ptr, debugargdef)
-{
-	return funcname_thread_add_timer_timeval(m, func, THREAD_TIMER, arg, tv,
-						 t_ptr, debugargpass);
-}
-
-/* Add simple event thread. */
-struct thread *funcname_thread_add_event(struct thread_master *m,
-					 int (*func)(struct thread *),
-					 void *arg, int val,
-					 struct thread **t_ptr, debugargdef)
-{
-	struct thread *thread;
-
-	assert(m != NULL);
-
-	pthread_mutex_lock(&m->mtx);
-	{
-		if (t_ptr
-		    && *t_ptr) // thread is already scheduled; don't reschedule
-		{
-			pthread_mutex_unlock(&m->mtx);
-			return NULL;
-		}
-
-		thread = thread_get(m, THREAD_EVENT, func, arg, debugargpass);
-		pthread_mutex_lock(&thread->mtx);
-		{
-			thread->u.val = val;
-			thread_list_add(&m->event, thread);
-		}
-		pthread_mutex_unlock(&thread->mtx);
-
-		if (t_ptr) {
-			*t_ptr = thread;
-			thread->ref = t_ptr;
-		}
-
-		AWAKEN(m);
-	}
-	pthread_mutex_unlock(&m->mtx);
-
-	return thread;
-}
-
-/* Thread cancellation ------------------------------------------------------ */
-
-/**
- * NOT's out the .events field of pollfd corresponding to the given file
- * descriptor. The event to be NOT'd is passed in the 'state' parameter.
- *
- * This needs to happen for both copies of pollfd's. See 'thread_fetch'
- * implementation for details.
- *
- * @param master
- * @param fd
- * @param state the event to cancel. One or more (OR'd together) of the
- * following:
- *   - POLLIN
- *   - POLLOUT
- */
-static void thread_cancel_rw(struct thread_master *master, int fd, short state)
-{
-	bool found = false;
-
-	/* Cancel POLLHUP too just in case some bozo set it */
-	state |= POLLHUP;
-
-	/* find the index of corresponding pollfd */
-	nfds_t i;
-
-	for (i = 0; i < master->handler.pfdcount; i++)
-		if (master->handler.pfds[i].fd == fd) {
-			found = true;
-			break;
-		}
-
-	if (!found) {
-		zlog_debug(
-			"[!] Received cancellation request for nonexistent rw job");
-		zlog_debug("[!] threadmaster: %s | fd: %d",
-			   master->name ? master->name : "", fd);
-		return;
-	}
-
-	/* NOT out event. */
-	master->handler.pfds[i].events &= ~(state);
-
-	/* If all events are canceled, delete / resize the pollfd array. */
-	if (master->handler.pfds[i].events == 0) {
-		memmove(master->handler.pfds + i, master->handler.pfds + i + 1,
-			(master->handler.pfdcount - i - 1)
-				* sizeof(struct pollfd));
-		master->handler.pfdcount--;
-	}
-
-	/* If we have the same pollfd in the copy, perform the same operations,
-	 * otherwise return. */
-	if (i >= master->handler.copycount)
-		return;
-
-	master->handler.copy[i].events &= ~(state);
-
-	if (master->handler.copy[i].events == 0) {
-		memmove(master->handler.copy + i, master->handler.copy + i + 1,
-			(master->handler.copycount - i - 1)
-				* sizeof(struct pollfd));
-		master->handler.copycount--;
-	}
-}
-
-/**
- * Process cancellation requests.
- *
- * This may only be run from the pthread which owns the thread_master.
- *
- * @param master the thread master to process
- * @REQUIRE master->mtx
- */
-static void do_thread_cancel(struct thread_master *master)
-{
-	struct thread_list *list = NULL;
-	struct pqueue *queue = NULL;
-	struct thread **thread_array = NULL;
-	struct thread *thread;
-
-	struct cancel_req *cr;
-	struct listnode *ln;
-	for (ALL_LIST_ELEMENTS_RO(master->cancel_req, ln, cr)) {
-		/* If this is an event object cancellation, linear search
-		 * through event
-		 * list deleting any events which have the specified argument.
-		 * We also
-		 * need to check every thread in the ready queue. */
-		if (cr->eventobj) {
-			struct thread *t;
-			thread = master->event.head;
-
-			while (thread) {
-				t = thread;
-				thread = t->next;
-
-				if (t->arg == cr->eventobj) {
-					thread_list_delete(&master->event, t);
-					if (t->ref)
-						*t->ref = NULL;
-					thread_add_unuse(master, t);
-				}
-			}
-
-			thread = master->ready.head;
-			while (thread) {
-				t = thread;
-				thread = t->next;
-
-				if (t->arg == cr->eventobj) {
-					thread_list_delete(&master->ready, t);
-					if (t->ref)
-						*t->ref = NULL;
-					thread_add_unuse(master, t);
-				}
-			}
-			continue;
-		}
-
-		/* The pointer varies depending on whether the cancellation
-		 * request was
-		 * made asynchronously or not. If it was, we need to check
-		 * whether the
-		 * thread even exists anymore before cancelling it. */
-		thread = (cr->thread) ? cr->thread : *cr->threadref;
-
-		if (!thread)
-			continue;
-
-		/* Determine the appropriate queue to cancel the thread from */
-		switch (thread->type) {
-		case THREAD_READ:
-			thread_cancel_rw(master, thread->u.fd, POLLIN);
-			thread_array = master->read;
-			break;
-		case THREAD_WRITE:
-			thread_cancel_rw(master, thread->u.fd, POLLOUT);
-			thread_array = master->write;
-			break;
-		case THREAD_TIMER:
-			queue = master->timer;
-			break;
-		case THREAD_EVENT:
-			list = &master->event;
-			break;
-		case THREAD_READY:
-			list = &master->ready;
-			break;
-		default:
-			continue;
-			break;
-		}
-
-		if (queue) {
-			assert(thread->index >= 0);
-			assert(thread == queue->array[thread->index]);
-			pqueue_remove_at(thread->index, queue);
-		} else if (list) {
-			thread_list_delete(list, thread);
-		} else if (thread_array) {
-			thread_array[thread->u.fd] = NULL;
-		} else {
-			assert(!"Thread should be either in queue or list or array!");
-		}
-
-		if (thread->ref)
-			*thread->ref = NULL;
-
-		thread_add_unuse(thread->master, thread);
-	}
-
-	/* Delete and free all cancellation requests */
-	list_delete_all_node(master->cancel_req);
-
-	/* Wake up any threads which may be blocked in thread_cancel_async() */
-	master->canceled = true;
-	pthread_cond_broadcast(&master->cancel_cond);
-}
-
-/**
- * Cancel any events which have the specified argument.
- *
- * MT-Unsafe
- *
- * @param m the thread_master to cancel from
- * @param arg the argument passed when creating the event
- */
-void thread_cancel_event(struct thread_master *master, void *arg)
-{
-	assert(master->owner == pthread_self());
-
-	pthread_mutex_lock(&master->mtx);
-	{
-		struct cancel_req *cr =
-			XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
-		cr->eventobj = arg;
-		listnode_add(master->cancel_req, cr);
-		do_thread_cancel(master);
-	}
-	pthread_mutex_unlock(&master->mtx);
-}
-
-/**
- * Cancel a specific task.
- *
- * MT-Unsafe
- *
- * @param thread task to cancel
- */
-void thread_cancel(struct thread *thread)
-{
-	assert(thread->master->owner == pthread_self());
-
-	pthread_mutex_lock(&thread->master->mtx);
-	{
-		struct cancel_req *cr =
-			XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
-		cr->thread = thread;
-		listnode_add(thread->master->cancel_req, cr);
-		do_thread_cancel(thread->master);
-	}
-	pthread_mutex_unlock(&thread->master->mtx);
-}
-
-/**
- * Asynchronous cancellation.
- *
- * Called with either a struct thread ** or void * to an event argument,
- * this function posts the correct cancellation request and blocks until it is
- * serviced.
- *
- * If the thread is currently running, execution blocks until it completes.
- *
- * The last two parameters are mutually exclusive, i.e. if you pass one the
- * other must be NULL.
- *
- * When the cancellation procedure executes on the target thread_master, the
- * thread * provided is checked for nullity. If it is null, the thread is
- * assumed to no longer exist and the cancellation request is a no-op. Thus
- * users of this API must pass a back-reference when scheduling the original
- * task.
- *
- * MT-Safe
- *
- * @param master the thread master with the relevant event / task
- * @param thread pointer to thread to cancel
- * @param eventobj the event
- */
-void thread_cancel_async(struct thread_master *master, struct thread **thread,
-			 void *eventobj)
-{
-	assert(!(thread && eventobj) && (thread || eventobj));
-	assert(master->owner != pthread_self());
-
-	pthread_mutex_lock(&master->mtx);
-	{
-		master->canceled = false;
-
-		if (thread) {
-			struct cancel_req *cr =
-				XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
-			cr->threadref = thread;
-			listnode_add(master->cancel_req, cr);
-		} else if (eventobj) {
-			struct cancel_req *cr =
-				XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
-			cr->eventobj = eventobj;
-			listnode_add(master->cancel_req, cr);
-		}
-		AWAKEN(master);
-
-		while (!master->canceled)
-			pthread_cond_wait(&master->cancel_cond, &master->mtx);
-	}
-	pthread_mutex_unlock(&master->mtx);
-}
-/* ------------------------------------------------------------------------- */
-
-static struct timeval *thread_timer_wait(struct pqueue *queue,
-					 struct timeval *timer_val)
-{
-	if (queue->size) {
-		struct thread *next_timer = queue->array[0];
-		monotime_until(&next_timer->u.sands, timer_val);
-		return timer_val;
-	}
-	return NULL;
-}
-
-static struct thread *thread_run(struct thread_master *m, struct thread *thread,
-				 struct thread *fetch)
-{
-	*fetch = *thread;
-	thread_add_unuse(m, thread);
-	return fetch;
-}
-
-static int thread_process_io_helper(struct thread_master *m,
-				    struct thread *thread, short state, int pos)
-{
-	struct thread **thread_array;
-
-	if (!thread)
-		return 0;
-
-	if (thread->type == THREAD_READ)
-		thread_array = m->read;
-	else
-		thread_array = m->write;
-
-	thread_array[thread->u.fd] = NULL;
-	thread_list_add(&m->ready, thread);
-	thread->type = THREAD_READY;
-	/* if another pthread scheduled this file descriptor for the event we're
-	 * responding to, no problem; we're getting to it now */
-	thread->master->handler.pfds[pos].events &= ~(state);
-	return 1;
-}
-
-/**
- * Process I/O events.
- *
- * Walks through file descriptor array looking for those pollfds whose .revents
- * field has something interesting. Deletes any invalid file descriptors.
- *
- * @param m the thread master
- * @param num the number of active file descriptors (return value of poll())
- */
-static void thread_process_io(struct thread_master *m, unsigned int num)
-{
-	unsigned int ready = 0;
-	struct pollfd *pfds = m->handler.copy;
-
-	for (nfds_t i = 0; i < m->handler.copycount && ready < num; ++i) {
-		/* no event for current fd? immediately continue */
-		if (pfds[i].revents == 0)
-			continue;
-
-		ready++;
-
-		/* Unless someone has called thread_cancel from another pthread,
-		 * the only
-		 * thing that could have changed in m->handler.pfds while we
-		 * were
-		 * asleep is the .events field in a given pollfd. Barring
-		 * thread_cancel()
-		 * that value should be a superset of the values we have in our
-		 * copy, so
-		 * there's no need to update it. Similarily, barring deletion,
-		 * the fd
-		 * should still be a valid index into the master's pfds. */
-		if (pfds[i].revents & (POLLIN | POLLHUP))
-			thread_process_io_helper(m, m->read[pfds[i].fd], POLLIN,
-						 i);
-		if (pfds[i].revents & POLLOUT)
-			thread_process_io_helper(m, m->write[pfds[i].fd],
-						 POLLOUT, i);
-
-		/* if one of our file descriptors is garbage, remove the same
-		 * from
-		 * both pfds + update sizes and index */
-		if (pfds[i].revents & POLLNVAL) {
-			memmove(m->handler.pfds + i, m->handler.pfds + i + 1,
-				(m->handler.pfdcount - i - 1)
-					* sizeof(struct pollfd));
-			m->handler.pfdcount--;
-
-			memmove(pfds + i, pfds + i + 1,
-				(m->handler.copycount - i - 1)
-					* sizeof(struct pollfd));
-			m->handler.copycount--;
-
-			i--;
-		}
-	}
-}
-
-/* Add all timers that have popped to the ready list. */
-static unsigned int thread_process_timers(struct pqueue *queue,
-					  struct timeval *timenow)
-{
-	struct thread *thread;
-	unsigned int ready = 0;
-
-	while (queue->size) {
-		thread = queue->array[0];
-		if (timercmp(timenow, &thread->u.sands, <))
-			return ready;
-		pqueue_dequeue(queue);
-		thread->type = THREAD_READY;
-		thread_list_add(&thread->master->ready, thread);
-		ready++;
-	}
-	return ready;
-}
-
-/* process a list en masse, e.g. for event thread lists */
-static unsigned int thread_process(struct thread_list *list)
-{
-	struct thread *thread;
-	struct thread *next;
-	unsigned int ready = 0;
-
-	for (thread = list->head; thread; thread = next) {
-		next = thread->next;
-		thread_list_delete(list, thread);
-		thread->type = THREAD_READY;
-		thread_list_add(&thread->master->ready, thread);
-		ready++;
-	}
-	return ready;
-}
-
-
-/* Fetch next ready thread. */
-struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
-{
-	struct thread *thread = NULL;
-	struct timeval now;
-	struct timeval zerotime = {0, 0};
-	struct timeval tv;
-	struct timeval *tw = NULL;
-
-	int num = 0;
-
-	do {
-		/* Handle signals if any */
-		if (m->handle_signals)
-			quagga_sigevent_process();
-
-		pthread_mutex_lock(&m->mtx);
-
-		/* Process any pending cancellation requests */
-		do_thread_cancel(m);
-
-		/*
-		 * Attempt to flush ready queue before going into poll().
-		 * This is performance-critical. Think twice before modifying.
-		 */
-		if ((thread = thread_trim_head(&m->ready))) {
-			fetch = thread_run(m, thread, fetch);
-			if (fetch->ref)
-				*fetch->ref = NULL;
-			pthread_mutex_unlock(&m->mtx);
-			break;
-		}
-
-		/* otherwise, tick through scheduling sequence */
-
-		/*
-		 * Post events to ready queue. This must come before the
-		 * following block since events should occur immediately
-		 */
-		thread_process(&m->event);
-
-		/*
-		 * If there are no tasks on the ready queue, we will poll()
-		 * until a timer expires or we receive I/O, whichever comes
-		 * first. The strategy for doing this is:
-		 *
-		 * - If there are events pending, set the poll() timeout to zero
-		 * - If there are no events pending, but there are timers
-		 * pending, set the
-		 *   timeout to the smallest remaining time on any timer
-		 * - If there are neither timers nor events pending, but there
-		 * are file
-		 *   descriptors pending, block indefinitely in poll()
-		 * - If nothing is pending, it's time for the application to die
-		 *
-		 * In every case except the last, we need to hit poll() at least
-		 * once per loop to avoid starvation by events
-		 */
-		if (m->ready.count == 0)
-			tw = thread_timer_wait(m->timer, &tv);
-
-		if (m->ready.count != 0 || (tw && !timercmp(tw, &zerotime, >)))
-			tw = &zerotime;
-
-		if (!tw && m->handler.pfdcount == 0) { /* die */
-			pthread_mutex_unlock(&m->mtx);
-			fetch = NULL;
-			break;
-		}
-
-		/*
-		 * Copy pollfd array + # active pollfds in it. Not necessary to
-		 * copy the array size as this is fixed.
-		 */
-		m->handler.copycount = m->handler.pfdcount;
-		memcpy(m->handler.copy, m->handler.pfds,
-		       m->handler.copycount * sizeof(struct pollfd));
-
-		pthread_mutex_unlock(&m->mtx);
-		{
-			num = fd_poll(m, m->handler.copy, m->handler.pfdsize,
-				      m->handler.copycount, tw);
-		}
-		pthread_mutex_lock(&m->mtx);
-
-		/* Handle any errors received in poll() */
-		if (num < 0) {
-			if (errno == EINTR) {
-				pthread_mutex_unlock(&m->mtx);
-				/* loop around to signal handler */
-				continue;
-			}
-
-			/* else die */
-			zlog_warn("poll() error: %s", safe_strerror(errno));
-			pthread_mutex_unlock(&m->mtx);
-			fetch = NULL;
-			break;
-		}
-
-		/* Post timers to ready queue. */
-		monotime(&now);
-		thread_process_timers(m->timer, &now);
-
-		/* Post I/O to ready queue. */
-		if (num > 0)
-			thread_process_io(m, num);
-
-		pthread_mutex_unlock(&m->mtx);
-
-	} while (!thread && m->spin);
-
-	return fetch;
-}
-
-static unsigned long timeval_elapsed(struct timeval a, struct timeval b)
-{
-	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
-		+ (a.tv_usec - b.tv_usec));
-}
-
-unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
-				   unsigned long *cputime)
-{
-	/* This is 'user + sys' time.  */
-	*cputime = timeval_elapsed(now->cpu.ru_utime, start->cpu.ru_utime)
-		   + timeval_elapsed(now->cpu.ru_stime, start->cpu.ru_stime);
-	return timeval_elapsed(now->real, start->real);
-}
-
-/* We should aim to yield after yield milliseconds, which defaults
-   to THREAD_YIELD_TIME_SLOT .
-   Note: we are using real (wall clock) time for this calculation.
-   It could be argued that CPU time may make more sense in certain
-   contexts.  The things to consider are whether the thread may have
-   blocked (in which case wall time increases, but CPU time does not),
-   or whether the system is heavily loaded with other processes competing
-   for CPU time.  On balance, wall clock time seems to make sense.
-   Plus it has the added benefit that gettimeofday should be faster
-   than calling getrusage. */
-int thread_should_yield(struct thread *thread)
-{
-	int result;
-	pthread_mutex_lock(&thread->mtx);
-	{
-		result = monotime_since(&thread->real, NULL)
-			 > (int64_t)thread->yield;
-	}
-	pthread_mutex_unlock(&thread->mtx);
-	return result;
-}
-
-void thread_set_yield_time(struct thread *thread, unsigned long yield_time)
-{
-	pthread_mutex_lock(&thread->mtx);
-	{
-		thread->yield = yield_time;
-	}
-	pthread_mutex_unlock(&thread->mtx);
-}
-
-void thread_getrusage(RUSAGE_T *r)
-{
-	monotime(&r->real);
-	getrusage(RUSAGE_SELF, &(r->cpu));
-}
-
-/* We check thread consumed time. If the system has getrusage, we'll
-   use that to get in-depth stats on the performance of the thread in addition
-   to wall clock time stats from gettimeofday. */
-void thread_call(struct thread *thread)
-{
-	unsigned long realtime, cputime;
-	RUSAGE_T before, after;
-
-	GETRUSAGE(&before);
-	thread->real = before.real;
-
-	pthread_setspecific(thread_current, thread);
-	(*thread->func)(thread);
-	pthread_setspecific(thread_current, NULL);
-
-	GETRUSAGE(&after);
-
-	realtime = thread_consumed_time(&after, &before, &cputime);
-	thread->hist->real.total += realtime;
-	if (thread->hist->real.max < realtime)
-		thread->hist->real.max = realtime;
-	thread->hist->cpu.total += cputime;
-	if (thread->hist->cpu.max < cputime)
-		thread->hist->cpu.max = cputime;
-
-	++(thread->hist->total_calls);
-	thread->hist->types |= (1 << thread->add_type);
-
-#ifdef CONSUMED_TIME_CHECK
-	if (realtime > CONSUMED_TIME_CHECK) {
-		/*
-		 * We have a CPU Hog on our hands.
-		 * Whinge about it now, so we're aware this is yet another task
-		 * to fix.
-		 */
-		zlog_warn(
-			"SLOW THREAD: task %s (%lx) ran for %lums (cpu time %lums)",
-			thread->funcname, (unsigned long)thread->func,
-			realtime / 1000, cputime / 1000);
-	}
-#endif /* CONSUMED_TIME_CHECK */
-}
-
-/* Execute thread */
-void funcname_thread_execute(struct thread_master *m,
-			     int (*func)(struct thread *), void *arg, int val,
-			     debugargdef)
-{
-	struct cpu_thread_history tmp;
-	struct thread dummy;
-
-	memset(&dummy, 0, sizeof(struct thread));
-
-	pthread_mutex_init(&dummy.mtx, NULL);
-	dummy.type = THREAD_EVENT;
-	dummy.add_type = THREAD_EXECUTE;
-	dummy.master = NULL;
-	dummy.arg = arg;
-	dummy.u.val = val;
-
-	tmp.func = dummy.func = func;
-	tmp.funcname = dummy.funcname = funcname;
-	dummy.hist = hash_get(m->cpu_record, &tmp,
-			      (void *(*)(void *))cpu_record_hash_alloc);
-
-	dummy.schedfrom = schedfrom;
-	dummy.schedfrom_line = fromln;
-
-	thread_call(&dummy);
-}
+/*Threadmanagementroutine*Copyright(C)1998,2000KunihiroIshiguro<kunihiro@zebra.o
+rg>**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/o
+rmodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftware
+Foundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistribut
+edinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarran
+tyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicens
+eformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*wi
+ththisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51F
+ranklinSt,FifthFloor,Boston,MA02110-1301USA*//*#defineDEBUG*/#include<zebra.h>#i
+nclude<sys/resource.h>#include"thread.h"#include"memory.h"#include"log.h"#includ
+e"hash.h"#include"pqueue.h"#include"command.h"#include"sigevent.h"#include"netwo
+rk.h"#include"jhash.h"DEFINE_MTYPE_STATIC(LIB,THREAD,"Thread")DEFINE_MTYPE_STATI
+C(LIB,THREAD_MASTER,"Threadmaster")DEFINE_MTYPE_STATIC(LIB,THREAD_STATS,"Threads
+tats")#ifdefined(__APPLE__)#include<mach/mach.h>#include<mach/mach_time.h>#endif
+#defineAWAKEN(m)\do{\staticunsignedcharwakebyte=0x01;\write(m->io_pipe[1],&wakeb
+yte,1);\}while(0);/*controlvariableforinitializer*/pthread_once_tinit_once=PTHRE
+AD_ONCE_INIT;pthread_key_tthread_current;pthread_mutex_tmasters_mtx=PTHREAD_MUTE
+X_INITIALIZER;staticstructlist*masters;/*CLIstart-------------------------------
+---------------------------------*/staticunsignedintcpu_record_hash_key(structcp
+u_thread_history*a){intsize=sizeof(&a->func);returnjhash(&a->func,size,0);}stati
+cintcpu_record_hash_cmp(conststructcpu_thread_history*a,conststructcpu_thread_hi
+story*b){returna->func==b->func;}staticvoid*cpu_record_hash_alloc(structcpu_thre
+ad_history*a){structcpu_thread_history*new;new=XCALLOC(MTYPE_THREAD_STATS,sizeof
+(structcpu_thread_history));new->func=a->func;new->funcname=a->funcname;returnne
+w;}staticvoidcpu_record_hash_free(void*a){structcpu_thread_history*hist=a;XFREE(
+MTYPE_THREAD_STATS,hist);}staticvoidvty_out_cpu_thread_history(structvty*vty,str
+uctcpu_thread_history*a){vty_out(vty,"%5d%10lu.%03lu%9u%8lu%9lu%8lu%9lu",a->tota
+l_active,a->cpu.total/1000,a->cpu.total%1000,a->total_calls,a->cpu.total/a->tota
+l_calls,a->cpu.max,a->real.total/a->total_calls,a->real.max);vty_out(vty,"%c%c%c
+%c%c%s\n",a->types&(1<<THREAD_READ)?'R':'',a->types&(1<<THREAD_WRITE)?'W':'',a->
+types&(1<<THREAD_TIMER)?'T':'',a->types&(1<<THREAD_EVENT)?'E':'',a->types&(1<<TH
+READ_EXECUTE)?'X':'',a->funcname);}staticvoidcpu_record_hash_print(structhash_ba
+cket*bucket,void*args[]){structcpu_thread_history*totals=args[0];structvty*vty=a
+rgs[1];thread_type*filter=args[2];structcpu_thread_history*a=bucket->data;if(!(a
+->types&*filter))return;vty_out_cpu_thread_history(vty,a);totals->total_active+=
+a->total_active;totals->total_calls+=a->total_calls;totals->real.total+=a->real.
+total;if(totals->real.max<a->real.max)totals->real.max=a->real.max;totals->cpu.t
+otal+=a->cpu.total;if(totals->cpu.max<a->cpu.max)totals->cpu.max=a->cpu.max;}sta
+ticvoidcpu_record_print(structvty*vty,thread_typefilter){structcpu_thread_histor
+ytmp;void*args[3]={&tmp,vty,&filter};structthread_master*m;structlistnode*ln;mem
+set(&tmp,0,sizeoftmp);tmp.funcname="TOTAL";tmp.types=filter;pthread_mutex_lock(&
+masters_mtx);{for(ALL_LIST_ELEMENTS_RO(masters,ln,m)){constchar*name=m->name?m->
+name:"main";charunderline[strlen(name)+1];memset(underline,'-',sizeof(underline)
+);underline[sizeof(underline)]='\0';vty_out(vty,"\n");vty_out(vty,"Showingstatis
+ticsforpthread%s\n",name);vty_out(vty,"-------------------------------%s\n",unde
+rline);vty_out(vty,"%21s%18s%18s\n","","CPU(user+system):","Real(wall-clock):");
+vty_out(vty,"ActiveRuntime(ms)InvokedAvguSecMaxuSecs");vty_out(vty,"AvguSecMaxuS
+ecs");vty_out(vty,"TypeThread\n");if(m->cpu_record->count)hash_iterate(m->cpu_re
+cord,(void(*)(structhash_backet*,void*))cpu_record_hash_print,args);elsevty_out(
+vty,"Nodatatodisplayyet.\n");vty_out(vty,"\n");}}pthread_mutex_unlock(&masters_m
+tx);vty_out(vty,"\n");vty_out(vty,"Totalthreadstatistics\n");vty_out(vty,"------
+-------------------\n");vty_out(vty,"%21s%18s%18s\n","","CPU(user+system):","Rea
+l(wall-clock):");vty_out(vty,"ActiveRuntime(ms)InvokedAvguSecMaxuSecs");vty_out(
+vty,"AvguSecMaxuSecs");vty_out(vty,"TypeThread\n");if(tmp.total_calls>0)vty_out_
+cpu_thread_history(vty,&tmp);}staticvoidcpu_record_hash_clear(structhash_backet*
+bucket,void*args[]){thread_type*filter=args[0];structhash*cpu_record=args[1];str
+uctcpu_thread_history*a=bucket->data;if(!(a->types&*filter))return;hash_release(
+cpu_record,bucket->data);}staticvoidcpu_record_clear(thread_typefilter){thread_t
+ype*tmp=&filter;structthread_master*m;structlistnode*ln;pthread_mutex_lock(&mast
+ers_mtx);{for(ALL_LIST_ELEMENTS_RO(masters,ln,m)){pthread_mutex_lock(&m->mtx);{v
+oid*args[2]={tmp,m->cpu_record};hash_iterate(m->cpu_record,(void(*)(structhash_b
+acket*,void*))cpu_record_hash_clear,args);}pthread_mutex_unlock(&m->mtx);}}pthre
+ad_mutex_unlock(&masters_mtx);}staticthread_typeparse_filter(constchar*filterstr
+){inti=0;intfilter=0;while(filterstr[i]!='\0'){switch(filterstr[i]){case'r':case
+'R':filter|=(1<<THREAD_READ);break;case'w':case'W':filter|=(1<<THREAD_WRITE);bre
+ak;case't':case'T':filter|=(1<<THREAD_TIMER);break;case'e':case'E':filter|=(1<<T
+HREAD_EVENT);break;case'x':case'X':filter|=(1<<THREAD_EXECUTE);break;default:bre
+ak;}++i;}returnfilter;}DEFUN(show_thread_cpu,show_thread_cpu_cmd,"showthreadcpu[
+FILTER]",SHOW_STR"Threadinformation\n""ThreadCPUusage\n""Displayfilter(rwtexb)\n
+"){thread_typefilter=(thread_type)-1U;intidx=0;if(argv_find(argv,argc,"FILTER",&
+idx)){filter=parse_filter(argv[idx]->arg);if(!filter){vty_out(vty,"Invalidfilter
+\"%s\"specified;mustcontainatleast""oneof'RWTEXB'\n",argv[idx]->arg);returnCMD_W
+ARNING;}}cpu_record_print(vty,filter);returnCMD_SUCCESS;}DEFUN(clear_thread_cpu,
+clear_thread_cpu_cmd,"clearthreadcpu[FILTER]","Clearstoreddatainallpthreads\n""T
+hreadinformation\n""ThreadCPUusage\n""Displayfilter(rwtexb)\n"){thread_typefilte
+r=(thread_type)-1U;intidx=0;if(argv_find(argv,argc,"FILTER",&idx)){filter=parse_
+filter(argv[idx]->arg);if(!filter){vty_out(vty,"Invalidfilter\"%s\"specified;mus
+tcontainatleast""oneof'RWTEXB'\n",argv[idx]->arg);returnCMD_WARNING;}}cpu_record
+_clear(filter);returnCMD_SUCCESS;}voidthread_cmd_init(void){install_element(VIEW
+_NODE,&show_thread_cpu_cmd);install_element(ENABLE_NODE,&clear_thread_cpu_cmd);}
+/*CLIend------------------------------------------------------------------*/stat
+icintthread_timer_cmp(void*a,void*b){structthread*thread_a=a;structthread*thread
+_b=b;if(timercmp(&thread_a->u.sands,&thread_b->u.sands,<))return-1;if(timercmp(&
+thread_a->u.sands,&thread_b->u.sands,>))return1;return0;}staticvoidthread_timer_
+update(void*node,intactual_position){structthread*thread=node;thread->index=actu
+al_position;}staticvoidcancelreq_del(void*cr){XFREE(MTYPE_TMP,cr);}/*initializer
+,onlyevercalledonce*/staticvoidinitializer(){pthread_key_create(&thread_current,
+NULL);}structthread_master*thread_master_create(constchar*name){structthread_mas
+ter*rv;structrlimitlimit;pthread_once(&init_once,&initializer);rv=XCALLOC(MTYPE_
+THREAD_MASTER,sizeof(structthread_master));if(rv==NULL)returnNULL;/*Initializema
+stermutex*/pthread_mutex_init(&rv->mtx,NULL);pthread_cond_init(&rv->cancel_cond,
+NULL);/*Setname*/rv->name=name?XSTRDUP(MTYPE_THREAD_MASTER,name):NULL;/*Initiali
+zeI/Otaskdatastructures*/getrlimit(RLIMIT_NOFILE,&limit);rv->fd_limit=(int)limit
+.rlim_cur;rv->read=XCALLOC(MTYPE_THREAD,sizeof(structthread*)*rv->fd_limit);if(r
+v->read==NULL){XFREE(MTYPE_THREAD_MASTER,rv);returnNULL;}rv->write=XCALLOC(MTYPE
+_THREAD,sizeof(structthread*)*rv->fd_limit);if(rv->write==NULL){XFREE(MTYPE_THRE
+AD,rv->read);XFREE(MTYPE_THREAD_MASTER,rv);returnNULL;}rv->cpu_record=hash_creat
+e_size(8,(unsignedint(*)(void*))cpu_record_hash_key,(int(*)(constvoid*,constvoid
+*))cpu_record_hash_cmp,"ThreadHash");/*Initializethetimerqueues*/rv->timer=pqueu
+e_create();rv->timer->cmp=thread_timer_cmp;rv->timer->update=thread_timer_update
+;/*Initializethread_fetch()settings*/rv->spin=true;rv->handle_signals=true;/*Set
+pthreadowner,shouldbeupdatedbyactualowner*/rv->owner=pthread_self();rv->cancel_r
+eq=list_new();rv->cancel_req->del=cancelreq_del;rv->canceled=true;/*Initializepi
+pepoker*/pipe(rv->io_pipe);set_nonblocking(rv->io_pipe[0]);set_nonblocking(rv->i
+o_pipe[1]);/*Initializedatastructuresforpoll()*/rv->handler.pfdsize=rv->fd_limit
+;rv->handler.pfdcount=0;rv->handler.pfds=XCALLOC(MTYPE_THREAD_MASTER,sizeof(stru
+ctpollfd)*rv->handler.pfdsize);rv->handler.copy=XCALLOC(MTYPE_THREAD_MASTER,size
+of(structpollfd)*rv->handler.pfdsize);/*addtolistofthreadmasters*/pthread_mutex_
+lock(&masters_mtx);{if(!masters)masters=list_new();listnode_add(masters,rv);}pth
+read_mutex_unlock(&masters_mtx);returnrv;}voidthread_master_set_name(structthrea
+d_master*master,constchar*name){pthread_mutex_lock(&master->mtx);{if(master->nam
+e)XFREE(MTYPE_THREAD_MASTER,master->name);master->name=XSTRDUP(MTYPE_THREAD_MAST
+ER,name);}pthread_mutex_unlock(&master->mtx);}/*Addanewthreadtothelist.*/staticv
+oidthread_list_add(structthread_list*list,structthread*thread){thread->next=NULL
+;thread->prev=list->tail;if(list->tail)list->tail->next=thread;elselist->head=th
+read;list->tail=thread;list->count++;}/*Deleteathreadfromthelist.*/staticstructt
+hread*thread_list_delete(structthread_list*list,structthread*thread){if(thread->
+next)thread->next->prev=thread->prev;elselist->tail=thread->prev;if(thread->prev
+)thread->prev->next=thread->next;elselist->head=thread->next;thread->next=thread
+->prev=NULL;list->count--;returnthread;}/*Threadlistisemptyornot.*/staticintthre
+ad_empty(structthread_list*list){returnlist->head?0:1;}/*Deletetopofthelistandre
+turnit.*/staticstructthread*thread_trim_head(structthread_list*list){if(!thread_
+empty(list))returnthread_list_delete(list,list->head);returnNULL;}/*Movethreadto
+unuselist.*/staticvoidthread_add_unuse(structthread_master*m,structthread*thread
+){assert(m!=NULL&&thread!=NULL);assert(thread->next==NULL);assert(thread->prev==
+NULL);thread->ref=NULL;thread->type=THREAD_UNUSED;thread->hist->total_active--;t
+hread_list_add(&m->unuse,thread);}/*Freeallunusedthread.*/staticvoidthread_list_
+free(structthread_master*m,structthread_list*list){structthread*t;structthread*n
+ext;for(t=list->head;t;t=next){next=t->next;XFREE(MTYPE_THREAD,t);list->count--;
+m->alloc--;}}staticvoidthread_array_free(structthread_master*m,structthread**thr
+ead_array){structthread*t;intindex;for(index=0;index<m->fd_limit;++index){t=thre
+ad_array[index];if(t){thread_array[index]=NULL;XFREE(MTYPE_THREAD,t);m->alloc--;
+}}XFREE(MTYPE_THREAD,thread_array);}staticvoidthread_queue_free(structthread_mas
+ter*m,structpqueue*queue){inti;for(i=0;i<queue->size;i++)XFREE(MTYPE_THREAD,queu
+e->array[i]);m->alloc-=queue->size;pqueue_delete(queue);}/**thread_master_free_u
+nused**Asthreadsarefinishedwiththeyareputonthe*unuselistforlaterreuse.*Ifwearesh
+uttingdown,Freeupunusedthreads*Sowecanseeifweforgettoshutanythingoff*/voidthread
+_master_free_unused(structthread_master*m){pthread_mutex_lock(&m->mtx);{structth
+read*t;while((t=thread_trim_head(&m->unuse))!=NULL){pthread_mutex_destroy(&t->mt
+x);XFREE(MTYPE_THREAD,t);}}pthread_mutex_unlock(&m->mtx);}/*Stopthreadscheduler.
+*/voidthread_master_free(structthread_master*m){pthread_mutex_lock(&masters_mtx)
+;{listnode_delete(masters,m);if(masters->count==0){list_delete_and_null(&masters
+);}}pthread_mutex_unlock(&masters_mtx);thread_array_free(m,m->read);thread_array
+_free(m,m->write);thread_queue_free(m,m->timer);thread_list_free(m,&m->event);th
+read_list_free(m,&m->ready);thread_list_free(m,&m->unuse);pthread_mutex_destroy(
+&m->mtx);pthread_cond_destroy(&m->cancel_cond);close(m->io_pipe[0]);close(m->io_
+pipe[1]);list_delete_and_null(&m->cancel_req);m->cancel_req=NULL;hash_clean(m->c
+pu_record,cpu_record_hash_free);hash_free(m->cpu_record);m->cpu_record=NULL;if(m
+->name)XFREE(MTYPE_THREAD_MASTER,m->name);XFREE(MTYPE_THREAD_MASTER,m->handler.p
+fds);XFREE(MTYPE_THREAD_MASTER,m->handler.copy);XFREE(MTYPE_THREAD_MASTER,m);}/*
+Returnremaintimeinsecond.*/unsignedlongthread_timer_remain_second(structthread*t
+hread){int64_tremain;pthread_mutex_lock(&thread->mtx);{remain=monotime_until(&th
+read->u.sands,NULL)/1000000LL;}pthread_mutex_unlock(&thread->mtx);returnremain<0
+?0:remain;}#definedebugargdefconstchar*funcname,constchar*schedfrom,intfromln#de
+finedebugargpassfuncname,schedfrom,fromlnstructtimevalthread_timer_remain(struct
+thread*thread){structtimevalremain;pthread_mutex_lock(&thread->mtx);{monotime_un
+til(&thread->u.sands,&remain);}pthread_mutex_unlock(&thread->mtx);returnremain;}
+/*Getnewthread.*/staticstructthread*thread_get(structthread_master*m,uint8_ttype
+,int(*func)(structthread*),void*arg,debugargdef){structthread*thread=thread_trim
+_head(&m->unuse);structcpu_thread_historytmp;if(!thread){thread=XCALLOC(MTYPE_TH
+READ,sizeof(structthread));/*mutexonlyneedstobeinitializedatstructcreation.*/pth
+read_mutex_init(&thread->mtx,NULL);m->alloc++;}thread->type=type;thread->add_typ
+e=type;thread->master=m;thread->arg=arg;thread->index=-1;thread->yield=THREAD_YI
+ELD_TIME_SLOT;/*default*/thread->ref=NULL;/**Soifthepassedinfuncnameisnotwhatweh
+ave*storedthatmeansthethread->histneedstobe*updated.Wekeepthelastonearoundinunus
+ed*undertheassumptionthatweareprobably*goingtoimmediatelyallocatethesame*typeoft
+hread.*Thishopefullysavesussomeserious*hash_getlookups.*/if(thread->funcname!=fu
+ncname||thread->func!=func){tmp.func=func;tmp.funcname=funcname;thread->hist=has
+h_get(m->cpu_record,&tmp,(void*(*)(void*))cpu_record_hash_alloc);}thread->hist->
+total_active++;thread->func=func;thread->funcname=funcname;thread->schedfrom=sch
+edfrom;thread->schedfrom_line=fromln;returnthread;}staticintfd_poll(structthread
+_master*m,structpollfd*pfds,nfds_tpfdsize,nfds_tcount,conststructtimeval*timer_w
+ait){/*Iftimer_waitisnullhere,thatmeanspoll()shouldblock*indefinitely,*unlessthe
+thread_masterhasoverridenitbysetting*->selectpoll_timeout.*Ifthevalueispositive,
+itspecifiesthemaximumnumberof*milliseconds*towait.Ifthetimeoutis-1,itspecifiesth
+atweshouldneverwait*and*alwaysreturnimmediatelyevenifnoeventisdetected.Ifthevalu
+e*is*zero,thebehaviorisdefault.*/inttimeout=-1;/*numberoffiledescriptorswitheven
+ts*/intnum;if(timer_wait!=NULL&&m->selectpoll_timeout==0)//usethedefaultvaluetim
+eout=(timer_wait->tv_sec*1000)+(timer_wait->tv_usec/1000);elseif(m->selectpoll_t
+imeout>0)//usetheuser'stimeouttimeout=m->selectpoll_timeout;elseif(m->selectpoll
+_timeout<0)//effectapoll(returnimmediately)timeout=0;/*addpollpipepoker*/assert(
+count+1<pfdsize);pfds[count].fd=m->io_pipe[0];pfds[count].events=POLLIN;pfds[cou
+nt].revents=0x00;num=poll(pfds,count+1,timeout);unsignedchartrash[64];if(num>0&&
+pfds[count].revents!=0&&num--)while(read(m->io_pipe[0],&trash,sizeof(trash))>0);
+returnnum;}/*Addnewreadthread.*/structthread*funcname_thread_add_read_write(intd
+ir,structthread_master*m,int(*func)(structthread*),void*arg,intfd,structthread**
+t_ptr,debugargdef){structthread*thread=NULL;pthread_mutex_lock(&m->mtx);{if(t_pt
+r&&*t_ptr)//threadisalreadyscheduled;don'treschedule{pthread_mutex_unlock(&m->mt
+x);returnNULL;}/*defaulttoanewpollfd*/nfds_tqueuepos=m->handler.pfdcount;/*ifwea
+lreadyhaveapollfdforourfiledescriptor,findand*useit*/for(nfds_ti=0;i<m->handler.
+pfdcount;i++)if(m->handler.pfds[i].fd==fd){queuepos=i;break;}/*makesurewehaveroo
+mforthisfd+pipepokerfd*/assert(queuepos+1<m->handler.pfdsize);thread=thread_get(
+m,dir,func,arg,debugargpass);m->handler.pfds[queuepos].fd=fd;m->handler.pfds[que
+uepos].events|=(dir==THREAD_READ?POLLIN:POLLOUT);if(queuepos==m->handler.pfdcoun
+t)m->handler.pfdcount++;if(thread){pthread_mutex_lock(&thread->mtx);{thread->u.f
+d=fd;if(dir==THREAD_READ)m->read[thread->u.fd]=thread;elsem->write[thread->u.fd]
+=thread;}pthread_mutex_unlock(&thread->mtx);if(t_ptr){*t_ptr=thread;thread->ref=
+t_ptr;}}AWAKEN(m);}pthread_mutex_unlock(&m->mtx);returnthread;}staticstructthrea
+d*funcname_thread_add_timer_timeval(structthread_master*m,int(*func)(structthrea
+d*),inttype,void*arg,structtimeval*time_relative,structthread**t_ptr,debugargdef
+){structthread*thread;structpqueue*queue;assert(m!=NULL);assert(type==THREAD_TIM
+ER);assert(time_relative);pthread_mutex_lock(&m->mtx);{if(t_ptr&&*t_ptr)//thread
+isalreadyscheduled;don'treschedule{pthread_mutex_unlock(&m->mtx);returnNULL;}que
+ue=m->timer;thread=thread_get(m,type,func,arg,debugargpass);pthread_mutex_lock(&
+thread->mtx);{monotime(&thread->u.sands);timeradd(&thread->u.sands,time_relative
+,&thread->u.sands);pqueue_enqueue(thread,queue);if(t_ptr){*t_ptr=thread;thread->
+ref=t_ptr;}}pthread_mutex_unlock(&thread->mtx);AWAKEN(m);}pthread_mutex_unlock(&
+m->mtx);returnthread;}/*Addtimereventthread.*/structthread*funcname_thread_add_t
+imer(structthread_master*m,int(*func)(structthread*),void*arg,longtimer,structth
+read**t_ptr,debugargdef){structtimevaltrel;assert(m!=NULL);trel.tv_sec=timer;tre
+l.tv_usec=0;returnfuncname_thread_add_timer_timeval(m,func,THREAD_TIMER,arg,&tre
+l,t_ptr,debugargpass);}/*Addtimereventthreadwith"millisecond"resolution*/structt
+hread*funcname_thread_add_timer_msec(structthread_master*m,int(*func)(structthre
+ad*),void*arg,longtimer,structthread**t_ptr,debugargdef){structtimevaltrel;asser
+t(m!=NULL);trel.tv_sec=timer/1000;trel.tv_usec=1000*(timer%1000);returnfuncname_
+thread_add_timer_timeval(m,func,THREAD_TIMER,arg,&trel,t_ptr,debugargpass);}/*Ad
+dtimereventthreadwith"millisecond"resolution*/structthread*funcname_thread_add_t
+imer_tv(structthread_master*m,int(*func)(structthread*),void*arg,structtimeval*t
+v,structthread**t_ptr,debugargdef){returnfuncname_thread_add_timer_timeval(m,fun
+c,THREAD_TIMER,arg,tv,t_ptr,debugargpass);}/*Addsimpleeventthread.*/structthread
+*funcname_thread_add_event(structthread_master*m,int(*func)(structthread*),void*
+arg,intval,structthread**t_ptr,debugargdef){structthread*thread;assert(m!=NULL);
+pthread_mutex_lock(&m->mtx);{if(t_ptr&&*t_ptr)//threadisalreadyscheduled;don'tre
+schedule{pthread_mutex_unlock(&m->mtx);returnNULL;}thread=thread_get(m,THREAD_EV
+ENT,func,arg,debugargpass);pthread_mutex_lock(&thread->mtx);{thread->u.val=val;t
+hread_list_add(&m->event,thread);}pthread_mutex_unlock(&thread->mtx);if(t_ptr){*
+t_ptr=thread;thread->ref=t_ptr;}AWAKEN(m);}pthread_mutex_unlock(&m->mtx);returnt
+hread;}/*Threadcancellation-----------------------------------------------------
+-*//***NOT'soutthe.eventsfieldofpollfdcorrespondingtothegivenfile*descriptor.The
+eventtobeNOT'dispassedinthe'state'parameter.**Thisneedstohappenforbothcopiesofpo
+llfd's.See'thread_fetch'*implementationfordetails.**@parammaster*@paramfd*@param
+statetheeventtocancel.Oneormore(OR'dtogether)ofthe*following:*-POLLIN*-POLLOUT*/
+staticvoidthread_cancel_rw(structthread_master*master,intfd,shortstate){boolfoun
+d=false;/*CancelPOLLHUPtoojustincasesomebozosetit*/state|=POLLHUP;/*findtheindex
+ofcorrespondingpollfd*/nfds_ti;for(i=0;i<master->handler.pfdcount;i++)if(master-
+>handler.pfds[i].fd==fd){found=true;break;}if(!found){zlog_debug("[!]Receivedcan
+cellationrequestfornonexistentrwjob");zlog_debug("[!]threadmaster:%s|fd:%d",mast
+er->name?master->name:"",fd);return;}/*NOToutevent.*/master->handler.pfds[i].eve
+nts&=~(state);/*Ifalleventsarecanceled,delete/resizethepollfdarray.*/if(master->
+handler.pfds[i].events==0){memmove(master->handler.pfds+i,master->handler.pfds+i
++1,(master->handler.pfdcount-i-1)*sizeof(structpollfd));master->handler.pfdcount
+--;}/*Ifwehavethesamepollfdinthecopy,performthesameoperations,*otherwisereturn.*
+/if(i>=master->handler.copycount)return;master->handler.copy[i].events&=~(state)
+;if(master->handler.copy[i].events==0){memmove(master->handler.copy+i,master->ha
+ndler.copy+i+1,(master->handler.copycount-i-1)*sizeof(structpollfd));master->han
+dler.copycount--;}}/***Processcancellationrequests.**Thismayonlyberunfromthepthr
+eadwhichownsthethread_master.**@parammasterthethreadmastertoprocess*@REQUIREmast
+er->mtx*/staticvoiddo_thread_cancel(structthread_master*master){structthread_lis
+t*list=NULL;structpqueue*queue=NULL;structthread**thread_array=NULL;structthread
+*thread;structcancel_req*cr;structlistnode*ln;for(ALL_LIST_ELEMENTS_RO(master->c
+ancel_req,ln,cr)){/*Ifthisisaneventobjectcancellation,linearsearch*throughevent*
+listdeletinganyeventswhichhavethespecifiedargument.*Wealso*needtocheckeverythrea
+dinthereadyqueue.*/if(cr->eventobj){structthread*t;thread=master->event.head;whi
+le(thread){t=thread;thread=t->next;if(t->arg==cr->eventobj){thread_list_delete(&
+master->event,t);if(t->ref)*t->ref=NULL;thread_add_unuse(master,t);}}thread=mast
+er->ready.head;while(thread){t=thread;thread=t->next;if(t->arg==cr->eventobj){th
+read_list_delete(&master->ready,t);if(t->ref)*t->ref=NULL;thread_add_unuse(maste
+r,t);}}continue;}/*Thepointervariesdependingonwhetherthecancellation*requestwas*
+madeasynchronouslyornot.Ifitwas,weneedtocheck*whetherthe*threadevenexistsanymore
+beforecancellingit.*/thread=(cr->thread)?cr->thread:*cr->threadref;if(!thread)co
+ntinue;/*Determinetheappropriatequeuetocancelthethreadfrom*/switch(thread->type)
+{caseTHREAD_READ:thread_cancel_rw(master,thread->u.fd,POLLIN);thread_array=maste
+r->read;break;caseTHREAD_WRITE:thread_cancel_rw(master,thread->u.fd,POLLOUT);thr
+ead_array=master->write;break;caseTHREAD_TIMER:queue=master->timer;break;caseTHR
+EAD_EVENT:list=&master->event;break;caseTHREAD_READY:list=&master->ready;break;d
+efault:continue;break;}if(queue){assert(thread->index>=0);assert(thread==queue->
+array[thread->index]);pqueue_remove_at(thread->index,queue);}elseif(list){thread
+_list_delete(list,thread);}elseif(thread_array){thread_array[thread->u.fd]=NULL;
+}else{assert(!"Threadshouldbeeitherinqueueorlistorarray!");}if(thread->ref)*thre
+ad->ref=NULL;thread_add_unuse(thread->master,thread);}/*Deleteandfreeallcancella
+tionrequests*/list_delete_all_node(master->cancel_req);/*Wakeupanythreadswhichma
+ybeblockedinthread_cancel_async()*/master->canceled=true;pthread_cond_broadcast(
+&master->cancel_cond);}/***Cancelanyeventswhichhavethespecifiedargument.**MT-Uns
+afe**@parammthethread_mastertocancelfrom*@paramargtheargumentpassedwhencreatingt
+heevent*/voidthread_cancel_event(structthread_master*master,void*arg){assert(mas
+ter->owner==pthread_self());pthread_mutex_lock(&master->mtx);{structcancel_req*c
+r=XCALLOC(MTYPE_TMP,sizeof(structcancel_req));cr->eventobj=arg;listnode_add(mast
+er->cancel_req,cr);do_thread_cancel(master);}pthread_mutex_unlock(&master->mtx);
+}/***Cancelaspecifictask.**MT-Unsafe**@paramthreadtasktocancel*/voidthread_cance
+l(structthread*thread){assert(thread->master->owner==pthread_self());pthread_mut
+ex_lock(&thread->master->mtx);{structcancel_req*cr=XCALLOC(MTYPE_TMP,sizeof(stru
+ctcancel_req));cr->thread=thread;listnode_add(thread->master->cancel_req,cr);do_
+thread_cancel(thread->master);}pthread_mutex_unlock(&thread->master->mtx);}/***A
+synchronouscancellation.**Calledwitheitherastructthread**orvoid*toaneventargumen
+t,*thisfunctionpoststhecorrectcancellationrequestandblocksuntilitis*serviced.**I
+fthethreadiscurrentlyrunning,executionblocksuntilitcompletes.**Thelasttwoparamet
+ersaremutuallyexclusive,i.e.ifyoupassonethe*othermustbeNULL.**Whenthecancellatio
+nprocedureexecutesonthetargetthread_master,the*thread*providedischeckedfornullit
+y.Ifitisnull,thethreadis*assumedtonolongerexistandthecancellationrequestisano-op
+.Thus*usersofthisAPImustpassaback-referencewhenschedulingtheoriginal*task.**MT-S
+afe**@parammasterthethreadmasterwiththerelevantevent/task*@paramthreadpointertot
+hreadtocancel*@parameventobjtheevent*/voidthread_cancel_async(structthread_maste
+r*master,structthread**thread,void*eventobj){assert(!(thread&&eventobj)&&(thread
+||eventobj));assert(master->owner!=pthread_self());pthread_mutex_lock(&master->m
+tx);{master->canceled=false;if(thread){structcancel_req*cr=XCALLOC(MTYPE_TMP,siz
+eof(structcancel_req));cr->threadref=thread;listnode_add(master->cancel_req,cr);
+}elseif(eventobj){structcancel_req*cr=XCALLOC(MTYPE_TMP,sizeof(structcancel_req)
+);cr->eventobj=eventobj;listnode_add(master->cancel_req,cr);}AWAKEN(master);whil
+e(!master->canceled)pthread_cond_wait(&master->cancel_cond,&master->mtx);}pthrea
+d_mutex_unlock(&master->mtx);}/*------------------------------------------------
+-------------------------*/staticstructtimeval*thread_timer_wait(structpqueue*qu
+eue,structtimeval*timer_val){if(queue->size){structthread*next_timer=queue->arra
+y[0];monotime_until(&next_timer->u.sands,timer_val);returntimer_val;}returnNULL;
+}staticstructthread*thread_run(structthread_master*m,structthread*thread,structt
+hread*fetch){*fetch=*thread;thread_add_unuse(m,thread);returnfetch;}staticintthr
+ead_process_io_helper(structthread_master*m,structthread*thread,shortstate,intpo
+s){structthread**thread_array;if(!thread)return0;if(thread->type==THREAD_READ)th
+read_array=m->read;elsethread_array=m->write;thread_array[thread->u.fd]=NULL;thr
+ead_list_add(&m->ready,thread);thread->type=THREAD_READY;/*ifanotherpthreadsched
+uledthisfiledescriptorfortheeventwe're*respondingto,noproblem;we'regettingtoitno
+w*/thread->master->handler.pfds[pos].events&=~(state);return1;}/***ProcessI/Oeve
+nts.**Walksthroughfiledescriptorarraylookingforthosepollfdswhose.revents*fieldha
+ssomethinginteresting.Deletesanyinvalidfiledescriptors.**@parammthethreadmaster*
+@paramnumthenumberofactivefiledescriptors(returnvalueofpoll())*/staticvoidthread
+_process_io(structthread_master*m,unsignedintnum){unsignedintready=0;structpollf
+d*pfds=m->handler.copy;for(nfds_ti=0;i<m->handler.copycount&&ready<num;++i){/*no
+eventforcurrentfd?immediatelycontinue*/if(pfds[i].revents==0)continue;ready++;/*
+Unlesssomeonehascalledthread_cancelfromanotherpthread,*theonly*thingthatcouldhav
+echangedinm->handler.pfdswhilewe*were*asleepisthe.eventsfieldinagivenpollfd.Barr
+ing*thread_cancel()*thatvalueshouldbeasupersetofthevalueswehaveinour*copy,so*the
+re'snoneedtoupdateit.Similarily,barringdeletion,*thefd*shouldstillbeavalidindexi
+ntothemaster'spfds.*/if(pfds[i].revents&(POLLIN|POLLHUP))thread_process_io_helpe
+r(m,m->read[pfds[i].fd],POLLIN,i);if(pfds[i].revents&POLLOUT)thread_process_io_h
+elper(m,m->write[pfds[i].fd],POLLOUT,i);/*ifoneofourfiledescriptorsisgarbage,rem
+ovethesame*from*bothpfds+updatesizesandindex*/if(pfds[i].revents&POLLNVAL){memmo
+ve(m->handler.pfds+i,m->handler.pfds+i+1,(m->handler.pfdcount-i-1)*sizeof(struct
+pollfd));m->handler.pfdcount--;memmove(pfds+i,pfds+i+1,(m->handler.copycount-i-1
+)*sizeof(structpollfd));m->handler.copycount--;i--;}}}/*Addalltimersthathavepopp
+edtothereadylist.*/staticunsignedintthread_process_timers(structpqueue*queue,str
+ucttimeval*timenow){structthread*thread;unsignedintready=0;while(queue->size){th
+read=queue->array[0];if(timercmp(timenow,&thread->u.sands,<))returnready;pqueue_
+dequeue(queue);thread->type=THREAD_READY;thread_list_add(&thread->master->ready,
+thread);ready++;}returnready;}/*processalistenmasse,e.g.foreventthreadlists*/sta
+ticunsignedintthread_process(structthread_list*list){structthread*thread;structt
+hread*next;unsignedintready=0;for(thread=list->head;thread;thread=next){next=thr
+ead->next;thread_list_delete(list,thread);thread->type=THREAD_READY;thread_list_
+add(&thread->master->ready,thread);ready++;}returnready;}/*Fetchnextreadythread.
+*/structthread*thread_fetch(structthread_master*m,structthread*fetch){structthre
+ad*thread=NULL;structtimevalnow;structtimevalzerotime={0,0};structtimevaltv;stru
+cttimeval*tw=NULL;intnum=0;do{/*Handlesignalsifany*/if(m->handle_signals)quagga_
+sigevent_process();pthread_mutex_lock(&m->mtx);/*Processanypendingcancellationre
+quests*/do_thread_cancel(m);/**Attempttoflushreadyqueuebeforegoingintopoll().*Th
+isisperformance-critical.Thinktwicebeforemodifying.*/if((thread=thread_trim_head
+(&m->ready))){fetch=thread_run(m,thread,fetch);if(fetch->ref)*fetch->ref=NULL;pt
+hread_mutex_unlock(&m->mtx);break;}/*otherwise,tickthroughschedulingsequence*//*
+*Posteventstoreadyqueue.Thismustcomebeforethe*followingblocksinceeventsshouldocc
+urimmediately*/thread_process(&m->event);/**Iftherearenotasksonthereadyqueue,wew
+illpoll()*untilatimerexpiresorwereceiveI/O,whichevercomes*first.Thestrategyfordo
+ingthisis:**-Ifthereareeventspending,setthepoll()timeouttozero*-Iftherearenoeven
+tspending,buttherearetimers*pending,setthe*timeouttothesmallestremainingtimeonan
+ytimer*-Ifthereareneithertimersnoreventspending,butthere*arefile*descriptorspend
+ing,blockindefinitelyinpoll()*-Ifnothingispending,it'stimefortheapplicationtodie
+**Ineverycaseexceptthelast,weneedtohitpoll()atleast*onceperlooptoavoidstarvation
+byevents*/if(m->ready.count==0)tw=thread_timer_wait(m->timer,&tv);if(m->ready.co
+unt!=0||(tw&&!timercmp(tw,&zerotime,>)))tw=&zerotime;if(!tw&&m->handler.pfdcount
+==0){/*die*/pthread_mutex_unlock(&m->mtx);fetch=NULL;break;}/**Copypollfdarray+#
+activepollfdsinit.Notnecessaryto*copythearraysizeasthisisfixed.*/m->handler.copy
+count=m->handler.pfdcount;memcpy(m->handler.copy,m->handler.pfds,m->handler.copy
+count*sizeof(structpollfd));pthread_mutex_unlock(&m->mtx);{num=fd_poll(m,m->hand
+ler.copy,m->handler.pfdsize,m->handler.copycount,tw);}pthread_mutex_lock(&m->mtx
+);/*Handleanyerrorsreceivedinpoll()*/if(num<0){if(errno==EINTR){pthread_mutex_un
+lock(&m->mtx);/*looparoundtosignalhandler*/continue;}/*elsedie*/zlog_warn("poll(
+)error:%s",safe_strerror(errno));pthread_mutex_unlock(&m->mtx);fetch=NULL;break;
+}/*Posttimerstoreadyqueue.*/monotime(&now);thread_process_timers(m->timer,&now);
+/*PostI/Otoreadyqueue.*/if(num>0)thread_process_io(m,num);pthread_mutex_unlock(&
+m->mtx);}while(!thread&&m->spin);returnfetch;}staticunsignedlongtimeval_elapsed(
+structtimevala,structtimevalb){return(((a.tv_sec-b.tv_sec)*TIMER_SECOND_MICRO)+(
+a.tv_usec-b.tv_usec));}unsignedlongthread_consumed_time(RUSAGE_T*now,RUSAGE_T*st
+art,unsignedlong*cputime){/*Thisis'user+sys'time.*/*cputime=timeval_elapsed(now-
+>cpu.ru_utime,start->cpu.ru_utime)+timeval_elapsed(now->cpu.ru_stime,start->cpu.
+ru_stime);returntimeval_elapsed(now->real,start->real);}/*Weshouldaimtoyieldafte
+ryieldmilliseconds,whichdefaultstoTHREAD_YIELD_TIME_SLOT.Note:weareusingreal(wal
+lclock)timeforthiscalculation.ItcouldbearguedthatCPUtimemaymakemoresenseincertai
+ncontexts.Thethingstoconsiderarewhetherthethreadmayhaveblocked(inwhichcasewallti
+meincreases,butCPUtimedoesnot),orwhetherthesystemisheavilyloadedwithotherprocess
+escompetingforCPUtime.Onbalance,wallclocktimeseemstomakesense.Plusithastheaddedb
+enefitthatgettimeofdayshouldbefasterthancallinggetrusage.*/intthread_should_yiel
+d(structthread*thread){intresult;pthread_mutex_lock(&thread->mtx);{result=monoti
+me_since(&thread->real,NULL)>(int64_t)thread->yield;}pthread_mutex_unlock(&threa
+d->mtx);returnresult;}voidthread_set_yield_time(structthread*thread,unsignedlong
+yield_time){pthread_mutex_lock(&thread->mtx);{thread->yield=yield_time;}pthread_
+mutex_unlock(&thread->mtx);}voidthread_getrusage(RUSAGE_T*r){monotime(&r->real);
+getrusage(RUSAGE_SELF,&(r->cpu));}/*Wecheckthreadconsumedtime.Ifthesystemhasgetr
+usage,we'llusethattogetin-depthstatsontheperformanceofthethreadinadditiontowallc
+locktimestatsfromgettimeofday.*/voidthread_call(structthread*thread){unsignedlon
+grealtime,cputime;RUSAGE_Tbefore,after;GETRUSAGE(&before);thread->real=before.re
+al;pthread_setspecific(thread_current,thread);(*thread->func)(thread);pthread_se
+tspecific(thread_current,NULL);GETRUSAGE(&after);realtime=thread_consumed_time(&
+after,&before,&cputime);thread->hist->real.total+=realtime;if(thread->hist->real
+.max<realtime)thread->hist->real.max=realtime;thread->hist->cpu.total+=cputime;i
+f(thread->hist->cpu.max<cputime)thread->hist->cpu.max=cputime;++(thread->hist->t
+otal_calls);thread->hist->types|=(1<<thread->add_type);#ifdefCONSUMED_TIME_CHECK
+if(realtime>CONSUMED_TIME_CHECK){/**WehaveaCPUHogonourhands.*Whingeaboutitnow,so
+we'reawarethisisyetanothertask*tofix.*/zlog_warn("SLOWTHREAD:task%s(%lx)ranfor%l
+ums(cputime%lums)",thread->funcname,(unsignedlong)thread->func,realtime/1000,cpu
+time/1000);}#endif/*CONSUMED_TIME_CHECK*/}/*Executethread*/voidfuncname_thread_e
+xecute(structthread_master*m,int(*func)(structthread*),void*arg,intval,debugargd
+ef){structcpu_thread_historytmp;structthreaddummy;memset(&dummy,0,sizeof(structt
+hread));pthread_mutex_init(&dummy.mtx,NULL);dummy.type=THREAD_EVENT;dummy.add_ty
+pe=THREAD_EXECUTE;dummy.master=NULL;dummy.arg=arg;dummy.u.val=val;tmp.func=dummy
+.func=func;tmp.funcname=dummy.funcname=funcname;dummy.hist=hash_get(m->cpu_recor
+d,&tmp,(void*(*)(void*))cpu_record_hash_alloc);dummy.schedfrom=schedfrom;dummy.s
+chedfrom_line=fromln;thread_call(&dummy);}

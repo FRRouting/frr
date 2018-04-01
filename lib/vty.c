@@ -1,3039 +1,674 @@
-/*
- * Virtual terminal [aka TeletYpe] interface routine.
- * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "linklist.h"
-#include "thread.h"
-#include "buffer.h"
-#include <lib/version.h>
-#include "command.h"
-#include "sockunion.h"
-#include "memory.h"
-#include "log.h"
-#include "prefix.h"
-#include "filter.h"
-#include "vty.h"
-#include "privs.h"
-#include "network.h"
-#include "libfrr.h"
-
-#include <arpa/telnet.h>
-#include <termios.h>
-
-DEFINE_MTYPE_STATIC(LIB, VTY, "VTY")
-DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer")
-DEFINE_MTYPE_STATIC(LIB, VTY_HIST, "VTY history")
-
-/* Vty events */
-enum event {
-	VTY_SERV,
-	VTY_READ,
-	VTY_WRITE,
-	VTY_TIMEOUT_RESET,
-#ifdef VTYSH
-	VTYSH_SERV,
-	VTYSH_READ,
-	VTYSH_WRITE
-#endif /* VTYSH */
-};
-
-static void vty_event(enum event, int, struct vty *);
-
-/* Extern host structure from command.c */
-extern struct host host;
-
-/* Vector which store each vty structure. */
-static vector vtyvec;
-
-/* Vty timeout value. */
-static unsigned long vty_timeout_val = VTY_TIMEOUT_DEFAULT;
-
-/* Vty access-class command */
-static char *vty_accesslist_name = NULL;
-
-/* Vty access-calss for IPv6. */
-static char *vty_ipv6_accesslist_name = NULL;
-
-/* VTY server thread. */
-static vector Vvty_serv_thread;
-
-/* Current directory. */
-char *vty_cwd = NULL;
-
-/* Configure lock. */
-static int vty_config;
-static int vty_config_is_lockless = 0;
-
-/* Login password check. */
-static int no_password_check = 0;
-
-/* Integrated configuration file path */
-char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
-
-static int do_log_commands = 0;
-
-void vty_frame(struct vty *vty, const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	vsnprintf(vty->frame + vty->frame_pos,
-		  sizeof(vty->frame) - vty->frame_pos, format, args);
-	vty->frame_pos = strlen(vty->frame);
-	va_end(args);
-}
-
-void vty_endframe(struct vty *vty, const char *endtext)
-{
-	if (vty->frame_pos == 0 && endtext)
-		vty_out(vty, "%s", endtext);
-	vty->frame_pos = 0;
-}
-
-/* VTY standard output function. */
-int vty_out(struct vty *vty, const char *format, ...)
-{
-	va_list args;
-	int len = 0;
-	int size = 1024;
-	char buf[1024];
-	char *p = NULL;
-
-	if (vty->frame_pos) {
-		vty->frame_pos = 0;
-		vty_out(vty, "%s", vty->frame);
-	}
-
-	if (vty_shell(vty)) {
-		va_start(args, format);
-		vprintf(format, args);
-		va_end(args);
-	} else {
-		/* Try to write to initial buffer.  */
-		va_start(args, format);
-		len = vsnprintf(buf, sizeof(buf), format, args);
-		va_end(args);
-
-		/* Initial buffer is not enough.  */
-		if (len < 0 || len >= size) {
-			while (1) {
-				if (len > -1)
-					size = len + 1;
-				else
-					size = size * 2;
-
-				p = XREALLOC(MTYPE_VTY_OUT_BUF, p, size);
-				if (!p)
-					return -1;
-
-				va_start(args, format);
-				len = vsnprintf(p, size, format, args);
-				va_end(args);
-
-				if (len > -1 && len < size)
-					break;
-			}
-		}
-
-		/* When initial buffer is enough to store all output.  */
-		if (!p)
-			p = buf;
-
-		/* Pointer p must point out buffer. */
-		if (vty->type != VTY_TERM)
-			buffer_put(vty->obuf, (uint8_t *)p, len);
-		else
-			buffer_put_crlf(vty->obuf, (uint8_t *)p, len);
-
-		/* If p is not different with buf, it is allocated buffer.  */
-		if (p != buf)
-			XFREE(MTYPE_VTY_OUT_BUF, p);
-	}
-
-	return len;
-}
-
-static int vty_log_out(struct vty *vty, const char *level,
-		       const char *proto_str, const char *format,
-		       struct timestamp_control *ctl, va_list va)
-{
-	int ret;
-	int len;
-	char buf[1024];
-
-	if (!ctl->already_rendered) {
-		ctl->len = quagga_timestamp(ctl->precision, ctl->buf,
-					    sizeof(ctl->buf));
-		ctl->already_rendered = 1;
-	}
-	if (ctl->len + 1 >= sizeof(buf))
-		return -1;
-	memcpy(buf, ctl->buf, len = ctl->len);
-	buf[len++] = ' ';
-	buf[len] = '\0';
-
-	if (level)
-		ret = snprintf(buf + len, sizeof(buf) - len, "%s: %s: ", level,
-			       proto_str);
-	else
-		ret = snprintf(buf + len, sizeof(buf) - len, "%s: ", proto_str);
-	if ((ret < 0) || ((size_t)(len += ret) >= sizeof(buf)))
-		return -1;
-
-	if (((ret = vsnprintf(buf + len, sizeof(buf) - len, format, va)) < 0)
-	    || ((size_t)((len += ret) + 2) > sizeof(buf)))
-		return -1;
-
-	buf[len++] = '\r';
-	buf[len++] = '\n';
-
-	if (write(vty->wfd, buf, len) < 0) {
-		if (ERRNO_IO_RETRY(errno))
-			/* Kernel buffer is full, probably too much debugging
-			   output, so just
-			   drop the data and ignore. */
-			return -1;
-		/* Fatal I/O error. */
-		vty->monitor =
-			0; /* disable monitoring to avoid infinite recursion */
-		zlog_warn("%s: write failed to vty client fd %d, closing: %s",
-			  __func__, vty->fd, safe_strerror(errno));
-		buffer_reset(vty->obuf);
-		/* cannot call vty_close, because a parent routine may still try
-		   to access the vty struct */
-		vty->status = VTY_CLOSE;
-		shutdown(vty->fd, SHUT_RDWR);
-		return -1;
-	}
-	return 0;
-}
-
-/* Output current time to the vty. */
-void vty_time_print(struct vty *vty, int cr)
-{
-	char buf[QUAGGA_TIMESTAMP_LEN];
-
-	if (quagga_timestamp(0, buf, sizeof(buf)) == 0) {
-		zlog_info("quagga_timestamp error");
-		return;
-	}
-	if (cr)
-		vty_out(vty, "%s\n", buf);
-	else
-		vty_out(vty, "%s ", buf);
-
-	return;
-}
-
-/* Say hello to vty interface. */
-void vty_hello(struct vty *vty)
-{
-	if (host.motdfile) {
-		FILE *f;
-		char buf[4096];
-
-		f = fopen(host.motdfile, "r");
-		if (f) {
-			while (fgets(buf, sizeof(buf), f)) {
-				char *s;
-				/* work backwards to ignore trailling isspace()
-				 */
-				for (s = buf + strlen(buf);
-				     (s > buf) && isspace((int)*(s - 1)); s--)
-					;
-				*s = '\0';
-				vty_out(vty, "%s\n", buf);
-			}
-			fclose(f);
-		} else
-			vty_out(vty, "MOTD file not found\n");
-	} else if (host.motd)
-		vty_out(vty, "%s", host.motd);
-}
-
-/* Put out prompt and wait input from user. */
-static void vty_prompt(struct vty *vty)
-{
-	if (vty->type == VTY_TERM) {
-		vty_out(vty, cmd_prompt(vty->node), cmd_hostname_get());
-	}
-}
-
-/* Send WILL TELOPT_ECHO to remote server. */
-static void vty_will_echo(struct vty *vty)
-{
-	unsigned char cmd[] = {IAC, WILL, TELOPT_ECHO, '\0'};
-	vty_out(vty, "%s", cmd);
-}
-
-/* Make suppress Go-Ahead telnet option. */
-static void vty_will_suppress_go_ahead(struct vty *vty)
-{
-	unsigned char cmd[] = {IAC, WILL, TELOPT_SGA, '\0'};
-	vty_out(vty, "%s", cmd);
-}
-
-/* Make don't use linemode over telnet. */
-static void vty_dont_linemode(struct vty *vty)
-{
-	unsigned char cmd[] = {IAC, DONT, TELOPT_LINEMODE, '\0'};
-	vty_out(vty, "%s", cmd);
-}
-
-/* Use window size. */
-static void vty_do_window_size(struct vty *vty)
-{
-	unsigned char cmd[] = {IAC, DO, TELOPT_NAWS, '\0'};
-	vty_out(vty, "%s", cmd);
-}
-
-#if 0  /* Currently not used. */
-/* Make don't use lflow vty interface. */
-static void
-vty_dont_lflow_ahead (struct vty *vty)
-{
-  unsigned char cmd[] = { IAC, DONT, TELOPT_LFLOW, '\0' };
-  vty_out (vty, "%s", cmd);
-}
-#endif /* 0 */
-
-/* Allocate new vty struct. */
-struct vty *vty_new()
-{
-	struct vty *new = XCALLOC(MTYPE_VTY, sizeof(struct vty));
-
-	new->fd = new->wfd = -1;
-	new->obuf = buffer_new(0); /* Use default buffer size. */
-	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
-	new->error_buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
-	new->max = VTY_BUFSIZ;
-
-	return new;
-}
-
-/* Authentication of vty */
-static void vty_auth(struct vty *vty, char *buf)
-{
-	char *passwd = NULL;
-	enum node_type next_node = 0;
-	int fail;
-	char *crypt(const char *, const char *);
-
-	switch (vty->node) {
-	case AUTH_NODE:
-		if (host.encrypt)
-			passwd = host.password_encrypt;
-		else
-			passwd = host.password;
-		if (host.advanced)
-			next_node = host.enable ? VIEW_NODE : ENABLE_NODE;
-		else
-			next_node = VIEW_NODE;
-		break;
-	case AUTH_ENABLE_NODE:
-		if (host.encrypt)
-			passwd = host.enable_encrypt;
-		else
-			passwd = host.enable;
-		next_node = ENABLE_NODE;
-		break;
-	}
-
-	if (passwd) {
-		if (host.encrypt)
-			fail = strcmp(crypt(buf, passwd), passwd);
-		else
-			fail = strcmp(buf, passwd);
-	} else
-		fail = 1;
-
-	if (!fail) {
-		vty->fail = 0;
-		vty->node = next_node; /* Success ! */
-	} else {
-		vty->fail++;
-		if (vty->fail >= 3) {
-			if (vty->node == AUTH_NODE) {
-				vty_out(vty,
-					"%% Bad passwords, too many failures!\n");
-				vty->status = VTY_CLOSE;
-			} else {
-				/* AUTH_ENABLE_NODE */
-				vty->fail = 0;
-				vty_out(vty,
-					"%% Bad enable passwords, too many failures!\n");
-				vty->status = VTY_CLOSE;
-			}
-		}
-	}
-}
-
-/* Command execution over the vty interface. */
-static int vty_command(struct vty *vty, char *buf)
-{
-	int ret;
-	vector vline;
-	const char *protocolname;
-	char *cp = NULL;
-
-	/*
-	 * Log non empty command lines
-	 */
-	if (do_log_commands)
-		cp = buf;
-	if (cp != NULL) {
-		/* Skip white spaces. */
-		while (isspace((int)*cp) && *cp != '\0')
-			cp++;
-	}
-	if (cp != NULL && *cp != '\0') {
-		unsigned i;
-		char vty_str[VTY_BUFSIZ];
-		char prompt_str[VTY_BUFSIZ];
-
-		/* format the base vty info */
-		snprintf(vty_str, sizeof(vty_str), "vty[??]@%s", vty->address);
-		if (vty)
-			for (i = 0; i < vector_active(vtyvec); i++)
-				if (vty == vector_slot(vtyvec, i)) {
-					snprintf(vty_str, sizeof(vty_str),
-						 "vty[%d]@%s", i, vty->address);
-					break;
-				}
-
-		/* format the prompt */
-		snprintf(prompt_str, sizeof(prompt_str), cmd_prompt(vty->node),
-			 vty_str);
-
-		/* now log the command */
-		zlog_err("%s%s", prompt_str, buf);
-	}
-	/* Split readline string up into the vector */
-	vline = cmd_make_strvec(buf);
-
-	if (vline == NULL)
-		return CMD_SUCCESS;
-
-#ifdef CONSUMED_TIME_CHECK
-	{
-		RUSAGE_T before;
-		RUSAGE_T after;
-		unsigned long realtime, cputime;
-
-		GETRUSAGE(&before);
-#endif /* CONSUMED_TIME_CHECK */
-
-		ret = cmd_execute_command(vline, vty, NULL, 0);
-
-		/* Get the name of the protocol if any */
-		protocolname = frr_protoname;
-
-#ifdef CONSUMED_TIME_CHECK
-		GETRUSAGE(&after);
-		if ((realtime = thread_consumed_time(&after, &before, &cputime))
-		    > CONSUMED_TIME_CHECK)
-			/* Warn about CPU hog that must be fixed. */
-			zlog_warn(
-				"SLOW COMMAND: command took %lums (cpu time %lums): %s",
-				realtime / 1000, cputime / 1000, buf);
-	}
-#endif /* CONSUMED_TIME_CHECK */
-
-	if (ret != CMD_SUCCESS)
-		switch (ret) {
-		case CMD_WARNING:
-			if (vty->type == VTY_FILE)
-				vty_out(vty, "Warning...\n");
-			break;
-		case CMD_ERR_AMBIGUOUS:
-			vty_out(vty, "%% Ambiguous command.\n");
-			break;
-		case CMD_ERR_NO_MATCH:
-			vty_out(vty, "%% [%s] Unknown command: %s\n",
-				protocolname, buf);
-			break;
-		case CMD_ERR_INCOMPLETE:
-			vty_out(vty, "%% Command incomplete.\n");
-			break;
-		}
-	cmd_free_strvec(vline);
-
-	return ret;
-}
-
-static const char telnet_backward_char = 0x08;
-static const char telnet_space_char = ' ';
-
-/* Basic function to write buffer to vty. */
-static void vty_write(struct vty *vty, const char *buf, size_t nbytes)
-{
-	if ((vty->node == AUTH_NODE) || (vty->node == AUTH_ENABLE_NODE))
-		return;
-
-	/* Should we do buffering here ?  And make vty_flush (vty) ? */
-	buffer_put(vty->obuf, buf, nbytes);
-}
-
-/* Basic function to insert character into vty. */
-static void vty_self_insert(struct vty *vty, char c)
-{
-	int i;
-	int length;
-
-	if (vty->length + 1 >= VTY_BUFSIZ)
-		return;
-
-	length = vty->length - vty->cp;
-	memmove(&vty->buf[vty->cp + 1], &vty->buf[vty->cp], length);
-	vty->buf[vty->cp] = c;
-
-	vty_write(vty, &vty->buf[vty->cp], length + 1);
-	for (i = 0; i < length; i++)
-		vty_write(vty, &telnet_backward_char, 1);
-
-	vty->cp++;
-	vty->length++;
-
-	vty->buf[vty->length] = '\0';
-}
-
-/* Self insert character 'c' in overwrite mode. */
-static void vty_self_insert_overwrite(struct vty *vty, char c)
-{
-	if (vty->cp == vty->length) {
-		vty_self_insert(vty, c);
-		return;
-	}
-
-	vty->buf[vty->cp++] = c;
-	vty_write(vty, &c, 1);
-}
-
-/**
- * Insert a string into vty->buf at the current cursor position.
- *
- * If the resultant string would be larger than VTY_BUFSIZ it is
- * truncated to fit.
- */
-static void vty_insert_word_overwrite(struct vty *vty, char *str)
-{
-	if (vty->cp == VTY_BUFSIZ)
-		return;
-
-	size_t nwrite = MIN((int)strlen(str), VTY_BUFSIZ - vty->cp - 1);
-	memcpy(&vty->buf[vty->cp], str, nwrite);
-	vty->cp += nwrite;
-	vty->length = MAX(vty->cp, vty->length);
-	vty->buf[vty->length] = '\0';
-	vty_write(vty, str, nwrite);
-}
-
-/* Forward character. */
-static void vty_forward_char(struct vty *vty)
-{
-	if (vty->cp < vty->length) {
-		vty_write(vty, &vty->buf[vty->cp], 1);
-		vty->cp++;
-	}
-}
-
-/* Backward character. */
-static void vty_backward_char(struct vty *vty)
-{
-	if (vty->cp > 0) {
-		vty->cp--;
-		vty_write(vty, &telnet_backward_char, 1);
-	}
-}
-
-/* Move to the beginning of the line. */
-static void vty_beginning_of_line(struct vty *vty)
-{
-	while (vty->cp)
-		vty_backward_char(vty);
-}
-
-/* Move to the end of the line. */
-static void vty_end_of_line(struct vty *vty)
-{
-	while (vty->cp < vty->length)
-		vty_forward_char(vty);
-}
-
-static void vty_kill_line_from_beginning(struct vty *);
-static void vty_redraw_line(struct vty *);
-
-/* Print command line history.  This function is called from
-   vty_next_line and vty_previous_line. */
-static void vty_history_print(struct vty *vty)
-{
-	int length;
-
-	vty_kill_line_from_beginning(vty);
-
-	/* Get previous line from history buffer */
-	length = strlen(vty->hist[vty->hp]);
-	memcpy(vty->buf, vty->hist[vty->hp], length);
-	vty->cp = vty->length = length;
-	vty->buf[vty->length] = '\0';
-
-	/* Redraw current line */
-	vty_redraw_line(vty);
-}
-
-/* Show next command line history. */
-static void vty_next_line(struct vty *vty)
-{
-	int try_index;
-
-	if (vty->hp == vty->hindex)
-		return;
-
-	/* Try is there history exist or not. */
-	try_index = vty->hp;
-	if (try_index == (VTY_MAXHIST - 1))
-		try_index = 0;
-	else
-		try_index++;
-
-	/* If there is not history return. */
-	if (vty->hist[try_index] == NULL)
-		return;
-	else
-		vty->hp = try_index;
-
-	vty_history_print(vty);
-}
-
-/* Show previous command line history. */
-static void vty_previous_line(struct vty *vty)
-{
-	int try_index;
-
-	try_index = vty->hp;
-	if (try_index == 0)
-		try_index = VTY_MAXHIST - 1;
-	else
-		try_index--;
-
-	if (vty->hist[try_index] == NULL)
-		return;
-	else
-		vty->hp = try_index;
-
-	vty_history_print(vty);
-}
-
-/* This function redraw all of the command line character. */
-static void vty_redraw_line(struct vty *vty)
-{
-	vty_write(vty, vty->buf, vty->length);
-	vty->cp = vty->length;
-}
-
-/* Forward word. */
-static void vty_forward_word(struct vty *vty)
-{
-	while (vty->cp != vty->length && vty->buf[vty->cp] != ' ')
-		vty_forward_char(vty);
-
-	while (vty->cp != vty->length && vty->buf[vty->cp] == ' ')
-		vty_forward_char(vty);
-}
-
-/* Backward word without skipping training space. */
-static void vty_backward_pure_word(struct vty *vty)
-{
-	while (vty->cp > 0 && vty->buf[vty->cp - 1] != ' ')
-		vty_backward_char(vty);
-}
-
-/* Backward word. */
-static void vty_backward_word(struct vty *vty)
-{
-	while (vty->cp > 0 && vty->buf[vty->cp - 1] == ' ')
-		vty_backward_char(vty);
-
-	while (vty->cp > 0 && vty->buf[vty->cp - 1] != ' ')
-		vty_backward_char(vty);
-}
-
-/* When '^D' is typed at the beginning of the line we move to the down
-   level. */
-static void vty_down_level(struct vty *vty)
-{
-	vty_out(vty, "\n");
-	cmd_exit(vty);
-	vty_prompt(vty);
-	vty->cp = 0;
-}
-
-/* When '^Z' is received from vty, move down to the enable mode. */
-static void vty_end_config(struct vty *vty)
-{
-	vty_out(vty, "\n");
-
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		/* Nothing to do. */
-		break;
-	case CONFIG_NODE:
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case ZEBRA_NODE:
-	case RIP_NODE:
-	case RIPNG_NODE:
-	case EIGRP_NODE:
-	case BGP_NODE:
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_IPV6L_NODE:
-	case RMAP_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-	case LDP_IPV4_IFACE_NODE:
-	case LDP_IPV6_IFACE_NODE:
-	case LDP_L2VPN_NODE:
-	case LDP_PSEUDOWIRE_NODE:
-	case ISIS_NODE:
-	case KEYCHAIN_NODE:
-	case KEYCHAIN_KEY_NODE:
-	case MASC_NODE:
-	case VTY_NODE:
-	case BGP_EVPN_VNI_NODE:
-		vty_config_unlock(vty);
-		vty->node = ENABLE_NODE;
-		break;
-	default:
-		/* Unknown node, we have to ignore it. */
-		break;
-	}
-
-	vty_prompt(vty);
-	vty->cp = 0;
-}
-
-/* Delete a charcter at the current point. */
-static void vty_delete_char(struct vty *vty)
-{
-	int i;
-	int size;
-
-	if (vty->length == 0) {
-		vty_down_level(vty);
-		return;
-	}
-
-	if (vty->cp == vty->length)
-		return; /* completion need here? */
-
-	size = vty->length - vty->cp;
-
-	vty->length--;
-	memmove(&vty->buf[vty->cp], &vty->buf[vty->cp + 1], size - 1);
-	vty->buf[vty->length] = '\0';
-
-	if (vty->node == AUTH_NODE || vty->node == AUTH_ENABLE_NODE)
-		return;
-
-	vty_write(vty, &vty->buf[vty->cp], size - 1);
-	vty_write(vty, &telnet_space_char, 1);
-
-	for (i = 0; i < size; i++)
-		vty_write(vty, &telnet_backward_char, 1);
-}
-
-/* Delete a character before the point. */
-static void vty_delete_backward_char(struct vty *vty)
-{
-	if (vty->cp == 0)
-		return;
-
-	vty_backward_char(vty);
-	vty_delete_char(vty);
-}
-
-/* Kill rest of line from current point. */
-static void vty_kill_line(struct vty *vty)
-{
-	int i;
-	int size;
-
-	size = vty->length - vty->cp;
-
-	if (size == 0)
-		return;
-
-	for (i = 0; i < size; i++)
-		vty_write(vty, &telnet_space_char, 1);
-	for (i = 0; i < size; i++)
-		vty_write(vty, &telnet_backward_char, 1);
-
-	memset(&vty->buf[vty->cp], 0, size);
-	vty->length = vty->cp;
-}
-
-/* Kill line from the beginning. */
-static void vty_kill_line_from_beginning(struct vty *vty)
-{
-	vty_beginning_of_line(vty);
-	vty_kill_line(vty);
-}
-
-/* Delete a word before the point. */
-static void vty_forward_kill_word(struct vty *vty)
-{
-	while (vty->cp != vty->length && vty->buf[vty->cp] == ' ')
-		vty_delete_char(vty);
-	while (vty->cp != vty->length && vty->buf[vty->cp] != ' ')
-		vty_delete_char(vty);
-}
-
-/* Delete a word before the point. */
-static void vty_backward_kill_word(struct vty *vty)
-{
-	while (vty->cp > 0 && vty->buf[vty->cp - 1] == ' ')
-		vty_delete_backward_char(vty);
-	while (vty->cp > 0 && vty->buf[vty->cp - 1] != ' ')
-		vty_delete_backward_char(vty);
-}
-
-/* Transpose chars before or at the point. */
-static void vty_transpose_chars(struct vty *vty)
-{
-	char c1, c2;
-
-	/* If length is short or point is near by the beginning of line then
-	   return. */
-	if (vty->length < 2 || vty->cp < 1)
-		return;
-
-	/* In case of point is located at the end of the line. */
-	if (vty->cp == vty->length) {
-		c1 = vty->buf[vty->cp - 1];
-		c2 = vty->buf[vty->cp - 2];
-
-		vty_backward_char(vty);
-		vty_backward_char(vty);
-		vty_self_insert_overwrite(vty, c1);
-		vty_self_insert_overwrite(vty, c2);
-	} else {
-		c1 = vty->buf[vty->cp];
-		c2 = vty->buf[vty->cp - 1];
-
-		vty_backward_char(vty);
-		vty_self_insert_overwrite(vty, c1);
-		vty_self_insert_overwrite(vty, c2);
-	}
-}
-
-/* Do completion at vty interface. */
-static void vty_complete_command(struct vty *vty)
-{
-	int i;
-	int ret;
-	char **matched = NULL;
-	vector vline;
-
-	if (vty->node == AUTH_NODE || vty->node == AUTH_ENABLE_NODE)
-		return;
-
-	vline = cmd_make_strvec(vty->buf);
-	if (vline == NULL)
-		return;
-
-	/* In case of 'help \t'. */
-	if (isspace((int)vty->buf[vty->length - 1]))
-		vector_set(vline, NULL);
-
-	matched = cmd_complete_command(vline, vty, &ret);
-
-	cmd_free_strvec(vline);
-
-	vty_out(vty, "\n");
-	switch (ret) {
-	case CMD_ERR_AMBIGUOUS:
-		vty_out(vty, "%% Ambiguous command.\n");
-		vty_prompt(vty);
-		vty_redraw_line(vty);
-		break;
-	case CMD_ERR_NO_MATCH:
-		/* vty_out (vty, "%% There is no matched command.\n"); */
-		vty_prompt(vty);
-		vty_redraw_line(vty);
-		break;
-	case CMD_COMPLETE_FULL_MATCH:
-		if (!matched[0]) {
-			/* 2016-11-28 equinox -- need to debug, SEGV here */
-			vty_out(vty, "%% CLI BUG: FULL_MATCH with NULL str\n");
-			vty_prompt(vty);
-			vty_redraw_line(vty);
-			break;
-		}
-		vty_prompt(vty);
-		vty_redraw_line(vty);
-		vty_backward_pure_word(vty);
-		vty_insert_word_overwrite(vty, matched[0]);
-		vty_self_insert(vty, ' ');
-		XFREE(MTYPE_COMPLETION, matched[0]);
-		break;
-	case CMD_COMPLETE_MATCH:
-		vty_prompt(vty);
-		vty_redraw_line(vty);
-		vty_backward_pure_word(vty);
-		vty_insert_word_overwrite(vty, matched[0]);
-		XFREE(MTYPE_COMPLETION, matched[0]);
-		break;
-	case CMD_COMPLETE_LIST_MATCH:
-		for (i = 0; matched[i] != NULL; i++) {
-			if (i != 0 && ((i % 6) == 0))
-				vty_out(vty, "\n");
-			vty_out(vty, "%-10s ", matched[i]);
-			XFREE(MTYPE_COMPLETION, matched[i]);
-		}
-		vty_out(vty, "\n");
-
-		vty_prompt(vty);
-		vty_redraw_line(vty);
-		break;
-	case CMD_ERR_NOTHING_TODO:
-		vty_prompt(vty);
-		vty_redraw_line(vty);
-		break;
-	default:
-		break;
-	}
-	if (matched)
-		XFREE(MTYPE_TMP, matched);
-}
-
-static void vty_describe_fold(struct vty *vty, int cmd_width,
-			      unsigned int desc_width, struct cmd_token *token)
-{
-	char *buf;
-	const char *cmd, *p;
-	int pos;
-
-	cmd = token->text;
-
-	if (desc_width <= 0) {
-		vty_out(vty, "  %-*s  %s\n", cmd_width, cmd, token->desc);
-		return;
-	}
-
-	buf = XCALLOC(MTYPE_TMP, strlen(token->desc) + 1);
-
-	for (p = token->desc; strlen(p) > desc_width; p += pos + 1) {
-		for (pos = desc_width; pos > 0; pos--)
-			if (*(p + pos) == ' ')
-				break;
-
-		if (pos == 0)
-			break;
-
-		strncpy(buf, p, pos);
-		buf[pos] = '\0';
-		vty_out(vty, "  %-*s  %s\n", cmd_width, cmd, buf);
-
-		cmd = "";
-	}
-
-	vty_out(vty, "  %-*s  %s\n", cmd_width, cmd, p);
-
-	XFREE(MTYPE_TMP, buf);
-}
-
-/* Describe matched command function. */
-static void vty_describe_command(struct vty *vty)
-{
-	int ret;
-	vector vline;
-	vector describe;
-	unsigned int i, width, desc_width;
-	struct cmd_token *token, *token_cr = NULL;
-
-	vline = cmd_make_strvec(vty->buf);
-
-	/* In case of '> ?'. */
-	if (vline == NULL) {
-		vline = vector_init(1);
-		vector_set(vline, NULL);
-	} else if (isspace((int)vty->buf[vty->length - 1]))
-		vector_set(vline, NULL);
-
-	describe = cmd_describe_command(vline, vty, &ret);
-
-	vty_out(vty, "\n");
-
-	/* Ambiguous error. */
-	switch (ret) {
-	case CMD_ERR_AMBIGUOUS:
-		vty_out(vty, "%% Ambiguous command.\n");
-		goto out;
-		break;
-	case CMD_ERR_NO_MATCH:
-		vty_out(vty, "%% There is no matched command.\n");
-		goto out;
-		break;
-	}
-
-	/* Get width of command string. */
-	width = 0;
-	for (i = 0; i < vector_active(describe); i++)
-		if ((token = vector_slot(describe, i)) != NULL) {
-			unsigned int len;
-
-			if (token->text[0] == '\0')
-				continue;
-
-			len = strlen(token->text);
-
-			if (width < len)
-				width = len;
-		}
-
-	/* Get width of description string. */
-	desc_width = vty->width - (width + 6);
-
-	/* Print out description. */
-	for (i = 0; i < vector_active(describe); i++)
-		if ((token = vector_slot(describe, i)) != NULL) {
-			if (token->text[0] == '\0')
-				continue;
-
-			if (strcmp(token->text, CMD_CR_TEXT) == 0) {
-				token_cr = token;
-				continue;
-			}
-
-			if (!token->desc)
-				vty_out(vty, "  %-s\n", token->text);
-			else if (desc_width >= strlen(token->desc))
-				vty_out(vty, "  %-*s  %s\n", width, token->text,
-					token->desc);
-			else
-				vty_describe_fold(vty, width, desc_width,
-						  token);
-
-			if (IS_VARYING_TOKEN(token->type)) {
-				const char *ref = vector_slot(
-					vline, vector_active(vline) - 1);
-
-				vector varcomps = vector_init(VECTOR_MIN_SIZE);
-				cmd_variable_complete(token, ref, varcomps);
-
-				if (vector_active(varcomps) > 0) {
-					char *ac = cmd_variable_comp2str(
-						varcomps, vty->width);
-					vty_out(vty, "%s\n", ac);
-					XFREE(MTYPE_TMP, ac);
-				}
-
-				vector_free(varcomps);
-			}
-#if 0
-        vty_out (vty, "  %-*s %s\n", width
-                 desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
-                 desc->str ? desc->str : "");
-#endif /* 0 */
-		}
-
-	if ((token = token_cr)) {
-		if (!token->desc)
-			vty_out(vty, "  %-s\n", token->text);
-		else if (desc_width >= strlen(token->desc))
-			vty_out(vty, "  %-*s  %s\n", width, token->text,
-				token->desc);
-		else
-			vty_describe_fold(vty, width, desc_width, token);
-	}
-
-out:
-	cmd_free_strvec(vline);
-	if (describe)
-		vector_free(describe);
-
-	vty_prompt(vty);
-	vty_redraw_line(vty);
-}
-
-static void vty_clear_buf(struct vty *vty)
-{
-	memset(vty->buf, 0, vty->max);
-}
-
-/* ^C stop current input and do not add command line to the history. */
-static void vty_stop_input(struct vty *vty)
-{
-	vty->cp = vty->length = 0;
-	vty_clear_buf(vty);
-	vty_out(vty, "\n");
-
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		/* Nothing to do. */
-		break;
-	case CONFIG_NODE:
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case ZEBRA_NODE:
-	case RIP_NODE:
-	case RIPNG_NODE:
-	case EIGRP_NODE:
-	case BGP_NODE:
-	case RMAP_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-	case LDP_IPV4_IFACE_NODE:
-	case LDP_IPV6_IFACE_NODE:
-	case LDP_L2VPN_NODE:
-	case LDP_PSEUDOWIRE_NODE:
-	case ISIS_NODE:
-	case KEYCHAIN_NODE:
-	case KEYCHAIN_KEY_NODE:
-	case MASC_NODE:
-	case VTY_NODE:
-		vty_config_unlock(vty);
-		vty->node = ENABLE_NODE;
-		break;
-	default:
-		/* Unknown node, we have to ignore it. */
-		break;
-	}
-	vty_prompt(vty);
-
-	/* Set history pointer to the latest one. */
-	vty->hp = vty->hindex;
-}
-
-/* Add current command line to the history buffer. */
-static void vty_hist_add(struct vty *vty)
-{
-	int index;
-
-	if (vty->length == 0)
-		return;
-
-	index = vty->hindex ? vty->hindex - 1 : VTY_MAXHIST - 1;
-
-	/* Ignore the same string as previous one. */
-	if (vty->hist[index])
-		if (strcmp(vty->buf, vty->hist[index]) == 0) {
-			vty->hp = vty->hindex;
-			return;
-		}
-
-	/* Insert history entry. */
-	if (vty->hist[vty->hindex])
-		XFREE(MTYPE_VTY_HIST, vty->hist[vty->hindex]);
-	vty->hist[vty->hindex] = XSTRDUP(MTYPE_VTY_HIST, vty->buf);
-
-	/* History index rotation. */
-	vty->hindex++;
-	if (vty->hindex == VTY_MAXHIST)
-		vty->hindex = 0;
-
-	vty->hp = vty->hindex;
-}
-
-/* #define TELNET_OPTION_DEBUG */
-
-/* Get telnet window size. */
-static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
-{
-#ifdef TELNET_OPTION_DEBUG
-	int i;
-
-	for (i = 0; i < nbytes; i++) {
-		switch (buf[i]) {
-		case IAC:
-			vty_out(vty, "IAC ");
-			break;
-		case WILL:
-			vty_out(vty, "WILL ");
-			break;
-		case WONT:
-			vty_out(vty, "WONT ");
-			break;
-		case DO:
-			vty_out(vty, "DO ");
-			break;
-		case DONT:
-			vty_out(vty, "DONT ");
-			break;
-		case SB:
-			vty_out(vty, "SB ");
-			break;
-		case SE:
-			vty_out(vty, "SE ");
-			break;
-		case TELOPT_ECHO:
-			vty_out(vty, "TELOPT_ECHO \n");
-			break;
-		case TELOPT_SGA:
-			vty_out(vty, "TELOPT_SGA \n");
-			break;
-		case TELOPT_NAWS:
-			vty_out(vty, "TELOPT_NAWS \n");
-			break;
-		default:
-			vty_out(vty, "%x ", buf[i]);
-			break;
-		}
-	}
-	vty_out(vty, "\n");
-
-#endif /* TELNET_OPTION_DEBUG */
-
-	switch (buf[0]) {
-	case SB:
-		vty->sb_len = 0;
-		vty->iac_sb_in_progress = 1;
-		return 0;
-		break;
-	case SE: {
-		if (!vty->iac_sb_in_progress)
-			return 0;
-
-		if ((vty->sb_len == 0) || (vty->sb_buf[0] == '\0')) {
-			vty->iac_sb_in_progress = 0;
-			return 0;
-		}
-		switch (vty->sb_buf[0]) {
-		case TELOPT_NAWS:
-			if (vty->sb_len != TELNET_NAWS_SB_LEN)
-				zlog_warn(
-					"RFC 1073 violation detected: telnet NAWS option "
-					"should send %d characters, but we received %lu",
-					TELNET_NAWS_SB_LEN,
-					(unsigned long)vty->sb_len);
-			else if (sizeof(vty->sb_buf) < TELNET_NAWS_SB_LEN)
-				zlog_err(
-					"Bug detected: sizeof(vty->sb_buf) %lu < %d, "
-					"too small to handle the telnet NAWS option",
-					(unsigned long)sizeof(vty->sb_buf),
-					TELNET_NAWS_SB_LEN);
-			else {
-				vty->width = ((vty->sb_buf[1] << 8)
-					      | vty->sb_buf[2]);
-				vty->height = ((vty->sb_buf[3] << 8)
-					       | vty->sb_buf[4]);
-#ifdef TELNET_OPTION_DEBUG
-				vty_out(vty,
-					"TELNET NAWS window size negotiation completed: "
-					"width %d, height %d\n",
-					vty->width, vty->height);
-#endif
-			}
-			break;
-		}
-		vty->iac_sb_in_progress = 0;
-		return 0;
-		break;
-	}
-	default:
-		break;
-	}
-	return 1;
-}
-
-/* Execute current command line. */
-static int vty_execute(struct vty *vty)
-{
-	int ret;
-
-	ret = CMD_SUCCESS;
-
-	switch (vty->node) {
-	case AUTH_NODE:
-	case AUTH_ENABLE_NODE:
-		vty_auth(vty, vty->buf);
-		break;
-	default:
-		ret = vty_command(vty, vty->buf);
-		if (vty->type == VTY_TERM)
-			vty_hist_add(vty);
-		break;
-	}
-
-	/* Clear command line buffer. */
-	vty->cp = vty->length = 0;
-	vty_clear_buf(vty);
-
-	if (vty->status != VTY_CLOSE)
-		vty_prompt(vty);
-
-	return ret;
-}
-
-#define CONTROL(X)  ((X) - '@')
-#define VTY_NORMAL     0
-#define VTY_PRE_ESCAPE 1
-#define VTY_ESCAPE     2
-
-/* Escape character command map. */
-static void vty_escape_map(unsigned char c, struct vty *vty)
-{
-	switch (c) {
-	case ('A'):
-		vty_previous_line(vty);
-		break;
-	case ('B'):
-		vty_next_line(vty);
-		break;
-	case ('C'):
-		vty_forward_char(vty);
-		break;
-	case ('D'):
-		vty_backward_char(vty);
-		break;
-	default:
-		break;
-	}
-
-	/* Go back to normal mode. */
-	vty->escape = VTY_NORMAL;
-}
-
-/* Quit print out to the buffer. */
-static void vty_buffer_reset(struct vty *vty)
-{
-	buffer_reset(vty->obuf);
-	vty_prompt(vty);
-	vty_redraw_line(vty);
-}
-
-/* Read data via vty socket. */
-static int vty_read(struct thread *thread)
-{
-	int i;
-	int nbytes;
-	unsigned char buf[VTY_READ_BUFSIZ];
-
-	int vty_sock = THREAD_FD(thread);
-	struct vty *vty = THREAD_ARG(thread);
-	vty->t_read = NULL;
-
-	/* Read raw data from socket */
-	if ((nbytes = read(vty->fd, buf, VTY_READ_BUFSIZ)) <= 0) {
-		if (nbytes < 0) {
-			if (ERRNO_IO_RETRY(errno)) {
-				vty_event(VTY_READ, vty_sock, vty);
-				return 0;
-			}
-			vty->monitor = 0; /* disable monitoring to avoid
-					     infinite recursion */
-			zlog_warn(
-				"%s: read error on vty client fd %d, closing: %s",
-				__func__, vty->fd, safe_strerror(errno));
-			buffer_reset(vty->obuf);
-		}
-		vty->status = VTY_CLOSE;
-	}
-
-	for (i = 0; i < nbytes; i++) {
-		if (buf[i] == IAC) {
-			if (!vty->iac) {
-				vty->iac = 1;
-				continue;
-			} else {
-				vty->iac = 0;
-			}
-		}
-
-		if (vty->iac_sb_in_progress && !vty->iac) {
-			if (vty->sb_len < sizeof(vty->sb_buf))
-				vty->sb_buf[vty->sb_len] = buf[i];
-			vty->sb_len++;
-			continue;
-		}
-
-		if (vty->iac) {
-			/* In case of telnet command */
-			int ret = 0;
-			ret = vty_telnet_option(vty, buf + i, nbytes - i);
-			vty->iac = 0;
-			i += ret;
-			continue;
-		}
-
-
-		if (vty->status == VTY_MORE) {
-			switch (buf[i]) {
-			case CONTROL('C'):
-			case 'q':
-			case 'Q':
-				vty_buffer_reset(vty);
-				break;
-#if 0 /* More line does not work for "show ip bgp".  */
-            case '\n':
-            case '\r':
-              vty->status = VTY_MORELINE;
-              break;
-#endif
-			default:
-				break;
-			}
-			continue;
-		}
-
-		/* Escape character. */
-		if (vty->escape == VTY_ESCAPE) {
-			vty_escape_map(buf[i], vty);
-			continue;
-		}
-
-		/* Pre-escape status. */
-		if (vty->escape == VTY_PRE_ESCAPE) {
-			switch (buf[i]) {
-			case '[':
-				vty->escape = VTY_ESCAPE;
-				break;
-			case 'b':
-				vty_backward_word(vty);
-				vty->escape = VTY_NORMAL;
-				break;
-			case 'f':
-				vty_forward_word(vty);
-				vty->escape = VTY_NORMAL;
-				break;
-			case 'd':
-				vty_forward_kill_word(vty);
-				vty->escape = VTY_NORMAL;
-				break;
-			case CONTROL('H'):
-			case 0x7f:
-				vty_backward_kill_word(vty);
-				vty->escape = VTY_NORMAL;
-				break;
-			default:
-				vty->escape = VTY_NORMAL;
-				break;
-			}
-			continue;
-		}
-
-		switch (buf[i]) {
-		case CONTROL('A'):
-			vty_beginning_of_line(vty);
-			break;
-		case CONTROL('B'):
-			vty_backward_char(vty);
-			break;
-		case CONTROL('C'):
-			vty_stop_input(vty);
-			break;
-		case CONTROL('D'):
-			vty_delete_char(vty);
-			break;
-		case CONTROL('E'):
-			vty_end_of_line(vty);
-			break;
-		case CONTROL('F'):
-			vty_forward_char(vty);
-			break;
-		case CONTROL('H'):
-		case 0x7f:
-			vty_delete_backward_char(vty);
-			break;
-		case CONTROL('K'):
-			vty_kill_line(vty);
-			break;
-		case CONTROL('N'):
-			vty_next_line(vty);
-			break;
-		case CONTROL('P'):
-			vty_previous_line(vty);
-			break;
-		case CONTROL('T'):
-			vty_transpose_chars(vty);
-			break;
-		case CONTROL('U'):
-			vty_kill_line_from_beginning(vty);
-			break;
-		case CONTROL('W'):
-			vty_backward_kill_word(vty);
-			break;
-		case CONTROL('Z'):
-			vty_end_config(vty);
-			break;
-		case '\n':
-		case '\r':
-			vty_out(vty, "\n");
-			vty_execute(vty);
-			break;
-		case '\t':
-			vty_complete_command(vty);
-			break;
-		case '?':
-			if (vty->node == AUTH_NODE
-			    || vty->node == AUTH_ENABLE_NODE)
-				vty_self_insert(vty, buf[i]);
-			else
-				vty_describe_command(vty);
-			break;
-		case '\033':
-			if (i + 1 < nbytes && buf[i + 1] == '[') {
-				vty->escape = VTY_ESCAPE;
-				i++;
-			} else
-				vty->escape = VTY_PRE_ESCAPE;
-			break;
-		default:
-			if (buf[i] > 31 && buf[i] < 127)
-				vty_self_insert(vty, buf[i]);
-			break;
-		}
-	}
-
-	/* Check status. */
-	if (vty->status == VTY_CLOSE)
-		vty_close(vty);
-	else {
-		vty_event(VTY_WRITE, vty->wfd, vty);
-		vty_event(VTY_READ, vty_sock, vty);
-	}
-	return 0;
-}
-
-/* Flush buffer to the vty. */
-static int vty_flush(struct thread *thread)
-{
-	int erase;
-	buffer_status_t flushrc;
-	int vty_sock = THREAD_FD(thread);
-	struct vty *vty = THREAD_ARG(thread);
-
-	vty->t_write = NULL;
-
-	/* Tempolary disable read thread. */
-	if ((vty->lines == 0) && vty->t_read) {
-		thread_cancel(vty->t_read);
-		vty->t_read = NULL;
-	}
-
-	/* Function execution continue. */
-	erase = ((vty->status == VTY_MORE || vty->status == VTY_MORELINE));
-
-	/* N.B. if width is 0, that means we don't know the window size. */
-	if ((vty->lines == 0) || (vty->width == 0) || (vty->height == 0))
-		flushrc = buffer_flush_available(vty->obuf, vty_sock);
-	else if (vty->status == VTY_MORELINE)
-		flushrc = buffer_flush_window(vty->obuf, vty_sock, vty->width,
-					      1, erase, 0);
-	else
-		flushrc = buffer_flush_window(
-			vty->obuf, vty_sock, vty->width,
-			vty->lines >= 0 ? vty->lines : vty->height, erase, 0);
-	switch (flushrc) {
-	case BUFFER_ERROR:
-		vty->monitor =
-			0; /* disable monitoring to avoid infinite recursion */
-		zlog_warn("buffer_flush failed on vty client fd %d, closing",
-			  vty->fd);
-		buffer_reset(vty->obuf);
-		vty_close(vty);
-		return 0;
-	case BUFFER_EMPTY:
-		if (vty->status == VTY_CLOSE)
-			vty_close(vty);
-		else {
-			vty->status = VTY_NORMAL;
-			if (vty->lines == 0)
-				vty_event(VTY_READ, vty_sock, vty);
-		}
-		break;
-	case BUFFER_PENDING:
-		/* There is more data waiting to be written. */
-		vty->status = VTY_MORE;
-		if (vty->lines == 0)
-			vty_event(VTY_WRITE, vty_sock, vty);
-		break;
-	}
-
-	return 0;
-}
-
-/* allocate and initialise vty */
-static struct vty *vty_new_init(int vty_sock)
-{
-	struct vty *vty;
-
-	vty = vty_new();
-	vty->fd = vty_sock;
-	vty->wfd = vty_sock;
-	vty->type = VTY_TERM;
-	vty->node = AUTH_NODE;
-	vty->fail = 0;
-	vty->cp = 0;
-	vty_clear_buf(vty);
-	vty->length = 0;
-	memset(vty->hist, 0, sizeof(vty->hist));
-	vty->hp = 0;
-	vty->hindex = 0;
-	vector_set_index(vtyvec, vty_sock, vty);
-	vty->status = VTY_NORMAL;
-	vty->lines = -1;
-	vty->iac = 0;
-	vty->iac_sb_in_progress = 0;
-	vty->sb_len = 0;
-
-	return vty;
-}
-
-/* Create new vty structure. */
-static struct vty *vty_create(int vty_sock, union sockunion *su)
-{
-	char buf[SU_ADDRSTRLEN];
-	struct vty *vty;
-
-	sockunion2str(su, buf, SU_ADDRSTRLEN);
-
-	/* Allocate new vty structure and set up default values. */
-	vty = vty_new_init(vty_sock);
-
-	/* configurable parameters not part of basic init */
-	vty->v_timeout = vty_timeout_val;
-	strcpy(vty->address, buf);
-	if (no_password_check) {
-		if (host.advanced)
-			vty->node = ENABLE_NODE;
-		else
-			vty->node = VIEW_NODE;
-	}
-	if (host.lines >= 0)
-		vty->lines = host.lines;
-
-	if (!no_password_check) {
-		/* Vty is not available if password isn't set. */
-		if (host.password == NULL && host.password_encrypt == NULL) {
-			vty_out(vty, "Vty password is not set.\n");
-			vty->status = VTY_CLOSE;
-			vty_close(vty);
-			return NULL;
-		}
-	}
-
-	/* Say hello to the world. */
-	vty_hello(vty);
-	if (!no_password_check)
-		vty_out(vty, "\nUser Access Verification\n\n");
-
-	/* Setting up terminal. */
-	vty_will_echo(vty);
-	vty_will_suppress_go_ahead(vty);
-
-	vty_dont_linemode(vty);
-	vty_do_window_size(vty);
-	/* vty_dont_lflow_ahead (vty); */
-
-	vty_prompt(vty);
-
-	/* Add read/write thread. */
-	vty_event(VTY_WRITE, vty_sock, vty);
-	vty_event(VTY_READ, vty_sock, vty);
-
-	return vty;
-}
-
-/* create vty for stdio */
-static struct termios stdio_orig_termios;
-static struct vty *stdio_vty = NULL;
-static bool stdio_termios = false;
-static void (*stdio_vty_atclose)(int isexit);
-
-static void vty_stdio_reset(int isexit)
-{
-	if (stdio_vty) {
-		if (stdio_termios)
-			tcsetattr(0, TCSANOW, &stdio_orig_termios);
-		stdio_termios = false;
-
-		stdio_vty = NULL;
-
-		if (stdio_vty_atclose)
-			stdio_vty_atclose(isexit);
-		stdio_vty_atclose = NULL;
-	}
-}
-
-static void vty_stdio_atexit(void)
-{
-	vty_stdio_reset(1);
-}
-
-void vty_stdio_suspend(void)
-{
-	if (!stdio_vty)
-		return;
-
-	if (stdio_vty->t_write)
-		thread_cancel(stdio_vty->t_write);
-	if (stdio_vty->t_read)
-		thread_cancel(stdio_vty->t_read);
-	if (stdio_vty->t_timeout)
-		thread_cancel(stdio_vty->t_timeout);
-
-	if (stdio_termios)
-		tcsetattr(0, TCSANOW, &stdio_orig_termios);
-	stdio_termios = false;
-}
-
-void vty_stdio_resume(void)
-{
-	if (!stdio_vty)
-		return;
-
-	if (!tcgetattr(0, &stdio_orig_termios)) {
-		struct termios termios;
-
-		termios = stdio_orig_termios;
-		termios.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR
-				     | IGNCR | ICRNL | IXON);
-		termios.c_oflag &= ~OPOST;
-		termios.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN);
-		termios.c_cflag &= ~(CSIZE | PARENB);
-		termios.c_cflag |= CS8;
-		tcsetattr(0, TCSANOW, &termios);
-		stdio_termios = true;
-	}
-
-	vty_prompt(stdio_vty);
-
-	/* Add read/write thread. */
-	vty_event(VTY_WRITE, 1, stdio_vty);
-	vty_event(VTY_READ, 0, stdio_vty);
-}
-
-void vty_stdio_close(void)
-{
-	if (!stdio_vty)
-		return;
-	vty_close(stdio_vty);
-}
-
-struct vty *vty_stdio(void (*atclose)(int isexit))
-{
-	struct vty *vty;
-
-	/* refuse creating two vtys on stdio */
-	if (stdio_vty)
-		return NULL;
-
-	vty = stdio_vty = vty_new_init(0);
-	stdio_vty_atclose = atclose;
-	vty->wfd = 1;
-
-	/* always have stdio vty in a known _unchangeable_ state, don't want
-	 * config
-	 * to have any effect here to make sure scripting this works as intended
-	 */
-	vty->node = ENABLE_NODE;
-	vty->v_timeout = 0;
-	strcpy(vty->address, "console");
-
-	vty_stdio_resume();
-	return vty;
-}
-
-/* Accept connection from the network. */
-static int vty_accept(struct thread *thread)
-{
-	int vty_sock;
-	union sockunion su;
-	int ret;
-	unsigned int on;
-	int accept_sock;
-	struct prefix p;
-	struct access_list *acl = NULL;
-	char buf[SU_ADDRSTRLEN];
-
-	accept_sock = THREAD_FD(thread);
-
-	/* We continue hearing vty socket. */
-	vty_event(VTY_SERV, accept_sock, NULL);
-
-	memset(&su, 0, sizeof(union sockunion));
-
-	/* We can handle IPv4 or IPv6 socket. */
-	vty_sock = sockunion_accept(accept_sock, &su);
-	if (vty_sock < 0) {
-		zlog_warn("can't accept vty socket : %s", safe_strerror(errno));
-		return -1;
-	}
-	set_nonblocking(vty_sock);
-	set_cloexec(vty_sock);
-
-	sockunion2hostprefix(&su, &p);
-
-	/* VTY's accesslist apply. */
-	if (p.family == AF_INET && vty_accesslist_name) {
-		if ((acl = access_list_lookup(AFI_IP, vty_accesslist_name))
-		    && (access_list_apply(acl, &p) == FILTER_DENY)) {
-			zlog_info("Vty connection refused from %s",
-				  sockunion2str(&su, buf, SU_ADDRSTRLEN));
-			close(vty_sock);
-
-			/* continue accepting connections */
-			vty_event(VTY_SERV, accept_sock, NULL);
-
-			return 0;
-		}
-	}
-
-	/* VTY's ipv6 accesslist apply. */
-	if (p.family == AF_INET6 && vty_ipv6_accesslist_name) {
-		if ((acl = access_list_lookup(AFI_IP6,
-					      vty_ipv6_accesslist_name))
-		    && (access_list_apply(acl, &p) == FILTER_DENY)) {
-			zlog_info("Vty connection refused from %s",
-				  sockunion2str(&su, buf, SU_ADDRSTRLEN));
-			close(vty_sock);
-
-			/* continue accepting connections */
-			vty_event(VTY_SERV, accept_sock, NULL);
-
-			return 0;
-		}
-	}
-
-	on = 1;
-	ret = setsockopt(vty_sock, IPPROTO_TCP, TCP_NODELAY, (char *)&on,
-			 sizeof(on));
-	if (ret < 0)
-		zlog_info("can't set sockopt to vty_sock : %s",
-			  safe_strerror(errno));
-
-	zlog_info("Vty connection from %s",
-		  sockunion2str(&su, buf, SU_ADDRSTRLEN));
-
-	vty_create(vty_sock, &su);
-
-	return 0;
-}
-
-static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
-{
-	int ret;
-	struct addrinfo req;
-	struct addrinfo *ainfo;
-	struct addrinfo *ainfo_save;
-	int sock;
-	char port_str[BUFSIZ];
-
-	memset(&req, 0, sizeof(struct addrinfo));
-	req.ai_flags = AI_PASSIVE;
-	req.ai_family = AF_UNSPEC;
-	req.ai_socktype = SOCK_STREAM;
-	sprintf(port_str, "%d", port);
-	port_str[sizeof(port_str) - 1] = '\0';
-
-	ret = getaddrinfo(hostname, port_str, &req, &ainfo);
-
-	if (ret != 0) {
-		zlog_err("getaddrinfo failed: %s", gai_strerror(ret));
-		exit(1);
-	}
-
-	ainfo_save = ainfo;
-
-	do {
-		if (ainfo->ai_family != AF_INET && ainfo->ai_family != AF_INET6)
-			continue;
-
-		sock = socket(ainfo->ai_family, ainfo->ai_socktype,
-			      ainfo->ai_protocol);
-		if (sock < 0)
-			continue;
-
-		sockopt_v6only(ainfo->ai_family, sock);
-		sockopt_reuseaddr(sock);
-		sockopt_reuseport(sock);
-		set_cloexec(sock);
-
-		ret = bind(sock, ainfo->ai_addr, ainfo->ai_addrlen);
-		if (ret < 0) {
-			close(sock); /* Avoid sd leak. */
-			continue;
-		}
-
-		ret = listen(sock, 3);
-		if (ret < 0) {
-			close(sock); /* Avoid sd leak. */
-			continue;
-		}
-
-		vty_event(VTY_SERV, sock, NULL);
-	} while ((ainfo = ainfo->ai_next) != NULL);
-
-	freeaddrinfo(ainfo_save);
-}
-
-#ifdef VTYSH
-/* For sockaddr_un. */
-#include <sys/un.h>
-
-/* VTY shell UNIX domain socket. */
-static void vty_serv_un(const char *path)
-{
-	int ret;
-	int sock, len;
-	struct sockaddr_un serv;
-	mode_t old_mask;
-	struct zprivs_ids_t ids;
-
-	/* First of all, unlink existing socket */
-	unlink(path);
-
-	/* Set umask */
-	old_mask = umask(0007);
-
-	/* Make UNIX domain socket. */
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock < 0) {
-		zlog_err("Cannot create unix stream socket: %s",
-			 safe_strerror(errno));
-		return;
-	}
-
-	/* Make server socket. */
-	memset(&serv, 0, sizeof(struct sockaddr_un));
-	serv.sun_family = AF_UNIX;
-	strlcpy(serv.sun_path, path, sizeof(serv.sun_path));
-#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
-	len = serv.sun_len = SUN_LEN(&serv);
-#else
-	len = sizeof(serv.sun_family) + strlen(serv.sun_path);
-#endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
-
-	set_cloexec(sock);
-
-	ret = bind(sock, (struct sockaddr *)&serv, len);
-	if (ret < 0) {
-		zlog_err("Cannot bind path %s: %s", path, safe_strerror(errno));
-		close(sock); /* Avoid sd leak. */
-		return;
-	}
-
-	ret = listen(sock, 5);
-	if (ret < 0) {
-		zlog_err("listen(fd %d) failed: %s", sock,
-			 safe_strerror(errno));
-		close(sock); /* Avoid sd leak. */
-		return;
-	}
-
-	umask(old_mask);
-
-	zprivs_get_ids(&ids);
-
-	/* Hack: ids.gid_vty is actually a uint, but we stored -1 in it
-	   earlier for the case when we don't need to chown the file
-	   type casting it here to make a compare */
-	if ((int)ids.gid_vty > 0) {
-		/* set group of socket */
-		if (chown(path, -1, ids.gid_vty)) {
-			zlog_err("vty_serv_un: could chown socket, %s",
-				 safe_strerror(errno));
-		}
-	}
-
-	vty_event(VTYSH_SERV, sock, NULL);
-}
-
-/* #define VTYSH_DEBUG 1 */
-
-static int vtysh_accept(struct thread *thread)
-{
-	int accept_sock;
-	int sock;
-	int client_len;
-	struct sockaddr_un client;
-	struct vty *vty;
-
-	accept_sock = THREAD_FD(thread);
-
-	vty_event(VTYSH_SERV, accept_sock, NULL);
-
-	memset(&client, 0, sizeof(struct sockaddr_un));
-	client_len = sizeof(struct sockaddr_un);
-
-	sock = accept(accept_sock, (struct sockaddr *)&client,
-		      (socklen_t *)&client_len);
-
-	if (sock < 0) {
-		zlog_warn("can't accept vty socket : %s", safe_strerror(errno));
-		return -1;
-	}
-
-	if (set_nonblocking(sock) < 0) {
-		zlog_warn(
-			"vtysh_accept: could not set vty socket %d to non-blocking,"
-			" %s, closing",
-			sock, safe_strerror(errno));
-		close(sock);
-		return -1;
-	}
-	set_cloexec(sock);
-
-#ifdef VTYSH_DEBUG
-	printf("VTY shell accept\n");
-#endif /* VTYSH_DEBUG */
-
-	vty = vty_new();
-	vty->fd = sock;
-	vty->wfd = sock;
-	vty->type = VTY_SHELL_SERV;
-	vty->node = VIEW_NODE;
-
-	vty_event(VTYSH_READ, sock, vty);
-
-	return 0;
-}
-
-static int vtysh_flush(struct vty *vty)
-{
-	switch (buffer_flush_available(vty->obuf, vty->wfd)) {
-	case BUFFER_PENDING:
-		vty_event(VTYSH_WRITE, vty->wfd, vty);
-		break;
-	case BUFFER_ERROR:
-		vty->monitor =
-			0; /* disable monitoring to avoid infinite recursion */
-		zlog_warn("%s: write error to fd %d, closing", __func__,
-			  vty->fd);
-		buffer_reset(vty->obuf);
-		vty_close(vty);
-		return -1;
-		break;
-	case BUFFER_EMPTY:
-		break;
-	}
-	return 0;
-}
-
-static int vtysh_read(struct thread *thread)
-{
-	int ret;
-	int sock;
-	int nbytes;
-	struct vty *vty;
-	unsigned char buf[VTY_READ_BUFSIZ];
-	unsigned char *p;
-	uint8_t header[4] = {0, 0, 0, 0};
-
-	sock = THREAD_FD(thread);
-	vty = THREAD_ARG(thread);
-	vty->t_read = NULL;
-
-	if ((nbytes = read(sock, buf, VTY_READ_BUFSIZ)) <= 0) {
-		if (nbytes < 0) {
-			if (ERRNO_IO_RETRY(errno)) {
-				vty_event(VTYSH_READ, sock, vty);
-				return 0;
-			}
-			vty->monitor = 0; /* disable monitoring to avoid
-					     infinite recursion */
-			zlog_warn(
-				"%s: read failed on vtysh client fd %d, closing: %s",
-				__func__, sock, safe_strerror(errno));
-		}
-		buffer_reset(vty->obuf);
-		vty_close(vty);
-#ifdef VTYSH_DEBUG
-		printf("close vtysh\n");
-#endif /* VTYSH_DEBUG */
-		return 0;
-	}
-
-#ifdef VTYSH_DEBUG
-	printf("line: %.*s\n", nbytes, buf);
-#endif /* VTYSH_DEBUG */
-
-	if (vty->length + nbytes >= VTY_BUFSIZ) {
-		/* Clear command line buffer. */
-		vty->cp = vty->length = 0;
-		vty_clear_buf(vty);
-		vty_out(vty, "%% Command is too long.\n");
-	} else {
-		for (p = buf; p < buf + nbytes; p++) {
-			vty->buf[vty->length++] = *p;
-			if (*p == '\0') {
-				/* Pass this line to parser. */
-				ret = vty_execute(vty);
-/* Note that vty_execute clears the command buffer and resets
-   vty->length to 0. */
-
-/* Return result. */
-#ifdef VTYSH_DEBUG
-				printf("result: %d\n", ret);
-				printf("vtysh node: %d\n", vty->node);
-#endif /* VTYSH_DEBUG */
-
-				/* hack for asynchronous "write integrated"
-				 * - other commands in "buf" will be ditched
-				 * - input during pending config-write is
-				 * "unsupported" */
-				if (ret == CMD_SUSPEND)
-					break;
-
-				/* warning: watchfrr hardcodes this result write
-				 */
-				header[3] = ret;
-				buffer_put(vty->obuf, header, 4);
-
-				if (!vty->t_write && (vtysh_flush(vty) < 0))
-					/* Try to flush results; exit if a write
-					 * error occurs. */
-					return 0;
-			}
-		}
-	}
-
-	if (vty->status == VTY_CLOSE)
-		vty_close(vty);
-	else
-		vty_event(VTYSH_READ, sock, vty);
-
-	return 0;
-}
-
-static int vtysh_write(struct thread *thread)
-{
-	struct vty *vty = THREAD_ARG(thread);
-
-	vty->t_write = NULL;
-	vtysh_flush(vty);
-	return 0;
-}
-
-#endif /* VTYSH */
-
-/* Determine address family to bind. */
-void vty_serv_sock(const char *addr, unsigned short port, const char *path)
-{
-	/* If port is set to 0, do not listen on TCP/IP at all! */
-	if (port)
-		vty_serv_sock_addrinfo(addr, port);
-
-#ifdef VTYSH
-	vty_serv_un(path);
-#endif /* VTYSH */
-}
-
-/* Close vty interface.  Warning: call this only from functions that
-   will be careful not to access the vty afterwards (since it has
-   now been freed).  This is safest from top-level functions (called
-   directly by the thread dispatcher). */
-void vty_close(struct vty *vty)
-{
-	int i;
-	bool was_stdio = false;
-
-	/* Cancel threads.*/
-	if (vty->t_read)
-		thread_cancel(vty->t_read);
-	if (vty->t_write)
-		thread_cancel(vty->t_write);
-	if (vty->t_timeout)
-		thread_cancel(vty->t_timeout);
-
-	/* Flush buffer. */
-	buffer_flush_all(vty->obuf, vty->wfd);
-
-	/* Free input buffer. */
-	buffer_free(vty->obuf);
-
-	/* Free command history. */
-	for (i = 0; i < VTY_MAXHIST; i++)
-		if (vty->hist[i])
-			XFREE(MTYPE_VTY_HIST, vty->hist[i]);
-
-	/* Unset vector. */
-	if (vty->fd != -1)
-		vector_unset(vtyvec, vty->fd);
-
-	if (vty->wfd > 0 && vty->type == VTY_FILE)
-		fsync(vty->wfd);
-
-	/* Close socket.
-	 * note check is for fd > STDERR_FILENO, not fd != -1.
-	 * We never close stdin/stdout/stderr here, because we may be
-	 * running in foreground mode with logging to stdout.  Also,
-	 * additionally, we'd need to replace these fds with /dev/null. */
-	if (vty->wfd > STDERR_FILENO && vty->wfd != vty->fd)
-		close(vty->wfd);
-	if (vty->fd > STDERR_FILENO) {
-		close(vty->fd);
-	} else
-		was_stdio = true;
-
-	if (vty->buf)
-		XFREE(MTYPE_VTY, vty->buf);
-
-	if (vty->error_buf)
-		XFREE(MTYPE_VTY, vty->error_buf);
-
-	/* Check configure. */
-	vty_config_unlock(vty);
-
-	/* OK free vty. */
-	XFREE(MTYPE_VTY, vty);
-
-	if (was_stdio)
-		vty_stdio_reset(0);
-}
-
-/* When time out occur output message then close connection. */
-static int vty_timeout(struct thread *thread)
-{
-	struct vty *vty;
-
-	vty = THREAD_ARG(thread);
-	vty->t_timeout = NULL;
-	vty->v_timeout = 0;
-
-	/* Clear buffer*/
-	buffer_reset(vty->obuf);
-	vty_out(vty, "\nVty connection is timed out.\n");
-
-	/* Close connection. */
-	vty->status = VTY_CLOSE;
-	vty_close(vty);
-
-	return 0;
-}
-
-/* Read up configuration file from file_name. */
-static void vty_read_file(FILE *confp)
-{
-	int ret;
-	struct vty *vty;
-	unsigned int line_num = 0;
-
-	vty = vty_new();
-	/* vty_close won't close stderr;  if some config command prints
-	 * something it'll end up there.  (not ideal; it'd be beter if output
-	 * from a file-load went to logging instead.  Also note that if this
-	 * function is called after daemonizing, stderr will be /dev/null.)
-	 *
-	 * vty->fd will be -1 from vty_new()
-	 */
-	vty->wfd = STDERR_FILENO;
-	vty->type = VTY_FILE;
-	vty->node = CONFIG_NODE;
-
-	/* Execute configuration file */
-	ret = config_from_file(vty, confp, &line_num);
-
-	/* Flush any previous errors before printing messages below */
-	buffer_flush_all(vty->obuf, vty->wfd);
-
-	if (!((ret == CMD_SUCCESS) || (ret == CMD_ERR_NOTHING_TODO))) {
-		const char *message = NULL;
-		char *nl;
-
-		switch (ret) {
-		case CMD_ERR_AMBIGUOUS:
-			message = "Ambiguous command";
-			break;
-		case CMD_ERR_NO_MATCH:
-			message = "No such command";
-			break;
-		case CMD_WARNING:
-			message = "Command returned Warning";
-			break;
-		case CMD_WARNING_CONFIG_FAILED:
-			message = "Command returned Warning Config Failed";
-			break;
-		case CMD_ERR_INCOMPLETE:
-			message = "Command returned Incomplete";
-			break;
-		case CMD_ERR_EXEED_ARGC_MAX:
-			message =
-				"Command exceeded maximum number of Arguments";
-			break;
-		default:
-			message = "Command returned unhandled error message";
-			break;
-		}
-
-		nl = strchr(vty->error_buf, '\n');
-		if (nl)
-			*nl = '\0';
-		zlog_err("ERROR: %s on config line %u: %s", message, line_num,
-			 vty->error_buf);
-	}
-
-	vty_close(vty);
-}
-
-static FILE *vty_use_backup_config(const char *fullpath)
-{
-	char *fullpath_sav, *fullpath_tmp;
-	FILE *ret = NULL;
-	int tmp, sav;
-	int c;
-	char buffer[512];
-
-	fullpath_sav = malloc(strlen(fullpath) + strlen(CONF_BACKUP_EXT) + 1);
-	strcpy(fullpath_sav, fullpath);
-	strcat(fullpath_sav, CONF_BACKUP_EXT);
-
-	sav = open(fullpath_sav, O_RDONLY);
-	if (sav < 0) {
-		free(fullpath_sav);
-		return NULL;
-	}
-
-	fullpath_tmp = malloc(strlen(fullpath) + 8);
-	sprintf(fullpath_tmp, "%s.XXXXXX", fullpath);
-
-	/* Open file to configuration write. */
-	tmp = mkstemp(fullpath_tmp);
-	if (tmp < 0)
-		goto out_close_sav;
-
-	if (fchmod(tmp, CONFIGFILE_MASK) != 0)
-		goto out_close;
-
-	while ((c = read(sav, buffer, 512)) > 0) {
-		if (write(tmp, buffer, c) <= 0)
-			goto out_close;
-	}
-	close(sav);
-	close(tmp);
-
-	if (rename(fullpath_tmp, fullpath) == 0)
-		ret = fopen(fullpath, "r");
-	else
-		unlink(fullpath_tmp);
-
-	if (0) {
-	out_close:
-		close(tmp);
-		unlink(fullpath_tmp);
-	out_close_sav:
-		close(sav);
-	}
-
-	free(fullpath_sav);
-	free(fullpath_tmp);
-	return ret;
-}
-
-/* Read up configuration file from file_name. */
-void vty_read_config(const char *config_file, char *config_default_dir)
-{
-	char cwd[MAXPATHLEN];
-	FILE *confp = NULL;
-	const char *fullpath;
-	char *tmp = NULL;
-
-	/* If -f flag specified. */
-	if (config_file != NULL) {
-		if (!IS_DIRECTORY_SEP(config_file[0])) {
-			if (getcwd(cwd, MAXPATHLEN) == NULL) {
-				zlog_err(
-					"Failure to determine Current Working Directory %d!",
-					errno);
-				exit(1);
-			}
-			tmp = XMALLOC(MTYPE_TMP,
-				      strlen(cwd) + strlen(config_file) + 2);
-			sprintf(tmp, "%s/%s", cwd, config_file);
-			fullpath = tmp;
-		} else
-			fullpath = config_file;
-
-		confp = fopen(fullpath, "r");
-
-		if (confp == NULL) {
-			zlog_err("%s: failed to open configuration file %s: %s",
-				 __func__, fullpath, safe_strerror(errno));
-
-			confp = vty_use_backup_config(fullpath);
-			if (confp)
-				zlog_warn(
-					"WARNING: using backup configuration file!");
-			else {
-				zlog_err("can't open configuration file [%s]",
-					 config_file);
-				exit(1);
-			}
-		}
-	} else {
-
-		host_config_set(config_default_dir);
-
-#ifdef VTYSH
-		int ret;
-		struct stat conf_stat;
-
-		/* !!!!PLEASE LEAVE!!!!
-		 * This is NEEDED for use with vtysh -b, or else you can get
-		 * a real configuration food fight with a lot garbage in the
-		 * merged configuration file it creates coming from the per
-		 * daemon configuration files.  This also allows the daemons
-		 * to start if there default configuration file is not
-		 * present or ignore them, as needed when using vtysh -b to
-		 * configure the daemons at boot - MAG
-		 */
-
-		/* Stat for vtysh Zebra.conf, if found startup and wait for
-		 * boot configuration
-		 */
-
-		if (strstr(config_default_dir, "vtysh") == NULL) {
-			ret = stat(integrate_default, &conf_stat);
-			if (ret >= 0)
-				goto tmp_free_and_out;
-		}
-#endif /* VTYSH */
-		confp = fopen(config_default_dir, "r");
-		if (confp == NULL) {
-			zlog_err("%s: failed to open configuration file %s: %s",
-				 __func__, config_default_dir,
-				 safe_strerror(errno));
-
-			confp = vty_use_backup_config(config_default_dir);
-			if (confp) {
-				zlog_warn(
-					"WARNING: using backup configuration file!");
-				fullpath = config_default_dir;
-			} else {
-				zlog_err("can't open configuration file [%s]",
-					 config_default_dir);
-				goto tmp_free_and_out;
-			}
-		} else
-			fullpath = config_default_dir;
-	}
-
-	vty_read_file(confp);
-
-	fclose(confp);
-
-	host_config_set(fullpath);
-
-tmp_free_and_out:
-	if (tmp)
-		XFREE(MTYPE_TMP, tmp);
-}
-
-/* Small utility function which output log to the VTY. */
-void vty_log(const char *level, const char *proto_str, const char *format,
-	     struct timestamp_control *ctl, va_list va)
-{
-	unsigned int i;
-	struct vty *vty;
-
-	if (!vtyvec)
-		return;
-
-	for (i = 0; i < vector_active(vtyvec); i++)
-		if ((vty = vector_slot(vtyvec, i)) != NULL)
-			if (vty->monitor) {
-				va_list ac;
-				va_copy(ac, va);
-				vty_log_out(vty, level, proto_str, format, ctl,
-					    ac);
-				va_end(ac);
-			}
-}
-
-/* Async-signal-safe version of vty_log for fixed strings. */
-void vty_log_fixed(char *buf, size_t len)
-{
-	unsigned int i;
-	struct iovec iov[2];
-	char crlf[4] = "\r\n";
-
-	/* vty may not have been initialised */
-	if (!vtyvec)
-		return;
-
-	iov[0].iov_base = buf;
-	iov[0].iov_len = len;
-	iov[1].iov_base = crlf;
-	iov[1].iov_len = 2;
-
-	for (i = 0; i < vector_active(vtyvec); i++) {
-		struct vty *vty;
-		if (((vty = vector_slot(vtyvec, i)) != NULL) && vty->monitor)
-			/* N.B. We don't care about the return code, since
-			   process is
-			   most likely just about to die anyway. */
-			if (writev(vty->wfd, iov, 2) == -1) {
-				fprintf(stderr, "Failure to writev: %d\n",
-					errno);
-				exit(-1);
-			}
-	}
-}
-
-int vty_config_lock(struct vty *vty)
-{
-	if (vty_config_is_lockless)
-		return 1;
-	if (vty_config == 0) {
-		vty->config = 1;
-		vty_config = 1;
-	}
-	return vty->config;
-}
-
-int vty_config_unlock(struct vty *vty)
-{
-	if (vty_config_is_lockless)
-		return 0;
-	if (vty_config == 1 && vty->config == 1) {
-		vty->config = 0;
-		vty_config = 0;
-	}
-	return vty->config;
-}
-
-void vty_config_lockless(void)
-{
-	vty_config_is_lockless = 1;
-}
-
-/* Master of the threads. */
-static struct thread_master *vty_master;
-
-static void vty_event(enum event event, int sock, struct vty *vty)
-{
-	struct thread *vty_serv_thread = NULL;
-
-	switch (event) {
-	case VTY_SERV:
-		vty_serv_thread = thread_add_read(vty_master, vty_accept, vty,
-						  sock, NULL);
-		vector_set_index(Vvty_serv_thread, sock, vty_serv_thread);
-		break;
-#ifdef VTYSH
-	case VTYSH_SERV:
-		vty_serv_thread = thread_add_read(vty_master, vtysh_accept, vty,
-						  sock, NULL);
-		vector_set_index(Vvty_serv_thread, sock, vty_serv_thread);
-		break;
-	case VTYSH_READ:
-		vty->t_read = NULL;
-		thread_add_read(vty_master, vtysh_read, vty, sock,
-				&vty->t_read);
-		break;
-	case VTYSH_WRITE:
-		vty->t_write = NULL;
-		thread_add_write(vty_master, vtysh_write, vty, sock,
-				 &vty->t_write);
-		break;
-#endif /* VTYSH */
-	case VTY_READ:
-		vty->t_read = NULL;
-		thread_add_read(vty_master, vty_read, vty, sock, &vty->t_read);
-
-		/* Time out treatment. */
-		if (vty->v_timeout) {
-			if (vty->t_timeout)
-				thread_cancel(vty->t_timeout);
-			vty->t_timeout = NULL;
-			thread_add_timer(vty_master, vty_timeout, vty,
-					 vty->v_timeout, &vty->t_timeout);
-		}
-		break;
-	case VTY_WRITE:
-		thread_add_write(vty_master, vty_flush, vty, sock,
-				 &vty->t_write);
-		break;
-	case VTY_TIMEOUT_RESET:
-		if (vty->t_timeout) {
-			thread_cancel(vty->t_timeout);
-			vty->t_timeout = NULL;
-		}
-		if (vty->v_timeout) {
-			vty->t_timeout = NULL;
-			thread_add_timer(vty_master, vty_timeout, vty,
-					 vty->v_timeout, &vty->t_timeout);
-		}
-		break;
-	}
-}
-
-DEFUN_NOSH (config_who,
-       config_who_cmd,
-       "who",
-       "Display who is on vty\n")
-{
-	unsigned int i;
-	struct vty *v;
-
-	for (i = 0; i < vector_active(vtyvec); i++)
-		if ((v = vector_slot(vtyvec, i)) != NULL)
-			vty_out(vty, "%svty[%d] connected from %s.\n",
-				v->config ? "*" : " ", i, v->address);
-	return CMD_SUCCESS;
-}
-
-/* Move to vty configuration mode. */
-DEFUN_NOSH (line_vty,
-       line_vty_cmd,
-       "line vty",
-       "Configure a terminal line\n"
-       "Virtual terminal\n")
-{
-	vty->node = VTY_NODE;
-	return CMD_SUCCESS;
-}
-
-/* Set time out value. */
-static int exec_timeout(struct vty *vty, const char *min_str,
-			const char *sec_str)
-{
-	unsigned long timeout = 0;
-
-	/* min_str and sec_str are already checked by parser.  So it must be
-	   all digit string. */
-	if (min_str) {
-		timeout = strtol(min_str, NULL, 10);
-		timeout *= 60;
-	}
-	if (sec_str)
-		timeout += strtol(sec_str, NULL, 10);
-
-	vty_timeout_val = timeout;
-	vty->v_timeout = timeout;
-	vty_event(VTY_TIMEOUT_RESET, 0, vty);
-
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (exec_timeout_min,
-       exec_timeout_min_cmd,
-       "exec-timeout (0-35791)",
-       "Set timeout value\n"
-       "Timeout value in minutes\n")
-{
-	int idx_number = 1;
-	return exec_timeout(vty, argv[idx_number]->arg, NULL);
-}
-
-DEFUN (exec_timeout_sec,
-       exec_timeout_sec_cmd,
-       "exec-timeout (0-35791) (0-2147483)",
-       "Set the EXEC timeout\n"
-       "Timeout in minutes\n"
-       "Timeout in seconds\n")
-{
-	int idx_number = 1;
-	int idx_number_2 = 2;
-	return exec_timeout(vty, argv[idx_number]->arg,
-			    argv[idx_number_2]->arg);
-}
-
-DEFUN (no_exec_timeout,
-       no_exec_timeout_cmd,
-       "no exec-timeout",
-       NO_STR
-       "Set the EXEC timeout\n")
-{
-	return exec_timeout(vty, NULL, NULL);
-}
-
-/* Set vty access class. */
-DEFUN (vty_access_class,
-       vty_access_class_cmd,
-       "access-class WORD",
-       "Filter connections based on an IP access list\n"
-       "IP access list\n")
-{
-	int idx_word = 1;
-	if (vty_accesslist_name)
-		XFREE(MTYPE_VTY, vty_accesslist_name);
-
-	vty_accesslist_name = XSTRDUP(MTYPE_VTY, argv[idx_word]->arg);
-
-	return CMD_SUCCESS;
-}
-
-/* Clear vty access class. */
-DEFUN (no_vty_access_class,
-       no_vty_access_class_cmd,
-       "no access-class [WORD]",
-       NO_STR
-       "Filter connections based on an IP access list\n"
-       "IP access list\n")
-{
-	int idx_word = 2;
-	const char *accesslist = (argc == 3) ? argv[idx_word]->arg : NULL;
-	if (!vty_accesslist_name
-	    || (argc == 3 && strcmp(vty_accesslist_name, accesslist))) {
-		vty_out(vty, "Access-class is not currently applied to vty\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	XFREE(MTYPE_VTY, vty_accesslist_name);
-
-	vty_accesslist_name = NULL;
-
-	return CMD_SUCCESS;
-}
-
-/* Set vty access class. */
-DEFUN (vty_ipv6_access_class,
-       vty_ipv6_access_class_cmd,
-       "ipv6 access-class WORD",
-       IPV6_STR
-       "Filter connections based on an IP access list\n"
-       "IPv6 access list\n")
-{
-	int idx_word = 2;
-	if (vty_ipv6_accesslist_name)
-		XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);
-
-	vty_ipv6_accesslist_name = XSTRDUP(MTYPE_VTY, argv[idx_word]->arg);
-
-	return CMD_SUCCESS;
-}
-
-/* Clear vty access class. */
-DEFUN (no_vty_ipv6_access_class,
-       no_vty_ipv6_access_class_cmd,
-       "no ipv6 access-class [WORD]",
-       NO_STR
-       IPV6_STR
-       "Filter connections based on an IP access list\n"
-       "IPv6 access list\n")
-{
-	int idx_word = 3;
-	const char *accesslist = (argc == 4) ? argv[idx_word]->arg : NULL;
-
-	if (!vty_ipv6_accesslist_name
-	    || (argc == 4 && strcmp(vty_ipv6_accesslist_name, accesslist))) {
-		vty_out(vty,
-			"IPv6 access-class is not currently applied to vty\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);
-
-	vty_ipv6_accesslist_name = NULL;
-
-	return CMD_SUCCESS;
-}
-
-/* vty login. */
-DEFUN (vty_login,
-       vty_login_cmd,
-       "login",
-       "Enable password checking\n")
-{
-	no_password_check = 0;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_vty_login,
-       no_vty_login_cmd,
-       "no login",
-       NO_STR
-       "Enable password checking\n")
-{
-	no_password_check = 1;
-	return CMD_SUCCESS;
-}
-
-DEFUN (service_advanced_vty,
-       service_advanced_vty_cmd,
-       "service advanced-vty",
-       "Set up miscellaneous service\n"
-       "Enable advanced mode vty interface\n")
-{
-	host.advanced = 1;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_service_advanced_vty,
-       no_service_advanced_vty_cmd,
-       "no service advanced-vty",
-       NO_STR
-       "Set up miscellaneous service\n"
-       "Enable advanced mode vty interface\n")
-{
-	host.advanced = 0;
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (terminal_monitor,
-       terminal_monitor_cmd,
-       "terminal monitor",
-       "Set terminal line parameters\n"
-       "Copy debug output to the current terminal line\n")
-{
-	vty->monitor = 1;
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (terminal_no_monitor,
-       terminal_no_monitor_cmd,
-       "terminal no monitor",
-       "Set terminal line parameters\n"
-       NO_STR
-       "Copy debug output to the current terminal line\n")
-{
-	vty->monitor = 0;
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (no_terminal_monitor,
-       no_terminal_monitor_cmd,
-       "no terminal monitor",
-       NO_STR
-       "Set terminal line parameters\n"
-       "Copy debug output to the current terminal line\n")
-{
-	return terminal_no_monitor(self, vty, argc, argv);
-}
-
-
-DEFUN_NOSH (show_history,
-       show_history_cmd,
-       "show history",
-       SHOW_STR
-       "Display the session command history\n")
-{
-	int index;
-
-	for (index = vty->hindex + 1; index != vty->hindex;) {
-		if (index == VTY_MAXHIST) {
-			index = 0;
-			continue;
-		}
-
-		if (vty->hist[index] != NULL)
-			vty_out(vty, "  %s\n", vty->hist[index]);
-
-		index++;
-	}
-
-	return CMD_SUCCESS;
-}
-
-/* vty login. */
-DEFUN (log_commands,
-       log_commands_cmd,
-       "log commands",
-       "Logging control\n"
-       "Log all commands (can't be unset without restart)\n")
-{
-	do_log_commands = 1;
-	return CMD_SUCCESS;
-}
-
-/* Display current configuration. */
-static int vty_config_write(struct vty *vty)
-{
-	vty_out(vty, "line vty\n");
-
-	if (vty_accesslist_name)
-		vty_out(vty, " access-class %s\n", vty_accesslist_name);
-
-	if (vty_ipv6_accesslist_name)
-		vty_out(vty, " ipv6 access-class %s\n",
-			vty_ipv6_accesslist_name);
-
-	/* exec-timeout */
-	if (vty_timeout_val != VTY_TIMEOUT_DEFAULT)
-		vty_out(vty, " exec-timeout %ld %ld\n", vty_timeout_val / 60,
-			vty_timeout_val % 60);
-
-	/* login */
-	if (no_password_check)
-		vty_out(vty, " no login\n");
-
-	if (do_log_commands)
-		vty_out(vty, "log commands\n");
-
-	vty_out(vty, "!\n");
-
-	return CMD_SUCCESS;
-}
-
-struct cmd_node vty_node = {
-	VTY_NODE, "%s(config-line)# ", 1,
-};
-
-/* Reset all VTY status. */
-void vty_reset()
-{
-	unsigned int i;
-	struct vty *vty;
-	struct thread *vty_serv_thread;
-
-	for (i = 0; i < vector_active(vtyvec); i++)
-		if ((vty = vector_slot(vtyvec, i)) != NULL) {
-			buffer_reset(vty->obuf);
-			vty->status = VTY_CLOSE;
-			vty_close(vty);
-		}
-
-	for (i = 0; i < vector_active(Vvty_serv_thread); i++)
-		if ((vty_serv_thread = vector_slot(Vvty_serv_thread, i))
-		    != NULL) {
-			thread_cancel(vty_serv_thread);
-			vector_slot(Vvty_serv_thread, i) = NULL;
-			close(i);
-		}
-
-	vty_timeout_val = VTY_TIMEOUT_DEFAULT;
-
-	if (vty_accesslist_name) {
-		XFREE(MTYPE_VTY, vty_accesslist_name);
-		vty_accesslist_name = NULL;
-	}
-
-	if (vty_ipv6_accesslist_name) {
-		XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);
-		vty_ipv6_accesslist_name = NULL;
-	}
-}
-
-static void vty_save_cwd(void)
-{
-	char cwd[MAXPATHLEN];
-	char *c;
-
-	c = getcwd(cwd, MAXPATHLEN);
-
-	if (!c) {
-		/*
-		 * At this point if these go wrong, more than likely
-		 * the whole world is coming down around us
-		 * Hence not worrying about it too much.
-		 */
-		if (!chdir(SYSCONFDIR)) {
-			zlog_err("Failure to chdir to %s, errno: %d",
-				 SYSCONFDIR, errno);
-			exit(-1);
-		}
-		if (getcwd(cwd, MAXPATHLEN) == NULL) {
-			zlog_err("Failure to getcwd, errno: %d", errno);
-			exit(-1);
-		}
-	}
-
-	vty_cwd = XMALLOC(MTYPE_TMP, strlen(cwd) + 1);
-	strcpy(vty_cwd, cwd);
-}
-
-char *vty_get_cwd()
-{
-	return vty_cwd;
-}
-
-int vty_shell(struct vty *vty)
-{
-	return vty->type == VTY_SHELL ? 1 : 0;
-}
-
-int vty_shell_serv(struct vty *vty)
-{
-	return vty->type == VTY_SHELL_SERV ? 1 : 0;
-}
-
-void vty_init_vtysh()
-{
-	vtyvec = vector_init(VECTOR_MIN_SIZE);
-}
-
-/* Install vty's own commands like `who' command. */
-void vty_init(struct thread_master *master_thread)
-{
-	/* For further configuration read, preserve current directory. */
-	vty_save_cwd();
-
-	vtyvec = vector_init(VECTOR_MIN_SIZE);
-
-	vty_master = master_thread;
-
-	atexit(vty_stdio_atexit);
-
-	/* Initilize server thread vector. */
-	Vvty_serv_thread = vector_init(VECTOR_MIN_SIZE);
-
-	/* Install bgp top node. */
-	install_node(&vty_node, vty_config_write);
-
-	install_element(VIEW_NODE, &config_who_cmd);
-	install_element(VIEW_NODE, &show_history_cmd);
-	install_element(CONFIG_NODE, &line_vty_cmd);
-	install_element(CONFIG_NODE, &service_advanced_vty_cmd);
-	install_element(CONFIG_NODE, &no_service_advanced_vty_cmd);
-	install_element(CONFIG_NODE, &show_history_cmd);
-	install_element(CONFIG_NODE, &log_commands_cmd);
-	install_element(ENABLE_NODE, &terminal_monitor_cmd);
-	install_element(ENABLE_NODE, &terminal_no_monitor_cmd);
-	install_element(ENABLE_NODE, &no_terminal_monitor_cmd);
-
-	install_default(VTY_NODE);
-	install_element(VTY_NODE, &exec_timeout_min_cmd);
-	install_element(VTY_NODE, &exec_timeout_sec_cmd);
-	install_element(VTY_NODE, &no_exec_timeout_cmd);
-	install_element(VTY_NODE, &vty_access_class_cmd);
-	install_element(VTY_NODE, &no_vty_access_class_cmd);
-	install_element(VTY_NODE, &vty_login_cmd);
-	install_element(VTY_NODE, &no_vty_login_cmd);
-	install_element(VTY_NODE, &vty_ipv6_access_class_cmd);
-	install_element(VTY_NODE, &no_vty_ipv6_access_class_cmd);
-}
-
-void vty_terminate(void)
-{
-	if (vty_cwd)
-		XFREE(MTYPE_TMP, vty_cwd);
-
-	if (vtyvec && Vvty_serv_thread) {
-		vty_reset();
-		vector_free(vtyvec);
-		vector_free(Vvty_serv_thread);
-		vtyvec = NULL;
-		Vvty_serv_thread = NULL;
-	}
-}
+/**Virtualterminal[akaTeletYpe]interfaceroutine.*Copyright(C)1997,98KunihiroIshi
+guro**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/
+ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwar
+eFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistribu
+tedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarra
+ntyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicen
+seformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*w
+iththisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51
+FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"linklist
+.h"#include"thread.h"#include"buffer.h"#include<lib/version.h>#include"command.h
+"#include"sockunion.h"#include"memory.h"#include"log.h"#include"prefix.h"#includ
+e"filter.h"#include"vty.h"#include"privs.h"#include"network.h"#include"libfrr.h"
+#include<arpa/telnet.h>#include<termios.h>DEFINE_MTYPE_STATIC(LIB,VTY,"VTY")DEFI
+NE_MTYPE_STATIC(LIB,VTY_OUT_BUF,"VTYoutputbuffer")DEFINE_MTYPE_STATIC(LIB,VTY_HI
+ST,"VTYhistory")/*Vtyevents*/enumevent{VTY_SERV,VTY_READ,VTY_WRITE,VTY_TIMEOUT_R
+ESET,#ifdefVTYSHVTYSH_SERV,VTYSH_READ,VTYSH_WRITE#endif/*VTYSH*/};staticvoidvty_
+event(enumevent,int,structvty*);/*Externhoststructurefromcommand.c*/externstruct
+hosthost;/*Vectorwhichstoreeachvtystructure.*/staticvectorvtyvec;/*Vtytimeoutval
+ue.*/staticunsignedlongvty_timeout_val=VTY_TIMEOUT_DEFAULT;/*Vtyaccess-classcomm
+and*/staticchar*vty_accesslist_name=NULL;/*Vtyaccess-calssforIPv6.*/staticchar*v
+ty_ipv6_accesslist_name=NULL;/*VTYserverthread.*/staticvectorVvty_serv_thread;/*
+Currentdirectory.*/char*vty_cwd=NULL;/*Configurelock.*/staticintvty_config;stati
+cintvty_config_is_lockless=0;/*Loginpasswordcheck.*/staticintno_password_check=0
+;/*Integratedconfigurationfilepath*/charintegrate_default[]=SYSCONFDIRINTEGRATE_
+DEFAULT_CONFIG;staticintdo_log_commands=0;voidvty_frame(structvty*vty,constchar*
+format,...){va_listargs;va_start(args,format);vsnprintf(vty->frame+vty->frame_po
+s,sizeof(vty->frame)-vty->frame_pos,format,args);vty->frame_pos=strlen(vty->fram
+e);va_end(args);}voidvty_endframe(structvty*vty,constchar*endtext){if(vty->frame
+_pos==0&&endtext)vty_out(vty,"%s",endtext);vty->frame_pos=0;}/*VTYstandardoutput
+function.*/intvty_out(structvty*vty,constchar*format,...){va_listargs;intlen=0;i
+ntsize=1024;charbuf[1024];char*p=NULL;if(vty->frame_pos){vty->frame_pos=0;vty_ou
+t(vty,"%s",vty->frame);}if(vty_shell(vty)){va_start(args,format);vprintf(format,
+args);va_end(args);}else{/*Trytowritetoinitialbuffer.*/va_start(args,format);len
+=vsnprintf(buf,sizeof(buf),format,args);va_end(args);/*Initialbufferisnotenough.
+*/if(len<0||len>=size){while(1){if(len>-1)size=len+1;elsesize=size*2;p=XREALLOC(
+MTYPE_VTY_OUT_BUF,p,size);if(!p)return-1;va_start(args,format);len=vsnprintf(p,s
+ize,format,args);va_end(args);if(len>-1&&len<size)break;}}/*Wheninitialbufferise
+noughtostorealloutput.*/if(!p)p=buf;/*Pointerpmustpointoutbuffer.*/if(vty->type!
+=VTY_TERM)buffer_put(vty->obuf,(uint8_t*)p,len);elsebuffer_put_crlf(vty->obuf,(u
+int8_t*)p,len);/*Ifpisnotdifferentwithbuf,itisallocatedbuffer.*/if(p!=buf)XFREE(
+MTYPE_VTY_OUT_BUF,p);}returnlen;}staticintvty_log_out(structvty*vty,constchar*le
+vel,constchar*proto_str,constchar*format,structtimestamp_control*ctl,va_listva){
+intret;intlen;charbuf[1024];if(!ctl->already_rendered){ctl->len=quagga_timestamp
+(ctl->precision,ctl->buf,sizeof(ctl->buf));ctl->already_rendered=1;}if(ctl->len+
+1>=sizeof(buf))return-1;memcpy(buf,ctl->buf,len=ctl->len);buf[len++]='';buf[len]
+='\0';if(level)ret=snprintf(buf+len,sizeof(buf)-len,"%s:%s:",level,proto_str);el
+seret=snprintf(buf+len,sizeof(buf)-len,"%s:",proto_str);if((ret<0)||((size_t)(le
+n+=ret)>=sizeof(buf)))return-1;if(((ret=vsnprintf(buf+len,sizeof(buf)-len,format
+,va))<0)||((size_t)((len+=ret)+2)>sizeof(buf)))return-1;buf[len++]='\r';buf[len+
++]='\n';if(write(vty->wfd,buf,len)<0){if(ERRNO_IO_RETRY(errno))/*Kernelbufferisf
+ull,probablytoomuchdebuggingoutput,sojustdropthedataandignore.*/return-1;/*Fatal
+I/Oerror.*/vty->monitor=0;/*disablemonitoringtoavoidinfiniterecursion*/zlog_warn
+("%s:writefailedtovtyclientfd%d,closing:%s",__func__,vty->fd,safe_strerror(errno
+));buffer_reset(vty->obuf);/*cannotcallvty_close,becauseaparentroutinemaystilltr
+ytoaccessthevtystruct*/vty->status=VTY_CLOSE;shutdown(vty->fd,SHUT_RDWR);return-
+1;}return0;}/*Outputcurrenttimetothevty.*/voidvty_time_print(structvty*vty,intcr
+){charbuf[QUAGGA_TIMESTAMP_LEN];if(quagga_timestamp(0,buf,sizeof(buf))==0){zlog_
+info("quagga_timestamperror");return;}if(cr)vty_out(vty,"%s\n",buf);elsevty_out(
+vty,"%s",buf);return;}/*Sayhellotovtyinterface.*/voidvty_hello(structvty*vty){if
+(host.motdfile){FILE*f;charbuf[4096];f=fopen(host.motdfile,"r");if(f){while(fget
+s(buf,sizeof(buf),f)){char*s;/*workbackwardstoignoretraillingisspace()*/for(s=bu
+f+strlen(buf);(s>buf)&&isspace((int)*(s-1));s--);*s='\0';vty_out(vty,"%s\n",buf)
+;}fclose(f);}elsevty_out(vty,"MOTDfilenotfound\n");}elseif(host.motd)vty_out(vty
+,"%s",host.motd);}/*Putoutpromptandwaitinputfromuser.*/staticvoidvty_prompt(stru
+ctvty*vty){if(vty->type==VTY_TERM){vty_out(vty,cmd_prompt(vty->node),cmd_hostnam
+e_get());}}/*SendWILLTELOPT_ECHOtoremoteserver.*/staticvoidvty_will_echo(structv
+ty*vty){unsignedcharcmd[]={IAC,WILL,TELOPT_ECHO,'\0'};vty_out(vty,"%s",cmd);}/*M
+akesuppressGo-Aheadtelnetoption.*/staticvoidvty_will_suppress_go_ahead(structvty
+*vty){unsignedcharcmd[]={IAC,WILL,TELOPT_SGA,'\0'};vty_out(vty,"%s",cmd);}/*Make
+don'tuselinemodeovertelnet.*/staticvoidvty_dont_linemode(structvty*vty){unsigned
+charcmd[]={IAC,DONT,TELOPT_LINEMODE,'\0'};vty_out(vty,"%s",cmd);}/*Usewindowsize
+.*/staticvoidvty_do_window_size(structvty*vty){unsignedcharcmd[]={IAC,DO,TELOPT_
+NAWS,'\0'};vty_out(vty,"%s",cmd);}#if0/*Currentlynotused.*//*Makedon'tuselflowvt
+yinterface.*/staticvoidvty_dont_lflow_ahead(structvty*vty){unsignedcharcmd[]={IA
+C,DONT,TELOPT_LFLOW,'\0'};vty_out(vty,"%s",cmd);}#endif/*0*//*Allocatenewvtystru
+ct.*/structvty*vty_new(){structvty*new=XCALLOC(MTYPE_VTY,sizeof(structvty));new-
+>fd=new->wfd=-1;new->obuf=buffer_new(0);/*Usedefaultbuffersize.*/new->buf=XCALLO
+C(MTYPE_VTY,VTY_BUFSIZ);new->error_buf=XCALLOC(MTYPE_VTY,VTY_BUFSIZ);new->max=VT
+Y_BUFSIZ;returnnew;}/*Authenticationofvty*/staticvoidvty_auth(structvty*vty,char
+*buf){char*passwd=NULL;enumnode_typenext_node=0;intfail;char*crypt(constchar*,co
+nstchar*);switch(vty->node){caseAUTH_NODE:if(host.encrypt)passwd=host.password_e
+ncrypt;elsepasswd=host.password;if(host.advanced)next_node=host.enable?VIEW_NODE
+:ENABLE_NODE;elsenext_node=VIEW_NODE;break;caseAUTH_ENABLE_NODE:if(host.encrypt)
+passwd=host.enable_encrypt;elsepasswd=host.enable;next_node=ENABLE_NODE;break;}i
+f(passwd){if(host.encrypt)fail=strcmp(crypt(buf,passwd),passwd);elsefail=strcmp(
+buf,passwd);}elsefail=1;if(!fail){vty->fail=0;vty->node=next_node;/*Success!*/}e
+lse{vty->fail++;if(vty->fail>=3){if(vty->node==AUTH_NODE){vty_out(vty,"%%Badpass
+words,toomanyfailures!\n");vty->status=VTY_CLOSE;}else{/*AUTH_ENABLE_NODE*/vty->
+fail=0;vty_out(vty,"%%Badenablepasswords,toomanyfailures!\n");vty->status=VTY_CL
+OSE;}}}}/*Commandexecutionoverthevtyinterface.*/staticintvty_command(structvty*v
+ty,char*buf){intret;vectorvline;constchar*protocolname;char*cp=NULL;/**Lognonemp
+tycommandlines*/if(do_log_commands)cp=buf;if(cp!=NULL){/*Skipwhitespaces.*/while
+(isspace((int)*cp)&&*cp!='\0')cp++;}if(cp!=NULL&&*cp!='\0'){unsignedi;charvty_st
+r[VTY_BUFSIZ];charprompt_str[VTY_BUFSIZ];/*formatthebasevtyinfo*/snprintf(vty_st
+r,sizeof(vty_str),"vty[??]@%s",vty->address);if(vty)for(i=0;i<vector_active(vtyv
+ec);i++)if(vty==vector_slot(vtyvec,i)){snprintf(vty_str,sizeof(vty_str),"vty[%d]
+@%s",i,vty->address);break;}/*formattheprompt*/snprintf(prompt_str,sizeof(prompt
+_str),cmd_prompt(vty->node),vty_str);/*nowlogthecommand*/zlog_err("%s%s",prompt_
+str,buf);}/*Splitreadlinestringupintothevector*/vline=cmd_make_strvec(buf);if(vl
+ine==NULL)returnCMD_SUCCESS;#ifdefCONSUMED_TIME_CHECK{RUSAGE_Tbefore;RUSAGE_Taft
+er;unsignedlongrealtime,cputime;GETRUSAGE(&before);#endif/*CONSUMED_TIME_CHECK*/
+ret=cmd_execute_command(vline,vty,NULL,0);/*Getthenameoftheprotocolifany*/protoc
+olname=frr_protoname;#ifdefCONSUMED_TIME_CHECKGETRUSAGE(&after);if((realtime=thr
+ead_consumed_time(&after,&before,&cputime))>CONSUMED_TIME_CHECK)/*WarnaboutCPUho
+gthatmustbefixed.*/zlog_warn("SLOWCOMMAND:commandtook%lums(cputime%lums):%s",rea
+ltime/1000,cputime/1000,buf);}#endif/*CONSUMED_TIME_CHECK*/if(ret!=CMD_SUCCESS)s
+witch(ret){caseCMD_WARNING:if(vty->type==VTY_FILE)vty_out(vty,"Warning...\n");br
+eak;caseCMD_ERR_AMBIGUOUS:vty_out(vty,"%%Ambiguouscommand.\n");break;caseCMD_ERR
+_NO_MATCH:vty_out(vty,"%%[%s]Unknowncommand:%s\n",protocolname,buf);break;caseCM
+D_ERR_INCOMPLETE:vty_out(vty,"%%Commandincomplete.\n");break;}cmd_free_strvec(vl
+ine);returnret;}staticconstchartelnet_backward_char=0x08;staticconstchartelnet_s
+pace_char='';/*Basicfunctiontowritebuffertovty.*/staticvoidvty_write(structvty*v
+ty,constchar*buf,size_tnbytes){if((vty->node==AUTH_NODE)||(vty->node==AUTH_ENABL
+E_NODE))return;/*Shouldwedobufferinghere?Andmakevty_flush(vty)?*/buffer_put(vty-
+>obuf,buf,nbytes);}/*Basicfunctiontoinsertcharacterintovty.*/staticvoidvty_self_
+insert(structvty*vty,charc){inti;intlength;if(vty->length+1>=VTY_BUFSIZ)return;l
+ength=vty->length-vty->cp;memmove(&vty->buf[vty->cp+1],&vty->buf[vty->cp],length
+);vty->buf[vty->cp]=c;vty_write(vty,&vty->buf[vty->cp],length+1);for(i=0;i<lengt
+h;i++)vty_write(vty,&telnet_backward_char,1);vty->cp++;vty->length++;vty->buf[vt
+y->length]='\0';}/*Selfinsertcharacter'c'inoverwritemode.*/staticvoidvty_self_in
+sert_overwrite(structvty*vty,charc){if(vty->cp==vty->length){vty_self_insert(vty
+,c);return;}vty->buf[vty->cp++]=c;vty_write(vty,&c,1);}/***Insertastringintovty-
+>bufatthecurrentcursorposition.**IftheresultantstringwouldbelargerthanVTY_BUFSIZ
+itis*truncatedtofit.*/staticvoidvty_insert_word_overwrite(structvty*vty,char*str
+){if(vty->cp==VTY_BUFSIZ)return;size_tnwrite=MIN((int)strlen(str),VTY_BUFSIZ-vty
+->cp-1);memcpy(&vty->buf[vty->cp],str,nwrite);vty->cp+=nwrite;vty->length=MAX(vt
+y->cp,vty->length);vty->buf[vty->length]='\0';vty_write(vty,str,nwrite);}/*Forwa
+rdcharacter.*/staticvoidvty_forward_char(structvty*vty){if(vty->cp<vty->length){
+vty_write(vty,&vty->buf[vty->cp],1);vty->cp++;}}/*Backwardcharacter.*/staticvoid
+vty_backward_char(structvty*vty){if(vty->cp>0){vty->cp--;vty_write(vty,&telnet_b
+ackward_char,1);}}/*Movetothebeginningoftheline.*/staticvoidvty_beginning_of_lin
+e(structvty*vty){while(vty->cp)vty_backward_char(vty);}/*Movetotheendoftheline.*
+/staticvoidvty_end_of_line(structvty*vty){while(vty->cp<vty->length)vty_forward_
+char(vty);}staticvoidvty_kill_line_from_beginning(structvty*);staticvoidvty_redr
+aw_line(structvty*);/*Printcommandlinehistory.Thisfunctioniscalledfromvty_next_l
+ineandvty_previous_line.*/staticvoidvty_history_print(structvty*vty){intlength;v
+ty_kill_line_from_beginning(vty);/*Getpreviouslinefromhistorybuffer*/length=strl
+en(vty->hist[vty->hp]);memcpy(vty->buf,vty->hist[vty->hp],length);vty->cp=vty->l
+ength=length;vty->buf[vty->length]='\0';/*Redrawcurrentline*/vty_redraw_line(vty
+);}/*Shownextcommandlinehistory.*/staticvoidvty_next_line(structvty*vty){inttry_
+index;if(vty->hp==vty->hindex)return;/*Tryistherehistoryexistornot.*/try_index=v
+ty->hp;if(try_index==(VTY_MAXHIST-1))try_index=0;elsetry_index++;/*Ifthereisnoth
+istoryreturn.*/if(vty->hist[try_index]==NULL)return;elsevty->hp=try_index;vty_hi
+story_print(vty);}/*Showpreviouscommandlinehistory.*/staticvoidvty_previous_line
+(structvty*vty){inttry_index;try_index=vty->hp;if(try_index==0)try_index=VTY_MAX
+HIST-1;elsetry_index--;if(vty->hist[try_index]==NULL)return;elsevty->hp=try_inde
+x;vty_history_print(vty);}/*Thisfunctionredrawallofthecommandlinecharacter.*/sta
+ticvoidvty_redraw_line(structvty*vty){vty_write(vty,vty->buf,vty->length);vty->c
+p=vty->length;}/*Forwardword.*/staticvoidvty_forward_word(structvty*vty){while(v
+ty->cp!=vty->length&&vty->buf[vty->cp]!='')vty_forward_char(vty);while(vty->cp!=
+vty->length&&vty->buf[vty->cp]=='')vty_forward_char(vty);}/*Backwardwordwithouts
+kippingtrainingspace.*/staticvoidvty_backward_pure_word(structvty*vty){while(vty
+->cp>0&&vty->buf[vty->cp-1]!='')vty_backward_char(vty);}/*Backwardword.*/staticv
+oidvty_backward_word(structvty*vty){while(vty->cp>0&&vty->buf[vty->cp-1]=='')vty
+_backward_char(vty);while(vty->cp>0&&vty->buf[vty->cp-1]!='')vty_backward_char(v
+ty);}/*When'^D'istypedatthebeginningofthelinewemovetothedownlevel.*/staticvoidvt
+y_down_level(structvty*vty){vty_out(vty,"\n");cmd_exit(vty);vty_prompt(vty);vty-
+>cp=0;}/*When'^Z'isreceivedfromvty,movedowntotheenablemode.*/staticvoidvty_end_c
+onfig(structvty*vty){vty_out(vty,"\n");switch(vty->node){caseVIEW_NODE:caseENABL
+E_NODE:/*Nothingtodo.*/break;caseCONFIG_NODE:caseINTERFACE_NODE:casePW_NODE:case
+ZEBRA_NODE:caseRIP_NODE:caseRIPNG_NODE:caseEIGRP_NODE:caseBGP_NODE:caseBGP_VPNV4
+_NODE:caseBGP_VPNV6_NODE:caseBGP_VRF_POLICY_NODE:caseBGP_VNC_DEFAULTS_NODE:caseB
+GP_VNC_NVE_GROUP_NODE:caseBGP_VNC_L2_GROUP_NODE:caseBGP_IPV4_NODE:caseBGP_IPV4M_
+NODE:caseBGP_IPV4L_NODE:caseBGP_IPV6_NODE:caseBGP_IPV6M_NODE:caseBGP_EVPN_NODE:c
+aseBGP_IPV6L_NODE:caseRMAP_NODE:caseOSPF_NODE:caseOSPF6_NODE:caseLDP_NODE:caseLD
+P_IPV4_NODE:caseLDP_IPV6_NODE:caseLDP_IPV4_IFACE_NODE:caseLDP_IPV6_IFACE_NODE:ca
+seLDP_L2VPN_NODE:caseLDP_PSEUDOWIRE_NODE:caseISIS_NODE:caseKEYCHAIN_NODE:caseKEY
+CHAIN_KEY_NODE:caseMASC_NODE:caseVTY_NODE:caseBGP_EVPN_VNI_NODE:vty_config_unloc
+k(vty);vty->node=ENABLE_NODE;break;default:/*Unknownnode,wehavetoignoreit.*/brea
+k;}vty_prompt(vty);vty->cp=0;}/*Deleteacharcteratthecurrentpoint.*/staticvoidvty
+_delete_char(structvty*vty){inti;intsize;if(vty->length==0){vty_down_level(vty);
+return;}if(vty->cp==vty->length)return;/*completionneedhere?*/size=vty->length-v
+ty->cp;vty->length--;memmove(&vty->buf[vty->cp],&vty->buf[vty->cp+1],size-1);vty
+->buf[vty->length]='\0';if(vty->node==AUTH_NODE||vty->node==AUTH_ENABLE_NODE)ret
+urn;vty_write(vty,&vty->buf[vty->cp],size-1);vty_write(vty,&telnet_space_char,1)
+;for(i=0;i<size;i++)vty_write(vty,&telnet_backward_char,1);}/*Deleteacharacterbe
+forethepoint.*/staticvoidvty_delete_backward_char(structvty*vty){if(vty->cp==0)r
+eturn;vty_backward_char(vty);vty_delete_char(vty);}/*Killrestoflinefromcurrentpo
+int.*/staticvoidvty_kill_line(structvty*vty){inti;intsize;size=vty->length-vty->
+cp;if(size==0)return;for(i=0;i<size;i++)vty_write(vty,&telnet_space_char,1);for(
+i=0;i<size;i++)vty_write(vty,&telnet_backward_char,1);memset(&vty->buf[vty->cp],
+0,size);vty->length=vty->cp;}/*Killlinefromthebeginning.*/staticvoidvty_kill_lin
+e_from_beginning(structvty*vty){vty_beginning_of_line(vty);vty_kill_line(vty);}/
+*Deleteawordbeforethepoint.*/staticvoidvty_forward_kill_word(structvty*vty){whil
+e(vty->cp!=vty->length&&vty->buf[vty->cp]=='')vty_delete_char(vty);while(vty->cp
+!=vty->length&&vty->buf[vty->cp]!='')vty_delete_char(vty);}/*Deleteawordbeforeth
+epoint.*/staticvoidvty_backward_kill_word(structvty*vty){while(vty->cp>0&&vty->b
+uf[vty->cp-1]=='')vty_delete_backward_char(vty);while(vty->cp>0&&vty->buf[vty->c
+p-1]!='')vty_delete_backward_char(vty);}/*Transposecharsbeforeoratthepoint.*/sta
+ticvoidvty_transpose_chars(structvty*vty){charc1,c2;/*Iflengthisshortorpointisne
+arbythebeginningoflinethenreturn.*/if(vty->length<2||vty->cp<1)return;/*Incaseof
+pointislocatedattheendoftheline.*/if(vty->cp==vty->length){c1=vty->buf[vty->cp-1
+];c2=vty->buf[vty->cp-2];vty_backward_char(vty);vty_backward_char(vty);vty_self_
+insert_overwrite(vty,c1);vty_self_insert_overwrite(vty,c2);}else{c1=vty->buf[vty
+->cp];c2=vty->buf[vty->cp-1];vty_backward_char(vty);vty_self_insert_overwrite(vt
+y,c1);vty_self_insert_overwrite(vty,c2);}}/*Docompletionatvtyinterface.*/staticv
+oidvty_complete_command(structvty*vty){inti;intret;char**matched=NULL;vectorvlin
+e;if(vty->node==AUTH_NODE||vty->node==AUTH_ENABLE_NODE)return;vline=cmd_make_str
+vec(vty->buf);if(vline==NULL)return;/*Incaseof'help\t'.*/if(isspace((int)vty->bu
+f[vty->length-1]))vector_set(vline,NULL);matched=cmd_complete_command(vline,vty,
+&ret);cmd_free_strvec(vline);vty_out(vty,"\n");switch(ret){caseCMD_ERR_AMBIGUOUS
+:vty_out(vty,"%%Ambiguouscommand.\n");vty_prompt(vty);vty_redraw_line(vty);break
+;caseCMD_ERR_NO_MATCH:/*vty_out(vty,"%%Thereisnomatchedcommand.\n");*/vty_prompt
+(vty);vty_redraw_line(vty);break;caseCMD_COMPLETE_FULL_MATCH:if(!matched[0]){/*2
+016-11-28equinox--needtodebug,SEGVhere*/vty_out(vty,"%%CLIBUG:FULL_MATCHwithNULL
+str\n");vty_prompt(vty);vty_redraw_line(vty);break;}vty_prompt(vty);vty_redraw_l
+ine(vty);vty_backward_pure_word(vty);vty_insert_word_overwrite(vty,matched[0]);v
+ty_self_insert(vty,'');XFREE(MTYPE_COMPLETION,matched[0]);break;caseCMD_COMPLETE
+_MATCH:vty_prompt(vty);vty_redraw_line(vty);vty_backward_pure_word(vty);vty_inse
+rt_word_overwrite(vty,matched[0]);XFREE(MTYPE_COMPLETION,matched[0]);break;caseC
+MD_COMPLETE_LIST_MATCH:for(i=0;matched[i]!=NULL;i++){if(i!=0&&((i%6)==0))vty_out
+(vty,"\n");vty_out(vty,"%-10s",matched[i]);XFREE(MTYPE_COMPLETION,matched[i]);}v
+ty_out(vty,"\n");vty_prompt(vty);vty_redraw_line(vty);break;caseCMD_ERR_NOTHING_
+TODO:vty_prompt(vty);vty_redraw_line(vty);break;default:break;}if(matched)XFREE(
+MTYPE_TMP,matched);}staticvoidvty_describe_fold(structvty*vty,intcmd_width,unsig
+nedintdesc_width,structcmd_token*token){char*buf;constchar*cmd,*p;intpos;cmd=tok
+en->text;if(desc_width<=0){vty_out(vty,"%-*s%s\n",cmd_width,cmd,token->desc);ret
+urn;}buf=XCALLOC(MTYPE_TMP,strlen(token->desc)+1);for(p=token->desc;strlen(p)>de
+sc_width;p+=pos+1){for(pos=desc_width;pos>0;pos--)if(*(p+pos)=='')break;if(pos==
+0)break;strncpy(buf,p,pos);buf[pos]='\0';vty_out(vty,"%-*s%s\n",cmd_width,cmd,bu
+f);cmd="";}vty_out(vty,"%-*s%s\n",cmd_width,cmd,p);XFREE(MTYPE_TMP,buf);}/*Descr
+ibematchedcommandfunction.*/staticvoidvty_describe_command(structvty*vty){intret
+;vectorvline;vectordescribe;unsignedinti,width,desc_width;structcmd_token*token,
+*token_cr=NULL;vline=cmd_make_strvec(vty->buf);/*Incaseof'>?'.*/if(vline==NULL){
+vline=vector_init(1);vector_set(vline,NULL);}elseif(isspace((int)vty->buf[vty->l
+ength-1]))vector_set(vline,NULL);describe=cmd_describe_command(vline,vty,&ret);v
+ty_out(vty,"\n");/*Ambiguouserror.*/switch(ret){caseCMD_ERR_AMBIGUOUS:vty_out(vt
+y,"%%Ambiguouscommand.\n");gotoout;break;caseCMD_ERR_NO_MATCH:vty_out(vty,"%%The
+reisnomatchedcommand.\n");gotoout;break;}/*Getwidthofcommandstring.*/width=0;for
+(i=0;i<vector_active(describe);i++)if((token=vector_slot(describe,i))!=NULL){uns
+ignedintlen;if(token->text[0]=='\0')continue;len=strlen(token->text);if(width<le
+n)width=len;}/*Getwidthofdescriptionstring.*/desc_width=vty->width-(width+6);/*P
+rintoutdescription.*/for(i=0;i<vector_active(describe);i++)if((token=vector_slot
+(describe,i))!=NULL){if(token->text[0]=='\0')continue;if(strcmp(token->text,CMD_
+CR_TEXT)==0){token_cr=token;continue;}if(!token->desc)vty_out(vty,"%-s\n",token-
+>text);elseif(desc_width>=strlen(token->desc))vty_out(vty,"%-*s%s\n",width,token
+->text,token->desc);elsevty_describe_fold(vty,width,desc_width,token);if(IS_VARY
+ING_TOKEN(token->type)){constchar*ref=vector_slot(vline,vector_active(vline)-1);
+vectorvarcomps=vector_init(VECTOR_MIN_SIZE);cmd_variable_complete(token,ref,varc
+omps);if(vector_active(varcomps)>0){char*ac=cmd_variable_comp2str(varcomps,vty->
+width);vty_out(vty,"%s\n",ac);XFREE(MTYPE_TMP,ac);}vector_free(varcomps);}#if0vt
+y_out(vty,"%-*s%s\n",widthdesc->cmd[0]=='.'?desc->cmd+1:desc->cmd,desc->str?desc
+->str:"");#endif/*0*/}if((token=token_cr)){if(!token->desc)vty_out(vty,"%-s\n",t
+oken->text);elseif(desc_width>=strlen(token->desc))vty_out(vty,"%-*s%s\n",width,
+token->text,token->desc);elsevty_describe_fold(vty,width,desc_width,token);}out:
+cmd_free_strvec(vline);if(describe)vector_free(describe);vty_prompt(vty);vty_red
+raw_line(vty);}staticvoidvty_clear_buf(structvty*vty){memset(vty->buf,0,vty->max
+);}/*^Cstopcurrentinputanddonotaddcommandlinetothehistory.*/staticvoidvty_stop_i
+nput(structvty*vty){vty->cp=vty->length=0;vty_clear_buf(vty);vty_out(vty,"\n");s
+witch(vty->node){caseVIEW_NODE:caseENABLE_NODE:/*Nothingtodo.*/break;caseCONFIG_
+NODE:caseINTERFACE_NODE:casePW_NODE:caseZEBRA_NODE:caseRIP_NODE:caseRIPNG_NODE:c
+aseEIGRP_NODE:caseBGP_NODE:caseRMAP_NODE:caseOSPF_NODE:caseOSPF6_NODE:caseLDP_NO
+DE:caseLDP_IPV4_NODE:caseLDP_IPV6_NODE:caseLDP_IPV4_IFACE_NODE:caseLDP_IPV6_IFAC
+E_NODE:caseLDP_L2VPN_NODE:caseLDP_PSEUDOWIRE_NODE:caseISIS_NODE:caseKEYCHAIN_NOD
+E:caseKEYCHAIN_KEY_NODE:caseMASC_NODE:caseVTY_NODE:vty_config_unlock(vty);vty->n
+ode=ENABLE_NODE;break;default:/*Unknownnode,wehavetoignoreit.*/break;}vty_prompt
+(vty);/*Sethistorypointertothelatestone.*/vty->hp=vty->hindex;}/*Addcurrentcomma
+ndlinetothehistorybuffer.*/staticvoidvty_hist_add(structvty*vty){intindex;if(vty
+->length==0)return;index=vty->hindex?vty->hindex-1:VTY_MAXHIST-1;/*Ignorethesame
+stringaspreviousone.*/if(vty->hist[index])if(strcmp(vty->buf,vty->hist[index])==
+0){vty->hp=vty->hindex;return;}/*Inserthistoryentry.*/if(vty->hist[vty->hindex])
+XFREE(MTYPE_VTY_HIST,vty->hist[vty->hindex]);vty->hist[vty->hindex]=XSTRDUP(MTYP
+E_VTY_HIST,vty->buf);/*Historyindexrotation.*/vty->hindex++;if(vty->hindex==VTY_
+MAXHIST)vty->hindex=0;vty->hp=vty->hindex;}/*#defineTELNET_OPTION_DEBUG*//*Gette
+lnetwindowsize.*/staticintvty_telnet_option(structvty*vty,unsignedchar*buf,intnb
+ytes){#ifdefTELNET_OPTION_DEBUGinti;for(i=0;i<nbytes;i++){switch(buf[i]){caseIAC
+:vty_out(vty,"IAC");break;caseWILL:vty_out(vty,"WILL");break;caseWONT:vty_out(vt
+y,"WONT");break;caseDO:vty_out(vty,"DO");break;caseDONT:vty_out(vty,"DONT");brea
+k;caseSB:vty_out(vty,"SB");break;caseSE:vty_out(vty,"SE");break;caseTELOPT_ECHO:
+vty_out(vty,"TELOPT_ECHO\n");break;caseTELOPT_SGA:vty_out(vty,"TELOPT_SGA\n");br
+eak;caseTELOPT_NAWS:vty_out(vty,"TELOPT_NAWS\n");break;default:vty_out(vty,"%x",
+buf[i]);break;}}vty_out(vty,"\n");#endif/*TELNET_OPTION_DEBUG*/switch(buf[0]){ca
+seSB:vty->sb_len=0;vty->iac_sb_in_progress=1;return0;break;caseSE:{if(!vty->iac_
+sb_in_progress)return0;if((vty->sb_len==0)||(vty->sb_buf[0]=='\0')){vty->iac_sb_
+in_progress=0;return0;}switch(vty->sb_buf[0]){caseTELOPT_NAWS:if(vty->sb_len!=TE
+LNET_NAWS_SB_LEN)zlog_warn("RFC1073violationdetected:telnetNAWSoption""shouldsen
+d%dcharacters,butwereceived%lu",TELNET_NAWS_SB_LEN,(unsignedlong)vty->sb_len);el
+seif(sizeof(vty->sb_buf)<TELNET_NAWS_SB_LEN)zlog_err("Bugdetected:sizeof(vty->sb
+_buf)%lu<%d,""toosmalltohandlethetelnetNAWSoption",(unsignedlong)sizeof(vty->sb_
+buf),TELNET_NAWS_SB_LEN);else{vty->width=((vty->sb_buf[1]<<8)|vty->sb_buf[2]);vt
+y->height=((vty->sb_buf[3]<<8)|vty->sb_buf[4]);#ifdefTELNET_OPTION_DEBUGvty_out(
+vty,"TELNETNAWSwindowsizenegotiationcompleted:""width%d,height%d\n",vty->width,v
+ty->height);#endif}break;}vty->iac_sb_in_progress=0;return0;break;}default:break
+;}return1;}/*Executecurrentcommandline.*/staticintvty_execute(structvty*vty){int
+ret;ret=CMD_SUCCESS;switch(vty->node){caseAUTH_NODE:caseAUTH_ENABLE_NODE:vty_aut
+h(vty,vty->buf);break;default:ret=vty_command(vty,vty->buf);if(vty->type==VTY_TE
+RM)vty_hist_add(vty);break;}/*Clearcommandlinebuffer.*/vty->cp=vty->length=0;vty
+_clear_buf(vty);if(vty->status!=VTY_CLOSE)vty_prompt(vty);returnret;}#defineCONT
+ROL(X)((X)-'@')#defineVTY_NORMAL0#defineVTY_PRE_ESCAPE1#defineVTY_ESCAPE2/*Escap
+echaractercommandmap.*/staticvoidvty_escape_map(unsignedcharc,structvty*vty){swi
+tch(c){case('A'):vty_previous_line(vty);break;case('B'):vty_next_line(vty);break
+;case('C'):vty_forward_char(vty);break;case('D'):vty_backward_char(vty);break;de
+fault:break;}/*Gobacktonormalmode.*/vty->escape=VTY_NORMAL;}/*Quitprintouttotheb
+uffer.*/staticvoidvty_buffer_reset(structvty*vty){buffer_reset(vty->obuf);vty_pr
+ompt(vty);vty_redraw_line(vty);}/*Readdataviavtysocket.*/staticintvty_read(struc
+tthread*thread){inti;intnbytes;unsignedcharbuf[VTY_READ_BUFSIZ];intvty_sock=THRE
+AD_FD(thread);structvty*vty=THREAD_ARG(thread);vty->t_read=NULL;/*Readrawdatafro
+msocket*/if((nbytes=read(vty->fd,buf,VTY_READ_BUFSIZ))<=0){if(nbytes<0){if(ERRNO
+_IO_RETRY(errno)){vty_event(VTY_READ,vty_sock,vty);return0;}vty->monitor=0;/*dis
+ablemonitoringtoavoidinfiniterecursion*/zlog_warn("%s:readerroronvtyclientfd%d,c
+losing:%s",__func__,vty->fd,safe_strerror(errno));buffer_reset(vty->obuf);}vty->
+status=VTY_CLOSE;}for(i=0;i<nbytes;i++){if(buf[i]==IAC){if(!vty->iac){vty->iac=1
+;continue;}else{vty->iac=0;}}if(vty->iac_sb_in_progress&&!vty->iac){if(vty->sb_l
+en<sizeof(vty->sb_buf))vty->sb_buf[vty->sb_len]=buf[i];vty->sb_len++;continue;}i
+f(vty->iac){/*Incaseoftelnetcommand*/intret=0;ret=vty_telnet_option(vty,buf+i,nb
+ytes-i);vty->iac=0;i+=ret;continue;}if(vty->status==VTY_MORE){switch(buf[i]){cas
+eCONTROL('C'):case'q':case'Q':vty_buffer_reset(vty);break;#if0/*Morelinedoesnotw
+orkfor"showipbgp".*/case'\n':case'\r':vty->status=VTY_MORELINE;break;#endifdefau
+lt:break;}continue;}/*Escapecharacter.*/if(vty->escape==VTY_ESCAPE){vty_escape_m
+ap(buf[i],vty);continue;}/*Pre-escapestatus.*/if(vty->escape==VTY_PRE_ESCAPE){sw
+itch(buf[i]){case'[':vty->escape=VTY_ESCAPE;break;case'b':vty_backward_word(vty)
+;vty->escape=VTY_NORMAL;break;case'f':vty_forward_word(vty);vty->escape=VTY_NORM
+AL;break;case'd':vty_forward_kill_word(vty);vty->escape=VTY_NORMAL;break;caseCON
+TROL('H'):case0x7f:vty_backward_kill_word(vty);vty->escape=VTY_NORMAL;break;defa
+ult:vty->escape=VTY_NORMAL;break;}continue;}switch(buf[i]){caseCONTROL('A'):vty_
+beginning_of_line(vty);break;caseCONTROL('B'):vty_backward_char(vty);break;caseC
+ONTROL('C'):vty_stop_input(vty);break;caseCONTROL('D'):vty_delete_char(vty);brea
+k;caseCONTROL('E'):vty_end_of_line(vty);break;caseCONTROL('F'):vty_forward_char(
+vty);break;caseCONTROL('H'):case0x7f:vty_delete_backward_char(vty);break;caseCON
+TROL('K'):vty_kill_line(vty);break;caseCONTROL('N'):vty_next_line(vty);break;cas
+eCONTROL('P'):vty_previous_line(vty);break;caseCONTROL('T'):vty_transpose_chars(
+vty);break;caseCONTROL('U'):vty_kill_line_from_beginning(vty);break;caseCONTROL(
+'W'):vty_backward_kill_word(vty);break;caseCONTROL('Z'):vty_end_config(vty);brea
+k;case'\n':case'\r':vty_out(vty,"\n");vty_execute(vty);break;case'\t':vty_comple
+te_command(vty);break;case'?':if(vty->node==AUTH_NODE||vty->node==AUTH_ENABLE_NO
+DE)vty_self_insert(vty,buf[i]);elsevty_describe_command(vty);break;case'\033':if
+(i+1<nbytes&&buf[i+1]=='['){vty->escape=VTY_ESCAPE;i++;}elsevty->escape=VTY_PRE_
+ESCAPE;break;default:if(buf[i]>31&&buf[i]<127)vty_self_insert(vty,buf[i]);break;
+}}/*Checkstatus.*/if(vty->status==VTY_CLOSE)vty_close(vty);else{vty_event(VTY_WR
+ITE,vty->wfd,vty);vty_event(VTY_READ,vty_sock,vty);}return0;}/*Flushbuffertothev
+ty.*/staticintvty_flush(structthread*thread){interase;buffer_status_tflushrc;int
+vty_sock=THREAD_FD(thread);structvty*vty=THREAD_ARG(thread);vty->t_write=NULL;/*
+Tempolarydisablereadthread.*/if((vty->lines==0)&&vty->t_read){thread_cancel(vty-
+>t_read);vty->t_read=NULL;}/*Functionexecutioncontinue.*/erase=((vty->status==VT
+Y_MORE||vty->status==VTY_MORELINE));/*N.B.ifwidthis0,thatmeanswedon'tknowthewind
+owsize.*/if((vty->lines==0)||(vty->width==0)||(vty->height==0))flushrc=buffer_fl
+ush_available(vty->obuf,vty_sock);elseif(vty->status==VTY_MORELINE)flushrc=buffe
+r_flush_window(vty->obuf,vty_sock,vty->width,1,erase,0);elseflushrc=buffer_flush
+_window(vty->obuf,vty_sock,vty->width,vty->lines>=0?vty->lines:vty->height,erase
+,0);switch(flushrc){caseBUFFER_ERROR:vty->monitor=0;/*disablemonitoringtoavoidin
+finiterecursion*/zlog_warn("buffer_flushfailedonvtyclientfd%d,closing",vty->fd);
+buffer_reset(vty->obuf);vty_close(vty);return0;caseBUFFER_EMPTY:if(vty->status==
+VTY_CLOSE)vty_close(vty);else{vty->status=VTY_NORMAL;if(vty->lines==0)vty_event(
+VTY_READ,vty_sock,vty);}break;caseBUFFER_PENDING:/*Thereismoredatawaitingtobewri
+tten.*/vty->status=VTY_MORE;if(vty->lines==0)vty_event(VTY_WRITE,vty_sock,vty);b
+reak;}return0;}/*allocateandinitialisevty*/staticstructvty*vty_new_init(intvty_s
+ock){structvty*vty;vty=vty_new();vty->fd=vty_sock;vty->wfd=vty_sock;vty->type=VT
+Y_TERM;vty->node=AUTH_NODE;vty->fail=0;vty->cp=0;vty_clear_buf(vty);vty->length=
+0;memset(vty->hist,0,sizeof(vty->hist));vty->hp=0;vty->hindex=0;vector_set_index
+(vtyvec,vty_sock,vty);vty->status=VTY_NORMAL;vty->lines=-1;vty->iac=0;vty->iac_s
+b_in_progress=0;vty->sb_len=0;returnvty;}/*Createnewvtystructure.*/staticstructv
+ty*vty_create(intvty_sock,unionsockunion*su){charbuf[SU_ADDRSTRLEN];structvty*vt
+y;sockunion2str(su,buf,SU_ADDRSTRLEN);/*Allocatenewvtystructureandsetupdefaultva
+lues.*/vty=vty_new_init(vty_sock);/*configurableparametersnotpartofbasicinit*/vt
+y->v_timeout=vty_timeout_val;strcpy(vty->address,buf);if(no_password_check){if(h
+ost.advanced)vty->node=ENABLE_NODE;elsevty->node=VIEW_NODE;}if(host.lines>=0)vty
+->lines=host.lines;if(!no_password_check){/*Vtyisnotavailableifpasswordisn'tset.
+*/if(host.password==NULL&&host.password_encrypt==NULL){vty_out(vty,"Vtypasswordi
+snotset.\n");vty->status=VTY_CLOSE;vty_close(vty);returnNULL;}}/*Sayhellotothewo
+rld.*/vty_hello(vty);if(!no_password_check)vty_out(vty,"\nUserAccessVerification
+\n\n");/*Settingupterminal.*/vty_will_echo(vty);vty_will_suppress_go_ahead(vty);
+vty_dont_linemode(vty);vty_do_window_size(vty);/*vty_dont_lflow_ahead(vty);*/vty
+_prompt(vty);/*Addread/writethread.*/vty_event(VTY_WRITE,vty_sock,vty);vty_event
+(VTY_READ,vty_sock,vty);returnvty;}/*createvtyforstdio*/staticstructtermiosstdio
+_orig_termios;staticstructvty*stdio_vty=NULL;staticboolstdio_termios=false;stati
+cvoid(*stdio_vty_atclose)(intisexit);staticvoidvty_stdio_reset(intisexit){if(std
+io_vty){if(stdio_termios)tcsetattr(0,TCSANOW,&stdio_orig_termios);stdio_termios=
+false;stdio_vty=NULL;if(stdio_vty_atclose)stdio_vty_atclose(isexit);stdio_vty_at
+close=NULL;}}staticvoidvty_stdio_atexit(void){vty_stdio_reset(1);}voidvty_stdio_
+suspend(void){if(!stdio_vty)return;if(stdio_vty->t_write)thread_cancel(stdio_vty
+->t_write);if(stdio_vty->t_read)thread_cancel(stdio_vty->t_read);if(stdio_vty->t
+_timeout)thread_cancel(stdio_vty->t_timeout);if(stdio_termios)tcsetattr(0,TCSANO
+W,&stdio_orig_termios);stdio_termios=false;}voidvty_stdio_resume(void){if(!stdio
+_vty)return;if(!tcgetattr(0,&stdio_orig_termios)){structtermiostermios;termios=s
+tdio_orig_termios;termios.c_iflag&=~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICR
+NL|IXON);termios.c_oflag&=~OPOST;termios.c_lflag&=~(ECHO|ECHONL|ICANON|IEXTEN);t
+ermios.c_cflag&=~(CSIZE|PARENB);termios.c_cflag|=CS8;tcsetattr(0,TCSANOW,&termio
+s);stdio_termios=true;}vty_prompt(stdio_vty);/*Addread/writethread.*/vty_event(V
+TY_WRITE,1,stdio_vty);vty_event(VTY_READ,0,stdio_vty);}voidvty_stdio_close(void)
+{if(!stdio_vty)return;vty_close(stdio_vty);}structvty*vty_stdio(void(*atclose)(i
+ntisexit)){structvty*vty;/*refusecreatingtwovtysonstdio*/if(stdio_vty)returnNULL
+;vty=stdio_vty=vty_new_init(0);stdio_vty_atclose=atclose;vty->wfd=1;/*alwayshave
+stdiovtyinaknown_unchangeable_state,don'twant*config*tohaveanyeffectheretomakesu
+rescriptingthisworksasintended*/vty->node=ENABLE_NODE;vty->v_timeout=0;strcpy(vt
+y->address,"console");vty_stdio_resume();returnvty;}/*Acceptconnectionfromthenet
+work.*/staticintvty_accept(structthread*thread){intvty_sock;unionsockunionsu;int
+ret;unsignedinton;intaccept_sock;structprefixp;structaccess_list*acl=NULL;charbu
+f[SU_ADDRSTRLEN];accept_sock=THREAD_FD(thread);/*Wecontinuehearingvtysocket.*/vt
+y_event(VTY_SERV,accept_sock,NULL);memset(&su,0,sizeof(unionsockunion));/*Wecanh
+andleIPv4orIPv6socket.*/vty_sock=sockunion_accept(accept_sock,&su);if(vty_sock<0
+){zlog_warn("can'tacceptvtysocket:%s",safe_strerror(errno));return-1;}set_nonblo
+cking(vty_sock);set_cloexec(vty_sock);sockunion2hostprefix(&su,&p);/*VTY'saccess
+listapply.*/if(p.family==AF_INET&&vty_accesslist_name){if((acl=access_list_looku
+p(AFI_IP,vty_accesslist_name))&&(access_list_apply(acl,&p)==FILTER_DENY)){zlog_i
+nfo("Vtyconnectionrefusedfrom%s",sockunion2str(&su,buf,SU_ADDRSTRLEN));close(vty
+_sock);/*continueacceptingconnections*/vty_event(VTY_SERV,accept_sock,NULL);retu
+rn0;}}/*VTY'sipv6accesslistapply.*/if(p.family==AF_INET6&&vty_ipv6_accesslist_na
+me){if((acl=access_list_lookup(AFI_IP6,vty_ipv6_accesslist_name))&&(access_list_
+apply(acl,&p)==FILTER_DENY)){zlog_info("Vtyconnectionrefusedfrom%s",sockunion2st
+r(&su,buf,SU_ADDRSTRLEN));close(vty_sock);/*continueacceptingconnections*/vty_ev
+ent(VTY_SERV,accept_sock,NULL);return0;}}on=1;ret=setsockopt(vty_sock,IPPROTO_TC
+P,TCP_NODELAY,(char*)&on,sizeof(on));if(ret<0)zlog_info("can'tsetsockopttovty_so
+ck:%s",safe_strerror(errno));zlog_info("Vtyconnectionfrom%s",sockunion2str(&su,b
+uf,SU_ADDRSTRLEN));vty_create(vty_sock,&su);return0;}staticvoidvty_serv_sock_add
+rinfo(constchar*hostname,unsignedshortport){intret;structaddrinforeq;structaddri
+nfo*ainfo;structaddrinfo*ainfo_save;intsock;charport_str[BUFSIZ];memset(&req,0,s
+izeof(structaddrinfo));req.ai_flags=AI_PASSIVE;req.ai_family=AF_UNSPEC;req.ai_so
+cktype=SOCK_STREAM;sprintf(port_str,"%d",port);port_str[sizeof(port_str)-1]='\0'
+;ret=getaddrinfo(hostname,port_str,&req,&ainfo);if(ret!=0){zlog_err("getaddrinfo
+failed:%s",gai_strerror(ret));exit(1);}ainfo_save=ainfo;do{if(ainfo->ai_family!=
+AF_INET&&ainfo->ai_family!=AF_INET6)continue;sock=socket(ainfo->ai_family,ainfo-
+>ai_socktype,ainfo->ai_protocol);if(sock<0)continue;sockopt_v6only(ainfo->ai_fam
+ily,sock);sockopt_reuseaddr(sock);sockopt_reuseport(sock);set_cloexec(sock);ret=
+bind(sock,ainfo->ai_addr,ainfo->ai_addrlen);if(ret<0){close(sock);/*Avoidsdleak.
+*/continue;}ret=listen(sock,3);if(ret<0){close(sock);/*Avoidsdleak.*/continue;}v
+ty_event(VTY_SERV,sock,NULL);}while((ainfo=ainfo->ai_next)!=NULL);freeaddrinfo(a
+info_save);}#ifdefVTYSH/*Forsockaddr_un.*/#include<sys/un.h>/*VTYshellUNIXdomain
+socket.*/staticvoidvty_serv_un(constchar*path){intret;intsock,len;structsockaddr
+_unserv;mode_told_mask;structzprivs_ids_tids;/*Firstofall,unlinkexistingsocket*/
+unlink(path);/*Setumask*/old_mask=umask(0007);/*MakeUNIXdomainsocket.*/sock=sock
+et(AF_UNIX,SOCK_STREAM,0);if(sock<0){zlog_err("Cannotcreateunixstreamsocket:%s",
+safe_strerror(errno));return;}/*Makeserversocket.*/memset(&serv,0,sizeof(structs
+ockaddr_un));serv.sun_family=AF_UNIX;strlcpy(serv.sun_path,path,sizeof(serv.sun_
+path));#ifdefHAVE_STRUCT_SOCKADDR_UN_SUN_LENlen=serv.sun_len=SUN_LEN(&serv);#els
+elen=sizeof(serv.sun_family)+strlen(serv.sun_path);#endif/*HAVE_STRUCT_SOCKADDR_
+UN_SUN_LEN*/set_cloexec(sock);ret=bind(sock,(structsockaddr*)&serv,len);if(ret<0
+){zlog_err("Cannotbindpath%s:%s",path,safe_strerror(errno));close(sock);/*Avoids
+dleak.*/return;}ret=listen(sock,5);if(ret<0){zlog_err("listen(fd%d)failed:%s",so
+ck,safe_strerror(errno));close(sock);/*Avoidsdleak.*/return;}umask(old_mask);zpr
+ivs_get_ids(&ids);/*Hack:ids.gid_vtyisactuallyauint,butwestored-1initearlierfort
+hecasewhenwedon'tneedtochownthefiletypecastingitheretomakeacompare*/if((int)ids.
+gid_vty>0){/*setgroupofsocket*/if(chown(path,-1,ids.gid_vty)){zlog_err("vty_serv
+_un:couldchownsocket,%s",safe_strerror(errno));}}vty_event(VTYSH_SERV,sock,NULL)
+;}/*#defineVTYSH_DEBUG1*/staticintvtysh_accept(structthread*thread){intaccept_so
+ck;intsock;intclient_len;structsockaddr_unclient;structvty*vty;accept_sock=THREA
+D_FD(thread);vty_event(VTYSH_SERV,accept_sock,NULL);memset(&client,0,sizeof(stru
+ctsockaddr_un));client_len=sizeof(structsockaddr_un);sock=accept(accept_sock,(st
+ructsockaddr*)&client,(socklen_t*)&client_len);if(sock<0){zlog_warn("can'taccept
+vtysocket:%s",safe_strerror(errno));return-1;}if(set_nonblocking(sock)<0){zlog_w
+arn("vtysh_accept:couldnotsetvtysocket%dtonon-blocking,""%s,closing",sock,safe_s
+trerror(errno));close(sock);return-1;}set_cloexec(sock);#ifdefVTYSH_DEBUGprintf(
+"VTYshellaccept\n");#endif/*VTYSH_DEBUG*/vty=vty_new();vty->fd=sock;vty->wfd=soc
+k;vty->type=VTY_SHELL_SERV;vty->node=VIEW_NODE;vty_event(VTYSH_READ,sock,vty);re
+turn0;}staticintvtysh_flush(structvty*vty){switch(buffer_flush_available(vty->ob
+uf,vty->wfd)){caseBUFFER_PENDING:vty_event(VTYSH_WRITE,vty->wfd,vty);break;caseB
+UFFER_ERROR:vty->monitor=0;/*disablemonitoringtoavoidinfiniterecursion*/zlog_war
+n("%s:writeerrortofd%d,closing",__func__,vty->fd);buffer_reset(vty->obuf);vty_cl
+ose(vty);return-1;break;caseBUFFER_EMPTY:break;}return0;}staticintvtysh_read(str
+uctthread*thread){intret;intsock;intnbytes;structvty*vty;unsignedcharbuf[VTY_REA
+D_BUFSIZ];unsignedchar*p;uint8_theader[4]={0,0,0,0};sock=THREAD_FD(thread);vty=T
+HREAD_ARG(thread);vty->t_read=NULL;if((nbytes=read(sock,buf,VTY_READ_BUFSIZ))<=0
+){if(nbytes<0){if(ERRNO_IO_RETRY(errno)){vty_event(VTYSH_READ,sock,vty);return0;
+}vty->monitor=0;/*disablemonitoringtoavoidinfiniterecursion*/zlog_warn("%s:readf
+ailedonvtyshclientfd%d,closing:%s",__func__,sock,safe_strerror(errno));}buffer_r
+eset(vty->obuf);vty_close(vty);#ifdefVTYSH_DEBUGprintf("closevtysh\n");#endif/*V
+TYSH_DEBUG*/return0;}#ifdefVTYSH_DEBUGprintf("line:%.*s\n",nbytes,buf);#endif/*V
+TYSH_DEBUG*/if(vty->length+nbytes>=VTY_BUFSIZ){/*Clearcommandlinebuffer.*/vty->c
+p=vty->length=0;vty_clear_buf(vty);vty_out(vty,"%%Commandistoolong.\n");}else{fo
+r(p=buf;p<buf+nbytes;p++){vty->buf[vty->length++]=*p;if(*p=='\0'){/*Passthisline
+toparser.*/ret=vty_execute(vty);/*Notethatvty_executeclearsthecommandbufferandre
+setsvty->lengthto0.*//*Returnresult.*/#ifdefVTYSH_DEBUGprintf("result:%d\n",ret)
+;printf("vtyshnode:%d\n",vty->node);#endif/*VTYSH_DEBUG*//*hackforasynchronous"w
+riteintegrated"*-othercommandsin"buf"willbeditched*-inputduringpendingconfig-wri
+teis*"unsupported"*/if(ret==CMD_SUSPEND)break;/*warning:watchfrrhardcodesthisres
+ultwrite*/header[3]=ret;buffer_put(vty->obuf,header,4);if(!vty->t_write&&(vtysh_
+flush(vty)<0))/*Trytoflushresults;exitifawrite*erroroccurs.*/return0;}}}if(vty->
+status==VTY_CLOSE)vty_close(vty);elsevty_event(VTYSH_READ,sock,vty);return0;}sta
+ticintvtysh_write(structthread*thread){structvty*vty=THREAD_ARG(thread);vty->t_w
+rite=NULL;vtysh_flush(vty);return0;}#endif/*VTYSH*//*Determineaddressfamilytobin
+d.*/voidvty_serv_sock(constchar*addr,unsignedshortport,constchar*path){/*Ifporti
+ssetto0,donotlistenonTCP/IPatall!*/if(port)vty_serv_sock_addrinfo(addr,port);#if
+defVTYSHvty_serv_un(path);#endif/*VTYSH*/}/*Closevtyinterface.Warning:callthison
+lyfromfunctionsthatwillbecarefulnottoaccessthevtyafterwards(sinceithasnowbeenfre
+ed).Thisissafestfromtop-levelfunctions(calleddirectlybythethreaddispatcher).*/vo
+idvty_close(structvty*vty){inti;boolwas_stdio=false;/*Cancelthreads.*/if(vty->t_
+read)thread_cancel(vty->t_read);if(vty->t_write)thread_cancel(vty->t_write);if(v
+ty->t_timeout)thread_cancel(vty->t_timeout);/*Flushbuffer.*/buffer_flush_all(vty
+->obuf,vty->wfd);/*Freeinputbuffer.*/buffer_free(vty->obuf);/*Freecommandhistory
+.*/for(i=0;i<VTY_MAXHIST;i++)if(vty->hist[i])XFREE(MTYPE_VTY_HIST,vty->hist[i]);
+/*Unsetvector.*/if(vty->fd!=-1)vector_unset(vtyvec,vty->fd);if(vty->wfd>0&&vty->
+type==VTY_FILE)fsync(vty->wfd);/*Closesocket.*notecheckisforfd>STDERR_FILENO,not
+fd!=-1.*Weneverclosestdin/stdout/stderrhere,becausewemaybe*runninginforegroundmo
+dewithloggingtostdout.Also,*additionally,we'dneedtoreplacethesefdswith/dev/null.
+*/if(vty->wfd>STDERR_FILENO&&vty->wfd!=vty->fd)close(vty->wfd);if(vty->fd>STDERR
+_FILENO){close(vty->fd);}elsewas_stdio=true;if(vty->buf)XFREE(MTYPE_VTY,vty->buf
+);if(vty->error_buf)XFREE(MTYPE_VTY,vty->error_buf);/*Checkconfigure.*/vty_confi
+g_unlock(vty);/*OKfreevty.*/XFREE(MTYPE_VTY,vty);if(was_stdio)vty_stdio_reset(0)
+;}/*Whentimeoutoccuroutputmessagethencloseconnection.*/staticintvty_timeout(stru
+ctthread*thread){structvty*vty;vty=THREAD_ARG(thread);vty->t_timeout=NULL;vty->v
+_timeout=0;/*Clearbuffer*/buffer_reset(vty->obuf);vty_out(vty,"\nVtyconnectionis
+timedout.\n");/*Closeconnection.*/vty->status=VTY_CLOSE;vty_close(vty);return0;}
+/*Readupconfigurationfilefromfile_name.*/staticvoidvty_read_file(FILE*confp){int
+ret;structvty*vty;unsignedintline_num=0;vty=vty_new();/*vty_closewon'tclosestder
+r;ifsomeconfigcommandprints*somethingit'llendupthere.(notideal;it'dbebeterifoutp
+ut*fromafile-loadwenttologginginstead.Alsonotethatifthis*functioniscalledafterda
+emonizing,stderrwillbe/dev/null.)**vty->fdwillbe-1fromvty_new()*/vty->wfd=STDERR
+_FILENO;vty->type=VTY_FILE;vty->node=CONFIG_NODE;/*Executeconfigurationfile*/ret
+=config_from_file(vty,confp,&line_num);/*Flushanypreviouserrorsbeforeprintingmes
+sagesbelow*/buffer_flush_all(vty->obuf,vty->wfd);if(!((ret==CMD_SUCCESS)||(ret==
+CMD_ERR_NOTHING_TODO))){constchar*message=NULL;char*nl;switch(ret){caseCMD_ERR_A
+MBIGUOUS:message="Ambiguouscommand";break;caseCMD_ERR_NO_MATCH:message="Nosuchco
+mmand";break;caseCMD_WARNING:message="CommandreturnedWarning";break;caseCMD_WARN
+ING_CONFIG_FAILED:message="CommandreturnedWarningConfigFailed";break;caseCMD_ERR
+_INCOMPLETE:message="CommandreturnedIncomplete";break;caseCMD_ERR_EXEED_ARGC_MAX
+:message="CommandexceededmaximumnumberofArguments";break;default:message="Comman
+dreturnedunhandlederrormessage";break;}nl=strchr(vty->error_buf,'\n');if(nl)*nl=
+'\0';zlog_err("ERROR:%sonconfigline%u:%s",message,line_num,vty->error_buf);}vty_
+close(vty);}staticFILE*vty_use_backup_config(constchar*fullpath){char*fullpath_s
+av,*fullpath_tmp;FILE*ret=NULL;inttmp,sav;intc;charbuffer[512];fullpath_sav=mall
+oc(strlen(fullpath)+strlen(CONF_BACKUP_EXT)+1);strcpy(fullpath_sav,fullpath);str
+cat(fullpath_sav,CONF_BACKUP_EXT);sav=open(fullpath_sav,O_RDONLY);if(sav<0){free
+(fullpath_sav);returnNULL;}fullpath_tmp=malloc(strlen(fullpath)+8);sprintf(fullp
+ath_tmp,"%s.XXXXXX",fullpath);/*Openfiletoconfigurationwrite.*/tmp=mkstemp(fullp
+ath_tmp);if(tmp<0)gotoout_close_sav;if(fchmod(tmp,CONFIGFILE_MASK)!=0)gotoout_cl
+ose;while((c=read(sav,buffer,512))>0){if(write(tmp,buffer,c)<=0)gotoout_close;}c
+lose(sav);close(tmp);if(rename(fullpath_tmp,fullpath)==0)ret=fopen(fullpath,"r")
+;elseunlink(fullpath_tmp);if(0){out_close:close(tmp);unlink(fullpath_tmp);out_cl
+ose_sav:close(sav);}free(fullpath_sav);free(fullpath_tmp);returnret;}/*Readupcon
+figurationfilefromfile_name.*/voidvty_read_config(constchar*config_file,char*con
+fig_default_dir){charcwd[MAXPATHLEN];FILE*confp=NULL;constchar*fullpath;char*tmp
+=NULL;/*If-fflagspecified.*/if(config_file!=NULL){if(!IS_DIRECTORY_SEP(config_fi
+le[0])){if(getcwd(cwd,MAXPATHLEN)==NULL){zlog_err("FailuretodetermineCurrentWork
+ingDirectory%d!",errno);exit(1);}tmp=XMALLOC(MTYPE_TMP,strlen(cwd)+strlen(config
+_file)+2);sprintf(tmp,"%s/%s",cwd,config_file);fullpath=tmp;}elsefullpath=config
+_file;confp=fopen(fullpath,"r");if(confp==NULL){zlog_err("%s:failedtoopenconfigu
+rationfile%s:%s",__func__,fullpath,safe_strerror(errno));confp=vty_use_backup_co
+nfig(fullpath);if(confp)zlog_warn("WARNING:usingbackupconfigurationfile!");else{
+zlog_err("can'topenconfigurationfile[%s]",config_file);exit(1);}}}else{host_conf
+ig_set(config_default_dir);#ifdefVTYSHintret;structstatconf_stat;/*!!!!PLEASELEA
+VE!!!!*ThisisNEEDEDforusewithvtysh-b,orelseyoucanget*arealconfigurationfoodfight
+withalotgarbageinthe*mergedconfigurationfileitcreatescomingfromtheper*daemonconf
+igurationfiles.Thisalsoallowsthedaemons*tostartiftheredefaultconfigurationfileis
+not*presentorignorethem,asneededwhenusingvtysh-bto*configurethedaemonsatboot-MAG
+*//*StatforvtyshZebra.conf,iffoundstartupandwaitfor*bootconfiguration*/if(strstr
+(config_default_dir,"vtysh")==NULL){ret=stat(integrate_default,&conf_stat);if(re
+t>=0)gototmp_free_and_out;}#endif/*VTYSH*/confp=fopen(config_default_dir,"r");if
+(confp==NULL){zlog_err("%s:failedtoopenconfigurationfile%s:%s",__func__,config_d
+efault_dir,safe_strerror(errno));confp=vty_use_backup_config(config_default_dir)
+;if(confp){zlog_warn("WARNING:usingbackupconfigurationfile!");fullpath=config_de
+fault_dir;}else{zlog_err("can'topenconfigurationfile[%s]",config_default_dir);go
+totmp_free_and_out;}}elsefullpath=config_default_dir;}vty_read_file(confp);fclos
+e(confp);host_config_set(fullpath);tmp_free_and_out:if(tmp)XFREE(MTYPE_TMP,tmp);
+}/*SmallutilityfunctionwhichoutputlogtotheVTY.*/voidvty_log(constchar*level,cons
+tchar*proto_str,constchar*format,structtimestamp_control*ctl,va_listva){unsigned
+inti;structvty*vty;if(!vtyvec)return;for(i=0;i<vector_active(vtyvec);i++)if((vty
+=vector_slot(vtyvec,i))!=NULL)if(vty->monitor){va_listac;va_copy(ac,va);vty_log_
+out(vty,level,proto_str,format,ctl,ac);va_end(ac);}}/*Async-signal-safeversionof
+vty_logforfixedstrings.*/voidvty_log_fixed(char*buf,size_tlen){unsignedinti;stru
+ctioveciov[2];charcrlf[4]="\r\n";/*vtymaynothavebeeninitialised*/if(!vtyvec)retu
+rn;iov[0].iov_base=buf;iov[0].iov_len=len;iov[1].iov_base=crlf;iov[1].iov_len=2;
+for(i=0;i<vector_active(vtyvec);i++){structvty*vty;if(((vty=vector_slot(vtyvec,i
+))!=NULL)&&vty->monitor)/*N.B.Wedon'tcareaboutthereturncode,sinceprocessismostli
+kelyjustabouttodieanyway.*/if(writev(vty->wfd,iov,2)==-1){fprintf(stderr,"Failur
+etowritev:%d\n",errno);exit(-1);}}}intvty_config_lock(structvty*vty){if(vty_conf
+ig_is_lockless)return1;if(vty_config==0){vty->config=1;vty_config=1;}returnvty->
+config;}intvty_config_unlock(structvty*vty){if(vty_config_is_lockless)return0;if
+(vty_config==1&&vty->config==1){vty->config=0;vty_config=0;}returnvty->config;}v
+oidvty_config_lockless(void){vty_config_is_lockless=1;}/*Masterofthethreads.*/st
+aticstructthread_master*vty_master;staticvoidvty_event(enumeventevent,intsock,st
+ructvty*vty){structthread*vty_serv_thread=NULL;switch(event){caseVTY_SERV:vty_se
+rv_thread=thread_add_read(vty_master,vty_accept,vty,sock,NULL);vector_set_index(
+Vvty_serv_thread,sock,vty_serv_thread);break;#ifdefVTYSHcaseVTYSH_SERV:vty_serv_
+thread=thread_add_read(vty_master,vtysh_accept,vty,sock,NULL);vector_set_index(V
+vty_serv_thread,sock,vty_serv_thread);break;caseVTYSH_READ:vty->t_read=NULL;thre
+ad_add_read(vty_master,vtysh_read,vty,sock,&vty->t_read);break;caseVTYSH_WRITE:v
+ty->t_write=NULL;thread_add_write(vty_master,vtysh_write,vty,sock,&vty->t_write)
+;break;#endif/*VTYSH*/caseVTY_READ:vty->t_read=NULL;thread_add_read(vty_master,v
+ty_read,vty,sock,&vty->t_read);/*Timeouttreatment.*/if(vty->v_timeout){if(vty->t
+_timeout)thread_cancel(vty->t_timeout);vty->t_timeout=NULL;thread_add_timer(vty_
+master,vty_timeout,vty,vty->v_timeout,&vty->t_timeout);}break;caseVTY_WRITE:thre
+ad_add_write(vty_master,vty_flush,vty,sock,&vty->t_write);break;caseVTY_TIMEOUT_
+RESET:if(vty->t_timeout){thread_cancel(vty->t_timeout);vty->t_timeout=NULL;}if(v
+ty->v_timeout){vty->t_timeout=NULL;thread_add_timer(vty_master,vty_timeout,vty,v
+ty->v_timeout,&vty->t_timeout);}break;}}DEFUN_NOSH(config_who,config_who_cmd,"wh
+o","Displaywhoisonvty\n"){unsignedinti;structvty*v;for(i=0;i<vector_active(vtyve
+c);i++)if((v=vector_slot(vtyvec,i))!=NULL)vty_out(vty,"%svty[%d]connectedfrom%s.
+\n",v->config?"*":"",i,v->address);returnCMD_SUCCESS;}/*Movetovtyconfigurationmo
+de.*/DEFUN_NOSH(line_vty,line_vty_cmd,"linevty","Configureaterminalline\n""Virtu
+alterminal\n"){vty->node=VTY_NODE;returnCMD_SUCCESS;}/*Settimeoutvalue.*/statici
+ntexec_timeout(structvty*vty,constchar*min_str,constchar*sec_str){unsignedlongti
+meout=0;/*min_strandsec_strarealreadycheckedbyparser.Soitmustbealldigitstring.*/
+if(min_str){timeout=strtol(min_str,NULL,10);timeout*=60;}if(sec_str)timeout+=str
+tol(sec_str,NULL,10);vty_timeout_val=timeout;vty->v_timeout=timeout;vty_event(VT
+Y_TIMEOUT_RESET,0,vty);returnCMD_SUCCESS;}DEFUN(exec_timeout_min,exec_timeout_mi
+n_cmd,"exec-timeout(0-35791)","Settimeoutvalue\n""Timeoutvalueinminutes\n"){inti
+dx_number=1;returnexec_timeout(vty,argv[idx_number]->arg,NULL);}DEFUN(exec_timeo
+ut_sec,exec_timeout_sec_cmd,"exec-timeout(0-35791)(0-2147483)","SettheEXECtimeou
+t\n""Timeoutinminutes\n""Timeoutinseconds\n"){intidx_number=1;intidx_number_2=2;
+returnexec_timeout(vty,argv[idx_number]->arg,argv[idx_number_2]->arg);}DEFUN(no_
+exec_timeout,no_exec_timeout_cmd,"noexec-timeout",NO_STR"SettheEXECtimeout\n"){r
+eturnexec_timeout(vty,NULL,NULL);}/*Setvtyaccessclass.*/DEFUN(vty_access_class,v
+ty_access_class_cmd,"access-classWORD","FilterconnectionsbasedonanIPaccesslist\n
+""IPaccesslist\n"){intidx_word=1;if(vty_accesslist_name)XFREE(MTYPE_VTY,vty_acce
+sslist_name);vty_accesslist_name=XSTRDUP(MTYPE_VTY,argv[idx_word]->arg);returnCM
+D_SUCCESS;}/*Clearvtyaccessclass.*/DEFUN(no_vty_access_class,no_vty_access_class
+_cmd,"noaccess-class[WORD]",NO_STR"FilterconnectionsbasedonanIPaccesslist\n""IPa
+ccesslist\n"){intidx_word=2;constchar*accesslist=(argc==3)?argv[idx_word]->arg:N
+ULL;if(!vty_accesslist_name||(argc==3&&strcmp(vty_accesslist_name,accesslist))){
+vty_out(vty,"Access-classisnotcurrentlyappliedtovty\n");returnCMD_WARNING_CONFIG
+_FAILED;}XFREE(MTYPE_VTY,vty_accesslist_name);vty_accesslist_name=NULL;returnCMD
+_SUCCESS;}/*Setvtyaccessclass.*/DEFUN(vty_ipv6_access_class,vty_ipv6_access_clas
+s_cmd,"ipv6access-classWORD",IPV6_STR"FilterconnectionsbasedonanIPaccesslist\n""
+IPv6accesslist\n"){intidx_word=2;if(vty_ipv6_accesslist_name)XFREE(MTYPE_VTY,vty
+_ipv6_accesslist_name);vty_ipv6_accesslist_name=XSTRDUP(MTYPE_VTY,argv[idx_word]
+->arg);returnCMD_SUCCESS;}/*Clearvtyaccessclass.*/DEFUN(no_vty_ipv6_access_class
+,no_vty_ipv6_access_class_cmd,"noipv6access-class[WORD]",NO_STRIPV6_STR"Filterco
+nnectionsbasedonanIPaccesslist\n""IPv6accesslist\n"){intidx_word=3;constchar*acc
+esslist=(argc==4)?argv[idx_word]->arg:NULL;if(!vty_ipv6_accesslist_name||(argc==
+4&&strcmp(vty_ipv6_accesslist_name,accesslist))){vty_out(vty,"IPv6access-classis
+notcurrentlyappliedtovty\n");returnCMD_WARNING_CONFIG_FAILED;}XFREE(MTYPE_VTY,vt
+y_ipv6_accesslist_name);vty_ipv6_accesslist_name=NULL;returnCMD_SUCCESS;}/*vtylo
+gin.*/DEFUN(vty_login,vty_login_cmd,"login","Enablepasswordchecking\n"){no_passw
+ord_check=0;returnCMD_SUCCESS;}DEFUN(no_vty_login,no_vty_login_cmd,"nologin",NO_
+STR"Enablepasswordchecking\n"){no_password_check=1;returnCMD_SUCCESS;}DEFUN(serv
+ice_advanced_vty,service_advanced_vty_cmd,"serviceadvanced-vty","Setupmiscellane
+ousservice\n""Enableadvancedmodevtyinterface\n"){host.advanced=1;returnCMD_SUCCE
+SS;}DEFUN(no_service_advanced_vty,no_service_advanced_vty_cmd,"noserviceadvanced
+-vty",NO_STR"Setupmiscellaneousservice\n""Enableadvancedmodevtyinterface\n"){hos
+t.advanced=0;returnCMD_SUCCESS;}DEFUN_NOSH(terminal_monitor,terminal_monitor_cmd
+,"terminalmonitor","Setterminallineparameters\n""Copydebugoutputtothecurrentterm
+inalline\n"){vty->monitor=1;returnCMD_SUCCESS;}DEFUN_NOSH(terminal_no_monitor,te
+rminal_no_monitor_cmd,"terminalnomonitor","Setterminallineparameters\n"NO_STR"Co
+pydebugoutputtothecurrentterminalline\n"){vty->monitor=0;returnCMD_SUCCESS;}DEFU
+N_NOSH(no_terminal_monitor,no_terminal_monitor_cmd,"noterminalmonitor",NO_STR"Se
+tterminallineparameters\n""Copydebugoutputtothecurrentterminalline\n"){returnter
+minal_no_monitor(self,vty,argc,argv);}DEFUN_NOSH(show_history,show_history_cmd,"
+showhistory",SHOW_STR"Displaythesessioncommandhistory\n"){intindex;for(index=vty
+->hindex+1;index!=vty->hindex;){if(index==VTY_MAXHIST){index=0;continue;}if(vty-
+>hist[index]!=NULL)vty_out(vty,"%s\n",vty->hist[index]);index++;}returnCMD_SUCCE
+SS;}/*vtylogin.*/DEFUN(log_commands,log_commands_cmd,"logcommands","Loggingcontr
+ol\n""Logallcommands(can'tbeunsetwithoutrestart)\n"){do_log_commands=1;returnCMD
+_SUCCESS;}/*Displaycurrentconfiguration.*/staticintvty_config_write(structvty*vt
+y){vty_out(vty,"linevty\n");if(vty_accesslist_name)vty_out(vty,"access-class%s\n
+",vty_accesslist_name);if(vty_ipv6_accesslist_name)vty_out(vty,"ipv6access-class
+%s\n",vty_ipv6_accesslist_name);/*exec-timeout*/if(vty_timeout_val!=VTY_TIMEOUT_
+DEFAULT)vty_out(vty,"exec-timeout%ld%ld\n",vty_timeout_val/60,vty_timeout_val%60
+);/*login*/if(no_password_check)vty_out(vty,"nologin\n");if(do_log_commands)vty_
+out(vty,"logcommands\n");vty_out(vty,"!\n");returnCMD_SUCCESS;}structcmd_nodevty
+_node={VTY_NODE,"%s(config-line)#",1,};/*ResetallVTYstatus.*/voidvty_reset(){uns
+ignedinti;structvty*vty;structthread*vty_serv_thread;for(i=0;i<vector_active(vty
+vec);i++)if((vty=vector_slot(vtyvec,i))!=NULL){buffer_reset(vty->obuf);vty->stat
+us=VTY_CLOSE;vty_close(vty);}for(i=0;i<vector_active(Vvty_serv_thread);i++)if((v
+ty_serv_thread=vector_slot(Vvty_serv_thread,i))!=NULL){thread_cancel(vty_serv_th
+read);vector_slot(Vvty_serv_thread,i)=NULL;close(i);}vty_timeout_val=VTY_TIMEOUT
+_DEFAULT;if(vty_accesslist_name){XFREE(MTYPE_VTY,vty_accesslist_name);vty_access
+list_name=NULL;}if(vty_ipv6_accesslist_name){XFREE(MTYPE_VTY,vty_ipv6_accesslist
+_name);vty_ipv6_accesslist_name=NULL;}}staticvoidvty_save_cwd(void){charcwd[MAXP
+ATHLEN];char*c;c=getcwd(cwd,MAXPATHLEN);if(!c){/**Atthispointifthesegowrong,more
+thanlikely*thewholeworldiscomingdownaroundus*Hencenotworryingaboutittoomuch.*/if
+(!chdir(SYSCONFDIR)){zlog_err("Failuretochdirto%s,errno:%d",SYSCONFDIR,errno);ex
+it(-1);}if(getcwd(cwd,MAXPATHLEN)==NULL){zlog_err("Failuretogetcwd,errno:%d",err
+no);exit(-1);}}vty_cwd=XMALLOC(MTYPE_TMP,strlen(cwd)+1);strcpy(vty_cwd,cwd);}cha
+r*vty_get_cwd(){returnvty_cwd;}intvty_shell(structvty*vty){returnvty->type==VTY_
+SHELL?1:0;}intvty_shell_serv(structvty*vty){returnvty->type==VTY_SHELL_SERV?1:0;
+}voidvty_init_vtysh(){vtyvec=vector_init(VECTOR_MIN_SIZE);}/*Installvty'sowncomm
+andslike`who'command.*/voidvty_init(structthread_master*master_thread){/*Forfurt
+herconfigurationread,preservecurrentdirectory.*/vty_save_cwd();vtyvec=vector_ini
+t(VECTOR_MIN_SIZE);vty_master=master_thread;atexit(vty_stdio_atexit);/*Initilize
+serverthreadvector.*/Vvty_serv_thread=vector_init(VECTOR_MIN_SIZE);/*Installbgpt
+opnode.*/install_node(&vty_node,vty_config_write);install_element(VIEW_NODE,&con
+fig_who_cmd);install_element(VIEW_NODE,&show_history_cmd);install_element(CONFIG
+_NODE,&line_vty_cmd);install_element(CONFIG_NODE,&service_advanced_vty_cmd);inst
+all_element(CONFIG_NODE,&no_service_advanced_vty_cmd);install_element(CONFIG_NOD
+E,&show_history_cmd);install_element(CONFIG_NODE,&log_commands_cmd);install_elem
+ent(ENABLE_NODE,&terminal_monitor_cmd);install_element(ENABLE_NODE,&terminal_no_
+monitor_cmd);install_element(ENABLE_NODE,&no_terminal_monitor_cmd);install_defau
+lt(VTY_NODE);install_element(VTY_NODE,&exec_timeout_min_cmd);install_element(VTY
+_NODE,&exec_timeout_sec_cmd);install_element(VTY_NODE,&no_exec_timeout_cmd);inst
+all_element(VTY_NODE,&vty_access_class_cmd);install_element(VTY_NODE,&no_vty_acc
+ess_class_cmd);install_element(VTY_NODE,&vty_login_cmd);install_element(VTY_NODE
+,&no_vty_login_cmd);install_element(VTY_NODE,&vty_ipv6_access_class_cmd);install
+_element(VTY_NODE,&no_vty_ipv6_access_class_cmd);}voidvty_terminate(void){if(vty
+_cwd)XFREE(MTYPE_TMP,vty_cwd);if(vtyvec&&Vvty_serv_thread){vty_reset();vector_fr
+ee(vtyvec);vector_free(Vvty_serv_thread);vtyvec=NULL;Vvty_serv_thread=NULL;}}

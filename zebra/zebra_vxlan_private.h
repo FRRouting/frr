@@ -1,371 +1,96 @@
-/*
- * Zebra VxLAN (EVPN) Data structures and definitions
- * These are "internal" to this function.
- * Copyright (C) 2016, 2017 Cumulus Networks, Inc.
- *
- * This file is part of FRR.
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
- */
-
-#ifndef _ZEBRA_VXLAN_PRIVATE_H
-#define _ZEBRA_VXLAN_PRIVATE_H
-
-#include <zebra.h>
-
-#include <zebra.h>
-
-#include "if.h"
-#include "linklist.h"
-#include "zebra_vxlan.h"
-
-#define ERR_STR_SZ 256
-
-/* definitions */
-typedef struct zebra_vni_t_ zebra_vni_t;
-typedef struct zebra_vtep_t_ zebra_vtep_t;
-typedef struct zebra_mac_t_ zebra_mac_t;
-typedef struct zebra_neigh_t_ zebra_neigh_t;
-typedef struct zebra_l3vni_t_ zebra_l3vni_t;
-
-/*
- * VTEP info
- *
- * Right now, this just has each remote VTEP's IP address.
- */
-struct zebra_vtep_t_ {
-	/* Remote IP. */
-	/* NOTE: Can only be IPv4 right now. */
-	struct in_addr vtep_ip;
-
-	/* Links. */
-	struct zebra_vtep_t_ *next;
-	struct zebra_vtep_t_ *prev;
-};
-
-
-/*
- * VNI hash table
- *
- * Contains information pertaining to a VNI:
- * - the list of remote VTEPs (with this VNI)
- */
-struct zebra_vni_t_ {
-	/* VNI - key */
-	vni_t vni;
-
-	/* Flag for advertising gw macip */
-	uint8_t advertise_gw_macip;
-
-	/* Flag for advertising gw macip */
-	uint8_t advertise_subnet;
-
-	/* Corresponding VxLAN interface. */
-	struct interface *vxlan_if;
-
-	/* List of remote VTEPs */
-	zebra_vtep_t *vteps;
-
-	/* Local IP */
-	struct in_addr local_vtep_ip;
-
-	/* tenant VRF, if any */
-	vrf_id_t vrf_id;
-
-	/* List of local or remote MAC */
-	struct hash *mac_table;
-
-	/* List of local or remote neighbors (MAC+IP) */
-	struct hash *neigh_table;
-};
-
-/* L3 VNI hash table */
-struct zebra_l3vni_t_ {
-
-	/* VNI key */
-	vni_t vni;
-
-	/* vrf_id */
-	vrf_id_t vrf_id;
-
-	uint32_t filter;
-#define PREFIX_ROUTES_ONLY	(1 << 0) /* l3-vni used for prefix routes only */
-
-	/* Local IP */
-	struct in_addr local_vtep_ip;
-
-	/* kernel interface for l3vni */
-	struct interface *vxlan_if;
-
-	/* SVI interface corresponding to the l3vni */
-	struct interface *svi_if;
-
-	/* list of L2 VNIs associated with the L3 VNI */
-	struct list *l2vnis;
-
-	/* list of remote router-macs */
-	struct hash *rmac_table;
-
-	/* list of remote vtep-ip neigh */
-	struct hash *nh_table;
-};
-
-/* get the vx-intf name for l3vni */
-static inline const char *zl3vni_vxlan_if_name(zebra_l3vni_t *zl3vni)
-{
-	return zl3vni->vxlan_if ? zl3vni->vxlan_if->name : "None";
-}
-
-/* get the svi intf name for l3vni */
-static inline const char *zl3vni_svi_if_name(zebra_l3vni_t *zl3vni)
-{
-	return zl3vni->svi_if ? zl3vni->svi_if->name : "None";
-}
-
-/* get the vrf name for l3vni */
-static inline const char *zl3vni_vrf_name(zebra_l3vni_t *zl3vni)
-{
-	return vrf_id_to_name(zl3vni->vrf_id);
-}
-
-/* get the rmac string */
-static inline const char *zl3vni_rmac2str(zebra_l3vni_t *zl3vni, char *buf,
-					  int size)
-{
-	char *ptr;
-
-	if (!buf)
-		ptr = (char *)XMALLOC(MTYPE_TMP,
-				      ETHER_ADDR_STRLEN * sizeof(char));
-	else {
-		assert(size >= ETHER_ADDR_STRLEN);
-		ptr = buf;
-	}
-
-	if (zl3vni->svi_if)
-		snprintf(ptr, (ETHER_ADDR_STRLEN),
-			 "%02x:%02x:%02x:%02x:%02x:%02x",
-			 (uint8_t)zl3vni->svi_if->hw_addr[0],
-			 (uint8_t)zl3vni->svi_if->hw_addr[1],
-			 (uint8_t)zl3vni->svi_if->hw_addr[2],
-			 (uint8_t)zl3vni->svi_if->hw_addr[3],
-			 (uint8_t)zl3vni->svi_if->hw_addr[4],
-			 (uint8_t)zl3vni->svi_if->hw_addr[5]);
-	else
-		snprintf(ptr, ETHER_ADDR_STRLEN, "None");
-
-	return ptr;
-}
-
-/*
- * l3-vni is oper up when:
- * 0. if EVPN is enabled (advertise-all-vni cfged)
- * 1. it is associated to a vxlan-intf
- * 2. Associated vxlan-intf is oper up
- * 3. it is associated to an SVI
- * 4. associated SVI is oper up
- */
-static inline int is_l3vni_oper_up(zebra_l3vni_t *zl3vni)
-{
-	return (is_evpn_enabled() && zl3vni && (zl3vni->vrf_id != VRF_UNKNOWN)
-		&& zl3vni->vxlan_if && if_is_operative(zl3vni->vxlan_if)
-		&& zl3vni->svi_if && if_is_operative(zl3vni->svi_if));
-}
-
-static inline const char *zl3vni_state2str(zebra_l3vni_t *zl3vni)
-{
-	if (!zl3vni)
-		return NULL;
-
-	if (is_l3vni_oper_up(zl3vni))
-		return "Up";
-	else
-		return "Down";
-
-	return NULL;
-}
-
-static inline vrf_id_t zl3vni_vrf_id(zebra_l3vni_t *zl3vni)
-{
-	return zl3vni->vrf_id;
-}
-
-static inline void zl3vni_get_rmac(zebra_l3vni_t *zl3vni, struct ethaddr *rmac)
-{
-	if (!zl3vni)
-		return;
-
-	if (!is_l3vni_oper_up(zl3vni))
-		return;
-
-	if (zl3vni->svi_if && if_is_operative(zl3vni->svi_if))
-		memcpy(rmac->octet, zl3vni->svi_if->hw_addr, ETH_ALEN);
-}
-
-/*
- * MAC hash table.
- *
- * This table contains the MAC addresses pertaining to this VNI.
- * This includes local MACs learnt on an attached VLAN that maps
- * to this VNI as well as remote MACs learnt and installed by BGP.
- * Local MACs will be known either on a VLAN sub-interface or
- * on (port, VLAN); however, it is sufficient for zebra to maintain
- * against the VNI i.e., it does not need to retain the local "port"
- * information. The correct VNI will be obtained as zebra maintains
- * the mapping (of VLAN to VNI).
- */
-struct zebra_mac_t_ {
-	/* MAC address. */
-	struct ethaddr macaddr;
-
-	uint32_t flags;
-#define ZEBRA_MAC_LOCAL   0x01
-#define ZEBRA_MAC_REMOTE  0x02
-#define ZEBRA_MAC_AUTO    0x04  /* Auto created for neighbor. */
-#define ZEBRA_MAC_STICKY  0x08  /* Static MAC */
-#define ZEBRA_MAC_REMOTE_RMAC  0x10  /* remote router mac */
-#define ZEBRA_MAC_DEF_GW  0x20
-
-	/* Local or remote info. */
-	union {
-		struct {
-			ifindex_t ifindex;
-			vlanid_t vid;
-		} local;
-
-		struct in_addr r_vtep_ip;
-	} fwd_info;
-
-	/* List of neigh associated with this mac */
-	struct list *neigh_list;
-
-	/* list of hosts pointing to this remote RMAC */
-	struct list *host_list;
-};
-
-/*
- * Context for MAC hash walk - used by callbacks.
- */
-struct mac_walk_ctx {
-	zebra_vni_t *zvni;      /* VNI hash */
-	struct zebra_vrf *zvrf; /* VRF - for client notification. */
-	int uninstall;		/* uninstall from kernel? */
-	int upd_client;		/* uninstall from client? */
-
-	uint32_t flags;
-#define DEL_LOCAL_MAC                0x1
-#define DEL_REMOTE_MAC               0x2
-#define DEL_ALL_MAC                  (DEL_LOCAL_MAC | DEL_REMOTE_MAC)
-#define DEL_REMOTE_MAC_FROM_VTEP     0x4
-#define SHOW_REMOTE_MAC_FROM_VTEP    0x8
-
-	struct in_addr r_vtep_ip; /* To walk MACs from specific VTEP */
-
-	struct vty *vty;	  /* Used by VTY handlers */
-	uint32_t count;		  /* Used by VTY handlers */
-	struct json_object *json; /* Used for JSON Output */
-};
-
-struct rmac_walk_ctx {
-	struct vty *vty;
-	struct json_object *json;
-};
-
-enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
-
-#define IS_ZEBRA_NEIGH_ACTIVE(n) n->state == ZEBRA_NEIGH_ACTIVE
-
-#define IS_ZEBRA_NEIGH_INACTIVE(n) n->state == ZEBRA_NEIGH_INACTIVE
-
-#define ZEBRA_NEIGH_SET_ACTIVE(n) n->state = ZEBRA_NEIGH_ACTIVE
-
-#define ZEBRA_NEIGH_SET_INACTIVE(n) n->state = ZEBRA_NEIGH_INACTIVE
-
-/*
- * Neighbor hash table.
- *
- * This table contains the neighbors (IP to MAC bindings) pertaining to
- * this VNI. This includes local neighbors learnt on the attached VLAN
- * device that maps to this VNI as well as remote neighbors learnt and
- * installed by BGP.
- * Local neighbors will be known against the VLAN device (SVI); however,
- * it is sufficient for zebra to maintain against the VNI. The correct
- * VNI will be obtained as zebra maintains the mapping (of VLAN to VNI).
- */
-struct zebra_neigh_t_ {
-	/* IP address. */
-	struct ipaddr ip;
-
-	/* MAC address. */
-	struct ethaddr emac;
-
-	/* Underlying interface. */
-	ifindex_t ifindex;
-
-	uint32_t flags;
-#define ZEBRA_NEIGH_LOCAL     0x01
-#define ZEBRA_NEIGH_REMOTE    0x02
-#define ZEBRA_NEIGH_REMOTE_NH    0x04 /* neigh entry for remote vtep */
-#define ZEBRA_NEIGH_DEF_GW    0x08
-
-	enum zebra_neigh_state state;
-
-	/* Remote VTEP IP - applicable only for remote neighbors. */
-	struct in_addr r_vtep_ip;
-
-	/* list of hosts pointing to this remote NH entry */
-	struct list *host_list;
-};
-
-/*
- * Context for neighbor hash walk - used by callbacks.
- */
-struct neigh_walk_ctx {
-	zebra_vni_t *zvni;      /* VNI hash */
-	struct zebra_vrf *zvrf; /* VRF - for client notification. */
-	int uninstall;		/* uninstall from kernel? */
-	int upd_client;		/* uninstall from client? */
-
-	uint32_t flags;
-#define DEL_LOCAL_NEIGH              0x1
-#define DEL_REMOTE_NEIGH             0x2
-#define DEL_ALL_NEIGH                (DEL_LOCAL_NEIGH | DEL_REMOTE_NEIGH)
-#define DEL_REMOTE_NEIGH_FROM_VTEP   0x4
-#define SHOW_REMOTE_NEIGH_FROM_VTEP  0x8
-
-	struct in_addr r_vtep_ip; /* To walk neighbors from specific VTEP */
-
-	struct vty *vty;	  /* Used by VTY handlers */
-	uint32_t count;		  /* Used by VTY handlers */
-	uint8_t addr_width;       /* Used by VTY handlers */
-	struct json_object *json; /* Used for JSON Output */
-};
-
-/* context for neigh hash walk - update l3vni and rmac */
-struct neigh_l3info_walk_ctx {
-
-	zebra_vni_t *zvni;
-	zebra_l3vni_t *zl3vni;
-	int add;
-};
-
-struct nh_walk_ctx {
-
-	struct vty *vty;
-	struct json_object *json;
-};
-
-#endif /* _ZEBRA_VXLAN_PRIVATE_H */
+/**ZebraVxLAN(EVPN)Datastructuresanddefinitions*Theseare"internal"tothisfunction
+.*Copyright(C)2016,2017CumulusNetworks,Inc.**ThisfileispartofFRR.**FRRisfreesoft
+ware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicens
+easpublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*late
+rversion.**FRRisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;wi
+thouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.Seet
+heGNU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGen
+eralPublicLicense*alongwithFRR;seethefileCOPYING.Ifnot,writetotheFree*SoftwareFo
+undation,Inc.,59TemplePlace-Suite330,Boston,MA*02111-1307,USA.*/#ifndef_ZEBRA_VX
+LAN_PRIVATE_H#define_ZEBRA_VXLAN_PRIVATE_H#include<zebra.h>#include<zebra.h>#inc
+lude"if.h"#include"linklist.h"#include"zebra_vxlan.h"#defineERR_STR_SZ256/*defin
+itions*/typedefstructzebra_vni_t_zebra_vni_t;typedefstructzebra_vtep_t_zebra_vte
+p_t;typedefstructzebra_mac_t_zebra_mac_t;typedefstructzebra_neigh_t_zebra_neigh_
+t;typedefstructzebra_l3vni_t_zebra_l3vni_t;/**VTEPinfo**Rightnow,thisjusthaseach
+remoteVTEP'sIPaddress.*/structzebra_vtep_t_{/*RemoteIP.*//*NOTE:CanonlybeIPv4rig
+htnow.*/structin_addrvtep_ip;/*Links.*/structzebra_vtep_t_*next;structzebra_vtep
+_t_*prev;};/**VNIhashtable**ContainsinformationpertainingtoaVNI:*-thelistofremot
+eVTEPs(withthisVNI)*/structzebra_vni_t_{/*VNI-key*/vni_tvni;/*Flagforadvertising
+gwmacip*/uint8_tadvertise_gw_macip;/*Flagforadvertisinggwmacip*/uint8_tadvertise
+_subnet;/*CorrespondingVxLANinterface.*/structinterface*vxlan_if;/*ListofremoteV
+TEPs*/zebra_vtep_t*vteps;/*LocalIP*/structin_addrlocal_vtep_ip;/*tenantVRF,ifany
+*/vrf_id_tvrf_id;/*ListoflocalorremoteMAC*/structhash*mac_table;/*Listoflocalorr
+emoteneighbors(MAC+IP)*/structhash*neigh_table;};/*L3VNIhashtable*/structzebra_l
+3vni_t_{/*VNIkey*/vni_tvni;/*vrf_id*/vrf_id_tvrf_id;uint32_tfilter;#definePREFIX
+_ROUTES_ONLY(1<<0)/*l3-vniusedforprefixroutesonly*//*LocalIP*/structin_addrlocal
+_vtep_ip;/*kernelinterfaceforl3vni*/structinterface*vxlan_if;/*SVIinterfacecorre
+spondingtothel3vni*/structinterface*svi_if;/*listofL2VNIsassociatedwiththeL3VNI*
+/structlist*l2vnis;/*listofremoterouter-macs*/structhash*rmac_table;/*listofremo
+tevtep-ipneigh*/structhash*nh_table;};/*getthevx-intfnameforl3vni*/staticinlinec
+onstchar*zl3vni_vxlan_if_name(zebra_l3vni_t*zl3vni){returnzl3vni->vxlan_if?zl3vn
+i->vxlan_if->name:"None";}/*getthesviintfnameforl3vni*/staticinlineconstchar*zl3
+vni_svi_if_name(zebra_l3vni_t*zl3vni){returnzl3vni->svi_if?zl3vni->svi_if->name:
+"None";}/*getthevrfnameforl3vni*/staticinlineconstchar*zl3vni_vrf_name(zebra_l3v
+ni_t*zl3vni){returnvrf_id_to_name(zl3vni->vrf_id);}/*getthermacstring*/staticinl
+ineconstchar*zl3vni_rmac2str(zebra_l3vni_t*zl3vni,char*buf,intsize){char*ptr;if(
+!buf)ptr=(char*)XMALLOC(MTYPE_TMP,ETHER_ADDR_STRLEN*sizeof(char));else{assert(si
+ze>=ETHER_ADDR_STRLEN);ptr=buf;}if(zl3vni->svi_if)snprintf(ptr,(ETHER_ADDR_STRLE
+N),"%02x:%02x:%02x:%02x:%02x:%02x",(uint8_t)zl3vni->svi_if->hw_addr[0],(uint8_t)
+zl3vni->svi_if->hw_addr[1],(uint8_t)zl3vni->svi_if->hw_addr[2],(uint8_t)zl3vni->
+svi_if->hw_addr[3],(uint8_t)zl3vni->svi_if->hw_addr[4],(uint8_t)zl3vni->svi_if->
+hw_addr[5]);elsesnprintf(ptr,ETHER_ADDR_STRLEN,"None");returnptr;}/**l3-vniisope
+rupwhen:*0.ifEVPNisenabled(advertise-all-vnicfged)*1.itisassociatedtoavxlan-intf
+*2.Associatedvxlan-intfisoperup*3.itisassociatedtoanSVI*4.associatedSVIisoperup*
+/staticinlineintis_l3vni_oper_up(zebra_l3vni_t*zl3vni){return(is_evpn_enabled()&
+&zl3vni&&(zl3vni->vrf_id!=VRF_UNKNOWN)&&zl3vni->vxlan_if&&if_is_operative(zl3vni
+->vxlan_if)&&zl3vni->svi_if&&if_is_operative(zl3vni->svi_if));}staticinlineconst
+char*zl3vni_state2str(zebra_l3vni_t*zl3vni){if(!zl3vni)returnNULL;if(is_l3vni_op
+er_up(zl3vni))return"Up";elsereturn"Down";returnNULL;}staticinlinevrf_id_tzl3vni
+_vrf_id(zebra_l3vni_t*zl3vni){returnzl3vni->vrf_id;}staticinlinevoidzl3vni_get_r
+mac(zebra_l3vni_t*zl3vni,structethaddr*rmac){if(!zl3vni)return;if(!is_l3vni_oper
+_up(zl3vni))return;if(zl3vni->svi_if&&if_is_operative(zl3vni->svi_if))memcpy(rma
+c->octet,zl3vni->svi_if->hw_addr,ETH_ALEN);}/**MAChashtable.**Thistablecontainst
+heMACaddressespertainingtothisVNI.*ThisincludeslocalMACslearntonanattachedVLANth
+atmaps*tothisVNIaswellasremoteMACslearntandinstalledbyBGP.*LocalMACswillbeknowne
+itheronaVLANsub-interfaceor*on(port,VLAN);however,itissufficientforzebratomainta
+in*againsttheVNIi.e.,itdoesnotneedtoretainthelocal"port"*information.ThecorrectV
+NIwillbeobtainedaszebramaintains*themapping(ofVLANtoVNI).*/structzebra_mac_t_{/*
+MACaddress.*/structethaddrmacaddr;uint32_tflags;#defineZEBRA_MAC_LOCAL0x01#defin
+eZEBRA_MAC_REMOTE0x02#defineZEBRA_MAC_AUTO0x04/*Autocreatedforneighbor.*/#define
+ZEBRA_MAC_STICKY0x08/*StaticMAC*/#defineZEBRA_MAC_REMOTE_RMAC0x10/*remoterouterm
+ac*/#defineZEBRA_MAC_DEF_GW0x20/*Localorremoteinfo.*/union{struct{ifindex_tifind
+ex;vlanid_tvid;}local;structin_addrr_vtep_ip;}fwd_info;/*Listofneighassociatedwi
+ththismac*/structlist*neigh_list;/*listofhostspointingtothisremoteRMAC*/structli
+st*host_list;};/**ContextforMAChashwalk-usedbycallbacks.*/structmac_walk_ctx{zeb
+ra_vni_t*zvni;/*VNIhash*/structzebra_vrf*zvrf;/*VRF-forclientnotification.*/intu
+ninstall;/*uninstallfromkernel?*/intupd_client;/*uninstallfromclient?*/uint32_tf
+lags;#defineDEL_LOCAL_MAC0x1#defineDEL_REMOTE_MAC0x2#defineDEL_ALL_MAC(DEL_LOCAL
+_MAC|DEL_REMOTE_MAC)#defineDEL_REMOTE_MAC_FROM_VTEP0x4#defineSHOW_REMOTE_MAC_FRO
+M_VTEP0x8structin_addrr_vtep_ip;/*TowalkMACsfromspecificVTEP*/structvty*vty;/*Us
+edbyVTYhandlers*/uint32_tcount;/*UsedbyVTYhandlers*/structjson_object*json;/*Use
+dforJSONOutput*/};structrmac_walk_ctx{structvty*vty;structjson_object*json;};enu
+mzebra_neigh_state{ZEBRA_NEIGH_INACTIVE=0,ZEBRA_NEIGH_ACTIVE=1};#defineIS_ZEBRA_
+NEIGH_ACTIVE(n)n->state==ZEBRA_NEIGH_ACTIVE#defineIS_ZEBRA_NEIGH_INACTIVE(n)n->s
+tate==ZEBRA_NEIGH_INACTIVE#defineZEBRA_NEIGH_SET_ACTIVE(n)n->state=ZEBRA_NEIGH_A
+CTIVE#defineZEBRA_NEIGH_SET_INACTIVE(n)n->state=ZEBRA_NEIGH_INACTIVE/**Neighborh
+ashtable.**Thistablecontainstheneighbors(IPtoMACbindings)pertainingto*thisVNI.Th
+isincludeslocalneighborslearntontheattachedVLAN*devicethatmapstothisVNIaswellasr
+emoteneighborslearntand*installedbyBGP.*LocalneighborswillbeknownagainsttheVLANd
+evice(SVI);however,*itissufficientforzebratomaintainagainsttheVNI.Thecorrect*VNI
+willbeobtainedaszebramaintainsthemapping(ofVLANtoVNI).*/structzebra_neigh_t_{/*I
+Paddress.*/structipaddrip;/*MACaddress.*/structethaddremac;/*Underlyinginterface
+.*/ifindex_tifindex;uint32_tflags;#defineZEBRA_NEIGH_LOCAL0x01#defineZEBRA_NEIGH
+_REMOTE0x02#defineZEBRA_NEIGH_REMOTE_NH0x04/*neighentryforremotevtep*/#defineZEB
+RA_NEIGH_DEF_GW0x08enumzebra_neigh_statestate;/*RemoteVTEPIP-applicableonlyforre
+moteneighbors.*/structin_addrr_vtep_ip;/*listofhostspointingtothisremoteNHentry*
+/structlist*host_list;};/**Contextforneighborhashwalk-usedbycallbacks.*/structne
+igh_walk_ctx{zebra_vni_t*zvni;/*VNIhash*/structzebra_vrf*zvrf;/*VRF-forclientnot
+ification.*/intuninstall;/*uninstallfromkernel?*/intupd_client;/*uninstallfromcl
+ient?*/uint32_tflags;#defineDEL_LOCAL_NEIGH0x1#defineDEL_REMOTE_NEIGH0x2#defineD
+EL_ALL_NEIGH(DEL_LOCAL_NEIGH|DEL_REMOTE_NEIGH)#defineDEL_REMOTE_NEIGH_FROM_VTEP0
+x4#defineSHOW_REMOTE_NEIGH_FROM_VTEP0x8structin_addrr_vtep_ip;/*Towalkneighborsf
+romspecificVTEP*/structvty*vty;/*UsedbyVTYhandlers*/uint32_tcount;/*UsedbyVTYhan
+dlers*/uint8_taddr_width;/*UsedbyVTYhandlers*/structjson_object*json;/*UsedforJS
+ONOutput*/};/*contextforneighhashwalk-updatel3vniandrmac*/structneigh_l3info_wal
+k_ctx{zebra_vni_t*zvni;zebra_l3vni_t*zl3vni;intadd;};structnh_walk_ctx{structvty
+*vty;structjson_object*json;};#endif/*_ZEBRA_VXLAN_PRIVATE_H*/

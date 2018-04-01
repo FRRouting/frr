@@ -1,1079 +1,306 @@
-/*
- * Copyright (C) 2003 Yasuhiro Ohara
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "log.h"
-#include "thread.h"
-#include "linklist.h"
-#include "vty.h"
-#include "command.h"
-
-#include "ospf6d.h"
-#include "ospf6_proto.h"
-#include "ospf6_lsa.h"
-#include "ospf6_lsdb.h"
-#include "ospf6_message.h"
-#include "ospf6_route.h"
-#include "ospf6_spf.h"
-
-#include "ospf6_top.h"
-#include "ospf6_area.h"
-#include "ospf6_interface.h"
-#include "ospf6_neighbor.h"
-
-#include "ospf6_flood.h"
-
-unsigned char conf_debug_ospf6_flooding;
-
-struct ospf6_lsdb *ospf6_get_scoped_lsdb(struct ospf6_lsa *lsa)
-{
-	struct ospf6_lsdb *lsdb = NULL;
-	switch (OSPF6_LSA_SCOPE(lsa->header->type)) {
-	case OSPF6_SCOPE_LINKLOCAL:
-		lsdb = OSPF6_INTERFACE(lsa->lsdb->data)->lsdb;
-		break;
-	case OSPF6_SCOPE_AREA:
-		lsdb = OSPF6_AREA(lsa->lsdb->data)->lsdb;
-		break;
-	case OSPF6_SCOPE_AS:
-		lsdb = OSPF6_PROCESS(lsa->lsdb->data)->lsdb;
-		break;
-	default:
-		assert(0);
-		break;
-	}
-	return lsdb;
-}
-
-struct ospf6_lsdb *ospf6_get_scoped_lsdb_self(struct ospf6_lsa *lsa)
-{
-	struct ospf6_lsdb *lsdb_self = NULL;
-	switch (OSPF6_LSA_SCOPE(lsa->header->type)) {
-	case OSPF6_SCOPE_LINKLOCAL:
-		lsdb_self = OSPF6_INTERFACE(lsa->lsdb->data)->lsdb_self;
-		break;
-	case OSPF6_SCOPE_AREA:
-		lsdb_self = OSPF6_AREA(lsa->lsdb->data)->lsdb_self;
-		break;
-	case OSPF6_SCOPE_AS:
-		lsdb_self = OSPF6_PROCESS(lsa->lsdb->data)->lsdb_self;
-		break;
-	default:
-		assert(0);
-		break;
-	}
-	return lsdb_self;
-}
-
-void ospf6_lsa_originate(struct ospf6_lsa *lsa)
-{
-	struct ospf6_lsa *old;
-	struct ospf6_lsdb *lsdb_self;
-
-	/* find previous LSA */
-	old = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
-				lsa->header->adv_router, lsa->lsdb);
-
-	/* if the new LSA does not differ from previous,
-	   suppress this update of the LSA */
-	if (old && !OSPF6_LSA_IS_DIFFER(lsa, old)) {
-		if (IS_OSPF6_DEBUG_ORIGINATE_TYPE(lsa->header->type))
-			zlog_debug("Suppress updating LSA: %s", lsa->name);
-		ospf6_lsa_delete(lsa);
-		return;
-	}
-
-	/* store it in the LSDB for self-originated LSAs */
-	lsdb_self = ospf6_get_scoped_lsdb_self(lsa);
-	ospf6_lsdb_add(ospf6_lsa_copy(lsa), lsdb_self);
-
-	lsa->refresh = NULL;
-	thread_add_timer(master, ospf6_lsa_refresh, lsa, OSPF_LS_REFRESH_TIME,
-			 &lsa->refresh);
-
-	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
-	    || IS_OSPF6_DEBUG_ORIGINATE_TYPE(lsa->header->type)) {
-		zlog_debug("LSA Originate:");
-		ospf6_lsa_header_print(lsa);
-	}
-
-	ospf6_install_lsa(lsa);
-	ospf6_flood(NULL, lsa);
-}
-
-void ospf6_lsa_originate_process(struct ospf6_lsa *lsa, struct ospf6 *process)
-{
-	lsa->lsdb = process->lsdb;
-	ospf6_lsa_originate(lsa);
-}
-
-void ospf6_lsa_originate_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
-{
-	lsa->lsdb = oa->lsdb;
-	ospf6_lsa_originate(lsa);
-}
-
-void ospf6_lsa_originate_interface(struct ospf6_lsa *lsa,
-				   struct ospf6_interface *oi)
-{
-	lsa->lsdb = oi->lsdb;
-	ospf6_lsa_originate(lsa);
-}
-
-void ospf6_lsa_purge(struct ospf6_lsa *lsa)
-{
-	struct ospf6_lsa *self;
-	struct ospf6_lsdb *lsdb_self;
-
-	/* remove it from the LSDB for self-originated LSAs */
-	lsdb_self = ospf6_get_scoped_lsdb_self(lsa);
-	self = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
-				 lsa->header->adv_router, lsdb_self);
-	if (self) {
-		THREAD_OFF(self->expire);
-		THREAD_OFF(self->refresh);
-		ospf6_lsdb_remove(self, lsdb_self);
-	}
-
-	ospf6_lsa_premature_aging(lsa);
-}
-
-/* Puring Multi Link-State IDs LSAs:
- * Same Advertising Router with Multiple Link-State IDs
- * LSAs, purging require to traverse all Link-State IDs
- */
-void ospf6_lsa_purge_multi_ls_id(struct ospf6_area *oa, struct ospf6_lsa *lsa)
-{
-	int ls_id = 0;
-	struct ospf6_lsa *lsa_next;
-	uint16_t type;
-
-	type = lsa->header->type;
-
-	ospf6_lsa_purge(lsa);
-
-	lsa_next = ospf6_lsdb_lookup(type, htonl(++ls_id),
-				     oa->ospf6->router_id, oa->lsdb);
-	while (lsa_next) {
-		ospf6_lsa_purge(lsa_next);
-		lsa_next = ospf6_lsdb_lookup(type, htonl(++ls_id),
-					     oa->ospf6->router_id, oa->lsdb);
-	}
-}
-
-void ospf6_increment_retrans_count(struct ospf6_lsa *lsa)
-{
-	/* The LSA must be the original one (see the description
-	   in ospf6_decrement_retrans_count () below) */
-	lsa->retrans_count++;
-}
-
-void ospf6_decrement_retrans_count(struct ospf6_lsa *lsa)
-{
-	struct ospf6_lsdb *lsdb;
-	struct ospf6_lsa *orig;
-
-	/* The LSA must be on the retrans-list of a neighbor. It means
-	   the "lsa" is a copied one, and we have to decrement the
-	   retransmission count of the original one (instead of this "lsa"'s).
-	   In order to find the original LSA, first we have to find
-	   appropriate LSDB that have the original LSA. */
-	lsdb = ospf6_get_scoped_lsdb(lsa);
-
-	/* Find the original LSA of which the retrans_count should be
-	 * decremented */
-	orig = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
-				 lsa->header->adv_router, lsdb);
-	if (orig) {
-		orig->retrans_count--;
-		assert(orig->retrans_count >= 0);
-	}
-}
-
-/* RFC2328 section 13.2 Installing LSAs in the database */
-void ospf6_install_lsa(struct ospf6_lsa *lsa)
-{
-	struct timeval now;
-	struct ospf6_lsa *old;
-
-	/* Remove the old instance from all neighbors' Link state
-	   retransmission list (RFC2328 13.2 last paragraph) */
-	old = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
-				lsa->header->adv_router, lsa->lsdb);
-	if (old) {
-		THREAD_OFF(old->expire);
-		THREAD_OFF(old->refresh);
-		ospf6_flood_clear(old);
-	}
-
-	monotime(&now);
-	if (!OSPF6_LSA_IS_MAXAGE(lsa)) {
-		lsa->expire = NULL;
-		thread_add_timer(master, ospf6_lsa_expire, lsa,
-				 OSPF_LSA_MAXAGE + lsa->birth.tv_sec
-					 - now.tv_sec,
-				 &lsa->expire);
-	} else
-		lsa->expire = NULL;
-
-	if (OSPF6_LSA_IS_SEQWRAP(lsa)
-	    && !(CHECK_FLAG(lsa->flag, OSPF6_LSA_SEQWRAPPED)
-		 && lsa->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER))) {
-		if (IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
-			zlog_debug("lsa install wrapping: sequence 0x%x",
-				   ntohl(lsa->header->seqnum));
-		SET_FLAG(lsa->flag, OSPF6_LSA_SEQWRAPPED);
-		/* in lieu of premature_aging, since we do not want to recreate
-		 * this lsa
-		 * and/or mess with timers etc, we just want to wrap the
-		 * sequence number
-		 * and reflood the lsa before continuing.
-		 * NOTE: Flood needs to be called right after this function
-		 * call, by the
-		 * caller
-		 */
-		lsa->header->seqnum = htonl(OSPF_MAX_SEQUENCE_NUMBER);
-		lsa->header->age = htons(OSPF_LSA_MAXAGE);
-		ospf6_lsa_checksum(lsa->header);
-	}
-
-	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
-	    || IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
-		zlog_debug("%s Install LSA: %s age %d seqnum %x in LSDB.",
-			   __PRETTY_FUNCTION__, lsa->name,
-			   ntohs(lsa->header->age), ntohl(lsa->header->seqnum));
-
-	/* actually install */
-	lsa->installed = now;
-	ospf6_lsdb_add(lsa, lsa->lsdb);
-
-	return;
-}
-
-/* RFC2740 section 3.5.2. Sending Link State Update packets */
-/* RFC2328 section 13.3 Next step in the flooding procedure */
-void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
-			   struct ospf6_interface *oi)
-{
-	struct listnode *node, *nnode;
-	struct ospf6_neighbor *on;
-	struct ospf6_lsa *req;
-	int retrans_added = 0;
-	int is_debug = 0;
-
-	if (IS_OSPF6_DEBUG_FLOODING
-	    || IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type)) {
-		is_debug++;
-		zlog_debug("Flooding on %s: %s", oi->interface->name,
-			   lsa->name);
-	}
-
-	/* (1) For each neighbor */
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		if (is_debug)
-			zlog_debug("To neighbor %s", on->name);
-
-		/* (a) if neighbor state < Exchange, examin next */
-		if (on->state < OSPF6_NEIGHBOR_EXCHANGE) {
-			if (is_debug)
-				zlog_debug(
-					"Neighbor state less than ExChange, next neighbor");
-			continue;
-		}
-
-		/* (b) if neighbor not yet Full, check request-list */
-		if (on->state != OSPF6_NEIGHBOR_FULL) {
-			if (is_debug)
-				zlog_debug("Neighbor not yet Full");
-
-			req = ospf6_lsdb_lookup(
-				lsa->header->type, lsa->header->id,
-				lsa->header->adv_router, on->request_list);
-			if (req == NULL) {
-				if (is_debug)
-					zlog_debug(
-						"Not on request-list for this neighbor");
-				/* fall through */
-			} else {
-				/* If new LSA less recent, examin next neighbor
-				 */
-				if (ospf6_lsa_compare(lsa, req) > 0) {
-					if (is_debug)
-						zlog_debug(
-							"Requesting is older, next neighbor");
-					continue;
-				}
-
-				/* If the same instance, delete from
-				   request-list and
-				   examin next neighbor */
-				if (ospf6_lsa_compare(lsa, req) == 0) {
-					if (is_debug)
-						zlog_debug(
-							"Requesting the same, remove it, next neighbor");
-					if (req == on->last_ls_req) {
-						ospf6_lsa_unlock(req);
-						on->last_ls_req = NULL;
-					}
-					ospf6_lsdb_remove(req,
-							  on->request_list);
-					ospf6_check_nbr_loading(on);
-					continue;
-				}
-
-				/* If the new LSA is more recent, delete from
-				 * request-list */
-				if (ospf6_lsa_compare(lsa, req) < 0) {
-					if (is_debug)
-						zlog_debug(
-							"Received is newer, remove requesting");
-					if (req == on->last_ls_req) {
-						ospf6_lsa_unlock(req);
-						on->last_ls_req = NULL;
-					}
-					ospf6_lsdb_remove(req,
-							  on->request_list);
-					ospf6_check_nbr_loading(on);
-					/* fall through */
-				}
-			}
-		}
-
-		/* (c) If the new LSA was received from this neighbor,
-		   examin next neighbor */
-		if (from == on) {
-			if (is_debug)
-				zlog_debug(
-					"Received is from the neighbor, next neighbor");
-			continue;
-		}
-
-		if (ospf6->inst_shutdown) {
-			if (is_debug)
-				zlog_debug(
-					"%s: Send LSA %s (age %d) update now",
-					__PRETTY_FUNCTION__, lsa->name,
-					ntohs(lsa->header->age));
-			ospf6_lsupdate_send_neighbor_now(on, lsa);
-			continue;
-		} else {
-			/* (d) add retrans-list, schedule retransmission */
-			if (is_debug)
-				zlog_debug("Add retrans-list of this neighbor");
-			ospf6_increment_retrans_count(lsa);
-			ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
-			thread_add_timer(master, ospf6_lsupdate_send_neighbor,
-					 on, on->ospf6_if->rxmt_interval,
-					 &on->thread_send_lsupdate);
-			retrans_added++;
-		}
-	}
-
-	/* (2) examin next interface if not added to retrans-list */
-	if (retrans_added == 0) {
-		if (is_debug)
-			zlog_debug(
-				"No retransmission scheduled, next interface");
-		return;
-	}
-
-	/* (3) If the new LSA was received on this interface,
-	   and it was from DR or BDR, examin next interface */
-	if (from && from->ospf6_if == oi
-	    && (from->router_id == oi->drouter
-		|| from->router_id == oi->bdrouter)) {
-		if (is_debug)
-			zlog_debug(
-				"Received is from the I/F's DR or BDR, next interface");
-		return;
-	}
-
-	/* (4) If the new LSA was received on this interface,
-	   and the interface state is BDR, examin next interface */
-	if (from && from->ospf6_if == oi) {
-		if (oi->state == OSPF6_INTERFACE_BDR) {
-			if (is_debug)
-				zlog_debug(
-					"Received is from the I/F, itself BDR, next interface");
-			return;
-		}
-		SET_FLAG(lsa->flag, OSPF6_LSA_FLOODBACK);
-	}
-
-	/* (5) flood the LSA out the interface. */
-	if (is_debug)
-		zlog_debug("Schedule flooding for the interface");
-	if ((oi->type == OSPF_IFTYPE_BROADCAST)
-	    || (oi->type == OSPF_IFTYPE_POINTOPOINT)) {
-		ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsupdate_list);
-		thread_add_event(master, ospf6_lsupdate_send_interface, oi, 0,
-				 &oi->thread_send_lsupdate);
-	} else {
-		/* reschedule retransmissions to all neighbors */
-		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-			THREAD_OFF(on->thread_send_lsupdate);
-			on->thread_send_lsupdate = NULL;
-			thread_add_event(master, ospf6_lsupdate_send_neighbor,
-					 on, 0, &on->thread_send_lsupdate);
-		}
-	}
-}
-
-void ospf6_flood_area(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
-		      struct ospf6_area *oa)
-{
-	struct listnode *node, *nnode;
-	struct ospf6_interface *oi;
-
-	for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
-		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL
-		    && oi != OSPF6_INTERFACE(lsa->lsdb->data))
-			continue;
-
-#if 0
-      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AS &&
-          ospf6_is_interface_virtual_link (oi))
-        continue;
-#endif /*0*/
-
-		ospf6_flood_interface(from, lsa, oi);
-	}
-}
-
-static void ospf6_flood_process(struct ospf6_neighbor *from,
-				struct ospf6_lsa *lsa, struct ospf6 *process)
-{
-	struct listnode *node, *nnode;
-	struct ospf6_area *oa;
-
-	for (ALL_LIST_ELEMENTS(process->area_list, node, nnode, oa)) {
-		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_AREA
-		    && oa != OSPF6_AREA(lsa->lsdb->data))
-			continue;
-		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL
-		    && oa != OSPF6_INTERFACE(lsa->lsdb->data)->area)
-			continue;
-
-		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
-		    && IS_AREA_STUB(oa))
-			continue;
-
-		ospf6_flood_area(from, lsa, oa);
-	}
-}
-
-void ospf6_flood(struct ospf6_neighbor *from, struct ospf6_lsa *lsa)
-{
-	ospf6_flood_process(from, lsa, ospf6);
-}
-
-static void ospf6_flood_clear_interface(struct ospf6_lsa *lsa,
-					struct ospf6_interface *oi)
-{
-	struct listnode *node, *nnode;
-	struct ospf6_neighbor *on;
-	struct ospf6_lsa *rem;
-
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
-		rem = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
-					lsa->header->adv_router,
-					on->retrans_list);
-		if (rem && !ospf6_lsa_compare(rem, lsa)) {
-			if (IS_OSPF6_DEBUG_FLOODING
-			    || IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type))
-				zlog_debug("Remove %s from retrans_list of %s",
-					   rem->name, on->name);
-			ospf6_decrement_retrans_count(rem);
-			ospf6_lsdb_remove(rem, on->retrans_list);
-		}
-	}
-}
-
-static void ospf6_flood_clear_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
-{
-	struct listnode *node, *nnode;
-	struct ospf6_interface *oi;
-
-	for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
-		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL
-		    && oi != OSPF6_INTERFACE(lsa->lsdb->data))
-			continue;
-
-#if 0
-      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AS &&
-          ospf6_is_interface_virtual_link (oi))
-        continue;
-#endif /*0*/
-
-		ospf6_flood_clear_interface(lsa, oi);
-	}
-}
-
-static void ospf6_flood_clear_process(struct ospf6_lsa *lsa,
-				      struct ospf6 *process)
-{
-	struct listnode *node, *nnode;
-	struct ospf6_area *oa;
-
-	for (ALL_LIST_ELEMENTS(process->area_list, node, nnode, oa)) {
-		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_AREA
-		    && oa != OSPF6_AREA(lsa->lsdb->data))
-			continue;
-		if (OSPF6_LSA_SCOPE(lsa->header->type) == OSPF6_SCOPE_LINKLOCAL
-		    && oa != OSPF6_INTERFACE(lsa->lsdb->data)->area)
-			continue;
-
-		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
-		    && IS_AREA_STUB(oa))
-			continue;
-
-		ospf6_flood_clear_area(lsa, oa);
-	}
-}
-
-void ospf6_flood_clear(struct ospf6_lsa *lsa)
-{
-	ospf6_flood_clear_process(lsa, ospf6);
-}
-
-
-/* RFC2328 13.5 (Table 19): Sending link state acknowledgements. */
-static void ospf6_acknowledge_lsa_bdrouter(struct ospf6_lsa *lsa,
-					   int ismore_recent,
-					   struct ospf6_neighbor *from)
-{
-	struct ospf6_interface *oi;
-	int is_debug = 0;
-
-	if (IS_OSPF6_DEBUG_FLOODING
-	    || IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type))
-		is_debug++;
-
-	assert(from && from->ospf6_if);
-	oi = from->ospf6_if;
-
-	/* LSA is more recent than database copy, but was not flooded
-	   back out receiving interface. Delayed acknowledgement sent
-	   if advertisement received from Designated Router,
-	   otherwide do nothing. */
-	if (ismore_recent < 0) {
-		if (oi->drouter == from->router_id) {
-			if (is_debug)
-				zlog_debug(
-					"Delayed acknowledgement (BDR & MoreRecent & from DR)");
-			/* Delayed acknowledgement */
-			ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsack_list);
-			thread_add_timer(master, ospf6_lsack_send_interface, oi,
-					 3, &oi->thread_send_lsack);
-		} else {
-			if (is_debug)
-				zlog_debug(
-					"No acknowledgement (BDR & MoreRecent & ! from DR)");
-		}
-		return;
-	}
-
-	/* LSA is a duplicate, and was treated as an implied acknowledgement.
-	   Delayed acknowledgement sent if advertisement received from
-	   Designated Router, otherwise do nothing */
-	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_DUPLICATE)
-	    && CHECK_FLAG(lsa->flag, OSPF6_LSA_IMPLIEDACK)) {
-		if (oi->drouter == from->router_id) {
-			if (is_debug)
-				zlog_debug(
-					"Delayed acknowledgement (BDR & Duplicate & ImpliedAck & from DR)");
-			/* Delayed acknowledgement */
-			ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsack_list);
-			thread_add_timer(master, ospf6_lsack_send_interface, oi,
-					 3, &oi->thread_send_lsack);
-		} else {
-			if (is_debug)
-				zlog_debug(
-					"No acknowledgement (BDR & Duplicate & ImpliedAck & ! from DR)");
-		}
-		return;
-	}
-
-	/* LSA is a duplicate, and was not treated as an implied
-	   acknowledgement.
-	   Direct acknowledgement sent */
-	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_DUPLICATE)
-	    && !CHECK_FLAG(lsa->flag, OSPF6_LSA_IMPLIEDACK)) {
-		if (is_debug)
-			zlog_debug("Direct acknowledgement (BDR & Duplicate)");
-		ospf6_lsdb_add(ospf6_lsa_copy(lsa), from->lsack_list);
-		thread_add_event(master, ospf6_lsack_send_neighbor, from, 0,
-				 &from->thread_send_lsack);
-		return;
-	}
-
-	/* LSA's LS age is equal to Maxage, and there is no current instance
-	   of the LSA in the link state database, and none of router's
-	   neighbors are in states Exchange or Loading */
-	/* Direct acknowledgement sent, but this case is handled in
-	   early of ospf6_receive_lsa () */
-}
-
-static void ospf6_acknowledge_lsa_allother(struct ospf6_lsa *lsa,
-					   int ismore_recent,
-					   struct ospf6_neighbor *from)
-{
-	struct ospf6_interface *oi;
-	int is_debug = 0;
-
-	if (IS_OSPF6_DEBUG_FLOODING
-	    || IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type))
-		is_debug++;
-
-	assert(from && from->ospf6_if);
-	oi = from->ospf6_if;
-
-	/* LSA has been flood back out receiving interface.
-	   No acknowledgement sent. */
-	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_FLOODBACK)) {
-		if (is_debug)
-			zlog_debug("No acknowledgement (AllOther & FloodBack)");
-		return;
-	}
-
-	/* LSA is more recent than database copy, but was not flooded
-	   back out receiving interface. Delayed acknowledgement sent. */
-	if (ismore_recent < 0) {
-		if (is_debug)
-			zlog_debug(
-				"Delayed acknowledgement (AllOther & MoreRecent)");
-		/* Delayed acknowledgement */
-		ospf6_lsdb_add(ospf6_lsa_copy(lsa), oi->lsack_list);
-		thread_add_timer(master, ospf6_lsack_send_interface, oi, 3,
-				 &oi->thread_send_lsack);
-		return;
-	}
-
-	/* LSA is a duplicate, and was treated as an implied acknowledgement.
-	   No acknowledgement sent. */
-	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_DUPLICATE)
-	    && CHECK_FLAG(lsa->flag, OSPF6_LSA_IMPLIEDACK)) {
-		if (is_debug)
-			zlog_debug(
-				"No acknowledgement (AllOther & Duplicate & ImpliedAck)");
-		return;
-	}
-
-	/* LSA is a duplicate, and was not treated as an implied
-	   acknowledgement.
-	   Direct acknowledgement sent */
-	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_DUPLICATE)
-	    && !CHECK_FLAG(lsa->flag, OSPF6_LSA_IMPLIEDACK)) {
-		if (is_debug)
-			zlog_debug(
-				"Direct acknowledgement (AllOther & Duplicate)");
-		ospf6_lsdb_add(ospf6_lsa_copy(lsa), from->lsack_list);
-		thread_add_event(master, ospf6_lsack_send_neighbor, from, 0,
-				 &from->thread_send_lsack);
-		return;
-	}
-
-	/* LSA's LS age is equal to Maxage, and there is no current instance
-	   of the LSA in the link state database, and none of router's
-	   neighbors are in states Exchange or Loading */
-	/* Direct acknowledgement sent, but this case is handled in
-	   early of ospf6_receive_lsa () */
-}
-
-static void ospf6_acknowledge_lsa(struct ospf6_lsa *lsa, int ismore_recent,
-				  struct ospf6_neighbor *from)
-{
-	struct ospf6_interface *oi;
-
-	assert(from && from->ospf6_if);
-	oi = from->ospf6_if;
-
-	if (oi->state == OSPF6_INTERFACE_BDR)
-		ospf6_acknowledge_lsa_bdrouter(lsa, ismore_recent, from);
-	else
-		ospf6_acknowledge_lsa_allother(lsa, ismore_recent, from);
-}
-
-/* RFC2328 section 13 (4):
-   if MaxAge LSA and if we have no instance, and no neighbor
-   is in states Exchange or Loading
-   returns 1 if match this case, else returns 0 */
-static int ospf6_is_maxage_lsa_drop(struct ospf6_lsa *lsa,
-				    struct ospf6_neighbor *from)
-{
-	struct ospf6_neighbor *on;
-	struct ospf6_interface *oi;
-	struct ospf6_area *oa;
-	struct ospf6 *process = NULL;
-	struct listnode *i, *j, *k;
-	int count = 0;
-
-	if (!OSPF6_LSA_IS_MAXAGE(lsa))
-		return 0;
-
-	if (ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
-			      lsa->header->adv_router, lsa->lsdb))
-		return 0;
-
-	process = from->ospf6_if->area->ospf6;
-
-	for (ALL_LIST_ELEMENTS_RO(process->area_list, i, oa))
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
-			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, k, on))
-				if (on->state == OSPF6_NEIGHBOR_EXCHANGE
-				    || on->state == OSPF6_NEIGHBOR_LOADING)
-					count++;
-
-	if (count == 0)
-		return 1;
-	return 0;
-}
-
-/* RFC2328 section 13 The Flooding Procedure */
-void ospf6_receive_lsa(struct ospf6_neighbor *from,
-		       struct ospf6_lsa_header *lsa_header)
-{
-	struct ospf6_lsa *new = NULL, *old = NULL, *rem = NULL;
-	int ismore_recent;
-	int is_debug = 0;
-	unsigned int time_delta_ms;
-
-	ismore_recent = 1;
-	assert(from);
-
-	/* make lsa structure for received lsa */
-	new = ospf6_lsa_create(lsa_header);
-
-	if (IS_OSPF6_DEBUG_FLOODING
-	    || IS_OSPF6_DEBUG_FLOOD_TYPE(new->header->type)) {
-		is_debug++;
-		zlog_debug("LSA Receive from %s", from->name);
-		ospf6_lsa_header_print(new);
-	}
-
-	/* (1) LSA Checksum */
-	if (!ospf6_lsa_checksum_valid(new->header)) {
-		if (is_debug)
-			zlog_debug("Wrong LSA Checksum, discard");
-		ospf6_lsa_delete(new);
-		return;
-	}
-
-	/* (2) Examine the LSA's LS type.
-	   RFC2470 3.5.1. Receiving Link State Update packets  */
-	if (IS_AREA_STUB(from->ospf6_if->area)
-	    && OSPF6_LSA_SCOPE(new->header->type) == OSPF6_SCOPE_AS) {
-		if (is_debug)
-			zlog_debug(
-				"AS-External-LSA (or AS-scope LSA) in stub area, discard");
-		ospf6_lsa_delete(new);
-		return;
-	}
-
-	/* (3) LSA which have reserved scope is discarded
-	   RFC2470 3.5.1. Receiving Link State Update packets  */
-	/* Flooding scope check. LSAs with unknown scope are discarded here.
-	   Set appropriate LSDB for the LSA */
-	switch (OSPF6_LSA_SCOPE(new->header->type)) {
-	case OSPF6_SCOPE_LINKLOCAL:
-		new->lsdb = from->ospf6_if->lsdb;
-		break;
-	case OSPF6_SCOPE_AREA:
-		new->lsdb = from->ospf6_if->area->lsdb;
-		break;
-	case OSPF6_SCOPE_AS:
-		new->lsdb = from->ospf6_if->area->ospf6->lsdb;
-		break;
-	default:
-		if (is_debug)
-			zlog_debug("LSA has reserved scope, discard");
-		ospf6_lsa_delete(new);
-		return;
-	}
-
-	/* (4) if MaxAge LSA and if we have no instance, and no neighbor
-	       is in states Exchange or Loading */
-	if (ospf6_is_maxage_lsa_drop(new, from)) {
-		/* log */
-		if (is_debug)
-			zlog_debug(
-				"Drop MaxAge LSA with direct acknowledgement.");
-
-		/* a) Acknowledge back to neighbor (Direct acknowledgement,
-		 * 13.5) */
-		ospf6_lsdb_add(ospf6_lsa_copy(new), from->lsack_list);
-		thread_add_event(master, ospf6_lsack_send_neighbor, from, 0,
-				 &from->thread_send_lsack);
-
-		/* b) Discard */
-		ospf6_lsa_delete(new);
-		return;
-	}
-
-	/* (5) */
-	/* lookup the same database copy in lsdb */
-	old = ospf6_lsdb_lookup(new->header->type, new->header->id,
-				new->header->adv_router, new->lsdb);
-	if (old) {
-		ismore_recent = ospf6_lsa_compare(new, old);
-		if (ntohl(new->header->seqnum) == ntohl(old->header->seqnum)) {
-			if (is_debug)
-				zlog_debug("Received is duplicated LSA");
-			SET_FLAG(new->flag, OSPF6_LSA_DUPLICATE);
-		}
-		if (old->header->adv_router
-			    == from->ospf6_if->area->ospf6->router_id
-		    && OSPF6_LSA_IS_MAXAGE(new)) {
-			ospf6_acknowledge_lsa(new, ismore_recent, from);
-			ospf6_lsa_delete(new);
-			if (is_debug)
-				zlog_debug(
-					"%s: Received is self orig MAXAGE LSA %s, discard (ismore_recent %d)",
-					__PRETTY_FUNCTION__, old->name,
-					ismore_recent);
-			return;
-		}
-	}
-
-	/* if no database copy or received is more recent */
-	if (old == NULL || ismore_recent < 0) {
-		/* in case we have no database copy */
-		ismore_recent = -1;
-
-		/* (a) MinLSArrival check */
-		if (old) {
-			struct timeval now, res;
-			monotime(&now);
-			timersub(&now, &old->installed, &res);
-			time_delta_ms =
-				(res.tv_sec * 1000) + (int)(res.tv_usec / 1000);
-			if (time_delta_ms
-			    < from->ospf6_if->area->ospf6->lsa_minarrival) {
-				if (is_debug)
-					zlog_debug(
-						"LSA can't be updated within MinLSArrival, %dms < %dms, discard",
-						time_delta_ms,
-						from->ospf6_if->area->ospf6
-							->lsa_minarrival);
-				ospf6_lsa_delete(new);
-				return; /* examin next lsa */
-			}
-		}
-
-		monotime(&new->received);
-
-		if (is_debug)
-			zlog_debug(
-				"Install, Flood, Possibly acknowledge the received LSA");
-
-		/* Remove older copies of this LSA from retx lists */
-		if (old)
-			ospf6_flood_clear(old);
-
-		/* (b) immediately flood and (c) remove from all retrans-list */
-		/* Prevent self-originated LSA to be flooded. this is to make
-		reoriginated instance of the LSA not to be rejected by other
-		routers
-		due to MinLSArrival. */
-		if (new->header->adv_router
-		    != from->ospf6_if->area->ospf6->router_id)
-			ospf6_flood(from, new);
-
-		/* (d), installing lsdb, which may cause routing
-			table calculation (replacing database copy) */
-		ospf6_install_lsa(new);
-
-		if (OSPF6_LSA_IS_MAXAGE(new))
-			ospf6_maxage_remove(from->ospf6_if->area->ospf6);
-
-		/* (e) possibly acknowledge */
-		ospf6_acknowledge_lsa(new, ismore_recent, from);
-
-		/* (f) Self Originated LSA, section 13.4 */
-		if (new->header->adv_router
-		    == from->ospf6_if->area->ospf6->router_id) {
-			/* Self-originated LSA (newer than ours) is received
-			   from
-			   another router. We have to make a new instance of the
-			   LSA
-			   or have to flush this LSA. */
-			if (is_debug) {
-				zlog_debug(
-					"Newer instance of the self-originated LSA");
-				zlog_debug("Schedule reorigination");
-			}
-			new->refresh = NULL;
-			thread_add_event(master, ospf6_lsa_refresh, new, 0,
-					 &new->refresh);
-		}
-
-		return;
-	}
-
-	/* (6) if there is instance on sending neighbor's request list */
-	if (ospf6_lsdb_lookup(new->header->type, new->header->id,
-			      new->header->adv_router, from->request_list)) {
-		/* if no database copy, should go above state (5) */
-		assert(old);
-
-		if (is_debug) {
-			zlog_debug(
-				"Received is not newer, on the neighbor's request-list");
-			zlog_debug("BadLSReq, discard the received LSA");
-		}
-
-		/* BadLSReq */
-		thread_add_event(master, bad_lsreq, from, 0, NULL);
-
-		ospf6_lsa_delete(new);
-		return;
-	}
-
-	/* (7) if neither one is more recent */
-	if (ismore_recent == 0) {
-		if (is_debug)
-			zlog_debug(
-				"The same instance as database copy (neither recent)");
-
-		/* (a) if on retrans-list, Treat this LSA as an Ack: Implied Ack
-		 */
-		rem = ospf6_lsdb_lookup(new->header->type, new->header->id,
-					new->header->adv_router,
-					from->retrans_list);
-		if (rem) {
-			if (is_debug) {
-				zlog_debug(
-					"It is on the neighbor's retrans-list.");
-				zlog_debug(
-					"Treat as an Implied acknowledgement");
-			}
-			SET_FLAG(new->flag, OSPF6_LSA_IMPLIEDACK);
-			ospf6_decrement_retrans_count(rem);
-			ospf6_lsdb_remove(rem, from->retrans_list);
-		}
-
-		if (is_debug)
-			zlog_debug("Possibly acknowledge and then discard");
-
-		/* (b) possibly acknowledge */
-		ospf6_acknowledge_lsa(new, ismore_recent, from);
-
-		ospf6_lsa_delete(new);
-		return;
-	}
-
-	/* (8) previous database copy is more recent */
-	{
-		assert(old);
-
-		/* If database copy is in 'Seqnumber Wrapping',
-		   simply discard the received LSA */
-		if (OSPF6_LSA_IS_MAXAGE(old)
-		    && old->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER)) {
-			if (is_debug) {
-				zlog_debug("The LSA is in Seqnumber Wrapping");
-				zlog_debug("MaxAge & MaxSeqNum, discard");
-			}
-			ospf6_lsa_delete(new);
-			return;
-		}
-
-		/* Otherwise, Send database copy of this LSA to this neighbor */
-		{
-			if (is_debug) {
-				zlog_debug("Database copy is more recent.");
-				zlog_debug(
-					"Send back directly and then discard");
-			}
-
-			/* Neighbor router sent recent age for LSA,
-			 * Router could be restarted while current copy is
-			 * MAXAGEd and not removed.*/
-			if (OSPF6_LSA_IS_MAXAGE(old)
-			    && !OSPF6_LSA_IS_MAXAGE(new)) {
-
-				if (is_debug)
-					zlog_debug(
-						"%s: Current copy of LSA %s is MAXAGE, but new has recent Age.",
-						old->name, __PRETTY_FUNCTION__);
-
-				ospf6_lsa_purge(old);
-				if (new->header->adv_router
-				    != from->ospf6_if->area->ospf6->router_id)
-					ospf6_flood(from, new);
-
-				ospf6_install_lsa(new);
-				return;
-			}
-
-			/* XXX, MinLSArrival check !? RFC 2328 13 (8) */
-
-			ospf6_lsdb_add(ospf6_lsa_copy(old),
-				       from->lsupdate_list);
-			thread_add_event(master, ospf6_lsupdate_send_neighbor,
-					 from, 0, &from->thread_send_lsupdate);
-
-			ospf6_lsa_delete(new);
-			return;
-		}
-		return;
-	}
-}
-
-DEFUN (debug_ospf6_flooding,
-       debug_ospf6_flooding_cmd,
-       "debug ospf6 flooding",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 flooding function\n"
-      )
-{
-	OSPF6_DEBUG_FLOODING_ON();
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf6_flooding,
-       no_debug_ospf6_flooding_cmd,
-       "no debug ospf6 flooding",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug OSPFv3 flooding function\n"
-      )
-{
-	OSPF6_DEBUG_FLOODING_OFF();
-	return CMD_SUCCESS;
-}
-
-int config_write_ospf6_debug_flood(struct vty *vty)
-{
-	if (IS_OSPF6_DEBUG_FLOODING)
-		vty_out(vty, "debug ospf6 flooding\n");
-	return 0;
-}
-
-void install_element_ospf6_debug_flood(void)
-{
-	install_element(ENABLE_NODE, &debug_ospf6_flooding_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf6_flooding_cmd);
-	install_element(CONFIG_NODE, &debug_ospf6_flooding_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf6_flooding_cmd);
-}
+/**Copyright(C)2003YasuhiroOhara**ThisfileispartofGNUZebra.**GNUZebraisfreesoftw
+are;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicense
+aspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*later
+version.**GNUZebraisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANT
+Y;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.
+SeetheGNU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGN
+UGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFre
+eSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#inclu
+de<zebra.h>#include"log.h"#include"thread.h"#include"linklist.h"#include"vty.h"#
+include"command.h"#include"ospf6d.h"#include"ospf6_proto.h"#include"ospf6_lsa.h"
+#include"ospf6_lsdb.h"#include"ospf6_message.h"#include"ospf6_route.h"#include"o
+spf6_spf.h"#include"ospf6_top.h"#include"ospf6_area.h"#include"ospf6_interface.h
+"#include"ospf6_neighbor.h"#include"ospf6_flood.h"unsignedcharconf_debug_ospf6_f
+looding;structospf6_lsdb*ospf6_get_scoped_lsdb(structospf6_lsa*lsa){structospf6_
+lsdb*lsdb=NULL;switch(OSPF6_LSA_SCOPE(lsa->header->type)){caseOSPF6_SCOPE_LINKLO
+CAL:lsdb=OSPF6_INTERFACE(lsa->lsdb->data)->lsdb;break;caseOSPF6_SCOPE_AREA:lsdb=
+OSPF6_AREA(lsa->lsdb->data)->lsdb;break;caseOSPF6_SCOPE_AS:lsdb=OSPF6_PROCESS(ls
+a->lsdb->data)->lsdb;break;default:assert(0);break;}returnlsdb;}structospf6_lsdb
+*ospf6_get_scoped_lsdb_self(structospf6_lsa*lsa){structospf6_lsdb*lsdb_self=NULL
+;switch(OSPF6_LSA_SCOPE(lsa->header->type)){caseOSPF6_SCOPE_LINKLOCAL:lsdb_self=
+OSPF6_INTERFACE(lsa->lsdb->data)->lsdb_self;break;caseOSPF6_SCOPE_AREA:lsdb_self
+=OSPF6_AREA(lsa->lsdb->data)->lsdb_self;break;caseOSPF6_SCOPE_AS:lsdb_self=OSPF6
+_PROCESS(lsa->lsdb->data)->lsdb_self;break;default:assert(0);break;}returnlsdb_s
+elf;}voidospf6_lsa_originate(structospf6_lsa*lsa){structospf6_lsa*old;structospf
+6_lsdb*lsdb_self;/*findpreviousLSA*/old=ospf6_lsdb_lookup(lsa->header->type,lsa-
+>header->id,lsa->header->adv_router,lsa->lsdb);/*ifthenewLSAdoesnotdifferfrompre
+vious,suppressthisupdateoftheLSA*/if(old&&!OSPF6_LSA_IS_DIFFER(lsa,old)){if(IS_O
+SPF6_DEBUG_ORIGINATE_TYPE(lsa->header->type))zlog_debug("SuppressupdatingLSA:%s"
+,lsa->name);ospf6_lsa_delete(lsa);return;}/*storeitintheLSDBforself-originatedLS
+As*/lsdb_self=ospf6_get_scoped_lsdb_self(lsa);ospf6_lsdb_add(ospf6_lsa_copy(lsa)
+,lsdb_self);lsa->refresh=NULL;thread_add_timer(master,ospf6_lsa_refresh,lsa,OSPF
+_LS_REFRESH_TIME,&lsa->refresh);if(IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)||I
+S_OSPF6_DEBUG_ORIGINATE_TYPE(lsa->header->type)){zlog_debug("LSAOriginate:");osp
+f6_lsa_header_print(lsa);}ospf6_install_lsa(lsa);ospf6_flood(NULL,lsa);}voidospf
+6_lsa_originate_process(structospf6_lsa*lsa,structospf6*process){lsa->lsdb=proce
+ss->lsdb;ospf6_lsa_originate(lsa);}voidospf6_lsa_originate_area(structospf6_lsa*
+lsa,structospf6_area*oa){lsa->lsdb=oa->lsdb;ospf6_lsa_originate(lsa);}voidospf6_
+lsa_originate_interface(structospf6_lsa*lsa,structospf6_interface*oi){lsa->lsdb=
+oi->lsdb;ospf6_lsa_originate(lsa);}voidospf6_lsa_purge(structospf6_lsa*lsa){stru
+ctospf6_lsa*self;structospf6_lsdb*lsdb_self;/*removeitfromtheLSDBforself-origina
+tedLSAs*/lsdb_self=ospf6_get_scoped_lsdb_self(lsa);self=ospf6_lsdb_lookup(lsa->h
+eader->type,lsa->header->id,lsa->header->adv_router,lsdb_self);if(self){THREAD_O
+FF(self->expire);THREAD_OFF(self->refresh);ospf6_lsdb_remove(self,lsdb_self);}os
+pf6_lsa_premature_aging(lsa);}/*PuringMultiLink-StateIDsLSAs:*SameAdvertisingRou
+terwithMultipleLink-StateIDs*LSAs,purgingrequiretotraverseallLink-StateIDs*/void
+ospf6_lsa_purge_multi_ls_id(structospf6_area*oa,structospf6_lsa*lsa){intls_id=0;
+structospf6_lsa*lsa_next;uint16_ttype;type=lsa->header->type;ospf6_lsa_purge(lsa
+);lsa_next=ospf6_lsdb_lookup(type,htonl(++ls_id),oa->ospf6->router_id,oa->lsdb);
+while(lsa_next){ospf6_lsa_purge(lsa_next);lsa_next=ospf6_lsdb_lookup(type,htonl(
+++ls_id),oa->ospf6->router_id,oa->lsdb);}}voidospf6_increment_retrans_count(stru
+ctospf6_lsa*lsa){/*TheLSAmustbetheoriginalone(seethedescriptioninospf6_decrement
+_retrans_count()below)*/lsa->retrans_count++;}voidospf6_decrement_retrans_count(
+structospf6_lsa*lsa){structospf6_lsdb*lsdb;structospf6_lsa*orig;/*TheLSAmustbeon
+theretrans-listofaneighbor.Itmeansthe"lsa"isacopiedone,andwehavetodecrementthere
+transmissioncountoftheoriginalone(insteadofthis"lsa"'s).Inordertofindtheoriginal
+LSA,firstwehavetofindappropriateLSDBthathavetheoriginalLSA.*/lsdb=ospf6_get_scop
+ed_lsdb(lsa);/*FindtheoriginalLSAofwhichtheretrans_countshouldbe*decremented*/or
+ig=ospf6_lsdb_lookup(lsa->header->type,lsa->header->id,lsa->header->adv_router,l
+sdb);if(orig){orig->retrans_count--;assert(orig->retrans_count>=0);}}/*RFC2328se
+ction13.2InstallingLSAsinthedatabase*/voidospf6_install_lsa(structospf6_lsa*lsa)
+{structtimevalnow;structospf6_lsa*old;/*Removetheoldinstancefromallneighbors'Lin
+kstateretransmissionlist(RFC232813.2lastparagraph)*/old=ospf6_lsdb_lookup(lsa->h
+eader->type,lsa->header->id,lsa->header->adv_router,lsa->lsdb);if(old){THREAD_OF
+F(old->expire);THREAD_OFF(old->refresh);ospf6_flood_clear(old);}monotime(&now);i
+f(!OSPF6_LSA_IS_MAXAGE(lsa)){lsa->expire=NULL;thread_add_timer(master,ospf6_lsa_
+expire,lsa,OSPF_LSA_MAXAGE+lsa->birth.tv_sec-now.tv_sec,&lsa->expire);}elselsa->
+expire=NULL;if(OSPF6_LSA_IS_SEQWRAP(lsa)&&!(CHECK_FLAG(lsa->flag,OSPF6_LSA_SEQWR
+APPED)&&lsa->header->seqnum==htonl(OSPF_MAX_SEQUENCE_NUMBER))){if(IS_OSPF6_DEBUG
+_EXAMIN_TYPE(lsa->header->type))zlog_debug("lsainstallwrapping:sequence0x%x",nto
+hl(lsa->header->seqnum));SET_FLAG(lsa->flag,OSPF6_LSA_SEQWRAPPED);/*inlieuofprem
+ature_aging,sincewedonotwanttorecreate*thislsa*and/ormesswithtimersetc,wejustwan
+ttowrapthe*sequencenumber*andrefloodthelsabeforecontinuing.*NOTE:Floodneedstobec
+alledrightafterthisfunction*call,bythe*caller*/lsa->header->seqnum=htonl(OSPF_MA
+X_SEQUENCE_NUMBER);lsa->header->age=htons(OSPF_LSA_MAXAGE);ospf6_lsa_checksum(ls
+a->header);}if(IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)||IS_OSPF6_DEBUG_EXAMIN
+_TYPE(lsa->header->type))zlog_debug("%sInstallLSA:%sage%dseqnum%xinLSDB.",__PRET
+TY_FUNCTION__,lsa->name,ntohs(lsa->header->age),ntohl(lsa->header->seqnum));/*ac
+tuallyinstall*/lsa->installed=now;ospf6_lsdb_add(lsa,lsa->lsdb);return;}/*RFC274
+0section3.5.2.SendingLinkStateUpdatepackets*//*RFC2328section13.3Nextstepinthefl
+oodingprocedure*/voidospf6_flood_interface(structospf6_neighbor*from,structospf6
+_lsa*lsa,structospf6_interface*oi){structlistnode*node,*nnode;structospf6_neighb
+or*on;structospf6_lsa*req;intretrans_added=0;intis_debug=0;if(IS_OSPF6_DEBUG_FLO
+ODING||IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type)){is_debug++;zlog_debug("Floo
+dingon%s:%s",oi->interface->name,lsa->name);}/*(1)Foreachneighbor*/for(ALL_LIST_
+ELEMENTS(oi->neighbor_list,node,nnode,on)){if(is_debug)zlog_debug("Toneighbor%s"
+,on->name);/*(a)ifneighborstate<Exchange,examinnext*/if(on->state<OSPF6_NEIGHBOR
+_EXCHANGE){if(is_debug)zlog_debug("NeighborstatelessthanExChange,nextneighbor");
+continue;}/*(b)ifneighbornotyetFull,checkrequest-list*/if(on->state!=OSPF6_NEIGH
+BOR_FULL){if(is_debug)zlog_debug("NeighbornotyetFull");req=ospf6_lsdb_lookup(lsa
+->header->type,lsa->header->id,lsa->header->adv_router,on->request_list);if(req=
+=NULL){if(is_debug)zlog_debug("Notonrequest-listforthisneighbor");/*fallthrough*
+/}else{/*IfnewLSAlessrecent,examinnextneighbor*/if(ospf6_lsa_compare(lsa,req)>0)
+{if(is_debug)zlog_debug("Requestingisolder,nextneighbor");continue;}/*Ifthesamei
+nstance,deletefromrequest-listandexaminnextneighbor*/if(ospf6_lsa_compare(lsa,re
+q)==0){if(is_debug)zlog_debug("Requestingthesame,removeit,nextneighbor");if(req=
+=on->last_ls_req){ospf6_lsa_unlock(req);on->last_ls_req=NULL;}ospf6_lsdb_remove(
+req,on->request_list);ospf6_check_nbr_loading(on);continue;}/*IfthenewLSAismorer
+ecent,deletefrom*request-list*/if(ospf6_lsa_compare(lsa,req)<0){if(is_debug)zlog
+_debug("Receivedisnewer,removerequesting");if(req==on->last_ls_req){ospf6_lsa_un
+lock(req);on->last_ls_req=NULL;}ospf6_lsdb_remove(req,on->request_list);ospf6_ch
+eck_nbr_loading(on);/*fallthrough*/}}}/*(c)IfthenewLSAwasreceivedfromthisneighbo
+r,examinnextneighbor*/if(from==on){if(is_debug)zlog_debug("Receivedisfromtheneig
+hbor,nextneighbor");continue;}if(ospf6->inst_shutdown){if(is_debug)zlog_debug("%
+s:SendLSA%s(age%d)updatenow",__PRETTY_FUNCTION__,lsa->name,ntohs(lsa->header->ag
+e));ospf6_lsupdate_send_neighbor_now(on,lsa);continue;}else{/*(d)addretrans-list
+,scheduleretransmission*/if(is_debug)zlog_debug("Addretrans-listofthisneighbor")
+;ospf6_increment_retrans_count(lsa);ospf6_lsdb_add(ospf6_lsa_copy(lsa),on->retra
+ns_list);thread_add_timer(master,ospf6_lsupdate_send_neighbor,on,on->ospf6_if->r
+xmt_interval,&on->thread_send_lsupdate);retrans_added++;}}/*(2)examinnextinterfa
+ceifnotaddedtoretrans-list*/if(retrans_added==0){if(is_debug)zlog_debug("Noretra
+nsmissionscheduled,nextinterface");return;}/*(3)IfthenewLSAwasreceivedonthisinte
+rface,anditwasfromDRorBDR,examinnextinterface*/if(from&&from->ospf6_if==oi&&(fro
+m->router_id==oi->drouter||from->router_id==oi->bdrouter)){if(is_debug)zlog_debu
+g("ReceivedisfromtheI/F'sDRorBDR,nextinterface");return;}/*(4)IfthenewLSAwasrece
+ivedonthisinterface,andtheinterfacestateisBDR,examinnextinterface*/if(from&&from
+->ospf6_if==oi){if(oi->state==OSPF6_INTERFACE_BDR){if(is_debug)zlog_debug("Recei
+vedisfromtheI/F,itselfBDR,nextinterface");return;}SET_FLAG(lsa->flag,OSPF6_LSA_F
+LOODBACK);}/*(5)floodtheLSAouttheinterface.*/if(is_debug)zlog_debug("Scheduleflo
+odingfortheinterface");if((oi->type==OSPF_IFTYPE_BROADCAST)||(oi->type==OSPF_IFT
+YPE_POINTOPOINT)){ospf6_lsdb_add(ospf6_lsa_copy(lsa),oi->lsupdate_list);thread_a
+dd_event(master,ospf6_lsupdate_send_interface,oi,0,&oi->thread_send_lsupdate);}e
+lse{/*rescheduleretransmissionstoallneighbors*/for(ALL_LIST_ELEMENTS(oi->neighbo
+r_list,node,nnode,on)){THREAD_OFF(on->thread_send_lsupdate);on->thread_send_lsup
+date=NULL;thread_add_event(master,ospf6_lsupdate_send_neighbor,on,0,&on->thread_
+send_lsupdate);}}}voidospf6_flood_area(structospf6_neighbor*from,structospf6_lsa
+*lsa,structospf6_area*oa){structlistnode*node,*nnode;structospf6_interface*oi;fo
+r(ALL_LIST_ELEMENTS(oa->if_list,node,nnode,oi)){if(OSPF6_LSA_SCOPE(lsa->header->
+type)==OSPF6_SCOPE_LINKLOCAL&&oi!=OSPF6_INTERFACE(lsa->lsdb->data))continue;#if0
+if(OSPF6_LSA_SCOPE(lsa->header->type)==OSPF6_SCOPE_AS&&ospf6_is_interface_virtua
+l_link(oi))continue;#endif/*0*/ospf6_flood_interface(from,lsa,oi);}}staticvoidos
+pf6_flood_process(structospf6_neighbor*from,structospf6_lsa*lsa,structospf6*proc
+ess){structlistnode*node,*nnode;structospf6_area*oa;for(ALL_LIST_ELEMENTS(proces
+s->area_list,node,nnode,oa)){if(OSPF6_LSA_SCOPE(lsa->header->type)==OSPF6_SCOPE_
+AREA&&oa!=OSPF6_AREA(lsa->lsdb->data))continue;if(OSPF6_LSA_SCOPE(lsa->header->t
+ype)==OSPF6_SCOPE_LINKLOCAL&&oa!=OSPF6_INTERFACE(lsa->lsdb->data)->area)continue
+;if(ntohs(lsa->header->type)==OSPF6_LSTYPE_AS_EXTERNAL&&IS_AREA_STUB(oa))continu
+e;ospf6_flood_area(from,lsa,oa);}}voidospf6_flood(structospf6_neighbor*from,stru
+ctospf6_lsa*lsa){ospf6_flood_process(from,lsa,ospf6);}staticvoidospf6_flood_clea
+r_interface(structospf6_lsa*lsa,structospf6_interface*oi){structlistnode*node,*n
+node;structospf6_neighbor*on;structospf6_lsa*rem;for(ALL_LIST_ELEMENTS(oi->neigh
+bor_list,node,nnode,on)){rem=ospf6_lsdb_lookup(lsa->header->type,lsa->header->id
+,lsa->header->adv_router,on->retrans_list);if(rem&&!ospf6_lsa_compare(rem,lsa)){
+if(IS_OSPF6_DEBUG_FLOODING||IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type))zlog_de
+bug("Remove%sfromretrans_listof%s",rem->name,on->name);ospf6_decrement_retrans_c
+ount(rem);ospf6_lsdb_remove(rem,on->retrans_list);}}}staticvoidospf6_flood_clear
+_area(structospf6_lsa*lsa,structospf6_area*oa){structlistnode*node,*nnode;struct
+ospf6_interface*oi;for(ALL_LIST_ELEMENTS(oa->if_list,node,nnode,oi)){if(OSPF6_LS
+A_SCOPE(lsa->header->type)==OSPF6_SCOPE_LINKLOCAL&&oi!=OSPF6_INTERFACE(lsa->lsdb
+->data))continue;#if0if(OSPF6_LSA_SCOPE(lsa->header->type)==OSPF6_SCOPE_AS&&ospf
+6_is_interface_virtual_link(oi))continue;#endif/*0*/ospf6_flood_clear_interface(
+lsa,oi);}}staticvoidospf6_flood_clear_process(structospf6_lsa*lsa,structospf6*pr
+ocess){structlistnode*node,*nnode;structospf6_area*oa;for(ALL_LIST_ELEMENTS(proc
+ess->area_list,node,nnode,oa)){if(OSPF6_LSA_SCOPE(lsa->header->type)==OSPF6_SCOP
+E_AREA&&oa!=OSPF6_AREA(lsa->lsdb->data))continue;if(OSPF6_LSA_SCOPE(lsa->header-
+>type)==OSPF6_SCOPE_LINKLOCAL&&oa!=OSPF6_INTERFACE(lsa->lsdb->data)->area)contin
+ue;if(ntohs(lsa->header->type)==OSPF6_LSTYPE_AS_EXTERNAL&&IS_AREA_STUB(oa))conti
+nue;ospf6_flood_clear_area(lsa,oa);}}voidospf6_flood_clear(structospf6_lsa*lsa){
+ospf6_flood_clear_process(lsa,ospf6);}/*RFC232813.5(Table19):Sendinglinkstateack
+nowledgements.*/staticvoidospf6_acknowledge_lsa_bdrouter(structospf6_lsa*lsa,int
+ismore_recent,structospf6_neighbor*from){structospf6_interface*oi;intis_debug=0;
+if(IS_OSPF6_DEBUG_FLOODING||IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type))is_debu
+g++;assert(from&&from->ospf6_if);oi=from->ospf6_if;/*LSAismorerecentthandatabase
+copy,butwasnotfloodedbackoutreceivinginterface.Delayedacknowledgementsentifadver
+tisementreceivedfromDesignatedRouter,otherwidedonothing.*/if(ismore_recent<0){if
+(oi->drouter==from->router_id){if(is_debug)zlog_debug("Delayedacknowledgement(BD
+R&MoreRecent&fromDR)");/*Delayedacknowledgement*/ospf6_lsdb_add(ospf6_lsa_copy(l
+sa),oi->lsack_list);thread_add_timer(master,ospf6_lsack_send_interface,oi,3,&oi-
+>thread_send_lsack);}else{if(is_debug)zlog_debug("Noacknowledgement(BDR&MoreRece
+nt&!fromDR)");}return;}/*LSAisaduplicate,andwastreatedasanimpliedacknowledgement
+.DelayedacknowledgementsentifadvertisementreceivedfromDesignatedRouter,otherwise
+donothing*/if(CHECK_FLAG(lsa->flag,OSPF6_LSA_DUPLICATE)&&CHECK_FLAG(lsa->flag,OS
+PF6_LSA_IMPLIEDACK)){if(oi->drouter==from->router_id){if(is_debug)zlog_debug("De
+layedacknowledgement(BDR&Duplicate&ImpliedAck&fromDR)");/*Delayedacknowledgement
+*/ospf6_lsdb_add(ospf6_lsa_copy(lsa),oi->lsack_list);thread_add_timer(master,osp
+f6_lsack_send_interface,oi,3,&oi->thread_send_lsack);}else{if(is_debug)zlog_debu
+g("Noacknowledgement(BDR&Duplicate&ImpliedAck&!fromDR)");}return;}/*LSAisaduplic
+ate,andwasnottreatedasanimpliedacknowledgement.Directacknowledgementsent*/if(CHE
+CK_FLAG(lsa->flag,OSPF6_LSA_DUPLICATE)&&!CHECK_FLAG(lsa->flag,OSPF6_LSA_IMPLIEDA
+CK)){if(is_debug)zlog_debug("Directacknowledgement(BDR&Duplicate)");ospf6_lsdb_a
+dd(ospf6_lsa_copy(lsa),from->lsack_list);thread_add_event(master,ospf6_lsack_sen
+d_neighbor,from,0,&from->thread_send_lsack);return;}/*LSA'sLSageisequaltoMaxage,
+andthereisnocurrentinstanceoftheLSAinthelinkstatedatabase,andnoneofrouter'sneigh
+borsareinstatesExchangeorLoading*//*Directacknowledgementsent,butthiscaseishandl
+edinearlyofospf6_receive_lsa()*/}staticvoidospf6_acknowledge_lsa_allother(struct
+ospf6_lsa*lsa,intismore_recent,structospf6_neighbor*from){structospf6_interface*
+oi;intis_debug=0;if(IS_OSPF6_DEBUG_FLOODING||IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->head
+er->type))is_debug++;assert(from&&from->ospf6_if);oi=from->ospf6_if;/*LSAhasbeen
+floodbackoutreceivinginterface.Noacknowledgementsent.*/if(CHECK_FLAG(lsa->flag,O
+SPF6_LSA_FLOODBACK)){if(is_debug)zlog_debug("Noacknowledgement(AllOther&FloodBac
+k)");return;}/*LSAismorerecentthandatabasecopy,butwasnotfloodedbackoutreceivingi
+nterface.Delayedacknowledgementsent.*/if(ismore_recent<0){if(is_debug)zlog_debug
+("Delayedacknowledgement(AllOther&MoreRecent)");/*Delayedacknowledgement*/ospf6_
+lsdb_add(ospf6_lsa_copy(lsa),oi->lsack_list);thread_add_timer(master,ospf6_lsack
+_send_interface,oi,3,&oi->thread_send_lsack);return;}/*LSAisaduplicate,andwastre
+atedasanimpliedacknowledgement.Noacknowledgementsent.*/if(CHECK_FLAG(lsa->flag,O
+SPF6_LSA_DUPLICATE)&&CHECK_FLAG(lsa->flag,OSPF6_LSA_IMPLIEDACK)){if(is_debug)zlo
+g_debug("Noacknowledgement(AllOther&Duplicate&ImpliedAck)");return;}/*LSAisadupl
+icate,andwasnottreatedasanimpliedacknowledgement.Directacknowledgementsent*/if(C
+HECK_FLAG(lsa->flag,OSPF6_LSA_DUPLICATE)&&!CHECK_FLAG(lsa->flag,OSPF6_LSA_IMPLIE
+DACK)){if(is_debug)zlog_debug("Directacknowledgement(AllOther&Duplicate)");ospf6
+_lsdb_add(ospf6_lsa_copy(lsa),from->lsack_list);thread_add_event(master,ospf6_ls
+ack_send_neighbor,from,0,&from->thread_send_lsack);return;}/*LSA'sLSageisequalto
+Maxage,andthereisnocurrentinstanceoftheLSAinthelinkstatedatabase,andnoneofrouter
+'sneighborsareinstatesExchangeorLoading*//*Directacknowledgementsent,butthiscase
+ishandledinearlyofospf6_receive_lsa()*/}staticvoidospf6_acknowledge_lsa(structos
+pf6_lsa*lsa,intismore_recent,structospf6_neighbor*from){structospf6_interface*oi
+;assert(from&&from->ospf6_if);oi=from->ospf6_if;if(oi->state==OSPF6_INTERFACE_BD
+R)ospf6_acknowledge_lsa_bdrouter(lsa,ismore_recent,from);elseospf6_acknowledge_l
+sa_allother(lsa,ismore_recent,from);}/*RFC2328section13(4):ifMaxAgeLSAandifwehav
+enoinstance,andnoneighborisinstatesExchangeorLoadingreturns1ifmatchthiscase,else
+returns0*/staticintospf6_is_maxage_lsa_drop(structospf6_lsa*lsa,structospf6_neig
+hbor*from){structospf6_neighbor*on;structospf6_interface*oi;structospf6_area*oa;
+structospf6*process=NULL;structlistnode*i,*j,*k;intcount=0;if(!OSPF6_LSA_IS_MAXA
+GE(lsa))return0;if(ospf6_lsdb_lookup(lsa->header->type,lsa->header->id,lsa->head
+er->adv_router,lsa->lsdb))return0;process=from->ospf6_if->area->ospf6;for(ALL_LI
+ST_ELEMENTS_RO(process->area_list,i,oa))for(ALL_LIST_ELEMENTS_RO(oa->if_list,j,o
+i))for(ALL_LIST_ELEMENTS_RO(oi->neighbor_list,k,on))if(on->state==OSPF6_NEIGHBOR
+_EXCHANGE||on->state==OSPF6_NEIGHBOR_LOADING)count++;if(count==0)return1;return0
+;}/*RFC2328section13TheFloodingProcedure*/voidospf6_receive_lsa(structospf6_neig
+hbor*from,structospf6_lsa_header*lsa_header){structospf6_lsa*new=NULL,*old=NULL,
+*rem=NULL;intismore_recent;intis_debug=0;unsignedinttime_delta_ms;ismore_recent=
+1;assert(from);/*makelsastructureforreceivedlsa*/new=ospf6_lsa_create(lsa_header
+);if(IS_OSPF6_DEBUG_FLOODING||IS_OSPF6_DEBUG_FLOOD_TYPE(new->header->type)){is_d
+ebug++;zlog_debug("LSAReceivefrom%s",from->name);ospf6_lsa_header_print(new);}/*
+(1)LSAChecksum*/if(!ospf6_lsa_checksum_valid(new->header)){if(is_debug)zlog_debu
+g("WrongLSAChecksum,discard");ospf6_lsa_delete(new);return;}/*(2)ExaminetheLSA's
+LStype.RFC24703.5.1.ReceivingLinkStateUpdatepackets*/if(IS_AREA_STUB(from->ospf6
+_if->area)&&OSPF6_LSA_SCOPE(new->header->type)==OSPF6_SCOPE_AS){if(is_debug)zlog
+_debug("AS-External-LSA(orAS-scopeLSA)instubarea,discard");ospf6_lsa_delete(new)
+;return;}/*(3)LSAwhichhavereservedscopeisdiscardedRFC24703.5.1.ReceivingLinkStat
+eUpdatepackets*//*Floodingscopecheck.LSAswithunknownscopearediscardedhere.Setapp
+ropriateLSDBfortheLSA*/switch(OSPF6_LSA_SCOPE(new->header->type)){caseOSPF6_SCOP
+E_LINKLOCAL:new->lsdb=from->ospf6_if->lsdb;break;caseOSPF6_SCOPE_AREA:new->lsdb=
+from->ospf6_if->area->lsdb;break;caseOSPF6_SCOPE_AS:new->lsdb=from->ospf6_if->ar
+ea->ospf6->lsdb;break;default:if(is_debug)zlog_debug("LSAhasreservedscope,discar
+d");ospf6_lsa_delete(new);return;}/*(4)ifMaxAgeLSAandifwehavenoinstance,andnonei
+ghborisinstatesExchangeorLoading*/if(ospf6_is_maxage_lsa_drop(new,from)){/*log*/
+if(is_debug)zlog_debug("DropMaxAgeLSAwithdirectacknowledgement.");/*a)Acknowledg
+ebacktoneighbor(Directacknowledgement,*13.5)*/ospf6_lsdb_add(ospf6_lsa_copy(new)
+,from->lsack_list);thread_add_event(master,ospf6_lsack_send_neighbor,from,0,&fro
+m->thread_send_lsack);/*b)Discard*/ospf6_lsa_delete(new);return;}/*(5)*//*lookup
+thesamedatabasecopyinlsdb*/old=ospf6_lsdb_lookup(new->header->type,new->header->
+id,new->header->adv_router,new->lsdb);if(old){ismore_recent=ospf6_lsa_compare(ne
+w,old);if(ntohl(new->header->seqnum)==ntohl(old->header->seqnum)){if(is_debug)zl
+og_debug("ReceivedisduplicatedLSA");SET_FLAG(new->flag,OSPF6_LSA_DUPLICATE);}if(
+old->header->adv_router==from->ospf6_if->area->ospf6->router_id&&OSPF6_LSA_IS_MA
+XAGE(new)){ospf6_acknowledge_lsa(new,ismore_recent,from);ospf6_lsa_delete(new);i
+f(is_debug)zlog_debug("%s:ReceivedisselforigMAXAGELSA%s,discard(ismore_recent%d)
+",__PRETTY_FUNCTION__,old->name,ismore_recent);return;}}/*ifnodatabasecopyorrece
+ivedismorerecent*/if(old==NULL||ismore_recent<0){/*incasewehavenodatabasecopy*/i
+smore_recent=-1;/*(a)MinLSArrivalcheck*/if(old){structtimevalnow,res;monotime(&n
+ow);timersub(&now,&old->installed,&res);time_delta_ms=(res.tv_sec*1000)+(int)(re
+s.tv_usec/1000);if(time_delta_ms<from->ospf6_if->area->ospf6->lsa_minarrival){if
+(is_debug)zlog_debug("LSAcan'tbeupdatedwithinMinLSArrival,%dms<%dms,discard",tim
+e_delta_ms,from->ospf6_if->area->ospf6->lsa_minarrival);ospf6_lsa_delete(new);re
+turn;/*examinnextlsa*/}}monotime(&new->received);if(is_debug)zlog_debug("Install
+,Flood,PossiblyacknowledgethereceivedLSA");/*RemoveoldercopiesofthisLSAfromretxl
+ists*/if(old)ospf6_flood_clear(old);/*(b)immediatelyfloodand(c)removefromallretr
+ans-list*//*Preventself-originatedLSAtobeflooded.thisistomakereoriginatedinstanc
+eoftheLSAnottoberejectedbyotherroutersduetoMinLSArrival.*/if(new->header->adv_ro
+uter!=from->ospf6_if->area->ospf6->router_id)ospf6_flood(from,new);/*(d),install
+inglsdb,whichmaycauseroutingtablecalculation(replacingdatabasecopy)*/ospf6_insta
+ll_lsa(new);if(OSPF6_LSA_IS_MAXAGE(new))ospf6_maxage_remove(from->ospf6_if->area
+->ospf6);/*(e)possiblyacknowledge*/ospf6_acknowledge_lsa(new,ismore_recent,from)
+;/*(f)SelfOriginatedLSA,section13.4*/if(new->header->adv_router==from->ospf6_if-
+>area->ospf6->router_id){/*Self-originatedLSA(newerthanours)isreceivedfromanothe
+rrouter.WehavetomakeanewinstanceoftheLSAorhavetoflushthisLSA.*/if(is_debug){zlog
+_debug("Newerinstanceoftheself-originatedLSA");zlog_debug("Schedulereorigination
+");}new->refresh=NULL;thread_add_event(master,ospf6_lsa_refresh,new,0,&new->refr
+esh);}return;}/*(6)ifthereisinstanceonsendingneighbor'srequestlist*/if(ospf6_lsd
+b_lookup(new->header->type,new->header->id,new->header->adv_router,from->request
+_list)){/*ifnodatabasecopy,shouldgoabovestate(5)*/assert(old);if(is_debug){zlog_
+debug("Receivedisnotnewer,ontheneighbor'srequest-list");zlog_debug("BadLSReq,dis
+cardthereceivedLSA");}/*BadLSReq*/thread_add_event(master,bad_lsreq,from,0,NULL)
+;ospf6_lsa_delete(new);return;}/*(7)ifneitheroneismorerecent*/if(ismore_recent==
+0){if(is_debug)zlog_debug("Thesameinstanceasdatabasecopy(neitherrecent)");/*(a)i
+fonretrans-list,TreatthisLSAasanAck:ImpliedAck*/rem=ospf6_lsdb_lookup(new->heade
+r->type,new->header->id,new->header->adv_router,from->retrans_list);if(rem){if(i
+s_debug){zlog_debug("Itisontheneighbor'sretrans-list.");zlog_debug("TreatasanImp
+liedacknowledgement");}SET_FLAG(new->flag,OSPF6_LSA_IMPLIEDACK);ospf6_decrement_
+retrans_count(rem);ospf6_lsdb_remove(rem,from->retrans_list);}if(is_debug)zlog_d
+ebug("Possiblyacknowledgeandthendiscard");/*(b)possiblyacknowledge*/ospf6_acknow
+ledge_lsa(new,ismore_recent,from);ospf6_lsa_delete(new);return;}/*(8)previousdat
+abasecopyismorerecent*/{assert(old);/*Ifdatabasecopyisin'SeqnumberWrapping',simp
+lydiscardthereceivedLSA*/if(OSPF6_LSA_IS_MAXAGE(old)&&old->header->seqnum==htonl
+(OSPF_MAX_SEQUENCE_NUMBER)){if(is_debug){zlog_debug("TheLSAisinSeqnumberWrapping
+");zlog_debug("MaxAge&MaxSeqNum,discard");}ospf6_lsa_delete(new);return;}/*Other
+wise,SenddatabasecopyofthisLSAtothisneighbor*/{if(is_debug){zlog_debug("Database
+copyismorerecent.");zlog_debug("Sendbackdirectlyandthendiscard");}/*Neighborrout
+ersentrecentageforLSA,*Routercouldberestartedwhilecurrentcopyis*MAXAGEdandnotrem
+oved.*/if(OSPF6_LSA_IS_MAXAGE(old)&&!OSPF6_LSA_IS_MAXAGE(new)){if(is_debug)zlog_
+debug("%s:CurrentcopyofLSA%sisMAXAGE,butnewhasrecentAge.",old->name,__PRETTY_FUN
+CTION__);ospf6_lsa_purge(old);if(new->header->adv_router!=from->ospf6_if->area->
+ospf6->router_id)ospf6_flood(from,new);ospf6_install_lsa(new);return;}/*XXX,MinL
+SArrivalcheck!?RFC232813(8)*/ospf6_lsdb_add(ospf6_lsa_copy(old),from->lsupdate_l
+ist);thread_add_event(master,ospf6_lsupdate_send_neighbor,from,0,&from->thread_s
+end_lsupdate);ospf6_lsa_delete(new);return;}return;}}DEFUN(debug_ospf6_flooding,
+debug_ospf6_flooding_cmd,"debugospf6flooding",DEBUG_STROSPF6_STR"DebugOSPFv3floo
+dingfunction\n"){OSPF6_DEBUG_FLOODING_ON();returnCMD_SUCCESS;}DEFUN(no_debug_osp
+f6_flooding,no_debug_ospf6_flooding_cmd,"nodebugospf6flooding",NO_STRDEBUG_STROS
+PF6_STR"DebugOSPFv3floodingfunction\n"){OSPF6_DEBUG_FLOODING_OFF();returnCMD_SUC
+CESS;}intconfig_write_ospf6_debug_flood(structvty*vty){if(IS_OSPF6_DEBUG_FLOODIN
+G)vty_out(vty,"debugospf6flooding\n");return0;}voidinstall_element_ospf6_debug_f
+lood(void){install_element(ENABLE_NODE,&debug_ospf6_flooding_cmd);install_elemen
+t(ENABLE_NODE,&no_debug_ospf6_flooding_cmd);install_element(CONFIG_NODE,&debug_o
+spf6_flooding_cmd);install_element(CONFIG_NODE,&no_debug_ospf6_flooding_cmd);}

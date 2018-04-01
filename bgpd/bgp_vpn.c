@@ -1,252 +1,56 @@
-/* VPN Related functions
- * Copyright (C) 2017 6WIND
- *
- * This file is part of FRRouting
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#include "command.h"
-#include "prefix.h"
-#include "lib/json.h"
-
-#include "bgpd/bgpd.h"
-#include "bgpd/bgp_route.h"
-#include "bgpd/bgp_table.h"
-#include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_mplsvpn.h"
-#include "bgpd/bgp_vpn.h"
-
-int show_adj_route_vpn(struct vty *vty, struct peer *peer,
-		       struct prefix_rd *prd, afi_t afi, safi_t safi,
-		       uint8_t use_json)
-{
-	struct bgp *bgp;
-	struct bgp_table *table;
-	struct bgp_node *rn;
-	struct bgp_node *rm;
-	struct attr *attr;
-	int rd_header;
-	int header = 1;
-	json_object *json = NULL;
-	json_object *json_scode = NULL;
-	json_object *json_ocode = NULL;
-	json_object *json_routes = NULL;
-	json_object *json_array = NULL;
-
-	bgp = bgp_get_default();
-	if (bgp == NULL) {
-		if (!use_json)
-			vty_out(vty, "No BGP process is configured\n");
-		else
-			vty_out(vty, "{}\n");
-		return CMD_WARNING;
-	}
-
-	if (use_json) {
-		json_scode = json_object_new_object();
-		json_ocode = json_object_new_object();
-		json_routes = json_object_new_object();
-		json = json_object_new_object();
-
-		json_object_string_add(json_scode, "suppressed", "s");
-		json_object_string_add(json_scode, "damped", "d");
-		json_object_string_add(json_scode, "history", "h");
-		json_object_string_add(json_scode, "valid", "*");
-		json_object_string_add(json_scode, "best", ">");
-		json_object_string_add(json_scode, "internal", "i");
-
-		json_object_string_add(json_ocode, "igp", "i");
-		json_object_string_add(json_ocode, "egp", "e");
-		json_object_string_add(json_ocode, "incomplete", "?");
-	}
-
-	for (rn = bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]); rn;
-	     rn = bgp_route_next(rn)) {
-		if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
-			continue;
-
-		if ((table = rn->info) != NULL) {
-			if (use_json)
-				json_array = json_object_new_array();
-			else
-				json_array = NULL;
-
-			rd_header = 1;
-
-			for (rm = bgp_table_top(table); rm;
-			     rm = bgp_route_next(rm)) {
-				if ((attr = rm->info) != NULL) {
-					if (header) {
-						if (use_json) {
-							json_object_int_add(
-								json,
-								"bgpTableVersion",
-								0);
-							json_object_string_add(
-								json,
-								"bgpLocalRouterId",
-								inet_ntoa(
-									bgp->router_id));
-							json_object_object_add(
-								json,
-								"bgpStatusCodes",
-								json_scode);
-							json_object_object_add(
-								json,
-								"bgpOriginCodes",
-								json_ocode);
-						} else {
-							vty_out(vty,
-								"BGP table version is 0, local router ID is %s\n",
-								inet_ntoa(
-									bgp->router_id));
-							vty_out(vty,
-								"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
-							vty_out(vty,
-								"Origin codes: i - IGP, e - EGP, ? - incomplete\n\n");
-							vty_out(vty, V4_HEADER);
-						}
-						header = 0;
-					}
-
-					if (rd_header) {
-						uint16_t type;
-						struct rd_as rd_as;
-						struct rd_ip rd_ip = {0};
-#if ENABLE_BGP_VNC
-						struct rd_vnc_eth rd_vnc_eth = {
-							0};
-#endif
-						uint8_t *pnt;
-
-						pnt = rn->p.u.val;
-
-						/* Decode RD type. */
-						type = decode_rd_type(pnt);
-						/* Decode RD value. */
-						if (type == RD_TYPE_AS)
-							decode_rd_as(pnt + 2,
-								     &rd_as);
-						else if (type == RD_TYPE_AS4)
-							decode_rd_as4(pnt + 2,
-								      &rd_as);
-						else if (type == RD_TYPE_IP)
-							decode_rd_ip(pnt + 2,
-								     &rd_ip);
-#if ENABLE_BGP_VNC
-						else if (type
-							 == RD_TYPE_VNC_ETH)
-							decode_rd_vnc_eth(
-								pnt,
-								&rd_vnc_eth);
-#endif
-
-						if (use_json) {
-							char buffer[BUFSIZ];
-							if (type == RD_TYPE_AS
-							    || type == RD_TYPE_AS4)
-								sprintf(buffer,
-									"%u:%d",
-									rd_as.as,
-									rd_as.val);
-							else if (type
-								 == RD_TYPE_IP)
-								sprintf(buffer,
-									"%s:%d",
-									inet_ntoa(
-										rd_ip.ip),
-									rd_ip.val);
-							json_object_string_add(
-								json_routes,
-								"routeDistinguisher",
-								buffer);
-						} else {
-							vty_out(vty,
-								"Route Distinguisher: ");
-
-							if (type == RD_TYPE_AS
-							    || type == RD_TYPE_AS4)
-								vty_out(vty,
-									"%u:%d",
-									rd_as.as,
-									rd_as.val);
-							else if (type
-								 == RD_TYPE_IP)
-								vty_out(vty,
-									"%s:%d",
-									inet_ntoa(
-										rd_ip.ip),
-									rd_ip.val);
-#if ENABLE_BGP_VNC
-							else if (
-								type
-								== RD_TYPE_VNC_ETH)
-								vty_out(vty,
-									"%u:%02x:%02x:%02x:%02x:%02x:%02x",
-									rd_vnc_eth
-										.local_nve_id,
-									rd_vnc_eth
-										.macaddr
-										.octet[0],
-									rd_vnc_eth
-										.macaddr
-										.octet[1],
-									rd_vnc_eth
-										.macaddr
-										.octet[2],
-									rd_vnc_eth
-										.macaddr
-										.octet[3],
-									rd_vnc_eth
-										.macaddr
-										.octet[4],
-									rd_vnc_eth
-										.macaddr
-										.octet[5]);
-#endif
-
-							vty_out(vty, "\n");
-						}
-						rd_header = 0;
-					}
-					route_vty_out_tmp(vty, &rm->p, attr,
-							  SAFI_MPLS_VPN,
-							  use_json, json_array);
-				}
-			}
-			if (use_json) {
-				struct prefix *p;
-				char buf_a[BUFSIZ];
-				char buf_b[BUFSIZ];
-				p = &rm->p;
-				sprintf(buf_a, "%s/%d",
-					inet_ntop(p->family, &p->u.prefix,
-						  buf_b, BUFSIZ),
-					p->prefixlen);
-				json_object_object_add(json_routes, buf_a,
-						       json_array);
-			}
-		}
-	}
-	if (use_json) {
-		json_object_object_add(json, "routes", json_routes);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
-	return CMD_SUCCESS;
-}
+/*VPNRelatedfunctions*Copyright(C)20176WIND**ThisfileispartofFRRouting**FRRoutin
+gisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralP
+ublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouropti
+on)any*laterversion.**FRRoutingisdistributedinthehopethatitwillbeuseful,but*WITH
+OUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTI
+CULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceive
+dacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,
+writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-13
+01USA*/#include<zebra.h>#include"command.h"#include"prefix.h"#include"lib/json.h
+"#include"bgpd/bgpd.h"#include"bgpd/bgp_route.h"#include"bgpd/bgp_table.h"#inclu
+de"bgpd/bgp_attr.h"#include"bgpd/bgp_mplsvpn.h"#include"bgpd/bgp_vpn.h"intshow_a
+dj_route_vpn(structvty*vty,structpeer*peer,structprefix_rd*prd,afi_tafi,safi_tsa
+fi,uint8_tuse_json){structbgp*bgp;structbgp_table*table;structbgp_node*rn;struct
+bgp_node*rm;structattr*attr;intrd_header;intheader=1;json_object*json=NULL;json_
+object*json_scode=NULL;json_object*json_ocode=NULL;json_object*json_routes=NULL;
+json_object*json_array=NULL;bgp=bgp_get_default();if(bgp==NULL){if(!use_json)vty
+_out(vty,"NoBGPprocessisconfigured\n");elsevty_out(vty,"{}\n");returnCMD_WARNING
+;}if(use_json){json_scode=json_object_new_object();json_ocode=json_object_new_ob
+ject();json_routes=json_object_new_object();json=json_object_new_object();json_o
+bject_string_add(json_scode,"suppressed","s");json_object_string_add(json_scode,
+"damped","d");json_object_string_add(json_scode,"history","h");json_object_strin
+g_add(json_scode,"valid","*");json_object_string_add(json_scode,"best",">");json
+_object_string_add(json_scode,"internal","i");json_object_string_add(json_ocode,
+"igp","i");json_object_string_add(json_ocode,"egp","e");json_object_string_add(j
+son_ocode,"incomplete","?");}for(rn=bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]);
+rn;rn=bgp_route_next(rn)){if(prd&&memcmp(rn->p.u.val,prd->val,8)!=0)continue;if(
+(table=rn->info)!=NULL){if(use_json)json_array=json_object_new_array();elsejson_
+array=NULL;rd_header=1;for(rm=bgp_table_top(table);rm;rm=bgp_route_next(rm)){if(
+(attr=rm->info)!=NULL){if(header){if(use_json){json_object_int_add(json,"bgpTabl
+eVersion",0);json_object_string_add(json,"bgpLocalRouterId",inet_ntoa(bgp->route
+r_id));json_object_object_add(json,"bgpStatusCodes",json_scode);json_object_obje
+ct_add(json,"bgpOriginCodes",json_ocode);}else{vty_out(vty,"BGPtableversionis0,l
+ocalrouterIDis%s\n",inet_ntoa(bgp->router_id));vty_out(vty,"Statuscodes:ssuppres
+sed,ddamped,hhistory,*valid,>best,i-internal\n");vty_out(vty,"Origincodes:i-IGP,
+e-EGP,?-incomplete\n\n");vty_out(vty,V4_HEADER);}header=0;}if(rd_header){uint16_
+ttype;structrd_asrd_as;structrd_iprd_ip={0};#ifENABLE_BGP_VNCstructrd_vnc_ethrd_
+vnc_eth={0};#endifuint8_t*pnt;pnt=rn->p.u.val;/*DecodeRDtype.*/type=decode_rd_ty
+pe(pnt);/*DecodeRDvalue.*/if(type==RD_TYPE_AS)decode_rd_as(pnt+2,&rd_as);elseif(
+type==RD_TYPE_AS4)decode_rd_as4(pnt+2,&rd_as);elseif(type==RD_TYPE_IP)decode_rd_
+ip(pnt+2,&rd_ip);#ifENABLE_BGP_VNCelseif(type==RD_TYPE_VNC_ETH)decode_rd_vnc_eth
+(pnt,&rd_vnc_eth);#endifif(use_json){charbuffer[BUFSIZ];if(type==RD_TYPE_AS||typ
+e==RD_TYPE_AS4)sprintf(buffer,"%u:%d",rd_as.as,rd_as.val);elseif(type==RD_TYPE_I
+P)sprintf(buffer,"%s:%d",inet_ntoa(rd_ip.ip),rd_ip.val);json_object_string_add(j
+son_routes,"routeDistinguisher",buffer);}else{vty_out(vty,"RouteDistinguisher:")
+;if(type==RD_TYPE_AS||type==RD_TYPE_AS4)vty_out(vty,"%u:%d",rd_as.as,rd_as.val);
+elseif(type==RD_TYPE_IP)vty_out(vty,"%s:%d",inet_ntoa(rd_ip.ip),rd_ip.val);#ifEN
+ABLE_BGP_VNCelseif(type==RD_TYPE_VNC_ETH)vty_out(vty,"%u:%02x:%02x:%02x:%02x:%02
+x:%02x",rd_vnc_eth.local_nve_id,rd_vnc_eth.macaddr.octet[0],rd_vnc_eth.macaddr.o
+ctet[1],rd_vnc_eth.macaddr.octet[2],rd_vnc_eth.macaddr.octet[3],rd_vnc_eth.macad
+dr.octet[4],rd_vnc_eth.macaddr.octet[5]);#endifvty_out(vty,"\n");}rd_header=0;}r
+oute_vty_out_tmp(vty,&rm->p,attr,SAFI_MPLS_VPN,use_json,json_array);}}if(use_jso
+n){structprefix*p;charbuf_a[BUFSIZ];charbuf_b[BUFSIZ];p=&rm->p;sprintf(buf_a,"%s
+/%d",inet_ntop(p->family,&p->u.prefix,buf_b,BUFSIZ),p->prefixlen);json_object_ob
+ject_add(json_routes,buf_a,json_array);}}}if(use_json){json_object_object_add(js
+on,"routes",json_routes);vty_out(vty,"%s\n",json_object_to_json_string_ext(json,
+JSON_C_TO_STRING_PRETTY));json_object_free(json);}returnCMD_SUCCESS;}

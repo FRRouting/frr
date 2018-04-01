@@ -1,121 +1,43 @@
-/*
- * Dictionary Abstract Data Type
- * Copyright (C) 1997 Kaz Kylheku <kaz@ashi.footprints.net>
- *
- * Free Software License:
- *
- * All rights are reserved by the author, with the following exceptions:
- * Permission is granted to freely reproduce and distribute this software,
- * possibly in exchange for a fee, provided that this copyright notice appears
- * intact. Permission is also granted to adapt this software to produce
- * derivative works, as long as the modified versions carry this copyright
- * notice and additional notices stating that the work has been modified.
- * This source code may be translated into executable form and incorporated
- * into proprietary software; there is no requirement for such software to
- * contain a copyright notice related to this source.
- *
- */
-
-#ifndef DICT_H
-#define DICT_H
-
-#include <limits.h>
-
-/*
- * Blurb for inclusion into C++ translation units
- */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef unsigned long dictcount_t;
-#define DICTCOUNT_T_MAX ULONG_MAX
-
-/*
- * The dictionary is implemented as a red-black tree
- */
-
-typedef enum { dnode_red, dnode_black } dnode_color_t;
-
-typedef struct dnode_t {
-	struct dnode_t *dict_left;
-	struct dnode_t *dict_right;
-	struct dnode_t *dict_parent;
-	dnode_color_t dict_color;
-	const void *dict_key;
-	void *dict_data;
-} dnode_t;
-
-typedef int (*dict_comp_t)(const void *, const void *);
-typedef dnode_t *(*dnode_alloc_t)(void *);
-typedef void (*dnode_free_t)(dnode_t *, void *);
-
-typedef struct dict_t {
-	dnode_t dict_nilnode;
-	dictcount_t dict_nodecount;
-	dictcount_t dict_maxcount;
-	dict_comp_t dict_compare;
-	dnode_alloc_t dict_allocnode;
-	dnode_free_t dict_freenode;
-	void *dict_context;
-	int dict_dupes;
-} dict_t;
-
-typedef void (*dnode_process_t)(dict_t *, dnode_t *, void *);
-
-typedef struct dict_load_t {
-	dict_t *dict_dictptr;
-	dnode_t dict_nilnode;
-} dict_load_t;
-
-extern dict_t *dict_create(dictcount_t, dict_comp_t);
-extern void dict_set_allocator(dict_t *, dnode_alloc_t, dnode_free_t, void *);
-extern void dict_destroy(dict_t *);
-extern void dict_free_nodes(dict_t *);
-extern void dict_free(dict_t *);
-extern dict_t *dict_init(dict_t *, dictcount_t, dict_comp_t);
-extern void dict_init_like(dict_t *, const dict_t *);
-extern int dict_verify(dict_t *);
-extern int dict_similar(const dict_t *, const dict_t *);
-extern dnode_t *dict_lookup(dict_t *, const void *);
-extern dnode_t *dict_lower_bound(dict_t *, const void *);
-extern dnode_t *dict_upper_bound(dict_t *, const void *);
-extern void dict_insert(dict_t *, dnode_t *, const void *);
-extern dnode_t *dict_delete(dict_t *, dnode_t *);
-extern int dict_alloc_insert(dict_t *, const void *, void *);
-extern void dict_delete_free(dict_t *, dnode_t *);
-extern dnode_t *dict_first(dict_t *);
-extern dnode_t *dict_last(dict_t *);
-extern dnode_t *dict_next(dict_t *, dnode_t *);
-extern dnode_t *dict_prev(dict_t *, dnode_t *);
-extern dictcount_t dict_count(dict_t *);
-extern int dict_isempty(dict_t *);
-extern int dict_isfull(dict_t *);
-extern int dict_contains(dict_t *, dnode_t *);
-extern void dict_allow_dupes(dict_t *);
-extern int dnode_is_in_a_dict(dnode_t *);
-extern dnode_t *dnode_create(void *);
-extern dnode_t *dnode_init(dnode_t *, void *);
-extern void dnode_destroy(dnode_t *);
-extern void *dnode_get(dnode_t *);
-extern const void *dnode_getkey(dnode_t *);
-extern void dnode_put(dnode_t *, void *);
-extern void dict_process(dict_t *, void *, dnode_process_t);
-extern void dict_load_begin(dict_load_t *, dict_t *);
-extern void dict_load_next(dict_load_t *, dnode_t *, const void *);
-extern void dict_load_end(dict_load_t *);
-extern void dict_merge(dict_t *, dict_t *);
-
-#define dict_isfull(D) ((D)->dict_nodecount == (D)->dict_maxcount)
-#define dict_count(D) ((D)->dict_nodecount)
-#define dict_isempty(D) ((D)->dict_nodecount == 0)
-#define dnode_get(N) ((N)->dict_data)
-#define dnode_getkey(N) ((N)->dict_key)
-#define dnode_put(N, X) ((N)->dict_data = (X))
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+/**DictionaryAbstractDataType*Copyright(C)1997KazKylheku<kaz@ashi.footprints.net
+>**FreeSoftwareLicense:**Allrightsarereservedbytheauthor,withthefollowingexcepti
+ons:*Permissionisgrantedtofreelyreproduceanddistributethissoftware,*possiblyinex
+changeforafee,providedthatthiscopyrightnoticeappears*intact.Permissionisalsogran
+tedtoadaptthissoftwaretoproduce*derivativeworks,aslongasthemodifiedversionscarry
+thiscopyright*noticeandadditionalnoticesstatingthattheworkhasbeenmodified.*Thiss
+ourcecodemaybetranslatedintoexecutableformandincorporated*intoproprietarysoftwar
+e;thereisnorequirementforsuchsoftwareto*containacopyrightnoticerelatedtothissour
+ce.**/#ifndefDICT_H#defineDICT_H#include<limits.h>/**BlurbforinclusionintoC++tra
+nslationunits*/#ifdef__cplusplusextern"C"{#endiftypedefunsignedlongdictcount_t;#
+defineDICTCOUNT_T_MAXULONG_MAX/**Thedictionaryisimplementedasared-blacktree*/typ
+edefenum{dnode_red,dnode_black}dnode_color_t;typedefstructdnode_t{structdnode_t*
+dict_left;structdnode_t*dict_right;structdnode_t*dict_parent;dnode_color_tdict_c
+olor;constvoid*dict_key;void*dict_data;}dnode_t;typedefint(*dict_comp_t)(constvo
+id*,constvoid*);typedefdnode_t*(*dnode_alloc_t)(void*);typedefvoid(*dnode_free_t
+)(dnode_t*,void*);typedefstructdict_t{dnode_tdict_nilnode;dictcount_tdict_nodeco
+unt;dictcount_tdict_maxcount;dict_comp_tdict_compare;dnode_alloc_tdict_allocnode
+;dnode_free_tdict_freenode;void*dict_context;intdict_dupes;}dict_t;typedefvoid(*
+dnode_process_t)(dict_t*,dnode_t*,void*);typedefstructdict_load_t{dict_t*dict_di
+ctptr;dnode_tdict_nilnode;}dict_load_t;externdict_t*dict_create(dictcount_t,dict
+_comp_t);externvoiddict_set_allocator(dict_t*,dnode_alloc_t,dnode_free_t,void*);
+externvoiddict_destroy(dict_t*);externvoiddict_free_nodes(dict_t*);externvoiddic
+t_free(dict_t*);externdict_t*dict_init(dict_t*,dictcount_t,dict_comp_t);externvo
+iddict_init_like(dict_t*,constdict_t*);externintdict_verify(dict_t*);externintdi
+ct_similar(constdict_t*,constdict_t*);externdnode_t*dict_lookup(dict_t*,constvoi
+d*);externdnode_t*dict_lower_bound(dict_t*,constvoid*);externdnode_t*dict_upper_
+bound(dict_t*,constvoid*);externvoiddict_insert(dict_t*,dnode_t*,constvoid*);ext
+erndnode_t*dict_delete(dict_t*,dnode_t*);externintdict_alloc_insert(dict_t*,cons
+tvoid*,void*);externvoiddict_delete_free(dict_t*,dnode_t*);externdnode_t*dict_fi
+rst(dict_t*);externdnode_t*dict_last(dict_t*);externdnode_t*dict_next(dict_t*,dn
+ode_t*);externdnode_t*dict_prev(dict_t*,dnode_t*);externdictcount_tdict_count(di
+ct_t*);externintdict_isempty(dict_t*);externintdict_isfull(dict_t*);externintdic
+t_contains(dict_t*,dnode_t*);externvoiddict_allow_dupes(dict_t*);externintdnode_
+is_in_a_dict(dnode_t*);externdnode_t*dnode_create(void*);externdnode_t*dnode_ini
+t(dnode_t*,void*);externvoiddnode_destroy(dnode_t*);externvoid*dnode_get(dnode_t
+*);externconstvoid*dnode_getkey(dnode_t*);externvoiddnode_put(dnode_t*,void*);ex
+ternvoiddict_process(dict_t*,void*,dnode_process_t);externvoiddict_load_begin(di
+ct_load_t*,dict_t*);externvoiddict_load_next(dict_load_t*,dnode_t*,constvoid*);e
+xternvoiddict_load_end(dict_load_t*);externvoiddict_merge(dict_t*,dict_t*);#defi
+nedict_isfull(D)((D)->dict_nodecount==(D)->dict_maxcount)#definedict_count(D)((D
+)->dict_nodecount)#definedict_isempty(D)((D)->dict_nodecount==0)#definednode_get
+(N)((N)->dict_data)#definednode_getkey(N)((N)->dict_key)#definednode_put(N,X)((N
+)->dict_data=(X))#ifdef__cplusplus}#endif#endif

@@ -1,679 +1,164 @@
-/*	$OpenBSD$ */
-
-/*
- * Copyright (c) 2015 Renato Westphal <renato@openbsd.org>
- * Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
- * Copyright (c) 2005 Claudio Jeker <claudio@openbsd.org>
- * Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
- *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- */
-
-#include <zebra.h>
-
-#include "ldpd.h"
-#include "ldpe.h"
-#include "lde.h"
-#include "log.h"
-
-static void		 l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
-static __inline int	 l2vpn_compare(const struct l2vpn *, const struct l2vpn *);
-static __inline int	 l2vpn_if_compare(const struct l2vpn_if *, const struct l2vpn_if *);
-static __inline int	 l2vpn_pw_compare(const struct l2vpn_pw *, const struct l2vpn_pw *);
-
-RB_GENERATE(l2vpn_head, l2vpn, entry, l2vpn_compare)
-RB_GENERATE(l2vpn_if_head, l2vpn_if, entry, l2vpn_if_compare)
-RB_GENERATE(l2vpn_pw_head, l2vpn_pw, entry, l2vpn_pw_compare)
-
-static __inline int
-l2vpn_compare(const struct l2vpn *a, const struct l2vpn *b)
-{
-	return (strcmp(a->name, b->name));
-}
-
-struct l2vpn *
-l2vpn_new(const char *name)
-{
-	struct l2vpn	*l2vpn;
-
-	if ((l2vpn = calloc(1, sizeof(*l2vpn))) == NULL)
-		fatal("l2vpn_new: calloc");
-
-	strlcpy(l2vpn->name, name, sizeof(l2vpn->name));
-
-	/* set default values */
-	l2vpn->mtu = DEFAULT_L2VPN_MTU;
-	l2vpn->pw_type = DEFAULT_PW_TYPE;
-
-	RB_INIT(l2vpn_if_head, &l2vpn->if_tree);
-	RB_INIT(l2vpn_pw_head, &l2vpn->pw_tree);
-	RB_INIT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
-
-	return (l2vpn);
-}
-
-struct l2vpn *
-l2vpn_find(struct ldpd_conf *xconf, const char *name)
-{
-	struct l2vpn	 l2vpn;
-	strlcpy(l2vpn.name, name, sizeof(l2vpn.name));
-	return (RB_FIND(l2vpn_head, &xconf->l2vpn_tree, &l2vpn));
-}
-
-void
-l2vpn_del(struct l2vpn *l2vpn)
-{
-	struct l2vpn_if		*lif;
-	struct l2vpn_pw		*pw;
-
-	while (!RB_EMPTY(l2vpn_if_head, &l2vpn->if_tree)) {
-		lif = RB_ROOT(l2vpn_if_head, &l2vpn->if_tree);
-
-		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
-		free(lif);
-	}
-	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_tree)) {
-		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree);
-
-		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-		free(pw);
-	}
-	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_inactive_tree)) {
-		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
-
-		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-		free(pw);
-	}
-
-	free(l2vpn);
-}
-
-void
-l2vpn_init(struct l2vpn *l2vpn)
-{
-	struct l2vpn_pw	*pw;
-
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
-		l2vpn_pw_init(pw);
-}
-
-void
-l2vpn_exit(struct l2vpn *l2vpn)
-{
-	struct l2vpn_pw		*pw;
-
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
-		l2vpn_pw_exit(pw);
-}
-
-static __inline int
-l2vpn_if_compare(const struct l2vpn_if *a, const struct l2vpn_if *b)
-{
-	return (if_cmp_name_func((char *)a->ifname, (char *)b->ifname));
-}
-
-struct l2vpn_if *
-l2vpn_if_new(struct l2vpn *l2vpn, const char *ifname)
-{
-	struct l2vpn_if	*lif;
-
-	if ((lif = calloc(1, sizeof(*lif))) == NULL)
-		fatal("l2vpn_if_new: calloc");
-
-	lif->l2vpn = l2vpn;
-	strlcpy(lif->ifname, ifname, sizeof(lif->ifname));
-
-	return (lif);
-}
-
-struct l2vpn_if *
-l2vpn_if_find(struct l2vpn *l2vpn, const char *ifname)
-{
-	struct l2vpn_if	 lif;
-	strlcpy(lif.ifname, ifname, sizeof(lif.ifname));
-	return (RB_FIND(l2vpn_if_head, &l2vpn->if_tree, &lif));
-}
-
-void
-l2vpn_if_update_info(struct l2vpn_if *lif, struct kif *kif)
-{
-	lif->ifindex = kif->ifindex;
-	lif->operative = kif->operative;
-	memcpy(lif->mac, kif->mac, sizeof(lif->mac));
-}
-
-void
-l2vpn_if_update(struct l2vpn_if *lif)
-{
-	struct l2vpn	*l2vpn = lif->l2vpn;
-	struct l2vpn_pw	*pw;
-	struct map	 fec;
-	struct nbr	*nbr;
-
-	if (lif->operative)
-		return;
-
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
-		nbr = nbr_find_ldpid(pw->lsr_id.s_addr);
-		if (nbr == NULL)
-			continue;
-
-		memset(&fec, 0, sizeof(fec));
-		fec.type = MAP_TYPE_PWID;
-		fec.fec.pwid.type = l2vpn->pw_type;
-		fec.fec.pwid.group_id = 0;
-		fec.flags |= F_MAP_PW_ID;
-		fec.fec.pwid.pwid = pw->pwid;
-
-		send_mac_withdrawal(nbr, &fec, lif->mac);
-	}
-}
-
-static __inline int
-l2vpn_pw_compare(const struct l2vpn_pw *a, const struct l2vpn_pw *b)
-{
-	return (if_cmp_name_func((char *)a->ifname, (char *)b->ifname));
-}
-
-struct l2vpn_pw *
-l2vpn_pw_new(struct l2vpn *l2vpn, const char *ifname)
-{
-	struct l2vpn_pw	*pw;
-
-	if ((pw = calloc(1, sizeof(*pw))) == NULL)
-		fatal("l2vpn_pw_new: calloc");
-
-	pw->l2vpn = l2vpn;
-	strlcpy(pw->ifname, ifname, sizeof(pw->ifname));
-
-	return (pw);
-}
-
-struct l2vpn_pw *
-l2vpn_pw_find(struct l2vpn *l2vpn, const char *ifname)
-{
-	struct l2vpn_pw	*pw;
-	struct l2vpn_pw	 s;
-
-	strlcpy(s.ifname, ifname, sizeof(s.ifname));
-	pw = RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s);
-	if (pw)
-		return (pw);
-	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
-}
-
-struct l2vpn_pw *
-l2vpn_pw_find_active(struct l2vpn *l2vpn, const char *ifname)
-{
-	struct l2vpn_pw	 s;
-
-	strlcpy(s.ifname, ifname, sizeof(s.ifname));
-	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s));
-}
-
-struct l2vpn_pw *
-l2vpn_pw_find_inactive(struct l2vpn *l2vpn, const char *ifname)
-{
-	struct l2vpn_pw	 s;
-
-	strlcpy(s.ifname, ifname, sizeof(s.ifname));
-	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
-}
-
-void
-l2vpn_pw_update_info(struct l2vpn_pw *pw, struct kif *kif)
-{
-	pw->ifindex = kif->ifindex;
-}
-
-void
-l2vpn_pw_init(struct l2vpn_pw *pw)
-{
-	struct fec	 fec;
-	struct zapi_pw	 zpw;
-
-	l2vpn_pw_reset(pw);
-
-	pw2zpw(pw, &zpw);
-	lde_imsg_compose_parent(IMSG_KPW_ADD, 0, &zpw, sizeof(zpw));
-
-	l2vpn_pw_fec(pw, &fec);
-	lde_kernel_insert(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0,
-	    0, (void *)pw);
-	lde_kernel_update(&fec);
-}
-
-void
-l2vpn_pw_exit(struct l2vpn_pw *pw)
-{
-	struct fec	 fec;
-	struct zapi_pw	 zpw;
-
-	l2vpn_pw_fec(pw, &fec);
-	lde_kernel_remove(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0);
-	lde_kernel_update(&fec);
-
-	pw2zpw(pw, &zpw);
-	lde_imsg_compose_parent(IMSG_KPW_DELETE, 0, &zpw, sizeof(zpw));
-}
-
-static void
-l2vpn_pw_fec(struct l2vpn_pw *pw, struct fec *fec)
-{
-	memset(fec, 0, sizeof(*fec));
-	fec->type = FEC_TYPE_PWID;
-	fec->u.pwid.type = pw->l2vpn->pw_type;
-	fec->u.pwid.pwid = pw->pwid;
-	fec->u.pwid.lsr_id = pw->lsr_id;
-}
-
-void
-l2vpn_pw_reset(struct l2vpn_pw *pw)
-{
-	pw->remote_group = 0;
-	pw->remote_mtu = 0;
-	pw->local_status = PW_FORWARDING;
-	pw->remote_status = PW_NOT_FORWARDING;
-
-	if (pw->flags & F_PW_CWORD_CONF)
-		pw->flags |= F_PW_CWORD;
-	else
-		pw->flags &= ~F_PW_CWORD;
-
-	if (pw->flags & F_PW_STATUSTLV_CONF)
-		pw->flags |= F_PW_STATUSTLV;
-	else
-		pw->flags &= ~F_PW_STATUSTLV;
-}
-
-int
-l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
-{
-	/* check for a remote label */
-	if (fnh->remote_label == NO_LABEL) {
-		log_warnx("%s: pseudowire %s: no remote label", __func__,
-			  pw->ifname);
-		return (0);
-	}
-
-	/* MTUs must match */
-	if (pw->l2vpn->mtu != pw->remote_mtu) {
-		log_warnx("%s: pseudowire %s: MTU mismatch detected", __func__,
-			  pw->ifname);
-		return (0);
-	}
-
-	/* check pw status if applicable */
-	if ((pw->flags & F_PW_STATUSTLV) &&
-	    pw->remote_status != PW_FORWARDING) {
-		log_warnx("%s: pseudowire %s: remote end is down", __func__,
-			  pw->ifname);
-		return (0);
-	}
-
-	return (1);
-}
-
-int
-l2vpn_pw_negotiate(struct lde_nbr *ln, struct fec_node *fn, struct map *map)
-{
-	struct l2vpn_pw		*pw;
-	struct status_tlv	 st;
-
-	/* NOTE: thanks martini & friends for all this mess */
-
-	pw = (struct l2vpn_pw *) fn->data;
-	if (pw == NULL)
-		/*
-		 * pseudowire not configured, return and record
-		 * the mapping later
-		 */
-		return (0);
-
-	/* RFC4447 - Section 6.2: control word negotiation */
-	if (fec_find(&ln->sent_map, &fn->fec)) {
-		if ((map->flags & F_MAP_PW_CWORD) &&
-		    !(pw->flags & F_PW_CWORD_CONF)) {
-			/* ignore the received label mapping */
-			return (1);
-		} else if (!(map->flags & F_MAP_PW_CWORD) &&
-		    (pw->flags & F_PW_CWORD_CONF)) {
-			/* append a "Wrong C-bit" status code */
-			st.status_code = S_WRONG_CBIT;
-			st.msg_id = map->msg_id;
-			st.msg_type = htons(MSG_TYPE_LABELMAPPING);
-			lde_send_labelwithdraw(ln, fn, NULL, &st);
-
-			pw->flags &= ~F_PW_CWORD;
-			lde_send_labelmapping(ln, fn, 1);
-		}
-	} else if (map->flags & F_MAP_PW_CWORD) {
-		if (pw->flags & F_PW_CWORD_CONF)
-			pw->flags |= F_PW_CWORD;
-		else
-			/* act as if no label mapping had been received */
-			return (1);
-	} else
-		pw->flags &= ~F_PW_CWORD;
-
-	/* RFC4447 - Section 5.4.3: pseudowire status negotiation */
-	if (fec_find(&ln->recv_map, &fn->fec) == NULL &&
-	    !(map->flags & F_MAP_PW_STATUS))
-		pw->flags &= ~F_PW_STATUSTLV;
-
-	return (0);
-}
-
-void
-l2vpn_send_pw_status(struct lde_nbr *ln, uint32_t status, struct fec *fec)
-{
-	struct notify_msg	 nm;
-
-	memset(&nm, 0, sizeof(nm));
-	nm.status_code = S_PW_STATUS;
-	nm.pw_status = status;
-	nm.flags |= F_NOTIF_PW_STATUS;
-	lde_fec2map(fec, &nm.fec);
-	nm.flags |= F_NOTIF_FEC;
-
-	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm,
-	    sizeof(nm));
-}
-
-void
-l2vpn_send_pw_status_wcard(struct lde_nbr *ln, uint32_t status,
-    uint16_t pw_type, uint32_t group_id)
-{
-	struct notify_msg	 nm;
-
-	memset(&nm, 0, sizeof(nm));
-	nm.status_code = S_PW_STATUS;
-	nm.pw_status = status;
-	nm.flags |= F_NOTIF_PW_STATUS;
-	nm.fec.type = MAP_TYPE_PWID;
-	nm.fec.fec.pwid.type = pw_type;
-	nm.fec.fec.pwid.group_id = group_id;
-	nm.flags |= F_NOTIF_FEC;
-
-	lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND, ln->peerid, 0, &nm,
-	    sizeof(nm));
-}
-
-void
-l2vpn_recv_pw_status(struct lde_nbr *ln, struct notify_msg *nm)
-{
-	struct fec		 fec;
-	struct fec_node		*fn;
-	struct fec_nh		*fnh;
-	struct l2vpn_pw		*pw;
-
-	if (nm->fec.type == MAP_TYPE_TYPED_WCARD ||
-	    !(nm->fec.flags & F_MAP_PW_ID)) {
-		l2vpn_recv_pw_status_wcard(ln, nm);
-		return;
-	}
-
-	lde_map2fec(&nm->fec, ln->id, &fec);
-	fn = (struct fec_node *)fec_find(&ft, &fec);
-	if (fn == NULL)
-		/* unknown fec */
-		return;
-
-	pw = (struct l2vpn_pw *) fn->data;
-	if (pw == NULL)
-		return;
-
-	fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)&ln->id, 0, 0);
-	if (fnh == NULL)
-		return;
-
-	/* remote status didn't change */
-	if (pw->remote_status == nm->pw_status)
-		return;
-	pw->remote_status = nm->pw_status;
-
-	if (l2vpn_pw_ok(pw, fnh))
-		lde_send_change_klabel(fn, fnh);
-	else
-		lde_send_delete_klabel(fn, fnh);
-}
-
-/* RFC4447 PWid group wildcard */
-void
-l2vpn_recv_pw_status_wcard(struct lde_nbr *ln, struct notify_msg *nm)
-{
-	struct fec		*f;
-	struct fec_node		*fn;
-	struct fec_nh		*fnh;
-	struct l2vpn_pw		*pw;
-	struct map		*wcard = &nm->fec;
-
-	RB_FOREACH(f, fec_tree, &ft) {
-		fn = (struct fec_node *)f;
-		if (fn->fec.type != FEC_TYPE_PWID)
-			continue;
-
-		pw = (struct l2vpn_pw *) fn->data;
-		if (pw == NULL)
-			continue;
-
-		switch (wcard->type) {
-		case MAP_TYPE_TYPED_WCARD:
-			if (wcard->fec.twcard.u.pw_type != PW_TYPE_WILDCARD &&
-			    wcard->fec.twcard.u.pw_type != fn->fec.u.pwid.type)
-				continue;
-			break;
-		case MAP_TYPE_PWID:
-			if (wcard->fec.pwid.type != fn->fec.u.pwid.type)
-				continue;
-			if (wcard->fec.pwid.group_id != pw->remote_group)
-				continue;
-			break;
-		}
-
-		fnh = fec_nh_find(fn, AF_INET, (union ldpd_addr *)&ln->id,
-		    0, 0);
-		if (fnh == NULL)
-			continue;
-
-		/* remote status didn't change */
-		if (pw->remote_status == nm->pw_status)
-			continue;
-		pw->remote_status = nm->pw_status;
-
-		if (l2vpn_pw_ok(pw, fnh))
-			lde_send_change_klabel(fn, fnh);
-		else
-			lde_send_delete_klabel(fn, fnh);
-	}
-}
-
-int
-l2vpn_pw_status_update(struct zapi_pw_status *zpw)
-{
-	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw = NULL;
-	struct lde_nbr		*ln;
-	struct fec		 fec;
-	uint32_t		 local_status;
-
-	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree) {
-		pw = l2vpn_pw_find(l2vpn, zpw->ifname);
-		if (pw)
-			break;
-	}
-	if (!pw) {
-		log_warnx("%s: pseudowire %s not found", __func__, zpw->ifname);
-		return (1);
-	}
-
-	if (zpw->status == PW_STATUS_UP)
-		local_status = PW_FORWARDING;
-	else
-		local_status = PW_NOT_FORWARDING;
-
-	/* local status didn't change */
-	if (pw->local_status == local_status)
-		return (0);
-	pw->local_status = local_status;
-
-	/* notify remote peer about the status update */
-	ln = lde_nbr_find_by_lsrid(pw->lsr_id);
-	if (ln == NULL)
-		return (0);
-	l2vpn_pw_fec(pw, &fec);
-	if (pw->flags & F_PW_STATUSTLV)
-		l2vpn_send_pw_status(ln, local_status, &fec);
-	else {
-		struct fec_node *fn;
-		fn = (struct fec_node *)fec_find(&ft, &fec);
-		if (fn) {
-			if (pw->local_status == PW_FORWARDING)
-				lde_send_labelmapping(ln, fn, 1);
-			else
-				lde_send_labelwithdraw(ln, fn, NULL, NULL);
-		}
-	}
-
-	return (0);
-}
-
-void
-l2vpn_pw_ctl(pid_t pid)
-{
-	struct l2vpn		*l2vpn;
-	struct l2vpn_pw		*pw;
-	static struct ctl_pw	 pwctl;
-
-	RB_FOREACH(l2vpn, l2vpn_head, &ldeconf->l2vpn_tree)
-		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree) {
-			memset(&pwctl, 0, sizeof(pwctl));
-			strlcpy(pwctl.l2vpn_name, pw->l2vpn->name,
-			    sizeof(pwctl.l2vpn_name));
-			strlcpy(pwctl.ifname, pw->ifname,
-			    sizeof(pwctl.ifname));
-			pwctl.pwid = pw->pwid;
-			pwctl.lsr_id = pw->lsr_id;
-			if (pw->enabled &&
-			    pw->local_status == PW_FORWARDING &&
-			    pw->remote_status == PW_FORWARDING)
-				pwctl.status = 1;
-
-			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_L2VPN_PW, 0,
-			    pid, &pwctl, sizeof(pwctl));
-		}
-}
-
-void
-l2vpn_binding_ctl(pid_t pid)
-{
-	struct fec		*f;
-	struct fec_node		*fn;
-	struct lde_map		*me;
-	struct l2vpn_pw		*pw;
-	static struct ctl_pw	 pwctl;
-
-	RB_FOREACH(f, fec_tree, &ft) {
-		if (f->type != FEC_TYPE_PWID)
-			continue;
-
-		fn = (struct fec_node *)f;
-		if (fn->local_label == NO_LABEL &&
-		    RB_EMPTY(lde_map_head, &fn->downstream))
-			continue;
-
-		memset(&pwctl, 0, sizeof(pwctl));
-		pwctl.type = f->u.pwid.type;
-		pwctl.pwid = f->u.pwid.pwid;
-		pwctl.lsr_id = f->u.pwid.lsr_id;
-
-		pw = (struct l2vpn_pw *) fn->data;
-		if (pw) {
-			pwctl.local_label = fn->local_label;
-			pwctl.local_gid = 0;
-			pwctl.local_ifmtu = pw->l2vpn->mtu;
-			pwctl.local_cword = (pw->flags & F_PW_CWORD_CONF) ?
-			    1 : 0;
-		} else
-			pwctl.local_label = NO_LABEL;
-
-		RB_FOREACH(me, lde_map_head, &fn->downstream)
-			if (f->u.pwid.lsr_id.s_addr == me->nexthop->id.s_addr)
-				break;
-
-		if (me) {
-			pwctl.remote_label = me->map.label;
-			pwctl.remote_gid = me->map.fec.pwid.group_id;
-			if (me->map.flags & F_MAP_PW_IFMTU)
-				pwctl.remote_ifmtu = me->map.fec.pwid.ifmtu;
-			if (pw)
-				pwctl.remote_cword = (pw->flags & F_PW_CWORD) ?
-				    1 : 0;
-
-			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_L2VPN_BINDING,
-			    0, pid, &pwctl, sizeof(pwctl));
-		} else if (pw) {
-			pwctl.remote_label = NO_LABEL;
-
-			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_L2VPN_BINDING,
-			    0, pid, &pwctl, sizeof(pwctl));
-		}
-	}
-}
-
-/* ldpe */
-
-void
-ldpe_l2vpn_init(struct l2vpn *l2vpn)
-{
-	struct l2vpn_pw		*pw;
-
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
-		ldpe_l2vpn_pw_init(pw);
-}
-
-void
-ldpe_l2vpn_exit(struct l2vpn *l2vpn)
-{
-	struct l2vpn_pw		*pw;
-
-	RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
-		ldpe_l2vpn_pw_exit(pw);
-}
-
-void
-ldpe_l2vpn_pw_init(struct l2vpn_pw *pw)
-{
-	struct tnbr		*tnbr;
-
-	tnbr = tnbr_find(leconf, pw->af, &pw->addr);
-	if (tnbr == NULL) {
-		tnbr = tnbr_new(pw->af, &pw->addr);
-		tnbr_update(tnbr);
-		RB_INSERT(tnbr_head, &leconf->tnbr_tree, tnbr);
-	}
-
-	tnbr->pw_count++;
-}
-
-void
-ldpe_l2vpn_pw_exit(struct l2vpn_pw *pw)
-{
-	struct tnbr		*tnbr;
-
-	tnbr = tnbr_find(leconf, pw->af, &pw->addr);
-	if (tnbr) {
-		tnbr->pw_count--;
-		tnbr_check(leconf, tnbr);
-	}
-}
+/*$OpenBSD$*//**Copyright(c)2015RenatoWestphal<renato@openbsd.org>*Copyright(c)2
+009MicheleMarchetto<michele@openbsd.org>*Copyright(c)2005ClaudioJeker<claudio@op
+enbsd.org>*Copyright(c)2004,2005,2008EsbenNorby<norby@openbsd.org>**Permissionto
+use,copy,modify,anddistributethissoftwareforany*purposewithorwithoutfeeisherebyg
+ranted,providedthattheabove*copyrightnoticeandthispermissionnoticeappearinallcop
+ies.**THESOFTWAREISPROVIDED"ASIS"ANDTHEAUTHORDISCLAIMSALLWARRANTIES*WITHREGARDTO
+THISSOFTWAREINCLUDINGALLIMPLIEDWARRANTIESOF*MERCHANTABILITYANDFITNESS.INNOEVENTS
+HALLTHEAUTHORBELIABLEFOR*ANYSPECIAL,DIRECT,INDIRECT,ORCONSEQUENTIALDAMAGESORANYD
+AMAGES*WHATSOEVERRESULTINGFROMLOSSOFUSE,DATAORPROFITS,WHETHERINAN*ACTIONOFCONTRA
+CT,NEGLIGENCEOROTHERTORTIOUSACTION,ARISINGOUTOF*ORINCONNECTIONWITHTHEUSEORPERFOR
+MANCEOFTHISSOFTWARE.*/#include<zebra.h>#include"ldpd.h"#include"ldpe.h"#include"
+lde.h"#include"log.h"staticvoidl2vpn_pw_fec(structl2vpn_pw*,structfec*);static__
+inlineintl2vpn_compare(conststructl2vpn*,conststructl2vpn*);static__inlineintl2v
+pn_if_compare(conststructl2vpn_if*,conststructl2vpn_if*);static__inlineintl2vpn_
+pw_compare(conststructl2vpn_pw*,conststructl2vpn_pw*);RB_GENERATE(l2vpn_head,l2v
+pn,entry,l2vpn_compare)RB_GENERATE(l2vpn_if_head,l2vpn_if,entry,l2vpn_if_compare
+)RB_GENERATE(l2vpn_pw_head,l2vpn_pw,entry,l2vpn_pw_compare)static__inlineintl2vp
+n_compare(conststructl2vpn*a,conststructl2vpn*b){return(strcmp(a->name,b->name))
+;}structl2vpn*l2vpn_new(constchar*name){structl2vpn*l2vpn;if((l2vpn=calloc(1,siz
+eof(*l2vpn)))==NULL)fatal("l2vpn_new:calloc");strlcpy(l2vpn->name,name,sizeof(l2
+vpn->name));/*setdefaultvalues*/l2vpn->mtu=DEFAULT_L2VPN_MTU;l2vpn->pw_type=DEFA
+ULT_PW_TYPE;RB_INIT(l2vpn_if_head,&l2vpn->if_tree);RB_INIT(l2vpn_pw_head,&l2vpn-
+>pw_tree);RB_INIT(l2vpn_pw_head,&l2vpn->pw_inactive_tree);return(l2vpn);}structl
+2vpn*l2vpn_find(structldpd_conf*xconf,constchar*name){structl2vpnl2vpn;strlcpy(l
+2vpn.name,name,sizeof(l2vpn.name));return(RB_FIND(l2vpn_head,&xconf->l2vpn_tree,
+&l2vpn));}voidl2vpn_del(structl2vpn*l2vpn){structl2vpn_if*lif;structl2vpn_pw*pw;
+while(!RB_EMPTY(l2vpn_if_head,&l2vpn->if_tree)){lif=RB_ROOT(l2vpn_if_head,&l2vpn
+->if_tree);RB_REMOVE(l2vpn_if_head,&l2vpn->if_tree,lif);free(lif);}while(!RB_EMP
+TY(l2vpn_pw_head,&l2vpn->pw_tree)){pw=RB_ROOT(l2vpn_pw_head,&l2vpn->pw_tree);RB_
+REMOVE(l2vpn_pw_head,&l2vpn->pw_tree,pw);free(pw);}while(!RB_EMPTY(l2vpn_pw_head
+,&l2vpn->pw_inactive_tree)){pw=RB_ROOT(l2vpn_pw_head,&l2vpn->pw_inactive_tree);R
+B_REMOVE(l2vpn_pw_head,&l2vpn->pw_inactive_tree,pw);free(pw);}free(l2vpn);}voidl
+2vpn_init(structl2vpn*l2vpn){structl2vpn_pw*pw;RB_FOREACH(pw,l2vpn_pw_head,&l2vp
+n->pw_tree)l2vpn_pw_init(pw);}voidl2vpn_exit(structl2vpn*l2vpn){structl2vpn_pw*p
+w;RB_FOREACH(pw,l2vpn_pw_head,&l2vpn->pw_tree)l2vpn_pw_exit(pw);}static__inlinei
+ntl2vpn_if_compare(conststructl2vpn_if*a,conststructl2vpn_if*b){return(if_cmp_na
+me_func((char*)a->ifname,(char*)b->ifname));}structl2vpn_if*l2vpn_if_new(structl
+2vpn*l2vpn,constchar*ifname){structl2vpn_if*lif;if((lif=calloc(1,sizeof(*lif)))=
+=NULL)fatal("l2vpn_if_new:calloc");lif->l2vpn=l2vpn;strlcpy(lif->ifname,ifname,s
+izeof(lif->ifname));return(lif);}structl2vpn_if*l2vpn_if_find(structl2vpn*l2vpn,
+constchar*ifname){structl2vpn_iflif;strlcpy(lif.ifname,ifname,sizeof(lif.ifname)
+);return(RB_FIND(l2vpn_if_head,&l2vpn->if_tree,&lif));}voidl2vpn_if_update_info(
+structl2vpn_if*lif,structkif*kif){lif->ifindex=kif->ifindex;lif->operative=kif->
+operative;memcpy(lif->mac,kif->mac,sizeof(lif->mac));}voidl2vpn_if_update(struct
+l2vpn_if*lif){structl2vpn*l2vpn=lif->l2vpn;structl2vpn_pw*pw;structmapfec;struct
+nbr*nbr;if(lif->operative)return;RB_FOREACH(pw,l2vpn_pw_head,&l2vpn->pw_tree){nb
+r=nbr_find_ldpid(pw->lsr_id.s_addr);if(nbr==NULL)continue;memset(&fec,0,sizeof(f
+ec));fec.type=MAP_TYPE_PWID;fec.fec.pwid.type=l2vpn->pw_type;fec.fec.pwid.group_
+id=0;fec.flags|=F_MAP_PW_ID;fec.fec.pwid.pwid=pw->pwid;send_mac_withdrawal(nbr,&
+fec,lif->mac);}}static__inlineintl2vpn_pw_compare(conststructl2vpn_pw*a,conststr
+uctl2vpn_pw*b){return(if_cmp_name_func((char*)a->ifname,(char*)b->ifname));}stru
+ctl2vpn_pw*l2vpn_pw_new(structl2vpn*l2vpn,constchar*ifname){structl2vpn_pw*pw;if
+((pw=calloc(1,sizeof(*pw)))==NULL)fatal("l2vpn_pw_new:calloc");pw->l2vpn=l2vpn;s
+trlcpy(pw->ifname,ifname,sizeof(pw->ifname));return(pw);}structl2vpn_pw*l2vpn_pw
+_find(structl2vpn*l2vpn,constchar*ifname){structl2vpn_pw*pw;structl2vpn_pws;strl
+cpy(s.ifname,ifname,sizeof(s.ifname));pw=RB_FIND(l2vpn_pw_head,&l2vpn->pw_tree,&
+s);if(pw)return(pw);return(RB_FIND(l2vpn_pw_head,&l2vpn->pw_inactive_tree,&s));}
+structl2vpn_pw*l2vpn_pw_find_active(structl2vpn*l2vpn,constchar*ifname){structl2
+vpn_pws;strlcpy(s.ifname,ifname,sizeof(s.ifname));return(RB_FIND(l2vpn_pw_head,&
+l2vpn->pw_tree,&s));}structl2vpn_pw*l2vpn_pw_find_inactive(structl2vpn*l2vpn,con
+stchar*ifname){structl2vpn_pws;strlcpy(s.ifname,ifname,sizeof(s.ifname));return(
+RB_FIND(l2vpn_pw_head,&l2vpn->pw_inactive_tree,&s));}voidl2vpn_pw_update_info(st
+ructl2vpn_pw*pw,structkif*kif){pw->ifindex=kif->ifindex;}voidl2vpn_pw_init(struc
+tl2vpn_pw*pw){structfecfec;structzapi_pwzpw;l2vpn_pw_reset(pw);pw2zpw(pw,&zpw);l
+de_imsg_compose_parent(IMSG_KPW_ADD,0,&zpw,sizeof(zpw));l2vpn_pw_fec(pw,&fec);ld
+e_kernel_insert(&fec,AF_INET,(unionldpd_addr*)&pw->lsr_id,0,0,0,(void*)pw);lde_k
+ernel_update(&fec);}voidl2vpn_pw_exit(structl2vpn_pw*pw){structfecfec;structzapi
+_pwzpw;l2vpn_pw_fec(pw,&fec);lde_kernel_remove(&fec,AF_INET,(unionldpd_addr*)&pw
+->lsr_id,0,0);lde_kernel_update(&fec);pw2zpw(pw,&zpw);lde_imsg_compose_parent(IM
+SG_KPW_DELETE,0,&zpw,sizeof(zpw));}staticvoidl2vpn_pw_fec(structl2vpn_pw*pw,stru
+ctfec*fec){memset(fec,0,sizeof(*fec));fec->type=FEC_TYPE_PWID;fec->u.pwid.type=p
+w->l2vpn->pw_type;fec->u.pwid.pwid=pw->pwid;fec->u.pwid.lsr_id=pw->lsr_id;}voidl
+2vpn_pw_reset(structl2vpn_pw*pw){pw->remote_group=0;pw->remote_mtu=0;pw->local_s
+tatus=PW_FORWARDING;pw->remote_status=PW_NOT_FORWARDING;if(pw->flags&F_PW_CWORD_
+CONF)pw->flags|=F_PW_CWORD;elsepw->flags&=~F_PW_CWORD;if(pw->flags&F_PW_STATUSTL
+V_CONF)pw->flags|=F_PW_STATUSTLV;elsepw->flags&=~F_PW_STATUSTLV;}intl2vpn_pw_ok(
+structl2vpn_pw*pw,structfec_nh*fnh){/*checkforaremotelabel*/if(fnh->remote_label
+==NO_LABEL){log_warnx("%s:pseudowire%s:noremotelabel",__func__,pw->ifname);retur
+n(0);}/*MTUsmustmatch*/if(pw->l2vpn->mtu!=pw->remote_mtu){log_warnx("%s:pseudowi
+re%s:MTUmismatchdetected",__func__,pw->ifname);return(0);}/*checkpwstatusifappli
+cable*/if((pw->flags&F_PW_STATUSTLV)&&pw->remote_status!=PW_FORWARDING){log_warn
+x("%s:pseudowire%s:remoteendisdown",__func__,pw->ifname);return(0);}return(1);}i
+ntl2vpn_pw_negotiate(structlde_nbr*ln,structfec_node*fn,structmap*map){structl2v
+pn_pw*pw;structstatus_tlvst;/*NOTE:thanksmartini&friendsforallthismess*/pw=(stru
+ctl2vpn_pw*)fn->data;if(pw==NULL)/**pseudowirenotconfigured,returnandrecord*them
+appinglater*/return(0);/*RFC4447-Section6.2:controlwordnegotiation*/if(fec_find(
+&ln->sent_map,&fn->fec)){if((map->flags&F_MAP_PW_CWORD)&&!(pw->flags&F_PW_CWORD_
+CONF)){/*ignorethereceivedlabelmapping*/return(1);}elseif(!(map->flags&F_MAP_PW_
+CWORD)&&(pw->flags&F_PW_CWORD_CONF)){/*appenda"WrongC-bit"statuscode*/st.status_
+code=S_WRONG_CBIT;st.msg_id=map->msg_id;st.msg_type=htons(MSG_TYPE_LABELMAPPING)
+;lde_send_labelwithdraw(ln,fn,NULL,&st);pw->flags&=~F_PW_CWORD;lde_send_labelmap
+ping(ln,fn,1);}}elseif(map->flags&F_MAP_PW_CWORD){if(pw->flags&F_PW_CWORD_CONF)p
+w->flags|=F_PW_CWORD;else/*actasifnolabelmappinghadbeenreceived*/return(1);}else
+pw->flags&=~F_PW_CWORD;/*RFC4447-Section5.4.3:pseudowirestatusnegotiation*/if(fe
+c_find(&ln->recv_map,&fn->fec)==NULL&&!(map->flags&F_MAP_PW_STATUS))pw->flags&=~
+F_PW_STATUSTLV;return(0);}voidl2vpn_send_pw_status(structlde_nbr*ln,uint32_tstat
+us,structfec*fec){structnotify_msgnm;memset(&nm,0,sizeof(nm));nm.status_code=S_P
+W_STATUS;nm.pw_status=status;nm.flags|=F_NOTIF_PW_STATUS;lde_fec2map(fec,&nm.fec
+);nm.flags|=F_NOTIF_FEC;lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND,ln->peerid,
+0,&nm,sizeof(nm));}voidl2vpn_send_pw_status_wcard(structlde_nbr*ln,uint32_tstatu
+s,uint16_tpw_type,uint32_tgroup_id){structnotify_msgnm;memset(&nm,0,sizeof(nm));
+nm.status_code=S_PW_STATUS;nm.pw_status=status;nm.flags|=F_NOTIF_PW_STATUS;nm.fe
+c.type=MAP_TYPE_PWID;nm.fec.fec.pwid.type=pw_type;nm.fec.fec.pwid.group_id=group
+_id;nm.flags|=F_NOTIF_FEC;lde_imsg_compose_ldpe(IMSG_NOTIFICATION_SEND,ln->peeri
+d,0,&nm,sizeof(nm));}voidl2vpn_recv_pw_status(structlde_nbr*ln,structnotify_msg*
+nm){structfecfec;structfec_node*fn;structfec_nh*fnh;structl2vpn_pw*pw;if(nm->fec
+.type==MAP_TYPE_TYPED_WCARD||!(nm->fec.flags&F_MAP_PW_ID)){l2vpn_recv_pw_status_
+wcard(ln,nm);return;}lde_map2fec(&nm->fec,ln->id,&fec);fn=(structfec_node*)fec_f
+ind(&ft,&fec);if(fn==NULL)/*unknownfec*/return;pw=(structl2vpn_pw*)fn->data;if(p
+w==NULL)return;fnh=fec_nh_find(fn,AF_INET,(unionldpd_addr*)&ln->id,0,0);if(fnh==
+NULL)return;/*remotestatusdidn'tchange*/if(pw->remote_status==nm->pw_status)retu
+rn;pw->remote_status=nm->pw_status;if(l2vpn_pw_ok(pw,fnh))lde_send_change_klabel
+(fn,fnh);elselde_send_delete_klabel(fn,fnh);}/*RFC4447PWidgroupwildcard*/voidl2v
+pn_recv_pw_status_wcard(structlde_nbr*ln,structnotify_msg*nm){structfec*f;struct
+fec_node*fn;structfec_nh*fnh;structl2vpn_pw*pw;structmap*wcard=&nm->fec;RB_FOREA
+CH(f,fec_tree,&ft){fn=(structfec_node*)f;if(fn->fec.type!=FEC_TYPE_PWID)continue
+;pw=(structl2vpn_pw*)fn->data;if(pw==NULL)continue;switch(wcard->type){caseMAP_T
+YPE_TYPED_WCARD:if(wcard->fec.twcard.u.pw_type!=PW_TYPE_WILDCARD&&wcard->fec.twc
+ard.u.pw_type!=fn->fec.u.pwid.type)continue;break;caseMAP_TYPE_PWID:if(wcard->fe
+c.pwid.type!=fn->fec.u.pwid.type)continue;if(wcard->fec.pwid.group_id!=pw->remot
+e_group)continue;break;}fnh=fec_nh_find(fn,AF_INET,(unionldpd_addr*)&ln->id,0,0)
+;if(fnh==NULL)continue;/*remotestatusdidn'tchange*/if(pw->remote_status==nm->pw_
+status)continue;pw->remote_status=nm->pw_status;if(l2vpn_pw_ok(pw,fnh))lde_send_
+change_klabel(fn,fnh);elselde_send_delete_klabel(fn,fnh);}}intl2vpn_pw_status_up
+date(structzapi_pw_status*zpw){structl2vpn*l2vpn;structl2vpn_pw*pw=NULL;structld
+e_nbr*ln;structfecfec;uint32_tlocal_status;RB_FOREACH(l2vpn,l2vpn_head,&ldeconf-
+>l2vpn_tree){pw=l2vpn_pw_find(l2vpn,zpw->ifname);if(pw)break;}if(!pw){log_warnx(
+"%s:pseudowire%snotfound",__func__,zpw->ifname);return(1);}if(zpw->status==PW_ST
+ATUS_UP)local_status=PW_FORWARDING;elselocal_status=PW_NOT_FORWARDING;/*localsta
+tusdidn'tchange*/if(pw->local_status==local_status)return(0);pw->local_status=lo
+cal_status;/*notifyremotepeeraboutthestatusupdate*/ln=lde_nbr_find_by_lsrid(pw->
+lsr_id);if(ln==NULL)return(0);l2vpn_pw_fec(pw,&fec);if(pw->flags&F_PW_STATUSTLV)
+l2vpn_send_pw_status(ln,local_status,&fec);else{structfec_node*fn;fn=(structfec_
+node*)fec_find(&ft,&fec);if(fn){if(pw->local_status==PW_FORWARDING)lde_send_labe
+lmapping(ln,fn,1);elselde_send_labelwithdraw(ln,fn,NULL,NULL);}}return(0);}voidl
+2vpn_pw_ctl(pid_tpid){structl2vpn*l2vpn;structl2vpn_pw*pw;staticstructctl_pwpwct
+l;RB_FOREACH(l2vpn,l2vpn_head,&ldeconf->l2vpn_tree)RB_FOREACH(pw,l2vpn_pw_head,&
+l2vpn->pw_tree){memset(&pwctl,0,sizeof(pwctl));strlcpy(pwctl.l2vpn_name,pw->l2vp
+n->name,sizeof(pwctl.l2vpn_name));strlcpy(pwctl.ifname,pw->ifname,sizeof(pwctl.i
+fname));pwctl.pwid=pw->pwid;pwctl.lsr_id=pw->lsr_id;if(pw->enabled&&pw->local_st
+atus==PW_FORWARDING&&pw->remote_status==PW_FORWARDING)pwctl.status=1;lde_imsg_co
+mpose_ldpe(IMSG_CTL_SHOW_L2VPN_PW,0,pid,&pwctl,sizeof(pwctl));}}voidl2vpn_bindin
+g_ctl(pid_tpid){structfec*f;structfec_node*fn;structlde_map*me;structl2vpn_pw*pw
+;staticstructctl_pwpwctl;RB_FOREACH(f,fec_tree,&ft){if(f->type!=FEC_TYPE_PWID)co
+ntinue;fn=(structfec_node*)f;if(fn->local_label==NO_LABEL&&RB_EMPTY(lde_map_head
+,&fn->downstream))continue;memset(&pwctl,0,sizeof(pwctl));pwctl.type=f->u.pwid.t
+ype;pwctl.pwid=f->u.pwid.pwid;pwctl.lsr_id=f->u.pwid.lsr_id;pw=(structl2vpn_pw*)
+fn->data;if(pw){pwctl.local_label=fn->local_label;pwctl.local_gid=0;pwctl.local_
+ifmtu=pw->l2vpn->mtu;pwctl.local_cword=(pw->flags&F_PW_CWORD_CONF)?1:0;}elsepwct
+l.local_label=NO_LABEL;RB_FOREACH(me,lde_map_head,&fn->downstream)if(f->u.pwid.l
+sr_id.s_addr==me->nexthop->id.s_addr)break;if(me){pwctl.remote_label=me->map.lab
+el;pwctl.remote_gid=me->map.fec.pwid.group_id;if(me->map.flags&F_MAP_PW_IFMTU)pw
+ctl.remote_ifmtu=me->map.fec.pwid.ifmtu;if(pw)pwctl.remote_cword=(pw->flags&F_PW
+_CWORD)?1:0;lde_imsg_compose_ldpe(IMSG_CTL_SHOW_L2VPN_BINDING,0,pid,&pwctl,sizeo
+f(pwctl));}elseif(pw){pwctl.remote_label=NO_LABEL;lde_imsg_compose_ldpe(IMSG_CTL
+_SHOW_L2VPN_BINDING,0,pid,&pwctl,sizeof(pwctl));}}}/*ldpe*/voidldpe_l2vpn_init(s
+tructl2vpn*l2vpn){structl2vpn_pw*pw;RB_FOREACH(pw,l2vpn_pw_head,&l2vpn->pw_tree)
+ldpe_l2vpn_pw_init(pw);}voidldpe_l2vpn_exit(structl2vpn*l2vpn){structl2vpn_pw*pw
+;RB_FOREACH(pw,l2vpn_pw_head,&l2vpn->pw_tree)ldpe_l2vpn_pw_exit(pw);}voidldpe_l2
+vpn_pw_init(structl2vpn_pw*pw){structtnbr*tnbr;tnbr=tnbr_find(leconf,pw->af,&pw-
+>addr);if(tnbr==NULL){tnbr=tnbr_new(pw->af,&pw->addr);tnbr_update(tnbr);RB_INSER
+T(tnbr_head,&leconf->tnbr_tree,tnbr);}tnbr->pw_count++;}voidldpe_l2vpn_pw_exit(s
+tructl2vpn_pw*pw){structtnbr*tnbr;tnbr=tnbr_find(leconf,pw->af,&pw->addr);if(tnb
+r){tnbr->pw_count--;tnbr_check(leconf,tnbr);}}

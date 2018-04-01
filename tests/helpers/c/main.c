@@ -1,186 +1,41 @@
-/*
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include <lib/version.h>
-#include "getopt.h"
-#include "thread.h"
-#include "vty.h"
-#include "command.h"
-#include "memory.h"
-#include "memory_vty.h"
-
-extern void test_init();
-
-struct thread_master *master;
-
-struct option longopts[] = {{"daemon", no_argument, NULL, 'd'},
-			    {"config_file", required_argument, NULL, 'f'},
-			    {"help", no_argument, NULL, 'h'},
-			    {"vty_addr", required_argument, NULL, 'A'},
-			    {"vty_port", required_argument, NULL, 'P'},
-			    {"version", no_argument, NULL, 'v'},
-			    {0}};
-
-DEFUN (daemon_exit,
-       daemon_exit_cmd,
-       "daemon-exit",
-       "Make the daemon exit\n")
-{
-	exit(0);
-}
-
-static int timer_count;
-static int test_timer(struct thread *thread)
-{
-	int *count = THREAD_ARG(thread);
-
-	printf("run %d of timer\n", (*count)++);
-	thread_add_timer(master, test_timer, count, 5, NULL);
-	return 0;
-}
-
-static void test_timer_init()
-{
-	thread_add_timer(master, test_timer, &timer_count, 10, NULL);
-}
-
-static void test_vty_init()
-{
-	install_element(VIEW_NODE, &daemon_exit_cmd);
-}
-
-/* Help information display. */
-static void usage(char *progname, int status)
-{
-	if (status != 0)
-		fprintf(stderr, "Try `%s --help' for more information.\n",
-			progname);
-	else {
-		printf("Usage : %s [OPTION...]\n\
-Daemon which does 'slow' things.\n\n\
--d, --daemon       Runs in daemon mode\n\
--f, --config_file  Set configuration file name\n\
--A, --vty_addr     Set vty's bind address\n\
--P, --vty_port     Set vty's port number\n\
--v, --version      Print program version\n\
--h, --help         Display this help and exit\n\
-\n\
-Report bugs to %s\n",
-		       progname, FRR_BUG_ADDRESS);
-	}
-	exit(status);
-}
-
-
-/* main routine. */
-int main(int argc, char **argv)
-{
-	char *p;
-	char *vty_addr = NULL;
-	int vty_port = 4000;
-	int daemon_mode = 0;
-	char *progname;
-	struct thread thread;
-	char *config_file = NULL;
-
-	/* Set umask before anything for security */
-	umask(0027);
-
-	/* get program name */
-	progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
-
-	/* master init. */
-	master = thread_master_create(NULL);
-
-	while (1) {
-		int opt;
-
-		opt = getopt_long(argc, argv, "dhf:A:P:v", longopts, 0);
-
-		if (opt == EOF)
-			break;
-
-		switch (opt) {
-		case 0:
-			break;
-		case 'f':
-			config_file = optarg;
-			break;
-		case 'd':
-			daemon_mode = 1;
-			break;
-		case 'A':
-			vty_addr = optarg;
-			break;
-		case 'P':
-			/* Deal with atoi() returning 0 on failure */
-			if (strcmp(optarg, "0") == 0) {
-				vty_port = 0;
-				break;
-			}
-			vty_port = atoi(optarg);
-			vty_port = (vty_port ? vty_port : 4000);
-			break;
-		case 'v':
-			print_version(progname);
-			exit(0);
-			break;
-		case 'h':
-			usage(progname, 0);
-			break;
-		default:
-			usage(progname, 1);
-			break;
-		}
-	}
-
-	/* Library inits. */
-	cmd_init(1);
-	vty_init(master);
-	memory_init();
-
-	/* OSPF vty inits. */
-	test_vty_init();
-
-	/* Change to the daemon program. */
-	if (daemon_mode && daemon(0, 0) < 0) {
-		fprintf(stderr, "daemon failed: %s", strerror(errno));
-		exit(1);
-	}
-
-	/* Create VTY socket */
-	vty_serv_sock(vty_addr, vty_port, "/tmp/.heavy.sock");
-
-	/* Configuration file read*/
-	if (!config_file)
-		usage(progname, 1);
-	vty_read_config(config_file, NULL);
-
-	test_timer_init();
-
-	test_init();
-
-	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
-
-	/* Not reached. */
-	exit(0);
-}
+/**ThisfileispartofQuagga.**Quaggaisfreesoftware;youcanredistributeitand/ormodif
+yit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFounda
+tion;eitherversion2,or(atyouroption)any*laterversion.**Quaggaisdistributedintheh
+opethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MER
+CHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformore
+details.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthispr
+ogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinS
+t,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include<lib/version.h>#in
+clude"getopt.h"#include"thread.h"#include"vty.h"#include"command.h"#include"memo
+ry.h"#include"memory_vty.h"externvoidtest_init();structthread_master*master;stru
+ctoptionlongopts[]={{"daemon",no_argument,NULL,'d'},{"config_file",required_argu
+ment,NULL,'f'},{"help",no_argument,NULL,'h'},{"vty_addr",required_argument,NULL,
+'A'},{"vty_port",required_argument,NULL,'P'},{"version",no_argument,NULL,'v'},{0
+}};DEFUN(daemon_exit,daemon_exit_cmd,"daemon-exit","Makethedaemonexit\n"){exit(0
+);}staticinttimer_count;staticinttest_timer(structthread*thread){int*count=THREA
+D_ARG(thread);printf("run%doftimer\n",(*count)++);thread_add_timer(master,test_t
+imer,count,5,NULL);return0;}staticvoidtest_timer_init(){thread_add_timer(master,
+test_timer,&timer_count,10,NULL);}staticvoidtest_vty_init(){install_element(VIEW
+_NODE,&daemon_exit_cmd);}/*Helpinformationdisplay.*/staticvoidusage(char*prognam
+e,intstatus){if(status!=0)fprintf(stderr,"Try`%s--help'formoreinformation.\n",pr
+ogname);else{printf("Usage:%s[OPTION...]\n\Daemonwhichdoes'slow'things.\n\n\-d,-
+-daemonRunsindaemonmode\n\-f,--config_fileSetconfigurationfilename\n\-A,--vty_ad
+drSetvty'sbindaddress\n\-P,--vty_portSetvty'sportnumber\n\-v,--versionPrintprogr
+amversion\n\-h,--helpDisplaythishelpandexit\n\\n\Reportbugsto%s\n",progname,FRR_
+BUG_ADDRESS);}exit(status);}/*mainroutine.*/intmain(intargc,char**argv){char*p;c
+har*vty_addr=NULL;intvty_port=4000;intdaemon_mode=0;char*progname;structthreadth
+read;char*config_file=NULL;/*Setumaskbeforeanythingforsecurity*/umask(0027);/*ge
+tprogramname*/progname=((p=strrchr(argv[0],'/'))?++p:argv[0]);/*masterinit.*/mas
+ter=thread_master_create(NULL);while(1){intopt;opt=getopt_long(argc,argv,"dhf:A:
+P:v",longopts,0);if(opt==EOF)break;switch(opt){case0:break;case'f':config_file=o
+ptarg;break;case'd':daemon_mode=1;break;case'A':vty_addr=optarg;break;case'P':/*
+Dealwithatoi()returning0onfailure*/if(strcmp(optarg,"0")==0){vty_port=0;break;}v
+ty_port=atoi(optarg);vty_port=(vty_port?vty_port:4000);break;case'v':print_versi
+on(progname);exit(0);break;case'h':usage(progname,0);break;default:usage(prognam
+e,1);break;}}/*Libraryinits.*/cmd_init(1);vty_init(master);memory_init();/*OSPFv
+tyinits.*/test_vty_init();/*Changetothedaemonprogram.*/if(daemon_mode&&daemon(0,
+0)<0){fprintf(stderr,"daemonfailed:%s",strerror(errno));exit(1);}/*CreateVTYsock
+et*/vty_serv_sock(vty_addr,vty_port,"/tmp/.heavy.sock");/*Configurationfileread*
+/if(!config_file)usage(progname,1);vty_read_config(config_file,NULL);test_timer_
+init();test_init();/*Fetchnextactivethread.*/while(thread_fetch(master,&thread))
+thread_call(&thread);/*Notreached.*/exit(0);}

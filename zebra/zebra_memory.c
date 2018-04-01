@@ -1,36 +1,15 @@
-/* zebra memory type definitions
- *
- * Copyright (C) 2015  David Lamparter
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-#include "zebra_memory.h"
-
-DEFINE_MGROUP(ZEBRA, "zebra")
-DEFINE_MTYPE(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
-DEFINE_MTYPE(ZEBRA, ZEBRA_VRF, "ZEBRA VRF")
-DEFINE_MTYPE(ZEBRA, RE, "Route Entry")
-DEFINE_MTYPE(ZEBRA, RIB_QUEUE, "RIB process work queue")
-DEFINE_MTYPE(ZEBRA, STATIC_ROUTE, "Static route")
-DEFINE_MTYPE(ZEBRA, RIB_DEST, "RIB destination")
-DEFINE_MTYPE(ZEBRA, RIB_TABLE_INFO, "RIB table info")
-DEFINE_MTYPE(ZEBRA, RNH, "Nexthop tracking object")
+/*zebramemorytypedefinitions**Copyright(C)2015DavidLamparter**ThisfileispartofQu
+agga.**Quaggaisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsofth
+eGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,o
+r(atyouroption)any*laterversion.**Quaggaisdistributedinthehopethatitwillbeuseful
+,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESS
+FORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldha
+vereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYI
+NG;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,M
+A02110-1301USA*/#ifdefHAVE_CONFIG_H#include"config.h"#endif#include"zebra_memory
+.h"DEFINE_MGROUP(ZEBRA,"zebra")DEFINE_MTYPE(ZEBRA,RTADV_PREFIX,"RouterAdvertisem
+entPrefix")DEFINE_MTYPE(ZEBRA,ZEBRA_VRF,"ZEBRAVRF")DEFINE_MTYPE(ZEBRA,RE,"RouteE
+ntry")DEFINE_MTYPE(ZEBRA,RIB_QUEUE,"RIBprocessworkqueue")DEFINE_MTYPE(ZEBRA,STAT
+IC_ROUTE,"Staticroute")DEFINE_MTYPE(ZEBRA,RIB_DEST,"RIBdestination")DEFINE_MTYPE
+(ZEBRA,RIB_TABLE_INFO,"RIBtableinfo")DEFINE_MTYPE(ZEBRA,RNH,"Nexthoptrackingobje
+ct")

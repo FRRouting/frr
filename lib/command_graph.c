@@ -1,459 +1,126 @@
-/*
- * CLI graph handling
- *
- * --
- * Copyright (C) 2016 Cumulus Networks, Inc.
- * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- * Copyright (C) 2013 by Open Source Routing.
- * Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "command_graph.h"
-
-DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
-DEFINE_MTYPE_STATIC(LIB, CMD_DESC, "Command Token Text")
-DEFINE_MTYPE_STATIC(LIB, CMD_TEXT, "Command Token Help")
-DEFINE_MTYPE(LIB, CMD_ARG, "Command Argument")
-DEFINE_MTYPE_STATIC(LIB, CMD_VAR, "Command Argument Name")
-
-struct cmd_token *cmd_token_new(enum cmd_token_type type, uint8_t attr,
-				const char *text, const char *desc)
-{
-	struct cmd_token *token =
-		XCALLOC(MTYPE_CMD_TOKENS, sizeof(struct cmd_token));
-	token->type = type;
-	token->attr = attr;
-	token->text = text ? XSTRDUP(MTYPE_CMD_TEXT, text) : NULL;
-	token->desc = desc ? XSTRDUP(MTYPE_CMD_DESC, desc) : NULL;
-	token->refcnt = 1;
-	token->arg = NULL;
-	token->allowrepeat = false;
-	token->varname = NULL;
-
-	return token;
-}
-
-void cmd_token_del(struct cmd_token *token)
-{
-	if (!token)
-		return;
-
-	XFREE(MTYPE_CMD_TEXT, token->text);
-	XFREE(MTYPE_CMD_DESC, token->desc);
-	XFREE(MTYPE_CMD_ARG, token->arg);
-	XFREE(MTYPE_CMD_VAR, token->varname);
-
-	XFREE(MTYPE_CMD_TOKENS, token);
-}
-
-struct cmd_token *cmd_token_dup(struct cmd_token *token)
-{
-	struct cmd_token *copy =
-		cmd_token_new(token->type, token->attr, NULL, NULL);
-	copy->max = token->max;
-	copy->min = token->min;
-	copy->text = token->text ? XSTRDUP(MTYPE_CMD_TEXT, token->text) : NULL;
-	copy->desc = token->desc ? XSTRDUP(MTYPE_CMD_DESC, token->desc) : NULL;
-	copy->arg = token->arg ? XSTRDUP(MTYPE_CMD_ARG, token->arg) : NULL;
-	copy->varname =
-		token->varname ? XSTRDUP(MTYPE_CMD_VAR, token->varname) : NULL;
-
-	return copy;
-}
-
-void cmd_token_varname_set(struct cmd_token *token, const char *varname)
-{
-	XFREE(MTYPE_CMD_VAR, token->varname);
-	if (!varname) {
-		token->varname = NULL;
-		return;
-	}
-
-	size_t len = strlen(varname), i;
-	token->varname = XMALLOC(MTYPE_CMD_VAR, len + 1);
-
-	for (i = 0; i < len; i++)
-		switch (varname[i]) {
-		case '-':
-		case '+':
-		case '*':
-		case ':':
-			token->varname[i] = '_';
-			break;
-		default:
-			token->varname[i] = tolower((int)varname[i]);
-		}
-	token->varname[len] = '\0';
-}
-
-static bool cmd_nodes_link(struct graph_node *from, struct graph_node *to)
-{
-	for (size_t i = 0; i < vector_active(from->to); i++)
-		if (vector_slot(from->to, i) == to)
-			return true;
-	return false;
-}
-
-static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb);
-
-/* returns a single node to be excluded as "next" from iteration
- * - for JOIN_TKN, never continue back to the FORK_TKN
- * - in all other cases, don't try the node itself (in case of "...")
- */
-static inline struct graph_node *cmd_loopstop(struct graph_node *gn)
-{
-	struct cmd_token *tok = gn->data;
-	if (tok->type == JOIN_TKN)
-		return tok->forkjoin;
-	else
-		return gn;
-}
-
-static bool cmd_subgraph_equal(struct graph_node *ga, struct graph_node *gb,
-			       struct graph_node *a_join)
-{
-	size_t i, j;
-	struct graph_node *a_fork, *b_fork;
-	a_fork = cmd_loopstop(ga);
-	b_fork = cmd_loopstop(gb);
-
-	if (vector_active(ga->to) != vector_active(gb->to))
-		return false;
-	for (i = 0; i < vector_active(ga->to); i++) {
-		struct graph_node *cga = vector_slot(ga->to, i);
-
-		for (j = 0; j < vector_active(gb->to); j++) {
-			struct graph_node *cgb = vector_slot(gb->to, i);
-
-			if (cga == a_fork && cgb != b_fork)
-				continue;
-			if (cga == a_fork && cgb == b_fork)
-				break;
-
-			if (cmd_nodes_equal(cga, cgb)) {
-				if (cga == a_join)
-					break;
-				if (cmd_subgraph_equal(cga, cgb, a_join))
-					break;
-			}
-		}
-		if (j == vector_active(gb->to))
-			return false;
-	}
-	return true;
-}
-
-/* deep compare -- for FORK_TKN, the entire subgraph is compared.
- * this is what's needed since we're not currently trying to partially
- * merge subgraphs */
-static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
-{
-	struct cmd_token *a = ga->data, *b = gb->data;
-
-	if (a->type != b->type || a->allowrepeat != b->allowrepeat)
-		return false;
-	if (a->type < SPECIAL_TKN && strcmp(a->text, b->text))
-		return false;
-	/* one a ..., the other not. */
-	if (cmd_nodes_link(ga, ga) != cmd_nodes_link(gb, gb))
-		return false;
-	if (!a->varname != !b->varname)
-		return false;
-	if (a->varname && strcmp(a->varname, b->varname))
-		return false;
-
-	switch (a->type) {
-	case RANGE_TKN:
-		return a->min == b->min && a->max == b->max;
-
-	case FORK_TKN:
-		/* one is keywords, the other just option or selector ... */
-		if (cmd_nodes_link(a->forkjoin, ga)
-		    != cmd_nodes_link(b->forkjoin, gb))
-			return false;
-		if (cmd_nodes_link(ga, a->forkjoin)
-		    != cmd_nodes_link(gb, b->forkjoin))
-			return false;
-		return cmd_subgraph_equal(ga, gb, a->forkjoin);
-
-	default:
-		return true;
-	}
-}
-
-static void cmd_fork_bump_attr(struct graph_node *gn, struct graph_node *join,
-			       uint8_t attr)
-{
-	size_t i;
-	struct cmd_token *tok = gn->data;
-	struct graph_node *stop = cmd_loopstop(gn);
-
-	tok->attr = attr;
-	for (i = 0; i < vector_active(gn->to); i++) {
-		struct graph_node *next = vector_slot(gn->to, i);
-		if (next == stop || next == join)
-			continue;
-		cmd_fork_bump_attr(next, join, attr);
-	}
-}
-
-/* move an entire subtree from the temporary graph resulting from
- * parse() into the permanent graph for the command node.
- *
- * this touches rather deeply into the graph code unfortunately.
- */
-static void cmd_reparent_tree(struct graph *fromgraph, struct graph *tograph,
-			      struct graph_node *node)
-{
-	struct graph_node *stop = cmd_loopstop(node);
-	size_t i;
-
-	for (i = 0; i < vector_active(fromgraph->nodes); i++)
-		if (vector_slot(fromgraph->nodes, i) == node) {
-			/* agressive iteration punching through subgraphs - may
-			 * hit some
-			 * nodes twice.  reparent only if found on old graph */
-			vector_unset(fromgraph->nodes, i);
-			vector_set(tograph->nodes, node);
-			break;
-		}
-
-	for (i = 0; i < vector_active(node->to); i++) {
-		struct graph_node *next = vector_slot(node->to, i);
-		if (next != stop)
-			cmd_reparent_tree(fromgraph, tograph, next);
-	}
-}
-
-static void cmd_free_recur(struct graph *graph, struct graph_node *node,
-			   struct graph_node *stop)
-{
-	struct graph_node *next, *nstop;
-
-	for (size_t i = vector_active(node->to); i; i--) {
-		next = vector_slot(node->to, i - 1);
-		if (next == stop)
-			continue;
-		nstop = cmd_loopstop(next);
-		if (nstop != next)
-			cmd_free_recur(graph, next, nstop);
-		cmd_free_recur(graph, nstop, stop);
-	}
-	graph_delete_node(graph, node);
-}
-
-static void cmd_free_node(struct graph *graph, struct graph_node *node)
-{
-	struct cmd_token *tok = node->data;
-	if (tok->type == JOIN_TKN)
-		cmd_free_recur(graph, tok->forkjoin, node);
-	graph_delete_node(graph, node);
-}
-
-/* recursive graph merge.  call with
- *   old ~= new
- * (which holds true for old == START_TKN, new == START_TKN)
- */
-static void cmd_merge_nodes(struct graph *oldgraph, struct graph *newgraph,
-			    struct graph_node *old, struct graph_node *new,
-			    int direction)
-{
-	struct cmd_token *tok;
-	struct graph_node *old_skip, *new_skip;
-	old_skip = cmd_loopstop(old);
-	new_skip = cmd_loopstop(new);
-
-	assert(direction == 1 || direction == -1);
-
-	tok = old->data;
-	tok->refcnt += direction;
-
-	size_t j, i;
-	for (j = 0; j < vector_active(new->to); j++) {
-		struct graph_node *cnew = vector_slot(new->to, j);
-		if (cnew == new_skip)
-			continue;
-
-		for (i = 0; i < vector_active(old->to); i++) {
-			struct graph_node *cold = vector_slot(old->to, i);
-			if (cold == old_skip)
-				continue;
-
-			if (cmd_nodes_equal(cold, cnew)) {
-				struct cmd_token *told = cold->data,
-						 *tnew = cnew->data;
-
-				if (told->type == END_TKN) {
-					if (direction < 0) {
-						graph_delete_node(
-							oldgraph,
-							vector_slot(cold->to,
-								    0));
-						graph_delete_node(oldgraph,
-								  cold);
-					} else
-						/* force no-match handling to
-						 * install END_TKN */
-						i = vector_active(old->to);
-					break;
-				}
-
-				/* the entire fork compared as equal, we
-				 * continue after it. */
-				if (told->type == FORK_TKN) {
-					if (tnew->attr < told->attr
-					    && direction > 0)
-						cmd_fork_bump_attr(
-							cold, told->forkjoin,
-							tnew->attr);
-					/* XXX: no reverse bump on uninstall */
-					told = (cold = told->forkjoin)->data;
-					tnew = (cnew = tnew->forkjoin)->data;
-				}
-				if (tnew->attr < told->attr)
-					told->attr = tnew->attr;
-
-				cmd_merge_nodes(oldgraph, newgraph, cold, cnew,
-						direction);
-				break;
-			}
-		}
-		/* nothing found => add new to old */
-		if (i == vector_active(old->to) && direction > 0) {
-			graph_remove_edge(new, cnew);
-
-			cmd_reparent_tree(newgraph, oldgraph, cnew);
-
-			graph_add_edge(old, cnew);
-		}
-	}
-
-	if (!tok->refcnt)
-		cmd_free_node(oldgraph, old);
-}
-
-void cmd_graph_merge(struct graph *old, struct graph *new, int direction)
-{
-	assert(vector_active(old->nodes) >= 1);
-	assert(vector_active(new->nodes) >= 1);
-
-	cmd_merge_nodes(old, new, vector_slot(old->nodes, 0),
-			vector_slot(new->nodes, 0), direction);
-}
-
-static void cmd_node_names(struct graph_node *gn, struct graph_node *join,
-			   const char *prevname)
-{
-	size_t i;
-	struct cmd_token *tok = gn->data, *jointok;
-	struct graph_node *stop = cmd_loopstop(gn);
-
-	switch (tok->type) {
-	case WORD_TKN:
-		prevname = tok->text;
-		break;
-
-	case VARIABLE_TKN:
-		if (!tok->varname && strcmp(tok->text, "WORD")
-		    && strcmp(tok->text, "NAME"))
-			cmd_token_varname_set(tok, tok->text);
-	/* fallthrough */
-	case RANGE_TKN:
-	case IPV4_TKN:
-	case IPV4_PREFIX_TKN:
-	case IPV6_TKN:
-	case IPV6_PREFIX_TKN:
-	case MAC_TKN:
-	case MAC_PREFIX_TKN:
-		if (!tok->varname && prevname)
-			cmd_token_varname_set(tok, prevname);
-		prevname = NULL;
-		break;
-
-	case START_TKN:
-	case JOIN_TKN:
-		/* "<foo|bar> WORD" -> word is not "bar" or "foo" */
-		prevname = NULL;
-		break;
-
-	case FORK_TKN:
-		/* apply "<A.B.C.D|X:X::X:X>$name" */
-		jointok = tok->forkjoin->data;
-		if (!jointok->varname)
-			break;
-		for (i = 0; i < vector_active(tok->forkjoin->from); i++) {
-			struct graph_node *tail =
-				vector_slot(tok->forkjoin->from, i);
-			struct cmd_token *tailtok = tail->data;
-			if (tail == gn || tailtok->varname)
-				continue;
-			cmd_token_varname_set(tailtok, jointok->varname);
-		}
-		break;
-
-	case END_TKN:
-		return;
-	}
-
-	for (i = 0; i < vector_active(gn->to); i++) {
-		struct graph_node *next = vector_slot(gn->to, i);
-		if (next == stop || next == join)
-			continue;
-		cmd_node_names(next, join, prevname);
-	}
-
-	if (tok->type == FORK_TKN && tok->forkjoin != join)
-		cmd_node_names(tok->forkjoin, join, NULL);
-}
-
-void cmd_graph_names(struct graph *graph)
-{
-	struct graph_node *start;
-
-	assert(vector_active(graph->nodes) >= 1);
-	start = vector_slot(graph->nodes, 0);
-
-	/* apply varname on initial "[no]" */
-	do {
-		if (vector_active(start->to) != 1)
-			break;
-
-		struct graph_node *first = vector_slot(start->to, 0);
-		struct cmd_token *tok = first->data;
-		/* looking for an option with 2 choices, nothing or "no" */
-		if (tok->type != FORK_TKN || vector_active(first->to) != 2)
-			break;
-
-		struct graph_node *next0 = vector_slot(first->to, 0);
-		struct graph_node *next1 = vector_slot(first->to, 1);
-		/* one needs to be empty */
-		if (next0 != tok->forkjoin && next1 != tok->forkjoin)
-			break;
-
-		struct cmd_token *tok0 = next0->data;
-		struct cmd_token *tok1 = next1->data;
-		/* the other one needs to be "no" (only one will match here) */
-		if ((tok0->type == WORD_TKN && !strcmp(tok0->text, "no")))
-			cmd_token_varname_set(tok0, "no");
-		if ((tok1->type == WORD_TKN && !strcmp(tok1->text, "no")))
-			cmd_token_varname_set(tok1, "no");
-	} while (0);
-
-	cmd_node_names(start, NULL, NULL);
-}
+/**CLIgraphhandling**--*Copyright(C)2016CumulusNetworks,Inc.*Copyright(C)1997,98
+,99KunihiroIshiguro*Copyright(C)2013byOpenSourceRouting.*Copyright(C)2013byInter
+netSystemsConsortium,Inc.("ISC")**Thisprogramisfreesoftware;youcanredistributeit
+and/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbytheFree*Sof
+twareFoundation;eitherversion2oftheLicense,or(atyouroption)*anylaterversion.**Th
+isprogramisdistributedinthehopethatitwillbeuseful,butWITHOUT*ANYWARRANTY;without
+eventheimpliedwarrantyofMERCHANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNU
+GeneralPublicLicensefor*moredetails.**YoushouldhavereceivedacopyoftheGNUGeneralP
+ublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware
+*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.
+h>#include"command_graph.h"DEFINE_MTYPE_STATIC(LIB,CMD_TOKENS,"CommandTokens")DE
+FINE_MTYPE_STATIC(LIB,CMD_DESC,"CommandTokenText")DEFINE_MTYPE_STATIC(LIB,CMD_TE
+XT,"CommandTokenHelp")DEFINE_MTYPE(LIB,CMD_ARG,"CommandArgument")DEFINE_MTYPE_ST
+ATIC(LIB,CMD_VAR,"CommandArgumentName")structcmd_token*cmd_token_new(enumcmd_tok
+en_typetype,uint8_tattr,constchar*text,constchar*desc){structcmd_token*token=XCA
+LLOC(MTYPE_CMD_TOKENS,sizeof(structcmd_token));token->type=type;token->attr=attr
+;token->text=text?XSTRDUP(MTYPE_CMD_TEXT,text):NULL;token->desc=desc?XSTRDUP(MTY
+PE_CMD_DESC,desc):NULL;token->refcnt=1;token->arg=NULL;token->allowrepeat=false;
+token->varname=NULL;returntoken;}voidcmd_token_del(structcmd_token*token){if(!to
+ken)return;XFREE(MTYPE_CMD_TEXT,token->text);XFREE(MTYPE_CMD_DESC,token->desc);X
+FREE(MTYPE_CMD_ARG,token->arg);XFREE(MTYPE_CMD_VAR,token->varname);XFREE(MTYPE_C
+MD_TOKENS,token);}structcmd_token*cmd_token_dup(structcmd_token*token){structcmd
+_token*copy=cmd_token_new(token->type,token->attr,NULL,NULL);copy->max=token->ma
+x;copy->min=token->min;copy->text=token->text?XSTRDUP(MTYPE_CMD_TEXT,token->text
+):NULL;copy->desc=token->desc?XSTRDUP(MTYPE_CMD_DESC,token->desc):NULL;copy->arg
+=token->arg?XSTRDUP(MTYPE_CMD_ARG,token->arg):NULL;copy->varname=token->varname?
+XSTRDUP(MTYPE_CMD_VAR,token->varname):NULL;returncopy;}voidcmd_token_varname_set
+(structcmd_token*token,constchar*varname){XFREE(MTYPE_CMD_VAR,token->varname);if
+(!varname){token->varname=NULL;return;}size_tlen=strlen(varname),i;token->varnam
+e=XMALLOC(MTYPE_CMD_VAR,len+1);for(i=0;i<len;i++)switch(varname[i]){case'-':case
+'+':case'*':case':':token->varname[i]='_';break;default:token->varname[i]=tolowe
+r((int)varname[i]);}token->varname[len]='\0';}staticboolcmd_nodes_link(structgra
+ph_node*from,structgraph_node*to){for(size_ti=0;i<vector_active(from->to);i++)if
+(vector_slot(from->to,i)==to)returntrue;returnfalse;}staticboolcmd_nodes_equal(s
+tructgraph_node*ga,structgraph_node*gb);/*returnsasinglenodetobeexcludedas"next"
+fromiteration*-forJOIN_TKN,nevercontinuebacktotheFORK_TKN*-inallothercases,don't
+trythenodeitself(incaseof"...")*/staticinlinestructgraph_node*cmd_loopstop(struc
+tgraph_node*gn){structcmd_token*tok=gn->data;if(tok->type==JOIN_TKN)returntok->f
+orkjoin;elsereturngn;}staticboolcmd_subgraph_equal(structgraph_node*ga,structgra
+ph_node*gb,structgraph_node*a_join){size_ti,j;structgraph_node*a_fork,*b_fork;a_
+fork=cmd_loopstop(ga);b_fork=cmd_loopstop(gb);if(vector_active(ga->to)!=vector_a
+ctive(gb->to))returnfalse;for(i=0;i<vector_active(ga->to);i++){structgraph_node*
+cga=vector_slot(ga->to,i);for(j=0;j<vector_active(gb->to);j++){structgraph_node*
+cgb=vector_slot(gb->to,i);if(cga==a_fork&&cgb!=b_fork)continue;if(cga==a_fork&&c
+gb==b_fork)break;if(cmd_nodes_equal(cga,cgb)){if(cga==a_join)break;if(cmd_subgra
+ph_equal(cga,cgb,a_join))break;}}if(j==vector_active(gb->to))returnfalse;}return
+true;}/*deepcompare--forFORK_TKN,theentiresubgraphiscompared.*thisiswhat'sneeded
+sincewe'renotcurrentlytryingtopartially*mergesubgraphs*/staticboolcmd_nodes_equa
+l(structgraph_node*ga,structgraph_node*gb){structcmd_token*a=ga->data,*b=gb->dat
+a;if(a->type!=b->type||a->allowrepeat!=b->allowrepeat)returnfalse;if(a->type<SPE
+CIAL_TKN&&strcmp(a->text,b->text))returnfalse;/*onea...,theothernot.*/if(cmd_nod
+es_link(ga,ga)!=cmd_nodes_link(gb,gb))returnfalse;if(!a->varname!=!b->varname)re
+turnfalse;if(a->varname&&strcmp(a->varname,b->varname))returnfalse;switch(a->typ
+e){caseRANGE_TKN:returna->min==b->min&&a->max==b->max;caseFORK_TKN:/*oneiskeywor
+ds,theotherjustoptionorselector...*/if(cmd_nodes_link(a->forkjoin,ga)!=cmd_nodes
+_link(b->forkjoin,gb))returnfalse;if(cmd_nodes_link(ga,a->forkjoin)!=cmd_nodes_l
+ink(gb,b->forkjoin))returnfalse;returncmd_subgraph_equal(ga,gb,a->forkjoin);defa
+ult:returntrue;}}staticvoidcmd_fork_bump_attr(structgraph_node*gn,structgraph_no
+de*join,uint8_tattr){size_ti;structcmd_token*tok=gn->data;structgraph_node*stop=
+cmd_loopstop(gn);tok->attr=attr;for(i=0;i<vector_active(gn->to);i++){structgraph
+_node*next=vector_slot(gn->to,i);if(next==stop||next==join)continue;cmd_fork_bum
+p_attr(next,join,attr);}}/*moveanentiresubtreefromthetemporarygraphresultingfrom
+*parse()intothepermanentgraphforthecommandnode.**thistouchesratherdeeplyintotheg
+raphcodeunfortunately.*/staticvoidcmd_reparent_tree(structgraph*fromgraph,struct
+graph*tograph,structgraph_node*node){structgraph_node*stop=cmd_loopstop(node);si
+ze_ti;for(i=0;i<vector_active(fromgraph->nodes);i++)if(vector_slot(fromgraph->no
+des,i)==node){/*agressiveiterationpunchingthroughsubgraphs-may*hitsome*nodestwic
+e.reparentonlyiffoundonoldgraph*/vector_unset(fromgraph->nodes,i);vector_set(tog
+raph->nodes,node);break;}for(i=0;i<vector_active(node->to);i++){structgraph_node
+*next=vector_slot(node->to,i);if(next!=stop)cmd_reparent_tree(fromgraph,tograph,
+next);}}staticvoidcmd_free_recur(structgraph*graph,structgraph_node*node,structg
+raph_node*stop){structgraph_node*next,*nstop;for(size_ti=vector_active(node->to)
+;i;i--){next=vector_slot(node->to,i-1);if(next==stop)continue;nstop=cmd_loopstop
+(next);if(nstop!=next)cmd_free_recur(graph,next,nstop);cmd_free_recur(graph,nsto
+p,stop);}graph_delete_node(graph,node);}staticvoidcmd_free_node(structgraph*grap
+h,structgraph_node*node){structcmd_token*tok=node->data;if(tok->type==JOIN_TKN)c
+md_free_recur(graph,tok->forkjoin,node);graph_delete_node(graph,node);}/*recursi
+vegraphmerge.callwith*old~=new*(whichholdstrueforold==START_TKN,new==START_TKN)*
+/staticvoidcmd_merge_nodes(structgraph*oldgraph,structgraph*newgraph,structgraph
+_node*old,structgraph_node*new,intdirection){structcmd_token*tok;structgraph_nod
+e*old_skip,*new_skip;old_skip=cmd_loopstop(old);new_skip=cmd_loopstop(new);asser
+t(direction==1||direction==-1);tok=old->data;tok->refcnt+=direction;size_tj,i;fo
+r(j=0;j<vector_active(new->to);j++){structgraph_node*cnew=vector_slot(new->to,j)
+;if(cnew==new_skip)continue;for(i=0;i<vector_active(old->to);i++){structgraph_no
+de*cold=vector_slot(old->to,i);if(cold==old_skip)continue;if(cmd_nodes_equal(col
+d,cnew)){structcmd_token*told=cold->data,*tnew=cnew->data;if(told->type==END_TKN
+){if(direction<0){graph_delete_node(oldgraph,vector_slot(cold->to,0));graph_dele
+te_node(oldgraph,cold);}else/*forceno-matchhandlingto*installEND_TKN*/i=vector_a
+ctive(old->to);break;}/*theentireforkcomparedasequal,we*continueafterit.*/if(tol
+d->type==FORK_TKN){if(tnew->attr<told->attr&&direction>0)cmd_fork_bump_attr(cold
+,told->forkjoin,tnew->attr);/*XXX:noreversebumponuninstall*/told=(cold=told->for
+kjoin)->data;tnew=(cnew=tnew->forkjoin)->data;}if(tnew->attr<told->attr)told->at
+tr=tnew->attr;cmd_merge_nodes(oldgraph,newgraph,cold,cnew,direction);break;}}/*n
+othingfound=>addnewtoold*/if(i==vector_active(old->to)&&direction>0){graph_remov
+e_edge(new,cnew);cmd_reparent_tree(newgraph,oldgraph,cnew);graph_add_edge(old,cn
+ew);}}if(!tok->refcnt)cmd_free_node(oldgraph,old);}voidcmd_graph_merge(structgra
+ph*old,structgraph*new,intdirection){assert(vector_active(old->nodes)>=1);assert
+(vector_active(new->nodes)>=1);cmd_merge_nodes(old,new,vector_slot(old->nodes,0)
+,vector_slot(new->nodes,0),direction);}staticvoidcmd_node_names(structgraph_node
+*gn,structgraph_node*join,constchar*prevname){size_ti;structcmd_token*tok=gn->da
+ta,*jointok;structgraph_node*stop=cmd_loopstop(gn);switch(tok->type){caseWORD_TK
+N:prevname=tok->text;break;caseVARIABLE_TKN:if(!tok->varname&&strcmp(tok->text,"
+WORD")&&strcmp(tok->text,"NAME"))cmd_token_varname_set(tok,tok->text);/*fallthro
+ugh*/caseRANGE_TKN:caseIPV4_TKN:caseIPV4_PREFIX_TKN:caseIPV6_TKN:caseIPV6_PREFIX
+_TKN:caseMAC_TKN:caseMAC_PREFIX_TKN:if(!tok->varname&&prevname)cmd_token_varname
+_set(tok,prevname);prevname=NULL;break;caseSTART_TKN:caseJOIN_TKN:/*"<foo|bar>WO
+RD"->wordisnot"bar"or"foo"*/prevname=NULL;break;caseFORK_TKN:/*apply"<A.B.C.D|X:
+X::X:X>$name"*/jointok=tok->forkjoin->data;if(!jointok->varname)break;for(i=0;i<
+vector_active(tok->forkjoin->from);i++){structgraph_node*tail=vector_slot(tok->f
+orkjoin->from,i);structcmd_token*tailtok=tail->data;if(tail==gn||tailtok->varnam
+e)continue;cmd_token_varname_set(tailtok,jointok->varname);}break;caseEND_TKN:re
+turn;}for(i=0;i<vector_active(gn->to);i++){structgraph_node*next=vector_slot(gn-
+>to,i);if(next==stop||next==join)continue;cmd_node_names(next,join,prevname);}if
+(tok->type==FORK_TKN&&tok->forkjoin!=join)cmd_node_names(tok->forkjoin,join,NULL
+);}voidcmd_graph_names(structgraph*graph){structgraph_node*start;assert(vector_a
+ctive(graph->nodes)>=1);start=vector_slot(graph->nodes,0);/*applyvarnameoninitia
+l"[no]"*/do{if(vector_active(start->to)!=1)break;structgraph_node*first=vector_s
+lot(start->to,0);structcmd_token*tok=first->data;/*lookingforanoptionwith2choice
+s,nothingor"no"*/if(tok->type!=FORK_TKN||vector_active(first->to)!=2)break;struc
+tgraph_node*next0=vector_slot(first->to,0);structgraph_node*next1=vector_slot(fi
+rst->to,1);/*oneneedstobeempty*/if(next0!=tok->forkjoin&&next1!=tok->forkjoin)br
+eak;structcmd_token*tok0=next0->data;structcmd_token*tok1=next1->data;/*theother
+oneneedstobe"no"(onlyonewillmatchhere)*/if((tok0->type==WORD_TKN&&!strcmp(tok0->
+text,"no")))cmd_token_varname_set(tok0,"no");if((tok1->type==WORD_TKN&&!strcmp(t
+ok1->text,"no")))cmd_token_varname_set(tok1,"no");}while(0);cmd_node_names(start
+,NULL,NULL);}

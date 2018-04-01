@@ -1,184 +1,59 @@
-/*
- * This is an implementation of RFC4970 Router Information
- * with support of RFC5088 PCE Capabilites announcement
- * and support of draft-ietf-ospf-segment-routing-extensions-18
- * for Segment Routing Capabilities announcement
- *
- *
- * Module name: Router Information
- * Author: Olivier Dugeon <olivier.dugeon@orange.com>
- * Copyright (C) 2012 - 2017 Orange Labs http://www.orange.com/
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_OSPF_ROUTER_INFO_H
-#define _ZEBRA_OSPF_ROUTER_INFO_H
-
-/*
- * Opaque LSA's link state ID for Router Information is
- * structured as follows.
- *
- *        24       16        8        0
- * +--------+--------+--------+--------+
- * |    4   |  MBZ   |........|........|
- * +--------+--------+--------+--------+
- * |<-Type->|<Resv'd>|<-- Instance --->|
- *
- *
- * Type:      IANA has assigned '4' for Router Information.
- * MBZ:       Reserved, must be set to zero.
- * Instance:  User may select an arbitrary 16-bit value.
- *
- */
-
-/*
- *        24       16        8        0
- * +--------+--------+--------+--------+ ---
- * |   LS age        |Options | 9,10,11|  A
- * +--------+--------+--------+--------+  |
- * |    4   |   0    |    Instance     |  |
- * +--------+--------+--------+--------+  |
- * |        Advertising router         |  |  Standard (Opaque) LSA header;
- * +--------+--------+--------+--------+  |  Type 9,10 or 11 are used.
- * |        LS sequence number         |  |
- * +--------+--------+--------+--------+  |
- * |   LS checksum   |     Length      |  V
- * +--------+--------+--------+--------+ ---
- * |      Type       |     Length      |  A  TLV part for Router Information;
- * +--------+--------+--------+--------+  |  Values might be
- * |              Values ...           |  V  structured as a set of sub-TLVs.
- * +--------+--------+--------+--------+ ---
- */
-
-/*
- * Following section defines TLV body parts.
- */
-
-/* Up to now, 11 code points have been assigned to Router Information */
-/* Only type 1 Router Capabilities and 6 PCE are supported with this code */
-#define RI_IANA_MAX_TYPE		11
-
-/* RFC4970: Router Information Capabilities TLV */ /* Mandatory */
-#define RI_TLV_CAPABILITIES		1
-
-struct ri_tlv_router_cap {
-	struct tlv_header header; /* Value length is 4 bytes. */
-	uint32_t value;
-};
-
-/* Capabilities bits are left align */
-#define RI_GRACE_RESTART	0x80000000
-#define RI_GRACE_HELPER		0x40000000
-#define RI_STUB_SUPPORT		0x20000000
-#define RI_TE_SUPPORT		0x10000000
-#define RI_P2P_OVER_LAN		0x08000000
-#define RI_TE_EXPERIMENTAL	0x04000000
-
-#define RI_TLV_LENGTH		4
-
-/* RFC5088: PCE Capabilities TLV */ /* Optional */
-/* RI PCE TLV */
-#define RI_TLV_PCE			6
-
-struct ri_tlv_pce {
-	struct tlv_header header;
-	/* A set of PCE-sub-TLVs will follow. */
-};
-
-/* PCE Address Sub-TLV */ /* Mandatory */
-#define	RI_PCE_SUBTLV_ADDRESS		1
-struct ri_pce_subtlv_address {
-	/* Type = 1; Length is 8 (IPv4) or 20 (IPv6) bytes. */
-	struct tlv_header header;
-#define	PCE_ADDRESS_LENGTH_IPV4		8
-#define	PCE_ADDRESS_LENGTH_IPV6		20
-	struct {
-		uint16_t type; /* Address type: 1 = IPv4, 2 = IPv6 */
-#define	PCE_ADDRESS_TYPE_IPV4		1
-#define	PCE_ADDRESS_TYPE_IPV6		2
-		uint16_t reserved;
-		struct in_addr value; /* PCE address */
-	} address;
-};
-
-/* PCE Path-Scope Sub-TLV */ /* Mandatory */
-#define	RI_PCE_SUBTLV_PATH_SCOPE	2
-struct ri_pce_subtlv_path_scope {
-	struct tlv_header header; /* Type = 2; Length = 4 bytes. */
-	/*
-	 * L, R, Rd, S, Sd, Y, PrefL, PrefR, PrefS and PrefY bits:
-	 * see RFC5088 page 9
-	 */
-	uint32_t value;
-};
-
-/* PCE Domain Sub-TLV */ /* Optional */
-#define	RI_PCE_SUBTLV_DOMAIN		3
-
-#define	PCE_DOMAIN_TYPE_AREA		1
-#define	PCE_DOMAIN_TYPE_AS			2
-
-struct ri_pce_subtlv_domain {
-	struct tlv_header header; /* Type = 3; Length = 8 bytes. */
-	uint16_t type; /* Domain type: 1 = OSPF Area ID, 2 = AS Number */
-	uint16_t reserved;
-	uint32_t value;
-};
-
-/* PCE Neighbor Sub-TLV */ /* Mandatory if R or S bit is set */
-#define RI_PCE_SUBTLV_NEIGHBOR		4
-struct ri_pce_subtlv_neighbor {
-	struct tlv_header header; /* Type = 4; Length = 8 bytes. */
-	uint16_t type; /* Domain type: 1 = OSPF Area ID, 2 = AS Number */
-	uint16_t reserved;
-	uint32_t value;
-};
-
-/* PCE Capabilities Flags Sub-TLV */ /* Optional */
-#define RI_PCE_SUBTLV_CAP_FLAG		5
-
-#define PCE_CAP_GMPLS_LINK		0x0001
-#define PCE_CAP_BIDIRECTIONAL		0x0002
-#define PCE_CAP_DIVERSE_PATH		0x0004
-#define PCE_CAP_LOAD_BALANCE		0x0008
-#define PCE_CAP_SYNCHRONIZED		0x0010
-#define PCE_CAP_OBJECTIVES		0x0020
-#define PCE_CAP_ADDITIVE		0x0040
-#define PCE_CAP_PRIORIZATION		0x0080
-#define PCE_CAP_MULTIPLE_REQ		0x0100
-
-struct ri_pce_subtlv_cap_flag {
-	struct tlv_header header; /* Type = 5; Length = n x 4 bytes. */
-	uint32_t value;
-};
-
-/* Structure to share flooding scope info for Segment Routing */
-struct scope_info {
-	uint8_t scope;
-	struct in_addr area_id;
-};
-
-/* Prototypes. */
-extern int ospf_router_info_init(void);
-extern void ospf_router_info_term(void);
-extern void ospf_router_info_finish(void);
-extern int ospf_router_info_enable(void);
-extern void ospf_router_info_update_sr(bool enable, struct sr_srgb srgb,
-				       uint8_t msd);
-extern struct scope_info ospf_router_info_get_flooding_scope(void);
-#endif /* _ZEBRA_OSPF_ROUTER_INFO_H */
+/**ThisisanimplementationofRFC4970RouterInformation*withsupportofRFC5088PCECapab
+ilitesannouncement*andsupportofdraft-ietf-ospf-segment-routing-extensions-18*for
+SegmentRoutingCapabilitiesannouncement***Modulename:RouterInformation*Author:Oli
+vierDugeon<olivier.dugeon@orange.com>*Copyright(C)2012-2017OrangeLabshttp://www.
+orange.com/**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistribut
+eitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*Free
+SoftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisd
+istributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpli
+edwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPubl
+icLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicense
+along*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,
+Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_OSPF_ROUTER_I
+NFO_H#define_ZEBRA_OSPF_ROUTER_INFO_H/**OpaqueLSA'slinkstateIDforRouterInformati
+onis*structuredasfollows.**241680*+--------+--------+--------+--------+*|4|MBZ|.
+.......|........|*+--------+--------+--------+--------+*|<-Type->|<Resv'd>|<--In
+stance--->|***Type:IANAhasassigned'4'forRouterInformation.*MBZ:Reserved,mustbese
+ttozero.*Instance:Usermayselectanarbitrary16-bitvalue.**//**241680*+--------+---
+-----+--------+--------+---*|LSage|Options|9,10,11|A*+--------+--------+--------
++--------+|*|4|0|Instance||*+--------+--------+--------+--------+|*|Advertisingr
+outer||Standard(Opaque)LSAheader;*+--------+--------+--------+--------+|Type9,10
+or11areused.*|LSsequencenumber||*+--------+--------+--------+--------+|*|LScheck
+sum|Length|V*+--------+--------+--------+--------+---*|Type|Length|ATLVpartforRo
+uterInformation;*+--------+--------+--------+--------+|Valuesmightbe*|Values...|
+Vstructuredasasetofsub-TLVs.*+--------+--------+--------+--------+---*//**Follow
+ingsectiondefinesTLVbodyparts.*//*Uptonow,11codepointshavebeenassignedtoRouterIn
+formation*//*Onlytype1RouterCapabilitiesand6PCEaresupportedwiththiscode*/#define
+RI_IANA_MAX_TYPE11/*RFC4970:RouterInformationCapabilitiesTLV*//*Mandatory*/#defi
+neRI_TLV_CAPABILITIES1structri_tlv_router_cap{structtlv_headerheader;/*Valueleng
+this4bytes.*/uint32_tvalue;};/*Capabilitiesbitsareleftalign*/#defineRI_GRACE_RES
+TART0x80000000#defineRI_GRACE_HELPER0x40000000#defineRI_STUB_SUPPORT0x20000000#d
+efineRI_TE_SUPPORT0x10000000#defineRI_P2P_OVER_LAN0x08000000#defineRI_TE_EXPERIM
+ENTAL0x04000000#defineRI_TLV_LENGTH4/*RFC5088:PCECapabilitiesTLV*//*Optional*//*
+RIPCETLV*/#defineRI_TLV_PCE6structri_tlv_pce{structtlv_headerheader;/*AsetofPCE-
+sub-TLVswillfollow.*/};/*PCEAddressSub-TLV*//*Mandatory*/#defineRI_PCE_SUBTLV_AD
+DRESS1structri_pce_subtlv_address{/*Type=1;Lengthis8(IPv4)or20(IPv6)bytes.*/stru
+cttlv_headerheader;#definePCE_ADDRESS_LENGTH_IPV48#definePCE_ADDRESS_LENGTH_IPV6
+20struct{uint16_ttype;/*Addresstype:1=IPv4,2=IPv6*/#definePCE_ADDRESS_TYPE_IPV41
+#definePCE_ADDRESS_TYPE_IPV62uint16_treserved;structin_addrvalue;/*PCEaddress*/}
+address;};/*PCEPath-ScopeSub-TLV*//*Mandatory*/#defineRI_PCE_SUBTLV_PATH_SCOPE2s
+tructri_pce_subtlv_path_scope{structtlv_headerheader;/*Type=2;Length=4bytes.*//*
+*L,R,Rd,S,Sd,Y,PrefL,PrefR,PrefSandPrefYbits:*seeRFC5088page9*/uint32_tvalue;};/
+*PCEDomainSub-TLV*//*Optional*/#defineRI_PCE_SUBTLV_DOMAIN3#definePCE_DOMAIN_TYP
+E_AREA1#definePCE_DOMAIN_TYPE_AS2structri_pce_subtlv_domain{structtlv_headerhead
+er;/*Type=3;Length=8bytes.*/uint16_ttype;/*Domaintype:1=OSPFAreaID,2=ASNumber*/u
+int16_treserved;uint32_tvalue;};/*PCENeighborSub-TLV*//*MandatoryifRorSbitisset*
+/#defineRI_PCE_SUBTLV_NEIGHBOR4structri_pce_subtlv_neighbor{structtlv_headerhead
+er;/*Type=4;Length=8bytes.*/uint16_ttype;/*Domaintype:1=OSPFAreaID,2=ASNumber*/u
+int16_treserved;uint32_tvalue;};/*PCECapabilitiesFlagsSub-TLV*//*Optional*/#defi
+neRI_PCE_SUBTLV_CAP_FLAG5#definePCE_CAP_GMPLS_LINK0x0001#definePCE_CAP_BIDIRECTI
+ONAL0x0002#definePCE_CAP_DIVERSE_PATH0x0004#definePCE_CAP_LOAD_BALANCE0x0008#def
+inePCE_CAP_SYNCHRONIZED0x0010#definePCE_CAP_OBJECTIVES0x0020#definePCE_CAP_ADDIT
+IVE0x0040#definePCE_CAP_PRIORIZATION0x0080#definePCE_CAP_MULTIPLE_REQ0x0100struc
+tri_pce_subtlv_cap_flag{structtlv_headerheader;/*Type=5;Length=nx4bytes.*/uint32
+_tvalue;};/*StructuretosharefloodingscopeinfoforSegmentRouting*/structscope_info
+{uint8_tscope;structin_addrarea_id;};/*Prototypes.*/externintospf_router_info_in
+it(void);externvoidospf_router_info_term(void);externvoidospf_router_info_finish
+(void);externintospf_router_info_enable(void);externvoidospf_router_info_update_
+sr(boolenable,structsr_srgbsrgb,uint8_tmsd);externstructscope_infoospf_router_in
+fo_get_flooding_scope(void);#endif/*_ZEBRA_OSPF_ROUTER_INFO_H*/

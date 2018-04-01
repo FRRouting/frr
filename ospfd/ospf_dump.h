@@ -1,148 +1,54 @@
-/*
- * OSPFd dump routine.
- * Copyright (C) 1999 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_OSPF_DUMP_H
-#define _ZEBRA_OSPF_DUMP_H
-
-/* Debug Flags. */
-#define OSPF_DEBUG_HELLO	0x01
-#define OSPF_DEBUG_DB_DESC	0x02
-#define OSPF_DEBUG_LS_REQ	0x04
-#define OSPF_DEBUG_LS_UPD	0x08
-#define OSPF_DEBUG_LS_ACK	0x10
-#define OSPF_DEBUG_ALL		0x1f
-
-#define OSPF_DEBUG_SEND		0x01
-#define OSPF_DEBUG_RECV		0x02
-#define OSPF_DEBUG_SEND_RECV    0x03
-#define OSPF_DEBUG_DETAIL	0x04
-
-#define OSPF_DEBUG_ISM_STATUS	0x01
-#define OSPF_DEBUG_ISM_EVENTS	0x02
-#define OSPF_DEBUG_ISM_TIMERS	0x04
-#define OSPF_DEBUG_ISM		0x07
-#define OSPF_DEBUG_NSM_STATUS	0x01
-#define OSPF_DEBUG_NSM_EVENTS	0x02
-#define OSPF_DEBUG_NSM_TIMERS   0x04
-#define OSPF_DEBUG_NSM		0x07
-
-#define OSPF_DEBUG_LSA_GENERATE 0x01
-#define OSPF_DEBUG_LSA_FLOODING	0x02
-#define OSPF_DEBUG_LSA_INSTALL  0x04
-#define OSPF_DEBUG_LSA_REFRESH  0x08
-#define OSPF_DEBUG_LSA		0x0F
-
-#define OSPF_DEBUG_ZEBRA_INTERFACE     0x01
-#define OSPF_DEBUG_ZEBRA_REDISTRIBUTE  0x02
-#define OSPF_DEBUG_ZEBRA	       0x03
-
-#define OSPF_DEBUG_EVENT        0x01
-#define OSPF_DEBUG_NSSA		0x02
-#define OSPF_DEBUG_TE          0x04
-#define OSPF_DEBUG_EXT         0x08
-#define OSPF_DEBUG_SR          0x10
-
-/* Macro for setting debug option. */
-#define CONF_DEBUG_PACKET_ON(a, b)	    conf_debug_ospf_packet[a] |= (b)
-#define CONF_DEBUG_PACKET_OFF(a, b)	    conf_debug_ospf_packet[a] &= ~(b)
-#define TERM_DEBUG_PACKET_ON(a, b)	    term_debug_ospf_packet[a] |= (b)
-#define TERM_DEBUG_PACKET_OFF(a, b)	    term_debug_ospf_packet[a] &= ~(b)
-#define DEBUG_PACKET_ON(a, b)                                                  \
-	do {                                                                   \
-		CONF_DEBUG_PACKET_ON(a, b);                                    \
-		TERM_DEBUG_PACKET_ON(a, b);                                    \
-	} while (0)
-#define DEBUG_PACKET_OFF(a, b)                                                 \
-	do {                                                                   \
-		CONF_DEBUG_PACKET_OFF(a, b);                                   \
-		TERM_DEBUG_PACKET_OFF(a, b);                                   \
-	} while (0)
-
-#define CONF_DEBUG_ON(a, b)	 conf_debug_ospf_ ## a |= (OSPF_DEBUG_ ## b)
-#define CONF_DEBUG_OFF(a, b)	 conf_debug_ospf_ ## a &= ~(OSPF_DEBUG_ ## b)
-#define TERM_DEBUG_ON(a, b)	 term_debug_ospf_ ## a |= (OSPF_DEBUG_ ## b)
-#define TERM_DEBUG_OFF(a, b)	 term_debug_ospf_ ## a &= ~(OSPF_DEBUG_ ## b)
-#define DEBUG_ON(a, b)                                                         \
-	do {                                                                   \
-		CONF_DEBUG_ON(a, b);                                           \
-		TERM_DEBUG_ON(a, b);                                           \
-	} while (0)
-#define DEBUG_OFF(a, b)                                                        \
-	do {                                                                   \
-		CONF_DEBUG_OFF(a, b);                                          \
-		TERM_DEBUG_OFF(a, b);                                          \
-	} while (0)
-
-/* Macro for checking debug option. */
-#define IS_DEBUG_OSPF_PACKET(a, b) (term_debug_ospf_packet[a] & OSPF_DEBUG_##b)
-#define IS_DEBUG_OSPF(a, b) (term_debug_ospf_##a & OSPF_DEBUG_##b)
-#define IS_DEBUG_OSPF_EVENT IS_DEBUG_OSPF(event, EVENT)
-
-#define IS_DEBUG_OSPF_NSSA  IS_DEBUG_OSPF(nssa, NSSA)
-
-#define IS_DEBUG_OSPF_TE  IS_DEBUG_OSPF(te, TE)
-
-#define IS_DEBUG_OSPF_EXT  IS_DEBUG_OSPF(ext, EXT)
-
-#define IS_DEBUG_OSPF_SR  IS_DEBUG_OSPF(sr, SR)
-
-#define IS_CONF_DEBUG_OSPF_PACKET(a, b)                                        \
-	(conf_debug_ospf_packet[a] & OSPF_DEBUG_##b)
-#define IS_CONF_DEBUG_OSPF(a, b) (conf_debug_ospf_##a & OSPF_DEBUG_##b)
-
-#ifdef ORIGINAL_CODING
-#else  /* ORIGINAL_CODING */
-struct stream;
-#endif /* ORIGINAL_CODING */
-
-#define AREA_NAME(A)    ospf_area_name_string ((A))
-#define IF_NAME(I)      ospf_if_name_string ((I))
-
-/* Extern debug flag. */
-extern unsigned long term_debug_ospf_packet[];
-extern unsigned long term_debug_ospf_event;
-extern unsigned long term_debug_ospf_ism;
-extern unsigned long term_debug_ospf_nsm;
-extern unsigned long term_debug_ospf_lsa;
-extern unsigned long term_debug_ospf_zebra;
-extern unsigned long term_debug_ospf_nssa;
-extern unsigned long term_debug_ospf_te;
-extern unsigned long term_debug_ospf_ext;
-extern unsigned long term_debug_ospf_sr;
-
-/* Message Strings. */
-extern char *ospf_lsa_type_str[];
-
-/* Prototypes. */
-extern const char *ospf_area_name_string(struct ospf_area *);
-extern const char *ospf_area_desc_string(struct ospf_area *);
-extern const char *ospf_if_name_string(struct ospf_interface *);
-extern void ospf_nbr_state_message(struct ospf_neighbor *, char *, size_t);
-extern const char *ospf_timer_dump(struct thread *, char *, size_t);
-extern const char *ospf_timeval_dump(struct timeval *, char *, size_t);
-extern void ospf_ip_header_dump(struct ip *);
-extern void ospf_packet_dump(struct stream *);
-extern void debug_init(void);
-
-/* Appropriate buffer size to use with ospf_timer_dump and ospf_timeval_dump: */
-#define OSPF_TIME_DUMP_SIZE	16
-
-#endif /* _ZEBRA_OSPF_DUMP_H */
+/**OSPFddumproutine.*Copyright(C)1999ToshiakiTakada**ThisfileispartofGNUZebra.**
+GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNUG
+eneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(aty
+ouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,bu
+t*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFOR
+APARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhaver
+eceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;
+ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02
+110-1301USA*/#ifndef_ZEBRA_OSPF_DUMP_H#define_ZEBRA_OSPF_DUMP_H/*DebugFlags.*/#d
+efineOSPF_DEBUG_HELLO0x01#defineOSPF_DEBUG_DB_DESC0x02#defineOSPF_DEBUG_LS_REQ0x
+04#defineOSPF_DEBUG_LS_UPD0x08#defineOSPF_DEBUG_LS_ACK0x10#defineOSPF_DEBUG_ALL0
+x1f#defineOSPF_DEBUG_SEND0x01#defineOSPF_DEBUG_RECV0x02#defineOSPF_DEBUG_SEND_RE
+CV0x03#defineOSPF_DEBUG_DETAIL0x04#defineOSPF_DEBUG_ISM_STATUS0x01#defineOSPF_DE
+BUG_ISM_EVENTS0x02#defineOSPF_DEBUG_ISM_TIMERS0x04#defineOSPF_DEBUG_ISM0x07#defi
+neOSPF_DEBUG_NSM_STATUS0x01#defineOSPF_DEBUG_NSM_EVENTS0x02#defineOSPF_DEBUG_NSM
+_TIMERS0x04#defineOSPF_DEBUG_NSM0x07#defineOSPF_DEBUG_LSA_GENERATE0x01#defineOSP
+F_DEBUG_LSA_FLOODING0x02#defineOSPF_DEBUG_LSA_INSTALL0x04#defineOSPF_DEBUG_LSA_R
+EFRESH0x08#defineOSPF_DEBUG_LSA0x0F#defineOSPF_DEBUG_ZEBRA_INTERFACE0x01#defineO
+SPF_DEBUG_ZEBRA_REDISTRIBUTE0x02#defineOSPF_DEBUG_ZEBRA0x03#defineOSPF_DEBUG_EVE
+NT0x01#defineOSPF_DEBUG_NSSA0x02#defineOSPF_DEBUG_TE0x04#defineOSPF_DEBUG_EXT0x0
+8#defineOSPF_DEBUG_SR0x10/*Macroforsettingdebugoption.*/#defineCONF_DEBUG_PACKET
+_ON(a,b)conf_debug_ospf_packet[a]|=(b)#defineCONF_DEBUG_PACKET_OFF(a,b)conf_debu
+g_ospf_packet[a]&=~(b)#defineTERM_DEBUG_PACKET_ON(a,b)term_debug_ospf_packet[a]|
+=(b)#defineTERM_DEBUG_PACKET_OFF(a,b)term_debug_ospf_packet[a]&=~(b)#defineDEBUG
+_PACKET_ON(a,b)\do{\CONF_DEBUG_PACKET_ON(a,b);\TERM_DEBUG_PACKET_ON(a,b);\}while
+(0)#defineDEBUG_PACKET_OFF(a,b)\do{\CONF_DEBUG_PACKET_OFF(a,b);\TERM_DEBUG_PACKE
+T_OFF(a,b);\}while(0)#defineCONF_DEBUG_ON(a,b)conf_debug_ospf_##a|=(OSPF_DEBUG_#
+#b)#defineCONF_DEBUG_OFF(a,b)conf_debug_ospf_##a&=~(OSPF_DEBUG_##b)#defineTERM_D
+EBUG_ON(a,b)term_debug_ospf_##a|=(OSPF_DEBUG_##b)#defineTERM_DEBUG_OFF(a,b)term_
+debug_ospf_##a&=~(OSPF_DEBUG_##b)#defineDEBUG_ON(a,b)\do{\CONF_DEBUG_ON(a,b);\TE
+RM_DEBUG_ON(a,b);\}while(0)#defineDEBUG_OFF(a,b)\do{\CONF_DEBUG_OFF(a,b);\TERM_D
+EBUG_OFF(a,b);\}while(0)/*Macroforcheckingdebugoption.*/#defineIS_DEBUG_OSPF_PAC
+KET(a,b)(term_debug_ospf_packet[a]&OSPF_DEBUG_##b)#defineIS_DEBUG_OSPF(a,b)(term
+_debug_ospf_##a&OSPF_DEBUG_##b)#defineIS_DEBUG_OSPF_EVENTIS_DEBUG_OSPF(event,EVE
+NT)#defineIS_DEBUG_OSPF_NSSAIS_DEBUG_OSPF(nssa,NSSA)#defineIS_DEBUG_OSPF_TEIS_DE
+BUG_OSPF(te,TE)#defineIS_DEBUG_OSPF_EXTIS_DEBUG_OSPF(ext,EXT)#defineIS_DEBUG_OSP
+F_SRIS_DEBUG_OSPF(sr,SR)#defineIS_CONF_DEBUG_OSPF_PACKET(a,b)\(conf_debug_ospf_p
+acket[a]&OSPF_DEBUG_##b)#defineIS_CONF_DEBUG_OSPF(a,b)(conf_debug_ospf_##a&OSPF_
+DEBUG_##b)#ifdefORIGINAL_CODING#else/*ORIGINAL_CODING*/structstream;#endif/*ORIG
+INAL_CODING*/#defineAREA_NAME(A)ospf_area_name_string((A))#defineIF_NAME(I)ospf_
+if_name_string((I))/*Externdebugflag.*/externunsignedlongterm_debug_ospf_packet[
+];externunsignedlongterm_debug_ospf_event;externunsignedlongterm_debug_ospf_ism;
+externunsignedlongterm_debug_ospf_nsm;externunsignedlongterm_debug_ospf_lsa;exte
+rnunsignedlongterm_debug_ospf_zebra;externunsignedlongterm_debug_ospf_nssa;exter
+nunsignedlongterm_debug_ospf_te;externunsignedlongterm_debug_ospf_ext;externunsi
+gnedlongterm_debug_ospf_sr;/*MessageStrings.*/externchar*ospf_lsa_type_str[];/*P
+rototypes.*/externconstchar*ospf_area_name_string(structospf_area*);externconstc
+har*ospf_area_desc_string(structospf_area*);externconstchar*ospf_if_name_string(
+structospf_interface*);externvoidospf_nbr_state_message(structospf_neighbor*,cha
+r*,size_t);externconstchar*ospf_timer_dump(structthread*,char*,size_t);externcon
+stchar*ospf_timeval_dump(structtimeval*,char*,size_t);externvoidospf_ip_header_d
+ump(structip*);externvoidospf_packet_dump(structstream*);externvoiddebug_init(vo
+id);/*Appropriatebuffersizetousewithospf_timer_dumpandospf_timeval_dump:*/#defin
+eOSPF_TIME_DUMP_SIZE16#endif/*_ZEBRA_OSPF_DUMP_H*/

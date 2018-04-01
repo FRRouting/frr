@@ -1,176 +1,56 @@
-/*
- *
- * Copyright 2009-2016, LabN Consulting, L.L.C.
- *
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef RFAPI_VTY_H
-#define RFAPI_VTY_H
-
-#include "lib/vty.h"
-
-typedef enum {
-	SHOW_NVE_SUMMARY_ACTIVE_NVES,
-	SHOW_NVE_SUMMARY_UNKNOWN_NVES, /* legacy */
-	SHOW_NVE_SUMMARY_REGISTERED,
-	SHOW_NVE_SUMMARY_QUERIES,
-	SHOW_NVE_SUMMARY_RESPONSES,
-	SHOW_NVE_SUMMARY_MAX
-} show_nve_summary_t;
-
-#define VNC_SHOW_STR "VNC information\n"
-
-extern char *rfapiFormatSeconds(uint32_t seconds, char *buf, size_t len);
-
-extern char *rfapiFormatAge(time_t age, char *buf, size_t len);
-
-extern void rfapiRprefixApplyMask(struct rfapi_ip_prefix *rprefix);
-
-extern int rfapiQprefix2Raddr(struct prefix *qprefix,
-			      struct rfapi_ip_addr *raddr);
-
-extern void rfapiQprefix2Rprefix(struct prefix *qprefix,
-				 struct rfapi_ip_prefix *rprefix);
-
-extern int rfapiRprefix2Qprefix(struct rfapi_ip_prefix *rprefix,
-				struct prefix *qprefix);
-
-extern int rfapiRaddr2Qprefix(struct rfapi_ip_addr *hia, struct prefix *pfx);
-
-extern int rfapiRprefixSame(struct rfapi_ip_prefix *hp1,
-			    struct rfapi_ip_prefix *hp2);
-
-extern void rfapiL2o2Qprefix(struct rfapi_l2address_option *l2o,
-			     struct prefix *pfx);
-
-extern int rfapiStr2EthAddr(const char *str, struct ethaddr *ea);
-
-extern const char *rfapi_ntop(int af, const void *src, char *buf,
-			      socklen_t size);
-
-extern int rfapiDebugPrintf(void *dummy, const char *format, ...);
-
-extern int rfapiStream2Vty(void *stream,			  /* input */
-			   int (**fp)(void *, const char *, ...), /* output */
-			   struct vty **vty,			  /* output */
-			   void **outstream,			  /* output */
-			   const char **vty_newline);		  /* output */
-
-/*------------------------------------------
- * rfapiRfapiIpAddr2Str
- *
- * UI helper: generate string from rfapi_ip_addr
- *
- * input:
- *	a			IP v4/v6 address
- *
- * output
- *	buf			put string here
- *	bufsize			max space to write
- *
- * return value:
- *	NULL			conversion failed
- *	non-NULL		pointer to buf
- --------------------------------------------*/
-extern const char *rfapiRfapiIpAddr2Str(struct rfapi_ip_addr *a, char *buf,
-					int bufsize);
-
-extern void rfapiPrintRfapiIpAddr(void *stream, struct rfapi_ip_addr *a);
-
-extern void rfapiPrintRfapiIpPrefix(void *stream, struct rfapi_ip_prefix *p);
-
-void rfapiPrintRd(struct vty *vty, struct prefix_rd *prd);
-
-extern void rfapiPrintAdvertisedInfo(struct vty *vty,
-				     struct rfapi_descriptor *rfd, safi_t safi,
-				     struct prefix *p);
-
-extern void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd);
-
-extern void rfapiPrintMatchingDescriptors(struct vty *vty,
-					  struct prefix *vn_prefix,
-					  struct prefix *un_prefix);
-
-extern void rfapiPrintAttrPtrs(void *stream, struct attr *attr);
-
-/*
- * Parse an address and put into a struct prefix
- */
-extern int rfapiCliGetPrefixAddr(struct vty *vty, const char *str,
-				 struct prefix *p);
-
-extern int rfapiCliGetRfapiIpAddr(struct vty *vty, const char *str,
-				  struct rfapi_ip_addr *hai);
-
-extern void rfapiPrintNhl(void *stream, struct rfapi_next_hop_entry *next_hops);
-
-extern char *rfapiMonitorVpn2Str(struct rfapi_monitor_vpn *m, char *buf,
-				 int size);
-
-extern const char *rfapiRfapiIpPrefix2Str(struct rfapi_ip_prefix *p, char *buf,
-					  int bufsize);
-
-extern void rfapiShowItNode(void *stream, struct route_node *rn);
-
-extern char *rfapiEthAddr2Str(const struct ethaddr *ea, char *buf, int bufsize);
-
-/* install vty commands */
-extern void rfapi_vty_init(void);
-
-/*------------------------------------------
- * rfapiShowRemoteRegistrations
- *
- * UI helper: produces the "remote" portion of the output
- * of "show vnc registrations".
- *
- * input:
- *	stream		pointer to output stream
- *	prefix_only	pointer to prefix. If non-NULL, print only registrations
- *			matching the specified prefix
- *	show_expiring	if non-zero, show expiring registrations
- *	show_local	if non-zero, show local registrations
- *	show_imported	if non-zero, show imported registrations
- *
- * return value:
- *	0		nothing printed
- *	>0		something printed
- --------------------------------------------*/
-extern int rfapiShowRemoteRegistrations(void *stream,
-					struct prefix *prefix_only,
-					int show_expiring, int show_local,
-					int show_remote, int show_imported);
-
-/*------------------------------------------
- * rfapi_monitor_count
- *
- * UI helper: count number of active monitors
- *
- * input:
- *	handle			rfapi handle (NULL to count across
- *				all open handles)
- *
- * output
- *
- * return value:
- *	count of monitors
- --------------------------------------------*/
-extern uint32_t rfapi_monitor_count(rfapi_handle);
-
-extern int rfapiShowVncQueries(void *stream, struct prefix *pfx_match);
-
-
-#endif
+/***Copyright2009-2016,LabNConsulting,L.L.C.***Thisprogramisfreesoftware;youcanr
+edistributeitand/or*modifyitunderthetermsoftheGNUGeneralPublicLicense*aspublishe
+dbytheFreeSoftwareFoundation;eitherversion2*oftheLicense,or(atyouroption)anylate
+rversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,*butWITHOUTANYWAR
+RANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURP
+OSE.Seethe*GNUGeneralPublicLicenseformoredetails.**Youshouldhavereceivedacopyoft
+heGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetoth
+eFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#i
+fndefRFAPI_VTY_H#defineRFAPI_VTY_H#include"lib/vty.h"typedefenum{SHOW_NVE_SUMMAR
+Y_ACTIVE_NVES,SHOW_NVE_SUMMARY_UNKNOWN_NVES,/*legacy*/SHOW_NVE_SUMMARY_REGISTERE
+D,SHOW_NVE_SUMMARY_QUERIES,SHOW_NVE_SUMMARY_RESPONSES,SHOW_NVE_SUMMARY_MAX}show_
+nve_summary_t;#defineVNC_SHOW_STR"VNCinformation\n"externchar*rfapiFormatSeconds
+(uint32_tseconds,char*buf,size_tlen);externchar*rfapiFormatAge(time_tage,char*bu
+f,size_tlen);externvoidrfapiRprefixApplyMask(structrfapi_ip_prefix*rprefix);exte
+rnintrfapiQprefix2Raddr(structprefix*qprefix,structrfapi_ip_addr*raddr);externvo
+idrfapiQprefix2Rprefix(structprefix*qprefix,structrfapi_ip_prefix*rprefix);exter
+nintrfapiRprefix2Qprefix(structrfapi_ip_prefix*rprefix,structprefix*qprefix);ext
+ernintrfapiRaddr2Qprefix(structrfapi_ip_addr*hia,structprefix*pfx);externintrfap
+iRprefixSame(structrfapi_ip_prefix*hp1,structrfapi_ip_prefix*hp2);externvoidrfap
+iL2o2Qprefix(structrfapi_l2address_option*l2o,structprefix*pfx);externintrfapiSt
+r2EthAddr(constchar*str,structethaddr*ea);externconstchar*rfapi_ntop(intaf,const
+void*src,char*buf,socklen_tsize);externintrfapiDebugPrintf(void*dummy,constchar*
+format,...);externintrfapiStream2Vty(void*stream,/*input*/int(**fp)(void*,constc
+har*,...),/*output*/structvty**vty,/*output*/void**outstream,/*output*/constchar
+**vty_newline);/*output*//*------------------------------------------*rfapiRfapi
+IpAddr2Str**UIhelper:generatestringfromrfapi_ip_addr**input:*aIPv4/v6address**ou
+tput*bufputstringhere*bufsizemaxspacetowrite**returnvalue:*NULLconversionfailed*
+non-NULLpointertobuf--------------------------------------------*/externconstcha
+r*rfapiRfapiIpAddr2Str(structrfapi_ip_addr*a,char*buf,intbufsize);externvoidrfap
+iPrintRfapiIpAddr(void*stream,structrfapi_ip_addr*a);externvoidrfapiPrintRfapiIp
+Prefix(void*stream,structrfapi_ip_prefix*p);voidrfapiPrintRd(structvty*vty,struc
+tprefix_rd*prd);externvoidrfapiPrintAdvertisedInfo(structvty*vty,structrfapi_des
+criptor*rfd,safi_tsafi,structprefix*p);externvoidrfapiPrintDescriptor(structvty*
+vty,structrfapi_descriptor*rfd);externvoidrfapiPrintMatchingDescriptors(structvt
+y*vty,structprefix*vn_prefix,structprefix*un_prefix);externvoidrfapiPrintAttrPtr
+s(void*stream,structattr*attr);/**Parseanaddressandputintoastructprefix*/externi
+ntrfapiCliGetPrefixAddr(structvty*vty,constchar*str,structprefix*p);externintrfa
+piCliGetRfapiIpAddr(structvty*vty,constchar*str,structrfapi_ip_addr*hai);externv
+oidrfapiPrintNhl(void*stream,structrfapi_next_hop_entry*next_hops);externchar*rf
+apiMonitorVpn2Str(structrfapi_monitor_vpn*m,char*buf,intsize);externconstchar*rf
+apiRfapiIpPrefix2Str(structrfapi_ip_prefix*p,char*buf,intbufsize);externvoidrfap
+iShowItNode(void*stream,structroute_node*rn);externchar*rfapiEthAddr2Str(constst
+ructethaddr*ea,char*buf,intbufsize);/*installvtycommands*/externvoidrfapi_vty_in
+it(void);/*------------------------------------------*rfapiShowRemoteRegistratio
+ns**UIhelper:producesthe"remote"portionoftheoutput*of"showvncregistrations".**in
+put:*streampointertooutputstream*prefix_onlypointertoprefix.Ifnon-NULL,printonly
+registrations*matchingthespecifiedprefix*show_expiringifnon-zero,showexpiringreg
+istrations*show_localifnon-zero,showlocalregistrations*show_importedifnon-zero,s
+howimportedregistrations**returnvalue:*0nothingprinted*>0somethingprinted-------
+-------------------------------------*/externintrfapiShowRemoteRegistrations(voi
+d*stream,structprefix*prefix_only,intshow_expiring,intshow_local,intshow_remote,
+intshow_imported);/*------------------------------------------*rfapi_monitor_cou
+nt**UIhelper:countnumberofactivemonitors**input:*handlerfapihandle(NULLtocountac
+ross*allopenhandles)**output**returnvalue:*countofmonitors----------------------
+----------------------*/externuint32_trfapi_monitor_count(rfapi_handle);externin
+trfapiShowVncQueries(void*stream,structprefix*pfx_match);#endif

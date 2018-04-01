@@ -1,33 +1,15 @@
-/*
-Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-*/
-
-#ifndef BABELD_BABEL_FILTER_H
-#define BABELD_BABEL_FILTER_H
-
-#include <zebra.h>
-#include "prefix.h"
-#include "babel_interface.h"
-
-int babel_filter(int output, const unsigned char *prefix, unsigned short plen,
-                 unsigned int index);
-
-#endif /* BABELD_BABEL_FILTER_H */
+/*Copyright2011byMatthieuBoutierandJuliuszChroboczekPermissionisherebygranted,fr
+eeofcharge,toanypersonobtainingacopyofthissoftwareandassociateddocumentationfile
+s(the"Software"),todealintheSoftwarewithoutrestriction,includingwithoutlimitatio
+ntherightstouse,copy,modify,merge,publish,distribute,sublicense,and/orsellcopies
+oftheSoftware,andtopermitpersonstowhomtheSoftwareisfurnishedtodoso,subjecttothef
+ollowingconditions:Theabovecopyrightnoticeandthispermissionnoticeshallbeincluded
+inallcopiesorsubstantialportionsoftheSoftware.THESOFTWAREISPROVIDED"ASIS",WITHOU
+TWARRANTYOFANYKIND,EXPRESSORIMPLIED,INCLUDINGBUTNOTLIMITEDTOTHEWARRANTIESOFMERCH
+ANTABILITY,FITNESSFORAPARTICULARPURPOSEANDNONINFRINGEMENT.INNOEVENTSHALLTHEAUTHO
+RSORCOPYRIGHTHOLDERSBELIABLEFORANYCLAIM,DAMAGESOROTHERLIABILITY,WHETHERINANACTIO
+NOFCONTRACT,TORTOROTHERWISE,ARISINGFROM,OUTOFORINCONNECTIONWITHTHESOFTWAREORTHEU
+SEOROTHERDEALINGSINTHESOFTWARE.*/#ifndefBABELD_BABEL_FILTER_H#defineBABELD_BABEL
+_FILTER_H#include<zebra.h>#include"prefix.h"#include"babel_interface.h"intbabel_
+filter(intoutput,constunsignedchar*prefix,unsignedshortplen,unsignedintindex);#e
+ndif/*BABELD_BABEL_FILTER_H*/

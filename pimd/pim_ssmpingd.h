@@ -1,44 +1,16 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_SSMPINGD_H
-#define PIM_SSMPINGD_H
-
-#include <zebra.h>
-
-#include "if.h"
-
-#include "pim_iface.h"
-
-struct ssmpingd_sock {
-	struct pim_instance *pim;
-
-	int sock_fd;		    /* socket */
-	struct thread *t_sock_read; /* thread for reading socket */
-	struct in_addr source_addr; /* source address */
-	int64_t creation;	   /* timestamp of socket creation */
-	int64_t requests;	   /* counter */
-};
-
-void pim_ssmpingd_init(struct pim_instance *pim);
-void pim_ssmpingd_destroy(struct pim_instance *pim);
-int pim_ssmpingd_start(struct pim_instance *pim, struct in_addr source_addr);
-int pim_ssmpingd_stop(struct pim_instance *pim, struct in_addr source_addr);
-
-#endif /* PIM_SSMPINGD_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_SSMPINGD_H#definePIM_SSMPINGD_H#include<zebra.h>#include"if.h"#
+include"pim_iface.h"structssmpingd_sock{structpim_instance*pim;intsock_fd;/*sock
+et*/structthread*t_sock_read;/*threadforreadingsocket*/structin_addrsource_addr;
+/*sourceaddress*/int64_tcreation;/*timestampofsocketcreation*/int64_trequests;/*
+counter*/};voidpim_ssmpingd_init(structpim_instance*pim);voidpim_ssmpingd_destro
+y(structpim_instance*pim);intpim_ssmpingd_start(structpim_instance*pim,structin_
+addrsource_addr);intpim_ssmpingd_stop(structpim_instance*pim,structin_addrsource
+_addr);#endif/*PIM_SSMPINGD_H*/

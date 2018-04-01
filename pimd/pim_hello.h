@@ -1,38 +1,14 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_HELLO_H
-#define PIM_HELLO_H
-
-#include <zebra.h>
-
-#include "if.h"
-
-int pim_hello_recv(struct interface *ifp, struct in_addr src_addr,
-		   uint8_t *tlv_buf, int tlv_buf_size);
-
-int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
-			int tlv_buf_size, uint16_t holdtime,
-			uint32_t dr_priority, uint32_t generation_id,
-			uint16_t propagation_delay, uint16_t override_interval,
-			int can_disable_join_suppression);
-
-void pim_hello_require(struct interface *ifp);
-
-#endif /* PIM_HELLO_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_HELLO_H#definePIM_HELLO_H#include<zebra.h>#include"if.h"intpim_
+hello_recv(structinterface*ifp,structin_addrsrc_addr,uint8_t*tlv_buf,inttlv_buf_
+size);intpim_hello_build_tlv(structinterface*ifp,uint8_t*tlv_buf,inttlv_buf_size
+,uint16_tholdtime,uint32_tdr_priority,uint32_tgeneration_id,uint16_tpropagation_
+delay,uint16_toverride_interval,intcan_disable_join_suppression);voidpim_hello_r
+equire(structinterface*ifp);#endif/*PIM_HELLO_H*/

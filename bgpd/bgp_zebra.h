@@ -1,73 +1,35 @@
-/* zebra connection and redistribute fucntions.
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_BGP_ZEBRA_H
-#define _QUAGGA_BGP_ZEBRA_H
-
-#include "vxlan.h"
-
-extern void bgp_zebra_init(struct thread_master *master);
-extern void bgp_zebra_init_tm_connect(void);
-extern void bgp_zebra_destroy(void);
-extern int bgp_zebra_get_table_range(uint32_t chunk_size,
-				     uint32_t *start, uint32_t *end);
-extern int bgp_if_update_all(void);
-extern void bgp_config_write_maxpaths(struct vty *, struct bgp *, afi_t,
-				      safi_t);
-extern void bgp_config_write_redistribute(struct vty *, struct bgp *, afi_t,
-					  safi_t);
-extern void bgp_zebra_announce(struct bgp_node *, struct prefix *,
-			       struct bgp_info *, struct bgp *, afi_t, safi_t);
-extern void bgp_zebra_announce_table(struct bgp *, afi_t, safi_t);
-extern void bgp_zebra_withdraw(struct prefix *, struct bgp_info *,
-			       struct bgp *, safi_t);
-
-extern void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer);
-extern void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer);
-
-extern void bgp_zebra_instance_register(struct bgp *);
-extern void bgp_zebra_instance_deregister(struct bgp *);
-
-extern struct bgp_redist *bgp_redist_lookup(struct bgp *, afi_t, uint8_t,
-					    unsigned short);
-extern struct bgp_redist *bgp_redist_add(struct bgp *, afi_t, uint8_t,
-					 unsigned short);
-extern int bgp_redistribute_set(struct bgp *, afi_t, int, unsigned short);
-extern int bgp_redistribute_resend(struct bgp *, afi_t, int, unsigned short);
-extern int bgp_redistribute_rmap_set(struct bgp_redist *, const char *);
-extern int bgp_redistribute_metric_set(struct bgp *, struct bgp_redist *, afi_t,
-				       int, uint32_t);
-extern int bgp_redistribute_unset(struct bgp *, afi_t, int, unsigned short);
-extern int bgp_redistribute_unreg(struct bgp *, afi_t, int, unsigned short);
-
-extern struct interface *if_lookup_by_ipv4(struct in_addr *, vrf_id_t);
-extern struct interface *if_lookup_by_ipv4_exact(struct in_addr *, vrf_id_t);
-extern struct interface *if_lookup_by_ipv6(struct in6_addr *, ifindex_t,
-					   vrf_id_t);
-extern struct interface *if_lookup_by_ipv6_exact(struct in6_addr *, ifindex_t,
-						 vrf_id_t);
-extern int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise,
-				      vni_t vni);
-extern int bgp_zebra_advertise_gw_macip(struct bgp *, int, vni_t);
-extern int bgp_zebra_advertise_all_vni(struct bgp *, int);
-
-extern int bgp_zebra_num_connects(void);
-
-#endif /* _QUAGGA_BGP_ZEBRA_H */
+/*zebraconnectionandredistributefucntions.*Copyright(C)1999KunihiroIshiguro**Thi
+sfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyi
+t*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundati
+on;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistributedintheh
+opethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MER
+CHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformore
+details.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthispr
+ogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinS
+t,FifthFloor,Boston,MA02110-1301USA*/#ifndef_QUAGGA_BGP_ZEBRA_H#define_QUAGGA_BG
+P_ZEBRA_H#include"vxlan.h"externvoidbgp_zebra_init(structthread_master*master);e
+xternvoidbgp_zebra_init_tm_connect(void);externvoidbgp_zebra_destroy(void);exter
+nintbgp_zebra_get_table_range(uint32_tchunk_size,uint32_t*start,uint32_t*end);ex
+ternintbgp_if_update_all(void);externvoidbgp_config_write_maxpaths(structvty*,st
+ructbgp*,afi_t,safi_t);externvoidbgp_config_write_redistribute(structvty*,struct
+bgp*,afi_t,safi_t);externvoidbgp_zebra_announce(structbgp_node*,structprefix*,st
+ructbgp_info*,structbgp*,afi_t,safi_t);externvoidbgp_zebra_announce_table(struct
+bgp*,afi_t,safi_t);externvoidbgp_zebra_withdraw(structprefix*,structbgp_info*,st
+ructbgp*,safi_t);externvoidbgp_zebra_initiate_radv(structbgp*bgp,structpeer*peer
+);externvoidbgp_zebra_terminate_radv(structbgp*bgp,structpeer*peer);externvoidbg
+p_zebra_instance_register(structbgp*);externvoidbgp_zebra_instance_deregister(st
+ructbgp*);externstructbgp_redist*bgp_redist_lookup(structbgp*,afi_t,uint8_t,unsi
+gnedshort);externstructbgp_redist*bgp_redist_add(structbgp*,afi_t,uint8_t,unsign
+edshort);externintbgp_redistribute_set(structbgp*,afi_t,int,unsignedshort);exter
+nintbgp_redistribute_resend(structbgp*,afi_t,int,unsignedshort);externintbgp_red
+istribute_rmap_set(structbgp_redist*,constchar*);externintbgp_redistribute_metri
+c_set(structbgp*,structbgp_redist*,afi_t,int,uint32_t);externintbgp_redistribute
+_unset(structbgp*,afi_t,int,unsignedshort);externintbgp_redistribute_unreg(struc
+tbgp*,afi_t,int,unsignedshort);externstructinterface*if_lookup_by_ipv4(structin_
+addr*,vrf_id_t);externstructinterface*if_lookup_by_ipv4_exact(structin_addr*,vrf
+_id_t);externstructinterface*if_lookup_by_ipv6(structin6_addr*,ifindex_t,vrf_id_
+t);externstructinterface*if_lookup_by_ipv6_exact(structin6_addr*,ifindex_t,vrf_i
+d_t);externintbgp_zebra_advertise_subnet(structbgp*bgp,intadvertise,vni_tvni);ex
+ternintbgp_zebra_advertise_gw_macip(structbgp*,int,vni_t);externintbgp_zebra_adv
+ertise_all_vni(structbgp*,int);externintbgp_zebra_num_connects(void);#endif/*_QU
+AGGA_BGP_ZEBRA_H*/

@@ -1,58 +1,20 @@
-/* BGP Flowspec header for utilities
- * Copyright (C) 2018 6WIND
- *
- * FRRouting is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRRouting is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _FRR_BGP_FLOWSPEC_UTIL_H
-#define _FRR_BGP_FLOWSPEC_UTIL_H
-
-#include "zclient.h"
-
-#define BGP_FLOWSPEC_STRING_DISPLAY_MAX 512
-
-enum bgp_flowspec_util_nlri_t {
-	BGP_FLOWSPEC_VALIDATE_ONLY = 0,
-	BGP_FLOWSPEC_RETURN_STRING = 1,
-	BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE = 2,
-	BGP_FLOWSPEC_RETURN_JSON = 3,
-};
-
-
-extern int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
-				  uint8_t *nlri_ptr,
-				  uint32_t max_len,
-				  void *result, int *error);
-
-extern int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
-				   uint8_t *nlri_ptr,
-				   uint32_t max_len,
-				   void *result, int *error);
-
-extern int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
-					uint8_t *nlri_ptr,
-					uint32_t max_len,
-					void *result, int *error);
-
-extern int bgp_flowspec_fragment_type_decode(enum bgp_flowspec_util_nlri_t type,
-					     uint8_t *nlri_ptr,
-					     uint32_t max_len,
-					     void *result, int *error);
-
-extern struct bgp_node *bgp_flowspec_get_match_per_ip(afi_t afi,
-						      struct bgp_table *rib,
-						      struct prefix *match,
-						      int prefix_check);
-#endif /* _FRR_BGP_FLOWSPEC_UTIL_H */
+/*BGPFlowspecheaderforutilities*Copyright(C)20186WIND**FRRoutingisfreesoftware;y
+oucanredistributeitand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspub
+lishedbythe*FreeSoftwareFoundation;eitherversion2,or(atyouroption)any*laterversi
+on.**FRRoutingisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;wi
+thouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.Seet
+heGNU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUGen
+eralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSof
+tware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_FR
+R_BGP_FLOWSPEC_UTIL_H#define_FRR_BGP_FLOWSPEC_UTIL_H#include"zclient.h"#defineBG
+P_FLOWSPEC_STRING_DISPLAY_MAX512enumbgp_flowspec_util_nlri_t{BGP_FLOWSPEC_VALIDA
+TE_ONLY=0,BGP_FLOWSPEC_RETURN_STRING=1,BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE=2,BGP_
+FLOWSPEC_RETURN_JSON=3,};externintbgp_flowspec_op_decode(enumbgp_flowspec_util_n
+lri_ttype,uint8_t*nlri_ptr,uint32_tmax_len,void*result,int*error);externintbgp_f
+lowspec_ip_address(enumbgp_flowspec_util_nlri_ttype,uint8_t*nlri_ptr,uint32_tmax
+_len,void*result,int*error);externintbgp_flowspec_tcpflags_decode(enumbgp_flowsp
+ec_util_nlri_ttype,uint8_t*nlri_ptr,uint32_tmax_len,void*result,int*error);exter
+nintbgp_flowspec_fragment_type_decode(enumbgp_flowspec_util_nlri_ttype,uint8_t*n
+lri_ptr,uint32_tmax_len,void*result,int*error);externstructbgp_node*bgp_flowspec
+_get_match_per_ip(afi_tafi,structbgp_table*rib,structprefix*match,intprefix_chec
+k);#endif/*_FRR_BGP_FLOWSPEC_UTIL_H*/

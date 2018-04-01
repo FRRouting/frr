@@ -1,87 +1,30 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_misc.h
- *                             Miscellanous routines
- *
- * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology
- *                           Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_ISIS_MISC_H
-#define _ZEBRA_ISIS_MISC_H
-
-int string2circuit_t(const char *);
-const char *circuit_t2string(int);
-const char *circuit_state2string(int state);
-const char *circuit_type2string(int type);
-const char *syst2string(int);
-struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen);
-/*
- * Converting input to memory stored format
- * return value of 0 indicates wrong input
- */
-int dotformat2buff(uint8_t *, const char *);
-int sysid2buff(uint8_t *, const char *);
-
-/*
- * Printing functions
- */
-const char *isonet_print(const uint8_t *, int len);
-const char *sysid_print(const uint8_t *);
-const char *snpa_print(const uint8_t *);
-const char *rawlspid_print(const uint8_t *);
-const char *isis_format_id(const uint8_t *id, size_t len);
-const char *time2string(uint32_t);
-const char *nlpid2str(uint8_t nlpid);
-/* typedef struct nlpids nlpids; */
-char *nlpid2string(struct nlpids *);
-const char *print_sys_hostname(const uint8_t *sysid);
-void zlog_dump_data(void *data, int len);
-
-/*
- * misc functions
- */
-unsigned long isis_jitter(unsigned long timer, unsigned long jitter);
-
-/*
- * macros
- */
-#define GETSYSID(A)                                                            \
-	(A->area_addr + (A->addr_len - (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN)))
-
-/* used for calculating nice string representation instead of plain seconds */
-
-#define SECS_PER_MINUTE 60
-#define SECS_PER_HOUR   3600
-#define SECS_PER_DAY    86400
-#define SECS_PER_WEEK   604800
-#define SECS_PER_MONTH  2628000
-#define SECS_PER_YEAR   31536000
-
-enum { ISIS_UI_LEVEL_BRIEF,
-       ISIS_UI_LEVEL_DETAIL,
-       ISIS_UI_LEVEL_EXTENSIVE,
-};
-
-#include "lib/log.h"
-void log_multiline(int priority, const char *prefix, const char *format, ...)
-	PRINTF_ATTRIBUTE(3, 4);
-struct vty;
-void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
-	PRINTF_ATTRIBUTE(3, 4);
-void vty_out_timestr(struct vty *vty, time_t uptime);
-#endif
+/**IS-ISRout(e)ingprotocol-isis_misc.h*Miscellanousroutines**Copyright(C)2001,20
+02SampoSaaristo*TampereUniversityofTechnology*InstituteofCommunicationsEngineeri
+ng**Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsof
+theGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;eitherversion2
+oftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistributedinthehop
+ethatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERCHA
+NTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*morede
+tails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprog
+ram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,
+FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_ISIS_MISC_H#define_ZEBRA_ISIS_M
+ISC_Hintstring2circuit_t(constchar*);constchar*circuit_t2string(int);constchar*c
+ircuit_state2string(intstate);constchar*circuit_type2string(inttype);constchar*s
+yst2string(int);structin_addrnewprefix2inaddr(uint8_t*prefix_start,uint8_tprefix
+_masklen);/**Convertinginputtomemorystoredformat*returnvalueof0indicateswronginp
+ut*/intdotformat2buff(uint8_t*,constchar*);intsysid2buff(uint8_t*,constchar*);/*
+*Printingfunctions*/constchar*isonet_print(constuint8_t*,intlen);constchar*sysid
+_print(constuint8_t*);constchar*snpa_print(constuint8_t*);constchar*rawlspid_pri
+nt(constuint8_t*);constchar*isis_format_id(constuint8_t*id,size_tlen);constchar*
+time2string(uint32_t);constchar*nlpid2str(uint8_tnlpid);/*typedefstructnlpidsnlp
+ids;*/char*nlpid2string(structnlpids*);constchar*print_sys_hostname(constuint8_t
+*sysid);voidzlog_dump_data(void*data,intlen);/**miscfunctions*/unsignedlongisis_
+jitter(unsignedlongtimer,unsignedlongjitter);/**macros*/#defineGETSYSID(A)\(A->a
+rea_addr+(A->addr_len-(ISIS_SYS_ID_LEN+ISIS_NSEL_LEN)))/*usedforcalculatingnices
+tringrepresentationinsteadofplainseconds*/#defineSECS_PER_MINUTE60#defineSECS_PE
+R_HOUR3600#defineSECS_PER_DAY86400#defineSECS_PER_WEEK604800#defineSECS_PER_MONT
+H2628000#defineSECS_PER_YEAR31536000enum{ISIS_UI_LEVEL_BRIEF,ISIS_UI_LEVEL_DETAI
+L,ISIS_UI_LEVEL_EXTENSIVE,};#include"lib/log.h"voidlog_multiline(intpriority,con
+stchar*prefix,constchar*format,...)PRINTF_ATTRIBUTE(3,4);structvty;voidvty_multi
+line(structvty*vty,constchar*prefix,constchar*format,...)PRINTF_ATTRIBUTE(3,4);v
+oidvty_out_timestr(structvty*vty,time_tuptime);#endif

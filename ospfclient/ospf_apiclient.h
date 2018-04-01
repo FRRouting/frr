@@ -1,103 +1,43 @@
-/*
- * Client side of OSPF API.
- * Copyright (C) 2001, 2002, 2003 Ralph Keller
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _OSPF_APICLIENT_H
-#define _OSPF_APICLIENT_H
-
-/* Structure for the OSPF API client */
-struct ospf_apiclient {
-
-	/* Sockets for sync requests and async notifications */
-	int fd_sync;
-	int fd_async;
-
-	/* Pointer to callback functions */
-	void (*ready_notify)(uint8_t lsa_type, uint8_t opaque_type,
-			     struct in_addr addr);
-	void (*new_if)(struct in_addr ifaddr, struct in_addr area_id);
-	void (*del_if)(struct in_addr ifaddr);
-	void (*ism_change)(struct in_addr ifaddr, struct in_addr area_id,
-			   uint8_t status);
-	void (*nsm_change)(struct in_addr ifaddr, struct in_addr nbraddr,
-			   struct in_addr router_id, uint8_t status);
-	void (*update_notify)(struct in_addr ifaddr, struct in_addr area_id,
-			      uint8_t self_origin, struct lsa_header *lsa);
-	void (*delete_notify)(struct in_addr ifaddr, struct in_addr area_id,
-			      uint8_t self_origin, struct lsa_header *lsa);
-};
-
-
-/* ---------------------------------------------------------
- * API function prototypes.
- * --------------------------------------------------------- */
-
-/* Open connection to OSPF daemon. Two ports will be allocated on
-   client, sync channel at syncport and reverse channel at syncport+1 */
-struct ospf_apiclient *ospf_apiclient_connect(char *host, int syncport);
-
-/* Shutdown connection to OSPF daemon. */
-int ospf_apiclient_close(struct ospf_apiclient *oclient);
-
-/* Synchronous request to register opaque type. */
-int ospf_apiclient_register_opaque_type(struct ospf_apiclient *oclient,
-					uint8_t ltype, uint8_t otype);
-
-/* Synchronous request to register event mask. */
-int ospf_apiclient_register_events(struct ospf_apiclient *oclient,
-				   uint32_t mask);
-
-/* Register callback functions.*/
-void ospf_apiclient_register_callback(
-	struct ospf_apiclient *oclient,
-	void (*ready_notify)(uint8_t lsa_type, uint8_t opaque_type,
-			     struct in_addr addr),
-	void (*new_if)(struct in_addr ifaddr, struct in_addr area_id),
-	void (*del_if)(struct in_addr ifaddr),
-	void (*ism_change)(struct in_addr ifaddr, struct in_addr area_id,
-			   uint8_t status),
-	void (*nsm_change)(struct in_addr ifaddr, struct in_addr nbraddr,
-			   struct in_addr router_id, uint8_t status),
-	void (*update_notify)(struct in_addr ifaddr, struct in_addr area_id,
-			      uint8_t selforig, struct lsa_header *lsa),
-	void (*delete_notify)(struct in_addr ifaddr, struct in_addr area_id,
-			      uint8_t selforig, struct lsa_header *lsa));
-
-/* Synchronous request to synchronize LSDB. */
-int ospf_apiclient_sync_lsdb(struct ospf_apiclient *oclient);
-
-/* Synchronous request to originate or update opaque LSA. */
-int ospf_apiclient_lsa_originate(struct ospf_apiclient *oclient,
-				 struct in_addr ifaddr, struct in_addr area_id,
-				 uint8_t lsa_type, uint8_t opaque_type,
-				 uint32_t opaque_id, void *opaquedata,
-				 int opaquelen);
-
-
-/* Synchronous request to delete opaque LSA. Parameter opaque_id is in
-   host byte order */
-int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
-			      struct in_addr area_id, uint8_t lsa_type,
-			      uint8_t opaque_type, uint32_t opaque_id);
-
-/* Fetch async message and handle it  */
-int ospf_apiclient_handle_async(struct ospf_apiclient *oclient);
-
-#endif /* _OSPF_APICLIENT_H */
+/**ClientsideofOSPFAPI.*Copyright(C)2001,2002,2003RalphKeller**ThisfileispartofG
+NUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itundertheterm
+softheGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversi
+on2,or(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatitwillb
+euseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYor
+FITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yous
+houldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefi
+leCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,B
+oston,MA02110-1301USA*/#ifndef_OSPF_APICLIENT_H#define_OSPF_APICLIENT_H/*Structu
+refortheOSPFAPIclient*/structospf_apiclient{/*Socketsforsyncrequestsandasyncnoti
+fications*/intfd_sync;intfd_async;/*Pointertocallbackfunctions*/void(*ready_noti
+fy)(uint8_tlsa_type,uint8_topaque_type,structin_addraddr);void(*new_if)(structin
+_addrifaddr,structin_addrarea_id);void(*del_if)(structin_addrifaddr);void(*ism_c
+hange)(structin_addrifaddr,structin_addrarea_id,uint8_tstatus);void(*nsm_change)
+(structin_addrifaddr,structin_addrnbraddr,structin_addrrouter_id,uint8_tstatus);
+void(*update_notify)(structin_addrifaddr,structin_addrarea_id,uint8_tself_origin
+,structlsa_header*lsa);void(*delete_notify)(structin_addrifaddr,structin_addrare
+a_id,uint8_tself_origin,structlsa_header*lsa);};/*------------------------------
+---------------------------*APIfunctionprototypes.*-----------------------------
+----------------------------*//*OpenconnectiontoOSPFdaemon.Twoportswillbeallocat
+edonclient,syncchannelatsyncportandreversechannelatsyncport+1*/structospf_apicli
+ent*ospf_apiclient_connect(char*host,intsyncport);/*ShutdownconnectiontoOSPFdaem
+on.*/intospf_apiclient_close(structospf_apiclient*oclient);/*Synchronousrequestt
+oregisteropaquetype.*/intospf_apiclient_register_opaque_type(structospf_apiclien
+t*oclient,uint8_tltype,uint8_totype);/*Synchronousrequesttoregistereventmask.*/i
+ntospf_apiclient_register_events(structospf_apiclient*oclient,uint32_tmask);/*Re
+gistercallbackfunctions.*/voidospf_apiclient_register_callback(structospf_apicli
+ent*oclient,void(*ready_notify)(uint8_tlsa_type,uint8_topaque_type,structin_addr
+addr),void(*new_if)(structin_addrifaddr,structin_addrarea_id),void(*del_if)(stru
+ctin_addrifaddr),void(*ism_change)(structin_addrifaddr,structin_addrarea_id,uint
+8_tstatus),void(*nsm_change)(structin_addrifaddr,structin_addrnbraddr,structin_a
+ddrrouter_id,uint8_tstatus),void(*update_notify)(structin_addrifaddr,structin_ad
+drarea_id,uint8_tselforig,structlsa_header*lsa),void(*delete_notify)(structin_ad
+drifaddr,structin_addrarea_id,uint8_tselforig,structlsa_header*lsa));/*Synchrono
+usrequesttosynchronizeLSDB.*/intospf_apiclient_sync_lsdb(structospf_apiclient*oc
+lient);/*SynchronousrequesttooriginateorupdateopaqueLSA.*/intospf_apiclient_lsa_
+originate(structospf_apiclient*oclient,structin_addrifaddr,structin_addrarea_id,
+uint8_tlsa_type,uint8_topaque_type,uint32_topaque_id,void*opaquedata,intopaquele
+n);/*SynchronousrequesttodeleteopaqueLSA.Parameteropaque_idisinhostbyteorder*/in
+tospf_apiclient_lsa_delete(structospf_apiclient*oclient,structin_addrarea_id,uin
+t8_tlsa_type,uint8_topaque_type,uint32_topaque_id);/*Fetchasyncmessageandhandlei
+t*/intospf_apiclient_handle_async(structospf_apiclient*oclient);#endif/*_OSPF_AP
+ICLIENT_H*/

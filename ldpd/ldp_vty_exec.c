@@ -1,2036 +1,572 @@
-/*
- * Copyright (C) 2016 by Open Source Routing.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#include <sys/un.h>
-
-#include "ldpd.h"
-#include "ldpe.h"
-#include "lde.h"
-#include "log.h"
-#include "ldp_vty.h"
-#include "lib/json.h"
-
-#include "command.h"
-#include "vty.h"
-#include "mpls.h"
-
-enum show_command {
-	SHOW_DISC,
-	SHOW_IFACE,
-	SHOW_NBR,
-	SHOW_LIB,
-	SHOW_L2VPN_PW,
-	SHOW_L2VPN_BINDING
-};
-
-struct show_params {
-	int		family;
-	union ldpd_addr	addr;
-	uint8_t		prefixlen;
-	int		detail;
-	int		json;
-	union {
-		struct {
-			struct in_addr lsr_id;
-			int capabilities;
-		} neighbor;
-		struct {
-			struct prefix prefix;
-			int longer_prefixes;
-			struct in_addr neighbor;
-			uint32_t local_label;
-			uint32_t remote_label;
-		} lib;
-		struct {
-			struct in_addr peer;
-			uint32_t local_label;
-			uint32_t remote_label;
-			char ifname[IFNAMSIZ];
-			uint32_t vcid;
-		} l2vpn;
-	};
-};
-
-#define LDPBUFSIZ	65535
-
-static int		 show_interface_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static int		 show_interface_msg_json(struct imsg *,
-			    struct show_params *, json_object *);
-static int		 show_discovery_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static void		 show_discovery_detail_adj(struct vty *, char *,
-			    struct ctl_adj *);
-static int		 show_discovery_detail_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static int		 show_discovery_msg_json(struct imsg *,
-			    struct show_params *, json_object *);
-static void		 show_discovery_detail_adj_json(json_object *,
-			    struct ctl_adj *);
-static int		 show_discovery_detail_msg_json(struct imsg *,
-			    struct show_params *, json_object *);
-
-static int		 show_nbr_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static int		 show_nbr_msg_json(struct imsg *, struct show_params *,
-			    json_object *);
-static void		 show_nbr_detail_adj(struct vty *, char *,
-			    struct ctl_adj *);
-static int		 show_nbr_detail_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static void		 show_nbr_detail_adj_json(struct ctl_adj *,
-			    json_object *);
-static int		 show_nbr_detail_msg_json(struct imsg *,
-			    struct show_params *, json_object *);
-static void		 show_nbr_capabilities(struct vty *, struct ctl_nbr *);
-static int		 show_nbr_capabilities_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static void		 show_nbr_capabilities_json(struct ctl_nbr *,
-			    json_object *);
-static int		 show_nbr_capabilities_msg_json(struct imsg *,
-			    struct show_params *, json_object *);
-static int		 show_lib_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static int		 show_lib_detail_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static int		 show_lib_msg_json(struct imsg *, struct show_params *,
-			    json_object *);
-static int		 show_lib_detail_msg_json(struct imsg *,
-			    struct show_params *, json_object *);
-static int		 show_l2vpn_binding_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static int		 show_l2vpn_binding_msg_json(struct imsg *,
-			    struct show_params *, json_object *);
-static int		 show_l2vpn_pw_msg(struct vty *, struct imsg *,
-			    struct show_params *);
-static int		 show_l2vpn_pw_msg_json(struct imsg *,
-			    struct show_params *, json_object *);
-static int		 ldp_vty_connect(struct imsgbuf *);
-static int		 ldp_vty_dispatch_msg(struct vty *, struct imsg *,
-			    enum show_command, struct show_params *,
-			    json_object *);
-static int		 ldp_vty_dispatch(struct vty *, struct imsgbuf *,
-			    enum show_command, struct show_params *);
-static int		 ldp_vty_get_af(const char *, int *);
-
-static int
-show_interface_msg(struct vty *vty, struct imsg *imsg,
-    struct show_params *params)
-{
-	struct ctl_iface	*iface;
-	char			 timers[BUFSIZ];
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_INTERFACE:
-		iface = imsg->data;
-
-		if (params->family != AF_UNSPEC && params->family != iface->af)
-			break;
-
-		snprintf(timers, sizeof(timers), "%u/%u",
-		    iface->hello_interval, iface->hello_holdtime);
-
-		vty_out (vty, "%-4s %-11s %-6s %-8s %-12s %3u\n",
-		    af_name(iface->af), iface->name,
-		    if_state_name(iface->state), iface->uptime == 0 ?
-		    "00:00:00" : log_time(iface->uptime), timers,
-		    iface->adj_cnt);
-		break;
-	case IMSG_CTL_END:
-		vty_out (vty, "\n");
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_interface_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_iface	*iface;
-	json_object		*json_iface;
-	char 			 key_name[64];
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_INTERFACE:
-		iface = imsg->data;
-
-		if (params->family != AF_UNSPEC && params->family != iface->af)
-			break;
-
-		json_iface = json_object_new_object();
-		json_object_string_add(json_iface, "name", iface->name);
-		json_object_string_add(json_iface, "addressFamily",
-		    af_name(iface->af));
-		json_object_string_add(json_iface, "state",
-		    if_state_name(iface->state));
-		json_object_string_add(json_iface, "upTime",
-		    log_time(iface->uptime));
-		json_object_int_add(json_iface, "helloInterval",
-		    iface->hello_interval);
-		json_object_int_add(json_iface, "helloHoldtime",
-		    iface->hello_holdtime);
-		json_object_int_add(json_iface, "adjacencyCount",
-		    iface->adj_cnt);
-
-		sprintf(key_name, "%s: %s", iface->name, af_name(iface->af));
-		json_object_object_add(json, key_name, json_iface);
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_discovery_msg(struct vty *vty, struct imsg *imsg,
-    struct show_params *params)
-{
-	struct ctl_adj		*adj;
-	const char		*addr;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_DISCOVERY:
-		adj = imsg->data;
-
-		if (params->family != AF_UNSPEC && params->family != adj->af)
-			break;
-
-		vty_out(vty, "%-4s %-15s ", af_name(adj->af),
-		    inet_ntoa(adj->id));
-		switch(adj->type) {
-		case HELLO_LINK:
-			vty_out(vty, "%-8s %-15s ", "Link", adj->ifname);
-			break;
-		case HELLO_TARGETED:
-			addr = log_addr(adj->af, &adj->src_addr);
-
-			vty_out(vty, "%-8s %-15s ", "Targeted", addr);
-			if (strlen(addr) > 15)
-				vty_out(vty, "\n%46s", " ");
-			break;
-		}
-		vty_out (vty, "%9u\n", adj->holdtime);
-		break;
-	case IMSG_CTL_END:
-		vty_out (vty, "\n");
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static void
-show_discovery_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
-{
-	size_t	 buflen = strlen(buffer);
-
-	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "      LSR Id: %s:0\n", inet_ntoa(adj->id));
-	buflen = strlen(buffer);
-	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "          Source address: %s\n",
-	    log_addr(adj->af, &adj->src_addr));
-	buflen = strlen(buffer);
-	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "          Transport address: %s\n",
-	    log_addr(adj->af, &adj->trans_addr));
-	buflen = strlen(buffer);
-	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "          Hello hold time: %u secs (due in %u secs)\n",
-	    adj->holdtime, adj->holdtime_remaining);
-	buflen = strlen(buffer);
-	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "          Dual-stack capability TLV: %s\n",
-	    (adj->ds_tlv) ? "yes" : "no");
-}
-
-static int
-show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
-    struct show_params *params)
-{
-	struct ctl_adj		*adj;
-	struct ctl_disc_if	*iface;
-	struct ctl_disc_tnbr	*tnbr;
-	struct in_addr		 rtr_id;
-	union ldpd_addr		*trans_addr;
-	size_t			 buflen;
-	static char		 ifaces_buffer[LDPBUFSIZ];
-	static char		 tnbrs_buffer[LDPBUFSIZ];
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_DISCOVERY:
-		ifaces_buffer[0] = '\0';
-		tnbrs_buffer[0] = '\0';
-		break;
-	case IMSG_CTL_SHOW_DISC_IFACE:
-		iface = imsg->data;
-
-		if (params->family != AF_UNSPEC &&
-		    ((params->family == AF_INET && !iface->active_v4) ||
-		    (params->family == AF_INET6 && !iface->active_v6)))
-			break;
-
-		buflen = strlen(ifaces_buffer);
-		snprintf(ifaces_buffer + buflen, LDPBUFSIZ - buflen,
-		     "    %s: %s\n", iface->name, (iface->no_adj) ?
-		    "(no adjacencies)" : "");
-		break;
-	case IMSG_CTL_SHOW_DISC_TNBR:
-		tnbr = imsg->data;
-
-		if (params->family != AF_UNSPEC && params->family != tnbr->af)
-			break;
-
-		trans_addr = &(ldp_af_conf_get(ldpd_conf,
-		    tnbr->af))->trans_addr;
-		buflen = strlen(tnbrs_buffer);
-		snprintf(tnbrs_buffer + buflen, LDPBUFSIZ - buflen,
-		    "    %s -> %s: %s\n", log_addr(tnbr->af, trans_addr),
-		    log_addr(tnbr->af, &tnbr->addr), (tnbr->no_adj) ?
-		    "(no adjacencies)" : "");
-		break;
-	case IMSG_CTL_SHOW_DISC_ADJ:
-		adj = imsg->data;
-
-		if (params->family != AF_UNSPEC && params->family != adj->af)
-			break;
-
-		switch(adj->type) {
-		case HELLO_LINK:
-			show_discovery_detail_adj(vty, ifaces_buffer, adj);
-			break;
-		case HELLO_TARGETED:
-			show_discovery_detail_adj(vty, tnbrs_buffer, adj);
-			break;
-		}
-		break;
-	case IMSG_CTL_END:
-		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
-		vty_out (vty, "Local:\n");
-		vty_out (vty, "  LSR Id: %s:0\n",inet_ntoa(rtr_id));
-		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
-			vty_out (vty, "  Transport Address (IPv4): %s\n",
-			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
-		if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
-			vty_out (vty, "  Transport Address (IPv6): %s\n",
-			    log_addr(AF_INET6, &ldpd_conf->ipv6.trans_addr));
-		vty_out (vty, "Discovery Sources:\n");
-		vty_out (vty, "  Interfaces:\n");
-		vty_out(vty, "%s", ifaces_buffer);
-		vty_out (vty, "  Targeted Hellos:\n");
-		vty_out(vty, "%s", tnbrs_buffer);
-		vty_out (vty, "\n");
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_adj		*adj;
-	json_object		*json_array;
-	json_object		*json_adj;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_DISCOVERY:
-		adj = imsg->data;
-
-		if (params->family != AF_UNSPEC && params->family != adj->af)
-			break;
-
-		json_object_object_get_ex(json, "adjacencies", &json_array);
-		if (!json_array) {
-			json_array = json_object_new_array();
-			json_object_object_add(json, "adjacencies", json_array);
-		}
-
-		json_adj = json_object_new_object();
-		json_object_string_add(json_adj, "addressFamily",
-		    af_name(adj->af));
-		json_object_string_add(json_adj, "neighborId",
-		    inet_ntoa(adj->id));
-		switch(adj->type) {
-		case HELLO_LINK:
-			json_object_string_add(json_adj, "type", "link");
-			json_object_string_add(json_adj, "interface",
-			    adj->ifname);
-			break;
-		case HELLO_TARGETED:
-			json_object_string_add(json_adj, "type", "targeted");
-			json_object_string_add(json_adj, "peer",
-			    log_addr(adj->af, &adj->src_addr));
-			break;
-		}
-		json_object_int_add(json_adj, "helloHoldtime", adj->holdtime);
-
-		json_object_array_add(json_array, json_adj);
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static void
-show_discovery_detail_adj_json(json_object *json, struct ctl_adj *adj)
-{
-	json_object *json_adj;
-	json_object *json_array;
-
-	json_object_object_get_ex(json, "adjacencies", &json_array);
-	if (!json_array) {
-		json_array = json_object_new_array();
-		json_object_object_add(json, "adjacencies", json_array);
-	}
-
-	json_adj = json_object_new_object();
-	json_object_string_add(json_adj, "lsrId", inet_ntoa(adj->id));
-	json_object_string_add(json_adj, "sourceAddress", log_addr(adj->af,
-	    &adj->src_addr));
-	json_object_string_add(json_adj, "transportAddress", log_addr(adj->af,
-	    &adj->trans_addr));
-	json_object_int_add(json_adj, "helloHoldtime", adj->holdtime);
-	json_object_int_add(json_adj, "helloHoldtimeRemaining",
-	    adj->holdtime_remaining);
-	json_object_int_add(json_adj, "dualStackCapabilityTlv",
-	    adj->ds_tlv);
-	json_object_array_add(json_array, json_adj);
-}
-
-static int
-show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_adj		*adj;
-	struct ctl_disc_if	*iface;
-	struct ctl_disc_tnbr	*tnbr;
-	struct in_addr		 rtr_id;
-	union ldpd_addr		*trans_addr;
-	json_object		*json_interface;
-	json_object		*json_target;
-	static json_object	*json_interfaces;
-	static json_object	*json_targets;
-	static json_object	*json_container;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_DISCOVERY:
-		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
-		json_object_string_add(json, "lsrId", inet_ntoa(rtr_id));
-		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
-			json_object_string_add(json, "transportAddressIPv4",
-			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
-		if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
-			json_object_string_add(json, "transportAddressIPv6",
-			    log_addr(AF_INET6, &ldpd_conf->ipv6.trans_addr));
-		json_interfaces = json_object_new_object();
-		json_object_object_add(json, "interfaces", json_interfaces);
-		json_targets = json_object_new_object();
-		json_object_object_add(json, "targetedHellos", json_targets);
-		json_container = NULL;
-		break;
-	case IMSG_CTL_SHOW_DISC_IFACE:
-		iface = imsg->data;
-
-		if (params->family != AF_UNSPEC &&
-		    ((params->family == AF_INET && !iface->active_v4) ||
-		    (params->family == AF_INET6 && !iface->active_v6)))
-			break;
-
-		json_interface = json_object_new_object();
-		json_object_object_add(json_interfaces, iface->name,
-		    json_interface);
-		json_container = json_interface;
-		break;
-	case IMSG_CTL_SHOW_DISC_TNBR:
-		tnbr = imsg->data;
-
-		if (params->family != AF_UNSPEC && params->family != tnbr->af)
-			break;
-
-		trans_addr = &(ldp_af_conf_get(ldpd_conf, tnbr->af))->trans_addr;
-
-		json_target = json_object_new_object();
-		json_object_string_add(json_target, "sourceAddress",
-		    log_addr(tnbr->af, trans_addr));
-		json_object_object_add(json_targets, log_addr(tnbr->af,
-		    &tnbr->addr), json_target);
-		json_container = json_target;
-		break;
-	case IMSG_CTL_SHOW_DISC_ADJ:
-		adj = imsg->data;
-
-		if (params->family != AF_UNSPEC && params->family != adj->af)
-			break;
-
-		switch(adj->type) {
-		case HELLO_LINK:
-			show_discovery_detail_adj_json(json_container, adj);
-			break;
-		case HELLO_TARGETED:
-			show_discovery_detail_adj_json(json_container, adj);
-			break;
-		}
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
-{
-	struct ctl_nbr		*nbr;
-	const char		*addr;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_NBR:
-		nbr = imsg->data;
-
-		addr = log_addr(nbr->af, &nbr->raddr);
-
-		vty_out(vty, "%-4s %-15s %-11s %-15s",
-		    af_name(nbr->af), inet_ntoa(nbr->id),
-		    nbr_state_name(nbr->nbr_state), addr);
-		if (strlen(addr) > 15)
-			vty_out(vty, "\n%48s", " ");
-		vty_out (vty, " %8s\n", log_time(nbr->uptime));
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static void
-show_nbr_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
-{
-	size_t	 buflen = strlen(buffer);
-
-	switch (adj->type) {
-	case HELLO_LINK:
-		snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-		    "      Interface: %s\n", adj->ifname);
-		break;
-	case HELLO_TARGETED:
-		snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-		    "      Targeted Hello: %s\n", log_addr(adj->af,
-		    &adj->src_addr));
-		break;
-	}
-}
-
-static int
-show_nbr_detail_msg(struct vty *vty, struct imsg *imsg,
-    struct show_params *params)
-{
-	struct ctl_nbr		*nbr;
-	struct ldp_stats	*stats;
-	struct ctl_adj		*adj;
-	static char		 v4adjs_buffer[LDPBUFSIZ];
-	static char		 v6adjs_buffer[LDPBUFSIZ];
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_NBR:
-		nbr = imsg->data;
-
-		v4adjs_buffer[0] = '\0';
-		v6adjs_buffer[0] = '\0';
-		vty_out (vty, "Peer LDP Identifier: %s:0\n",
-			  inet_ntoa(nbr->id));
-		vty_out (vty, "  TCP connection: %s:%u - %s:%u\n",
-		    log_addr(nbr->af, &nbr->laddr), ntohs(nbr->lport),
-		    log_addr(nbr->af, &nbr->raddr),ntohs(nbr->rport));
-		vty_out (vty, "  Authentication: %s\n",
-		    (nbr->auth_method == AUTH_MD5SIG) ? "TCP MD5 Signature" : "none");
-		vty_out(vty, "  Session Holdtime: %u secs; "
-		    "KeepAlive interval: %u secs\n", nbr->holdtime,
-		    nbr->holdtime / KEEPALIVE_PER_PERIOD);
-		vty_out(vty, "  State: %s; Downstream-Unsolicited\n",
-		    nbr_state_name(nbr->nbr_state));
-		vty_out (vty, "  Up time: %s\n",log_time(nbr->uptime));
-
-		stats = &nbr->stats;
-		vty_out (vty, "  Messages sent/rcvd:\n");
-		vty_out (vty, "   - Keepalive Messages: %u/%u\n",
-		    stats->kalive_sent, stats->kalive_rcvd);
-		vty_out (vty, "   - Address Messages: %u/%u\n",
-		    stats->addr_sent, stats->addr_rcvd);
-		vty_out (vty, "   - Address Withdraw Messages: %u/%u\n",
-		    stats->addrwdraw_sent, stats->addrwdraw_rcvd);
-		vty_out (vty, "   - Notification Messages: %u/%u\n",
-		    stats->notif_sent, stats->notif_rcvd);
-		vty_out (vty, "   - Capability Messages: %u/%u\n",
-		    stats->capability_sent, stats->capability_rcvd);
-		vty_out (vty, "   - Label Mapping Messages: %u/%u\n",
-		    stats->labelmap_sent, stats->labelmap_rcvd);
-		vty_out (vty, "   - Label Request Messages: %u/%u\n",
-		    stats->labelreq_sent, stats->labelreq_rcvd);
-		vty_out (vty, "   - Label Withdraw Messages: %u/%u\n",
-		    stats->labelwdraw_sent, stats->labelwdraw_rcvd);
-		vty_out (vty, "   - Label Release Messages: %u/%u\n",
-		    stats->labelrel_sent, stats->labelrel_rcvd);
-		vty_out (vty, "   - Label Abort Request Messages: %u/%u\n",
-		    stats->labelabreq_sent, stats->labelabreq_rcvd);
-
-		show_nbr_capabilities(vty, nbr);
-		break;
-	case IMSG_CTL_SHOW_NBR_DISC:
-		adj = imsg->data;
-
-		switch (adj->af) {
-		case AF_INET:
-			show_nbr_detail_adj(vty, v4adjs_buffer, adj);
-			break;
-		case AF_INET6:
-			show_nbr_detail_adj(vty, v6adjs_buffer, adj);
-			break;
-		default:
-			fatalx("show_nbr_detail_msg: unknown af");
-		}
-		break;
-	case IMSG_CTL_SHOW_NBR_END:
-		vty_out (vty, "  LDP Discovery Sources:\n");
-		if (v4adjs_buffer[0] != '\0') {
-			vty_out (vty, "    IPv4:\n");
-			vty_out(vty, "%s", v4adjs_buffer);
-		}
-		if (v6adjs_buffer[0] != '\0') {
-			vty_out (vty, "    IPv6:\n");
-			vty_out(vty, "%s", v6adjs_buffer);
-		}
-		vty_out (vty, "\n");
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_nbr		*nbr;
-	json_object		*json_array;
-	json_object		*json_nbr;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_NBR:
-		nbr = imsg->data;
-
-		json_object_object_get_ex(json, "neighbors", &json_array);
-		if (!json_array) {
-			json_array = json_object_new_array();
-			json_object_object_add(json, "neighbors", json_array);
-		}
-
-		json_nbr = json_object_new_object();
-		json_object_string_add(json_nbr, "addressFamily",
-		    af_name(nbr->af));
-		json_object_string_add(json_nbr, "neighborId",
-		    inet_ntoa(nbr->id));
-		json_object_string_add(json_nbr, "state",
-		    nbr_state_name(nbr->nbr_state));
-		json_object_string_add(json_nbr, "transportAddress",
-		    log_addr(nbr->af, &nbr->raddr));
-		json_object_string_add(json_nbr, "upTime",
-		    log_time(nbr->uptime));
-
-		json_object_array_add(json_array, json_nbr);
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static void
-show_nbr_detail_adj_json(struct ctl_adj *adj, json_object *adj_list)
-{
-	char adj_string[128];
-
-	switch (adj->type) {
-	case HELLO_LINK:
-		strlcpy(adj_string, "interface: ", sizeof(adj_string));
-		strlcat(adj_string, adj->ifname, sizeof(adj_string));
-		break;
-	case HELLO_TARGETED:
-		strlcpy(adj_string, "targetedHello: ", sizeof(adj_string));
-		strlcat(adj_string, log_addr(adj->af, &adj->src_addr),
-		    sizeof(adj_string));
-		break;
-	}
-
-	json_object_array_add(adj_list, json_object_new_string(adj_string));
-}
-
-static int
-show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_nbr		*nbr;
-	struct ldp_stats	*stats;
-	struct ctl_adj		*adj;
-	json_object		*json_nbr;
-	json_object		*json_array;
-	json_object		*json_counter;
-	static json_object	*json_nbr_sources;
-	static json_object	*json_v4adjs;
-	static json_object	*json_v6adjs;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_NBR:
-		nbr = imsg->data;
-
-		json_nbr = json_object_new_object();
-		json_object_object_add(json, inet_ntoa(nbr->id), json_nbr);
-
-		json_object_string_add(json_nbr, "peerId", inet_ntoa(nbr->id));
-		json_object_string_add(json_nbr, "tcpLocalAddress",
-		    log_addr(nbr->af, &nbr->laddr));
-		json_object_int_add(json_nbr, "tcpLocalPort",
-		    ntohs(nbr->lport));
-		json_object_string_add(json_nbr, "tcpRemoteAddress",
-		    log_addr(nbr->af, &nbr->raddr));
-		json_object_int_add(json_nbr, "tcpRemotePort",
-		    ntohs(nbr->rport));
-		json_object_string_add(json_nbr, "authentication",
-		    (nbr->auth_method == AUTH_MD5SIG) ? "TCP MD5 Signature" :
-		    "none");
-		json_object_int_add(json_nbr, "sessionHoldtime", nbr->holdtime);
-		json_object_int_add(json_nbr, "keepAliveInterval",
-		    nbr->holdtime / KEEPALIVE_PER_PERIOD);
-		json_object_string_add(json_nbr, "state",
-		    nbr_state_name(nbr->nbr_state));
-		json_object_string_add(json_nbr, "upTime",
-		    log_time(nbr->uptime));
-
-		/* message_counters */
-		stats = &nbr->stats;
-		json_array = json_object_new_array();
-		json_object_object_add(json_nbr, "sentMessages", json_array);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "keepalive",
-		    stats->kalive_sent);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "address",
-		    stats->addr_sent);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "addressWithdraw",
-		    stats->addrwdraw_sent);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "notification",
-		    stats->notif_sent);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "capability",
-		    stats->capability_sent);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelMapping",
-		    stats->labelmap_sent);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelRequest",
-		    stats->labelreq_sent);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelWithdraw",
-		    stats->labelwdraw_sent);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelRelease",
-		    stats->labelrel_sent);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelAbortRequest",
-		    stats->labelabreq_sent);
-		json_object_array_add(json_array, json_counter);
-
-		json_array = json_object_new_array();
-		json_object_object_add(json_nbr, "receivedMessages", json_array);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "keepalive",
-		    stats->kalive_rcvd);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "address",
-		    stats->addr_rcvd);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "addressWithdraw",
-		    stats->addrwdraw_rcvd);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "notification",
-		    stats->notif_rcvd);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "capability",
-		    stats->capability_rcvd);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelMapping",
-		    stats->labelmap_rcvd);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelRequest",
-		    stats->labelreq_rcvd);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelWithdraw",
-		    stats->labelwdraw_rcvd);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelRelease",
-		    stats->labelrel_rcvd);
-		json_object_array_add(json_array, json_counter);
-		json_counter = json_object_new_object();
-		json_object_int_add(json_counter, "labelAbortRequest",
-		    stats->labelabreq_rcvd);
-		json_object_array_add(json_array, json_counter);
-
-		/* capabilities */
-		show_nbr_capabilities_json(nbr, json_nbr);
-
-		/* discovery sources */
-		json_nbr_sources = json_object_new_object();
-		json_object_object_add(json_nbr, "discoverySources",
-		    json_nbr_sources);
-		json_v4adjs = NULL;
-		json_v6adjs = NULL;
-		break;
-	case IMSG_CTL_SHOW_NBR_DISC:
-		adj = imsg->data;
-
-		switch (adj->af) {
-		case AF_INET:
-			if (!json_v4adjs) {
-				json_v4adjs = json_object_new_array();
-				json_object_object_add(json_nbr_sources, "ipv4",
-				    json_v4adjs);
-			}
-			show_nbr_detail_adj_json(adj, json_v4adjs);
-			break;
-		case AF_INET6:
-			if (!json_v6adjs) {
-				json_v6adjs = json_object_new_array();
-				json_object_object_add(json_nbr_sources, "ipv6",
-				    json_v6adjs);
-			}
-			show_nbr_detail_adj_json(adj, json_v6adjs);
-			break;
-		default:
-			fatalx("show_nbr_detail_msg_json: unknown af");
-		}
-		break;
-	case IMSG_CTL_SHOW_NBR_END:
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-void
-show_nbr_capabilities(struct vty *vty, struct ctl_nbr *nbr)
-{
-	vty_out (vty, "  Capabilities Sent:\n"
-	    "   - Dynamic Announcement (0x0506)\n"
-	    "   - Typed Wildcard (0x050B)\n"
-	    "   - Unrecognized Notification (0x0603)\n");
-	vty_out (vty, "  Capabilities Received:\n");
-	if (nbr->flags & F_NBR_CAP_DYNAMIC)
-		vty_out (vty,"   - Dynamic Announcement (0x0506)\n");
-	if (nbr->flags & F_NBR_CAP_TWCARD)
-		vty_out (vty, "   - Typed Wildcard (0x050B)\n");
-	if (nbr->flags & F_NBR_CAP_UNOTIF)
-		vty_out (vty,"   - Unrecognized Notification (0x0603)\n");
-}
-
-static int
-show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
-{
-	struct ctl_nbr		*nbr;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_NBR:
-		nbr = imsg->data;
-
-		if (nbr->nbr_state != NBR_STA_OPER)
-			break;
-
-		vty_out (vty, "Peer LDP Identifier: %s:0\n",
-			  inet_ntoa(nbr->id));
-		show_nbr_capabilities(vty, nbr);
-		vty_out (vty, "\n");
-		break;
-	case IMSG_CTL_END:
-		vty_out (vty, "\n");
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static void
-show_nbr_capabilities_json(struct ctl_nbr *nbr, json_object *json_nbr)
-{
-	json_object		*json_array;
-	json_object		*json_cap;
-
-	/* sent capabilities */
-	json_array = json_object_new_array();
-	json_object_object_add(json_nbr, "sentCapabilities", json_array);
-
-	/* Dynamic Announcement (0x0506) */
-	json_cap = json_object_new_object();
-	json_object_string_add(json_cap, "description", "Dynamic Announcement");
-	json_object_string_add(json_cap, "tlvType", "0x0506");
-	json_object_array_add(json_array, json_cap);
-
-	/* Typed Wildcard (0x050B) */
-	json_cap = json_object_new_object();
-	json_object_string_add(json_cap, "description", "Typed Wildcard");
-	json_object_string_add(json_cap, "tlvType", "0x050B");
-	json_object_array_add(json_array, json_cap);
-
-	/* Unrecognized Notification (0x0603) */
-	json_cap = json_object_new_object();
-	json_object_string_add(json_cap, "description",
-	    "Unrecognized Notification");
-	json_object_string_add(json_cap, "tlvType", "0x0603");
-	json_object_array_add(json_array, json_cap);
-
-	/* received capabilities */
-	json_array = json_object_new_array();
-	json_object_object_add(json_nbr, "receivedCapabilities", json_array);
-
-	/* Dynamic Announcement (0x0506) */
-	if (nbr->flags & F_NBR_CAP_DYNAMIC) {
-		json_cap = json_object_new_object();
-		json_object_string_add(json_cap, "description",
-		    "Dynamic Announcement");
-		json_object_string_add(json_cap, "tlvType", "0x0506");
-		json_object_array_add(json_array, json_cap);
-	}
-
-	/* Typed Wildcard (0x050B) */
-	if (nbr->flags & F_NBR_CAP_TWCARD) {
-		json_cap = json_object_new_object();
-		json_object_string_add(json_cap, "description",
-		    "Typed Wildcard");
-		json_object_string_add(json_cap, "tlvType", "0x050B");
-		json_object_array_add(json_array, json_cap);
-	}
-
-	/* Unrecognized Notification (0x0603) */
-	if (nbr->flags & F_NBR_CAP_UNOTIF) {
-		json_cap = json_object_new_object();
-		json_object_string_add(json_cap, "description",
-		    "Unrecognized Notification");
-		json_object_string_add(json_cap, "tlvType", "0x0603");
-		json_object_array_add(json_array, json_cap);
-	}
-}
-
-static int
-show_nbr_capabilities_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_nbr		*nbr;
-	json_object		*json_nbr;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_NBR:
-		nbr = imsg->data;
-
-		if (nbr->nbr_state != NBR_STA_OPER)
-			break;
-
-		json_nbr = json_object_new_object();
-		json_object_object_add(json, inet_ntoa(nbr->id), json_nbr);
-		show_nbr_capabilities_json(nbr, json_nbr);
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
-{
-	struct ctl_rt	*rt;
-	char		 dstnet[BUFSIZ];
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_BEGIN:
-		rt = imsg->data;
-
-		if (params->lib.remote_label != NO_LABEL &&
-		    params->lib.remote_label != rt->remote_label)
-			return (0);
-		/* FALLTHROUGH */
-	case IMSG_CTL_SHOW_LIB_RCVD:
-		rt = imsg->data;
-
-		if (imsg->hdr.type == IMSG_CTL_SHOW_LIB_BEGIN &&
-		    !rt->no_downstream)
-			break;
-
-		snprintf(dstnet, sizeof(dstnet), "%s/%d",
-		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
-
-		vty_out(vty, "%-4s %-20s", af_name(rt->af), dstnet);
-		if (strlen(dstnet) > 20)
-			vty_out(vty, "\n%25s", " ");
-		vty_out (vty, " %-15s %-11s %-13s %6s\n", inet_ntoa(rt->nexthop),
-		    log_label(rt->local_label), log_label(rt->remote_label),
-		    rt->in_use ? "yes" : "no");
-		break;
-	case IMSG_CTL_END:
-		vty_out (vty, "\n");
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
-{
-	struct ctl_rt	*rt = NULL;
-	static char	 dstnet[BUFSIZ];
-	static int	 upstream, downstream;
-	size_t		 buflen;
-	static char	 sent_buffer[LDPBUFSIZ];
-	static char	 rcvd_buffer[LDPBUFSIZ];
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_BEGIN:
-		rt = imsg->data;
-
-		upstream = 0;
-		downstream = 0;
-		sent_buffer[0] = '\0';
-		rcvd_buffer[0] = '\0';
-		snprintf(dstnet, sizeof(dstnet), "%s/%d",
-		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
-		break;
-	case IMSG_CTL_SHOW_LIB_SENT:
-		rt = imsg->data;
-
-		upstream = 1;
-		buflen = strlen(sent_buffer);
-		snprintf(sent_buffer + buflen, LDPBUFSIZ - buflen,
-		    "%12s%s:0\n", "", inet_ntoa(rt->nexthop));
-		break;
-	case IMSG_CTL_SHOW_LIB_RCVD:
-		rt = imsg->data;
-		downstream = 1;
-		buflen = strlen(rcvd_buffer);
-		snprintf(rcvd_buffer + buflen, LDPBUFSIZ - buflen,
-		    "%12s%s:0, label %s%s\n", "", inet_ntoa(rt->nexthop),
-		    log_label(rt->remote_label),
-		    rt->in_use ? " (in use)" : "");
-		break;
-	case IMSG_CTL_SHOW_LIB_END:
-		rt = imsg->data;
-
-		if (params->lib.remote_label != NO_LABEL &&
-		    !downstream)
-			break;
-		vty_out(vty, "%s\n", dstnet);
-		vty_out(vty, "%-8sLocal binding: label: %s\n", "",
-		    log_label(rt->local_label));
-		if (upstream) {
-			vty_out (vty, "%-8sAdvertised to:\n", "");
-			vty_out(vty, "%s", sent_buffer);
-		}
-		if (downstream) {
-			vty_out (vty, "%-8sRemote bindings:\n", "");
-			vty_out(vty, "%s", rcvd_buffer);
-		} else
-			vty_out (vty, "%-8sNo remote bindings\n","");
-		break;
-	case IMSG_CTL_END:
-		vty_out (vty, "\n");
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_lib_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_rt	*rt;
-	json_object	*json_array;
-	json_object	*json_lib_entry;
-	char		 dstnet[BUFSIZ];
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_BEGIN:
-	case IMSG_CTL_SHOW_LIB_RCVD:
-		rt = imsg->data;
-
-		if (imsg->hdr.type == IMSG_CTL_SHOW_LIB_BEGIN &&
-		    !rt->no_downstream)
-			break;
-
-		json_object_object_get_ex(json, "bindings", &json_array);
-		if (!json_array) {
-			json_array = json_object_new_array();
-			json_object_object_add(json, "bindings", json_array);
-		}
-
-		json_lib_entry = json_object_new_object();
-		json_object_string_add(json_lib_entry, "addressFamily",
-		    af_name(rt->af));
-		snprintf(dstnet, sizeof(dstnet), "%s/%d",
-		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
-		json_object_string_add(json_lib_entry, "prefix", dstnet);
-		json_object_string_add(json_lib_entry, "neighborId",
-		    inet_ntoa(rt->nexthop));
-		json_object_string_add(json_lib_entry, "localLabel",
-		    log_label(rt->local_label));
-		json_object_string_add(json_lib_entry, "remoteLabel",
-		    log_label(rt->remote_label));
-		json_object_int_add(json_lib_entry, "inUse", rt->in_use);
-
-		json_object_array_add(json_array, json_lib_entry);
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_rt		*rt = NULL;
-	char			 dstnet[BUFSIZ];
-	static json_object	*json_lib_entry;
-	static json_object	*json_adv_labels;
-	json_object		*json_adv_label;
-	static json_object	*json_remote_labels;
-	json_object		*json_remote_label;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_BEGIN:
-		rt = imsg->data;
-
-		snprintf(dstnet, sizeof(dstnet), "%s/%d",
-		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
-
-		json_lib_entry = json_object_new_object();
-		json_object_string_add(json_lib_entry, "localLabel",
-		    log_label(rt->local_label));
-
-		json_adv_labels = json_object_new_array();
-		json_object_object_add(json_lib_entry, "advertisedTo",
-		    json_adv_labels);
-
-		json_remote_labels = json_object_new_array();
-		json_object_object_add(json_lib_entry, "remoteLabels",
-		    json_remote_labels);
-
-		json_object_object_add(json, dstnet, json_lib_entry);
-		break;
-	case IMSG_CTL_SHOW_LIB_SENT:
-		rt = imsg->data;
-
-		json_adv_label = json_object_new_object();
-		json_object_string_add(json_adv_label, "neighborId",
-		    inet_ntoa(rt->nexthop));
-		json_object_array_add(json_adv_labels, json_adv_label);
-		break;
-	case IMSG_CTL_SHOW_LIB_RCVD:
-		rt = imsg->data;
-
-		json_remote_label = json_object_new_object();
-		json_object_string_add(json_remote_label, "neighborId",
-		    inet_ntoa(rt->nexthop));
-		json_object_string_add(json_remote_label, "label",
-		    log_label(rt->remote_label));
-		json_object_int_add(json_remote_label, "inUse", rt->in_use);
-		json_object_array_add(json_remote_labels, json_remote_label);
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
-    struct show_params *params)
-{
-	struct ctl_pw	*pw;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_L2VPN_BINDING:
-		pw = imsg->data;
-
-		vty_out (vty, "  Destination Address: %s, VC ID: %u\n",
-		    inet_ntoa(pw->lsr_id), pw->pwid);
-
-		/* local binding */
-		if (pw->local_label != NO_LABEL) {
-			vty_out (vty, "    Local Label:  %u\n",
-				  pw->local_label);
-			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    "
-			    "GroupID: %u\n", "", pw->local_cword,
-			    pw_type_name(pw->type),pw->local_gid);
-			vty_out (vty, "%-8sMTU: %u\n", "",pw->local_ifmtu);
-		} else
-			vty_out (vty,"    Local Label: unassigned\n");
-
-		/* remote binding */
-		if (pw->remote_label != NO_LABEL) {
-			vty_out (vty, "    Remote Label: %u\n",
-			    pw->remote_label);
-			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    "
-			    "GroupID: %u\n", "", pw->remote_cword,
-			    pw_type_name(pw->type),pw->remote_gid);
-			vty_out (vty, "%-8sMTU: %u\n", "",pw->remote_ifmtu);
-		} else
-			vty_out (vty,"    Remote Label: unassigned\n");
-		break;
-	case IMSG_CTL_END:
-		vty_out (vty, "\n");
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_pw	*pw;
-	json_object	*json_pw;
-	char 		 key_name[64];
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_L2VPN_BINDING:
-		pw = imsg->data;
-
-		json_pw = json_object_new_object();
-		json_object_string_add(json_pw, "destination",
-		    inet_ntoa(pw->lsr_id));
-		json_object_int_add(json_pw, "vcId", pw->pwid);
-
-		/* local binding */
-		if (pw->local_label != NO_LABEL) {
-			json_object_int_add(json_pw, "localLabel",
-			    pw->local_label);
-			json_object_int_add(json_pw, "localControlWord",
-			    pw->local_cword);
-			json_object_string_add(json_pw, "localVcType",
-			    pw_type_name(pw->type));
-			json_object_int_add(json_pw, "localGroupID",
-			    pw->local_gid);
-			json_object_int_add(json_pw, "localIfMtu",
-			    pw->local_ifmtu);
-		} else
-			json_object_string_add(json_pw, "localLabel",
-			    "unassigned");
-
-		/* remote binding */
-		if (pw->remote_label != NO_LABEL) {
-			json_object_int_add(json_pw, "remoteLabel",
-			    pw->remote_label);
-			json_object_int_add(json_pw, "remoteControlWord",
-			    pw->remote_cword);
-			json_object_string_add(json_pw, "remoteVcType",
-			    pw_type_name(pw->type));
-			json_object_int_add(json_pw, "remoteGroupID",
-			    pw->remote_gid);
-			json_object_int_add(json_pw, "remoteIfMtu",
-			    pw->remote_ifmtu);
-		} else
-			json_object_string_add(json_pw, "remoteLabel",
-			    "unassigned");
-
-		sprintf(key_name, "%s: %u", inet_ntoa(pw->lsr_id), pw->pwid);
-		json_object_object_add(json, key_name, json_pw);
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_l2vpn_pw_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
-{
-	struct ctl_pw	*pw;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_L2VPN_PW:
-		pw = imsg->data;
-
-		vty_out (vty, "%-9s %-15s %-10u %-16s %-10s\n", pw->ifname,
-		    inet_ntoa(pw->lsr_id), pw->pwid, pw->l2vpn_name,
-		    (pw->status ? "UP" : "DOWN"));
-		break;
-	case IMSG_CTL_END:
-		vty_out (vty, "\n");
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
-    json_object *json)
-{
-	struct ctl_pw	*pw;
-	json_object	*json_pw;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_L2VPN_PW:
-		pw = imsg->data;
-
-		json_pw = json_object_new_object();
-		json_object_string_add(json_pw, "peerId", inet_ntoa(pw->lsr_id));
-		json_object_int_add(json_pw, "vcId", pw->pwid);
-		json_object_string_add(json_pw, "VpnName", pw->l2vpn_name);
-		if (pw->status)
-			json_object_string_add(json_pw, "status", "up");
-		else
-			json_object_string_add(json_pw, "status", "down");
-		json_object_object_add(json, pw->ifname, json_pw);
-		break;
-	case IMSG_CTL_END:
-		return (1);
-	default:
-		break;
-	}
-
-	return (0);
-}
-
-static int
-ldp_vty_connect(struct imsgbuf *ibuf)
-{
-	struct sockaddr_un	 s_un;
-	int			 ctl_sock;
-
-	/* connect to ldpd control socket */
-	if ((ctl_sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-		log_warn("%s: socket", __func__);
-		return (-1);
-	}
-
-	memset(&s_un, 0, sizeof(s_un));
-	s_un.sun_family = AF_UNIX;
-	strlcpy(s_un.sun_path, ctl_sock_path, sizeof(s_un.sun_path));
-	if (connect(ctl_sock, (struct sockaddr *)&s_un, sizeof(s_un)) == -1) {
-		log_warn("%s: connect: %s", __func__, ctl_sock_path);
-		close(ctl_sock);
-		return (-1);
-	}
-
-	imsg_init(ibuf, ctl_sock);
-
-	return (0);
-}
-
-static int
-ldp_vty_dispatch_iface(struct vty *vty, struct imsg *imsg,
-    struct show_params *params, json_object *json)
-{
-	int	 ret;
-
-	if (params->json)
-		ret = show_interface_msg_json(imsg, params, json);
-	else
-		ret = show_interface_msg(vty, imsg, params);
-
-	return (ret);
-}
-
-static int
-ldp_vty_dispatch_disc(struct vty *vty, struct imsg *imsg,
-    struct show_params *params, json_object *json)
-{
-	int	 ret;
-
-	if (params->detail) {
-		if (params->json)
-			ret = show_discovery_detail_msg_json(imsg, params,
-			    json);
-		else
-			ret = show_discovery_detail_msg(vty, imsg, params);
-	} else {
-		if (params->json)
-			ret = show_discovery_msg_json(imsg, params, json);
-		else
-			ret = show_discovery_msg(vty, imsg, params);
-	}
-
-	return (ret);
-}
-
-static int
-ldp_vty_dispatch_nbr(struct vty *vty, struct imsg *imsg,
-    struct show_params *params, json_object *json)
-{
-	static bool	 filtered = false;
-	struct ctl_nbr	*nbr;
-	int		 ret;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_NBR:
-		filtered = false;
-		nbr = imsg->data;
-
-		if (params->neighbor.lsr_id.s_addr != INADDR_ANY &&
-		    params->neighbor.lsr_id.s_addr != nbr->id.s_addr) {
-			filtered = true;
-			return (0);
-		}
-		break;
-	case IMSG_CTL_SHOW_NBR_DISC:
-	case IMSG_CTL_SHOW_NBR_END:
-		if (filtered)
-			return (0);
-		break;
-	default:
-		break;
-	}
-
-	if (params->neighbor.capabilities) {
-		if (params->json)
-			ret = show_nbr_capabilities_msg_json(imsg, params,
-			    json);
-		else
-			ret = show_nbr_capabilities_msg(vty, imsg, params);
-	} else if (params->detail) {
-		if (params->json)
-			ret = show_nbr_detail_msg_json(imsg, params, json);
-		else
-			ret = show_nbr_detail_msg(vty, imsg, params);
-	} else {
-		if (params->json)
-			ret = show_nbr_msg_json(imsg, params, json);
-		else
-			ret = show_nbr_msg(vty, imsg, params);
-	}
-
-	return (ret);
-}
-
-static int
-ldp_vty_dispatch_lib(struct vty *vty, struct imsg *imsg,
-    struct show_params *params, json_object *json)
-{
-	static bool	 filtered = false;
-	struct ctl_rt	*rt = NULL;
-	struct prefix	 prefix;
-	int		 ret;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_BEGIN:
-		filtered = false;
-		break;
-	case IMSG_CTL_SHOW_LIB_SENT:
-	case IMSG_CTL_SHOW_LIB_RCVD:
-	case IMSG_CTL_SHOW_LIB_END:
-		if (filtered)
-			return (0);
-		break;
-	default:
-		break;
-	}
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_BEGIN:
-	case IMSG_CTL_SHOW_LIB_SENT:
-	case IMSG_CTL_SHOW_LIB_RCVD:
-	case IMSG_CTL_SHOW_LIB_END:
-		rt = imsg->data;
-
-		if (params->family != AF_UNSPEC && params->family != rt->af) {
-			filtered = true;
-			return (0);
-		}
-
-		prefix.family = rt->af;
-		prefix.prefixlen = rt->prefixlen;
-		memcpy(&prefix.u.val, &rt->prefix, sizeof(prefix.u.val));
-		if (params->lib.prefix.family != AF_UNSPEC) {
-			if (!params->lib.longer_prefixes &&
-			    !prefix_same(&params->lib.prefix, &prefix)) {
-				filtered = true;
-				return (0);
-			} else if (params->lib.longer_prefixes &&
-			    !prefix_match(&params->lib.prefix, &prefix)) {
-				filtered = true;
-				return (0);
-			}
-		}
-
-		if (params->lib.local_label != NO_LABEL &&
-		    params->lib.local_label != rt->local_label) {
-			filtered = true;
-			return (0);
-		}
-		break;
-	default:
-		break;
-	}
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_SENT:
-	case IMSG_CTL_SHOW_LIB_RCVD:
-		if (params->lib.neighbor.s_addr != INADDR_ANY &&
-		    params->lib.neighbor.s_addr != rt->nexthop.s_addr)
-			return (0);
-		break;
-	default:
-		break;
-	}
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_RCVD:
-		if (params->lib.remote_label != NO_LABEL &&
-		    params->lib.remote_label != rt->remote_label)
-			return (0);
-		break;
-	default:
-		break;
-	}
-
-	if (params->detail) {
-		if (params->json)
-			ret = show_lib_detail_msg_json(imsg, params, json);
-		else
-			ret = show_lib_detail_msg(vty, imsg, params);
-	} else {
-		if (params->json)
-			ret = show_lib_msg_json(imsg, params, json);
-		else
-			ret = show_lib_msg(vty, imsg, params);
-	}
-
-	return (ret);
-}
-
-static int
-ldp_vty_dispatch_l2vpn_pw(struct vty *vty, struct imsg *imsg,
-    struct show_params *params, json_object *json)
-{
-	struct ctl_pw	*pw;
-	int		 ret;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_L2VPN_PW:
-		pw = imsg->data;
-		if (params->l2vpn.peer.s_addr != INADDR_ANY &&
-		    params->l2vpn.peer.s_addr != pw->lsr_id.s_addr)
-			return (0);
-		if (params->l2vpn.ifname[0] != '\0' &&
-		    strcmp(params->l2vpn.ifname, pw->ifname))
-			return (0);
-		if (params->l2vpn.vcid && params->l2vpn.vcid != pw->pwid)
-			return (0);
-		break;
-	default:
-		break;
-	}
-
-	if (params->json)
-		ret = show_l2vpn_pw_msg_json(imsg, params, json);
-	else
-		ret = show_l2vpn_pw_msg(vty, imsg, params);
-
-	return (ret);
-}
-
-static int
-ldp_vty_dispatch_l2vpn_binding(struct vty *vty, struct imsg *imsg,
-    struct show_params *params, json_object *json)
-{
-	struct ctl_pw	*pw;
-	int		 ret;
-
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_L2VPN_BINDING:
-		pw = imsg->data;
-		if (params->l2vpn.peer.s_addr != INADDR_ANY &&
-		    params->l2vpn.peer.s_addr != pw->lsr_id.s_addr)
-			return (0);
-		if (params->l2vpn.local_label != NO_LABEL &&
-		    params->l2vpn.local_label != pw->local_label)
-			return (0);
-		if (params->l2vpn.remote_label != NO_LABEL &&
-		    params->l2vpn.remote_label != pw->remote_label)
-			return (0);
-		break;
-	default:
-		break;
-	}
-
-	if (params->json)
-		ret = show_l2vpn_binding_msg_json(imsg, params, json);
-	else
-		ret = show_l2vpn_binding_msg(vty, imsg, params);
-
-	return (ret);
-}
-
-static int
-ldp_vty_dispatch_msg(struct vty *vty, struct imsg *imsg, enum show_command cmd,
-    struct show_params *params, json_object *json)
-{
-	switch (cmd) {
-	case SHOW_IFACE:
-		return (ldp_vty_dispatch_iface(vty, imsg, params, json));
-	case SHOW_DISC:
-		return (ldp_vty_dispatch_disc(vty, imsg, params, json));
-	case SHOW_NBR:
-		return (ldp_vty_dispatch_nbr(vty, imsg, params, json));
-	case SHOW_LIB:
-		return (ldp_vty_dispatch_lib(vty, imsg, params, json));
-	case SHOW_L2VPN_PW:
-		return (ldp_vty_dispatch_l2vpn_pw(vty, imsg, params, json));
-	case SHOW_L2VPN_BINDING:
-		return (ldp_vty_dispatch_l2vpn_binding(vty, imsg, params,
-		    json));
-	default:
-		return (0);
-	}
-}
-
-static int
-ldp_vty_dispatch(struct vty *vty, struct imsgbuf *ibuf, enum show_command cmd,
-    struct show_params *params)
-{
-	struct imsg		 imsg;
-	int			 n, done = 0, ret = CMD_SUCCESS;
-	json_object		*json = NULL;
-
-	while (ibuf->w.queued)
-		if (msgbuf_write(&ibuf->w) <= 0 && errno != EAGAIN) {
-			log_warn("write error");
-			close(ibuf->fd);
-			return (CMD_WARNING);
-		}
-
-	if (params->json)
-		json = json_object_new_object();
-
-	while (!done) {
-		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN) {
-			log_warnx("imsg_read error");
-			ret = CMD_WARNING;
-			goto done;
-		}
-		if (n == 0) {
-			log_warnx("pipe closed");
-			ret = CMD_WARNING;
-			goto done;
-		}
-
-		while (!done) {
-			if ((n = imsg_get(ibuf, &imsg)) == -1) {
-				log_warnx("imsg_get error");
-				ret = CMD_WARNING;
-				goto done;
-			}
-			if (n == 0)
-				break;
-			done = ldp_vty_dispatch_msg(vty, &imsg, cmd, params,
-			    json);
-			imsg_free(&imsg);
-		}
-	}
-
- done:
-	close(ibuf->fd);
-	if (json) {
-		vty_out (vty, "%s\n",
-			  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
-
-	return (ret);
-}
-
-static int
-ldp_vty_get_af(const char *str, int *af)
-{
-	if (str == NULL) {
-		*af = AF_UNSPEC;
-		return (0);
-	} else if (strcmp(str, "ipv4") == 0) {
-		*af = AF_INET;
-		return (0);
-	} else if (strcmp(str, "ipv6") == 0) {
-		*af = AF_INET6;
-		return (0);
-	}
-
-	return (-1);
-}
-
-int
-ldp_vty_show_binding(struct vty *vty, const char *af_str, const char *prefix,
-    int longer_prefixes, const char *neighbor, unsigned long local_label,
-    unsigned long remote_label, const char *detail, const char *json)
-{
-	struct imsgbuf		 ibuf;
-	struct show_params	 params;
-	int			 af;
-
-	if (ldp_vty_connect(&ibuf) < 0)
-		return (CMD_WARNING);
-
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
-
-	memset(&params, 0, sizeof(params));
-	params.family = af;
-	params.detail = (detail) ? 1 : 0;
-	params.json = (json) ? 1 : 0;
-	if (prefix) {
-		(void)str2prefix(prefix, &params.lib.prefix);
-		params.lib.longer_prefixes = longer_prefixes;
-	}
-	if (neighbor &&
-	    (inet_pton(AF_INET, neighbor, &params.lib.neighbor) != 1 ||
-	     bad_addr_v4(params.lib.neighbor))) {
-		vty_out (vty, "%% Malformed address\n");
-		return (CMD_SUCCESS);
-	}
-	params.lib.local_label = local_label;
-	params.lib.remote_label = remote_label;
-
-	if (!params.detail && !params.json)
-		vty_out (vty, "%-4s %-20s %-15s %-11s %-13s %6s\n", "AF",
-		    "Destination", "Nexthop", "Local Label", "Remote Label",
-		    "In Use");
-
-	imsg_compose(&ibuf, IMSG_CTL_SHOW_LIB, 0, 0, -1, NULL, 0);
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_LIB, &params));
-}
-
-int
-ldp_vty_show_discovery(struct vty *vty, const char *af_str, const char *detail,
-    const char *json)
-{
-	struct imsgbuf		 ibuf;
-	struct show_params	 params;
-	int			 af;
-
-	if (ldp_vty_connect(&ibuf) < 0)
-		return (CMD_WARNING);
-
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
-
-	memset(&params, 0, sizeof(params));
-	params.family = af;
-	params.detail = (detail) ? 1 : 0;
-	params.json = (json) ? 1 : 0;
-
-	if (!params.detail && !params.json)
-		vty_out (vty, "%-4s %-15s %-8s %-15s %9s\n",
-		    "AF", "ID", "Type", "Source", "Holdtime");
-
-	if (params.detail)
-		imsg_compose(&ibuf, IMSG_CTL_SHOW_DISCOVERY_DTL, 0, 0, -1,
-		    NULL, 0);
-	else
-		imsg_compose(&ibuf, IMSG_CTL_SHOW_DISCOVERY, 0, 0, -1, NULL, 0);
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_DISC, &params));
-}
-
-int
-ldp_vty_show_interface(struct vty *vty, const char *af_str, const char *json)
-{
-	struct imsgbuf		 ibuf;
-	struct show_params	 params;
-	unsigned int		 ifidx = 0;
-	int			 af;
-
-	if (ldp_vty_connect(&ibuf) < 0)
-		return (CMD_WARNING);
-
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
-
-	memset(&params, 0, sizeof(params));
-	params.family = af;
-	params.json = (json) ? 1 : 0;
-
-	/* header */
-	if (!params.json) {
-		vty_out (vty, "%-4s %-11s %-6s %-8s %-12s %3s\n", "AF",
-		    "Interface", "State", "Uptime", "Hello Timers","ac");
-	}
-
-	imsg_compose(&ibuf, IMSG_CTL_SHOW_INTERFACE, 0, 0, -1, &ifidx,
-	    sizeof(ifidx));
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_IFACE, &params));
-}
-
-int
-ldp_vty_show_capabilities(struct vty *vty, const char *json)
-{
-	if (json) {
-		json_object	*json;
-		json_object	*json_array;
-		json_object	*json_cap;
-
-		json = json_object_new_object();
-		json_array = json_object_new_array();
-		json_object_object_add(json, "capabilities", json_array);
-
-		/* Dynamic Announcement (0x0506) */
-		json_cap = json_object_new_object();
-		json_object_string_add(json_cap, "description",
-		    "Dynamic Announcement");
-		json_object_string_add(json_cap, "tlvType",
-		    "0x0506");
-		json_object_array_add(json_array, json_cap);
-
-		/* Typed Wildcard (0x050B) */
-		json_cap = json_object_new_object();
-		json_object_string_add(json_cap, "description",
-		    "Typed Wildcard");
-		json_object_string_add(json_cap, "tlvType",
-		    "0x050B");
-		json_object_array_add(json_array, json_cap);
-
-		/* Unrecognized Notification (0x0603) */
-		json_cap = json_object_new_object();
-		json_object_string_add(json_cap, "description",
-		    "Unrecognized Notification");
-		json_object_string_add(json_cap, "tlvType",
-		    "0x0603");
-		json_object_array_add(json_array, json_cap);
-
-		vty_out (vty, "%s\n",
-			  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-		return (0);
-	}
-
-	vty_out (vty,
-	    "Supported LDP Capabilities\n"
-	    " * Dynamic Announcement (0x0506)\n"
-	    " * Typed Wildcard (0x050B)\n"
-	    " * Unrecognized Notification (0x0603)\n\n");
-
-	return (0);
-}
-
-int
-ldp_vty_show_neighbor(struct vty *vty, const char *lsr_id, int capabilities,
-    const char *detail, const char *json)
-{
-	struct imsgbuf		 ibuf;
-	struct show_params	 params;
-
-	if (ldp_vty_connect(&ibuf) < 0)
-		return (CMD_WARNING);
-
-	memset(&params, 0, sizeof(params));
-	params.detail = (detail) ? 1 : 0;
-	params.json = (json) ? 1 : 0;
-	params.neighbor.capabilities = capabilities;
-	if (lsr_id &&
-	    (inet_pton(AF_INET, lsr_id, &params.neighbor.lsr_id) != 1 ||
-	     bad_addr_v4(params.neighbor.lsr_id))) {
-		vty_out (vty, "%% Malformed address\n");
-		return (CMD_SUCCESS);
-	}
-
-	if (params.neighbor.capabilities)
-		params.detail = 1;
-
-	if (!params.detail && !params.json)
-		vty_out (vty, "%-4s %-15s %-11s %-15s %8s\n",
-		    "AF", "ID", "State", "Remote Address","Uptime");
-
-	imsg_compose(&ibuf, IMSG_CTL_SHOW_NBR, 0, 0, -1, NULL, 0);
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_NBR, &params));
-}
-
-int
-ldp_vty_show_atom_binding(struct vty *vty, const char *peer,
-    unsigned long local_label, unsigned long remote_label, const char *json)
-{
-	struct imsgbuf		 ibuf;
-	struct show_params	 params;
-
-	if (ldp_vty_connect(&ibuf) < 0)
-		return (CMD_WARNING);
-
-	memset(&params, 0, sizeof(params));
-	params.json = (json) ? 1 : 0;
-	if (peer &&
-	    (inet_pton(AF_INET, peer, &params.l2vpn.peer) != 1 ||
-	     bad_addr_v4(params.l2vpn.peer))) {
-		vty_out (vty, "%% Malformed address\n");
-		return (CMD_SUCCESS);
-	}
-	params.l2vpn.local_label = local_label;
-	params.l2vpn.remote_label = remote_label;
-
-	imsg_compose(&ibuf, IMSG_CTL_SHOW_L2VPN_BINDING, 0, 0, -1, NULL, 0);
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_L2VPN_BINDING, &params));
-}
-
-int
-ldp_vty_show_atom_vc(struct vty *vty, const char *peer, const char *ifname,
-    const char *vcid, const char *json)
-{
-	struct imsgbuf		 ibuf;
-	struct show_params	 params;
-
-	if (ldp_vty_connect(&ibuf) < 0)
-		return (CMD_WARNING);
-
-	memset(&params, 0, sizeof(params));
-	params.json = (json) ? 1 : 0;
-	if (peer &&
-	    (inet_pton(AF_INET, peer, &params.l2vpn.peer) != 1 ||
-	     bad_addr_v4(params.l2vpn.peer))) {
-		vty_out (vty, "%% Malformed address\n");
-		return (CMD_SUCCESS);
-	}
-	if (ifname)
-		strlcpy(params.l2vpn.ifname, ifname,
-		    sizeof(params.l2vpn.ifname));
-	if (vcid)
-		params.l2vpn.vcid = atoi(vcid);
-
-	if (!params.json) {
-		/* header */
-		vty_out (vty, "%-9s %-15s %-10s %-16s %-10s\n",
-		    "Interface", "Peer ID", "VC ID", "Name","Status");
-		vty_out (vty, "%-9s %-15s %-10s %-16s %-10s\n",
-		    "---------", "---------------", "----------",
-		    "----------------", "----------");
-	}
-
-	imsg_compose(&ibuf, IMSG_CTL_SHOW_L2VPN_PW, 0, 0, -1, NULL, 0);
-	return (ldp_vty_dispatch(vty, &ibuf, SHOW_L2VPN_PW, &params));
-}
-
-int
-ldp_vty_clear_nbr(struct vty *vty, const char *addr_str)
-{
-	struct imsgbuf		 ibuf;
-	struct ctl_nbr		 nbr;
-
-	memset(&nbr, 0, sizeof(nbr));
-	if (addr_str &&
-	    (ldp_get_address(addr_str, &nbr.af, &nbr.raddr) == -1 ||
-	    bad_addr(nbr.af, &nbr.raddr))) {
-		vty_out (vty, "%% Malformed address\n");
-		return (CMD_WARNING);
-	}
-
-	if (ldp_vty_connect(&ibuf) < 0)
-		return (CMD_WARNING);
-
-	imsg_compose(&ibuf, IMSG_CTL_CLEAR_NBR, 0, 0, -1, &nbr, sizeof(nbr));
-
-	while (ibuf.w.queued)
-		if (msgbuf_write(&ibuf.w) <= 0 && errno != EAGAIN) {
-			log_warn("write error");
-			close(ibuf.fd);
-			return (CMD_WARNING);
-		}
-
-	close(ibuf.fd);
-
-	return (CMD_SUCCESS);
-}
+/**Copyright(C)2016byOpenSourceRouting.**Thisprogramisfreesoftware;youcanredistr
+ibuteitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseaspublishedby*the
+FreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption)anylaterversi
+on.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;
+withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.Se
+etheGNU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUG
+eneralPublicLicense*alongwiththisprogram;seethefileCOPYING;ifnot,writetothe*Free
+SoftwareFoundation,Inc.,51FranklinSt,FifthFloor,Boston,*MA02110-1301USA*/#includ
+e<zebra.h>#include<sys/un.h>#include"ldpd.h"#include"ldpe.h"#include"lde.h"#incl
+ude"log.h"#include"ldp_vty.h"#include"lib/json.h"#include"command.h"#include"vty
+.h"#include"mpls.h"enumshow_command{SHOW_DISC,SHOW_IFACE,SHOW_NBR,SHOW_LIB,SHOW_
+L2VPN_PW,SHOW_L2VPN_BINDING};structshow_params{intfamily;unionldpd_addraddr;uint
+8_tprefixlen;intdetail;intjson;union{struct{structin_addrlsr_id;intcapabilities;
+}neighbor;struct{structprefixprefix;intlonger_prefixes;structin_addrneighbor;uin
+t32_tlocal_label;uint32_tremote_label;}lib;struct{structin_addrpeer;uint32_tloca
+l_label;uint32_tremote_label;charifname[IFNAMSIZ];uint32_tvcid;}l2vpn;};};#defin
+eLDPBUFSIZ65535staticintshow_interface_msg(structvty*,structimsg*,structshow_par
+ams*);staticintshow_interface_msg_json(structimsg*,structshow_params*,json_objec
+t*);staticintshow_discovery_msg(structvty*,structimsg*,structshow_params*);stati
+cvoidshow_discovery_detail_adj(structvty*,char*,structctl_adj*);staticintshow_di
+scovery_detail_msg(structvty*,structimsg*,structshow_params*);staticintshow_disc
+overy_msg_json(structimsg*,structshow_params*,json_object*);staticvoidshow_disco
+very_detail_adj_json(json_object*,structctl_adj*);staticintshow_discovery_detail
+_msg_json(structimsg*,structshow_params*,json_object*);staticintshow_nbr_msg(str
+uctvty*,structimsg*,structshow_params*);staticintshow_nbr_msg_json(structimsg*,s
+tructshow_params*,json_object*);staticvoidshow_nbr_detail_adj(structvty*,char*,s
+tructctl_adj*);staticintshow_nbr_detail_msg(structvty*,structimsg*,structshow_pa
+rams*);staticvoidshow_nbr_detail_adj_json(structctl_adj*,json_object*);staticint
+show_nbr_detail_msg_json(structimsg*,structshow_params*,json_object*);staticvoid
+show_nbr_capabilities(structvty*,structctl_nbr*);staticintshow_nbr_capabilities_
+msg(structvty*,structimsg*,structshow_params*);staticvoidshow_nbr_capabilities_j
+son(structctl_nbr*,json_object*);staticintshow_nbr_capabilities_msg_json(structi
+msg*,structshow_params*,json_object*);staticintshow_lib_msg(structvty*,structims
+g*,structshow_params*);staticintshow_lib_detail_msg(structvty*,structimsg*,struc
+tshow_params*);staticintshow_lib_msg_json(structimsg*,structshow_params*,json_ob
+ject*);staticintshow_lib_detail_msg_json(structimsg*,structshow_params*,json_obj
+ect*);staticintshow_l2vpn_binding_msg(structvty*,structimsg*,structshow_params*)
+;staticintshow_l2vpn_binding_msg_json(structimsg*,structshow_params*,json_object
+*);staticintshow_l2vpn_pw_msg(structvty*,structimsg*,structshow_params*);statici
+ntshow_l2vpn_pw_msg_json(structimsg*,structshow_params*,json_object*);staticintl
+dp_vty_connect(structimsgbuf*);staticintldp_vty_dispatch_msg(structvty*,structim
+sg*,enumshow_command,structshow_params*,json_object*);staticintldp_vty_dispatch(
+structvty*,structimsgbuf*,enumshow_command,structshow_params*);staticintldp_vty_
+get_af(constchar*,int*);staticintshow_interface_msg(structvty*vty,structimsg*ims
+g,structshow_params*params){structctl_iface*iface;chartimers[BUFSIZ];switch(imsg
+->hdr.type){caseIMSG_CTL_SHOW_INTERFACE:iface=imsg->data;if(params->family!=AF_U
+NSPEC&&params->family!=iface->af)break;snprintf(timers,sizeof(timers),"%u/%u",if
+ace->hello_interval,iface->hello_holdtime);vty_out(vty,"%-4s%-11s%-6s%-8s%-12s%3
+u\n",af_name(iface->af),iface->name,if_state_name(iface->state),iface->uptime==0
+?"00:00:00":log_time(iface->uptime),timers,iface->adj_cnt);break;caseIMSG_CTL_EN
+D:vty_out(vty,"\n");return(1);default:break;}return(0);}staticintshow_interface_
+msg_json(structimsg*imsg,structshow_params*params,json_object*json){structctl_if
+ace*iface;json_object*json_iface;charkey_name[64];switch(imsg->hdr.type){caseIMS
+G_CTL_SHOW_INTERFACE:iface=imsg->data;if(params->family!=AF_UNSPEC&&params->fami
+ly!=iface->af)break;json_iface=json_object_new_object();json_object_string_add(j
+son_iface,"name",iface->name);json_object_string_add(json_iface,"addressFamily",
+af_name(iface->af));json_object_string_add(json_iface,"state",if_state_name(ifac
+e->state));json_object_string_add(json_iface,"upTime",log_time(iface->uptime));j
+son_object_int_add(json_iface,"helloInterval",iface->hello_interval);json_object
+_int_add(json_iface,"helloHoldtime",iface->hello_holdtime);json_object_int_add(j
+son_iface,"adjacencyCount",iface->adj_cnt);sprintf(key_name,"%s:%s",iface->name,
+af_name(iface->af));json_object_object_add(json,key_name,json_iface);break;caseI
+MSG_CTL_END:return(1);default:break;}return(0);}staticintshow_discovery_msg(stru
+ctvty*vty,structimsg*imsg,structshow_params*params){structctl_adj*adj;constchar*
+addr;switch(imsg->hdr.type){caseIMSG_CTL_SHOW_DISCOVERY:adj=imsg->data;if(params
+->family!=AF_UNSPEC&&params->family!=adj->af)break;vty_out(vty,"%-4s%-15s",af_na
+me(adj->af),inet_ntoa(adj->id));switch(adj->type){caseHELLO_LINK:vty_out(vty,"%-
+8s%-15s","Link",adj->ifname);break;caseHELLO_TARGETED:addr=log_addr(adj->af,&adj
+->src_addr);vty_out(vty,"%-8s%-15s","Targeted",addr);if(strlen(addr)>15)vty_out(
+vty,"\n%46s","");break;}vty_out(vty,"%9u\n",adj->holdtime);break;caseIMSG_CTL_EN
+D:vty_out(vty,"\n");return(1);default:break;}return(0);}staticvoidshow_discovery
+_detail_adj(structvty*vty,char*buffer,structctl_adj*adj){size_tbuflen=strlen(buf
+fer);snprintf(buffer+buflen,LDPBUFSIZ-buflen,"LSRId:%s:0\n",inet_ntoa(adj->id));
+buflen=strlen(buffer);snprintf(buffer+buflen,LDPBUFSIZ-buflen,"Sourceaddress:%s\
+n",log_addr(adj->af,&adj->src_addr));buflen=strlen(buffer);snprintf(buffer+bufle
+n,LDPBUFSIZ-buflen,"Transportaddress:%s\n",log_addr(adj->af,&adj->trans_addr));b
+uflen=strlen(buffer);snprintf(buffer+buflen,LDPBUFSIZ-buflen,"Helloholdtime:%use
+cs(duein%usecs)\n",adj->holdtime,adj->holdtime_remaining);buflen=strlen(buffer);
+snprintf(buffer+buflen,LDPBUFSIZ-buflen,"Dual-stackcapabilityTLV:%s\n",(adj->ds_
+tlv)?"yes":"no");}staticintshow_discovery_detail_msg(structvty*vty,structimsg*im
+sg,structshow_params*params){structctl_adj*adj;structctl_disc_if*iface;structctl
+_disc_tnbr*tnbr;structin_addrrtr_id;unionldpd_addr*trans_addr;size_tbuflen;stati
+ccharifaces_buffer[LDPBUFSIZ];staticchartnbrs_buffer[LDPBUFSIZ];switch(imsg->hdr
+.type){caseIMSG_CTL_SHOW_DISCOVERY:ifaces_buffer[0]='\0';tnbrs_buffer[0]='\0';br
+eak;caseIMSG_CTL_SHOW_DISC_IFACE:iface=imsg->data;if(params->family!=AF_UNSPEC&&
+((params->family==AF_INET&&!iface->active_v4)||(params->family==AF_INET6&&!iface
+->active_v6)))break;buflen=strlen(ifaces_buffer);snprintf(ifaces_buffer+buflen,L
+DPBUFSIZ-buflen,"%s:%s\n",iface->name,(iface->no_adj)?"(noadjacencies)":"");brea
+k;caseIMSG_CTL_SHOW_DISC_TNBR:tnbr=imsg->data;if(params->family!=AF_UNSPEC&&para
+ms->family!=tnbr->af)break;trans_addr=&(ldp_af_conf_get(ldpd_conf,tnbr->af))->tr
+ans_addr;buflen=strlen(tnbrs_buffer);snprintf(tnbrs_buffer+buflen,LDPBUFSIZ-bufl
+en,"%s->%s:%s\n",log_addr(tnbr->af,trans_addr),log_addr(tnbr->af,&tnbr->addr),(t
+nbr->no_adj)?"(noadjacencies)":"");break;caseIMSG_CTL_SHOW_DISC_ADJ:adj=imsg->da
+ta;if(params->family!=AF_UNSPEC&&params->family!=adj->af)break;switch(adj->type)
+{caseHELLO_LINK:show_discovery_detail_adj(vty,ifaces_buffer,adj);break;caseHELLO
+_TARGETED:show_discovery_detail_adj(vty,tnbrs_buffer,adj);break;}break;caseIMSG_
+CTL_END:rtr_id.s_addr=ldp_rtr_id_get(ldpd_conf);vty_out(vty,"Local:\n");vty_out(
+vty,"LSRId:%s:0\n",inet_ntoa(rtr_id));if(ldpd_conf->ipv4.flags&F_LDPD_AF_ENABLED
+)vty_out(vty,"TransportAddress(IPv4):%s\n",log_addr(AF_INET,&ldpd_conf->ipv4.tra
+ns_addr));if(ldpd_conf->ipv6.flags&F_LDPD_AF_ENABLED)vty_out(vty,"TransportAddre
+ss(IPv6):%s\n",log_addr(AF_INET6,&ldpd_conf->ipv6.trans_addr));vty_out(vty,"Disc
+overySources:\n");vty_out(vty,"Interfaces:\n");vty_out(vty,"%s",ifaces_buffer);v
+ty_out(vty,"TargetedHellos:\n");vty_out(vty,"%s",tnbrs_buffer);vty_out(vty,"\n")
+;return(1);default:break;}return(0);}staticintshow_discovery_msg_json(structimsg
+*imsg,structshow_params*params,json_object*json){structctl_adj*adj;json_object*j
+son_array;json_object*json_adj;switch(imsg->hdr.type){caseIMSG_CTL_SHOW_DISCOVER
+Y:adj=imsg->data;if(params->family!=AF_UNSPEC&&params->family!=adj->af)break;jso
+n_object_object_get_ex(json,"adjacencies",&json_array);if(!json_array){json_arra
+y=json_object_new_array();json_object_object_add(json,"adjacencies",json_array);
+}json_adj=json_object_new_object();json_object_string_add(json_adj,"addressFamil
+y",af_name(adj->af));json_object_string_add(json_adj,"neighborId",inet_ntoa(adj-
+>id));switch(adj->type){caseHELLO_LINK:json_object_string_add(json_adj,"type","l
+ink");json_object_string_add(json_adj,"interface",adj->ifname);break;caseHELLO_T
+ARGETED:json_object_string_add(json_adj,"type","targeted");json_object_string_ad
+d(json_adj,"peer",log_addr(adj->af,&adj->src_addr));break;}json_object_int_add(j
+son_adj,"helloHoldtime",adj->holdtime);json_object_array_add(json_array,json_adj
+);break;caseIMSG_CTL_END:return(1);default:break;}return(0);}staticvoidshow_disc
+overy_detail_adj_json(json_object*json,structctl_adj*adj){json_object*json_adj;j
+son_object*json_array;json_object_object_get_ex(json,"adjacencies",&json_array);
+if(!json_array){json_array=json_object_new_array();json_object_object_add(json,"
+adjacencies",json_array);}json_adj=json_object_new_object();json_object_string_a
+dd(json_adj,"lsrId",inet_ntoa(adj->id));json_object_string_add(json_adj,"sourceA
+ddress",log_addr(adj->af,&adj->src_addr));json_object_string_add(json_adj,"trans
+portAddress",log_addr(adj->af,&adj->trans_addr));json_object_int_add(json_adj,"h
+elloHoldtime",adj->holdtime);json_object_int_add(json_adj,"helloHoldtimeRemainin
+g",adj->holdtime_remaining);json_object_int_add(json_adj,"dualStackCapabilityTlv
+",adj->ds_tlv);json_object_array_add(json_array,json_adj);}staticintshow_discove
+ry_detail_msg_json(structimsg*imsg,structshow_params*params,json_object*json){st
+ructctl_adj*adj;structctl_disc_if*iface;structctl_disc_tnbr*tnbr;structin_addrrt
+r_id;unionldpd_addr*trans_addr;json_object*json_interface;json_object*json_targe
+t;staticjson_object*json_interfaces;staticjson_object*json_targets;staticjson_ob
+ject*json_container;switch(imsg->hdr.type){caseIMSG_CTL_SHOW_DISCOVERY:rtr_id.s_
+addr=ldp_rtr_id_get(ldpd_conf);json_object_string_add(json,"lsrId",inet_ntoa(rtr
+_id));if(ldpd_conf->ipv4.flags&F_LDPD_AF_ENABLED)json_object_string_add(json,"tr
+ansportAddressIPv4",log_addr(AF_INET,&ldpd_conf->ipv4.trans_addr));if(ldpd_conf-
+>ipv6.flags&F_LDPD_AF_ENABLED)json_object_string_add(json,"transportAddressIPv6"
+,log_addr(AF_INET6,&ldpd_conf->ipv6.trans_addr));json_interfaces=json_object_new
+_object();json_object_object_add(json,"interfaces",json_interfaces);json_targets
+=json_object_new_object();json_object_object_add(json,"targetedHellos",json_targ
+ets);json_container=NULL;break;caseIMSG_CTL_SHOW_DISC_IFACE:iface=imsg->data;if(
+params->family!=AF_UNSPEC&&((params->family==AF_INET&&!iface->active_v4)||(param
+s->family==AF_INET6&&!iface->active_v6)))break;json_interface=json_object_new_ob
+ject();json_object_object_add(json_interfaces,iface->name,json_interface);json_c
+ontainer=json_interface;break;caseIMSG_CTL_SHOW_DISC_TNBR:tnbr=imsg->data;if(par
+ams->family!=AF_UNSPEC&&params->family!=tnbr->af)break;trans_addr=&(ldp_af_conf_
+get(ldpd_conf,tnbr->af))->trans_addr;json_target=json_object_new_object();json_o
+bject_string_add(json_target,"sourceAddress",log_addr(tnbr->af,trans_addr));json
+_object_object_add(json_targets,log_addr(tnbr->af,&tnbr->addr),json_target);json
+_container=json_target;break;caseIMSG_CTL_SHOW_DISC_ADJ:adj=imsg->data;if(params
+->family!=AF_UNSPEC&&params->family!=adj->af)break;switch(adj->type){caseHELLO_L
+INK:show_discovery_detail_adj_json(json_container,adj);break;caseHELLO_TARGETED:
+show_discovery_detail_adj_json(json_container,adj);break;}break;caseIMSG_CTL_END
+:return(1);default:break;}return(0);}staticintshow_nbr_msg(structvty*vty,structi
+msg*imsg,structshow_params*params){structctl_nbr*nbr;constchar*addr;switch(imsg-
+>hdr.type){caseIMSG_CTL_SHOW_NBR:nbr=imsg->data;addr=log_addr(nbr->af,&nbr->radd
+r);vty_out(vty,"%-4s%-15s%-11s%-15s",af_name(nbr->af),inet_ntoa(nbr->id),nbr_sta
+te_name(nbr->nbr_state),addr);if(strlen(addr)>15)vty_out(vty,"\n%48s","");vty_ou
+t(vty,"%8s\n",log_time(nbr->uptime));break;caseIMSG_CTL_END:return(1);default:br
+eak;}return(0);}staticvoidshow_nbr_detail_adj(structvty*vty,char*buffer,structct
+l_adj*adj){size_tbuflen=strlen(buffer);switch(adj->type){caseHELLO_LINK:snprintf
+(buffer+buflen,LDPBUFSIZ-buflen,"Interface:%s\n",adj->ifname);break;caseHELLO_TA
+RGETED:snprintf(buffer+buflen,LDPBUFSIZ-buflen,"TargetedHello:%s\n",log_addr(adj
+->af,&adj->src_addr));break;}}staticintshow_nbr_detail_msg(structvty*vty,structi
+msg*imsg,structshow_params*params){structctl_nbr*nbr;structldp_stats*stats;struc
+tctl_adj*adj;staticcharv4adjs_buffer[LDPBUFSIZ];staticcharv6adjs_buffer[LDPBUFSI
+Z];switch(imsg->hdr.type){caseIMSG_CTL_SHOW_NBR:nbr=imsg->data;v4adjs_buffer[0]=
+'\0';v6adjs_buffer[0]='\0';vty_out(vty,"PeerLDPIdentifier:%s:0\n",inet_ntoa(nbr-
+>id));vty_out(vty,"TCPconnection:%s:%u-%s:%u\n",log_addr(nbr->af,&nbr->laddr),nt
+ohs(nbr->lport),log_addr(nbr->af,&nbr->raddr),ntohs(nbr->rport));vty_out(vty,"Au
+thentication:%s\n",(nbr->auth_method==AUTH_MD5SIG)?"TCPMD5Signature":"none");vty
+_out(vty,"SessionHoldtime:%usecs;""KeepAliveinterval:%usecs\n",nbr->holdtime,nbr
+->holdtime/KEEPALIVE_PER_PERIOD);vty_out(vty,"State:%s;Downstream-Unsolicited\n"
+,nbr_state_name(nbr->nbr_state));vty_out(vty,"Uptime:%s\n",log_time(nbr->uptime)
+);stats=&nbr->stats;vty_out(vty,"Messagessent/rcvd:\n");vty_out(vty,"-KeepaliveM
+essages:%u/%u\n",stats->kalive_sent,stats->kalive_rcvd);vty_out(vty,"-AddressMes
+sages:%u/%u\n",stats->addr_sent,stats->addr_rcvd);vty_out(vty,"-AddressWithdrawM
+essages:%u/%u\n",stats->addrwdraw_sent,stats->addrwdraw_rcvd);vty_out(vty,"-Noti
+ficationMessages:%u/%u\n",stats->notif_sent,stats->notif_rcvd);vty_out(vty,"-Cap
+abilityMessages:%u/%u\n",stats->capability_sent,stats->capability_rcvd);vty_out(
+vty,"-LabelMappingMessages:%u/%u\n",stats->labelmap_sent,stats->labelmap_rcvd);v
+ty_out(vty,"-LabelRequestMessages:%u/%u\n",stats->labelreq_sent,stats->labelreq_
+rcvd);vty_out(vty,"-LabelWithdrawMessages:%u/%u\n",stats->labelwdraw_sent,stats-
+>labelwdraw_rcvd);vty_out(vty,"-LabelReleaseMessages:%u/%u\n",stats->labelrel_se
+nt,stats->labelrel_rcvd);vty_out(vty,"-LabelAbortRequestMessages:%u/%u\n",stats-
+>labelabreq_sent,stats->labelabreq_rcvd);show_nbr_capabilities(vty,nbr);break;ca
+seIMSG_CTL_SHOW_NBR_DISC:adj=imsg->data;switch(adj->af){caseAF_INET:show_nbr_det
+ail_adj(vty,v4adjs_buffer,adj);break;caseAF_INET6:show_nbr_detail_adj(vty,v6adjs
+_buffer,adj);break;default:fatalx("show_nbr_detail_msg:unknownaf");}break;caseIM
+SG_CTL_SHOW_NBR_END:vty_out(vty,"LDPDiscoverySources:\n");if(v4adjs_buffer[0]!='
+\0'){vty_out(vty,"IPv4:\n");vty_out(vty,"%s",v4adjs_buffer);}if(v6adjs_buffer[0]
+!='\0'){vty_out(vty,"IPv6:\n");vty_out(vty,"%s",v6adjs_buffer);}vty_out(vty,"\n"
+);break;caseIMSG_CTL_END:return(1);default:break;}return(0);}staticintshow_nbr_m
+sg_json(structimsg*imsg,structshow_params*params,json_object*json){structctl_nbr
+*nbr;json_object*json_array;json_object*json_nbr;switch(imsg->hdr.type){caseIMSG
+_CTL_SHOW_NBR:nbr=imsg->data;json_object_object_get_ex(json,"neighbors",&json_ar
+ray);if(!json_array){json_array=json_object_new_array();json_object_object_add(j
+son,"neighbors",json_array);}json_nbr=json_object_new_object();json_object_strin
+g_add(json_nbr,"addressFamily",af_name(nbr->af));json_object_string_add(json_nbr
+,"neighborId",inet_ntoa(nbr->id));json_object_string_add(json_nbr,"state",nbr_st
+ate_name(nbr->nbr_state));json_object_string_add(json_nbr,"transportAddress",log
+_addr(nbr->af,&nbr->raddr));json_object_string_add(json_nbr,"upTime",log_time(nb
+r->uptime));json_object_array_add(json_array,json_nbr);break;caseIMSG_CTL_END:re
+turn(1);default:break;}return(0);}staticvoidshow_nbr_detail_adj_json(structctl_a
+dj*adj,json_object*adj_list){charadj_string[128];switch(adj->type){caseHELLO_LIN
+K:strlcpy(adj_string,"interface:",sizeof(adj_string));strlcat(adj_string,adj->if
+name,sizeof(adj_string));break;caseHELLO_TARGETED:strlcpy(adj_string,"targetedHe
+llo:",sizeof(adj_string));strlcat(adj_string,log_addr(adj->af,&adj->src_addr),si
+zeof(adj_string));break;}json_object_array_add(adj_list,json_object_new_string(a
+dj_string));}staticintshow_nbr_detail_msg_json(structimsg*imsg,structshow_params
+*params,json_object*json){structctl_nbr*nbr;structldp_stats*stats;structctl_adj*
+adj;json_object*json_nbr;json_object*json_array;json_object*json_counter;staticj
+son_object*json_nbr_sources;staticjson_object*json_v4adjs;staticjson_object*json
+_v6adjs;switch(imsg->hdr.type){caseIMSG_CTL_SHOW_NBR:nbr=imsg->data;json_nbr=jso
+n_object_new_object();json_object_object_add(json,inet_ntoa(nbr->id),json_nbr);j
+son_object_string_add(json_nbr,"peerId",inet_ntoa(nbr->id));json_object_string_a
+dd(json_nbr,"tcpLocalAddress",log_addr(nbr->af,&nbr->laddr));json_object_int_add
+(json_nbr,"tcpLocalPort",ntohs(nbr->lport));json_object_string_add(json_nbr,"tcp
+RemoteAddress",log_addr(nbr->af,&nbr->raddr));json_object_int_add(json_nbr,"tcpR
+emotePort",ntohs(nbr->rport));json_object_string_add(json_nbr,"authentication",(
+nbr->auth_method==AUTH_MD5SIG)?"TCPMD5Signature":"none");json_object_int_add(jso
+n_nbr,"sessionHoldtime",nbr->holdtime);json_object_int_add(json_nbr,"keepAliveIn
+terval",nbr->holdtime/KEEPALIVE_PER_PERIOD);json_object_string_add(json_nbr,"sta
+te",nbr_state_name(nbr->nbr_state));json_object_string_add(json_nbr,"upTime",log
+_time(nbr->uptime));/*message_counters*/stats=&nbr->stats;json_array=json_object
+_new_array();json_object_object_add(json_nbr,"sentMessages",json_array);json_cou
+nter=json_object_new_object();json_object_int_add(json_counter,"keepalive",stats
+->kalive_sent);json_object_array_add(json_array,json_counter);json_counter=json_
+object_new_object();json_object_int_add(json_counter,"address",stats->addr_sent)
+;json_object_array_add(json_array,json_counter);json_counter=json_object_new_obj
+ect();json_object_int_add(json_counter,"addressWithdraw",stats->addrwdraw_sent);
+json_object_array_add(json_array,json_counter);json_counter=json_object_new_obje
+ct();json_object_int_add(json_counter,"notification",stats->notif_sent);json_obj
+ect_array_add(json_array,json_counter);json_counter=json_object_new_object();jso
+n_object_int_add(json_counter,"capability",stats->capability_sent);json_object_a
+rray_add(json_array,json_counter);json_counter=json_object_new_object();json_obj
+ect_int_add(json_counter,"labelMapping",stats->labelmap_sent);json_object_array_
+add(json_array,json_counter);json_counter=json_object_new_object();json_object_i
+nt_add(json_counter,"labelRequest",stats->labelreq_sent);json_object_array_add(j
+son_array,json_counter);json_counter=json_object_new_object();json_object_int_ad
+d(json_counter,"labelWithdraw",stats->labelwdraw_sent);json_object_array_add(jso
+n_array,json_counter);json_counter=json_object_new_object();json_object_int_add(
+json_counter,"labelRelease",stats->labelrel_sent);json_object_array_add(json_arr
+ay,json_counter);json_counter=json_object_new_object();json_object_int_add(json_
+counter,"labelAbortRequest",stats->labelabreq_sent);json_object_array_add(json_a
+rray,json_counter);json_array=json_object_new_array();json_object_object_add(jso
+n_nbr,"receivedMessages",json_array);json_counter=json_object_new_object();json_
+object_int_add(json_counter,"keepalive",stats->kalive_rcvd);json_object_array_ad
+d(json_array,json_counter);json_counter=json_object_new_object();json_object_int
+_add(json_counter,"address",stats->addr_rcvd);json_object_array_add(json_array,j
+son_counter);json_counter=json_object_new_object();json_object_int_add(json_coun
+ter,"addressWithdraw",stats->addrwdraw_rcvd);json_object_array_add(json_array,js
+on_counter);json_counter=json_object_new_object();json_object_int_add(json_count
+er,"notification",stats->notif_rcvd);json_object_array_add(json_array,json_count
+er);json_counter=json_object_new_object();json_object_int_add(json_counter,"capa
+bility",stats->capability_rcvd);json_object_array_add(json_array,json_counter);j
+son_counter=json_object_new_object();json_object_int_add(json_counter,"labelMapp
+ing",stats->labelmap_rcvd);json_object_array_add(json_array,json_counter);json_c
+ounter=json_object_new_object();json_object_int_add(json_counter,"labelRequest",
+stats->labelreq_rcvd);json_object_array_add(json_array,json_counter);json_counte
+r=json_object_new_object();json_object_int_add(json_counter,"labelWithdraw",stat
+s->labelwdraw_rcvd);json_object_array_add(json_array,json_counter);json_counter=
+json_object_new_object();json_object_int_add(json_counter,"labelRelease",stats->
+labelrel_rcvd);json_object_array_add(json_array,json_counter);json_counter=json_
+object_new_object();json_object_int_add(json_counter,"labelAbortRequest",stats->
+labelabreq_rcvd);json_object_array_add(json_array,json_counter);/*capabilities*/
+show_nbr_capabilities_json(nbr,json_nbr);/*discoverysources*/json_nbr_sources=js
+on_object_new_object();json_object_object_add(json_nbr,"discoverySources",json_n
+br_sources);json_v4adjs=NULL;json_v6adjs=NULL;break;caseIMSG_CTL_SHOW_NBR_DISC:a
+dj=imsg->data;switch(adj->af){caseAF_INET:if(!json_v4adjs){json_v4adjs=json_obje
+ct_new_array();json_object_object_add(json_nbr_sources,"ipv4",json_v4adjs);}show
+_nbr_detail_adj_json(adj,json_v4adjs);break;caseAF_INET6:if(!json_v6adjs){json_v
+6adjs=json_object_new_array();json_object_object_add(json_nbr_sources,"ipv6",jso
+n_v6adjs);}show_nbr_detail_adj_json(adj,json_v6adjs);break;default:fatalx("show_
+nbr_detail_msg_json:unknownaf");}break;caseIMSG_CTL_SHOW_NBR_END:break;caseIMSG_
+CTL_END:return(1);default:break;}return(0);}voidshow_nbr_capabilities(structvty*
+vty,structctl_nbr*nbr){vty_out(vty,"CapabilitiesSent:\n""-DynamicAnnouncement(0x
+0506)\n""-TypedWildcard(0x050B)\n""-UnrecognizedNotification(0x0603)\n");vty_out
+(vty,"CapabilitiesReceived:\n");if(nbr->flags&F_NBR_CAP_DYNAMIC)vty_out(vty,"-Dy
+namicAnnouncement(0x0506)\n");if(nbr->flags&F_NBR_CAP_TWCARD)vty_out(vty,"-Typed
+Wildcard(0x050B)\n");if(nbr->flags&F_NBR_CAP_UNOTIF)vty_out(vty,"-UnrecognizedNo
+tification(0x0603)\n");}staticintshow_nbr_capabilities_msg(structvty*vty,structi
+msg*imsg,structshow_params*params){structctl_nbr*nbr;switch(imsg->hdr.type){case
+IMSG_CTL_SHOW_NBR:nbr=imsg->data;if(nbr->nbr_state!=NBR_STA_OPER)break;vty_out(v
+ty,"PeerLDPIdentifier:%s:0\n",inet_ntoa(nbr->id));show_nbr_capabilities(vty,nbr)
+;vty_out(vty,"\n");break;caseIMSG_CTL_END:vty_out(vty,"\n");return(1);default:br
+eak;}return(0);}staticvoidshow_nbr_capabilities_json(structctl_nbr*nbr,json_obje
+ct*json_nbr){json_object*json_array;json_object*json_cap;/*sentcapabilities*/jso
+n_array=json_object_new_array();json_object_object_add(json_nbr,"sentCapabilitie
+s",json_array);/*DynamicAnnouncement(0x0506)*/json_cap=json_object_new_object();
+json_object_string_add(json_cap,"description","DynamicAnnouncement");json_object
+_string_add(json_cap,"tlvType","0x0506");json_object_array_add(json_array,json_c
+ap);/*TypedWildcard(0x050B)*/json_cap=json_object_new_object();json_object_strin
+g_add(json_cap,"description","TypedWildcard");json_object_string_add(json_cap,"t
+lvType","0x050B");json_object_array_add(json_array,json_cap);/*UnrecognizedNotif
+ication(0x0603)*/json_cap=json_object_new_object();json_object_string_add(json_c
+ap,"description","UnrecognizedNotification");json_object_string_add(json_cap,"tl
+vType","0x0603");json_object_array_add(json_array,json_cap);/*receivedcapabiliti
+es*/json_array=json_object_new_array();json_object_object_add(json_nbr,"received
+Capabilities",json_array);/*DynamicAnnouncement(0x0506)*/if(nbr->flags&F_NBR_CAP
+_DYNAMIC){json_cap=json_object_new_object();json_object_string_add(json_cap,"des
+cription","DynamicAnnouncement");json_object_string_add(json_cap,"tlvType","0x05
+06");json_object_array_add(json_array,json_cap);}/*TypedWildcard(0x050B)*/if(nbr
+->flags&F_NBR_CAP_TWCARD){json_cap=json_object_new_object();json_object_string_a
+dd(json_cap,"description","TypedWildcard");json_object_string_add(json_cap,"tlvT
+ype","0x050B");json_object_array_add(json_array,json_cap);}/*UnrecognizedNotific
+ation(0x0603)*/if(nbr->flags&F_NBR_CAP_UNOTIF){json_cap=json_object_new_object()
+;json_object_string_add(json_cap,"description","UnrecognizedNotification");json_
+object_string_add(json_cap,"tlvType","0x0603");json_object_array_add(json_array,
+json_cap);}}staticintshow_nbr_capabilities_msg_json(structimsg*imsg,structshow_p
+arams*params,json_object*json){structctl_nbr*nbr;json_object*json_nbr;switch(ims
+g->hdr.type){caseIMSG_CTL_SHOW_NBR:nbr=imsg->data;if(nbr->nbr_state!=NBR_STA_OPE
+R)break;json_nbr=json_object_new_object();json_object_object_add(json,inet_ntoa(
+nbr->id),json_nbr);show_nbr_capabilities_json(nbr,json_nbr);break;caseIMSG_CTL_E
+ND:return(1);default:break;}return(0);}staticintshow_lib_msg(structvty*vty,struc
+timsg*imsg,structshow_params*params){structctl_rt*rt;chardstnet[BUFSIZ];switch(i
+msg->hdr.type){caseIMSG_CTL_SHOW_LIB_BEGIN:rt=imsg->data;if(params->lib.remote_l
+abel!=NO_LABEL&&params->lib.remote_label!=rt->remote_label)return(0);/*FALLTHROU
+GH*/caseIMSG_CTL_SHOW_LIB_RCVD:rt=imsg->data;if(imsg->hdr.type==IMSG_CTL_SHOW_LI
+B_BEGIN&&!rt->no_downstream)break;snprintf(dstnet,sizeof(dstnet),"%s/%d",log_add
+r(rt->af,&rt->prefix),rt->prefixlen);vty_out(vty,"%-4s%-20s",af_name(rt->af),dst
+net);if(strlen(dstnet)>20)vty_out(vty,"\n%25s","");vty_out(vty,"%-15s%-11s%-13s%
+6s\n",inet_ntoa(rt->nexthop),log_label(rt->local_label),log_label(rt->remote_lab
+el),rt->in_use?"yes":"no");break;caseIMSG_CTL_END:vty_out(vty,"\n");return(1);de
+fault:break;}return(0);}staticintshow_lib_detail_msg(structvty*vty,structimsg*im
+sg,structshow_params*params){structctl_rt*rt=NULL;staticchardstnet[BUFSIZ];stati
+cintupstream,downstream;size_tbuflen;staticcharsent_buffer[LDPBUFSIZ];staticchar
+rcvd_buffer[LDPBUFSIZ];switch(imsg->hdr.type){caseIMSG_CTL_SHOW_LIB_BEGIN:rt=ims
+g->data;upstream=0;downstream=0;sent_buffer[0]='\0';rcvd_buffer[0]='\0';snprintf
+(dstnet,sizeof(dstnet),"%s/%d",log_addr(rt->af,&rt->prefix),rt->prefixlen);break
+;caseIMSG_CTL_SHOW_LIB_SENT:rt=imsg->data;upstream=1;buflen=strlen(sent_buffer);
+snprintf(sent_buffer+buflen,LDPBUFSIZ-buflen,"%12s%s:0\n","",inet_ntoa(rt->nexth
+op));break;caseIMSG_CTL_SHOW_LIB_RCVD:rt=imsg->data;downstream=1;buflen=strlen(r
+cvd_buffer);snprintf(rcvd_buffer+buflen,LDPBUFSIZ-buflen,"%12s%s:0,label%s%s\n",
+"",inet_ntoa(rt->nexthop),log_label(rt->remote_label),rt->in_use?"(inuse)":"");b
+reak;caseIMSG_CTL_SHOW_LIB_END:rt=imsg->data;if(params->lib.remote_label!=NO_LAB
+EL&&!downstream)break;vty_out(vty,"%s\n",dstnet);vty_out(vty,"%-8sLocalbinding:l
+abel:%s\n","",log_label(rt->local_label));if(upstream){vty_out(vty,"%-8sAdvertis
+edto:\n","");vty_out(vty,"%s",sent_buffer);}if(downstream){vty_out(vty,"%-8sRemo
+tebindings:\n","");vty_out(vty,"%s",rcvd_buffer);}elsevty_out(vty,"%-8sNoremoteb
+indings\n","");break;caseIMSG_CTL_END:vty_out(vty,"\n");return(1);default:break;
+}return(0);}staticintshow_lib_msg_json(structimsg*imsg,structshow_params*params,
+json_object*json){structctl_rt*rt;json_object*json_array;json_object*json_lib_en
+try;chardstnet[BUFSIZ];switch(imsg->hdr.type){caseIMSG_CTL_SHOW_LIB_BEGIN:caseIM
+SG_CTL_SHOW_LIB_RCVD:rt=imsg->data;if(imsg->hdr.type==IMSG_CTL_SHOW_LIB_BEGIN&&!
+rt->no_downstream)break;json_object_object_get_ex(json,"bindings",&json_array);i
+f(!json_array){json_array=json_object_new_array();json_object_object_add(json,"b
+indings",json_array);}json_lib_entry=json_object_new_object();json_object_string
+_add(json_lib_entry,"addressFamily",af_name(rt->af));snprintf(dstnet,sizeof(dstn
+et),"%s/%d",log_addr(rt->af,&rt->prefix),rt->prefixlen);json_object_string_add(j
+son_lib_entry,"prefix",dstnet);json_object_string_add(json_lib_entry,"neighborId
+",inet_ntoa(rt->nexthop));json_object_string_add(json_lib_entry,"localLabel",log
+_label(rt->local_label));json_object_string_add(json_lib_entry,"remoteLabel",log
+_label(rt->remote_label));json_object_int_add(json_lib_entry,"inUse",rt->in_use)
+;json_object_array_add(json_array,json_lib_entry);break;caseIMSG_CTL_END:return(
+1);default:break;}return(0);}staticintshow_lib_detail_msg_json(structimsg*imsg,s
+tructshow_params*params,json_object*json){structctl_rt*rt=NULL;chardstnet[BUFSIZ
+];staticjson_object*json_lib_entry;staticjson_object*json_adv_labels;json_object
+*json_adv_label;staticjson_object*json_remote_labels;json_object*json_remote_lab
+el;switch(imsg->hdr.type){caseIMSG_CTL_SHOW_LIB_BEGIN:rt=imsg->data;snprintf(dst
+net,sizeof(dstnet),"%s/%d",log_addr(rt->af,&rt->prefix),rt->prefixlen);json_lib_
+entry=json_object_new_object();json_object_string_add(json_lib_entry,"localLabel
+",log_label(rt->local_label));json_adv_labels=json_object_new_array();json_objec
+t_object_add(json_lib_entry,"advertisedTo",json_adv_labels);json_remote_labels=j
+son_object_new_array();json_object_object_add(json_lib_entry,"remoteLabels",json
+_remote_labels);json_object_object_add(json,dstnet,json_lib_entry);break;caseIMS
+G_CTL_SHOW_LIB_SENT:rt=imsg->data;json_adv_label=json_object_new_object();json_o
+bject_string_add(json_adv_label,"neighborId",inet_ntoa(rt->nexthop));json_object
+_array_add(json_adv_labels,json_adv_label);break;caseIMSG_CTL_SHOW_LIB_RCVD:rt=i
+msg->data;json_remote_label=json_object_new_object();json_object_string_add(json
+_remote_label,"neighborId",inet_ntoa(rt->nexthop));json_object_string_add(json_r
+emote_label,"label",log_label(rt->remote_label));json_object_int_add(json_remote
+_label,"inUse",rt->in_use);json_object_array_add(json_remote_labels,json_remote_
+label);break;caseIMSG_CTL_END:return(1);default:break;}return(0);}staticintshow_
+l2vpn_binding_msg(structvty*vty,structimsg*imsg,structshow_params*params){struct
+ctl_pw*pw;switch(imsg->hdr.type){caseIMSG_CTL_SHOW_L2VPN_BINDING:pw=imsg->data;v
+ty_out(vty,"DestinationAddress:%s,VCID:%u\n",inet_ntoa(pw->lsr_id),pw->pwid);/*l
+ocalbinding*/if(pw->local_label!=NO_LABEL){vty_out(vty,"LocalLabel:%u\n",pw->loc
+al_label);vty_out(vty,"%-8sCbit:%u,VCType:%s,""GroupID:%u\n","",pw->local_cword,
+pw_type_name(pw->type),pw->local_gid);vty_out(vty,"%-8sMTU:%u\n","",pw->local_if
+mtu);}elsevty_out(vty,"LocalLabel:unassigned\n");/*remotebinding*/if(pw->remote_
+label!=NO_LABEL){vty_out(vty,"RemoteLabel:%u\n",pw->remote_label);vty_out(vty,"%
+-8sCbit:%u,VCType:%s,""GroupID:%u\n","",pw->remote_cword,pw_type_name(pw->type),
+pw->remote_gid);vty_out(vty,"%-8sMTU:%u\n","",pw->remote_ifmtu);}elsevty_out(vty
+,"RemoteLabel:unassigned\n");break;caseIMSG_CTL_END:vty_out(vty,"\n");return(1);
+default:break;}return(0);}staticintshow_l2vpn_binding_msg_json(structimsg*imsg,s
+tructshow_params*params,json_object*json){structctl_pw*pw;json_object*json_pw;ch
+arkey_name[64];switch(imsg->hdr.type){caseIMSG_CTL_SHOW_L2VPN_BINDING:pw=imsg->d
+ata;json_pw=json_object_new_object();json_object_string_add(json_pw,"destination
+",inet_ntoa(pw->lsr_id));json_object_int_add(json_pw,"vcId",pw->pwid);/*localbin
+ding*/if(pw->local_label!=NO_LABEL){json_object_int_add(json_pw,"localLabel",pw-
+>local_label);json_object_int_add(json_pw,"localControlWord",pw->local_cword);js
+on_object_string_add(json_pw,"localVcType",pw_type_name(pw->type));json_object_i
+nt_add(json_pw,"localGroupID",pw->local_gid);json_object_int_add(json_pw,"localI
+fMtu",pw->local_ifmtu);}elsejson_object_string_add(json_pw,"localLabel","unassig
+ned");/*remotebinding*/if(pw->remote_label!=NO_LABEL){json_object_int_add(json_p
+w,"remoteLabel",pw->remote_label);json_object_int_add(json_pw,"remoteControlWord
+",pw->remote_cword);json_object_string_add(json_pw,"remoteVcType",pw_type_name(p
+w->type));json_object_int_add(json_pw,"remoteGroupID",pw->remote_gid);json_objec
+t_int_add(json_pw,"remoteIfMtu",pw->remote_ifmtu);}elsejson_object_string_add(js
+on_pw,"remoteLabel","unassigned");sprintf(key_name,"%s:%u",inet_ntoa(pw->lsr_id)
+,pw->pwid);json_object_object_add(json,key_name,json_pw);break;caseIMSG_CTL_END:
+return(1);default:break;}return(0);}staticintshow_l2vpn_pw_msg(structvty*vty,str
+uctimsg*imsg,structshow_params*params){structctl_pw*pw;switch(imsg->hdr.type){ca
+seIMSG_CTL_SHOW_L2VPN_PW:pw=imsg->data;vty_out(vty,"%-9s%-15s%-10u%-16s%-10s\n",
+pw->ifname,inet_ntoa(pw->lsr_id),pw->pwid,pw->l2vpn_name,(pw->status?"UP":"DOWN"
+));break;caseIMSG_CTL_END:vty_out(vty,"\n");return(1);default:break;}return(0);}
+staticintshow_l2vpn_pw_msg_json(structimsg*imsg,structshow_params*params,json_ob
+ject*json){structctl_pw*pw;json_object*json_pw;switch(imsg->hdr.type){caseIMSG_C
+TL_SHOW_L2VPN_PW:pw=imsg->data;json_pw=json_object_new_object();json_object_stri
+ng_add(json_pw,"peerId",inet_ntoa(pw->lsr_id));json_object_int_add(json_pw,"vcId
+",pw->pwid);json_object_string_add(json_pw,"VpnName",pw->l2vpn_name);if(pw->stat
+us)json_object_string_add(json_pw,"status","up");elsejson_object_string_add(json
+_pw,"status","down");json_object_object_add(json,pw->ifname,json_pw);break;caseI
+MSG_CTL_END:return(1);default:break;}return(0);}staticintldp_vty_connect(structi
+msgbuf*ibuf){structsockaddr_uns_un;intctl_sock;/*connecttoldpdcontrolsocket*/if(
+(ctl_sock=socket(AF_UNIX,SOCK_STREAM,0))==-1){log_warn("%s:socket",__func__);ret
+urn(-1);}memset(&s_un,0,sizeof(s_un));s_un.sun_family=AF_UNIX;strlcpy(s_un.sun_p
+ath,ctl_sock_path,sizeof(s_un.sun_path));if(connect(ctl_sock,(structsockaddr*)&s
+_un,sizeof(s_un))==-1){log_warn("%s:connect:%s",__func__,ctl_sock_path);close(ct
+l_sock);return(-1);}imsg_init(ibuf,ctl_sock);return(0);}staticintldp_vty_dispatc
+h_iface(structvty*vty,structimsg*imsg,structshow_params*params,json_object*json)
+{intret;if(params->json)ret=show_interface_msg_json(imsg,params,json);elseret=sh
+ow_interface_msg(vty,imsg,params);return(ret);}staticintldp_vty_dispatch_disc(st
+ructvty*vty,structimsg*imsg,structshow_params*params,json_object*json){intret;if
+(params->detail){if(params->json)ret=show_discovery_detail_msg_json(imsg,params,
+json);elseret=show_discovery_detail_msg(vty,imsg,params);}else{if(params->json)r
+et=show_discovery_msg_json(imsg,params,json);elseret=show_discovery_msg(vty,imsg
+,params);}return(ret);}staticintldp_vty_dispatch_nbr(structvty*vty,structimsg*im
+sg,structshow_params*params,json_object*json){staticboolfiltered=false;structctl
+_nbr*nbr;intret;switch(imsg->hdr.type){caseIMSG_CTL_SHOW_NBR:filtered=false;nbr=
+imsg->data;if(params->neighbor.lsr_id.s_addr!=INADDR_ANY&&params->neighbor.lsr_i
+d.s_addr!=nbr->id.s_addr){filtered=true;return(0);}break;caseIMSG_CTL_SHOW_NBR_D
+ISC:caseIMSG_CTL_SHOW_NBR_END:if(filtered)return(0);break;default:break;}if(para
+ms->neighbor.capabilities){if(params->json)ret=show_nbr_capabilities_msg_json(im
+sg,params,json);elseret=show_nbr_capabilities_msg(vty,imsg,params);}elseif(param
+s->detail){if(params->json)ret=show_nbr_detail_msg_json(imsg,params,json);elsere
+t=show_nbr_detail_msg(vty,imsg,params);}else{if(params->json)ret=show_nbr_msg_js
+on(imsg,params,json);elseret=show_nbr_msg(vty,imsg,params);}return(ret);}statici
+ntldp_vty_dispatch_lib(structvty*vty,structimsg*imsg,structshow_params*params,js
+on_object*json){staticboolfiltered=false;structctl_rt*rt=NULL;structprefixprefix
+;intret;switch(imsg->hdr.type){caseIMSG_CTL_SHOW_LIB_BEGIN:filtered=false;break;
+caseIMSG_CTL_SHOW_LIB_SENT:caseIMSG_CTL_SHOW_LIB_RCVD:caseIMSG_CTL_SHOW_LIB_END:
+if(filtered)return(0);break;default:break;}switch(imsg->hdr.type){caseIMSG_CTL_S
+HOW_LIB_BEGIN:caseIMSG_CTL_SHOW_LIB_SENT:caseIMSG_CTL_SHOW_LIB_RCVD:caseIMSG_CTL
+_SHOW_LIB_END:rt=imsg->data;if(params->family!=AF_UNSPEC&&params->family!=rt->af
+){filtered=true;return(0);}prefix.family=rt->af;prefix.prefixlen=rt->prefixlen;m
+emcpy(&prefix.u.val,&rt->prefix,sizeof(prefix.u.val));if(params->lib.prefix.fami
+ly!=AF_UNSPEC){if(!params->lib.longer_prefixes&&!prefix_same(&params->lib.prefix
+,&prefix)){filtered=true;return(0);}elseif(params->lib.longer_prefixes&&!prefix_
+match(&params->lib.prefix,&prefix)){filtered=true;return(0);}}if(params->lib.loc
+al_label!=NO_LABEL&&params->lib.local_label!=rt->local_label){filtered=true;retu
+rn(0);}break;default:break;}switch(imsg->hdr.type){caseIMSG_CTL_SHOW_LIB_SENT:ca
+seIMSG_CTL_SHOW_LIB_RCVD:if(params->lib.neighbor.s_addr!=INADDR_ANY&&params->lib
+.neighbor.s_addr!=rt->nexthop.s_addr)return(0);break;default:break;}switch(imsg-
+>hdr.type){caseIMSG_CTL_SHOW_LIB_RCVD:if(params->lib.remote_label!=NO_LABEL&&par
+ams->lib.remote_label!=rt->remote_label)return(0);break;default:break;}if(params
+->detail){if(params->json)ret=show_lib_detail_msg_json(imsg,params,json);elseret
+=show_lib_detail_msg(vty,imsg,params);}else{if(params->json)ret=show_lib_msg_jso
+n(imsg,params,json);elseret=show_lib_msg(vty,imsg,params);}return(ret);}staticin
+tldp_vty_dispatch_l2vpn_pw(structvty*vty,structimsg*imsg,structshow_params*param
+s,json_object*json){structctl_pw*pw;intret;switch(imsg->hdr.type){caseIMSG_CTL_S
+HOW_L2VPN_PW:pw=imsg->data;if(params->l2vpn.peer.s_addr!=INADDR_ANY&&params->l2v
+pn.peer.s_addr!=pw->lsr_id.s_addr)return(0);if(params->l2vpn.ifname[0]!='\0'&&st
+rcmp(params->l2vpn.ifname,pw->ifname))return(0);if(params->l2vpn.vcid&&params->l
+2vpn.vcid!=pw->pwid)return(0);break;default:break;}if(params->json)ret=show_l2vp
+n_pw_msg_json(imsg,params,json);elseret=show_l2vpn_pw_msg(vty,imsg,params);retur
+n(ret);}staticintldp_vty_dispatch_l2vpn_binding(structvty*vty,structimsg*imsg,st
+ructshow_params*params,json_object*json){structctl_pw*pw;intret;switch(imsg->hdr
+.type){caseIMSG_CTL_SHOW_L2VPN_BINDING:pw=imsg->data;if(params->l2vpn.peer.s_add
+r!=INADDR_ANY&&params->l2vpn.peer.s_addr!=pw->lsr_id.s_addr)return(0);if(params-
+>l2vpn.local_label!=NO_LABEL&&params->l2vpn.local_label!=pw->local_label)return(
+0);if(params->l2vpn.remote_label!=NO_LABEL&&params->l2vpn.remote_label!=pw->remo
+te_label)return(0);break;default:break;}if(params->json)ret=show_l2vpn_binding_m
+sg_json(imsg,params,json);elseret=show_l2vpn_binding_msg(vty,imsg,params);return
+(ret);}staticintldp_vty_dispatch_msg(structvty*vty,structimsg*imsg,enumshow_comm
+andcmd,structshow_params*params,json_object*json){switch(cmd){caseSHOW_IFACE:ret
+urn(ldp_vty_dispatch_iface(vty,imsg,params,json));caseSHOW_DISC:return(ldp_vty_d
+ispatch_disc(vty,imsg,params,json));caseSHOW_NBR:return(ldp_vty_dispatch_nbr(vty
+,imsg,params,json));caseSHOW_LIB:return(ldp_vty_dispatch_lib(vty,imsg,params,jso
+n));caseSHOW_L2VPN_PW:return(ldp_vty_dispatch_l2vpn_pw(vty,imsg,params,json));ca
+seSHOW_L2VPN_BINDING:return(ldp_vty_dispatch_l2vpn_binding(vty,imsg,params,json)
+);default:return(0);}}staticintldp_vty_dispatch(structvty*vty,structimsgbuf*ibuf
+,enumshow_commandcmd,structshow_params*params){structimsgimsg;intn,done=0,ret=CM
+D_SUCCESS;json_object*json=NULL;while(ibuf->w.queued)if(msgbuf_write(&ibuf->w)<=
+0&&errno!=EAGAIN){log_warn("writeerror");close(ibuf->fd);return(CMD_WARNING);}if
+(params->json)json=json_object_new_object();while(!done){if((n=imsg_read(ibuf))=
+=-1&&errno!=EAGAIN){log_warnx("imsg_readerror");ret=CMD_WARNING;gotodone;}if(n==
+0){log_warnx("pipeclosed");ret=CMD_WARNING;gotodone;}while(!done){if((n=imsg_get
+(ibuf,&imsg))==-1){log_warnx("imsg_geterror");ret=CMD_WARNING;gotodone;}if(n==0)
+break;done=ldp_vty_dispatch_msg(vty,&imsg,cmd,params,json);imsg_free(&imsg);}}do
+ne:close(ibuf->fd);if(json){vty_out(vty,"%s\n",json_object_to_json_string_ext(js
+on,JSON_C_TO_STRING_PRETTY));json_object_free(json);}return(ret);}staticintldp_v
+ty_get_af(constchar*str,int*af){if(str==NULL){*af=AF_UNSPEC;return(0);}elseif(st
+rcmp(str,"ipv4")==0){*af=AF_INET;return(0);}elseif(strcmp(str,"ipv6")==0){*af=AF
+_INET6;return(0);}return(-1);}intldp_vty_show_binding(structvty*vty,constchar*af
+_str,constchar*prefix,intlonger_prefixes,constchar*neighbor,unsignedlonglocal_la
+bel,unsignedlongremote_label,constchar*detail,constchar*json){structimsgbufibuf;
+structshow_paramsparams;intaf;if(ldp_vty_connect(&ibuf)<0)return(CMD_WARNING);if
+(ldp_vty_get_af(af_str,&af)<0)return(CMD_ERR_NO_MATCH);memset(&params,0,sizeof(p
+arams));params.family=af;params.detail=(detail)?1:0;params.json=(json)?1:0;if(pr
+efix){(void)str2prefix(prefix,&params.lib.prefix);params.lib.longer_prefixes=lon
+ger_prefixes;}if(neighbor&&(inet_pton(AF_INET,neighbor,&params.lib.neighbor)!=1|
+|bad_addr_v4(params.lib.neighbor))){vty_out(vty,"%%Malformedaddress\n");return(C
+MD_SUCCESS);}params.lib.local_label=local_label;params.lib.remote_label=remote_l
+abel;if(!params.detail&&!params.json)vty_out(vty,"%-4s%-20s%-15s%-11s%-13s%6s\n"
+,"AF","Destination","Nexthop","LocalLabel","RemoteLabel","InUse");imsg_compose(&
+ibuf,IMSG_CTL_SHOW_LIB,0,0,-1,NULL,0);return(ldp_vty_dispatch(vty,&ibuf,SHOW_LIB
+,&params));}intldp_vty_show_discovery(structvty*vty,constchar*af_str,constchar*d
+etail,constchar*json){structimsgbufibuf;structshow_paramsparams;intaf;if(ldp_vty
+_connect(&ibuf)<0)return(CMD_WARNING);if(ldp_vty_get_af(af_str,&af)<0)return(CMD
+_ERR_NO_MATCH);memset(&params,0,sizeof(params));params.family=af;params.detail=(
+detail)?1:0;params.json=(json)?1:0;if(!params.detail&&!params.json)vty_out(vty,"
+%-4s%-15s%-8s%-15s%9s\n","AF","ID","Type","Source","Holdtime");if(params.detail)
+imsg_compose(&ibuf,IMSG_CTL_SHOW_DISCOVERY_DTL,0,0,-1,NULL,0);elseimsg_compose(&
+ibuf,IMSG_CTL_SHOW_DISCOVERY,0,0,-1,NULL,0);return(ldp_vty_dispatch(vty,&ibuf,SH
+OW_DISC,&params));}intldp_vty_show_interface(structvty*vty,constchar*af_str,cons
+tchar*json){structimsgbufibuf;structshow_paramsparams;unsignedintifidx=0;intaf;i
+f(ldp_vty_connect(&ibuf)<0)return(CMD_WARNING);if(ldp_vty_get_af(af_str,&af)<0)r
+eturn(CMD_ERR_NO_MATCH);memset(&params,0,sizeof(params));params.family=af;params
+.json=(json)?1:0;/*header*/if(!params.json){vty_out(vty,"%-4s%-11s%-6s%-8s%-12s%
+3s\n","AF","Interface","State","Uptime","HelloTimers","ac");}imsg_compose(&ibuf,
+IMSG_CTL_SHOW_INTERFACE,0,0,-1,&ifidx,sizeof(ifidx));return(ldp_vty_dispatch(vty
+,&ibuf,SHOW_IFACE,&params));}intldp_vty_show_capabilities(structvty*vty,constcha
+r*json){if(json){json_object*json;json_object*json_array;json_object*json_cap;js
+on=json_object_new_object();json_array=json_object_new_array();json_object_objec
+t_add(json,"capabilities",json_array);/*DynamicAnnouncement(0x0506)*/json_cap=js
+on_object_new_object();json_object_string_add(json_cap,"description","DynamicAnn
+ouncement");json_object_string_add(json_cap,"tlvType","0x0506");json_object_arra
+y_add(json_array,json_cap);/*TypedWildcard(0x050B)*/json_cap=json_object_new_obj
+ect();json_object_string_add(json_cap,"description","TypedWildcard");json_object
+_string_add(json_cap,"tlvType","0x050B");json_object_array_add(json_array,json_c
+ap);/*UnrecognizedNotification(0x0603)*/json_cap=json_object_new_object();json_o
+bject_string_add(json_cap,"description","UnrecognizedNotification");json_object_
+string_add(json_cap,"tlvType","0x0603");json_object_array_add(json_array,json_ca
+p);vty_out(vty,"%s\n",json_object_to_json_string_ext(json,JSON_C_TO_STRING_PRETT
+Y));json_object_free(json);return(0);}vty_out(vty,"SupportedLDPCapabilities\n""*
+DynamicAnnouncement(0x0506)\n""*TypedWildcard(0x050B)\n""*UnrecognizedNotificati
+on(0x0603)\n\n");return(0);}intldp_vty_show_neighbor(structvty*vty,constchar*lsr
+_id,intcapabilities,constchar*detail,constchar*json){structimsgbufibuf;structsho
+w_paramsparams;if(ldp_vty_connect(&ibuf)<0)return(CMD_WARNING);memset(&params,0,
+sizeof(params));params.detail=(detail)?1:0;params.json=(json)?1:0;params.neighbo
+r.capabilities=capabilities;if(lsr_id&&(inet_pton(AF_INET,lsr_id,&params.neighbo
+r.lsr_id)!=1||bad_addr_v4(params.neighbor.lsr_id))){vty_out(vty,"%%Malformedaddr
+ess\n");return(CMD_SUCCESS);}if(params.neighbor.capabilities)params.detail=1;if(
+!params.detail&&!params.json)vty_out(vty,"%-4s%-15s%-11s%-15s%8s\n","AF","ID","S
+tate","RemoteAddress","Uptime");imsg_compose(&ibuf,IMSG_CTL_SHOW_NBR,0,0,-1,NULL
+,0);return(ldp_vty_dispatch(vty,&ibuf,SHOW_NBR,&params));}intldp_vty_show_atom_b
+inding(structvty*vty,constchar*peer,unsignedlonglocal_label,unsignedlongremote_l
+abel,constchar*json){structimsgbufibuf;structshow_paramsparams;if(ldp_vty_connec
+t(&ibuf)<0)return(CMD_WARNING);memset(&params,0,sizeof(params));params.json=(jso
+n)?1:0;if(peer&&(inet_pton(AF_INET,peer,&params.l2vpn.peer)!=1||bad_addr_v4(para
+ms.l2vpn.peer))){vty_out(vty,"%%Malformedaddress\n");return(CMD_SUCCESS);}params
+.l2vpn.local_label=local_label;params.l2vpn.remote_label=remote_label;imsg_compo
+se(&ibuf,IMSG_CTL_SHOW_L2VPN_BINDING,0,0,-1,NULL,0);return(ldp_vty_dispatch(vty,
+&ibuf,SHOW_L2VPN_BINDING,&params));}intldp_vty_show_atom_vc(structvty*vty,constc
+har*peer,constchar*ifname,constchar*vcid,constchar*json){structimsgbufibuf;struc
+tshow_paramsparams;if(ldp_vty_connect(&ibuf)<0)return(CMD_WARNING);memset(&param
+s,0,sizeof(params));params.json=(json)?1:0;if(peer&&(inet_pton(AF_INET,peer,&par
+ams.l2vpn.peer)!=1||bad_addr_v4(params.l2vpn.peer))){vty_out(vty,"%%Malformedadd
+ress\n");return(CMD_SUCCESS);}if(ifname)strlcpy(params.l2vpn.ifname,ifname,sizeo
+f(params.l2vpn.ifname));if(vcid)params.l2vpn.vcid=atoi(vcid);if(!params.json){/*
+header*/vty_out(vty,"%-9s%-15s%-10s%-16s%-10s\n","Interface","PeerID","VCID","Na
+me","Status");vty_out(vty,"%-9s%-15s%-10s%-16s%-10s\n","---------","------------
+---","----------","----------------","----------");}imsg_compose(&ibuf,IMSG_CTL_
+SHOW_L2VPN_PW,0,0,-1,NULL,0);return(ldp_vty_dispatch(vty,&ibuf,SHOW_L2VPN_PW,&pa
+rams));}intldp_vty_clear_nbr(structvty*vty,constchar*addr_str){structimsgbufibuf
+;structctl_nbrnbr;memset(&nbr,0,sizeof(nbr));if(addr_str&&(ldp_get_address(addr_
+str,&nbr.af,&nbr.raddr)==-1||bad_addr(nbr.af,&nbr.raddr))){vty_out(vty,"%%Malfor
+medaddress\n");return(CMD_WARNING);}if(ldp_vty_connect(&ibuf)<0)return(CMD_WARNI
+NG);imsg_compose(&ibuf,IMSG_CTL_CLEAR_NBR,0,0,-1,&nbr,sizeof(nbr));while(ibuf.w.
+queued)if(msgbuf_write(&ibuf.w)<=0&&errno!=EAGAIN){log_warn("writeerror");close(
+ibuf.fd);return(CMD_WARNING);}close(ibuf.fd);return(CMD_SUCCESS);}

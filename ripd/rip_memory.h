@@ -1,35 +1,12 @@
-/* ripd memory type declarations
- *
- * Copyright (C) 2015  David Lamparter
- *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_RIP_MEMORY_H
-#define _QUAGGA_RIP_MEMORY_H
-
-#include "memory.h"
-
-DECLARE_MGROUP(RIPD)
-DECLARE_MTYPE(RIP)
-DECLARE_MTYPE(RIP_INFO)
-DECLARE_MTYPE(RIP_INTERFACE)
-DECLARE_MTYPE(RIP_PEER)
-DECLARE_MTYPE(RIP_OFFSET_LIST)
-DECLARE_MTYPE(RIP_DISTANCE)
-
-#endif /* _QUAGGA_RIP_MEMORY_H */
+/*ripdmemorytypedeclarations**Copyright(C)2015DavidLamparter**ThisfileispartofQu
+agga.**Quaggaisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsofth
+eGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,o
+r(atyouroption)any*laterversion.**Quaggaisdistributedinthehopethatitwillbeuseful
+,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESS
+FORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldha
+vereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYI
+NG;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,M
+A02110-1301USA*/#ifndef_QUAGGA_RIP_MEMORY_H#define_QUAGGA_RIP_MEMORY_H#include"m
+emory.h"DECLARE_MGROUP(RIPD)DECLARE_MTYPE(RIP)DECLARE_MTYPE(RIP_INFO)DECLARE_MTY
+PE(RIP_INTERFACE)DECLARE_MTYPE(RIP_PEER)DECLARE_MTYPE(RIP_OFFSET_LIST)DECLARE_MT
+YPE(RIP_DISTANCE)#endif/*_QUAGGA_RIP_MEMORY_H*/

@@ -1,132 +1,55 @@
-/* AS path related definitions.
- * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_BGP_ASPATH_H
-#define _QUAGGA_BGP_ASPATH_H
-
-#include "lib/json.h"
-
-/* AS path segment type.  */
-#define AS_SET                       1
-#define AS_SEQUENCE                  2
-#define AS_CONFED_SEQUENCE           3
-#define AS_CONFED_SET                4
-
-/* Private AS range defined in RFC2270.  */
-#define BGP_PRIVATE_AS_MIN       64512U
-#define BGP_PRIVATE_AS_MAX       65535U
-
-/* Private 4 byte AS range defined in RFC6996.  */
-#define BGP_PRIVATE_AS4_MIN     4200000000U
-#define BGP_PRIVATE_AS4_MAX     4294967294U
-
-/* we leave BGP_AS_MAX as the 16bit AS MAX number.  */
-#define BGP_AS_MAX		     65535U
-#define BGP_AS4_MAX		4294967295U
-/* Transition 16Bit AS as defined by IANA */
-#define BGP_AS_TRANS		 23456U
-
-#define BGP_AS_IS_PRIVATE(ASN)                                                 \
-	(((ASN) >= BGP_PRIVATE_AS_MIN && (ASN) <= BGP_PRIVATE_AS_MAX)          \
-	 || ((ASN) >= BGP_PRIVATE_AS4_MIN && (ASN) <= BGP_PRIVATE_AS4_MAX))
-
-/* AS_PATH segment data in abstracted form, no limit is placed on length */
-struct assegment {
-	struct assegment *next;
-	as_t *as;
-	unsigned short length;
-	uint8_t type;
-};
-
-/* AS path may be include some AsSegments.  */
-struct aspath {
-	/* Reference count to this aspath.  */
-	unsigned long refcnt;
-
-	/* segment data */
-	struct assegment *segments;
-
-	/* AS path as a json object */
-	json_object *json;
-
-	/* String expression of AS path.  This string is used by vty output
-	   and AS path regular expression match.  */
-	char *str;
-	unsigned short str_len;
-};
-
-#define ASPATH_STR_DEFAULT_LEN 32
-
-/* Prototypes. */
-extern void aspath_init(void);
-extern void aspath_finish(void);
-extern struct aspath *aspath_parse(struct stream *, size_t, int);
-extern struct aspath *aspath_dup(struct aspath *);
-extern struct aspath *aspath_aggregate(struct aspath *, struct aspath *);
-extern struct aspath *aspath_prepend(struct aspath *, struct aspath *);
-extern struct aspath *aspath_filter_exclude(struct aspath *, struct aspath *);
-extern struct aspath *aspath_add_seq_n(struct aspath *, as_t, unsigned);
-extern struct aspath *aspath_add_seq(struct aspath *, as_t);
-extern struct aspath *aspath_add_confed_seq(struct aspath *, as_t);
-extern int aspath_cmp(const void *, const void *);
-extern int aspath_cmp_left(const struct aspath *, const struct aspath *);
-extern int aspath_cmp_left_confed(const struct aspath *, const struct aspath *);
-extern struct aspath *aspath_delete_confed_seq(struct aspath *);
-extern struct aspath *aspath_empty(void);
-extern struct aspath *aspath_empty_get(void);
-extern struct aspath *aspath_str2aspath(const char *);
-extern void aspath_str_update(struct aspath *as, bool make_json);
-extern void aspath_free(struct aspath *);
-extern struct aspath *aspath_intern(struct aspath *);
-extern void aspath_unintern(struct aspath **);
-extern const char *aspath_print(struct aspath *);
-extern void aspath_print_vty(struct vty *, const char *, struct aspath *,
-			     const char *);
-extern void aspath_print_all_vty(struct vty *);
-extern unsigned int aspath_key_make(void *);
-extern unsigned int aspath_get_first_as(struct aspath *);
-extern unsigned int aspath_get_last_as(struct aspath *);
-extern int aspath_loop_check(struct aspath *, as_t);
-extern int aspath_private_as_check(struct aspath *);
-extern int aspath_single_asn_check(struct aspath *, as_t asn);
-extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
-						  as_t target_asn,
-						  as_t our_asn);
-extern struct aspath *aspath_replace_private_asns(struct aspath *aspath,
-						  as_t asn);
-extern struct aspath *aspath_remove_private_asns(struct aspath *aspath);
-extern int aspath_firstas_check(struct aspath *, as_t);
-extern int aspath_confed_check(struct aspath *);
-extern int aspath_left_confed_check(struct aspath *);
-extern unsigned long aspath_count(void);
-extern unsigned int aspath_count_hops(const struct aspath *);
-extern unsigned int aspath_count_confeds(struct aspath *);
-extern unsigned int aspath_size(struct aspath *);
-extern as_t aspath_highest(struct aspath *);
-extern as_t aspath_leftmost(struct aspath *);
-extern size_t aspath_put(struct stream *, struct aspath *, int);
-
-extern struct aspath *aspath_reconcile_as4(struct aspath *, struct aspath *);
-extern unsigned int aspath_has_as4(struct aspath *);
-
-/* For SNMP BGP4PATHATTRASPATHSEGMENT, might be useful for debug */
-extern uint8_t *aspath_snmp_pathseg(struct aspath *, size_t *);
-
-#endif /* _QUAGGA_BGP_ASPATH_H */
+/*ASpathrelateddefinitions.*Copyright(C)1997,98,99KunihiroIshiguro**Thisfileispa
+rtofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underth
+etermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;either
+version2,or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatit
+willbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABIL
+ITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.*
+*YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;see
+thefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFl
+oor,Boston,MA02110-1301USA*/#ifndef_QUAGGA_BGP_ASPATH_H#define_QUAGGA_BGP_ASPATH
+_H#include"lib/json.h"/*ASpathsegmenttype.*/#defineAS_SET1#defineAS_SEQUENCE2#de
+fineAS_CONFED_SEQUENCE3#defineAS_CONFED_SET4/*PrivateASrangedefinedinRFC2270.*/#
+defineBGP_PRIVATE_AS_MIN64512U#defineBGP_PRIVATE_AS_MAX65535U/*Private4byteASran
+gedefinedinRFC6996.*/#defineBGP_PRIVATE_AS4_MIN4200000000U#defineBGP_PRIVATE_AS4
+_MAX4294967294U/*weleaveBGP_AS_MAXasthe16bitASMAXnumber.*/#defineBGP_AS_MAX65535
+U#defineBGP_AS4_MAX4294967295U/*Transition16BitASasdefinedbyIANA*/#defineBGP_AS_
+TRANS23456U#defineBGP_AS_IS_PRIVATE(ASN)\(((ASN)>=BGP_PRIVATE_AS_MIN&&(ASN)<=BGP
+_PRIVATE_AS_MAX)\||((ASN)>=BGP_PRIVATE_AS4_MIN&&(ASN)<=BGP_PRIVATE_AS4_MAX))/*AS
+_PATHsegmentdatainabstractedform,nolimitisplacedonlength*/structassegment{struct
+assegment*next;as_t*as;unsignedshortlength;uint8_ttype;};/*ASpathmaybeincludesom
+eAsSegments.*/structaspath{/*Referencecounttothisaspath.*/unsignedlongrefcnt;/*s
+egmentdata*/structassegment*segments;/*ASpathasajsonobject*/json_object*json;/*S
+tringexpressionofASpath.ThisstringisusedbyvtyoutputandASpathregularexpressionmat
+ch.*/char*str;unsignedshortstr_len;};#defineASPATH_STR_DEFAULT_LEN32/*Prototypes
+.*/externvoidaspath_init(void);externvoidaspath_finish(void);externstructaspath*
+aspath_parse(structstream*,size_t,int);externstructaspath*aspath_dup(structaspat
+h*);externstructaspath*aspath_aggregate(structaspath*,structaspath*);externstruc
+taspath*aspath_prepend(structaspath*,structaspath*);externstructaspath*aspath_fi
+lter_exclude(structaspath*,structaspath*);externstructaspath*aspath_add_seq_n(st
+ructaspath*,as_t,unsigned);externstructaspath*aspath_add_seq(structaspath*,as_t)
+;externstructaspath*aspath_add_confed_seq(structaspath*,as_t);externintaspath_cm
+p(constvoid*,constvoid*);externintaspath_cmp_left(conststructaspath*,conststruct
+aspath*);externintaspath_cmp_left_confed(conststructaspath*,conststructaspath*);
+externstructaspath*aspath_delete_confed_seq(structaspath*);externstructaspath*as
+path_empty(void);externstructaspath*aspath_empty_get(void);externstructaspath*as
+path_str2aspath(constchar*);externvoidaspath_str_update(structaspath*as,boolmake
+_json);externvoidaspath_free(structaspath*);externstructaspath*aspath_intern(str
+uctaspath*);externvoidaspath_unintern(structaspath**);externconstchar*aspath_pri
+nt(structaspath*);externvoidaspath_print_vty(structvty*,constchar*,structaspath*
+,constchar*);externvoidaspath_print_all_vty(structvty*);externunsignedintaspath_
+key_make(void*);externunsignedintaspath_get_first_as(structaspath*);externunsign
+edintaspath_get_last_as(structaspath*);externintaspath_loop_check(structaspath*,
+as_t);externintaspath_private_as_check(structaspath*);externintaspath_single_asn
+_check(structaspath*,as_tasn);externstructaspath*aspath_replace_specific_asn(str
+uctaspath*aspath,as_ttarget_asn,as_tour_asn);externstructaspath*aspath_replace_p
+rivate_asns(structaspath*aspath,as_tasn);externstructaspath*aspath_remove_privat
+e_asns(structaspath*aspath);externintaspath_firstas_check(structaspath*,as_t);ex
+ternintaspath_confed_check(structaspath*);externintaspath_left_confed_check(stru
+ctaspath*);externunsignedlongaspath_count(void);externunsignedintaspath_count_ho
+ps(conststructaspath*);externunsignedintaspath_count_confeds(structaspath*);exte
+rnunsignedintaspath_size(structaspath*);externas_taspath_highest(structaspath*);
+externas_taspath_leftmost(structaspath*);externsize_taspath_put(structstream*,st
+ructaspath*,int);externstructaspath*aspath_reconcile_as4(structaspath*,structasp
+ath*);externunsignedintaspath_has_as4(structaspath*);/*ForSNMPBGP4PATHATTRASPATH
+SEGMENT,mightbeusefulfordebug*/externuint8_t*aspath_snmp_pathseg(structaspath*,s
+ize_t*);#endif/*_QUAGGA_BGP_ASPATH_H*/

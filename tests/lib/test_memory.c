@@ -1,120 +1,35 @@
-/*
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * Quagga is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-#include <memory.h>
-
-DEFINE_MGROUP(TEST_MEMORY, "memory test")
-DEFINE_MTYPE_STATIC(TEST_MEMORY, TEST, "generic test mtype")
-
-/* Memory torture tests
- *
- * Tests below are generic but comments are focused on interaction with
- * Paul's proposed memory 'quick' cache, which may never be included in
- * CVS
- */
-
-struct thread_master *master;
-
-#if 0 /* set to 1 to use system alloc directly */
-#undef XMALLOC
-#undef XCALLOC
-#undef XREALLOC
-#undef XFREE
-#define XMALLOC(T,S) malloc((S))
-#define XCALLOC(T,S) calloc(1, (S))
-#define XREALLOC(T,P,S) realloc((P),(S))
-#define XFREE(T,P) free((P))
-#endif
-
-#define TIMES 10
-
-int main(int argc, char **argv)
-{
-	void *a[10];
-	int i;
-
-	printf("malloc x, malloc x, free, malloc x, free free\n\n");
-	/* simple case, test cache */
-	for (i = 0; i < TIMES; i++) {
-		a[0] = XMALLOC(MTYPE_TEST, 1024);
-		memset(a[0], 1, 1024);
-		a[1] = XMALLOC(MTYPE_TEST, 1024);
-		memset(a[1], 1, 1024);
-		XFREE(MTYPE_TEST, a[0]); /* should go to cache */
-		a[0] = XMALLOC(MTYPE_TEST,
-			       1024); /* should be satisfied from cache */
-		XFREE(MTYPE_TEST, a[0]);
-		XFREE(MTYPE_TEST, a[1]);
-	}
-
-	printf("malloc x, malloc y, free x, malloc y, free free\n\n");
-	/* cache should go invalid, valid, invalid, etc.. */
-	for (i = 0; i < TIMES; i++) {
-		a[0] = XMALLOC(MTYPE_TEST, 512);
-		memset(a[0], 1, 512);
-		a[1] = XMALLOC(MTYPE_TEST, 1024); /* invalidate cache */
-		memset(a[1], 1, 1024);
-		XFREE(MTYPE_TEST, a[0]);
-		a[0] = XMALLOC(MTYPE_TEST, 1024);
-		XFREE(MTYPE_TEST, a[0]);
-		XFREE(MTYPE_TEST, a[1]);
-		/* cache should become valid again on next request */
-	}
-
-	printf("calloc\n\n");
-	/* test calloc */
-	for (i = 0; i < TIMES; i++) {
-		a[0] = XCALLOC(MTYPE_TEST, 1024);
-		memset(a[0], 1, 1024);
-		a[1] = XCALLOC(MTYPE_TEST, 512); /* invalidate cache */
-		memset(a[1], 1, 512);
-		XFREE(MTYPE_TEST, a[1]);
-		XFREE(MTYPE_TEST, a[0]);
-		/* alloc == 0, cache can become valid again on next request */
-	}
-
-	printf("calloc and realloc\n\n");
-	/* check calloc + realloc */
-	for (i = 0; i < TIMES; i++) {
-		printf("calloc a0 1024\n");
-		a[0] = XCALLOC(MTYPE_TEST, 1024);
-		memset(a[0], 1, 1024 / 2);
-
-		printf("calloc 1 1024\n");
-		a[1] = XCALLOC(MTYPE_TEST, 1024);
-		memset(a[1], 1, 1024 / 2);
-
-		printf("realloc 0 1024\n");
-		a[3] = XREALLOC(MTYPE_TEST, a[0], 2048); /* invalidate cache */
-		if (a[3] != NULL)
-			a[0] = a[3];
-		memset(a[0], 1, 1024);
-
-		printf("calloc 2 512\n");
-		a[2] = XCALLOC(MTYPE_TEST, 512);
-		memset(a[2], 1, 512);
-
-		printf("free 1 0 2\n");
-		XFREE(MTYPE_TEST, a[1]);
-		XFREE(MTYPE_TEST, a[0]);
-		XFREE(MTYPE_TEST, a[2]);
-		/* alloc == 0, cache valid next request */
-	}
-	return 0;
-}
+/**ThisfileispartofQuagga.**Quaggaisfreesoftware;youcanredistributeitand/ormodif
+yit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFounda
+tion;eitherversion2,or(atyouroption)any*laterversion.**Quaggaisdistributedintheh
+opethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MER
+CHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformore
+details.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthispr
+ogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinS
+t,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include<memory.h>DEFINE_M
+GROUP(TEST_MEMORY,"memorytest")DEFINE_MTYPE_STATIC(TEST_MEMORY,TEST,"generictest
+mtype")/*Memorytorturetests**Testsbelowaregenericbutcommentsarefocusedoninteract
+ionwith*Paul'sproposedmemory'quick'cache,whichmayneverbeincludedin*CVS*/structth
+read_master*master;#if0/*setto1tousesystemallocdirectly*/#undefXMALLOC#undefXCAL
+LOC#undefXREALLOC#undefXFREE#defineXMALLOC(T,S)malloc((S))#defineXCALLOC(T,S)cal
+loc(1,(S))#defineXREALLOC(T,P,S)realloc((P),(S))#defineXFREE(T,P)free((P))#endif
+#defineTIMES10intmain(intargc,char**argv){void*a[10];inti;printf("mallocx,malloc
+x,free,mallocx,freefree\n\n");/*simplecase,testcache*/for(i=0;i<TIMES;i++){a[0]=
+XMALLOC(MTYPE_TEST,1024);memset(a[0],1,1024);a[1]=XMALLOC(MTYPE_TEST,1024);memse
+t(a[1],1,1024);XFREE(MTYPE_TEST,a[0]);/*shouldgotocache*/a[0]=XMALLOC(MTYPE_TEST
+,1024);/*shouldbesatisfiedfromcache*/XFREE(MTYPE_TEST,a[0]);XFREE(MTYPE_TEST,a[1
+]);}printf("mallocx,mallocy,freex,mallocy,freefree\n\n");/*cacheshouldgoinvalid,
+valid,invalid,etc..*/for(i=0;i<TIMES;i++){a[0]=XMALLOC(MTYPE_TEST,512);memset(a[
+0],1,512);a[1]=XMALLOC(MTYPE_TEST,1024);/*invalidatecache*/memset(a[1],1,1024);X
+FREE(MTYPE_TEST,a[0]);a[0]=XMALLOC(MTYPE_TEST,1024);XFREE(MTYPE_TEST,a[0]);XFREE
+(MTYPE_TEST,a[1]);/*cacheshouldbecomevalidagainonnextrequest*/}printf("calloc\n\
+n");/*testcalloc*/for(i=0;i<TIMES;i++){a[0]=XCALLOC(MTYPE_TEST,1024);memset(a[0]
+,1,1024);a[1]=XCALLOC(MTYPE_TEST,512);/*invalidatecache*/memset(a[1],1,512);XFRE
+E(MTYPE_TEST,a[1]);XFREE(MTYPE_TEST,a[0]);/*alloc==0,cachecanbecomevalidagainonn
+extrequest*/}printf("callocandrealloc\n\n");/*checkcalloc+realloc*/for(i=0;i<TIM
+ES;i++){printf("calloca01024\n");a[0]=XCALLOC(MTYPE_TEST,1024);memset(a[0],1,102
+4/2);printf("calloc11024\n");a[1]=XCALLOC(MTYPE_TEST,1024);memset(a[1],1,1024/2)
+;printf("realloc01024\n");a[3]=XREALLOC(MTYPE_TEST,a[0],2048);/*invalidatecache*
+/if(a[3]!=NULL)a[0]=a[3];memset(a[0],1,1024);printf("calloc2512\n");a[2]=XCALLOC
+(MTYPE_TEST,512);memset(a[2],1,512);printf("free102\n");XFREE(MTYPE_TEST,a[1]);X
+FREE(MTYPE_TEST,a[0]);XFREE(MTYPE_TEST,a[2]);/*alloc==0,cachevalidnextrequest*/}
+return0;}

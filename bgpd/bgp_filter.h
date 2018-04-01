@@ -1,35 +1,14 @@
-/* AS path filter list.
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_BGP_FILTER_H
-#define _QUAGGA_BGP_FILTER_H
-
-enum as_filter_type { AS_FILTER_DENY, AS_FILTER_PERMIT };
-
-extern void bgp_filter_init(void);
-extern void bgp_filter_reset(void);
-
-extern enum as_filter_type as_list_apply(struct as_list *, void *);
-
-extern struct as_list *as_list_lookup(const char *);
-extern void as_list_add_hook(void (*func)(char *));
-extern void as_list_delete_hook(void (*func)(const char *));
-
-#endif /* _QUAGGA_BGP_FILTER_H */
+/*ASpathfilterlist.*Copyright(C)1999KunihiroIshiguro**ThisfileispartofGNUZebra.*
+*GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoftheGNU
+GeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,or(at
+youroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuseful,b
+ut*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFO
+RAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhave
+receivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING
+;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA0
+2110-1301USA*/#ifndef_QUAGGA_BGP_FILTER_H#define_QUAGGA_BGP_FILTER_Henumas_filte
+r_type{AS_FILTER_DENY,AS_FILTER_PERMIT};externvoidbgp_filter_init(void);externvo
+idbgp_filter_reset(void);externenumas_filter_typeas_list_apply(structas_list*,vo
+id*);externstructas_list*as_list_lookup(constchar*);externvoidas_list_add_hook(v
+oid(*func)(char*));externvoidas_list_delete_hook(void(*func)(constchar*));#endif
+/*_QUAGGA_BGP_FILTER_H*/

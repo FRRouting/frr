@@ -1,893 +1,214 @@
-/* BGP Extended Communities Attribute
- * Copyright (C) 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "hash.h"
-#include "memory.h"
-#include "prefix.h"
-#include "command.h"
-#include "queue.h"
-#include "filter.h"
-#include "jhash.h"
-#include "stream.h"
-
-#include "bgpd/bgpd.h"
-#include "bgpd/bgp_ecommunity.h"
-#include "bgpd/bgp_lcommunity.h"
-#include "bgpd/bgp_aspath.h"
-#include "bgpd/bgp_flowspec_private.h"
-
-/* struct used to dump the rate contained in FS set traffic-rate EC */
-union traffic_rate {
-	float rate_float;
-	uint8_t rate_byte[4];
-};
-
-/* Hash of community attribute. */
-static struct hash *ecomhash;
-
-/* Allocate a new ecommunities.  */
-struct ecommunity *ecommunity_new(void)
-{
-	return (struct ecommunity *)XCALLOC(MTYPE_ECOMMUNITY,
-					    sizeof(struct ecommunity));
-}
-
-/* Allocate ecommunities.  */
-void ecommunity_free(struct ecommunity **ecom)
-{
-	if ((*ecom)->val)
-		XFREE(MTYPE_ECOMMUNITY_VAL, (*ecom)->val);
-	if ((*ecom)->str)
-		XFREE(MTYPE_ECOMMUNITY_STR, (*ecom)->str);
-	XFREE(MTYPE_ECOMMUNITY, *ecom);
-	ecom = NULL;
-}
-
-static void ecommunity_hash_free(struct ecommunity *ecom)
-{
-	ecommunity_free(&ecom);
-}
-
-
-/* Add a new Extended Communities value to Extended Communities
-   Attribute structure.  When the value is already exists in the
-   structure, we don't add the value.  Newly added value is sorted by
-   numerical order.  When the value is added to the structure return 1
-   else return 0.  */
-int ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval)
-{
-	uint8_t *p;
-	int ret;
-	int c;
-
-	/* When this is fist value, just add it.  */
-	if (ecom->val == NULL) {
-		ecom->size++;
-		ecom->val = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom_length(ecom));
-		memcpy(ecom->val, eval->val, ECOMMUNITY_SIZE);
-		return 1;
-	}
-
-	/* If the value already exists in the structure return 0.  */
-	c = 0;
-	for (p = ecom->val; c < ecom->size; p += ECOMMUNITY_SIZE, c++) {
-		ret = memcmp(p, eval->val, ECOMMUNITY_SIZE);
-		if (ret == 0)
-			return 0;
-		if (ret > 0)
-			break;
-	}
-
-	/* Add the value to the structure with numerical sorting.  */
-	ecom->size++;
-	ecom->val =
-		XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom->val, ecom_length(ecom));
-
-	memmove(ecom->val + (c + 1) * ECOMMUNITY_SIZE,
-		ecom->val + c * ECOMMUNITY_SIZE,
-		(ecom->size - 1 - c) * ECOMMUNITY_SIZE);
-	memcpy(ecom->val + c * ECOMMUNITY_SIZE, eval->val, ECOMMUNITY_SIZE);
-
-	return 1;
-}
-
-/* This function takes pointer to Extended Communites strucutre then
-   create a new Extended Communities structure by uniq and sort each
-   Extended Communities value.  */
-struct ecommunity *ecommunity_uniq_sort(struct ecommunity *ecom)
-{
-	int i;
-	struct ecommunity *new;
-	struct ecommunity_val *eval;
-
-	if (!ecom)
-		return NULL;
-
-	new = ecommunity_new();
-
-	for (i = 0; i < ecom->size; i++) {
-		eval = (struct ecommunity_val *)(ecom->val
-						 + (i * ECOMMUNITY_SIZE));
-		ecommunity_add_val(new, eval);
-	}
-	return new;
-}
-
-/* Parse Extended Communites Attribute in BGP packet.  */
-struct ecommunity *ecommunity_parse(uint8_t *pnt, unsigned short length)
-{
-	struct ecommunity tmp;
-	struct ecommunity *new;
-
-	/* Length check.  */
-	if (length % ECOMMUNITY_SIZE)
-		return NULL;
-
-	/* Prepare tmporary structure for making a new Extended Communities
-	   Attribute.  */
-	tmp.size = length / ECOMMUNITY_SIZE;
-	tmp.val = pnt;
-
-	/* Create a new Extended Communities Attribute by uniq and sort each
-	   Extended Communities value  */
-	new = ecommunity_uniq_sort(&tmp);
-
-	return ecommunity_intern(new);
-}
-
-/* Duplicate the Extended Communities Attribute structure.  */
-struct ecommunity *ecommunity_dup(struct ecommunity *ecom)
-{
-	struct ecommunity *new;
-
-	new = XCALLOC(MTYPE_ECOMMUNITY, sizeof(struct ecommunity));
-	new->size = ecom->size;
-	if (new->size) {
-		new->val = XMALLOC(MTYPE_ECOMMUNITY_VAL,
-				   ecom->size * ECOMMUNITY_SIZE);
-		memcpy(new->val, ecom->val, ecom->size * ECOMMUNITY_SIZE);
-	} else
-		new->val = NULL;
-	return new;
-}
-
-/* Retrun string representation of communities attribute. */
-char *ecommunity_str(struct ecommunity *ecom)
-{
-	if (!ecom->str)
-		ecom->str =
-			ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
-	return ecom->str;
-}
-
-/* Merge two Extended Communities Attribute structure.  */
-struct ecommunity *ecommunity_merge(struct ecommunity *ecom1,
-				    struct ecommunity *ecom2)
-{
-	if (ecom1->val)
-		ecom1->val =
-			XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom1->val,
-				 (ecom1->size + ecom2->size) * ECOMMUNITY_SIZE);
-	else
-		ecom1->val =
-			XMALLOC(MTYPE_ECOMMUNITY_VAL,
-				(ecom1->size + ecom2->size) * ECOMMUNITY_SIZE);
-
-	memcpy(ecom1->val + (ecom1->size * ECOMMUNITY_SIZE), ecom2->val,
-	       ecom2->size * ECOMMUNITY_SIZE);
-	ecom1->size += ecom2->size;
-
-	return ecom1;
-}
-
-/* Intern Extended Communities Attribute.  */
-struct ecommunity *ecommunity_intern(struct ecommunity *ecom)
-{
-	struct ecommunity *find;
-
-	assert(ecom->refcnt == 0);
-
-	find = (struct ecommunity *)hash_get(ecomhash, ecom, hash_alloc_intern);
-
-	if (find != ecom)
-		ecommunity_free(&ecom);
-
-	find->refcnt++;
-
-	if (!find->str)
-		find->str =
-			ecommunity_ecom2str(find, ECOMMUNITY_FORMAT_DISPLAY, 0);
-
-	return find;
-}
-
-/* Unintern Extended Communities Attribute.  */
-void ecommunity_unintern(struct ecommunity **ecom)
-{
-	struct ecommunity *ret;
-
-	if ((*ecom)->refcnt)
-		(*ecom)->refcnt--;
-
-	/* Pull off from hash.  */
-	if ((*ecom)->refcnt == 0) {
-		/* Extended community must be in the hash.  */
-		ret = (struct ecommunity *)hash_release(ecomhash, *ecom);
-		assert(ret != NULL);
-
-		ecommunity_free(ecom);
-	}
-}
-
-/* Utinity function to make hash key.  */
-unsigned int ecommunity_hash_make(void *arg)
-{
-	const struct ecommunity *ecom = arg;
-	int size = ecom->size * ECOMMUNITY_SIZE;
-
-	return jhash(ecom->val, size, 0x564321ab);
-}
-
-/* Compare two Extended Communities Attribute structure.  */
-int ecommunity_cmp(const void *arg1, const void *arg2)
-{
-	const struct ecommunity *ecom1 = arg1;
-	const struct ecommunity *ecom2 = arg2;
-
-	if (ecom1 == NULL && ecom2 == NULL)
-		return 1;
-
-	if (ecom1 == NULL || ecom2 == NULL)
-		return 0;
-
-	return (ecom1->size == ecom2->size
-		&& memcmp(ecom1->val, ecom2->val, ecom1->size * ECOMMUNITY_SIZE)
-			   == 0);
-}
-
-/* Initialize Extended Comminities related hash. */
-void ecommunity_init(void)
-{
-	ecomhash = hash_create(ecommunity_hash_make, ecommunity_cmp,
-			       "BGP ecommunity hash");
-}
-
-void ecommunity_finish(void)
-{
-	hash_clean(ecomhash, (void (*)(void *))ecommunity_hash_free);
-	hash_free(ecomhash);
-	ecomhash = NULL;
-}
-
-/* Extended Communities token enum. */
-enum ecommunity_token {
-	ecommunity_token_unknown = 0,
-	ecommunity_token_rt,
-	ecommunity_token_soo,
-	ecommunity_token_val,
-};
-
-/*
- * Encode BGP extended community from passed values. Supports types
- * defined in RFC 4360 and well-known sub-types.
- */
-static int ecommunity_encode(uint8_t type, uint8_t sub_type, int trans, as_t as,
-			     struct in_addr ip, uint32_t val,
-			     struct ecommunity_val *eval)
-{
-	assert(eval);
-	if (type == ECOMMUNITY_ENCODE_AS) {
-		if (as > BGP_AS_MAX)
-			return -1;
-	} else if (type == ECOMMUNITY_ENCODE_IP
-		   || type == ECOMMUNITY_ENCODE_AS4) {
-		if (val > UINT16_MAX)
-			return -1;
-	}
-
-	/* Fill in the values. */
-	eval->val[0] = type;
-	if (!trans)
-		eval->val[0] |= ECOMMUNITY_FLAG_NON_TRANSITIVE;
-	eval->val[1] = sub_type;
-	if (type == ECOMMUNITY_ENCODE_AS) {
-		eval->val[2] = (as >> 8) & 0xff;
-		eval->val[3] = as & 0xff;
-		eval->val[4] = (val >> 24) & 0xff;
-		eval->val[5] = (val >> 16) & 0xff;
-		eval->val[6] = (val >> 8) & 0xff;
-		eval->val[7] = val & 0xff;
-	} else if (type == ECOMMUNITY_ENCODE_IP) {
-		memcpy(&eval->val[2], &ip, sizeof(struct in_addr));
-		eval->val[6] = (val >> 8) & 0xff;
-		eval->val[7] = val & 0xff;
-	} else {
-		eval->val[2] = (as >> 24) & 0xff;
-		eval->val[3] = (as >> 16) & 0xff;
-		eval->val[4] = (as >> 8) & 0xff;
-		eval->val[5] = as & 0xff;
-		eval->val[6] = (val >> 8) & 0xff;
-		eval->val[7] = val & 0xff;
-	}
-
-	return 0;
-}
-
-/* Get next Extended Communities token from the string. */
-static const char *ecommunity_gettoken(const char *str,
-				       struct ecommunity_val *eval,
-				       enum ecommunity_token *token)
-{
-	int ret;
-	int dot = 0;
-	int digit = 0;
-	int separator = 0;
-	const char *p = str;
-	char *endptr;
-	struct in_addr ip;
-	as_t as = 0;
-	uint32_t val = 0;
-	uint8_t ecomm_type;
-	char buf[INET_ADDRSTRLEN + 1];
-
-	/* Skip white space. */
-	while (isspace((int)*p)) {
-		p++;
-		str++;
-	}
-
-	/* Check the end of the line. */
-	if (*p == '\0')
-		return NULL;
-
-	/* "rt" and "soo" keyword parse. */
-	if (!isdigit((int)*p)) {
-		/* "rt" match check.  */
-		if (tolower((int)*p) == 'r') {
-			p++;
-			if (tolower((int)*p) == 't') {
-				p++;
-				*token = ecommunity_token_rt;
-				return p;
-			}
-			if (isspace((int)*p) || *p == '\0') {
-				*token = ecommunity_token_rt;
-				return p;
-			}
-			goto error;
-		}
-		/* "soo" match check.  */
-		else if (tolower((int)*p) == 's') {
-			p++;
-			if (tolower((int)*p) == 'o') {
-				p++;
-				if (tolower((int)*p) == 'o') {
-					p++;
-					*token = ecommunity_token_soo;
-					return p;
-				}
-				if (isspace((int)*p) || *p == '\0') {
-					*token = ecommunity_token_soo;
-					return p;
-				}
-				goto error;
-			}
-			if (isspace((int)*p) || *p == '\0') {
-				*token = ecommunity_token_soo;
-				return p;
-			}
-			goto error;
-		}
-		goto error;
-	}
-
-	/* What a mess, there are several possibilities:
-	 *
-	 * a) A.B.C.D:MN
-	 * b) EF:OPQR
-	 * c) GHJK:MN
-	 *
-	 * A.B.C.D: Four Byte IP
-	 * EF:      Two byte ASN
-	 * GHJK:    Four-byte ASN
-	 * MN:      Two byte value
-	 * OPQR:    Four byte value
-	 *
-	 */
-	while (isdigit((int)*p) || *p == ':' || *p == '.') {
-		if (*p == ':') {
-			if (separator)
-				goto error;
-
-			separator = 1;
-			digit = 0;
-
-			if ((p - str) > INET_ADDRSTRLEN)
-				goto error;
-			memset(buf, 0, INET_ADDRSTRLEN + 1);
-			memcpy(buf, str, p - str);
-
-			if (dot) {
-				/* Parsing A.B.C.D in:
-				 * A.B.C.D:MN
-				 */
-				ret = inet_aton(buf, &ip);
-				if (ret == 0)
-					goto error;
-			} else {
-				/* ASN */
-				as = strtoul(buf, &endptr, 10);
-				if (*endptr != '\0' || as == BGP_AS4_MAX)
-					goto error;
-			}
-		} else if (*p == '.') {
-			if (separator)
-				goto error;
-			dot++;
-			if (dot > 4)
-				goto error;
-		} else {
-			digit = 1;
-
-			/* We're past the IP/ASN part */
-			if (separator) {
-				val *= 10;
-				val += (*p - '0');
-			}
-		}
-		p++;
-	}
-
-	/* Low digit part must be there. */
-	if (!digit || !separator)
-		goto error;
-
-	/* Encode result into extended community.  */
-	if (dot)
-		ecomm_type = ECOMMUNITY_ENCODE_IP;
-	else if (as > BGP_AS_MAX)
-		ecomm_type = ECOMMUNITY_ENCODE_AS4;
-	else
-		ecomm_type = ECOMMUNITY_ENCODE_AS;
-	if (ecommunity_encode(ecomm_type, 0, 1, as, ip, val, eval))
-		goto error;
-	*token = ecommunity_token_val;
-	return p;
-
-error:
-	*token = ecommunity_token_unknown;
-	return p;
-}
-
-/* Convert string to extended community attribute.
-
-   When type is already known, please specify both str and type.  str
-   should not include keyword such as "rt" and "soo".  Type is
-   ECOMMUNITY_ROUTE_TARGET or ECOMMUNITY_SITE_ORIGIN.
-   keyword_included should be zero.
-
-   For example route-map's "set extcommunity" command case:
-
-   "rt 100:1 100:2 100:3"        -> str = "100:1 100:2 100:3"
-				    type = ECOMMUNITY_ROUTE_TARGET
-				    keyword_included = 0
-
-   "soo 100:1"                   -> str = "100:1"
-				    type = ECOMMUNITY_SITE_ORIGIN
-				    keyword_included = 0
-
-   When string includes keyword for each extended community value.
-   Please specify keyword_included as non-zero value.
-
-   For example standard extcommunity-list case:
-
-   "rt 100:1 rt 100:2 soo 100:1" -> str = "rt 100:1 rt 100:2 soo 100:1"
-				    type = 0
-				    keyword_include = 1
-*/
-struct ecommunity *ecommunity_str2com(const char *str, int type,
-				      int keyword_included)
-{
-	struct ecommunity *ecom = NULL;
-	enum ecommunity_token token = ecommunity_token_unknown;
-	struct ecommunity_val eval;
-	int keyword = 0;
-
-	while ((str = ecommunity_gettoken(str, &eval, &token))) {
-		switch (token) {
-		case ecommunity_token_rt:
-		case ecommunity_token_soo:
-			if (!keyword_included || keyword) {
-				if (ecom)
-					ecommunity_free(&ecom);
-				return NULL;
-			}
-			keyword = 1;
-
-			if (token == ecommunity_token_rt) {
-				type = ECOMMUNITY_ROUTE_TARGET;
-			}
-			if (token == ecommunity_token_soo) {
-				type = ECOMMUNITY_SITE_ORIGIN;
-			}
-			break;
-		case ecommunity_token_val:
-			if (keyword_included) {
-				if (!keyword) {
-					if (ecom)
-						ecommunity_free(&ecom);
-					return NULL;
-				}
-				keyword = 0;
-			}
-			if (ecom == NULL)
-				ecom = ecommunity_new();
-			eval.val[1] = type;
-			ecommunity_add_val(ecom, &eval);
-			break;
-		case ecommunity_token_unknown:
-		default:
-			if (ecom)
-				ecommunity_free(&ecom);
-			return NULL;
-		}
-	}
-	return ecom;
-}
-
-static int ecommunity_rt_soo_str(char *buf, uint8_t *pnt, int type,
-				 int sub_type, int format)
-{
-	int len = 0;
-	const char *prefix;
-
-	/* For parse Extended Community attribute tupple. */
-	struct ecommunity_as eas;
-	struct ecommunity_ip eip;
-
-
-	/* Determine prefix for string, if any. */
-	switch (format) {
-	case ECOMMUNITY_FORMAT_COMMUNITY_LIST:
-		prefix = (sub_type == ECOMMUNITY_ROUTE_TARGET ? "rt " : "soo ");
-		break;
-	case ECOMMUNITY_FORMAT_DISPLAY:
-		prefix = (sub_type == ECOMMUNITY_ROUTE_TARGET ? "RT:" : "SoO:");
-		break;
-	case ECOMMUNITY_FORMAT_ROUTE_MAP:
-		prefix = "";
-		break;
-	default:
-		prefix = "";
-		break;
-	}
-
-	/* Put string into buffer.  */
-	if (type == ECOMMUNITY_ENCODE_AS4) {
-		pnt = ptr_get_be32(pnt, &eas.as);
-		eas.val = (*pnt++ << 8);
-		eas.val |= (*pnt++);
-
-		len = sprintf(buf, "%s%u:%u", prefix, eas.as, eas.val);
-	} else if (type == ECOMMUNITY_ENCODE_AS) {
-		eas.as = (*pnt++ << 8);
-		eas.as |= (*pnt++);
-		pnt = ptr_get_be32(pnt, &eas.val);
-
-		len = sprintf(buf, "%s%u:%u", prefix, eas.as, eas.val);
-	} else if (type == ECOMMUNITY_ENCODE_IP) {
-		memcpy(&eip.ip, pnt, 4);
-		pnt += 4;
-		eip.val = (*pnt++ << 8);
-		eip.val |= (*pnt++);
-
-		len = sprintf(buf, "%s%s:%u", prefix, inet_ntoa(eip.ip),
-			      eip.val);
-	}
-	(void)pnt; /* consume value */
-
-	return len;
-}
-
-/* Convert extended community attribute to string.
-
-   Due to historical reason of industry standard implementation, there
-   are three types of format.
-
-   route-map set extcommunity format
-	"rt 100:1 100:2"
-	"soo 100:3"
-
-   extcommunity-list
-	"rt 100:1 rt 100:2 soo 100:3"
-
-   "show [ip] bgp" and extcommunity-list regular expression matching
-	"RT:100:1 RT:100:2 SoO:100:3"
-
-   For each formath please use below definition for format:
-
-   ECOMMUNITY_FORMAT_ROUTE_MAP
-   ECOMMUNITY_FORMAT_COMMUNITY_LIST
-   ECOMMUNITY_FORMAT_DISPLAY
-
-   Filter is added to display only ECOMMUNITY_ROUTE_TARGET in some cases.
-   0 value displays all
-*/
-char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
-{
-	int i;
-	uint8_t *pnt;
-	int type = 0;
-	int sub_type = 0;
-#define ECOMMUNITY_STR_DEFAULT_LEN  27
-	int str_size;
-	int str_pnt;
-	char *str_buf;
-	int len = 0;
-	int first = 1;
-
-	if (ecom->size == 0) {
-		str_buf = XMALLOC(MTYPE_ECOMMUNITY_STR, 1);
-		str_buf[0] = '\0';
-		return str_buf;
-	}
-
-	/* Prepare buffer.  */
-	str_buf = XMALLOC(MTYPE_ECOMMUNITY_STR, ECOMMUNITY_STR_DEFAULT_LEN + 1);
-	str_size = ECOMMUNITY_STR_DEFAULT_LEN + 1;
-	str_buf[0] = '\0';
-	str_pnt = 0;
-
-	for (i = 0; i < ecom->size; i++) {
-		int unk_ecom = 0;
-
-		/* Make it sure size is enough.  */
-		while (str_pnt + ECOMMUNITY_STR_DEFAULT_LEN >= str_size) {
-			str_size *= 2;
-			str_buf = XREALLOC(MTYPE_ECOMMUNITY_STR, str_buf,
-					   str_size);
-		}
-
-		/* Space between each value.  */
-		if (!first) {
-			str_buf[str_pnt++] = ' ';
-			len++;
-		}
-
-		pnt = ecom->val + (i * 8);
-
-		/* High-order octet of type. */
-		type = *pnt++;
-
-		if (type == ECOMMUNITY_ENCODE_AS || type == ECOMMUNITY_ENCODE_IP
-		    || type == ECOMMUNITY_ENCODE_AS4) {
-			/* Low-order octet of type. */
-			sub_type = *pnt++;
-			if (sub_type != ECOMMUNITY_ROUTE_TARGET
-			    && sub_type != ECOMMUNITY_SITE_ORIGIN)
-				unk_ecom = 1;
-			else
-				len = ecommunity_rt_soo_str(str_buf + str_pnt,
-							    pnt, type, sub_type,
-							    format);
-		} else if (type == ECOMMUNITY_ENCODE_OPAQUE) {
-			if (filter == ECOMMUNITY_ROUTE_TARGET)
-				continue;
-			if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP) {
-				uint16_t tunneltype;
-				memcpy(&tunneltype, pnt + 5, 2);
-				tunneltype = ntohs(tunneltype);
-				len = sprintf(str_buf + str_pnt, "ET:%d",
-					      tunneltype);
-			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
-				len = sprintf(str_buf + str_pnt,
-					      "Default Gateway");
-			} else
-				unk_ecom = 1;
-		} else if (type == ECOMMUNITY_ENCODE_EVPN) {
-			if (filter == ECOMMUNITY_ROUTE_TARGET)
-				continue;
-			if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC) {
-				struct ethaddr rmac;
-				pnt++;
-				memcpy(&rmac, pnt, ETH_ALEN);
-				len = sprintf(
-					str_buf + str_pnt,
-					"Rmac:%02x:%02x:%02x:%02x:%02x:%02x",
-					(uint8_t)rmac.octet[0],
-					(uint8_t)rmac.octet[1],
-					(uint8_t)rmac.octet[2],
-					(uint8_t)rmac.octet[3],
-					(uint8_t)rmac.octet[4],
-					(uint8_t)rmac.octet[5]);
-			} else if (*pnt
-				   == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
-				uint32_t seqnum;
-				uint8_t flags = *++pnt;
-
-				memcpy(&seqnum, pnt + 2, 4);
-				seqnum = ntohl(seqnum);
-				if (flags
-				    & ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY)
-					len = sprintf(str_buf + str_pnt,
-						      "MM:%u, sticky MAC",
-						      seqnum);
-				else
-					len = sprintf(str_buf + str_pnt,
-						      "MM:%u", seqnum);
-			} else
-				unk_ecom = 1;
-		} else if (type == ECOMMUNITY_ENCODE_TRANS_EXP) {
-			sub_type = *pnt++;
-
-			if (sub_type == ECOMMUNITY_TRAFFIC_ACTION) {
-				char action[64];
-				char *ptr = action;
-
-				if (*(pnt+3) ==
-				    1 << FLOWSPEC_TRAFFIC_ACTION_TERMINAL)
-					ptr += snprintf(ptr, sizeof(action),
-							"terminate (apply)");
-				else
-					ptr += snprintf(ptr, sizeof(action),
-						       "eval stops");
-				if (*(pnt+3) ==
-				    1 << FLOWSPEC_TRAFFIC_ACTION_SAMPLE)
-					snprintf(ptr, sizeof(action) -
-						 (size_t)(ptr-action),
-						 ", sample");
-				len = snprintf(str_buf + str_pnt,
-					       str_size - len,
-					      "FS:action %s", action);
-			} else if (sub_type == ECOMMUNITY_TRAFFIC_RATE) {
-				union traffic_rate data;
-
-				data.rate_byte[3] = *(pnt+2);
-				data.rate_byte[2] = *(pnt+3);
-				data.rate_byte[1] = *(pnt+4);
-				data.rate_byte[0] = *(pnt+5);
-				len = sprintf(
-					str_buf + str_pnt,
-					"FS:rate %f", data.rate_float);
-			} else if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
-				char buf[16];
-
-				memset(buf, 0, sizeof(buf));
-				ecommunity_rt_soo_str(buf, (uint8_t *)pnt,
-						type &
-						~ECOMMUNITY_ENCODE_TRANS_EXP,
-						ECOMMUNITY_ROUTE_TARGET,
-						ECOMMUNITY_FORMAT_DISPLAY);
-				len = snprintf(
-					str_buf + str_pnt,
-					str_size - len,
-					"FS:redirect VRF %s", buf);
-			} else if (sub_type == ECOMMUNITY_TRAFFIC_MARKING) {
-				len = sprintf(
-					str_buf + str_pnt,
-					"FS:marking %u", *(pnt+5));
-			} else if (sub_type == ECOMMUNITY_REDIRECT_IP_NH) {
-				len = sprintf(
-					str_buf + str_pnt,
-					"FS:redirect IP 0x%x", *(pnt+5));
-			} else
-				unk_ecom = 1;
-		} else
-			unk_ecom = 1;
-
-		if (unk_ecom)
-			len = sprintf(str_buf + str_pnt, "?");
-
-		str_pnt += len;
-		first = 0;
-	}
-
-	return str_buf;
-}
-
-int ecommunity_match(const struct ecommunity *ecom1,
-		     const struct ecommunity *ecom2)
-{
-	int i = 0;
-	int j = 0;
-
-	if (ecom1 == NULL && ecom2 == NULL)
-		return 1;
-
-	if (ecom1 == NULL || ecom2 == NULL)
-		return 0;
-
-	if (ecom1->size < ecom2->size)
-		return 0;
-
-	/* Every community on com2 needs to be on com1 for this to match */
-	while (i < ecom1->size && j < ecom2->size) {
-		if (memcmp(ecom1->val + i * ECOMMUNITY_SIZE,
-			   ecom2->val + j * ECOMMUNITY_SIZE, ECOMMUNITY_SIZE)
-		    == 0)
-			j++;
-		i++;
-	}
-
-	if (j == ecom2->size)
-		return 1;
-	else
-		return 0;
-}
-
-/* return first occurence of type */
-extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
-						uint8_t type, uint8_t subtype)
-{
-	uint8_t *p;
-	int c;
-
-	/* If the value already exists in the structure return 0.  */
-	c = 0;
-	for (p = ecom->val; c < ecom->size; p += ECOMMUNITY_SIZE, c++) {
-		if (p == NULL) {
-			continue;
-		}
-		if (p[0] == type && p[1] == subtype)
-			return (struct ecommunity_val *)p;
-	}
-	return NULL;
-}
-
-/* remove ext. community matching type and subtype
- * return 1 on success ( removed ), 0 otherwise (not present)
- */
-extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
-			    uint8_t subtype)
-{
-	uint8_t *p;
-	int c, found = 0;
-	/* When this is fist value, just add it.  */
-	if (ecom == NULL || ecom->val == NULL) {
-		return 0;
-	}
-
-	/* If the value already exists in the structure return 0.  */
-	c = 0;
-	for (p = ecom->val; c < ecom->size; p += ECOMMUNITY_SIZE, c++) {
-		if (p[0] == type && p[1] == subtype) {
-			found = 1;
-			break;
-		}
-	}
-	if (found == 0)
-		return 0;
-	/* Strip The selected value */
-	ecom->size--;
-	/* size is reduced. no memmove to do */
-	p = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom->size * ECOMMUNITY_SIZE);
-	if (c != 0)
-		memcpy(p, ecom->val, c * ECOMMUNITY_SIZE);
-	if ((ecom->size - c) != 0)
-		memcpy(p + (c)*ECOMMUNITY_SIZE,
-		       ecom->val + (c + 1) * ECOMMUNITY_SIZE,
-		       (ecom->size - c) * ECOMMUNITY_SIZE);
-	/* shift last ecommunities */
-	XFREE(MTYPE_ECOMMUNITY, ecom->val);
-	ecom->val = p;
-	return 1;
-}
+/*BGPExtendedCommunitiesAttribute*Copyright(C)2000KunihiroIshiguro<kunihiro@zebr
+a.org>**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitan
+d/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeSoftw
+areFoundation;eitherversion2,or(atyouroption)any*laterversion.**GNUZebraisdistri
+butedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwar
+rantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLic
+enseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong
+*withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,
+51FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"hash.h
+"#include"memory.h"#include"prefix.h"#include"command.h"#include"queue.h"#includ
+e"filter.h"#include"jhash.h"#include"stream.h"#include"bgpd/bgpd.h"#include"bgpd
+/bgp_ecommunity.h"#include"bgpd/bgp_lcommunity.h"#include"bgpd/bgp_aspath.h"#inc
+lude"bgpd/bgp_flowspec_private.h"/*structusedtodumptheratecontainedinFSsettraffi
+c-rateEC*/uniontraffic_rate{floatrate_float;uint8_trate_byte[4];};/*Hashofcommun
+ityattribute.*/staticstructhash*ecomhash;/*Allocateanewecommunities.*/structecom
+munity*ecommunity_new(void){return(structecommunity*)XCALLOC(MTYPE_ECOMMUNITY,si
+zeof(structecommunity));}/*Allocateecommunities.*/voidecommunity_free(structecom
+munity**ecom){if((*ecom)->val)XFREE(MTYPE_ECOMMUNITY_VAL,(*ecom)->val);if((*ecom
+)->str)XFREE(MTYPE_ECOMMUNITY_STR,(*ecom)->str);XFREE(MTYPE_ECOMMUNITY,*ecom);ec
+om=NULL;}staticvoidecommunity_hash_free(structecommunity*ecom){ecommunity_free(&
+ecom);}/*AddanewExtendedCommunitiesvaluetoExtendedCommunitiesAttributestructure.
+Whenthevalueisalreadyexistsinthestructure,wedon'taddthevalue.Newlyaddedvalueisso
+rtedbynumericalorder.Whenthevalueisaddedtothestructurereturn1elsereturn0.*/intec
+ommunity_add_val(structecommunity*ecom,structecommunity_val*eval){uint8_t*p;intr
+et;intc;/*Whenthisisfistvalue,justaddit.*/if(ecom->val==NULL){ecom->size++;ecom-
+>val=XMALLOC(MTYPE_ECOMMUNITY_VAL,ecom_length(ecom));memcpy(ecom->val,eval->val,
+ECOMMUNITY_SIZE);return1;}/*Ifthevaluealreadyexistsinthestructurereturn0.*/c=0;f
+or(p=ecom->val;c<ecom->size;p+=ECOMMUNITY_SIZE,c++){ret=memcmp(p,eval->val,ECOMM
+UNITY_SIZE);if(ret==0)return0;if(ret>0)break;}/*Addthevaluetothestructurewithnum
+ericalsorting.*/ecom->size++;ecom->val=XREALLOC(MTYPE_ECOMMUNITY_VAL,ecom->val,e
+com_length(ecom));memmove(ecom->val+(c+1)*ECOMMUNITY_SIZE,ecom->val+c*ECOMMUNITY
+_SIZE,(ecom->size-1-c)*ECOMMUNITY_SIZE);memcpy(ecom->val+c*ECOMMUNITY_SIZE,eval-
+>val,ECOMMUNITY_SIZE);return1;}/*ThisfunctiontakespointertoExtendedCommunitesstr
+ucutrethencreateanewExtendedCommunitiesstructurebyuniqandsorteachExtendedCommuni
+tiesvalue.*/structecommunity*ecommunity_uniq_sort(structecommunity*ecom){inti;st
+ructecommunity*new;structecommunity_val*eval;if(!ecom)returnNULL;new=ecommunity_
+new();for(i=0;i<ecom->size;i++){eval=(structecommunity_val*)(ecom->val+(i*ECOMMU
+NITY_SIZE));ecommunity_add_val(new,eval);}returnnew;}/*ParseExtendedCommunitesAt
+tributeinBGPpacket.*/structecommunity*ecommunity_parse(uint8_t*pnt,unsignedshort
+length){structecommunitytmp;structecommunity*new;/*Lengthcheck.*/if(length%ECOMM
+UNITY_SIZE)returnNULL;/*PreparetmporarystructureformakinganewExtendedCommunities
+Attribute.*/tmp.size=length/ECOMMUNITY_SIZE;tmp.val=pnt;/*CreateanewExtendedComm
+unitiesAttributebyuniqandsorteachExtendedCommunitiesvalue*/new=ecommunity_uniq_s
+ort(&tmp);returnecommunity_intern(new);}/*DuplicatetheExtendedCommunitiesAttribu
+testructure.*/structecommunity*ecommunity_dup(structecommunity*ecom){structecomm
+unity*new;new=XCALLOC(MTYPE_ECOMMUNITY,sizeof(structecommunity));new->size=ecom-
+>size;if(new->size){new->val=XMALLOC(MTYPE_ECOMMUNITY_VAL,ecom->size*ECOMMUNITY_
+SIZE);memcpy(new->val,ecom->val,ecom->size*ECOMMUNITY_SIZE);}elsenew->val=NULL;r
+eturnnew;}/*Retrunstringrepresentationofcommunitiesattribute.*/char*ecommunity_s
+tr(structecommunity*ecom){if(!ecom->str)ecom->str=ecommunity_ecom2str(ecom,ECOMM
+UNITY_FORMAT_DISPLAY,0);returnecom->str;}/*MergetwoExtendedCommunitiesAttributes
+tructure.*/structecommunity*ecommunity_merge(structecommunity*ecom1,structecommu
+nity*ecom2){if(ecom1->val)ecom1->val=XREALLOC(MTYPE_ECOMMUNITY_VAL,ecom1->val,(e
+com1->size+ecom2->size)*ECOMMUNITY_SIZE);elseecom1->val=XMALLOC(MTYPE_ECOMMUNITY
+_VAL,(ecom1->size+ecom2->size)*ECOMMUNITY_SIZE);memcpy(ecom1->val+(ecom1->size*E
+COMMUNITY_SIZE),ecom2->val,ecom2->size*ECOMMUNITY_SIZE);ecom1->size+=ecom2->size
+;returnecom1;}/*InternExtendedCommunitiesAttribute.*/structecommunity*ecommunity
+_intern(structecommunity*ecom){structecommunity*find;assert(ecom->refcnt==0);fin
+d=(structecommunity*)hash_get(ecomhash,ecom,hash_alloc_intern);if(find!=ecom)eco
+mmunity_free(&ecom);find->refcnt++;if(!find->str)find->str=ecommunity_ecom2str(f
+ind,ECOMMUNITY_FORMAT_DISPLAY,0);returnfind;}/*UninternExtendedCommunitiesAttrib
+ute.*/voidecommunity_unintern(structecommunity**ecom){structecommunity*ret;if((*
+ecom)->refcnt)(*ecom)->refcnt--;/*Pullofffromhash.*/if((*ecom)->refcnt==0){/*Ext
+endedcommunitymustbeinthehash.*/ret=(structecommunity*)hash_release(ecomhash,*ec
+om);assert(ret!=NULL);ecommunity_free(ecom);}}/*Utinityfunctiontomakehashkey.*/u
+nsignedintecommunity_hash_make(void*arg){conststructecommunity*ecom=arg;intsize=
+ecom->size*ECOMMUNITY_SIZE;returnjhash(ecom->val,size,0x564321ab);}/*ComparetwoE
+xtendedCommunitiesAttributestructure.*/intecommunity_cmp(constvoid*arg1,constvoi
+d*arg2){conststructecommunity*ecom1=arg1;conststructecommunity*ecom2=arg2;if(eco
+m1==NULL&&ecom2==NULL)return1;if(ecom1==NULL||ecom2==NULL)return0;return(ecom1->
+size==ecom2->size&&memcmp(ecom1->val,ecom2->val,ecom1->size*ECOMMUNITY_SIZE)==0)
+;}/*InitializeExtendedComminitiesrelatedhash.*/voidecommunity_init(void){ecomhas
+h=hash_create(ecommunity_hash_make,ecommunity_cmp,"BGPecommunityhash");}voidecom
+munity_finish(void){hash_clean(ecomhash,(void(*)(void*))ecommunity_hash_free);ha
+sh_free(ecomhash);ecomhash=NULL;}/*ExtendedCommunitiestokenenum.*/enumecommunity
+_token{ecommunity_token_unknown=0,ecommunity_token_rt,ecommunity_token_soo,ecomm
+unity_token_val,};/**EncodeBGPextendedcommunityfrompassedvalues.Supportstypes*de
+finedinRFC4360andwell-knownsub-types.*/staticintecommunity_encode(uint8_ttype,ui
+nt8_tsub_type,inttrans,as_tas,structin_addrip,uint32_tval,structecommunity_val*e
+val){assert(eval);if(type==ECOMMUNITY_ENCODE_AS){if(as>BGP_AS_MAX)return-1;}else
+if(type==ECOMMUNITY_ENCODE_IP||type==ECOMMUNITY_ENCODE_AS4){if(val>UINT16_MAX)re
+turn-1;}/*Fillinthevalues.*/eval->val[0]=type;if(!trans)eval->val[0]|=ECOMMUNITY
+_FLAG_NON_TRANSITIVE;eval->val[1]=sub_type;if(type==ECOMMUNITY_ENCODE_AS){eval->
+val[2]=(as>>8)&0xff;eval->val[3]=as&0xff;eval->val[4]=(val>>24)&0xff;eval->val[5
+]=(val>>16)&0xff;eval->val[6]=(val>>8)&0xff;eval->val[7]=val&0xff;}elseif(type==
+ECOMMUNITY_ENCODE_IP){memcpy(&eval->val[2],&ip,sizeof(structin_addr));eval->val[
+6]=(val>>8)&0xff;eval->val[7]=val&0xff;}else{eval->val[2]=(as>>24)&0xff;eval->va
+l[3]=(as>>16)&0xff;eval->val[4]=(as>>8)&0xff;eval->val[5]=as&0xff;eval->val[6]=(
+val>>8)&0xff;eval->val[7]=val&0xff;}return0;}/*GetnextExtendedCommunitiestokenfr
+omthestring.*/staticconstchar*ecommunity_gettoken(constchar*str,structecommunity
+_val*eval,enumecommunity_token*token){intret;intdot=0;intdigit=0;intseparator=0;
+constchar*p=str;char*endptr;structin_addrip;as_tas=0;uint32_tval=0;uint8_tecomm_
+type;charbuf[INET_ADDRSTRLEN+1];/*Skipwhitespace.*/while(isspace((int)*p)){p++;s
+tr++;}/*Checktheendoftheline.*/if(*p=='\0')returnNULL;/*"rt"and"soo"keywordparse
+.*/if(!isdigit((int)*p)){/*"rt"matchcheck.*/if(tolower((int)*p)=='r'){p++;if(tol
+ower((int)*p)=='t'){p++;*token=ecommunity_token_rt;returnp;}if(isspace((int)*p)|
+|*p=='\0'){*token=ecommunity_token_rt;returnp;}gotoerror;}/*"soo"matchcheck.*/el
+seif(tolower((int)*p)=='s'){p++;if(tolower((int)*p)=='o'){p++;if(tolower((int)*p
+)=='o'){p++;*token=ecommunity_token_soo;returnp;}if(isspace((int)*p)||*p=='\0'){
+*token=ecommunity_token_soo;returnp;}gotoerror;}if(isspace((int)*p)||*p=='\0'){*
+token=ecommunity_token_soo;returnp;}gotoerror;}gotoerror;}/*Whatamess,therearese
+veralpossibilities:**a)A.B.C.D:MN*b)EF:OPQR*c)GHJK:MN**A.B.C.D:FourByteIP*EF:Two
+byteASN*GHJK:Four-byteASN*MN:Twobytevalue*OPQR:Fourbytevalue**/while(isdigit((in
+t)*p)||*p==':'||*p=='.'){if(*p==':'){if(separator)gotoerror;separator=1;digit=0;
+if((p-str)>INET_ADDRSTRLEN)gotoerror;memset(buf,0,INET_ADDRSTRLEN+1);memcpy(buf,
+str,p-str);if(dot){/*ParsingA.B.C.Din:*A.B.C.D:MN*/ret=inet_aton(buf,&ip);if(ret
+==0)gotoerror;}else{/*ASN*/as=strtoul(buf,&endptr,10);if(*endptr!='\0'||as==BGP_
+AS4_MAX)gotoerror;}}elseif(*p=='.'){if(separator)gotoerror;dot++;if(dot>4)gotoer
+ror;}else{digit=1;/*We'repasttheIP/ASNpart*/if(separator){val*=10;val+=(*p-'0');
+}}p++;}/*Lowdigitpartmustbethere.*/if(!digit||!separator)gotoerror;/*Encoderesul
+tintoextendedcommunity.*/if(dot)ecomm_type=ECOMMUNITY_ENCODE_IP;elseif(as>BGP_AS
+_MAX)ecomm_type=ECOMMUNITY_ENCODE_AS4;elseecomm_type=ECOMMUNITY_ENCODE_AS;if(eco
+mmunity_encode(ecomm_type,0,1,as,ip,val,eval))gotoerror;*token=ecommunity_token_
+val;returnp;error:*token=ecommunity_token_unknown;returnp;}/*Convertstringtoexte
+ndedcommunityattribute.Whentypeisalreadyknown,pleasespecifybothstrandtype.strsho
+uldnotincludekeywordsuchas"rt"and"soo".TypeisECOMMUNITY_ROUTE_TARGETorECOMMUNITY
+_SITE_ORIGIN.keyword_includedshouldbezero.Forexampleroute-map's"setextcommunity"
+commandcase:"rt100:1100:2100:3"->str="100:1100:2100:3"type=ECOMMUNITY_ROUTE_TARG
+ETkeyword_included=0"soo100:1"->str="100:1"type=ECOMMUNITY_SITE_ORIGINkeyword_in
+cluded=0Whenstringincludeskeywordforeachextendedcommunityvalue.Pleasespecifykeyw
+ord_includedasnon-zerovalue.Forexamplestandardextcommunity-listcase:"rt100:1rt10
+0:2soo100:1"->str="rt100:1rt100:2soo100:1"type=0keyword_include=1*/structecommun
+ity*ecommunity_str2com(constchar*str,inttype,intkeyword_included){structecommuni
+ty*ecom=NULL;enumecommunity_tokentoken=ecommunity_token_unknown;structecommunity
+_valeval;intkeyword=0;while((str=ecommunity_gettoken(str,&eval,&token))){switch(
+token){caseecommunity_token_rt:caseecommunity_token_soo:if(!keyword_included||ke
+yword){if(ecom)ecommunity_free(&ecom);returnNULL;}keyword=1;if(token==ecommunity
+_token_rt){type=ECOMMUNITY_ROUTE_TARGET;}if(token==ecommunity_token_soo){type=EC
+OMMUNITY_SITE_ORIGIN;}break;caseecommunity_token_val:if(keyword_included){if(!ke
+yword){if(ecom)ecommunity_free(&ecom);returnNULL;}keyword=0;}if(ecom==NULL)ecom=
+ecommunity_new();eval.val[1]=type;ecommunity_add_val(ecom,&eval);break;caseecomm
+unity_token_unknown:default:if(ecom)ecommunity_free(&ecom);returnNULL;}}returnec
+om;}staticintecommunity_rt_soo_str(char*buf,uint8_t*pnt,inttype,intsub_type,intf
+ormat){intlen=0;constchar*prefix;/*ForparseExtendedCommunityattributetupple.*/st
+ructecommunity_aseas;structecommunity_ipeip;/*Determineprefixforstring,ifany.*/s
+witch(format){caseECOMMUNITY_FORMAT_COMMUNITY_LIST:prefix=(sub_type==ECOMMUNITY_
+ROUTE_TARGET?"rt":"soo");break;caseECOMMUNITY_FORMAT_DISPLAY:prefix=(sub_type==E
+COMMUNITY_ROUTE_TARGET?"RT:":"SoO:");break;caseECOMMUNITY_FORMAT_ROUTE_MAP:prefi
+x="";break;default:prefix="";break;}/*Putstringintobuffer.*/if(type==ECOMMUNITY_
+ENCODE_AS4){pnt=ptr_get_be32(pnt,&eas.as);eas.val=(*pnt++<<8);eas.val|=(*pnt++);
+len=sprintf(buf,"%s%u:%u",prefix,eas.as,eas.val);}elseif(type==ECOMMUNITY_ENCODE
+_AS){eas.as=(*pnt++<<8);eas.as|=(*pnt++);pnt=ptr_get_be32(pnt,&eas.val);len=spri
+ntf(buf,"%s%u:%u",prefix,eas.as,eas.val);}elseif(type==ECOMMUNITY_ENCODE_IP){mem
+cpy(&eip.ip,pnt,4);pnt+=4;eip.val=(*pnt++<<8);eip.val|=(*pnt++);len=sprintf(buf,
+"%s%s:%u",prefix,inet_ntoa(eip.ip),eip.val);}(void)pnt;/*consumevalue*/returnlen
+;}/*Convertextendedcommunityattributetostring.Duetohistoricalreasonofindustrysta
+ndardimplementation,therearethreetypesofformat.route-mapsetextcommunityformat"rt
+100:1100:2""soo100:3"extcommunity-list"rt100:1rt100:2soo100:3""show[ip]bgp"andex
+tcommunity-listregularexpressionmatching"RT:100:1RT:100:2SoO:100:3"Foreachformat
+hpleaseusebelowdefinitionforformat:ECOMMUNITY_FORMAT_ROUTE_MAPECOMMUNITY_FORMAT_
+COMMUNITY_LISTECOMMUNITY_FORMAT_DISPLAYFilterisaddedtodisplayonlyECOMMUNITY_ROUT
+E_TARGETinsomecases.0valuedisplaysall*/char*ecommunity_ecom2str(structecommunity
+*ecom,intformat,intfilter){inti;uint8_t*pnt;inttype=0;intsub_type=0;#defineECOMM
+UNITY_STR_DEFAULT_LEN27intstr_size;intstr_pnt;char*str_buf;intlen=0;intfirst=1;i
+f(ecom->size==0){str_buf=XMALLOC(MTYPE_ECOMMUNITY_STR,1);str_buf[0]='\0';returns
+tr_buf;}/*Preparebuffer.*/str_buf=XMALLOC(MTYPE_ECOMMUNITY_STR,ECOMMUNITY_STR_DE
+FAULT_LEN+1);str_size=ECOMMUNITY_STR_DEFAULT_LEN+1;str_buf[0]='\0';str_pnt=0;for
+(i=0;i<ecom->size;i++){intunk_ecom=0;/*Makeitsuresizeisenough.*/while(str_pnt+EC
+OMMUNITY_STR_DEFAULT_LEN>=str_size){str_size*=2;str_buf=XREALLOC(MTYPE_ECOMMUNIT
+Y_STR,str_buf,str_size);}/*Spacebetweeneachvalue.*/if(!first){str_buf[str_pnt++]
+='';len++;}pnt=ecom->val+(i*8);/*High-orderoctetoftype.*/type=*pnt++;if(type==EC
+OMMUNITY_ENCODE_AS||type==ECOMMUNITY_ENCODE_IP||type==ECOMMUNITY_ENCODE_AS4){/*L
+ow-orderoctetoftype.*/sub_type=*pnt++;if(sub_type!=ECOMMUNITY_ROUTE_TARGET&&sub_
+type!=ECOMMUNITY_SITE_ORIGIN)unk_ecom=1;elselen=ecommunity_rt_soo_str(str_buf+st
+r_pnt,pnt,type,sub_type,format);}elseif(type==ECOMMUNITY_ENCODE_OPAQUE){if(filte
+r==ECOMMUNITY_ROUTE_TARGET)continue;if(*pnt==ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP){ui
+nt16_ttunneltype;memcpy(&tunneltype,pnt+5,2);tunneltype=ntohs(tunneltype);len=sp
+rintf(str_buf+str_pnt,"ET:%d",tunneltype);}elseif(*pnt==ECOMMUNITY_EVPN_SUBTYPE_
+DEF_GW){len=sprintf(str_buf+str_pnt,"DefaultGateway");}elseunk_ecom=1;}elseif(ty
+pe==ECOMMUNITY_ENCODE_EVPN){if(filter==ECOMMUNITY_ROUTE_TARGET)continue;if(*pnt=
+=ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC){structethaddrrmac;pnt++;memcpy(&rmac,pnt,ETH
+_ALEN);len=sprintf(str_buf+str_pnt,"Rmac:%02x:%02x:%02x:%02x:%02x:%02x",(uint8_t
+)rmac.octet[0],(uint8_t)rmac.octet[1],(uint8_t)rmac.octet[2],(uint8_t)rmac.octet
+[3],(uint8_t)rmac.octet[4],(uint8_t)rmac.octet[5]);}elseif(*pnt==ECOMMUNITY_EVPN
+_SUBTYPE_MACMOBILITY){uint32_tseqnum;uint8_tflags=*++pnt;memcpy(&seqnum,pnt+2,4)
+;seqnum=ntohl(seqnum);if(flags&ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY)l
+en=sprintf(str_buf+str_pnt,"MM:%u,stickyMAC",seqnum);elselen=sprintf(str_buf+str
+_pnt,"MM:%u",seqnum);}elseunk_ecom=1;}elseif(type==ECOMMUNITY_ENCODE_TRANS_EXP){
+sub_type=*pnt++;if(sub_type==ECOMMUNITY_TRAFFIC_ACTION){charaction[64];char*ptr=
+action;if(*(pnt+3)==1<<FLOWSPEC_TRAFFIC_ACTION_TERMINAL)ptr+=snprintf(ptr,sizeof
+(action),"terminate(apply)");elseptr+=snprintf(ptr,sizeof(action),"evalstops");i
+f(*(pnt+3)==1<<FLOWSPEC_TRAFFIC_ACTION_SAMPLE)snprintf(ptr,sizeof(action)-(size_
+t)(ptr-action),",sample");len=snprintf(str_buf+str_pnt,str_size-len,"FS:action%s
+",action);}elseif(sub_type==ECOMMUNITY_TRAFFIC_RATE){uniontraffic_ratedata;data.
+rate_byte[3]=*(pnt+2);data.rate_byte[2]=*(pnt+3);data.rate_byte[1]=*(pnt+4);data
+.rate_byte[0]=*(pnt+5);len=sprintf(str_buf+str_pnt,"FS:rate%f",data.rate_float);
+}elseif(sub_type==ECOMMUNITY_REDIRECT_VRF){charbuf[16];memset(buf,0,sizeof(buf))
+;ecommunity_rt_soo_str(buf,(uint8_t*)pnt,type&~ECOMMUNITY_ENCODE_TRANS_EXP,ECOMM
+UNITY_ROUTE_TARGET,ECOMMUNITY_FORMAT_DISPLAY);len=snprintf(str_buf+str_pnt,str_s
+ize-len,"FS:redirectVRF%s",buf);}elseif(sub_type==ECOMMUNITY_TRAFFIC_MARKING){le
+n=sprintf(str_buf+str_pnt,"FS:marking%u",*(pnt+5));}elseif(sub_type==ECOMMUNITY_
+REDIRECT_IP_NH){len=sprintf(str_buf+str_pnt,"FS:redirectIP0x%x",*(pnt+5));}elseu
+nk_ecom=1;}elseunk_ecom=1;if(unk_ecom)len=sprintf(str_buf+str_pnt,"?");str_pnt+=
+len;first=0;}returnstr_buf;}intecommunity_match(conststructecommunity*ecom1,cons
+tstructecommunity*ecom2){inti=0;intj=0;if(ecom1==NULL&&ecom2==NULL)return1;if(ec
+om1==NULL||ecom2==NULL)return0;if(ecom1->size<ecom2->size)return0;/*Everycommuni
+tyoncom2needstobeoncom1forthistomatch*/while(i<ecom1->size&&j<ecom2->size){if(me
+mcmp(ecom1->val+i*ECOMMUNITY_SIZE,ecom2->val+j*ECOMMUNITY_SIZE,ECOMMUNITY_SIZE)=
+=0)j++;i++;}if(j==ecom2->size)return1;elsereturn0;}/*returnfirstoccurenceoftype*
+/externstructecommunity_val*ecommunity_lookup(conststructecommunity*ecom,uint8_t
+type,uint8_tsubtype){uint8_t*p;intc;/*Ifthevaluealreadyexistsinthestructureretur
+n0.*/c=0;for(p=ecom->val;c<ecom->size;p+=ECOMMUNITY_SIZE,c++){if(p==NULL){contin
+ue;}if(p[0]==type&&p[1]==subtype)return(structecommunity_val*)p;}returnNULL;}/*r
+emoveext.communitymatchingtypeandsubtype*return1onsuccess(removed),0otherwise(no
+tpresent)*/externintecommunity_strip(structecommunity*ecom,uint8_ttype,uint8_tsu
+btype){uint8_t*p;intc,found=0;/*Whenthisisfistvalue,justaddit.*/if(ecom==NULL||e
+com->val==NULL){return0;}/*Ifthevaluealreadyexistsinthestructurereturn0.*/c=0;fo
+r(p=ecom->val;c<ecom->size;p+=ECOMMUNITY_SIZE,c++){if(p[0]==type&&p[1]==subtype)
+{found=1;break;}}if(found==0)return0;/*StripTheselectedvalue*/ecom->size--;/*siz
+eisreduced.nomemmovetodo*/p=XMALLOC(MTYPE_ECOMMUNITY_VAL,ecom->size*ECOMMUNITY_S
+IZE);if(c!=0)memcpy(p,ecom->val,c*ECOMMUNITY_SIZE);if((ecom->size-c)!=0)memcpy(p
++(c)*ECOMMUNITY_SIZE,ecom->val+(c+1)*ECOMMUNITY_SIZE,(ecom->size-c)*ECOMMUNITY_S
+IZE);/*shiftlastecommunities*/XFREE(MTYPE_ECOMMUNITY,ecom->val);ecom->val=p;retu
+rn1;}

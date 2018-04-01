@@ -1,320 +1,86 @@
-/*
- * This is an implementation of the IETF SPF delay algorithm
- * as explained in draft-ietf-rtgwg-backoff-algo-04
- *
- * Created: 25-01-2017 by S. Litkowski
- *
- * Copyright (C) 2017 Orange Labs http://www.orange.com/
- * Copyright (C) 2017 by Christian Franke, Open Source Routing / NetDEF Inc.
- *
- * This file is part of FreeRangeRouting (FRR)
- *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "spf_backoff.h"
-
-#include "command.h"
-#include "memory.h"
-#include "thread.h"
-#include "vty.h"
-
-DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF, "SPF backoff")
-DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF_NAME, "SPF backoff name")
-
-static bool debug_spf_backoff = false;
-#define backoff_debug(...)                                                     \
-	do {                                                                   \
-		if (debug_spf_backoff)                                         \
-			zlog_debug(__VA_ARGS__);                               \
-	} while (0)
-
-enum spf_backoff_state {
-	SPF_BACKOFF_QUIET,
-	SPF_BACKOFF_SHORT_WAIT,
-	SPF_BACKOFF_LONG_WAIT
-};
-
-struct spf_backoff {
-	struct thread_master *m;
-
-	/* Timers as per draft */
-	long init_delay;
-	long short_delay;
-	long long_delay;
-	long holddown;
-	long timetolearn;
-
-	/* State machine */
-	enum spf_backoff_state state;
-	struct thread *t_holddown;
-	struct thread *t_timetolearn;
-
-	/* For debugging */
-	char *name;
-	struct timeval first_event_time;
-	struct timeval last_event_time;
-};
-
-static const char *spf_backoff_state2str(enum spf_backoff_state state)
-{
-	switch (state) {
-	case SPF_BACKOFF_QUIET:
-		return "QUIET";
-	case SPF_BACKOFF_SHORT_WAIT:
-		return "SHORT_WAIT";
-	case SPF_BACKOFF_LONG_WAIT:
-		return "LONG_WAIT";
-	}
-	return "???";
-}
-
-struct spf_backoff *spf_backoff_new(struct thread_master *m, const char *name,
-				    long init_delay, long short_delay,
-				    long long_delay, long holddown,
-				    long timetolearn)
-{
-	struct spf_backoff *rv;
-
-	rv = XCALLOC(MTYPE_SPF_BACKOFF, sizeof(*rv));
-	rv->m = m;
-
-	rv->init_delay = init_delay;
-	rv->short_delay = short_delay;
-	rv->long_delay = long_delay;
-	rv->holddown = holddown;
-	rv->timetolearn = timetolearn;
-
-	rv->state = SPF_BACKOFF_QUIET;
-
-	rv->name = XSTRDUP(MTYPE_SPF_BACKOFF_NAME, name);
-	return rv;
-}
-
-void spf_backoff_free(struct spf_backoff *backoff)
-{
-	if (!backoff)
-		return;
-
-	THREAD_TIMER_OFF(backoff->t_holddown);
-	THREAD_TIMER_OFF(backoff->t_timetolearn);
-	XFREE(MTYPE_SPF_BACKOFF_NAME, backoff->name);
-
-	XFREE(MTYPE_SPF_BACKOFF, backoff);
-}
-
-static int spf_backoff_timetolearn_elapsed(struct thread *thread)
-{
-	struct spf_backoff *backoff = THREAD_ARG(thread);
-
-	backoff->t_timetolearn = NULL;
-	backoff->state = SPF_BACKOFF_LONG_WAIT;
-	backoff_debug("SPF Back-off(%s) TIMETOLEARN elapsed, move to state %s",
-		      backoff->name, spf_backoff_state2str(backoff->state));
-	return 0;
-}
-
-static int spf_backoff_holddown_elapsed(struct thread *thread)
-{
-	struct spf_backoff *backoff = THREAD_ARG(thread);
-
-	backoff->t_holddown = NULL;
-	THREAD_TIMER_OFF(backoff->t_timetolearn);
-	timerclear(&backoff->first_event_time);
-	backoff->state = SPF_BACKOFF_QUIET;
-	backoff_debug("SPF Back-off(%s) HOLDDOWN elapsed, move to state %s",
-		      backoff->name, spf_backoff_state2str(backoff->state));
-	return 0;
-}
-
-long spf_backoff_schedule(struct spf_backoff *backoff)
-{
-	long rv;
-	struct timeval now;
-
-	gettimeofday(&now, NULL);
-
-	backoff_debug("SPF Back-off(%s) schedule called in state %s",
-		      backoff->name, spf_backoff_state2str(backoff->state));
-
-	backoff->last_event_time = now;
-
-	switch (backoff->state) {
-	case SPF_BACKOFF_QUIET:
-		backoff->state = SPF_BACKOFF_SHORT_WAIT;
-		thread_add_timer_msec(
-			backoff->m, spf_backoff_timetolearn_elapsed, backoff,
-			backoff->timetolearn, &backoff->t_timetolearn);
-		thread_add_timer_msec(backoff->m, spf_backoff_holddown_elapsed,
-				      backoff, backoff->holddown,
-				      &backoff->t_holddown);
-		backoff->first_event_time = now;
-		rv = backoff->init_delay;
-		break;
-	case SPF_BACKOFF_SHORT_WAIT:
-	case SPF_BACKOFF_LONG_WAIT:
-		THREAD_TIMER_OFF(backoff->t_holddown);
-		thread_add_timer_msec(backoff->m, spf_backoff_holddown_elapsed,
-				      backoff, backoff->holddown,
-				      &backoff->t_holddown);
-		if (backoff->state == SPF_BACKOFF_SHORT_WAIT)
-			rv = backoff->short_delay;
-		else
-			rv = backoff->long_delay;
-		break;
-	default:
-		zlog_warn("SPF Back-off(%s) in unknown state", backoff->name);
-		rv = backoff->init_delay;
-	}
-
-	backoff_debug(
-		"SPF Back-off(%s) changed state to %s and returned %ld delay",
-		backoff->name, spf_backoff_state2str(backoff->state), rv);
-	return rv;
-}
-
-static const char *timeval_format(struct timeval *tv)
-{
-	struct tm tm_store;
-	struct tm *tm;
-	static char timebuf[256];
-
-	if (!tv->tv_sec && !tv->tv_usec)
-		return "(never)";
-
-	tm = localtime_r(&tv->tv_sec, &tm_store);
-	if (!tm
-	    || strftime(timebuf, sizeof(timebuf), "%Z %a %Y-%m-%d %H:%M:%S", tm)
-		       == 0) {
-		return "???";
-	}
-
-	size_t offset = strlen(timebuf);
-	snprintf(timebuf + offset, sizeof(timebuf) - offset, ".%ld",
-		 (long int)tv->tv_usec);
-
-	return timebuf;
-}
-
-void spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
-		      const char *prefix)
-{
-	vty_out(vty, "%sCurrent state:     %s\n", prefix,
-		spf_backoff_state2str(backoff->state));
-	vty_out(vty, "%sInit timer:        %ld msec\n", prefix,
-		backoff->init_delay);
-	vty_out(vty, "%sShort timer:       %ld msec\n", prefix,
-		backoff->short_delay);
-	vty_out(vty, "%sLong timer:        %ld msec\n", prefix,
-		backoff->long_delay);
-	vty_out(vty, "%sHolddown timer:    %ld msec\n", prefix,
-		backoff->holddown);
-	if (backoff->t_holddown) {
-		struct timeval remain =
-			thread_timer_remain(backoff->t_holddown);
-		vty_out(vty, "%s                   Still runs for %lld msec\n",
-			prefix,
-			(long long)remain.tv_sec * 1000
-				+ remain.tv_usec / 1000);
-	} else {
-		vty_out(vty, "%s                   Inactive\n", prefix);
-	}
-
-	vty_out(vty, "%sTimeToLearn timer: %ld msec\n", prefix,
-		backoff->timetolearn);
-	if (backoff->t_timetolearn) {
-		struct timeval remain =
-			thread_timer_remain(backoff->t_timetolearn);
-		vty_out(vty, "%s                   Still runs for %lld msec\n",
-			prefix,
-			(long long)remain.tv_sec * 1000
-				+ remain.tv_usec / 1000);
-	} else {
-		vty_out(vty, "%s                   Inactive\n", prefix);
-	}
-
-	vty_out(vty, "%sFirst event:       %s\n", prefix,
-		timeval_format(&backoff->first_event_time));
-	vty_out(vty, "%sLast event:        %s\n", prefix,
-		timeval_format(&backoff->last_event_time));
-}
-
-DEFUN(spf_backoff_debug,
-      spf_backoff_debug_cmd,
-      "debug spf-delay-ietf",
-      DEBUG_STR
-      "SPF Back-off Debugging\n")
-{
-	debug_spf_backoff = true;
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_spf_backoff_debug,
-      no_spf_backoff_debug_cmd,
-      "no debug spf-delay-ietf",
-      NO_STR
-      DEBUG_STR
-      "SPF Back-off Debugging\n")
-{
-	debug_spf_backoff = false;
-	return CMD_SUCCESS;
-}
-
-int spf_backoff_write_config(struct vty *vty)
-{
-	int written = 0;
-
-	if (debug_spf_backoff) {
-		vty_out(vty, "debug spf-delay-ietf\n");
-		written++;
-	}
-
-	return written;
-}
-
-void spf_backoff_cmd_init(void)
-{
-	install_element(ENABLE_NODE, &spf_backoff_debug_cmd);
-	install_element(CONFIG_NODE, &spf_backoff_debug_cmd);
-	install_element(ENABLE_NODE, &no_spf_backoff_debug_cmd);
-	install_element(CONFIG_NODE, &no_spf_backoff_debug_cmd);
-}
-
-long spf_backoff_init_delay(struct spf_backoff *backoff)
-{
-	return backoff->init_delay;
-}
-
-long spf_backoff_short_delay(struct spf_backoff *backoff)
-{
-	return backoff->short_delay;
-}
-
-long spf_backoff_long_delay(struct spf_backoff *backoff)
-{
-	return backoff->long_delay;
-}
-
-long spf_backoff_holddown(struct spf_backoff *backoff)
-{
-	return backoff->holddown;
-}
-
-long spf_backoff_timetolearn(struct spf_backoff *backoff)
-{
-	return backoff->timetolearn;
-}
+/**ThisisanimplementationoftheIETFSPFdelayalgorithm*asexplainedindraft-ietf-rtgw
+g-backoff-algo-04**Created:25-01-2017byS.Litkowski**Copyright(C)2017OrangeLabsht
+tp://www.orange.com/*Copyright(C)2017byChristianFranke,OpenSourceRouting/NetDEFI
+nc.**ThisfileispartofFreeRangeRouting(FRR)**FRRisfreesoftware;youcanredistribute
+itand/ormodifyit*underthetermsoftheGNUGeneralPublicLicenseaspublishedbythe*FreeS
+oftwareFoundation;eitherversion2,or(atyouroption)any*laterversion.**FRRisdistrib
+utedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarr
+antyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLice
+nseformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*
+withthisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,5
+1FranklinSt,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"spf_bac
+koff.h"#include"command.h"#include"memory.h"#include"thread.h"#include"vty.h"DEF
+INE_MTYPE_STATIC(LIB,SPF_BACKOFF,"SPFbackoff")DEFINE_MTYPE_STATIC(LIB,SPF_BACKOF
+F_NAME,"SPFbackoffname")staticbooldebug_spf_backoff=false;#definebackoff_debug(.
+..)\do{\if(debug_spf_backoff)\zlog_debug(__VA_ARGS__);\}while(0)enumspf_backoff_
+state{SPF_BACKOFF_QUIET,SPF_BACKOFF_SHORT_WAIT,SPF_BACKOFF_LONG_WAIT};structspf_
+backoff{structthread_master*m;/*Timersasperdraft*/longinit_delay;longshort_delay
+;longlong_delay;longholddown;longtimetolearn;/*Statemachine*/enumspf_backoff_sta
+testate;structthread*t_holddown;structthread*t_timetolearn;/*Fordebugging*/char*
+name;structtimevalfirst_event_time;structtimevallast_event_time;};staticconstcha
+r*spf_backoff_state2str(enumspf_backoff_statestate){switch(state){caseSPF_BACKOF
+F_QUIET:return"QUIET";caseSPF_BACKOFF_SHORT_WAIT:return"SHORT_WAIT";caseSPF_BACK
+OFF_LONG_WAIT:return"LONG_WAIT";}return"???";}structspf_backoff*spf_backoff_new(
+structthread_master*m,constchar*name,longinit_delay,longshort_delay,longlong_del
+ay,longholddown,longtimetolearn){structspf_backoff*rv;rv=XCALLOC(MTYPE_SPF_BACKO
+FF,sizeof(*rv));rv->m=m;rv->init_delay=init_delay;rv->short_delay=short_delay;rv
+->long_delay=long_delay;rv->holddown=holddown;rv->timetolearn=timetolearn;rv->st
+ate=SPF_BACKOFF_QUIET;rv->name=XSTRDUP(MTYPE_SPF_BACKOFF_NAME,name);returnrv;}vo
+idspf_backoff_free(structspf_backoff*backoff){if(!backoff)return;THREAD_TIMER_OF
+F(backoff->t_holddown);THREAD_TIMER_OFF(backoff->t_timetolearn);XFREE(MTYPE_SPF_
+BACKOFF_NAME,backoff->name);XFREE(MTYPE_SPF_BACKOFF,backoff);}staticintspf_backo
+ff_timetolearn_elapsed(structthread*thread){structspf_backoff*backoff=THREAD_ARG
+(thread);backoff->t_timetolearn=NULL;backoff->state=SPF_BACKOFF_LONG_WAIT;backof
+f_debug("SPFBack-off(%s)TIMETOLEARNelapsed,movetostate%s",backoff->name,spf_back
+off_state2str(backoff->state));return0;}staticintspf_backoff_holddown_elapsed(st
+ructthread*thread){structspf_backoff*backoff=THREAD_ARG(thread);backoff->t_holdd
+own=NULL;THREAD_TIMER_OFF(backoff->t_timetolearn);timerclear(&backoff->first_eve
+nt_time);backoff->state=SPF_BACKOFF_QUIET;backoff_debug("SPFBack-off(%s)HOLDDOWN
+elapsed,movetostate%s",backoff->name,spf_backoff_state2str(backoff->state));retu
+rn0;}longspf_backoff_schedule(structspf_backoff*backoff){longrv;structtimevalnow
+;gettimeofday(&now,NULL);backoff_debug("SPFBack-off(%s)schedulecalledinstate%s",
+backoff->name,spf_backoff_state2str(backoff->state));backoff->last_event_time=no
+w;switch(backoff->state){caseSPF_BACKOFF_QUIET:backoff->state=SPF_BACKOFF_SHORT_
+WAIT;thread_add_timer_msec(backoff->m,spf_backoff_timetolearn_elapsed,backoff,ba
+ckoff->timetolearn,&backoff->t_timetolearn);thread_add_timer_msec(backoff->m,spf
+_backoff_holddown_elapsed,backoff,backoff->holddown,&backoff->t_holddown);backof
+f->first_event_time=now;rv=backoff->init_delay;break;caseSPF_BACKOFF_SHORT_WAIT:
+caseSPF_BACKOFF_LONG_WAIT:THREAD_TIMER_OFF(backoff->t_holddown);thread_add_timer
+_msec(backoff->m,spf_backoff_holddown_elapsed,backoff,backoff->holddown,&backoff
+->t_holddown);if(backoff->state==SPF_BACKOFF_SHORT_WAIT)rv=backoff->short_delay;
+elserv=backoff->long_delay;break;default:zlog_warn("SPFBack-off(%s)inunknownstat
+e",backoff->name);rv=backoff->init_delay;}backoff_debug("SPFBack-off(%s)changeds
+tateto%sandreturned%lddelay",backoff->name,spf_backoff_state2str(backoff->state)
+,rv);returnrv;}staticconstchar*timeval_format(structtimeval*tv){structtmtm_store
+;structtm*tm;staticchartimebuf[256];if(!tv->tv_sec&&!tv->tv_usec)return"(never)"
+;tm=localtime_r(&tv->tv_sec,&tm_store);if(!tm||strftime(timebuf,sizeof(timebuf),
+"%Z%a%Y-%m-%d%H:%M:%S",tm)==0){return"???";}size_toffset=strlen(timebuf);snprint
+f(timebuf+offset,sizeof(timebuf)-offset,".%ld",(longint)tv->tv_usec);returntimeb
+uf;}voidspf_backoff_show(structspf_backoff*backoff,structvty*vty,constchar*prefi
+x){vty_out(vty,"%sCurrentstate:%s\n",prefix,spf_backoff_state2str(backoff->state
+));vty_out(vty,"%sInittimer:%ldmsec\n",prefix,backoff->init_delay);vty_out(vty,"
+%sShorttimer:%ldmsec\n",prefix,backoff->short_delay);vty_out(vty,"%sLongtimer:%l
+dmsec\n",prefix,backoff->long_delay);vty_out(vty,"%sHolddowntimer:%ldmsec\n",pre
+fix,backoff->holddown);if(backoff->t_holddown){structtimevalremain=thread_timer_
+remain(backoff->t_holddown);vty_out(vty,"%sStillrunsfor%lldmsec\n",prefix,(longl
+ong)remain.tv_sec*1000+remain.tv_usec/1000);}else{vty_out(vty,"%sInactive\n",pre
+fix);}vty_out(vty,"%sTimeToLearntimer:%ldmsec\n",prefix,backoff->timetolearn);if
+(backoff->t_timetolearn){structtimevalremain=thread_timer_remain(backoff->t_time
+tolearn);vty_out(vty,"%sStillrunsfor%lldmsec\n",prefix,(longlong)remain.tv_sec*1
+000+remain.tv_usec/1000);}else{vty_out(vty,"%sInactive\n",prefix);}vty_out(vty,"
+%sFirstevent:%s\n",prefix,timeval_format(&backoff->first_event_time));vty_out(vt
+y,"%sLastevent:%s\n",prefix,timeval_format(&backoff->last_event_time));}DEFUN(sp
+f_backoff_debug,spf_backoff_debug_cmd,"debugspf-delay-ietf",DEBUG_STR"SPFBack-of
+fDebugging\n"){debug_spf_backoff=true;returnCMD_SUCCESS;}DEFUN(no_spf_backoff_de
+bug,no_spf_backoff_debug_cmd,"nodebugspf-delay-ietf",NO_STRDEBUG_STR"SPFBack-off
+Debugging\n"){debug_spf_backoff=false;returnCMD_SUCCESS;}intspf_backoff_write_co
+nfig(structvty*vty){intwritten=0;if(debug_spf_backoff){vty_out(vty,"debugspf-del
+ay-ietf\n");written++;}returnwritten;}voidspf_backoff_cmd_init(void){install_ele
+ment(ENABLE_NODE,&spf_backoff_debug_cmd);install_element(CONFIG_NODE,&spf_backof
+f_debug_cmd);install_element(ENABLE_NODE,&no_spf_backoff_debug_cmd);install_elem
+ent(CONFIG_NODE,&no_spf_backoff_debug_cmd);}longspf_backoff_init_delay(structspf
+_backoff*backoff){returnbackoff->init_delay;}longspf_backoff_short_delay(structs
+pf_backoff*backoff){returnbackoff->short_delay;}longspf_backoff_long_delay(struc
+tspf_backoff*backoff){returnbackoff->long_delay;}longspf_backoff_holddown(struct
+spf_backoff*backoff){returnbackoff->holddown;}longspf_backoff_timetolearn(struct
+spf_backoff*backoff){returnbackoff->timetolearn;}

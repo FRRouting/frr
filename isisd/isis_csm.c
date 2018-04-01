@@ -1,214 +1,61 @@
-/*
- * IS-IS Rout(e)ing protocol - isis_csm.c
- *                             IS-IS circuit state machine
- * Copyright (C) 2001,2002    Sampo Saaristo
- *                            Tampere University of Technology
- *                            Institute of Communications Engineering
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public Licenseas published by the Free
- * Software Foundation; either version 2 of the License, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#include <zebra.h>
-
-#include "log.h"
-#include "memory.h"
-#include "if.h"
-#include "linklist.h"
-#include "command.h"
-#include "thread.h"
-#include "hash.h"
-#include "prefix.h"
-#include "stream.h"
-
-#include "isisd/dict.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_common.h"
-#include "isisd/isis_flags.h"
-#include "isisd/isis_circuit.h"
-#include "isisd/isis_lsp.h"
-#include "isisd/isis_pdu.h"
-#include "isisd/isis_network.h"
-#include "isisd/isis_misc.h"
-#include "isisd/isis_constants.h"
-#include "isisd/isis_adjacency.h"
-#include "isisd/isis_dr.h"
-#include "isisd/isisd.h"
-#include "isisd/isis_csm.h"
-#include "isisd/isis_events.h"
-
-extern struct isis *isis;
-
-static const char *csm_statestr[] = {"C_STATE_NA", "C_STATE_INIT",
-				     "C_STATE_CONF", "C_STATE_UP"};
-
-#define STATE2STR(S) csm_statestr[S]
-
-static const char *csm_eventstr[] = {
-	"NO_STATE",     "ISIS_ENABLE",    "IF_UP_FROM_Z",
-	"ISIS_DISABLE", "IF_DOWN_FROM_Z",
-};
-
-#define EVENT2STR(E) csm_eventstr[E]
-
-struct isis_circuit *
-isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
-{
-	int old_state;
-
-	old_state = circuit ? circuit->state : C_STATE_NA;
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("CSM_EVENT: %s", EVENT2STR(event));
-
-	switch (old_state) {
-	case C_STATE_NA:
-		if (circuit)
-			zlog_warn("Non-null circuit while state C_STATE_NA");
-		assert(circuit == NULL);
-		switch (event) {
-		case ISIS_ENABLE:
-			circuit = isis_circuit_new();
-			isis_circuit_configure(circuit,
-					       (struct isis_area *)arg);
-			circuit->state = C_STATE_CONF;
-			break;
-		case IF_UP_FROM_Z:
-			circuit = isis_circuit_new();
-			isis_circuit_if_add(circuit, (struct interface *)arg);
-			listnode_add(isis->init_circ_list, circuit);
-			circuit->state = C_STATE_INIT;
-			break;
-		case ISIS_DISABLE:
-			zlog_warn("circuit already disabled");
-			break;
-		case IF_DOWN_FROM_Z:
-			zlog_warn("circuit already disconnected");
-			break;
-		}
-		break;
-	case C_STATE_INIT:
-		assert(circuit);
-		switch (event) {
-		case ISIS_ENABLE:
-			isis_circuit_configure(circuit,
-					       (struct isis_area *)arg);
-			if (isis_circuit_up(circuit) != ISIS_OK) {
-				isis_circuit_deconfigure(
-					circuit, (struct isis_area *)arg);
-				break;
-			}
-			circuit->state = C_STATE_UP;
-			isis_event_circuit_state_change(circuit, circuit->area,
-							1);
-			listnode_delete(isis->init_circ_list, circuit);
-			break;
-		case IF_UP_FROM_Z:
-			assert(circuit);
-			zlog_warn("circuit already connected");
-			break;
-		case ISIS_DISABLE:
-			zlog_warn("circuit already disabled");
-			break;
-		case IF_DOWN_FROM_Z:
-			isis_circuit_if_del(circuit, (struct interface *)arg);
-			listnode_delete(isis->init_circ_list, circuit);
-			isis_circuit_del(circuit);
-			circuit = NULL;
-			break;
-		}
-		break;
-	case C_STATE_CONF:
-		assert(circuit);
-		switch (event) {
-		case ISIS_ENABLE:
-			zlog_warn("circuit already enabled");
-			break;
-		case IF_UP_FROM_Z:
-			isis_circuit_if_add(circuit, (struct interface *)arg);
-			if (isis_circuit_up(circuit) != ISIS_OK) {
-				zlog_err(
-					"Could not bring up %s because of invalid config.",
-					circuit->interface->name);
-				zlog_err(
-					"Clearing config for %s. Please re-examine it.",
-					circuit->interface->name);
-				if (circuit->ip_router) {
-					circuit->ip_router = 0;
-					circuit->area->ip_circuits--;
-				}
-				if (circuit->ipv6_router) {
-					circuit->ipv6_router = 0;
-					circuit->area->ipv6_circuits--;
-				}
-				circuit_update_nlpids(circuit);
-				isis_circuit_deconfigure(circuit,
-							 circuit->area);
-				listnode_add(isis->init_circ_list, circuit);
-				circuit->state = C_STATE_INIT;
-				break;
-			}
-			circuit->state = C_STATE_UP;
-			isis_event_circuit_state_change(circuit, circuit->area,
-							1);
-			break;
-		case ISIS_DISABLE:
-			isis_circuit_deconfigure(circuit,
-						 (struct isis_area *)arg);
-			isis_circuit_del(circuit);
-			circuit = NULL;
-			break;
-		case IF_DOWN_FROM_Z:
-			zlog_warn("circuit already disconnected");
-			break;
-		}
-		break;
-	case C_STATE_UP:
-		assert(circuit);
-		switch (event) {
-		case ISIS_ENABLE:
-			zlog_warn("circuit already configured");
-			break;
-		case IF_UP_FROM_Z:
-			zlog_warn("circuit already connected");
-			break;
-		case ISIS_DISABLE:
-			isis_circuit_down(circuit);
-			isis_circuit_deconfigure(circuit,
-						 (struct isis_area *)arg);
-			circuit->state = C_STATE_INIT;
-			isis_event_circuit_state_change(
-				circuit, (struct isis_area *)arg, 0);
-			listnode_add(isis->init_circ_list, circuit);
-			break;
-		case IF_DOWN_FROM_Z:
-			isis_circuit_down(circuit);
-			isis_circuit_if_del(circuit, (struct interface *)arg);
-			circuit->state = C_STATE_CONF;
-			isis_event_circuit_state_change(circuit, circuit->area,
-							0);
-			break;
-		}
-		break;
-
-	default:
-		zlog_warn("Invalid circuit state %d", old_state);
-	}
-
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("CSM_STATE_CHANGE: %s -> %s ", STATE2STR(old_state),
-			   circuit ? STATE2STR(circuit->state)
-				   : STATE2STR(C_STATE_NA));
-
-	return circuit;
-}
+/**IS-ISRout(e)ingprotocol-isis_csm.c*IS-IScircuitstatemachine*Copyright(C)2001,
+2002SampoSaaristo*TampereUniversityofTechnology*InstituteofCommunicationsEnginee
+ring**Thisprogramisfreesoftware;youcanredistributeitand/ormodifyit*undertheterms
+oftheGNUGeneralPublicLicenseaspublishedbytheFree*SoftwareFoundation;eitherversio
+n2oftheLicense,or(atyouroption)*anylaterversion.**Thisprogramisdistributedintheh
+opethatitwillbeuseful,butWITHOUT*ANYWARRANTY;withouteventheimpliedwarrantyofMERC
+HANTABILITYor*FITNESSFORAPARTICULARPURPOSE.SeetheGNUGeneralPublicLicensefor*more
+details.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthispr
+ogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinS
+t,FifthFloor,Boston,MA02110-1301USA*/#include<zebra.h>#include"log.h"#include"me
+mory.h"#include"if.h"#include"linklist.h"#include"command.h"#include"thread.h"#i
+nclude"hash.h"#include"prefix.h"#include"stream.h"#include"isisd/dict.h"#include
+"isisd/isis_constants.h"#include"isisd/isis_common.h"#include"isisd/isis_flags.h
+"#include"isisd/isis_circuit.h"#include"isisd/isis_lsp.h"#include"isisd/isis_pdu
+.h"#include"isisd/isis_network.h"#include"isisd/isis_misc.h"#include"isisd/isis_
+constants.h"#include"isisd/isis_adjacency.h"#include"isisd/isis_dr.h"#include"is
+isd/isisd.h"#include"isisd/isis_csm.h"#include"isisd/isis_events.h"externstructi
+sis*isis;staticconstchar*csm_statestr[]={"C_STATE_NA","C_STATE_INIT","C_STATE_CO
+NF","C_STATE_UP"};#defineSTATE2STR(S)csm_statestr[S]staticconstchar*csm_eventstr
+[]={"NO_STATE","ISIS_ENABLE","IF_UP_FROM_Z","ISIS_DISABLE","IF_DOWN_FROM_Z",};#d
+efineEVENT2STR(E)csm_eventstr[E]structisis_circuit*isis_csm_state_change(inteven
+t,structisis_circuit*circuit,void*arg){intold_state;old_state=circuit?circuit->s
+tate:C_STATE_NA;if(isis->debugs&DEBUG_EVENTS)zlog_debug("CSM_EVENT:%s",EVENT2STR
+(event));switch(old_state){caseC_STATE_NA:if(circuit)zlog_warn("Non-nullcircuitw
+hilestateC_STATE_NA");assert(circuit==NULL);switch(event){caseISIS_ENABLE:circui
+t=isis_circuit_new();isis_circuit_configure(circuit,(structisis_area*)arg);circu
+it->state=C_STATE_CONF;break;caseIF_UP_FROM_Z:circuit=isis_circuit_new();isis_ci
+rcuit_if_add(circuit,(structinterface*)arg);listnode_add(isis->init_circ_list,ci
+rcuit);circuit->state=C_STATE_INIT;break;caseISIS_DISABLE:zlog_warn("circuitalre
+adydisabled");break;caseIF_DOWN_FROM_Z:zlog_warn("circuitalreadydisconnected");b
+reak;}break;caseC_STATE_INIT:assert(circuit);switch(event){caseISIS_ENABLE:isis_
+circuit_configure(circuit,(structisis_area*)arg);if(isis_circuit_up(circuit)!=IS
+IS_OK){isis_circuit_deconfigure(circuit,(structisis_area*)arg);break;}circuit->s
+tate=C_STATE_UP;isis_event_circuit_state_change(circuit,circuit->area,1);listnod
+e_delete(isis->init_circ_list,circuit);break;caseIF_UP_FROM_Z:assert(circuit);zl
+og_warn("circuitalreadyconnected");break;caseISIS_DISABLE:zlog_warn("circuitalre
+adydisabled");break;caseIF_DOWN_FROM_Z:isis_circuit_if_del(circuit,(structinterf
+ace*)arg);listnode_delete(isis->init_circ_list,circuit);isis_circuit_del(circuit
+);circuit=NULL;break;}break;caseC_STATE_CONF:assert(circuit);switch(event){caseI
+SIS_ENABLE:zlog_warn("circuitalreadyenabled");break;caseIF_UP_FROM_Z:isis_circui
+t_if_add(circuit,(structinterface*)arg);if(isis_circuit_up(circuit)!=ISIS_OK){zl
+og_err("Couldnotbringup%sbecauseofinvalidconfig.",circuit->interface->name);zlog
+_err("Clearingconfigfor%s.Pleasere-examineit.",circuit->interface->name);if(circ
+uit->ip_router){circuit->ip_router=0;circuit->area->ip_circuits--;}if(circuit->i
+pv6_router){circuit->ipv6_router=0;circuit->area->ipv6_circuits--;}circuit_updat
+e_nlpids(circuit);isis_circuit_deconfigure(circuit,circuit->area);listnode_add(i
+sis->init_circ_list,circuit);circuit->state=C_STATE_INIT;break;}circuit->state=C
+_STATE_UP;isis_event_circuit_state_change(circuit,circuit->area,1);break;caseISI
+S_DISABLE:isis_circuit_deconfigure(circuit,(structisis_area*)arg);isis_circuit_d
+el(circuit);circuit=NULL;break;caseIF_DOWN_FROM_Z:zlog_warn("circuitalreadydisco
+nnected");break;}break;caseC_STATE_UP:assert(circuit);switch(event){caseISIS_ENA
+BLE:zlog_warn("circuitalreadyconfigured");break;caseIF_UP_FROM_Z:zlog_warn("circ
+uitalreadyconnected");break;caseISIS_DISABLE:isis_circuit_down(circuit);isis_cir
+cuit_deconfigure(circuit,(structisis_area*)arg);circuit->state=C_STATE_INIT;isis
+_event_circuit_state_change(circuit,(structisis_area*)arg,0);listnode_add(isis->
+init_circ_list,circuit);break;caseIF_DOWN_FROM_Z:isis_circuit_down(circuit);isis
+_circuit_if_del(circuit,(structinterface*)arg);circuit->state=C_STATE_CONF;isis_
+event_circuit_state_change(circuit,circuit->area,0);break;}break;default:zlog_wa
+rn("Invalidcircuitstate%d",old_state);}if(isis->debugs&DEBUG_EVENTS)zlog_debug("
+CSM_STATE_CHANGE:%s->%s",STATE2STR(old_state),circuit?STATE2STR(circuit->state):
+STATE2STR(C_STATE_NA));returncircuit;}

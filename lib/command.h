@@ -1,450 +1,175 @@
-/*
- * Zebra configuration command interface routine
- * Copyright (C) 1997, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_COMMAND_H
-#define _ZEBRA_COMMAND_H
-
-#include "vector.h"
-#include "vty.h"
-#include "lib/route_types.h"
-#include "graph.h"
-#include "memory.h"
-#include "hash.h"
-#include "command_graph.h"
-
-DECLARE_MTYPE(HOST)
-DECLARE_MTYPE(COMPLETION)
-
-/* for test-commands.c */
-DECLARE_MTYPE(STRVEC)
-
-/* Host configuration variable */
-struct host {
-	/* Host name of this router. */
-	char *name;
-
-	/* Domainname of this router */
-	char *domainname;
-
-	/* Password for vty interface. */
-	char *password;
-	char *password_encrypt;
-
-	/* Enable password */
-	char *enable;
-	char *enable_encrypt;
-
-	/* System wide terminal lines. */
-	int lines;
-
-	/* Log filename. */
-	char *logfile;
-
-	/* config file name of this host */
-	char *config;
-	int noconfig;
-
-	/* Flags for services */
-	int advanced;
-	int encrypt;
-
-	/* Banner configuration. */
-	const char *motd;
-	char *motdfile;
-};
-
-/* List of CLI nodes. Please remember to update the name array in command.c. */
-enum node_type {
-	AUTH_NODE,		 /* Authentication mode of vty interface. */
-	VIEW_NODE,		 /* View node. Default mode of vty interface. */
-	AUTH_ENABLE_NODE,	/* Authentication mode for change enable. */
-	ENABLE_NODE,		 /* Enable node. */
-	CONFIG_NODE,		 /* Config node. Default mode of config file. */
-	SERVICE_NODE,		 /* Service node. */
-	DEBUG_NODE,		 /* Debug node. */
-	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
-	DEBUG_VNC_NODE,		 /* Debug VNC node. */
-	AAA_NODE,		 /* AAA node. */
-	KEYCHAIN_NODE,		 /* Key-chain node. */
-	KEYCHAIN_KEY_NODE,       /* Key-chain key node. */
-	LOGICALROUTER_NODE,      /* Logical-Router node. */
-	VRF_NODE,		 /* VRF mode node. */
-	INTERFACE_NODE,		 /* Interface mode node. */
-	NH_GROUP_NODE,		 /* Nexthop-Group mode node. */
-	ZEBRA_NODE,		 /* zebra connection node. */
-	TABLE_NODE,		 /* rtm_table selection node. */
-	RIP_NODE,		 /* RIP protocol mode node. */
-	RIPNG_NODE,		 /* RIPng protocol mode node. */
-	BABEL_NODE,		 /* BABEL protocol mode node. */
-	EIGRP_NODE,		 /* EIGRP protocol mode node. */
-	BGP_NODE,		 /* BGP protocol mode which includes BGP4+ */
-	BGP_VPNV4_NODE,		 /* BGP MPLS-VPN PE exchange. */
-	BGP_VPNV6_NODE,		 /* BGP MPLS-VPN PE exchange. */
-	BGP_IPV4_NODE,		 /* BGP IPv4 unicast address family.  */
-	BGP_IPV4M_NODE,		 /* BGP IPv4 multicast address family.  */
-	BGP_IPV4L_NODE,		 /* BGP IPv4 labeled unicast address family.  */
-	BGP_IPV6_NODE,		 /* BGP IPv6 address family */
-	BGP_IPV6M_NODE,		 /* BGP IPv6 multicast address family. */
-	BGP_IPV6L_NODE,		 /* BGP IPv6 labeled unicast address family. */
-	BGP_VRF_POLICY_NODE,     /* BGP VRF policy */
-	BGP_VNC_DEFAULTS_NODE,   /* BGP VNC nve defaults */
-	BGP_VNC_NVE_GROUP_NODE,  /* BGP VNC nve group */
-	BGP_VNC_L2_GROUP_NODE,   /* BGP VNC L2 group */
-	RFP_DEFAULTS_NODE,       /* RFP defaults node */
-	BGP_EVPN_NODE,		 /* BGP EVPN node. */
-	OSPF_NODE,		 /* OSPF protocol mode */
-	OSPF6_NODE,		 /* OSPF protocol for IPv6 mode */
-	LDP_NODE,		 /* LDP protocol mode */
-	LDP_IPV4_NODE,		 /* LDP IPv4 address family */
-	LDP_IPV6_NODE,		 /* LDP IPv6 address family */
-	LDP_IPV4_IFACE_NODE,     /* LDP IPv4 Interface */
-	LDP_IPV6_IFACE_NODE,     /* LDP IPv6 Interface */
-	LDP_L2VPN_NODE,		 /* LDP L2VPN node */
-	LDP_PSEUDOWIRE_NODE,     /* LDP Pseudowire node */
-	ISIS_NODE,		 /* ISIS protocol mode */
-	MASC_NODE,		 /* MASC for multicast.  */
-	IRDP_NODE,		 /* ICMP Router Discovery Protocol mode. */
-	IP_NODE,		 /* Static ip route node. */
-	ACCESS_NODE,		 /* Access list node. */
-	PREFIX_NODE,		 /* Prefix list node. */
-	ACCESS_IPV6_NODE,	/* Access list node. */
-	ACCESS_MAC_NODE,	 /* MAC access list node*/
-	PREFIX_IPV6_NODE,	/* Prefix list node. */
-	AS_LIST_NODE,		 /* AS list node. */
-	COMMUNITY_LIST_NODE,     /* Community list node. */
-	RMAP_NODE,		 /* Route map node. */
-	SMUX_NODE,		 /* SNMP configuration node. */
-	DUMP_NODE,		 /* Packet dump node. */
-	FORWARDING_NODE,	 /* IP forwarding node. */
-	PROTOCOL_NODE,		 /* protocol filtering node */
-	MPLS_NODE,		 /* MPLS config node */
-	PW_NODE,		 /* Pseudowire config node */
-	VTY_NODE,		 /* Vty node. */
-	LINK_PARAMS_NODE,	/* Link-parameters node */
-	BGP_EVPN_VNI_NODE,       /* BGP EVPN VNI */
-	RPKI_NODE,     /* RPKI node for configuration of RPKI cache server
-			  connections.*/
-	BGP_FLOWSPECV4_NODE,	/* BGP IPv4 FLOWSPEC Address-Family */
-	BGP_FLOWSPECV6_NODE,	/* BGP IPv6 FLOWSPEC Address-Family */
-	NODE_TYPE_MAX, /* maximum */
-};
-
-extern vector cmdvec;
-extern const char *node_names[];
-
-/* Node which has some commands and prompt string and configuration
-   function pointer . */
-struct cmd_node {
-	/* Node index. */
-	enum node_type node;
-
-	/* Prompt character at vty interface. */
-	const char *prompt;
-
-	/* Is this node's configuration goes to vtysh ? */
-	int vtysh;
-
-	/* Node's configuration write function */
-	int (*func)(struct vty *);
-
-	/* Node's command graph */
-	struct graph *cmdgraph;
-
-	/* Vector of this node's command list. */
-	vector cmd_vector;
-
-	/* Hashed index of command node list, for de-dupping primarily */
-	struct hash *cmd_hash;
-};
-
-/* Return value of the commands. */
-#define CMD_SUCCESS              0
-#define CMD_WARNING              1
-#define CMD_ERR_NO_MATCH         2
-#define CMD_ERR_AMBIGUOUS        3
-#define CMD_ERR_INCOMPLETE       4
-#define CMD_ERR_EXEED_ARGC_MAX   5
-#define CMD_ERR_NOTHING_TODO     6
-#define CMD_COMPLETE_FULL_MATCH  7
-#define CMD_COMPLETE_MATCH       8
-#define CMD_COMPLETE_LIST_MATCH  9
-#define CMD_SUCCESS_DAEMON      10
-#define CMD_ERR_NO_FILE         11
-#define CMD_SUSPEND             12
-#define CMD_WARNING_CONFIG_FAILED 13
-#define CMD_NOT_MY_INSTANCE	14
-
-/* Argc max counts. */
-#define CMD_ARGC_MAX   256
-
-/* Turn off these macros when uisng cpp with extract.pl */
-#ifndef VTYSH_EXTRACT_PL
-
-/* helper defines for end-user DEFUN* macros */
-#define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum)     \
-	static struct cmd_element cmdname = {                                  \
-		.string = cmdstr,                                              \
-		.func = funcname,                                              \
-		.doc = helpstr,                                                \
-		.attr = attrs,                                                 \
-		.daemon = dnum,                                                \
-		.name = #cmdname,                                              \
-	};
-
-#define DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	static int funcname(const struct cmd_element *, struct vty *, int,     \
-			    struct cmd_token *[]);
-
-#define DEFUN_CMD_FUNC_TEXT(funcname)                                          \
-	static int funcname(const struct cmd_element *self                     \
-			    __attribute__((unused)),                           \
-			    struct vty *vty __attribute__((unused)),           \
-			    int argc __attribute__((unused)),                  \
-			    struct cmd_token *argv[] __attribute__((unused)))
-
-#define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
-	funcdecl_##funcname
-
-#define DEFUN(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
-	DEFUN_CMD_FUNC_TEXT(funcname)
-
-#define DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
-	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
-	DEFUN_CMD_FUNC_TEXT(funcname)
-
-#define DEFUN_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
-	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
-
-#define DEFUN_DEPRECATED(funcname, cmdname, cmdstr, helpstr)                   \
-	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED)
-
-/* DEFUN_NOSH for commands that vtysh should ignore */
-#define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
-	DEFUN(funcname, cmdname, cmdstr, helpstr)
-
-/* DEFSH for vtysh. */
-#define DEFSH(daemon, cmdname, cmdstr, helpstr)                                \
-	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, 0, daemon)
-
-#define DEFSH_HIDDEN(daemon, cmdname, cmdstr, helpstr)                         \
-	DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN,     \
-			  daemon)
-
-/* DEFUN + DEFSH */
-#define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr)                    \
-	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon)       \
-	DEFUN_CMD_FUNC_TEXT(funcname)
-
-/* DEFUN + DEFSH with attributes */
-#define DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, attr)         \
-	DEFUN_CMD_FUNC_DECL(funcname)                                          \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, daemon)    \
-	DEFUN_CMD_FUNC_TEXT(funcname)
-
-#define DEFUNSH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr)             \
-	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr,               \
-		     CMD_ATTR_HIDDEN)
-
-#define DEFUNSH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr)         \
-	DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr,               \
-		     CMD_ATTR_DEPRECATED)
-
-/* ALIAS macro which define existing command's alias. */
-#define ALIAS(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)
-
-#define ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
-
-#define ALIAS_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, \
-			  0)
-
-#define ALIAS_DEPRECATED(funcname, cmdname, cmdstr, helpstr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
-			  CMD_ATTR_DEPRECATED, 0)
-
-#define ALIAS_SH(daemon, funcname, cmdname, cmdstr, helpstr)                   \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon)
-
-#define ALIAS_SH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr)            \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, \
-			  daemon)
-
-#define ALIAS_SH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr)        \
-	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr,                  \
-			  CMD_ATTR_DEPRECATED, daemon)
-
-#else /* VTYSH_EXTRACT_PL */
-#define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
-	DEFUN(funcname, cmdname, cmdstr, helpstr)
-#endif /* VTYSH_EXTRACT_PL */
-
-/* Some macroes */
-
-/*
- * Sometimes #defines create maximum values that
- * need to have strings created from them that
- * allow the parser to match against them.
- * These macros allow that.
- */
-#define CMD_CREATE_STR(s)  CMD_CREATE_STR_HELPER(s)
-#define CMD_CREATE_STR_HELPER(s) #s
-#define CMD_RANGE_STR(a,s) "(" CMD_CREATE_STR(a) "-" CMD_CREATE_STR(s) ")"
-
-/* Common descriptions. */
-#define SHOW_STR "Show running system information\n"
-#define IP_STR "IP information\n"
-#define IPV6_STR "IPv6 information\n"
-#define NO_STR "Negate a command or set its defaults\n"
-#define REDIST_STR "Redistribute information from another routing protocol\n"
-#define CLEAR_STR "Reset functions\n"
-#define RIP_STR "RIP information\n"
-#define EIGRP_STR "EIGRP information\n"
-#define BGP_STR "BGP information\n"
-#define BGP_SOFT_STR "Soft reconfig inbound and outbound updates\n"
-#define BGP_SOFT_IN_STR "Send route-refresh unless using 'soft-reconfiguration inbound'\n"
-#define BGP_SOFT_OUT_STR "Resend all outbound updates\n"
-#define BGP_SOFT_RSCLIENT_RIB_STR "Soft reconfig for rsclient RIB\n"
-#define OSPF_STR "OSPF information\n"
-#define NEIGHBOR_STR "Specify neighbor router\n"
-#define DEBUG_STR "Debugging functions (see also 'undebug')\n"
-#define UNDEBUG_STR "Disable debugging functions (see also 'debug')\n"
-#define ROUTER_STR "Enable a routing process\n"
-#define AS_STR "AS number\n"
-#define MBGP_STR "MBGP information\n"
-#define MATCH_STR "Match values from routing table\n"
-#define SET_STR "Set values in destination routing protocol\n"
-#define OUT_STR "Filter outgoing routing updates\n"
-#define IN_STR  "Filter incoming routing updates\n"
-#define V4NOTATION_STR "specify by IPv4 address notation(e.g. 0.0.0.0)\n"
-#define OSPF6_NUMBER_STR "Specify by number\n"
-#define INTERFACE_STR "Interface infomation\n"
-#define IFNAME_STR "Interface name(e.g. ep0)\n"
-#define IP6_STR "IPv6 Information\n"
-#define OSPF6_STR "Open Shortest Path First (OSPF) for IPv6\n"
-#define OSPF6_INSTANCE_STR "(1-65535) Instance ID\n"
-#define SECONDS_STR "Seconds\n"
-#define ROUTE_STR "Routing Table\n"
-#define PREFIX_LIST_STR "Build a prefix list\n"
-#define OSPF6_DUMP_TYPE_LIST                                                   \
-	"<neighbor|interface|area|lsa|zebra|config|dbex|spf|route|lsdb|redistribute|hook|asbr|prefix|abr>"
-#define ISIS_STR "IS-IS information\n"
-#define AREA_TAG_STR "[area tag]\n"
-#define COMMUNITY_AANN_STR "Community number where AA and NN are (0-65535)\n"
-#define COMMUNITY_VAL_STR  "Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|internet or additive\n"
-#define MPLS_TE_STR "MPLS-TE specific commands\n"
-#define LINK_PARAMS_STR "Configure interface link parameters\n"
-#define OSPF_RI_STR "OSPF Router Information specific commands\n"
-#define PCE_STR "PCE Router Information specific commands\n"
-#define MPLS_STR "MPLS information\n"
-#define SR_STR "Segment-Routing specific commands\n"
-#define WATCHFRR_STR "watchfrr information\n"
-#define ZEBRA_STR "Zebra information\n"
-
-#define CONF_BACKUP_EXT ".sav"
-
-/* IPv4 only machine should not accept IPv6 address for peer's IP
-   address.  So we replace VTY command string like below. */
-#define NEIGHBOR_ADDR_STR  "Neighbor address\nIPv6 address\n"
-#define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nInterface name or neighbor tag\n"
-#define NEIGHBOR_ADDR_STR3 "Neighbor address\nIPv6 address\nInterface name\n"
-
-/* Prototypes. */
-extern void install_node(struct cmd_node *, int (*)(struct vty *));
-extern void install_default(enum node_type);
-extern void install_element(enum node_type, struct cmd_element *);
-
-/* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
- * deprecated/hidden) are not reversed. */
-extern void uninstall_element(enum node_type, struct cmd_element *);
-
-/* Concatenates argv[shift] through argv[argc-1] into a single NUL-terminated
-   string with a space between each element (allocated using
-   XMALLOC(MTYPE_TMP)).  Returns NULL if shift >= argc. */
-extern char *argv_concat(struct cmd_token **argv, int argc, int shift);
-
-/*
- * It is preferred that you set the index initial value
- * to a 0.  This way in the future if you modify the
- * cli then there is no need to modify the initial
- * value of the index
- */
-extern int argv_find(struct cmd_token **argv, int argc, const char *text,
-		     int *index);
-
-extern vector cmd_make_strvec(const char *);
-extern void cmd_free_strvec(vector);
-extern vector cmd_describe_command(vector, struct vty *, int *status);
-extern char **cmd_complete_command(vector, struct vty *, int *status);
-extern const char *cmd_prompt(enum node_type);
-extern int command_config_read_one_line(struct vty *vty,
-					const struct cmd_element **,
-					int use_config_node);
-extern int config_from_file(struct vty *, FILE *, unsigned int *line_num);
-extern enum node_type node_parent(enum node_type);
-extern int cmd_execute_command(vector, struct vty *,
-			       const struct cmd_element **, int);
-extern int cmd_execute_command_strict(vector, struct vty *,
-				      const struct cmd_element **);
-extern void cmd_init(int);
-extern void cmd_terminate(void);
-extern void cmd_exit(struct vty *vty);
-extern int cmd_list_cmds(struct vty *vty, int do_permute);
-
-extern int cmd_domainname_set(const char *domainname);
-extern int cmd_hostname_set(const char *hostname);
-extern const char *cmd_hostname_get(void);
-extern const char *cmd_domainname_get(void);
-
-/* NOT safe for general use; call this only if DEV_BUILD! */
-extern void grammar_sandbox_init(void);
-
-extern vector completions_to_vec(struct list *completions);
-
-/* Export typical functions. */
-extern const char *host_config_get(void);
-extern void host_config_set(const char *);
-
-extern void print_version(const char *);
-
-extern int cmd_banner_motd_file(const char *);
-
-/* struct host global, ick */
-extern struct host host;
-
-struct cmd_variable_handler {
-	const char *tokenname, *varname;
-	void (*completions)(vector out, struct cmd_token *token);
-};
-
-extern void cmd_variable_complete(struct cmd_token *token, const char *arg,
-				  vector comps);
-extern void
-cmd_variable_handler_register(const struct cmd_variable_handler *cvh);
-extern char *cmd_variable_comp2str(vector comps, unsigned short cols);
-
-#endif /* _ZEBRA_COMMAND_H */
+/**Zebraconfigurationcommandinterfaceroutine*Copyright(C)1997,98KunihiroIshiguro
+**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormo
+dify*itunderthetermsoftheGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFou
+ndation;eitherversion2,or(atyour*option)anylaterversion.**GNUZebraisdistributedi
+nthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyo
+f*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicensefo
+rmoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*witht
+hisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51Fran
+klinSt,FifthFloor,Boston,MA02110-1301USA*/#ifndef_ZEBRA_COMMAND_H#define_ZEBRA_C
+OMMAND_H#include"vector.h"#include"vty.h"#include"lib/route_types.h"#include"gra
+ph.h"#include"memory.h"#include"hash.h"#include"command_graph.h"DECLARE_MTYPE(HO
+ST)DECLARE_MTYPE(COMPLETION)/*fortest-commands.c*/DECLARE_MTYPE(STRVEC)/*Hostcon
+figurationvariable*/structhost{/*Hostnameofthisrouter.*/char*name;/*Domainnameof
+thisrouter*/char*domainname;/*Passwordforvtyinterface.*/char*password;char*passw
+ord_encrypt;/*Enablepassword*/char*enable;char*enable_encrypt;/*Systemwidetermin
+allines.*/intlines;/*Logfilename.*/char*logfile;/*configfilenameofthishost*/char
+*config;intnoconfig;/*Flagsforservices*/intadvanced;intencrypt;/*Bannerconfigura
+tion.*/constchar*motd;char*motdfile;};/*ListofCLInodes.Pleaseremembertoupdatethe
+namearrayincommand.c.*/enumnode_type{AUTH_NODE,/*Authenticationmodeofvtyinterfac
+e.*/VIEW_NODE,/*Viewnode.Defaultmodeofvtyinterface.*/AUTH_ENABLE_NODE,/*Authenti
+cationmodeforchangeenable.*/ENABLE_NODE,/*Enablenode.*/CONFIG_NODE,/*Confignode.
+Defaultmodeofconfigfile.*/SERVICE_NODE,/*Servicenode.*/DEBUG_NODE,/*Debugnode.*/
+VRF_DEBUG_NODE,/*VrfDebugnode.*/DEBUG_VNC_NODE,/*DebugVNCnode.*/AAA_NODE,/*AAAno
+de.*/KEYCHAIN_NODE,/*Key-chainnode.*/KEYCHAIN_KEY_NODE,/*Key-chainkeynode.*/LOGI
+CALROUTER_NODE,/*Logical-Routernode.*/VRF_NODE,/*VRFmodenode.*/INTERFACE_NODE,/*
+Interfacemodenode.*/NH_GROUP_NODE,/*Nexthop-Groupmodenode.*/ZEBRA_NODE,/*zebraco
+nnectionnode.*/TABLE_NODE,/*rtm_tableselectionnode.*/RIP_NODE,/*RIPprotocolmoden
+ode.*/RIPNG_NODE,/*RIPngprotocolmodenode.*/BABEL_NODE,/*BABELprotocolmodenode.*/
+EIGRP_NODE,/*EIGRPprotocolmodenode.*/BGP_NODE,/*BGPprotocolmodewhichincludesBGP4
++*/BGP_VPNV4_NODE,/*BGPMPLS-VPNPEexchange.*/BGP_VPNV6_NODE,/*BGPMPLS-VPNPEexchan
+ge.*/BGP_IPV4_NODE,/*BGPIPv4unicastaddressfamily.*/BGP_IPV4M_NODE,/*BGPIPv4multi
+castaddressfamily.*/BGP_IPV4L_NODE,/*BGPIPv4labeledunicastaddressfamily.*/BGP_IP
+V6_NODE,/*BGPIPv6addressfamily*/BGP_IPV6M_NODE,/*BGPIPv6multicastaddressfamily.*
+/BGP_IPV6L_NODE,/*BGPIPv6labeledunicastaddressfamily.*/BGP_VRF_POLICY_NODE,/*BGP
+VRFpolicy*/BGP_VNC_DEFAULTS_NODE,/*BGPVNCnvedefaults*/BGP_VNC_NVE_GROUP_NODE,/*B
+GPVNCnvegroup*/BGP_VNC_L2_GROUP_NODE,/*BGPVNCL2group*/RFP_DEFAULTS_NODE,/*RFPdef
+aultsnode*/BGP_EVPN_NODE,/*BGPEVPNnode.*/OSPF_NODE,/*OSPFprotocolmode*/OSPF6_NOD
+E,/*OSPFprotocolforIPv6mode*/LDP_NODE,/*LDPprotocolmode*/LDP_IPV4_NODE,/*LDPIPv4
+addressfamily*/LDP_IPV6_NODE,/*LDPIPv6addressfamily*/LDP_IPV4_IFACE_NODE,/*LDPIP
+v4Interface*/LDP_IPV6_IFACE_NODE,/*LDPIPv6Interface*/LDP_L2VPN_NODE,/*LDPL2VPNno
+de*/LDP_PSEUDOWIRE_NODE,/*LDPPseudowirenode*/ISIS_NODE,/*ISISprotocolmode*/MASC_
+NODE,/*MASCformulticast.*/IRDP_NODE,/*ICMPRouterDiscoveryProtocolmode.*/IP_NODE,
+/*Staticiproutenode.*/ACCESS_NODE,/*Accesslistnode.*/PREFIX_NODE,/*Prefixlistnod
+e.*/ACCESS_IPV6_NODE,/*Accesslistnode.*/ACCESS_MAC_NODE,/*MACaccesslistnode*/PRE
+FIX_IPV6_NODE,/*Prefixlistnode.*/AS_LIST_NODE,/*ASlistnode.*/COMMUNITY_LIST_NODE
+,/*Communitylistnode.*/RMAP_NODE,/*Routemapnode.*/SMUX_NODE,/*SNMPconfigurationn
+ode.*/DUMP_NODE,/*Packetdumpnode.*/FORWARDING_NODE,/*IPforwardingnode.*/PROTOCOL
+_NODE,/*protocolfilteringnode*/MPLS_NODE,/*MPLSconfignode*/PW_NODE,/*Pseudowirec
+onfignode*/VTY_NODE,/*Vtynode.*/LINK_PARAMS_NODE,/*Link-parametersnode*/BGP_EVPN
+_VNI_NODE,/*BGPEVPNVNI*/RPKI_NODE,/*RPKInodeforconfigurationofRPKIcacheservercon
+nections.*/BGP_FLOWSPECV4_NODE,/*BGPIPv4FLOWSPECAddress-Family*/BGP_FLOWSPECV6_N
+ODE,/*BGPIPv6FLOWSPECAddress-Family*/NODE_TYPE_MAX,/*maximum*/};externvectorcmdv
+ec;externconstchar*node_names[];/*Nodewhichhassomecommandsandpromptstringandconf
+igurationfunctionpointer.*/structcmd_node{/*Nodeindex.*/enumnode_typenode;/*Prom
+ptcharacteratvtyinterface.*/constchar*prompt;/*Isthisnode'sconfigurationgoestovt
+ysh?*/intvtysh;/*Node'sconfigurationwritefunction*/int(*func)(structvty*);/*Node
+'scommandgraph*/structgraph*cmdgraph;/*Vectorofthisnode'scommandlist.*/vectorcmd
+_vector;/*Hashedindexofcommandnodelist,forde-duppingprimarily*/structhash*cmd_ha
+sh;};/*Returnvalueofthecommands.*/#defineCMD_SUCCESS0#defineCMD_WARNING1#defineC
+MD_ERR_NO_MATCH2#defineCMD_ERR_AMBIGUOUS3#defineCMD_ERR_INCOMPLETE4#defineCMD_ER
+R_EXEED_ARGC_MAX5#defineCMD_ERR_NOTHING_TODO6#defineCMD_COMPLETE_FULL_MATCH7#def
+ineCMD_COMPLETE_MATCH8#defineCMD_COMPLETE_LIST_MATCH9#defineCMD_SUCCESS_DAEMON10
+#defineCMD_ERR_NO_FILE11#defineCMD_SUSPEND12#defineCMD_WARNING_CONFIG_FAILED13#d
+efineCMD_NOT_MY_INSTANCE14/*Argcmaxcounts.*/#defineCMD_ARGC_MAX256/*Turnoffthese
+macroswhenuisngcppwithextract.pl*/#ifndefVTYSH_EXTRACT_PL/*helperdefinesforend-u
+serDEFUN*macros*/#defineDEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,helpstr,attrs,
+dnum)\staticstructcmd_elementcmdname={\.string=cmdstr,\.func=funcname,\.doc=help
+str,\.attr=attrs,\.daemon=dnum,\.name=#cmdname,\};#defineDEFUN_CMD_FUNC_DECL(fun
+cname)\staticintfuncname(conststructcmd_element*,structvty*,int,\structcmd_token
+*[]);#defineDEFUN_CMD_FUNC_TEXT(funcname)\staticintfuncname(conststructcmd_eleme
+nt*self\__attribute__((unused)),\structvty*vty__attribute__((unused)),\intargc__
+attribute__((unused)),\structcmd_token*argv[]__attribute__((unused)))#defineDEFP
+Y(funcname,cmdname,cmdstr,helpstr)\DEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,hel
+pstr,0,0)\funcdecl_##funcname#defineDEFUN(funcname,cmdname,cmdstr,helpstr)\DEFUN
+_CMD_FUNC_DECL(funcname)\DEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,helpstr,0,0)\
+DEFUN_CMD_FUNC_TEXT(funcname)#defineDEFUN_ATTR(funcname,cmdname,cmdstr,helpstr,a
+ttr)\DEFUN_CMD_FUNC_DECL(funcname)\DEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,hel
+pstr,attr,0)\DEFUN_CMD_FUNC_TEXT(funcname)#defineDEFUN_HIDDEN(funcname,cmdname,c
+mdstr,helpstr)\DEFUN_ATTR(funcname,cmdname,cmdstr,helpstr,CMD_ATTR_HIDDEN)#defin
+eDEFUN_DEPRECATED(funcname,cmdname,cmdstr,helpstr)\DEFUN_ATTR(funcname,cmdname,c
+mdstr,helpstr,CMD_ATTR_DEPRECATED)/*DEFUN_NOSHforcommandsthatvtyshshouldignore*/
+#defineDEFUN_NOSH(funcname,cmdname,cmdstr,helpstr)\DEFUN(funcname,cmdname,cmdstr
+,helpstr)/*DEFSHforvtysh.*/#defineDEFSH(daemon,cmdname,cmdstr,helpstr)\DEFUN_CMD
+_ELEMENT(NULL,cmdname,cmdstr,helpstr,0,daemon)#defineDEFSH_HIDDEN(daemon,cmdname
+,cmdstr,helpstr)\DEFUN_CMD_ELEMENT(NULL,cmdname,cmdstr,helpstr,CMD_ATTR_HIDDEN,\
+daemon)/*DEFUN+DEFSH*/#defineDEFUNSH(daemon,funcname,cmdname,cmdstr,helpstr)\DEF
+UN_CMD_FUNC_DECL(funcname)\DEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,helpstr,0,d
+aemon)\DEFUN_CMD_FUNC_TEXT(funcname)/*DEFUN+DEFSHwithattributes*/#defineDEFUNSH_
+ATTR(daemon,funcname,cmdname,cmdstr,helpstr,attr)\DEFUN_CMD_FUNC_DECL(funcname)\
+DEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,helpstr,attr,daemon)\DEFUN_CMD_FUNC_TE
+XT(funcname)#defineDEFUNSH_HIDDEN(daemon,funcname,cmdname,cmdstr,helpstr)\DEFUNS
+H_ATTR(daemon,funcname,cmdname,cmdstr,helpstr,\CMD_ATTR_HIDDEN)#defineDEFUNSH_DE
+PRECATED(daemon,funcname,cmdname,cmdstr,helpstr)\DEFUNSH_ATTR(daemon,funcname,cm
+dname,cmdstr,helpstr,\CMD_ATTR_DEPRECATED)/*ALIASmacrowhichdefineexistingcommand
+'salias.*/#defineALIAS(funcname,cmdname,cmdstr,helpstr)\DEFUN_CMD_ELEMENT(funcna
+me,cmdname,cmdstr,helpstr,0,0)#defineALIAS_ATTR(funcname,cmdname,cmdstr,helpstr,
+attr)\DEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,helpstr,attr,0)#defineALIAS_HIDD
+EN(funcname,cmdname,cmdstr,helpstr)\DEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,he
+lpstr,CMD_ATTR_HIDDEN,\0)#defineALIAS_DEPRECATED(funcname,cmdname,cmdstr,helpstr
+)\DEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,helpstr,\CMD_ATTR_DEPRECATED,0)#defi
+neALIAS_SH(daemon,funcname,cmdname,cmdstr,helpstr)\DEFUN_CMD_ELEMENT(funcname,cm
+dname,cmdstr,helpstr,0,daemon)#defineALIAS_SH_HIDDEN(daemon,funcname,cmdname,cmd
+str,helpstr)\DEFUN_CMD_ELEMENT(funcname,cmdname,cmdstr,helpstr,CMD_ATTR_HIDDEN,\
+daemon)#defineALIAS_SH_DEPRECATED(daemon,funcname,cmdname,cmdstr,helpstr)\DEFUN_
+CMD_ELEMENT(funcname,cmdname,cmdstr,helpstr,\CMD_ATTR_DEPRECATED,daemon)#else/*V
+TYSH_EXTRACT_PL*/#defineDEFPY(funcname,cmdname,cmdstr,helpstr)\DEFUN(funcname,cm
+dname,cmdstr,helpstr)#endif/*VTYSH_EXTRACT_PL*//*Somemacroes*//**Sometimes#defin
+escreatemaximumvaluesthat*needtohavestringscreatedfromthemthat*allowtheparsertom
+atchagainstthem.*Thesemacrosallowthat.*/#defineCMD_CREATE_STR(s)CMD_CREATE_STR_H
+ELPER(s)#defineCMD_CREATE_STR_HELPER(s)#s#defineCMD_RANGE_STR(a,s)"("CMD_CREATE_
+STR(a)"-"CMD_CREATE_STR(s)")"/*Commondescriptions.*/#defineSHOW_STR"Showrunnings
+ysteminformation\n"#defineIP_STR"IPinformation\n"#defineIPV6_STR"IPv6information
+\n"#defineNO_STR"Negateacommandorsetitsdefaults\n"#defineREDIST_STR"Redistribute
+informationfromanotherroutingprotocol\n"#defineCLEAR_STR"Resetfunctions\n"#defin
+eRIP_STR"RIPinformation\n"#defineEIGRP_STR"EIGRPinformation\n"#defineBGP_STR"BGP
+information\n"#defineBGP_SOFT_STR"Softreconfiginboundandoutboundupdates\n"#defin
+eBGP_SOFT_IN_STR"Sendroute-refreshunlessusing'soft-reconfigurationinbound'\n"#de
+fineBGP_SOFT_OUT_STR"Resendalloutboundupdates\n"#defineBGP_SOFT_RSCLIENT_RIB_STR
+"SoftreconfigforrsclientRIB\n"#defineOSPF_STR"OSPFinformation\n"#defineNEIGHBOR_
+STR"Specifyneighborrouter\n"#defineDEBUG_STR"Debuggingfunctions(seealso'undebug'
+)\n"#defineUNDEBUG_STR"Disabledebuggingfunctions(seealso'debug')\n"#defineROUTER
+_STR"Enablearoutingprocess\n"#defineAS_STR"ASnumber\n"#defineMBGP_STR"MBGPinform
+ation\n"#defineMATCH_STR"Matchvaluesfromroutingtable\n"#defineSET_STR"Setvaluesi
+ndestinationroutingprotocol\n"#defineOUT_STR"Filteroutgoingroutingupdates\n"#def
+ineIN_STR"Filterincomingroutingupdates\n"#defineV4NOTATION_STR"specifybyIPv4addr
+essnotation(e.g.0.0.0.0)\n"#defineOSPF6_NUMBER_STR"Specifybynumber\n"#defineINTE
+RFACE_STR"Interfaceinfomation\n"#defineIFNAME_STR"Interfacename(e.g.ep0)\n"#defi
+neIP6_STR"IPv6Information\n"#defineOSPF6_STR"OpenShortestPathFirst(OSPF)forIPv6\
+n"#defineOSPF6_INSTANCE_STR"(1-65535)InstanceID\n"#defineSECONDS_STR"Seconds\n"#
+defineROUTE_STR"RoutingTable\n"#definePREFIX_LIST_STR"Buildaprefixlist\n"#define
+OSPF6_DUMP_TYPE_LIST\"<neighbor|interface|area|lsa|zebra|config|dbex|spf|route|l
+sdb|redistribute|hook|asbr|prefix|abr>"#defineISIS_STR"IS-ISinformation\n"#defin
+eAREA_TAG_STR"[areatag]\n"#defineCOMMUNITY_AANN_STR"CommunitynumberwhereAAandNNa
+re(0-65535)\n"#defineCOMMUNITY_VAL_STR"CommunitynumberinAA:NNformat(whereAAandNN
+are(0-65535))orlocal-AS|no-advertise|no-export|internetoradditive\n"#defineMPLS_
+TE_STR"MPLS-TEspecificcommands\n"#defineLINK_PARAMS_STR"Configureinterfacelinkpa
+rameters\n"#defineOSPF_RI_STR"OSPFRouterInformationspecificcommands\n"#definePCE
+_STR"PCERouterInformationspecificcommands\n"#defineMPLS_STR"MPLSinformation\n"#d
+efineSR_STR"Segment-Routingspecificcommands\n"#defineWATCHFRR_STR"watchfrrinform
+ation\n"#defineZEBRA_STR"Zebrainformation\n"#defineCONF_BACKUP_EXT".sav"/*IPv4on
+lymachineshouldnotacceptIPv6addressforpeer'sIPaddress.SowereplaceVTYcommandstrin
+glikebelow.*/#defineNEIGHBOR_ADDR_STR"Neighboraddress\nIPv6address\n"#defineNEIG
+HBOR_ADDR_STR2"Neighboraddress\nNeighborIPv6address\nInterfacenameorneighbortag\
+n"#defineNEIGHBOR_ADDR_STR3"Neighboraddress\nIPv6address\nInterfacename\n"/*Prot
+otypes.*/externvoidinstall_node(structcmd_node*,int(*)(structvty*));externvoidin
+stall_default(enumnode_type);externvoidinstall_element(enumnode_type,structcmd_e
+lement*);/*knownissuewithuninstall_element:changestocmd_token->attr(i.e.*depreca
+ted/hidden)arenotreversed.*/externvoiduninstall_element(enumnode_type,structcmd_
+element*);/*Concatenatesargv[shift]throughargv[argc-1]intoasingleNUL-terminateds
+tringwithaspacebetweeneachelement(allocatedusingXMALLOC(MTYPE_TMP)).ReturnsNULLi
+fshift>=argc.*/externchar*argv_concat(structcmd_token**argv,intargc,intshift);/*
+*Itispreferredthatyousettheindexinitialvalue*toa0.Thiswayinthefutureifyoumodifyt
+he*clithenthereisnoneedtomodifytheinitial*valueoftheindex*/externintargv_find(st
+ructcmd_token**argv,intargc,constchar*text,int*index);externvectorcmd_make_strve
+c(constchar*);externvoidcmd_free_strvec(vector);externvectorcmd_describe_command
+(vector,structvty*,int*status);externchar**cmd_complete_command(vector,structvty
+*,int*status);externconstchar*cmd_prompt(enumnode_type);externintcommand_config_
+read_one_line(structvty*vty,conststructcmd_element**,intuse_config_node);externi
+ntconfig_from_file(structvty*,FILE*,unsignedint*line_num);externenumnode_typenod
+e_parent(enumnode_type);externintcmd_execute_command(vector,structvty*,conststru
+ctcmd_element**,int);externintcmd_execute_command_strict(vector,structvty*,const
+structcmd_element**);externvoidcmd_init(int);externvoidcmd_terminate(void);exter
+nvoidcmd_exit(structvty*vty);externintcmd_list_cmds(structvty*vty,intdo_permute)
+;externintcmd_domainname_set(constchar*domainname);externintcmd_hostname_set(con
+stchar*hostname);externconstchar*cmd_hostname_get(void);externconstchar*cmd_doma
+inname_get(void);/*NOTsafeforgeneraluse;callthisonlyifDEV_BUILD!*/externvoidgram
+mar_sandbox_init(void);externvectorcompletions_to_vec(structlist*completions);/*
+Exporttypicalfunctions.*/externconstchar*host_config_get(void);externvoidhost_co
+nfig_set(constchar*);externvoidprint_version(constchar*);externintcmd_banner_mot
+d_file(constchar*);/*structhostglobal,ick*/externstructhosthost;structcmd_variab
+le_handler{constchar*tokenname,*varname;void(*completions)(vectorout,structcmd_t
+oken*token);};externvoidcmd_variable_complete(structcmd_token*token,constchar*ar
+g,vectorcomps);externvoidcmd_variable_handler_register(conststructcmd_variable_h
+andler*cvh);externchar*cmd_variable_comp2str(vectorcomps,unsignedshortcols);#end
+if/*_ZEBRA_COMMAND_H*/

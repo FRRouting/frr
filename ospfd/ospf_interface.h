@@ -1,327 +1,122 @@
-/*
- * OSPF Interface functions.
- * Copyright (C) 1999 Toshiaki Takada
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_OSPF_INTERFACE_H
-#define _ZEBRA_OSPF_INTERFACE_H
-
-#include "qobj.h"
-#include "hook.h"
-#include "ospfd/ospf_packet.h"
-#include "ospfd/ospf_spf.h"
-
-#define IF_OSPF_IF_INFO(I) ((struct ospf_if_info *)((I)->info))
-#define IF_DEF_PARAMS(I) (IF_OSPF_IF_INFO (I)->def_params)
-#define IF_OIFS(I)  (IF_OSPF_IF_INFO (I)->oifs)
-#define IF_OIFS_PARAMS(I) (IF_OSPF_IF_INFO (I)->params)
-
-/* Despite the name, this macro probably is for specialist use only */
-#define OSPF_IF_PARAM_CONFIGURED(S, P) ((S) && (S)->P##__config)
-
-/* Test whether an OSPF interface parameter is set, generally, given some
- * existing ospf interface
- */
-#define OSPF_IF_PARAM_IS_SET(O, P)                                             \
-	(OSPF_IF_PARAM_CONFIGURED((O)->params, P)                              \
-	 || OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS((O)->ifp)->P))
-
-#define OSPF_IF_PARAM(O, P)                                                    \
-	(OSPF_IF_PARAM_CONFIGURED((O)->params, P)                              \
-		 ? (O)->params->P                                              \
-		 : IF_DEF_PARAMS((O)->ifp)->P)
-
-#define DECLARE_IF_PARAM(T, P)                                                 \
-	T P;                                                                   \
-	uint8_t P##__config : 1
-#define UNSET_IF_PARAM(S, P) ((S)->P##__config) = 0
-#define SET_IF_PARAM(S, P) ((S)->P##__config) = 1
-
-struct ospf_if_params {
-	DECLARE_IF_PARAM(uint32_t,
-			 transmit_delay); /* Interface Transmisson Delay */
-	DECLARE_IF_PARAM(uint32_t,
-			 output_cost_cmd); /* Command Interface Output Cost */
-	DECLARE_IF_PARAM(uint32_t,
-			 retransmit_interval); /* Retransmission Interval */
-	DECLARE_IF_PARAM(uint8_t, passive_interface); /* OSPF Interface is
-							passive: no sending or
-							receiving (no need to
-							join multicast groups)
-							*/
-	DECLARE_IF_PARAM(uint8_t, priority); /* OSPF Interface priority */
-	/* Enable OSPF on this interface with area if_area */
-	DECLARE_IF_PARAM(struct in_addr, if_area);
-	uint32_t if_area_id_fmt;
-
-	DECLARE_IF_PARAM(uint8_t, type); /* type of interface */
-#define OSPF_IF_ACTIVE                  0
-#define OSPF_IF_PASSIVE		        1
-
-#define OSPF_IF_PASSIVE_STATUS(O)                                              \
-	(OSPF_IF_PARAM_CONFIGURED((O)->params, passive_interface)              \
-		 ? (O)->params->passive_interface                              \
-		 : (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS((O)->ifp),          \
-					     passive_interface)                \
-			    ? IF_DEF_PARAMS((O)->ifp)->passive_interface       \
-			    : (O)->ospf->passive_interface_default))
-
-	DECLARE_IF_PARAM(uint32_t, v_hello); /* Hello Interval */
-	DECLARE_IF_PARAM(uint32_t, v_wait);  /* Router Dead Interval */
-
-	/* MTU mismatch check (see RFC2328, chap 10.6) */
-	DECLARE_IF_PARAM(uint8_t, mtu_ignore);
-
-	/* Fast-Hellos */
-	DECLARE_IF_PARAM(uint8_t, fast_hello);
-
-	/* Authentication data. */
-	uint8_t auth_simple[OSPF_AUTH_SIMPLE_SIZE + 1]; /* Simple password. */
-	uint8_t auth_simple__config : 1;
-
-	DECLARE_IF_PARAM(struct list *,
-			 auth_crypt);     /* List of Auth cryptographic data. */
-	DECLARE_IF_PARAM(int, auth_type); /* OSPF authentication type */
-
-	/* Other, non-configuration state */
-	uint32_t network_lsa_seqnum; /* Network LSA seqnum */
-
-	/* BFD configuration */
-	struct bfd_info *bfd_info;
-};
-
-enum { MEMBER_ALLROUTERS = 0,
-       MEMBER_DROUTERS,
-       MEMBER_MAX,
-};
-
-struct ospf_if_info {
-	struct ospf_if_params *def_params;
-	struct route_table *params;
-	struct route_table *oifs;
-	unsigned int
-		membership_counts[MEMBER_MAX]; /* multicast group refcnts */
-};
-
-struct ospf_interface;
-
-struct ospf_vl_data {
-	struct in_addr vl_peer;	/* Router-ID of the peer */
-	struct in_addr vl_area_id;     /* Transit area */
-	int vl_area_id_fmt;	    /* Area ID format */
-	struct ospf_interface *vl_oi;  /* Interface data structure */
-	struct vertex_nexthop nexthop; /* Nexthop router and oi to use */
-	struct in_addr peer_addr;      /* Address used to reach the peer */
-	uint8_t flags;
-};
-
-
-#define OSPF_VL_MAX_COUNT 256
-#define OSPF_VL_MTU	  1500
-
-#define OSPF_VL_FLAG_APPROVED 0x01
-
-struct crypt_key {
-	uint8_t key_id;
-	uint8_t auth_key[OSPF_AUTH_MD5_SIZE + 1];
-};
-
-/* OSPF interface structure. */
-struct ospf_interface {
-	/* This interface's parent ospf instance. */
-	struct ospf *ospf;
-
-	/* OSPF Area. */
-	struct ospf_area *area;
-
-	/* Position range in Router LSA */
-	uint16_t lsa_pos_beg; /* inclusive, >= */
-	uint16_t lsa_pos_end; /* exclusive, <  */
-
-	/* Interface data from zebra. */
-	struct interface *ifp;
-	struct ospf_vl_data *vl_data; /* Data for Virtual Link */
-
-	/* Packet send buffer. */
-	struct ospf_fifo *obuf; /* Output queue */
-
-	/* OSPF Network Type. */
-	uint8_t type;
-
-	/* State of Interface State Machine. */
-	uint8_t state;
-
-	/* To which multicast groups do we currently belong? */
-	uint8_t multicast_memberships;
-#define OI_MEMBER_FLAG(M) (1 << (M))
-#define OI_MEMBER_COUNT(O,M) (IF_OSPF_IF_INFO(oi->ifp)->membership_counts[(M)])
-#define OI_MEMBER_CHECK(O, M)                                                  \
-	(CHECK_FLAG((O)->multicast_memberships, OI_MEMBER_FLAG(M)))
-#define OI_MEMBER_JOINED(O, M)                                                 \
-	do {                                                                   \
-		SET_FLAG((O)->multicast_memberships, OI_MEMBER_FLAG(M));       \
-		IF_OSPF_IF_INFO((O)->ifp)->membership_counts[(M)]++;           \
-	} while (0)
-#define OI_MEMBER_LEFT(O, M)                                                   \
-	do {                                                                   \
-		UNSET_FLAG((O)->multicast_memberships, OI_MEMBER_FLAG(M));     \
-		IF_OSPF_IF_INFO((O)->ifp)->membership_counts[(M)]--;           \
-	} while (0)
-
-	struct prefix *address;      /* Interface prefix */
-	struct connected *connected; /* Pointer to connected */
-
-	/* Configured varables. */
-	struct ospf_if_params *params;
-
-	uint32_t crypt_seqnum; /* Cryptographic Sequence Number */
-	uint32_t output_cost;  /* Acutual Interface Output Cost */
-
-	/* Neighbor information. */
-	struct route_table *nbrs;       /* OSPF Neighbor List */
-	struct ospf_neighbor *nbr_self; /* Neighbor Self */
-#define DR(I)			((I)->nbr_self->d_router)
-#define BDR(I)			((I)->nbr_self->bd_router)
-#define OPTIONS(I)		((I)->nbr_self->options)
-#define PRIORITY(I)		((I)->nbr_self->priority)
-
-	/* List of configured NBMA neighbor. */
-	struct list *nbr_nbma;
-
-	/* self-originated LSAs. */
-	struct ospf_lsa *network_lsa_self; /* network-LSA. */
-	struct list *opaque_lsa_self;      /* Type-9 Opaque-LSAs */
-
-	struct route_table *ls_upd_queue;
-
-	struct list *ls_ack; /* Link State Acknowledgment list. */
-
-	struct {
-		struct list *ls_ack;
-		struct in_addr dst;
-	} ls_ack_direct;
-
-	/* Timer values. */
-	uint32_t v_ls_ack; /* Delayed Link State Acknowledgment */
-
-	/* Threads. */
-	struct thread *t_hello;		  /* timer */
-	struct thread *t_wait;		  /* timer */
-	struct thread *t_ls_ack;	  /* timer */
-	struct thread *t_ls_ack_direct;   /* event */
-	struct thread *t_ls_upd_event;    /* event */
-	struct thread *t_opaque_lsa_self; /* Type-9 Opaque-LSAs */
-
-	int on_write_q;
-
-	/* Statistics fields. */
-	uint32_t hello_in;     /* Hello message input count. */
-	uint32_t hello_out;    /* Hello message output count. */
-	uint32_t db_desc_in;   /* database desc. message input count. */
-	uint32_t db_desc_out;  /* database desc. message output count. */
-	uint32_t ls_req_in;    /* LS request message input count. */
-	uint32_t ls_req_out;   /* LS request message output count. */
-	uint32_t ls_upd_in;    /* LS update message input count. */
-	uint32_t ls_upd_out;   /* LS update message output count. */
-	uint32_t ls_ack_in;    /* LS Ack message input count. */
-	uint32_t ls_ack_out;   /* LS Ack message output count. */
-	uint32_t discarded;    /* discarded input count by error. */
-	uint32_t state_change; /* Number of status change. */
-
-	uint32_t full_nbrs;
-
-	QOBJ_FIELDS
-};
-DECLARE_QOBJ_TYPE(ospf_interface)
-
-/* Prototypes. */
-extern char *ospf_if_name(struct ospf_interface *);
-extern struct ospf_interface *ospf_if_new(struct ospf *, struct interface *,
-					  struct prefix *);
-extern void ospf_if_cleanup(struct ospf_interface *);
-extern void ospf_if_free(struct ospf_interface *);
-extern int ospf_if_up(struct ospf_interface *);
-extern int ospf_if_down(struct ospf_interface *);
-
-extern int ospf_if_is_up(struct ospf_interface *);
-extern struct ospf_interface *ospf_if_exists(struct ospf_interface *);
-extern struct ospf_interface *ospf_if_lookup_by_lsa_pos(struct ospf_area *,
-							int);
-extern struct ospf_interface *
-ospf_if_lookup_by_local_addr(struct ospf *, struct interface *, struct in_addr);
-extern struct ospf_interface *ospf_if_lookup_by_prefix(struct ospf *,
-						       struct prefix_ipv4 *);
-extern struct ospf_interface *ospf_if_table_lookup(struct interface *,
-						   struct prefix *);
-extern struct ospf_interface *ospf_if_addr_local(struct in_addr);
-extern struct ospf_interface *
-ospf_if_lookup_recv_if(struct ospf *, struct in_addr, struct interface *);
-extern struct ospf_interface *ospf_if_is_configured(struct ospf *,
-						    struct in_addr *);
-
-extern struct ospf_if_params *ospf_lookup_if_params(struct interface *,
-						    struct in_addr);
-extern struct ospf_if_params *ospf_get_if_params(struct interface *,
-						 struct in_addr);
-extern void ospf_del_if_params(struct ospf_if_params *);
-extern void ospf_free_if_params(struct interface *, struct in_addr);
-extern void ospf_if_update_params(struct interface *, struct in_addr);
-
-extern int ospf_if_new_hook(struct interface *);
-extern void ospf_if_init(void);
-extern void ospf_if_stream_set(struct ospf_interface *);
-extern void ospf_if_stream_unset(struct ospf_interface *);
-extern void ospf_if_reset_variables(struct ospf_interface *);
-extern int ospf_if_is_enable(struct ospf_interface *);
-extern int ospf_if_get_output_cost(struct ospf_interface *);
-extern void ospf_if_recalculate_output_cost(struct interface *);
-
-/* Simulate down/up on the interface. */
-extern void ospf_if_reset(struct interface *);
-
-extern struct ospf_interface *ospf_vl_new(struct ospf *, struct ospf_vl_data *);
-extern struct ospf_vl_data *ospf_vl_data_new(struct ospf_area *,
-					     struct in_addr);
-extern struct ospf_vl_data *ospf_vl_lookup(struct ospf *, struct ospf_area *,
-					   struct in_addr);
-extern void ospf_vl_data_free(struct ospf_vl_data *);
-extern void ospf_vl_add(struct ospf *, struct ospf_vl_data *);
-extern void ospf_vl_delete(struct ospf *, struct ospf_vl_data *);
-extern void ospf_vl_up_check(struct ospf_area *, struct in_addr,
-			     struct vertex *);
-extern void ospf_vl_unapprove(struct ospf *);
-extern void ospf_vl_shut_unapproved(struct ospf *);
-extern int ospf_full_virtual_nbrs(struct ospf_area *);
-extern int ospf_vls_in_area(struct ospf_area *);
-
-extern struct crypt_key *ospf_crypt_key_lookup(struct list *, uint8_t);
-extern struct crypt_key *ospf_crypt_key_new(void);
-extern void ospf_crypt_key_add(struct list *, struct crypt_key *);
-extern int ospf_crypt_key_delete(struct list *, uint8_t);
-extern uint8_t ospf_default_iftype(struct interface *ifp);
-extern int ospf_interface_neighbor_count(struct ospf_interface *oi);
-
-/* Set all multicast memberships appropriately based on the type and
-   state of the interface. */
-extern void ospf_if_set_multicast(struct ospf_interface *);
-
-DECLARE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
-DECLARE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
-
-#endif /* _ZEBRA_OSPF_INTERFACE_H */
+/**OSPFInterfacefunctions.*Copyright(C)1999ToshiakiTakada**ThisfileispartofGNUZe
+bra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itunderthetermsoft
+heGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversion2,
+or(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatitwillbeuse
+ful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITN
+ESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshoul
+dhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCO
+PYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bosto
+n,MA02110-1301USA*/#ifndef_ZEBRA_OSPF_INTERFACE_H#define_ZEBRA_OSPF_INTERFACE_H#
+include"qobj.h"#include"hook.h"#include"ospfd/ospf_packet.h"#include"ospfd/ospf_
+spf.h"#defineIF_OSPF_IF_INFO(I)((structospf_if_info*)((I)->info))#defineIF_DEF_P
+ARAMS(I)(IF_OSPF_IF_INFO(I)->def_params)#defineIF_OIFS(I)(IF_OSPF_IF_INFO(I)->oi
+fs)#defineIF_OIFS_PARAMS(I)(IF_OSPF_IF_INFO(I)->params)/*Despitethename,thismacr
+oprobablyisforspecialistuseonly*/#defineOSPF_IF_PARAM_CONFIGURED(S,P)((S)&&(S)->
+P##__config)/*TestwhetheranOSPFinterfaceparameterisset,generally,givensome*exist
+ingospfinterface*/#defineOSPF_IF_PARAM_IS_SET(O,P)\(OSPF_IF_PARAM_CONFIGURED((O)
+->params,P)\||OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS((O)->ifp)->P))#defineOSPF_I
+F_PARAM(O,P)\(OSPF_IF_PARAM_CONFIGURED((O)->params,P)\?(O)->params->P\:IF_DEF_PA
+RAMS((O)->ifp)->P)#defineDECLARE_IF_PARAM(T,P)\TP;\uint8_tP##__config:1#defineUN
+SET_IF_PARAM(S,P)((S)->P##__config)=0#defineSET_IF_PARAM(S,P)((S)->P##__config)=
+1structospf_if_params{DECLARE_IF_PARAM(uint32_t,transmit_delay);/*InterfaceTrans
+missonDelay*/DECLARE_IF_PARAM(uint32_t,output_cost_cmd);/*CommandInterfaceOutput
+Cost*/DECLARE_IF_PARAM(uint32_t,retransmit_interval);/*RetransmissionInterval*/D
+ECLARE_IF_PARAM(uint8_t,passive_interface);/*OSPFInterfaceispassive:nosendingorr
+eceiving(noneedtojoinmulticastgroups)*/DECLARE_IF_PARAM(uint8_t,priority);/*OSPF
+Interfacepriority*//*EnableOSPFonthisinterfacewithareaif_area*/DECLARE_IF_PARAM(
+structin_addr,if_area);uint32_tif_area_id_fmt;DECLARE_IF_PARAM(uint8_t,type);/*t
+ypeofinterface*/#defineOSPF_IF_ACTIVE0#defineOSPF_IF_PASSIVE1#defineOSPF_IF_PASS
+IVE_STATUS(O)\(OSPF_IF_PARAM_CONFIGURED((O)->params,passive_interface)\?(O)->par
+ams->passive_interface\:(OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS((O)->ifp),\passi
+ve_interface)\?IF_DEF_PARAMS((O)->ifp)->passive_interface\:(O)->ospf->passive_in
+terface_default))DECLARE_IF_PARAM(uint32_t,v_hello);/*HelloInterval*/DECLARE_IF_
+PARAM(uint32_t,v_wait);/*RouterDeadInterval*//*MTUmismatchcheck(seeRFC2328,chap1
+0.6)*/DECLARE_IF_PARAM(uint8_t,mtu_ignore);/*Fast-Hellos*/DECLARE_IF_PARAM(uint8
+_t,fast_hello);/*Authenticationdata.*/uint8_tauth_simple[OSPF_AUTH_SIMPLE_SIZE+1
+];/*Simplepassword.*/uint8_tauth_simple__config:1;DECLARE_IF_PARAM(structlist*,a
+uth_crypt);/*ListofAuthcryptographicdata.*/DECLARE_IF_PARAM(int,auth_type);/*OSP
+Fauthenticationtype*//*Other,non-configurationstate*/uint32_tnetwork_lsa_seqnum;
+/*NetworkLSAseqnum*//*BFDconfiguration*/structbfd_info*bfd_info;};enum{MEMBER_AL
+LROUTERS=0,MEMBER_DROUTERS,MEMBER_MAX,};structospf_if_info{structospf_if_params*
+def_params;structroute_table*params;structroute_table*oifs;unsignedintmembership
+_counts[MEMBER_MAX];/*multicastgrouprefcnts*/};structospf_interface;structospf_v
+l_data{structin_addrvl_peer;/*Router-IDofthepeer*/structin_addrvl_area_id;/*Tran
+sitarea*/intvl_area_id_fmt;/*AreaIDformat*/structospf_interface*vl_oi;/*Interfac
+edatastructure*/structvertex_nexthopnexthop;/*Nexthoprouterandoitouse*/structin_
+addrpeer_addr;/*Addressusedtoreachthepeer*/uint8_tflags;};#defineOSPF_VL_MAX_COU
+NT256#defineOSPF_VL_MTU1500#defineOSPF_VL_FLAG_APPROVED0x01structcrypt_key{uint8
+_tkey_id;uint8_tauth_key[OSPF_AUTH_MD5_SIZE+1];};/*OSPFinterfacestructure.*/stru
+ctospf_interface{/*Thisinterface'sparentospfinstance.*/structospf*ospf;/*OSPFAre
+a.*/structospf_area*area;/*PositionrangeinRouterLSA*/uint16_tlsa_pos_beg;/*inclu
+sive,>=*/uint16_tlsa_pos_end;/*exclusive,<*//*Interfacedatafromzebra.*/structint
+erface*ifp;structospf_vl_data*vl_data;/*DataforVirtualLink*//*Packetsendbuffer.*
+/structospf_fifo*obuf;/*Outputqueue*//*OSPFNetworkType.*/uint8_ttype;/*StateofIn
+terfaceStateMachine.*/uint8_tstate;/*Towhichmulticastgroupsdowecurrentlybelong?*
+/uint8_tmulticast_memberships;#defineOI_MEMBER_FLAG(M)(1<<(M))#defineOI_MEMBER_C
+OUNT(O,M)(IF_OSPF_IF_INFO(oi->ifp)->membership_counts[(M)])#defineOI_MEMBER_CHEC
+K(O,M)\(CHECK_FLAG((O)->multicast_memberships,OI_MEMBER_FLAG(M)))#defineOI_MEMBE
+R_JOINED(O,M)\do{\SET_FLAG((O)->multicast_memberships,OI_MEMBER_FLAG(M));\IF_OSP
+F_IF_INFO((O)->ifp)->membership_counts[(M)]++;\}while(0)#defineOI_MEMBER_LEFT(O,
+M)\do{\UNSET_FLAG((O)->multicast_memberships,OI_MEMBER_FLAG(M));\IF_OSPF_IF_INFO
+((O)->ifp)->membership_counts[(M)]--;\}while(0)structprefix*address;/*Interfacep
+refix*/structconnected*connected;/*Pointertoconnected*//*Configuredvarables.*/st
+ructospf_if_params*params;uint32_tcrypt_seqnum;/*CryptographicSequenceNumber*/ui
+nt32_toutput_cost;/*AcutualInterfaceOutputCost*//*Neighborinformation.*/structro
+ute_table*nbrs;/*OSPFNeighborList*/structospf_neighbor*nbr_self;/*NeighborSelf*/
+#defineDR(I)((I)->nbr_self->d_router)#defineBDR(I)((I)->nbr_self->bd_router)#def
+ineOPTIONS(I)((I)->nbr_self->options)#definePRIORITY(I)((I)->nbr_self->priority)
+/*ListofconfiguredNBMAneighbor.*/structlist*nbr_nbma;/*self-originatedLSAs.*/str
+uctospf_lsa*network_lsa_self;/*network-LSA.*/structlist*opaque_lsa_self;/*Type-9
+Opaque-LSAs*/structroute_table*ls_upd_queue;structlist*ls_ack;/*LinkStateAcknowl
+edgmentlist.*/struct{structlist*ls_ack;structin_addrdst;}ls_ack_direct;/*Timerva
+lues.*/uint32_tv_ls_ack;/*DelayedLinkStateAcknowledgment*//*Threads.*/structthre
+ad*t_hello;/*timer*/structthread*t_wait;/*timer*/structthread*t_ls_ack;/*timer*/
+structthread*t_ls_ack_direct;/*event*/structthread*t_ls_upd_event;/*event*/struc
+tthread*t_opaque_lsa_self;/*Type-9Opaque-LSAs*/inton_write_q;/*Statisticsfields.
+*/uint32_thello_in;/*Hellomessageinputcount.*/uint32_thello_out;/*Hellomessageou
+tputcount.*/uint32_tdb_desc_in;/*databasedesc.messageinputcount.*/uint32_tdb_des
+c_out;/*databasedesc.messageoutputcount.*/uint32_tls_req_in;/*LSrequestmessagein
+putcount.*/uint32_tls_req_out;/*LSrequestmessageoutputcount.*/uint32_tls_upd_in;
+/*LSupdatemessageinputcount.*/uint32_tls_upd_out;/*LSupdatemessageoutputcount.*/
+uint32_tls_ack_in;/*LSAckmessageinputcount.*/uint32_tls_ack_out;/*LSAckmessageou
+tputcount.*/uint32_tdiscarded;/*discardedinputcountbyerror.*/uint32_tstate_chang
+e;/*Numberofstatuschange.*/uint32_tfull_nbrs;QOBJ_FIELDS};DECLARE_QOBJ_TYPE(ospf
+_interface)/*Prototypes.*/externchar*ospf_if_name(structospf_interface*);externs
+tructospf_interface*ospf_if_new(structospf*,structinterface*,structprefix*);exte
+rnvoidospf_if_cleanup(structospf_interface*);externvoidospf_if_free(structospf_i
+nterface*);externintospf_if_up(structospf_interface*);externintospf_if_down(stru
+ctospf_interface*);externintospf_if_is_up(structospf_interface*);externstructosp
+f_interface*ospf_if_exists(structospf_interface*);externstructospf_interface*osp
+f_if_lookup_by_lsa_pos(structospf_area*,int);externstructospf_interface*ospf_if_
+lookup_by_local_addr(structospf*,structinterface*,structin_addr);externstructosp
+f_interface*ospf_if_lookup_by_prefix(structospf*,structprefix_ipv4*);externstruc
+tospf_interface*ospf_if_table_lookup(structinterface*,structprefix*);externstruc
+tospf_interface*ospf_if_addr_local(structin_addr);externstructospf_interface*osp
+f_if_lookup_recv_if(structospf*,structin_addr,structinterface*);externstructospf
+_interface*ospf_if_is_configured(structospf*,structin_addr*);externstructospf_if
+_params*ospf_lookup_if_params(structinterface*,structin_addr);externstructospf_i
+f_params*ospf_get_if_params(structinterface*,structin_addr);externvoidospf_del_i
+f_params(structospf_if_params*);externvoidospf_free_if_params(structinterface*,s
+tructin_addr);externvoidospf_if_update_params(structinterface*,structin_addr);ex
+ternintospf_if_new_hook(structinterface*);externvoidospf_if_init(void);externvoi
+dospf_if_stream_set(structospf_interface*);externvoidospf_if_stream_unset(struct
+ospf_interface*);externvoidospf_if_reset_variables(structospf_interface*);extern
+intospf_if_is_enable(structospf_interface*);externintospf_if_get_output_cost(str
+uctospf_interface*);externvoidospf_if_recalculate_output_cost(structinterface*);
+/*Simulatedown/upontheinterface.*/externvoidospf_if_reset(structinterface*);exte
+rnstructospf_interface*ospf_vl_new(structospf*,structospf_vl_data*);externstruct
+ospf_vl_data*ospf_vl_data_new(structospf_area*,structin_addr);externstructospf_v
+l_data*ospf_vl_lookup(structospf*,structospf_area*,structin_addr);externvoidospf
+_vl_data_free(structospf_vl_data*);externvoidospf_vl_add(structospf*,structospf_
+vl_data*);externvoidospf_vl_delete(structospf*,structospf_vl_data*);externvoidos
+pf_vl_up_check(structospf_area*,structin_addr,structvertex*);externvoidospf_vl_u
+napprove(structospf*);externvoidospf_vl_shut_unapproved(structospf*);externintos
+pf_full_virtual_nbrs(structospf_area*);externintospf_vls_in_area(structospf_area
+*);externstructcrypt_key*ospf_crypt_key_lookup(structlist*,uint8_t);externstruct
+crypt_key*ospf_crypt_key_new(void);externvoidospf_crypt_key_add(structlist*,stru
+ctcrypt_key*);externintospf_crypt_key_delete(structlist*,uint8_t);externuint8_to
+spf_default_iftype(structinterface*ifp);externintospf_interface_neighbor_count(s
+tructospf_interface*oi);/*Setallmulticastmembershipsappropriatelybasedonthetypea
+ndstateoftheinterface.*/externvoidospf_if_set_multicast(structospf_interface*);D
+ECLARE_HOOK(ospf_vl_add,(structospf_vl_data*vd),(vd))DECLARE_HOOK(ospf_vl_delete
+,(structospf_vl_data*vd),(vd))#endif/*_ZEBRA_OSPF_INTERFACE_H*/

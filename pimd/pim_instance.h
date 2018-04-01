@@ -1,116 +1,29 @@
-/*
- * PIM for FRR - PIM Instance
- * Copyright (C) 2017 Cumulus Networks, Inc.
- * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
- */
-#ifndef __PIM_INSTANCE_H__
-#define __PIM_INSTANCE_H__
-
-#include "pim_str.h"
-#include "pim_msdp.h"
-
-#if defined(HAVE_LINUX_MROUTE_H)
-#include <linux/mroute.h>
-#else
-/*
-  Below: from <linux/mroute.h>
-*/
-
-#ifndef MAXVIFS
-#define MAXVIFS (256)
-#endif
-#endif
-extern struct pim_instance *pimg; // Pim Global Instance
-
-enum pim_spt_switchover {
-	PIM_SPT_IMMEDIATE,
-	PIM_SPT_INFINITY,
-};
-
-/* Per VRF PIM DB */
-struct pim_instance {
-	vrf_id_t vrf_id;
-	struct vrf *vrf;
-
-	struct {
-		enum pim_spt_switchover switchover;
-		char *plist;
-	} spt;
-
-	struct hash *rpf_hash;
-
-	void *ssm_info; /* per-vrf SSM configuration */
-
-	int send_v6_secondary;
-
-	struct thread *thread;
-	int mroute_socket;
-	int64_t mroute_socket_creation;
-	int64_t mroute_add_events;
-	int64_t mroute_add_last;
-	int64_t mroute_del_events;
-	int64_t mroute_del_last;
-
-	struct interface *regiface;
-
-	// List of static routes;
-	struct list *static_routes;
-
-	// Upstream vrf specific information
-	struct list *upstream_list;
-	struct hash *upstream_hash;
-	struct timer_wheel *upstream_sg_wheel;
-
-	/*
-	 * RP information
-	 */
-	struct list *rp_list;
-	struct route_table *rp_table;
-
-	int iface_vif_index[MAXVIFS];
-
-	struct list *channel_oil_list;
-	struct hash *channel_oil_hash;
-
-	struct pim_msdp msdp;
-
-	struct list *ssmpingd_list;
-	struct in_addr ssmpingd_group_addr;
-
-	unsigned int keep_alive_time;
-	unsigned int rp_keep_alive_time;
-
-	/* If we need to rescan all our upstreams */
-	struct thread *rpf_cache_refresher;
-	int64_t rpf_cache_refresh_requests;
-	int64_t rpf_cache_refresh_events;
-	int64_t rpf_cache_refresh_last;
-	int64_t scan_oil_events;
-	int64_t scan_oil_last;
-
-	int64_t nexthop_lookups;
-	int64_t nexthop_lookups_avoided;
-	int64_t last_route_change_time;
-};
-
-void pim_vrf_init(void);
-void pim_vrf_terminate(void);
-
-struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
-
-#endif
+/**PIMforFRR-PIMInstance*Copyright(C)2017CumulusNetworks,Inc.*DonaldSharp**Thisp
+rogramisfreesoftware;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGen
+eralPublicLicenseaspublishedby*theFreeSoftwareFoundation;eitherversion2oftheLice
+nse,or*(atyouroption)anylaterversion.**Thisprogramisdistributedinthehopethatitwi
+llbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILIT
+YorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Y
+oushouldhavereceivedacopyoftheGNUGeneralPublicLicense*alongwiththisprogram;seeth
+efileCOPYING;ifnot,writetothe*FreeSoftwareFoundation,Inc.,51FranklinSt,FifthFloo
+r,Boston,*MA02110-1301USA*/#ifndef__PIM_INSTANCE_H__#define__PIM_INSTANCE_H__#in
+clude"pim_str.h"#include"pim_msdp.h"#ifdefined(HAVE_LINUX_MROUTE_H)#include<linu
+x/mroute.h>#else/*Below:from<linux/mroute.h>*/#ifndefMAXVIFS#defineMAXVIFS(256)#
+endif#endifexternstructpim_instance*pimg;//PimGlobalInstanceenumpim_spt_switchov
+er{PIM_SPT_IMMEDIATE,PIM_SPT_INFINITY,};/*PerVRFPIMDB*/structpim_instance{vrf_id
+_tvrf_id;structvrf*vrf;struct{enumpim_spt_switchoverswitchover;char*plist;}spt;s
+tructhash*rpf_hash;void*ssm_info;/*per-vrfSSMconfiguration*/intsend_v6_secondary
+;structthread*thread;intmroute_socket;int64_tmroute_socket_creation;int64_tmrout
+e_add_events;int64_tmroute_add_last;int64_tmroute_del_events;int64_tmroute_del_l
+ast;structinterface*regiface;//Listofstaticroutes;structlist*static_routes;//Ups
+treamvrfspecificinformationstructlist*upstream_list;structhash*upstream_hash;str
+ucttimer_wheel*upstream_sg_wheel;/**RPinformation*/structlist*rp_list;structrout
+e_table*rp_table;intiface_vif_index[MAXVIFS];structlist*channel_oil_list;structh
+ash*channel_oil_hash;structpim_msdpmsdp;structlist*ssmpingd_list;structin_addrss
+mpingd_group_addr;unsignedintkeep_alive_time;unsignedintrp_keep_alive_time;/*Ifw
+eneedtorescanallourupstreams*/structthread*rpf_cache_refresher;int64_trpf_cache_
+refresh_requests;int64_trpf_cache_refresh_events;int64_trpf_cache_refresh_last;i
+nt64_tscan_oil_events;int64_tscan_oil_last;int64_tnexthop_lookups;int64_tnexthop
+_lookups_avoided;int64_tlast_route_change_time;};voidpim_vrf_init(void);voidpim_
+vrf_terminate(void);structpim_instance*pim_get_pim_instance(vrf_id_tvrf_id);#end
+if

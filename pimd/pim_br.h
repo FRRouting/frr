@@ -1,32 +1,12 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2015 Cumulus Networks, Inc.
- * Donald Sharp
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-#ifndef PIM_BR_H
-#define PIM_BR_H
-
-struct in_addr pim_br_get_pmbr(struct prefix_sg *sg);
-
-void pim_br_set_pmbr(struct prefix_sg *sg, struct in_addr value);
-void pim_br_clear_pmbr(struct prefix_sg *sg);
-
-void pim_br_init(void);
-
-extern struct in_addr pim_br_unknown;
-
-#endif
+/**PIMforQuagga*Copyright(C)2015CumulusNetworks,Inc.*DonaldSharp**Thisprogramisf
+reesoftware;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPubli
+cLicenseaspublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(a
+tyouroption)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeusefu
+l,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNES
+SFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldh
+avereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPY
+ING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,
+MA02110-1301USA*/#ifndefPIM_BR_H#definePIM_BR_Hstructin_addrpim_br_get_pmbr(stru
+ctprefix_sg*sg);voidpim_br_set_pmbr(structprefix_sg*sg,structin_addrvalue);voidp
+im_br_clear_pmbr(structprefix_sg*sg);voidpim_br_init(void);externstructin_addrpi
+m_br_unknown;#endif

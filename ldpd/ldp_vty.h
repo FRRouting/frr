@@ -1,86 +1,48 @@
-/*
- * Copyright (C) 2016 by Open Source Routing.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
- * MA 02110-1301 USA
- */
-
-#ifndef _LDP_VTY_H_
-#define _LDP_VTY_H_
-
-#include "vty.h"
-
-extern struct cmd_node ldp_node;
-extern struct cmd_node ldp_ipv4_node;
-extern struct cmd_node ldp_ipv6_node;
-extern struct cmd_node ldp_ipv4_iface_node;
-extern struct cmd_node ldp_ipv6_iface_node;
-extern struct cmd_node ldp_l2vpn_node;
-extern struct cmd_node ldp_pseudowire_node;
-extern struct cmd_node ldp_debug_node;
-
-union ldpd_addr;
-int	 ldp_get_address(const char *, int *, union ldpd_addr *);
-int	 ldp_config_write(struct vty *);
-int	 ldp_l2vpn_config_write(struct vty *);
-int	 ldp_debug_config_write(struct vty *);
-int	 ldp_vty_mpls_ldp (struct vty *, const char *);
-int	 ldp_vty_address_family (struct vty *, const char *, const char *);
-int	 ldp_vty_disc_holdtime(struct vty *, const char *, enum hello_type, long);
-int	 ldp_vty_disc_interval(struct vty *, const char *, enum hello_type, long);
-int	 ldp_vty_targeted_hello_accept(struct vty *, const char *, const char *);
-int	 ldp_vty_nbr_session_holdtime(struct vty *, const char *, struct in_addr, long);
-int	 ldp_vty_af_session_holdtime(struct vty *, const char *, long);
-int	 ldp_vty_interface(struct vty *, const char *, const char *);
-int	 ldp_vty_trans_addr(struct vty *, const char *, const char *);
-int	 ldp_vty_neighbor_targeted(struct vty *, const char *, const char *);
-int	 ldp_vty_label_advertise(struct vty *, const char *, const char *, const char *);
-int	 ldp_vty_label_allocate(struct vty *, const char *, const char *, const char *);
-int	 ldp_vty_label_expnull(struct vty *, const char *, const char *);
-int	 ldp_vty_label_accept(struct vty *, const char *, const char *, const char *);
-int	 ldp_vty_ttl_security(struct vty *, const char *);
-int	 ldp_vty_router_id(struct vty *, const char *, struct in_addr);
-int	 ldp_vty_ds_cisco_interop(struct vty *, const char *);
-int	 ldp_vty_trans_pref_ipv4(struct vty *, const char *);
-int	 ldp_vty_neighbor_password(struct vty *, const char *, struct in_addr, const char *);
-int	 ldp_vty_neighbor_ttl_security(struct vty *, const char *, struct in_addr, const char *);
-int	 ldp_vty_l2vpn(struct vty *, const char *, const char *);
-int	 ldp_vty_l2vpn_bridge(struct vty *, const char *, const char *);
-int	 ldp_vty_l2vpn_mtu(struct vty *, const char *, long);
-int	 ldp_vty_l2vpn_pwtype(struct vty *, const char *, const char *);
-int	 ldp_vty_l2vpn_interface(struct vty *, const char *, const char *);
-int	 ldp_vty_l2vpn_pseudowire(struct vty *, const char *, const char *);
-int	 ldp_vty_l2vpn_pw_cword(struct vty *, const char *, const char *);
-int	 ldp_vty_l2vpn_pw_nbr_addr(struct vty *, const char *, const char *);
-int	 ldp_vty_l2vpn_pw_nbr_id(struct vty *, const char *, struct in_addr);
-int	 ldp_vty_l2vpn_pw_pwid(struct vty *, const char *, long);
-int	 ldp_vty_l2vpn_pw_pwstatus(struct vty *, const char *);
-int	 ldp_vty_clear_nbr(struct vty *, const char *);
-int	 ldp_vty_debug(struct vty *, const char *, const char *, const char *, const char *);
-int	 ldp_vty_show_binding(struct vty *, const char *, const char *, int,
-	    const char *, unsigned long, unsigned long, const char *, const char *);
-int	 ldp_vty_show_discovery(struct vty *, const char *, const char *, const char *);
-int	 ldp_vty_show_interface(struct vty *, const char *, const char *);
-int	 ldp_vty_show_capabilities(struct vty *, const char *);
-int	 ldp_vty_show_neighbor(struct vty *, const char *, int, const char *, const char *);
-int	 ldp_vty_show_atom_binding(struct vty *, const char *, unsigned long,
-	    unsigned long, const char *);
-int	 ldp_vty_show_atom_vc(struct vty *, const char *, const char *,
-	    const char *, const char *);
-int	 ldp_vty_show_debugging(struct vty *);
-
-void	 ldp_vty_init(void);
-
-#endif	/* _LDP_VTY_H_ */
+/**Copyright(C)2016byOpenSourceRouting.**Thisprogramisfreesoftware;youcanredistr
+ibuteitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseaspublishedby*the
+FreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption)anylaterversi
+on.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;
+withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.Se
+etheGNU*GeneralPublicLicenseformoredetails.**YoushouldhavereceivedacopyoftheGNUG
+eneralPublicLicense*alongwiththisprogram;seethefileCOPYING;ifnot,writetothe*Free
+SoftwareFoundation,Inc.,51FranklinSt,FifthFloor,Boston,*MA02110-1301USA*/#ifndef
+_LDP_VTY_H_#define_LDP_VTY_H_#include"vty.h"externstructcmd_nodeldp_node;externs
+tructcmd_nodeldp_ipv4_node;externstructcmd_nodeldp_ipv6_node;externstructcmd_nod
+eldp_ipv4_iface_node;externstructcmd_nodeldp_ipv6_iface_node;externstructcmd_nod
+eldp_l2vpn_node;externstructcmd_nodeldp_pseudowire_node;externstructcmd_nodeldp_
+debug_node;unionldpd_addr;intldp_get_address(constchar*,int*,unionldpd_addr*);in
+tldp_config_write(structvty*);intldp_l2vpn_config_write(structvty*);intldp_debug
+_config_write(structvty*);intldp_vty_mpls_ldp(structvty*,constchar*);intldp_vty_
+address_family(structvty*,constchar*,constchar*);intldp_vty_disc_holdtime(struct
+vty*,constchar*,enumhello_type,long);intldp_vty_disc_interval(structvty*,constch
+ar*,enumhello_type,long);intldp_vty_targeted_hello_accept(structvty*,constchar*,
+constchar*);intldp_vty_nbr_session_holdtime(structvty*,constchar*,structin_addr,
+long);intldp_vty_af_session_holdtime(structvty*,constchar*,long);intldp_vty_inte
+rface(structvty*,constchar*,constchar*);intldp_vty_trans_addr(structvty*,constch
+ar*,constchar*);intldp_vty_neighbor_targeted(structvty*,constchar*,constchar*);i
+ntldp_vty_label_advertise(structvty*,constchar*,constchar*,constchar*);intldp_vt
+y_label_allocate(structvty*,constchar*,constchar*,constchar*);intldp_vty_label_e
+xpnull(structvty*,constchar*,constchar*);intldp_vty_label_accept(structvty*,cons
+tchar*,constchar*,constchar*);intldp_vty_ttl_security(structvty*,constchar*);int
+ldp_vty_router_id(structvty*,constchar*,structin_addr);intldp_vty_ds_cisco_inter
+op(structvty*,constchar*);intldp_vty_trans_pref_ipv4(structvty*,constchar*);intl
+dp_vty_neighbor_password(structvty*,constchar*,structin_addr,constchar*);intldp_
+vty_neighbor_ttl_security(structvty*,constchar*,structin_addr,constchar*);intldp
+_vty_l2vpn(structvty*,constchar*,constchar*);intldp_vty_l2vpn_bridge(structvty*,
+constchar*,constchar*);intldp_vty_l2vpn_mtu(structvty*,constchar*,long);intldp_v
+ty_l2vpn_pwtype(structvty*,constchar*,constchar*);intldp_vty_l2vpn_interface(str
+uctvty*,constchar*,constchar*);intldp_vty_l2vpn_pseudowire(structvty*,constchar*
+,constchar*);intldp_vty_l2vpn_pw_cword(structvty*,constchar*,constchar*);intldp_
+vty_l2vpn_pw_nbr_addr(structvty*,constchar*,constchar*);intldp_vty_l2vpn_pw_nbr_
+id(structvty*,constchar*,structin_addr);intldp_vty_l2vpn_pw_pwid(structvty*,cons
+tchar*,long);intldp_vty_l2vpn_pw_pwstatus(structvty*,constchar*);intldp_vty_clea
+r_nbr(structvty*,constchar*);intldp_vty_debug(structvty*,constchar*,constchar*,c
+onstchar*,constchar*);intldp_vty_show_binding(structvty*,constchar*,constchar*,i
+nt,constchar*,unsignedlong,unsignedlong,constchar*,constchar*);intldp_vty_show_d
+iscovery(structvty*,constchar*,constchar*,constchar*);intldp_vty_show_interface(
+structvty*,constchar*,constchar*);intldp_vty_show_capabilities(structvty*,constc
+har*);intldp_vty_show_neighbor(structvty*,constchar*,int,constchar*,constchar*);
+intldp_vty_show_atom_binding(structvty*,constchar*,unsignedlong,unsignedlong,con
+stchar*);intldp_vty_show_atom_vc(structvty*,constchar*,constchar*,constchar*,con
+stchar*);intldp_vty_show_debugging(structvty*);voidldp_vty_init(void);#endif/*_L
+DP_VTY_H_*/

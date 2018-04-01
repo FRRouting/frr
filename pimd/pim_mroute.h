@@ -1,181 +1,53 @@
-/*
- * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef PIM_MROUTE_H
-#define PIM_MROUTE_H
-
-/*
-  For msghdr.msg_control in Solaris 10
-*/
-#ifndef _XPG4_2
-#define _XPG4_2
-#endif
-#ifndef __EXTENSIONS__
-#define __EXTENSIONS__
-#endif
-
-#include <netinet/in.h>
-#ifdef HAVE_NETINET_IP_MROUTE_H
-#include <netinet/ip_mroute.h>
-#endif
-
-#define PIM_MROUTE_MIN_TTL (1)
-
-#if defined(HAVE_LINUX_MROUTE_H)
-#include <linux/mroute.h>
-#else
-/*
-  Below: from <linux/mroute.h>
-*/
-
-#ifndef MAXVIFS
-#define MAXVIFS (256)
-#endif
-
-#ifndef SIOCGETVIFCNT
-#define SIOCGETVIFCNT   SIOCPROTOPRIVATE        /* IP protocol privates */
-#define SIOCGETSGCNT    (SIOCPROTOPRIVATE+1)
-#define SIOCGETRPF      (SIOCPROTOPRIVATE+2)
-#endif
-
-#ifndef MRT_INIT
-#define MRT_BASE     200
-#define MRT_INIT     (MRT_BASE)      /* Activate the kernel mroute code      */
-#define MRT_DONE     (MRT_BASE+1)    /* Shutdown the kernel mroute           */
-#define MRT_ADD_VIF  (MRT_BASE+2)    /* Add a virtual interface              */
-#define MRT_DEL_VIF  (MRT_BASE+3)    /* Delete a virtual interface           */
-#define MRT_ADD_MFC  (MRT_BASE+4)    /* Add a multicast forwarding entry     */
-#define MRT_DEL_MFC  (MRT_BASE+5)    /* Delete a multicast forwarding entry  */
-#define MRT_VERSION  (MRT_BASE+6)    /* Get the kernel multicast version     */
-#define MRT_ASSERT   (MRT_BASE+7)    /* Activate PIM assert mode             */
-#define MRT_PIM      (MRT_BASE+8)    /* enable PIM code      */
-#endif
-
-#ifndef MRT_TABLE
-#define MRT_TABLE    (209)           /* Specify mroute table ID */
-#endif
-
-#ifndef HAVE_VIFI_T
-typedef unsigned short vifi_t;
-#endif
-
-#ifndef HAVE_STRUCT_VIFCTL
-struct vifctl {
-	vifi_t vifc_vifi;	     /* Index of VIF */
-	unsigned char vifc_flags;     /* VIFF_ flags */
-	unsigned char vifc_threshold; /* ttl limit */
-	unsigned int vifc_rate_limit; /* Rate limiter values (NI) */
-	struct in_addr vifc_lcl_addr; /* Our address */
-	struct in_addr vifc_rmt_addr; /* IPIP tunnel addr */
-};
-#endif
-
-#ifndef HAVE_STRUCT_MFCCTL
-struct mfcctl {
-	struct in_addr mfcc_origin;       /* Origin of mcast      */
-	struct in_addr mfcc_mcastgrp;     /* Group in question    */
-	vifi_t mfcc_parent;		  /* Where it arrived     */
-	unsigned char mfcc_ttls[MAXVIFS]; /* Where it is going    */
-	unsigned int mfcc_pkt_cnt;	/* pkt count for src-grp */
-	unsigned int mfcc_byte_cnt;
-	unsigned int mfcc_wrong_if;
-	int mfcc_expire;
-};
-#endif
-
-/*
- *      Group count retrieval for mrouted
- */
-/*
-  struct sioc_sg_req sgreq;
-  memset(&sgreq, 0, sizeof(sgreq));
-  memcpy(&sgreq.src, &source_addr, sizeof(sgreq.src));
-  memcpy(&sgreq.grp, &group_addr, sizeof(sgreq.grp));
-  ioctl(mrouter_s4, SIOCGETSGCNT, &sgreq);
- */
-#ifndef HAVE_STRUCT_SIOC_SG_REQ
-struct sioc_sg_req {
-	struct in_addr src;
-	struct in_addr grp;
-	unsigned long pktcnt;
-	unsigned long bytecnt;
-	unsigned long wrong_if;
-};
-#endif
-
-/*
- *      To get vif packet counts
- */
-/*
-  struct sioc_vif_req vreq;
-  memset(&vreq, 0, sizeof(vreq));
-  vreq.vifi = vif_index;
-  ioctl(mrouter_s4, SIOCGETVIFCNT, &vreq);
- */
-#ifndef HAVE_STRUCT_SIOC_VIF_REQ
-struct sioc_vif_req {
-	vifi_t vifi;	  /* Which iface */
-	unsigned long icount; /* In packets */
-	unsigned long ocount; /* Out packets */
-	unsigned long ibytes; /* In bytes */
-	unsigned long obytes; /* Out bytes */
-};
-#endif
-
-/*
- *      Pseudo messages used by mrouted
- */
-#ifndef IGMPMSG_NOCACHE
-#define IGMPMSG_NOCACHE         1               /* Kern cache fill request to mrouted */
-#define IGMPMSG_WRONGVIF        2               /* For PIM assert processing (unused) */
-#define IGMPMSG_WHOLEPKT        3               /* For PIM Register processing */
-#endif
-
-#ifndef HAVE_STRUCT_IGMPMSG
-struct igmpmsg {
-	uint32_t unused1, unused2;
-	unsigned char im_msgtype; /* What is this */
-	unsigned char im_mbz;     /* Must be zero */
-	unsigned char im_vif;     /* Interface (this ought to be a vifi_t!) */
-	unsigned char unused3;
-	struct in_addr im_src, im_dst;
-};
-#endif
-#endif
-
-#ifndef IGMPMSG_WRVIFWHOLE
-#define IGMPMSG_WRVIFWHOLE      4               /* For PIM processing */
-#endif
-
-/*
-  Above: from <linux/mroute.h>
-*/
-
-int pim_mroute_socket_enable(struct pim_instance *pim);
-int pim_mroute_socket_disable(struct pim_instance *pim);
-
-int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
-		       unsigned char flags);
-int pim_mroute_del_vif(struct interface *ifp);
-
-int pim_mroute_add(struct channel_oil *c_oil, const char *name);
-int pim_mroute_del(struct channel_oil *c_oil, const char *name);
-
-void pim_mroute_update_counters(struct channel_oil *c_oil);
-#endif /* PIM_MROUTE_H */
+/**PIMforQuagga*Copyright(C)2008EvertondaSilvaMarques**Thisprogramisfreesoftware
+;youcanredistributeitand/ormodify*itunderthetermsoftheGNUGeneralPublicLicenseasp
+ublishedby*theFreeSoftwareFoundation;eitherversion2oftheLicense,or*(atyouroption
+)anylaterversion.**Thisprogramisdistributedinthehopethatitwillbeuseful,but*WITHO
+UTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITNESSFORAPARTIC
+ULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshouldhavereceived
+acopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCOPYING;ifnot,w
+ritetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Boston,MA02110-130
+1USA*/#ifndefPIM_MROUTE_H#definePIM_MROUTE_H/*Formsghdr.msg_controlinSolaris10*/
+#ifndef_XPG4_2#define_XPG4_2#endif#ifndef__EXTENSIONS__#define__EXTENSIONS__#end
+if#include<netinet/in.h>#ifdefHAVE_NETINET_IP_MROUTE_H#include<netinet/ip_mroute
+.h>#endif#definePIM_MROUTE_MIN_TTL(1)#ifdefined(HAVE_LINUX_MROUTE_H)#include<lin
+ux/mroute.h>#else/*Below:from<linux/mroute.h>*/#ifndefMAXVIFS#defineMAXVIFS(256)
+#endif#ifndefSIOCGETVIFCNT#defineSIOCGETVIFCNTSIOCPROTOPRIVATE/*IPprotocolprivat
+es*/#defineSIOCGETSGCNT(SIOCPROTOPRIVATE+1)#defineSIOCGETRPF(SIOCPROTOPRIVATE+2)
+#endif#ifndefMRT_INIT#defineMRT_BASE200#defineMRT_INIT(MRT_BASE)/*Activatetheker
+nelmroutecode*/#defineMRT_DONE(MRT_BASE+1)/*Shutdownthekernelmroute*/#defineMRT_
+ADD_VIF(MRT_BASE+2)/*Addavirtualinterface*/#defineMRT_DEL_VIF(MRT_BASE+3)/*Delet
+eavirtualinterface*/#defineMRT_ADD_MFC(MRT_BASE+4)/*Addamulticastforwardingentry
+*/#defineMRT_DEL_MFC(MRT_BASE+5)/*Deleteamulticastforwardingentry*/#defineMRT_VE
+RSION(MRT_BASE+6)/*Getthekernelmulticastversion*/#defineMRT_ASSERT(MRT_BASE+7)/*
+ActivatePIMassertmode*/#defineMRT_PIM(MRT_BASE+8)/*enablePIMcode*/#endif#ifndefM
+RT_TABLE#defineMRT_TABLE(209)/*SpecifymroutetableID*/#endif#ifndefHAVE_VIFI_Ttyp
+edefunsignedshortvifi_t;#endif#ifndefHAVE_STRUCT_VIFCTLstructvifctl{vifi_tvifc_v
+ifi;/*IndexofVIF*/unsignedcharvifc_flags;/*VIFF_flags*/unsignedcharvifc_threshol
+d;/*ttllimit*/unsignedintvifc_rate_limit;/*Ratelimitervalues(NI)*/structin_addrv
+ifc_lcl_addr;/*Ouraddress*/structin_addrvifc_rmt_addr;/*IPIPtunneladdr*/};#endif
+#ifndefHAVE_STRUCT_MFCCTLstructmfcctl{structin_addrmfcc_origin;/*Originofmcast*/
+structin_addrmfcc_mcastgrp;/*Groupinquestion*/vifi_tmfcc_parent;/*Whereitarrived
+*/unsignedcharmfcc_ttls[MAXVIFS];/*Whereitisgoing*/unsignedintmfcc_pkt_cnt;/*pkt
+countforsrc-grp*/unsignedintmfcc_byte_cnt;unsignedintmfcc_wrong_if;intmfcc_expir
+e;};#endif/**Groupcountretrievalformrouted*//*structsioc_sg_reqsgreq;memset(&sgr
+eq,0,sizeof(sgreq));memcpy(&sgreq.src,&source_addr,sizeof(sgreq.src));memcpy(&sg
+req.grp,&group_addr,sizeof(sgreq.grp));ioctl(mrouter_s4,SIOCGETSGCNT,&sgreq);*/#
+ifndefHAVE_STRUCT_SIOC_SG_REQstructsioc_sg_req{structin_addrsrc;structin_addrgrp
+;unsignedlongpktcnt;unsignedlongbytecnt;unsignedlongwrong_if;};#endif/**Togetvif
+packetcounts*//*structsioc_vif_reqvreq;memset(&vreq,0,sizeof(vreq));vreq.vifi=vi
+f_index;ioctl(mrouter_s4,SIOCGETVIFCNT,&vreq);*/#ifndefHAVE_STRUCT_SIOC_VIF_REQs
+tructsioc_vif_req{vifi_tvifi;/*Whichiface*/unsignedlongicount;/*Inpackets*/unsig
+nedlongocount;/*Outpackets*/unsignedlongibytes;/*Inbytes*/unsignedlongobytes;/*O
+utbytes*/};#endif/**Pseudomessagesusedbymrouted*/#ifndefIGMPMSG_NOCACHE#defineIG
+MPMSG_NOCACHE1/*Kerncachefillrequesttomrouted*/#defineIGMPMSG_WRONGVIF2/*ForPIMa
+ssertprocessing(unused)*/#defineIGMPMSG_WHOLEPKT3/*ForPIMRegisterprocessing*/#en
+dif#ifndefHAVE_STRUCT_IGMPMSGstructigmpmsg{uint32_tunused1,unused2;unsignedchari
+m_msgtype;/*Whatisthis*/unsignedcharim_mbz;/*Mustbezero*/unsignedcharim_vif;/*In
+terface(thisoughttobeavifi_t!)*/unsignedcharunused3;structin_addrim_src,im_dst;}
+;#endif#endif#ifndefIGMPMSG_WRVIFWHOLE#defineIGMPMSG_WRVIFWHOLE4/*ForPIMprocessi
+ng*/#endif/*Above:from<linux/mroute.h>*/intpim_mroute_socket_enable(structpim_in
+stance*pim);intpim_mroute_socket_disable(structpim_instance*pim);intpim_mroute_a
+dd_vif(structinterface*ifp,structin_addrifaddr,unsignedcharflags);intpim_mroute_
+del_vif(structinterface*ifp);intpim_mroute_add(structchannel_oil*c_oil,constchar
+*name);intpim_mroute_del(structchannel_oil*c_oil,constchar*name);voidpim_mroute_
+update_counters(structchannel_oil*c_oil);#endif/*PIM_MROUTE_H*/

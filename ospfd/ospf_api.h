@@ -1,333 +1,108 @@
-/*
- * API message handling module for OSPF daemon and client.
- * Copyright (C) 2001, 2002 Ralph Keller
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-
-/* This file is used both by the OSPFd and client applications to
-   define message formats used for communication. */
-
-#ifndef _OSPF_API_H
-#define _OSPF_API_H
-
-#define OSPF_API_VERSION           1
-
-/* MTYPE definition is not reflected to "memory.h". */
-#define MTYPE_OSPF_API_MSG      MTYPE_TMP
-#define MTYPE_OSPF_API_FIFO     MTYPE_TMP
-
-/* Default API server port to accept connection request from client-side. */
-/* This value could be overridden by "ospfapi" entry in "/etc/services". */
-#define OSPF_API_SYNC_PORT      2607
-
-/* -----------------------------------------------------------
- * Generic messages
- * -----------------------------------------------------------
- */
-
-/* Message header structure, fields are in network byte order and
-   aligned to four octets. */
-struct apimsghdr {
-	uint8_t version; /* OSPF API protocol version */
-	uint8_t msgtype; /* Type of message */
-	uint16_t msglen; /* Length of message w/o header */
-	uint32_t msgseq; /* Sequence number */
-};
-
-/* Message representation with header and body */
-struct msg {
-	struct msg *next; /* to link into fifo */
-
-	/* Message header */
-	struct apimsghdr hdr;
-
-	/* Message body */
-	struct stream *s;
-};
-
-/* Prototypes for generic messages. */
-extern struct msg *msg_new(uint8_t msgtype, void *msgbody, uint32_t seqnum,
-			   uint16_t msglen);
-extern struct msg *msg_dup(struct msg *msg);
-extern void msg_print(struct msg *msg); /* XXX debug only */
-extern void msg_free(struct msg *msg);
-struct msg *msg_read(int fd);
-extern int msg_write(int fd, struct msg *msg);
-
-/* For requests, the message sequence number is between MIN_SEQ and
-   MAX_SEQ. For notifications, the sequence number is 0. */
-
-#define MIN_SEQ          1
-#define MAX_SEQ 2147483647
-
-extern void msg_set_seq(struct msg *msg, uint32_t seqnr);
-extern uint32_t msg_get_seq(struct msg *msg);
-
-/* -----------------------------------------------------------
- * Message fifo queues
- * -----------------------------------------------------------
- */
-
-/* Message queue structure. */
-struct msg_fifo {
-	unsigned long count;
-
-	struct msg *head;
-	struct msg *tail;
-};
-
-/* Prototype for message fifo queues. */
-extern struct msg_fifo *msg_fifo_new(void);
-extern void msg_fifo_push(struct msg_fifo *, struct msg *msg);
-extern struct msg *msg_fifo_pop(struct msg_fifo *fifo);
-extern struct msg *msg_fifo_head(struct msg_fifo *fifo);
-extern void msg_fifo_flush(struct msg_fifo *fifo);
-extern void msg_fifo_free(struct msg_fifo *fifo);
-
-/* -----------------------------------------------------------
- * Specific message type and format definitions
- * -----------------------------------------------------------
- */
-
-/* Messages to OSPF daemon. */
-#define MSG_REGISTER_OPAQUETYPE   1
-#define MSG_UNREGISTER_OPAQUETYPE 2
-#define MSG_REGISTER_EVENT        3
-#define MSG_SYNC_LSDB             4
-#define MSG_ORIGINATE_REQUEST     5
-#define MSG_DELETE_REQUEST        6
-
-/* Messages from OSPF daemon. */
-#define MSG_REPLY                10
-#define MSG_READY_NOTIFY         11
-#define MSG_LSA_UPDATE_NOTIFY    12
-#define MSG_LSA_DELETE_NOTIFY    13
-#define MSG_NEW_IF               14
-#define MSG_DEL_IF               15
-#define MSG_ISM_CHANGE           16
-#define MSG_NSM_CHANGE           17
-
-struct msg_register_opaque_type {
-	uint8_t lsatype;
-	uint8_t opaquetype;
-	uint8_t pad[2]; /* padding */
-};
-
-struct msg_unregister_opaque_type {
-	uint8_t lsatype;
-	uint8_t opaquetype;
-	uint8_t pad[2]; /* padding */
-};
-
-/* Power2 is needed to convert LSA types into bit positions,
- * see typemask below. Type definition starts at 1, so
- * Power2[0] is not used. */
-
-
-#ifdef ORIGINAL_CODING
-static const uint16_t Power2[] = {0x0,   0x1,    0x2,    0x4,    0x8,   0x10,
-				  0x20,  0x40,   0x80,   0x100,  0x200, 0x400,
-				  0x800, 0x1000, 0x2000, 0x4000, 0x8000};
-#else
-static const uint16_t Power2[] = {
-	0,	 (1 << 0),  (1 << 1),  (1 << 2),  (1 << 3), (1 << 4),
-	(1 << 5),  (1 << 6),  (1 << 7),  (1 << 8),  (1 << 9), (1 << 10),
-	(1 << 11), (1 << 12), (1 << 13), (1 << 14), (1 << 15)};
-#endif /* ORIGINAL_CODING */
-
-struct lsa_filter_type {
-	uint16_t typemask; /* bitmask for selecting LSA types (1..16) */
-	uint8_t origin;    /* selects according to origin. */
-#define NON_SELF_ORIGINATED	0
-#define	SELF_ORIGINATED  (OSPF_LSA_SELF)
-#define	ANY_ORIGIN 2
-
-	uint8_t num_areas; /* number of areas in the filter. */
-			   /* areas, if any, go here. */
-};
-
-struct msg_register_event {
-	struct lsa_filter_type filter;
-};
-
-struct msg_sync_lsdb {
-	struct lsa_filter_type filter;
-};
-
-struct msg_originate_request {
-	/* Used for LSA type 9 otherwise ignored */
-	struct in_addr ifaddr;
-
-	/* Used for LSA type 10 otherwise ignored */
-	struct in_addr area_id;
-
-	/* LSA header and LSA-specific part */
-	struct lsa_header data;
-};
-
-struct msg_delete_request {
-	struct in_addr area_id; /* "0.0.0.0" for AS-external opaque LSAs */
-	uint8_t lsa_type;
-	uint8_t opaque_type;
-	uint8_t pad[2]; /* padding */
-	uint32_t opaque_id;
-};
-
-struct msg_reply {
-	signed char errcode;
-#define OSPF_API_OK                         0
-#define OSPF_API_NOSUCHINTERFACE          (-1)
-#define OSPF_API_NOSUCHAREA               (-2)
-#define OSPF_API_NOSUCHLSA                (-3)
-#define OSPF_API_ILLEGALLSATYPE           (-4)
-#define OSPF_API_OPAQUETYPEINUSE          (-5)
-#define OSPF_API_OPAQUETYPENOTREGISTERED  (-6)
-#define OSPF_API_NOTREADY                 (-7)
-#define OSPF_API_NOMEMORY                 (-8)
-#define OSPF_API_ERROR                    (-9)
-#define OSPF_API_UNDEF                   (-10)
-	uint8_t pad[3]; /* padding to four byte alignment */
-};
-
-/* Message to tell client application that it ospf daemon is
- * ready to accept opaque LSAs for a given interface or area. */
-
-struct msg_ready_notify {
-	uint8_t lsa_type;
-	uint8_t opaque_type;
-	uint8_t pad[2];      /* padding */
-	struct in_addr addr; /* interface address or area address */
-};
-
-/* These messages have a dynamic length depending on the embodied LSA.
-   They are aligned to four octets. msg_lsa_change_notify is used for
-   both LSA update and LSAs delete. */
-
-struct msg_lsa_change_notify {
-	/* Used for LSA type 9 otherwise ignored */
-	struct in_addr ifaddr;
-	/* Area ID. Not valid for AS-External and Opaque11 LSAs. */
-	struct in_addr area_id;
-	uint8_t is_self_originated; /* 1 if self originated. */
-	uint8_t pad[3];
-	struct lsa_header data;
-};
-
-struct msg_new_if {
-	struct in_addr ifaddr;  /* interface IP address */
-	struct in_addr area_id; /* area this interface belongs to */
-};
-
-struct msg_del_if {
-	struct in_addr ifaddr; /* interface IP address */
-};
-
-struct msg_ism_change {
-	struct in_addr ifaddr;  /* interface IP address */
-	struct in_addr area_id; /* area this interface belongs to */
-	uint8_t status;		/* interface status (up/down) */
-	uint8_t pad[3];		/* not used */
-};
-
-struct msg_nsm_change {
-	struct in_addr ifaddr;    /* attached interface */
-	struct in_addr nbraddr;   /* Neighbor interface address */
-	struct in_addr router_id; /* Router ID of neighbor */
-	uint8_t status;		  /* NSM status */
-	uint8_t pad[3];
-};
-
-/* We make use of a union to define a structure that covers all
-   possible API messages. This allows us to find out how much memory
-   needs to be reserved for the largest API message. */
-struct apimsg {
-	struct apimsghdr hdr;
-	union {
-		struct msg_register_opaque_type register_opaque_type;
-		struct msg_register_event register_event;
-		struct msg_sync_lsdb sync_lsdb;
-		struct msg_originate_request originate_request;
-		struct msg_delete_request delete_request;
-		struct msg_reply reply;
-		struct msg_ready_notify ready_notify;
-		struct msg_new_if new_if;
-		struct msg_del_if del_if;
-		struct msg_ism_change ism_change;
-		struct msg_nsm_change nsm_change;
-		struct msg_lsa_change_notify lsa_change_notify;
-	} u;
-};
-
-#define OSPF_API_MAX_MSG_SIZE (sizeof(struct apimsg) + OSPF_MAX_LSA_SIZE)
-
-/* -----------------------------------------------------------
- * Prototypes for specific messages
- * -----------------------------------------------------------
- */
-
-/* For debugging only. */
-extern void api_opaque_lsa_print(struct lsa_header *data);
-
-/* Messages sent by client */
-extern struct msg *new_msg_register_opaque_type(uint32_t seqnum, uint8_t ltype,
-						uint8_t otype);
-extern struct msg *new_msg_register_event(uint32_t seqnum,
-					  struct lsa_filter_type *filter);
-extern struct msg *new_msg_sync_lsdb(uint32_t seqnum,
-				     struct lsa_filter_type *filter);
-extern struct msg *new_msg_originate_request(uint32_t seqnum,
-					     struct in_addr ifaddr,
-					     struct in_addr area_id,
-					     struct lsa_header *data);
-extern struct msg *new_msg_delete_request(uint32_t seqnum,
-					  struct in_addr area_id,
-					  uint8_t lsa_type, uint8_t opaque_type,
-					  uint32_t opaque_id);
-
-/* Messages sent by OSPF daemon */
-extern struct msg *new_msg_reply(uint32_t seqnum, uint8_t rc);
-
-extern struct msg *new_msg_ready_notify(uint32_t seqnr, uint8_t lsa_type,
-					uint8_t opaque_type,
-					struct in_addr addr);
-
-extern struct msg *new_msg_new_if(uint32_t seqnr, struct in_addr ifaddr,
-				  struct in_addr area);
-
-extern struct msg *new_msg_del_if(uint32_t seqnr, struct in_addr ifaddr);
-
-extern struct msg *new_msg_ism_change(uint32_t seqnr, struct in_addr ifaddr,
-				      struct in_addr area, uint8_t status);
-
-extern struct msg *new_msg_nsm_change(uint32_t seqnr, struct in_addr ifaddr,
-				      struct in_addr nbraddr,
-				      struct in_addr router_id, uint8_t status);
-
-/* msgtype is MSG_LSA_UPDATE_NOTIFY or MSG_LSA_DELETE_NOTIFY */
-extern struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
-					     struct in_addr ifaddr,
-					     struct in_addr area_id,
-					     uint8_t is_self_originated,
-					     struct lsa_header *data);
-
-/* string printing functions */
-extern const char *ospf_api_errname(int errcode);
-extern const char *ospf_api_typename(int msgtype);
-
-#endif /* _OSPF_API_H */
+/**APImessagehandlingmoduleforOSPFdaemonandclient.*Copyright(C)2001,2002RalphKel
+ler**ThisfileispartofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/o
+rmodify*itunderthetermsoftheGNUGeneralPublicLicenseaspublished*bytheFreeSoftware
+Foundation;eitherversion2,or(atyour*option)anylaterversion.**GNUZebraisdistribut
+edinthehopethatitwillbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarran
+tyof*MERCHANTABILITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicens
+eformoredetails.**YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*wi
+ththisprogram;seethefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51F
+ranklinSt,FifthFloor,Boston,MA02110-1301USA*//*ThisfileisusedbothbytheOSPFdandcl
+ientapplicationstodefinemessageformatsusedforcommunication.*/#ifndef_OSPF_API_H#
+define_OSPF_API_H#defineOSPF_API_VERSION1/*MTYPEdefinitionisnotreflectedto"memor
+y.h".*/#defineMTYPE_OSPF_API_MSGMTYPE_TMP#defineMTYPE_OSPF_API_FIFOMTYPE_TMP/*De
+faultAPIserverporttoacceptconnectionrequestfromclient-side.*//*Thisvaluecouldbeo
+verriddenby"ospfapi"entryin"/etc/services".*/#defineOSPF_API_SYNC_PORT2607/*----
+-------------------------------------------------------*Genericmessages*--------
+---------------------------------------------------*//*Messageheaderstructure,fi
+eldsareinnetworkbyteorderandalignedtofouroctets.*/structapimsghdr{uint8_tversion
+;/*OSPFAPIprotocolversion*/uint8_tmsgtype;/*Typeofmessage*/uint16_tmsglen;/*Leng
+thofmessagew/oheader*/uint32_tmsgseq;/*Sequencenumber*/};/*Messagerepresentation
+withheaderandbody*/structmsg{structmsg*next;/*tolinkintofifo*//*Messageheader*/s
+tructapimsghdrhdr;/*Messagebody*/structstream*s;};/*Prototypesforgenericmessages
+.*/externstructmsg*msg_new(uint8_tmsgtype,void*msgbody,uint32_tseqnum,uint16_tms
+glen);externstructmsg*msg_dup(structmsg*msg);externvoidmsg_print(structmsg*msg);
+/*XXXdebugonly*/externvoidmsg_free(structmsg*msg);structmsg*msg_read(intfd);exte
+rnintmsg_write(intfd,structmsg*msg);/*Forrequests,themessagesequencenumberisbetw
+eenMIN_SEQandMAX_SEQ.Fornotifications,thesequencenumberis0.*/#defineMIN_SEQ1#def
+ineMAX_SEQ2147483647externvoidmsg_set_seq(structmsg*msg,uint32_tseqnr);externuin
+t32_tmsg_get_seq(structmsg*msg);/*----------------------------------------------
+-------------*Messagefifoqueues*------------------------------------------------
+-----------*//*Messagequeuestructure.*/structmsg_fifo{unsignedlongcount;structms
+g*head;structmsg*tail;};/*Prototypeformessagefifoqueues.*/externstructmsg_fifo*m
+sg_fifo_new(void);externvoidmsg_fifo_push(structmsg_fifo*,structmsg*msg);externs
+tructmsg*msg_fifo_pop(structmsg_fifo*fifo);externstructmsg*msg_fifo_head(structm
+sg_fifo*fifo);externvoidmsg_fifo_flush(structmsg_fifo*fifo);externvoidmsg_fifo_f
+ree(structmsg_fifo*fifo);/*-----------------------------------------------------
+------*Specificmessagetypeandformatdefinitions*---------------------------------
+--------------------------*//*MessagestoOSPFdaemon.*/#defineMSG_REGISTER_OPAQUET
+YPE1#defineMSG_UNREGISTER_OPAQUETYPE2#defineMSG_REGISTER_EVENT3#defineMSG_SYNC_L
+SDB4#defineMSG_ORIGINATE_REQUEST5#defineMSG_DELETE_REQUEST6/*MessagesfromOSPFdae
+mon.*/#defineMSG_REPLY10#defineMSG_READY_NOTIFY11#defineMSG_LSA_UPDATE_NOTIFY12#
+defineMSG_LSA_DELETE_NOTIFY13#defineMSG_NEW_IF14#defineMSG_DEL_IF15#defineMSG_IS
+M_CHANGE16#defineMSG_NSM_CHANGE17structmsg_register_opaque_type{uint8_tlsatype;u
+int8_topaquetype;uint8_tpad[2];/*padding*/};structmsg_unregister_opaque_type{uin
+t8_tlsatype;uint8_topaquetype;uint8_tpad[2];/*padding*/};/*Power2isneededtoconve
+rtLSAtypesintobitpositions,*seetypemaskbelow.Typedefinitionstartsat1,so*Power2[0
+]isnotused.*/#ifdefORIGINAL_CODINGstaticconstuint16_tPower2[]={0x0,0x1,0x2,0x4,0
+x8,0x10,0x20,0x40,0x80,0x100,0x200,0x400,0x800,0x1000,0x2000,0x4000,0x8000};#els
+estaticconstuint16_tPower2[]={0,(1<<0),(1<<1),(1<<2),(1<<3),(1<<4),(1<<5),(1<<6)
+,(1<<7),(1<<8),(1<<9),(1<<10),(1<<11),(1<<12),(1<<13),(1<<14),(1<<15)};#endif/*O
+RIGINAL_CODING*/structlsa_filter_type{uint16_ttypemask;/*bitmaskforselectingLSAt
+ypes(1..16)*/uint8_torigin;/*selectsaccordingtoorigin.*/#defineNON_SELF_ORIGINAT
+ED0#defineSELF_ORIGINATED(OSPF_LSA_SELF)#defineANY_ORIGIN2uint8_tnum_areas;/*num
+berofareasinthefilter.*//*areas,ifany,gohere.*/};structmsg_register_event{struct
+lsa_filter_typefilter;};structmsg_sync_lsdb{structlsa_filter_typefilter;};struct
+msg_originate_request{/*UsedforLSAtype9otherwiseignored*/structin_addrifaddr;/*U
+sedforLSAtype10otherwiseignored*/structin_addrarea_id;/*LSAheaderandLSA-specific
+part*/structlsa_headerdata;};structmsg_delete_request{structin_addrarea_id;/*"0.
+0.0.0"forAS-externalopaqueLSAs*/uint8_tlsa_type;uint8_topaque_type;uint8_tpad[2]
+;/*padding*/uint32_topaque_id;};structmsg_reply{signedcharerrcode;#defineOSPF_AP
+I_OK0#defineOSPF_API_NOSUCHINTERFACE(-1)#defineOSPF_API_NOSUCHAREA(-2)#defineOSP
+F_API_NOSUCHLSA(-3)#defineOSPF_API_ILLEGALLSATYPE(-4)#defineOSPF_API_OPAQUETYPEI
+NUSE(-5)#defineOSPF_API_OPAQUETYPENOTREGISTERED(-6)#defineOSPF_API_NOTREADY(-7)#
+defineOSPF_API_NOMEMORY(-8)#defineOSPF_API_ERROR(-9)#defineOSPF_API_UNDEF(-10)ui
+nt8_tpad[3];/*paddingtofourbytealignment*/};/*Messagetotellclientapplicationthat
+itospfdaemonis*readytoacceptopaqueLSAsforagiveninterfaceorarea.*/structmsg_ready
+_notify{uint8_tlsa_type;uint8_topaque_type;uint8_tpad[2];/*padding*/structin_add
+raddr;/*interfaceaddressorareaaddress*/};/*Thesemessageshaveadynamiclengthdepend
+ingontheembodiedLSA.Theyarealignedtofouroctets.msg_lsa_change_notifyisusedforbot
+hLSAupdateandLSAsdelete.*/structmsg_lsa_change_notify{/*UsedforLSAtype9otherwise
+ignored*/structin_addrifaddr;/*AreaID.NotvalidforAS-ExternalandOpaque11LSAs.*/st
+ructin_addrarea_id;uint8_tis_self_originated;/*1ifselforiginated.*/uint8_tpad[3]
+;structlsa_headerdata;};structmsg_new_if{structin_addrifaddr;/*interfaceIPaddres
+s*/structin_addrarea_id;/*areathisinterfacebelongsto*/};structmsg_del_if{structi
+n_addrifaddr;/*interfaceIPaddress*/};structmsg_ism_change{structin_addrifaddr;/*
+interfaceIPaddress*/structin_addrarea_id;/*areathisinterfacebelongsto*/uint8_tst
+atus;/*interfacestatus(up/down)*/uint8_tpad[3];/*notused*/};structmsg_nsm_change
+{structin_addrifaddr;/*attachedinterface*/structin_addrnbraddr;/*Neighborinterfa
+ceaddress*/structin_addrrouter_id;/*RouterIDofneighbor*/uint8_tstatus;/*NSMstatu
+s*/uint8_tpad[3];};/*WemakeuseofauniontodefineastructurethatcoversallpossibleAPI
+messages.ThisallowsustofindouthowmuchmemoryneedstobereservedforthelargestAPImess
+age.*/structapimsg{structapimsghdrhdr;union{structmsg_register_opaque_typeregist
+er_opaque_type;structmsg_register_eventregister_event;structmsg_sync_lsdbsync_ls
+db;structmsg_originate_requestoriginate_request;structmsg_delete_requestdelete_r
+equest;structmsg_replyreply;structmsg_ready_notifyready_notify;structmsg_new_ifn
+ew_if;structmsg_del_ifdel_if;structmsg_ism_changeism_change;structmsg_nsm_change
+nsm_change;structmsg_lsa_change_notifylsa_change_notify;}u;};#defineOSPF_API_MAX
+_MSG_SIZE(sizeof(structapimsg)+OSPF_MAX_LSA_SIZE)/*-----------------------------
+------------------------------*Prototypesforspecificmessages*-------------------
+----------------------------------------*//*Fordebuggingonly.*/externvoidapi_opa
+que_lsa_print(structlsa_header*data);/*Messagessentbyclient*/externstructmsg*new
+_msg_register_opaque_type(uint32_tseqnum,uint8_tltype,uint8_totype);externstruct
+msg*new_msg_register_event(uint32_tseqnum,structlsa_filter_type*filter);externst
+ructmsg*new_msg_sync_lsdb(uint32_tseqnum,structlsa_filter_type*filter);externstr
+uctmsg*new_msg_originate_request(uint32_tseqnum,structin_addrifaddr,structin_add
+rarea_id,structlsa_header*data);externstructmsg*new_msg_delete_request(uint32_ts
+eqnum,structin_addrarea_id,uint8_tlsa_type,uint8_topaque_type,uint32_topaque_id)
+;/*MessagessentbyOSPFdaemon*/externstructmsg*new_msg_reply(uint32_tseqnum,uint8_
+trc);externstructmsg*new_msg_ready_notify(uint32_tseqnr,uint8_tlsa_type,uint8_to
+paque_type,structin_addraddr);externstructmsg*new_msg_new_if(uint32_tseqnr,struc
+tin_addrifaddr,structin_addrarea);externstructmsg*new_msg_del_if(uint32_tseqnr,s
+tructin_addrifaddr);externstructmsg*new_msg_ism_change(uint32_tseqnr,structin_ad
+drifaddr,structin_addrarea,uint8_tstatus);externstructmsg*new_msg_nsm_change(uin
+t32_tseqnr,structin_addrifaddr,structin_addrnbraddr,structin_addrrouter_id,uint8
+_tstatus);/*msgtypeisMSG_LSA_UPDATE_NOTIFYorMSG_LSA_DELETE_NOTIFY*/externstructm
+sg*new_msg_lsa_change_notify(uint8_tmsgtype,uint32_tseqnum,structin_addrifaddr,s
+tructin_addrarea_id,uint8_tis_self_originated,structlsa_header*data);/*stringpri
+ntingfunctions*/externconstchar*ospf_api_errname(interrcode);externconstchar*osp
+f_api_typename(intmsgtype);#endif/*_OSPF_API_H*/

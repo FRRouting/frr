@@ -1,72 +1,29 @@
-/*
- * Redistribution Handler
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_REDISTRIBUTE_H
-#define _ZEBRA_REDISTRIBUTE_H
-
-#include "table.h"
-#include "zserv.h"
-#include "vty.h"
-#include "vrf.h"
-
-/* ZAPI command handlers */
-extern void zebra_redistribute_add(ZAPI_HANDLER_ARGS);
-extern void zebra_redistribute_delete(ZAPI_HANDLER_ARGS);
-extern void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS);
-extern void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS);
-/* ----------------- */
-
-extern void redistribute_update(struct prefix *, struct prefix *,
-				struct route_entry *, struct route_entry *);
-extern void redistribute_delete(struct prefix *, struct prefix *,
-				struct route_entry *);
-
-extern void zebra_interface_up_update(struct interface *);
-extern void zebra_interface_down_update(struct interface *);
-
-extern void zebra_interface_add_update(struct interface *);
-extern void zebra_interface_delete_update(struct interface *);
-
-extern void zebra_interface_address_add_update(struct interface *,
-					       struct connected *);
-extern void zebra_interface_address_delete_update(struct interface *,
-						  struct connected *c);
-extern void zebra_interface_parameters_update(struct interface *);
-extern void zebra_interface_vrf_update_del(struct interface *,
-					   vrf_id_t new_vrf_id);
-extern void zebra_interface_vrf_update_add(struct interface *,
-					   vrf_id_t old_vrf_id);
-
-extern int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
-			      const char *rmap_name, int add);
-
-extern int zebra_add_import_table_entry(struct route_node *rn,
-					struct route_entry *re,
-					const char *rmap_name);
-extern int zebra_del_import_table_entry(struct route_node *rn,
-					struct route_entry *re);
-extern int is_zebra_import_table_enabled(afi_t, uint32_t table_id);
-
-extern int zebra_import_table_config(struct vty *);
-
-extern void zebra_import_table_rm_update(void);
-
-#endif /* _ZEBRA_REDISTRIBUTE_H */
+/**RedistributionHandler*Copyright(C)1999KunihiroIshiguro**ThisfileispartofGNUZe
+bra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodifyit*underthetermsoft
+heGNUGeneralPublicLicenseaspublishedbythe*FreeSoftwareFoundation;eitherversion2,
+or(atyouroption)any*laterversion.**GNUZebraisdistributedinthehopethatitwillbeuse
+ful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFITN
+ESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Youshoul
+dhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefileCO
+PYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bosto
+n,MA02110-1301USA*/#ifndef_ZEBRA_REDISTRIBUTE_H#define_ZEBRA_REDISTRIBUTE_H#incl
+ude"table.h"#include"zserv.h"#include"vty.h"#include"vrf.h"/*ZAPIcommandhandlers
+*/externvoidzebra_redistribute_add(ZAPI_HANDLER_ARGS);externvoidzebra_redistribu
+te_delete(ZAPI_HANDLER_ARGS);externvoidzebra_redistribute_default_add(ZAPI_HANDL
+ER_ARGS);externvoidzebra_redistribute_default_delete(ZAPI_HANDLER_ARGS);/*------
+-----------*/externvoidredistribute_update(structprefix*,structprefix*,structrou
+te_entry*,structroute_entry*);externvoidredistribute_delete(structprefix*,struct
+prefix*,structroute_entry*);externvoidzebra_interface_up_update(structinterface*
+);externvoidzebra_interface_down_update(structinterface*);externvoidzebra_interf
+ace_add_update(structinterface*);externvoidzebra_interface_delete_update(structi
+nterface*);externvoidzebra_interface_address_add_update(structinterface*,structc
+onnected*);externvoidzebra_interface_address_delete_update(structinterface*,stru
+ctconnected*c);externvoidzebra_interface_parameters_update(structinterface*);ext
+ernvoidzebra_interface_vrf_update_del(structinterface*,vrf_id_tnew_vrf_id);exter
+nvoidzebra_interface_vrf_update_add(structinterface*,vrf_id_told_vrf_id);externi
+ntzebra_import_table(afi_tafi,uint32_ttable_id,uint32_tdistance,constchar*rmap_n
+ame,intadd);externintzebra_add_import_table_entry(structroute_node*rn,structrout
+e_entry*re,constchar*rmap_name);externintzebra_del_import_table_entry(structrout
+e_node*rn,structroute_entry*re);externintis_zebra_import_table_enabled(afi_t,uin
+t32_ttable_id);externintzebra_import_table_config(structvty*);externvoidzebra_im
+port_table_rm_update(void);#endif/*_ZEBRA_REDISTRIBUTE_H*/

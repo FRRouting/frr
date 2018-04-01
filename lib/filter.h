@@ -1,64 +1,20 @@
-/*
- * Route filtering function.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _ZEBRA_FILTER_H
-#define _ZEBRA_FILTER_H
-
-#include "if.h"
-
-/* Maximum ACL name length */
-#define ACL_NAMSIZ                128
-
-/* Filter direction.  */
-#define FILTER_IN                 0
-#define FILTER_OUT                1
-#define FILTER_MAX                2
-
-/* Filter type is made by `permit', `deny' and `dynamic'. */
-enum filter_type { FILTER_DENY, FILTER_PERMIT, FILTER_DYNAMIC };
-
-enum access_type { ACCESS_TYPE_STRING, ACCESS_TYPE_NUMBER };
-
-/* Access list */
-struct access_list {
-	char *name;
-	char *remark;
-
-	struct access_master *master;
-
-	enum access_type type;
-
-	struct access_list *next;
-	struct access_list *prev;
-
-	struct filter *head;
-	struct filter *tail;
-};
-
-/* Prototypes for access-list. */
-extern void access_list_init(void);
-extern void access_list_reset(void);
-extern void access_list_add_hook(void (*func)(struct access_list *));
-extern void access_list_delete_hook(void (*func)(struct access_list *));
-extern struct access_list *access_list_lookup(afi_t, const char *);
-extern enum filter_type access_list_apply(struct access_list *, void *);
-
-#endif /* _ZEBRA_FILTER_H */
+/**Routefilteringfunction.*Copyright(C)1998KunihiroIshiguro**ThisfileispartofGNU
+Zebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itunderthetermso
+ftheGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;eitherversion
+2,or(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatitwillbeu
+seful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABILITYorFI
+TNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.**Yousho
+uldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;seethefile
+COPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFloor,Bos
+ton,MA02110-1301USA*/#ifndef_ZEBRA_FILTER_H#define_ZEBRA_FILTER_H#include"if.h"/
+*MaximumACLnamelength*/#defineACL_NAMSIZ128/*Filterdirection.*/#defineFILTER_IN0
+#defineFILTER_OUT1#defineFILTER_MAX2/*Filtertypeismadeby`permit',`deny'and`dynam
+ic'.*/enumfilter_type{FILTER_DENY,FILTER_PERMIT,FILTER_DYNAMIC};enumaccess_type{
+ACCESS_TYPE_STRING,ACCESS_TYPE_NUMBER};/*Accesslist*/structaccess_list{char*name
+;char*remark;structaccess_master*master;enumaccess_typetype;structaccess_list*ne
+xt;structaccess_list*prev;structfilter*head;structfilter*tail;};/*Prototypesfora
+ccess-list.*/externvoidaccess_list_init(void);externvoidaccess_list_reset(void);
+externvoidaccess_list_add_hook(void(*func)(structaccess_list*));externvoidaccess
+_list_delete_hook(void(*func)(structaccess_list*));externstructaccess_list*acces
+s_list_lookup(afi_t,constchar*);externenumfilter_typeaccess_list_apply(structacc
+ess_list*,void*);#endif/*_ZEBRA_FILTER_H*/

@@ -1,71 +1,17 @@
-/*
- * Prefix list internal definitions.
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published
- * by the Free Software Foundation; either version 2, or (at your
- * option) any later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-#ifndef _QUAGGA_PLIST_INT_H
-#define _QUAGGA_PLIST_INT_H
-
-enum prefix_name_type { PREFIX_TYPE_STRING, PREFIX_TYPE_NUMBER };
-
-struct pltrie_table;
-
-struct prefix_list {
-	char *name;
-	char *desc;
-
-	struct prefix_master *master;
-
-	enum prefix_name_type type;
-
-	int count;
-	int rangecount;
-
-	struct prefix_list_entry *head;
-	struct prefix_list_entry *tail;
-
-	struct pltrie_table *trie;
-
-	struct prefix_list *next;
-	struct prefix_list *prev;
-};
-
-/* Each prefix-list's entry. */
-struct prefix_list_entry {
-	int seq;
-
-	int le;
-	int ge;
-
-	enum prefix_list_type type;
-
-	int any;
-	struct prefix prefix;
-
-	unsigned long refcnt;
-	unsigned long hitcnt;
-
-	struct prefix_list_entry *next;
-	struct prefix_list_entry *prev;
-
-	/* up the chain for best match search */
-	struct prefix_list_entry *next_best;
-};
-
-#endif /* _QUAGGA_PLIST_INT_H */
+/**Prefixlistinternaldefinitions.*Copyright(C)1999KunihiroIshiguro**Thisfileispa
+rtofGNUZebra.**GNUZebraisfreesoftware;youcanredistributeitand/ormodify*itunderth
+etermsoftheGNUGeneralPublicLicenseaspublished*bytheFreeSoftwareFoundation;either
+version2,or(atyour*option)anylaterversion.**GNUZebraisdistributedinthehopethatit
+willbeuseful,but*WITHOUTANYWARRANTY;withouteventheimpliedwarrantyof*MERCHANTABIL
+ITYorFITNESSFORAPARTICULARPURPOSE.SeetheGNU*GeneralPublicLicenseformoredetails.*
+*YoushouldhavereceivedacopyoftheGNUGeneralPublicLicensealong*withthisprogram;see
+thefileCOPYING;ifnot,writetotheFreeSoftware*Foundation,Inc.,51FranklinSt,FifthFl
+oor,Boston,MA02110-1301USA*/#ifndef_QUAGGA_PLIST_INT_H#define_QUAGGA_PLIST_INT_H
+enumprefix_name_type{PREFIX_TYPE_STRING,PREFIX_TYPE_NUMBER};structpltrie_table;s
+tructprefix_list{char*name;char*desc;structprefix_master*master;enumprefix_name_
+typetype;intcount;intrangecount;structprefix_list_entry*head;structprefix_list_e
+ntry*tail;structpltrie_table*trie;structprefix_list*next;structprefix_list*prev;
+};/*Eachprefix-list'sentry.*/structprefix_list_entry{intseq;intle;intge;enumpref
+ix_list_typetype;intany;structprefixprefix;unsignedlongrefcnt;unsignedlonghitcnt
+;structprefix_list_entry*next;structprefix_list_entry*prev;/*upthechainforbestma
+tchsearch*/structprefix_list_entry*next_best;};#endif/*_QUAGGA_PLIST_INT_H*/
