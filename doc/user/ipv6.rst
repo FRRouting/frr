@@ -184,6 +184,14 @@ Router Advertisement
             no ipv6 nd suppress-ra
             ipv6 nd prefix 2001:0DB8:5009::/64
 
+.. index:: [no] ipv6 nd v4 goaway
+.. clicmd:: [no] ipv6 nd v4 goaway
+
+   Set whether or not to transmit the V4 GoAway option. This option indicates
+   to the destination that they should disable IPv4 on the link.
+
+   Implements draft-bz-v4goawayflag-00.
+
 
 .. seealso::
 
@@ -191,3 +199,4 @@ Router Advertisement
    - :rfc:`4861` (Neighbor Discovery for IP Version 6 (IPv6))
    - :rfc:`6275` (Mobility Support in IPv6)
    - :rfc:`4191` (Default Router Preferences and More-Specific Routes)
+   - https://www.ietf.org/id/draft-bz-v4goawayflag-00.txt
