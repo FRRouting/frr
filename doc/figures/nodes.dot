@@ -1,0 +1,64 @@
+/*
+ * FRR CLI modes and their relationships.
+ *
+ * Each edge is labeled with the command that causes a transition along that
+ * edge. Exit commands and their back edges are implicit.
+ */
+digraph climodes {
+	ratio = "auto"
+	mincross = 2.0
+	graph [fontsize = 9]
+	rankdir = LR
+
+	AUTH_NODE -> VIEW_NODE -> ENABLE_NODE;
+	VIEW_NODE -> AUTH_ENABLE_NODE -> ENABLE_NODE;
+	ENABLE_NODE -> CONFIG_NODE [ label="configure terminal" ];
+	CONFIG_NODE -> RIP_NODE [ label="router rip" ];
+	CONFIG_NODE -> RIPNG_NODE [ label="router ripng" ];
+	CONFIG_NODE -> BABEL_NODE [ label="router babel" ];
+	CONFIG_NODE -> EIGRP_NODE [ label="router eigrp (1-65535)" ];
+	CONFIG_NODE -> BGP_NODE [ label="router bgp ASN" ];
+	subgraph cluster0 {
+		BGP_NODE -> BGP_VPNV4_NODE [ label="address-family vpnv4 [unicast]" ];
+		BGP_NODE -> BGP_VPNV6_NODE [ label="address-family vpnv6 [unicast]" ];
+		BGP_NODE -> BGP_IPV4_NODE [ label="address-family ipv4 [unicast]" ];
+		BGP_NODE -> BGP_IPV4L_NODE [ label="address-family ipv4 labeled-unicast" ];
+		BGP_NODE -> BGP_IPV4M_NODE [ label="address-family ipv4 multicast" ];
+		BGP_NODE -> BGP_IPV6_NODE [ label="address-family ipv6 [unicast]" ];
+		BGP_NODE -> BGP_IPV6L_NODE [ label="address-family ipv6 labeled-unicast" ];
+		BGP_NODE -> BGP_IPV6M_NODE [ label="address-family ipv6 multicast" ];
+		BGP_NODE -> BGP_FLOWSPECV4_NODE [ label="address-family ipv4 flowspec" ];
+		BGP_NODE -> BGP_FLOWSPECV6_NODE [ label="address-family ipv6 flowspec" ];
+		BGP_NODE -> BGP_EVPN_NODE [ label="address-family l2vpn evpn" ];
+		BGP_EVPN_NODE -> BGP_EVPN_VNI_NODE [ label="vni (1-16777215)" ];
+		BGP_NODE -> BGP_VRF_POLICY_NODE [ label="vrf-policy NAME" ];
+		BGP_NODE -> BGP_VNC_DEFAULTS_NODE [ label="vnc defaults" ];
+		BGP_NODE -> BGP_VNC_NVE_GROUP_NODE [ label="vnc nve-group NAME" ];
+		BGP_NODE -> BGP_VNC_L2_GROUP_NODE [ label="vnc l2-group NAME" ];
+	}
+	subgraph cluster1 {
+		LDP_NODE -> LDP_IPV4_NODE [ label="address-family ipv4" ];
+		LDP_NODE -> LDP_IPV6_NODE [ label="address-family ipv6" ];
+		LDP_IPV4_NODE -> LDP_IPV4_IFACE_NODE [ label="interface IFNAME" ];
+		LDP_IPV6_NODE -> LDP_IPV6_IFACE_NODE [ label="interface IFNAME" ];
+		LDP_NODE -> LDP_L2VPN_NODE [ label="address-family l2vpn WORD type vpls" ];
+		LDP_NODE -> LDP_PSEUDOWIRE_NODE [ label="member pseudowire IFNAME" ];
+	}
+	CONFIG_NODE -> OSPF_NODE [ label="router ospf [(1-65535)] [vrf NAME]" ];
+	CONFIG_NODE -> OSPF6_NODE [ label="router ospf6" ];
+	CONFIG_NODE -> LDP_NODE [ label="mpls ldp" ];
+	CONFIG_NODE -> ISIS_NODE [ label="router isis WORD" ];
+	CONFIG_NODE -> RMAP_NODE [ label="route-map WORD <deny|permit> (1-65535)" ];
+	CONFIG_NODE -> PW_NODE [ label="pseudowire IFNAME" ];
+	CONFIG_NODE -> VTY_NODE [ label="line vty" ];
+	CONFIG_NODE -> KEYCHAIN_NODE [ label="key chain WORD" ];
+	CONFIG_NODE -> KEYCHAIN_KEY_NODE [ label="key (0-2147483647)" ];
+	KEYCHAIN_NODE -> KEYCHAIN_KEY_NODE [ label="key (0-2147483647)" ];
+	KEYCHAIN_KEY_NODE -> KEYCHAIN_NODE [ label="no key (0-2147483647)" ];
+	CONFIG_NODE -> LOGICALROUTER_NODE [ label="logical-router (1-65535) ns NAME" ];
+	CONFIG_NODE -> VRF_NODE [ label="vrf NAME" ];
+	CONFIG_NODE -> INTERFACE_NODE [ label="interface IFNAME vrf NAME" ];
+	INTERFACE_NODE -> LINK_PARAMS_NODE [ label="link-params" ];
+	CONFIG_NODE -> NH_GROUP_NODE [ label="nexthop-group NAME" ];
+	CONFIG_NODE -> RPKI_NODE [ label="rpki" ];
+}
