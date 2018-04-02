@@ -55,7 +55,6 @@ const char *node_names[] = {
 	"auth enable",		    // AUTH_ENABLE_NODE,
 	"enable",		    // ENABLE_NODE,
 	"config",		    // CONFIG_NODE,
-	"service",		    // SERVICE_NODE,
 	"debug",		    // DEBUG_NODE,
 	"vrf debug",		    // VRF_DEBUG_NODE,
 	"vnc debug",		    // DEBUG_VNC_NODE,

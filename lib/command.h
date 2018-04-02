@@ -78,7 +78,6 @@ enum node_type {
 	AUTH_ENABLE_NODE,	/* Authentication mode for change enable. */
 	ENABLE_NODE,		 /* Enable node. */
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
-	SERVICE_NODE,		 /* Service node. */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
