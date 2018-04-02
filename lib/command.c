@@ -96,7 +96,6 @@ const char *node_names[] = {
 	"ldp l2vpn",		    // LDP_L2VPN_NODE,
 	"ldp",			    // LDP_PSEUDOWIRE_NODE,
 	"isis",			    // ISIS_NODE,
-	"masc",			    // MASC_NODE,
 	"irdp",			    // IRDP_NODE,
 	"static ip",		    // IP_NODE,
 	"ipv4 access list",	 // ACCESS_NODE,
@@ -1313,7 +1312,6 @@ void cmd_exit(struct vty *vty)
 	case LDP_L2VPN_NODE:
 	case ISIS_NODE:
 	case KEYCHAIN_NODE:
-	case MASC_NODE:
 	case RMAP_NODE:
 	case VTY_NODE:
 		vty->node = CONFIG_NODE;
@@ -1424,7 +1422,6 @@ DEFUN (config_end,
 	case ISIS_NODE:
 	case KEYCHAIN_NODE:
 	case KEYCHAIN_KEY_NODE:
-	case MASC_NODE:
 	case VTY_NODE:
 	case LINK_PARAMS_NODE:
 		vty_config_unlock(vty);

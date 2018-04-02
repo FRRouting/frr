@@ -1551,7 +1551,6 @@ static int vtysh_exit(struct vty *vty)
 	case LDP_NODE:
 	case LDP_L2VPN_NODE:
 	case ISIS_NODE:
-	case MASC_NODE:
 	case RMAP_NODE:
 	case VTY_NODE:
 	case KEYCHAIN_NODE:
