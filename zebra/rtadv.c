@@ -45,8 +45,6 @@
 #include "zebra/zebra_vrf.h"
 
 extern struct zebra_privs_t zserv_privs;
-/* currently undefined in icmp6.h */
-bool AdvGoAwayFlag;
 
 #if defined(HAVE_RTADV)
 
@@ -226,9 +224,6 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 		rtadv->nd_ra_flags_reserved |= ND_RA_FLAG_OTHER;
 	if (zif->rtadv.AdvHomeAgentFlag)
 		rtadv->nd_ra_flags_reserved |= ND_RA_FLAG_HOME_AGENT;
-	if (AdvGoAwayFlag)
-		rtadv->nd_ra_flags_reserved |= ND_RA_FLAG_V4_GOAWAY;
-
 	/* Note that according to Neighbor Discovery (RFC 4861 [18]),
 	 * AdvDefaultLifetime is by default based on the value of
 	 * MaxRtrAdvInterval.  AdvDefaultLifetime is used in the Router Lifetime
@@ -1500,19 +1495,6 @@ DEFUN (no_ipv6_nd_mtu,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_nd_v4_goaway,
-       ipv6_nd_v4_goaway_cmd,
-       "[no] ipv6 nd v4 goaway",
-       NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "v4 RA flags\n"
-       "Set V4 GoAway Flag\n")
-{
-	AdvGoAwayFlag = !strmatch(argv[0]->text, "no");
-	return CMD_SUCCESS;
-}
-
 /* Dump interface ND information to vty. */
 static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 {
@@ -1644,9 +1626,6 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	if (zif->rtadv.AdvLinkMTU)
 		vty_out(vty, " ipv6 nd mtu %d\n", zif->rtadv.AdvLinkMTU);
 
-	if (AdvGoAwayFlag)
-		vty_out(vty, " ipv6 nd v4 goaway\n");
-
 	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvPrefixList, node, rprefix)) {
 		vty_out(vty, " ipv6 nd prefix %s",
 			prefix2str(&rprefix->prefix, buf, sizeof(buf)));
@@ -1765,7 +1744,6 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_ipv6_nd_router_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_mtu_cmd);
-	install_element(INTERFACE_NODE, &ipv6_nd_v4_goaway_cmd);
 }
 
 static int if_join_all_router(int sock, struct interface *ifp)
