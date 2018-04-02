@@ -57,6 +57,8 @@ extern struct zebra_privs_t isisd_privs;
 /* #define EXTREME_DEBUG  */
 /* #define EXTREME_DICT_DEBUG */
 
+struct fabricd;
+
 struct isis {
 	unsigned long process_id;
 	int sysid_set;
@@ -110,6 +112,8 @@ struct isis_area {
 	 * be delayed until the next regular refresh.
 	 */
 	int lsp_regenerate_pending[ISIS_LEVELS];
+
+	struct fabricd *fabricd;
 
 	/*
 	 * Configurables

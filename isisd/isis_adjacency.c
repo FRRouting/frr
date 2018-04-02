@@ -48,6 +48,7 @@
 #include "isisd/isis_events.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
+#include "isisd/fabricd.h"
 
 extern struct isis *isis;
 
@@ -193,6 +194,9 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 		}
 	}
 
+	if (next_tw_state != ISIS_THREEWAY_DOWN)
+		fabricd_initial_sync_hello(adj->circuit);
+
 	if (next_tw_state == ISIS_THREEWAY_DOWN) {
 		isis_adj_state_change(adj, ISIS_ADJ_DOWN, "Neighbor restarted");
 		return;
@@ -306,10 +310,15 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				adj->last_flap = time(NULL);
 				adj->flaps++;
 
-				/* 7.3.17 - going up on P2P -> send CSNP */
-				/* FIXME: yup, I know its wrong... but i will do
-				 * it! (for now) */
-				send_csnp(circuit, level);
+				if (level == IS_LEVEL_1) {
+					thread_add_timer(master, send_l1_csnp,
+							 circuit, 0,
+							 &circuit->t_send_csnp[0]);
+				} else {
+					thread_add_timer(master, send_l2_csnp,
+							 circuit, 0,
+							 &circuit->t_send_csnp[1]);
+				}
 			} else if (new_state == ISIS_ADJ_DOWN) {
 				if (adj->circuit->u.p2p.neighbor == adj)
 					adj->circuit->u.p2p.neighbor = NULL;

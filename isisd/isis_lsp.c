@@ -56,6 +56,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
+#include "isisd/fabricd.h"
 
 static int lsp_l1_refresh(struct thread *thread);
 static int lsp_l2_refresh(struct thread *thread);
@@ -1813,6 +1814,7 @@ int lsp_tick(struct thread *thread)
 	int level;
 	uint16_t rem_lifetime;
 	time_t now = monotime(NULL);
+	bool fabricd_sync_incomplete = false;
 
 	lsp_list = list_new();
 
@@ -1820,6 +1822,8 @@ int lsp_tick(struct thread *thread)
 	assert(area);
 	area->t_tick = NULL;
 	thread_add_timer(master, lsp_tick, area, 1, &area->t_tick);
+
+	struct isis_circuit *fabricd_init_c = fabricd_initial_sync_circuit(area);
 
 	/*
 	 * Build a list of LSPs with (any) SRMflag set
@@ -1880,6 +1884,15 @@ int lsp_tick(struct thread *thread)
 							 dnode);
 				} else if (flags_any_set(lsp->SRMflags))
 					listnode_add(lsp_list, lsp);
+
+				if (fabricd_init_c) {
+					fabricd_sync_incomplete |=
+						ISIS_CHECK_FLAG(lsp->SSNflags,
+								fabricd_init_c);
+					fabricd_sync_incomplete |=
+						ISIS_CHECK_FLAG(lsp->SRMflags,
+								fabricd_init_c);
+				}
 			}
 
 			/*
@@ -1914,6 +1927,9 @@ int lsp_tick(struct thread *thread)
 			}
 		}
 	}
+
+	if (fabricd_init_c && !fabricd_sync_incomplete)
+		fabricd_initial_sync_finish(area);
 
 	list_delete_and_null(&lsp_list);
 

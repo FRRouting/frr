@@ -56,6 +56,7 @@
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
+#include "isisd/fabricd.h"
 
 struct isis *isis = NULL;
 
@@ -95,6 +96,7 @@ void isis_new(unsigned long process_id)
 	 */
 	/* isis->debugs = 0xFFFF; */
 	isisMplsTE.status = disable; /* Only support TE metric */
+
 	QOBJ_REG(isis, isis);
 }
 
@@ -156,6 +158,8 @@ struct isis_area *isis_area_create(const char *area_tag)
 	listnode_add(isis->area_list, area);
 	area->isis = isis;
 
+	if (fabricd)
+		area->fabricd = fabricd_new();
 	QOBJ_REG(area, isis_area);
 
 	return area;
