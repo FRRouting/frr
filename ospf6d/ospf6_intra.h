@@ -231,6 +231,9 @@ extern void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa);
 extern int ospf6_orig_as_external_lsa(struct thread *thread);
 extern void ospf6_intra_route_calculation(struct ospf6_area *oa);
 extern void ospf6_intra_brouter_calculation(struct ospf6_area *oa);
+extern void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
+					       struct ospf6_route *old,
+					       struct ospf6_route *route);
 
 extern void ospf6_intra_init(void);
 

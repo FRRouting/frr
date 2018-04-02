@@ -382,6 +382,20 @@ struct ospf6_path *ospf6_path_dup(struct ospf6_path *path)
 	return new;
 }
 
+void ospf6_copy_paths(struct list *dst, struct list *src)
+{
+	struct ospf6_path *path_new, *path;
+	struct listnode *node;
+
+	if (dst && src) {
+		for (ALL_LIST_ELEMENTS_RO(src, node, path)) {
+			path_new = ospf6_path_dup(path);
+			ospf6_copy_nexthops(path_new->nh_list, path->nh_list);
+			listnode_add_sort(dst, path_new);
+		}
+	}
+}
+
 struct ospf6_route *ospf6_route_create(void)
 {
 	struct ospf6_route *route;
@@ -420,6 +434,7 @@ struct ospf6_route *ospf6_route_copy(struct ospf6_route *route)
 	new->linkstate_id = route->linkstate_id;
 	new->path = route->path;
 	ospf6_copy_nexthops(new->nh_list, route->nh_list);
+	ospf6_copy_paths(new->paths, route->paths);
 	new->rnode = NULL;
 	new->prev = NULL;
 	new->next = NULL;
@@ -649,10 +664,11 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 		if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
 			zlog_debug(
-				"%s %p: route add %p cost %u: update of %p old cost %u",
+				"%s %p: route add %p cost %u nh %u: update of %p old cost %u nh %u",
 				ospf6_route_table_name(table), (void *)table,
-				(void *)route, route->path.cost, (void *)old,
-				old->path.cost);
+				(void *)route, route->path.cost,
+				listcount(route->nh_list), (void *)old,
+				old->path.cost, listcount(old->nh_list));
 		else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 			zlog_debug("%s: route add: update",
 				   ospf6_route_table_name(table));
