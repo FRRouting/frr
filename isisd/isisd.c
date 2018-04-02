@@ -159,7 +159,7 @@ struct isis_area *isis_area_create(const char *area_tag)
 	area->isis = isis;
 
 	if (fabricd)
-		area->fabricd = fabricd_new();
+		area->fabricd = fabricd_new(area);
 	QOBJ_REG(area, isis_area);
 
 	return area;
@@ -215,6 +215,9 @@ int isis_area_destroy(struct vty *vty, const char *area_tag)
 	}
 
 	QOBJ_UNREG(area);
+
+	if (fabricd)
+		fabricd_finish(area->fabricd);
 
 	if (area->circuit_list) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,

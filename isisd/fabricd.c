@@ -26,6 +26,7 @@
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_adjacency.h"
+#include "isisd/isis_spf.h"
 
 DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric")
 
@@ -45,15 +46,26 @@ struct fabricd {
 	time_t initial_sync_start;
 	struct isis_circuit *initial_sync_circuit;
 	struct thread *initial_sync_timeout;
+
+	struct isis_spftree *spftree;
 };
 
-struct fabricd *fabricd_new(void)
+struct fabricd *fabricd_new(struct isis_area *area)
 {
 	struct fabricd *rv = XCALLOC(MTYPE_FABRICD_STATE, sizeof(*rv));
 
 	rv->initial_sync_state = FABRICD_SYNC_PENDING;
+	rv->spftree = isis_spftree_new(area);
 	return rv;
 };
+
+void fabricd_finish(struct fabricd *f)
+{
+	if (f->initial_sync_timeout)
+		thread_cancel(f->initial_sync_timeout);
+
+	isis_spftree_del(f->spftree);
+}
 
 static int fabricd_initial_sync_timeout(struct thread *thread)
 {
@@ -133,4 +145,24 @@ void fabricd_initial_sync_finish(struct isis_area *area)
 	f->initial_sync_circuit = NULL;
 	thread_cancel(f->initial_sync_timeout);
 	f->initial_sync_timeout = NULL;
+}
+
+void fabricd_run_spf(struct isis_area *area)
+{
+	struct fabricd *f = area->fabricd;
+
+	if (!f)
+		return;
+
+	isis_run_hopcount_spf(area, isis->sysid, f->spftree);
+}
+
+struct isis_spftree *fabricd_spftree(struct isis_area *area)
+{
+	struct fabricd *f = area->fabricd;
+
+	if (!f)
+		return NULL;
+
+	return f->spftree;
 }

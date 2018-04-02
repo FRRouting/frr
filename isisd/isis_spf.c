@@ -56,6 +56,7 @@
 #include "isis_csm.h"
 #include "isis_mt.h"
 #include "isis_tlvs.h"
+#include "fabricd.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
 
@@ -303,6 +304,7 @@ struct isis_spftree {
 	int family;
 	int level;
 	enum spf_tree_id tree_id;
+	bool hopcount_metric;
 };
 
 
@@ -563,6 +565,9 @@ void spftree_area_adj_del(struct isis_area *area, struct isis_adjacency *adj)
 					     adj);
 		}
 	}
+
+	if (fabricd_spftree(area) != NULL)
+		isis_spftree_adj_del(fabricd_spftree(area), adj);
 }
 
 /*
@@ -721,6 +726,10 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 #endif
 
 	assert(spftree && parent);
+
+	if (spftree->hopcount_metric
+	    && !VTYPE_IS(vtype))
+		return;
 
 	struct prefix_pair p;
 	if (vtype >= VTYPE_IPREACH_INTERNAL) {
@@ -889,7 +898,7 @@ lspfragloop:
 			if (!pseudo_lsp
 			    && !memcmp(er->id, null_sysid, ISIS_SYS_ID_LEN))
 				continue;
-			dist = cost + er->metric;
+			dist = cost + (spftree->hopcount_metric ? 1 : er->metric);
 			process_N(spftree,
 				  LSP_PSEUDO_ID(er->id) ? VTYPE_PSEUDO_TE_IS
 							: VTYPE_NONPSEUDO_TE_IS,
@@ -1037,7 +1046,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 		/*
 		 * Add IP(v6) addresses of this circuit
 		 */
-		if (spftree->family == AF_INET) {
+		if (spftree->family == AF_INET && !spftree->hopcount_metric) {
 			memset(&ip_info, 0, sizeof(ip_info));
 			ip_info.dest.family = AF_INET;
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, ipnode,
@@ -1050,7 +1059,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 						   &ip_info, NULL, 0, parent);
 			}
 		}
-		if (spftree->family == AF_INET6) {
+		if (spftree->family == AF_INET6 && !spftree->hopcount_metric) {
 			memset(&ip_info, 0, sizeof(ip_info));
 			ip_info.dest.family = AF_INET6;
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link,
@@ -1094,6 +1103,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 					LSP_PSEUDO_ID(lsp_id) = 0;
 					isis_spf_add_local(
 						spftree, VTYPE_ES, lsp_id, adj,
+						spftree->hopcount_metric ? 1 :
 						circuit->te_metric
 							[spftree->level - 1],
 						parent);
@@ -1111,6 +1121,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 							? VTYPE_NONPSEUDO_IS
 							: VTYPE_NONPSEUDO_TE_IS,
 						lsp_id, adj,
+						spftree->hopcount_metric ? 1 :
 						circuit->te_metric
 							[spftree->level - 1],
 						parent);
@@ -1180,10 +1191,10 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 					circuit->circuit_id);
 				continue;
 			}
-			isis_spf_process_lsp(
-				spftree, lsp,
-				circuit->te_metric[spftree->level - 1], 0,
-				root_sysid, parent);
+			isis_spf_process_lsp(spftree, lsp,
+					     spftree->hopcount_metric ?
+					     1 : circuit->te_metric[spftree->level - 1],
+					     0, root_sysid, parent);
 		} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 			adj = circuit->u.p2p.neighbor;
 			if (!adj || adj->adj_state != ISIS_ADJ_UP)
@@ -1196,6 +1207,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 				LSP_PSEUDO_ID(lsp_id) = 0;
 				isis_spf_add_local(
 					spftree, VTYPE_ES, lsp_id, adj,
+					spftree->hopcount_metric ? 1 :
 					circuit->te_metric[spftree->level - 1],
 					parent);
 				break;
@@ -1215,6 +1227,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 							? VTYPE_NONPSEUDO_IS
 							: VTYPE_NONPSEUDO_TE_IS,
 						lsp_id, adj,
+						spftree->hopcount_metric ? 1 :
 						circuit->te_metric
 							[spftree->level - 1],
 						parent);
@@ -1275,7 +1288,8 @@ static void add_to_paths(struct isis_spftree *spftree,
 }
 
 static void init_spt(struct isis_spftree *spftree, int mtid, int level,
-		     int family, enum spf_tree_id tree_id)
+		     int family, enum spf_tree_id tree_id,
+		     bool hopcount_metric)
 {
 	isis_vertex_queue_clear(&spftree->tents);
 	isis_vertex_queue_clear(&spftree->paths);
@@ -1284,7 +1298,64 @@ static void init_spt(struct isis_spftree *spftree, int mtid, int level,
 	spftree->level = level;
 	spftree->family = family;
 	spftree->tree_id = tree_id;
-	return;
+	spftree->hopcount_metric = hopcount_metric;
+}
+
+static void isis_spf_loop(struct isis_spftree *spftree,
+			  uint8_t *root_sysid)
+{
+	struct isis_vertex *vertex;
+	uint8_t lsp_id[ISIS_SYS_ID_LEN + 2];
+	struct isis_lsp *lsp;
+
+	while (isis_vertex_queue_count(&spftree->tents)) {
+		vertex = isis_vertex_queue_pop(&spftree->tents);
+
+#ifdef EXTREME_DEBUG
+		zlog_debug(
+			"ISIS-Spf: get TENT node %s %s depth %d dist %d to PATHS",
+			print_sys_hostname(vertex->N.id),
+			vtype2string(vertex->type), vertex->depth, vertex->d_N);
+#endif /* EXTREME_DEBUG */
+
+		add_to_paths(spftree, vertex);
+		if (VTYPE_IS(vertex->type)) {
+			memcpy(lsp_id, vertex->N.id, ISIS_SYS_ID_LEN + 1);
+			LSP_FRAGMENT(lsp_id) = 0;
+			lsp = lsp_search(lsp_id, spftree->area->lspdb[spftree->level - 1]);
+			if (lsp && lsp->hdr.rem_lifetime != 0) {
+				isis_spf_process_lsp(spftree, lsp, vertex->d_N,
+						     vertex->depth, root_sysid,
+						     vertex);
+			} else {
+				zlog_warn("ISIS-Spf: No LSP found for %s",
+					  rawlspid_print(lsp_id));
+			}
+		}
+	}
+}
+
+struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
+					   uint8_t *sysid,
+					   struct isis_spftree *spftree)
+{
+	if (!spftree)
+		spftree = isis_spftree_new(area);
+
+	init_spt(spftree, ISIS_MT_IPV4_UNICAST, ISIS_LEVEL2,
+		 AF_INET, SPFTREE_IPV4, true);
+	if (!memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN)) {
+		/* If we are running locally, initialize with information from adjacencies */
+		struct isis_vertex *root = isis_spf_add_root(spftree, sysid);
+		isis_spf_preload_tent(spftree, sysid, root);
+	} else {
+		isis_vertex_queue_insert(&spftree->tents, isis_vertex_new(
+					 sysid, VTYPE_NONPSEUDO_TE_IS));
+	}
+
+	isis_spf_loop(spftree, sysid);
+
+	return spftree;
 }
 
 static int isis_run_spf(struct isis_area *area, int level,
@@ -1292,11 +1363,8 @@ static int isis_run_spf(struct isis_area *area, int level,
 			uint8_t *sysid, struct timeval *nowtv)
 {
 	int retval = ISIS_OK;
-	struct isis_vertex *vertex;
 	struct isis_vertex *root_vertex;
 	struct isis_spftree *spftree = area->spftree[tree_id][level - 1];
-	uint8_t lsp_id[ISIS_SYS_ID_LEN + 2];
-	struct isis_lsp *lsp;
 	struct timeval time_now;
 	unsigned long long start_time, end_time;
 	uint16_t mtid = 0;
@@ -1330,7 +1398,7 @@ static int isis_run_spf(struct isis_area *area, int level,
 	/*
 	 * C.2.5 Step 0
 	 */
-	init_spt(spftree, mtid, level, family, tree_id);
+	init_spt(spftree, mtid, level, family, tree_id, false);
 	/*              a) */
 	root_vertex = isis_spf_add_root(spftree, sysid);
 	/*              b) */
@@ -1350,32 +1418,7 @@ static int isis_run_spf(struct isis_area *area, int level,
 			  print_sys_hostname(sysid));
 	}
 
-	while (isis_vertex_queue_count(&spftree->tents)) {
-		vertex = isis_vertex_queue_pop(&spftree->tents);
-
-#ifdef EXTREME_DEBUG
-		zlog_debug(
-			"ISIS-Spf: get TENT node %s %s depth %d dist %d to PATHS",
-			print_sys_hostname(vertex->N.id),
-			vtype2string(vertex->type), vertex->depth, vertex->d_N);
-#endif /* EXTREME_DEBUG */
-
-		add_to_paths(spftree, vertex);
-		if (VTYPE_IS(vertex->type)) {
-			memcpy(lsp_id, vertex->N.id, ISIS_SYS_ID_LEN + 1);
-			LSP_FRAGMENT(lsp_id) = 0;
-			lsp = lsp_search(lsp_id, area->lspdb[level - 1]);
-			if (lsp && lsp->hdr.rem_lifetime != 0) {
-				isis_spf_process_lsp(spftree, lsp, vertex->d_N,
-						     vertex->depth, sysid,
-						     vertex);
-			} else {
-				zlog_warn("ISIS-Spf: No LSP found for %s",
-					  rawlspid_print(lsp_id));
-			}
-		}
-	}
-
+	isis_spf_loop(spftree, sysid);
 out:
 	spftree->runcount++;
 	spftree->last_run_timestamp = time(NULL);
@@ -1445,6 +1488,8 @@ static int isis_run_spf_cb(struct thread *thread)
 	struct isis_circuit *circuit;
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
 		UNSET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
+
+	fabricd_run_spf(area);
 
 	return retval;
 }
@@ -1664,6 +1709,13 @@ DEFUN (show_isis_topology,
 				isis_print_spftree(vty, level, area,
 						   SPFTREE_DSTSRC);
 			}
+		}
+
+		if (fabricd_spftree(area)) {
+			vty_out(vty,
+				"IS-IS paths to level-2 routers with hop-by-hop metric\n");
+			isis_print_paths(vty, &fabricd_spftree(area)->paths, isis->sysid);
+			vty_out(vty, "\n");
 		}
 
 		vty_out(vty, "\n");

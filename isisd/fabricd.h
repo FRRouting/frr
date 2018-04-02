@@ -26,11 +26,15 @@ struct fabricd;
 
 struct isis_circuit;
 struct isis_area;
+struct isis_spftree;
 
-struct fabricd *fabricd_new(void);
+struct fabricd *fabricd_new(struct isis_area *area);
+void fabricd_finish(struct fabricd *f);
 void fabricd_initial_sync_hello(struct isis_circuit *circuit);
 bool fabricd_initial_sync_is_in_progress(struct isis_area *area);
 struct isis_circuit *fabricd_initial_sync_circuit(struct isis_area *area);
 void fabricd_initial_sync_finish(struct isis_area *area);
+void fabricd_run_spf(struct isis_area *area);
+struct isis_spftree *fabricd_spftree(struct isis_area *area);
 
 #endif
