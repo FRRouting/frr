@@ -107,7 +107,6 @@ enum node_type {
 	BGP_VNC_DEFAULTS_NODE,   /* BGP VNC nve defaults */
 	BGP_VNC_NVE_GROUP_NODE,  /* BGP VNC nve group */
 	BGP_VNC_L2_GROUP_NODE,   /* BGP VNC L2 group */
-	RFP_DEFAULTS_NODE,       /* RFP defaults node */
 	BGP_EVPN_NODE,		 /* BGP EVPN node. */
 	OSPF_NODE,		 /* OSPF protocol mode */
 	OSPF6_NODE,		 /* OSPF protocol for IPv6 mode */
