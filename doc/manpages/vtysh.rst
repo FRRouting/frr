@@ -55,7 +55,9 @@ OPTIONS available for the vtysh command:
 
 .. option:: -u, --user
 
-   Run as an unprivileged user. This limits access to non-privileged commands, i.e., the same commands when directly accessing a daemon   before running the enable command. It also provides the same limited security as such direct access.
+   Restrict access to configuration commands by preventing use of the "enable" command. This option provides the same limited "security" as password-protected telnet access. *This security should not be relied on in production environments.*
+
+   Caveat emptor: VTYSH was never designed to be a privilege broker and is not built using secure coding practices. No guarantees of security are provided for this option and under no circumstances should this option be used to provide any semblance of secure read-only access to FRR.
 
 .. option:: -h, --help
 
