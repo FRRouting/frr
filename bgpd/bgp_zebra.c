@@ -998,6 +998,9 @@ static int bgp_table_map_apply(struct route_map *map, struct prefix *p,
 
 static struct thread *bgp_tm_thread_connect;
 static bool bgp_tm_status_connected;
+static bool bgp_tm_chunk_obtained;
+#define BGP_FLOWSPEC_TABLE_CHUNK 100000
+static uint32_t bgp_tm_min, bgp_tm_max, bgp_tm_chunk_size;
 
 static int bgp_zebra_tm_connect(struct thread *t)
 {
@@ -1018,10 +1021,25 @@ static int bgp_zebra_tm_connect(struct thread *t)
 		if (!bgp_tm_status_connected)
 			zlog_debug("Connecting to table manager. Success");
 		bgp_tm_status_connected = true;
+		if (!bgp_tm_chunk_obtained) {
+			if (bgp_zebra_get_table_range(bgp_tm_chunk_size,
+						      &bgp_tm_min,
+						      &bgp_tm_max) >= 0)
+				bgp_tm_chunk_obtained = true;
+		}
 	}
 	thread_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
 			 &bgp_tm_thread_connect);
 	return 0;
+}
+
+uint32_t bgp_zebra_tm_get_id(void)
+{
+	static int table_id;
+
+	if (!bgp_tm_chunk_obtained)
+		return ++table_id;
+	return bgp_tm_min++;
 }
 
 void bgp_zebra_init_tm_connect(void)
@@ -1033,6 +1051,9 @@ void bgp_zebra_init_tm_connect(void)
 	if (bgp_tm_thread_connect != NULL)
 		return;
 	bgp_tm_status_connected = false;
+	bgp_tm_chunk_obtained = false;
+	bgp_tm_min = bgp_tm_max = 0;
+	bgp_tm_chunk_size = BGP_FLOWSPEC_TABLE_CHUNK;
 	thread_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
 			 &bgp_tm_thread_connect);
 }

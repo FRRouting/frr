@@ -805,16 +805,13 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		       bgp_pbr_action_alloc_intern);
 
 	if (bpa->fwmark == 0) {
-		/* TODO: allocate new table ID using zebra */
-		static int fwmark_id;
-
 		/* drop is handled by iptable */
 		if (nh && nh->type == NEXTHOP_TYPE_BLACKHOLE) {
 			bpa->table_id = 0;
 			bpa->installed = true;
 		} else {
-			bpa->fwmark = ++fwmark_id;
-			bpa->table_id = fwmark_id;
+			bpa->fwmark = bgp_zebra_tm_get_id();
+			bpa->table_id = bpa->fwmark;
 			bpa->installed = false;
 		}
 		bpa->unique = ++bgp_pbr_action_counter_unique;
