@@ -201,7 +201,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(INTERFACE_NODE, line);
 		else if (strncmp(line, "pseudowire", strlen("pseudowire")) == 0)
 			config = config_get(PW_NODE, line);
-		else if (strncmp(line, "logical-router", strlen("ns")) == 0)
+		else if (strncmp(line, "logical-router", strlen("logical-router")) == 0)
 			config = config_get(LOGICALROUTER_NODE, line);
 		else if (strncmp(line, "vrf", strlen("vrf")) == 0)
 			config = config_get(VRF_NODE, line);
