@@ -312,6 +312,13 @@ static int vtysh_execute_func(const char *line, int pager)
 	if (vline == NULL)
 		return CMD_SUCCESS;
 
+	if (user_mode) {
+		if (strncmp("en", vector_slot(vline, 0), 2) == 0) {
+			fprintf(stdout, "%% Command not allowed: enable\n");
+			return CMD_WARNING;
+		}
+	}
+
 	saved_ret = ret = cmd_execute_command(vline, vty, &cmd, 1);
 	saved_node = vty->node;
 
@@ -387,13 +394,13 @@ static int vtysh_execute_func(const char *line, int pager)
 			fprintf(stdout, "Warning...\n");
 		break;
 	case CMD_ERR_AMBIGUOUS:
-		fprintf(stdout, "%% Ambiguous command.\n");
+		fprintf(stdout, "%% Ambiguous command: %s\n", line);
 		break;
 	case CMD_ERR_NO_MATCH:
-		fprintf(stdout, "%% Unknown command.\n");
+		fprintf(stdout, "%% Unknown command: %s\n", line);
 		break;
 	case CMD_ERR_INCOMPLETE:
-		fprintf(stdout, "%% Command incomplete.\n");
+		fprintf(stdout, "%% Command incomplete: %s\n", line);
 		break;
 	case CMD_SUCCESS_DAEMON: {
 		/*
