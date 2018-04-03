@@ -29,6 +29,7 @@
 #include "memory.h"
 #include "hash.h"
 #include "command_graph.h"
+#include "compiler.h"
 
 DECLARE_MTYPE(HOST)
 DECLARE_MTYPE(COMPLETION)
