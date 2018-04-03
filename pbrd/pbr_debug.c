@@ -79,11 +79,6 @@ int pbr_debug_config_write_helper(struct vty *vty, bool config)
 	if (config)
 		mode = DEBUG_MODE_CONF;
 
-	if (pbr_debug_check_all(DEBUG_MODE_CONF) == mode) {
-		vty_out(vty, "debug pbr\n");
-		return 0;
-	}
-
 	for (unsigned int i = 0; i < array_size(pbr_debugs); i++)
 		if (DEBUG_MODE_CHECK(pbr_debugs[i], mode))
 			vty_out(vty, "%s\n", pbr_debugs_conflines[i]);
