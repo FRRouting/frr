@@ -6753,7 +6753,9 @@ DEFUN_NOSH (exit_address_family,
 	    || vty->node == BGP_IPV4L_NODE || vty->node == BGP_VPNV4_NODE
 	    || vty->node == BGP_IPV6_NODE || vty->node == BGP_IPV6M_NODE
 	    || vty->node == BGP_IPV6L_NODE || vty->node == BGP_VPNV6_NODE
-	    || vty->node == BGP_EVPN_NODE)
+	    || vty->node == BGP_EVPN_NODE
+	    || vty->node == BGP_FLOWSPECV4_NODE
+	    || vty->node == BGP_FLOWSPECV6_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
 }
