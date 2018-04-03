@@ -28,9 +28,6 @@
 /* NB: RTADV is defined in zebra/interface.h above */
 #if defined(HAVE_RTADV)
 
-/* currently undefined in icmp6.h */
-#define ND_RA_FLAG_V4_GOAWAY 0x01
-
 /* Router advertisement prefix. */
 struct rtadv_prefix {
 	/* Prefix to be advertised. */
