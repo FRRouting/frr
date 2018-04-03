@@ -708,7 +708,14 @@ either:
 In all cases, compatibility pieces should be marked with
 compiler/preprocessor annotations to print warnings at compile time,
 pointing to the appropriate update path. A ``-Werror`` build should fail
-if compatibility bits are used.
+if compatibility bits are used. To avoid compilation issues in released
+code, such compiler/preprocessor annotations must be ignored
+non-development branches. For example:
+
+    #if defined(VERSION_TYPE_DEV) && CONFDATE > 20180403
+    CPP_NOTICE("Use of <XYZ> is deprecated, please use <ABC>")
+    #endif
+
 
 Preferably, the shell script :file:`tools/fixup-deprecated.py` will be
 updated along with making non-backwards compatible code changes, or an
