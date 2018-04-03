@@ -43,16 +43,7 @@ const char *pbr_debugs_conflines[] = {
 	"debug pbr events",
 };
 
-/*
- * Set or unset flags on all debugs for pbrd.
- *
- * flags
- *    The flags to set
- *
- * set
- *    Whether to set or unset the specified flags
- */
-static void pbr_debug_set_all(uint32_t flags, bool set)
+void pbr_debug_set_all(uint32_t flags, bool set)
 {
 	for (unsigned int i = 0; i < array_size(pbr_debugs); i++) {
 		DEBUG_FLAGS_SET(pbr_debugs[i], flags, set);
@@ -81,7 +72,7 @@ static uint32_t pbr_debug_check_all(uint32_t flags)
 	return mode;
 }
 
-static int pbr_debug_config_write_helper(struct vty *vty, bool config)
+int pbr_debug_config_write_helper(struct vty *vty, bool config)
 {
 	uint32_t mode = DEBUG_MODE_ALL;
 
@@ -104,70 +95,9 @@ int pbr_debug_config_write(struct vty *vty)
 	return pbr_debug_config_write_helper(vty, true);
 }
 
-/* PBR debugging CLI ------------------------------------------------------- */
-/* clang-format off */
-
-DEFPY(debug_pbr,
-      debug_pbr_cmd,
-      "[no] debug pbr [{map$map|zebra$zebra|nht$nht|events$events}]",
-      NO_STR
-      DEBUG_STR
-      "Policy Based Routing\n"
-      "Policy maps\n"
-      "PBRD <-> Zebra communications\n"
-      "Nexthop tracking\n"
-      "Events\n")
-{
-	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-
-	if (map)
-		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
-	if (zebra)
-		DEBUG_MODE_SET(&pbr_dbg_zebra, mode, !no);
-	if (nht)
-		DEBUG_MODE_SET(&pbr_dbg_nht, mode, !no);
-	if (events)
-		DEBUG_MODE_SET(&pbr_dbg_event, mode, !no);
-
-	/* no specific debug --> act on all of them */
-	if (strmatch(argv[argc - 1]->text, "pbr"))
-		pbr_debug_set_all(mode, !no);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH(show_debugging_pbr,
-	   show_debugging_pbr_cmd,
-	   "show debugging [pbr]",
-	   SHOW_STR
-	   DEBUG_STR
-	   "Policy Based Routing\n")
-{
-	vty_out(vty, "PBR debugging status:\n");
-
-	pbr_debug_config_write_helper(vty, false);
-
-	return CMD_SUCCESS;
-}
-
-/* clang-format on */
-/* ------------------------------------------------------------------------- */
-
-static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
-
 struct debug_callbacks pbr_dbg_cbs = {.debug_set_all = pbr_debug_set_all};
 
 void pbr_debug_init(void)
 {
 	debug_init(&pbr_dbg_cbs);
-}
-
-void pbr_debug_init_vty(void)
-{
-	install_node(&debug_node, pbr_debug_config_write);
-
-	install_element(VIEW_NODE, &debug_pbr_cmd);
-	install_element(CONFIG_NODE, &debug_pbr_cmd);
-
-	install_element(VIEW_NODE, &show_debugging_pbr_cmd);
 }
