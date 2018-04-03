@@ -25,6 +25,7 @@
 
 extern void bgp_zebra_init(struct thread_master *master);
 extern void bgp_zebra_init_tm_connect(void);
+extern uint32_t bgp_zebra_tm_get_id(void);
 extern void bgp_zebra_destroy(void);
 extern int bgp_zebra_get_table_range(uint32_t chunk_size,
 				     uint32_t *start, uint32_t *end);
