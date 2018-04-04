@@ -858,14 +858,9 @@ void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn,       /* to */
 			info_vrf->type, info_vrf->sub_type);
 	}
 
-	if (info_vrf->type != ZEBRA_ROUTE_BGP) {
-		if (debug)
-			zlog_debug("%s: wrong type %d", __func__,
-				   info_vrf->type);
-		return;
-	}
 	if (info_vrf->sub_type != BGP_ROUTE_NORMAL
-	    && info_vrf->sub_type != BGP_ROUTE_STATIC) {
+	    && info_vrf->sub_type != BGP_ROUTE_STATIC
+	    && info_vrf->sub_type != BGP_ROUTE_REDISTRIBUTE) {
 
 		if (debug)
 			zlog_debug("%s: wrong sub_type %d", __func__,
