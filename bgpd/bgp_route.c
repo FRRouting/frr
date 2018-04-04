@@ -569,7 +569,7 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 	}
 
 	if (!(exist->sub_type == BGP_ROUTE_NORMAL ||
-	      new->sub_type == BGP_ROUTE_IMPORTED)) {
+	      exist->sub_type == BGP_ROUTE_IMPORTED)) {
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to preferred BGP_ROUTE type",
