@@ -842,6 +842,9 @@ AC_ARG_WITH([frr-format],
 AC_ARG_ENABLE([version-build-config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
 
+AC_ARG_ENABLE(wrap_script,
+  AS_HELP_STRING([--enable-wrap-script], [enable Usage of Script Wrapping Layer]))
+
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
@@ -2777,7 +2780,7 @@ AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" != "no"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
-
+AM_CONDITIONAL([WRAP_SCRIPT], [test "x$enable_wrap_script" = "xyes"])
 dnl PCEP plugin
 AS_IF([test "$enable_pathd" != "no"], [
        AC_SUBST([PATHD_PCEP_LIBS], ["pceplib/libpcep_pcc.la"])
@@ -2787,7 +2790,6 @@ AC_CHECK_LIB([cunit], [CU_initialize_registry], [pcep_cunit=yes],[pcep_cunit=no]
 AM_CONDITIONAL([PATHD_PCEP_TEST], [test "x${pcep_cunit}" = xyes])
 AC_CHECK_PROG(VALGRIND_CHECK, valgrind, yes)
 AM_CONDITIONAL([HAVE_VALGRIND_PCEP], [test "$VALGRIND_CHECK" = "yes"])
-
 dnl daemons
 AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
 AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])

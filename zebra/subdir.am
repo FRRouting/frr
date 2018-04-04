@@ -18,6 +18,9 @@ endif
 if LINUX
 module_LTLIBRARIES += zebra/zebra_cumulus_mlag.la
 endif
+if WRAP_SCRIPT
+module_LTLIBRARIES += zebra/zebra_wrap_script.la
+endif
 
 # Dataplane sample plugin
 if DEV_BUILD
@@ -267,3 +270,8 @@ zebra_zebra_dplane_dpdk_la_SOURCES = zebra/dpdk/zebra_dplane_dpdk.c zebra/dpdk/z
 zebra_zebra_dplane_dpdk_la_LDFLAGS = -avoid-version -module -shared -export-dynamic -L/usr/local/lib -v
 zebra_zebra_dplane_dpdk_la_CFLAGS = $(DPDK_CFLAGS)
 zebra_zebra_dplane_dpdk_la_LIBADD  = $(DPDK_LIBS)
+
+if WRAP_SCRIPT
+zebra_zebra_wrap_script_la_SOURCES = zebra/zebra_wrap_script.c
+zebra_zebra_wrap_script_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+endif

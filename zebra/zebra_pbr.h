@@ -12,6 +12,7 @@
 
 #include "prefix.h"
 #include "if.h"
+#include "hook.h"
 
 #include "rt.h"
 #include "pbr.h"
