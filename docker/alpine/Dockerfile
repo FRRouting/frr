@@ -12,8 +12,7 @@ RUN apk add --no-cache abuild acct alpine-sdk attr autoconf automake bash \
     patch pax-utils pcre perl pkgconf python2 python2-dev readline \
     readline-dev sqlite-libs squashfs-tools sudo tar texinfo xorriso xz-libs \
     groff gzip bc py-sphinx
-RUN mkdir -p /src
-ADD src.tar /src
+ADD . /src
 RUN (cd /src && \
 	./bootstrap.sh && \
 	./configure \
@@ -22,9 +21,13 @@ RUN (cd /src && \
 	make dist)
 FROM alpine:3.7 as alpine-builder
 RUN apk add --no-cache abuild alpine-sdk && mkdir -p /pkgs/apk
-ADD alpine-build.sh /usr/bin/
-ADD builder /etc/sudoers.d
+ADD docker/alpine/alpine-build.sh /usr/bin/
+ADD docker/alpine/builder /etc/sudoers.d
 COPY --from=source-builder /src/*.tar.gz /src/alpine/APKBUILD /dist/
 RUN adduser -D -G abuild builder && chown -R builder /dist /pkgs
 USER builder
 RUN /usr/bin/alpine-build.sh
+FROM alpine:3.7
+RUN mkdir -p /pkgs/apk
+COPY --from=alpine-builder /pkgs/apk/ /pkgs/apk/
+RUN apk add --no-cache --allow-untrusted /pkgs/apk/x86_64/*.apk
