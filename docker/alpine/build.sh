@@ -9,12 +9,8 @@ set -x
 ##
 c=`git rev-parse --short=10 HEAD`
 commit=`printf '%u\n' 0x$c`
-git archive --format=tar $c > docker/alpine/src.tar
-(cd docker/alpine && \
-	docker build --build-arg commit=$commit --rm --force-rm -t \
-		frr:alpine-$c . && \
-	rm -f src.tar)
-
+docker build -f docker/alpine/Dockerfile \
+	--build-arg commit=$commit -t frr:alpine-$c .
 id=`docker create frr:alpine-$c`
 docker cp ${id}:/pkgs/ docker
 docker rm $id
