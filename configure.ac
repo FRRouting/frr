@@ -432,6 +432,8 @@ AC_ARG_ENABLE([clippy-only],
   AS_HELP_STRING([--enable-clippy-only], [Only build clippy]))
 AC_ARG_ENABLE([numeric_version],
   AS_HELP_STRING([--enable-numeric-version], [Only numeric digits allowed in version (for Alpine)]))
+AC_ARG_ENABLE(wrap_script,
+  AS_HELP_STRING([--enable-wrap-script], [enable Usage of Script Wrapping Layer]))
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
@@ -495,6 +497,7 @@ if test "${enable_shell_access}" = "yes"; then
 fi
 
 AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
+AM_CONDITIONAL([WRAP_SCRIPT], [test "x$enable_wrap_script" = "xyes"])
 
 #
 # Python for clippy
