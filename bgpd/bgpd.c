@@ -1172,6 +1172,11 @@ struct peer *peer_new(struct bgp *bgp)
 		}
 		peer->orf_plist[afi][safi] = NULL;
 	}
+
+	/* set nexthop-unchanged for l2vpn evpn by default */
+	SET_FLAG(peer->af_flags[AFI_L2VPN][SAFI_EVPN],
+		 PEER_FLAG_NEXTHOP_UNCHANGED);
+
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	/* Create buffers.  */
