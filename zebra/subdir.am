@@ -38,6 +38,9 @@ endif
 if LINUX
 module_LTLIBRARIES += zebra/zebra_cumulus_mlag.la
 endif
+if WRAP_SCRIPT
+module_LTLIBRARIES += zebra/zebra_wrap_script.la
+endif
 
 # Dataplane sample plugin
 if DEV_BUILD
@@ -239,4 +242,9 @@ if NETLINK_DEBUG
 zebra_zebra_SOURCES += \
 	zebra/debug_nl.c \
 	# end
+endif
+
+if WRAP_SCRIPT
+zebra_zebra_wrap_script_la_SOURCES = zebra/zebra_wrap_script.c
+zebra_zebra_wrap_script_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 endif
