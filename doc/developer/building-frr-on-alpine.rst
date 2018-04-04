@@ -34,26 +34,38 @@ This will put the apk packages in:
 Usage
 -----
 
-To add the packages to a docker image, create a Dockerfile in ./docker/pkgs:
+To create a base image with the frr packages installed:
 
 ::
 
-   FROM alpine:3.7
-   RUN mkdir -p /pkgs
-   ADD apk/ /pkgs/
-   RUN apk add --no-cache --allow-untrusted /pkgs/x86_64/*.apk
+   docker build --rm -f docker/alpine/Dockerfile -t frr:latest .
 
-And build a docker image:
+Or, if you don't have a git checkout of the sources, you can build a base
+image directly off the github account:
 
 ::
 
-   docker build --rm --force-rm -t alpine-dev-pkgs:latest docker/pkgs
+   docker build --rm -f docker/alpine/Dockerfile -t frr:latest \
+	https://github.com/frrouting/frr.git
 
-And run the image:
+And to run the image:
 
 ::
 
-   docker run -it --rm alpine-dev-pkgs:latest /bin/sh
+   docker run -it --rm frr:latest /bin/sh
 
 Currently, we only package the raw daemons and example files, so, you'll
 need to run the daemons by hand (or, better, orchestrate in the Dockerfile).
+
+We can also build directly from docker-compose, with a docker-compose.yml file
+like this one:
+
+::
+
+   version: '2.2'
+
+   services:
+      frr:
+         build:
+            context: https://github.com/frrouting/frr.git
+            dockerfile: docker/alpine/Dockerfile
