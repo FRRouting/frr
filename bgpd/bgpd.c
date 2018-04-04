@@ -711,10 +711,6 @@ struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi)
 	af->afid = afid;
 	af->peer = peer;
 
-	/* for l2vpn/evpn the default behaviour is nexthop-unchanged */
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		peer_af_flag_set(peer, afi, safi, PEER_FLAG_NEXTHOP_UNCHANGED);
-
 	return af;
 }
 
@@ -1178,6 +1174,11 @@ struct peer *peer_new(struct bgp *bgp)
 		}
 		peer->orf_plist[afi][safi] = NULL;
 	}
+
+	/* set nexthop-unchanged for l2vpn evpn by default */
+	SET_FLAG(peer->af_flags[AFI_L2VPN][SAFI_EVPN],
+		 PEER_FLAG_NEXTHOP_UNCHANGED);
+
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	/* Create buffers.  */
@@ -1931,10 +1932,6 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	}
-
-	/* for l2vpn/evpn the default behaviour is nexthop-unchanged */
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		peer_af_flag_set(peer, afi, safi, PEER_FLAG_NEXTHOP_UNCHANGED);
 
 	return 0;
 }
