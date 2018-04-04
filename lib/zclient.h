@@ -353,7 +353,7 @@ struct zclient_options {
 /* Prototypes of zebra client service functions. */
 extern struct zclient *zclient_new(struct thread_master *);
 
-#if CONFDATE > 20181101
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20181101
 CPP_NOTICE("zclient_new_notify can take over or zclient_new now");
 #endif
 
@@ -422,7 +422,7 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
-#if CONFDATE > 20180823
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20180823
 CPP_NOTICE("zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as well as the zapi_ipv4 and zapi_ipv6 data structures should be removed now");
 #endif
 

@@ -189,7 +189,7 @@ struct vty_arg {
 /* Integrated configuration file. */
 #define INTEGRATE_DEFAULT_CONFIG "frr.conf"
 
-#if CONFDATE > 20180401
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20180401
 CPP_NOTICE("It's probably time to remove VTY_NEWLINE compatibility foo.")
 #endif
 

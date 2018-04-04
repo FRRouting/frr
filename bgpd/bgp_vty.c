@@ -8299,7 +8299,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 			uptime -= p->uptime;
 			epoch_tbuf = time(NULL) - uptime;
 
-#if CONFDATE > 20200101
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20200101
 			CPP_NOTICE("bgpTimerUp should be deprecated and can be removed now");
 #endif
 			/*
