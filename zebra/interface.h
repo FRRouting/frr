@@ -317,6 +317,8 @@ extern void zebra_if_init(void);
 extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
+extern struct interface *if_lookup_by_name_not_ns(ns_id_t ns_id,
+						  const char *ifname);
 extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);
 extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);
 

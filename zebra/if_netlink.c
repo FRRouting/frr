@@ -1015,6 +1015,54 @@ int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	return 0;
 }
 
+/* helper function called by if_netlink_change
+ * to delete interfaces in case the interface moved
+ * to an other netns
+ */
+static void if_netlink_check_ifp_instance_consistency(uint16_t cmd,
+						     struct interface *ifp,
+						     ns_id_t ns_id)
+{
+	struct interface *old_ifp;
+
+	/*
+	 * look if interface name is also found on other netns
+	 * - only if vrf backend is netns
+	 * - do not concern lo interface
+	 * - then remove previous one
+	 * - for new link case, check found interface is not active
+	 */
+	if (!vrf_is_backend_netns() ||
+	    !strcmp(ifp->name, "lo"))
+		return;
+	old_ifp = if_lookup_by_name_not_ns(ns_id, ifp->name);
+	if (!old_ifp)
+		return;
+	if ((cmd == RTM_NEWLINK)
+	    && (CHECK_FLAG(old_ifp->status, ZEBRA_INTERFACE_ACTIVE)))
+		return;
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s %s(%u) %s VRF %u",
+			   cmd == RTM_DELLINK ?
+			   "RTM_DELLINK replaced by" :
+			   "RTM_NEWLINK replaces",
+			   ifp->name,
+			   old_ifp->ifindex,
+			   cmd == RTM_DELLINK ?
+			   "in" : "from",
+			   old_ifp->vrf_id);
+	/* the found interface replaces the current one
+	 * remove it
+	 */
+	if (cmd == RTM_DELLINK)
+		if_delete(ifp);
+	else
+		if_delete(old_ifp);
+	/* the found interface is replaced by the current one
+	 * suppress it
+	 */
+}
+
 int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			ns_id_t ns_id, int startup)
 {
@@ -1175,6 +1223,8 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 				zebra_l2if_update_bridge_slave(ifp,
 							       bridge_ifindex);
+			if_netlink_check_ifp_instance_consistency(RTM_NEWLINK,
+								  ifp, ns_id);
 		} else if (ifp->vrf_id != vrf_id) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1242,6 +1292,8 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) || was_bridge_slave)
 				zebra_l2if_update_bridge_slave(ifp,
 							       bridge_ifindex);
+			if_netlink_check_ifp_instance_consistency(RTM_NEWLINK,
+								  ifp, ns_id);
 		}
 	} else {
 		/* Delete interface notification from kernel */
@@ -1265,6 +1317,8 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 		if (!IS_ZEBRA_IF_VRF(ifp))
 			if_delete_update(ifp);
+		if_netlink_check_ifp_instance_consistency(RTM_DELLINK,
+							  ifp, ns_id);
 	}
 
 	return 0;
