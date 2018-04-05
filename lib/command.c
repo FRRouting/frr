@@ -96,7 +96,6 @@ const char *node_names[] = {
 	"ldp l2vpn",		    // LDP_L2VPN_NODE,
 	"ldp",			    // LDP_PSEUDOWIRE_NODE,
 	"isis",			    // ISIS_NODE,
-	"irdp",			    // IRDP_NODE,
 	"static ip",		    // IP_NODE,
 	"ipv4 access list",	 // ACCESS_NODE,
 	"ipv4 prefix list",	 // PREFIX_NODE,
