@@ -144,6 +144,9 @@ struct attr {
 	struct in6_addr mp_nexthop_global;
 	struct in6_addr mp_nexthop_local;
 
+	/* ifIndex corresponding to mp_nexthop_local. */
+	ifindex_t nh_lla_ifindex;
+
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
 

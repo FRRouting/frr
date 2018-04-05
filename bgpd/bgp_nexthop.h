@@ -29,6 +29,7 @@
 	(((nexthop_len) == 4 || (nexthop_len) == 12                            \
 		  ? AF_INET                                                    \
 		  : ((nexthop_len) == 16 || (nexthop_len) == 24                \
+				     || (nexthop_len) == 32                    \
 				     || (nexthop_len) == 48                    \
 			     ? AF_INET6                                        \
 			     : AF_UNSPEC)))

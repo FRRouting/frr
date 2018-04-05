@@ -770,20 +770,19 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 				static_attr.flag &= ~ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 			}
 		} else {
-			switch (afi) {
-			case AFI_IP:
+			/* Update based on next-hop family to account for
+			 * RFC 5549 (BGP unnumbered) scenario. Note that
+			 * specific action is only needed for the case of
+			 * IPv4 nexthops as the attr has been copied
+			 * otherwise.
+			 */
+			if (afi == AFI_IP &&
+			    !BGP_ATTR_NEXTHOP_AFI_IP6(info_vrf->attr)) {
 				static_attr.mp_nexthop_global_in.s_addr =
 					static_attr.nexthop.s_addr;
 				static_attr.mp_nexthop_len = 4;
 				static_attr.flag |=
 					ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
-				break;
-			case AFI_IP6:
-				break;
-			case AFI_L2VPN:
-			case AFI_MAX:
-				assert(!"Unexpected AFI to process");
-				break;
 			}
 		}
 		nexthop_self_flag = 1;
@@ -1076,7 +1075,6 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 		if (CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
 			       BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
 			static_attr.mp_nexthop_global = nexthop_orig.u.prefix6;
-			static_attr.mp_nexthop_len = 16;
 		}
 		break;
 	}
