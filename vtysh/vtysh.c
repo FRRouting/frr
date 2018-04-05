@@ -366,6 +366,8 @@ static int vtysh_execute_func(const char *line, int pager)
 			    || saved_node == BGP_VNC_L2_GROUP_NODE)
 			   && (tried == 1)) {
 			vtysh_execute("exit-vnc");
+		} else if (saved_node == VRF_NODE && (tried == 1)) {
+			vtysh_execute("exit-vrf");
 		} else if ((saved_node == KEYCHAIN_KEY_NODE
 			    || saved_node == LDP_PSEUDOWIRE_NODE
 			    || saved_node == LDP_IPV4_IFACE_NODE
@@ -643,6 +645,8 @@ int vtysh_mark_file(const char *filename)
 			} else if ((prev_node == BGP_EVPN_VNI_NODE)
 				   && (tried == 1)) {
 				fprintf(outputfile, "exit-vni\n");
+			} else if (prev_node == VRF_NODE) {
+				fprintf(outputfile, "exit-vrf\n");
 			} else if ((prev_node == KEYCHAIN_KEY_NODE)
 				   && (tried == 1)) {
 				fprintf(outputfile, "exit\n");
@@ -1653,8 +1657,16 @@ DEFUNSH(VTYSH_BGPD, exit_vnc_config, exit_vnc_config_cmd, "exit-vnc",
 	return CMD_SUCCESS;
 }
 
+DEFUNSH(VTYSH_PIMD|VTYSH_ZEBRA, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
+	"Exit from VRF configuration mode\n")
+{
+	if (vty->node == VRF_NODE)
+		vty->node = CONFIG_NODE;
+	return CMD_SUCCESS;
+}
+
 DEFUNSH(VTYSH_BGPD, exit_vrf_policy, exit_vrf_policy_cmd, "exit-vrf-policy",
-	"Exit from VRF  configuration mode\n")
+	"Exit from VRF policy configuration mode\n")
 {
 	if (vty->node == BGP_VRF_POLICY_NODE)
 		vty->node = BGP_NODE;
@@ -3393,6 +3405,8 @@ void vtysh_init_vty(void)
 	install_element(INTERFACE_NODE, &vtysh_link_params_cmd);
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
+
+	install_element(VRF_NODE, &exit_vrf_config_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_vrf_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_vrf_cmd);
