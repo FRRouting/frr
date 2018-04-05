@@ -207,7 +207,7 @@ static int rip_snmp_ifaddr_del(struct connected *ifc)
 	if (!rn)
 		return 0;
 	i = rn->info;
-	if (rn && !strncmp(i->name, ifp->name, INTERFACE_NAMSIZ)) {
+	if (!strncmp(i->name, ifp->name, INTERFACE_NAMSIZ)) {
 		rn->info = NULL;
 		route_unlock_node(rn);
 		route_unlock_node(rn);
