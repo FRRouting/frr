@@ -7226,8 +7226,13 @@ DEFUN (no_debug_msdp,
 	return CMD_SUCCESS;
 }
 
-ALIAS(no_debug_msdp, undebug_msdp_cmd, "undebug msdp",
-      UNDEBUG_STR DEBUG_MSDP_STR)
+#if CONFDATE > 20190402
+CPP_NOTICE("bgpd: time to remove undebug commands")
+#endif
+ALIAS_HIDDEN (no_debug_msdp,
+              undebug_msdp_cmd,
+              "undebug msdp",
+              UNDEBUG_STR DEBUG_MSDP_STR)
 
 DEFUN (debug_msdp_events,
        debug_msdp_events_cmd,
@@ -7252,8 +7257,15 @@ DEFUN (no_debug_msdp_events,
 	return CMD_SUCCESS;
 }
 
-ALIAS(no_debug_msdp_events, undebug_msdp_events_cmd, "undebug msdp events",
-      UNDEBUG_STR DEBUG_MSDP_STR DEBUG_MSDP_EVENTS_STR)
+#if CONFDATE > 20190402
+CPP_NOTICE("bgpd: time to remove undebug commands")
+#endif
+ALIAS_HIDDEN (no_debug_msdp_events,
+              undebug_msdp_events_cmd,
+              "undebug msdp events",
+              UNDEBUG_STR
+              DEBUG_MSDP_STR
+              DEBUG_MSDP_EVENTS_STR)
 
 DEFUN (debug_msdp_packets,
        debug_msdp_packets_cmd,
@@ -7278,8 +7290,15 @@ DEFUN (no_debug_msdp_packets,
 	return CMD_SUCCESS;
 }
 
-ALIAS(no_debug_msdp_packets, undebug_msdp_packets_cmd, "undebug msdp packets",
-      UNDEBUG_STR DEBUG_MSDP_STR DEBUG_MSDP_PACKETS_STR)
+#if CONFDATE > 20190402
+CPP_NOTICE("bgpd: time to remove undebug commands")
+#endif
+ALIAS_HIDDEN (no_debug_msdp_packets,
+              undebug_msdp_packets_cmd,
+              "undebug msdp packets",
+              UNDEBUG_STR
+              DEBUG_MSDP_STR
+              DEBUG_MSDP_PACKETS_STR)
 
 DEFUN (debug_mtrace,
        debug_mtrace_cmd,
