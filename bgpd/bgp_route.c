@@ -115,7 +115,7 @@ struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 		prn = bgp_node_get(table, (struct prefix *)prd);
 
 		if (prn->info == NULL)
-			prn->info = bgp_table_init(afi, safi);
+			prn->info = bgp_table_init(table->bgp, afi, safi);
 		else
 			bgp_unlock_node(prn);
 		table = prn->info;
@@ -1327,8 +1327,10 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 
 static void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 {
-	if (family == AF_INET)
+	if (family == AF_INET) {
 		attr->nexthop.s_addr = 0;
+		attr->mp_nexthop_global_in.s_addr = 0;
+	}
 	if (family == AF_INET6)
 		memset(&attr->mp_nexthop_global, 0, IPV6_MAX_BYTELEN);
 }
@@ -1751,7 +1753,22 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 						 ? AF_INET6
 						 : p->family),
 					attr);
+		} else if (CHECK_FLAG(ri->flags, BGP_INFO_ANNC_NH_SELF)) {
+			/*
+			 * This flag is used for leaked vpn-vrf routes
+			 */
+			int family = p->family;
+
+			if (peer_cap_enhe(peer, afi, safi))
+				family = AF_INET6;
+
+			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+				zlog_debug(
+					"%s: BGP_INFO_ANNC_NH_SELF, family=%s",
+					__func__, family2str(family));
+			subgroup_announce_reset_nhop(family, attr);
 		}
+
 		/* If IPv6/MP and nexthop does not have any override and happens
 		 * to
 		 * be a link-local address, reset it so that we don't pass along
@@ -3161,8 +3178,13 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 			else
 				connected = 0;
 
-			if (bgp_find_or_add_nexthop(bgp, afi, ri, NULL,
-						    connected)
+			struct bgp *bgp_nexthop = bgp;
+
+			if (ri->extra && ri->extra->bgp_orig)
+				bgp_nexthop = ri->extra->bgp_orig;
+
+			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi,
+							ri, NULL, connected)
 			    || CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
 				bgp_info_set_flag(rn, ri, BGP_INFO_VALID);
 			else {
@@ -3289,7 +3311,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		else
 			connected = 0;
 
-		if (bgp_find_or_add_nexthop(bgp, afi, new, NULL, connected)
+		if (bgp_find_or_add_nexthop(bgp, bgp, afi, new, NULL, connected)
 		    || CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
 			bgp_info_set_flag(rn, new, BGP_INFO_VALID);
 		else {
@@ -3716,12 +3738,14 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 			/* Handle withdraw for VRF route-leaking and L3VPN */
 			if (SAFI_UNICAST == safi
 			    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
-				bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+				bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
 				vpn_leak_from_vrf_withdraw(bgp_get_default(),
 							   bgp, ri);
+			}
 			if (SAFI_MPLS_VPN == safi &&
-			    bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			    bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 				vpn_leak_to_vrf_withdraw(bgp, ri);
+			}
 
 			bgp_rib_remove(rn, ri, peer, afi, safi);
 		}
@@ -4372,8 +4396,14 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 			if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
 			    && (safi == SAFI_UNICAST
 				|| safi == SAFI_LABELED_UNICAST)) {
-				if (bgp_find_or_add_nexthop(bgp, afi, ri, NULL,
-							    0))
+
+				struct bgp *bgp_nexthop = bgp;
+
+				if (ri->extra && ri->extra->bgp_orig)
+					bgp_nexthop = ri->extra->bgp_orig;
+
+				if (bgp_find_or_add_nexthop(bgp, bgp_nexthop,
+					    afi, ri, NULL, 0))
 					bgp_info_set_flag(rn, ri,
 							  BGP_INFO_VALID);
 				else {
@@ -4424,7 +4454,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 	/* Nexthop reachability check. */
 	if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
 	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)) {
-		if (bgp_find_or_add_nexthop(bgp, afi, new, NULL, 0))
+		if (bgp_find_or_add_nexthop(bgp, bgp, afi, new, NULL, 0))
 			bgp_info_set_flag(rn, new, BGP_INFO_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
@@ -5072,7 +5102,7 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 	}
 	prn = bgp_node_get(bgp->route[afi][safi], (struct prefix *)&prd);
 	if (prn->info == NULL)
-		prn->info = bgp_table_init(afi, safi);
+		prn->info = bgp_table_init(bgp, afi, safi);
 	else
 		bgp_unlock_node(prn);
 	table = prn->info;
@@ -5170,7 +5200,7 @@ int bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty,
 
 	prn = bgp_node_get(bgp->route[afi][safi], (struct prefix *)&prd);
 	if (prn->info == NULL)
-		prn->info = bgp_table_init(afi, safi);
+		prn->info = bgp_table_init(bgp, afi, safi);
 	else
 		bgp_unlock_node(prn);
 	table = prn->info;
@@ -11368,7 +11398,7 @@ void bgp_route_init(void)
 
 	/* Init BGP distance table. */
 	FOREACH_AFI_SAFI (afi, safi)
-		bgp_distance_table[afi][safi] = bgp_table_init(afi, safi);
+		bgp_distance_table[afi][safi] = bgp_table_init(NULL, afi, safi);
 
 	/* IPv4 BGP commands. */
 	install_element(BGP_NODE, &bgp_table_map_cmd);

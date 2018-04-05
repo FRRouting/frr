@@ -1394,7 +1394,7 @@ int bgp_start(struct peer *peer)
 	else
 		connected = 0;
 
-	if (!bgp_find_or_add_nexthop(peer->bgp,
+	if (!bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
 				     family2afi(peer->su.sa.sa_family), NULL,
 				     peer, connected)) {
 #if defined(HAVE_CUMULUS)

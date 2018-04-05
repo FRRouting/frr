@@ -632,10 +632,11 @@ void bgp_scan_init(struct bgp *bgp)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		bgp->nexthop_cache_table[afi] =
-			bgp_table_init(afi, SAFI_UNICAST);
-		bgp->connected_table[afi] = bgp_table_init(afi, SAFI_UNICAST);
+			bgp_table_init(bgp, afi, SAFI_UNICAST);
+		bgp->connected_table[afi] = bgp_table_init(bgp, afi,
+			SAFI_UNICAST);
 		bgp->import_check_table[afi] =
-			bgp_table_init(afi, SAFI_UNICAST);
+			bgp_table_init(bgp, afi, SAFI_UNICAST);
 	}
 }
 

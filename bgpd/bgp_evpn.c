@@ -4041,7 +4041,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	derive_rd_rt_for_vni(bgp, vpn);
 
 	/* Initialize EVPN route table. */
-	vpn->route_table = bgp_table_init(AFI_L2VPN, SAFI_EVPN);
+	vpn->route_table = bgp_table_init(bgp, AFI_L2VPN, SAFI_EVPN);
 
 	/* Add to hash */
 	if (!hash_get(bgp->vnihash, vpn, hash_alloc_intern)) {

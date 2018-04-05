@@ -188,6 +188,7 @@ struct bgp {
 
 	/* Name of this BGP instance.  */
 	char *name;
+	char *name_pretty;	/* printable "VRF|VIEW name|default" */
 
 	/* Type of instance and VRF id. */
 	enum bgp_instance_type inst_type;

@@ -1289,8 +1289,12 @@ struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
 	n->gate = znh->gate;
 
 	/*
-	 * This function does not currently handle labels
+	 * This function currently handles labels
 	 */
+	if (znh->label_num) {
+		nexthop_add_labels(n, ZEBRA_LSP_NONE, znh->label_num,
+			znh->labels);
+	}
 
 	return n;
 }
