@@ -33,6 +33,16 @@ daemons will change ownership of their sockets to).
 To restrict access to FRR configuration, make sure no unauthorized users are
 members of the |INSTALL_VTY_GROUP| group.
 
+.. warning::
+
+   VTYSH implements a CLI option ``-u, --user`` that disallows entering the
+   characters "en" on the command line, which ideally restricts access to
+   configuration commands. However, VTYSH was never designed to be a privilege
+   broker and is not built using secure coding practices. No guarantees of
+   security are provided for this option and under no circumstances should this
+   option be used to provide any semblance of security or read-only access to
+   FRR.
+
 PAM support (experimental)
 --------------------------
 
