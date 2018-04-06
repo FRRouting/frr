@@ -312,6 +312,9 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 				json_object_array_add(json_paths,
 						      json_ecom_path);
 		}
+		if (attr->nexthop.s_addr != 0 &&
+		    display == NLRI_STRING_FORMAT_LARGE)
+			vty_out(vty, "\tNH %-16s\n", inet_ntoa(attr->nexthop));
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 	peer_uptime(binfo->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);

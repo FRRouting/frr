@@ -6545,8 +6545,20 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 		} else
 			vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
 	} else if (safi == SAFI_FLOWSPEC) {
-		/* already done */
-	/* IPv4 Next Hop */
+		if (attr->nexthop.s_addr != 0) {
+			if (json_paths) {
+				json_nexthop_global = json_object_new_object();
+				json_object_string_add(
+					       json_nexthop_global, "ip",
+					       inet_ntoa(attr->nexthop));
+				json_object_string_add(json_nexthop_global,
+						       "afi", "ipv4");
+				json_object_boolean_true_add(json_nexthop_global,
+							     "used");
+			} else {
+				vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
+			}
+		}
 	} else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
