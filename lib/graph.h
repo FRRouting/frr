@@ -24,6 +24,7 @@
 #ifndef _ZEBRA_COMMAND_GRAPH_H
 #define _ZEBRA_COMMAND_GRAPH_H
 
+#include <stdbool.h>
 #include "vector.h"
 
 struct graph {
@@ -90,5 +91,24 @@ void graph_remove_edge(struct graph_node *from, struct graph_node *to);
  * @param graph the graph to delete
  */
 void graph_delete_graph(struct graph *graph);
+
+/*
+ * Finds a node in the graph.
+ *
+ * @param[in] graph the graph to search in
+ * @param[in] data the data to key off
+ * @return the first graph node whose data pointer matches `data`
+ */
+struct graph_node *graph_find_node(struct graph *graph, void *data);
+
+
+/*
+ * Determines whether two nodes have a directed edge between them.
+ *
+ * @param from
+ * @param to
+ * @return whether there is a directed edge from `from` to `to`.
+ */
+bool graph_has_edge(struct graph_node *from, struct graph_node *to);
 
 #endif /* _ZEBRA_COMMAND_GRAPH_H */
