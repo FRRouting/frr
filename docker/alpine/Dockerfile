@@ -23,11 +23,13 @@ FROM alpine:3.7 as alpine-builder
 RUN apk add --no-cache abuild alpine-sdk && mkdir -p /pkgs/apk
 ADD docker/alpine/alpine-build.sh /usr/bin/
 ADD docker/alpine/builder /etc/sudoers.d
-COPY --from=source-builder /src/*.tar.gz /src/alpine/APKBUILD /dist/
+COPY --from=source-builder /src/*.tar.gz /src/alpine/* /src/tools/etc/frr/daemons* /dist/
 RUN adduser -D -G abuild builder && chown -R builder /dist /pkgs
 USER builder
 RUN /usr/bin/alpine-build.sh
 FROM alpine:3.7
 RUN mkdir -p /pkgs/apk
 COPY --from=alpine-builder /pkgs/apk/ /pkgs/apk/
+RUN apk add --no-cache tini
 RUN apk add --no-cache --allow-untrusted /pkgs/apk/x86_64/*.apk
+ENTRYPOINT [ "/sbin/tini", "--", "/usr/lib/frr/docker-start" ]

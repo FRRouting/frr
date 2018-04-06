@@ -52,13 +52,32 @@ And to run the image:
 
 ::
 
-   docker run -it --rm frr:latest /bin/sh
+   docker run -it --rm --name frr frr:latest
 
-Currently, we only package the raw daemons and example files, so, you'll
-need to run the daemons by hand (or, better, orchestrate in the Dockerfile).
+In the default configuration, none of the frr daemons will  be running.
+To configure the daemons, exec into the container and edit the configuration
+files or mount a volume with configuration files into the container on
+startup.  To configure by hand:
 
-We can also build directly from docker-compose, with a docker-compose.yml file
-like this one:
+::
+
+   docker exec -it frr /bin/sh
+   vi /etc/frr/daemons
+   vi /etc/frr/daemons.conf
+   cp /etc/frr/zebra.conf.sample /etc/frr/zebra.conf
+   vi /etc/frr/zebra.conf
+   /etc/init.d/frr start
+
+Or, to configure the daemons using /etc/frr from a host volume, put the
+config files in, say, ./docker/etc and bind mount that into the
+container:
+
+::
+
+   docker run -it --rm -v `pwd`/docker/etc:/etc/frr frr:latest
+
+We can also build the base image directly from docker-compose, with a
+docker-compose.yml file like this one:
 
 ::
 
