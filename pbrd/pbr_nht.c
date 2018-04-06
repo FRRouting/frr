@@ -510,7 +510,6 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 
 	pbrm->valid = false;
 	pbrms->nhs_installed = false;
-	pbrms->installed = false;
 	pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
 
 	memset(&find, 0, sizeof(find));

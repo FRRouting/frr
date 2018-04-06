@@ -206,13 +206,16 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 	uint32_t seqno, priority, unique;
 	enum zapi_rule_notify_owner note;
 	struct pbr_map_sequence *pbrms;
+	struct pbr_map_interface *pmi;
 	ifindex_t ifi;
+	uint64_t installed;
 
 	if (!zapi_rule_notify_decode(zclient->ibuf, &seqno, &priority, &unique,
 				     &ifi, &note))
 		return -1;
 
-	pbrms = pbrms_lookup_unique(unique, ifi);
+	pmi = NULL;
+	pbrms = pbrms_lookup_unique(unique, ifi, &pmi);
 	if (!pbrms) {
 		DEBUGD(&pbr_dbg_zebra,
 		       "%s: Failure to lookup pbrms based upon %u",
@@ -220,14 +223,16 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 		return 0;
 	}
 
+	installed = 1 << pmi->install_bit;
+
 	switch (note) {
 	case ZAPI_RULE_FAIL_INSTALL:
 		DEBUGD(&pbr_dbg_zebra, "%s: Recieved RULE_FAIL_INSTALL",
 		       __PRETTY_FUNCTION__);
-		pbrms->installed = false;
+		pbrms->installed &= ~installed;
 		break;
 	case ZAPI_RULE_INSTALLED:
-		pbrms->installed = true;
+		pbrms->installed |= installed;
 		DEBUGD(&pbr_dbg_zebra, "%s: Recived RULE_INSTALLED",
 		       __PRETTY_FUNCTION__);
 		break;
@@ -499,20 +504,22 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 {
 	struct pbr_map *pbrm = pbrms->parent;
 	struct stream *s;
+	uint64_t is_installed = 1 << pmi->install_bit;
 
-	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d(%d)",
-	       __PRETTY_FUNCTION__, pbrm->name,
-	       install, pbrms->installed);
+	is_installed &= pbrms->installed;
+
+	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d(%" PRIu64 ")",
+	       __PRETTY_FUNCTION__, pbrm->name, install, is_installed);
 
 	/*
 	 * If we are installed and asked to do so again
 	 * just return.  If we are not installed and asked
 	 * and asked to delete just return;
 	 */
-	if (install && pbrms->installed)
+	if (install && is_installed)
 		return;
 
-	if (!install && !pbrms->installed)
+	if (!install && !is_installed)
 		return;
 
 	s = zclient->obuf;

@@ -111,6 +111,7 @@ int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 struct pbr_rule_unique_lookup {
 	struct zebra_pbr_rule *rule;
 	uint32_t unique;
+	struct interface *ifp;
 };
 
 static int pbr_rule_lookup_unique_walker(struct hash_backet *b, void *data)
@@ -118,7 +119,7 @@ static int pbr_rule_lookup_unique_walker(struct hash_backet *b, void *data)
 	struct pbr_rule_unique_lookup *pul = data;
 	struct zebra_pbr_rule *rule = b->data;
 
-	if (pul->unique == rule->rule.unique) {
+	if (pul->unique == rule->rule.unique && pul->ifp == rule->ifp) {
 		pul->rule = rule;
 		return HASHWALK_ABORT;
 	}
@@ -127,11 +128,13 @@ static int pbr_rule_lookup_unique_walker(struct hash_backet *b, void *data)
 }
 
 static struct zebra_pbr_rule *pbr_rule_lookup_unique(struct zebra_ns *zns,
-						     uint32_t unique)
+						     uint32_t unique,
+						     struct interface *ifp)
 {
 	struct pbr_rule_unique_lookup pul;
 
 	pul.unique = unique;
+	pul.ifp = ifp;
 	pul.rule = NULL;
 	hash_walk(zns->rules_hash, &pbr_rule_lookup_unique_walker, &pul);
 
@@ -275,7 +278,7 @@ static void *pbr_rule_alloc_intern(void *arg)
 void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 {
 	struct zebra_pbr_rule *unique =
-		pbr_rule_lookup_unique(zns, rule->rule.unique);
+		pbr_rule_lookup_unique(zns, rule->rule.unique, rule->ifp);
 
 	(void)hash_get(zns->rules_hash, rule, pbr_rule_alloc_intern);
 	kernel_add_pbr_rule(rule);

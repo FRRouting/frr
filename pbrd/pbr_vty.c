@@ -395,7 +395,7 @@ DEFPY (show_pbr_map,
 				pbr_map_reason_string(pbrms->reason, rbuf,
 						      sizeof(rbuf));
 			vty_out(vty,
-				"    Seq: %u rule: %u Installed: %d(%u) Reason: %s\n",
+				"    Seq: %u rule: %u Installed: %" PRIu64 "(%u) Reason: %s\n",
 				pbrms->seqno, pbrms->ruleno, pbrms->installed,
 				pbrms->unique, pbrms->reason ? rbuf : "Valid");
 
