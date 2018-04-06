@@ -358,13 +358,11 @@ Common Invocation Options
 These options apply to all |PACKAGE_NAME| daemons.
 
 
-.. option:: -d
-.. option:: --daemon
+.. option:: -d, --daemon
 
    Run in daemon mode.
 
-.. option:: -f <file>
-.. option:: --config-file <file>
+.. option:: -f, --config_file <file>
 
    Set configuration file name.
 
@@ -372,8 +370,7 @@ These options apply to all |PACKAGE_NAME| daemons.
 
    Display this help and exit.
 
-.. option:: -i <file>
-.. option:: --pid-file <file>
+.. option:: -i, --pid_file <file>
 
    Upon startup the process identifier of the daemon is written to a file,
    typically in :file:`/var/run`. This file can be used by the init system
@@ -386,25 +383,21 @@ These options apply to all |PACKAGE_NAME| daemons.
    machine can be used to collect differing routing views from differing
    points in the network.
 
-.. option:: -A <address>
-.. option:: --vty-addr <address>
+.. option:: -A, --vty_addr <address>
 
    Set the VTY local address to bind to. If set, the VTY socket will only
    be bound to this address.
 
-.. option:: -P <port>
-.. option:: --vty-port <port>
+.. option:: -P, --vty_port <port>
 
    Set the VTY TCP port number. If set to 0 then the TCP VTY sockets will not
    be opened.
 
 .. option:: -u <user>
-.. option:: --vty_addr <user>
 
    Set the user and group to run as.
 
-.. option:: -v
-.. option:: --version
+.. option:: -v, --version
 
    Print program version.
 
@@ -418,8 +411,7 @@ unloading modules at runtime is not supported (yet). To load a module, use
 the following command line option at daemon startup:
 
 
-.. option:: -M <module:options>
-.. option:: --module <module:options>
+.. option:: -M, --module <module:options>
 
    Load the specified module, optionally passing options to it. If the module
    name contains a slash (/), it is assumed to be a full pathname to a file to

@@ -18,19 +18,16 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
 .. program:: zebra
 
-.. option:: -b
-.. option:: --batch
+.. option:: -b, --batch
 
    Runs in batch mode. *zebra* parses configuration file and terminates
    immediately.
 
-.. option:: -k
-.. option:: --keep_kernel
+.. option:: -k, --keep_kernel
 
    When zebra starts up, don't delete old self inserted routes.
 
-.. option:: -r
-.. option:: --retain
+.. option:: -r, --retain
 
    When program terminates, retain routes added by zebra.
 

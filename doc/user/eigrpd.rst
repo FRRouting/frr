@@ -60,8 +60,7 @@ Certain signals have special meanings to *eigrpd*.
 
 .. program:: eigrpd
 
-.. option:: -r
-.. option:: --retain
+.. option:: -r, --retain
 
    When the program terminates, retain routes added by *eigrpd*.
 
