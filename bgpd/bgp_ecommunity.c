@@ -736,6 +736,14 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 						      "MM:%u", seqnum);
 			} else
 				unk_ecom = 1;
+		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
+			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_REDIRECT_IP_NH) {
+				len = sprintf(
+					str_buf + str_pnt,
+					"FS:redirect IP 0x%x", *(pnt+5));
+			} else
+				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_TRANS_EXP) {
 			sub_type = *pnt++;
 
@@ -785,10 +793,6 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				len = sprintf(
 					str_buf + str_pnt,
 					"FS:marking %u", *(pnt+5));
-			} else if (sub_type == ECOMMUNITY_REDIRECT_IP_NH) {
-				len = sprintf(
-					str_buf + str_pnt,
-					"FS:redirect IP 0x%x", *(pnt+5));
 			} else
 				unk_ecom = 1;
 		} else
