@@ -29,7 +29,8 @@ be specified (:ref:`common-invocation-options`).
 .. option:: -p <port>
 .. option:: --bgp_port <port>
 
-   Set the bgp protocol's port number.
+   Set the bgp protocol's port number. When port number is 0, that means do not
+   listen bgp port.
 
 .. option:: -r
 .. option:: --retain
