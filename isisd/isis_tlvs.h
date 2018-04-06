@@ -103,6 +103,17 @@ struct isis_protocols_supported {
 	uint8_t *protocols;
 };
 
+#define ISIS_TIER_UNDEFINED 15
+
+struct isis_spine_leaf {
+	uint8_t tier;
+
+	bool has_tier;
+	bool is_leaf;
+	bool is_spine;
+	bool is_backup;
+};
+
 enum isis_threeway_state {
 	ISIS_THREEWAY_DOWN = 2,
 	ISIS_THREEWAY_INITIALIZING = 1,
@@ -205,6 +216,7 @@ struct isis_tlvs {
 	struct isis_item_list ipv6_reach;
 	struct isis_mt_item_list mt_ipv6_reach;
 	struct isis_threeway_adj *threeway_adj;
+	struct isis_spine_leaf *spine_leaf;
 };
 
 struct isis_subtlvs {
@@ -236,6 +248,7 @@ enum isis_tlv_type {
 	ISIS_TLV_TE_ROUTER_ID = 134,
 	ISIS_TLV_EXTENDED_IP_REACH = 135,
 	ISIS_TLV_DYNAMIC_HOSTNAME = 137,
+	ISIS_TLV_SPINE_LEAF_EXT = 150,
 	ISIS_TLV_MT_REACH = 222,
 	ISIS_TLV_MT_ROUTER_INFO = 229,
 	ISIS_TLV_IPV6_ADDRESS = 232,
@@ -330,6 +343,10 @@ void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs,
 				uint32_t local_circuit_id,
 				const uint8_t *neighbor_id,
 				uint32_t neighbor_circuit_id);
+
+void isis_tlvs_add_spine_leaf(struct isis_tlvs *tlvs, uint8_t tier,
+			      bool has_tier, bool is_leaf, bool is_spine,
+			      bool is_backup);
 
 struct isis_mt_router_info *
 isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);

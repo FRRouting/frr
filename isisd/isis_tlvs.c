@@ -1329,6 +1329,126 @@ static int unpack_tlv_dynamic_hostname(enum isis_tlv_context context,
 	return 0;
 }
 
+/* Functions related to TLV 150 Spine-Leaf-Extension */
+
+static struct isis_spine_leaf *copy_tlv_spine_leaf(
+				const struct isis_spine_leaf *spine_leaf)
+{
+	if (!spine_leaf)
+		return NULL;
+
+	struct isis_spine_leaf *rv = XMALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+	memcpy(rv, spine_leaf, sizeof(*rv));
+
+	return rv;
+}
+
+static void format_tlv_spine_leaf(const struct isis_spine_leaf *spine_leaf,
+				  struct sbuf *buf, int indent)
+{
+	if (!spine_leaf)
+		return;
+
+	sbuf_push(buf, indent, "Spine-Leaf-Extension:\n");
+	if (spine_leaf->has_tier) {
+		if (spine_leaf->tier == ISIS_TIER_UNDEFINED) {
+			sbuf_push(buf, indent, "  Tier: undefined\n");
+		} else {
+			sbuf_push(buf, indent, "  Tier: %" PRIu8 "\n",
+				  spine_leaf->tier);
+		}
+	}
+
+	sbuf_push(buf, indent, "  Flags:%s%s%s\n",
+		  spine_leaf->is_leaf ? " LEAF" : "",
+		  spine_leaf->is_spine ? " SPINE" : "",
+		  spine_leaf->is_backup ? " BACKUP" : "");
+
+}
+
+static void free_tlv_spine_leaf(struct isis_spine_leaf *spine_leaf)
+{
+	XFREE(MTYPE_ISIS_TLV, spine_leaf);
+}
+
+#define ISIS_SPINE_LEAF_FLAG_TIER 0x08
+#define ISIS_SPINE_LEAF_FLAG_BACKUP 0x04
+#define ISIS_SPINE_LEAF_FLAG_SPINE 0x02
+#define ISIS_SPINE_LEAF_FLAG_LEAF 0x01
+
+static int pack_tlv_spine_leaf(const struct isis_spine_leaf *spine_leaf,
+			       struct stream *s)
+{
+	if (!spine_leaf)
+		return 0;
+
+	uint8_t tlv_len = 2;
+
+	if (STREAM_WRITEABLE(s) < (unsigned)(2 + tlv_len))
+		return 1;
+
+	stream_putc(s, ISIS_TLV_SPINE_LEAF_EXT);
+	stream_putc(s, tlv_len);
+
+	uint16_t spine_leaf_flags = 0;
+
+	if (spine_leaf->has_tier) {
+		spine_leaf_flags |= ISIS_SPINE_LEAF_FLAG_TIER;
+		spine_leaf_flags |= spine_leaf->tier << 12;
+	}
+
+	if (spine_leaf->is_leaf)
+		spine_leaf_flags |= ISIS_SPINE_LEAF_FLAG_LEAF;
+
+	if (spine_leaf->is_spine)
+		spine_leaf_flags |= ISIS_SPINE_LEAF_FLAG_SPINE;
+
+	if (spine_leaf->is_backup)
+		spine_leaf_flags |= ISIS_SPINE_LEAF_FLAG_BACKUP;
+
+	stream_putw(s, spine_leaf_flags);
+
+	return 0;
+}
+
+static int unpack_tlv_spine_leaf(enum isis_tlv_context context,
+				 uint8_t tlv_type, uint8_t tlv_len,
+				 struct stream *s, struct sbuf *log,
+				 void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+
+	sbuf_push(log, indent, "Unpacking Spine Leaf Extension TLV...\n");
+	if (tlv_len < 2) {
+		sbuf_push(log, indent, "WARNING: Unexepected TLV size\n");
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	if (tlvs->spine_leaf) {
+		sbuf_push(log, indent,
+			  "WARNING: Spine Leaf Extension TLV present multiple times.\n");
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	tlvs->spine_leaf = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->spine_leaf));
+
+	uint16_t spine_leaf_flags = stream_getw(s);
+
+	if (spine_leaf_flags & ISIS_SPINE_LEAF_FLAG_TIER) {
+		tlvs->spine_leaf->has_tier = true;
+		tlvs->spine_leaf->tier = spine_leaf_flags >> 12;
+	}
+
+	tlvs->spine_leaf->is_leaf = spine_leaf_flags & ISIS_SPINE_LEAF_FLAG_LEAF;
+	tlvs->spine_leaf->is_spine = spine_leaf_flags & ISIS_SPINE_LEAF_FLAG_SPINE;
+	tlvs->spine_leaf->is_backup = spine_leaf_flags & ISIS_SPINE_LEAF_FLAG_BACKUP;
+
+	stream_forward_getp(s, tlv_len - 2);
+	return 0;
+}
+
 /* Functions related to TLV 240 P2P Three-Way Adjacency */
 
 const char *isis_threeway_state_name(enum isis_threeway_state state)
@@ -2187,6 +2307,8 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	rv->threeway_adj = copy_tlv_threeway_adj(tlvs->threeway_adj);
 
+	rv->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
+
 	return rv;
 }
 
@@ -2250,6 +2372,8 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, int indent)
 			&tlvs->mt_ipv6_reach, buf, indent);
 
 	format_tlv_threeway_adj(tlvs->threeway_adj, buf, indent);
+
+	format_tlv_spine_leaf(tlvs->spine_leaf, buf, indent);
 }
 
 const char *isis_format_tlvs(struct isis_tlvs *tlvs)
@@ -2301,6 +2425,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH,
 		      &tlvs->mt_ipv6_reach);
 	free_tlv_threeway_adj(tlvs->threeway_adj);
+	free_tlv_spine_leaf(tlvs->spine_leaf);
 
 	XFREE(MTYPE_ISIS_TLV, tlvs);
 }
@@ -2478,6 +2603,14 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 	if (fragment_tlvs) {
 		fragment_tlvs->threeway_adj =
 			copy_tlv_threeway_adj(tlvs->threeway_adj);
+	}
+
+	rv = pack_tlv_spine_leaf(tlvs->spine_leaf, stream);
+	if (rv)
+		return rv;
+	if (fragment_tlvs) {
+		fragment_tlvs->spine_leaf =
+			copy_tlv_spine_leaf(tlvs->spine_leaf);
 	}
 
 	for (size_t pack_idx = 0; pack_idx < array_size(pack_order);
@@ -2679,6 +2812,7 @@ ITEM_TLV_OPS(ipv4_address, "TLV 132 IPv4 Interface Address");
 TLV_OPS(te_router_id, "TLV 134 TE Router ID");
 ITEM_TLV_OPS(extended_ip_reach, "TLV 135 Extended IP Reachability");
 TLV_OPS(dynamic_hostname, "TLV 137 Dynamic Hostname");
+TLV_OPS(spine_leaf, "TLV 150 Spine Leaf Extensions");
 ITEM_TLV_OPS(mt_router_info, "TLV 229 MT Router Information");
 TLV_OPS(threeway_adj, "TLV 240 P2P Three-Way Adjacency");
 ITEM_TLV_OPS(ipv6_address, "TLV 232 IPv6 Interface Address");
@@ -2703,6 +2837,7 @@ static const struct tlv_ops *tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_EXTENDED_IP_REACH] = &tlv_extended_ip_reach_ops,
 		[ISIS_TLV_MT_IP_REACH] = &tlv_extended_ip_reach_ops,
 		[ISIS_TLV_DYNAMIC_HOSTNAME] = &tlv_dynamic_hostname_ops,
+		[ISIS_TLV_SPINE_LEAF_EXT] = &tlv_spine_leaf_ops,
 		[ISIS_TLV_MT_ROUTER_INFO] = &tlv_mt_router_info_ops,
 		[ISIS_TLV_THREE_WAY_ADJ] = &tlv_threeway_adj_ops,
 		[ISIS_TLV_IPV6_ADDRESS] = &tlv_ipv6_address_ops,
@@ -3237,6 +3372,24 @@ void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs,
 		memcpy(tlvs->threeway_adj->neighbor_id, neighbor_id, 6);
 		tlvs->threeway_adj->neighbor_circuit_id = neighbor_circuit_id;
 	}
+}
+
+void isis_tlvs_add_spine_leaf(struct isis_tlvs *tlvs, uint8_t tier,
+			      bool has_tier, bool is_leaf, bool is_spine,
+			      bool is_backup)
+{
+	assert(!tlvs->spine_leaf);
+
+	tlvs->spine_leaf = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->spine_leaf));
+
+	if (has_tier) {
+		tlvs->spine_leaf->tier = tier;
+	}
+
+	tlvs->spine_leaf->has_tier = has_tier;
+	tlvs->spine_leaf->is_leaf = is_leaf;
+	tlvs->spine_leaf->is_spine = is_spine;
+	tlvs->spine_leaf->is_backup = is_backup;
 }
 
 struct isis_mt_router_info *
