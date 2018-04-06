@@ -410,8 +410,6 @@ static void pbr_nht_install_nexthop_group(struct pbr_nexthop_group_cache *pnhgc,
 
 	install_afi = pbr_nht_which_afi(nhg, nh_afi);
 
-	pnhgc->installed = false;
-
 	route_add(pnhgc, nhg, install_afi);
 }
 

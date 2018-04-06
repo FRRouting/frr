@@ -500,8 +500,20 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	struct pbr_map *pbrm = pbrms->parent;
 	struct stream *s;
 
-	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d", __PRETTY_FUNCTION__, pbrm->name,
-	       install);
+	DEBUGD(&pbr_dbg_zebra, "%s: for %s %d(%d)",
+	       __PRETTY_FUNCTION__, pbrm->name,
+	       install, pbrms->installed);
+
+	/*
+	 * If we are installed and asked to do so again
+	 * just return.  If we are not installed and asked
+	 * and asked to delete just return;
+	 */
+	if (install && pbrms->installed)
+		return;
+
+	if (!install && !pbrms->installed)
+		return;
 
 	s = zclient->obuf;
 	stream_reset(s);
