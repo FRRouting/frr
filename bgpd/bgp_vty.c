@@ -6245,12 +6245,13 @@ ALIAS (af_rd_vpn_export,
 
 DEFPY (af_label_vpn_export,
        af_label_vpn_export_cmd,
-       "[no] label vpn export (0-1048575)$label_val",
+       "[no] label vpn export <(0-1048575)$label_val|auto$label_auto>",
        NO_STR
        "label value for VRF\n"
        "Between current address-family and vpn\n"
        "For routes leaked from current address-family to vpn\n"
-       "Label Value <0-1048575>\n")
+       "Label Value <0-1048575>\n"
+       "Automatically assign a label\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	mpls_label_t label = MPLS_LABEL_NONE;
@@ -6263,8 +6264,10 @@ DEFPY (af_label_vpn_export,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
-	if (yes)
-		label = label_val; /* rely on parser to force unsigned */
+	if (yes) {
+		if (!label_auto)
+			label = label_val; /* parser should force unsigned */
+	}
 
 	ret = vpn_policy_getafi(vty, doafi);
 	if (ret != CMD_SUCCESS)
@@ -6274,13 +6277,48 @@ DEFPY (af_label_vpn_export,
 		if (!doafi[afi])
 			continue;
 
+		if (label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+
+			continue; /* no change */
+
 		/*
 		 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
 		 */
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 				   bgp_get_default(), bgp);
 
+		if (!label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
+			BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
+
+			if (bgp->vpn_policy[afi].tovpn_label !=
+				MPLS_LABEL_NONE) {
+
+				/*
+				 * label has previously been automatically
+				 * assigned by labelpool: release it
+				 *
+				 * NB if tovpn_label == MPLS_LABEL_NONE it
+				 * means the automatic assignment is in flight
+				 * and therefore the labelpool callback must
+				 * detect that the auto label is not needed.
+				 */
+
+				bgp_lp_release(LP_TYPE_VRF,
+					&bgp->vpn_policy[afi],
+					bgp->vpn_policy[afi].tovpn_label);
+			}
+			UNSET_FLAG(bgp->vpn_policy[afi].flags,
+				BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+		}
+
 		bgp->vpn_policy[afi].tovpn_label = label;
+		if (label_auto) {
+			SET_FLAG(bgp->vpn_policy[afi].flags,
+				BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+			bgp_lp_get(LP_TYPE_VRF, &bgp->vpn_policy[afi],
+				vpn_leak_label_callback);
+		}
 
 		/* post-change: re-export vpn routes */
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
@@ -11706,9 +11744,16 @@ void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 {
 	int indent = 2;
 
-	if (bgp->vpn_policy[afi].tovpn_label != MPLS_LABEL_NONE) {
-		vty_out(vty, "%*slabel vpn export %u\n", indent, "",
-			bgp->vpn_policy[afi].tovpn_label);
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+		BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
+
+		vty_out(vty, "%*slabel vpn export %s\n", indent, "", "auto");
+
+	} else {
+		if (bgp->vpn_policy[afi].tovpn_label != MPLS_LABEL_NONE) {
+			vty_out(vty, "%*slabel vpn export %u\n", indent, "",
+				bgp->vpn_policy[afi].tovpn_label);
+		}
 	}
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
 		       BGP_VPN_POLICY_TOVPN_RD_SET)) {

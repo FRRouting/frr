@@ -1878,7 +1878,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
 	/* tell label pool that zebra is connected */
-	lp_event_zebra_up();
+	bgp_lp_event_zebra_up();
 
 	/* TODO - What if we have peers and networks configured, do we have to
 	 * kick-start them?
@@ -2075,7 +2075,7 @@ static void bgp_zebra_process_label_chunk(
 			first, last, response_keep);
 	}
 
-	lp_event_chunk(response_keep, first, last);
+	bgp_lp_event_chunk(response_keep, first, last);
 
 stream_failure:		/* for STREAM_GETX */
 	return;

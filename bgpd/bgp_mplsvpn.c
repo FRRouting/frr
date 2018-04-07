@@ -310,6 +310,65 @@ void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi)
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent = label;
 }
 
+int vpn_leak_label_callback(
+	mpls_label_t label,
+	void *labelid,
+	bool allocated)
+{
+	struct vpn_policy *vp = (struct vpn_policy *)labelid;
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+
+	if (debug)
+		zlog_debug("%s: label=%u, allocated=%d",
+			__func__, label, allocated);
+
+	if (!allocated) {
+		/*
+		 * previously-allocated label is now invalid
+		 */
+		if (CHECK_FLAG(vp->flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
+			(vp->tovpn_label != MPLS_LABEL_NONE)) {
+
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN,
+				vp->afi, bgp_get_default(), vp->bgp);
+			vp->tovpn_label = MPLS_LABEL_NONE;
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN,
+				vp->afi, bgp_get_default(), vp->bgp);
+		}
+		return 0;
+	}
+
+	/*
+	 * New label allocation
+	 */
+	if (!CHECK_FLAG(vp->flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
+
+		/*
+		 * not currently configured for auto label, reject allocation
+		 */
+		return -1;
+	}
+
+	if (vp->tovpn_label != MPLS_LABEL_NONE) {
+		if (label == vp->tovpn_label) {
+			/* already have same label, accept but do nothing */
+			return 0;
+		}
+		/* Shouldn't happen: different label allocation */
+		zlog_err("%s: %s had label %u but got new assignment %u",
+			__func__, vp->bgp->name_pretty, vp->tovpn_label, label);
+		/* use new one */
+	}
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN,
+		vp->afi, bgp_get_default(), vp->bgp);
+	vp->tovpn_label = label;
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN,
+		vp->afi, bgp_get_default(), vp->bgp);
+
+	return 0;
+}
+
 static int ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
 {
 	int i;

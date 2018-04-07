@@ -77,6 +77,7 @@ extern void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,
 
 extern void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi);
 extern void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi);
+extern int vpn_leak_label_callback(mpls_label_t label, void *lblid, bool alloc);
 
 static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 					 const char **pmsg)
@@ -111,6 +112,17 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 			*pmsg = "rd not defined";
 		return 0;
 	}
+
+	/* Is there an "auto" export label that isn't allocated yet? */
+	if (CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+		BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
+		(bgp_vrf->vpn_policy[afi].tovpn_label == MPLS_LABEL_NONE)) {
+
+		if (pmsg)
+			*pmsg = "auto label not allocated";
+		return 0;
+	}
+
 	return 1;
 }
 

@@ -171,6 +171,25 @@ typedef enum {
 	BGP_VPN_POLICY_DIR_MAX = 2
 } vpn_policy_direction_t;
 
+struct vpn_policy {
+	struct bgp *bgp; /* parent */
+	afi_t afi;
+	struct ecommunity *rtlist[BGP_VPN_POLICY_DIR_MAX];
+	struct ecommunity *import_redirect_rtlist;
+	char *rmap_name[BGP_VPN_POLICY_DIR_MAX];
+	struct route_map *rmap[BGP_VPN_POLICY_DIR_MAX];
+
+	/* should be mpls_label_t? */
+	uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
+	uint32_t tovpn_zebra_vrf_label_last_sent;
+	struct prefix_rd tovpn_rd;
+	struct prefix tovpn_nexthop; /* unset => set to 0 */
+	uint32_t flags;
+#define BGP_VPN_POLICY_TOVPN_LABEL_AUTO        (1 << 0)
+#define BGP_VPN_POLICY_TOVPN_RD_SET            (1 << 1)
+#define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
+};
+
 /*
  * Type of 'struct bgp'.
  * - Default: The default instance
@@ -469,22 +488,7 @@ struct bgp {
 	/* route map for advertise ipv4/ipv6 unicast (type-5 routes) */
 	struct bgp_rmap adv_cmd_rmap[AFI_MAX][SAFI_MAX];
 
-	/* vpn-policy */
-	struct {
-		struct ecommunity *rtlist[BGP_VPN_POLICY_DIR_MAX];
-		struct ecommunity *import_redirect_rtlist;
-		char *rmap_name[BGP_VPN_POLICY_DIR_MAX];
-		struct route_map *rmap[BGP_VPN_POLICY_DIR_MAX];
-
-		/* should be mpls_label_t? */
-		uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
-		uint32_t tovpn_zebra_vrf_label_last_sent;
-		struct prefix_rd tovpn_rd;
-		struct prefix tovpn_nexthop; /* unset => set to 0 */
-		uint32_t flags;
-#define BGP_VPN_POLICY_TOVPN_RD_SET            0x00000004
-#define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       0x00000008
-	} vpn_policy[AFI_MAX];
+	struct vpn_policy vpn_policy[AFI_MAX];
 
 	QOBJ_FIELDS
 };

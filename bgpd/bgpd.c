@@ -2951,6 +2951,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 #endif /* ENABLE_BGP_VNC */
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		bgp->vpn_policy[afi].bgp = bgp;
+		bgp->vpn_policy[afi].afi = afi;
 		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
 		bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent =
 			MPLS_LABEL_NONE;
@@ -7537,7 +7539,7 @@ void bgp_master_init(struct thread_master *master)
 	bgp_option_set(BGP_OPT_MULTIPLE_INSTANCE);
 
 	/* mpls label dynamic allocation pool */
-	lp_init(bm->master, &bm->labelpool);
+	bgp_lp_init(bm->master, &bm->labelpool);
 
 	QOBJ_REG(bm, bgp_master);
 }
@@ -7718,5 +7720,5 @@ void bgp_terminate(void)
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);
 
-	lp_finish();
+	bgp_lp_finish();
 }
