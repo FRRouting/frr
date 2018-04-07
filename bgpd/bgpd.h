@@ -37,6 +37,7 @@
 #include "bgp_memory.h"
 #include "bitfield.h"
 #include "vxlan.h"
+#include "bgp_labelpool.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
@@ -139,6 +140,9 @@ struct bgp_master {
 
 	/* Id space for automatic RD derivation for an EVI/VRF */
 	bitfield_t rd_idspace;
+
+	/* dynamic mpls label allocation pool */
+	struct labelpool labelpool;
 
 	QOBJ_FIELDS
 };

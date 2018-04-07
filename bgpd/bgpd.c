@@ -81,7 +81,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_flowspec.h"
-
+#include "bgpd/bgp_labelpool.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master)
@@ -7536,6 +7536,9 @@ void bgp_master_init(struct thread_master *master)
 	/* Enable multiple instances by default. */
 	bgp_option_set(BGP_OPT_MULTIPLE_INSTANCE);
 
+	/* mpls label dynamic allocation pool */
+	lp_init(bm->master, &bm->labelpool);
+
 	QOBJ_REG(bm, bgp_master);
 }
 
@@ -7714,4 +7717,6 @@ void bgp_terminate(void)
 
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);
+
+	lp_finish();
 }
