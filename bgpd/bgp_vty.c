@@ -6676,19 +6676,17 @@ DEFPY (bgp_imexport_vrf,
 
 	vrf_bgp = bgp_lookup_by_name(import_name);
 	if (!vrf_bgp) {
-		int32_t ret;
+		int32_t ret = 0;
 		as_t as = bgp->as;
 
 		if (strcmp(import_name, BGP_DEFAULT_NAME) == 0) {
 			vrf_bgp = bgp_get_default();
-			if (!vrf_bgp) {
-				bgp_type = BGP_INSTANCE_TYPE_DEFAULT;
-				import_name = NULL;
-			}
+			if (!vrf_bgp)
+				ret = bgp_get(&vrf_bgp, &as, NULL, BGP_INSTANCE_TYPE_DEFAULT);
+		} else {
+			/* Auto-create assuming the same AS */
+			ret = bgp_get(&vrf_bgp, &as, import_name, bgp_type);
 		}
-
-		/* Auto-create assuming the same AS */
-		ret = bgp_get(&vrf_bgp, &as, import_name, bgp_type);
 
 		if (ret) {
 			vty_out(vty,
