@@ -695,7 +695,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	}
 
 	/* Add RMAC, if told to. */
-	if (add_l3_ecomm) {
+	if (add_l3_ecomm && !is_zero_mac(&attr->rmac)) {
 		memset(&ecom_rmac, 0, sizeof(ecom_rmac));
 		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
 		ecom_rmac.size = 1;
