@@ -496,8 +496,10 @@ void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
 		zsend_rule_notify_owner(rule, ZAPI_RULE_FAIL_INSTALL);
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
+		zsend_rule_notify_owner(rule, ZAPI_RULE_REMOVED);
 		break;
 	case SOUTHBOUND_DELETE_FAILURE:
+		zsend_rule_notify_owner(rule, ZAPI_RULE_REMOVED);
 		break;
 	}
 }
