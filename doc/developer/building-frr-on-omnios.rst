@@ -9,7 +9,7 @@ OmniOS restrictions:
    use without MPLS
 
 Enable IP & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -93,7 +93,7 @@ Get FRR, compile it and install it (from Git)
 using any packages**
 
 Add frr group and user
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -138,7 +138,7 @@ an example)
     sudo gmake install
 
 Enable IP & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 

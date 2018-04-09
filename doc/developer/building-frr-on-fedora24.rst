@@ -24,7 +24,7 @@ Get FRR, compile it and install it (from Git)
 using any packages**
 
 Add frr groups and user
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -34,7 +34,7 @@ Add frr groups and user
       -c "FRR FRRouting suite" -d /var/run/frr frr
 
 Download Source, configure and compile it
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (You may prefer different options on configure statement. These are just
 an example.)
@@ -75,7 +75,7 @@ an example.)
     sudo make install
 
 Create empty FRR configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -99,7 +99,7 @@ Create empty FRR configuration files
     sudo chmod 640 /etc/frr/*.conf
 
 Install daemon config file
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -107,13 +107,13 @@ Install daemon config file
     sudo chown frr:frr /etc/frr/daemons
 
 Edit /etc/frr/daemons as needed to select the required daemons
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Look for the section with ``watchfrr_enable=...`` and ``zebra=...`` etc.
 Enable the daemons as required by changing the value to ``yes``
 
 Enable IP & IPv6 forwarding (and MPLS)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Create a new file ``/etc/sysctl.d/90-routing-sysctl.conf`` with the
 following content: (Please make sure to list all interfaces with
@@ -155,7 +155,7 @@ And load the kernel modules on the running system:
     sudo modprobe mpls-router mpls-iptunnel
 
 Install frr Service and redhat init files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -163,14 +163,14 @@ Install frr Service and redhat init files
     sudo install -p -m 755 redhat/frr.init /usr/lib/frr/frr
 
 Enable required frr at startup
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
     sudo systemctl enable frr
 
 Reboot or start FRR manually
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 

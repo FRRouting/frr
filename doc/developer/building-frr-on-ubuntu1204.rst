@@ -70,7 +70,7 @@ Get FRR, compile it and install it (from Git)
 using any packages**
 
 Add frr groups and user
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -81,7 +81,7 @@ Add frr groups and user
     sudo usermod -a -G frrvty frr
 
 Download Source, configure and compile it
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (You may prefer different options on configure statement. These are just
 an example.)
@@ -116,7 +116,7 @@ an example.)
     sudo make install
 
 Create empty FRR configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -135,7 +135,7 @@ Create empty FRR configuration files
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
 Enable IP & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit ``/etc/sysctl.conf`` and uncomment the following values (ignore the
 other settings)
@@ -154,7 +154,7 @@ other settings)
 system
 
 Install the init.d service
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -164,7 +164,7 @@ Install the init.d service
     sudo install -m 644 -o frr -g frr tools/etc/frr/vtysh.conf /etc/frr/vtysh.conf
 
 Enable daemons
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 | Edit ``/etc/frr/daemons`` and change the value from "no" to "yes" for
   those daemons you want to start by systemd.
@@ -181,7 +181,7 @@ Enable daemons
     isisd=yes
 
 Start the init.d service
-~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 -  /etc/init.d/frr start
 -  use ``/etc/init.d/frr status`` to check its status.

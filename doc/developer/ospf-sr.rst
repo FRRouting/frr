@@ -29,7 +29,7 @@ Implementation details
 ----------------------
 
 Concepts
-~~~~~~~~
+^^^^^^^^
 
 Segment Routing used 3 differents OPAQUE LSA in OSPF to carry the various
 information:
@@ -47,7 +47,7 @@ Segment Routing functions (see below) when an Extended Link / Prefix or Router
 Information LSA s are received.
 
 Overview
-~~~~~~~~
+^^^^^^^^
 
 Following files where modified or added:
 
@@ -113,7 +113,7 @@ The figure below shows the relation between the various files:
       Figure 1: Overview of Segment Routing interaction
 
 Module interactions
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 To process incoming LSA, the code is based on the capability to call `hook()`
 functions when LSA are inserted or delete to / from the LSDB and the
@@ -186,7 +186,7 @@ Configuration
 -------------
 
 Linux Kernel
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 In order to use OSPF Segment Routing, you must setup MPLS data plane. Up to
 know, only Linux Kernel version >= 4.5 is supported.
@@ -231,7 +231,7 @@ especially the `lo` one. For that purpose, disable RP filtering with:
    sysctl -w net.ipv4.conf.lo.rp_filter=0
 
 OSPFd
-~~~~~
+^^^^^
 
 Here it is a simple example of configuration to enable Segment Routing. Note
 that `opaque capability` and `router information` must be set to activate

@@ -125,7 +125,7 @@ Get FRR, compile it and install it (from Git)
 using any packages**
 
 Add frr groups and user
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -135,7 +135,7 @@ Add frr groups and user
       -c "FRR FRRouting suite" -d /var/run/frr frr
 
 Download Source, configure and compile it
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (You may prefer different options on configure statement. These are just
 an example.)
@@ -176,7 +176,7 @@ an example.)
     sudo make SPHINXBUILD=sphinx-build2.7 install
 
 Create empty FRR configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -198,7 +198,7 @@ Create empty FRR configuration files
     sudo chmod 640 /etc/frr/*.conf
 
 Install daemon config file
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -206,13 +206,13 @@ Install daemon config file
     sudo chown frr:frr /etc/frr/daemons
 
 Edit /etc/frr/daemons as needed to select the required daemons
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Look for the section with ``watchfrr_enable=...`` and ``zebra=...`` etc.
 Enable the daemons as required by changing the value to ``yes``
 
 Enable IP & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit ``/etc/sysctl.conf`` and set the following values (ignore the other
 settings)
@@ -233,7 +233,7 @@ Load the modifed sysctl's on the system:
     sudo sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
 
 Add init.d startup files
-~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -241,14 +241,14 @@ Add init.d startup files
     sudo chkconfig --add frr
 
 Enable frr daemon at startup
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
     sudo chkconfig frr on
 
 Start FRR manually (or reboot)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 

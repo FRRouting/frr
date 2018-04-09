@@ -6,37 +6,37 @@ Memtypes
 FRR includes wrappers arround ``malloc()`` and ``free()`` that count the number
 of objects currently allocated, for each of a defined ``MTYPE``.
 
-To this extent, there are `memory groups` and `memory types`.  Each memory
+To this extent, there are *memory groups* and *memory types*.  Each memory
 type must belong to a memory group, this is used just to provide some basic
 structure.
 
 Example:
 
 .. code-block:: c
-     :caption: mydaemon.h
+   :caption: mydaemon.h
 
-     DECLARE_MGROUP(MYDAEMON)
-     DECLARE_MTYPE(MYNEIGHBOR)
+   DECLARE_MGROUP(MYDAEMON)
+   DECLARE_MTYPE(MYNEIGHBOR)
 
 .. code-block:: c
-     :caption: mydaemon.c
+   :caption: mydaemon.c
 
-     DEFINE_MGROUP(      MYDAEMON, "My daemon's memory")
-     DEFINE_MTYPE(       MYDAEMON, MYNEIGHBOR,     "Neighbor entry")
-     DEFINE_MTYPE_STATIC(MYDAEMON, MYNEIGHBORNAME, "Neighbor name")
+   DEFINE_MGROUP(      MYDAEMON, "My daemon's memory")
+   DEFINE_MTYPE(       MYDAEMON, MYNEIGHBOR,     "Neighbor entry")
+   DEFINE_MTYPE_STATIC(MYDAEMON, MYNEIGHBORNAME, "Neighbor name")
 
-     struct neigh *neighbor_new(const char *name)
-     {
-        struct neigh *n = XMALLOC(MYNEIGHBOR, sizeof(*n));
-        n->name = XSTRDUP(MYNEIGHBORNAME, name);
-        return n;
-     }
+   struct neigh *neighbor_new(const char *name)
+   {
+           struct neigh *n = XMALLOC(MYNEIGHBOR, sizeof(*n));
+           n->name = XSTRDUP(MYNEIGHBORNAME, name);
+           return n;
+   }
 
-     void neighbor_free(struct neigh *n)
-     {
-        XFREE(MYNEIGHBORNAME, n->name);
-        XFREE(MYNEIGHBOR, n);
-     }
+   void neighbor_free(struct neigh *n)
+   {
+           XFREE(MYNEIGHBORNAME, n->name);
+           XFREE(MYNEIGHBOR, n);
+   }
 
 
 Definition

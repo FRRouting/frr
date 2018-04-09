@@ -12,26 +12,26 @@ the appropriate function signature (parameters) for the hook.
 Example:
 
 .. code-block:: c
-     :caption: mydaemon.h
+   :caption: mydaemon.h
 
-     #include "hook.h"
-     DECLARE_HOOK(some_update_event, (struct eventinfo *info), (info))
-
-.. code-block:: c
-     :caption: mydaemon.c
-
-     #include "mydaemon.h"
-     DEFINE_HOOK(some_update_event, (struct eventinfo *info), (info))
-     ...
-     hook_call(some_update_event, info);
+   #include "hook.h"
+   DECLARE_HOOK(some_update_event, (struct eventinfo *info), (info))
 
 .. code-block:: c
-     :caption: mymodule.c
+   :caption: mydaemon.c
 
-     #include "mydaemon.h"
-     static int event_handler(struct eventinfo *info);
-     ...
-     hook_register(some_update_event, event_handler);
+   #include "mydaemon.h"
+   DEFINE_HOOK(some_update_event, (struct eventinfo *info), (info))
+   ...
+   hook_call(some_update_event, info);
+
+.. code-block:: c
+   :caption: mymodule.c
+
+   #include "mydaemon.h"
+   static int event_handler(struct eventinfo *info);
+   ...
+   hook_register(some_update_event, event_handler);
 
 Do not use parameter names starting with "hook", these can collide with
 names used by the hook code itself.

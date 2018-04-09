@@ -1,5 +1,6 @@
-libfrr library facilities
-=========================
+***************************
+Library Facilities (libfrr)
+***************************
 
 .. toctree::
    :maxdepth: 2

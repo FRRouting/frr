@@ -32,7 +32,7 @@ Get FRR, compile it and install it (from Git)
 using any packages**
 
 Add frr groups and user
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -43,7 +43,7 @@ Add frr groups and user
     sudo usermod -a -G frrvty frr
 
 Download Source, configure and compile it
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (You may prefer different options on configure statement. These are just
 an example.)
@@ -80,7 +80,7 @@ an example.)
     sudo make install
 
 Create empty FRR configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -99,7 +99,7 @@ Create empty FRR configuration files
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
 Enable IP & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit ``/etc/sysctl.conf`` and uncomment the following values (ignore the
 other settings)
@@ -118,7 +118,7 @@ other settings)
 system
 
 Troubleshooting
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 **Local state directory**
 
