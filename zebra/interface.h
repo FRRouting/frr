@@ -275,6 +275,13 @@ struct zebra_if {
 	struct interface *link;
 
 	struct thread *speed_update;
+
+	/*
+	 * Does this interface have a v6 to v4 ll neighbor entry
+	 * for bgp unnumbered?
+	 */
+	bool v6_2_v4_ll_neigh_entry;
+	struct in6_addr v6_2_v4_ll_addr6;
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty *vty, struct interface *ifp),
