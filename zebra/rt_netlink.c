@@ -1319,7 +1319,6 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	struct sockaddr_nl snl;
 	struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num;
-	int discard = 0;
 	int family = PREFIX_FAMILY(p);
 	const char *routedesc;
 	int setsrc = 0;
@@ -1380,7 +1379,13 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 
 	_netlink_route_debug(cmd, p, family, zvrf, re->table);
 
-	if (discard)
+	/*
+	 * If we are not updating the route and we have received
+	 * a route delete, then all we need to fill in is the
+	 * prefix information to tell the kernel to schwack
+	 * it.
+	 */
+	if (!update && cmd == RTM_DELROUTE)
 		goto skip;
 
 	if (re->mtu || re->nexthop_mtu) {
