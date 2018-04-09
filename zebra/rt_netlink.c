@@ -397,14 +397,14 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char buf[PREFIX_STRLEN];
 		char buf2[PREFIX_STRLEN];
-		zlog_debug("%s %s%s%s vrf %u metric: %d Admin Distance: %d",
+		zlog_debug("%s %s%s%s vrf %u(%u) metric: %d Admin Distance: %d",
 			   nl_msg_type_to_str(h->nlmsg_type),
 			   prefix2str(&p, buf, sizeof(buf)),
 			   src_p.prefixlen ? " from " : "",
 			   src_p.prefixlen
 				   ? prefix2str(&src_p, buf2, sizeof(buf2))
 				   : "",
-			   vrf_id, metric, distance);
+			   vrf_id, table, metric, distance);
 	}
 
 	afi_t afi = AFI_IP;
@@ -1253,23 +1253,21 @@ _netlink_mpls_build_multipath(const char *routedesc, zebra_nhlfe_t *nhlfe,
  *
  * @param cmd: Netlink command which is to be processed
  * @param p: Prefix for which the change is due
- * @param nexthop: Nexthop which is currently processed
- * @param routedesc: Semantic annotation for nexthop
- *                     (recursive, multipath, etc.)
  * @param family: Address family which the change concerns
+ * @param zvrf: The vrf we are in
+ * @param tableid: The table we are working on
  */
 static void _netlink_route_debug(int cmd, struct prefix *p,
-				 struct nexthop *nexthop, const char *routedesc,
 				 int family, struct zebra_vrf *zvrf,
 				 uint32_t tableid)
 {
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char buf[PREFIX_STRLEN];
 		zlog_debug(
-			"netlink_route_multipath() (%s): %s %s vrf %u(%u) type %s",
-			routedesc, nl_msg_type_to_str(cmd),
-			prefix2str(p, buf, sizeof(buf)), zvrf_id(zvrf), tableid,
-			(nexthop) ? nexthop_type_to_str(nexthop->type) : "UNK");
+			"netlink_route_multipath(): %s %s vrf %u(%u)",
+			nl_msg_type_to_str(cmd),
+			prefix2str(p, buf, sizeof(buf)),
+			zvrf_id(zvrf), tableid);
 	}
 }
 
@@ -1380,6 +1378,8 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 		addattr32(&req.n, sizeof req, RTA_TABLE, re->table);
 	}
 
+	_netlink_route_debug(cmd, p, family, zvrf, re->table);
+
 	if (discard)
 		goto skip;
 
@@ -1486,8 +1486,6 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 						    ? "recursive, single-path"
 						    : "single-path";
 
-				_netlink_route_debug(cmd, p, nexthop, routedesc,
-						     family, zvrf, re->table);
 				_netlink_route_build_singlepath(
 					routedesc, bytelen, nexthop, &req.n,
 					&req.r, sizeof req, cmd);
@@ -1570,8 +1568,6 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 						    : "multipath";
 				nexthop_num++;
 
-				_netlink_route_debug(cmd, p, nexthop, routedesc,
-						     family, zvrf, re->table);
 				_netlink_route_build_multipath(
 					routedesc, bytelen, nexthop, rta, rtnh,
 					&req.r, &src1);
