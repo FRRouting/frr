@@ -3943,16 +3943,36 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, struct ethaddr *rmac,
 				    struct prefix *host_prefix)
 {
 	zebra_l3vni_t *zl3vni = NULL;
+	struct ipaddr ipv4_vtep;
 
 	zl3vni = zl3vni_from_vrf(vrf_id);
 	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
 		return;
 
-	/* add the next hop neighbor */
-	zl3vni_remote_nh_add(zl3vni, vtep_ip, rmac, host_prefix);
+        /*
+	 * add the next hop neighbor -
+	 * neigh to be installed is the ipv6 nexthop neigh
+	 */
+        zl3vni_remote_nh_add(zl3vni, vtep_ip, rmac, host_prefix);
 
-	/* add the rmac */
-	zl3vni_remote_rmac_add(zl3vni, rmac, vtep_ip, host_prefix);
+	/*
+	 * if the remote vtep is a ipv4 mapped ipv6 address convert it to ipv4
+	 * address. Rmac is programmed against the ipv4 vtep because we only
+	 * support ipv4 tunnels in the h/w right now
+	 */
+	memset(&ipv4_vtep, 0, sizeof(struct ipaddr));
+	ipv4_vtep.ipa_type = IPADDR_V4;
+	if (vtep_ip->ipa_type == IPADDR_V6)
+		ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6,
+					 &(ipv4_vtep.ipaddr_v4));
+	else
+		memcpy(&(ipv4_vtep.ipaddr_v4), &vtep_ip->ipaddr_v4,
+		       sizeof(struct in_addr));
+
+        /* add the rmac - remote rmac to be installed is against the ipv4
+	 * nexthop address
+	 */
+        zl3vni_remote_rmac_add(zl3vni, rmac, &ipv4_vtep, host_prefix);
 }
 
 /* handle evpn vrf route delete */
