@@ -49,8 +49,6 @@ struct pbr_map {
 	 * what we think is the invalid reason
 	 */
 	bool valid;
-
-	bool installed;
 };
 
 RB_HEAD(pbr_map_entry_head, pbr_map);
