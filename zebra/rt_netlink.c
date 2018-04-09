@@ -2112,21 +2112,53 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	ndm = NLMSG_DATA(h);
 
-	/* We only process neigh notifications if EVPN is enabled */
-	if (!is_evpn_enabled())
-		return 0;
-
 	/* The interface should exist. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
 					ndm->ndm_ifindex);
 	if (!ifp || !ifp->info)
 		return 0;
 
-	/* Drop "permanent" entries. */
-	if (ndm->ndm_state & NUD_PERMANENT)
-		return 0;
-
 	zif = (struct zebra_if *)ifp->info;
+
+	/* Parse attributes and extract fields of interest. */
+	memset(tb, 0, sizeof tb);
+	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
+
+	if (!tb[NDA_DST]) {
+		zlog_warn("%s family %s IF %s(%u) - no DST",
+			  nl_msg_type_to_str(h->nlmsg_type),
+			  nl_family_to_str(ndm->ndm_family), ifp->name,
+			  ndm->ndm_ifindex);
+		return 0;
+	}
+
+	memset(&ip, 0, sizeof(struct ipaddr));
+	ip.ipa_type = (ndm->ndm_family == AF_INET) ? IPADDR_V4 : IPADDR_V6;
+	memcpy(&ip.ip.addr, RTA_DATA(tb[NDA_DST]), RTA_PAYLOAD(tb[NDA_DST]));
+
+	/* Drop some "permanent" entries. */
+	if (ndm->ndm_state & NUD_PERMANENT) {
+		char buf[16] = "169.254.0.1";
+		struct in_addr ipv4_ll;
+
+		if (ndm->ndm_family != AF_INET)
+			return 0;
+
+		if (!zif->v6_2_v4_ll_neigh_entry)
+			return 0;
+
+		if (h->nlmsg_type != RTM_DELNEIGH)
+			return 0;
+
+		inet_pton(AF_INET, buf, &ipv4_ll);
+		if (ipv4_ll.s_addr != ip.ip._v4_addr.s_addr)
+			return 0;
+
+		if_nbr_ipv6ll_to_ipv4ll_neigh_update(
+			ifp, &zif->v6_2_v4_ll_addr6, true);
+		return 0;
+	}
+
 	/* The neighbor is present on an SVI. From this, we locate the
 	 * underlying
 	 * bridge because we're only interested in neighbors on a VxLAN bridge.
@@ -2148,22 +2180,7 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	else
 		return 0;
 
-	/* Parse attributes and extract fields of interest. */
-	memset(tb, 0, sizeof tb);
-	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
-
-	if (!tb[NDA_DST]) {
-		zlog_warn("%s family %s IF %s(%u) - no DST",
-			  nl_msg_type_to_str(h->nlmsg_type),
-			  nl_family_to_str(ndm->ndm_family), ifp->name,
-			  ndm->ndm_ifindex);
-		return 0;
-	}
 	memset(&mac, 0, sizeof(struct ethaddr));
-	memset(&ip, 0, sizeof(struct ipaddr));
-	ip.ipa_type = (ndm->ndm_family == AF_INET) ? IPADDR_V4 : IPADDR_V6;
-	memcpy(&ip.ip.addr, RTA_DATA(tb[NDA_DST]), RTA_PAYLOAD(tb[NDA_DST]));
-
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
 		if (tb[NDA_LLADDR]) {
 			if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {

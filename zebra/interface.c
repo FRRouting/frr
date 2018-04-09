@@ -825,6 +825,7 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 					  struct in6_addr *address, int add)
 {
 	struct zebra_vrf *zvrf = vrf_info_lookup(ifp->vrf_id);
+	struct zebra_if *zif = ifp->info;
 	char buf[16] = "169.254.0.1";
 	struct in_addr ipv4_ll;
 	char mac[6];
@@ -845,6 +846,16 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 
 	/* Add arp record */
 	kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr, mac, 6, ns_id);
+
+	/*
+	 * We need to note whether or not we originated a v6
+	 * neighbor entry for this interface.  So that when
+	 * someone unwisely accidently deletes this entry
+	 * we can shove it back in.
+	 */
+	zif->v6_2_v4_ll_neigh_entry = !!add;
+	memcpy(&zif->v6_2_v4_ll_addr6, address, sizeof(*address));
+
 	zvrf->neigh_updates++;
 }
 
