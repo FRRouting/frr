@@ -15,6 +15,8 @@
 import sys
 import os
 import re
+import pygments
+from sphinx.highlighting import lexers
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -341,3 +343,6 @@ def setup(app):
     app.add_object_type('clicmd', 'clicmd')
     # css overrides for HTML theme
     app.add_stylesheet('overrides.css')
+    # load FRR config lexer
+    frrlexer = pygments.lexers.load_lexer_from_file('../extra/frrlexer.py', lexername="FRRLexer")
+    lexers['frr'] = frrlexer

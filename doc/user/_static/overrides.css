@@ -2,3 +2,7 @@
 div.body {
     max-width: none;
 }
+
+pre {
+    background-color: #e2e2e2;
+}
