@@ -42,7 +42,7 @@ The snmptrap_handle.sh script I personally use for handling BGP4 traps is
 below. You can of course do all sorts of things when handling traps, like sound
 a siren, have your display flash, etc., be creative ;).
 
-::
+.. code-block:: shell
 
    #!/bin/bash
 

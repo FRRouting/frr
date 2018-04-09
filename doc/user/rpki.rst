@@ -164,7 +164,7 @@ Validating BGP Updates
     In the following example, the router prefers valid routes over invalid
     prefixes because invalid routes have a lower local preference.
 
-    ::
+    .. code-block:: frr
 
        ! Allow for invalid routes in route selection process
        route bgp 60001
@@ -213,7 +213,7 @@ Displaying RPKI
 RPKI Configuration Example
 --------------------------
 
-::
+.. code-block:: frr
 
    hostname bgpd1
    password zebra

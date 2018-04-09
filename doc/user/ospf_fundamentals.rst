@@ -336,61 +336,61 @@ are fully adjacent with 192.168.0.49.
 
 ::
 
-  # show ip ospf database router 192.168.0.49
+   # show ip ospf database router 192.168.0.49
 
-         OSPF Router with ID (192.168.0.53)
+          OSPF Router with ID (192.168.0.53)
 
-                  Router Link States (Area 0.0.0.0)
+                   Router Link States (Area 0.0.0.0)
 
-    LS age: 38
-    Options: 0x2  : *|-|-|-|-|-|E|*
-    LS Flags: 0x6
-    Flags: 0x2 : ASBR
-    LS Type: router-LSA
-    Link State ID: 192.168.0.49
-    Advertising Router: 192.168.0.49
-    LS Seq Number: 80000f90
-    Checksum: 0x518b
-    Length: 60
-     Number of Links: 3
+     LS age: 38
+     Options: 0x2  : *|-|-|-|-|-|E|*
+     LS Flags: 0x6
+     Flags: 0x2 : ASBR
+     LS Type: router-LSA
+     Link State ID: 192.168.0.49
+     Advertising Router: 192.168.0.49
+     LS Seq Number: 80000f90
+     Checksum: 0x518b
+     Length: 60
+      Number of Links: 3
 
-      Link connected to: a Transit Network
-       (Link ID) Designated Router address: 192.168.1.3
-       (Link Data) Router Interface address: 192.168.1.3
-        Number of TOS metrics: 0
-         TOS 0 Metric: 10
+       Link connected to: a Transit Network
+        (Link ID) Designated Router address: 192.168.1.3
+        (Link Data) Router Interface address: 192.168.1.3
+         Number of TOS metrics: 0
+          TOS 0 Metric: 10
 
-      Link connected to: a Transit Network
-       (Link ID) Designated Router address: 192.168.0.49
-       (Link Data) Router Interface address: 192.168.0.49
-        Number of TOS metrics: 0
-         TOS 0 Metric: 10
+       Link connected to: a Transit Network
+        (Link ID) Designated Router address: 192.168.0.49
+        (Link Data) Router Interface address: 192.168.0.49
+         Number of TOS metrics: 0
+          TOS 0 Metric: 10
 
-      Link connected to: Stub Network
-       (Link ID) Net: 192.168.3.190
-       (Link Data) Network Mask: 255.255.255.255
-        Number of TOS metrics: 0
-         TOS 0 Metric: 39063
-  # show ip ospf database network 192.168.0.49
+       Link connected to: Stub Network
+        (Link ID) Net: 192.168.3.190
+        (Link Data) Network Mask: 255.255.255.255
+         Number of TOS metrics: 0
+          TOS 0 Metric: 39063
+   # show ip ospf database network 192.168.0.49
 
-         OSPF Router with ID (192.168.0.53)
+          OSPF Router with ID (192.168.0.53)
 
-                  Net Link States (Area 0.0.0.0)
+                   Net Link States (Area 0.0.0.0)
 
-    LS age: 285
-    Options: 0x2  : *|-|-|-|-|-|E|*
-    LS Flags: 0x6
-    LS Type: network-LSA
-    Link State ID: 192.168.0.49 (address of Designated Router)
-    Advertising Router: 192.168.0.49
-    LS Seq Number: 80000074
-    Checksum: 0x0103
-    Length: 40
-    Network Mask: /29
-          Attached Router: 192.168.0.49
-          Attached Router: 192.168.0.52
-          Attached Router: 192.168.0.53
-          Attached Router: 192.168.0.54
+     LS age: 285
+     Options: 0x2  : *|-|-|-|-|-|E|*
+     LS Flags: 0x6
+     LS Type: network-LSA
+     Link State ID: 192.168.0.49 (address of Designated Router)
+     Advertising Router: 192.168.0.49
+     LS Seq Number: 80000074
+     Checksum: 0x0103
+     Length: 40
+     Network Mask: /29
+           Attached Router: 192.168.0.49
+           Attached Router: 192.168.0.52
+           Attached Router: 192.168.0.53
+           Attached Router: 192.168.0.54
 
 
 Note that from one LSA, you can find the other. E.g. Given the
@@ -412,26 +412,26 @@ following partial topology:
 
 ::
 
-  ------------------------ Network: ......
-              |            Designated Router IP: 192.168.1.3
-              |
-        IP: 192.168.1.3
-         (transit link)
-          (cost: 10)
-     Router ID: 192.168.0.49(stub)---------- IP: 192.168.3.190/32
-          (cost: 10)        (cost: 39063)
-         (transit link)
-        IP: 192.168.0.49
-              |
-              |
-  ------------------------------ Network: 192.168.0.48/29
-    |        |           |       Designated Router IP: 192.168.0.49
-    |        |           |
-    |        |     Router ID: 192.168.0.54
-    |        |
-    |   Router ID: 192.168.0.53
-    |
-  Router ID: 192.168.0.52
+   ------------------------ Network: ......
+               |            Designated Router IP: 192.168.1.3
+               |
+         IP: 192.168.1.3
+          (transit link)
+           (cost: 10)
+      Router ID: 192.168.0.49(stub)---------- IP: 192.168.3.190/32
+           (cost: 10)        (cost: 39063)
+          (transit link)
+         IP: 192.168.0.49
+               |
+               |
+   ------------------------------ Network: 192.168.0.48/29
+     |        |           |       Designated Router IP: 192.168.0.49
+     |        |           |
+     |        |     Router ID: 192.168.0.54
+     |        |
+     |   Router ID: 192.168.0.53
+     |
+   Router ID: 192.168.0.52
 
 
 Note the Router IDs, though they look like IP addresses and often are
@@ -495,22 +495,22 @@ should forward to the originating ASBR if selected.
 
 ::
 
-  # show ip ospf database external 192.168.165.0
-    LS age: 995
-    Options: 0x2  : *|-|-|-|-|-|E|*
-    LS Flags: 0x9
-    LS Type: AS-external-LSA
-    Link State ID: 192.168.165.0 (External Network Number)
-    Advertising Router: 192.168.0.49
-    LS Seq Number: 800001d8
-    Checksum: 0xea27
-    Length: 36
-    Network Mask: /24
-          Metric Type: 2 (Larger than any link state path)
-          TOS: 0
-          Metric: 20
-          Forward Address: 0.0.0.0
-          External Route Tag: 0
+   # show ip ospf database external 192.168.165.0
+     LS age: 995
+     Options: 0x2  : *|-|-|-|-|-|E|*
+     LS Flags: 0x9
+     LS Type: AS-external-LSA
+     Link State ID: 192.168.165.0 (External Network Number)
+     Advertising Router: 192.168.0.49
+     LS Seq Number: 800001d8
+     Checksum: 0xea27
+     Length: 36
+     Network Mask: /24
+           Metric Type: 2 (Larger than any link state path)
+           TOS: 0
+           Metric: 20
+           Forward Address: 0.0.0.0
+           External Route Tag: 0
 
 
 We can add this to our partial topology from above, which now looks

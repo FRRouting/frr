@@ -470,12 +470,14 @@ BGP route
 .. index:: network A.B.C.D/M
 .. clicmd:: network A.B.C.D/M
 
-   This command adds the announcement network.::
+   This command adds the announcement network.
 
-     router bgp 1
-      address-family ipv4 unicast
-       network 10.0.0.0/8
-      exit-address-family
+   .. code-block:: frr
+
+      router bgp 1
+       address-family ipv4 unicast
+        network 10.0.0.0/8
+       exit-address-family
 
    This configuration example says that network 10.0.0.0/8 will be
    announced to all neighbors. Some vendors' routers don't advertise
@@ -603,15 +605,17 @@ Defining Peer
 .. clicmd:: neighbor PEER remote-as ASN
 
    Creates a new neighbor whose remote-as is ASN. PEER can be an IPv4 address
-   or an IPv6 address or an interface to use for the connection.::
+   or an IPv6 address or an interface to use for the connection.
 
-      router bgp 1
-       neighbor 10.0.0.1 remote-as 2
+   .. code-block:: frr
+
+       router bgp 1
+        neighbor 10.0.0.1 remote-as 2
 
    In this case my router, in AS-1, is trying to peer with AS-2 at 10.0.0.1.
 
    This command must be the first command used when configuring a neighbor.  If
-   the remote-as is not specified, *bgpd* will complain like this:::
+   the remote-as is not specified, *bgpd* will complain like this: ::
 
       can't find neighbor 10.0.0.1
 
@@ -711,7 +715,9 @@ required.
    Specify the IPv4 source address to use for the :abbr:`BGP` session to this
    neighbour, may be specified as either an IPv4 address directly or as an
    interface name (in which case the *zebra* daemon MUST be running in order
-   for *bgpd* to be able to retrieve interface state).::
+   for *bgpd* to be able to retrieve interface state).
+
+   .. code-block:: frr
 
       router bgp 64555
        neighbor foo update-source 192.168.0.1
@@ -1187,7 +1193,10 @@ Following configuration is the most typical usage of BGP communities
 attribute. AS 7675 provides upstream Internet connection to AS 100.
 When following configuration exists in AS 7675, AS 100 networks
 operator can set local preference in AS 7675 network by setting BGP
-communities attribute to the updates.::
+communities attribute to the updates.
+
+
+.. code-block:: frr
 
    router bgp 7675
     neighbor 192.168.0.1 remote-as 100
@@ -1218,7 +1227,9 @@ communities attribute to the updates.::
 Following configuration announce 10.0.0.0/8 from AS 100 to AS 7675.
 The route has communities value 7675:80 so when above configuration
 exists in AS 7675, announced route's local preference will be set to
-value 80.::
+value 80.
+
+.. code-block:: frr
 
    router bgp 100
     network 10.0.0.0/8
@@ -1238,7 +1249,9 @@ Following configuration is an example of BGP route filtering using
 communities attribute. This configuration only permit BGP routes
 which has BGP communities value 0:80 or 0:90. Network operator can
 put special internal communities value at BGP border router, then
-limit the BGP routes announcement into the internal network.::
+limit the BGP routes announcement into the internal network.
+
+.. code-block:: frr
 
    router bgp 7675
     neighbor 192.168.0.1 remote-as 100
@@ -1254,7 +1267,9 @@ limit the BGP routes announcement into the internal network.::
 
 Following exmaple filter BGP routes which has communities value 1:1.
 When there is no match community-list returns deny. To avoid
-filtering all of routes, we need to define permit any at last.::
+filtering all of routes, we need to define permit any at last.
+
+.. code-block:: frr
 
    router bgp 7675
     neighbor 192.168.0.1 remote-as 100
@@ -1273,7 +1288,9 @@ Communities value keyword `internet` has special meanings in
 standard community lists. In below example `internet` act as
 match any. It matches all of BGP routes even if the route does not
 have communities attribute at all. So community list ``INTERNET``
-is same as above example's ``FILTER``.::
+is same as above example's ``FILTER``.
+
+.. code-block:: frr
 
    ip community-list standard INTERNET deny 1:1
    ip community-list standard INTERNET permit internet
@@ -1282,7 +1299,9 @@ is same as above example's ``FILTER``.::
 Following configuration is an example of communities value deletion.
 With this configuration communities value 100:1 and 100:2 is removed
 from BGP updates. For communities value deletion, only `permit`
-community-list is used. `deny` community-list is ignored.::
+community-list is used. `deny` community-list is ignored.
+
+.. code-block:: frr
 
    router bgp 7675
     neighbor 192.168.0.1 remote-as 100
@@ -1379,11 +1398,9 @@ Lists.
 .. clicmd:: show ip extcommunity-list NAME
 
    This command displays current extcommunity-list information. When `name` is
-   specified the community list's information is shown.
+   specified the community list's information is shown.::
 
-::
-
-    # show ip extcommunity-list
+      # show ip extcommunity-list
 
 
 .. _bgp-extended-communities-in-route-map:
@@ -1930,7 +1947,9 @@ neighbor. If a user manually disables the feature, the community attribute is
 not sent to the neighbor. When ``bgp config-type cisco`` is specified, the
 community attribute is not sent to the neighbor by default. To send the
 community attribute user has to specify *neighbor A.B.C.D send-community*
-command.::
+command.
+
+.. code-block:: frr
 
    !
    router bgp 1
@@ -1966,17 +1985,17 @@ multiple instance feature is enabled.
 
    Make a new BGP instance. You can use an arbitrary word for the `name`.
 
-  ::
+   .. code-block:: frr
 
-     bgp multiple-instance
-     !
-     router bgp 1
-      neighbor 10.0.0.1 remote-as 2
-      neighbor 10.0.0.2 remote-as 3
-     !
-     router bgp 2
-      neighbor 10.0.0.3 remote-as 4
-      neighbor 10.0.0.4 remote-as 5
+      bgp multiple-instance
+      !
+      router bgp 1
+       neighbor 10.0.0.1 remote-as 2
+       neighbor 10.0.0.2 remote-as 3
+      !
+      router bgp 2
+       neighbor 10.0.0.3 remote-as 4
+       neighbor 10.0.0.4 remote-as 5
 
 
 BGP view is almost same as normal BGP process. The result of route selection
@@ -1991,7 +2010,7 @@ routing information.
 
    With this command, you can setup Route Server like below.
 
-   ::
+   .. code-block:: frr
 
       bgp multiple-instance
       !
@@ -2010,7 +2029,9 @@ Routing policy
 --------------
 
 You can set different routing policy for a peer. For example, you can set
-different filter for a peer.::
+different filter for a peer.
+
+.. code-block:: frr
 
    bgp multiple-instance
    !
@@ -2084,10 +2105,10 @@ _
 How to set up a 6-Bone connection
 =================================
 
-::
+.. code-block:: frr
 
-   bgpd configuration
-   ==================
+   ! bgpd configuration
+   ! ==================
    !
    ! MP-BGP configuration
    !
@@ -2171,7 +2192,9 @@ Dump BGP packets and table
 BGP Configuration Examples
 ==========================
 
-Example of a session to an upstream, advertising only one prefix to it.::
+Example of a session to an upstream, advertising only one prefix to it.
+
+.. code-block:: frr
 
    router bgp 64512
     bgp router-id 10.236.87.1
@@ -2196,7 +2219,7 @@ feature to support selective advertising of prefixes. This example is intended
 as guidance only, it has NOT been tested and almost certainly containts silly
 mistakes, if not serious flaws.
 
-::
+.. code-block:: frr
 
    router bgp 64512
     bgp router-id 10.236.87.1

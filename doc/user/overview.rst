@@ -95,17 +95,17 @@ architecture creates new possibilities for the routing system.
 
 ::
 
-  +----+  +----+  +-----+  +-----+
-  |bgpd|  |ripd|  |ospfd|  |zebra|
-  +----+  +----+  +-----+  +-----+
-                              |
-  +---------------------------|--+
-  |                           v  |
-  |  UNIX Kernel  routing table  |
-  |                              |
-  +------------------------------+
+   +----+  +----+  +-----+  +-----+
+   |bgpd|  |ripd|  |ospfd|  |zebra|
+   +----+  +----+  +-----+  +-----+
+                               |
+   +---------------------------|--+
+   |                           v  |
+   |  UNIX Kernel  routing table  |
+   |                              |
+   +------------------------------+
 
-      FRR System Architecture
+       FRR System Architecture
 
 
 Multi-process architecture brings extensibility, modularity and

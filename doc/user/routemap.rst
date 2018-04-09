@@ -302,11 +302,11 @@ Route Map Examples
 
 A simple example of a route-map:
 
-::
+.. code-block:: frr
 
-  route-map test permit 10
-   match ip address 10
-   set local-preference 200
+   route-map test permit 10
+    match ip address 10
+    set local-preference 200
 
 
 This means that if a route matches ip access-list number 10 it's

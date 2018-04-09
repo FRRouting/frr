@@ -246,7 +246,7 @@ against the other two routers. These peerings have In and Out route-maps
 configured, named like 'PEER-X-IN' or 'PEER-X-OUT'. For example the
 configuration file for router RA could be the following:
 
-::
+.. code-block:: frr
 
    #Configuration for router 'RA'
    !
@@ -319,29 +319,29 @@ modify the configuration of routers RA, RB and RC. Now they must not peer
 between them, but only with the route server. For example, RA's
 configuration would turn into:
 
-::
+.. code-block:: frr
 
-  # Configuration for router 'RA'
-  !
-  hostname RA
-  password ****
-  !
-  router bgp 65001
-    no bgp default ipv4-unicast
-    neighbor 2001:0DB8::FFFF remote-as 65000
-  !
-    address-family ipv6
-      network 2001:0DB8:AAAA:1::/64
-      network 2001:0DB8:AAAA:2::/64
-      network 2001:0DB8:0000:1::/64
-      network 2001:0DB8:0000:2::/64
+   # Configuration for router 'RA'
+   !
+   hostname RA
+   password ****
+   !
+   router bgp 65001
+     no bgp default ipv4-unicast
+     neighbor 2001:0DB8::FFFF remote-as 65000
+   !
+     address-family ipv6
+       network 2001:0DB8:AAAA:1::/64
+       network 2001:0DB8:AAAA:2::/64
+       network 2001:0DB8:0000:1::/64
+       network 2001:0DB8:0000:2::/64
 
-      neighbor 2001:0DB8::FFFF activate
-      neighbor 2001:0DB8::FFFF soft-reconfiguration inbound
-    exit-address-family
-  !
-  line vty
-  !
+       neighbor 2001:0DB8::FFFF activate
+       neighbor 2001:0DB8::FFFF soft-reconfiguration inbound
+     exit-address-family
+   !
+   line vty
+   !
 
 
 Which is logically much simpler than its initial configuration, as it now
@@ -362,84 +362,84 @@ server.
 This is a fragment of the route server configuration (we only show
 the policies for client RA):
 
-::
+.. code-block:: frr
 
-  # Configuration for Route Server ('RS')
-  !
-  hostname RS
-  password ix
-  !
-  bgp multiple-instance
-  !
-  router bgp 65000 view RS
-    no bgp default ipv4-unicast
-    neighbor 2001:0DB8::A  remote-as 65001
-    neighbor 2001:0DB8::B  remote-as 65002
-    neighbor 2001:0DB8::C  remote-as 65003
-  !
-    address-family ipv6
-      neighbor 2001:0DB8::A activate
-      neighbor 2001:0DB8::A route-server-client
-      neighbor 2001:0DB8::A route-map RSCLIENT-A-IMPORT import
-      neighbor 2001:0DB8::A route-map RSCLIENT-A-EXPORT export
-      neighbor 2001:0DB8::A soft-reconfiguration inbound
+   # Configuration for Route Server ('RS')
+   !
+   hostname RS
+   password ix
+   !
+   bgp multiple-instance
+   !
+   router bgp 65000 view RS
+     no bgp default ipv4-unicast
+     neighbor 2001:0DB8::A  remote-as 65001
+     neighbor 2001:0DB8::B  remote-as 65002
+     neighbor 2001:0DB8::C  remote-as 65003
+   !
+     address-family ipv6
+       neighbor 2001:0DB8::A activate
+       neighbor 2001:0DB8::A route-server-client
+       neighbor 2001:0DB8::A route-map RSCLIENT-A-IMPORT import
+       neighbor 2001:0DB8::A route-map RSCLIENT-A-EXPORT export
+       neighbor 2001:0DB8::A soft-reconfiguration inbound
 
-      neighbor 2001:0DB8::B activate
-      neighbor 2001:0DB8::B route-server-client
-      neighbor 2001:0DB8::B route-map RSCLIENT-B-IMPORT import
-      neighbor 2001:0DB8::B route-map RSCLIENT-B-EXPORT export
-      neighbor 2001:0DB8::B soft-reconfiguration inbound
+       neighbor 2001:0DB8::B activate
+       neighbor 2001:0DB8::B route-server-client
+       neighbor 2001:0DB8::B route-map RSCLIENT-B-IMPORT import
+       neighbor 2001:0DB8::B route-map RSCLIENT-B-EXPORT export
+       neighbor 2001:0DB8::B soft-reconfiguration inbound
 
-      neighbor 2001:0DB8::C activate
-      neighbor 2001:0DB8::C route-server-client
-      neighbor 2001:0DB8::C route-map RSCLIENT-C-IMPORT import
-      neighbor 2001:0DB8::C route-map RSCLIENT-C-EXPORT export
-      neighbor 2001:0DB8::C soft-reconfiguration inbound
-    exit-address-family
-  !
-  ipv6 prefix-list COMMON-PREFIXES seq  5 permit 2001:0DB8:0000::/48 ge 64 le 64
-  ipv6 prefix-list COMMON-PREFIXES seq 10 deny any
-  !
-  ipv6 prefix-list PEER-A-PREFIXES seq  5 permit 2001:0DB8:AAAA::/48 ge 64 le 64
-  ipv6 prefix-list PEER-A-PREFIXES seq 10 deny any
-  !
-  ipv6 prefix-list PEER-B-PREFIXES seq  5 permit 2001:0DB8:BBBB::/48 ge 64 le 64
-  ipv6 prefix-list PEER-B-PREFIXES seq 10 deny any
-  !
-  ipv6 prefix-list PEER-C-PREFIXES seq  5 permit 2001:0DB8:CCCC::/48 ge 64 le 64
-  ipv6 prefix-list PEER-C-PREFIXES seq 10 deny any
-  !
-  route-map RSCLIENT-A-IMPORT permit 10
-    match peer 2001:0DB8::B
-    call A-IMPORT-FROM-B
-  route-map RSCLIENT-A-IMPORT permit 20
-    match peer 2001:0DB8::C
-    call A-IMPORT-FROM-C
-  !
-  route-map A-IMPORT-FROM-B permit 10
-    match ipv6 address prefix-list COMMON-PREFIXES
-    set metric 100
-  route-map A-IMPORT-FROM-B permit 20
-    match ipv6 address prefix-list PEER-B-PREFIXES
-    set community 65001:11111
-  !
-  route-map A-IMPORT-FROM-C permit 10
-    match ipv6 address prefix-list COMMON-PREFIXES
-    set metric 200
-  route-map A-IMPORT-FROM-C permit 20
-    match ipv6 address prefix-list PEER-C-PREFIXES
-    set community 65001:22222
-  !
-  route-map RSCLIENT-A-EXPORT permit 10
-    match peer 2001:0DB8::B
-    match ipv6 address prefix-list PEER-A-PREFIXES
-  route-map RSCLIENT-A-EXPORT permit 20
-    match peer 2001:0DB8::C
-    match ipv6 address prefix-list PEER-A-PREFIXES
-  !
-  ...
-  ...
-  ...
+       neighbor 2001:0DB8::C activate
+       neighbor 2001:0DB8::C route-server-client
+       neighbor 2001:0DB8::C route-map RSCLIENT-C-IMPORT import
+       neighbor 2001:0DB8::C route-map RSCLIENT-C-EXPORT export
+       neighbor 2001:0DB8::C soft-reconfiguration inbound
+     exit-address-family
+   !
+   ipv6 prefix-list COMMON-PREFIXES seq  5 permit 2001:0DB8:0000::/48 ge 64 le 64
+   ipv6 prefix-list COMMON-PREFIXES seq 10 deny any
+   !
+   ipv6 prefix-list PEER-A-PREFIXES seq  5 permit 2001:0DB8:AAAA::/48 ge 64 le 64
+   ipv6 prefix-list PEER-A-PREFIXES seq 10 deny any
+   !
+   ipv6 prefix-list PEER-B-PREFIXES seq  5 permit 2001:0DB8:BBBB::/48 ge 64 le 64
+   ipv6 prefix-list PEER-B-PREFIXES seq 10 deny any
+   !
+   ipv6 prefix-list PEER-C-PREFIXES seq  5 permit 2001:0DB8:CCCC::/48 ge 64 le 64
+   ipv6 prefix-list PEER-C-PREFIXES seq 10 deny any
+   !
+   route-map RSCLIENT-A-IMPORT permit 10
+     match peer 2001:0DB8::B
+     call A-IMPORT-FROM-B
+   route-map RSCLIENT-A-IMPORT permit 20
+     match peer 2001:0DB8::C
+     call A-IMPORT-FROM-C
+   !
+   route-map A-IMPORT-FROM-B permit 10
+     match ipv6 address prefix-list COMMON-PREFIXES
+     set metric 100
+   route-map A-IMPORT-FROM-B permit 20
+     match ipv6 address prefix-list PEER-B-PREFIXES
+     set community 65001:11111
+   !
+   route-map A-IMPORT-FROM-C permit 10
+     match ipv6 address prefix-list COMMON-PREFIXES
+     set metric 200
+   route-map A-IMPORT-FROM-C permit 20
+     match ipv6 address prefix-list PEER-C-PREFIXES
+     set community 65001:22222
+   !
+   route-map RSCLIENT-A-EXPORT permit 10
+     match peer 2001:0DB8::B
+     match ipv6 address prefix-list PEER-A-PREFIXES
+   route-map RSCLIENT-A-EXPORT permit 20
+     match peer 2001:0DB8::C
+     match ipv6 address prefix-list PEER-A-PREFIXES
+   !
+   ...
+   ...
+   ...
 
 
 If you compare the initial configuration of RA with the route server
@@ -487,7 +487,7 @@ any limitation, as all kinds of filters can be included in import/export
 route-maps. For example suppose that in the non-route-server scenario peer
 RA had the following filters configured for input from peer B:
 
-::
+.. code-block:: frr
 
    neighbor 2001:0DB8::B prefix-list LIST-1 in
    neighbor 2001:0DB8::B filter-list LIST-2 in
@@ -507,7 +507,7 @@ the three filters (the community-list, the prefix-list and the
 route-map). That route-map can then be used inside the Import
 policy in the route server. Lets see how to do it:
 
-::
+.. code-block:: frr
 
    neighbor 2001:0DB8::A route-map RSCLIENT-A-IMPORT import
    ...

@@ -99,7 +99,7 @@ EIGRP Configuration
    Below is very simple EIGRP configuration. Interface `eth0` and
    interface which address match to `10.0.0.0/8` are EIGRP enabled.
 
-   ::
+   .. code-block:: frr
 
       !
       router eigrp 1

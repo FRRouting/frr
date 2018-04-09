@@ -52,7 +52,9 @@ hub nodes, these routes should be internally redistributed using some
 routing protocol (e.g. iBGP) to allow hubs to be able to relay all traffic.
 
 This can be achieved in hubs with the following bgp configuration (network
-command defines the GRE subnet):::
+command defines the GRE subnet):
+
+.. code-block:: frr
 
   router bgp 65555
    address-family ipv4 unicast
@@ -82,12 +84,12 @@ using NFLOG. Typically you want to send Traffic Indications for network
 traffic that is routed from gre1 back to gre1 in rate limited manner.
 This can be achieved with the following iptables rule.
 
-::
+.. code-block:: shell
 
-  iptables -A FORWARD -i gre1 -o gre1 \\
-  	-m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 \\
-  	--hashlimit-mode srcip,dstip --hashlimit-srcmask 24 --hashlimit-dstmask 24 \\
-  	--hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-range 128
+   iptables -A FORWARD -i gre1 -o gre1 \\
+       -m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 \\
+       --hashlimit-mode srcip,dstip --hashlimit-srcmask 24 --hashlimit-dstmask 24 \\
+       --hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-range 128
 
 
 You can fine tune the src/dstmask according to the prefix lengths you
@@ -95,15 +97,20 @@ announce internal, add additional IP range matches, or rate limitation
 if needed. However, the above should be good in most cases.
 
 This kernel NFLOG target's nflog-group is configured in global nhrp config
-with:::
+with:
 
-  nhrp nflog-group 1
+.. code-block:: frr
+
+   nhrp nflog-group 1
 
 To start sending these traffic notices out from hubs, use the nhrp
-per-interface directive:::
+per-interface directive:
 
-  interface gre1
-   ip nhrp redirect
+.. code-block:: frr
+
+   interface gre1
+    ip nhrp redirect
+
 
 .. _integration-with-ike:
 

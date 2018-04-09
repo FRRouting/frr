@@ -90,7 +90,7 @@ Default values are overridden by :ref:`vnc-nve-group-configuration`.
 Enter VNC configuration mode for specifying VNC default behaviors. Use
 `exit-vnc` to leave VNC configuration mode. `vnc defaults` is optional.
 
-::
+.. code-block:: frr
 
    vnc defaults
    ... various VNC defaults
@@ -142,7 +142,7 @@ Defaults section.
   Enter VNC configuration mode for defining the NVE group `name`.
   Use `exit` or `exit-vnc` to exit group configuration mode.
 
-  ::
+  .. code-block:: frr
 
      vnc nve-group group1
      ... configuration commands
@@ -315,7 +315,7 @@ L2 Group Configuration.
    Enter VNC configuration mode for defining the L2 group `name`.
    Use `exit` or `exit-vnc` to exit group configuration mode.
 
-   ::
+   .. code-block:: frr
 
        vnc l2-group group1
          ... configuration commands
@@ -851,7 +851,9 @@ Tunnel Encapsulation Attribute.
 
    A three-way full mesh with three NVEs per NVA.
 
-:file:`bgpd.conf` for ``NVA 1`` (192.168.1.100):::
+:file:`bgpd.conf` for ``NVA 1`` (192.168.1.100):
+
+.. code-block:: frr
 
    router bgp 64512
 
@@ -883,7 +885,9 @@ Tunnel Encapsulation Attribute.
 
    exit
 
-:file:`bgpd.conf` for ``NVA 2`` (192.168.1.101):::
+:file:`bgpd.conf` for ``NVA 2`` (192.168.1.101):
+
+.. code-block:: frr
 
    router bgp 64512
 
@@ -905,7 +909,9 @@ Tunnel Encapsulation Attribute.
        exit-vnc
    exit
 
-:file:`bgpd.conf` for ``NVA 3`` (192.168.1.102):::
+:file:`bgpd.conf` for ``NVA 3`` (192.168.1.102):
+
+.. code-block:: frr
 
    router bgp 64512
 
@@ -959,7 +965,9 @@ registrations exported this way have a next-hop address of the CE behind the
 connected (registering) NVE. Exporting VNC routes as IPv4 unicast is enabled
 with the ``vnc export`` command below.
 
-The configuration for ``VNC-GW 1`` is shown below.::
+The configuration for ``VNC-GW 1`` is shown below.
+
+.. code-block:: frr
 
    router bgp 64512
     bgp router-id 192.168.1.101
@@ -994,7 +1002,9 @@ have a statement disabling the IPv4 unicast address family. IPv4 unicast is on
 by default and this prevents the other VNC-GW and NVAs from learning unicast
 routes advertised by the route-reflector clients.
 
-Configuration for ``NVA 2``:::
+Configuration for ``NVA 2``:
+
+.. code-block:: frr
 
    router bgp 64512
     bgp router-id 192.168.1.104
@@ -1077,7 +1087,9 @@ As in the example of :ref:`vnc-mesh-nva-config`, there are two NVE groups.  The
 7``, and ``NVE 8`` are members of the NVE group ``group1``.  The NVEs ``NVE
 5``, ``NVE 6``, and ``NVE 9`` are members of the NVE group ``group2``.
 
-:file:`bgpd.conf` for ``BGP Route Reflector 1`` on 192.168.1.100:::
+:file:`bgpd.conf` for ``BGP Route Reflector 1`` on 192.168.1.100:
+
+.. code-block:: frr
 
    router bgp 64512
 
@@ -1106,7 +1118,9 @@ As in the example of :ref:`vnc-mesh-nva-config`, there are two NVE groups.  The
 
    exit
 
-:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.101:::
+:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.101:
+
+.. code-block:: frr
 
    router bgp 64512
 
@@ -1126,28 +1140,30 @@ As in the example of :ref:`vnc-mesh-nva-config`, there are two NVE groups.  The
        exit-vnc
    exit
 
-:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.102:::
+:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.102:
 
-  router bgp 64512
+.. code-block:: frr
 
-      bgp router-id 192.168.1.102
+   router bgp 64512
 
-      neighbor 192.168.1.100  remote-as 64512
+       bgp router-id 192.168.1.102
 
-      address-family ipv4 vpn
-          neighbor 192.168.1.100 activate
-      exit-address-family
+       neighbor 192.168.1.100  remote-as 64512
 
-      vnc defaults
-          rd 64512:1
-          response-lifetime 200
-          rt both 1000:1 1000:2
-      exit-vnc
+       address-family ipv4 vpn
+           neighbor 192.168.1.100 activate
+       exit-address-family
 
-      vnc nve-group group1
-          prefix vn 172.16.128.0/17
-      exit-vnc
-  exit
+       vnc defaults
+           rd 64512:1
+           response-lifetime 200
+           rt both 1000:1 1000:2
+       exit-vnc
+
+       vnc nve-group group1
+           prefix vn 172.16.128.0/17
+       exit-vnc
+   exit
 
 While not shown, an NVA can also be configured as a route reflector.
 
@@ -1218,7 +1234,9 @@ VNC-relevant configuration is provided.
        }
    }
 
-:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.101:::
+:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.101:
+
+.. code-block:: frr
 
    router bgp 64512
 
@@ -1238,7 +1256,9 @@ VNC-relevant configuration is provided.
        exit-vnc
    exit
 
-:file:`bgpd.conf` for ``NVA 3`` on 192.168.1.102:::
+:file:`bgpd.conf` for ``NVA 3`` on 192.168.1.102:
+
+.. code-block:: frr
 
    router bgp 64512
 
@@ -1277,7 +1297,9 @@ reflector configuration.  BGP route reflectors ``BGP Route Reflector 1`` and
 
    FRR-based NVA with redundant route reflectors
 
-:file:`bgpd.conf` for ``Bgpd Route Reflector 1`` on 192.168.1.100:::
+:file:`bgpd.conf` for ``Bgpd Route Reflector 1`` on 192.168.1.100:
+
+.. code-block:: frr
 
    router bgp 64512
 
@@ -1304,29 +1326,33 @@ reflector configuration.  BGP route reflectors ``BGP Route Reflector 1`` and
     exit-address-family
    exit
 
-:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.101:::
+:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.101:
 
-    router bgp 64512
+.. code-block:: frr
 
-     bgp router-id 192.168.1.101
+   router bgp 64512
 
-     neighbor 192.168.1.100  remote-as 64512
-     neighbor 192.168.1.104  remote-as 64512
+    bgp router-id 192.168.1.101
 
-     address-family ipv4 vpn
-      neighbor 192.168.1.100 activate
-      neighbor 192.168.1.104 activate
-     exit-address-family
+    neighbor 192.168.1.100  remote-as 64512
+    neighbor 192.168.1.104  remote-as 64512
 
-     vnc nve-group group1
-      prefix vn 172.16.0.0/17
-      rd 64512:1
-      response-lifetime 200
-      rt both 1000:1 1000:2
-     exit-vnc
-    exit
+    address-family ipv4 vpn
+     neighbor 192.168.1.100 activate
+     neighbor 192.168.1.104 activate
+    exit-address-family
 
-:file:`bgpd.conf` for ``NVA 3`` on 192.168.1.102:::
+    vnc nve-group group1
+     prefix vn 172.16.0.0/17
+     rd 64512:1
+     response-lifetime 200
+     rt both 1000:1 1000:2
+    exit-vnc
+   exit
+
+:file:`bgpd.conf` for ``NVA 3`` on 192.168.1.102:
+
+.. code-block:: frr
 
    router bgp 64512
 
@@ -1417,7 +1443,7 @@ reflector configuration.  BGP route reflectors ``BGP Route Reflector 1`` and
        }
    }
 
-.. [#] The nve-id is carriedin the route distinguisher. It is the second octet
+.. [#] The nve-id is carried in the route distinguisher. It is the second octet
        of the eight-octet route distinguisher generated for Ethernet / L2
        advertisements. The first octet is a constant 0xFF, and the third
        through eighth octets are set to the L2

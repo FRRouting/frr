@@ -42,7 +42,7 @@ Config files are generally found in |INSTALL_PREFIX_ETC|.
 Each of the daemons has its own config file. The daemon name plus ``.conf`` is
 the default config file name. For example, zebra's default config file name is
 :file:`zebra.conf`. You can specify a config file using the :option:`-f` or
-:option:`--config-file` options when starting the daemon.
+:option:`--config_file` options when starting the daemon.
 
 .. _basic-config-commands:
 
@@ -261,27 +261,27 @@ Sample Config File
 
 Below is a sample configuration file for the zebra daemon.
 
-::
+.. code-block:: frr
 
-  !
-  ! Zebra configuration file
-  !
-  hostname Router
-  password zebra
-  enable password zebra
-  !
-  log stdout
-  !
-  !
+   !
+   ! Zebra configuration file
+   !
+   hostname Router
+   password zebra
+   enable password zebra
+   !
+   log stdout
+   !
+   !
 
 
 '!' and '#' are comment characters. If the first character of the word
 is one of the comment characters then from the rest of the line forward
 will be ignored as a comment.
 
-::
+.. code-block:: frr
 
-  password zebra!password
+   password zebra!password
 
 If a comment character is not the first character of the word, it's a
 normal character. So in the above example '!' will not be regarded as a
@@ -466,32 +466,32 @@ is no VTY password, one cannot connect to the VTY interface at all.
 
 ::
 
-  % telnet localhost 2601
-  Trying 127.0.0.1...
-  Connected to localhost.
-  Escape character is '^]'.
+   % telnet localhost 2601
+   Trying 127.0.0.1...
+   Connected to localhost.
+   Escape character is '^]'.
 
-  Hello, this is |PACKAGE_NAME| (version |PACKAGE_VERSION|)
-  |COPYRIGHT_STR|
+   Hello, this is |PACKAGE_NAME| (version |PACKAGE_VERSION|)
+   |COPYRIGHT_STR|
 
-  User Access Verification
+   User Access Verification
 
-  Password: XXXXX
-  Router> ?
-    enable .  .  .  Turn on privileged commands
-    exit   .  .  .  Exit current mode and down to previous mode
-    help   .  .  .  Description of the interactive help system
-    list   .  .  .  Print command list
-    show   .  .  .  Show system inform
+   Password: XXXXX
+   Router> ?
+     enable .  .  .  Turn on privileged commands
+     exit   .  .  .  Exit current mode and down to previous mode
+     help   .  .  .  Description of the interactive help system
+     list   .  .  .  Print command list
+     show   .  .  .  Show system inform
 
-    wh. . .  Display who is on a vty
-  Router> enable
-  Password: XXXXX
-  Router# configure terminal
-  Router(config)# interface eth0
-  Router(config-if)# ip address 10.0.0.1/8
-  Router(config-if)# ^Z
-  Router#
+     wh. . .  Display who is on a vty
+   Router> enable
+   Password: XXXXX
+   Router# configure terminal
+   Router(config)# interface eth0
+   Router(config-if)# ip address 10.0.0.1/8
+   Router(config-if)# ^Z
+   Router#
 
 
 :kbd:`?` and the ``find`` command are very useful for looking up commands.
@@ -545,22 +545,22 @@ These commands are used for moving the CLI cursor. The :kbd:`C` character
 means press the Control Key.
 
 :kbd:`C-f` / :kbd:`LEFT`
-  Move forward one character.
+   Move forward one character.
 
 :kbd:`C-b` / :kbd:`RIGHT`
-  Move backward one character.
+   Move backward one character.
 
 :kbd:`M-f`
-  Move forward one word.
+   Move forward one word.
 
 :kbd:`M-b`
-  Move backward one word.
+   Move backward one word.
 
 :kbd:`C-a`
-  Move to the beginning of the line.
+   Move to the beginning of the line.
 
 :kbd:`C-e`
-  Move to the end of the line.
+   Move to the end of the line.
 
 
 .. _cli-editing-commands:
@@ -573,31 +573,31 @@ character means press the Control Key.
 
 
 :kbd:`C-h` / :kbd:`DEL`
-  Delete the character before point.
+   Delete the character before point.
 
 
 :kbd:`C-d`
-  Delete the character after point.
+   Delete the character after point.
 
 
 :kbd:`M-d`
-  Forward kill word.
+   Forward kill word.
 
 
 :kbd:`C-w`
-  Backward kill word.
+   Backward kill word.
 
 
 :kbd:`C-k`
-  Kill to the end of the line.
+   Kill to the end of the line.
 
 
 :kbd:`C-u`
-  Kill line from the beginning, erasing input.
+   Kill line from the beginning, erasing input.
 
 
 :kbd:`C-t`
-  Transpose character.
+   Transpose character.
 
 
 CLI Advanced Commands
@@ -608,27 +608,27 @@ insta-help, and VTY session management.
 
 
 :kbd:`C-c`
-  Interrupt current input and moves to the next line.
+   Interrupt current input and moves to the next line.
 
 
 :kbd:`C-z`
-  End current configuration session and move to top node.
+   End current configuration session and move to top node.
 
 
 :kbd:`C-n` / :kbd:`DOWN`
-  Move down to next line in the history buffer.
+   Move down to next line in the history buffer.
 
 
 :kbd:`C-p` / :kbd:`UP`
-  Move up to previous line in the history buffer.
+   Move up to previous line in the history buffer.
 
 
 :kbd:`TAB`
-  Use command line completion by typing :kbd:`TAB`.
+   Use command line completion by typing :kbd:`TAB`.
 
 
 :kbd:`?`
-  You can use command line help by typing `help` at the beginning of
-  the line. Typing :kbd:`?` at any point in the line will show possible
-  completions.
+   You can use command line help by typing ``help`` at the beginning of the
+   line.  Typing :kbd:`?` at any point in the line will show possible
+   completions.
 

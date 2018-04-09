@@ -214,8 +214,8 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
 .. _pim-multicast-rib-insertion:
 
-PIM Multicast RIB insertion::
-=============================
+PIM Multicast RIB insertion:
+============================
 
 In order to influence Multicast RPF lookup, it is possible to insert
 into zebra routes for the Multicast RIB. These routes are only
