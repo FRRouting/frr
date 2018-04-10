@@ -54,24 +54,6 @@ void pbr_debug_set_all(uint32_t flags, bool set)
 	}
 }
 
-/*
- * Check flags on all debugs for pbrd.
- *
- * flags
- *    The flags to set
- *
- * Returns:
- *    The subset of the given flags that were set in all pbrd debugs
- */
-static uint32_t pbr_debug_check_all(uint32_t flags)
-{
-	uint32_t mode = DEBUG_MODE_ALL;
-
-	for (unsigned int i = 0; i < array_size(pbr_debugs); i++)
-		mode &= DEBUG_MODE_CHECK(pbr_debugs[i], flags);
-	return mode;
-}
-
 int pbr_debug_config_write_helper(struct vty *vty, bool config)
 {
 	uint32_t mode = DEBUG_MODE_ALL;
