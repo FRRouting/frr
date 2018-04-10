@@ -484,8 +484,10 @@ checkpatch.sh
    better clarity than the script. Accordingly, it may be appropriate to
    ignore some checkpatch.sh warnings per discussion among the submitter(s)
    and reviewer(s) of a change. Misreporting of errors by the script is
-   possible. When this occurs, a patch for checkpatch should be added to
-   the pull request to correct the false error report.
+   possible. When this occurs, the exception should be handled either by
+   patching checkpatch to correct the false error report, or by documenting the
+   exception in this document under :ref:`style-exceptions`. If the incorrect
+   report is likely to appear again, a checkpatch update is preferred.
 
    If the script finds one or more WARNINGs it will exit with 1. If it finds
    one or more ERRORs it will exit with 2.
@@ -547,6 +549,8 @@ necessary replacements.
 | u_long    | unsigned long            |
 +-----------+--------------------------+
 
+.. _style-exceptions:
+
 Exceptions
 ^^^^^^^^^^
 
@@ -584,6 +588,23 @@ GNU coding style apply to the following parts:
 BSD coding style applies to:
 
 -  ``ldpd/``
+
+
+Specific Exceptions
+^^^^^^^^^^^^^^^^^^^
+
+Most of the time checkpatch errors should be corrected. Occasionally as a group
+maintainers will decide to ignore certain stylistic issues. Usually this is
+because correcting the issue is not possible without large unrelated code
+changes. When an exception is made, if it is unlikely to show up again and
+doesn't warrant an update to checkpatch, it is documented here.
+
++------------------------------------------+---------------------------------------------------------------+
+| Issue                                    | Ignore Reason                                                 |
++==========================================+===============================================================+
+| DEFPY_HIDDEN, DEFPY_ATTR: complex macros | DEF* macros cannot be wrapped in parentheses without updating |
+| should be wrapped in parentheses         | all usages of the macro, which would be highly disruptive.    |
++------------------------------------------+---------------------------------------------------------------+
 
 Compile-time conditional code
 -----------------------------
