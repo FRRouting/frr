@@ -20,6 +20,7 @@
 #include <zebra.h>
 
 #include <vrf.h>
+#include <sockunion.h>
 #include <nexthop.h>
 #include <nexthop_group.h>
 #include <vty.h>
@@ -173,6 +174,46 @@ struct nexthop_group_cmd *nhgc_find(const char *name)
 	return RB_FIND(nhgc_entry_head, &nhgc_entries, &find);
 }
 
+static int nhgc_cmp_helper(const char *a, const char *b)
+{
+	if (!a && !b)
+		return 0;
+
+	if (a && !b)
+		return -1;
+
+	if (!a && b)
+		return 1;
+
+	return strcmp(a, b);
+}
+
+static int nhgl_cmp(struct nexthop_hold *nh1, struct nexthop_hold *nh2)
+{
+	int ret;
+
+	ret = sockunion_cmp(&nh1->addr, &nh2->addr);
+	if (ret)
+		return ret;
+
+	ret = nhgc_cmp_helper(nh1->intf, nh2->intf);
+	if (ret)
+		return ret;
+
+	return nhgc_cmp_helper(nh1->nhvrf_name, nh2->nhvrf_name);
+}
+
+static void nhgl_delete(struct nexthop_hold *nh)
+{
+	if (nh->intf)
+		XFREE(MTYPE_TMP, nh->intf);
+
+	if (nh->nhvrf_name)
+		XFREE(MTYPE_TMP, nh->nhvrf_name);
+
+	XFREE(MTYPE_TMP, nh);
+}
+
 static struct nexthop_group_cmd *nhgc_get(const char *name)
 {
 	struct nexthop_group_cmd *nhgc;
@@ -184,6 +225,10 @@ static struct nexthop_group_cmd *nhgc_get(const char *name)
 
 		QOBJ_REG(nhgc, nexthop_group_cmd);
 		RB_INSERT(nhgc_entry_head, &nhgc_entries, nhgc);
+
+		nhgc->nhg_list = list_new();
+		nhgc->nhg_list->cmp = (int (*)(void *, void *))nhgl_cmp;
+		nhgc->nhg_list->del = (void (*)(void *))nhgl_delete;
 
 		if (nhg_hooks.new)
 			nhg_hooks.new(name);
@@ -200,6 +245,10 @@ static void nhgc_delete(struct nexthop_group_cmd *nhgc)
 		nhg_hooks.delete(nhgc->name);
 
 	RB_REMOVE(nhgc_entry_head, &nhgc_entries, nhgc);
+
+	list_delete_and_null(&nhgc->nhg_list);
+
+	XFREE(MTYPE_TMP, nhgc);
 }
 
 DEFINE_QOBJ_TYPE(nexthop_group_cmd)
@@ -230,6 +279,56 @@ DEFUN_NOSH(no_nexthop_group, no_nexthop_group_cmd, "no nexthop-group NAME",
 		nhgc_delete(nhgc);
 
 	return CMD_SUCCESS;
+}
+
+static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
+				    const char *nhvrf_name,
+				    const union sockunion *addr,
+				    const char *intf)
+{
+	struct nexthop_hold *nh;
+
+	nh = XCALLOC(MTYPE_TMP, sizeof(*nh));
+
+	if (nhvrf_name)
+		nh->nhvrf_name = XSTRDUP(MTYPE_TMP, nhvrf_name);
+	if (intf)
+		nh->intf = XSTRDUP(MTYPE_TMP, intf);
+
+	nh->addr = *addr;
+
+	listnode_add_sort(nhgc->nhg_list, nh);
+}
+
+static void nexthop_group_unsave_nhop(struct nexthop_group_cmd *nhgc,
+				      const char *nhvrf_name,
+				      const union sockunion *addr,
+				      const char *intf)
+{
+	struct nexthop_hold *nh;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nh)) {
+		if (nhgc_cmp_helper(nhvrf_name, nh->nhvrf_name) == 0 &&
+		    sockunion_cmp(addr, &nh->addr) == 0 &&
+		    nhgc_cmp_helper(intf, nh->intf) == 0)
+			break;
+	}
+
+	/*
+	 * Something has gone seriously wrong, fail gracefully
+	 */
+	if (!nh)
+		return;
+
+	list_delete_node(nhgc->nhg_list, node);
+
+	if (nh->nhvrf_name)
+		XFREE(MTYPE_TMP, nh->nhvrf_name);
+	if (nh->intf)
+		XFREE(MTYPE_TMP, nh->intf);
+
+	XFREE(MTYPE_TMP, nh);
 }
 
 DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
@@ -300,6 +399,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 		if (nh) {
 			nexthop_del(&nhgc->nhg, nh);
 
+			nexthop_group_unsave_nhop(nhgc, name, addr, intf);
 			if (nhg_hooks.del_nexthop)
 				nhg_hooks.del_nexthop(nhgc, nh);
 
@@ -311,6 +411,8 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 
 		memcpy(nh, &nhop, sizeof(nhop));
 		nexthop_add(&nhgc->nhg.nexthop, nh);
+
+		nexthop_group_save_nhop(nhgc, name, addr, intf);
 
 		if (nhg_hooks.add_nexthop)
 			nhg_hooks.add_nexthop(nhgc, nh);
@@ -363,17 +465,37 @@ void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh)
 	vty_out(vty, "\n");
 }
 
+static void nexthop_group_write_nexthop_internal(struct vty *vty,
+						 struct nexthop_hold *nh)
+{
+	char buf[100];
+
+	vty_out(vty, "nexthop ");
+
+	vty_out(vty, "%s", sockunion2str(&nh->addr, buf, sizeof(buf)));
+
+	if (nh->intf)
+		vty_out(vty, " %s", nh->intf);
+
+	if (nh->nhvrf_name)
+		vty_out(vty, " nexthop-vrf %s", nh->nhvrf_name);
+
+	vty_out(vty, "\n");
+}
+
 static int nexthop_group_write(struct vty *vty)
 {
 	struct nexthop_group_cmd *nhgc;
-	struct nexthop *nh;
+	struct nexthop_hold *nh;
 
 	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
+		struct listnode *node;
+
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
 
-		for (nh = nhgc->nhg.nexthop; nh; nh = nh->next) {
+		for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nh)) {
 			vty_out(vty, "  ");
-			nexthop_group_write_nexthop(vty, nh);
+			nexthop_group_write_nexthop_internal(vty, nh);
 		}
 
 		vty_out(vty, "!\n");

@@ -56,6 +56,13 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 	(nhop);								\
 	(nhop) = nexthop_next(nhop)
 
+
+struct nexthop_hold {
+	char *nhvrf_name;
+	union sockunion addr;
+	char *intf;
+};
+
 struct nexthop_group_cmd {
 
 	RB_ENTRY(nexthop_group_cmd) nhgc_entry;
@@ -63,6 +70,8 @@ struct nexthop_group_cmd {
 	char name[80];
 
 	struct nexthop_group nhg;
+
+	struct list *nhg_list;
 
 	QOBJ_FIELDS
 };
