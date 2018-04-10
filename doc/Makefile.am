@@ -258,4 +258,5 @@ EXTRA_DIST = frr-sphinx.mk \
 	figures/ospf_api_architecture.png \
 	figures/ospf_api_msghdr.png \
 	figures/ospf_api_msgs1.png \
-	figures/ospf_api_msgs2.png
+	figures/ospf_api_msgs2.png \
+	extra/frrlexer.py

@@ -343,6 +343,13 @@ def setup(app):
     app.add_object_type('clicmd', 'clicmd')
     # css overrides for HTML theme
     app.add_stylesheet('overrides.css')
-    # load FRR config lexer
-    frrlexer = pygments.lexers.load_lexer_from_file('../extra/frrlexer.py', lexername="FRRLexer")
-    lexers['frr'] = frrlexer
+    # load Pygments lexer for FRR config syntax
+    #
+    # NB: in Pygments 2.2+ this can be done with `load_lexer_from_file`, but we
+    # do it manually since not all of our supported build platforms have 2.2
+    # yet.
+    #
+    # frrlexer = pygments.lexers.load_lexer_from_file('../extra/frrlexer.py', lexername="FRRLexer")
+    custom_namespace = {}
+    exec(open('../extra/frrlexer.py', 'rb').read(), custom_namespace)
+    lexers['frr'] = custom_namespace['FRRLexer']()
