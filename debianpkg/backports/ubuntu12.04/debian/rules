@@ -69,8 +69,8 @@ ifndef WANT_FRR_USER
   USE_FRR_USER=--enable-user=frr
   USE_FRR_GROUP=--enable-group=frr
 else
-  USE_FRR_USER=$(WANT_FRR_USER)
-  USE_FRR_GROUP=$(WANT_FRR_USER)
+  USE_FRR_USER=--enable-user=$(WANT_FRR_USER)
+  USE_FRR_GROUP=--enable-group=$(WANT_FRR_USER)
 endif
 
 ifndef WANT_FRR_VTY_GROUP
