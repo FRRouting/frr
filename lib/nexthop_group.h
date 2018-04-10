@@ -94,6 +94,11 @@ void nexthop_group_init(
 			    const struct nexthop *nhop),
 	void (*delete)(const char *name));
 
+void nexthop_group_enable_vrf(struct vrf *vrf);
+void nexthop_group_disable_vrf(struct vrf *vrf);
+void nexthop_group_interface_state_change(struct interface *ifp,
+					  ifindex_t oldifindex);
+
 extern struct nexthop *nexthop_exists(struct nexthop_group *nhg,
 				      struct nexthop *nh);
 

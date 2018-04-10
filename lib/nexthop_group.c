@@ -331,6 +331,47 @@ static void nexthop_group_unsave_nhop(struct nexthop_group_cmd *nhgc,
 	XFREE(MTYPE_TMP, nh);
 }
 
+static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
+					const union sockunion *addr,
+					const char *intf, const char *name)
+{
+	struct vrf *vrf;
+
+	memset(nhop, 0, sizeof(*nhop));
+
+	if (name)
+		vrf = vrf_lookup_by_name(name);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf)
+		return false;
+
+	nhop->vrf_id = vrf->vrf_id;
+
+	if (addr->sa.sa_family == AF_INET) {
+		nhop->gate.ipv4.s_addr = addr->sin.sin_addr.s_addr;
+		if (intf) {
+			nhop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			nhop->ifindex = ifname2ifindex(intf, vrf->vrf_id);
+			if (nhop->ifindex == IFINDEX_INTERNAL)
+				return false;
+		} else
+			nhop->type = NEXTHOP_TYPE_IPV4;
+	} else {
+		memcpy(&nhop->gate.ipv6, &addr->sin6.sin6_addr, 16);
+		if (intf) {
+			nhop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			nhop->ifindex = ifname2ifindex(intf, vrf->vrf_id);
+			if (nhop->ifindex == IFINDEX_INTERNAL)
+				return false;
+		} else
+			nhop->type = NEXTHOP_TYPE_IPV6;
+	}
+
+	return true;
+}
+
 DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
       "[no] nexthop <A.B.C.D|X:X::X:X>$addr [INTERFACE]$intf [nexthop-vrf NAME$name]",
       NO_STR
@@ -342,64 +383,26 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
       "The nexthop-vrf Name\n")
 {
 	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
-	struct vrf *vrf;
 	struct nexthop nhop;
 	struct nexthop *nh;
+	bool legal;
 
-	if (name)
-		vrf = vrf_lookup_by_name(name);
-	else
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, name);
 
-	if (!vrf) {
-		vty_out(vty, "Specified: %s is non-existent\n", name);
-		return CMD_WARNING;
-	}
-
-	memset(&nhop, 0, sizeof(nhop));
-	nhop.vrf_id = vrf->vrf_id;
-
-	if (addr->sa.sa_family == AF_INET) {
-		nhop.gate.ipv4.s_addr = addr->sin.sin_addr.s_addr;
-		if (intf) {
-			nhop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
-			nhop.ifindex = ifname2ifindex(intf, vrf->vrf_id);
-			if (nhop.ifindex == IFINDEX_INTERNAL) {
-				vty_out(vty,
-					"Specified Intf %s does not exist in vrf: %s\n",
-					intf, vrf->name);
-				return CMD_WARNING;
-			}
-		} else
-			nhop.type = NEXTHOP_TYPE_IPV4;
-	} else {
-		memcpy(&nhop.gate.ipv6, &addr->sin6.sin6_addr, 16);
-		if (intf) {
-			nhop.type = NEXTHOP_TYPE_IPV6_IFINDEX;
-			nhop.ifindex = ifname2ifindex(intf, vrf->vrf_id);
-			if (nhop.ifindex == IFINDEX_INTERNAL) {
-				vty_out(vty,
-					"Specified Intf %s does not exist in vrf: %s\n",
-					intf, vrf->name);
-				return CMD_WARNING;
-			}
-		} else {
-			if (IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
-				vty_out(vty,
-					"Specified a v6 LL with no interface, rejecting\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-			nhop.type = NEXTHOP_TYPE_IPV6;
-		}
+	if (nhop.type == NEXTHOP_TYPE_IPV6
+	    && IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
+		vty_out(vty,
+			"Specified a v6 LL with no interface, rejecting\n");
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	nh = nexthop_exists(&nhgc->nhg, &nhop);
 
 	if (no) {
+		nexthop_group_unsave_nhop(nhgc, name, addr, intf);
 		if (nh) {
 			nexthop_del(&nhgc->nhg, nh);
 
-			nexthop_group_unsave_nhop(nhgc, name, addr, intf);
 			if (nhg_hooks.del_nexthop)
 				nhg_hooks.del_nexthop(nhgc, nh);
 
@@ -407,14 +410,16 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 		}
 	} else if (!nh) {
 		/* must be adding new nexthop since !no and !nexthop_exists */
-		nh = nexthop_new();
+		if (legal) {
+			nh = nexthop_new();
 
-		memcpy(nh, &nhop, sizeof(nhop));
-		nexthop_add(&nhgc->nhg.nexthop, nh);
+			memcpy(nh, &nhop, sizeof(nhop));
+			nexthop_add(&nhgc->nhg.nexthop, nh);
+		}
 
 		nexthop_group_save_nhop(nhgc, name, addr, intf);
 
-		if (nhg_hooks.add_nexthop)
+		if (legal && nhg_hooks.add_nexthop)
 			nhg_hooks.add_nexthop(nhgc, nh);
 	}
 
@@ -502,6 +507,152 @@ static int nexthop_group_write(struct vty *vty)
 	}
 
 	return 1;
+}
+
+void nexthop_group_enable_vrf(struct vrf *vrf)
+{
+	struct nexthop_group_cmd *nhgc;
+	struct nexthop_hold *nhh;
+
+	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
+		struct listnode *node;
+
+		for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nhh)) {
+			struct nexthop nhop;
+			struct nexthop *nh;
+
+			if (!nexthop_group_parse_nexthop(&nhop, &nhh->addr,
+							 nhh->intf,
+							 nhh->nhvrf_name))
+				continue;
+
+			nh = nexthop_exists(&nhgc->nhg, &nhop);
+
+			if (nh)
+				continue;
+
+			if (nhop.vrf_id != vrf->vrf_id)
+				continue;
+
+			nh = nexthop_new();
+
+			memcpy(nh, &nhop, sizeof(nhop));
+			nexthop_add(&nhgc->nhg.nexthop, nh);
+
+			if (nhg_hooks.add_nexthop)
+				nhg_hooks.add_nexthop(nhgc, nh);
+		}
+	}
+}
+
+void nexthop_group_disable_vrf(struct vrf *vrf)
+{
+	struct nexthop_group_cmd *nhgc;
+	struct nexthop_hold *nhh;
+
+	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
+		struct listnode *node;
+
+		for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nhh)) {
+			struct nexthop nhop;
+			struct nexthop *nh;
+
+			if (!nexthop_group_parse_nexthop(&nhop, &nhh->addr,
+							 nhh->intf,
+							 nhh->nhvrf_name))
+				continue;
+
+			nh = nexthop_exists(&nhgc->nhg, &nhop);
+
+			if (!nh)
+				continue;
+
+			if (nh->vrf_id != vrf->vrf_id)
+				continue;
+
+			nexthop_del(&nhgc->nhg, nh);
+
+			if (nhg_hooks.del_nexthop)
+				nhg_hooks.del_nexthop(nhgc, nh);
+
+			nexthop_free(nh);
+		}
+	}
+}
+
+void nexthop_group_interface_state_change(struct interface *ifp,
+					  ifindex_t oldifindex)
+{
+	struct nexthop_group_cmd *nhgc;
+	struct nexthop_hold *nhh;
+
+	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
+		struct listnode *node;
+		struct nexthop *nh;
+
+		if (if_is_up(ifp)) {
+			for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nhh)) {
+				struct nexthop nhop;
+
+				if (!nexthop_group_parse_nexthop(
+					    &nhop, &nhh->addr, nhh->intf,
+					    nhh->nhvrf_name))
+					continue;
+
+				switch (nhop.type) {
+				case NEXTHOP_TYPE_IPV4:
+				case NEXTHOP_TYPE_IPV6:
+				case NEXTHOP_TYPE_BLACKHOLE:
+					continue;
+				case NEXTHOP_TYPE_IFINDEX:
+				case NEXTHOP_TYPE_IPV4_IFINDEX:
+				case NEXTHOP_TYPE_IPV6_IFINDEX:
+					break;
+				}
+				nh = nexthop_exists(&nhgc->nhg, &nhop);
+
+				if (nh)
+					continue;
+
+				if (ifp->ifindex != nhop.ifindex)
+					continue;
+
+				nh = nexthop_new();
+
+				memcpy(nh, &nhop, sizeof(nhop));
+				nexthop_add(&nhgc->nhg.nexthop, nh);
+
+				if (nhg_hooks.add_nexthop)
+					nhg_hooks.add_nexthop(nhgc, nh);
+			}
+		} else {
+			struct nexthop *next_nh;
+
+			for (nh = nhgc->nhg.nexthop; nh; nh = next_nh) {
+				next_nh = nh->next;
+				switch (nh->type) {
+				case NEXTHOP_TYPE_IPV4:
+				case NEXTHOP_TYPE_IPV6:
+				case NEXTHOP_TYPE_BLACKHOLE:
+					continue;
+				case NEXTHOP_TYPE_IFINDEX:
+				case NEXTHOP_TYPE_IPV4_IFINDEX:
+				case NEXTHOP_TYPE_IPV6_IFINDEX:
+					break;
+				}
+
+				if (oldifindex != nh->ifindex)
+					continue;
+
+				nexthop_del(&nhgc->nhg, nh);
+
+				if (nhg_hooks.del_nexthop)
+					nhg_hooks.del_nexthop(nhgc, nh);
+
+				nexthop_free(nh);
+			}
+		}
+	}
 }
 
 void nexthop_group_init(void (*new)(const char *name),

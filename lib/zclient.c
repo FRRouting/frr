@@ -37,6 +37,7 @@
 #include "mpls.h"
 #include "sockopt.h"
 #include "pbr.h"
+#include "nexthop_group.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
@@ -1697,7 +1698,9 @@ struct interface *zebra_interface_link_params_read(struct stream *s)
 void zebra_interface_if_set_value(struct stream *s, struct interface *ifp)
 {
 	uint8_t link_params_status = 0;
+	ifindex_t old_ifindex;
 
+	old_ifindex = ifp->ifindex;
 	/* Read interface's index. */
 	if_set_index(ifp, stream_getl(s));
 	ifp->status = stream_getc(s);
@@ -1724,6 +1727,8 @@ void zebra_interface_if_set_value(struct stream *s, struct interface *ifp)
 		struct if_link_params *iflp = if_link_params_get(ifp);
 		link_params_set_value(s, iflp);
 	}
+
+	nexthop_group_interface_state_change(ifp, old_ifindex);
 }
 
 size_t zebra_interface_link_params_write(struct stream *s,

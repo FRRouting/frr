@@ -34,6 +34,7 @@
 #include "command.h"
 #include "ns.h"
 #include "privs.h"
+#include "nexthop_group.h"
 
 /* default VRF ID value used when VRF backend is not NETNS */
 #define VRF_DEFAULT_INTERNAL 0
@@ -268,6 +269,13 @@ int vrf_enable(struct vrf *vrf)
 
 	if (vrf_master.vrf_enable_hook)
 		(*vrf_master.vrf_enable_hook)(vrf);
+
+	/*
+	 * If we have any nexthop group entries that
+	 * are awaiting vrf initialization then
+	 * let's let people know about it
+	 */
+	nexthop_group_enable_vrf(vrf);
 
 	return 1;
 }
