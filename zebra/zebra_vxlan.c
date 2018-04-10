@@ -6531,6 +6531,12 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 			return -1;
 		}
 
+		if (filter && !CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY)) {
+			snprintf(err, ERR_STR_SZ,
+				 "prefix-routes-only is not set for the vni");
+			return -1;
+		}
+
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
 
 		/* delete and uninstall all rmacs */
