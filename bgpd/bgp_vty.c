@@ -6551,6 +6551,8 @@ DEFPY (af_route_map_vpn_imexport,
 					MTYPE_ROUTE_MAP_NAME, rmap_str);
 				bgp->vpn_policy[afi].rmap[dir] =
 					route_map_lookup_by_name(rmap_str);
+				if (!bgp->vpn_policy[afi].rmap[dir])
+					return CMD_SUCCESS;
 			} else {
 				if (bgp->vpn_policy[afi].rmap_name[dir])
 					XFREE(MTYPE_ROUTE_MAP_NAME,
@@ -6629,6 +6631,8 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 			bgp->vpn_policy[afi].rmap[dir] =
 				route_map_lookup_by_name(rmap_str);
+			if (!bgp->vpn_policy[afi].rmap[dir])
+				return CMD_SUCCESS;
 		} else {
 			if (bgp->vpn_policy[afi].rmap_name[dir])
 				XFREE(MTYPE_ROUTE_MAP_NAME,
