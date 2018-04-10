@@ -4393,12 +4393,22 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		vty_out(vty, "  advertise-default-gw\n");
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-		       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST))
-		vty_out(vty, "  advertise ipv4 unicast\n");
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST)) {
+		if (bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name)
+			vty_out(vty, "  advertise ipv4 unicast route-map %s\n",
+				bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name);
+		else
+			vty_out(vty, "  advertise ipv4 unicast\n");
+	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-		       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST))
-		vty_out(vty, "  advertise ipv6 unicast\n");
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST)) {
+		if (bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name)
+			vty_out(vty, "  advertise ipv6 unicast route-map %s\n",
+				bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name);
+		else
+			vty_out(vty, "  advertise ipv6 unicast\n");
+	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
 		       BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4))
