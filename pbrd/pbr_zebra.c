@@ -45,17 +45,6 @@ DEFINE_MTYPE_STATIC(PBRD, PBR_INTERFACE, "PBR Interface")
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
 
-static struct interface *zebra_interface_if_lookup(struct stream *s)
-{
-	char ifname_tmp[INTERFACE_NAMSIZ];
-
-	/* Read interface name. */
-	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
-
-	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
-}
-
 struct pbr_interface *pbr_if_new(struct interface *ifp)
 {
 	struct pbr_interface *pbr_ifp;
@@ -140,7 +129,7 @@ static int interface_state_up(int command, struct zclient *zclient,
 			      zebra_size_t length, vrf_id_t vrf_id)
 {
 
-	zebra_interface_if_lookup(zclient->ibuf);
+	zebra_interface_state_read(zclient->ibuf, vrf_id);
 
 	return 0;
 }
