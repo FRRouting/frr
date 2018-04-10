@@ -46,10 +46,24 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 	struct prefix nh_p;
 	struct nexthop *nexthop = NULL;
 	enum blackhole_type bh_type = 0;
+	struct vrf *nh_vrf;
 
 	/* Lookup table.  */
 	table = zebra_vrf_table(afi, safi, si->vrf_id);
 	if (!table)
+		return;
+
+	/*
+	 * If a specific vrf is coming up and the nexthop vrf we are
+	 * looking at using hasn't been brought up yet, just don't
+	 * install the static route yet.
+	 * When the nexthop vrf comes up we will get another call
+	 * back to do the right thing.  I'm putting this check
+	 * here because we are calling static_install_route a bunch
+	 * from a bunch of different callpaths.
+	 */
+	nh_vrf = vrf_lookup_by_id(si->nh_vrf_id);
+	if (!nh_vrf)
 		return;
 
 	memset(&nh_p, 0, sizeof(nh_p));
@@ -369,7 +383,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.u.prefix6 = nexthop->gate.ipv6;
 		}
 		route_entry_nexthop_delete(re, nexthop);
-		zebra_deregister_rnh_static_nh(si->vrf_id, &nh_p, rn);
+		zebra_deregister_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 		nexthop_free(nexthop);
 	}
 	/* Unlock node. */
@@ -442,6 +456,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	si->tag = tag;
 	si->vrf_id = zvrf_id(zvrf);
 	si->nh_vrf_id = zvrf_id(nh_zvrf);
+	strcpy(si->nh_vrfname, nh_zvrf->vrf->name);
 
 	if (ifname)
 		strlcpy(si->ifname, ifname, sizeof(si->ifname));
@@ -573,33 +588,233 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 				     safi_t safi)
 {
 	struct route_table *stable;
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	struct route_node *rn;
 	struct static_route *si;
 	struct prefix *p, *src_pp;
 	struct prefix_ipv6 *src_p;
+	struct vrf *vrf;
 
-	stable = zebra_vrf_static_table(afi, safi, zvrf);
-	if (!stable)
-		return;
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct zebra_vrf *zvrf;
 
-	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
-		srcdest_rnode_prefixes(rn, &p, &src_pp);
-		src_p = (struct prefix_ipv6 *)src_pp;
+		zvrf = vrf->info;
 
+		stable = zebra_vrf_static_table(afi, safi, zvrf);
+		if (!stable)
+			continue;
+
+		for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
+			srcdest_rnode_prefixes(rn, &p, &src_pp);
+			src_p = (struct prefix_ipv6 *)src_pp;
+
+			for (si = rn->info; si; si = si->next) {
+				if (!si->ifname[0])
+					continue;
+				if (up) {
+					if (strcmp(si->ifname, ifp->name))
+						continue;
+					si->ifindex = ifp->ifindex;
+					static_install_route(afi, safi, p, src_p, si);
+				} else {
+					if (si->ifindex != ifp->ifindex)
+						continue;
+					static_uninstall_route(afi, safi, p, src_p, si);
+					si->ifindex = IFINDEX_INTERNAL;
+				}
+			}
+		}
+	}
+}
+
+/*
+ * This function looks at a zvrf's stable and notices if any of the
+ * nexthops we are using are part of the vrf coming up.
+ * If we are using them then cleanup the nexthop vrf id
+ * to be the new value and then re-installs them
+ *
+ *
+ * stable -> The table we are looking at.
+ * zvrf -> The newly changed vrf.
+ * afi -> The afi to look at
+ * safi -> the safi to look at
+ */
+static void static_fixup_vrf(struct zebra_vrf *zvrf,
+			     struct route_table *stable, afi_t afi, safi_t safi)
+{
+	struct route_node *rn;
+	struct static_route *si;
+	struct interface *ifp;
+
+	for (rn = route_top(stable); rn; rn = route_next(rn)) {
 		for (si = rn->info; si; si = si->next) {
-			if (!si->ifname[0])
+			if (strcmp(zvrf->vrf->name, si->nh_vrfname) != 0)
 				continue;
-			if (up) {
-				if (strcmp(si->ifname, ifp->name))
+
+			si->nh_vrf_id = zvrf->vrf->vrf_id;
+			if (si->ifindex) {
+				ifp = if_lookup_by_name(si->ifname,
+							si->nh_vrf_id);
+				if (ifp)
+					si->ifindex = ifp->ifindex;
+				else
 					continue;
-				si->ifindex = ifp->ifindex;
-				static_install_route(afi, safi, p, src_p, si);
-			} else {
-				if (si->ifindex != ifp->ifindex)
+			}
+			static_install_route(afi, safi, &rn->p, NULL, si);
+		}
+	}
+}
+
+/*
+ * This function enables static routes in a zvrf as it
+ * is coming up.  It sets the new vrf_id as appropriate.
+ *
+ * zvrf -> The zvrf that is being brought up and enabled by the kernel
+ * stable -> The stable we are looking at.
+ * afi -> the afi in question
+ * safi -> the safi in question
+ */
+static void static_enable_vrf(struct zebra_vrf *zvrf,
+			      struct route_table *stable,
+			      afi_t afi, safi_t safi)
+{
+	struct route_node *rn;
+	struct static_route *si;
+	struct interface *ifp;
+	struct vrf *vrf = zvrf->vrf;
+
+	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+		for (si = rn->info; si; si = si->next) {
+			si->vrf_id = vrf->vrf_id;
+			if (si->ifindex) {
+				ifp = if_lookup_by_name(si->ifname,
+							si->nh_vrf_id);
+				if (ifp)
+					si->ifindex = ifp->ifindex;
+				else
 					continue;
-				static_uninstall_route(afi, safi, p, src_p, si);
-				si->ifindex = IFINDEX_INTERNAL;
+			}
+			static_install_route(afi, safi, &rn->p, NULL, si);
+		}
+	}
+}
+
+/*
+ * When a vrf is being enabled by the kernel, go through all the
+ * static routes in the system that use this vrf (both nexthops vrfs
+ * and the routes vrf )
+ *
+ * enable_zvrf -> the vrf being enabled
+ */
+void static_fixup_vrf_ids(struct zebra_vrf *enable_zvrf)
+{
+	struct route_table *stable;
+	struct vrf *vrf;
+	afi_t afi;
+	safi_t safi;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct zebra_vrf *zvrf;
+
+		zvrf = vrf->info;
+		/* Install any static routes configured for this VRF. */
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+				stable = zvrf->stable[afi][safi];
+				if (!stable)
+					continue;
+
+				static_fixup_vrf(enable_zvrf, stable,
+						 afi, safi);
+
+				if (enable_zvrf == zvrf)
+					static_enable_vrf(zvrf, stable,
+							  afi, safi);
+			}
+		}
+	}
+}
+
+/*
+ * Look at the specified stable and if any of the routes in
+ * this table are using the zvrf as the nexthop, uninstall
+ * those routes.
+ *
+ * zvrf -> the vrf being disabled
+ * stable -> the table we need to look at.
+ * afi -> the afi in question
+ * safi -> the safi in question
+ */
+static void static_cleanup_vrf(struct zebra_vrf *zvrf,
+			       struct route_table *stable,
+			       afi_t afi, safi_t safi)
+{
+	struct route_node *rn;
+	struct static_route *si;
+
+	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+		for (si = rn->info; si; si = si->next) {
+			if (strcmp(zvrf->vrf->name, si->nh_vrfname) != 0)
+				continue;
+
+			static_uninstall_route(afi, safi, &rn->p, NULL, si);
+		}
+	}
+}
+
+/*
+ * Look at all static routes in this table and uninstall
+ * them.
+ *
+ * stable -> The table to uninstall from
+ * afi -> The afi in question
+ * safi -> the safi in question
+ */
+static void static_disable_vrf(struct route_table *stable,
+			       afi_t afi, safi_t safi)
+{
+	struct route_node *rn;
+	struct static_route *si;
+
+	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+		for (si = rn->info; si; si = si->next) {
+			static_uninstall_route(afi, safi, &rn->p, NULL, si);
+		}
+	}
+}
+
+/*
+ * When the disable_zvrf is shutdown by the kernel, we call
+ * this function and it cleans up all static routes using
+ * this vrf as a nexthop as well as all static routes
+ * in it's stables.
+ *
+ * disable_zvrf - The vrf being disabled
+ */
+void static_cleanup_vrf_ids(struct zebra_vrf *disable_zvrf)
+{
+	struct vrf *vrf;
+	afi_t afi;
+	safi_t safi;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct zebra_vrf *zvrf;
+
+		zvrf = vrf->info;
+
+		/* Uninstall any static routes configured for this VRF. */
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+				struct route_table *stable;
+
+				stable = zvrf->stable[afi][safi];
+				if (!stable)
+					continue;
+
+				static_cleanup_vrf(disable_zvrf, stable,
+						   afi, safi);
+
+				if (disable_zvrf == zvrf)
+					static_disable_vrf(stable, afi, safi);
 			}
 		}
 	}

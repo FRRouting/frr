@@ -102,11 +102,7 @@ static int zebra_vrf_new(struct vrf *vrf)
 static int zebra_vrf_enable(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf = vrf->info;
-	struct route_table *stable;
-	struct route_node *rn;
-	struct static_route *si;
 	struct route_table *table;
-	struct interface *ifp;
 	afi_t afi;
 	safi_t safi;
 
@@ -138,29 +134,7 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		zvrf->import_check_table[afi] = table;
 	}
 
-	/* Install any static routes configured for this VRF. */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			stable = zvrf->stable[afi][safi];
-			if (!stable)
-				continue;
-
-			for (rn = route_top(stable); rn; rn = route_next(rn))
-				for (si = rn->info; si; si = si->next) {
-					si->vrf_id = vrf->vrf_id;
-					if (si->ifindex) {
-						ifp = if_lookup_by_name(
-							si->ifname, si->vrf_id);
-						if (ifp)
-							si->ifindex =
-								ifp->ifindex;
-						else
-							continue;
-					}
-					static_install_route(afi, safi, &rn->p,
-							     NULL, si);
-				}
-		}
+	static_fixup_vrf_ids(zvrf);
 
 	/*
 	 * We may have static routes that are now possible to
@@ -178,9 +152,6 @@ static int zebra_vrf_enable(struct vrf *vrf)
 static int zebra_vrf_disable(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf = vrf->info;
-	struct route_table *stable;
-	struct route_node *rn;
-	struct static_route *si;
 	struct route_table *table;
 	struct interface *ifp;
 	afi_t afi;
@@ -192,18 +163,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		zlog_debug("VRF %s id %u is now inactive", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
-	/* Uninstall any static routes configured for this VRF. */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			stable = zvrf->stable[afi][safi];
-			if (!stable)
-				continue;
-
-			for (rn = route_top(stable); rn; rn = route_next(rn))
-				for (si = rn->info; si; si = si->next)
-					static_uninstall_route(
-						afi, safi, &rn->p, NULL, si);
-		}
+	static_cleanup_vrf_ids(zvrf);
 
 	/* Stop any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_disable(zvrf);
