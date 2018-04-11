@@ -1557,6 +1557,18 @@ void vrf_unimport_from_vrf(struct bgp *bgp, struct bgp *vrf_bgp,
 		vpn_leak_postchange(idir, afi, bgp_get_default(), bgp);
 	}
 
+	/*
+	 * What?
+	 * So SA is assuming that since the ALL_LIST_ELEMENTS_RO
+	 * below is checking for NULL that export_vrf can be
+	 * NULL, consequently it is complaining( like a cabbage )
+	 * that we could dereference and crash in the listcount(..)
+	 * check below.
+	 * So make it happy, under protest, with liberty and justice
+	 * for all.
+	 */
+	assert(vrf_bgp->vpn_policy[afi].export_vrf);
+
 	/* Remove us from "import_vrf's" export list. If no other VRF
 	 * is importing from "import_vrf", cleanup appropriately.
 	 */
