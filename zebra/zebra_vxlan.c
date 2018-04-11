@@ -5776,7 +5776,8 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
 		svi_if_zif = ifp->info;
 		if (svi_if_zif) {
 			svi_if_link = if_lookup_by_index_per_ns(
-				zebra_ns_lookup(NS_DEFAULT), svi_if_zif->link_ifindex);
+				zebra_ns_lookup(NS_DEFAULT),
+				svi_if_zif->link_ifindex);
 			if (svi_if_link)
 				zvni = zvni_from_svi(ifp, svi_if_link);
 		}
