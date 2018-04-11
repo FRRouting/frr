@@ -306,6 +306,7 @@ int main(int argc, char **argv, char **env)
 	char *homedir = NULL;
 	int ditch_suid = 0;
 	char sysconfdir[MAXPATHLEN];
+	const char *pathspace_arg = NULL;
 	char pathspace[MAXPATHLEN] = "";
 
 	/* SUID: drop down to calling user & go back up when needed */
@@ -363,7 +364,8 @@ int main(int argc, char **argv, char **env)
 					"slashes or dots are not permitted in the --pathspace option.\n");
 				exit(1);
 			}
-			snprintf(pathspace, sizeof(pathspace), "/%s", optarg);
+			pathspace_arg = optarg;
+			snprintf(pathspace, sizeof(pathspace), "%s/", optarg);
 			break;
 		case 'd':
 			daemon_name = optarg;
@@ -419,7 +421,11 @@ int main(int argc, char **argv, char **env)
 		 pathspace, VTYSH_CONFIG_NAME);
 	snprintf(frr_config, sizeof(frr_config), "%s%s%s", sysconfdir,
 		 pathspace, FRR_CONFIG_NAME);
-	strlcat(vtydir, pathspace, sizeof(vtydir));
+
+	if (pathspace_arg) {
+		strlcat(vtydir, "/", sizeof(vtydir));
+		strlcat(vtydir, pathspace_arg, sizeof(vtydir));
+	}
 
 	/* Initialize user input buffer. */
 	line_read = NULL;
