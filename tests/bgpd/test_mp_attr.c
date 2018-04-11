@@ -1033,6 +1033,7 @@ static as_t asn = 100;
 
 int main(void)
 {
+	struct interface ifp;
 	struct peer *peer;
 	int i, j;
 
@@ -1064,6 +1065,9 @@ int main(void)
 	peer->host = (char *)"foo";
 	peer->status = Established;
 	peer->curr = stream_new(BGP_MAX_PACKET_SIZE);
+
+	ifp.ifindex = 0;
+	peer->nexthop.ifp = &ifp;
 
 	for (i = AFI_IP; i < AFI_MAX; i++)
 		for (j = SAFI_UNICAST; j < SAFI_MAX; j++) {
