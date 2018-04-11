@@ -349,28 +349,6 @@ void ospf6_interface_if_add(struct interface *ifp)
 	ospf6_interface_state_update(oi->interface);
 }
 
-void ospf6_interface_if_del(struct interface *ifp)
-{
-	struct ospf6_interface *oi;
-
-	oi = (struct ospf6_interface *)ifp->info;
-	if (oi == NULL)
-		return;
-
-	/* interface stop */
-	if (oi->area)
-		thread_execute(master, interface_down, oi, 0);
-
-	listnode_delete(oi->area->if_list, oi);
-	oi->area = (struct ospf6_area *)NULL;
-
-	/* cut link */
-	oi->interface = NULL;
-	ifp->info = NULL;
-
-	ospf6_interface_delete(oi);
-}
-
 void ospf6_interface_state_update(struct interface *ifp)
 {
 	struct ospf6_interface *oi;
