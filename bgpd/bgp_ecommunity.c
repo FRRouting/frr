@@ -902,7 +902,7 @@ extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
  */
 int ecommunity_del_val(struct ecommunity *ecom, struct ecommunity_val *eval)
 {
-	u_int8_t *p;
+	uint8_t *p;
 	int c, found = 0;
 
 	/* Make sure specified value exists. */
