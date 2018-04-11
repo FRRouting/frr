@@ -3380,6 +3380,17 @@ void bgp_free(struct bgp *bgp)
 		rmap = &bgp->table_map[afi][safi];
 		if (rmap->name)
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+
+		/*
+		 * Yes this is per AFI, but
+		 * the list_delete_and_null nulls the pointer
+		 * and we'll not leak anything on going down
+		 * and the if test will fail on the second safi.
+		 */
+		if (bgp->vpn_policy[afi].import_vrf)
+			list_delete_and_null(&bgp->vpn_policy[afi].import_vrf);
+		if (bgp->vpn_policy[afi].export_vrf)
+			list_delete_and_null(&bgp->vpn_policy[afi].export_vrf);
 	}
 
 	bgp_scan_finish(bgp);
