@@ -786,6 +786,9 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	/* (3) if the prefix is equal to an active configured address range */
 	/*     or if the NU bit is set in the prefix */
 	if (lsa->header->type == htons(OSPF6_LSTYPE_INTER_PREFIX)) {
+		/* must have been set in previous block */
+		assert(prefix_lsa);
+
 		range = ospf6_route_lookup(&prefix, oa->range_table);
 		if (range) {
 			if (is_debug)
