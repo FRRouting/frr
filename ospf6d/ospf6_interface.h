@@ -176,7 +176,6 @@ extern void ospf6_interface_enable(struct ospf6_interface *);
 extern void ospf6_interface_disable(struct ospf6_interface *);
 
 extern void ospf6_interface_if_add(struct interface *);
-extern void ospf6_interface_if_del(struct interface *);
 extern void ospf6_interface_state_update(struct interface *);
 extern void ospf6_interface_connected_route_update(struct interface *);
 
