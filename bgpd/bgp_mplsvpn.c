@@ -665,8 +665,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 
 	label_val = bgp_vrf->vpn_policy[afi].tovpn_label;
 	if (label_val == MPLS_LABEL_NONE) {
-		/* TBD get from label manager */
-		label = MPLS_LABEL_IMPLICIT_NULL;
+		encode_label(MPLS_LABEL_IMPLICIT_NULL, &label);
 	} else {
 		encode_label(label_val, &label);
 	}
