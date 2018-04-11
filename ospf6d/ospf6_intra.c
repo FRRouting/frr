@@ -1844,6 +1844,7 @@ void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa)
 								INTRA_PREFIX)) {
 						prefix2str(&route->prefix, buf,
 							   sizeof(buf));
+						assert(route->nh_list);
 						zlog_debug("%s: route %s update paths %u nh %u"
 							, __PRETTY_FUNCTION__,
 							buf,
