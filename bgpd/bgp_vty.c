@@ -6682,7 +6682,8 @@ DEFPY (bgp_imexport_vrf,
 		ret = bgp_get(&vrf_bgp, &as, import_name,
 			      BGP_INSTANCE_TYPE_VRF);
 		if (ret) {
-			vty_out(vty, "VRF %s is not configured as a bgp instance\n",
+			vty_out(vty,
+				"VRF %s is not configured as a bgp instance\n",
 				import_name);
 			return CMD_WARNING;
 		}
@@ -10896,17 +10897,20 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 	} else {
 		bgp = bgp_get_default();
 		if (!bgp) {
-			vty_out(vty, "%% Default BGP instance does not exist\n");
+			vty_out(vty,
+				"%% Default BGP instance does not exist\n");
 			return CMD_WARNING;
 		}
 	}
 
 	if (!CHECK_FLAG(bgp->af_flags[afi][safi],
 			BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
-		vty_out(vty, "This VRF is not importing %s routes from any other VRF\n",
+		vty_out(vty,
+			"This VRF is not importing %s routes from any other VRF\n",
 			afi_safi_print(afi, safi));
 	} else {
-		vty_out(vty, "This VRF is importing %s routes from the following VRFs:\n",
+		vty_out(vty,
+			"This VRF is importing %s routes from the following VRFs:\n",
 			afi_safi_print(afi, safi));
 		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
 					  vname)) {
@@ -10922,10 +10926,12 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 
 	if (!CHECK_FLAG(bgp->af_flags[afi][safi],
 			BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
-		vty_out(vty, "This VRF is not exporting %s routes to any other VRF\n",
+		vty_out(vty,
+			"This VRF is not exporting %s routes to any other VRF\n",
 			afi_safi_print(afi, safi));
 	} else {
-		vty_out(vty, "This VRF is exporting %s routes to the following VRFs:\n",
+		vty_out(vty,
+			"This VRF is exporting %s routes to the following VRFs:\n",
 			afi_safi_print(afi, safi));
 		for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].export_vrf, node,
 					  vname)) {
@@ -10970,7 +10976,8 @@ DEFUN (show_ip_bgp_route_leak,
 	}
 	/* [vrf VIEWVRFNAME] */
 	if (argv_find(argv, argc, "view", &idx)) {
-		vty_out(vty, "%% This command is not applicable to BGP views\n");
+		vty_out(vty,
+			"%% This command is not applicable to BGP views\n");
 		return CMD_WARNING;
 	}
 
@@ -10982,7 +10989,8 @@ DEFUN (show_ip_bgp_route_leak,
 	}
 
 	if (!((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_UNICAST)) {
-		vty_out(vty, "%% This command is applicable only for unicast ipv4|ipv6\n");
+		vty_out(vty,
+			"%% This command is applicable only for unicast ipv4|ipv6\n");
 		return CMD_WARNING;
 	}
 

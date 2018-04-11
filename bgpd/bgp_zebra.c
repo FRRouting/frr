@@ -941,7 +941,8 @@ static struct in6_addr *bgp_info_to_ipv6_nexthop(struct bgp_info *info,
 				nexthop =
 					&info->peer->su_remote->sin6.sin6_addr;
 				if (IN6_IS_ADDR_LINKLOCAL(nexthop))
-					*ifindex = info->peer->nexthop.ifp->ifindex;
+					*ifindex =
+						info->peer->nexthop.ifp->ifindex;
 			} else {
 				nexthop = &info->attr->mp_nexthop_local;
 				if (IN6_IS_ADDR_LINKLOCAL(nexthop))
@@ -1198,9 +1199,10 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 	tag = info->attr->tag;
 
-	/* When we create an aggregate route we must also install a Null0 route
-	 * in
-	 * the RIB */
+	/*
+	 * When we create an aggregate route we must also install a
+	 * Null0 route in the RIB
+	 */
 	if (info->sub_type == BGP_ROUTE_AGGREGATE)
 		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
 

@@ -763,11 +763,19 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 		if (!CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
 				BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
 			if (afi == AFI_IP) {
-				/* For ipv4, copy to multiprotocol nexthop field */
-				static_attr.mp_nexthop_global_in = static_attr.nexthop;
+				/*
+				 * For ipv4, copy to multiprotocol
+				 * nexthop field
+				 */
+				static_attr.mp_nexthop_global_in =
+					static_attr.nexthop;
 				static_attr.mp_nexthop_len = 4;
-				/* XXX Leave static_attr.nexthop intact for NHT */
-				static_attr.flag &= ~ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+				/*
+				 * XXX Leave static_attr.nexthop
+				 * intact for NHT
+				 */
+				static_attr.flag &=
+					~ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 			}
 		} else {
 			/* Update based on next-hop family to account for
@@ -1523,7 +1531,7 @@ void vrf_unimport_from_vrf(struct bgp *bgp, struct bgp *vrf_bgp,
 	for (ALL_LIST_ELEMENTS_RO(bgp->vpn_policy[afi].import_vrf, node,
 					  vname)) {
 		if (strcmp(vname, vrf_bgp->name) == 0)
-				break;
+			break;
 	}
 	if (!vname)
 		return;
