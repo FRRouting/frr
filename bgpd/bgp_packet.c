@@ -647,7 +647,6 @@ void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
 			       u_char *data, size_t datalen)
 {
 	struct stream *s;
-	int length;
 
 	/* Lock I/O mutex to prevent other threads from pushing packets */
 	pthread_mutex_lock(&peer->io_mtx);
@@ -668,7 +667,7 @@ void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
 		stream_write(s, data, datalen);
 
 	/* Set BGP packet length. */
-	length = bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	/* wipe output buffer */
 	stream_fifo_clean(peer->obuf);
