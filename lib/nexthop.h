@@ -118,6 +118,23 @@ void nexthop_add_labels(struct nexthop *, enum lsp_types_t, uint8_t,
 			mpls_label_t *);
 void nexthop_del_labels(struct nexthop *);
 
+/*
+ * Hash a nexthop. Suitable for use with hash tables.
+ *
+ * This function uses the following values when computing the hash:
+ * - vrf_id
+ * - ifindex
+ * - type
+ * - gate
+ *
+ * nexthop
+ *    The nexthop to hash
+ *
+ * Returns:
+ *    32-bit hash of nexthop
+ */
+uint32_t nexthop_hash(struct nexthop *nexthop);
+
 extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 
 extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
@@ -126,7 +143,7 @@ extern int nexthop_same_no_recurse(const struct nexthop *next1,
 extern int nexthop_labels_match(struct nexthop *nh1, struct nexthop *nh2);
 extern int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2);
 
-extern const char *nexthop2str(struct nexthop *nexthop, char *str, int size);
+extern const char *nexthop2str(const struct nexthop *nexthop, char *str, int size);
 extern struct nexthop *nexthop_next(struct nexthop *nexthop);
 extern unsigned int nexthop_level(struct nexthop *nexthop);
 #endif /*_LIB_NEXTHOP_H */

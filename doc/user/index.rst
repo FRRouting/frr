@@ -22,6 +22,7 @@ Welcome to FRR's documentation!
    ospfd
    ospf6d
    pim
+   pbr
    ripd
    ripngd
    vnc

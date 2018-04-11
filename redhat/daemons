@@ -50,6 +50,7 @@ nhrpd=no
 eigrpd=no
 babeld=no
 sharpd=no
+pbrd=no
 #
 # Command line options for the daemons
 #
@@ -66,6 +67,7 @@ nhrpd_options=("-A 127.0.0.1")
 eigrpd_options=("-A 127.0.0.1")
 babeld_options=("-A 127.0.0.1")
 sharpd_options=("-A 127.0.0.1")
+pbrd_options=("-A 127.0.0.1")
 
 #
 # If the vtysh_enable is yes, then the unified config is read
