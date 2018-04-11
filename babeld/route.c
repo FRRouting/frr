@@ -176,6 +176,7 @@ insert_route(struct babel_route *route)
             resize_route_table(max_route_slots < 1 ? 8 : 2 * max_route_slots);
         if(route_slots >= max_route_slots)
             return NULL;
+        assert(routes);
         route->next = NULL;
         if(n < route_slots)
             memmove(routes + n + 1, routes + n,
