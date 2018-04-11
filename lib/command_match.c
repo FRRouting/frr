@@ -99,6 +99,9 @@ enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 		struct listnode *head = listhead(*argv);
 		struct listnode *tail = listtail(*argv);
 
+		assert(head);
+		assert(tail);
+
 		// delete dummy start node
 		cmd_token_del((struct cmd_token *)head->data);
 		list_delete_node(*argv, head);
