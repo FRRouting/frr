@@ -671,7 +671,7 @@ int vtysh_mark_file(const char *filename)
 			} else if ((prev_node == BGP_EVPN_VNI_NODE)
 				   && (tried == 1)) {
 				fprintf(outputfile, "exit-vni\n");
-			} else if (prev_node == VRF_NODE) {
+			} else if (prev_node == VRF_NODE && (tried == 1)) {
 				fprintf(outputfile, "exit-vrf\n");
 			} else if ((prev_node == KEYCHAIN_KEY_NODE)
 				   && (tried == 1)) {
