@@ -531,12 +531,12 @@ struct thread_master *frr_init(void)
 		snprintf(p_instance, sizeof(p_instance), "-%d", di->instance);
 	}
 	if (di->pathspace)
-		snprintf(p_pathspace, sizeof(p_pathspace), "/%s",
+		snprintf(p_pathspace, sizeof(p_pathspace), "%s/",
 			 di->pathspace);
 
 	snprintf(config_default, sizeof(config_default), "%s%s%s%s.conf",
 		 frr_sysconfdir, p_pathspace, di->name, p_instance);
-	snprintf(pidfile_default, sizeof(pidfile_default), "%s%s/%s%s.pid",
+	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s%s.pid",
 		 frr_vtydir, p_pathspace, di->name, p_instance);
 
 	zprivs_preinit(di->privs);
