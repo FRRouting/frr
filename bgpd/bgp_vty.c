@@ -6680,6 +6680,14 @@ DEFPY (bgp_imexport_vrf,
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
+	if (((BGP_INSTANCE_TYPE_DEFAULT == bgp->inst_type)
+	     && (strcmp(import_name, BGP_DEFAULT_NAME) == 0))
+	    || (bgp->name && (strcmp(import_name, bgp->name) == 0))) {
+		vty_out(vty, "%% Cannot %s vrf %s into itself\n",
+			remove ? "unimport" : "import", import_name);
+		return CMD_WARNING;
+	}
+
 	bgp_default = bgp_get_default();
 	if (!bgp_default) {
 		/* Auto-create assuming the same AS */
