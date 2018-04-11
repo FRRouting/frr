@@ -25,6 +25,8 @@
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
 
+#include "compiler.h"
+
 #ifdef SUNOS_5
 #define _XPG4_2
 typedef unsigned int u_int32_t;
