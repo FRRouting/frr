@@ -6664,7 +6664,9 @@ DEFPY (bgp_imexport_vrf,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	struct listnode *node;
-	struct bgp *vrf_bgp;
+	struct bgp *vrf_bgp, *bgp_default;
+	int32_t ret = 0;
+	as_t as = bgp->as;
 	bool remove = false;
 	int32_t idx = 0;
 	char *vname;
@@ -6678,19 +6680,26 @@ DEFPY (bgp_imexport_vrf,
 	afi = bgp_node_afi(vty);
 	safi = bgp_node_safi(vty);
 
+	bgp_default = bgp_get_default();
+	if (!bgp_default) {
+		/* Auto-create assuming the same AS */
+		ret = bgp_get(&bgp_default, &as, NULL,
+			      BGP_INSTANCE_TYPE_DEFAULT);
+
+		if (ret) {
+			vty_out(vty,
+				"VRF default is not configured as a bgp instance\n");
+			return CMD_WARNING;
+		}
+	}
+
 	vrf_bgp = bgp_lookup_by_name(import_name);
 	if (!vrf_bgp) {
-		int32_t ret = 0;
-		as_t as = bgp->as;
-
-		if (strcmp(import_name, BGP_DEFAULT_NAME) == 0) {
-			vrf_bgp = bgp_get_default();
-			if (!vrf_bgp)
-				ret = bgp_get(&vrf_bgp, &as, NULL, BGP_INSTANCE_TYPE_DEFAULT);
-		} else {
+		if (strcmp(import_name, BGP_DEFAULT_NAME) == 0)
+			vrf_bgp = bgp_default;
+		else
 			/* Auto-create assuming the same AS */
 			ret = bgp_get(&vrf_bgp, &as, import_name, bgp_type);
-		}
 
 		if (ret) {
 			vty_out(vty,
