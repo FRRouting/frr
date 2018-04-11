@@ -23,6 +23,9 @@
  */
 
 %{
+/* ignore flex generated code in static analyzer */
+#ifndef __clang_analyzer__
+
 /* ignore harmless bugs in old versions of flex */
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
@@ -91,3 +94,5 @@ void cleanup_lexer (yyscan_t *scn)
   // yy_delete_buffer (buffer, *scn);
   yylex_destroy(*scn);
 }
+
+#endif /* __clang_analyzer__ */
