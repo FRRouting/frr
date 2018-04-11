@@ -548,13 +548,12 @@ rfapi_group_new(struct bgp *bgp, rfapi_group_cfg_type_t type, const char *name)
 
 	rfg = XCALLOC(MTYPE_RFAPI_GROUP_CFG,
 		      sizeof(struct rfapi_nve_group_cfg));
-	if (rfg) {
-		rfg->type = type;
-		rfg->name = strdup(name);
-		/* add to tail of list */
-		listnode_add(bgp->rfapi_cfg->nve_groups_sequential, rfg);
-	}
+	rfg->type = type;
+	rfg->name = strdup(name);
+	/* add to tail of list */
+	listnode_add(bgp->rfapi_cfg->nve_groups_sequential, rfg);
 	rfg->label = MPLS_LABEL_NONE;
+
 	QOBJ_REG(rfg, rfapi_nve_group_cfg);
 
 	return rfg;
