@@ -331,6 +331,57 @@ static int ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
 	return 0;
 }
 
+static bool labels_same(struct bgp_info *bi, mpls_label_t *label, uint32_t n)
+{
+	uint32_t i;
+
+	if (!bi->extra) {
+		if (!n)
+			return true;
+		else
+			return false;
+	}
+
+	if (n != bi->extra->num_labels)
+		return false;
+
+	for (i = 0; i < n; ++i) {
+		if (label[i] != bi->extra->label[i])
+			return false;
+	}
+	return true;
+}
+
+/*
+ * make encoded route labels match specified encoded label set
+ */
+static void setlabels(
+	struct bgp_info *bi,
+	mpls_label_t *label,		/* array of labels */
+	uint32_t num_labels)
+{
+	if (num_labels)
+		assert(label);
+	assert(num_labels <= BGP_MAX_LABELS);
+
+	if (!num_labels) {
+		if (bi->extra)
+			bi->extra->num_labels = 0;
+		return;
+	}
+
+	struct bgp_info_extra *extra = bgp_info_extra_get(bi);
+	uint32_t i;
+
+	for (i = 0; i < num_labels; ++i) {
+		extra->label[i] = label[i];
+		if (!bgp_is_valid_label(&label[i])) {
+			bgp_set_valid_label(&extra->label[i]);
+		}
+	}
+	extra->num_labels = num_labels;
+}
+
 /*
  * returns pointer to new bgp_info upon success
  */
@@ -343,7 +394,7 @@ leak_update(
 	safi_t		safi,
 	struct bgp_info	*source_bi,
 	mpls_label_t	*label,
-	int		num_labels,
+	uint32_t	num_labels,
 	void		*parent,
 	struct bgp	*bgp_orig,
 	struct prefix	*nexthop_orig,
@@ -371,7 +422,10 @@ leak_update(
 	}
 
 	if (bi) {
+		bool labelssame = labels_same(bi, label, num_labels);
+
 		if (attrhash_cmp(bi->attr, new_attr)
+		    && labelssame
 		    && !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
 
 			bgp_attr_unintern(&new_attr);
@@ -394,6 +448,12 @@ leak_update(
 		bgp_attr_unintern(&bi->attr);
 		bi->attr = new_attr;
 		bi->uptime = bgp_clock();
+
+		/*
+		 * rewrite labels
+		 */
+		if (!labelssame)
+			setlabels(bi, label, num_labels);
 
 		if (nexthop_self_flag)
 			bgp_info_set_flag(bn, bi, BGP_INFO_ANNC_NH_SELF);
@@ -442,23 +502,10 @@ leak_update(
 	if (nexthop_self_flag)
 		bgp_info_set_flag(bn, new, BGP_INFO_ANNC_NH_SELF);
 
-	bgp_info_extra_get(new);
-	if (label) {
-		int i;
+	if (num_labels)
+		setlabels(new, label, num_labels);
 
-		for (i = 0; i < num_labels; ++i) {
-			new->extra->label[i] = label[i];
-			if (!bgp_is_valid_label(&label[i])) {
-				if (debug) {
-					zlog_debug(
-						"%s: %s: marking label %d valid",
-						__func__, buf_prefix, i);
-				}
-				bgp_set_valid_label(&new->extra->label[i]);
-			}
-		}
-		new->extra->num_labels = num_labels;
-	}
+	bgp_info_extra_get(new);
 	new->extra->parent = parent;
 
 	if (bgp_orig)
@@ -889,7 +936,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 	const char *debugmsg;
 	struct prefix nexthop_orig;
 	mpls_label_t *pLabels = NULL;
-	int num_labels = 0;
+	uint32_t num_labels = 0;
 	int nexthop_self_flag = 1;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
