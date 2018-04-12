@@ -1323,9 +1323,8 @@ static void construct(dict_t *d)
 				free(val);
 				if (dn)
 					dnode_destroy(dn);
-			}
-
-			dict_load_next(&dl, dn, key);
+			} else
+				dict_load_next(&dl, dn, key);
 			break;
 		default:
 			putchar('?');
