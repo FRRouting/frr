@@ -291,13 +291,13 @@ static struct ns_map_nsid *ns_map_nsid_lookup_by_nsid(ns_id_t ns_id)
 	return RB_FIND(ns_map_nsid_head, &ns_map_nsid_list, &ns_map);
 }
 
-ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool maporunmap)
+ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool map)
 {
 	struct ns_map_nsid *ns_map;
 	vrf_id_t ns_id_external;
 
 	ns_map = ns_map_nsid_lookup_by_nsid(ns_id);
-	if (ns_map && !maporunmap) {
+	if (ns_map && !map) {
 		ns_id_external = ns_map->ns_id_external;
 		RB_REMOVE(ns_map_nsid_head, &ns_map_nsid_list, ns_map);
 		return ns_id_external;

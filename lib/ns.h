@@ -139,7 +139,7 @@ extern void *ns_info_lookup(ns_id_t ns_id);
 /* API to map internal ns id value with
  * user friendly ns id external value
  */
-extern ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool maporunmap);
+extern ns_id_t ns_map_nsid_with_external(ns_id_t ns_id, bool map);
 
 /*
  * NS init routine
