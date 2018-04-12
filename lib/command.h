@@ -222,6 +222,13 @@ struct cmd_node {
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
 	funcdecl_##funcname
 
+#define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
+	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
+	funcdecl_##funcname
+
+#define DEFPY_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
+	DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
+
 #define DEFUN(funcname, cmdname, cmdstr, helpstr)                              \
 	DEFUN_CMD_FUNC_DECL(funcname)                                          \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
@@ -299,6 +306,9 @@ struct cmd_node {
 #else /* VTYSH_EXTRACT_PL */
 #define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
 	DEFUN(funcname, cmdname, cmdstr, helpstr)
+
+#define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
+	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)
 #endif /* VTYSH_EXTRACT_PL */
 
 /* Some macroes */
