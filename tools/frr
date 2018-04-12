@@ -25,7 +25,9 @@ DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd
 MAX_INSTANCES=5
 RELOAD_SCRIPT=/usr/lib/frr/frr-reload.py
 
-. /lib/lsb/init-functions
+if [ -e /lib/lsb/init-functions ]; then
+    . /lib/lsb/init-functions
+fi
 
 if [ -f /usr/lib/frr/ssd ]; then
     SSD=/usr/lib/frr/ssd
