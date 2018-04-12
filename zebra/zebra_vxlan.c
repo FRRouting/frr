@@ -2005,7 +2005,8 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 				   ETH_ALEN) != 0) {
 				old_zmac = zvni_mac_lookup(zvni, &n->emac);
 				if (old_zmac) {
-					listnode_delete(old_zmac->neigh_list, n);
+					listnode_delete(old_zmac->neigh_list,
+							n);
 					zvni_deref_ip2mac(zvni, old_zmac, 0);
 				}
 
@@ -2091,12 +2092,10 @@ static int zvni_remote_neigh_update(zebra_vni_t *zvni,
 		 */
 		zmac = zvni_mac_lookup(zvni, macaddr);
 		if (!zmac || !CHECK_FLAG(zmac->flags, ZEBRA_MAC_REMOTE)) {
-			zlog_err(
-				"Ignore remote neigh %s (MAC %s) on L2-VNI %u "
-				"- MAC unknown or local",
-				ipaddr2str(&n->ip, buf2, sizeof(buf2)),
-				prefix_mac2str(macaddr, buf, sizeof(buf)),
-				zvni->vni);
+			zlog_err("Ignore remote neigh %s (MAC %s) on L2-VNI %u - MAC unknown or local",
+				 ipaddr2str(&n->ip, buf2, sizeof(buf2)),
+				 prefix_mac2str(macaddr, buf, sizeof(buf)),
+				 zvni->vni);
 			return -1;
 		}
 
