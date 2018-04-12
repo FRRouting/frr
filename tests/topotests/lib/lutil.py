@@ -46,6 +46,8 @@ class lUtil:
     l_filename = ''
     l_last = None
     l_line = 0
+    l_dotall_experiment = False
+    l_last_nl = None
 
     fout = ''
     fsum = ''
@@ -196,6 +198,17 @@ Total %-4d                                                           %-4d %d\n\
                     js = None
                     self.log('WARNING: JSON load failed -- confirm command output is in JSON format.')
         self.log('COMMAND OUTPUT:%s:' % report)
+
+	# Experiment: can we achieve the same match behavior via DOTALL
+	# without converting newlines to spaces?
+	out_nl = out
+	search_nl = re.search(regexp, out_nl, re.DOTALL);
+	self.l_last_nl = search_nl
+	# Set up for comparison
+	if search_nl != None:
+	    group_nl = search_nl.group()
+	    group_nl_converted = " ".join(group_nl.splitlines())
+
         out = " ".join(out.splitlines())
         search = re.search(regexp, out)
         self.l_last = search
@@ -212,6 +225,9 @@ Total %-4d                                                           %-4d %d\n\
                 success = True
             else:
                 success = False
+	    # Experiment: compare matched strings obtained each way
+	    if self.l_dotall_experiment and (group_nl_converted != ret):
+		self.log('DOTALL experiment: strings differ dotall=[%s] orig=[%s]' % (group_nl_converted, ret))
         if op == 'pass' or op == 'fail':
             self.result(target, success, result)
         if js != None:
@@ -255,6 +271,8 @@ def luStart(baseScriptDir='.', baseLogDir='.', net='',
     if fsum != None:
         LUtil.fsum_name = baseLogDir + '/' + fsum
     LUtil.l_level = level
+    LUtil.l_dotall_experiment = False
+    LUtil.l_dotall_experiment = True
 
 def luCommand(target, command, regexp='.', op='none', result='', time=10, returnJson=False):
     if op != 'wait':
@@ -262,10 +280,15 @@ def luCommand(target, command, regexp='.', op='none', result='', time=10, return
     else:
         return LUtil.wait(target, command, regexp, op, result, time, returnJson)
 
-def luLast():
-    if LUtil.l_last != None:
-        LUtil.log('luLast:%s:' %  LUtil.l_last.group())
-    return LUtil.l_last
+def luLast(usenl=False):
+    if usenl:
+	if LUtil.l_last_nl != None:
+	    LUtil.log('luLast:%s:' %  LUtil.l_last_nl.group())
+	return LUtil.l_last_nl
+    else:
+	if LUtil.l_last != None:
+	    LUtil.log('luLast:%s:' %  LUtil.l_last.group())
+	return LUtil.l_last
 
 def luInclude(filename, CallOnFail=None):
     tstFile = LUtil.base_script_dir + '/' + filename
