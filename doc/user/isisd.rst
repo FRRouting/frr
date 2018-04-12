@@ -559,7 +559,9 @@ Debugging ISIS
 ISIS Configuration Examples
 ===========================
 
-A simple example, with MD5 authentication enabled:::
+A simple example, with MD5 authentication enabled:
+
+.. code-block:: frr
 
    !
    interface eth0
@@ -575,7 +577,9 @@ A simple example, with MD5 authentication enabled:::
 
 A Traffic Engineering configuration, with Inter-ASv2 support.
 
-First, the 'zebra.conf' part:::
+First, the :file:`zebra.conf` part:
+
+.. code-block:: frr
 
    hostname HOSTNAME
    password PASSWORD
@@ -614,7 +618,9 @@ First, the 'zebra.conf' part:::
      neighbor 10.1.1.2 as 65000
 
 
-Then the 'isisd.conf' itself:::
+Then the :file:`isisd.conf` itself:
+
+.. code-block:: frr
 
    hostname HOSTNAME
    password PASSWORD

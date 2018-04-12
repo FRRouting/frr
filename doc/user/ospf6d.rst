@@ -49,7 +49,9 @@ OSPF6 router
    will cause the holdtime to be increased by `initial-holdtime`, bounded
    by the `maximum-holdtime` configured with this command. If the adaptive
    hold-time elapses without any SPF-triggering event occuring then
-   the current holdtime is reset to the `initial-holdtime`.::
+   the current holdtime is reset to the `initial-holdtime`.
+
+   .. code-block:: frr
 
       router ospf6
        timers throttle spf 200 400 10000
@@ -187,7 +189,7 @@ OSPF6 Configuration Examples
 
 Example of ospf6d configured on one interface and area:
 
-::
+.. code-block:: frr
 
    interface eth0
     ipv6 ospf6 instance-id 0

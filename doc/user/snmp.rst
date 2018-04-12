@@ -42,22 +42,23 @@ master SNMP agent (snmpd) and each of the FRR daemons must be configured. In
 :file:`/etc/snmp/snmpd.conf`, the ``master agentx`` directive should be added.
 In each of the FRR daemons, ``agentx`` command will enable AgentX support.
 
-::
+:file:`/etc/snmp/snmpd.conf`:
+   #
+   # example access restrictions setup
+   #
+   com2sec readonly default public
+   group MyROGroup v1 readonly
+   view all included .1 80
+   access MyROGroup "" any noauth exact all none none
+   #
+   # enable master agent for AgentX subagents
+   #
+   master agentx
 
-   /etc/snmp/snmpd.conf:
-      #
-      # example access restrictions setup
-      #
-      com2sec readonly default public
-      group MyROGroup v1 readonly
-      view all included .1 80
-      access MyROGroup "" any noauth exact all none none
-      #
-      # enable master agent for AgentX subagents
-      #
-      master agentx
+:file:`/etc/frr/ospfd.conf:`
 
-   /etc/frr/ospfd.conf:
+   .. code-block:: frr
+
       ! ... the rest of ospfd.conf has been omitted for clarity ...
       !
       agentx
@@ -69,16 +70,16 @@ each FRR daemons:
 
 ::
 
-  2012/05/25 11:39:08 ZEBRA: snmp[info]: NET-SNMP version 5.4.3 AgentX subagent connected
+   2012/05/25 11:39:08 ZEBRA: snmp[info]: NET-SNMP version 5.4.3 AgentX subagent connected
 
 
 Then, you can use the following command to check everything works as expected:
 
 ::
 
-  # snmpwalk -c public -v1 localhost .1.3.6.1.2.1.14.1.1
-  OSPF-MIB::ospfRouterId.0 = IpAddress: 192.168.42.109
-  [...]
+   # snmpwalk -c public -v1 localhost .1.3.6.1.2.1.14.1.1
+   OSPF-MIB::ospfRouterId.0 = IpAddress: 192.168.42.109
+   [...]
 
 
 The AgentX protocol can be transported over a Unix socket or using TCP or UDP.
@@ -88,10 +89,9 @@ need to configure FRR to use another transport, you can configure it through
 
 ::
 
-   /etc/snmp/frr.conf:
-      [snmpd]
-      # Use a remote master agent
-      agentXSocket tcp:192.168.15.12:705
+   [snmpd]
+   # Use a remote master agent
+   agentXSocket tcp:192.168.15.12:705
 
 
 .. _smux-configuration:
@@ -112,26 +112,24 @@ In the following example the ospfd daemon will be connected to the snmpd daemon
 using the password "frr_ospfd". For testing it is recommending to take exactly
 the below snmpd.conf as wrong access restrictions can be hard to debug.
 
-::
+:file:`/etc/snmp/snmpd.conf`:
+   #
+   # example access restrictions setup
+   #
+   com2sec readonly default public
+   group MyROGroup v1 readonly
+   view all included .1 80
+   access MyROGroup "" any noauth exact all none none
+   #
+   # the following line is relevant for FRR
+   #
+   smuxpeer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
 
-   /etc/snmp/snmpd.conf:
-      #
-      # example access restrictions setup
-      #
-      com2sec readonly default public
-      group MyROGroup v1 readonly
-      view all included .1 80
-      access MyROGroup "" any noauth exact all none none
-      #
-      # the following line is relevant for FRR
-      #
-      smuxpeer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
-
-   /etc/frr/ospf:
-      ! ... the rest of ospfd.conf has been omitted for clarity ...
-      !
-      smux peer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
-      !
+:file:`/etc/frr/ospf`:
+   ! ... the rest of ospfd.conf has been omitted for clarity ...
+   !
+   smux peer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
+   !
 
 
 After restarting snmpd and frr, a successful connection can be verified in the

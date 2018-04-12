@@ -18,7 +18,7 @@ IP Access List
    Basic filtering is done by `access-list` as shown in the
    following example.
 
-   ::
+   .. code-block:: frr
 
       access-list filter deny 10.0.0.0/9
       access-list filter permit 10.0.0.0/8

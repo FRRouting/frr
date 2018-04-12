@@ -98,11 +98,11 @@ DAEMONS= or don't install unneded packages For example: zebra bgpd ldpd
 isisd nhrpd ospfd ospf6d pimd ripd ripngd
 
 Enable the serivce
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 -  service frr enable
 
 Start the service
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 -  service frr start

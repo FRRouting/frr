@@ -51,7 +51,7 @@ master_doc = 'index'
 # General information about the project.
 project = u'FRR'
 copyright = u'2017, FRR'
-author = u'Kunihiro Ishiguro, et al.'
+author = u'FRR authors'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -67,24 +67,24 @@ release = u'?.?-?'
 # Extract values from codebase for substitution into docs.
 # -----------------------------------------------------------------------------
 
-# Various installation prefixes. Reasonable defaults are set where possible.
-# Values are overridden by logic below.
+# Various installation prefixes. Values are extracted from config.status.
+# Reasonable defaults are set in case that file does not exist.
 replace_vars = {
     'AUTHORS': author,
     'COPYRIGHT_YEAR': '1999-2005',
-    'COPYRIGHT_STR': None,
+    'COPYRIGHT_STR': 'Copyright (c) 1999-2005',
     'PACKAGE_NAME': project.lower(),
     'PACKAGE_TARNAME': project.lower(),
-    'PACKAGE_STRING': None,
+    'PACKAGE_STRING': project.lower() + ' latest',
     'PACKAGE_URL': 'https://frrouting.org/',
-    'PACKAGE_VERSION': None,
-    'INSTALL_PREFIX_ETC': None,
-    'INSTALL_PREFIX_SBIN': None,
-    'INSTALL_PREFIX_STATE': None,
-    'INSTALL_PREFIX_MODULES': None,
-    'INSTALL_USER': None,
-    'INSTALL_GROUP': None,
-    'INSTALL_VTY_GROUP': None,
+    'PACKAGE_VERSION': 'latest',
+    'INSTALL_PREFIX_ETC': '/etc/frr',
+    'INSTALL_PREFIX_SBIN': '/usr/lib/frr',
+    'INSTALL_PREFIX_STATE': '/var/run/frr',
+    'INSTALL_PREFIX_MODULES': '/usr/lib/frr/modules',
+    'INSTALL_USER': 'frr',
+    'INSTALL_GROUP': 'frr',
+    'INSTALL_VTY_GROUP': 'frrvty',
     'GROUP': 'frr',
     'USER': 'frr',
 }
@@ -92,11 +92,15 @@ replace_vars = {
 # extract version information, installation location, other stuff we need to
 # use when building final documents
 val = re.compile('^S\["([^"]+)"\]="(.*)"$')
-with open('../../config.status', 'r') as cfgstatus:
-    for ln in cfgstatus.readlines():
-        m = val.match(ln)
-        if not m or m.group(1) not in replace_vars.keys(): continue
-        replace_vars[m.group(1)] = m.group(2)
+try:
+    with open('../../config.status', 'r') as cfgstatus:
+        for ln in cfgstatus.readlines():
+            m = val.match(ln)
+            if not m or m.group(1) not in replace_vars.keys(): continue
+            replace_vars[m.group(1)] = m.group(2)
+except IOError:
+    # if config.status doesn't exist, just ignore it
+    pass
 
 # manually fill out some of these we can't get from config.status
 replace_vars['COPYRIGHT_STR'] = "Copyright (c)"

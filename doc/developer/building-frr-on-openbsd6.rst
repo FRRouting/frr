@@ -30,7 +30,7 @@ Get FRR, compile it and install it (from Git)
 using any packages**
 
 Add frr group and user
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -40,7 +40,7 @@ Add frr group and user
         -d /nonexistent -s /sbin/nologin _frr
 
 Download Source, configure and compile it
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (You may prefer different options on configure statement. These are just
 an example)
@@ -75,7 +75,7 @@ an example)
     doas gmake install
 
 Create empty FRR configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -100,7 +100,7 @@ Create empty FRR configuration files
     doas chmod 640 /etc/frr/*.conf
 
 Enable IP & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Add the following lines to the end of ``/etc/rc.conf``:
 
@@ -113,7 +113,7 @@ Add the following lines to the end of ``/etc/rc.conf``:
 **Reboot** to apply the config to the system
 
 Enable MPLS Forwarding
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 To enable MPLS forwarding on a given interface, use the following
 command:
@@ -132,7 +132,7 @@ Example:
     inet 10.0.1.1 255.255.255.0 mpls
 
 Install rc.d init files
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 (create them in /etc/rc.d - no example are included at this time with
 FRR source)
@@ -152,7 +152,7 @@ Example (for zebra - store as ``/etc/rc.d/frr_zebra.sh``)
     rc_cmd $1
 
 Enable FRR processes
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 (Enable the required processes only)
 

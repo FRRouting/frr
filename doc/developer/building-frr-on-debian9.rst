@@ -19,7 +19,7 @@ Get FRR, compile it and install it (from Git)
 using any packages**
 
 Add frr groups and user
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -30,7 +30,7 @@ Add frr groups and user
     sudo usermod -a -G frrvty frr
 
 Download Source, configure and compile it
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (You may prefer different options on configure statement. These are just
 an example.)
@@ -68,7 +68,7 @@ an example.)
     sudo make install
 
 Create empty FRR configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -88,7 +88,7 @@ Create empty FRR configuration files
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
 Enable IP & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit ``/etc/sysctl.conf`` and uncomment the following values (ignore the
 other settings)
@@ -110,7 +110,7 @@ Troubleshooting
 ---------------
 
 Shared library error
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 If you try and start any of the frrouting daemons you may see the below
 error due to the frrouting shared library directory not being found:

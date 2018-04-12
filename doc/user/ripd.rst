@@ -60,8 +60,7 @@ Certain signals have special meaningss to *ripd*.
 *ripd* invocation options. Common options that can be specified
 (:ref:`common-invocation-options`).
 
-.. option:: -r
-.. option:: --retain
+.. option:: -r, --retain
 
    When the program terminates, retain routes added by *ripd*.
 
@@ -147,7 +146,7 @@ RIP Configuration
    Below is very simple RIP configuration. Interface `eth0` and interface which
    address match to `10.0.0.0/8` are RIP enabled.
 
-   ::
+   .. code-block:: frr
 
       !
       router rip
@@ -355,7 +354,7 @@ RIP routes can be filtered by a distribute-list.
    the distribute-list command. For example, in the following configuration
    ``eth0`` will permit only the paths that match the route 10.0.0.0/8
 
-   ::
+   .. code-block:: frr
 
        !
        router rip
@@ -447,11 +446,11 @@ Usage of *ripd*'s route-map support.
 Optional argument route-map MAP_NAME can be added to each `redistribute`
 statement.
 
-::
+.. code-block:: frr
 
-  redistribute static [route-map MAP_NAME]
-  redistribute connected [route-map MAP_NAME]
-  .....
+   redistribute static [route-map MAP_NAME]
+   redistribute connected [route-map MAP_NAME]
+   .....
 
 
 Cisco applies route-map _before_ routes will exported to rip route table.  In
@@ -573,17 +572,17 @@ To prevent such unauthenticated querying of routes disable RIPv1,
 
    Specifiy Keyed MD5 chain.
 
-::
+   .. code-block:: frr
 
-    !
-    key chain test
-     key 1
-      key-string test
-    !
-    interface eth1
-     ip rip authentication mode md5
-     ip rip authentication key-chain test
-    !
+      !
+      key chain test
+       key 1
+        key-string test
+      !
+      interface eth1
+       ip rip authentication mode md5
+       ip rip authentication key-chain test
+      !
 
 
 .. _rip-timers:

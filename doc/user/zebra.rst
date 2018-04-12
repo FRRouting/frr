@@ -18,19 +18,16 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
 .. program:: zebra
 
-.. option:: -b
-.. option:: --batch
+.. option:: -b, --batch
 
    Runs in batch mode. *zebra* parses configuration file and terminates
    immediately.
 
-.. option:: -k
-.. option:: --keep_kernel
+.. option:: -k, --keep_kernel
 
    When zebra starts up, don't delete old self inserted routes.
 
-.. option:: -r
-.. option:: --retain
+.. option:: -r, --retain
 
    When program terminates, retain routes added by zebra.
 
@@ -243,7 +240,8 @@ defines static prefix and gateway.
 
    Some example configuration:
 
-   ::
+   .. code-block:: frr
+
       ip route 10.0.0.0/8 10.0.0.2
       ip route 10.0.0.0/8 ppp0
       ip route 10.0.0.0/8 null0
@@ -259,7 +257,7 @@ defines static prefix and gateway.
    A.B.C.D format, user must define NETMASK value with A.B.C.D
    format. GATEWAY is same option as above command.
 
-   ::
+   .. code-block:: frr
 
       ip route 10.0.0.0 255.255.255.0 10.0.0.2
       ip route 10.0.0.0 255.255.255.0 ppp0
@@ -273,9 +271,9 @@ defines static prefix and gateway.
 
    Installs the route with the specified distance.
 
-Multiple nexthop static route
+Multiple nexthop static route:
 
-::
+.. code-block:: frr
 
    ip route 10.0.0.1/32 10.0.0.2
    ip route 10.0.0.1/32 10.0.0.3
@@ -297,7 +295,7 @@ nexthops, if the platform supports this.
      *       is directly connected, eth0
 
 
-::
+.. code-block:: frr
 
    ip route 10.0.0.0/8 10.0.0.2
    ip route 10.0.0.0/8 10.0.0.3
@@ -376,30 +374,30 @@ unicast topology!
 
    MODE sets the method used to perform RPF lookups. Supported modes:
 
-urib-only
-   Performs the lookup on the Unicast RIB. The Multicast RIB is never used.
+   urib-only
+      Performs the lookup on the Unicast RIB. The Multicast RIB is never used.
 
-mrib-only
-   Performs the lookup on the Multicast RIB. The Unicast RIB is never used.
+   mrib-only
+      Performs the lookup on the Multicast RIB. The Unicast RIB is never used.
 
-mrib-then-urib
-   Tries to perform the lookup on the Multicast RIB. If any route is found,
-   that route is used. Otherwise, the Unicast RIB is tried.
+   mrib-then-urib
+      Tries to perform the lookup on the Multicast RIB. If any route is found,
+      that route is used. Otherwise, the Unicast RIB is tried.
 
-lower-distance
-   Performs a lookup on the Multicast RIB and Unicast RIB each. The result
-   with the lower administrative distance is used;  if they're equal, the
-   Multicast RIB takes precedence.
+   lower-distance
+      Performs a lookup on the Multicast RIB and Unicast RIB each. The result
+      with the lower administrative distance is used;  if they're equal, the
+      Multicast RIB takes precedence.
 
-longer-prefix
-   Performs a lookup on the Multicast RIB and Unicast RIB each. The result
-   with the longer prefix length is used;  if they're equal, the
-   Multicast RIB takes precedence.
+   longer-prefix
+      Performs a lookup on the Multicast RIB and Unicast RIB each. The result
+      with the longer prefix length is used;  if they're equal, the
+      Multicast RIB takes precedence.
 
-   The `mrib-then-urib` setting is the default behavior if nothing is
-   configured. If this is the desired behavior, it should be explicitly
-   configured to make the configuration immune against possible changes in
-   what the default behavior is.
+      The `mrib-then-urib` setting is the default behavior if nothing is
+      configured. If this is the desired behavior, it should be explicitly
+      configured to make the configuration immune against possible changes in
+      what the default behavior is.
 
 .. warning::
    Unreachable routes do not receive special treatment and do not cause
@@ -480,7 +478,7 @@ The following creates a prefix-list that matches all addresses, a route-map
 that sets the preferred source address, and applies the route-map to all
 *rip* routes.
 
-::
+.. code-block:: frr
 
    ip prefix-list ANY permit 0.0.0.0/0 le 32
    route-map RM1 permit 10

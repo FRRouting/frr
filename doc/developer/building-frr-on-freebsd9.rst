@@ -47,7 +47,7 @@ Get FRR, compile it and install it (from Git)
 using any packages**
 
 Add frr group and user
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -89,7 +89,7 @@ an example)
     sudo gmake install
 
 Create empty FRR configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -108,7 +108,7 @@ Create empty FRR configuration files
     sudo chmod 640 /usr/local/etc/frr/*.conf
 
 Enable IP & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Add the following lines to the end of ``/etc/sysctl.conf``:
 

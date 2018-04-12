@@ -100,7 +100,7 @@ Design
 ------
 
 Modules
-~~~~~~~
+^^^^^^^
 
 The core design introduces an "nht" (next hop tracking) module in BGP
 and "rnh" (recursive nexthop) module in Zebra. The "nht" module
@@ -178,7 +178,7 @@ The next hop notification control flow is the following:
 
 
 zclient message format
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 ZEBRA_NEXTHOP_REGISTER and ZEBRA_NEXTHOP_UNREGISTER messages are
 encoded in the following way:
@@ -233,7 +233,7 @@ encoded in the following way:
 
 
 BGP data structure
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 Legend:
 
 ::
@@ -260,7 +260,7 @@ Legend:
 
 
 Zebra data structure
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 RNH table::
 
@@ -279,7 +279,7 @@ RNH table::
    };
 
 User interface changes
-~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -338,7 +338,7 @@ User interface changes
       + no shut all links to r4
 
 Future work
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 - route-policy for next hop validation (e.g. ignore default route)
 - damping for rapid next hop changes

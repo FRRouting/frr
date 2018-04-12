@@ -60,8 +60,7 @@ Certain signals have special meanings to *eigrpd*.
 
 .. program:: eigrpd
 
-.. option:: -r
-.. option:: --retain
+.. option:: -r, --retain
 
    When the program terminates, retain routes added by *eigrpd*.
 
@@ -100,7 +99,7 @@ EIGRP Configuration
    Below is very simple EIGRP configuration. Interface `eth0` and
    interface which address match to `10.0.0.0/8` are EIGRP enabled.
 
-   ::
+   .. code-block:: frr
 
       !
       router eigrp 1

@@ -20,7 +20,7 @@ Get FRR, compile it and install it (from Git)
 using any packages**
 
 Add frr groups and user
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -31,7 +31,7 @@ Add frr groups and user
     sudo usermod -a -G frrvty frr
 
 Download Source, configure and compile it
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (You may prefer different options on configure statement. These are just
 an example.)
@@ -67,7 +67,7 @@ an example.)
     sudo make install
 
 Create empty FRR configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -86,7 +86,7 @@ Create empty FRR configuration files
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
 Enable IPv4 & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit ``/etc/sysctl.conf`` and uncomment the following values (ignore the
 other settings)
@@ -102,7 +102,7 @@ other settings)
     net.ipv6.conf.all.forwarding=1
 
 Enable MPLS Forwarding (with Linux Kernel >= 4.5)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit ``/etc/sysctl.conf`` and the following lines. Make sure to add a
 line equal to ``net.mpls.conf.eth0.input`` or each interface used with
@@ -117,7 +117,7 @@ MPLS
     net.mpls.platform_labels=100000
 
 Add MPLS kernel modules
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 Add the following lines to ``/etc/modules-load.d/modules.conf``:
 
@@ -131,7 +131,7 @@ Add the following lines to ``/etc/modules-load.d/modules.conf``:
 system
 
 Install the systemd service (if rebooted from last step, change directory back to frr directory)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -143,7 +143,7 @@ Install the systemd service (if rebooted from last step, change directory back t
     sudo install -m 644 -o frr -g frr tools/etc/frr/vtysh.conf /etc/frr/vtysh.conf
 
 Enable daemons
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 | Edit ``/etc/frr/daemons`` and change the value from "no" to "yes" for
   those daemons you want to start by systemd.
@@ -160,12 +160,12 @@ Enable daemons
     isisd=yes
 
 Enable the systemd service
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 -  systemctl enable frr
 
 Start the systemd service
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 -  systemctl start frr
 -  use ``systemctl status frr`` to check its status.

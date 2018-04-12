@@ -35,7 +35,7 @@ Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
 Add frr groups and user
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -45,7 +45,7 @@ Add frr groups and user
         -d /nonexistent -s /sbin/nologin frr
 
 Download Source, configure and compile it
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 (You may prefer different options on configure statement. These are just
 an example)
@@ -80,7 +80,7 @@ an example)
     sudo gmake install
 
 Create empty FRR configuration files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -99,7 +99,7 @@ Create empty FRR configuration files
     sudo chmod 640 /usr/pkg/etc/frr/*.conf
 
 Enable IP & IPv6 forwarding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Add the following lines to the end of ``/etc/sysctl.conf``:
 
@@ -113,7 +113,7 @@ Add the following lines to the end of ``/etc/sysctl.conf``:
 system
 
 Install rc.d init files
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -121,7 +121,7 @@ Install rc.d init files
     chmod 555 /etc/rc.d/*.sh
 
 Enable FRR processes
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 (Enable the required processes only)
 
