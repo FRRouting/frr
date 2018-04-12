@@ -445,6 +445,32 @@ specifying the encapsulation to use. ``Netlink`` is the default, and
 ``protobuf`` may not be available if the module was built without protobuf
 support. Refer to :ref:`zebra-fib-push-interface` for more information.
 
+The Script WRAP Module
+----------------------
+
+If Wrap Script is enabled during compile-time and installed as part of the
+package, the ``wrap_script`` module can be loaded for the *Zebra* daemon. This
+provides the *Zebra* Script Wrapper interface to be available for handling
+underlying firewall elements. Specifically, if the system where FRR is is Linux,
+default firewall used is `Linux netfilters`. Note that the interface terminology
+is tightly linked with `Linux netfilters` main objects, that is to say `iptables`
+and `ipset`. But we will see that that module can configure or monitor other
+similar objects.
+Instead of using ioctl() operations, this wrap interface permits using either
+underlying shell commands ( from where the FRR is based on) or custom scripts. This
+can be done by using a vty command to configure which execution path to call for
+`iptables` or `ipset` object. The vty commands can directly configure the native
+Linux netfilter tools. Or the vty commands can reference external shell script that
+will be called. This second case may be used for non Linux systems, or for users
+that do not want to use netfilters, but want to use an other set of tools like `eBPF`
+or `NFTables`.
+The wrap script module proposes configuration APIs to create `ipset` and `iptables`
+objects. Monitoring APIs will first return a json like format based on the output
+of the 2 underlying objects. Here too, the format analysed is tightly linked with
+the Linux format of `ipset` and `iptables`. However, even if the tools used are not
+based on `Netfilter`, it will still be possible to use a strict to return json format
+output similar to `ipset` and `iptables`.
+
 .. _virtual-terminal-interfaces:
 
 Virtual Terminal Interfaces
