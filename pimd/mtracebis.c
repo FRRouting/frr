@@ -22,6 +22,7 @@
 #include "pim_igmp_mtrace.h"
 
 #include "checksum.h"
+#include "prefix.h"
 #include "mtracebis_routeget.h"
 
 #include <sys/select.h>
@@ -50,7 +51,8 @@
 static const char *progname;
 static void usage(void)
 {
-	fprintf(stderr, "Usage : %s <multicast source>\n", progname);
+	fprintf(stderr, "Usage : %s <multicast source> [<multicast group>]\n",
+		progname);
 }
 static void version(void)
 {
@@ -170,9 +172,21 @@ static void print_fwd_code(uint32_t fwd_code)
 static void print_rsp(struct igmp_mtrace_rsp *rsp)
 {
 	print_host(rsp->outgoing);
-	if (rsp->fwd_code == 0) {
+	if (rsp->fwd_code == 0 || rsp->fwd_code == MTRACE_FWD_CODE_REACHED_RP) {
 		print_rtg_proto(rsp->rtg_proto);
 		printf(" ");
+		if (rsp->fwd_code == MTRACE_FWD_CODE_REACHED_RP)
+			printf("(RP) ");
+		if (rsp->rtg_proto == MTRACE_RTG_PROTO_PIM) {
+			switch (rsp->src_mask) {
+			case MTRACE_SRC_MASK_GROUP:
+				printf("(*,G) ");
+				break;
+			case MTRACE_SRC_MASK_SOURCE:
+				printf("(S,G) ");
+				break;
+			}
+		}
 		print_fwd_ttl(rsp->fwd_ttl);
 	} else {
 		print_fwd_code(rsp->fwd_code);
@@ -351,6 +365,7 @@ static bool check_end(struct igmp_mtrace *mtrace, int hops)
 int main(int argc, char *const argv[])
 {
 	struct in_addr mc_source;
+	struct in_addr mc_group;
 	struct in_addr iface_addr;
 	struct in_addr gw_addr;
 	struct in_addr mtrace_addr;
@@ -370,6 +385,7 @@ int main(int argc, char *const argv[])
 	int i, j;
 	char ifname[IF_NAMESIZE];
 	char mbuf[MTRACE_BUF_LEN];
+	bool not_group;
 
 	mtrace_addr.s_addr = inet_addr("224.0.1.32");
 
@@ -385,7 +401,7 @@ int main(int argc, char *const argv[])
 	else
 		progname = argv[0];
 
-	if (argc != 2) {
+	if (argc != 2 && argc != 3) {
 		usage();
 		exit(EXIT_FAILURE);
 	}
@@ -416,8 +432,25 @@ int main(int argc, char *const argv[])
 	}
 	if (inet_pton(AF_INET, argv[1], &mc_source) != 1) {
 		usage();
-		fprintf(stderr, "%s: %s not a valid IPv4 address\n", argv[0],
+		fprintf(stderr, "%s: %s is not a valid IPv4 address\n", argv[0],
 			argv[1]);
+		exit(EXIT_FAILURE);
+	}
+
+	mc_group.s_addr = 0;
+	not_group = false;
+
+	if (argc == 3) {
+		if (inet_pton(AF_INET, argv[2], &mc_group) != 1)
+			not_group = true;
+		if (!not_group && !IPV4_CLASS_DE(ntohl(mc_group.s_addr)))
+			not_group = true;
+	}
+
+	if (not_group) {
+		usage();
+		fprintf(stderr, "%s: %s is not a valid IPv4 group address\n",
+			argv[0], argv[2]);
 		exit(EXIT_FAILURE);
 	}
 
@@ -441,7 +474,7 @@ int main(int argc, char *const argv[])
 	mtrace.type = PIM_IGMP_MTRACE_QUERY_REQUEST;
 	mtrace.hops = hops;
 	mtrace.checksum = 0;
-	mtrace.grp_addr.s_addr = 0;
+	mtrace.grp_addr = mc_group;
 	mtrace.src_addr = mc_source;
 	mtrace.dst_addr = iface_addr;
 	mtrace.rsp_addr = unicast ? iface_addr : mtrace_addr;

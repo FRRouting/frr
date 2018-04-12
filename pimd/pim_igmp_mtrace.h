@@ -26,6 +26,8 @@
 
 #define MTRACE_MAX_HOPS (255)
 #define MTRACE_UNKNOWN_COUNT (0xffffffff)
+#define MTRACE_SRC_MASK_GROUP (0x3f) /* forwarding on group state (*,G) */
+#define MTRACE_SRC_MASK_SOURCE (0x20) /* i.e. 32 forwarding on (S,G) */
 
 enum mtrace_fwd_code {
 	MTRACE_FWD_CODE_NO_ERROR = 0x00,
