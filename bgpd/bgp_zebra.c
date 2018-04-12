@@ -937,12 +937,13 @@ static struct in6_addr *bgp_info_to_ipv6_nexthop(struct bgp_info *info,
 			/* Workaround for Cisco's nexthop bug.  */
 			if (IN6_IS_ADDR_UNSPECIFIED(
 				    &info->attr->mp_nexthop_global)
-			    && info->peer->su_remote->sa.sa_family == AF_INET6) {
+			    && info->peer->su_remote->sa.sa_family
+				       == AF_INET6) {
 				nexthop =
 					&info->peer->su_remote->sin6.sin6_addr;
 				if (IN6_IS_ADDR_LINKLOCAL(nexthop))
-					*ifindex =
-						info->peer->nexthop.ifp->ifindex;
+					*ifindex = info->peer->nexthop.ifp
+							   ->ifindex;
 			} else {
 				nexthop = &info->attr->mp_nexthop_local;
 				if (IN6_IS_ADDR_LINKLOCAL(nexthop))
