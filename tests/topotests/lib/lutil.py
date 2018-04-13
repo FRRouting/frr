@@ -208,6 +208,8 @@ Total %-4d                                                           %-4d %d\n\
 	if search_nl != None:
 	    group_nl = search_nl.group()
 	    group_nl_converted = " ".join(group_nl.splitlines())
+        else:
+	    group_nl_converted = None
 
         out = " ".join(out.splitlines())
         search = re.search(regexp, out)
