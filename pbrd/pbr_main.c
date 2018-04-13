@@ -152,6 +152,11 @@ int main(int argc, char **argv, char **envp)
 			   pbr_nhgroup_del_nexthop_cb,
 			   pbr_nhgroup_delete_cb);
 
+	/*
+	 * So we safely ignore these commands since
+	 * we are getting them at this point in time
+	 */
+	access_list_init();
 	pbr_nht_init();
 	pbr_map_init();
 	pbr_zebra_init();
