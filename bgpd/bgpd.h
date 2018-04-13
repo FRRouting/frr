@@ -527,6 +527,9 @@ struct bgp {
 
 	struct vpn_policy vpn_policy[AFI_MAX];
 
+	/* local esi hash table */
+	struct hash *esihash;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp)
