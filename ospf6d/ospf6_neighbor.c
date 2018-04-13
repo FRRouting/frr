@@ -193,8 +193,9 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(on->ospf6_if->area);
 
-		if (prev_state == OSPF6_NEIGHBOR_LOADING
-		    && next_state == OSPF6_NEIGHBOR_FULL) {
+		if ((prev_state == OSPF6_NEIGHBOR_LOADING ||
+		     prev_state == OSPF6_NEIGHBOR_EXCHANGE) &&
+		    next_state == OSPF6_NEIGHBOR_FULL) {
 			OSPF6_AS_EXTERN_LSA_SCHEDULE(on->ospf6_if);
 			on->ospf6_if->area->full_nbrs++;
 		}
