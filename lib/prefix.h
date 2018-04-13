@@ -56,26 +56,56 @@ struct ethaddr {
 #define PREFIX_LEN_ROUTE_TYPE_5_IPV4 (18*8)
 #define PREFIX_LEN_ROUTE_TYPE_5_IPV6 (30*8)
 
+typedef struct esi_t_ {
+	uint8_t val[10];
+} esi_t;
+
+struct evpn_ead_addr {
+	esi_t esi;
+	uint32_t eth_tag;
+};
+
+struct evpn_macip_addr {
+	uint32_t eth_tag;
+	uint8_t ip_prefix_length;
+	struct ethaddr mac;
+	struct ipaddr ip;
+};
+
+struct evpn_imet_addr {
+	uint32_t eth_tag;
+	uint8_t ip_prefix_length;
+	struct ipaddr ip;
+};
+
+struct evpn_es_addr {
+	esi_t esi;
+	uint8_t ip_prefix_length;
+	struct ipaddr ip;
+};
+
+struct evpn_prefix_addr {
+	uint32_t eth_tag;
+	uint8_t ip_prefix_length;
+	struct ipaddr ip;
+};
+
 /* EVPN address (RFC 7432) */
 struct evpn_addr {
 	uint8_t route_type;
-	uint8_t ip_prefix_length;
-	struct ethaddr mac;
-	uint32_t eth_tag;
-	struct ipaddr ip;
-#if 0
-  union
-  {
-    uint8_t addr;
-    struct in_addr v4_addr;
-    struct in6_addr v6_addr;
-  } ip;
-#endif
+	union {
+		struct evpn_ead_addr _ead_addr;
+		struct evpn_macip_addr _macip_addr;
+		struct evpn_imet_addr _imet_addr;
+		struct evpn_es_addr _es_addr;
+		struct evpn_prefix_addr _prefix_addr;
+	} u;
+#define ead_addr u._ead_addr
+#define macip_addr u._macip_addr
+#define imet_addr u._imet_addr
+#define es_addr u._es_addr
+#define prefix_addr u._prefix_addr
 };
-
-#define IS_EVPN_PREFIX_IPADDR_NONE(evp)  IS_IPADDR_NONE(&(evp)->prefix.ip)
-#define IS_EVPN_PREFIX_IPADDR_V4(evp)    IS_IPADDR_V4(&(evp)->prefix.ip)
-#define IS_EVPN_PREFIX_IPADDR_V6(evp)    IS_IPADDR_V6(&(evp)->prefix.ip)
 
 /*
  * A struct prefix contains an address family, a prefix length, and an
@@ -176,6 +206,39 @@ struct prefix_evpn {
 	uint8_t prefixlen;
 	struct evpn_addr prefix __attribute__((aligned(8)));
 };
+
+static inline int is_evpn_prefix_ipaddr_none(const struct prefix_evpn *evp)
+{
+	if (evp->prefix.route_type == 2)
+		return IS_IPADDR_NONE(&(evp)->prefix.macip_addr.ip);
+	if (evp->prefix.route_type == 3)
+		return IS_IPADDR_NONE(&(evp)->prefix.imet_addr.ip);
+	if (evp->prefix.route_type == 5)
+		return IS_IPADDR_NONE(&(evp)->prefix.prefix_addr.ip);
+	return 0;
+}
+
+static inline int is_evpn_prefix_ipaddr_v4(const struct prefix_evpn *evp)
+{
+	if (evp->prefix.route_type == 2)
+		return IS_IPADDR_V4(&(evp)->prefix.macip_addr.ip);
+	if (evp->prefix.route_type == 3)
+		return IS_IPADDR_V4(&(evp)->prefix.imet_addr.ip);
+	if (evp->prefix.route_type == 5)
+		return IS_IPADDR_V4(&(evp)->prefix.prefix_addr.ip);
+	return 0;
+}
+
+static inline int is_evpn_prefix_ipaddr_v6(const struct prefix_evpn *evp)
+{
+	if (evp->prefix.route_type == 2)
+		return IS_IPADDR_V6(&(evp)->prefix.macip_addr.ip);
+	if (evp->prefix.route_type == 3)
+		return IS_IPADDR_V6(&(evp)->prefix.imet_addr.ip);
+	if (evp->prefix.route_type == 5)
+		return IS_IPADDR_V6(&(evp)->prefix.prefix_addr.ip);
+	return 0;
+}
 
 /* Prefix for a generic pointer */
 struct prefix_ptr {

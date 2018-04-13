@@ -510,15 +510,15 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 		s, add ? ZEBRA_REMOTE_MACIP_ADD : ZEBRA_REMOTE_MACIP_DEL,
 		bgp->vrf_id);
 	stream_putl(s, vpn->vni);
-	stream_put(s, &p->prefix.mac.octet, ETH_ALEN); /* Mac Addr */
+	stream_put(s, &p->prefix.macip_addr.mac.octet, ETH_ALEN); /* Mac Addr */
 	/* IP address length and IP address, if any. */
-	if (IS_EVPN_PREFIX_IPADDR_NONE(p))
+	if (is_evpn_prefix_ipaddr_none(p))
 		stream_putl(s, 0);
 	else {
-		ipa_len = IS_EVPN_PREFIX_IPADDR_V4(p) ? IPV4_MAX_BYTELEN
+		ipa_len = is_evpn_prefix_ipaddr_v4(p) ? IPV4_MAX_BYTELEN
 						      : IPV6_MAX_BYTELEN;
 		stream_putl(s, ipa_len);
-		stream_put(s, &p->prefix.ip.ip.addr, ipa_len);
+		stream_put(s, &p->prefix.macip_addr.ip.ip.addr, ipa_len);
 	}
 	stream_put_in_addr(s, &remote_vtep_ip);
 
@@ -532,8 +532,10 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 		zlog_debug(
 			"Tx %s MACIP, VNI %u MAC %s IP %s (flags: 0x%x) remote VTEP %s",
 			add ? "ADD" : "DEL", vpn->vni,
-			prefix_mac2str(&p->prefix.mac, buf1, sizeof(buf1)),
-			ipaddr2str(&p->prefix.ip, buf3, sizeof(buf3)), flags,
+			prefix_mac2str(&p->prefix.macip_addr.mac,
+				       buf1, sizeof(buf1)),
+			ipaddr2str(&p->prefix.macip_addr.ip,
+				   buf3, sizeof(buf3)), flags,
 			inet_ntop(AF_INET, &remote_vtep_ip, buf2,
 				  sizeof(buf2)));
 
@@ -563,9 +565,9 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 		s, add ? ZEBRA_REMOTE_VTEP_ADD : ZEBRA_REMOTE_VTEP_DEL,
 		bgp->vrf_id);
 	stream_putl(s, vpn->vni);
-	if (IS_EVPN_PREFIX_IPADDR_V4(p))
-		stream_put_in_addr(s, &p->prefix.ip.ipaddr_v4);
-	else if (IS_EVPN_PREFIX_IPADDR_V6(p)) {
+	if (is_evpn_prefix_ipaddr_v4(p))
+		stream_put_in_addr(s, &p->prefix.imet_addr.ip.ipaddr_v4);
+	else if (is_evpn_prefix_ipaddr_v6(p)) {
 		zlog_err(
 			"Bad remote IP when trying to %s remote VTEP for VNI %u",
 			add ? "ADD" : "DEL", vpn->vni);
@@ -577,7 +579,7 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	if (bgp_debug_zebra(NULL))
 		zlog_debug("Tx %s Remote VTEP, VNI %u remote VTEP %s",
 			   add ? "ADD" : "DEL", vpn->vni,
-			   inet_ntoa(p->prefix.ip.ipaddr_v4));
+			   inet_ntoa(p->prefix.imet_addr.ip.ipaddr_v4));
 
 	return zclient_send_message(zclient);
 }
@@ -1293,8 +1295,8 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 * these routes.
 	 */
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
-	    (IS_EVPN_PREFIX_IPADDR_V4(p) ||
-	     !IN6_IS_ADDR_LINKLOCAL(&p->prefix.ip.ipaddr_v6)) &&
+	    (is_evpn_prefix_ipaddr_v4(p) ||
+	     !IN6_IS_ADDR_LINKLOCAL(&p->prefix.macip_addr.ip.ipaddr_v6)) &&
 	    CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS))
 		add_l3_ecomm = 1;
 
@@ -1539,8 +1541,8 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
 			continue;
 
-		if (IS_EVPN_PREFIX_IPADDR_V6(evp) &&
-		    IN6_IS_ADDR_LINKLOCAL(&evp->prefix.ip.ipaddr_v6))
+		if (is_evpn_prefix_ipaddr_v6(evp) &&
+		    IN6_IS_ADDR_LINKLOCAL(&evp->prefix.macip_addr.ip.ipaddr_v6))
 			update_evpn_route_entry(bgp, vpn, afi, safi, rn,
 						&attr_ip6_ll, 0, 1, &ri, 0);
 		else {
@@ -1792,10 +1794,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	char buf1[PREFIX_STRLEN];
 
 	memset(pp, 0, sizeof(struct prefix));
-	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
-		ip_prefix_from_type2_prefix(evp, pp);
-	else if (evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
-		ip_prefix_from_type5_prefix(evp, pp);
+	ip_prefix_from_evpn_prefix(evp, pp);
 
 	if (bgp_debug_zebra(NULL)) {
 		zlog_debug(
@@ -1807,11 +1806,11 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	/* Create (or fetch) route within the VRF. */
 	/* NOTE: There is no RD here. */
-	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
+	if (is_evpn_prefix_ipaddr_v4(evp)) {
 		afi = AFI_IP;
 		safi = SAFI_UNICAST;
 		rn = bgp_node_get(bgp_vrf->rib[afi][safi], pp);
-	} else if (IS_EVPN_PREFIX_IPADDR_V6(evp)) {
+	} else if (is_evpn_prefix_ipaddr_v6(evp)) {
 		afi = AFI_IP6;
 		safi = SAFI_UNICAST;
 		rn = bgp_node_get(bgp_vrf->rib[afi][safi], pp);
@@ -1970,10 +1969,7 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	char buf1[PREFIX_STRLEN];
 
 	memset(pp, 0, sizeof(struct prefix));
-	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
-		ip_prefix_from_type2_prefix(evp, pp);
-	else if (evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
-		ip_prefix_from_type5_prefix(evp, pp);
+	ip_prefix_from_evpn_prefix(evp, pp);
 
 	if (bgp_debug_zebra(NULL)) {
 		zlog_debug(
@@ -1985,7 +1981,7 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	/* Locate route within the VRF. */
 	/* NOTE: There is no RD here. */
-	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
+	if (is_evpn_prefix_ipaddr_v4(evp)) {
 		afi = AFI_IP;
 		safi = SAFI_UNICAST;
 		rn = bgp_node_lookup(bgp_vrf->rib[afi][safi], pp);
@@ -2232,8 +2228,8 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, int install)
 				continue;
 
 			/* if not a mac+ip route skip this route */
-			if (!(IS_EVPN_PREFIX_IPADDR_V4(evp)
-			      || IS_EVPN_PREFIX_IPADDR_V6(evp)))
+			if (!(is_evpn_prefix_ipaddr_v4(evp)
+			      || is_evpn_prefix_ipaddr_v6(evp)))
 				continue;
 
 			for (ri = rn->info; ri; ri = ri->next) {
@@ -2423,8 +2419,8 @@ static int install_uninstall_route_in_vrfs(struct bgp *bgp_def, afi_t afi,
 
 	/* if it is type-2 route and not a mac+ip route skip this route */
 	if ((evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
-	    && !(IS_EVPN_PREFIX_IPADDR_V4(evp)
-		 || IS_EVPN_PREFIX_IPADDR_V6(evp)))
+	    && !(is_evpn_prefix_ipaddr_v4(evp)
+		 || is_evpn_prefix_ipaddr_v6(evp)))
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(vrfs, node, nnode, bgp_vrf)) {
@@ -2850,7 +2846,7 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Copy Ethernet Tag */
 	memcpy(&eth_tag, pfx, 4);
-	p.prefix.eth_tag = ntohl(eth_tag);
+	p.prefix.macip_addr.eth_tag = ntohl(eth_tag);
 	pfx += 4;
 
 	/* Get the MAC Addr len */
@@ -2858,7 +2854,7 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Get the MAC Addr */
 	if (macaddr_len == (ETH_ALEN * 8)) {
-		memcpy(&p.prefix.mac.octet, pfx, ETH_ALEN);
+		memcpy(&p.prefix.macip_addr.mac.octet, pfx, ETH_ALEN);
 		pfx += ETH_ALEN;
 	} else {
 		zlog_err(
@@ -2880,10 +2876,10 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	if (ipaddr_len) {
 		ipaddr_len /= 8; /* Convert to bytes. */
-		p.prefix.ip.ipa_type = (ipaddr_len == IPV4_MAX_BYTELEN)
+		p.prefix.macip_addr.ip.ipa_type = (ipaddr_len == IPV4_MAX_BYTELEN)
 					       ? IPADDR_V4
 					       : IPADDR_V6;
-		memcpy(&p.prefix.ip.ip.addr, pfx, ipaddr_len);
+		memcpy(&p.prefix.macip_addr.ip.ip.addr, pfx, ipaddr_len);
 	}
 	pfx += ipaddr_len;
 
@@ -2965,14 +2961,14 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Copy Ethernet Tag */
 	memcpy(&eth_tag, pfx, 4);
-	p.prefix.eth_tag = ntohl(eth_tag);
+	p.prefix.imet_addr.eth_tag = ntohl(eth_tag);
 	pfx += 4;
 
 	/* Get the IP. */
 	ipaddr_len = *pfx++;
 	if (ipaddr_len == IPV4_MAX_BITLEN) {
-		p.prefix.ip.ipa_type = IPADDR_V4;
-		memcpy(&p.prefix.ip.ip.addr, pfx, IPV4_MAX_BYTELEN);
+		p.prefix.imet_addr.ip.ipa_type = IPADDR_V4;
+		memcpy(&p.prefix.imet_addr.ip.ip.addr, pfx, IPV4_MAX_BYTELEN);
 	} else {
 		zlog_err(
 			"%u:%s - Rx EVPN Type-3 NLRI with unsupported IP address length %d",
@@ -3039,7 +3035,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Fetch Ethernet Tag. */
 	memcpy(&eth_tag, pfx, 4);
-	p.prefix.eth_tag = ntohl(eth_tag);
+	p.prefix.prefix_addr.eth_tag = ntohl(eth_tag);
 	pfx += 4;
 
 	/* Fetch IP prefix length. */
@@ -3050,21 +3046,21 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 			peer->bgp->vrf_id, peer->host, ippfx_len);
 		return -1;
 	}
-	p.prefix.ip_prefix_length = ippfx_len;
+	p.prefix.prefix_addr.ip_prefix_length = ippfx_len;
 
 	/* Determine IPv4 or IPv6 prefix */
 	/* Since the address and GW are from the same family, this just becomes
 	 * a simple check on the total size.
 	 */
 	if (psize == 34) {
-		SET_IPADDR_V4(&p.prefix.ip);
-		memcpy(&p.prefix.ip.ipaddr_v4, pfx, 4);
+		SET_IPADDR_V4(&p.prefix.prefix_addr.ip);
+		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v4, pfx, 4);
 		pfx += 4;
 		memcpy(&evpn.gw_ip.ipv4, pfx, 4);
 		pfx += 4;
 	} else {
-		SET_IPADDR_V6(&p.prefix.ip);
-		memcpy(&p.prefix.ip.ipaddr_v6, pfx, 16);
+		SET_IPADDR_V6(&p.prefix.prefix_addr.ip);
+		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v6, pfx, 16);
 		pfx += 16;
 		memcpy(&evpn.gw_ip.ipv6, pfx, 16);
 		pfx += 16;
@@ -3109,7 +3105,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 	/* len denites the total len of IP and GW-IP in the route
 	   IP and GW-IP have to be both ipv4 or ipv6
 	 */
-	if (IS_IPADDR_V4(&p_evpn_p->ip))
+	if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
 		len = 8; /* IP and GWIP are both ipv4 */
 	else
 		len = 32; /* IP and GWIP are both ipv6 */
@@ -3120,20 +3116,20 @@ static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 		stream_put(s, &(attr->evpn_overlay.eth_s_id), 10);
 	else
 		stream_put(s, &temp, 10);
-	stream_putl(s, p_evpn_p->eth_tag);
-	stream_putc(s, p_evpn_p->ip_prefix_length);
-	if (IS_IPADDR_V4(&p_evpn_p->ip))
-		stream_put_ipv4(s, p_evpn_p->ip.ipaddr_v4.s_addr);
+	stream_putl(s, p_evpn_p->prefix_addr.eth_tag);
+	stream_putc(s, p_evpn_p->prefix_addr.ip_prefix_length);
+	if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
+		stream_put_ipv4(s, p_evpn_p->prefix_addr.ip.ipaddr_v4.s_addr);
 	else
-		stream_put(s, &p_evpn_p->ip.ipaddr_v6, 16);
+		stream_put(s, &p_evpn_p->prefix_addr.ip.ipaddr_v6, 16);
 	if (attr) {
-		if (IS_IPADDR_V4(&p_evpn_p->ip))
+		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
 			stream_put_ipv4(s,
 					attr->evpn_overlay.gw_ip.ipv4.s_addr);
 		else
 			stream_put(s, &(attr->evpn_overlay.gw_ip.ipv6), 16);
 	} else {
-		if (IS_IPADDR_V4(&p_evpn_p->ip))
+		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
 			stream_put_ipv4(s, 0);
 		else
 			stream_put(s, &temp, 16);
@@ -3583,44 +3579,49 @@ void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json)
 
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
 		json_object_int_add(json, "routeType", p->prefix.route_type);
-		json_object_int_add(json, "ethTag", p->prefix.eth_tag);
+		json_object_int_add(json, "ethTag",
+				    p->prefix.imet_addr.eth_tag);
 		json_object_int_add(json, "ipLen",
-				    IS_EVPN_PREFIX_IPADDR_V4(p)
+				    is_evpn_prefix_ipaddr_v4(p)
 					    ? IPV4_MAX_BITLEN
 					    : IPV6_MAX_BITLEN);
 		json_object_string_add(json, "ip",
-				       inet_ntoa(p->prefix.ip.ipaddr_v4));
+				       inet_ntoa(p->prefix.imet_addr.ip.ipaddr_v4));
 	} else if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
-		if (IS_EVPN_PREFIX_IPADDR_NONE(p)) {
+		if (is_evpn_prefix_ipaddr_none(p)) {
 			json_object_int_add(json, "routeType",
 					    p->prefix.route_type);
-			json_object_int_add(json, "ethTag", p->prefix.eth_tag);
+			json_object_int_add(json, "ethTag",
+					    p->prefix.macip_addr.eth_tag);
 			json_object_int_add(json, "macLen", 8 * ETH_ALEN);
 			json_object_string_add(json, "mac",
-					       prefix_mac2str(&p->prefix.mac,
+					       prefix_mac2str(&p->prefix.macip_addr.mac,
 							      buf1,
 							      sizeof(buf1)));
 		} else {
 			uint8_t family;
 
-			family = IS_EVPN_PREFIX_IPADDR_V4(p) ? AF_INET
+			family = is_evpn_prefix_ipaddr_v4(p) ? AF_INET
 							     : AF_INET6;
 
 			json_object_int_add(json, "routeType",
 					    p->prefix.route_type);
-			json_object_int_add(json, "ethTag", p->prefix.eth_tag);
+			json_object_int_add(json, "ethTag",
+					    p->prefix.macip_addr.eth_tag);
 			json_object_int_add(json, "macLen", 8 * ETH_ALEN);
 			json_object_string_add(json, "mac",
-					       prefix_mac2str(&p->prefix.mac,
+					       prefix_mac2str(&p->prefix.macip_addr.mac,
 							      buf1,
 							      sizeof(buf1)));
 			json_object_int_add(json, "ipLen",
-					    IS_EVPN_PREFIX_IPADDR_V4(p)
+					    is_evpn_prefix_ipaddr_v4(p)
 						    ? IPV4_MAX_BITLEN
 						    : IPV6_MAX_BITLEN);
 			json_object_string_add(
 				json, "ip",
-				inet_ntop(family, &p->prefix.ip.ip.addr, buf2,
+				inet_ntop(family,
+					  &p->prefix.macip_addr.ip.ip.addr,
+					  buf2,
 					  PREFIX2STR_BUFFER));
 		}
 	} else {
@@ -3639,42 +3640,44 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
 		snprintf(buf, len, "[%d]:[%d]:[%d]:[%s]", p->prefix.route_type,
-			 p->prefix.eth_tag,
-			 IS_EVPN_PREFIX_IPADDR_V4(p) ? IPV4_MAX_BITLEN
+			 p->prefix.imet_addr.eth_tag,
+			 is_evpn_prefix_ipaddr_v4(p) ? IPV4_MAX_BITLEN
 						     : IPV6_MAX_BITLEN,
-			 inet_ntoa(p->prefix.ip.ipaddr_v4));
+			 inet_ntoa(p->prefix.imet_addr.ip.ipaddr_v4));
 	} else if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
-		if (IS_EVPN_PREFIX_IPADDR_NONE(p))
+		if (is_evpn_prefix_ipaddr_none(p))
 			snprintf(buf, len, "[%d]:[%d]:[%d]:[%s]",
 				 p->prefix.route_type,
-				 p->prefix.eth_tag,
+				 p->prefix.macip_addr.eth_tag,
 				 8 * ETH_ALEN,
-				 prefix_mac2str(&p->prefix.mac, buf1,
+				 prefix_mac2str(&p->prefix.macip_addr.mac, buf1,
 						sizeof(buf1)));
 		else {
 			uint8_t family;
 
-			family = IS_EVPN_PREFIX_IPADDR_V4(p) ? AF_INET
+			family = is_evpn_prefix_ipaddr_v4(p) ? AF_INET
 							     : AF_INET6;
 			snprintf(buf, len, "[%d]:[%d]:[%d]:[%s]:[%d]:[%s]",
 				 p->prefix.route_type,
-				 p->prefix.eth_tag,
+				 p->prefix.macip_addr.eth_tag,
 				 8 * ETH_ALEN,
-				 prefix_mac2str(&p->prefix.mac, buf1,
+				 prefix_mac2str(&p->prefix.macip_addr.mac, buf1,
 						sizeof(buf1)),
 				 family == AF_INET ? IPV4_MAX_BITLEN
 						   : IPV6_MAX_BITLEN,
-				 inet_ntop(family, &p->prefix.ip.ip.addr, buf2,
+				 inet_ntop(family,
+					   &p->prefix.macip_addr.ip.ip.addr,
+					   buf2,
 					   PREFIX2STR_BUFFER));
 		}
 	} else if (p->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 		snprintf(buf, len, "[%d]:[%d]:[%d]:[%s]",
 			 p->prefix.route_type,
-			 p->prefix.eth_tag,
-			 p->prefix.ip_prefix_length,
-			 IS_EVPN_PREFIX_IPADDR_V4(p)
-				 ? inet_ntoa(p->prefix.ip.ipaddr_v4)
-				 : inet6_ntoa(p->prefix.ip.ipaddr_v6));
+			 p->prefix.prefix_addr.eth_tag,
+			 p->prefix.prefix_addr.ip_prefix_length,
+			 is_evpn_prefix_ipaddr_v4(p)
+				 ? inet_ntoa(p->prefix.prefix_addr.ip.ipaddr_v4)
+				 : inet6_ntoa(p->prefix.prefix_addr.ip.ipaddr_v6));
 	} else {
 		/* For EVPN route types not supported yet. */
 		snprintf(buf, len, "(unsupported route type %d)",
@@ -3703,9 +3706,9 @@ void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 
 	switch (evp->prefix.route_type) {
 	case BGP_EVPN_MAC_IP_ROUTE:
-		if (IS_EVPN_PREFIX_IPADDR_V4(evp))
+		if (is_evpn_prefix_ipaddr_v4(evp))
 			ipa_len = IPV4_MAX_BYTELEN;
-		else if (IS_EVPN_PREFIX_IPADDR_V6(evp))
+		else if (is_evpn_prefix_ipaddr_v6(evp))
 			ipa_len = IPV6_MAX_BYTELEN;
 		/* RD, ESI, EthTag, MAC+len, IP len, [IP], 1 VNI */
 		len = 8 + 10 + 4 + 1 + 6 + 1 + ipa_len + 3;
@@ -3717,12 +3720,13 @@ void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 			stream_put(s, &attr->evpn_overlay.eth_s_id, ESI_LEN);
 		else
 			stream_put(s, 0, 10);
-		stream_putl(s, evp->prefix.eth_tag);	    /* Ethernet Tag ID */
+		stream_putl(s, evp->prefix.macip_addr.eth_tag);	/* Ethernet Tag ID */
 		stream_putc(s, 8 * ETH_ALEN); /* Mac Addr Len - bits */
-		stream_put(s, evp->prefix.mac.octet, 6); /* Mac Addr */
-		stream_putc(s, 8 * ipa_len);		 /* IP address Length */
-		if (ipa_len)				 /* IP */
-			stream_put(s, &evp->prefix.ip.ip.addr, ipa_len);
+		stream_put(s, evp->prefix.macip_addr.mac.octet, 6); /* Mac Addr */
+		stream_putc(s, 8 * ipa_len); /* IP address Length */
+		if (ipa_len) /* IP */
+			stream_put(s, &evp->prefix.macip_addr.ip.ip.addr,
+				   ipa_len);
 		/* 1st label is the L2 VNI */
 		stream_put(s, label, BGP_LABEL_BYTES);
 		/* Include 2nd label (L3 VNI) if advertising MAC+IP */
@@ -3733,10 +3737,10 @@ void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 	case BGP_EVPN_IMET_ROUTE:
 		stream_putc(s, 17); // TODO: length - assumes IPv4 address
 		stream_put(s, prd->val, 8);      /* RD */
-		stream_putl(s, evp->prefix.eth_tag);		 /* Ethernet Tag ID */
+		stream_putl(s, evp->prefix.imet_addr.eth_tag); /* Ethernet Tag ID */
 		stream_putc(s, IPV4_MAX_BITLEN); /* IP address Length - bits */
 		/* Originating Router's IP Addr */
-		stream_put_in_addr(s, &evp->prefix.ip.ipaddr_v4);
+		stream_put_in_addr(s, &evp->prefix.imet_addr.ip.ipaddr_v4);
 		break;
 
 	case BGP_EVPN_IP_PREFIX_ROUTE:
