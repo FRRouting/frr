@@ -2107,12 +2107,10 @@ int bgp_zebra_has_route_changed(struct bgp_node *rn, struct bgp_info *selected)
 	struct bgp_info *mpinfo;
 
 	/* If this is multipath, check all selected paths for any nexthop change
-	 * or
-	 * attribute change. Some attribute changes (e.g., community) aren't of
+	 * or attribute change. Some attribute changes (e.g., community) aren't of
 	 * relevance to the RIB, but we'll update zebra to ensure we handle the
 	 * case of BGP nexthop change. This is the behavior when the best path
-	 * has
-	 * an attribute change anyway.
+	 * has an attribute change anyway.
 	 */
 	if (CHECK_FLAG(selected->flags, BGP_INFO_IGP_CHANGED)
 	    || CHECK_FLAG(selected->flags, BGP_INFO_MULTIPATH_CHG))

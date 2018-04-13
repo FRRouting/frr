@@ -534,6 +534,9 @@ struct bgp {
 
 	struct bgp_pbr_config *bgp_pbr_cfg;
 
+	/* local esi hash table */
+	struct hash *esihash;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp)

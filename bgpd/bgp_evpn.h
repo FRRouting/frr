@@ -141,6 +141,10 @@ extern int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni);
 extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 				  struct in_addr originator_ip,
 				  vrf_id_t tenant_vrf_id);
+extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
+				 struct ipaddr *originator_ip);
+extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi,
+				 struct ipaddr *originator_ip);
 extern void bgp_evpn_cleanup_on_disable(struct bgp *bgp);
 extern void bgp_evpn_cleanup(struct bgp *bgp);
 extern void bgp_evpn_init(struct bgp *bgp);
