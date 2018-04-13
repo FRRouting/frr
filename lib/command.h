@@ -182,6 +182,7 @@ enum node_type {
 	MGMTD_NODE,		 /* MGMTD node. */
 	RPKI_VRF_NODE,  /* RPKI node for VRF */
 	BGP_LS_NODE,	/* BGP-LS configuration node */
+	WRAP_SCRIPT_NODE,	/* Wrap Script Config commands */
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */
