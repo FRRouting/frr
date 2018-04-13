@@ -142,6 +142,20 @@ static struct zebra_pbr_rule *pbr_rule_lookup_unique(struct zebra_ns *zns,
 	return pul.rule;
 }
 
+static const struct message ipset_type_msg[] = {
+	{IPSET_NET_PORT_NET, "net,port,net"},
+	{IPSET_NET_PORT, "net,port"},
+	{IPSET_NET_NET, "net,net"},
+	{IPSET_NET, "net"},
+	{0}
+};
+
+const char *zebra_pbr_ipset_type2str(uint32_t type)
+{
+	return lookup_msg(ipset_type_msg, type,
+			  "Unrecognized IPset Type");
+}
+
 void zebra_pbr_ipset_free(void *arg)
 {
 	struct zebra_pbr_ipset *ipset;

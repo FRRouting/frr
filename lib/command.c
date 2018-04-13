@@ -143,6 +143,7 @@ const char *node_names[] = {
 				     */
 	"bgp ipv6 flowspec",	    /* BGP_FLOWSPECV6_NODE
 				     */
+	"Wrap Script",		    /* WRAP_SCRIPT_NODE */
 };
 /* clang-format on */
 
