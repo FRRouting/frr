@@ -54,15 +54,15 @@ while (<STDIN>) {
 
 	$_ =~ s/\s*,\s*/,/g;
 
-	# else: 7-field line
+	# else: 8-field line
 	my @f = split(/,/, $_);
-	unless (@f == 7 || @f == 8) {
+	unless (@f == 8 || @f == 9) {
 		die "invalid input on route_types line $.\n";
 	}
 
 	my $proto = $f[0];
 	$f[3] = $1 if ($f[3] =~ /^'(.*)'$/);
-	$f[6] = $1 if ($f[6] =~ /^"(.*)"$/);
+	$f[7] = $1 if ($f[7] =~ /^"(.*)"$/);
 
 	$protodetail{$proto} = {
 		"number" => scalar @protos,
@@ -72,8 +72,9 @@ while (<STDIN>) {
 		"char" => $f[3],
 		"ipv4" => int($f[4]),
 		"ipv6" => int($f[5]),
-		"shorthelp" => $f[6],
-		"restrict2" => $f[7],
+		"redist" => int($f[6]),
+		"shorthelp" => $f[7],
+		"restrict2" => $f[8],
 	};
 	push @protos, $proto;
 	$daemons{$f[2]} = {
@@ -136,8 +137,9 @@ sub collect {
 		next if ($protodetail{$p}->{"daemon"} eq $daemon && $daemon ne "zebra");
 		next if ($protodetail{$p}->{"restrict2"} ne "" && 
 		         $protodetail{$p}->{"restrict2"} ne $daemon);
+		next if ($protodetail{$p}->{"redist"} eq 0);
 		next unless (($ipv4 && $protodetail{$p}->{"ipv4"})
-				|| ($ipv6 && $protodetail{$p}->{"ipv6"}));
+			     || ($ipv6 && $protodetail{$p}->{"ipv6"}));
 		push @names, $protodetail{$p}->{"cname"};
 		push @help, "  \"".$protodetail{$p}->{"longhelp"}."\\n\"";
 	}
