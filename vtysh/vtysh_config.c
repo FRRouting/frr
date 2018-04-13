@@ -462,7 +462,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 || (I) == FORWARDING_NODE || (I) == DEBUG_NODE || (I) == AAA_NODE     \
 	 || (I) == VRF_DEBUG_NODE || (I) == NORTHBOUND_DEBUG_NODE              \
 	 || (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE               \
-	 || (I) == MPLS_NODE)
+	 || (I) == MPLS_NODE || (I) == WRAP_SCRIPT_NODE)
 
 /* Display configuration to file pointer. */
 void vtysh_config_dump(void)
