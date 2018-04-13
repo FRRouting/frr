@@ -3,7 +3,7 @@
  * Copyright (C) 2013 Michael Mester (m.mester@fu-berlin.de), for FU Berlin
  * Copyright (C) 2014-2017 Andreas Reuter (andreas.reuter@fu-berlin.de), for FU Berlin
  * Copyright (C) 2016-2017 Colin Sames (colin.sames@haw-hamburg.de), for HAW Hamburg
- * Copyright (C) 2017 Marcel Röthke (marcel.roethke@haw-hamburg.de), for HAW Hamburg
+ * Copyright (C) 2017-2018 Marcel Röthke (marcel.roethke@haw-hamburg.de), for HAW Hamburg
  *
  * This file is part of FRRouting.
  *
@@ -160,6 +160,13 @@ static void free_wrapper(void *ptr)
 
 static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 				struct prefix *prefix);
+
+static void ipv6_addr_to_host_byte_order(const uint32_t *src, uint32_t *dest)
+{
+	int i;
+	for (i = 0; i < 4; i++)
+		dest[i] = ntohl(src[i]);
+}
 
 static route_map_result_t route_match(void *rule, struct prefix *prefix,
 				      route_map_object_t type,
@@ -465,13 +472,11 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 		ip_addr_prefix.u.addr4.addr = ntohl(prefix->u.prefix4.s_addr);
 		break;
 
-#ifdef HAVE_IPV6
 	case AF_INET6:
 		ip_addr_prefix.ver = LRTR_IPV6;
 		ipv6_addr_to_host_byte_order(prefix->u.prefix6.s6_addr32,
 					     ip_addr_prefix.u.addr6.addr);
 		break;
-#endif /* HAVE_IPV6 */
 
 	default:
 		return 0;
