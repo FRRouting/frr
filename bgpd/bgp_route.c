@@ -1874,7 +1874,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 			if (debug) {
 				bgp_info_path_with_addpath_rx_str(new_select,
 								  path_buf);
-				zlog_debug("%s: %s is the bestpath from AS %d",
+				zlog_debug("%s: %s is the bestpath from AS %u",
 					   pfx_buf, path_buf,
 					   aspath_get_first_as(
 						   new_select->attr->aspath));
