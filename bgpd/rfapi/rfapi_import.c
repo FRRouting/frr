@@ -1543,10 +1543,15 @@ static int rfapiNhlAddNodeRoutes(
 	int count = 0;
 	int is_l2 = (rn->p.family == AF_ETHERNET);
 
-	if (rfapiRibFTDFilterRecentPrefix(
-		    (struct rfapi_descriptor *)(rfd_rib_node->table->info), rn,
-		    pfx_target_original)) {
-		return 0;
+	if (rfd_rib_node && rfd_rib_node->table && rfd_rib_node->table->info) {
+		struct rfapi_descriptor *rfd;
+
+		rfd = (struct rfapi_descriptor *)(rfd_rib_node->table->info);
+
+		if (rfapiRibFTDFilterRecentPrefix(
+			rfd, rn, pfx_target_original))
+
+			return 0;
 	}
 
 	seen_nexthops =
