@@ -1991,6 +1991,40 @@ int lm_label_manager_connect(struct zclient *zclient)
 	return (int)result;
 }
 
+/*
+ * Asynchronous label chunk request
+ *
+ * @param zclient Zclient used to connect to label manager (zebra)
+ * @param keep Avoid garbage collection
+ * @param chunk_size Amount of labels requested
+ * @result 0 on success, -1 otherwise
+ */
+int zclient_send_get_label_chunk(
+	struct zclient	*zclient,
+	uint8_t		keep,
+	uint32_t	chunk_size)
+{
+	struct stream *s;
+
+	if (zclient_debug)
+		zlog_debug("Getting Label Chunk");
+
+	if (zclient->sock < 0)
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, VRF_DEFAULT);
+	stream_putc(s, keep);
+	stream_putl(s, chunk_size);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
 /**
  * Function to request a label chunk in a syncronous way
  *
@@ -2604,6 +2638,12 @@ static int zclient_read(struct thread *thread)
 		if (zclient->rule_notify_owner)
 			(*zclient->rule_notify_owner)(command, zclient, length,
 						      vrf_id);
+		break;
+	case ZEBRA_GET_LABEL_CHUNK:
+		if (zclient->label_chunk)
+			(*zclient->label_chunk)(command, zclient, length,
+						      vrf_id);
+		break;
 	default:
 		break;
 	}

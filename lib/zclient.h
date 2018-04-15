@@ -223,6 +223,8 @@ struct zclient {
 				  uint16_t length, vrf_id_t vrf_id);
 	int (*rule_notify_owner)(int command, struct zclient *zclient,
 				 uint16_t length, vrf_id_t vrf_id);
+	void (*label_chunk)(int command, struct zclient *zclient,
+				uint16_t length, vrf_id_t vrf_id);
 };
 
 /* Zebra API message flag. */
@@ -535,6 +537,11 @@ extern int zapi_ipv4_route(uint8_t, struct zclient *, struct prefix_ipv4 *,
 extern struct interface *zebra_interface_link_params_read(struct stream *);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
+extern int zclient_send_get_label_chunk(
+	struct zclient	*zclient,
+	uint8_t		keep,
+	uint32_t	chunk_size);
+
 extern int lm_label_manager_connect(struct zclient *zclient);
 extern int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 			      uint32_t chunk_size, uint32_t *start,

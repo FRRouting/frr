@@ -1621,14 +1621,17 @@ address-family:
 
    Deletes any previously-configured import or export route-target list.
 
-.. index:: label vpn export (0..1048575)
-.. clicmd:: label vpn export (0..1048575)
+.. index:: label vpn export (0..1048575)|auto
+.. clicmd:: label vpn export (0..1048575)|auto
 
    Specifies an optional MPLS label to be attached to a route exported from the
-   current unicast VRF to VPN.
+   current unicast VRF to VPN. If label is specified as ``auto``, the label
+   value is automatically assigned from a pool maintained by the zebra
+   daemon. If zebra is not running, automatic label assignment will not
+   complete, which will block corresponding route export.
 
-.. index:: no label vpn export [(0..1048575)]
-.. clicmd:: no label vpn export [(0..1048575)]
+.. index:: no label vpn export [(0..1048575)|auto]
+.. clicmd:: no label vpn export [(0..1048575)|auto]
 
    Deletes any previously-configured export label.
 

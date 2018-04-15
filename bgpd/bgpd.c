@@ -81,7 +81,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_flowspec.h"
-
+#include "bgpd/bgp_labelpool.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master)
@@ -2951,6 +2951,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 #endif /* ENABLE_BGP_VNC */
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		bgp->vpn_policy[afi].bgp = bgp;
+		bgp->vpn_policy[afi].afi = afi;
 		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
 		bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent =
 			MPLS_LABEL_NONE;
@@ -7536,6 +7538,9 @@ void bgp_master_init(struct thread_master *master)
 	/* Enable multiple instances by default. */
 	bgp_option_set(BGP_OPT_MULTIPLE_INSTANCE);
 
+	/* mpls label dynamic allocation pool */
+	bgp_lp_init(bm->master, &bm->labelpool);
+
 	QOBJ_REG(bm, bgp_master);
 }
 
@@ -7714,4 +7719,6 @@ void bgp_terminate(void)
 
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);
+
+	bgp_lp_finish();
 }

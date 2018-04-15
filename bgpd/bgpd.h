@@ -37,6 +37,7 @@
 #include "bgp_memory.h"
 #include "bitfield.h"
 #include "vxlan.h"
+#include "bgp_labelpool.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
@@ -140,6 +141,9 @@ struct bgp_master {
 	/* Id space for automatic RD derivation for an EVI/VRF */
 	bitfield_t rd_idspace;
 
+	/* dynamic mpls label allocation pool */
+	struct labelpool labelpool;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp_master)
@@ -166,6 +170,25 @@ typedef enum {
 	BGP_VPN_POLICY_DIR_TOVPN = 1,
 	BGP_VPN_POLICY_DIR_MAX = 2
 } vpn_policy_direction_t;
+
+struct vpn_policy {
+	struct bgp *bgp; /* parent */
+	afi_t afi;
+	struct ecommunity *rtlist[BGP_VPN_POLICY_DIR_MAX];
+	struct ecommunity *import_redirect_rtlist;
+	char *rmap_name[BGP_VPN_POLICY_DIR_MAX];
+	struct route_map *rmap[BGP_VPN_POLICY_DIR_MAX];
+
+	/* should be mpls_label_t? */
+	uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
+	uint32_t tovpn_zebra_vrf_label_last_sent;
+	struct prefix_rd tovpn_rd;
+	struct prefix tovpn_nexthop; /* unset => set to 0 */
+	uint32_t flags;
+#define BGP_VPN_POLICY_TOVPN_LABEL_AUTO        (1 << 0)
+#define BGP_VPN_POLICY_TOVPN_RD_SET            (1 << 1)
+#define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
+};
 
 /*
  * Type of 'struct bgp'.
@@ -465,22 +488,7 @@ struct bgp {
 	/* route map for advertise ipv4/ipv6 unicast (type-5 routes) */
 	struct bgp_rmap adv_cmd_rmap[AFI_MAX][SAFI_MAX];
 
-	/* vpn-policy */
-	struct {
-		struct ecommunity *rtlist[BGP_VPN_POLICY_DIR_MAX];
-		struct ecommunity *import_redirect_rtlist;
-		char *rmap_name[BGP_VPN_POLICY_DIR_MAX];
-		struct route_map *rmap[BGP_VPN_POLICY_DIR_MAX];
-
-		/* should be mpls_label_t? */
-		uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
-		uint32_t tovpn_zebra_vrf_label_last_sent;
-		struct prefix_rd tovpn_rd;
-		struct prefix tovpn_nexthop; /* unset => set to 0 */
-		uint32_t flags;
-#define BGP_VPN_POLICY_TOVPN_RD_SET            0x00000004
-#define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       0x00000008
-	} vpn_policy[AFI_MAX];
+	struct vpn_policy vpn_policy[AFI_MAX];
 
 	QOBJ_FIELDS
 };

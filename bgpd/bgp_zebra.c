@@ -55,6 +55,7 @@
 #endif
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_labelpool.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -1876,6 +1877,9 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
+	/* tell label pool that zebra is connected */
+	bgp_lp_event_zebra_up();
+
 	/* TODO - What if we have peers and networks configured, do we have to
 	 * kick-start them?
 	 */
@@ -2042,6 +2046,41 @@ static void bgp_zebra_process_local_ip_prefix(int cmd, struct zclient *zclient,
 	}
 }
 
+static void bgp_zebra_process_label_chunk(
+	int cmd,
+	struct zclient *zclient,
+	zebra_size_t length,
+	vrf_id_t vrf_id)
+{
+	struct stream *s = NULL;
+	uint8_t response_keep;
+	uint32_t first;
+	uint32_t last;
+
+	s = zclient->ibuf;
+	STREAM_GETC(s, response_keep);
+	STREAM_GETL(s, first);
+	STREAM_GETL(s, last);
+
+	if (first > last ||
+		first < MPLS_LABEL_UNRESERVED_MIN ||
+		last > MPLS_LABEL_UNRESERVED_MAX) {
+
+		zlog_err("%s: Invalid Label chunk: %u - %u",
+			__func__, first, last);
+		return;
+	}
+	if (BGP_DEBUG(zebra, ZEBRA)) {
+		zlog_debug("Label Chunk assign: %u - %u (%u) ",
+			first, last, response_keep);
+	}
+
+	bgp_lp_event_chunk(response_keep, first, last);
+
+stream_failure:		/* for STREAM_GETX */
+	return;
+}
+
 extern struct zebra_privs_t bgpd_privs;
 
 void bgp_zebra_init(struct thread_master *master)
@@ -2076,6 +2115,7 @@ void bgp_zebra_init(struct thread_master *master)
 	zclient->local_l3vni_del = bgp_zebra_process_local_l3vni;
 	zclient->local_ip_prefix_add = bgp_zebra_process_local_ip_prefix;
 	zclient->local_ip_prefix_del = bgp_zebra_process_local_ip_prefix;
+	zclient->label_chunk = bgp_zebra_process_label_chunk;
 }
 
 void bgp_zebra_destroy(void)
