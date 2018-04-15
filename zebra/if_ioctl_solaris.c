@@ -315,7 +315,7 @@ static int if_get_addr(struct interface *ifp, struct sockaddr *addr,
 		connected_add_ipv4(ifp, flags, &SIN(addr)->sin_addr, prefixlen,
 				   (struct in_addr *)dest_pnt, label);
 	else if (af == AF_INET6)
-		connected_add_ipv6(ifp, flags, &SIN6(addr)->sin6_addr,
+		connected_add_ipv6(ifp, flags, &SIN6(addr)->sin6_addr, NULL,
 				   prefixlen, label);
 
 	return 0;

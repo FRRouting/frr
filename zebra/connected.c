@@ -495,7 +495,8 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 
 /* Add connected IPv6 route to the interface. */
 void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
-			uint8_t prefixlen, const char *label)
+			struct in6_addr *broad, uint8_t prefixlen,
+			const char *label)
 {
 	struct prefix_ipv6 *p;
 	struct connected *ifc;
@@ -518,6 +519,14 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 	p->prefixlen = prefixlen;
 	ifc->address = (struct prefix *)p;
 
+	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
+		p = prefix_ipv6_new();
+		p->family = AF_INET6;
+		IPV6_ADDR_COPY(&p->prefix, broad);
+		p->prefixlen = prefixlen;
+		ifc->destination = (struct prefix *)p;
+	}
+
 	/* Label of this address. */
 	if (label)
 		ifc->label = XSTRDUP(MTYPE_CONNECTED_LABEL, label);
@@ -536,9 +545,9 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 }
 
 void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,
-			   uint8_t prefixlen)
+			   struct in6_addr *broad, uint8_t prefixlen)
 {
-	struct prefix p;
+	struct prefix p, d;
 	struct connected *ifc;
 
 	memset(&p, 0, sizeof(struct prefix));
@@ -546,7 +555,14 @@ void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,
 	memcpy(&p.u.prefix6, address, sizeof(struct in6_addr));
 	p.prefixlen = prefixlen;
 
-	ifc = connected_check(ifp, &p);
+	if (broad) {
+		memset(&d, 0, sizeof(struct prefix));
+		d.family = AF_INET6;
+		IPV6_ADDR_COPY(&d.u.prefix, broad);
+		d.prefixlen = prefixlen;
+		ifc = connected_check_ptp(ifp, &p, &d);
+	} else
+		ifc = connected_check_ptp(ifp, &p, NULL);
 
 	connected_delete_helper(ifc, &p);
 }
