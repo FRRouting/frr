@@ -649,7 +649,6 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 			       uint8_t sub_code, uint8_t *data, size_t datalen)
 {
 	struct stream *s;
-	int length;
 
 	/* Lock I/O mutex to prevent other threads from pushing packets */
 	pthread_mutex_lock(&peer->io_mtx);
@@ -670,7 +669,7 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 		stream_write(s, data, datalen);
 
 	/* Set BGP packet length. */
-	length = bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	/* wipe output buffer */
 	stream_fifo_clean(peer->obuf);
@@ -697,13 +696,13 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 		bgp_notify.code = code;
 		bgp_notify.subcode = sub_code;
 		bgp_notify.data = NULL;
-		bgp_notify.length = length - BGP_MSG_NOTIFY_MIN_SIZE;
+		bgp_notify.length = datalen;
 		bgp_notify.raw_data = data;
 
 		peer->notify.code = bgp_notify.code;
 		peer->notify.subcode = bgp_notify.subcode;
 
-		if (bgp_notify.length) {
+		if (bgp_notify.length && data) {
 			bgp_notify.data =
 				XMALLOC(MTYPE_TMP, bgp_notify.length * 3);
 			for (i = 0; i < bgp_notify.length; i++)

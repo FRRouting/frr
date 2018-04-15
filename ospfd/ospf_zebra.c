@@ -118,7 +118,8 @@ static int ospf_interface_add(int command, struct zclient *zclient,
 
 	assert(ifp->info);
 
-	if (!OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
+	if (IF_DEF_PARAMS(ifp)
+	    && !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
 		SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
 		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
 	}

@@ -592,6 +592,8 @@ void bgp_info_mpath_update(struct bgp_node *rn, struct bgp_info *new_best,
 			 */
 			new_mpath = listgetdata(mp_node);
 			list_delete_node(mp_list, mp_node);
+			assert(new_mpath);
+			assert(prev_mpath);
 			if ((mpath_count < maxpaths) && (new_mpath != new_best)
 			    && bgp_info_nexthop_cmp(prev_mpath, new_mpath)) {
 				if (new_mpath == next_mpath)

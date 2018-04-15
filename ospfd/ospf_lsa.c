@@ -1756,6 +1756,7 @@ static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
 	ei.route_map_set.metric = -1;
 	ei.route_map_set.metric_type = -1;
 	ei.tag = 0;
+	ei.instance = 0;
 
 	if ((new = ospf_external_lsa_new(ospf, &ei, &type7->data->id))
 	    == NULL) {

@@ -7047,32 +7047,36 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 		default:
 			vty_out(vty, "?");
 		}
+
+		char *str = esi2str(&(attr->evpn_overlay.eth_s_id));
+
+		vty_out(vty, "%s", str);
+		XFREE(MTYPE_TMP, str);
+
+		if (IS_EVPN_PREFIX_IPADDR_V4((struct prefix_evpn *)p)) {
+			vty_out(vty, "/%s",
+				inet_ntoa(attr->evpn_overlay.gw_ip.ipv4));
+		} else if (IS_EVPN_PREFIX_IPADDR_V6((struct prefix_evpn *)p)) {
+			vty_out(vty, "/%s",
+				inet_ntop(AF_INET6,
+					  &(attr->evpn_overlay.gw_ip.ipv6), buf,
+					  BUFSIZ));
+		}
+		if (attr->ecommunity) {
+			char *mac = NULL;
+			struct ecommunity_val *routermac = ecommunity_lookup(
+				attr->ecommunity, ECOMMUNITY_ENCODE_EVPN,
+				ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC);
+			if (routermac)
+				mac = ecom_mac2str((char *)routermac->val);
+			if (mac) {
+				vty_out(vty, "/%s", (char *)mac);
+				XFREE(MTYPE_TMP, mac);
+			}
+		}
+		vty_out(vty, "\n");
 	}
 
-	struct eth_segment_id *id = &(attr->evpn_overlay.eth_s_id);
-	char *str = esi2str(id);
-	vty_out(vty, "%s", str);
-	XFREE(MTYPE_TMP, str);
-	if (IS_EVPN_PREFIX_IPADDR_V4((struct prefix_evpn *)p)) {
-		vty_out(vty, "/%s", inet_ntoa(attr->evpn_overlay.gw_ip.ipv4));
-	} else if (IS_EVPN_PREFIX_IPADDR_V6((struct prefix_evpn *)p)) {
-		vty_out(vty, "/%s",
-			inet_ntop(AF_INET6, &(attr->evpn_overlay.gw_ip.ipv6),
-				  buf, BUFSIZ));
-	}
-	if (attr->ecommunity) {
-		char *mac = NULL;
-		struct ecommunity_val *routermac = ecommunity_lookup(
-			attr->ecommunity, ECOMMUNITY_ENCODE_EVPN,
-			ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC);
-		if (routermac)
-			mac = ecom_mac2str((char *)routermac->val);
-		if (mac) {
-			vty_out(vty, "/%s", (char *)mac);
-			XFREE(MTYPE_TMP, mac);
-		}
-	}
-	vty_out(vty, "\n");
 }
 
 /* dampening route */
