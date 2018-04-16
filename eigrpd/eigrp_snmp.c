@@ -516,7 +516,7 @@ eigrp_snmp_nbr_lookup_next(struct in_addr *nbr_addr, unsigned int *ifindex,
 	struct eigrp_neighbor *nbr;
 	struct route_node *rn;
 	struct eigrp_neighbor *min = NULL;
-	struct eigrp *eigrp = eigrp;
+	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
 
