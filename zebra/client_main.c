@@ -148,9 +148,8 @@ void zebra_sim(FILE *fp)
 				continue;
 		}
 
-		for (i = 0; i < 10; i++) {
-			if (!zebra_type[i].str)
-				break;
+		i = 0;
+		while (zebra_type[i++].str) {
 			if (strcmp(zebra_type[i].str, str) == 0) {
 				type = zebra_type[i].type;
 				break;
