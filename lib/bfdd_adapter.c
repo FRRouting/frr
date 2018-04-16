@@ -51,14 +51,15 @@ static int bfd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg);
 /*
  * Control socket
  */
+#if HAVE_BFDD > 0
 int bfd_control_init(const char *path)
 {
-	struct sockaddr_un sun = {.sun_family = AF_UNIX,
+	struct sockaddr_un _sun = {.sun_family = AF_UNIX,
 				  .sun_path = BFD_CONTROL_SOCK_PATH};
 	int sd;
 
 	if (path)
-		strlcpy(sun.sun_path, path, sizeof(sun.sun_path));
+		strlcpy(_sun.sun_path, path, sizeof(_sun.sun_path));
 
 	sd = socket(AF_UNIX, SOCK_STREAM, PF_UNSPEC);
 	if (sd == -1) {
@@ -66,13 +67,19 @@ int bfd_control_init(const char *path)
 		return -1;
 	}
 
-	if (connect(sd, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
+	if (connect(sd, (struct sockaddr *)&_sun, sizeof(_sun)) == -1) {
 		zlog_err("%s: connect: %s\n", __func__, strerror(errno));
 		return -1;
 	}
 
 	return sd;
 }
+#else
+int bfd_control_init(const char *path __attribute__((__unused__)))
+{
+	return -1;
+}
+#endif /* HAVE_BFDD */
 
 uint16_t bfd_control_send(int sd, enum bc_msg_type bmt, const void *data,
 			  size_t datalen)
