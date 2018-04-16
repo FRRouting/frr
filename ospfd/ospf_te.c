@@ -1161,16 +1161,13 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 
 	/* Set opaque-LSA header fields depending of the type of RFC */
 	if (IS_INTER_AS(lp->type)) {
-		if
-			IS_FLOOD_AS(lp->type)
-			{
-				options |= OSPF_OPTION_E; /* Enable AS external
-							     as we flood
-							     Inter-AS with
-							     Opaque Type 11 */
-				lsa_type = OSPF_OPAQUE_AS_LSA;
-			}
-		else {
+		if (IS_FLOOD_AS(lp->type)) {
+			/* Enable AS external as we flood Inter-AS with Opaque
+			 * Type 11
+			 */
+			options |= OSPF_OPTION_E;
+			lsa_type = OSPF_OPAQUE_AS_LSA;
+		} else {
 			options |= LSA_OPTIONS_GET(
 				area); /* Get area default option */
 			options |= LSA_OPTIONS_NSSA_GET(area);
