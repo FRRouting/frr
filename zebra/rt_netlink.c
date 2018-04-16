@@ -2220,11 +2220,11 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		 * in re-adding the neighbor if it is a valid "remote" neighbor.
 		 */
 		if (ndm->ndm_state & NUD_VALID)
-			return zebra_vxlan_local_neigh_add_update(
+			return zebra_vxlan_handle_kernel_neigh_update(
 				ifp, link_if, &ip, &mac, ndm->ndm_state,
 				ext_learned);
 
-		return zebra_vxlan_local_neigh_del(ifp, link_if, &ip);
+		return zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -2237,7 +2237,7 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	/* Process the delete - it may result in re-adding the neighbor if it is
 	 * a valid "remote" neighbor.
 	 */
-	return zebra_vxlan_local_neigh_del(ifp, link_if, &ip);
+	return zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 }
 
 static int netlink_neigh_table(struct sockaddr_nl *snl, struct nlmsghdr *h,
@@ -2412,7 +2412,7 @@ int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
 int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 		     struct ethaddr *mac)
 {
-	return netlink_neigh_update2(ifp, ip, mac, NUD_REACHABLE, RTM_NEWNEIGH);
+	return netlink_neigh_update2(ifp, ip, mac, NUD_NOARP, RTM_NEWNEIGH);
 }
 
 int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip)
