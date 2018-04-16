@@ -2117,7 +2117,7 @@ static struct ospf_neighbor *ospf_snmp_nbr_lookup_next(struct in_addr *nbr_addr,
 	struct ospf_neighbor *nbr;
 	struct route_node *rn;
 	struct ospf_neighbor *min = NULL;
-	struct ospf *ospf = ospf;
+	struct ospf *ospf;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
