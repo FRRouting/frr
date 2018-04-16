@@ -519,12 +519,18 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 	p->prefixlen = prefixlen;
 	ifc->address = (struct prefix *)p;
 
-	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
+	if (broad) {
 		p = prefix_ipv6_new();
 		p->family = AF_INET6;
 		IPV6_ADDR_COPY(&p->prefix, broad);
 		p->prefixlen = prefixlen;
 		ifc->destination = (struct prefix *)p;
+	} else {
+		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
+			zlog_warn("warning: %s called for interface %s with peer flag set, but no peer address supplied",
+				  __func__, ifp->name);
+			UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
+		}
 	}
 
 	/* Label of this address. */
