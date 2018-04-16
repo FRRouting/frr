@@ -1332,14 +1332,14 @@ else
 fi
 AM_CONDITIONAL(BGPD, test "x$BGPD" = "xbgpd")
 
-AM_CONDITIONAL(BFDD, test "${enable_bfdd}" != "no")
 AM_CONDITIONAL(RIPD, test "${enable_ripd}" != "no")
 AM_CONDITIONAL(OSPFD, test "${enable_ospfd}" != "no")
 AM_CONDITIONAL(LDPD, test "${enable_ldpd}" != "no")
 
-AS_IF([test "${enable_bfdd}" != "no"], [
-  AC_DEFINE(HAVE_BFDD, 1, bfdd)
-])
+AS_IF([test "x$enable_bfdd" = "xyes"],
+    [ AC_DEFINE(HAVE_BFDD, 1, bfdd) ],
+    [ AC_DEFINE(HAVE_BFDD, 0, bfdd) ] )
+AM_CONDITIONAL(BFDD, [test "x$enable_bfdd" = "xyes"])
 
 AS_IF([test "${enable_ldpd}" != "no"], [
   AC_DEFINE(HAVE_LDPD, 1, ldpd)
