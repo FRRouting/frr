@@ -12432,8 +12432,6 @@ DEFUN (no_ip_community_list_standard_all,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
-	int delete_all = 0;
-
 	char *cl_name_or_number = NULL;
 	int direct = 0;
 	int style = COMMUNITY_LIST_STANDARD;
@@ -12448,7 +12446,7 @@ DEFUN (no_ip_community_list_standard_all,
 	char *str = argv_concat(argv, argc, idx);
 
 	int ret = community_list_unset(bgp_clist, cl_name_or_number, str,
-				       direct, style, delete_all);
+				       direct, style);
 
 	XFREE(MTYPE_TMP, str);
 
@@ -12513,8 +12511,6 @@ DEFUN (no_ip_community_list_expanded_all,
        "Specify community to accept\n"
        COMMUNITY_VAL_STR)
 {
-	int delete_all = 0;
-
 	char *cl_name_or_number = NULL;
 	int direct = 0;
 	int style = COMMUNITY_LIST_EXPANDED;
@@ -12529,7 +12525,7 @@ DEFUN (no_ip_community_list_expanded_all,
 	char *str = argv_concat(argv, argc, idx);
 
 	int ret = community_list_unset(bgp_clist, cl_name_or_number, str,
-				       direct, style, delete_all);
+				       direct, style);
 
 	XFREE(MTYPE_TMP, str);
 
@@ -13066,8 +13062,6 @@ DEFUN (no_ip_extcommunity_list_standard_all,
        "Specify community to accept\n"
        EXTCOMMUNITY_VAL_STR)
 {
-	int deleteall = 0;
-
 	int style = EXTCOMMUNITY_LIST_STANDARD;
 	int direct = 0;
 	char *cl_number_or_name = NULL;
@@ -13082,7 +13076,7 @@ DEFUN (no_ip_extcommunity_list_standard_all,
 	char *str = argv_concat(argv, argc, idx);
 
 	int ret = extcommunity_list_unset(bgp_clist, cl_number_or_name, str,
-					  direct, style, deleteall);
+					  direct, style);
 
 	XFREE(MTYPE_TMP, str);
 
@@ -13107,8 +13101,6 @@ DEFUN (no_ip_extcommunity_list_expanded_all,
        "Specify community to accept\n"
        "An ordered list as a regular-expression\n")
 {
-	int deleteall = 0;
-
 	int style = EXTCOMMUNITY_LIST_EXPANDED;
 	int direct = 0;
 	char *cl_number_or_name = NULL;
@@ -13123,7 +13115,7 @@ DEFUN (no_ip_extcommunity_list_expanded_all,
 	char *str = argv_concat(argv, argc, idx);
 
 	int ret = extcommunity_list_unset(bgp_clist, cl_number_or_name, str,
-					  direct, style, deleteall);
+					  direct, style);
 
 	XFREE(MTYPE_TMP, str);
 

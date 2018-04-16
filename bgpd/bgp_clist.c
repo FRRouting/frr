@@ -852,7 +852,7 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 
 /* Unset community-list */
 int community_list_unset(struct community_list_handler *ch, const char *name,
-			 const char *str, int direct, int style, int delete_all)
+			 const char *str, int direct, int style)
 {
 	struct community_entry *entry = NULL;
 	struct community_list *list;
@@ -864,16 +864,14 @@ int community_list_unset(struct community_list_handler *ch, const char *name,
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
 	/* Delete all of entry belongs to this community-list.  */
-	if (delete_all) {
+	if (!str) {
 		community_list_delete(list);
 		route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
 		return 0;
 	}
 
-	if (style == COMMUNITY_LIST_STANDARD) {
-		if (str)
-			com = community_str2com(str);
-	}
+	if (style == COMMUNITY_LIST_STANDARD)
+		com = community_str2com(str);
 
 	if (com) {
 		entry = community_list_entry_lookup(list, com, direct);
@@ -1117,11 +1115,13 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
 	return 0;
 }
 
-/* Unset extcommunity-list.  When str is NULL, delete all of
-   extcommunity-list entry belongs to the specified name.  */
+/* Unset extcommunity-list.
+ *
+ * When str is NULL, delete all extcommunity-list entries belonging to the
+ * specified name.
+ */
 int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
-			    const char *str, int direct, int style,
-			    int delete_all)
+			    const char *str, int direct, int style)
 {
 	struct community_entry *entry = NULL;
 	struct community_list *list;
@@ -1133,16 +1133,14 @@ int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
 	/* Delete all of entry belongs to this extcommunity-list.  */
-	if (delete_all) {
+	if (!str) {
 		community_list_delete(list);
 		route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
 		return 0;
 	}
 
-	if (style == EXTCOMMUNITY_LIST_STANDARD) {
-		if (str)
-			ecom = ecommunity_str2com(str, 0, 1);
-	}
+	if (style == EXTCOMMUNITY_LIST_STANDARD)
+		ecom = ecommunity_str2com(str, 0, 1);
 
 	if (ecom) {
 		entry = community_list_entry_lookup(list, ecom, direct);
