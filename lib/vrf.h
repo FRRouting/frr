@@ -272,7 +272,8 @@ extern int vrf_handler_create(struct vty *vty, const char *name,
  * should be called from zebra only
  */
 extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
-				    char *pathname, ns_id_t ns_id);
+				    char *pathname, ns_id_t ext_ns_id,
+				    ns_id_t ns_id);
 
 /* used internally to enable or disable VRF.
  * Notify a change in the VRF ID of the VRF

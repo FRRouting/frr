@@ -274,6 +274,7 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 int zebra_ns_init(void)
 {
 	ns_id_t ns_id;
+	ns_id_t ns_id_external;
 
 	dzns = zebra_ns_alloc();
 
@@ -282,8 +283,8 @@ int zebra_ns_init(void)
 	ns_id = zebra_ns_id_get_default();
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
-
-	ns_init_management(ns_id);
+	ns_id_external = ns_map_nsid_with_external(ns_id, true);
+	ns_init_management(ns_id_external, ns_id);
 
 	logicalrouter_init(logicalrouter_config_write);
 
@@ -295,7 +296,7 @@ int zebra_ns_init(void)
 	zebra_vrf_init();
 
 	/* Default NS is activated */
-	zebra_ns_enable(ns_id, (void **)&dzns);
+	zebra_ns_enable(ns_id_external, (void **)&dzns);
 
 	if (vrf_is_backend_netns()) {
 		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);
