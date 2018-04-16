@@ -927,7 +927,7 @@ int ecommunity_del_val(struct ecommunity *ecom, struct ecommunity_val *eval)
 		memcpy(p + (c)*ECOMMUNITY_SIZE,
 		       ecom->val + (c + 1) * ECOMMUNITY_SIZE,
 		       (ecom->size - c) * ECOMMUNITY_SIZE);
-	XFREE(MTYPE_ECOMMUNITY, ecom->val);
+	XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
 	ecom->val = p;
 	return 1;
 }
