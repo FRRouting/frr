@@ -1350,7 +1350,17 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	req.r.rtm_src_len = src_p ? src_p->prefixlen : 0;
 	req.r.rtm_protocol = zebra2proto(re->type);
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
-	req.r.rtm_type = RTN_UNICAST;
+
+	/*
+	 * blackhole routes are not RTN_UNICAST, they are
+	 * RTN_ BLACKHOLE|UNREACHABLE|PROHIBIT
+	 * so setting this value as a RTN_UNICAST would
+	 * cause the route lookup of just the prefix
+	 * to fail.  So no need to specify this for
+	 * the RTM_DELROUTE case
+	 */
+	if (cmd != RTM_DELROUTE)
+		req.r.rtm_type = RTN_UNICAST;
 
 	addattr_l(&req.n, sizeof req, RTA_DST, &p->u.prefix, bytelen);
 	if (src_p)
