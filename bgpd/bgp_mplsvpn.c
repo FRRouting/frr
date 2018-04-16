@@ -950,6 +950,8 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 	mpls_label_t *pLabels = NULL;
 	int num_labels = 0;
 	int nexthop_self_flag = 1;
+	struct bgp_info *bi_ultimate = NULL;
+	int origin_local = 0;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -1041,13 +1043,40 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 
 	/*
 	 * ensure labels are copied
+	 *
+	 * However, there is a special case: if the route originated in
+	 * another local VRF (as opposed to arriving via VPN), then the
+	 * nexthop is reached by hairpinning through this router (me)
+	 * using IP forwarding only (no LSP). Therefore, the route
+	 * imported to the VRF should not have labels attached. Note
+	 * that nexthop tracking is also involved: eliminating the
+	 * labels for these routes enables the non-labeled nexthops
+	 * from the originating VRF to be considered valid for this route.
 	 */
-	if (info_vpn->extra && info_vpn->extra->num_labels) {
+
+	/* work back to original route */
+	for (bi_ultimate = info_vpn;
+		bi_ultimate->extra && bi_ultimate->extra->parent;
+		bi_ultimate = bi_ultimate->extra->parent)
+		;
+
+	/* if original route was unicast, then it did not arrive over vpn */
+	if (bi_ultimate->net) {
+		struct bgp_table *table;
+
+		table = bgp_node_table(bi_ultimate->net);
+		if (table && (table->safi == SAFI_UNICAST))
+			origin_local = 1;
+	}
+
+	/* copy labels */
+	if (!origin_local && info_vpn->extra && info_vpn->extra->num_labels) {
 		num_labels = info_vpn->extra->num_labels;
 		if (num_labels > BGP_MAX_LABELS)
 			num_labels = BGP_MAX_LABELS;
 		pLabels = info_vpn->extra->label;
 	}
+
 	if (debug) {
 		char buf_prefix[PREFIX_STRLEN];
 		prefix2str(p, buf_prefix, sizeof(buf_prefix));
