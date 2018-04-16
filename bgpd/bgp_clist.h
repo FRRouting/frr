@@ -133,13 +133,13 @@ extern int community_list_set(struct community_list_handler *ch,
 			      int style);
 extern int community_list_unset(struct community_list_handler *ch,
 				const char *name, const char *str, int direct,
-				int style, int delete_all);
+				int style);
 extern int extcommunity_list_set(struct community_list_handler *ch,
 				 const char *name, const char *str, int direct,
 				 int style);
 extern int extcommunity_list_unset(struct community_list_handler *ch,
 				   const char *name, const char *str,
-				   int direct, int style, int delete_all);
+				   int direct, int style);
 extern int lcommunity_list_set(struct community_list_handler *ch,
 			       const char *name, const char *str, int direct,
 			       int style);
