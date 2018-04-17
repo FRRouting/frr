@@ -995,6 +995,7 @@ static char **new_completion(char *text, int start, int end)
 }
 
 /* Vty node structures. */
+#if HAVE_BFDD > 0
 static struct cmd_node bfd_node = {
 	BFD_NODE, "%s(config-bfd)# ", 1,
 };
@@ -1002,6 +1003,7 @@ static struct cmd_node bfd_node = {
 static struct cmd_node bfd_peer_node = {
 	BFD_PEER_NODE, "%s(config-bfd-peer)# ", 1,
 };
+#endif /* HAVE_BFDD */
 
 static struct cmd_node bgp_node = {
 	BGP_NODE, "%s(config-router)# ",
@@ -1154,7 +1156,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 	return vtysh_end();
 }
 
-#if defined(HAVE_BFDD)
+#if HAVE_BFDD > 0
 DEFUNSH(VTYSH_BFDD, bfd_enter, bfd_enter_cmd,
 	"bfd",
 	"Configure BFD peers\n")
@@ -1717,7 +1719,7 @@ DEFUNSH(VTYSH_ALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
 	return vtysh_exit_all(self, vty, argc, argv);
 }
 
-#if defined(HAVE_BFDD)
+#if HAVE_BFDD > 0
 DEFUNSH(VTYSH_BFDD, vtysh_exit_bfdd, vtysh_exit_bfdd_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
@@ -3280,7 +3282,7 @@ void vtysh_init_vty(void)
 	cmd_variable_handler_register(vtysh_var_handler);
 
 	/* Install nodes. */
-#if defined(HAVE_BFDD)
+#if HAVE_BFDD > 0
 	install_node(&bfd_node, NULL);
 	install_node(&bfd_peer_node, NULL);
 #endif /* HAVE_BFDD */
@@ -3344,7 +3346,7 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_disable_cmd);
 
 	/* "exit" command. */
-#if defined(HAVE_BFDD)
+#if HAVE_BFDD > 0
 	install_element(CONFIG_NODE, &bfd_enter_cmd);
 	install_element(BFD_NODE, &bfd_peer_enter_cmd);
 	install_element(BFD_NODE, &vtysh_exit_bfdd_cmd);
@@ -3474,7 +3476,7 @@ void vtysh_init_vty(void)
 	install_element(RMAP_NODE, &vtysh_end_all_cmd);
 	install_element(PBRMAP_NODE, &vtysh_end_all_cmd);
 	install_element(VTY_NODE, &vtysh_end_all_cmd);
-#if defined(HAVE_BFDD)
+#if HAVE_BFDD > 0
 	install_element(BFD_NODE, &vtysh_end_all_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_BFDD */

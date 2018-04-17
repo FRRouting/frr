@@ -73,7 +73,7 @@ static const struct option longopts[] = {
 	{"no_kernel", no_argument, NULL, 'n'},
 	{"skip_runas", no_argument, NULL, 'S'},
 	{"ecmp", required_argument, NULL, 'e'},
-#ifdef HAVE_BFDD
+#if HAVE_BFDD > 0
 	{"bfdctl", required_argument, NULL, OPTION_BFDCTLSOCK},
 #endif /* HAVE_BFDD */
 	{0}};
