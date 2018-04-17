@@ -330,9 +330,7 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
    state machine is handled at here. */
 int main(int argc, char **argv)
 {
-#ifdef HAVE_BFDD
 	const char *bfdctl = NULL;
-#endif /* HAVE_BFDD */
 	int opt;
 	int tmp_port;
 
@@ -350,7 +348,10 @@ int main(int argc, char **argv)
 		"  -n, --no_kernel    Do not install route to kernel.\n"
 		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
 		"  -e, --ecmp         Specify ECMP to use.\n"
-		"      --bfdctl       Specify bfdd control socket\n");
+#if HAVE_BFDD > 0
+		"      --bfdctl       Specify bfdd control socket\n"
+#endif /* HAVE_BFDD */
+		);
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -418,10 +419,8 @@ int main(int argc, char **argv)
 	/* BGP related initialization.  */
 	bgp_init();
 
-#ifdef HAVE_BFDD
 	/* Initialize BFDd adapter code. */
 	bfdd_vty_init(bm->master, bfdctl);
-#endif /* HAVE_BFDD */
 
 	snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo), ", bgp@%s:%d",
 		 (bm->address ? bm->address : "<all>"), bm->port);

@@ -32,6 +32,7 @@
 #include "bgp_fsm.h"
 
 
+#if HAVE_BFDD > 0
 /*
  * Prototypes
  */
@@ -653,3 +654,23 @@ void bfdd_vty_init(struct thread_master *master, const char *bfdctl)
 	bac.bac_master = master;
 	bfd_adapter_init(&bac);
 }
+#else
+/*
+ * Dummy implementations to avoid having to ifdef code outside this file.
+ */
+int bfdd_unmonitor_peer(struct peer *peer __attribute__((__unused__)))
+{
+	return 0;
+}
+
+void bfdd_print_config(struct vty *vty __attribute__((__unused__)),
+		       const char *addr __attribute__((__unused__)),
+		       struct peer *p __attribute__((__unused__)))
+{
+}
+
+void bfdd_vty_init(struct thread_master *master __attribute__((__unused__)),
+		   const char *bfdctl __attribute__((__unused__)))
+{
+}
+#endif /* HAVE_BFDD */
