@@ -1341,6 +1341,10 @@ AS_IF([test "x$enable_bfdd" = "xyes"],
     [ AC_DEFINE(HAVE_BFDD, 0, bfdd) ] )
 AM_CONDITIONAL(BFDD, [test "x$enable_bfdd" = "xyes"])
 
+if test $ac_cv_lib_json_c_json_object_get = no -a "x$enable_bfdd" = "xyes"; then
+  AC_MSG_ERROR(["you must use json-c library to use bfdd"])
+fi
+
 AS_IF([test "${enable_ldpd}" != "no"], [
   AC_DEFINE(HAVE_LDPD, 1, ldpd)
 ])

@@ -505,7 +505,16 @@ int json_object_add_int(struct json_object *jo, const char *key, int64_t value)
 {
 	struct json_object *jon;
 
+#if defined(HAVE_JSON_C_JSON_H)
 	jon = json_object_new_int64(value);
+#else
+	/*
+	 * XXX:
+	 * Ubuntu 12.04 has old version of this library and in order to
+	 * support it we must add this fallback.
+	 */
+	jon = json_object_new_int((int32_t)value);
+#endif /* HAVE_JSON_C_JSON_H */
 	if (jon == NULL) {
 		json_object_put(jon);
 		return -1;
