@@ -313,10 +313,11 @@ DEFPY (pbr_policy,
 	pbrm = pbrm_find(mapname);
 
 	if (!pbr_ifp) {
-		/*
-		 * Some one could have fat fingered the interface
-		 * name
-		 */
+		/* we don't want one and we don't have one, so... */
+		if (no)
+			return CMD_SUCCESS;
+
+		/* Some one could have fat fingered the interface name */
 		pbr_ifp = pbr_if_new(ifp);
 	}
 
