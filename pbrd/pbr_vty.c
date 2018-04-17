@@ -322,27 +322,20 @@ DEFPY (pbr_policy,
 
 	if (no) {
 		if (strcmp(pbr_ifp->mapname, mapname) == 0) {
-			strcpy(pbr_ifp->mapname, "");
-
+			pbr_ifp->mapname[0] = '\0';
 			if (pbrm)
 				pbr_map_interface_delete(pbrm, ifp);
 		}
 	} else {
-		if (strcmp(pbr_ifp->mapname, "") == 0) {
-			strcpy(pbr_ifp->mapname, mapname);
-
-			if (pbrm)
-				pbr_map_add_interface(pbrm, ifp);
-		} else {
-			if (!(strcmp(pbr_ifp->mapname, mapname) == 0)) {
-				old_pbrm = pbrm_find(pbr_ifp->mapname);
-				if (old_pbrm)
-					pbr_map_interface_delete(old_pbrm, ifp);
-				strcpy(pbr_ifp->mapname, mapname);
-				if (pbrm)
-					pbr_map_add_interface(pbrm, ifp);
-			}
+		if (strcmp(pbr_ifp->mapname, "") != 0) {
+			old_pbrm = pbrm_find(pbr_ifp->mapname);
+			if (old_pbrm)
+				pbr_map_interface_delete(old_pbrm, ifp);
 		}
+		snprintf(pbr_ifp->mapname, sizeof(pbr_ifp->mapname),
+			 "%s", mapname);
+		if (pbrm)
+			pbr_map_add_interface(pbrm, ifp);
 	}
 
 	return CMD_SUCCESS;
