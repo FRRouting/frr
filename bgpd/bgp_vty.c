@@ -6159,20 +6159,46 @@ static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 	return CMD_SUCCESS;
 }
 
-static afi_t vpn_policy_getafi(struct vty *vty)
+/*
+ * v2vimport is true if we are handling a `import vrf ...` command
+ */
+static afi_t vpn_policy_getafi(struct vty *vty, struct bgp *bgp, bool v2vimport)
 {
+	afi_t afi;
+
 	switch (vty->node) {
 	case BGP_IPV4_NODE:
-		return AFI_IP;
+		afi = AFI_IP;
+		break;
 	case BGP_IPV6_NODE:
-		return AFI_IP6;
+		afi = AFI_IP6;
+		break;
 	default:
 		vty_out(vty,
 			"%% context error: valid only in address-family <ipv4|ipv6> unicast block\n");
 		return AFI_MAX;
 	}
 
-	return AFI_MAX;
+	if (!v2vimport) {
+		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+			       BGP_CONFIG_VRF_TO_VRF_IMPORT)
+		    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+				  BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
+			vty_out(vty,
+				"%% error: Please unconfigure import vrf commands before using vpn commands\n");
+			return AFI_MAX;
+		}
+	} else {
+		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+			       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)
+		    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+				  BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
+			vty_out(vty,
+				"%% error: Please unconfigure vpn to vrf commands before using import vrf commands\n");
+			return AFI_MAX;
+		}
+	}
+	return afi;
 }
 
 DEFPY (af_rd_vpn_export,
@@ -6202,7 +6228,7 @@ DEFPY (af_rd_vpn_export,
 		}
 	}
 
-	afi = vpn_policy_getafi(vty);
+	afi = vpn_policy_getafi(vty, bgp, false);
 	if (afi == AFI_MAX)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -6260,7 +6286,7 @@ DEFPY (af_label_vpn_export,
 			label = label_val; /* parser should force unsigned */
 	}
 
-	afi = vpn_policy_getafi(vty);
+	afi = vpn_policy_getafi(vty, bgp, false);
 	if (afi == AFI_MAX)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -6346,7 +6372,7 @@ DEFPY (af_nexthop_vpn_export,
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	afi = vpn_policy_getafi(vty);
+	afi = vpn_policy_getafi(vty, bgp, false);
 	if (afi == AFI_MAX)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -6420,7 +6446,7 @@ DEFPY (af_rt_vpn_imexport,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
-	afi = vpn_policy_getafi(vty);
+	afi = vpn_policy_getafi(vty, bgp, false);
 	if (afi == AFI_MAX)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -6500,7 +6526,7 @@ DEFPY (af_route_map_vpn_imexport,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
-	afi = vpn_policy_getafi(vty);
+	afi = vpn_policy_getafi(vty, bgp, false);
 	if (afi == AFI_MAX)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -6565,7 +6591,7 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
-	afi = vpn_policy_getafi(vty);
+	afi = vpn_policy_getafi(vty, bgp, true);
 	if (afi == AFI_MAX)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -6640,7 +6666,10 @@ DEFPY (bgp_imexport_vrf,
 	if (argv_find(argv, argc, "no", &idx))
 		remove = true;
 
-	afi = bgp_node_afi(vty);
+	afi = vpn_policy_getafi(vty, bgp, true);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	safi = bgp_node_safi(vty);
 
 	if (((BGP_INSTANCE_TYPE_DEFAULT == bgp->inst_type)
@@ -6781,7 +6810,7 @@ DEFPY (af_routetarget_import,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
-	afi = vpn_policy_getafi(vty);
+	afi = vpn_policy_getafi(vty, bgp, false);
 	if (afi == AFI_MAX)
 		return CMD_WARNING_CONFIG_FAILED;
 
