@@ -2810,10 +2810,12 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 {
 	struct prefix_rd prd;
 	struct prefix_evpn p;
+	struct bgp_route_evpn evpn;
 	uint8_t ipaddr_len;
 	uint8_t macaddr_len;
 	mpls_label_t label[BGP_MAX_LABELS]; /* holds the VNI(s) as in packet */
 	uint32_t num_labels = 0;
+	uint32_t eth_tag;
 	int ret;
 
 	/* Type-2 route should be either 33, 37 or 49 bytes or an
@@ -2829,6 +2831,8 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 		return -1;
 	}
 
+	memset(&evpn, 0, sizeof(evpn));
+
 	/* Make prefix_rd */
 	prd.family = AF_UNSPEC;
 	prd.prefixlen = 64;
@@ -2841,10 +2845,13 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	p.prefixlen = EVPN_TYPE_2_ROUTE_PREFIXLEN;
 	p.prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
 
-	/* Skip over Ethernet Seg Identifier for now. */
-	pfx += 10;
+	/* Copy Ethernet Seg Identifier */
+	memcpy(&evpn.eth_s_id.val, pfx, ESI_LEN);
+	pfx += ESI_LEN;
 
-	/* Skip over Ethernet Tag for now. */
+	/* Copy Ethernet Tag */
+	memcpy(&eth_tag, pfx, 4);
+	p.prefix.eth_tag = ntohl(eth_tag);
 	pfx += 4;
 
 	/* Get the MAC Addr len */
@@ -2902,11 +2909,11 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr)
 		ret = bgp_update(peer, (struct prefix *)&p, addpath_id, attr,
 				 afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				 &prd, &label[0], num_labels, 0, NULL);
+				 &prd, &label[0], num_labels, 0, &evpn);
 	else
 		ret = bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr,
 				   afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				   &prd, &label[0], num_labels, NULL);
+				   &prd, &label[0], num_labels, &evpn);
 	return ret;
 }
 
@@ -2920,6 +2927,7 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	struct prefix_rd prd;
 	struct prefix_evpn p;
 	uint8_t ipaddr_len;
+	uint32_t eth_tag;
 	int ret;
 
 	/* Type-3 route should be either 17 or 29 bytes: RD (8), Eth Tag (4),
@@ -2956,7 +2964,9 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	p.prefixlen = EVPN_TYPE_3_ROUTE_PREFIXLEN;
 	p.prefix.route_type = BGP_EVPN_IMET_ROUTE;
 
-	/* Skip over Ethernet Tag for now. */
+	/* Copy Ethernet Tag */
+	memcpy(&eth_tag, pfx, 4);
+	p.prefix.eth_tag = ntohl(eth_tag);
 	pfx += 4;
 
 	/* Get the IP. */
@@ -3574,7 +3584,7 @@ void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json)
 
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
 		json_object_int_add(json, "routeType", p->prefix.route_type);
-		json_object_int_add(json, "ethTag", 0);
+		json_object_int_add(json, "ethTag", p->prefix.eth_tag);
 		json_object_int_add(json, "ipLen",
 				    IS_EVPN_PREFIX_IPADDR_V4(p)
 					    ? IPV4_MAX_BITLEN
@@ -3585,10 +3595,7 @@ void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json)
 		if (IS_EVPN_PREFIX_IPADDR_NONE(p)) {
 			json_object_int_add(json, "routeType",
 					    p->prefix.route_type);
-			json_object_int_add(
-				json, "esi",
-				0); /* TODO: we don't support esi yet */
-			json_object_int_add(json, "ethTag", 0);
+			json_object_int_add(json, "ethTag", p->prefix.eth_tag);
 			json_object_int_add(json, "macLen", 8 * ETH_ALEN);
 			json_object_string_add(json, "mac",
 					       prefix_mac2str(&p->prefix.mac,
@@ -3602,10 +3609,7 @@ void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json)
 
 			json_object_int_add(json, "routeType",
 					    p->prefix.route_type);
-			json_object_int_add(
-				json, "esi",
-				0); /* TODO: we don't support esi yet */
-			json_object_int_add(json, "ethTag", 0);
+			json_object_int_add(json, "ethTag", p->prefix.eth_tag);
 			json_object_int_add(json, "macLen", 8 * ETH_ALEN);
 			json_object_string_add(json, "mac",
 					       prefix_mac2str(&p->prefix.mac,
@@ -3635,14 +3639,17 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 	char buf2[PREFIX2STR_BUFFER];
 
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
-		snprintf(buf, len, "[%d]:[0]:[%d]:[%s]", p->prefix.route_type,
+		snprintf(buf, len, "[%d]:[%d]:[%d]:[%s]", p->prefix.route_type,
+			 p->prefix.eth_tag,
 			 IS_EVPN_PREFIX_IPADDR_V4(p) ? IPV4_MAX_BITLEN
 						     : IPV6_MAX_BITLEN,
 			 inet_ntoa(p->prefix.ip.ipaddr_v4));
 	} else if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		if (IS_EVPN_PREFIX_IPADDR_NONE(p))
-			snprintf(buf, len, "[%d]:[0]:[0]:[%d]:[%s]",
-				 p->prefix.route_type, 8 * ETH_ALEN,
+			snprintf(buf, len, "[%d]:[%d]:[%d]:[%s]",
+				 p->prefix.route_type,
+				 p->prefix.eth_tag,
+				 8 * ETH_ALEN,
 				 prefix_mac2str(&p->prefix.mac, buf1,
 						sizeof(buf1)));
 		else {
@@ -3650,8 +3657,10 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 
 			family = IS_EVPN_PREFIX_IPADDR_V4(p) ? AF_INET
 							     : AF_INET6;
-			snprintf(buf, len, "[%d]:[0]:[0]:[%d]:[%s]:[%d]:[%s]",
-				 p->prefix.route_type, 8 * ETH_ALEN,
+			snprintf(buf, len, "[%d]:[%d]:[%d]:[%s]:[%d]:[%s]",
+				 p->prefix.route_type,
+				 p->prefix.eth_tag,
+				 8 * ETH_ALEN,
 				 prefix_mac2str(&p->prefix.mac, buf1,
 						sizeof(buf1)),
 				 family == AF_INET ? IPV4_MAX_BITLEN
@@ -3660,8 +3669,10 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 					   PREFIX2STR_BUFFER));
 		}
 	} else if (p->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
-		snprintf(buf, len, "[%d]:[0]:[0]:[%d]:[%s]",
-			 p->prefix.route_type, p->prefix.ip_prefix_length,
+		snprintf(buf, len, "[%d]:[%d]:[%d]:[%s]",
+			 p->prefix.route_type,
+			 p->prefix.eth_tag,
+			 p->prefix.ip_prefix_length,
 			 IS_EVPN_PREFIX_IPADDR_V4(p)
 				 ? inet_ntoa(p->prefix.ip.ipaddr_v4)
 				 : inet6_ntoa(p->prefix.ip.ipaddr_v6));
@@ -3703,8 +3714,11 @@ void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 			len += 3;
 		stream_putc(s, len);
 		stream_put(s, prd->val, 8);   /* RD */
-		stream_put(s, 0, 10);	 /* ESI */
-		stream_putl(s, 0);	    /* Ethernet Tag ID */
+		if (attr)
+			stream_put(s, &attr->evpn_overlay.eth_s_id, ESI_LEN);
+		else
+			stream_put(s, 0, 10);
+		stream_putl(s, evp->prefix.eth_tag);	    /* Ethernet Tag ID */
 		stream_putc(s, 8 * ETH_ALEN); /* Mac Addr Len - bits */
 		stream_put(s, evp->prefix.mac.octet, 6); /* Mac Addr */
 		stream_putc(s, 8 * ipa_len);		 /* IP address Length */
@@ -3720,7 +3734,7 @@ void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 	case BGP_EVPN_IMET_ROUTE:
 		stream_putc(s, 17); // TODO: length - assumes IPv4 address
 		stream_put(s, prd->val, 8);      /* RD */
-		stream_putl(s, 0);		 /* Ethernet Tag ID */
+		stream_putl(s, evp->prefix.eth_tag);		 /* Ethernet Tag ID */
 		stream_putc(s, IPV4_MAX_BITLEN); /* IP address Length - bits */
 		/* Originating Router's IP Addr */
 		stream_put_in_addr(s, &evp->prefix.ip.ipaddr_v4);

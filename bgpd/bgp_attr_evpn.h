@@ -37,6 +37,7 @@
 unsigned long eth_tag_id;
 struct attr;
 
+/* EVPN ESI */
 struct eth_segment_id {
 	uint8_t val[ESI_LEN];
 };
