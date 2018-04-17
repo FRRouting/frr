@@ -338,6 +338,7 @@ void frrzmq_check_events(struct frrzmq_cb **cbp, struct cb_core *core,
 	if (!cb || !cb->zmqsock)
 		return;
 
+	len = sizeof(events);
 	if (zmq_getsockopt(cb->zmqsock, ZMQ_EVENTS, &events, &len))
 		return;
 	if (events & event && core->thread && !core->cancelled) {
