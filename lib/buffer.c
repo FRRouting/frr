@@ -429,6 +429,9 @@ in one shot. */
 	size_t iovcnt = 0;
 	size_t nbyte = 0;
 
+	if (fd < 0)
+		return BUFFER_ERROR;
+
 	for (d = b->head; d && (iovcnt < MAX_CHUNKS) && (nbyte < MAX_FLUSH);
 	     d = d->next, iovcnt++) {
 		iov[iovcnt].iov_base = d->data + d->sp;
