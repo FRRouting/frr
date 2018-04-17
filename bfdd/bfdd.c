@@ -84,7 +84,7 @@ static struct quagga_signal_t bfd_signals[] = {
 	},
 };
 
-FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2613,
+FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2616,
 		.proghelp = "Implementation of the BFD protocol.",
 		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
 		.privs = &bfdd_privs)
