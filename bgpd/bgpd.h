@@ -189,8 +189,16 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_RD_SET            (1 << 1)
 #define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
 
-	/* If we are importing a vrf -> vrf keep a list of vrf names */
+	/*
+	 * If we are importing another vrf into us keep a list of
+	 * vrf names that are being imported into us.
+	 */
 	struct list *import_vrf;
+
+	/*
+	 * if we are being exported to another vrf keep a list of
+	 * vrf names that we are being exported to.
+	 */
 	struct list *export_vrf;
 };
 
