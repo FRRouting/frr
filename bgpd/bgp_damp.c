@@ -233,7 +233,7 @@ int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 	/* Remove the route from a reuse list if it is on one.  */
 	if (CHECK_FLAG(bdi->binfo->flags, BGP_INFO_DAMPED)) {
 		/* If decay rate isn't equal to 0, reinsert brn. */
-		if (bdi->penalty != last_penalty) {
+		if (bdi->penalty != last_penalty && bdi->index >= 0) {
 			bgp_reuse_list_delete(bdi);
 			bgp_reuse_list_add(bdi);
 		}
