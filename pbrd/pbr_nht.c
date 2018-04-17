@@ -209,6 +209,13 @@ void pbr_nhgroup_add_cb(const char *name)
 	struct nexthop_group_cmd *nhgc;
 
 	nhgc = nhgc_find(name);
+
+	if (!nhgc) {
+		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s\n",
+		       __PRETTY_FUNCTION__, name);
+		return;
+	}
+
 	pnhgc = pbr_nht_add_group(name);
 
 	DEBUGD(&pbr_dbg_nht, "%s: Added nexthop-group %s", __PRETTY_FUNCTION__,
