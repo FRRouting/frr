@@ -241,6 +241,8 @@ struct ibuf *imsg_create(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid,
 	struct ibuf *wbuf;
 	struct imsg_hdr hdr;
 
+	memset(&hdr, 0x00, IMSG_HEADER_SIZE);
+
 	datalen += IMSG_HEADER_SIZE;
 	if (datalen > MAX_IMSGSIZE) {
 		errno = ERANGE;

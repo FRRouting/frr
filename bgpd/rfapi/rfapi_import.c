@@ -2802,19 +2802,16 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 	uint32_t lifetime;
 	struct rfapi_withdraw *wcb;
 
-	if
-		CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)
-		{
-			/*
-			 * Already on the path to being withdrawn,
-			 * should already have a timer set up to
-			 * delete it.
-			 */
-			vnc_zlog_debug_verbose(
-				"%s: already being withdrawn, do nothing",
-				__func__);
-			return;
-		}
+	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+		/*
+		 * Already on the path to being withdrawn,
+		 * should already have a timer set up to
+		 * delete it.
+		 */
+		vnc_zlog_debug_verbose(
+			"%s: already being withdrawn, do nothing", __func__);
+		return;
+	}
 
 	rfapiGetVncLifetime(bi->attr, &lifetime);
 	vnc_zlog_debug_verbose("%s: VNC lifetime is %u", __func__, lifetime);
