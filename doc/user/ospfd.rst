@@ -74,11 +74,10 @@ writing, *ospfd* does not support multiple OSPF processes.
    which still can reach the backbone - this restriction exists primarily
    to ensure routing-loops are avoided.
 
-   With the "Cisco" or "IBM" ABR type, the default in this release of
-   FRR, this restriction is lifted, allowing an ABR to consider
-   summaries learnt from other ABRs through non-backbone areas, and hence
-   route via non-backbone areas as a last resort when, and only when,
-   backbone links are down.
+   With the "Cisco" or "IBM" ABR type, the default in this release of FRR, this
+   restriction is lifted, allowing an ABR to consider summaries learned from
+   other ABRs through non-backbone areas, and hence route via non-backbone
+   areas as a last resort when, and only when, backbone links are down.
 
    Note that areas with fully-adjacent virtual-links are considered to be
    "transit capable" and can always be used to route backbone traffic, and
@@ -102,7 +101,7 @@ writing, *ospfd* does not support multiple OSPF processes.
 .. index:: no ospf rfc1583compatibility
 .. clicmd:: no ospf rfc1583compatibility
 
-   :rfc:`2328`, the sucessor to :rfc:`1583`, suggests according
+   :rfc:`2328`, the successor to :rfc:`1583`, suggests according
    to section G.2 (changes) in section 16.4 a change to the path
    preference algorithm that prevents possible routing loops that were
    possible in the old version of OSPFv2. More specifically it demands
@@ -152,13 +151,13 @@ writing, *ospfd* does not support multiple OSPF processes.
    an event which occurs outside of the holdtime of any previous SPF
    calculation, and also serves as a minimum holdtime).
 
-   Consecutive SPF calculations will always be seperated by at least
+   Consecutive SPF calculations will always be separated by at least
    'hold-time' milliseconds. The hold-time is adaptive and initially is
    set to the `initial-holdtime` configured with the above command.
    Events which occur within the holdtime of the previous SPF calculation
    will cause the holdtime to be increased by `initial-holdtime`, bounded
    by the `maximum-holdtime` configured with this command. If the adaptive
-   hold-time elapses without any SPF-triggering event occuring then
+   hold-time elapses without any SPF-triggering event occurring then
    the current holdtime is reset to the `initial-holdtime`. The current
    holdtime can be viewed with :clicmd:`show ip ospf`, where it is expressed as
    a multiplier of the `initial-holdtime`.
@@ -172,7 +171,7 @@ writing, *ospfd* does not support multiple OSPF processes.
    In this example, the `delay` is set to 200ms, the initial holdtime is set to
    400ms and the `maximum holdtime` to 10s. Hence there will always be at least
    200ms between an event which requires SPF calculation and the actual SPF
-   calculation. Further consecutive SPF calculations will always be seperated
+   calculation. Further consecutive SPF calculations will always be separated
    by between 400ms to 10s, the hold-time increasing by 400ms each time an
    SPF-triggering event occurs within the hold-time of the previous SPF
    calculation.
@@ -254,7 +253,7 @@ writing, *ospfd* does not support multiple OSPF processes.
       router ospf
       network 192.168.1.0/24 area 0.0.0.0
 
-   Prefix length in interface must be equal or bigger (ie. smaller network) than
+   Prefix length in interface must be equal or bigger (i.e. smaller network) than
    prefix length in network statement. For example statement above doesn't enable
    ospf on interface with address 192.168.1.1/23, but it does on interface with
    address 192.168.1.129/25.
@@ -289,7 +288,7 @@ OSPF area
 
    Summarize intra area paths from specified area into one Type-3 summary-LSA
    announced to other areas. This command can be used only in ABR and ONLY
-   router-LSAs (Type-1) and network-LSAs (Type-2) (ie. LSAs with scope area) can
+   router-LSAs (Type-1) and network-LSAs (Type-2) (i.e. LSAs with scope area) can
    be summarized. Type-5 AS-external-LSAs can't be summarized - their scope is AS.
    Summarizing Type-7 AS-external-LSAs isn't supported yet by FRR.
 
@@ -303,7 +302,7 @@ OSPF area
 
    With configuration above one Type-3 Summary-LSA with routing info 10.0.0.0/8 is
    announced into backbone area if area 0.0.0.10 contains at least one intra-area
-   network (ie. described with router or network LSA) from this range.
+   network (i.e. described with router or network LSA) from this range.
 
 .. index:: area A.B.C.D range IPV4_PREFIX not-advertise
 .. clicmd:: area A.B.C.D range IPV4_PREFIX not-advertise
@@ -311,7 +310,7 @@ OSPF area
 .. index:: no area A.B.C.D range IPV4_PREFIX not-advertise
 .. clicmd:: no area A.B.C.D range IPV4_PREFIX not-advertise
 
-   Instead of summarizing intra area paths filter them - ie. intra area paths from this
+   Instead of summarizing intra area paths filter them - i.e. intra area paths from this
    range are not advertised into other areas.
    This command makes sense in ABR only.
 
@@ -332,7 +331,7 @@ OSPF area
 
 
    One Type-3 summary-LSA with routing info 11.0.0.0/8 is announced into backbone area if
-   area 0.0.0.10 contains at least one intra-area network (ie. described with router-LSA or
+   area 0.0.0.10 contains at least one intra-area network (i.e. described with router-LSA or
    network-LSA) from range 10.0.0.0/8.
    This command makes sense in ABR only.
 
@@ -550,11 +549,11 @@ OSPF interface
 
    Note that OSPF MD5 authentication requires that time never go backwards
    (correct time is NOT important, only that it never goes backwards), even
-   across resets, if ospfd is to be able to promptly reestabish adjacencies
+   across resets, if ospfd is to be able to promptly reestablish adjacencies
    with its neighbours after restarts/reboots. The host should have system time
-   be set at boot from an external or non-volatile source (eg battery backed
+   be set at boot from an external or non-volatile source (e.g. battery backed
    clock, NTP, etc.) or else the system clock should be periodically saved to
-   non-volative storage and restored at boot if MD5 authentication is to be
+   non-volatile storage and restored at boot if MD5 authentication is to be
    expected to work reliably.
 
 .. index:: ip ospf message-digest-key KEYID md5 KEY
@@ -624,7 +623,7 @@ OSPF interface
 .. index:: no ip ospf network
 .. clicmd:: no ip ospf network
 
-   Set explicitly network type for specifed interface.
+   Set explicitly network type for specified interface.
 
 .. index:: ip ospf priority (0-255)
 .. clicmd:: ip ospf priority (0-255)
@@ -865,7 +864,7 @@ Opaque LSA
 .. index:: no capability opaque
 .. clicmd:: no capability opaque
 
-   *ospfd* support Opaque LSA (:rfc:`2370`) as fondment for MPLS Traffic
+   *ospfd* supports Opaque LSA (:rfc:`2370`) as fundamental for MPLS Traffic
    Engineering LSA. Prior to used MPLS TE, opaque-lsa must be enable in the
    configuration file. Alternate command could be "mpls-te on"
    (:ref:`ospf-traffic-engineering`).
@@ -978,9 +977,9 @@ Router Information
 .. clicmd:: no pce scope
 
    The commands are conform to :rfc:`5088` and allow OSPF router announce Path
-   Compuatation Elemenent (PCE) capabilities through the Router Information
-   (RI) LSA. Router Information must be enable prior to this. The command
-   set/unset respectively the PCE IP adress, Autonomous System (AS) numbers of
+   Computation Element (PCE) capabilities through the Router Information (RI)
+   LSA. Router Information must be enable prior to this. The command set/unset
+   respectively the PCE IP address, Autonomous System (AS) numbers of
    controlled domains, neighbor ASs, flag and scope. For flag and scope, please
    refer to :rfc`5088` for the BITPATTERN recognition. Multiple 'pce neighbor'
    command could be specified in order to specify all PCE neighbours.
@@ -1025,7 +1024,7 @@ This is an EXPERIMENTAL support of Segment Routing as per draft
 .. index:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag]
 .. clicmd:: [no] segment-routing prefix A.B.C.D/M index (0-65535) [no-php-flag]
 
-   Set the Segment Rounting index for the specifyed prefix. Note that, only
+   Set the Segment Routing index for the specified prefix. Note that, only
    prefix with /32 corresponding to a loopback interface are currently
    supported. The 'no-php-flag' means NO Penultimate Hop Popping that allows SR
    node to request to its neighbor to not pop the label.
@@ -1033,7 +1032,7 @@ This is an EXPERIMENTAL support of Segment Routing as per draft
 .. index:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]
 .. clicmd:: show ip ospf database segment-routing <adv-router ADVROUTER|self-originate> [json]
 
-   Show Segment Routing Data Base, all SR nodes, specific advertized router or
+   Show Segment Routing Data Base, all SR nodes, specific advertised router or
    self router. Optional JSON output can be obtained by appending 'json' to the
    end of the command.
 
@@ -1289,7 +1288,7 @@ Then the :file:`ospfd.conf` itself:
    !
    line vty
 
-A router information example with PCE advsertisement:
+A router information example with PCE advertisement:
 
 .. code-block:: frr
 

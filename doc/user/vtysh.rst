@@ -93,7 +93,7 @@ Configuration saving, file ownership and permissions
 ----------------------------------------------------
 
 The :file:`frr.conf` file is not written by any of the daemons; instead *vtysh*
-contains the neccessary logic to collect configuration from all of the daemons,
+contains the necessary logic to collect configuration from all of the daemons,
 combine it and write it out.
 
 .. warning::

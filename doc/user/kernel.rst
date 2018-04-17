@@ -26,17 +26,17 @@ information, updating kernel routing tables, and for looking up interfaces.
      This is a special filesystem mount that provides an easy way of getting
      kernel information.
 
-- routing socket / netlink
+- routing socket / Netlink
      On recent Linux kernels (2.0.x and 2.2.x), there is a kernel/user
-     communication support called `netlink`. It makes asynchronous communication
+     communication support called `Netlink`. It makes asynchronous communication
      between kernel and FRR possible, similar to a routing socket on BSD systems.
 
      Before you use this feature, be sure to select (in kernel configuration) the
-     kernel/netlink support option 'Kernel/User network link driver' and 'Routing
+     kernel/Netlink support option 'Kernel/User network link driver' and 'Routing
      messages'.
 
      Today, the :file:`/dev/route` special device file is obsolete.  Netlink
-     communication is done by reading/writing over netlink socket.
+     communication is done by reading/writing over Netlink socket.
 
      After the kernel configuration, please reconfigure and rebuild FRR.  You can
-     use netlink as a dynamic routing update channel between FRR and the kernel.
+     use Netlink as a dynamic routing update channel between FRR and the kernel.

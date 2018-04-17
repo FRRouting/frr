@@ -77,7 +77,7 @@ Certain signals have special meanings to *pimd*.
 .. clicmd:: ip pim ecmp rebalance
 
    If pim is using ECMP and an interface goes down, cause pim to rebalance all
-   S,G flows aross the remaining nexthops. If this command is not configured
+   S,G flows across the remaining nexthops. If this command is not configured
    pim only modifies those S,G flows that were using the interface that went
    down. This command is vrf aware, to configure for a vrf, enter the vrf
    submode.
@@ -93,8 +93,8 @@ Certain signals have special meanings to *pimd*.
 .. clicmd:: ip pim keep-alive-timer (31-60000)
 
    Modify the time out value for a S,G flow from 31-60000 seconds. 31 seconds
-   is choosen for a lower bound because some hardware platforms cannot see data
-   flowing in better than 30 second chunks. This comand is vrf aware, to
+   is chosen for a lower bound because some hardware platforms cannot see data
+   flowing in better than 30 second chunks. This command is vrf aware, to
    configure for a vrf, enter the vrf submode.
 
 .. index:: ip pim packets (1-100)
@@ -209,7 +209,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 .. clicmd:: ip multicat boundary oil WORD
 
    Set a pim multicast boundary, based upon the WORD prefix-list. If a pim join
-   or IGMP report is received on this interface and the Group is denyed by the
+   or IGMP report is received on this interface and the Group is denied by the
    prefix-list, PIM will ignore the join or report.
 
 .. _pim-multicast-rib-insertion:
@@ -316,7 +316,7 @@ cause great confusion.
 .. index:: show ip pim nexthop-lookup
 .. clicmd:: show ip pim nexthop-lookup
 
-   Display information about a S,G pair and how the RPF would be choosen. This
+   Display information about a S,G pair and how the RPF would be chosen. This
    is especially useful if there are ECMP's available from the RPF lookup.
 
 .. index:: show ip pim rp-info
@@ -341,7 +341,7 @@ cause great confusion.
 .. clicmd:: show ip pim state
 
    Display information about known S,G's and incoming interface as well as the
-   OIL and how they were choosen.
+   OIL and how they were chosen.
 
 .. index:: show ip pim upstream
 .. clicmd:: show ip pim upstream
@@ -351,9 +351,8 @@ cause great confusion.
 .. index:: show ip pim upstream-join-desired
 .. clicmd:: show ip pim upstream-join-desired
 
-{show PIM Information} {show ip pim upstream-join-desired} {}
-  Display upstream information for S,G's and if we desire to
-  join the mcast tree
+   Display upstream information for S,G's and if we desire to
+   join the multicast tree
 
 .. index:: show ip pim upstream-rpf
 .. clicmd:: show ip pim upstream-rpf
@@ -369,8 +368,8 @@ PIM Debug Commands
 ==================
 
 The debugging subsystem for PIM behaves in accordance with how FRR handles
-debugging. You can specify debugging at the enable cli mode as well as the
-configure cli mode. If you specify debug commands in the configuration cli
+debugging. You can specify debugging at the enable CLI mode as well as the
+configure CLI mode. If you specify debug commands in the configuration cli
 mode, the debug commands can be persistent across restarts of the FRR pimd if
 the config was written out.
 
@@ -406,4 +405,4 @@ the config was written out.
 .. index:: debug pim zebra
 .. clicmd:: debug pim zebra
 
-   This gathers data about events from zebra that come up through the zapi.
+   This gathers data about events from zebra that come up through the ZAPI.

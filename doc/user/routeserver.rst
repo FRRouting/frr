@@ -130,7 +130,7 @@ It is also common to demand from a route server that it does not modify some
 BGP attributes (next-hop, as-path and MED) that are usually modified by
 standard BGP speakers before announcing a route.
 
-The announcement processing model implemented by Frr is shown in
+The announcement processing model implemented by FRR is shown in
 :ref:`fig-rs-processing`. The figure shows a mixture of RS-clients (B, C and D)
 with normal BGP peers (A). There are some details that worth additional
 comments:
@@ -175,7 +175,7 @@ in order to support the route server features.
    This command configures the peer given by `peer`, `A.B.C.D` or `X:X::X:X` as
    an RS-client.
 
-   Actually this command is not new, it already existed in standard Frr. It
+   Actually this command is not new, it already existed in standard FRR. It
    enables the transparent mode for the specified peer. This means that some
    BGP attributes (as-path, next-hop and MED) of the routes announced to that
    peer are not modified.
@@ -225,7 +225,7 @@ in order to support the route server features.
 Example of Route Server Configuration
 -------------------------------------
 
-Finally we are going to show how to configure a Frr daemon to act as a
+Finally we are going to show how to configure a FRR daemon to act as a
 Route Server. For this purpose we are going to present a scenario without
 route server, and then we will show how to use the configurations of the BGP
 routers to generate the configuration of the route server.
@@ -502,10 +502,10 @@ RA had the following filters configured for input from peer B:
      set community 65001:11111
 
 
-It is posible to write a single route-map which is equivalent to
-the three filters (the community-list, the prefix-list and the
-route-map). That route-map can then be used inside the Import
-policy in the route server. Lets see how to do it:
+It is possible to write a single route-map which is equivalent to the three
+filters (the community-list, the prefix-list and the route-map). That route-map
+can then be used inside the Import policy in the route server. Lets see how to
+do it:
 
 .. code-block:: frr
 

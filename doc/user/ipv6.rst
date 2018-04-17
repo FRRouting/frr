@@ -4,7 +4,7 @@
 IPv6 Support
 ************
 
-FRR fully supports IPv6 routing.  As described so far, Frr supports RIPng,
+FRR fully supports IPv6 routing.  As described so far, FRR supports RIPng,
 OSPFv3, and BGP-4+.  You can give IPv6 addresses to an interface and configure
 static IPv6 routing information.  FRR IPv6 also provides automatic address
 configuration via a feature called ``address auto configuration``.  To do it,
@@ -20,12 +20,12 @@ Router Advertisement
 .. index:: no ipv6 nd suppress-ra
 .. clicmd:: no ipv6 nd suppress-ra
 
-   Send router advertisment messages.
+   Send router advertisement messages.
 
 .. index:: ipv6 nd suppress-ra
 .. clicmd:: ipv6 nd suppress-ra
 
-   Don't send router advertisment messages.
+   Don't send router advertisement messages.
 
 .. index:: ipv6 nd prefix ipv6prefix [valid-lifetime] [preferred-lifetime] [off-link] [no-autoconfig] [router-address]
 .. clicmd:: ipv6 nd prefix ipv6prefix [valid-lifetime] [preferred-lifetime] [off-link] [no-autoconfig] [router-address]

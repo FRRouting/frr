@@ -18,7 +18,7 @@ to their immediate neighbouring routers.
 .. index:: Link State Database
 
 Each router describes their link-state information in a message known as an
-:abbr:`LSA (Link State Advertisement)`, which is then propogated through to all
+:abbr:`LSA (Link State Advertisement)`, which is then propagated through to all
 other routers in a link-state routing domain, by a process called `flooding`.
 Each router thus builds up an :abbr:`LSDB (Link State Database)` of all the
 link-state messages. From this collection of LSAs in the LSDB, each router can
@@ -59,7 +59,7 @@ OSPF Mechanisms
 ---------------
 
 :abbr:`OSPF` defines a range of mechanisms, concerned with detecting,
-describing and propogating state through a network. These mechanisms
+describing and propagating state through a network. These mechanisms
 will nearly all be covered in greater detail further on. They may be
 broadly classed as:
 
@@ -118,7 +118,7 @@ LSA Flooding
 
 OSPF defines several related mechanisms, used to manage synchronisation of
 :abbr:`LSDB` s between neighbours as neighbours form adjacencies and the
-propogation, or `flooding` of new or updated :abbr:`LSA` s.
+propagation, or `flooding` of new or updated :abbr:`LSA` s.
 
 .. index:: OSPF Areas overview
 
@@ -306,7 +306,7 @@ Summary of Link State LSAs:
 | Router LSA  | Router ID                  | The :abbr:`OSPF` enabled links of the      |
 |             |                            | router, within a specific link-state area. |
 +-------------+----------------------------+--------------------------------------------+
-| Network LSA | The IP address of the      | The subet mask of the network and the      |
+| Network LSA | The IP address of the      | The subnet mask of the network and the     |
 |             | :abbr:`DR` for the network | Router IDs of all routers on the network   |
 +-------------+----------------------------+--------------------------------------------+
 
@@ -478,7 +478,7 @@ Forwarding Address
    The address of the router to forward packets to for the route. This may be,
    and usually is, left as 0 to specify that the ASBR originating the External
    :abbr:`LSA` should be used. There must be an internal OSPF route to the
-   forwarding address, for the forwarding address to be useable.
+   forwarding address, for the forwarding address to be usable.
 
 Tag
    An arbitrary 4-bytes of data, not interpreted by OSPF, which may carry

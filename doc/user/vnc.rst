@@ -262,7 +262,7 @@ Defaults section.
 .. clicmd:: export bgp|zebra route-map MAP-NAME
 
    Specify that the named route-map should be applied to routes being exported
-   to bgp or zebra.  This paramter is used in conjunction with
+   to bgp or zebra.  This parameter is used in conjunction with
    :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
@@ -270,7 +270,7 @@ Defaults section.
 .. clicmd:: export bgp|zebra no route-map
 
    Specify that no route-map should be applied to routes being exported to bgp
-   or zebra.  This paramter is used in conjunction with
+   or zebra.  This parameter is used in conjunction with
    :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
@@ -279,7 +279,7 @@ Defaults section.
 
    Specify that the named prefix-list filter should be applied to routes being
    exported to bgp or zebra. Prefix-lists for ipv4 and ipv6 are independent of
-   each other. This paramter is used in conjunction with
+   each other. This parameter is used in conjunction with
    :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
@@ -696,7 +696,7 @@ manually and dynamically added information.
 .. clicmd:: clear vnc prefix (\*|A.B.C.D/M|X:X::X:X/M) (\*|[(vn|un) (A.B.C.D|X:X::X:X|\*) [(un|vn) (A.B.C.D|X:X::X:X|\*)] [mac xx:xx:xx:xx:xx:xx] [local-next-hop (A.B.C.D|X:X::X:X)])
 
    Delete the information identified by prefix, VN address, and UN address.
-   Any or all of these parameters may be wilcarded to (potentially) match more
+   Any or all of these parameters may be wildcarded to (potentially) match more
    than one registration. The optional `mac` parameter specifies a layer-2 MAC
    address that must match the registration(s) to be deleted. The optional
    `local-next-hop` parameter is used to delete specific local nexthop
@@ -706,7 +706,7 @@ manually and dynamically added information.
 .. clicmd:: clear vnc mac (\*|xx:xx:xx:xx:xx:xx) virtual-network-identifier (\*|(1-4294967295)) (\*|[(vn|un) (A.B.C.D|X:X::X:X|\*) [(un|vn) (A.B.C.D|X:X::X:X|\*)] [prefix (\*|A.B.C.D/M|X:X::X:X/M)])
 
    Delete mac forwarding information. Any or all of these parameters may be
-   wilcarded to (potentially) match more than one registration. The default
+   wildcarded to (potentially) match more than one registration. The default
    value for the `prefix` parameter is the wildcard value `*`.
 
 .. index:: clear vnc nve (\*|((vn|un) (A.B.C.D|X:X::X:X) [(un|vn) (A.B.C.D|X:X::X:X)]))
@@ -1042,7 +1042,7 @@ Configuration for ``NVA 2``:
 .. TBD make this its own example:
 ..
 .. @float Figure,fig:fig-vnc-gw-rr
-.. @center @image{fig-vnc-gw-rr,400pt,,Frr VNC Gateway with RR}
+.. @center @image{fig-vnc-gw-rr,400pt,,FRR VNC Gateway with RR}
 .. @end float
 .. An NVA can also import unicast routes from BGP without advertising the
 .. imported routes as VPN routes.  Such imported routes, while not
@@ -1297,7 +1297,7 @@ reflector configuration.  BGP route reflectors ``BGP Route Reflector 1`` and
 
    FRR-based NVA with redundant route reflectors
 
-:file:`bgpd.conf` for ``Bgpd Route Reflector 1`` on 192.168.1.100:
+:file:`bgpd.conf` for ``BPGD Route Reflector 1`` on 192.168.1.100:
 
 .. code-block:: frr
 
