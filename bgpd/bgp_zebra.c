@@ -2631,14 +2631,26 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 				   zclient, &api);
 	} else if (nh->vrf_id != bgp->vrf_id) {
 		struct vrf *vrf;
-		vrf = vrf_lookup_by_id(nh->vrf_id);
+		struct interface *ifp;
 
+		vrf = vrf_lookup_by_id(nh->vrf_id);
 		if (!vrf)
 			return;
-		/* find default route for vrf
-		 * BGP may not have default route distributed in
-		 * its context. This use case is not handled for now
+		/* create default route with interface <VRF>
+		 * with nexthop-vrf <VRF>
 		 */
+		ifp = if_lookup_by_name_all_vrf(vrf->name);
+		if (!ifp)
+			return;
+		api_nh->vrf_id = nh->vrf_id;
+		api_nh->type = NEXTHOP_TYPE_IFINDEX;
+		api_nh->ifindex = ifp->ifindex;
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_info("BGP: sending default route to %s table %d (redirect VRF)",
+				  vrf->name, table_id);
+		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
+				   : ZEBRA_ROUTE_DELETE,
+				   zclient, &api);
 		return;
 	}
 }
