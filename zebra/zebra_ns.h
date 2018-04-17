@@ -73,6 +73,12 @@ struct zebra_ns {
 
 	struct hash *rules_hash;
 
+	struct hash *ipset_hash;
+
+	struct hash *ipset_entry_hash;
+
+	struct hash *iptable_hash;
+
 	/* Back pointer */
 	struct ns *ns;
 };

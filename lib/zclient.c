@@ -36,6 +36,7 @@
 #include "nexthop.h"
 #include "mpls.h"
 #include "sockopt.h"
+#include "pbr.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
@@ -1229,6 +1230,55 @@ stream_failure:
 	return 0;
 }
 
+static void zapi_encode_prefix(struct stream *s,
+			      struct prefix *p,
+			      uint8_t family)
+{
+	struct prefix any;
+
+	if (!p) {
+		memset(&any, 0, sizeof(any));
+		any.family = family;
+		p = &any;
+	}
+
+	stream_putc(s, p->family);
+	stream_putc(s, p->prefixlen);
+	stream_put(s, &p->u.prefix, prefix_blen(p));
+}
+
+int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s,
+			 struct pbr_rule *zrule)
+{
+	stream_reset(s);
+	zclient_create_header(s, cmd, zrule->vrf_id);
+
+	/*
+	 * We are sending one item at a time at the moment
+	 */
+	stream_putl(s, 1);
+
+	stream_putl(s, zrule->seq);
+	stream_putl(s, zrule->priority);
+	stream_putl(s, zrule->unique);
+
+	zapi_encode_prefix(s, &(zrule->filter.src_ip),
+			   zrule->filter.src_ip.family);
+	stream_putw(s, zrule->filter.src_port);  /* src port */
+	zapi_encode_prefix(s, &(zrule->filter.dst_ip),
+			   zrule->filter.src_ip.family);
+	stream_putw(s, zrule->filter.dst_port);  /* dst port */
+	stream_putw(s, zrule->filter.fwmark);    /* fwmark */
+
+	stream_putl(s, zrule->action.table);
+	stream_putl(s, zrule->ifindex);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note)
@@ -1272,6 +1322,50 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 	*priority = prio;
 	*unique = uni;
 	*ifindex = ifi;
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
+bool zapi_ipset_notify_decode(struct stream *s,
+			      uint32_t *unique,
+			     enum zapi_ipset_notify_owner *note)
+{
+	uint32_t uni;
+
+	STREAM_GET(note, s, sizeof(*note));
+
+	STREAM_GETL(s, uni);
+
+	if (zclient_debug)
+		zlog_debug("%s: %u", __PRETTY_FUNCTION__, uni);
+	*unique = uni;
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
+bool zapi_ipset_entry_notify_decode(struct stream *s,
+		uint32_t *unique,
+		char *ipset_name,
+		enum zapi_ipset_entry_notify_owner *note)
+{
+	uint32_t uni;
+
+	STREAM_GET(note, s, sizeof(*note));
+
+	STREAM_GETL(s, uni);
+
+	STREAM_GET(ipset_name, s,
+		   ZEBRA_IPSET_NAME_SIZE);
+
+	if (zclient_debug)
+		zlog_debug("%s: %u", __PRETTY_FUNCTION__, uni);
+	*unique = uni;
 
 	return true;
 

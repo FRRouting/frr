@@ -725,10 +725,9 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 	struct zserv *client;
 	struct stream *s;
 
-	if (IS_ZEBRA_DEBUG_PACKET) {
+	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
-			   rule->unique);
-	}
+			   rule->rule.unique);
 
 	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
 		if (rule->sock == client->sock)
@@ -739,18 +738,109 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 		return;
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
-	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER, VRF_DEFAULT);
 	stream_put(s, &note, sizeof(note));
-	stream_putl(s, rule->seq);
-	stream_putl(s, rule->priority);
-	stream_putl(s, rule->unique);
+	stream_putl(s, rule->rule.seq);
+	stream_putl(s, rule->rule.priority);
+	stream_putl(s, rule->rule.unique);
 	if (rule->ifp)
 		stream_putl(s, rule->ifp->ifindex);
 	else
 		stream_putl(s, 0);
 
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zebra_server_send_message(client, s);
+}
+
+void zsend_ipset_notify_owner(struct zebra_pbr_ipset *ipset,
+			     enum zapi_ipset_notify_owner note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
+			   ipset->unique);
+
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		if (ipset->sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_IPSET_NOTIFY_OWNER, VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, ipset->unique);
+	stream_put(s, ipset->ipset_name, ZEBRA_IPSET_NAME_SIZE);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zebra_server_send_message(client, s);
+}
+
+void zsend_ipset_entry_notify_owner(
+			struct zebra_pbr_ipset_entry *ipset,
+			enum zapi_ipset_entry_notify_owner note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
+			   ipset->unique);
+
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		if (ipset->sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_IPSET_ENTRY_NOTIFY_OWNER,
+			      VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, ipset->unique);
+	stream_put(s, ipset->backpointer->ipset_name,
+		   ZEBRA_IPSET_NAME_SIZE);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zebra_server_send_message(client, s);
+}
+
+void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
+			     enum zapi_iptable_notify_owner note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
+			   iptable->unique);
+
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		if (iptable->sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_IPTABLE_NOTIFY_OWNER, VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, iptable->unique);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	zebra_server_send_message(client, s);
@@ -2667,39 +2757,47 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		memset(&zpr, 0, sizeof(zpr));
 
 		zpr.sock = client->sock;
-		STREAM_GETL(s, zpr.seq);
-		STREAM_GETL(s, zpr.priority);
-		STREAM_GETL(s, zpr.unique);
-		STREAM_GETC(s, zpr.filter.src_ip.family);
-		STREAM_GETC(s, zpr.filter.src_ip.prefixlen);
-		STREAM_GET(&zpr.filter.src_ip.u.prefix, s,
-			   prefix_blen(&zpr.filter.src_ip));
-		STREAM_GETW(s, zpr.filter.src_port);
-		STREAM_GETC(s, zpr.filter.dst_ip.family);
-		STREAM_GETC(s, zpr.filter.dst_ip.prefixlen);
-		STREAM_GET(&zpr.filter.dst_ip.u.prefix, s,
-			   prefix_blen(&zpr.filter.dst_ip));
-		STREAM_GETW(s, zpr.filter.dst_port);
-		STREAM_GETL(s, zpr.action.table);
+		zpr.rule.vrf_id = hdr->vrf_id;
+		STREAM_GETL(s, zpr.rule.seq);
+		STREAM_GETL(s, zpr.rule.priority);
+		STREAM_GETL(s, zpr.rule.unique);
+		STREAM_GETC(s, zpr.rule.filter.src_ip.family);
+		STREAM_GETC(s, zpr.rule.filter.src_ip.prefixlen);
+		STREAM_GET(&zpr.rule.filter.src_ip.u.prefix, s,
+			   prefix_blen(&zpr.rule.filter.src_ip));
+		STREAM_GETW(s, zpr.rule.filter.src_port);
+		STREAM_GETC(s, zpr.rule.filter.dst_ip.family);
+		STREAM_GETC(s, zpr.rule.filter.dst_ip.prefixlen);
+		STREAM_GET(&zpr.rule.filter.dst_ip.u.prefix, s,
+			   prefix_blen(&zpr.rule.filter.dst_ip));
+		STREAM_GETW(s, zpr.rule.filter.dst_port);
+		STREAM_GETL(s, zpr.rule.filter.fwmark);
+		STREAM_GETL(s, zpr.rule.action.table);
 		STREAM_GETL(s, ifindex);
 
-		zpr.ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
-		if (!zpr.ifp) {
-			zlog_debug("FAiled to lookup ifindex: %u", ifindex);
-			return;
+		if (ifindex) {
+			zpr.ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
+			if (!zpr.ifp) {
+				zlog_debug("Failed to lookup ifindex: %u",
+					   ifindex);
+				return;
+			}
 		}
 
-		if (!is_default_prefix(&zpr.filter.src_ip))
-			zpr.filter.filter_bm |= PBR_FILTER_SRC_IP;
+		if (!is_default_prefix(&zpr.rule.filter.src_ip))
+			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
 
-		if (!is_default_prefix(&zpr.filter.dst_ip))
-			zpr.filter.filter_bm |= PBR_FILTER_DST_IP;
+		if (!is_default_prefix(&zpr.rule.filter.dst_ip))
+			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
 
-		if (zpr.filter.src_port)
-			zpr.filter.filter_bm |= PBR_FILTER_SRC_PORT;
+		if (zpr.rule.filter.src_port)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_PORT;
 
-		if (zpr.filter.dst_port)
-			zpr.filter.filter_bm |= PBR_FILTER_DST_PORT;
+		if (zpr.rule.filter.dst_port)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_PORT;
+
+		if (zpr.rule.filter.fwmark)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
 
 		if (hdr->command == ZEBRA_RULE_ADD)
 			zebra_pbr_add_rule(zvrf->zns, &zpr);
@@ -2707,6 +2805,107 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 			zebra_pbr_del_rule(zvrf->zns, &zpr);
 	}
 
+stream_failure:
+	return;
+}
+
+
+static inline void zread_ipset(ZAPI_HANDLER_ARGS)
+{
+	struct zebra_pbr_ipset zpi;
+	struct stream *s;
+	uint32_t total, i;
+
+	s = msg;
+	STREAM_GETL(s, total);
+
+	for (i = 0; i < total; i++) {
+		memset(&zpi, 0, sizeof(zpi));
+
+		zpi.sock = client->sock;
+		STREAM_GETL(s, zpi.unique);
+		STREAM_GETL(s, zpi.type);
+		STREAM_GET(&zpi.ipset_name, s,
+			   ZEBRA_IPSET_NAME_SIZE);
+
+		if (hdr->command == ZEBRA_IPSET_CREATE)
+			zebra_pbr_create_ipset(zvrf->zns, &zpi);
+		else
+			zebra_pbr_destroy_ipset(zvrf->zns, &zpi);
+	}
+
+stream_failure:
+	return;
+}
+
+static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
+{
+	struct zebra_pbr_ipset_entry zpi;
+	struct zebra_pbr_ipset ipset;
+	struct stream *s;
+	uint32_t total, i;
+
+	s = msg;
+	STREAM_GETL(s, total);
+
+	for (i = 0; i < total; i++) {
+		memset(&zpi, 0, sizeof(zpi));
+		memset(&ipset, 0, sizeof(ipset));
+
+		zpi.sock = client->sock;
+		STREAM_GETL(s, zpi.unique);
+		STREAM_GET(&ipset.ipset_name, s,
+			   ZEBRA_IPSET_NAME_SIZE);
+		STREAM_GETC(s, zpi.src.family);
+		STREAM_GETC(s, zpi.src.prefixlen);
+		STREAM_GET(&zpi.src.u.prefix, s,
+			   prefix_blen(&zpi.src));
+		STREAM_GETC(s, zpi.dst.family);
+		STREAM_GETC(s, zpi.dst.prefixlen);
+		STREAM_GET(&zpi.dst.u.prefix, s,
+			   prefix_blen(&zpi.dst));
+
+		if (!is_default_prefix(&zpi.src))
+			zpi.filter_bm |= PBR_FILTER_SRC_IP;
+
+		if (!is_default_prefix(&zpi.dst))
+			zpi.filter_bm |= PBR_FILTER_DST_IP;
+
+		/* calculate backpointer */
+		zpi.backpointer = zebra_pbr_lookup_ipset_pername(zvrf->zns,
+							 ipset.ipset_name);
+		if (hdr->command == ZEBRA_IPSET_ENTRY_ADD)
+			zebra_pbr_add_ipset_entry(zvrf->zns, &zpi);
+		else
+			zebra_pbr_del_ipset_entry(zvrf->zns, &zpi);
+	}
+
+stream_failure:
+	return;
+}
+
+static inline void zread_iptable(ZAPI_HANDLER_ARGS)
+{
+	struct zebra_pbr_iptable zpi;
+	struct stream *s;
+
+	s = msg;
+
+	memset(&zpi, 0, sizeof(zpi));
+
+	zpi.sock = client->sock;
+	STREAM_GETL(s, zpi.unique);
+	STREAM_GETL(s, zpi.type);
+	STREAM_GETL(s, zpi.filter_bm);
+	STREAM_GETL(s, zpi.action);
+	STREAM_GETL(s, zpi.fwmark);
+	STREAM_GET(&zpi.ipset_name, s,
+		   ZEBRA_IPSET_NAME_SIZE);
+
+	if (hdr->command == ZEBRA_IPTABLE_ADD)
+		zebra_pbr_add_iptable(zvrf->zns, &zpi);
+	else
+		zebra_pbr_del_iptable(zvrf->zns, &zpi);
 stream_failure:
 	return;
 }
@@ -2771,6 +2970,12 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TABLE_MANAGER_CONNECT] = zread_table_manager_request,
 	[ZEBRA_GET_TABLE_CHUNK] = zread_table_manager_request,
 	[ZEBRA_RELEASE_TABLE_CHUNK] = zread_table_manager_request,
+	[ZEBRA_IPSET_CREATE] = zread_ipset,
+	[ZEBRA_IPSET_DESTROY] = zread_ipset,
+	[ZEBRA_IPSET_ENTRY_ADD] = zread_ipset_entry,
+	[ZEBRA_IPSET_ENTRY_DELETE] = zread_ipset_entry,
+	[ZEBRA_IPTABLE_ADD] = zread_iptable,
+	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
 };
 
 static inline void zserv_handle_commands(struct zserv *client,
