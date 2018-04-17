@@ -81,7 +81,7 @@ int routeget(struct in_addr dst, struct in_addr *src, struct in_addr *gw)
 
 	ret = rtnl_open(&rth, 0);
 
-	if (ret < 0)
+	if (ret < 0 || rth.fd <= 0)
 		return ret;
 
 	if (rtnl_talk(&rth, &req.n, 0, 0, &req.n, NULL, NULL) < 0) {
