@@ -268,7 +268,7 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 	pbrm = pbrm_find(name);
 	if (!pbrm) {
 		pbrm = XCALLOC(MTYPE_PBR_MAP, sizeof(*pbrm));
-		strcpy(pbrm->name, name);
+		snprintf(pbrm->name, sizeof(pbrm->name), "%s", name);
 
 		pbrm->seqnumbers = list_new();
 		pbrm->seqnumbers->cmp =
