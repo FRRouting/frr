@@ -6159,21 +6159,20 @@ static int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 	return CMD_SUCCESS;
 }
 
-static int vpn_policy_getafi(struct vty *vty, int *doafi)
+static afi_t vpn_policy_getafi(struct vty *vty)
 {
 	switch (vty->node) {
 	case BGP_IPV4_NODE:
-		doafi[AFI_IP] = 1;
-		break;
+		return AFI_IP;
 	case BGP_IPV6_NODE:
-		doafi[AFI_IP6] = 1;
-		break;
+		return AFI_IP6;
 	default:
 		vty_out(vty,
 			"%% context error: valid only in address-family <ipv4|ipv6> unicast block\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		return AFI_MAX;
 	}
-	return CMD_SUCCESS;
+
+	return AFI_MAX;
 }
 
 DEFPY (af_rd_vpn_export,
@@ -6188,7 +6187,6 @@ DEFPY (af_rd_vpn_export,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	struct prefix_rd prd;
 	int ret;
-	int doafi[AFI_MAX] = {0};
 	afi_t afi;
 	int idx = 0;
 	int yes = 1;
@@ -6204,33 +6202,28 @@ DEFPY (af_rd_vpn_export,
 		}
 	}
 
-	ret = vpn_policy_getafi(vty, doafi);
-	if (ret != CMD_SUCCESS)
-		return ret;
+	afi = vpn_policy_getafi(vty);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
 
+	/*
+	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
+	 */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+			   bgp_get_default(), bgp);
 
-	for (afi = 0; afi < AFI_MAX; ++afi) {
-		if (!doafi[afi])
-			continue;
-
-		/* pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-		 */
-		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-				   bgp_get_default(), bgp);
-
-		if (yes) {
-			bgp->vpn_policy[afi].tovpn_rd = prd;
-			SET_FLAG(bgp->vpn_policy[afi].flags,
-				 BGP_VPN_POLICY_TOVPN_RD_SET);
-		} else {
-			UNSET_FLAG(bgp->vpn_policy[afi].flags,
-				   BGP_VPN_POLICY_TOVPN_RD_SET);
-		}
-
-		/* post-change: re-export vpn routes */
-		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-				    bgp_get_default(), bgp);
+	if (yes) {
+		bgp->vpn_policy[afi].tovpn_rd = prd;
+		SET_FLAG(bgp->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_RD_SET);
+	} else {
+		UNSET_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_RD_SET);
 	}
+
+	/* post-change: re-export vpn routes */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+			    bgp_get_default(), bgp);
 
 	return CMD_SUCCESS;
 }
@@ -6255,9 +6248,7 @@ DEFPY (af_label_vpn_export,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	mpls_label_t label = MPLS_LABEL_NONE;
-	int doafi[AFI_MAX] = {0};
 	afi_t afi;
-	int ret;
 	int idx = 0;
 	int yes = 1;
 
@@ -6269,61 +6260,56 @@ DEFPY (af_label_vpn_export,
 			label = label_val; /* parser should force unsigned */
 	}
 
-	ret = vpn_policy_getafi(vty, doafi);
-	if (ret != CMD_SUCCESS)
-		return ret;
+	afi = vpn_policy_getafi(vty);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
 
-	for (afi = 0; afi < AFI_MAX; ++afi) {
-		if (!doafi[afi])
-			continue;
 
-		if (label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
-			BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+	if (label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				     BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
+		/* no change */
+		return CMD_SUCCESS;
 
-			continue; /* no change */
+	/*
+	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
+	 */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+			   bgp_get_default(), bgp);
 
-		/*
-		 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-		 */
-		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-				   bgp_get_default(), bgp);
+	if (!label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
+				      BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
 
-		if (!label_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
-			BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
+		if (bgp->vpn_policy[afi].tovpn_label != MPLS_LABEL_NONE) {
 
-			if (bgp->vpn_policy[afi].tovpn_label !=
-				MPLS_LABEL_NONE) {
+			/*
+			 * label has previously been automatically
+			 * assigned by labelpool: release it
+			 *
+			 * NB if tovpn_label == MPLS_LABEL_NONE it
+			 * means the automatic assignment is in flight
+			 * and therefore the labelpool callback must
+			 * detect that the auto label is not needed.
+			 */
 
-				/*
-				 * label has previously been automatically
-				 * assigned by labelpool: release it
-				 *
-				 * NB if tovpn_label == MPLS_LABEL_NONE it
-				 * means the automatic assignment is in flight
-				 * and therefore the labelpool callback must
-				 * detect that the auto label is not needed.
-				 */
-
-				bgp_lp_release(LP_TYPE_VRF,
-					&bgp->vpn_policy[afi],
-					bgp->vpn_policy[afi].tovpn_label);
-			}
-			UNSET_FLAG(bgp->vpn_policy[afi].flags,
-				BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+			bgp_lp_release(LP_TYPE_VRF,
+				       &bgp->vpn_policy[afi],
+				       bgp->vpn_policy[afi].tovpn_label);
 		}
-
-		bgp->vpn_policy[afi].tovpn_label = label;
-		if (label_auto) {
-			SET_FLAG(bgp->vpn_policy[afi].flags,
-				BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
-			bgp_lp_get(LP_TYPE_VRF, &bgp->vpn_policy[afi],
-				vpn_leak_label_callback);
-		}
-
-		/* post-change: re-export vpn routes */
-		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-				    bgp_get_default(), bgp);
+		UNSET_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
 	}
+
+	bgp->vpn_policy[afi].tovpn_label = label;
+	if (label_auto) {
+		SET_FLAG(bgp->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
+		bgp_lp_get(LP_TYPE_VRF, &bgp->vpn_policy[afi],
+			   vpn_leak_label_callback);
+	}
+
+	/* post-change: re-export vpn routes */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+			    bgp_get_default(), bgp);
 
 	return CMD_SUCCESS;
 }
@@ -6347,9 +6333,7 @@ DEFPY (af_nexthop_vpn_export,
        "IPv6 prefix\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int doafi[AFI_MAX] = {0};
 	afi_t afi;
-	int ret;
 	struct prefix p;
 	int idx = 0;
 	int yes = 1;
@@ -6362,33 +6346,28 @@ DEFPY (af_nexthop_vpn_export,
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ret = vpn_policy_getafi(vty, doafi);
-	if (ret != CMD_SUCCESS)
-		return ret;
+	afi = vpn_policy_getafi(vty);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
 
-	for (afi = 0; afi < AFI_MAX; ++afi) {
-		if (!doafi[afi])
-			continue;
+	/*
+	 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
+	 */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+			   bgp_get_default(), bgp);
 
-		/*
-		 * pre-change: un-export vpn routes (vpn->vrf routes unaffected)
-		 */
-		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-				   bgp_get_default(), bgp);
-
-		if (yes) {
-			bgp->vpn_policy[afi].tovpn_nexthop = p;
-			SET_FLAG(bgp->vpn_policy[afi].flags,
-				 BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
-		} else {
-			UNSET_FLAG(bgp->vpn_policy[afi].flags,
-				   BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
-		}
-
-		/* post-change: re-export vpn routes */
-		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
-				    bgp_get_default(), bgp);
+	if (yes) {
+		bgp->vpn_policy[afi].tovpn_nexthop = p;
+		SET_FLAG(bgp->vpn_policy[afi].flags,
+			 BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
+	} else {
+		UNSET_FLAG(bgp->vpn_policy[afi].flags,
+			   BGP_VPN_POLICY_TOVPN_NEXTHOP_SET);
 	}
+
+	/* post-change: re-export vpn routes */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
+			    bgp_get_default(), bgp);
 
 	return CMD_SUCCESS;
 }
@@ -6433,7 +6412,6 @@ DEFPY (af_rt_vpn_imexport,
 	int ret;
 	struct ecommunity *ecom = NULL;
 	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
-	int doafi[AFI_MAX] = {0};
 	vpn_policy_direction_t dir;
 	afi_t afi;
 	int idx = 0;
@@ -6442,9 +6420,9 @@ DEFPY (af_rt_vpn_imexport,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
-	ret = vpn_policy_getafi(vty, doafi);
-	if (ret != CMD_SUCCESS)
-		return ret;
+	afi = vpn_policy_getafi(vty);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = vpn_policy_getdirs(vty, direction_str, dodir);
 	if (ret != CMD_SUCCESS)
@@ -6461,31 +6439,28 @@ DEFPY (af_rt_vpn_imexport,
 		}
 	}
 
-	for (afi = 0; afi < AFI_MAX; ++afi) {
-		if (!doafi[afi])
+	for (dir = 0; dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
+		if (!dodir[dir])
 			continue;
-		for (dir = 0; dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
-			if (!dodir[dir])
-				continue;
 
-			vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
-			if (yes) {
-				if (bgp->vpn_policy[afi].rtlist[dir])
-					ecommunity_free(
-					    &bgp->vpn_policy[afi].rtlist[dir]);
-				bgp->vpn_policy[afi].rtlist[dir] =
-					ecommunity_dup(ecom);
-			} else {
-				if (bgp->vpn_policy[afi].rtlist[dir])
-					ecommunity_free(
-					    &bgp->vpn_policy[afi].rtlist[dir]);
-				bgp->vpn_policy[afi].rtlist[dir] = NULL;
-			}
-
-			vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+		if (yes) {
+			if (bgp->vpn_policy[afi].rtlist[dir])
+				ecommunity_free(
+						&bgp->vpn_policy[afi].rtlist[dir]);
+			bgp->vpn_policy[afi].rtlist[dir] =
+				ecommunity_dup(ecom);
+		} else {
+			if (bgp->vpn_policy[afi].rtlist[dir])
+				ecommunity_free(
+						&bgp->vpn_policy[afi].rtlist[dir]);
+			bgp->vpn_policy[afi].rtlist[dir] = NULL;
 		}
+
+		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 	}
+
 	if (ecom)
 		ecommunity_free(&ecom);
 
@@ -6517,7 +6492,6 @@ DEFPY (af_route_map_vpn_imexport,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	int dodir[BGP_VPN_POLICY_DIR_MAX] = {0};
-	int doafi[AFI_MAX] = {0};
 	vpn_policy_direction_t dir;
 	afi_t afi;
 	int idx = 0;
@@ -6526,43 +6500,39 @@ DEFPY (af_route_map_vpn_imexport,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
-	ret = vpn_policy_getafi(vty, doafi);
-	if (ret != CMD_SUCCESS)
-		return ret;
+	afi = vpn_policy_getafi(vty);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = vpn_policy_getdirs(vty, direction_str, dodir);
 	if (ret != CMD_SUCCESS)
 		return ret;
 
-	for (afi = 0; afi < AFI_MAX; ++afi) {
-		if (!doafi[afi])
+	for (dir = 0; dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
+		if (!dodir[dir])
 			continue;
-		for (dir = 0; dir < BGP_VPN_POLICY_DIR_MAX; ++dir) {
-			if (!dodir[dir])
-				continue;
 
-			vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
+		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
-			if (yes) {
-				if (bgp->vpn_policy[afi].rmap_name[dir])
-					XFREE(MTYPE_ROUTE_MAP_NAME,
-					bgp->vpn_policy[afi].rmap_name[dir]);
-				bgp->vpn_policy[afi].rmap_name[dir] = XSTRDUP(
-					MTYPE_ROUTE_MAP_NAME, rmap_str);
-				bgp->vpn_policy[afi].rmap[dir] =
-					route_map_lookup_by_name(rmap_str);
-				if (!bgp->vpn_policy[afi].rmap[dir])
-					return CMD_SUCCESS;
-			} else {
-				if (bgp->vpn_policy[afi].rmap_name[dir])
-					XFREE(MTYPE_ROUTE_MAP_NAME,
-					bgp->vpn_policy[afi].rmap_name[dir]);
-				bgp->vpn_policy[afi].rmap_name[dir] = NULL;
-				bgp->vpn_policy[afi].rmap[dir] = NULL;
-			}
-
-			vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+		if (yes) {
+			if (bgp->vpn_policy[afi].rmap_name[dir])
+				XFREE(MTYPE_ROUTE_MAP_NAME,
+				      bgp->vpn_policy[afi].rmap_name[dir]);
+			bgp->vpn_policy[afi].rmap_name[dir] = XSTRDUP(
+								      MTYPE_ROUTE_MAP_NAME, rmap_str);
+			bgp->vpn_policy[afi].rmap[dir] =
+				route_map_lookup_by_name(rmap_str);
+			if (!bgp->vpn_policy[afi].rmap[dir])
+				return CMD_SUCCESS;
+		} else {
+			if (bgp->vpn_policy[afi].rmap_name[dir])
+				XFREE(MTYPE_ROUTE_MAP_NAME,
+				      bgp->vpn_policy[afi].rmap_name[dir]);
+			bgp->vpn_policy[afi].rmap_name[dir] = NULL;
+			bgp->vpn_policy[afi].rmap[dir] = NULL;
 		}
+
+		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 	}
 
 	return CMD_SUCCESS;
@@ -6586,8 +6556,6 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
       "name of route-map\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	int ret;
-	int doafi[AFI_MAX] = {0};
 	vpn_policy_direction_t dir = BGP_VPN_POLICY_DIR_FROMVPN;
 	afi_t afi;
 	int idx = 0;
@@ -6597,9 +6565,9 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
-	ret = vpn_policy_getafi(vty, doafi);
-	if (ret != CMD_SUCCESS)
-		return ret;
+	afi = vpn_policy_getafi(vty);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	bgp_default = bgp_get_default();
 	if (!bgp_default) {
@@ -6617,32 +6585,27 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 		}
 	}
 
-	for (afi = 0; afi < AFI_MAX; ++afi) {
-		if (!doafi[afi])
-			continue;
+	vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
-		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
-
-		if (yes) {
-			if (bgp->vpn_policy[afi].rmap_name[dir])
-				XFREE(MTYPE_ROUTE_MAP_NAME,
-				      bgp->vpn_policy[afi].rmap_name[dir]);
-			bgp->vpn_policy[afi].rmap_name[dir] =
-				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
-			bgp->vpn_policy[afi].rmap[dir] =
-				route_map_lookup_by_name(rmap_str);
-			if (!bgp->vpn_policy[afi].rmap[dir])
-				return CMD_SUCCESS;
-		} else {
-			if (bgp->vpn_policy[afi].rmap_name[dir])
-				XFREE(MTYPE_ROUTE_MAP_NAME,
-				      bgp->vpn_policy[afi].rmap_name[dir]);
-			bgp->vpn_policy[afi].rmap_name[dir] = NULL;
-			bgp->vpn_policy[afi].rmap[dir] = NULL;
-		}
-
-		vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
+	if (yes) {
+		if (bgp->vpn_policy[afi].rmap_name[dir])
+			XFREE(MTYPE_ROUTE_MAP_NAME,
+			      bgp->vpn_policy[afi].rmap_name[dir]);
+		bgp->vpn_policy[afi].rmap_name[dir] =
+			XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+		bgp->vpn_policy[afi].rmap[dir] =
+			route_map_lookup_by_name(rmap_str);
+		if (!bgp->vpn_policy[afi].rmap[dir])
+			return CMD_SUCCESS;
+	} else {
+		if (bgp->vpn_policy[afi].rmap_name[dir])
+			XFREE(MTYPE_ROUTE_MAP_NAME,
+			      bgp->vpn_policy[afi].rmap_name[dir]);
+		bgp->vpn_policy[afi].rmap_name[dir] = NULL;
+		bgp->vpn_policy[afi].rmap[dir] = NULL;
 	}
+
+	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 
 	return CMD_SUCCESS;
 }
@@ -6811,7 +6774,6 @@ DEFPY (af_routetarget_import,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 	struct ecommunity *ecom = NULL;
-	int doafi[AFI_MAX] = {0};
 	afi_t afi;
 	int idx = 0;
 	int yes = 1;
@@ -6819,9 +6781,10 @@ DEFPY (af_routetarget_import,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
-	ret = vpn_policy_getafi(vty, doafi);
-	if (ret != CMD_SUCCESS)
-		return ret;
+	afi = vpn_policy_getafi(vty);
+	if (afi == AFI_MAX)
+		return CMD_WARNING_CONFIG_FAILED;
+
 	if (yes) {
 		if (!argv_find(argv, argc, "RTLIST", &idx)) {
 			vty_out(vty, "%% Missing RTLIST\n");
@@ -6831,24 +6794,20 @@ DEFPY (af_routetarget_import,
 		if (ret != CMD_SUCCESS)
 			return ret;
 	}
-	for (afi = 0; afi < AFI_MAX; ++afi) {
-		if (!doafi[afi])
-			continue;
-		if (yes) {
-			if (bgp->vpn_policy[afi].import_redirect_rtlist)
-				ecommunity_free(
-					&bgp->vpn_policy[afi]
+
+	if (yes) {
+		if (bgp->vpn_policy[afi].import_redirect_rtlist)
+			ecommunity_free(&bgp->vpn_policy[afi]
 					.import_redirect_rtlist);
-			bgp->vpn_policy[afi].import_redirect_rtlist =
-				ecommunity_dup(ecom);
-		} else {
-			if (bgp->vpn_policy[afi].import_redirect_rtlist)
-				ecommunity_free(
-					&bgp->vpn_policy[afi]
+		bgp->vpn_policy[afi].import_redirect_rtlist =
+			ecommunity_dup(ecom);
+	} else {
+		if (bgp->vpn_policy[afi].import_redirect_rtlist)
+			ecommunity_free(&bgp->vpn_policy[afi]
 					.import_redirect_rtlist);
-			bgp->vpn_policy[afi].import_redirect_rtlist = NULL;
-		}
+		bgp->vpn_policy[afi].import_redirect_rtlist = NULL;
 	}
+
 	if (ecom)
 		ecommunity_free(&ecom);
 
