@@ -227,8 +227,9 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 				ecom->val + (i * ECOMMUNITY_SIZE);
 
 			if (action_count > ACTIONS_MAX_NUM) {
-				zlog_err("%s: flowspec actions exceeds limit (max %u)",
-					 __func__, action_count);
+				if (BGP_DEBUG(pbr, PBR_ERROR))
+					zlog_err("%s: flowspec actions exceeds limit (max %u)",
+						 __func__, action_count);
 				break;
 			}
 			api_action = &api->actions[action_count];
@@ -1035,8 +1036,9 @@ void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
 	api.afi = afi;
 
 	if (bgp_pbr_build_and_validate_entry(p, info, &api) < 0) {
-		zlog_err("%s: cancel updating entry in bgp pbr",
-			 __func__);
+		if (BGP_DEBUG(pbr, PBR_ERROR))
+			zlog_err("%s: cancel updating entry in bgp pbr",
+				 __func__);
 		return;
 	}
 	bgp_pbr_handle_entry(bgp, info, &api, nlri_update);

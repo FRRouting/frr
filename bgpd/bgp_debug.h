@@ -126,6 +126,7 @@ struct bgp_debug_filter {
 #define BGP_DEBUG_FLOWSPEC            0x01
 #define BGP_DEBUG_LABELPOOL           0x01
 #define BGP_DEBUG_PBR                 0x01
+#define BGP_DEBUG_PBR_ERROR           0x02
 
 #define BGP_DEBUG_PACKET_SEND         0x01
 #define BGP_DEBUG_PACKET_SEND_DETAIL  0x02
