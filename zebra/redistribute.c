@@ -531,7 +531,7 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 			re->tag, rmap_name);
 
 	if (ret != RMAP_MATCH) {
-		UNSET_FLAG(same->flags, ZEBRA_FLAG_SELECTED);
+		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
 		zebra_del_import_table_entry(rn, re);
 		return 0;
 	}
