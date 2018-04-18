@@ -185,16 +185,20 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	    || api->match_icmp_type_num || api->match_icmp_type_num
 	    || api->match_packet_length_num || api->match_dscp_num
 	    || api->match_tcpflags_num) {
-		if (BGP_DEBUG(pbr, PBR))
+		if (BGP_DEBUG(pbr, PBR)) {
 			bgp_pbr_print_policy_route(api);
-		zlog_err("BGP: some SET actions not supported by Zebra. ignoring.");
+			zlog_debug("BGP: some SET actions not supported by Zebra. ignoring.");
+		}
 		return 0;
 	}
 	if (!(api->match_bitmask & PREFIX_SRC_PRESENT) &&
 	    !(api->match_bitmask & PREFIX_DST_PRESENT)) {
-		if (BGP_DEBUG(pbr, PBR))
+		if (BGP_DEBUG(pbr, PBR)) {
 			bgp_pbr_print_policy_route(api);
-		zlog_err("BGP: SET actions without src or dst address can not operate. ignoring.");
+			zlog_debug("BGP: match actions without src"
+				 " or dst address can not operate."
+				 " ignoring.");
+		}
 		return 0;
 	}
 	return 1;
@@ -293,10 +297,12 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 	if (api->match_bitmask & PREFIX_DST_PRESENT) {
 		dst = &api->dst_prefix;
 		if (valid_prefix && afi != family2afi(dst->family)) {
-			if (BGP_DEBUG(pbr, PBR))
+			if (BGP_DEBUG(pbr, PBR)) {
 				bgp_pbr_print_policy_route(api);
-			zlog_err("%s: inconsistency:  no match for afi src and dst (%u/%u)",
-				 __func__, afi, family2afi(dst->family));
+				zlog_debug("%s: inconsistency:"
+				     " no match for afi src and dst (%u/%u)",
+				     __func__, afi, family2afi(dst->family));
+			}
 			return -1;
 		}
 	}
@@ -955,25 +961,28 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 			} else {
 				/* update rate. can be reentrant */
 				rate = api->actions[i].u.r.rate;
-				if (BGP_DEBUG(pbr, PBR))
+				if (BGP_DEBUG(pbr, PBR)) {
 					bgp_pbr_print_policy_route(api);
-				zlog_warn("PBR: ignoring Set action rate %f",
-					  api->actions[i].u.r.rate);
+					zlog_warn("PBR: ignoring Set action rate %f",
+						  api->actions[i].u.r.rate);
+				}
 			}
 			break;
 		case ACTION_TRAFFIC_ACTION:
 			if (api->actions[i].u.za.filter
 			    & TRAFFIC_ACTION_SAMPLE) {
-				if (BGP_DEBUG(pbr, PBR))
+				if (BGP_DEBUG(pbr, PBR)) {
 					bgp_pbr_print_policy_route(api);
-				zlog_warn("PBR: Sample action Ignored");
+					zlog_warn("PBR: Sample action Ignored");
+				}
 			}
 #if 0
 			if (api->actions[i].u.za.filter
 			    & TRAFFIC_ACTION_DISTRIBUTE) {
-				if (BGP_DEBUG(pbr, PBR))
+				if (BGP_DEBUG(pbr, PBR)) {
 					bgp_pbr_print_policy_route(api);
-				zlog_warn("PBR: Distribute action Applies");
+					zlog_warn("PBR: Distribute action Applies");
+				}
 				continue_loop = 0;
 				/* continue forwarding entry as before
 				 * no action
@@ -1007,10 +1016,11 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 			continue_loop = 0;
 			break;
 		case ACTION_MARKING:
-			if (BGP_DEBUG(pbr, PBR))
+			if (BGP_DEBUG(pbr, PBR)) {
 				bgp_pbr_print_policy_route(api);
-			zlog_warn("PBR: Set DSCP %u Ignored",
-				  api->actions[i].u.marking_dscp);
+				zlog_warn("PBR: Set DSCP %u Ignored",
+					  api->actions[i].u.marking_dscp);
+			}
 			break;
 		default:
 			break;
