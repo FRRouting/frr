@@ -209,6 +209,13 @@ void pbr_nhgroup_add_cb(const char *name)
 	struct nexthop_group_cmd *nhgc;
 
 	nhgc = nhgc_find(name);
+
+	if (!nhgc) {
+		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s\n",
+		       __PRETTY_FUNCTION__, name);
+		return;
+	}
+
 	pnhgc = pbr_nht_add_group(name);
 
 	DEBUGD(&pbr_dbg_nht, "%s: Added nexthop-group %s", __PRETTY_FUNCTION__,
@@ -433,7 +440,7 @@ void pbr_nht_change_group(const char *name)
 		return;
 
 	memset(&find, 0, sizeof(find));
-	strcpy(find.name, name);
+	snprintf(find.name, sizeof(find.name), "%s", name);
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 
 	if (!pnhgc) {
@@ -508,7 +515,7 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 	pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
 
 	memset(&find, 0, sizeof(find));
-	strcpy(&find.name[0], pbrms->internal_nhg_name);
+	snprintf(find.name, sizeof(find.name), "%s", pbrms->internal_nhg_name);
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 
 	nh = pbrms->nhg->nexthop;
@@ -543,7 +550,7 @@ struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 		return NULL;
 	}
 
-	strcpy(lookup.name, name);
+	snprintf(lookup.name, sizeof(lookup.name), "%s", name);
 	pnhgc = hash_get(pbr_nhg_hash, &lookup, pbr_nhgc_alloc);
 	DEBUGD(&pbr_dbg_nht, "%s: Retrieved NHGC @ %p", __PRETTY_FUNCTION__,
 	       pnhgc);
@@ -602,7 +609,7 @@ bool pbr_nht_nexthop_group_valid(const char *name)
 
 	DEBUGD(&pbr_dbg_nht, "%s: %s", __PRETTY_FUNCTION__, name);
 
-	strcpy(lookup.name, name);
+	snprintf(lookup.name, sizeof(lookup.name), "%s", name);
 	pnhgc = hash_get(pbr_nhg_hash, &lookup, NULL);
 	if (!pnhgc)
 		return false;
@@ -757,7 +764,7 @@ uint32_t pbr_nht_get_table(const char *name)
 	struct pbr_nexthop_group_cache *pnhgc;
 
 	memset(&find, 0, sizeof(find));
-	strcpy(find.name, name);
+	snprintf(find.name, sizeof(find.name), "%s", name);
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 
 	if (!pnhgc) {
@@ -776,7 +783,7 @@ bool pbr_nht_get_installed(const char *name)
 	struct pbr_nexthop_group_cache *pnhgc;
 
 	memset(&find, 0, sizeof(find));
-	strcpy(find.name, name);
+	snprintf(find.name, sizeof(find.name), "%s", name);
 
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 
