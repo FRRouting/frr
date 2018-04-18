@@ -196,5 +196,16 @@ static inline char *label2str(mpls_label_t label, char *buf, size_t len)
 	}
 }
 
+/*
+ * String to label conversion, labels separated by '/'.
+ */
+int mpls_str2label(const char *label_str, uint8_t *num_labels,
+		   mpls_label_t *labels);
+
+/*
+ * Label to string conversion, labels in string separated by '/'.
+ */
+char *mpls_label2str(uint8_t num_labels, mpls_label_t *labels, char *buf,
+		     int len, int pretty);
 
 #endif
