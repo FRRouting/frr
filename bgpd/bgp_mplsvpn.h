@@ -113,6 +113,14 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 
+	/* Is a route-map specified, but not defined? */
+	if (bgp_vrf->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_TOVPN] &&
+		!bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN]) {
+		if (pmsg)
+			*pmsg = "route-map tovpn named but not defined";
+		return 0;
+	}
+
 	/* Is there an "auto" export label that isn't allocated yet? */
 	if (CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
 		BGP_VPN_POLICY_TOVPN_LABEL_AUTO) &&
@@ -144,9 +152,19 @@ static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 			*pmsg = "import not set";
 		return 0;
 	}
+
+	/* Is there an RT list set? */
 	if (!bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_FROMVPN]) {
 		if (pmsg)
 			*pmsg = "rtlist fromvpn not defined";
+		return 0;
+	}
+
+	/* Is a route-map specified, but not defined? */
+	if (bgp_vrf->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN] &&
+		!bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_FROMVPN]) {
+		if (pmsg)
+			*pmsg = "route-map fromvpn named but not defined";
 		return 0;
 	}
 	return 1;
