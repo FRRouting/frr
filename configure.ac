@@ -40,6 +40,8 @@ AS_IF([test "$host" != "$build"], [
   ( CPPFLAGS="$HOST_CPPFLAGS"; \
     CFLAGS="$HOST_CFLAGS"; \
     LDFLAGS="$HOST_LDFLAGS"; \
+    CC="$HOST_CC"; \
+    LD="$HOST_LD"; \
     cd hosttools; "${abssrc}/configure" "--host=$build" "--build=$build" "--enable-clippy-only" "--disable-nhrpd" "--disable-vtysh"; )
 
   AC_MSG_NOTICE([...])
