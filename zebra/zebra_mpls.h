@@ -43,10 +43,6 @@
 		 ? AF_INET6                                                    \
 		 : AF_INET)
 
-#define MPLS_LABEL_HELPSTR                                                     \
-	"Specify label(s) for this route\nOne or more "                        \
-	"labels in the range (16-1048575) separated by '/'\n"
-
 /* Typedefs */
 
 typedef struct zebra_ile_t_ zebra_ile_t;
@@ -166,18 +162,6 @@ struct zebra_fec_t_ {
 };
 
 /* Function declarations. */
-
-/*
- * String to label conversion, labels separated by '/'.
- */
-int mpls_str2label(const char *label_str, uint8_t *num_labels,
-		   mpls_label_t *labels);
-
-/*
- * Label to string conversion, labels in string separated by '/'.
- */
-char *mpls_label2str(uint8_t num_labels, mpls_label_t *labels, char *buf,
-		     int len, int pretty);
 
 /*
  * Add/update global label block.

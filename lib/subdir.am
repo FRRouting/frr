@@ -41,6 +41,7 @@ lib_libfrr_la_SOURCES = \
 	lib/memory.c \
 	lib/memory_vty.c \
 	lib/module.c \
+	lib/mpls.c \
 	lib/network.c \
 	lib/nexthop.c \
 	lib/netns_linux.c \
