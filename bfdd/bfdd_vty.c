@@ -433,12 +433,11 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 int bfdd_write_config(struct vty *vty)
 {
 	if (TAILQ_EMPTY(&bc.bc_bnlist))
-		return 1;
+		return 0;
 
 	vty_out(vty, "bfd\n");
 	vty_out(vty, "!\n");
-
-	return 1;
+	return 0;
 }
 
 int bfdd_peer_write_config(struct vty *vty)

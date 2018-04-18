@@ -974,6 +974,9 @@ enum node_type node_parent(enum node_type node)
 	assert(node > CONFIG_NODE);
 
 	switch (node) {
+	case BFD_PEER_NODE:
+		ret = BFD_NODE;
+		break;
 	case BGP_VPNV4_NODE:
 	case BGP_VPNV6_NODE:
 	case BGP_FLOWSPECV4_NODE:

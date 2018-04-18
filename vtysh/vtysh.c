@@ -997,11 +997,11 @@ static char **new_completion(char *text, int start, int end)
 /* Vty node structures. */
 #if HAVE_BFDD > 0
 static struct cmd_node bfd_node = {
-	BFD_NODE, "%s(config-bfd)# ", 1,
+	BFD_NODE, "%s(config-bfd)# ",
 };
 
 static struct cmd_node bfd_peer_node = {
-	BFD_PEER_NODE, "%s(config-bfd-peer)# ", 1,
+	BFD_PEER_NODE, "%s(config-bfd-peer)# ",
 };
 #endif /* HAVE_BFDD */
 
