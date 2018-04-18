@@ -4204,96 +4204,85 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 	return 0;
 }
 
+static void if_config_write_interface(struct vty *vty, struct interface *ifp)
+{
+	struct zebra_if *if_data;
+	struct listnode *addrnode;
+	struct connected *ifc;
+	struct prefix *p;
+
+	if_data = ifp->info;
+
+	vty_frame(vty, "interface %s\n", ifp->name);
+
+	if (if_data) {
+		if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
+			vty_out(vty, " shutdown\n");
+
+		zebra_ptm_if_write(vty, if_data);
+	}
+
+	if (ifp->desc)
+		vty_out(vty, " description %s\n", ifp->desc);
+
+	/*
+	 * Assign bandwidth here to avoid unnecessary interface
+	 * flap while processing config script
+	 */
+	if (ifp->bandwidth != 0)
+		vty_out(vty, " bandwidth %u\n", ifp->bandwidth);
+
+	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
+		vty_out(vty, " no link-detect\n");
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, addrnode, ifc)) {
+		if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
+			char buf[INET6_ADDRSTRLEN];
+
+			p = ifc->address;
+			vty_out(vty, " ip%s address %s",
+				p->family == AF_INET ? "" : "v6",
+				inet_ntop(p->family, &p->u.prefix,
+					  buf, sizeof(buf)));
+			if (CONNECTED_PEER(ifc)) {
+				p = ifc->destination;
+				vty_out(vty, " peer %s",
+					inet_ntop(p->family, &p->u.prefix,
+						  buf, sizeof(buf)));
+			}
+			vty_out(vty, "/%d", p->prefixlen);
+
+			if (ifc->label)
+				vty_out(vty, " label %s", ifc->label);
+			vty_out(vty, "\n");
+		}
+	}
+
+	if (if_data) {
+		if (if_data->multicast != IF_ZEBRA_MULTICAST_UNSPEC)
+			vty_out(vty, " %smulticast\n",
+				if_data->multicast == IF_ZEBRA_MULTICAST_ON
+				? "" : "no ");
+	}
+
+	hook_call(zebra_if_config_wr, vty, ifp);
+	zebra_evpn_mh_if_write(vty, ifp);
+	link_params_config_write(vty, ifp);
+
+	vty_endframe(vty, "exit\n!\n");
+}
+
 static int if_config_write(struct vty *vty)
 {
-	struct vrf *vrf0;
+	struct vrf *vrf;
 	struct interface *ifp;
 
 	zebra_ptm_write(vty);
 
-	RB_FOREACH (vrf0, vrf_name_head, &vrfs_by_name)
-		FOR_ALL_INTERFACES (vrf0, ifp) {
-			struct zebra_if *if_data;
-			struct listnode *addrnode;
-			struct connected *ifc;
-			struct prefix *p;
-			struct vrf *vrf;
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
+			if_config_write_interface(vty, ifp);
 
-			if_data = ifp->info;
-			vrf = vrf_lookup_by_id(ifp->vrf_id);
-
-			if (ifp->vrf_id == VRF_DEFAULT)
-				vty_frame(vty, "interface %s\n", ifp->name);
-			else
-				vty_frame(vty, "interface %s vrf %s\n",
-					  ifp->name, vrf->name);
-
-			if (if_data) {
-				if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
-					vty_out(vty, " shutdown\n");
-
-				zebra_ptm_if_write(vty, if_data);
-			}
-
-			if (ifp->desc)
-				vty_out(vty, " description %s\n", ifp->desc);
-
-			/* Assign bandwidth here to avoid unnecessary interface
-			   flap
-			   while processing config script */
-			if (ifp->bandwidth != 0)
-				vty_out(vty, " bandwidth %u\n", ifp->bandwidth);
-
-			if (!CHECK_FLAG(ifp->status,
-					ZEBRA_INTERFACE_LINKDETECTION))
-				vty_out(vty, " no link-detect\n");
-
-			for (ALL_LIST_ELEMENTS_RO(ifp->connected, addrnode,
-						  ifc)) {
-				if (CHECK_FLAG(ifc->conf,
-					       ZEBRA_IFC_CONFIGURED)) {
-					char buf[INET6_ADDRSTRLEN];
-					p = ifc->address;
-					vty_out(vty, " ip%s address %s",
-						p->family == AF_INET ? ""
-								     : "v6",
-						inet_ntop(p->family,
-							  &p->u.prefix, buf,
-							  sizeof(buf)));
-					if (CONNECTED_PEER(ifc)) {
-						p = ifc->destination;
-						vty_out(vty, " peer %s",
-							inet_ntop(p->family,
-								  &p->u.prefix,
-								  buf,
-								  sizeof(buf)));
-					}
-					vty_out(vty, "/%d", p->prefixlen);
-
-					if (ifc->label)
-						vty_out(vty, " label %s",
-							ifc->label);
-
-					vty_out(vty, "\n");
-				}
-			}
-
-			if (if_data) {
-				if (if_data->multicast
-				    != IF_ZEBRA_MULTICAST_UNSPEC)
-					vty_out(vty, " %smulticast\n",
-						if_data->multicast
-								== IF_ZEBRA_MULTICAST_ON
-							? ""
-							: "no ");
-			}
-
-			hook_call(zebra_if_config_wr, vty, ifp);
-			zebra_evpn_mh_if_write(vty, ifp);
-			link_params_config_write(vty, ifp);
-
-			vty_endframe(vty, "exit\n!\n");
-		}
 	return 0;
 }
 
