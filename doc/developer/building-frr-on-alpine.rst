@@ -10,6 +10,28 @@ Depending on your host, there are different ways of installing docker.  Refer
 to the documentation here for instructions on how to install a free version of
 docker: https://www.docker.com/community-edition
 
+Pre-built packages and docker images
+------------------------------------
+
+The master branch of https://github.com/frrouting/frr.git has a
+continuous delivery of docker images to docker hub at:
+https://hub.docker.com/r/ajones17/frr/. These images have the frr packages
+in /pkgs/apk and have the frr package pre-installed.  To copy Alpine
+packages out of these images:
+
+::
+
+   id=`docker create ajones17/frr:latest`
+   docker cp ${id}:/pkgs _some_directory_
+   docker rm $id
+
+To run the frr daemons (see below for how to configure them):
+
+::
+
+   docker run -it --rm --name frr ajones17/frr:latest
+   docker exec -it frr /bin/sh
+
 Work with sources
 -----------------
 
