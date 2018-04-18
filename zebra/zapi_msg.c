@@ -2245,7 +2245,7 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 		client->notify_owner = true;
 
 	/* accept only dynamic routing protocols */
-	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_STATIC)) {
+	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_CONNECT)) {
 		zlog_notice(
 			"client %d says hello and bids fair to announce only %s routes vrf=%u",
 			client->sock, zebra_route_string(proto),
