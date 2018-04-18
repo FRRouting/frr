@@ -605,8 +605,6 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 	unsigned int year, month, day, hour, minute, second;
 	int rv;
 
-	year = month = day = hour = minute = second = 0;
-
 #define MINUTES (60)
 #define HOURS (24 * MINUTES)
 #define DAYS (30 * HOURS)
