@@ -43,10 +43,6 @@
 		 ? AF_INET6                                                    \
 		 : AF_INET)
 
-#define MPLS_LABEL_HELPSTR                                                     \
-	"Specify label(s) for this route\nOne or more "                        \
-	"labels in the range (16-1048575) separated by '/'\n"
-
 /* Typedefs */
 
 typedef struct zebra_ile_t_ zebra_ile_t;
