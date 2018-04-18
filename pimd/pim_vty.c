@@ -277,6 +277,130 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	return writes;
 }
 
+/*
+ * Emit config output for a single interface.
+ */
+static int pim_interface_config_write_interface(struct pim_instance *pim,
+						struct vty *vty,
+						struct interface *ifp)
+{
+	/* pim is enabled internally/implicitly on the vxlan
+	 * termination device ipmr-lo. skip displaying that
+	 * config to avoid confusion
+	 */
+	if (pim_vxlan_is_term_dev_cfg(pim, ifp))
+		return 0;
+
+	/* IF name */
+	vty_frame(vty, "interface %s\n", ifp->name);
+
+	if (ifp->desc)
+		vty_out(vty, " description %s\n", ifp->desc);
+
+	if (ifp->info) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (PIM_IF_TEST_PIM(pim_ifp->options))
+			vty_out(vty, " ip pim\n");
+
+		/* IF ip pim drpriority */
+		if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY)
+			vty_out(vty, " ip pim drpriority %u\n",
+				pim_ifp->pim_dr_priority);
+
+		/* IF ip pim hello */
+		if (pim_ifp->pim_hello_period != PIM_DEFAULT_HELLO_PERIOD) {
+			vty_out(vty, " ip pim hello %d",
+				pim_ifp->pim_hello_period);
+			if (pim_ifp->pim_default_holdtime != -1)
+				vty_out(vty, " %d",
+					pim_ifp->pim_default_holdtime);
+			vty_out(vty, "\n");
+		}
+
+		/* update source */
+		if (PIM_INADDR_ISNOT_ANY(pim_ifp->update_source)) {
+			char src_str[INET_ADDRSTRLEN];
+
+			pim_inet4_dump("<src?>",
+				       pim_ifp->update_source,
+				       src_str,
+				       sizeof(src_str));
+			vty_out(vty, " ip pim use-source %s\n", src_str);
+		}
+
+		/* IF ip igmp */
+		if (PIM_IF_TEST_IGMP(pim_ifp->options))
+			vty_out(vty, " ip igmp\n");
+
+		/* ip igmp version */
+		if (pim_ifp->igmp_version != IGMP_DEFAULT_VERSION)
+			vty_out(vty, " ip igmp version %d\n",
+				pim_ifp->igmp_version);
+
+		/* IF ip igmp query-interval */
+		if (pim_ifp->igmp_default_query_interval
+		    != IGMP_GENERAL_QUERY_INTERVAL)
+			vty_out(vty, " ip igmp query-interval %d\n",
+				pim_ifp->igmp_default_query_interval);
+
+		/* IF ip igmp query-max-response-time */
+		if (pim_ifp->igmp_query_max_response_time_dsec
+		    != IGMP_QUERY_MAX_RESPONSE_TIME_DSEC)
+			vty_out(vty, " ip igmp query-max-response-time %d\n",
+				pim_ifp->igmp_query_max_response_time_dsec);
+
+		/* IF ip igmp last-member_query-count */
+		if (pim_ifp->igmp_last_member_query_count
+		    != IGMP_DEFAULT_ROBUSTNESS_VARIABLE)
+			vty_out(vty,
+				" ip igmp last-member-query-count %d\n",
+				pim_ifp->igmp_last_member_query_count);
+
+		/* IF ip igmp join */
+		if (pim_ifp->igmp_join_list) {
+			struct listnode *node;
+			struct igmp_join *ij;
+
+			for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_join_list,
+						  node, ij)) {
+				char group_str[INET_ADDRSTRLEN];
+				char source_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<grp?>", ij->group_addr,
+					       group_str, sizeof(group_str));
+
+				if (ij->source_addr.s_addr == INADDR_ANY) {
+					vty_out(vty, " ip igmp join %s %s\n",
+						group_str, source_str);
+				} else {
+					inet_ntop(AF_INET, &ij->source_addr,
+						  source_str,
+						  sizeof(source_str));
+					vty_out(vty, " ip igmp join %s %s\n",
+						group_str, source_str);
+				}
+			}
+		}
+
+		if (pim_ifp->activeactive)
+			vty_out(vty, " ip pim active-active\n");
+
+		/* boundary */
+		if (pim_ifp->boundary_oil_plist) {
+			vty_out(vty, " ip multicast boundary oil %s\n",
+				pim_ifp->boundary_oil_plist);
+		}
+
+		pim_static_write_mroute(pim, vty, ifp);
+		pim_bfd_write_config(vty, ifp);
+	}
+
+	vty_endframe(vty, "exit\n!\n");
+
+	return 1;
+}
+
 int pim_interface_config_write(struct vty *vty)
 {
 	struct pim_instance *pim;
@@ -290,169 +414,9 @@ int pim_interface_config_write(struct vty *vty)
 			continue;
 
 		FOR_ALL_INTERFACES (pim->vrf, ifp) {
-			/* pim is enabled internally/implicitly on the vxlan
-			 * termination device ipmr-lo. skip displaying that
-			 * config to avoid confusion
-			 */
-			if (pim_vxlan_is_term_dev_cfg(pim, ifp))
-				continue;
-
-			/* IF name */
-			if (vrf->vrf_id == VRF_DEFAULT)
-				vty_frame(vty, "interface %s\n", ifp->name);
-			else
-				vty_frame(vty, "interface %s vrf %s\n",
-					  ifp->name, vrf->name);
-			++writes;
-
-			if (ifp->desc) {
-				vty_out(vty, " description %s\n", ifp->desc);
-				++writes;
-			}
-
-			if (ifp->info) {
-				struct pim_interface *pim_ifp = ifp->info;
-
-				if (PIM_IF_TEST_PIM(pim_ifp->options)) {
-					vty_out(vty, " ip pim\n");
-					++writes;
-				}
-
-				/* IF ip pim drpriority */
-				if (pim_ifp->pim_dr_priority
-				    != PIM_DEFAULT_DR_PRIORITY) {
-					vty_out(vty, " ip pim drpriority %u\n",
-						pim_ifp->pim_dr_priority);
-					++writes;
-				}
-
-				/* IF ip pim hello */
-				if (pim_ifp->pim_hello_period
-				    != PIM_DEFAULT_HELLO_PERIOD) {
-					vty_out(vty, " ip pim hello %d",
-						pim_ifp->pim_hello_period);
-					if (pim_ifp->pim_default_holdtime != -1)
-						vty_out(vty, " %d",
-							pim_ifp->pim_default_holdtime);
-					vty_out(vty, "\n");
-					++writes;
-				}
-
-				/* update source */
-				if (PIM_INADDR_ISNOT_ANY(
-					    pim_ifp->update_source)) {
-					char src_str[INET_ADDRSTRLEN];
-					pim_inet4_dump("<src?>",
-						       pim_ifp->update_source,
-						       src_str,
-						       sizeof(src_str));
-					vty_out(vty, " ip pim use-source %s\n",
-						src_str);
-					++writes;
-				}
-
-				/* IF ip igmp */
-				if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
-					vty_out(vty, " ip igmp\n");
-					++writes;
-				}
-
-				/* ip igmp version */
-				if (pim_ifp->igmp_version
-				    != IGMP_DEFAULT_VERSION) {
-					vty_out(vty, " ip igmp version %d\n",
-						pim_ifp->igmp_version);
-					++writes;
-				}
-
-				/* IF ip igmp query-max-response-time */
-				if (pim_ifp->igmp_query_max_response_time_dsec
-				    != IGMP_QUERY_MAX_RESPONSE_TIME_DSEC) {
-					vty_out(vty,
-						" ip igmp query-max-response-time %d\n",
-						pim_ifp->igmp_query_max_response_time_dsec);
-					++writes;
-				}
-
-				/* IF ip igmp query-interval */
-				if (pim_ifp->igmp_default_query_interval
-				    != IGMP_GENERAL_QUERY_INTERVAL) {
-					vty_out(vty,
-						" ip igmp query-interval %d\n",
-						pim_ifp->igmp_default_query_interval);
-					++writes;
-				}
-
-				/* IF ip igmp last-member_query-count */
-				if (pim_ifp->igmp_last_member_query_count
-				    != IGMP_DEFAULT_ROBUSTNESS_VARIABLE) {
-					vty_out(vty,
-						" ip igmp last-member-query-count %d\n",
-						pim_ifp->igmp_last_member_query_count);
-					++writes;
-				}
-
-				/* IF ip igmp last-member_query-interval */
-				if (pim_ifp->igmp_specific_query_max_response_time_dsec
-				    != IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC) {
-					vty_out(vty,
-						" ip igmp last-member-query-interval %d\n",
-						pim_ifp->igmp_specific_query_max_response_time_dsec);
-					  ++writes;
-				}
-
-				/* IF ip igmp join */
-				if (pim_ifp->igmp_join_list) {
-					struct listnode *node;
-					struct igmp_join *ij;
-					for (ALL_LIST_ELEMENTS_RO(
-						     pim_ifp->igmp_join_list,
-						     node, ij)) {
-						char group_str[INET_ADDRSTRLEN];
-						char source_str
-							[INET_ADDRSTRLEN];
-						pim_inet4_dump(
-							"<grp?>",
-							ij->group_addr,
-							group_str,
-							sizeof(group_str));
-						if (ij->source_addr.s_addr == INADDR_ANY) {
-							vty_out(vty,
-								" ip igmp join %s\n",
-								group_str);
-						} else {
-							inet_ntop(AF_INET,
-								  &ij->source_addr,
-								  source_str,
-								  sizeof(source_str));
-							vty_out(vty,
-								" ip igmp join %s %s\n",
-								group_str, source_str);
-						}
-						++writes;
-					}
-				}
-
-				if (pim_ifp->activeactive)
-					vty_out(vty, " ip pim active-active\n");
-
-				/* boundary */
-				if (pim_ifp->boundary_oil_plist) {
-					vty_out(vty,
-						" ip multicast boundary oil %s\n",
-						pim_ifp->boundary_oil_plist);
-					++writes;
-				}
-
-				writes +=
-					pim_static_write_mroute(pim, vty, ifp);
-				pim_bsm_write_config(vty, ifp);
-				++writes;
-				pim_bfd_write_config(vty, ifp);
-				++writes;
-			}
-			vty_endframe(vty, "exit\n!\n");
-			++writes;
+			writes +=
+				pim_interface_config_write_interface(
+					pim, vty, ifp);
 		}
 	}
 
