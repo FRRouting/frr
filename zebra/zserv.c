@@ -2020,6 +2020,18 @@ static int zread_router_id_delete(struct zserv *client, u_short length,
 	return 0;
 }
 
+static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_CAPABILITIES, zvrf->vrf->vrf_id);
+	stream_putc(s, mpls_enabled);
+	stream_putl(s, multipath_num);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zebra_server_send_message(client, s);
+}
+
 /* Tie up route-type and client->sock */
 static void zread_hello(struct zserv *client)
 {
@@ -2046,6 +2058,7 @@ static void zread_hello(struct zserv *client)
 		client->instance = instance;
 	}
 
+	zsend_capabilities(client, zvrf);
 stream_failure:
 	return;
 }
