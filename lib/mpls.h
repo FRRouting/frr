@@ -28,6 +28,10 @@
 #undef MPLS_LABEL_MAX
 #endif
 
+#define MPLS_LABEL_HELPSTR                                                     \
+	"Specify label(s) for this route\nOne or more "                        \
+	"labels in the range (16-1048575) separated by '/'\n"
+
 /* Well-known MPLS label values (RFC 3032 etc). */
 #define MPLS_LABEL_IPV4_EXPLICIT_NULL  0       /* [RFC3032] */
 #define MPLS_LABEL_ROUTER_ALERT        1       /* [RFC3032] */
