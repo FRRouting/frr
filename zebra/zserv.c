@@ -2066,7 +2066,7 @@ static void zread_hello(struct zserv *client)
 		client->notify_owner = true;
 
 	/* accept only dynamic routing protocols */
-	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_STATIC)) {
+	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_CONNECT)) {
 		zlog_notice(
 			"client %d says hello and bids fair to announce only %s routes",
 			client->sock, zebra_route_string(proto));
