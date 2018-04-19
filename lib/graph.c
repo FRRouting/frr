@@ -23,6 +23,7 @@
 #include <zebra.h>
 #include "graph.h"
 #include "memory.h"
+#include "buffer.h"
 
 DEFINE_MTYPE_STATIC(LIB, GRAPH, "Graph")
 DEFINE_MTYPE_STATIC(LIB, GRAPH_NODE, "Graph Node")
@@ -157,3 +158,73 @@ bool graph_has_edge(struct graph_node *from, struct graph_node *to)
 
 	return false;
 }
+
+static void _graph_dfs(struct graph *graph, struct graph_node *start,
+		       vector visited,
+		       void (*dfs_cb)(struct graph_node *, void *), void *arg)
+{
+	/* check that we have not visited this node */
+	for (unsigned int i = 0; i < vector_active(visited); i++) {
+		if (start == vector_slot(visited, i))
+			return;
+	}
+
+	/* put this node in visited stack */
+	vector_ensure(visited, vector_active(visited));
+	vector_set_index(visited, vector_active(visited), start);
+
+	/* callback */
+	dfs_cb(start, arg);
+
+	/* recurse into children */
+	for (unsigned int i = vector_active(start->to); i--; /**/) {
+		struct graph_node *c = vector_slot(start->to, i);
+
+		_graph_dfs(graph, c, visited, dfs_cb, arg);
+	}
+}
+
+void graph_dfs(struct graph *graph, struct graph_node *start,
+	       void (*dfs_cb)(struct graph_node *, void *), void *arg)
+{
+	vector visited = vector_init(VECTOR_MIN_SIZE);
+
+	_graph_dfs(graph, start, visited, dfs_cb, arg);
+	vector_free(visited);
+}
+
+#ifndef BUILDING_CLIPPY
+
+void graph_dump_dot_default_print_cb(struct graph_node *gn, struct buffer *buf)
+{
+	char nbuf[64];
+
+	for (unsigned int i = 0; i < vector_active(gn->to); i++) {
+		struct graph_node *adj = vector_slot(gn->to, i);
+
+		snprintf(nbuf, sizeof(nbuf), "    n%p -> n%p;\n", gn, adj);
+		buffer_putstr(buf, nbuf);
+	}
+}
+
+char *graph_dump_dot(struct graph *graph, struct graph_node *start,
+		     void (*pcb)(struct graph_node *, struct buffer *))
+{
+	struct buffer *buf = buffer_new(0);
+	char *ret;
+
+	pcb = (pcb) ? pcb : graph_dump_dot_default_print_cb;
+	buffer_putstr(buf, "digraph {\n");
+
+	graph_dfs(graph, start, (void (*)(struct graph_node *, void *))pcb,
+		  buf);
+
+	buffer_putstr(buf, "}\n");
+
+	ret = buffer_getstr(buf);
+	buffer_free(buf);
+
+	return ret;
+}
+
+#endif /* BUILDING_CLIPPY */

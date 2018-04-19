@@ -74,6 +74,7 @@ check_PROGRAMS = \
 	lib/test_timer_performance \
 	lib/test_ttable \
 	lib/test_zlog \
+	lib/test_graph \
 	lib/cli/test_cli \
 	lib/cli/test_commands \
 	$(TESTS_BGPD) \
@@ -129,6 +130,7 @@ lib_test_timer_performance_SOURCES = lib/test_timer_performance.c \
                                      helpers/c/prng.c
 lib_test_ttable_SOURCES = lib/test_ttable.c
 lib_test_zlog_SOURCES = lib/test_zlog.c
+lib_test_graph_SOURCES = lib/test_graph.c
 lib_test_zmq_SOURCES = lib/test_zmq.c
 lib_test_zmq_CFLAGS = $(AM_CFLAGS) $(ZEROMQ_CFLAGS)
 lib_cli_test_cli_SOURCES = lib/cli/test_cli.c lib/cli/common_cli.c
@@ -170,6 +172,7 @@ lib_test_timer_correctness_LDADD = $(ALL_TESTS_LDADD)
 lib_test_timer_performance_LDADD = $(ALL_TESTS_LDADD)
 lib_test_ttable_LDADD = $(ALL_TESTS_LDADD)
 lib_test_zlog_LDADD = $(ALL_TESTS_LDADD)
+lib_test_graph_LDADD = $(ALL_TESTS_LDADD)
 lib_test_zmq_LDADD = ../lib/libfrrzmq.la $(ALL_TESTS_LDADD) $(ZEROMQ_LIBS)
 lib_cli_test_cli_LDADD = $(ALL_TESTS_LDADD)
 lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
@@ -211,6 +214,7 @@ EXTRA_DIST = \
     lib/test_ttable.py \
     lib/test_ttable.refout \
     lib/test_zlog.py \
+    lib/test_graph.py \
     ospf6d/test_lsdb.py \
     ospf6d/test_lsdb.in \
     ospf6d/test_lsdb.refout \

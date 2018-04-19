@@ -50,5 +50,7 @@ __pycache__
 /lib/test_timer_performance
 /lib/test_ttable
 /lib/test_zmq
+/lib/test_zlog
+/lib/test_graph
 /ospf6d/test_lsdb
 /ospf6d/test_lsdb_clippy.c
