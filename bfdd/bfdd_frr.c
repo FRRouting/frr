@@ -338,6 +338,7 @@ int bfd_configure_peer(struct bfd_peer_cfg *bpc,
 	bpc->bpc_detectmultiplier = BPC_DEF_DETECTMULTIPLIER;
 	bpc->bpc_recvinterval = BPC_DEF_RECEIVEINTERVAL;
 	bpc->bpc_txinterval = BPC_DEF_TRANSMITINTERVAL;
+	bpc->bpc_echointerval = BPC_DEF_ECHOINTERVAL;
 
 	/* Safety check: when no error buf is provided len must be zero. */
 	if (ebuf == NULL)
@@ -437,7 +438,10 @@ int bpc_set_detectmultiplier(struct bfd_peer_cfg *bpc, uint8_t detectmultiplier)
 		return -1;
 
 	if (detectmultiplier == BPC_DEF_DETECTMULTIPLIER) {
-		bpc->bpc_has_detectmultiplier = false;
+		/* Avoid sending if the value didn't change. */
+		bpc->bpc_has_detectmultiplier =
+			(detectmultiplier != bpc->bpc_detectmultiplier);
+
 		bpc->bpc_detectmultiplier = detectmultiplier;
 		return 0;
 	}
@@ -453,7 +457,10 @@ int bpc_set_recvinterval(struct bfd_peer_cfg *bpc, uint64_t recvinterval)
 		return -1;
 
 	if (recvinterval == BPC_DEF_RECEIVEINTERVAL) {
-		bpc->bpc_has_recvinterval = false;
+		/* Avoid sending if the value didn't change. */
+		bpc->bpc_has_recvinterval =
+			(recvinterval != bpc->bpc_recvinterval);
+
 		bpc->bpc_recvinterval = recvinterval;
 		return 0;
 	}
@@ -469,7 +476,8 @@ int bpc_set_txinterval(struct bfd_peer_cfg *bpc, uint64_t txinterval)
 		return -1;
 
 	if (txinterval == BPC_DEF_TRANSMITINTERVAL) {
-		bpc->bpc_has_txinterval = false;
+		/* Avoid sending if the value didn't change. */
+		bpc->bpc_has_txinterval = (txinterval != bpc->bpc_txinterval);
 		bpc->bpc_txinterval = txinterval;
 		return 0;
 	}
@@ -485,7 +493,9 @@ int bpc_set_echointerval(struct bfd_peer_cfg *bpc, uint64_t echointerval)
 		return -1;
 
 	if (echointerval == BPC_DEF_ECHOINTERVAL) {
-		bpc->bpc_has_echointerval = false;
+		bpc->bpc_has_echointerval =
+			(echointerval != bpc->bpc_echointerval);
+
 		bpc->bpc_echointerval = echointerval;
 		return 0;
 	}
