@@ -2162,7 +2162,7 @@ DEFUN (vtysh_show_memory,
        SHOW_STR
        "Memory statistics\n")
 {
-	return show_per_daemon("show memory\n", "Memory statistics for %s:\n");
+	return show_per_daemon("do show memory\n", "Memory statistics for %s:\n");
 }
 
 DEFUN (vtysh_show_modules,
@@ -2171,7 +2171,7 @@ DEFUN (vtysh_show_modules,
        SHOW_STR
        "Loaded modules\n")
 {
-	return show_per_daemon("show modules\n",
+	return show_per_daemon("do show modules\n",
 			       "Module information for %s:\n");
 }
 
