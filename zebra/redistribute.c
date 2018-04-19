@@ -616,8 +616,10 @@ int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
 		else {
 			rmap_name =
 				zebra_get_import_table_route_map(afi, table_id);
-			if (rmap_name)
+			if (rmap_name) {
 				zebra_del_import_table_route_map(afi, table_id);
+				rmap_name = NULL;
+			}
 		}
 
 		zebra_import_table_used[afi][table_id] = 1;
@@ -628,8 +630,10 @@ int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
 			ZEBRA_TABLE_DISTANCE_DEFAULT;
 
 		rmap_name = zebra_get_import_table_route_map(afi, table_id);
-		if (rmap_name)
+		if (rmap_name) {
 			zebra_del_import_table_route_map(afi, table_id);
+			rmap_name = NULL;
+		}
 	}
 
 	for (rn = route_top(table); rn; rn = route_next(rn)) {
