@@ -60,7 +60,8 @@ struct pbr_interface *pbr_if_new(struct interface *ifp)
 		return 0;
 	}
 
-	return (pbr_ifp);
+	ifp->info = pbr_ifp;
+	return pbr_ifp;
 }
 
 /* Inteface addition message from zebra. */
@@ -74,12 +75,8 @@ static int interface_add(int command, struct zclient *zclient,
 	if (!ifp)
 		return 0;
 
-	if (!ifp->info) {
-		struct pbr_interface *pbr_ifp;
-
-		pbr_ifp = pbr_if_new(ifp);
-		ifp->info = pbr_ifp;
-	}
+	if (!ifp->info)
+		pbr_if_new(ifp);
 
 	return 0;
 }
@@ -494,7 +491,7 @@ void pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 {
 	struct pbr_map *pbrm = pbrms->parent;
 	struct stream *s;
-	uint64_t is_installed = 1 << pmi->install_bit;
+	uint64_t is_installed = (uint64_t)1 << pmi->install_bit;
 
 	is_installed &= pbrms->installed;
 
