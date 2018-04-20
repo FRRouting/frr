@@ -1315,6 +1315,9 @@ void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, /* to */
 	}
 }
 
+/*
+ * This function is called for definition/deletion/change to a route-map
+ */
 static void vpn_policy_routemap_update(struct bgp *bgp, const char *rmap_name)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_RMAP_EVENT);
@@ -1331,9 +1334,8 @@ static void vpn_policy_routemap_update(struct bgp *bgp, const char *rmap_name)
 
 	for (afi = 0; afi < AFI_MAX; ++afi) {
 
-		if (vpn_leak_to_vpn_active(bgp, afi, NULL)
-		    && bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_TOVPN]
-		    && !strcmp(rmap_name,
+		if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_TOVPN]
+			&& !strcmp(rmap_name,
 			       bgp->vpn_policy[afi]
 				       .rmap_name[BGP_VPN_POLICY_DIR_TOVPN])) {
 
@@ -1349,23 +1351,22 @@ static void vpn_policy_routemap_update(struct bgp *bgp, const char *rmap_name)
 				zlog_debug("%s: after vpn_leak_prechange",
 					   __func__);
 
-			if (!rmap)
-				bgp->vpn_policy[afi]
-					.rmap[BGP_VPN_POLICY_DIR_TOVPN] = NULL;
+			/* in case of definition/deletion */
+			bgp->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN] =
+				rmap;
 
 			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 					    bgp_get_default(), bgp);
+
 			if (debug)
 				zlog_debug("%s: after vpn_leak_postchange",
 					   __func__);
 		}
 
-		char *mapname = bgp->vpn_policy[afi]
-			.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN];
-
-		if (vpn_leak_from_vpn_active(bgp, afi, NULL) &&
-			mapname &&
-			!strcmp(rmap_name, mapname))  {
+		if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]
+			&& !strcmp(rmap_name,
+				bgp->vpn_policy[afi]
+				.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]))  {
 
 			if (debug) {
 				zlog_debug("%s: rmap \"%s\" matches vrf-policy fromvpn for as %d afi %s",
@@ -1376,11 +1377,9 @@ static void vpn_policy_routemap_update(struct bgp *bgp, const char *rmap_name)
 			vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, afi,
 					   bgp_get_default(), bgp);
 
-			if (!rmap) {
-				bgp->vpn_policy[afi]
-					.rmap[BGP_VPN_POLICY_DIR_FROMVPN] =
-					NULL;
-			}
+			/* in case of definition/deletion */
+			bgp->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_FROMVPN] =
+					rmap;
 
 			vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, afi,
 					    bgp_get_default(), bgp);
