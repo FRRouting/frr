@@ -867,6 +867,16 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		bgp_send_pbr_ipset_entry_match(bpme, false);
 		bpme->installed = false;
 		bpme->backpointer = NULL;
+		if (bpme->bgp_info) {
+			struct bgp_info *bgp_info;
+			struct bgp_info_extra *extra;
+
+			/* unlink bgp_info to bpme */
+			bgp_info = (struct bgp_info *)bpme->bgp_info;
+			extra = bgp_info_extra_get(bgp_info);
+			extra->bgp_fs_pbr = NULL;
+			bpme->bgp_info = NULL;
+		}
 	}
 	hash_release(bpm->entry_hash, bpme);
 	if (hashcount(bpm->entry_hash) == 0) {
@@ -1133,6 +1143,8 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		bpme->backpointer = bpm;
 		bpme->installed = false;
 		bpme->install_in_progress = false;
+		/* link bgp info to bpme */
+		bpme->bgp_info = (void *)binfo;
 	}
 
 	/* BGP FS: append entry to zebra
