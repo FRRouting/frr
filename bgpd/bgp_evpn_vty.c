@@ -2692,10 +2692,10 @@ DEFUN (no_bgp_evpn_default_originate,
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_advertise_vni_subnet,
-       bgp_evpn_advertise_vni_subnet_cmd,
-       "advertise-subnet",
-       "Advertise the subnet corresponding to VNI\n")
+DEFUN_HIDDEN (bgp_evpn_advertise_vni_subnet,
+	      bgp_evpn_advertise_vni_subnet_cmd,
+	      "advertise-subnet",
+	      "Advertise the subnet corresponding to VNI\n")
 {
 	struct bgp *bgp_vrf = NULL;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
@@ -2715,11 +2715,11 @@ DEFUN (bgp_evpn_advertise_vni_subnet,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_vni_subnet,
-       no_bgp_evpn_advertise_vni_subnet_cmd,
-       "no advertise-subnet",
-       NO_STR
-       "Advertise All local VNIs\n")
+DEFUN_HIDDEN (no_bgp_evpn_advertise_vni_subnet,
+	      no_bgp_evpn_advertise_vni_subnet_cmd,
+	      "no advertise-subnet",
+	      NO_STR
+	      "Advertise All local VNIs\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
