@@ -565,10 +565,11 @@ leak_update(
 	if (nexthop_self_flag)
 		bgp_info_set_flag(bn, new, BGP_INFO_ANNC_NH_SELF);
 
+	bgp_info_extra_get(new);
+
 	if (num_labels)
 		setlabels(new, label, num_labels);
 
-	bgp_info_extra_get(new);
 	new->extra->parent = bgp_info_lock(parent);
 
 	if (bgp_orig)
@@ -582,7 +583,7 @@ leak_update(
 	struct bgp *bgp_nexthop = bgp;
 	int nh_valid;
 
-	if (new->extra && new->extra->bgp_orig)
+	if (new->extra->bgp_orig)
 		bgp_nexthop = new->extra->bgp_orig;
 
 	/*
