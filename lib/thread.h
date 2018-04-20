@@ -25,6 +25,7 @@
 #include <pthread.h>
 #include <poll.h>
 #include "monotime.h"
+#include "frratomic.h"
 
 struct rusage_t {
 	struct rusage cpu;
@@ -91,12 +92,10 @@ struct thread_master {
 	pthread_t owner;
 };
 
-typedef unsigned char thread_type;
-
 /* Thread itself. */
 struct thread {
-	thread_type type;	     /* thread type */
-	thread_type add_type;	 /* thread type */
+	uint8_t type;		  /* thread type */
+	uint8_t add_type;	  /* thread type */
 	struct thread *next;	  /* next pointer of the thread */
 	struct thread *prev;	  /* previous pointer of the thread */
 	struct thread **ref;	  /* external reference (if given) */
@@ -120,13 +119,13 @@ struct thread {
 
 struct cpu_thread_history {
 	int (*func)(struct thread *);
-	unsigned int total_calls;
-	unsigned int total_active;
+	_Atomic unsigned int total_calls;
+	_Atomic unsigned int total_active;
 	struct time_stats {
-		unsigned long total, max;
+		_Atomic unsigned long total, max;
 	} real;
 	struct time_stats cpu;
-	thread_type types;
+	_Atomic uint8_t types;
 	const char *funcname;
 };
 
