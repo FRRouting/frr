@@ -116,5 +116,21 @@ extern void cmd_graph_parse(struct graph *graph, struct cmd_element *cmd);
 extern void cmd_graph_names(struct graph *graph);
 extern void cmd_graph_merge(struct graph *old, struct graph *new,
 			    int direction);
+/*
+ * Print callback for DOT dumping.
+ *
+ * See graph.h for more details.
+ */
+extern void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf);
+/*
+ * Dump command graph to DOT.
+ *
+ * cmdgraph
+ *    A command graph to dump
+ *
+ * Returns:
+ *    String allocated with MTYPE_TMP representing this graph
+ */
+char *cmd_graph_dump_dot(struct graph *cmdgraph);
 
 #endif /* _FRR_COMMAND_GRAPH_H */

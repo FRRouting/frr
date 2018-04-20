@@ -25,6 +25,8 @@
 #include <zebra.h>
 
 #include "command_graph.h"
+#include "command.h"
+#include "log.h"
 
 DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command Tokens")
 DEFINE_MTYPE_STATIC(LIB, CMD_DESC, "Command Token Text")
@@ -457,3 +459,92 @@ void cmd_graph_names(struct graph *graph)
 
 	cmd_node_names(start, NULL, NULL);
 }
+
+#ifndef BUILDING_CLIPPY
+
+void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
+{
+	static bool wasend;
+
+	char nbuf[512];
+	struct cmd_token *tok = gn->data;
+	const char *color;
+
+	if (wasend == true) {
+		wasend = false;
+		return;
+	}
+
+	if (tok->type == END_TKN) {
+		wasend = true;
+		return;
+	}
+
+	snprintf(nbuf, sizeof(nbuf), "  n%p [ shape=box, label=<", gn);
+	buffer_putstr(buf, nbuf);
+	snprintf(nbuf, sizeof(nbuf), "<b>%s</b>",
+		 lookup_msg(tokennames, tok->type, NULL));
+	buffer_putstr(buf, nbuf);
+	if (tok->attr == CMD_ATTR_DEPRECATED)
+		buffer_putstr(buf, " (d)");
+	else if (tok->attr == CMD_ATTR_HIDDEN)
+		buffer_putstr(buf, " (h)");
+	if (tok->text) {
+		if (tok->type == WORD_TKN)
+			snprintf(
+				nbuf, sizeof(nbuf),
+				"<br/>\"<font color=\"#0055ff\" point-size=\"11\"><b>%s</b></font>\"",
+				tok->text);
+		else
+			snprintf(nbuf, sizeof(nbuf), "<br/>%s", tok->text);
+		buffer_putstr(buf, nbuf);
+	}
+
+	switch (tok->type) {
+	case START_TKN:
+		color = "#ccffcc";
+		break;
+	case FORK_TKN:
+		color = "#aaddff";
+		break;
+	case JOIN_TKN:
+		color = "#ddaaff";
+		break;
+	case WORD_TKN:
+		color = "#ffffff";
+		break;
+	default:
+		color = "#ffffff";
+		break;
+	}
+	snprintf(nbuf, sizeof(nbuf),
+		 ">, style = filled, fillcolor = \"%s\" ];\n", color);
+	buffer_putstr(buf, nbuf);
+
+	for (unsigned int i = 0; i < vector_active(gn->to); i++) {
+		struct graph_node *adj = vector_slot(gn->to, i);
+
+		if (((struct cmd_token *)adj->data)->type == END_TKN) {
+			snprintf(nbuf, sizeof(nbuf), "  n%p -> end%p;\n", gn,
+				 adj);
+			buffer_putstr(buf, nbuf);
+			snprintf(
+				nbuf, sizeof(nbuf),
+				"  end%p [ shape=box, label=<end>, style = filled, fillcolor = \"#ffddaa\" ];\n",
+				adj);
+		} else
+			snprintf(nbuf, sizeof(nbuf), "  n%p -> n%p;\n", gn,
+				 adj);
+
+		buffer_putstr(buf, nbuf);
+	}
+}
+
+char *cmd_graph_dump_dot(struct graph *cmdgraph)
+{
+	struct graph_node *start = vector_slot(cmdgraph->nodes, 0);
+
+	return graph_dump_dot(cmdgraph, start, cmd_graph_node_print_cb);
+}
+
+#endif /* BUILDING_CLIPPY */

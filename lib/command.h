@@ -146,6 +146,7 @@ enum node_type {
 };
 
 extern vector cmdvec;
+extern const struct message tokennames[];
 extern const char *node_names[];
 
 /* Node which has some commands and prompt string and configuration
