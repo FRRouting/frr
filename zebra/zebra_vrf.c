@@ -524,10 +524,8 @@ static int vrf_config_write(struct vty *vty)
 			if (zvrf->l3vni)
 				vty_out(vty, "vni %u\n", zvrf->l3vni);
 			vty_out(vty, "!\n");
-		}
-
-		if (vrf_is_user_cfged(vrf)) {
-			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
+		} else {
+			vty_frame(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
 				vty_out(vty, " vni %u%s\n", zvrf->l3vni,
 					is_l3vni_for_prefix_routes_only(
@@ -535,14 +533,15 @@ static int vrf_config_write(struct vty *vty)
 						? " prefix-routes-only"
 						: "");
 			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
+
 		}
 
 		static_config(vty, zvrf, AFI_IP, SAFI_UNICAST, "ip route");
 		static_config(vty, zvrf, AFI_IP, SAFI_MULTICAST, "ip mroute");
 		static_config(vty, zvrf, AFI_IP6, SAFI_UNICAST, "ipv6 route");
 
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vty_out(vty, "!\n");
+		if (zvrf_id(zvrf) != VRF_DEFAULT)
+			vty_endframe(vty, " exit-vrf\n!\n");
 	}
 	return 0;
 }

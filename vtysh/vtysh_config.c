@@ -185,6 +185,12 @@ void vtysh_config_parse_line(void *arg, const char *line)
 					      == 0) {
 				config_add_line(config->line, line);
 				config->index = INTERFACE_NODE;
+			} else if (config->index == VRF_NODE
+				   && strncmp(line, " exit-vrf",
+					      strlen(" exit-vrf"))
+					      == 0) {
+				config_add_line(config->line, line);
+				config->index = CONFIG_NODE;
 			} else if (config->index == RMAP_NODE
 				   || config->index == INTERFACE_NODE
 				   || config->index == LOGICALROUTER_NODE
