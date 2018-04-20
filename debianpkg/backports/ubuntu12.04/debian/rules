@@ -136,6 +136,7 @@ override_dh_auto_configure:
 		$(USE_PIM) \
 		--enable-dependency-tracking \
 		$(USE_BGP_VNC) \
+		--disable-bfdd \
 		$(shell dpkg-buildflags --export=configure); \
 	fi
 
