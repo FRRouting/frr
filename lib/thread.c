@@ -140,7 +140,7 @@ static void cpu_record_print(struct vty *vty, thread_type filter)
 
 			char underline[strlen(name) + 1];
 			memset(underline, '-', sizeof(underline));
-			underline[sizeof(underline)] = '\0';
+			underline[sizeof(underline) - 1] = '\0';
 
 			vty_out(vty, "\n");
 			vty_out(vty, "Showing statistics for pthread %s\n",
