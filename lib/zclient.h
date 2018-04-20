@@ -85,6 +85,7 @@ typedef enum {
 	ZEBRA_ROUTER_ID_DELETE,
 	ZEBRA_ROUTER_ID_UPDATE,
 	ZEBRA_HELLO,
+	ZEBRA_CAPABILITIES,
 	ZEBRA_NEXTHOP_REGISTER,
 	ZEBRA_NEXTHOP_UNREGISTER,
 	ZEBRA_NEXTHOP_UPDATE,
@@ -162,6 +163,11 @@ struct redist_proto {
 	struct list *instances;
 };
 
+struct zclient_capabilities {
+	uint32_t ecmp;
+	bool mpls_enabled;
+};
+
 /* Structure for the zebra client. */
 struct zclient {
 	/* The thread master we schedule ourselves on */
@@ -206,6 +212,7 @@ struct zclient {
 
 	/* Pointer to the callback functions. */
 	void (*zebra_connected)(struct zclient *);
+	void (*zebra_capabilities)(struct zclient_capabilities *cap);
 	int (*router_id_update)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*interface_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*interface_delete)(int, struct zclient *, uint16_t, vrf_id_t);

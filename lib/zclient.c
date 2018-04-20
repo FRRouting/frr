@@ -2485,6 +2485,25 @@ void zebra_read_pw_status_update(int command, struct zclient *zclient,
 	pw->status = stream_getl(s);
 }
 
+static void zclient_capability_decode(int command, struct zclient *zclient,
+				      zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct zclient_capabilities cap;
+	struct stream *s = zclient->ibuf;
+	uint8_t mpls_enabled;
+
+	memset(&cap, 0, sizeof(cap));
+	STREAM_GETC(s, mpls_enabled);
+	cap.mpls_enabled = !!mpls_enabled;
+	STREAM_GETL(s, cap.ecmp);
+
+	if (zclient->zebra_capabilities)
+		(*zclient->zebra_capabilities)(&cap);
+
+stream_failure:
+	return;
+}
+
 /* Zebra client message read function. */
 static int zclient_read(struct thread *thread)
 {
@@ -2582,6 +2601,9 @@ static int zclient_read(struct thread *thread)
 			   (void *)zclient, command, vrf_id);
 
 	switch (command) {
+	case ZEBRA_CAPABILITIES:
+		zclient_capability_decode(command, zclient, length, vrf_id);
+		break;
 	case ZEBRA_ROUTER_ID_UPDATE:
 		if (zclient->router_id_update)
 			(*zclient->router_id_update)(command, zclient, length,
