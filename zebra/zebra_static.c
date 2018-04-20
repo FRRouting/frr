@@ -516,7 +516,9 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
 			si->ifindex = ifp->ifindex;
 			static_install_route(afi, safi, p, src_p, si);
-		}
+		} else
+			zlog_warn("Static Route using %s interface not installed because the interface does not exist in specified vrf",
+				  ifname);
 	}
 
 	return 1;

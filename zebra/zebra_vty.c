@@ -207,6 +207,9 @@ static int zebra_static_route_holdem(
 	struct static_hold_route *shr, *lookup;
 	struct listnode *node;
 
+	zlog_warn("Static Route to %s not installed currently because dependent config not fully available",
+		  dest_str);
+
 	shr = XCALLOC(MTYPE_STATIC_ROUTE, sizeof(*shr));
 	shr->vrf_name = XSTRDUP(MTYPE_STATIC_ROUTE, zvrf->vrf->name);
 	shr->nhvrf_name = XSTRDUP(MTYPE_STATIC_ROUTE, nh_zvrf->vrf->name);
