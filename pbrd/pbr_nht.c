@@ -319,8 +319,16 @@ static void pbr_nht_find_nhg_from_table_install(struct hash_backet *b,
 	if (pnhgc->table_id == *table_id) {
 		DEBUGD(&pbr_dbg_nht, "%s: Table ID (%u) matches %s",
 		       __PRETTY_FUNCTION__, *table_id, pnhgc->name);
-		pnhgc->installed = true;
-		pbr_map_schedule_policy_from_nhg(pnhgc->name);
+
+		/*
+		 * If the table has been re-handled by zebra
+		 * and we are already installed no need to do
+		 * anything here.
+		 */
+		if (!pnhgc->installed) {
+			pnhgc->installed = true;
+			pbr_map_schedule_policy_from_nhg(pnhgc->name);
+		}
 	}
 }
 
@@ -408,8 +416,6 @@ static void pbr_nht_install_nexthop_group(struct pbr_nexthop_group_cache *pnhgc,
 	enum nexthop_types_t nh_afi = 0;
 
 	install_afi = pbr_nht_which_afi(nhg, nh_afi);
-
-	pnhgc->installed = false;
 
 	route_add(pnhgc, nhg, install_afi);
 }
@@ -511,7 +517,6 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 
 	pbrm->valid = false;
 	pbrms->nhs_installed = false;
-	pbrms->installed = false;
 	pbrms->reason |= PBR_MAP_INVALID_NO_NEXTHOPS;
 
 	memset(&find, 0, sizeof(find));

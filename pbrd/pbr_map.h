@@ -20,6 +20,8 @@
 #ifndef __PBR_MAP_H__
 #define __PBR_MAP_H__
 
+#include <bitfield.h>
+
 struct pbr_map {
 	/*
 	 * RB Tree of the pbr_maps
@@ -40,20 +42,21 @@ struct pbr_map {
 	 */
 	struct list *incoming;
 
+	bitfield_t ifi_bitfield;
 	/*
 	 * If valid is true we think the pbr_map is valid,
 	 * If false, look in individual pbrms to see
 	 * what we think is the invalid reason
 	 */
 	bool valid;
-
-	bool installed;
 };
 
 RB_HEAD(pbr_map_entry_head, pbr_map);
 RB_PROTOTYPE(pbr_map_entry_head, pbr_map, pbr_map_entry, pbr_map_compare)
 
 struct pbr_map_interface {
+	uint32_t install_bit;
+
 	struct interface *ifp;
 
 	struct pbr_map *pbrm;
@@ -112,7 +115,7 @@ struct pbr_map_sequence {
 	/*
 	 * Are we installed
 	 */
-	bool installed;
+	uint64_t installed;
 
 	/*
 	 * A reason of 0 means we think the pbr_map_sequence is good to go
@@ -134,8 +137,9 @@ DECLARE_QOBJ_TYPE(pbr_map_sequence)
 extern struct pbr_map_entry_head pbr_maps;
 
 extern struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno);
-extern struct pbr_map_sequence *pbrms_lookup_unique(uint32_t unique,
-						    ifindex_t ifindex);
+extern struct pbr_map_sequence *
+pbrms_lookup_unique(uint32_t unique, ifindex_t ifindex,
+		    struct pbr_map_interface **ppmi);
 
 extern struct pbr_map *pbrm_find(const char *name);
 extern void pbr_map_delete(struct pbr_map_sequence *pbrms);

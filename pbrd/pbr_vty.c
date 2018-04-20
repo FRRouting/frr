@@ -251,8 +251,14 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 					intf, vrf->name);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
-		} else
+		} else {
+			if (IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
+				vty_out(vty,
+					"Specified a v6 LL with no interface, rejecting\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
 			nhop.type = NEXTHOP_TYPE_IPV6;
+		}
 	}
 
 	if (pbrms->nhg)
@@ -383,7 +389,7 @@ DEFPY (show_pbr_map,
 				pbr_map_reason_string(pbrms->reason, rbuf,
 						      sizeof(rbuf));
 			vty_out(vty,
-				"    Seq: %u rule: %u Installed: %d(%u) Reason: %s\n",
+				"    Seq: %u rule: %u Installed: %" PRIu64 "(%u) Reason: %s\n",
 				pbrms->seqno, pbrms->ruleno, pbrms->installed,
 				pbrms->unique, pbrms->reason ? rbuf : "Valid");
 
@@ -477,6 +483,58 @@ DEFPY (show_pbr_interface,
 	return CMD_SUCCESS;
 }
 
+/* PBR debugging CLI ------------------------------------------------------- */
+/* clang-format off */
+
+static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
+
+DEFPY(debug_pbr,
+      debug_pbr_cmd,
+      "[no] debug pbr [{map$map|zebra$zebra|nht$nht|events$events}]",
+      NO_STR
+      DEBUG_STR
+      "Policy Based Routing\n"
+      "Policy maps\n"
+      "PBRD <-> Zebra communications\n"
+      "Nexthop tracking\n"
+      "Events\n")
+{
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+
+	if (map)
+		DEBUG_MODE_SET(&pbr_dbg_map, mode, !no);
+	if (zebra)
+		DEBUG_MODE_SET(&pbr_dbg_zebra, mode, !no);
+	if (nht)
+		DEBUG_MODE_SET(&pbr_dbg_nht, mode, !no);
+	if (events)
+		DEBUG_MODE_SET(&pbr_dbg_event, mode, !no);
+
+	/* no specific debug --> act on all of them */
+	if (strmatch(argv[argc - 1]->text, "pbr"))
+		pbr_debug_set_all(mode, !no);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH(show_debugging_pbr,
+	   show_debugging_pbr_cmd,
+	   "show debugging [pbr]",
+	   SHOW_STR
+	   DEBUG_STR
+	   "Policy Based Routing\n")
+{
+	vty_out(vty, "PBR debugging status:\n");
+
+	pbr_debug_config_write_helper(vty, false);
+
+	return CMD_SUCCESS;
+}
+
+/* clang-format on */
+/* ------------------------------------------------------------------------- */
+
+
 static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* vtysh ? yes */
 };
@@ -561,6 +619,12 @@ void pbr_vty_init(void)
 	install_node(&pbr_map_node,
 		     pbr_vty_map_config_write);
 
+	/* debug */
+	install_node(&debug_node, pbr_debug_config_write);
+	install_element(VIEW_NODE, &debug_pbr_cmd);
+	install_element(CONFIG_NODE, &debug_pbr_cmd);
+	install_element(VIEW_NODE, &show_debugging_pbr_cmd);
+
 	install_default(PBRMAP_NODE);
 
 	install_element(CONFIG_NODE, &pbr_map_cmd);
@@ -574,6 +638,4 @@ void pbr_vty_init(void)
 	install_element(VIEW_NODE, &show_pbr_map_cmd);
 	install_element(VIEW_NODE, &show_pbr_interface_cmd);
 	install_element(VIEW_NODE, &show_pbr_nexthop_group_cmd);
-
-	pbr_debug_init_vty();
 }

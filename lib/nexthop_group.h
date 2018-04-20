@@ -56,6 +56,13 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 	(nhop);								\
 	(nhop) = nexthop_next(nhop)
 
+
+struct nexthop_hold {
+	char *nhvrf_name;
+	union sockunion addr;
+	char *intf;
+};
+
 struct nexthop_group_cmd {
 
 	RB_ENTRY(nexthop_group_cmd) nhgc_entry;
@@ -63,6 +70,8 @@ struct nexthop_group_cmd {
 	char name[80];
 
 	struct nexthop_group nhg;
+
+	struct list *nhg_list;
 
 	QOBJ_FIELDS
 };
@@ -84,6 +93,11 @@ void nexthop_group_init(
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
 			    const struct nexthop *nhop),
 	void (*delete)(const char *name));
+
+void nexthop_group_enable_vrf(struct vrf *vrf);
+void nexthop_group_disable_vrf(struct vrf *vrf);
+void nexthop_group_interface_state_change(struct interface *ifp,
+					  ifindex_t oldifindex);
 
 extern struct nexthop *nexthop_exists(struct nexthop_group *nhg,
 				      struct nexthop *nh);

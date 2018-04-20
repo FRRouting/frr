@@ -561,8 +561,10 @@ static void zebra_rnh_process_pbr_tables(int family,
 			 * just rethink it.  Yes this is a hammer, but
 			 * a small one
 			 */
-			if (o_re)
+			if (o_re) {
+				SET_FLAG(o_re->status, ROUTE_ENTRY_CHANGED);
 				rib_queue_add(o_rn);
+			}
 		}
 	}
 }
