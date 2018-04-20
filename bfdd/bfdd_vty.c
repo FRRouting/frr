@@ -326,21 +326,23 @@ static void _display_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 		diag2str(bpc->bpc_remotediag));
 
 	vty_out(vty, "\t\tLocal timers:\n");
-	vty_out(vty, "\t\t\tReceive interval: %lu\n", bpc->bpc_recvinterval);
-	vty_out(vty, "\t\t\tTransmission interval: %lu\n", bpc->bpc_txinterval);
+	vty_out(vty, "\t\t\tReceive interval: %" PRIu64 "\n",
+		bpc->bpc_recvinterval);
+	vty_out(vty, "\t\t\tTransmission interval: %" PRIu64 "\n",
+		bpc->bpc_txinterval);
 
 	vty_out(vty, "\t\t\tEcho transmission interval: ");
 	if (bpc->bpc_echo)
-		vty_out(vty, "%lu\n", bpc->bpc_echointerval);
+		vty_out(vty, "%" PRIu64 "\n", bpc->bpc_echointerval);
 	else
 		vty_out(vty, "disabled\n");
 
 	vty_out(vty, "\t\tRemote timers:\n");
-	vty_out(vty, "\t\t\tReceive interval: %u\n",
+	vty_out(vty, "\t\t\tReceive interval: %" PRIu64 "\n",
 		bpc->bpc_remote_recvinterval);
-	vty_out(vty, "\t\t\tTransmission interval: %u\n",
+	vty_out(vty, "\t\t\tTransmission interval: %" PRIu64 "\n",
 		bpc->bpc_remote_txinterval);
-	vty_out(vty, "\t\t\tEcho transmission interval: %u\n",
+	vty_out(vty, "\t\t\tEcho transmission interval: %" PRIu64 "\n",
 		bpc->bpc_remote_echointerval);
 
 	vty_out(vty, "\n");
@@ -467,13 +469,13 @@ int bfdd_peer_write_config(struct vty *vty)
 			vty_out(vty, "  detect-multiplier %d\n",
 				bpc->bpc_detectmultiplier);
 		if (bpc->bpc_recvinterval != BPC_DEF_RECEIVEINTERVAL)
-			vty_out(vty, "  receive-interval %lu\n",
+			vty_out(vty, "  receive-interval %" PRIu64 "\n",
 				bpc->bpc_recvinterval);
 		if (bpc->bpc_txinterval != BPC_DEF_TRANSMITINTERVAL)
-			vty_out(vty, "  transmit-interval %lu\n",
+			vty_out(vty, "  transmit-interval %" PRIu64 "\n",
 				bpc->bpc_txinterval);
 		if (bpc->bpc_echointerval != BPC_DEF_ECHOINTERVAL)
-			vty_out(vty, "  echo-interval %lu\n",
+			vty_out(vty, "  echo-interval %" PRIu64 "\n",
 				bpc->bpc_echointerval);
 		if (bpc->bpc_has_label)
 			vty_out(vty, "  label %s\n", bpc->bpc_label);

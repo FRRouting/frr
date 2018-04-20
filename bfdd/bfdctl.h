@@ -96,9 +96,9 @@ struct bfd_peer_cfg {
 	uint8_t bpc_diag;
 	uint8_t bpc_remotediag;
 	uint8_t bpc_remote_detectmultiplier;
-	uint32_t bpc_remote_recvinterval;
-	uint32_t bpc_remote_txinterval;
-	uint32_t bpc_remote_echointerval;
+	uint64_t bpc_remote_recvinterval;
+	uint64_t bpc_remote_txinterval;
+	uint64_t bpc_remote_echointerval;
 	uint64_t bpc_lastevent;
 };
 
