@@ -841,7 +841,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 	 * because of loop checking.
 	 */
 	if (new_info)
-		vpn_leak_to_vrf_update(bgp_vpn, new_info);
+		vpn_leak_to_vrf_update(bgp_vrf, new_info);
 }
 
 void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn,       /* to */
