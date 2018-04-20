@@ -462,7 +462,7 @@ int netlink_parse_info(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *,
 	int read_in = 0;
 
 	while (1) {
-		char buf[NL_PKT_BUF_SIZE];
+		char buf[NL_RCV_PKT_BUF_SIZE];
 		struct iovec iov = {.iov_base = buf, .iov_len = sizeof buf};
 		struct sockaddr_nl snl;
 		struct msghdr msg = {.msg_name = (void *)&snl,

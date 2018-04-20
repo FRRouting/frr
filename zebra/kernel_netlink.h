@@ -23,6 +23,7 @@
 
 #ifdef HAVE_NETLINK
 
+#define NL_RCV_PKT_BUF_SIZE     32768
 #define NL_PKT_BUF_SIZE         8192
 
 extern void netlink_parse_rtattr(struct rtattr **tb, int max,
