@@ -201,6 +201,8 @@ struct bgp_pbr_match_entry {
 	uint16_t dst_port_max;
 	uint8_t proto;
 
+	void *bgp_info;
+
 	bool installed;
 	bool install_in_progress;
 };

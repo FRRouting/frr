@@ -30,6 +30,7 @@
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_flowspec_private.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_pbr.h"
 
 /* Local Structures and variables declarations
  * This code block hosts the struct declared that host the flowspec rules
@@ -318,16 +319,32 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 	peer_uptime(binfo->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);
-	if (display == NLRI_STRING_FORMAT_LARGE)
-		vty_out(vty, "\tup for %8s\n", timebuf);
-	else if (json_paths) {
+	if (display == NLRI_STRING_FORMAT_LARGE) {
+		vty_out(vty, "\treceived for %8s\n", timebuf);
+	} else if (json_paths) {
 		json_time_path = json_object_new_object();
 		json_object_string_add(json_time_path,
 				       "time", timebuf);
 		if (display == NLRI_STRING_FORMAT_JSON)
 			json_object_array_add(json_paths, json_time_path);
 	}
+	if (display == NLRI_STRING_FORMAT_LARGE) {
+		struct bgp_info_extra *extra = bgp_info_extra_get(binfo);
 
+		if (extra->bgp_fs_pbr) {
+			struct bgp_pbr_match_entry *bpme;
+			struct bgp_pbr_match *bpm;
+
+			bpme = (struct bgp_pbr_match_entry *)extra->bgp_fs_pbr;
+			bpm = bpme->backpointer;
+			vty_out(vty, "\tinstalled in PBR");
+			if (bpm)
+				vty_out(vty, " (%s)\n", bpm->ipset_name);
+			else
+				vty_out(vty, "\n");
+		} else
+			vty_out(vty, "\tnot installed in PBR\n");
+	}
 }
 
 int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
