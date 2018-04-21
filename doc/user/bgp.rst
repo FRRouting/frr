@@ -4,13 +4,12 @@
 BGP
 ***
 
-:abbr:`BGP` stands for a Border Gateway Protocol. The lastest BGP version is 4.
-It is referred as BGP-4. BGP-4 is one of the Exterior Gateway Protocols and
-de-fact standard of Inter Domain routing protocol.  BGP-4 is described in
-:rfc:`1771`.
+:abbr:`BGP` stands for a Border Gateway Protocol. The latest BGP version is 4.
+BGP-4 is one of the Exterior Gateway Protocols and the de facto standard
+interdomain routing protocol. BGP-4 is described in :rfc:`1771`.
 
-Many extensions have been added to :rfc:`1771`. :rfc:`2858` provides
-multiprotocol support to BGP-4.
+Many extensions have been added to :rfc:`1771`. :rfc:`2858` adds multiprotocol
+support to BGP-4.
 
 .. _starting-bgp:
 
@@ -182,7 +181,7 @@ The decision process FRR BGP uses to select routes is as follows:
 
    The advantage of this is that the route-selection (at this point) will be
    more deterministic. The disadvantage is that a few or even one lowest-ID
-   router may attract all trafic to otherwise-equal paths because of this
+   router may attract all traffic to otherwise-equal paths because of this
    check. It may increase the possibility of MED or IGP oscillation, unless
    other measures were taken to avoid these. The exact behaviour will be
    sensitive to the iBGP and reflection topology.
@@ -507,7 +506,7 @@ Route Aggregation
 .. index:: aggregate-address A.B.C.D/M summary-only
 .. clicmd:: aggregate-address A.B.C.D/M summary-only
 
-   This command specifies an aggregate address. Aggreated routes will
+   This command specifies an aggregate address. Aggregated routes will
    not be announce.
 
 .. index:: no aggregate-address A.B.C.D/M
@@ -568,7 +567,7 @@ Redistribute to BGP
       (End-Of-RIB) or an implicit-EOR. The first keep-alive after BGP has reached
       Established is considered an implicit-EOR.
       If the establish-wait optional value is given, then BGP will wait for
-      peers to reach established from the begining of the update-delay till the
+      peers to reach established from the beginning of the update-delay till the
       establish-wait period is over, i.e. the minimum set of established peers for
       which EOR is expected would be peers established during the establish-wait
       window, not necessarily all the configured neighbors.
@@ -702,7 +701,7 @@ required.
 
    This command specifies an announced route's nexthop as being equivalent to
    the address of the bgp router if it is learned via eBGP.  If the optional
-   keyword `all` is specified the modifiation is done also for routes learned
+   keyword `all` is specified the modification is done also for routes learned
    via iBGP.
 
 .. index:: neighbor PEER update-source <IFNAME|ADDRESS>
@@ -798,7 +797,7 @@ required.
    This command enforces Generalized TTL Security Mechanism (GTSM), as
    specified in RFC 5082. With this command, only neighbors that are the
    specified number of hops away will be allowed to become neighbors. This
-   command is mututally exclusive with *ebgp-multihop*.
+   command is mutually exclusive with *ebgp-multihop*.
 
 .. _peer-filtering:
 
@@ -995,7 +994,7 @@ numerical order.
 BGP Community Lists
 -------------------
 
-BGP community list is a user defined BGP communites attribute list. BGP
+BGP community list is a user defined BGP communities attribute list. BGP
 community list can be used for matching or manipulating BGP communities
 attribute in updates.
 
@@ -1037,7 +1036,7 @@ expanded community list.
 
    These commands delete community lists specified by NAME. All of
    community lists shares a single name space. So community lists can be
-   removed simpley specifying community lists name.
+   removed simply specifying community lists name.
 
 .. index:: show ip community-list
 .. clicmd:: show ip community-list
@@ -1093,11 +1092,11 @@ is called as named community lists.
 .. index:: ip community-list NAME permit|deny COMMUNITY
 .. clicmd:: ip community-list NAME permit|deny COMMUNITY
 
-   When community list type is not specifed, the community list type is
+   When community list type is not specified, the community list type is
    automatically detected. If COMMUNITY can be compiled into communities
    attribute, the community list is defined as a standard community list.
    Otherwise it is defined as an expanded community list. This feature is left
-   for backward compability. Use of this feature is not recommended.
+   for backward compatibility. Use of this feature is not recommended.
 
 .. _bgp-community-in-route-map:
 
@@ -1118,7 +1117,7 @@ Following commands can be used in Route Map.
 
    This command perform match to BGP updates using community list WORD. When
    the one of BGP communities value match to the one of communities value in
-   community list, it is match. When `exact-match` keyword is spcified, match
+   community list, it is match. When `exact-match` keyword is specified, match
    happen only when BGP updates have completely same communities value
    specified in the community list.
 
@@ -1265,7 +1264,7 @@ limit the BGP routes announcement into the internal network.
     match community 1
 
 
-Following exmaple filter BGP routes which has communities value 1:1.
+Following example filter BGP routes which has communities value 1:1.
 When there is no match community-list returns deny. To avoid
 filtering all of routes, we need to define permit any at last.
 
@@ -1389,7 +1388,7 @@ Lists.
 
    These commands delete extended community lists specified by `name`. All of
    extended community lists shares a single name space. So extended community
-   lists can be removed simpley specifying the name.
+   lists can be removed simply specifying the name.
 
 .. index:: show ip extcommunity-list
 .. clicmd:: show ip extcommunity-list
@@ -1540,7 +1539,7 @@ BGP Large Communities in Route Map
 BGP VRFs
 ========
 
-Bgpd supports multiple VRF instances via the *router bgp* command:
+BPGD supports multiple VRF instances via the *router bgp* command:
 
 .. index:: router bgp ASN vrf VRFNAME
 .. clicmd:: router bgp ASN vrf VRFNAME
@@ -1651,7 +1650,7 @@ address-family:
 .. clicmd:: route-map vpn import|export MAP
 
    Specifies an optional route-map to be applied to routes imported or exported
-   betwen the current unicast VRF and VPN.
+   between the current unicast VRF and VPN.
 
 .. index:: no route-map vpn import|export [MAP]
 .. clicmd:: no route-map vpn import|export [MAP]
@@ -1661,12 +1660,12 @@ address-family:
 .. index:: import|export vpn
 .. clicmd:: import|export vpn
 
-   Enables import or export of routes betwen the current unicast VRF and VPN.
+   Enables import or export of routes between the current unicast VRF and VPN.
 
 .. index:: no import|export vpn
 .. clicmd:: no import|export vpn
 
-   Disables import or export of routes betwen the current unicast VRF and VPN.
+   Disables import or export of routes between the current unicast VRF and VPN.
 
 
 .. _displaying-bgp-information:
@@ -1813,7 +1812,7 @@ operational network. :rfc:`2842` adopted a feature called Capability
 Negotiation. *bgpd* use this Capability Negotiation to detect the remote peer's
 capabilities. If a peer is only configured as an IPv4 unicast neighbor, *bgpd*
 does not send these Capability Negotiation packets (at least not unless other
-optional BGP features require capability negotation).
+optional BGP features require capability negotiation).
 
 By default, FRR will bring up peering with minimal common capability for the
 both sides. For example, if the local router has unicast and multicast
@@ -2219,7 +2218,7 @@ A more complex example. With upstream, peer and customer sessions.  Advertising
 global prefixes and NO_EXPORT prefixes and providing actions for customer
 routes based on community values. Extensive use of route-maps and the 'call'
 feature to support selective advertising of prefixes. This example is intended
-as guidance only, it has NOT been tested and almost certainly containts silly
+as guidance only, it has NOT been tested and almost certainly contains silly
 mistakes, if not serious flaws.
 
 .. code-block:: frr
@@ -2431,7 +2430,7 @@ mistakes, if not serious flaws.
 .. include:: rpki.rst
 
 
-.. [#med-transitivity-rant] For some set of objects to have an order, there *must* be some binary ordering relation that is defined for *every* combination of those objects, and that relation *must* be transitive. I.e.:, if the relation operator is <, and if a < b and b < c then that relation must carry over and it *must* be that a < c for the objects to have an order. The ordering relation may allow for equality, i.e. a < b and b < a may both be true amd imply that a and b are equal in the order and not distinguished by it, in which case the set has a partial order. Otherwise, if there is an order, all the objects have a distinct place in the order and the set has a total order)
+.. [#med-transitivity-rant] For some set of objects to have an order, there *must* be some binary ordering relation that is defined for *every* combination of those objects, and that relation *must* be transitive. I.e.:, if the relation operator is <, and if a < b and b < c then that relation must carry over and it *must* be that a < c for the objects to have an order. The ordering relation may allow for equality, i.e. a < b and b < a may both be true and imply that a and b are equal in the order and not distinguished by it, in which case the set has a partial order. Otherwise, if there is an order, all the objects have a distinct place in the order and the set has a total order)
 .. [bgp-route-osci-cond] McPherson, D. and Gill, V. and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation Condition", IETF RFC3345
 .. [stable-flexible-ibgp] Flavel, A. and M. Roughan, "Stable and flexible iBGP", ACM SIGCOMM 2009
 .. [ibgp-correctness] Griffin, T. and G. Wilfong, "On the correctness of IBGP configuration", ACM SIGCOMM 2002

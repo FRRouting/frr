@@ -222,7 +222,7 @@ Debug for EIGRP protocol.
 
    Debug eigrp packets
 
-   ``debug eigrp`` will show EIGRP packets that are sent and recevied.
+   ``debug eigrp`` will show EIGRP packets that are sent and received.
 
 .. index:: debug eigrp transmit
 .. clicmd:: debug eigrp transmit

@@ -440,8 +440,8 @@ If FPM is enabled during compile-time and installed as part of the package, the
 ``fpm`` module can be loaded for the *zebra* daemon. This provides the
 Forwarding Plane Manager ("FPM") API.
 
-The module expects its argument to be either ``netlink`` or ``protobuf``,
-specifying the encapsulation to use. ``netlink`` is the default, and
+The module expects its argument to be either ``Netlink`` or ``protobuf``,
+specifying the encapsulation to use. ``Netlink`` is the default, and
 ``protobuf`` may not be available if the module was built without protobuf
 support. Refer to :ref:`zebra-fib-push-interface` for more information.
 

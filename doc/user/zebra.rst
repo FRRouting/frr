@@ -78,8 +78,8 @@ Standard Commands
 
 .. clicmd:: no ip address LOCAL-ADDR peer PEER-ADDR/PREFIX
 
-   Configure an IPv4 Pointopoint address on the interface. (The concept of PtP
-   addressing does not exist for IPv6.)
+   Configure an IPv4 Point-to-Point address on the interface. (The concept of
+   PtP addressing does not exist for IPv6.)
 
    `local-addr` has no subnet mask since the local side in PtP addressing is
    always a single (/32) address. `peer-addr/prefix` can be an arbitrary subnet
@@ -201,7 +201,7 @@ Link Parameters Commands
 .. index::  link-param use-bw BANDWIDTH
 .. clicmd:: link-param use-bw BANDWIDTH
 
-   These command specifies additionnal Traffic Engineering parameters of the
+   These command specifies additional Traffic Engineering parameters of the
    interface in conformity to draft-ietf-ospf-te-metrics-extension-05.txt and
    draft-ietf-isis-te-metrics-extension-03.txt. There are respectively the
    delay, jitter, loss, available bandwidth, reservable bandwidth and utilized
@@ -304,8 +304,8 @@ nexthops, if the platform supports this.
 
 This will install a multihop route via the specified next-hops if they are
 reachable, as well as a high-metric blackhole route, which can be useful to
-prevent traffic destined for a prefix to match less-specific routes (eg
-default) should the specified gateways not be reachable. Eg:
+prevent traffic destined for a prefix to match less-specific routes (e.g.
+default) should the specified gateways not be reachable. E.g.:
 
 ::
 
@@ -505,7 +505,7 @@ latter information makes up the Forwarding Information Base
 (FIB). Zebra feeds the FIB to the kernel, which allows the IP stack in
 the kernel to forward packets according to the routes computed by
 FRR. The kernel FIB is updated in an OS-specific way. For example,
-the `netlink` interface is used on Linux, and route sockets are
+the `Netlink` interface is used on Linux, and route sockets are
 used on FreeBSD.
 
 The FIB push interface aims to provide a cross-platform mechanism to
@@ -530,7 +530,7 @@ kernel continues to receive FIB updates as before.
 
 The encapsulation header for the messages exchanged with the FPM is
 defined by the file :file:`fpm/fpm.h` in the frr tree. The routes
-themselves are encoded in netlink or protobuf format, with netlink
+themselves are encoded in Netlink or protobuf format, with Netlink
 being the default.
 
 Protobuf is one of a number of new serialization formats wherein the
@@ -538,7 +538,7 @@ message schema is expressed in a purpose-built language. Code for
 encoding/decoding to/from the wire format is generated from the
 schema. Protobuf messages can be extended easily while maintaining
 backward-compatibility with older code. Protobuf has the following
-advantages over netlink:
+advantages over Netlink:
 
 - Code for serialization/deserialization is generated automatically. This
   reduces the likelihood of bugs, allows third-party programs to be integrated
@@ -546,9 +546,9 @@ advantages over netlink:
 - The message format is not tied to an OS (Linux), and can be evolved
   independently.
 
-As mentioned before, zebra encodes routes sent to the FPM in netlink
+As mentioned before, zebra encodes routes sent to the FPM in Netlink
 format by default. The format can be controlled via the FPM module's
-load-time option to zebra, which currently takes the values `netlink`
+load-time option to zebra, which currently takes the values `Netlink`
 and `protobuf`.
 
 The zebra FPM interface uses replace semantics. That is, if a 'route

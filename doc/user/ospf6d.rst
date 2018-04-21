@@ -42,13 +42,13 @@ OSPF6 router
    an event which occurs outside of the holdtime of any previous SPF
    calculation, and also serves as a minimum holdtime).
 
-   Consecutive SPF calculations will always be seperated by at least
+   Consecutive SPF calculations will always be separated by at least
    'hold-time' milliseconds. The hold-time is adaptive and initially is
    set to the `initial-holdtime` configured with the above command.
    Events which occur within the holdtime of the previous SPF calculation
    will cause the holdtime to be increased by `initial-holdtime`, bounded
    by the `maximum-holdtime` configured with this command. If the adaptive
-   hold-time elapses without any SPF-triggering event occuring then
+   hold-time elapses without any SPF-triggering event occurring then
    the current holdtime is reset to the `initial-holdtime`.
 
    .. code-block:: frr
@@ -61,7 +61,7 @@ OSPF6 router
    to 400ms and the `maximum holdtime` to 10s. Hence there will always be at
    least 200ms between an event which requires SPF calculation and the actual
    SPF calculation. Further consecutive SPF calculations will always be
-   seperated by between 400ms to 10s, the hold-time increasing by 400ms each
+   separated by between 400ms to 10s, the hold-time increasing by 400ms each
    time an SPF-triggering event occurs within the hold-time of the previous
    SPF calculation.
 
@@ -126,7 +126,7 @@ OSPF6 interface
 .. index:: ipv6 ospf6 network (broadcast|point-to-point)
 .. clicmd:: ipv6 ospf6 network (broadcast|point-to-point)
 
-   Set explicitly network type for specifed interface.
+   Set explicitly network type for specified interface.
 
 .. _redistribute-routes-to-ospf6:
 

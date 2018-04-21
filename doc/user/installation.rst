@@ -11,7 +11,7 @@ Installation
 .. index:: Making FRR
 
 Several distributions provide packages for FRR. Check your distribution's
-respositories to find out if a suitable version is available.
+repositories to find out if a suitable version is available.
 
 FRR depends on various libraries depending on your operating system.
 
@@ -135,7 +135,7 @@ customize the build to include or exclude specific features and dependencies.
 .. option:: --enable-gcc-rdynamic
 
    Pass the ``-rdynamic`` option to the linker driver.  This is in most cases
-   neccessary for getting usable backtraces.  This option defaults to on if the
+   necessary for getting usable backtraces.  This option defaults to on if the
    compiler is detected as gcc, but giving an explicit enable/disable is
    suggested.
 
@@ -173,7 +173,7 @@ customize the build to include or exclude specific features and dependencies.
 .. option:: --enable-numeric-version
 
    Alpine Linux does not allow non-numeric characters in the version string.
-   With this option, we provide a way to strip out these characters for apk dev
+   With this option, we provide a way to strip out these characters for APK dev
    package builds.
 
 You may specify any combination of the above options to the configure
@@ -221,8 +221,8 @@ options to control the behaviour of FRR daemons.
 
 .. option:: --enable-vty-group <group>
 
-   Create Unix Vty sockets (for use with vtysh) with group owndership set to
-   `group`. This allows one to create a seperate group which is restricted to
+   Create Unix Vty sockets (for use with vtysh) with group ownership set to
+   `group`. This allows one to create a separate group which is restricted to
    accessing only the vty sockets, hence allowing one to delegate this group to
    individual users, or to run vtysh setgid to this group.
 
@@ -255,11 +255,11 @@ do exist.
 
 
 - :makevar:`CONFIG_NETLINK`
-  Kernel/User netlink socket. This is a brand new feature which enables an
+  Kernel/User Netlink socket. This is a brand new feature which enables an
   advanced interface between the Linux kernel and zebra (:ref:`kernel-interface`).
 - :makevar:`CONFIG_RTNETLINK`
   Routing messages.
-  This makes it possible to receive netlink routing messages.  If you
+  This makes it possible to receive Netlink routing messages.  If you
   specify this option, *zebra* can detect routing information
   updates directly from the kernel (:ref:`kernel-interface`).
 - :makevar:`CONFIG_IP_MULTICAST`

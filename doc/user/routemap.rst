@@ -8,14 +8,14 @@ Route maps provide a means to both filter and/or apply actions to route, hence
 allowing policy to be applied to routes.
 
 Route maps are an ordered list of route map entries. Each entry may specify up
-to four distincts sets of clauses:
+to four distinct sets of clauses:
 
 .. glossary::
 
    Matching Conditions
       A route-map entry may, optionally, specify one or more conditions which
       must be matched if the entry is to be considered further, as governed by
-      the Match Policy. If a route-map entry does not explicitely specify any
+      the Match Policy. If a route-map entry does not explicitly specify any
       matching conditions, then it always matches.
 
    Set Actions
@@ -313,5 +313,5 @@ This means that if a route matches ip access-list number 10 it's
 local-preference value is set to 200.
 
 See :ref:`bgp-configuration-examples` for examples of more sophisticated
-useage of route-maps, including of the ``call`` action.
+usage of route-maps, including of the ``call`` action.
 

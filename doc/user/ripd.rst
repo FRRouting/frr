@@ -10,7 +10,7 @@ XNS routing protocol. RIP is a :term:`distance-vector` protocol and is
 based on the :term:`Bellman-Ford` algorithms. As a distance-vector
 protocol, RIP router send updates to its neighbors periodically, thus
 allowing the convergence to a known topology. In each update, the
-distance to any given network will be broadcasted to its neighboring
+distance to any given network will be broadcast to its neighboring
 router.
 
 *ripd* supports RIP version 2 as described in RFC2453 and RIP
@@ -42,7 +42,7 @@ Please note that *zebra* must be invoked before *ripd*.
 To stop *ripd*. Please use::
    kill `cat /var/run/ripd.pid`
 
-Certain signals have special meaningss to *ripd*.
+Certain signals have special meanings to *ripd*.
 
  +-------------+------------------------------------------------------+
  | Signal      | Action                                               |
@@ -187,8 +187,8 @@ RIP Version Control
 RIP can be configured to send either Version 1 or Version 2 packets.  The
 default is to send RIPv2 while accepting both RIPv1 and RIPv2 (and replying
 with packets of the appropriate version for REQUESTS / triggered updates). The
-version to receive and send can be specified globally, and further overriden on
-a per-interface basis if needs be for send and receive seperately (see below).
+version to receive and send can be specified globally, and further overridden on
+a per-interface basis if needs be for send and receive separately (see below).
 
 It is important to note that RIPv1 cannot be authenticated. Further, if RIPv1
 is enabled then RIP will reply to REQUEST packets, sending the state of its RIP
@@ -570,7 +570,7 @@ To prevent such unauthenticated querying of routes disable RIPv1,
 .. index:: no ip rip authentication key-chain KEY-CHAIN
 .. clicmd:: no ip rip authentication key-chain KEY-CHAIN
 
-   Specifiy Keyed MD5 chain.
+   Specify Keyed MD5 chain.
 
    .. code-block:: frr
 
@@ -640,7 +640,7 @@ for routes redistributed into RIP.
 .. clicmd:: show ip rip status
 
    The command displays current RIP status. It includes RIP timer,
-   filtering, version, RIP enabled interface and RIP peer inforation.
+   filtering, version, RIP enabled interface and RIP peer information.
 
 ::
 
