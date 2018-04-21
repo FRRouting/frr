@@ -109,6 +109,14 @@ static void zebra_client_free(struct zserv *client)
 	assert(!client->t_read);
 	assert(!client->t_write);
 
+	/*
+	 * Ensure these have been nulled. This does not equate to the
+	 * associated task(s) being scheduled or unscheduled on the client
+	 * pthread's threadmaster.
+	 */
+	assert(!client->t_read);
+	assert(!client->t_write);
+
 	/* Close file descriptor. */
 	if (client->sock) {
 		unsigned long nroutes;

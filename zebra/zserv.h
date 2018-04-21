@@ -73,9 +73,6 @@ struct zserv {
 	struct thread *t_read;
 	struct thread *t_write;
 
-	/* Thread for delayed close. */
-	struct thread *t_suicide;
-
 	/* default routing table this client munges */
 	int rtm_table;
 
