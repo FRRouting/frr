@@ -66,6 +66,7 @@ import os
 import re
 import sys
 import pytest
+import glob
 from time import sleep
 
 from mininet.topo import Topo
@@ -270,45 +271,57 @@ def test_bgp_routingTable():
 
     print("\n\n** Verifying BGP Routing Tables")
     print("******************************************\n")
-    failures = 0
+    diffresult = {}
     for i in range(1, 2):
         for view in range(1, 4):
-            refTableFile = '%s/r%s/show_ip_bgp_view_%s.ref' % (thisDir, i, view)
-            if os.path.isfile(refTableFile):
-                # Read expected result from file
-                expected = open(refTableFile).read().rstrip()
-                # Fix newlines (make them all the same)
-                expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+            success = 0
+            # This glob pattern should work as long as number of views < 10
+            for refTableFile in (glob.glob(
+                '%s/r%s/show_ip_bgp_view_%s*.ref' % (thisDir, i, view))):
 
-                # Actual output from router
-                actual = net['r%s' % i].cmd('vtysh -c "show ip bgp view %s" 2> /dev/null' % view).rstrip()
-    
-                # Fix inconsitent spaces between 0.99.24 and newer versions of Quagga...
-                actual = re.sub('0             0', '0              0', actual)
-                actual = re.sub(r'([0-9])         32768', r'\1          32768', actual)
-                # Remove summary line (changed recently)
-                actual = re.sub(r'Total number.*', '', actual)
-                actual = re.sub(r'Displayed.*', '', actual)
-                actual = actual.rstrip()
-                # Fix table version (ignore it)
-                actual = re.sub(r'(BGP table version is )[0-9]+', r'\1XXX', actual)
+                if os.path.isfile(refTableFile):
+                    # Read expected result from file
+                    expected = open(refTableFile).read().rstrip()
+                    # Fix newlines (make them all the same)
+                    expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
-                # Fix newlines (make them all the same)
-                actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
+                    # Actual output from router
+                    actual = net['r%s' % i].cmd('vtysh -c "show ip bgp view %s" 2> /dev/null' % view).rstrip()
+        
+                    # Fix inconsitent spaces between 0.99.24 and newer versions of Quagga...
+                    actual = re.sub('0             0', '0              0', actual)
+                    actual = re.sub(r'([0-9])         32768', r'\1          32768', actual)
+                    # Remove summary line (changed recently)
+                    actual = re.sub(r'Total number.*', '', actual)
+                    actual = re.sub(r'Displayed.*', '', actual)
+                    actual = actual.rstrip()
+                    # Fix table version (ignore it)
+                    actual = re.sub(r'(BGP table version is )[0-9]+', r'\1XXX', actual)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(actual, expected,
-                title1="actual BGP routing table",
-                title2="expected BGP routing table")
+                    # Fix newlines (make them all the same)
+                    actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
-            if diff:
-                sys.stderr.write('r%s failed Routing Table Check for view %s:\n%s\n' 
-                                 % (i, view, diff))
-                failures += 1
-            else:
-                print("r%s ok" % i)
+                # Generate Diff
+                diff = topotest.get_textdiff(actual, expected,
+                    title1="actual BGP routing table",
+                    title2="expected BGP routing table")
 
-            assert failures == 0, "Routing Table verification failed for router r%s, view %s:\n%s" % (i, view, diff)
+                if diff:
+                    diffresult[refTableFile] = diff
+                else:
+                    success = 1
+                    print("template %s matched: r%s ok" % (refTableFile, i))
+                    break;
+
+            if not success:
+                resultstr = 'No template matched.\n'
+                for f in diffresult.iterkeys():
+                    resultstr += (
+                        'template %s: r%s failed Routing Table Check for view %s:\n%s\n'
+                        % (f, i, view, diffresult[f]))
+                raise AssertionError(
+                    "Routing Table verification failed for router r%s, view %s:\n%s" % (i, view, resultstr))
+
 
     # Make sure that all daemons are running
     for i in range(1, 2):
