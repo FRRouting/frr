@@ -269,7 +269,7 @@ static int zebra_pw_check_reachability(struct zebra_pw *pw)
 	return 0;
 }
 
-void zebra_pw_client_close(struct zserv *client)
+static int zebra_pw_client_close(struct zserv *client)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
@@ -283,12 +283,16 @@ void zebra_pw_client_close(struct zserv *client)
 			zebra_pw_del(zvrf, pw);
 		}
 	}
+
+	return 0;
 }
 
 void zebra_pw_init(struct zebra_vrf *zvrf)
 {
 	RB_INIT(zebra_pw_head, &zvrf->pseudowires);
 	RB_INIT(zebra_static_pw_head, &zvrf->static_pseudowires);
+
+	hook_register(client_close, zebra_pw_client_close);
 }
 
 void zebra_pw_exit(struct zebra_vrf *zvrf)

@@ -34,6 +34,7 @@
 
 #include "lib/buffer.h"           /* for BUFFER_EMPTY, BUFFER_ERROR, BUFFE... */
 #include "lib/command.h"          /* for vty, install_element, CMD_SUCCESS... */
+#include "lib/hook.h"             /* for DEFINE_HOOK, DEFINE_KOOH, hook_call */
 #include "lib/linklist.h"         /* for ALL_LIST_ELEMENTS_RO, ALL_LIST_EL... */
 #include "lib/libfrr.h"           /* for frr_zclient_addr */
 #include "lib/log.h"              /* for zlog_warn, zlog_debug, safe_strerror */
@@ -56,11 +57,6 @@
 #include "zebra/rib.h"            /* for rib_score_proto */
 #include "zebra/table_manager.h"  /* for release_daemon_table_chunks */
 #include "zebra/zapi_msg.h"       /* for zserv_handle_commands */
-#include "zebra/zebra_mpls.h"     /* for zebra_mpls_cleanup_fecs_for_client */
-#include "zebra/zebra_pbr.h"      /* for zebra_pbr_client_close_cleanup */
-#include "zebra/zebra_ptm.h"      /* for zebra_ptm_bfd_client_deregister */
-#include "zebra/zebra_pw.h"       /* for zebra_pw_client_close */
-#include "zebra/zebra_rnh.h"      /* for zebra_client_cleanup_rnh */
 #include "zebra/zebra_vrf.h"      /* for zebra_vrf_lookup_by_id, zvrf */
 #include "zebra/zserv.h"          /* for zclient */
 
@@ -83,30 +79,14 @@ int zebra_server_send_message(struct zserv *client, struct stream *msg)
 
 /* Lifecycle ---------------------------------------------------------------- */
 
+/* Hooks for client connect / disconnect */
+DEFINE_HOOK(client_connect, (struct zserv *client), (client));
+DEFINE_KOOH(client_close, (struct zserv *client), (client));
+
 /* free zebra client information. */
 static void zebra_client_free(struct zserv *client)
 {
-	/* Send client de-registration to BFD */
-	zebra_ptm_bfd_client_deregister(client->proto);
-
-	/* Cleanup any rules installed from this client */
-	zebra_pbr_client_close_cleanup(client->sock);
-
-	/* Cleanup any registered nexthops - across all VRFs. */
-	zebra_client_cleanup_rnh(client);
-
-	/* Release Label Manager chunks */
-	release_daemon_label_chunks(client->proto, client->instance);
-
-	/* Release Table Manager chunks */
-	release_daemon_table_chunks(client->proto, client->instance);
-
-	/* Cleanup any FECs registered by this client. */
-	zebra_mpls_cleanup_fecs_for_client(vrf_info_lookup(VRF_DEFAULT),
-					   client);
-
-	/* Remove pseudowires associated with this client */
-	zebra_pw_client_close(client);
+	hook_call(client_close, client);
 
 	/* Close file descriptor. */
 	if (client->sock) {
@@ -198,6 +178,8 @@ static void zebra_client_create(int sock)
 	listnode_add(zebrad.client_list, client);
 
 	zebra_vrf_update_all(client);
+
+	hook_call(client_connect, client);
 
 	/* start read loop */
 	zebra_event(client, ZEBRA_READ);

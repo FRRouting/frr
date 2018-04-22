@@ -66,9 +66,15 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2);
 static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		       vrf_id_t vrf_id);
 static void print_rnh(struct route_node *rn, struct vty *vty);
+static int zebra_client_cleanup_rnh(struct zserv *client);
 
 int zebra_rnh_ip_default_route = 0;
 int zebra_rnh_ipv6_default_route = 0;
+
+void zebra_rnh_init(void)
+{
+	hook_register(client_close, zebra_client_cleanup_rnh);
+}
 
 static inline struct route_table *get_rnh_table(vrf_id_t vrfid, int family,
 						rnh_type_t type)
@@ -1204,7 +1210,7 @@ static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, int family,
 }
 
 /* Cleanup registered nexthops (across VRFs) upon client disconnect. */
-void zebra_client_cleanup_rnh(struct zserv *client)
+static int zebra_client_cleanup_rnh(struct zserv *client)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
@@ -1228,4 +1234,6 @@ void zebra_client_cleanup_rnh(struct zserv *client)
 			}
 		}
 	}
+
+	return 0;
 }

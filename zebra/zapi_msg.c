@@ -2334,7 +2334,7 @@ static void zread_table_manager_connect(struct zserv *client,
 	 * Release previous labels of same protocol and instance.
 	 * This is done in case it restarted from an unexpected shutdown.
 	 */
-	release_daemon_table_chunks(proto, instance);
+	release_daemon_table_chunks(client);
 
 	zsend_table_manager_connect_response(client, vrf_id, 0);
 
@@ -2370,10 +2370,10 @@ static void zread_label_manager_connect(struct zserv *client,
 	client->instance = instance;
 
 	/*
-	  Release previous labels of same protocol and instance.
-	  This is done in case it restarted from an unexpected shutdown.
-	*/
-	release_daemon_label_chunks(proto, instance);
+	 * Release previous labels of same protocol and instance.
+	 * This is done in case it restarted from an unexpected shutdown.
+	 */
+	release_daemon_label_chunks(client);
 
 	zlog_debug(
 		" Label Manager client connected: sock %d, proto %s, vrf %u instance %u",

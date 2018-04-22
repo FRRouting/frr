@@ -16,12 +16,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include "zebra.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 
-#include "zebra.h"
-#include "zserv.h"
 #include "lib/log.h"
 #include "lib/memory.h"
 #include "lib/table.h"
@@ -31,9 +31,10 @@
 #include "lib/libfrr.h"
 #include "lib/vrf.h"
 
-#include "zebra_vrf.h"
-#include "label_manager.h" /* for NO_PROTO */
-#include "table_manager.h"
+#include "zebra/zserv.h"
+#include "zebra/zebra_vrf.h"
+#include "zebra/label_manager.h" /* for NO_PROTO */
+#include "zebra/table_manager.h"
 
 /* routing table identifiers
  *
@@ -77,6 +78,7 @@ void table_manager_enable(ns_id_t ns_id)
 		return;
 	tbl_mgr.lc_list = list_new();
 	tbl_mgr.lc_list->del = delete_table_chunk;
+	hook_register(client_close, release_daemon_table_chunks);
 }
 
 /**
@@ -202,12 +204,13 @@ int release_table_chunk(uint8_t proto, uint16_t instance, uint32_t start,
  * Called on client disconnection or reconnection. It only releases chunks
  * with empty keep value.
  *
- * @param proto Daemon protocol of client, to identify the owner
- * @param instance Instance, to identify the owner
+ * @param client the client to release chunks from
  * @return Number of chunks released
  */
-int release_daemon_table_chunks(uint8_t proto, uint16_t instance)
+int release_daemon_table_chunks(struct zserv *client)
 {
+	uint8_t proto = client->proto;
+	uint16_t instance = client->instance;
 	struct listnode *node;
 	struct table_manager_chunk *tmc;
 	int count = 0;

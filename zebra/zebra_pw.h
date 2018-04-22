@@ -70,7 +70,6 @@ void zebra_pw_change(struct zebra_pw *, ifindex_t, int, int, union g_addr *,
 struct zebra_pw *zebra_pw_find(struct zebra_vrf *, const char *);
 void zebra_pw_update(struct zebra_pw *);
 void zebra_pw_install_failure(struct zebra_pw *);
-void zebra_pw_client_close(struct zserv *);
 void zebra_pw_init(struct zebra_vrf *);
 void zebra_pw_exit(struct zebra_vrf *);
 void zebra_pw_vty_init(void);

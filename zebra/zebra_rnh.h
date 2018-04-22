@@ -54,6 +54,8 @@ typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
 extern int zebra_rnh_ip_default_route;
 extern int zebra_rnh_ipv6_default_route;
 
+extern void zebra_rnh_init(void);
+
 static inline int rnh_resolve_via_default(int family)
 {
 	if (((family == AF_INET) && zebra_rnh_ip_default_route)
@@ -87,12 +89,4 @@ extern void zebra_evaluate_rnh(vrf_id_t vrfid, int family, int force,
 extern void zebra_print_rnh_table(vrf_id_t vrfid, int family, struct vty *vty,
 				  rnh_type_t);
 extern char *rnh_str(struct rnh *rnh, char *buf, int size);
-/*
- * Cleanup any registered nexthops across all VRFs. This is called when closing
- * down a connection to a ZAPI client.
- *
- * client
- *    the client that is shutting down
- */
-extern void zebra_client_cleanup_rnh(struct zserv *client);
 #endif /*_ZEBRA_RNH_H */

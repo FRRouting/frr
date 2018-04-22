@@ -60,7 +60,7 @@ struct table_manager_chunk *assign_table_chunk(uint8_t proto, uint16_t instance,
 					       uint32_t size);
 int release_table_chunk(uint8_t proto, uint16_t instance, uint32_t start,
 			uint32_t end);
-int release_daemon_table_chunks(uint8_t proto, uint16_t instance);
+int release_daemon_table_chunks(struct zserv *client);
 void table_manager_disable(ns_id_t ns_id);
 
 #endif /* _TABLE_MANAGER_H */

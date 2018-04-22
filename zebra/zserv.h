@@ -34,6 +34,7 @@
 #include "lib/thread.h"       /* for thread, thread_master */
 #include "lib/linklist.h"     /* for list */
 #include "lib/workqueue.h"    /* for work_queue */
+#include "lib/hook.h"         /* for DECLARE_HOOK, DECLARE_KOOH */
 
 #include "zebra/zebra_vrf.h"  /* for zebra_vrf */
 
@@ -88,7 +89,7 @@ struct zserv {
 
 	/* client's protocol */
 	uint8_t proto;
-	unsigned short instance;
+	uint16_t instance;
 	uint8_t is_synchronous;
 
 	/* Statistics */
@@ -140,6 +141,10 @@ struct zserv {
 #define ZAPI_HANDLER_ARGS                                                      \
 	struct zserv *client, struct zmsghdr *hdr, struct stream *msg,         \
 		struct zebra_vrf *zvrf
+
+/* Hooks for client connect / disconnect */
+DECLARE_HOOK(client_connect, (struct zserv *client), (client));
+DECLARE_KOOH(client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {
