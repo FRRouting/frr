@@ -24,6 +24,7 @@
 
 #include "memory.h"
 #include "hash.h"
+#include "prefix.h"
 DECLARE_MTYPE(ROUTE_TABLE)
 DECLARE_MTYPE(ROUTE_NODE)
 
