@@ -999,6 +999,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 	int nexthop_self_flag = 1;
 	struct bgp_info *bi_ultimate = NULL;
 	int origin_local = 0;
+	struct bgp *src_vrf;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -1131,10 +1132,15 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 			   num_labels);
 	}
 
+	if (info_vpn->extra && info_vpn->extra->bgp_orig)
+		src_vrf = info_vpn->extra->bgp_orig;
+	else
+		src_vrf = bgp_vpn;
+
 	leak_update(bgp_vrf, bn, new_attr, afi, safi, info_vpn,
 		pLabels, num_labels,
 		info_vpn, /* parent */
-		bgp_vpn, &nexthop_orig, nexthop_self_flag, debug);
+		src_vrf, &nexthop_orig, nexthop_self_flag, debug);
 }
 
 void vpn_leak_to_vrf_update(struct bgp *bgp_vpn,       /* from */
