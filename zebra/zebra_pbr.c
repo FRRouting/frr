@@ -26,6 +26,7 @@
 
 #include "zebra/zebra_pbr.h"
 #include "zebra/rt.h"
+#include "zebra/zapi_msg.h"
 
 /* definitions */
 

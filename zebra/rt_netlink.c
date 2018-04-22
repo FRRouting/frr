@@ -50,7 +50,7 @@
 #include "mpls.h"
 #include "vxlan.h"
 
-#include "zebra/zserv.h"
+#include "zebra/zapi_msg.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt.h"

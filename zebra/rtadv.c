@@ -40,7 +40,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/debug.h"
 #include "zebra/rib.h"
-#include "zebra/zserv.h"
+#include "zebra/zapi_msg.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 

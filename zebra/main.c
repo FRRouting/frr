@@ -36,6 +36,7 @@
 #include "vrf.h"
 #include "logicalrouter.h"
 #include "libfrr.h"
+#include "routemap.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"

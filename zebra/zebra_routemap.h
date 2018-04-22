@@ -22,6 +22,8 @@
 #ifndef __ZEBRA_ROUTEMAP_H__
 #define __ZEBRA_ROUTEMAP_H__
 
+#include "lib/routemap.h"
+
 extern void zebra_route_map_init(void);
 extern void zebra_routemap_config_write_protocol(struct vty *vty);
 extern char *zebra_get_import_table_route_map(afi_t afi, uint32_t table);

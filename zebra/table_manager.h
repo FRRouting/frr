@@ -23,6 +23,9 @@
 
 #include "lib/linklist.h"
 #include "lib/thread.h"
+#include "lib/ns.h"
+
+#include "zebra/zserv.h"
 
 /*
  * Table chunk struct

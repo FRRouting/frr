@@ -29,6 +29,7 @@ extern const char ZEBRA_PTM_SOCK_NAME[];
 #define ZEBRA_PTM_BFD_CLIENT_FLAG_REG   (1 << 1) /* client registered with BFD */
 
 #include "zebra/zserv.h"
+#include "zebra/interface.h"
 
 /* Zebra ptm context block */
 struct zebra_ptm_cb {

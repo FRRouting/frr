@@ -28,6 +28,7 @@
 #include "zebra/debug.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zapi_msg.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_pw.h"

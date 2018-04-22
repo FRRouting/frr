@@ -25,6 +25,9 @@
 #include <lib/ns.h>
 #include <lib/vrf.h>
 
+#include "zebra/rib.h"
+#include "zebra/zebra_vrf.h"
+
 #ifdef HAVE_NETLINK
 /* Socket interface to kernel */
 struct nlsock {

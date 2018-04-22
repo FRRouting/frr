@@ -29,7 +29,7 @@
 #include "vty.h"
 
 #include "zebra/debug.h"
-#include "zebra/zserv.h"
+#include "zebra/zapi_msg.h"
 #include "zebra/rib.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_rnh.h"

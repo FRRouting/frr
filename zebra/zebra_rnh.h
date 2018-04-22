@@ -87,6 +87,12 @@ extern void zebra_evaluate_rnh(vrf_id_t vrfid, int family, int force,
 extern void zebra_print_rnh_table(vrf_id_t vrfid, int family, struct vty *vty,
 				  rnh_type_t);
 extern char *rnh_str(struct rnh *rnh, char *buf, int size);
-extern int zebra_cleanup_rnh_client(vrf_id_t vrf, int family,
-				    struct zserv *client, rnh_type_t type);
+/*
+ * Cleanup any registered nexthops across all VRFs. This is called when closing
+ * down a connection to a ZAPI client.
+ *
+ * client
+ *    the client that is shutting down
+ */
+extern void zebra_client_cleanup_rnh(struct zserv *client);
 #endif /*_ZEBRA_RNH_H */

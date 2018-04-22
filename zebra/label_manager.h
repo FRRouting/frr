@@ -29,6 +29,8 @@
 #include "lib/linklist.h"
 #include "lib/thread.h"
 
+#include "zebra/zserv.h"
+
 #define NO_PROTO 0
 
 /*

@@ -1,17 +1,19 @@
-/* Zebra daemon server header.
- * Copyright (C) 1997, 98 Kunihiro Ishiguro
+/*
+ * Zebra API server.
+ * Portions:
+ *   Copyright (C) 1997-1999  Kunihiro Ishiguro
+ *   Copyright (C) 2015-2018  Cumulus Networks, Inc.
+ *   et al.
  *
- * This file is part of GNU Zebra.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
  * You should have received a copy of the GNU General Public License along
  * with this program; see the file COPYING; if not, write to the Free Software
@@ -21,18 +23,19 @@
 #ifndef _ZEBRA_ZSERV_H
 #define _ZEBRA_ZSERV_H
 
-#include "rib.h"
-#include "if.h"
-#include "workqueue.h"
-#include "vrf.h"
-#include "routemap.h"
-#include "vty.h"
-#include "zclient.h"
-#include "pbr.h"
+#include <stdint.h>           /* for uint32_t, uint8_t */
+#include <time.h>             /* for time_t */
 
-#include "zebra/zebra_ns.h"
-#include "zebra/zebra_pw.h"
-//#include "zebra/zebra_pbr.h"
+#include "lib/route_types.h"  /* for ZEBRA_ROUTE_MAX */
+#include "lib/zebra.h"        /* for AFI_MAX */
+#include "lib/vrf.h"          /* for vrf_bitmap_t */
+#include "lib/zclient.h"      /* for redist_proto */
+#include "lib/stream.h"       /* for stream, stream_fifo */
+#include "lib/thread.h"       /* for thread, thread_master */
+#include "lib/linklist.h"     /* for list */
+#include "lib/workqueue.h"    /* for work_queue */
+
+#include "zebra/zebra_vrf.h"  /* for zebra_vrf */
 
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
@@ -164,48 +167,6 @@ extern unsigned int multipath_num;
 /* Prototypes. */
 extern void zserv_init(void);
 extern void zebra_zserv_socket_init(char *path);
-
-extern int zsend_vrf_add(struct zserv *, struct zebra_vrf *);
-extern int zsend_vrf_delete(struct zserv *, struct zebra_vrf *);
-
-extern int zsend_interface_add(struct zserv *, struct interface *);
-extern int zsend_interface_delete(struct zserv *, struct interface *);
-extern int zsend_interface_addresses(struct zserv *, struct interface *);
-extern int zsend_interface_address(int, struct zserv *, struct interface *,
-				   struct connected *);
-extern void nbr_connected_add_ipv6(struct interface *, struct in6_addr *);
-extern void nbr_connected_delete_ipv6(struct interface *, struct in6_addr *);
-extern int zsend_interface_update(int, struct zserv *, struct interface *);
-extern int zsend_redistribute_route(int, struct zserv *, struct prefix *,
-				    struct prefix *, struct route_entry *);
-extern int zsend_router_id_update(struct zserv *, struct prefix *, vrf_id_t);
-extern int zsend_interface_vrf_update(struct zserv *, struct interface *,
-				      vrf_id_t);
-
-extern int zsend_interface_link_params(struct zserv *, struct interface *);
-extern int zsend_pw_update(struct zserv *, struct zebra_pw *);
-
-extern int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
-				    enum zapi_route_notify_owner note);
-
-struct zebra_pbr_ipset;
-struct zebra_pbr_ipset_entry;
-struct zebra_pbr_iptable;
-struct zebra_pbr_rule;
-extern void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
-				    enum zapi_rule_notify_owner note);
-extern void zsend_ipset_notify_owner(
-			struct zebra_pbr_ipset *ipset,
-			enum zapi_ipset_notify_owner note);
-extern void zsend_ipset_entry_notify_owner(
-			struct zebra_pbr_ipset_entry *ipset,
-			enum zapi_ipset_entry_notify_owner note);
-extern void zsend_iptable_notify_owner(
-			struct zebra_pbr_iptable *iptable,
-			enum zapi_iptable_notify_owner note);
-
-extern void zserv_nexthop_num_warn(const char *, const struct prefix *,
-				   const unsigned int);
 extern int zebra_server_send_message(struct zserv *client, struct stream *msg);
 
 extern struct zserv *zebra_find_client(uint8_t proto, unsigned short instance);

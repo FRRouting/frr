@@ -23,9 +23,11 @@
 #define _ZEBRA_REDISTRIBUTE_H
 
 #include "table.h"
-#include "zserv.h"
 #include "vty.h"
 #include "vrf.h"
+
+#include "zebra/zserv.h"
+#include "zebra/rib.h"
 
 /* ZAPI command handlers */
 extern void zebra_redistribute_add(ZAPI_HANDLER_ARGS);

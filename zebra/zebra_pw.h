@@ -23,8 +23,11 @@
 #include <net/if.h>
 #include <netinet/in.h>
 
-#include "hook.h"
-#include "qobj.h"
+#include "lib/hook.h"
+#include "lib/qobj.h"
+#include "lib/pw.h"
+
+#include "zebra/zebra_vrf.h"
 
 #define PW_INSTALL_RETRY_INTERVAL	30
 

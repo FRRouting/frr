@@ -945,34 +945,6 @@ void zebra_print_rnh_table(vrf_id_t vrfid, int af, struct vty *vty,
 			print_rnh(rn, vty);
 }
 
-int zebra_cleanup_rnh_client(vrf_id_t vrf_id, int family, struct zserv *client,
-			     rnh_type_t type)
-{
-	struct route_table *ntable;
-	struct route_node *nrn;
-	struct rnh *rnh;
-
-	if (IS_ZEBRA_DEBUG_NHT)
-		zlog_debug("%u: Client %s RNH cleanup for family %d type %d",
-			   vrf_id, zebra_route_string(client->proto), family,
-			   type);
-
-	ntable = get_rnh_table(vrf_id, family, type);
-	if (!ntable) {
-		zlog_debug("cleanup_rnh_client: rnh table not found\n");
-		return -1;
-	}
-
-	for (nrn = route_top(ntable); nrn; nrn = route_next(nrn)) {
-		if (!nrn->info)
-			continue;
-
-		rnh = nrn->info;
-		zebra_remove_rnh_client(rnh, client, type);
-	}
-	return 1;
-}
-
 /**
  * free_state - free up the re structure associated with the rnh.
  */
@@ -1201,4 +1173,59 @@ static void print_rnh(struct route_node *rn, struct vty *vty)
 	if (!list_isempty(rnh->zebra_pseudowire_list))
 		vty_out(vty, " zebra[pseudowires]");
 	vty_out(vty, "\n");
+}
+
+static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, int family,
+				    struct zserv *client, rnh_type_t type)
+{
+	struct route_table *ntable;
+	struct route_node *nrn;
+	struct rnh *rnh;
+
+	if (IS_ZEBRA_DEBUG_NHT)
+		zlog_debug("%u: Client %s RNH cleanup for family %d type %d",
+			   vrf_id, zebra_route_string(client->proto), family,
+			   type);
+
+	ntable = get_rnh_table(vrf_id, family, type);
+	if (!ntable) {
+		zlog_debug("cleanup_rnh_client: rnh table not found\n");
+		return -1;
+	}
+
+	for (nrn = route_top(ntable); nrn; nrn = route_next(nrn)) {
+		if (!nrn->info)
+			continue;
+
+		rnh = nrn->info;
+		zebra_remove_rnh_client(rnh, client, type);
+	}
+	return 1;
+}
+
+/* Cleanup registered nexthops (across VRFs) upon client disconnect. */
+void zebra_client_cleanup_rnh(struct zserv *client)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		if ((zvrf = vrf->info) != NULL) {
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AF_INET, client,
+						 RNH_NEXTHOP_TYPE);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AF_INET6,
+						 client, RNH_NEXTHOP_TYPE);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AF_INET, client,
+						 RNH_IMPORT_CHECK_TYPE);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AF_INET6,
+						 client, RNH_IMPORT_CHECK_TYPE);
+			if (client->proto == ZEBRA_ROUTE_LDP) {
+				hash_iterate(zvrf->lsp_table,
+					     mpls_ldp_lsp_uninstall_all,
+					     zvrf->lsp_table);
+				mpls_ldp_ftn_uninstall_all(zvrf, AFI_IP);
+				mpls_ldp_ftn_uninstall_all(zvrf, AFI_IP6);
+			}
+		}
+	}
 }
