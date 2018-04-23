@@ -126,7 +126,7 @@ void zebra_ptm_init(void)
 
 	ptm_cb.ptm_sock = -1;
 
-	hook_register(zapi_client_close, zebra_ptm_bfd_client_deregister);
+	hook_register(zserv_client_close, zebra_ptm_bfd_client_deregister);
 }
 
 void zebra_ptm_finish(void)

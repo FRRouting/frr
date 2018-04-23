@@ -379,10 +379,11 @@ int main(int argc, char **argv)
 	/* Needed for BSD routing socket. */
 	pid = getpid();
 
+	/* Intialize pthread library */
 	frr_pthread_init();
 
-	/* This must be done only after locking pidfile (bug #403). */
-	zebra_zserv_socket_init(zserv_path);
+	/* Start Zebra API server */
+	zserv_start(zserv_path);
 
 	/* Init label manager */
 	label_manager_init(lblmgr_path);
