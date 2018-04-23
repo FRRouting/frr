@@ -120,6 +120,8 @@ const char *node_names[] = {
 				     */
 	"bgp ipv6 flowspec",	    /* BGP_FLOWSPECV6_NODE
 				     */
+	"pbr",	    /* PBR_NODE
+		     */
 };
 
 /* Command vector which includes some level of command lists. Normally
@@ -1315,6 +1317,7 @@ void cmd_exit(struct vty *vty)
 	case RMAP_NODE:
 	case PBRMAP_NODE:
 	case VTY_NODE:
+	case PBR_NODE:
 		vty->node = CONFIG_NODE;
 		break;
 	case BGP_IPV4_NODE:

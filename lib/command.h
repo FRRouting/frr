@@ -142,6 +142,7 @@ enum node_type {
 			  connections.*/
 	BGP_FLOWSPECV4_NODE,	/* BGP IPv4 FLOWSPEC Address-Family */
 	BGP_FLOWSPECV6_NODE,	/* BGP IPv6 FLOWSPEC Address-Family */
+	PBR_NODE,	/* Policy Routing Node */
 	NODE_TYPE_MAX, /* maximum */
 };
 

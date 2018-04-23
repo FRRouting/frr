@@ -49,6 +49,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/label_manager.h"
 #include "zebra/zebra_netns_notify.h"
+#include "zebra/zebra_pbr.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -149,6 +150,7 @@ static void sigint(void)
 	access_list_reset();
 	prefix_list_reset();
 	route_map_finish();
+	zebra_pbr_terminate();
 
 	list_delete_and_null(&zebrad.client_list);
 	work_queue_free_and_null(&zebrad.ribq);
@@ -331,7 +333,7 @@ int main(int argc, char **argv)
 	zebra_mpls_init();
 	zebra_mpls_vty_init();
 	zebra_pw_vty_init();
-
+	zebra_pbr_cmd_init();
 /* For debug purpose. */
 /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
