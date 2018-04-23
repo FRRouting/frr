@@ -1379,25 +1379,6 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info,
 			struct bgp *bgp, safi_t safi)
 {
 	struct zapi_route api;
-	struct peer *peer;
-
-	peer = info->peer;
-	assert(peer);
-
-	if (info->type == ZEBRA_ROUTE_BGP
-	    && info->sub_type == BGP_ROUTE_IMPORTED) {
-
-		struct bgp_info *bi;
-
-		/*
-		 * Look at parent chain for peer sort
-		 */
-		for (bi = info; bi->extra && bi->extra->parent;
-		     bi = bi->extra->parent) {
-
-			peer = ((struct bgp_info *)(bi->extra->parent))->peer;
-		}
-	}
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
@@ -1415,16 +1396,6 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info,
 	/* If the route's source is EVPN, flag as such. */
 	if (is_route_parent_evpn(info))
 		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
-
-	if (peer->sort == BGP_PEER_IBGP) {
-		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
-		SET_FLAG(api.flags, ZEBRA_FLAG_IBGP);
-	}
-
-	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
-	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
-	    || bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
 	if (bgp_debug_zebra(p)) {
 		char buf[PREFIX_STRLEN];
