@@ -23,6 +23,7 @@
 
 #include <jhash.h>
 #include <hash.h>
+#include <json.h>
 #include <hook.h>
 
 #include "zebra/zebra_pbr.h"
@@ -33,6 +34,20 @@
 /* definitions */
 
 /* static function declarations */
+DEFINE_HOOK(zebra_pbr_wrap_script_get_stat, (struct json_object *json_input,
+				      const char *pattern,
+				      const char *match,
+				      uint64_t *pkts, uint64_t *bytes),
+	    (json_input, pattern, match, pkts, bytes));
+DEFINE_HOOK(zebra_pbr_wrap_script_column, (const char *script,
+					   int begin_at_line,
+					   struct json_object *json,
+					   const char *str),
+				    (script, begin_at_line, json, str));
+
+DEFINE_HOOK(zebra_pbr_wrap_script_rows, (const char *script, int begin_at_line,
+					   struct json_object *json),
+				    (script, begin_at_line, json));
 DEFINE_HOOK(zebra_pbr_iptable_wrap_script_update, (struct zebra_ns *zns,
 					     int cmd,
 					     struct zebra_pbr_iptable *iptable),
@@ -670,4 +685,324 @@ void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
 int kernel_pbr_rule_del(struct zebra_pbr_rule *rule)
 {
 	return 0;
+}
+
+struct zebra_pbr_ipset_entry_unique_display {
+	struct zebra_pbr_ipset *zpi;
+	struct vty *vty;
+	struct json_object *json;
+};
+
+struct zebra_pbr_env_display {
+	struct zebra_ns *zns;
+	struct vty *vty;
+	struct json_object *json;
+};
+
+static const char *zebra_pbr_prefix2str(union prefixconstptr pu,
+					char *str, int size)
+{
+	const struct prefix *p = pu.p;
+	char buf[PREFIX2STR_BUFFER];
+
+	if (p->family == AF_INET && p->prefixlen == IPV4_MAX_PREFIXLEN) {
+		snprintf(str, size, "%s", inet_ntop(p->family, &p->u.prefix,
+						    buf, PREFIX2STR_BUFFER));
+		return str;
+	}
+	return prefix2str(pu, str, size);
+}
+
+/* return a string identifier similar to what is available in
+ * ipset list. optional_proto is here to override proto value
+ * of zpi if proto value is not available
+ */
+static void zebra_pbr_forge_ipset_identifier(char *buffer, size_t buff_len,
+					     uint32_t type,
+					     struct prefix *src,
+					     struct prefix *dst)
+{
+	size_t len = buff_len;
+	char *ptr = buffer;
+
+	if (type == IPSET_NET_NET) {
+		char buf[PREFIX_STRLEN];
+		int len_temp;
+
+		zebra_pbr_prefix2str(src,
+				     buf, sizeof(buf));
+		len_temp = snprintf(ptr, len, "%s", buf);
+		ptr += len_temp;
+		len -= len_temp;
+		zebra_pbr_prefix2str(dst,
+				     buf, sizeof(buf));
+		snprintf(ptr, len, ",%s", buf);
+	} else if (type == IPSET_NET) {
+		char buf[PREFIX_STRLEN];
+
+		if (src)
+			zebra_pbr_prefix2str(src, buf, sizeof(buf));
+		else
+			zebra_pbr_prefix2str(dst, buf, sizeof(buf));
+		snprintf(ptr, len, "%s", buf);
+	}
+}
+
+static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
+					     void *arg)
+{
+	struct zebra_pbr_ipset_entry_unique_display *unique =
+		(struct zebra_pbr_ipset_entry_unique_display *)arg;
+	struct zebra_pbr_ipset *zpi = unique->zpi;
+	struct vty *vty = unique->vty;
+	struct zebra_pbr_ipset_entry *zpie =
+		(struct zebra_pbr_ipset_entry *)backet->data;
+	char json_data_str[100];
+	uint64_t pkts = 0, bytes = 0;
+	int ret = 0;
+
+	if (zpie->backpointer != zpi)
+		return HASHWALK_CONTINUE;
+
+	if (unique->json) {
+		/* create data string */
+		char *ptr = json_data_str;
+		size_t len = sizeof(json_data_str);
+		struct prefix *src = NULL, *dst = NULL;
+
+
+		if (zpie->filter_bm & PBR_FILTER_SRC_IP)
+			src = &(zpie->src);
+		if (zpie->filter_bm & PBR_FILTER_SRC_IP)
+			dst = &(zpie->dst);
+		memset(ptr, 0, sizeof(json_data_str));
+		if ((zpi->type == IPSET_NET) ||
+		    (zpi->type == IPSET_NET_NET)) {
+			zebra_pbr_forge_ipset_identifier(ptr, len, zpi->type,
+							 src, dst);
+			ret = hook_call(zebra_pbr_wrap_script_get_stat,
+					unique->json, "data",
+					json_data_str, &pkts, &bytes);
+		}
+	}
+	if (zpi->type == IPSET_NET_NET) {
+		char buf[PREFIX_STRLEN];
+
+		zebra_pbr_prefix2str(&(zpie->src), buf, sizeof(buf));
+		vty_out(vty, "\tfrom %s", buf);
+		vty_out(vty, " to ");
+		zebra_pbr_prefix2str(&(zpie->dst), buf, sizeof(buf));
+		vty_out(vty, "%s", buf);
+	} else if (zpi->type == IPSET_NET) {
+		char buf[PREFIX_STRLEN];
+
+		if (zpie->filter_bm & PBR_FILTER_SRC_IP) {
+			zebra_pbr_prefix2str(&(zpie->src), buf, sizeof(buf));
+			vty_out(vty, "\tfrom %s", buf);
+		}
+		if (zpie->filter_bm & PBR_FILTER_DST_IP) {
+			zebra_pbr_prefix2str(&(zpie->dst), buf, sizeof(buf));
+			vty_out(vty, "\tto %s", buf);
+		}
+	}
+	vty_out(vty, " (%u)\n", zpie->unique);
+
+	if (ret && pkts > 0)
+		vty_out(vty, "\t pkts %" PRIu64 ", bytes %" PRIu64"\n",
+			pkts, bytes);
+	return HASHWALK_CONTINUE;
+}
+
+static int zebra_pbr_get_json_from_ipset(char *ipsetname,
+					 struct json_object *list)
+{
+	const char input[120];
+	const char *members = "Members:";
+	int ret = 0;
+
+	/*
+	 * The following call will analyse the output of 'ipset --list'
+	 * command, and will return a json string format that will contain
+	 * the output of previous command executed. The below comment
+	 * lines explain how the translation is done
+	 *
+	 * Name: match0x39ea2d0
+	 * Type: hash:net,net
+	 * Revision: 2
+	 * Header: family inet hashsize 64 maxelem 65536 counters
+	 * Size in memory: 824
+	 * References: 1
+	 * Number of entries: 2
+	 * Members:
+	 * 1.1.1.2,2.2.2.2 packets 0 bytes 0
+	 * 172.17.0.0/24,172.17.0.31 packets 0 bytes 0
+	 * =>
+	 * "0":{"Name":"match0x39ea2d0", "Type":"hash:net,net",
+	 * "Revision":"2","Header":"...", ...,"Number of entries":"2"}
+	 * "1":{"data":"1.1.1.2,2.2.2.2","packets":"0","bytes":"0"}
+	 * "2":{"data":"172.17.0.0/24,172.17.0.31","packets":"0","bytes":"0"}
+	 */
+	snprintf((char *)input, sizeof(input),
+		 "ipset --list %s", ipsetname);
+	ret = hook_call(zebra_pbr_wrap_script_column, input, 1,
+			list, members);
+	return ret;
+}
+
+static int zebra_pbr_show_ipset_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct zebra_pbr_env_display *uniqueipset =
+		(struct zebra_pbr_env_display *)arg;
+	struct zebra_pbr_ipset *zpi = (struct zebra_pbr_ipset *)backet->data;
+	struct zebra_pbr_ipset_entry_unique_display unique;
+	struct vty *vty = uniqueipset->vty;
+	struct json_object *list;
+	struct zebra_ns *zns = uniqueipset->zns;
+
+	vty_out(vty, "IPset %s type %s\n", zpi->ipset_name,
+		zebra_pbr_ipset_type2str(zpi->type));
+	unique.vty = vty;
+	unique.zpi = zpi;
+	list = json_object_new_object();
+	if (zebra_pbr_get_json_from_ipset(zpi->ipset_name, list) < 0)
+		unique.json = NULL;
+	else
+		unique.json = list;
+	hash_walk(zns->ipset_entry_hash, zebra_pbr_show_ipset_entry_walkcb,
+		  &unique);
+	vty_out(vty, "\n");
+	return HASHWALK_CONTINUE;
+}
+
+/*
+ */
+void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname)
+{
+	struct zebra_pbr_ipset *zpi;
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_ipset_entry_unique_display unique;
+	struct zebra_pbr_env_display uniqueipset;
+	struct json_object *list;
+
+	if (ipsetname) {
+		zpi = zebra_pbr_lookup_ipset_pername(zns, ipsetname);
+		if (!zpi) {
+			vty_out(vty, "No IPset %s found\n", ipsetname);
+			return;
+		}
+		vty_out(vty, "IPset %s type %s\n", ipsetname,
+			zebra_pbr_ipset_type2str(zpi->type));
+
+		unique.vty = vty;
+		unique.zpi = zpi;
+		list = json_object_new_object();
+		if (zebra_pbr_get_json_from_ipset(ipsetname, list) < 0)
+			unique.json = NULL;
+		else
+			unique.json = list;
+		hash_walk(zns->ipset_entry_hash,
+			  zebra_pbr_show_ipset_entry_walkcb,
+			  &unique);
+		json_object_free(list);
+		return;
+	}
+	uniqueipset.zns = zns;
+	uniqueipset.vty = vty;
+	hash_walk(zns->ipset_hash, zebra_pbr_show_ipset_walkcb,
+		  &uniqueipset);
+}
+
+struct pbr_rule_fwmark_lookup {
+	struct zebra_pbr_rule *ptr;
+	uint32_t fwmark;
+};
+
+static int zebra_pbr_rule_lookup_fwmark_walkcb(struct hash_backet *backet,
+					       void *arg)
+{
+	struct pbr_rule_fwmark_lookup *iprule =
+		(struct pbr_rule_fwmark_lookup *)arg;
+	struct zebra_pbr_rule *zpr = (struct zebra_pbr_rule *)backet->data;
+
+	if (iprule->fwmark == zpr->rule.filter.fwmark) {
+		iprule->ptr = zpr;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
+static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct zebra_pbr_iptable *iptable =
+		(struct zebra_pbr_iptable *)backet->data;
+	struct zebra_pbr_env_display *env = (struct zebra_pbr_env_display *)arg;
+	struct vty *vty = env->vty;
+	struct zebra_ns *zns = env->zns;
+	uint64_t pkts = 0, bytes = 0;
+	int ret;
+
+	vty_out(vty, "IPtable %s action %s (%u)\n", iptable->ipset_name,
+		iptable->action == ZEBRA_IPTABLES_DROP ? "drop" : "redirect",
+		iptable->unique);
+
+	ret = hook_call(zebra_pbr_wrap_script_get_stat, env->json, "misc",
+			iptable->ipset_name, &pkts, &bytes);
+	if (ret && pkts > 0)
+		vty_out(vty, "\t pkts %" PRIu64 ", bytes %" PRIu64"\n",
+			pkts, bytes);
+	if (iptable->action != ZEBRA_IPTABLES_DROP) {
+		struct pbr_rule_fwmark_lookup prfl;
+
+		prfl.fwmark = iptable->fwmark;
+		prfl.ptr = NULL;
+		hash_walk(zns->rules_hash,
+			  &zebra_pbr_rule_lookup_fwmark_walkcb, &prfl);
+		if (prfl.ptr) {
+			struct zebra_pbr_rule *zpr = prfl.ptr;
+			vty_out(vty, "\t table %u, fwmark %u\n",
+				zpr->rule.action.table,
+				prfl.fwmark);
+		}
+	}
+	return HASHWALK_CONTINUE;
+}
+
+void zebra_pbr_show_iptable(struct vty *vty)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_env_display env;
+	struct json_object *list;
+	char input[120];
+	int ret = 0;
+
+	env.vty = vty;
+	env.zns = zns;
+
+	list = json_object_new_object();
+	snprintf(input, sizeof(input),
+		 "iptables -t mangle -L PREROUTING -v");
+	/*
+	 * The following call will analyse the output of 'iptables'
+	 * command, and will return a json string format that will contain
+	 * the output of previous command executed. The below comment
+	 * lines explain how the translation is done
+	 *
+	 * pkts bytes target     prot opt in     out     source destination
+	 *  0     0     MARK       all --  any    any     anywhere anywhere\
+	 * match-set match0x44af320 dst,dst MARK set 0x100
+	 * =>
+	 * "<IDx>":{ "pkts":"<X>","bytes":"<Y>"",...,"misc":"..\
+	 *  match0x<ptr1> ..."},
+	 * "<IDy>":{ "pkts":"<X>","bytes":"<Y>"",...,"misc":"..\
+	 * match0x<ptr2> ..."},
+	 */
+	ret = hook_call(zebra_pbr_wrap_script_rows, input, 1, list);
+	if (ret < 0)
+		env.json = NULL;
+	else
+		env.json = list;
+
+	hash_walk(zns->iptable_hash, zebra_pbr_show_iptable_walkcb,
+		  &env);
+	json_object_free(list);
 }
