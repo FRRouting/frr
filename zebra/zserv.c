@@ -69,14 +69,65 @@ extern struct zebra_privs_t zserv_privs;
  *
  * These are used almost exclusively by client threads to drive their own event
  * loops. The only exception is in zebra_client_create(), which pushes an
- * initial ZEBRA_READ event to start the API handler loop.
+ * initial ZSERV_CLIENT_READ event to start the API handler loop.
  */
-enum event { ZEBRA_READ, ZEBRA_WRITE };
+enum zserv_client_event {
+	/* Schedule a socket read */
+	ZSERV_CLIENT_READ,
+	/* Schedule a buffer write */
+	ZSERV_CLIENT_WRITE,
+	/* Schedule a buffer flush */
+	ZSERV_CLIENT_FLUSH_DATA,
+};
 
-/* Forward declarations for functions used from both threads. */
-static void zebra_event(struct zserv *client, enum event event);
-static int zebra_client_handle_close(struct thread *thread);
-static int zserv_process_messages(struct thread *thread);
+/*
+ * Main thread events.
+ *
+ * These are used by client threads to notify the main thread about various
+ * events and to make processing requests.
+ */
+enum zserv_event {
+	/* Schedule listen job on Zebra API socket */
+	ZSERV_ACCEPT,
+	/* The calling client has packets on its input buffer */
+	ZSERV_PROCESS_MESSAGES,
+	/* The calling client wishes to be killed */
+	ZSERV_HANDLE_CLOSE,
+};
+
+/*
+ * Zebra server event driver for all client threads.
+ *
+ * This is essentially a wrapper around thread_add_event() that centralizes
+ * those scheduling calls into one place.
+ *
+ * All calls to this function schedule an event on the pthread running the
+ * provided client.
+ *
+ * client
+ *    the client in question, and thread target
+ *
+ * event
+ *    the event to notify them about
+ */
+static void zserv_client_event(struct zserv *client,
+			       enum zserv_client_event event);
+
+/*
+ * Zebra server event driver for the main thread.
+ *
+ * This is essentially a wrapper around thread_add_event() that centralizes
+ * those scheduling calls into one place.
+ *
+ * All calls to this function schedule an event on Zebra's main pthread.
+ *
+ * client
+ *    the client in question
+ *
+ * event
+ *    the event to notify the main thread about
+ */
+static void zserv_event(struct zserv *client, enum zserv_event event);
 
 
 /* Client thread lifecycle -------------------------------------------------- */
@@ -107,7 +158,6 @@ static void zserv_log_message(const char *errmsg, struct stream *msg,
 	zlog_hexdump(msg->data, STREAM_READABLE(msg));
 }
 
-
 /*
  * Gracefully shut down a client connection.
  *
@@ -116,12 +166,11 @@ static void zserv_log_message(const char *errmsg, struct stream *msg,
  *
  * Must be called from the client pthread, never the main thread.
  */
-static void zebra_client_close(struct zserv *client)
+static void zserv_client_close(struct zserv *client)
 {
 	THREAD_OFF(client->t_read);
 	THREAD_OFF(client->t_write);
-	thread_add_event(zebrad.master, zebra_client_handle_close, client, 0,
-			 NULL);
+	zserv_event(client, ZSERV_HANDLE_CLOSE);
 }
 
 static int zserv_flush_data(struct thread *thread)
@@ -134,13 +183,11 @@ static int zserv_flush_data(struct thread *thread)
 		zlog_warn(
 			"%s: buffer_flush_available failed on zserv client fd %d, closing",
 			__func__, client->sock);
-		zebra_client_close(client);
+		zserv_client_close(client);
 		client = NULL;
 		break;
 	case BUFFER_PENDING:
-		client->t_write = NULL;
-		thread_add_write(client->pthread->master, zserv_flush_data, client,
-				 client->sock, &client->t_write);
+		zserv_client_event(client, ZSERV_CLIENT_FLUSH_DATA);
 		break;
 	case BUFFER_EMPTY:
 		break;
@@ -188,11 +235,10 @@ static int zserv_write(struct thread *thread)
 			  client->sock);
 		zlog_warn("%s: closing connection to %s", __func__,
 			  zebra_route_string(client->proto));
-		zebra_client_close(client);
+		zserv_client_close(client);
 		return -1;
 	case BUFFER_PENDING:
-		thread_add_write(client->pthread->master, zserv_flush_data,
-				 client, client->sock, &client->t_write);
+		zserv_client_event(client, ZSERV_CLIENT_FLUSH_DATA);
 		break;
 	case BUFFER_EMPTY:
 		break;
@@ -201,7 +247,7 @@ static int zserv_write(struct thread *thread)
 	pthread_mutex_lock(&client->obuf_mtx);
 	{
 		if (client->obuf_fifo->count)
-			zebra_event(client, ZEBRA_WRITE);
+			zserv_client_event(client, ZSERV_CLIENT_WRITE);
 	}
 	pthread_mutex_unlock(&client->obuf_mtx);
 
@@ -230,7 +276,6 @@ static void zserv_write_incoming(struct stream *orig, uint16_t command)
 	stream_free(copy);
 }
 #endif
-
 
 /*
  * Read and process data from a client socket.
@@ -381,35 +426,38 @@ static int zserv_read(struct thread *thread)
 			   zebrad.packets_to_process - p2p);
 
 	/* Schedule job to process those packets */
-	thread_add_event(zebrad.master, zserv_process_messages, client, 0,
-			 NULL);
+	zserv_event(client, ZSERV_PROCESS_MESSAGES);
 
 	/* Reschedule ourselves */
-	zebra_event(client, ZEBRA_READ);
+	zserv_client_event(client, ZSERV_CLIENT_READ);
 
 	return 0;
 
 zread_fail:
-	zebra_client_close(client);
+	zserv_client_close(client);
 	return -1;
 }
 
-static void zebra_event(struct zserv *client, enum event event)
+static void zserv_client_event(struct zserv *client,
+			       enum zserv_client_event event)
 {
 	switch (event) {
-	case ZEBRA_READ:
+	case ZSERV_CLIENT_READ:
 		thread_add_read(client->pthread->master, zserv_read, client,
 				client->sock, &client->t_read);
 		break;
-	case ZEBRA_WRITE:
+	case ZSERV_CLIENT_WRITE:
 		thread_add_write(client->pthread->master, zserv_write, client,
 				 client->sock, &client->t_write);
+		break;
+	case ZSERV_CLIENT_FLUSH_DATA:
+		thread_add_write(client->pthread->master, zserv_flush_data,
+				 client, client->sock, &client->t_write);
 		break;
 	}
 }
 
 /* Main thread lifecycle ---------------------------------------------------- */
-
 
 /*
  * Read and process messages from a client.
@@ -472,20 +520,19 @@ static int zserv_process_messages(struct thread *thread)
 	pthread_mutex_lock(&client->ibuf_mtx);
 	{
 		if (client->ibuf_fifo->count)
-			thread_add_event(zebrad.master, zserv_process_messages,
-					 client, 0, NULL);
+			zserv_event(client, ZSERV_PROCESS_MESSAGES);
 	}
 	pthread_mutex_unlock(&client->ibuf_mtx);
 
 	return 0;
 }
 
-int zebra_server_send_message(struct zserv *client, struct stream *msg)
+int zserv_send_message(struct zserv *client, struct stream *msg)
 {
 	pthread_mutex_lock(&client->obuf_mtx);
 	{
 		stream_fifo_push(client->obuf_fifo, msg);
-		zebra_event(client, ZEBRA_WRITE);
+		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 	}
 	pthread_mutex_unlock(&client->obuf_mtx);
 	return 0;
@@ -493,8 +540,8 @@ int zebra_server_send_message(struct zserv *client, struct stream *msg)
 
 
 /* Hooks for client connect / disconnect */
-DEFINE_HOOK(zapi_client_connect, (struct zserv *client), (client));
-DEFINE_KOOH(zapi_client_close, (struct zserv *client), (client));
+DEFINE_HOOK(zserv_client_connect, (struct zserv *client), (client));
+DEFINE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /*
  * Deinitialize zebra client.
@@ -508,9 +555,9 @@ DEFINE_KOOH(zapi_client_close, (struct zserv *client), (client));
  * managed by the owning pthread and any tasks associated with them must have
  * been stopped prior to invoking this function.
  */
-static void zebra_client_free(struct zserv *client)
+static void zserv_client_free(struct zserv *client)
 {
-	hook_call(zapi_client_close, client);
+	hook_call(zserv_client_close, client);
 
 	/* Close file descriptor. */
 	if (client->sock) {
@@ -562,7 +609,7 @@ static void zebra_client_free(struct zserv *client)
  * terminate the client thread, update relevant internal datastructures and
  * free any resources allocated by the main thread.
  */
-static int zebra_client_handle_close(struct thread *thread)
+static int zserv_handle_client_close(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 
@@ -582,7 +629,7 @@ static int zebra_client_handle_close(struct thread *thread)
 	client->pthread = NULL;
 
 	listnode_delete(zebrad.client_list, client);
-	zebra_client_free(client);
+	zserv_client_free(client);
 	return 0;
 }
 
@@ -596,7 +643,7 @@ static int zebra_client_handle_close(struct thread *thread)
  * sock
  *    client's socket file descriptor
  */
-static void zebra_client_create(int sock)
+static void zserv_client_create(int sock)
 {
 	struct zserv *client;
 	int i;
@@ -645,17 +692,19 @@ static void zebra_client_create(int sock)
 	zebra_vrf_update_all(client);
 
 	/* start read loop */
-	zebra_event(client, ZEBRA_READ);
+	zserv_client_event(client, ZSERV_CLIENT_READ);
 
 	/* call callbacks */
-	hook_call(zapi_client_connect, client);
+	hook_call(zserv_client_connect, client);
 
 	/* start pthread */
 	frr_pthread_run(client->pthread, NULL);
 }
 
-/* Accept code of zebra server socket. */
-static int zebra_accept(struct thread *thread)
+/*
+ * Accept socket connection.
+ */
+static int zserv_accept(struct thread *thread)
 {
 	int accept_sock;
 	int client_sock;
@@ -665,7 +714,7 @@ static int zebra_accept(struct thread *thread)
 	accept_sock = THREAD_FD(thread);
 
 	/* Reregister myself. */
-	thread_add_read(zebrad.master, zebra_accept, NULL, accept_sock, NULL);
+	zserv_event(NULL, ZSERV_ACCEPT);
 
 	len = sizeof(struct sockaddr_in);
 	client_sock = accept(accept_sock, (struct sockaddr *)&client, &len);
@@ -680,16 +729,14 @@ static int zebra_accept(struct thread *thread)
 	set_nonblocking(client_sock);
 
 	/* Create new zebra client. */
-	zebra_client_create(client_sock);
+	zserv_client_create(client_sock);
 
 	return 0;
 }
 
-/* Make zebra server socket, wiping any existing one (see bug #403). */
-void zebra_zserv_socket_init(char *path)
+void zserv_start(char *path)
 {
 	int ret;
-	int sock;
 	mode_t old_mask;
 	struct sockaddr_storage sa;
 	socklen_t sa_len;
@@ -702,8 +749,8 @@ void zebra_zserv_socket_init(char *path)
 	old_mask = umask(0077);
 
 	/* Make UNIX domain socket. */
-	sock = socket(sa.ss_family, SOCK_STREAM, 0);
-	if (sock < 0) {
+	zebrad.sock = socket(sa.ss_family, SOCK_STREAM, 0);
+	if (zebrad.sock < 0) {
 		zlog_warn("Can't create zserv socket: %s",
 			  safe_strerror(errno));
 		zlog_warn(
@@ -712,8 +759,8 @@ void zebra_zserv_socket_init(char *path)
 	}
 
 	if (sa.ss_family != AF_UNIX) {
-		sockopt_reuseaddr(sock);
-		sockopt_reuseport(sock);
+		sockopt_reuseaddr(zebrad.sock);
+		sockopt_reuseport(zebrad.sock);
 	} else {
 		struct sockaddr_un *suna = (struct sockaddr_un *)&sa;
 		if (suna->sun_path[0])
@@ -721,39 +768,59 @@ void zebra_zserv_socket_init(char *path)
 	}
 
 	zserv_privs.change(ZPRIVS_RAISE);
-	setsockopt_so_recvbuf(sock, 1048576);
-	setsockopt_so_sendbuf(sock, 1048576);
+	setsockopt_so_recvbuf(zebrad.sock, 1048576);
+	setsockopt_so_sendbuf(zebrad.sock, 1048576);
 	zserv_privs.change(ZPRIVS_LOWER);
 
 	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
 
-	ret = bind(sock, (struct sockaddr *)&sa, sa_len);
+	ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
 	if (ret < 0) {
 		zlog_warn("Can't bind zserv socket on %s: %s", path,
 			  safe_strerror(errno));
 		zlog_warn(
 			"zebra can't provide full functionality due to above error");
-		close(sock);
+		close(zebrad.sock);
+		zebrad.sock = -1;
 		return;
 	}
 	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
 
-	ret = listen(sock, 5);
+	ret = listen(zebrad.sock, 5);
 	if (ret < 0) {
 		zlog_warn("Can't listen to zserv socket %s: %s", path,
 			  safe_strerror(errno));
 		zlog_warn(
 			"zebra can't provide full functionality due to above error");
-		close(sock);
+		close(zebrad.sock);
+		zebrad.sock = -1;
 		return;
 	}
 
 	umask(old_mask);
 
-	thread_add_read(zebrad.master, zebra_accept, NULL, sock, NULL);
+	zserv_event(NULL, ZSERV_ACCEPT);
 }
+
+void zserv_event(struct zserv *client, enum zserv_event event)
+{
+	switch (event) {
+	case ZSERV_ACCEPT:
+		thread_add_read(zebrad.master, zserv_accept, NULL, zebrad.sock,
+				NULL);
+		break;
+	case ZSERV_PROCESS_MESSAGES:
+		thread_add_event(zebrad.master, zserv_process_messages, client,
+				 0, NULL);
+		break;
+	case ZSERV_HANDLE_CLOSE:
+		thread_add_event(zebrad.master, zserv_handle_client_close,
+				 client, 0, NULL);
+	}
+}
+
 
 /* General purpose ---------------------------------------------------------- */
 
@@ -895,7 +962,7 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		client->v6_route_del_cnt);
 }
 
-struct zserv *zebra_find_client(uint8_t proto, unsigned short instance)
+struct zserv *zserv_find_client(uint8_t proto, unsigned short instance)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
@@ -973,7 +1040,10 @@ void zserv_init(void)
 {
 	/* Client list init. */
 	zebrad.client_list = list_new();
-	zebrad.client_list->del = (void (*)(void *))zebra_client_free;
+	zebrad.client_list->del = (void (*)(void *)) zserv_client_free;
+
+	/* Misc init. */
+	zebrad.sock = -1;
 
 	install_element(ENABLE_NODE, &show_zebra_client_cmd);
 	install_element(ENABLE_NODE, &show_zebra_client_summary_cmd);
