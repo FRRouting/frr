@@ -339,6 +339,7 @@ int bfd_configure_peer(struct bfd_peer_cfg *bpc,
 	bpc->bpc_recvinterval = BPC_DEF_RECEIVEINTERVAL;
 	bpc->bpc_txinterval = BPC_DEF_TRANSMITINTERVAL;
 	bpc->bpc_echointerval = BPC_DEF_ECHOINTERVAL;
+	bpc->bpc_lastevent = monotime(NULL);
 
 	/* Safety check: when no error buf is provided len must be zero. */
 	if (ebuf == NULL)
