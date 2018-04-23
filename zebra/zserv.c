@@ -61,204 +61,25 @@
 #include "zebra/zserv.h"          /* for zserv */
 /* clang-format on */
 
-/* Event list of zebra. */
-enum event { ZEBRA_READ, ZEBRA_WRITE };
 /* privileges */
 extern struct zebra_privs_t zserv_privs;
-/* post event into client */
+
+/*
+ * Client thread events.
+ *
+ * These are used almost exclusively by client threads to drive their own event
+ * loops. The only exception is in zebra_client_create(), which pushes an
+ * initial ZEBRA_READ event to start the API handler loop.
+ */
+enum event { ZEBRA_READ, ZEBRA_WRITE };
+
+/* Forward declarations for functions used from both threads. */
 static void zebra_event(struct zserv *client, enum event event);
+static int zebra_client_handle_close(struct thread *thread);
+static int zserv_process_messages(struct thread *thread);
 
 
-/* Public interface --------------------------------------------------------- */
-
-int zebra_server_send_message(struct zserv *client, struct stream *msg)
-{
-	pthread_mutex_lock(&client->obuf_mtx);
-	{
-		stream_fifo_push(client->obuf_fifo, msg);
-		zebra_event(client, ZEBRA_WRITE);
-	}
-	pthread_mutex_unlock(&client->obuf_mtx);
-	return 0;
-}
-
-/* Hooks for client connect / disconnect */
-DEFINE_HOOK(zapi_client_connect, (struct zserv *client), (client));
-DEFINE_KOOH(zapi_client_close, (struct zserv *client), (client));
-
-/*
- * Deinitialize zebra client.
- *
- * - Deregister and deinitialize related internal resources
- * - Gracefully close socket
- * - Free associated resources
- * - Free client structure
- *
- * This does *not* take any action on the struct thread * fields. These are
- * managed by the owning pthread and any tasks associated with them must have
- * been stopped prior to invoking this function.
- */
-static void zebra_client_free(struct zserv *client)
-{
-	hook_call(zapi_client_close, client);
-
-	/* Close file descriptor. */
-	if (client->sock) {
-		unsigned long nroutes;
-
-		close(client->sock);
-		nroutes = rib_score_proto(client->proto, client->instance);
-		zlog_notice(
-			"client %d disconnected. %lu %s routes removed from the rib",
-			client->sock, nroutes,
-			zebra_route_string(client->proto));
-		client->sock = -1;
-	}
-
-	/* Free stream buffers. */
-	if (client->ibuf_work)
-		stream_free(client->ibuf_work);
-	if (client->obuf_work)
-		stream_free(client->obuf_work);
-	if (client->ibuf_fifo)
-		stream_fifo_free(client->ibuf_fifo);
-	if (client->obuf_fifo)
-		stream_fifo_free(client->obuf_fifo);
-	if (client->wb)
-		buffer_free(client->wb);
-
-	/* Free buffer mutexes */
-	pthread_mutex_destroy(&client->obuf_mtx);
-	pthread_mutex_destroy(&client->ibuf_mtx);
-
-	/* Free bitmaps. */
-	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			vrf_bitmap_free(client->redist[afi][i]);
-
-	vrf_bitmap_free(client->redist_default);
-	vrf_bitmap_free(client->ifinfo);
-	vrf_bitmap_free(client->ridinfo);
-
-	XFREE(MTYPE_TMP, client);
-}
-
-/*
- * Finish closing a client.
- *
- * This task is scheduled by a ZAPI client pthread on the main pthread when it
- * wants to stop itself. When this executes, the client connection should
- * already have been closed. This task's responsibility is to gracefully
- * terminate the client thread, update relevant internal datastructures and
- * free any resources allocated by the main thread.
- */
-static int zebra_client_handle_close(struct thread *thread)
-{
-	struct zserv *client = THREAD_ARG(thread);
-
-	/*
-	 * Ensure these have been nulled. This does not equate to the
-	 * associated task(s) being scheduled or unscheduled on the client
-	 * pthread's threadmaster.
-	 */
-	assert(!client->t_read);
-	assert(!client->t_write);
-
-	/* synchronously stop thread */
-	frr_pthread_stop(client->pthread, NULL);
-
-	/* destroy frr_pthread */
-	frr_pthread_destroy(client->pthread);
-	client->pthread = NULL;
-
-	listnode_delete(zebrad.client_list, client);
-	zebra_client_free(client);
-	return 0;
-}
-
-/*
- * Gracefully shut down a client connection.
- *
- * Cancel any pending tasks for the client's thread. Then schedule a task on the
- * main thread to shut down the calling thread.
- *
- * Must be called from the client pthread, never the main thread.
- */
-static void zebra_client_close(struct zserv *client)
-{
-	THREAD_OFF(client->t_read);
-	THREAD_OFF(client->t_write);
-	thread_add_event(zebrad.master, zebra_client_handle_close, client, 0,
-			 NULL);
-}
-
-/*
- * Create a new client.
- *
- * This is called when a new connection is accept()'d on the ZAPI socket. It
- * initializes new client structure, notifies any subscribers of the connection
- * event and spawns the client's thread.
- *
- * sock
- *    client's socket file descriptor
- */
-static void zebra_client_create(int sock)
-{
-	struct zserv *client;
-	int i;
-	afi_t afi;
-
-	client = XCALLOC(MTYPE_TMP, sizeof(struct zserv));
-
-	/* Make client input/output buffer. */
-	client->sock = sock;
-	client->ibuf_fifo = stream_fifo_new();
-	client->obuf_fifo = stream_fifo_new();
-	client->ibuf_work = stream_new(ZEBRA_MAX_PACKET_SIZ);
-	client->obuf_work = stream_new(ZEBRA_MAX_PACKET_SIZ);
-	pthread_mutex_init(&client->ibuf_mtx, NULL);
-	pthread_mutex_init(&client->obuf_mtx, NULL);
-	client->wb = buffer_new(0);
-
-	/* Set table number. */
-	client->rtm_table = zebrad.rtm_table_default;
-
-	atomic_store_explicit(&client->connect_time, (uint32_t) monotime(NULL),
-			      memory_order_relaxed);
-
-	/* Initialize flags */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			client->redist[afi][i] = vrf_bitmap_init();
-	client->redist_default = vrf_bitmap_init();
-	client->ifinfo = vrf_bitmap_init();
-	client->ridinfo = vrf_bitmap_init();
-
-	/* by default, it's not a synchronous client */
-	client->is_synchronous = 0;
-
-	/* Add this client to linked list. */
-	listnode_add(zebrad.client_list, client);
-
-	struct frr_pthread_attr zclient_pthr_attrs = {
-		.id = frr_pthread_get_id(),
-		.start = frr_pthread_attr_default.start,
-		.stop = frr_pthread_attr_default.stop
-	};
-	client->pthread =
-		frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread");
-
-	zebra_vrf_update_all(client);
-
-	/* start read loop */
-	zebra_event(client, ZEBRA_READ);
-
-	/* call callbacks */
-	hook_call(zapi_client_connect, client);
-
-	/* start pthread */
-	frr_pthread_run(client->pthread, NULL);
-}
+/* Client thread lifecycle -------------------------------------------------- */
 
 /*
  * Log zapi message to zlog.
@@ -284,6 +105,23 @@ static void zserv_log_message(const char *errmsg, struct stream *msg,
 		zlog_debug("    VRF: %u", hdr->vrf_id);
 	}
 	zlog_hexdump(msg->data, STREAM_READABLE(msg));
+}
+
+
+/*
+ * Gracefully shut down a client connection.
+ *
+ * Cancel any pending tasks for the client's thread. Then schedule a task on the
+ * main thread to shut down the calling thread.
+ *
+ * Must be called from the client pthread, never the main thread.
+ */
+static void zebra_client_close(struct zserv *client)
+{
+	THREAD_OFF(client->t_read);
+	THREAD_OFF(client->t_write);
+	thread_add_event(zebrad.master, zebra_client_handle_close, client, 0,
+			 NULL);
 }
 
 static int zserv_flush_data(struct thread *thread)
@@ -393,74 +231,6 @@ static void zserv_write_incoming(struct stream *orig, uint16_t command)
 }
 #endif
 
-/*
- * Read and process messages from a client.
- *
- * This task runs on the main pthread. It is scheduled by client pthreads when
- * they have new messages available on their input queues. The client is passed
- * as the task argument.
- *
- * Each message is popped off the client's input queue and the action associated
- * with the message is executed. This proceeds until there are no more messages,
- * an error occurs, or the processing limit is reached. In the last case, this
- * task reschedules itself.
- */
-static int zserv_process_messages(struct thread *thread)
-{
-	struct zserv *client = THREAD_ARG(thread);
-	struct zebra_vrf *zvrf;
-	struct zmsghdr hdr;
-	struct stream *msg;
-	bool hdrvalid;
-
-	int p2p = zebrad.packets_to_process;
-
-	do {
-		pthread_mutex_lock(&client->ibuf_mtx);
-		{
-			msg = stream_fifo_pop(client->ibuf_fifo);
-		}
-		pthread_mutex_unlock(&client->ibuf_mtx);
-
-		/* break if out of messages */
-		if (!msg)
-			continue;
-
-		/* read & check header */
-		hdrvalid = zapi_parse_header(msg, &hdr);
-		if (!hdrvalid && IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV) {
-			const char *emsg = "Message has corrupt header";
-			zserv_log_message(emsg, msg, NULL);
-		}
-		if (!hdrvalid)
-			continue;
-
-		hdr.length -= ZEBRA_HEADER_SIZE;
-		/* lookup vrf */
-		zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
-		if (!zvrf && IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV) {
-			const char *emsg = "Message specifies unknown VRF";
-			zserv_log_message(emsg, msg, &hdr);
-		}
-		if (!zvrf)
-			continue;
-
-		/* process commands */
-		zserv_handle_commands(client, &hdr, msg, zvrf);
-
-	} while (msg && --p2p);
-
-	/* reschedule self if necessary */
-	pthread_mutex_lock(&client->ibuf_mtx);
-	{
-		if (client->ibuf_fifo->count)
-			thread_add_event(zebrad.master, zserv_process_messages,
-					 client, 0, NULL);
-	}
-	pthread_mutex_unlock(&client->ibuf_mtx);
-
-	return 0;
-}
 
 /*
  * Read and process data from a client socket.
@@ -638,7 +408,251 @@ static void zebra_event(struct zserv *client, enum event event)
 	}
 }
 
-/* Main thread lifecycle ----------------------------------------------------*/
+/* Main thread lifecycle ---------------------------------------------------- */
+
+
+/*
+ * Read and process messages from a client.
+ *
+ * This task runs on the main pthread. It is scheduled by client pthreads when
+ * they have new messages available on their input queues. The client is passed
+ * as the task argument.
+ *
+ * Each message is popped off the client's input queue and the action associated
+ * with the message is executed. This proceeds until there are no more messages,
+ * an error occurs, or the processing limit is reached. In the last case, this
+ * task reschedules itself.
+ */
+static int zserv_process_messages(struct thread *thread)
+{
+	struct zserv *client = THREAD_ARG(thread);
+	struct zebra_vrf *zvrf;
+	struct zmsghdr hdr;
+	struct stream *msg;
+	bool hdrvalid;
+
+	int p2p = zebrad.packets_to_process;
+
+	do {
+		pthread_mutex_lock(&client->ibuf_mtx);
+		{
+			msg = stream_fifo_pop(client->ibuf_fifo);
+		}
+		pthread_mutex_unlock(&client->ibuf_mtx);
+
+		/* break if out of messages */
+		if (!msg)
+			continue;
+
+		/* read & check header */
+		hdrvalid = zapi_parse_header(msg, &hdr);
+		if (!hdrvalid && IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV) {
+			const char *emsg = "Message has corrupt header";
+			zserv_log_message(emsg, msg, NULL);
+		}
+		if (!hdrvalid)
+			continue;
+
+		hdr.length -= ZEBRA_HEADER_SIZE;
+		/* lookup vrf */
+		zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
+		if (!zvrf && IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV) {
+			const char *emsg = "Message specifies unknown VRF";
+			zserv_log_message(emsg, msg, &hdr);
+		}
+		if (!zvrf)
+			continue;
+
+		/* process commands */
+		zserv_handle_commands(client, &hdr, msg, zvrf);
+
+	} while (msg && --p2p);
+
+	/* reschedule self if necessary */
+	pthread_mutex_lock(&client->ibuf_mtx);
+	{
+		if (client->ibuf_fifo->count)
+			thread_add_event(zebrad.master, zserv_process_messages,
+					 client, 0, NULL);
+	}
+	pthread_mutex_unlock(&client->ibuf_mtx);
+
+	return 0;
+}
+
+int zebra_server_send_message(struct zserv *client, struct stream *msg)
+{
+	pthread_mutex_lock(&client->obuf_mtx);
+	{
+		stream_fifo_push(client->obuf_fifo, msg);
+		zebra_event(client, ZEBRA_WRITE);
+	}
+	pthread_mutex_unlock(&client->obuf_mtx);
+	return 0;
+}
+
+
+/* Hooks for client connect / disconnect */
+DEFINE_HOOK(zapi_client_connect, (struct zserv *client), (client));
+DEFINE_KOOH(zapi_client_close, (struct zserv *client), (client));
+
+/*
+ * Deinitialize zebra client.
+ *
+ * - Deregister and deinitialize related internal resources
+ * - Gracefully close socket
+ * - Free associated resources
+ * - Free client structure
+ *
+ * This does *not* take any action on the struct thread * fields. These are
+ * managed by the owning pthread and any tasks associated with them must have
+ * been stopped prior to invoking this function.
+ */
+static void zebra_client_free(struct zserv *client)
+{
+	hook_call(zapi_client_close, client);
+
+	/* Close file descriptor. */
+	if (client->sock) {
+		unsigned long nroutes;
+
+		close(client->sock);
+		nroutes = rib_score_proto(client->proto, client->instance);
+		zlog_notice(
+			"client %d disconnected. %lu %s routes removed from the rib",
+			client->sock, nroutes,
+			zebra_route_string(client->proto));
+		client->sock = -1;
+	}
+
+	/* Free stream buffers. */
+	if (client->ibuf_work)
+		stream_free(client->ibuf_work);
+	if (client->obuf_work)
+		stream_free(client->obuf_work);
+	if (client->ibuf_fifo)
+		stream_fifo_free(client->ibuf_fifo);
+	if (client->obuf_fifo)
+		stream_fifo_free(client->obuf_fifo);
+	if (client->wb)
+		buffer_free(client->wb);
+
+	/* Free buffer mutexes */
+	pthread_mutex_destroy(&client->obuf_mtx);
+	pthread_mutex_destroy(&client->ibuf_mtx);
+
+	/* Free bitmaps. */
+	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++)
+		for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
+			vrf_bitmap_free(client->redist[afi][i]);
+
+	vrf_bitmap_free(client->redist_default);
+	vrf_bitmap_free(client->ifinfo);
+	vrf_bitmap_free(client->ridinfo);
+
+	XFREE(MTYPE_TMP, client);
+}
+
+/*
+ * Finish closing a client.
+ *
+ * This task is scheduled by a ZAPI client pthread on the main pthread when it
+ * wants to stop itself. When this executes, the client connection should
+ * already have been closed. This task's responsibility is to gracefully
+ * terminate the client thread, update relevant internal datastructures and
+ * free any resources allocated by the main thread.
+ */
+static int zebra_client_handle_close(struct thread *thread)
+{
+	struct zserv *client = THREAD_ARG(thread);
+
+	/*
+	 * Ensure these have been nulled. This does not equate to the
+	 * associated task(s) being scheduled or unscheduled on the client
+	 * pthread's threadmaster.
+	 */
+	assert(!client->t_read);
+	assert(!client->t_write);
+
+	/* synchronously stop thread */
+	frr_pthread_stop(client->pthread, NULL);
+
+	/* destroy frr_pthread */
+	frr_pthread_destroy(client->pthread);
+	client->pthread = NULL;
+
+	listnode_delete(zebrad.client_list, client);
+	zebra_client_free(client);
+	return 0;
+}
+
+/*
+ * Create a new client.
+ *
+ * This is called when a new connection is accept()'d on the ZAPI socket. It
+ * initializes new client structure, notifies any subscribers of the connection
+ * event and spawns the client's thread.
+ *
+ * sock
+ *    client's socket file descriptor
+ */
+static void zebra_client_create(int sock)
+{
+	struct zserv *client;
+	int i;
+	afi_t afi;
+
+	client = XCALLOC(MTYPE_TMP, sizeof(struct zserv));
+
+	/* Make client input/output buffer. */
+	client->sock = sock;
+	client->ibuf_fifo = stream_fifo_new();
+	client->obuf_fifo = stream_fifo_new();
+	client->ibuf_work = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	client->obuf_work = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	pthread_mutex_init(&client->ibuf_mtx, NULL);
+	pthread_mutex_init(&client->obuf_mtx, NULL);
+	client->wb = buffer_new(0);
+
+	/* Set table number. */
+	client->rtm_table = zebrad.rtm_table_default;
+
+	atomic_store_explicit(&client->connect_time, (uint32_t) monotime(NULL),
+			      memory_order_relaxed);
+
+	/* Initialize flags */
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+			client->redist[afi][i] = vrf_bitmap_init();
+	client->redist_default = vrf_bitmap_init();
+	client->ifinfo = vrf_bitmap_init();
+	client->ridinfo = vrf_bitmap_init();
+
+	/* by default, it's not a synchronous client */
+	client->is_synchronous = 0;
+
+	/* Add this client to linked list. */
+	listnode_add(zebrad.client_list, client);
+
+	struct frr_pthread_attr zclient_pthr_attrs = {
+		.id = frr_pthread_get_id(),
+		.start = frr_pthread_attr_default.start,
+		.stop = frr_pthread_attr_default.stop
+	};
+	client->pthread =
+		frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread");
+
+	zebra_vrf_update_all(client);
+
+	/* start read loop */
+	zebra_event(client, ZEBRA_READ);
+
+	/* call callbacks */
+	hook_call(zapi_client_connect, client);
+
+	/* start pthread */
+	frr_pthread_run(client->pthread, NULL);
+}
 
 /* Accept code of zebra server socket. */
 static int zebra_accept(struct thread *thread)
@@ -740,6 +754,8 @@ void zebra_zserv_socket_init(char *path)
 
 	thread_add_read(zebrad.master, zebra_accept, NULL, sock, NULL);
 }
+
+/* General purpose ---------------------------------------------------------- */
 
 #define ZEBRA_TIME_BUF 32
 static char *zserv_time_buf(time_t *time1, char *buf, int buflen)
