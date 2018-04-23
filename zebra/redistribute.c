@@ -113,18 +113,20 @@ static void zebra_redistribute(struct zserv *client, int type,
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
 		RNODE_FOREACH_RE (rn, newre) {
 			struct prefix *dst_p, *src_p;
+			char buf[PREFIX_STRLEN];
+
 			srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
-					"%s: client %s vrf %d checking: selected=%d, type=%d, distance=%d, "
-					"zebra_check_addr=%d",
+					"%s: client %s %s(%d) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
 					__func__,
 					zebra_route_string(client->proto),
+					prefix2str(dst_p, buf, sizeof(buf)),
 					vrf_id, CHECK_FLAG(newre->flags,
 							   ZEBRA_FLAG_SELECTED),
 					newre->type, newre->distance,
-					zebra_check_addr(dst_p));
+					newre->metric, zebra_check_addr(dst_p));
 
 			if (!CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED))
 				continue;
@@ -151,13 +153,13 @@ void redistribute_update(struct prefix *p, struct prefix *src_p,
 	struct zserv *client;
 	int send_redistribute;
 	int afi;
-	char buf[INET6_ADDRSTRLEN];
+	char buf[PREFIX_STRLEN];
 
 	if (IS_ZEBRA_DEBUG_RIB) {
-		inet_ntop(p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
 		zlog_debug(
-			"%u:%s/%d: Redist update re %p (type %d), old %p (type %d)",
-			re->vrf_id, buf, p->prefixlen, re, re->type, prev_re,
+			"%u:%s: Redist update re %p (type %d), old %p (type %d)",
+			re->vrf_id, prefix2str(p, buf, sizeof(buf)),
+			re, re->type, prev_re,
 			prev_re ? prev_re->type : -1);
 	}
 
@@ -187,6 +189,15 @@ void redistribute_update(struct prefix *p, struct prefix *src_p,
 			send_redistribute = 1;
 
 		if (send_redistribute) {
+			if (IS_ZEBRA_DEBUG_EVENT) {
+				zlog_debug(
+					   "%s: client %s %s(%d), type=%d, distance=%d, metric=%d",
+					   __func__,
+					   zebra_route_string(client->proto),
+					   prefix2str(p, buf, sizeof(buf)),
+					   re->vrf_id, re->type,
+					   re->distance, re->metric);
+			}
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
 						 client, p, src_p, re);
 		} else if (prev_re
