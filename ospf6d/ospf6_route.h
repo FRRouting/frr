@@ -91,6 +91,9 @@ struct ospf6_path {
 	/* Cost */
 	uint8_t metric_type;
 	uint32_t cost;
+
+	struct prefix ls_prefix;
+
 	union {
 		uint32_t cost_e2;
 		uint32_t cost_config;
