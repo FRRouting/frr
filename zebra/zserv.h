@@ -131,15 +131,28 @@ struct zserv {
 	uint32_t prefixadd_cnt;
 	uint32_t prefixdel_cnt;
 
-	time_t connect_time;
-	time_t last_read_time;
-	time_t last_write_time;
 	time_t nh_reg_time;
 	time_t nh_dereg_time;
 	time_t nh_last_upd_time;
 
-	int last_read_cmd;
-	int last_write_cmd;
+	/*
+	 * Session information.
+	 *
+	 * These are not synchronous with respect to each other. For instance,
+	 * last_read_cmd may contain a value that has been read in the future
+	 * relative to last_read_time.
+	 */
+
+	/* monotime of client creation */
+	_Atomic uint32_t connect_time;
+	/* monotime of last message received */
+	_Atomic uint32_t last_read_time;
+	/* monotime of last message sent */
+	_Atomic uint32_t last_write_time;
+	/* command code of last message read */
+	_Atomic uint16_t last_read_cmd;
+	/* command code of last message written */
+	_Atomic uint16_t last_write_cmd;
 };
 
 #define ZAPI_HANDLER_ARGS                                                      \

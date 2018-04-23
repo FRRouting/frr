@@ -52,6 +52,7 @@
 #include "lib/vty.h"              /* for vty_out, vty (ptr only) */
 #include "lib/zassert.h"          /* for assert */
 #include "lib/zclient.h"          /* for zmsghdr, ZEBRA_HEADER_SIZE, ZEBRA... */
+#include "lib/frr_pthread.h"      /* for frr_pthread_new, frr_pthread_stop... */
 
 #include "zebra/debug.h"          /* for various debugging macros */
 #include "zebra/rib.h"            /* for rib_score_proto */
@@ -100,22 +101,6 @@ DEFINE_KOOH(zapi_client_close, (struct zserv *client), (client));
 static void zebra_client_free(struct zserv *client)
 {
 	hook_call(zapi_client_close, client);
-
-	/*
-	 * Ensure these have been nulled. This does not equate to the
-	 * associated task(s) being scheduled or unscheduled on the client
-	 * pthread's threadmaster.
-	 */
-	assert(!client->t_read);
-	assert(!client->t_write);
-
-	/*
-	 * Ensure these have been nulled. This does not equate to the
-	 * associated task(s) being scheduled or unscheduled on the client
-	 * pthread's threadmaster.
-	 */
-	assert(!client->t_read);
-	assert(!client->t_write);
 
 	/* Close file descriptor. */
 	if (client->sock) {
@@ -170,7 +155,22 @@ static void zebra_client_free(struct zserv *client)
 static int zebra_client_handle_close(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
+
+	/*
+	 * Ensure these have been nulled. This does not equate to the
+	 * associated task(s) being scheduled or unscheduled on the client
+	 * pthread's threadmaster.
+	 */
+	assert(!client->t_read);
+	assert(!client->t_write);
+
+	/* synchronously stop thread */
 	frr_pthread_stop(client->pthread, NULL);
+
+	/* destroy frr_pthread */
+	frr_pthread_destroy(client->pthread);
+	client->pthread = NULL;
+
 	listnode_delete(zebrad.client_list, client);
 	zebra_client_free(client);
 	return 0;
@@ -192,7 +192,16 @@ static void zebra_client_close(struct zserv *client)
 			 NULL);
 }
 
-/* Make new client. */
+/*
+ * Create a new client.
+ *
+ * This is called when a new connection is accept()'d on the ZAPI socket. It
+ * initializes new client structure, notifies any subscribers of the connection
+ * event and spawns the client's thread.
+ *
+ * sock
+ *    client's socket file descriptor
+ */
 static void zebra_client_create(int sock)
 {
 	struct zserv *client;
@@ -214,7 +223,9 @@ static void zebra_client_create(int sock)
 	/* Set table number. */
 	client->rtm_table = zebrad.rtm_table_default;
 
-	client->connect_time = monotime(NULL);
+	atomic_store_explicit(&client->connect_time, (uint32_t) monotime(NULL),
+			      memory_order_relaxed);
+
 	/* Initialize flags */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
@@ -234,7 +245,8 @@ static void zebra_client_create(int sock)
 		.start = frr_pthread_attr_default.start,
 		.stop = frr_pthread_attr_default.stop
 	};
-	client->pthread = frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread");
+	client->pthread =
+		frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread");
 
 	zebra_vrf_update_all(client);
 
@@ -308,6 +320,7 @@ static int zserv_write(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
+	uint32_t wcmd;
 	int writerv;
 
 	if (client->is_synchronous)
@@ -320,7 +333,10 @@ static int zserv_write(struct thread *thread)
 	pthread_mutex_unlock(&client->obuf_mtx);
 
 	stream_set_getp(msg, 0);
-	client->last_write_cmd = stream_getw_from(msg, 6);
+
+	wcmd = stream_getw_from(msg, 6);
+	atomic_store_explicit(&client->last_write_cmd, wcmd,
+			      memory_order_relaxed);
 
 	writerv = buffer_write(client->wb, client->sock, STREAM_DATA(msg),
 			       stream_get_endp(msg));
@@ -351,7 +367,9 @@ static int zserv_write(struct thread *thread)
 	}
 	pthread_mutex_unlock(&client->obuf_mtx);
 
-	client->last_write_time = monotime(NULL);
+	atomic_store_explicit(&client->last_write_time,
+			      (uint32_t) monotime(NULL), memory_order_relaxed);
+
 	return 0;
 }
 
@@ -436,7 +454,7 @@ static int zserv_process_messages(struct thread *thread)
 	pthread_mutex_lock(&client->ibuf_mtx);
 	{
 		if (client->ibuf_fifo->count)
-			thread_add_event(zebrad.master, &zserv_process_messages,
+			thread_add_event(zebrad.master, zserv_process_messages,
 					 client, 0, NULL);
 	}
 	pthread_mutex_unlock(&client->ibuf_mtx);
@@ -571,8 +589,10 @@ static int zserv_read(struct thread *thread)
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
 			zserv_log_message(NULL, client->ibuf_work, &hdr);
 
-		client->last_read_time = monotime(NULL);
-		client->last_read_cmd = hdr.command;
+		atomic_store_explicit(&client->last_read_time, monotime(NULL),
+				      memory_order_relaxed);
+		atomic_store_explicit(&client->last_read_cmd, hdr.command,
+				      memory_order_relaxed);
 
 		stream_set_getp(client->ibuf_work, 0);
 		struct stream *msg = stream_dup(client->ibuf_work);
@@ -591,7 +611,7 @@ static int zserv_read(struct thread *thread)
 			   zebrad.packets_to_process - p2p);
 
 	/* Schedule job to process those packets */
-	thread_add_event(zebrad.master, &zserv_process_messages, client, 0,
+	thread_add_event(zebrad.master, zserv_process_messages, client, 0,
 			 NULL);
 
 	/* Reschedule ourselves */
@@ -756,6 +776,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 {
 	char cbuf[ZEBRA_TIME_BUF], rbuf[ZEBRA_TIME_BUF];
 	char wbuf[ZEBRA_TIME_BUF], nhbuf[ZEBRA_TIME_BUF], mbuf[ZEBRA_TIME_BUF];
+	time_t connect_time, last_read_time, last_write_time;
+	uint16_t last_read_cmd, last_write_cmd;
 
 	vty_out(vty, "Client: %s", zebra_route_string(client->proto));
 	if (client->instance)
@@ -766,8 +788,11 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	vty_out(vty, "FD: %d \n", client->sock);
 	vty_out(vty, "Route Table ID: %d \n", client->rtm_table);
 
+	connect_time = (time_t) atomic_load_explicit(&client->connect_time,
+						     memory_order_relaxed);
+
 	vty_out(vty, "Connect Time: %s \n",
-		zserv_time_buf(&client->connect_time, cbuf, ZEBRA_TIME_BUF));
+		zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF));
 	if (client->nh_reg_time) {
 		vty_out(vty, "Nexthop Registry Time: %s \n",
 			zserv_time_buf(&client->nh_reg_time, nhbuf,
@@ -781,16 +806,26 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	} else
 		vty_out(vty, "Not registered for Nexthop Updates\n");
 
+	last_read_time = (time_t) atomic_load_explicit(&client->last_read_time,
+						       memory_order_relaxed);
+	last_read_time = (time_t) atomic_load_explicit(&client->last_write_time,
+						       memory_order_relaxed);
+
+	last_read_cmd = atomic_load_explicit(&client->last_read_cmd,
+					     memory_order_relaxed);
+	last_write_cmd = atomic_load_explicit(&client->last_write_cmd,
+					      memory_order_relaxed);
+
 	vty_out(vty, "Last Msg Rx Time: %s \n",
-		zserv_time_buf(&client->last_read_time, rbuf, ZEBRA_TIME_BUF));
+		zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF));
 	vty_out(vty, "Last Msg Tx Time: %s \n",
-		zserv_time_buf(&client->last_write_time, wbuf, ZEBRA_TIME_BUF));
-	if (client->last_read_time)
+		zserv_time_buf(&last_write_time, wbuf, ZEBRA_TIME_BUF));
+	if (last_read_cmd)
 		vty_out(vty, "Last Rcvd Cmd: %s \n",
-			zserv_command_string(client->last_read_cmd));
-	if (client->last_write_time)
+			zserv_command_string(last_read_cmd));
+	if (last_write_cmd)
 		vty_out(vty, "Last Sent Cmd: %s \n",
-			zserv_command_string(client->last_write_cmd));
+			zserv_command_string(last_write_cmd));
 	vty_out(vty, "\n");
 
 	vty_out(vty, "Type        Add        Update     Del \n");
@@ -824,12 +859,20 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 {
 	char cbuf[ZEBRA_TIME_BUF], rbuf[ZEBRA_TIME_BUF];
 	char wbuf[ZEBRA_TIME_BUF];
+	time_t connect_time, last_read_time, last_write_time;
+
+	connect_time = (time_t) atomic_load_explicit(&client->connect_time,
+						     memory_order_relaxed);
+	last_read_time = (time_t) atomic_load_explicit(&client->last_read_time,
+						       memory_order_relaxed);
+	last_read_time = (time_t) atomic_load_explicit(&client->last_write_time,
+						       memory_order_relaxed);
 
 	vty_out(vty, "%-8s%12s %12s%12s%8d/%-8d%8d/%-8d\n",
 		zebra_route_string(client->proto),
-		zserv_time_buf(&client->connect_time, cbuf, ZEBRA_TIME_BUF),
-		zserv_time_buf(&client->last_read_time, rbuf, ZEBRA_TIME_BUF),
-		zserv_time_buf(&client->last_write_time, wbuf, ZEBRA_TIME_BUF),
+		zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF),
+		zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF),
+		zserv_time_buf(&last_write_time, wbuf, ZEBRA_TIME_BUF),
 		client->v4_route_add_cnt + client->v4_route_upd8_cnt,
 		client->v4_route_del_cnt,
 		client->v6_route_add_cnt + client->v6_route_upd8_cnt,
