@@ -73,7 +73,7 @@ int zebra_rnh_ipv6_default_route = 0;
 
 void zebra_rnh_init(void)
 {
-	hook_register(zapi_client_close, zebra_client_cleanup_rnh);
+	hook_register(zserv_client_close, zebra_client_cleanup_rnh);
 }
 
 static inline struct route_table *get_rnh_table(vrf_id_t vrfid, int family,
@@ -1106,7 +1106,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 
 	client->nh_last_upd_time = monotime(NULL);
 	client->last_write_cmd = cmd;
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 static void print_nh(struct nexthop *nexthop, struct vty *vty)

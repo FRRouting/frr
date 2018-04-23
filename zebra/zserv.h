@@ -160,14 +160,17 @@ struct zserv {
 		struct zebra_vrf *zvrf
 
 /* Hooks for client connect / disconnect */
-DECLARE_HOOK(zapi_client_connect, (struct zserv *client), (client));
-DECLARE_KOOH(zapi_client_close, (struct zserv *client), (client));
+DECLARE_HOOK(zserv_client_connect, (struct zserv *client), (client));
+DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {
 	/* Thread master */
 	struct thread_master *master;
 	struct list *client_list;
+
+	/* Socket */
+	int sock;
 
 	/* default table */
 	uint32_t rtm_table_default;
@@ -186,12 +189,48 @@ struct zebra_t {
 extern struct zebra_t zebrad;
 extern unsigned int multipath_num;
 
-/* Prototypes. */
+/*
+ * Initialize Zebra API server.
+ *
+ * Installs CLI commands and creates the client list.
+ */
 extern void zserv_init(void);
-extern void zebra_zserv_socket_init(char *path);
-extern int zebra_server_send_message(struct zserv *client, struct stream *msg);
 
-extern struct zserv *zebra_find_client(uint8_t proto, unsigned short instance);
+/*
+ * Start Zebra API server.
+ *
+ * Allocates resources, creates the server socket and begins listening on the
+ * socket.
+ *
+ * path
+ *    where to place the Unix domain socket
+ */
+extern void zserv_start(char *path);
+
+/*
+ * Send a message to a connected Zebra API client.
+ *
+ * client
+ *    the client to send to
+ *
+ * msg
+ *    the message to send
+ */
+extern int zserv_send_message(struct zserv *client, struct stream *msg);
+
+/*
+ * Retrieve a client by its protocol and instance number.
+ *
+ * proto
+ *    protocol number
+ *
+ * instance
+ *    instance number
+ *
+ * Returns:
+ *    The Zebra API client.
+ */
+extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
 
 #if defined(HANDLE_ZAPI_FUZZING)
 extern void zserv_read_file(char *input);

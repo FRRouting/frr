@@ -292,7 +292,7 @@ void zebra_pw_init(struct zebra_vrf *zvrf)
 	RB_INIT(zebra_pw_head, &zvrf->pseudowires);
 	RB_INIT(zebra_static_pw_head, &zvrf->static_pseudowires);
 
-	hook_register(zapi_client_close, zebra_pw_client_close);
+	hook_register(zserv_client_close, zebra_pw_client_close);
 }
 
 void zebra_pw_exit(struct zebra_vrf *zvrf)

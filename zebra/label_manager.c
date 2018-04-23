@@ -290,7 +290,7 @@ void label_manager_init(char *lm_zserv_path)
 	ibuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	obuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	hook_register(zapi_client_close, release_daemon_label_chunks);
+	hook_register(zserv_client_close, release_daemon_label_chunks);
 }
 
 /**
