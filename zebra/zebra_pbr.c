@@ -560,8 +560,10 @@ void kernel_pbr_ipset_add_del_status(struct zebra_pbr_ipset *ipset,
 		zsend_ipset_notify_owner(ipset, ZAPI_IPSET_FAIL_INSTALL);
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
+		zsend_ipset_notify_owner(ipset, ZAPI_IPSET_REMOVED);
+		break;
 	case SOUTHBOUND_DELETE_FAILURE:
-		/* TODO : handling of delete event */
+		zsend_ipset_notify_owner(ipset, ZAPI_IPSET_REMOVED);
 		break;
 	}
 }
@@ -583,8 +585,12 @@ void kernel_pbr_ipset_entry_add_del_status(
 					       ZAPI_IPSET_ENTRY_FAIL_INSTALL);
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
+		zsend_ipset_entry_notify_owner(ipset,
+					       ZAPI_IPSET_ENTRY_REMOVED);
+		break;
 	case SOUTHBOUND_DELETE_FAILURE:
-		/* TODO : handling of delete event */
+		zsend_ipset_entry_notify_owner(ipset,
+					       ZAPI_IPSET_ENTRY_REMOVED);
 		break;
 	}
 }
@@ -603,8 +609,12 @@ void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
 		zsend_iptable_notify_owner(iptable, ZAPI_IPTABLE_FAIL_INSTALL);
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
+		zsend_iptable_notify_owner(iptable,
+					   ZAPI_IPTABLE_REMOVED);
+		break;
 	case SOUTHBOUND_DELETE_FAILURE:
-		/* TODO : handling of delete event */
+		zsend_iptable_notify_owner(iptable,
+					   ZAPI_IPTABLE_REMOVED);
 		break;
 	}
 }
