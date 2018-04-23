@@ -73,7 +73,7 @@ int zebra_rnh_ipv6_default_route = 0;
 
 void zebra_rnh_init(void)
 {
-	hook_register(client_close, zebra_client_cleanup_rnh);
+	hook_register(zapi_client_close, zebra_client_cleanup_rnh);
 }
 
 static inline struct route_table *get_rnh_table(vrf_id_t vrfid, int family,

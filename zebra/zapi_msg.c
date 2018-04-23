@@ -1,5 +1,5 @@
 /*
- * Zebra API server.
+ * Zebra API message creation & consumption.
  * Portions:
  *   Copyright (C) 1997-1999  Kunihiro Ishiguro
  *   Copyright (C) 2015-2018  Cumulus Networks, Inc.

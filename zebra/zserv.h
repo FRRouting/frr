@@ -23,6 +23,7 @@
 #ifndef _ZEBRA_ZSERV_H
 #define _ZEBRA_ZSERV_H
 
+/* clang-format off */
 #include <stdint.h>           /* for uint32_t, uint8_t */
 #include <time.h>             /* for time_t */
 
@@ -37,6 +38,7 @@
 #include "lib/hook.h"         /* for DECLARE_HOOK, DECLARE_KOOH */
 
 #include "zebra/zebra_vrf.h"  /* for zebra_vrf */
+/* clang-format on */
 
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
@@ -143,8 +145,8 @@ struct zserv {
 		struct zebra_vrf *zvrf
 
 /* Hooks for client connect / disconnect */
-DECLARE_HOOK(client_connect, (struct zserv *client), (client));
-DECLARE_KOOH(client_close, (struct zserv *client), (client));
+DECLARE_HOOK(zapi_client_connect, (struct zserv * client), (client));
+DECLARE_KOOH(zapi_client_close, (struct zserv * client), (client));
 
 /* Zebra instance */
 struct zebra_t {

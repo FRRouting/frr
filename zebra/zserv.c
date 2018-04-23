@@ -21,7 +21,8 @@
  */
 
 #include <zebra.h>
- 
+
+/* clang-format off */
 #include <errno.h>                /* for errno */
 #include <netinet/in.h>           /* for sockaddr_in */
 #include <stdint.h>               /* for uint8_t */
@@ -53,12 +54,11 @@
 #include "lib/zclient.h"          /* for zmsghdr, ZEBRA_HEADER_SIZE, ZEBRA... */
 
 #include "zebra/debug.h"          /* for various debugging macros */
-#include "zebra/label_manager.h"  /* for release_daemon_label_chunks, rele... */
 #include "zebra/rib.h"            /* for rib_score_proto */
-#include "zebra/table_manager.h"  /* for release_daemon_table_chunks */
 #include "zebra/zapi_msg.h"       /* for zserv_handle_commands */
 #include "zebra/zebra_vrf.h"      /* for zebra_vrf_lookup_by_id, zvrf */
-#include "zebra/zserv.h"          /* for zclient */
+#include "zebra/zserv.h"          /* for zserv */
+/* clang-format on */
 
 /* Event list of zebra. */
 enum event { ZEBRA_READ, ZEBRA_WRITE };
@@ -80,13 +80,13 @@ int zebra_server_send_message(struct zserv *client, struct stream *msg)
 /* Lifecycle ---------------------------------------------------------------- */
 
 /* Hooks for client connect / disconnect */
-DEFINE_HOOK(client_connect, (struct zserv *client), (client));
-DEFINE_KOOH(client_close, (struct zserv *client), (client));
+DEFINE_HOOK(zapi_client_connect, (struct zserv * client), (client));
+DEFINE_KOOH(zapi_client_close, (struct zserv * client), (client));
 
 /* free zebra client information. */
 static void zebra_client_free(struct zserv *client)
 {
-	hook_call(client_close, client);
+	hook_call(zapi_client_close, client);
 
 	/* Close file descriptor. */
 	if (client->sock) {
@@ -179,7 +179,7 @@ static void zebra_client_create(int sock)
 
 	zebra_vrf_update_all(client);
 
-	hook_call(client_connect, client);
+	hook_call(zapi_client_connect, client);
 
 	/* start read loop */
 	zebra_event(client, ZEBRA_READ);

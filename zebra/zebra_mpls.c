@@ -2916,5 +2916,5 @@ void zebra_mpls_init(void)
 	if (!mpls_processq_init(&zebrad))
 		mpls_enabled = 1;
 
-	hook_register(client_close, zebra_mpls_cleanup_fecs_for_client);
+	hook_register(zapi_client_close, zebra_mpls_cleanup_fecs_for_client);
 }
