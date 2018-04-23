@@ -80,8 +80,8 @@ int zebra_server_send_message(struct zserv *client, struct stream *msg)
 /* Lifecycle ---------------------------------------------------------------- */
 
 /* Hooks for client connect / disconnect */
-DEFINE_HOOK(zapi_client_connect, (struct zserv * client), (client));
-DEFINE_KOOH(zapi_client_close, (struct zserv * client), (client));
+DEFINE_HOOK(zapi_client_connect, (struct zserv *client), (client));
+DEFINE_KOOH(zapi_client_close, (struct zserv *client), (client));
 
 /* free zebra client information. */
 static void zebra_client_free(struct zserv *client)

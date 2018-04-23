@@ -47,23 +47,31 @@
 extern void zserv_handle_commands(struct zserv *client, struct zmsghdr *hdr,
 				  struct stream *msg, struct zebra_vrf *zvrf);
 
-extern int zsend_vrf_add(struct zserv *, struct zebra_vrf *);
-extern int zsend_vrf_delete(struct zserv *, struct zebra_vrf *);
-extern int zsend_interface_add(struct zserv *, struct interface *);
-extern int zsend_interface_delete(struct zserv *, struct interface *);
-extern int zsend_interface_addresses(struct zserv *, struct interface *);
-extern int zsend_interface_address(int, struct zserv *, struct interface *,
-				   struct connected *);
-extern void nbr_connected_add_ipv6(struct interface *, struct in6_addr *);
-extern void nbr_connected_delete_ipv6(struct interface *, struct in6_addr *);
-extern int zsend_interface_update(int, struct zserv *, struct interface *);
-extern int zsend_redistribute_route(int, struct zserv *, struct prefix *,
-				    struct prefix *, struct route_entry *);
-extern int zsend_router_id_update(struct zserv *, struct prefix *, vrf_id_t);
-extern int zsend_interface_vrf_update(struct zserv *, struct interface *,
-				      vrf_id_t);
-extern int zsend_interface_link_params(struct zserv *, struct interface *);
-extern int zsend_pw_update(struct zserv *, struct zebra_pw *);
+extern int zsend_vrf_add(struct zserv *zclient, struct zebra_vrf *zvrf);
+extern int zsend_vrf_delete(struct zserv *zclient, struct zebra_vrf *zvrf);
+extern int zsend_interface_add(struct zserv *zclient, struct interface *ifp);
+extern int zsend_interface_delete(struct zserv *zclient, struct interface *ifp);
+extern int zsend_interface_addresses(struct zserv *zclient,
+				     struct interface *ifp);
+extern int zsend_interface_address(int cmd, struct zserv *zclient,
+				   struct interface *ifp,
+				   struct connected *ifc);
+extern void nbr_connected_add_ipv6(struct interface *ifp,
+				   struct in6_addr *address);
+extern void nbr_connected_delete_ipv6(struct interface *ifp,
+				      struct in6_addr *address);
+extern int zsend_interface_update(int cmd, struct zserv *client,
+				  struct interface *ifp);
+extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
+				    struct prefix *p, struct prefix *src_p,
+				    struct route_entry *re);
+extern int zsend_router_id_update(struct zserv *zclient, struct prefix *p,
+				  vrf_id_t vrf_id);
+extern int zsend_interface_vrf_update(struct zserv *zclient,
+				      struct interface *ifp, vrf_id_t vrf_id);
+extern int zsend_interface_link_params(struct zserv *zclient,
+				       struct interface *ifp);
+extern int zsend_pw_update(struct zserv *client, struct zebra_pw *pw);
 extern int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 				    enum zapi_route_notify_owner note);
 
@@ -76,5 +84,5 @@ zsend_ipset_entry_notify_owner(struct zebra_pbr_ipset_entry *ipset,
 			       enum zapi_ipset_entry_notify_owner note);
 extern void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
 				       enum zapi_iptable_notify_owner note);
-extern void zserv_nexthop_num_warn(const char *, const struct prefix *,
-				   const unsigned int);
+extern void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
+				   const unsigned int nexthop_num);

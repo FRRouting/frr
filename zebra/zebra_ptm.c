@@ -91,7 +91,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req(void);
 void zebra_ptm_send_status_req(void);
 void zebra_ptm_reset_status(int ptm_disable);
-int zebra_ptm_bfd_client_deregister(struct zserv *client);
+static int zebra_ptm_bfd_client_deregister(struct zserv *client);
 
 const char ZEBRA_PTM_SOCK_NAME[] = "\0/var/run/ptmd.socket";
 

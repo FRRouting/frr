@@ -1216,7 +1216,8 @@ static int zebra_client_cleanup_rnh(struct zserv *client)
 	struct zebra_vrf *zvrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		if ((zvrf = vrf->info) != NULL) {
+		zvrf = vrf->info;
+		if (zvrf) {
 			zebra_cleanup_rnh_client(zvrf_id(zvrf), AF_INET, client,
 						 RNH_NEXTHOP_TYPE);
 			zebra_cleanup_rnh_client(zvrf_id(zvrf), AF_INET6,

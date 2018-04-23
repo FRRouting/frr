@@ -145,8 +145,8 @@ struct zserv {
 		struct zebra_vrf *zvrf
 
 /* Hooks for client connect / disconnect */
-DECLARE_HOOK(zapi_client_connect, (struct zserv * client), (client));
-DECLARE_KOOH(zapi_client_close, (struct zserv * client), (client));
+DECLARE_HOOK(zapi_client_connect, (struct zserv *client), (client));
+DECLARE_KOOH(zapi_client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {

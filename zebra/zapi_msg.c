@@ -451,7 +451,8 @@ void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 	IPV6_ADDR_COPY(&p.u.prefix, address);
 	p.prefixlen = IPV6_MAX_PREFIXLEN;
 
-	if (!(ifc = listnode_head(ifp->nbr_connected))) {
+	ifc = listnode_head(ifp->nbr_connected);
+	if (!ifc) {
 		/* new addition */
 		ifc = nbr_connected_new();
 		ifc->address = prefix_new();
@@ -592,6 +593,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 
 	if (IS_ZEBRA_DEBUG_SEND) {
 		char buf_prefix[PREFIX_STRLEN];
+
 		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
 
 		zlog_debug("%s: %s to client %s: type %s, vrf_id %d, p %s",
@@ -630,18 +632,21 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 		stream_putc(s, re->distance);
 		stream_putl(s, re->metric);
 		num = 0;
-		nump = stream_get_endp(
-			s);	/* remember position for nexthop_num */
-		stream_putc(s, 0); /* reserve room for nexthop_num */
-		/* Only non-recursive routes are elegible to resolve the nexthop
-		 * we
-		 * are looking up. Therefore, we will just iterate over the top
-		 * chain of nexthops. */
+		/* remember position for nexthop_num */
+		nump = stream_get_endp(s);
+		/* reserve room for nexthop_num */
+		stream_putc(s, 0);
+		/*
+		 * Only non-recursive routes are elegible to resolve the
+		 * nexthop we are looking up. Therefore, we will just iterate
+		 * over the top chain of nexthops.
+		 */
 		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 				num += zserv_encode_nexthop(s, nexthop);
 
-		stream_putc_at(s, nump, num); /* store nexthop_num */
+		/* store nexthop_num */
+		stream_putc_at(s, nump, num);
 	} else {
 		stream_putc(s, 0); /* distance */
 		stream_putl(s, 0); /* metric */
@@ -1117,7 +1122,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 	s = msg;
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (!zvrf)
-		return; // unexpected
+		return;
 
 	/*
 	 * The minimum amount of data that can be sent for one fec
@@ -1175,7 +1180,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 	s = msg;
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (!zvrf)
-		return; // unexpected
+		return;
 
 	/*
 	 * The minimum amount of data that can be sent for one
@@ -1256,6 +1261,7 @@ void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 {
 	if (nexthop_num > multipath_num) {
 		char buff[PREFIX2STR_BUFFER];
+
 		prefix2str(p, buff, sizeof(buff));
 		zlog_warn(
 			"%s: Prefix %s has %d nexthops, but we can only use the first %d",
@@ -1286,6 +1292,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 	if (IS_ZEBRA_DEBUG_RECV) {
 		char buf_prefix[PREFIX_STRLEN];
+
 		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
 		zlog_debug("%s: p=%s, ZAPI_MESSAGE_LABEL: %sset, flags=0x%x",
 			   __func__, buf_prefix,
@@ -1312,14 +1319,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 * api_nh->vrf_id instead of re->vrf_id ? I only changed
 	 * for cases NEXTHOP_TYPE_IPV4 and NEXTHOP_TYPE_IPV6.
 	 */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP))
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
 			ifindex_t ifindex = 0;
 
-			if (IS_ZEBRA_DEBUG_RECV) {
+			if (IS_ZEBRA_DEBUG_RECV)
 				zlog_debug("nh type %d", api_nh->type);
-			}
 
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_IFINDEX:
@@ -1329,6 +1335,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			case NEXTHOP_TYPE_IPV4:
 				if (IS_ZEBRA_DEBUG_RECV) {
 					char nhbuf[INET6_ADDRSTRLEN] = {0};
+
 					inet_ntop(AF_INET, &api_nh->gate.ipv4,
 						  nhbuf, INET6_ADDRSTRLEN);
 					zlog_debug("%s: nh=%s, vrf_id=%d",
@@ -1351,6 +1358,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 				if (IS_ZEBRA_DEBUG_RECV) {
 					char nhbuf[INET6_ADDRSTRLEN] = {0};
+
 					inet_ntop(AF_INET, &api_nh->gate.ipv4,
 						  nhbuf, INET6_ADDRSTRLEN);
 					zlog_debug(
@@ -1446,7 +1454,6 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 						   &api_nh->labels[0]);
 			}
 		}
-	}
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
 		re->distance = api.distance;
@@ -1610,8 +1617,10 @@ static void zread_ipv4_add(ZAPI_HANDLER_ARGS)
 					   IPV4_MAX_BYTELEN);
 				nexthop = route_entry_nexthop_ipv4_add(
 					re, &nhop_addr, NULL, re->vrf_id);
-				/* For labeled-unicast, each nexthop is followed
-				 * by label. */
+				/*
+				 * For labeled-unicast, each nexthop is followed
+				 * by the label.
+				 */
 				if (CHECK_FLAG(message, ZAPI_MESSAGE_LABEL)) {
 					STREAM_GETL(s, label);
 					nexthop_add_labels(nexthop, label_type,
@@ -1633,7 +1642,6 @@ static void zread_ipv4_add(ZAPI_HANDLER_ARGS)
 				nexthops_free(re->ng.nexthop);
 				XFREE(MTYPE_RE, re);
 				return;
-				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				route_entry_nexthop_blackhole_add(re, bh_type);
 				break;
@@ -1796,10 +1804,12 @@ static void zread_ipv4_route_ipv6_nexthop_add(ZAPI_HANDLER_ARGS)
 	/* VRF ID */
 	re->vrf_id = zvrf_id(zvrf);
 
-	/* We need to give nh-addr, nh-ifindex with the same next-hop object
+	/*
+	 * We need to give nh-addr, nh-ifindex with the same next-hop object
 	 * to the re to ensure that IPv6 multipathing works; need to coalesce
 	 * these. Clients should send the same number of paired set of
-	 * next-hop-addr/next-hop-ifindices. */
+	 * next-hop-addr/next-hop-ifindices.
+	 */
 	if (CHECK_FLAG(message, ZAPI_MESSAGE_NEXTHOP)) {
 		unsigned int nh_count = 0;
 		unsigned int if_count = 0;
@@ -1819,8 +1829,10 @@ static void zread_ipv4_route_ipv6_nexthop_add(ZAPI_HANDLER_ARGS)
 			case NEXTHOP_TYPE_IPV6:
 				STREAM_GET(&nhop_addr, s, 16);
 				if (nh_count < MULTIPATH_NUM) {
-					/* For labeled-unicast, each nexthop is
-					 * followed by label. */
+					/*
+					 * For labeled-unicast, each nexthop is
+					 * followed by the label.
+					 */
 					if (CHECK_FLAG(message,
 						       ZAPI_MESSAGE_LABEL)) {
 						STREAM_GETL(s, label);
@@ -1831,9 +1843,8 @@ static void zread_ipv4_route_ipv6_nexthop_add(ZAPI_HANDLER_ARGS)
 				}
 				break;
 			case NEXTHOP_TYPE_IFINDEX:
-				if (if_count < multipath_num) {
+				if (if_count < multipath_num)
 					STREAM_GETL(s, ifindices[if_count++]);
-				}
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				route_entry_nexthop_blackhole_add(re, bh_type);
@@ -1985,10 +1996,12 @@ static void zread_ipv6_add(ZAPI_HANDLER_ARGS)
 	/* VRF ID */
 	re->vrf_id = zvrf_id(zvrf);
 
-	/* We need to give nh-addr, nh-ifindex with the same next-hop object
+	/*
+	 * We need to give nh-addr, nh-ifindex with the same next-hop object
 	 * to the re to ensure that IPv6 multipathing works; need to coalesce
 	 * these. Clients should send the same number of paired set of
-	 * next-hop-addr/next-hop-ifindices. */
+	 * next-hop-addr/next-hop-ifindices.
+	 */
 	if (CHECK_FLAG(message, ZAPI_MESSAGE_NEXTHOP)) {
 		unsigned int nh_count = 0;
 		unsigned int if_count = 0;
@@ -2008,8 +2021,10 @@ static void zread_ipv6_add(ZAPI_HANDLER_ARGS)
 			case NEXTHOP_TYPE_IPV6:
 				STREAM_GET(&nhop_addr, s, 16);
 				if (nh_count < MULTIPATH_NUM) {
-					/* For labeled-unicast, each nexthop is
-					 * followed by label. */
+					/*
+					 * For labeled-unicast, each nexthop is
+					 * followed by label.
+					 */
 					if (CHECK_FLAG(message,
 						       ZAPI_MESSAGE_LABEL)) {
 						STREAM_GETL(s, label);
@@ -2025,9 +2040,8 @@ static void zread_ipv6_add(ZAPI_HANDLER_ARGS)
 					re, &nhop_addr, ifindex, re->vrf_id);
 				break;
 			case NEXTHOP_TYPE_IFINDEX:
-				if (if_count < multipath_num) {
+				if (if_count < multipath_num)
 					STREAM_GETL(s, ifindices[if_count++]);
-				}
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				route_entry_nexthop_blackhole_add(re, bh_type);
