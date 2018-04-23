@@ -1323,6 +1323,7 @@ static void construct(dict_t *d)
 				free(val);
 				if (dn)
 					dnode_destroy(dn);
+				break;
 			}
 
 			dict_load_next(&dl, dn, key);
