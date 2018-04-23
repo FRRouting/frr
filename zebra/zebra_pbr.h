@@ -192,6 +192,8 @@ void zebra_pbr_process_iptable(struct zebra_dplane_ctx *ctx);
 void zebra_pbr_process_ipset(struct zebra_dplane_ctx *ctx);
 void zebra_pbr_process_ipset_entry(struct zebra_dplane_ctx *ctx);
 
+extern const char *zebra_pbr_ipset_type2str(uint32_t type);
+
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.
  */
