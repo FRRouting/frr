@@ -59,7 +59,7 @@ extern struct bfdd_adapter_ctx bac;
 
 /* bfdd_frr.c */
 void prefix2sa(const struct prefix *p, struct sockaddr_any *sa);
-int bfd_configure_peer(struct bfd_peer_cfg *bpc,
+int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 		       const struct sockaddr_any *peer,
 		       const struct sockaddr_any *local, const char *ifname,
 		       const char *vrfname, char *ebuf, size_t ebuflen);

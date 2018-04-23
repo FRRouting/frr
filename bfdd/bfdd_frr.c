@@ -40,12 +40,15 @@ void bfdd_config_notification(struct json_object *notification);
  */
 struct bpc_node *bfdd_peer_notification_find(struct json_object *notification)
 {
+	bool mhop = false;
 	const char *key, *sval;
 	struct json_object *jo_val;
 	struct json_object_iterator joi, join;
 	char *interface = NULL, *vrf = NULL;
 	struct sockaddr_any psa, lsa, *psap = NULL, *lsap = NULL;
 	struct bfd_peer_cfg bpc;
+	char ebuf[256];
+	int result;
 
 	/* Search for peer information in the keys */
 	JSON_FOREACH (notification, joi, join) {
@@ -63,12 +66,20 @@ struct bpc_node *bfdd_peer_notification_find(struct json_object *notification)
 			interface = strdup(sval);
 		} else if (strcmp(key, "vrf-name") == 0) {
 			vrf = strdup(sval);
+		} else if (strcmp(key, "multihop") == 0) {
+			mhop = json_object_get_boolean(jo_val);
 		}
 	}
 
-	bfd_configure_peer(&bpc, psap, lsap, interface, vrf, NULL, 0);
+	result = bfd_configure_peer(&bpc, mhop, psap, lsap, interface, vrf,
+				    ebuf, sizeof(ebuf));
 	free(interface);
 	free(vrf);
+	if (result != 0) {
+		zlog_debug("%s:%d: bfd_configure_peer failed: %s", __func__,
+			   __LINE__, ebuf);
+		return NULL;
+	}
 
 	return bn_find(&bc.bc_bnlist, &bpc);
 }
@@ -122,6 +133,7 @@ void bfdd_peer_notification(struct json_object *notification)
 
 void bfdd_config_notification(struct json_object *notification)
 {
+	bool mhop = false;
 	const char *key, *sval;
 	struct json_object *jo_val;
 	struct json_object_iterator joi, join;
@@ -130,6 +142,7 @@ void bfdd_config_notification(struct json_object *notification)
 	struct bfd_peer_cfg bpc;
 	struct bpc_node *bn;
 	int result;
+	char ebuf[256];
 
 	/* Find peer or create a new one for the incoming configuration. */
 	bn = bfdd_peer_notification_find(notification);
@@ -150,17 +163,19 @@ void bfdd_config_notification(struct json_object *notification)
 				interface = strdup(sval);
 			} else if (strcmp(key, "vrf-name") == 0) {
 				vrf = strdup(sval);
+			} else if (strcmp(key, "multihop") == 0) {
+				mhop = json_object_get_boolean(jo_val);
 			}
 		}
 
-		result = bfd_configure_peer(&bpc, psap, lsap, interface, vrf,
-					    NULL, 0);
+		result = bfd_configure_peer(&bpc, mhop, psap, lsap, interface,
+					    vrf, ebuf, sizeof(ebuf));
 		free(interface);
 		free(vrf);
 
 		if (result != 0) {
-			zlog_debug("%s:%d: bfd_configure_peer: failed",
-				   __func__, __LINE__);
+			zlog_debug("%s:%d: bfd_configure_peer: %s", __func__,
+				   __LINE__, ebuf);
 			return;
 		}
 
@@ -326,7 +341,7 @@ void prefix2sa(const struct prefix *p, struct sockaddr_any *sa)
  *
  * Anything else is misconfiguration.
  */
-int bfd_configure_peer(struct bfd_peer_cfg *bpc,
+int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 		       const struct sockaddr_any *peer,
 		       const struct sockaddr_any *local, const char *ifname,
 		       const char *vrfname, char *ebuf, size_t ebuflen)
@@ -374,10 +389,8 @@ int bfd_configure_peer(struct bfd_peer_cfg *bpc,
 	}
 
 	/* Copy local and/or peer addresses. */
-	if (local) {
+	if (local)
 		bpc->bpc_local = *local;
-		bpc->bpc_mhop = true;
-	}
 
 	if (peer) {
 		bpc->bpc_peer = *peer;
@@ -386,6 +399,8 @@ int bfd_configure_peer(struct bfd_peer_cfg *bpc,
 		snprintf(ebuf, ebuflen, "no peer configured");
 		return -1;
 	}
+
+	bpc->bpc_mhop = mhop;
 
 #if 0
 	/* Handle VxLAN configuration. */
@@ -595,6 +610,13 @@ int bfdd_delete_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	const char *jsonstr;
 	int rv;
 
+	/* Only allow delete peers that are registered here. */
+	bn = bn_find(&bc.bc_bnlist, bpc);
+	if (bn == NULL) {
+		vty_out(vty, "%% Invalid peer\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/* Create the request data and send. */
 	jo = bfd_ctrl_new_json();
 	if (jo == NULL) {
@@ -613,13 +635,7 @@ int bfdd_delete_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/*
-	 * Find and delete the node if it hasn't already on the confirmation
-	 * above.
-	 */
-	bn = bn_find(&bc.bc_bnlist, bpc);
-	if (bn != NULL)
-		bn_free(bn, &bc.bc_bnlist);
+	bn_free(bn, &bc.bc_bnlist);
 
 	return CMD_SUCCESS;
 }
@@ -670,13 +686,17 @@ struct bpc_node *bn_find(struct bnlist *bnlist, struct bfd_peer_cfg *bpc)
 
 	TAILQ_FOREACH (bn, bnlist, bn_entry) {
 		bpcp = &bn->bn_bpc;
+		/* Compare multihop mode. */
+		if (bpcp->bpc_mhop != bpc->bpc_mhop)
+			continue;
 
 		/* Compare peer address. */
 		if (sa_cmp(&bpc->bpc_peer, &bpcp->bpc_peer) != 0)
 			continue;
 
 		/* Compare local address. */
-		if (sa_cmp(&bpc->bpc_local, &bpcp->bpc_local) != 0)
+		if (bpcp->bpc_local.sa_sin.sin_family != AF_UNSPEC
+		    && sa_cmp(&bpc->bpc_local, &bpcp->bpc_local) != 0)
 			continue;
 
 		/* Compare VRF name. */

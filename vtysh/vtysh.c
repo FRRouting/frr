@@ -1166,15 +1166,16 @@ DEFUNSH(VTYSH_BFDD, bfd_enter, bfd_enter_cmd,
 }
 
 DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
-	"peer <A.B.C.D|X:X::X:X> [<{interface IFNAME}|{local-address <A.B.C.D|X:X::X:X>|vrf NAME}>]",
+	"peer <A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
 	"Configure peer\n"
 	"IPv4 peer address\n"
 	"IPv6 peer address\n"
-	INTERFACE_STR
-	"Configure interface name to use\n"
-	"Configure local address (enables multihop)\n"
+	"Configure multihop\n"
+	"Configure local address\n"
 	"IPv4 local address\n"
 	"IPv6 local address\n"
+	INTERFACE_STR
+	"Configure interface name to use\n"
 	"Configure VRF\n"
 	"Configure VRF name\n")
 {

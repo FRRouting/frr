@@ -38,8 +38,15 @@
  */
 #define PEER_STR "Configure peer\n"
 #define INTERFACE_NAME_STR "Configure interface name to use\n"
-#define IPV4_PEER_STR "IPv4 peer address\n"
-#define IPV6_PEER_STR "IPv6 peer address\n"
+#define PEER_IPV4_STR "IPv4 peer address\n"
+#define PEER_IPV6_STR "IPv6 peer address\n"
+#define MHOP_STR "Configure multihop\n"
+#define LOCAL_STR "Configure local address\n"
+#define LOCAL_IPV4_STR "IPv4 local address\n"
+#define LOCAL_IPV6_STR "IPv6 local address\n"
+#define LOCAL_INTF_STR "Configure local interface name to use\n"
+#define VRF_STR "Configure VRF\n"
+#define VRF_NAME_STR "Configure VRF name\n"
 
 
 /*
@@ -60,18 +67,16 @@ DEFUN_NOSH(bfd_enter, bfd_enter_cmd, "bfd", "Configure BFD peers\n")
 
 DEFUN_NOSH(
 	bfd_peer_enter, bfd_peer_enter_cmd,
-	"peer <A.B.C.D|X:X::X:X> [<{interface IFNAME}|{local-address <A.B.C.D|X:X::X:X>|vrf NAME}>]",
-	"Configure peer\n"
-	"IPv4 peer address\n"
-	"IPv6 peer address\n" INTERFACE_STR
-	"Configure interface name to use\n"
-	"Configure local address (enables multihop)\n"
-	"IPv4 local address\n"
-	"IPv6 local address\n"
-	"Configure VRF\n"
-	"Configure VRF name\n")
+	"peer <A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	PEER_STR PEER_IPV4_STR PEER_IPV6_STR
+	MHOP_STR
+	LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
+	INTERFACE_STR
+	LOCAL_INTF_STR
+	VRF_STR VRF_NAME_STR)
 {
-	int idx = 0;
+	bool mhop;
+	int idx;
 	const char *peer, *ifname, *local, *vrfname;
 	struct bfd_peer_cfg bpc;
 	struct sockaddr_any psa, lsa, *lsap;
@@ -82,14 +87,25 @@ DEFUN_NOSH(
 	/* Gather all provided information. */
 	peer = argv[1]->arg;
 
+	idx = 0;
+	mhop = argv_find(argv, argc, "multihop", &idx);
+
+	idx = 0;
 	if (argv_find(argv, argc, "interface", &idx))
 		ifname = argv[idx + 1]->arg;
 
+	idx = 0;
 	if (argv_find(argv, argc, "local-address", &idx))
 		local = argv[idx + 1]->arg;
 
+	idx = 0;
 	if (argv_find(argv, argc, "vrf", &idx))
 		vrfname = argv[idx + 1]->arg;
+
+	if (vrfname && ifname) {
+		vty_out(vty, "%% VRF is not mixable with interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	strtosa(peer, &psa);
 	if (local) {
@@ -98,8 +114,8 @@ DEFUN_NOSH(
 	} else
 		lsap = NULL;
 
-	if (bfd_configure_peer(&bpc, &psa, lsap, ifname, vrfname, errormsg,
-			       sizeof(errormsg))
+	if (bfd_configure_peer(&bpc, mhop, &psa, lsap, ifname, vrfname,
+			       errormsg, sizeof(errormsg))
 	    != 0) {
 		vty_out(vty, "%% Invalid peer configuration: %s\n", errormsg);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -237,18 +253,17 @@ DEFPY(bfd_peer_label, bfd_peer_label_cmd, "label WORD$label",
 }
 
 DEFPY(bfd_no_peer, bfd_no_peer_cmd,
-      "no peer <A.B.C.D|X:X::X:X>$peer [<{interface IFNAME$ifname}|{local-address <A.B.C.D|X:X::X:X>$local|vrf NAME$vrfname}>]",
+      "no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]",
       NO_STR
-      "Configure peer\n"
-      "IPv4 peer address\n"
-      "IPv6 peer address\n" INTERFACE_STR
-      "Configure interface name to use\n"
-      "Configure local address (enables multihop)\n"
-      "IPv4 local address\n"
-      "IPv6 local address\n"
-      "Configure VRF\n"
-      "Configure VRF name\n")
+      PEER_STR PEER_IPV4_STR PEER_IPV6_STR
+      MHOP_STR
+      LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
+      INTERFACE_STR
+      LOCAL_INTF_STR
+      VRF_STR VRF_NAME_STR)
 {
+	int idx;
+	bool mhop;
 	struct bfd_peer_cfg bpc;
 	struct sockaddr_any psa, lsa, *lsap;
 	char errormsg[128];
@@ -261,8 +276,11 @@ DEFPY(bfd_no_peer, bfd_no_peer_cmd,
 		lsap = NULL;
 	}
 
-	if (bfd_configure_peer(&bpc, &psa, lsap, ifname, vrfname, errormsg,
-			       sizeof(errormsg))
+	idx = 0;
+	mhop = argv_find(argv, argc, "multihop", &idx);
+
+	if (bfd_configure_peer(&bpc, mhop, &psa, lsap, ifname, vrfname,
+			       errormsg, sizeof(errormsg))
 	    != 0) {
 		vty_out(vty, "%% Invalid peer configuration: %s\n", errormsg);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -277,6 +295,8 @@ static void _display_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	time_t now;
 
 	vty_out(vty, "\tpeer %s", satostr(&bpc->bpc_peer));
+	if (bpc->bpc_mhop)
+		vty_out(vty, " multihop");
 	if (bpc->bpc_has_localif)
 		vty_out(vty, " interface %s", bpc->bpc_localif);
 	if (bpc->bpc_local.sa_sin.sin_family != 0)
@@ -366,20 +386,20 @@ DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd peers", SHOW_STR
 }
 
 DEFPY(bfd_show_peer, bfd_show_peer_cmd,
-      "show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [<{interface IFNAME$ifname}|{local-address <A.B.C.D|X:X::X:X>$local|vrf NAME$vrfname}>]>",
+      "show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]>",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
       "BFD peers status\n"
       "Peer label\n"
-      "IPv4 peer address\n"
-      "IPv6 peer address\n" INTERFACE_STR
-      "Configure interface name to use\n"
-      "Configure local address (enables multihop)\n"
-      "IPv4 local address\n"
-      "IPv6 local address\n"
-      "Configure VRF\n"
-      "Configure VRF name\n")
+      PEER_IPV4_STR PEER_IPV6_STR
+      MHOP_STR
+      LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
+      INTERFACE_STR
+      LOCAL_INTF_STR
+      VRF_STR VRF_NAME_STR)
 {
+	int idx;
+	bool mhop;
 	struct bpc_node *bn;
 	struct bfd_peer_cfg *bpcp;
 	struct bfd_peer_cfg bpc;
@@ -402,7 +422,10 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 		} else
 			lsap = NULL;
 
-		if (bfd_configure_peer(&bpc, &psa, lsap, ifname, vrfname,
+		idx = 0;
+		mhop = argv_find(argv, argc, "multihop", &idx);
+
+		if (bfd_configure_peer(&bpc, mhop, &psa, lsap, ifname, vrfname,
 				       errormsg, sizeof(errormsg))
 		    != 0) {
 			vty_out(vty, "%% Invalid peer configuration: %s\n",
@@ -456,6 +479,8 @@ int bfdd_peer_write_config(struct vty *vty)
 
 		/* Print node header. */
 		vty_out(vty, " peer %s", satostr(&bpc->bpc_peer));
+		if (bpc->bpc_mhop)
+			vty_out(vty, " multihop");
 		if (bpc->bpc_has_localif)
 			vty_out(vty, " interface %s", bpc->bpc_localif);
 		if (bpc->bpc_local.sa_sin.sin_family != 0)

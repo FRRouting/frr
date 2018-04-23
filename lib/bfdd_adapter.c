@@ -382,7 +382,7 @@ static void _bfd_ctrl_add_peer(struct json_object *msg,
 	if (!use_label || !bpc->bpc_has_label) {
 		json_object_add_bool(peer_jo, "multihop", bpc->bpc_mhop);
 
-		if (bpc->bpc_mhop)
+		if (bpc->bpc_local.sa_sin.sin_family != AF_UNSPEC)
 			json_object_add_string(peer_jo, "local-address",
 					       satostr(&bpc->bpc_local));
 
