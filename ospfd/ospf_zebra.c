@@ -448,13 +448,13 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		count++;
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-			char buf[2][INET_ADDRSTRLEN];
+			char buf[2][PREFIX2STR_BUFFER];
+
 			zlog_debug(
-				"Zebra: Route add %s/%d nexthop %s, ifindex=%d",
-				inet_ntop(AF_INET, &p->prefix, buf[0],
-					  sizeof(buf[0])),
-				p->prefixlen, inet_ntop(AF_INET, &path->nexthop,
-							buf[1], sizeof(buf[1])),
+				"Zebra: Route add %s nexthop %s, ifindex=%d",
+				prefix2str(p, buf[0], sizeof(buf[0])),
+			        inet_ntop(AF_INET, &path->nexthop,
+					  buf[1], sizeof(buf[1])),
 				path->ifindex);
 		}
 	}
@@ -476,10 +476,9 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[INET_ADDRSTRLEN];
-		zlog_debug("Zebra: Route delete %s/%d",
-			   inet_ntop(AF_INET, &p->prefix, buf, sizeof(buf[0])),
-			   p->prefixlen);
+		char buf[PREFIX2STR_BUFFER];
+		zlog_debug("Zebra: Route delete %s",
+			   prefix2str(p, buf, sizeof(buf)));
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
@@ -499,9 +498,11 @@ void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("Zebra: Route add discard %s/%d",
-			   inet_ntoa(p->prefix), p->prefixlen);
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
+		char buf[PREFIX2STR_BUFFER];
+		zlog_debug("Zebra: Route add discard %s",
+			   prefix2str(p, buf, sizeof(buf)));
+	}
 }
 
 void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
@@ -518,9 +519,11 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("Zebra: Route delete discard %s/%d",
-			   inet_ntoa(p->prefix), p->prefixlen);
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
+		char buf[PREFIX2STR_BUFFER];
+		zlog_debug("Zebra: Route delete discard %s",
+			   prefix2str(p, buf, sizeof(buf)));
+	}
 }
 
 struct ospf_external *ospf_external_lookup(struct ospf *ospf, uint8_t type,
@@ -868,12 +871,13 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 		if (DISTRIBUTE_LIST(ospf, type))
 			if (access_list_apply(DISTRIBUTE_LIST(ospf, type), p)
 			    == FILTER_DENY) {
-				if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+				if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
+					char buf[PREFIX2STR_BUFFER];
 					zlog_debug(
-						"Redistribute[%s]: %s/%d filtered by ditribute-list.",
+						"Redistribute[%s]: %s filtered by distribute-list.",
 						ospf_redist_string(type),
-						inet_ntoa(p->prefix),
-						p->prefixlen);
+						prefix2str(p, buf, sizeof(buf)));
+				}
 				return 0;
 			}
 
@@ -890,11 +894,13 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 
 		if (ret == RMAP_DENYMATCH) {
 			ei->route_map_set = save_values;
-			if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+			if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
+				char buf[PREFIX2STR_BUFFER];
 				zlog_debug(
-					"Redistribute[%s]: %s/%d filtered by route-map.",
+					"Redistribute[%s]: %s filtered by route-map.",
 					ospf_redist_string(type),
-					inet_ntoa(p->prefix), p->prefixlen);
+					prefix2str(p, buf, sizeof(buf)));
+			}
 			return 0;
 		}
 
