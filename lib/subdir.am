@@ -171,6 +171,7 @@ pkginclude_HEADERS += \
 	lib/pbr.h \
 	# end
 
+
 nodist_pkginclude_HEADERS += \
 	lib/route_types.h \
 	lib/version.h \
@@ -232,7 +233,7 @@ lib_grammar_sandbox_SOURCES = \
 lib_grammar_sandbox_LDADD = \
 	lib/libfrr.la
 
-lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE
+lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
 lib_clippy_LDADD = $(PYTHON_LIBS)
 lib_clippy_SOURCES = \

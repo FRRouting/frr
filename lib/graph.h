@@ -26,6 +26,7 @@
 
 #include <stdbool.h>
 #include "vector.h"
+#include "buffer.h"
 
 struct graph {
 	vector nodes;
@@ -111,4 +112,56 @@ struct graph_node *graph_find_node(struct graph *graph, void *data);
  */
 bool graph_has_edge(struct graph_node *from, struct graph_node *to);
 
+/*
+ * Depth-first search.
+ *
+ * Performs a depth-first traversal of the given graph, visiting each node
+ * exactly once and calling the user-provided callback for each visit.
+ *
+ * @param graph the graph to operate on
+ * @param start the node to take as the root
+ * @param dfs_cb callback called for each node visited in the traversal
+ * @param arg argument to provide to dfs_cb
+ */
+void graph_dfs(struct graph *graph, struct graph_node *start,
+	       void (*dfs_cb)(struct graph_node *, void *), void *arg);
+
+#ifndef BUILDING_CLIPPY
+/*
+ * Clippy relies on a small subset of sources in lib/, but it cannot link
+ * libfrr since clippy itself is required to build libfrr. Instead it directly
+ * includes the sources it needs. One of these is the command graph
+ * implementation, which wraps this graph implementation. Since we need to use
+ * the buffer.[ch] sources here, which indirectly rely on most of libfrr, we
+ * have to ignore them when compiling clippy to avoid build dependency issues.
+ *
+ * TODO: Fix clippy build.
+ */
+
+/*
+ * Default node printer for use with graph_dump_dot.
+ *
+ * @param gn the node to print
+ * @param buf the buffer to print into
+ */
+void graph_dump_dot_default_print_cb(struct graph_node *gn, struct buffer *buf);
+
+/*
+ * Prints a graph in the DOT language.
+ *
+ * The generated output is produced from a depth-first traversal of the graph.
+ *
+ * @param graph the graph to print
+ * @param start the node to take as the root
+ * @param pcb callback called for each node in the traversal that should
+ *        print the node in the DOT language. Passing NULL for this argument
+ *        will use the default printer. See graph_dump_dot_default_print_cb for
+ *        an example.
+ * @return representation of graph in DOT language, allocated with MTYPE_TMP.
+ *         Caller is responsible for freeing this string.
+ */
+char *graph_dump_dot(struct graph *graph, struct graph_node *start,
+		     void (*pcb)(struct graph_node *, struct buffer *buf));
+
+#endif /* BUILDING_CLIPPY */
 #endif /* _ZEBRA_COMMAND_GRAPH_H */
