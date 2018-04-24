@@ -3017,12 +3017,38 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
 };
 
+#if defined(HANDLE_ZAPI_FUZZING)
+extern struct zebra_privs_t zserv_privs;
+
+static void zserv_write_incoming(struct stream *orig, uint16_t command)
+{
+	char fname[MAXPATHLEN];
+	struct stream *copy;
+	int fd = -1;
+
+	copy = stream_dup(orig);
+	stream_set_getp(copy, 0);
+
+	zserv_privs.change(ZPRIVS_RAISE);
+	snprintf(fname, MAXPATHLEN, "%s/%u", DAEMON_VTY_DIR, command);
+	fd = open(fname, O_CREAT | O_WRONLY | O_EXCL, 0644);
+	stream_flush(copy, fd);
+	close(fd);
+	zserv_privs.change(ZPRIVS_LOWER);
+	stream_free(copy);
+}
+#endif
+
 void zserv_handle_commands(struct zserv *client, struct stream *msg)
 {
 	struct zmsghdr hdr;
 	struct zebra_vrf *zvrf;
 
 	zapi_parse_header(msg, &hdr);
+
+#if defined(HANDLE_ZAPI_FUZZING)
+	zserv_write_incoming(msg, hdr.command);
+#endif
 
 	hdr.length -= ZEBRA_HEADER_SIZE;
 
