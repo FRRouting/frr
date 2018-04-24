@@ -1549,8 +1549,9 @@ is specified, the BGP protocol process belongs to the default VRF.
 
 BGP routes may be leaked (i.e., copied) between a unicast VRF RIB and the VPN
 safi RIB of the default VRF (leaking is also permitted between the unicast RIB
-of the default VRF and VPN) or routes may be leaked directly between two BGP
-VRF instances.  A common application of the VPN-VRF feature is to
+of the default VRF and VPN).  A shortcut syntax is also available for
+specifying leaking from one vrf to another vrf using the VPN RIB as
+the intemediary.  A common application of the VPN-VRF feature is to
 connect a customer's private routing domain to a provider's VPN service.
 Leaking is configured from the point of view of an individual VRF: ``import``
 refers to routes leaked from VPN to a unicast VRF, whereas ``export`` refers to
@@ -1587,7 +1588,8 @@ routing domain which is shared across all its sites. More complex routing
 topologies are possible through use of additional route-targets to augment the
 leaking of sets of routes in various ways.
 
-For direct VRF to VRF leaking the RD and RT are auto-derived.
+When using the shortcut syntax for vrf-to-vrf leaking, the RD and RT are
+auto-derived.
 
 Configuration
 -------------
@@ -1673,13 +1675,21 @@ address-family:
 .. index:: import vrf VRFNAME
 .. clicmd:: import vrf VRFNAME
 
-   Enables direct importation of VRF routes to another VRF.  The RD and RT
-   are auto derived and are not needed for VRF - VRF route leaking.
+   Shortcut syntax for specifying automatic leaking from vrf VRFNAME to
+   the current VRF using the VPN RIB as intermediary.  The RD and RT
+   are auto derived and should not be specified explicitly for either the
+   source or destination VRF's.
+
+   This shortcut syntax mode is not compatible with the explicit
+   `import vpn` and `export vpn` statements for the two VRF's involved.
+   The CLI will disallow attempts to configure incompatible leaking
+   modes.
 
 .. index:: no import vrf VRFNAME
 .. clicmd:: no import vrf VRFNAME
 
-   Disables direct VRF to VRF route leaking.
+   Disables automatic leaking from vrf VRFNAME to the current VRF using
+   the VPN RIB as intermediary.
 
 .. _displaying-bgp-information:
 
