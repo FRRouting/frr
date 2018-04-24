@@ -23,9 +23,11 @@
 
 #include <jhash.h>
 #include <hash.h>
+#include <command.h>
 
 #include "zebra/zebra_pbr.h"
 #include "zebra/rt.h"
+#include "zebra_pbr.h"
 
 /* definitions */
 
@@ -573,4 +575,174 @@ void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
 int kernel_pbr_rule_del(struct zebra_pbr_rule *rule)
 {
 	return 0;
+}
+
+
+struct cmd_node pbr_node = {PBR_NODE, "%s(config-pbr)# ", 1};
+
+RB_GENERATE(pbr_interface_head, pbr_interface, id_entry, pbr_interface_compare);
+struct pbr_interface_head pbr_interface_list =
+	RB_INITIALIZER(&pbr_interface_list);
+
+int pbr_interface_any;
+
+int pbr_interface_compare(const struct pbr_interface *a,
+			  const struct pbr_interface *b)
+{
+	return strcmp(a->name, b->name);
+}
+
+static struct pbr_interface *pbr_interface_lookup(const char *name)
+{
+	struct pbr_interface pbr_if;
+
+	strlcpy(pbr_if.name, name, sizeof(pbr_if.name));
+	return RB_FIND(pbr_interface_head, &pbr_interface_list, &pbr_if);
+}
+
+
+static int pbr_local_install_interface(const char *no, const char *ifname)
+{
+	struct pbr_interface *pbr_if;
+
+	if (no) {
+		if (!ifname) {
+			if (pbr_interface_any) {
+				pbr_interface_any = false;
+				/* remove all other interface list
+				 */
+				zebra_pbr_terminate();
+			}
+			return CMD_SUCCESS;
+		}
+		pbr_if = pbr_interface_lookup(ifname);
+		if (!pbr_if)
+			return CMD_SUCCESS;
+		RB_REMOVE(pbr_interface_head, &pbr_interface_list, pbr_if);
+		return CMD_SUCCESS;
+	}
+	if (ifname) {
+		pbr_if = pbr_interface_lookup(ifname);
+		if (pbr_if)
+			return CMD_SUCCESS;
+		pbr_if = XCALLOC(MTYPE_TMP, sizeof(struct pbr_interface));
+		strlcpy(pbr_if->name, ifname, INTERFACE_NAMSIZ);
+		RB_INSERT(pbr_interface_head, &pbr_interface_list, pbr_if);
+		pbr_interface_any = false;
+	} else {
+		/* set to default */
+		if (!pbr_interface_any) {
+			/* remove all other interface list
+			 */
+			zebra_pbr_terminate();
+			pbr_interface_any = true;
+		}
+	}
+	return CMD_SUCCESS;
+}
+
+static int pbr_cmd_writefunc(struct vty *vty)
+{
+	struct pbr_interface *pbr_if;
+	bool declare_node = false;
+
+	if (!RB_EMPTY(pbr_interface_head, &pbr_interface_list) ||
+	     !pbr_interface_any)
+		declare_node = true;
+	if (declare_node)
+		vty_out(vty, "policy-based-routing\n");
+	RB_FOREACH (pbr_if, pbr_interface_head, &pbr_interface_list) {
+		vty_out(vty, "local-install %s\n", pbr_if->name);
+	}
+	if (!pbr_interface_any)
+		vty_out(vty, "no local-install interface-all\n");
+	if (declare_node)
+		vty_out(vty, "!\n");
+	return declare_node ? 1 : 0;
+}
+
+/* pbr CLI commands */
+DEFUN (pbr,
+       pbr_cmd,
+       "policy-based-routing",
+       "Enter PBR config node\n")
+{
+	vty->node = PBR_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_pbr,
+	no_pbr_cmd,
+	"no policy-based-routing",
+	NO_STR
+	"Leave PBR config node\n")
+
+{
+	zebra_pbr_terminate();
+	pbr_interface_any = true;
+	return CMD_SUCCESS;
+}
+
+DEFUN (pbr_local_no_install,
+	pbr_local_no_install_cmd,
+	"no local-install interface-all",
+	NO_STR
+	"Apply local policy routing\n"
+	"Apply by default to all interfaces\n")
+{
+	return pbr_local_install_interface("no", NULL);
+}
+
+DEFUN (pbr_local_install,
+	pbr_local_install_cmd,
+	"local-install interface-all",
+	"Apply local policy routing\n"
+	"Apply by default to all interfaces\n")
+{
+	return pbr_local_install_interface(NULL, NULL);
+}
+
+DEFUN (pbr_local_no_install_ifname,
+	pbr_local_no_install_ifname_cmd,
+	"no local-install <INTERFACE>",
+	NO_STR
+	"Apply local policy routing\n"
+	"Interface name\n")
+{
+	char *ifname = argv[2]->arg;
+
+	return pbr_local_install_interface("no", ifname);
+}
+
+DEFUN (pbr_local_install_ifname,
+	pbr_local_install_ifname_cmd,
+	"local-install <INTERFACE>",
+	"Apply local policy routing\n"
+	"Interface name\n")
+{
+	char *ifname = argv[1]->arg;
+
+	return pbr_local_install_interface(NULL, ifname);
+}
+
+void zebra_pbr_terminate(void)
+{
+	struct pbr_interface *pbr_if;
+
+	while (!RB_EMPTY(pbr_interface_head, &pbr_interface_list)) {
+		pbr_if = RB_ROOT(pbr_interface_head, &pbr_interface_list);
+		XFREE(MTYPE_TMP, pbr_if);
+	}
+}
+
+void zebra_pbr_cmd_init(void)
+{
+	pbr_interface_any = true;
+	install_element(CONFIG_NODE, &pbr_cmd);
+	install_element(CONFIG_NODE, &no_pbr_cmd);
+	install_node(&pbr_node, pbr_cmd_writefunc);
+	install_element(PBR_NODE, &pbr_local_install_cmd);
+	install_element(PBR_NODE, &pbr_local_install_ifname_cmd);
+	install_element(PBR_NODE, &pbr_local_no_install_cmd);
+	install_element(PBR_NODE, &pbr_local_no_install_ifname_cmd);
 }

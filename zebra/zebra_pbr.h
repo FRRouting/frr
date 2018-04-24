@@ -121,6 +121,20 @@ struct zebra_pbr_iptable {
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 
+struct pbr_interface {
+	RB_ENTRY(pbr_interface) id_entry;
+	char name[INTERFACE_NAMSIZ];
+};
+RB_HEAD(pbr_interface_head, pbr_interface);
+RB_PROTOTYPE(pbr_interface_head, pbr_interface, id_entry,
+	     zebra_pbr_interface_compare)
+
+extern int pbr_interface_compare(const struct pbr_interface *a,
+				 const struct pbr_interface *b);
+
+extern int pbr_interface_any;
+extern struct pbr_interface_head pbr_interface_list;
+
 void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
 void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
 void zebra_pbr_create_ipset(struct zebra_ns *zns,
@@ -204,5 +218,8 @@ extern int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2);
 extern void zebra_pbr_iptable_free(void *arg);
 extern uint32_t zebra_pbr_iptable_hash_key(void *arg);
 extern int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
+
+extern void zebra_pbr_terminate(void);
+extern void zebra_pbr_cmd_init(void);
 
 #endif /* _ZEBRA_PBR_H */
