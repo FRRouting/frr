@@ -42,7 +42,6 @@
 #include "zebra/rib.h"
 #include "zebra/rt.h"
 #include "zebra/zebra_ns.h"
-#include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
@@ -51,6 +50,7 @@
 #include "zebra/interface.h"
 #include "zebra/connected.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zapi_msg.h"
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason))

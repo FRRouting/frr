@@ -91,6 +91,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt);
 void zebra_bfd_peer_replay_req(void);
 void zebra_ptm_send_status_req(void);
 void zebra_ptm_reset_status(int ptm_disable);
+static int zebra_ptm_bfd_client_deregister(struct zserv *client);
 
 const char ZEBRA_PTM_SOCK_NAME[] = "\0/var/run/ptmd.socket";
 
@@ -124,17 +125,12 @@ void zebra_ptm_init(void)
 	ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
 
 	ptm_cb.ptm_sock = -1;
+
+	hook_register(zapi_client_close, zebra_ptm_bfd_client_deregister);
 }
 
 void zebra_ptm_finish(void)
 {
-	int proto;
-
-	for (proto = 0; proto < ZEBRA_ROUTE_MAX; proto++)
-		if (CHECK_FLAG(ptm_cb.client_flags[proto],
-			       ZEBRA_PTM_BFD_CLIENT_FLAG_REG))
-			zebra_ptm_bfd_client_deregister(proto);
-
 	buffer_flush_all(ptm_cb.wb, ptm_cb.ptm_sock);
 
 	free(ptm_hdl);
@@ -1013,15 +1009,16 @@ stream_failure:
 }
 
 /* BFD client deregister */
-void zebra_ptm_bfd_client_deregister(int proto)
+int zebra_ptm_bfd_client_deregister(struct zserv *client)
 {
+	uint8_t proto = client->proto;
 	void *out_ctxt;
 	char tmp_buf[64];
 	int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
 
 	if (proto != ZEBRA_ROUTE_OSPF && proto != ZEBRA_ROUTE_BGP
 	    && proto != ZEBRA_ROUTE_OSPF6 && proto != ZEBRA_ROUTE_PIM)
-		return;
+		return 0;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_err("bfd_client_deregister msg for client %s",
@@ -1031,7 +1028,7 @@ void zebra_ptm_bfd_client_deregister(int proto)
 		ptm_cb.t_timer = NULL;
 		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
-		return;
+		return 0;
 	}
 
 	ptm_lib_init_msg(ptm_hdl, 0, PTMLIB_MSG_TYPE_CMD, NULL, &out_ctxt);
@@ -1051,6 +1048,8 @@ void zebra_ptm_bfd_client_deregister(int proto)
 
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 	UNSET_FLAG(ptm_cb.client_flags[proto], ZEBRA_PTM_BFD_CLIENT_FLAG_REG);
+
+	return 0;
 }
 
 int zebra_ptm_get_enable_state(void)

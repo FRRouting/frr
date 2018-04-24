@@ -1913,9 +1913,9 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 /*
  * Cleanup any FECs registered by this client.
  */
-int zebra_mpls_cleanup_fecs_for_client(struct zebra_vrf *zvrf,
-				       struct zserv *client)
+static int zebra_mpls_cleanup_fecs_for_client(struct zserv *client)
 {
+	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
 	struct route_node *rn;
 	zebra_fec_t *fec;
 	struct listnode *node;
@@ -2915,4 +2915,6 @@ void zebra_mpls_init(void)
 
 	if (!mpls_processq_init(&zebrad))
 		mpls_enabled = 1;
+
+	hook_register(zapi_client_close, zebra_mpls_cleanup_fecs_for_client);
 }

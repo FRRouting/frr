@@ -211,12 +211,6 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 			      struct zserv *client);
 
 /*
- * Cleanup any FECs registered by this client.
- */
-int zebra_mpls_cleanup_fecs_for_client(struct zebra_vrf *zvrf,
-				       struct zserv *client);
-
-/*
  * Return FEC (if any) to which this label is bound.
  * Note: Only works for per-prefix binding and when the label is not
  * implicit-null.

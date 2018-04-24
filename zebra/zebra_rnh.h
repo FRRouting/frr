@@ -54,6 +54,8 @@ typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
 extern int zebra_rnh_ip_default_route;
 extern int zebra_rnh_ipv6_default_route;
 
+extern void zebra_rnh_init(void);
+
 static inline int rnh_resolve_via_default(int family)
 {
 	if (((family == AF_INET) && zebra_rnh_ip_default_route)
@@ -87,6 +89,4 @@ extern void zebra_evaluate_rnh(vrf_id_t vrfid, int family, int force,
 extern void zebra_print_rnh_table(vrf_id_t vrfid, int family, struct vty *vty,
 				  rnh_type_t);
 extern char *rnh_str(struct rnh *rnh, char *buf, int size);
-extern int zebra_cleanup_rnh_client(vrf_id_t vrf, int family,
-				    struct zserv *client, rnh_type_t type);
 #endif /*_ZEBRA_RNH_H */

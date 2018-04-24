@@ -23,6 +23,7 @@
 #include "vty.h"
 #include "stream.h"
 #include "zebra/zserv.h"
+#include "zebra/zapi_msg.h"
 #include "zebra/zebra_ptm_redistribute.h"
 #include "zebra/zebra_memory.h"
 

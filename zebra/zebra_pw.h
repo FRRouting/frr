@@ -23,8 +23,11 @@
 #include <net/if.h>
 #include <netinet/in.h>
 
-#include "hook.h"
-#include "qobj.h"
+#include "lib/hook.h"
+#include "lib/qobj.h"
+#include "lib/pw.h"
+
+#include "zebra/zebra_vrf.h"
 
 #define PW_INSTALL_RETRY_INTERVAL	30
 
@@ -67,7 +70,6 @@ void zebra_pw_change(struct zebra_pw *, ifindex_t, int, int, union g_addr *,
 struct zebra_pw *zebra_pw_find(struct zebra_vrf *, const char *);
 void zebra_pw_update(struct zebra_pw *);
 void zebra_pw_install_failure(struct zebra_pw *);
-void zebra_pw_client_close(struct zserv *);
 void zebra_pw_init(struct zebra_vrf *);
 void zebra_pw_exit(struct zebra_vrf *);
 void zebra_pw_vty_init(void);

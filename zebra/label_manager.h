@@ -29,6 +29,8 @@
 #include "lib/linklist.h"
 #include "lib/thread.h"
 
+#include "zebra/zserv.h"
+
 #define NO_PROTO 0
 
 /*
@@ -69,7 +71,7 @@ struct label_manager_chunk *assign_label_chunk(uint8_t proto,
 					       uint8_t keep, uint32_t size);
 int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 			uint32_t end);
-int release_daemon_label_chunks(uint8_t proto, unsigned short instance);
+int release_daemon_label_chunks(struct zserv *client);
 void label_manager_close(void);
 
 #endif /* _LABEL_MANAGER_H */

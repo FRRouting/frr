@@ -36,6 +36,7 @@
 #include "vrf.h"
 #include "logicalrouter.h"
 #include "libfrr.h"
+#include "routemap.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -49,6 +50,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/label_manager.h"
 #include "zebra/zebra_netns_notify.h"
+#include "zebra/zebra_rnh.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -370,6 +372,9 @@ int main(int argc, char **argv)
 
 	/* Init label manager */
 	label_manager_init(lblmgr_path);
+
+	/* RNH init */
+	zebra_rnh_init();
 
 	frr_run(zebrad.master);
 

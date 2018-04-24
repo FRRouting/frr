@@ -236,6 +236,40 @@ static void lm_zclient_init(char *lm_zserv_path)
 }
 
 /**
+ * Release label chunks from a client.
+ *
+ * Called on client disconnection or reconnection. It only releases chunks
+ * with empty keep value.
+ *
+ * @param proto Daemon protocol of client, to identify the owner
+ * @param instance Instance, to identify the owner
+ * @return Number of chunks released
+ */
+int release_daemon_label_chunks(struct zserv *client)
+{
+	uint8_t proto = client->proto;
+	uint16_t instance = client->instance;
+	struct listnode *node;
+	struct label_manager_chunk *lmc;
+	int count = 0;
+	int ret;
+
+	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
+		if (lmc->proto == proto && lmc->instance == instance
+		    && lmc->keep == 0) {
+			ret = release_label_chunk(lmc->proto, lmc->instance,
+						  lmc->start, lmc->end);
+			if (ret == 0)
+				count++;
+		}
+	}
+
+	zlog_debug("%s: Released %d label chunks", __func__, count);
+
+	return count;
+}
+
+/**
  * Init label manager (or proxy to an external one)
  */
 void label_manager_init(char *lm_zserv_path)
@@ -255,6 +289,8 @@ void label_manager_init(char *lm_zserv_path)
 
 	ibuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	obuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	hook_register(zapi_client_close, release_daemon_label_chunks);
 }
 
 /**
@@ -353,37 +389,6 @@ int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 	return ret;
 }
 
-/**
- * Release label chunks from a client.
- *
- * Called on client disconnection or reconnection. It only releases chunks
- * with empty keep value.
- *
- * @param proto Daemon protocol of client, to identify the owner
- * @param instance Instance, to identify the owner
- * @return Number of chunks released
- */
-int release_daemon_label_chunks(uint8_t proto, unsigned short instance)
-{
-	struct listnode *node;
-	struct label_manager_chunk *lmc;
-	int count = 0;
-	int ret;
-
-	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
-		if (lmc->proto == proto && lmc->instance == instance
-		    && lmc->keep == 0) {
-			ret = release_label_chunk(lmc->proto, lmc->instance,
-						  lmc->start, lmc->end);
-			if (ret == 0)
-				count++;
-		}
-	}
-
-	zlog_debug("%s: Released %d label chunks", __func__, count);
-
-	return count;
-}
 
 void label_manager_close()
 {
