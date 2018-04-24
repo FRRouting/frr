@@ -2948,14 +2948,27 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
 };
 
-void zserv_handle_commands(struct zserv *client, struct zmsghdr *hdr,
-			   struct stream *msg, struct zebra_vrf *zvrf)
+void zserv_handle_commands(struct zserv *client, struct stream *msg)
 {
-	if (hdr->command > array_size(zserv_handlers)
-	    || zserv_handlers[hdr->command] == NULL)
-		zlog_info("Zebra received unknown command %d", hdr->command);
-	else
-		zserv_handlers[hdr->command](client, hdr, msg, zvrf);
+	struct zmsghdr hdr;
+	struct zebra_vrf *zvrf;
 
-	stream_free(msg);
+	zapi_parse_header(msg, &hdr);
+
+	hdr.length -= ZEBRA_HEADER_SIZE;
+
+	/* lookup vrf */
+	zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
+	if (!zvrf) {
+		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+			zlog_warn("ZAPI message specifies unknown VRF: %d",
+				  hdr.vrf_id);
+		return;
+	}
+
+	if (hdr.command > array_size(zserv_handlers)
+	    || zserv_handlers[hdr.command] == NULL)
+		zlog_info("Zebra received unknown command %d", hdr.command);
+	else
+		zserv_handlers[hdr.command](client, &hdr, msg, zvrf);
 }
