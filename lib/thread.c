@@ -32,6 +32,7 @@
 #include "sigevent.h"
 #include "network.h"
 #include "jhash.h"
+#include "frratomic.h"
 
 DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread")
 DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
@@ -104,25 +105,41 @@ static void vty_out_cpu_thread_history(struct vty *vty,
 static void cpu_record_hash_print(struct hash_backet *bucket, void *args[])
 {
 	struct cpu_thread_history *totals = args[0];
+	struct cpu_thread_history copy;
 	struct vty *vty = args[1];
-	thread_type *filter = args[2];
+	uint8_t *filter = args[2];
 
 	struct cpu_thread_history *a = bucket->data;
 
-	if (!(a->types & *filter))
+	copy.total_active =
+		atomic_load_explicit(&a->total_active, memory_order_seq_cst);
+	copy.total_calls =
+		atomic_load_explicit(&a->total_calls, memory_order_seq_cst);
+	copy.cpu.total =
+		atomic_load_explicit(&a->cpu.total, memory_order_seq_cst);
+	copy.cpu.max = atomic_load_explicit(&a->cpu.max, memory_order_seq_cst);
+	copy.real.total =
+		atomic_load_explicit(&a->real.total, memory_order_seq_cst);
+	copy.real.max =
+		atomic_load_explicit(&a->real.max, memory_order_seq_cst);
+	copy.types = atomic_load_explicit(&a->types, memory_order_seq_cst);
+	copy.funcname = a->funcname;
+
+	if (!(copy.types & *filter))
 		return;
-	vty_out_cpu_thread_history(vty, a);
-	totals->total_active += a->total_active;
-	totals->total_calls += a->total_calls;
-	totals->real.total += a->real.total;
-	if (totals->real.max < a->real.max)
-		totals->real.max = a->real.max;
-	totals->cpu.total += a->cpu.total;
-	if (totals->cpu.max < a->cpu.max)
-		totals->cpu.max = a->cpu.max;
+
+	vty_out_cpu_thread_history(vty, &copy);
+	totals->total_active += copy.total_active;
+	totals->total_calls += copy.total_calls;
+	totals->real.total += copy.real.total;
+	if (totals->real.max < copy.real.max)
+		totals->real.max = copy.real.max;
+	totals->cpu.total += copy.cpu.total;
+	if (totals->cpu.max < copy.cpu.max)
+		totals->cpu.max = copy.cpu.max;
 }
 
-static void cpu_record_print(struct vty *vty, thread_type filter)
+static void cpu_record_print(struct vty *vty, uint8_t filter)
 {
 	struct cpu_thread_history tmp;
 	void *args[3] = {&tmp, vty, &filter};
@@ -183,7 +200,7 @@ static void cpu_record_print(struct vty *vty, thread_type filter)
 
 static void cpu_record_hash_clear(struct hash_backet *bucket, void *args[])
 {
-	thread_type *filter = args[0];
+	uint8_t *filter = args[0];
 	struct hash *cpu_record = args[1];
 
 	struct cpu_thread_history *a = bucket->data;
@@ -194,9 +211,9 @@ static void cpu_record_hash_clear(struct hash_backet *bucket, void *args[])
 	hash_release(cpu_record, bucket->data);
 }
 
-static void cpu_record_clear(thread_type filter)
+static void cpu_record_clear(uint8_t filter)
 {
-	thread_type *tmp = &filter;
+	uint8_t *tmp = &filter;
 	struct thread_master *m;
 	struct listnode *ln;
 
@@ -218,7 +235,7 @@ static void cpu_record_clear(thread_type filter)
 	pthread_mutex_unlock(&masters_mtx);
 }
 
-static thread_type parse_filter(const char *filterstr)
+static uint8_t parse_filter(const char *filterstr)
 {
 	int i = 0;
 	int filter = 0;
@@ -261,7 +278,7 @@ DEFUN (show_thread_cpu,
        "Thread CPU usage\n"
        "Display filter (rwtexb)\n")
 {
-	thread_type filter = (thread_type)-1U;
+	uint8_t filter = (uint8_t)-1U;
 	int idx = 0;
 
 	if (argv_find(argv, argc, "FILTER", &idx)) {
@@ -287,7 +304,7 @@ DEFUN (clear_thread_cpu,
        "Thread CPU usage\n"
        "Display filter (rwtexb)\n")
 {
-	thread_type filter = (thread_type)-1U;
+	uint8_t filter = (uint8_t)-1U;
 	int idx = 0;
 
 	if (argv_find(argv, argc, "FILTER", &idx)) {
@@ -1492,12 +1509,22 @@ void thread_getrusage(RUSAGE_T *r)
 	getrusage(RUSAGE_SELF, &(r->cpu));
 }
 
-/* We check thread consumed time. If the system has getrusage, we'll
-   use that to get in-depth stats on the performance of the thread in addition
-   to wall clock time stats from gettimeofday. */
+/*
+ * Call a thread.
+ *
+ * This function will atomically update the thread's usage history. At present
+ * this is the only spot where usage history is written. Nevertheless the code
+ * has been written such that the introduction of writers in the future should
+ * not need to update it provided the writers atomically perform only the
+ * operations done here, i.e. updating the total and maximum times. In
+ * particular, the maximum real and cpu times must be monotonically increasing
+ * or this code is not correct.
+ */
 void thread_call(struct thread *thread)
 {
-	unsigned long realtime, cputime;
+	_Atomic unsigned long realtime, cputime;
+	unsigned long exp;
+	unsigned long helper;
 	RUSAGE_T before, after;
 
 	GETRUSAGE(&before);
@@ -1509,16 +1536,35 @@ void thread_call(struct thread *thread)
 
 	GETRUSAGE(&after);
 
-	realtime = thread_consumed_time(&after, &before, &cputime);
-	thread->hist->real.total += realtime;
-	if (thread->hist->real.max < realtime)
-		thread->hist->real.max = realtime;
-	thread->hist->cpu.total += cputime;
-	if (thread->hist->cpu.max < cputime)
-		thread->hist->cpu.max = cputime;
+	realtime = thread_consumed_time(&after, &before, &helper);
+	cputime = helper;
 
-	++(thread->hist->total_calls);
-	thread->hist->types |= (1 << thread->add_type);
+	/* update realtime */
+	atomic_fetch_add_explicit(&thread->hist->real.total, realtime,
+				  memory_order_seq_cst);
+	exp = atomic_load_explicit(&thread->hist->real.max,
+				   memory_order_seq_cst);
+	while (exp < realtime
+	       && !atomic_compare_exchange_weak_explicit(
+			  &thread->hist->real.max, &exp, realtime,
+			  memory_order_seq_cst, memory_order_seq_cst))
+		;
+
+	/* update cputime */
+	atomic_fetch_add_explicit(&thread->hist->cpu.total, cputime,
+				  memory_order_seq_cst);
+	exp = atomic_load_explicit(&thread->hist->cpu.max,
+				   memory_order_seq_cst);
+	while (exp < cputime
+	       && !atomic_compare_exchange_weak_explicit(
+			  &thread->hist->cpu.max, &exp, cputime,
+			  memory_order_seq_cst, memory_order_seq_cst))
+		;
+
+	atomic_fetch_add_explicit(&thread->hist->total_calls, 1,
+				  memory_order_seq_cst);
+	atomic_fetch_or_explicit(&thread->hist->types, 1 << thread->add_type,
+				 memory_order_seq_cst);
 
 #ifdef CONSUMED_TIME_CHECK
 	if (realtime > CONSUMED_TIME_CHECK) {
