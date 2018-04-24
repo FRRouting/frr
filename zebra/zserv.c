@@ -493,61 +493,39 @@ static void zserv_client_event(struct zserv *client,
  *
  * Each message is popped off the client's input queue and the action associated
  * with the message is executed. This proceeds until there are no more messages,
- * an error occurs, or the processing limit is reached. In the last case, this
- * task reschedules itself.
+ * an error occurs, or the processing limit is reached.
+ *
+ * This task reschedules itself if it cannot process everything on the input
+ * queue in one run.
  */
 static int zserv_process_messages(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
-	struct zebra_vrf *zvrf;
-	struct zmsghdr hdr;
 	struct stream *msg;
-	bool hdrvalid;
+	struct stream_fifo *cache = stream_fifo_new();
 
-	int p2p = zebrad.packets_to_process;
+	uint32_t p2p = zebrad.packets_to_process;
 
-	do {
-		pthread_mutex_lock(&client->ibuf_mtx);
-		{
-			msg = stream_fifo_pop(client->ibuf_fifo);
-		}
-		pthread_mutex_unlock(&client->ibuf_mtx);
-
-		/* break if out of messages */
-		if (!msg)
-			continue;
-
-		/* read & check header */
-		hdrvalid = zapi_parse_header(msg, &hdr);
-		if (!hdrvalid && IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV) {
-			const char *emsg = "Message has corrupt header";
-			zserv_log_message(emsg, msg, NULL);
-		}
-		if (!hdrvalid)
-			continue;
-
-		hdr.length -= ZEBRA_HEADER_SIZE;
-		/* lookup vrf */
-		zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
-		if (!zvrf && IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV) {
-			const char *emsg = "Message specifies unknown VRF";
-			zserv_log_message(emsg, msg, &hdr);
-		}
-		if (!zvrf)
-			continue;
-
-		/* process commands */
-		zserv_handle_commands(client, &hdr, msg, zvrf);
-
-	} while (msg && --p2p);
-
-	/* reschedule self if necessary */
 	pthread_mutex_lock(&client->ibuf_mtx);
 	{
-		if (client->ibuf_fifo->count)
+		for (uint32_t i = p2p - 1; i && client->ibuf_fifo->head; --i)
+			stream_fifo_push(cache,
+					 stream_fifo_pop(client->ibuf_fifo));
+
+		if (client->ibuf_fifo->head)
 			zserv_event(client, ZSERV_PROCESS_MESSAGES);
 	}
 	pthread_mutex_unlock(&client->ibuf_mtx);
+
+	while (p2p--) {
+		msg = stream_fifo_pop(cache);
+		if (!msg)
+			break;
+		zserv_handle_commands(client, msg);
+		stream_free(msg);
+	}
+
+	stream_fifo_free(cache);
 
 	return 0;
 }
