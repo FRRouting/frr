@@ -218,9 +218,6 @@ static int zserv_write(struct thread *thread)
 	int writerv = BUFFER_EMPTY;
 	struct stream_fifo *cache = stream_fifo_new();
 
-	if (client->is_synchronous)
-		return 0;
-
 	pthread_mutex_lock(&client->obuf_mtx);
 	{
 		while (client->obuf_fifo->head)
@@ -267,26 +264,6 @@ static int zserv_write(struct thread *thread)
 	return 0;
 }
 
-#if defined(HANDLE_ZAPI_FUZZING)
-static void zserv_write_incoming(struct stream *orig, uint16_t command)
-{
-	char fname[MAXPATHLEN];
-	struct stream *copy;
-	int fd = -1;
-
-	copy = stream_dup(orig);
-	stream_set_getp(copy, 0);
-
-	zserv_privs.change(ZPRIVS_RAISE);
-	snprintf(fname, MAXPATHLEN, "%s/%u", DAEMON_VTY_DIR, command);
-	fd = open(fname, O_CREAT | O_WRONLY | O_EXCL, 0644);
-	stream_flush(copy, fd);
-	close(fd);
-	zserv_privs.change(ZPRIVS_LOWER);
-	stream_free(copy);
-}
-#endif
-
 /*
  * Read and process data from a client socket.
  *
@@ -320,11 +297,7 @@ static int zserv_read(struct thread *thread)
 	uint32_t p2p;
 	struct zmsghdr hdr;
 
-#if defined(HANDLE_ZAPI_FUZZING)
-	p2p = 1;
-#else
 	p2p = p2p_orig;
-#endif
 	sock = THREAD_FD(thread);
 	client = THREAD_ARG(thread);
 
@@ -407,10 +380,6 @@ static int zserv_read(struct thread *thread)
 				break;
 			}
 		}
-
-#if defined(HANDLE_ZAPI_FUZZING)
-		zserv_write_incoming(client->ibuf_work, command);
-#endif
 
 		/* Debug packet information. */
 		if (IS_ZEBRA_DEBUG_EVENT)
@@ -532,6 +501,28 @@ static int zserv_process_messages(struct thread *thread)
 
 int zserv_send_message(struct zserv *client, struct stream *msg)
 {
+	/*
+	 * This is a somewhat poorly named variable added with Zebra's portion
+	 * of the label manager. That component does not use the regular
+	 * zserv/zapi_msg interface for handling its messages, as the client
+	 * itself runs in-process. Instead it uses synchronous writes on the
+	 * zserv client's socket directly in the zread* handlers for its
+	 * message types. Furthermore, it cannot handle the usual messages
+	 * Zebra sends (such as those for interface changes) and so has added
+	 * this flag and check here as a hack to suppress all messages that it
+	 * does not explicitly know about.
+	 *
+	 * In any case this needs to be cleaned up at some point.
+	 *
+	 * See also:
+	 *    zread_label_manager_request
+	 *    zsend_label_manager_connect_response
+	 *    zsend_assign_label_chunk_response
+	 *    ...
+	 */
+	if (client->is_synchronous)
+		return 0;
+
 	pthread_mutex_lock(&client->obuf_mtx);
 	{
 		stream_fifo_push(client->obuf_fifo, msg);
@@ -1027,13 +1018,17 @@ void zserv_read_file(char *input)
 	struct thread t;
 
 	zebra_client_create(-1);
-	client = zebrad.client_list->head->data;
+
+	frr_pthread_stop(client->pthread, NULL);
+	frr_pthread_destroy(client->pthread);
+	client->pthread = NULL;
+
 	t.arg = client;
 
 	fd = open(input, O_RDONLY | O_NONBLOCK);
 	t.u.fd = fd;
 
-	zebra_client_read(&t);
+	zserv_read(&t);
 
 	close(fd);
 }
