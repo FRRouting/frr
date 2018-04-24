@@ -49,6 +49,29 @@ DEFINE_MTYPE(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, STRVEC, "String vector")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
 
+#define item(x)                                                                \
+	{                                                                      \
+		x, #x                                                          \
+	}
+
+/* clang-format off */
+const struct message tokennames[] = {
+	item(WORD_TKN),
+	item(VARIABLE_TKN),
+	item(RANGE_TKN),
+	item(IPV4_TKN),
+	item(IPV4_PREFIX_TKN),
+	item(IPV6_TKN),
+	item(IPV6_PREFIX_TKN),
+	item(MAC_TKN),
+	item(MAC_PREFIX_TKN),
+	item(FORK_TKN),
+	item(JOIN_TKN),
+	item(START_TKN),
+	item(END_TKN),
+	{0},
+};
+
 const char *node_names[] = {
 	"auth",			    // AUTH_NODE,
 	"view",			    // VIEW_NODE,
@@ -121,6 +144,7 @@ const char *node_names[] = {
 	"bgp ipv6 flowspec",	    /* BGP_FLOWSPECV6_NODE
 				     */
 };
+/* clang-format on */
 
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
@@ -1566,6 +1590,21 @@ DEFUN (show_commandtree,
 	return cmd_list_cmds(vty, argc == 3);
 }
 
+DEFUN_HIDDEN(show_cli_graph,
+             show_cli_graph_cmd,
+             "show cli graph",
+             SHOW_STR
+             "CLI reflection\n"
+             "Dump current command space as DOT graph\n")
+{
+	struct cmd_node *cn = vector_slot(cmdvec, vty->node);
+	char *dot = cmd_graph_dump_dot(cn->cmdgraph);
+
+	vty_out(vty, "%s\n", dot);
+	XFREE(MTYPE_TMP, dot);
+	return CMD_SUCCESS;
+}
+
 static int vty_write_config(struct vty *vty)
 {
 	size_t i;
@@ -2573,6 +2612,7 @@ void install_default(enum node_type node)
 	install_element(node, &config_end_cmd);
 	install_element(node, &config_help_cmd);
 	install_element(node, &config_list_cmd);
+	install_element(node, &show_cli_graph_cmd);
 	install_element(node, &find_cmd);
 
 	install_element(node, &config_write_cmd);
