@@ -215,7 +215,8 @@ struct bgp_pbr_action {
 
 	bool installed;
 	bool install_in_progress;
-
+	uint32_t refcnt;
+	struct bgp *bgp;
 };
 
 extern struct bgp_pbr_action *bgp_pbr_action_rule_lookup(vrf_id_t vrf_id,
@@ -230,6 +231,7 @@ extern struct bgp_pbr_match_entry *bgp_pbr_match_ipset_entry_lookup(
 extern struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
 							  uint32_t unique);
 
+extern void bgp_pbr_cleanup(struct bgp *bgp);
 extern void bgp_pbr_init(struct bgp *bgp);
 
 extern uint32_t bgp_pbr_action_hash_key(void *arg);
