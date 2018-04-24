@@ -3403,7 +3403,7 @@ void bgp_free(struct bgp *bgp)
 	bf_release_index(bm->rd_idspace, bgp->vrf_rd_id);
 
 	bgp_evpn_cleanup(bgp);
-
+	bgp_pbr_cleanup(bgp);
 	if (bgp->name)
 		XFREE(MTYPE_BGP, bgp->name);
 	if (bgp->name_pretty)

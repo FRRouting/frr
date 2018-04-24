@@ -309,6 +309,48 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 	return 0;
 }
 
+static void bgp_pbr_match_entry_free(void *arg)
+{
+	struct bgp_pbr_match_entry *bpme;
+
+	bpme = (struct bgp_pbr_match_entry *)arg;
+
+	if (bpme->installed) {
+		bgp_send_pbr_ipset_entry_match(bpme, false);
+		bpme->installed = false;
+		bpme->backpointer = NULL;
+	}
+	XFREE(MTYPE_PBR_MATCH_ENTRY, bpme);
+}
+
+static void bgp_pbr_match_free(void *arg)
+{
+	struct bgp_pbr_match *bpm;
+
+	bpm = (struct bgp_pbr_match *)arg;
+
+	hash_clean(bpm->entry_hash, bgp_pbr_match_entry_free);
+
+	if (hashcount(bpm->entry_hash) == 0) {
+		/* delete iptable entry first */
+		/* then delete ipset match */
+		if (bpm->installed) {
+			if (bpm->installed_in_iptable) {
+				bgp_send_pbr_iptable(bpm->action,
+						     bpm, false);
+				bpm->installed_in_iptable = false;
+				bpm->action->refcnt--;
+			}
+			bgp_send_pbr_ipset_match(bpm, false);
+			bpm->installed = false;
+			bpm->action = NULL;
+		}
+	}
+	hash_free(bpm->entry_hash);
+
+	XFREE(MTYPE_PBR_MATCH, bpm);
+}
+
 static void *bgp_pbr_match_alloc_intern(void *arg)
 {
 	struct bgp_pbr_match *bpm, *new;
@@ -319,6 +361,24 @@ static void *bgp_pbr_match_alloc_intern(void *arg)
 	memcpy(new, bpm, sizeof(*bpm));
 
 	return new;
+}
+
+static void bgp_pbr_action_free(void *arg)
+{
+	struct bgp_pbr_action *bpa;
+
+	bpa = (struct bgp_pbr_action *)arg;
+
+	if (bpa->refcnt == 0) {
+		if (bpa->installed && bpa->table_id != 0) {
+			bgp_send_pbr_rule_action(bpa, false);
+			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
+						   AFI_IP,
+						   bpa->table_id,
+						   false);
+		}
+	}
+	XFREE(MTYPE_PBR_ACTION, bpa);
 }
 
 static void *bgp_pbr_action_alloc_intern(void *arg)
@@ -515,6 +575,20 @@ struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
 	return bpmiu.bpm_found;
 }
 
+void bgp_pbr_cleanup(struct bgp *bgp)
+{
+	if (bgp->pbr_match_hash) {
+		hash_clean(bgp->pbr_match_hash, bgp_pbr_match_free);
+		hash_free(bgp->pbr_match_hash);
+		bgp->pbr_match_hash = NULL;
+	}
+	if (bgp->pbr_action_hash) {
+		hash_clean(bgp->pbr_action_hash, bgp_pbr_action_free);
+		hash_free(bgp->pbr_action_hash);
+		bgp->pbr_action_hash = NULL;
+	}
+}
+
 void bgp_pbr_init(struct bgp *bgp)
 {
 	bgp->pbr_match_hash =
@@ -685,6 +759,7 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 				bgp_send_pbr_iptable(bpm->action,
 						     bpm, false);
 				bpm->installed_in_iptable = false;
+				bpm->action->refcnt--;
 			}
 			bgp_send_pbr_ipset_match(bpm, false);
 			bpm->installed = false;
@@ -694,6 +769,15 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		/* XXX release pbr_match_action if not used
 		 * note that drop does not need to call send_pbr_action
 		 */
+	}
+	if (bpa->refcnt == 0) {
+		if (bpa->installed && bpa->table_id != 0) {
+			bgp_send_pbr_rule_action(bpa, false);
+			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
+						   AFI_IP,
+						   bpa->table_id,
+						   false);
+		}
 	}
 }
 
@@ -821,6 +905,7 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 			bpa->table_id = bpa->fwmark;
 			bpa->installed = false;
 		}
+		bpa->bgp = bgp;
 		bpa->unique = ++bgp_pbr_action_counter_unique;
 		/* 0 value is forbidden */
 		bpa->install_in_progress = false;

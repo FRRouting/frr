@@ -2112,6 +2112,7 @@ static int iptable_notify_owner(int command, struct zclient *zclient,
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received IPTABLE_INSTALLED",
 				   __PRETTY_FUNCTION__);
+		bgpm->action->refcnt++;
 		break;
 	case ZAPI_IPTABLE_REMOVED:
 		if (BGP_DEBUG(zebra, ZEBRA))
@@ -2580,8 +2581,10 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 	bgp_encode_pbr_iptable_match(s, pba, pbm);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	if (!zclient_send_message(zclient) && install)
+	if (!zclient_send_message(zclient) && install) {
 		pbm->install_iptable_in_progress = true;
+		pba->refcnt++;
+	}
 }
 
 /* inject in table <table_id> a default route to:
