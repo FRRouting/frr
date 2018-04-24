@@ -35,17 +35,10 @@
  * client
  *    the client datastructure
  *
- * hdr
- *    the message header
- *
  * msg
- *    the message contents, without the header
- *
- * zvrf
- *    the vrf
+ *    the message
  */
-extern void zserv_handle_commands(struct zserv *client, struct zmsghdr *hdr,
-				  struct stream *msg, struct zebra_vrf *zvrf);
+extern void zserv_handle_commands(struct zserv *client, struct stream *msg);
 
 extern int zsend_vrf_add(struct zserv *zclient, struct zebra_vrf *zvrf);
 extern int zsend_vrf_delete(struct zserv *zclient, struct zebra_vrf *zvrf);
