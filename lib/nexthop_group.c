@@ -387,6 +387,13 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	struct nexthop *nh;
 	bool legal;
 
+	/*
+	 * This is impossible to happen as that the cli parser refuses
+	 * to let you get here without an addr, but the SA system
+	 * does not understand this intricacy
+	 */
+	assert(addr);
+
 	legal = nexthop_group_parse_nexthop(&nhop, addr, intf, name);
 
 	if (nhop.type == NEXTHOP_TYPE_IPV6

@@ -227,6 +227,11 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	memset(&nhop, 0, sizeof(nhop));
 	nhop.vrf_id = vrf->vrf_id;
 
+	/*
+	 * Make SA happy.  CLIPPY is not going to give us a NULL
+	 * addr.
+	 */
+	assert(addr);
 	if (addr->sa.sa_family == AF_INET) {
 		nhop.gate.ipv4.s_addr = addr->sin.sin_addr.s_addr;
 		if (intf) {
