@@ -72,6 +72,7 @@ struct zserv {
 	/* Threads for read/write. */
 	struct thread *t_read;
 	struct thread *t_write;
+	struct thread *t_flush;
 
 	/* default routing table this client munges */
 	int rtm_table;
