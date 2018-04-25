@@ -2793,14 +2793,15 @@ ALIAS(vtysh_traceroute, vtysh_traceroute_ip_cmd, "traceroute ip WORD",
 
 DEFUN (vtysh_mtrace,
        vtysh_mtrace_cmd,
-       "mtrace WORD",
+       "mtrace WORD [WORD]",
        "Multicast trace route to multicast source\n"
-       "Multicast trace route to multicast source address\n")
+       "Multicast trace route to multicast source address\n"
+       "Multicast trace route for multicast group address\n")
 {
-	int idx = 1;
-
-	argv_find(argv, argc, "WORD", &idx);
-	execute_command("mtracebis", 1, argv[idx]->arg, NULL);
+	if (argc == 2)
+		execute_command("mtracebis", 1, argv[1]->arg, NULL);
+	else
+		execute_command("mtracebis", 2, argv[1]->arg, argv[2]->arg);
 	return CMD_SUCCESS;
 }
 
