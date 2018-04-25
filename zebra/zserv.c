@@ -885,7 +885,7 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 
 	last_read_time = (time_t) atomic_load_explicit(&client->last_read_time,
 						       memory_order_relaxed);
-	last_read_time = (time_t) atomic_load_explicit(&client->last_write_time,
+	last_write_time = (time_t) atomic_load_explicit(&client->last_write_time,
 						       memory_order_relaxed);
 
 	last_read_cmd = atomic_load_explicit(&client->last_read_cmd,
@@ -938,11 +938,11 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 	char wbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
 
-	connect_time = (time_t) atomic_load_explicit(&client->connect_time,
-						     memory_order_relaxed);
-	last_read_time = (time_t) atomic_load_explicit(&client->last_read_time,
-						       memory_order_relaxed);
-	last_read_time = (time_t) atomic_load_explicit(&client->last_write_time,
+	connect_time = (time_t)atomic_load_explicit(&client->connect_time,
+						    memory_order_relaxed);
+	last_read_time = (time_t)atomic_load_explicit(&client->last_read_time,
+						      memory_order_relaxed);
+	last_write_time = (time_t)atomic_load_explicit(&client->last_write_time,
 						       memory_order_relaxed);
 
 	vty_out(vty, "%-8s%12s %12s%12s%8d/%-8d%8d/%-8d\n",
