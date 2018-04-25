@@ -30,15 +30,17 @@
 /*
  * Prototypes
  */
-struct bpc_node *bfdd_peer_notification_find(struct json_object *notification);
-void bfdd_peer_notification(struct json_object *notification);
-void bfdd_config_notification(struct json_object *notification);
+static struct bpc_node *
+bfdd_peer_notification_find(struct json_object *notification);
+static void bfdd_peer_notification(struct json_object *notification);
+static void bfdd_config_notification(struct json_object *notification);
 
 
 /*
  * Notification handlers.
  */
-struct bpc_node *bfdd_peer_notification_find(struct json_object *notification)
+static struct bpc_node *
+bfdd_peer_notification_find(struct json_object *notification)
 {
 	bool mhop = false;
 	const char *key, *sval;
@@ -84,7 +86,7 @@ struct bpc_node *bfdd_peer_notification_find(struct json_object *notification)
 	return bn_find(&bc.bc_bnlist, &bpc);
 }
 
-void bfdd_peer_notification(struct json_object *notification)
+static void bfdd_peer_notification(struct json_object *notification)
 {
 	const char *key, *sval;
 	struct json_object *jo_val;
@@ -131,7 +133,7 @@ void bfdd_peer_notification(struct json_object *notification)
 	}
 }
 
-void bfdd_config_notification(struct json_object *notification)
+static void bfdd_config_notification(struct json_object *notification)
 {
 	bool mhop = false;
 	const char *key, *sval;

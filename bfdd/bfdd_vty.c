@@ -52,8 +52,8 @@
 /*
  * Prototypes
  */
-int bfdd_write_config(struct vty *vty);
-int bfdd_peer_write_config(struct vty *vty);
+static int bfdd_write_config(struct vty *vty);
+static int bfdd_peer_write_config(struct vty *vty);
 
 
 /*
@@ -459,7 +459,7 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 
 
 /* Init function */
-int bfdd_write_config(struct vty *vty)
+static int bfdd_write_config(struct vty *vty)
 {
 	if (TAILQ_EMPTY(&bc.bc_bnlist))
 		return 0;
@@ -469,7 +469,7 @@ int bfdd_write_config(struct vty *vty)
 	return 0;
 }
 
-int bfdd_peer_write_config(struct vty *vty)
+static int bfdd_peer_write_config(struct vty *vty)
 {
 	struct bpc_node *bn;
 	struct bfd_peer_cfg *bpc;
