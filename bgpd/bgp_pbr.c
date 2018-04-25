@@ -35,6 +35,12 @@
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH_ENTRY, "PBR match entry")
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH, "PBR match")
 DEFINE_MTYPE_STATIC(BGPD, PBR_ACTION, "PBR action")
+DEFINE_MTYPE_STATIC(BGPD, PBR, "BGP PBR Context")
+
+RB_GENERATE(bgp_pbr_interface_head, bgp_pbr_interface,
+	    id_entry, bgp_pbr_interface_compare);
+struct bgp_pbr_interface_head ifaces_by_name_ipv4 =
+	RB_INITIALIZER(&ifaces_by_name_ipv4);
 
 static int bgp_pbr_match_counter_unique;
 static int bgp_pbr_match_entry_counter_unique;
@@ -705,6 +711,11 @@ void bgp_pbr_cleanup(struct bgp *bgp)
 		hash_free(bgp->pbr_action_hash);
 		bgp->pbr_action_hash = NULL;
 	}
+	if (bgp->bgp_pbr_cfg == NULL)
+		return;
+	bgp_pbr_reset(bgp, AFI_IP);
+	XFREE(MTYPE_PBR, bgp->bgp_pbr_cfg);
+	bgp->bgp_pbr_cfg = NULL;
 }
 
 void bgp_pbr_init(struct bgp *bgp)
@@ -717,6 +728,9 @@ void bgp_pbr_init(struct bgp *bgp)
 		hash_create_size(8, bgp_pbr_action_hash_key,
 				 bgp_pbr_action_hash_equal,
 				 "Match Hash Entry");
+
+	bgp->bgp_pbr_cfg = XCALLOC(MTYPE_PBR, sizeof(struct bgp_pbr_config));
+	bgp->bgp_pbr_cfg->pbr_interface_any_ipv4 = true;
 }
 
 void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
@@ -1349,4 +1363,40 @@ void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
 		return;
 	}
 	bgp_pbr_handle_entry(bgp, info, &api, nlri_update);
+}
+
+int bgp_pbr_interface_compare(const struct bgp_pbr_interface *a,
+			  const struct bgp_pbr_interface *b)
+{
+	return strcmp(a->name, b->name);
+}
+
+struct bgp_pbr_interface *bgp_pbr_interface_lookup(const char *name,
+					   struct bgp_pbr_interface_head *head)
+{
+	struct bgp_pbr_interface pbr_if;
+
+	strlcpy(pbr_if.name, name, sizeof(pbr_if.name));
+	return (RB_FIND(bgp_pbr_interface_head,
+			head, &pbr_if));
+}
+
+/* this function resets to the default policy routing
+ * go back to default status
+ */
+void bgp_pbr_reset(struct bgp *bgp, afi_t afi)
+{
+	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
+	struct bgp_pbr_interface_head *head;
+	struct bgp_pbr_interface *pbr_if;
+
+	if (!bgp_pbr_cfg || afi != AFI_IP)
+		return;
+	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+
+	while (!RB_EMPTY(bgp_pbr_interface_head, head)) {
+		pbr_if = RB_ROOT(bgp_pbr_interface_head, head);
+		RB_REMOVE(bgp_pbr_interface_head, head, pbr_if);
+		XFREE(MTYPE_TMP, pbr_if);
+	}
 }

@@ -150,6 +150,25 @@ struct bgp_pbr_entry_main {
 	vrf_id_t vrf_id;
 };
 
+struct bgp_pbr_interface {
+	RB_ENTRY(bgp_pbr_interface) id_entry;
+	char name[INTERFACE_NAMSIZ];
+};
+
+RB_HEAD(bgp_pbr_interface_head, bgp_pbr_interface);
+RB_PROTOTYPE(bgp_pbr_interface_head, bgp_pbr_interface, id_entry,
+	     bgp_pbr_interface_compare);
+
+extern int bgp_pbr_interface_compare(const struct bgp_pbr_interface *a,
+				     const struct bgp_pbr_interface *b);
+
+struct bgp_pbr_config {
+	struct bgp_pbr_interface_head ifaces_by_name_ipv4;
+	bool pbr_interface_any_ipv4;
+};
+
+extern struct bgp_pbr_config *bgp_pbr_cfg;
+
 struct bgp_pbr_match {
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 
@@ -266,5 +285,11 @@ extern void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
 				 struct bgp_info *new_select,
 				afi_t afi, safi_t safi,
 				bool nlri_update);
+
+/* bgp pbr utilities */
+extern struct bgp_pbr_interface *pbr_interface_lookup(const char *name);
+extern void bgp_pbr_reset(struct bgp *bgp, afi_t afi);
+extern struct bgp_pbr_interface *bgp_pbr_interface_lookup(const char *name,
+				   struct bgp_pbr_interface_head *head);
 
 #endif /* __BGP_PBR_H__ */
