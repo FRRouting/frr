@@ -2611,20 +2611,25 @@ DEFUN (vtysh_write_memory,
 	/* If integrated frr.conf explicitely set. */
 	if (want_config_integrated()) {
 		ret = CMD_WARNING_CONFIG_FAILED;
+
+		/* first attempt to use watchfrr if it's available */
+		bool used_watchfrr = false;
+
 		for (i = 0; i < array_size(vtysh_client); i++)
 			if (vtysh_client[i].flag == VTYSH_WATCHFRR)
 				break;
-		if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
+		if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1) {
+			used_watchfrr = true;
 			ret = vtysh_client_execute(&vtysh_client[i],
 						   "do write integrated",
 						   outputfile);
+		}
 
 		/*
-		 * If watchfrr returns CMD_WARNING_CONFIG_FAILED this means
-		 * that it could not write the config, but additionally
-		 * indicates that we should not try either
+		 * If we didn't use watchfrr, fallback to writing the config
+		 * ourselves
 		 */
-		if (ret != CMD_SUCCESS && ret != CMD_WARNING_CONFIG_FAILED) {
+		if (!used_watchfrr) {
 			printf("\nWarning: attempting direct configuration write without "
 			       "watchfrr.\nFile permissions and ownership may be "
 			       "incorrect, or write may fail.\n\n");
