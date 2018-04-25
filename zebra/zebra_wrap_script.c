@@ -794,16 +794,34 @@ static int netlink_iptable_update_unit(int cmd,
 	char *ptr = buf;
 	int remaining_len = sizeof(buf);
 	int len_written;
+	struct listnode *node;
+	char *name;
 
-	len_written = snprintf(buf, sizeof(buf),
-			       "%s -t mangle -%s PREROUTING -m set",
-			       zebra_wrap_script_iptable_pathname,
-			       cmd ? "I":"D");
-	remaining_len -= len_written;
-	ptr += len_written;
-	return netlink_iptable_update_unit_2(buf, ptr,
-					     &remaining_len,
-					     iptable, combi, cmd);
+	if (!iptable->nb_interface) {
+		len_written = snprintf(buf, sizeof(buf),
+				       "%s -t mangle -%s PREROUTING -m set",
+				       zebra_wrap_script_iptable_pathname,
+				       cmd ? "I":"D");
+		remaining_len -= len_written;
+		ptr += len_written;
+		return netlink_iptable_update_unit_2(buf, ptr, &remaining_len,
+						     iptable, combi, cmd);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(iptable->interface_name_list,
+			       node, name)) {
+		ptr = buf;
+		remaining_len = sizeof(buf);
+		len_written = snprintf(ptr, remaining_len,
+				       "%s -i %s -t mangle -%s PREROUTING -m set",
+				       zebra_wrap_script_iptable_pathname,
+				       name, cmd ? "I":"D");
+		ptr += len_written;
+		remaining_len -= len_written;
+		netlink_iptable_update_unit_2(buf, ptr, &remaining_len,
+					      iptable, combi, cmd);
+	}
+	return 0;
 }
 
 
