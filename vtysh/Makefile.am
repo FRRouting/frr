@@ -54,6 +54,7 @@ vtysh_scan += $(top_srcdir)/bgpd/bgp_nexthop.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_route.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_routemap.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_vty.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_flowspec_vty.c
 endif
 
 if RPKI
