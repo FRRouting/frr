@@ -2930,6 +2930,7 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 
 	memset(&zpi, 0, sizeof(zpi));
 
+	zpi.interface_name_list = list_new();
 	zpi.sock = client->sock;
 	zpi.vrf_id = zvrf->vrf->vrf_id;
 	STREAM_GETL(s, zpi.unique);
@@ -2938,6 +2939,8 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 	STREAM_GETL(s, zpi.action);
 	STREAM_GETL(s, zpi.fwmark);
 	STREAM_GET(&zpi.ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
+	STREAM_GETL(s, zpi.nb_interface);
+	zebra_pbr_iptable_update_interfacelist(s, &zpi);
 
 	if (hdr->command == ZEBRA_IPTABLE_ADD)
 		zebra_pbr_add_iptable(zvrf->zns, &zpi);

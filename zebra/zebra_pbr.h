@@ -131,6 +131,10 @@ struct zebra_pbr_iptable {
 
 	uint32_t action;
 
+	uint32_t nb_interface;
+
+	struct list *interface_name_list;
+
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 
@@ -219,5 +223,7 @@ extern int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
 extern void zebra_pbr_init(void);
 extern void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname);
 extern void zebra_pbr_show_iptable(struct vty *vty);
+extern void zebra_pbr_iptable_update_interfacelist(struct stream *s,
+				   struct zebra_pbr_iptable *zpi);
 
 #endif /* _ZEBRA_PBR_H */
