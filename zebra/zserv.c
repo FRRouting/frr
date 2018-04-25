@@ -892,9 +892,9 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	} else
 		vty_out(vty, "Not registered for Nexthop Updates\n");
 
-	last_read_time = (time_t) atomic_load_explicit(&client->last_read_time,
-						       memory_order_relaxed);
-	last_write_time = (time_t) atomic_load_explicit(&client->last_write_time,
+	last_read_time = (time_t)atomic_load_explicit(&client->last_read_time,
+						      memory_order_relaxed);
+	last_write_time = (time_t)atomic_load_explicit(&client->last_write_time,
 						       memory_order_relaxed);
 
 	last_read_cmd = atomic_load_explicit(&client->last_read_cmd,
