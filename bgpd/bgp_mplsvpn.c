@@ -87,6 +87,10 @@ void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
 	uint8_t *pnt = (uint8_t *)label_pnt;
 	if (pnt == NULL)
 		return;
+	if (label == BGP_PREVENT_VRF_2_VRF_LEAK) {
+		*label_pnt = label;
+		return;
+	}
 	*pnt++ = (label >> 12) & 0xff;
 	*pnt++ = (label >> 4) & 0xff;
 	*pnt++ = ((label << 4) + 1) & 0xff; /* S=1 */
@@ -1497,6 +1501,8 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 			ecommunity_str2com(buf, ECOMMUNITY_ROUTE_TARGET, 0);
 		SET_FLAG(from_bgp->af_flags[afi][safi],
 			 BGP_CONFIG_VRF_TO_VRF_EXPORT);
+		from_bgp->vpn_policy[afi].tovpn_label =
+			BGP_PREVENT_VRF_2_VRF_LEAK;
 	}
 	ecom = from_bgp->vpn_policy[afi].rtlist[edir];
 	if (to_bgp->vpn_policy[afi].rtlist[idir])
@@ -1612,6 +1618,8 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 		       sizeof(struct prefix_rd));
 		UNSET_FLAG(from_bgp->vpn_policy[afi].flags,
 			   BGP_VPN_POLICY_TOVPN_RD_SET);
+		from_bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
+
 	}
 }
 

@@ -24,6 +24,7 @@
 #define BGP_LABEL_BYTES 3
 #define BGP_LABEL_BITS 24
 #define BGP_WITHDRAW_LABEL 0x800000
+#define BGP_PREVENT_VRF_2_VRF_LEAK 0xFFFFFFFE
 
 struct bgp_node;
 struct bgp_info;

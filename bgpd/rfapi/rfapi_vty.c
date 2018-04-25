@@ -46,6 +46,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_vnc_types.h"
+#include "bgpd/bgp_label.h"
 
 #include "bgpd/rfapi/rfapi_import.h"
 #include "bgpd/rfapi/rfapi_private.h"
@@ -431,8 +432,13 @@ void rfapi_vty_out_vncinfo(struct vty *vty, struct prefix *p,
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
-	if (bi->extra != NULL)
-		vty_out(vty, " label=%u", decode_label(&bi->extra->label[0]));
+	if (bi->extra != NULL) {
+		if (bi->extra->label[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
+			vty_out(vty, " label=VRF2VRF");
+		else
+			vty_out(vty, " label=%u",
+				decode_label(&bi->extra->label[0]));
+	}
 
 	if (!rfapiGetVncLifetime(bi->attr, &lifetime)) {
 		vty_out(vty, " life=%d", lifetime);
