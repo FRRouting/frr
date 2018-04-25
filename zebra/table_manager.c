@@ -78,7 +78,7 @@ void table_manager_enable(ns_id_t ns_id)
 		return;
 	tbl_mgr.lc_list = list_new();
 	tbl_mgr.lc_list->del = delete_table_chunk;
-	hook_register(zapi_client_close, release_daemon_table_chunks);
+	hook_register(zserv_client_close, release_daemon_table_chunks);
 }
 
 /**
