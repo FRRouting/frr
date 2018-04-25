@@ -23,10 +23,16 @@
 
 #include <jhash.h>
 #include <hash.h>
+#include <memory.h>
 
 #include "zebra/zebra_pbr.h"
 #include "zebra/rt.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_memory.h"
+#include "zebra_pbr.h"
+
+/* definitions */
+DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPTABLE_IFNAME, "PBR interface list")
 
 /* definitions */
 static const struct message ipset_type_msg[] = {
@@ -246,9 +252,17 @@ int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2)
 void zebra_pbr_iptable_free(void *arg)
 {
 	struct zebra_pbr_iptable *iptable;
+	struct listnode *node, *nnode;
+	char *name;
 
 	iptable = (struct zebra_pbr_iptable *)arg;
 
+	for (ALL_LIST_ELEMENTS(iptable->interface_name_list,
+					node, nnode, name)) {
+		XFREE(MTYPE_PBR_IPTABLE_IFNAME, name);
+		list_delete_node(iptable->interface_name_list,
+				 node);
+	}
 	XFREE(MTYPE_TMP, iptable);
 }
 
@@ -548,16 +562,26 @@ void zebra_pbr_add_iptable(struct zebra_ns *zns,
 void zebra_pbr_del_iptable(struct zebra_ns *zns,
 			   struct zebra_pbr_iptable *iptable)
 {
-	struct zebra_pbr_ipset_entry *lookup;
+	struct zebra_pbr_iptable *lookup;
 
 	lookup = hash_lookup(zns->iptable_hash, iptable);
 	/* TODO:
 	 * - call netlink layer
 	 * - detach from iptable list
 	 */
-	if (lookup)
+	if (lookup) {
+		struct listnode *node, *nnode;
+		char *name;
+
+		hash_release(zns->iptable_hash, lookup);
+		for (ALL_LIST_ELEMENTS(iptable->interface_name_list,
+				       node, nnode, name)) {
+			XFREE(MTYPE_PBR_IPTABLE_IFNAME, name);
+			list_delete_node(iptable->interface_name_list,
+					 node);
+		}
 		XFREE(MTYPE_TMP, lookup);
-	else
+	} else
 		zlog_warn("%s: IPTable being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
 }
@@ -881,4 +905,23 @@ void zebra_pbr_show_iptable(struct vty *vty)
 
 	hash_walk(zns->iptable_hash, zebra_pbr_show_iptable_walkcb,
 		  &env);
+}
+
+void zebra_pbr_iptable_update_interfacelist(struct stream *s,
+					    struct zebra_pbr_iptable *zpi)
+{
+	uint32_t i = 0, index;
+	struct interface *ifp;
+	char *name;
+
+	for (i = 0; i < zpi->nb_interface; i++) {
+		STREAM_GETL(s, index);
+		ifp = if_lookup_by_index(index, zpi->vrf_id);
+		if (!ifp)
+			continue;
+		name = XSTRDUP(MTYPE_PBR_IPTABLE_IFNAME, ifp->name);
+		listnode_add(zpi->interface_name_list, name);
+	}
+stream_failure:
+	return;
 }
