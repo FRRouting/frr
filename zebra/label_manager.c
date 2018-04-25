@@ -50,7 +50,6 @@ DEFINE_MTYPE_STATIC(LBL_MGR, LM_CHUNK, "Label Manager Chunk");
  * it will be a proxy to relay messages to external label manager
  * This zclient thus is to connect to it
  */
-static struct stream *ibuf;
 static struct stream *obuf;
 static struct zclient *zclient;
 bool lm_is_external;
@@ -89,7 +88,7 @@ static int relay_response_back(struct zserv *zserv)
 
 	/* send response back */
 	stream_copy(dst, src);
-	ret = writen(zserv->sock, src->data, stream_get_endp(src));
+	ret = writen(zserv->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
 		zlog_err("%s: Error sending Label Manager response back: %s",
 			 __func__, strerror(errno));
@@ -148,7 +147,7 @@ static int reply_error(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
  * @return 0 on success, -1 otherwise
  */
 int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
-				      vrf_id_t vrf_id)
+							struct stream *msg, vrf_id_t vrf_id)
 {
 	struct stream *src, *dst;
 	int ret = 0;
@@ -166,7 +165,7 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 		ret = relay_response_back(zserv);
 
 	/* Send request to external label manager */
-	src = ibuf;
+	src = msg;
 	dst = zclient->obuf;
 
 	stream_copy(dst, src);
@@ -287,7 +286,6 @@ void label_manager_init(char *lm_zserv_path)
 		lm_zclient_init(lm_zserv_path);
 	}
 
-	ibuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	obuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	hook_register(zapi_client_close, release_daemon_label_chunks);
@@ -393,6 +391,5 @@ int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 void label_manager_close()
 {
 	list_delete_and_null(&lbl_mgr.lc_list);
-	stream_free(ibuf);
 	stream_free(obuf);
 }

@@ -2454,7 +2454,7 @@ static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 	/* external label manager */
 	if (lm_is_external)
 		zread_relay_label_manager_request(hdr->command, client,
-						  zvrf_id(zvrf));
+						msg, zvrf_id(zvrf));
 	/* this is a label manager */
 	else {
 		if (hdr->command == ZEBRA_LABEL_MANAGER_CONNECT)
