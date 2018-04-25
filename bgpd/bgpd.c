@@ -7206,6 +7206,9 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (safi == SAFI_EVPN)
 		bgp_config_write_evpn_info(vty, bgp, afi, safi);
 
+	if (safi == SAFI_FLOWSPEC)
+		bgp_fs_config_write_pbr(vty, bgp, afi, safi);
+
 	if (safi == SAFI_UNICAST) {
 		bgp_vpn_policy_config_write_afi(vty, bgp, afi);
 		if (CHECK_FLAG(bgp->af_flags[afi][safi],

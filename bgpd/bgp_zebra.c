@@ -2588,12 +2588,49 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 		pbrime->install_in_progress = true;
 }
 
+static void bgp_encode_pbr_interface_list(struct bgp *bgp, struct stream *s)
+{
+	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
+	struct bgp_pbr_interface_head *head;
+	struct bgp_pbr_interface *pbr_if;
+	struct interface *ifp;
+
+	if (!bgp_pbr_cfg)
+		return;
+	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+
+	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
+		ifp = if_lookup_by_name(pbr_if->name, bgp->vrf_id);
+		if (ifp)
+			stream_putl(s, ifp->ifindex);
+	}
+}
+
+static int bgp_pbr_get_ifnumber(struct bgp *bgp)
+{
+	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
+	struct bgp_pbr_interface_head *head;
+	struct bgp_pbr_interface *pbr_if;
+	int cnt = 0;
+
+	if (!bgp_pbr_cfg)
+		return 0;
+	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+
+	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
+		if (if_lookup_by_name(pbr_if->name, bgp->vrf_id))
+			cnt++;
+	}
+	return cnt;
+}
+
 void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 			  struct bgp_pbr_match *pbm,
 			  bool install)
 {
 	struct stream *s;
 	int ret = 0;
+	int nb_interface;
 
 	if (pbm->install_iptable_in_progress)
 		return;
@@ -2608,7 +2645,10 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 			      VRF_DEFAULT);
 
 	bgp_encode_pbr_iptable_match(s, pba, pbm);
-
+	nb_interface = bgp_pbr_get_ifnumber(pba->bgp);
+	stream_putl(s, nb_interface);
+	if (nb_interface)
+		bgp_encode_pbr_interface_list(pba->bgp, s);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	ret = zclient_send_message(zclient);
 	if (install) {
