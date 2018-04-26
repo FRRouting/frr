@@ -17,7 +17,7 @@
             # open, as well as the daemons, so always signal the daemons.
             # It's safe, a NOP if (only) syslog is being used.
             for i in babeld bgpd eigrpd isisd ldpd nhrpd ospf6d ospfd \
-                pimd ripd ripngd zebra ; do
+                pimd ripd ripngd zebra staticd ; do
                 if [ -e /var/run/frr/$i.pid ] ; then
                     pids="$pids $(cat /var/run/frr/$i.pid)"
                 fi
