@@ -299,7 +299,7 @@ static int zserv_read(struct thread *thread)
 	sock = THREAD_FD(thread);
 	client = THREAD_ARG(thread);
 
-	while (p2p--) {
+	while (p2p) {
 		ssize_t nb;
 		bool hdrvalid;
 		char errmsg[256];
@@ -392,6 +392,7 @@ static int zserv_read(struct thread *thread)
 
 		stream_fifo_push(cache, msg);
 		stream_reset(client->ibuf_work);
+		p2p--;
 	}
 
 	if (p2p < p2p_orig) {
