@@ -1418,6 +1418,16 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 			return 0;
 		}
 
+	/*
+	 * If we are doing VRF 2 VRF leaking via the import
+	 * statement, we want to prevent the route going
+	 * off box as that the RT and RD created are localy
+	 * significant and globaly useless.
+	 */
+	if (safi == SAFI_MPLS_VPN && ri->extra && ri->extra->num_labels
+	    && ri->extra->label[0] == BGP_PREVENT_VRF_2_VRF_LEAK)
+		return 0;
+
 	/* If it's labeled safi, make sure the route has a valid label. */
 	if (safi == SAFI_LABELED_UNICAST) {
 		mpls_label_t label = bgp_adv_label(rn, ri, peer, afi, safi);

@@ -520,6 +520,8 @@ unsigned int attrhash_key_make(void *p)
 	MIX(attr->mp_nexthop_len);
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
+	MIX(attr->nh_ifindex);
+	MIX(attr->nh_lla_ifindex);
 
 	return key;
 }
@@ -559,7 +561,9 @@ int attrhash_cmp(const void *p1, const void *p2)
 				      &attr2->mp_nexthop_global_in)
 		    && IPV4_ADDR_SAME(&attr1->originator_id,
 				      &attr2->originator_id)
-		    && overlay_index_same(attr1, attr2))
+		    && overlay_index_same(attr1, attr2)
+		    && attr1->nh_ifindex == attr2->nh_ifindex
+		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex)
 			return 1;
 	}
 
@@ -593,9 +597,9 @@ static void attr_show_all_iterator(struct hash_backet *backet, struct vty *vty)
 
 	vty_out(vty, "attr[%ld] nexthop %s\n", attr->refcnt,
 		inet_ntoa(attr->nexthop));
-	vty_out(vty, "\tflags: %" PRIu64 " med: %u local_pref: %u origin: %u weight: %u\n",
+	vty_out(vty, "\tflags: %" PRIu64 " med: %u local_pref: %u origin: %u weight: %u label: %u\n",
 		attr->flag, attr->med, attr->local_pref, attr->origin,
-		attr->weight);
+		attr->weight, attr->label);
 }
 
 void attr_show_all(struct vty *vty)
@@ -1683,6 +1687,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			stream_getl(s); /* RD low */
 		}
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
+		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global))
+			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
 		break;
 	case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
 	case BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL:
@@ -1692,6 +1698,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			stream_getl(s); /* RD low */
 		}
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
+		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global))
+			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
 		if (attr->mp_nexthop_len
 		    == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 			stream_getl(s); /* RD high */
@@ -1715,6 +1723,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
+		attr->nh_lla_ifindex = peer->nexthop.ifp->ifindex;
 		break;
 	default:
 		zlog_info("%s: (%s) Wrong multiprotocol next hop length: %d",

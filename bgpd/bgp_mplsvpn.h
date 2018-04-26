@@ -78,6 +78,10 @@ extern void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,
 extern void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi);
 extern void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi);
 extern int vpn_leak_label_callback(mpls_label_t label, void *lblid, bool alloc);
+extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
+				afi_t afi, safi_t safi);
+void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
+			   afi_t afi, safi_t safi);
 
 static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 					 const char **pmsg)
@@ -92,7 +96,9 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 
 	/* Is vrf configured to export to vpn? */
 	if (!CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
-			BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)) {
+			BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)
+	    && !CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
+			   BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
 		if (pmsg)
 			*pmsg = "export not set";
 		return 0;
@@ -147,7 +153,9 @@ static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 
 	/* Is vrf configured to import from vpn? */
 	if (!CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
-			BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
+			BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)
+	    && !CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
+			   BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
 		if (pmsg)
 			*pmsg = "import not set";
 		return 0;

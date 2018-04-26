@@ -188,6 +188,18 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_LABEL_AUTO        (1 << 0)
 #define BGP_VPN_POLICY_TOVPN_RD_SET            (1 << 1)
 #define BGP_VPN_POLICY_TOVPN_NEXTHOP_SET       (1 << 2)
+
+	/*
+	 * If we are importing another vrf into us keep a list of
+	 * vrf names that are being imported into us.
+	 */
+	struct list *import_vrf;
+
+	/*
+	 * if we are being exported to another vrf keep a list of
+	 * vrf names that we are being exported to.
+	 */
+	struct list *export_vrf;
 };
 
 /*
@@ -342,16 +354,19 @@ struct bgp {
 
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
-#define BGP_CONFIG_DAMPENING              (1 << 0)
-#define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT  (1 << 1)
-#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT  (1 << 2)
-
+#define BGP_CONFIG_DAMPENING				(1 << 0)
 /* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
-#define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST      (1 << 1)
-#define BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST      (1 << 2)
-#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4	   (1 << 3)
-#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6	   (1 << 4)
-
+#define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST		(1 << 1)
+#define BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST		(1 << 2)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4		(1 << 3)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6		(1 << 4)
+/* import/export between address families */
+#define BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT		(1 << 5)
+#define BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT		(1 << 6)
+/* vrf-route leaking flags */
+#define BGP_CONFIG_VRF_TO_VRF_IMPORT			(1 << 7)
+#define BGP_CONFIG_VRF_TO_VRF_EXPORT			(1 << 8)
+#define BGP_DEFAULT_NAME		"default"
 
 	/* Route table for next-hop lookup cache. */
 	struct bgp_table *nexthop_cache_table[AFI_MAX];
@@ -472,6 +487,9 @@ struct bgp {
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
+
+	/* Automatically derived RD for this VRF */
+	struct prefix_rd vrf_prd_auto;
 
 	/* RD for this VRF */
 	struct prefix_rd vrf_prd;

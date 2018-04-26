@@ -29,7 +29,6 @@
 #include "stream.h"
 #include "hash.h"
 #include "jhash.h"
-#include "bitfield.h"
 #include "zclient.h"
 
 #include "bgpd/bgp_attr_evpn.h"
@@ -3988,12 +3987,7 @@ void bgp_evpn_derive_auto_rt_export(struct bgp *bgp, struct bgpevpn *vpn)
  */
 void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp)
 {
-	char buf[100];
-
-	bgp->vrf_prd.family = AF_UNSPEC;
-	bgp->vrf_prd.prefixlen = 64;
-	sprintf(buf, "%s:%hu", inet_ntoa(bgp->router_id), bgp->vrf_rd_id);
-	(void)str2prefix_rd(buf, &bgp->vrf_prd);
+	form_auto_rd(bgp->router_id, bgp->vrf_rd_id, &bgp->vrf_prd);
 }
 
 /*
@@ -4577,7 +4571,6 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 		list_delete_and_null(&bgp->vrf_export_rtl);
 	if (bgp->l2vnis)
 		list_delete_and_null(&bgp->l2vnis);
-	bf_release_index(bm->rd_idspace, bgp->vrf_rd_id);
 }
 
 /*
@@ -4585,7 +4578,6 @@ void bgp_evpn_cleanup(struct bgp *bgp)
  * Create
  *  VNI hash table
  *  hash for RT to VNI
- *  assign a unique rd id for auto derivation of vrf_prd
  */
 void bgp_evpn_init(struct bgp *bgp)
 {
@@ -4606,7 +4598,6 @@ void bgp_evpn_init(struct bgp *bgp)
 		(int (*)(void *, void *))evpn_route_target_cmp;
 	bgp->l2vnis = list_new();
 	bgp->l2vnis->cmp = (int (*)(void *, void *))vni_hash_cmp;
-	bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
 }
 
 void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)

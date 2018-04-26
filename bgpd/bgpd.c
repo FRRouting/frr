@@ -44,6 +44,7 @@
 #include "table.h"
 #include "lib/json.h"
 #include "frr_pthread.h"
+#include "bitfield.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -2956,6 +2957,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
 		bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent =
 			MPLS_LABEL_NONE;
+
+		bgp->vpn_policy[afi].import_vrf = list_new();
+		bgp->vpn_policy[afi].export_vrf = list_new();
 	}
 	if (name) {
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
@@ -2997,6 +3001,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	QOBJ_REG(bgp, bgp);
 
 	update_bgp_group_init(bgp);
+
+	/* assign a unique rd id for auto derivation of vrf's RD */
+	bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
+
 	bgp_evpn_init(bgp);
 	return bgp;
 }
@@ -3372,11 +3380,25 @@ void bgp_free(struct bgp *bgp)
 		rmap = &bgp->table_map[afi][safi];
 		if (rmap->name)
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+
+		/*
+		 * Yes this is per AFI, but
+		 * the list_delete_and_null nulls the pointer
+		 * and we'll not leak anything on going down
+		 * and the if test will fail on the second safi.
+		 */
+		if (bgp->vpn_policy[afi].import_vrf)
+			list_delete_and_null(&bgp->vpn_policy[afi].import_vrf);
+		if (bgp->vpn_policy[afi].export_vrf)
+			list_delete_and_null(&bgp->vpn_policy[afi].export_vrf);
 	}
 
 	bgp_scan_finish(bgp);
 	bgp_address_destroy(bgp);
 	bgp_tip_hash_destroy(bgp);
+
+	/* release the auto RD id */
+	bf_release_index(bm->rd_idspace, bgp->vrf_rd_id);
 
 	bgp_evpn_cleanup(bgp);
 
@@ -7193,6 +7215,16 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 			       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
 
 			vty_out(vty, "  import vpn\n");
+		}
+		if (CHECK_FLAG(bgp->af_flags[afi][safi],
+			       BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
+			struct listnode *node;
+			char *name;
+
+			for (ALL_LIST_ELEMENTS_RO(
+				     bgp->vpn_policy[afi].import_vrf, node,
+				     name))
+				vty_out(vty, "  import vrf %s\n", name);
 		}
 	}
 
