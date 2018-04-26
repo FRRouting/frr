@@ -198,18 +198,19 @@ static int zserv_write(struct thread *thread)
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
 	uint32_t wcmd;
-	int writerv;
 	struct stream_fifo *cache;
 
 	if (atomic_load_explicit(&client->dead, memory_order_seq_cst))
 		return 0;
 
 	/* If we have any data pending, try to flush it first */
-	switch (buffer_flush_available(client->wb, client->sock)) {
+	switch (buffer_flush_all(client->wb, client->sock)) {
 	case BUFFER_ERROR:
 		goto zwrite_fail;
 	case BUFFER_PENDING:
-		client->last_write_time = monotime(NULL);
+		atomic_store_explicit(&client->last_write_time,
+				      (uint32_t)monotime(NULL),
+				      memory_order_relaxed);
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 		return 0;
 	case BUFFER_EMPTY:
@@ -226,31 +227,34 @@ static int zserv_write(struct thread *thread)
 	}
 	pthread_mutex_unlock(&client->obuf_mtx);
 
+	if (cache->tail) {
+		msg = cache->tail;
+		stream_set_getp(msg, 0);
+		wcmd = stream_getw_from(msg, 6);
+	}
+
 	while (stream_fifo_head(cache)) {
 		msg = stream_fifo_pop(cache);
-		stream_set_getp(msg, 0);
-
-		wcmd = stream_getw_from(msg, 6);
-		writerv = buffer_write(client->wb, client->sock,
-				       STREAM_DATA(msg), stream_get_endp(msg));
-
-		switch (writerv) {
-		case BUFFER_ERROR:
-			stream_free(msg);
-			stream_fifo_free(cache);
-			goto zwrite_fail;
-		case BUFFER_PENDING:
-		case BUFFER_EMPTY:
-			break;
-		}
-
+		buffer_put(client->wb, STREAM_DATA(msg), stream_get_endp(msg));
 		stream_free(msg);
 	}
 
-	if (!buffer_empty(client->wb))
-		zserv_client_event(client, ZSERV_CLIENT_WRITE);
-
 	stream_fifo_free(cache);
+
+	/* If we have any data pending, try to flush it first */
+	switch (buffer_flush_all(client->wb, client->sock)) {
+	case BUFFER_ERROR:
+		goto zwrite_fail;
+	case BUFFER_PENDING:
+		atomic_store_explicit(&client->last_write_time,
+				      (uint32_t)monotime(NULL),
+				      memory_order_relaxed);
+		zserv_client_event(client, ZSERV_CLIENT_WRITE);
+		return 0;
+		break;
+	case BUFFER_EMPTY:
+		break;
+	}
 
 	atomic_store_explicit(&client->last_write_cmd, wcmd,
 			      memory_order_relaxed);
@@ -538,9 +542,11 @@ int zserv_send_message(struct zserv *client, struct stream *msg)
 	pthread_mutex_lock(&client->obuf_mtx);
 	{
 		stream_fifo_push(client->obuf_fifo, msg);
-		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 	}
 	pthread_mutex_unlock(&client->obuf_mtx);
+
+	zserv_client_event(client, ZSERV_CLIENT_WRITE);
+
 	return 0;
 }
 

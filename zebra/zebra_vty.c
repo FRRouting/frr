@@ -3360,7 +3360,8 @@ DEFUN_HIDDEN (zebra_packet_process,
 {
 	uint32_t packets = strtoul(argv[2]->arg, NULL, 10);
 
-	zebrad.packets_to_process = packets;
+	atomic_store_explicit(&zebrad.packets_to_process, packets,
+			      memory_order_relaxed);
 
 	return CMD_SUCCESS;
 }
@@ -3373,7 +3374,9 @@ DEFUN_HIDDEN (no_zebra_packet_process,
 	      "Zapi Protocol\n"
 	      "Number of packets to process before relinquishing thread\n")
 {
-	zebrad.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
+	atomic_store_explicit(&zebrad.packets_to_process,
+			      ZEBRA_ZAPI_PACKETS_TO_PROCESS,
+			      memory_order_relaxed);
 
 	return CMD_SUCCESS;
 }
