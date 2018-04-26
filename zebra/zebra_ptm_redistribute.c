@@ -66,7 +66,7 @@ static int zsend_interface_bfd_update(int cmd, struct zserv *client,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	client->if_bfd_cnt++;
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 void zebra_interface_bfd_update(struct interface *ifp, struct prefix *dp,
@@ -101,7 +101,7 @@ static int zsend_bfd_peer_replay(int cmd, struct zserv *client)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	client->bfd_peer_replay_cnt++;
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 void zebra_bfd_peer_replay_req(void)

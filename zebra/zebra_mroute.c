@@ -67,5 +67,5 @@ stream_failure:
 	stream_putl(s, suc);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zebra_server_send_message(client, s);
+	zserv_send_message(client, s);
 }
