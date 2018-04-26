@@ -2099,8 +2099,21 @@ int lm_label_manager_connect(struct zclient *zclient)
 	    != 0)
 		return -1;
 
-	/* result */
 	s = zclient->ibuf;
+
+	/* read instance and proto */
+	uint8_t proto = stream_getc(s);
+	uint16_t instance = stream_getw(s);
+
+	/* sanity */
+	if (proto != zclient->redist_default)
+		zlog_err("Wrong proto (%u) in lm_connect response. Should be %u",
+				proto, zclient->redist_default);
+	if (instance != zclient->instance)
+		zlog_err("Wrong instId (%u) in lm_connect response Should be %u",
+				instance, zclient->instance);
+
+	/* result code */
 	result = stream_getc(s);
 	if (zclient_debug)
 		zlog_debug(
@@ -2135,6 +2148,10 @@ int zclient_send_get_label_chunk(
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, VRF_DEFAULT);
+	/* proto */
+	stream_putc(s, zclient->redist_default);
+	/* instance */
+	stream_putw(s, zclient->instance);
 	stream_putc(s, keep);
 	stream_putl(s, chunk_size);
 
@@ -2174,6 +2191,10 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 	s = zclient->obuf;
 	stream_reset(s);
 	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, VRF_DEFAULT);
+	/* proto */
+	stream_putc(s, zclient->redist_default);
+	/* instance */
+	stream_putw(s, zclient->instance);
 	/* keep */
 	stream_putc(s, keep);
 	/* chunk size */
@@ -2202,7 +2223,21 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 	if (zclient_read_sync_response(zclient, ZEBRA_GET_LABEL_CHUNK) != 0)
 		return -1;
 
+	/* parse response */
 	s = zclient->ibuf;
+
+	/* read proto and instance */
+	uint8_t proto = stream_getc(s);
+	uint16_t instance = stream_getw(s);
+
+	/* sanities */
+	if (proto != zclient->redist_default)
+		zlog_err("Wrong proto (%u) in get chunk response. Should be %u",
+			proto, zclient->redist_default);
+	if (instance != zclient->instance)
+		zlog_err("Wrong instId (%u) in get chunk response Should be %u",
+			instance, zclient->instance);
+
 	/* keep */
 	response_keep = stream_getc(s);
 	/* start and end labels */
@@ -2255,6 +2290,10 @@ int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 	stream_reset(s);
 	zclient_create_header(s, ZEBRA_RELEASE_LABEL_CHUNK, VRF_DEFAULT);
 
+	/* proto */
+	stream_putc(s, zclient->redist_default);
+	/* instance */
+	stream_putw(s, zclient->instance);
 	/* start */
 	stream_putl(s, start);
 	/* end */
