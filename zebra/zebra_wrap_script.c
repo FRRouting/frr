@@ -686,11 +686,71 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 /*************************************************
  * iptable
  *************************************************/
+static int netlink_iptable_add_user_action(struct zebra_pbr_iptable *iptable,
+					   int cmd)
+{
+	char buf2[100];
+	int ret = 0;
+
+	/* because MARK is not a termination rule in iptables
+	 * a custom user rule is created
+	 * the traffic will be marked and the accept termination
+	 * rule will be done in that custom user rule
+	 * - step 1 : create custom user rule
+	 * - step 2 : do the mark action in custom user rule
+	 * - step 3 : do the apply termination action
+	 */
+	if (cmd) {
+		snprintf(buf2, sizeof(buf2), "%s -N %s -t mangle",
+			zebra_wrap_script_iptable_pathname,
+			iptable->ipset_name);
+		ret = zebra_wrap_script_call_only(buf2);
+
+		snprintf(buf2, sizeof(buf2),
+			"%s -A %s -t mangle -j MARK --set-mark %d",
+			zebra_wrap_script_iptable_pathname,
+			iptable->ipset_name,
+			iptable->fwmark);
+		ret = zebra_wrap_script_call_only(buf2);
+
+		snprintf(buf2, sizeof(buf2),
+			 "%s -A %s -t mangle -j ACCEPT",
+			zebra_wrap_script_iptable_pathname,
+			iptable->ipset_name);
+		ret = zebra_wrap_script_call_only(buf2);
+	} else {
+		/* - step 1 : remove the apply termination action
+		 * - step 2 : remove the mark action in custom user rule
+		 * - step 3 : remove custom user rule
+		 */
+		snprintf(buf2, sizeof(buf2),
+			 "%s -D %s -t mangle -j ACCEPT",
+			zebra_wrap_script_iptable_pathname,
+			iptable->ipset_name);
+		ret = zebra_wrap_script_call_only(buf2);
+
+		snprintf(buf2, sizeof(buf2),
+			 "%s -D %s -t mangle -j MARK --set-mark %d",
+			zebra_wrap_script_iptable_pathname,
+			iptable->ipset_name,
+			iptable->fwmark);
+		ret = zebra_wrap_script_call_only(buf2);
+
+		snprintf(buf2, sizeof(buf2),
+			 "%s -X %s -t mangle",
+			zebra_wrap_script_iptable_pathname,
+			iptable->ipset_name);
+		ret = zebra_wrap_script_call_only(buf2);
+	}
+	return ret;
+}
+
 static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 					 int *remaining_len,
 					 struct zebra_pbr_iptable *iptable,
-					 char *combi)
+					 char *combi, int cmd)
 {
+	int ret = 0;
 	int len_written;
 
 	len_written = snprintf(ptr, *remaining_len,
@@ -703,14 +763,27 @@ static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 		*remaining_len -= len_written;
 		ptr += len_written;
 	} else {
-		len_written = snprintf(ptr, *remaining_len,
-				       " -j MARK --set-mark %d",
-				       iptable->fwmark);
+		/* because MARK is not a termination rule in iptables
+		 * a custom user rule is created
+		 * the traffic will be marked and the accept termination
+		 * rule will be done in that custom user rule
+		 * - step 1 : create custom user rule
+		 * - step 2 : do the mark action in custom user rule
+		 * - step 3 : do the apply termination action
+		 */
+		if (cmd)
+			ret = netlink_iptable_add_user_action(iptable, cmd);
+		len_written = snprintf(ptr, *remaining_len, " -g %s",
+				       iptable->ipset_name);
 		*remaining_len -= len_written;
 	}
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("PBR: %s", buf);
-	return zebra_wrap_script_call_only(buf);
+	ret += zebra_wrap_script_call_only(buf);
+	if (iptable->action == ZEBRA_IPTABLES_DROP || cmd)
+		return ret;
+	ret = netlink_iptable_add_user_action(iptable, cmd);
+	return ret;
 }
 
 static int netlink_iptable_update_unit(int cmd,
@@ -730,7 +803,7 @@ static int netlink_iptable_update_unit(int cmd,
 	ptr += len_written;
 	return netlink_iptable_update_unit_2(buf, ptr,
 					     &remaining_len,
-					     iptable, combi);
+					     iptable, combi, cmd);
 }
 
 
