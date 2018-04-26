@@ -53,6 +53,9 @@ struct zserv {
 	/* Client pthread */
 	struct frr_pthread *pthread;
 
+	/* Whether the thread is waiting to be killed */
+	_Atomic bool dead;
+
 	/* Client file descriptor. */
 	int sock;
 

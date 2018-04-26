@@ -53,6 +53,7 @@
 #include "lib/zassert.h"          /* for assert */
 #include "lib/zclient.h"          /* for zmsghdr, ZEBRA_HEADER_SIZE, ZEBRA... */
 #include "lib/frr_pthread.h"      /* for frr_pthread_new, frr_pthread_stop... */
+#include "lib/frratomic.h"        /* for atomic_load_explicit, atomic_stor... */
 
 #include "zebra/debug.h"          /* for various debugging macros */
 #include "zebra/rib.h"            /* for rib_score_proto */
@@ -166,6 +167,7 @@ static void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_close(struct zserv *client)
 {
+	atomic_store_explicit(&client->dead, true, memory_order_seq_cst);
 	THREAD_OFF(client->t_read);
 	THREAD_OFF(client->t_write);
 	zserv_event(client, ZSERV_HANDLE_CLOSE);
@@ -198,6 +200,9 @@ static int zserv_write(struct thread *thread)
 	uint32_t wcmd;
 	int writerv;
 	struct stream_fifo *cache;
+
+	if (atomic_load_explicit(&client->dead, memory_order_seq_cst))
+		return 0;
 
 	/* If we have any data pending, try to flush it first */
 	switch (buffer_flush_available(client->wb, client->sock)) {
@@ -286,18 +291,23 @@ zwrite_fail:
  */
 static int zserv_read(struct thread *thread)
 {
+	struct zserv *client = THREAD_ARG(thread);
 	int sock;
-	struct zserv *client;
 	size_t already;
-	struct stream_fifo *cache = stream_fifo_new();
-	uint32_t p2p_orig = atomic_load_explicit(&zebrad.packets_to_process,
-						 memory_order_relaxed);
+	struct stream_fifo *cache;
+	uint32_t p2p_orig;
+
 	uint32_t p2p;
 	struct zmsghdr hdr;
 
+	if (atomic_load_explicit(&client->dead, memory_order_seq_cst))
+		return 0;
+
+	p2p_orig = atomic_load_explicit(&zebrad.packets_to_process,
+					memory_order_relaxed);
+	cache = stream_fifo_new();
 	p2p = p2p_orig;
 	sock = THREAD_FD(thread);
-	client = THREAD_ARG(thread);
 
 	while (p2p) {
 		ssize_t nb;
@@ -435,6 +445,9 @@ zread_fail:
 static void zserv_client_event(struct zserv *client,
 			       enum zserv_client_event event)
 {
+	if (atomic_load_explicit(&client->dead, memory_order_seq_cst))
+		return;
+
 	switch (event) {
 	case ZSERV_CLIENT_READ:
 		thread_add_read(client->pthread->master, zserv_read, client,
