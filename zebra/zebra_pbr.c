@@ -369,9 +369,10 @@ void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
 	 * - Netlink destroy from kernel
 	 * - ?? destroy ipset entries before
 	 */
-	if (lookup)
+	if (lookup) {
+		hash_release(zns->ipset_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
-	else
+	} else
 		zlog_warn("%s: IPSet Entry being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
 }
@@ -446,9 +447,10 @@ void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
 	 * - detach from ipset list
 	 * - ?? if no more entres, delete ipset
 	 */
-	if (lookup)
+	if (lookup) {
+		hash_release(zns->ipset_entry_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
-	else
+	} else
 		zlog_warn("%s: IPSet being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
 }
