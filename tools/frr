@@ -552,16 +552,19 @@ case "$1" in
 	  # Additionally if a new protocol is added
 	  # we need to add it here as well as
 	  # in rt_netlink.h( follow the directions! )
-          ip route flush proto 186
-          ip route flush proto 188
           ip route flush proto 4
+          ip route flush proto 11
+          ip route flush proto 42
+          ip route flush proto 186
+          ip route flush proto 187
+          ip route flush proto 188
           ip route flush proto 189
           ip route flush proto 190
-          ip route flush proto 11
-          ip route flush proto 187
-          ip route flush proto 192
-          ip route flush proto 42
           ip route flush proto 191
+          ip route flush proto 192
+          ip route flush proto 193
+          ip route flush proto 194
+          ip route flush proto 195
        else
          [ -n "$dmn" ] && eval "${dmn/-/_}=0"
          start_watchfrr
