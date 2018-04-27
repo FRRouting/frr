@@ -2414,13 +2414,15 @@ static int msg_client_id_mismatch(const char *op, struct zserv *client,
 	if (proto != client->proto) {
 		zlog_err("%s: msg vs client proto mismatch, client=%u msg=%u",
 				op, client->proto, proto);
-		return 1;
+		/* TODO: fail when BGP sets proto and instance */
+		/* return 1; */
 	}
 
 	if (instance != client->instance) {
 		zlog_err("%s: msg vs client instance mismatch, client=%u msg=%u",
 				op, client->instance, instance);
-		return 1;
+		/* TODO: fail when BGP sets proto and instance */
+		/* return 1; */
 	}
 
 	return 0;
