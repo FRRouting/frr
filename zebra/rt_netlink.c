@@ -98,7 +98,8 @@ static inline int is_selfroute(int proto)
 	    || (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG)
 	    || (proto == RTPROT_NHRP) || (proto == RTPROT_EIGRP)
 	    || (proto == RTPROT_LDP) || (proto == RTPROT_BABEL)
-	    || (proto == RTPROT_RIP) || (proto == RTPROT_SHARP)) {
+	    || (proto == RTPROT_RIP) || (proto == RTPROT_SHARP)
+	    || (proto == RTPROT_PBR)) {
 		return 1;
 	}
 
@@ -142,7 +143,18 @@ static inline int zebra2proto(int proto)
 	case ZEBRA_ROUTE_SHARP:
 		proto = RTPROT_SHARP;
 		break;
+	case ZEBRA_ROUTE_PBR:
+		proto = RTPROT_PBR;
+		break;
 	default:
+		/*
+		 * When a user adds a new protocol this will show up
+		 * to let them know to do something about it.  This
+		 * is intentionally a warn because we should see
+		 * this as part of development of a new protocol
+		 */
+		zlog_warn("%s: Please add this protocol(%d) to proper rt_netlink.c handling",
+			  __PRETTY_FUNCTION__, proto);
 		proto = RTPROT_ZEBRA;
 		break;
 	}
@@ -184,7 +196,22 @@ static inline int proto2zebra(int proto, int family)
 	case RTPROT_STATIC:
 		proto = ZEBRA_ROUTE_STATIC;
 		break;
+	case RTPROT_SHARP:
+		proto = ZEBRA_ROUTE_SHARP;
+		break;
+	case RTPROT_PBR:
+		proto = ZEBRA_ROUTE_PBR;
+		break;
 	default:
+		/*
+		 * When a user adds a new protocol this will show up
+		 * to let them know to do something about it.  This
+		 * is intentionally a warn because we should see
+		 * this as part of development of a new protocol
+		 */
+		zlog_warn("%s: Please add this protocol(%d) to proper rt_netlink.c handling",
+			  __PRETTY_FUNCTION__,
+			  proto);
 		proto = ZEBRA_ROUTE_KERNEL;
 		break;
 	}
