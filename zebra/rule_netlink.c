@@ -98,6 +98,12 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 			  &rule->rule.filter.dst_ip.u.prefix, bytelen);
 	}
 
+	/* fwmark, if specified */
+	if (IS_RULE_FILTERING_ON_FWMARK(rule)) {
+		addattr32(&req.n, sizeof(req), FRA_FWMARK,
+			  rule->rule.filter.fwmark);
+	}
+
 	/* Route table to use to forward, if filter criteria matches. */
 	if (rule->rule.action.table < 256)
 		req.frh.table = rule->rule.action.table;
