@@ -5158,7 +5158,7 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 		l += IPV4_MAX_BYTELEN;
 
 		/* Get flags - sticky mac and/or gateway mac */
-		flags = stream_getc(s);
+		STREAM_GETC(s, flags);
 		sticky = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
 		l++;
 
@@ -6623,7 +6623,7 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 	}
 
 	s = msg;
-	advertise = stream_getc(s);
+	STREAM_GETC(s, advertise);
 	vni = stream_get3(s);
 
 	zvni = zvni_lookup(vni);
@@ -6662,6 +6662,9 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 		zvni_advertise_subnet(zvni, vlan_if, 1);
 	else
 		zvni_advertise_subnet(zvni, vlan_if, 0);
+
+stream_failure:
+	return;
 }
 
 /*
