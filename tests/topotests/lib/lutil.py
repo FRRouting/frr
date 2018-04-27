@@ -81,6 +81,7 @@ Test Target Summary                                                  Pass Fail\n
             f = 1
             p = 0
             self.l_fail += 1
+        self.l_total += 1
         res = "%-4d %-6s %-56s %-4d %d" % (self.l_total, target, str, p, f)
         self.log ('R:'+res)
         self.summary(res)
@@ -178,10 +179,9 @@ Total %-4d                                                           %-4d %d\n\
         global net
         if op != 'wait':
             self.l_line  += 1
-        if op == 'pass' or op == 'fail':
-            self.l_total += 1
-        self.log('%s:%s COMMAND:%s:%s:%s:%s:%s:' % \
-                 (self.l_filename, self.l_line, target, command, regexp, op, result))
+        self.log('(#%d) %s:%s COMMAND:%s:%s:%s:%s:%s:' % \
+                 (self.l_total+1,
+                  self.l_filename, self.l_line, target, command, regexp, op, result))
         if self.net == '':
             return False
         #self.log("Running %s %s" % (target, command))
