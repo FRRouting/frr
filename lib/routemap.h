@@ -158,8 +158,8 @@ struct route_map {
 	struct route_map *prev;
 
 	/* Maintain update info */
-	int to_be_processed; /* True if modification isn't acted on yet */
-	int deleted;	 /* If 1, then this node will be deleted */
+	bool to_be_processed; /* True if modification isn't acted on yet */
+	bool deleted;         /* If 1, then this node will be deleted */
 
 	QOBJ_FIELDS
 };
