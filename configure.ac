@@ -232,7 +232,6 @@ else
    fi
 fi
 AM_CONDITIONAL([DEV_BUILD], [test "x$enable_dev_build" = "xyes"])
-AM_CONDITIONAL([SHARPD], [test "x$enable_dev_build" = "xyes"])
 
 dnl always want these CFLAGS
 AC_C_FLAG([-fno-omit-frame-pointer])
@@ -354,6 +353,10 @@ AC_ARG_ENABLE(isisd,
   AS_HELP_STRING([--disable-isisd], [do not build isisd]))
 AC_ARG_ENABLE(pimd,
   AS_HELP_STRING([--disable-pimd], [do not build pimd]))
+AC_ARG_ENABLE(pbrd,
+  AS_HELP_STRING([--disable-pbrd], [do not build pbrd]))
+AC_ARG_ENABLE(sharpd,
+  AS_HELP_STRING([--enable-sharpd], [do not build sharpd]))
 AC_ARG_ENABLE(bgp-announce,
   AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
 AC_ARG_ENABLE(bgp-vnc,
@@ -1378,6 +1381,7 @@ AM_CONDITIONAL(OSPF6D, test "${enable_ospf6d}" != "no")
 AM_CONDITIONAL(ISISD, test "${enable_isisd}" != "no")
 AM_CONDITIONAL(PIMD, test "${enable_pimd}" != "no")
 AM_CONDITIONAL(PBRD, test "${enable_pbrd}" != "no")
+AM_CONDITIONAL(SHARPD, test "${enable_sharpd}" = "yes")
 
 if test "${enable_bgp_announce}" = "no";then
   AC_DEFINE(DISABLE_BGP_ANNOUNCE,1,Disable BGP installation to zebra)
