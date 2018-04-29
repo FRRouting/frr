@@ -3949,11 +3949,11 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, struct ethaddr *rmac,
 	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
 		return;
 
-        /*
+	/*
 	 * add the next hop neighbor -
 	 * neigh to be installed is the ipv6 nexthop neigh
 	 */
-        zl3vni_remote_nh_add(zl3vni, vtep_ip, rmac, host_prefix);
+	zl3vni_remote_nh_add(zl3vni, vtep_ip, rmac, host_prefix);
 
 	/*
 	 * if the remote vtep is a ipv4 mapped ipv6 address convert it to ipv4
@@ -3969,10 +3969,11 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, struct ethaddr *rmac,
 		memcpy(&(ipv4_vtep.ipaddr_v4), &vtep_ip->ipaddr_v4,
 		       sizeof(struct in_addr));
 
-        /* add the rmac - remote rmac to be installed is against the ipv4
+	/*
+	 * add the rmac - remote rmac to be installed is against the ipv4
 	 * nexthop address
 	 */
-        zl3vni_remote_rmac_add(zl3vni, rmac, &ipv4_vtep, host_prefix);
+	zl3vni_remote_rmac_add(zl3vni, rmac, &ipv4_vtep, host_prefix);
 }
 
 /* handle evpn vrf route delete */

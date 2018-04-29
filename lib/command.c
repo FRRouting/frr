@@ -530,15 +530,16 @@ static int config_write_host(struct vty *vty)
 		vty_out(vty, "domainname %s\n", cmd_domainname_get());
 
 	/* The following are all configuration commands that are not sent to
-         * watchfrr.  For instance watchfrr is hardcoded to log to syslog so
-         * we would always display 'log syslog informational' in the config
-         * which would cause other daemons to then switch to syslog when they
-         * parse frr.conf.
-         */
+	 * watchfrr.  For instance watchfrr is hardcoded to log to syslog so
+	 * we would always display 'log syslog informational' in the config
+	 * which would cause other daemons to then switch to syslog when they
+	 * parse frr.conf.
+	 */
 	if (strcmp(zlog_default->protoname, "WATCHFRR")) {
 		if (host.encrypt) {
 			if (host.password_encrypt)
-				vty_out(vty, "password 8 %s\n", host.password_encrypt);
+				vty_out(vty, "password 8 %s\n",
+					host.password_encrypt);
 			if (host.enable_encrypt)
 				vty_out(vty, "enable password 8 %s\n",
 					host.enable_encrypt);
@@ -546,23 +547,27 @@ static int config_write_host(struct vty *vty)
 			if (host.password)
 				vty_out(vty, "password %s\n", host.password);
 			if (host.enable)
-				vty_out(vty, "enable password %s\n", host.enable);
+				vty_out(vty, "enable password %s\n",
+					host.enable);
 		}
 
 		if (zlog_default->default_lvl != LOG_DEBUG) {
-			vty_out(vty, "! N.B. The 'log trap' command is deprecated.\n");
+			vty_out(vty,
+				"! N.B. The 'log trap' command is deprecated.\n");
 			vty_out(vty, "log trap %s\n",
 				zlog_priority[zlog_default->default_lvl]);
 		}
 
 		if (host.logfile
-		    && (zlog_default->maxlvl[ZLOG_DEST_FILE] != ZLOG_DISABLED)) {
+		    && (zlog_default->maxlvl[ZLOG_DEST_FILE]
+			!= ZLOG_DISABLED)) {
 			vty_out(vty, "log file %s", host.logfile);
 			if (zlog_default->maxlvl[ZLOG_DEST_FILE]
 			    != zlog_default->default_lvl)
 				vty_out(vty, " %s",
 					zlog_priority
-						[zlog_default->maxlvl[ZLOG_DEST_FILE]]);
+						[zlog_default->maxlvl
+							 [ZLOG_DEST_FILE]]);
 			vty_out(vty, "\n");
 		}
 
@@ -571,8 +576,9 @@ static int config_write_host(struct vty *vty)
 			if (zlog_default->maxlvl[ZLOG_DEST_STDOUT]
 			    != zlog_default->default_lvl)
 				vty_out(vty, " %s",
-					zlog_priority[zlog_default->maxlvl
-							      [ZLOG_DEST_STDOUT]]);
+					zlog_priority
+						[zlog_default->maxlvl
+							 [ZLOG_DEST_STDOUT]]);
 			vty_out(vty, "\n");
 		}
 
@@ -581,7 +587,8 @@ static int config_write_host(struct vty *vty)
 		else if (zlog_default->maxlvl[ZLOG_DEST_MONITOR]
 			 != zlog_default->default_lvl)
 			vty_out(vty, "log monitor %s\n",
-				zlog_priority[zlog_default->maxlvl[ZLOG_DEST_MONITOR]]);
+				zlog_priority[zlog_default->maxlvl
+						      [ZLOG_DEST_MONITOR]]);
 
 		if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != ZLOG_DISABLED) {
 			vty_out(vty, "log syslog");
@@ -611,7 +618,8 @@ static int config_write_host(struct vty *vty)
 			vty_out(vty, "service password-encryption\n");
 
 		if (host.lines >= 0)
-			vty_out(vty, "service terminal-length %d\n", host.lines);
+			vty_out(vty, "service terminal-length %d\n",
+				host.lines);
 
 		if (host.motdfile)
 			vty_out(vty, "banner motd file %s\n", host.motdfile);

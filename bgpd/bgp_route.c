@@ -2369,15 +2369,13 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 			if (bgp->adv_cmd_rmap[afi][safi].map) {
 				int ret = 0;
 
-				ret =
-					route_map_apply(
-						bgp->adv_cmd_rmap[afi][safi].map,
-						&rn->p, RMAP_BGP, new_select);
+				ret = route_map_apply(
+					bgp->adv_cmd_rmap[afi][safi].map,
+					&rn->p, RMAP_BGP, new_select);
 				if (ret == RMAP_MATCH)
-					bgp_evpn_advertise_type5_route(bgp,
-								       &rn->p,
-								       new_select->attr,
-								       afi, safi);
+					bgp_evpn_advertise_type5_route(
+						bgp, &rn->p, new_select->attr,
+						afi, safi);
 			} else {
 				bgp_evpn_advertise_type5_route(bgp,
 							       &rn->p,

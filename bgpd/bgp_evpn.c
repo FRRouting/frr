@@ -4422,8 +4422,9 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
 		if (bgp_debug_zebra(NULL))
-			zlog_warn("%u: VNI hash entry for VNI %u not "
-				  "found at DEL", bgp->vrf_id, vni);
+			zlog_warn(
+				"%u: VNI hash entry for VNI %u not found at DEL",
+				bgp->vrf_id, vni);
 		return 0;
 	}
 
