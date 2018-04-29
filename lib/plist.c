@@ -73,7 +73,7 @@ struct prefix_master {
 	struct prefix_list_list str;
 
 	/* Whether sequential number is used. */
-	int seqnum;
+	bool seqnum;
 
 	/* The latest update. */
 	struct prefix_list *recent;
@@ -1387,7 +1387,7 @@ DEFPY (ip_prefix_list_sequence_number,
        PREFIX_LIST_STR
        "Include/exclude sequence numbers in NVGEN\n")
 {
-	prefix_master_ipv4.seqnum = no ? 0 : 1;
+	prefix_master_ipv4.seqnum = no ? false : true;
 	return CMD_SUCCESS;
 }
 
@@ -1581,7 +1581,7 @@ DEFPY (ipv6_prefix_list_sequence_number,
        PREFIX_LIST_STR
        "Include/exclude sequence numbers in NVGEN\n")
 {
-	prefix_master_ipv6.seqnum = no ? 0 : 1;
+	prefix_master_ipv6.seqnum = no ? false : true;
 	return CMD_SUCCESS;
 }
 
