@@ -48,7 +48,7 @@ struct prefix_list {
 
 /* Each prefix-list's entry. */
 struct prefix_list_entry {
-	int seq;
+	int64_t seq;
 
 	int le;
 	int ge;
