@@ -228,6 +228,8 @@ static void pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
 /* release all mem associated with a sa */
 static void pim_msdp_sa_free(struct pim_msdp_sa *sa)
 {
+	pim_msdp_sa_state_timer_setup(sa, false);
+
 	XFREE(MTYPE_PIM_MSDP_SA, sa);
 }
 
@@ -1170,6 +1172,13 @@ enum pim_msdp_err pim_msdp_peer_add(struct pim_instance *pim,
 /* release all mem associated with a peer */
 static void pim_msdp_peer_free(struct pim_msdp_peer *mp)
 {
+	/*
+	 * Let's make sure we are not running when we delete
+	 * the underlying data structure
+	 */
+	pim_msdp_peer_cr_timer_setup(mp, false);
+	pim_msdp_peer_ka_timer_setup(mp, false);
+
 	if (mp->ibuf) {
 		stream_free(mp->ibuf);
 	}
@@ -1611,6 +1620,8 @@ void pim_msdp_init(struct pim_instance *pim, struct thread_master *master)
 /* counterpart to MSDP init; XXX: unused currently */
 void pim_msdp_exit(struct pim_instance *pim)
 {
+	pim_msdp_sa_adv_timer_setup(pim, false);
+
 	/* XXX: stop listener and delete all peer sessions */
 
 	if (pim->msdp.peer_hash) {
