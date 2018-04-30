@@ -1987,8 +1987,8 @@ static int ipset_notify_owner(int command, struct zclient *zclient,
 	bgp_pbim = bgp_pbr_match_ipset_lookup(vrf_id, unique);
 	if (!bgp_pbim) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP match (%u)",
-				   __PRETTY_FUNCTION__, unique);
+			zlog_debug("%s: Fail to look BGP match ( %u %u)",
+				   __PRETTY_FUNCTION__, note, unique);
 		return 0;
 	}
 
@@ -2036,8 +2036,8 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 						     unique);
 	if (!bgp_pbime) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP match entry (%u)",
-				   __PRETTY_FUNCTION__, unique);
+			zlog_debug("%s: Fail to look BGP match entry (%u %u)",
+				   __PRETTY_FUNCTION__, note, unique);
 		return 0;
 	}
 
@@ -2080,8 +2080,8 @@ static int iptable_notify_owner(int command, struct zclient *zclient,
 	bgpm = bgp_pbr_match_iptable_lookup(vrf_id, unique);
 	if (!bgpm) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP iptable (%u)",
-				   __PRETTY_FUNCTION__, unique);
+			zlog_debug("%s: Fail to look BGP iptable (%u %u)",
+				   __PRETTY_FUNCTION__, note, unique);
 		return 0;
 	}
 	switch (note) {
