@@ -323,6 +323,7 @@ man_pages = [
     ('nhrpd', 'nhrpd', fwfrr.format("a Next Hop Routing Protocol "), [], 8),
     ('pimd', 'pimd', fwfrr.format("a PIM "), [], 8),
     ('pbrd', 'pbrd', fwfrr.format("a PBR "), [], 8),
+    ('sharpd', 'sharpd', fwfrr.format("a SHARP "), [], 8),
     ('mtracebis', 'mtracebis', "a multicast trace client", [], 8),
     ('ripd', 'ripd', fwfrr.format("a RIP "), [], 8),
     ('ripngd', 'ripngd', fwfrr.format("a RIPNG "), [], 8),

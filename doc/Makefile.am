@@ -82,6 +82,10 @@ if EIGRPD
 man_MANS += $(MANPAGE_BUILDDIR)/eigrpd.8
 endif
 
+if SHARPD
+man_MANS += $(MANPAGE_BUILDDIR)/sharpd.8
+endif
+
 # Automake is particular about manpages. It is aware of them and has some
 # special facilities for handling them, but it assumes that manpages are always
 # given in groff source and so these facilities are limited to simply
@@ -146,6 +150,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	manpages/ripd.rst \
 	manpages/pbrd.rst \
 	manpages/ripngd.rst \
+	manpages/sharpd.rst \
 	manpages/vtysh.rst \
 	manpages/watchfrr.rst \
 	manpages/zebra.rst \
@@ -212,6 +217,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/routemap.rst \
 	user/routeserver.rst \
 	user/rpki.rst \
+	user/sharp.rst \
 	user/snmp.rst \
 	user/snmptrap.rst \
 	user/Useful_Sysctl_Settings.md \
