@@ -99,6 +99,8 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 	{0}
 };
 
+#define VRFID_NONE_STR "-"
+
 struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 				  safi_t safi, struct prefix *p,
 				  struct prefix_rd *prd)
@@ -6471,6 +6473,13 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 	json_object *json_nexthops = NULL;
 	json_object *json_nexthop_global = NULL;
 	json_object *json_nexthop_ll = NULL;
+	char vrf_id_str[VRF_NAMSIZ] = {0};
+	bool nexthop_self = CHECK_FLAG(binfo->flags, BGP_INFO_ANNC_NH_SELF)
+				? true
+				: false;
+	bool nexthop_othervrf = false;
+	vrf_id_t nexthop_vrfid;
+	const char *nexthop_vrfname = "Default";
 
 	if (json_paths)
 		json_path = json_object_new_object();
@@ -6497,6 +6506,39 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 			vty_out(vty, "\n");
 
 		return;
+	}
+
+	/*
+	 * If vrf id of nexthop is different from that of prefix,
+	 * set up printable string to append
+	 */
+	if (binfo->extra && binfo->extra->bgp_orig) {
+		const char *self = "";
+
+		if (nexthop_self)
+			self = "<";
+
+		nexthop_othervrf = true;
+		nexthop_vrfid = binfo->extra->bgp_orig->vrf_id;
+
+		if (binfo->extra->bgp_orig->vrf_id == VRF_UNKNOWN)
+			snprintf(vrf_id_str, sizeof(vrf_id_str),
+				"@%s%s", VRFID_NONE_STR, self);
+		else
+			snprintf(vrf_id_str, sizeof(vrf_id_str), "@%u%s",
+				binfo->extra->bgp_orig->vrf_id, self);
+
+		if (binfo->extra->bgp_orig->inst_type !=
+				BGP_INSTANCE_TYPE_DEFAULT)
+
+			nexthop_vrfname = binfo->extra->bgp_orig->name;
+	} else {
+		const char *self = "";
+
+		if (nexthop_self)
+			self = "<";
+
+		snprintf(vrf_id_str, sizeof(vrf_id_str), "%s", self);
 	}
 
 	/*
@@ -6541,7 +6583,7 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 			json_object_boolean_true_add(json_nexthop_global,
 						     "used");
 		} else
-			vty_out(vty, "%s", nexthop);
+			vty_out(vty, "%s%s", nexthop, vrf_id_str);
 	} else if (safi == SAFI_EVPN) {
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
@@ -6553,7 +6595,8 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 			json_object_boolean_true_add(json_nexthop_global,
 						     "used");
 		} else
-			vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
+			vty_out(vty, "%-16s%s", inet_ntoa(attr->nexthop),
+				vrf_id_str);
 	} else if (safi == SAFI_FLOWSPEC) {
 		if (attr->nexthop.s_addr != 0) {
 			if (json_paths) {
@@ -6587,11 +6630,17 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 			json_object_boolean_true_add(json_nexthop_global,
 						     "used");
 		} else {
+			char buf[BUFSIZ];
+
 			if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN))
-				vty_out(vty, "%-16s",
-					inet_ntoa(attr->mp_nexthop_global_in));
+				snprintf(buf, sizeof(buf), "%s%s",
+					inet_ntoa(attr->mp_nexthop_global_in),
+					vrf_id_str);
 			else
-				vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
+				snprintf(buf, sizeof(buf), "%s%s",
+					inet_ntoa(attr->nexthop),
+					vrf_id_str);
+			vty_out(vty, "%-16s", buf);
 		}
 	}
 
@@ -6658,11 +6707,12 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 						vty_out(vty, "%*s", len, " ");
 				} else {
 					len = vty_out(
-						vty, "%s",
+						vty, "%s%s",
 						inet_ntop(
 							AF_INET6,
 							&attr->mp_nexthop_local,
-							buf, BUFSIZ));
+							buf, BUFSIZ),
+						vrf_id_str);
 					len = 16 - len;
 
 					if (len < 1)
@@ -6672,10 +6722,11 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 				}
 			} else {
 				len = vty_out(
-					vty, "%s",
+					vty, "%s%s",
 					inet_ntop(AF_INET6,
 						  &attr->mp_nexthop_global, buf,
-						  BUFSIZ));
+						  BUFSIZ),
+						  vrf_id_str);
 				len = 16 - len;
 
 				if (len < 1)
@@ -6732,6 +6783,21 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 				       bgp_origin_long_str[attr->origin]);
 	else
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
+
+	if (json_paths) {
+		if (nexthop_self)
+			json_object_boolean_true_add(json_path,
+				"announceNexthopSelf");
+		if (nexthop_othervrf) {
+			json_object_string_add(json_path, "nhVrfName",
+				nexthop_vrfname);
+
+			json_object_int_add(json_path, "nhVrfId",
+				((nexthop_vrfid == VRF_UNKNOWN)
+					? -1
+					: (int)nexthop_vrfid));
+		}
+	}
 
 	if (json_paths) {
 		if (json_nexthop_global || json_nexthop_ll) {
@@ -7333,6 +7399,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 	int addpath_capable;
 	int has_adj;
 	unsigned int first_as;
+	bool nexthop_self = CHECK_FLAG(binfo->flags, BGP_INFO_ANNC_NH_SELF)
+				? true
+				: false;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -7633,6 +7702,49 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 							AF_INET,
 							&binfo->peer->remote_id,
 							buf1, sizeof(buf1)));
+			}
+		}
+
+		/*
+		 * Note when vrfid of nexthop is different from that of prefix
+		 */
+		if (binfo->extra && binfo->extra->bgp_orig) {
+			vrf_id_t nexthop_vrfid = binfo->extra->bgp_orig->vrf_id;
+
+			if (json_paths) {
+				const char *vn;
+
+				if (binfo->extra->bgp_orig->inst_type ==
+					BGP_INSTANCE_TYPE_DEFAULT)
+
+					vn = "Default";
+				else
+					vn = binfo->extra->bgp_orig->name;
+
+				json_object_string_add(json_path, "nhVrfName",
+					vn);
+
+				if (nexthop_vrfid == VRF_UNKNOWN) {
+					json_object_int_add(json_path,
+						"nhVrfId", -1);
+				} else {
+					json_object_int_add(json_path,
+						"nhVrfId", (int)nexthop_vrfid);
+				}
+			} else {
+				if (nexthop_vrfid == VRF_UNKNOWN)
+					vty_out(vty, " vrf ?");
+				else
+					vty_out(vty, " vrf %u", nexthop_vrfid);
+			}
+		}
+
+		if (nexthop_self) {
+			if (json_paths) {
+				json_object_boolean_true_add(json_path,
+					"announceNexthopSelf");
+			} else {
+				vty_out(vty, " announce-nh-self");
 			}
 		}
 
@@ -8333,10 +8445,16 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 
 			if (!use_json && header) {
 				vty_out(vty, "BGP table version is %" PRIu64
-					     ", local router ID is %s\n",
+					", local router ID is %s, vrf id ",
 					table->version,
 					inet_ntoa(bgp->router_id));
+				if (bgp->vrf_id == VRF_UNKNOWN)
+					vty_out(vty, "%s", VRFID_NONE_STR);
+				else
+					vty_out(vty, "%u", bgp->vrf_id);
+				vty_out(vty, "\n");
 				vty_out(vty, BGP_SHOW_SCODE_HEADER);
+				vty_out(vty, BGP_SHOW_NCODE_HEADER);
 				vty_out(vty, BGP_SHOW_OCODE_HEADER);
 				if (type == bgp_show_type_dampend_paths
 				    || type == bgp_show_type_damp_neighbor)
@@ -10146,9 +10264,15 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					       "0.0.0.0");
 		} else {
 			vty_out(vty, "BGP table version is %" PRIu64
-				     ", local router ID is %s\n",
+				     ", local router ID is %s, vrf id ",
 				table->version, inet_ntoa(bgp->router_id));
+			if (bgp->vrf_id == VRF_UNKNOWN)
+				vty_out(vty, "%s", VRFID_NONE_STR);
+			else
+				vty_out(vty, "%u", bgp->vrf_id);
+			vty_out(vty, "\n");
 			vty_out(vty, BGP_SHOW_SCODE_HEADER);
+			vty_out(vty, BGP_SHOW_NCODE_HEADER);
 			vty_out(vty, BGP_SHOW_OCODE_HEADER);
 
 			vty_out(vty, "Originating default network 0.0.0.0\n\n");
@@ -10179,11 +10303,20 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 							json_ocode);
 					} else {
 						vty_out(vty,
-							"BGP table version is 0, local router ID is %s\n",
+							"BGP table version is 0, local router ID is %s, vrf id ",
 							inet_ntoa(
-								bgp->router_id));
+							bgp->router_id));
+						if (bgp->vrf_id == VRF_UNKNOWN)
+							vty_out(vty, "%s",
+							VRFID_NONE_STR);
+						else
+							vty_out(vty, "%u",
+								bgp->vrf_id);
+						vty_out(vty, "\n");
 						vty_out(vty,
 							BGP_SHOW_SCODE_HEADER);
+						vty_out(vty,
+							BGP_SHOW_NCODE_HEADER);
 						vty_out(vty,
 							BGP_SHOW_OCODE_HEADER);
 					}
@@ -10237,12 +10370,24 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 						} else {
 							vty_out(vty,
 								"BGP table version is %" PRIu64
-								", local router ID is %s\n",
+								", local router ID is %s, vrf id ",
 								table->version,
 								inet_ntoa(
 									bgp->router_id));
+							if (bgp->vrf_id ==
+								VRF_UNKNOWN)
+								vty_out(vty,
+								"%s",
+								VRFID_NONE_STR);
+							else
+								vty_out(vty,
+								"%u",
+								bgp->vrf_id);
+							vty_out(vty, "\n");
 							vty_out(vty,
 								BGP_SHOW_SCODE_HEADER);
+							vty_out(vty,
+								BGP_SHOW_NCODE_HEADER);
 							vty_out(vty,
 								BGP_SHOW_OCODE_HEADER);
 						}
