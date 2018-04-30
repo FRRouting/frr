@@ -86,3 +86,58 @@ int json_object_object_get_ex(struct json_object *obj, const char *key,
 	return 0;
 }
 #endif
+
+/*
+ * JSON helper functions
+ */
+int json_object_add_string(struct json_object *jo, const char *key,
+			   const char *str)
+{
+	struct json_object *jon;
+
+	jon = json_object_new_string(str);
+	if (jon == NULL) {
+		json_object_put(jon);
+		return -1;
+	}
+
+	json_object_object_add(jo, key, jon);
+	return 0;
+}
+
+int json_object_add_bool(struct json_object *jo, const char *key, bool boolean)
+{
+	struct json_object *jon;
+
+	jon = json_object_new_boolean(boolean);
+	if (jon == NULL) {
+		json_object_put(jon);
+		return -1;
+	}
+
+	json_object_object_add(jo, key, jon);
+	return 0;
+}
+
+int json_object_add_int(struct json_object *jo, const char *key, int64_t value)
+{
+	struct json_object *jon;
+
+#if defined(HAVE_JSON_C_JSON_H)
+	jon = json_object_new_int64(value);
+#else
+	/*
+	 * XXX:
+	 * Ubuntu 12.04 has old version of this library and in order to
+	 * support it we must add this fallback.
+	 */
+	jon = json_object_new_int((int32_t)value);
+#endif /* HAVE_JSON_C_JSON_H */
+	if (jon == NULL) {
+		json_object_put(jon);
+		return -1;
+	}
+
+	json_object_object_add(jo, key, jon);
+	return 0;
+}

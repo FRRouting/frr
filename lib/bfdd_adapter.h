@@ -91,15 +91,6 @@ const char *diag2str(uint8_t diag);
 
 
 /*
- * JSON helpers to build queries.
- */
-int json_object_add_string(struct json_object *jo, const char *key,
-			   const char *str);
-int json_object_add_bool(struct json_object *jo, const char *key, bool boolean);
-int json_object_add_int(struct json_object *jo, const char *key, int64_t value);
-
-
-/*
  * JSON helpers to parse queries/response.
  */
 enum bfd_response_status {

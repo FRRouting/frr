@@ -80,4 +80,13 @@ extern void json_object_free(struct json_object *obj);
 #define JSON_C_TO_STRING_NOSLASHESCAPE (1<<4)
 #endif
 
+
+/*
+ * JSON helpers to build queries.
+ */
+int json_object_add_string(struct json_object *jo, const char *key,
+			   const char *str);
+int json_object_add_bool(struct json_object *jo, const char *key, bool boolean);
+int json_object_add_int(struct json_object *jo, const char *key, int64_t value);
+
 #endif /* _QUAGGA_JSON_H */
