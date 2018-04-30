@@ -190,6 +190,9 @@ parts:
            - libtinfo5
            - libreadline6
            - libjson-c2
+           - libc-ares2
+           - libatm1
+           - libprotobuf-c1
         plugin: autotools
         source: ../frr-@PACKAGE_VERSION@.tar.gz
         configflags:
