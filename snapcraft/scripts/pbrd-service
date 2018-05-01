@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/pbrd.conf ]; then
+    cp $SNAP/etc/frr/pbrd.conf.default $SNAP_DATA/pbrd.conf
+fi
+exec $SNAP/sbin/pbrd \
+    -f $SNAP_DATA/pbrd.conf \
+    --pid_file $SNAP_DATA/pbrd.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+
