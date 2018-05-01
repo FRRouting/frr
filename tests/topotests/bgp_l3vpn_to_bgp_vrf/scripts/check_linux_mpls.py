@@ -25,18 +25,22 @@ if ret != False and found != None:
     luCommand('r4', 'ip route show vrf r4-cust2',
 	'99.0.0.1','pass', 'VRF->MPLS PHP route installed')
 
-    luCommand('r1', 'ip -M route show', '101','MPLS->VRF route installed')
-    luCommand('r4', 'ip -M route show', '104','MPLS->VRF route installed')
+    luCommand('r1', 'ip -M route show', '101', 'pass', 'MPLS->VRF route installed')
+    luCommand('r4', 'ip -M route show', '1041', 'pass', 'MPLS->VRF1 route installed')
+    luCommand('r4', 'ip -M route show', '1042', 'pass', 'MPLS->VRF2 route installed')
 
     luCommand('ce1', 'ping 99.0.0.4 -I 99.0.0.1 -c 1',
 	' 0. packet loss','wait','CE->CE (loopback) ping - l3vpn+zebra case')
     luCommand('ce4', 'ping 99.0.0.1 -I 99.0.0.4 -c 1',
 	' 0. packet loss','wait','CE->CE (loopback) ping - l3vpn+zebra case')
 
-    luCommand('r1', 'ip -M route show', '1001','MPLS "non-PHP" route installed')
-    luCommand('r4', 'ip -M route show', '1004','MPLS "non-PHP" route installed')
-
     luCommand('ce1', 'ping 99.0.0.4 -I 99.0.0.1 -c 1',
 	' 0. packet loss','wait','CE->CE (loopback) ping')
     luCommand('ce4', 'ping 99.0.0.1 -I 99.0.0.4 -c 1',
 	' 0. packet loss','wait','CE->CE (loopback) ping')
+
+    luCommand('r3', 'ip -M route show', '103', 'pass', 'MPLS->VRF route installed')
+    luCommand('ce2', 'ping 99.0.0.3 -I 99.0.0.2 -c 1',
+	' 0. packet loss','wait','CE2->CE3 (loopback) ping')
+    luCommand('ce3', 'ping 99.0.0.4 -I 99.0.0.3 -c 1',
+	' 0. packet loss','wait','CE3->CE4 (loopback) ping')
