@@ -25,6 +25,7 @@ Welcome to FRR's documentation!
    pbr
    ripd
    ripngd
+   sharp
    vnc
    glossary
    appendix

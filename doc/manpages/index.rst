@@ -22,6 +22,7 @@ Welcome to FRR's documentation!
    mtracebis
    ripd
    ripngd
+   sharpd
    watchfrr
    zebra
    vtysh
