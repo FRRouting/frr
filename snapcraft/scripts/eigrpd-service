@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/eigrpd.conf ]; then
+    cp $SNAP/etc/frr/eigrpd.conf.default $SNAP_DATA/eigrpd.conf
+fi
+exec $SNAP/sbin/eigrpd \
+    -f $SNAP_DATA/eigrpd.conf \
+    --pid_file $SNAP_DATA/eigrpd.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+
