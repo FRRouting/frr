@@ -179,8 +179,8 @@ def ltemplatePreRouterStartHook():
     #configure cust2 VRFs & MPLS
     rtrs = ['r4']
     cmds = ['ip link add {0}-cust2 type vrf table 20',
-            'ip ru add oif {0}-cust1 table 20',
-            'ip ru add iif {0}-cust1 table 20',
+            'ip ru add oif {0}-cust2 table 20',
+            'ip ru add iif {0}-cust2 table 20',
             'ip link set dev {0}-cust2 up']
     for rtr in rtrs:
         for cmd in cmds:
