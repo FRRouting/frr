@@ -1872,7 +1872,7 @@ DEFUN (config_hostname,
 {
 	struct cmd_token *word = argv[1];
 
-	if (!isalpha((int)word->arg[0])) {
+	if (!isalnum((int)word->arg[0])) {
 		vty_out(vty, "Please specify string starting with alphabet\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
