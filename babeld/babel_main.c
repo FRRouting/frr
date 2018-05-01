@@ -73,7 +73,6 @@ int protocol_port;                /* babel's port */
 int protocol_socket = -1;         /* socket: communicate with others babeld */
 
 static char babel_config_default[] = SYSCONFDIR BABEL_DEFAULT_CONFIG;
-static char *babel_config_file = NULL;
 static char *babel_vty_addr = NULL;
 static int babel_vty_port = BABEL_VTY_PORT;
 
@@ -198,7 +197,7 @@ main(int argc, char **argv)
     babelz_zebra_init ();
 
     /* Get zebra configuration file. */
-    vty_read_config (babel_config_file, babel_config_default);
+    vty_read_config (babeld_di.config_file, babel_config_default);
 
     /* init buffer */
     rc = resize_receive_buffer(1500);
@@ -389,7 +388,7 @@ show_babel_main_configuration (struct vty *vty)
             "id                      = %s\n"
             "kernel_metric           = %d\n",
             state_file,
-            babel_config_file ? babel_config_file : babel_config_default,
+            babeld_di.config_file ? babeld_di.config_file : babel_config_default,
             format_address(protocol_group),
             protocol_port,
             babel_vty_addr ? babel_vty_addr : "None",
