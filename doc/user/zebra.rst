@@ -31,6 +31,13 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    When program terminates, retain routes added by zebra.
 
+.. option:: -e X, --ecmp X
+
+   Run zebra with a limited ecmp ability compared to what it is compiled to.
+   If you are running zebra on hardware limited functionality you can
+   force zebra to limit the maximum ecmp allowed to X.  This number
+   is bounded by what you compiled FRR with as the maximum number.
+
 .. program:: configure
 
 .. _interface-commands:
