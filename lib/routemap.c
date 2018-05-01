@@ -722,7 +722,7 @@ static void route_map_delete(struct route_map *map)
 
 	/* Clear all dependencies */
 	route_map_clear_all_references(name);
-	map->deleted = 1;
+	map->deleted = true;
 	/* Execute deletion hook. */
 	if (route_map_master.delete_hook) {
 		(*route_map_master.delete_hook)(name);
@@ -762,19 +762,19 @@ int route_map_mark_updated(const char *name, int del_later)
 
 	map = route_map_lookup_by_name(name);
 
-	/* If we did not find the routemap with deleted=0 try again
-	 * with deleted=1
+	/* If we did not find the routemap with deleted=false try again
+	 * with deleted=true
 	 */
 	if (!map) {
 		memset(&tmp_map, 0, sizeof(struct route_map));
 		tmp_map.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, name);
-		tmp_map.deleted = 1;
+		tmp_map.deleted = true;
 		map = hash_lookup(route_map_master_hash, &tmp_map);
 		XFREE(MTYPE_ROUTE_MAP_NAME, tmp_map.name);
 	}
 
 	if (map) {
-		map->to_be_processed = 1;
+		map->to_be_processed = true;
 		ret = 0;
 	}
 
@@ -786,7 +786,7 @@ int route_map_clear_updated(struct route_map *map)
 	int ret = -1;
 
 	if (map) {
-		map->to_be_processed = 0;
+		map->to_be_processed = false;
 		if (map->deleted)
 			route_map_free_map(map);
 	}
@@ -2743,7 +2743,7 @@ void route_map_finish(void)
 	/* cleanup route_map */
 	while (route_map_master.head) {
 		struct route_map *map = route_map_master.head;
-		map->to_be_processed = 0;
+		map->to_be_processed = false;
 		route_map_delete(map);
 	}
 

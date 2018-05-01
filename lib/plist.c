@@ -73,7 +73,7 @@ struct prefix_master {
 	struct prefix_list_list str;
 
 	/* Whether sequential number is used. */
-	int seqnum;
+	bool seqnum;
 
 	/* The latest update. */
 	struct prefix_list *recent;
@@ -348,7 +348,7 @@ static void prefix_list_delete(struct prefix_list *plist)
 
 static struct prefix_list_entry *
 prefix_list_entry_make(struct prefix *prefix, enum prefix_list_type type,
-		       int seq, int le, int ge, int any)
+		       int64_t seq, int le, int ge, int any)
 {
 	struct prefix_list_entry *pentry;
 
@@ -381,10 +381,10 @@ void prefix_list_delete_hook(void (*func)(struct prefix_list *plist))
 }
 
 /* Calculate new sequential number. */
-static int prefix_new_seq_get(struct prefix_list *plist)
+static int64_t prefix_new_seq_get(struct prefix_list *plist)
 {
-	int maxseq;
-	int newseq;
+	int64_t maxseq;
+	int64_t newseq;
 	struct prefix_list_entry *pentry;
 
 	maxseq = newseq = 0;
@@ -401,7 +401,7 @@ static int prefix_new_seq_get(struct prefix_list *plist)
 
 /* Return prefix list entry which has same seq number. */
 static struct prefix_list_entry *prefix_seq_check(struct prefix_list *plist,
-						  int seq)
+						  int64_t seq)
 {
 	struct prefix_list_entry *pentry;
 
@@ -413,7 +413,8 @@ static struct prefix_list_entry *prefix_seq_check(struct prefix_list *plist,
 
 static struct prefix_list_entry *
 prefix_list_entry_lookup(struct prefix_list *plist, struct prefix *prefix,
-			 enum prefix_list_type type, int seq, int le, int ge)
+			 enum prefix_list_type type, int64_t seq,
+			 int le, int ge)
 {
 	struct prefix_list_entry *pentry;
 
@@ -771,7 +772,7 @@ static void __attribute__((unused)) prefix_list_print(struct prefix_list *plist)
 
 			p = &pentry->prefix;
 
-			printf("  seq %u %s %s/%d", pentry->seq,
+			printf("  seq %" PRId64 " %s %s/%d", pentry->seq,
 			       prefix_list_type_str(pentry),
 			       inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
 			       p->prefixlen);
@@ -793,7 +794,7 @@ prefix_entry_dup_check(struct prefix_list *plist, struct prefix_list_entry *new)
 	size_t validbits = new->prefix.prefixlen;
 	struct pltrie_table *table;
 	struct prefix_list_entry *pentry;
-	int seq = 0;
+	int64_t seq = 0;
 
 	if (new->seq == -1)
 		seq = prefix_new_seq_get(plist);
@@ -845,13 +846,13 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 	struct prefix_list_entry *dup;
 	struct prefix p, p_tmp;
 	int any = 0;
-	int seqnum = -1;
+	int64_t seqnum = -1;
 	int lenum = 0;
 	int genum = 0;
 
 	/* Sequential number. */
 	if (seq)
-		seqnum = atoi(seq);
+		seqnum = (int64_t)atol(seq);
 
 	/* ge and le number */
 	if (ge)
@@ -972,7 +973,7 @@ static int vty_prefix_list_uninstall(struct vty *vty, afi_t afi,
 	struct prefix_list *plist;
 	struct prefix_list_entry *pentry;
 	struct prefix p;
-	int seqnum = -1;
+	int64_t seqnum = -1;
 	int lenum = 0;
 	int genum = 0;
 
@@ -998,7 +999,7 @@ static int vty_prefix_list_uninstall(struct vty *vty, afi_t afi,
 
 	/* Check sequence number. */
 	if (seq)
-		seqnum = atoi(seq);
+		seqnum = (int64_t)atol(seq);
 
 	/* ge and le number */
 	if (ge)
@@ -1113,7 +1114,7 @@ static void vty_show_prefix_entry(struct vty *vty, afi_t afi,
 			vty_out(vty, "   Description: %s\n", plist->desc);
 
 		vty_out(vty,
-			"   count: %d, range entries: %d, sequences: %u - %u\n",
+			"   count: %d, range entries: %d, sequences: %" PRId64 " - %" PRId64 "\n",
 			plist->count, plist->rangecount,
 			plist->head ? plist->head->seq : 0,
 			plist->tail ? plist->tail->seq : 0);
@@ -1128,7 +1129,7 @@ static void vty_show_prefix_entry(struct vty *vty, afi_t afi,
 			vty_out(vty, "   ");
 
 			if (master->seqnum)
-				vty_out(vty, "seq %u ", pentry->seq);
+				vty_out(vty, "seq %" PRId64 " ", pentry->seq);
 
 			vty_out(vty, "%s ", prefix_list_type_str(pentry));
 
@@ -1164,14 +1165,14 @@ static int vty_show_prefix_list(struct vty *vty, afi_t afi, const char *name,
 {
 	struct prefix_list *plist;
 	struct prefix_master *master;
-	int seqnum = 0;
+	int64_t seqnum = 0;
 
 	master = prefix_master_get(afi, 0);
 	if (master == NULL)
 		return CMD_WARNING;
 
 	if (seq)
-		seqnum = atoi(seq);
+		seqnum = (int64_t)atol(seq);
 
 	if (name) {
 		plist = prefix_list_lookup(afi, name);
@@ -1236,7 +1237,7 @@ static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,
 		}
 
 		if (match) {
-			vty_out(vty, "   seq %u %s ", pentry->seq,
+			vty_out(vty, "   seq %" PRId64 " %s ", pentry->seq,
 				prefix_list_type_str(pentry));
 
 			if (pentry->any)
@@ -1387,7 +1388,7 @@ DEFPY (ip_prefix_list_sequence_number,
        PREFIX_LIST_STR
        "Include/exclude sequence numbers in NVGEN\n")
 {
-	prefix_master_ipv4.seqnum = no ? 0 : 1;
+	prefix_master_ipv4.seqnum = no ? false : true;
 	return CMD_SUCCESS;
 }
 
@@ -1581,7 +1582,7 @@ DEFPY (ipv6_prefix_list_sequence_number,
        PREFIX_LIST_STR
        "Include/exclude sequence numbers in NVGEN\n")
 {
-	prefix_master_ipv6.seqnum = no ? 0 : 1;
+	prefix_master_ipv6.seqnum = no ? false : true;
 	return CMD_SUCCESS;
 }
 
@@ -1744,7 +1745,7 @@ static int config_write_prefix_afi(afi_t afi, struct vty *vty)
 				afi == AFI_IP ? "" : "v6", plist->name);
 
 			if (master->seqnum)
-				vty_out(vty, "seq %u ", pentry->seq);
+				vty_out(vty, "seq %" PRId64 " ", pentry->seq);
 
 			vty_out(vty, "%s ", prefix_list_type_str(pentry));
 
@@ -1783,7 +1784,7 @@ static int config_write_prefix_afi(afi_t afi, struct vty *vty)
 				afi == AFI_IP ? "" : "v6", plist->name);
 
 			if (master->seqnum)
-				vty_out(vty, "seq %u ", pentry->seq);
+				vty_out(vty, "seq %" PRId64 " ", pentry->seq);
 
 			vty_out(vty, "%s", prefix_list_type_str(pentry));
 
@@ -1959,7 +1960,8 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 			struct prefix *p = &pentry->prefix;
 			char buf[BUFSIZ];
 
-			vty_out(vty, "   seq %u %s %s/%d", pentry->seq,
+			vty_out(vty, "   seq %" PRId64 " %s %s/%d",
+				pentry->seq,
 				prefix_list_type_str(pentry),
 				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
 				p->prefixlen);
