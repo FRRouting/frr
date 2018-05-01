@@ -75,7 +75,6 @@ static int relay_response_back(void)
 
 	/* input buffer with msg from label manager */
 	src = zclient->ibuf;
-	dst = obuf;
 
 	stream_reset(src);
 
@@ -102,11 +101,11 @@ static int relay_response_back(void)
 	/* lookup the client to relay the msg to */
 	zserv = zebra_find_client(proto, instance);
 	if (!zserv) {
-		zlog_err("Error sending LM response back: can't find client with proto %s, instance %u",
+		zlog_err("Error relaying LM response: can't find client %s, instance %u",
 				proto_str, instance);
 		return -1;
 	}
-	zlog_debug("Found client to relay LM msg to: %s instance %u",
+	zlog_debug("Found client to relay LM response to client %s instance %u",
 				proto_str, instance);
 
 	/* copy msg into output buffer */
@@ -116,11 +115,11 @@ static int relay_response_back(void)
 	/* send response back */
 	ret = writen(zserv->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
-		zlog_err("Error relaying Label Manager response to %s instance %u: %s",
+		zlog_err("Error relaying LM response to %s instance %u: %s",
 				proto_str, instance, strerror(errno));
 		return -1;
 	}
-	zlog_debug("Relayed Label Manager response (%d bytes) to %s instance %u",
+	zlog_debug("Relayed LM response (%d bytes) to %s instance %u",
 				ret, proto_str, instance);
 
 	return 0;
@@ -183,7 +182,7 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 	unsigned short instance;
 
 	if (zclient->sock < 0) {
-		zlog_err("Unable to relay label manager request: no socket");
+		zlog_err("Unable to relay LM request: no socket");
 		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}
@@ -233,12 +232,12 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 	/* Send request to external label manager */
 	ret = writen(zclient->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
-		zlog_err("Error relaying label manager request from %s instance %u: %s",
+		zlog_err("Error relaying LM request from %s instance %u: %s",
 				proto_str, instance, strerror(errno));
 		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}
-	zlog_debug("Relayed Label manager request (%d bytes) from %s instance %u",
+	zlog_debug("Relayed LM request (%d bytes) from %s instance %u",
 				ret, proto_str, instance);
 
 
@@ -337,7 +336,7 @@ void label_manager_init(char *lm_zserv_path)
 {
 	/* this is an actual label manager */
 	if (!lm_zserv_path) {
-		zlog_debug("Initializing own label manager");
+		zlog_debug("Initializing internal label manager");
 		lm_is_external = false;
 		lbl_mgr.lc_list = list_new();
 		lbl_mgr.lc_list->del = delete_label_chunk;

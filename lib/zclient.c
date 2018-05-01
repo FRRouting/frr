@@ -2059,7 +2059,7 @@ int lm_label_manager_connect(struct zclient *zclient)
 	uint8_t result;
 
 	if (zclient_debug)
-		zlog_debug("Connecting to Label Manager");
+		zlog_debug("Connecting to Label Manager (LM)");
 
 	if (zclient->sock < 0)
 		return -1;
@@ -2079,20 +2079,19 @@ int lm_label_manager_connect(struct zclient *zclient)
 
 	ret = writen(zclient->sock, s->data, stream_get_endp(s));
 	if (ret < 0) {
-		zlog_err("%s: can't write to zclient->sock", __func__);
+		zlog_err("Can't write to zclient sock");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
 	}
 	if (ret == 0) {
-		zlog_err("%s: zclient->sock connection closed", __func__);
+		zlog_err("Zclient sock closed");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
 	}
 	if (zclient_debug)
-		zlog_debug("%s: Label manager connect request (%d bytes) sent",
-			   __func__, ret);
+		zlog_debug("LM connect request sent (%d bytes)", ret);
 
 	/* read response */
 	if (zclient_read_sync_response(zclient, ZEBRA_LABEL_MANAGER_CONNECT)
@@ -2107,18 +2106,17 @@ int lm_label_manager_connect(struct zclient *zclient)
 
 	/* sanity */
 	if (proto != zclient->redist_default)
-		zlog_err("Wrong proto (%u) in lm_connect response. Should be %u",
+		zlog_err("Wrong proto (%u) in LM connect response. Should be %u",
 				proto, zclient->redist_default);
 	if (instance != zclient->instance)
-		zlog_err("Wrong instId (%u) in lm_connect response Should be %u",
+		zlog_err("Wrong instId (%u) in LM connect response. Should be %u",
 				instance, zclient->instance);
 
 	/* result code */
 	result = stream_getc(s);
 	if (zclient_debug)
 		zlog_debug(
-			"%s: Label Manager connect response received, result %u",
-			__func__, result);
+			"LM connect-response received, result %u", result);
 
 	return (int)result;
 }
@@ -2204,20 +2202,19 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 
 	ret = writen(zclient->sock, s->data, stream_get_endp(s));
 	if (ret < 0) {
-		zlog_err("%s: can't write to zclient->sock", __func__);
+		zlog_err("Can't write to zclient sock");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
 	}
 	if (ret == 0) {
-		zlog_err("%s: zclient->sock connection closed", __func__);
+		zlog_err("Zclient sock closed");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
 	}
 	if (zclient_debug)
-		zlog_debug("%s: Label chunk request (%d bytes) sent", __func__,
-			   ret);
+		zlog_debug("Label chunk request (%d bytes) sent", ret);
 
 	/* read response */
 	if (zclient_read_sync_response(zclient, ZEBRA_GET_LABEL_CHUNK) != 0)
@@ -2247,19 +2244,18 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 	/* not owning this response */
 	if (keep != response_keep) {
 		zlog_err(
-			"%s: Invalid Label chunk: %u - %u, keeps mismatch %u != %u",
-			__func__, *start, *end, keep, response_keep);
+			"Invalid Label chunk: %u - %u, keeps mismatch %u != %u",
+			*start, *end, keep, response_keep);
 	}
 	/* sanity */
 	if (*start > *end || *start < MPLS_LABEL_UNRESERVED_MIN
 	    || *end > MPLS_LABEL_UNRESERVED_MAX) {
-		zlog_err("%s: Invalid Label chunk: %u - %u", __func__, *start,
-			 *end);
+		zlog_err("Invalid Label chunk: %u - %u", *start, *end);
 		return -1;
 	}
 
 	if (zclient_debug)
-		zlog_debug("Label Chunk assign: %u - %u (%u) ", *start, *end,
+		zlog_debug("Label Chunk assign: %u - %u (%u)", *start, *end,
 			   response_keep);
 
 	return 0;
@@ -2280,7 +2276,7 @@ int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 	struct stream *s;
 
 	if (zclient_debug)
-		zlog_debug("Releasing Label Chunk");
+		zlog_debug("Releasing Label Chunk %u - %u", start, end);
 
 	if (zclient->sock < 0)
 		return -1;
@@ -2304,13 +2300,13 @@ int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 
 	ret = writen(zclient->sock, s->data, stream_get_endp(s));
 	if (ret < 0) {
-		zlog_err("%s: can't write to zclient->sock", __func__);
+		zlog_err("Can't write to zclient sock");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
 	}
 	if (ret == 0) {
-		zlog_err("%s: zclient->sock connection closed", __func__);
+		zlog_err("Zclient sock connection closed");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
