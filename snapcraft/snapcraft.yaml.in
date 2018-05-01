@@ -4,7 +4,8 @@ summary: FRRouting BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP routing daemon
 description: BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM routing daemon
  FRRouting (FRR) is free software which manages TCP/IP based routing 
  protocols. It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, 
- RIPng, PIM and LDP as well as the IPv6 versions of these.
+ RIPng, PIM, LDP, Babel, EIGRP and PBR (Policy-based routing) as well as
+ the IPv6 versions of these.
  FRRouting (frr) is a fork of Quagga.
 confinement: strict
 grade: devel
@@ -91,6 +92,27 @@ apps:
             - network
             - network-bind
             - network-control
+    babeld:
+        command: bin/babeld-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    eigrpd:
+        command: bin/eigrpd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    pbrd:
+        command: bin/pbrd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
     set:
         command: bin/set-options
     zebra-debug:
@@ -153,7 +175,25 @@ apps:
             - network
             - network-bind
             - network-control
-            
+    babeld-debug:
+        command: sbin/babeld -f $SNAP_DATA/babeld.conf --pid_file $SNAP_DATA/babeld.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    eigrpd-debug:
+        command: sbin/eigrpd -f $SNAP_DATA/eigrpd.conf --pid_file $SNAP_DATA/eigrpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    pbrd-debug:
+        command: sbin/pbrd -f $SNAP_DATA/pbrd.conf --pid_file $SNAP_DATA/pbrd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+
 parts:
     frr: 
         build-packages: 
@@ -190,6 +230,9 @@ parts:
            - libtinfo5
            - libreadline6
            - libjson-c2
+           - libc-ares2
+           - libatm1
+           - libprotobuf-c1
         plugin: autotools
         source: ../frr-@PACKAGE_VERSION@.tar.gz
         configflags:
@@ -228,6 +271,9 @@ parts:
             ripngd.conf.default: etc/frr/ripngd.conf.default
             ldpd.conf.default: etc/frr/ldpd.conf.default
             nhrpd.conf.default: etc/frr/nhrpd.conf.default
+            babeld.conf.default: etc/frr/babeld.conf.default
+            eigrpd.conf.default: etc/frr/eigrpd.conf.default
+            pbrd.conf.default: etc/frr/pbrd.conf.default
             vtysh.conf.default: etc/frr/vtysh.conf.default
     frr-scripts:
         plugin: make

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/babeld.conf ]; then
+    cp $SNAP/etc/frr/babeld.conf.default $SNAP_DATA/babeld.conf
+fi
+exec $SNAP/sbin/babeld \
+    -f $SNAP_DATA/babeld.conf \
+    --pid_file $SNAP_DATA/babeld.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+
