@@ -14,7 +14,7 @@
 .NOTPARALLEL:
 
 SUBDIRS = manpages user
-AM_MAKEFLAGS = DESTDIR=${DESTDIR} infodir=${infodir} doczdir=${abs_srcdir}
+AM_MAKEFLAGS = DESTDIR=${DESTDIR} infodir=${infodir}
 
 MANPAGE_BUILDDIR = manpages/_build/man
 
