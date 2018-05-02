@@ -1215,6 +1215,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			json_object_int_add(json_route, "metric", re->metric);
 		}
 
+		json_object_int_add(json_route, "internalStatus",
+				    re->status);
+		json_object_int_add(json_route, "internalFlags",
+				    re->flags);
 		if (uptime < ONE_DAY_SECOND)
 			sprintf(buf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
 				tm->tm_sec);
@@ -1230,6 +1234,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		for (ALL_NEXTHOPS(re->ng, nexthop)) {
 			json_nexthop = json_object_new_object();
+
+			json_object_int_add(json_nexthop, "flags",
+					    nexthop->flags);
 
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 				json_object_boolean_true_add(json_nexthop,
