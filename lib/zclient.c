@@ -1374,6 +1374,26 @@ stream_failure:
 	return false;
 }
 
+bool zapi_iptable_notify_decode(struct stream *s,
+		uint32_t *unique,
+		enum zapi_iptable_notify_owner *note)
+{
+	uint32_t uni;
+
+	STREAM_GET(note, s, sizeof(*note));
+
+	STREAM_GETL(s, uni);
+
+	if (zclient_debug)
+		zlog_debug("%s: %u", __PRETTY_FUNCTION__, uni);
+	*unique = uni;
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
 struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
 {
 	struct nexthop *n = nexthop_new();
@@ -2765,6 +2785,22 @@ static int zclient_read(struct thread *thread)
 			(*zclient->label_chunk)(command, zclient, length,
 						      vrf_id);
 		break;
+	case ZEBRA_IPSET_NOTIFY_OWNER:
+		if (zclient->ipset_notify_owner)
+			(*zclient->ipset_notify_owner)(command, zclient, length,
+						      vrf_id);
+		break;
+	case ZEBRA_IPSET_ENTRY_NOTIFY_OWNER:
+		if (zclient->ipset_entry_notify_owner)
+			(*zclient->ipset_entry_notify_owner)(command,
+						     zclient, length,
+						     vrf_id);
+		break;
+	case ZEBRA_IPTABLE_NOTIFY_OWNER:
+		if (zclient->iptable_notify_owner)
+			(*zclient->iptable_notify_owner)(command,
+						 zclient, length,
+						 vrf_id);
 	default:
 		break;
 	}
