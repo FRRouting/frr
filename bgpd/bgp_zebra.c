@@ -2027,11 +2027,24 @@ static void bgp_zebra_process_label_chunk(
 	uint8_t response_keep;
 	uint32_t first;
 	uint32_t last;
+	uint8_t proto;
+	unsigned short instance;
 
 	s = zclient->ibuf;
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
 	STREAM_GETC(s, response_keep);
 	STREAM_GETL(s, first);
 	STREAM_GETL(s, last);
+
+	if (zclient->redist_default != proto) {
+		zlog_err("Got LM msg with wrong proto %u", proto);
+		return;
+	}
+	if (zclient->instance != instance) {
+		zlog_err("Got LM msg with wrong instance %u", proto);
+		return;
+	}
 
 	if (first > last ||
 		first < MPLS_LABEL_UNRESERVED_MIN ||
