@@ -342,6 +342,14 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
 
+# contents of ../extra/frrlexer.py.
+# This is read here to support VPATH build. Since this section is execfile()'d
+# with the file location, we can safely use a relative path here to save the
+# contents of the lexer file for later use even if our relative path changes
+# due to VPATH.
+with open('../extra/frrlexer.py', 'rb') as lex:
+    frrlexerpy = lex.read()
+
 # custom extensions here
 def setup(app):
     # object type for FRR CLI commands, can be extended to document parent CLI
@@ -357,5 +365,5 @@ def setup(app):
     #
     # frrlexer = pygments.lexers.load_lexer_from_file('../extra/frrlexer.py', lexername="FRRLexer")
     custom_namespace = {}
-    exec(open('../extra/frrlexer.py', 'rb').read(), custom_namespace)
+    exec(frrlexerpy, custom_namespace)
     lexers['frr'] = custom_namespace['FRRLexer']()
