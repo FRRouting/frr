@@ -611,9 +611,10 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
 	if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_debug("%s %p: route add %p: %s",
+		zlog_debug("%s %p: route add %p: %s paths %u nh %u",
 			   ospf6_route_table_name(table), (void *)table,
-			   (void *)route, buf);
+			   (void *)route, buf, listcount(route->paths),
+			   listcount(route->nh_list));
 	else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 		zlog_debug("%s: route add: %s", ospf6_route_table_name(table),
 			   buf);
@@ -664,11 +665,13 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 		if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
 			zlog_debug(
-				"%s %p: route add %p cost %u nh %u: update of %p old cost %u nh %u",
+				"%s %p: route add %p cost %u paths %u nh %u: update of %p cost %u paths %u nh %u",
 				ospf6_route_table_name(table), (void *)table,
 				(void *)route, route->path.cost,
+				listcount(route->paths),
 				listcount(route->nh_list), (void *)old,
-				old->path.cost, listcount(old->nh_list));
+				old->path.cost, listcount(old->paths),
+				listcount(old->nh_list));
 		else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 			zlog_debug("%s: route add: update",
 				   ospf6_route_table_name(table));
