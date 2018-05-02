@@ -945,6 +945,24 @@ static struct test_segment mp_unreach_segments[] = {
 	},
 	{NULL, NULL, {0}, 0, 0}};
 
+static struct test_segment mp_prefix_sid[] = {
+	{
+		"PREFIX-SID",
+		"PREFIX-SID Test 1",
+		{
+			0x01, 0x00, 0x07,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x02,
+			0x03, 0x00, 0x08, 0x00,
+			0x00, 0x0a, 0x1b, 0xfe,
+			0x00, 0x00, 0x0a
+		},
+		.len = 21,
+		.parses = SHOULD_PARSE,
+	},
+	{NULL, NULL, { 0 }, 0, 0},
+};
+
 /* nlri_parse indicates 0 on successful parse, and -1 otherwise.
  * attr_parse indicates BGP_ATTR_PARSE_PROCEED/0 on success,
  * and BGP_ATTR_PARSE_ERROR/-1 or lower negative ret on err.
@@ -1000,10 +1018,20 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 
 	printf("%s: %s\n", t->name, t->desc);
 
-	if (type == BGP_ATTR_MP_REACH_NLRI)
+	switch (type) {
+	case BGP_ATTR_MP_REACH_NLRI:
 		parse_ret = bgp_mp_reach_parse(&attr_args, &nlri);
-	else
+		break;
+	case BGP_ATTR_MP_UNREACH_NLRI:
 		parse_ret = bgp_mp_unreach_parse(&attr_args, &nlri);
+		break;
+	case BGP_ATTR_PREFIX_SID:
+		parse_ret = bgp_attr_prefix_sid(t->len, &attr_args, &nlri);
+		break;
+	default:
+		printf("unknown type");
+		return;
+	}
 	if (!parse_ret) {
 		iana_afi_t pkt_afi;
 		iana_safi_t pkt_safi;
@@ -1022,7 +1050,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	if (!parse_ret) {
 		if (type == BGP_ATTR_MP_REACH_NLRI)
 			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, 0);
-		else
+		else if (type == BGP_ATTR_MP_UNREACH_NLRI)
 			nlri_ret = bgp_nlri_parse(peer, &attr, &nlri, 1);
 	}
 	handle_result(peer, t, parse_ret, nlri_ret);
@@ -1085,6 +1113,10 @@ int main(void)
 		parse_test(peer, &mp_unreach_segments[i++],
 			   BGP_ATTR_MP_UNREACH_NLRI);
 
+	i = 0;
+	while (mp_prefix_sid[i].name)
+		parse_test(peer, &mp_prefix_sid[i++],
+			   BGP_ATTR_PREFIX_SID);
 	printf("failures: %d\n", failed);
 	return failed;
 }
