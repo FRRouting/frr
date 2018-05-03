@@ -85,7 +85,7 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 	 * End of filtering
 	 */
 
-	ep = eigrp_packet_new(ei->ifp->mtu, nbr);
+	ep = eigrp_packet_new(ei->ifp->mtu - sizeof(struct ip), nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_REPLY, eigrp, ep->s, 0,
