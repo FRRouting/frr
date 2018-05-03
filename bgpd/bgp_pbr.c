@@ -332,15 +332,15 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 		ecom = info->attr->ecommunity;
 		for (i = 0; i < ecom->size; i++) {
 			ecom_eval = (struct ecommunity_val *)
-				ecom->val + (i * ECOMMUNITY_SIZE);
-
+				(ecom->val + (i * ECOMMUNITY_SIZE));
+			action_count++;
 			if (action_count > ACTIONS_MAX_NUM) {
 				if (BGP_DEBUG(pbr, PBR_ERROR))
 					zlog_err("%s: flowspec actions exceeds limit (max %u)",
 						 __func__, action_count);
 				break;
 			}
-			api_action = &api->actions[action_count];
+			api_action = &api->actions[action_count - 1];
 
 			if ((ecom_eval->val[1] ==
 			     (char)ECOMMUNITY_REDIRECT_VRF) &&
