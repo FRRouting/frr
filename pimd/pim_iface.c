@@ -1547,27 +1547,20 @@ int pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
 	return 0;
 }
 
-int pim_if_is_loopback(struct pim_instance *pim, struct interface *ifp)
+bool pim_if_is_loopback(struct interface *ifp)
 {
-	if (if_is_loopback(ifp))
-		return 1;
+	if (if_is_loopback(ifp) || if_is_vrf(ifp))
+		return true;
 
-	if (strcmp(ifp->name, pim->vrf->name) == 0)
-		return 1;
-
-	return 0;
+	return false;
 }
 
-int pim_if_is_vrf_device(struct interface *ifp)
+bool pim_if_is_vrf_device(struct interface *ifp)
 {
-	struct vrf *vrf;
+	if (if_is_vrf(ifp))
+		return true;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (strncmp(ifp->name, vrf->name, strlen(ifp->name)) == 0)
-			return 1;
-	}
-
-	return 0;
+	return false;
 }
 
 int pim_if_ifchannel_count(struct pim_interface *pim_ifp)

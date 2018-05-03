@@ -207,9 +207,9 @@ void pim_if_create_pimreg(struct pim_instance *pim);
 int pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
 int pim_update_source_set(struct interface *ifp, struct in_addr source);
 
-int pim_if_is_loopback(struct pim_instance *pim, struct interface *ifp);
+bool pim_if_is_loopback(struct interface *ifp);
 
-int pim_if_is_vrf_device(struct interface *ifp);
+bool pim_if_is_vrf_device(struct interface *ifp);
 
 int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 #endif /* PIM_IFACE_H */
