@@ -32,6 +32,8 @@ explicitly named, they will be formatted ``like this`` to differentiate from
 the conceptual names. When speaking of kernel threads, the term used will be
 "pthread" since FRR's kernel threading implementation is POSIX threads.
 
+.. This should be broken into its document under :ref:`libfrr`
+.. _event-architecture:
 
 Event Architecture
 ------------------
@@ -67,7 +69,8 @@ are given by integer macros in :file:`thread.h` and are:
 
 ``THREAD_EVENT``
    Generic task that executes with high priority and carries an arbitrary
-   integer indicating the event type to its handler.
+   integer indicating the event type to its handler. These are commonly used to
+   implement the finite state machines typically found in routing protocols.
 
 ``THREAD_READY``
    Type used internally for tasks on the ready queue.
@@ -110,6 +113,26 @@ highest priority, followed by expired timers and finally I/O tasks (type
 arbitrary argument are provided. The task returned from ``thread_fetch()`` is
 then executed with ``thread_call()``.
 
+The following diagram illustrates a simplified version of this infrastructure.
+
+.. todo: replace these with SVG
+.. figure:: ../figures/threadmaster-single.png
+   :align: center
+   
+   Lifecycle of a program using a single threadmaster.
+
+The series of "task" boxes represents the current ready task queue. The various
+other queues for other types are not shown. The fetch-execute loop is
+illustrated at the bottom.
+
+Mapping the general names used in the figure to specific FRR functions:
+
+- ``task`` is ``struct thread *``
+- ``fetch`` is ``thread_fetch()``
+- ``exec()`` is ``thread_call``
+- ``cancel()`` is ``thread_cancel()``
+- ``schedule()`` is any of the various task-specific ``thread_add_*`` functions
+
 Adding tasks is done with various task-specific function-like macros. These
 macros wrap underlying functions in :file:`thread.c` to provide additional
 information added at compile time, such as the line number the task was
@@ -134,10 +157,6 @@ There are some gotchas to keep in mind:
   call is the responsibility of the caller.
 
 
-.. todo: include this when its more complete
-.. .. figure:: ../figures/threadmaster.svg
-
-
 Kernel Thread Architecture
 --------------------------
 Efforts have begun to introduce kernel threads into FRR to improve performance
@@ -157,6 +176,27 @@ kernel thread. This allows us to leverage the event-driven execution model with
 the currently existing task and context primitives. In this way the familiar
 execution model of FRR gains the ability to execute tasks simultaneously while
 preserving the existing model for concurrency.
+
+The following figure illustrates the architecture with multiple pthreads, each
+running their own ``threadmaster``-based event loop.
+
+.. todo: replace these with SVG
+.. figure:: ../figures/threadmaster-multiple.png
+   :align: center
+   
+   Lifecycle of a program using multiple pthreads, each running their own
+   ``threadmaster``
+
+Each roundrect represents a single pthread running the same event loop
+described under :ref:`event-architecture`. Note the arrow from the ``exec()``
+box on the right to the ``schedule()`` box in the middle pthread. This
+illustrates code running in one pthread scheduling a task onto another
+pthread's threadmaster. A global lock for each ``threadmaster`` is used to
+synchronize these operations. The pthread names are examples.
+
+
+.. This should be broken into its document under :ref:`libfrr`
+.. _kernel-thread-wrapper:
 
 Kernel Thread Wrapper
 ^^^^^^^^^^^^^^^^^^^^^
@@ -184,7 +224,9 @@ passing, where the messages are the regular task events as used in the
 event-driven model. The only difference is thread cancellation, which requires
 calling ``thread_cancel_async()`` instead of ``thread_cancel`` to cancel a task
 currently scheduled on a ``threadmaster`` belonging to a different pthread.
-This is necessary
+This is necessary to avoid race conditions in the specific case where one
+pthread wants to guarantee that a task on another pthread is cancelled before
+proceeding.
 
 In addition, the existing commands to show statistics and other information for
 tasks within the event driven model have been expanded to handle multiple
