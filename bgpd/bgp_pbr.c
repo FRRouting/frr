@@ -621,10 +621,8 @@ int bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 
 	/* unique value is self calculated
 	 * table and fwmark is self calculated
+	 * rate is ignored
 	 */
-	if (r1->rate != r2->rate)
-		return 0;
-
 	if (r1->vrf_id != r2->vrf_id)
 		return 0;
 
