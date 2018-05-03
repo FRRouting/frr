@@ -6,6 +6,7 @@ Welcome to FRR's documentation!
 
    workflow
    building
+   process-architecture
    library
    bgpd
    ospf
