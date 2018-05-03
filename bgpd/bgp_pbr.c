@@ -1220,6 +1220,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	struct bgp_pbr_range_port *srcp = NULL, *dstp = NULL;
 	struct bgp_pbr_range_port range;
 
+	memset(&nh, 0, sizeof(struct nexthop));
 	if (api->match_bitmask & PREFIX_SRC_PRESENT)
 		src = &api->src_prefix;
 	if (api->match_bitmask & PREFIX_DST_PRESENT)
