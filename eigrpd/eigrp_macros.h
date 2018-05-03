@@ -35,6 +35,8 @@
 
 //--------------------------------------------------------------------------
 
+#define EIGRP_PACKET_MTU(mtu) ((mtu) - (sizeof(struct ip)))
+
 /* Topology Macros */
 
 

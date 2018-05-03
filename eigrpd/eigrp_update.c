@@ -420,7 +420,7 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 	struct eigrp_packet *ep;
 	uint16_t length = EIGRP_HEADER_LEN;
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu - sizeof(struct ip), nbr);
+	ep = eigrp_packet_new(EIGRP_PACKET_MTU(nbr->ei->ifp->mtu), nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
@@ -533,7 +533,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
 	uint32_t seq_no = eigrp->sequence_number;
-	uint16_t eigrp_mtu = ei->ifp->mtu - sizeof(struct ip);
+	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);
 	struct route_node *rn;
 
 	ep = eigrp_packet_new(eigrp_mtu, nbr);
@@ -604,7 +604,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
 	uint32_t seq_no = eigrp->sequence_number;
-	uint16_t eigrp_mtu = ei->ifp->mtu - sizeof(struct ip);
+	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);
 
 	if (ei->nbrs->count == 0)
 		return;
@@ -790,7 +790,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		}
 	}
 
-	ep = eigrp_packet_new(ei->ifp->mtu - sizeof(struct ip), nbr);
+	ep = eigrp_packet_new(EIGRP_PACKET_MTU(ei->ifp->mtu), nbr);
 
 	/* Prepare EIGRP Graceful restart UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp, ep->s, flags,

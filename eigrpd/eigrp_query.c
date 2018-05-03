@@ -167,7 +167,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	struct eigrp_prefix_entry *pe;
 	bool has_tlv = false;
 	bool new_packet = true;
-	uint16_t eigrp_mtu = ei->ifp->mtu - sizeof(struct ip);
+	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);
 
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
