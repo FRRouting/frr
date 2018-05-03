@@ -441,7 +441,6 @@ void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
 	lookup = hash_lookup(zns->ipset_hash, ipset);
 	/* TODO:
 	 * - Netlink destroy from kernel
-	 * - ?? destroy ipset entries before
 	 */
 	if (lookup) {
 		hash_release(zns->ipset_hash, lookup);
@@ -511,7 +510,6 @@ void zebra_pbr_add_ipset_entry(struct zebra_ns *zns,
 	(void)hash_get(zns->ipset_entry_hash, ipset,
 		       pbr_ipset_entry_alloc_intern);
 	/* TODO:
-	 * - attach to ipset list
 	 * - Netlink add to kernel
 	 */
 }
@@ -524,8 +522,6 @@ void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
 	lookup = hash_lookup(zns->ipset_entry_hash, ipset);
 	/* TODO:
 	 * - Netlink destroy
-	 * - detach from ipset list
-	 * - ?? if no more entres, delete ipset
 	 */
 	if (lookup) {
 		hash_release(zns->ipset_entry_hash, lookup);
@@ -554,7 +550,7 @@ void zebra_pbr_add_iptable(struct zebra_ns *zns,
 {
 	(void)hash_get(zns->iptable_hash, iptable,
 		       pbr_iptable_alloc_intern);
-	/* TODO call netlink layer */
+	/* TODO call ioctl layer */
 }
 
 void zebra_pbr_del_iptable(struct zebra_ns *zns,
@@ -564,8 +560,7 @@ void zebra_pbr_del_iptable(struct zebra_ns *zns,
 
 	lookup = hash_lookup(zns->iptable_hash, iptable);
 	/* TODO:
-	 * - call netlink layer
-	 * - detach from iptable list
+	 * - call ioctl layer
 	 */
 	if (lookup) {
 		struct listnode *node, *nnode;
