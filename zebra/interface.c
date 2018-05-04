@@ -202,6 +202,7 @@ struct interface *if_link_per_ns(struct zebra_ns *ns, struct interface *ifp)
 	if (rn->info) {
 		ifp = (struct interface *)rn->info;
 		route_unlock_node(rn); /* get */
+		ifp->node = rn;
 		return ifp;
 	}
 
