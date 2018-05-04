@@ -57,6 +57,7 @@ struct item_list {
 #define IPSET_PRE_HASH "hash:"
 
 DEFINE_MTYPE_STATIC(ZEBRA, SCRIPTPATH, "Path Location for scripts");
+DEFINE_MTYPE_STATIC(ZEBRA, SCRIPTCACHE, "Cache Information");
 static char *zebra_wrap_script_iptable_pathname;
 static char *zebra_wrap_script_ipset_pathname;
 
@@ -69,17 +70,39 @@ static struct cmd_node zebra_wrap_script_node = {.name = "Wrap Script",
 
 static int zebra_wrap_debug;
 
-static int zebra_wrap_script_column(const char *script,
-				     int begin_at_line,
-				     struct json_object *json_obj_list,
-				     char *switch_to_mode_row_at);
-static int zebra_wrap_script_rows(const char *script,
-			    int begin_at_line,
-			    struct json_object *json_obj_list);
-static int zebra_wrap_script_get_stat(struct json_object *json_input,
-				      const char *pattern,
-				      const char *match,
-				      uint64_t *pkts, uint64_t *bytes);
+static const struct message ip_proto_str[] = {
+	{IPPROTO_TCP, "tcp"},
+	{IPPROTO_UDP, "udp"},
+	{IPPROTO_ICMP, "icmp"},
+	{0}
+};
+
+#define WRAP_REFRESH_TIME_SECOND 5
+
+struct zebra_wrap_iptable_json_cache {
+	struct json_object *iptable_list;
+	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
+	time_t tv_sec;
+};
+
+struct zebra_wrap_ipset_json_cache {
+	struct json_object *ipset_list;
+	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
+	time_t tv_sec;
+};
+
+static struct zebra_wrap_ipset_json_cache *ipset_json;
+static struct zebra_wrap_iptable_json_cache *iptable_json;
+
+static int zebra_wrap_script_ipset_entry_get_stat(
+				struct zebra_ns *zns,
+				struct zebra_pbr_ipset_entry *ipset,
+				uint64_t *pkts, uint64_t *bytes);
+static int zebra_wrap_script_iptable_get_stat(
+				struct zebra_ns *zns,
+				struct zebra_pbr_iptable *iptable,
+				uint64_t *pkts, uint64_t *bytes);
+
 static int zebra_wrap_script_init(struct thread_master *t);
 
 static int zebra_wrap_script_iptable_update(struct zebra_ns *zns, int cmd,
@@ -91,12 +114,10 @@ static int zebra_wrap_script_ipset_entry_update(struct zebra_ns *zns, int cmd,
 
 static int zebra_wrap_script_module_init(void)
 {
-	hook_register(zebra_pbr_wrap_script_rows,
-		      zebra_wrap_script_rows);
-	hook_register(zebra_pbr_wrap_script_column,
-		      zebra_wrap_script_column);
-	hook_register(zebra_pbr_wrap_script_get_stat,
-		      zebra_wrap_script_get_stat);
+	hook_register(zebra_pbr_iptable_wrap_script_get_stat,
+		      zebra_wrap_script_iptable_get_stat);
+	hook_register(zebra_pbr_ipset_entry_wrap_script_get_stat,
+		      zebra_wrap_script_ipset_entry_get_stat);
 	hook_register(frr_late_init, zebra_wrap_script_init);
 	hook_register(zebra_pbr_iptable_wrap_script_update,
 		      zebra_wrap_script_iptable_update);
@@ -113,6 +134,92 @@ FRR_MODULE_SETUP(
 		 .description = "zebra wrap script module",
 		 .init = zebra_wrap_script_module_init
 		 );
+
+static int zebra_wrap_sprint_port(char *str,
+				 int tot_len,
+				 uint16_t port,
+				 uint8_t proto)
+{
+	char *ptr = str;
+	int len_written, len = tot_len;
+
+	len_written = snprintf(ptr, len, ",%s",
+			lookup_msg(ip_proto_str, proto,
+				   "NA:"));
+	len -= len_written;
+	ptr += len_written;
+	if (port) {
+		len_written = snprintf(ptr, len, ":%d", port);
+		len -= len_written;
+		ptr += len_written;
+	}
+	return tot_len - len;
+}
+
+static const char *zebra_wrap_prefix2str(union prefixconstptr pu,
+					char *str, int size)
+{
+	const struct prefix *p = pu.p;
+	char buf[PREFIX2STR_BUFFER];
+
+	if (p->family == AF_INET && p->prefixlen == IPV4_MAX_PREFIXLEN) {
+		snprintf(str, size, "%s", inet_ntop(p->family, &p->u.prefix,
+						    buf, PREFIX2STR_BUFFER));
+		return str;
+	}
+	return prefix2str(pu, str, size);
+}
+
+/* return a string identifier similar to what is available in
+ * ipset list. optional_proto is here to override proto value
+ * of zpi if proto value is not available
+ */
+static void zebra_wrap_forge_ipset_identifier(char *buffer, size_t buff_len,
+					     uint32_t type,
+					     struct prefix *src,
+					     struct prefix *dst,
+					     uint32_t port,
+					     uint8_t proto)
+{
+	size_t len = buff_len;
+	char *ptr = buffer;
+
+	if ((type == IPSET_NET_NET) ||
+	    (type == IPSET_NET_PORT_NET)) {
+		char buf[PREFIX_STRLEN];
+		int len_temp;
+
+		zebra_wrap_prefix2str(src,
+				     buf, sizeof(buf));
+		len_temp = snprintf(ptr, len, "%s", buf);
+		ptr += len_temp;
+		len -= len_temp;
+		if (port) {
+			len_temp = zebra_wrap_sprint_port(ptr, len,
+							 port, proto);
+			ptr += len_temp;
+			len -= len_temp;
+		}
+		zebra_wrap_prefix2str(dst,
+				     buf, sizeof(buf));
+		snprintf(ptr, len, ",%s", buf);
+	} else if ((type == IPSET_NET) ||
+		   (type == IPSET_NET_PORT)) {
+		char buf[PREFIX_STRLEN];
+		int len_temp;
+
+		if (src)
+			zebra_wrap_prefix2str(src, buf, sizeof(buf));
+		else
+			zebra_wrap_prefix2str(dst, buf, sizeof(buf));
+		len_temp = snprintf(ptr, len, "%s", buf);
+		ptr += len_temp;
+		len -= len_temp;
+		if (port)
+			zebra_wrap_sprint_port(ptr, len,
+					      port, proto);
+	}
+}
 
 static bool isseparator(char car, char separator_list[])
 {
@@ -410,7 +517,7 @@ static int handle_field_line_row(struct json_object *json_obj,
 static int zebra_wrap_script_column(const char *script,
 				    int begin_at_line,
 				    struct json_object *json_obj_list,
-				    char *switch_to_mode_row_at)
+				    const char *switch_to_mode_row_at)
 {
 	FILE *fp;
 	char data[DATA_LEN];
@@ -682,6 +789,201 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 	return ret;
 }
 
+static int zebra_wrap_script_ipset_entry_get_stat(
+				struct zebra_ns *zns,
+				struct zebra_pbr_ipset_entry *zpie,
+				uint64_t *pkts, uint64_t *bytes)
+{
+	struct timeval tv;
+	struct prefix *src = NULL, *dst = NULL;
+	char json_data_str[100];
+	char *ptr = json_data_str;
+	size_t len = sizeof(json_data_str);
+	struct zebra_pbr_ipset *zpi = zpie->backpointer;
+	int ret = 0;
+
+	monotime(&tv);
+	if (!ipset_json) {
+		ipset_json = XCALLOC(MTYPE_SCRIPTCACHE,
+				     sizeof(struct zebra_wrap_ipset_json_cache));
+		if (!ipset_json)
+			return 0;
+	}
+	if (ipset_json->ipset_list) {
+		if (strncmp(zpi->ipset_name,
+			    ipset_json->ipset_name, ZEBRA_IPSET_NAME_SIZE)) {
+			json_object_free(ipset_json->ipset_list);
+			ipset_json->ipset_list = NULL;
+			ipset_json->tv_sec = tv.tv_sec;
+		} else if (tv.tv_sec - ipset_json->tv_sec > WRAP_REFRESH_TIME_SECOND) {
+			json_object_free(ipset_json->ipset_list);
+			ipset_json->ipset_list = NULL;
+			ipset_json->tv_sec = tv.tv_sec;
+		}
+	}
+	/* populate json table */
+	if (!ipset_json->ipset_list) {
+		char input[120];
+		const char *members = "Members:";
+		int ret = 0;
+
+		ipset_json->ipset_list = json_object_new_object();
+		/*
+		 * The following call will analyse the output of 'ipset --list'
+		 * command, and will return a json string format that will contain
+		 * the output of previous command executed. The below comment
+		 * lines explain how the translation is done
+		 *
+		 * Name: match0x39ea2d0
+		 * Type: hash:net,net
+		 * Revision: 2
+		 * Header: family inet hashsize 64 maxelem 65536 counters
+		 * Size in memory: 824
+		 * References: 1
+		 * Number of entries: 2
+		 * Members:
+		 * 1.1.1.2,2.2.2.2 packets 0 bytes 0
+		 * 172.17.0.0/24,172.17.0.31 packets 0 bytes 0
+		 * =>
+		 * "0":{"Name":"match0x39ea2d0", "Type":"hash:net,net",
+		 * "Revision":"2","Header":"...", ...,"Number of entries":"2"}
+		 * "1":{"data":"1.1.1.2,2.2.2.2","packets":"0","bytes":"0"}
+		 * "2":{"data":"172.17.0.0/24,172.17.0.31","packets":"0","bytes":"0"}
+		 */
+		snprintf(input, sizeof(input),
+			 "ipset --list %s", zpi->ipset_name);
+		ret = zebra_wrap_script_column(input, 1,
+						   ipset_json->ipset_list, members);
+		if (ret < 0) {
+			json_object_free(ipset_json->ipset_list);
+			ipset_json->ipset_list = NULL;
+			return 0;
+		}
+		ipset_json->tv_sec = tv.tv_sec;
+	}
+	memset(json_data_str, 0, sizeof(json_data_str));
+	if (zpie->filter_bm & PBR_FILTER_SRC_IP)
+		src = &(zpie->src);
+	if (zpie->filter_bm & PBR_FILTER_DST_IP)
+		dst = &(zpie->dst);
+	memset(ptr, 0, sizeof(json_data_str));
+	if ((zpi->type == IPSET_NET) ||
+	    (zpi->type == IPSET_NET_NET)) {
+		zebra_wrap_forge_ipset_identifier(ptr, len, zpi->type,
+						 src, dst, 0, 0);
+		ret = zebra_wrap_script_get_stat(ipset_json->ipset_list, "data",
+						 json_data_str, pkts, bytes);
+	} else if (((zpi->type == IPSET_NET_PORT) ||
+		    zpi->type == IPSET_NET_PORT_NET)) {
+		uint64_t pkts_to_add = 0, bytes_to_add = 0;
+		uint16_t port, port_min, port_max;
+		uint16_t proto = 0, proto2;
+
+		if (zpie->filter_bm & PBR_FILTER_SRC_PORT) {
+			port_min = zpie->src_port_min;
+			port_max = zpie->src_port_max;
+		} else {
+			port_min = zpie->dst_port_min;
+			port_max = zpie->dst_port_max;
+		}
+		if (port_max == 0)
+			port_max = port_min;
+		/* case range of ports */
+		proto = (zpie->proto == 0) ? IPPROTO_TCP : proto;
+		proto2 = (zpie->proto == 0) ? IPPROTO_UDP : 0;
+		for (port = port_min; port <= port_max; port++) {
+			ptr = json_data_str;
+			memset(ptr, 0, sizeof(json_data_str));
+			zebra_wrap_forge_ipset_identifier(ptr, len,
+							 zpi->type,
+							 src, dst,
+							 port, proto);
+			ret = zebra_wrap_script_get_stat(
+							 ipset_json->ipset_list,
+							 "data",
+							 json_data_str,
+							 &pkts_to_add,
+							 &bytes_to_add);
+			*pkts += pkts_to_add;
+			*bytes += bytes_to_add;
+
+			if (proto2 == 0)
+				continue;
+			ptr = json_data_str;
+			zebra_wrap_forge_ipset_identifier(ptr, len,
+							 zpi->type,
+							 src, dst,
+							 port, proto2);
+			ret += zebra_wrap_script_get_stat(
+							  ipset_json->ipset_list,
+							  "data",
+							  json_data_str,
+							  &pkts_to_add,
+							  &bytes_to_add);
+			*pkts += pkts_to_add;
+			*bytes += bytes_to_add;
+		}
+	}
+	return ret;
+}
+
+static int zebra_wrap_script_iptable_get_stat(
+				struct zebra_ns *zns,
+				struct zebra_pbr_iptable *iptable,
+				uint64_t *pkts, uint64_t *bytes)
+{
+	struct timeval tv;
+	int ret = 0;
+
+	monotime(&tv);
+	if (!iptable_json) {
+		iptable_json = XCALLOC(MTYPE_SCRIPTCACHE,
+				       sizeof(struct zebra_wrap_iptable_json_cache));
+		if (!iptable_json)
+			return 0;
+	}
+	if (iptable_json->iptable_list) {
+		if (tv.tv_sec - iptable_json->tv_sec > WRAP_REFRESH_TIME_SECOND) {
+			json_object_free(iptable_json->iptable_list);
+			iptable_json->iptable_list = NULL;
+			iptable_json->tv_sec = tv.tv_sec;
+		}
+	}
+	/* populate json table */
+	if (!iptable_json->iptable_list) {
+		char input[120];
+
+		iptable_json->iptable_list = json_object_new_object();
+		snprintf(input, sizeof(input),
+			 "iptables -t mangle -L PREROUTING -v");
+		/*
+		 * The following call will analyse the output of 'iptables'
+		 * command, and will return a json string format that will contain
+		 * the output of previous command executed. The below comment
+		 * lines explain how the translation is done
+		 *
+		 * pkts bytes target     prot opt in     out     source destination
+		 *  0     0     MARK       all --  any    any     anywhere anywhere \
+		 * match-set match0x44af320 dst,dst MARK set 0x100
+		 * =>
+		 * "<IDx>":{ "pkts":"<X>","bytes":"<Y>"",...,"misc":"..	\
+		 *  match0x<ptr1> ..."},
+		 * "<IDy>":{ "pkts":"<X>","bytes":"<Y>"",...,"misc":"..	\
+		 * match0x<ptr2> ..."},
+		 */
+		ret = zebra_wrap_script_rows(input, 1, iptable_json->iptable_list);
+		if (ret < 0) {
+			json_object_free(iptable_json->iptable_list);
+			iptable_json->iptable_list = NULL;
+			return 0;
+		}
+		iptable_json->tv_sec = tv.tv_sec;
+	}
+
+	ret = zebra_wrap_script_get_stat(iptable_json->iptable_list, "misc",
+					 iptable->ipset_name, pkts, bytes);
+	return ret;
+}
 
 /*************************************************
  * iptable
