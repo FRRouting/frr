@@ -1040,6 +1040,12 @@ static void if_netlink_check_ifp_instance_consistency(uint16_t cmd,
 	other_ifp = if_lookup_by_name_not_ns(ns_id, ifp->name);
 	if (!other_ifp)
 		return;
+	/* because previous interface may be inactive,
+	 * interface is moved back to default vrf
+	 * then one may find the same pointer; ignore
+	 */
+	if (other_ifp == ifp)
+		return;
 	if ((cmd == RTM_NEWLINK)
 	    && (CHECK_FLAG(other_ifp->status, ZEBRA_INTERFACE_ACTIVE)))
 		return;
