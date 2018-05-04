@@ -119,7 +119,7 @@ void eigrp_send_siaquery(struct eigrp_neighbor *nbr,
 	struct eigrp_packet *ep;
 	uint16_t length = EIGRP_HEADER_LEN;
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
+	ep = eigrp_packet_new(EIGRP_PACKET_MTU(nbr->ei->ifp->mtu), nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_SIAQUERY, nbr->ei->eigrp, ep->s, 0,

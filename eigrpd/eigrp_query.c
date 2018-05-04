@@ -167,6 +167,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	struct eigrp_prefix_entry *pe;
 	bool has_tlv = false;
 	bool new_packet = true;
+	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);
 
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
@@ -174,7 +175,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 			continue;
 
 		if (new_packet) {
-			ep = eigrp_packet_new(ei->ifp->mtu, NULL);
+			ep = eigrp_packet_new(eigrp_mtu, NULL);
 
 			/* Prepare EIGRP INIT UPDATE header */
 			eigrp_packet_header_init(EIGRP_OPC_QUERY, ei->eigrp,
@@ -197,7 +198,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 				listnode_add(pe->rij, nbr);
 		}
 
-		if (length + EIGRP_TLV_MAX_IPV4_BYTE > (uint16_t)ei->ifp->mtu) {
+		if (length + EIGRP_TLV_MAX_IPV4_BYTE > eigrp_mtu) {
 			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
 			    && ei->params.auth_keychain != NULL) {
 				eigrp_make_md5_digest(ei, ep->s,

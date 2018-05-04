@@ -630,7 +630,7 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
 	uint16_t length = EIGRP_HEADER_LEN;
 
 	// allocate a new packet to be sent
-	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
+	ep = eigrp_packet_new(EIGRP_PACKET_MTU(ei->ifp->mtu), NULL);
 
 	if (ep) {
 		// encode common header feilds

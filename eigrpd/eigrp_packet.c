@@ -51,6 +51,7 @@
 #include "eigrpd/eigrp_zebra.h"
 #include "eigrpd/eigrp_vty.h"
 #include "eigrpd/eigrp_dump.h"
+#include "eigrpd/eigrp_macros.h"
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
@@ -1088,7 +1089,7 @@ struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *old,
 {
 	struct eigrp_packet *new;
 
-	new = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
+	new = eigrp_packet_new(EIGRP_PACKET_MTU(nbr->ei->ifp->mtu), nbr);
 	new->length = old->length;
 	new->retrans_counter = old->retrans_counter;
 	new->dst = old->dst;

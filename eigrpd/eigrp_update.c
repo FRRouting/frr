@@ -420,7 +420,7 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 	struct eigrp_packet *ep;
 	uint16_t length = EIGRP_HEADER_LEN;
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
+	ep = eigrp_packet_new(EIGRP_PACKET_MTU(nbr->ei->ifp->mtu), nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
@@ -533,10 +533,10 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
 	uint32_t seq_no = eigrp->sequence_number;
-	uint16_t mtu = ei->ifp->mtu;
+	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);
 	struct route_node *rn;
 
-	ep = eigrp_packet_new(mtu, nbr);
+	ep = eigrp_packet_new(eigrp_mtu, nbr);
 
 	/* Prepare EIGRP EOT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp, ep->s, EIGRP_EOT_FLAG,
@@ -557,13 +557,13 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 			if (eigrp_nbr_split_horizon_check(te, ei))
 				continue;
 
-			if ((length + EIGRP_TLV_MAX_IPV4_BYTE) > mtu) {
+			if ((length + EIGRP_TLV_MAX_IPV4_BYTE) > eigrp_mtu) {
 				eigrp_update_place_on_nbr_queue(nbr, ep, seq_no,
 								length);
 				seq_no++;
 
 				length = EIGRP_HEADER_LEN;
-				ep = eigrp_packet_new(mtu, nbr);
+				ep = eigrp_packet_new(eigrp_mtu, nbr);
 				eigrp_packet_header_init(
 					EIGRP_OPC_UPDATE, nbr->ei->eigrp, ep->s,
 					EIGRP_EOT_FLAG, seq_no,
@@ -604,13 +604,14 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
 	uint32_t seq_no = eigrp->sequence_number;
+	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);
 
 	if (ei->nbrs->count == 0)
 		return;
 
 	uint16_t length = EIGRP_HEADER_LEN;
 
-	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
+	ep = eigrp_packet_new(eigrp_mtu, NULL);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp, ep->s, 0, seq_no, 0);
@@ -633,8 +634,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		if (eigrp_nbr_split_horizon_check(ne, ei))
 			continue;
 
-		if ((length + EIGRP_TLV_MAX_IPV4_BYTE)
-		    > (uint16_t)ei->ifp->mtu) {
+		if ((length + EIGRP_TLV_MAX_IPV4_BYTE) > eigrp_mtu) {
 			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
 			    && (ei->params.auth_keychain != NULL)) {
 				eigrp_make_md5_digest(ei, ep->s,
@@ -651,7 +651,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 			eigrp_update_send_to_all_nbrs(ei, ep);
 
 			length = EIGRP_HEADER_LEN;
-			ep = eigrp_packet_new(ei->ifp->mtu, NULL);
+			ep = eigrp_packet_new(eigrp_mtu, NULL);
 			eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp, ep->s,
 						 0, seq_no, 0);
 			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
@@ -790,7 +790,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		}
 	}
 
-	ep = eigrp_packet_new(ei->ifp->mtu, nbr);
+	ep = eigrp_packet_new(EIGRP_PACKET_MTU(ei->ifp->mtu), nbr);
 
 	/* Prepare EIGRP Graceful restart UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp, ep->s, flags,
