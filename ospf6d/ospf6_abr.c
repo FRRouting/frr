@@ -684,7 +684,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
 	struct prefix prefix, abr_prefix;
 	struct ospf6_route_table *table = NULL;
-	struct ospf6_route *range, *route, *old = NULL;
+	struct ospf6_route *range, *route, *old = NULL, *old_route;
 	struct ospf6_route *abr_entry;
 	uint8_t type = 0;
 	char options[3] = {0, 0, 0};
@@ -695,14 +695,15 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	int is_debug = 0;
 	struct ospf6_inter_prefix_lsa *prefix_lsa = NULL;
 	struct ospf6_inter_router_lsa *router_lsa = NULL;
-	struct ospf6_path *path;
+	bool old_entry_updated = false;
 
 	memset(&prefix, 0, sizeof(prefix));
 
 	if (lsa->header->type == htons(OSPF6_LSTYPE_INTER_PREFIX)) {
 		if (IS_OSPF6_DEBUG_EXAMIN(INTER_PREFIX)) {
 			is_debug++;
-			zlog_debug("Examin %s in area %s", lsa->name, oa->name);
+			zlog_debug("%s: Examin %s in area %s",
+				   __PRETTY_FUNCTION__, lsa->name, oa->name);
 		}
 
 		prefix_lsa =
@@ -720,7 +721,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	} else if (lsa->header->type == htons(OSPF6_LSTYPE_INTER_ROUTER)) {
 		if (IS_OSPF6_DEBUG_EXAMIN(INTER_ROUTER)) {
 			is_debug++;
-			zlog_debug("Examin %s in area %s", lsa->name, oa->name);
+			zlog_debug("%s: Examin %s in area %s",
+				   __PRETTY_FUNCTION__, lsa->name, oa->name);
 		}
 
 		router_lsa =
@@ -902,11 +904,11 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	route->path.type = OSPF6_PATH_TYPE_INTER;
 	route->path.cost = abr_entry->path.cost + cost;
 
-	ospf6_route_copy_nexthops(route, abr_entry);
-
-	path = ospf6_path_dup(&route->path);
-	ospf6_copy_nexthops(path->nh_list, abr_entry->nh_list);
-	listnode_add_sort(route->paths, path);
+	/* Inter abr_entry is same as brouter.
+	 * Avoid duplicate nexthops to brouter and its
+	 * learnt route. i.e. use merge nexthops.
+	 */
+	ospf6_route_merge_nexthops(route, abr_entry);
 
 	/* (7) If the routes are identical, copy the next hops over to existing
 	   route. ospf6's route table implementation will otherwise string both
@@ -915,11 +917,28 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	*/
 	old = ospf6_route_lookup(&prefix, table);
 
-	if (old && (ospf6_route_cmp(route, old) == 0)) {
-		ospf6_route_merge_nexthops(old, route);
+	for (old_route = old; old_route; old_route = old_route->next) {
+		if (!ospf6_route_is_same(old_route, route) ||
+			(old_route->type != route->type) ||
+			(old_route->path.type != route->path.type))
+			continue;
 
+		if ((ospf6_route_cmp(route, old_route) != 0)) {
+			if (is_debug) {
+				prefix2str(&prefix, buf, sizeof(buf));
+				zlog_debug("%s: old %p %s cost %u new route cost %u are not same",
+					   __PRETTY_FUNCTION__,
+					   (void *)old_route, buf,
+					   old_route->path.cost,
+					   route->path.cost);
+			}
+			continue;
+		}
+
+		old_entry_updated = true;
+		ospf6_route_merge_nexthops(old, route);
 		if (is_debug)
-			zlog_debug("%s: Update route: %s old cost %u new cost %u nh count %u",
+			zlog_debug("%s: Update route: %s old cost %u new cost %u nh %u",
 				   __PRETTY_FUNCTION__,
 				   buf, old->path.cost, route->path.cost,
 				   listcount(route->nh_list));
@@ -930,9 +949,12 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 
 		/* Delete new route */
 		ospf6_route_delete(route);
-	} else {
+		break;
+	}
+
+	if (old_entry_updated == false) {
 		if (is_debug)
-			zlog_debug("%s: Install route: %s cost %u nh count %u",
+			zlog_debug("%s: Install route: %s cost %u nh %u",
 				   __PRETTY_FUNCTION__, buf, route->path.cost,
 				   listcount(route->nh_list));
 		/* ospf6_ia_add_nw_route (table, &prefix, route); */
