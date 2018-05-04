@@ -24,6 +24,7 @@ verification commands:
        show ip igmp groups retransmissions	IGMP group retransmission
        show ip igmp sources			IGMP sources information
        show ip igmp sources retransmissions	IGMP source retransmission
+       show ip igmp statistics			IGMP statistics information
        show ip pim address			PIM interface address
        show ip pim assert			PIM interface assert
        show ip pim assert-internal		PIM interface internal assert state
