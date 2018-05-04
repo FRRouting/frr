@@ -726,6 +726,9 @@ void if_delete_update(struct interface *ifp)
 		return;
 	}
 
+	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
+		return;
+
 	/* Mark interface as inactive */
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
 
