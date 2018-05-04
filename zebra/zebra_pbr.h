@@ -226,4 +226,26 @@ extern void zebra_pbr_show_iptable(struct vty *vty);
 extern void zebra_pbr_iptable_update_interfacelist(struct stream *s,
 				   struct zebra_pbr_iptable *zpi);
 
+DECLARE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat, (struct zebra_ns *zns,
+				    struct zebra_pbr_ipset_entry *ipset,
+				    uint64_t *pkts, uint64_t *bytes),
+				     (zns, ipset, pkts, bytes))
+DECLARE_HOOK(zebra_pbr_iptable_wrap_script_get_stat, (struct zebra_ns *zns,
+				    struct zebra_pbr_iptable *iptable,
+				    uint64_t *pkts, uint64_t *bytes),
+				     (zns, iptable, pkts, bytes))
+DECLARE_HOOK(zebra_pbr_iptable_wrap_script_update, (struct zebra_ns *zns,
+					     int cmd,
+					     struct zebra_pbr_iptable *iptable),
+					     (zns, cmd, iptable));
+
+DECLARE_HOOK(zebra_pbr_ipset_entry_wrap_script_update, (struct zebra_ns *zns,
+				  int cmd,
+				  struct zebra_pbr_ipset_entry *ipset),
+				     (zns, cmd, ipset));
+DECLARE_HOOK(zebra_pbr_ipset_wrap_script_update, (struct zebra_ns *zns,
+				  int cmd,
+				  struct zebra_pbr_ipset *ipset),
+				     (zns, cmd, ipset));
+
 #endif /* _ZEBRA_PBR_H */
