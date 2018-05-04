@@ -443,17 +443,24 @@ void eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
 	struct eigrp *eigrp = eigrp_lookup();
 
 	for (ALL_LIST_ELEMENTS_RO(dest->entries, node, entry)) {
-		if (((uint64_t)entry->distance
-		     <= (uint64_t)dest->distance * (uint64_t)eigrp->variance)
-		    && entry->distance != EIGRP_MAX_METRIC) // is successor
-		{
-			entry->flags |= EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
-			entry->flags &= ~EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG;
-		} else if (entry->reported_distance
-			   < dest->fdistance) // is feasible successor
-		{
-			entry->flags |= EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG;
-			entry->flags &= ~EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
+		if (entry->reported_distance < dest->fdistance) {
+			// is feasible successor, can be successor
+			if (((uint64_t)entry->distance
+			     <= (uint64_t)dest->distance
+					* (uint64_t)eigrp->variance)
+			    && entry->distance != EIGRP_MAX_METRIC) {
+				// is successor
+				entry->flags |=
+					EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
+				entry->flags &=
+					~EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG;
+			} else {
+				// is feasible successor only
+				entry->flags |=
+					EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG;
+				entry->flags &=
+					~EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
+			}
 		} else {
 			entry->flags &= ~EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG;
 			entry->flags &= ~EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
