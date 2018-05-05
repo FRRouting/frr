@@ -97,7 +97,7 @@ DEFUN_NOSH (show_debugging_ospf6,
 	    DEBUG_STR
 	    OSPF6_STR)
 {
-	vty_out(vty, "OSPF6 debugging status:");
+	vty_out(vty, "OSPF6 debugging status:\n");
 
 	config_write_ospf6_debug(vty);
 
