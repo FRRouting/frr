@@ -856,7 +856,7 @@ int vrf_bind(vrf_id_t vrf_id, int fd, char *name)
 	if (vrf_is_mapped_on_netns(vrf_id))
 		return fd;
 #ifdef SO_BINDTODEVICE
-	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name));
+	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);
 	if (ret < 0)
 		zlog_debug("bind to interface %s failed, errno=%d", name,
 			   errno);
