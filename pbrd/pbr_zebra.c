@@ -479,6 +479,7 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putw(s, 0);  /* src port */
 	pbr_encode_pbr_map_sequence_prefix(s, pbrms->dst, family);
 	stream_putw(s, 0);  /* dst port */
+	stream_putl(s, 0);  /* fwmark */
 	if (pbrms->nhgrp_name)
 		stream_putl(s, pbr_nht_get_table(pbrms->nhgrp_name));
 	else if (pbrms->nhg)
