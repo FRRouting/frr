@@ -4,8 +4,9 @@
 Bidirectional Forwarding Detection
 **********************************
 
-:abbr:`BFD` stands for Bidirectional Forwarding Detection and it is described
-and extended by the following RFCs:
+:abbr:`BFD (Bidirectional Forwarding Detection)` stands for
+Bidirectional Forwarding Detection and it is described and extended by
+the following RFCs:
 
 * :rfc:`5880`
 * :rfc:`5881`
@@ -13,7 +14,7 @@ and extended by the following RFCs:
 
 Currently, there are two implementations of the BFD commands in FRR:
 
-* :abbr:`PTM` (Prescriptive Topology Manager): an external daemon which
+* :abbr:`PTM (Prescriptive Topology Manager)`: an external daemon which
   implements BFD;
 * ``bfdd``: a BFD adapter which communicates with a external BFD daemon;
 
@@ -58,16 +59,16 @@ Here is how to run ``bfdd`` with a custom control socket path:
 
 ::
 
-    ebfdd -C /var/run/frr/ebfdd.sock
-    /usr/lib/frr/bfdd --bfdctl /var/run/frr/ebfdd.sock
-    /usr/lib/frr/bgpd --bfdctl /var/run/frr/ebfdd.sock
+   ebfdd -C /var/run/frr/ebfdd.sock
+   /usr/lib/frr/bfdd --bfdctl /var/run/frr/ebfdd.sock
+   /usr/lib/frr/bgpd --bfdctl /var/run/frr/ebfdd.sock
 
 
 The default UNIX socket location is defined in ``bfdctl.h``:
 
 ::
 
-    #define BFD_CONTROL_SOCK_PATH "/var/run/bfdd.sock"
+   #define BFD_CONTROL_SOCK_PATH "/var/run/bfdd.sock"
 
 
 .. _bfd-commands:
@@ -238,34 +239,34 @@ Here are the available peer configurations:
 
 ::
 
-    bfd
+   bfd
 
-     ! configure a peer on an specific interface
-     peer 192.168.0.1 interface eth0
-      no shutdown
-     !
+    ! configure a peer on an specific interface
+    peer 192.168.0.1 interface eth0
+     no shutdown
+    !
 
-     ! configure a multihop peer
-     peer 192.168.0.2 multihop local-address 192.168.0.3
-       shutdown
-     !
-
-     ! configure a peer in a different vrf
-     peer 192.168.0.3 vrf foo
+    ! configure a multihop peer
+    peer 192.168.0.2 multihop local-address 192.168.0.3
       shutdown
-     !
+    !
 
-     ! configure a peer with every option possible
-     peer 192.168.0.4
-      label peer-label
-      detect-multiplier 50
-      receive-interval 60000
-      transmit-interval 3000
-      shutdown
-     !
+    ! configure a peer in a different vrf
+    peer 192.168.0.3 vrf foo
+     shutdown
+    !
 
-     ! remove a peer
-     no peer 192.168.0.3 vrf foo
+    ! configure a peer with every option possible
+    peer 192.168.0.4
+     label peer-label
+     detect-multiplier 50
+     receive-interval 60000
+     transmit-interval 3000
+     shutdown
+    !
+
+    ! remove a peer
+    no peer 192.168.0.3 vrf foo
 
 
 .. _bfd-status:
@@ -277,56 +278,56 @@ You can inspect the current BFD peer status with the following commands:
 
 ::
 
-    frr# show bfd peers
-    BFD Peers:
-            peer 192.168.0.1
-                    ID: 1
-                    Remote ID: 1
-                    Status: up
-                    Uptime: 1 minute(s), 51 second(s)
-                    Diagnostics: ok
-                    Remote diagnostics: ok
-                    Local timers:
-                            Receive interval: 300
-                            Transmission interval: 300
-                            Echo transmission interval: disabled
-                    Remote timers:
-                            Receive interval: 300
-                            Transmission interval: 300
-                            Echo transmission interval: 50
+   frr# show bfd peers
+   BFD Peers:
+           peer 192.168.0.1
+                   ID: 1
+                   Remote ID: 1
+                   Status: up
+                   Uptime: 1 minute(s), 51 second(s)
+                   Diagnostics: ok
+                   Remote diagnostics: ok
+                   Local timers:
+                           Receive interval: 300
+                           Transmission interval: 300
+                           Echo transmission interval: disabled
+                   Remote timers:
+                           Receive interval: 300
+                           Transmission interval: 300
+                           Echo transmission interval: 50
 
-            peer 192.168.1.1
-                    label: router3-peer
-                    ID: 2
-                    Remote ID: 2
-                    Status: up
-                    Uptime: 1 minute(s), 53 second(s)
-                    Diagnostics: ok
-                    Remote diagnostics: ok
-                    Local timers:
-                            Receive interval: 300
-                            Transmission interval: 300
-                            Echo transmission interval: disabled
-                    Remote timers:
-                            Receive interval: 300
-                            Transmission interval: 300
-                            Echo transmission interval: 50
+           peer 192.168.1.1
+                   label: router3-peer
+                   ID: 2
+                   Remote ID: 2
+                   Status: up
+                   Uptime: 1 minute(s), 53 second(s)
+                   Diagnostics: ok
+                   Remote diagnostics: ok
+                   Local timers:
+                           Receive interval: 300
+                           Transmission interval: 300
+                           Echo transmission interval: disabled
+                   Remote timers:
+                           Receive interval: 300
+                           Transmission interval: 300
+                           Echo transmission interval: 50
 
-    frr# show bfd peer 192.168.1.1
-    BFD Peer:
-                peer 192.168.1.1
-                    label: router3-peer
-                    ID: 2
-                    Remote ID: 2
-                    Status: up
-                    Uptime: 3 minute(s), 4 second(s)
-                    Diagnostics: ok
-                    Remote diagnostics: ok
-                    Local timers:
-                            Receive interval: 300
-                            Transmission interval: 300
-                            Echo transmission interval: disabled
-                    Remote timers:
-                            Receive interval: 300
-                            Transmission interval: 300
-                            Echo transmission interval: 50
+   frr# show bfd peer 192.168.1.1
+   BFD Peer:
+               peer 192.168.1.1
+                   label: router3-peer
+                   ID: 2
+                   Remote ID: 2
+                   Status: up
+                   Uptime: 3 minute(s), 4 second(s)
+                   Diagnostics: ok
+                   Remote diagnostics: ok
+                   Local timers:
+                           Receive interval: 300
+                           Transmission interval: 300
+                           Echo transmission interval: disabled
+                   Remote timers:
+                           Receive interval: 300
+                           Transmission interval: 300
+                           Echo transmission interval: 50
