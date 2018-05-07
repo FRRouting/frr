@@ -840,7 +840,28 @@ struct peer {
 	/* NSF mode (graceful restart) */
 	uint8_t nsf[AFI_MAX][SAFI_MAX];
 
-	/* Per AF configuration flags. */
+	/* Peer Per AF flags */
+	/*
+	 * Parallel array to af_flags that indicates whether each flag
+	 * originates from a peer-group or if it is config that is specific to
+	 * this individual peer. If a flag is set independent of the
+	 * peer-group the same bit should be set here. If this peer is a
+	 * peer-group, this memory region should be all zeros. The assumption
+	 * is that the default state for all flags is unset.
+	 *
+	 * Notes:
+	 * - if a flag for an individual peer is unset, the corresponding
+	 *   override flag is unset and the peer is considered to be back in
+	 *   sync with the peer-group.
+	 * - This does *not* contain the flag values, rather it contains
+	 *   whether the flag at the same position in af_flags is
+	 *   *peer-specific*.
+	 */
+	uint32_t af_flags_override[AFI_MAX][SAFI_MAX];
+	/*
+	 * Effective flags, computed by applying peer-group flags and then
+	 * overriding with individual flags
+	 */
 	uint32_t af_flags[AFI_MAX][SAFI_MAX];
 #define PEER_FLAG_SEND_COMMUNITY            (1 << 0) /* send-community */
 #define PEER_FLAG_SEND_EXT_COMMUNITY        (1 << 1) /* send-community ext. */
