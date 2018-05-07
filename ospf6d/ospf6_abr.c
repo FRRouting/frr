@@ -770,7 +770,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	}
 	if (OSPF6_LSA_IS_MAXAGE(lsa)) {
 		if (is_debug)
-			zlog_debug("LSA is MaxAge, ignore");
+			zlog_debug("%s: LSA %s is MaxAge, ignore",
+				   __PRETTY_FUNCTION__, lsa->name);
 		if (old)
 			ospf6_route_remove(old, table);
 		return;
@@ -847,9 +848,24 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	    || CHECK_FLAG(abr_entry->flag, OSPF6_ROUTE_REMOVE)
 	    || !CHECK_FLAG(abr_entry->path.router_bits, OSPF6_ROUTER_BIT_B)) {
 		if (is_debug)
-			zlog_debug("ABR router entry does not exist, ignore");
-		if (old)
-			ospf6_route_remove(old, table);
+			zlog_debug("%s: ABR router entry does not exist, ignore",
+				   __PRETTY_FUNCTION__);
+		if (old) {
+			if (old->type == OSPF6_DEST_TYPE_ROUTER &&
+			    oa->intra_brouter_calc) {
+				if (is_debug)
+					zlog_debug(
+						   "%s: intra_brouter_calc is on, skip brouter remove: %s (%p)",
+						   __PRETTY_FUNCTION__, buf,
+						   (void *)old);
+			} else {
+				if (is_debug)
+					zlog_debug("%s: remove old entry: %s %p ",
+						   __PRETTY_FUNCTION__, buf,
+						   (void *)old);
+				ospf6_route_remove(old, table);
+			}
+		}
 		return;
 	}
 
