@@ -184,8 +184,7 @@ static void isis_redist_update_ext_reach(struct isis_area *area, int level,
 	route_map_result_t map_ret;
 
 	memcpy(&area_info, info, sizeof(area_info));
-	if (redist->metric != 0xffffffff)
-		area_info.metric = redist->metric;
+	area_info.metric = redist->metric;
 
 	if (redist->map_name) {
 		map_ret =
@@ -540,7 +539,7 @@ DEFUN (isis_redistribute,
 	int afi;
 	int type;
 	int level;
-	unsigned long metric;
+	unsigned long metric = 0;
 	const char *routemap = NULL;
 
 	family = str2family(argv[idx_afi]->text);
@@ -566,9 +565,6 @@ DEFUN (isis_redistribute,
 		vty_out(vty, "Node is not a level-%d IS\n", level);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-
-	metric = 0xffffffff;
-	routemap = NULL;
 
 	if (argc > idx_metric_rmap + 1) {
 		if (argv[idx_metric_rmap + 1]->arg[0] == '\0')
@@ -651,7 +647,7 @@ DEFUN (isis_default_originate,
 	int family;
 	int originate_type = DEFAULT_ORIGINATE;
 	int level;
-	unsigned long metric = 0xffffffff;
+	unsigned long metric = 0;
 	const char *routemap = NULL;
 
 	family = str2family(argv[idx_afi]->text);
@@ -748,7 +744,7 @@ int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 				continue;
 			vty_out(vty, " redistribute %s %s level-%d", family_str,
 				zebra_route_string(type), level);
-			if (redist->metric != 0xffffffff)
+			if (redist->metric)
 				vty_out(vty, " metric %u", redist->metric);
 			if (redist->map_name)
 				vty_out(vty, " route-map %s", redist->map_name);
@@ -766,7 +762,7 @@ int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 			family_str, level);
 		if (redist->redist == DEFAULT_ORIGINATE_ALWAYS)
 			vty_out(vty, " always");
-		if (redist->metric != 0xffffffff)
+		if (redist->metric)
 			vty_out(vty, " metric %u", redist->metric);
 		if (redist->map_name)
 			vty_out(vty, " route-map %s", redist->map_name);
