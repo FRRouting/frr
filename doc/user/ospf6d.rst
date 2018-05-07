@@ -101,7 +101,7 @@ OSPF6 interface
 .. index:: ipv6 ospf6 hello-interval HELLOINTERVAL
 .. clicmd:: ipv6 ospf6 hello-interval HELLOINTERVAL
 
-   Sets interface's Hello Interval. Default 40
+   Sets interface's Hello Interval. Default 10
 
 .. index:: ipv6 ospf6 dead-interval DEADINTERVAL
 .. clicmd:: ipv6 ospf6 dead-interval DEADINTERVAL
