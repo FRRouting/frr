@@ -43,6 +43,9 @@ master SNMP agent (snmpd) and each of the FRR daemons must be configured. In
 In each of the FRR daemons, ``agentx`` command will enable AgentX support.
 
 :file:`/etc/snmp/snmpd.conf`:
+
+::
+
    #
    # example access restrictions setup
    #
@@ -113,6 +116,9 @@ using the password "frr_ospfd". For testing it is recommending to take exactly
 the below snmpd.conf as wrong access restrictions can be hard to debug.
 
 :file:`/etc/snmp/snmpd.conf`:
+
+::
+
    #
    # example access restrictions setup
    #
@@ -126,6 +132,9 @@ the below snmpd.conf as wrong access restrictions can be hard to debug.
    smuxpeer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
 
 :file:`/etc/frr/ospf`:
+
+::
+
    ! ... the rest of ospfd.conf has been omitted for clarity ...
    !
    smux peer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
