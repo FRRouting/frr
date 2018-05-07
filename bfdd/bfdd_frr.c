@@ -233,32 +233,6 @@ static void bfdd_config_notification(struct json_object *notification)
 /*
  * Socket IO
  */
-void bfdd_receive_debug(struct bfd_control_msg *bcm);
-
-void bfdd_receive_debug(struct bfd_control_msg *bcm)
-{
-	switch (bcm->bcm_type) {
-	case BMT_RESPONSE:
-		zlog_debug("%s: id: %d, type %s, length: %u, data: %s",
-			   __func__, ntohs(bcm->bcm_id), "RESPONSE",
-			   ntohl(bcm->bcm_length), bcm->bcm_data);
-		break;
-
-	case BMT_NOTIFY:
-		zlog_debug("%s: id: %d, type %s, length: %u, data: %s",
-			   __func__, ntohs(bcm->bcm_id), "NOTIFY",
-			   ntohl(bcm->bcm_length), bcm->bcm_data);
-		break;
-
-	case BMT_NOTIFY_ADD:
-	case BMT_NOTIFY_DEL:
-	case BMT_REQUEST_ADD:
-	case BMT_REQUEST_DEL:
-	default:
-		zlog_debug("%s: invalid response type (%d)\n", __func__,
-			   bcm->bcm_type);
-	}
-}
 
 /* Generic BFD function to handle notification messages. */
 int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,
@@ -283,7 +257,6 @@ int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,
 	if (ntohs(bcm->bcm_id) != 0 || bcm->bcm_type != BMT_NOTIFY) {
 		zlog_debug("%s:%d: received non-notification packet", __func__,
 			   __LINE__);
-		bfdd_receive_debug(bcm);
 		return 0;
 	}
 
