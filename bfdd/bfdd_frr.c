@@ -33,6 +33,10 @@ bfdd_peer_notification_find(struct json_object *notification);
 static void bfdd_peer_notification(struct json_object *notification);
 static void bfdd_config_notification(struct json_object *notification);
 
+DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection daemon (bfdd)");
+DEFINE_MTYPE(BFDD, BFDD_TMP, "short-lived temporary memory");
+DEFINE_MTYPE(BFDD, BFDD_CONFIG, "bfdd configuration memory");
+
 
 /*
  * Notification handlers.
@@ -63,9 +67,9 @@ bfdd_peer_notification_find(struct json_object *notification)
 			strtosa(sval, &lsa);
 			lsap = &lsa;
 		} else if (strcmp(key, "local-interface") == 0) {
-			interface = strdup(sval);
+			interface = XSTRDUP(MTYPE_BFDD_TMP, sval);
 		} else if (strcmp(key, "vrf-name") == 0) {
-			vrf = strdup(sval);
+			vrf = XSTRDUP(MTYPE_BFDD_TMP, sval);
 		} else if (strcmp(key, "multihop") == 0) {
 			mhop = json_object_get_boolean(jo_val);
 		}
@@ -73,8 +77,8 @@ bfdd_peer_notification_find(struct json_object *notification)
 
 	result = bfd_configure_peer(&bpc, mhop, psap, lsap, interface, vrf,
 				    ebuf, sizeof(ebuf));
-	free(interface);
-	free(vrf);
+	XFREE(MTYPE_BFDD_TMP, interface);
+	XFREE(MTYPE_BFDD_TMP, vrf);
 	if (result != 0) {
 		zlog_debug("%s:%d: bfd_configure_peer failed: %s", __func__,
 			   __LINE__, ebuf);
@@ -160,9 +164,9 @@ static void bfdd_config_notification(struct json_object *notification)
 				strtosa(sval, &lsa);
 				lsap = &lsa;
 			} else if (strcmp(key, "local-interface") == 0) {
-				interface = strdup(sval);
+				interface = XSTRDUP(MTYPE_BFDD_TMP, sval);
 			} else if (strcmp(key, "vrf-name") == 0) {
-				vrf = strdup(sval);
+				vrf = XSTRDUP(MTYPE_BFDD_TMP, sval);
 			} else if (strcmp(key, "multihop") == 0) {
 				mhop = json_object_get_boolean(jo_val);
 			}
@@ -170,8 +174,8 @@ static void bfdd_config_notification(struct json_object *notification)
 
 		result = bfd_configure_peer(&bpc, mhop, psap, lsap, interface,
 					    vrf, ebuf, sizeof(ebuf));
-		free(interface);
-		free(vrf);
+		XFREE(MTYPE_BFDD_TMP, interface);
+		XFREE(MTYPE_BFDD_TMP, vrf);
 
 		if (result != 0) {
 			zlog_debug("%s:%d: bfd_configure_peer: %s", __func__,
@@ -628,7 +632,7 @@ struct bpc_node *bn_new(struct bnlist *bnlist, struct bfd_peer_cfg *bpc)
 			return bn;
 	}
 
-	bn = calloc(1, sizeof(*bn));
+	bn = XCALLOC(MTYPE_BFDD_CONFIG, sizeof(*bn));
 	if (bn == NULL)
 		return NULL;
 
@@ -649,7 +653,7 @@ void bn_free(struct bpc_node *bn, struct bnlist *bnlist)
 		TAILQ_REMOVE(bnlist, bn, bn_entry);
 
 	QOBJ_UNREG(bn);
-	free(bn);
+	XFREE(MTYPE_BFDD_CONFIG, bn);
 }
 
 struct bpc_node *bn_find(struct bnlist *bnlist, struct bfd_peer_cfg *bpc)

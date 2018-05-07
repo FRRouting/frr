@@ -22,6 +22,7 @@
 #define _BFDD_FRR_H_
 
 #include "lib/command.h"
+#include "lib/memory.h"
 #include "lib/prefix.h"
 #include "lib/qobj.h"
 #include "lib/vty.h"
@@ -35,7 +36,7 @@ struct bpc_node {
 	TAILQ_ENTRY(bpc_node) bn_entry;
 	struct bfd_peer_cfg bn_bpc;
 
-	QOBJ_FIELDS
+	QOBJ_FIELDS;
 };
 
 TAILQ_HEAD(bnlist, bpc_node);
@@ -49,6 +50,9 @@ struct bfdd_config {
 	int bc_csock;
 };
 
+DECLARE_MGROUP(BFDD);
+DECLARE_MTYPE(BFDD_TMP);
+DECLARE_MTYPE(BFDD_CONFIG);
 
 /* bfdd.c */
 extern struct bfdd_config bc;

@@ -33,6 +33,9 @@
 #include "log.h"
 #include "bfdd_adapter.h"
 
+DEFINE_MGROUP(BFDA, "Bidirectional Forwarding Detection adapter");
+DEFINE_MTYPE(BFDA, BFDA_TMP, "short-lived temporary memory");
+
 /* Declare bfd_receive_id context structure. */
 struct bfd_receive_ctx {
 	uint16_t brc_reqid;
@@ -158,7 +161,7 @@ read_next:
 	plen = ntohl(bcmh.bcm_length);
 	if (plen > 0) {
 		/* Allocate the space for NULL byte as well. */
-		bcm = malloc(sizeof(bcmh) + plen + 1);
+		bcm = XCALLOC(MTYPE_BFDA_TMP, sizeof(bcmh) + plen + 1);
 		if (bcm == NULL) {
 			zlog_err("%s: malloc: %s\n", __func__, strerror(errno));
 			return -1;
@@ -212,7 +215,7 @@ skip_and_return:
 	 * heap. Use plen to find if we allocated memory.
 	 */
 	if (plen > 0)
-		free(bcm);
+		XFREE(MTYPE_BFDA_TMP, bcm);
 
 	if (repeat)
 		goto read_next;

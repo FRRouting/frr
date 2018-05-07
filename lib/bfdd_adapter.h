@@ -23,9 +23,13 @@
 
 #include "bfdd/bfdctl.h"
 
+#include "memory.h"
 #include "json.h"
 #include "openbsd-queue.h"
 #include "thread.h"
+
+DECLARE_MGROUP(BFDA);
+DECLARE_MTYPE(BFDA_TMP);
 
 /*
  * Control socket functions
