@@ -1,6 +1,8 @@
 .arch-inventory
 .arch-ids
 
+!Makefile
+
 *~
 *.loT
 
