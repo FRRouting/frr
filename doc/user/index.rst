@@ -27,6 +27,7 @@ Welcome to FRR's documentation!
    ripngd
    sharp
    vnc
+   bugs
    glossary
    appendix
 
