@@ -57,7 +57,7 @@ against incoming packets.  If matched the nexthop-group or nexthop
 is used to forward the packets to the end destination
 
 .. index:: pbr-map
-.. clicmd:: pbr-map NAME seq (1-1000)
+.. clicmd:: pbr-map NAME seq (1-700)
 
    Create a pbr-map with NAME and sequence number specified.  This command puts
    you into a new submode for pbr-map specification.  To exit this mode type
