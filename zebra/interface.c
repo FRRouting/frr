@@ -577,7 +577,6 @@ void if_add_update(struct interface *ifp)
 				"interface %s vrf %u index %d becomes active.",
 				ifp->name, ifp->vrf_id, ifp->ifindex);
 
-		static_ifindex_update(ifp, true);
 	} else {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("interface %s vrf %u index %d is added.",
@@ -736,8 +735,6 @@ void if_delete_update(struct interface *ifp)
 		zlog_debug("interface %s vrf %u index %d is now inactive.",
 			   ifp->name, ifp->vrf_id, ifp->ifindex);
 
-	static_ifindex_update(ifp, false);
-
 	/* Delete connected routes from the kernel. */
 	if_delete_connected(ifp);
 
@@ -777,8 +774,6 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 
 	old_vrf_id = ifp->vrf_id;
 
-	static_ifindex_update(ifp, false);
-
 	/* Uninstall connected routes. */
 	if_uninstall_connected(ifp);
 
@@ -802,8 +797,6 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	/* Install connected routes (in new VRF). */
 	if (if_is_operative(ifp))
 		if_install_connected(ifp);
-
-	static_ifindex_update(ifp, true);
 
 	/* Due to connected route change, schedule RIB processing for both old
 	 * and new VRF.
@@ -933,12 +926,6 @@ void if_up(struct interface *ifp)
 
 	/* Install connected routes to the kernel. */
 	if_install_connected(ifp);
-
-	/* Install any static routes using this vrf interface */
-	if (IS_ZEBRA_IF_VRF(ifp)) {
-		static_fixup_vrf_ids(zvrf);
-		static_config_install_delayed_routes(zvrf);
-	}
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("%u: IF %s up, scheduling RIB processing",

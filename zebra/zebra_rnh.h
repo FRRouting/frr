@@ -39,14 +39,16 @@ struct rnh {
 	struct route_entry *state;
 	struct prefix resolved_route;
 	struct list *client_list;
-	struct list
-		*zebra_static_route_list; /* static routes dependent on this NH
-					     */
-	struct list
-		*zebra_pseudowire_list; /* pseudowires dependent on this NH */
+
+	/* pseudowires dependent on this nh */
+	struct list *zebra_pseudowire_list;
+
 	struct route_node *node;
-	int filtered[ZEBRA_ROUTE_MAX]; /* if this has been filtered for client
-					  */
+
+	/*
+	 * if this has been filtered for the client
+	 */
+	int filtered[ZEBRA_ROUTE_MAX];
 };
 
 typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
@@ -73,13 +75,6 @@ extern void zebra_free_rnh(struct rnh *rnh);
 extern void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type);
 extern void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 				 rnh_type_t type, vrf_id_t vrfid);
-extern void zebra_register_rnh_static_nh(vrf_id_t, struct prefix *,
-					 struct route_node *);
-extern void zebra_deregister_rnh_static_nexthops(vrf_id_t,
-						 struct nexthop *nexthop,
-						 struct route_node *rn);
-extern void zebra_deregister_rnh_static_nh(vrf_id_t, struct prefix *,
-					   struct route_node *);
 extern void zebra_register_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
 extern void zebra_deregister_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,

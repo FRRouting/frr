@@ -1,16 +1,14 @@
 /*
- * Static Routing Information header
- * Copyright (C) 2016 Cumulus Networks
+ * Static NHT header.
+ * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
  *
- * This file is part of Quagga.
- *
- * Quagga is free software; you can redistribute it and/or modify it
+ * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; either version 2, or (at your option) any
  * later version.
  *
- * Quagga is distributed in the hope that it will be useful, but
+ * FRR is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
@@ -19,7 +17,9 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#ifndef __ZEBRA_STATIC_H__
-#define __ZEBRA_STATIC_H__
+#ifndef __STATIC_NHT_H__
+#define __STATIC_NHT_H__
 
+extern void static_nht_update(struct prefix *p, uint32_t nh_num,
+			      afi_t afi, vrf_id_t vrf_id);
 #endif

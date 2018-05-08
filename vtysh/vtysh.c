@@ -133,6 +133,7 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
 	{.fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
 	{.fd = -1, .name = "pbrd", .flag = VTYSH_PBRD, .next = NULL},
+	{.fd = -1, .name = "staticd", .flag = VTYSH_STATICD, .next = NULL},
 };
 
 enum vtysh_write_integrated vtysh_write_integrated =

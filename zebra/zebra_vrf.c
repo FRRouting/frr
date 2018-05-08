@@ -155,8 +155,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		zlog_debug("VRF %s id %u is now inactive", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
-	static_cleanup_vrf_ids(zvrf);
-
 	/* Stop any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_disable(zvrf);
 
@@ -268,9 +266,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 				route_table_finish(table);
 				XFREE(MTYPE_RIB_TABLE_INFO, table_info);
 			}
-
-			table = zvrf->stable[afi][safi];
-			route_table_finish(table);
 		}
 
 		route_table_finish(zvrf->rnh_table[afi]);
@@ -294,24 +289,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
  */
 int zebra_vrf_has_config(struct zebra_vrf *zvrf)
 {
-	afi_t afi;
-	safi_t safi;
-	struct route_table *stable;
-
-	/* NOTE: This is a don't care for the default VRF, but we go through
-	 * the motions to keep things consistent.
-	 */
-	/* Any static routes? */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			stable = zvrf->stable[afi][safi];
-			if (!stable)
-				continue;
-			if (route_table_count(stable))
-				return 1;
-		}
-	}
-
 	/* EVPN L3-VNI? */
 	if (zvrf->l3vni)
 		return 1;
@@ -366,18 +343,6 @@ void zebra_rtable_node_cleanup(struct route_table *table,
 		XFREE(MTYPE_RIB_DEST, node->info);
 }
 
-static void zebra_stable_node_cleanup(struct route_table *table,
-				      struct route_node *node)
-{
-	struct static_route *si, *next;
-
-	if (node->info)
-		for (si = node->info; si; si = next) {
-			next = si->next;
-			XFREE(MTYPE_STATIC_ROUTE, si);
-		}
-}
-
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
 					struct route_node *node)
 {
@@ -414,23 +379,8 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 struct zebra_vrf *zebra_vrf_alloc(void)
 {
 	struct zebra_vrf *zvrf;
-	afi_t afi;
-	safi_t safi;
-	struct route_table *table;
 
 	zvrf = XCALLOC(MTYPE_ZEBRA_VRF, sizeof(struct zebra_vrf));
-
-	/* Allocate table for static route configuration. */
-	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
-		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
-			if (afi == AFI_IP6)
-				table = srcdest_table_init();
-			else
-				table = route_table_init();
-			table->cleanup = zebra_stable_node_cleanup;
-			zvrf->stable[afi][safi] = table;
-		}
-	}
 
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
@@ -473,19 +423,6 @@ struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id)
 		return NULL;
 
 	return zvrf->table[afi][safi];
-}
-
-/* Lookup the static routing table in a VRF. */
-struct route_table *zebra_vrf_static_table(afi_t afi, safi_t safi,
-					   struct zebra_vrf *zvrf)
-{
-	if (!zvrf)
-		return NULL;
-
-	if (afi >= AFI_MAX || safi >= SAFI_MAX)
-		return NULL;
-
-	return zvrf->stable[afi][safi];
 }
 
 struct route_table *zebra_vrf_other_route_table(afi_t afi, uint32_t table_id,
@@ -544,10 +481,6 @@ static int vrf_config_write(struct vty *vty)
 			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
 
 		}
-
-		static_config(vty, zvrf, AFI_IP, SAFI_UNICAST, "ip route");
-		static_config(vty, zvrf, AFI_IP, SAFI_MULTICAST, "ip mroute");
-		static_config(vty, zvrf, AFI_IP6, SAFI_UNICAST, "ipv6 route");
 
 		if (zvrf_id(zvrf) != VRF_DEFAULT)
 			vty_endframe(vty, " exit-vrf\n!\n");

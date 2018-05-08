@@ -53,9 +53,6 @@ struct zebra_vrf {
 	/* Routing table.  */
 	struct route_table *table[AFI_MAX][SAFI_MAX];
 
-	/* Static route configuration.  */
-	struct route_table *stable[AFI_MAX][SAFI_MAX];
-
 	/* Recursive Nexthop table */
 	struct route_table *rnh_table[AFI_MAX];
 
@@ -159,8 +156,7 @@ extern struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
 extern struct zebra_vrf *zebra_vrf_alloc(void);
 extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
-extern struct route_table *zebra_vrf_static_table(afi_t, safi_t,
-						  struct zebra_vrf *zvrf);
+
 extern struct route_table *
 zebra_vrf_other_route_table(afi_t afi, uint32_t table_id, vrf_id_t vrf_id);
 extern int zebra_vrf_has_config(struct zebra_vrf *zvrf);

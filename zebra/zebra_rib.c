@@ -2086,7 +2086,8 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 		rib_queue_add(rn);
 }
 
-void rib_addnode(struct route_node *rn, struct route_entry *re, int process)
+static void rib_addnode(struct route_node *rn,
+			struct route_entry *re, int process)
 {
 	/* RE node has been un-removed before route-node is processed.
 	 * route_node must hence already be on the queue for processing..
@@ -2135,10 +2136,6 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
-	/* free RE and nexthops */
-	if (re->type == ZEBRA_ROUTE_STATIC)
-		zebra_deregister_rnh_static_nexthops(re->ng.nexthop->vrf_id,
-						     re->ng.nexthop, rn);
 	nexthops_free(re->ng.nexthop);
 	XFREE(MTYPE_RE, re);
 }

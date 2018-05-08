@@ -1409,6 +1409,7 @@ AM_CONDITIONAL(ISISD, test "${enable_isisd}" != "no")
 AM_CONDITIONAL(PIMD, test "${enable_pimd}" != "no")
 AM_CONDITIONAL(PBRD, test "${enable_pbrd}" != "no")
 AM_CONDITIONAL(SHARPD, test "${enable_sharpd}" = "yes")
+AM_CONDITIONAL(STATICD, test "${enable_staticd}" != "no")
 
 if test "${enable_bgp_announce}" = "no";then
   AC_DEFINE(DISABLE_BGP_ANNOUNCE,1,Disable BGP installation to zebra)
