@@ -63,22 +63,26 @@ SUBDIRS = . @LIBRFP@ @RFPTEST@ \
 	 @VTYSH@ @DOC@ \
          @SOLARIS@ tests
 
-DIST_SUBDIRS = . bgpd \
-	  vtysh doc tests \
-	  solaris bgpd/rfp-example/librfp \
+DIST_SUBDIRS = . \
+	  bgpd \
+	  bgpd/rfp-example/librfp \
 	  bgpd/rfp-example/rfptest \
-	  debianpkg \
+	  vtysh \
+	  doc \
+	  tests \
+	  packaging/solaris \
+	  packaging/debianpkg \
 	  # end
 
 if PKGSRC
 rcdir=@pkgsrcrcdir@
 rc_SCRIPTS = \
-	pkgsrc/bgpd.sh \
-	pkgsrc/ospf6d.sh \
-	pkgsrc/ospfd.sh \
-	pkgsrc/ripd.sh \
-	pkgsrc/ripngd.sh \
-	pkgsrc/zebra.sh \
+	packaging/pkgsrc/bgpd.sh \
+	packaging/pkgsrc/ospf6d.sh \
+	packaging/pkgsrc/ospfd.sh \
+	packaging/pkgsrc/ripd.sh \
+	packaging/pkgsrc/ripngd.sh \
+	packaging/pkgsrc/zebra.sh \
 	# end
 endif
 
@@ -92,22 +96,22 @@ EXTRA_DIST += \
 	python/clidef.py \
 	python/clippy/__init__.py \
 	\
-	redhat/frr.init \
-	redhat/frr.service \
-	redhat/daemons \
-	redhat/frr.logrotate \
-	redhat/frr.pam \
-	redhat/frr.spec \
-	redhat/README.rpm_build.md \
+	packaging/redhat/frr.init \
+	packaging/redhat/frr.service \
+	packaging/redhat/daemons \
+	packaging/redhat/frr.logrotate \
+	packaging/redhat/frr.pam \
+	packaging/redhat/frr.spec \
+	packaging/redhat/README.rpm_build.md \
 	\
-	snapcraft/snapcraft.yaml \
-	snapcraft/README.snap_build.md \
-	snapcraft/README.usage.md \
-	snapcraft/extra_version_info.txt \
-	snapcraft/scripts \
-	snapcraft/defaults \
-	snapcraft/helpers \
-	snapcraft/snap \
+	packaging/snapcraft/snapcraft.yaml \
+	packaging/snapcraft/README.snap_build.md \
+	packaging/snapcraft/README.usage.md \
+	packaging/snapcraft/extra_version_info.txt \
+	packaging/snapcraft/scripts \
+	packaging/snapcraft/defaults \
+	packaging/snapcraft/helpers \
+	packaging/snapcraft/snap \
 	\
 	vtysh/Makefile.am \
 	vtysh/Makefile.in \
