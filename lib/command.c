@@ -2337,7 +2337,7 @@ DEFUN (config_log_file,
 				    zlog_default->default_lvl);
 }
 
-static void disable_log_file()
+static void disable_log_file(void)
 {
 	zlog_reset_file();
 
