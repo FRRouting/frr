@@ -2413,14 +2413,15 @@ static int msg_client_id_mismatch(const char *op, struct zserv *client,
 {
 	if (proto != client->proto) {
 		zlog_err("%s: msg vs client proto mismatch, client=%u msg=%u",
-				op, client->proto, proto);
+			 op, client->proto, proto);
 		/* TODO: fail when BGP sets proto and instance */
 		/* return 1; */
 	}
 
 	if (instance != client->instance) {
-		zlog_err("%s: msg vs client instance mismatch, client=%u msg=%u",
-				op, client->instance, instance);
+		zlog_err(
+			"%s: msg vs client instance mismatch, client=%u msg=%u",
+			op, client->instance, instance);
 		/* TODO: fail when BGP sets proto and instance */
 		/* return 1; */
 	}
@@ -2453,11 +2454,14 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 
 	lmc = assign_label_chunk(client->proto, client->instance, keep, size);
 	if (!lmc)
-		zlog_err("Unable to assign Label Chunk of size %u to %s instance %u",
-			 size, zebra_route_string(client->proto), client->instance);
+		zlog_err(
+			"Unable to assign Label Chunk of size %u to %s instance %u",
+			size, zebra_route_string(client->proto),
+			client->instance);
 	else
-		zlog_debug("Assigned Label Chunk %u - %u to %s instance %u", lmc->start,
-			   lmc->end, zebra_route_string(client->proto), client->instance);
+		zlog_debug("Assigned Label Chunk %u - %u to %s instance %u",
+			   lmc->start, lmc->end,
+			   zebra_route_string(client->proto), client->instance);
 	/* send response back */
 	zsend_assign_label_chunk_response(client, vrf_id, lmc);
 
@@ -2482,7 +2486,8 @@ static void zread_release_label_chunk(struct zserv *client, struct stream *msg)
 	STREAM_GETL(s, end);
 
 	/* detect client vs message (proto,instance) mismatch */
-	if (msg_client_id_mismatch("Release-label-chunk", client, proto, instance))
+	if (msg_client_id_mismatch("Release-label-chunk", client, proto,
+				   instance))
 		return;
 
 	release_label_chunk(client->proto, client->instance, start, end);
@@ -2498,8 +2503,8 @@ static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 
 	/* external label manager */
 	if (lm_is_external)
-		zread_relay_label_manager_request(hdr->command, client,
-						msg, zvrf_id(zvrf));
+		zread_relay_label_manager_request(hdr->command, client, msg,
+						  zvrf_id(zvrf));
 	/* this is a label manager */
 	else {
 		if (hdr->command == ZEBRA_LABEL_MANAGER_CONNECT)

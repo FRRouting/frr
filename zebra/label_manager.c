@@ -82,8 +82,8 @@ static int relay_response_back(void)
 	ret = zclient_read_header(src, zclient->sock, &size, &marker, &version,
 				  &vrf_id, &resp_cmd);
 	if (ret < 0 && errno != EAGAIN) {
-		zlog_err("%s: Error reading Label Manager response: %s",
-			 __func__, strerror(errno));
+		zlog_err("Error reading Label Manager response: %s",
+			 strerror(errno));
 		return -1;
 	}
 	zlog_debug("Label Manager response received, %d bytes", size);
@@ -101,12 +101,13 @@ static int relay_response_back(void)
 	/* lookup the client to relay the msg to */
 	zserv = zebra_find_client(proto, instance);
 	if (!zserv) {
-		zlog_err("Error relaying LM response: can't find client %s, instance %u",
-				proto_str, instance);
+		zlog_err(
+			"Error relaying LM response: can't find client %s, instance %u",
+			proto_str, instance);
 		return -1;
 	}
 	zlog_debug("Found client to relay LM response to client %s instance %u",
-				proto_str, instance);
+		   proto_str, instance);
 
 	/* copy msg into output buffer */
 	dst = obuf;
@@ -116,11 +117,11 @@ static int relay_response_back(void)
 	ret = writen(zserv->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
 		zlog_err("Error relaying LM response to %s instance %u: %s",
-				proto_str, instance, strerror(errno));
+			 proto_str, instance, strerror(errno));
 		return -1;
 	}
-	zlog_debug("Relayed LM response (%d bytes) to %s instance %u",
-				ret, proto_str, instance);
+	zlog_debug("Relayed LM response (%d bytes) to %s instance %u", ret,
+		   proto_str, instance);
 
 	return 0;
 }
@@ -173,7 +174,7 @@ static int reply_error(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
  * @return 0 on success, -1 otherwise
  */
 int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
-							struct stream *msg, vrf_id_t vrf_id)
+				      struct stream *msg, vrf_id_t vrf_id)
 {
 	struct stream *dst;
 	int ret = 0;
@@ -203,15 +204,15 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 
 	/* check & set client proto if unset */
 	if (zserv->proto && zserv->proto != proto) {
-		zlog_warn("Client proto(%u) != msg proto(%u)",
-				zserv->proto, proto);
+		zlog_warn("Client proto(%u) != msg proto(%u)", zserv->proto,
+			  proto);
 		return -1;
 	}
 
 	/* check & set client instance if unset */
 	if (zserv->instance && zserv->instance != instance) {
 		zlog_err("Client instance(%u) != msg instance(%u)",
-				zserv->instance, instance);
+			 zserv->instance, instance);
 		return -1;
 	}
 
@@ -233,12 +234,12 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 	ret = writen(zclient->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
 		zlog_err("Error relaying LM request from %s instance %u: %s",
-				proto_str, instance, strerror(errno));
+			 proto_str, instance, strerror(errno));
 		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}
-	zlog_debug("Relayed LM request (%d bytes) from %s instance %u",
-				ret, proto_str, instance);
+	zlog_debug("Relayed LM request (%d bytes) from %s instance %u", ret,
+		   proto_str, instance);
 
 
 	/* Release label chunk has no response */
