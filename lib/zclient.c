@@ -1231,9 +1231,8 @@ stream_failure:
 	return 0;
 }
 
-static void zapi_encode_prefix(struct stream *s,
-			      struct prefix *p,
-			      uint8_t family)
+static void zapi_encode_prefix(struct stream *s, struct prefix *p,
+			       uint8_t family)
 {
 	struct prefix any;
 
@@ -1248,8 +1247,7 @@ static void zapi_encode_prefix(struct stream *s,
 	stream_put(s, &p->u.prefix, prefix_blen(p));
 }
 
-int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s,
-			 struct pbr_rule *zrule)
+int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
 {
 	stream_reset(s);
 	zclient_create_header(s, cmd, zrule->vrf_id);
@@ -1265,11 +1263,11 @@ int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s,
 
 	zapi_encode_prefix(s, &(zrule->filter.src_ip),
 			   zrule->filter.src_ip.family);
-	stream_putw(s, zrule->filter.src_port);  /* src port */
+	stream_putw(s, zrule->filter.src_port); /* src port */
 	zapi_encode_prefix(s, &(zrule->filter.dst_ip),
 			   zrule->filter.src_ip.family);
-	stream_putw(s, zrule->filter.dst_port);  /* dst port */
-	stream_putw(s, zrule->filter.fwmark);    /* fwmark */
+	stream_putw(s, zrule->filter.dst_port); /* dst port */
+	stream_putw(s, zrule->filter.fwmark);   /* fwmark */
 
 	stream_putl(s, zrule->action.table);
 	stream_putl(s, zrule->ifindex);
@@ -1317,8 +1315,8 @@ bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 	STREAM_GETL(s, ifi);
 
 	if (zclient_debug)
-		zlog_debug("%s: %u %u %u %u", __PRETTY_FUNCTION__,
-			   seq, prio, uni, ifi);
+		zlog_debug("%s: %u %u %u %u", __PRETTY_FUNCTION__, seq, prio,
+			   uni, ifi);
 	*seqno = seq;
 	*priority = prio;
 	*unique = uni;
@@ -1330,9 +1328,8 @@ stream_failure:
 	return false;
 }
 
-bool zapi_ipset_notify_decode(struct stream *s,
-			      uint32_t *unique,
-			     enum zapi_ipset_notify_owner *note)
+bool zapi_ipset_notify_decode(struct stream *s, uint32_t *unique,
+			      enum zapi_ipset_notify_owner *note)
 {
 	uint32_t uni;
 
@@ -1350,10 +1347,9 @@ stream_failure:
 	return false;
 }
 
-bool zapi_ipset_entry_notify_decode(struct stream *s,
-		uint32_t *unique,
-		char *ipset_name,
-		enum zapi_ipset_entry_notify_owner *note)
+bool zapi_ipset_entry_notify_decode(struct stream *s, uint32_t *unique,
+				    char *ipset_name,
+				    enum zapi_ipset_entry_notify_owner *note)
 {
 	uint32_t uni;
 
@@ -1361,8 +1357,7 @@ bool zapi_ipset_entry_notify_decode(struct stream *s,
 
 	STREAM_GETL(s, uni);
 
-	STREAM_GET(ipset_name, s,
-		   ZEBRA_IPSET_NAME_SIZE);
+	STREAM_GET(ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
 
 	if (zclient_debug)
 		zlog_debug("%s: %u", __PRETTY_FUNCTION__, uni);
@@ -1388,7 +1383,7 @@ struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
 	 */
 	if (znh->label_num) {
 		nexthop_add_labels(n, ZEBRA_LSP_NONE, znh->label_num,
-			znh->labels);
+				   znh->labels);
 	}
 
 	return n;
@@ -1449,7 +1444,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 		if (nhr->nexthops[i].label_num)
 			STREAM_GET(&nhr->nexthops[i].labels[0], s,
 				   nhr->nexthops[i].label_num
-				   * sizeof(mpls_label_t));
+					   * sizeof(mpls_label_t));
 	}
 
 	return true;
@@ -1872,8 +1867,9 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 				zlog_warn(
 					"warning: interface %s address %s "
 					"with peer flag set, but no peer address!",
-					ifp->name, prefix2str(ifc->address, buf,
-							      sizeof buf));
+					ifp->name,
+					prefix2str(ifc->address, buf,
+						   sizeof buf));
 				UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 			}
 		}
@@ -2086,17 +2082,18 @@ int lm_label_manager_connect(struct zclient *zclient)
 
 	/* sanity */
 	if (proto != zclient->redist_default)
-		zlog_err("Wrong proto (%u) in LM connect response. Should be %u",
-				proto, zclient->redist_default);
+		zlog_err(
+			"Wrong proto (%u) in LM connect response. Should be %u",
+			proto, zclient->redist_default);
 	if (instance != zclient->instance)
-		zlog_err("Wrong instId (%u) in LM connect response. Should be %u",
-				instance, zclient->instance);
+		zlog_err(
+			"Wrong instId (%u) in LM connect response. Should be %u",
+			instance, zclient->instance);
 
 	/* result code */
 	result = stream_getc(s);
 	if (zclient_debug)
-		zlog_debug(
-			"LM connect-response received, result %u", result);
+		zlog_debug("LM connect-response received, result %u", result);
 
 	return (int)result;
 }
@@ -2109,10 +2106,8 @@ int lm_label_manager_connect(struct zclient *zclient)
  * @param chunk_size Amount of labels requested
  * @result 0 on success, -1 otherwise
  */
-int zclient_send_get_label_chunk(
-	struct zclient	*zclient,
-	uint8_t		keep,
-	uint32_t	chunk_size)
+int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
+				 uint32_t chunk_size)
 {
 	struct stream *s;
 
@@ -2210,10 +2205,10 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 	/* sanities */
 	if (proto != zclient->redist_default)
 		zlog_err("Wrong proto (%u) in get chunk response. Should be %u",
-			proto, zclient->redist_default);
+			 proto, zclient->redist_default);
 	if (instance != zclient->instance)
 		zlog_err("Wrong instId (%u) in get chunk response Should be %u",
-			instance, zclient->instance);
+			 instance, zclient->instance);
 
 	/* keep */
 	response_keep = stream_getc(s);
@@ -2334,8 +2329,7 @@ int tm_table_manager_connect(struct zclient *zclient)
 		return -1;
 
 	if (zclient_debug)
-		zlog_debug("%s: Table manager connect request sent",
-			   __func__);
+		zlog_debug("%s: Table manager connect request sent", __func__);
 
 	/* read response */
 	if (zclient_read_sync_response(zclient, ZEBRA_TABLE_MANAGER_CONNECT)
@@ -2798,7 +2792,7 @@ static int zclient_read(struct thread *thread)
 	case ZEBRA_GET_LABEL_CHUNK:
 		if (zclient->label_chunk)
 			(*zclient->label_chunk)(command, zclient, length,
-						      vrf_id);
+						vrf_id);
 		break;
 	default:
 		break;
