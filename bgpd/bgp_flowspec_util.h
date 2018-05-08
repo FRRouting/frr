@@ -50,6 +50,9 @@ extern int bgp_flowspec_fragment_type_decode(enum bgp_flowspec_util_nlri_t type,
 					     uint8_t *nlri_ptr,
 					     uint32_t max_len,
 					     void *result, int *error);
+struct bgp_pbr_entry_main;
+extern int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
+					 struct bgp_pbr_entry_main *bpem);
 
 extern struct bgp_node *bgp_flowspec_get_match_per_ip(afi_t afi,
 						      struct bgp_table *rib,

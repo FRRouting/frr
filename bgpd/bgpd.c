@@ -83,6 +83,7 @@
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_labelpool.h"
+#include "bgpd/bgp_pbr.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master)
@@ -3006,6 +3007,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
 
 	bgp_evpn_init(bgp);
+	bgp_pbr_init(bgp);
 	return bgp;
 }
 
@@ -3401,7 +3403,7 @@ void bgp_free(struct bgp *bgp)
 	bf_release_index(bm->rd_idspace, bgp->vrf_rd_id);
 
 	bgp_evpn_cleanup(bgp);
-
+	bgp_pbr_cleanup(bgp);
 	if (bgp->name)
 		XFREE(MTYPE_BGP, bgp->name);
 	if (bgp->name_pretty)

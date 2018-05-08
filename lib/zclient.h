@@ -258,6 +258,10 @@ struct zclient {
 				       struct zclient *zclient,
 				       uint16_t length,
 				       vrf_id_t vrf_id);
+	int (*iptable_notify_owner)(int command,
+				    struct zclient *zclient,
+				    uint16_t length,
+				    vrf_id_t vrf_id);
 };
 
 /* Zebra API message flag. */
@@ -680,6 +684,9 @@ bool zapi_ipset_entry_notify_decode(struct stream *s,
 	    uint32_t *unique,
 	    char *ipset_name,
 	    enum zapi_ipset_entry_notify_owner *note);
+bool zapi_iptable_notify_decode(struct stream *s,
+		uint32_t *unique,
+		enum zapi_iptable_notify_owner *note);
 
 extern struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh);
 extern bool zapi_nexthop_update_decode(struct stream *s,
