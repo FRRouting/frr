@@ -36,6 +36,8 @@
 #include "static_routes.h"
 #include "static_zebra.h"
 
+char backup_config_file[256];
+
 bool mpls_enabled;
 
 zebra_capabilities_t _caps_p[] = {
@@ -136,6 +138,10 @@ int main(int argc, char **argv, char **envp)
 
 	static_zebra_init();
 	static_vty_init();
+
+	snprintf(backup_config_file, sizeof(backup_config_file),
+		 "%s/zebra.conf", frr_sysconfdir);
+	staticd_di.backup_config_file = backup_config_file;
 
 	frr_config_fork();
 	frr_run(master);
