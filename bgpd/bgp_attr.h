@@ -308,6 +308,9 @@ extern int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			      struct bgp_nlri *);
 extern int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 				struct bgp_nlri *);
+extern bgp_attr_parse_ret_t
+bgp_attr_prefix_sid(int32_t tlength, struct bgp_attr_parser_args *args,
+		    struct bgp_nlri *mp_update);
 
 extern struct bgp_attr_encap_subtlv *
 encap_tlv_dup(struct bgp_attr_encap_subtlv *orig);
