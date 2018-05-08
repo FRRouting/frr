@@ -51,6 +51,7 @@ struct frr_daemon_info {
 	bool daemon_mode;
 	bool terminal;
 	const char *config_file;
+	const char *backup_config_file;
 	const char *pid_file;
 	const char *vty_path;
 	const char *module_path;

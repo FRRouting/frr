@@ -725,7 +725,12 @@ void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
 
-	vty_read_config(di->config_file, config_default);
+	if (!vty_read_config(di->config_file, config_default) &&
+	    di->backup_config_file) {
+		zlog_info("Attempting to read backup config file: %s specified",
+			  di->backup_config_file);
+		vty_read_config(di->backup_config_file, config_default);
+	}
 
 	/* Don't start execution if we are in dry-run mode */
 	if (di->dryrun)
