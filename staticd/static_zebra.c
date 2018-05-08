@@ -216,17 +216,17 @@ void static_zebra_nht_register(struct static_route *si, bool reg)
 
 	memset(&p, 0, sizeof(p));
 	switch (si->type) {
-	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IFNAME:
 	case STATIC_BLACKHOLE:
-	case STATIC_IPV6_GATEWAY_IFNAME:
 		return;
 	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV4_GATEWAY_IFNAME:
 		p.family = AF_INET;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = si->addr.ipv4;
 		break;
 	case STATIC_IPV6_GATEWAY:
+	case STATIC_IPV6_GATEWAY_IFNAME:
 		p.family = AF_INET6;
 		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = si->addr.ipv6;
