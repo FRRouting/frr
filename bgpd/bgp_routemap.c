@@ -635,7 +635,7 @@ static route_map_result_t route_match_mac_address(void *rule,
 
 		p.family = AF_ETHERNET;
 		p.prefixlen = ETH_ALEN * 8;
-		p.u.prefix_eth = prefix->u.prefix_evpn.mac;
+		p.u.prefix_eth = prefix->u.prefix_evpn.macip_addr.mac;
 
 		return (access_list_apply(alist, &p) == FILTER_DENY
 				? RMAP_NOMATCH

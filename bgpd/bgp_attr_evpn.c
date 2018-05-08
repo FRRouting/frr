@@ -227,16 +227,18 @@ extern int bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag,
 	dst->family = AF_EVPN;
 	p_evpn_p->route_type = evpn_type;
 	if (evpn_type == BGP_EVPN_IP_PREFIX_ROUTE) {
-		p_evpn_p->eth_tag = eth_tag;
-		p_evpn_p->ip_prefix_length = p2.prefixlen;
+		p_evpn_p->prefix_addr.eth_tag = eth_tag;
+		p_evpn_p->prefix_addr.ip_prefix_length = p2.prefixlen;
 		if (src->family == AF_INET) {
-			SET_IPADDR_V4(&p_evpn_p->ip);
-			memcpy(&p_evpn_p->ip.ipaddr_v4, &src->u.prefix4,
+			SET_IPADDR_V4(&p_evpn_p->prefix_addr.ip);
+			memcpy(&p_evpn_p->prefix_addr.ip.ipaddr_v4,
+			       &src->u.prefix4,
 			       sizeof(struct in_addr));
 			dst->prefixlen = (uint8_t)PREFIX_LEN_ROUTE_TYPE_5_IPV4;
 		} else {
-			SET_IPADDR_V6(&p_evpn_p->ip);
-			memcpy(&p_evpn_p->ip.ipaddr_v6, &src->u.prefix6,
+			SET_IPADDR_V6(&p_evpn_p->prefix_addr.ip);
+			memcpy(&p_evpn_p->prefix_addr.ip.ipaddr_v6,
+			       &src->u.prefix6,
 			       sizeof(struct in6_addr));
 			dst->prefixlen = (uint8_t)PREFIX_LEN_ROUTE_TYPE_5_IPV6;
 		}

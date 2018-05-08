@@ -4626,7 +4626,7 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 		if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN) {
 			struct bgp_encap_type_vxlan bet;
 			memset(&bet, 0, sizeof(struct bgp_encap_type_vxlan));
-			bet.vnid = p->u.prefix_evpn.eth_tag;
+			bet.vnid = p->u.prefix_evpn.prefix_addr.eth_tag;
 			bgp_encap_type_vxlan_to_tlv(&bet, &attr);
 		}
 		if (bgp_static->router_mac) {
@@ -5101,10 +5101,10 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			if ((gw_ip.family == AF_INET
-			     && IS_EVPN_PREFIX_IPADDR_V6(
+			     && is_evpn_prefix_ipaddr_v6(
 					(struct prefix_evpn *)&p))
 			    || (gw_ip.family == AF_INET6
-				&& IS_EVPN_PREFIX_IPADDR_V4(
+				&& is_evpn_prefix_ipaddr_v4(
 					   (struct prefix_evpn *)&p))) {
 				vty_out(vty,
 					"%% GatewayIp family differs with IP prefix\n");
@@ -7129,10 +7129,10 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 		vty_out(vty, "%s", str);
 		XFREE(MTYPE_TMP, str);
 
-		if (IS_EVPN_PREFIX_IPADDR_V4((struct prefix_evpn *)p)) {
+		if (is_evpn_prefix_ipaddr_v4((struct prefix_evpn *)p)) {
 			vty_out(vty, "/%s",
 				inet_ntoa(attr->evpn_overlay.gw_ip.ipv4));
-		} else if (IS_EVPN_PREFIX_IPADDR_V6((struct prefix_evpn *)p)) {
+		} else if (is_evpn_prefix_ipaddr_v6((struct prefix_evpn *)p)) {
 			vty_out(vty, "/%s",
 				inet_ntop(AF_INET6,
 					  &(attr->evpn_overlay.gw_ip.ipv6), buf,
@@ -11398,14 +11398,15 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 			prefix_rd2str(prd, rdbuf, sizeof(rdbuf));
 			if (p->u.prefix_evpn.route_type == 5) {
 				char local_buf[PREFIX_STRLEN];
-				uint8_t family = IS_EVPN_PREFIX_IPADDR_V4((
+				uint8_t family = is_evpn_prefix_ipaddr_v4((
 							 struct prefix_evpn *)p)
 							 ? AF_INET
 							 : AF_INET6;
-				inet_ntop(family, &p->u.prefix_evpn.ip.ip.addr,
+				inet_ntop(family,
+					  &p->u.prefix_evpn.prefix_addr.ip.ip.addr,
 					  local_buf, PREFIX_STRLEN);
 				sprintf(buf, "%s/%u", local_buf,
-					p->u.prefix_evpn.ip_prefix_length);
+					p->u.prefix_evpn.prefix_addr.ip_prefix_length);
 			} else {
 				prefix2str(p, buf, sizeof(buf));
 			}
@@ -11417,7 +11418,8 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 					  sizeof(buf2));
 			vty_out(vty,
 				"  network %s rd %s ethtag %u label %u esi %s gwip %s routermac %s\n",
-				buf, rdbuf, p->u.prefix_evpn.eth_tag,
+				buf, rdbuf,
+				p->u.prefix_evpn.prefix_addr.eth_tag,
 				decode_label(&bgp_static->label), esi, buf2,
 				macrouter);
 
