@@ -35,7 +35,6 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/router-id.h"
 #include "zebra/zebra_memory.h"
-#include "zebra/zebra_static.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_vxlan.h"

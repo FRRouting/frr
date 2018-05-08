@@ -48,7 +48,6 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_vxlan.h"
-#include "zebra/zebra_static.h"
 
 #define ZEBRA_PTM_SUPPORT
 
