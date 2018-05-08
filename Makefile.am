@@ -83,7 +83,6 @@ rc_SCRIPTS = \
 endif
 
 EXTRA_DIST += \
-	REPORTING-BUGS \
 	SERVICES \
 	aclocal.m4 \
 	update-autotools \
