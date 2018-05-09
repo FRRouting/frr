@@ -320,6 +320,14 @@ struct rip_peer {
 	struct thread *t_timeout;
 };
 
+struct rip_distance {
+	/* Distance value for the IP source prefix. */
+	uint8_t distance;
+
+	/* Name of the access-list to be matched. */
+	char *access_list;
+};
+
 struct rip_md5_info {
 	uint16_t family;
 	uint16_t type;
@@ -417,6 +425,8 @@ extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
 extern void rip_offset_clean(void);
 
 extern void rip_info_free(struct rip_info *);
+extern struct rip_distance *rip_distance_new(void);
+extern void rip_distance_free(struct rip_distance *rdistance);
 extern uint8_t rip_distance_apply(struct rip_info *);
 extern void rip_redistribute_clean(void);
 
@@ -438,6 +448,8 @@ extern long rip_global_queries;
 
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
+
+extern struct route_table *rip_distance_table;
 
 /* Northbound. */
 extern void rip_cli_init(void);

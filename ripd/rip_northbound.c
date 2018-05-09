@@ -162,14 +162,40 @@ static int ripd_instance_distance_source_create(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct prefix_ipv4 prefix;
+	struct route_node *rn;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	yang_dnode_get_ipv4p(&prefix, dnode, "./prefix");
+
+	/* Get RIP distance node. */
+	rn = route_node_get(rip_distance_table, (struct prefix *)&prefix);
+	rn->info = rip_distance_new();
+	yang_dnode_set_entry(dnode, rn);
+
 	return NB_OK;
 }
 
 static int ripd_instance_distance_source_delete(enum nb_event event,
 						const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct route_node *rn;
+	struct rip_distance *rdistance;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	rn = yang_dnode_get_entry(dnode);
+	rdistance = rn->info;
+	if (rdistance->access_list)
+		free(rdistance->access_list);
+	rip_distance_free(rdistance);
+
+	rn->info = NULL;
+	route_unlock_node(rn);
+
 	return NB_OK;
 }
 
@@ -181,7 +207,19 @@ ripd_instance_distance_source_distance_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct route_node *rn;
+	uint8_t distance;
+	struct rip_distance *rdistance;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Set distance value. */
+	rn = yang_dnode_get_entry(dnode);
+	distance = yang_dnode_get_uint8(dnode, NULL);
+	rdistance = rn->info;
+	rdistance->distance = distance;
+
 	return NB_OK;
 }
 
@@ -193,7 +231,22 @@ ripd_instance_distance_source_access_list_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	const char *acl_name;
+	struct route_node *rn;
+	struct rip_distance *rdistance;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	acl_name = yang_dnode_get_string(dnode, NULL);
+
+	/* Set access-list */
+	rn = yang_dnode_get_entry(dnode);
+	rdistance = rn->info;
+	if (rdistance->access_list)
+		free(rdistance->access_list);
+	rdistance->access_list = strdup(acl_name);
+
 	return NB_OK;
 }
 
@@ -201,7 +254,18 @@ static int
 ripd_instance_distance_source_access_list_delete(enum nb_event event,
 						 const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct route_node *rn;
+	struct rip_distance *rdistance;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Reset access-list configuration. */
+	rn = yang_dnode_get_entry(dnode);
+	rdistance = rn->info;
+	free(rdistance->access_list);
+	rdistance->access_list = NULL;
+
 	return NB_OK;
 }
 
@@ -779,6 +843,7 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.xpath = "/frr-ripd:ripd/instance/distance/source",
 			.cbs.create = ripd_instance_distance_source_create,
 			.cbs.delete = ripd_instance_distance_source_delete,
+			.cbs.cli_show = cli_show_rip_distance_source,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/distance/source/distance",

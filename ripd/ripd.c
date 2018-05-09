@@ -3001,96 +3001,14 @@ DEFUN (no_rip_timers,
 
 struct route_table *rip_distance_table;
 
-struct rip_distance {
-	/* Distance value for the IP source prefix. */
-	uint8_t distance;
-
-	/* Name of the access-list to be matched. */
-	char *access_list;
-};
-
-static struct rip_distance *rip_distance_new(void)
+struct rip_distance *rip_distance_new(void)
 {
 	return XCALLOC(MTYPE_RIP_DISTANCE, sizeof(struct rip_distance));
 }
 
-static void rip_distance_free(struct rip_distance *rdistance)
+void rip_distance_free(struct rip_distance *rdistance)
 {
 	XFREE(MTYPE_RIP_DISTANCE, rdistance);
-}
-
-static int rip_distance_set(struct vty *vty, const char *distance_str,
-			    const char *ip_str, const char *access_list_str)
-{
-	int ret;
-	struct prefix_ipv4 p;
-	uint8_t distance;
-	struct route_node *rn;
-	struct rip_distance *rdistance;
-
-	ret = str2prefix_ipv4(ip_str, &p);
-	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	distance = atoi(distance_str);
-
-	/* Get RIP distance node. */
-	rn = route_node_get(rip_distance_table, (struct prefix *)&p);
-	if (rn->info) {
-		rdistance = rn->info;
-		route_unlock_node(rn);
-	} else {
-		rdistance = rip_distance_new();
-		rn->info = rdistance;
-	}
-
-	/* Set distance value. */
-	rdistance->distance = distance;
-
-	/* Reset access-list configuration. */
-	if (rdistance->access_list) {
-		free(rdistance->access_list);
-		rdistance->access_list = NULL;
-	}
-	if (access_list_str)
-		rdistance->access_list = strdup(access_list_str);
-
-	return CMD_SUCCESS;
-}
-
-static int rip_distance_unset(struct vty *vty, const char *distance_str,
-			      const char *ip_str, const char *access_list_str)
-{
-	int ret;
-	struct prefix_ipv4 p;
-	struct route_node *rn;
-	struct rip_distance *rdistance;
-
-	ret = str2prefix_ipv4(ip_str, &p);
-	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rn = route_node_lookup(rip_distance_table, (struct prefix *)&p);
-	if (!rn) {
-		vty_out(vty, "Can't find specified prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rdistance = rn->info;
-
-	if (rdistance->access_list)
-		free(rdistance->access_list);
-	rip_distance_free(rdistance);
-
-	rn->info = NULL;
-	route_unlock_node(rn);
-	route_unlock_node(rn);
-
-	return CMD_SUCCESS;
 }
 
 static void rip_distance_reset(void)
@@ -3174,68 +3092,6 @@ static void rip_distance_show(struct vty *vty)
 				rdistance->access_list ? rdistance->access_list
 						       : "");
 		}
-}
-
-DEFUN (rip_distance_source,
-       rip_distance_source_cmd,
-       "distance (1-255) A.B.C.D/M",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n")
-{
-	int idx_number = 1;
-	int idx_ipv4_prefixlen = 2;
-	rip_distance_set(vty, argv[idx_number]->arg,
-			 argv[idx_ipv4_prefixlen]->arg, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_distance_source,
-       no_rip_distance_source_cmd,
-       "no distance (1-255) A.B.C.D/M",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n")
-{
-	int idx_number = 2;
-	int idx_ipv4_prefixlen = 3;
-	rip_distance_unset(vty, argv[idx_number]->arg,
-			   argv[idx_ipv4_prefixlen]->arg, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (rip_distance_source_access_list,
-       rip_distance_source_access_list_cmd,
-       "distance (1-255) A.B.C.D/M WORD",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-	int idx_number = 1;
-	int idx_ipv4_prefixlen = 2;
-	int idx_word = 3;
-	rip_distance_set(vty, argv[idx_number]->arg,
-			 argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_distance_source_access_list,
-       no_rip_distance_source_access_list_cmd,
-       "no distance (1-255) A.B.C.D/M WORD",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-	int idx_number = 2;
-	int idx_ipv4_prefixlen = 3;
-	int idx_word = 4;
-	rip_distance_unset(vty, argv[idx_number]->arg,
-			   argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-	return CMD_SUCCESS;
 }
 
 /* Update ECMP routes to zebra when ECMP is disabled. */
@@ -3531,7 +3387,6 @@ static int config_write_rip(struct vty *vty)
 {
 	int write = 0;
 	struct route_node *rn;
-	struct rip_distance *rdistance;
 	struct lyd_node *dnode;
 
 	dnode = yang_dnode_get(running_config->dnode,
@@ -3568,18 +3423,6 @@ static int config_write_rip(struct vty *vty)
 
 		/* Interface routemap configuration */
 		write += config_write_if_rmap(vty);
-
-		/* RIP source IP prefix distance configuration. */
-		for (rn = route_top(rip_distance_table); rn;
-		     rn = route_next(rn))
-			if ((rdistance = rn->info) != NULL)
-				vty_out(vty, " distance %d %s/%d %s\n",
-					rdistance->distance,
-					inet_ntoa(rn->p.u.prefix4),
-					rn->p.prefixlen,
-					rdistance->access_list
-						? rdistance->access_list
-						: "");
 
 		/* RIP static route configuration. */
 		for (rn = route_top(rip->route); rn; rn = route_next(rn))
@@ -3863,10 +3706,6 @@ void rip_init(void)
 	install_element(RIP_NODE, &no_rip_timers_cmd);
 	install_element(RIP_NODE, &rip_route_cmd);
 	install_element(RIP_NODE, &no_rip_route_cmd);
-	install_element(RIP_NODE, &rip_distance_source_cmd);
-	install_element(RIP_NODE, &no_rip_distance_source_cmd);
-	install_element(RIP_NODE, &rip_distance_source_access_list_cmd);
-	install_element(RIP_NODE, &no_rip_distance_source_access_list_cmd);
 
 	/* Debug related init. */
 	rip_debug_init();

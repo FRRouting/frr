@@ -234,6 +234,76 @@ void cli_show_rip_distance(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " distance %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/distance/source
+ */
+DEFPY (rip_distance_source,
+       rip_distance_source_cmd,
+       "distance (1-255) A.B.C.D/M$prefix [WORD$acl]",
+       "Administrative distance\n"
+       "Distance value\n"
+       "IP source prefix\n"
+       "Access list name\n")
+{
+	char xpath_list[XPATH_MAXLEN];
+	struct cli_config_change changes[] = {
+		{
+			.xpath = ".",
+			.operation = NB_OP_CREATE,
+		},
+		{
+			.xpath = "./distance",
+			.operation = NB_OP_MODIFY,
+			.value = distance_str,
+		},
+		{
+			.xpath = "./access-list",
+			.operation = acl ? NB_OP_MODIFY : NB_OP_DELETE,
+			.value = acl,
+		},
+	};
+
+	snprintf(xpath_list, sizeof(xpath_list),
+		 "./distance/source[prefix='%s']", prefix_str);
+
+	return nb_cli_cfg_change(vty, xpath_list, changes, array_size(changes));
+}
+
+DEFPY (no_rip_distance_source,
+       no_rip_distance_source_cmd,
+       "no distance (1-255) A.B.C.D/M$prefix [WORD$acl]",
+       NO_STR
+       "Administrative distance\n"
+       "Distance value\n"
+       "IP source prefix\n"
+       "Access list name\n")
+{
+	char xpath_list[XPATH_MAXLEN];
+	struct cli_config_change changes[] = {
+		{
+			.xpath = ".",
+			.operation = NB_OP_DELETE,
+		},
+	};
+
+	snprintf(xpath_list, sizeof(xpath_list),
+		 "./distance/source[prefix='%s']", prefix_str);
+
+	return nb_cli_cfg_change(vty, xpath_list, changes, 1);
+}
+
+void cli_show_rip_distance_source(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults)
+{
+	vty_out(vty, " distance %s %s",
+		yang_dnode_get_string(dnode, "./distance"),
+		yang_dnode_get_string(dnode, "./prefix"));
+	if (yang_dnode_exists(dnode, "./access-list"))
+		vty_out(vty, " %s",
+			yang_dnode_get_string(dnode, "./access-list"));
+	vty_out(vty, "\n");
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
@@ -245,4 +315,6 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &no_rip_default_metric_cmd);
 	install_element(RIP_NODE, &rip_distance_cmd);
 	install_element(RIP_NODE, &no_rip_distance_cmd);
+	install_element(RIP_NODE, &rip_distance_source_cmd);
+	install_element(RIP_NODE, &no_rip_distance_source_cmd);
 }
