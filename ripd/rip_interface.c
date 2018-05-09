@@ -207,7 +207,6 @@ static void rip_request_interface(struct interface *ifp)
 	/* Fetch RIP interface information. */
 	ri = ifp->info;
 
-
 	/* If there is no version configuration in the interface,
 	   use rip's version setting. */
 	{
@@ -498,29 +497,27 @@ void rip_interfaces_clean(void)
 
 static void rip_interface_reset(struct rip_interface *ri)
 {
-	/* Default authentication type is simple password for Cisco
-	   compatibility. */
-	ri->auth_type = RIP_NO_AUTH;
-	ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
+	ri->auth_type = yang_get_default_enum("%s/authentication-scheme/mode",
+					      RIP_IFACE);
+	ri->md5_auth_len = yang_get_default_enum(
+		"%s/authentication-scheme/md5-auth-length", RIP_IFACE);
 
 	/* Set default split-horizon behavior.  If the interface is Frame
 	   Relay or SMDS is enabled, the default value for split-horizon is
 	   off.  But currently Zebra does detect Frame Relay or SMDS
 	   interface.  So all interface is set to split horizon.  */
-	ri->split_horizon_default = RIP_SPLIT_HORIZON;
-	ri->split_horizon = ri->split_horizon_default;
+	ri->split_horizon =
+		yang_get_default_enum("%s/split-horizon", RIP_IFACE);
 
-	ri->ri_send = RI_RIP_UNSPEC;
-	ri->ri_receive = RI_RIP_UNSPEC;
-
-	ri->v2_broadcast = 0;
+	ri->ri_send = yang_get_default_enum("%s/version-send", RIP_IFACE);
+	ri->ri_receive = yang_get_default_enum("%s/version-receive", RIP_IFACE);
+	ri->v2_broadcast = yang_get_default_bool("%s/v2-broadcast", RIP_IFACE);
 
 	if (ri->auth_str)
 		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
 
 	if (ri->key_chain)
 		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
-
 
 	ri->list[RIP_FILTER_IN] = NULL;
 	ri->list[RIP_FILTER_OUT] = NULL;
@@ -1163,526 +1160,28 @@ void rip_passive_nondefault_clean(void)
 	rip_passive_interface_apply_all();
 }
 
-DEFUN (ip_rip_receive_version,
-       ip_rip_receive_version_cmd,
-       "ip rip receive version <(1-2)|none>",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement reception\n"
-       "Version control\n"
-       "RIP version\n"
-       "None\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_type = 4;
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	switch (argv[idx_type]->arg[0]) {
-	case '1':
-		ri->ri_receive = RI_RIP_VERSION_1;
-		return CMD_SUCCESS;
-	case '2':
-		ri->ri_receive = RI_RIP_VERSION_2;
-		return CMD_SUCCESS;
-	case 'n':
-		ri->ri_receive = RI_RIP_VERSION_NONE;
-		return CMD_SUCCESS;
-	default:
-		break;
-	}
-
-	return CMD_WARNING_CONFIG_FAILED;
-}
-
-DEFUN (ip_rip_receive_version_1,
-       ip_rip_receive_version_1_cmd,
-       "ip rip receive version <1 2|2 1>",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement reception\n"
-       "Version control\n"
-       "RIP version 1\n"
-       "RIP version 2\n"
-       "RIP version 2\n"
-       "RIP version 1\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	/* Version 1 and 2. */
-	ri->ri_receive = RI_RIP_VERSION_1_AND_2;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_rip_receive_version,
-       no_ip_rip_receive_version_cmd,
-       "no ip rip receive version [(1-2)]",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement reception\n"
-       "Version control\n"
-       "RIP version\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	ri->ri_receive = RI_RIP_UNSPEC;
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (ip_rip_send_version,
-       ip_rip_send_version_cmd,
-       "ip rip send version (1-2)",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement transmission\n"
-       "Version control\n"
-       "RIP version\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_type = 4;
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	/* Version 1. */
-	if (atoi(argv[idx_type]->arg) == 1) {
-		ri->ri_send = RI_RIP_VERSION_1;
-		return CMD_SUCCESS;
-	}
-	if (atoi(argv[idx_type]->arg) == 2) {
-		ri->ri_send = RI_RIP_VERSION_2;
-		return CMD_SUCCESS;
-	}
-	return CMD_WARNING_CONFIG_FAILED;
-}
-
-DEFUN (ip_rip_send_version_1,
-       ip_rip_send_version_1_cmd,
-       "ip rip send version <1 2|2 1>",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement transmission\n"
-       "Version control\n"
-       "RIP version 1\n"
-       "RIP version 2\n"
-       "RIP version 2\n"
-       "RIP version 1\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	/* Version 1 and 2. */
-	ri->ri_send = RI_RIP_VERSION_1_AND_2;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_rip_send_version,
-       no_ip_rip_send_version_cmd,
-       "no ip rip send version [(1-2)]",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement transmission\n"
-       "Version control\n"
-       "RIP version\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	ri->ri_send = RI_RIP_UNSPEC;
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (ip_rip_v2_broadcast,
-       ip_rip_v2_broadcast_cmd,
-       "ip rip v2-broadcast",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Send ip broadcast v2 update\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	ri->v2_broadcast = 1;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_rip_v2_broadcast,
-       no_ip_rip_v2_broadcast_cmd,
-       "no ip rip v2-broadcast",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Send ip broadcast v2 update\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	ri->v2_broadcast = 0;
-	return CMD_SUCCESS;
-}
-
-DEFUN (ip_rip_authentication_mode,
-       ip_rip_authentication_mode_cmd,
-       "ip rip authentication mode <md5|text> [auth-length <rfc|old-ripd>]",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication mode\n"
-       "Keyed message digest\n"
-       "Clear text authentication\n"
-       "MD5 authentication data length\n"
-       "RFC compatible\n"
-       "Old ripd compatible\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	char *cryptmode = argv[4]->text;
-	char *authlen = (argc > 5) ? argv[6]->text : NULL;
-	struct rip_interface *ri;
-	int auth_type;
-
-	ri = ifp->info;
-
-	if (strmatch("md5", cryptmode))
-		auth_type = RIP_AUTH_MD5;
-	else {
-		assert(strmatch("text", cryptmode));
-		auth_type = RIP_AUTH_SIMPLE_PASSWORD;
-	}
-
-	ri->auth_type = auth_type;
-
-	if (argc > 5) {
-		if (auth_type != RIP_AUTH_MD5) {
-			vty_out(vty,
-				"auth length argument only valid for md5\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (strmatch("rfc", authlen))
-			ri->md5_auth_len = RIP_AUTH_MD5_SIZE;
-		else {
-			assert(strmatch("old-ripd", authlen));
-			ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_rip_authentication_mode,
-       no_ip_rip_authentication_mode_cmd,
-       "no ip rip authentication mode [<md5|text> [auth-length <rfc|old-ripd>]]",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication mode\n"
-       "Keyed message digest\n"
-       "Clear text authentication\n"
-       "MD5 authentication data length\n"
-       "RFC compatible\n"
-       "Old ripd compatible\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	ri->auth_type = RIP_NO_AUTH;
-	ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (ip_rip_authentication_string,
-       ip_rip_authentication_string_cmd,
-       "ip rip authentication string LINE",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication string\n"
-       "Authentication string\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_line = 4;
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	if (strlen(argv[idx_line]->arg) > 16) {
-		vty_out(vty,
-			"%% RIPv2 authentication string must be shorter than 16\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (ri->key_chain) {
-		vty_out(vty, "%% key-chain configuration exists\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (ri->auth_str)
-		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
-
-	ri->auth_str = XSTRDUP(MTYPE_RIP_INTERFACE_STRING, argv[idx_line]->arg);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_rip_authentication_string,
-       no_ip_rip_authentication_string_cmd,
-       "no ip rip authentication string [LINE]",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication string\n"
-       "Authentication string\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	if (ri->auth_str)
-		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (ip_rip_authentication_key_chain,
-       ip_rip_authentication_key_chain_cmd,
-       "ip rip authentication key-chain LINE",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication key-chain\n"
-       "name of key-chain\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int idx_line = 4;
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	if (ri->auth_str) {
-		vty_out(vty, "%% authentication string configuration exists\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (ri->key_chain)
-		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
-
-	ri->key_chain =
-		XSTRDUP(MTYPE_RIP_INTERFACE_STRING, argv[idx_line]->arg);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_rip_authentication_key_chain,
-       no_ip_rip_authentication_key_chain_cmd,
-       "no ip rip authentication key-chain [LINE]",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Authentication control\n"
-       "Authentication key-chain\n"
-       "name of key-chain\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	if (ri->key_chain)
-		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
-
-	return CMD_SUCCESS;
-}
-
-
-/* CHANGED: ip rip split-horizon
-   Cisco and Zebra's command is
-   ip split-horizon
- */
-DEFUN (ip_rip_split_horizon,
-       ip_rip_split_horizon_cmd,
-       "ip rip split-horizon",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	ri->split_horizon = RIP_SPLIT_HORIZON;
-	return CMD_SUCCESS;
-}
-
-DEFUN (ip_rip_split_horizon_poisoned_reverse,
-       ip_rip_split_horizon_poisoned_reverse_cmd,
-       "ip rip split-horizon poisoned-reverse",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n"
-       "With poisoned-reverse\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	ri->split_horizon = RIP_SPLIT_HORIZON_POISONED_REVERSE;
-	return CMD_SUCCESS;
-}
-
-/* CHANGED: no ip rip split-horizon
-   Cisco and Zebra's command is
-   no ip split-horizon
- */
-DEFUN (no_ip_rip_split_horizon,
-       no_ip_rip_split_horizon_cmd,
-       "no ip rip split-horizon",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	ri->split_horizon = RIP_NO_SPLIT_HORIZON;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_rip_split_horizon_poisoned_reverse,
-       no_ip_rip_split_horizon_poisoned_reverse_cmd,
-       "no ip rip split-horizon poisoned-reverse",
-       NO_STR
-       IP_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n"
-       "With poisoned-reverse\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct rip_interface *ri;
-
-	ri = ifp->info;
-
-	switch (ri->split_horizon) {
-	case RIP_SPLIT_HORIZON_POISONED_REVERSE:
-		ri->split_horizon = RIP_SPLIT_HORIZON;
-	default:
-		break;
-	}
-
-	return CMD_SUCCESS;
-}
-
 /* Write rip configuration of each interface. */
 static int rip_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
+	int write = 0;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		struct rip_interface *ri;
+		struct lyd_node *dnode;
 
-		ri = ifp->info;
-
-		/* Do not display the interface if there is no
-		 * configuration about it.
-		 **/
-		if ((!ifp->desc)
-		    && (ri->split_horizon == ri->split_horizon_default)
-		    && (ri->ri_send == RI_RIP_UNSPEC)
-		    && (ri->ri_receive == RI_RIP_UNSPEC)
-		    && (ri->auth_type != RIP_AUTH_MD5) && (!ri->v2_broadcast)
-		    && (ri->md5_auth_len != RIP_AUTH_MD5_SIZE)
-		    && (!ri->auth_str) && (!ri->key_chain))
+		dnode = yang_dnode_get(
+			running_config->dnode,
+			"/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			ifp->name, vrf->name);
+		if (dnode == NULL)
 			continue;
 
-		vty_frame(vty, "interface %s\n", ifp->name);
-
-		if (ifp->desc)
-			vty_out(vty, " description %s\n", ifp->desc);
-
-		/* Split horizon. */
-		if (ri->split_horizon != ri->split_horizon_default) {
-			switch (ri->split_horizon) {
-			case RIP_SPLIT_HORIZON:
-				vty_out(vty, " ip rip split-horizon\n");
-				break;
-			case RIP_SPLIT_HORIZON_POISONED_REVERSE:
-				vty_out(vty,
-					" ip rip split-horizon poisoned-reverse\n");
-				break;
-			case RIP_NO_SPLIT_HORIZON:
-			default:
-				vty_out(vty, " no ip rip split-horizon\n");
-				break;
-			}
-		}
-
-		/* RIP version setting. */
-		if (ri->ri_send != RI_RIP_UNSPEC)
-			vty_out(vty, " ip rip send version %s\n",
-				lookup_msg(ri_version_msg, ri->ri_send, NULL));
-
-		if (ri->ri_receive != RI_RIP_UNSPEC)
-			vty_out(vty, " ip rip receive version %s \n",
-				lookup_msg(ri_version_msg, ri->ri_receive,
-					   NULL));
-
-		if (ri->v2_broadcast)
-			vty_out(vty, " ip rip v2-broadcast\n");
-
-		/* RIP authentication. */
-		if (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
-			vty_out(vty, " ip rip authentication mode text\n");
-
-		if (ri->auth_type == RIP_AUTH_MD5) {
-			vty_out(vty, " ip rip authentication mode md5");
-			if (ri->md5_auth_len == RIP_AUTH_MD5_COMPAT_SIZE)
-				vty_out(vty, " auth-length old-ripd");
-			else
-				vty_out(vty, " auth-length rfc");
-			vty_out(vty, "\n");
-		}
-
-		if (ri->auth_str)
-			vty_out(vty, " ip rip authentication string %s\n",
-				ri->auth_str);
-
-		if (ri->key_chain)
-			vty_out(vty, " ip rip authentication key-chain %s\n",
-				ri->key_chain);
-
-		vty_endframe(vty, "!\n");
+		write = 1;
+		nb_cli_show_dnode_cmds(vty, dnode, false);
 	}
-	return 0;
+
+	return write;
 }
 
 int rip_show_network_config(struct vty *vty)
@@ -1748,33 +1247,4 @@ void rip_if_init(void)
 	/* Install interface node. */
 	install_node(&interface_node, rip_interface_config_write);
 	if_cmd_init();
-
-	/* Install commands. */
-	install_element(INTERFACE_NODE, &ip_rip_send_version_cmd);
-	install_element(INTERFACE_NODE, &ip_rip_send_version_1_cmd);
-	install_element(INTERFACE_NODE, &no_ip_rip_send_version_cmd);
-
-	install_element(INTERFACE_NODE, &ip_rip_receive_version_cmd);
-	install_element(INTERFACE_NODE, &ip_rip_receive_version_1_cmd);
-	install_element(INTERFACE_NODE, &no_ip_rip_receive_version_cmd);
-
-	install_element(INTERFACE_NODE, &ip_rip_v2_broadcast_cmd);
-	install_element(INTERFACE_NODE, &no_ip_rip_v2_broadcast_cmd);
-
-	install_element(INTERFACE_NODE, &ip_rip_authentication_mode_cmd);
-	install_element(INTERFACE_NODE, &no_ip_rip_authentication_mode_cmd);
-
-	install_element(INTERFACE_NODE, &ip_rip_authentication_key_chain_cmd);
-	install_element(INTERFACE_NODE,
-			&no_ip_rip_authentication_key_chain_cmd);
-
-	install_element(INTERFACE_NODE, &ip_rip_authentication_string_cmd);
-	install_element(INTERFACE_NODE, &no_ip_rip_authentication_string_cmd);
-
-	install_element(INTERFACE_NODE, &ip_rip_split_horizon_cmd);
-	install_element(INTERFACE_NODE,
-			&ip_rip_split_horizon_poisoned_reverse_cmd);
-	install_element(INTERFACE_NODE, &no_ip_rip_split_horizon_cmd);
-	install_element(INTERFACE_NODE,
-			&no_ip_rip_split_horizon_poisoned_reverse_cmd);
 }

@@ -245,7 +245,7 @@ struct rip_interface {
 	int ri_receive;
 
 	/* RIPv2 broadcast mode */
-	int v2_broadcast;
+	bool v2_broadcast;
 
 	/* RIPv2 authentication type. */
 	int auth_type;
@@ -257,11 +257,10 @@ struct rip_interface {
 	char *key_chain;
 
 	/* value to use for md5->auth_len */
-	uint8_t md5_auth_len;
+	int md5_auth_len;
 
 	/* Split horizon flag. */
 	split_horizon_policy_t split_horizon;
-	split_horizon_policy_t split_horizon_default;
 
 /* For filter type slot. */
 #define RIP_FILTER_IN  0

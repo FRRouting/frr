@@ -61,5 +61,26 @@ extern void cli_show_rip_timers(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
 extern void cli_show_rip_version(struct vty *vty, struct lyd_node *dnode,
 				 bool show_defaults);
+extern void cli_show_ip_rip_split_horizon(struct vty *vty,
+					  struct lyd_node *dnode,
+					  bool show_defaults);
+extern void cli_show_ip_rip_v2_broadcast(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults);
+extern void cli_show_ip_rip_receive_version(struct vty *vty,
+					    struct lyd_node *dnode,
+					    bool show_defaults);
+extern void cli_show_ip_rip_send_version(struct vty *vty,
+					 struct lyd_node *dnode,
+					 bool show_defaults);
+extern void cli_show_ip_rip_authentication_scheme(struct vty *vty,
+						  struct lyd_node *dnode,
+						  bool show_defaults);
+extern void cli_show_ip_rip_authentication_string(struct vty *vty,
+						  struct lyd_node *dnode,
+						  bool show_defaults);
+extern void cli_show_ip_rip_authentication_key_chain(struct vty *vty,
+						     struct lyd_node *dnode,
+						     bool show_defaults);
 
 #endif /* _FRR_RIP_CLI_H_ */
