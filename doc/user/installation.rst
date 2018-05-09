@@ -117,11 +117,6 @@ customize the build to include or exclude specific features and dependencies.
 
    Enable Traffic Engineering Extension for ISIS (RFC5305)
 
-.. option:: --enable-multipath <ARG>
-
-   Enable support for Equal Cost Multipath. `ARG` is the maximum number
-   of ECMP paths to allow, set to 0 to allow unlimited number of paths.
-
 .. option:: --enable-realms
 
    Enable the support of Linux Realms. Convert tag values from 1-255 into a
