@@ -88,7 +88,7 @@ int bgp_find_nexthop(struct bgp_info *path, int connected)
 
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 {
-	if (LIST_EMPTY(&(bnc->paths)) && !bnc->nht_info) {
+	if (LIST_EMPTY(&(bnc->paths)) && bnc->nht_info) {
 		if (BGP_DEBUG(nht, NHT)) {
 			char buf[PREFIX2STR_BUFFER];
 			zlog_debug("bgp_unlink_nexthop: freeing bnc %s",
