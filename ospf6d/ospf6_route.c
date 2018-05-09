@@ -925,10 +925,11 @@ struct ospf6_route *ospf6_route_next(struct ospf6_route *route)
 	struct ospf6_route *next = route->next;
 
 	if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_info("%s %p: route next: %p<-[%p]->%p",
+		zlog_info("%s %p: route next: %p<-[%p]->%p , route ref count %u",
 			  ospf6_route_table_name(route->table),
 			  (void *)route->table, (void *)route->prev,
-			  (void *)route, (void *)route->next);
+			  (void *)route, (void *)route->next,
+			  route->lock);
 
 	ospf6_route_unlock(route);
 	if (next)

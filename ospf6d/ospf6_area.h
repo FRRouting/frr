@@ -50,6 +50,9 @@ struct ospf6_area {
 	/* Area type */
 	int no_summary;
 
+	/* Brouter traversal protection */
+	int intra_brouter_calc;
+
 	/* OSPF interface list */
 	struct list *if_list;
 
