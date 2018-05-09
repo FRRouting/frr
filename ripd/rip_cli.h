@@ -53,5 +53,7 @@ extern void cli_show_rip_passive_interface(struct vty *vty,
 extern void cli_show_rip_non_passive_interface(struct vty *vty,
 					       struct lyd_node *dnode,
 					       bool show_defaults);
+extern void cli_show_rip_redistribute(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults);
 
 #endif /* _FRR_RIP_CLI_H_ */

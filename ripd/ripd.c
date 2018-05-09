@@ -3312,7 +3312,7 @@ DEFUN (show_ip_rip_status,
 
 	/* Redistribute information. */
 	vty_out(vty, "  Redistributing:");
-	config_write_rip_redistribute(vty, 0);
+	rip_show_redistribute_config(vty);
 	vty_out(vty, "\n");
 
 	vty_out(vty, "  Default version control: send version %s,",
@@ -3410,9 +3410,6 @@ static int config_write_rip(struct vty *vty)
 			vty_out(vty, " timers basic %lu %lu %lu\n",
 				rip->update_time, rip->timeout_time,
 				rip->garbage_time);
-
-		/* Redistribute configuration. */
-		config_write_rip_redistribute(vty, 1);
 
 		/* Distribute configuration. */
 		write += config_write_distribute(vty);

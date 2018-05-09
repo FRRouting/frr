@@ -26,6 +26,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "command.h"
+#include "routemap.h"
 #include "northbound.h"
 #include "libfrr.h"
 
@@ -541,15 +542,31 @@ static int ripd_instance_redistribute_create(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
-	/* TODO: implement me. */
 	return NB_OK;
 }
 
 static int ripd_instance_redistribute_delete(enum nb_event event,
 					     const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	int type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "./protocol");
+
+	rip_redistribute_conf_delete(type);
+
 	return NB_OK;
+}
+
+static void
+ripd_instance_redistribute_apply_finish(const struct lyd_node *dnode)
+{
+	int type;
+
+	type = yang_dnode_get_enum(dnode, "./protocol");
+	rip_redistribute_conf_update(type);
 }
 
 /*
@@ -560,7 +577,20 @@ ripd_instance_redistribute_route_map_modify(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	int type;
+	const char *rmap_name;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "../protocol");
+	rmap_name = yang_dnode_get_string(dnode, NULL);
+
+	if (rip->route_map[type].name)
+		free(rip->route_map[type].name);
+	rip->route_map[type].name = strdup(rmap_name);
+	rip->route_map[type].map = route_map_lookup_by_name(rmap_name);
+
 	return NB_OK;
 }
 
@@ -568,7 +598,18 @@ static int
 ripd_instance_redistribute_route_map_delete(enum nb_event event,
 					    const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	int type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "../protocol");
+
+	if (rip->route_map[type].name) {
+		free(rip->route_map[type].name);
+		rip->route_map[type].name = NULL;
+	}
+
 	return NB_OK;
 }
 
@@ -580,7 +621,18 @@ ripd_instance_redistribute_metric_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	int type;
+	uint8_t metric;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "../protocol");
+	metric = yang_dnode_get_uint8(dnode, NULL);
+
+	rip->route_map[type].metric_config = true;
+	rip->route_map[type].metric = metric;
+
 	return NB_OK;
 }
 
@@ -588,7 +640,16 @@ static int
 ripd_instance_redistribute_metric_delete(enum nb_event event,
 					 const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	int type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "../protocol");
+
+	rip->route_map[type].metric_config = false;
+	rip->route_map[type].metric = 0;
+
 	return NB_OK;
 }
 
@@ -1028,6 +1089,8 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.xpath = "/frr-ripd:ripd/instance/redistribute",
 			.cbs.create = ripd_instance_redistribute_create,
 			.cbs.delete = ripd_instance_redistribute_delete,
+			.cbs.apply_finish = ripd_instance_redistribute_apply_finish,
+			.cbs.cli_show = cli_show_rip_redistribute,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/redistribute/route-map",

@@ -156,8 +156,8 @@ struct rip {
 	struct {
 		char *name;
 		struct route_map *map;
-		int metric_config;
-		uint32_t metric;
+		bool metric_config;
+		uint8_t metric;
 	} route_map[ZEBRA_ROUTE_MAX];
 
 	QOBJ_FIELDS
@@ -420,6 +420,8 @@ extern void rip_ecmp_disable(void);
 extern int rip_create_socket(void);
 
 extern int rip_redistribute_check(int);
+extern void rip_redistribute_conf_update(int type);
+extern void rip_redistribute_conf_delete(int type);
 extern void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 				 struct nexthop *nh, unsigned int metric,
 				 unsigned char distance, route_tag_t tag);
@@ -432,7 +434,7 @@ extern void rip_distribute_update_interface(struct interface *);
 extern void rip_if_rmap_update_interface(struct interface *);
 
 extern int rip_show_network_config(struct vty *);
-extern int config_write_rip_redistribute(struct vty *, int);
+extern void rip_show_redistribute_config(struct vty *);
 
 extern void rip_peer_init(void);
 extern void rip_peer_update(struct sockaddr_in *, uint8_t);
