@@ -570,6 +570,9 @@ class Router(Node):
                         self.cmd('kill -7 %s' % daemonpid)
                         self.waitOutput()
                     self.cmd('rm -- {}'.format(d.rstrip()))
+        if wait:
+                self.checkRouterCores()
+
     def removeIPs(self):
         for interface in self.intfNames():
             self.cmd('ip address flush', interface)
@@ -688,6 +691,32 @@ class Router(Node):
         return self.getLog('out', daemon)
     def getLog(self, log, daemon):
         return self.cmd('cat {}/{}/{}.{}'.format(self.logdir, self.name, daemon, log))
+
+    def checkRouterCores(self, reportLeaks=True):
+        for daemon in self.daemons:
+            if (self.daemons[daemon] == 1):
+                # Look for core file
+                corefiles = glob.glob('{}/{}/{}_core*.dmp'.format(
+                    self.logdir, self.name, daemon))
+                if (len(corefiles) > 0):
+                    daemon_path = os.path.join(self.daemondir, daemon)
+                    backtrace = subprocess.check_output([
+                        "gdb {} {} --batch -ex bt 2> /dev/null".format(daemon_path, corefiles[0])
+                    ], shell=True)
+                    sys.stderr.write("\n%s: %s crashed. Core file found - Backtrace follows:\n" % (self.name, daemon))
+                    sys.stderr.write("%s" % backtrace)
+                elif reportLeaks:
+                    log = self.getStdErr(daemon)
+                    if "memstats" in log:
+                        sys.stderr.write("%s: %s has memory leaks:\n" % (self.name, daemon))
+                        log = re.sub("core_handler: ", "", log)
+                        log = re.sub(r"(showing active allocations in memory group [a-zA-Z0-9]+)", r"\n  ## \1", log)
+                        log = re.sub("memstats:  ", "    ", log)
+                        sys.stderr.write(log)
+                # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
+                if checkAddressSanitizerError(self.getStdErr(daemon), self.name, daemon):
+                    sys.stderr.write("%s: Daemon %s killed by AddressSanitizer" % (self.name, daemon))
+
     def checkRouterRunning(self):
         "Check if router daemons are running and collect crashinfo they don't run"
 
