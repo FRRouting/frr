@@ -85,8 +85,39 @@ void cli_show_router_rip(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "router rip\n");
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/allow-ecmp
+ */
+DEFPY (rip_allow_ecmp,
+       rip_allow_ecmp_cmd,
+       "[no] allow-ecmp",
+       NO_STR
+       "Allow Equal Cost MultiPath\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./allow-ecmp",
+			.operation = NB_OP_MODIFY,
+			.value = no ? "false" : "true",
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
+			     bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " allow-ecmp\n");
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
 	install_element(CONFIG_NODE, &no_router_rip_cmd);
+
+	install_element(RIP_NODE, &rip_allow_ecmp_cmd);
 }

@@ -81,7 +81,13 @@ static int ripd_instance_allow_ecmp_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip->ecmp = yang_dnode_get_bool(dnode, NULL);
+	if (!rip->ecmp)
+		rip_ecmp_disable();
+
 	return NB_OK;
 }
 
@@ -722,6 +728,7 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/allow-ecmp",
 			.cbs.modify = ripd_instance_allow_ecmp_modify,
+			.cbs.cli_show = cli_show_rip_allow_ecmp,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/default-information-originate",
