@@ -3157,7 +3157,7 @@ static void rip_distance_show(struct vty *vty)
 	int header = 1;
 	char buf[BUFSIZ];
 
-	vty_out(vty, "  Distance: (default is %d)\n",
+	vty_out(vty, "  Distance: (default is %u)\n",
 		rip->distance ? rip->distance : ZEBRA_RIP_DISTANCE_DEFAULT);
 
 	for (rn = route_top(rip_distance_table); rn; rn = route_next(rn))
@@ -3174,28 +3174,6 @@ static void rip_distance_show(struct vty *vty)
 				rdistance->access_list ? rdistance->access_list
 						       : "");
 		}
-}
-
-DEFUN (rip_distance,
-       rip_distance_cmd,
-       "distance (1-255)",
-       "Administrative distance\n"
-       "Distance value\n")
-{
-	int idx_number = 1;
-	rip->distance = atoi(argv[idx_number]->arg);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_distance,
-       no_rip_distance_cmd,
-       "no distance (1-255)",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n")
-{
-	rip->distance = 0;
-	return CMD_SUCCESS;
 }
 
 DEFUN (rip_distance_source,
@@ -3591,10 +3569,6 @@ static int config_write_rip(struct vty *vty)
 		/* Interface routemap configuration */
 		write += config_write_if_rmap(vty);
 
-		/* Distance configuration. */
-		if (rip->distance)
-			vty_out(vty, " distance %d\n", rip->distance);
-
 		/* RIP source IP prefix distance configuration. */
 		for (rn = route_top(rip_distance_table); rn;
 		     rn = route_next(rn))
@@ -3889,8 +3863,6 @@ void rip_init(void)
 	install_element(RIP_NODE, &no_rip_timers_cmd);
 	install_element(RIP_NODE, &rip_route_cmd);
 	install_element(RIP_NODE, &no_rip_route_cmd);
-	install_element(RIP_NODE, &rip_distance_cmd);
-	install_element(RIP_NODE, &no_rip_distance_cmd);
 	install_element(RIP_NODE, &rip_distance_source_cmd);
 	install_element(RIP_NODE, &no_rip_distance_source_cmd);
 	install_element(RIP_NODE, &rip_distance_source_access_list_cmd);

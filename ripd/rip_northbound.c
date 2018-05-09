@@ -147,7 +147,11 @@ static int ripd_instance_distance_default_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip->distance = yang_dnode_get_uint8(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -769,6 +773,7 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/distance/default",
 			.cbs.modify = ripd_instance_distance_default_modify,
+			.cbs.cli_show = cli_show_rip_distance,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/distance/source",

@@ -190,6 +190,50 @@ void cli_show_rip_default_metric(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/distance/default
+ */
+DEFPY (rip_distance,
+       rip_distance_cmd,
+       "distance (1-255)",
+       "Administrative distance\n"
+       "Distance value\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./distance/default",
+			.operation = NB_OP_MODIFY,
+			.value = distance_str,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+DEFPY (no_rip_distance,
+       no_rip_distance_cmd,
+       "no distance [(1-255)]",
+       NO_STR
+       "Administrative distance\n"
+       "Distance value\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./distance/default",
+			.operation = NB_OP_MODIFY,
+			.value = NULL,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_distance(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults)
+{
+	vty_out(vty, " distance %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
@@ -199,4 +243,6 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &rip_default_information_originate_cmd);
 	install_element(RIP_NODE, &rip_default_metric_cmd);
 	install_element(RIP_NODE, &no_rip_default_metric_cmd);
+	install_element(RIP_NODE, &rip_distance_cmd);
+	install_element(RIP_NODE, &no_rip_distance_cmd);
 }
