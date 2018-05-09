@@ -35,5 +35,7 @@ extern void cli_show_rip_distance(struct vty *vty, struct lyd_node *dnode,
 extern void cli_show_rip_distance_source(struct vty *vty,
 					 struct lyd_node *dnode,
 					 bool show_defaults);
+extern void cli_show_rip_neighbor(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults);
 
 #endif /* _FRR_RIP_CLI_H_ */

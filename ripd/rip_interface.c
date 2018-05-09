@@ -35,6 +35,7 @@
 #include "sockopt.h"
 #include "privs.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 #include "zebra/connected.h"
 
@@ -1011,29 +1012,29 @@ int rip_neighbor_lookup(struct sockaddr_in *from)
 }
 
 /* Add new RIP neighbor to the neighbor tree. */
-static int rip_neighbor_add(struct prefix_ipv4 *p)
+int rip_neighbor_add(struct prefix_ipv4 *p)
 {
 	struct route_node *node;
 
 	node = route_node_get(rip->neighbor, (struct prefix *)p);
 
 	if (node->info)
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 
 	node->info = rip->neighbor;
 
-	return 0;
+	return NB_OK;
 }
 
 /* Delete RIP neighbor from the neighbor tree. */
-static int rip_neighbor_delete(struct prefix_ipv4 *p)
+int rip_neighbor_delete(struct prefix_ipv4 *p)
 {
 	struct route_node *node;
 
 	/* Lock for look up. */
 	node = route_node_lookup(rip->neighbor, (struct prefix *)p);
 	if (!node)
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 
 	node->info = NULL;
 
@@ -1043,7 +1044,7 @@ static int rip_neighbor_delete(struct prefix_ipv4 *p)
 	/* Unlock real neighbor information lock. */
 	route_unlock_node(node);
 
-	return 0;
+	return NB_OK;
 }
 
 /* Clear all network and neighbor configuration. */
@@ -1204,53 +1205,6 @@ DEFUN (no_rip_network,
 			argv[idx_ipv4_word]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-
-	return CMD_SUCCESS;
-}
-
-/* RIP neighbor configuration set. */
-DEFUN (rip_neighbor,
-       rip_neighbor_cmd,
-       "neighbor A.B.C.D",
-       "Specify a neighbor router\n"
-       "Neighbor address\n")
-{
-	int idx_ipv4 = 1;
-	int ret;
-	struct prefix_ipv4 p;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4]->arg, &p);
-
-	if (ret <= 0) {
-		vty_out(vty, "Please specify address by A.B.C.D\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rip_neighbor_add(&p);
-
-	return CMD_SUCCESS;
-}
-
-/* RIP neighbor configuration unset. */
-DEFUN (no_rip_neighbor,
-       no_rip_neighbor_cmd,
-       "no neighbor A.B.C.D",
-       NO_STR
-       "Specify a neighbor router\n"
-       "Neighbor address\n")
-{
-	int idx_ipv4 = 2;
-	int ret;
-	struct prefix_ipv4 p;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4]->arg, &p);
-
-	if (ret <= 0) {
-		vty_out(vty, "Please specify address by A.B.C.D\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rip_neighbor_delete(&p);
 
 	return CMD_SUCCESS;
 }
@@ -1896,8 +1850,6 @@ void rip_if_init(void)
 	/* Install commands. */
 	install_element(RIP_NODE, &rip_network_cmd);
 	install_element(RIP_NODE, &no_rip_network_cmd);
-	install_element(RIP_NODE, &rip_neighbor_cmd);
-	install_element(RIP_NODE, &no_rip_neighbor_cmd);
 
 	install_element(RIP_NODE, &rip_passive_interface_cmd);
 	install_element(RIP_NODE, &no_rip_passive_interface_cmd);

@@ -304,6 +304,33 @@ void cli_show_rip_distance_source(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/explicit-neighbor
+ */
+DEFPY (rip_neighbor,
+       rip_neighbor_cmd,
+       "[no] neighbor A.B.C.D",
+       NO_STR
+       "Specify a neighbor router\n"
+       "Neighbor address\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./explicit-neighbor",
+			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
+			.value = neighbor_str,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_neighbor(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults)
+{
+	vty_out(vty, " neighbor %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
@@ -317,4 +344,5 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &no_rip_distance_cmd);
 	install_element(RIP_NODE, &rip_distance_source_cmd);
 	install_element(RIP_NODE, &no_rip_distance_source_cmd);
+	install_element(RIP_NODE, &rip_neighbor_cmd);
 }

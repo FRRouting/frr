@@ -389,6 +389,8 @@ extern int rip_create(int socket);
 extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
 			    struct connected *);
 extern int rip_neighbor_lookup(struct sockaddr_in *);
+extern int rip_neighbor_add(struct prefix_ipv4 *p);
+extern int rip_neighbor_delete(struct prefix_ipv4 *p);
 
 extern void rip_ecmp_disable(void);
 

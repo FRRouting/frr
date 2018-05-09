@@ -276,15 +276,31 @@ static int ripd_instance_explicit_neighbor_create(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	struct prefix_ipv4 p;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	p.family = AF_INET;
+	p.prefixlen = IPV4_MAX_BITLEN;
+	yang_dnode_get_ipv4(&p.prefix, dnode, NULL);
+
+	return rip_neighbor_add(&p);
 }
 
 static int ripd_instance_explicit_neighbor_delete(enum nb_event event,
 						  const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	struct prefix_ipv4 p;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	p.family = AF_INET;
+	p.prefixlen = IPV4_MAX_BITLEN;
+	yang_dnode_get_ipv4(&p.prefix, dnode, NULL);
+
+	return rip_neighbor_delete(&p);
 }
 
 /*
@@ -858,6 +874,7 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.xpath = "/frr-ripd:ripd/instance/explicit-neighbor",
 			.cbs.create = ripd_instance_explicit_neighbor_create,
 			.cbs.delete = ripd_instance_explicit_neighbor_delete,
+			.cbs.cli_show = cli_show_rip_neighbor,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/network",
