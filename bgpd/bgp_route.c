@@ -225,6 +225,11 @@ struct bgp_info *bgp_info_lock(struct bgp_info *binfo)
 
 struct bgp_info *bgp_info_unlock(struct bgp_info *binfo)
 {
+	/* unlink reference to parent, if any. */
+	if (binfo->extra && binfo->extra->parent) {
+		bgp_info_unlock((struct bgp_info *)binfo->extra->parent);
+		binfo->extra->parent = NULL;
+	}
 	assert(binfo && binfo->lock > 0);
 	binfo->lock--;
 

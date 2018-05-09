@@ -569,7 +569,7 @@ leak_update(
 		setlabels(new, label, num_labels);
 
 	bgp_info_extra_get(new);
-	new->extra->parent = parent;
+	new->extra->parent = bgp_info_lock(parent);
 
 	if (bgp_orig)
 		new->extra->bgp_orig = bgp_orig;
