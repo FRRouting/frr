@@ -1,5 +1,5 @@
-Welcome to FRR's documentation!
-===============================
+FRRouting User Guide
+====================
 
 .. toctree::
    :maxdepth: 2
