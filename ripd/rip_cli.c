@@ -34,6 +34,59 @@
 #include "ripd/rip_cli_clippy.c"
 #endif
 
+/*
+ * XPath: /frr-ripd:ripd/instance
+ */
+DEFPY_NOSH (router_rip,
+       router_rip_cmd,
+       "router rip",
+       "Enable a routing process\n"
+       "Routing Information Protocol (RIP)\n")
+{
+	int ret;
+
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "/frr-ripd:ripd/instance",
+			.operation = NB_OP_CREATE,
+			.value = NULL,
+		},
+	};
+
+	ret = nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	if (ret == CMD_SUCCESS)
+		VTY_PUSH_XPATH(RIP_NODE, changes[0].xpath);
+
+	return ret;
+}
+
+DEFPY (no_router_rip,
+       no_router_rip_cmd,
+       "no router rip",
+       NO_STR
+       "Enable a routing process\n"
+       "Routing Information Protocol (RIP)\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "/frr-ripd:ripd/instance",
+			.operation = NB_OP_DELETE,
+			.value = NULL,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_router_rip(struct vty *vty, struct lyd_node *dnode,
+			 bool show_defaults)
+{
+	vty_out(vty, "!\n");
+	vty_out(vty, "router rip\n");
+}
+
 void rip_cli_init(void)
 {
+	install_element(CONFIG_NODE, &router_rip_cmd);
+	install_element(CONFIG_NODE, &no_router_rip_cmd);
 }

@@ -383,10 +383,13 @@ extern void rip_zclient_stop(void);
 extern void rip_zclient_reset(void);
 extern void rip_offset_init(void);
 extern int if_check_address(struct in_addr addr);
+extern int rip_create(int socket);
 
 extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
 			    struct connected *);
 extern int rip_neighbor_lookup(struct sockaddr_in *);
+
+extern int rip_create_socket(void);
 
 extern int rip_redistribute_check(int);
 extern void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
