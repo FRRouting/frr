@@ -367,6 +367,20 @@ enum rip_event {
 /* Macro for timer turn off. */
 #define RIP_TIMER_OFF(X) THREAD_TIMER_OFF(X)
 
+#define RIP_OFFSET_LIST_IN  0
+#define RIP_OFFSET_LIST_OUT 1
+#define RIP_OFFSET_LIST_MAX 2
+
+struct rip_offset_list {
+	char *ifname;
+
+	struct {
+		char *alist_name;
+		/* struct access_list *alist; */
+		uint8_t metric;
+	} direct[RIP_OFFSET_LIST_MAX];
+};
+
 /* Prototypes. */
 extern void rip_init(void);
 extern void rip_reset(void);
@@ -382,7 +396,6 @@ extern void rip_route_map_reset(void);
 extern void rip_zclient_init(struct thread_master *);
 extern void rip_zclient_stop(void);
 extern void rip_zclient_reset(void);
-extern void rip_offset_init(void);
 extern int if_check_address(struct in_addr addr);
 extern int rip_create(int socket);
 
@@ -414,7 +427,6 @@ extern void rip_distribute_update_interface(struct interface *);
 extern void rip_if_rmap_update_interface(struct interface *);
 
 extern int config_write_rip_network(struct vty *, int);
-extern int config_write_rip_offset_list(struct vty *);
 extern int config_write_rip_redistribute(struct vty *, int);
 
 extern void rip_peer_init(void);
@@ -425,12 +437,6 @@ extern void rip_peer_display(struct vty *);
 extern struct rip_peer *rip_peer_lookup(struct in_addr *);
 extern struct rip_peer *rip_peer_lookup_next(struct in_addr *);
 
-extern int rip_offset_list_apply_in(struct prefix_ipv4 *, struct interface *,
-				    uint32_t *);
-extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
-				     uint32_t *);
-extern void rip_offset_clean(void);
-
 extern void rip_info_free(struct rip_info *);
 extern struct rip_distance *rip_distance_new(void);
 extern void rip_distance_free(struct rip_distance *rdistance);
@@ -440,6 +446,16 @@ extern void rip_redistribute_clean(void);
 extern struct rip_info *rip_ecmp_add(struct rip_info *);
 extern struct rip_info *rip_ecmp_replace(struct rip_info *);
 extern struct rip_info *rip_ecmp_delete(struct rip_info *);
+
+extern struct rip_offset_list *rip_offset_list_new(const char *ifname);
+extern void offset_list_del(struct rip_offset_list *offset);
+extern struct rip_offset_list *rip_offset_list_lookup(const char *ifname);
+extern int rip_offset_list_apply_in(struct prefix_ipv4 *, struct interface *,
+				    uint32_t *);
+extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
+				     uint32_t *);
+extern void rip_offset_init(void);
+extern void rip_offset_clean(void);
 
 /* There is only one rip strucutre. */
 extern struct rip *rip;

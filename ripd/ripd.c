@@ -3412,9 +3412,6 @@ static int config_write_rip(struct vty *vty)
 		/* Redistribute configuration. */
 		config_write_rip_redistribute(vty, 1);
 
-		/* RIP offset-list configuration. */
-		config_write_rip_offset_list(vty);
-
 		/* Distribute configuration. */
 		write += config_write_distribute(vty);
 
