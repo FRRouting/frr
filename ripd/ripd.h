@@ -466,6 +466,7 @@ extern long rip_global_queries;
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
 
+extern struct list *peer_list;
 extern struct route_table *rip_distance_table;
 extern vector Vrip_passive_nondefault;
 

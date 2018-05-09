@@ -1006,22 +1006,37 @@ static const void *
 ripd_state_neighbors_neighbor_get_next(const char *xpath,
 				       const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	struct listnode *node;
+
+	if (list_entry == NULL)
+		node = listhead(peer_list);
+	else
+		node = listnextnode((struct listnode *)list_entry);
+
+	return node;
 }
 
 static int ripd_state_neighbors_neighbor_get_keys(const void *list_entry,
 						  struct yang_list_keys *keys)
 {
-	/* TODO: implement me. */
+	const struct listnode *node = list_entry;
+	const struct rip_peer *peer = listgetdata(node);
+
+	keys->num = 1;
+	(void)inet_ntop(AF_INET, &peer->addr, keys->key[0].value,
+			sizeof(keys->key[0].value));
+
 	return NB_OK;
 }
 
 static const void *
 ripd_state_neighbors_neighbor_lookup_entry(const struct yang_list_keys *keys)
 {
-	/* TODO: implement me. */
-	return NULL;
+	struct in_addr address;
+
+	yang_str2ipv4(keys->key[0].value, &address);
+
+	return rip_peer_lookup(&address);
 }
 
 /*
@@ -1031,8 +1046,9 @@ static struct yang_data *
 ripd_state_neighbors_neighbor_address_get_elem(const char *xpath,
 					       const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct rip_peer *peer = list_entry;
+
+	return yang_data_new_ipv4(xpath, &peer->addr);
 }
 
 /*
@@ -1042,7 +1058,7 @@ static struct yang_data *
 ripd_state_neighbors_neighbor_last_update_get_elem(const char *xpath,
 						   const void *list_entry)
 {
-	/* TODO: implement me. */
+	/* TODO: yang:date-and-time is tricky */
 	return NULL;
 }
 
@@ -1053,8 +1069,9 @@ static struct yang_data *
 ripd_state_neighbors_neighbor_bad_packets_rcvd_get_elem(const char *xpath,
 							const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct rip_peer *peer = list_entry;
+
+	return yang_data_new_uint32(xpath, peer->recv_badpackets);
 }
 
 /*
@@ -1064,8 +1081,9 @@ static struct yang_data *
 ripd_state_neighbors_neighbor_bad_routes_rcvd_get_elem(const char *xpath,
 						       const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct rip_peer *peer = list_entry;
+
+	return yang_data_new_uint32(xpath, peer->recv_badroutes);
 }
 
 /*
