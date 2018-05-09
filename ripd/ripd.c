@@ -2689,7 +2689,6 @@ int rip_create(int socket)
 
 	/* Initialize RIP routig table. */
 	rip->table = route_table_init();
-	rip->route = route_table_init();
 	rip->neighbor = route_table_init();
 
 	/* Make output stream. */
@@ -2831,82 +2830,6 @@ DEFUN (no_rip_version,
 	/* Set RIP version to the default. */
 	rip->version_send = RI_RIP_VERSION_2;
 	rip->version_recv = RI_RIP_VERSION_1_AND_2;
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (rip_route,
-       rip_route_cmd,
-       "route A.B.C.D/M",
-       "RIP static route configuration\n"
-       "IP prefix <network>/<length>\n")
-{
-	int idx_ipv4_prefixlen = 1;
-	int ret;
-	struct nexthop nh;
-	struct prefix_ipv4 p;
-	struct route_node *node;
-
-	memset(&nh, 0, sizeof(nh));
-	nh.type = NEXTHOP_TYPE_IPV4;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
-	if (ret < 0) {
-		vty_out(vty, "Malformed address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv4(&p);
-
-	/* For router rip configuration. */
-	node = route_node_get(rip->route, (struct prefix *)&p);
-
-	if (node->info) {
-		vty_out(vty, "There is already same static route.\n");
-		route_unlock_node(node);
-		return CMD_WARNING;
-	}
-
-	node->info = (void *)1;
-
-	rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, &nh, 0, 0,
-			     0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_route,
-       no_rip_route_cmd,
-       "no route A.B.C.D/M",
-       NO_STR
-       "RIP static route configuration\n"
-       "IP prefix <network>/<length>\n")
-{
-	int idx_ipv4_prefixlen = 2;
-	int ret;
-	struct prefix_ipv4 p;
-	struct route_node *node;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
-	if (ret < 0) {
-		vty_out(vty, "Malformed address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv4(&p);
-
-	/* For router rip configuration. */
-	node = route_node_lookup(rip->route, (struct prefix *)&p);
-	if (!node) {
-		vty_out(vty, "Can't find route %s.\n",
-			argv[idx_ipv4_prefixlen]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rip_redistribute_delete(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0);
-	route_unlock_node(node);
-
-	node->info = NULL;
-	route_unlock_node(node);
 
 	return CMD_SUCCESS;
 }
@@ -3388,7 +3311,6 @@ DEFUN (show_ip_rip_status,
 static int config_write_rip(struct vty *vty)
 {
 	int write = 0;
-	struct route_node *rn;
 	struct lyd_node *dnode;
 
 	dnode = yang_dnode_get(running_config->dnode,
@@ -3416,13 +3338,6 @@ static int config_write_rip(struct vty *vty)
 
 		/* Interface routemap configuration */
 		write += config_write_if_rmap(vty);
-
-		/* RIP static route configuration. */
-		for (rn = route_top(rip->route); rn; rn = route_next(rn))
-			if (rn->info)
-				vty_out(vty, " route %s/%d\n",
-					inet_ntoa(rn->p.u.prefix4),
-					rn->p.prefixlen);
 	}
 	return write;
 }
@@ -3558,12 +3473,6 @@ void rip_clean(void)
 		}
 
 		stream_free(rip->obuf);
-		/* Static RIP route configuration. */
-		for (rp = route_top(rip->route); rp; rp = route_next(rp))
-			if (rp->info) {
-				rp->info = NULL;
-				route_unlock_node(rp);
-			}
 
 		/* RIP neighbor configuration. */
 		for (rp = route_top(rip->neighbor); rp; rp = route_next(rp))
@@ -3577,7 +3486,6 @@ void rip_clean(void)
 				free(rip->route_map[i].name);
 
 		XFREE(MTYPE_ROUTE_TABLE, rip->table);
-		XFREE(MTYPE_ROUTE_TABLE, rip->route);
 		XFREE(MTYPE_ROUTE_TABLE, rip->neighbor);
 
 		XFREE(MTYPE_RIP, rip);
@@ -3697,8 +3605,6 @@ void rip_init(void)
 	install_element(RIP_NODE, &no_rip_version_cmd);
 	install_element(RIP_NODE, &rip_timers_cmd);
 	install_element(RIP_NODE, &no_rip_timers_cmd);
-	install_element(RIP_NODE, &rip_route_cmd);
-	install_element(RIP_NODE, &no_rip_route_cmd);
 
 	/* Debug related init. */
 	rip_debug_init();

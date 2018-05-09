@@ -612,6 +612,33 @@ void cli_show_rip_redistribute(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/static-route
+ */
+DEFPY (rip_route,
+       rip_route_cmd,
+       "[no] route A.B.C.D/M",
+       NO_STR
+       "RIP static route configuration\n"
+       "IP prefix <network>/<length>\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./static-route",
+			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
+			.value = route_str,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_route(struct vty *vty, struct lyd_node *dnode,
+			bool show_defaults)
+{
+	vty_out(vty, " route %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
@@ -634,4 +661,5 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &rip_passive_interface_cmd);
 	install_element(RIP_NODE, &rip_redistribute_cmd);
 	install_element(RIP_NODE, &no_rip_redistribute_cmd);
+	install_element(RIP_NODE, &rip_route_cmd);
 }
