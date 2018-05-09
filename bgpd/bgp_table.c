@@ -29,6 +29,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
+#include "bgp_addpath.h"
 
 void bgp_table_lock(struct bgp_table *rt)
 {
@@ -76,7 +77,16 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 			     struct route_table *table, struct route_node *node)
 {
 	struct bgp_node *bgp_node;
+	struct bgp_table *rt;
 	bgp_node = bgp_node_from_rnode(node);
+	rt = table->info;
+
+	if (rt->bgp) {
+		bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
+					 &bgp_node->tx_addpath,
+					 rt->afi, rt->safi);
+	}
+
 	XFREE(MTYPE_BGP_NODE, bgp_node);
 }
 

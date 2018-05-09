@@ -49,6 +49,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_advertise.h"
+#include "bgpd/bgp_addpath.h"
 
 
 /********************
@@ -97,6 +98,40 @@ static void adj_free(struct bgp_adj_out *adj)
 	XFREE(MTYPE_BGP_ADJ_OUT, adj);
 }
 
+static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
+					  struct update_subgroup *subgrp)
+{
+	struct bgp_adj_out *adj, *adj_next;
+	uint32_t id;
+	struct bgp_path_info *pi;
+	afi_t afi = SUBGRP_AFI(subgrp);
+	safi_t safi = SUBGRP_SAFI(subgrp);
+	struct peer *peer = SUBGRP_PEER(subgrp);
+
+	/* Look through all of the paths we have advertised for this rn and send
+	 * a withdraw for the ones that are no longer present */
+	for (adj = ctx->rn->adj_out; adj; adj = adj_next) {
+		adj_next = adj->next;
+
+		if (adj->subgroup == subgrp) {
+			for (pi = ctx->rn->info; pi; pi = pi->next) {
+				id = bgp_addpath_id_for_peer(peer, afi, safi,
+					&pi->tx_addpath);
+
+				if (id == adj->addpath_tx_id) {
+					break;
+				}
+			}
+
+			if (!pi) {
+				subgroup_process_announce_selected(
+					subgrp, NULL, ctx->rn,
+					adj->addpath_tx_id);
+			}
+		}
+	}
+}
+
 static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 {
 	struct updwalk_context *ctx = arg;
@@ -131,31 +166,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 		if (!subgrp->t_coalesce) {
 			/* An update-group that uses addpath */
 			if (addpath_capable) {
-				/* Look through all of the paths we have
-				 * advertised for this rn and
-				 * send a withdraw for the ones that are no
-				 * longer present */
-				for (adj = ctx->rn->adj_out; adj;
-				     adj = adj_next) {
-					adj_next = adj->next;
-
-					if (adj->subgroup == subgrp) {
-						for (pi = ctx->rn->info; pi;
-						     pi = pi->next) {
-							if (pi->addpath_tx_id
-							    == adj->addpath_tx_id) {
-								break;
-							}
-						}
-
-						if (!pi) {
-							subgroup_process_announce_selected(
-								subgrp, NULL,
-								ctx->rn,
-								adj->addpath_tx_id);
-						}
-					}
-				}
+				subgrp_withdraw_stale_addpath(ctx, subgrp);
 
 				for (pi = ctx->rn->info; pi; pi = pi->next) {
 					/* Skip the bestpath for now */
@@ -164,7 +175,9 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 
 					subgroup_process_announce_selected(
 						subgrp, pi, ctx->rn,
-						pi->addpath_tx_id);
+						bgp_addpath_id_for_peer(
+							peer, afi, safi,
+							&pi->tx_addpath));
 				}
 
 				/* Process the bestpath last so the "show [ip]
@@ -174,7 +187,9 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 				if (ctx->pi)
 					subgroup_process_announce_selected(
 						subgrp, ctx->pi, ctx->rn,
-						ctx->pi->addpath_tx_id);
+						bgp_addpath_id_for_peer(
+							peer, afi, safi,
+							&ctx->pi->tx_addpath));
 			}
 
 			/* An update-group that does not use addpath */
@@ -182,7 +197,9 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 				if (ctx->pi) {
 					subgroup_process_announce_selected(
 						subgrp, ctx->pi, ctx->rn,
-						ctx->pi->addpath_tx_id);
+						bgp_addpath_id_for_peer(
+							peer, afi, safi,
+							&ctx->pi->tx_addpath));
 				} else {
 					/* Find the addpath_tx_id of the path we
 					 * had advertised and
@@ -433,15 +450,27 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 {
 	struct bgp_adj_out *adj = NULL;
 	struct bgp_advertise *adv;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	peer = SUBGRP_PEER(subgrp);
+	afi = SUBGRP_AFI(subgrp);
+	safi = SUBGRP_SAFI(subgrp);
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return;
 
 	/* Look for adjacency information. */
-	adj = adj_lookup(rn, subgrp, path->addpath_tx_id);
+	adj = adj_lookup(
+		rn, subgrp,
+		bgp_addpath_id_for_peer(peer, afi, safi, &path->tx_addpath));
 
 	if (!adj) {
-		adj = bgp_adj_out_alloc(subgrp, rn, path->addpath_tx_id);
+		adj = bgp_adj_out_alloc(
+			subgrp, rn,
+			bgp_addpath_id_for_peer(peer, afi, safi,
+					      &path->tx_addpath));
 		if (!adj)
 			return;
 	}
@@ -597,7 +626,9 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 
 			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)
 			    || (addpath_capable
-				&& bgp_addpath_tx_path(peer, afi, safi, ri))) {
+				&& bgp_addpath_tx_path(
+					   peer->addpath_type[afi][safi],
+					   ri))) {
 				if (subgroup_announce_check(rn, ri, subgrp,
 							    &rn->p, &attr))
 					bgp_adj_out_set_subgroup(rn, subgrp,
@@ -605,7 +636,9 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 				else
 					bgp_adj_out_unset_subgroup(
 						rn, subgrp, 1,
-						ri->addpath_tx_id);
+						bgp_addpath_id_for_peer(
+							peer, afi, safi,
+							&ri->tx_addpath));
 			}
 
 	/*
