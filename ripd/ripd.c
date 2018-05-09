@@ -65,7 +65,6 @@ long rip_global_route_changes = 0;
 long rip_global_queries = 0;
 
 /* Prototypes. */
-static void rip_event(enum rip_event, int);
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
 			       uint8_t);
 static int rip_triggered_update(struct thread *);
@@ -2851,78 +2850,6 @@ rip_update_default_metric (void)
 }
 #endif
 
-DEFUN (rip_timers,
-       rip_timers_cmd,
-       "timers basic (5-2147483647) (5-2147483647) (5-2147483647)",
-       "Adjust routing timers\n"
-       "Basic routing protocol update timers\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
-{
-	int idx_number = 2;
-	int idx_number_2 = 3;
-	int idx_number_3 = 4;
-	unsigned long update;
-	unsigned long timeout;
-	unsigned long garbage;
-	char *endptr = NULL;
-	unsigned long RIP_TIMER_MAX = 2147483647;
-	unsigned long RIP_TIMER_MIN = 5;
-
-	update = strtoul(argv[idx_number]->arg, &endptr, 10);
-	if (update > RIP_TIMER_MAX || update < RIP_TIMER_MIN
-	    || *endptr != '\0') {
-		vty_out(vty, "update timer value error\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	timeout = strtoul(argv[idx_number_2]->arg, &endptr, 10);
-	if (timeout > RIP_TIMER_MAX || timeout < RIP_TIMER_MIN
-	    || *endptr != '\0') {
-		vty_out(vty, "timeout timer value error\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	garbage = strtoul(argv[idx_number_3]->arg, &endptr, 10);
-	if (garbage > RIP_TIMER_MAX || garbage < RIP_TIMER_MIN
-	    || *endptr != '\0') {
-		vty_out(vty, "garbage timer value error\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Set each timer value. */
-	rip->update_time = update;
-	rip->timeout_time = timeout;
-	rip->garbage_time = garbage;
-
-	/* Reset update timer thread. */
-	rip_event(RIP_UPDATE_EVENT, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_timers,
-       no_rip_timers_cmd,
-       "no timers basic [(0-65535) (0-65535) (0-65535)]",
-       NO_STR
-       "Adjust routing timers\n"
-       "Basic routing protocol update timers\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
-{
-	/* Set each timer value to the default. */
-	rip->update_time = RIP_UPDATE_TIMER_DEFAULT;
-	rip->timeout_time = RIP_TIMEOUT_TIMER_DEFAULT;
-	rip->garbage_time = RIP_GARBAGE_TIMER_DEFAULT;
-
-	/* Reset update timer thread. */
-	rip_event(RIP_UPDATE_EVENT, 0);
-
-	return CMD_SUCCESS;
-}
-
 
 struct route_table *rip_distance_table;
 
@@ -3219,12 +3146,12 @@ DEFUN (show_ip_rip_status,
 		return CMD_SUCCESS;
 
 	vty_out(vty, "Routing Protocol is \"rip\"\n");
-	vty_out(vty, "  Sending updates every %ld seconds with +/-50%%,",
+	vty_out(vty, "  Sending updates every %u seconds with +/-50%%,",
 		rip->update_time);
 	vty_out(vty, " next due in %lu seconds\n",
 		thread_timer_remain_second(rip->t_update));
-	vty_out(vty, "  Timeout after %ld seconds,", rip->timeout_time);
-	vty_out(vty, " garbage collect after %ld seconds\n", rip->garbage_time);
+	vty_out(vty, "  Timeout after %u seconds,", rip->timeout_time);
+	vty_out(vty, " garbage collect after %u seconds\n", rip->garbage_time);
 
 	/* Filtering status show. */
 	config_show_distribute(vty);
@@ -3324,14 +3251,6 @@ static int config_write_rip(struct vty *vty)
 		if (rip->version_send != RI_RIP_VERSION_2
 		    || rip->version_recv != RI_RIP_VERSION_1_AND_2)
 			vty_out(vty, " version %d\n", rip->version_send);
-
-		/* RIP timer configuration. */
-		if (rip->update_time != RIP_UPDATE_TIMER_DEFAULT
-		    || rip->timeout_time != RIP_TIMEOUT_TIMER_DEFAULT
-		    || rip->garbage_time != RIP_GARBAGE_TIMER_DEFAULT)
-			vty_out(vty, " timers basic %lu %lu %lu\n",
-				rip->update_time, rip->timeout_time,
-				rip->garbage_time);
 
 		/* Distribute configuration. */
 		write += config_write_distribute(vty);
@@ -3603,8 +3522,6 @@ void rip_init(void)
 	install_default(RIP_NODE);
 	install_element(RIP_NODE, &rip_version_cmd);
 	install_element(RIP_NODE, &no_rip_version_cmd);
-	install_element(RIP_NODE, &rip_timers_cmd);
-	install_element(RIP_NODE, &no_rip_timers_cmd);
 
 	/* Debug related init. */
 	rip_debug_init();

@@ -692,6 +692,15 @@ static int ripd_instance_static_route_delete(enum nb_event event,
 }
 
 /*
+ * XPath: /frr-ripd:ripd/instance/timers/
+ */
+static void ripd_instance_timers_apply_finish(const struct lyd_node *dnode)
+{
+	/* Reset update timer thread. */
+	rip_event(RIP_UPDATE_EVENT, 0);
+}
+
+/*
  * XPath: /frr-ripd:ripd/instance/timers/flush-interval
  */
 static int
@@ -699,7 +708,11 @@ ripd_instance_timers_flush_interval_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip->garbage_time = yang_dnode_get_uint32(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -711,7 +724,11 @@ ripd_instance_timers_holddown_interval_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip->timeout_time = yang_dnode_get_uint32(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -723,7 +740,11 @@ ripd_instance_timers_update_interval_modify(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip->update_time = yang_dnode_get_uint32(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -1127,6 +1148,11 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.cbs.create = ripd_instance_static_route_create,
 			.cbs.delete = ripd_instance_static_route_delete,
 			.cbs.cli_show = cli_show_rip_route,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/timers",
+			.cbs.apply_finish = ripd_instance_timers_apply_finish,
+			.cbs.cli_show = cli_show_rip_timers,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/timers/flush-interval",
