@@ -712,6 +712,72 @@ void cli_show_rip_timers(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./flush-interval"));
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/version
+ */
+DEFPY (rip_version,
+       rip_version_cmd,
+       "version (1-2)",
+       "Set routing protocol version\n"
+       "version\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./version/receive",
+			.operation = NB_OP_MODIFY,
+			.value = version_str,
+		},
+		{
+			.xpath = "./version/send",
+			.operation = NB_OP_MODIFY,
+			.value = version_str,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+DEFPY (no_rip_version,
+       no_rip_version_cmd,
+       "no version [(1-2)]",
+       NO_STR
+       "Set routing protocol version\n"
+       "version\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./version/receive",
+			.operation = NB_OP_MODIFY,
+		},
+		{
+			.xpath = "./version/send",
+			.operation = NB_OP_MODIFY,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_version(struct vty *vty, struct lyd_node *dnode,
+			  bool show_defaults)
+{
+	/*
+	 * We have only one "version" command and three possible combinations of
+	 * send/receive values.
+	 */
+	switch (yang_dnode_get_enum(dnode, "./receive")) {
+	case RI_RIP_VERSION_1:
+		vty_out(vty, " version 1\n");
+		break;
+	case RI_RIP_VERSION_2:
+		vty_out(vty, " version 2\n");
+		break;
+	case RI_RIP_VERSION_1_AND_2:
+		vty_out(vty, " no version\n");
+		break;
+	}
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
@@ -737,4 +803,6 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &rip_route_cmd);
 	install_element(RIP_NODE, &rip_timers_cmd);
 	install_element(RIP_NODE, &no_rip_timers_cmd);
+	install_element(RIP_NODE, &rip_version_cmd);
+	install_element(RIP_NODE, &no_rip_version_cmd);
 }

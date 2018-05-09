@@ -59,5 +59,7 @@ extern void cli_show_rip_route(struct vty *vty, struct lyd_node *dnode,
 			       bool show_defaults);
 extern void cli_show_rip_timers(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
+extern void cli_show_rip_version(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults);
 
 #endif /* _FRR_RIP_CLI_H_ */

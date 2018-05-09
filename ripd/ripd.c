@@ -2799,40 +2799,6 @@ void rip_event(enum rip_event event, int sock)
 	}
 }
 
-DEFUN (rip_version,
-       rip_version_cmd,
-       "version (1-2)",
-       "Set routing protocol version\n"
-       "version\n")
-{
-	int idx_number = 1;
-	int version;
-
-	version = atoi(argv[idx_number]->arg);
-	if (version != RIPv1 && version != RIPv2) {
-		vty_out(vty, "invalid rip version %d\n", version);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	rip->version_send = version;
-	rip->version_recv = version;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_version,
-       no_rip_version_cmd,
-       "no version [(1-2)]",
-       NO_STR
-       "Set routing protocol version\n"
-       "Version\n")
-{
-	/* Set RIP version to the default. */
-	rip->version_send = RI_RIP_VERSION_2;
-	rip->version_recv = RI_RIP_VERSION_1_AND_2;
-
-	return CMD_SUCCESS;
-}
-
 #if 0
 static void
 rip_update_default_metric (void)
@@ -3247,11 +3213,6 @@ static int config_write_rip(struct vty *vty)
 
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
-		/* RIP version statement.  Default is RIP version 2. */
-		if (rip->version_send != RI_RIP_VERSION_2
-		    || rip->version_recv != RI_RIP_VERSION_1_AND_2)
-			vty_out(vty, " version %d\n", rip->version_send);
-
 		/* Distribute configuration. */
 		write += config_write_distribute(vty);
 
@@ -3520,8 +3481,6 @@ void rip_init(void)
 	install_element(VIEW_NODE, &show_ip_rip_status_cmd);
 
 	install_default(RIP_NODE);
-	install_element(RIP_NODE, &rip_version_cmd);
-	install_element(RIP_NODE, &no_rip_version_cmd);
 
 	/* Debug related init. */
 	rip_debug_init();

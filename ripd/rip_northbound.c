@@ -755,7 +755,11 @@ static int ripd_instance_version_receive_modify(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip->version_recv = yang_dnode_get_enum(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -766,7 +770,11 @@ static int ripd_instance_version_send_modify(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip->version_send = yang_dnode_get_enum(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -1165,6 +1173,10 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/timers/update-interval",
 			.cbs.modify = ripd_instance_timers_update_interval_modify,
+		},
+		{
+			.xpath = "/frr-ripd:ripd/instance/version",
+			.cbs.cli_show = cli_show_rip_version,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/version/receive",
