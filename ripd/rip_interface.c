@@ -762,7 +762,7 @@ int rip_enable_network_lookup2(struct connected *connected)
 	return -1;
 }
 /* Add RIP enable network. */
-static int rip_enable_network_add(struct prefix *p)
+int rip_enable_network_add(struct prefix *p)
 {
 	struct route_node *node;
 
@@ -770,18 +770,18 @@ static int rip_enable_network_add(struct prefix *p)
 
 	if (node->info) {
 		route_unlock_node(node);
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 	} else
 		node->info = (void *)1;
 
 	/* XXX: One should find a better solution than a generic one */
 	rip_enable_apply_all();
 
-	return 1;
+	return NB_OK;
 }
 
 /* Delete RIP enable network. */
-static int rip_enable_network_delete(struct prefix *p)
+int rip_enable_network_delete(struct prefix *p)
 {
 	struct route_node *node;
 
@@ -798,9 +798,10 @@ static int rip_enable_network_delete(struct prefix *p)
 		/* XXX: One should find a better solution than a generic one */
 		rip_enable_apply_all();
 
-		return 1;
+		return NB_OK;
 	}
-	return -1;
+
+	return NB_ERR_INCONSISTENCY;
 }
 
 /* Check interface is enabled by ifname statement. */
@@ -817,31 +818,31 @@ static int rip_enable_if_lookup(const char *ifname)
 }
 
 /* Add interface to rip_enable_if. */
-static int rip_enable_if_add(const char *ifname)
+int rip_enable_if_add(const char *ifname)
 {
 	int ret;
 
 	ret = rip_enable_if_lookup(ifname);
 	if (ret >= 0)
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 
 	vector_set(rip_enable_interface,
 		   XSTRDUP(MTYPE_RIP_INTERFACE_STRING, ifname));
 
 	rip_enable_apply_all(); /* TODOVJ */
 
-	return 1;
+	return NB_OK;
 }
 
 /* Delete interface from rip_enable_if. */
-static int rip_enable_if_delete(const char *ifname)
+int rip_enable_if_delete(const char *ifname)
 {
 	int index;
 	char *str;
 
 	index = rip_enable_if_lookup(ifname);
 	if (index < 0)
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 
 	str = vector_slot(rip_enable_interface, index);
 	XFREE(MTYPE_RIP_INTERFACE_STRING, str);
@@ -849,7 +850,7 @@ static int rip_enable_if_delete(const char *ifname)
 
 	rip_enable_apply_all(); /* TODOVJ */
 
-	return 1;
+	return NB_OK;
 }
 
 /* Join to multicast group and send request to the interface. */
@@ -1150,63 +1151,6 @@ void rip_passive_nondefault_clean(void)
 			vector_slot(Vrip_passive_nondefault, i) = NULL;
 		}
 	rip_passive_interface_apply_all();
-}
-
-/* RIP enable network or interface configuration. */
-DEFUN (rip_network,
-       rip_network_cmd,
-       "network <A.B.C.D/M|WORD>",
-       "Enable routing on an IP network\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Interface name\n")
-{
-	int idx_ipv4_word = 1;
-	int ret;
-	struct prefix_ipv4 p;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4_word]->arg, &p);
-
-	if (ret)
-		ret = rip_enable_network_add((struct prefix *)&p);
-	else
-		ret = rip_enable_if_add(argv[idx_ipv4_word]->arg);
-
-	if (ret < 0) {
-		vty_out(vty, "There is a same network configuration %s\n",
-			argv[idx_ipv4_word]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-/* RIP enable network or interface configuration. */
-DEFUN (no_rip_network,
-       no_rip_network_cmd,
-       "no network <A.B.C.D/M|WORD>",
-       NO_STR
-       "Enable routing on an IP network\n"
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
-       "Interface name\n")
-{
-	int idx_ipv4_word = 2;
-	int ret;
-	struct prefix_ipv4 p;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4_word]->arg, &p);
-
-	if (ret)
-		ret = rip_enable_network_delete((struct prefix *)&p);
-	else
-		ret = rip_enable_if_delete(argv[idx_ipv4_word]->arg);
-
-	if (ret < 0) {
-		vty_out(vty, "Can't find network configuration %s\n",
-			argv[idx_ipv4_word]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
 }
 
 DEFUN (ip_rip_receive_version,
@@ -1848,9 +1792,6 @@ void rip_if_init(void)
 	if_cmd_init();
 
 	/* Install commands. */
-	install_element(RIP_NODE, &rip_network_cmd);
-	install_element(RIP_NODE, &no_rip_network_cmd);
-
 	install_element(RIP_NODE, &rip_passive_interface_cmd);
 	install_element(RIP_NODE, &no_rip_passive_interface_cmd);
 

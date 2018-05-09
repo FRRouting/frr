@@ -331,6 +331,60 @@ void cli_show_rip_neighbor(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " neighbor %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/network
+ */
+DEFPY (rip_network_prefix,
+       rip_network_prefix_cmd,
+       "[no] network A.B.C.D/M",
+       NO_STR
+       "Enable routing on an IP network\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./network",
+			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
+			.value = network_str,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_network_prefix(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/interface
+ */
+DEFPY (rip_network_if,
+       rip_network_if_cmd,
+       "[no] network WORD",
+       NO_STR
+       "Enable routing on an IP network\n"
+       "Interface name\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./interface",
+			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
+			.value = network,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_network_interface(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
@@ -345,4 +399,6 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &rip_distance_source_cmd);
 	install_element(RIP_NODE, &no_rip_distance_source_cmd);
 	install_element(RIP_NODE, &rip_neighbor_cmd);
+	install_element(RIP_NODE, &rip_network_prefix_cmd);
+	install_element(RIP_NODE, &rip_network_if_cmd);
 }

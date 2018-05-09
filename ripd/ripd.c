@@ -3415,9 +3415,6 @@ static int config_write_rip(struct vty *vty)
 		/* RIP offset-list configuration. */
 		config_write_rip_offset_list(vty);
 
-		/* RIP enabled network and interface configuration. */
-		config_write_rip_network(vty, 1);
-
 		/* Distribute configuration. */
 		write += config_write_distribute(vty);
 
