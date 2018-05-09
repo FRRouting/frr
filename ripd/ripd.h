@@ -140,7 +140,7 @@ struct rip {
 	unsigned long garbage_time;
 
 	/* RIP default metric. */
-	int default_metric;
+	uint8_t default_metric;
 
 	/* RIP default distance. */
 	uint8_t distance;
@@ -345,9 +345,6 @@ struct rip_md5_data {
 #define RI_RIP_VERSION_NONE                4
 /* N.B. stuff will break if
 	(RIPv1 != RI_RIP_VERSION_1) || (RIPv2 != RI_RIP_VERSION_2) */
-
-/* Default value for "default-metric" command. */
-#define RIP_DEFAULT_METRIC_DEFAULT         1
 
 /* RIP event. */
 enum rip_event {

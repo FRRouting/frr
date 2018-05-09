@@ -2926,35 +2926,6 @@ rip_update_default_metric (void)
 }
 #endif
 
-DEFUN (rip_default_metric,
-       rip_default_metric_cmd,
-       "default-metric (1-16)",
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
-{
-	int idx_number = 1;
-	if (rip) {
-		rip->default_metric = atoi(argv[idx_number]->arg);
-		/* rip_update_default_metric (); */
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_default_metric,
-       no_rip_default_metric_cmd,
-       "no default-metric [(1-16)]",
-       NO_STR
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
-{
-	if (rip) {
-		rip->default_metric = RIP_DEFAULT_METRIC_DEFAULT;
-		/* rip_update_default_metric (); */
-	}
-	return CMD_SUCCESS;
-}
-
-
 DEFUN (rip_timers,
        rip_timers_cmd,
        "timers basic (5-2147483647) (5-2147483647) (5-2147483647)",
@@ -3500,7 +3471,7 @@ DEFUN (show_ip_rip_status,
 	config_show_distribute(vty);
 
 	/* Default metric information. */
-	vty_out(vty, "  Default redistribution metric is %d\n",
+	vty_out(vty, "  Default redistribution metric is %u\n",
 		rip->default_metric);
 
 	/* Redistribute information. */
@@ -3613,11 +3584,6 @@ static int config_write_rip(struct vty *vty)
 
 		/* RIP enabled network and interface configuration. */
 		config_write_rip_network(vty, 1);
-
-		/* RIP default metric configuration */
-		if (rip->default_metric != RIP_DEFAULT_METRIC_DEFAULT)
-			vty_out(vty, " default-metric %d\n",
-				rip->default_metric);
 
 		/* Distribute configuration. */
 		write += config_write_distribute(vty);
@@ -3919,8 +3885,6 @@ void rip_init(void)
 	install_default(RIP_NODE);
 	install_element(RIP_NODE, &rip_version_cmd);
 	install_element(RIP_NODE, &no_rip_version_cmd);
-	install_element(RIP_NODE, &rip_default_metric_cmd);
-	install_element(RIP_NODE, &no_rip_default_metric_cmd);
 	install_element(RIP_NODE, &rip_timers_cmd);
 	install_element(RIP_NODE, &no_rip_timers_cmd);
 	install_element(RIP_NODE, &rip_route_cmd);

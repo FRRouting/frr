@@ -28,5 +28,7 @@ extern void cli_show_rip_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
 extern void cli_show_rip_default_information_originate(struct vty *vty,
 						       struct lyd_node *dnode,
 						       bool show_defaults);
+extern void cli_show_rip_default_metric(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults);
 
 #endif /* _FRR_RIP_CLI_H_ */

@@ -131,7 +131,12 @@ static int ripd_instance_default_metric_modify(enum nb_event event,
 					       const struct lyd_node *dnode,
 					       union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	rip->default_metric = yang_dnode_get_uint8(dnode, NULL);
+	/* rip_update_default_metric (); */
+
 	return NB_OK;
 }
 
@@ -759,6 +764,7 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/default-metric",
 			.cbs.modify = ripd_instance_default_metric_modify,
+			.cbs.cli_show = cli_show_rip_default_metric,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/distance/default",

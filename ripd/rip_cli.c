@@ -145,6 +145,51 @@ void cli_show_rip_default_information_originate(struct vty *vty,
 	vty_out(vty, " default-information originate\n");
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/default-metric
+ */
+DEFPY (rip_default_metric,
+       rip_default_metric_cmd,
+       "default-metric (1-16)",
+       "Set a metric of redistribute routes\n"
+       "Default metric\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./default-metric",
+			.operation = NB_OP_MODIFY,
+			.value = default_metric_str,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+DEFPY (no_rip_default_metric,
+       no_rip_default_metric_cmd,
+       "no default-metric [(1-16)]",
+       NO_STR
+       "Set a metric of redistribute routes\n"
+       "Default metric\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./default-metric",
+			.operation = NB_OP_MODIFY,
+			.value = NULL,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_default_metric(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	vty_out(vty, " default-metric %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
@@ -152,4 +197,6 @@ void rip_cli_init(void)
 
 	install_element(RIP_NODE, &rip_allow_ecmp_cmd);
 	install_element(RIP_NODE, &rip_default_information_originate_cmd);
+	install_element(RIP_NODE, &rip_default_metric_cmd);
+	install_element(RIP_NODE, &no_rip_default_metric_cmd);
 }
