@@ -465,6 +465,77 @@ void cli_show_rip_offset_list(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/passive-default
+ */
+DEFPY (rip_passive_default,
+       rip_passive_default_cmd,
+       "[no] passive-interface default",
+       NO_STR
+       "Suppress routing updates on an interface\n"
+       "default for all interfaces\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./passive-default",
+			.operation = NB_OP_MODIFY,
+			.value = no ? "false" : "true",
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_passive_default(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " passive-interface default\n");
+}
+
+/*
+ * XPath: /frr-ripd:ripd/instance/passive-interface
+ *        /frr-ripd:ripd/instance/non-passive-interface
+ */
+DEFPY (rip_passive_interface,
+       rip_passive_interface_cmd,
+       "[no] passive-interface IFNAME",
+       NO_STR
+       "Suppress routing updates on an interface\n"
+       "Interface name\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./passive-interface",
+			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
+			.value = ifname,
+		},
+		{
+			.xpath = "./non-passive-interface",
+			.operation = no ? NB_OP_CREATE : NB_OP_DELETE,
+			.value = ifname,
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_passive_interface(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	vty_out(vty, " passive-interface %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
+void cli_show_rip_non_passive_interface(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults)
+{
+	vty_out(vty, " no passive-interface %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
@@ -483,4 +554,6 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &rip_network_if_cmd);
 	install_element(RIP_NODE, &rip_offset_list_cmd);
 	install_element(RIP_NODE, &no_rip_offset_list_cmd);
+	install_element(RIP_NODE, &rip_passive_default_cmd);
+	install_element(RIP_NODE, &rip_passive_interface_cmd);
 }

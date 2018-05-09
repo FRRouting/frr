@@ -149,6 +149,9 @@ struct rip {
 	/* RIP ECMP flag */
 	bool ecmp;
 
+	/* Are we in passive-interface default mode? */
+	bool passive_default;
+
 	/* For redistribute route map. */
 	struct {
 		char *name;
@@ -388,6 +391,8 @@ extern void rip_clean(void);
 extern void rip_clean_network(void);
 extern void rip_interfaces_clean(void);
 extern void rip_interfaces_reset(void);
+extern int rip_passive_nondefault_set(const char *ifname);
+extern int rip_passive_nondefault_unset(const char *ifname);
 extern void rip_passive_nondefault_clean(void);
 extern void rip_if_init(void);
 extern void rip_if_down_all(void);
@@ -426,7 +431,7 @@ extern void rip_interface_multicast_set(int, struct connected *);
 extern void rip_distribute_update_interface(struct interface *);
 extern void rip_if_rmap_update_interface(struct interface *);
 
-extern int config_write_rip_network(struct vty *, int);
+extern int rip_show_network_config(struct vty *);
 extern int config_write_rip_redistribute(struct vty *, int);
 
 extern void rip_peer_init(void);
@@ -473,6 +478,7 @@ DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
 
 extern struct route_table *rip_distance_table;
+extern vector Vrip_passive_nondefault;
 
 /* Northbound. */
 extern void rip_cli_init(void);

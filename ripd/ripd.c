@@ -2674,6 +2674,8 @@ int rip_create(int socket)
 		yang_get_default_uint8("%s/default-metric", RIP_INSTANCE);
 	rip->distance =
 		yang_get_default_uint8("%s/distance/default", RIP_INSTANCE);
+	rip->passive_default =
+		yang_get_default_bool("%s/passive-default", RIP_INSTANCE);
 	rip->garbage_time = yang_get_default_uint32("%s/timers/flush-interval",
 						    RIP_INSTANCE);
 	rip->timeout_time = yang_get_default_uint32(
@@ -3353,7 +3355,7 @@ DEFUN (show_ip_rip_status,
 	}
 
 	vty_out(vty, "  Routing for Networks:\n");
-	config_write_rip_network(vty, 0);
+	rip_show_network_config(vty);
 
 	{
 		int found_passive = 0;
