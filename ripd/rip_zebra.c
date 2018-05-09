@@ -493,55 +493,6 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
-/* Default information originate. */
-
-DEFUN (rip_default_information_originate,
-       rip_default_information_originate_cmd,
-       "default-information originate",
-       "Control distribution of default route\n"
-       "Distribute a default route\n")
-{
-	struct prefix_ipv4 p;
-	struct nexthop nh;
-
-	if (!rip->default_information) {
-		memset(&p, 0, sizeof(struct prefix_ipv4));
-		memset(&nh, 0, sizeof(nh));
-
-		p.family = AF_INET;
-		nh.type = NEXTHOP_TYPE_IPV4;
-
-		rip->default_information = 1;
-
-		rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p,
-				     &nh, 0, 0, 0);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_default_information_originate,
-       no_rip_default_information_originate_cmd,
-       "no default-information originate",
-       NO_STR
-       "Control distribution of default route\n"
-       "Distribute a default route\n")
-{
-	struct prefix_ipv4 p;
-
-	if (rip->default_information) {
-		memset(&p, 0, sizeof(struct prefix_ipv4));
-		p.family = AF_INET;
-
-		rip->default_information = 0;
-
-		rip_redistribute_delete(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p,
-					0);
-	}
-
-	return CMD_SUCCESS;
-}
-
 int config_write_rip_redistribute(struct vty *vty, int config_mode)
 {
 	int i;
@@ -612,8 +563,6 @@ void rip_zclient_init(struct thread_master *master)
 	install_element(RIP_NODE, &no_rip_redistribute_type_metric_cmd);
 	install_element(RIP_NODE,
 			&no_rip_redistribute_type_metric_routemap_cmd);
-	install_element(RIP_NODE, &rip_default_information_originate_cmd);
-	install_element(RIP_NODE, &no_rip_default_information_originate_cmd);
 }
 
 void rip_zclient_stop(void)

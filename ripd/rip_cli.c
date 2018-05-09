@@ -114,10 +114,42 @@ void cli_show_rip_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " allow-ecmp\n");
 }
 
+/*
+ * XPath: /frr-ripd:ripd/instance/default-information-originate
+ */
+DEFPY (rip_default_information_originate,
+       rip_default_information_originate_cmd,
+       "[no] default-information originate",
+       NO_STR
+       "Control distribution of default route\n"
+       "Distribute a default route\n")
+{
+	struct cli_config_change changes[] = {
+		{
+			.xpath = "./default-information-originate",
+			.operation = NB_OP_MODIFY,
+			.value = no ? "false" : "true",
+		},
+	};
+
+	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+}
+
+void cli_show_rip_default_information_originate(struct vty *vty,
+						struct lyd_node *dnode,
+						bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " default-information originate\n");
+}
+
 void rip_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_rip_cmd);
 	install_element(CONFIG_NODE, &no_router_rip_cmd);
 
 	install_element(RIP_NODE, &rip_allow_ecmp_cmd);
+	install_element(RIP_NODE, &rip_default_information_originate_cmd);
 }

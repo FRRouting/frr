@@ -3605,17 +3605,6 @@ static int config_write_rip(struct vty *vty)
 				rip->update_time, rip->timeout_time,
 				rip->garbage_time);
 
-		/* Default information configuration. */
-		if (rip->default_information) {
-			if (rip->default_information_route_map)
-				vty_out(vty,
-					" default-information originate route-map %s\n",
-					rip->default_information_route_map);
-			else
-				vty_out(vty,
-					" default-information originate\n");
-		}
-
 		/* Redistribute configuration. */
 		config_write_rip_redistribute(vty, 1);
 
@@ -3806,10 +3795,6 @@ void rip_clean(void)
 				rp->info = NULL;
 				route_unlock_node(rp);
 			}
-
-		/* Redistribute related clear. */
-		if (rip->default_information_route_map)
-			free(rip->default_information_route_map);
 
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			if (rip->route_map[i].name)

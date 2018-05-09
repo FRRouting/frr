@@ -99,7 +99,28 @@ ripd_instance_default_information_originate_modify(enum nb_event event,
 						   const struct lyd_node *dnode,
 						   union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	bool default_information;
+	struct prefix_ipv4 p;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	default_information = yang_dnode_get_bool(dnode, NULL);
+
+	memset(&p, 0, sizeof(struct prefix_ipv4));
+	p.family = AF_INET;
+	if (default_information) {
+		struct nexthop nh;
+
+		memset(&nh, 0, sizeof(nh));
+		nh.type = NEXTHOP_TYPE_IPV4;
+		rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p,
+				     &nh, 0, 0, 0);
+	} else {
+		rip_redistribute_delete(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p,
+					0);
+	}
+
 	return NB_OK;
 }
 
@@ -733,6 +754,7 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/default-information-originate",
 			.cbs.modify = ripd_instance_default_information_originate_modify,
+			.cbs.cli_show = cli_show_rip_default_information_originate,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/default-metric",

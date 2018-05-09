@@ -142,10 +142,6 @@ struct rip {
 	/* RIP default metric. */
 	int default_metric;
 
-	/* RIP default-information originate. */
-	uint8_t default_information;
-	char *default_information_route_map;
-
 	/* RIP default distance. */
 	uint8_t distance;
 	struct route_table *distance_table;
