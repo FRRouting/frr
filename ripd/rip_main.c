@@ -121,6 +121,7 @@ static struct quagga_signal_t ripd_signals[] = {
 
 static const struct frr_yang_module_info *ripd_yang_modules[] = {
 	&frr_interface_info,
+	&frr_ripd_info,
 };
 
 FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
@@ -180,6 +181,7 @@ int main(int argc, char **argv)
 	/* RIP related initialization. */
 	rip_init();
 	rip_if_init();
+	rip_cli_init();
 	rip_zclient_init(master);
 	rip_peer_init();
 

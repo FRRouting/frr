@@ -1,0 +1,44 @@
+{
+    "frr-interface:lib": {
+        "interface": [
+            {
+                "name": "eth0",
+                "vrf": "default",
+                "description": "engineering",
+                "frr-ripd:rip": {
+                    "split-horizon": "poison-reverse",
+                    "v2-broadcast": "true",
+                    "version-receive": "1",
+                    "version-send": "1"
+                }
+            },
+            {
+                "name": "eth1",
+                "vrf": "default",
+                "description": "marketing"
+            }
+        ]
+    },
+    "frr-ripd:ripd": {
+        "instance": {
+            "allow-ecmp": "true",
+            "distance": {
+                "source": [
+                    {
+                        "prefix": "172.16.1.0/24",
+                        "distance": "25"
+                    }
+                ]
+            },
+            "redistribute": [
+                {
+                    "protocol": "ospf",
+                    "metric": "3"
+                }
+            ],
+            "static-route": [
+                "10.0.1.0/24"
+            ]
+        }
+    }
+}

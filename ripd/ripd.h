@@ -98,6 +98,10 @@
 #define RIP_AUTH_MD5_SIZE               16
 #define RIP_AUTH_MD5_COMPAT_SIZE        RIP_RTE_SIZE
 
+/* YANG paths */
+#define RIP_INSTANCE	"/frr-ripd:ripd/instance"
+#define RIP_IFACE	"/frr-interface:lib/interface/frr-ripd:rip"
+
 /* RIP structure. */
 struct rip {
 	/* RIP socket. */
@@ -436,5 +440,9 @@ extern long rip_global_queries;
 
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
+
+/* Northbound. */
+extern void rip_cli_init(void);
+extern const struct frr_yang_module_info frr_ripd_info;
 
 #endif /* _ZEBRA_RIP_H */
