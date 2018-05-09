@@ -1871,6 +1871,7 @@ static int rip_read(struct thread *t)
 			zlog_debug(
 				"packet RIPv%d is dropped because authentication disabled",
 				packet->version);
+		ripd_notif_send_auth_type_failure(ifp->name);
 		rip_peer_bad_packet(&from);
 		return -1;
 	}
@@ -1907,6 +1908,7 @@ static int rip_read(struct thread *t)
 				zlog_debug(
 					"RIPv1"
 					" dropped because authentication enabled");
+			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(&from);
 			return -1;
 		}
@@ -1919,6 +1921,7 @@ static int rip_read(struct thread *t)
 			if (IS_RIP_DEBUG_PACKET)
 				zlog_debug(
 					"RIPv2 authentication failed: no auth RTE in packet");
+			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(&from);
 			return -1;
 		}
@@ -1929,6 +1932,7 @@ static int rip_read(struct thread *t)
 				zlog_debug(
 					"RIPv2"
 					" dropped because authentication enabled");
+			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(&from);
 			return -1;
 		}
@@ -1964,6 +1968,7 @@ static int rip_read(struct thread *t)
 			if (IS_RIP_DEBUG_PACKET)
 				zlog_debug("RIPv2 %s authentication failure",
 					   auth_desc);
+			ripd_notif_send_auth_failure(ifp->name);
 			rip_peer_bad_packet(&from);
 			return -1;
 		}

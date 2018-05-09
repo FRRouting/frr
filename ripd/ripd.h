@@ -452,6 +452,10 @@ extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
 extern void rip_offset_init(void);
 extern void rip_offset_clean(void);
 
+/* YANG notifications */
+extern void ripd_notif_send_auth_type_failure(const char *ifname);
+extern void ripd_notif_send_auth_failure(const char *ifname);
+
 /* There is only one rip strucutre. */
 extern struct rip *rip;
 
