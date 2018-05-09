@@ -460,7 +460,7 @@ DEFUN (ospf_passive_interface,
 		return CMD_SUCCESS;
 	}
 	if (ospf->vrf_id != VRF_UNKNOWN)
-		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, 0);
+		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id);
 
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n", (char *)argv[1]->arg);
@@ -533,7 +533,7 @@ DEFUN (no_ospf_passive_interface,
 	}
 
 	if (ospf->vrf_id != VRF_UNKNOWN)
-		ifp = if_get_by_name(argv[2]->arg, ospf->vrf_id, 0);
+		ifp = if_get_by_name(argv[2]->arg, ospf->vrf_id);
 
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n", (char *)argv[2]->arg);

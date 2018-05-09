@@ -474,8 +474,7 @@ extern struct interface *if_lookup_prefix(struct prefix *prefix,
    by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id,
-					int vty);
+extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
 /* Delete the interface, but do not free the structure, and leave it in the

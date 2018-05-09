@@ -326,7 +326,7 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 				__func__, ifan->ifan_index, ifan->ifan_name);
 
 		/* Create Interface */
-		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT, 0);
+		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT);
 		if_set_index(ifp, ifan->ifan_index);
 
 		if_get_metric(ifp);

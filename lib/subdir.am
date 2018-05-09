@@ -112,6 +112,8 @@ lib_libfrr_la_LIBADD += -lsqlite3
 lib_libfrr_la_SOURCES += lib/db.c
 endif
 
+lib/if_clippy.c: $(CLIPPY_DEPS)
+lib/if.lo: lib/if_clippy.c
 lib/plist_clippy.c: $(CLIPPY_DEPS)
 lib/plist.lo: lib/plist_clippy.c
 lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
