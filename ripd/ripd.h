@@ -437,6 +437,7 @@ extern void rip_distance_free(struct rip_distance *rdistance);
 extern uint8_t rip_distance_apply(struct rip_info *);
 extern void rip_redistribute_clean(void);
 
+extern int rip_route_rte(struct rip_info *rinfo);
 extern struct rip_info *rip_ecmp_add(struct rip_info *);
 extern struct rip_info *rip_ecmp_replace(struct rip_info *);
 extern struct rip_info *rip_ecmp_delete(struct rip_info *);

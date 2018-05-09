@@ -95,7 +95,7 @@ static int sockopt_broadcast(int sock)
 	return 0;
 }
 
-static int rip_route_rte(struct rip_info *rinfo)
+int rip_route_rte(struct rip_info *rinfo)
 {
 	return (rinfo->type == ZEBRA_ROUTE_RIP
 		&& rinfo->sub_type == RIP_ROUTE_RTE);

@@ -1206,7 +1206,40 @@ ripd_state_routes_route_metric_get_elem(const char *xpath,
 static int clear_rip_route_rpc(const char *xpath, const struct list *input,
 			       struct list *output)
 {
-	/* TODO: implement me. */
+	struct route_node *rp;
+	struct rip_info *rinfo;
+	struct list *list;
+	struct listnode *listnode;
+
+	/* Clear received RIP routes */
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		list = rp->info;
+		if (!list)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+			if (!rip_route_rte(rinfo))
+				continue;
+
+			if (CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
+				rip_zebra_ipv4_delete(rp);
+			break;
+		}
+
+		if (rinfo) {
+			RIP_TIMER_OFF(rinfo->t_timeout);
+			RIP_TIMER_OFF(rinfo->t_garbage_collect);
+			listnode_delete(list, rinfo);
+			rip_info_free(rinfo);
+		}
+
+		if (list_isempty(list)) {
+			list_delete(&list);
+			rp->info = NULL;
+			route_unlock_node(rp);
+		}
+	}
+
 	return NB_OK;
 }
 
