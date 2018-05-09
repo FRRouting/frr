@@ -570,8 +570,15 @@ class TopoRouter(TopoGear):
         # Propagate the router log directory
         params['logdir'] = self.logdir
 
+        #setup the per node directory
+        dir = '{}/{}'.format(self.logdir, self.name)
+        os.system('mkdir -p ' + dir)
+        os.system('chmod 775 ' + dir)
+        os.system('chgrp {} {}'.format(self.routertype, dir))
+
         # Open router log file
-        logfile = '{}/{}.log'.format(self.logdir, name)
+        logfile = '{0}/{1}.log'.format(dir, name)
+
         self.logger = logger_config.get_logger(name=name, target=logfile)
         self.tgen.topo.addNode(self.name, cls=self.cls, **params)
 
@@ -598,9 +605,9 @@ class TopoRouter(TopoGear):
             os.chmod(self.logdir, 01777)
 
         # Try to find relevant old logfiles in /tmp and delete them
-        map(os.remove, glob.glob('{}/*{}*.log'.format(self.logdir, self.name)))
+        map(os.remove, glob.glob('{}/{}/*.log'.format(self.logdir, self.name)))
         # Remove old core files
-        map(os.remove, glob.glob('{}/{}*.dmp'.format(self.logdir, self.name)))
+        map(os.remove, glob.glob('{}/{}/*.dmp'.format(self.logdir, self.name)))
 
     def check_capability(self, daemon, param):
         """
@@ -647,7 +654,7 @@ class TopoRouter(TopoGear):
         for daemon, enabled in nrouter.daemons.iteritems():
             if enabled == 0:
                 continue
-            self.vtysh_cmd('configure terminal\nlog file {}/{}-{}.log'.format(
+            self.vtysh_cmd('configure terminal\nlog file {}/{}/{}.log'.format(
                 self.logdir, self.name, daemon), daemon=daemon)
 
         if result != '':
