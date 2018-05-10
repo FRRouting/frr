@@ -64,6 +64,7 @@ struct isis_vertex {
 	uint16_t depth;	/* The depth in the imaginary tree */
 	struct list *Adj_N;    /* {Adj(N)} next hop or neighbor list */
 	struct list *parents;  /* list of parents for ECMP */
+	struct hash *firsthops; /* first two hops to neighbor */
 	uint64_t insert_counter;
 };
 
@@ -170,6 +171,11 @@ static void isis_vertex_del(struct isis_vertex *vertex)
 {
 	list_delete_and_null(&vertex->Adj_N);
 	list_delete_and_null(&vertex->parents);
+	if (vertex->firsthops) {
+		hash_clean(vertex->firsthops, NULL);
+		hash_free(vertex->firsthops);
+		vertex->firsthops = NULL;
+	}
 
 	memset(vertex, 0, sizeof(struct isis_vertex));
 	XFREE(MTYPE_ISIS_VERTEX, vertex);

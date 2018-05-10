@@ -16,6 +16,8 @@ static size_t vertex_count;
 
 static void setup_test_vertices(void)
 {
+	struct isis_spftree t = {
+	};
 	union isis_N nid, nip = {
 		.ip.dest.family = AF_UNSPEC
 	};
@@ -25,33 +27,35 @@ static void setup_test_vertices(void)
 	nip.ip.dest.family = AF_INET;
 	nip.ip.dest.prefixlen = 24;
 	inet_pton(AF_INET, "192.168.1.0", &nip.ip.dest.u.prefix4);
-	vertices[vertex_count] = isis_vertex_new(&nip, VTYPE_IPREACH_TE);
+	vertices[vertex_count] = isis_vertex_new(&t, &nip, VTYPE_IPREACH_TE);
 	vertices[vertex_count]->d_N = 20;
 	vertex_count++;
 
 	nip.ip.dest.family = AF_INET;
 	nip.ip.dest.prefixlen = 24;
 	inet_pton(AF_INET, "192.168.2.0", &nip.ip.dest.u.prefix4);
-	vertices[vertex_count] = isis_vertex_new(&nip, VTYPE_IPREACH_TE);
+	vertices[vertex_count] = isis_vertex_new(&t, &nip, VTYPE_IPREACH_TE);
 	vertices[vertex_count]->d_N = 20;
 	vertex_count++;
 
 	memset(nid.id, 0, sizeof(nid.id));
 	nid.id[6] = 1;
-	vertices[vertex_count] = isis_vertex_new(&nid, VTYPE_PSEUDO_TE_IS);
+	vertices[vertex_count] = isis_vertex_new(&t, &nid,
+						 VTYPE_PSEUDO_TE_IS);
 	vertices[vertex_count]->d_N = 15;
 	vertex_count++;
 
 	memset(nid.id, 0, sizeof(nid.id));
 	nid.id[5] = 2;
-	vertices[vertex_count] = isis_vertex_new(&nid, VTYPE_NONPSEUDO_TE_IS);
+	vertices[vertex_count] = isis_vertex_new(&t, &nid,
+						 VTYPE_NONPSEUDO_TE_IS);
 	vertices[vertex_count]->d_N = 15;
 	vertex_count++;
 
 	nip.ip.dest.family = AF_INET;
 	nip.ip.dest.prefixlen = 24;
 	inet_pton(AF_INET, "192.168.3.0", &nip.ip.dest.u.prefix4);
-	vertices[vertex_count] = isis_vertex_new(&nip, VTYPE_IPREACH_TE);
+	vertices[vertex_count] = isis_vertex_new(&t, &nip, VTYPE_IPREACH_TE);
 	vertices[vertex_count]->d_N = 20;
 	vertex_count++;
 };

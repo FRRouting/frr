@@ -179,7 +179,8 @@ static const char *vid2string(struct isis_vertex *vertex, char *buff, int size)
 	return "UNKNOWN";
 }
 
-static struct isis_vertex *isis_vertex_new(union isis_N *n,
+static struct isis_vertex *isis_vertex_new(struct isis_spftree *spftree,
+					   union isis_N *n,
 					   enum vertextype vtype)
 {
 	struct isis_vertex *vertex;
@@ -190,6 +191,12 @@ static struct isis_vertex *isis_vertex_new(union isis_N *n,
 
 	vertex->Adj_N = list_new();
 	vertex->parents = list_new();
+
+	if (spftree->hopcount_metric) {
+		vertex->firsthops = hash_create(isis_vertex_queue_hash_key,
+						isis_vertex_queue_hash_cmp,
+						NULL);
+	}
 
 	return vertex;
 }
@@ -334,7 +341,7 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 		zlog_warn("ISIS-Spf: could not find own l%d LSP!",
 			  spftree->level);
 
-	vertex = isis_vertex_new(&n,
+	vertex = isis_vertex_new(spftree, &n,
 				 spftree->area->oldmetric
 					 ? VTYPE_NONPSEUDO_IS
 					 : VTYPE_NONPSEUDO_TE_IS);
@@ -348,6 +355,26 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 #endif /* EXTREME_DEBUG */
 
 	return vertex;
+}
+
+static void vertex_add_parent_firsthop(struct hash_backet *backet, void *arg)
+{
+	struct isis_vertex *vertex = arg;
+	struct isis_vertex *hop = backet->data;
+
+	hash_get(vertex->firsthops, hop, hash_alloc_intern);
+}
+
+static void vertex_update_firsthops(struct isis_vertex *vertex,
+				    struct isis_vertex *parent)
+{
+	if (vertex->d_N <= 2)
+		hash_get(vertex->firsthops, vertex, hash_alloc_intern);
+
+	if (vertex->d_N < 2 || !parent)
+		return;
+
+	hash_iterate(parent->firsthops, vertex_add_parent_firsthop, vertex);
 }
 
 /*
@@ -368,13 +395,16 @@ static struct isis_vertex *isis_spf_add2tent(struct isis_spftree *spftree,
 
 	assert(isis_find_vertex(&spftree->paths, id, vtype) == NULL);
 	assert(isis_find_vertex(&spftree->tents, id, vtype) == NULL);
-	vertex = isis_vertex_new(id, vtype);
+	vertex = isis_vertex_new(spftree, id, vtype);
 	vertex->d_N = cost;
 	vertex->depth = depth;
 
 	if (parent) {
 		listnode_add(vertex->parents, parent);
 	}
+
+	if (spftree->hopcount_metric)
+		vertex_update_firsthops(vertex, parent);
 
 	if (parent && parent->Adj_N && listcount(parent->Adj_N) > 0) {
 		for (ALL_LIST_ELEMENTS_RO(parent->Adj_N, node, parent_adj))
@@ -497,6 +527,8 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 				if (listnode_lookup(vertex->Adj_N, parent_adj)
 				    == NULL)
 					listnode_add(vertex->Adj_N, parent_adj);
+			if (spftree->hopcount_metric)
+				vertex_update_firsthops(vertex, parent);
 			/*      2) */
 			if (listcount(vertex->Adj_N) > ISIS_MAX_PATH_SPLITS)
 				remove_excess_adjs(vertex->Adj_N);
@@ -1062,7 +1094,8 @@ struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 		isis_spf_preload_tent(spftree, sysid, root);
 	} else {
 		isis_vertex_queue_insert(&spftree->tents, isis_vertex_new(
-					 sysid, VTYPE_NONPSEUDO_TE_IS));
+					 spftree, sysid,
+					 VTYPE_NONPSEUDO_TE_IS));
 	}
 
 	isis_spf_loop(spftree, sysid);
