@@ -143,6 +143,8 @@ void sighup(void)
 __attribute__((__noreturn__)) void sigint(void)
 {
 	zlog_notice("Terminating on signal");
+	assert(bm->terminating == false);
+	bm->terminating = true;	/* global flag that shutting down */
 
 	if (!retain_mode)
 		bgp_terminate();

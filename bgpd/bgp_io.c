@@ -179,7 +179,7 @@ static int bgp_process_reads(struct thread *thread)
 
 	peer = THREAD_ARG(thread);
 
-	if (peer->fd < 0)
+	if (peer->fd < 0 || bm->terminating)
 		return -1;
 
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
