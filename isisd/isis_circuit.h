@@ -80,14 +80,8 @@ struct isis_circuit {
 	struct thread *t_send_csnp[2];
 	struct thread *t_send_psnp[2];
 	struct thread *t_send_lsp;
-	struct list *lsp_queue;	/* LSPs to be txed (both levels) */
-	struct isis_lsp_hash *lsp_hash; /* Hashtable synchronized with lsp_queue */
-	time_t lsp_queue_last_push[2]; /* timestamp used to enforce transmit
-					* interval;
-					* for scalability, use one timestamp per
-					* circuit, instead of one per lsp per
-					* circuit
-					*/
+	struct isis_tx_queue *tx_queue;
+
 	/* there is no real point in two streams, just for programming kicker */
 	int (*rx)(struct isis_circuit *circuit, uint8_t *ssnpa);
 	struct stream *rcv_stream; /* Stream for receiving */
@@ -196,10 +190,4 @@ ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
 int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
 				bool enabled);
 
-void isis_circuit_schedule_lsp_send(struct isis_circuit *circuit);
-void isis_circuit_queue_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp);
-void isis_circuit_lsp_queue_clean(struct isis_circuit *circuit);
-void isis_circuit_cancel_queued_lsp(struct isis_circuit *circuit,
-				    struct isis_lsp *lsp);
-struct isis_lsp *isis_circuit_lsp_queue_pop(struct isis_circuit *circuit);
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */

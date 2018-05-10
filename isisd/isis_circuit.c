@@ -45,7 +45,6 @@
 #include "isisd/isis_flags.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_lsp.h"
-#include "isisd/isis_lsp_hash.h"
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_network.h"
 #include "isisd/isis_misc.h"
@@ -58,6 +57,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_errors.h"
+#include "isisd/isis_tx_queue.h"
 
 DEFINE_QOBJ_TYPE(isis_circuit)
 
@@ -495,29 +495,29 @@ static void isis_circuit_update_all_srmflags(struct isis_circuit *circuit,
 {
 	struct isis_area *area;
 	struct isis_lsp *lsp;
-	dnode_t *dnode, *dnode_next;
+	dnode_t *dnode;
 	int level;
 
 	assert(circuit);
 	area = circuit->area;
 	assert(area);
 	for (level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
-		if (level & circuit->is_type) {
-			if (area->lspdb[level - 1]
-			    && dict_count(area->lspdb[level - 1]) > 0) {
-				for (dnode = dict_first(area->lspdb[level - 1]);
-				     dnode != NULL; dnode = dnode_next) {
-					dnode_next = dict_next(
-						area->lspdb[level - 1], dnode);
-					lsp = dnode_get(dnode);
-					if (is_set) {
-						ISIS_SET_FLAG(lsp->SRMflags,
-							      circuit);
-					} else {
-						ISIS_CLEAR_FLAG(lsp->SRMflags,
-								circuit);
-					}
-				}
+		if (!(level & circuit->is_type))
+			continue;
+
+		if (!area->lspdb[level - 1]
+		    || !dict_count(area->lspdb[level - 1]))
+			continue;
+
+		for (dnode = dict_first(area->lspdb[level - 1]);
+		     dnode != NULL;
+		     dnode = dict_next(area->lspdb[level - 1], dnode)) {
+			lsp = dnode_get(dnode);
+			if (is_set) {
+				isis_tx_queue_add(circuit->tx_queue, lsp,
+						  TX_LSP_NORMAL);
+			} else {
+				isis_tx_queue_del(circuit->tx_queue, lsp);
 			}
 		}
 	}
@@ -672,10 +672,7 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 	isis_circuit_prepare(circuit);
 
-	circuit->lsp_queue = list_new();
-	circuit->lsp_hash = isis_lsp_hash_new();
-	circuit->lsp_queue_last_push[0] = circuit->lsp_queue_last_push[1] =
-		monotime(NULL);
+	circuit->tx_queue = isis_tx_queue_new(circuit, send_lsp);
 
 	return ISIS_OK;
 }
@@ -743,13 +740,9 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	THREAD_OFF(circuit->t_send_lsp);
 	THREAD_OFF(circuit->t_read);
 
-	if (circuit->lsp_queue) {
-		list_delete_and_null(&circuit->lsp_queue);
-	}
-
-	if (circuit->lsp_hash) {
-		isis_lsp_hash_free(circuit->lsp_hash);
-		circuit->lsp_hash = NULL;
+	if (circuit->tx_queue) {
+		isis_tx_queue_free(circuit->tx_queue);
+		circuit->tx_queue = NULL;
 	}
 
 	/* send one gratuitous hello to spead up convergence */
@@ -1345,58 +1338,4 @@ void isis_circuit_init()
 	/* Install interface node */
 	install_node(&interface_node, isis_interface_config_write);
 	if_cmd_init();
-}
-
-void isis_circuit_schedule_lsp_send(struct isis_circuit *circuit)
-{
-	if (circuit->t_send_lsp)
-		return;
-	circuit->t_send_lsp =
-		thread_add_event(master, send_lsp, circuit, 0, NULL);
-}
-
-void isis_circuit_queue_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp)
-{
-	if (isis_lsp_hash_lookup(circuit->lsp_hash, lsp))
-		return;
-
-	listnode_add(circuit->lsp_queue, lsp);
-	isis_lsp_hash_add(circuit->lsp_hash, lsp);
-	isis_circuit_schedule_lsp_send(circuit);
-}
-
-void isis_circuit_lsp_queue_clean(struct isis_circuit *circuit)
-{
-	if (!circuit->lsp_queue)
-		return;
-
-	list_delete_all_node(circuit->lsp_queue);
-	isis_lsp_hash_clean(circuit->lsp_hash);
-}
-
-void isis_circuit_cancel_queued_lsp(struct isis_circuit *circuit,
-				    struct isis_lsp *lsp)
-{
-	if (!circuit->lsp_queue)
-		return;
-
-	listnode_delete(circuit->lsp_queue, lsp);
-	isis_lsp_hash_release(circuit->lsp_hash, lsp);
-}
-
-struct isis_lsp *isis_circuit_lsp_queue_pop(struct isis_circuit *circuit)
-{
-	if (!circuit->lsp_queue)
-		return NULL;
-
-	struct listnode *node = listhead(circuit->lsp_queue);
-	if (!node)
-		return NULL;
-
-	struct isis_lsp *rv = listgetdata(node);
-
-	list_delete_node(circuit->lsp_queue, node);
-	isis_lsp_hash_release(circuit->lsp_hash, rv);
-
-	return rv;
 }

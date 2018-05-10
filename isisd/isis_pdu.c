@@ -57,6 +57,7 @@
 #include "isisd/isis_tlvs.h"
 #include "isisd/isis_errors.h"
 #include "isisd/fabricd.h"
+#include "isisd/isis_tx_queue.h"
 
 static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 		   int level)
@@ -707,7 +708,7 @@ out:
  * Section 7.3.15.1 - Action on receipt of a link state PDU
  */
 static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
-		       const uint8_t *ssnpa)
+		       const uint8_t *ssnpa, uint8_t max_area_addrs)
 {
 	int level = (pdu_type == L1_LINK_STATE) ? ISIS_LEVEL1 : ISIS_LEVEL2;
 
@@ -906,7 +907,7 @@ dontcheckadj:
 						   lsp_confusion);
 					tlvs = NULL;
 					/* ii */
-					lsp_set_all_srmflags(lsp);
+					lsp_flood(lsp, NULL);
 					/* v */
 					ISIS_FLAGS_CLEAR_ALL(
 						lsp->SSNflags); /* FIXME:
@@ -920,9 +921,10 @@ dontcheckadj:
 					 * Otherwise, don't reflood
 					 * through incoming circuit as usual */
 					if (!lsp_confusion) {
-						/* iii */
-						ISIS_CLEAR_FLAG(lsp->SRMflags,
-								circuit);
+						isis_tx_queue_del(
+							circuit->tx_queue,
+							lsp);
+
 						/* iv */
 						if (circuit->circ_type
 						    != CIRCUIT_T_BROADCAST)
@@ -933,7 +935,8 @@ dontcheckadj:
 				} /* 7.3.16.4 b) 2) */
 				else if (comp == LSP_EQUAL) {
 					/* i */
-					ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_del(circuit->tx_queue,
+							  lsp);
 					/* ii */
 					if (circuit->circ_type
 					    != CIRCUIT_T_BROADCAST)
@@ -941,16 +944,18 @@ dontcheckadj:
 							      circuit);
 				} /* 7.3.16.4 b) 3) */
 				else {
-					ISIS_SET_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_add(circuit->tx_queue,
+							  lsp, TX_LSP_NORMAL);
 					ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 				}
 			} else if (lsp->hdr.rem_lifetime != 0) {
 				/* our own LSP -> 7.3.16.4 c) */
 				if (comp == LSP_NEWER) {
 					lsp_inc_seqno(lsp, hdr.seqno);
-					lsp_set_all_srmflags(lsp);
+					lsp_flood(lsp, NULL);
 				} else {
-					ISIS_SET_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_add(circuit->tx_queue,
+							  lsp, TX_LSP_NORMAL);
 					ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 				}
 				if (isis->debugs & DEBUG_UPDATE_PACKETS)
@@ -992,7 +997,7 @@ dontcheckadj:
 		}
 		/* If the received LSP is older or equal,
 		 * resend the LSP which will act as ACK */
-		lsp_set_all_srmflags(lsp);
+		lsp_flood(lsp, NULL);
 	} else {
 		/* 7.3.15.1 e) - This lsp originated on another system */
 
@@ -1030,10 +1035,7 @@ dontcheckadj:
 					   circuit->area, level, false);
 				tlvs = NULL;
 			}
-			/* ii */
-			lsp_set_all_srmflags(lsp);
-			/* iii */
-			ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+			lsp_flood(lsp, circuit);
 
 			/* iv */
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
@@ -1042,7 +1044,7 @@ dontcheckadj:
 		}
 		/* 7.3.15.1 e) 2) LSP equal to the one in db */
 		else if (comp == LSP_EQUAL) {
-			ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+			isis_tx_queue_del(circuit->tx_queue, lsp);
 			lsp_update(lsp, &hdr, tlvs, circuit->rcv_stream,
 				   circuit->area, level, false);
 			tlvs = NULL;
@@ -1051,7 +1053,8 @@ dontcheckadj:
 		}
 		/* 7.3.15.1 e) 3) LSP older than the one in db */
 		else {
-			ISIS_SET_FLAG(lsp->SRMflags, circuit);
+			isis_tx_queue_add(circuit->tx_queue, lsp,
+					  TX_LSP_NORMAL);
 			ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 		}
 	}
@@ -1228,25 +1231,27 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			if (cmp == LSP_EQUAL) {
 				/* if (circuit->circ_type !=
 				 * CIRCUIT_T_BROADCAST) */
-				ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+				isis_tx_queue_del(circuit->tx_queue, lsp);
 			}
 			/* 7.3.15.2 b) 3) if it is older, clear SSN and set SRM
 			   */
 			else if (cmp == LSP_OLDER) {
 				ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
-				ISIS_SET_FLAG(lsp->SRMflags, circuit);
+				isis_tx_queue_add(circuit->tx_queue, lsp,
+						  TX_LSP_NORMAL);
 			}
 			/* 7.3.15.2 b) 4) if it is newer, set SSN and clear SRM
 			   on p2p */
 			else {
 				if (own_lsp) {
 					lsp_inc_seqno(lsp, entry->seqno);
-					ISIS_SET_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_add(circuit->tx_queue, lsp,
+							TX_LSP_NORMAL);
 				} else {
 					ISIS_SET_FLAG(lsp->SSNflags, circuit);
 					/* if (circuit->circ_type !=
 					 * CIRCUIT_T_BROADCAST) */
-					ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_del(circuit->tx_queue, lsp);
 				}
 			}
 		} else {
@@ -1278,7 +1283,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 						entry->checksum, lsp0, level);
 				lsp_insert(lsp,
 					   circuit->area->lspdb[level - 1]);
-				ISIS_FLAGS_CLEAR_ALL(lsp->SRMflags);
+
+				lsp_set_all_srmflags(lsp, false);
 				ISIS_SET_FLAG(lsp->SSNflags, circuit);
 			}
 		}
@@ -1310,8 +1316,10 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		}
 
 		/* on remaining LSPs we set SRM (neighbor knew not of) */
-		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
-			ISIS_SET_FLAG(lsp->SRMflags, circuit);
+		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp)) {
+			isis_tx_queue_add(circuit->tx_queue, lsp, TX_LSP_NORMAL);
+		}
+
 		/* lets free it */
 		list_delete_and_null(&lsp_list);
 	}
@@ -1451,7 +1459,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 		break;
 	case L1_LINK_STATE:
 	case L2_LINK_STATE:
-		retval = process_lsp(pdu_type, circuit, ssnpa);
+		retval = process_lsp(pdu_type, circuit, ssnpa, max_area_addrs);
 		break;
 	case L1_COMPLETE_SEQ_NUM:
 	case L2_COMPLETE_SEQ_NUM:
@@ -2102,24 +2110,11 @@ int send_l2_psnp(struct thread *thread)
 /*
  * ISO 10589 - 7.3.14.3
  */
-int send_lsp(struct thread *thread)
+void send_lsp(void *arg, struct isis_lsp *lsp, enum isis_tx_type tx_type)
 {
-	struct isis_circuit *circuit;
-	struct isis_lsp *lsp;
+	struct isis_circuit *circuit = arg;
 	int clear_srm = 1;
 	int retval = ISIS_OK;
-
-	circuit = THREAD_ARG(thread);
-	assert(circuit);
-	circuit->t_send_lsp = NULL;
-
-	lsp = isis_circuit_lsp_queue_pop(circuit);
-	if (!lsp)
-		return ISIS_OK;
-
-	if (!list_isempty(circuit->lsp_queue)) {
-		isis_circuit_schedule_lsp_send(circuit);
-	}
 
 	if (circuit->state != C_STATE_UP || circuit->is_passive == 1)
 		goto out;
@@ -2197,8 +2192,6 @@ out:
 		 * to clear
 		 * the fag.
 		 */
-		ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+		isis_tx_queue_del(circuit->tx_queue, lsp);
 	}
-
-	return retval;
 }

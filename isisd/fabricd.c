@@ -29,6 +29,7 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_tlvs.h"
 #include "isisd/isis_lsp.h"
+#include "isisd/isis_tx_queue.h"
 
 DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric")
 

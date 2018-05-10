@@ -1,7 +1,7 @@
 /*
- * IS-IS Rout(e)ing protocol - LSP Hash
+ * IS-IS Rout(e)ing protocol - LSP TX Queuing logic
  *
- * Copyright (C) 2017 Christian Franke
+ * Copyright (C) 2018 Christian Franke
  *
  * This file is part of FreeRangeRouting (FRR)
  *
@@ -19,16 +19,31 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#ifndef ISIS_LSP_HASH_H
-#define ISIS_LSP_HASH_H
+#ifndef ISIS_TX_QUEUE_H
+#define ISIS_TX_QUEUE_H
 
-struct isis_lsp_hash;
+enum isis_tx_type {
+	TX_LSP_NORMAL = 0,
+	TX_LSP_CIRCUIT_SCOPED
+};
 
-struct isis_lsp_hash *isis_lsp_hash_new(void);
-void isis_lsp_hash_clean(struct isis_lsp_hash *ih);
-void isis_lsp_hash_free(struct isis_lsp_hash *ih);
-struct isis_lsp *isis_lsp_hash_lookup(struct isis_lsp_hash *ih,
-				      struct isis_lsp *lsp);
-void isis_lsp_hash_add(struct isis_lsp_hash *ih, struct isis_lsp *lsp);
-void isis_lsp_hash_release(struct isis_lsp_hash *ih, struct isis_lsp *lsp);
+struct isis_tx_queue;
+
+struct isis_tx_queue *isis_tx_queue_new(void *arg,
+					void(*send_event)(void *arg,
+							  struct isis_lsp *,
+							  enum isis_tx_type));
+
+void isis_tx_queue_free(struct isis_tx_queue *queue);
+
+void isis_tx_queue_add(struct isis_tx_queue *queue,
+		       struct isis_lsp *lsp,
+		       enum isis_tx_type type);
+
+void isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp);
+
+unsigned long isis_tx_queue_len(struct isis_tx_queue *queue);
+
+void isis_tx_queue_clean(struct isis_tx_queue *queue);
+
 #endif

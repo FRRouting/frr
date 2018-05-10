@@ -268,7 +268,7 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 
 				circuit->upadjcount[level - 1]--;
 				if (circuit->upadjcount[level - 1] == 0)
-					isis_circuit_lsp_queue_clean(circuit);
+					isis_tx_queue_clean(circuit->tx_queue);
 
 				isis_event_adjacency_state_change(adj,
 								  new_state);
@@ -324,7 +324,7 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 					adj->circuit->u.p2p.neighbor = NULL;
 				circuit->upadjcount[level - 1]--;
 				if (circuit->upadjcount[level - 1] == 0)
-					isis_circuit_lsp_queue_clean(circuit);
+					isis_tx_queue_clean(circuit->tx_queue);
 
 				isis_event_adjacency_state_change(adj,
 								  new_state);
