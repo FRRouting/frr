@@ -27,6 +27,7 @@ struct fabricd;
 struct isis_circuit;
 struct isis_area;
 struct isis_spftree;
+struct isis_lsp;
 struct vty;
 
 struct fabricd *fabricd_new(struct isis_area *area);
@@ -40,5 +41,6 @@ struct isis_spftree *fabricd_spftree(struct isis_area *area);
 void fabricd_configure_tier(struct isis_area *area, uint8_t tier);
 uint8_t fabricd_tier(struct isis_area *area);
 int fabricd_write_settings(struct isis_area *area, struct vty *vty);
+void fabricd_lsp_flood(struct isis_lsp *lsp);
 
 #endif

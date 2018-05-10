@@ -119,6 +119,45 @@ static int neighbor_entry_list_cmp(void *a, void *b)
 	return -memcmp(na->vertex->N.id, nb->vertex->N.id, ISIS_SYS_ID_LEN);
 }
 
+static struct neighbor_entry *neighbor_entry_lookup_list(struct skiplist *list,
+							 const uint8_t *id)
+{
+	struct isis_vertex querier;
+	isis_vertex_id_init(&querier, id, VTYPE_NONPSEUDO_TE_IS);
+
+	struct neighbor_entry n = {
+		.vertex = &querier
+	};
+
+	struct neighbor_entry *rv;
+
+	if (skiplist_search(list, &n, (void**)&rv))
+		return NULL;
+
+	if (!rv->present)
+		return NULL;
+
+	return rv;
+}
+
+static struct neighbor_entry *neighbor_entry_lookup_hash(struct hash *hash,
+							 const uint8_t *id)
+{
+	struct isis_vertex querier;
+	isis_vertex_id_init(&querier, id, VTYPE_NONPSEUDO_TE_IS);
+
+	struct neighbor_entry n = {
+		.vertex = &querier
+	};
+
+	struct neighbor_entry *rv = hash_lookup(hash, &n);
+
+	if (!rv || !rv->present)
+		return NULL;
+
+	return rv;
+}
+
 static void neighbor_lists_update(struct fabricd *f)
 {
 	neighbor_lists_clear(f);
@@ -445,4 +484,121 @@ int fabricd_write_settings(struct isis_area *area, struct vty *vty)
 	}
 
 	return written;
+}
+
+static void move_to_dnr(struct isis_lsp *lsp, struct neighbor_entry *n)
+{
+	struct isis_adjacency *adj = listnode_head(n->vertex->Adj_N);
+
+	n->present = false;
+	if (adj) {
+		isis_tx_queue_add(adj->circuit->tx_queue, lsp,
+				  TX_LSP_CIRCUIT_SCOPED);
+	}
+}
+
+static void move_to_rf(struct isis_lsp *lsp, struct neighbor_entry *n)
+{
+	struct isis_adjacency *adj = listnode_head(n->vertex->Adj_N);
+
+	n->present = false;
+	if (adj) {
+		isis_tx_queue_add(adj->circuit->tx_queue, lsp,
+				  TX_LSP_NORMAL);
+	}
+}
+
+static void mark_neighbor_as_present(struct hash_backet *backet, void *arg)
+{
+	struct neighbor_entry *n = backet->data;
+
+	n->present = true;
+}
+
+static void handle_firsthops(struct hash_backet *backet, void *arg)
+{
+	struct isis_lsp *lsp = arg;
+	struct fabricd *f = lsp->area->fabricd;
+	struct isis_vertex *vertex = backet->data;
+
+	struct neighbor_entry *n;
+
+	n = neighbor_entry_lookup_list(f->neighbors, vertex->N.id);
+	if (n)
+		n->present = false;
+
+	n = neighbor_entry_lookup_hash(f->neighbors_neighbors, vertex->N.id);
+	if (n)
+		n->present = false;
+}
+
+void fabricd_lsp_flood(struct isis_lsp *lsp)
+{
+	struct fabricd *f = lsp->area->fabricd;
+	assert(f);
+
+	void *cursor = NULL;
+	struct neighbor_entry *n;
+
+	/* Mark all elements in NL as present and move T0s into DNR */
+	while (!skiplist_next(f->neighbors, NULL, (void **)&n, &cursor)) {
+		n->present = true;
+
+		struct isis_lsp *lsp = lsp_for_vertex(f->spftree, n->vertex);
+		if (!lsp || !lsp->tlvs || !lsp->tlvs->spine_leaf)
+			continue;
+
+		if (!lsp->tlvs->spine_leaf->has_tier
+		    || lsp->tlvs->spine_leaf->tier != 0)
+			continue;
+
+		move_to_dnr(lsp, n);
+	}
+
+	/* Mark all elements in NN as present */
+	hash_iterate(f->neighbors_neighbors, mark_neighbor_as_present, NULL);
+
+	struct isis_vertex *originator = isis_find_vertex(&f->spftree->paths,
+							  lsp->hdr.lsp_id,
+							  VTYPE_NONPSEUDO_TE_IS);
+
+	/* Remove all IS from NL and NN in the shortest path
+	 * to the IS that originated the LSP */
+	if (originator)
+		hash_iterate(originator->firsthops, handle_firsthops, lsp);
+
+	/* Iterate over all remaining IS in NL */
+	cursor = NULL;
+	while (!skiplist_next(f->neighbors, NULL, (void **)&n, &cursor)) {
+		if (!n->present)
+			continue;
+
+		struct isis_lsp *nlsp = lsp_for_vertex(f->spftree, n->vertex);
+		if (!nlsp || !nlsp->tlvs) {
+			move_to_dnr(lsp, n);
+			continue;
+		}
+
+		/* For all neighbors of the NL IS check whether they are present
+		 * in NN. If yes, remove from NN and set need_reflood. */
+		bool need_reflood = false;
+		struct isis_extended_reach *er;
+		for (er = (struct isis_extended_reach *)nlsp->tlvs->extended_reach.head;
+		     er; er = er->next) {
+			struct neighbor_entry *nn;
+
+			nn = neighbor_entry_lookup_hash(f->neighbors_neighbors,
+							er->id);
+
+			if (nn) {
+				nn->present = false;
+				need_reflood = true;
+			}
+		}
+
+		if (need_reflood)
+			move_to_rf(lsp, n);
+		else
+			move_to_dnr(lsp, n);
+	}
 }

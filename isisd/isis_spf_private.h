@@ -309,7 +309,7 @@ struct isis_spftree {
 };
 
 __attribute__((__unused__))
-static void isis_vertex_id_init(struct isis_vertex *vertex, union isis_N *n,
+static void isis_vertex_id_init(struct isis_vertex *vertex, const union isis_N *n,
 				enum vertextype vtype)
 {
 	vertex->type = vtype;

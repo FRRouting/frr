@@ -1972,7 +1972,11 @@ void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set)
 
 void lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 {
-	lsp_set_all_srmflags(lsp);
-	if (circuit)
-		isis_tx_queue_del(circuit->tx_queue, lsp);
+	if (!fabricd) {
+		lsp_set_all_srmflags(lsp, true);
+		if (circuit)
+			isis_tx_queue_del(circuit->tx_queue, lsp);
+	} else {
+		fabricd_lsp_flood(lsp);
+	}
 }
