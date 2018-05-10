@@ -33,11 +33,11 @@ The output of the tested daemons will be available at the temporary folder of
 your machine:
 
 ```shell
-$ ls /tmp
+$ ls /tmp/topotest/ospf-topo1.test_ospf-topo1/r1
 ...
-r1-zebra.err # zebra stderr output
-r1-zebra.log # zebra log file
-r1-zebra.out # zebra stdout output
+zebra.err # zebra stderr output
+zebra.log # zebra log file
+zebra.out # zebra stdout output
 ...
 ```
 
@@ -299,9 +299,9 @@ frr defaults traditional
 hostname r3
 no service integrated-vtysh-config
 !
-log file /tmp/r3-zebra.log
+log file zebra.log
 !
-log file /tmp/r3-ospfd.log
+log file ospfd.log
 !
 interface r3-eth0
  ip address 10.0.3.1/24
@@ -345,7 +345,7 @@ frr version 3.1-devrzalamena-build
 frr defaults traditional
 no service integrated-vtysh-config
 !
-log file /tmp/r3-ospfd.log
+log file ospfd.log
 !
 router ospf
  ospf router-id 10.0.255.3
