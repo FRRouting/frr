@@ -27,6 +27,8 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_spf.h"
+#include "isisd/isis_tlvs.h"
+#include "isisd/isis_lsp.h"
 
 DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric")
 
@@ -42,20 +44,27 @@ enum fabricd_sync_state {
 };
 
 struct fabricd {
+	struct isis_area *area;
+
 	enum fabricd_sync_state initial_sync_state;
 	time_t initial_sync_start;
 	struct isis_circuit *initial_sync_circuit;
 	struct thread *initial_sync_timeout;
 
 	struct isis_spftree *spftree;
+
+	uint8_t tier;
+	uint8_t tier_config;
 };
 
 struct fabricd *fabricd_new(struct isis_area *area)
 {
 	struct fabricd *rv = XCALLOC(MTYPE_FABRICD_STATE, sizeof(*rv));
 
+	rv->area = area;
 	rv->initial_sync_state = FABRICD_SYNC_PENDING;
 	rv->spftree = isis_spftree_new(area);
+	rv->tier = rv->tier_config = ISIS_TIER_UNDEFINED;
 	return rv;
 };
 
@@ -147,6 +156,16 @@ void fabricd_initial_sync_finish(struct isis_area *area)
 	f->initial_sync_timeout = NULL;
 }
 
+static void fabricd_set_tier(struct fabricd *f, uint8_t tier)
+{
+	if (f->tier == tier)
+		return;
+
+	f->tier = tier;
+
+	lsp_regenerate_schedule(f->area, ISIS_LEVEL2, 0);
+}
+
 void fabricd_run_spf(struct isis_area *area)
 {
 	struct fabricd *f = area->fabricd;
@@ -165,4 +184,41 @@ struct isis_spftree *fabricd_spftree(struct isis_area *area)
 		return NULL;
 
 	return f->spftree;
+}
+
+void fabricd_configure_tier(struct isis_area *area, uint8_t tier)
+{
+	struct fabricd *f = area->fabricd;
+
+	if (!f || f->tier_config == tier)
+		return;
+
+	f->tier_config = tier;
+	fabricd_set_tier(f, tier);
+}
+
+uint8_t fabricd_tier(struct isis_area *area)
+{
+	struct fabricd *f = area->fabricd;
+
+	if (!f)
+		return ISIS_TIER_UNDEFINED;
+
+	return f->tier;
+}
+
+int fabricd_write_settings(struct isis_area *area, struct vty *vty)
+{
+	struct fabricd *f = area->fabricd;
+	int written = 0;
+
+	if (!f)
+		return written;
+
+	if (f->tier_config != ISIS_TIER_UNDEFINED) {
+		vty_out(vty, " fabric-tier %" PRIu8 "\n", f->tier_config);
+		written++;
+	}
+
+	return written;
 }

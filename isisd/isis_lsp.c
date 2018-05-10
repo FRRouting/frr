@@ -929,6 +929,14 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	lsp_debug("ISIS (%s): Adding circuit specific information.",
 		  area->area_tag);
 
+	if (fabricd) {
+		lsp_debug(
+			"ISIS (%s): Adding tier %" PRIu8 " spine-leaf-extension tlv.",
+			area->area_tag, fabricd_tier(area));
+		isis_tlvs_add_spine_leaf(lsp->tlvs, fabricd_tier(area), true,
+					 false, false, false);
+	}
+
 	struct isis_circuit *circuit;
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
 		if (!circuit->interface)
