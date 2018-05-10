@@ -29,9 +29,11 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_tlvs.h"
 #include "isisd/isis_lsp.h"
+#include "isisd/isis_spf_private.h"
 #include "isisd/isis_tx_queue.h"
 
 DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric")
+DEFINE_MTYPE_STATIC(ISISD, FABRICD_NEIGHBOR, "ISIS OpenFabric Neighbor Entry")
 
 /* Tracks initial synchronization as per section 2.4
  *
@@ -53,6 +55,8 @@ struct fabricd {
 	struct thread *initial_sync_timeout;
 
 	struct isis_spftree *spftree;
+	struct skiplist *neighbors;
+	struct hash *neighbors_neighbors;
 
 	uint8_t tier;
 	uint8_t tier_config;
@@ -61,13 +65,99 @@ struct fabricd {
 	struct thread *tier_set_timer;
 };
 
+/* Code related to maintaining the neighbor lists */
+
+struct neighbor_entry {
+	struct isis_vertex *vertex;
+	bool present;
+};
+
+static struct neighbor_entry *neighbor_entry_new(struct isis_vertex *vertex)
+{
+	struct neighbor_entry *rv = XMALLOC(MTYPE_FABRICD_NEIGHBOR, sizeof(*rv));
+
+	rv->vertex = vertex;
+	return rv;
+}
+
+static void neighbor_entry_del(struct neighbor_entry *neighbor)
+{
+	XFREE(MTYPE_FABRICD_NEIGHBOR, neighbor);
+}
+
+static void neighbor_entry_del_void(void *arg)
+{
+	neighbor_entry_del((struct neighbor_entry *)arg);
+}
+
+static void neighbor_lists_clear(struct fabricd *f)
+{
+	while (!skiplist_empty(f->neighbors))
+		skiplist_delete_first(f->neighbors);
+
+	hash_clean(f->neighbors_neighbors, neighbor_entry_del_void);
+}
+
+static unsigned neighbor_entry_hash_key(void *np)
+{
+	struct neighbor_entry *n = np;
+
+	return jhash(n->vertex->N.id, ISIS_SYS_ID_LEN, 0x55aa5a5a);
+}
+
+static int neighbor_entry_hash_cmp(const void *a, const void *b)
+{
+	const struct neighbor_entry *na = a, *nb = b;
+
+	return memcmp(na->vertex->N.id, nb->vertex->N.id, ISIS_SYS_ID_LEN) == 0;
+}
+
+static int neighbor_entry_list_cmp(void *a, void *b)
+{
+	struct neighbor_entry *na = a, *nb = b;
+
+	return -memcmp(na->vertex->N.id, nb->vertex->N.id, ISIS_SYS_ID_LEN);
+}
+
+static void neighbor_lists_update(struct fabricd *f)
+{
+	neighbor_lists_clear(f);
+
+	struct listnode *node;
+	struct isis_vertex *v;
+
+	for (ALL_QUEUE_ELEMENTS_RO(&f->spftree->paths, node, v)) {
+		if (!v->d_N || !VTYPE_IS(v->type))
+			continue;
+
+		if (v->d_N > 2)
+			break;
+
+		struct neighbor_entry *n = neighbor_entry_new(v);
+		if (v->d_N == 1) {
+			skiplist_insert(f->neighbors, n, n);
+		} else {
+			struct neighbor_entry *inserted;
+			inserted = hash_get(f->neighbors_neighbors, n, hash_alloc_intern);
+			assert(inserted == n);
+		}
+	}
+}
+
 struct fabricd *fabricd_new(struct isis_area *area)
 {
 	struct fabricd *rv = XCALLOC(MTYPE_FABRICD_STATE, sizeof(*rv));
 
 	rv->area = area;
 	rv->initial_sync_state = FABRICD_SYNC_PENDING;
+
 	rv->spftree = isis_spftree_new(area);
+	rv->neighbors = skiplist_new(0, neighbor_entry_list_cmp,
+				     neighbor_entry_del_void);
+	rv->neighbors_neighbors = hash_create(neighbor_entry_hash_key,
+					      neighbor_entry_hash_cmp,
+					      "Fabricd Neighbors");
+
 	rv->tier = rv->tier_config = ISIS_TIER_UNDEFINED;
 	return rv;
 };
@@ -84,6 +174,9 @@ void fabricd_finish(struct fabricd *f)
 		thread_cancel(f->tier_set_timer);
 
 	isis_spftree_del(f->spftree);
+	neighbor_lists_clear(f);
+	skiplist_free(f->neighbors);
+	hash_free(f->neighbors_neighbors);
 }
 
 static int fabricd_initial_sync_timeout(struct thread *thread)
@@ -303,6 +396,7 @@ void fabricd_run_spf(struct isis_area *area)
 		return;
 
 	isis_run_hopcount_spf(area, isis->sysid, f->spftree);
+	neighbor_lists_update(f);
 	fabricd_bump_tier_calculation_timer(f);
 }
 
