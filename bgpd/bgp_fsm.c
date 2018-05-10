@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "network.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "sockunion.h"
@@ -1267,9 +1268,19 @@ static int bgp_connect_check(struct thread *thread)
 		return 1;
 	} else {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s [Event] Connect failed (%s)", peer->host,
-				   safe_strerror(errno));
-		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
+			zlog_debug("%s [Event] Connect Received %d(%s)",
+				   peer->host, errno, safe_strerror(errno));
+
+		if (!ERRNO_IO_RETRY(errno)) {
+			BGP_EVENT_ADD(peer, TCP_connection_open_failed);
+		} else {
+			thread_add_read(bm->master, bgp_connect_check,
+					peer, peer->fd,
+					&peer->t_connect_check_r);
+			thread_add_write(bm->master, bgp_connect_check,
+					 peer, peer->fd,
+					 &peer->t_connect_check_w);
+		}
 		return 0;
 	}
 }
