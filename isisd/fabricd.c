@@ -55,6 +55,9 @@ struct fabricd {
 
 	uint8_t tier;
 	uint8_t tier_config;
+	uint8_t tier_pending;
+	struct thread *tier_calculation_timer;
+	struct thread *tier_set_timer;
 };
 
 struct fabricd *fabricd_new(struct isis_area *area)
@@ -72,6 +75,12 @@ void fabricd_finish(struct fabricd *f)
 {
 	if (f->initial_sync_timeout)
 		thread_cancel(f->initial_sync_timeout);
+
+	if (f->tier_calculation_timer)
+		thread_cancel(f->tier_calculation_timer);
+
+	if (f->tier_set_timer)
+		thread_cancel(f->tier_set_timer);
 
 	isis_spftree_del(f->spftree);
 }
@@ -156,13 +165,132 @@ void fabricd_initial_sync_finish(struct isis_area *area)
 	f->initial_sync_timeout = NULL;
 }
 
+static void fabricd_bump_tier_calculation_timer(struct fabricd *f);
+static void fabricd_set_tier(struct fabricd *f, uint8_t tier);
+
+static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
+{
+	struct isis_spftree *local_tree = fabricd_spftree(area);
+	struct listnode *node;
+
+	struct isis_vertex *furthest_t0 = NULL,
+			   *second_furthest_t0 = NULL;
+
+	struct isis_vertex *v;
+
+	for (ALL_QUEUE_ELEMENTS_RO(&local_tree->paths, node, v)) {
+		struct isis_lsp *lsp = lsp_for_vertex(local_tree, v);
+
+		if (!lsp || !lsp->tlvs
+		    || !lsp->tlvs->spine_leaf
+		    || !lsp->tlvs->spine_leaf->has_tier
+		    || lsp->tlvs->spine_leaf->tier != 0)
+			continue;
+
+		second_furthest_t0 = furthest_t0;
+		furthest_t0 = v;
+	}
+
+	if (!second_furthest_t0) {
+		zlog_info("OpenFabric: Could not find two T0 routers");
+		return ISIS_TIER_UNDEFINED;
+	}
+
+	zlog_info("OpenFabric: Found %s as furthest t0 from local system, dist == %"
+		  PRIu32, rawlspid_print(furthest_t0->N.id), furthest_t0->d_N);
+
+	struct isis_spftree *remote_tree =
+		isis_run_hopcount_spf(area, furthest_t0->N.id, NULL);
+
+	struct isis_vertex *furthest_from_remote =
+		isis_vertex_queue_last(&remote_tree->paths);
+
+	if (!furthest_from_remote) {
+		zlog_info("OpenFabric: Found no furthest node in remote spf");
+		isis_spftree_del(remote_tree);
+		return ISIS_TIER_UNDEFINED;
+	} else {
+		zlog_info("OpenFabric: Found %s as furthest from remote dist == %"
+			  PRIu32, rawlspid_print(furthest_from_remote->N.id),
+			  furthest_from_remote->d_N);
+	}
+
+	int64_t tier = furthest_from_remote->d_N - furthest_t0->d_N;
+	isis_spftree_del(remote_tree);
+
+	if (tier < 0 || tier >= ISIS_TIER_UNDEFINED) {
+		zlog_info("OpenFabric: Calculated tier %" PRId64 " seems implausible",
+			  tier);
+		return ISIS_TIER_UNDEFINED;
+	}
+
+	zlog_info("OpenFabric: Calculated %" PRId64 " as tier", tier);
+	return tier;
+}
+
+static int fabricd_tier_set_timer(struct thread *thread)
+{
+	struct fabricd *f = THREAD_ARG(thread);
+	f->tier_set_timer = NULL;
+
+	fabricd_set_tier(f, f->tier_pending);
+	return 0;
+}
+
+static int fabricd_tier_calculation_cb(struct thread *thread)
+{
+	struct fabricd *f = THREAD_ARG(thread);
+	uint8_t tier = ISIS_TIER_UNDEFINED;
+	f->tier_calculation_timer = NULL;
+
+	tier = fabricd_calculate_fabric_tier(f->area);
+	if (tier == ISIS_TIER_UNDEFINED)
+		return 0;
+
+	zlog_info("OpenFabric: Got tier %" PRIu8 " from algorithm. Arming timer.",
+		  tier);
+	f->tier_pending = tier;
+	thread_add_timer(master, fabricd_tier_set_timer, f,
+			 f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
+			 &f->tier_set_timer);
+
+	return 0;
+}
+
+static void fabricd_bump_tier_calculation_timer(struct fabricd *f)
+{
+	/* Cancel timer if we already know our tier */
+	if (f->tier != ISIS_TIER_UNDEFINED
+	    || f->tier_set_timer) {
+		if (f->tier_calculation_timer) {
+			thread_cancel(f->tier_calculation_timer);
+			f->tier_calculation_timer = NULL;
+		}
+		return;
+	}
+
+	/* If we need to calculate the tier, wait some
+	 * time for the topology to settle before running
+	 * the calculation */
+	if (f->tier_calculation_timer) {
+		thread_cancel(f->tier_calculation_timer);
+		f->tier_calculation_timer = NULL;
+	}
+
+	thread_add_timer(master, fabricd_tier_calculation_cb, f,
+			 2 * f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
+			 &f->tier_calculation_timer);
+}
+
 static void fabricd_set_tier(struct fabricd *f, uint8_t tier)
 {
 	if (f->tier == tier)
 		return;
 
+	zlog_info("OpenFabric: Set own tier to %" PRIu8, tier);
 	f->tier = tier;
 
+	fabricd_bump_tier_calculation_timer(f);
 	lsp_regenerate_schedule(f->area, ISIS_LEVEL2, 0);
 }
 
@@ -174,6 +302,7 @@ void fabricd_run_spf(struct isis_area *area)
 		return;
 
 	isis_run_hopcount_spf(area, isis->sysid, f->spftree);
+	fabricd_bump_tier_calculation_timer(f);
 }
 
 struct isis_spftree *fabricd_spftree(struct isis_area *area)
