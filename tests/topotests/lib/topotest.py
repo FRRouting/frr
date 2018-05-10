@@ -470,6 +470,7 @@ class Router(Node):
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0,
                         'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0}
         self.daemons_options = {'zebra': ''}
+        self.reportCores = True
 
     def _config_frr(self, **params):
         "Configure FRR binaries"
@@ -571,7 +572,7 @@ class Router(Node):
                         self.waitOutput()
                     self.cmd('rm -- {}'.format(d.rstrip()))
         if wait:
-                self.checkRouterCores()
+                self.checkRouterCores(reportOnce=True)
 
     def removeIPs(self):
         for interface in self.intfNames():
@@ -660,6 +661,8 @@ class Router(Node):
         # Starts actual daemons without init (ie restart)
         # cd to per node directory
         self.cmd('cd {}/{}'.format(self.logdir, self.name))
+        #Re-enable to allow for report per run
+        self.reportCores = True
         # Start Zebra first
         if self.daemons['zebra'] == 1:
             zebra_path = os.path.join(self.daemondir, 'zebra')
@@ -692,7 +695,10 @@ class Router(Node):
     def getLog(self, log, daemon):
         return self.cmd('cat {}/{}/{}.{}'.format(self.logdir, self.name, daemon, log))
 
-    def checkRouterCores(self, reportLeaks=True):
+    def checkRouterCores(self, reportLeaks=True, reportOnce=False):
+        if reportOnce and not self.reportCores:
+            return
+        reportMade = False
         for daemon in self.daemons:
             if (self.daemons[daemon] == 1):
                 # Look for core file
@@ -705,6 +711,7 @@ class Router(Node):
                     ], shell=True)
                     sys.stderr.write("\n%s: %s crashed. Core file found - Backtrace follows:\n" % (self.name, daemon))
                     sys.stderr.write("%s" % backtrace)
+                    reportMade = True
                 elif reportLeaks:
                     log = self.getStdErr(daemon)
                     if "memstats" in log:
@@ -713,9 +720,13 @@ class Router(Node):
                         log = re.sub(r"(showing active allocations in memory group [a-zA-Z0-9]+)", r"\n  ## \1", log)
                         log = re.sub("memstats:  ", "    ", log)
                         sys.stderr.write(log)
+                        reportMade = True
                 # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
                 if checkAddressSanitizerError(self.getStdErr(daemon), self.name, daemon):
                     sys.stderr.write("%s: Daemon %s killed by AddressSanitizer" % (self.name, daemon))
+                    reportMade = True
+        if reportMade:
+            self.reportCores = False
 
     def checkRouterRunning(self):
         "Check if router daemons are running and collect crashinfo they don't run"
