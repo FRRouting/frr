@@ -37,6 +37,7 @@ noinst_HEADERS += \
 	isisd/isis_route.h \
 	isisd/isis_routemap.h \
 	isisd/isis_spf.h \
+	isisd/isis_spf_private.h \
 	isisd/isis_te.h \
 	isisd/isis_tlvs.h \
 	isisd/isis_vty_common.h \
