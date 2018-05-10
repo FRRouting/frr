@@ -19,7 +19,7 @@ chgrp ${frrvtygid} /etc/frr/vtysh*
 chmod 644 /etc/frr/*
 
 ENVIRONMENTFILE=/etc/environment
-if ! grep --quiet VTYSH_PAGER=/bin/cat ${ENVIRONMENTFILE}; then
+if ! egrep --quiet '^VTYSH_PAGER=' ${ENVIRONMENTFILE}; then
     echo "VTYSH_PAGER=/bin/cat"  >> ${ENVIRONMENTFILE}
 fi
 ##################################################
