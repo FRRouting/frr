@@ -198,6 +198,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/conf.py \
 	user/eigrpd.rst \
 	user/filter.rst \
+	user/getting-started.rst \
 	user/glossary.rst \
 	user/index.rst \
 	user/installation.rst \
@@ -217,6 +218,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/routemap.rst \
 	user/routeserver.rst \
 	user/rpki.rst \
+	user/setup.rst \
 	user/sharp.rst \
 	user/snmp.rst \
 	user/snmptrap.rst \
