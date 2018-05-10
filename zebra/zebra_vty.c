@@ -3341,6 +3341,9 @@ DEFUN (show_vrf,
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
+	if (vrf_is_backend_netns())
+		vty_out(vty, "netns-based vrfs\n");
+
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (!(zvrf = vrf->info))
 			continue;
