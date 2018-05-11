@@ -140,12 +140,6 @@ static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 	return NULL;
 }
 
-void pim_upstream_free(struct pim_upstream *up)
-{
-	XFREE(MTYPE_PIM_UPSTREAM, up);
-	up = NULL;
-}
-
 static void upstream_channel_oil_detach(struct pim_upstream *up)
 {
 	if (up->channel_oil) {
@@ -209,11 +203,6 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	list_delete_and_null(&up->ifchannels);
 
-	/*
-	  notice that listnode_delete() can't be moved
-	  into pim_upstream_free() because the later is
-	  called by list_delete_all_node()
-	*/
 	if (up->parent && up->parent->sources)
 		listnode_delete(up->parent->sources, up);
 	up->parent = NULL;
@@ -237,7 +226,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	}
 	pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
 
-	pim_upstream_free(up);
+	XFREE(MTYPE_PIM_UPSTREAM, up);
 
 	return NULL;
 }
@@ -1543,8 +1532,15 @@ unsigned int pim_upstream_hash_key(void *arg)
 
 void pim_upstream_terminate(struct pim_instance *pim)
 {
-	if (pim->upstream_list)
+	struct listnode *node, *nnode;
+	struct pim_upstream *up;
+
+	if (pim->upstream_list) {
+		for (ALL_LIST_ELEMENTS(pim->upstream_list, node, nnode, up))
+			pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+
 		list_delete_and_null(&pim->upstream_list);
+	}
 
 	if (pim->upstream_hash)
 		hash_free(pim->upstream_hash);
@@ -1771,6 +1767,5 @@ void pim_upstream_init(struct pim_instance *pim)
 					      pim_upstream_equal, hash_name);
 
 	pim->upstream_list = list_new();
-	pim->upstream_list->del = (void (*)(void *))pim_upstream_free;
 	pim->upstream_list->cmp = pim_upstream_compare;
 }
