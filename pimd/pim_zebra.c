@@ -69,6 +69,7 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 			    zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	struct pim_instance *pim;
 
 	/*
 	  zebra api adds/dels interfaces using the same call
@@ -78,6 +79,7 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 	if (!ifp)
 		return 0;
 
+	pim = pim_get_pim_instance(vrf_id);
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
 			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
@@ -86,8 +88,19 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 			if_is_operative(ifp));
 	}
 
-	if (if_is_operative(ifp))
+	if (if_is_operative(ifp)) {
+		struct pim_interface *pim_ifp;
+
+		pim_ifp = ifp->info;
+		/*
+		 * If we have a pim_ifp already and this is an if_add
+		 * that means that we probably have a vrf move event
+		 * If that is the case, set the proper vrfness.
+		 */
+		if (pim_ifp)
+			pim_ifp->pim = pim;
 		pim_if_addr_add_all(ifp);
+	}
 
 	/*
 	 * If we are a vrf device that is up, open up the pim_socket for
@@ -145,6 +158,7 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
 static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 				 zebra_size_t length, vrf_id_t vrf_id)
 {
+	struct pim_instance *pim;
 	struct interface *ifp;
 	uint32_t table_id;
 
@@ -164,7 +178,19 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 			if_is_operative(ifp));
 	}
 
+	pim = pim_get_pim_instance(vrf_id);
 	if (if_is_operative(ifp)) {
+		struct pim_interface *pim_ifp;
+
+		pim_ifp = ifp->info;
+		/*
+		 * If we have a pim_ifp already and this is an if_add
+		 * that means that we probably have a vrf move event
+		 * If that is the case, set the proper vrfness.
+		 */
+		if (pim_ifp)
+			pim_ifp->pim = pim;
+
 		/*
 		  pim_if_addr_add_all() suffices for bringing up both IGMP and
 		  PIM
@@ -274,6 +300,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 	struct connected *c;
 	struct prefix *p;
 	struct pim_interface *pim_ifp;
+	struct pim_instance *pim;
 
 	/*
 	  zebra api notifies address adds/dels events by using the same call
@@ -326,8 +353,12 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 	}
 
 	pim_if_addr_add(c);
-	if (pim_ifp)
+	if (pim_ifp) {
+		pim = pim_get_pim_instance(vrf_id);
+		pim_ifp->pim = pim;
+
 		pim_rp_check_on_if_add(pim_ifp);
+	}
 
 	if (if_is_loopback(c->ifp)) {
 		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
