@@ -1176,8 +1176,7 @@ static void pim_msdp_peer_free(struct pim_msdp_peer *mp)
 	 * Let's make sure we are not running when we delete
 	 * the underlying data structure
 	 */
-	pim_msdp_peer_cr_timer_setup(mp, false);
-	pim_msdp_peer_ka_timer_setup(mp, false);
+	pim_msdp_peer_stop_tcp_conn(mp, false);
 
 	if (mp->ibuf) {
 		stream_free(mp->ibuf);
@@ -1190,6 +1189,8 @@ static void pim_msdp_peer_free(struct pim_msdp_peer *mp)
 	if (mp->mesh_group_name) {
 		XFREE(MTYPE_PIM_MSDP_MG_NAME, mp->mesh_group_name);
 	}
+
+	mp->pim = NULL;
 	XFREE(MTYPE_PIM_MSDP_PEER, mp);
 }
 
