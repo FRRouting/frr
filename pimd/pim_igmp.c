@@ -303,6 +303,21 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 		return -1;
 	}
 
+	/* Collecting IGMP Rx stats */
+	switch (query_version) {
+	case 1:
+		igmp->rx_stats.query_v1++;
+		break;
+	case 2:
+		igmp->rx_stats.query_v2++;
+		break;
+	case 3:
+		igmp->rx_stats.query_v3++;
+		break;
+	default:
+		igmp->rx_stats.unsupported++;
+	}
+
 	/*
 	 * RFC 3376 defines some guidelines on operating in backwards
 	 * compatibility with older versions of IGMP but there are some gaps in
@@ -399,6 +414,9 @@ static int igmp_v1_recv_report(struct igmp_sock *igmp, struct in_addr from,
 			from_str, ifp->name, igmp_msg_len, IGMP_V12_MSG_SIZE);
 		return -1;
 	}
+
+	/* Collecting IGMP Rx stats */
+	igmp->rx_stats.report_v1++;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		zlog_warn("%s %s: FIXME WRITEME", __FILE__,
@@ -523,6 +541,9 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 	}
 
 	zlog_warn("Ignoring unsupported IGMP message type: %d", msg_type);
+
+	/* Collecting IGMP Rx stats */
+	igmp->rx_stats.unsupported++;
 
 	return -1;
 }
@@ -866,6 +887,8 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	igmp->querier_robustness_variable =
 		pim_ifp->igmp_default_robustness_variable;
 	igmp->sock_creation = pim_time_monotonic_sec();
+
+	igmp_stats_init(&igmp->rx_stats);
 
 	if (mtrace_only) {
 		igmp->mtrace_only = mtrace_only;

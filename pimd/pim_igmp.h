@@ -25,6 +25,7 @@
 #include <zebra.h>
 #include "vty.h"
 #include "linklist.h"
+#include "pim_igmp_stats.h"
 
 /*
   The following sizes are likely to support
@@ -94,6 +95,8 @@ struct igmp_sock {
 
 	struct list *igmp_group_list; /* list of struct igmp_group */
 	struct hash *igmp_group_hash;
+
+	struct igmp_stats rx_stats;
 };
 
 struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,

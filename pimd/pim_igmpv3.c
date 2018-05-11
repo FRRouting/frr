@@ -1900,6 +1900,9 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		return -1;
 	}
 
+	/* Collecting IGMP Rx stats */
+	igmp->rx_stats.report_v3++;
+
 	num_groups = ntohs(
 		*(uint16_t *)(igmp_msg + IGMP_V3_REPORT_NUMGROUPS_OFFSET));
 	if (num_groups < 1) {

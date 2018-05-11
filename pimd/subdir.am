@@ -20,6 +20,7 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_ifchannel.c \
 	pimd/pim_igmp.c \
 	pimd/pim_igmp_mtrace.c \
+	pimd/pim_igmp_stats.c \
 	pimd/pim_igmpv2.c \
 	pimd/pim_igmpv3.c \
 	pimd/pim_instance.c \
@@ -69,6 +70,7 @@ noinst_HEADERS += \
 	pimd/pim_igmp.h \
 	pimd/pim_igmp_join.h \
 	pimd/pim_igmp_mtrace.h \
+	pimd/pim_igmp_stats.h \
 	pimd/pim_igmpv2.h \
 	pimd/pim_igmpv3.h \
 	pimd/pim_instance.h \

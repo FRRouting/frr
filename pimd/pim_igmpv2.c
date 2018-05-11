@@ -121,6 +121,9 @@ int igmp_v2_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		return -1;
 	}
 
+	/* Collecting IGMP Rx stats */
+	igmp->rx_stats.report_v2++;
+
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
 	if (PIM_DEBUG_IGMP_PACKETS) {
@@ -166,6 +169,9 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct in_addr from,
 			from_str, ifp->name, igmp_msg_len, IGMP_V12_MSG_SIZE);
 		return -1;
 	}
+
+	/* Collecting IGMP Rx stats */
+	igmp->rx_stats.leave_v2++;
 
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 

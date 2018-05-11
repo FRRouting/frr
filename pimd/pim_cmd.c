@@ -1294,6 +1294,76 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 	}
 }
 
+static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
+				 const char *ifname, uint8_t uj)
+{
+	struct interface *ifp;
+	struct igmp_stats rx_stats;
+
+	igmp_stats_init(&rx_stats);
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp;
+		struct listnode *sock_node;
+		struct igmp_sock *igmp;
+
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		if (ifname && strcmp(ifname, ifp->name))
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
+					  igmp)) {
+			igmp_stats_add(&rx_stats, &igmp->rx_stats);
+		}
+	}
+	if (uj) {
+		json_object *json = NULL;
+		json_object *json_row = NULL;
+
+		json = json_object_new_object();
+		json_row = json_object_new_object();
+
+		json_object_string_add(json_row, "name", ifname ? ifname :
+				       "global");
+		json_object_int_add(json_row, "queryV1", rx_stats.query_v1);
+		json_object_int_add(json_row, "queryV2", rx_stats.query_v2);
+		json_object_int_add(json_row, "queryV3", rx_stats.query_v3);
+		json_object_int_add(json_row, "leaveV3", rx_stats.leave_v2);
+		json_object_int_add(json_row, "reportV1", rx_stats.report_v1);
+		json_object_int_add(json_row, "reportV2", rx_stats.report_v2);
+		json_object_int_add(json_row, "reportV3", rx_stats.report_v3);
+		json_object_int_add(json_row, "mtraceResponse",
+				    rx_stats.mtrace_rsp);
+		json_object_int_add(json_row, "mtraceRequest",
+				    rx_stats.mtrace_req);
+		json_object_int_add(json_row, "unsupported",
+				    rx_stats.unsupported);
+		json_object_object_add(json, ifname ? ifname : "global",
+				       json_row);
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else {
+		vty_out(vty, "IGMP RX statistics\n");
+		vty_out(vty, "Interface       : %s\n",
+			ifname ? ifname : "global");
+		vty_out(vty, "V1 query        : %u\n", rx_stats.query_v1);
+		vty_out(vty, "V2 query        : %u\n", rx_stats.query_v2);
+		vty_out(vty, "V3 query        : %u\n", rx_stats.query_v3);
+		vty_out(vty, "V2 leave        : %u\n", rx_stats.leave_v2);
+		vty_out(vty, "V1 report       : %u\n", rx_stats.report_v1);
+		vty_out(vty, "V2 report       : %u\n", rx_stats.report_v2);
+		vty_out(vty, "V3 report       : %u\n", rx_stats.report_v3);
+		vty_out(vty, "mtrace response : %u\n", rx_stats.mtrace_rsp);
+		vty_out(vty, "mtrace request  : %u\n", rx_stats.mtrace_req);
+		vty_out(vty, "unsupported     : %u\n", rx_stats.unsupported);
+	}
+}
+
 static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				uint8_t uj)
 {
@@ -3523,6 +3593,33 @@ DEFUN (show_ip_igmp_sources_retransmissions,
 		return CMD_WARNING;
 
 	igmp_show_source_retransmission(vrf->info, vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_igmp_statistics,
+       show_ip_igmp_statistics_cmd,
+       "show ip igmp [vrf NAME] statistics [interface WORD] [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "IGMP statistics\n"
+       "interface\n"
+       "IGMP interface\n"
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	uint8_t uj = use_json(argc, argv);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	if (argv_find(argv, argc, "WORD", &idx))
+		igmp_show_statistics(vrf->info, vty, argv[idx]->arg, uj);
+	else
+		igmp_show_statistics(vrf->info, vty, NULL, uj);
 
 	return CMD_SUCCESS;
 }
@@ -8644,6 +8741,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_igmp_groups_retransmissions_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_sources_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_sources_retransmissions_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_assert_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_assert_internal_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_assert_metric_cmd);
