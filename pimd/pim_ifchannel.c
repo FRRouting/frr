@@ -125,11 +125,6 @@ static void pim_ifchannel_find_new_children(struct pim_ifchannel *ch)
 	}
 }
 
-void pim_ifchannel_free(struct pim_ifchannel *ch)
-{
-	XFREE(MTYPE_PIM_IFCHANNEL, ch);
-}
-
 void pim_ifchannel_delete(struct pim_ifchannel *ch)
 {
 	struct pim_interface *pim_ifp;
@@ -199,7 +194,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		zlog_debug("%s: ifchannel entry %s is deleted ",
 			   __PRETTY_FUNCTION__, ch->sg_str);
 
-	pim_ifchannel_free(ch);
+	XFREE(MTYPE_PIM_IFCHANNEL, ch);
 }
 
 void pim_ifchannel_delete_all(struct interface *ifp)

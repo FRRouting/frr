@@ -155,6 +155,8 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 				      struct pim_upstream *up, const char *name)
 {
+	struct listnode *node, *nnode;
+	struct pim_ifchannel *ch;
 	bool notify_msdp = false;
 	struct prefix nht_p;
 
@@ -194,14 +196,16 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 		notify_msdp = true;
 	}
 
-	pim_upstream_remove_children(pim, up);
-	if (up->sources)
-		list_delete_and_null(&up->sources);
-
 	pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
 	upstream_channel_oil_detach(up);
 
+	for (ALL_LIST_ELEMENTS(up->ifchannels, node, nnode, ch))
+		pim_ifchannel_delete(ch);
 	list_delete_and_null(&up->ifchannels);
+
+	pim_upstream_remove_children(pim, up);
+	if (up->sources)
+		list_delete_and_null(&up->sources);
 
 	if (up->parent && up->parent->sources)
 		listnode_delete(up->parent->sources, up);
