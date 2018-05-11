@@ -1915,24 +1915,27 @@ AC_CONFIG_FILES([Makefile
 	  vtysh/Makefile
 	  doc/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
-	  redhat/frr.spec
-	  debianpkg/Makefile
-	  debianpkg/changelog
-	  alpine/APKBUILD
-	  snapcraft/snapcraft.yaml
+	  packaging/redhat/frr.spec
+	  packaging/debianpkg/Makefile
+	  packaging/debianpkg/changelog
+	  packaging/alpine/APKBUILD
+	  packaging/snapcraft/snapcraft.yaml
+	  packaging/pkgsrc/bgpd.sh
+	  packaging/pkgsrc/ospf6d.sh
+	  packaging/pkgsrc/ospfd.sh
+	  packaging/pkgsrc/ripd.sh
+	  packaging/pkgsrc/ripngd.sh
+	  packaging/pkgsrc/zebra.sh
+	  packaging/pkgsrc/eigrpd.sh
+	  packaging/solaris/Makefile
 	  lib/version.h
-	  tests/lib/cli/test_cli.refout
-	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
-	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
-	  pkgsrc/eigrpd.sh])
+	  tests/lib/cli/test_cli.refout])
 
 if test "${enable_bgp_vnc}" != "no"; then
    if test "${with_rfp_path}" != "bgpd/rfp-example" ; then
       AC_CONFIG_FILES([${with_rfp_path}/rfptest/Makefile ${with_rfp_path}/librfp/Makefile])
    fi
 fi
-
-AC_CONFIG_FILES([solaris/Makefile])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 
