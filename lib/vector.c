@@ -181,3 +181,18 @@ unsigned int vector_count(vector v)
 
 	return count;
 }
+
+void vector_to_array(vector v, void ***dest, int *argc)
+{
+	*dest = XCALLOC(MTYPE_TMP, sizeof(void *) * v->active);
+	memcpy(*dest, v->index, sizeof(void *) * v->active);
+	*argc = v->active;
+}
+
+vector array_to_vector(void **src, int argc)
+{
+	vector v = vector_init(VECTOR_MIN_SIZE);
+	for (int i = 0; i < argc; i++)
+		vector_set_index(v, i, src[i]);
+	return v;
+}

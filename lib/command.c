@@ -25,17 +25,17 @@
  */
 
 #include <zebra.h>
+#include <lib/version.h>
 
-
+#include "command.h"
+#include "frrstr.h"
 #include "memory.h"
 #include "log.h"
 #include "log_int.h"
-#include <lib/version.h>
 #include "thread.h"
 #include "vector.h"
 #include "linklist.h"
 #include "vty.h"
-#include "command.h"
 #include "workqueue.h"
 #include "vrf.h"
 #include "command_match.h"
@@ -46,7 +46,6 @@
 #include "jhash.h"
 
 DEFINE_MTYPE(LIB, HOST, "Host config")
-DEFINE_MTYPE(LIB, STRVEC, "String vector")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
 
 #define item(x)                                                                \
@@ -259,30 +258,46 @@ void print_version(const char *progname)
 	printf("configured with:\n\t%s\n", FRR_CONFIG_ARGS);
 }
 
-
-/* Utility function to concatenate argv argument into a single string
-   with inserting ' ' character between each argument.  */
 char *argv_concat(struct cmd_token **argv, int argc, int shift)
 {
-	int i;
-	size_t len;
-	char *str;
-	char *p;
+	int cnt = argc - shift;
+	const char *argstr[cnt];
 
-	len = 0;
-	for (i = shift; i < argc; i++)
-		len += strlen(argv[i]->arg) + 1;
-	if (!len)
+	for (int i = 0; i < cnt; i++)
+		argstr[i] = argv[i + shift]->arg;
+
+	return frrstr_join(argstr, cnt, " ");
+}
+
+vector cmd_make_strvec(const char *string)
+{
+	if (!string)
 		return NULL;
-	p = str = XMALLOC(MTYPE_TMP, len);
-	for (i = shift; i < argc; i++) {
-		size_t arglen;
-		memcpy(p, argv[i]->arg, (arglen = strlen(argv[i]->arg)));
-		p += arglen;
-		*p++ = ' ';
+
+	const char *copy = string;
+
+	/* skip leading whitespace */
+	while (isspace((int)*copy) && *copy != '\0')
+		copy++;
+
+	/* if the entire string was whitespace or a comment, return */
+	if (*copy == '\0' || *copy == '!' || *copy == '#')
+		return NULL;
+
+	vector result = frrstr_split_vec(copy, " \n\r\t");
+
+	for (unsigned int i = 0; i < vector_active(result); i++) {
+		if (strlen(vector_slot(result, i)) == 0) {
+			XFREE(MTYPE_TMP, vector_slot(result, i));
+			vector_unset(result, i);
+		}
 	}
-	*(p - 1) = '\0';
-	return str;
+	return result;
+}
+
+void cmd_free_strvec(vector v)
+{
+	frrstr_strvec_free(v);
 }
 
 /**
@@ -330,61 +345,6 @@ void install_node(struct cmd_node *node, int (*func)(struct vty *))
 		       (void (*)(void *)) & cmd_token_del);
 	node->cmd_hash = hash_create_size(16, cmd_hash_key, cmd_hash_cmp,
 					  "Command Hash");
-}
-
-/**
- * Tokenizes a string, storing tokens in a vector.
- * Whitespace is ignored.
- *
- * Delimiter string = " \n\r\t".
- *
- * @param string to tokenize
- * @return tokenized string
- */
-vector cmd_make_strvec(const char *string)
-{
-	if (!string)
-		return NULL;
-
-	char *copy, *copystart;
-	copystart = copy = XSTRDUP(MTYPE_TMP, string);
-
-	// skip leading whitespace
-	while (isspace((int)*copy) && *copy != '\0')
-		copy++;
-
-	// if the entire string was whitespace or a comment, return
-	if (*copy == '\0' || *copy == '!' || *copy == '#') {
-		XFREE(MTYPE_TMP, copystart);
-		return NULL;
-	}
-
-	vector strvec = vector_init(VECTOR_MIN_SIZE);
-	const char *delim = " \n\r\t", *tok = NULL;
-	while (copy) {
-		tok = strsep(&copy, delim);
-		if (*tok != '\0')
-			vector_set(strvec, XSTRDUP(MTYPE_STRVEC, tok));
-	}
-
-	XFREE(MTYPE_TMP, copystart);
-	return strvec;
-}
-
-/* Free allocated string vector. */
-void cmd_free_strvec(vector v)
-{
-	unsigned int i;
-	char *cp;
-
-	if (!v)
-		return;
-
-	for (i = 0; i < vector_active(v); i++)
-		if ((cp = vector_slot(v, i)) != NULL)
-			XFREE(MTYPE_STRVEC, cp);
-
-	vector_free(v);
 }
 
 /* Return prompt character of specified node. */

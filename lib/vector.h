@@ -59,5 +59,6 @@ extern vector vector_copy(vector v);
 
 extern void *vector_lookup(vector, unsigned int);
 extern void *vector_lookup_ensure(vector, unsigned int);
-
+extern void vector_to_array(vector v, void ***dest, int *argc);
+extern vector array_to_vector(void **src, int argc);
 #endif /* _ZEBRA_VECTOR_H */
