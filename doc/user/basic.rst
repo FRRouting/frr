@@ -55,18 +55,23 @@ Basic Config Commands
 
    Set hostname of the router.
 
-.. index:: password PASSWORD
+.. index::
+   single: no password PASSWORD
+   single: password PASSWORD
 
-.. clicmd:: password PASSWORD
+.. clicmd:: [no] password PASSWORD
 
-   Set password for vty interface. If there is no password, a vty won't
-   accept connections.
+   Set password for vty interface. The ``no`` form of the command deletes the
+   password. If there is no password, a vty won't accept connections.
 
-.. index:: enable password PASSWORD
+.. index::
+   single: no enable password PASSWORD
+   single: enable password PASSWORD
 
-.. clicmd:: enable password PASSWORD
+.. clicmd:: [no] enable password PASSWORD
 
-   Set enable password.
+   Set enable password. The ``no`` form of the command deletes the enable
+   password.
 
 .. index::
    single: no log trap [LEVEL]
