@@ -650,12 +650,13 @@ class TopoRouter(TopoGear):
         nrouter = self.tgen.net[self.name]
         result = nrouter.startRouter(self.tgen)
 
-        # Enable all daemon logging files and set them to the logdir.
+        # Enable all daemon command logging, logging files
+        # and set them to the start dir.
         for daemon, enabled in nrouter.daemons.iteritems():
             if enabled == 0:
                 continue
-            self.vtysh_cmd('configure terminal\nlog file {}/{}/{}.log'.format(
-                self.logdir, self.name, daemon), daemon=daemon)
+            self.vtysh_cmd('configure terminal\nlog commands\nlog file {}.log'.format(
+                daemon), daemon=daemon)
 
         if result != '':
             self.tgen.set_error(result)
