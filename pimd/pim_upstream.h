@@ -137,7 +137,6 @@ struct pim_upstream {
 	int64_t state_transition; /* Record current state uptime */
 };
 
-void pim_upstream_free(struct pim_upstream *up);
 struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
 				       struct prefix_sg *sg);
 struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
