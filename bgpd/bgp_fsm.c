@@ -52,6 +52,7 @@
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_io.h"
+#include "bgpd/bgp_zebra.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
 DEFINE_HOOK(peer_established, (struct peer * peer), (peer))
@@ -1398,13 +1399,14 @@ int bgp_start(struct peer *peer)
 	if (!bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
 				     family2afi(peer->su.sa.sa_family), NULL,
 				     peer, connected)) {
-#if defined(HAVE_CUMULUS)
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s [FSM] Waiting for NHT", peer->host);
+		if (bgp_zebra_num_connects()) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s [FSM] Waiting for NHT",
+					   peer->host);
 
-		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
-		return 0;
-#endif
+			BGP_EVENT_ADD(peer, TCP_connection_open_failed);
+			return 0;
+		}
 	}
 
 	assert(!peer->t_write);
