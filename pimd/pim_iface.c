@@ -62,7 +62,16 @@ void pim_if_init(struct pim_instance *pim)
 
 void pim_if_terminate(struct pim_instance *pim)
 {
-	// Nothing to do at this moment
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		pim_if_delete(ifp);
+	}
 	return;
 }
 
