@@ -33,9 +33,6 @@
 DECLARE_MTYPE(HOST)
 DECLARE_MTYPE(COMPLETION)
 
-/* for test-commands.c */
-DECLARE_MTYPE(STRVEC)
-
 /* Host configuration variable */
 struct host {
 	/* Host name of this router. */
