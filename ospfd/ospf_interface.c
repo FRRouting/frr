@@ -263,6 +263,9 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	ospf_opaque_type9_lsa_init(oi);
 
 	oi->ospf = ospf;
+
+	ospf_if_stream_set(oi);
+
 	QOBJ_REG(oi, ospf_interface);
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -321,6 +324,9 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 void ospf_if_free(struct ospf_interface *oi)
 {
 	ospf_if_down(oi);
+
+	if (oi->obuf)
+		ospf_fifo_free(oi->obuf);
 
 	assert(oi->state == ISM_Down);
 
@@ -496,9 +502,8 @@ void ospf_if_stream_unset(struct ospf_interface *oi)
 	struct ospf *ospf = oi->ospf;
 
 	if (oi->obuf) {
-		ospf_fifo_free(oi->obuf);
-		oi->obuf = NULL;
-
+		/* flush the interface packet queue */
+		ospf_fifo_flush(oi->obuf);
 		/*reset protocol stats */
 		ospf_if_reset_stats(oi);
 
@@ -781,7 +786,6 @@ int ospf_if_up(struct ospf_interface *oi)
 	if (oi->type == OSPF_IFTYPE_LOOPBACK)
 		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_LoopInd);
 	else {
-		ospf_if_stream_set(oi);
 		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_InterfaceUp);
 	}
 
