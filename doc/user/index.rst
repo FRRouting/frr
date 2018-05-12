@@ -27,6 +27,7 @@ FRRouting User Guide
    ripngd
    sharp
    vnc
+   bugs
    glossary
    appendix
 
