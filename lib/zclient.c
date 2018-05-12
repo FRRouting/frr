@@ -975,8 +975,6 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	stream_putl(s, api->flags);
 	stream_putc(s, api->message);
 	stream_putc(s, api->safi);
-	if (CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE))
-		stream_put(s, &(api->rmac), sizeof(struct ethaddr));
 
 	/* Put prefix information. */
 	stream_putc(s, api->prefix.family);
@@ -1061,6 +1059,11 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 					   api_nh->label_num
 						   * sizeof(mpls_label_t));
 			}
+
+			/* Router MAC for EVPN routes. */
+			if (CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE))
+				stream_put(s, &(api_nh->rmac),
+					   sizeof(struct ethaddr));
 		}
 	}
 
@@ -1101,8 +1104,6 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETL(s, api->flags);
 	STREAM_GETC(s, api->message);
 	STREAM_GETC(s, api->safi);
-	if (CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE))
-		STREAM_GET(&(api->rmac), s, sizeof(struct ethaddr));
 
 	/* Prefix. */
 	STREAM_GETC(s, api->prefix.family);
@@ -1212,6 +1213,11 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 					   api_nh->label_num
 						   * sizeof(mpls_label_t));
 			}
+
+			/* Router MAC for EVPN routes. */
+			if (CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE))
+				stream_get(&(api_nh->rmac), s,
+					   sizeof(struct ethaddr));
 		}
 	}
 

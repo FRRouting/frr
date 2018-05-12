@@ -313,8 +313,7 @@ extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       unsigned short instance, int flags, struct prefix *p,
 		       struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		       uint32_t table_id, uint32_t metric, bool fromkernel,
-		       struct ethaddr *rmac);
+		       uint32_t table_id, uint32_t metric, bool fromkernel);
 
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     union g_addr *addr,

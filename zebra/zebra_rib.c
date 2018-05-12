@@ -2394,8 +2394,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		unsigned short instance, int flags, struct prefix *p,
 		struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		uint32_t table_id, uint32_t metric, bool fromkernel,
-		struct ethaddr *rmac)
+		uint32_t table_id, uint32_t metric, bool fromkernel)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2569,7 +2568,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 					       &(tmp_nh->gate.ipv6),
 					       sizeof(struct in6_addr));
 				}
-				zebra_vxlan_evpn_vrf_route_del(re->vrf_id, rmac,
+				zebra_vxlan_evpn_vrf_route_del(re->vrf_id,
 							       &vtep_ip, p);
 			}
 		}
