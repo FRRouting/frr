@@ -1537,7 +1537,7 @@ DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
 }
 
 DEFUNSH(VTYSH_PBRD, vtysh_pbr_map, vtysh_pbr_map_cmd,
-	"pbr-map NAME seq (1-1000)",
+	"pbr-map NAME seq (1-700)",
 	"Create pbr-map or enter pbr-map command mode\n"
 	"The name of the PBR MAP\n"
 	"Sequence to insert to/delete from existing pbr-map entry\n"
@@ -1547,7 +1547,7 @@ DEFUNSH(VTYSH_PBRD, vtysh_pbr_map, vtysh_pbr_map_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFSH(VTYSH_PBRD, vtysh_no_pbr_map_cmd, "no pbr-map WORD [seq (1-65535)]",
+DEFSH(VTYSH_PBRD, vtysh_no_pbr_map_cmd, "no pbr-map WORD [seq (1-700)]",
 	NO_STR
 	"Delete pbr-map\n"
 	"The name of  the PBR MAP\n"

@@ -1224,8 +1224,13 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 				br_slave->bridge_ifindex);
 	}
 
-	if (zebra_if->link_ifindex != IFINDEX_INTERNAL)
-		vty_out(vty, "  Link ifindex %u\n", zebra_if->link_ifindex);
+	if (zebra_if->link_ifindex != IFINDEX_INTERNAL) {
+		vty_out(vty, "  Link ifindex %u", zebra_if->link_ifindex);
+		if (zebra_if->link)
+			vty_out(vty, "(%s)\n", zebra_if->link->name);
+		else
+			vty_out(vty, "(Unknown)\n");
+	}
 
 	if (HAS_LINK_PARAMS(ifp)) {
 		int i;

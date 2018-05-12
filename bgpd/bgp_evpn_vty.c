@@ -311,7 +311,7 @@ static void bgp_evpn_show_route_rd_header(struct vty *vty,
 }
 
 static void bgp_evpn_show_route_header(struct vty *vty, struct bgp *bgp,
-				       json_object *json)
+				       uint64_t tbl_ver, json_object *json)
 {
 	char ri_header[] =
 		"   Network          Next Hop            Metric LocPrf Weight Path\n";
@@ -319,9 +319,8 @@ static void bgp_evpn_show_route_header(struct vty *vty, struct bgp *bgp,
 	if (json)
 		return;
 
-
-	vty_out(vty, "BGP table version is 0, local router ID is %s\n",
-		inet_ntoa(bgp->router_id));
+	vty_out(vty, "BGP table version is %" PRIu64 ", local router ID is %s\n",
+		tbl_ver, inet_ntoa(bgp->router_id));
 	vty_out(vty,
 		"Status codes: s suppressed, d damped, h history, "
 		"* valid, > best, i - internal\n");
@@ -494,12 +493,16 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 {
 	struct bgp_node *rn;
 	struct bgp_info *ri;
+	struct bgp_table *table;
 	int header = 1;
+	uint64_t tbl_ver;
 	uint32_t prefix_cnt, path_cnt;
 
 	prefix_cnt = path_cnt = 0;
 
-	for (rn = bgp_table_top(vpn->route_table); rn;
+	table = vpn->route_table;
+	tbl_ver = table->version;
+	for (rn = bgp_table_top(table); rn;
 	     rn = bgp_route_next(rn)) {
 		struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
 		int add_prefix_to_json = 0;
@@ -519,7 +522,8 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 		if (rn->info) {
 			/* Overall header/legend displayed once. */
 			if (header) {
-				bgp_evpn_show_route_header(vty, bgp, json);
+				bgp_evpn_show_route_header(vty, bgp,
+							   tbl_ver, json);
 				header = 0;
 			}
 
@@ -603,9 +607,9 @@ static void show_vni_routes_hash(struct hash_backet *backet, void *arg)
 static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 			     json_object *json)
 {
-	json_object *json_vni;
-	json_object *json_import_rtl;
-	json_object *json_export_rtl;
+	json_object *json_vni = NULL;
+	json_object *json_import_rtl = NULL;
+	json_object *json_export_rtl = NULL;
 	char buf1[10];
 	char buf2[INET6_ADDRSTRLEN];
 	char rt_buf[25];
@@ -862,6 +866,8 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 
 	for (rn = bgp_table_top(bgp->rib[afi][SAFI_EVPN]); rn;
 	     rn = bgp_route_next(rn)) {
+		uint64_t tbl_ver;
+
 		if (use_json)
 			continue; /* XXX json TODO */
 
@@ -872,6 +878,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 			continue;
 
 		rd_header = 1;
+		tbl_ver = table->version;
 
 		for (rm = bgp_table_top(table); rm; rm = bgp_route_next(rm))
 			for (ri = rm->info; ri; ri = ri->next) {
@@ -891,7 +898,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 							json_object_int_add(
 								json,
 								"bgpTableVersion",
-								0);
+								tbl_ver);
 							json_object_string_add(
 								json,
 								"bgpLocalRouterId",
@@ -917,7 +924,8 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 								V4_HEADER_OVERLAY);
 						else {
 							vty_out(vty,
-								"BGP table version is 0, local router ID is %s\n",
+								"BGP table version is %" PRIu64 ", local router ID is %s\n",
+								tbl_ver,
 								inet_ntoa(
 									bgp->router_id));
 							vty_out(vty,
@@ -2201,11 +2209,13 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 		char rd_str[RD_ADDRSTRLEN];
 		json_object *json_rd = NULL; /* contains routes for an RD */
 		int add_rd_to_json = 0;
+		uint64_t tbl_ver;
 
 		table = (struct bgp_table *)rd_rn->info;
 		if (table == NULL)
 			continue;
 
+		tbl_ver = table->version;
 		prefix_rd2str((struct prefix_rd *)&rd_rn->p, rd_str,
 			      sizeof(rd_str));
 
@@ -2236,6 +2246,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 				/* Overall header/legend displayed once. */
 				if (header) {
 					bgp_evpn_show_route_header(vty, bgp,
+								   tbl_ver,
 								   json);
 					header = 0;
 				}
@@ -2873,7 +2884,7 @@ DEFUN (no_bgp_evpn_advertise_type5,
 		if (CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 			       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST)) {
 			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
-			UNSET_FLAG(bgp_vrf->vrf_flags,
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 				   BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST);
 		}
 	}
@@ -4382,12 +4393,22 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		vty_out(vty, "  advertise-default-gw\n");
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-		       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST))
-		vty_out(vty, "  advertise ipv4 unicast\n");
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST)) {
+		if (bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name)
+			vty_out(vty, "  advertise ipv4 unicast route-map %s\n",
+				bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name);
+		else
+			vty_out(vty, "  advertise ipv4 unicast\n");
+	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-		       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST))
-		vty_out(vty, "  advertise ipv6 unicast\n");
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST)) {
+		if (bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name)
+			vty_out(vty, "  advertise ipv6 unicast route-map %s\n",
+				bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name);
+		else
+			vty_out(vty, "  advertise ipv6 unicast\n");
+	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
 		       BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4))

@@ -38,7 +38,7 @@
 #include "pbrd/pbr_vty_clippy.c"
 #endif
 
-DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map WORD seq (1-1000)",
+DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map WORD seq (1-700)",
 	   "Create pbr-map or enter pbr-map command mode\n"
 	   "The name of the PBR MAP\n"
 	   "Sequence to insert in existing pbr-map entry\n"
@@ -54,7 +54,7 @@ DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map WORD seq (1-1000)",
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map WORD [seq (1-65535)]",
+DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map WORD [seq (1-700)]",
 	   NO_STR
 	   "Delete pbr-map\n"
 	   "The name of the PBR MAP\n"

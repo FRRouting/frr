@@ -1233,14 +1233,6 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 				"netlink_route_multipath() (%s): "
 				"nexthop via if %u",
 				routedesc, nexthop->ifindex);
-	} else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"netlink_route_multipath() (%s): "
-				"nexthop via if %u",
-				routedesc, nexthop->ifindex);
-	} else {
-		rtnh->rtnh_ifindex = 0;
 	}
 }
 

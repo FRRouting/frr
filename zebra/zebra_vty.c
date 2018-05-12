@@ -2798,12 +2798,14 @@ DEFUN (vrf_vni_mapping,
 
 DEFUN (no_vrf_vni_mapping,
        no_vrf_vni_mapping_cmd,
-       "no vni " CMD_VNI_RANGE,
+       "no vni " CMD_VNI_RANGE "[prefix-routes-only]",
        NO_STR
        "VNI corresponding to tenant VRF\n"
-       "VNI-ID")
+       "VNI-ID\n"
+       "prefix-routes-only\n")
 {
 	int ret = 0;
+	int filter = 0;
 	char err[ERR_STR_SZ];
 	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
 
@@ -2812,7 +2814,11 @@ DEFUN (no_vrf_vni_mapping,
 	assert(vrf);
 	assert(zvrf);
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0, 0);
+	if (argc == 4)
+		filter = 1;
+
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err,
+					      ERR_STR_SZ, filter, 0);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;

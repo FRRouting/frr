@@ -1287,17 +1287,11 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 				}
 			}
 
-			if (bgp->table_map[afi][safi].name || nh_othervrf) {
+			if (bgp->table_map[afi][safi].name) {
 				/* Copy info and attributes, so the route-map
 				   apply doesn't modify the BGP route info. */
 				local_attr = *mpinfo->attr;
 				mpinfo_cp->attr = &local_attr;
-				if (nh_othervrf) {
-					/* allow route-map to modify */
-					local_attr.nexthop =
-						info->extra->nexthop_orig.u
-							.prefix4;
-				}
 			}
 
 			if (bgp->table_map[afi][safi].name) {
@@ -1322,19 +1316,11 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			ifindex_t ifindex;
 			struct in6_addr *nexthop;
 
-			if (bgp->table_map[afi][safi].name || nh_othervrf) {
+			if (bgp->table_map[afi][safi].name) {
 				/* Copy info and attributes, so the route-map
 				   apply doesn't modify the BGP route info. */
 				local_attr = *mpinfo->attr;
 				mpinfo_cp->attr = &local_attr;
-				if (nh_othervrf) {
-					/* allow route-map to modify */
-					local_attr.mp_nexthop_global =
-						info->extra->nexthop_orig.u
-							.prefix6;
-					local_attr.mp_nexthop_len =
-						BGP_ATTR_NHLEN_IPV6_GLOBAL;
-				}
 			}
 
 			if (bgp->table_map[afi][safi].name) {
@@ -1913,7 +1899,7 @@ int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 
 	zclient_create_header(s, ZEBRA_ADVERTISE_DEFAULT_GW, bgp->vrf_id);
 	stream_putc(s, advertise);
-	stream_put3(s, vni);
+	stream_putl(s, vni);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);

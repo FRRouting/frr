@@ -102,4 +102,14 @@ static inline void ipv4_to_ipv4_mapped_ipv6(struct in6_addr *in6,
 	memcpy((char *)in6 + 12, &in, sizeof(struct in_addr));
 }
 
+/*
+ * convert an ipv4 mapped ipv6 address back to ipv4 address
+ */
+static inline void ipv4_mapped_ipv6_to_ipv4(struct in6_addr *in6,
+					    struct in_addr *in)
+{
+	memset(in, 0, sizeof(struct in_addr));
+	memcpy(in, (char *)in6 + 12, sizeof(struct in_addr));
+}
+
 #endif /* __IPADDR_H__ */

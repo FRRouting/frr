@@ -1336,6 +1336,8 @@ static void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 	}
 	if (family == AF_INET6)
 		memset(&attr->mp_nexthop_global, 0, IPV6_MAX_BYTELEN);
+	if (family == AF_EVPN)
+		memset(&attr->mp_nexthop_global_in, 0, BGP_ATTR_NHLEN_IPV4);
 }
 
 int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
@@ -2336,10 +2338,18 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 		if (new_select && new_select->type == ZEBRA_ROUTE_BGP
 		    && (new_select->sub_type == BGP_ROUTE_NORMAL
 			|| new_select->sub_type == BGP_ROUTE_AGGREGATE
-			|| new_select->sub_type == BGP_ROUTE_IMPORTED))
+			|| new_select->sub_type == BGP_ROUTE_IMPORTED)) {
+
+			/* if this is an evpn imported type-5 prefix,
+			 * we need to withdraw the route first to clear
+			 * the nh neigh and the RMAC entry.
+			 */
+			if (old_select &&
+			    is_route_parent_evpn(old_select))
+				bgp_zebra_withdraw(p, old_select, bgp, safi);
 
 			bgp_zebra_announce(rn, p, new_select, bgp, afi, safi);
-		else {
+		} else {
 			/* Withdraw the route from the kernel. */
 			if (old_select && old_select->type == ZEBRA_ROUTE_BGP
 			    && (old_select->sub_type == BGP_ROUTE_NORMAL
@@ -2353,12 +2363,28 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	/* advertise/withdraw type-5 routes */
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
 		if (advertise_type5_routes(bgp, afi) && new_select &&
-		    (!new_select->extra || !new_select->extra->parent))
-			bgp_evpn_advertise_type5_route(bgp, &rn->p,
-						       new_select->attr,
-						       afi, safi);
-		else if (advertise_type5_routes(bgp, afi) && old_select &&
-		         (!old_select->extra || !old_select->extra->parent))
+		    (!new_select->extra || !new_select->extra->parent)) {
+
+			/* apply the route-map */
+			if (bgp->adv_cmd_rmap[afi][safi].map) {
+				int ret = 0;
+
+				ret = route_map_apply(
+					bgp->adv_cmd_rmap[afi][safi].map,
+					&rn->p, RMAP_BGP, new_select);
+				if (ret == RMAP_MATCH)
+					bgp_evpn_advertise_type5_route(
+						bgp, &rn->p, new_select->attr,
+						afi, safi);
+			} else {
+				bgp_evpn_advertise_type5_route(bgp,
+							       &rn->p,
+							       new_select->attr,
+							       afi, safi);
+
+			}
+		} else if (advertise_type5_routes(bgp, afi) && old_select &&
+			 (!old_select->extra || !old_select->extra->parent))
 			bgp_evpn_withdraw_type5_route(bgp, &rn->p, afi, safi);
 	}
 

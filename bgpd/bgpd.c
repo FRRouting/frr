@@ -1174,6 +1174,11 @@ struct peer *peer_new(struct bgp *bgp)
 		}
 		peer->orf_plist[afi][safi] = NULL;
 	}
+
+	/* set nexthop-unchanged for l2vpn evpn by default */
+	SET_FLAG(peer->af_flags[AFI_L2VPN][SAFI_EVPN],
+		 PEER_FLAG_NEXTHOP_UNCHANGED);
+
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	/* Create buffers.  */
@@ -4070,6 +4075,35 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 			return 0;
 		if (!set && !CHECK_FLAG(peer->af_flags[afi][safi], flag))
 			return 0;
+	}
+
+	/*
+	 * For EVPN we implicitly set the NEXTHOP_UNCHANGED flag,
+	 * if we are setting/unsetting flags which conflict with this flag
+	 * handle accordingly
+	 */
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+		if (set) {
+
+			/*
+			 * if we are setting NEXTHOP_SELF, we need to unset the
+			 * NEXTHOP_UNCHANGED flag
+			 */
+			if (CHECK_FLAG(flag, PEER_FLAG_NEXTHOP_SELF) ||
+			    CHECK_FLAG(flag, PEER_FLAG_FORCE_NEXTHOP_SELF))
+				UNSET_FLAG(peer->af_flags[afi][safi],
+					   PEER_FLAG_NEXTHOP_UNCHANGED);
+		} else {
+
+			/*
+			 * if we are unsetting NEXTHOP_SELF, we need to set the
+			 * NEXTHOP_UNCHANGED flag to reset the defaults for EVPN
+			 */
+			if (CHECK_FLAG(flag, PEER_FLAG_NEXTHOP_SELF) ||
+			    CHECK_FLAG(flag, PEER_FLAG_FORCE_NEXTHOP_SELF))
+				SET_FLAG(peer->af_flags[afi][safi],
+					 PEER_FLAG_NEXTHOP_UNCHANGED);
+		}
 	}
 
 	if (set)
@@ -7133,7 +7167,9 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 	/* atribute-unchanged. */
 	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_PATH_UNCHANGED)
-	    || peer_af_flag_check(peer, afi, safi, PEER_FLAG_NEXTHOP_UNCHANGED)
+	    || (safi != SAFI_EVPN
+		&& peer_af_flag_check(peer, afi, safi,
+				      PEER_FLAG_NEXTHOP_UNCHANGED))
 	    || peer_af_flag_check(peer, afi, safi, PEER_FLAG_MED_UNCHANGED)) {
 
 		if (!peer_group_active(peer)

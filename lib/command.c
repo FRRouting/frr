@@ -85,6 +85,7 @@ const char *node_names[] = {
 	"keychain",		    // KEYCHAIN_NODE,
 	"keychain key",		    // KEYCHAIN_KEY_NODE,
 	"logical-router",	   // LOGICALROUTER_NODE,
+	"static ip",		    // IP_NODE,
 	"vrf",			    // VRF_NODE,
 	"interface",		    // INTERFACE_NODE,
 	"nexthop-group",            // NH_GROUP_NODE,
@@ -119,7 +120,6 @@ const char *node_names[] = {
 	"ldp l2vpn",		    // LDP_L2VPN_NODE,
 	"ldp",			    // LDP_PSEUDOWIRE_NODE,
 	"isis",			    // ISIS_NODE,
-	"static ip",		    // IP_NODE,
 	"ipv4 access list",	 // ACCESS_NODE,
 	"ipv4 prefix list",	 // PREFIX_NODE,
 	"ipv6 access list",	 // ACCESS_IPV6_NODE,
@@ -529,87 +529,103 @@ static int config_write_host(struct vty *vty)
 	if (cmd_domainname_get())
 		vty_out(vty, "domainname %s\n", cmd_domainname_get());
 
-	if (host.encrypt) {
-		if (host.password_encrypt)
-			vty_out(vty, "password 8 %s\n", host.password_encrypt);
-		if (host.enable_encrypt)
-			vty_out(vty, "enable password 8 %s\n",
-				host.enable_encrypt);
-	} else {
-		if (host.password)
-			vty_out(vty, "password %s\n", host.password);
-		if (host.enable)
-			vty_out(vty, "enable password %s\n", host.enable);
-	}
+	/* The following are all configuration commands that are not sent to
+	 * watchfrr.  For instance watchfrr is hardcoded to log to syslog so
+	 * we would always display 'log syslog informational' in the config
+	 * which would cause other daemons to then switch to syslog when they
+	 * parse frr.conf.
+	 */
+	if (strcmp(zlog_default->protoname, "WATCHFRR")) {
+		if (host.encrypt) {
+			if (host.password_encrypt)
+				vty_out(vty, "password 8 %s\n",
+					host.password_encrypt);
+			if (host.enable_encrypt)
+				vty_out(vty, "enable password 8 %s\n",
+					host.enable_encrypt);
+		} else {
+			if (host.password)
+				vty_out(vty, "password %s\n", host.password);
+			if (host.enable)
+				vty_out(vty, "enable password %s\n",
+					host.enable);
+		}
 
-	if (zlog_default->default_lvl != LOG_DEBUG) {
-		vty_out(vty, "! N.B. The 'log trap' command is deprecated.\n");
-		vty_out(vty, "log trap %s\n",
-			zlog_priority[zlog_default->default_lvl]);
-	}
+		if (zlog_default->default_lvl != LOG_DEBUG) {
+			vty_out(vty,
+				"! N.B. The 'log trap' command is deprecated.\n");
+			vty_out(vty, "log trap %s\n",
+				zlog_priority[zlog_default->default_lvl]);
+		}
 
-	if (host.logfile
-	    && (zlog_default->maxlvl[ZLOG_DEST_FILE] != ZLOG_DISABLED)) {
-		vty_out(vty, "log file %s", host.logfile);
-		if (zlog_default->maxlvl[ZLOG_DEST_FILE]
-		    != zlog_default->default_lvl)
-			vty_out(vty, " %s",
-				zlog_priority
-					[zlog_default->maxlvl[ZLOG_DEST_FILE]]);
-		vty_out(vty, "\n");
-	}
+		if (host.logfile
+		    && (zlog_default->maxlvl[ZLOG_DEST_FILE]
+			!= ZLOG_DISABLED)) {
+			vty_out(vty, "log file %s", host.logfile);
+			if (zlog_default->maxlvl[ZLOG_DEST_FILE]
+			    != zlog_default->default_lvl)
+				vty_out(vty, " %s",
+					zlog_priority
+						[zlog_default->maxlvl
+							 [ZLOG_DEST_FILE]]);
+			vty_out(vty, "\n");
+		}
 
-	if (zlog_default->maxlvl[ZLOG_DEST_STDOUT] != ZLOG_DISABLED) {
-		vty_out(vty, "log stdout");
-		if (zlog_default->maxlvl[ZLOG_DEST_STDOUT]
-		    != zlog_default->default_lvl)
-			vty_out(vty, " %s",
+		if (zlog_default->maxlvl[ZLOG_DEST_STDOUT] != ZLOG_DISABLED) {
+			vty_out(vty, "log stdout");
+			if (zlog_default->maxlvl[ZLOG_DEST_STDOUT]
+			    != zlog_default->default_lvl)
+				vty_out(vty, " %s",
+					zlog_priority
+						[zlog_default->maxlvl
+							 [ZLOG_DEST_STDOUT]]);
+			vty_out(vty, "\n");
+		}
+
+		if (zlog_default->maxlvl[ZLOG_DEST_MONITOR] == ZLOG_DISABLED)
+			vty_out(vty, "no log monitor\n");
+		else if (zlog_default->maxlvl[ZLOG_DEST_MONITOR]
+			 != zlog_default->default_lvl)
+			vty_out(vty, "log monitor %s\n",
 				zlog_priority[zlog_default->maxlvl
-						      [ZLOG_DEST_STDOUT]]);
-		vty_out(vty, "\n");
+						      [ZLOG_DEST_MONITOR]]);
+
+		if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != ZLOG_DISABLED) {
+			vty_out(vty, "log syslog");
+			if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG]
+			    != zlog_default->default_lvl)
+				vty_out(vty, " %s",
+					zlog_priority[zlog_default->maxlvl
+							      [ZLOG_DEST_SYSLOG]]);
+			vty_out(vty, "\n");
+		}
+
+		if (zlog_default->facility != LOG_DAEMON)
+			vty_out(vty, "log facility %s\n",
+				facility_name(zlog_default->facility));
+
+		if (zlog_default->record_priority == 1)
+			vty_out(vty, "log record-priority\n");
+
+		if (zlog_default->timestamp_precision > 0)
+			vty_out(vty, "log timestamp precision %d\n",
+				zlog_default->timestamp_precision);
+
+		if (host.advanced)
+			vty_out(vty, "service advanced-vty\n");
+
+		if (host.encrypt)
+			vty_out(vty, "service password-encryption\n");
+
+		if (host.lines >= 0)
+			vty_out(vty, "service terminal-length %d\n",
+				host.lines);
+
+		if (host.motdfile)
+			vty_out(vty, "banner motd file %s\n", host.motdfile);
+		else if (!host.motd)
+			vty_out(vty, "no banner motd\n");
 	}
-
-	if (zlog_default->maxlvl[ZLOG_DEST_MONITOR] == ZLOG_DISABLED)
-		vty_out(vty, "no log monitor\n");
-	else if (zlog_default->maxlvl[ZLOG_DEST_MONITOR]
-		 != zlog_default->default_lvl)
-		vty_out(vty, "log monitor %s\n",
-			zlog_priority[zlog_default->maxlvl[ZLOG_DEST_MONITOR]]);
-
-	if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != ZLOG_DISABLED) {
-		vty_out(vty, "log syslog");
-		if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG]
-		    != zlog_default->default_lvl)
-			vty_out(vty, " %s",
-				zlog_priority[zlog_default->maxlvl
-						      [ZLOG_DEST_SYSLOG]]);
-		vty_out(vty, "\n");
-	}
-
-	if (zlog_default->facility != LOG_DAEMON)
-		vty_out(vty, "log facility %s\n",
-			facility_name(zlog_default->facility));
-
-	if (zlog_default->record_priority == 1)
-		vty_out(vty, "log record-priority\n");
-
-	if (zlog_default->timestamp_precision > 0)
-		vty_out(vty, "log timestamp precision %d\n",
-			zlog_default->timestamp_precision);
-
-	if (host.advanced)
-		vty_out(vty, "service advanced-vty\n");
-
-	if (host.encrypt)
-		vty_out(vty, "service password-encryption\n");
-
-	if (host.lines >= 0)
-		vty_out(vty, "service terminal-length %d\n", host.lines);
-
-	if (host.motdfile)
-		vty_out(vty, "banner motd file %s\n", host.motdfile);
-	else if (!host.motd)
-		vty_out(vty, "no banner motd\n");
 
 	if (debug_memstats_at_exit)
 		vty_out(vty, "!\ndebug memstats-at-exit\n");
@@ -2346,7 +2362,7 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 
 #if defined(HAVE_CUMULUS)
 	if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != ZLOG_DISABLED)
-		zlog_default->maxlvl[ZLOG_DEST_SYSLOG] = ZLOG_DISABLED;
+		zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
 #endif
 	return CMD_SUCCESS;
 }
@@ -2372,6 +2388,16 @@ DEFUN (config_log_file,
 				    zlog_default->default_lvl);
 }
 
+static void disable_log_file(void)
+{
+	zlog_reset_file();
+
+	if (host.logfile)
+		XFREE(MTYPE_HOST, host.logfile);
+
+	host.logfile = NULL;
+}
+
 DEFUN (no_config_log_file,
        no_config_log_file_cmd,
        "no log file [FILENAME [LEVEL]]",
@@ -2381,13 +2407,7 @@ DEFUN (no_config_log_file,
        "Logging file name\n"
        "Logging level\n")
 {
-	zlog_reset_file();
-
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
-
-	host.logfile = NULL;
-
+	disable_log_file();
 	return CMD_SUCCESS;
 }
 
@@ -2399,6 +2419,9 @@ DEFUN (config_log_syslog,
        LOG_LEVEL_DESC)
 {
 	int idx_log_levels = 2;
+
+	disable_log_file();
+
 	if (argc == 3) {
 		int level;
 		if ((level = level_match(argv[idx_log_levels]->arg))
