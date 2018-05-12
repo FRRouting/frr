@@ -6,6 +6,7 @@ FRRouting Developer's Guide
 
    workflow
    building
+   packaging
    process-architecture
    library
    bgpd
