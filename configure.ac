@@ -1913,8 +1913,13 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 AC_CONFIG_FILES([Makefile
 	  bgpd/Makefile
 	  vtysh/Makefile
-	  doc/Makefile tests/Makefile
-	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
+	  doc/Makefile
+	  doc/user/Makefile
+	  doc/manpages/Makefile
+	  doc/developer/Makefile
+	  tests/Makefile
+	  bgpd/rfp-example/rfptest/Makefile
+	  bgpd/rfp-example/librfp/Makefile
 	  redhat/frr.spec
 	  debianpkg/Makefile
 	  debianpkg/changelog
