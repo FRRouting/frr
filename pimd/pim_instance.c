@@ -35,13 +35,6 @@
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
-	/* Traverse and cleanup rpf_hash */
-	if (pim->rpf_hash) {
-		hash_clean(pim->rpf_hash, (void *)pim_rp_list_hash_clean);
-		hash_free(pim->rpf_hash);
-		pim->rpf_hash = NULL;
-	}
-
 	if (pim->ssm_info) {
 		pim_ssm_terminate(pim->ssm_info);
 		pim->ssm_info = NULL;
@@ -53,6 +46,13 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_rp_free(pim);
 
 	pim_upstream_terminate(pim);
+
+	/* Traverse and cleanup rpf_hash */
+	if (pim->rpf_hash) {
+		hash_clean(pim->rpf_hash, (void *)pim_rp_list_hash_clean);
+		hash_free(pim->rpf_hash);
+		pim->rpf_hash = NULL;
+	}
 
 	pim_oil_terminate(pim);
 
