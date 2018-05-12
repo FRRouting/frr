@@ -1819,12 +1819,15 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	/* EVPN routes currently only support a IPv4 next hop which corresponds
 	 * to the remote VTEP. When importing into a VRF, if it is IPv6 host
-	 * route, we have to convert the next hop to an IPv4-mapped address
-	 * for the rest of the code to flow through.
+	 * or prefix route, we have to convert the next hop to an IPv4-mapped
+	 * address for the rest of the code to flow through. In the case of IPv4,
+	 * make sure to set the flag for next hop attribute.
 	 */
 	bgp_attr_dup(&attr, parent_ri->attr);
 	if (afi == AFI_IP6)
 		evpn_convert_nexthop_to_ipv6(&attr);
+	else
+		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 
 	/* Check if route entry is already present. */
 	for (ri = rn->info; ri; ri = ri->next)
@@ -1841,7 +1844,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 			       parent_ri->peer, attr_new, rn);
 		SET_FLAG(ri->flags, BGP_INFO_VALID);
 		bgp_info_extra_get(ri);
-		ri->extra->parent = parent_ri;
+		ri->extra->parent = bgp_info_lock(parent_ri);
 		if (parent_ri->extra) {
 			memcpy(&ri->extra->label, &parent_ri->extra->label,
 			       sizeof(ri->extra->label));
@@ -1913,7 +1916,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			       parent_ri->peer, attr_new, rn);
 		SET_FLAG(ri->flags, BGP_INFO_VALID);
 		bgp_info_extra_get(ri);
-		ri->extra->parent = parent_ri;
+		ri->extra->parent = bgp_info_lock(parent_ri);
 		if (parent_ri->extra) {
 			memcpy(&ri->extra->label, &parent_ri->extra->label,
 			       sizeof(ri->extra->label));
