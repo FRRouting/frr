@@ -144,6 +144,7 @@ struct bgp_master {
 	/* dynamic mpls label allocation pool */
 	struct labelpool labelpool;
 
+	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp_master)

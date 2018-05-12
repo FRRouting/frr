@@ -7619,6 +7619,7 @@ void bgp_master_init(struct thread_master *master)
 	bm->start_time = bgp_clock();
 	bm->t_rmap_update = NULL;
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
+	bm->terminating = false;
 
 	bgp_process_queue_init();
 
