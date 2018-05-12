@@ -202,6 +202,7 @@ struct interface *if_link_per_ns(struct zebra_ns *ns, struct interface *ifp)
 	if (rn->info) {
 		ifp = (struct interface *)rn->info;
 		route_unlock_node(rn); /* get */
+		ifp->node = rn;
 		return ifp;
 	}
 
@@ -724,6 +725,9 @@ void if_delete_update(struct interface *ifp)
 			ifp->name, ifp->vrf_id, ifp->ifindex);
 		return;
 	}
+
+	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
+		return;
 
 	/* Mark interface as inactive */
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);

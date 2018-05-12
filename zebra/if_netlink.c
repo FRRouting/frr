@@ -1025,7 +1025,7 @@ static void if_netlink_check_ifp_instance_consistency(uint16_t cmd,
 						     struct interface *ifp,
 						     ns_id_t ns_id)
 {
-	struct interface *old_ifp;
+	struct interface *other_ifp;
 
 	/*
 	 * look if interface name is also found on other netns
@@ -1037,29 +1037,42 @@ static void if_netlink_check_ifp_instance_consistency(uint16_t cmd,
 	if (!vrf_is_backend_netns() ||
 	    !strcmp(ifp->name, "lo"))
 		return;
-	old_ifp = if_lookup_by_name_not_ns(ns_id, ifp->name);
-	if (!old_ifp)
+	other_ifp = if_lookup_by_name_not_ns(ns_id, ifp->name);
+	if (!other_ifp)
+		return;
+	/* because previous interface may be inactive,
+	 * interface is moved back to default vrf
+	 * then one may find the same pointer; ignore
+	 */
+	if (other_ifp == ifp)
 		return;
 	if ((cmd == RTM_NEWLINK)
-	    && (CHECK_FLAG(old_ifp->status, ZEBRA_INTERFACE_ACTIVE)))
+	    && (CHECK_FLAG(other_ifp->status, ZEBRA_INTERFACE_ACTIVE)))
 		return;
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s %s(%u) %s VRF %u",
-			   cmd == RTM_DELLINK ?
-			   "RTM_DELLINK replaced by" :
-			   "RTM_NEWLINK replaces",
+	if (IS_ZEBRA_DEBUG_KERNEL && cmd == RTM_NEWLINK) {
+		zlog_debug("RTM_NEWLINK %s(%u, VRF %u) replaces %s(%u, VRF %u)\n",
 			   ifp->name,
-			   old_ifp->ifindex,
-			   cmd == RTM_DELLINK ?
-			   "in" : "from",
-			   old_ifp->vrf_id);
+			   ifp->ifindex,
+			   ifp->vrf_id,
+			   other_ifp->name,
+			   other_ifp->ifindex,
+			   other_ifp->vrf_id);
+	} else	if (IS_ZEBRA_DEBUG_KERNEL && cmd == RTM_DELLINK) {
+		zlog_debug("RTM_DELLINK %s(%u, VRF %u) is replaced by %s(%u, VRF %u)\n",
+			   ifp->name,
+			   ifp->ifindex,
+			   ifp->vrf_id,
+			   other_ifp->name,
+			   other_ifp->ifindex,
+			   other_ifp->vrf_id);
+	}
 	/* the found interface replaces the current one
 	 * remove it
 	 */
 	if (cmd == RTM_DELLINK)
 		if_delete(ifp);
 	else
-		if_delete(old_ifp);
+		if_delete(other_ifp);
 	/* the found interface is replaced by the current one
 	 * suppress it
 	 */
