@@ -52,6 +52,7 @@
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_io.h"
+#include "bgpd/bgp_zebra.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
 DEFINE_HOOK(peer_established, (struct peer * peer), (peer))
@@ -1256,7 +1257,8 @@ static int bgp_connect_check(struct thread *thread)
 
 	/* If getsockopt is fail, this is fatal error. */
 	if (ret < 0) {
-		zlog_info("can't get sockopt for nonblocking connect");
+		zlog_info("can't get sockopt for nonblocking connect: %d(%s)",
+			  errno, safe_strerror(errno));
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
 		return -1;
 	}
@@ -1267,8 +1269,8 @@ static int bgp_connect_check(struct thread *thread)
 		return 1;
 	} else {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s [Event] Connect failed (%s)", peer->host,
-				   safe_strerror(errno));
+			zlog_debug("%s [Event] Connect failed %d(%s)",
+				   peer->host, status, safe_strerror(status));
 		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
 		return 0;
 	}
@@ -1397,13 +1399,14 @@ int bgp_start(struct peer *peer)
 	if (!bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
 				     family2afi(peer->su.sa.sa_family), NULL,
 				     peer, connected)) {
-#if defined(HAVE_CUMULUS)
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s [FSM] Waiting for NHT", peer->host);
+		if (bgp_zebra_num_connects()) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s [FSM] Waiting for NHT",
+					   peer->host);
 
-		BGP_EVENT_ADD(peer, TCP_connection_open_failed);
-		return 0;
-#endif
+			BGP_EVENT_ADD(peer, TCP_connection_open_failed);
+			return 0;
+		}
 	}
 
 	assert(!peer->t_write);
