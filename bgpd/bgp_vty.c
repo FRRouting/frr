@@ -10859,7 +10859,7 @@ static void lcommunity_show_all_iterator(struct hash_backet *backet,
 
 	lcom = (struct lcommunity *)backet->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt,
-		lcommunity_str(lcom));
+		lcommunity_str(lcom, false));
 }
 
 /* Show BGP's community internal data. */
@@ -13606,6 +13606,24 @@ DEFUN (no_ip_community_list_expanded_all,
 	return CMD_SUCCESS;
 }
 
+/* Return configuration string of community-list entry.  */
+static const char *community_list_config_str(struct community_entry *entry)
+{
+	const char *str;
+
+	if (entry->any)
+		str = "";
+	else {
+		if (entry->style == COMMUNITY_LIST_STANDARD)
+			str = community_str(entry->u.com, false);
+		else if (entry->style == LARGE_COMMUNITY_LIST_STANDARD)
+			str = lcommunity_str(entry->u.lcom, false);
+		else
+			str = entry->config;
+	}
+	return str;
+}
+
 static void community_list_show(struct vty *vty, struct community_list *list)
 {
 	struct community_entry *entry;
@@ -13631,9 +13649,7 @@ static void community_list_show(struct vty *vty, struct community_list *list)
 		else
 			vty_out(vty, "    %s %s\n",
 				community_direct_str(entry->direct),
-				entry->style == COMMUNITY_LIST_STANDARD
-					? community_str(entry->u.com, false)
-					: entry->config);
+				community_list_config_str(entry));
 	}
 }
 
@@ -13985,9 +14001,7 @@ static void lcommunity_list_show(struct vty *vty, struct community_list *list)
 		else
 			vty_out(vty, "    %s %s\n",
 				community_direct_str(entry->direct),
-				entry->style == EXTCOMMUNITY_LIST_STANDARD
-					? entry->u.ecom->str
-					: entry->config);
+				community_list_config_str(entry));
 	}
 }
 
@@ -14222,9 +14236,7 @@ static void extcommunity_list_show(struct vty *vty, struct community_list *list)
 		else
 			vty_out(vty, "    %s %s\n",
 				community_direct_str(entry->direct),
-				entry->style == EXTCOMMUNITY_LIST_STANDARD
-					? entry->u.ecom->str
-					: entry->config);
+				community_list_config_str(entry));
 	}
 }
 
@@ -14273,22 +14285,6 @@ DEFUN (show_ip_extcommunity_list_arg,
 	extcommunity_list_show(vty, list);
 
 	return CMD_SUCCESS;
-}
-
-/* Return configuration string of community-list entry.  */
-static const char *community_list_config_str(struct community_entry *entry)
-{
-	const char *str;
-
-	if (entry->any)
-		str = "";
-	else {
-		if (entry->style == COMMUNITY_LIST_STANDARD)
-			str = community_str(entry->u.com, false);
-		else
-			str = entry->config;
-	}
-	return str;
 }
 
 /* Display community-list and extcommunity-list configuration.  */

@@ -21,10 +21,7 @@
 #ifndef _QUAGGA_BGP_LCOMMUNITY_H
 #define _QUAGGA_BGP_LCOMMUNITY_H
 
-/* Extended communities attribute string format.  */
-#define LCOMMUNITY_FORMAT_ROUTE_MAP            0
-#define LCOMMUNITY_FORMAT_COMMUNITY_LIST       1
-#define LCOMMUNITY_FORMAT_DISPLAY              2
+#include "lib/json.h"
 
 /* Large Communities value is twelve octets long.  */
 #define LCOMMUNITY_SIZE                        12
@@ -39,6 +36,9 @@ struct lcommunity {
 
 	/* Large Communities value.  */
 	uint8_t *val;
+
+	/* Large Communities as a json object */
+	json_object *json;
 
 	/* Human readable format string.  */
 	char *str;
@@ -65,10 +65,9 @@ extern void lcommunity_unintern(struct lcommunity **);
 extern unsigned int lcommunity_hash_make(void *);
 extern struct hash *lcommunity_hash(void);
 extern struct lcommunity *lcommunity_str2com(const char *);
-extern char *lcommunity_lcom2str(struct lcommunity *, int);
 extern int lcommunity_match(const struct lcommunity *,
 			    const struct lcommunity *);
-extern char *lcommunity_str(struct lcommunity *);
+extern char *lcommunity_str(struct lcommunity *, bool make_json);
 extern int lcommunity_include(struct lcommunity *lcom, uint8_t *ptr);
 extern void lcommunity_del_val(struct lcommunity *lcom, uint8_t *ptr);
 #endif /* _QUAGGA_BGP_LCOMMUNITY_H */
