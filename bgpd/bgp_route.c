@@ -7383,7 +7383,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 	json_object *json_cluster_list = NULL;
 	json_object *json_cluster_list_list = NULL;
 	json_object *json_ext_community = NULL;
-	json_object *json_lcommunity = NULL;
 	json_object *json_last_update = NULL;
 	json_object *json_pmsi = NULL;
 	json_object *json_nexthop_global = NULL;
@@ -8010,13 +8009,12 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		/* Line 6 display Large community */
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)) {
 			if (json_paths) {
-				json_lcommunity = json_object_new_object();
-				json_object_string_add(json_lcommunity,
-						       "string",
-						       attr->lcommunity->str);
+				if (!attr->lcommunity->json)
+					lcommunity_str(attr->lcommunity, true);
+				json_object_lock(attr->lcommunity->json);
 				json_object_object_add(json_path,
 						       "largeCommunity",
-						       json_lcommunity);
+						       attr->lcommunity->json);
 			} else {
 				vty_out(vty, "      Large Community: %s\n",
 					attr->lcommunity->str);
