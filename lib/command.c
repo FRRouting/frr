@@ -1174,6 +1174,55 @@ DECLARE_KOOH(cmd_execute_done, (struct vty * vty, const char *cmd_exec),
 DEFINE_KOOH(cmd_execute_done, (struct vty * vty, const char *cmd_exec),
 	    (vty, cmd_exec));
 
+/*
+ * cmd_execute hook subscriber to handle `|` actions.
+ */
+static int handle_pipe_action(struct vty *vty, const char *cmd_in,
+			      char **cmd_out)
+{
+	/* look for `|` */
+	char *orig, *working, *token;
+	char *pipe = strstr(cmd_in, "| ");
+
+	if (!pipe)
+		return 0;
+
+	/* duplicate string for processing purposes, not including pipe */
+	orig = working = XSTRDUP(MTYPE_TMP, pipe + 2);
+
+	/* retrieve action */
+	token = strsep(&working, " ");
+
+	/* match result to known actions */
+	if (strmatch(token, "include")) {
+		/* the remaining text should be a regexp */
+		char *regexp = working;
+		bool succ = vty_set_include(vty, regexp);
+		if (!succ) {
+			vty_out(vty, "%% Bad regexp '%s'", regexp);
+			goto fail;
+		}
+		cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
+		*(strstr(cmd_in, "|")) = '\0';
+	} else {
+		vty_out(vty, "%% Unknown action '%s'", token);
+		goto fail;
+	}
+
+fail:
+	XFREE(MTYPE_TMP, orig);
+	return 0;
+}
+
+static int handle_pipe_action_done(struct vty *vty, const char *cmd_exec)
+{
+	if (vty->filter) {
+		vty_set_include(vty, NULL);
+		vty_out(vty, "\n");
+	}
+	return 0;
+}
+
 int cmd_execute(struct vty *vty, const char *cmd,
 		const struct cmd_element **matched, int vtysh)
 {
@@ -2719,6 +2768,10 @@ void cmd_init(int terminal)
 
 	uname(&names);
 	qobj_init();
+
+	/* register command preprocessors */
+	hook_register(cmd_execute, handle_pipe_action);
+	hook_register(cmd_execute_done, handle_pipe_action_done);
 
 	varhandlers = list_new();
 

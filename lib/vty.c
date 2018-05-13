@@ -21,10 +21,13 @@
 
 #include <zebra.h>
 
+#include <lib/version.h>
+#include <sys/types.h>
+#include <regex.h>
+
 #include "linklist.h"
 #include "thread.h"
 #include "buffer.h"
-#include <lib/version.h>
 #include "command.h"
 #include "sockunion.h"
 #include "memory.h"
@@ -35,6 +38,7 @@
 #include "privs.h"
 #include "network.h"
 #include "libfrr.h"
+#include "frrstr.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -109,6 +113,31 @@ void vty_endframe(struct vty *vty, const char *endtext)
 	vty->frame_pos = 0;
 }
 
+bool vty_set_include(struct vty *vty, const char *regexp)
+{
+	int errcode;
+	bool ret = true;
+	char errbuf[256];
+
+	if (!regexp) {
+		memset(&vty->include, 0x00, sizeof(vty->include));
+		vty->filter = false;
+		return true;
+	}
+
+	errcode = regcomp(&vty->include, regexp,
+			  REG_EXTENDED | REG_NEWLINE | REG_NOSUB);
+	if (errcode) {
+		ret = false;
+		regerror(ret, &vty->include, errbuf, sizeof(errbuf));
+		vty_out(vty, "%% Regex compilation error: %s", errbuf);
+	} else {
+		vty->filter = true;
+	}
+
+	return ret;
+}
+
 /* VTY standard output function. */
 int vty_out(struct vty *vty, const char *format, ...)
 {
@@ -117,6 +146,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 	int size = 1024;
 	char buf[1024];
 	char *p = NULL;
+	char *filtered;
 
 	if (vty->frame_pos) {
 		vty->frame_pos = 0;
@@ -158,11 +188,28 @@ int vty_out(struct vty *vty, const char *format, ...)
 		if (!p)
 			p = buf;
 
+		/* filter buffer */
+		if (vty->filter) {
+			vector lines = frrstr_split_vec(buf, "\n");
+			frrstr_filter_vec(lines, &vty->include);
+			if (buf[strlen(buf) - 1] == '\n' && vector_active(lines) > 0)
+				vector_set(lines, XSTRDUP(MTYPE_TMP, ""));
+			filtered = frrstr_join_vec(lines, "\n");
+			frrstr_strvec_free(lines);
+		} else {
+			filtered = p;
+		}
+
 		/* Pointer p must point out buffer. */
 		if (vty->type != VTY_TERM)
-			buffer_put(vty->obuf, (uint8_t *)p, len);
+			buffer_put(vty->obuf, (uint8_t *)filtered,
+				   strlen(filtered));
 		else
-			buffer_put_crlf(vty->obuf, (uint8_t *)p, len);
+			buffer_put_crlf(vty->obuf, (uint8_t *)filtered,
+					strlen(filtered));
+
+		if (vty->filter)
+			XFREE(MTYPE_TMP, filtered);
 
 		/* If p is not different with buf, it is allocated buffer.  */
 		if (p != buf)
@@ -391,7 +438,6 @@ static void vty_auth(struct vty *vty, char *buf)
 static int vty_command(struct vty *vty, char *buf)
 {
 	int ret;
-	vector vline;
 	const char *protocolname;
 	char *cp = NULL;
 
@@ -427,11 +473,6 @@ static int vty_command(struct vty *vty, char *buf)
 		/* now log the command */
 		zlog_err("%s%s", prompt_str, buf);
 	}
-	/* Split readline string up into the vector */
-	vline = cmd_make_strvec(buf);
-
-	if (vline == NULL)
-		return CMD_SUCCESS;
 
 #ifdef CONSUMED_TIME_CHECK
 	{
@@ -442,7 +483,7 @@ static int vty_command(struct vty *vty, char *buf)
 		GETRUSAGE(&before);
 #endif /* CONSUMED_TIME_CHECK */
 
-		ret = cmd_execute_command(vline, vty, NULL, 0);
+		ret = cmd_execute(vty, buf, NULL, 0);
 
 		/* Get the name of the protocol if any */
 		protocolname = frr_protoname;
@@ -475,7 +516,6 @@ static int vty_command(struct vty *vty, char *buf)
 			vty_out(vty, "%% Command incomplete.\n");
 			break;
 		}
-	cmd_free_strvec(vline);
 
 	return ret;
 }
