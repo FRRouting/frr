@@ -25,6 +25,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+/* If rtrlib compiled with ssh support, don`t fail build */
+#define LIBSSH_LEGACY_0_4
+
 #include <zebra.h>
 #include <pthread.h>
 #include <time.h>
