@@ -16,6 +16,7 @@ Welcome to FRR's documentation!
    zebra
    bgp
    babeld
+   bfd
    eigrpd
    isisd
    nhrpd

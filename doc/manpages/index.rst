@@ -10,6 +10,7 @@ Welcome to FRR's documentation!
    :maxdepth: 2
 
    bgpd
+   bfdd
    eigrpd
    isisd
    ldpd
