@@ -44,11 +44,9 @@
 #include "vrf.h"
 #include "libfrr.h"
 #include "command_graph.h"
+#include "frrstr.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
-
-/* Destination for vtysh output */
-FILE *outputfile;
 
 /* Struct VTY. */
 struct vty *vty;
@@ -56,7 +54,7 @@ struct vty *vty;
 /* VTY shell pager name. */
 char *vtysh_pager_name = NULL;
 
-/* VTY shell client structure. */
+/* VTY shell client structure */
 struct vtysh_client {
 	int fd;
 	const char *name;
@@ -64,6 +62,57 @@ struct vtysh_client {
 	char path[MAXPATHLEN];
 	struct vtysh_client *next;
 };
+
+/* Some utility functions for working on vtysh-specific vty tasks */
+
+static FILE *vty_open_pager(struct vty *vty)
+{
+	if (vty->is_paged)
+		return vty->of;
+
+	vty->of_saved = vty->of;
+	vty->of = popen(vtysh_pager_name, "w");
+	if (vty->of == NULL) {
+		vty->of = vty->of_saved;
+		perror("popen");
+		exit(1);
+	}
+
+	vty->is_paged = true;
+
+	return vty->of;
+}
+
+static int vty_close_pager(struct vty *vty)
+{
+	if (!vty->is_paged)
+		return 0;
+
+	fflush(vty->of);
+	if (pclose(vty->of) == -1) {
+		perror("pclose");
+		exit(1);
+	}
+
+	vty->of = vty->of_saved;
+	vty->is_paged = false;
+
+	return 0;
+}
+
+void vtysh_pager_init(void)
+{
+	char *pager_defined;
+
+	pager_defined = getenv("VTYSH_PAGER");
+
+	if (pager_defined)
+		vtysh_pager_name = strdup(pager_defined);
+	else
+		vtysh_pager_name = strdup(VTYSH_PAGER);
+}
+
+/* --- */
 
 struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "zebra", .flag = VTYSH_ZEBRA, .next = NULL},
@@ -91,7 +140,7 @@ static int vtysh_reconnect(struct vtysh_client *vclient);
 static void vclient_close(struct vtysh_client *vclient)
 {
 	if (vclient->fd >= 0) {
-		fprintf(stderr,
+		vty_out(vty,
 			"Warning: closing connection to %s because of an I/O error!\n",
 			vclient->name);
 		close(vclient->fd);
@@ -100,21 +149,30 @@ static void vclient_close(struct vtysh_client *vclient)
 	}
 }
 
-/* Return true if str begins with prefix, else return false */
-static int begins_with(const char *str, const char *prefix)
-{
-	if (!str || !prefix)
-		return 0;
-	size_t lenstr = strlen(str);
-	size_t lenprefix = strlen(prefix);
-	if (lenprefix > lenstr)
-		return 0;
-	return strncmp(str, prefix, lenprefix) == 0;
-}
-
+/*
+ * Send a CLI command to a client and read the response.
+ *
+ * Output will be printed to vty->of. If you want to suppress output, set that
+ * to NULL.
+ *
+ * vclient
+ *    the client to send the command to
+ *
+ * line
+ *    the command to send
+ *
+ * callback
+ *    if non-null, this will be called with each line of output received from
+ *    the client passed in the second parameter
+ *
+ * cbarg
+ *    optional first argument to pass to callback
+ *
+ * Returns:
+ *    a status code
+ */
 static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
-			    FILE *fp, void (*callback)(void *, const char *),
-			    void *cbarg)
+			    void (*callback)(void *, const char *), void *cbarg)
 {
 	int ret;
 	char stackbuf[4096];
@@ -155,7 +213,7 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 			continue;
 
 		if (nread <= 0) {
-			fprintf(stderr, "vtysh: error reading from %s: %s (%d)",
+			vty_out(vty, "vtysh: error reading from %s: %s (%d)",
 				vclient->name, safe_strerror(errno), errno);
 			goto out_err;
 		}
@@ -227,12 +285,10 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 			/* eol is at line end now, either \n => \0 or \0\0\0 */
 			assert(eol && eol <= bufvalid);
 
-			if (fp) {
-				fputs(buf, fp);
-				fputc('\n', fp);
-			}
-			if (callback)
-				callback(cbarg, buf);
+			if (vty->of)
+				vty_out(vty, "%s\n", buf);
+
+			callback(cbarg, buf);
 
 			/* shift back data and adjust bufvalid */
 			memmove(buf, eol, bufvalid - eol);
@@ -243,8 +299,8 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 
 		/* else if no callback, dump raw */
 		if (!callback) {
-			if (fp)
-				fwrite(buf, 1, textlen, fp);
+			if (vty->of)
+				vty_out(vty, "%s", buf);
 			memmove(buf, buf + textlen, bufvalid - buf - textlen);
 			bufvalid -= textlen;
 			if (end)
@@ -281,7 +337,7 @@ out:
 }
 
 static int vtysh_client_run_all(struct vtysh_client *head_client,
-				const char *line, int continue_on_err, FILE *fp,
+				const char *line, int continue_on_err,
 				void (*callback)(void *, const char *),
 				void *cbarg)
 {
@@ -290,7 +346,7 @@ static int vtysh_client_run_all(struct vtysh_client *head_client,
 	int correct_instance = 0, wrong_instance = 0;
 
 	for (client = head_client; client; client = client->next) {
-		rc = vtysh_client_run(client, line, fp, callback, cbarg);
+		rc = vtysh_client_run(client, line, callback, cbarg);
 		if (rc == CMD_NOT_MY_INSTANCE) {
 			wrong_instance++;
 			continue;
@@ -303,8 +359,8 @@ static int vtysh_client_run_all(struct vtysh_client *head_client,
 			rc_all = rc;
 		}
 	}
-	if (wrong_instance && !correct_instance && fp) {
-		fprintf(fp,
+	if (wrong_instance && !correct_instance) {
+		vty_out(vty,
 			"%% [%s]: command ignored as it targets an instance that is not running\n",
 			head_client->name);
 		rc_all = CMD_WARNING_CONFIG_FAILED;
@@ -312,12 +368,34 @@ static int vtysh_client_run_all(struct vtysh_client *head_client,
 	return rc_all;
 }
 
+/*
+ * Execute command against all daemons.
+ *
+ * head_client
+ *    where to start walking in the daemon list
+ *
+ * line
+ *    the specific command to execute
+ *
+ * Returns:
+ *    a status code
+ */
 static int vtysh_client_execute(struct vtysh_client *head_client,
-				const char *line, FILE *fp)
+				const char *line)
 {
-	return vtysh_client_run_all(head_client, line, 0, fp, NULL, NULL);
+	return vtysh_client_run_all(head_client, line, 0, NULL, NULL);
 }
 
+/*
+ * Retrieve all running config from daemons and parse it with the vtysh config
+ * parser. Returned output is not displayed to the user.
+ *
+ * head_client
+ *    where to start walking in the daemon list
+ *
+ * line
+ *    the specific command to execute
+ */
 static void vtysh_client_config(struct vtysh_client *head_client, char *line)
 {
 	/* watchfrr currently doesn't load any config, and has some hardcoded
@@ -327,20 +405,12 @@ static void vtysh_client_config(struct vtysh_client *head_client, char *line)
 	if (head_client->flag == VTYSH_WATCHFRR)
 		return;
 
-	vtysh_client_run_all(head_client, line, 1, NULL,
-			     vtysh_config_parse_line, NULL);
-}
-
-void vtysh_pager_init(void)
-{
-	char *pager_defined;
-
-	pager_defined = getenv("VTYSH_PAGER");
-
-	if (pager_defined)
-		vtysh_pager_name = strdup(pager_defined);
-	else
-		vtysh_pager_name = strdup(VTYSH_PAGER);
+	/* suppress output to user */
+	vty->of_saved = vty->of;
+	vty->of = NULL;
+	vtysh_client_run_all(head_client, line, 1, vtysh_config_parse_line,
+			     NULL);
+	vty->of = vty->of_saved;
 }
 
 /* Command execution over the vty interface. */
@@ -350,8 +420,6 @@ static int vtysh_execute_func(const char *line, int pager)
 	unsigned int i;
 	vector vline;
 	const struct cmd_element *cmd;
-	FILE *fp = NULL;
-	int closepager = 0;
 	int tried = 0;
 	int saved_ret, saved_node;
 
@@ -364,12 +432,12 @@ static int vtysh_execute_func(const char *line, int pager)
 	if (user_mode) {
 		if (strncmp("en", vector_slot(vline, 0), 2) == 0) {
 			cmd_free_strvec(vline);
-			fprintf(stdout, "%% Command not allowed: enable\n");
+			vty_out(vty, "%% Command not allowed: enable\n");
 			return CMD_WARNING;
 		}
 	}
 
-	saved_ret = ret = cmd_execute_command(vline, vty, &cmd, 1);
+	saved_ret = ret = cmd_execute(vty, line, &cmd, 1);
 	saved_node = vty->node;
 
 	/*
@@ -381,7 +449,7 @@ static int vtysh_execute_func(const char *line, int pager)
 	       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
 	       && vty->node > CONFIG_NODE) {
 		vty->node = node_parent(vty->node);
-		ret = cmd_execute_command(vline, vty, &cmd, 1);
+		ret = cmd_execute(vty, line, &cmd, 1);
 		tried++;
 	}
 
@@ -445,16 +513,16 @@ static int vtysh_execute_func(const char *line, int pager)
 	case CMD_WARNING:
 	case CMD_WARNING_CONFIG_FAILED:
 		if (vty->type == VTY_FILE)
-			fprintf(stdout, "Warning...\n");
+			vty_out(vty, "Warning...\n");
 		break;
 	case CMD_ERR_AMBIGUOUS:
-		fprintf(stdout, "%% Ambiguous command: %s\n", line);
+		vty_out(vty, "%% Ambiguous command: %s\n", line);
 		break;
 	case CMD_ERR_NO_MATCH:
-		fprintf(stdout, "%% Unknown command: %s\n", line);
+		vty_out(vty, "%% Unknown command: %s\n", line);
 		break;
 	case CMD_ERR_INCOMPLETE:
-		fprintf(stdout, "%% Command incomplete: %s\n", line);
+		vty_out(vty, "%% Command incomplete: %s\n", line);
 		break;
 	case CMD_SUCCESS_DAEMON: {
 		/*
@@ -462,21 +530,13 @@ static int vtysh_execute_func(const char *line, int pager)
 		 * problems if exited from vtysh at all. This hack shouldn't
 		 * cause any problem but is really ugly.
 		 */
-		fp = outputfile;
-		if (pager && vtysh_pager_name && outputfile == stdout
-		    && (strncmp(line, "exit", 4) != 0)) {
-			fp = popen(vtysh_pager_name, "w");
-			if (fp == NULL) {
-				perror("popen failed for pager");
-				fp = outputfile;
-			} else
-				closepager = 1;
-		}
+		if (pager && strncmp(line, "exit", 4))
+			vty_open_pager(vty);
 
 		if (!strcmp(cmd->string, "configure terminal")) {
 			for (i = 0; i < array_size(vtysh_client); i++) {
 				cmd_stat = vtysh_client_execute(
-					&vtysh_client[i], line, fp);
+					&vtysh_client[i], line);
 				if (cmd_stat == CMD_WARNING)
 					break;
 			}
@@ -485,14 +545,8 @@ static int vtysh_execute_func(const char *line, int pager)
 				line = "end";
 				vline = cmd_make_strvec(line);
 
-				if (vline == NULL) {
-					if (pager && vtysh_pager_name && fp
-					    && fp != outputfile && closepager) {
-						if (pclose(fp) == -1) {
-							perror("pclose failed for pager");
-						}
-						fp = NULL;
-					}
+				if (vline == NULL && vty->is_paged) {
+					vty_close_pager(vty);
 					return CMD_SUCCESS;
 				}
 
@@ -532,7 +586,7 @@ static int vtysh_execute_func(const char *line, int pager)
 					}
 				}
 				cmd_stat = vtysh_client_execute(
-					&vtysh_client[i], line, fp);
+					&vtysh_client[i], line);
 				if (cmd_stat != CMD_SUCCESS)
 					break;
 			}
@@ -544,12 +598,9 @@ static int vtysh_execute_func(const char *line, int pager)
 			(*cmd->func)(cmd, vty, 0, NULL);
 	}
 	}
-	if (pager && vtysh_pager_name && fp && closepager && fp != outputfile) {
-		if (pclose(fp) == -1) {
-			perror("pclose failed for pager");
-		}
-		fp = NULL;
-	}
+	if (vty->is_paged)
+		vty_close_pager(vty);
+
 	return cmd_stat;
 }
 
@@ -626,19 +677,19 @@ int vtysh_mark_file(const char *filename)
 		switch (vty->node) {
 		case LDP_IPV4_IFACE_NODE:
 			if (strncmp(vty_buf_copy, "   ", 3)) {
-				fprintf(outputfile, "  end\n");
+				vty_out(vty, "  end\n");
 				vty->node = LDP_IPV4_NODE;
 			}
 			break;
 		case LDP_IPV6_IFACE_NODE:
 			if (strncmp(vty_buf_copy, "   ", 3)) {
-				fprintf(outputfile, "  end\n");
+				vty_out(vty, "  end\n");
 				vty->node = LDP_IPV6_NODE;
 			}
 			break;
 		case LDP_PSEUDOWIRE_NODE:
 			if (strncmp(vty_buf_copy, "  ", 2)) {
-				fprintf(outputfile, " end\n");
+				vty_out(vty, " end\n");
 				vty->node = LDP_L2VPN_NODE;
 			}
 			break;
@@ -647,7 +698,7 @@ int vtysh_mark_file(const char *filename)
 		}
 
 		if (vty_buf_trimmed[0] == '!' || vty_buf_trimmed[0] == '#') {
-			fprintf(outputfile, "%s", vty->buf);
+			vty_out(vty, "%s", vty->buf);
 			continue;
 		}
 
@@ -655,7 +706,7 @@ int vtysh_mark_file(const char *filename)
 		vline = cmd_make_strvec(vty->buf);
 
 		if (vline == NULL) {
-			fprintf(outputfile, "%s", vty->buf);
+			vty_out(vty, "%s", vty->buf);
 			continue;
 		}
 
@@ -704,15 +755,15 @@ int vtysh_mark_file(const char *filename)
 			     || prev_node == BGP_IPV6M_NODE
 			     || prev_node == BGP_EVPN_NODE)
 			    && (tried == 1)) {
-				fprintf(outputfile, "exit-address-family\n");
+				vty_out(vty, "exit-address-family\n");
 			} else if ((prev_node == BGP_EVPN_VNI_NODE)
 				   && (tried == 1)) {
-				fprintf(outputfile, "exit-vni\n");
+				vty_out(vty, "exit-vni\n");
 			} else if ((prev_node == KEYCHAIN_KEY_NODE)
 				   && (tried == 1)) {
-				fprintf(outputfile, "exit\n");
+				vty_out(vty, "exit\n");
 			} else if (tried) {
-				fprintf(outputfile, "end\n");
+				vty_out(vty, "end\n");
 			}
 		}
 		/*
@@ -757,22 +808,14 @@ int vtysh_mark_file(const char *filename)
 			XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 			return CMD_ERR_INCOMPLETE;
 		case CMD_SUCCESS:
-			fprintf(stdout, "%s", vty->buf);
+			vty_out(vty, "%s", vty->buf);
 			break;
 		case CMD_SUCCESS_DAEMON: {
-			unsigned int i;
 			int cmd_stat = CMD_SUCCESS;
 
-			fprintf(outputfile, "%s", vty->buf);
-			for (i = 0; i < array_size(vtysh_client); i++) {
-				if (cmd->daemon & vtysh_client[i].flag) {
-					cmd_stat = vtysh_client_execute(
-						&vtysh_client[i], vty->buf,
-						outputfile);
-					if (cmd_stat != CMD_SUCCESS)
-						break;
-				}
-			}
+			vty_out(vty, "%s", vty->buf);
+			cmd_stat = vtysh_client_execute(&vtysh_client[0],
+							vty->buf);
 			if (cmd_stat != CMD_SUCCESS)
 				break;
 
@@ -782,7 +825,7 @@ int vtysh_mark_file(const char *filename)
 		}
 	}
 	/* This is the end */
-	fprintf(outputfile, "\nend\n");
+	vty_out(vty, "\nend\n");
 	vty_close(vty);
 	XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 
@@ -839,8 +882,7 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 			for (i = 0; i < array_size(vtysh_client); i++) {
 				if (cmd->daemon & vtysh_client[i].flag) {
 					cmd_stat = vtysh_client_execute(
-						&vtysh_client[i], vty->buf,
-						outputfile);
+						&vtysh_client[i], vty->buf);
 					/*
 					 * CMD_WARNING - Can mean that the
 					 * command was parsed successfully but
@@ -904,14 +946,16 @@ static int vtysh_process_questionmark(const char *input, int input_len)
 	case CMD_ERR_AMBIGUOUS:
 		cmd_free_strvec(vline);
 		vector_free(describe);
-		fprintf(stdout, "%% Ambiguous command.\n");
+		vty_out(vty, "%% Ambiguous command.\n");
+		rl_on_new_line();
 		return 0;
 		break;
 	case CMD_ERR_NO_MATCH:
 		cmd_free_strvec(vline);
 		if (describe)
 			vector_free(describe);
-		fprintf(stdout, "%% There is no matched command.\n");
+		vty_out(vty, "%% There is no matched command.\n");
+		rl_on_new_line();
 		return 0;
 		break;
 	}
@@ -932,10 +976,10 @@ static int vtysh_process_questionmark(const char *input, int input_len)
 	for (i = 0; i < vector_active(describe); i++)
 		if ((token = vector_slot(describe, i)) != NULL) {
 			if (!token->desc)
-				fprintf(stdout, "  %-s\n", token->text);
+				vty_out(vty, "  %-s\n", token->text);
 			else
-				fprintf(stdout, "  %-*s  %s\n", width,
-					token->text, token->desc);
+				vty_out(vty, "  %-*s  %s\n", width, token->text,
+					token->desc);
 
 			if (IS_VARYING_TOKEN(token->type)) {
 				const char *ref = vector_slot(
@@ -950,7 +994,7 @@ static int vtysh_process_questionmark(const char *input, int input_len)
 
 					char *ac = cmd_variable_comp2str(
 						varcomps, cols);
-					fprintf(stdout, "%s\n", ac);
+					vty_out(vty, "%s\n", ac);
 					XFREE(MTYPE_TMP, ac);
 				}
 
@@ -973,7 +1017,7 @@ static int vtysh_rl_describe(void)
 {
 	int ret;
 
-	fprintf(stdout, "\n");
+	vty_out(vty, "\n");
 
 	ret = vtysh_process_questionmark(rl_line_buffer, rl_end);
 	rl_on_new_line();
@@ -2106,11 +2150,10 @@ DEFUN (vtysh_show_thread,
 	snprintf(line, sizeof(line), "do show thread cpu %s\n", filter);
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0) {
-			fprintf(stdout, "Thread statistics for %s:\n",
+			vty_out(vty, "Thread statistics for %s:\n",
 				vtysh_client[i].name);
-			ret = vtysh_client_execute(&vtysh_client[i], line,
-						   outputfile);
-			fprintf(stdout, "\n");
+			ret = vtysh_client_execute(&vtysh_client[i], line);
+			vty_out(vty, "\n");
 		}
 	return ret;
 }
@@ -2127,11 +2170,10 @@ DEFUN (vtysh_show_work_queues,
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0) {
-			fprintf(stdout, "Work queue statistics for %s:\n",
+			vty_out(vty, "Work queue statistics for %s:\n",
 				vtysh_client[i].name);
-			ret = vtysh_client_execute(&vtysh_client[i], line,
-						   outputfile);
-			fprintf(stdout, "\n");
+			ret = vtysh_client_execute(&vtysh_client[i], line);
+			vty_out(vty, "\n");
 		}
 
 	return ret;
@@ -2160,8 +2202,7 @@ DEFUN (vtysh_show_work_queues_daemon,
 			break;
 	}
 
-	ret = vtysh_client_execute(&vtysh_client[i], "show work-queues\n",
-				   outputfile);
+	ret = vtysh_client_execute(&vtysh_client[i], "show work-queues\n");
 
 	return ret;
 }
@@ -2188,10 +2229,9 @@ static int show_per_daemon(const char *line, const char *headline)
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0) {
-			fprintf(outputfile, headline, vtysh_client[i].name);
-			ret = vtysh_client_execute(&vtysh_client[i], line,
-						   outputfile);
-			fprintf(stdout, "\n");
+			vty_out(vty, headline, vtysh_client[i].name);
+			ret = vtysh_client_execute(&vtysh_client[i], line);
+			vty_out(vty, "\n");
 		}
 
 	return ret;
@@ -2225,16 +2265,16 @@ DEFUN (vtysh_show_debugging_hashtable,
        "Statistics about hash tables\n"
        "Statistics about hash tables\n")
 {
-	fprintf(stdout, "\n");
-	fprintf(stdout,
+	vty_out(vty, "\n");
+	vty_out(vty,
 		"Load factor (LF) - average number of elements across all buckets\n");
-	fprintf(stdout,
+	vty_out(vty,
 		"Full load factor (FLF) - average number of elements across full buckets\n\n");
-	fprintf(stdout,
+	vty_out(vty,
 		"Standard deviation (SD) is calculated for both the LF and FLF\n");
-	fprintf(stdout,
+	vty_out(vty,
 		"and indicates the typical deviation of bucket chain length\n");
-	fprintf(stdout, "from the value in the corresponding load factor.\n\n");
+	vty_out(vty, "from the value in the corresponding load factor.\n\n");
 
 	return show_per_daemon("do show debugging hashtable\n",
 			       "Hashtable statistics for %s:\n");
@@ -2499,19 +2539,10 @@ DEFUN (vtysh_write_terminal,
 {
 	unsigned int i;
 	char line[] = "do write terminal\n";
-	FILE *fp = outputfile;
 
-	if (fp == stdout && vtysh_pager_name) {
-		fp = popen(vtysh_pager_name, "w");
-		if (fp == NULL) {
-			perror("popen");
-			exit(1);
-		}
-	}
-
-	fprintf(outputfile, "Building configuration...\n");
-	fprintf(outputfile, "\nCurrent configuration:\n");
-	fprintf(outputfile, "!\n");
+	vty_out(vty, "Building configuration...\n");
+	vty_out(vty, "\nCurrent configuration:\n");
+	vty_out(vty, "!\n");
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if ((argc < 3)
@@ -2519,20 +2550,12 @@ DEFUN (vtysh_write_terminal,
 			vtysh_client_config(&vtysh_client[i], line);
 
 	/* Integrate vtysh specific configuration. */
+	vty_open_pager(vty);
 	vtysh_config_write();
+	vtysh_config_dump();
+	vty_close_pager(vty);
+	vty_out(vty, "end\n");
 
-	vtysh_config_dump(fp);
-
-	if (vtysh_pager_name && fp != outputfile) {
-		fflush(fp);
-		if (pclose(fp) == -1) {
-			perror("pclose");
-			exit(1);
-		}
-		fp = NULL;
-	}
-
-	fprintf(outputfile, "end\n");
 	return CMD_SUCCESS;
 }
 
@@ -2602,12 +2625,12 @@ int vtysh_write_config_integrated(void)
 	struct stat st;
 	int err = 0;
 
-	fprintf(stdout, "Building Configuration...\n");
+	vty_out(vty, "Building Configuration...\n");
 
 	backup_config_file(frr_config);
 	fp = fopen(frr_config, "w");
 	if (fp == NULL) {
-		fprintf(stdout,
+		vty_out(vty,
 			"%% Error: failed to open configuration file %s: %s\n",
 			frr_config, safe_strerror(errno));
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2618,7 +2641,7 @@ int vtysh_write_config_integrated(void)
 		vtysh_client_config(&vtysh_client[i], line);
 
 	vtysh_config_write();
-	vtysh_config_dump(fp);
+	vtysh_config_dump();
 
 	if (fchmod(fd, CONFIGFILE_MASK) != 0) {
 		printf("%% Warning: can't chmod configuration file %s: %s\n",
@@ -2701,8 +2724,7 @@ DEFUN (vtysh_write_memory,
 	char line[] = "do write memory\n";
 	unsigned int i;
 
-	fprintf(outputfile,
-		"Note: this version of vtysh never writes vtysh.conf\n");
+	vty_out(vty, "Note: this version of vtysh never writes vtysh.conf\n");
 
 	/* If integrated frr.conf explicitely set. */
 	if (want_config_integrated()) {
@@ -2717,8 +2739,7 @@ DEFUN (vtysh_write_memory,
 		if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1) {
 			used_watchfrr = true;
 			ret = vtysh_client_execute(&vtysh_client[i],
-						   "do write integrated",
-						   outputfile);
+						   "do write integrated");
 		}
 
 		/*
@@ -2734,10 +2755,10 @@ DEFUN (vtysh_write_memory,
 		return ret;
 	}
 
-	fprintf(outputfile, "Building Configuration...\n");
+	vty_out(vty, "Building Configuration...\n");
 
 	for (i = 0; i < array_size(vtysh_client); i++)
-		ret = vtysh_client_execute(&vtysh_client[i], line, outputfile);
+		ret = vtysh_client_execute(&vtysh_client[i], line);
 
 	return ret;
 }
@@ -2766,7 +2787,7 @@ DEFUN (vtysh_terminal_length,
 
 	lines = strtol(argv[idx_number]->arg, &endptr, 10);
 	if (lines < 0 || lines > 512 || *endptr != '\0') {
-		fprintf(outputfile, "length is malformed\n");
+		vty_out(vty, "length is malformed\n");
 		return CMD_WARNING;
 	}
 
@@ -2809,8 +2830,8 @@ DEFUN (vtysh_show_daemons,
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0)
-			fprintf(outputfile, " %s", vtysh_client[i].name);
-	fprintf(outputfile, "\n");
+			vty_out(vty, " %s", vtysh_client[i].name);
+	vty_out(vty, "\n");
 
 	return CMD_SUCCESS;
 }
@@ -3007,11 +3028,11 @@ DEFUN (vtysh_output_file,
        "Path to dump output to\n")
 {
 	const char *path = argv[argc - 1]->arg;
-	outputfile = fopen(path, "a");
-	if (!outputfile) {
-		fprintf(stdout, "Failed to open file '%s': %s\n", path,
+	vty->of = fopen(path, "a");
+	if (!vty->of) {
+		vty_out(vty, "Failed to open file '%s': %s\n", path,
 			safe_strerror(errno));
-		outputfile = stdout;
+		vty->of = stdout;
 	}
 	return CMD_SUCCESS;
 }
@@ -3024,9 +3045,9 @@ DEFUN (no_vtysh_output_file,
        "Direct vtysh output to file\n"
        "Path to dump output to\n")
 {
-	if (outputfile != stdout) {
-		fclose(outputfile);
-		outputfile = stdout;
+	if (vty->of != stdout) {
+		fclose(vty->of);
+		vty->of = stdout;
 	}
 	return CMD_SUCCESS;
 }
@@ -3050,7 +3071,7 @@ DEFUN(find,
 		for (unsigned int j = 0; j < vector_active(clis); j++) {
 			cli = vector_slot(clis, j);
 			if (strcasestr(cli->string, text))
-				fprintf(stdout, "  (%s)  %s\n",
+				vty_out(vty, "  (%s)  %s\n",
 					node_names[node->node], cli->string);
 		}
 	}
@@ -3157,7 +3178,7 @@ static int vtysh_reconnect(struct vtysh_client *vclient)
 		return ret;
 	}
 	fprintf(stderr, "success!\n");
-	if (vtysh_client_execute(vclient, "enable", NULL) < 0)
+	if (vtysh_client_execute(vclient, "enable") < 0)
 		return -1;
 	return vtysh_execute_no_pager("end");
 }
@@ -3315,8 +3336,8 @@ static void vtysh_autocomplete(vector comps, struct cmd_token *token)
 		 token->text, token->varname ? token->varname : "-");
 
 	for (i = 0; i < array_size(vtysh_client); i++)
-		vtysh_client_run_all(&vtysh_client[i], accmd, 1, NULL,
-				     vtysh_ac_line, comps);
+		vtysh_client_run_all(&vtysh_client[i], accmd, 1, vtysh_ac_line,
+				     comps);
 }
 
 static const struct cmd_variable_handler vtysh_var_handler[] = {
@@ -3328,8 +3349,8 @@ static const struct cmd_variable_handler vtysh_var_handler[] = {
 
 void vtysh_uninit()
 {
-	if (outputfile != stdout)
-		fclose(outputfile);
+	if (vty->of != stdout)
+		fclose(vty->of);
 }
 
 void vtysh_init_vty(void)
@@ -3340,7 +3361,7 @@ void vtysh_init_vty(void)
 	vty->node = VIEW_NODE;
 
 	/* set default output */
-	outputfile = stdout;
+	vty->of = stdout;
 
 	/* Initialize commands. */
 	cmd_init(0);

@@ -153,68 +153,72 @@ int vty_out(struct vty *vty, const char *format, ...)
 		vty_out(vty, "%s", vty->frame);
 	}
 
-	if (vty_shell(vty)) {
-		va_start(args, format);
-		vprintf(format, args);
-		va_end(args);
-	} else {
-		/* Try to write to initial buffer.  */
-		va_start(args, format);
-		len = vsnprintf(buf, sizeof(buf), format, args);
-		va_end(args);
+	/* Try to write to initial buffer.  */
+	va_start(args, format);
+	len = vsnprintf(buf, sizeof(buf), format, args);
+	va_end(args);
 
-		/* Initial buffer is not enough.  */
-		if (len < 0 || len >= size) {
-			while (1) {
-				if (len > -1)
-					size = len + 1;
-				else
-					size = size * 2;
+	/* Initial buffer is not enough.  */
+	if (len < 0 || len >= size) {
+		while (1) {
+			if (len > -1)
+				size = len + 1;
+			else
+				size = size * 2;
 
-				p = XREALLOC(MTYPE_VTY_OUT_BUF, p, size);
-				if (!p)
-					return -1;
+			p = XREALLOC(MTYPE_VTY_OUT_BUF, p, size);
+			if (!p)
+				return -1;
 
-				va_start(args, format);
-				len = vsnprintf(p, size, format, args);
-				va_end(args);
+			va_start(args, format);
+			len = vsnprintf(p, size, format, args);
+			va_end(args);
 
-				if (len > -1 && len < size)
-					break;
-			}
+			if (len > -1 && len < size)
+				break;
 		}
-
-		/* When initial buffer is enough to store all output.  */
-		if (!p)
-			p = buf;
-
-		/* filter buffer */
-		if (vty->filter) {
-			vector lines = frrstr_split_vec(buf, "\n");
-			frrstr_filter_vec(lines, &vty->include);
-			if (buf[strlen(buf) - 1] == '\n' && vector_active(lines) > 0)
-				vector_set(lines, XSTRDUP(MTYPE_TMP, ""));
-			filtered = frrstr_join_vec(lines, "\n");
-			frrstr_strvec_free(lines);
-		} else {
-			filtered = p;
-		}
-
-		/* Pointer p must point out buffer. */
-		if (vty->type != VTY_TERM)
-			buffer_put(vty->obuf, (uint8_t *)filtered,
-				   strlen(filtered));
-		else
-			buffer_put_crlf(vty->obuf, (uint8_t *)filtered,
-					strlen(filtered));
-
-		if (vty->filter)
-			XFREE(MTYPE_TMP, filtered);
-
-		/* If p is not different with buf, it is allocated buffer.  */
-		if (p != buf)
-			XFREE(MTYPE_VTY_OUT_BUF, p);
 	}
+
+	/* When initial buffer is enough to store all output.  */
+	if (!p)
+		p = buf;
+
+	/* filter buffer */
+	if (vty->filter) {
+		vector lines = frrstr_split_vec(buf, "\n");
+		frrstr_filter_vec(lines, &vty->include);
+		if (buf[strlen(buf) - 1] == '\n' && vector_active(lines) > 0)
+			vector_set(lines, XSTRDUP(MTYPE_TMP, ""));
+		filtered = frrstr_join_vec(lines, "\n");
+		frrstr_strvec_free(lines);
+	} else {
+		filtered = p;
+	}
+
+	switch (vty->type) {
+	case VTY_TERM:
+		/* print with crlf replacement */
+		buffer_put_crlf(vty->obuf, (uint8_t *)filtered,
+				strlen(filtered));
+		break;
+	case VTY_SHELL:
+		fprintf(vty->of, "%s", filtered);
+		fflush(vty->of);
+		break;
+	case VTY_SHELL_SERV:
+	case VTY_FILE:
+	default:
+		/* print without crlf replacement */
+		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		break;
+	}
+
+	if (vty->filter)
+		XFREE(MTYPE_TMP, filtered);
+
+	/* If p is not different with buf, it is allocated buffer.  */
+	if (p != buf)
+		XFREE(MTYPE_VTY_OUT_BUF, p);
 
 	return len;
 }
@@ -362,20 +366,6 @@ vty_dont_lflow_ahead (struct vty *vty)
   vty_out (vty, "%s", cmd);
 }
 #endif /* 0 */
-
-/* Allocate new vty struct. */
-struct vty *vty_new()
-{
-	struct vty *new = XCALLOC(MTYPE_VTY, sizeof(struct vty));
-
-	new->fd = new->wfd = -1;
-	new->obuf = buffer_new(0); /* Use default buffer size. */
-	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
-	new->error_buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
-	new->max = VTY_BUFSIZ;
-
-	return new;
-}
 
 /* Authentication of vty */
 static void vty_auth(struct vty *vty, char *buf)
@@ -1630,6 +1620,21 @@ static int vty_flush(struct thread *thread)
 
 	return 0;
 }
+
+/* Allocate new vty struct. */
+struct vty *vty_new()
+{
+	struct vty *new = XCALLOC(MTYPE_VTY, sizeof(struct vty));
+
+	new->fd = new->wfd = -1;
+	new->obuf = buffer_new(0); /* Use default buffer size. */
+	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
+	new->error_buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
+	new->max = VTY_BUFSIZ;
+
+	return new;
+}
+
 
 /* allocate and initialise vty */
 static struct vty *vty_new_init(int vty_sock)

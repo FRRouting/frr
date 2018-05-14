@@ -1202,8 +1202,8 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 			vty_out(vty, "%% Bad regexp '%s'", regexp);
 			goto fail;
 		}
-		cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
-		*(strstr(cmd_in, "|")) = '\0';
+		*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
+		*(strstr(*cmd_out, "|")) = '\0';
 	} else {
 		vty_out(vty, "%% Unknown action '%s'", token);
 		goto fail;

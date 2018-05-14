@@ -41,6 +41,13 @@ struct vty {
 	/* output FD, to support stdin/stdout combination */
 	int wfd;
 
+	/* File output, used for VTYSH only */
+	FILE *of;
+	FILE *of_saved;
+
+	/* whether we are using pager or not */
+	bool is_paged;
+
 	/* Is this vty connect to file or not */
 	enum { VTY_TERM, VTY_FILE, VTY_SHELL, VTY_SHELL_SERV } type;
 

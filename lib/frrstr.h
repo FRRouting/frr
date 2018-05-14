@@ -23,6 +23,7 @@
 
 #include <sys/types.h>
 #include <regex.h>
+#include <stdbool.h>
 
 #include "vector.h"
 
@@ -82,5 +83,18 @@ void frrstr_filter_vec(vector v, regex_t *filter);
  */
 void frrstr_strvec_free(vector v);
 
+/*
+ * Prefix match for string.
+ *
+ * str
+ *    string to check for prefix match
+ *
+ * prefix
+ *    prefix to look for
+ *
+ * Returns:
+ *   true str starts with prefix, false otherwise
+ */
+bool begins_with(const char *str, const char *prefix);
 
 #endif /* _FRRSTR_H_ */
