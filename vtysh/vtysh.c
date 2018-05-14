@@ -2372,6 +2372,8 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_password, no_vtysh_password_cmd,
 	"no password", NO_STR
 	"Modify the terminal connection password\n")
 {
+	vty_out(vty, NO_PASSWD_CMD_WARNING);
+
 	return CMD_SUCCESS;
 }
 
@@ -2390,6 +2392,8 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_enable_password,
 	"Modify enable password parameters\n"
 	"Assign the privileged level password\n")
 {
+	vty_out(vty, NO_PASSWD_CMD_WARNING);
+
 	return CMD_SUCCESS;
 }
 

@@ -376,6 +376,10 @@ struct cmd_node {
 
 #define CONF_BACKUP_EXT ".sav"
 
+/* Command warnings. */
+#define NO_PASSWD_CMD_WARNING                                                  \
+	"Please be aware that removing the password is a security risk and you should think twice about this command.\n"
+
 /* IPv4 only machine should not accept IPv6 address for peer's IP
    address.  So we replace VTY command string like below. */
 #define NEIGHBOR_ADDR_STR  "Neighbor address\nIPv6 address\n"

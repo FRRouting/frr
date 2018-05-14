@@ -1960,19 +1960,17 @@ DEFUN (no_config_password,
 	bool warned = false;
 
 	if (host.password) {
-		vty_out(vty,
-			"Please be aware that removing the password is a security risk and "
-			"you should think twice about this command\n");
-		warned = true;
+		if (!vty_shell_serv(vty)) {
+			vty_out(vty, NO_PASSWD_CMD_WARNING);
+			warned = true;
+		}
 		XFREE(MTYPE_HOST, host.password);
 	}
 	host.password = NULL;
 
 	if (host.password_encrypt) {
-		if (!warned)
-			vty_out(vty,
-				"Please be aware that removing the password is a security risk "
-				"and you should think twice about this command\n");
+		if (!warned && !vty_shell_serv(vty))
+			vty_out(vty, NO_PASSWD_CMD_WARNING);
 		XFREE(MTYPE_HOST, host.password_encrypt);
 	}
 	host.password_encrypt = NULL;
@@ -2044,19 +2042,17 @@ DEFUN (no_config_enable_password,
 	bool warned = false;
 
 	if (host.enable) {
-		vty_out(vty,
-			"Please be aware that removing the password is a security risk and "
-			"you should think twice about this command\n");
-		warned = true;
+		if (!vty_shell_serv(vty)) {
+			vty_out(vty, NO_PASSWD_CMD_WARNING);
+			warned = true;
+		}
 		XFREE(MTYPE_HOST, host.enable);
 	}
 	host.enable = NULL;
 
 	if (host.enable_encrypt) {
-		if (!warned)
-			vty_out(vty,
-				"Please be aware that removing the password is a security risk "
-				"and you should think twice about this command\n");
+		if (!warned && !vty_shell_serv(vty))
+			vty_out(vty, NO_PASSWD_CMD_WARNING);
 		XFREE(MTYPE_HOST, host.enable_encrypt);
 	}
 	host.enable_encrypt = NULL;
