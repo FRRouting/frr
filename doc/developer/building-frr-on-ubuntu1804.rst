@@ -1,7 +1,7 @@
 Ubuntu 18.04LTS
 ===============================================
 
-Install required packages
+Install dependencies
 -------------------------
 
 Add packages:
