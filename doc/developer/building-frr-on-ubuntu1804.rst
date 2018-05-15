@@ -8,10 +8,26 @@ Add packages:
 
 ::
 
-    apt-get install git autoconf automake libtool make gawk libreadline-dev \
-       texinfo pkg-config libpam0g-dev libjson-c-dev bison flex \
-       python-pytest libc-ares-dev python3-dev libsystemd-dev python-ipaddr \
-       python3-sphinx
+    apt-get install \
+        git \
+        autoconf \
+        automake \
+        libtool \
+        make \
+        gawk \
+        libreadline-dev \
+        texinfo \
+        pkg-config \
+        libpam0g-dev \
+        libjson-c-dev \
+        bison \
+        flex \
+        python-pytest \
+        libc-ares-dev \
+        python3-dev \
+        libsystemd-dev \
+        python-ipaddr \
+        python3-sphinx
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
