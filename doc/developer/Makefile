@@ -1,1 +1,0 @@
-include ../frr-sphinx.mk
