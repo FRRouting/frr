@@ -109,8 +109,8 @@ Add the following lines to ``/etc/modules-load.d/modules.conf``:
 ::
 
     # Load MPLS Kernel Modules
-    mpls-router
-    mpls-iptunnel
+    mpls_router
+    mpls_iptunnel
 
 **Reboot** or use ``sysctl -p`` to apply the same config to the running
 system
