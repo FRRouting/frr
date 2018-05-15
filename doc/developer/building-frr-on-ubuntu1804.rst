@@ -67,15 +67,19 @@ Add frr groups and user
        --gecos "FRR suite" --shell /sbin/nologin frr
     sudo usermod -a -G frrvty frr
 
-Download Source, configure and compile it
+Download source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-(You may prefer different options on configure statement. These are just
-an example.)
 
 ::
 
     git clone https://github.com/frrouting/frr.git frr
+
+Configure
+^^^^^^^^^
+Options below are provided as an example. See `User Guide/Installation <http://frrouting.readthedocs.io/en/latest/installation.html>` for more.
+
+::
+
     cd frr
     ./bootstrap.sh
     ./configure \
@@ -99,6 +103,26 @@ an example.)
         --enable-systemd=yes \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion
+
+If optional packages were installed, the associated feature may now be
+enabled.
+
+Protobuf
+~~~~~~~~
+
+::
+    --enable-protobuf
+
+ZeroMQ
+~~~~~~
+
+::
+    --enable-zeromq
+
+Compile
+^^^^^^^
+
+::
     make
     make check
     sudo make install
