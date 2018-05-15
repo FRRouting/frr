@@ -275,7 +275,9 @@ static int netlink_information_fetch(struct sockaddr_nl *snl,
 static int kernel_read(struct thread *thread)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG(thread);
-	netlink_parse_info(netlink_information_fetch, &zns->netlink, zns, 5, 0);
+	netlink_parse_info(netlink_information_fetch,
+			   &zns->netlink, zns,
+			   zebrad.nl_packets_to_process, 0);
 	zns->t_netlink = NULL;
 	thread_add_read(zebrad.master, kernel_read, zns, zns->netlink.sock,
 			&zns->t_netlink);

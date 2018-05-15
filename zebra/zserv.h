@@ -167,6 +167,9 @@ struct zebra_t {
 
 #define ZEBRA_ZAPI_PACKETS_TO_PROCESS 10
 	uint32_t zapi_packets_to_process;
+
+#define ZEBRA_NL_PACKETS_TO_PROCESS 5
+	uint32_t nl_packets_to_process;
 };
 extern struct zebra_t zebrad;
 extern unsigned int multipath_num;
