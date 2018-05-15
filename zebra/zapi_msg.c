@@ -887,6 +887,10 @@ static int zsend_assign_label_chunk_response(struct zserv *client,
 	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, vrf_id);
 
 	if (lmc) {
+		/* proto */
+		stream_putc(s, lmc->proto);
+		/* instance */
+		stream_putw(s, lmc->instance);
 		/* keep */
 		stream_putc(s, lmc->keep);
 		/* start and end labels */
@@ -911,6 +915,12 @@ static int zsend_label_manager_connect_response(struct zserv *client,
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_LABEL_MANAGER_CONNECT, vrf_id);
+
+	/* proto */
+	stream_putc(s, client->proto);
+
+	/* instance */
+	stream_putw(s, client->instance);
 
 	/* result */
 	stream_putc(s, result);
@@ -2397,6 +2407,26 @@ static void zread_label_manager_connect(struct zserv *client,
 stream_failure:
 	return;
 }
+static int msg_client_id_mismatch(const char *op, struct zserv *client,
+				  uint8_t proto, unsigned int instance)
+{
+	if (proto != client->proto) {
+		zlog_err("%s: msg vs client proto mismatch, client=%u msg=%u",
+			 op, client->proto, proto);
+		/* TODO: fail when BGP sets proto and instance */
+		/* return 1; */
+	}
+
+	if (instance != client->instance) {
+		zlog_err(
+			"%s: msg vs client instance mismatch, client=%u msg=%u",
+			op, client->instance, instance);
+		/* TODO: fail when BGP sets proto and instance */
+		/* return 1; */
+	}
+
+	return 0;
+}
 
 static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 				  vrf_id_t vrf_id)
@@ -2405,21 +2435,32 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 	uint8_t keep;
 	uint32_t size;
 	struct label_manager_chunk *lmc;
+	uint8_t proto;
+	unsigned short instance;
 
 	/* Get input stream.  */
 	s = msg;
 
 	/* Get data. */
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
 	STREAM_GETC(s, keep);
 	STREAM_GETL(s, size);
 
+	/* detect client vs message (proto,instance) mismatch */
+	if (msg_client_id_mismatch("Get-label-chunk", client, proto, instance))
+		return;
+
 	lmc = assign_label_chunk(client->proto, client->instance, keep, size);
 	if (!lmc)
-		zlog_err("%s: Unable to assign Label Chunk of size %u",
-			 __func__, size);
+		zlog_err(
+			"Unable to assign Label Chunk of size %u to %s instance %u",
+			size, zebra_route_string(client->proto),
+			client->instance);
 	else
-		zlog_debug("Assigned Label Chunk %u - %u to %u", lmc->start,
-			   lmc->end, keep);
+		zlog_debug("Assigned Label Chunk %u - %u to %s instance %u",
+			   lmc->start, lmc->end,
+			   zebra_route_string(client->proto), client->instance);
 	/* send response back */
 	zsend_assign_label_chunk_response(client, vrf_id, lmc);
 
@@ -2431,13 +2472,22 @@ static void zread_release_label_chunk(struct zserv *client, struct stream *msg)
 {
 	struct stream *s;
 	uint32_t start, end;
+	uint8_t proto;
+	unsigned short instance;
 
 	/* Get input stream.  */
 	s = msg;
 
 	/* Get data. */
+	STREAM_GETC(s, proto);
+	STREAM_GETW(s, instance);
 	STREAM_GETL(s, start);
 	STREAM_GETL(s, end);
+
+	/* detect client vs message (proto,instance) mismatch */
+	if (msg_client_id_mismatch("Release-label-chunk", client, proto,
+				   instance))
+		return;
 
 	release_label_chunk(client->proto, client->instance, start, end);
 
@@ -2452,7 +2502,7 @@ static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 
 	/* external label manager */
 	if (lm_is_external)
-		zread_relay_label_manager_request(hdr->command, client,
+		zread_relay_label_manager_request(hdr->command, client, msg,
 						  zvrf_id(zvrf));
 	/* this is a label manager */
 	else {
