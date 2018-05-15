@@ -3,8 +3,8 @@ Ubuntu 18.04LTS
 
 Install dependencies
 -------------------------
-
-Add packages:
+Required packages
+^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -28,6 +28,27 @@ Add packages:
         libsystemd-dev \
         python-ipaddr \
         python3-sphinx
+
+Optional packages
+^^^^^^^^^^^^^^^^^
+
+Dependencies for additional functionality can be installed as-desired.
+
+Protobuf
+~~~~~~~~
+
+::
+    sudo apt-get install \
+        protobuf-c-compiler \
+        libprotobuf-c-dev
+
+ZeroMQ
+~~~~~~
+
+::
+    sudo apt-get install \
+        libzmq5 \
+        libzmq3-dev
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
