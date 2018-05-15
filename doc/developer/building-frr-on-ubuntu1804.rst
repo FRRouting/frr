@@ -170,7 +170,8 @@ other settings)
 Add MPLS kernel modules
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Add the following lines to ``/etc/modules-load.d/modules.conf``:
+Ubuntu 18.04 ships with kernel 4.15. MPLS modules are present by default.
+To enable, add the following lines to ``/etc/modules-load.d/modules.conf``:
 
 ::
 
@@ -181,7 +182,7 @@ Add the following lines to ``/etc/modules-load.d/modules.conf``:
 **Reboot** or use ``sysctl -p`` to apply the same config to the running
 system
 
-Enable MPLS Forwarding (with Linux Kernel >= 4.5)
+Enable MPLS Forwarding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit ``/etc/sysctl.conf`` and the following lines. Make sure to add a
