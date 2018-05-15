@@ -101,6 +101,20 @@ other settings)
     #  based on Router Advertisements for this host
     net.ipv6.conf.all.forwarding=1
 
+Add MPLS kernel modules
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Add the following lines to ``/etc/modules-load.d/modules.conf``:
+
+::
+
+    # Load MPLS Kernel Modules
+    mpls-router
+    mpls-iptunnel
+
+**Reboot** or use ``sysctl -p`` to apply the same config to the running
+system
+
 Enable MPLS Forwarding (with Linux Kernel >= 4.5)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -115,20 +129,6 @@ MPLS
     net.mpls.conf.eth1.input=1
     net.mpls.conf.eth2.input=1
     net.mpls.platform_labels=100000
-
-Add MPLS kernel modules
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Add the following lines to ``/etc/modules-load.d/modules.conf``:
-
-::
-
-    # Load MPLS Kernel Modules
-    mpls-router
-    mpls-iptunnel
-
-**Reboot** or use ``sysctl -p`` to apply the same config to the running
-system
 
 Install the systemd service (if rebooted from last step, change directory back to frr directory)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
