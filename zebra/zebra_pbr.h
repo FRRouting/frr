@@ -28,6 +28,7 @@
 
 #include "prefix.h"
 #include "if.h"
+#include "hook.h"
 
 #include "rt.h"
 #include "pbr.h"
@@ -48,6 +49,8 @@ struct zebra_pbr_rule {
 	(r->rule.filter.filter_bm & PBR_FILTER_SRC_PORT)
 #define IS_RULE_FILTERING_ON_DST_PORT(r) \
 	(r->rule.filter.filter_bm & PBR_FILTER_DST_PORT)
+#define IS_RULE_FILTERING_ON_FWMARK(r) \
+	(r->rule.filter.filter_bm & PBR_FILTER_FWMARK)
 
 /*
  * An IPSet Entry Filter
@@ -60,6 +63,8 @@ struct zebra_pbr_ipset {
 	 * back to.
 	 */
 	int sock;
+
+	vrf_id_t vrf_id;
 
 	uint32_t unique;
 
@@ -103,6 +108,8 @@ struct zebra_pbr_iptable {
 	 * back to.
 	 */
 	int sock;
+
+	vrf_id_t vrf_id;
 
 	uint32_t unique;
 
@@ -152,6 +159,8 @@ extern void kernel_add_pbr_rule(struct zebra_pbr_rule *rule);
  */
 extern void kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
 
+extern const char *zebra_pbr_ipset_type2str(uint32_t type);
+
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.
  */
@@ -176,6 +185,12 @@ extern void kernel_pbr_ipset_entry_add_del_status(
 
 extern void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
 			      enum southbound_results res);
+
+/*
+ * Handle success or failure of iptables (un)install in the kernel.
+ */
+extern void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
+					      enum southbound_results res);
 
 /*
  * Handle rule delete notification from kernel.
@@ -204,5 +219,37 @@ extern int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2);
 extern void zebra_pbr_iptable_free(void *arg);
 extern uint32_t zebra_pbr_iptable_hash_key(void *arg);
 extern int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
+
+extern void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname);
+extern void zebra_pbr_show_iptable(struct vty *vty);
+
+struct json_object;
+DECLARE_HOOK(zebra_pbr_wrap_script_column, (const char *script,
+					    int begin_at_line,
+					    struct json_object *json,
+					    char *str),
+				     (script, begin_at_line, json, str));
+DECLARE_HOOK(zebra_pbr_wrap_script_rows, (const char *script,
+					  int begin_at_line,
+					  struct json_object *json),
+				     (script, begin_at_line, json));
+DECLARE_HOOK(zebra_pbr_wrap_script_get_stat, (struct json_object *json_input,
+				    const char *pattern, const char *match,
+				    uint64_t *pkts, uint64_t *bytes),
+			     (json_input, pattern, match, pkts, bytes));
+
+DECLARE_HOOK(zebra_pbr_iptable_wrap_script_update, (struct zebra_ns *zns,
+					     int cmd,
+					     struct zebra_pbr_iptable *iptable),
+					     (zns, cmd, iptable));
+
+DECLARE_HOOK(zebra_pbr_ipset_entry_wrap_script_update, (struct zebra_ns *zns,
+				  int cmd,
+				  struct zebra_pbr_ipset_entry *ipset),
+				     (zns, cmd, ipset));
+DECLARE_HOOK(zebra_pbr_ipset_wrap_script_update, (struct zebra_ns *zns,
+				  int cmd,
+				  struct zebra_pbr_ipset *ipset),
+				     (zns, cmd, ipset));
 
 #endif /* _ZEBRA_PBR_H */

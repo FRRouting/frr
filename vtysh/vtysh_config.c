@@ -339,7 +339,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 || (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE                  \
 	 || (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE                  \
 	 || (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE      \
-	 || (I) == MPLS_NODE)
+	 || (I) == MPLS_NODE || (I) == WRAP_SCRIPT_NODE)
 
 /* Display configuration to file pointer. */
 void vtysh_config_dump(FILE *fp)
