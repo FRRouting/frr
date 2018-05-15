@@ -135,6 +135,20 @@ Compile
 Create empty FRR configuration files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Although not strictly necessary, it's good practice to create empty
+configuration files _before_ starting FRR. This assures that the permissions 
+are correct. If the files are not already present, FRR will create them.
+
+It's also important to consider _which_ files to create. FRR supports writing
+configuration to a monolithic file, ``/etc/frr/frr.conf``, which is not
+recommended, according to the 
+`user guide <http://frrouting.readthedocs.io/en/latest/vtysh.html>`.
+The presence of ``/etc/frr/frr.conf`` on startup implicitly configures FRR to
+ignore daemon-specific configuration files.
+
+Daemon-specific configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 ::
 
     sudo install -m 755 -o frr -g frr -d /var/log/frr
@@ -149,7 +163,15 @@ Create empty FRR configuration files
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/pimd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ldpd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf
-    sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
+
+Monolithic configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    sudo install -m 755 -o frr -g frr -d /var/log/frr
+    sudo install -m 775 -o frr -g frrvty -d /etc/frr
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/frr.conf
 
 Enable IPv4 & IPv6 forwarding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
