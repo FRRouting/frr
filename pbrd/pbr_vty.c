@@ -269,7 +269,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	if (pbrms->nhg)
 		nh = nexthop_exists(pbrms->nhg, &nhop);
 	else {
-		char buf[PBR_MAP_NAMELEN];
+		char buf[PBR_NHC_NAMELEN];
 
 		if (no) {
 			vty_out(vty, "No nexthops to delete");
@@ -280,7 +280,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		pbrms->internal_nhg_name =
 			XSTRDUP(MTYPE_TMP,
 				pbr_nht_nexthop_make_name(pbrms->parent->name,
-							  PBR_MAP_NAMELEN - 10,
+							  PBR_NHC_NAMELEN,
 							  pbrms->seqno,
 							  buf));
 		nh = NULL;

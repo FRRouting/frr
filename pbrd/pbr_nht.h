@@ -25,8 +25,10 @@
 
 #include "pbr_map.h"
 
+#define PBR_NHC_NAMELEN PBR_MAP_NAMELEN + 10
+
 struct pbr_nexthop_group_cache {
-	char name[PBR_MAP_NAMELEN];
+	char name[PBR_NHC_NAMELEN];
 
 	uint32_t table_id;
 
