@@ -1,17 +1,56 @@
 Ubuntu 18.04LTS
 ===============================================
 
-Install required packages
+Install dependencies
 -------------------------
-
-Add packages:
+Required packages
+^^^^^^^^^^^^^^^^^
 
 ::
 
-    apt-get install git autoconf automake libtool make gawk libreadline-dev \
-       texinfo pkg-config libpam0g-dev libjson-c-dev bison flex \
-       python-pytest libc-ares-dev python3-dev libsystemd-dev python-ipaddr \
-       python3-sphinx
+    sudo apt-get install \
+        git \
+        autoconf \
+        automake \
+        libtool \
+        make \
+        gawk \
+        libreadline-dev \
+        texinfo \
+        pkg-config \
+        libpam0g-dev \
+        libjson-c-dev \
+        bison \
+        flex \
+        python-pytest \
+        libc-ares-dev \
+        python3-dev \
+        libsystemd-dev \
+        python-ipaddr \
+        python3-sphinx
+
+Optional packages
+^^^^^^^^^^^^^^^^^
+
+Dependencies for additional functionality can be installed as-desired.
+
+Protobuf
+~~~~~~~~
+
+::
+
+    sudo apt-get install \
+        protobuf-c-compiler \
+        libprotobuf-c-dev
+
+ZeroMQ
+~~~~~~
+
+::
+
+    sudo apt-get install \
+        libzmq5 \
+        libzmq3-dev
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -30,15 +69,21 @@ Add frr groups and user
        --gecos "FRR suite" --shell /sbin/nologin frr
     sudo usermod -a -G frrvty frr
 
-Download Source, configure and compile it
+Download source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-(You may prefer different options on configure statement. These are just
-an example.)
 
 ::
 
     git clone https://github.com/frrouting/frr.git frr
+
+Configure
+^^^^^^^^^
+Options below are provided as an example.
+
+.. seealso:: *Installation* section of user guide
+
+::
+
     cd frr
     ./bootstrap.sh
     ./configure \
@@ -62,12 +107,44 @@ an example.)
         --enable-systemd=yes \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion
+
+If optional packages were installed, the associated feature may now be
+enabled.
+
+.. option:: --enable-protobuf
+
+Enable support for protobuf transport
+
+.. option:: --enable-zeromq
+
+Enable support for ZeroMQ transport
+
+Compile
+^^^^^^^
+
+::
+
     make
     make check
     sudo make install
 
 Create empty FRR configuration files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Although not strictly necessary, it's good practice to create empty
+configuration files _before_ starting FRR. This assures that the permissions 
+are correct. If the files are not already present, FRR will create them.
+
+It's also important to consider _which_ files to create. FRR supports writing
+configuration to a monolithic file, ``/etc/frr/frr.conf``, which is not
+recommended
+.. seealso:: *VTYSH* section of user guide
+
+The presence of ``/etc/frr/frr.conf`` on startup implicitly configures FRR to
+ignore daemon-specific configuration files.
+
+Daemon-specific configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -83,7 +160,15 @@ Create empty FRR configuration files
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/pimd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ldpd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf
-    sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
+
+Monolithic configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    sudo install -m 755 -o frr -g frr -d /var/log/frr
+    sudo install -m 775 -o frr -g frrvty -d /etc/frr
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/frr.conf
 
 Enable IPv4 & IPv6 forwarding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -101,7 +186,22 @@ other settings)
     #  based on Router Advertisements for this host
     net.ipv6.conf.all.forwarding=1
 
-Enable MPLS Forwarding (with Linux Kernel >= 4.5)
+Add MPLS kernel modules
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Ubuntu 18.04 ships with kernel 4.15. MPLS modules are present by default.
+To enable, add the following lines to ``/etc/modules-load.d/modules.conf``:
+
+::
+
+    # Load MPLS Kernel Modules
+    mpls_router
+    mpls_iptunnel
+
+**Reboot** or use ``sysctl -p`` to apply the same config to the running
+system
+
+Enable MPLS Forwarding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit ``/etc/sysctl.conf`` and the following lines. Make sure to add a
@@ -115,20 +215,6 @@ MPLS
     net.mpls.conf.eth1.input=1
     net.mpls.conf.eth2.input=1
     net.mpls.platform_labels=100000
-
-Add MPLS kernel modules
-^^^^^^^^^^^^^^^^^^^^^^^
-
-Add the following lines to ``/etc/modules-load.d/modules.conf``:
-
-::
-
-    # Load MPLS Kernel Modules
-    mpls-router
-    mpls-iptunnel
-
-**Reboot** or use ``sysctl -p`` to apply the same config to the running
-system
 
 Install the systemd service (if rebooted from last step, change directory back to frr directory)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
