@@ -8,7 +8,7 @@ Required packages
 
 ::
 
-    apt-get install \
+    sudo apt-get install \
         git \
         autoconf \
         automake \
