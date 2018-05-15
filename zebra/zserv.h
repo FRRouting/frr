@@ -166,7 +166,7 @@ struct zebra_t {
 	struct work_queue *lsp_process_q;
 
 #define ZEBRA_ZAPI_PACKETS_TO_PROCESS 10
-	uint32_t packets_to_process;
+	uint32_t zapi_packets_to_process;
 };
 extern struct zebra_t zebrad;
 extern unsigned int multipath_num;

@@ -3328,7 +3328,7 @@ DEFUN_HIDDEN (zebra_packet_process,
 {
 	uint32_t packets = strtoul(argv[2]->arg, NULL, 10);
 
-	zebrad.packets_to_process = packets;
+	zebrad.zapi_packets_to_process = packets;
 
 	return CMD_SUCCESS;
 }
@@ -3341,7 +3341,7 @@ DEFUN_HIDDEN (no_zebra_packet_process,
 	      "Zapi Protocol\n"
 	      "Number of packets to process before relinquishing thread\n")
 {
-	zebrad.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
+	zebrad.zapi_packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
 
 	return CMD_SUCCESS;
 }
@@ -3420,9 +3420,9 @@ static int config_write_protocol(struct vty *vty)
 	if (zebrad.ribq->spec.hold != ZEBRA_RIB_PROCESS_HOLD_TIME)
 		vty_out(vty, "zebra work-queue %u\n", zebrad.ribq->spec.hold);
 
-	if (zebrad.packets_to_process != ZEBRA_ZAPI_PACKETS_TO_PROCESS)
+	if (zebrad.zapi_packets_to_process != ZEBRA_ZAPI_PACKETS_TO_PROCESS)
 		vty_out(vty, "zebra zapi-packets %u\n",
-			zebrad.packets_to_process);
+			zebrad.zapi_packets_to_process);
 
 	enum multicast_mode ipv4_multicast_mode = multicast_mode_ipv4_get();
 
