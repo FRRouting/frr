@@ -337,9 +337,8 @@ static route_map_result_t route_match_ip_address(void *rule,
 						 void *object)
 {
 	struct access_list *alist;
-	/* struct prefix_ipv4 match; */
 
-	if (type == RMAP_BGP) {
+	if (type == RMAP_BGP && prefix->family == AF_INET) {
 		alist = access_list_lookup(AFI_IP, (char *)rule);
 		if (alist == NULL)
 			return RMAP_NOMATCH;
@@ -381,7 +380,7 @@ static route_map_result_t route_match_ip_next_hop(void *rule,
 	struct bgp_info *bgp_info;
 	struct prefix_ipv4 p;
 
-	if (type == RMAP_BGP) {
+	if (type == RMAP_BGP && prefix->family == AF_INET) {
 		bgp_info = object;
 		p.family = AF_INET;
 		p.prefix = bgp_info->attr->nexthop;
@@ -429,7 +428,7 @@ static route_map_result_t route_match_ip_route_source(void *rule,
 	struct peer *peer;
 	struct prefix_ipv4 p;
 
-	if (type == RMAP_BGP) {
+	if (type == RMAP_BGP && prefix->family == AF_INET) {
 		bgp_info = object;
 		peer = bgp_info->peer;
 
@@ -477,7 +476,7 @@ route_match_ip_address_prefix_list(void *rule, struct prefix *prefix,
 {
 	struct prefix_list *plist;
 
-	if (type == RMAP_BGP) {
+	if (type == RMAP_BGP && prefix->family == AF_INET) {
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
 		if (plist == NULL)
 			return RMAP_NOMATCH;
@@ -514,7 +513,7 @@ route_match_ip_next_hop_prefix_list(void *rule, struct prefix *prefix,
 	struct bgp_info *bgp_info;
 	struct prefix_ipv4 p;
 
-	if (type == RMAP_BGP) {
+	if (type == RMAP_BGP && prefix->family == AF_INET) {
 		bgp_info = object;
 		p.family = AF_INET;
 		p.prefix = bgp_info->attr->nexthop;
@@ -557,7 +556,7 @@ route_match_ip_route_source_prefix_list(void *rule, struct prefix *prefix,
 	struct peer *peer;
 	struct prefix_ipv4 p;
 
-	if (type == RMAP_BGP) {
+	if (type == RMAP_BGP && prefix->family == AF_INET) {
 		bgp_info = object;
 		peer = bgp_info->peer;
 
@@ -2240,7 +2239,7 @@ static route_map_result_t route_match_ipv6_address(void *rule,
 {
 	struct access_list *alist;
 
-	if (type == RMAP_BGP) {
+	if (type == RMAP_BGP && prefix->family == AF_INET6) {
 		alist = access_list_lookup(AFI_IP6, (char *)rule);
 		if (alist == NULL)
 			return RMAP_NOMATCH;
@@ -2327,7 +2326,7 @@ route_match_ipv6_address_prefix_list(void *rule, struct prefix *prefix,
 {
 	struct prefix_list *plist;
 
-	if (type == RMAP_BGP) {
+	if (type == RMAP_BGP && prefix->family == AF_INET6) {
 		plist = prefix_list_lookup(AFI_IP6, (char *)rule);
 		if (plist == NULL)
 			return RMAP_NOMATCH;
