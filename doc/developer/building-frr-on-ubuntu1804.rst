@@ -78,7 +78,9 @@ Download source
 
 Configure
 ^^^^^^^^^
-Options below are provided as an example. See `User Guide/Installation <http://frrouting.readthedocs.io/en/latest/installation.html>` for more.
+Options below are provided as an example.
+
+.. seealso:: *Installation* section of user guide
 
 ::
 
@@ -109,19 +111,13 @@ Options below are provided as an example. See `User Guide/Installation <http://f
 If optional packages were installed, the associated feature may now be
 enabled.
 
-Protobuf
-~~~~~~~~
+.. option:: --enable-protobuf
 
-::
+Enable support for protobuf transport
 
-    --enable-protobuf
+.. option:: --enable-zeromq
 
-ZeroMQ
-~~~~~~
-
-::
-
-    --enable-zeromq
+Enable support for ZeroMQ transport
 
 Compile
 ^^^^^^^
@@ -141,8 +137,9 @@ are correct. If the files are not already present, FRR will create them.
 
 It's also important to consider _which_ files to create. FRR supports writing
 configuration to a monolithic file, ``/etc/frr/frr.conf``, which is not
-recommended, according to the 
-`user guide <http://frrouting.readthedocs.io/en/latest/vtysh.html>`.
+recommended
+.. seealso:: *VTYSH* section of user guide
+
 The presence of ``/etc/frr/frr.conf`` on startup implicitly configures FRR to
 ignore daemon-specific configuration files.
 
