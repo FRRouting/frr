@@ -38,6 +38,7 @@ Protobuf
 ~~~~~~~~
 
 ::
+
     sudo apt-get install \
         protobuf-c-compiler \
         libprotobuf-c-dev
@@ -46,6 +47,7 @@ ZeroMQ
 ~~~~~~
 
 ::
+
     sudo apt-get install \
         libzmq5 \
         libzmq3-dev
@@ -111,18 +113,21 @@ Protobuf
 ~~~~~~~~
 
 ::
+
     --enable-protobuf
 
 ZeroMQ
 ~~~~~~
 
 ::
+
     --enable-zeromq
 
 Compile
 ^^^^^^^
 
 ::
+
     make
     make check
     sudo make install
