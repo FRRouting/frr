@@ -470,18 +470,6 @@ void pbr_nht_change_group(const char *name)
 	pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
 }
 
-/*
- * Since we are writing into the name field which is PBR_MAP_NAMELEN
- * size, we are expecting this to field to be at max 100 bytes.
- * Newer compilers understand that the %s portion may be up to
- * 100 bytes( because of the size of the string.  The %u portion
- * is expected to be 10 bytes.  So in `theory` there are situations
- * where we might truncate.  The reality this is never going to
- * happen( who is going to create a nexthop group name that is
- * over say 30 characters? ).  As such we are expecting the
- * calling function to subtract 10 from the size_t l before
- * we pass it in to get around this new gcc fun.
- */
 char *pbr_nht_nexthop_make_name(char *name, size_t l,
 				uint32_t seqno, char *buffer)
 {
@@ -497,7 +485,7 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms)
 	struct pbr_nexthop_cache lookup;
 
 	memset(&find, 0, sizeof(find));
-	pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_MAP_NAMELEN - 10,
+	pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
 				  pbrms->seqno, find.name);
 	if (!pbrms->internal_nhg_name)
 		pbrms->internal_nhg_name = XSTRDUP(MTYPE_TMP, find.name);
