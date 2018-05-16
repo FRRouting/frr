@@ -534,7 +534,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %doc */*.sample* AUTHORS COPYING
 %doc doc/mpls
-%doc ChangeLog NEWS README SERVICES
+%doc ChangeLog NEWS README
 %if 0%{?frr_user:1}
 %dir %attr(751,%frr_user,%frr_user) %{_sysconfdir}
 %dir %attr(750,%frr_user,%frr_user) /var/log/frr 

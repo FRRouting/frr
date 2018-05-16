@@ -20,6 +20,8 @@ can use FRR library as your program's client user interface.
 
 FRR is distributed under the GNU General Public License.
 
+FRR is a fork of `Quagga <http://www.quagga.net/>`_.
+
 .. _about-frr:
 
 About FRR
@@ -235,7 +237,8 @@ How to get FRR
 The official FRR website is located at |PACKAGE_URL| and contains further
 information, as well as links to additional resources.
 
-FRR is a fork of `Quagga <http://www.quagga.net/>`_.
+Several distributions provide packages for FRR. Check your distribution's
+repositories to find out if a suitable version is available.
 
 Mailing Lists
 =============

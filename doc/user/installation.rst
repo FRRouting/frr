@@ -1,8 +1,7 @@
 .. _installation:
 
-************
 Installation
-************
+============
 
 .. index:: How to install FRR
 .. index:: Installation
@@ -10,46 +9,73 @@ Installation
 .. index:: Building the system
 .. index:: Making FRR
 
-Several distributions provide packages for FRR. Check your distribution's
-repositories to find out if a suitable version is available.
+This section covers the basics of building, installing and setting up FRR.
 
-FRR depends on various libraries depending on your operating system.
+From Packages
+-------------
 
-After installing these dependencies, change to the frr source directory and
-issue the following commands:
+The project publishes packages for Red Hat, Centos, Debian and Ubuntu on the
+`GitHub releases <https://github.com/FRRouting/frr/releases>`_. page. External
+contributors offer packages for many other platforms including \*BSD, Alpine,
+Gentoo, Docker, and others. There is currently no documentation on how to use
+those but we hope to add it soon.
 
-::
+From Snapcraft
+--------------
 
-  $ ./bootstrap.sh
-  $ ./configure
-  $ make
-  $ make install
+In addition to traditional packages the project also builds and publishes
+universal Snap images, available at https://snapcraft.io/frr.
 
+From Source
+-----------
 
-.. _configure-the-software:
+Building FRR from source is the best way to ensure you have the latest features
+and bug fixes. Details for each supported platform, including dependency
+package listings, permissions, and other gotchas, are in the developer's
+documentation. This section provides a brief overview on the process.
 
-Configure the Software
-======================
+Getting the Source
+^^^^^^^^^^^^^^^^^^
 
+FRR's source is available on the project
+`GitHub page <https://github.com/FRRouting/frr>`_.
 
-.. _the-configure-script:
+.. code-block:: shell
 
-The Configure Script
---------------------
+   git clone https://github.com/FRRouting/frr.git
+
+When building from Git there are several branches to choose from. The
+``master`` branch is the primary development branch. It should be considered
+unstable. Each release has its own branch named ``stable/X.X``, where ``X.X``
+is the release version.
+
+In addition, release tarballs are published on the GitHub releases page
+`here <https://github.com/FRRouting/frr/releases>`_.
+
+Configuration
+^^^^^^^^^^^^^
 
 .. index:: Configuration options
-
 .. index:: Options for configuring
-
 .. index:: Build options
-
 .. index:: Distribution configuration
-
 .. index:: Options to `./configure`
 
-FRR has an excellent configure script which automatically detects most
-host configurations.  There are several additional configure options to
-customize the build to include or exclude specific features and dependencies.
+FRR has an excellent configure script which automatically detects most host
+configurations. There are several additional configure options to customize the
+build to include or exclude specific features and dependencies.
+
+First, update the build system. Change into your FRR source directory and issue:
+
+.. code-block:: shell
+
+   ./bootstrap.sh
+
+This will install any missing build scripts and update the Autotools
+configuration. Once this is done you can move on to choosing your configuration
+options from the list below.
+
+.. _frr-configuration:
 
 .. program:: configure
 
@@ -202,10 +228,9 @@ options to the configuration script.
 .. _least-privilege-support:
 
 Least-Privilege Support
------------------------
+"""""""""""""""""""""""
 
 .. index:: FRR Least-Privileges
-
 .. index:: FRR Privileges
 
 Additionally, you may configure zebra to drop its elevated privileges
@@ -240,112 +265,54 @@ only Linux), FRR will retain only minimal capabilities required and will only
 raise these capabilities for brief periods. On systems without libcap, FRR will
 run as the user specified and only raise its UID to 0 for brief periods.
 
-.. _linux-notes:
-
 Linux Notes
------------
-
-.. index:: Configuring FRR
+"""""""""""
 
 .. index:: Building on Linux boxes
-
 .. index:: Linux configurations
 
-There are several options available only to GNU/Linux systems [#]_.
-If you use GNU/Linux, make sure that the current kernel configuration is what
-you want.  FRR will run with any kernel configuration but some recommendations
-do exist.
+There are several options available only to GNU/Linux systems.  If you use
+GNU/Linux, make sure that the current kernel configuration is what you want.
+FRR will run with any kernel configuration but some recommendations do exist.
 
+:makevar:`CONFIG_NETLINK`
+   Kernel/User Netlink socket. This is a enables an advanced interface between
+   the Linux kernel and *zebra* (:ref:`kernel-interface`).
 
-- :makevar:`CONFIG_NETLINK`
-  Kernel/User Netlink socket. This is a brand new feature which enables an
-  advanced interface between the Linux kernel and zebra (:ref:`kernel-interface`).
-- :makevar:`CONFIG_RTNETLINK`
-  Routing messages.
-  This makes it possible to receive Netlink routing messages.  If you
-  specify this option, *zebra* can detect routing information
-  updates directly from the kernel (:ref:`kernel-interface`).
-- :makevar:`CONFIG_IP_MULTICAST`
-  IP: multicasting.
-  This option should be specified when you use *ripd* (:ref:`rip`) or
-  *ospfd* (:ref:`ospfv2`) because these protocols use multicast.
+:makevar:`CONFIG_RTNETLINK`
+   This makes it possible to receive Netlink routing messages.  If you specify
+   this option, *zebra* can detect routing information updates directly from
+   the kernel (:ref:`kernel-interface`).
 
-IPv6 support has been added in GNU/Linux kernel version 2.2.  If you
-try to use the FRR IPv6 feature on a GNU/Linux kernel, please
-make sure the following libraries have been installed.  Please note that
-these libraries will not be needed when you uses GNU C library 2.1
-or upper.
+:makevar:`CONFIG_IP_MULTICAST`
+   This option enables IP multicast and should be specified when you use *ripd*
+   (:ref:`rip`) or *ospfd* (:ref:`ospfv2`) because these protocols use
+   multicast.
 
-- inet6-apps
+Building
+^^^^^^^^
 
-  The `inet6-apps` package includes basic IPv6 related libraries such
-  as `inet_ntop` and `inet_pton`.  Some basic IPv6 programs such
-  as *ping*, *ftp*, and *inetd* are also
-  included. The `inet-apps` can be found at
-  `ftp://ftp.inner.net/pub/ipv6/ <ftp://ftp.inner.net/pub/ipv6/>`_.
+Once you have chosen your configure options, run the configure script and pass
+the options you chose:
 
-- net-tools
+.. code-block:: shell
 
-  The `net-tools` package provides an IPv6 enabled interface and routing
-  utility.  It contains *ifconfig*, *route*, *netstat*, and other tools.
-  `net-tools` may be found at http://www.tazenda.demon.co.uk/phil/net-tools/.
+   ./configure \
+       --prefix=/usr \
+       --enable-exampledir=/usr/share/doc/frr/examples/ \
+       --localstatedir=/var/run/frr \
+       --sbindir=/usr/lib/frr \
+       --sysconfdir=/etc/frr \
+       --enable-pimd \
+       --enable-watchfrr \
+       ...
 
-.. _build-the-software:
+After configuring the software, you are ready to build and install it for your
+system.
 
-Build the Software
-==================
+.. code-block:: shell
 
-After configuring the software, you will need to compile it for your system.
-Simply issue the command *make* in the root of the source directory and the
-software will be compiled. Cliff Notes versions of different compilation
-examples can be found in the Developer's Manual Appendix.  If you have *any*
-problems at this stage, please send a bug report :ref:`bug-reports`.
+   make && sudo make install
 
-::
-
-  $ ./bootstrap.sh
-  $ ./configure <appropriate to your system>
-  $ make
-
-
-Install the Software
-====================
-
-Installing the software to your system consists of copying the compiled
-programs and supporting files to a standard location. After the
-installation process has completed, these files have been copied
-from your work directory to :file:`/usr/local/bin`, and :file:`/usr/local/etc`.
-
-To install the FRR suite, issue the following command at your shell
-prompt:::
-
-  $ make install
-
-FRR daemons have their own terminal interface or VTY.  After
-installation, you have to setup each beast's port number to connect to
-them. Please add the following entries to :file:`/etc/services`.
-
-::
-
-  zebrasrv      2600/tcp		  # zebra service
-  zebra         2601/tcp		  # zebra vty
-  ripd          2602/tcp		  # RIPd vty
-  ripngd        2603/tcp		  # RIPngd vty
-  ospfd         2604/tcp		  # OSPFd vty
-  bgpd          2605/tcp		  # BGPd vty
-  ospf6d        2606/tcp		  # OSPF6d vty
-  ospfapi       2607/tcp		  # ospfapi
-  isisd         2608/tcp		  # ISISd vty
-  nhrpd         2610/tcp		  # nhrpd vty
-  pimd          2611/tcp		  # PIMd vty
-
-
-If you use a FreeBSD newer than 2.2.8, the above entries are already
-added to :file:`/etc/services` so there is no need to add it. If you
-specify a port number when starting the daemon, these entries may not be
-needed.
-
-You may need to make changes to the config files in
-|INSTALL_PREFIX_ETC|. :ref:`config-commands`.
-
-.. [#] GNU/Linux has very flexible kernel configuration features.
+If everything finishes successfully, FRR should be installed. You should now
+skip to the section on :ref:`basic-setup`.

@@ -5,7 +5,7 @@ FRRouting User Guide
    :maxdepth: 2
 
    overview
-   installation
+   getting-started
    basic
    vtysh
    filter
