@@ -68,6 +68,9 @@
 static const struct option longopts[] = {
 	{"bgp_port", required_argument, NULL, 'p'},
 	{"listenon", required_argument, NULL, 'l'},
+#if CONFDATE > 20190521
+	CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
+#endif
 	{"retain", no_argument, NULL, 'r'},
 	{"no_kernel", no_argument, NULL, 'n'},
 	{"skip_runas", no_argument, NULL, 'S'},
@@ -100,9 +103,6 @@ static struct quagga_signal_t bgp_signals[] = {
 		.handler = &sigint,
 	},
 };
-
-/* Route retain mode flag. */
-static int retain_mode = 0;
 
 /* privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_NET_RAW,
@@ -146,8 +146,7 @@ __attribute__((__noreturn__)) void sigint(void)
 	assert(bm->terminating == false);
 	bm->terminating = true;	/* global flag that shutting down */
 
-	if (!retain_mode)
-		bgp_terminate();
+	bgp_terminate();
 
 	bgp_exit(0);
 
@@ -324,6 +323,11 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
 
 		.privs = &bgpd_privs, )
 
+#if CONFDATE > 20190521
+CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
+#endif
+#define DEPRECATED_OPTIONS "r"
+
 /* Main routine of bgpd. Treatment of argument and start bgp finite
    state machine is handled at here. */
 int main(int argc, char **argv)
@@ -338,10 +342,9 @@ int main(int argc, char **argv)
 
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add(
-		"p:l:rSne:", longopts,
+		"p:l:Sne:" DEPRECATED_OPTIONS, longopts,
 		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
 		"  -l, --listenon     Listen on specified address (implies -n)\n"
-		"  -r, --retain       When program terminates, retain added route by bgpd.\n"
 		"  -n, --no_kernel    Do not install route to kernel.\n"
 		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
 		"  -e, --ecmp         Specify ECMP to use.\n");
@@ -349,6 +352,13 @@ int main(int argc, char **argv)
 	/* Command line argument treatment. */
 	while (1) {
 		opt = frr_getopt(argc, argv, 0);
+
+		if (opt && opt < 128 && strchr(DEPRECATED_OPTIONS, opt)) {
+			fprintf(stderr,
+				"The -%c option no longer exists.\nPlease refer to the manual.\n",
+				opt);
+			continue;
+		}
 
 		if (opt == EOF)
 			break;
@@ -372,9 +382,6 @@ int main(int argc, char **argv)
 					MULTIPATH_NUM);
 				return 1;
 			}
-			break;
-		case 'r':
-			retain_mode = 1;
 			break;
 		case 'l':
 			bgp_address = optarg;
