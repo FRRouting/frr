@@ -481,6 +481,9 @@ struct bgp {
 	/* EVPN enable - advertise local VNIs and their MACs etc. */
 	int advertise_all_vni;
 
+	/* EVPN - use RFC 8365 to auto-derive RT */
+	int advertise_autort_rfc8365;
+
 	/* Hash table of Import RTs to EVIs */
 	struct hash *import_rt_hash;
 

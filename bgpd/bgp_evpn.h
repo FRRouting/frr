@@ -25,6 +25,7 @@
 #include "bgpd.h"
 
 #define EVPN_ROUTE_STRLEN 200 /* Must be >> MAC + IPv6 strings. */
+#define EVPN_AUTORT_VXLAN 0x10000000
 
 static inline int is_evpn_enabled(void)
 {

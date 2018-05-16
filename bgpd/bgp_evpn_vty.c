@@ -2513,6 +2513,24 @@ static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
 	bgp_evpn_cleanup_on_disable(bgp);
 }
+
+/*
+ * EVPN - use RFC8365 to auto-derive RT
+ */
+static void evpn_set_advertise_autort_rfc8365(struct bgp *bgp)
+{
+	bgp->advertise_autort_rfc8365 = 1;
+	bgp_evpn_handle_autort_change(bgp);
+}
+
+/*
+ * EVPN - don't use RFC8365 to auto-derive RT
+ */
+static void evpn_unset_advertise_autort_rfc8365(struct bgp *bgp)
+{
+	bgp->advertise_autort_rfc8365 = 0;
+	bgp_evpn_handle_autort_change(bgp);
+}
 #endif /* HAVE_CUMULUS */
 
 static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
@@ -2663,6 +2681,35 @@ DEFUN (no_bgp_evpn_advertise_all_vni,
 	if (!bgp)
 		return CMD_WARNING;
 	evpn_unset_advertise_all_vni(bgp);
+	return CMD_SUCCESS;
+}
+
+DEFUN (bgp_evpn_advertise_autort_rfc8365,
+       bgp_evpn_advertise_autort_rfc8365_cmd,
+       "autort rfc8365-compatible",
+       "Auto-derivation of RT\n"
+       "Auto-derivation of RT using RFC8365\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp)
+		return CMD_WARNING;
+	evpn_set_advertise_autort_rfc8365(bgp);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_evpn_advertise_autort_rfc8365,
+       no_bgp_evpn_advertise_autort_rfc8365_cmd,
+       "no autort rfc8365-compatible",
+       NO_STR
+       "Auto-derivation of RT\n"
+       "Auto-derivation of RT using RFC8365\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp)
+		return CMD_WARNING;
+	evpn_unset_advertise_autort_rfc8365(bgp);
 	return CMD_SUCCESS;
 }
 
@@ -4389,6 +4436,9 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->advertise_all_vni)
 		vty_out(vty, "  advertise-all-vni\n");
 
+	if (bgp->advertise_autort_rfc8365)
+		vty_out(vty, "  autort rfc8365-compatible\n");
+
 	if (bgp->advertise_gw_macip)
 		vty_out(vty, "  advertise-default-gw\n");
 
@@ -4476,6 +4526,8 @@ void bgp_ethernetvpn_init(void)
 #if defined(HAVE_CUMULUS)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_all_vni_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_autort_rfc8365_cmd);
+	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_autort_rfc8365_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_default_gw_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_default_gw_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_cmd);

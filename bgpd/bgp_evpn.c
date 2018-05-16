@@ -452,6 +452,8 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl)
 	struct ecommunity_val eval;
 	struct ecommunity *ecomadd;
 
+	if (bgp->advertise_autort_rfc8365)
+		vni |= EVPN_AUTORT_VXLAN;
 	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
 
 	ecomadd = ecommunity_new();
@@ -3233,6 +3235,41 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 }
 
 /*
+ * Handle autort change for a given VNI.
+ */
+static void update_autort_vni(struct hash_backet *backet, struct bgp *bgp)
+{
+	struct bgpevpn *vpn = backet->data;
+	struct listnode *node, *nnode;
+	struct ecommunity *ecom;
+
+	if (!vpn) {
+		zlog_warn("%s: VNI hash entry for VNI not found", __PRETTY_FUNCTION__);
+		return;
+	}
+
+	if (!is_import_rt_configured(vpn)) {
+		if (is_vni_live(vpn))
+			bgp_evpn_uninstall_routes(bgp, vpn);
+		bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
+		for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode, ecom))
+			ecommunity_free(&ecom);
+		list_delete_all_node(vpn->import_rtl);
+		bgp_evpn_derive_auto_rt_import(bgp, vpn);
+		if (is_vni_live(vpn))
+			bgp_evpn_install_routes(bgp, vpn);
+	}
+	if (!is_export_rt_configured(vpn)) {
+		for (ALL_LIST_ELEMENTS(vpn->export_rtl, node, nnode, ecom))
+			ecommunity_free(&ecom);
+		list_delete_all_node(vpn->export_rtl);
+		bgp_evpn_derive_auto_rt_export(bgp, vpn);
+		if (is_vni_live(vpn))
+			bgp_evpn_handle_export_rt_change(bgp, vpn);
+	}
+}
+
+/*
  * Public functions.
  */
 
@@ -3343,6 +3380,8 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl)
 	struct ecommunity *ecom, *ecom_auto;
 	struct ecommunity_val eval;
 
+	if (bgp->advertise_autort_rfc8365)
+		vni |= EVPN_AUTORT_VXLAN;
 	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
 
 	ecom_auto = ecommunity_new();
@@ -3500,6 +3539,17 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 				       void *))update_router_id_vni,
 			     bgp);
 	}
+}
+
+/*
+ * Handle change to auto-RT algorithm - update and advertise local routes.
+ */
+void bgp_evpn_handle_autort_change(struct bgp *bgp)
+{
+	hash_iterate(bgp->vnihash,
+		     (void (*)(struct hash_backet *,
+			       void*))update_autort_vni,
+		     bgp);
 }
 
 /*
