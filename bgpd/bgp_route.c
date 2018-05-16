@@ -10365,8 +10365,10 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 							 afi, safi, rmap_name);
 
 				if (type == bgp_show_adj_route_filtered
-				    && ret != RMAP_DENY)
+				    && ret != RMAP_DENY) {
+					bgp_attr_undup(&attr, ain->attr);
 					continue;
+				}
 
 				if (type == bgp_show_adj_route_received
 				    && ret == RMAP_DENY)
@@ -10374,12 +10376,13 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 
 				route_vty_out_tmp(vty, &rn->p, &attr, safi,
 						  use_json, json_ar);
+				bgp_attr_undup(&attr, ain->attr);
 				output_count++;
 			}
 		} else if (type == bgp_show_adj_route_advertised) {
 			for (adj = rn->adj_out; adj; adj = adj->next)
 				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
-					if (paf->peer != peer)
+					if (paf->peer != peer || !adj->attr)
 						continue;
 
 					if (header1) {
@@ -10427,7 +10430,6 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 						}
 						header1 = 0;
 					}
-
 					if (header2) {
 						if (!use_json)
 							vty_out(vty,
@@ -10435,24 +10437,22 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 						header2 = 0;
 					}
 
-					if (adj->attr) {
-						bgp_attr_dup(&attr, adj->attr);
-						ret = bgp_output_modifier(
-							peer, &rn->p, &attr,
-							afi, safi, rmap_name);
-						if (ret != RMAP_DENY) {
-							route_vty_out_tmp(
-								vty, &rn->p,
-								&attr, safi,
-								use_json,
-								json_ar);
-							output_count++;
-						} else
-							filtered_count++;
+					bgp_attr_dup(&attr, adj->attr);
+					ret = bgp_output_modifier(
+						peer, &rn->p, &attr, afi, safi,
+						rmap_name);
 
-						bgp_attr_undup(&attr,
-							       adj->attr);
+					if (ret != RMAP_DENY) {
+						route_vty_out_tmp(vty, &rn->p,
+								  &attr, safi,
+								  use_json,
+								  json_ar);
+						output_count++;
+					} else {
+						filtered_count++;
 					}
+
+					bgp_attr_undup(&attr, adj->attr);
 				}
 		}
 	}
