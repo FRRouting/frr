@@ -39,6 +39,9 @@
 #include "ripd/ripd.h"
 
 /* ripd options. */
+#if CONFDATE > 20190521
+	CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
+#endif
 static struct option longopts[] = {{"retain", no_argument, NULL, 'r'}, {0}};
 
 /* ripd privileges */
@@ -57,9 +60,6 @@ struct zebra_privs_t ripd_privs = {
 	.caps_p = _caps_p,
 	.cap_num_p = 2,
 	.cap_num_i = 0};
-
-/* Route retain mode flag. */
-int retain_mode = 0;
 
 /* Master of threads. */
 struct thread_master *master;
@@ -85,8 +85,7 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
-	if (!retain_mode)
-		rip_clean();
+	rip_clean();
 
 	rip_zclient_stop();
 	frr_fini();
@@ -127,13 +126,17 @@ FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
 
 		.privs = &ripd_privs, )
 
+#if CONFDATE > 20190521
+CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
+#endif
+#define DEPRECATED_OPTIONS "r"
+
 /* Main routine of ripd. */
 int main(int argc, char **argv)
 {
 	frr_preinit(&ripd_di, argc, argv);
-	frr_opt_add(
-		"r", longopts,
-		"  -r, --retain       When program terminates, retain added route by ripd.\n");
+
+	frr_opt_add("" DEPRECATED_OPTIONS, longopts, "");
 
 	/* Command line option parse. */
 	while (1) {
@@ -141,14 +144,18 @@ int main(int argc, char **argv)
 
 		opt = frr_getopt(argc, argv, NULL);
 
+		if (opt && opt < 128 && strchr(DEPRECATED_OPTIONS, opt)) {
+			fprintf(stderr,
+				"The -%c option no longer exists.\nPlease refer to the manual.\n",
+				opt);
+			continue;
+		}
+
 		if (opt == EOF)
 			break;
 
 		switch (opt) {
 		case 0:
-			break;
-		case 'r':
-			retain_mode = 1;
 			break;
 		default:
 			frr_help_exit(1);
