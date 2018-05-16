@@ -377,7 +377,7 @@ static int zserv_read(struct thread *thread)
 #if defined(HANDLE_ZAPI_FUZZING)
 	int packets = 1;
 #else
-	int packets = zebrad.packets_to_process;
+	int packets = zebrad.zapi_packets_to_process;
 #endif
 	/* Get thread data.  Reset reading thread because I'm running. */
 	sock = THREAD_FD(thread);
@@ -497,7 +497,7 @@ static int zserv_read(struct thread *thread)
 
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("Read %d packets",
-			   zebrad.packets_to_process - packets);
+			   zebrad.zapi_packets_to_process - packets);
 
 	/* Schedule job to process those packets */
 	thread_add_event(zebrad.master, &zserv_process_messages, client, 0,
