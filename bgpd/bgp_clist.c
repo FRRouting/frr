@@ -512,7 +512,7 @@ static int lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = lcommunity_str(com);
+		str = lcommunity_str(com, false);
 
 	/* Regular expression match.  */
 	if (regexec(reg, str, 0, NULL, 0) == 0)
@@ -986,13 +986,8 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	entry->any = (str ? 0 : 1);
 	entry->u.lcom = lcom;
 	entry->reg = regex;
-	if (lcom)
-		entry->config = lcommunity_lcom2str(
-			lcom, LCOMMUNITY_FORMAT_COMMUNITY_LIST);
-	else if (regex)
-		entry->config = XSTRDUP(MTYPE_COMMUNITY_LIST_CONFIG, str);
-	else
-		entry->config = NULL;
+	entry->config =
+		(regex ? XSTRDUP(MTYPE_COMMUNITY_LIST_CONFIG, str) : NULL);
 
 	/* Do not put duplicated community entry.  */
 	if (community_list_dup_check(list, entry))

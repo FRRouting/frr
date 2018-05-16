@@ -160,15 +160,6 @@ struct lcommunity *lcommunity_dup(struct lcommunity *lcom)
 	return new;
 }
 
-/* Retrun string representation of communities attribute. */
-char *lcommunity_str(struct lcommunity *lcom)
-{
-	if (!lcom->str)
-		lcom->str =
-			lcommunity_lcom2str(lcom, LCOMMUNITY_FORMAT_DISPLAY);
-	return lcom->str;
-}
-
 /* Merge two Large Communities Attribute structure.  */
 struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
 				    struct lcommunity *lcom2)
@@ -186,6 +177,80 @@ struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
 	return lcom1;
 }
 
+static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
+{
+	int i;
+	int len;
+	bool first = 1;
+	char *str_buf;
+	char *str_pnt;
+	uint8_t *pnt;
+	uint32_t global, local1, local2;
+	json_object *json_lcommunity_list = NULL;
+	json_object *json_string = NULL;
+
+#define LCOMMUNITY_STR_DEFAULT_LEN 32
+
+	if (!lcom)
+		return;
+
+	if (make_json) {
+		lcom->json = json_object_new_object();
+		json_lcommunity_list = json_object_new_array();
+	}
+
+	if (lcom->size == 0) {
+		str_buf = XMALLOC(MTYPE_LCOMMUNITY_STR, 1);
+		str_buf[0] = '\0';
+
+		if (make_json) {
+			json_object_string_add(lcom->json, "string", "");
+			json_object_object_add(lcom->json, "list",
+					       json_lcommunity_list);
+		}
+
+		lcom->str = str_buf;
+		return;
+	}
+
+	str_buf = str_pnt =
+		XMALLOC(MTYPE_LCOMMUNITY_STR,
+			(LCOMMUNITY_STR_DEFAULT_LEN * lcom->size) + 1);
+
+	for (i = 0; i < lcom->size; i++) {
+		if (first)
+			first = 0;
+		else
+			*str_pnt++ = ' ';
+
+		pnt = lcom->val + (i * LCOMMUNITY_SIZE);
+		pnt = ptr_get_be32(pnt, &global);
+		pnt = ptr_get_be32(pnt, &local1);
+		pnt = ptr_get_be32(pnt, &local2);
+		(void)pnt;
+
+		len = sprintf(str_pnt, "%u:%u:%u", global, local1, local2);
+		if (make_json) {
+			json_string = json_object_new_string(str_pnt);
+			json_object_array_add(json_lcommunity_list,
+					      json_string);
+		}
+
+		str_pnt += len;
+	}
+
+	str_buf =
+		XREALLOC(MTYPE_LCOMMUNITY_STR, str_buf, str_pnt - str_buf + 1);
+
+	if (make_json) {
+		json_object_string_add(lcom->json, "string", str_buf);
+		json_object_object_add(lcom->json, "list",
+				       json_lcommunity_list);
+	}
+
+	lcom->str = str_buf;
+}
+
 /* Intern Large Communities Attribute.  */
 struct lcommunity *lcommunity_intern(struct lcommunity *lcom)
 {
@@ -201,8 +266,7 @@ struct lcommunity *lcommunity_intern(struct lcommunity *lcom)
 	find->refcnt++;
 
 	if (!find->str)
-		find->str =
-			lcommunity_lcom2str(find, LCOMMUNITY_FORMAT_DISPLAY);
+		set_lcommunity_string(find, false);
 
 	return find;
 }
@@ -223,6 +287,21 @@ void lcommunity_unintern(struct lcommunity **lcom)
 
 		lcommunity_free(lcom);
 	}
+}
+
+/* Retrun string representation of communities attribute. */
+char *lcommunity_str(struct lcommunity *lcom, bool make_json)
+{
+	if (!lcom)
+		return NULL;
+
+	if (make_json && !lcom->json && lcom->str)
+		XFREE(MTYPE_LCOMMUNITY_STR, lcom->str);
+
+	if (!lcom->str)
+		set_lcommunity_string(lcom, make_json);
+
+	return lcom->str;
 }
 
 /* Utility function to make hash key.  */
@@ -386,59 +465,6 @@ int lcommunity_include(struct lcommunity *lcom, uint8_t *ptr)
 			return 1;
 	}
 	return 0;
-}
-
-/* Convert large community attribute to string.
-   The large coms will be in 65535:65531:0 format.
-*/
-char *lcommunity_lcom2str(struct lcommunity *lcom, int format)
-{
-	int i;
-	uint8_t *pnt;
-#define LCOMMUNITY_STR_DEFAULT_LEN  40
-	int str_size;
-	int str_pnt;
-	char *str_buf;
-	int len = 0;
-	int first = 1;
-	uint32_t globaladmin, localdata1, localdata2;
-
-	if (lcom->size == 0) {
-		str_buf = XMALLOC(MTYPE_LCOMMUNITY_STR, 1);
-		str_buf[0] = '\0';
-		return str_buf;
-	}
-
-	/* Prepare buffer.  */
-	str_buf = XMALLOC(MTYPE_LCOMMUNITY_STR, LCOMMUNITY_STR_DEFAULT_LEN + 1);
-	str_size = LCOMMUNITY_STR_DEFAULT_LEN + 1;
-	str_pnt = 0;
-
-	for (i = 0; i < lcom->size; i++) {
-		/* Make it sure size is enough.  */
-		while (str_pnt + LCOMMUNITY_STR_DEFAULT_LEN >= str_size) {
-			str_size *= 2;
-			str_buf = XREALLOC(MTYPE_LCOMMUNITY_STR, str_buf,
-					   str_size);
-		}
-
-		/* Space between each value.  */
-		if (!first)
-			str_buf[str_pnt++] = ' ';
-
-		pnt = lcom->val + (i * LCOMMUNITY_SIZE);
-
-		pnt = ptr_get_be32(pnt, &globaladmin);
-		pnt = ptr_get_be32(pnt, &localdata1);
-		pnt = ptr_get_be32(pnt, &localdata2);
-		(void)pnt; /* consume value */
-
-		len = sprintf(str_buf + str_pnt, "%u:%u:%u", globaladmin,
-			      localdata1, localdata2);
-		str_pnt += len;
-		first = 0;
-	}
-	return str_buf;
 }
 
 int lcommunity_match(const struct lcommunity *lcom1,
