@@ -166,6 +166,9 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 					 BGP_FLOWSPEC_NLRI_STRING_MAX,
 					 "EC{%s}",
 					s == NULL ? "none" : s);
+
+				if (s)
+					ecommunity_strfree(&s);
 			}
 			snprintf(local_string, BGP_FLOWSPEC_NLRI_STRING_MAX,
 				 "FS Rx %s %s %s %s", withdraw ?
