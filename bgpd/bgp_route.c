@@ -10188,8 +10188,9 @@ DEFUN (show_ip_bgp_l2vpn_evpn_all_route_prefix,
 }
 
 static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
-			   safi_t safi, int in, const char *rmap_name,
-			   uint8_t use_json, json_object *json)
+			   safi_t safi, enum bgp_show_adj_route_type type,
+			   const char *rmap_name, uint8_t use_json,
+			   json_object *json)
 {
 	struct bgp_table *table;
 	struct bgp_adj_in *ain;
@@ -10246,7 +10247,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 	output_count = filtered_count = 0;
 	subgrp = peer_subgroup(peer, afi, safi);
 
-	if (!in && subgrp
+	if (type == bgp_show_adj_route_advertised && subgrp
 	    && CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
 		if (use_json) {
 			json_object_int_add(json, "bgpTableVersion",
@@ -10279,10 +10280,12 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 	}
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		if (in) {
+		if (type == bgp_show_adj_route_received
+		    || type == bgp_show_adj_route_filtered) {
 			for (ain = rn->adj_in; ain; ain = ain->next) {
-				if (ain->peer != peer)
+				if (ain->peer != peer || !ain->attr)
 					continue;
+
 				if (header1) {
 					if (use_json) {
 						json_object_int_add(
@@ -10325,22 +10328,24 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 						vty_out(vty, BGP_SHOW_HEADER);
 					header2 = 0;
 				}
-				if (ain->attr) {
-					bgp_attr_dup(&attr, ain->attr);
-					if (bgp_input_modifier(peer, &rn->p,
-							       &attr, afi, safi,
-							       rmap_name)
-					    != RMAP_DENY) {
-						route_vty_out_tmp(vty, &rn->p,
-								  &attr, safi,
-								  use_json,
-								  json_ar);
-						output_count++;
-					} else
-						filtered_count++;
-				}
+
+				bgp_attr_dup(&attr, ain->attr);
+				ret = bgp_input_modifier(peer, &rn->p, &attr,
+							 afi, safi, rmap_name);
+
+				if (type == bgp_show_adj_route_filtered
+				    && ret != RMAP_DENY)
+					continue;
+
+				if (type == bgp_show_adj_route_received
+				    && ret == RMAP_DENY)
+					filtered_count++;
+
+				route_vty_out_tmp(vty, &rn->p, &attr, safi,
+						  use_json, json_ar);
+				output_count++;
 			}
-		} else {
+		} else if (type == bgp_show_adj_route_advertised) {
 			for (adj = rn->adj_out; adj; adj = adj->next)
 				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
 					if (paf->peer != peer)
@@ -10420,27 +10425,30 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				}
 		}
 	}
-	if (use_json)
-		json_object_object_add(json, "advertisedRoutes", json_ar);
 
-	if (output_count != 0) {
-		if (use_json)
-			json_object_int_add(json, "totalPrefixCounter",
-					    output_count);
+	if (use_json) {
+		json_object_object_add(json, "advertisedRoutes", json_ar);
+		json_object_int_add(json, "totalPrefixCounter", output_count);
+		json_object_int_add(json, "filteredPrefixCounter",
+				    filtered_count);
+
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else if (output_count > 0) {
+		if (filtered_count > 0)
+			vty_out(vty,
+				"\nTotal number of prefixes %ld (%ld filtered)\n",
+				output_count, filtered_count);
 		else
 			vty_out(vty, "\nTotal number of prefixes %ld\n",
 				output_count);
 	}
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
 }
 
 static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
-			   safi_t safi, int in, const char *rmap_name,
-			   uint8_t use_json)
+			   safi_t safi, enum bgp_show_adj_route_type type,
+			   const char *rmap_name, uint8_t use_json)
 {
 	json_object *json = NULL;
 
@@ -10464,7 +10472,8 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 		return CMD_WARNING;
 	}
 
-	if (in
+	if ((type == bgp_show_adj_route_received
+	     || type == bgp_show_adj_route_filtered)
 	    && !CHECK_FLAG(peer->af_flags[afi][safi],
 			   PEER_FLAG_SOFT_RECONFIG)) {
 		if (use_json) {
@@ -10480,7 +10489,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 		return CMD_WARNING;
 	}
 
-	show_adj_route(vty, peer, afi, safi, in, rmap_name, use_json, json);
+	show_adj_route(vty, peer, afi, safi, type, rmap_name, use_json, json);
 
 	return CMD_SUCCESS;
 }
@@ -10488,7 +10497,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] "
-       "neighbors <A.B.C.D|X:X::X:X|WORD> <received-routes|advertised-routes> [route-map WORD] [json]",
+       "neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map WORD] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10499,8 +10508,9 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
-       "Display the received routes from neighbor\n"
        "Display the routes advertised to a BGP neighbor\n"
+       "Display the received routes from neighbor\n"
+       "Display the filtered routes received from neighbor\n"
        "Route-map to modify the attributes\n"
        "Name of the route map\n"
        JSON_STR)
@@ -10509,18 +10519,18 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
 	safi_t safi = SAFI_UNICAST;
 	char *rmap_name = NULL;
 	char *peerstr = NULL;
-	int rcvd = 0;
 	struct bgp *bgp = NULL;
 	struct peer *peer;
+	enum bgp_show_adj_route_type type = bgp_show_adj_route_advertised;
 
 	int idx = 0;
-
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
 					    &bgp);
 	if (!idx)
 		return CMD_WARNING;
 
 	int uj = use_json(argc, argv);
+
 	if (uj)
 		argc--;
 
@@ -10532,14 +10542,17 @@ DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
 	if (!peer)
 		return CMD_WARNING;
 
-	if (argv_find(argv, argc, "received-routes", &idx))
-		rcvd = 1;
 	if (argv_find(argv, argc, "advertised-routes", &idx))
-		rcvd = 0;
+		type = bgp_show_adj_route_advertised;
+	else if (argv_find(argv, argc, "received-routes", &idx))
+		type = bgp_show_adj_route_received;
+	else if (argv_find(argv, argc, "filtered-routes", &idx))
+		type = bgp_show_adj_route_filtered;
+
 	if (argv_find(argv, argc, "route-map", &idx))
 		rmap_name = argv[++idx]->arg;
 
-	return peer_adj_routes(vty, peer, afi, safi, rcvd, rmap_name, uj);
+	return peer_adj_routes(vty, peer, afi, safi, type, rmap_name, uj);
 }
 
 DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
