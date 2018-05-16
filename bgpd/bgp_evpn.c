@@ -955,8 +955,10 @@ static int is_vtep_present_in_list(struct list *list,
 	return 0;
 }
 
-/* Best path for ES route was changed,
-   update the list of VTEPs for this ES */
+/*
+ * Best path for ES route was changed,
+ * update the list of VTEPs for this ES
+ */
 static int evpn_es_install_vtep(struct bgp *bgp,
 				struct evpnes *es,
 				struct prefix_evpn *p,
@@ -974,8 +976,10 @@ static int evpn_es_install_vtep(struct bgp *bgp,
 	return 0;
 }
 
-/* Best path for ES route was changed,
-   update the list of VTEPs for this ES */
+/*
+ * Best path for ES route was changed,
+ * update the list of VTEPs for this ES
+ */
 static int evpn_es_uninstall_vtep(struct bgp *bgp,
 				  struct evpnes *es,
 				  struct prefix_evpn *p,
@@ -1017,7 +1021,8 @@ static int evpn_es_route_select_install(struct bgp *bgp,
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
-	/* If the best path hasn't changed - see if something needs to be
+	/*
+	 * If the best path hasn't changed - see if something needs to be
 	 * updated
 	 */
 	if (old_select && old_select == new_select
@@ -1039,7 +1044,8 @@ static int evpn_es_route_select_install(struct bgp *bgp,
 	/* If the user did a "clear" this flag will be set */
 	UNSET_FLAG(rn->flags, BGP_NODE_USER_CLEAR);
 
-	/* bestpath has changed; update relevant fields and install or uninstall
+	/*
+	 * bestpath has changed; update relevant fields and install or uninstall
 	 * into the zebra RIB.
 	 */
 	if (old_select || new_select)
@@ -1061,9 +1067,9 @@ static int evpn_es_route_select_install(struct bgp *bgp,
 	} else {
 		if (old_select && old_select->type == ZEBRA_ROUTE_BGP
 		    && old_select->sub_type == BGP_ROUTE_IMPORTED)
-			ret = evpn_es_uninstall_vtep(bgp, es,
-						     (struct prefix_evpn *)&rn->p,
-						     old_select->attr->nexthop);
+			ret = evpn_es_uninstall_vtep(
+				bgp, es, (struct prefix_evpn *)&rn->p,
+				old_select->attr->nexthop);
 	}
 
 	/* Clear any route change flags. */
@@ -1411,8 +1417,9 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 			local_ri = tmp_ri;
 	}
 
-	/* create a new route entry if one doesnt exist.
-	   Otherwise see if route attr has changed
+	/*
+	 * create a new route entry if one doesnt exist.
+	 * Otherwise see if route attr has changed
 	 */
 	if (!local_ri) {
 
@@ -1798,7 +1805,7 @@ static int delete_evpn_type4_route(struct bgp *bgp,
 	 * Note: there is no RD here.
 	 */
 	rn = bgp_node_lookup(es->route_table, (struct prefix *)p);
-	if (!rn )
+	if (!rn)
 		return 0;
 
 	/* Next, locate route node in the global EVPN routing table.
@@ -2810,7 +2817,8 @@ static int install_uninstall_routes_for_es(struct bgp *bgp,
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
 
-	/* Walk entire global routing table and evaluate routes which could be
+	/*
+	 * Walk entire global routing table and evaluate routes which could be
 	 * imported into this VRF. Note that we need to loop through all global
 	 * routes to determine which route matches the import rt on vrf
 	 */
@@ -2824,8 +2832,8 @@ static int install_uninstall_routes_for_es(struct bgp *bgp,
 			struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
 
 			for (ri = rn->info; ri; ri = ri->next) {
-
-				/* Consider "valid" remote routes applicable for
+				/*
+				 * Consider "valid" remote routes applicable for
 				 * this ES.
 				 */
 				if (!(CHECK_FLAG(ri->flags, BGP_INFO_VALID)
@@ -2833,28 +2841,26 @@ static int install_uninstall_routes_for_es(struct bgp *bgp,
 				      && ri->sub_type == BGP_ROUTE_NORMAL))
 					continue;
 
-				if (is_prefix_matching_for_es(evp, es)) {
-					if (install)
-						ret =
-							install_evpn_route_entry_in_es(
-							bgp, es, evp, ri);
-					else
-						ret =
-							uninstall_evpn_route_entry_in_es(
-							bgp, es, evp, ri);
+				if (!is_prefix_matching_for_es(evp, es))
+					continue;
 
-					if (ret) {
-						zlog_err(
-							"Failed to %s EVPN %s route in ESI %s",
-							install ? "install"
-								: "uninstall",
-							prefix2str(evp, buf,
-								   sizeof(buf)),
-							esi_to_str(&es->esi,
-								   buf1,
-								   sizeof(buf1)));
-						return ret;
-					}
+				if (install)
+					ret = install_evpn_route_entry_in_es(
+						bgp, es, evp, ri);
+				else
+					ret = uninstall_evpn_route_entry_in_es(
+						bgp, es, evp, ri);
+
+				if (ret) {
+					zlog_err(
+						"Failed to %s EVPN %s route in ESI %s",
+						install ? "install"
+							: "uninstall",
+						prefix2str(evp, buf,
+							   sizeof(buf)),
+						esi_to_str(&es->esi, buf1,
+							   sizeof(buf1)));
+					return ret;
 				}
 			}
 		}
@@ -3309,8 +3315,10 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	return 0;
 }
 
-/* delete and withdraw all ipv4 and ipv6 routes in the vrf table as type-5
- * routes */
+/*
+ * delete and withdraw all ipv4 and ipv6 routes in the vrf table as type-5
+ * routes
+ */
 static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 {
 	/* delete all ipv4 routes and withdraw from peers */
@@ -3322,8 +3330,10 @@ static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 		bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
 }
 
-/* update and advertise all ipv4 and ipv6 routes in thr vrf table as type-5
- * routes */
+/*
+ * update and advertise all ipv4 and ipv6 routes in thr vrf table as type-5
+ * routes
+ */
 static void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 {
 	/* update all ipv4 routes */
@@ -3776,8 +3786,7 @@ static int process_type4_route(struct peer *peer, afi_t afi, safi_t safi,
 		ret = bgp_update(peer, (struct prefix *)&p, addpath_id, attr,
 				 afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 				 &prd, NULL, 0, 0, NULL);
-	}
-	else {
+	} else {
 		ret = bgp_withdraw(peer, (struct prefix *)&p, addpath_id, attr,
 				   afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 				   &prd, NULL, 0, NULL);
@@ -4596,7 +4605,8 @@ void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 		stream_put(s, prd->val, 8); /* RD */
 		stream_put(s, evp->prefix.es_addr.esi.val, 10); /* ESI */
 		stream_putc(s, IPV4_MAX_BITLEN); /* IP address Length - bits */
-		stream_put_in_addr(s, &evp->prefix.es_addr.ip.ipaddr_v4); /* VTEP IP*/
+		/* VTEP IP */
+		stream_put_in_addr(s, &evp->prefix.es_addr.ip.ipaddr_v4);
 		break;
 
 	case BGP_EVPN_IP_PREFIX_ROUTE:
@@ -5509,7 +5519,7 @@ int bgp_evpn_local_es_del(struct bgp *bgp,
 	}
 
 	/* Delete all local EVPN ES routes from ESI table
-         * and schedule for processing (to withdraw from peers))
+	 * and schedule for processing (to withdraw from peers))
 	 */
 	delete_routes_for_es(bgp, es);
 
@@ -5536,7 +5546,7 @@ int bgp_evpn_local_es_add(struct bgp *bgp,
 	}
 
 	/* create the new es */
-	es = bgp_evpn_lookup_es(bgp,esi);
+	es = bgp_evpn_lookup_es(bgp, esi);
 	if (!es) {
 		es = bgp_evpn_es_new(bgp, esi, originator_ip);
 		if (!es) {

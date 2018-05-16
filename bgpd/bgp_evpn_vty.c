@@ -426,12 +426,14 @@ static void display_es(struct vty *vty, struct evpnes *es, json_object *json)
 		json_object_string_add(json, "rd",
 				       prefix_rd2str(&es->prd, buf1,
 						     sizeof(buf1)));
-		json_object_string_add(json,"originatorIp",
+		json_object_string_add(
+			json, "originatorIp",
 			ipaddr2str(&es->originator_ip, buf2, sizeof(buf2)));
 		if (es->vtep_list) {
 			for (ALL_LIST_ELEMENTS_RO(es->vtep_list, node, vtep))
-				json_object_array_add(json_vteps,
-						      json_object_new_string(inet_ntoa(*vtep)));
+				json_object_array_add(
+					json_vteps, json_object_new_string(
+							    inet_ntoa(*vtep)));
 		}
 		json_object_object_add(json, "vteps", json_vteps);
 	} else {
@@ -444,7 +446,7 @@ static void display_es(struct vty *vty, struct evpnes *es, json_object *json)
 		if (es->vtep_list) {
 			vty_out(vty, "  VTEP List:\n");
 			for (ALL_LIST_ELEMENTS_RO(es->vtep_list, node, vtep))
-				vty_out(vty,"    %s\n", inet_ntoa(*vtep));
+				vty_out(vty, "    %s\n", inet_ntoa(*vtep));
 		}
 	}
 }
@@ -850,7 +852,8 @@ static void show_es_entry(struct hash_backet *backet, void *args[])
 		json_object_string_add(json, "rd",
 				       prefix_rd2str(&es->prd, buf1,
 						     sizeof(buf1)));
-		json_object_string_add(json,"originatorIp",
+		json_object_string_add(
+			json, "originatorIp",
 			ipaddr2str(&es->originator_ip, buf2, sizeof(buf2)));
 		if (es->vtep_list) {
 			for (ALL_LIST_ELEMENTS_RO(es->vtep_list, node, vtep))
@@ -2518,7 +2521,8 @@ static void evpn_show_es(struct vty *vty, struct bgp *bgp, esi_t *esi,
 }
 
 /* Display all ESs */
-static void evpn_show_all_es(struct vty *vty, struct bgp *bgp, json_object *json)
+static void evpn_show_all_es(struct vty *vty, struct bgp *bgp,
+			     json_object *json)
 {
 	void *args[2];
 
@@ -3917,7 +3921,7 @@ DEFUN(test_adv_evpn_type4_route,
 		return CMD_WARNING;
 	}
 
-	if(!str_to_esi(argv[2]->arg, &esi)) {
+	if (!str_to_esi(argv[2]->arg, &esi)) {
 		vty_out(vty, "%%Malformed ESI\n");
 		return CMD_WARNING;
 	}
@@ -3956,7 +3960,7 @@ DEFUN(test_withdraw_evpn_type4_route,
 		return CMD_WARNING;
 	}
 
-	if(!str_to_esi(argv[2]->arg, &esi)) {
+	if (!str_to_esi(argv[2]->arg, &esi)) {
 		vty_out(vty, "%%Malformed ESI\n");
 		return CMD_WARNING;
 	}

@@ -432,6 +432,7 @@ static const struct in6_addr maskbytes6[] = {
 void prefix_hexdump(const struct prefix *p)
 {
 	char buf[PREFIX_STRLEN];
+
 	zlog_debug("prefix: %s",
 		   prefix2str(p, buf, sizeof(buf)));
 	zlog_hexdump(p, sizeof(struct prefix));

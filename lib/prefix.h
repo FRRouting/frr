@@ -40,7 +40,7 @@
 #endif
 
 #define ESI_BYTES 10
-#define ESI_STR_LEN (3* ESI_BYTES)
+#define ESI_STR_LEN (3 * ESI_BYTES)
 
 #define ETHER_ADDR_STRLEN (3*ETH_ALEN)
 /*

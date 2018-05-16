@@ -239,8 +239,10 @@ struct zclient {
 	int (*redistribute_route_del)(int, struct zclient *, uint16_t,
 				      vrf_id_t);
 	int (*fec_update)(int, struct zclient *, uint16_t);
-	int (*local_es_add)(int, struct zclient *, uint16_t, vrf_id_t);
-	int (*local_es_del)(int, struct zclient *, uint16_t, vrf_id_t);
+	int (*local_es_add)(int command, struct zclient *zclient,
+			    uint16_t length, vrf_id_t vrf_id);
+	int (*local_es_del)(int command, struct zclient *zclient,
+			    uint16_t length, vrf_id_t vrf_id);
 	int (*local_vni_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_l3vni_add)(int, struct zclient *, uint16_t, vrf_id_t);

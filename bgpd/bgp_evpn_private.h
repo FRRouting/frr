@@ -106,8 +106,10 @@ struct evpnes {
 #define EVPNES_LOCAL	0x01
 #define EVPNES_REMOTE	0x02
 
-	/* Id for deriving the RD
-	 * automatically for this ESI */
+	/*
+	 * Id for deriving the RD
+	 * automatically for this ESI
+	 */
 	uint16_t rd_id;
 
 	/* RD for this VNI. */
@@ -119,8 +121,10 @@ struct evpnes {
 	/* list of VTEPs in the same site */
 	struct list *vtep_list;
 
-	/* Route table for EVPN routes for
-	 * this ESI. - type4 routes */
+	/*
+	 * Route table for EVPN routes for
+	 * this ESI. - type4 routes
+	 */
 	struct bgp_table *route_table;
 
 	QOBJ_FIELDS
@@ -440,8 +444,9 @@ static inline int evpn_default_originate_set(struct bgp *bgp, afi_t afi,
 static inline void es_get_system_mac(esi_t *esi,
 				     struct ethaddr *mac)
 {
-	/* for type-1 and type-3 ESIs,
-	   the system mac starts at val[1]
+	/*
+	 * for type-1 and type-3 ESIs,
+	 * the system mac starts at val[1]
 	 */
 	memcpy(mac, &esi->val[1], ETH_ALEN);
 }
