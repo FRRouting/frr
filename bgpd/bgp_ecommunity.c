@@ -52,6 +52,11 @@ struct ecommunity *ecommunity_new(void)
 					    sizeof(struct ecommunity));
 }
 
+void ecommunity_strfree(char **s)
+{
+	XFREE(MTYPE_ECOMMUNITY_STR, *s);
+}
+
 /* Allocate ecommunities.  */
 void ecommunity_free(struct ecommunity **ecom)
 {

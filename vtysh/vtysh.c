@@ -341,6 +341,7 @@ static int vtysh_execute_func(const char *line, int pager)
 
 	if (user_mode) {
 		if (strncmp("en", vector_slot(vline, 0), 2) == 0) {
+			cmd_free_strvec(vline);
 			fprintf(stdout, "%% Command not allowed: enable\n");
 			return CMD_WARNING;
 		}
