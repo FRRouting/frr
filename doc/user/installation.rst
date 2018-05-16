@@ -289,23 +289,6 @@ FRR will run with any kernel configuration but some recommendations do exist.
    (:ref:`rip`) or *ospfd* (:ref:`ospfv2`) because these protocols use
    multicast.
 
-IPv6 support has been added in Linux kernel version 2.2. If you try to use the
-FRR IPv6 feature on a Linux kernel, please make sure the following libraries
-have been installed. Please note that these libraries will not be needed when
-you uses GNU C library 2.1 or later.
-
-``inet6-apps``
-   The ``inet6-apps`` package includes basic IPv6 related libraries such as
-   ``inet_ntop`` and ``inet_pton``.  Some basic IPv6 programs such as ``ping``,
-   ``ftp``, and ``inetd`` are also included. The ``inet-apps`` can be found at
-   ftp://ftp.inner.net/pub/ipv6/.
-
-``net-tools``
-   The ``net-tools`` package provides an IPv6 enabled interface and routing
-   utility. It contains ``ifconfig``, ``route``, ``netstat``, and other tools.
-   ``net-tools`` may be found at
-   http://www.tazenda.demon.co.uk/phil/net-tools/.
-
 Building
 ^^^^^^^^
 
