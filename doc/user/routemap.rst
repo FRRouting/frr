@@ -180,6 +180,18 @@ Route Map Match Command
   interface name specified if the neighbor was specified
   in this manner.
 
+.. index:: match source-protocol PROTOCOL_NAME
+.. clicmd:: match source-protocol PROTOCOL_NAME
+
+  This is a ZEBRA specific match command.  Matches the
+  originating protocol specified.
+
+.. index:: match source-instance NUMBER
+.. clicmd:: match source-instance NUMBER
+
+  This is a ZEBRA specific match command.  The number is a range from (0-255).
+  Matches the originating protocols instance specified.
+
 .. _route-map-set-command:
 
 Route Map Set Command
