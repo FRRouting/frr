@@ -846,26 +846,28 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 	return (retcode);
 }
 
-/* We don't care about the point of the cursor when '?' is typed. */
-static int vtysh_rl_describe(void)
+/*
+ * Function processes cli commands terminated with '?' character when entered
+ * through either 'vtysh' or 'vtysh -c' interfaces.
+ */
+static int vtysh_process_questionmark(const char *input, int input_len)
 {
-	int ret;
+	int ret, width = 0;
 	unsigned int i;
-	vector vline;
-	vector describe;
-	int width;
+	vector vline, describe;
 	struct cmd_token *token;
 
-	vline = cmd_make_strvec(rl_line_buffer);
+	if (!input)
+		return 1;
+
+	vline = cmd_make_strvec(input);
 
 	/* In case of '> ?'. */
 	if (vline == NULL) {
 		vline = vector_init(1);
 		vector_set(vline, NULL);
-	} else if (rl_end && isspace((int)rl_line_buffer[rl_end - 1]))
+	} else if (input_len && isspace((int)input[input_len - 1]))
 		vector_set(vline, NULL);
-
-	fprintf(stdout, "\n");
 
 	describe = cmd_describe_command(vline, vty, &ret);
 
@@ -875,7 +877,6 @@ static int vtysh_rl_describe(void)
 		cmd_free_strvec(vline);
 		vector_free(describe);
 		fprintf(stdout, "%% Ambiguous command.\n");
-		rl_on_new_line();
 		return 0;
 		break;
 	case CMD_ERR_NO_MATCH:
@@ -883,7 +884,6 @@ static int vtysh_rl_describe(void)
 		if (describe)
 			vector_free(describe);
 		fprintf(stdout, "%% There is no matched command.\n");
-		rl_on_new_line();
 		return 0;
 		break;
 	}
@@ -933,9 +933,61 @@ static int vtysh_rl_describe(void)
 	cmd_free_strvec(vline);
 	vector_free(describe);
 
+	return 0;
+}
+
+/*
+ * Entry point for user commands terminated with '?' character and typed through
+ * the usual vtysh's stdin interface. This is the function being registered with
+ * readline() api's.
+ */
+static int vtysh_rl_describe(void)
+{
+	int ret;
+
+	fprintf(stdout, "\n");
+
+	ret = vtysh_process_questionmark(rl_line_buffer, rl_end);
 	rl_on_new_line();
 
-	return 0;
+	return ret;
+}
+
+/*
+ * Function in charged of processing vtysh instructions terminating with '?'
+ * character and received through the 'vtysh -c' interface. If user's
+ * instruction is well-formatted, we will call the same processing routine
+ * utilized by the traditional vtysh's stdin interface.
+ */
+int vtysh_execute_command_questionmark(char *input)
+{
+	int input_len, qmark_count = 0;
+	const char *str;
+
+	if (!(input && *input))
+		return 1;
+
+	/* Finding out question_mark count and strlen */
+	for (str = input; *str; ++str) {
+		if (*str == '?')
+			qmark_count++;
+	}
+	input_len = str - input;
+
+	/*
+	 * Verify that user's input terminates in '?' and that patterns such as
+	 * 'cmd ? subcmd ?' are prevented.
+	 */
+	if (qmark_count != 1 || input[input_len - 1] != '?')
+		return 1;
+
+	/*
+	 * Questionmark-processing function is not expecting to receive '?'
+	 * character in input string.
+	 */
+	input[input_len - 1] = '\0';
+
+	return vtysh_process_questionmark(input, input_len - 1);
 }
 
 /* Result of cmd_complete_command() call will be stored here

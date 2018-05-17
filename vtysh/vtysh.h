@@ -71,6 +71,7 @@ void vtysh_user_init(void);
 
 int vtysh_execute(const char *);
 int vtysh_execute_no_pager(const char *);
+int vtysh_execute_command_questionmark(char *input);
 
 char *vtysh_prompt(void);
 
