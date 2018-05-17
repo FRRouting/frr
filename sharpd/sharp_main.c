@@ -149,6 +149,8 @@ int main(int argc, char **argv, char **envp)
 
 	vrf_init(NULL, NULL, NULL, NULL);
 
+	route_map_init();
+
 	sharp_zebra_init();
 
 	/* Get configuration file. */
