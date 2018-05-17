@@ -1991,7 +1991,11 @@ DEFUN (no_bgp_fast_external_failover,
 }
 
 /* "bgp enforce-first-as" configuration. */
-DEFUN (bgp_enforce_first_as,
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20180517
+CPP_NOTICE("bgpd: remove deprecated '[no] bgp enforce-first-as' commands")
+#endif
+
+DEFUN_DEPRECATED (bgp_enforce_first_as,
        bgp_enforce_first_as_cmd,
        "bgp enforce-first-as",
        BGP_STR
@@ -1999,12 +2003,11 @@ DEFUN (bgp_enforce_first_as,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	bgp_flag_set(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
-	bgp_clear_star_soft_in(vty, bgp->name);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_enforce_first_as,
+DEFUN_DEPRECATED (no_bgp_enforce_first_as,
        no_bgp_enforce_first_as_cmd,
        "no bgp enforce-first-as",
        NO_STR
@@ -2013,7 +2016,6 @@ DEFUN (no_bgp_enforce_first_as,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	bgp_flag_unset(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
-	bgp_clear_star_soft_in(vty, bgp->name);
 
 	return CMD_SUCCESS;
 }
@@ -3449,7 +3451,7 @@ ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
 	     "Peer-group name\n")
 
 static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
-				uint16_t flag, int set)
+				uint32_t flag, int set)
 {
 	int ret;
 	struct peer *peer;
@@ -3481,13 +3483,13 @@ static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
 	return bgp_vty_return(vty, ret);
 }
 
-static int peer_flag_set_vty(struct vty *vty, const char *ip_str, uint16_t flag)
+static int peer_flag_set_vty(struct vty *vty, const char *ip_str, uint32_t flag)
 {
 	return peer_flag_modify_vty(vty, ip_str, flag, 1);
 }
 
 static int peer_flag_unset_vty(struct vty *vty, const char *ip_str,
-			       uint16_t flag)
+			       uint32_t flag)
 {
 	return peer_flag_modify_vty(vty, ip_str, flag, 0);
 }
@@ -4583,6 +4585,36 @@ DEFUN (no_neighbor_disable_connected_check,
 	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
 				   PEER_FLAG_DISABLE_CONNECTED_CHECK);
 }
+
+
+/* enforce-first-as */
+DEFUN (neighbor_enforce_first_as,
+       neighbor_enforce_first_as_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> enforce-first-as",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Enforce the first AS for EBGP routes\n")
+{
+	int idx_peer = 1;
+
+	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
+				 PEER_FLAG_ENFORCE_FIRST_AS);
+}
+
+DEFUN (no_neighbor_enforce_first_as,
+       no_neighbor_enforce_first_as_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> enforce-first-as",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Enforce the first AS for EBGP routes\n")
+{
+	int idx_peer = 2;
+
+	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
+				   PEER_FLAG_ENFORCE_FIRST_AS);
+}
+
 
 DEFUN (neighbor_description,
        neighbor_description_cmd,
@@ -12965,6 +12997,10 @@ void bgp_vty_init(void)
 	/* "neighbor disable-connected-check" commands.  */
 	install_element(BGP_NODE, &neighbor_disable_connected_check_cmd);
 	install_element(BGP_NODE, &no_neighbor_disable_connected_check_cmd);
+
+	/* "neighbor enforce-first-as" commands. */
+	install_element(BGP_NODE, &neighbor_enforce_first_as_cmd);
+	install_element(BGP_NODE, &no_neighbor_enforce_first_as_cmd);
 
 	/* "neighbor description" commands. */
 	install_element(BGP_NODE, &neighbor_description_cmd);
