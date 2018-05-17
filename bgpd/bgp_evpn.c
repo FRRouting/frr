@@ -327,6 +327,12 @@ static int evpn_route_target_cmp(struct ecommunity *ecom1,
 	return strcmp(ecom1->str, ecom2->str);
 }
 
+static void evpn_xxport_delete_ecomm(void *val)
+{
+	struct ecommunity *ecomm = val;
+	ecommunity_free(&ecomm);
+}
+
 /*
  * Mask off global-admin field of specified extended community (RT),
  * just retain the local-admin field.
@@ -3240,8 +3246,6 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 static void update_autort_vni(struct hash_backet *backet, struct bgp *bgp)
 {
 	struct bgpevpn *vpn = backet->data;
-	struct listnode *node, *nnode;
-	struct ecommunity *ecom;
 
 	if (!vpn) {
 		zlog_warn("%s: VNI hash entry for VNI not found", __PRETTY_FUNCTION__);
@@ -3252,16 +3256,12 @@ static void update_autort_vni(struct hash_backet *backet, struct bgp *bgp)
 		if (is_vni_live(vpn))
 			bgp_evpn_uninstall_routes(bgp, vpn);
 		bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
-		for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode, ecom))
-			ecommunity_free(&ecom);
 		list_delete_all_node(vpn->import_rtl);
 		bgp_evpn_derive_auto_rt_import(bgp, vpn);
 		if (is_vni_live(vpn))
 			bgp_evpn_install_routes(bgp, vpn);
 	}
 	if (!is_export_rt_configured(vpn)) {
-		for (ALL_LIST_ELEMENTS(vpn->export_rtl, node, nnode, ecom))
-			ecommunity_free(&ecom);
 		list_delete_all_node(vpn->export_rtl);
 		bgp_evpn_derive_auto_rt_export(bgp, vpn);
 		if (is_vni_live(vpn))
@@ -4100,8 +4100,10 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
 	vpn->import_rtl->cmp = (int (*)(void *, void *))evpn_route_target_cmp;
+	vpn->import_rtl->del = evpn_xxport_delete_ecomm;
 	vpn->export_rtl = list_new();
 	vpn->export_rtl->cmp = (int (*)(void *, void *))evpn_route_target_cmp;
+	vpn->export_rtl->del = evpn_xxport_delete_ecomm;
 	bf_assign_index(bm->rd_idspace, vpn->rd_id);
 	derive_rd_rt_for_vni(bgp, vpn);
 
@@ -4651,10 +4653,11 @@ void bgp_evpn_init(struct bgp *bgp)
 	bgp->vrf_import_rtl = list_new();
 	bgp->vrf_import_rtl->cmp =
 		(int (*)(void *, void *))evpn_route_target_cmp;
-
+	bgp->vrf_import_rtl->del = evpn_xxport_delete_ecomm;
 	bgp->vrf_export_rtl = list_new();
 	bgp->vrf_export_rtl->cmp =
 		(int (*)(void *, void *))evpn_route_target_cmp;
+	bgp->vrf_export_rtl->del = evpn_xxport_delete_ecomm;
 	bgp->l2vnis = list_new();
 	bgp->l2vnis->cmp = (int (*)(void *, void *))vni_hash_cmp;
 }
