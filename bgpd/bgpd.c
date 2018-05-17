@@ -3805,6 +3805,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_DYNAMIC_CAPABILITY, 0, peer_change_reset},
 	{PEER_FLAG_DISABLE_CONNECTED_CHECK, 0, peer_change_reset},
 	{PEER_FLAG_CAPABILITY_ENHE, 0, peer_change_reset},
+	{PEER_FLAG_ENFORCE_FIRST_AS, 0, peer_change_reset_in},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -6747,6 +6748,14 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
+	/* enforce-first-as */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS)) {
+		if (!peer_group_active(peer)
+		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_ENFORCE_FIRST_AS)) {
+			vty_out(vty, " neighbor %s enforce-first-as\n", addr);
+		}
+	}
+
 	/* update-source */
 	if (peer->update_if) {
 		if (!peer_group_active(peer) || !g_peer->update_if
@@ -7293,6 +7302,12 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	vty_endframe(vty, " exit-address-family\n");
 }
 
+/* clang-format off */
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20180517
+CPP_NOTICE("bgpd: remove 'bgp enforce-first-as' config migration from bgp_config_write")
+#endif
+/* clang-format on */
+
 int bgp_config_write(struct vty *vty)
 {
 	int write = 0;
@@ -7327,6 +7342,15 @@ int bgp_config_write(struct vty *vty)
 		/* skip all auto created vrf as they dont have user config */
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
 			continue;
+
+		/* Migrate deprecated 'bgp enforce-first-as'
+		 * config to 'neighbor * enforce-first-as' configs
+		 */
+		if (bgp_flag_check(bgp, BGP_FLAG_ENFORCE_FIRST_AS)) {
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
+				peer_flag_set(peer, PEER_FLAG_ENFORCE_FIRST_AS);
+			bgp_flag_unset(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
+		}
 
 		/* Router bgp ASN */
 		vty_out(vty, "router bgp %u", bgp->as);
@@ -7425,10 +7449,6 @@ int bgp_config_write(struct vty *vty)
 
 			vty_out(vty, "\n");
 		}
-
-		/* BGP enforce-first-as. */
-		if (bgp_flag_check(bgp, BGP_FLAG_ENFORCE_FIRST_AS))
-			vty_out(vty, " bgp enforce-first-as\n");
 
 		/* BGP deterministic-med. */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
