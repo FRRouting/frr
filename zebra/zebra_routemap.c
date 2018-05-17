@@ -287,7 +287,7 @@ DEFUN (no_match_ip_nexthop_prefix_len,
 
 DEFUN (match_source_protocol,
        match_source_protocol_cmd,
-       "match source-protocol <bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static>",
+       "match source-protocol <bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static|sharp>",
        MATCH_STR
        "Match protocol via which the route was learnt\n"
        "BGP protocol\n"
@@ -303,7 +303,8 @@ DEFUN (match_source_protocol,
        "Routes from directly connected peer\n"
        "Routes from system configuration\n"
        "Routes from kernel\n"
-       "Statically configured routes\n")
+       "Statically configured routes\n"
+       "SHARP process\n")
 {
 	char *proto = argv[2]->text;
 	int i;
@@ -319,7 +320,7 @@ DEFUN (match_source_protocol,
 
 DEFUN (no_match_source_protocol,
        no_match_source_protocol_cmd,
-       "no match source-protocol [<bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static>]",
+       "no match source-protocol [<bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static|sharp>]",
        NO_STR
        MATCH_STR
        "No match protocol via which the route was learnt\n"
@@ -336,7 +337,8 @@ DEFUN (no_match_source_protocol,
        "Routes from directly connected peer\n"
        "Routes from system configuration\n"
        "Routes from kernel\n"
-       "Statically configured routes\n")
+       "Statically configured routes\n"
+       "SHARP process\n")
 {
 	char *proto = (argc == 4) ? argv[3]->text : NULL;
 	return zebra_route_match_delete(vty, "source-protocol", proto,
