@@ -336,7 +336,7 @@ struct zebra_neigh_t_ {
 	struct in_addr r_vtep_ip;
 
 	/* list of hosts pointing to this remote NH entry */
-	struct list *host_list;
+	struct host_rb_entry_rb host_rb;
 };
 
 /*
