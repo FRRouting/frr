@@ -176,7 +176,7 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
-void route_add(struct prefix *p, struct nexthop *nh)
+void route_add(struct prefix *p, uint8_t instance, struct nexthop *nh)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -184,6 +184,7 @@ void route_add(struct prefix *p, struct nexthop *nh)
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_SHARP;
+	api.instance = instance;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
 
@@ -200,7 +201,7 @@ void route_add(struct prefix *p, struct nexthop *nh)
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
-void route_delete(struct prefix *p)
+void route_delete(struct prefix *p, uint8_t instance)
 {
 	struct zapi_route api;
 
@@ -208,6 +209,7 @@ void route_delete(struct prefix *p)
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_SHARP;
 	api.safi = SAFI_UNICAST;
+	api.instance = instance;
 	memcpy(&api.prefix, p, sizeof(*p));
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
