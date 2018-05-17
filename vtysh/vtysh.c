@@ -350,11 +350,11 @@ static int vtysh_execute_func(const char *line, int pager)
 	saved_ret = ret = cmd_execute_command(vline, vty, &cmd, 1);
 	saved_node = vty->node;
 
-	/* If command doesn't succeeded in current node, try to walk up in node
-	 * tree.
-	 * Changing vty->node is enough to try it just out without actual walkup
-	 * in
-	 * the vtysh. */
+	/*
+	 * If command doesn't succeeded in current node, try to walk up in node
+	 * tree. Changing vty->node is enough to try it just out without actual
+	 * walkup in the vtysh.
+	 */
 	while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 	       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
 	       && vty->node > CONFIG_NODE) {
@@ -365,9 +365,10 @@ static int vtysh_execute_func(const char *line, int pager)
 
 	vty->node = saved_node;
 
-	/* If command succeeded in any other node than current (tried > 0) we
-	 * have
-	 * to move into node in the vtysh where it succeeded. */
+	/*
+	 * If command succeeded in any other node than current (tried > 0) we
+	 * have to move into node in the vtysh where it succeeded.
+	 */
 	if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON
 	    || ret == CMD_WARNING) {
 		if ((saved_node == BGP_VPNV4_NODE
@@ -407,9 +408,10 @@ static int vtysh_execute_func(const char *line, int pager)
 			vtysh_execute("configure terminal");
 		}
 	}
-	/* If command didn't succeed in any node, continue with return value
-	 * from
-	 * first try. */
+	/*
+	 * If command didn't succeed in any node, continue with return value
+	 * from first try.
+	 */
 	else if (tried) {
 		ret = saved_ret;
 	}
@@ -628,8 +630,10 @@ int vtysh_mark_file(const char *filename)
 			continue;
 		}
 
-		/* Ignore the "end" lines, we will generate these where
-		 * appropriate */
+		/*
+		 * Ignore the "end" lines, we will generate these where
+		 * appropriate
+		 */
 		if (strlen(vty_buf_trimmed) == 3
 		    && strncmp("end", vty_buf_trimmed, 3) == 0) {
 			cmd_free_strvec(vline);
@@ -639,11 +643,11 @@ int vtysh_mark_file(const char *filename)
 		prev_node = vty->node;
 		saved_ret = ret = cmd_execute_command_strict(vline, vty, &cmd);
 
-		/* If command doesn't succeeded in current node, try to walk up
-		 * in node tree.
-		 * Changing vty->node is enough to try it just out without
-		 * actual walkup in
-		 * the vtysh. */
+		/*
+		 * If command doesn't succeeded in current node, try to walk up
+		 * in node tree. Changing vty->node is enough to try it just
+		 * out without actual walkup in the vtysh.
+		 */
 		while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
 		       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
 		       && vty->node > CONFIG_NODE) {
@@ -652,9 +656,11 @@ int vtysh_mark_file(const char *filename)
 			tried++;
 		}
 
-		/* If command succeeded in any other node than current (tried >
-		 * 0) we have
-		 * to move into node in the vtysh where it succeeded. */
+		/*
+		 * If command succeeded in any other node than current (tried >
+		 * 0) we have to move into node in the vtysh where it
+		 * succeeded.
+		 */
 		if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON
 		    || ret == CMD_WARNING) {
 			if ((prev_node == BGP_VPNV4_NODE
@@ -680,9 +686,10 @@ int vtysh_mark_file(const char *filename)
 				fprintf(outputfile, "end\n");
 			}
 		}
-		/* If command didn't succeed in any node, continue with return
-		 * value from
-		 * first try. */
+		/*
+		 * If command didn't succeed in any node, continue with return
+		 * value from first try.
+		 */
 		else if (tried) {
 			ret = saved_ret;
 			vty->node = prev_node;
@@ -762,6 +769,7 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 	int ret;
 	const struct cmd_element *cmd;
 	int lineno = 0;
+	/* once we have an error, we remember & return that */
 	int retcode = CMD_SUCCESS;
 
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
@@ -775,30 +783,25 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 			if (vty->type == VTY_FILE)
 				fprintf(stderr, "line %d: Warning[%d]...: %s\n",
 					lineno, vty->node, vty->buf);
-			retcode = ret; /* once we have an error, we remember &
-					  return that */
+			retcode = ret;
+
 			break;
 		case CMD_ERR_AMBIGUOUS:
 			fprintf(stderr,
 				"line %d: %% Ambiguous command[%d]: %s\n",
 				lineno, vty->node, vty->buf);
-			retcode = CMD_ERR_AMBIGUOUS; /* once we have an error,
-							we remember & return
-							that */
+			retcode = CMD_ERR_AMBIGUOUS;
 			break;
 		case CMD_ERR_NO_MATCH:
 			fprintf(stderr, "line %d: %% Unknown command[%d]: %s",
 				lineno, vty->node, vty->buf);
-			retcode = CMD_ERR_NO_MATCH; /* once we have an error, we
-						       remember & return that */
+			retcode = CMD_ERR_NO_MATCH;
 			break;
 		case CMD_ERR_INCOMPLETE:
 			fprintf(stderr,
 				"line %d: %% Command incomplete[%d]: %s\n",
 				lineno, vty->node, vty->buf);
-			retcode = CMD_ERR_INCOMPLETE; /* once we have an error,
-							 we remember & return
-							 that */
+			retcode = CMD_ERR_INCOMPLETE;
 			break;
 		case CMD_SUCCESS_DAEMON: {
 			unsigned int i;
@@ -811,16 +814,12 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 						outputfile);
 					/*
 					 * CMD_WARNING - Can mean that the
-					 * command was
-					 * parsed successfully but it was
-					 * already entered
-					 * in a few spots.  As such if we
-					 * receive a
+					 * command was parsed successfully but
+					 * it was already entered in a few
+					 * spots. As such if we receive a
 					 * CMD_WARNING from a daemon we
-					 * shouldn't stop
-					 * talking to the other daemons for the
-					 * particular
-					 * command.
+					 * shouldn't stop talking to the other
+					 * daemons for the particular command.
 					 */
 					if (cmd_stat != CMD_SUCCESS
 					    && cmd_stat != CMD_WARNING) {
@@ -1020,8 +1019,10 @@ static char *command_generator(const char *text, int state)
 	}
 
 	if (matched && matched[index])
-		/* this is free()'d by readline, but we leak 1 count of
-		 * MTYPE_COMPLETION */
+		/*
+		 * this is free()'d by readline, but we leak 1 count of
+		 * MTYPE_COMPLETION
+		 */
 		return matched[index++];
 
 	XFREE(MTYPE_TMP, matched);
@@ -2032,8 +2033,10 @@ DEFUNSH(VTYSH_VRF, vtysh_quit_nexthop_group, vtysh_quit_nexthop_group_cmd,
 	return vtysh_exit_nexthop_group(self, vty, argc, argv);
 }
 
-/* TODO Implement interface description commands in ripngd, ospf6d
- * and isisd. */
+/*
+ * TODO Implement interface description commands in ripngd, ospf6d
+ * and isisd.
+ */
 DEFSH(VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_OSPFD | VTYSH_EIGRPD,
       vtysh_interface_desc_cmd, "description LINE...",
       "Interface specific description\n"

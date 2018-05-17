@@ -612,9 +612,10 @@ int main(int argc, char **argv, char **env)
 				log_it(cmd->line);
 
 			/*
-			 * Parsing logic for regular commands will be different than
-			 * for those commands requiring further processing, such as
-			 * cli instructions terminating with question-mark character.
+			 * Parsing logic for regular commands will be different
+			 * than for those commands requiring further
+			 * processing, such as cli instructions terminating
+			 * with question-mark character.
 			 */
 			if (!vtysh_execute_command_questionmark(cmd->line))
 				ret = CMD_SUCCESS;
