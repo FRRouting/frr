@@ -1308,8 +1308,7 @@ static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 
 	struct zebra_ns *zns = zebra_ns_lookup(ns_id);
 
-	memset(&req.n, 0, sizeof(req.n));
-	memset(&req.ndm, 0, sizeof(req.ndm));
+	memset(&req, 0, sizeof(req));
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
 	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
@@ -1666,8 +1665,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	struct zebra_ns *zns;
 
 	zns = zvrf->zns;
-	memset(&req.n, 0, sizeof(req.n));
-	memset(&req.ndm, 0, sizeof(req.ndm));
+	memset(&req, 0, sizeof(req));
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
 	req.n.nlmsg_flags = NLM_F_REQUEST;
@@ -1759,8 +1757,7 @@ static int netlink_vxlan_flood_list_update(struct interface *ifp,
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 
 	zns = zvrf->zns;
-	memset(&req.n, 0, sizeof(req.n));
-	memset(&req.ndm, 0, sizeof(req.ndm));
+	memset(&req, 0, sizeof(req));
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
 	req.n.nlmsg_flags = NLM_F_REQUEST;
@@ -2075,8 +2072,7 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 		return -1;
 	}
 
-	memset(&req.n, 0, sizeof(req.n));
-	memset(&req.ndm, 0, sizeof(req.ndm));
+	memset(&req, 0, sizeof(req));
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
 	req.n.nlmsg_flags = NLM_F_REQUEST;
@@ -2392,8 +2388,7 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 
 	zns = zvrf->zns;
-	memset(&req.n, 0, sizeof(req.n));
-	memset(&req.ndm, 0, sizeof(req.ndm));
+	memset(&req, 0, sizeof(req));
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
 	req.n.nlmsg_flags = NLM_F_REQUEST;
