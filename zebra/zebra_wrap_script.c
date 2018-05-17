@@ -56,7 +56,8 @@ struct item_list {
 #define IPSET_DEFAULT_HASHSIZE 64
 #define IPSET_PRE_HASH "hash:"
 
-DEFINE_MTYPE_STATIC(ZEBRA, SCRIPTPATH, "Path Location for scripts");
+#define SCRIPT_NETFILTER_IPTABLES "iptables"
+#define SCRIPT_NETFILTER_IPSET "ipset"
 DEFINE_MTYPE_STATIC(ZEBRA, SCRIPTCACHE, "Cache Information");
 static char *zebra_wrap_script_iptable_pathname;
 static char *zebra_wrap_script_ipset_pathname;
@@ -1459,12 +1460,16 @@ static int zebra_wrap_script_config_write(struct vty *vty)
 {
 	int ret = 0;
 
-	if (zebra_wrap_script_iptable_pathname) {
+	if (zebra_wrap_script_iptable_pathname &&
+	    !strcmp(zebra_wrap_script_iptable_pathname,
+		    SCRIPT_NETFILTER_IPTABLES)) {
 		vty_out(vty, "wrap script iptable %s\n",
 			zebra_wrap_script_iptable_pathname);
 		ret++;
 	}
-	if (zebra_wrap_script_ipset_pathname) {
+	if (zebra_wrap_script_ipset_pathname &&
+	    !strcmp(zebra_wrap_script_ipset_pathname,
+		    SCRIPT_NETFILTER_IPSET)) {
 		vty_out(vty, "wrap script ipset %s\n",
 			zebra_wrap_script_ipset_pathname);
 		ret++;
@@ -1475,6 +1480,10 @@ static int zebra_wrap_script_config_write(struct vty *vty)
 static int zebra_wrap_script_init(struct thread_master *t)
 {
 	zebra_wrap_debug = 0;
+
+	zebra_wrap_script_iptable_pathname = XSTRDUP(MTYPE_TMP, SCRIPT_NETFILTER_IPTABLES);
+	zebra_wrap_script_ipset_pathname = XSTRDUP(MTYPE_TMP, SCRIPT_NETFILTER_IPSET);
+
 	install_element(CONFIG_NODE, &zebra_wrap_script_iptable_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_ipset_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_no_iptable_cmd);
