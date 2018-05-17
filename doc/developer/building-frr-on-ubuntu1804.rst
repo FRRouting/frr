@@ -137,8 +137,7 @@ configuration files _before_ starting FRR. This assures that the permissions
 are correct. If the files are not already present, FRR will create them.
 
 It's also important to consider _which_ files to create. FRR supports writing
-configuration to a monolithic file, :file:`/etc/frr/frr.conf`, which is not
-recommended.
+configuration to a monolithic file, :file:`/etc/frr/frr.conf`.
 
 .. seealso:: *VTYSH* section of user guide
 
