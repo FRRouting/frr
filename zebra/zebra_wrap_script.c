@@ -69,6 +69,7 @@ static struct cmd_node zebra_wrap_script_node = {.name = "Wrap Script",
 						 .prompt = "",
 						 .config_write = zebra_wrap_script_config_write};
 
+#define ZEBRA_DEBUG_WRAP_SCRIPT      SCRIPT_DEBUG
 static int zebra_wrap_debug;
 
 static const struct message ip_proto_str[] = {
@@ -1477,6 +1478,29 @@ static int zebra_wrap_script_config_write(struct vty *vty)
 	return ret;
 }
 
+DEFUN (debug_zebra_fpm,
+       debug_zebra_fpm_cmd,
+       "debug zebra fpm",
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra FPM events\n")
+{
+	SET_FLAG(zebra_wrap_debug, ZEBRA_DEBUG_WRAP_SCRIPT);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_zebra_fpm,
+       no_debug_zebra_fpm_cmd,
+       "no debug zebra fpm",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra FPM events\n")
+{
+	zebra_wrap_debug = 0;
+	return CMD_SUCCESS;
+}
+
 static int zebra_wrap_script_init(struct thread_master *t)
 {
 	zebra_wrap_debug = 0;
@@ -1489,5 +1513,10 @@ static int zebra_wrap_script_init(struct thread_master *t)
 	install_element(CONFIG_NODE, &zebra_wrap_script_no_iptable_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_no_ipset_cmd);
 	install_node(&zebra_wrap_script_node);
+	install_element(ENABLE_NODE, &debug_zebra_fpm_cmd);
+	install_element(ENABLE_NODE, &no_debug_zebra_fpm_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_fpm_cmd);
+	install_element(CONFIG_NODE, &no_debug_zebra_fpm_cmd);
+
 	return 0;
 }
