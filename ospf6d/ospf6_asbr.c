@@ -303,7 +303,6 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 					old_route->path.origin.adv_router =
 						h_path->origin.adv_router;
 				}
-				break;
 			} else {
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
 					prefix2str(&old_route->prefix, buf,
@@ -316,7 +315,6 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				}
 				ospf6_route_remove(old_route,
 						   ospf6->route_table);
-				break;
 			}
 		}
 		if (route_updated)
