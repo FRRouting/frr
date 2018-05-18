@@ -215,6 +215,7 @@ EXTRA_DIST = \
     lib/test_ttable.refout \
     lib/test_zlog.py \
     lib/test_graph.py \
+    lib/test_graph.refout \
     ospf6d/test_lsdb.py \
     ospf6d/test_lsdb.in \
     ospf6d/test_lsdb.refout \
