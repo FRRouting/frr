@@ -140,7 +140,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	manpages/index.rst \
 	manpages/isisd.rst \
 	manpages/ldpd.rst \
-	manpages/Makefile \
+	manpages/Makefile.am \
 	manpages/mtracebis.rst \
 	manpages/nhrpd.rst \
 	manpages/ospf6d.rst \
@@ -182,7 +182,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	developer/index.rst \
 	developer/ldpd-basic-test-setup.md \
 	developer/library.rst \
-	developer/Makefile \
+	developer/Makefile.in \
 	developer/memtypes.rst \
 	developer/modules.rst \
 	developer/next-hop-tracking.rst \
@@ -205,7 +205,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/ipv6.rst \
 	user/isisd.rst \
 	user/kernel.rst \
-	user/Makefile \
+	user/Makefile.am \
 	user/nhrpd.rst \
 	user/ospf6d.rst \
 	user/ospfd.rst \
