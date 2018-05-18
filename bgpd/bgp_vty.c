@@ -553,39 +553,46 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		     const char *arg)
 {
 	int ret;
+	bool found = false;
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
 	/* Clear all neighbors. */
 	/*
 	 * Pass along pointer to next node to peer_clear() when walking all
-	 * nodes
-	 * on the BGP instance as that may get freed if it is a doppelganger
+	 * nodes on the BGP instance as that may get freed if it is a
+	 * doppelganger
 	 */
 	if (sort == clear_all) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!peer->afc[afi][safi])
+				continue;
+
 			if (stype == BGP_CLEAR_SOFT_NONE)
 				ret = peer_clear(peer, &nnode);
-			else if (peer->afc[afi][safi])
-				ret = peer_clear_soft(peer, afi, safi, stype);
 			else
-				ret = 0;
+				ret = peer_clear_soft(peer, afi, safi, stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
+			else
+				found = true;
 		}
 
 		/* This is to apply read-only mode on this clear. */
 		if (stype == BGP_CLEAR_SOFT_NONE)
 			bgp->update_delay_over = 0;
 
+		if (!found)
+			vty_out(vty, "%%BGP: No %s peer configured",
+				afi_safi_print(afi, safi));
+
 		return CMD_SUCCESS;
 	}
 
-	/* Clear specified neighbors. */
+	/* Clear specified neighbor. */
 	if (sort == clear_peer) {
 		union sockunion su;
-		int ret;
 
 		/* Make sockunion for lookup. */
 		ret = str2sockunion(arg, &su);
@@ -610,7 +617,9 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			}
 		}
 
-		if (stype == BGP_CLEAR_SOFT_NONE)
+		if (!peer->afc[afi][safi])
+			ret = BGP_ERR_AF_UNCONFIGURED;
+		else if (stype == BGP_CLEAR_SOFT_NONE)
 			ret = peer_clear(peer, NULL);
 		else
 			ret = peer_clear_soft(peer, afi, safi, stype);
@@ -621,7 +630,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		return CMD_SUCCESS;
 	}
 
-	/* Clear all peer-group members. */
+	/* Clear all neighbors belonging to a specific peer-group. */
 	if (sort == clear_group) {
 		struct peer_group *group;
 
@@ -632,27 +641,37 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		}
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (stype == BGP_CLEAR_SOFT_NONE) {
-				peer_clear(peer, NULL);
-				continue;
-			}
-
 			if (!peer->afc[afi][safi])
 				continue;
 
-			ret = peer_clear_soft(peer, afi, safi, stype);
+			if (stype == BGP_CLEAR_SOFT_NONE)
+				ret = peer_clear(peer, NULL);
+			else
+				ret = peer_clear_soft(peer, afi, safi, stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
+			else
+				found = true;
 		}
+
+		if (!found)
+			vty_out(vty,
+				"%%BGP: No %s peer belonging to peer-group %s is configured\n",
+				afi_safi_print(afi, safi), arg);
+
 		return CMD_SUCCESS;
 	}
 
+	/* Clear all external (eBGP) neighbors. */
 	if (sort == clear_external) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->sort == BGP_PEER_IBGP)
 				continue;
 
+			if (!peer->afc[afi][safi])
+				continue;
+
 			if (stype == BGP_CLEAR_SOFT_NONE)
 				ret = peer_clear(peer, &nnode);
 			else
@@ -660,33 +679,44 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
+			else
+				found = true;
 		}
+
+		if (!found)
+			vty_out(vty,
+				"%%BGP: No external %s peer is configured\n",
+				afi_safi_print(afi, safi));
+
 		return CMD_SUCCESS;
 	}
 
+	/* Clear all neighbors belonging to a specific AS. */
 	if (sort == clear_as) {
-		as_t as;
-		int find = 0;
-
-		as = strtoul(arg, NULL, 10);
+		as_t as = strtoul(arg, NULL, 10);
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->as != as)
 				continue;
 
-			find = 1;
-			if (stype == BGP_CLEAR_SOFT_NONE)
+			if (!peer->afc[afi][safi])
+				ret = BGP_ERR_AF_UNCONFIGURED;
+			else if (stype == BGP_CLEAR_SOFT_NONE)
 				ret = peer_clear(peer, &nnode);
 			else
 				ret = peer_clear_soft(peer, afi, safi, stype);
 
 			if (ret < 0)
 				bgp_clear_vty_error(vty, peer, afi, safi, ret);
+			else
+				found = true;
 		}
-		if (!find)
+
+		if (!found)
 			vty_out(vty,
-				"%%BGP: No peer is configured with AS %s\n",
-				arg);
+				"%%BGP: No %s peer is configured with AS %s\n",
+				afi_safi_print(afi, safi), arg);
+
 		return CMD_SUCCESS;
 	}
 
