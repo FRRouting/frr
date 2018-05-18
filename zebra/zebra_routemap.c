@@ -49,6 +49,7 @@ struct nh_rmap_obj {
 	struct nexthop *nexthop;
 	vrf_id_t vrf_id;
 	uint32_t source_protocol;
+	uint8_t instance;
 	int metric;
 	route_tag_t tag;
 };
@@ -287,7 +288,7 @@ DEFUN (no_match_ip_nexthop_prefix_len,
 
 DEFUN (match_source_protocol,
        match_source_protocol_cmd,
-       "match source-protocol <bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static>",
+       "match source-protocol <bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static|sharp>",
        MATCH_STR
        "Match protocol via which the route was learnt\n"
        "BGP protocol\n"
@@ -303,7 +304,8 @@ DEFUN (match_source_protocol,
        "Routes from directly connected peer\n"
        "Routes from system configuration\n"
        "Routes from kernel\n"
-       "Statically configured routes\n")
+       "Statically configured routes\n"
+       "SHARP process\n")
 {
 	char *proto = argv[2]->text;
 	int i;
@@ -319,7 +321,7 @@ DEFUN (match_source_protocol,
 
 DEFUN (no_match_source_protocol,
        no_match_source_protocol_cmd,
-       "no match source-protocol [<bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static>]",
+       "no match source-protocol [<bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static|sharp>]",
        NO_STR
        MATCH_STR
        "No match protocol via which the route was learnt\n"
@@ -336,11 +338,38 @@ DEFUN (no_match_source_protocol,
        "Routes from directly connected peer\n"
        "Routes from system configuration\n"
        "Routes from kernel\n"
-       "Statically configured routes\n")
+       "Statically configured routes\n"
+       "SHARP process\n")
 {
 	char *proto = (argc == 4) ? argv[3]->text : NULL;
 	return zebra_route_match_delete(vty, "source-protocol", proto,
 					RMAP_EVENT_MATCH_DELETED);
+}
+
+DEFUN (match_source_instance,
+       match_source_instance_cmd,
+       "match source-instance (0-255)",
+       MATCH_STR
+       "Match the protocol's instance number\n"
+       "The instance number\n")
+{
+	char *instance = argv[2]->arg;
+
+	return zebra_route_match_add(vty, "source-instance", instance,
+				     RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFUN (no_match_source_instance,
+       no_match_source_instance_cmd,
+       "no match source-instance [(0-255)]",
+       NO_STR MATCH_STR
+       "Match the protocol's instance number\n"
+       "The instance number\n")
+{
+	char *instance = (argc == 4) ? argv[3]->arg : NULL;
+
+	return zebra_route_match_delete(vty, "source-instance", instance,
+					RMAP_EVENT_MATCH_ADDED);
 }
 
 /* set functions */
@@ -1172,6 +1201,47 @@ static struct route_map_rule_cmd route_match_source_protocol_cmd = {
 	"source-protocol", route_match_source_protocol,
 	route_match_source_protocol_compile, route_match_source_protocol_free};
 
+/* `source-instance` */
+static route_map_result_t route_match_source_instance(void *rule,
+						      struct prefix *prefix,
+						      route_map_object_t type,
+						      void *object)
+{
+	uint8_t *instance = (uint8_t *)rule;
+	struct nh_rmap_obj *nh_data;
+
+	if (type != RMAP_ZEBRA)
+		return RMAP_NOMATCH;
+
+	nh_data = (struct nh_rmap_obj *)object;
+	if (!nh_data)
+		return RMAP_DENYMATCH;
+
+	return (nh_data->instance == *instance) ? RMAP_MATCH : RMAP_NOMATCH;
+}
+
+static void *route_match_source_instance_compile(const char *arg)
+{
+	uint8_t *instance;
+	int i;
+
+	i = atoi(arg);
+	instance = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint8_t));
+
+	*instance = i;
+
+	return instance;
+}
+
+static void route_match_source_instance_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static struct route_map_rule_cmd route_match_source_instance_cmd = {
+	"source-instance", route_match_source_instance,
+	route_match_source_instance_compile, route_match_source_instance_free};
+
 /* `set src A.B.C.D' */
 
 /* Set src. */
@@ -1252,7 +1322,7 @@ void zebra_route_map_write_delay_timer(struct vty *vty)
 }
 
 route_map_result_t zebra_route_map_check(int family, int rib_type,
-					 struct prefix *p,
+					 uint8_t instance, struct prefix *p,
 					 struct nexthop *nexthop,
 					 vrf_id_t vrf_id, route_tag_t tag)
 {
@@ -1263,6 +1333,7 @@ route_map_result_t zebra_route_map_check(int family, int rib_type,
 	nh_obj.nexthop = nexthop;
 	nh_obj.vrf_id = vrf_id;
 	nh_obj.source_protocol = rib_type;
+	nh_obj.instance = instance;
 	nh_obj.metric = 0;
 	nh_obj.tag = tag;
 
@@ -1296,9 +1367,10 @@ void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
 }
 
 route_map_result_t
-zebra_import_table_route_map_check(int family, int re_type, struct prefix *p,
-				   struct nexthop *nexthop, vrf_id_t vrf_id,
-				   route_tag_t tag, const char *rmap_name)
+zebra_import_table_route_map_check(int family, int re_type, uint8_t instance,
+				   struct prefix *p, struct nexthop *nexthop,
+				   vrf_id_t vrf_id, route_tag_t tag,
+				   const char *rmap_name)
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_DENYMATCH;
@@ -1307,6 +1379,7 @@ zebra_import_table_route_map_check(int family, int re_type, struct prefix *p,
 	nh_obj.nexthop = nexthop;
 	nh_obj.vrf_id = vrf_id;
 	nh_obj.source_protocol = re_type;
+	nh_obj.instance = instance;
 	nh_obj.metric = 0;
 	nh_obj.tag = tag;
 
@@ -1331,6 +1404,7 @@ route_map_result_t zebra_nht_route_map_check(int family, int client_proto,
 	nh_obj.nexthop = nexthop;
 	nh_obj.vrf_id = nexthop->vrf_id;
 	nh_obj.source_protocol = re->type;
+	nh_obj.instance = re->instance;
 	nh_obj.metric = re->metric;
 	nh_obj.tag = re->tag;
 
@@ -1471,6 +1545,8 @@ void zebra_route_map_init()
 	route_map_install_match(&route_match_ipv6_address_prefix_len_cmd);
 	route_map_install_match(&route_match_ip_nexthop_prefix_len_cmd);
 	route_map_install_match(&route_match_source_protocol_cmd);
+	route_map_install_match(&route_match_source_instance_cmd);
+
 	/* */
 	route_map_install_set(&route_set_src_cmd);
 	/* */
@@ -1482,6 +1558,9 @@ void zebra_route_map_init()
 	install_element(RMAP_NODE, &no_match_ip_address_prefix_len_cmd);
 	install_element(RMAP_NODE, &match_source_protocol_cmd);
 	install_element(RMAP_NODE, &no_match_source_protocol_cmd);
+	install_element(RMAP_NODE, &match_source_instance_cmd);
+	install_element(RMAP_NODE, &no_match_source_instance_cmd);
+
 	/* */
 	install_element(RMAP_NODE, &set_src_cmd);
 	install_element(RMAP_NODE, &no_set_src_cmd);

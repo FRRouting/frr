@@ -539,8 +539,8 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 	afi = family2afi(rn->p.family);
 	if (rmap_name)
 		ret = zebra_import_table_route_map_check(
-			afi, re->type, &rn->p, re->ng.nexthop, re->vrf_id,
-			re->tag, rmap_name);
+			afi, re->type, re->instance, &rn->p, re->ng.nexthop,
+			re->vrf_id, re->tag, rmap_name);
 
 	if (ret != RMAP_MATCH) {
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);

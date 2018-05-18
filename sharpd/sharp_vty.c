@@ -81,14 +81,16 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "sharp install routes A.B.C.D$start nexthop A.B.C.D$nexthop (1-1000000)$routes",
+       "sharp install routes A.B.C.D$start nexthop A.B.C.D$nexthop (1-1000000)$routes [instance (0-255)$instance]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
        "Address to start /32 generation at\n"
        "Nexthop to use\n"
        "Nexthop address\n"
-       "How many to create\n")
+       "How many to create\n"
+       "Instance to use\n"
+       "Instance\n")
 {
 	int i;
 	struct prefix p;
@@ -112,7 +114,7 @@ DEFPY (install_routes,
 
 	temp = ntohl(p.u.prefix4.s_addr);
 	for (i = 0; i < routes; i++) {
-		route_add(&p, &nhop);
+		route_add(&p, (uint8_t)instance, &nhop);
 		p.u.prefix4.s_addr = htonl(++temp);
 	}
 
@@ -151,17 +153,18 @@ DEFPY(vrf_label, vrf_label_cmd,
 
 DEFPY (remove_routes,
        remove_routes_cmd,
-       "sharp remove routes A.B.C.D$start (1-1000000)$routes",
+       "sharp remove routes A.B.C.D$start (1-1000000)$routes [instance (0-255)$instance]",
        "Sharp Routing Protocol\n"
        "Remove some routes\n"
        "Routes to remove\n"
        "Starting spot\n"
-       "Routes to uniinstall\n")
+       "Routes to uniinstall\n"
+       "instance to use\n"
+       "Value of instance\n")
 {
 	int i;
 	struct prefix p;
 	uint32_t temp;
-
 	total_routes = routes;
 	removed_routes = 0;
 
@@ -175,7 +178,7 @@ DEFPY (remove_routes,
 
 	temp = ntohl(p.u.prefix4.s_addr);
 	for (i = 0; i < routes; i++) {
-		route_delete(&p);
+		route_delete(&p, (uint8_t)instance);
 		p.u.prefix4.s_addr = htonl(++temp);
 	}
 
