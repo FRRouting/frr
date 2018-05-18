@@ -47,6 +47,14 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    .. seealso:: :ref:`vrf`
 
+.. option:: --v6-rr-semantics
+
+   The linux kernel is receiving the ability to use the same route
+   replacement semantics for v6 that v4 uses.  If you are using a
+   kernel that supports this functionality then run *Zebra* with this
+   option and we will use Route Replace Semantics instead of delete
+   than add.
+
 .. _interface-commands:
 
 Interface Commands
