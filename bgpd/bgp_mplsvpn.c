@@ -571,7 +571,7 @@ leak_update(
 		setlabels(new, label, num_labels);
 
 	new->extra->parent = bgp_info_lock(parent);
-
+	bgp_lock_node((struct bgp_node *)((struct bgp_info *)parent)->net);
 	if (bgp_orig)
 		new->extra->bgp_orig = bgp_orig;
 	if (nexthop_orig)

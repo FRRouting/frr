@@ -1853,6 +1853,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		SET_FLAG(ri->flags, BGP_INFO_VALID);
 		bgp_info_extra_get(ri);
 		ri->extra->parent = bgp_info_lock(parent_ri);
+		bgp_lock_node((struct bgp_node *)parent_ri->net);
 		if (parent_ri->extra) {
 			memcpy(&ri->extra->label, &parent_ri->extra->label,
 			       sizeof(ri->extra->label));
@@ -1925,6 +1926,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		SET_FLAG(ri->flags, BGP_INFO_VALID);
 		bgp_info_extra_get(ri);
 		ri->extra->parent = bgp_info_lock(parent_ri);
+		bgp_lock_node((struct bgp_node *)parent_ri->net);
 		if (parent_ri->extra) {
 			memcpy(&ri->extra->label, &parent_ri->extra->label,
 			       sizeof(ri->extra->label));
@@ -3326,7 +3328,7 @@ void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 	int ret = 0;
 	struct prefix_evpn evp;
 	char buf[PREFIX_STRLEN];
-  
+
 	build_type5_prefix_from_ip_prefix(&evp, p);
 	ret = update_evpn_type5_route(bgp_vrf, &evp, src_attr);
 	if (ret)

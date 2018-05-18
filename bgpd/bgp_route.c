@@ -205,6 +205,14 @@ struct bgp_info *bgp_info_new(void)
 /* Free bgp route information. */
 static void bgp_info_free(struct bgp_info *binfo)
 {
+	/* unlink reference to parent, if any. */
+	if (binfo->extra && binfo->extra->parent) {
+		bgp_info_unlock((struct bgp_info *)binfo->extra->parent);
+		bgp_unlock_node((struct bgp_node *)((struct bgp_info *)binfo
+						    ->extra->parent)->net);
+		binfo->extra->parent = NULL;
+	}
+
 	if (binfo->attr)
 		bgp_attr_unintern(&binfo->attr);
 
@@ -225,11 +233,6 @@ struct bgp_info *bgp_info_lock(struct bgp_info *binfo)
 
 struct bgp_info *bgp_info_unlock(struct bgp_info *binfo)
 {
-	/* unlink reference to parent, if any. */
-	if (binfo->extra && binfo->extra->parent) {
-		bgp_info_unlock((struct bgp_info *)binfo->extra->parent);
-		binfo->extra->parent = NULL;
-	}
 	assert(binfo && binfo->lock > 0);
 	binfo->lock--;
 
