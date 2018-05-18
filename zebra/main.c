@@ -75,24 +75,29 @@ int allow_delete = 0;
 /* Don't delete kernel route. */
 int keep_kernel_mode = 0;
 
+bool v6_rr_semantics = false;
+
 #ifdef HAVE_NETLINK
 /* Receive buffer size for netlink socket */
 uint32_t nl_rcvbufsize = 4194304;
 #endif /* HAVE_NETLINK */
 
+#define OPTION_V6_RR_SEMANTICS 2000
 /* Command line options. */
-struct option longopts[] = {{"batch", no_argument, NULL, 'b'},
-			    {"allow_delete", no_argument, NULL, 'a'},
-			    {"keep_kernel", no_argument, NULL, 'k'},
-			    {"socket", required_argument, NULL, 'z'},
-			    {"ecmp", required_argument, NULL, 'e'},
-			    {"label_socket", no_argument, NULL, 'l'},
-			    {"retain", no_argument, NULL, 'r'},
+struct option longopts[] = {
+	{"batch", no_argument, NULL, 'b'},
+	{"allow_delete", no_argument, NULL, 'a'},
+	{"keep_kernel", no_argument, NULL, 'k'},
+	{"socket", required_argument, NULL, 'z'},
+	{"ecmp", required_argument, NULL, 'e'},
+	{"label_socket", no_argument, NULL, 'l'},
+	{"retain", no_argument, NULL, 'r'},
 #ifdef HAVE_NETLINK
-			    {"vrfwnetns", no_argument, NULL, 'n'},
-			    {"nl-bufsize", required_argument, NULL, 's'},
+	{"vrfwnetns", no_argument, NULL, 'n'},
+	{"nl-bufsize", required_argument, NULL, 's'},
+	{"v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS},
 #endif /* HAVE_NETLINK */
-			    {0}};
+	{0}};
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN, ZCAP_NET_RAW,
@@ -224,21 +229,22 @@ int main(int argc, char **argv)
 #endif
 		,
 		longopts,
-		"  -b, --batch        Runs in batch mode\n"
-		"  -a, --allow_delete Allow other processes to delete zebra routes\n"
-		"  -z, --socket       Set path of zebra socket\n"
-		"  -e, --ecmp         Specify ECMP to use.\n"
-		"  -l, --label_socket Socket to external label manager\n"
-		"  -k, --keep_kernel  Don't delete old routes which installed by zebra.\n"
-		"  -r, --retain       When program terminates, retain added route by zebra.\n"
+		"  -b, --batch           Runs in batch mode\n"
+		"  -a, --allow_delete    Allow other processes to delete zebra routes\n"
+		"  -z, --socket          Set path of zebra socket\n"
+		"  -e, --ecmp            Specify ECMP to use.\n"
+		"  -l, --label_socket    Socket to external label manager\n"
+		"  -k, --keep_kernel     Don't delete old routes which installed by zebra.\n"
+		"  -r, --retain          When program terminates, retain added route by zebra.\n"
 #ifdef HAVE_NETLINK
-		"  -n, --vrfwnetns    Set VRF with NetNS\n"
-		"  -s, --nl-bufsize   Set netlink receive buffer size\n"
+		"  -n, --vrfwnetns       Set VRF with NetNS\n"
+		"  -s, --nl-bufsize      Set netlink receive buffer size\n"
+		"      --v6-rr-semantics Use v6 RR semantics\n"
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)
-		"  -c <file>          Bypass normal startup use this file for tetsting of zapi"
+		"  -c <file>             Bypass normal startup use this file for tetsting of zapi"
 #endif
-		);
+	);
 
 	while (1) {
 		int opt = frr_getopt(argc, argv, NULL);
@@ -291,6 +297,9 @@ int main(int argc, char **argv)
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			logicalrouter_configure_backend(
 				LOGICALROUTER_BACKEND_OFF);
+			break;
+		case OPTION_V6_RR_SEMANTICS:
+			v6_rr_semantics = true;
 			break;
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)

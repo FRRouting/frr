@@ -1696,7 +1696,7 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 	assert(old || new);
 
 	if (new) {
-		if (p->family == AF_INET)
+		if (p->family == AF_INET || v6_rr_semantics)
 			ret = netlink_route_multipath(RTM_NEWROUTE, p, src_p,
 						      new, (old) ? 1 : 0);
 		else {
