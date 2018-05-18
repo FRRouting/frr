@@ -2037,6 +2037,8 @@ static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 	zlog_info("  options: %s router-bits: %s metric-type: %d metric: %d/%d",
 		  options, capa, brouter->path.metric_type, brouter->path.cost,
 		  brouter->path.u.cost_e2);
+	zlog_info(" paths %u nh %u", listcount(brouter->paths),
+		   listcount(brouter->nh_list));
 }
 
 void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
