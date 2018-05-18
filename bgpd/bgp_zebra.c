@@ -1962,6 +1962,7 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 			zlog_debug("%s: Received RULE_INSTALLED",
 				   __PRETTY_FUNCTION__);
 		break;
+	case ZAPI_RULE_FAIL_REMOVE:
 	case ZAPI_RULE_REMOVED:
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received RULE REMOVED",
@@ -2007,6 +2008,7 @@ static int ipset_notify_owner(int command, struct zclient *zclient,
 			zlog_debug("%s: Received IPSET_INSTALLED",
 				   __PRETTY_FUNCTION__);
 		break;
+	case ZAPI_IPSET_FAIL_REMOVE:
 	case ZAPI_IPSET_REMOVED:
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received IPSET REMOVED",
@@ -2065,6 +2067,7 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 			extra->bgp_fs_pbr = (void *)bgp_pbime;
 		}
 		break;
+	case ZAPI_IPSET_ENTRY_FAIL_REMOVE:
 	case ZAPI_IPSET_ENTRY_REMOVED:
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received IPSET_ENTRY_REMOVED",
@@ -2109,6 +2112,7 @@ static int iptable_notify_owner(int command, struct zclient *zclient,
 				   __PRETTY_FUNCTION__);
 		bgpm->action->refcnt++;
 		break;
+	case ZAPI_IPTABLE_FAIL_REMOVE:
 	case ZAPI_IPTABLE_REMOVED:
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received IPTABLE REMOVED",
