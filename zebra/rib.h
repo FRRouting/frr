@@ -447,4 +447,5 @@ extern int static_config(struct vty *vty, struct zebra_vrf *zvrf,
 			 afi_t afi, safi_t safi, const char *cmd);
 extern pid_t pid;
 
+extern bool v6_rr_semantics;
 #endif /*_ZEBRA_RIB_H */
