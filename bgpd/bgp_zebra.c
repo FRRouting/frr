@@ -2564,6 +2564,7 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 			  bool install)
 {
 	struct stream *s;
+	int ret = 0;
 
 	if (pbm->install_iptable_in_progress)
 		return;
@@ -2580,9 +2581,12 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 	bgp_encode_pbr_iptable_match(s, pba, pbm);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	if (!zclient_send_message(zclient) && install) {
-		pbm->install_iptable_in_progress = true;
-		pba->refcnt++;
+	ret = zclient_send_message(zclient);
+	if (install) {
+		if (ret)
+			pba->refcnt++;
+		else
+			pbm->install_iptable_in_progress = true;
 	}
 }
 
