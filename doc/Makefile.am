@@ -195,6 +195,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/babeld.rst \
 	user/basic.rst \
 	user/bgp.rst \
+	user/bugs.rst \
 	user/conf.py \
 	user/eigrpd.rst \
 	user/filter.rst \
