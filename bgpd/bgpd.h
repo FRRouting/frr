@@ -1108,6 +1108,18 @@ struct peer {
 };
 DECLARE_QOBJ_TYPE(peer)
 
+/* Inherit peer attribute from peer-group. */
+#define PEER_ATTR_INHERIT(peer, attr) ((peer)->attr = (peer)->group->conf->attr)
+#define PEER_STR_ATTR_INHERIT(mt, peer, attr)                                  \
+	do {                                                                   \
+		if ((peer)->attr)                                              \
+			XFREE(mt, (peer)->attr);                               \
+		if ((peer)->group->conf->attr)                                 \
+			(peer)->attr = XSTRDUP(mt, (peer)->group->conf->attr); \
+		else                                                           \
+			(peer)->attr = NULL;                                   \
+	} while (0)
+
 /* Check if suppress start/restart of sessions to peer. */
 #define BGP_PEER_START_SUPPRESSED(P)                                           \
 	(CHECK_FLAG((P)->flags, PEER_FLAG_SHUTDOWN)                            \
@@ -1506,6 +1518,7 @@ extern int peer_flag_unset(struct peer *, uint32_t);
 extern int peer_af_flag_set(struct peer *, afi_t, safi_t, uint32_t);
 extern int peer_af_flag_unset(struct peer *, afi_t, safi_t, uint32_t);
 extern int peer_af_flag_check(struct peer *, afi_t, safi_t, uint32_t);
+extern void peer_af_flag_inherit(struct peer *, afi_t, safi_t, uint32_t);
 
 extern int peer_ebgp_multihop_set(struct peer *, int);
 extern int peer_ebgp_multihop_unset(struct peer *);
