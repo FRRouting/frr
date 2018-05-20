@@ -34,11 +34,6 @@ include @srcdir@/../frr-sphinx.mk
 # tags
 # ctags
 
-# ignore these targets
-EMPTY_AUTOMAKE_TARGETS = dvi ps tags ctags distdir install-exec install-dvi install-ps installdirs check installcheck install-html install-pdf install-data install
-.PHONY: $(EMPTY_AUTOMAKE_TARGETS)
-$(EMPTY_AUTOMAKE_TARGETS):
-
 # When building 'all', the logic is that we want to make docs that are easily
 # readable by the person that just built them. Technically the reST source is
 # readable in its own right, but we'll also build info and html because those
@@ -58,5 +53,3 @@ install-info: info
 install-data: install-info
 
 install: install-data
-
-mostlyclean distclean maintainer-clean: clean
