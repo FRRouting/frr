@@ -183,7 +183,7 @@ static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac,
 
 /* Private functions */
 static int host_rb_entry_compare(const struct host_rb_entry *hle1,
-				   const struct host_rb_entry *hle2)
+				 const struct host_rb_entry *hle2)
 {
 	if (hle1->p.family < hle2->p.family)
 		return -1;
@@ -211,15 +211,14 @@ static int host_rb_entry_compare(const struct host_rb_entry *hle1,
 		return 0;
 	}
 }
-RB_GENERATE(host_rb_entry_rb, host_rb_entry, hl_entry,
-	    host_rb_entry_compare);
+RB_GENERATE(host_rb_tree_entry, host_rb_entry, hl_entry, host_rb_entry_compare);
 
-static uint32_t rb_host_count(struct host_rb_entry_rb *hrbe)
+static uint32_t rb_host_count(struct host_rb_tree_entry *hrbe)
 {
 	struct host_rb_entry *hle;
 	uint32_t count = 0;
 
-	RB_FOREACH (hle, host_rb_entry_rb, hrbe)
+	RB_FOREACH (hle, host_rb_tree_entry, hrbe)
 		count++;
 
 	return count;
@@ -487,7 +486,7 @@ static void zl3vni_print_nh(zebra_neigh_t *n, struct vty *vty,
 		vty_out(vty, "  Refcount: %d\n",
 			rb_host_count(&n->host_rb));
 		vty_out(vty, "  Prefixes:\n");
-		RB_FOREACH (hle, host_rb_entry_rb, &n->host_rb)
+		RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb)
 			vty_out(vty, "    %s\n",
 				prefix2str(&hle->p, buf2, sizeof(buf2)));
 	} else {
@@ -499,7 +498,7 @@ static void zl3vni_print_nh(zebra_neigh_t *n, struct vty *vty,
 			prefix_mac2str(&n->emac, buf2, sizeof(buf2)));
 		json_object_int_add(json, "refCount",
 				    rb_host_count(&n->host_rb));
-		RB_FOREACH (hle, host_rb_entry_rb, &n->host_rb)
+		RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb)
 			json_object_array_add(json_hosts,
 					      json_object_new_string(prefix2str(
 										&hle->p, buf2, sizeof(buf2))));
@@ -523,7 +522,7 @@ static void zl3vni_print_rmac(zebra_mac_t *zrmac, struct vty *vty,
 			inet_ntoa(zrmac->fwd_info.r_vtep_ip));
 		vty_out(vty, " Refcount: %d\n", rb_host_count(&zrmac->host_rb));
 		vty_out(vty, "  Prefixes:\n");
-		RB_FOREACH (hle, host_rb_entry_rb, &zrmac->host_rb)
+		RB_FOREACH (hle, host_rb_tree_entry, &zrmac->host_rb)
 			vty_out(vty, "    %s\n",
 				prefix2str(&hle->p, buf2, sizeof(buf2)));
 	} else {
@@ -535,7 +534,7 @@ static void zl3vni_print_rmac(zebra_mac_t *zrmac, struct vty *vty,
 				       inet_ntoa(zrmac->fwd_info.r_vtep_ip));
 		json_object_int_add(json, "refCount",
 				    rb_host_count(&zrmac->host_rb));
-		RB_FOREACH (hle, host_rb_entry_rb, &zrmac->host_rb)
+		RB_FOREACH (hle, host_rb_tree_entry, &zrmac->host_rb)
 			json_object_array_add(
 				json_hosts,
 				json_object_new_string(prefix2str(
@@ -3084,7 +3083,7 @@ static void zl3vni_cleanup_all(struct hash_backet *backet, void *args)
 	zebra_vxlan_process_l3vni_oper_down(zl3vni);
 }
 
-static void rb_find_or_add_host(struct host_rb_entry_rb *hrbe,
+static void rb_find_or_add_host(struct host_rb_tree_entry *hrbe,
 				struct prefix *host)
 {
 	struct host_rb_entry lookup;
@@ -3093,17 +3092,17 @@ static void rb_find_or_add_host(struct host_rb_entry_rb *hrbe,
 	memset(&lookup, 0, sizeof(lookup));
 	memcpy(&lookup.p, host, sizeof(*host));
 
-	hle = RB_FIND(host_rb_entry_rb, hrbe, &lookup);
+	hle = RB_FIND(host_rb_tree_entry, hrbe, &lookup);
 	if (hle)
 		return;
 
 	hle = XCALLOC(MTYPE_HOST_PREFIX, sizeof(struct host_rb_entry));
 	memcpy(hle, &lookup, sizeof(lookup));
 
-	RB_INSERT(host_rb_entry_rb, hrbe, hle);
+	RB_INSERT(host_rb_tree_entry, hrbe, hle);
 }
 
-static void rb_delete_host(struct host_rb_entry_rb *hrbe, struct prefix *host)
+static void rb_delete_host(struct host_rb_tree_entry *hrbe, struct prefix *host)
 {
 	struct host_rb_entry lookup;
 	struct host_rb_entry *hle;
@@ -3111,9 +3110,9 @@ static void rb_delete_host(struct host_rb_entry_rb *hrbe, struct prefix *host)
 	memset(&lookup, 0, sizeof(lookup));
 	memcpy(&lookup.p, host, sizeof(*host));
 
-	hle = RB_FIND(host_rb_entry_rb, hrbe, &lookup);
+	hle = RB_FIND(host_rb_tree_entry, hrbe, &lookup);
 	if (hle)
-		RB_REMOVE(host_rb_entry_rb, hrbe, hle);
+		RB_REMOVE(host_rb_tree_entry, hrbe, hle);
 
 	return;
 }
@@ -3161,7 +3160,7 @@ static zebra_mac_t *zl3vni_rmac_add(zebra_l3vni_t *zl3vni, struct ethaddr *rmac)
 	zrmac = hash_get(zl3vni->rmac_table, &tmp_rmac, zl3vni_rmac_alloc);
 	assert(zrmac);
 
-	RB_INIT(host_rb_entry_rb, &zrmac->host_rb);
+	RB_INIT(host_rb_tree_entry, &zrmac->host_rb);
 
 	SET_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE);
 	SET_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC);
@@ -3177,10 +3176,10 @@ static int zl3vni_rmac_del(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 	zebra_mac_t *tmp_rmac;
 	struct host_rb_entry *hle;
 
-	while (!RB_EMPTY(host_rb_entry_rb, &zrmac->host_rb)) {
-		hle = RB_ROOT(host_rb_entry_rb, &zrmac->host_rb);
+	while (!RB_EMPTY(host_rb_tree_entry, &zrmac->host_rb)) {
+		hle = RB_ROOT(host_rb_tree_entry, &zrmac->host_rb);
 
-		RB_REMOVE(host_rb_entry_rb, &zrmac->host_rb, hle);
+		RB_REMOVE(host_rb_tree_entry, &zrmac->host_rb, hle);
 		XFREE(MTYPE_HOST_PREFIX, hle);
 	}
 
@@ -3284,7 +3283,7 @@ static void zl3vni_remote_rmac_del(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac,
 {
 	rb_delete_host(&zrmac->host_rb, host_prefix);
 
-	if (RB_EMPTY(host_rb_entry_rb, &zrmac->host_rb)) {
+	if (RB_EMPTY(host_rb_tree_entry, &zrmac->host_rb)) {
 		/* uninstall from kernel */
 		zl3vni_rmac_uninstall(zl3vni, zrmac);
 
@@ -3337,7 +3336,7 @@ static zebra_neigh_t *zl3vni_nh_add(zebra_l3vni_t *zl3vni, struct ipaddr *ip,
 	n = hash_get(zl3vni->nh_table, &tmp_n, zl3vni_nh_alloc);
 	assert(n);
 
-	RB_INIT(host_rb_entry_rb, &n->host_rb);
+	RB_INIT(host_rb_tree_entry, &n->host_rb);
 
 	memcpy(&n->emac, mac, ETH_ALEN);
 	SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
@@ -3354,10 +3353,10 @@ static int zl3vni_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 	zebra_neigh_t *tmp_n;
 	struct host_rb_entry *hle;
 
-	while (!RB_EMPTY(host_rb_entry_rb, &n->host_rb)) {
-		hle = RB_ROOT(host_rb_entry_rb, &n->host_rb);
+	while (!RB_EMPTY(host_rb_tree_entry, &n->host_rb)) {
+		hle = RB_ROOT(host_rb_tree_entry, &n->host_rb);
 
-		RB_REMOVE(host_rb_entry_rb, &n->host_rb, hle);
+		RB_REMOVE(host_rb_tree_entry, &n->host_rb, hle);
 		XFREE(MTYPE_HOST_PREFIX, hle);
 	}
 
@@ -3435,7 +3434,7 @@ static void zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *nh,
 {
 	rb_delete_host(&nh->host_rb, host_prefix);
 
-	if (RB_EMPTY(host_rb_entry_rb, &nh->host_rb)) {
+	if (RB_EMPTY(host_rb_tree_entry, &nh->host_rb)) {
 		/* uninstall from kernel */
 		zl3vni_nh_uninstall(zl3vni, nh);
 
