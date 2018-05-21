@@ -2640,7 +2640,8 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 
 		inet_ntop(AF_INET, &(nh->gate.ipv4), buff, INET_ADDRSTRLEN);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_info("BGP: sending default route to %s table %d (redirect IP)",
+			zlog_info("BGP: %s default route to %s table %d (redirect IP)",
+				  announce ? "adding" : "withdrawing",
 				  buff, table_id);
 		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
 				   : ZEBRA_ROUTE_DELETE,
@@ -2662,7 +2663,8 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 		api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		api_nh->ifindex = ifp->ifindex;
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_info("BGP: sending default route to %s table %d (redirect VRF)",
+			zlog_info("BGP: %s default route to %s table %d (redirect VRF)",
+				  announce ? "adding" : "withdrawing",
 				  vrf->name, table_id);
 		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
 				   : ZEBRA_ROUTE_DELETE,
