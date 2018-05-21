@@ -59,6 +59,24 @@ class json_cmp_result(object):
         "Returns True if there were errors, otherwise False."
         return len(self.errors) > 0
 
+def get_test_logdir(node=None, init=False):
+    """
+    Return the current test log directory based on PYTEST_CURRENT_TEST
+    environment variable.
+    Optional paramters:
+    node:  when set, adds the node specific log directory to the init dir
+    init:  when set, initializes the log directory and fixes path permissions
+    """
+    cur_test = os.environ['PYTEST_CURRENT_TEST']
+
+    ret = '/tmp/topotests/' + cur_test[0:cur_test.find(".py")].replace('/','.')
+    if node != None:
+        dir = ret + "/" + node
+    if init:
+        os.system('mkdir -p ' + dir)
+        os.system('chmod 775 ' + dir)
+    return ret
+
 def json_diff(d1, d2):
     """
     Returns a string with the difference between JSON data.
@@ -462,7 +480,7 @@ class Router(Node):
 
     def __init__(self, name, **params):
         super(Router, self).__init__(name, **params)
-        self.logdir = params.get('logdir', '/tmp')
+        self.logdir = params.get('logdir', get_test_logdir(name, True))
         self.daemondir = None
         self.hasmpls = False
         self.routertype = 'frr'
