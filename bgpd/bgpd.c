@@ -830,6 +830,32 @@ static bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
 	return !!CHECK_FLAG(peer->af_flags_override[afi][safi], flag);
 }
 
+static bool peergroup_filter_check(struct peer *peer, afi_t afi, safi_t safi,
+				   uint8_t type, int direct)
+{
+	struct bgp_filter *filter;
+
+	if (peer_group_active(peer))
+		return !!CHECK_FLAG(peer->filter_override[afi][safi][direct],
+				    type);
+
+	filter = &peer->filter[afi][safi];
+	switch (type) {
+	case PEER_FT_DISTRIBUTE_LIST:
+		return !!(filter->dlist[direct].name);
+	case PEER_FT_FILTER_LIST:
+		return !!(filter->aslist[direct].name);
+	case PEER_FT_PREFIX_LIST:
+		return !!(filter->plist[direct].name);
+	case PEER_FT_ROUTE_MAP:
+		return !!(filter->map[direct].name);
+	case PEER_FT_UNSUPPRESS_MAP:
+		return !!(filter->usmap.name);
+	default:
+		return false;
+	}
+}
+
 /* Reset all address family specific configuration.  */
 static void peer_af_flag_reset(struct peer *peer, afi_t afi, safi_t safi)
 {
@@ -5407,40 +5433,55 @@ int peer_password_unset(struct peer *peer)
 int peer_distribute_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 			const char *name)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
 	if (direct != FILTER_IN && direct != FILTER_OUT)
 		return BGP_ERR_INVALID_VALUE;
 
+	/* Set configuration on peer. */
 	filter = &peer->filter[afi][safi];
-
 	if (filter->plist[direct].name)
 		return BGP_ERR_PEER_FILTER_CONFLICT;
-
 	if (filter->dlist[direct].name)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->dlist[direct].name);
 	filter->dlist[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 	filter->dlist[direct].alist = access_list_lookup(afi, name);
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Set override-flag and process peer route updates. */
+		SET_FLAG(peer->filter_override[afi][safi][direct],
+			 PEER_FT_DISTRIBUTE_LIST);
 		peer_on_policy_change(peer, afi, safi,
 				      (direct == FILTER_OUT) ? 1 : 0);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
+	/*
+	 * Set configuration on all peer-group members, un less they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
+			       PEER_FT_DISTRIBUTE_LIST))
+			continue;
 
+		/* Set configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
 		if (filter->dlist[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME,
 			      filter->dlist[direct].name);
 		filter->dlist[direct].name =
 			XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 		filter->dlist[direct].alist = access_list_lookup(afi, name);
-		peer_on_policy_change(peer, afi, safi,
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi,
 				      (direct == FILTER_OUT) ? 1 : 0);
 	}
 
@@ -5449,56 +5490,62 @@ int peer_distribute_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 
 int peer_distribute_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct bgp_filter *gfilter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
 	if (direct != FILTER_IN && direct != FILTER_OUT)
 		return BGP_ERR_INVALID_VALUE;
 
-	filter = &peer->filter[afi][safi];
+	/* Unset override-flag unconditionally. */
+	UNSET_FLAG(peer->filter_override[afi][safi][direct],
+		   PEER_FT_DISTRIBUTE_LIST);
 
-	/* apply peer-group filter */
+	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		gfilter = &peer->group->conf->filter[afi][safi];
-
-		if (gfilter->dlist[direct].name) {
-			if (filter->dlist[direct].name)
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->dlist[direct].name);
-			filter->dlist[direct].name =
-				XSTRDUP(MTYPE_BGP_FILTER_NAME,
-					gfilter->dlist[direct].name);
-			filter->dlist[direct].alist =
-				gfilter->dlist[direct].alist;
-			peer_on_policy_change(peer, afi, safi,
-					      (direct == FILTER_OUT) ? 1 : 0);
-			return 0;
-		}
-	}
-
-	if (filter->dlist[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->dlist[direct].name);
-	filter->dlist[direct].name = NULL;
-	filter->dlist[direct].alist = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
+				      filter[afi][safi].dlist[direct].name);
+		PEER_ATTR_INHERIT(peer, filter[afi][safi].dlist[direct].alist);
+	} else {
+		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
-
 		if (filter->dlist[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME,
 			      filter->dlist[direct].name);
 		filter->dlist[direct].name = NULL;
 		filter->dlist[direct].alist = NULL;
+	}
+
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Process peer route updates. */
 		peer_on_policy_change(peer, afi, safi,
+				      (direct == FILTER_OUT) ? 1 : 0);
+
+		/* Skip peer-group mechanics for regular peers. */
+		return 0;
+	}
+
+	/*
+	 * Remove configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
+			       PEER_FT_DISTRIBUTE_LIST))
+			continue;
+
+		/* Remove configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
+		if (filter->dlist[direct].name)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      filter->dlist[direct].name);
+		filter->dlist[direct].name = NULL;
+		filter->dlist[direct].alist = NULL;
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi,
 				      (direct == FILTER_OUT) ? 1 : 0);
 	}
 
@@ -5568,98 +5615,120 @@ static void peer_distribute_update(struct access_list *access)
 int peer_prefix_list_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 			 const char *name)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
 	if (direct != FILTER_IN && direct != FILTER_OUT)
 		return BGP_ERR_INVALID_VALUE;
 
+	/* Set configuration on peer. */
 	filter = &peer->filter[afi][safi];
-
 	if (filter->dlist[direct].name)
 		return BGP_ERR_PEER_FILTER_CONFLICT;
-
 	if (filter->plist[direct].name)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->plist[direct].name);
 	filter->plist[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 	filter->plist[direct].plist = prefix_list_lookup(afi, name);
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Set override-flag and process peer route updates. */
+		SET_FLAG(peer->filter_override[afi][safi][direct],
+			 PEER_FT_PREFIX_LIST);
 		peer_on_policy_change(peer, afi, safi,
 				      (direct == FILTER_OUT) ? 1 : 0);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
+	/*
+	 * Set configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
+			       PEER_FT_PREFIX_LIST))
+			continue;
 
+		/* Set configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
 		if (filter->plist[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME,
 			      filter->plist[direct].name);
 		filter->plist[direct].name =
 			XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 		filter->plist[direct].plist = prefix_list_lookup(afi, name);
-		peer_on_policy_change(peer, afi, safi,
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi,
 				      (direct == FILTER_OUT) ? 1 : 0);
 	}
+
 	return 0;
 }
 
 int peer_prefix_list_unset(struct peer *peer, afi_t afi, safi_t safi,
 			   int direct)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct bgp_filter *gfilter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
 	if (direct != FILTER_IN && direct != FILTER_OUT)
 		return BGP_ERR_INVALID_VALUE;
 
-	filter = &peer->filter[afi][safi];
+	/* Unset override-flag unconditionally. */
+	UNSET_FLAG(peer->filter_override[afi][safi][direct],
+		   PEER_FT_PREFIX_LIST);
 
-	/* apply peer-group filter */
+	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		gfilter = &peer->group->conf->filter[afi][safi];
-
-		if (gfilter->plist[direct].name) {
-			if (filter->plist[direct].name)
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->plist[direct].name);
-			filter->plist[direct].name =
-				XSTRDUP(MTYPE_BGP_FILTER_NAME,
-					gfilter->plist[direct].name);
-			filter->plist[direct].plist =
-				gfilter->plist[direct].plist;
-			peer_on_policy_change(peer, afi, safi,
-					      (direct == FILTER_OUT) ? 1 : 0);
-			return 0;
-		}
-	}
-
-	if (filter->plist[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->plist[direct].name);
-	filter->plist[direct].name = NULL;
-	filter->plist[direct].plist = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
+				      filter[afi][safi].plist[direct].name);
+		PEER_ATTR_INHERIT(peer, filter[afi][safi].plist[direct].plist);
+	} else {
+		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
-
 		if (filter->plist[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME,
 			      filter->plist[direct].name);
 		filter->plist[direct].name = NULL;
 		filter->plist[direct].plist = NULL;
+	}
+
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Process peer route updates. */
 		peer_on_policy_change(peer, afi, safi,
+				      (direct == FILTER_OUT) ? 1 : 0);
+
+		/* Skip peer-group mechanics for regular peers. */
+		return 0;
+	}
+
+	/*
+	 * Remove configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
+			       PEER_FT_PREFIX_LIST))
+			continue;
+
+		/* Remove configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
+		if (filter->plist[direct].name)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      filter->plist[direct].name);
+		filter->plist[direct].name = NULL;
+		filter->plist[direct].plist = NULL;
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi,
 				      (direct == FILTER_OUT) ? 1 : 0);
 	}
 
@@ -5730,94 +5799,118 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 int peer_aslist_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 		    const char *name)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
 	if (direct != FILTER_IN && direct != FILTER_OUT)
 		return BGP_ERR_INVALID_VALUE;
 
+	/* Set configuration on peer. */
 	filter = &peer->filter[afi][safi];
-
 	if (filter->aslist[direct].name)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->aslist[direct].name);
 	filter->aslist[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 	filter->aslist[direct].aslist = as_list_lookup(name);
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Set override-flag and process peer route updates. */
+		SET_FLAG(peer->filter_override[afi][safi][direct],
+			 PEER_FT_FILTER_LIST);
 		peer_on_policy_change(peer, afi, safi,
 				      (direct == FILTER_OUT) ? 1 : 0);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
+	/*
+	 * Set configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
+			       PEER_FT_FILTER_LIST))
+			continue;
 
+		/* Set configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
 		if (filter->aslist[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME,
 			      filter->aslist[direct].name);
 		filter->aslist[direct].name =
 			XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 		filter->aslist[direct].aslist = as_list_lookup(name);
-		peer_on_policy_change(peer, afi, safi,
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi,
 				      (direct == FILTER_OUT) ? 1 : 0);
 	}
+
 	return 0;
 }
 
 int peer_aslist_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct bgp_filter *gfilter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
 	if (direct != FILTER_IN && direct != FILTER_OUT)
 		return BGP_ERR_INVALID_VALUE;
 
-	filter = &peer->filter[afi][safi];
+	/* Unset override-flag unconditionally. */
+	UNSET_FLAG(peer->filter_override[afi][safi][direct],
+		   PEER_FT_FILTER_LIST);
 
-	/* apply peer-group filter */
+	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		gfilter = &peer->group->conf->filter[afi][safi];
-
-		if (gfilter->aslist[direct].name) {
-			if (filter->aslist[direct].name)
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->aslist[direct].name);
-			filter->aslist[direct].name =
-				XSTRDUP(MTYPE_BGP_FILTER_NAME,
-					gfilter->aslist[direct].name);
-			filter->aslist[direct].aslist =
-				gfilter->aslist[direct].aslist;
-			peer_on_policy_change(peer, afi, safi,
-					      (direct == FILTER_OUT) ? 1 : 0);
-			return 0;
-		}
-	}
-
-	if (filter->aslist[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->aslist[direct].name);
-	filter->aslist[direct].name = NULL;
-	filter->aslist[direct].aslist = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == FILTER_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
+				      filter[afi][safi].aslist[direct].name);
+		PEER_ATTR_INHERIT(peer,
+				  filter[afi][safi].aslist[direct].aslist);
+	} else {
+		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
-
 		if (filter->aslist[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME,
 			      filter->aslist[direct].name);
 		filter->aslist[direct].name = NULL;
 		filter->aslist[direct].aslist = NULL;
+	}
+
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Process peer route updates. */
 		peer_on_policy_change(peer, afi, safi,
+				      (direct == FILTER_OUT) ? 1 : 0);
+
+		/* Skip peer-group mechanics for regular peers. */
+		return 0;
+	}
+
+	/*
+	 * Remove configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
+			       PEER_FT_FILTER_LIST))
+			continue;
+
+		/* Remove configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
+		if (filter->aslist[direct].name)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      filter->aslist[direct].name);
+		filter->aslist[direct].name = NULL;
+		filter->aslist[direct].aslist = NULL;
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi,
 				      (direct == FILTER_OUT) ? 1 : 0);
 	}
 
@@ -5894,36 +5987,51 @@ static void peer_aslist_del(const char *aslist_name)
 int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 		       const char *name)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
 	if (direct != RMAP_IN && direct != RMAP_OUT)
 		return BGP_ERR_INVALID_VALUE;
 
+	/* Set configuration on peer. */
 	filter = &peer->filter[afi][safi];
-
 	if (filter->map[direct].name)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
-
 	filter->map[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 	filter->map[direct].map = route_map_lookup_by_name(name);
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Set override-flag and process peer route updates. */
+		SET_FLAG(peer->filter_override[afi][safi][direct],
+			 PEER_FT_ROUTE_MAP);
 		peer_on_policy_change(peer, afi, safi,
 				      (direct == RMAP_OUT) ? 1 : 0);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
+	/*
+	 * Set configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
+			       PEER_FT_ROUTE_MAP))
+			continue;
 
+		/* Set configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
 		if (filter->map[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
 		filter->map[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 		filter->map[direct].map = route_map_lookup_by_name(name);
-		peer_on_policy_change(peer, afi, safi,
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi,
 				      (direct == RMAP_OUT) ? 1 : 0);
 	}
 	return 0;
@@ -5932,56 +6040,62 @@ int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 /* Unset route-map from the peer. */
 int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct bgp_filter *gfilter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
 	if (direct != RMAP_IN && direct != RMAP_OUT)
 		return BGP_ERR_INVALID_VALUE;
 
-	filter = &peer->filter[afi][safi];
+	/* Unset override-flag unconditionally. */
+	UNSET_FLAG(peer->filter_override[afi][safi][direct], PEER_FT_ROUTE_MAP);
 
-	/* apply peer-group filter */
+	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		gfilter = &peer->group->conf->filter[afi][safi];
-
-		if (gfilter->map[direct].name) {
-			if (filter->map[direct].name)
-				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->map[direct].name);
-			filter->map[direct].name =
-				XSTRDUP(MTYPE_BGP_FILTER_NAME,
-					gfilter->map[direct].name);
-			filter->map[direct].map = gfilter->map[direct].map;
-			peer_on_policy_change(peer, afi, safi,
-					      (direct == RMAP_OUT) ? 1 : 0);
-			return 0;
-		}
-	}
-
-	if (filter->map[direct].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
-	filter->map[direct].name = NULL;
-	filter->map[direct].map = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi,
-				      (direct == RMAP_OUT) ? 1 : 0);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
+				      filter[afi][safi].map[direct].name);
+		PEER_ATTR_INHERIT(peer, filter[afi][safi].map[direct].map);
+	} else {
+		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
-
 		if (filter->map[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
 		filter->map[direct].name = NULL;
 		filter->map[direct].map = NULL;
+	}
+
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Process peer route updates. */
 		peer_on_policy_change(peer, afi, safi,
 				      (direct == RMAP_OUT) ? 1 : 0);
+
+		/* Skip peer-group mechanics for regular peers. */
+		return 0;
 	}
+
+	/*
+	 * Remove configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->filter_override[afi][safi][direct],
+			       PEER_FT_ROUTE_MAP))
+			continue;
+
+		/* Remove configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
+		if (filter->map[direct].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
+		filter->map[direct].name = NULL;
+		filter->map[direct].map = NULL;
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi,
+				      (direct == RMAP_OUT) ? 1 : 0);
+	}
+
 	return 0;
 }
 
@@ -5989,65 +6103,106 @@ int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
 			    const char *name)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
+	/* Set configuration on peer. */
 	filter = &peer->filter[afi][safi];
-
 	if (filter->usmap.name)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-
 	filter->usmap.name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 	filter->usmap.map = route_map_lookup_by_name(name);
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Set override-flag and process peer route updates. */
+		SET_FLAG(peer->filter_override[afi][safi][0],
+			 PEER_FT_UNSUPPRESS_MAP);
 		peer_on_policy_change(peer, afi, safi, 1);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		filter = &peer->filter[afi][safi];
+	/*
+	 * Set configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(peer->filter_override[afi][safi][0],
+			       PEER_FT_UNSUPPRESS_MAP))
+			continue;
 
+		/* Set configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
 		if (filter->usmap.name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
 		filter->usmap.name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 		filter->usmap.map = route_map_lookup_by_name(name);
-		peer_on_policy_change(peer, afi, safi, 1);
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi, 1);
 	}
+
 	return 0;
 }
 
 /* Unset route-map from the peer. */
 int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 {
+	struct peer *member;
 	struct bgp_filter *filter;
-	struct peer_group *group;
 	struct listnode *node, *nnode;
 
-	filter = &peer->filter[afi][safi];
+	/* Unset override-flag unconditionally. */
+	UNSET_FLAG(peer->filter_override[afi][safi][0], PEER_FT_UNSUPPRESS_MAP);
 
-	if (filter->usmap.name)
-		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
-	filter->usmap.name = NULL;
-	filter->usmap.map = NULL;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		peer_on_policy_change(peer, afi, safi, 1);
-		return 0;
-	}
-
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
+				      filter[afi][safi].usmap.name);
+		PEER_ATTR_INHERIT(peer, filter[afi][safi].usmap.map);
+	} else {
+		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
-
 		if (filter->usmap.name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
 		filter->usmap.name = NULL;
 		filter->usmap.map = NULL;
-		peer_on_policy_change(peer, afi, safi, 1);
 	}
+
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Process peer route updates. */
+		peer_on_policy_change(peer, afi, safi, 1);
+
+		/* Skip peer-group mechanics for regular peers. */
+		return 0;
+	}
+
+	/*
+	 * Remove configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->filter_override[afi][safi][0],
+			       PEER_FT_UNSUPPRESS_MAP))
+			continue;
+
+		/* Remove configuration on peer-group member. */
+		filter = &member->filter[afi][safi];
+		if (filter->usmap.name)
+			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
+		filter->usmap.name = NULL;
+		filter->usmap.map = NULL;
+
+		/* Process peer route updates. */
+		peer_on_policy_change(member, afi, safi, 1);
+	}
+
 	return 0;
 }
 
@@ -6520,86 +6675,58 @@ static void bgp_config_write_filter(struct vty *vty, struct peer *peer,
 				    afi_t afi, safi_t safi)
 {
 	struct bgp_filter *filter;
-	struct bgp_filter *gfilter = NULL;
 	char *addr;
-	int in = FILTER_IN;
-	int out = FILTER_OUT;
 
 	addr = peer->host;
 	filter = &peer->filter[afi][safi];
 
-	if (peer_group_active(peer))
-		gfilter = &peer->group->conf->filter[afi][safi];
-
 	/* distribute-list. */
-	if (filter->dlist[in].name)
-		if (!gfilter || !gfilter->dlist[in].name
-		    || strcmp(filter->dlist[in].name, gfilter->dlist[in].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s distribute-list %s in\n",
-				addr, filter->dlist[in].name);
-		}
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_DISTRIBUTE_LIST,
+				   FILTER_IN))
+		vty_out(vty, "  neighbor %s distribute-list %s in\n", addr,
+			filter->dlist[FILTER_IN].name);
 
-	if (filter->dlist[out].name && !gfilter) {
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_DISTRIBUTE_LIST,
+				   FILTER_OUT))
 		vty_out(vty, "  neighbor %s distribute-list %s out\n", addr,
-			filter->dlist[out].name);
-	}
+			filter->dlist[FILTER_OUT].name);
 
 	/* prefix-list. */
-	if (filter->plist[in].name)
-		if (!gfilter || !gfilter->plist[in].name
-		    || strcmp(filter->plist[in].name, gfilter->plist[in].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s prefix-list %s in\n", addr,
-				filter->plist[in].name);
-		}
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_PREFIX_LIST,
+				   FILTER_IN))
+		vty_out(vty, "  neighbor %s prefix-list %s in\n", addr,
+			filter->plist[FILTER_IN].name);
 
-	if (filter->plist[out].name)
-		if (!gfilter || !gfilter->plist[out].name
-		    || strcmp(filter->plist[out].name, gfilter->plist[out].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s prefix-list %s out\n", addr,
-				filter->plist[out].name);
-		}
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_PREFIX_LIST,
+				   FILTER_OUT))
+		vty_out(vty, "  neighbor %s prefix-list %s out\n", addr,
+			filter->plist[FILTER_OUT].name);
 
 	/* route-map. */
-	if (filter->map[RMAP_IN].name)
-		if (!gfilter || !gfilter->map[RMAP_IN].name
-		    || strcmp(filter->map[RMAP_IN].name,
-			      gfilter->map[RMAP_IN].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s route-map %s in\n", addr,
-				filter->map[RMAP_IN].name);
-		}
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_ROUTE_MAP, RMAP_IN))
+		vty_out(vty, "  neighbor %s route-map %s in\n", addr,
+			filter->map[RMAP_IN].name);
 
-	if (filter->map[RMAP_OUT].name)
-		if (!gfilter || !gfilter->map[RMAP_OUT].name
-		    || strcmp(filter->map[RMAP_OUT].name,
-			      gfilter->map[RMAP_OUT].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s route-map %s out\n", addr,
-				filter->map[RMAP_OUT].name);
-		}
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_ROUTE_MAP,
+				   RMAP_OUT))
+		vty_out(vty, "  neighbor %s route-map %s out\n", addr,
+			filter->map[RMAP_OUT].name);
 
 	/* unsuppress-map */
-	if (filter->usmap.name && !gfilter) {
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_UNSUPPRESS_MAP, 0))
 		vty_out(vty, "  neighbor %s unsuppress-map %s\n", addr,
 			filter->usmap.name);
-	}
 
 	/* filter-list. */
-	if (filter->aslist[in].name)
-		if (!gfilter || !gfilter->aslist[in].name
-		    || strcmp(filter->aslist[in].name, gfilter->aslist[in].name)
-			       != 0) {
-			vty_out(vty, "  neighbor %s filter-list %s in\n", addr,
-				filter->aslist[in].name);
-		}
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_FILTER_LIST,
+				   FILTER_IN))
+		vty_out(vty, "  neighbor %s filter-list %s in\n", addr,
+			filter->aslist[FILTER_IN].name);
 
-	if (filter->aslist[out].name && !gfilter) {
+	if (peergroup_filter_check(peer, afi, safi, PEER_FT_FILTER_LIST,
+				   FILTER_OUT))
 		vty_out(vty, "  neighbor %s filter-list %s out\n", addr,
-			filter->aslist[out].name);
-	}
+			filter->aslist[FILTER_OUT].name);
 }
 
 /* BGP peer configuration display function. */
