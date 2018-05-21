@@ -480,6 +480,7 @@ static void bgp_pbr_action_free(void *arg)
 						   AFI_IP,
 						   bpa->table_id,
 						   false);
+			bpa->installed = false;
 		}
 	}
 	XFREE(MTYPE_PBR_ACTION, bpa);
@@ -917,6 +918,7 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 						   AFI_IP,
 						   bpa->table_id,
 						   false);
+			bpa->installed = false;
 		}
 	}
 }
