@@ -215,6 +215,15 @@ static inline void zl3vni_get_rmac(zebra_l3vni_t *zl3vni, struct ethaddr *rmac)
 		memcpy(rmac->octet, zl3vni->svi_if->hw_addr, ETH_ALEN);
 }
 
+struct host_rb_entry {
+	RB_ENTRY(host_rb_entry) hl_entry;
+
+	struct prefix p;
+};
+
+RB_HEAD(host_rb_entry_rb, host_rb_entry);
+RB_PROTOTYPE(host_rb_entry_rb, host_rb_entry, hl_entry,
+	     host_rb_entry_compare);
 /*
  * MAC hash table.
  *
@@ -253,7 +262,7 @@ struct zebra_mac_t_ {
 	struct list *neigh_list;
 
 	/* list of hosts pointing to this remote RMAC */
-	struct list *host_list;
+	struct host_rb_entry_rb host_rb;
 };
 
 /*
@@ -327,7 +336,7 @@ struct zebra_neigh_t_ {
 	struct in_addr r_vtep_ip;
 
 	/* list of hosts pointing to this remote NH entry */
-	struct list *host_list;
+	struct host_rb_entry_rb host_rb;
 };
 
 /*
