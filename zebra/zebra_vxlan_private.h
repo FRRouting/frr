@@ -221,8 +221,8 @@ struct host_rb_entry {
 	struct prefix p;
 };
 
-RB_HEAD(host_rb_entry_rb, host_rb_entry);
-RB_PROTOTYPE(host_rb_entry_rb, host_rb_entry, hl_entry,
+RB_HEAD(host_rb_tree_entry, host_rb_entry);
+RB_PROTOTYPE(host_rb_tree_entry, host_rb_entry, hl_entry,
 	     host_rb_entry_compare);
 /*
  * MAC hash table.
@@ -262,7 +262,7 @@ struct zebra_mac_t_ {
 	struct list *neigh_list;
 
 	/* list of hosts pointing to this remote RMAC */
-	struct host_rb_entry_rb host_rb;
+	struct host_rb_tree_entry host_rb;
 };
 
 /*
@@ -336,7 +336,7 @@ struct zebra_neigh_t_ {
 	struct in_addr r_vtep_ip;
 
 	/* list of hosts pointing to this remote NH entry */
-	struct host_rb_entry_rb host_rb;
+	struct host_rb_tree_entry host_rb;
 };
 
 /*
