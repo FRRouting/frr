@@ -2509,8 +2509,10 @@ void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra, bool install)
 
 	if (pbra->install_in_progress)
 		return;
-	zlog_debug("%s: table %d fwmark %d %d", __PRETTY_FUNCTION__,
-		   pbra->table_id, pbra->fwmark, install);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: table %d fwmark %d %d",
+			   __PRETTY_FUNCTION__,
+			   pbra->table_id, pbra->fwmark, install);
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2532,8 +2534,10 @@ void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim, bool install)
 
 	if (pbrim->install_in_progress)
 		return;
-	zlog_debug("%s: name %s type %d %d", __PRETTY_FUNCTION__,
-		   pbrim->ipset_name, pbrim->type, install);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: name %s type %d %d",
+			   __PRETTY_FUNCTION__,
+			   pbrim->ipset_name, pbrim->type, install);
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2558,9 +2562,10 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 
 	if (pbrime->install_in_progress)
 		return;
-	zlog_debug("%s: name %s %d %d", __PRETTY_FUNCTION__,
-		   pbrime->backpointer->ipset_name,
-		   pbrime->unique, install);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: name %s %d %d", __PRETTY_FUNCTION__,
+			   pbrime->backpointer->ipset_name,
+			   pbrime->unique, install);
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2624,8 +2629,10 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 
 	if (pbm->install_iptable_in_progress)
 		return;
-	zlog_debug("%s: name %s type %d mark %d %d", __PRETTY_FUNCTION__,
-		   pbm->ipset_name, pbm->type, pba->fwmark, install);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: name %s type %d mark %d %d",
+			   __PRETTY_FUNCTION__, pbm->ipset_name,
+			   pbm->type, pba->fwmark, install);
 	s = zclient->obuf;
 	stream_reset(s);
 
