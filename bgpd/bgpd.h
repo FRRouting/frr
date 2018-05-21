@@ -1031,6 +1031,32 @@ struct peer {
 	/* Filter structure. */
 	struct bgp_filter filter[AFI_MAX][SAFI_MAX];
 
+	/*
+	 * Parallel array to filter that indicates whether each filter
+	 * originates from a peer-group or if it is config that is specific to
+	 * this individual peer. If a filter is set independent of the
+	 * peer-group the appropriate bit should be set here. If this peer is a
+	 * peer-group, this memory region should be all zeros. The assumption
+	 * is that the default state for all flags is unset. Due to filters
+	 * having a direction (e.g. in/out/...), this array has a third
+	 * dimension for storing the overrides independently per direction.
+	 *
+	 * Notes:
+	 * - if a filter for an individual peer is unset, the corresponding
+	 *   override flag is unset and the peer is considered to be back in
+	 *   sync with the peer-group.
+	 * - This does *not* contain the filter values, rather it contains
+	 *   whether the filter in filter (struct bgp_filter) is peer-specific.
+	 */
+	uint8_t filter_override[AFI_MAX][SAFI_MAX][(FILTER_MAX > RMAP_MAX)
+							   ? FILTER_MAX
+							   : RMAP_MAX];
+#define PEER_FT_DISTRIBUTE_LIST       (1 << 0) /* distribute-list */
+#define PEER_FT_FILTER_LIST           (1 << 1) /* filter-list */
+#define PEER_FT_PREFIX_LIST           (1 << 2) /* prefix-list */
+#define PEER_FT_ROUTE_MAP             (1 << 3) /* route-map */
+#define PEER_FT_UNSUPPRESS_MAP        (1 << 4) /* unsuppress-map */
+
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
 
