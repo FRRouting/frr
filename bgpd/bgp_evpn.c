@@ -265,6 +265,7 @@ static struct irt_node *import_rt_new(struct bgp *bgp,
 static void import_rt_free(struct bgp *bgp, struct irt_node *irt)
 {
 	hash_release(bgp->import_rt_hash, irt);
+	list_delete_and_null(&irt->vnis);
 	XFREE(MTYPE_BGP_EVPN_IMPORT_RT, irt);
 }
 
@@ -416,7 +417,7 @@ static void map_vni_to_rt(struct bgp *bgp, struct bgpevpn *vpn,
 		mask_ecom_global_admin(&eval_tmp, eval);
 
 	irt = lookup_import_rt(bgp, &eval_tmp);
-	if (irt && irt->vnis)
+	if (irt)
 		if (is_vni_present_in_irt_vnis(irt->vnis, vpn))
 			/* Already mapped. */
 			return;
@@ -440,7 +441,6 @@ static void unmap_vni_from_rt(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Delete VNI from hash list for this RT. */
 	listnode_delete(irt->vnis, vpn);
 	if (!listnode_head(irt->vnis)) {
-		list_delete_and_null(&irt->vnis);
 		import_rt_free(bgp, irt);
 	}
 }
@@ -2175,7 +2175,7 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 
 		/* See if this RT matches specified VNIs import RTs */
 		irt = lookup_import_rt(bgp, eval);
-		if (irt && irt->vnis)
+		if (irt)
 			if (is_vni_present_in_irt_vnis(irt->vnis, vpn))
 				return 1;
 
@@ -2193,7 +2193,7 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 			mask_ecom_global_admin(&eval_tmp, eval);
 			irt = lookup_import_rt(bgp, &eval_tmp);
 		}
-		if (irt && irt->vnis)
+		if (irt)
 			if (is_vni_present_in_irt_vnis(irt->vnis, vpn))
 				return 1;
 	}
@@ -2547,7 +2547,7 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 		 * into l2vni table)
 		 */
 		irt = lookup_import_rt(bgp, eval);
-		if (irt && irt->vnis)
+		if (irt)
 			install_uninstall_route_in_vnis(bgp, afi, safi, evp, ri,
 							irt->vnis, import);
 
@@ -2575,7 +2575,7 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 			irt = lookup_import_rt(bgp, &eval_tmp);
 			vrf_irt = lookup_vrf_import_rt(&eval_tmp);
 		}
-		if (irt && irt->vnis)
+		if (irt)
 			install_uninstall_route_in_vnis(bgp, afi, safi, evp, ri,
 							irt->vnis, import);
 		if (vrf_irt && vrf_irt->vrfs)
