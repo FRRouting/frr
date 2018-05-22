@@ -192,6 +192,7 @@ AC_ARG_ENABLE([address-sanitizer], AS_HELP_STRING([--enable-address-sanitizer], 
               [AC_DEFINE(HAVE_ADDRESS_SANITIZER, 1, [enable AddressSanitizer])
               CFLAGS="$CFLAGS -fsanitize=address"
               CXXFLAGS="$CXXFLAGS -fsanitize=address"
+              LIBS="-ldl $LIBS"
               AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Address Sanitizer Enabled])],
                                                  [AC_MSG_ERROR([Address Sanitizer not available])])
               ])
@@ -202,6 +203,7 @@ AC_ARG_ENABLE([thread-sanitizer], AS_HELP_STRING([--enable-thread-sanitizer], \
               [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable ThreadSanitizer])
               CFLAGS="$CFLAGS -fsanitize=thread"
               CXXFLAGS="$CXXFLAGS -fsanitize=thread"
+              LIBS="-ldl $LIBS"
               AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Thread Sanitizer Enabled])],
                                                  [AC_MSG_ERROR([Thread Sanitizer not available])])
               ])
@@ -212,6 +214,7 @@ AC_ARG_ENABLE([memory-sanitizer], AS_HELP_STRING([--enable-memory-sanitizer], \
               [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable MemorySanitizer])
               CFLAGS="$CFLAGS -fsanitize=memory -fPIE -pie"
               CXXFLAGS="$CXXFLAGS -fsanitize=memory -fPIE -pie"
+              LIBS="-ldl $LIBS"
               AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Memory Sanitizer Enabled])],
                                                  [AC_MSG_ERROR([Memory Sanitizer not available])])
               ])
