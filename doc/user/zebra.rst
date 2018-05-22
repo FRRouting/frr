@@ -29,7 +29,8 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
 .. option:: -r, --retain
 
-   When program terminates, retain routes added by zebra.
+   When program terminates, do not flush routes installed by *zebra* from the
+   kernel.
 
 .. option:: -e X, --ecmp X
 

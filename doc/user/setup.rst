@@ -50,7 +50,7 @@ This file has several parts. Here is an example:
    # Check /etc/pam.d/frr if you intend to use "vtysh"!
    #
    vtysh_enable=yes
-   zebra_options=" -r -s 90000000 --daemon -A 127.0.0.1"
+   zebra_options=" -s 90000000 --daemon -A 127.0.0.1"
    bgpd_options="   --daemon -A 127.0.0.1"
    ospfd_options="  --daemon -A 127.0.0.1"
    ospf6d_options=" --daemon -A ::1"
@@ -86,7 +86,7 @@ reasons touched on in the VTYSH documentation and should generally be enabled.
 
 ::
 
-   zebra_options=" -r -s 90000000 --daemon -A 127.0.0.1"
+   zebra_options=" -s 90000000 --daemon -A 127.0.0.1"
    bgpd_options="   --daemon -A 127.0.0.1"
    ...
 

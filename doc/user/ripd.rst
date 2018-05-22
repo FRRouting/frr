@@ -60,9 +60,6 @@ Certain signals have special meanings to *ripd*.
 *ripd* invocation options. Common options that can be specified
 (:ref:`common-invocation-options`).
 
-.. option:: -r, --retain
-
-   When the program terminates, retain routes added by *ripd*.
 
 .. _rip-netmask:
 
