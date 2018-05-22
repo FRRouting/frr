@@ -2754,8 +2754,7 @@ DEFUN (vtysh_output_file,
 {
 	const char *path = argv[argc - 1]->arg;
 
-	if (outputfile != stdout)
-	{
+	if (outputfile != stdout) {
 		fclose(outputfile);
 	}
 	outputfile = fopen(path, "a");
