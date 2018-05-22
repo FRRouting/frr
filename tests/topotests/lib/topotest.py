@@ -74,7 +74,7 @@ def get_test_logdir(node=None, init=False):
         dir = ret + "/" + node
     if init:
         os.system('mkdir -p ' + dir)
-        os.system('chmod 775 ' + dir)
+        os.system('chmod -R go+rw /tmp/topotests')
     return ret
 
 def json_diff(d1, d2):
@@ -558,6 +558,8 @@ class Router(Node):
         set_sysctl(self, 'net.ipv4.ip_forward', 0)
         set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
         super(Router, self).terminate()
+        os.system('chmod -R go+rw /tmp/topotests')
+
     def stopRouter(self, wait=True):
         # Stop Running Quagga or FRR Daemons
         rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
@@ -679,6 +681,7 @@ class Router(Node):
         # Starts actual daemons without init (ie restart)
         # cd to per node directory
         self.cmd('cd {}/{}'.format(self.logdir, self.name))
+        self.cmd('umask 000')
         #Re-enable to allow for report per run
         self.reportCores = True
         # Start Zebra first

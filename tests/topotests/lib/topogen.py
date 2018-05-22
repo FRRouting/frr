@@ -573,8 +573,7 @@ class TopoRouter(TopoGear):
         #setup the per node directory
         dir = '{}/{}'.format(self.logdir, self.name)
         os.system('mkdir -p ' + dir)
-        os.system('chmod 775 ' + dir)
-        os.system('chgrp {} {}'.format(self.routertype, dir))
+        os.system('chmod -R go+rw /tmp/topotests')
 
         # Open router log file
         logfile = '{0}/{1}.log'.format(dir, name)
