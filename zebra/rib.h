@@ -456,4 +456,5 @@ extern void static_config_install_delayed_routes(struct zebra_vrf *zvrf);
 
 extern pid_t pid;
 
+extern bool v6_rr_semantics;
 #endif /*_ZEBRA_RIB_H */
