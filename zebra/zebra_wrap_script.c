@@ -895,7 +895,7 @@ static int zebra_wrap_script_ipset_entry_get_stat(
 		if (port_max == 0)
 			port_max = port_min;
 		/* case range of ports */
-		proto = (zpie->proto == 0) ? IPPROTO_TCP : proto;
+		proto = (zpie->proto == 0) ? IPPROTO_TCP : zpie->proto;
 		proto2 = (zpie->proto == 0) ? IPPROTO_UDP : 0;
 		for (port = port_min; port <= port_max; port++) {
 			ptr = json_data_str;
