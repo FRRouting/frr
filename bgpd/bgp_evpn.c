@@ -771,8 +771,11 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 		ecom_tmp.size = 1;
 		ecom_tmp.val = (uint8_t *)eval.val;
 
-		attr->ecommunity =
-			ecommunity_merge(attr->ecommunity, &ecom_tmp);
+		if (attr->ecommunity)
+			attr->ecommunity =
+				ecommunity_merge(attr->ecommunity, &ecom_tmp);
+		else
+			attr->ecommunity = ecommunity_dup(&ecom_tmp);
 	}
 }
 
