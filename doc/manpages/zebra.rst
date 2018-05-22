@@ -42,6 +42,14 @@ OPTIONS available for the |DAEMON| command:
 
    Enable namespace VRF backend. By default, the VRF backend relies on VRF-lite support from the Linux kernel. This option permits discovering Linux named network namespaces and mapping it to FRR VRF contexts.
 
+ROUTES
+------
+
+.. option:: -r, --retain
+
+   When the program terminates, do not flush routes installed by zebra from the kernel.
+
+
 FILES
 =====
 

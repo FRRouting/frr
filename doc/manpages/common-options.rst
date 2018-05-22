@@ -157,10 +157,3 @@ frr supports optional dynamically loadable modules, although these can only be l
 
 The list of loaded modules can be inspected at runtime with the show modules VTY command.
 
-ROUTES
-------
-
-.. option:: -r, --retain
-
-   When the program terminates, retain routes added by the daemon.
-

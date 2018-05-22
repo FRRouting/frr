@@ -30,10 +30,6 @@ be specified (:ref:`common-invocation-options`).
    Set the bgp protocol's port number. When port number is 0, that means do not
    listen bgp port.
 
-.. option:: -r, --retain
-
-   When program terminates, retain BGP routes added by zebra.
-
 .. option:: -l, --listenon
 
    Specify a specific IP address for bgpd to listen on, rather than its
