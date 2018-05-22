@@ -190,8 +190,8 @@ AC_ARG_ENABLE([address-sanitizer], AS_HELP_STRING([--enable-address-sanitizer], 
               [enabled AddressSanitizer support for detecting a wide variety of \
                memory allocation and deallocation errors]), \
               [AC_DEFINE(HAVE_ADDRESS_SANITIZER, 1, [enable AddressSanitizer])
-              CFLAGS="$CFLAGS -fsanitize=address"
-              CXXFLAGS="$CXXFLAGS -fsanitize=address"
+              CFLAGS="$CFLAGS -fsanitize=address -static-libasan"
+              CXXFLAGS="$CXXFLAGS -fsanitize=address -static-libasan"
               AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Address Sanitizer Enabled])],
                                                  [AC_MSG_ERROR([Address Sanitizer not available])])
               ])
