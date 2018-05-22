@@ -704,6 +704,8 @@ static void vty_end_config(struct vty *vty)
 	case RIP_NODE:
 	case RIPNG_NODE:
 	case EIGRP_NODE:
+	case BFD_NODE:
+	case BFD_PEER_NODE:
 	case BGP_NODE:
 	case BGP_VPNV4_NODE:
 	case BGP_VPNV6_NODE:
@@ -1114,6 +1116,8 @@ static void vty_stop_input(struct vty *vty)
 	case RIP_NODE:
 	case RIPNG_NODE:
 	case EIGRP_NODE:
+	case BFD_NODE:
+	case BFD_PEER_NODE:
 	case BGP_NODE:
 	case RMAP_NODE:
 	case PBRMAP_NODE:

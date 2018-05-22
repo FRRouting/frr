@@ -65,6 +65,7 @@
 #endif
 
 /* bgpd options, we use GNU getopt library. */
+#define OPTION_BFDCTLSOCK 1001
 static const struct option longopts[] = {
 	{"bgp_port", required_argument, NULL, 'p'},
 	{"listenon", required_argument, NULL, 'l'},
@@ -72,6 +73,9 @@ static const struct option longopts[] = {
 	{"no_kernel", no_argument, NULL, 'n'},
 	{"skip_runas", no_argument, NULL, 'S'},
 	{"ecmp", required_argument, NULL, 'e'},
+#if HAVE_BFDD > 0
+	{"bfdctl", required_argument, NULL, OPTION_BFDCTLSOCK},
+#endif /* HAVE_BFDD */
 	{0}};
 
 /* signal definitions */
@@ -328,6 +332,7 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
    state machine is handled at here. */
 int main(int argc, char **argv)
 {
+	const char *bfdctl = NULL;
 	int opt;
 	int tmp_port;
 
@@ -344,7 +349,11 @@ int main(int argc, char **argv)
 		"  -r, --retain       When program terminates, retain added route by bgpd.\n"
 		"  -n, --no_kernel    Do not install route to kernel.\n"
 		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
-		"  -e, --ecmp         Specify ECMP to use.\n");
+		"  -e, --ecmp         Specify ECMP to use.\n"
+#if HAVE_BFDD > 0
+		"      --bfdctl       Specify bfdd control socket\n"
+#endif /* HAVE_BFDD */
+		);
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -355,6 +364,9 @@ int main(int argc, char **argv)
 
 		switch (opt) {
 		case 0:
+			break;
+		case OPTION_BFDCTLSOCK:
+			bfdctl = optarg;
 			break;
 		case 'p':
 			tmp_port = atoi(optarg);
@@ -408,6 +420,9 @@ int main(int argc, char **argv)
 
 	/* BGP related initialization.  */
 	bgp_init();
+
+	/* Initialize BFDd adapter code. */
+	bfdd_vty_init(bm->master, bfdctl);
 
 	snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo), ", bgp@%s:%d",
 		 (bm->address ? bm->address : "<all>"), bm->port);

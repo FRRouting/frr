@@ -533,12 +533,8 @@ void bgp_bfd_show_info(struct vty *vty, struct peer *peer, uint8_t use_json,
 		      bgp_bfd_is_peer_multihop(peer), 0, use_json, json_neigh);
 }
 
-DEFUN (neighbor_bfd,
-       neighbor_bfd_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Enables BFD support\n")
+DEFUN(neighbor_bfd, neighbor_bfd_cmd, "neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2 "Enables BFD support\n")
 {
 	int idx_peer = 1;
 	struct peer *peer;
@@ -556,15 +552,13 @@ DEFUN (neighbor_bfd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (neighbor_bfd_param,
-       neighbor_bfd_param_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Enables BFD support\n"
-       "Detect Multiplier\n"
-       "Required min receive interval\n"
-       "Desired min transmit interval\n")
+DEFUN(neighbor_bfd_param, neighbor_bfd_param_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Enables BFD support\n"
+      "Detect Multiplier\n"
+      "Required min receive interval\n"
+      "Desired min transmit interval\n")
 {
 	int idx_peer = 1;
 	int idx_number_1 = 3;
@@ -593,14 +587,12 @@ DEFUN (neighbor_bfd_param,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (neighbor_bfd_type,
-       neighbor_bfd_type_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd <multihop|singlehop>",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Enables BFD support\n"
-       "Multihop session\n"
-       "Single hop session\n")
+DEFUN_HIDDEN(neighbor_bfd_type, neighbor_bfd_type_cmd,
+	     "neighbor <A.B.C.D|X:X::X:X|WORD> bfd <multihop|singlehop>",
+	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Enables BFD support\n"
+	     "Multihop session\n"
+	     "Single hop session\n")
 {
 	int idx_peer = 1;
 	int idx_hop = 3;
@@ -626,16 +618,13 @@ DEFUN_HIDDEN (neighbor_bfd_type,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_neighbor_bfd,
-       no_neighbor_bfd_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd [(2-255) (50-60000) (50-60000)]",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Disables BFD support\n"
-       "Detect Multiplier\n"
-       "Required min receive interval\n"
-       "Desired min transmit interval\n")
+DEFUN(no_neighbor_bfd, no_neighbor_bfd_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd [(2-255) (50-60000) (50-60000)]",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Disables BFD support\n"
+      "Detect Multiplier\n"
+      "Required min receive interval\n"
+      "Desired min transmit interval\n")
 {
 	int idx_peer = 2;
 	struct peer *peer;
@@ -653,15 +642,12 @@ DEFUN (no_neighbor_bfd,
 }
 
 
-DEFUN_HIDDEN (no_neighbor_bfd_type,
-       no_neighbor_bfd_type_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd <multihop|singlehop>",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Disables BFD support\n"
-       "Multihop session\n"
-       "Singlehop session\n")
+DEFUN_HIDDEN(no_neighbor_bfd_type, no_neighbor_bfd_type_cmd,
+	     "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd <multihop|singlehop>",
+	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Disables BFD support\n"
+	     "Multihop session\n"
+	     "Singlehop session\n")
 {
 	int idx_peer = 2;
 	struct peer *peer;

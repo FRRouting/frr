@@ -1,9 +1,9 @@
 ****
-BGPD
+BFDD
 ****
 
 .. include:: defines.rst
-.. |DAEMON| replace:: bgpd
+.. |DAEMON| replace:: bfdd
 
 SYNOPSIS
 ========

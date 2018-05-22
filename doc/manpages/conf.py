@@ -314,6 +314,7 @@ fwfrr = "{0} routing engine for use with FRRouting."
 
 man_pages = [
     ('bgpd', 'bgpd', fwfrr.format("a BGPv4, BGPv4+, BGPv4- "), [], 8),
+    ('bfdd', 'bfdd', fwfrr.format("an BFD"), [], 8),
     ('eigrpd', 'eigrpd', fwfrr.format("an EIGRP "), [], 8),
     ('ospf6d', 'ospf6d', fwfrr.format("an OSPFv3 "), [], 8),
     ('ospfd', 'ospfd', fwfrr.format("an OSPFv2 "), [], 8),

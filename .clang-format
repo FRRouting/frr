@@ -25,6 +25,7 @@ CommentPragmas: '\$(FRR|clippy)'
 ContinuationIndentWidth: 8
 ForEachMacros:
   # lib
+  - JSON_FOREACH
   - LIST_FOREACH
   - LIST_FOREACH_SAFE
   - SLIST_FOREACH

@@ -34,6 +34,10 @@ if BGPD
 man_MANS += $(MANPAGE_BUILDDIR)/bgpd.8
 endif
 
+if BFDD
+man_MANS += $(MANPAGE_BUILDDIR)/bfdd.8
+endif
+
 if ISISD
 man_MANS += $(MANPAGE_BUILDDIR)/isisd.8
 endif
@@ -132,6 +136,8 @@ developer-html:
 EXTRA_DIST = frr-sphinx.mk \
 	manpages/bgpd.rst \
 	manpages/common-options.rst \
+	manpages/bfdd.rst \
+	manpages/bfd-options.rst \
 	manpages/conf.py \
 	manpages/defines.rst \
 	manpages/eigrpd.rst \
@@ -194,6 +200,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/appendix.rst \
 	user/babeld.rst \
 	user/basic.rst \
+	user/bfd.rst \
 	user/bgp.rst \
 	user/bugs.rst \
 	user/conf.py \

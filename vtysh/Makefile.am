@@ -43,6 +43,11 @@ if PIMD
 vtysh_scan += $(top_srcdir)/pimd/pim_cmd.c
 endif
 
+if BFDD
+vtysh_scan += $(top_srcdir)/bfdd/bfdd_vty.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_bfd_vty.c
+endif
+
 if BGPD
 vtysh_scan += $(top_srcdir)/bgpd/bgp_bfd.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_debug.c

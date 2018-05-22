@@ -7,6 +7,7 @@
    :maxdepth: 2
 
    bgpd
+   bfdd
    eigrpd
    isisd
    ldpd

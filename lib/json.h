@@ -21,6 +21,19 @@
 #ifndef _QUAGGA_JSON_H
 #define _QUAGGA_JSON_H
 
+/*
+ * FRR style JSON iteration.
+ * Usage: JSON_FOREACH(...) { ... }
+ */
+#define JSON_FOREACH(jo, joi, join)                                            \
+	/* struct json_object *jo; */                                          \
+	/* struct json_object_iterator joi; */                                 \
+	/* struct json_object_iterator join; */                                \
+	for ((joi) = json_object_iter_begin((jo)),                             \
+	    (join) = json_object_iter_end((jo));                               \
+	     json_object_iter_equal(&(joi), &(join)) == 0;                     \
+	     json_object_iter_next(&(joi)))
+
 #if defined(HAVE_JSON_C_JSON_H)
 #include <json-c/json.h>
 #else
@@ -66,5 +79,14 @@ extern void json_object_free(struct json_object *obj);
   */
 #define JSON_C_TO_STRING_NOSLASHESCAPE (1<<4)
 #endif
+
+
+/*
+ * JSON helpers to build queries.
+ */
+int json_object_add_string(struct json_object *jo, const char *key,
+			   const char *str);
+int json_object_add_bool(struct json_object *jo, const char *key, bool boolean);
+int json_object_add_int(struct json_object *jo, const char *key, int64_t value);
 
 #endif /* _QUAGGA_JSON_H */

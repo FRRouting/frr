@@ -95,6 +95,8 @@ const char *node_names[] = {
 	"ripng",		    // RIPNG_NODE,
 	"babel",		    // BABEL_NODE,
 	"eigrp",		    // EIGRP_NODE,
+	"bfd",                      // BFD_NODE
+	"bfd peer",                 // BFD_PEER_NODE
 	"bgp",			    // BGP_NODE,
 	"bgp vpnv4",		    // BGP_VPNV4_NODE,
 	"bgp vpnv6",		    // BGP_VPNV6_NODE,
@@ -988,6 +990,9 @@ enum node_type node_parent(enum node_type node)
 	assert(node > CONFIG_NODE);
 
 	switch (node) {
+	case BFD_PEER_NODE:
+		ret = BFD_NODE;
+		break;
 	case BGP_VPNV4_NODE:
 	case BGP_VPNV6_NODE:
 	case BGP_FLOWSPECV4_NODE:
@@ -1341,6 +1346,7 @@ void cmd_exit(struct vty *vty)
 	case VRF_NODE:
 	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
+	case BFD_NODE:
 	case BGP_NODE:
 	case RIP_NODE:
 	case EIGRP_NODE:
@@ -1356,6 +1362,9 @@ void cmd_exit(struct vty *vty)
 	case PBRMAP_NODE:
 	case VTY_NODE:
 		vty->node = CONFIG_NODE;
+		break;
+	case BFD_PEER_NODE:
+		vty->node = BFD_NODE;
 		break;
 	case BGP_IPV4_NODE:
 	case BGP_IPV4M_NODE:
@@ -1433,6 +1442,8 @@ DEFUN (config_end,
 	case RIPNG_NODE:
 	case EIGRP_NODE:
 	case BABEL_NODE:
+	case BFD_NODE:
+	case BFD_PEER_NODE:
 	case BGP_NODE:
 	case BGP_VRF_POLICY_NODE:
 	case BGP_VNC_DEFAULTS_NODE:

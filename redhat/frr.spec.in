@@ -28,6 +28,7 @@
 %{!?with_pimd:          %global  with_pimd          1 }
 %{!?with_rpki:          %global  with_rpki          0 }
 %{!?with_pbrd:          %global  with_pbrd          1 }
+%{!?with_bfdd:          %global  with_bfdd          1 }
 
 # path defines
 %define     _sysconfdir   /etc/frr
@@ -87,12 +88,18 @@
 %{!?frr_gid:            %global  frr_gid            92 }
 %{!?vty_gid:            %global  vty_gid            85 }
 
-%define     daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd
+%define     daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd bfdd
 
 %if %{with_ldpd}
 %define     daemon_ldpd ldpd
 %else
 %define     daemon_ldpd ""
+%endif
+
+%if %{with_bfdd}
+%define     daemon_bfdd bfdd
+%else
+%define     daemon_bfdd ""
 %endif
 
 %if %{with_pimd}
@@ -131,7 +138,7 @@
 %define     daemon_watchfrr ""
 %endif
 
-%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd}
+%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd}
 
 # allow build dir to be kept
 %{!?keep_build:         %global  keep_build         0 }
@@ -189,7 +196,7 @@ protocol. It takes multi-server and multi-thread approach to resolve
 the current complexity of the Internet.
 
 FRRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM, LDP
-NHRP, Babel, PBR and EIGRP.
+NHRP, Babel, PBR, BFD and EIGRP.
 
 FRRouting is a fork of Quagga.
 
@@ -267,6 +274,11 @@ developing OSPF-API and frr applications.
     --enable-ldpd \
 %else
     --disable-ldpd \
+%endif
+%if %{with_bfdd}
+    --enable-bfdd \
+%else
+    --disable-bfdd \
 %endif
 %if %{with_pimd}
     --enable-pimd \
@@ -429,6 +441,9 @@ zebra_spec_add_service pimd     2611/tcp "PIMd vty"
 %if %{with_pbrd}
 zebra_spec_add_service pbrd     2615/tcp "PBRd vty"
 %endif
+%if %{with_bfdd}
+zebra_spec_add_service bfdd     2616/tcp "BFDd vty"
+%endif
 %if %{with_ldpd}
 zebra_spec_add_service ldpd     2612/tcp "LDPd vty"
 %endif
@@ -565,6 +580,9 @@ rm -rf %{buildroot}
 %if %{with_pbrd}
     %{_sbindir}/pbrd
 %endif
+%if %{with_bfdd}
+    %{_sbindir}/bfdd
+%endif
 %{_sbindir}/isisd
 %if %{with_ldpd}
     %{_sbindir}/ldpd
@@ -632,6 +650,9 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Sun Mar  4 2018 Rafael Zalamena <rzalamena@opensourcerouting.org>
+- Add BFDd support (default: disabled)
+
 * Sun Mar  4 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 - Add option to build with RPKI (default: disabled)
 
