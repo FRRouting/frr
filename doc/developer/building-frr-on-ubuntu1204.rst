@@ -75,7 +75,7 @@ Add frr groups and user
 
 ::
 
-    sudo groupadd -g 92 frr
+    sudo groupadd -r -g 92 frr
     sudo groupadd -r -g 85 frrvty
     sudo adduser --system --ingroup frr --home /var/run/frr/ \
        --gecos "FRR suite" --shell /sbin/nologin frr
