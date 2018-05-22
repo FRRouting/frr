@@ -34,6 +34,8 @@ unsigned long zebra_debug_mpls;
 unsigned long zebra_debug_vxlan;
 unsigned long zebra_debug_pw;
 
+DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
+
 DEFUN_NOSH (show_debugging_zebra,
 	    show_debugging_zebra_cmd,
 	    "show debugging [zebra]",
@@ -88,6 +90,7 @@ DEFUN_NOSH (show_debugging_zebra,
 	if (IS_ZEBRA_DEBUG_PW)
 		vty_out(vty, "  Zebra pseudowire debugging is on\n");
 
+	hook_call(zebra_debug_show_debugging, vty);
 	return CMD_SUCCESS;
 }
 
