@@ -51,6 +51,7 @@
 #include "zebra/label_manager.h"
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/zebra_pbr.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -342,6 +343,7 @@ int main(int argc, char **argv)
 	zebra_mpls_init();
 	zebra_mpls_vty_init();
 	zebra_pw_vty_init();
+	zebra_pbr_init();
 
 /* For debug purpose. */
 /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
