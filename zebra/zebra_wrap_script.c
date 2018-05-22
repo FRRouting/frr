@@ -22,6 +22,7 @@
 #include "hook.h"
 #include "libfrr.h"
 #include "memory.h"
+#include "command.h"
 
 #include "zebra/debug.h"
 #include "zebra/rib.h"
@@ -113,6 +114,7 @@ static int zebra_wrap_script_ipset_update(struct zebra_ns *zns, int cmd,
 					  struct zebra_pbr_ipset *ipset);
 static int zebra_wrap_script_ipset_entry_update(struct zebra_ns *zns, int cmd,
 					  struct zebra_pbr_ipset_entry *ipset);
+static int zebra_wrap_show_debugging(struct vty *vty);
 
 static int zebra_wrap_script_module_init(void)
 {
@@ -127,6 +129,8 @@ static int zebra_wrap_script_module_init(void)
 		      zebra_wrap_script_ipset_entry_update);
 	hook_register(zebra_pbr_ipset_wrap_script_update,
 		      zebra_wrap_script_ipset_update);
+	hook_register(zebra_debug_show_debugging,
+		      zebra_wrap_show_debugging);
 	return 0;
 }
 
@@ -1478,24 +1482,33 @@ static int zebra_wrap_script_config_write(struct vty *vty)
 	return ret;
 }
 
-DEFUN (debug_zebra_fpm,
-       debug_zebra_fpm_cmd,
-       "debug zebra fpm",
+static int zebra_wrap_show_debugging(struct vty *vty)
+{
+	if (zebra_wrap_debug) {
+		vty_out(vty, "  Zebra Wrap debugging is on\n");
+		return 1;
+	}
+	return 0;
+}
+
+DEFUN (debug_zebra_wrap_script,
+       debug_zebra_wrap_script_cmd,
+       "debug zebra wrap",
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug zebra FPM events\n")
+       "Debug zebra wrap info\n")
 {
 	SET_FLAG(zebra_wrap_debug, ZEBRA_DEBUG_WRAP_SCRIPT);
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_zebra_fpm,
-       no_debug_zebra_fpm_cmd,
-       "no debug zebra fpm",
+DEFUN (no_debug_zebra_wrap_script,
+       no_debug_zebra_wrap_script_cmd,
+       "no debug zebra wrap",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug zebra FPM events\n")
+       "Debug zebra wrap info\n")
 {
 	zebra_wrap_debug = 0;
 	return CMD_SUCCESS;
@@ -1513,10 +1526,10 @@ static int zebra_wrap_script_init(struct thread_master *t)
 	install_element(CONFIG_NODE, &zebra_wrap_script_no_iptable_cmd);
 	install_element(CONFIG_NODE, &zebra_wrap_script_no_ipset_cmd);
 	install_node(&zebra_wrap_script_node);
-	install_element(ENABLE_NODE, &debug_zebra_fpm_cmd);
-	install_element(ENABLE_NODE, &no_debug_zebra_fpm_cmd);
-	install_element(CONFIG_NODE, &debug_zebra_fpm_cmd);
-	install_element(CONFIG_NODE, &no_debug_zebra_fpm_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_wrap_script_cmd);
+	install_element(ENABLE_NODE, &no_debug_zebra_wrap_script_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_wrap_script_cmd);
+	install_element(CONFIG_NODE, &no_debug_zebra_wrap_script_cmd);
 
 	return 0;
 }
