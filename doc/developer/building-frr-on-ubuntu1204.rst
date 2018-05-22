@@ -13,9 +13,10 @@ Add packages:
 
 ::
 
-    apt-get install git autoconf automake libtool make gawk libreadline-dev \
-       texinfo libpam0g-dev dejagnu libjson0-dev pkg-config libpam0g-dev \
-       libjson0-dev flex python-pip libc-ares-dev python3-dev python3-sphinx
+    apt-get install \
+       git autoconf automake libtool make gawk libreadline-dev texinfo \
+       libpam0g-dev dejagnu libjson0-dev pkg-config libpam0g-dev libjson0-dev \
+       flex python-pip libc-ares-dev python3-dev python3-sphinx install-info
 
 Install newer bison from 14.04 package source (Ubuntu 12.04 package
 source is too old)
