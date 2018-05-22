@@ -1193,7 +1193,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		return;
 
 	if (bgp_debug_zebra(p))
-		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
+		prefix2str(p, buf_prefix, sizeof(buf_prefix));
 
 	if (safi == SAFI_FLOWSPEC)
 		return bgp_pbr_update_entry(bgp, &rn->p,
