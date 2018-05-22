@@ -303,10 +303,10 @@ developing OSPF-API and frr applications.
 %if "%{initsystem}" == "systemd"
     --enable-systemd=yes \
 %endif
-    --enable-poll=yes
 %if %{with_rpki}
-    --enable-rpki
+    --enable-rpki \
 %endif
+    --enable-poll=yes
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
@@ -566,6 +566,9 @@ rm -rf %{buildroot}
 %if %{with_fpm}
 %attr(755,root,root) %{_libdir}/frr/modules/zebra_fpm.so
 %endif
+%if %{with_rpki}
+%attr(755,root,root) %{_libdir}/frr/modules/bgpd_rpki.so
+%endif
 %attr(755,root,root) %{_libdir}/frr/modules/zebra_irdp.so
 %{_bindir}/*
 %config(noreplace) /etc/frr/[!v]*.conf*
@@ -612,7 +615,10 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Sun Mar 11 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Fixed RPKI RPM build
+
+* Sun Mar 11 2018 Martin Winter <mwinter@opensourcerouting.org>
 - ISIS-MT - https://tools.ietf.org/html/rfc5120
 - BGP - RPKI (RFC 6810)
 - BGP - v4 labeled unicast as per RFC 3107
