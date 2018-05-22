@@ -320,11 +320,20 @@ static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
 	}
 }
 
-void zebra_pbr_client_close_cleanup(int sock)
+static int zebra_pbr_client_close_cleanup(struct zserv *client)
 {
+	int sock = client->sock;
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 
+	if (!sock)
+		return 0;
 	hash_iterate(zns->rules_hash, zebra_pbr_cleanup_rules, &sock);
+	return 1;
+}
+
+void zebra_pbr_init(void)
+{
+	hook_register(zapi_client_close, zebra_pbr_client_close_cleanup);
 }
 
 static void *pbr_ipset_alloc_intern(void *arg)
