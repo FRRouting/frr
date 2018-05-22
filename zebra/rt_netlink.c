@@ -1305,7 +1305,6 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	struct sockaddr_nl snl;
 	struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num;
-	int discard = 0;
 	int family = PREFIX_FAMILY(p);
 	const char *routedesc;
 	int setsrc = 0;
@@ -1336,7 +1335,17 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	req.r.rtm_src_len = src_p ? src_p->prefixlen : 0;
 	req.r.rtm_protocol = zebra2proto(re->type);
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
-	req.r.rtm_type = RTN_UNICAST;
+
+	/*
+	 * blackhole routes are not RTN_UNICAST, they are
+	 * RTN_ BLACKHOLE|UNREACHABLE|PROHIBIT
+	 * so setting this value as a RTN_UNICAST would
+	 * cause the route lookup of just the prefix
+	 * to fail.  So no need to specify this for
+	 * the RTM_DELROUTE case
+	 */
+	if (cmd != RTM_DELROUTE)
+		req.r.rtm_type = RTN_UNICAST;
 
 	addattr_l(&req.n, sizeof req, RTA_DST, &p->u.prefix, bytelen);
 	if (src_p)
@@ -1363,7 +1372,13 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 		addattr32(&req.n, sizeof req, RTA_TABLE, re->table);
 	}
 
-	if (discard)
+	/*
+	 * If we are not updating the route and we have received
+	 * a route delete, then all we need to fill in is the
+	 * prefix information to tell the kernel to schwack
+	 * it.
+	 */
+	if (!update && cmd == RTM_DELROUTE)
 		goto skip;
 
 	if (re->mtu || re->nexthop_mtu) {
