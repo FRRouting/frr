@@ -1661,11 +1661,23 @@ DEFUN (no_debug_bgp_vpn,
 /* debug bgp pbr */
 DEFUN (debug_bgp_pbr,
        debug_bgp_pbr_cmd,
-       "debug bgp pbr",
+       "debug bgp pbr [error]",
        DEBUG_STR
        BGP_STR
-       "BGP policy based routing\n")
+       "BGP policy based routing\n"
+       "BGP PBR error\n")
 {
+	int idx = 3;
+
+	if (argv_find(argv, argc, "error", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_ON(pbr, PBR_ERROR);
+		else {
+			TERM_DEBUG_ON(pbr, PBR_ERROR);
+			vty_out(vty, "BGP policy based routing error is on\n");
+		}
+		return CMD_SUCCESS;
+	}
 	if (vty->node == CONFIG_NODE)
 		DEBUG_ON(pbr, PBR);
 	else {
@@ -1677,12 +1689,24 @@ DEFUN (debug_bgp_pbr,
 
 DEFUN (no_debug_bgp_pbr,
        no_debug_bgp_pbr_cmd,
-       "no debug bgp pbr",
+       "no debug bgp pbr [error]",
        NO_STR
        DEBUG_STR
        BGP_STR
-       "BGP policy based routing\n")
+       "BGP policy based routing\n"
+       "BGP PBR Error\n")
 {
+	int idx = 3;
+
+	if (argv_find(argv, argc, "error", &idx)) {
+		if (vty->node == CONFIG_NODE)
+			DEBUG_OFF(pbr, PBR_ERROR);
+		else {
+			TERM_DEBUG_OFF(pbr, PBR_ERROR);
+			vty_out(vty, "BGP policy based routing error is off\n");
+		}
+		return CMD_SUCCESS;
+	}
 	if (vty->node == CONFIG_NODE)
 		DEBUG_OFF(pbr, PBR);
 	else {
@@ -1769,6 +1793,7 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(flowspec, FLOWSPEC);
 	TERM_DEBUG_OFF(labelpool, LABELPOOL);
 	TERM_DEBUG_OFF(pbr, PBR);
+	TERM_DEBUG_OFF(pbr, PBR_ERROR);
 	vty_out(vty, "All possible debugging has been turned off\n");
 
 	return CMD_SUCCESS;
@@ -1846,6 +1871,8 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	if (BGP_DEBUG(pbr, PBR))
 		vty_out(vty, "  BGP policy based routing debugging is on\n");
+	if (BGP_DEBUG(pbr, PBR_ERROR))
+		vty_out(vty, "  BGP policy based routing error debugging is on\n");
 
 	vty_out(vty, "\n");
 	return CMD_SUCCESS;
@@ -1905,6 +1932,8 @@ int bgp_debug_count(void)
 		ret++;
 
 	if (BGP_DEBUG(pbr, PBR))
+		ret++;
+	if (BGP_DEBUG(pbr, PBR_ERROR))
 		ret++;
 
 	return ret;
@@ -2010,6 +2039,10 @@ static int bgp_config_write_debug(struct vty *vty)
 
 	if (CONF_BGP_DEBUG(pbr, PBR)) {
 		vty_out(vty, "debug bgp pbr\n");
+		write++;
+	}
+	if (CONF_BGP_DEBUG(pbr, PBR_ERROR)) {
+		vty_out(vty, "debug bgp pbr error\n");
 		write++;
 	}
 	return write;
