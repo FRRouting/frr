@@ -557,10 +557,11 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 	return 0;
 }
 
-/* Called from interface_lookup_netlink().  This function is only used
-   during bootstrap. */
-static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
-			     ns_id_t ns_id, int startup)
+/*
+ * Called from interface_lookup_netlink().  This function is only used
+ * during bootstrap.
+ */
+static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len;
 	struct ifinfomsg *ifi;
@@ -874,8 +875,7 @@ int kernel_address_delete_ipv6(struct interface *ifp, struct connected *ifc)
 	return netlink_address(RTM_DELADDR, AF_INET6, ifp, ifc);
 }
 
-int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,
-			   ns_id_t ns_id, int startup)
+int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len;
 	struct ifaddrmsg *ifa;
@@ -1078,8 +1078,7 @@ static void if_netlink_check_ifp_instance_consistency(uint16_t cmd,
 	 */
 }
 
-int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-			ns_id_t ns_id, int startup)
+int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len;
 	struct ifinfomsg *ifi;

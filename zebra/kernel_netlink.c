@@ -128,8 +128,7 @@ extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
-int netlink_talk_filter(struct sockaddr_nl *snl, struct nlmsghdr *h,
-			ns_id_t ns_id, int startup)
+int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	/*
 	 * This is an error condition that must be handled during
@@ -244,8 +243,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	return ret;
 }
 
-static int netlink_information_fetch(struct sockaddr_nl *snl,
-				     struct nlmsghdr *h, ns_id_t ns_id,
+static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 				     int startup)
 {
 	/*
@@ -259,25 +257,25 @@ static int netlink_information_fetch(struct sockaddr_nl *snl,
 	 */
 	switch (h->nlmsg_type) {
 	case RTM_NEWROUTE:
-		return netlink_route_change(snl, h, ns_id, startup);
+		return netlink_route_change(h, ns_id, startup);
 	case RTM_DELROUTE:
-		return netlink_route_change(snl, h, ns_id, startup);
+		return netlink_route_change(h, ns_id, startup);
 	case RTM_NEWLINK:
-		return netlink_link_change(snl, h, ns_id, startup);
+		return netlink_link_change(h, ns_id, startup);
 	case RTM_DELLINK:
-		return netlink_link_change(snl, h, ns_id, startup);
+		return netlink_link_change(h, ns_id, startup);
 	case RTM_NEWADDR:
-		return netlink_interface_addr(snl, h, ns_id, startup);
+		return netlink_interface_addr(h, ns_id, startup);
 	case RTM_DELADDR:
-		return netlink_interface_addr(snl, h, ns_id, startup);
+		return netlink_interface_addr(h, ns_id, startup);
 	case RTM_NEWNEIGH:
-		return netlink_neigh_change(snl, h, ns_id);
+		return netlink_neigh_change(h, ns_id);
 	case RTM_DELNEIGH:
-		return netlink_neigh_change(snl, h, ns_id);
+		return netlink_neigh_change(h, ns_id);
 	case RTM_NEWRULE:
-		return netlink_rule_change(snl, h, ns_id, startup);
+		return netlink_rule_change(h, ns_id, startup);
 	case RTM_DELRULE:
-		return netlink_rule_change(snl, h, ns_id, startup);
+		return netlink_rule_change(h, ns_id, startup);
 	default:
 		/*
 		 * If we have received this message then
@@ -512,8 +510,7 @@ const char *nl_rttype_to_str(uint8_t rttype)
  * startup -> Are we reading in under startup conditions? passed to
  *            the filter.
  */
-int netlink_parse_info(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *,
-				     ns_id_t, int),
+int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 		       struct nlsock *nl, struct zebra_ns *zns, int count,
 		       int startup)
 {
@@ -691,7 +688,7 @@ int netlink_parse_info(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *,
 				continue;
 			}
 
-			error = (*filter)(&snl, h, zns->ns_id, startup);
+			error = (*filter)(h, zns->ns_id, startup);
 			if (error < 0) {
 				zlog_err("%s filter function error", nl->name);
 				ret = error;
@@ -725,8 +722,7 @@ int netlink_parse_info(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *,
  * startup  -> Are we reading in under startup conditions
  *             This is passed through eventually to filter.
  */
-int netlink_talk(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *, ns_id_t,
-			       int startup),
+int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
 		 int startup)
 {

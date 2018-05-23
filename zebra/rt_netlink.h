@@ -58,12 +58,10 @@ void rt_netlink_init(void);
 
 extern int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp);
 
-extern int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-				ns_id_t ns_id, int startup);
+extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_route_read(struct zebra_ns *zns);
 
-extern int netlink_neigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-				ns_id_t ns_id);
+extern int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id);
 extern int netlink_macfdb_read(struct zebra_ns *zns);
 extern int netlink_macfdb_read_for_bridge(struct zebra_ns *zns,
 					  struct interface *ifp,

@@ -246,8 +246,7 @@ static vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 }
 
 /* Looking up routing table by netlink interface. */
-static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
-					     struct nlmsghdr *h, ns_id_t ns_id,
+static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					     int startup)
 {
 	int len;
@@ -627,8 +626,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 
 static struct mcast_route_data *mroute = NULL;
 
-static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
-					       struct nlmsghdr *h,
+static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 					       ns_id_t ns_id, int startup)
 {
 	int len;
@@ -717,8 +715,7 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 	return 0;
 }
 
-int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-			 ns_id_t ns_id, int startup)
+int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len;
 	struct rtmsg *rtm;
@@ -749,9 +746,9 @@ int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		return -1;
 
 	if (rtm->rtm_type == RTN_MULTICAST)
-		netlink_route_change_read_multicast(snl, h, ns_id, startup);
+		netlink_route_change_read_multicast(h, ns_id, startup);
 	else
-		netlink_route_change_read_unicast(snl, h, ns_id, startup);
+		netlink_route_change_read_unicast(h, ns_id, startup);
 	return 0;
 }
 
@@ -1810,8 +1807,7 @@ int kernel_del_vtep(vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
 	((struct rtattr *)(((char *)(r)) + NLMSG_ALIGN(sizeof(struct ndmsg))))
 #endif
 
-static int netlink_macfdb_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-				 int len, ns_id_t ns_id)
+static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 {
 	struct ndmsg *ndm;
 	struct interface *ifp;
@@ -1946,8 +1942,7 @@ static int netlink_macfdb_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	return zebra_vxlan_local_mac_del(ifp, br_if, &mac, vid);
 }
 
-static int netlink_macfdb_table(struct sockaddr_nl *snl, struct nlmsghdr *h,
-				ns_id_t ns_id, int startup)
+static int netlink_macfdb_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len;
 	struct ndmsg *ndm;
@@ -1965,7 +1960,7 @@ static int netlink_macfdb_table(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	if (ndm->ndm_family != AF_BRIDGE)
 		return 0;
 
-	return netlink_macfdb_change(snl, h, len, ns_id);
+	return netlink_macfdb_change(h, len, ns_id);
 }
 
 /* Request for MAC FDB information from the kernel */
@@ -2121,8 +2116,7 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 	(NUD_PERMANENT | NUD_NOARP | NUD_REACHABLE | NUD_PROBE | NUD_STALE     \
 	 | NUD_DELAY)
 
-static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-				  int len, ns_id_t ns_id)
+static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 {
 	struct ndmsg *ndm;
 	struct interface *ifp;
@@ -2265,8 +2259,7 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	return zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 }
 
-static int netlink_neigh_table(struct sockaddr_nl *snl, struct nlmsghdr *h,
-			       ns_id_t ns_id, int startup)
+static int netlink_neigh_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len;
 	struct ndmsg *ndm;
@@ -2284,7 +2277,7 @@ static int netlink_neigh_table(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	if (ndm->ndm_family != AF_INET && ndm->ndm_family != AF_INET6)
 		return 0;
 
-	return netlink_neigh_change(snl, h, len);
+	return netlink_neigh_change(h, len);
 }
 
 /* Request for IP neighbor information from the kernel */
@@ -2344,8 +2337,7 @@ int netlink_neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 	return ret;
 }
 
-int netlink_neigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-			 ns_id_t ns_id)
+int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 {
 	int len;
 	struct ndmsg *ndm;
@@ -2361,13 +2353,13 @@ int netlink_neigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	/* Is this a notification for the MAC FDB or IP neighbor table? */
 	ndm = NLMSG_DATA(h);
 	if (ndm->ndm_family == AF_BRIDGE)
-		return netlink_macfdb_change(snl, h, len, ns_id);
+		return netlink_macfdb_change(h, len, ns_id);
 
 	if (ndm->ndm_type != RTN_UNICAST)
 		return 0;
 
 	if (ndm->ndm_family == AF_INET || ndm->ndm_family == AF_INET6)
-		return netlink_ipneigh_change(snl, h, len, ns_id);
+		return netlink_ipneigh_change(h, len, ns_id);
 
 	return 0;
 }
