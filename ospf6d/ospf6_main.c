@@ -162,6 +162,9 @@ struct quagga_signal_t ospf6_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *ospf6d_yang_modules[] = {
+};
+
 FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
 
 		.proghelp = "Implementation of the OSPFv3 routing protocol.",
@@ -169,7 +172,8 @@ FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
 		.signals = ospf6_signals,
 		.n_signals = array_size(ospf6_signals),
 
-		.privs = &ospf6d_privs, )
+		.privs = &ospf6d_privs, .yang_modules = ospf6d_yang_modules,
+		.n_yang_modules = array_size(ospf6d_yang_modules), )
 
 /* Main routine of ospf6d. Treatment of argument and starting ospf finite
    state machine is handled here. */

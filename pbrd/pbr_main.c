@@ -111,6 +111,9 @@ struct quagga_signal_t pbr_signals[] = {
 
 #define PBR_VTY_PORT 2615
 
+static const struct frr_yang_module_info *pbrd_yang_modules[] = {
+};
+
 FRR_DAEMON_INFO(pbrd, PBR, .vty_port = PBR_VTY_PORT,
 
 		.proghelp = "Implementation of PBR.",
@@ -118,7 +121,10 @@ FRR_DAEMON_INFO(pbrd, PBR, .vty_port = PBR_VTY_PORT,
 		.signals = pbr_signals,
 		.n_signals = array_size(pbr_signals),
 
-		.privs = &pbr_privs,)
+		.privs = &pbr_privs,
+
+		.yang_modules = pbrd_yang_modules,
+		.n_yang_modules = array_size(pbrd_yang_modules), )
 
 int main(int argc, char **argv, char **envp)
 {

@@ -130,6 +130,9 @@ struct quagga_signal_t eigrp_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *eigrpd_yang_modules[] = {
+};
+
 FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
 
 		.proghelp = "Implementation of the EIGRP routing protocol.",
@@ -137,7 +140,8 @@ FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
 		.signals = eigrp_signals,
 		.n_signals = array_size(eigrp_signals),
 
-		.privs = &eigrpd_privs, )
+		.privs = &eigrpd_privs, .yang_modules = eigrpd_yang_modules,
+		.n_yang_modules = array_size(eigrpd_yang_modules), )
 
 /* EIGRPd main routine. */
 int main(int argc, char **argv, char **envp)

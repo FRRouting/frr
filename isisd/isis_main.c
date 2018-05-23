@@ -150,6 +150,9 @@ struct quagga_signal_t isisd_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *isisd_yang_modules[] = {
+};
+
 #ifdef FABRICD
 FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
 
@@ -166,7 +169,8 @@ FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
 		.signals = isisd_signals,
 		.n_signals = array_size(isisd_signals),
 
-		.privs = &isisd_privs, )
+		.privs = &isisd_privs, .yang_modules = isisd_yang_modules,
+		.n_yang_modules = array_size(isisd_yang_modules), )
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.

@@ -119,13 +119,17 @@ static struct quagga_signal_t ripd_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *ripd_yang_modules[] = {
+};
+
 FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
 
 		.proghelp = "Implementation of the RIP routing protocol.",
 
 		.signals = ripd_signals, .n_signals = array_size(ripd_signals),
 
-		.privs = &ripd_privs, )
+		.privs = &ripd_privs, .yang_modules = ripd_yang_modules,
+		.n_yang_modules = array_size(ripd_yang_modules), )
 
 #if CONFDATE > 20190521
 CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")

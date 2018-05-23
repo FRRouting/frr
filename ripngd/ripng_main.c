@@ -118,6 +118,9 @@ struct quagga_signal_t ripng_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *ripngd_yang_modules[] = {
+};
+
 FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
 
 		.proghelp = "Implementation of the RIPng routing protocol.",
@@ -125,7 +128,10 @@ FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
 		.signals = ripng_signals,
 		.n_signals = array_size(ripng_signals),
 
-		.privs = &ripngd_privs, )
+		.privs = &ripngd_privs,
+
+		.yang_modules = ripngd_yang_modules,
+		.n_yang_modules = array_size(ripngd_yang_modules), )
 
 #if CONFDATE > 20190521
 CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")

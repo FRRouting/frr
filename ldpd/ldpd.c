@@ -177,6 +177,9 @@ static struct quagga_signal_t ldp_signals[] =
 	}
 };
 
+static const struct frr_yang_module_info *ldpd_yang_modules[] = {
+};
+
 FRR_DAEMON_INFO(ldpd, LDP,
 	.vty_port = LDP_VTY_PORT,
 
@@ -186,6 +189,9 @@ FRR_DAEMON_INFO(ldpd, LDP,
 	.n_signals = array_size(ldp_signals),
 
 	.privs = &ldpd_privs,
+
+	.yang_modules = ldpd_yang_modules,
+	.n_yang_modules = array_size(ldpd_yang_modules),
 )
 
 static int ldp_config_fork_apply(struct thread *t)

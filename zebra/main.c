@@ -206,6 +206,9 @@ struct quagga_signal_t zebra_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *zebra_yang_modules[] = {
+};
+
 FRR_DAEMON_INFO(
 	zebra, ZEBRA, .vty_port = ZEBRA_VTY_PORT, .flags = FRR_NO_ZCLIENT,
 
@@ -215,7 +218,10 @@ FRR_DAEMON_INFO(
 
 	.signals = zebra_signals, .n_signals = array_size(zebra_signals),
 
-	.privs = &zserv_privs, )
+	.privs = &zserv_privs,
+
+	.yang_modules = zebra_yang_modules,
+	.n_yang_modules = array_size(zebra_yang_modules), )
 
 /* Main startup routine. */
 int main(int argc, char **argv)
