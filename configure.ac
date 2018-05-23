@@ -427,6 +427,8 @@ AC_ARG_ENABLE(config_rollbacks,
   AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
 AC_ARG_ENABLE(confd,
   AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
+AC_ARG_ENABLE(sysrepo,
+  AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
 AC_ARG_ENABLE(zeromq,
   AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH(libpam,
@@ -1608,6 +1610,19 @@ if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
    AC_DEFINE(HAVE_CONFD,1,Enable confd integration)
 fi
 AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
+
+dnl ---------------
+dnl sysrepo
+dnl ---------------
+if test "$enable_sysrepo" = "yes"; then
+  PKG_CHECK_MODULES(sysrepo,[libsysrepo],
+      [AC_DEFINE(HAVE_SYSREPO,1,Enable sysrepo integration)
+      SYSREPO=true],
+      [SYSREPO=false
+      AC_MSG_ERROR([sysrepo was not found on your system.])]
+  )
+fi
+AM_CONDITIONAL([SYSREPO], [test "x$enable_sysrepo" = "xyes"])
 
 dnl ---------------
 dnl math

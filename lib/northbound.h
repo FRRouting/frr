@@ -394,6 +394,7 @@ enum nb_error {
 enum nb_client {
 	NB_CLIENT_CLI = 0,
 	NB_CLIENT_CONFD,
+	NB_CLIENT_SYSREPO,
 };
 
 /* Northbound configuration. */

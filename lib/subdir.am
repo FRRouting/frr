@@ -281,6 +281,18 @@ lib_confd_la_LIBADD = lib/libfrr.la -lconfd
 lib_confd_la_SOURCES = lib/northbound_confd.c
 
 #
+# Sysrepo support
+#
+if SYSREPO
+module_LTLIBRARIES += lib/sysrepo.la
+endif
+
+lib_sysrepo_la_CFLAGS = $(WERROR)
+lib_sysrepo_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+lib_sysrepo_la_LIBADD = lib/libfrr.la -lsysrepo
+lib_sysrepo_la_SOURCES = lib/northbound_sysrepo.c
+
+#
 # CLI utilities
 #
 noinst_PROGRAMS += \
