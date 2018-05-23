@@ -425,6 +425,8 @@ AC_ARG_ENABLE(snmp,
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
 AC_ARG_ENABLE(config_rollbacks,
   AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
+AC_ARG_ENABLE(confd,
+  AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
 AC_ARG_ENABLE(zeromq,
   AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH(libpam,
@@ -1592,6 +1594,20 @@ if test "$enable_config_rollbacks" = "yes"; then
   ])
 fi
 AM_CONDITIONAL(SQLITE3, $SQLITE3)
+
+dnl ---------------
+dnl confd
+dnl ---------------
+if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
+   AC_CHECK_PROG([CONFD], [confd], [confd], [/bin/false])
+   if test "x$CONFD" = "x/bin/false"; then
+      AC_MSG_ERROR([confd was not found on your system.])]
+   fi
+   CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
+   AC_SUBST(CONFD_CFLAGS)
+   AC_DEFINE(HAVE_CONFD,1,Enable confd integration)
+fi
+AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
 
 dnl ---------------
 dnl math

@@ -1123,6 +1123,8 @@ const char *nb_client_name(enum nb_client client)
 	switch (client) {
 	case NB_CLIENT_CLI:
 		return "CLI";
+	case NB_CLIENT_CONFD:
+		return "ConfD";
 	default:
 		return "unknown";
 	}

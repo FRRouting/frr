@@ -393,6 +393,7 @@ enum nb_error {
 /* Northbound clients. */
 enum nb_client {
 	NB_CLIENT_CLI = 0,
+	NB_CLIENT_CONFD,
 };
 
 /* Northbound configuration. */

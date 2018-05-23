@@ -226,6 +226,11 @@ options from the list below.
 
    Build with configuration rollback support. Requires SQLite3.
 
+.. option:: --enable-confd=<dir>
+
+   Build the ConfD northbound plugin. Look for the libconfd libs and headers
+   in `dir`.
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
