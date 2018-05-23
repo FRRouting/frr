@@ -884,7 +884,6 @@ static int zebra_wrap_script_ipset_entry_get_stat(
 						 json_data_str, pkts, bytes);
 	} else if (((zpi->type == IPSET_NET_PORT) ||
 		    zpi->type == IPSET_NET_PORT_NET)) {
-		uint64_t pkts_to_add = 0, bytes_to_add = 0;
 		uint16_t port, port_min, port_max;
 		uint16_t proto = 0, proto2;
 
@@ -901,6 +900,7 @@ static int zebra_wrap_script_ipset_entry_get_stat(
 		proto = (zpie->proto == 0) ? IPPROTO_TCP : zpie->proto;
 		proto2 = (zpie->proto == 0) ? IPPROTO_UDP : 0;
 		for (port = port_min; port <= port_max; port++) {
+			uint64_t pkts_to_add = 0, bytes_to_add = 0;
 			ptr = json_data_str;
 			memset(ptr, 0, sizeof(json_data_str));
 			zebra_wrap_forge_ipset_identifier(ptr, len,
