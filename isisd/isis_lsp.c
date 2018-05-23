@@ -1100,9 +1100,16 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 						 */
 						subtlv_len = 0;
 
+					uint32_t neighbor_metric;
+					if (fabricd_tier(area) == 0) {
+						neighbor_metric = 0xffe;
+					} else {
+						neighbor_metric = metric;
+					}
+
 					tlvs_add_mt_p2p(lsp->tlvs, circuit,
-							ne_id, metric, subtlvs,
-							subtlv_len);
+							ne_id, neighbor_metric,
+							subtlvs, subtlv_len);
 				}
 			} else {
 				lsp_debug(
