@@ -248,12 +248,6 @@ static int netlink_information_fetch(struct sockaddr_nl *snl,
 				     struct nlmsghdr *h, ns_id_t ns_id,
 				     int startup)
 {
-	/* JF: Ignore messages that aren't from the kernel */
-	if (snl->nl_pid != 0) {
-		zlog_err("Ignoring message from pid %u", snl->nl_pid);
-		return 0;
-	}
-
 	/*
 	 * When we handle new message types here
 	 * because we are starting to install them
@@ -685,6 +679,17 @@ int netlink_parse_info(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *,
 					nl_msg_type_to_str(h->nlmsg_type),
 					h->nlmsg_type, h->nlmsg_len,
 					h->nlmsg_seq, h->nlmsg_pid);
+
+
+			/*
+			 * Ignore messages that maybe sent from
+			 * other actors besides the kernel
+			 */
+			if (snl.nl_pid != 0) {
+				zlog_err("Ignoring message from pid %u",
+					 snl.nl_pid);
+				continue;
+			}
 
 			error = (*filter)(&snl, h, zns->ns_id, startup);
 			if (error < 0) {
