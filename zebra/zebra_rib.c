@@ -52,6 +52,15 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zapi_msg.h"
+#include "zebra/zebra_dplane.h"
+
+/*
+ * Event, list, and mutex for delivery of dataplane results
+ */
+static pthread_mutex_t dplane_mutex;
+static struct thread *t_dplane;
+static struct dplane_ctx_q_s rib_dplane_q;
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason))
@@ -1268,12 +1277,12 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 		if (info->safi == SAFI_UNICAST)
 			hook_call(rib_update, rn, "rib_uninstall");
 
-		if (!RIB_SYSTEM_ROUTE(re))
-			rib_uninstall_kernel(rn, re);
-
 		/* If labeled-unicast route, uninstall transit LSP. */
 		if (zebra_rib_labeled_unicast(re))
 			zebra_mpls_lsp_uninstall(info->zvrf, rn, re);
+
+		if (!RIB_SYSTEM_ROUTE(re))
+			rib_uninstall_kernel(rn, re);
 	}
 
 	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
@@ -1784,7 +1793,8 @@ static void rib_process(struct route_node *rn)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		zlog_debug(
-			"%u:%s: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
+			"%u:%s: After processing: old_selected %p "
+			"new_selected %p old_fib %p new_fib %p",
 			vrf_id, buf, (void *)old_selected, (void *)new_selected,
 			(void *)old_fib, (void *)new_fib);
 	}
@@ -3002,10 +3012,65 @@ void rib_close_table(struct route_table *table)
 	}
 }
 
+/*
+ *
+ */
+static int rib_process_dplane_results(struct thread *thread)
+{
+	dplane_ctx_h ctx;
+
+	do {
+		/* Take lock controlling queue of results */
+		pthread_mutex_lock(&dplane_mutex);
+		{
+			/* Dequeue context block */
+			dplane_ctx_dequeue(&rib_dplane_q, &ctx);
+		}
+		pthread_mutex_unlock(&dplane_mutex);
+
+		if (ctx) {
+			dplane_ctx_fini(&ctx);
+		} else {
+			break;
+		}
+
+	} while(1);
+
+	return (0);
+}
+
+/*
+ * Results are returned from the dataplane subsystem, in the context of
+ * the dataplane thread. We enqueue the results here for processing by
+ * the main thread later.
+ */
+static int rib_dplane_results(dplane_ctx_h ctx)
+{
+	/* Take lock controlling queue of results */
+	pthread_mutex_lock(&dplane_mutex);
+	{
+		/* Enqueue context block */
+		dplane_ctx_enqueue_tail(&rib_dplane_q, ctx);
+	}
+	pthread_mutex_unlock(&dplane_mutex);
+
+	/* Ensure event is signalled to zebra main thread */
+	thread_add_event(zebrad.master, rib_process_dplane_results, NULL, 0,
+			 &t_dplane);
+
+	return (0);
+}
+
 /* Routing information base initialize. */
 void rib_init(void)
 {
 	rib_queue_init(&zebrad);
+
+	/* Init dataplane, and register for results */
+	pthread_mutex_init(&dplane_mutex, NULL);
+	TAILQ_INIT(&rib_dplane_q);
+	zebra_dplane_init();
+	dplane_results_register(rib_dplane_results);
 }
 
 /*

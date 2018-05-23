@@ -433,6 +433,11 @@ enum zebra_dplane_result kernel_route_rib(struct route_node *rn,
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
+enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx)
+{
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
 			int llalen, ns_id_t ns_id)
 {

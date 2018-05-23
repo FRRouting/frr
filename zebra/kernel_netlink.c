@@ -136,6 +136,7 @@ extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
+
 int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	/*
@@ -678,7 +679,8 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
  *            the filter.
  */
 int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-		       struct nlsock *nl, struct zebra_dplane_info *zns,
+		       const struct nlsock *nl,
+		       const struct zebra_dplane_info *zns,
 		       int count, int startup)
 {
 	int status;
@@ -919,28 +921,27 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 }
 
 /*
- * netlink_talk
+ * netlink_talk_info
  *
  * sendmsg() to netlink socket then recvmsg().
  * Calls netlink_parse_info to parse returned data
  *
  * filter   -> The filter to read final results from kernel
  * nlmsghdr -> The data to send to the kernel
- * nl       -> The netlink socket information
- * zns      -> The zebra namespace information
+ * zns_info -> The netlink socket information
  * startup  -> Are we reading in under startup conditions
  *             This is passed through eventually to filter.
  */
-int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
-		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
-		 int startup)
+int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		      struct nlmsghdr *n,
+		      const struct zebra_dplane_info *dp_info, int startup)
 {
 	int status = 0;
 	struct sockaddr_nl snl;
 	struct iovec iov;
 	struct msghdr msg;
 	int save_errno = 0;
-	struct zebra_dplane_info dp_info;
+	const struct nlsock *nl;
 
 	memset(&snl, 0, sizeof snl);
 	memset(&iov, 0, sizeof iov);
@@ -955,7 +956,8 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 
 	snl.nl_family = AF_NETLINK;
 
-	n->nlmsg_seq = ++nl->seq;
+	nl = &(dp_info->nls);
+	n->nlmsg_seq = nl->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -987,8 +989,29 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	 * Get reply from netlink socket.
 	 * The reply should either be an acknowlegement or an error.
 	 */
+	return netlink_parse_info(filter, nl, dp_info, 0, startup);
+}
+
+/*
+ * Synchronous version of netlink_talk_info. Converts args to suit the
+ * common version, which is suitable for both sync and async use.
+ *
+ */
+int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
+		 int startup)
+{
+	struct zebra_dplane_info dp_info;
+
+	/* Increment sequence number before capturing snapshot of ns socket
+	 * info.
+	 */
+	nl->seq++;
+
+	/* Capture info in intermediate info struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, (nl == &(zns->netlink_cmd)));
-	return netlink_parse_info(filter, nl, &dp_info, 0, startup);
+
+	return (netlink_talk_info(filter, n, &dp_info, startup));
 }
 
 /* Issue request message to kernel via netlink socket. GET messages

@@ -58,6 +58,12 @@ extern void kernel_route_rib_pass_fail(struct route_node *rn,
 				       struct route_entry *re,
 				       enum zebra_dplane_status res);
 
+/*
+ * Update or delete a prefix from the kernel,
+ * using info from a dataplane context.
+ */
+extern enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx);
+
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
 extern int kernel_address_add_ipv6(struct interface *, struct connected *);
