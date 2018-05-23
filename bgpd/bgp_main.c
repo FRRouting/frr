@@ -188,7 +188,8 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 			continue;
 		bgp_delete(bgp);
 	}
-	bgp_delete(bgp_default);
+	if (bgp_default)
+		bgp_delete(bgp_default);
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
