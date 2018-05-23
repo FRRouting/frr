@@ -10655,7 +10655,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 		if (use_json)
 			json_object_boolean_true_add(json, "bgpNoSuchNeighbor");
 		else
-			vty_out(vty, "%% No such neighbor\n");
+			vty_out(vty, "%% No such neighbor in this view/vrf\n");
 	}
 
 	if (use_json) {
