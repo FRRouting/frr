@@ -1983,7 +1983,7 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 
 	if (safi == SAFI_FLOWSPEC) {
 		/* connect to table manager */
-		bgp_zebra_init_tm_connect();
+		bgp_zebra_init_tm_connect(bgp);
 	}
 	return ret;
 }

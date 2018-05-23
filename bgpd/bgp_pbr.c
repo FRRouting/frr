@@ -1347,6 +1347,7 @@ void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
 			 bool nlri_update)
 {
 	struct bgp_pbr_entry_main api;
+	struct bgp_info_extra *extra = bgp_info_extra_get(info);
 
 	if (afi == AFI_IP6)
 		return; /* IPv6 not supported */
@@ -1357,10 +1358,24 @@ void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
 	api.vrf_id = bgp->vrf_id;
 	api.afi = afi;
 
+	if (!bgp_zebra_tm_chunk_obtained()) {
+		if (BGP_DEBUG(pbr, PBR_ERROR))
+			zlog_err("%s: table chunk not obtained yet",
+				 __func__);
+		return;
+	}
+	/* already installed */
+	if (nlri_update && extra->bgp_fs_pbr) {
+		if (BGP_DEBUG(pbr, PBR_ERROR))
+			zlog_err("%s: entry %p already installed in bgp pbr",
+				 __func__, info);
+		return;
+	}
+
 	if (bgp_pbr_build_and_validate_entry(p, info, &api) < 0) {
 		if (BGP_DEBUG(pbr, PBR_ERROR))
-			zlog_err("%s: cancel updating entry in bgp pbr",
-				 __func__);
+			zlog_err("%s: cancel updating entry %p in bgp pbr",
+				 __func__, info);
 		return;
 	}
 	bgp_pbr_handle_entry(bgp, info, &api, nlri_update);
