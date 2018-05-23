@@ -131,8 +131,20 @@ extern struct zebra_privs_t zserv_privs;
 int netlink_talk_filter(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			ns_id_t ns_id, int startup)
 {
-	zlog_warn("netlink_talk: ignoring message type 0x%04x NS %u",
-		  h->nlmsg_type, ns_id);
+	/*
+	 * This is an error condition that must be handled during
+	 * development.
+	 *
+	 * The netlink_talk_filter function is used for communication
+	 * down the netlink_cmd pipe and we are expecting
+	 * an ack being received.  So if we get here
+	 * then we did not receive the ack and instead
+	 * received some other message in an unexpected
+	 * way.
+	 */
+	zlog_err("%s: ignoring message type 0x%04x(%s) NS %u",
+		 __PRETTY_FUNCTION__, h->nlmsg_type,
+		 nl_msg_type_to_str(h->nlmsg_type), ns_id);
 	return 0;
 }
 
@@ -242,6 +254,15 @@ static int netlink_information_fetch(struct sockaddr_nl *snl,
 		return 0;
 	}
 
+	/*
+	 * When we handle new message types here
+	 * because we are starting to install them
+	 * then lets check the netlink_install_filter
+	 * and see if we should add the corresponding
+	 * allow through entry there.
+	 * Probably not needed to do but please
+	 * think about it.
+	 */
 	switch (h->nlmsg_type) {
 	case RTM_NEWROUTE:
 		return netlink_route_change(snl, h, ns_id, startup);
@@ -264,9 +285,16 @@ static int netlink_information_fetch(struct sockaddr_nl *snl,
 	case RTM_DELRULE:
 		return netlink_rule_change(snl, h, ns_id, startup);
 	default:
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Unknown netlink nlmsg_type %d vrf %u\n",
-				   h->nlmsg_type, ns_id);
+		/*
+		 * If we have received this message then
+		 * we have made a mistake during development
+		 * and we need to write some code to handle
+		 * this message type or not ask for
+		 * it to be sent up to us
+		 */
+		zlog_err("Unknown netlink nlmsg_type %s(%d) vrf %u\n",
+			 nl_msg_type_to_str(h->nlmsg_type), h->nlmsg_type,
+			 ns_id);
 		break;
 	}
 	return 0;
@@ -283,31 +311,69 @@ static int kernel_read(struct thread *thread)
 	return 0;
 }
 
-/* Filter out messages from self that occur on listener socket,
+/*
+ * Filter out messages from self that occur on listener socket,
  * caused by our actions on the command socket
+ *
+ * When we add new Netlink message types we probably
+ * do not need to add them here as that we are filtering
+ * on the routes we actually care to receive( which is rarer
+ * then the normal course of operations).  We are intentionally
+ * allowing some messages from ourselves through
+ * ( I'm looking at you Interface based netlink messages )
+ * so that we only had to write one way to handle incoming
+ * address add/delete changes.
  */
 static void netlink_install_filter(int sock, __u32 pid)
 {
+	/*
+	 * BPF_JUMP instructions and where you jump to are based upon
+	 * 0 as being the next statement.  So count from 0.  Writing
+	 * this down because every time I look at this I have to
+	 * re-remember it.
+	 */
 	struct sock_filter filter[] = {
-		/* 0: ldh [4]	          */
-		BPF_STMT(BPF_LD | BPF_ABS | BPF_H,
-			 offsetof(struct nlmsghdr, nlmsg_type)),
-		/* 1: jeq 0x18 jt 5 jf next  */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWROUTE), 3, 0),
-		/* 2: jeq 0x19 jt 5 jf next  */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELROUTE), 2, 0),
-		/* 3: jeq 0x19 jt 5 jf next  */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWNEIGH), 1, 0),
-		/* 4: jeq 0x19 jt 5 jf 8  */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELNEIGH), 0, 3),
-		/* 5: ldw [12]		  */
+		/*
+		 * Logic:
+		 *   if (nlmsg_pid == pid) {
+		 *       if (the incoming nlmsg_type ==
+		 *           RTM_NEWADDR | RTM_DELADDR)
+		 *           keep this message
+		 *       else
+		 *           skip this message
+		 *   } else
+		 *       keep this netlink message
+		 */
+		/*
+		 * 0: Load the nlmsg_pid into the BPF register
+		 */
 		BPF_STMT(BPF_LD | BPF_ABS | BPF_W,
 			 offsetof(struct nlmsghdr, nlmsg_pid)),
-		/* 6: jeq XX  jt 7 jf 8   */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(pid), 0, 1),
-		/* 7: ret 0    (skip)     */
+		/*
+		 * 1: Compare to pid
+		 */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(pid), 0, 4),
+		/*
+		 * 2: Load the nlmsg_type into BPF register
+		 */
+		BPF_STMT(BPF_LD | BPF_ABS | BPF_H,
+			 offsetof(struct nlmsghdr, nlmsg_type)),
+		/*
+		 * 3: Compare to RTM_NEWADDR
+		 */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWADDR), 2, 0),
+		/*
+		 * 4: Compare to RTM_DELADDR
+		 */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELADDR), 1, 0),
+		/*
+		 * 5: This is the end state of we want to skip the
+		 *    message
+		 */
 		BPF_STMT(BPF_RET | BPF_K, 0),
-		/* 8: ret 0xffff (keep)   */
+		/* 6: This is the end state of we want to keep
+		 *     the message
+		 */
 		BPF_STMT(BPF_RET | BPF_K, 0xffff),
 	};
 
@@ -619,23 +685,6 @@ int netlink_parse_info(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *,
 					nl_msg_type_to_str(h->nlmsg_type),
 					h->nlmsg_type, h->nlmsg_len,
 					h->nlmsg_seq, h->nlmsg_pid);
-
-			/* skip unsolicited messages originating from command
-			 * socket
-			 * linux sets the originators port-id for {NEW|DEL}ADDR
-			 * messages,
-			 * so this has to be checked here. */
-			if (nl != &zns->netlink_cmd
-			    && h->nlmsg_pid == zns->netlink_cmd.snl.nl_pid
-			    && (h->nlmsg_type != RTM_NEWADDR
-				&& h->nlmsg_type != RTM_DELADDR)) {
-				if (IS_ZEBRA_DEBUG_KERNEL)
-					zlog_debug(
-						"netlink_parse_info: %s packet comes from %s",
-						zns->netlink_cmd.name,
-						nl->name);
-				continue;
-			}
 
 			error = (*filter)(&snl, h, zns->ns_id, startup);
 			if (error < 0) {
