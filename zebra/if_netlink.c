@@ -691,8 +691,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 }
 
 /* Request for specific interface or address information from the kernel */
-static int netlink_request_intf_addr(struct zebra_ns *zns, int family, int type,
-				     uint32_t filter_mask)
+static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
+				     int type, uint32_t filter_mask)
 {
 	struct {
 		struct nlmsghdr n;
@@ -710,58 +710,63 @@ static int netlink_request_intf_addr(struct zebra_ns *zns, int family, int type,
 	if (filter_mask)
 		addattr32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
 
-	return netlink_request(&zns->netlink_cmd, &req.n);
+	return netlink_request(netlink_cmd, &req.n);
 }
 
 /* Interface lookup by netlink socket. */
 int interface_lookup_netlink(struct zebra_ns *zns)
 {
 	int ret;
+	struct zebra_ns_info zns_info;
+	struct nlsock *netlink_cmd = &zns->netlink_cmd;
+
+	/* Capture key info from ns struct */
+	zebra_ns_info_from_ns(&zns_info, zns, true /*is_cmd*/);
 
 	/* Get interface information. */
-	ret = netlink_request_intf_addr(zns, AF_PACKET, RTM_GETLINK, 0);
+	ret = netlink_request_intf_addr(netlink_cmd, AF_PACKET, RTM_GETLINK, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface, &zns->netlink_cmd, zns, 0,
-				 1);
-	if (ret < 0)
-		return ret;
-
-	/* Get interface information - for bridge interfaces. */
-	ret = netlink_request_intf_addr(zns, AF_BRIDGE, RTM_GETLINK,
-					RTEXT_FILTER_BRVLAN);
-	if (ret < 0)
-		return ret;
-	ret = netlink_parse_info(netlink_interface, &zns->netlink_cmd, zns, 0,
-				 0);
+	ret = netlink_parse_info(netlink_interface, netlink_cmd,
+				 &zns_info, 0, 1);
 	if (ret < 0)
 		return ret;
 
 	/* Get interface information - for bridge interfaces. */
-	ret = netlink_request_intf_addr(zns, AF_BRIDGE, RTM_GETLINK,
+	ret = netlink_request_intf_addr(netlink_cmd, AF_BRIDGE, RTM_GETLINK,
 					RTEXT_FILTER_BRVLAN);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface, &zns->netlink_cmd, zns, 0,
-				 0);
+	ret = netlink_parse_info(netlink_interface, netlink_cmd,
+				 &zns_info, 0, 0);
+	if (ret < 0)
+		return ret;
+
+	/* Get interface information - for bridge interfaces. */
+	ret = netlink_request_intf_addr(netlink_cmd, AF_BRIDGE, RTM_GETLINK,
+					RTEXT_FILTER_BRVLAN);
+	if (ret < 0)
+		return ret;
+	ret = netlink_parse_info(netlink_interface, netlink_cmd,
+				 &zns_info, 0, 0);
 	if (ret < 0)
 		return ret;
 
 	/* Get IPv4 address of the interfaces. */
-	ret = netlink_request_intf_addr(zns, AF_INET, RTM_GETADDR, 0);
+	ret = netlink_request_intf_addr(netlink_cmd, AF_INET, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface_addr, &zns->netlink_cmd, zns,
-				 0, 1);
+	ret = netlink_parse_info(netlink_interface_addr, netlink_cmd,
+				 &zns_info, 0, 1);
 	if (ret < 0)
 		return ret;
 
 	/* Get IPv6 address of the interfaces. */
-	ret = netlink_request_intf_addr(zns, AF_INET6, RTM_GETADDR, 0);
+	ret = netlink_request_intf_addr(netlink_cmd, AF_INET6, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface_addr, &zns->netlink_cmd, zns,
-				 0, 1);
+	ret = netlink_parse_info(netlink_interface_addr, netlink_cmd,
+				 &zns_info, 0, 1);
 	if (ret < 0)
 		return ret;
 

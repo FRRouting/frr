@@ -87,6 +87,33 @@ struct zebra_ns {
 	struct ns *ns;
 };
 
+/* Key netlink info from zebra ns */
+struct zebra_ns_info {
+	ns_id_t ns_id;
+
+#if defined(HAVE_NETLINK)
+	uint32_t nl_pid;
+	bool is_cmd;
+#endif
+};
+
+/* Utility to fill in zns info from main zns struct */
+static inline void zebra_ns_info_from_ns(struct zebra_ns_info *zns_info,
+					 const struct zebra_ns *zns,
+					 bool is_cmd)
+{
+	zns_info->ns_id = zns->ns_id;
+
+#if defined(HAVE_NETLINK)
+	zns_info->is_cmd = is_cmd;
+	if (is_cmd) {
+		zns_info->nl_pid = zns->netlink_cmd.snl.nl_pid;
+	} else {
+		zns_info->nl_pid = zns->netlink.snl.nl_pid;
+	}
+#endif	/* NETLINK */
+}
+
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
 
 int zebra_ns_init(void);

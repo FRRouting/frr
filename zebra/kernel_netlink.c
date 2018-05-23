@@ -296,7 +296,13 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 static int kernel_read(struct thread *thread)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG(thread);
-	netlink_parse_info(netlink_information_fetch, &zns->netlink, zns, 5, 0);
+	struct zebra_ns_info zns_info;
+
+	/* Capture key info from ns struct */
+	zebra_ns_info_from_ns(&zns_info, zns, false);
+
+	netlink_parse_info(netlink_information_fetch, &zns->netlink,
+			   &zns_info, 5, 0);
 	zns->t_netlink = NULL;
 	thread_add_read(zebrad.master, kernel_read, zns, zns->netlink.sock,
 			&zns->t_netlink);
@@ -581,7 +587,7 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
  *            the filter.
  */
 int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-		       struct nlsock *nl, struct zebra_ns *zns, int count,
+		       struct nlsock *nl, struct zebra_ns_info *zns, int count,
 		       int startup)
 {
 	int status;
@@ -691,7 +697,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 
 				/* Deal with errors that occur because of races
 				 * in link handling */
-				if (nl == &zns->netlink_cmd
+				if (zns->is_cmd
 				    && ((msg_type == RTM_DELROUTE
 					 && (-errnum == ENODEV
 					     || -errnum == ESRCH))
@@ -718,7 +724,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 				 * so do not log these as an error.
 				 */
 				if (msg_type == RTM_DELNEIGH
-				    || (nl == &zns->netlink_cmd
+				    || (zns->is_cmd
 					&& msg_type == RTM_NEWROUTE
 					&& (-errnum == ESRCH
 					    || -errnum == ENETUNREACH))) {
@@ -812,6 +818,7 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	struct iovec iov;
 	struct msghdr msg;
 	int save_errno;
+	struct zebra_ns_info zns_info;
 
 	memset(&snl, 0, sizeof snl);
 	memset(&iov, 0, sizeof iov);
@@ -863,7 +870,8 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	 * Get reply from netlink socket.
 	 * The reply should either be an acknowlegement or an error.
 	 */
-	return netlink_parse_info(filter, nl, zns, 0, startup);
+	zebra_ns_info_from_ns(&zns_info, zns, (nl == &(zns->netlink_cmd)));
+	return netlink_parse_info(filter, nl, &zns_info, 0, startup);
 }
 
 /* Issue request message to kernel via netlink socket. GET messages

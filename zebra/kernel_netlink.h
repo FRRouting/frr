@@ -46,7 +46,7 @@ extern const char *nl_family_to_str(uint8_t family);
 extern const char *nl_rttype_to_str(uint8_t rttype);
 
 extern int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-			      struct nlsock *nl, struct zebra_ns *zns,
+			      struct nlsock *nl, struct zebra_ns_info *zns,
 			      int count, int startup);
 extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
 extern int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
