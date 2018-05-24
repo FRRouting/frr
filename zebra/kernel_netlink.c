@@ -836,11 +836,24 @@ void kernel_init(struct zebra_ns *zns)
 {
 	unsigned long groups;
 
-	/* Initialize netlink sockets */
-	groups = RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV4_IFADDR
-		 | RTMGRP_IPV6_ROUTE | RTMGRP_IPV6_IFADDR | RTMGRP_IPV4_MROUTE
-		 | RTMGRP_NEIGH
-		 | RTNLGRP_IPV4_RULE | RTNLGRP_IPV6_RULE;
+	/*
+	 * Initialize netlink sockets
+	 *
+	 * If RTMGRP_XXX exists use that, but at some point
+	 * I think the kernel developers realized that
+	 * keeping track of all the different values would
+	 * lead to confusion, so we need to convert the
+	 * RTNLGRP_XXX to a bit position for ourself
+	 */
+	groups = RTMGRP_LINK                   |
+		RTMGRP_IPV4_ROUTE              |
+		RTMGRP_IPV4_IFADDR             |
+		RTMGRP_IPV6_ROUTE              |
+		RTMGRP_IPV6_IFADDR             |
+		RTMGRP_IPV4_MROUTE             |
+		RTMGRP_NEIGH                   |
+		(1 << (RTNLGRP_IPV4_RULE - 1)) |
+		(1 << (RTNLGRP_IPV6_RULE - 1));
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
