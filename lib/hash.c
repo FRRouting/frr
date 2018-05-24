@@ -312,6 +312,21 @@ void hash_clean(struct hash *hash, void (*free_func)(void *))
 	hash->stats.empty = hash->size;
 }
 
+static void hash_to_list_iter(struct hash_backet *hb, void *arg)
+{
+	struct list *list = arg;
+
+	listnode_add(list, hb->data);
+}
+
+struct list *hash_to_list(struct hash *hash)
+{
+	struct list *list = list_new();
+
+	hash_iterate(hash, hash_to_list_iter, list);
+	return list;
+}
+
 /* Free hash memory.  You may call hash_clean before call this
    function.  */
 void hash_free(struct hash *hash)

@@ -106,6 +106,15 @@ extern void hash_walk(struct hash *, int (*)(struct hash_backet *, void *),
 extern void hash_clean(struct hash *, void (*)(void *));
 extern void hash_free(struct hash *);
 
+/*
+ * Converts a hash table to an unsorted linked list.
+ * Does not modify the hash table in any way.
+ *
+ * hash
+ *    the hash to convert
+ */
+extern struct list *hash_to_list(struct hash *hash);
+
 extern unsigned int string_hash_make(const char *);
 
 extern void hash_cmd_init(void);
