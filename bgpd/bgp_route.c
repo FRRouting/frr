@@ -9648,13 +9648,13 @@ static struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 			json_object *json_no = NULL;
 			json_no = json_object_new_object();
 			json_object_string_add(json_no, "warning",
-					       "No such neighbor");
+					       "No such neighbor in this view/vrf");
 			vty_out(vty, "%s\n",
 				json_object_to_json_string_ext(
 					json_no, JSON_C_TO_STRING_PRETTY));
 			json_object_free(json_no);
 		} else
-			vty_out(vty, "No such neighbor\n");
+			vty_out(vty, "No such neighbor in this view/vrf\n");
 		return NULL;
 	}
 
@@ -10752,10 +10752,8 @@ DEFUN (show_ip_bgp_neighbor_routes,
 	peerstr = argv[++idx]->arg;
 
 	peer = peer_lookup_in_view(vty, bgp, peerstr, uj);
-	if (!peer) {
-		vty_out(vty, "No such neighbor\n");
+	if (!peer)
 		return CMD_WARNING;
-	}
 
 	if (argv_find(argv, argc, "flap-statistics", &idx))
 		sh_type = bgp_show_type_flap_neighbor;
