@@ -19,6 +19,7 @@
  */
 
 #include <zebra.h>
+#include <stdlib.h>
 
 #include "linklist.h"
 #include "memory.h"
@@ -295,4 +296,42 @@ void list_add_list(struct list *l, struct list *m)
 
 	for (n = listhead(m); n; n = listnextnode(n))
 		listnode_add(l, n->data);
+}
+
+struct list *list_dup(struct list *l)
+{
+	struct list *new = list_new();
+	struct listnode *ln;
+	void *data;
+
+	new->cmp = l->cmp;
+	new->del = l->del;
+
+	for (ALL_LIST_ELEMENTS_RO(l, ln, data))
+		listnode_add(new, data);
+
+	return new;
+}
+
+void list_sort(struct list *list, int (*cmp)(const void **, const void **))
+{
+	struct listnode *ln, *nn;
+	int i = -1;
+	void *data;
+	size_t n = list->count;
+	void **items = XCALLOC(MTYPE_TMP, (sizeof(void *)) * n);
+	int (*realcmp)(const void *, const void *) =
+		(int (*)(const void *, const void *))cmp;
+
+	for (ALL_LIST_ELEMENTS(list, ln, nn, data)) {
+		items[++i] = data;
+		list_delete_node(list, ln);
+	}
+
+	qsort(items, n, sizeof(void *), realcmp);
+
+	for (unsigned int i = 0; i < n; ++i)
+		listnode_add(list, items[i]);
+
+	XFREE(MTYPE_TMP, items);
 }

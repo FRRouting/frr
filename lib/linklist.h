@@ -73,6 +73,9 @@ extern void listnode_move_to_tail(struct list *, struct listnode *);
 extern void listnode_delete(struct list *, void *);
 extern struct listnode *listnode_lookup(struct list *, void *);
 extern void *listnode_head(struct list *);
+extern struct list *list_dup(struct list *l);
+extern void list_sort(struct list *list,
+		      int (*cmp)(const void *, const void *));
 
 /*
  * The usage of list_delete is being transitioned to pass in
