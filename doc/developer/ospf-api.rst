@@ -77,7 +77,6 @@ the ospfapi server and ospfclient).
 
 ::
 
-    % update-autotools
     % sh ./configure --enable-opaque-lsa
     % make
 
