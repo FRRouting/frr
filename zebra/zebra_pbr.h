@@ -162,12 +162,12 @@ void zebra_pbr_del_iptable(struct zebra_ns *zns,
  * forwarding plane may not coincide, hence the API requires a separate
  * rule priority - maps to preference/FRA_PRIORITY on Linux.
  */
-extern void kernel_add_pbr_rule(struct zebra_pbr_rule *rule);
+extern enum dp_req_result kernel_add_pbr_rule(struct zebra_pbr_rule *rule);
 
 /*
  * Uninstall specified rule for a specific interface.
  */
-extern void kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
+extern enum dp_req_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
 
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.

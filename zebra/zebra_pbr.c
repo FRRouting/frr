@@ -78,7 +78,7 @@ void zebra_pbr_rules_free(void *arg)
 
 	rule = (struct zebra_pbr_rule *)arg;
 
-	kernel_del_pbr_rule(rule);
+	(void)kernel_del_pbr_rule(rule);
 	XFREE(MTYPE_TMP, rule);
 }
 
@@ -368,7 +368,7 @@ void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 		pbr_rule_lookup_unique(zns, rule->rule.unique, rule->ifp);
 
 	(void)hash_get(zns->rules_hash, rule, pbr_rule_alloc_intern);
-	kernel_add_pbr_rule(rule);
+	(void)kernel_add_pbr_rule(rule);
 	/*
 	 * Rule Replace semantics, if we have an old, install the
 	 * new rule, look above, and then delete the old
@@ -382,7 +382,7 @@ void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 	struct zebra_pbr_rule *lookup;
 
 	lookup = hash_lookup(zns->rules_hash, rule);
-	kernel_del_pbr_rule(rule);
+	(void)kernel_del_pbr_rule(rule);
 
 	if (lookup) {
 		hash_release(zns->rules_hash, lookup);
@@ -399,7 +399,7 @@ static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
 	int *sock = data;
 
 	if (rule->sock == *sock) {
-		kernel_del_pbr_rule(rule);
+		(void)kernel_del_pbr_rule(rule);
 		hash_release(zns->rules_hash, rule);
 		XFREE(MTYPE_TMP, rule);
 	}
