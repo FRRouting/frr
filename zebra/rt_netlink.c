@@ -310,8 +310,12 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 		return 0;
 
 	if (!startup && is_selfroute(rtm->rtm_protocol)
-	    && h->nlmsg_type == RTM_NEWROUTE)
+	    && h->nlmsg_type == RTM_NEWROUTE) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
+				   rtm->rtm_protocol);
 		return 0;
+	}
 
 	/* We don't care about change notifications for the MPLS table. */
 	/* TODO: Revisit this. */
