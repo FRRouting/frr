@@ -1689,8 +1689,9 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	return suc;
 }
 
-void kernel_route_rib(struct route_node *rn, struct prefix *p,
-		      struct prefix *src_p,
+enum dp_req_result kernel_route_rib(struct route_node *rn,
+				    struct prefix *p,
+				    struct prefix *src_p,
 				    struct route_entry *old,
 				    struct route_entry *new)
 {
@@ -1724,7 +1725,7 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 		kernel_route_rib_pass_fail(rn, p, new,
 					   (!ret) ? DP_INSTALL_SUCCESS
 						  : DP_INSTALL_FAILURE);
-		return;
+		return DP_REQUEST_SUCCESS;
 	}
 
 	if (old) {
@@ -1735,7 +1736,7 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 						  : DP_DELETE_FAILURE);
 	}
 
-	return;
+	return DP_REQUEST_SUCCESS;
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,

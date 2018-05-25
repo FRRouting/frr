@@ -385,9 +385,11 @@ static int kernel_rtm(int cmd, struct prefix *p, struct route_entry *re)
 	return 0;
 }
 
-void kernel_route_rib(struct route_node *rn, struct prefix *p,
-		      struct prefix *src_p, struct route_entry *old,
-		      struct route_entry *new)
+enum dp_req_result kernel_route_rib(struct route_node *rn,
+				    struct prefix *p,
+				    struct prefix *src_p,
+				    struct route_entry *old,
+				    struct route_entry *new)
 {
 	int route = 0;
 
@@ -419,6 +421,8 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 						   ? DP_DELETE_SUCCESS
 						   : DP_DELETE_FAILURE);
 	}
+
+	return DP_REQUEST_SUCCESS;
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,

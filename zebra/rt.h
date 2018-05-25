@@ -49,6 +49,12 @@ enum dp_results {
 	DP_DELETE_FAILURE,
 };
 
+enum dp_req_result {
+	DP_REQUEST_QUEUED,
+	DP_REQUEST_SUCCESS,
+	DP_REQUEST_FAILURE,
+};
+
 /*
  * Install/delete the specified prefix p from the kernel
  *
@@ -60,9 +66,11 @@ enum dp_results {
  * semantics so we will end up with a delete than
  * a re-add.
  */
-extern void kernel_route_rib(struct route_node *rn, struct prefix *p,
-			     struct prefix *src_p, struct route_entry *old,
-			     struct route_entry *new);
+extern enum dp_req_result kernel_route_rib(struct route_node *rn,
+					   struct prefix *p,
+					   struct prefix *src_p,
+					   struct route_entry *old,
+					   struct route_entry *new);
 
 /*
  * So route install/failure may not be immediately known

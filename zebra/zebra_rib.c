@@ -1123,8 +1123,17 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "installing in kernel");
-	kernel_route_rib(rn, p, src_p, old, re);
-	zvrf->installs++;
+	switch (kernel_route_rib(rn, p, src_p, old, re)) {
+	case DP_REQUEST_QUEUED:
+		zlog_err("No current known DataPlane interfaces can return this, please fix");
+		break;
+	case DP_REQUEST_FAILURE:
+		zlog_err("No current known Rib Install Failure cases, please fix");
+		break;
+	case DP_REQUEST_SUCCESS:
+		zvrf->installs++;
+		break;
+	}
 
 	return;
 }
@@ -1150,9 +1159,18 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
-	kernel_route_rib(rn, p, src_p, re, NULL);
-	if (zvrf)
-		zvrf->removals++;
+	switch (kernel_route_rib(rn, p, src_p, re, NULL)) {
+	case DP_REQUEST_QUEUED:
+		zlog_err("No current known DataPlane interfaces can return this, please fix");
+		break;
+	case DP_REQUEST_FAILURE:
+		zlog_err("No current known RIB Install Failure cases, please fix");
+		break;
+	case DP_REQUEST_SUCCESS:
+		if (zvrf)
+			zvrf->removals++;
+		break;
+	}
 
 	return;
 }
