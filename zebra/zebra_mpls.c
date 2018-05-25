@@ -1687,7 +1687,7 @@ static int mpls_processq_init(struct zebra_t *zebra)
 
 /* Public functions */
 
-void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum southbound_results res)
+void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res)
 {
 	struct nexthop *nexthop;
 	zebra_nhlfe_t *nhlfe;
@@ -1696,12 +1696,12 @@ void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum southbound_results res)
 		return;
 
 	switch (res) {
-	case SOUTHBOUND_INSTALL_FAILURE:
+	case DP_INSTALL_FAILURE:
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 		zlog_warn("LSP Install Failure: %u", lsp->ile.in_label);
 		break;
-	case SOUTHBOUND_INSTALL_SUCCESS:
+	case DP_INSTALL_SUCCESS:
 		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
 			nexthop = nhlfe->nexthop;
@@ -1712,11 +1712,11 @@ void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum southbound_results res)
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
 		break;
-	case SOUTHBOUND_DELETE_SUCCESS:
+	case DP_DELETE_SUCCESS:
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 		break;
-	case SOUTHBOUND_DELETE_FAILURE:
+	case DP_DELETE_FAILURE:
 		zlog_warn("LSP Deletion Failure: %u", lsp->ile.in_label);
 		break;
 	}

@@ -411,13 +411,13 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 	if (new) {
 		kernel_route_rib_pass_fail(
 			rn, p, new,
-			(!route) ? SOUTHBOUND_INSTALL_SUCCESS
-				 : SOUTHBOUND_INSTALL_FAILURE);
+			(!route) ? DP_INSTALL_SUCCESS
+				 : DP_INSTALL_FAILURE);
 	} else {
 		kernel_route_rib_pass_fail(rn, p, old,
 					   (!route)
-						   ? SOUTHBOUND_DELETE_SUCCESS
-						   : SOUTHBOUND_DELETE_FAILURE);
+						   ? DP_DELETE_SUCCESS
+						   : DP_DELETE_FAILURE);
 	}
 }
 

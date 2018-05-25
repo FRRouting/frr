@@ -148,8 +148,8 @@ void kernel_add_pbr_rule(struct zebra_pbr_rule *rule)
 
 	ret = netlink_rule_update(RTM_NEWRULE, rule);
 	kernel_pbr_rule_add_del_status(rule,
-				       (!ret) ? SOUTHBOUND_INSTALL_SUCCESS
-					      : SOUTHBOUND_INSTALL_FAILURE);
+				       (!ret) ? DP_INSTALL_SUCCESS
+					      : DP_INSTALL_FAILURE);
 }
 
 /*
@@ -161,8 +161,8 @@ void kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
 
 	ret = netlink_rule_update(RTM_DELRULE, rule);
 	kernel_pbr_rule_add_del_status(rule,
-				       (!ret) ? SOUTHBOUND_DELETE_SUCCESS
-					      : SOUTHBOUND_DELETE_FAILURE);
+				       (!ret) ? DP_DELETE_SUCCESS
+					      : DP_DELETE_FAILURE);
 }
 
 /*
