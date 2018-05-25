@@ -94,7 +94,7 @@ void rt_netlink_init(void)
 static inline int is_selfroute(int proto)
 {
 	if ((proto == RTPROT_BGP) || (proto == RTPROT_OSPF)
-	    || (proto == RTPROT_STATIC) || (proto == RTPROT_ZEBRA)
+	    || (proto == RTPROT_ZSTATIC) || (proto == RTPROT_ZEBRA)
 	    || (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG)
 	    || (proto == RTPROT_NHRP) || (proto == RTPROT_EIGRP)
 	    || (proto == RTPROT_LDP) || (proto == RTPROT_BABEL)
@@ -120,7 +120,7 @@ static inline int zebra2proto(int proto)
 		proto = RTPROT_OSPF;
 		break;
 	case ZEBRA_ROUTE_STATIC:
-		proto = RTPROT_STATIC;
+		proto = RTPROT_ZSTATIC;
 		break;
 	case ZEBRA_ROUTE_ISIS:
 		proto = RTPROT_ISIS;
@@ -194,6 +194,7 @@ static inline int proto2zebra(int proto, int family)
 		proto = ZEBRA_ROUTE_LDP;
 		break;
 	case RTPROT_STATIC:
+	case RTPROT_ZSTATIC:
 		proto = ZEBRA_ROUTE_STATIC;
 		break;
 	case RTPROT_SHARP:
