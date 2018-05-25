@@ -19,6 +19,7 @@ TAGS
 .arch-inventory
 .arch-ids
 __pycache__
+.pytest_cache
 /bgpd/test_aspath
 /bgpd/test_capability
 /bgpd/test_ecommunity
