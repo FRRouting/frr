@@ -153,6 +153,17 @@ void vector_unset(vector v, unsigned int i)
 	}
 }
 
+void vector_remove(vector v, unsigned int ix)
+{
+	if (ix >= v->active)
+		return;
+
+	int n = (--v->active) - ix;
+
+	memmove(&v->index[ix], &v->index[ix + 1], n * sizeof(void *));
+	v->index[v->active] = NULL;
+}
+
 void vector_unset_value(vector v, void *val)
 {
 	size_t i;
