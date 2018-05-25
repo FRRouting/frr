@@ -597,7 +597,6 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	memset(linkinfo, 0, sizeof linkinfo);
 	netlink_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
 
-#ifdef IFLA_WIRELESS
 	/* check for wireless messages to ignore */
 	if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0)) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -605,7 +604,6 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 				   __func__);
 		return 0;
 	}
-#endif /* IFLA_WIRELESS */
 
 	if (tb[IFLA_IFNAME] == NULL)
 		return -1;
@@ -1122,7 +1120,6 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	memset(linkinfo, 0, sizeof linkinfo);
 	netlink_parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
 
-#ifdef IFLA_WIRELESS
 	/* check for wireless messages to ignore */
 	if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0)) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1130,7 +1127,6 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 				   __func__);
 		return 0;
 	}
-#endif /* IFLA_WIRELESS */
 
 	if (tb[IFLA_IFNAME] == NULL)
 		return -1;
