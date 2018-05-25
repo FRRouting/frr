@@ -186,6 +186,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 	/* filter buffer */
 	if (vty->filter) {
 		vector lines = frrstr_split_vec(buf, "\n");
+
 		frrstr_filter_vec(lines, &vty->include);
 		if (buf[strlen(buf) - 1] == '\n' && vector_active(lines) > 0)
 			vector_set(lines, XSTRDUP(MTYPE_TMP, ""));

@@ -40,6 +40,7 @@ void frrstr_split(const char *string, const char *delimiter, char ***result,
 	*argc = 0;
 
 	const char *tok = NULL;
+
 	while (copy) {
 		tok = strsep(&copy, delimiter);
 		(*result)[idx] = XSTRDUP(MTYPE_TMP, tok);
@@ -50,8 +51,6 @@ void frrstr_split(const char *string, const char *delimiter, char ***result,
 	}
 
 	XFREE(MTYPE_TMP, copystart);
-
-	return;
 }
 
 vector frrstr_split_vec(const char *string, const char *delimiter)
@@ -62,7 +61,9 @@ vector frrstr_split_vec(const char *string, const char *delimiter)
 	frrstr_split(string, delimiter, &result, &argc);
 
 	vector v = array_to_vector((void **)result, argc);
+
 	XFREE(MTYPE_TMP, result);
+
 	return v;
 }
 
@@ -85,6 +86,7 @@ char *frrstr_join(const char **parts, int argc, const char *join)
 
 	for (i = 0; i < argc; i++) {
 		size_t arglen = strlen(parts[i]);
+
 		memcpy(p, parts[i], arglen);
 		p += arglen;
 		if (i + 1 != argc) {
@@ -115,6 +117,7 @@ char *frrstr_join_vec(vector v, const char *join)
 void frrstr_filter_vec(vector v, regex_t *filter)
 {
 	regmatch_t ignored[1];
+
 	for (unsigned int i = 0; i < vector_active(v); i++) {
 		if (regexec(filter, vector_slot(v, i), 0, ignored, 0)) {
 			XFREE(MTYPE_TMP, vector_slot(v, i));
@@ -143,9 +146,12 @@ bool begins_with(const char *str, const char *prefix)
 {
 	if (!str || !prefix)
 		return 0;
+
 	size_t lenstr = strlen(str);
 	size_t lenprefix = strlen(prefix);
+
 	if (lenprefix > lenstr)
 		return 0;
+
 	return strncmp(str, prefix, lenprefix) == 0;
 }

@@ -342,7 +342,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 || (I) == MPLS_NODE)
 
 /* Display configuration to file pointer. */
-void vtysh_config_dump()
+void vtysh_config_dump(void)
 {
 	struct listnode *node, *nnode;
 	struct listnode *mnode, *mnnode;

@@ -285,7 +285,7 @@ vector cmd_make_strvec(const char *string)
 	if (*copy == '\0' || *copy == '!' || *copy == '#')
 		return NULL;
 
-	vector result = frrstr_split_vec(copy, " \n\r\t");
+	vector result = frrstr_split_vec(copy, "\n\r\t ");
 
 	for (unsigned int i = 0; i < vector_active(result); i++) {
 		if (strlen(vector_slot(result, i)) == 0) {
@@ -1163,15 +1163,15 @@ int cmd_execute_command_strict(vector vline, struct vty *vty,
  *    The result of any processing.
  */
 DECLARE_HOOK(cmd_execute,
-	     (struct vty * vty, const char *cmd_in, char **cmd_out),
+	     (struct vty *vty, const char *cmd_in, char **cmd_out),
 	     (vty, cmd_in, cmd_out));
-DEFINE_HOOK(cmd_execute, (struct vty * vty, const char *cmd_in, char **cmd_out),
+DEFINE_HOOK(cmd_execute, (struct vty *vty, const char *cmd_in, char **cmd_out),
 	    (vty, cmd_in, cmd_out));
 
 /* Hook executed after a CLI command. */
-DECLARE_KOOH(cmd_execute_done, (struct vty * vty, const char *cmd_exec),
+DECLARE_KOOH(cmd_execute_done, (struct vty *vty, const char *cmd_exec),
 	     (vty, cmd_exec));
-DEFINE_KOOH(cmd_execute_done, (struct vty * vty, const char *cmd_exec),
+DEFINE_KOOH(cmd_execute_done, (struct vty *vty, const char *cmd_exec),
 	    (vty, cmd_exec));
 
 /*
@@ -1198,6 +1198,7 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 		/* the remaining text should be a regexp */
 		char *regexp = working;
 		bool succ = vty_set_include(vty, regexp);
+
 		if (!succ) {
 			vty_out(vty, "%% Bad regexp '%s'", regexp);
 			goto fail;

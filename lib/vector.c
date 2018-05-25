@@ -192,6 +192,7 @@ void vector_to_array(vector v, void ***dest, int *argc)
 vector array_to_vector(void **src, int argc)
 {
 	vector v = vector_init(VECTOR_MIN_SIZE);
+
 	for (int i = 0; i < argc; i++)
 		vector_set_index(v, i, src[i]);
 	return v;
