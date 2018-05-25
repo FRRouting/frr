@@ -2276,7 +2276,8 @@ static int bgp_attr_check(struct peer *peer, struct attr *attr)
 	   are present, it should.  Check for any other attribute being present
 	   instead.
 	 */
-	if (attr->flag == ATTR_FLAG_BIT(BGP_ATTR_MP_UNREACH_NLRI))
+	if ((!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI)) &&
+	     CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_UNREACH_NLRI))))
 		return BGP_ATTR_PARSE_PROCEED;
 
 	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN)))
