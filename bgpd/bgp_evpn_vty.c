@@ -2578,13 +2578,6 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 	}
 }
 
-static void write_vni_config_for_entry(struct hash_backet *backet,
-				       struct vty *vty)
-{
-	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
-	write_vni_config(vty, vpn);
-}
-
 #if defined(HAVE_CUMULUS)
 DEFUN (bgp_evpn_advertise_default_gw_vni,
        bgp_evpn_advertise_default_gw_vni_cmd,
@@ -4419,6 +4412,15 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
 	return CMD_SUCCESS;
 }
 #endif
+
+static int vni_cmp(const void **a, const void **b)
+{
+	const struct bgpevpn *first = *a;
+	const struct bgpevpn *secnd = *b;
+
+	return secnd->vni - first->vni;
+}
+
 /*
  * Output EVPN configuration information.
  */
@@ -4427,11 +4429,17 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 {
 	char buf1[RD_ADDRSTRLEN];
 
-	if (bgp->vnihash)
-		hash_iterate(bgp->vnihash,
-			     (void (*)(struct hash_backet *,
-				       void *))write_vni_config_for_entry,
-			     vty);
+	if (bgp->vnihash) {
+		struct list *vnilist = hash_to_list(bgp->vnihash);
+		struct listnode *ln;
+		struct bgpevpn *data;
+
+		list_sort(vnilist, vni_cmp);
+		for (ALL_LIST_ELEMENTS_RO(vnilist, ln, data))
+			write_vni_config(vty, data);
+
+		list_delete_and_null(&vnilist);
+	}
 
 	if (bgp->advertise_all_vni)
 		vty_out(vty, "  advertise-all-vni\n");
