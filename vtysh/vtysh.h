@@ -40,6 +40,8 @@ DECLARE_MGROUP(MVTYSH)
 #define VTYSH_SHARPD    0x2000
 #define VTYSH_PBRD      0x4000
 
+#define VTYSH_WAS_ACTIVE (-2)
+
 /* commands in REALLYALL are crucial to correct vtysh operation */
 #define VTYSH_REALLYALL	  ~0U
 /* watchfrr is not in ALL since library CLI functions should not be

@@ -86,6 +86,8 @@ struct vtysh_client vtysh_client[] = {
 enum vtysh_write_integrated vtysh_write_integrated =
 	WRITE_INTEGRATED_UNSPECIFIED;
 
+static int vtysh_reconnect(struct vtysh_client *vclient);
+
 static void vclient_close(struct vtysh_client *vclient)
 {
 	if (vclient->fd >= 0) {
@@ -93,7 +95,8 @@ static void vclient_close(struct vtysh_client *vclient)
 			"Warning: closing connection to %s because of an I/O error!\n",
 			vclient->name);
 		close(vclient->fd);
-		vclient->fd = -1;
+		/* indicate as candidate for reconnect */
+		vclient->fd = VTYSH_WAS_ACTIVE;
 	}
 }
 
@@ -120,12 +123,28 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 	char *bufvalid, *end = NULL;
 	char terminator[3] = {0, 0, 0};
 
+	/* vclinet was previously active, try to reconnect */
+	if (vclient->fd == VTYSH_WAS_ACTIVE) {
+		ret = vtysh_reconnect(vclient);
+		if (ret < 0)
+			goto out_err;
+	}
+
 	if (vclient->fd < 0)
 		return CMD_SUCCESS;
 
 	ret = write(vclient->fd, line, strlen(line) + 1);
-	if (ret <= 0)
-		goto out_err;
+	if (ret <= 0) {
+		/* close connection and try to reconnect */
+		vclient_close(vclient);
+		ret = vtysh_reconnect(vclient);
+		if (ret < 0)
+			goto out_err;
+		/* retry line */
+		ret = write(vclient->fd, line, strlen(line) + 1);
+		if (ret <= 0)
+			goto out_err;
+	}
 
 	bufvalid = buf;
 	do {
@@ -488,6 +507,13 @@ static int vtysh_execute_func(const char *line, int pager)
 		struct vtysh_client *vc;
 		for (i = 0; i < array_size(vtysh_client); i++) {
 			if (cmd->daemon & vtysh_client[i].flag) {
+				if (vtysh_client[i].fd < 0
+				    && (cmd->daemon == vtysh_client[i].flag)) {
+					for (vc = &vtysh_client[i]; vc;
+					     vc = vc->next)
+						if (vc->fd < 0)
+							vtysh_reconnect(vc);
+				}
 				if (vtysh_client[i].fd < 0
 				    && (cmd->daemon == vtysh_client[i].flag)) {
 					bool any_inst = false;
@@ -3115,6 +3141,22 @@ static int vtysh_connect(struct vtysh_client *vclient)
 	vclient->fd = sock;
 
 	return 0;
+}
+
+static int vtysh_reconnect(struct vtysh_client *vclient)
+{
+	int ret;
+
+	fprintf(stderr, "Warning: connecting to %s...", vclient->name);
+	ret = vtysh_connect(vclient);
+	if (ret < 0) {
+		fprintf(stderr, "failed!\n");
+		return ret;
+	}
+	fprintf(stderr, "success!\n");
+	if (vtysh_client_execute(vclient, "enable", NULL) < 0)
+		return -1;
+	return vtysh_execute_no_pager("end");
 }
 
 /* Return true if str ends with suffix, else return false */
