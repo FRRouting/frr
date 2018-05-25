@@ -83,6 +83,8 @@ struct isis_extended_ip_reach {
 	uint32_t metric;
 	bool down;
 	struct prefix_ipv4 prefix;
+
+	struct isis_subtlvs *subtlvs;
 };
 
 struct isis_ipv6_reach;
@@ -219,9 +221,21 @@ struct isis_tlvs {
 	struct isis_spine_leaf *spine_leaf;
 };
 
-struct isis_subtlvs {
-	/* draft-baker-ipv6-isis-dst-src-routing-06 */
-	struct prefix_ipv6 *source_prefix;
+#define ISIS_PREFIX_SID_READVERTISED  0x80
+#define ISIS_PREFIX_SID_NODE          0x40
+#define ISIS_PREFIX_SID_NO_PHP        0x20
+#define ISIS_PREFIX_SID_EXPLICIT_NULL 0x10
+#define ISIS_PREFIX_SID_VALUE         0x08
+#define ISIS_PREFIX_SID_LOCAL         0x04
+
+struct isis_prefix_sid;
+struct isis_prefix_sid {
+	struct isis_prefix_sid *next;
+
+	uint8_t flags;
+	uint8_t algorithm;
+
+	uint32_t value;
 };
 
 enum isis_tlv_context {
@@ -230,6 +244,15 @@ enum isis_tlv_context {
 	ISIS_CONTEXT_SUBTLV_IP_REACH,
 	ISIS_CONTEXT_SUBTLV_IPV6_REACH,
 	ISIS_CONTEXT_MAX
+};
+
+struct isis_subtlvs {
+	enum isis_tlv_context context;
+
+	/* draft-baker-ipv6-isis-dst-src-routing-06 */
+	struct prefix_ipv6 *source_prefix;
+	/* draft-ietf-isis-segment-routing-extensions-16 */
+	struct isis_item_list prefix_sids;
 };
 
 enum isis_tlv_type {
@@ -258,6 +281,7 @@ enum isis_tlv_type {
 	ISIS_TLV_THREE_WAY_ADJ = 240,
 	ISIS_TLV_MAX = 256,
 
+	ISIS_SUBTLV_PREFIX_SID = 3,
 	ISIS_SUBTLV_IPV6_SOURCE_PREFIX = 22
 };
 
