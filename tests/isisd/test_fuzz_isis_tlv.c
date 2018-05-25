@@ -114,7 +114,11 @@ static int test(FILE *input, FILE *output)
 	const char *s_tlvs = isis_format_tlvs(tlvs);
 	fprintf(output, "Unpacked TLVs:\n%s", s_tlvs);
 
+	struct isis_item *orig_auth = tlvs->isis_auth.head;
+	tlvs->isis_auth.head = NULL;
+	s_tlvs = isis_format_tlvs(tlvs);
 	struct isis_tlvs *tlv_copy = isis_copy_tlvs(tlvs);
+	tlvs->isis_auth.head = orig_auth;
 	isis_free_tlvs(tlvs);
 
 	struct stream *s2 = stream_new(TEST_STREAM_SIZE);
