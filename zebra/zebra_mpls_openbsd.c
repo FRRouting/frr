@@ -285,13 +285,13 @@ static int kernel_lsp_cmd(int action, zebra_lsp_t *lsp)
 	return (0);
 }
 
-void kernel_add_lsp(zebra_lsp_t *lsp)
+enum dp_req_result kernel_add_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
 	if (!lsp || !lsp->best_nhlfe) { // unexpected
 		kernel_lsp_pass_fail(lsp, DP_INSTALL_FAILURE);
-		return;
+		return DP_REQUEST_FAILURE;
 	}
 
 	ret = kernel_lsp_cmd(RTM_ADD, lsp);
@@ -299,15 +299,17 @@ void kernel_add_lsp(zebra_lsp_t *lsp)
 	kernel_lsp_pass_fail(lsp,
 			     (!ret) ? DP_INSTALL_SUCCESS
 				    : DP_INSTALL_FAILURE);
+
+	return DP_REQUEST_SUCCESS;
 }
 
-void kernel_upd_lsp(zebra_lsp_t *lsp)
+enum dp_req_result kernel_upd_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
 	if (!lsp || !lsp->best_nhlfe) { // unexpected
 		kernel_lsp_pass_fail(lsp, DP_INSTALL_FAILURE);
-		return;
+		return DP_REQUEST_FAILURE;
 	}
 
 	ret = kernel_lsp_cmd(RTM_CHANGE, lsp);
@@ -315,21 +317,21 @@ void kernel_upd_lsp(zebra_lsp_t *lsp)
 	kernel_lsp_pass_fail(lsp,
 			     (!ret) ? DP_INSTALL_SUCCESS
 				    : DP_INSTALL_FAILURE);
-	return;
+	return DP_REQUEST_SUCCESS;
 }
 
-void kernel_del_lsp(zebra_lsp_t *lsp)
+enum dp_req_result kernel_del_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
 	if (!lsp) { // unexpected
 		kernel_lsp_pass_fail(lsp, DP_DELETE_FAILURE);
-		return;
+		return DP_REQUEST_FAILURE;
 	}
 
 	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
 		kernel_lsp_pass_fail(lsp, DP_DELETE_FAILURE);
-		return;
+		return DP_REQUEST_FAILURE;
 	}
 
 	ret = kernel_lsp_cmd(RTM_DELETE, lsp);
@@ -337,6 +339,8 @@ void kernel_del_lsp(zebra_lsp_t *lsp)
 	kernel_lsp_pass_fail(lsp,
 			     (!ret) ? DP_DELETE_SUCCESS
 				    : DP_DELETE_FAILURE);
+
+	return DP_REQUEST_SUCCESS;
 }
 
 static int kmpw_install(struct zebra_pw *pw)

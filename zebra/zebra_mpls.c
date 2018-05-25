@@ -860,7 +860,7 @@ static void lsp_uninstall_from_kernel(struct hash_backet *backet, void *ctxt)
 
 	lsp = (zebra_lsp_t *)backet->data;
 	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED))
-		kernel_del_lsp(lsp);
+		(void)kernel_del_lsp(lsp);
 }
 
 /*
@@ -914,17 +914,31 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 		if (newbest) {
 
 			UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
-			kernel_add_lsp(lsp);
-
-			zvrf->lsp_installs++;
+			switch (kernel_add_lsp(lsp)) {
+			case DP_REQUEST_QUEUED:
+				zlog_err("No current DataPlane interfaces can return this, please fix");
+				break;
+			case DP_REQUEST_FAILURE:
+				break;
+			case DP_REQUEST_SUCCESS:
+				zvrf->lsp_installs++;
+				break;
+			}
 		}
 	} else {
 		/* Installed, may need an update and/or delete. */
 		if (!newbest) {
 
-			kernel_del_lsp(lsp);
-
-			zvrf->lsp_removals++;
+			switch (kernel_del_lsp(lsp)) {
+			case DP_REQUEST_QUEUED:
+				zlog_err("No current DataPlane interfaces can return this, please fix");
+				break;
+			case DP_REQUEST_FAILURE:
+				break;
+			case DP_REQUEST_SUCCESS:
+				zvrf->lsp_removals++;
+				break;
+			}
 		} else if (CHECK_FLAG(lsp->flags, LSP_FLAG_CHANGED)) {
 			zebra_nhlfe_t *nhlfe;
 			struct nexthop *nexthop;
@@ -953,9 +967,16 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 				}
 			}
 
-			kernel_upd_lsp(lsp);
-
-			zvrf->lsp_installs++;
+			switch (kernel_upd_lsp(lsp)) {
+			case DP_REQUEST_QUEUED:
+				zlog_err("No current DataPlane interfaces can return this, please fix");
+				break;
+			case DP_REQUEST_FAILURE:
+				break;
+			case DP_REQUEST_SUCCESS:
+				zvrf->lsp_installs++;
+				break;
+			}
 		}
 	}
 

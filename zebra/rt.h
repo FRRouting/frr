@@ -90,9 +90,9 @@ extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
 
-extern void kernel_add_lsp(zebra_lsp_t *lsp);
-extern void kernel_upd_lsp(zebra_lsp_t *lsp);
-extern void kernel_del_lsp(zebra_lsp_t *lsp);
+extern enum dp_req_result kernel_add_lsp(zebra_lsp_t *lsp);
+extern enum dp_req_result kernel_upd_lsp(zebra_lsp_t *lsp);
+extern enum dp_req_result kernel_del_lsp(zebra_lsp_t *lsp);
 
 /*
  * Add the ability to pass back up the lsp install/delete
