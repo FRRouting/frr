@@ -60,7 +60,7 @@ struct graph_node *graph_new_node(struct graph *graph, void *data,
 	return node;
 }
 
-static void vector_remove(vector v, unsigned int ix)
+static void graph_vector_remove(vector v, unsigned int ix)
 {
 	if (ix >= v->active)
 		return;
@@ -105,7 +105,7 @@ void graph_delete_node(struct graph *graph, struct graph_node *node)
 	// remove node from graph->nodes
 	for (unsigned int i = vector_active(graph->nodes); i--; /**/)
 		if (vector_slot(graph->nodes, i) == node) {
-			vector_remove(graph->nodes, i);
+			graph_vector_remove(graph->nodes, i);
 			break;
 		}
 
@@ -126,13 +126,13 @@ void graph_remove_edge(struct graph_node *from, struct graph_node *to)
 	// remove from from to->from
 	for (unsigned int i = vector_active(to->from); i--; /**/)
 		if (vector_slot(to->from, i) == from) {
-			vector_remove(to->from, i);
+			graph_vector_remove(to->from, i);
 			break;
 		}
 	// remove to from from->to
 	for (unsigned int i = vector_active(from->to); i--; /**/)
 		if (vector_slot(from->to, i) == to) {
-			vector_remove(from->to, i);
+			graph_vector_remove(from->to, i);
 			break;
 		}
 }

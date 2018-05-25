@@ -290,7 +290,8 @@ vector cmd_make_strvec(const char *string)
 	for (unsigned int i = 0; i < vector_active(result); i++) {
 		if (strlen(vector_slot(result, i)) == 0) {
 			XFREE(MTYPE_TMP, vector_slot(result, i));
-			vector_unset(result, i);
+			vector_remove(result, i);
+			--i;
 		}
 	}
 	return result;
