@@ -26,6 +26,7 @@ __pycache__
 /bgpd/test_mp_attr
 /bgpd/test_mpath
 /bgpd/test_packet
+/bgpd/test_peer_attr
 /isisd/test_fuzz_isis_tlv
 /isisd/test_fuzz_isis_tlv_tests.h
 /isisd/test_isis_vertex_queue
