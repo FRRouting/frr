@@ -166,8 +166,7 @@ void kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
  * notification of interest. The expectation is that if this corresponds
  * to a PBR rule added by FRR, it will be readded.
  */
-int netlink_rule_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
-			ns_id_t ns_id, int startup)
+int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	struct zebra_ns *zns;
 	struct fib_rule_hdr *frh;
