@@ -36,7 +36,7 @@
 
 /* Required variables to link in libbgp */
 struct zebra_privs_t bgpd_privs = {0};
-struct thread_master *master = NULL;
+struct thread_master *master;
 
 enum test_state {
 	TEST_SUCCESS,
@@ -673,10 +673,9 @@ static void test_execute(struct test *test, const char *fmt, ...)
 			cmd, ret);
 	}
 
-	/* Free memory and return. */
+	/* Free memory. */
 	cmd_free_strvec(vline);
 	XFREE(MTYPE_TMP, cmd);
-	return;
 }
 
 static void test_config(struct test *test, const char *fmt, bool invert,
@@ -722,7 +721,6 @@ static void test_config(struct test *test, const char *fmt, bool invert,
 	/* Free memory and return. */
 	XFREE(MTYPE_TMP, matcher);
 	XFREE(MTYPE_TMP, config);
-	return;
 }
 
 static void test_config_present(struct test *test, const char *fmt, ...)
@@ -1017,7 +1015,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	}
 }
 
-static void bgp_startup()
+static void bgp_startup(void)
 {
 	cmd_init(1);
 	openzlog("testbgpd", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
@@ -1033,7 +1031,7 @@ static void bgp_startup()
 	bgp_pthreads_run();
 }
 
-static void bgp_shutdown()
+static void bgp_shutdown(void)
 {
 	struct bgp *bgp;
 	struct listnode *node, *nnode;
