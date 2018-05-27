@@ -6311,6 +6311,10 @@ DEFPY (af_label_vpn_export,
 	if (argv_find(argv, argc, "no", &idx))
 		yes = 0;
 
+	/* If "no ...", squash trailing parameter */
+	if (!yes)
+		label_auto = NULL;
+
 	if (yes) {
 		if (!label_auto)
 			label = label_val; /* parser should force unsigned */
