@@ -5166,7 +5166,7 @@ int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi,
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
 		if (CHECK_FLAG(member->af_flags_override[afi][safi],
-			       PEER_FLAG_ALLOWAS_IN_ORIGIN))
+			       PEER_FLAG_ALLOWAS_IN))
 			continue;
 
 		/* Set flag and configuration on peer-group member. */
@@ -6172,7 +6172,7 @@ int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
 	 */
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(peer->filter_override[afi][safi][0],
+		if (CHECK_FLAG(member->filter_override[afi][safi][0],
 			       PEER_FT_UNSUPPRESS_MAP))
 			continue;
 
