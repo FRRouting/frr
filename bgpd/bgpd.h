@@ -859,6 +859,17 @@ struct peer {
 	 */
 	uint32_t af_flags_override[AFI_MAX][SAFI_MAX];
 	/*
+	 * Parallel array to af_flags that indicates whether each flag should
+	 * be treated as regular (defaults to 0) or inverted (defaults to 1).
+	 * If a flag is set to 1 by default, the same bit should be set here.
+	 *
+	 * Notes:
+	 * - This does *not* contain the flag values, rather it contains
+	 *   whether the flag at the same position in af_flags is *regular* or
+	 *   *inverted*.
+	 */
+	uint32_t af_flags_invert[AFI_MAX][SAFI_MAX];
+	/*
 	 * Effective flags, computed by applying peer-group flags and then
 	 * overriding with individual flags
 	 */

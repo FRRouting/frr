@@ -824,8 +824,12 @@ void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 static bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
 				    uint32_t flag)
 {
-	if (!peer_group_active(peer))
-		return !!peer_af_flag_check(peer, afi, safi, flag);
+	if (!peer_group_active(peer)) {
+		if (CHECK_FLAG(peer->af_flags_invert[afi][safi], flag))
+			return !peer_af_flag_check(peer, afi, safi, flag);
+		else
+			return !!peer_af_flag_check(peer, afi, safi, flag);
+	}
 
 	return !!CHECK_FLAG(peer->af_flags_override[afi][safi], flag);
 }
@@ -913,6 +917,13 @@ static void peer_af_flag_reset(struct peer *peer, afi_t afi, safi_t safi)
 		SET_FLAG(peer->af_flags[afi][safi],
 			 PEER_FLAG_SEND_EXT_COMMUNITY);
 		SET_FLAG(peer->af_flags[afi][safi],
+			 PEER_FLAG_SEND_LARGE_COMMUNITY);
+
+		SET_FLAG(peer->af_flags_invert[afi][safi],
+			 PEER_FLAG_SEND_COMMUNITY);
+		SET_FLAG(peer->af_flags_invert[afi][safi],
+			 PEER_FLAG_SEND_EXT_COMMUNITY);
+		SET_FLAG(peer->af_flags_invert[afi][safi],
 			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 	}
 
@@ -1187,7 +1198,7 @@ struct peer *peer_new(struct bgp *bgp)
 	peer = peer_lock(peer); /* initial reference */
 	peer->password = NULL;
 
-	/* Set default flags.  */
+	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (!bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
 			SET_FLAG(peer->af_flags[afi][safi],
@@ -1196,8 +1207,14 @@ struct peer *peer_new(struct bgp *bgp)
 				 PEER_FLAG_SEND_EXT_COMMUNITY);
 			SET_FLAG(peer->af_flags[afi][safi],
 				 PEER_FLAG_SEND_LARGE_COMMUNITY);
+
+			SET_FLAG(peer->af_flags_invert[afi][safi],
+				 PEER_FLAG_SEND_COMMUNITY);
+			SET_FLAG(peer->af_flags_invert[afi][safi],
+				 PEER_FLAG_SEND_EXT_COMMUNITY);
+			SET_FLAG(peer->af_flags_invert[afi][safi],
+				 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		}
-		peer->orf_plist[afi][safi] = NULL;
 	}
 
 	/* set nexthop-unchanged for l2vpn evpn by default */
@@ -1288,6 +1305,8 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	FOREACH_AFI_SAFI (afi, safi) {
 		peer_dst->afc[afi][safi] = peer_src->afc[afi][safi];
 		peer_dst->af_flags[afi][safi] = peer_src->af_flags[afi][safi];
+		peer_dst->af_flags_invert[afi][safi] =
+			peer_src->af_flags_invert[afi][safi];
 		peer_dst->allowas_in[afi][safi] =
 			peer_src->allowas_in[afi][safi];
 		peer_dst->weight[afi][safi] = peer_src->weight[afi][safi];
@@ -1776,6 +1795,7 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 
 	/* peer af_flags apply */
 	peer->af_flags[afi][safi] = conf->af_flags[afi][safi];
+	peer->af_flags_invert[afi][safi] = conf->af_flags_invert[afi][safi];
 
 	/* maximum-prefix */
 	peer->pmax[afi][safi] = conf->pmax[afi][safi];
@@ -4058,21 +4078,23 @@ int peer_flag_unset(struct peer *peer, uint32_t flag)
 }
 
 static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
-			       uint32_t flag, int set)
+			       uint32_t flag, bool set)
 {
 	int found;
 	int size;
+	int addpath_tx_used;
+	bool invert;
 	struct listnode *node, *nnode;
 	struct peer_group *group;
 	struct peer_flag_action action;
 	struct peer *tmp_peer;
 	struct bgp *bgp;
-	int addpath_tx_used;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
 	size = sizeof peer_af_flag_action_list
 	       / sizeof(struct peer_flag_action);
 
+	invert = CHECK_FLAG(peer->af_flags_invert[afi][safi], flag);
 	found = peer_flag_action_set(peer_af_flag_action_list, size, &action,
 				     flag);
 
@@ -4097,12 +4119,22 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	/* When current flag configuration is same as requested one.  */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (set && CHECK_FLAG(peer->af_flags[afi][safi], flag)) {
-			SET_FLAG(peer->af_flags_override[afi][safi], flag);
+			if (invert)
+				UNSET_FLAG(peer->af_flags_override[afi][safi],
+					   flag);
+			else
+				SET_FLAG(peer->af_flags_override[afi][safi],
+					 flag);
 			return 0;
 		}
 
 		if (!set && !CHECK_FLAG(peer->af_flags[afi][safi], flag)) {
-			UNSET_FLAG(peer->af_flags_override[afi][safi], flag);
+			if (invert)
+				SET_FLAG(peer->af_flags_override[afi][safi],
+					 flag);
+			else
+				UNSET_FLAG(peer->af_flags_override[afi][safi],
+					   flag);
 			return 0;
 		}
 	}
@@ -4137,12 +4169,21 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	}
 
 	/* Set/unset flag or inherit from peer-group if appropriate. */
-	if (set)
-		SET_FLAG(peer->af_flags[afi][safi], flag);
-	else if (peer_group_active(peer))
-		peer_af_flag_inherit(peer, afi, safi, flag);
-	else
-		UNSET_FLAG(peer->af_flags[afi][safi], flag);
+	if (invert) {
+		if (!set)
+			UNSET_FLAG(peer->af_flags[afi][safi], flag);
+		else if (peer_group_active(peer))
+			peer_af_flag_inherit(peer, afi, safi, flag);
+		else
+			SET_FLAG(peer->af_flags[afi][safi], flag);
+	} else {
+		if (set)
+			SET_FLAG(peer->af_flags[afi][safi], flag);
+		else if (peer_group_active(peer))
+			peer_af_flag_inherit(peer, afi, safi, flag);
+		else
+			UNSET_FLAG(peer->af_flags[afi][safi], flag);
+	}
 
 	/* Execute action when peer is established.  */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
@@ -4210,7 +4251,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 			}
 		}
 	} else {
-		if (set)
+		if (set != invert)
 			SET_FLAG(peer->af_flags_override[afi][safi], flag);
 		else
 			UNSET_FLAG(peer->af_flags_override[afi][safi], flag);
@@ -7049,6 +7090,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 {
 	struct peer *g_peer = NULL;
 	char *addr;
+	bool flag_scomm, flag_secomm, flag_slcomm;
 
 	/* Skip dynamic neighbors. */
 	if (peer_dynamic_neighbor(peer))
@@ -7175,79 +7217,51 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* send-community print. */
-	if (bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
-		if (peergroup_af_flag_check(peer, afi, safi,
-					    PEER_FLAG_SEND_COMMUNITY)
-		    && peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_SEND_EXT_COMMUNITY)
-		    && peergroup_af_flag_check(
-			       peer, afi, safi,
-			       PEER_FLAG_SEND_LARGE_COMMUNITY)) {
-			vty_out(vty, "  neighbor %s send-community all\n",
-				addr);
-		} else if (peergroup_af_flag_check(
-				   peer, afi, safi,
-				   PEER_FLAG_SEND_LARGE_COMMUNITY)) {
-			vty_out(vty, "  neighbor %s send-community large\n",
-				addr);
-		} else if (peergroup_af_flag_check(
-				   peer, afi, safi,
-				   PEER_FLAG_SEND_EXT_COMMUNITY)) {
-			vty_out(vty, "  neighbor %s send-community extended\n",
-				addr);
-		} else if (peergroup_af_flag_check(peer, afi, safi,
-						   PEER_FLAG_SEND_COMMUNITY)) {
-			vty_out(vty, "  neighbor %s send-community\n", addr);
-		}
-	} else {
-		if (!peer_af_flag_check(peer, afi, safi,
-					PEER_FLAG_SEND_COMMUNITY)
-		    && (!g_peer || peer_af_flag_check(g_peer, afi, safi,
-						      PEER_FLAG_SEND_COMMUNITY))
-		    && !peer_af_flag_check(peer, afi, safi,
-					   PEER_FLAG_SEND_EXT_COMMUNITY)
-		    && (!g_peer
-			|| peer_af_flag_check(g_peer, afi, safi,
-					      PEER_FLAG_SEND_EXT_COMMUNITY))
-		    && !peer_af_flag_check(peer, afi, safi,
-					   PEER_FLAG_SEND_LARGE_COMMUNITY)
-		    && (!g_peer || peer_af_flag_check(
-					   g_peer, afi, safi,
-					   PEER_FLAG_SEND_LARGE_COMMUNITY))) {
+	flag_scomm = peergroup_af_flag_check(peer, afi, safi,
+					    PEER_FLAG_SEND_COMMUNITY);
+	flag_secomm = peergroup_af_flag_check(peer, afi, safi,
+					     PEER_FLAG_SEND_EXT_COMMUNITY);
+	flag_slcomm = peergroup_af_flag_check(peer, afi, safi,
+					     PEER_FLAG_SEND_LARGE_COMMUNITY);
+
+	if (!bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
+		if (flag_scomm && flag_secomm && flag_slcomm) {
 			vty_out(vty, "  no neighbor %s send-community all\n",
 				addr);
 		} else {
-			if (!peer_af_flag_check(peer, afi, safi,
-						PEER_FLAG_SEND_LARGE_COMMUNITY)
-			    && (!g_peer
-				|| peer_af_flag_check(
-					   g_peer, afi, safi,
-					   PEER_FLAG_SEND_LARGE_COMMUNITY))) {
-				vty_out(vty,
-					"  no neighbor %s send-community large\n",
-					addr);
-			}
-
-			if (!peer_af_flag_check(peer, afi, safi,
-						PEER_FLAG_SEND_EXT_COMMUNITY)
-			    && (!g_peer
-				|| peer_af_flag_check(
-					   g_peer, afi, safi,
-					   PEER_FLAG_SEND_EXT_COMMUNITY))) {
-				vty_out(vty,
-					"  no neighbor %s send-community extended\n",
-					addr);
-			}
-
-			if (!peer_af_flag_check(peer, afi, safi,
-						PEER_FLAG_SEND_COMMUNITY)
-			    && (!g_peer || peer_af_flag_check(
-						   g_peer, afi, safi,
-						   PEER_FLAG_SEND_COMMUNITY))) {
+			if (flag_scomm)
 				vty_out(vty,
 					"  no neighbor %s send-community\n",
 					addr);
-			}
+			if (flag_secomm)
+				vty_out(vty,
+					"  no neighbor %s send-community extended\n",
+					addr);
+
+			if (flag_slcomm)
+				vty_out(vty,
+					"  no neighbor %s send-community large\n",
+					addr);
+		}
+	} else {
+		if (flag_scomm && flag_secomm && flag_slcomm) {
+			vty_out(vty, "  neighbor %s send-community all\n",
+				addr);
+		} else if (flag_scomm && flag_secomm) {
+			vty_out(vty, "  neighbor %s send-community both\n",
+				addr);
+		} else {
+			if (flag_scomm)
+				vty_out(vty, "  neighbor %s send-community\n",
+					addr);
+			if (flag_secomm)
+				vty_out(vty,
+					"  neighbor %s send-community extended\n",
+					addr);
+			if (flag_slcomm)
+				vty_out(vty,
+					"  neighbor %s send-community large\n",
+					addr);
 		}
 	}
 

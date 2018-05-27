@@ -4073,6 +4073,7 @@ DEFUN (neighbor_send_community,
        "Send Community attribute to this neighbor\n")
 {
 	int idx_peer = 1;
+
 	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
 				    bgp_node_safi(vty),
 				    PEER_FLAG_SEND_COMMUNITY);
@@ -4092,6 +4093,7 @@ DEFUN (no_neighbor_send_community,
        "Send Community attribute to this neighbor\n")
 {
 	int idx_peer = 2;
+
 	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
 				      bgp_node_afi(vty), bgp_node_safi(vty),
 				      PEER_FLAG_SEND_COMMUNITY);
@@ -4115,27 +4117,26 @@ DEFUN (neighbor_send_community_type,
        "Send Standard Community attributes\n"
        "Send Large Community attributes\n")
 {
-	int idx = 0;
+	int idx_peer = 1;
 	uint32_t flag = 0;
+	const char *type = argv[argc - 1]->text;
 
-	char *peer = argv[1]->arg;
-
-	if (argv_find(argv, argc, "standard", &idx))
+	if (strmatch(type, "standard")) {
 		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
-	else if (argv_find(argv, argc, "extended", &idx))
+	} else if (strmatch(type, "extended")) {
 		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-	else if (argv_find(argv, argc, "large", &idx))
+	} else if (strmatch(type, "large")) {
 		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
-	else if (argv_find(argv, argc, "both", &idx)) {
+	} else if (strmatch(type, "both")) {
 		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
 		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-	} else {
+	} else { /* if (strmatch(type, "all")) */
 		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
 		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
 		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
 	}
 
-	return peer_af_flag_set_vty(vty, peer, bgp_node_afi(vty),
+	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
 				    bgp_node_safi(vty), flag);
 }
 
@@ -4164,33 +4165,27 @@ DEFUN (no_neighbor_send_community_type,
        "Send Large Community attributes\n")
 {
 	int idx_peer = 2;
-
+	uint32_t flag = 0;
 	const char *type = argv[argc - 1]->text;
 
-	if (strmatch(type, "standard"))
-		return peer_af_flag_unset_vty(
-			vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-			bgp_node_safi(vty), PEER_FLAG_SEND_COMMUNITY);
-	if (strmatch(type, "extended"))
-		return peer_af_flag_unset_vty(
-			vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-			bgp_node_safi(vty), PEER_FLAG_SEND_EXT_COMMUNITY);
-	if (strmatch(type, "large"))
-		return peer_af_flag_unset_vty(
-			vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-			bgp_node_safi(vty), PEER_FLAG_SEND_LARGE_COMMUNITY);
-	if (strmatch(type, "both"))
-		return peer_af_flag_unset_vty(
-			vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-			bgp_node_safi(vty),
-			PEER_FLAG_SEND_COMMUNITY
-				| PEER_FLAG_SEND_EXT_COMMUNITY);
+	if (strmatch(type, "standard")) {
+		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
+	} else if (strmatch(type, "extended")) {
+		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
+	} else if (strmatch(type, "large")) {
+		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
+	} else if (strmatch(type, "both")) {
+		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
+		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
+	} else { /* if (strmatch(type, "all")) */
+		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
+		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
+		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
+	}
 
-	/* if (strmatch (type, "all")) */
-	return peer_af_flag_unset_vty(
-		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
-		(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY
-		 | PEER_FLAG_SEND_LARGE_COMMUNITY));
+	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
+				      bgp_node_afi(vty), bgp_node_safi(vty),
+				      flag);
 }
 
 ALIAS_HIDDEN(
