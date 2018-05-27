@@ -5325,8 +5325,8 @@ static int peer_prefix_list_set_vty(struct vty *vty, const char *ip_str,
 				    const char *direct_str)
 {
 	int ret;
-	struct peer *peer;
 	int direct = FILTER_IN;
+	struct peer *peer;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)

@@ -5174,9 +5174,9 @@ int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi,
 		if (origin) {
 			if (member->allowas_in[afi][safi] != 0
 			    || !CHECK_FLAG(member->af_flags[afi][safi],
-				           PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
+					   PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
 				SET_FLAG(member->af_flags[afi][safi],
-						PEER_FLAG_ALLOWAS_IN_ORIGIN);
+					 PEER_FLAG_ALLOWAS_IN_ORIGIN);
 				member->allowas_in[afi][safi] = 0;
 				peer_on_policy_change(peer, afi, safi, 0);
 			}
@@ -5208,7 +5208,7 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 	if (peer_group_active(peer)) {
 		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
 		peer_af_flag_inherit(peer, afi, safi,
-				PEER_FLAG_ALLOWAS_IN_ORIGIN);
+				     PEER_FLAG_ALLOWAS_IN_ORIGIN);
 		PEER_ATTR_INHERIT(peer, allowas_in[afi][safi]);
 		peer_on_policy_change(peer, afi, safi, 0);
 
@@ -5232,19 +5232,18 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 		/* Skip peers with overridden configuration. */
 		if (CHECK_FLAG(member->af_flags_override[afi][safi],
-					PEER_FLAG_ALLOWAS_IN))
+			       PEER_FLAG_ALLOWAS_IN))
 			continue;
 
 		/* Skip peers where flag is already disabled. */
 		if (!CHECK_FLAG(member->af_flags[afi][safi],
-					PEER_FLAG_ALLOWAS_IN))
+				PEER_FLAG_ALLOWAS_IN))
 			continue;
 
 		/* Remove flags and configuration on peer-group member. */
+		UNSET_FLAG(member->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN);
 		UNSET_FLAG(member->af_flags[afi][safi],
-				PEER_FLAG_ALLOWAS_IN);
-		UNSET_FLAG(member->af_flags[afi][safi],
-				PEER_FLAG_ALLOWAS_IN_ORIGIN);
+			   PEER_FLAG_ALLOWAS_IN_ORIGIN);
 		member->allowas_in[afi][safi] = 0;
 		peer_on_policy_change(member, afi, safi, 0);
 	}
@@ -6269,9 +6268,8 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		/* Re-check if peer violates maximum-prefix. */
-		if ((peer->status == Established) && (peer->afc[afi][safi])) {
+		if ((peer->status == Established) && (peer->afc[afi][safi]))
 			bgp_maximum_prefix_overflow(peer, afi, safi, 1);
-		}
 
 		/* Skip peer-group mechanics for regular peers. */
 		return 0;
@@ -7218,11 +7216,11 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 	/* send-community print. */
 	flag_scomm = peergroup_af_flag_check(peer, afi, safi,
-					    PEER_FLAG_SEND_COMMUNITY);
+					     PEER_FLAG_SEND_COMMUNITY);
 	flag_secomm = peergroup_af_flag_check(peer, afi, safi,
-					     PEER_FLAG_SEND_EXT_COMMUNITY);
+					      PEER_FLAG_SEND_EXT_COMMUNITY);
 	flag_slcomm = peergroup_af_flag_check(peer, afi, safi,
-					     PEER_FLAG_SEND_LARGE_COMMUNITY);
+					      PEER_FLAG_SEND_LARGE_COMMUNITY);
 
 	if (!bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
 		if (flag_scomm && flag_secomm && flag_slcomm) {
@@ -7322,7 +7320,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "  neighbor %s allowas-in\n", addr);
 		} else {
 			vty_out(vty, "  neighbor %s allowas-in %d\n", addr,
-					peer->allowas_in[afi][safi]);
+				peer->allowas_in[afi][safi]);
 		}
 	}
 
