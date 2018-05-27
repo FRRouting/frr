@@ -19,6 +19,7 @@
  */
 
 #include <zebra.h>
+#include <stdlib.h>
 
 #include "linklist.h"
 #include "memory.h"
@@ -26,7 +27,6 @@
 DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List")
 DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node")
 
-/* Allocate new list. */
 struct list *list_new(void)
 {
 	return XCALLOC(MTYPE_LINK_LIST, sizeof(struct list));
@@ -50,7 +50,6 @@ static void listnode_free(struct listnode *node)
 	XFREE(MTYPE_LINK_NODE, node);
 }
 
-/* Add new data to the list. */
 void listnode_add(struct list *list, void *val)
 {
 	struct listnode *node;
@@ -71,12 +70,6 @@ void listnode_add(struct list *list, void *val)
 	list->count++;
 }
 
-/*
- * Add a node to the list.  If the list was sorted according to the
- * cmp function, insert a new node with the given val such that the
- * list remains sorted.  The new node is always inserted; there is no
- * notion of omitting duplicates.
- */
 void listnode_add_sort(struct list *list, void *val)
 {
 	struct listnode *n;
@@ -185,14 +178,12 @@ struct listnode *listnode_add_before(struct list *list, struct listnode *pp,
 	return nn;
 }
 
-/* Move given listnode to tail of the list */
 void listnode_move_to_tail(struct list *l, struct listnode *n)
 {
 	LISTNODE_DETACH(l, n);
 	LISTNODE_ATTACH(l, n);
 }
 
-/* Delete specific date pointer from the list. */
 void listnode_delete(struct list *list, void *val)
 {
 	struct listnode *node;
@@ -217,7 +208,6 @@ void listnode_delete(struct list *list, void *val)
 	}
 }
 
-/* Return first node's data if it is there.  */
 void *listnode_head(struct list *list)
 {
 	struct listnode *node;
@@ -230,7 +220,6 @@ void *listnode_head(struct list *list)
 	return NULL;
 }
 
-/* Delete all listnode from the list. */
 void list_delete_all_node(struct list *list)
 {
 	struct listnode *node;
@@ -247,7 +236,6 @@ void list_delete_all_node(struct list *list)
 	list->count = 0;
 }
 
-/* Delete all listnode then free list itself. */
 void list_delete_and_null(struct list **list)
 {
 	assert(*list);
@@ -261,7 +249,6 @@ void list_delete_original(struct list *list)
 	list_delete_and_null(&list);
 }
 
-/* Lookup the node which has given data. */
 struct listnode *listnode_lookup(struct list *list, void *data)
 {
 	struct listnode *node;
@@ -273,7 +260,6 @@ struct listnode *listnode_lookup(struct list *list, void *data)
 	return NULL;
 }
 
-/* Delete the node from list.  For ospfd and ospf6d. */
 void list_delete_node(struct list *list, struct listnode *node)
 {
 	if (node->prev)
@@ -288,11 +274,48 @@ void list_delete_node(struct list *list, struct listnode *node)
 	listnode_free(node);
 }
 
-/* ospf_spf.c */
-void list_add_list(struct list *l, struct list *m)
+void list_add_list(struct list *list, struct list *add)
 {
 	struct listnode *n;
 
-	for (n = listhead(m); n; n = listnextnode(n))
-		listnode_add(l, n->data);
+	for (n = listhead(add); n; n = listnextnode(n))
+		listnode_add(list, n->data);
+}
+
+struct list *list_dup(struct list *list)
+{
+	struct list *new = list_new();
+	struct listnode *ln;
+	void *data;
+
+	new->cmp = list->cmp;
+	new->del = list->del;
+
+	for (ALL_LIST_ELEMENTS_RO(list, ln, data))
+		listnode_add(new, data);
+
+	return new;
+}
+
+void list_sort(struct list *list, int (*cmp)(const void **, const void **))
+{
+	struct listnode *ln, *nn;
+	int i = -1;
+	void *data;
+	size_t n = list->count;
+	void **items = XCALLOC(MTYPE_TMP, (sizeof(void *)) * n);
+	int (*realcmp)(const void *, const void *) =
+		(int (*)(const void *, const void *))cmp;
+
+	for (ALL_LIST_ELEMENTS(list, ln, nn, data)) {
+		items[++i] = data;
+		list_delete_node(list, ln);
+	}
+
+	qsort(items, n, sizeof(void *), realcmp);
+
+	for (unsigned int i = 0; i < n; ++i)
+		listnode_add(list, items[i]);
+
+	XFREE(MTYPE_TMP, items);
 }

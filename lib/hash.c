@@ -36,7 +36,6 @@ DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index")
 pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *_hashes;
 
-/* Allocate a new hash.  */
 struct hash *hash_create_size(unsigned int size,
 			      unsigned int (*hash_key)(void *),
 			      int (*hash_cmp)(const void *, const void *),
@@ -67,7 +66,6 @@ struct hash *hash_create_size(unsigned int size,
 	return hash;
 }
 
-/* Allocate a new hash with default hash size.  */
 struct hash *hash_create(unsigned int (*hash_key)(void *),
 			 int (*hash_cmp)(const void *, const void *),
 			 const char *name)
@@ -75,9 +73,6 @@ struct hash *hash_create(unsigned int (*hash_key)(void *),
 	return hash_create_size(HASH_INITIAL_SIZE, hash_key, hash_cmp, name);
 }
 
-/* Utility function for hash_get().  When this function is specified
-   as alloc_func, return arugment as it is.  This function is used for
-   intern already allocated value.  */
 void *hash_alloc_intern(void *arg)
 {
 	return arg;
@@ -133,9 +128,6 @@ static void hash_expand(struct hash *hash)
 	hash->index = new_index;
 }
 
-/* Lookup and return hash backet in hash.  If there is no
-   corresponding hash backet and alloc_func is specified, create new
-   hash backet.  */
 void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 {
 	unsigned int key;
@@ -189,13 +181,11 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 	return NULL;
 }
 
-/* Hash lookup.  */
 void *hash_lookup(struct hash *hash, void *data)
 {
 	return hash_get(hash, data, NULL);
 }
 
-/* Simple Bernstein hash which is simple and fast for common case */
 unsigned int string_hash_make(const char *str)
 {
 	unsigned int hash = 0;
@@ -206,9 +196,6 @@ unsigned int string_hash_make(const char *str)
 	return hash;
 }
 
-/* This function release registered value from specified hash.  When
-   release is successfully finished, return the data pointer in the
-   hash backet.  */
 void *hash_release(struct hash *hash, void *data)
 {
 	void *ret;
@@ -248,7 +235,6 @@ void *hash_release(struct hash *hash, void *data)
 	return NULL;
 }
 
-/* Iterator function for hash.  */
 void hash_iterate(struct hash *hash, void (*func)(struct hash_backet *, void *),
 		  void *arg)
 {
@@ -266,7 +252,6 @@ void hash_iterate(struct hash *hash, void (*func)(struct hash_backet *, void *),
 		}
 }
 
-/* Iterator function for hash.  */
 void hash_walk(struct hash *hash, int (*func)(struct hash_backet *, void *),
 	       void *arg)
 {
@@ -288,7 +273,6 @@ void hash_walk(struct hash *hash, int (*func)(struct hash_backet *, void *),
 	}
 }
 
-/* Clean up hash.  */
 void hash_clean(struct hash *hash, void (*free_func)(void *))
 {
 	unsigned int i;
@@ -312,8 +296,21 @@ void hash_clean(struct hash *hash, void (*free_func)(void *))
 	hash->stats.empty = hash->size;
 }
 
-/* Free hash memory.  You may call hash_clean before call this
-   function.  */
+static void hash_to_list_iter(struct hash_backet *hb, void *arg)
+{
+	struct list *list = arg;
+
+	listnode_add(list, hb->data);
+}
+
+struct list *hash_to_list(struct hash *hash)
+{
+	struct list *list = list_new();
+
+	hash_iterate(hash, hash_to_list_iter, list);
+	return list;
+}
+
 void hash_free(struct hash *hash)
 {
 	pthread_mutex_lock(&_hashes_mtx);

@@ -59,20 +59,166 @@ struct list {
 /* return X->data only if X and X->data are not NULL */
 #define listgetdata(X) (assert(X), assert((X)->data != NULL), (X)->data)
 
-/* Prototypes. */
-extern struct list *
-list_new(void); /* encouraged: set list.del callback on new lists */
+/*
+ * Create a new linked list.
+ *
+ * Returns:
+ *    the created linked list
+ */
+extern struct list *list_new(void);
 
-extern void listnode_add(struct list *, void *);
-extern void listnode_add_sort(struct list *, void *);
-extern struct listnode *listnode_add_after(struct list *, struct listnode *,
-					   void *);
-extern struct listnode *listnode_add_before(struct list *, struct listnode *,
-					    void *);
-extern void listnode_move_to_tail(struct list *, struct listnode *);
-extern void listnode_delete(struct list *, void *);
-extern struct listnode *listnode_lookup(struct list *, void *);
-extern void *listnode_head(struct list *);
+/*
+ * Add a new element to the tail of a list.
+ *
+ * Runtime is O(1).
+ *
+ * list
+ *    list to operate on
+ *
+ * data
+ *    element to add
+ */
+extern void listnode_add(struct list *list, void *data);
+
+/*
+ * Insert a new element into a list with insertion sort.
+ *
+ * If list->cmp is set, this function is used to determine the position to
+ * insert the new element. If it is not set, this function is equivalent to
+ * listnode_add.
+ *
+ * Runtime is O(N).
+ *
+ * list
+ *    list to operate on
+ *
+ * val
+ *    element to add
+ */
+extern void listnode_add_sort(struct list *list, void *val);
+
+/*
+ * Insert a new element into a list after another element.
+ *
+ * Runtime is O(1).
+ *
+ * list
+ *    list to operate on
+ *
+ * pp
+ *    listnode to insert after
+ *
+ * data
+ *    data to insert
+ *
+ * Returns:
+ *    pointer to newly created listnode that contains the inserted data
+ */
+extern struct listnode *listnode_add_after(struct list *list,
+					   struct listnode *pp, void *data);
+
+/*
+ * Insert a new element into a list before another element.
+ *
+ * Runtime is O(1).
+ *
+ * list
+ *    list to operate on
+ *
+ * pp
+ *    listnode to insert before
+ *
+ * data
+ *    data to insert
+ *
+ * Returns:
+ *    pointer to newly created listnode that contains the inserted data
+ */
+extern struct listnode *listnode_add_before(struct list *list,
+					    struct listnode *pp, void *data);
+
+/*
+ * Move a node to the tail of a list.
+ *
+ * Runtime is O(1).
+ *
+ * list
+ *    list to operate on
+ *
+ * node
+ *    node to move to tail
+ */
+extern void listnode_move_to_tail(struct list *list, struct listnode *node);
+
+/*
+ * Delete an element from a list.
+ *
+ * Runtime is O(N).
+ *
+ * list
+ *    list to operate on
+ *
+ * data
+ *    data to insert into list
+ */
+extern void listnode_delete(struct list *list, void *data);
+
+/*
+ * Find the listnode corresponding to an element in a list.
+ *
+ * list
+ *    list to operate on
+ *
+ * data
+ *    data to search for
+ *
+ * Returns:
+ *    pointer to listnode storing the given data if found, NULL otherwise
+ */
+extern struct listnode *listnode_lookup(struct list *list, void *data);
+
+/*
+ * Retrieve the element at the head of a list.
+ *
+ * list
+ *    list to operate on
+ *
+ * Returns:
+ *    data at head of list, or NULL if list is empty
+ */
+extern void *listnode_head(struct list *list);
+
+/*
+ * Duplicate a list.
+ *
+ * list
+ *    list to duplicate
+ *
+ * Returns:
+ *    copy of the list
+ */
+extern struct list *list_dup(struct list *l);
+
+/*
+ * Sort a list in place.
+ *
+ * The sorting algorithm used is quicksort. Runtimes are equivalent to those of
+ * quicksort plus N. The sort is not stable.
+ *
+ * For portability reasons, the comparison function takes a pointer to pointer
+ * to void. This pointer should be dereferenced to get the actual data pointer.
+ * It is always safe to do this.
+ *
+ * list
+ *    list to sort
+ *
+ * cmp
+ *    comparison function for quicksort. Should return less than, equal to or
+ *    greater than zero if the first argument is less than, equal to or greater
+ *    than the second argument.
+ */
+extern void list_sort(struct list *list,
+		      int (*cmp)(const void **, const void **));
 
 /*
  * The usage of list_delete is being transitioned to pass in
@@ -87,8 +233,27 @@ extern void *listnode_head(struct list *);
 #if defined(VERSION_TYPE_DEV) && CONFDATE > 20181001
 CPP_NOTICE("list_delete without double pointer is deprecated, please fixup")
 #endif
-extern void list_delete_and_null(struct list **);
-extern void list_delete_original(struct list *);
+
+/*
+ * Delete a list and NULL its pointer.
+ *
+ * If non-null, list->del is called with each data element.
+ *
+ * plist
+ *    pointer to list pointer; this will be set to NULL after the list has been
+ *    deleted
+ */
+extern void list_delete_and_null(struct list **plist);
+
+/*
+ * Delete a list.
+ *
+ * If non-null, list->del is called with each data element.
+ *
+ * plist
+ *    pointer to list pointer
+ */
+extern void list_delete_original(struct list *list);
 #define list_delete(X)                                                         \
 	list_delete_original((X))                                              \
 		CPP_WARN("Please transition to using list_delete_and_null")
@@ -96,13 +261,43 @@ extern void list_delete_original(struct list *);
 	list_delete_original((X))                                              \
 		CPP_WARN("Please transition tousing list_delete_and_null")
 
-extern void list_delete_all_node(struct list *);
+/*
+ * Delete all nodes from a list without deleting the list itself.
+ *
+ * If non-null, list->del is called with each data element.
+ *
+ * list
+ *    list to operate on
+ */
+extern void list_delete_all_node(struct list *list);
 
-/* For ospfd and ospf6d. */
-extern void list_delete_node(struct list *, struct listnode *);
+/*
+ * Delete a node from a list.
+ *
+ * list->del is not called with the data associated with the node.
+ *
+ * Runtime is O(1).
+ *
+ * list
+ *    list to operate on
+ *
+ * node
+ *    the node to delete
+ */
+extern void list_delete_node(struct list *list, struct listnode *node);
 
-/* For ospf_spf.c */
-extern void list_add_list(struct list *, struct list *);
+/*
+ * Append a list to an existing list.
+ *
+ * Runtime is O(N) where N = listcount(add).
+ *
+ * list
+ *    list to append to
+ *
+ * add
+ *    list to append
+ */
+extern void list_add_list(struct list *list, struct list *add);
 
 /* List iteration macro.
  * Usage: for (ALL_LIST_ELEMENTS (...) { ... }
