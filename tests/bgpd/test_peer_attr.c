@@ -77,7 +77,7 @@ struct test_peer_attr {
 
 	enum { PEER_AT_AF_FLAG = 0,
 	       PEER_AT_AF_FILTER = 1,
-	} type;
+	       PEER_AT_GLOBAL_FLAG = 2 } type;
 	union {
 		uint32_t flag;
 		struct {
@@ -99,51 +99,15 @@ struct test_peer_attr {
 #define OUT_SYMBOL_OK "\u2714"
 #define OUT_SYMBOL_NOK "\u2716"
 
-/* clang-format off */
-#define TEST_ASSERT(T, C)                                                      \
+#define TEST_ASSERT_EQ(T, A, B)                                                \
 	do {                                                                   \
-		if ((T)->state != TEST_SUCCESS || (C))                         \
+		if ((T)->state != TEST_SUCCESS || ((A) == (B)))                \
 			break;                                                 \
-                                                                               \
 		(T)->state = TEST_ASSERT_ERROR;                                \
-		(T)->error = str_printf("assertion failed: %s", (#C));         \
+		(T)->error = str_printf(                                       \
+			"assertion failed: %s[%d] == [%d]%s (%s:%d)", (#A),    \
+			(A), (B), (#B), __FILE__, __LINE__);                   \
 	} while (0)
-
-#define TEST_AF_FLAGS(T, P, A, V, O)                                           \
-	do {                                                                   \
-		if ((T)->state != TEST_SUCCESS)                                \
-			break;                                                 \
-                                                                               \
-		TEST_ASSERT((T), !!CHECK_FLAG((P)->af_flags[(A)->afi][(A)->safi], (A)->u.flag) == ((V) ^ (A)->o.invert)); \
-		TEST_ASSERT((T), !!CHECK_FLAG((P)->af_flags_override[(A)->afi][(A)->safi], (A)->u.flag) == (O)); \
-		TEST_ASSERT((T), !!CHECK_FLAG((P)->af_flags_invert[(A)->afi][(A)->safi], (A)->u.flag) == (A)->o.invert); \
-	} while (0)
-
-#define TEST_AF_FILTER(T, P, A, S, O)                                          \
-	do {                                                                   \
-		if ((T)->state != TEST_SUCCESS)                                \
-			break;                                                 \
-                                                                               \
-		TEST_ASSERT((T), !!CHECK_FLAG((P)->filter_override[(A)->afi][(A)->safi][(A)->u.filter.direct], (A)->u.filter.flag) == (O)); \
-		switch ((A)->u.filter.flag) {                                  \
-		case PEER_FT_DISTRIBUTE_LIST:                                  \
-			TEST_ASSERT((T), !!((P)->filter[(A)->afi][(A)->safi].dlist[(A)->u.filter.direct].name) == (S)); \
-			break;                                                 \
-		case PEER_FT_FILTER_LIST:                                      \
-			TEST_ASSERT((T), !!((P)->filter[(A)->afi][(A)->safi].aslist[(A)->u.filter.direct].name) == (S)); \
-			break;                                                 \
-		case PEER_FT_PREFIX_LIST:                                      \
-			TEST_ASSERT((T), !!((P)->filter[(A)->afi][(A)->safi].plist[(A)->u.filter.direct].name) == (S)); \
-			break;                                                 \
-		case PEER_FT_ROUTE_MAP:                                        \
-			TEST_ASSERT((T), !!((P)->filter[(A)->afi][(A)->safi].map[(A)->u.filter.direct].name) == (S)); \
-			break;                                                 \
-		case PEER_FT_UNSUPPRESS_MAP:                                   \
-			TEST_ASSERT((T), !!((P)->filter[(A)->afi][(A)->safi].usmap.name) == (S)); \
-			break;                                                 \
-		}                                                              \
-	} while (0)
-/* clang-format on */
 
 static struct test_config cfg = {
 	.local_asn = 100,
@@ -152,167 +116,86 @@ static struct test_config cfg = {
 	.peer_group = "PG-TEST",
 };
 
+static struct test_peer_family test_default_families[] = {
+	{.afi = AFI_IP, .safi = SAFI_UNICAST},
+	{.afi = AFI_IP, .safi = SAFI_MULTICAST},
+	{.afi = AFI_IP6, .safi = SAFI_UNICAST},
+	{.afi = AFI_IP6, .safi = SAFI_MULTICAST},
+};
+
 /* clang-format off */
 static struct test_peer_attr test_peer_attrs[] = {
 	{
 		.cmd = "addpath-tx-all-paths",
 		.u.flag = PEER_FLAG_ADDPATH_TX_ALL_PATHS,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "addpath-tx-bestpath-per-AS",
 		.u.flag = PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "allowas-in",
 		.peer_cmd = "allowas-in 1",
 		.group_cmd = "allowas-in 2",
 		.u.flag = PEER_FLAG_ALLOWAS_IN,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "allowas-in origin",
 		.u.flag = PEER_FLAG_ALLOWAS_IN_ORIGIN,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "as-override",
 		.u.flag = PEER_FLAG_AS_OVERRIDE,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "attribute-unchanged as-path",
 		.u.flag = PEER_FLAG_AS_PATH_UNCHANGED,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "attribute-unchanged next-hop",
 		.u.flag = PEER_FLAG_NEXTHOP_UNCHANGED,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "attribute-unchanged med",
 		.u.flag = PEER_FLAG_MED_UNCHANGED,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "attribute-unchanged as-path next-hop",
 		.u.flag = PEER_FLAG_AS_PATH_UNCHANGED
 			| PEER_FLAG_NEXTHOP_UNCHANGED,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "attribute-unchanged as-path med",
 		.u.flag = PEER_FLAG_AS_PATH_UNCHANGED
 			| PEER_FLAG_MED_UNCHANGED,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "attribute-unchanged as-path next-hop med",
 		.u.flag = PEER_FLAG_AS_PATH_UNCHANGED
 			| PEER_FLAG_NEXTHOP_UNCHANGED
 			| PEER_FLAG_MED_UNCHANGED,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "capability orf prefix-list send",
 		.u.flag = PEER_FLAG_ORF_PREFIX_SM,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "capability orf prefix-list receive",
 		.u.flag = PEER_FLAG_ORF_PREFIX_RM,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "capability orf prefix-list both",
 		.u.flag = PEER_FLAG_ORF_PREFIX_SM | PEER_FLAG_ORF_PREFIX_RM,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "default-originate",
 		.u.flag = PEER_FLAG_DEFAULT_ORIGINATE,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "default-originate route-map",
 		.peer_cmd = "default-originate route-map RM-PEER",
 		.group_cmd = "default-originate route-map RM-GROUP",
 		.u.flag = PEER_FLAG_DEFAULT_ORIGINATE,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
-	},
-	{
-		.cmd = "distribute-list",
-		.peer_cmd = "distribute-list DL-PEER in",
-		.group_cmd = "distribute-list DL-GROUP in",
-		.type = PEER_AT_AF_FILTER,
-		.u.filter.flag = PEER_FT_DISTRIBUTE_LIST,
-		.u.filter.direct = FILTER_IN,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
-	},
-	{
-		.cmd = "distribute-list",
-		.peer_cmd = "distribute-list DL-PEER out",
-		.group_cmd = "distribute-list DL-GROUP out",
-		.type = PEER_AT_AF_FILTER,
-		.u.filter.flag = PEER_FT_DISTRIBUTE_LIST,
-		.u.filter.direct = FILTER_OUT,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "filter-list",
@@ -321,10 +204,6 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_FILTER_LIST,
 		.u.filter.direct = FILTER_IN,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "filter-list",
@@ -333,76 +212,44 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_FILTER_LIST,
 		.u.filter.direct = FILTER_OUT,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10",
 		.group_cmd = "maximum-prefix 20",
 		.u.flag = PEER_FLAG_MAX_PREFIX,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10 restart 100",
 		.group_cmd = "maximum-prefix 20 restart 200",
 		.u.flag = PEER_FLAG_MAX_PREFIX,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10 1 restart 100",
 		.group_cmd = "maximum-prefix 20 2 restart 200",
 		.u.flag = PEER_FLAG_MAX_PREFIX,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10 warning-only",
 		.group_cmd = "maximum-prefix 20 warning-only",
 		.u.flag = PEER_FLAG_MAX_PREFIX | PEER_FLAG_MAX_PREFIX_WARNING,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10 1 warning-only",
 		.group_cmd = "maximum-prefix 20 2 warning-only",
 		.u.flag = PEER_FLAG_MAX_PREFIX | PEER_FLAG_MAX_PREFIX_WARNING,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "next-hop-self",
 		.u.flag = PEER_FLAG_NEXTHOP_SELF,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "next-hop-self force",
 		.u.flag = PEER_FLAG_FORCE_NEXTHOP_SELF,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "prefix-list",
@@ -411,10 +258,6 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_PREFIX_LIST,
 		.u.filter.direct = FILTER_IN,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "prefix-list",
@@ -423,44 +266,24 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_PREFIX_LIST,
 		.u.filter.direct = FILTER_OUT,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "remove-private-AS",
 		.u.flag = PEER_FLAG_REMOVE_PRIVATE_AS,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "remove-private-AS all",
 		.u.flag = PEER_FLAG_REMOVE_PRIVATE_AS
 			| PEER_FLAG_REMOVE_PRIVATE_AS_ALL,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "remove-private-AS replace-AS",
 		.u.flag = PEER_FLAG_REMOVE_PRIVATE_AS
 			| PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "remove-private-AS all replace-AS",
 		.u.flag = PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "route-map",
@@ -469,10 +292,6 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_ROUTE_MAP,
 		.u.filter.direct = FILTER_IN,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "route-map",
@@ -481,62 +300,34 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_ROUTE_MAP,
 		.u.filter.direct = FILTER_OUT,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "route-reflector-client",
 		.u.flag = PEER_FLAG_REFLECTOR_CLIENT,
 		.o.use_ibgp = true,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "route-server-client",
 		.u.flag = PEER_FLAG_RSERVER_CLIENT,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "send-community",
 		.u.flag = PEER_FLAG_SEND_COMMUNITY,
 		.o.invert = true,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "send-community extended",
 		.u.flag = PEER_FLAG_SEND_EXT_COMMUNITY,
 		.o.invert = true,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "send-community large",
 		.u.flag = PEER_FLAG_SEND_LARGE_COMMUNITY,
 		.o.invert = true,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "soft-reconfiguration inbound",
 		.u.flag = PEER_FLAG_SOFT_RECONFIG,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "unsuppress-map",
@@ -545,20 +336,12 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_UNSUPPRESS_MAP,
 		.u.filter.direct = 0,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{
 		.cmd = "weight",
 		.peer_cmd = "weight 100",
 		.group_cmd = "weight 200",
 		.u.flag = PEER_FLAG_WEIGHT,
-		.families = {
-			{ .afi = AFI_IP, .safi = SAFI_UNICAST },
-			{ .afi = AFI_IP6, .safi = SAFI_UNICAST },
-		}
 	},
 	{NULL}
 };
@@ -621,10 +404,6 @@ static const char *str_from_safi(safi_t safi)
 		return "unicast";
 	case SAFI_MULTICAST:
 		return "multicast";
-	case SAFI_MPLS_VPN:
-		return "labeled-unicast";
-	case SAFI_FLOWSPEC:
-		return "flowspec";
 	default:
 		return "<unknown SAFI>";
 	}
@@ -852,15 +631,89 @@ static void test_finish(struct test *test)
 	XFREE(MTYPE_TMP, test);
 }
 
+static void test_af_flags(struct test *test, struct peer *peer,
+			  struct test_peer_attr *attr, bool exp_val,
+			  bool exp_ovrd)
+{
+	bool exp_inv, cur_val, cur_ovrd, cur_inv;
+
+	/* Flip expected values for inverted flags. */
+	exp_inv = attr->o.invert;
+	exp_val ^= exp_inv;
+
+	/* Fetch current state of value, override and invert flags. */
+	cur_val = !!CHECK_FLAG(peer->af_flags[attr->afi][attr->safi],
+			       attr->u.flag);
+	cur_ovrd = !!CHECK_FLAG(peer->af_flags_override[attr->afi][attr->safi],
+				attr->u.flag);
+	cur_inv = !!CHECK_FLAG(peer->af_flags_invert[attr->afi][attr->safi],
+			       attr->u.flag);
+
+	/* Assert expected flag states. */
+	TEST_ASSERT_EQ(test, cur_val, exp_val);
+	TEST_ASSERT_EQ(test, cur_ovrd, exp_ovrd);
+	TEST_ASSERT_EQ(test, cur_inv, exp_inv);
+}
+
+static void test_af_filter(struct test *test, struct peer *peer,
+			   struct test_peer_attr *attr, bool exp_state,
+			   bool exp_ovrd)
+{
+	bool cur_ovrd;
+	struct bgp_filter *filter;
+
+	/* Fetch and assert current state of override flag. */
+	cur_ovrd = !!CHECK_FLAG(peer->filter_override[attr->afi][attr->safi]
+						     [attr->u.filter.direct],
+				attr->u.filter.flag);
+
+	TEST_ASSERT_EQ(test, cur_ovrd, exp_ovrd);
+
+	/* Assert that map/list matches expected state (set/unset). */
+	filter = &peer->filter[attr->afi][attr->safi];
+
+	switch (attr->u.filter.flag) {
+	case PEER_FT_DISTRIBUTE_LIST:
+		TEST_ASSERT_EQ(test,
+			       !!(filter->dlist[attr->u.filter.direct].name),
+			       exp_state);
+		break;
+	case PEER_FT_FILTER_LIST:
+		TEST_ASSERT_EQ(test,
+			       !!(filter->aslist[attr->u.filter.direct].name),
+			       exp_state);
+		break;
+	case PEER_FT_PREFIX_LIST:
+		TEST_ASSERT_EQ(test,
+			       !!(filter->plist[attr->u.filter.direct].name),
+			       exp_state);
+		break;
+	case PEER_FT_ROUTE_MAP:
+		TEST_ASSERT_EQ(test,
+			       !!(filter->map[attr->u.filter.direct].name),
+			       exp_state);
+		break;
+	case PEER_FT_UNSUPPRESS_MAP:
+		TEST_ASSERT_EQ(test, !!(filter->usmap.name), exp_state);
+		break;
+	}
+}
+
 static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 {
 	int tc = 1;
+	const char *type;
 	const char *ec = pa->o.invert ? "no " : "";
 	const char *dc = pa->o.invert ? "" : "no ";
 	const char *peer_cmd = pa->peer_cmd ?: pa->cmd;
 	const char *group_cmd = pa->group_cmd ?: pa->cmd;
 	struct peer *p = test->peer;
 	struct peer_group *g = test->group;
+
+	if (pa->type == PEER_AT_AF_FLAG)
+		type = "af-flag";
+	else /* if (pa->type == PEER_AT_AF_FILTER) */
+		type = "af-filter";
 
 	/* Test Case: Switch active address-family. */
 	if (pa->type == PEER_AT_AF_FLAG || pa->type == PEER_AT_AF_FILTER) {
@@ -871,17 +724,17 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	}
 
 	/* Test Case: Set flag on BGP peer. */
-	test_log(test, "case %02d: set af-flag [%s] on [%s]", tc++, peer_cmd,
+	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, peer_cmd,
 		 p->host);
 	test_execute(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, true, true);
-		TEST_AF_FLAGS(test, g->conf, pa, false, false);
+		test_af_flags(test, p, pa, true, true);
+		test_af_flags(test, g->conf, pa, false, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, true, true);
-		TEST_AF_FILTER(test, g->conf, pa, false, false);
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, false, false);
 	}
 
 	/* Test Case: Add BGP peer to peer-group. */
@@ -893,11 +746,11 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_config_present(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, true, true);
-		TEST_AF_FLAGS(test, g->conf, pa, false, false);
+		test_af_flags(test, p, pa, true, true);
+		test_af_flags(test, g->conf, pa, false, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, true, true);
-		TEST_AF_FILTER(test, g->conf, pa, false, false);
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, false, false);
 	}
 
 	/* Test Case: Re-add BGP peer to peer-group. */
@@ -909,109 +762,109 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_config_present(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, true, true);
-		TEST_AF_FLAGS(test, g->conf, pa, false, false);
+		test_af_flags(test, p, pa, true, true);
+		test_af_flags(test, g->conf, pa, false, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, true, true);
-		TEST_AF_FILTER(test, g->conf, pa, false, false);
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, false, false);
 	}
 
 	/* Test Case: Set flag on BGP peer-group. */
-	test_log(test, "case %02d: set af-flag [%s] on [%s]", tc++, group_cmd,
+	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, group_cmd,
 		 g->name);
 	test_execute(test, "%sneighbor %s %s", ec, g->name, group_cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, g->name, group_cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, true, true);
-		TEST_AF_FLAGS(test, g->conf, pa, true, false);
+		test_af_flags(test, p, pa, true, true);
+		test_af_flags(test, g->conf, pa, true, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, true, true);
-		TEST_AF_FILTER(test, g->conf, pa, true, false);
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, true, false);
 	}
 
 	/* Test Case: Unset flag on BGP peer-group. */
-	test_log(test, "case %02d: unset af-flag [%s] on [%s]", tc++, group_cmd,
-		 g->name);
+	test_log(test, "case %02d: unset %s [%s] on [%s]", tc++, type,
+		 group_cmd, g->name);
 	test_execute(test, "%sneighbor %s %s", dc, g->name, group_cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, true, true);
-		TEST_AF_FLAGS(test, g->conf, pa, false, false);
+		test_af_flags(test, p, pa, true, true);
+		test_af_flags(test, g->conf, pa, false, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, true, true);
-		TEST_AF_FILTER(test, g->conf, pa, false, false);
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, false, false);
 	}
 
 	/* Test Case: Set flag on BGP peer-group. */
-	test_log(test, "case %02d: set af-flag [%s] on [%s]", tc++, group_cmd,
+	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, group_cmd,
 		 g->name);
 	test_execute(test, "%sneighbor %s %s", ec, g->name, group_cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, g->name, group_cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, true, true);
-		TEST_AF_FLAGS(test, g->conf, pa, true, false);
+		test_af_flags(test, p, pa, true, true);
+		test_af_flags(test, g->conf, pa, true, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, true, true);
-		TEST_AF_FILTER(test, g->conf, pa, true, false);
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, true, false);
 	}
 
 	/* Test Case: Re-set flag on BGP peer. */
-	test_log(test, "case %02d: re-set af-flag [%s] on [%s]", tc++, peer_cmd,
-		 p->host);
+	test_log(test, "case %02d: re-set %s [%s] on [%s]", tc++, type,
+		 peer_cmd, p->host);
 	test_execute(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, g->name, group_cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, true, true);
-		TEST_AF_FLAGS(test, g->conf, pa, true, false);
+		test_af_flags(test, p, pa, true, true);
+		test_af_flags(test, g->conf, pa, true, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, true, true);
-		TEST_AF_FILTER(test, g->conf, pa, true, false);
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, true, false);
 	}
 
 	/* Test Case: Unset flag on BGP peer. */
-	test_log(test, "case %02d: unset af-flag [%s] on [%s]", tc++, peer_cmd,
+	test_log(test, "case %02d: unset %s [%s] on [%s]", tc++, type, peer_cmd,
 		 p->host);
 	test_execute(test, "%sneighbor %s %s", dc, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", p->host, pa->cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, g->name, group_cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, true, false);
-		TEST_AF_FLAGS(test, g->conf, pa, true, false);
+		test_af_flags(test, p, pa, true, false);
+		test_af_flags(test, g->conf, pa, true, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, true, false);
-		TEST_AF_FILTER(test, g->conf, pa, true, false);
+		test_af_filter(test, p, pa, true, false);
+		test_af_filter(test, g->conf, pa, true, false);
 	}
 
 	/* Test Case: Unset flag on BGP peer-group. */
-	test_log(test, "case %02d: unset af-flag [%s] on [%s]", tc++, group_cmd,
-		 g->name);
+	test_log(test, "case %02d: unset %s [%s] on [%s]", tc++, type,
+		 group_cmd, g->name);
 	test_execute(test, "%sneighbor %s %s", dc, g->name, group_cmd);
 	test_config_absent(test, "neighbor %s %s", p->host, pa->cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, false, false);
-		TEST_AF_FLAGS(test, g->conf, pa, false, false);
+		test_af_flags(test, p, pa, false, false);
+		test_af_flags(test, g->conf, pa, false, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, false, false);
-		TEST_AF_FILTER(test, g->conf, pa, false, false);
+		test_af_filter(test, p, pa, false, false);
+		test_af_filter(test, g->conf, pa, false, false);
 	}
 
 	/* Test Case: Set flag on BGP peer. */
-	test_log(test, "case %02d: set af-flag [%s] on [%s]", tc++, peer_cmd,
+	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, peer_cmd,
 		 p->host);
 	test_execute(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ec, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
 	if (pa->type == PEER_AT_AF_FLAG) {
-		TEST_AF_FLAGS(test, p, pa, true, true);
-		TEST_AF_FLAGS(test, g->conf, pa, false, false);
+		test_af_flags(test, p, pa, true, true);
+		test_af_flags(test, g->conf, pa, false, false);
 	} else if (pa->type == PEER_AT_AF_FILTER) {
-		TEST_AF_FILTER(test, p, pa, true, true);
-		TEST_AF_FILTER(test, g->conf, pa, false, false);
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, false, false);
 	}
 }
 
@@ -1087,24 +940,30 @@ int main(void)
 	while (test_peer_attrs[i].cmd) {
 		pa = &test_peer_attrs[i++];
 
-		if (pa->families[0].afi && pa->families[0].safi) {
-			ii = 0;
-
-			while (pa->families[ii].afi && pa->families[ii].safi) {
-				pac = XMALLOC(MTYPE_TMP,
-					      sizeof(struct test_peer_attr));
-				memcpy(pac, pa, sizeof(struct test_peer_attr));
-
-				pac->afi = pa->families[ii].afi;
-				pac->safi = pa->families[ii].safi;
-				listnode_add(pa_list, pac);
-
-				ii++;
-			}
-		} else {
+		/* Just copy the peer attribute structure for global flags. */
+		if (pa->type == PEER_AT_GLOBAL_FLAG) {
 			pac = XMALLOC(MTYPE_TMP, sizeof(struct test_peer_attr));
 			memcpy(pac, pa, sizeof(struct test_peer_attr));
 			listnode_add(pa_list, pac);
+			continue;
+		}
+
+		/* Fallback to default families if not specified. */
+		if (!pa->families[0].afi && !pa->families[0].safi)
+			memcpy(&pa->families, test_default_families,
+			       sizeof(test_default_families));
+
+		/* Add peer attribute definition for each address family. */
+		ii = 0;
+		while (pa->families[ii].afi && pa->families[ii].safi) {
+			pac = XMALLOC(MTYPE_TMP, sizeof(struct test_peer_attr));
+			memcpy(pac, pa, sizeof(struct test_peer_attr));
+
+			pac->afi = pa->families[ii].afi;
+			pac->safi = pa->families[ii].safi;
+			listnode_add(pa_list, pac);
+
+			ii++;
 		}
 	}
 
