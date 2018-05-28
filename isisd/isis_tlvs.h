@@ -189,6 +189,13 @@ struct isis_item_list {
 	unsigned int count;
 };
 
+struct isis_purge_originator {
+	bool sender_set;
+
+	uint8_t generator[6];
+	uint8_t sender[6];
+};
+
 RB_HEAD(isis_mt_item_list, isis_item_list);
 
 struct isis_item_list *isis_get_mt_items(struct isis_mt_item_list *m,
@@ -198,6 +205,7 @@ struct isis_item_list *isis_lookup_mt_items(struct isis_mt_item_list *m,
 
 struct isis_tlvs {
 	struct isis_item_list isis_auth;
+	struct isis_purge_originator *purge_originator;
 	struct isis_item_list area_addresses;
 	struct isis_item_list oldstyle_reach;
 	struct isis_item_list lan_neighbor;
@@ -262,6 +270,7 @@ enum isis_tlv_type {
 	ISIS_TLV_PADDING = 8,
 	ISIS_TLV_LSP_ENTRY = 9,
 	ISIS_TLV_AUTH = 10,
+	ISIS_TLV_PURGE_ORIGINATOR = 13,
 	ISIS_TLV_EXTENDED_REACH = 22,
 
 	ISIS_TLV_OLDSTYLE_IP_REACH = 128,

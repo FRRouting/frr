@@ -1985,6 +1985,114 @@ static int unpack_item_auth(uint16_t mtid, uint8_t len, struct stream *s,
 	return 0;
 }
 
+/* Functions related to TLV 13 Purge Originator */
+
+static struct isis_purge_originator *copy_tlv_purge_originator(
+					struct isis_purge_originator *poi)
+{
+	if (!poi)
+		return NULL;
+
+	struct isis_purge_originator *rv;
+
+	rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+	rv->sender_set = poi->sender_set;
+	memcpy(rv->generator, poi->generator, sizeof(rv->generator));
+	if (poi->sender_set)
+		memcpy(rv->sender, poi->sender, sizeof(rv->sender));
+	return rv;
+}
+
+static void format_tlv_purge_originator(struct isis_purge_originator *poi,
+					struct sbuf *buf, int indent)
+{
+	if (!poi)
+		return;
+
+	sbuf_push(buf, indent, "Purge Originator Identification:\n");
+	sbuf_push(buf, indent, "  Generator: %s\n",
+		  isis_format_id(poi->generator, sizeof(poi->generator)));
+	if (poi->sender_set) {
+		sbuf_push(buf, indent, "  Received-From: %s\n",
+			  isis_format_id(poi->sender, sizeof(poi->sender)));
+	}
+}
+
+static void free_tlv_purge_originator(struct isis_purge_originator *poi)
+{
+	XFREE(MTYPE_ISIS_TLV, poi);
+}
+
+static int pack_tlv_purge_originator(struct isis_purge_originator *poi,
+				     struct stream *s)
+{
+	if (!poi)
+		return 0;
+
+	uint8_t data_len = 1 + sizeof(poi->generator);
+
+	if (poi->sender_set)
+		data_len += sizeof(poi->sender);
+
+	if (STREAM_WRITEABLE(s) < (unsigned)(2 + data_len))
+		return 1;
+
+	stream_putc(s, ISIS_TLV_PURGE_ORIGINATOR);
+	stream_putc(s, data_len);
+	stream_putc(s, poi->sender_set ? 2 : 1);
+	stream_put(s, poi->generator, sizeof(poi->generator));
+	if (poi->sender_set)
+		stream_put(s, poi->sender, sizeof(poi->sender));
+	return 0;
+}
+
+static int unpack_tlv_purge_originator(enum isis_tlv_context context,
+				       uint8_t tlv_type, uint8_t tlv_len,
+				       struct stream *s, struct sbuf *log,
+				       void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+	struct isis_purge_originator poi = {};
+
+	sbuf_push(log, indent, "Unpacking Purge Originator Identification TLV...\n");
+	if (tlv_len < 7) {
+		sbuf_push(log, indent, "Not enough data left. (Expected at least 7 bytes, got %"
+			  PRIu8 ")\n", tlv_len);
+		return 1;
+	}
+
+	uint8_t number_of_ids = stream_getc(s);
+
+	if (number_of_ids == 1) {
+		poi.sender_set = false;
+	} else if (number_of_ids == 2) {
+		poi.sender_set = true;
+	} else {
+		sbuf_push(log, indent, "Got invalid value for number of system IDs: %"
+			  PRIu8 ")\n", number_of_ids);
+		return 1;
+	}
+
+	if (tlv_len != 1 + 6 * number_of_ids) {
+		sbuf_push(log, indent, "Incorrect tlv len for number of IDs.\n");
+		return 1;
+	}
+
+	stream_get(poi.generator, s, sizeof(poi.generator));
+	if (poi.sender_set)
+		stream_get(poi.sender, s, sizeof(poi.sender));
+
+	if (tlvs->purge_originator) {
+		sbuf_push(log, indent,
+			  "WARNING: Purge originator present multiple times, ignoring.\n");
+		return 0;
+	}
+
+	tlvs->purge_originator = copy_tlv_purge_originator(&poi);
+	return 0;
+}
+
+
 /* Functions relating to item TLVs */
 
 static void init_item_list(struct isis_item_list *items)
@@ -2410,6 +2518,9 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH, &tlvs->isis_auth,
 		   &rv->isis_auth);
 
+	rv->purge_originator =
+			copy_tlv_purge_originator(tlvs->purge_originator);
+
 	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_AREA_ADDRESSES,
 		   &tlvs->area_addresses, &rv->area_addresses);
 
@@ -2477,6 +2588,8 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, int indent)
 
 	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH, &tlvs->isis_auth, buf,
 		     indent);
+
+	format_tlv_purge_originator(tlvs->purge_originator, buf, indent);
 
 	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_AREA_ADDRESSES,
 		     &tlvs->area_addresses, buf, indent);
@@ -2553,6 +2666,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 		return;
 
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH, &tlvs->isis_auth);
+	free_tlv_purge_originator(tlvs->purge_originator);
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_AREA_ADDRESSES,
 		   &tlvs->area_addresses);
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_ROUTER_INFO,
@@ -2699,6 +2813,14 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 				NULL);
 		if (rv)
 			return rv;
+	}
+
+	rv = pack_tlv_purge_originator(tlvs->purge_originator, stream);
+	if (rv)
+		return rv;
+	if (fragment_tlvs) {
+		fragment_tlvs->purge_originator =
+			copy_tlv_purge_originator(tlvs->purge_originator);
 	}
 
 	rv = pack_tlv_protocols_supported(&tlvs->protocols_supported, stream);
@@ -2967,6 +3089,7 @@ ITEM_TLV_OPS(oldstyle_reach, "TLV 2 IS Reachability");
 ITEM_TLV_OPS(lan_neighbor, "TLV 6 LAN Neighbors");
 ITEM_TLV_OPS(lsp_entry, "TLV 9 LSP Entries");
 ITEM_TLV_OPS(auth, "TLV 10 IS-IS Auth");
+TLV_OPS(purge_originator, "TLV 13 Purge Originator Identification");
 ITEM_TLV_OPS(extended_reach, "TLV 22 Extended Reachability");
 ITEM_TLV_OPS(oldstyle_ip_reach, "TLV 128/130 IP Reachability");
 TLV_OPS(protocols_supported, "TLV 129 Protocols Supported");
@@ -2990,6 +3113,7 @@ static const struct tlv_ops *tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_LAN_NEIGHBORS] = &tlv_lan_neighbor_ops,
 		[ISIS_TLV_LSP_ENTRY] = &tlv_lsp_entry_ops,
 		[ISIS_TLV_AUTH] = &tlv_auth_ops,
+		[ISIS_TLV_PURGE_ORIGINATOR] = &tlv_purge_originator_ops,
 		[ISIS_TLV_EXTENDED_REACH] = &tlv_extended_reach_ops,
 		[ISIS_TLV_MT_REACH] = &tlv_extended_reach_ops,
 		[ISIS_TLV_OLDSTYLE_IP_REACH] = &tlv_oldstyle_ip_reach_ops,
