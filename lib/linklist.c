@@ -70,6 +70,26 @@ void listnode_add(struct list *list, void *val)
 	list->count++;
 }
 
+void listnode_add_head(struct list *list, void *val)
+{
+	struct listnode *node;
+
+	assert(val != NULL);
+
+	node = listnode_new();
+
+	node->next = list->head;
+	node->data = val;
+
+	if (list->head == NULL)
+		list->head = node;
+	else
+		list->head->prev = node;
+	list->head = node;
+
+	list->count++;
+}
+
 void listnode_add_sort(struct list *list, void *val)
 {
 	struct listnode *n;
