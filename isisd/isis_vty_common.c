@@ -138,7 +138,7 @@ DEFUN (no_ip_router_isis,
 	area = isis_area_lookup(area_tag);
 	if (!area) {
 		vty_out(vty, "Can't find ISIS instance %s\n",
-			argv[idx_afi]->arg);
+			area_tag);
 		return CMD_ERR_NO_MATCH;
 	}
 
