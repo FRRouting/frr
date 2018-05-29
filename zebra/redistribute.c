@@ -117,7 +117,7 @@ static void zebra_redistribute(struct zserv *client, int type, u_short instance,
 
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
-					"%s: client %s %s(%d) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
+					"%s: client %s %s(%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
 					__func__,
 					zebra_route_string(client->proto),
 					prefix2str(dst_p, buf, sizeof(buf)),
@@ -189,7 +189,7 @@ void redistribute_update(struct prefix *p, struct prefix *src_p,
 		if (send_redistribute) {
 			if (IS_ZEBRA_DEBUG_EVENT) {
 				zlog_debug(
-					   "%s: client %s %s(%d), type=%d, distance=%d, metric=%d",
+					   "%s: client %s %s(%u), type=%d, distance=%d, metric=%d",
 					   __func__,
 					   zebra_route_string(client->proto),
 					   prefix2str(p, buf, sizeof(buf)),
@@ -268,7 +268,7 @@ void zebra_redistribute_add(int command, struct zserv *client, int length,
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
-			"%s: client proto %s afi=%d, wants %s, vrf %d, instance=%d",
+			"%s: client proto %s afi=%d, wants %s, vrf %u, instance=%d",
 			__func__, zebra_route_string(client->proto), afi,
 			zebra_route_string(type), zvrf_id(zvrf), instance);
 
@@ -296,7 +296,7 @@ void zebra_redistribute_add(int command, struct zserv *client, int length,
 		if (!vrf_bitmap_check(client->redist[afi][type],
 				      zvrf_id(zvrf))) {
 			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s: setting vrf %d redist bitmap",
+				zlog_debug("%s: setting vrf %u redist bitmap",
 					   __func__, zvrf_id(zvrf));
 			vrf_bitmap_set(client->redist[afi][type],
 				       zvrf_id(zvrf));
@@ -366,7 +366,8 @@ void zebra_interface_up_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_UP %s", ifp->name);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_UP %s(%u)",
+			   ifp->name, ifp->vrf_id);
 
 	if (ifp->ptm_status || !ifp->ptm_enable) {
 		for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
@@ -385,7 +386,8 @@ void zebra_interface_down_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DOWN %s", ifp->name);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DOWN %s(%u)",
+			   ifp->name, ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
 		zsend_interface_update(ZEBRA_INTERFACE_DOWN, client, ifp);
@@ -399,7 +401,7 @@ void zebra_interface_add_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADD %s[%d]", ifp->name,
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADD %s(%u)", ifp->name,
 			   ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
@@ -416,7 +418,8 @@ void zebra_interface_delete_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DELETE %s", ifp->name);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DELETE %s(%u)",
+			   ifp->name, ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
 		client->ifdel_cnt++;
@@ -436,8 +439,9 @@ void zebra_interface_address_add_update(struct interface *ifp,
 		char buf[PREFIX_STRLEN];
 
 		p = ifc->address;
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %s on %s",
-			   prefix2str(p, buf, sizeof(buf)), ifc->ifp->name);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %s on %s(%u)",
+			   prefix2str(p, buf, sizeof(buf)), ifp->name,
+			   ifp->vrf_id);
 	}
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -468,8 +472,9 @@ void zebra_interface_address_delete_update(struct interface *ifp,
 		char buf[PREFIX_STRLEN];
 
 		p = ifc->address;
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s on %s",
-			   prefix2str(p, buf, sizeof(buf)), ifc->ifp->name);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s on %s(%u)",
+			   prefix2str(p, buf, sizeof(buf)),
+			   ifp->name, ifp->vrf_id);
 	}
 
 	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 0);
@@ -774,8 +779,8 @@ void zebra_interface_parameters_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_LINK_PARAMS %s",
-			   ifp->name);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_LINK_PARAMS %s(%u)",
+			   ifp->name, ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
 		if (client->ifinfo)
