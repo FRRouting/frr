@@ -642,9 +642,9 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 {
 	int i;
 	uint8_t *pnt;
-	int type = 0;
-	int sub_type = 0;
-#define ECOMMUNITY_STR_DEFAULT_LEN  27
+	uint8_t type = 0;
+	uint8_t sub_type = 0;
+#define ECOMMUNITY_STR_DEFAULT_LEN  64
 	int str_size;
 	int str_pnt;
 	char *str_buf;
@@ -750,10 +750,25 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					"FS:redirect IP 0x%x", *(pnt+5));
 			} else
 				unk_ecom = 1;
-		} else if (type == ECOMMUNITY_ENCODE_TRANS_EXP) {
+		} else if (type == ECOMMUNITY_ENCODE_TRANS_EXP ||
+			   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 ||
+			   type == ECOMMUNITY_EXTENDED_COMMUNITY_PART_3) {
 			sub_type = *pnt++;
+			if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
+				char buf[16];
 
-			if (sub_type == ECOMMUNITY_TRAFFIC_ACTION) {
+				memset(buf, 0, sizeof(buf));
+				ecommunity_rt_soo_str(buf, (uint8_t *)pnt,
+						      type &
+						      ~ECOMMUNITY_ENCODE_TRANS_EXP,
+						      ECOMMUNITY_ROUTE_TARGET,
+						      ECOMMUNITY_FORMAT_DISPLAY);
+				len = snprintf(str_buf + str_pnt,
+					       str_size - len,
+					       "FS:redirect VRF %s", buf);
+			} else if (type != ECOMMUNITY_ENCODE_TRANS_EXP)
+				unk_ecom = 1;
+			else if (sub_type == ECOMMUNITY_TRAFFIC_ACTION) {
 				char action[64];
 				char *ptr = action;
 
@@ -782,30 +797,20 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				len = sprintf(
 					str_buf + str_pnt,
 					"FS:rate %f", data.rate_float);
-			} else if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
-				char buf[16];
-
-				memset(buf, 0, sizeof(buf));
-				ecommunity_rt_soo_str(buf, (uint8_t *)pnt,
-						type &
-						~ECOMMUNITY_ENCODE_TRANS_EXP,
-						ECOMMUNITY_ROUTE_TARGET,
-						ECOMMUNITY_FORMAT_DISPLAY);
-				len = snprintf(
-					str_buf + str_pnt,
-					str_size - len,
-					"FS:redirect VRF %s", buf);
 			} else if (sub_type == ECOMMUNITY_TRAFFIC_MARKING) {
 				len = sprintf(
 					str_buf + str_pnt,
 					"FS:marking %u", *(pnt+5));
 			} else
 				unk_ecom = 1;
-		} else
+		} else {
+			sub_type = *pnt++;
 			unk_ecom = 1;
+		}
 
 		if (unk_ecom)
-			len = sprintf(str_buf + str_pnt, "?");
+			len = sprintf(str_buf + str_pnt, "UNK:%d, %d",
+				      type, sub_type);
 
 		str_pnt += len;
 		first = 0;

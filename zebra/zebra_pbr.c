@@ -23,14 +23,51 @@
 
 #include <jhash.h>
 #include <hash.h>
+#include <memory.h>
+#include <hook.h>
 
 #include "zebra/zebra_pbr.h"
 #include "zebra/rt.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_memory.h"
 
 /* definitions */
+DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPTABLE_IFNAME, "PBR interface list")
+
+/* definitions */
+static const struct message ipset_type_msg[] = {
+	{IPSET_NET_PORT_NET, "net,port,net"},
+	{IPSET_NET_PORT, "net,port"},
+	{IPSET_NET_NET, "net,net"},
+	{IPSET_NET, "net"},
+	{0}
+};
 
 /* static function declarations */
+DEFINE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat, (struct zebra_ns *zns,
+				    struct zebra_pbr_ipset_entry *ipset,
+				    uint64_t *pkts, uint64_t *bytes),
+				     (zns, ipset, pkts, bytes))
+
+DEFINE_HOOK(zebra_pbr_iptable_wrap_script_get_stat, (struct zebra_ns *zns,
+				    struct zebra_pbr_iptable *iptable,
+				    uint64_t *pkts, uint64_t *bytes),
+				     (zns, iptable, pkts, bytes))
+
+DEFINE_HOOK(zebra_pbr_iptable_wrap_script_update, (struct zebra_ns *zns,
+					     int cmd,
+					     struct zebra_pbr_iptable *iptable),
+					    (zns, cmd, iptable));
+
+DEFINE_HOOK(zebra_pbr_ipset_entry_wrap_script_update, (struct zebra_ns *zns,
+				  int cmd,
+				  struct zebra_pbr_ipset_entry *ipset),
+				  (zns, cmd, ipset));
+
+DEFINE_HOOK(zebra_pbr_ipset_wrap_script_update, (struct zebra_ns *zns,
+				  int cmd,
+				  struct zebra_pbr_ipset *ipset),
+				  (zns, cmd, ipset));
 
 /* Private functions */
 
@@ -145,9 +182,15 @@ static struct zebra_pbr_rule *pbr_rule_lookup_unique(struct zebra_ns *zns,
 void zebra_pbr_ipset_free(void *arg)
 {
 	struct zebra_pbr_ipset *ipset;
+	struct zebra_ns *zns;
 
 	ipset = (struct zebra_pbr_ipset *)arg;
-
+	if (vrf_is_backend_netns())
+		zns = zebra_ns_lookup(ipset->vrf_id);
+	else
+		zns = zebra_ns_lookup(NS_DEFAULT);
+	hook_call(zebra_pbr_ipset_wrap_script_update,
+		  zns, 0, ipset);
 	XFREE(MTYPE_TMP, ipset);
 }
 
@@ -179,8 +222,17 @@ int zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2)
 void zebra_pbr_ipset_entry_free(void *arg)
 {
 	struct zebra_pbr_ipset_entry *ipset;
+	struct zebra_ns *zns;
 
 	ipset = (struct zebra_pbr_ipset_entry *)arg;
+	if (ipset->backpointer && vrf_is_backend_netns()) {
+		struct zebra_pbr_ipset *ips = ipset->backpointer;
+
+		zns = zebra_ns_lookup((ns_id_t)ips->vrf_id);
+	} else
+		zns = zebra_ns_lookup(NS_DEFAULT);
+	hook_call(zebra_pbr_ipset_entry_wrap_script_update,
+		  zns, 0, ipset);
 
 	XFREE(MTYPE_TMP, ipset);
 }
@@ -194,6 +246,11 @@ uint32_t zebra_pbr_ipset_entry_hash_key(void *arg)
 	key = prefix_hash_key(&ipset->src);
 	key = jhash_1word(ipset->unique, key);
 	key = jhash_1word(prefix_hash_key(&ipset->dst), key);
+	key = jhash(&ipset->dst_port_min, 2, key);
+	key = jhash(&ipset->dst_port_max, 2, key);
+	key = jhash(&ipset->src_port_min, 2, key);
+	key = jhash(&ipset->src_port_max, 2, key);
+	key = jhash(&ipset->proto, 1, key);
 
 	return key;
 }
@@ -214,15 +271,44 @@ int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2)
 	if (!prefix_same(&r1->dst, &r2->dst))
 		return 0;
 
+	if (r1->src_port_min != r2->src_port_min)
+		return 0;
+
+	if (r1->src_port_max != r2->src_port_max)
+		return 0;
+
+	if (r1->dst_port_min != r2->dst_port_min)
+		return 0;
+
+	if (r1->dst_port_max != r2->dst_port_max)
+		return 0;
+
+	if (r1->proto != r2->proto)
+		return 0;
 	return 1;
 }
 
 void zebra_pbr_iptable_free(void *arg)
 {
 	struct zebra_pbr_iptable *iptable;
+	struct listnode *node, *nnode;
+	char *name;
+	struct zebra_ns *zns;
 
 	iptable = (struct zebra_pbr_iptable *)arg;
+	if (vrf_is_backend_netns())
+		zns = zebra_ns_lookup((ns_id_t)iptable->vrf_id);
+	else
+		zns =  zebra_ns_lookup(NS_DEFAULT);
+	hook_call(zebra_pbr_iptable_wrap_script_update,
+		  zns, 0, iptable);
 
+	for (ALL_LIST_ELEMENTS(iptable->interface_name_list,
+					node, nnode, name)) {
+		XFREE(MTYPE_PBR_IPTABLE_IFNAME, name);
+		list_delete_node(iptable->interface_name_list,
+				 node);
+	}
 	XFREE(MTYPE_TMP, iptable);
 }
 
@@ -283,7 +369,6 @@ void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 
 	(void)hash_get(zns->rules_hash, rule, pbr_rule_alloc_intern);
 	kernel_add_pbr_rule(rule);
-
 	/*
 	 * Rule Replace semantics, if we have an old, install the
 	 * new rule, look above, and then delete the old
@@ -320,6 +405,45 @@ static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
 	}
 }
 
+static void zebra_pbr_cleanup_ipset(struct hash_backet *b, void *data)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_ipset *ipset = b->data;
+	int *sock = data;
+
+	if (ipset->sock == *sock) {
+		hook_call(zebra_pbr_ipset_wrap_script_update,
+			  zns, 0, ipset);
+		hash_release(zns->ipset_hash, ipset);
+	}
+}
+
+static void zebra_pbr_cleanup_ipset_entry(struct hash_backet *b, void *data)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_ipset_entry *ipset = b->data;
+	int *sock = data;
+
+	if (ipset->sock == *sock) {
+		hook_call(zebra_pbr_ipset_entry_wrap_script_update,
+			  zns, 0, ipset);
+		hash_release(zns->ipset_entry_hash, ipset);
+	}
+}
+
+static void zebra_pbr_cleanup_iptable(struct hash_backet *b, void *data)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_iptable *iptable = b->data;
+	int *sock = data;
+
+	if (iptable->sock == *sock) {
+		hook_call(zebra_pbr_iptable_wrap_script_update,
+			  zns, 0, iptable);
+		hash_release(zns->iptable_hash, iptable);
+	}
+}
+
 static int zebra_pbr_client_close_cleanup(struct zserv *client)
 {
 	int sock = client->sock;
@@ -328,6 +452,12 @@ static int zebra_pbr_client_close_cleanup(struct zserv *client)
 	if (!sock)
 		return 0;
 	hash_iterate(zns->rules_hash, zebra_pbr_cleanup_rules, &sock);
+	hash_iterate(zns->iptable_hash,
+		     zebra_pbr_cleanup_iptable, &sock);
+	hash_iterate(zns->ipset_entry_hash,
+		     zebra_pbr_cleanup_ipset_entry, &sock);
+	hash_iterate(zns->ipset_hash,
+		     zebra_pbr_cleanup_ipset, &sock);
 	return 1;
 }
 
@@ -353,10 +483,14 @@ static void *pbr_ipset_alloc_intern(void *arg)
 void zebra_pbr_create_ipset(struct zebra_ns *zns,
 			    struct zebra_pbr_ipset *ipset)
 {
+	int ret;
+
 	(void)hash_get(zns->ipset_hash, ipset, pbr_ipset_alloc_intern);
-	/* TODO:
-	 * - Netlink call
-	 */
+	ret = hook_call(zebra_pbr_ipset_wrap_script_update,
+		  zns, 1, ipset);
+	kernel_pbr_ipset_add_del_status(ipset,
+					ret ? SOUTHBOUND_INSTALL_SUCCESS
+					: SOUTHBOUND_INSTALL_FAILURE);
 }
 
 void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
@@ -365,13 +499,12 @@ void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
 	struct zebra_pbr_ipset *lookup;
 
 	lookup = hash_lookup(zns->ipset_hash, ipset);
-	/* TODO:
-	 * - Netlink destroy from kernel
-	 * - ?? destroy ipset entries before
-	 */
-	if (lookup)
+	hook_call(zebra_pbr_ipset_wrap_script_update,
+		  zns, 0, ipset);
+	if (lookup) {
+		hash_release(zns->ipset_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
-	else
+	} else
 		zlog_warn("%s: IPSet Entry being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
 }
@@ -380,6 +513,12 @@ struct pbr_ipset_name_lookup {
 	struct zebra_pbr_ipset *ipset;
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
+
+static const char *zebra_pbr_ipset_type2str(uint32_t type)
+{
+	return lookup_msg(ipset_type_msg, type,
+			  "Unrecognized IPset Type");
+}
 
 static int zebra_pbr_ipset_pername_walkcb(struct hash_backet *backet, void *arg)
 {
@@ -427,12 +566,15 @@ static void *pbr_ipset_entry_alloc_intern(void *arg)
 void zebra_pbr_add_ipset_entry(struct zebra_ns *zns,
 			       struct zebra_pbr_ipset_entry *ipset)
 {
+	int ret;
+
 	(void)hash_get(zns->ipset_entry_hash, ipset,
 		       pbr_ipset_entry_alloc_intern);
-	/* TODO:
-	 * - attach to ipset list
-	 * - Netlink add to kernel
-	 */
+	ret = hook_call(zebra_pbr_ipset_entry_wrap_script_update,
+		  zns, 1, ipset);
+	kernel_pbr_ipset_entry_add_del_status(ipset,
+					ret ? SOUTHBOUND_INSTALL_SUCCESS
+					: SOUTHBOUND_INSTALL_FAILURE);
 }
 
 void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
@@ -441,14 +583,12 @@ void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
 	struct zebra_pbr_ipset_entry *lookup;
 
 	lookup = hash_lookup(zns->ipset_entry_hash, ipset);
-	/* TODO:
-	 * - Netlink destroy
-	 * - detach from ipset list
-	 * - ?? if no more entres, delete ipset
-	 */
-	if (lookup)
+	hook_call(zebra_pbr_ipset_entry_wrap_script_update,
+		  zns, 0, ipset);
+	if (lookup) {
+		hash_release(zns->ipset_entry_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
-	else
+	} else
 		zlog_warn("%s: IPSet being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
 }
@@ -470,24 +610,36 @@ static void *pbr_iptable_alloc_intern(void *arg)
 void zebra_pbr_add_iptable(struct zebra_ns *zns,
 			   struct zebra_pbr_iptable *iptable)
 {
+	int ret;
+
 	(void)hash_get(zns->iptable_hash, iptable,
 		       pbr_iptable_alloc_intern);
-	/* TODO call netlink layer */
+	ret = hook_call(zebra_pbr_iptable_wrap_script_update, zns, 1, iptable);
+	kernel_pbr_iptable_add_del_status(iptable,
+					  ret ? SOUTHBOUND_INSTALL_SUCCESS
+					  : SOUTHBOUND_INSTALL_FAILURE);
 }
 
 void zebra_pbr_del_iptable(struct zebra_ns *zns,
 			   struct zebra_pbr_iptable *iptable)
 {
-	struct zebra_pbr_ipset_entry *lookup;
+	struct zebra_pbr_iptable *lookup;
 
 	lookup = hash_lookup(zns->iptable_hash, iptable);
-	/* TODO:
-	 * - call netlink layer
-	 * - detach from iptable list
-	 */
-	if (lookup)
+	hook_call(zebra_pbr_iptable_wrap_script_update, zns, 0, iptable);
+	if (lookup) {
+		struct listnode *node, *nnode;
+		char *name;
+
+		hash_release(zns->iptable_hash, lookup);
+		for (ALL_LIST_ELEMENTS(iptable->interface_name_list,
+				       node, nnode, name)) {
+			XFREE(MTYPE_PBR_IPTABLE_IFNAME, name);
+			list_delete_node(iptable->interface_name_list,
+					 node);
+		}
 		XFREE(MTYPE_TMP, lookup);
-	else
+	} else
 		zlog_warn("%s: IPTable being deleted we know nothing about",
 			  __PRETTY_FUNCTION__);
 }
@@ -509,7 +661,7 @@ void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
 		zsend_rule_notify_owner(rule, ZAPI_RULE_REMOVED);
 		break;
 	case SOUTHBOUND_DELETE_FAILURE:
-		zsend_rule_notify_owner(rule, ZAPI_RULE_REMOVED);
+		zsend_rule_notify_owner(rule, ZAPI_RULE_FAIL_REMOVE);
 		break;
 	}
 }
@@ -528,8 +680,10 @@ void kernel_pbr_ipset_add_del_status(struct zebra_pbr_ipset *ipset,
 		zsend_ipset_notify_owner(ipset, ZAPI_IPSET_FAIL_INSTALL);
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
+		zsend_ipset_notify_owner(ipset, ZAPI_IPSET_REMOVED);
+		break;
 	case SOUTHBOUND_DELETE_FAILURE:
-		/* TODO : handling of delete event */
+		zsend_ipset_notify_owner(ipset, ZAPI_IPSET_FAIL_REMOVE);
 		break;
 	}
 }
@@ -551,8 +705,12 @@ void kernel_pbr_ipset_entry_add_del_status(
 					       ZAPI_IPSET_ENTRY_FAIL_INSTALL);
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
+		zsend_ipset_entry_notify_owner(ipset,
+					       ZAPI_IPSET_ENTRY_REMOVED);
+		break;
 	case SOUTHBOUND_DELETE_FAILURE:
-		/* TODO : handling of delete event */
+		zsend_ipset_entry_notify_owner(ipset,
+					       ZAPI_IPSET_ENTRY_FAIL_REMOVE);
 		break;
 	}
 }
@@ -571,8 +729,12 @@ void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
 		zsend_iptable_notify_owner(iptable, ZAPI_IPTABLE_FAIL_INSTALL);
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
+		zsend_iptable_notify_owner(iptable,
+					   ZAPI_IPTABLE_REMOVED);
+		break;
 	case SOUTHBOUND_DELETE_FAILURE:
-		/* TODO : handling of delete event */
+		zsend_iptable_notify_owner(iptable,
+					   ZAPI_IPTABLE_FAIL_REMOVE);
 		break;
 	}
 }
@@ -583,4 +745,257 @@ void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
 int kernel_pbr_rule_del(struct zebra_pbr_rule *rule)
 {
 	return 0;
+}
+
+struct zebra_pbr_ipset_entry_unique_display {
+	struct zebra_pbr_ipset *zpi;
+	struct vty *vty;
+	struct zebra_ns *zns;
+};
+
+struct zebra_pbr_env_display {
+	struct zebra_ns *zns;
+	struct vty *vty;
+};
+
+static const char *zebra_pbr_prefix2str(union prefixconstptr pu,
+					char *str, int size)
+{
+	const struct prefix *p = pu.p;
+	char buf[PREFIX2STR_BUFFER];
+
+	if (p->family == AF_INET && p->prefixlen == IPV4_MAX_PREFIXLEN) {
+		snprintf(str, size, "%s", inet_ntop(p->family, &p->u.prefix,
+						    buf, PREFIX2STR_BUFFER));
+		return str;
+	}
+	return prefix2str(pu, str, size);
+}
+
+static void zebra_pbr_display_port(struct vty *vty, uint32_t filter_bm,
+			    uint16_t port_min, uint16_t port_max,
+			    uint8_t proto)
+{
+	if (!(filter_bm & PBR_FILTER_PROTO)) {
+		if (port_max)
+			vty_out(vty, ":udp/tcp:%d-%d",
+				port_min, port_max);
+		else
+			vty_out(vty, ":udp/tcp:%d",
+				port_min);
+	} else {
+		if (port_max)
+			vty_out(vty, ":proto %d:%d-%d",
+				proto, port_min, port_max);
+		else
+			vty_out(vty, ":proto %d:%d",
+				proto, port_min);
+	}
+}
+
+static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
+					     void *arg)
+{
+	struct zebra_pbr_ipset_entry_unique_display *unique =
+		(struct zebra_pbr_ipset_entry_unique_display *)arg;
+	struct zebra_pbr_ipset *zpi = unique->zpi;
+	struct vty *vty = unique->vty;
+	struct zebra_pbr_ipset_entry *zpie =
+		(struct zebra_pbr_ipset_entry *)backet->data;
+	uint64_t pkts = 0, bytes = 0;
+	struct zebra_ns *zns = unique->zns;
+	int ret = 0;
+
+	if (zpie->backpointer != zpi)
+		return HASHWALK_CONTINUE;
+
+	if ((zpi->type == IPSET_NET_NET) ||
+	    (zpi->type == IPSET_NET_PORT_NET)) {
+		char buf[PREFIX_STRLEN];
+
+		zebra_pbr_prefix2str(&(zpie->src), buf, sizeof(buf));
+		vty_out(vty, "\tfrom %s", buf);
+		if (zpie->filter_bm & PBR_FILTER_SRC_PORT)
+			zebra_pbr_display_port(vty, zpie->filter_bm,
+					       zpie->src_port_min,
+					       zpie->src_port_max,
+					       zpie->proto);
+		vty_out(vty, " to ");
+		zebra_pbr_prefix2str(&(zpie->dst), buf, sizeof(buf));
+		vty_out(vty, "%s", buf);
+		if (zpie->filter_bm & PBR_FILTER_DST_PORT)
+			zebra_pbr_display_port(vty, zpie->filter_bm,
+					       zpie->dst_port_min,
+					       zpie->dst_port_max,
+					       zpie->proto);
+	} else if ((zpi->type == IPSET_NET) ||
+		   (zpi->type == IPSET_NET_PORT)) {
+		char buf[PREFIX_STRLEN];
+
+		if (zpie->filter_bm & PBR_FILTER_SRC_IP) {
+			zebra_pbr_prefix2str(&(zpie->src), buf, sizeof(buf));
+			vty_out(vty, "\tfrom %s", buf);
+		}
+		if (zpie->filter_bm & PBR_FILTER_SRC_PORT)
+			zebra_pbr_display_port(vty, zpie->filter_bm,
+					       zpie->src_port_min,
+					       zpie->src_port_max,
+					       zpie->proto);
+		if (zpie->filter_bm & PBR_FILTER_DST_IP) {
+			zebra_pbr_prefix2str(&(zpie->dst), buf, sizeof(buf));
+			vty_out(vty, "\tto %s", buf);
+		}
+		if (zpie->filter_bm & PBR_FILTER_DST_PORT)
+			zebra_pbr_display_port(vty, zpie->filter_bm,
+					       zpie->dst_port_min,
+					       zpie->dst_port_max,
+					       zpie->proto);
+	}
+	vty_out(vty, " (%u)\n", zpie->unique);
+
+	ret = hook_call(zebra_pbr_ipset_entry_wrap_script_get_stat,
+			zns, zpie, &pkts, &bytes);
+	if (ret && pkts > 0)
+		vty_out(vty, "\t pkts %" PRIu64 ", bytes %" PRIu64"\n",
+			pkts, bytes);
+	return HASHWALK_CONTINUE;
+}
+
+static int zebra_pbr_show_ipset_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct zebra_pbr_env_display *uniqueipset =
+		(struct zebra_pbr_env_display *)arg;
+	struct zebra_pbr_ipset *zpi = (struct zebra_pbr_ipset *)backet->data;
+	struct zebra_pbr_ipset_entry_unique_display unique;
+	struct vty *vty = uniqueipset->vty;
+	struct zebra_ns *zns = uniqueipset->zns;
+
+	vty_out(vty, "IPset %s type %s\n", zpi->ipset_name,
+		zebra_pbr_ipset_type2str(zpi->type));
+	unique.vty = vty;
+	unique.zpi = zpi;
+	unique.zns = zns;
+	hash_walk(zns->ipset_entry_hash, zebra_pbr_show_ipset_entry_walkcb,
+		  &unique);
+	vty_out(vty, "\n");
+	return HASHWALK_CONTINUE;
+}
+
+/*
+ */
+void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname)
+{
+	struct zebra_pbr_ipset *zpi;
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_ipset_entry_unique_display unique;
+	struct zebra_pbr_env_display uniqueipset;
+
+	if (ipsetname) {
+		zpi = zebra_pbr_lookup_ipset_pername(zns, ipsetname);
+		if (!zpi) {
+			vty_out(vty, "No IPset %s found\n", ipsetname);
+			return;
+		}
+		vty_out(vty, "IPset %s type %s\n", ipsetname,
+			zebra_pbr_ipset_type2str(zpi->type));
+
+		unique.vty = vty;
+		unique.zpi = zpi;
+		unique.zns = zns;
+		hash_walk(zns->ipset_entry_hash,
+			  zebra_pbr_show_ipset_entry_walkcb,
+			  &unique);
+		return;
+	}
+	uniqueipset.zns = zns;
+	uniqueipset.vty = vty;
+	hash_walk(zns->ipset_hash, zebra_pbr_show_ipset_walkcb,
+		  &uniqueipset);
+}
+
+struct pbr_rule_fwmark_lookup {
+	struct zebra_pbr_rule *ptr;
+	uint32_t fwmark;
+};
+
+static int zebra_pbr_rule_lookup_fwmark_walkcb(struct hash_backet *backet,
+					       void *arg)
+{
+	struct pbr_rule_fwmark_lookup *iprule =
+		(struct pbr_rule_fwmark_lookup *)arg;
+	struct zebra_pbr_rule *zpr = (struct zebra_pbr_rule *)backet->data;
+
+	if (iprule->fwmark == zpr->rule.filter.fwmark) {
+		iprule->ptr = zpr;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
+static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct zebra_pbr_iptable *iptable =
+		(struct zebra_pbr_iptable *)backet->data;
+	struct zebra_pbr_env_display *env = (struct zebra_pbr_env_display *)arg;
+	struct vty *vty = env->vty;
+	struct zebra_ns *zns = env->zns;
+	int ret;
+	uint64_t pkts = 0, bytes = 0;
+
+	vty_out(vty, "IPtable %s action %s (%u)\n", iptable->ipset_name,
+		iptable->action == ZEBRA_IPTABLES_DROP ? "drop" : "redirect",
+		iptable->unique);
+
+	ret = hook_call(zebra_pbr_iptable_wrap_script_get_stat,
+			zns, iptable, &pkts, &bytes);
+	if (ret && pkts > 0)
+		vty_out(vty, "\t pkts %" PRIu64 ", bytes %" PRIu64"\n",
+			pkts, bytes);
+	if (iptable->action != ZEBRA_IPTABLES_DROP) {
+		struct pbr_rule_fwmark_lookup prfl;
+
+		prfl.fwmark = iptable->fwmark;
+		prfl.ptr = NULL;
+		hash_walk(zns->rules_hash,
+			  &zebra_pbr_rule_lookup_fwmark_walkcb, &prfl);
+		if (prfl.ptr) {
+			struct zebra_pbr_rule *zpr = prfl.ptr;
+
+			vty_out(vty, "\t table %u, fwmark %u\n",
+				zpr->rule.action.table,
+				prfl.fwmark);
+		}
+	}
+	return HASHWALK_CONTINUE;
+}
+
+void zebra_pbr_show_iptable(struct vty *vty)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_pbr_env_display env;
+
+	env.vty = vty;
+	env.zns = zns;
+
+	hash_walk(zns->iptable_hash, zebra_pbr_show_iptable_walkcb,
+		  &env);
+}
+
+void zebra_pbr_iptable_update_interfacelist(struct stream *s,
+					    struct zebra_pbr_iptable *zpi)
+{
+	uint32_t i = 0, index;
+	struct interface *ifp;
+	char *name;
+
+	for (i = 0; i < zpi->nb_interface; i++) {
+		STREAM_GETL(s, index);
+		ifp = if_lookup_by_index(index, zpi->vrf_id);
+		if (!ifp)
+			continue;
+		name = XSTRDUP(MTYPE_PBR_IPTABLE_IFNAME, ifp->name);
+		listnode_add(zpi->interface_name_list, name);
+	}
+stream_failure:
+	return;
 }

@@ -1001,6 +1001,7 @@ static bool bgp_tm_status_connected;
 static bool bgp_tm_chunk_obtained;
 #define BGP_FLOWSPEC_TABLE_CHUNK 100000
 static uint32_t bgp_tm_min, bgp_tm_max, bgp_tm_chunk_size;
+struct bgp *bgp_tm_bgp;
 
 static int bgp_zebra_tm_connect(struct thread *t)
 {
@@ -1024,13 +1025,21 @@ static int bgp_zebra_tm_connect(struct thread *t)
 		if (!bgp_tm_chunk_obtained) {
 			if (bgp_zebra_get_table_range(bgp_tm_chunk_size,
 						      &bgp_tm_min,
-						      &bgp_tm_max) >= 0)
+						      &bgp_tm_max) >= 0) {
 				bgp_tm_chunk_obtained = true;
+				/* parse non installed entries */
+				bgp_zebra_announce_table(bgp_tm_bgp, AFI_IP, SAFI_FLOWSPEC);
+			}
 		}
 	}
 	thread_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
 			 &bgp_tm_thread_connect);
 	return 0;
+}
+
+bool bgp_zebra_tm_chunk_obtained(void)
+{
+	return bgp_tm_chunk_obtained;
 }
 
 uint32_t bgp_zebra_tm_get_id(void)
@@ -1042,7 +1051,7 @@ uint32_t bgp_zebra_tm_get_id(void)
 	return bgp_tm_min++;
 }
 
-void bgp_zebra_init_tm_connect(void)
+void bgp_zebra_init_tm_connect(struct bgp *bgp)
 {
 	int delay = 1;
 
@@ -1054,6 +1063,7 @@ void bgp_zebra_init_tm_connect(void)
 	bgp_tm_chunk_obtained = false;
 	bgp_tm_min = bgp_tm_max = 0;
 	bgp_tm_chunk_size = BGP_FLOWSPEC_TABLE_CHUNK;
+	bgp_tm_bgp = bgp;
 	thread_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
 			 &bgp_tm_thread_connect);
 }
@@ -1962,6 +1972,7 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 			zlog_debug("%s: Received RULE_INSTALLED",
 				   __PRETTY_FUNCTION__);
 		break;
+	case ZAPI_RULE_FAIL_REMOVE:
 	case ZAPI_RULE_REMOVED:
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received RULE REMOVED",
@@ -1987,8 +1998,8 @@ static int ipset_notify_owner(int command, struct zclient *zclient,
 	bgp_pbim = bgp_pbr_match_ipset_lookup(vrf_id, unique);
 	if (!bgp_pbim) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP match (%u)",
-				   __PRETTY_FUNCTION__, unique);
+			zlog_debug("%s: Fail to look BGP match ( %u %u)",
+				   __PRETTY_FUNCTION__, note, unique);
 		return 0;
 	}
 
@@ -2007,6 +2018,7 @@ static int ipset_notify_owner(int command, struct zclient *zclient,
 			zlog_debug("%s: Received IPSET_INSTALLED",
 				   __PRETTY_FUNCTION__);
 		break;
+	case ZAPI_IPSET_FAIL_REMOVE:
 	case ZAPI_IPSET_REMOVED:
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received IPSET REMOVED",
@@ -2036,8 +2048,8 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 						     unique);
 	if (!bgp_pbime) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP match entry (%u)",
-				   __PRETTY_FUNCTION__, unique);
+			zlog_debug("%s: Fail to look BGP match entry (%u %u)",
+				   __PRETTY_FUNCTION__, note, unique);
 		return 0;
 	}
 
@@ -2050,12 +2062,22 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 		bgp_pbime->install_in_progress = false;
 		break;
 	case ZAPI_IPSET_ENTRY_INSTALLED:
-		bgp_pbime->installed = true;
-		bgp_pbime->install_in_progress = false;
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Received IPSET_ENTRY_INSTALLED",
-				   __PRETTY_FUNCTION__);
+		{
+			struct bgp_info *bgp_info;
+			struct bgp_info_extra *extra;
+
+			bgp_pbime->installed = true;
+			bgp_pbime->install_in_progress = false;
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s: Received IPSET_ENTRY_INSTALLED",
+					   __PRETTY_FUNCTION__);
+			/* link bgp_info to bpme */
+			bgp_info = (struct bgp_info *)bgp_pbime->bgp_info;
+			extra = bgp_info_extra_get(bgp_info);
+			extra->bgp_fs_pbr = (void *)bgp_pbime;
+		}
 		break;
+	case ZAPI_IPSET_ENTRY_FAIL_REMOVE:
 	case ZAPI_IPSET_ENTRY_REMOVED:
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received IPSET_ENTRY_REMOVED",
@@ -2080,8 +2102,8 @@ static int iptable_notify_owner(int command, struct zclient *zclient,
 	bgpm = bgp_pbr_match_iptable_lookup(vrf_id, unique);
 	if (!bgpm) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP iptable (%u)",
-				   __PRETTY_FUNCTION__, unique);
+			zlog_debug("%s: Fail to look BGP iptable (%u %u)",
+				   __PRETTY_FUNCTION__, note, unique);
 		return 0;
 	}
 	switch (note) {
@@ -2100,6 +2122,7 @@ static int iptable_notify_owner(int command, struct zclient *zclient,
 				   __PRETTY_FUNCTION__);
 		bgpm->action->refcnt++;
 		break;
+	case ZAPI_IPTABLE_FAIL_REMOVE:
 	case ZAPI_IPTABLE_REMOVED:
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received IPTABLE REMOVED",
@@ -2167,6 +2190,12 @@ static void bgp_encode_pbr_ipset_entry_match(struct stream *s,
 	stream_putc(s, pbime->dst.family);
 	stream_putc(s, pbime->dst.prefixlen);
 	stream_put(s, &pbime->dst.u.prefix, prefix_blen(&pbime->dst));
+
+	stream_putw(s, pbime->src_port_min);
+	stream_putw(s, pbime->src_port_max);
+	stream_putw(s, pbime->dst_port_min);
+	stream_putw(s, pbime->dst_port_max);
+	stream_putc(s, pbime->proto);
 }
 
 static void bgp_encode_pbr_iptable_match(struct stream *s,
@@ -2490,8 +2519,10 @@ void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra, bool install)
 
 	if (pbra->install_in_progress)
 		return;
-	zlog_debug("%s: table %d fwmark %d %d", __PRETTY_FUNCTION__,
-		   pbra->table_id, pbra->fwmark, install);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: table %d fwmark %d %d",
+			   __PRETTY_FUNCTION__,
+			   pbra->table_id, pbra->fwmark, install);
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2513,8 +2544,10 @@ void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim, bool install)
 
 	if (pbrim->install_in_progress)
 		return;
-	zlog_debug("%s: name %s type %d %d", __PRETTY_FUNCTION__,
-		   pbrim->ipset_name, pbrim->type, install);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: name %s type %d %d",
+			   __PRETTY_FUNCTION__,
+			   pbrim->ipset_name, pbrim->type, install);
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2539,9 +2572,10 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 
 	if (pbrime->install_in_progress)
 		return;
-	zlog_debug("%s: name %s %d %d", __PRETTY_FUNCTION__,
-		   pbrime->backpointer->ipset_name,
-		   pbrime->unique, install);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: name %s %d %d", __PRETTY_FUNCTION__,
+			   pbrime->backpointer->ipset_name,
+			   pbrime->unique, install);
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2559,16 +2593,56 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 		pbrime->install_in_progress = true;
 }
 
+static void bgp_encode_pbr_interface_list(struct bgp *bgp, struct stream *s)
+{
+	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
+	struct bgp_pbr_interface_head *head;
+	struct bgp_pbr_interface *pbr_if;
+	struct interface *ifp;
+
+	if (!bgp_pbr_cfg)
+		return;
+	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+
+	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
+		ifp = if_lookup_by_name(pbr_if->name, bgp->vrf_id);
+		if (ifp)
+			stream_putl(s, ifp->ifindex);
+	}
+}
+
+static int bgp_pbr_get_ifnumber(struct bgp *bgp)
+{
+	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
+	struct bgp_pbr_interface_head *head;
+	struct bgp_pbr_interface *pbr_if;
+	int cnt = 0;
+
+	if (!bgp_pbr_cfg)
+		return 0;
+	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+
+	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
+		if (if_lookup_by_name(pbr_if->name, bgp->vrf_id))
+			cnt++;
+	}
+	return cnt;
+}
+
 void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 			  struct bgp_pbr_match *pbm,
 			  bool install)
 {
 	struct stream *s;
+	int ret = 0;
+	int nb_interface;
 
 	if (pbm->install_iptable_in_progress)
 		return;
-	zlog_debug("%s: name %s type %d mark %d %d", __PRETTY_FUNCTION__,
-		   pbm->ipset_name, pbm->type, pba->fwmark, install);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: name %s type %d mark %d %d",
+			   __PRETTY_FUNCTION__, pbm->ipset_name,
+			   pbm->type, pba->fwmark, install);
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2578,11 +2652,17 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 			      VRF_DEFAULT);
 
 	bgp_encode_pbr_iptable_match(s, pba, pbm);
-
+	nb_interface = bgp_pbr_get_ifnumber(pba->bgp);
+	stream_putl(s, nb_interface);
+	if (nb_interface)
+		bgp_encode_pbr_interface_list(pba->bgp, s);
 	stream_putw_at(s, 0, stream_get_endp(s));
-	if (!zclient_send_message(zclient) && install) {
-		pbm->install_iptable_in_progress = true;
-		pba->refcnt++;
+	ret = zclient_send_message(zclient);
+	if (install) {
+		if (ret)
+			pba->refcnt++;
+		else
+			pbm->install_iptable_in_progress = true;
 	}
 }
 
@@ -2626,7 +2706,8 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 
 		inet_ntop(AF_INET, &(nh->gate.ipv4), buff, INET_ADDRSTRLEN);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_info("BGP: sending default route to %s table %d (redirect IP)",
+			zlog_info("BGP: %s default route to %s table %d (redirect IP)",
+				  announce ? "adding" : "withdrawing",
 				  buff, table_id);
 		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
 				   : ZEBRA_ROUTE_DELETE,
@@ -2648,7 +2729,8 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 		api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		api_nh->ifindex = ifp->ifindex;
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_info("BGP: sending default route to %s table %d (redirect VRF)",
+			zlog_info("BGP: %s default route to %s table %d (redirect VRF)",
+				  announce ? "adding" : "withdrawing",
 				  vrf->name, table_id);
 		zclient_route_send(announce ? ZEBRA_ROUTE_ADD
 				   : ZEBRA_ROUTE_DELETE,

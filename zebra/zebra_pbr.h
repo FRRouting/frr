@@ -48,6 +48,8 @@ struct zebra_pbr_rule {
 	(r->rule.filter.filter_bm & PBR_FILTER_SRC_PORT)
 #define IS_RULE_FILTERING_ON_DST_PORT(r) \
 	(r->rule.filter.filter_bm & PBR_FILTER_DST_PORT)
+#define IS_RULE_FILTERING_ON_FWMARK(r) \
+	(r->rule.filter.filter_bm & PBR_FILTER_FWMARK)
 
 /*
  * An IPSet Entry Filter
@@ -60,6 +62,8 @@ struct zebra_pbr_ipset {
 	 * back to.
 	 */
 	int sock;
+
+	vrf_id_t vrf_id;
 
 	uint32_t unique;
 
@@ -87,6 +91,13 @@ struct zebra_pbr_ipset_entry {
 	struct prefix src;
 	struct prefix dst;
 
+	uint16_t src_port_min;
+	uint16_t src_port_max;
+	uint16_t dst_port_min;
+	uint16_t dst_port_max;
+
+	uint8_t proto;
+
 	uint32_t filter_bm;
 
 	struct zebra_pbr_ipset *backpointer;
@@ -104,6 +115,8 @@ struct zebra_pbr_iptable {
 	 */
 	int sock;
 
+	vrf_id_t vrf_id;
+
 	uint32_t unique;
 
 	/* include ipset type
@@ -117,6 +130,10 @@ struct zebra_pbr_iptable {
 	uint32_t fwmark;
 
 	uint32_t action;
+
+	uint32_t nb_interface;
+
+	struct list *interface_name_list;
 
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
@@ -204,4 +221,31 @@ extern uint32_t zebra_pbr_iptable_hash_key(void *arg);
 extern int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
 
 extern void zebra_pbr_init(void);
+extern void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname);
+extern void zebra_pbr_show_iptable(struct vty *vty);
+extern void zebra_pbr_iptable_update_interfacelist(struct stream *s,
+				   struct zebra_pbr_iptable *zpi);
+
+DECLARE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat, (struct zebra_ns *zns,
+				    struct zebra_pbr_ipset_entry *ipset,
+				    uint64_t *pkts, uint64_t *bytes),
+				     (zns, ipset, pkts, bytes))
+DECLARE_HOOK(zebra_pbr_iptable_wrap_script_get_stat, (struct zebra_ns *zns,
+				    struct zebra_pbr_iptable *iptable,
+				    uint64_t *pkts, uint64_t *bytes),
+				     (zns, iptable, pkts, bytes))
+DECLARE_HOOK(zebra_pbr_iptable_wrap_script_update, (struct zebra_ns *zns,
+					     int cmd,
+					     struct zebra_pbr_iptable *iptable),
+					     (zns, cmd, iptable));
+
+DECLARE_HOOK(zebra_pbr_ipset_entry_wrap_script_update, (struct zebra_ns *zns,
+				  int cmd,
+				  struct zebra_pbr_ipset_entry *ipset),
+				     (zns, cmd, ipset));
+DECLARE_HOOK(zebra_pbr_ipset_wrap_script_update, (struct zebra_ns *zns,
+				  int cmd,
+				  struct zebra_pbr_ipset *ipset),
+				     (zns, cmd, ipset));
+
 #endif /* _ZEBRA_PBR_H */
