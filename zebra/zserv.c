@@ -167,7 +167,8 @@ static void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_close(struct zserv *client)
 {
-	atomic_store_explicit(&client->dead, true, memory_order_seq_cst);
+	atomic_store_explicit(&client->pthread->running, false,
+			      memory_order_seq_cst);
 	THREAD_OFF(client->t_read);
 	THREAD_OFF(client->t_write);
 	zserv_event(client, ZSERV_HANDLE_CLOSE);
@@ -200,9 +201,6 @@ static int zserv_write(struct thread *thread)
 	uint32_t wcmd;
 	struct stream_fifo *cache;
 
-	if (atomic_load_explicit(&client->dead, memory_order_seq_cst))
-		return 0;
-
 	/* If we have any data pending, try to flush it first */
 	switch (buffer_flush_all(client->wb, client->sock)) {
 	case BUFFER_ERROR:
@@ -221,7 +219,7 @@ static int zserv_write(struct thread *thread)
 
 	pthread_mutex_lock(&client->obuf_mtx);
 	{
-		while (client->obuf_fifo->head)
+		while (stream_fifo_head(client->obuf_fifo))
 			stream_fifo_push(cache,
 					 stream_fifo_pop(client->obuf_fifo));
 	}
@@ -251,7 +249,6 @@ static int zserv_write(struct thread *thread)
 				      memory_order_relaxed);
 		zserv_client_event(client, ZSERV_CLIENT_WRITE);
 		return 0;
-		break;
 	case BUFFER_EMPTY:
 		break;
 	}
@@ -303,9 +300,6 @@ static int zserv_read(struct thread *thread)
 
 	uint32_t p2p;
 	struct zmsghdr hdr;
-
-	if (atomic_load_explicit(&client->dead, memory_order_seq_cst))
-		return 0;
 
 	p2p_orig = atomic_load_explicit(&zebrad.packets_to_process,
 					memory_order_relaxed);
@@ -449,9 +443,6 @@ zread_fail:
 static void zserv_client_event(struct zserv *client,
 			       enum zserv_client_event event)
 {
-	if (atomic_load_explicit(&client->dead, memory_order_seq_cst))
-		return;
-
 	switch (event) {
 	case ZSERV_CLIENT_READ:
 		thread_add_read(client->pthread->master, zserv_read, client,
