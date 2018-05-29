@@ -52,7 +52,10 @@ static inline void mt_count_free(struct memtype *mt)
 static inline void *mt_checkalloc(struct memtype *mt, void *ptr, size_t size)
 {
 	if (__builtin_expect(ptr == NULL, 0)) {
-		memory_oom(size, mt->name);
+		if (size) {
+			/* malloc(0) is allowed to return NULL */
+			memory_oom(size, mt->name);
+		}
 		return NULL;
 	}
 	mt_count_alloc(mt, size);
