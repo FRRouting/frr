@@ -164,6 +164,16 @@ void vector_remove(vector v, unsigned int ix)
 	v->index[v->active] = NULL;
 }
 
+void vector_compact(vector v)
+{
+	for (unsigned int i = 0; i < vector_active(v); ++i) {
+		if (vector_slot(v, i) == NULL) {
+			vector_remove(v, i);
+			--i;
+		}
+	}
+}
+
 void vector_unset_value(vector v, void *val)
 {
 	size_t i;

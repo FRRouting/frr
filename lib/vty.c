@@ -188,6 +188,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 		vector lines = frrstr_split_vec(buf, "\n");
 
 		frrstr_filter_vec(lines, &vty->include);
+		vector_compact(lines);
 
 		/*
 		 * Consider the string "foo\n". If the regex is an empty string
