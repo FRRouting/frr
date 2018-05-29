@@ -241,7 +241,6 @@ static int bgp_interface_delete(int command, struct zclient *zclient,
 
 	bgp_update_interface_nbrs(bgp, ifp, NULL);
 
-	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;
 }
 
