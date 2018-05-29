@@ -190,7 +190,7 @@ int static_vrf_has_config(struct static_vrf *svrf)
 void static_vrf_init(void)
 {
 	vrf_init(static_vrf_new, static_vrf_enable,
-		 static_vrf_disable, static_vrf_delete);
+		 static_vrf_disable, static_vrf_delete, NULL);
 
 	vrf_cmd_init(static_vrf_config_write, &static_privs);
 }

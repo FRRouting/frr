@@ -71,6 +71,7 @@ struct vrf_master {
 	int (*vrf_delete_hook)(struct vrf *);
 	int (*vrf_enable_hook)(struct vrf *);
 	int (*vrf_disable_hook)(struct vrf *);
+	int (*vrf_update_name_hook)(struct vrf *vrf);
 } vrf_master = {
 	0,
 };
@@ -461,7 +462,8 @@ static const struct cmd_variable_handler vrf_var_handlers[] = {
 
 /* Initialize VRF module. */
 void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
-	      int (*disable)(struct vrf *), int (*delete)(struct vrf *))
+	      int (*disable)(struct vrf *), int (*delete)(struct vrf *),
+	      int ((*update)(struct vrf *)))
 {
 	struct vrf *default_vrf;
 
@@ -475,6 +477,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	vrf_master.vrf_enable_hook = enable;
 	vrf_master.vrf_disable_hook = disable;
 	vrf_master.vrf_delete_hook = delete;
+	vrf_master.vrf_update_name_hook = update;
 
 	/* The default VRF always exists. */
 	default_vrf = vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME);
@@ -897,6 +900,8 @@ void vrf_set_default_name(const char *default_name)
 			vrf_default_name, NS_NAMSIZ);
 		strlcpy(def_vrf->name, vrf_default_name, sizeof(def_vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, def_vrf);
+		if (vrf_master.vrf_update_name_hook)
+			(*vrf_master.vrf_update_name_hook)(def_vrf);
 	}
 }
 

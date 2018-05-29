@@ -199,8 +199,10 @@ extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
  * delete -> Called back when a vrf is being deleted from
  *           the system ( 2 and 3 ) above.
  */
-extern void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
-		     int (*disable)(struct vrf *), int (*delete)(struct vrf *));
+extern void vrf_init(int (*create)(struct vrf *vrf), int (*enable)(struct vrf *vrf),
+		     int (*disable)(struct vrf *vrf), int (*delete)(struct vrf *vrf),
+		     int ((*update)(struct vrf *vrf)));
+
 /*
  * Call vrf_terminate when the protocol is being shutdown
  */

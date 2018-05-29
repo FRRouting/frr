@@ -196,7 +196,8 @@ static int pim_vrf_config_write(struct vty *vty)
 
 void pim_vrf_init(void)
 {
-	vrf_init(pim_vrf_new, pim_vrf_enable, pim_vrf_disable, pim_vrf_delete);
+	vrf_init(pim_vrf_new, pim_vrf_enable, pim_vrf_disable,
+		 pim_vrf_delete, NULL);
 
 	vrf_cmd_init(pim_vrf_config_write, &pimd_privs);
 }
