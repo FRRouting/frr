@@ -119,8 +119,8 @@ bool vty_set_include(struct vty *vty, const char *regexp)
 	bool ret = true;
 	char errbuf[256];
 
-	if (!regexp) {
-		memset(&vty->include, 0x00, sizeof(vty->include));
+	if (!regexp && vty->filter) {
+		regfree(&vty->include);
 		vty->filter = false;
 		return true;
 	}
@@ -188,8 +188,26 @@ int vty_out(struct vty *vty, const char *format, ...)
 		vector lines = frrstr_split_vec(buf, "\n");
 
 		frrstr_filter_vec(lines, &vty->include);
-		if (buf[strlen(buf) - 1] == '\n' && vector_active(lines) > 0)
+
+		/*
+		 * Consider the string "foo\n". If the regex is an empty string
+		 * and the line ended with a newline, then the vector will look
+		 * like:
+		 *
+		 * [0]: 'foo'
+		 * [1]: ''
+		 *
+		 * If the regex isn't empty, the vector will look like:
+		 *
+		 * [0]: 'foo'
+		 *
+		 * In this case we'd like to preserve the newline, so we add
+		 * the empty string [1] as in the first example.
+		 */
+		if (buf[strlen(buf) - 1] == '\n' && vector_active(lines) > 0
+		    && strlen(vector_slot(lines, vector_active(lines) - 1)))
 			vector_set(lines, XSTRDUP(MTYPE_TMP, ""));
+
 		filtered = frrstr_join_vec(lines, "\n");
 		frrstr_strvec_free(lines);
 	} else {

@@ -58,6 +58,9 @@ vector frrstr_split_vec(const char *string, const char *delimiter)
 	char **result;
 	int argc;
 
+	if (!string)
+		return NULL;
+
 	frrstr_split(string, delimiter, &result, &argc);
 
 	vector v = array_to_vector((void **)result, argc);
@@ -89,7 +92,7 @@ char *frrstr_join(const char **parts, int argc, const char *join)
 
 		memcpy(p, parts[i], arglen);
 		p += arglen;
-		if (i + 1 != argc) {
+		if (i + 1 != argc && join) {
 			memcpy(p, join, joinlen);
 			p += joinlen;
 		}

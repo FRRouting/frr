@@ -1198,16 +1198,22 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 	if (strmatch(token, "include")) {
 		/* the remaining text should be a regexp */
 		char *regexp = working;
+
+		if (!regexp) {
+			vty_out(vty, "%% Need a regexp to filter with\n");
+			goto fail;
+		}
+
 		bool succ = vty_set_include(vty, regexp);
 
 		if (!succ) {
-			vty_out(vty, "%% Bad regexp '%s'", regexp);
+			vty_out(vty, "%% Bad regexp '%s'\n", regexp);
 			goto fail;
 		}
 		*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
 		*(strstr(*cmd_out, "|")) = '\0';
 	} else {
-		vty_out(vty, "%% Unknown action '%s'", token);
+		vty_out(vty, "%% Unknown action '%s'\n", token);
 		goto fail;
 	}
 
@@ -2891,6 +2897,9 @@ void cmd_init(int terminal)
 void cmd_terminate()
 {
 	struct cmd_node *cmd_node;
+
+	hook_unregister(cmd_execute, handle_pipe_action);
+	hook_unregister(cmd_execute_done, handle_pipe_action_done);
 
 	if (cmdvec) {
 		for (unsigned int i = 0; i < vector_active(cmdvec); i++)

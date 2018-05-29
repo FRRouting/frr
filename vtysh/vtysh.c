@@ -70,6 +70,9 @@ static FILE *vty_open_pager(struct vty *vty)
 	if (vty->is_paged)
 		return vty->of;
 
+	if (!vtysh_pager_name)
+		return NULL;
+
 	vty->of_saved = vty->of;
 	vty->of = popen(vtysh_pager_name, "w");
 	if (vty->of == NULL) {
