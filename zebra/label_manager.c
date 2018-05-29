@@ -99,7 +99,7 @@ static int relay_response_back(void)
 	proto_str = zebra_route_string(proto);
 
 	/* lookup the client to relay the msg to */
-	zserv = zebra_find_client(proto, instance);
+	zserv = zserv_find_client(proto, instance);
 	if (!zserv) {
 		zlog_err(
 			"Error relaying LM response: can't find client %s, instance %u",
