@@ -2132,7 +2132,7 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_ROUTER_INFO,
 		   &tlvs->mt_router_info, &rv->mt_router_info);
 
-	tlvs->mt_router_info_empty = rv->mt_router_info_empty;
+	rv->mt_router_info_empty = tlvs->mt_router_info_empty;
 
 	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_OLDSTYLE_REACH,
 		   &tlvs->oldstyle_reach, &rv->oldstyle_reach);
