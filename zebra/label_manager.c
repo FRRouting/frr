@@ -50,7 +50,6 @@ DEFINE_MTYPE_STATIC(LBL_MGR, LM_CHUNK, "Label Manager Chunk");
  * it will be a proxy to relay messages to external label manager
  * This zclient thus is to connect to it
  */
-static struct stream *ibuf;
 static struct stream *obuf;
 static struct zclient *zclient;
 bool lm_is_external;
@@ -60,7 +59,7 @@ static void delete_label_chunk(void *val)
 	XFREE(MTYPE_LM_CHUNK, val);
 }
 
-static int relay_response_back(struct zserv *zserv)
+static int relay_response_back(void)
 {
 	int ret = 0;
 	struct stream *src, *dst;
@@ -69,49 +68,72 @@ static int relay_response_back(struct zserv *zserv)
 	uint8_t version;
 	vrf_id_t vrf_id;
 	uint16_t resp_cmd;
+	uint8_t proto;
+	const char *proto_str;
+	unsigned short instance;
+	struct zserv *zserv;
 
+	/* input buffer with msg from label manager */
 	src = zclient->ibuf;
-	dst = obuf;
 
 	stream_reset(src);
 
+	/* parse header */
 	ret = zclient_read_header(src, zclient->sock, &size, &marker, &version,
 				  &vrf_id, &resp_cmd);
 	if (ret < 0 && errno != EAGAIN) {
-		zlog_err("%s: Error reading Label Manager response: %s",
-			 __func__, strerror(errno));
+		zlog_err("Error reading Label Manager response: %s",
+			 strerror(errno));
 		return -1;
 	}
-	zlog_debug("%s: Label Manager response received, %d bytes", __func__,
-		   size);
+	zlog_debug("Label Manager response received, %d bytes", size);
 	if (size == 0)
 		return -1;
 
-	/* send response back */
-	stream_copy(dst, src);
-	ret = writen(zserv->sock, src->data, stream_get_endp(src));
-	if (ret <= 0) {
-		zlog_err("%s: Error sending Label Manager response back: %s",
-			 __func__, strerror(errno));
+	/* Get the 'proto' field of the message */
+	proto = stream_getc(src);
+
+	/* Get the 'instance' field of the message */
+	instance = stream_getw(src);
+
+	proto_str = zebra_route_string(proto);
+
+	/* lookup the client to relay the msg to */
+	zserv = zebra_find_client(proto, instance);
+	if (!zserv) {
+		zlog_err(
+			"Error relaying LM response: can't find client %s, instance %u",
+			proto_str, instance);
 		return -1;
 	}
-	zlog_debug("%s: Label Manager response (%d bytes) sent back", __func__,
-		   ret);
+	zlog_debug("Found client to relay LM response to client %s instance %u",
+		   proto_str, instance);
+
+	/* copy msg into output buffer */
+	dst = obuf;
+	stream_copy(dst, src);
+
+	/* send response back */
+	ret = writen(zserv->sock, dst->data, stream_get_endp(dst));
+	if (ret <= 0) {
+		zlog_err("Error relaying LM response to %s instance %u: %s",
+			 proto_str, instance, strerror(errno));
+		return -1;
+	}
+	zlog_debug("Relayed LM response (%d bytes) to %s instance %u", ret,
+		   proto_str, instance);
 
 	return 0;
 }
 
 static int lm_zclient_read(struct thread *t)
 {
-	struct zserv *zserv;
 	int ret;
 
-	/* Get socket to zebra. */
-	zserv = THREAD_ARG(t);
 	zclient->t_read = NULL;
 
 	/* read response and send it back */
-	ret = relay_response_back(zserv);
+	ret = relay_response_back();
 
 	return ret;
 }
@@ -125,6 +147,10 @@ static int reply_error(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
 
 	zclient_create_header(s, cmd, vrf_id);
 
+	/* proto */
+	stream_putc(s, zserv->proto);
+	/* instance */
+	stream_putw(s, zserv->instance);
 	/* result */
 	stream_putc(s, 1);
 
@@ -148,38 +174,73 @@ static int reply_error(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
  * @return 0 on success, -1 otherwise
  */
 int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
-				      vrf_id_t vrf_id)
+				      struct stream *msg, vrf_id_t vrf_id)
 {
-	struct stream *src, *dst;
+	struct stream *dst;
 	int ret = 0;
+	uint8_t proto;
+	const char *proto_str;
+	unsigned short instance;
 
 	if (zclient->sock < 0) {
-		zlog_err(
-			"%s: Error relaying label chunk request: no zclient socket",
-			__func__);
+		zlog_err("Unable to relay LM request: no socket");
 		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}
+
+	/* peek msg to get proto and instance id. This zebra, which acts as
+	 * a proxy needs to have such values for each client in order to
+	 * relay responses back to it.
+	 */
+
+	/* Get the 'proto' field of incoming msg */
+	proto = stream_getc(msg);
+
+	/* Get the 'instance' field of incoming msg */
+	instance = stream_getw(msg);
+
+	/* stringify proto */
+	proto_str = zebra_route_string(proto);
+
+	/* check & set client proto if unset */
+	if (zserv->proto && zserv->proto != proto) {
+		zlog_warn("Client proto(%u) != msg proto(%u)", zserv->proto,
+			  proto);
+		return -1;
+	}
+
+	/* check & set client instance if unset */
+	if (zserv->instance && zserv->instance != instance) {
+		zlog_err("Client instance(%u) != msg instance(%u)",
+			 zserv->instance, instance);
+		return -1;
+	}
+
+	/* recall proto and instance */
+	zserv->instance = instance;
+	zserv->proto = proto;
 
 	/* in case there's any incoming message enqueued, read and forward it */
 	while (ret == 0)
-		ret = relay_response_back(zserv);
+		ret = relay_response_back();
 
-	/* Send request to external label manager */
-	src = ibuf;
+	/* get the msg buffer used toward the 'master' Label Manager */
 	dst = zclient->obuf;
 
-	stream_copy(dst, src);
+	/* copy the message */
+	stream_copy(dst, msg);
 
+	/* Send request to external label manager */
 	ret = writen(zclient->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
-		zlog_err("%s: Error relaying label chunk request: %s", __func__,
-			 strerror(errno));
+		zlog_err("Error relaying LM request from %s instance %u: %s",
+			 proto_str, instance, strerror(errno));
 		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}
-	zlog_debug("%s: Label chunk request relayed. %d bytes sent", __func__,
-		   ret);
+	zlog_debug("Relayed LM request (%d bytes) from %s instance %u", ret,
+		   proto_str, instance);
+
 
 	/* Release label chunk has no response */
 	if (cmd == ZEBRA_RELEASE_LABEL_CHUNK)
@@ -187,7 +248,7 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 
 	/* make sure we listen to the response */
 	if (!zclient->t_read)
-		thread_add_read(zclient->master, lm_zclient_read, zserv,
+		thread_add_read(zclient->master, lm_zclient_read, NULL,
 				zclient->sock, &zclient->t_read);
 
 	return 0;
@@ -276,7 +337,7 @@ void label_manager_init(char *lm_zserv_path)
 {
 	/* this is an actual label manager */
 	if (!lm_zserv_path) {
-		zlog_debug("Initializing own label manager");
+		zlog_debug("Initializing internal label manager");
 		lm_is_external = false;
 		lbl_mgr.lc_list = list_new();
 		lbl_mgr.lc_list->del = delete_label_chunk;
@@ -287,7 +348,6 @@ void label_manager_init(char *lm_zserv_path)
 		lm_zclient_init(lm_zserv_path);
 	}
 
-	ibuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	obuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	hook_register(zapi_client_close, release_daemon_label_chunks);
@@ -393,6 +453,5 @@ int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 void label_manager_close()
 {
 	list_delete_and_null(&lbl_mgr.lc_list);
-	stream_free(ibuf);
 	stream_free(obuf);
 }

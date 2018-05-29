@@ -64,7 +64,7 @@ struct label_manager {
 bool lm_is_external;
 
 int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
-				      vrf_id_t vrf_id);
+				      struct stream *msg, vrf_id_t vrf_id);
 void label_manager_init(char *lm_zserv_path);
 struct label_manager_chunk *assign_label_chunk(uint8_t proto,
 					       unsigned short instance,
