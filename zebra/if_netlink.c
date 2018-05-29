@@ -1042,67 +1042,6 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
-/* helper function called by if_netlink_change
- * to delete interfaces in case the interface moved
- * to an other netns
- */
-static void if_netlink_check_ifp_instance_consistency(uint16_t cmd,
-						     struct interface *ifp,
-						     ns_id_t ns_id)
-{
-	struct interface *other_ifp;
-
-	/*
-	 * look if interface name is also found on other netns
-	 * - only if vrf backend is netns
-	 * - do not concern lo interface
-	 * - then remove previous one
-	 * - for new link case, check found interface is not active
-	 */
-	if (!vrf_is_backend_netns() ||
-	    !strcmp(ifp->name, "lo"))
-		return;
-	other_ifp = if_lookup_by_name_not_ns(ns_id, ifp->name);
-	if (!other_ifp)
-		return;
-	/* because previous interface may be inactive,
-	 * interface is moved back to default vrf
-	 * then one may find the same pointer; ignore
-	 */
-	if (other_ifp == ifp)
-		return;
-	if ((cmd == RTM_NEWLINK)
-	    && (CHECK_FLAG(other_ifp->status, ZEBRA_INTERFACE_ACTIVE)))
-		return;
-	if (IS_ZEBRA_DEBUG_KERNEL && cmd == RTM_NEWLINK) {
-		zlog_debug("RTM_NEWLINK %s(%u, VRF %u) replaces %s(%u, VRF %u)\n",
-			   ifp->name,
-			   ifp->ifindex,
-			   ifp->vrf_id,
-			   other_ifp->name,
-			   other_ifp->ifindex,
-			   other_ifp->vrf_id);
-	} else	if (IS_ZEBRA_DEBUG_KERNEL && cmd == RTM_DELLINK) {
-		zlog_debug("RTM_DELLINK %s(%u, VRF %u) is replaced by %s(%u, VRF %u)\n",
-			   ifp->name,
-			   ifp->ifindex,
-			   ifp->vrf_id,
-			   other_ifp->name,
-			   other_ifp->ifindex,
-			   other_ifp->vrf_id);
-	}
-	/* the found interface replaces the current one
-	 * remove it
-	 */
-	if (cmd == RTM_DELLINK)
-		if_delete(ifp);
-	else
-		if_delete(other_ifp);
-	/* the found interface is replaced by the current one
-	 * suppress it
-	 */
-}
-
 int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	int len;
@@ -1276,8 +1215,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 				zebra_l2if_update_bridge_slave(ifp,
 							       bridge_ifindex);
-			if_netlink_check_ifp_instance_consistency(RTM_NEWLINK,
-								  ifp, ns_id);
 		} else if (ifp->vrf_id != vrf_id) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1351,8 +1288,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) || was_bridge_slave)
 				zebra_l2if_update_bridge_slave(ifp,
 							       bridge_ifindex);
-			if_netlink_check_ifp_instance_consistency(RTM_NEWLINK,
-								  ifp, ns_id);
 		}
 	} else {
 		/* Delete interface notification from kernel */
@@ -1376,8 +1311,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		if (!IS_ZEBRA_IF_VRF(ifp))
 			if_delete_update(ifp);
-		if_netlink_check_ifp_instance_consistency(RTM_DELLINK,
-							  ifp, ns_id);
 	}
 
 	return 0;

@@ -371,37 +371,47 @@ struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
    one. */
 struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 {
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 
-	ifp = if_lookup_by_name(name, vrf_id);
-	if (ifp)
-		return ifp;
-	/* Not Found on same VRF. If the interface command
-	 * was entered in vty without a VRF (passed as VRF_DEFAULT),
-	 * accept the ifp we found. If a vrf was entered and there is
-	 * a mismatch, reject it if from vty.
-	 */
-	ifp = if_lookup_by_name_all_vrf(name);
-	if (!ifp)
-		return if_create(name, vrf_id);
-	if (vty) {
-		if (vrf_id == VRF_DEFAULT)
+	if (vrf_is_mapped_on_netns(vrf_lookup_by_id(vrf_id))) {
+		ifp = if_lookup_by_name(name, vrf_id);
+		if (ifp)
 			return ifp;
-		return NULL;
-	}
-	/* if vrf backend uses NETNS, then
-	 * this should not be considered as an update
-	 * then create the new interface
-	 */
-	if (ifp->vrf_id != vrf_id && vrf_is_mapped_on_netns(
-					vrf_lookup_by_id(vrf_id)))
+		if (vty) {
+			/* If the interface command was entered in vty without a
+			 * VRF (passed as VRF_DEFAULT), search an interface with
+			 * this name in all VRs
+			 */
+			if (vrf_id == VRF_DEFAULT)
+				return if_lookup_by_name_all_vrf(name);
+			return NULL;
+		}
 		return if_create(name, vrf_id);
-	/* If it came from the kernel
-	 * or by way of zclient, believe it and update
-	 * the ifp accordingly.
-	 */
-	if_update_to_new_vrf(ifp, vrf_id);
-	return ifp;
+	} else {
+		ifp = if_lookup_by_name_all_vrf(name);
+		if (ifp) {
+			if (ifp->vrf_id == vrf_id)
+				return ifp;
+			/* Found a match on a different VRF. If the interface
+			 * command was entered in vty without a VRF (passed as
+			 * VRF_DEFAULT), accept the ifp we found. If a vrf was
+			 * entered and there is a mismatch, reject it if from
+			 * vty. If it came from the kernel or by way of zclient,
+			 * believe it and update the ifp accordingly.
+			 */
+			if (vty) {
+				if (vrf_id == VRF_DEFAULT)
+					return ifp;
+				return NULL;
+			}
+			/* If it came from the kernel or by way of zclient,
+			 * believe it and update the ifp accordingly.
+			 */
+			if_update_to_new_vrf(ifp, vrf_id);
+			return ifp;
+		}
+		return if_create(name, vrf_id);
+	}
 }
 
 void if_set_index(struct interface *ifp, ifindex_t ifindex)
