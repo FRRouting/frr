@@ -1547,6 +1547,15 @@ BPGD supports multiple VRF instances via the *router bgp* command:
 VRFNAME is matched against VRFs configured in the kernel. When no *vrf VRFNAME*
 is specified, the BGP protocol process belongs to the default VRF.
 
+With VRF, you can isolate networking information. Having BGP VRF allows you to
+have several BGP instances on the same system process. This solution solves
+scalabiliy issues where the network administrator had previously to run separately
+several BGP processes on each namespace. Now, not only BGP VRF solves this, but
+also this method applies to both kind of VRFs backend: default VRF from Linux kernel
+or network namespaces. Also, having separate BGP instances does not imply that the
+AS number has to be different. For internal purposes, it is possible to do iBGP
+peering from two differents network namespaces.
+
 BGP routes may be leaked (i.e., copied) between a unicast VRF RIB and the VPN
 safi RIB of the default VRF (leaking is also permitted between the unicast RIB
 of the default VRF and VPN).  A shortcut syntax is also available for
