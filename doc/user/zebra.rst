@@ -50,6 +50,26 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
 .. _interface-commands:
 
+Configuration Addresses behaviour
+=================================
+
+At startup, *Zebra* will first discover the underlying networking objects
+from the operating system. This includes interfaces, addresses of
+interfaces, static routes, etc. Then, it will read the configuration
+file, including its own interface addresses, static routes, etc. All this
+information comprises the operational context from *Zebra*. But
+configuration context from *Zebra* will remain the same as the one from
+:file:`zebra.conf` config file. As an example, executing the following
+:clicmd:`show running-config` will reflect what was in :file:`zebra.conf`.
+In a similar way, networking objects that are configured outside of the
+*Zebra* like *iproute2* will not impact the configuration context from
+*Zebra*. This behaviour permits you to continue saving your own config
+file, and decide what is really to be pushed on the config file, and what
+is dependent on the underlying system.
+Note that inversely, from *Zebra*, you will not be able to delete networking
+objects that were previously configured outside of *Zebra*.
+
+
 Interface Commands
 ==================
 
