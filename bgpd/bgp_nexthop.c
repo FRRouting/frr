@@ -327,35 +327,21 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 {
 	struct prefix p;
 	struct prefix *addr;
-	struct bgp_node *rn;
+	struct bgp_node *rn = NULL;
 	struct bgp_connected_ref *bc;
 
 	addr = ifc->address;
 
 	p = *(CONNECTED_PREFIX(ifc));
+	apply_mask(&p);
 	if (addr->family == AF_INET) {
-		apply_mask_ipv4((struct prefix_ipv4 *)&p);
-
 		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 			return;
 
 		bgp_address_del(bgp, addr);
 
 		rn = bgp_node_lookup(bgp->connected_table[AFI_IP], &p);
-		if (!rn)
-			return;
-
-		bc = rn->info;
-		bc->refcnt--;
-		if (bc->refcnt == 0) {
-			XFREE(MTYPE_BGP_CONN, bc);
-			rn->info = NULL;
-		}
-		bgp_unlock_node(rn);
-		bgp_unlock_node(rn);
 	} else if (addr->family == AF_INET6) {
-		apply_mask_ipv6((struct prefix_ipv6 *)&p);
-
 		if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
 			return;
 
@@ -364,18 +350,19 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 
 		rn = bgp_node_lookup(bgp->connected_table[AFI_IP6],
 				     (struct prefix *)&p);
-		if (!rn)
-			return;
-
-		bc = rn->info;
-		bc->refcnt--;
-		if (bc->refcnt == 0) {
-			XFREE(MTYPE_BGP_CONN, bc);
-			rn->info = NULL;
-		}
-		bgp_unlock_node(rn);
-		bgp_unlock_node(rn);
 	}
+
+	if (!rn)
+		return;
+
+	bc = rn->info;
+	bc->refcnt--;
+	if (bc->refcnt == 0) {
+		XFREE(MTYPE_BGP_CONN, bc);
+		rn->info = NULL;
+	}
+	bgp_unlock_node(rn);
+	bgp_unlock_node(rn);
 }
 
 int bgp_nexthop_self(struct bgp *bgp, struct in_addr nh_addr)
