@@ -365,6 +365,22 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 	bgp_unlock_node(rn);
 }
 
+static void bgp_connected_cleanup(struct route_table *table,
+				  struct route_node *rn)
+{
+	struct bgp_connected_ref *bc;
+
+	bc = rn->info;
+	if (!bc)
+		return;
+
+	bc->refcnt--;
+	if (bc->refcnt == 0) {
+		XFREE(MTYPE_BGP_CONN, bc);
+		rn->info = NULL;
+	}
+}
+
 int bgp_nexthop_self(struct bgp *bgp, struct in_addr nh_addr)
 {
 	struct bgp_addr tmp, *addr;
@@ -650,6 +666,8 @@ void bgp_scan_finish(struct bgp *bgp)
 		bgp_table_unlock(bgp->nexthop_cache_table[afi]);
 		bgp->nexthop_cache_table[afi] = NULL;
 
+		bgp->connected_table[afi]->route_table->cleanup =
+			bgp_connected_cleanup;
 		bgp_table_unlock(bgp->connected_table[afi]);
 		bgp->connected_table[afi] = NULL;
 
