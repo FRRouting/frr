@@ -2855,6 +2855,18 @@ static int bgp_startup_timer_expire(struct thread *thread)
 	return 0;
 }
 
+/*
+ * On shutdown we call the cleanup function which
+ * does a free of the link list nodes,  free up
+ * the data we are pointing at too.
+ */
+static void bgp_vrf_string_name_delete(void *data)
+{
+	char *vname = data;
+
+	XFREE(MTYPE_TMP, vname);
+}
+
 /* BGP instance creation by `router bgp' commands. */
 static struct bgp *bgp_create(as_t *as, const char *name,
 			      enum bgp_instance_type inst_type)
@@ -2965,7 +2977,11 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			MPLS_LABEL_NONE;
 
 		bgp->vpn_policy[afi].import_vrf = list_new();
+		bgp->vpn_policy[afi].import_vrf->del =
+			bgp_vrf_string_name_delete;
 		bgp->vpn_policy[afi].export_vrf = list_new();
+		bgp->vpn_policy[afi].export_vrf->del =
+			bgp_vrf_string_name_delete;
 	}
 	if (name) {
 		bgp->name = XSTRDUP(MTYPE_BGP, name);
@@ -3387,17 +3403,6 @@ void bgp_free(struct bgp *bgp)
 		rmap = &bgp->table_map[afi][safi];
 		if (rmap->name)
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
-
-		/*
-		 * Yes this is per AFI, but
-		 * the list_delete_and_null nulls the pointer
-		 * and we'll not leak anything on going down
-		 * and the if test will fail on the second safi.
-		 */
-		if (bgp->vpn_policy[afi].import_vrf)
-			list_delete_and_null(&bgp->vpn_policy[afi].import_vrf);
-		if (bgp->vpn_policy[afi].export_vrf)
-			list_delete_and_null(&bgp->vpn_policy[afi].export_vrf);
 	}
 
 	bgp_scan_finish(bgp);
@@ -3409,6 +3414,23 @@ void bgp_free(struct bgp *bgp)
 
 	bgp_evpn_cleanup(bgp);
 	bgp_pbr_cleanup(bgp);
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		vpn_policy_direction_t dir;
+
+		if (bgp->vpn_policy[afi].import_vrf)
+			list_delete_and_null(&bgp->vpn_policy[afi].import_vrf);
+		if (bgp->vpn_policy[afi].export_vrf)
+			list_delete_and_null(&bgp->vpn_policy[afi].export_vrf);
+
+		dir = BGP_VPN_POLICY_DIR_FROMVPN;
+		if (bgp->vpn_policy[afi].rtlist[dir])
+			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
+		dir = BGP_VPN_POLICY_DIR_TOVPN;
+		if (bgp->vpn_policy[afi].rtlist[dir])
+			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
+	}
+
 	if (bgp->name)
 		XFREE(MTYPE_BGP, bgp->name);
 	if (bgp->name_pretty)
