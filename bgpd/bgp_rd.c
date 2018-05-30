@@ -210,5 +210,5 @@ void form_auto_rd(struct in_addr router_id,
 	prd->family = AF_UNSPEC;
 	prd->prefixlen = 64;
 	sprintf(buf, "%s:%hu", inet_ntoa(router_id), rd_id);
-	str2prefix_rd(buf, prd);
+	(void)str2prefix_rd(buf, prd);
 }
