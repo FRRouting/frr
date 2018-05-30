@@ -464,8 +464,9 @@ commands in relationship to VRF. Here is an extract of some of those commands:
 
    This command is available on configuration mode. By default, above command
    permits accessing the vrf configuration mode. This mode is available for
-   both VRFs. It is to be noted that *Zebra* does not create *Linux VRF*.
-   Provisioning this command is used to keep the configuration intact.
+   both VRFs. It is to be noted that *Zebra* does not create Linux VRF.
+   The network administrator can however decide to provision this command in
+   configuration file to provide more clarity about the intended configuration.
 
 .. index:: netns NAMESPACE
 .. clicmd:: netns NAMESPACE
@@ -474,8 +475,9 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    when *Zebra* is run in :option:`-n` mode. This command reflects which *Linux
    network namespace* is to be mapped with *Zebra* VRF. It is to be noted that
    *Zebra* creates and detects added/suppressed VRFs from the Linux environment
-   (in fact, those managed with iproute2). Provisioning this command is used to
-   keep the configuration intact.
+   (in fact, those managed with iproute2). The network administrator can however
+   decide to provision this command in configuration file to provide more clarity
+   about the intended configuration.
 
 .. index:: ip route NETWORK NETMASK GATEWAY NEXTHOPVRF
 .. clicmd:: ip route NETWORK NETMASK GATEWAY NEXTHOPVRF
