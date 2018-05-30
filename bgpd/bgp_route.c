@@ -207,9 +207,9 @@ static void bgp_info_free(struct bgp_info *binfo)
 {
 	/* unlink reference to parent, if any. */
 	if (binfo->extra && binfo->extra->parent) {
-		bgp_info_unlock((struct bgp_info *)binfo->extra->parent);
 		bgp_unlock_node((struct bgp_node *)((struct bgp_info *)binfo
 						    ->extra->parent)->net);
+		bgp_info_unlock((struct bgp_info *)binfo->extra->parent);
 		binfo->extra->parent = NULL;
 	}
 
