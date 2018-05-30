@@ -430,6 +430,12 @@ done
 #  Config files won't get replaced by default, so we do this ugly hack to fix it
 %__sed -i 's|/etc/init.d/|%{_sbindir}/|g' %{_sysconfdir}/daemons 2> /dev/null || true
 
+# With systemd, watchfrr is mandatory. Fix config to make sure it's enabled if
+# we install or upgrade to a frr built with systemd
+%if "%{initsystem}" == "systemd"
+    %__sed -i 's|watchfrr_enable=no|watchfrr_enable=yes|g' %{_sysconfdir}/daemons 2> /dev/null || true
+%endif
+
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
 
 # Create dummy files if they don't exist so basic functions can be used.
