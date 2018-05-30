@@ -254,11 +254,6 @@ static struct pim_msdp_sa *pim_msdp_sa_new(struct pim_instance *pim,
 
 	/* insert into misc tables for easy access */
 	sa = hash_get(pim->msdp.sa_hash, sa, hash_alloc_intern);
-	if (!sa) {
-		zlog_err("%s: PIM hash get failure", __PRETTY_FUNCTION__);
-		pim_msdp_sa_free(sa);
-		return NULL;
-	}
 	listnode_add_sort(pim->msdp.sa_list, sa);
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
