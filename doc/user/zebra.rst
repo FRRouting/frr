@@ -453,29 +453,21 @@ commands in relationship to VRF. Here is an extract of some of those commands:
 .. clicmd:: vrf VRF
 
    This command is available on configuration mode. By default, above command
-   permits accessing the vrf configuration mode. This mode is available for both
-   VRFs. It is to be noted that *Zebra* does not create *Linux VRF*. Provisioning
-   this command is used to keep the configuration intact.
+   permits accessing the vrf configuration mode. This mode is available for
+   both VRFs. It is to be noted that *Zebra* does not create Linux VRF.
+   The network administrator can however decide to provision this command in
+   configuration file to provide more clarity about the intended configuration.
 
 .. index:: netns NAMESPACE
 .. clicmd:: netns NAMESPACE
 
-   This command is based on VRF configuration mode. This command is available when
-   *Zebra* is run in :option:`-n` mode. This command reflects which *Linux network
-   namespace* is to be mapped with *Zebra* VRF. It is to be noted that *Zebra*
-   creates and detects added/suppressed VRFs from the Linux environment (in fact,
-   those managed with iproute2). Provisioning this command is used to keep the
-   configuration intact.
-
-.. index:: ip route NETWORK NETMASK GATEWAY
-.. clicmd:: ip route NETWORK NETMASK GATEWAY
-
-   This command is based on VRF configuration mode or in configuration mode. If
-   applied on configuration mode, this applies to default VRF. Otherwise, this
-   command applies to the VRF of the vrf configuration mode. By default, above
-   command permits configuring a network in the table identifier of the mentioned
-   VRF. If :option:`-n` option is given, the network will be configured in the
-   default routing table of the *Linux network namespace*.
+   This command is based on VRF configuration mode. This command is available
+   when *Zebra* is run in :option:`-n` mode. This command reflects which *Linux
+   network namespace* is to be mapped with *Zebra* VRF. It is to be noted that
+   *Zebra* creates and detects added/suppressed VRFs from the Linux environment
+   (in fact, those managed with iproute2). The network administrator can however
+   decide to provision this command in configuration file to provide more clarity
+   about the intended configuration.
 
 .. index:: ip route NETWORK NETMASK GATEWAY NEXTHOPVRF
 .. clicmd:: ip route NETWORK NETMASK GATEWAY NEXTHOPVRF
