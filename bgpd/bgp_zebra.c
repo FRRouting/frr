@@ -1235,13 +1235,6 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 	tag = info->attr->tag;
 
-	/*
-	 * When we create an aggregate route we must also install a
-	 * Null0 route in the RIB
-	 */
-	if (info->sub_type == BGP_ROUTE_AGGREGATE)
-		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
-
 	/* If the route's source is EVPN, flag as such. */
 	is_evpn = is_route_parent_evpn(info);
 	if (is_evpn)
@@ -1323,7 +1316,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 					&mpinfo_cp->attr->nexthop,
 					mpinfo_cp->attr, is_evpn, api_nh);
 		} else {
-			ifindex_t ifindex;
+			ifindex_t ifindex = IFINDEX_INTERNAL;
 			struct in6_addr *nexthop;
 
 			if (bgp->table_map[afi][safi].name) {
@@ -1381,7 +1374,14 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (has_valid_label && !(CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)))
 		SET_FLAG(api.message, ZAPI_MESSAGE_LABEL);
 
-	if (info->sub_type != BGP_ROUTE_AGGREGATE)
+	/*
+	 * When we create an aggregate route we must also
+	 * install a Null0 route in the RIB, so overwrite
+	 * what was written into api with a blackhole route
+	 */
+	if (info->sub_type == BGP_ROUTE_AGGREGATE)
+		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
+	else
 		api.nexthop_num = valid_nh_count;
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
