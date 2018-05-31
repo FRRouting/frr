@@ -1088,7 +1088,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			else
 				api_nh->type = NEXTHOP_TYPE_IPV4;
 		} else {
-			ifindex_t ifindex;
+			ifindex_t ifindex = IFINDEX_INTERNAL;
 			struct in6_addr *nexthop;
 
 			ifindex = 0;
