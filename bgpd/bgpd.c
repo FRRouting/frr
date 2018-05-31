@@ -1391,6 +1391,12 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	if (!peer->conf_if)
 		return;
 
+	/*
+	 * Our peer structure is stored in the bgp->peerhash
+	 * release it before we modify anything.
+	 */
+	hash_release(peer->bgp->peerhash, peer);
+
 	prev_family = peer->su.sa.sa_family;
 	if ((ifp = if_lookup_by_name(peer->conf_if, peer->bgp->vrf_id))) {
 		peer->ifp = ifp;
@@ -1429,8 +1435,9 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 		memset(&peer->su.sin6.sin6_addr, 0, sizeof(struct in6_addr));
 	}
 
-	/* Since our su changed we need to del/add peer to the peerhash */
-	hash_release(peer->bgp->peerhash, peer);
+	/*
+	 * Since our su changed we need to del/add peer to the peerhash
+	 */
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 }
 
