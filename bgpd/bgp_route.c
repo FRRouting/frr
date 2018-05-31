@@ -2551,7 +2551,9 @@ static int bgp_maximum_prefix_restart_timer(struct thread *thread)
 			"%s Maximum-prefix restart timer expired, restore peering",
 			peer->host);
 
-	peer_clear(peer, NULL);
+	if ((peer_clear(peer, NULL) < 0) && bgp_debug_neighbor_events(peer))
+		zlog_debug("%s: %s peer_clear failed",
+			   __PRETTY_FUNCTION__, peer->host);
 
 	return 0;
 }

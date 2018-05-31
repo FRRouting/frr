@@ -240,9 +240,8 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	 * - combination src/dst => drop
 	 * - combination srcport + @IP
 	 */
-	if (api->match_icmp_type_num || api->match_icmp_type_num
-	    || api->match_packet_length_num || api->match_dscp_num
-	    || api->match_tcpflags_num) {
+	if (api->match_icmp_type_num || api->match_packet_length_num
+	    || api->match_dscp_num || api->match_tcpflags_num) {
 		if (BGP_DEBUG(pbr, PBR)) {
 			bgp_pbr_print_policy_route(api);
 			zlog_debug("BGP: some SET actions not supported by Zebra. ignoring.");
