@@ -568,6 +568,18 @@ DEFUN (no_area_lsp_mtu,
 	return isis_vty_lsp_mtu_set(vty, DEFAULT_LSP_MTU);
 }
 
+DEFUN (area_purge_originator,
+       area_purge_originator_cmd,
+       "[no] purge-originator",
+       NO_STR
+       "Use the RFC 6232 purge-originator\n")
+{
+	VTY_DECLVAR_CONTEXT(isis_area, area);
+
+	area->purge_originator = !!strcmp(argv[0]->text, "no");
+	return CMD_SUCCESS;
+}
+
 int isis_vty_lsp_gen_interval_set(struct vty *vty, int level, uint16_t interval)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
@@ -923,6 +935,8 @@ void isis_vty_init(void)
 
 	install_element(ROUTER_NODE, &area_lsp_mtu_cmd);
 	install_element(ROUTER_NODE, &no_area_lsp_mtu_cmd);
+
+	install_element(ROUTER_NODE, &area_purge_originator_cmd);
 
 	install_element(ROUTER_NODE, &lsp_gen_interval_cmd);
 	install_element(ROUTER_NODE, &no_lsp_gen_interval_cmd);

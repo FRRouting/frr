@@ -900,7 +900,8 @@ dontcheckadj:
 	 * but
 	 *            wrong checksum, initiate a purge. */
 	if (lsp && (lsp->hdr.seqno == hdr.seqno)
-	    && (lsp->hdr.checksum != hdr.checksum)) {
+	    && (lsp->hdr.checksum != hdr.checksum)
+	    && hdr.rem_lifetime) {
 		zlog_warn("ISIS-Upd (%s): LSP %s seq 0x%08" PRIx32
 			  " with confused checksum received.",
 			  circuit->area->area_tag, rawlspid_print(hdr.lsp_id),

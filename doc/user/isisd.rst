@@ -106,6 +106,14 @@ writing, *isisd* does not support multiple ISIS processes.
 
    Set overload bit to avoid any transit traffic.
 
+.. index:: purge-originator
+.. clicmd:: purge-originator
+
+.. index:: no purge-originator
+.. clicmd:: no purge-originator
+
+   Enable or disable :rfc:`6232` purge originator identification.
+
 .. _isis-timer:
 
 ISIS Timer

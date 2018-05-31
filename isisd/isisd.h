@@ -148,6 +148,7 @@ struct isis_area {
 	/* multi topology settings */
 	struct list *mt_settings;
 	int ipv6_circuits;
+	bool purge_originator;
 	/* Counters */
 	uint32_t circuit_state_changes;
 	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]

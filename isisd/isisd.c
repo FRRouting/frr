@@ -2029,6 +2029,10 @@ int isis_config_write(struct vty *vty)
 				vty_out(vty, " lsp-mtu %u\n", area->lsp_mtu);
 				write++;
 			}
+			if (area->purge_originator) {
+				vty_out(vty, " purge-originator\n");
+				write++;
+			}
 
 			/* Minimum SPF interval. */
 			if (area->min_spf_interval[0]

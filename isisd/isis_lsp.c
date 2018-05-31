@@ -353,7 +353,21 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno)
 	isis_spf_schedule(lsp->area, lsp->level);
 }
 
-static void lsp_purge(struct isis_lsp *lsp, int level)
+static void lsp_purge_add_poi(struct isis_lsp *lsp,
+			      const uint8_t *sender)
+{
+	if (!lsp->area->purge_originator)
+		return;
+
+	/* add purge originator identification */
+	if (!lsp->tlvs)
+		lsp->tlvs = isis_alloc_tlvs();
+	isis_tlvs_set_purge_originator(lsp->tlvs, isis->sysid, sender);
+	isis_tlvs_set_dynamic_hostname(lsp->tlvs, cmd_hostname_get());
+}
+
+static void lsp_purge(struct isis_lsp *lsp, int level,
+		      const uint8_t *sender)
 {
 	/* reset stream */
 	lsp_clear_data(lsp);
@@ -364,6 +378,8 @@ static void lsp_purge(struct isis_lsp *lsp, int level)
 	lsp->hdr.rem_lifetime = 0;
 	lsp->level = level;
 	lsp->age_out = lsp->area->max_lsp_lifetime[level - 1];
+
+	lsp_purge_add_poi(lsp, sender);
 
 	lsp_pack_pdu(lsp);
 	lsp_flood(lsp, NULL);
@@ -386,7 +402,7 @@ static void lsp_seqno_update(struct isis_lsp *lsp0)
 		if (lsp->tlvs)
 			lsp_inc_seqno(lsp, 0);
 		else
-			lsp_purge(lsp, lsp0->level);
+			lsp_purge(lsp, lsp0->level, NULL);
 	}
 
 	return;
@@ -426,7 +442,8 @@ static void lsp_update_data(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 
 	lsp->tlvs = tlvs;
 
-	if (area->dynhostname && lsp->tlvs->hostname) {
+	if (area->dynhostname && lsp->tlvs->hostname
+	    && lsp->hdr.rem_lifetime) {
 		isis_dynhn_insert(lsp->hdr.lsp_id, lsp->tlvs->hostname,
 				  (lsp->hdr.lsp_bits & LSPBIT_IST)
 						  == IS_LEVEL_1_AND_2
@@ -463,10 +480,10 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		lsp->own_lsp = 0;
 	}
 
-	lsp_update_data(lsp, hdr, tlvs, stream, area, level);
 	if (confusion) {
-		lsp->hdr.rem_lifetime = hdr->rem_lifetime = 0;
-		put_lsp_hdr(lsp, NULL, true);
+		lsp_purge(lsp, level, NULL);
+	} else {
+		lsp_update_data(lsp, hdr, tlvs, stream, area, level);
 	}
 
 	if (LSP_FRAGMENT(lsp->hdr.lsp_id) && !lsp->lspu.zero_lsp) {
@@ -1865,17 +1882,14 @@ int lsp_tick(struct thread *thread)
 				 */
 				if (rem_lifetime == 1 && lsp->hdr.seqno != 0) {
 					/* 7.3.16.4 a) set SRM flags on all */
-					lsp_flood(lsp, NULL);
-					/* 7.3.16.4 b) retain only the header
-					 * FIXME  */
+					/* 7.3.16.4 b) retain only the header */
+					if (lsp->area->purge_originator)
+						lsp_purge(lsp, lsp->level, NULL);
+					else
+						lsp_flood(lsp, NULL);
 					/* 7.3.16.4 c) record the time to purge
 					 * FIXME */
-					/* run/schedule spf */
-					/* isis_spf_schedule is called inside
-					 * lsp_destroy() below;
-					 * so it is not needed here. */
-					/* isis_spf_schedule (lsp->area,
-					 * lsp->level); */
+					isis_spf_schedule(lsp->area, lsp->level);
 				}
 
 				if (lsp->age_out == 0) {
@@ -1917,7 +1931,7 @@ void lsp_purge_pseudo(uint8_t *id, struct isis_circuit *circuit, int level)
 	if (!lsp)
 		return;
 
-	lsp_purge(lsp, level);
+	lsp_purge(lsp, level, NULL);
 }
 
 /*
@@ -1940,6 +1954,8 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 
 	memcpy(&lsp->hdr, hdr, sizeof(lsp->hdr));
 	lsp->hdr.rem_lifetime = 0;
+
+	lsp_purge_add_poi(lsp, NULL);
 
 	lsp_pack_pdu(lsp);
 
