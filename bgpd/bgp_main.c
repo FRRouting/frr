@@ -266,6 +266,12 @@ static int bgp_vrf_enable(struct vrf *vrf)
 
 	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp) {
+		if (bgp->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
+			XFREE(MTYPE_BGP, bgp->name);
+			bgp->name = NULL;
+			XFREE(MTYPE_BGP, bgp->name_pretty);
+			bgp->name_pretty = XSTRDUP(MTYPE_BGP, "VRF default");
+		}
 		old_vrf_id = bgp->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		bgp_vrf_link(bgp, vrf);
