@@ -1185,12 +1185,12 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 		if (info->safi == SAFI_UNICAST)
 			hook_call(rib_update, rn, "rib_uninstall");
 
-		if (!RIB_SYSTEM_ROUTE(re))
-			rib_uninstall_kernel(rn, re);
-
 		/* If labeled-unicast route, uninstall transit LSP. */
 		if (zebra_rib_labeled_unicast(re))
 			zebra_mpls_lsp_uninstall(info->zvrf, rn, re);
+
+		if (!RIB_SYSTEM_ROUTE(re))
+			rib_uninstall_kernel(rn, re);
 	}
 
 	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
@@ -1674,7 +1674,8 @@ static void rib_process(struct route_node *rn)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		zlog_debug(
-			"%u:%s: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
+			"%u:%s: After processing: old_selected %p "
+			"new_selected %p old_fib %p new_fib %p",
 			vrf_id, buf, (void *)old_selected, (void *)new_selected,
 			(void *)old_fib, (void *)new_fib);
 	}

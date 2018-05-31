@@ -1365,6 +1365,7 @@ static int netlink_route_multipath(int cmd, const struct prefix *p,
 
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
+	struct zebra_ns_info zns_info;
 
 	zns = zvrf->zns;
 	memset(&req, 0, sizeof req - NL_PKT_BUF_SIZE);
@@ -1549,7 +1550,7 @@ static int netlink_route_multipath(int cmd, const struct prefix *p,
 				addattr_l(&req.n, sizeof req, RTA_PREFSRC,
 					  &src.ipv6, bytelen);
 		}
-	} else {
+	} else {    /* Multipath case */
 		char buf[NL_PKT_BUF_SIZE];
 		struct rtattr *rta = (void *)buf;
 		struct rtnexthop *rtnh;

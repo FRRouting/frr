@@ -129,6 +129,10 @@ extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
+int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		      struct nlmsghdr *n, struct zebra_ns_info *zns_info,
+		      int startup);
+
 int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
 	/*
@@ -809,16 +813,16 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
  * startup  -> Are we reading in under startup conditions
  *             This is passed through eventually to filter.
  */
-int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
-		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
-		 int startup)
+int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		      struct nlmsghdr *n, struct zebra_ns_info *zns_info,
+		      int startup)
 {
 	int status;
 	struct sockaddr_nl snl;
 	struct iovec iov;
 	struct msghdr msg;
 	int save_errno;
-	struct zebra_ns_info zns_info;
+	struct nlsock *nl;
 
 	memset(&snl, 0, sizeof snl);
 	memset(&iov, 0, sizeof iov);
@@ -833,7 +837,8 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 
 	snl.nl_family = AF_NETLINK;
 
-	n->nlmsg_seq = ++nl->seq;
+	nl = &(zns_info->nls);
+	n->nlmsg_seq = nl->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
 
 	/* Request an acknowledgement by setting NLM_F_ACK */
@@ -870,8 +875,30 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	 * Get reply from netlink socket.
 	 * The reply should either be an acknowlegement or an error.
 	 */
+	return netlink_parse_info(filter, nl, zns_info, 0, startup);
+}
+
+/*
+ * Synchronous version of netlink_talk_info. Converts args to suit the
+ * common version, which is suitable for both sync and async use.
+ *
+ */
+int netlink_talk(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *, ns_id_t,
+			       int startup),
+		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
+		 int startup)
+{
+	struct zebra_ns_info zns_info;
+
+	/* Increment sequence number before capturing snapshot of ns socket
+	 * info.
+	 */
+	nl->seq++;
+
+	/* Capture info in intermediate info struct */
 	zebra_ns_info_from_ns(&zns_info, zns, (nl == &(zns->netlink_cmd)));
-	return netlink_parse_info(filter, nl, &zns_info, 0, startup);
+
+	return (netlink_talk_info(filter, n, &zns_info, startup));
 }
 
 /* Issue request message to kernel via netlink socket. GET messages

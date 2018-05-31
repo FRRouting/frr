@@ -33,59 +33,109 @@
  */
 
 /*
- * Enqueue a route install or update for the dataplane.
+ * Operation codes used when returning status back to the main zebra context.
  */
+typedef enum {
+	DPLANE_OP_NONE = 0,
 
-/*
- * Enqueue a route removal for the dataplane.
- */
+	/* Route update */
+	DPLANE_OP_ROUTE_INSTALL,
+	DPLANE_OP_ROUTE_UPDATE,
+	DPLANE_OP_ROUTE_DELETE,
+
+	/* Interface address update */
+	DPLANE_OP_INTF_ADDR,
+	DPLANE_OP_INTF_ADDR_DELETE,
+
+} dplane_op_e;
 
 /*
  * Result codes used when returning status back to the main zebra context.
  */
 typedef enum {
-	ZEBRA_DPLANE_STATUS_NONE = 0,
-	ZEBRA_DPLANE_INSTALL_SUCCESS,
-	ZEBRA_DPLANE_INSTALL_FAILURE,
-	ZEBRA_DPLANE_DELETE_SUCCESS,
-	ZEBRA_DPLANE_DELETE_FAILURE,
+	DPLANE_STATUS_NONE = 0,
+	DPLANE_INSTALL_SUCCESS,
+	DPLANE_INSTALL_FAILURE,
+	DPLANE_DELETE_SUCCESS,
+	DPLANE_DELETE_FAILURE,
 
-} zebra_dplane_status_e;
-
-/*
- * Context block used to return info from the dataplane module(s) to the
- * main zebra context.
- */
-typedef struct zebra_dplane_ctx_s * zebra_dplane_ctx_h;
+} dplane_status_e;
 
 /*
- * Callback function used to return status about a dataplane operation. The
- * context block must be freed/released after use.
+ * Opaque context block used to exchange info between the main zebra
+ * context and the dataplane module(s). If these are two independent pthreads,
+ * they cannot share existing global data structures safely.
  */
-typedef int (*zebra_dplane_status_fp)(zebra_dplane_ctx_h ctx);
+typedef struct zebra_dplane_ctx_s * dplane_ctx_h;
+
+/*
+ * Allocate an opaque context block
+ */
+dplane_ctx_h dplane_ctx_alloc(void);
 
 /* Free a dataplane results context block after use; the caller's pointer will
  * be cleared on return.
  */
-void zebra_dplane_ctx_free(zebra_dplane_ctx_h *h_p);
+void dplane_ctx_free(dplane_ctx_h *pctx);
 
-/* Accessors for information from the context object */
-zebra_dplane_status_e zebra_dplane_ctx_get_status(const zebra_dplane_ctx_h h);
-const struct prefix *zebra_dplane_ctx_get_dest(const zebra_dplane_ctx_h h);
-const struct prefix *zebra_dplane_ctx_get_src(const zebra_dplane_ctx_h h);
-vrf_id_t zebra_dplane_ctx_get_vrf(const zebra_dplane_ctx_h h);
-int zebra_dplane_ctx_get_type(const zebra_dplane_ctx_h h);
-uint32_t zebra_dplane_ctx_get_table(const zebra_dplane_ctx_h h);
-route_tag_t zebra_dplane_ctx_get_tag(const zebra_dplane_ctx_h h);
-uint16_t zebra_dplane_ctx_get_instance(const zebra_dplane_ctx_h h);
-uint32_t zebra_dplane_ctx_get_metric(const zebra_dplane_ctx_h h);
+/*
+ * Init dataplane context for route update from core zebra data structures.
+ */
+int dplane_ctx_route_init(dplane_ctx_h ctx,
+			  dplane_op_e op,
+			  const struct route_node *rn,
+			  const struct route_entry *re);
 
+/*
+ * Accessors for information from the context object
+ */
+dplane_status_e dplane_ctx_get_status(const dplane_ctx_h ctx);
+
+dplane_op_e dplane_ctx_get_op(const dplane_ctx_h ctx);
+
+const struct prefix *dplane_ctx_get_dest(const dplane_ctx_h ctx);
+
+/* Source prefix is a little special - use convention like prefix-len of zero
+ * and all-zeroes address means "no src prefix"? or ... return NULL in that case?
+ */
+const struct prefix *dplane_ctx_get_src(const dplane_ctx_h ctx);
+
+uint32_t dplane_ctx_get_seq(const dplane_ctx_h ctx);
+vrf_id_t dplane_ctx_get_vrf(const dplane_ctx_h ctx);
+int dplane_ctx_get_type(const dplane_ctx_h ctx);
+afi_t dplane_ctx_get_afi(const dplane_ctx_h ctx);
+safi_t dplane_ctx_get_safi(const dplane_ctx_h ctx);
+uint32_t dplane_ctx_get_table(const dplane_ctx_h ctx);
+route_tag_t dplane_ctx_get_tag(const dplane_ctx_h ctx);
+uint16_t dplane_ctx_get_instance(const dplane_ctx_h ctx);
+uint32_t dplane_ctx_get_metric(const dplane_ctx_h ctx);
+uint32_t dplane_ctx_get_mtu(const dplane_ctx_h ctx);
+uint32_t dplane_ctx_get_nh_mtu(const dplane_ctx_h ctx);
+const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx);
+const struct zebra_ns_info *dplane_ctx_get_ns(const dplane_ctx_h ctx);
+
+/*
+ * Enqueue a route update for the dataplane.
+ */
+int dplane_route_update(dplane_ctx_h ctx);
+
+/*
+ * Enqueue a route removal for the dataplane.
+ */
+int dplane_route_delete(dplane_ctx_h ctx);
+
+/*
+ * Callback function used to return status about a dataplane operation. The
+ * callback must take ownership of the context block - it must free it, using
+ * the 'free' api.
+ */
+typedef int (*dplane_status_fp)(dplane_ctx_h ctx);
 
 /*
  * Initialize the dataplane module;
  * register a callback that will receive status updates from the dataplane.
  */
-int zebra_dplane_init(zebra_dplane_status_fp fp);
+int zebra_dplane_init(dplane_status_fp fp);
 
 
 #endif	/* _ZEBRA_DPLANE_H */

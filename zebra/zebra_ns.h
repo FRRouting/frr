@@ -87,12 +87,15 @@ struct zebra_ns {
 	struct ns *ns;
 };
 
-/* Key netlink info from zebra ns */
+/* Key netlink info from zebra ns, passed from the zebra main context
+ * to the dataplane/kernel context (which might be in a different pthread).
+ */
 struct zebra_ns_info {
 	ns_id_t ns_id;
 
 #if defined(HAVE_NETLINK)
-	uint32_t nl_pid;
+	struct nlsock nls;
+	uint32_t nl_cmd_pid;
 	bool is_cmd;
 #endif
 };
@@ -105,11 +108,16 @@ static inline void zebra_ns_info_from_ns(struct zebra_ns_info *zns_info,
 	zns_info->ns_id = zns->ns_id;
 
 #if defined(HAVE_NETLINK)
+	/* Need to know whether we're using the 'command' netlink socket,
+	 * and need to know its port-id to handle some test/filtering
+	 * cases.
+	 */
 	zns_info->is_cmd = is_cmd;
+	zns_info->nl_cmd_pid = zns->netlink_cmd.snl.nl_pid;
 	if (is_cmd) {
-		zns_info->nl_pid = zns->netlink_cmd.snl.nl_pid;
+		zns_info->nls = zns->netlink_cmd;
 	} else {
-		zns_info->nl_pid = zns->netlink.snl.nl_pid;
+		zns_info->nls = zns->netlink;
 	}
 #endif	/* NETLINK */
 }
