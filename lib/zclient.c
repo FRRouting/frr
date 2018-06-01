@@ -2760,6 +2760,16 @@ static int zclient_read(struct thread *thread)
 		if (zclient->fec_update)
 			(*zclient->fec_update)(command, zclient, length);
 		break;
+	case ZEBRA_LOCAL_ES_ADD:
+		if (zclient->local_es_add)
+			(*zclient->local_es_add)(command, zclient, length,
+						 vrf_id);
+		break;
+	case ZEBRA_LOCAL_ES_DEL:
+		if (zclient->local_es_del)
+			(*zclient->local_es_del)(command, zclient, length,
+						 vrf_id);
+		break;
 	case ZEBRA_VNI_ADD:
 		if (zclient->local_vni_add)
 			(*zclient->local_vni_add)(command, zclient, length,

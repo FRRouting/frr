@@ -801,6 +801,21 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				len = sprintf(
 					str_buf + str_pnt,
 					"FS:marking %u", *(pnt+5));
+			} else if (*pnt
+				   == ECOMMUNITY_EVPN_SUBTYPE_ES_IMPORT_RT) {
+				struct ethaddr mac;
+
+				pnt++;
+				memcpy(&mac, pnt, ETH_ALEN);
+				len = sprintf(
+					str_buf + str_pnt,
+					"ES-Import-Rt:%02x:%02x:%02x:%02x:%02x:%02x",
+					(uint8_t)mac.octet[0],
+					(uint8_t)mac.octet[1],
+					(uint8_t)mac.octet[2],
+					(uint8_t)mac.octet[3],
+					(uint8_t)mac.octet[4],
+					(uint8_t)mac.octet[5]);
 			} else
 				unk_ecom = 1;
 		} else {

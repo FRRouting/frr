@@ -429,6 +429,15 @@ static const struct in6_addr maskbytes6[] = {
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
+void prefix_hexdump(const struct prefix *p)
+{
+	char buf[PREFIX_STRLEN];
+
+	zlog_debug("prefix: %s",
+		   prefix2str(p, buf, sizeof(buf)));
+	zlog_hexdump(p, sizeof(struct prefix));
+}
+
 int is_zero_mac(struct ethaddr *mac)
 {
 	int i = 0;
@@ -1262,7 +1271,12 @@ static const char *prefixevpn_imet2str(const struct prefix_evpn *p, char *str,
 static const char *prefixevpn_es2str(const struct prefix_evpn *p, char *str,
 				     int size)
 {
-	snprintf(str, size, "Unsupported EVPN prefix");
+	char buf[ESI_STR_LEN];
+
+	snprintf(str, size, "[%d]:[%s]:[%s]/%d", p->prefix.route_type,
+		 esi_to_str(&p->prefix.es_addr.esi, buf, sizeof(buf)),
+		 inet_ntoa(p->prefix.es_addr.ip.ipaddr_v4),
+		 p->prefixlen);
 	return str;
 }
 
@@ -1539,4 +1553,57 @@ unsigned prefix_hash_key(void *pp)
 	return jhash(&copy,
 		     offsetof(struct prefix, u.prefix) + PSIZE(copy.prefixlen),
 		     0x55aa5a5a);
+}
+
+/* converts to internal representation of esi
+ * returns 1 on success, 0 otherwise
+ * format accepted: aa:aa:aa:aa:aa:aa:aa:aa:aa:aa
+ * if esi parameter is null, then check only
+ */
+int str_to_esi(const char *str, esi_t *esi)
+{
+	int i;
+	unsigned int a[ESI_BYTES];
+
+	if (!str)
+		return 0;
+
+	if (sscanf(str, "%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x",
+		   a + 0, a + 1, a + 2, a + 3,
+		   a + 4, a + 5, a + 6, a + 7,
+		   a + 8, a + 9)
+	    != ESI_BYTES) {
+		/* error in incoming str length */
+		return 0;
+	}
+
+	/* valid ESI */
+	if (!esi)
+		return 1;
+	for (i = 0; i < ESI_BYTES; ++i)
+		esi->val[i] = a[i] & 0xff;
+	return 1;
+}
+
+char *esi_to_str(const esi_t *esi, char *buf, int size)
+{
+	char *ptr;
+
+	if (!esi)
+		return NULL;
+	if (!buf)
+		ptr = (char *)XMALLOC(MTYPE_TMP,
+				      ESI_STR_LEN * sizeof(char));
+	else {
+		assert(size >= ESI_STR_LEN);
+		ptr = buf;
+	}
+
+	snprintf(ptr, ESI_STR_LEN,
+		 "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
+		 esi->val[0], esi->val[1], esi->val[2],
+		 esi->val[3], esi->val[4], esi->val[5],
+		 esi->val[6], esi->val[7], esi->val[8],
+		 esi->val[9]);
+	return ptr;
 }

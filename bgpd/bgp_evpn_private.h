@@ -31,9 +31,7 @@
 #define RT_ADDRSTRLEN 28
 
 /* EVPN prefix lengths. This reprsent the sizeof struct prefix_evpn  */
-#define EVPN_TYPE_2_ROUTE_PREFIXLEN      224
-#define EVPN_TYPE_3_ROUTE_PREFIXLEN      224
-#define EVPN_TYPE_5_ROUTE_PREFIXLEN      224
+#define EVPN_ROUTE_PREFIXLEN     224
 
 /* EVPN route types. */
 typedef enum {
@@ -97,6 +95,42 @@ struct bgpevpn {
 };
 
 DECLARE_QOBJ_TYPE(bgpevpn)
+
+struct evpnes {
+
+	/* Ethernet Segment Identifier */
+	esi_t esi;
+
+	/* es flags */
+	uint16_t flags;
+#define EVPNES_LOCAL	0x01
+#define EVPNES_REMOTE	0x02
+
+	/*
+	 * Id for deriving the RD
+	 * automatically for this ESI
+	 */
+	uint16_t rd_id;
+
+	/* RD for this VNI. */
+	struct prefix_rd prd;
+
+	/* originator ip address  */
+	struct ipaddr originator_ip;
+
+	/* list of VTEPs in the same site */
+	struct list *vtep_list;
+
+	/*
+	 * Route table for EVPN routes for
+	 * this ESI. - type4 routes
+	 */
+	struct bgp_table *route_table;
+
+	QOBJ_FIELDS
+};
+
+DECLARE_QOBJ_TYPE(evpnes)
 
 /* Mapping of Import RT to VNIs.
  * The Import RTs of all VNIs are maintained in a hash table with each
@@ -238,6 +272,15 @@ static inline int is_vni_param_configured(struct bgpevpn *vpn)
 		|| is_export_rt_configured(vpn));
 }
 
+static inline void encode_es_rt_extcomm(struct ecommunity_val *eval,
+					struct ethaddr *mac)
+{
+	memset(eval, 0, sizeof(struct ecommunity_val));
+	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
+	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_ES_IMPORT_RT;
+	memcpy(&eval->val[2], mac, ETH_ALEN);
+}
+
 static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
 				       struct ethaddr *rmac)
 {
@@ -326,7 +369,7 @@ static inline void build_evpn_type2_prefix(struct prefix_evpn *p,
 {
 	memset(p, 0, sizeof(struct prefix_evpn));
 	p->family = AF_EVPN;
-	p->prefixlen = EVPN_TYPE_2_ROUTE_PREFIXLEN;
+	p->prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
 	memcpy(&p->prefix.macip_addr.mac.octet, mac->octet, ETH_ALEN);
 	p->prefix.macip_addr.ip.ipa_type = IPADDR_NONE;
@@ -352,7 +395,7 @@ static inline void build_type5_prefix_from_ip_prefix(struct prefix_evpn *evp,
 
 	memset(evp, 0, sizeof(struct prefix_evpn));
 	evp->family = AF_EVPN;
-	evp->prefixlen = EVPN_TYPE_5_ROUTE_PREFIXLEN;
+	evp->prefixlen = EVPN_ROUTE_PREFIXLEN;
 	evp->prefix.route_type = BGP_EVPN_IP_PREFIX_ROUTE;
 	evp->prefix.prefix_addr.ip_prefix_length = ip_prefix->prefixlen;
 	evp->prefix.prefix_addr.ip.ipa_type = ip.ipa_type;
@@ -364,10 +407,24 @@ static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
 {
 	memset(p, 0, sizeof(struct prefix_evpn));
 	p->family = AF_EVPN;
-	p->prefixlen = EVPN_TYPE_3_ROUTE_PREFIXLEN;
+	p->prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_IMET_ROUTE;
 	p->prefix.imet_addr.ip.ipa_type = IPADDR_V4;
 	p->prefix.imet_addr.ip.ipaddr_v4 = originator_ip;
+}
+
+static inline void build_evpn_type4_prefix(struct prefix_evpn *p,
+					   esi_t *esi,
+					   struct in_addr originator_ip)
+{
+	memset(p, 0, sizeof(struct prefix_evpn));
+	p->family = AF_EVPN;
+	p->prefixlen = EVPN_ROUTE_PREFIXLEN;
+	p->prefix.route_type = BGP_EVPN_ES_ROUTE;
+	p->prefix.es_addr.ip_prefix_length = IPV4_MAX_BITLEN;
+	p->prefix.es_addr.ip.ipa_type = IPADDR_V4;
+	p->prefix.es_addr.ip.ipaddr_v4 = originator_ip;
+	memcpy(&p->prefix.es_addr.esi, esi, sizeof(esi_t));
 }
 
 static inline int evpn_default_originate_set(struct bgp *bgp, afi_t afi,
@@ -382,6 +439,21 @@ static inline int evpn_default_originate_set(struct bgp *bgp, afi_t afi,
 			    BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6))
 		return 1;
 	return 0;
+}
+
+static inline void es_get_system_mac(esi_t *esi,
+				     struct ethaddr *mac)
+{
+	/*
+	 * for type-1 and type-3 ESIs,
+	 * the system mac starts at val[1]
+	 */
+	memcpy(mac, &esi->val[1], ETH_ALEN);
+}
+
+static inline int is_es_local(struct evpnes *es)
+{
+	return CHECK_FLAG(es->flags, EVPNES_LOCAL) ? 1 : 0;
 }
 
 extern void evpn_rt_delete_auto(struct bgp *, vni_t, struct list *);
@@ -417,4 +489,8 @@ extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 				    struct in_addr originator_ip,
 				    vrf_id_t tenant_vrf_id);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
+extern struct evpnes *bgp_evpn_lookup_es(struct bgp *bgp, esi_t *esi);
+extern struct evpnes *bgp_evpn_es_new(struct bgp *bgp, esi_t *esi,
+				      struct ipaddr *originator_ip);
+extern void bgp_evpn_es_free(struct bgp *bgp, struct evpnes *es);
 #endif /* _BGP_EVPN_PRIVATE_H */
