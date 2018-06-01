@@ -771,18 +771,21 @@ static void bgp_clear_star_soft_out(struct vty *vty, const char *name)
 #endif
 
 /* BGP global configuration.  */
-
-DEFUN (bgp_multiple_instance_func,
-       bgp_multiple_instance_cmd,
-       "bgp multiple-instance",
-       BGP_STR
-       "Enable bgp multiple instance\n")
+#if defined(VERSION_TYPE_DEV) && (CONFDATE > 20190601)
+CPP_NOTICE("bgpd: time to remove deprecated bgp multiple-instance")
+CPP_NOTICE("This includes BGP_OPT_MULTIPLE_INSTANCE")
+#endif
+DEFUN_HIDDEN (bgp_multiple_instance_func,
+	      bgp_multiple_instance_cmd,
+	      "bgp multiple-instance",
+	      BGP_STR
+	      "Enable bgp multiple instance\n")
 {
 	bgp_option_set(BGP_OPT_MULTIPLE_INSTANCE);
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_multiple_instance,
+DEFUN_HIDDEN (no_bgp_multiple_instance,
        no_bgp_multiple_instance_cmd,
        "no bgp multiple-instance",
        NO_STR
@@ -791,6 +794,9 @@ DEFUN (no_bgp_multiple_instance,
 {
 	int ret;
 
+	vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
+	vty_out(vty, "if you are using this please let the developers know\n");
+	zlog_warn("Deprecated option: `bgp multiple-instance` being used");
 	ret = bgp_option_unset(BGP_OPT_MULTIPLE_INSTANCE);
 	if (ret < 0) {
 		vty_out(vty, "%% There are more than two BGP instances\n");
