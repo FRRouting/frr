@@ -24,6 +24,7 @@
 #include <lib/version.h>
 #include <sys/types.h>
 #include <regex.h>
+#include <stdio.h>
 
 #include "linklist.h"
 #include "thread.h"
@@ -1647,6 +1648,7 @@ struct vty *vty_new()
 	struct vty *new = XCALLOC(MTYPE_VTY, sizeof(struct vty));
 
 	new->fd = new->wfd = -1;
+	new->of = stdout;
 	new->obuf = buffer_new(0); /* Use default buffer size. */
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->error_buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
