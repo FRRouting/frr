@@ -1641,7 +1641,7 @@ static void rip_request_process(struct rip_packet *packet, int size,
 		}
 		packet->command = RIP_RESPONSE;
 
-		rip_send_packet((uint8_t *)packet, size, from, ifc);
+		(void)rip_send_packet((uint8_t *)packet, size, from, ifc);
 	}
 	rip_global_queries++;
 }
