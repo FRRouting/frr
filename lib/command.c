@@ -515,13 +515,6 @@ static int config_write_host(struct vty *vty)
 					host.enable);
 		}
 
-		if (zlog_default->default_lvl != LOG_DEBUG) {
-			vty_out(vty,
-				"! N.B. The 'log trap' command is deprecated.\n");
-			vty_out(vty, "log trap %s\n",
-				zlog_priority[zlog_default->default_lvl]);
-		}
-
 		if (host.logfile
 		    && (zlog_default->maxlvl[ZLOG_DEST_FILE]
 			!= ZLOG_DISABLED)) {
@@ -2552,36 +2545,6 @@ DEFUN (no_config_log_facility,
 	return CMD_SUCCESS;
 }
 
-DEFUN_DEPRECATED(
-	config_log_trap, config_log_trap_cmd,
-	"log trap <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
-	"Logging control\n"
-	"(Deprecated) Set logging level and default for all destinations\n" LOG_LEVEL_DESC)
-{
-	int new_level;
-	int i;
-
-	if ((new_level = level_match(argv[2]->arg)) == ZLOG_DISABLED)
-		return CMD_ERR_NO_MATCH;
-
-	zlog_default->default_lvl = new_level;
-	for (i = 0; i < ZLOG_NUM_DESTS; i++)
-		if (zlog_default->maxlvl[i] != ZLOG_DISABLED)
-			zlog_default->maxlvl[i] = new_level;
-	return CMD_SUCCESS;
-}
-
-DEFUN_DEPRECATED(
-	no_config_log_trap, no_config_log_trap_cmd,
-	"no log trap [emergencies|alerts|critical|errors|warnings|notifications|informational|debugging]",
-	NO_STR
-	"Logging control\n"
-	"Permit all logging information\n" LOG_LEVEL_DESC)
-{
-	zlog_default->default_lvl = LOG_DEBUG;
-	return CMD_SUCCESS;
-}
-
 DEFUN (config_log_record_priority,
        config_log_record_priority_cmd,
        "log record-priority",
@@ -2871,8 +2834,6 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_config_log_syslog_cmd);
 		install_element(CONFIG_NODE, &config_log_facility_cmd);
 		install_element(CONFIG_NODE, &no_config_log_facility_cmd);
-		install_element(CONFIG_NODE, &config_log_trap_cmd);
-		install_element(CONFIG_NODE, &no_config_log_trap_cmd);
 		install_element(CONFIG_NODE, &config_log_record_priority_cmd);
 		install_element(CONFIG_NODE,
 				&no_config_log_record_priority_cmd);

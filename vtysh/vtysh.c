@@ -2440,24 +2440,6 @@ DEFUNSH(VTYSH_ALL, no_vtysh_log_facility, no_vtysh_log_facility_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH_DEPRECATED(
-	VTYSH_ALL, vtysh_log_trap, vtysh_log_trap_cmd,
-	"log trap <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
-	"Logging control\n"
-	"(Deprecated) Set logging level and default for all destinations\n" LOG_LEVEL_DESC)
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH_DEPRECATED(VTYSH_ALL, no_vtysh_log_trap, no_vtysh_log_trap_cmd,
-		   "no log trap [LEVEL]", NO_STR
-		   "Logging control\n"
-		   "Permit all logging information\n"
-		   "Logging level\n")
-{
-	return CMD_SUCCESS;
-}
-
 DEFUNSH(VTYSH_ALL, vtysh_log_record_priority, vtysh_log_record_priority_cmd,
 	"log record-priority",
 	"Logging control\n"
@@ -3760,8 +3742,6 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &no_vtysh_log_monitor_cmd);
 	install_element(CONFIG_NODE, &vtysh_log_syslog_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_log_syslog_cmd);
-	install_element(CONFIG_NODE, &vtysh_log_trap_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_log_trap_cmd);
 	install_element(CONFIG_NODE, &vtysh_log_facility_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_log_facility_cmd);
 	install_element(CONFIG_NODE, &vtysh_log_record_priority_cmd);
