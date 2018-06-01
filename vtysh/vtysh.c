@@ -2523,7 +2523,7 @@ DEFUN (vtysh_write_terminal,
 
 	vtysh_config_dump(fp);
 
-	if (vtysh_pager_name && fp && fp != outputfile) {
+	if (vtysh_pager_name && fp != outputfile) {
 		fflush(fp);
 		if (pclose(fp) == -1) {
 			perror("pclose");
