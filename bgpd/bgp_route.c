@@ -5628,12 +5628,6 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 	struct bgp_aggregate *aggregate;
 	struct bgp_table *table;
 
-	/* MPLS-VPN aggregation is not yet supported. */
-	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
-	    || (safi == SAFI_EVPN)
-	    || (safi == SAFI_FLOWSPEC))
-		return;
-
 	table = bgp->aggregate[afi][safi];
 
 	/* No aggregates configured. */
@@ -5666,12 +5660,6 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 	struct bgp_node *rn;
 	struct bgp_aggregate *aggregate;
 	struct bgp_table *table;
-
-	/* MPLS-VPN aggregation is not yet supported. */
-	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
-	    || (safi == SAFI_EVPN)
-	    || (safi == SAFI_FLOWSPEC))
-		return;
 
 	table = bgp->aggregate[afi][safi];
 
