@@ -696,11 +696,9 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 
 	/* Add the export RTs for L3VNI/VRF */
 	vrf_export_rtl = bgp_vrf->vrf_export_rtl;
-	if (vrf_export_rtl && !list_isempty(vrf_export_rtl)) {
-		for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode, ecom))
-			attr->ecommunity =
-				ecommunity_merge(attr->ecommunity, ecom);
-	}
+	for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode, ecom))
+		attr->ecommunity =
+			ecommunity_merge(attr->ecommunity, ecom);
 
 	/* add the router mac extended community */
 	if (!is_zero_mac(&attr->rmac)) {
@@ -4288,8 +4286,18 @@ void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
 	if (node_to_del)
 		list_delete_node(bgp_vrf->vrf_export_rtl, node_to_del);
 
+	/*
+	 * Temporary assert to make SA happy.
+	 * The ALL_LIST_ELEMENTS macro above has a NULL check
+	 * which means that SA is going to complain about
+	 * the list_isempty call, which doesn't NULL check.
+	 * So until we get this situation cleaned up, here
+	 * we are.
+	 */
+	assert(bgp_vrf->vrf_export_rtl);
+
 	/* fall back to auto-generated RT if this was the last RT */
-	if (bgp_vrf->vrf_export_rtl && list_isempty(bgp_vrf->vrf_export_rtl)) {
+	if (list_isempty(bgp_vrf->vrf_export_rtl)) {
 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD);
 		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
 	}
@@ -5132,11 +5140,6 @@ int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
 
-	if (!bgp->vnihash) {
-		zlog_err("%u: VNI hash not created", bgp->vrf_id);
-		return -1;
-	}
-
 	/* Lookup VNI hash - should exist. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn || !is_vni_live(vpn)) {
@@ -5160,11 +5163,6 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
-
-	if (!bgp->vnihash) {
-		zlog_err("%u: VNI hash not created", bgp->vrf_id);
-		return -1;
-	}
 
 	/* Lookup VNI hash - should exist. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
@@ -5336,11 +5334,11 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	memset(&bgp_vrf->rmac, 0, sizeof(struct ethaddr));
 
 	/* delete RD/RT */
-	if (bgp_vrf->vrf_import_rtl && !list_isempty(bgp_vrf->vrf_import_rtl)) {
+	if (!list_isempty(bgp_vrf->vrf_import_rtl)) {
 		bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
 		list_delete_all_node(bgp_vrf->vrf_import_rtl);
 	}
-	if (bgp_vrf->vrf_export_rtl && !list_isempty(bgp_vrf->vrf_export_rtl)) {
+	if (!list_isempty(bgp_vrf->vrf_export_rtl)) {
 		list_delete_all_node(bgp_vrf->vrf_export_rtl);
 	}
 
@@ -5369,11 +5367,6 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 {
 	struct bgpevpn *vpn;
-
-	if (!bgp->vnihash) {
-		zlog_err("%u: VNI hash not created", bgp->vrf_id);
-		return -1;
-	}
 
 	/* Locate VNI hash */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
@@ -5412,11 +5405,6 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
-
-	if (!bgp->vnihash) {
-		zlog_err("%u: VNI hash not created", bgp->vrf_id);
-		return -1;
-	}
 
 	/* Lookup VNI. If present and no change, exit. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
@@ -5589,28 +5577,25 @@ void bgp_evpn_cleanup_on_disable(struct bgp *bgp)
  */
 void bgp_evpn_cleanup(struct bgp *bgp)
 {
-	if (bgp->vnihash)
-		hash_iterate(bgp->vnihash, (void (*)(struct hash_backet *,
-						     void *))free_vni_entry,
-			     bgp);
-	if (bgp->import_rt_hash)
-		hash_free(bgp->import_rt_hash);
+	hash_iterate(bgp->vnihash,
+		     (void (*)(struct hash_backet *, void *))free_vni_entry,
+		     bgp);
+
+	hash_free(bgp->import_rt_hash);
 	bgp->import_rt_hash = NULL;
-	if (bgp->vrf_import_rt_hash)
-		hash_free(bgp->vrf_import_rt_hash);
+
+	hash_free(bgp->vrf_import_rt_hash);
 	bgp->vrf_import_rt_hash = NULL;
-	if (bgp->vnihash)
-		hash_free(bgp->vnihash);
+
+	hash_free(bgp->vnihash);
 	bgp->vnihash = NULL;
 	if (bgp->esihash)
 		hash_free(bgp->esihash);
 	bgp->esihash = NULL;
-	if (bgp->vrf_import_rtl)
-		list_delete_and_null(&bgp->vrf_import_rtl);
-	if (bgp->vrf_export_rtl)
-		list_delete_and_null(&bgp->vrf_export_rtl);
-	if (bgp->l2vnis)
-		list_delete_and_null(&bgp->l2vnis);
+
+	list_delete_and_null(&bgp->vrf_import_rtl);
+	list_delete_and_null(&bgp->vrf_export_rtl);
+	list_delete_and_null(&bgp->l2vnis);
 }
 
 /*
