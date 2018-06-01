@@ -919,73 +919,148 @@ void mpls_te_print_detail(struct sbuf *buf, int indent,
 	struct subtlv_header *tlvh = (struct subtlv_header *)subtlvs;
 	uint16_t sum = 0;
 
-	for (; sum < subtlv_len; tlvh = SUBTLV_HDR_NEXT(tlvh)) {
+	for (; sum < subtlv_len;
+	     tlvh = (struct subtlv_header *)(subtlvs + sum)) {
+		if (subtlv_len - sum < SUBTLV_SIZE(tlvh)) {
+			sbuf_push(buf, indent, "Available data %" PRIu8 " is less than TLV size %u!\n",
+				  subtlv_len - sum, SUBTLV_SIZE(tlvh));
+			return;
+		}
+
 		switch (tlvh->type) {
 		case TE_SUBTLV_ADMIN_GRP:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Administrative Group!\n");
+				return;
+			}
 			sum += print_subtlv_admin_grp(buf, indent,
 				(struct te_subtlv_admin_grp *)tlvh);
 			break;
 		case TE_SUBTLV_LLRI:
+			if (tlvh->length != TE_SUBTLV_LLRI_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Link ID!\n");
+				return;
+			}
 			sum += print_subtlv_llri(buf, indent,
 						 (struct te_subtlv_llri *)tlvh);
 			break;
 		case TE_SUBTLV_LOCAL_IPADDR:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Local IP address!\n");
+				return;
+			}
 			sum += print_subtlv_local_ipaddr(buf, indent,
 				(struct te_subtlv_local_ipaddr *)tlvh);
 			break;
 		case TE_SUBTLV_RMT_IPADDR:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Remote Interface address!\n");
+				return;
+			}
 			sum += print_subtlv_rmt_ipaddr(buf, indent,
 				(struct te_subtlv_rmt_ipaddr *)tlvh);
 			break;
 		case TE_SUBTLV_MAX_BW:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Maximum Bandwidth!\n");
+				return;
+			}
 			sum += print_subtlv_max_bw(buf, indent,
 				(struct te_subtlv_max_bw *)tlvh);
 			break;
 		case TE_SUBTLV_MAX_RSV_BW:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Maximum Reservable Bandwidth!\n");
+				return;
+			}
 			sum += print_subtlv_max_rsv_bw(buf, indent,
 				(struct te_subtlv_max_rsv_bw *)tlvh);
 			break;
 		case TE_SUBTLV_UNRSV_BW:
+			if (tlvh->length != TE_SUBTLV_UNRSV_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Unreserved Bandwidth!\n");
+				return;
+			}
 			sum += print_subtlv_unrsv_bw(buf, indent,
 				(struct te_subtlv_unrsv_bw *)tlvh);
 			break;
 		case TE_SUBTLV_TE_METRIC:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Traffic Engineering Metric!\n");
+				return;
+			}
 			sum += print_subtlv_te_metric(buf, indent,
 				(struct te_subtlv_te_metric *)tlvh);
 			break;
 		case TE_SUBTLV_RAS:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Remote AS number!\n");
+				return;
+			}
 			sum += print_subtlv_ras(buf, indent,
 						(struct te_subtlv_ras *)tlvh);
 			break;
 		case TE_SUBTLV_RIP:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Remote ASBR IP Address!\n");
+				return;
+			}
 			sum += print_subtlv_rip(buf, indent,
 						(struct te_subtlv_rip *)tlvh);
 			break;
 		case TE_SUBTLV_AV_DELAY:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Average Link Delay!\n");
+				return;
+			}
 			sum += print_subtlv_av_delay(buf, indent,
 				(struct te_subtlv_av_delay *)tlvh);
 			break;
 		case TE_SUBTLV_MM_DELAY:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Min/Max Link Delay!\n");
+				return;
+			}
 			sum += print_subtlv_mm_delay(buf, indent,
 				(struct te_subtlv_mm_delay *)tlvh);
 			break;
 		case TE_SUBTLV_DELAY_VAR:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Delay Variation!\n");
+				return;
+			}
 			sum += print_subtlv_delay_var(buf, indent,
 				(struct te_subtlv_delay_var *)tlvh);
 			break;
 		case TE_SUBTLV_PKT_LOSS:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Link Packet Loss!\n");
+				return;
+			}
 			sum += print_subtlv_pkt_loss(buf, indent,
 				(struct te_subtlv_pkt_loss *)tlvh);
 			break;
 		case TE_SUBTLV_RES_BW:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Unidirectional Residual Bandwidth!\n");
+				return;
+			}
 			sum += print_subtlv_res_bw(buf, indent,
 				(struct te_subtlv_res_bw *)tlvh);
 			break;
 		case TE_SUBTLV_AVA_BW:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Unidirectional Available Bandwidth!\n");
+				return;
+			}
 			sum += print_subtlv_ava_bw(buf, indent,
 				(struct te_subtlv_ava_bw *)tlvh);
 			break;
 		case TE_SUBTLV_USE_BW:
+			if (tlvh->length != SUBTLV_DEF_SIZE) {
+				sbuf_push(buf, indent, "TLV size does not match expected size for Unidirectional Utilized Bandwidth!\n");
+				return;
+			}
 			sum += print_subtlv_use_bw(buf, indent,
 				(struct te_subtlv_use_bw *)tlvh);
 			break;
