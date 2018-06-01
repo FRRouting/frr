@@ -54,7 +54,6 @@ struct item_list {
 #define SCRIPT_ELEMENT_LIST	(1<<3)
 
 /* definitions */
-#define IPSET_DEFAULT_HASHSIZE 64
 #define IPSET_PRE_HASH "hash:"
 
 #define SCRIPT_NETFILTER_IPTABLES "iptables"
@@ -1306,10 +1305,9 @@ static int zebra_wrap_script_ipset_update(struct zebra_ns *zns, int cmd,
 	}
 	if (cmd) {
 		snprintf(buf, sizeof(buf),
-			 "ipset create %s %s%s hashsize %u counters",
-			ipset->ipset_name, IPSET_PRE_HASH,
-			zebra_pbr_ipset_type2str(ipset->type),
-			IPSET_DEFAULT_HASHSIZE);
+			 "ipset create %s %s%s counters",
+			 ipset->ipset_name, IPSET_PRE_HASH,
+			 zebra_pbr_ipset_type2str(ipset->type));
 	} else
 		snprintf(buf, sizeof(buf),
 			"ipset destroy %s",
