@@ -5447,23 +5447,11 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	struct aspath *asmerge = NULL;
 	struct community *community = NULL;
 	struct community *commerge = NULL;
-#if defined(AGGREGATE_NEXTHOP_CHECK)
-	struct in_addr nexthop;
-	uint32_t med = 0;
-#endif
 	struct bgp_info *ri;
 	struct bgp_info *new;
 	int first = 1;
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
-
-	/* Record adding route's nexthop and med. */
-	if (rinew) {
-#if defined(AGGREGATE_NEXTHOP_CHECK)
-		nexthop = rinew->attr->nexthop;
-		med = rinew->attr->med;
-#endif
-	}
 
 	/* ORIGIN attribute: If at least one route among routes that are
 	   aggregated has ORIGIN with the value INCOMPLETE, then the
@@ -5490,27 +5478,8 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 				if (del && ri == del)
 					continue;
 
-				if (!rinew && first) {
-#if defined(AGGREGATE_NEXTHOP_CHECK)
-					nexthop = ri->attr->nexthop;
-					med = ri->attr->med;
-#endif
+				if (!rinew && first)
 					first = 0;
-				}
-
-#ifdef AGGREGATE_NEXTHOP_CHECK
-				if (!IPV4_ADDR_SAME(&ri->attr->nexthop,
-						    &nexthop)
-				    || ri->attr->med != med) {
-					if (aspath)
-						aspath_free(aspath);
-					if (community)
-						community_free(community);
-					bgp_unlock_node(rn);
-					bgp_unlock_node(top);
-					return;
-				}
-#endif /* AGGREGATE_NEXTHOP_CHECK */
 
 				if (ri->attr->flag
 				    & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
