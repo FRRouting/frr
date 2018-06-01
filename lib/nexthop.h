@@ -139,6 +139,7 @@ void nexthop_del_labels(struct nexthop *);
 uint32_t nexthop_hash(const struct nexthop *nexthop);
 
 extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
+extern int nexthop_cmp(const struct nexthop *nh1, const struct nexthop *nh2);
 
 extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
 extern int nexthop_same_no_recurse(const struct nexthop *next1,

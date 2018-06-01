@@ -36,6 +36,63 @@
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
 
+int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+{
+	int ret;
+	uint32_t n1, n2;
+
+	if (next1->vrf_id < next2->vrf_id)
+		return -1;
+
+	if (next1->vrf_id > next2->vrf_id)
+		return 1;
+
+	if (next1->type < next2->type)
+		return -1;
+
+	if (next1->type > next2->type)
+		return 1;
+
+	switch(next1->type) {
+	case NEXTHOP_TYPE_IPV4:
+		n1 = ntohl(next1->gate.ipv4.s_addr);
+		n2 = ntohl(next2->gate.ipv4.s_addr);
+		if (n1 < n2)
+			return -1;
+		if (n1 > n2)
+			return 1;
+		break;
+	case NEXTHOP_TYPE_IPV6:
+		ret = memcmp(&next1->gate, &next2->gate, sizeof(union g_addr));
+		if (!ret)
+			return ret;
+		break;
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		ret = memcmp(&next1->gate, &next2->gate, sizeof(union g_addr));
+		if (!ret)
+			return ret;
+		/* Intentional Fall-Through */
+	case NEXTHOP_TYPE_IFINDEX:
+		if (next1->ifindex < next2->ifindex)
+			return -1;
+
+		if (next1->ifindex > next2->ifindex)
+			return 1;
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		if (next1->bh_type < next2->bh_type)
+			return -1;
+
+		if (next1->bh_type > next2->bh_type)
+			return 1;
+		break;
+	}
+
+	ret = memcmp(&next1->src, &next2->src, sizeof(union g_addr));
+	return ret;
+}
+
 /* check if nexthops are same, non-recursive */
 int nexthop_same_no_recurse(const struct nexthop *next1,
 			    const struct nexthop *next2)
