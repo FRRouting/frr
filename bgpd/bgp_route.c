@@ -5449,7 +5449,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	struct community *commerge = NULL;
 	struct bgp_info *ri;
 	struct bgp_info *new;
-	int first = 1;
+	bool first = true;
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
 
@@ -5467,69 +5467,66 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 
 	top = bgp_node_get(table, p);
 	for (rn = bgp_node_get(table, p); rn;
-	     rn = bgp_route_next_until(rn, top))
-		if (rn->p.prefixlen > p->prefixlen) {
-			match = 0;
+	     rn = bgp_route_next_until(rn, top)) {
+		if (rn->p.prefixlen <= p->prefixlen)
+			continue;
 
-			for (ri = rn->info; ri; ri = ri->next) {
-				if (BGP_INFO_HOLDDOWN(ri))
-					continue;
+		match = 0;
 
-				if (del && ri == del)
-					continue;
+		for (ri = rn->info; ri; ri = ri->next) {
+			if (BGP_INFO_HOLDDOWN(ri))
+				continue;
 
-				if (!rinew && first)
-					first = 0;
+			if (del && ri == del)
+				continue;
 
-				if (ri->attr->flag
-				    & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
-					atomic_aggregate = 1;
+			if (!rinew && first)
+				first = false;
 
-				if (ri->sub_type != BGP_ROUTE_AGGREGATE) {
-					if (aggregate->summary_only) {
-						(bgp_info_extra_get(ri))
-							->suppress++;
-						bgp_info_set_flag(
-							rn, ri,
-							BGP_INFO_ATTR_CHANGED);
-						match++;
-					}
+			if (ri->attr->flag
+			    & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
+				atomic_aggregate = 1;
 
-					aggregate->count++;
+			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
+				continue;
 
-					if (origin < ri->attr->origin)
-						origin = ri->attr->origin;
-
-					if (aggregate->as_set) {
-						if (aspath) {
-							asmerge = aspath_aggregate(
-								aspath,
-								ri->attr->aspath);
-							aspath_free(aspath);
-							aspath = asmerge;
-						} else
-							aspath = aspath_dup(
-								ri->attr->aspath);
-
-						if (ri->attr->community) {
-							if (community) {
-								commerge = community_merge(
-									community,
-									ri->attr->community);
-								community = community_uniq_sort(
-									commerge);
-								community_free(
-									commerge);
-							} else
-								community = community_dup(
-									ri->attr->community);
-						}
-					}
-				}
+			if (aggregate->summary_only) {
+				(bgp_info_extra_get(ri))->suppress++;
+				bgp_info_set_flag(rn, ri,
+						  BGP_INFO_ATTR_CHANGED);
+				match++;
 			}
-			if (match)
-				bgp_process(bgp, rn, afi, safi);
+
+			aggregate->count++;
+
+			if (origin < ri->attr->origin)
+				origin = ri->attr->origin;
+
+			if (!aggregate->as_set)
+				continue;
+
+			if (aspath) {
+				asmerge = aspath_aggregate(aspath,
+							   ri->attr->aspath);
+				aspath_free(aspath);
+				aspath = asmerge;
+			} else
+				aspath = aspath_dup(ri->attr->aspath);
+
+			if (!ri->attr->community)
+				continue;
+
+			if (community) {
+				commerge = community_merge(community,
+							   ri->attr->community);
+				community = community_uniq_sort(commerge);
+				community_free(commerge);
+			} else
+				community = community_dup(ri->attr->community);
 		}
+		if (match)
+			bgp_process(bgp, rn, afi, safi);
+	}
 	bgp_unlock_node(top);
 
 	if (rinew) {
