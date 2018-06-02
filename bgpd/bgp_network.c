@@ -723,7 +723,9 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 		if (bgpd_privs.change(ZPRIVS_RAISE))
 			zlog_err("Can't raise privileges");
 		sock = vrf_socket(ainfo->ai_family, ainfo->ai_socktype,
-				  ainfo->ai_protocol, bgp->vrf_id, NULL);
+				  ainfo->ai_protocol, bgp->vrf_id,
+				  (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ?
+				   bgp->name : NULL));
 		if (bgpd_privs.change(ZPRIVS_LOWER))
 			zlog_err("Can't lower privileges");
 		if (sock < 0) {
