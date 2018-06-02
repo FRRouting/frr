@@ -109,12 +109,7 @@ extern struct zclient *zclient;
 static int bgp_check_main_socket(bool create, struct bgp *bgp)
 {
 	static int bgp_server_main_created;
-	struct listnode *bgpnode, *nbgpnode;
-	struct bgp *bgp_temp;
 
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF &&
-	    vrf_is_mapped_on_netns(bgp->vrf_id))
-		return 0;
 	if (create == true) {
 		if (bgp_server_main_created)
 			return 0;
@@ -125,18 +120,6 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
 	}
 	if (!bgp_server_main_created)
 		return 0;
-	/* only delete socket on some cases */
-	for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp_temp)) {
-		/* do not count with current bgp */
-		if (bgp_temp == bgp)
-			continue;
-		/* if other instance non VRF, do not delete socket */
-		if (bgp_temp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			return 0;
-		/* vrf lite, do not delete socket */
-		if (!vrf_is_mapped_on_netns(bgp_temp->vrf_id))
-			return 0;
-	}
 	bgp_close();
 	bgp_server_main_created = 0;
 	return 0;
@@ -3074,17 +3057,16 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 	/* Create BGP server socket, if listen mode not disabled */
 	if (!bgp || bgp_option_check(BGP_OPT_NO_LISTEN))
 		return 0;
-	if (bgp->name && bgp->inst_type == BGP_INSTANCE_TYPE_VRF && vrf) {
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
 		/*
 		 * suppress vrf socket
 		 */
 		if (create == FALSE) {
-			if (vrf_is_mapped_on_netns(vrf->vrf_id))
-				bgp_close_vrf_socket(bgp);
-			else
-				ret = bgp_check_main_socket(create, bgp);
-			return ret;
+			bgp_close_vrf_socket(bgp);
+			return 0;
 		}
+		if (vrf == NULL)
+			return BGP_ERR_INVALID_VALUE;
 		/* do nothing
 		 * if vrf_id did not change
 		 */
@@ -3099,21 +3081,12 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		 */
 		if (vrf->vrf_id == VRF_UNKNOWN)
 			return 0;
-		/* if BGP VRF instance requested
-		 * if backend is NETNS, create BGP server socket in the NETNS
-		 */
-		if (vrf_is_mapped_on_netns(bgp->vrf_id)) {
-			ret = bgp_socket(bgp, bm->port, bm->address);
-			if (ret < 0)
-				return BGP_ERR_INVALID_VALUE;
-			return 0;
-		}
-	}
-	/* if BGP VRF instance requested or VRF lite backend
-	 * if BGP non VRF instance, create it
-	 *  if not already done
-	 */
-	return bgp_check_main_socket(create, bgp);
+		ret = bgp_socket(bgp, bm->port, bm->address);
+		if (ret < 0)
+			return BGP_ERR_INVALID_VALUE;
+		return 0;
+	} else
+		return bgp_check_main_socket(create, bgp);
 }
 
 /* Called from VTY commands. */
@@ -3490,16 +3463,7 @@ struct peer *peer_lookup(struct bgp *bgp, union sockunion *su)
 		struct listnode *bgpnode, *nbgpnode;
 
 		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp)) {
-			/* Skip VRFs Lite only, this function will not be
-			 * invoked without an instance
-			 * when examining VRFs.
-			 */
-			if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-			    && !vrf_is_mapped_on_netns(bgp->vrf_id))
-				continue;
-
 			peer = hash_lookup(bgp->peerhash, &tmp_peer);
-
 			if (peer)
 				break;
 		}
