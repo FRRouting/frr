@@ -71,7 +71,9 @@ class BgpRib:
 
     def RequireVpnRoutes(self, target, title, wantroutes, debug=0):
 	import json
-	ret = luCommand(target,'vtysh -c "show bgp ipv4 vpn json"','.*','None','Get VPN RIB')
+        #non json form for humans
+	luCommand(target,'vtysh -c "show bgp ipv4 vpn"','.','None','Get VPN RIB (non-json)')
+	ret = luCommand(target,'vtysh -c "show bgp ipv4 vpn json"','.*','None','Get VPN RIB (json)')
         if re.search(r'^\s*$', ret):
             # degenerate case: empty json means no routes
             if len(wantroutes) > 0:
@@ -107,9 +109,12 @@ class BgpRib:
 	if (afi != 'ipv4') and (afi != 'ipv6'):
 	    print "ERROR invalid afi";
 
-	str = 'show bgp %s %s unicast json' % (vrfstr, afi)
+	str = 'show bgp %s %s unicast' % (vrfstr, afi)
+        #non json form for humans
 	cmd = 'vtysh -c "%s"' % str
-	ret = luCommand(target,cmd,'.*','None','Get %s %s RIB' % (vrfstr, afi))
+	luCommand(target,cmd,'.','None','Get %s %s RIB (non-json)' % (vrfstr, afi))
+        cmd = 'vtysh -c "%s json"' % str
+	ret = luCommand(target,cmd,'.*','None','Get %s %s RIB (json)' % (vrfstr, afi))
         if re.search(r'^\s*$', ret):
             # degenerate case: empty json means no routes
             if len(wantroutes) > 0:
