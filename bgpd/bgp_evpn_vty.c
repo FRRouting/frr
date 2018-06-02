@@ -604,7 +604,7 @@ static void show_esi_routes(struct bgp *bgp,
 		json_object_int_add(json, "numPaths", path_cnt);
 	} else {
 		if (prefix_cnt == 0)
-			vty_out(vty, "No EVPN prefixes exist for this ESI");
+			vty_out(vty, "No EVPN prefixes exist for this ESI\n");
 		else
 			vty_out(vty, "\nDisplayed %u prefixes (%u paths)\n",
 				prefix_cnt, path_cnt);
@@ -4231,6 +4231,12 @@ DEFUN (bgp_evpn_vni_rd,
 	if (!bgp || !vpn)
 		return CMD_WARNING;
 
+	if (bgp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
+
 	ret = str2prefix_rd(argv[1]->arg, &prd);
 	if (!ret) {
 		vty_out(vty, "%% Malformed Route Distinguisher\n");
@@ -4260,6 +4266,12 @@ DEFUN (no_bgp_evpn_vni_rd,
 
 	if (!bgp || !vpn)
 		return CMD_WARNING;
+
+	if (bgp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
 
 	ret = str2prefix_rd(argv[2]->arg, &prd);
 	if (!ret) {
@@ -4294,6 +4306,12 @@ DEFUN (no_bgp_evpn_vni_rd_without_val,
 
 	if (!bgp || !vpn)
 		return CMD_WARNING;
+
+	if (bgp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
 
 	/* Check if we should disallow. */
 	if (!is_rd_configured(vpn)) {
@@ -4618,6 +4636,12 @@ DEFUN (bgp_evpn_vni_rt,
 	if (!bgp || !vpn)
 		return CMD_WARNING;
 
+	if (bgp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
+
 	if (!strcmp(argv[1]->text, "import"))
 		rt_type = RT_TYPE_IMPORT;
 	else if (!strcmp(argv[1]->text, "export"))
@@ -4679,6 +4703,12 @@ DEFUN (no_bgp_evpn_vni_rt,
 
 	if (!bgp || !vpn)
 		return CMD_WARNING;
+
+	if (bgp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
 
 	if (!strcmp(argv[2]->text, "import"))
 		rt_type = RT_TYPE_IMPORT;
@@ -4772,6 +4802,12 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
 
 	if (!bgp || !vpn)
 		return CMD_WARNING;
+
+	if (bgp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
 
 	if (!strcmp(argv[2]->text, "import")) {
 		rt_type = RT_TYPE_IMPORT;
