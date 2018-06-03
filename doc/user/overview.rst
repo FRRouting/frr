@@ -214,6 +214,34 @@ FRR implements the following RFCs:
 - :rfc:`3137`
   :t:`OSPF Stub Router Advertisement, A. Retana, L. Nguyen, R. White, A. Zinin,
   D. McPherson. June 2001`
+- :rfc:`4447`
+  :t:`Pseudowire Setup and Maintenance Using the Label Distribution Protocol
+  (LDP), L. Martini, E. Rosen, N. El-Aawar, T. Smith, and G. Heron. April
+  2006.`
+- :rfc:`4762`
+  :t:`Virtual Private LAN Service (VPLS) Using Label Distribution Protocol
+  (LDP) Signaling, M. Lasserre and V. Kompella. January 2007.`
+- :rfc:`5036`
+  :t:`LDP Specification, L. Andersson, I. Minei, and B. Thomas. October 2007.`
+- :rfc:`5561`
+  :t:`LDP Capabilities, B. Thomas, K. Raza, S. Aggarwal, R. Aggarwal, and
+  JL. Le Roux. July 2009.`
+- :rfc:`5918`
+  :t:`Label Distribution Protocol (LDP) 'Typed Wildcard' Forward Equivalence
+  Class (FEC), R. Asati, I. Minei, and B. Thomas. August 2010.`
+- :rfc:`5919`
+  :t:`Signaling LDP Label Advertisement Completion, R. Asati, P. Mohapatra,
+  E. Chen, and B. Thomas. August 2010.`
+- :rfc:`6667`
+  :t:`LDP 'Typed Wildcard' Forwarding Equivalence Class (FEC) for PWid and
+  Generalized PWid FEC Elements, K. Raza, S. Boutros, and C. Pignataro. July
+  2012.`
+- :rfc:`6720`
+  :t:`The Generalized TTL Security Mechanism (GTSM) for the Label Distribution
+  Protocol (LDP), C. Pignataro and R. Asati. August 2012.`
+- :rfc:`7552`
+  :t:`Updates to LDP for IPv6, R. Asati, C. Pignataro, K. Raza, V. Manral,
+  and R. Papneja. June 2015.`
 
 **When SNMP support is enabled, the following RFCs are also supported:**
 
