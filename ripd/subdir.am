@@ -35,7 +35,7 @@ ripd_ripd_SOURCES = \
 	# end
 
 ripd_ripd_snmp_la_SOURCES = ripd/rip_snmp.c
-ripd_ripd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+ripd_ripd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
 ripd_ripd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 ripd_ripd_snmp_la_LIBADD = lib/libfrrsnmp.la
 

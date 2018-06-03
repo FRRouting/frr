@@ -89,7 +89,7 @@ ospfd_ospfd_LDADD = ospfd/libfrrospf.a lib/libfrr.la @LIBCAP@ @LIBM@
 ospfd_ospfd_SOURCES = ospfd/ospf_main.c
 
 ospfd_ospfd_snmp_la_SOURCES = ospfd/ospf_snmp.c
-ospfd_ospfd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+ospfd_ospfd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
 ospfd_ospfd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 ospfd_ospfd_snmp_la_LIBADD = lib/libfrrsnmp.la
 

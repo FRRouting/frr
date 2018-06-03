@@ -61,6 +61,6 @@ ospf6d_ospf6d_SOURCES = \
 	# end
 
 ospf6d_ospf6d_snmp_la_SOURCES = ospf6d/ospf6_snmp.c
-ospf6d_ospf6d_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+ospf6d_ospf6d_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
 ospf6d_ospf6d_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 ospf6d_ospf6d_snmp_la_LIBADD = lib/libfrrsnmp.la
