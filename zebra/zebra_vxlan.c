@@ -3111,8 +3111,10 @@ static void rb_delete_host(struct host_rb_tree_entry *hrbe, struct prefix *host)
 	memcpy(&lookup.p, host, sizeof(*host));
 
 	hle = RB_FIND(host_rb_tree_entry, hrbe, &lookup);
-	if (hle)
+	if (hle) {
 		RB_REMOVE(host_rb_tree_entry, hrbe, hle);
+		XFREE(MTYPE_HOST_PREFIX, hle);
+	}
 
 	return;
 }
