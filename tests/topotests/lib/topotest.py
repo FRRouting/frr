@@ -870,7 +870,9 @@ class Router(Node):
             if self.daemons[daemon] == 0 or daemon == 'zebra' or daemon == 'staticd':
                 continue
             daemon_path = os.path.join(self.daemondir, daemon)
-            self.cmd('{0} > {1}.out 2> {1}.err &'.format(daemon_path, daemon))
+            self.cmd('{0} {1} > {2}.out 2> {2}.err &'.format(
+                daemon_path, self.daemons_options.get(daemon, ''), daemon
+            ))
             self.waitOutput()
             logger.debug('{}: {} {} started'.format(self, self.routertype, daemon))
     def getStdErr(self, daemon):

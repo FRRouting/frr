@@ -1,0 +1,102 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph template {
+	label="Test Topology - Label Manager proxy";
+
+	# Routers
+
+	lm [	shape=doubleoctagon,
+		label="label manager",
+		fillcolor="#f08080",
+		style=filled
+	];
+	ce1 [
+		shape=doubleoctagon,
+		label="ce1",
+		fillcolor="#f08080",
+		style=filled
+	];
+	ce2 [
+		shape=doubleoctagon
+		label="ce2",
+		fillcolor="#f08080",
+		style=filled
+	];
+	pe1 [
+		shape=doubleoctagon,
+		label="pe1",
+		fillcolor="#f08080",
+		style=filled
+	];
+	pe2 [
+		shape=doubleoctagon
+		label="pe2",
+		fillcolor="#f08080",
+		style=filled
+	];
+	p1 [
+		shape=doubleoctagon
+		label="p1",
+		fillcolor="#f08080",
+		style=filled
+	];
+
+	# Switches
+
+	s1 [
+		shape=oval,
+		label="s1\n10.1.1.0/30",
+		fillcolor="#d0e0d0",
+		style=filled
+	];
+	s2 [
+		shape=oval,
+		label="s2\n77.0.1.0/24",
+		fillcolor="#d0e0d0",
+		style=filled
+	];
+	s3 [
+		shape=oval,
+		label="s3\n77.0.2.0/24",
+		fillcolor="#d0e0d0",
+		style=filled
+	];
+	s4 [
+		shape=oval,
+		label="s4\n10.1.2.0/30",
+		fillcolor="#d0e0d0",
+		style=filled
+	];
+
+	# Connections
+
+	ce1 -- s1 [label="eth0\n.2"];
+	pe1 -- s1 [label="eth0\n.1"];
+
+	pe1 -- s2 [label="eth1\n.1"];
+	p1 -- s2 [label="eth0\n.2"];
+
+	pe2 -- s3 [label="eth1\n.1"];
+	p1 -- s3 [label="eth1\n.2"];
+
+	ce2 -- s4 [label="eth0\n.2"];
+	pe2 -- s4 [label="eth0\n.1"];
+
+	lm -- ce1;
+	lm -- pe1;
+	lm -- p1;
+	lm -- pe2;
+	lm -- ce2;
+}
