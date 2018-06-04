@@ -116,7 +116,7 @@ module_LTLIBRARIES += bgpd_snmp.la
 endif
 
 bgpd_snmp_la_SOURCES = bgp_snmp.c
-bgpd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+bgpd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
 bgpd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 bgpd_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 

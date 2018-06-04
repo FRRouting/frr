@@ -127,7 +127,7 @@ zebra_zebra_irdp_la_SOURCES = \
 zebra_zebra_irdp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 
 zebra_zebra_snmp_la_SOURCES = zebra/zebra_snmp.c
-zebra_zebra_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+zebra_zebra_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
 zebra_zebra_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 zebra_zebra_snmp_la_LIBADD = lib/libfrrsnmp.la
 
