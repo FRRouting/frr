@@ -91,8 +91,10 @@ struct zebra_pbr_ipset_entry {
 	struct prefix src;
 	struct prefix dst;
 
+	/* udp/tcp src port or icmp type */
 	uint16_t src_port_min;
 	uint16_t src_port_max;
+	/* udp/tcp dst port or icmp code */
 	uint16_t dst_port_min;
 	uint16_t dst_port_max;
 
