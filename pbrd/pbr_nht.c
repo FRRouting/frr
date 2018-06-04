@@ -485,7 +485,7 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms)
 	struct pbr_nexthop_cache lookup;
 
 	memset(&find, 0, sizeof(find));
-	pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_MAP_NAMELEN,
+	pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
 				  pbrms->seqno, find.name);
 	if (!pbrms->internal_nhg_name)
 		pbrms->internal_nhg_name = XSTRDUP(MTYPE_TMP, find.name);

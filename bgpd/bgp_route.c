@@ -6478,7 +6478,7 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 				? true
 				: false;
 	bool nexthop_othervrf = false;
-	vrf_id_t nexthop_vrfid;
+	vrf_id_t nexthop_vrfid = VRF_DEFAULT;
 	const char *nexthop_vrfname = "Default";
 
 	if (json_paths)
