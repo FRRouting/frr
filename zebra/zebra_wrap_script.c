@@ -153,8 +153,21 @@ static int zebra_wrap_sprint_port(char *str,
 				   "NA:"));
 	len -= len_written;
 	ptr += len_written;
-	if (port) {
-		len_written = snprintf(ptr, len, ":%d", port);
+	if (port || proto == IPPROTO_ICMP) {
+		if (proto == IPPROTO_ICMP) {
+			char decoded_str[20];
+			uint8_t icmp_type, icmp_code;
+
+			icmp_type = (port >> 8) & 0xff;
+			icmp_code = (port & 0xff);
+			memset(decoded_str, 0, sizeof(decoded_str));
+			sprintf(decoded_str, "%d/%d", icmp_type, icmp_code);
+			len_written = snprintf(ptr, len, ":%s",
+					       lookup_msg(icmp_typecode_str,
+							  port, decoded_str));
+		} else {
+			len_written = snprintf(ptr, len, ":%d", port);
+		}
 		len -= len_written;
 		ptr += len_written;
 	}
@@ -178,12 +191,13 @@ static const char *zebra_wrap_prefix2str(union prefixconstptr pu,
 /* return a string identifier similar to what is available in
  * ipset list. optional_proto is here to override proto value
  * of zpi if proto value is not available
+ * port value either stands for tcp/udp port or icmp typecode
  */
 static void zebra_wrap_forge_ipset_identifier(char *buffer, size_t buff_len,
 					     uint32_t type,
 					     struct prefix *src,
 					     struct prefix *dst,
-					     uint32_t port,
+					     uint16_t port,
 					     uint8_t proto)
 {
 	size_t len = buff_len;
@@ -199,7 +213,7 @@ static void zebra_wrap_forge_ipset_identifier(char *buffer, size_t buff_len,
 		len_temp = snprintf(ptr, len, "%s", buf);
 		ptr += len_temp;
 		len -= len_temp;
-		if (port) {
+		if (port || proto == IPPROTO_ICMP) {
 			len_temp = zebra_wrap_sprint_port(ptr, len,
 							 port, proto);
 			ptr += len_temp;
@@ -220,7 +234,7 @@ static void zebra_wrap_forge_ipset_identifier(char *buffer, size_t buff_len,
 		len_temp = snprintf(ptr, len, "%s", buf);
 		ptr += len_temp;
 		len -= len_temp;
-		if (port)
+		if (port || proto == IPPROTO_ICMP)
 			zebra_wrap_sprint_port(ptr, len,
 					      port, proto);
 	}
@@ -883,6 +897,47 @@ static int zebra_wrap_script_ipset_entry_get_stat(
 		uint16_t port, port_min, port_max;
 		uint16_t proto = 0, proto2;
 
+		if (zpie->proto == IPPROTO_ICMP) {
+			uint16_t icmp_typecode, icmp_code;
+			uint16_t icmp_code_min, icmp_code_max;
+
+			proto = zpie->proto;
+			port_min = zpie->src_port_min;
+			port_max = zpie->src_port_max;
+			icmp_code_min = zpie->dst_port_min;
+			icmp_code_max = zpie->dst_port_max;
+			if (port_max == 0)
+				port_max = port_min;
+			if (icmp_code_max == 0)
+				icmp_code_max = icmp_code_min;
+			for (port = port_min; port <= port_max; port++) {
+				for (icmp_code = icmp_code_min;
+				     icmp_code <= icmp_code_max;
+				     icmp_code++) {
+					uint64_t pkts_to_add = 0, bytes_to_add = 0;
+
+					icmp_typecode = ((port << 8) & 0xff00) +
+						(icmp_code && 0xff);
+					ptr = json_data_str;
+
+					memset(ptr, 0, sizeof(json_data_str));
+					zebra_wrap_forge_ipset_identifier(ptr, len,
+									  zpi->type,
+									  src, dst,
+									  icmp_typecode,
+									  proto);
+					ret = zebra_wrap_script_get_stat(
+									 ipset_json->ipset_list,
+									 "data",
+									 json_data_str,
+									 &pkts_to_add,
+									 &bytes_to_add);
+					*pkts += pkts_to_add;
+					*bytes += bytes_to_add;
+				}
+			}
+			return ret;
+		}
 		if (zpie->filter_bm & PBR_FILTER_SRC_PORT) {
 			port_min = zpie->src_port_min;
 			port_max = zpie->src_port_max;
@@ -1169,7 +1224,11 @@ static int zebra_wrap_script_iptable_update(int cmd,
 			ptr += len_written;
 			remaining_len -= len_written;
 		}
-		if ((iptable->filter_bm & PBR_FILTER_DST_PORT) &&
+		if (iptable->filter_bm & MATCH_ICMP_SET) {
+			len_written = snprintf(ptr, remaining_len, ",src");
+			ptr += len_written;
+			remaining_len -= len_written;
+		} else if ((iptable->filter_bm & PBR_FILTER_DST_PORT) &&
 		    (iptable->filter_bm & PBR_FILTER_SRC_PORT)) {
 			/* iptable rule will be called twice.
 			 * one for each side
@@ -1195,7 +1254,11 @@ static int zebra_wrap_script_iptable_update(int cmd,
 		ptr += len_written;
 		remaining_len -= len_written;
 
-		if ((iptable->filter_bm & PBR_FILTER_DST_PORT) &&
+		if (iptable->filter_bm & MATCH_ICMP_SET) {
+			len_written = snprintf(ptr, remaining_len, ",src");
+			ptr += len_written;
+			remaining_len -= len_written;
+		} else if ((iptable->filter_bm & PBR_FILTER_DST_PORT) &&
 		    (iptable->filter_bm & PBR_FILTER_SRC_PORT)) {
 			snprintf(ptr, remaining_len, ",dst,dst");
 			ret = netlink_iptable_update_unit(cmd, iptable, buf2);
@@ -1323,6 +1386,65 @@ static int netlink_ipset_entry_update_unit(int cmd,
 	return zebra_wrap_script_call_only(buf);
 }
 
+static int netlink_ipset_icmp_port(int cmd,
+				    struct zebra_pbr_ipset_entry *ipset,
+				    struct zebra_pbr_ipset *bp,
+				    char *psrc, char *pdst)
+{
+	uint16_t icmp_typecode, icmp_code, icmp_type;
+	uint16_t icmp_code_min, icmp_code_max;
+	uint16_t icmp_type_min, icmp_type_max;
+	char *ptr_to_icmp_typecode, *ptr;
+	char buf[256];
+	int ret = 0;
+
+	if (ipset->proto != IPPROTO_ICMP)
+		return -1;
+
+	icmp_type_min = ipset->src_port_min;
+	icmp_type_max = ipset->src_port_max;
+	icmp_code_min = ipset->dst_port_min;
+	icmp_code_max = ipset->dst_port_max;
+	if (icmp_type_max == 0)
+		icmp_type_max = icmp_type_min;
+	if (icmp_code_max == 0)
+		icmp_code_max = icmp_code_min;
+	for (icmp_type = icmp_type_min; icmp_type <= icmp_type_max; icmp_type++) {
+		for (icmp_code = icmp_code_min;
+		     icmp_code <= icmp_code_max;
+		     icmp_code++) {
+			char decoded_str[12];
+
+			memset(decoded_str, 0, sizeof(decoded_str));
+			snprintf(decoded_str, sizeof(decoded_str), "%u/%u", icmp_type, icmp_code);
+			icmp_typecode = ((uint8_t)(icmp_type) << 8) +
+				(uint8_t)icmp_code;
+
+			ptr_to_icmp_typecode =
+				(char *)lookup_msg(icmp_typecode_str,
+						   icmp_typecode,
+						   decoded_str);
+			ptr = buf;
+			memset(ptr, 0, sizeof(buf));
+			if (bp->type == IPSET_NET_PORT)
+				snprintf(ptr, sizeof(buf), "%s %s %s %s,icmp:%s",
+					 zebra_wrap_script_ipset_pathname,
+					 cmd ? "add" : "del",
+					 bp->ipset_name,
+					 pdst == NULL ? psrc : pdst,
+					 ptr_to_icmp_typecode);
+			else
+				snprintf(ptr, sizeof(buf), "%s %s %s %s,icmp:%s,%s",
+					 zebra_wrap_script_ipset_pathname,
+					 cmd ? "add" : "del",
+					 bp->ipset_name,
+					 psrc, ptr_to_icmp_typecode, pdst);
+			ret = netlink_ipset_entry_update_unit(cmd, ipset, buf);
+		}
+	}
+	return ret;
+}
+
 static void netlink_ipset_entry_port(char *strtofill, int lenstr,
 				     uint32_t filter_bm,
 				     uint16_t port_min, uint16_t port_max)
@@ -1397,9 +1519,13 @@ static int zebra_wrap_script_ipset_entry_update(int cmd,
 	} else if (bp->type == IPSET_NET_PORT) {
 		char strtofill[32];
 
-		netlink_ipset_entry_port(strtofill, sizeof(strtofill),
-					 ipset->filter_bm,
-					 port, port_max);
+		if (ipset->proto == IPPROTO_ICMP)
+			ret += netlink_ipset_icmp_port(cmd, ipset, bp,
+						psrc, pdst);
+		else
+			netlink_ipset_entry_port(strtofill, sizeof(strtofill),
+						 ipset->filter_bm,
+						 port, port_max);
 		/* apply it to udp and tcp */
 		if (!(ipset->filter_bm & PBR_FILTER_PROTO)) {
 			snprintf(buf, sizeof(buf), "%s %s %s %s,udp:%s",
@@ -1414,21 +1540,25 @@ static int zebra_wrap_script_ipset_entry_update(int cmd,
 				bp->ipset_name,
 				pdst == NULL ? psrc : pdst, strtofill);
 			ret += netlink_ipset_entry_update_unit(cmd, ipset, buf);
-		} else {
+		} else if (ipset->proto != IPPROTO_ICMP) {
 			snprintf(buf, sizeof(buf), "%s %s %s %s,%d:%s",
-				zebra_wrap_script_ipset_pathname,
-				cmd ? "add" : "del",
-				bp->ipset_name,
-				pdst == NULL ? psrc : pdst, ipset->proto,
-				strtofill);
+				 zebra_wrap_script_ipset_pathname,
+				 cmd ? "add" : "del",
+				 bp->ipset_name,
+				 pdst == NULL ? psrc : pdst, ipset->proto,
+				 strtofill);
 			ret = netlink_ipset_entry_update_unit(cmd, ipset, buf);
 		}
 	} else if (bp->type == IPSET_NET_PORT_NET) {
 		char strtofill[32];
 
-		netlink_ipset_entry_port(strtofill, sizeof(strtofill),
-					 ipset->filter_bm,
-					 port, port_max);
+		if (ipset->proto == IPPROTO_ICMP)
+			ret += netlink_ipset_icmp_port(cmd, ipset, bp,
+						psrc, pdst);
+		else
+			netlink_ipset_entry_port(strtofill, sizeof(strtofill),
+						 ipset->filter_bm,
+						 port, port_max);
 		/* apply it to udp and tcp */
 		if (!(ipset->filter_bm & PBR_FILTER_PROTO)) {
 			snprintf(buf, sizeof(buf), "%s %s %s %s,tcp:%s,%s",
@@ -1443,7 +1573,7 @@ static int zebra_wrap_script_ipset_entry_update(int cmd,
 				bp->ipset_name,
 				psrc, strtofill, pdst);
 			ret += netlink_ipset_entry_update_unit(cmd, ipset, buf);
-		} else {
+		} else if (ipset->proto != IPPROTO_ICMP) {
 			snprintf(buf, sizeof(buf), "%s %s %s %s,%d:%s,%s",
 				zebra_wrap_script_ipset_pathname,
 				cmd ? "add" : "del",
