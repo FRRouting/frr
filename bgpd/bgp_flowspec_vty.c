@@ -30,6 +30,7 @@
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_flowspec_private.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_pbr.h"
 
 /* Local Structures and variables declarations
  * This code block hosts the struct declared that host the flowspec rules
@@ -318,16 +319,32 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 	peer_uptime(binfo->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);
-	if (display == NLRI_STRING_FORMAT_LARGE)
-		vty_out(vty, "\tup for %8s\n", timebuf);
-	else if (json_paths) {
+	if (display == NLRI_STRING_FORMAT_LARGE) {
+		vty_out(vty, "\treceived for %8s\n", timebuf);
+	} else if (json_paths) {
 		json_time_path = json_object_new_object();
 		json_object_string_add(json_time_path,
 				       "time", timebuf);
 		if (display == NLRI_STRING_FORMAT_JSON)
 			json_object_array_add(json_paths, json_time_path);
 	}
+	if (display == NLRI_STRING_FORMAT_LARGE) {
+		struct bgp_info_extra *extra = bgp_info_extra_get(binfo);
 
+		if (extra->bgp_fs_pbr) {
+			struct bgp_pbr_match_entry *bpme;
+			struct bgp_pbr_match *bpm;
+
+			bpme = (struct bgp_pbr_match_entry *)extra->bgp_fs_pbr;
+			bpm = bpme->backpointer;
+			vty_out(vty, "\tinstalled in PBR");
+			if (bpm)
+				vty_out(vty, " (%s)\n", bpm->ipset_name);
+			else
+				vty_out(vty, "\n");
+		} else
+			vty_out(vty, "\tnot installed in PBR\n");
+	}
 }
 
 int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -408,10 +425,113 @@ DEFUN (no_debug_bgp_flowspec,
 	return CMD_SUCCESS;
 }
 
+int bgp_fs_config_write_pbr(struct vty *vty, struct bgp *bgp,
+			    afi_t afi, safi_t safi)
+{
+	struct bgp_pbr_interface *pbr_if;
+	bool declare_node = false;
+	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
+	struct bgp_pbr_interface_head *head;
+	bool bgp_pbr_interface_any;
+
+	if (!bgp_pbr_cfg || safi != SAFI_FLOWSPEC || afi != AFI_IP)
+		return 0;
+	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+	bgp_pbr_interface_any = bgp_pbr_cfg->pbr_interface_any_ipv4;
+	if (!RB_EMPTY(bgp_pbr_interface_head, head) ||
+	     !bgp_pbr_interface_any)
+		declare_node = true;
+	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
+		vty_out(vty, "  local-install %s\n", pbr_if->name);
+	}
+	if (!bgp_pbr_interface_any)
+		vty_out(vty, "  no local-install any\n");
+	return declare_node ? 1 : 0;
+}
+
+static int bgp_fs_local_install_interface(struct bgp *bgp,
+					  const char *no, const char *ifname)
+{
+	struct bgp_pbr_interface *pbr_if;
+	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
+	struct bgp_pbr_interface_head *head;
+	bool *bgp_pbr_interface_any;
+
+	if (!bgp_pbr_cfg)
+		return CMD_SUCCESS;
+	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
+	bgp_pbr_interface_any = &(bgp_pbr_cfg->pbr_interface_any_ipv4);
+	if (no) {
+		if (!ifname) {
+			if (*bgp_pbr_interface_any) {
+				*bgp_pbr_interface_any = false;
+				/* remove all other interface list */
+				bgp_pbr_reset(bgp, AFI_IP);
+			}
+			return CMD_SUCCESS;
+		}
+		pbr_if = bgp_pbr_interface_lookup(ifname, head);
+		if (!pbr_if)
+			return CMD_SUCCESS;
+		RB_REMOVE(bgp_pbr_interface_head, head, pbr_if);
+		return CMD_SUCCESS;
+	}
+	if (ifname) {
+		pbr_if = bgp_pbr_interface_lookup(ifname, head);
+		if (pbr_if)
+			return CMD_SUCCESS;
+		pbr_if = XCALLOC(MTYPE_TMP,
+				 sizeof(struct bgp_pbr_interface));
+		strlcpy(pbr_if->name, ifname, INTERFACE_NAMSIZ);
+		RB_INSERT(bgp_pbr_interface_head, head, pbr_if);
+		*bgp_pbr_interface_any = false;
+	} else {
+		/* set to default */
+		if (!*bgp_pbr_interface_any) {
+			/* remove all other interface list
+			 */
+			bgp_pbr_reset(bgp, AFI_IP);
+			*bgp_pbr_interface_any = true;
+		}
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (bgp_fs_local_install_ifname,
+	bgp_fs_local_install_ifname_cmd,
+	"[no] local-install INTERFACE",
+	NO_STR
+	"Apply local policy routing\n"
+	"Interface name\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	int idx = 0;
+	const char *no = strmatch(argv[0]->text, (char *)"no") ? "no" : NULL;
+	char *ifname = argv_find(argv, argc, "INTERFACE", &idx) ?
+		argv[idx]->arg : NULL;
+
+	return bgp_fs_local_install_interface(bgp, no, ifname);
+}
+
+DEFUN (bgp_fs_local_install_any,
+	bgp_fs_local_install_any_cmd,
+	"[no] local-install any",
+	NO_STR
+	"Apply local policy routing\n"
+	"Any Interface\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	const char *no = strmatch(argv[0]->text, (char *)"no") ? "no" : NULL;
+
+	return bgp_fs_local_install_interface(bgp, no, NULL);
+}
+
 void bgp_flowspec_vty_init(void)
 {
 	install_element(ENABLE_NODE, &debug_bgp_flowspec_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_flowspec_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_flowspec_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_flowspec_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_any_cmd);
+	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_ifname_cmd);
 }

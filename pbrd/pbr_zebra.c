@@ -222,6 +222,7 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 		DEBUGD(&pbr_dbg_zebra, "%s: Recived RULE_INSTALLED",
 		       __PRETTY_FUNCTION__);
 		break;
+	case ZAPI_RULE_FAIL_REMOVE:
 	case ZAPI_RULE_REMOVED:
 		pbrms->installed &= ~installed;
 		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE REMOVED",

@@ -262,10 +262,10 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 
 	hash_clean(zns->rules_hash, zebra_pbr_rules_free);
 	hash_free(zns->rules_hash);
-	hash_clean(zns->ipset_hash, zebra_pbr_ipset_free);
-	hash_free(zns->ipset_hash);
 	hash_clean(zns->ipset_entry_hash,
 		   zebra_pbr_ipset_entry_free),
+	hash_clean(zns->ipset_hash, zebra_pbr_ipset_free);
+	hash_free(zns->ipset_hash);
 	hash_free(zns->ipset_entry_hash);
 	hash_clean(zns->iptable_hash,
 		   zebra_pbr_iptable_free);

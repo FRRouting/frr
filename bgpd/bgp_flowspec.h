@@ -47,4 +47,7 @@ extern void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 extern void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 				   struct bgp_info *binfo,
 				   int display, json_object *json_paths);
+extern int bgp_fs_config_write_pbr(struct vty *vty, struct bgp *bgp,
+				   afi_t afi, safi_t safi);
+
 #endif /* _FRR_BGP_FLOWSPEC_H */

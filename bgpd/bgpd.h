@@ -47,6 +47,7 @@
 
 struct update_subgroup;
 struct bpacket;
+struct bgp_pbr_config;
 
 /*
  * Allow the neighbor XXXX remote-as to take internal or external
@@ -526,6 +527,8 @@ struct bgp {
 	struct bgp_rmap adv_cmd_rmap[AFI_MAX][SAFI_MAX];
 
 	struct vpn_policy vpn_policy[AFI_MAX];
+
+	struct bgp_pbr_config *bgp_pbr_cfg;
 
 	QOBJ_FIELDS
 };

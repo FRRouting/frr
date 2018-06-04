@@ -123,6 +123,8 @@ struct bgp_pbr_entry_main {
 	struct prefix src_prefix;
 	struct prefix dst_prefix;
 
+#define PROTOCOL_UDP 17
+#define PROTOCOL_TCP 6
 	struct bgp_pbr_match_val protocol[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val src_port[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val dst_port[BGP_PBR_MATCH_VAL_MAX];
@@ -148,6 +150,25 @@ struct bgp_pbr_entry_main {
 	vrf_id_t vrf_id;
 };
 
+struct bgp_pbr_interface {
+	RB_ENTRY(bgp_pbr_interface) id_entry;
+	char name[INTERFACE_NAMSIZ];
+};
+
+RB_HEAD(bgp_pbr_interface_head, bgp_pbr_interface);
+RB_PROTOTYPE(bgp_pbr_interface_head, bgp_pbr_interface, id_entry,
+	     bgp_pbr_interface_compare);
+
+extern int bgp_pbr_interface_compare(const struct bgp_pbr_interface *a,
+				     const struct bgp_pbr_interface *b);
+
+struct bgp_pbr_config {
+	struct bgp_pbr_interface_head ifaces_by_name_ipv4;
+	bool pbr_interface_any_ipv4;
+};
+
+extern struct bgp_pbr_config *bgp_pbr_cfg;
+
 struct bgp_pbr_match {
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 
@@ -157,6 +178,10 @@ struct bgp_pbr_match {
 
 #define MATCH_IP_SRC_SET		(1 << 0)
 #define MATCH_IP_DST_SET		(1 << 1)
+#define MATCH_PORT_SRC_SET		(1 << 2)
+#define MATCH_PORT_DST_SET		(1 << 3)
+#define MATCH_PORT_SRC_RANGE_SET	(1 << 4)
+#define MATCH_PORT_DST_RANGE_SET	(1 << 5)
 	uint32_t flags;
 
 	vrf_id_t vrf_id;
@@ -188,6 +213,14 @@ struct bgp_pbr_match_entry {
 
 	struct prefix src;
 	struct prefix dst;
+
+	uint16_t src_port_min;
+	uint16_t src_port_max;
+	uint16_t dst_port_min;
+	uint16_t dst_port_max;
+	uint8_t proto;
+
+	void *bgp_info;
 
 	bool installed;
 	bool install_in_progress;
@@ -252,5 +285,11 @@ extern void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
 				 struct bgp_info *new_select,
 				afi_t afi, safi_t safi,
 				bool nlri_update);
+
+/* bgp pbr utilities */
+extern struct bgp_pbr_interface *pbr_interface_lookup(const char *name);
+extern void bgp_pbr_reset(struct bgp *bgp, afi_t afi);
+extern struct bgp_pbr_interface *bgp_pbr_interface_lookup(const char *name,
+				   struct bgp_pbr_interface_head *head);
 
 #endif /* __BGP_PBR_H__ */

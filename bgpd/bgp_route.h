@@ -146,6 +146,8 @@ struct bgp_info_extra {
 	 * Set nexthop_orig.family to 0 if not valid.
 	 */
 	struct prefix nexthop_orig;
+	/* presence of FS pbr entry */
+	void *bgp_fs_pbr;
 };
 
 struct bgp_info {
