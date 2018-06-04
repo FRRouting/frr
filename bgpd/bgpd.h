@@ -832,13 +832,14 @@ struct peer {
 #define PEER_FLAG_DISABLE_CONNECTED_CHECK   (1 << 6) /* disable-connected-check */
 #define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1 << 7) /* local-as no-prepend */
 #define PEER_FLAG_LOCAL_AS_REPLACE_AS       (1 << 8) /* local-as no-prepend replace-as */
-#define PEER_FLAG_DELETE		    (1 << 9) /* mark the peer for deleting */
-#define PEER_FLAG_CONFIG_NODE		    (1 << 10) /* the node to update configs on */
+#define PEER_FLAG_DELETE                    (1 << 9) /* mark the peer for deleting */
+#define PEER_FLAG_CONFIG_NODE               (1 << 10) /* the node to update configs on */
 #define PEER_FLAG_LONESOUL                  (1 << 11)
 #define PEER_FLAG_DYNAMIC_NEIGHBOR          (1 << 12) /* dynamic neighbor */
 #define PEER_FLAG_CAPABILITY_ENHE           (1 << 13) /* Extended next-hop (rfc 5549)*/
 #define PEER_FLAG_IFPEER_V6ONLY             (1 << 14) /* if-based peer is v6 only */
-#define PEER_FLAG_IS_RFAPI_HD		    (1 << 15) /* attached to rfapi HD */
+#define PEER_FLAG_IS_RFAPI_HD               (1 << 15) /* attached to rfapi HD */
+#define PEER_FLAG_ENFORCE_FIRST_AS          (1 << 16) /* enforce-first-as */
 
 	/* outgoing message sent in CEASE_ADMIN_SHUTDOWN notify */
 	char *tx_shutdown_message;
