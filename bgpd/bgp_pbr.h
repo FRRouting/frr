@@ -125,6 +125,7 @@ struct bgp_pbr_entry_main {
 
 #define PROTOCOL_UDP 17
 #define PROTOCOL_TCP 6
+#define PROTOCOL_ICMP 1
 	struct bgp_pbr_match_val protocol[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val src_port[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val dst_port[BGP_PBR_MATCH_VAL_MAX];
