@@ -49,7 +49,9 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 	struct vrf *nh_vrf;
 
 	/* Lookup table.  */
-	table = zebra_vrf_table(afi, safi, si->vrf_id);
+	table = zebra_vrf_table_with_table_id(afi, safi,
+					      si->vrf_id,
+					      si->table_id);
 	if (!table)
 		return;
 
@@ -170,10 +172,20 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		re->metric = 0;
 		re->mtu = 0;
 		re->vrf_id = si->vrf_id;
-		re->table =
-			(si->vrf_id != VRF_DEFAULT)
+		if (!vrf_is_backend_netns()) {
+			re->table =
+				(si->vrf_id != VRF_DEFAULT)
 				? (zebra_vrf_lookup_by_id(si->vrf_id))->table_id
 				: zebrad.rtm_table_default;
+		} else {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(si->vrf_id);
+
+			if (zvrf->table_id != RT_TABLE_MAIN ||
+			    zvrf->table_id != zebrad.rtm_table_default)
+				re->table = zvrf->table_id;
+			else
+				re->table = zebrad.rtm_table_default;
+		}
 		re->nexthop_num = 0;
 		re->tag = si->tag;
 
@@ -290,7 +302,9 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 	struct prefix nh_p;
 
 	/* Lookup table.  */
-	table = zebra_vrf_table(afi, safi, si->vrf_id);
+	table = zebra_vrf_table_with_table_id(afi, safi,
+					      si->vrf_id,
+					      si->table_id);
 	if (!table)
 		return;
 
@@ -395,7 +409,8 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		     const char *ifname, enum static_blackhole_type bh_type,
 		     route_tag_t tag, uint8_t distance, struct zebra_vrf *zvrf,
 		     struct zebra_vrf *nh_zvrf,
-		     struct static_nh_label *snh_label)
+		     struct static_nh_label *snh_label,
+		     uint32_t table_id)
 {
 	struct route_node *rn;
 	struct static_route *si;
@@ -445,7 +460,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	if (update)
 		static_delete_route(afi, safi, type, p, src_p, gate, ifname,
 				    update->tag, update->distance, zvrf,
-				    &update->snh_label);
+				    &update->snh_label, table_id);
 
 	/* Make new static route structure. */
 	si = XCALLOC(MTYPE_STATIC_ROUTE, sizeof(struct static_route));
@@ -457,6 +472,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	si->vrf_id = zvrf_id(zvrf);
 	si->nh_vrf_id = zvrf_id(nh_zvrf);
 	strcpy(si->nh_vrfname, nh_zvrf->vrf->name);
+	si->table_id = table_id;
 
 	if (ifname)
 		strlcpy(si->ifname, ifname, sizeof(si->ifname));
@@ -528,7 +544,8 @@ int static_delete_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 			struct prefix_ipv6 *src_p, union g_addr *gate,
 			const char *ifname, route_tag_t tag, uint8_t distance,
 			struct zebra_vrf *zvrf,
-			struct static_nh_label *snh_label)
+			struct static_nh_label *snh_label,
+			uint32_t table_id)
 {
 	struct route_node *rn;
 	struct static_route *si;
@@ -554,6 +571,7 @@ int static_delete_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 				&& IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
 		    && (!strcmp(ifname ? ifname : "", si->ifname))
 		    && (!tag || (tag == si->tag))
+		    && (table_id == si->table_id)
 		    && (!snh_label->num_labels
 			|| !memcmp(&si->snh_label, snh_label,
 				   sizeof(struct static_nh_label))))

@@ -328,7 +328,9 @@ int zebra_vrf_has_config(struct zebra_vrf *zvrf)
 }
 
 /* Lookup the routing table in a VRF based on both VRF-Id and table-id.
- * NOTE: Table-id is relevant only in the Default VRF.
+ * NOTE: Table-id is relevant on two modes:
+ * - case VRF backend is default : on default VRF only
+ * - case VRF backend is netns : on all VRFs
  */
 struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 						  vrf_id_t vrf_id,
@@ -340,6 +342,13 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 		return NULL;
 
 	if (vrf_id == VRF_DEFAULT) {
+		if (table_id == RT_TABLE_MAIN
+		    || table_id == zebrad.rtm_table_default)
+			table = zebra_vrf_table(afi, safi, vrf_id);
+		else
+			table = zebra_vrf_other_route_table(afi, table_id,
+							    vrf_id);
+	} else if (vrf_is_backend_netns()) {
 		if (table_id == RT_TABLE_MAIN
 		    || table_id == zebrad.rtm_table_default)
 			table = zebra_vrf_table(afi, safi, vrf_id);
@@ -434,7 +443,8 @@ struct zebra_vrf *zebra_vrf_alloc(void)
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
 	zebra_pw_init(zvrf);
-
+	zvrf->table_id = RT_TABLE_MAIN;
+	/* by default table ID is default one */
 	return zvrf;
 }
 
@@ -501,9 +511,16 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, uint32_t table_id,
 	if (afi >= AFI_MAX)
 		return NULL;
 
-	if ((vrf_id == VRF_DEFAULT) && (table_id != RT_TABLE_MAIN)
+	if ((table_id != RT_TABLE_MAIN)
 	    && (table_id != zebrad.rtm_table_default)) {
-		return zebra_ns_get_table(zns, zvrf, table_id, afi);
+		if (zvrf->table_id == RT_TABLE_MAIN ||
+		    zvrf->table_id == zebrad.rtm_table_default) {
+			/* this VRF use default table
+			 * so in all cases, it does not use specific table
+			 * so it is possible to configure tables in this VRF
+			 */
+			return zebra_ns_get_table(zns, zvrf, table_id, afi);
+		}
 	}
 
 	return zvrf->table[afi][SAFI_UNICAST];

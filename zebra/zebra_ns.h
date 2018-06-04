@@ -43,6 +43,7 @@ struct zebra_ns_table {
 
 	uint32_t tableid;
 	afi_t afi;
+	ns_id_t ns_id;
 
 	struct route_table *table;
 };
