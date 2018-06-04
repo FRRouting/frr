@@ -3256,7 +3256,8 @@ DEFUN(show_bgp_l2vpn_evpn_es,
       L2VPN_HELP_STR
       EVPN_HELP_STR
       "ethernet-Segment\n"
-      "Ethernet-Segment Identifier\n")
+      "Ethernet-Segment Identifier\n"
+      JSON_STR)
 {
 	int idx = 0;
 	uint8_t uj = 0;
