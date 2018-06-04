@@ -189,6 +189,11 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Tell pim to receive IGMP reports and Query on this interface. The default
    version is v3. This command is useful on the LHR.
 
+.. index:: ip igmp join
+.. clicmd:: ip igmp join
+
+   Join multicast source-group on an interface.
+
 .. index:: ip igmp query-interval (1-1800)
 .. clicmd:: ip igmp query-interval (1-1800)
 
@@ -246,6 +251,41 @@ specified vrf command if information is desired about a specific vrf. If no
 vrf is specified then the default vrf is assumed. Finally the special keyword
 'all' allows you to look at all vrfs for the command. Naming a vrf 'all' will
 cause great confusion.
+
+.. index:: show ip igmp interface
+.. clicmd:: show ip igmp interface
+
+   Display IGMP interface information.
+
+.. index:: show ip igmp join
+.. clicmd:: show ip igmp join
+
+   Display IGMP static join information.
+
+.. index:: show ip igmp groups
+.. clicmd:: show ip igmp groups
+
+   Display IGMP groups information.
+
+.. index:: show ip igmp groups retransmissions
+.. clicmd:: show ip igmp groups retransmissions
+
+   Display IGMP group retransmission information.
+
+.. index:: show ip igmp sources
+.. clicmd:: show ip igmp sources
+
+   Display IGMP sources information.
+
+.. index:: show ip igmp sources retransmissions
+.. clicmd:: show ip igmp sources retransmissions
+
+   Display IGMP source retransmission information.
+
+.. index:: show ip igmp statistics
+.. clicmd:: show ip igmp statistics
+
+   Display IGMP statistics information.
 
 .. index:: show ip multicast
 .. clicmd:: show ip multicast
@@ -364,6 +404,11 @@ cause great confusion.
 
    Display the multicast RIB created in zebra.
 
+.. index:: mtrace
+.. clicmd:: mtrace
+
+   Display multicast traceroute towards source.
+
 PIM Debug Commands
 ==================
 
@@ -372,6 +417,21 @@ debugging. You can specify debugging at the enable CLI mode as well as the
 configure CLI mode. If you specify debug commands in the configuration cli
 mode, the debug commands can be persistent across restarts of the FRR pimd if
 the config was written out.
+
+.. index:: debug igmp
+.. clicmd:: debug igmp
+
+   This turns on debugging for IGMP protocol activity.
+
+.. index:: debug mtrace
+.. clicmd:: debug mtrace
+
+   This turns on debugging for mtrace protocol activity.
+
+.. index:: debug mroute
+.. clicmd:: debug mroute
+
+   This turns on debugging for PIM interaction with kernel MFC cache.
 
 .. index:: debug pim events
 .. clicmd:: debug pim events
@@ -406,3 +466,32 @@ the config was written out.
 .. clicmd:: debug pim zebra
 
    This gathers data about events from zebra that come up through the ZAPI.
+
+PIM Clear Commands
+==================
+Clear commands reset various variables.
+
+.. index:: clear ip interfaces
+.. clicmd:: clear ip interfaces
+
+   Reset interfaces.
+
+.. index:: clear ip igmp interfaces
+.. clicmd:: clear ip igmp interfaces
+
+   Reset IGMP interfaces.
+
+.. index:: clear ip mroute
+.. clicmd:: clear ip mroute
+
+   Reset multicast routes.
+
+.. index:: clear ip pim interfaces
+.. clicmd:: clear ip pim interfaces
+
+   Reset PIM interfaces.
+
+.. index:: clear ip pim oil
+.. clicmd:: clear ip pim oil
+
+   Rescan PIM OIL (output interface list).
