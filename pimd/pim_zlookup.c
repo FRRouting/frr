@@ -217,22 +217,26 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 		}
 		switch (nexthop_type) {
 		case NEXTHOP_TYPE_IFINDEX:
+			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
+			/*
+			 * Connected route (i.e. no nexthop), use
+			 * address passed in as PIM nexthop.  This will
+			 * allow us to work in cases where we are
+			 * trying to find a route for this box.
+			 */
+			nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
+			nexthop_tab[num_ifindex].nexthop_addr.prefixlen =
+				IPV4_MAX_BITLEN;
+			nexthop_tab[num_ifindex].nexthop_addr.u.prefix4 =
+				addr;
+			++num_ifindex;
+			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 		case NEXTHOP_TYPE_IPV4:
 			nexthop_tab[num_ifindex].nexthop_addr.family = AF_INET;
-			if (nexthop_type == NEXTHOP_TYPE_IPV4_IFINDEX
-			    || nexthop_type == NEXTHOP_TYPE_IPV4) {
-				nexthop_tab[num_ifindex]
-					.nexthop_addr.u.prefix4.s_addr =
-					stream_get_ipv4(s);
-			} else {
-				nexthop_tab[num_ifindex]
-					.nexthop_addr.u.prefix4.s_addr =
-					PIM_NET_INADDR_ANY;
-			}
+			nexthop_tab[num_ifindex].nexthop_addr.u.prefix4.s_addr =
+				stream_get_ipv4(s);
 			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
-			nexthop_tab[num_ifindex].protocol_distance = distance;
-			nexthop_tab[num_ifindex].route_metric = metric;
 			++num_ifindex;
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -272,19 +276,13 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			}
 			++num_ifindex;
 			break;
-		default:
-			/* do nothing */
-			{
-				char addr_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<addr?>", addr, addr_str,
-					       sizeof(addr_str));
-				zlog_warn(
-					"%s: found non-ifindex nexthop type=%d for address %s(%s)",
-					__PRETTY_FUNCTION__, nexthop_type,
-					addr_str, pim->vrf->name);
-			}
-			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_BLACKHOLE:
+			/* ignore */
+			continue;
 		}
+		nexthop_tab[num_ifindex].protocol_distance = distance;
+		nexthop_tab[num_ifindex].route_metric = metric;
 	}
 
 	return num_ifindex;
