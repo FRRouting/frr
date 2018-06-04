@@ -702,9 +702,9 @@ void pim_rp_setup(struct pim_instance *pim)
 					"%s: NHT Local Nexthop not found for RP %s ",
 					__PRETTY_FUNCTION__, buf);
 			}
-			if (!pim_nexthop_lookup(
+			if (pim_nexthop_lookup(
 				    pim, &rp_info->rp.source_nexthop,
-				    rp_info->rp.rpf_addr.u.prefix4, 1))
+				    rp_info->rp.rpf_addr.u.prefix4, 1) < 0)
 				if (PIM_DEBUG_PIM_NHT_RP)
 					zlog_debug(
 						"Unable to lookup nexthop for rp specified");
