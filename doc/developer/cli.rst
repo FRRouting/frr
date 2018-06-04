@@ -756,27 +756,30 @@ Consider also:
 
 ::
 
-      show <ip|ipv6> foo
+   show <ip|ipv6> foo
 
 User input:
 
 ::
 
-      show ip foo
+   show ip foo
 
 ``ip`` partially matches ``ipv6`` but exactly matches ``ip``, so ``ip`` will
 win.
 
+Inspection & Debugging
+----------------------
+
 Permutations
-------------
-Finally, it is sometimes useful to check all the possible combinations of input
-that would match an arbitrary definition string. There is a tool in
+^^^^^^^^^^^^
+It is sometimes useful to check all the possible combinations of input that
+would match an arbitrary definition string. There is a tool in
 :file:`tools/permutations` that reads CLI definition strings on ``stdin`` and
 prints out all matching input permutations. It also dumps a text representation
 of the graph, which is more useful for debugging than anything else. It looks
 like this:
 
-::
+.. code-block:: shell
 
    $ ./permutations "show [ip] bgp [<view|vrf> WORD]"
 
@@ -787,6 +790,29 @@ like this:
    show bgp vrf WORD
    show bgp
 
-This functionality is also built into VTY/VTYSH; the ``list permutations``
-command will list all possible matching input permutations in the current CLI
-node.
+This functionality is also built into VTY/VTYSH; :clicmd:`list permutations`
+will list all possible matching input permutations in the current CLI node.
+
+Graph Inspection
+^^^^^^^^^^^^^^^^
+When in the Telnet or VTYSH console, :clicmd:`show cli graph` will dump the
+entire command space of the current mode in the DOT graph language. This can be
+fed into one of the various GraphViz layout engines, such as ``dot``,
+``neato``, etc.
+
+For example, to generate an image of the entire command space for the top-level
+mode (``ENABLE_NODE``):
+
+.. code-block:: shell
+
+   sudo vtysh -c 'show cli graph' | dot -Tjpg -Grankdir=LR > graph.jpg
+
+To do the same for the BGP mode:
+
+.. code-block:: shell
+
+   sudo vtysh -c 'conf t' -c 'router bgp' -c 'show cli graph' | dot -Tjpg -Grankdir=LR > bgpgraph.jpg
+
+This information is very helpful when debugging command resolution, tracking
+down duplicate / ambiguous commands, and debugging patches to the CLI graph
+builder.
