@@ -607,7 +607,7 @@ rm -rf %{buildroot}
     %{_sbindir}/frr
 %endif
 %config(noreplace) /etc/pam.d/frr
-%config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
+%config(noreplace) %attr(640,root,root) /etc/logrotate.d/frr
 %{_sbindir}/frr-reload
 
 %files contrib
