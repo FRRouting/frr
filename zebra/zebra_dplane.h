@@ -21,10 +21,11 @@
 #define _ZEBRA_DPLANE_H 1
 
 #include "zebra.h"
-#include "zserv.h"
+#include "rib.h"
 #include "prefix.h"
 #include "nexthop.h"
 #include "nexthop_group.h"
+#include "zebra_ns.h"
 
 
 /*
@@ -79,14 +80,6 @@ dplane_ctx_h dplane_ctx_alloc(void);
 void dplane_ctx_free(dplane_ctx_h *pctx);
 
 /*
- * Init dataplane context for route update from core zebra data structures.
- */
-int dplane_ctx_route_init(dplane_ctx_h ctx,
-			  dplane_op_e op,
-			  const struct route_node *rn,
-			  const struct route_entry *re);
-
-/*
  * Accessors for information from the context object
  */
 dplane_status_e dplane_ctx_get_status(const dplane_ctx_h ctx);
@@ -115,27 +108,29 @@ const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx);
 const struct zebra_ns_info *dplane_ctx_get_ns(const dplane_ctx_h ctx);
 
 /*
- * Enqueue a route update for the dataplane.
+ * Enqueue route operations for the dataplane.
  */
-int dplane_route_update(dplane_ctx_h ctx);
+int dplane_route_add(struct route_node *rn,
+		     struct route_entry *re);
 
-/*
- * Enqueue a route removal for the dataplane.
- */
-int dplane_route_delete(dplane_ctx_h ctx);
+int dplane_route_update(struct route_node *rn,
+			struct route_entry *re);
+
+int dplane_route_delete(struct route_node *rn,
+			struct route_entry *re);
 
 /*
  * Callback function used to return status about a dataplane operation. The
  * callback must take ownership of the context block - it must free it, using
  * the 'free' api.
  */
-typedef int (*dplane_status_fp)(dplane_ctx_h ctx);
+typedef int (*dplane_route_status_fp)(dplane_ctx_h ctx);
 
 /*
  * Initialize the dataplane module;
  * register a callback that will receive status updates from the dataplane.
  */
-int zebra_dplane_init(dplane_status_fp fp);
+int zebra_dplane_init(dplane_route_status_fp fp);
 
 
 #endif	/* _ZEBRA_DPLANE_H */
