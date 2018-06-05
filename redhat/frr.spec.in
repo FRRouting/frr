@@ -168,6 +168,8 @@ Requires(post):     systemd
 Requires(preun):    systemd
 Requires(postun):   systemd
 %else
+Requires(post):     chkconfig
+Requires(preun):    chkconfig
 # Initscripts > 5.60 is required for IPv6 support
 Requires(pre):      initscripts >= 5.60
 %endif
