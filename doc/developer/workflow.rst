@@ -105,7 +105,7 @@ submit it.
 Pre-submission Checklist
 ------------------------
 
--  Format code (see `Code Formatting <#developers-guidelines>`__)
+-  Format code (see `Code Formatting <#code-formatting>`__)
 -  Verify and acknowledge license (see `License for
    contributions <#license-for-contributions>`__)
 -  Ensure you have properly signed off (see `Signing
@@ -376,7 +376,7 @@ your indented claim immediately after. E.g.:
       Copyright (C) 2010 Entity A ....
       Copyright (C) 2016 Your name [optional brief change description]
 
-Code formatting
+Code Formatting
 ---------------
 
 FRR uses Linux kernel style except where noted below. Code which does
