@@ -143,7 +143,6 @@ License:        GPLv2+
 Group:          System Environment/Daemons
 Source0:        https://github.com/FRRouting/frr/archive/%{name}-%{frrversion}.tar.gz
 URL:            https://www.frrouting.org
-Requires(pre):  /sbin/install-info
 Requires(preun): /sbin/install-info
 Requires(post): /sbin/install-info
 BuildRequires:  gcc patch libcap-devel
