@@ -18,6 +18,7 @@ TESTS_BGPD = \
 	bgpd/test_aspath \
 	bgpd/test_capability \
 	bgpd/test_packet \
+	bgpd/test_peer_attr \
 	bgpd/test_ecommunity \
 	bgpd/test_mp_attr \
 	bgpd/test_mpath
@@ -140,6 +141,7 @@ lib_cli_test_commands_SOURCES = lib/cli/test_commands_defun.c \
 bgpd_test_aspath_SOURCES = bgpd/test_aspath.c
 bgpd_test_capability_SOURCES = bgpd/test_capability.c
 bgpd_test_packet_SOURCES = bgpd/test_packet.c
+bgpd_test_peer_attr_SOURCES = bgpd/test_peer_attr.c
 bgpd_test_ecommunity_SOURCES = bgpd/test_ecommunity.c
 bgpd_test_mp_attr_SOURCES = bgpd/test_mp_attr.c
 bgpd_test_mpath_SOURCES = bgpd/test_mpath.c
@@ -179,6 +181,7 @@ lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
 bgpd_test_aspath_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_capability_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_packet_LDADD = $(BGP_TEST_LDADD)
+bgpd_test_peer_attr_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_ecommunity_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mp_attr_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mpath_LDADD = $(BGP_TEST_LDADD)
@@ -193,6 +196,7 @@ EXTRA_DIST = \
     bgpd/test_ecommunity.py \
     bgpd/test_mp_attr.py \
     bgpd/test_mpath.py \
+	bgpd/test_peer_attr.py \
     helpers/python/frrsix.py \
     helpers/python/frrtest.py \
     isisd/test_fuzz_isis_tlv.py \
