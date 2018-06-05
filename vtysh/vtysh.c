@@ -149,7 +149,7 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 	bufvalid = buf;
 	do {
 		ssize_t nread =
-			read(vclient->fd, bufvalid, buf + bufsz - bufvalid);
+			read(vclient->fd, bufvalid, buf + bufsz - bufvalid - 1);
 
 		if (nread < 0 && (errno == EINTR || errno == EAGAIN))
 			continue;
@@ -161,6 +161,9 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 		}
 
 		bufvalid += nread;
+
+		/* Null terminate so we may pass this to *printf later. */
+		bufvalid[0] = '\0';
 
 		/*
 		 * We expect string output from daemons, so instead of looking
@@ -195,7 +198,7 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 			else if (end)
 				/* no nl, end of input, but some text left */
 				eol = end;
-			else if (bufvalid == buf + bufsz) {
+			else if (bufvalid == buf + bufsz - 1) {
 				/*
 				 * no nl, no end of input, no buffer space;
 				 * realloc
