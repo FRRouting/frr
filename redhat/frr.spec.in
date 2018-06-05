@@ -64,13 +64,9 @@
     %{expand: %%global initsystem %(if [[ `/sbin/init --version 2> /dev/null` =~ upstart ]]; then echo upstart; elif [[ `readlink -f /sbin/init` = /usr/lib/systemd/systemd ]]; then echo systemd; elif [[ `systemctl` =~ -\.mount ]]; then echo systemd; fi)}
 %endif
 %endif
-#
-# If init system is systemd, then always disable watchfrr
-#
+
+# If init system is systemd, then always enable watchfrr
 %if "%{initsystem}" == "systemd"
-    # Note: For systems with systemd, watchfrr will NOT be built. Systemd
-    # takes over the role of restarting crashed processes. Value will
-    # be overwritten with 0 below for systemd independent on the setting here
     %global with_watchfrr 1
 %endif
 
