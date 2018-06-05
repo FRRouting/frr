@@ -893,7 +893,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 					nexthop_tab[i].route_metric,
 					nexthop_tab[i].protocol_distance);
 			}
-			/* update nextop data */
+			/* update nexthop data */
 			nexthop->interface = ifp;
 			nexthop->mrib_nexthop_addr =
 				nexthop_tab[i].nexthop_addr;
