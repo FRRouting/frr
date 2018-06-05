@@ -5449,7 +5449,6 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	struct community *commerge = NULL;
 	struct bgp_info *ri;
 	struct bgp_info *new;
-	bool first = true;
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
 
@@ -5479,9 +5478,6 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 
 			if (del && ri == del)
 				continue;
-
-			if (!rinew && first)
-				first = false;
 
 			if (ri->attr->flag
 			    & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
