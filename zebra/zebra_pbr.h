@@ -138,6 +138,8 @@ struct zebra_pbr_iptable {
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 
+extern const struct message icmp_typecode_str[];
+
 const char *zebra_pbr_ipset_type2str(uint32_t type);
 
 void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);

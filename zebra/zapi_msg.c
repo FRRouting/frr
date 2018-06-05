@@ -2864,9 +2864,9 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 
 		if (!is_default_prefix(&zpi.dst))
 			zpi.filter_bm |= PBR_FILTER_DST_IP;
-		if (zpi.dst_port_min != 0)
+		if (zpi.dst_port_min != 0 || zpi.proto == IPPROTO_ICMP)
 			zpi.filter_bm |= PBR_FILTER_DST_PORT;
-		if (zpi.src_port_min != 0)
+		if (zpi.src_port_min != 0 || zpi.proto == IPPROTO_ICMP)
 			zpi.filter_bm |= PBR_FILTER_SRC_PORT;
 		if (zpi.dst_port_max != 0)
 			zpi.filter_bm |= PBR_FILTER_DST_PORT_RANGE;

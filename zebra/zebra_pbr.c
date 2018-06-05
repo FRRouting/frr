@@ -43,6 +43,44 @@ static const struct message ipset_type_msg[] = {
 	{0}
 };
 
+const struct message icmp_typecode_str[] = {
+	{ 0 << 8, "echo-reply"},
+	{ 0 << 8, "pong"},
+	{ 3 << 8, "network-unreachable"},
+	{ (3 << 8) + 1, "host-unreachable"},
+	{ (3 << 8) + 2, "protocol-unreachable"},
+	{ (3 << 8) + 3, "port-unreachable"},
+	{ (3 << 8) + 4, "fragmentation-needed"},
+	{ (3 << 8) + 5, "source-route-failed"},
+	{ (3 << 8) + 6, "network-unknown"},
+	{ (3 << 8) + 7, "host-unknown"},
+	{ (3 << 8) + 9, "network-prohibited"},
+	{ (3 << 8) + 10, "host-prohibited"},
+	{ (3 << 8) + 11, "TOS-network-unreachable"},
+	{ (3 << 8) + 12, "TOS-host-unreachable"},
+	{ (3 << 8) + 13, "communication-prohibited"},
+	{ (3 << 8) + 14, "host-precedence-violation"},
+	{ (3 << 8) + 15, "precedence-cutoff"},
+	{ 4 << 8, "source-quench"},
+	{ 5 << 8, "network-redirect"},
+	{ (5 << 8) +  1, "host-redirect"},
+	{ (5 << 8) +  2, "TOS-network-redirect"},
+	{ (5 << 8) +  3, "TOS-host-redirect"},
+	{ 8 << 8, "echo-request"},
+	{ 8 << 8, "ping"},
+	{ 9 << 8, "router-advertisement"},
+	{ 10 << 8, "router-solicitation"},
+	{ 11 << 8, "ttl-zero-during-transit"},
+	{ (11 << 8) + 1, "ttl-zero-during-reassembly"},
+	{ 12 << 8, "ip-header-bad"},
+	{ (12 << 8) + 1, "required-option-missing"},
+	{ 13 << 8, "timestamp-request"},
+	{ 14 << 8, "timestamp-reply"},
+	{ 17 << 8, "address-mask-request"},
+	{ 18 << 8, "address-mask-reply"},
+	{0}
+};
+
 /* static function declarations */
 DEFINE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat, (struct zebra_ns *zns,
 				    struct zebra_pbr_ipset_entry *ipset,
@@ -770,6 +808,30 @@ static const char *zebra_pbr_prefix2str(union prefixconstptr pu,
 	return prefix2str(pu, str, size);
 }
 
+static void zebra_pbr_display_icmp(struct vty *vty,
+				   struct zebra_pbr_ipset_entry *zpie)
+{
+	char decoded_str[20];
+	uint16_t port;
+
+	/* range icmp type */
+	if (zpie->src_port_max || zpie->dst_port_max) {
+		vty_out(vty, ":icmp:[type <%d:%d>;code <%d:%d>",
+			zpie->src_port_min, zpie->src_port_max,
+			zpie->dst_port_min, zpie->dst_port_max);
+	} else {
+		port = ((zpie->src_port_min << 8) & 0xff00) +
+			(zpie->dst_port_min & 0xff);
+		memset(decoded_str, 0, sizeof(decoded_str));
+		sprintf(decoded_str, "%d/%d",
+			zpie->src_port_min,
+			zpie->dst_port_min);
+		vty_out(vty, ":icmp:%s",
+			lookup_msg(icmp_typecode_str,
+				   port, decoded_str));
+	}
+}
+
 static void zebra_pbr_display_port(struct vty *vty, uint32_t filter_bm,
 			    uint16_t port_min, uint16_t port_max,
 			    uint8_t proto)
@@ -813,7 +875,8 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 
 		zebra_pbr_prefix2str(&(zpie->src), buf, sizeof(buf));
 		vty_out(vty, "\tfrom %s", buf);
-		if (zpie->filter_bm & PBR_FILTER_SRC_PORT)
+		if (zpie->filter_bm & PBR_FILTER_SRC_PORT &&
+		    zpie->proto != IPPROTO_ICMP)
 			zebra_pbr_display_port(vty, zpie->filter_bm,
 					       zpie->src_port_min,
 					       zpie->src_port_max,
@@ -821,11 +884,14 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 		vty_out(vty, " to ");
 		zebra_pbr_prefix2str(&(zpie->dst), buf, sizeof(buf));
 		vty_out(vty, "%s", buf);
-		if (zpie->filter_bm & PBR_FILTER_DST_PORT)
+		if (zpie->filter_bm & PBR_FILTER_DST_PORT &&
+		    zpie->proto != IPPROTO_ICMP)
 			zebra_pbr_display_port(vty, zpie->filter_bm,
 					       zpie->dst_port_min,
 					       zpie->dst_port_max,
 					       zpie->proto);
+		if (zpie->proto == IPPROTO_ICMP)
+			zebra_pbr_display_icmp(vty, zpie);
 	} else if ((zpi->type == IPSET_NET) ||
 		   (zpi->type == IPSET_NET_PORT)) {
 		char buf[PREFIX_STRLEN];
@@ -834,7 +900,8 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 			zebra_pbr_prefix2str(&(zpie->src), buf, sizeof(buf));
 			vty_out(vty, "\tfrom %s", buf);
 		}
-		if (zpie->filter_bm & PBR_FILTER_SRC_PORT)
+		if (zpie->filter_bm & PBR_FILTER_SRC_PORT &&
+		    zpie->proto != IPPROTO_ICMP)
 			zebra_pbr_display_port(vty, zpie->filter_bm,
 					       zpie->src_port_min,
 					       zpie->src_port_max,
@@ -843,11 +910,14 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 			zebra_pbr_prefix2str(&(zpie->dst), buf, sizeof(buf));
 			vty_out(vty, "\tto %s", buf);
 		}
-		if (zpie->filter_bm & PBR_FILTER_DST_PORT)
+		if (zpie->filter_bm & PBR_FILTER_DST_PORT &&
+		    zpie->proto != IPPROTO_ICMP)
 			zebra_pbr_display_port(vty, zpie->filter_bm,
 					       zpie->dst_port_min,
 					       zpie->dst_port_max,
 					       zpie->proto);
+		if (zpie->proto == IPPROTO_ICMP)
+			zebra_pbr_display_icmp(vty, zpie);
 	}
 	vty_out(vty, " (%u)\n", zpie->unique);
 
