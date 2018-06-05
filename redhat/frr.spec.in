@@ -254,14 +254,14 @@ developing OSPF-API and frr applications.
     --disable-ospfclient\
 %endif
 %if %{with_ospfapi}
-    --enable-ospfapi=yes \
+    --enable-ospfapi \
 %else
-    --enable-ospfapi=no \
+    --enable-ospfapi \
 %endif
 %if %{with_rtadv}
-    --enable-rtadv=yes \
+    --enable-rtadv \
 %else
-    --enable-rtadv=no \
+    --enable-rtadv \
 %endif
 %if %{with_ldpd}
     --enable-ldpd \
@@ -318,14 +318,14 @@ developing OSPF-API and frr applications.
 %else
     --disable-bgp-vnc \
 %endif
-    --enable-isisd=yes \
+    --enable-isisd \
 %if "%{initsystem}" == "systemd"
-    --enable-systemd=yes \
+    --enable-systemd \
 %endif
 %if %{with_rpki}
     --enable-rpki \
 %endif
-    --enable-poll=yes
+    --enable-poll
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split" SPHINXBUILD=%{sphinx}
 
