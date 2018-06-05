@@ -319,7 +319,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 
 	/* Do some internal house keeping that is needed here */
 	SET_FLAG(new->flags, OSPF_LSA_RECEIVED);
-	ospf_lsa_is_self_originated(ospf, new); /* Let it set the flag */
+	(void)ospf_lsa_is_self_originated(ospf, new); /* Let it set the flag */
 
 	/* Install the new LSA in the link state database
 	   (replacing the current database copy).  This may cause the
