@@ -607,6 +607,9 @@ lspfragloop:
 			for (r = (struct isis_oldstyle_reach *)
 					 lsp->tlvs->oldstyle_reach.head;
 			     r; r = r->next) {
+				if (fabricd)
+					continue;
+
 				/* C.2.6 a) */
 				/* Two way connectivity */
 				if (!memcmp(r->id, root_sysid, ISIS_SYS_ID_LEN))
@@ -658,6 +661,9 @@ lspfragloop:
 			&lsp->tlvs->oldstyle_ip_reach_ext};
 
 		for (unsigned int i = 0; i < array_size(reachs); i++) {
+			if (fabricd)
+				continue;
+
 			vtype = i ? VTYPE_IPREACH_EXTERNAL
 				  : VTYPE_IPREACH_INTERNAL;
 
