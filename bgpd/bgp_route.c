@@ -5664,12 +5664,6 @@ static void bgp_aggregate_add(struct bgp *bgp, struct prefix *p, afi_t afi,
 
 	table = bgp->rib[afi][safi];
 
-	/* Sanity check. */
-	if (afi == AFI_IP && p->prefixlen == IPV4_MAX_BITLEN)
-		return;
-	if (afi == AFI_IP6 && p->prefixlen == IPV6_MAX_BITLEN)
-		return;
-
 	/* If routes exists below this node, generate aggregate routes. */
 	top = bgp_node_get(table, p);
 	for (rn = bgp_node_get(table, p); rn;
@@ -5779,11 +5773,6 @@ void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 
 	table = bgp->rib[afi][safi];
 
-	if (afi == AFI_IP && p->prefixlen == IPV4_MAX_BITLEN)
-		return;
-	if (afi == AFI_IP6 && p->prefixlen == IPV6_MAX_BITLEN)
-		return;
-
 	/* If routes exists below this node, generate aggregate routes. */
 	top = bgp_node_get(table, p);
 	for (rn = bgp_node_get(table, p); rn;
@@ -5892,6 +5881,13 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	apply_mask(&p);
+
+	if ((afi == AFI_IP && p.prefixlen == IPV4_MAX_BITLEN) ||
+	    (afi == AFI_IP6 && p.prefixlen == IPV6_MAX_BITLEN)) {
+		vty_out(vty, "Specified prefix: %s will not result in any useful aggregation, disallowing\n",
+			prefix_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Old configuration check. */
 	rn = bgp_node_get(bgp->aggregate[afi][safi], &p);
