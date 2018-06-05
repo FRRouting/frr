@@ -90,48 +90,48 @@
 %define     daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd
 
 %if %{with_ldpd}
-%define     daemon_ldpd ldpd
+%define daemon_ldpd ldpd
 %else
-%define     daemon_ldpd ""
+%define daemon_ldpd ""
 %endif
 
 %if %{with_pimd}
-%define     daemon_pimd pimd
+%define daemon_pimd pimd
 %else
-%define     daemon_pimd ""
+%define daemon_pimd ""
 %endif
 
 %if %{with_pbrd}
-%define     daemon_pbrd pbrd
+%define daemon_pbrd pbrd
 %else
-%define     daemon_pbrd ""
+%define daemon_pbrd ""
 %endif
 
 %if %{with_nhrpd}
-%define         daemon_nhrpd	nhrpd
+%define daemon_nhrpd nhrpd
 %else
-%define		daemon_nhrpd	""
+%define daemon_nhrpd ""
 %endif
 
 %if %{with_eigrpd}
-%define         daemon_eigrpd	eigrpd
+%define daemon_eigrpd eigrpd
 %else
-%define		daemon_eigrpd	""
+%define daemon_eigrpd ""
 %endif
 
 %if %{with_babeld}
-%define         daemon_babeld	babeld
+%define daemon_babeld babeld
 %else
-%define		daemon_babeld	""
+%define daemon_babeld ""
 %endif
 
 %if %{with_watchfrr}
-%define     daemon_watchfrr watchfrr
+%define daemon_watchfrr watchfrr
 %else
-%define     daemon_watchfrr ""
+%define daemon_watchfrr ""
 %endif
 
-%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd}
+%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd}
 
 # allow build dir to be kept
 %{!?keep_build:         %global  keep_build         0 }
@@ -279,19 +279,19 @@ developing OSPF-API and frr applications.
     --disable-pbrd \
 %endif
 %if %{with_nhrpd}
-	--enable-nhrpd \
+    --enable-nhrpd \
 %else
-	--disable-nhrpd \
+    --disable-nhrpd \
 %endif
 %if %{with_eigrpd}
-	--enable-eigrpd \
+    --enable-eigrpd \
 %else
-	--disable-eigrpd \
+    --disable-eigrpd \
 %endif
 %if %{with_babeld}
-	--enable-babeld \
+    --enable-babeld \
 %else
-	--disable-babeld \
+    --disable-babeld \
 %endif
 %if %{with_pam}
     --with-libpam \
