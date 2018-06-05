@@ -146,7 +146,7 @@ Release:        @CONFDATE@%{release_rev}%{?dist}
 License:        GPLv2+
 Group:          System Environment/Daemons
 Source0:        http://www.frrouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
-URL:            http://www.frrouting.org
+URL:            https://www.frrouting.org
 Requires(pre):  /sbin/install-info
 Requires(preun): /sbin/install-info
 Requires(post): /sbin/install-info
