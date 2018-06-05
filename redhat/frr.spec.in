@@ -596,11 +596,10 @@ rm -rf %{buildroot}
 %config(noreplace) %attr(750,%frr_user,%frr_user) /etc/frr/daemons
 %if "%{initsystem}" == "systemd"
     %{_unitdir}/frr.service
-    %{_sbindir}/frr
 %else
     /etc/rc.d/init.d/frr
-    %{_sbindir}/frr
 %endif
+%{_sbindir}/frr
 %config(noreplace) /etc/pam.d/frr
 %config(noreplace) /etc/logrotate.d/frr
 %{_sbindir}/frr-reload
