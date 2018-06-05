@@ -155,14 +155,12 @@ BuildRequires:  python27-devel python27-sphinx
 %else
 BuildRequires:  python-devel >= 2.7 python-sphinx
 %endif
-Requires:       ncurses json-c initscripts
+Requires:       json-c initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
-Requires:       pam
 %endif
 %if %{with_rpki}
 BuildRequires:  librtr-devel >= 0.5
-Requires:       librtr >= 0.5
 %endif
 %if "%{initsystem}" == "systemd"
 BuildRequires:      systemd systemd-devel
@@ -198,7 +196,7 @@ Contributed/3rd party tools which may be of use with frr.
 %package pythontools
 Summary: python tools for frr
 BuildRequires: python
-Requires: python python-ipaddr
+Requires: python-ipaddr
 Group: System Environment/Daemons
 
 %description pythontools
