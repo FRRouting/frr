@@ -1,7 +1,7 @@
 .. _basic-commands:
 
 **************
-Basic commands
+Basic Commands
 **************
 
 There are five routing daemons in use, and there is one manager daemon.
