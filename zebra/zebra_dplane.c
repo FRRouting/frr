@@ -81,8 +81,10 @@ struct zebra_dplane_ctx_s {
 	uint32_t zd_mtu;
 	uint32_t zd_nexthop_mtu;
 
+	/* Namespace info */
 	struct zebra_ns_info zd_ns_info;
 
+	/* Nexthops */
 	struct nexthop_group zd_ng;
 
 	/* Embedded list linkage */
@@ -168,8 +170,7 @@ void dplane_ctx_free(dplane_ctx_h *pctx)
 
 		/* Free embedded nexthops */
 		if ((*pctx)->zd_ng.nexthop) {
-			/* TODO -- deal with recursive nexthops allocations */
-
+			/* This deals with recursive nexthops too */
 			nexthops_free((*pctx)->zd_ng.nexthop);
 		}
 
@@ -377,7 +378,8 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 
 	zebra_ns_info_from_ns(&(ctx->zd_ns_info), zns, true /*is_cmd*/);
 
-	/* TODO -- nexthops; include recursive info too */
+	/* Copy nexthops; recursive info is included too */
+	copy_nexthops(&(ctx->zd_ng.nexthop), re->ng.nexthop, NULL);
 
 	/* Trying out the sequence number idea, so we can at least detect
 	 * when a result is stale.
