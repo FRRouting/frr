@@ -5433,6 +5433,26 @@ static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 	XFREE(MTYPE_BGP_AGGREGATE, aggregate);
 }
 
+static int bgp_aggregate_info_same(struct bgp_info *ri, struct aspath *aspath,
+				   struct community *comm)
+{
+	static struct aspath *ae = NULL;
+
+	if (!ae)
+		ae = aspath_empty();
+
+	if (!ri)
+		return 0;
+
+	if (!aspath_cmp(ri->attr->aspath, (aspath) ? aspath : ae))
+		return 0;
+
+	if (!community_cmp(ri->attr->community, comm))
+		return 0;
+
+	return 1;
+}
+
 static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 				  struct prefix *p, uint8_t origin,
 				  struct aspath *aspath,
@@ -5447,7 +5467,34 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 	table = bgp->rib[afi][safi];
 
 	rn = bgp_node_get(table, p);
+
+	for (ri = rn->info; ri; ri = ri->next)
+		if (ri->peer == bgp->peer_self && ri->type == ZEBRA_ROUTE_BGP
+		    && ri->sub_type == BGP_ROUTE_AGGREGATE)
+			break;
+
 	if (aggregate->count > 0) {
+		/*
+		 * If the aggregate information has not changed
+		 * no need to re-install it again.
+		 */
+		if (bgp_aggregate_info_same(rn->info, aspath, community)) {
+			bgp_unlock_node(rn);
+
+			if (aspath)
+				aspath_free(aspath);
+			if (community)
+				community_free(community);
+
+			return;
+		}
+
+		/*
+		 * Mark the old as unusable
+		 */
+		if (ri)
+			bgp_info_delete(rn, ri);
+
 		new = info_make(
 			ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0, bgp->peer_self,
 			bgp_attr_aggregate_intern(bgp, origin, aspath,
@@ -5682,8 +5729,6 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 		if ((aggregate = rn->info) != NULL
 		    && rn->p.prefixlen < p->prefixlen) {
 			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
-			bgp_aggregate_install(bgp, afi, safi, &rn->p, 0, NULL,
-					      NULL, 0, aggregate);
 			bgp_aggregate_route(bgp, &rn->p, ri, afi, safi, NULL,
 					    aggregate);
 		}
@@ -5714,8 +5759,6 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 		if ((aggregate = rn->info) != NULL
 		    && rn->p.prefixlen < p->prefixlen) {
 			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
-			bgp_aggregate_install(bgp, afi, safi, &rn->p, 0, NULL,
-					      NULL, 0, aggregate);
 			bgp_aggregate_route(bgp, &rn->p, NULL, afi, safi, del,
 					    aggregate);
 		}
