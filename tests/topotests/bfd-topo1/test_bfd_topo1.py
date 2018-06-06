@@ -143,6 +143,96 @@ def test_bgp_convergence():
         assert res is None, assertmsg
 
 
+def test_bgp_fast_convergence():
+    "Assert that BGP is converging before setting a link down."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info('waiting for bgp peers converge')
+
+    for router in tgen.routers().values():
+        ref_file = '{}/{}/bgp_prefixes.json'.format(CWD, router.name)
+        expected = json.loads(open(ref_file).read())
+        test_func = partial(topotest.router_json_cmp,
+                            router, 'show ip bgp json', expected)
+        _, res = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+        assertmsg = '{}: bgp did not converge'.format(router.name)
+        assert res is None, assertmsg
+
+
+def test_bfd_fast_convergence():
+    """
+    Assert that BFD notices the link down after simulating network
+    failure.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Disable r1-eth0 link.
+    tgen.gears['r1'].link_enable('r1-eth0', enabled=False)
+
+    # Wait the minimum time we can before checking that BGP/BFD
+    # converged.
+    logger.info('waiting for BFD converge')
+
+    # Check that BGP converged quickly.
+    for router in tgen.routers().values():
+        json_file = '{}/{}/peers.json'.format(CWD, router.name)
+        expected = json.loads(open(json_file).read())
+
+        # Load the same file as previous test, but expect R1 to be down.
+        if router.name == 'r1':
+            for peer in expected:
+                if peer['peer'] == '192.168.0.2':
+                    peer['status'] = 'down'
+        else:
+            for peer in expected:
+                if peer['peer'] == '192.168.0.1':
+                    peer['status'] = 'down'
+
+        test_func = partial(topotest.router_json_cmp,
+            router, 'show bfd peers json', expected)
+        _, res = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+        assertmsg = '"{}" JSON output mismatches'.format(router.name)
+        assert res is None, assertmsg
+
+
+def test_bgp_fast_reconvergence():
+    "Assert that BGP is converging after setting a link down."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info('waiting for BGP re convergence')
+
+    # Check that BGP converged quickly.
+    for router in tgen.routers().values():
+        ref_file = '{}/{}/bgp_prefixes.json'.format(CWD, router.name)
+        expected = json.loads(open(ref_file).read())
+
+        # Load the same file as previous test, but set networks to None
+        # to test absence.
+        if router.name == 'r1':
+            expected['routes']['10.254.254.2/32'] = None
+            expected['routes']['10.254.254.3/32'] = None
+            expected['routes']['10.254.254.4/32'] = None
+        else:
+            expected['routes']['10.254.254.1/32'] = None
+
+        test_func = partial(topotest.router_json_cmp,
+                            router, 'show ip bgp json', expected)
+        _, res = topotest.run_and_expect(
+            test_func,
+            None,
+            count=3,
+            wait=1
+        )
+        assertmsg = '{}: bgp did not converge'.format(router.name)
+        assert res is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
