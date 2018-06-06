@@ -5610,8 +5610,50 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	}
 }
 
-void bgp_aggregate_delete(struct bgp *, struct prefix *, afi_t, safi_t,
-			  struct bgp_aggregate *);
+static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
+				 safi_t safi, struct bgp_aggregate *aggregate)
+{
+	struct bgp_table *table;
+	struct bgp_node *top;
+	struct bgp_node *rn;
+	struct bgp_info *ri;
+	unsigned long match;
+
+	table = bgp->rib[afi][safi];
+
+	/* If routes exists below this node, generate aggregate routes. */
+	top = bgp_node_get(table, p);
+	for (rn = bgp_node_get(table, p); rn;
+	     rn = bgp_route_next_until(rn, top)) {
+		if (rn->p.prefixlen <= p->prefixlen)
+			continue;
+		match = 0;
+
+		for (ri = rn->info; ri; ri = ri->next) {
+			if (BGP_INFO_HOLDDOWN(ri))
+				continue;
+
+			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
+				continue;
+
+			if (aggregate->summary_only && ri->extra) {
+				ri->extra->suppress--;
+
+				if (ri->extra->suppress == 0) {
+					bgp_info_set_flag(
+						rn, ri, BGP_INFO_ATTR_CHANGED);
+					match++;
+				}
+			}
+			aggregate->count--;
+		}
+
+		/* If this node was suppressed, process the change. */
+		if (match)
+			bgp_process(bgp, rn, afi, safi);
+	}
+	bgp_unlock_node(top);
+}
 
 void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 			     struct bgp_info *ri, afi_t afi, safi_t safi)
@@ -5781,51 +5823,6 @@ static void bgp_aggregate_add(struct bgp *bgp, struct prefix *p, afi_t afi,
 		if (community)
 			community_free(community);
 	}
-}
-
-void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
-			  safi_t safi, struct bgp_aggregate *aggregate)
-{
-	struct bgp_table *table;
-	struct bgp_node *top;
-	struct bgp_node *rn;
-	struct bgp_info *ri;
-	unsigned long match;
-
-	table = bgp->rib[afi][safi];
-
-	/* If routes exists below this node, generate aggregate routes. */
-	top = bgp_node_get(table, p);
-	for (rn = bgp_node_get(table, p); rn;
-	     rn = bgp_route_next_until(rn, top)) {
-		if (rn->p.prefixlen <= p->prefixlen)
-			continue;
-		match = 0;
-
-		for (ri = rn->info; ri; ri = ri->next) {
-			if (BGP_INFO_HOLDDOWN(ri))
-				continue;
-
-			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
-				continue;
-
-			if (aggregate->summary_only && ri->extra) {
-				ri->extra->suppress--;
-
-				if (ri->extra->suppress == 0) {
-					bgp_info_set_flag(
-						rn, ri, BGP_INFO_ATTR_CHANGED);
-					match++;
-				}
-			}
-			aggregate->count--;
-		}
-
-		/* If this node was suppressed, process the change. */
-		if (match)
-			bgp_process(bgp, rn, afi, safi);
-	}
-	bgp_unlock_node(top);
 }
 
 /* Aggregate route attribute. */
