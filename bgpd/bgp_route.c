@@ -5574,6 +5574,10 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
 				continue;
 
+			/*
+			 * summary-only aggregate route suppress
+			 * aggregated route announcements.
+			 */
 			if (aggregate->summary_only) {
 				(bgp_info_extra_get(ri))->suppress++;
 				bgp_info_set_flag(rn, ri,
@@ -5583,12 +5587,26 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 
 			aggregate->count++;
 
+			/*
+                        * If at least one route among routes that are
+                        * aggregated has ORIGIN with the value INCOMPLETE,
+                        * then the aggregated route MUST have the ORIGIN
+                        * attribute with the value INCOMPLETE.  Otherwise, if
+                        * at least one route among routes that are aggregated
+                        * has ORIGIN with the value EGP, then the aggregated
+                        * route MUST have the ORIGIN attribute with the value
+                        * EGP.
+                        */
 			if (origin < ri->attr->origin)
 				origin = ri->attr->origin;
 
 			if (!aggregate->as_set)
 				continue;
 
+			/*
+			 * as-set aggregate route generate origin, as path,
+			 * and community aggregation.
+			 */
 			if (aspath) {
 				asmerge = aspath_aggregate(aspath,
 							   ri->attr->aspath);
@@ -5765,109 +5783,6 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 	bgp_unlock_node(child);
 }
 
-/* Called via bgp_aggregate_set when the user configures aggregate-address */
-static void bgp_aggregate_add(struct bgp *bgp, struct prefix *p, afi_t afi,
-			      safi_t safi, struct bgp_aggregate *aggregate)
-{
-	struct bgp_table *table;
-	struct bgp_node *top;
-	struct bgp_node *rn;
-	struct bgp_info *ri;
-	unsigned long match;
-	uint8_t origin = BGP_ORIGIN_IGP;
-	struct aspath *aspath = NULL;
-	struct aspath *asmerge = NULL;
-	struct community *community = NULL;
-	struct community *commerge = NULL;
-	uint8_t atomic_aggregate = 0;
-
-	table = bgp->rib[afi][safi];
-
-	/* If routes exists below this node, generate aggregate routes. */
-	top = bgp_node_get(table, p);
-	for (rn = bgp_node_get(table, p); rn;
-	     rn = bgp_route_next_until(rn, top)) {
-		if (rn->p.prefixlen <= p->prefixlen)
-			continue;
-
-		match = 0;
-
-		for (ri = rn->info; ri; ri = ri->next) {
-			if (BGP_INFO_HOLDDOWN(ri))
-				continue;
-
-			if (ri->attr->flag
-			    & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
-				atomic_aggregate = 1;
-
-			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
-				continue;
-
-			/* summary-only aggregate route suppress
-			 * aggregated route announcement.  */
-			if (aggregate->summary_only) {
-				(bgp_info_extra_get(ri))->suppress++;
-				bgp_info_set_flag(rn, ri,
-						  BGP_INFO_ATTR_CHANGED);
-				match++;
-			}
-
-			/* If at least one route among routes that are
-			 * aggregated has ORIGIN with the value INCOMPLETE,
-			 * then the aggregated route MUST have the ORIGIN
-			 * attribute with the value INCOMPLETE.  Otherwise, if
-			 * at least one route among routes that are aggregated
-			 * has ORIGIN with the value EGP, then the aggregated
-			 * route MUST have the ORIGIN attribute with the value
-			 * EGP.
-			 */
-			if (origin < ri->attr->origin)
-				origin = ri->attr->origin;
-
-			/* as-set aggregate route generate origin, as path,
-			 * community aggregation.  */
-			if (aggregate->as_set) {
-				if (aspath) {
-					asmerge = aspath_aggregate(
-						aspath, ri->attr->aspath);
-					aspath_free(aspath);
-					aspath = asmerge;
-				} else
-					aspath = aspath_dup(ri->attr->aspath);
-
-				if (ri->attr->community) {
-					if (community) {
-						commerge = community_merge(
-							community,
-							ri->attr->community);
-						community = community_uniq_sort(
-							commerge);
-						community_free(commerge);
-					} else
-						community = community_dup(
-							ri->attr->community);
-				}
-			}
-			aggregate->count++;
-		}
-
-		/* If this node is suppressed, process the change. */
-		if (match)
-			bgp_process(bgp, rn, afi, safi);
-	}
-	bgp_unlock_node(top);
-
-	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath,
-			      community, atomic_aggregate, aggregate);
-	/* Add aggregate route to BGP table. */
-	if (aggregate->count == 0) {
-		if (aspath)
-			aspath_free(aspath);
-		if (community)
-			community_free(community);
-	}
-}
-
 /* Aggregate route attribute. */
 #define AGGREGATE_SUMMARY_ONLY 1
 #define AGGREGATE_AS_SET       1
@@ -5956,7 +5871,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	rn->info = aggregate;
 
 	/* Aggregate address insert into BGP routing table. */
-	bgp_aggregate_add(bgp, &p, afi, safi, aggregate);
+	bgp_aggregate_route(bgp, &p, NULL, afi, safi, NULL, aggregate);
 
 	return CMD_SUCCESS;
 }
