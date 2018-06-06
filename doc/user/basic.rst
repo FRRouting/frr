@@ -499,8 +499,6 @@ is no VTY password, one cannot connect to the VTY interface at all.
    Router#
 
 
-:kbd:`?` and the ``find`` command are very useful for looking up commands.
-
 .. _vty-modes:
 
 VTY Modes
@@ -636,4 +634,62 @@ insta-help, and VTY session management.
    You can use command line help by typing ``help`` at the beginning of the
    line.  Typing :kbd:`?` at any point in the line will show possible
    completions.
+
+.. index:: find COMMAND...
+.. clicmd:: find COMMAND...
+
+   This commmand performs a simple substring search across all defined commands
+   in all modes. As an example, suppose you're in enable mode and can't
+   remember where the command to turn OSPF segment routing on is:
+
+   ::
+
+      frr# find segment-routing on
+        (ospf)  segment-routing on
+
+   The CLI mode is displayed next to each command. In this example,
+   :clicmd:`segment-routing on` is under the `router ospf` mode.
+
+   Similarly, suppose you want a listing of all commands that contain "l2vpn":
+
+   ::
+
+      frr# find l2vpn
+        (view)  show [ip] bgp l2vpn evpn [json]
+        (view)  show [ip] bgp l2vpn evpn all <A.B.C.D|A.B.C.D/M> [json]
+        (view)  show [ip] bgp l2vpn evpn all neighbors A.B.C.D advertised-routes [json]
+        (view)  show [ip] bgp l2vpn evpn all neighbors A.B.C.D routes [json]
+        (view)  show [ip] bgp l2vpn evpn all overlay
+        ...
+
+Pipe Actions
+^^^^^^^^^^^^
+
+VTY supports optional modifiers at the end of commands that perform
+postprocessing on command output or modify the action of commands. These do not
+show up in the :kbd:`?` or :kbd:`TAB` suggestion lists.
+
+``... | include REGEX``
+   Filters the output of the preceding command, including only lines which
+   match the POSIX Extended Regular Expression ``REGEX``. Do not put the regex
+   in quotes.
+
+   Examples:
+
+   ::
+
+      frr# show ip bgp sum json | include remoteAs
+            "remoteAs":0,
+            "remoteAs":455,
+            "remoteAs":99,
+
+   ::
+
+      frr# show run | include neigh.*[0-9]{2}\.0\.[2-4]\.[0-9]*
+       neighbor 10.0.2.106 remote-as 99
+       neighbor 10.0.2.107 remote-as 99
+       neighbor 10.0.2.108 remote-as 99
+       neighbor 10.0.2.109 remote-as 99
+       neighbor 10.0.2.110 remote-as 99
+       neighbor 10.0.3.111 remote-as 111
 
