@@ -5433,6 +5433,48 @@ static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 	XFREE(MTYPE_BGP_AGGREGATE, aggregate);
 }
 
+static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
+				  struct prefix *p, uint8_t origin,
+				  struct aspath *aspath,
+				  struct community *community,
+				  uint8_t atomic_aggregate,
+				  struct bgp_aggregate *aggregate)
+{
+	struct bgp_node *rn;
+	struct bgp_table *table;
+	struct bgp_info *ri, *new;
+
+	table = bgp->rib[afi][safi];
+
+	rn = bgp_node_get(table, p);
+	if (aggregate->count > 0) {
+		new = info_make(
+			ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0, bgp->peer_self,
+			bgp_attr_aggregate_intern(bgp, origin, aspath,
+						  community, aggregate->as_set,
+						  atomic_aggregate),
+			rn);
+		SET_FLAG(new->flags, BGP_INFO_VALID);
+
+		bgp_info_add(rn, new);
+		bgp_process(bgp, rn, afi, safi);
+	} else {
+		for (ri = rn->info; ri; ri = ri->next)
+			if (ri->peer == bgp->peer_self
+			    && ri->type == ZEBRA_ROUTE_BGP
+			    && ri->sub_type == BGP_ROUTE_AGGREGATE)
+				break;
+
+		/* Withdraw static BGP route from routing table. */
+		if (ri) {
+			bgp_info_delete(rn, ri);
+			bgp_process(bgp, rn, afi, safi);
+		}
+	}
+
+	bgp_unlock_node(rn);
+}
+
 /* Update an aggregate as routes are added/removed from the BGP table */
 static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 				struct bgp_info *rinew, afi_t afi, safi_t safi,
@@ -5448,7 +5490,6 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	struct community *community = NULL;
 	struct community *commerge = NULL;
 	struct bgp_info *ri;
-	struct bgp_info *new;
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
 
@@ -5558,20 +5599,10 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 		}
 	}
 
-	if (aggregate->count > 0) {
-		rn = bgp_node_get(table, p);
-		new = info_make(
-			ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0, bgp->peer_self,
-			bgp_attr_aggregate_intern(bgp, origin, aspath,
-						  community, aggregate->as_set,
-						  atomic_aggregate),
-			rn);
-		SET_FLAG(new->flags, BGP_INFO_VALID);
+	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath, community,
+			      atomic_aggregate, aggregate);
 
-		bgp_info_add(rn, new);
-		bgp_unlock_node(rn);
-		bgp_process(bgp, rn, afi, safi);
-	} else {
+	if (aggregate->count == 0) {
 		if (aspath)
 			aspath_free(aspath);
 		if (community)
@@ -5609,6 +5640,8 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 		if ((aggregate = rn->info) != NULL
 		    && rn->p.prefixlen < p->prefixlen) {
 			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
+			bgp_aggregate_install(bgp, afi, safi, &rn->p, 0, NULL,
+					      NULL, 0, aggregate);
 			bgp_aggregate_route(bgp, &rn->p, ri, afi, safi, NULL,
 					    aggregate);
 		}
@@ -5639,6 +5672,8 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 		if ((aggregate = rn->info) != NULL
 		    && rn->p.prefixlen < p->prefixlen) {
 			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
+			bgp_aggregate_install(bgp, afi, safi, &rn->p, 0, NULL,
+					      NULL, 0, aggregate);
 			bgp_aggregate_route(bgp, &rn->p, NULL, afi, safi, del,
 					    aggregate);
 		}
@@ -5652,7 +5687,6 @@ static void bgp_aggregate_add(struct bgp *bgp, struct prefix *p, afi_t afi,
 	struct bgp_table *table;
 	struct bgp_node *top;
 	struct bgp_node *rn;
-	struct bgp_info *new;
 	struct bgp_info *ri;
 	unsigned long match;
 	uint8_t origin = BGP_ORIGIN_IGP;
@@ -5738,23 +5772,10 @@ static void bgp_aggregate_add(struct bgp *bgp, struct prefix *p, afi_t afi,
 	}
 	bgp_unlock_node(top);
 
+	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath,
+			      community, atomic_aggregate, aggregate);
 	/* Add aggregate route to BGP table. */
-	if (aggregate->count) {
-		rn = bgp_node_get(table, p);
-		new = info_make(
-			ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0, bgp->peer_self,
-			bgp_attr_aggregate_intern(bgp, origin, aspath,
-						  community, aggregate->as_set,
-						  atomic_aggregate),
-			rn);
-		SET_FLAG(new->flags, BGP_INFO_VALID);
-
-		bgp_info_add(rn, new);
-		bgp_unlock_node(rn);
-
-		/* Process change. */
-		bgp_process(bgp, rn, afi, safi);
-	} else {
+	if (aggregate->count == 0) {
 		if (aspath)
 			aspath_free(aspath);
 		if (community)
@@ -5805,23 +5826,6 @@ void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 			bgp_process(bgp, rn, afi, safi);
 	}
 	bgp_unlock_node(top);
-
-	/* Delete aggregate route from BGP table. */
-	rn = bgp_node_get(table, p);
-
-	for (ri = rn->info; ri; ri = ri->next)
-		if (ri->peer == bgp->peer_self && ri->type == ZEBRA_ROUTE_BGP
-		    && ri->sub_type == BGP_ROUTE_AGGREGATE)
-			break;
-
-	/* Withdraw static BGP route from routing table. */
-	if (ri) {
-		bgp_info_delete(rn, ri);
-		bgp_process(bgp, rn, afi, safi);
-	}
-
-	/* Unlock bgp_node_lookup. */
-	bgp_unlock_node(rn);
 }
 
 /* Aggregate route attribute. */
@@ -5855,6 +5859,7 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 
 	aggregate = rn->info;
 	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
+	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL, 0, aggregate);
 
 	/* Unlock aggregate address configuration. */
 	rn->info = NULL;
