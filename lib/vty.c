@@ -186,35 +186,57 @@ int vty_out(struct vty *vty, const char *format, ...)
 
 	/* filter buffer */
 	if (vty->filter) {
-		vector lines = frrstr_split_vec(buf, "\n");
+		vector lines = frrstr_split_vec(p, "\n");
 
-		frrstr_filter_vec(lines, &vty->include);
-		vector_compact(lines);
+		/* Place first value in the cache */
+		char *firstline = vector_slot(lines, 0);
+		buffer_put(vty->lbuf, (uint8_t *) firstline, strlen(firstline));
 
-		/*
-		 * Consider the string "foo\n". If the regex is an empty string
-		 * and the line ended with a newline, then the vector will look
-		 * like:
-		 *
-		 * [0]: 'foo'
-		 * [1]: ''
-		 *
-		 * If the regex isn't empty, the vector will look like:
-		 *
-		 * [0]: 'foo'
-		 *
-		 * In this case we'd like to preserve the newline, so we add
-		 * the empty string [1] as in the first example.
-		 */
-		if (buf[strlen(buf) - 1] == '\n' && vector_active(lines) > 0
-		    && strlen(vector_slot(lines, vector_active(lines) - 1)))
-			vector_set(lines, XSTRDUP(MTYPE_TMP, ""));
+		/* If our split returned more than one entry, time to filter */
+		if (vector_active(lines) > 1) {
+			/*
+			 * returned string is MTYPE_TMP so it matches the MTYPE
+			 * of everything else in the vector
+			 */
+			char *bstr = buffer_getstr(vty->lbuf);
+			buffer_reset(vty->lbuf);
+			XFREE(MTYPE_TMP, lines->index[0]);
+			vector_set_index(lines, 0, bstr);
+			frrstr_filter_vec(lines, &vty->include);
+			vector_compact(lines);
+			/*
+			 * Consider the string "foo\n". If the regex is an empty string
+			 * and the line ended with a newline, then the vector will look
+			 * like:
+			 *
+			 * [0]: 'foo'
+			 * [1]: ''
+			 *
+			 * If the regex isn't empty, the vector will look like:
+			 *
+			 * [0]: 'foo'
+			 *
+			 * In this case we'd like to preserve the newline, so we add
+			 * the empty string [1] as in the first example.
+			 */
+			if (p[strlen(p) - 1] == '\n' && vector_active(lines) > 0
+			    && strlen(vector_slot(lines, vector_active(lines) - 1)))
+				vector_set(lines, XSTRDUP(MTYPE_TMP, ""));
 
-		filtered = frrstr_join_vec(lines, "\n");
+			filtered = frrstr_join_vec(lines, "\n");
+		}
+		else {
+			filtered = NULL;
+		}
+
 		frrstr_strvec_free(lines);
+
 	} else {
 		filtered = p;
 	}
+
+	if (!filtered)
+		goto done;
 
 	switch (vty->type) {
 	case VTY_TERM:
@@ -234,7 +256,9 @@ int vty_out(struct vty *vty, const char *format, ...)
 		break;
 	}
 
-	if (vty->filter)
+done:
+
+	if (vty->filter && filtered)
 		XFREE(MTYPE_TMP, filtered);
 
 	/* If p is not different with buf, it is allocated buffer.  */
@@ -290,6 +314,7 @@ static int vty_log_out(struct vty *vty, const char *level,
 		zlog_warn("%s: write failed to vty client fd %d, closing: %s",
 			  __func__, vty->fd, safe_strerror(errno));
 		buffer_reset(vty->obuf);
+		buffer_reset(vty->lbuf);
 		/* cannot call vty_close, because a parent routine may still try
 		   to access the vty struct */
 		vty->status = VTY_CLOSE;
@@ -1387,6 +1412,7 @@ static void vty_escape_map(unsigned char c, struct vty *vty)
 static void vty_buffer_reset(struct vty *vty)
 {
 	buffer_reset(vty->obuf);
+	buffer_reset(vty->lbuf);
 	vty_prompt(vty);
 	vty_redraw_line(vty);
 }
@@ -1415,6 +1441,7 @@ static int vty_read(struct thread *thread)
 				"%s: read error on vty client fd %d, closing: %s",
 				__func__, vty->fd, safe_strerror(errno));
 			buffer_reset(vty->obuf);
+			buffer_reset(vty->lbuf);
 		}
 		vty->status = VTY_CLOSE;
 	}
@@ -1619,6 +1646,7 @@ static int vty_flush(struct thread *thread)
 			0; /* disable monitoring to avoid infinite recursion */
 		zlog_warn("buffer_flush failed on vty client fd %d, closing",
 			  vty->fd);
+		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
 		vty_close(vty);
 		return 0;
@@ -1649,6 +1677,7 @@ struct vty *vty_new()
 
 	new->fd = new->wfd = -1;
 	new->of = stdout;
+	new->lbuf = buffer_new(0);
 	new->obuf = buffer_new(0); /* Use default buffer size. */
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->error_buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
@@ -2106,6 +2135,7 @@ static int vtysh_flush(struct vty *vty)
 			0; /* disable monitoring to avoid infinite recursion */
 		zlog_warn("%s: write error to fd %d, closing", __func__,
 			  vty->fd);
+		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
 		vty_close(vty);
 		return -1;
@@ -2142,6 +2172,7 @@ static int vtysh_read(struct thread *thread)
 				"%s: read failed on vtysh client fd %d, closing: %s",
 				__func__, sock, safe_strerror(errno));
 		}
+		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
 		vty_close(vty);
 #ifdef VTYSH_DEBUG
@@ -2247,6 +2278,7 @@ void vty_close(struct vty *vty)
 
 	/* Free input buffer. */
 	buffer_free(vty->obuf);
+	buffer_free(vty->lbuf);
 
 	/* Free command history. */
 	for (i = 0; i < VTY_MAXHIST; i++)
@@ -2298,6 +2330,7 @@ static int vty_timeout(struct thread *thread)
 	vty->v_timeout = 0;
 
 	/* Clear buffer*/
+	buffer_reset(vty->lbuf);
 	buffer_reset(vty->obuf);
 	vty_out(vty, "\nVty connection is timed out.\n");
 
@@ -2976,6 +3009,7 @@ void vty_reset()
 
 	for (i = 0; i < vector_active(vtyvec); i++)
 		if ((vty = vector_slot(vtyvec, i)) != NULL) {
+			buffer_reset(vty->lbuf);
 			buffer_reset(vty->obuf);
 			vty->status = VTY_CLOSE;
 			vty_close(vty);

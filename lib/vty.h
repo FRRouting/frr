@@ -61,6 +61,9 @@ struct vty {
 	bool filter;
 	regex_t include;
 
+	/* Line buffer */
+	struct buffer *lbuf;
+
 	/* Output buffer. */
 	struct buffer *obuf;
 

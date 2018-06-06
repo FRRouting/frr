@@ -1226,10 +1226,9 @@ fail:
 
 static int handle_pipe_action_done(struct vty *vty, const char *cmd_exec)
 {
-	if (vty->filter) {
+	if (vty->filter)
 		vty_set_include(vty, NULL);
-		vty_out(vty, "\n");
-	}
+
 	return 0;
 }
 
