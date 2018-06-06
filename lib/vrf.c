@@ -710,11 +710,11 @@ DEFUN_NOSH (no_vrf,
 
 struct cmd_node vrf_node = {VRF_NODE, "%s(config-vrf)# ", 1};
 
-DEFUN_NOSH (vrf_netns,
-	    vrf_netns_cmd,
-	    "netns NAME",
-	    "Attach VRF to a Namespace\n"
-	    "The file name in " NS_RUN_DIR ", or a full pathname\n")
+DEFUN (vrf_netns,
+       vrf_netns_cmd,
+       "netns NAME",
+       "Attach VRF to a Namespace\n"
+       "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
 	int idx_name = 1, ret;
 	char *pathname = ns_netns_pathname(vty, argv[idx_name]->arg);
