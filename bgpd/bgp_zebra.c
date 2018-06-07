@@ -2528,7 +2528,7 @@ stream_failure:		/* for STREAM_GETX */
 
 extern struct zebra_privs_t bgpd_privs;
 
-void bgp_zebra_init(struct thread_master *master)
+void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 {
 	zclient_num_connects = 0;
 
@@ -2567,6 +2567,7 @@ void bgp_zebra_init(struct thread_master *master)
 	zclient->ipset_notify_owner = ipset_notify_owner;
 	zclient->ipset_entry_notify_owner = ipset_entry_notify_owner;
 	zclient->iptable_notify_owner = iptable_notify_owner;
+	zclient->instance = instance;
 }
 
 void bgp_zebra_destroy(void)

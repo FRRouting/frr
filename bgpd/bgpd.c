@@ -7787,7 +7787,7 @@ void bgp_pthreads_finish()
 	frr_pthread_finish();
 }
 
-void bgp_init(void)
+void bgp_init(unsigned short instance)
 {
 
 	/* allocates some vital data structures used by peer commands in
@@ -7797,7 +7797,7 @@ void bgp_init(void)
 	bgp_pthreads_init();
 
 	/* Init zebra. */
-	bgp_zebra_init(bm->master);
+	bgp_zebra_init(bm->master, instance);
 
 #if ENABLE_BGP_VNC
 	vnc_zebra_init(bm->master);
