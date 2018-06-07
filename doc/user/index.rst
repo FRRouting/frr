@@ -1,19 +1,24 @@
-####################
 FRRouting User Guide
-####################
+====================
+
+############
+Introduction
+############
 
 .. _introduction:
 .. toctree::
-   :caption: Introduction
    :maxdepth: 2
 
    overview
    installation
    setup
 
+######
+Basics
+######
+
 .. _basics:
 .. toctree::
-   :caption: Basics
    :maxdepth: 2
 
    basic
@@ -25,9 +30,12 @@ FRRouting User Guide
    snmp
 .. modules
 
+#########
+Protocols
+#########
+
 .. _protocols:
 .. toctree::
-   :caption: Protocols
    :maxdepth: 2
 
    zebra
@@ -45,9 +53,12 @@ FRRouting User Guide
    sharp
    vnc
 
+########
+Appendix
+########
+
 .. _appendix:
 .. toctree::
-   :caption: Appendix
    :maxdepth: 2
 
    bugs
