@@ -920,8 +920,6 @@ case "$host_os" in
     dnl how to fix it but no real progress on implementation
     dnl when they fix it, remove this
     AC_DEFINE(IPV6_MINHOPCOUNT, 73, Linux ipv6 Min Hop Count)
-
-    AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])
     ;;
   openbsd*)
     AC_MSG_RESULT([OpenBSD])
