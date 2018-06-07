@@ -7063,8 +7063,8 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 			   || (safi == SAFI_EVPN
 			       && BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 			   || (BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
-			char buf_a[BUFSIZ];
-			char buf_b[BUFSIZ];
+			char buf_a[512];
+			char buf_b[512];
 			char buf_c[BUFSIZ];
 			if (attr->mp_nexthop_len
 			    == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
@@ -11421,7 +11421,7 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 	struct prefix *p;
 	struct prefix_rd *prd;
 	struct bgp_static *bgp_static;
-	char buf[PREFIX_STRLEN];
+	char buf[PREFIX_STRLEN * 2];
 	char buf2[SU_ADDRSTRLEN];
 	char rdbuf[RD_ADDRSTRLEN];
 

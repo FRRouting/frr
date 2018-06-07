@@ -75,7 +75,7 @@ struct frrmod_runtime *frrmod_load(const char *spec, const char *dir, char *err,
 				   size_t err_len)
 {
 	void *handle = NULL;
-	char name[PATH_MAX], fullpath[PATH_MAX], *args;
+	char name[PATH_MAX], fullpath[PATH_MAX * 2], *args;
 	struct frrmod_runtime *rtinfo, **rtinfop;
 	const struct frrmod_info *info;
 
