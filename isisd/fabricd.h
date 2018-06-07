@@ -44,5 +44,6 @@ uint8_t fabricd_tier(struct isis_area *area);
 int fabricd_write_settings(struct isis_area *area, struct vty *vty);
 void fabricd_lsp_flood(struct isis_lsp *lsp);
 void fabricd_trigger_csnp(struct isis_area *area);
+struct list *fabricd_ip_addrs(struct isis_circuit *circuit);
 
 #endif

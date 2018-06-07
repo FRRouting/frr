@@ -261,6 +261,8 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 		return;
 
 	memset(&api, 0, sizeof(api));
+	if (fabricd)
+		api.flags |= ZEBRA_FLAG_ONLINK;
 	api.vrf_id = VRF_DEFAULT;
 	api.type = PROTO_TYPE;
 	api.safi = SAFI_UNICAST;
