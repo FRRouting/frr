@@ -214,10 +214,10 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 				spaces);
 		++writes;
 	}
-	if (qpim_ecmp_rebalance_enable) {
+	if (pim->ecmp_rebalance_enable) {
 		vty_out(vty, "%sip pim ecmp rebalance\n", spaces);
 		++writes;
-	} else if (qpim_ecmp_enable) {
+	} else if (pim->ecmp_enable) {
 		vty_out(vty, "%sip pim ecmp\n", spaces);
 		++writes;
 	}
