@@ -271,6 +271,16 @@ bool fabricd_initial_sync_is_in_progress(struct isis_area *area)
 	return false;
 }
 
+bool fabricd_initial_sync_is_complete(struct isis_area *area)
+{
+	struct fabricd *f = area->fabricd;
+
+	if (!f)
+		return false;
+
+	return f->initial_sync_state == FABRICD_SYNC_COMPLETE;
+}
+
 struct isis_circuit *fabricd_initial_sync_circuit(struct isis_area *area)
 {
 	struct fabricd *f = area->fabricd;
@@ -658,5 +668,26 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 
 	if (isis->debugs & DEBUG_FABRICD_FLOODING) {
 		zlog_debug("OpenFabric: Flooding algorithm complete.");
+	}
+}
+
+void fabricd_trigger_csnp(struct isis_area *area)
+{
+	struct fabricd *f = area->fabricd;
+
+	if (!f)
+		return;
+
+	struct listnode *node;
+	struct isis_circuit *circuit;
+
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+		if (!circuit->t_send_csnp[1])
+			continue;
+
+		thread_cancel(circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
+		thread_add_timer_msec(master, send_l2_csnp, circuit,
+				      isis_jitter(500, CSNP_JITTER),
+				      &circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
 	}
 }

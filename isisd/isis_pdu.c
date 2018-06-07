@@ -1044,7 +1044,7 @@ dontcheckadj:
 				if (!lsp0) {
 					zlog_debug(
 						"Got lsp frag, while zero lsp not in database");
-					return ISIS_OK;
+					goto out;
 				}
 			}
 			/* i */
@@ -1089,6 +1089,10 @@ dontcheckadj:
 	retval = ISIS_OK;
 
 out:
+	if (circuit_scoped) {
+		fabricd_trigger_csnp(circuit->area);
+	}
+
 	isis_free_tlvs(tlvs);
 	return retval;
 }
@@ -1243,6 +1247,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		}
 	}
 
+	bool resync_needed = false;
+
 	/* 7.3.15.2 b) Actions on LSP_ENTRIES reported */
 	for (struct isis_lsp_entry *entry = entry_head; entry;
 	     entry = entry->next) {
@@ -1279,6 +1285,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 					/* if (circuit->circ_type !=
 					 * CIRCUIT_T_BROADCAST) */
 					isis_tx_queue_del(circuit->tx_queue, lsp);
+					resync_needed = true;
 				}
 			}
 		} else {
@@ -1313,6 +1320,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 
 				lsp_set_all_srmflags(lsp, false);
 				ISIS_SET_FLAG(lsp->SSNflags, circuit);
+				resync_needed = true;
 			}
 		}
 	}
@@ -1345,11 +1353,15 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		/* on remaining LSPs we set SRM (neighbor knew not of) */
 		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp)) {
 			isis_tx_queue_add(circuit->tx_queue, lsp, TX_LSP_NORMAL);
+			resync_needed = true;
 		}
 
 		/* lets free it */
 		list_delete_and_null(&lsp_list);
 	}
+
+	if (fabricd_initial_sync_is_complete(circuit->area) && resync_needed)
+		zlog_warn("OpenFabric: Needed to resync LSPDB using CSNP!\n");
 
 	retval = ISIS_OK;
 out:

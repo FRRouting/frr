@@ -33,6 +33,7 @@ struct vty;
 struct fabricd *fabricd_new(struct isis_area *area);
 void fabricd_finish(struct fabricd *f);
 void fabricd_initial_sync_hello(struct isis_circuit *circuit);
+bool fabricd_initial_sync_is_complete(struct isis_area *area);
 bool fabricd_initial_sync_is_in_progress(struct isis_area *area);
 struct isis_circuit *fabricd_initial_sync_circuit(struct isis_area *area);
 void fabricd_initial_sync_finish(struct isis_area *area);
@@ -42,5 +43,6 @@ void fabricd_configure_tier(struct isis_area *area, uint8_t tier);
 uint8_t fabricd_tier(struct isis_area *area);
 int fabricd_write_settings(struct isis_area *area, struct vty *vty);
 void fabricd_lsp_flood(struct isis_lsp *lsp);
+void fabricd_trigger_csnp(struct isis_area *area);
 
 #endif
