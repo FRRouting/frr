@@ -1411,7 +1411,7 @@ extern int bgp_config_write(struct vty *);
 
 extern void bgp_master_init(struct thread_master *master);
 
-extern void bgp_init(void);
+extern void bgp_init(unsigned short instance);
 extern void bgp_pthreads_run(void);
 extern void bgp_pthreads_finish(void);
 extern void bgp_route_map_init(void);

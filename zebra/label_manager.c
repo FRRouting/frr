@@ -221,8 +221,9 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 	zserv->proto = proto;
 
 	/* in case there's any incoming message enqueued, read and forward it */
-	while (ret == 0)
-		ret = relay_response_back();
+	if (zserv->is_synchronous)
+		while (ret == 0)
+			ret = relay_response_back();
 
 	/* get the msg buffer used toward the 'master' Label Manager */
 	dst = zclient->obuf;

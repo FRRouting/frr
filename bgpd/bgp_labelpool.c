@@ -530,6 +530,7 @@ void bgp_lp_event_zebra_up(void)
 	int chunks_needed;
 	void *labelid;
 	struct lp_lcb *lcb;
+	int lm_init_ok;
 
 	/*
 	 * Get label chunk allocation request dispatched to zebra
@@ -540,6 +541,11 @@ void bgp_lp_event_zebra_up(void)
 	/* round up */
 	chunks_needed = (labels_needed / LP_CHUNK_SIZE) + 1;
 	labels_needed = chunks_needed * LP_CHUNK_SIZE;
+
+	lm_init_ok = lm_label_manager_connect(zclient, 1) == 0;
+
+	if (!lm_init_ok)
+		zlog_err("%s: label manager connection error", __func__);
 
 	zclient_send_get_label_chunk(zclient, 0, labels_needed);
 	lp->pending_count = labels_needed;

@@ -72,6 +72,7 @@ static const struct option longopts[] = {
 	{"no_kernel", no_argument, NULL, 'n'},
 	{"skip_runas", no_argument, NULL, 'S'},
 	{"ecmp", required_argument, NULL, 'e'},
+	{"int_num", required_argument, NULL, 'I'},
 	{0}};
 
 /* signal definitions */
@@ -333,16 +334,18 @@ int main(int argc, char **argv)
 	char *bgp_address = NULL;
 	int no_fib_flag = 0;
 	int skip_runas = 0;
+	int instance = 0;
 
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add(
-		"p:l:rSne:", longopts,
+		"p:l:rSne:I:", longopts,
 		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
 		"  -l, --listenon     Listen on specified address (implies -n)\n"
 		"  -r, --retain       When program terminates, retain added route by bgpd.\n"
 		"  -n, --no_kernel    Do not install route to kernel.\n"
 		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
-		"  -e, --ecmp         Specify ECMP to use.\n");
+		"  -e, --ecmp         Specify ECMP to use.\n"
+		"  -I, --int_num      Set instance number (label-manager)\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -384,6 +387,12 @@ int main(int argc, char **argv)
 		case 'S':
 			skip_runas = 1;
 			break;
+		case 'I':
+			instance = atoi(optarg);
+			if (instance > (unsigned short)-1)
+				zlog_err("Instance %i out of range (0..%u)",
+					 instance, (unsigned short)-1);
+			break;
 		default:
 			frr_help_exit(1);
 			break;
@@ -405,7 +414,7 @@ int main(int argc, char **argv)
 	bgp_vrf_init();
 
 	/* BGP related initialization.  */
-	bgp_init();
+	bgp_init((unsigned short)instance);
 
 	snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo), ", bgp@%s:%d",
 		 (bm->address ? bm->address : "<all>"), bm->port);
