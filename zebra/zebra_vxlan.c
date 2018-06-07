@@ -82,7 +82,6 @@ static void *zvni_neigh_alloc(void *p);
 static zebra_neigh_t *zvni_neigh_add(zebra_vni_t *zvni, struct ipaddr *ip,
 				     struct ethaddr *mac);
 static int zvni_neigh_del(zebra_vni_t *zvni, zebra_neigh_t *n);
-static int zvni_neigh_del_hash_entry(struct hash_backet *backet, void *arg);
 static void zvni_neigh_del_from_vtep(zebra_vni_t *zvni, int uninstall,
 				     struct in_addr *r_vtep_ip);
 static void zvni_neigh_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
@@ -138,7 +137,6 @@ static int mac_cmp(const void *p1, const void *p2);
 static void *zvni_mac_alloc(void *p);
 static zebra_mac_t *zvni_mac_add(zebra_vni_t *zvni, struct ethaddr *macaddr);
 static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac);
-static int zvni_mac_del_hash_entry(struct hash_backet *backet, void *arg);
 static void zvni_mac_del_from_vtep(zebra_vni_t *zvni, int uninstall,
 				   struct in_addr *r_vtep_ip);
 static void zvni_mac_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
@@ -1335,7 +1333,7 @@ static int zvni_neigh_del(zebra_vni_t *zvni, zebra_neigh_t *n)
 /*
  * Free neighbor hash entry (callback)
  */
-static int zvni_neigh_del_hash_entry(struct hash_backet *backet, void *arg)
+static void zvni_neigh_del_hash_entry(struct hash_backet *backet, void *arg)
 {
 	struct neigh_walk_ctx *wctx = arg;
 	zebra_neigh_t *n = backet->data;
@@ -1353,10 +1351,10 @@ static int zvni_neigh_del_hash_entry(struct hash_backet *backet, void *arg)
 		if (wctx->uninstall)
 			zvni_neigh_uninstall(wctx->zvni, n);
 
-		return zvni_neigh_del(wctx->zvni, n);
+		zvni_neigh_del(wctx->zvni, n);
 	}
 
-	return 0;
+	return;
 }
 
 /*
@@ -1376,10 +1374,7 @@ static void zvni_neigh_del_from_vtep(zebra_vni_t *zvni, int uninstall,
 	wctx.flags = DEL_REMOTE_NEIGH_FROM_VTEP;
 	wctx.r_vtep_ip = *r_vtep_ip;
 
-	hash_iterate(zvni->neigh_table,
-		     (void (*)(struct hash_backet *,
-			       void *))zvni_neigh_del_hash_entry,
-		     &wctx);
+	hash_iterate(zvni->neigh_table, zvni_neigh_del_hash_entry, &wctx);
 }
 
 /*
@@ -1399,10 +1394,7 @@ static void zvni_neigh_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
 	wctx.upd_client = upd_client;
 	wctx.flags = flags;
 
-	hash_iterate(zvni->neigh_table,
-		     (void (*)(struct hash_backet *,
-			       void *))zvni_neigh_del_hash_entry,
-		     &wctx);
+	hash_iterate(zvni->neigh_table, zvni_neigh_del_hash_entry, &wctx);
 }
 
 /*
@@ -2230,7 +2222,7 @@ static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac)
 /*
  * Free MAC hash entry (callback)
  */
-static int zvni_mac_del_hash_entry(struct hash_backet *backet, void *arg)
+static void zvni_mac_del_hash_entry(struct hash_backet *backet, void *arg)
 {
 	struct mac_walk_ctx *wctx = arg;
 	zebra_mac_t *mac = backet->data;
@@ -2250,10 +2242,10 @@ static int zvni_mac_del_hash_entry(struct hash_backet *backet, void *arg)
 		if (wctx->uninstall)
 			zvni_mac_uninstall(wctx->zvni, mac, 0);
 
-		return zvni_mac_del(wctx->zvni, mac);
+		zvni_mac_del(wctx->zvni, mac);
 	}
 
-	return 0;
+	return;
 }
 
 /*
@@ -2273,9 +2265,7 @@ static void zvni_mac_del_from_vtep(zebra_vni_t *zvni, int uninstall,
 	wctx.flags = DEL_REMOTE_MAC_FROM_VTEP;
 	wctx.r_vtep_ip = *r_vtep_ip;
 
-	hash_iterate(zvni->mac_table, (void (*)(struct hash_backet *,
-						void *))zvni_mac_del_hash_entry,
-		     &wctx);
+	hash_iterate(zvni->mac_table, zvni_mac_del_hash_entry, &wctx);
 }
 
 /*
@@ -2295,9 +2285,7 @@ static void zvni_mac_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
 	wctx.upd_client = upd_client;
 	wctx.flags = flags;
 
-	hash_iterate(zvni->mac_table, (void (*)(struct hash_backet *,
-						void *))zvni_mac_del_hash_entry,
-		     &wctx);
+	hash_iterate(zvni->mac_table, zvni_mac_del_hash_entry, &wctx);
 }
 
 /*
