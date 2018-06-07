@@ -53,8 +53,6 @@ int qpim_t_periodic =
 struct pim_assert_metric qpim_infinite_assert_metric;
 long qpim_rpf_cache_refresh_delay_msec = 50;
 int qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
-uint8_t qpim_ecmp_enable = 0;
-uint8_t qpim_ecmp_rebalance_enable = 0;
 struct pim_instance *pimg = NULL;
 
 int32_t qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;

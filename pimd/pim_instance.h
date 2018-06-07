@@ -95,6 +95,9 @@ struct pim_instance {
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
 
+	bool ecmp_enable;
+	bool ecmp_rebalance_enable;
+
 	/* If we need to rescan all our upstreams */
 	struct thread *rpf_cache_refresher;
 	int64_t rpf_cache_refresh_requests;
