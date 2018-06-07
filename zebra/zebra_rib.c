@@ -266,7 +266,8 @@ struct nexthop *route_entry_nexthop_ipv4_ifindex_add(struct route_entry *re,
 	  There was a crash because ifp here was coming to be NULL */
 	if (ifp)
 		if (connected_is_unnumbered(ifp)
-		    || CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+		    || CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE)
+		    || CHECK_FLAG(re->flags, ZEBRA_FLAG_ONLINK)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 		}
 
@@ -303,8 +304,10 @@ struct nexthop *route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
 	nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 	nexthop->gate.ipv6 = *ipv6;
 	nexthop->ifindex = ifindex;
-	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE))
+	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE)
+	    || CHECK_FLAG(re->flags, ZEBRA_FLAG_ONLINK)) {
 		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
+	}
 
 	route_entry_nexthop_add(re, nexthop);
 
@@ -438,7 +441,8 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	 */
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)) {
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
-		if (ifp && connected_is_unnumbered(ifp)) {
+		if ((ifp && connected_is_unnumbered(ifp))
+		    || CHECK_FLAG(re->flags, ZEBRA_FLAG_ONLINK)) {
 			if (if_is_operative(ifp))
 				return 1;
 			else
