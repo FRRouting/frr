@@ -206,11 +206,19 @@ struct bgp_info *bgp_info_new(void)
 static void bgp_info_free(struct bgp_info *binfo)
 {
 	/* unlink reference to parent, if any. */
-	if (binfo->extra && binfo->extra->parent) {
-		bgp_info_unlock((struct bgp_info *)binfo->extra->parent);
-		bgp_unlock_node((struct bgp_node *)((struct bgp_info *)binfo
-						    ->extra->parent)->net);
-		binfo->extra->parent = NULL;
+	if (binfo->extra) {
+		if (binfo->extra->parent) {
+			bgp_unlock_node(
+				(struct bgp_node *)((struct bgp_info *)binfo
+							    ->extra->parent)
+					->net);
+			bgp_info_unlock(
+				(struct bgp_info *)binfo->extra->parent);
+			binfo->extra->parent = NULL;
+		}
+
+		if (binfo->extra->bgp_orig)
+			bgp_unlock(binfo->extra->bgp_orig);
 	}
 
 	if (binfo->attr)
