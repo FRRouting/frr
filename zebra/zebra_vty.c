@@ -260,18 +260,22 @@ static int zebra_static_route_holdem(
 			return CMD_SUCCESS;
 		}
 
-		XFREE(MTYPE_STATIC_ROUTE, shr->nhvrf_name);
-		XFREE(MTYPE_STATIC_ROUTE, shr->vrf_name);
-		XFREE(MTYPE_STATIC_ROUTE, shr);
 		/*
 		 * If a person enters the same line again
 		 * we need to silently accept it
 		 */
+		goto shr_cleanup;
+	}
+
+	if (!negate) {
+		listnode_add_sort(static_list, shr);
 		return CMD_SUCCESS;
 	}
 
-	if (!negate)
-		listnode_add_sort(static_list, shr);
+shr_cleanup:
+	XFREE(MTYPE_STATIC_ROUTE, shr->nhvrf_name);
+	XFREE(MTYPE_STATIC_ROUTE, shr->vrf_name);
+	XFREE(MTYPE_STATIC_ROUTE, shr);
 
 	return CMD_SUCCESS;
 }
