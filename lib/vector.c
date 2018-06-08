@@ -153,6 +153,27 @@ void vector_unset(vector v, unsigned int i)
 	}
 }
 
+void vector_remove(vector v, unsigned int ix)
+{
+	if (ix >= v->active)
+		return;
+
+	int n = (--v->active) - ix;
+
+	memmove(&v->index[ix], &v->index[ix + 1], n * sizeof(void *));
+	v->index[v->active] = NULL;
+}
+
+void vector_compact(vector v)
+{
+	for (unsigned int i = 0; i < vector_active(v); ++i) {
+		if (vector_slot(v, i) == NULL) {
+			vector_remove(v, i);
+			--i;
+		}
+	}
+}
+
 void vector_unset_value(vector v, void *val)
 {
 	size_t i;
@@ -180,4 +201,20 @@ unsigned int vector_count(vector v)
 			count++;
 
 	return count;
+}
+
+void vector_to_array(vector v, void ***dest, int *argc)
+{
+	*dest = XCALLOC(MTYPE_TMP, sizeof(void *) * v->active);
+	memcpy(*dest, v->index, sizeof(void *) * v->active);
+	*argc = v->active;
+}
+
+vector array_to_vector(void **src, int argc)
+{
+	vector v = vector_init(VECTOR_MIN_SIZE);
+
+	for (int i = 0; i < argc; i++)
+		vector_set_index(v, i, src[i]);
+	return v;
 }

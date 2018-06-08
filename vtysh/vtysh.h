@@ -90,7 +90,7 @@ int vtysh_write_config_integrated(void);
 
 void vtysh_config_parse_line(void *, const char *);
 
-void vtysh_config_dump(FILE *);
+void vtysh_config_dump(void);
 
 void vtysh_config_init(void);
 

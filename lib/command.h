@@ -33,9 +33,6 @@
 DECLARE_MTYPE(HOST)
 DECLARE_MTYPE(COMPLETION)
 
-/* for test-commands.c */
-DECLARE_MTYPE(STRVEC)
-
 /* Host configuration variable */
 struct host {
 	/* Host name of this router. */
@@ -419,6 +416,28 @@ extern int command_config_read_one_line(struct vty *vty,
 					int use_config_node);
 extern int config_from_file(struct vty *, FILE *, unsigned int *line_num);
 extern enum node_type node_parent(enum node_type);
+/*
+ * Execute command under the given vty context.
+ *
+ * vty
+ *    The vty context to execute under.
+ *
+ * cmd
+ *    The command string to execute.
+ *
+ * matched
+ *    If non-null and a match was found, the address of the matched command is
+ *    stored here. No action otherwise.
+ *
+ * vtysh
+ *    Whether or not this is being called from vtysh. If this is nonzero,
+ *    XXX: then what?
+ *
+ * Returns:
+ *    XXX: what does it return
+ */
+extern int cmd_execute(struct vty *vty, const char *cmd,
+		       const struct cmd_element **matched, int vtysh);
 extern int cmd_execute_command(vector, struct vty *,
 			       const struct cmd_element **, int);
 extern int cmd_execute_command_strict(vector, struct vty *,

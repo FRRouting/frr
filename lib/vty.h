@@ -21,6 +21,9 @@
 #ifndef _ZEBRA_VTY_H
 #define _ZEBRA_VTY_H
 
+#include <sys/types.h>
+#include <regex.h>
+
 #include "thread.h"
 #include "log.h"
 #include "sockunion.h"
@@ -38,6 +41,13 @@ struct vty {
 	/* output FD, to support stdin/stdout combination */
 	int wfd;
 
+	/* File output, used for VTYSH only */
+	FILE *of;
+	FILE *of_saved;
+
+	/* whether we are using pager or not */
+	bool is_paged;
+
 	/* Is this vty connect to file or not */
 	enum { VTY_TERM, VTY_FILE, VTY_SHELL, VTY_SHELL_SERV } type;
 
@@ -46,6 +56,13 @@ struct vty {
 
 	/* Failure count */
 	int fail;
+
+	/* Output filer regex */
+	bool filter;
+	regex_t include;
+
+	/* Line buffer */
+	struct buffer *lbuf;
 
 	/* Output buffer. */
 	struct buffer *obuf;
@@ -223,6 +240,7 @@ extern struct vty *vty_stdio(void (*atclose)(int isexit));
 extern int vty_out(struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
 extern void vty_frame(struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
 extern void vty_endframe(struct vty *, const char *);
+bool vty_set_include(struct vty *vty, const char *regexp);
 
 extern void vty_read_config(const char *, char *);
 extern void vty_time_print(struct vty *, int);

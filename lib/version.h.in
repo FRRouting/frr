@@ -47,10 +47,10 @@
 #define FRR_CONFIG_ARGS "@CONFIG_ARGS@"
 
 #define FRR_DEFAULT_MOTD \
-	"\r\n" \
-	"Hello, this is " FRR_FULL_NAME " (version " FRR_VERSION ").\r\n" \
-	FRR_COPYRIGHT "\r\n" \
-	GIT_INFO "\r\n"
+	"\n" \
+	"Hello, this is " FRR_FULL_NAME " (version " FRR_VERSION ").\n" \
+	FRR_COPYRIGHT "\n" \
+	GIT_INFO "\n"
 
 pid_t pid_output (const char *);
 
