@@ -5441,6 +5441,95 @@ static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 	XFREE(MTYPE_BGP_AGGREGATE, aggregate);
 }
 
+static int bgp_aggregate_info_same(struct bgp_info *ri, struct aspath *aspath,
+				   struct community *comm)
+{
+	static struct aspath *ae = NULL;
+
+	if (!ae)
+		ae = aspath_empty();
+
+	if (!ri)
+		return 0;
+
+	if (!aspath_cmp(ri->attr->aspath, (aspath) ? aspath : ae))
+		return 0;
+
+	if (!community_cmp(ri->attr->community, comm))
+		return 0;
+
+	return 1;
+}
+
+static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
+				  struct prefix *p, uint8_t origin,
+				  struct aspath *aspath,
+				  struct community *community,
+				  uint8_t atomic_aggregate,
+				  struct bgp_aggregate *aggregate)
+{
+	struct bgp_node *rn;
+	struct bgp_table *table;
+	struct bgp_info *ri, *new;
+
+	table = bgp->rib[afi][safi];
+
+	rn = bgp_node_get(table, p);
+
+	for (ri = rn->info; ri; ri = ri->next)
+		if (ri->peer == bgp->peer_self && ri->type == ZEBRA_ROUTE_BGP
+		    && ri->sub_type == BGP_ROUTE_AGGREGATE)
+			break;
+
+	if (aggregate->count > 0) {
+		/*
+		 * If the aggregate information has not changed
+		 * no need to re-install it again.
+		 */
+		if (bgp_aggregate_info_same(rn->info, aspath, community)) {
+			bgp_unlock_node(rn);
+
+			if (aspath)
+				aspath_free(aspath);
+			if (community)
+				community_free(community);
+
+			return;
+		}
+
+		/*
+		 * Mark the old as unusable
+		 */
+		if (ri)
+			bgp_info_delete(rn, ri);
+
+		new = info_make(
+			ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0, bgp->peer_self,
+			bgp_attr_aggregate_intern(bgp, origin, aspath,
+						  community, aggregate->as_set,
+						  atomic_aggregate),
+			rn);
+		SET_FLAG(new->flags, BGP_INFO_VALID);
+
+		bgp_info_add(rn, new);
+		bgp_process(bgp, rn, afi, safi);
+	} else {
+		for (ri = rn->info; ri; ri = ri->next)
+			if (ri->peer == bgp->peer_self
+			    && ri->type == ZEBRA_ROUTE_BGP
+			    && ri->sub_type == BGP_ROUTE_AGGREGATE)
+				break;
+
+		/* Withdraw static BGP route from routing table. */
+		if (ri) {
+			bgp_info_delete(rn, ri);
+			bgp_process(bgp, rn, afi, safi);
+		}
+	}
+
+	bgp_unlock_node(rn);
+}
+
 /* Update an aggregate as routes are added/removed from the BGP table */
 static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 				struct bgp_info *rinew, afi_t afi, safi_t safi,
@@ -5455,23 +5544,9 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	struct aspath *asmerge = NULL;
 	struct community *community = NULL;
 	struct community *commerge = NULL;
-#if defined(AGGREGATE_NEXTHOP_CHECK)
-	struct in_addr nexthop;
-	uint32_t med = 0;
-#endif
 	struct bgp_info *ri;
-	struct bgp_info *new;
-	int first = 1;
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
-
-	/* Record adding route's nexthop and med. */
-	if (rinew) {
-#if defined(AGGREGATE_NEXTHOP_CHECK)
-		nexthop = rinew->attr->nexthop;
-		med = rinew->attr->med;
-#endif
-	}
 
 	/* ORIGIN attribute: If at least one route among routes that are
 	   aggregated has ORIGIN with the value INCOMPLETE, then the
@@ -5487,88 +5562,81 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 
 	top = bgp_node_get(table, p);
 	for (rn = bgp_node_get(table, p); rn;
-	     rn = bgp_route_next_until(rn, top))
-		if (rn->p.prefixlen > p->prefixlen) {
-			match = 0;
+	     rn = bgp_route_next_until(rn, top)) {
+		if (rn->p.prefixlen <= p->prefixlen)
+			continue;
 
-			for (ri = rn->info; ri; ri = ri->next) {
-				if (BGP_INFO_HOLDDOWN(ri))
-					continue;
+		match = 0;
 
-				if (del && ri == del)
-					continue;
+		for (ri = rn->info; ri; ri = ri->next) {
+			if (BGP_INFO_HOLDDOWN(ri))
+				continue;
 
-				if (!rinew && first) {
-#if defined(AGGREGATE_NEXTHOP_CHECK)
-					nexthop = ri->attr->nexthop;
-					med = ri->attr->med;
-#endif
-					first = 0;
-				}
+			if (del && ri == del)
+				continue;
 
-#ifdef AGGREGATE_NEXTHOP_CHECK
-				if (!IPV4_ADDR_SAME(&ri->attr->nexthop,
-						    &nexthop)
-				    || ri->attr->med != med) {
-					if (aspath)
-						aspath_free(aspath);
-					if (community)
-						community_free(community);
-					bgp_unlock_node(rn);
-					bgp_unlock_node(top);
-					return;
-				}
-#endif /* AGGREGATE_NEXTHOP_CHECK */
+			if (ri->attr->flag
+			    & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
+				atomic_aggregate = 1;
 
-				if (ri->attr->flag
-				    & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
-					atomic_aggregate = 1;
+			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
+				continue;
 
-				if (ri->sub_type != BGP_ROUTE_AGGREGATE) {
-					if (aggregate->summary_only) {
-						(bgp_info_extra_get(ri))
-							->suppress++;
-						bgp_info_set_flag(
-							rn, ri,
-							BGP_INFO_ATTR_CHANGED);
-						match++;
-					}
-
-					aggregate->count++;
-
-					if (origin < ri->attr->origin)
-						origin = ri->attr->origin;
-
-					if (aggregate->as_set) {
-						if (aspath) {
-							asmerge = aspath_aggregate(
-								aspath,
-								ri->attr->aspath);
-							aspath_free(aspath);
-							aspath = asmerge;
-						} else
-							aspath = aspath_dup(
-								ri->attr->aspath);
-
-						if (ri->attr->community) {
-							if (community) {
-								commerge = community_merge(
-									community,
-									ri->attr->community);
-								community = community_uniq_sort(
-									commerge);
-								community_free(
-									commerge);
-							} else
-								community = community_dup(
-									ri->attr->community);
-						}
-					}
-				}
+			/*
+			 * summary-only aggregate route suppress
+			 * aggregated route announcements.
+			 */
+			if (aggregate->summary_only) {
+				(bgp_info_extra_get(ri))->suppress++;
+				bgp_info_set_flag(rn, ri,
+						  BGP_INFO_ATTR_CHANGED);
+				match++;
 			}
-			if (match)
-				bgp_process(bgp, rn, afi, safi);
+
+			aggregate->count++;
+
+			/*
+                        * If at least one route among routes that are
+                        * aggregated has ORIGIN with the value INCOMPLETE,
+                        * then the aggregated route MUST have the ORIGIN
+                        * attribute with the value INCOMPLETE.  Otherwise, if
+                        * at least one route among routes that are aggregated
+                        * has ORIGIN with the value EGP, then the aggregated
+                        * route MUST have the ORIGIN attribute with the value
+                        * EGP.
+                        */
+			if (origin < ri->attr->origin)
+				origin = ri->attr->origin;
+
+			if (!aggregate->as_set)
+				continue;
+
+			/*
+			 * as-set aggregate route generate origin, as path,
+			 * and community aggregation.
+			 */
+			if (aspath) {
+				asmerge = aspath_aggregate(aspath,
+							   ri->attr->aspath);
+				aspath_free(aspath);
+				aspath = asmerge;
+			} else
+				aspath = aspath_dup(ri->attr->aspath);
+
+			if (!ri->attr->community)
+				continue;
+
+			if (community) {
+				commerge = community_merge(community,
+							   ri->attr->community);
+				community = community_uniq_sort(commerge);
+				community_free(commerge);
+			} else
+				community = community_dup(ri->attr->community);
 		}
+		if (match)
+			bgp_process(bgp, rn, afi, safi);
+	}
 	bgp_unlock_node(top);
 
 	if (rinew) {
@@ -5604,20 +5672,10 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 		}
 	}
 
-	if (aggregate->count > 0) {
-		rn = bgp_node_get(table, p);
-		new = info_make(
-			ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0, bgp->peer_self,
-			bgp_attr_aggregate_intern(bgp, origin, aspath,
-						  community, aggregate->as_set,
-						  atomic_aggregate),
-			rn);
-		SET_FLAG(new->flags, BGP_INFO_VALID);
+	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath, community,
+			      atomic_aggregate, aggregate);
 
-		bgp_info_add(rn, new);
-		bgp_unlock_node(rn);
-		bgp_process(bgp, rn, afi, safi);
-	} else {
+	if (aggregate->count == 0) {
 		if (aspath)
 			aspath_free(aspath);
 		if (community)
@@ -5625,8 +5683,50 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	}
 }
 
-void bgp_aggregate_delete(struct bgp *, struct prefix *, afi_t, safi_t,
-			  struct bgp_aggregate *);
+static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
+				 safi_t safi, struct bgp_aggregate *aggregate)
+{
+	struct bgp_table *table;
+	struct bgp_node *top;
+	struct bgp_node *rn;
+	struct bgp_info *ri;
+	unsigned long match;
+
+	table = bgp->rib[afi][safi];
+
+	/* If routes exists below this node, generate aggregate routes. */
+	top = bgp_node_get(table, p);
+	for (rn = bgp_node_get(table, p); rn;
+	     rn = bgp_route_next_until(rn, top)) {
+		if (rn->p.prefixlen <= p->prefixlen)
+			continue;
+		match = 0;
+
+		for (ri = rn->info; ri; ri = ri->next) {
+			if (BGP_INFO_HOLDDOWN(ri))
+				continue;
+
+			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
+				continue;
+
+			if (aggregate->summary_only && ri->extra) {
+				ri->extra->suppress--;
+
+				if (ri->extra->suppress == 0) {
+					bgp_info_set_flag(
+						rn, ri, BGP_INFO_ATTR_CHANGED);
+					match++;
+				}
+			}
+			aggregate->count--;
+		}
+
+		/* If this node was suppressed, process the change. */
+		if (match)
+			bgp_process(bgp, rn, afi, safi);
+	}
+	bgp_unlock_node(top);
+}
 
 void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 			     struct bgp_info *ri, afi_t afi, safi_t safi)
@@ -5635,12 +5735,6 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 	struct bgp_node *rn;
 	struct bgp_aggregate *aggregate;
 	struct bgp_table *table;
-
-	/* MPLS-VPN aggregation is not yet supported. */
-	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
-	    || (safi == SAFI_EVPN)
-	    || (safi == SAFI_FLOWSPEC))
-		return;
 
 	table = bgp->aggregate[afi][safi];
 
@@ -5675,12 +5769,6 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 	struct bgp_aggregate *aggregate;
 	struct bgp_table *table;
 
-	/* MPLS-VPN aggregation is not yet supported. */
-	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
-	    || (safi == SAFI_EVPN)
-	    || (safi == SAFI_FLOWSPEC))
-		return;
-
 	table = bgp->aggregate[afi][safi];
 
 	/* No aggregates configured. */
@@ -5703,196 +5791,6 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 	bgp_unlock_node(child);
 }
 
-/* Called via bgp_aggregate_set when the user configures aggregate-address */
-static void bgp_aggregate_add(struct bgp *bgp, struct prefix *p, afi_t afi,
-			      safi_t safi, struct bgp_aggregate *aggregate)
-{
-	struct bgp_table *table;
-	struct bgp_node *top;
-	struct bgp_node *rn;
-	struct bgp_info *new;
-	struct bgp_info *ri;
-	unsigned long match;
-	uint8_t origin = BGP_ORIGIN_IGP;
-	struct aspath *aspath = NULL;
-	struct aspath *asmerge = NULL;
-	struct community *community = NULL;
-	struct community *commerge = NULL;
-	uint8_t atomic_aggregate = 0;
-
-	table = bgp->rib[afi][safi];
-
-	/* Sanity check. */
-	if (afi == AFI_IP && p->prefixlen == IPV4_MAX_BITLEN)
-		return;
-	if (afi == AFI_IP6 && p->prefixlen == IPV6_MAX_BITLEN)
-		return;
-
-	/* If routes exists below this node, generate aggregate routes. */
-	top = bgp_node_get(table, p);
-	for (rn = bgp_node_get(table, p); rn;
-	     rn = bgp_route_next_until(rn, top)) {
-		if (rn->p.prefixlen <= p->prefixlen)
-			continue;
-
-		match = 0;
-
-		for (ri = rn->info; ri; ri = ri->next) {
-			if (BGP_INFO_HOLDDOWN(ri))
-				continue;
-
-			if (ri->attr->flag
-			    & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
-				atomic_aggregate = 1;
-
-			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
-				continue;
-
-			/* summary-only aggregate route suppress
-			 * aggregated route announcement.  */
-			if (aggregate->summary_only) {
-				(bgp_info_extra_get(ri))->suppress++;
-				bgp_info_set_flag(rn, ri,
-						  BGP_INFO_ATTR_CHANGED);
-				match++;
-			}
-
-			/* If at least one route among routes that are
-			 * aggregated has ORIGIN with the value INCOMPLETE,
-			 * then the aggregated route MUST have the ORIGIN
-			 * attribute with the value INCOMPLETE.  Otherwise, if
-			 * at least one route among routes that are aggregated
-			 * has ORIGIN with the value EGP, then the aggregated
-			 * route MUST have the ORIGIN attribute with the value
-			 * EGP.
-			 */
-			if (origin < ri->attr->origin)
-				origin = ri->attr->origin;
-
-			/* as-set aggregate route generate origin, as path,
-			 * community aggregation.  */
-			if (aggregate->as_set) {
-				if (aspath) {
-					asmerge = aspath_aggregate(
-						aspath, ri->attr->aspath);
-					aspath_free(aspath);
-					aspath = asmerge;
-				} else
-					aspath = aspath_dup(ri->attr->aspath);
-
-				if (ri->attr->community) {
-					if (community) {
-						commerge = community_merge(
-							community,
-							ri->attr->community);
-						community = community_uniq_sort(
-							commerge);
-						community_free(commerge);
-					} else
-						community = community_dup(
-							ri->attr->community);
-				}
-			}
-			aggregate->count++;
-		}
-
-		/* If this node is suppressed, process the change. */
-		if (match)
-			bgp_process(bgp, rn, afi, safi);
-	}
-	bgp_unlock_node(top);
-
-	/* Add aggregate route to BGP table. */
-	if (aggregate->count) {
-		rn = bgp_node_get(table, p);
-		new = info_make(
-			ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0, bgp->peer_self,
-			bgp_attr_aggregate_intern(bgp, origin, aspath,
-						  community, aggregate->as_set,
-						  atomic_aggregate),
-			rn);
-		SET_FLAG(new->flags, BGP_INFO_VALID);
-
-		bgp_info_add(rn, new);
-		bgp_unlock_node(rn);
-
-		/* Process change. */
-		bgp_process(bgp, rn, afi, safi);
-	} else {
-		if (aspath)
-			aspath_free(aspath);
-		if (community)
-			community_free(community);
-	}
-}
-
-void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
-			  safi_t safi, struct bgp_aggregate *aggregate)
-{
-	struct bgp_table *table;
-	struct bgp_node *top;
-	struct bgp_node *rn;
-	struct bgp_info *ri;
-	unsigned long match;
-
-	table = bgp->rib[afi][safi];
-
-	if (afi == AFI_IP && p->prefixlen == IPV4_MAX_BITLEN)
-		return;
-	if (afi == AFI_IP6 && p->prefixlen == IPV6_MAX_BITLEN)
-		return;
-
-	/* If routes exists below this node, generate aggregate routes. */
-	top = bgp_node_get(table, p);
-	for (rn = bgp_node_get(table, p); rn;
-	     rn = bgp_route_next_until(rn, top)) {
-		if (rn->p.prefixlen <= p->prefixlen)
-			continue;
-		match = 0;
-
-		for (ri = rn->info; ri; ri = ri->next) {
-			if (BGP_INFO_HOLDDOWN(ri))
-				continue;
-
-			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
-				continue;
-
-			if (aggregate->summary_only && ri->extra) {
-				ri->extra->suppress--;
-
-				if (ri->extra->suppress == 0) {
-					bgp_info_set_flag(
-						rn, ri, BGP_INFO_ATTR_CHANGED);
-					match++;
-				}
-			}
-			aggregate->count--;
-		}
-
-		/* If this node was suppressed, process the change. */
-		if (match)
-			bgp_process(bgp, rn, afi, safi);
-	}
-	bgp_unlock_node(top);
-
-	/* Delete aggregate route from BGP table. */
-	rn = bgp_node_get(table, p);
-
-	for (ri = rn->info; ri; ri = ri->next)
-		if (ri->peer == bgp->peer_self && ri->type == ZEBRA_ROUTE_BGP
-		    && ri->sub_type == BGP_ROUTE_AGGREGATE)
-			break;
-
-	/* Withdraw static BGP route from routing table. */
-	if (ri) {
-		bgp_info_delete(rn, ri);
-		bgp_process(bgp, rn, afi, safi);
-	}
-
-	/* Unlock bgp_node_lookup. */
-	bgp_unlock_node(rn);
-}
-
 /* Aggregate route attribute. */
 #define AGGREGATE_SUMMARY_ONLY 1
 #define AGGREGATE_AS_SET       1
@@ -5905,9 +5803,6 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	struct prefix p;
 	struct bgp_node *rn;
 	struct bgp_aggregate *aggregate;
-
-	if (safi == SAFI_FLOWSPEC)
-		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
@@ -5926,13 +5821,8 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	}
 
 	aggregate = rn->info;
-	if (aggregate->safi == SAFI_UNICAST)
-		bgp_aggregate_delete(bgp, &p, afi, SAFI_UNICAST, aggregate);
-	if (aggregate->safi == SAFI_LABELED_UNICAST)
-		bgp_aggregate_delete(bgp, &p, afi, SAFI_LABELED_UNICAST,
-				     aggregate);
-	if (aggregate->safi == SAFI_MULTICAST)
-		bgp_aggregate_delete(bgp, &p, afi, SAFI_MULTICAST, aggregate);
+	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
+	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL, 0, aggregate);
 
 	/* Unlock aggregate address configuration. */
 	rn->info = NULL;
@@ -5952,9 +5842,6 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	struct bgp_node *rn;
 	struct bgp_aggregate *aggregate;
 
-	if (safi == SAFI_FLOWSPEC)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	/* Convert string to prefix structure. */
 	ret = str2prefix(prefix_str, &p);
 	if (!ret) {
@@ -5962,6 +5849,13 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	apply_mask(&p);
+
+	if ((afi == AFI_IP && p.prefixlen == IPV4_MAX_BITLEN) ||
+	    (afi == AFI_IP6 && p.prefixlen == IPV6_MAX_BITLEN)) {
+		vty_out(vty, "Specified prefix: %s will not result in any useful aggregation, disallowing\n",
+			prefix_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Old configuration check. */
 	rn = bgp_node_get(bgp->aggregate[afi][safi], &p);
@@ -5985,13 +5879,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	rn->info = aggregate;
 
 	/* Aggregate address insert into BGP routing table. */
-	if (safi == SAFI_UNICAST)
-		bgp_aggregate_add(bgp, &p, afi, SAFI_UNICAST, aggregate);
-	if (safi == SAFI_LABELED_UNICAST)
-		bgp_aggregate_add(bgp, &p, afi, SAFI_LABELED_UNICAST,
-				  aggregate);
-	if (safi == SAFI_MULTICAST)
-		bgp_aggregate_add(bgp, &p, afi, SAFI_MULTICAST, aggregate);
+	bgp_aggregate_route(bgp, &p, NULL, afi, safi, NULL, aggregate);
 
 	return CMD_SUCCESS;
 }
