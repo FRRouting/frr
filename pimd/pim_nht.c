@@ -667,7 +667,7 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 				 * RPF address from nexthop cache (i.e.
 				 * destination) as PIM nexthop.
 				 */
-				nexthop->type = NEXTHOP_TYPE_IPV4;
+				nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 				nexthop->gate.ipv4 =
 					pnc->rpf.rpf_addr.u.prefix4;
 				break;
