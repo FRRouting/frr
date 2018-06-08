@@ -215,6 +215,8 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 				tab_size, addr_str, pim->vrf->name);
 			return num_ifindex;
 		}
+		nexthop_tab[num_ifindex].protocol_distance = distance;
+		nexthop_tab[num_ifindex].route_metric = metric;
 		switch (nexthop_type) {
 		case NEXTHOP_TYPE_IFINDEX:
 			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
@@ -276,13 +278,19 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			}
 			++num_ifindex;
 			break;
-		case NEXTHOP_TYPE_IPV6:
-		case NEXTHOP_TYPE_BLACKHOLE:
-			/* ignore */
-			continue;
+		default:
+			/* do nothing */
+			{
+				char addr_str[INET_ADDRSTRLEN];
+				pim_inet4_dump("<addr?>", addr, addr_str,
+					       sizeof(addr_str));
+				zlog_warn(
+					"%s: found non-ifindex nexthop type=%d for address %s(%s)",
+					__PRETTY_FUNCTION__, nexthop_type,
+					addr_str, pim->vrf->name);
+			}
+			break;
 		}
-		nexthop_tab[num_ifindex].protocol_distance = distance;
-		nexthop_tab[num_ifindex].route_metric = metric;
 	}
 
 	return num_ifindex;
