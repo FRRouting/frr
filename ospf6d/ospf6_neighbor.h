@@ -35,7 +35,7 @@ extern unsigned char conf_debug_ospf6_neighbor;
 /* Neighbor structure */
 struct ospf6_neighbor {
 	/* Neighbor Router ID String */
-	char name[32];
+	char name[36];
 
 	/* OSPFv3 Interface this neighbor belongs to */
 	struct ospf6_interface *ospf6_if;

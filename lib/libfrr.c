@@ -47,9 +47,9 @@ const char frr_moduledir[] = MODULE_PATH;
 char frr_protoname[256] = "NONE";
 char frr_protonameinst[256] = "NONE";
 
-char config_default[256];
+char config_default[512];
 char frr_zclientpath[256];
-static char pidfile_default[256];
+static char pidfile_default[512];
 static char vtypath_default[256];
 
 bool debug_memstats_at_exit = 0;

@@ -52,8 +52,8 @@ static gid_t elevgid, realgid;
 #define FRR_CONFIG_NAME "frr.conf"
 
 /* Configuration file name and directory. */
-static char vtysh_config[MAXPATHLEN];
-char frr_config[MAXPATHLEN];
+static char vtysh_config[MAXPATHLEN * 3];
+char frr_config[MAXPATHLEN * 3];
 char vtydir[MAXPATHLEN];
 static char history_file[MAXPATHLEN];
 

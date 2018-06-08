@@ -969,7 +969,7 @@ static int vtysh_process_questionmark(const char *input, int input_len)
  * the usual vtysh's stdin interface. This is the function being registered with
  * readline() api's.
  */
-static int vtysh_rl_describe(void)
+static int vtysh_rl_describe(int a, int b)
 {
 	int ret;
 
