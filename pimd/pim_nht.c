@@ -657,10 +657,19 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 			nexthop = nexthop_from_zapi_nexthop(&nhr.nexthops[i]);
 			switch (nexthop->type) {
 			case NEXTHOP_TYPE_IPV4:
-			case NEXTHOP_TYPE_IFINDEX:
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
 			case NEXTHOP_TYPE_IPV6:
 			case NEXTHOP_TYPE_BLACKHOLE:
+				break;
+			case NEXTHOP_TYPE_IFINDEX:
+				/*
+				 * Connected route (i.e. no nexthop), use
+				 * RPF address from nexthop cache (i.e.
+				 * destination) as PIM nexthop.
+				 */
+				nexthop->type = NEXTHOP_TYPE_IPV4;
+				nexthop->gate.ipv4 =
+					pnc->rpf.rpf_addr.u.prefix4;
 				break;
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				ifp1 = if_lookup_by_index(nexthop->ifindex,
