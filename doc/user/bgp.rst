@@ -1034,67 +1034,71 @@ is 4 octet long. The following format is used to define the community value.
    it is considered as external BGP peer, so the route will not be announced to
    the peer.
 
-When BGP communities attribute is received, duplicated communities value in the
-communities attribute is ignored and each communities values are sorted in
-numerical order.
+When the communities attribute is received duplicate community values in the
+attribute are ignored and value is sorted in numerical order.
 
 .. _bgp-community-lists:
 
 Community Lists
 ^^^^^^^^^^^^^^^
+Community lists are user defined lists of community attribute values. These
+lists can be used for matching or manipulating the communities attribute in
+UPDATE messages.
 
-BGP community list is a user defined BGP communities attribute list. BGP
-community list can be used for matching or manipulating BGP communities
-attribute in updates.
+There are two types of community list:
 
-There are two types of community list. One is standard community list and
-another is expanded community list. Standard community list defines communities
-attribute. Expanded community list defines communities attribute string with
-regular expression. Standard community list is compiled into binary format when
-user define it. Standard community list will be directly compared to BGP
-communities attribute in BGP updates. Therefore the comparison is faster than
-expanded community list.
+standard
+   This type accepts an explicit value for the atttribute.
+
+expanded
+   This type accepts a regular expression. Because the regex must be
+   interpreted on each use expanded community lists are slower than standard
+   lists.
 
 .. index:: ip community-list standard NAME permit|deny COMMUNITY
 .. clicmd:: ip community-list standard NAME permit|deny COMMUNITY
 
-   This command defines a new standard community list. COMUNITY is
-   communities value. The COMUNITY is compiled into community structure. We
-   can define multiple community list under same name. In that case match will
-   happen user defined order. Once the community list matches to communities
-   attribute in BGP updates it return permit or deny by the community list
-   definition. When there is no matched entry, deny will be returned. When
-   COMUNITY is empty it matches to any routes.
+   This command defines a new standard community list. ``COMMUNITY`` is
+   communities value. The ``COMMUNITY`` is compiled into community structure.
+   We can define multiple community list under same name. In that case match
+   will happen user defined order. Once the community list matches to
+   communities attribute in BGP updates it return permit or deny by the
+   community list definition. When there is no matched entry, deny will be
+   returned. When ``COMMUNITY`` is empty it matches to any routes.
 
-.. index:: ip community-list expanded NAME permit|deny LINE
-.. clicmd:: ip community-list expanded NAME permit|deny LINE
+.. index:: ip community-list expanded NAME permit|deny COMMUNITY
+.. clicmd:: ip community-list expanded NAME permit|deny COMMUNITY
 
-   This command defines a new expanded community list. COMUNITY is a
-   string expression of communities attribute. COMUNITY can be a
-   regular expression (:ref:`bgp-regular-expressions`) to match
-   the communities attribute in BGP updates.
+   This command defines a new expanded community list. ``COMMUNITY`` is a
+   string expression of communities attribute. ``COMMUNITY`` can be a regular
+   expression (:ref:`bgp-regular-expressions`) to match the communities
+   attribute in BGP updates.
 
-.. index:: no ip community-list NAME
-.. clicmd:: no ip community-list NAME
+.. deprecated:: 5.0
+   It is recommended to use the more explicit versions of this command.
 
-.. index:: no ip community-list standard NAME
-.. clicmd:: no ip community-list standard NAME
+.. index:: ip community-list NAME permit|deny COMMUNITY
+.. clicmd:: ip community-list NAME permit|deny COMMUNITY
 
-.. index:: no ip community-list expanded NAME
-.. clicmd:: no ip community-list expanded NAME
+   When the community list type is not specified, the community list type is
+   automatically detected. If ``COMMUNITY`` can be compiled into communities
+   attribute, the community list is defined as a standard community list.
+   Otherwise it is defined as an expanded community list. This feature is left
+   for backward compatibility. Use of this feature is not recommended.
 
-   These commands delete community lists specified by NAME. All of
-   community lists shares a single name space. So community lists can be
-   removed simply specifying community lists name.
 
-.. index:: show ip community-list
-.. clicmd:: show ip community-list
+.. index:: no ip community-list [standard|expanded] NAME
+.. clicmd:: no ip community-list [standard|expanded] NAME
 
-.. index:: show ip community-list NAME
-.. clicmd:: show ip community-list NAME
+   Deletes the community list specified by ``NAME``. All community lists share
+   the same namespace, so it's not necessary to specify ``standard`` or
+   ``expanded``; these modifiers are purely aesthetic.
 
-   This command displays current community list information. When NAME is
-   specified the specified community list's information is shown.
+.. index:: show ip community-list [NAME]
+.. clicmd:: show ip community-list [NAME]
+
+   Displays community list information. When ``NAME`` is specified the
+   specified community list's information is shown.
 
    ::
 
@@ -1126,43 +1130,28 @@ is called as named community lists.
 .. index:: ip community-list (1-99) permit|deny COMMUNITY
 .. clicmd:: ip community-list (1-99) permit|deny COMMUNITY
 
-   This command defines a new community list. (1-99) is standard
-   community list number. Community list name within this range defines
-   standard community list. When `community` is empty it matches to
-   any routes.
+   This command defines a new community list. The argument to (1-99) defines
+   the list identifier.
 
 .. index:: ip community-list (100-199) permit|deny COMMUNITY
 .. clicmd:: ip community-list (100-199) permit|deny COMMUNITY
 
-   This command defines a new community list. (100-199) is expanded
-   community list number. Community list name within this range defines
-   expanded community list.
-
-.. index:: ip community-list NAME permit|deny COMMUNITY
-.. clicmd:: ip community-list NAME permit|deny COMMUNITY
-
-   When community list type is not specified, the community list type is
-   automatically detected. If COMMUNITY can be compiled into communities
-   attribute, the community list is defined as a standard community list.
-   Otherwise it is defined as an expanded community list. This feature is left
-   for backward compatibility. Use of this feature is not recommended.
+   This command defines a new expanded community list. The argument to
+   (100-199) defines the list identifier.
 
 .. _bgp-using-communities-in-route-map:
 
 Using Communities in Route Maps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In Route Map (:ref:`route-map`), we can match or set BGP
-communities attribute. Using this feature network operator can
-implement their network policy based on BGP communities attribute.
+In :ref:`route-map` we can match on or set the BGP communities attribute. Using
+this feature network operator can implement their network policy based on BGP
+communities attribute.
 
-Following commands can be used in Route Map.
+The ollowing commands can be used in route maps:
 
-.. index:: match community WORD
-.. clicmd:: match community WORD
-
-.. index:: match community WORD exact-match
-.. clicmd:: match community WORD exact-match
+.. index:: match community WORD exact-match [exact-match]
+.. clicmd:: match community WORD exact-match [exact-match]
 
    This command perform match to BGP updates using community list WORD. When
    the one of BGP communities value match to the one of communities value in
@@ -1170,32 +1159,25 @@ Following commands can be used in Route Map.
    happen only when BGP updates have completely same communities value
    specified in the community list.
 
-.. index:: set community none
-.. clicmd:: set community none
+.. index:: set community <none|COMMUNITY> additive
+.. clicmd:: set community <none|COMMUNITY> additive
 
-.. index:: set community COMMUNITY
-.. clicmd:: set community COMMUNITY
+   This command sets the community value in BGP updates.  If the attribute is
+   already configured, the newly provided value replaces the old one unless the
+   ``additive`` keyword is specified, in which case the new value is appended
+   to the existing value.
 
-.. index:: set community COMMUNITY additive
-.. clicmd:: set community COMMUNITY additive
-
-   This command manipulate communities value in BGP updates. When
-   `none` is specified as communities value, it removes entire
-   communities attribute from BGP updates. When `community` is not
-   `none`, specified communities value is set to BGP updates. If
-   BGP updates already has BGP communities value, the existing BGP
-   communities value is replaced with specified `community` value.
-   When `additive` keyword is specified, `community` is appended
-   to the existing communities value.
+   If ``none`` is specified as the community value, the communities attribute
+   is not sent.
 
 .. index:: set comm-list WORD delete
 .. clicmd:: set comm-list WORD delete
 
-   This command remove communities value from BGP communities attribute.
-   The `word` is community list name. When BGP route's communities
-   value matches to the community list `word`, the communities value
-   is removed. When all of communities value is removed eventually, the
-   BGP update's communities attribute is completely removed.
+   This command remove communities value from BGP communities attribute.  The
+   ``word`` is community list name. When BGP route's communities value matches
+   to the community list ``word``, the communities value is removed. When all
+   of communities value is removed eventually, the BGP update's communities
+   attribute is completely removed.
 
 .. _bgp-communities-example:
 
@@ -2202,12 +2184,12 @@ Example of a session to an upstream, advertising only one prefix to it.
    ip prefix-list pl-allowed-adv seq 5 permit 82.195.133.0/25
    ip prefix-list pl-allowed-adv seq 10 deny any
 
-A more complex example. With upstream, peer and customer sessions.  Advertising
-global prefixes and NO_EXPORT prefixes and providing actions for customer
-routes based on community values. Extensive use of route-maps and the 'call'
-feature to support selective advertising of prefixes. This example is intended
-as guidance only, it has NOT been tested and almost certainly contains silly
-mistakes, if not serious flaws.
+A more complex example including upstream, peer and customer sessions
+advertising global prefixes and NO_EXPORT prefixes and providing actions for
+customer routes based on community values. Extensive use is made of route-maps
+and the 'call' feature to support selective advertising of prefixes. This
+example is intended as guidance only, it has NOT been tested and almost
+certainly contains silly mistakes, if not serious flaws.
 
 .. code-block:: frr
 
