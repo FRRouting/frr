@@ -2,7 +2,7 @@
 # libfrr
 #
 lib_LTLIBRARIES += lib/libfrr.la
-lib_libfrr_la_LDFLAGS = -version-info 0:0:0 
+lib_libfrr_la_LDFLAGS = -version-info 0:0:0
 lib_libfrr_la_LIBADD = @LIBCAP@
 
 lib_libfrr_la_SOURCES = \
@@ -235,8 +235,8 @@ lib_grammar_sandbox_SOURCES = \
 lib_grammar_sandbox_LDADD = \
 	lib/libfrr.la
 
-lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
-lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
+lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY @SAN_CLIPPY_FLAGS@
+lib_clippy_CFLAGS = $(PYTHON_CFLAGS) $(AM_CFLAGS) @SAN_CLIPPY_FLAGS@
 lib_clippy_LDADD = $(PYTHON_LIBS)
 lib_clippy_SOURCES = \
 	lib/clippy.c \

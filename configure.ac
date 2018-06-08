@@ -190,8 +190,10 @@ AC_ARG_ENABLE([address-sanitizer], AS_HELP_STRING([--enable-address-sanitizer], 
               [enabled AddressSanitizer support for detecting a wide variety of \
                memory allocation and deallocation errors]), \
               [AC_DEFINE(HAVE_ADDRESS_SANITIZER, 1, [enable AddressSanitizer])
-              CFLAGS="$CFLAGS -fsanitize=address"
-              CXXFLAGS="$CXXFLAGS -fsanitize=address"
+              ASAN_FLAGS="-fsanitize=address"
+              SAN_CLIPPY_FLAGS="-fno-sanitize=all"
+              AC_SUBST([ASAN_FLAGS])
+              AC_SUBST([SAN_CLIPPY_FLAGS])
               LIBS="-ldl $LIBS"
               AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Address Sanitizer Enabled])],
                                                  [AC_MSG_ERROR([Address Sanitizer not available])])
@@ -201,8 +203,10 @@ dnl ThreadSanitizer support
 AC_ARG_ENABLE([thread-sanitizer], AS_HELP_STRING([--enable-thread-sanitizer], \
               [enabled ThreadSanitizer support for detecting data races]), \
               [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable ThreadSanitizer])
-              CFLAGS="$CFLAGS -fsanitize=thread"
-              CXXFLAGS="$CXXFLAGS -fsanitize=thread"
+              TSAN_FLAGS="-fsanitize=thread"
+              SAN_CLIPPY_FLAGS="-fno-sanitize=all"
+              AC_SUBST([TSAN_FLAGS])
+              AC_SUBST([SAN_CLIPPY_FLAGS])
               LIBS="-ldl $LIBS"
               AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Thread Sanitizer Enabled])],
                                                  [AC_MSG_ERROR([Thread Sanitizer not available])])
@@ -212,8 +216,10 @@ dnl MemorySanitizer support
 AC_ARG_ENABLE([memory-sanitizer], AS_HELP_STRING([--enable-memory-sanitizer], \
               [enabled MemorySanitizer support for detecting uninitialized memory reads]), \
               [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable MemorySanitizer])
-              CFLAGS="$CFLAGS -fsanitize=memory -fPIE -pie"
-              CXXFLAGS="$CXXFLAGS -fsanitize=memory -fPIE -pie"
+              MSAN_FLAGS="-fsanitize=memory -fPIE -pie"
+              SAN_CLIPPY_FLAGS="-fno-sanitize=all"
+              AC_SUBST([MSAN_FLAGS])
+              AC_SUBST([SAN_CLIPPY_FLAGS])
               LIBS="-ldl $LIBS"
               AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Memory Sanitizer Enabled])],
                                                  [AC_MSG_ERROR([Memory Sanitizer not available])])

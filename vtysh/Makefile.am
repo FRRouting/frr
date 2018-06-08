@@ -1,5 +1,6 @@
 ## Process this file with Automake to create Makefile.in
 
+include ../common.am
 
 if ENABLE_BGP_VNC
 BGP_VNC_RFP_SRCDIR   = @top_srcdir@/@LIBRFP@
@@ -16,13 +17,11 @@ BGP_VNC_RFAPI_INCDIR =
 BGP_VNC_RFAPI_SRCDIR =
 BGP_VNC_RFAPI_SRC    =
 endif
-AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
+AM_CPPFLAGS += -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
 	$(BGP_VNC_RFAPI_INCDIR) $(BGP_VNC_RFP_INCDIR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
 LIBS = @LIBS@ @CURSES@ @LIBPAM@
-
-AM_CFLAGS = $(WERROR)
 
 bin_PROGRAMS = vtysh
 
