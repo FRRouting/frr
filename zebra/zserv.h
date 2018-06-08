@@ -50,11 +50,16 @@
 
 /* Client structure. */
 struct zserv {
+	/* Client pthread */
+	struct frr_pthread *pthread;
+
 	/* Client file descriptor. */
 	int sock;
 
 	/* Input/output buffer to the client. */
+	pthread_mutex_t ibuf_mtx;
 	struct stream_fifo *ibuf_fifo;
+	pthread_mutex_t obuf_mtx;
 	struct stream_fifo *obuf_fifo;
 
 	/* Private I/O buffers */
@@ -67,9 +72,6 @@ struct zserv {
 	/* Threads for read/write. */
 	struct thread *t_read;
 	struct thread *t_write;
-
-	/* Thread for delayed close. */
-	struct thread *t_suicide;
 
 	/* default routing table this client munges */
 	int rtm_table;
@@ -129,15 +131,28 @@ struct zserv {
 	uint32_t prefixadd_cnt;
 	uint32_t prefixdel_cnt;
 
-	time_t connect_time;
-	time_t last_read_time;
-	time_t last_write_time;
 	time_t nh_reg_time;
 	time_t nh_dereg_time;
 	time_t nh_last_upd_time;
 
-	int last_read_cmd;
-	int last_write_cmd;
+	/*
+	 * Session information.
+	 *
+	 * These are not synchronous with respect to each other. For instance,
+	 * last_read_cmd may contain a value that has been read in the future
+	 * relative to last_read_time.
+	 */
+
+	/* monotime of client creation */
+	_Atomic uint32_t connect_time;
+	/* monotime of last message received */
+	_Atomic uint32_t last_read_time;
+	/* monotime of last message sent */
+	_Atomic uint32_t last_write_time;
+	/* command code of last message read */
+	_Atomic uint16_t last_read_cmd;
+	/* command code of last message written */
+	_Atomic uint16_t last_write_cmd;
 };
 
 #define ZAPI_HANDLER_ARGS                                                      \
@@ -145,14 +160,17 @@ struct zserv {
 		struct zebra_vrf *zvrf
 
 /* Hooks for client connect / disconnect */
-DECLARE_HOOK(zapi_client_connect, (struct zserv *client), (client));
-DECLARE_KOOH(zapi_client_close, (struct zserv *client), (client));
+DECLARE_HOOK(zserv_client_connect, (struct zserv *client), (client));
+DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {
 	/* Thread master */
 	struct thread_master *master;
 	struct list *client_list;
+
+	/* Socket */
+	int sock;
 
 	/* default table */
 	uint32_t rtm_table_default;
@@ -165,18 +183,54 @@ struct zebra_t {
 	/* LSP work queue */
 	struct work_queue *lsp_process_q;
 
-#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 10
-	uint32_t packets_to_process;
+#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 1000
+	_Atomic uint32_t packets_to_process;
 };
 extern struct zebra_t zebrad;
 extern unsigned int multipath_num;
 
-/* Prototypes. */
+/*
+ * Initialize Zebra API server.
+ *
+ * Installs CLI commands and creates the client list.
+ */
 extern void zserv_init(void);
-extern void zebra_zserv_socket_init(char *path);
-extern int zebra_server_send_message(struct zserv *client, struct stream *msg);
 
-extern struct zserv *zebra_find_client(uint8_t proto, unsigned short instance);
+/*
+ * Start Zebra API server.
+ *
+ * Allocates resources, creates the server socket and begins listening on the
+ * socket.
+ *
+ * path
+ *    where to place the Unix domain socket
+ */
+extern void zserv_start(char *path);
+
+/*
+ * Send a message to a connected Zebra API client.
+ *
+ * client
+ *    the client to send to
+ *
+ * msg
+ *    the message to send
+ */
+extern int zserv_send_message(struct zserv *client, struct stream *msg);
+
+/*
+ * Retrieve a client by its protocol and instance number.
+ *
+ * proto
+ *    protocol number
+ *
+ * instance
+ *    instance number
+ *
+ * Returns:
+ *    The Zebra API client.
+ */
+extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
 
 #if defined(HANDLE_ZAPI_FUZZING)
 extern void zserv_read_file(char *input);

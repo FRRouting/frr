@@ -1195,7 +1195,7 @@ static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 	struct zserv *client = NULL;
 	struct stream *s = NULL;
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
+	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
@@ -1237,7 +1237,7 @@ static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 	else
 		client->macipdel_cnt++;
 
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 /*
@@ -2779,7 +2779,7 @@ static int zvni_send_add_to_client(zebra_vni_t *zvni)
 	struct zserv *client;
 	struct stream *s;
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
+	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
@@ -2801,7 +2801,7 @@ static int zvni_send_add_to_client(zebra_vni_t *zvni)
 			   zebra_route_string(client->proto));
 
 	client->vniadd_cnt++;
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 /*
@@ -2812,7 +2812,7 @@ static int zvni_send_del_to_client(vni_t vni)
 	struct zserv *client;
 	struct stream *s;
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
+	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
@@ -2831,7 +2831,7 @@ static int zvni_send_del_to_client(vni_t vni)
 			   zebra_route_string(client->proto));
 
 	client->vnidel_cnt++;
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 /*
@@ -3747,7 +3747,7 @@ static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
 	struct ethaddr rmac;
 	char buf[ETHER_ADDR_STRLEN];
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
+	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
@@ -3779,7 +3779,7 @@ static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
 			zebra_route_string(client->proto));
 
 	client->l3vniadd_cnt++;
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 /*
@@ -3790,7 +3790,7 @@ static int zl3vni_send_del_to_client(zebra_l3vni_t *zl3vni)
 	struct stream *s = NULL;
 	struct zserv *client = NULL;
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
+	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
@@ -3809,7 +3809,7 @@ static int zl3vni_send_del_to_client(zebra_l3vni_t *zl3vni)
 			   zebra_route_string(client->proto));
 
 	client->l3vnidel_cnt++;
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
@@ -3922,7 +3922,7 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 	struct stream *s = NULL;
 	char buf[PREFIX_STRLEN];
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
+	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
@@ -3946,7 +3946,7 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 	else
 		client->prefixdel_cnt++;
 
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 /* re-add remote rmac if needed */

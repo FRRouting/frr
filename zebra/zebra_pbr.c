@@ -30,6 +30,7 @@
 #include "zebra/rt.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_memory.h"
+#include "zebra/zserv.h"
 
 /* definitions */
 DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPTABLE_IFNAME, "PBR interface list")
@@ -463,7 +464,7 @@ static int zebra_pbr_client_close_cleanup(struct zserv *client)
 
 void zebra_pbr_init(void)
 {
-	hook_register(zapi_client_close, zebra_pbr_client_close_cleanup);
+	hook_register(zserv_client_close, zebra_pbr_client_close_cleanup);
 }
 
 static void *pbr_ipset_alloc_intern(void *arg)

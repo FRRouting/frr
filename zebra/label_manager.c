@@ -99,7 +99,7 @@ static int relay_response_back(void)
 	proto_str = zebra_route_string(proto);
 
 	/* lookup the client to relay the msg to */
-	zserv = zebra_find_client(proto, instance);
+	zserv = zserv_find_client(proto, instance);
 	if (!zserv) {
 		zlog_err(
 			"Error relaying LM response: can't find client %s, instance %u",
@@ -350,7 +350,7 @@ void label_manager_init(char *lm_zserv_path)
 
 	obuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	hook_register(zapi_client_close, release_daemon_label_chunks);
+	hook_register(zserv_client_close, release_daemon_label_chunks);
 }
 
 /**

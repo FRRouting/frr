@@ -37,6 +37,7 @@
 #include "logicalrouter.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "frr_pthread.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -378,8 +379,11 @@ int main(int argc, char **argv)
 	/* Needed for BSD routing socket. */
 	pid = getpid();
 
-	/* This must be done only after locking pidfile (bug #403). */
-	zebra_zserv_socket_init(zserv_path);
+	/* Intialize pthread library */
+	frr_pthread_init();
+
+	/* Start Zebra API server */
+	zserv_start(zserv_path);
 
 	/* Init label manager */
 	label_manager_init(lblmgr_path);

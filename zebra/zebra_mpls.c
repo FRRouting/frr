@@ -463,7 +463,7 @@ static int fec_send(zebra_fec_t *fec, struct zserv *client)
 	stream_put_prefix(s, &rn->p);
 	stream_putl(s, fec->label);
 	stream_putw_at(s, 0, stream_get_endp(s));
-	return zebra_server_send_message(client, s);
+	return zserv_send_message(client, s);
 }
 
 /*
@@ -2916,5 +2916,5 @@ void zebra_mpls_init(void)
 	if (!mpls_processq_init(&zebrad))
 		mpls_enabled = 1;
 
-	hook_register(zapi_client_close, zebra_mpls_cleanup_fecs_for_client);
+	hook_register(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);
 }
