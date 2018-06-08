@@ -7979,7 +7979,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					    BGP_UPTIME_LEN, 0, NULL));
 
 			if (peer->status == Established)
-				if (peer->afc_recv[afi][pfx_rcd_safi])
+				if (peer->afc_recv[afi][safi])
 					vty_out(vty, " %12ld",
 						peer->pcount[afi]
 							    [pfx_rcd_safi]);
