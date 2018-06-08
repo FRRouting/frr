@@ -349,8 +349,9 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 						ospf6_lsa_unlock(req);
 						on->last_ls_req = NULL;
 					}
-					ospf6_lsdb_remove(req,
-							  on->request_list);
+					if (req)
+						ospf6_lsdb_remove(req,
+							on->request_list);
 					ospf6_check_nbr_loading(on);
 					/* fall through */
 				}
