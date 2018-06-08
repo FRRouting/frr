@@ -60,7 +60,7 @@ static struct list *masters;
 /* CLI start ---------------------------------------------------------------- */
 static unsigned int cpu_record_hash_key(struct cpu_thread_history *a)
 {
-	int size = sizeof(&a->func);
+	int size = sizeof(a->func);
 
 	return jhash(&a->func, size, 0);
 }
