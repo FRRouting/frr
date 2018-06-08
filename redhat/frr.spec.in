@@ -251,12 +251,12 @@ developing OSPF-API and frr applications.
 %if %{with_ospfapi}
     --enable-ospfapi \
 %else
-    --enable-ospfapi \
+    --disable-ospfapi \
 %endif
 %if %{with_rtadv}
     --enable-rtadv \
 %else
-    --enable-rtadv \
+    --disable-rtadv \
 %endif
 %if %{with_ldpd}
     --enable-ldpd \
