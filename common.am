@@ -1,20 +1,21 @@
 #
 # Automake fragment intended to be shared by Makefile.am files in the
-# tree.
+# tree. When used, should be included at the very top of the file.
 #
+AM_CPPFLAGS = @ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@ @WERROR@
+AM_CFLAGS = @ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@ @WERROR@
 
 AM_V_CLIPPY = $(am__v_CLIPPY_$(V))
 am__v_CLIPPY_ = $(am__v_CLIPPY_$(AM_DEFAULT_VERBOSITY))
 am__v_CLIPPY_0 = @echo "  CLIPPY  " $@;
 am__v_CLIPPY_1 =
 
-CLIPPY_SUPPRESSIONS = LSAN_OPTIONS="suppressions=$(top_builddir)/tools/lsan-suppressions.txt"
 CLIPPY_DEPS = $(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py
 
 SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h
 .c_clippy.c:
 	@{ test -x $(top_builddir)/$(HOSTTOOLS)lib/clippy || $(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/clippy; }
-	$(AM_V_CLIPPY) $(CLIPPY_SUPPRESSIONS) $(top_builddir)/$(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py -o $@ $<
+	$(AM_V_CLIPPY) $(top_builddir)/$(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py -o $@ $<
 
 ## automake's "ylwrap" is a great piece of GNU software... not. 
 .l.c:

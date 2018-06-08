@@ -61,12 +61,10 @@ BGP_VNC_RFP_HD=
 BGP_VNC_RFP_LD_FLAGS=
 endif
 
-AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
+AM_CPPFLAGS += -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
 	$(BGP_VNC_RFAPI_INC) $(BGP_VNC_RFP_INC)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
-
-AM_CFLAGS = $(WERROR)
 
 noinst_LIBRARIES = libbgp.a
 module_LTLIBRARIES =

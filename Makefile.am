@@ -3,9 +3,8 @@
 AUTOMAKE_OPTIONS = subdir-objects 1.12
 include common.am
 
-AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
+AM_CPPFLAGS += -I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
 	      -I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
-AM_CFLAGS = $(WERROR)
 VERSION_TYPE := $(shell if echo $(VERSION) | grep -q '^[0-9\.]*$$'; then echo RELEASE ; else echo DEV ; fi)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE) -DVERSION_TYPE_$(VERSION_TYPE)
 LIBCAP = @LIBCAP@
