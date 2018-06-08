@@ -142,27 +142,31 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
  * goes in the rule to denote relative ordering; it may or may not be the
  * same as the rule's user-defined sequence number.
  */
-void kernel_add_pbr_rule(struct zebra_pbr_rule *rule)
+enum dp_req_result kernel_add_pbr_rule(struct zebra_pbr_rule *rule)
 {
 	int ret = 0;
 
 	ret = netlink_rule_update(RTM_NEWRULE, rule);
 	kernel_pbr_rule_add_del_status(rule,
-				       (!ret) ? SOUTHBOUND_INSTALL_SUCCESS
-					      : SOUTHBOUND_INSTALL_FAILURE);
+				       (!ret) ? DP_INSTALL_SUCCESS
+					      : DP_INSTALL_FAILURE);
+
+	return DP_REQUEST_SUCCESS;
 }
 
 /*
  * Uninstall specified rule for a specific interface.
  */
-void kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
+enum dp_req_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
 {
 	int ret = 0;
 
 	ret = netlink_rule_update(RTM_DELRULE, rule);
 	kernel_pbr_rule_add_del_status(rule,
-				       (!ret) ? SOUTHBOUND_DELETE_SUCCESS
-					      : SOUTHBOUND_DELETE_FAILURE);
+				       (!ret) ? DP_DELETE_SUCCESS
+					      : DP_DELETE_FAILURE);
+
+	return DP_REQUEST_SUCCESS;
 }
 
 /*

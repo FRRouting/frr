@@ -385,9 +385,11 @@ static int kernel_rtm(int cmd, struct prefix *p, struct route_entry *re)
 	return 0;
 }
 
-void kernel_route_rib(struct route_node *rn, struct prefix *p,
-		      struct prefix *src_p, struct route_entry *old,
-		      struct route_entry *new)
+enum dp_req_result kernel_route_rib(struct route_node *rn,
+				    struct prefix *p,
+				    struct prefix *src_p,
+				    struct route_entry *old,
+				    struct route_entry *new)
 {
 	int route = 0;
 
@@ -411,14 +413,16 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 	if (new) {
 		kernel_route_rib_pass_fail(
 			rn, p, new,
-			(!route) ? SOUTHBOUND_INSTALL_SUCCESS
-				 : SOUTHBOUND_INSTALL_FAILURE);
+			(!route) ? DP_INSTALL_SUCCESS
+				 : DP_INSTALL_FAILURE);
 	} else {
 		kernel_route_rib_pass_fail(rn, p, old,
 					   (!route)
-						   ? SOUTHBOUND_DELETE_SUCCESS
-						   : SOUTHBOUND_DELETE_FAILURE);
+						   ? DP_DELETE_SUCCESS
+						   : DP_DELETE_FAILURE);
 	}
+
+	return DP_REQUEST_SUCCESS;
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,

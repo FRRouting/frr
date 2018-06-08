@@ -29,20 +29,22 @@
 /*
  * Install Label Forwarding entry into the kernel.
  */
-void kernel_add_lsp(zebra_lsp_t *lsp)
+enum dp_req_result kernel_add_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
 	if (!lsp || !lsp->best_nhlfe) { // unexpected
-		kernel_lsp_pass_fail(lsp, SOUTHBOUND_INSTALL_FAILURE);
-		return;
+		kernel_lsp_pass_fail(lsp, DP_INSTALL_FAILURE);
+		return DP_REQUEST_FAILURE;
 	}
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 
 	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? SOUTHBOUND_INSTALL_SUCCESS
-				    : SOUTHBOUND_INSTALL_FAILURE);
+			     (!ret) ? DP_INSTALL_SUCCESS
+				    : DP_INSTALL_FAILURE);
+
+	return DP_REQUEST_SUCCESS;
 }
 
 /*
@@ -56,44 +58,48 @@ void kernel_add_lsp(zebra_lsp_t *lsp)
  * through the metric field (before kernel-MPLS). This shouldn't be an issue
  * any longer, so REPLACE can be reintroduced.
  */
-void kernel_upd_lsp(zebra_lsp_t *lsp)
+enum dp_req_result kernel_upd_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
 	if (!lsp || !lsp->best_nhlfe) { // unexpected
-		kernel_lsp_pass_fail(lsp, SOUTHBOUND_INSTALL_FAILURE);
-		return;
+		kernel_lsp_pass_fail(lsp, DP_INSTALL_FAILURE);
+		return DP_REQUEST_FAILURE;
 	}
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 
 	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? SOUTHBOUND_INSTALL_SUCCESS
-				    : SOUTHBOUND_INSTALL_FAILURE);
+			     (!ret) ? DP_INSTALL_SUCCESS
+				    : DP_INSTALL_FAILURE);
+
+	return DP_REQUEST_SUCCESS;
 }
 
 /*
  * Delete Label Forwarding entry from the kernel.
  */
-void kernel_del_lsp(zebra_lsp_t *lsp)
+enum dp_req_result kernel_del_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
 	if (!lsp) { // unexpected
-		kernel_lsp_pass_fail(lsp, SOUTHBOUND_DELETE_FAILURE);
-		return;
+		kernel_lsp_pass_fail(lsp, DP_DELETE_FAILURE);
+		return DP_REQUEST_FAILURE;
 	}
 
 	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
-		kernel_lsp_pass_fail(lsp, SOUTHBOUND_DELETE_FAILURE);
-		return;
+		kernel_lsp_pass_fail(lsp, DP_DELETE_FAILURE);
+		return DP_REQUEST_FAILURE;
 	}
 
 	ret = netlink_mpls_multipath(RTM_DELROUTE, lsp);
 
 	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? SOUTHBOUND_DELETE_SUCCESS
-				    : SOUTHBOUND_DELETE_FAILURE);
+			     (!ret) ? DP_DELETE_SUCCESS
+				    : DP_DELETE_FAILURE);
+
+	return DP_REQUEST_SUCCESS;
 }
 
 int mpls_kernel_init(void)

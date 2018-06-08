@@ -41,11 +41,16 @@
 #include "zebra/rule_netlink.h"
 #include "zebra/zebra_pbr.h"
 
-void kernel_add_pbr_rule(struct zebra_pbr_rule *rule)
+enum dp_req_result kernel_add_pbr_rule(struct zebra_pbr_rule *rule)
 {
+	zlog_err("%s not Implemented for this platform", __PRETTY_FUNCTION__);
+	return DP_REQUEST_FAILURE;
 }
-void kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
+
+enum dp_req_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
 {
+	zlog_err("%s not Implemented for this platform", __PRETTY_FUNCTION__);
+	return DP_REQUEST_FAILURE;
 }
 
 #endif

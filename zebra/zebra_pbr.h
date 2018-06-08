@@ -162,37 +162,37 @@ void zebra_pbr_del_iptable(struct zebra_ns *zns,
  * forwarding plane may not coincide, hence the API requires a separate
  * rule priority - maps to preference/FRA_PRIORITY on Linux.
  */
-extern void kernel_add_pbr_rule(struct zebra_pbr_rule *rule);
+extern enum dp_req_result kernel_add_pbr_rule(struct zebra_pbr_rule *rule);
 
 /*
  * Uninstall specified rule for a specific interface.
  */
-extern void kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
+extern enum dp_req_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
 
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.
  */
 extern void kernel_read_pbr_rules(struct zebra_ns *zns);
 
-enum southbound_results;
+enum dp_results;
 /*
  * Handle success or failure of rule (un)install in the kernel.
  */
 extern void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
-					   enum southbound_results res);
+					   enum dp_results res);
 
 /*
  * Handle success or failure of ipset kinds (un)install in the kernel.
  */
 extern void kernel_pbr_ipset_add_del_status(struct zebra_pbr_ipset *ipset,
-					   enum southbound_results res);
+					   enum dp_results res);
 
 extern void kernel_pbr_ipset_entry_add_del_status(
 				struct zebra_pbr_ipset_entry *ipset,
-				enum southbound_results res);
+				enum dp_results res);
 
 extern void kernel_pbr_iptable_add_del_status(struct zebra_pbr_iptable *iptable,
-			      enum southbound_results res);
+			      enum dp_results res);
 
 /*
  * Handle rule delete notification from kernel.
