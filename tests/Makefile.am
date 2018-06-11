@@ -102,8 +102,6 @@ lib/cli/test_commands_defun.c: ../vtysh/vtysh_cmd.c
 
 isisd/test_fuzz_isis_tlv_tests.h: $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz
 	gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
-isisd/isisd_test_fuzz_isis_tlv-test_fuzz_isis_tlv.$(OBJEXT): \
-	isisd/test_fuzz_isis_tlv_tests.h
 
 noinst_HEADERS = \
 	./helpers/c/prng.h \
@@ -146,6 +144,9 @@ bgpd_test_ecommunity_SOURCES = bgpd/test_ecommunity.c
 bgpd_test_mp_attr_SOURCES = bgpd/test_mp_attr.c
 bgpd_test_mpath_SOURCES = bgpd/test_mpath.c
 isisd_test_fuzz_isis_tlv_SOURCES = isisd/test_fuzz_isis_tlv.c
+nodist_isisd_test_fuzz_isis_tlv_SOURCES = isisd/test_fuzz_isis_tlv_tests.h
+BUILT_SOURCES=isisd/test_fuzz_isis_tlv_tests.h
+CLEANFILES=isisd/test_fuzz_isis_tlv_tests.h
 isisd_test_fuzz_isis_tlv_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_builddir)/tests/isisd
 isisd_test_isis_vertex_queue_SOURCES = isisd/test_isis_vertex_queue.c
 
