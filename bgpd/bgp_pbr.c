@@ -1126,6 +1126,56 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 	struct bgp_pbr_action *bpa = NULL;
 	struct bgp_pbr_match_entry_remain bpmer;
 
+	if (BGP_DEBUG(zebra, ZEBRA)) {
+		char bufsrc[64], bufdst[64];
+		char buffer[64];
+		int remaining_len = 0;
+		char protocol_str[16];
+
+		protocol_str[0] = '\0';
+		if (protocol)
+			snprintf(protocol_str, sizeof(protocol),
+				 "proto %d", protocol);
+		buffer[0] = '\0';
+		if (protocol == IPPROTO_ICMP && src_port && dst_port)
+			remaining_len += snprintf(buffer, 64, "type %d, code %d",
+				 src_port->min_port, dst_port->min_port);
+		else if ( protocol == IPPROTO_UDP || protocol == IPPROTO_TCP) {
+
+			if (src_port && src_port->min_port)
+				remaining_len += snprintf(buffer,
+							  sizeof(buffer),
+							  "from [%u:%u]",
+							  src_port->min_port,
+							  src_port->max_port ?
+							  src_port->max_port :
+							  src_port->min_port);
+			if (dst_port && dst_port->min_port)
+				remaining_len += snprintf(buffer +
+							  remaining_len,
+							  sizeof(buffer)
+							  - remaining_len,
+							  "to [%u:%u]",
+							  dst_port->min_port,
+							  dst_port->max_port ?
+							  dst_port->max_port :
+							  dst_port->min_port);
+		}
+		if (pkt_len && (pkt_len->min_port || pkt_len->max_port)) {
+			remaining_len += snprintf(buffer + remaining_len,
+						  sizeof(buffer)
+						  - remaining_len,
+						  " len [%u:%u]",
+						  pkt_len->min_port,
+						  pkt_len->max_port ?
+						  pkt_len->max_port :
+						  pkt_len->min_port);
+		}
+		zlog_info("BGP: adding FS PBR from %s to %s, %s %s",
+			  src == NULL ? "<all>" : prefix2str(src, bufsrc, 64),
+			  dst == NULL ? "<all>" : prefix2str(dst, bufdst, 64),
+			  protocol_str, buffer);
+	}
 	/* look for bpa first */
 	memset(&temp3, 0, sizeof(temp3));
 	if (rate)
