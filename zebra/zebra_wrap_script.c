@@ -1114,10 +1114,29 @@ static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 {
 	int ret = 0;
 	int len_written;
+	char complement_len[32];
 
+	memset(complement_len, 0, sizeof (complement_len));
+	if (iptable->pkt_len_min || iptable->pkt_len_max) {
+		len_written += snprintf(complement_len + len_written,
+					sizeof(complement_len) - len_written,
+				       "-m length %s --length %d",
+					iptable->filter_bm &
+					MATCH_PKT_LEN_INVERSE_SET ? "!" : "",
+				       iptable->pkt_len_min);
+		if (iptable->pkt_len_max)
+			len_written += snprintf(complement_len + len_written,
+				 sizeof(complement_len) - len_written,
+				 ":%d ", iptable->pkt_len_max);
+		else
+			len_written += snprintf(complement_len + len_written,
+				 sizeof(complement_len) - len_written,
+						" ");
+	}
 	len_written = snprintf(ptr, *remaining_len,
-			       " --match-set %s %s",
-			     iptable->ipset_name, combi);
+			       " --match-set %s %s %s",
+			       iptable->ipset_name,
+			       combi, complement_len);
 	*remaining_len -= len_written;
 	ptr += len_written;
 	if (iptable->action == ZEBRA_IPTABLES_DROP) {
