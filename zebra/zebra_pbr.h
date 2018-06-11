@@ -133,6 +133,9 @@ struct zebra_pbr_iptable {
 
 	uint32_t action;
 
+	uint16_t pkt_len_min;
+	uint16_t pkt_len_max;
+
 	uint32_t nb_interface;
 
 	struct list *interface_name_list;

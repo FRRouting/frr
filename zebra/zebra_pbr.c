@@ -360,6 +360,8 @@ uint32_t zebra_pbr_iptable_hash_key(void *arg)
 	key = jhash2(pnt, ZEBRA_IPSET_NAME_HASH_SIZE,
 		     0x63ab42de);
 	key = jhash_1word(iptable->fwmark, key);
+	key = jhash_1word(iptable->pkt_len_min, key);
+	key = jhash_1word(iptable->pkt_len_max, key);
 	return jhash_3words(iptable->filter_bm, iptable->type,
 			    iptable->unique, key);
 }
@@ -383,6 +385,10 @@ int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
 		return 0;
 	if (strncmp(r1->ipset_name, r2->ipset_name,
 		    ZEBRA_IPSET_NAME_SIZE))
+		return 0;
+	if (r1->pkt_len_min != r2->pkt_len_min)
+		return 0;
+	if (r1->pkt_len_max != r2->pkt_len_max)
 		return 0;
 	return 1;
 }
@@ -1016,7 +1022,15 @@ static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
 	vty_out(vty, "IPtable %s action %s (%u)\n", iptable->ipset_name,
 		iptable->action == ZEBRA_IPTABLES_DROP ? "drop" : "redirect",
 		iptable->unique);
-
+	if (iptable->pkt_len_min || iptable->pkt_len_max) {
+		if (!iptable->pkt_len_max)
+			vty_out(vty, "\t pkt len %u\n",
+				iptable->pkt_len_min);
+		else
+			vty_out(vty, "\t pkt len [%u;%u]\n",
+				iptable->pkt_len_min,
+				iptable->pkt_len_max);
+	}
 	ret = hook_call(zebra_pbr_iptable_wrap_script_get_stat,
 			zns, iptable, &pkts, &bytes);
 	if (ret && pkts > 0)
