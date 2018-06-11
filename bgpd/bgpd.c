@@ -783,6 +783,30 @@ static int peer_hash_same(const void *p1, const void *p2)
 			   == CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
 }
 
+void peer_flag_inherit(struct peer *peer, uint32_t flag)
+{
+	bool group_val;
+
+	/* Skip if peer is not a peer-group member. */
+	if (!peer_group_active(peer))
+		return;
+
+	/* Unset override flag to signal inheritance from peer-group. */
+	UNSET_FLAG(peer->flags_override, flag);
+
+	/*
+	 * Inherit flag state from peer-group. If the flag of the peer-group is
+	 * not being inverted, the peer must inherit the inverse of the current
+	 * peer-group flag state.
+	 */
+	group_val = CHECK_FLAG(peer->group->conf->flags, flag);
+	if (!CHECK_FLAG(peer->group->conf->flags_invert, flag)
+	    && CHECK_FLAG(peer->flags_invert, flag))
+		COND_FLAG(peer->flags, flag, !group_val);
+	else
+		COND_FLAG(peer->flags, flag, group_val);
+}
+
 int peer_af_flag_check(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
 {
 	return CHECK_FLAG(peer->af_flags[afi][safi], flag);
@@ -803,6 +827,18 @@ void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 		SET_FLAG(peer->af_flags[afi][safi], flag);
 	else
 		UNSET_FLAG(peer->af_flags[afi][safi], flag);
+}
+
+static bool peergroup_flag_check(struct peer *peer, uint32_t flag)
+{
+	if (!peer_group_active(peer)) {
+		if (CHECK_FLAG(peer->flags_invert, flag))
+			return !CHECK_FLAG(peer->flags, flag);
+		else
+			return !!CHECK_FLAG(peer->flags, flag);
+	}
+
+	return !!CHECK_FLAG(peer->flags_override, flag);
 }
 
 static bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
@@ -1264,6 +1300,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 
 	/* peer flags apply */
 	peer_dst->flags = peer_src->flags;
+	peer_dst->flags_invert = peer_src->flags_invert;
 	peer_dst->cap = peer_src->cap;
 	peer_dst->config = peer_src->config;
 
@@ -2443,9 +2480,11 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 
 	/* These are per-peer specific flags and so we must preserve them */
 	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN);
-	peer->flags = conf->flags;
-	SET_FLAG(peer->flags, saved_flags);
+	saved_flags |= peer->flags & peer->flags_override;
+
+	peer->flags = conf->flags & ~peer->flags_override;
+	peer->flags |= saved_flags;
+	peer->flags_invert |= conf->flags_invert;
 
 	/* peer config apply */
 	peer->config = conf->config;
@@ -3993,72 +4032,85 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 {
 	int found;
 	int size;
-	struct peer_group *group;
-	struct peer *tmp_peer;
+	bool invert, member_invert;
+	struct peer *member;
 	struct listnode *node, *nnode;
 	struct peer_flag_action action;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
 	size = sizeof peer_flag_action_list / sizeof(struct peer_flag_action);
 
+	invert = CHECK_FLAG(peer->flags_invert, flag);
 	found = peer_flag_action_set(peer_flag_action_list, size, &action,
 				     flag);
 
-	/* No flag action is found.  */
+	/* Abort if no flag action exists. */
 	if (!found)
 		return BGP_ERR_INVALID_FLAG;
 
-	/* When unset the peer-group member's flag we have to check
-	   peer-group configuration.  */
-	if (!set && peer_group_active(peer))
-		if (CHECK_FLAG(peer->group->conf->flags, flag)) {
-			if (flag == PEER_FLAG_SHUTDOWN)
-				return BGP_ERR_PEER_GROUP_SHUTDOWN;
-		}
-
-	/* Flag conflict check.  */
+	/* Check for flag conflict: STRICT_CAP_MATCH && OVERRIDE_CAPABILITY */
 	if (set && CHECK_FLAG(peer->flags | flag, PEER_FLAG_STRICT_CAP_MATCH)
 	    && CHECK_FLAG(peer->flags | flag, PEER_FLAG_OVERRIDE_CAPABILITY))
 		return BGP_ERR_PEER_FLAG_CONFLICT;
 
+	/* Handle flag updates where desired state matches current state. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		if (set && CHECK_FLAG(peer->flags, flag) == flag)
+		if (set && CHECK_FLAG(peer->flags, flag)) {
+			COND_FLAG(peer->flags_override, flag, !invert);
 			return 0;
-		if (!set && !CHECK_FLAG(peer->flags, flag))
+		}
+
+		if (!set && !CHECK_FLAG(peer->flags, flag)) {
+			COND_FLAG(peer->flags_override, flag, invert);
 			return 0;
+		}
 	}
 
-	if (set)
-		SET_FLAG(peer->flags, flag);
+	/* Inherit from peer-group or set/unset flags accordingly. */
+	if (peer_group_active(peer) && set == invert)
+		peer_flag_inherit(peer, flag);
 	else
-		UNSET_FLAG(peer->flags, flag);
+		COND_FLAG(peer->flags, flag, set);
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Update flag override state accordingly. */
+		COND_FLAG(peer->flags_override, flag, set != invert);
+
+		/* Execute flag action on peer. */
 		if (action.type == peer_change_reset)
 			peer_flag_modify_action(peer, flag);
 
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	/* peer-group member updates. */
-	group = peer->group;
-
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-
-		if (set && CHECK_FLAG(tmp_peer->flags, flag) == flag)
+	/*
+	 * Update peer-group members, unless they are explicitely overriding
+	 * peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, flag))
 			continue;
 
-		if (!set && !CHECK_FLAG(tmp_peer->flags, flag))
+		member_invert = CHECK_FLAG(member->flags_invert, flag);
+
+		/* Skip peers with equivalent configuration. */
+		if (set != member_invert && CHECK_FLAG(member->flags, flag))
 			continue;
 
-		if (set)
-			SET_FLAG(tmp_peer->flags, flag);
-		else
-			UNSET_FLAG(tmp_peer->flags, flag);
+		if (set == member_invert && !CHECK_FLAG(member->flags, flag))
+			continue;
 
+		/* Update flag on peer-group member. */
+		COND_FLAG(member->flags, flag, set != member_invert);
+
+		/* Execute flag action on peer-group member. */
 		if (action.type == peer_change_reset)
-			peer_flag_modify_action(tmp_peer, flag);
+			peer_flag_modify_action(member, flag);
 	}
+
 	return 0;
 }
 
@@ -6862,22 +6914,20 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peer->change_local_as) {
 		if (!peer_group_active(peer)
 		    || peer->change_local_as != g_peer->change_local_as
-		    || (CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND)
-			!= CHECK_FLAG(g_peer->flags,
-				      PEER_FLAG_LOCAL_AS_NO_PREPEND))
-		    || (CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)
-			!= CHECK_FLAG(g_peer->flags,
-				      PEER_FLAG_LOCAL_AS_REPLACE_AS))) {
-			vty_out(vty, " neighbor %s local-as %u%s%s\n", addr,
-				peer->change_local_as,
-				CHECK_FLAG(peer->flags,
-					   PEER_FLAG_LOCAL_AS_NO_PREPEND)
-					? " no-prepend"
-					: "",
-				CHECK_FLAG(peer->flags,
-					   PEER_FLAG_LOCAL_AS_REPLACE_AS)
-					? " replace-as"
-					: "");
+		    || peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND)
+		    || peergroup_flag_check(peer,
+					    PEER_FLAG_LOCAL_AS_REPLACE_AS)) {
+			vty_out(vty, " neighbor %s local-as %u", addr,
+				peer->change_local_as);
+
+			if (peergroup_flag_check(peer,
+						 PEER_FLAG_LOCAL_AS_NO_PREPEND))
+				vty_out(vty, " no-prepend");
+			if (peergroup_flag_check(peer,
+						 PEER_FLAG_LOCAL_AS_REPLACE_AS))
+				vty_out(vty, " replace-as");
+
+			vty_out(vty, "\n");
 		}
 	}
 
@@ -6887,17 +6937,12 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* shutdown */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_SHUTDOWN)
-		    || peer->tx_shutdown_message) {
-			if (peer->tx_shutdown_message)
-				vty_out(vty,
-					" neighbor %s shutdown message %s\n",
-					addr, peer->tx_shutdown_message);
-			else
-				vty_out(vty, " neighbor %s shutdown\n", addr);
-		}
+	if (peergroup_flag_check(peer, PEER_FLAG_SHUTDOWN)) {
+		if (peer->tx_shutdown_message)
+			vty_out(vty, " neighbor %s shutdown message %s\n", addr,
+				peer->tx_shutdown_message);
+		else
+			vty_out(vty, " neighbor %s shutdown\n", addr);
 	}
 
 	/* bfd */
@@ -6934,12 +6979,8 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* passive */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSIVE)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_PASSIVE)) {
-			vty_out(vty, " neighbor %s passive\n", addr);
-		}
-	}
+	if (peergroup_flag_check(peer, PEER_FLAG_PASSIVE))
+		vty_out(vty, " neighbor %s passive\n", addr);
 
 	/* ebgp-multihop */
 	if (peer->sort != BGP_PEER_IBGP && peer->ttl != 1
@@ -6960,22 +7001,12 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* disable-connected-check */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags,
-				   PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
-			vty_out(vty, " neighbor %s disable-connected-check\n",
-				addr);
-		}
-	}
+	if (peergroup_flag_check(peer, PEER_FLAG_DISABLE_CONNECTED_CHECK))
+		vty_out(vty, " neighbor %s disable-connected-check\n", addr);
 
 	/* enforce-first-as */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_ENFORCE_FIRST_AS)) {
-			vty_out(vty, " neighbor %s enforce-first-as\n", addr);
-		}
-	}
+	if (peergroup_flag_check(peer, PEER_FLAG_ENFORCE_FIRST_AS))
+		vty_out(vty, " neighbor %s enforce-first-as\n", addr);
 
 	/* update-source */
 	if (peer->update_if) {
@@ -7029,60 +7060,32 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* capability dynamic */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags,
-				   PEER_FLAG_DYNAMIC_CAPABILITY)) {
-			vty_out(vty, " neighbor %s capability dynamic\n", addr);
-		}
-	}
+	if (peergroup_flag_check(peer, PEER_FLAG_DYNAMIC_CAPABILITY))
+		vty_out(vty, " neighbor %s capability dynamic\n", addr);
 
 	/* capability extended-nexthop */
-	if (peer->ifp && !CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_CAPABILITY_ENHE)) {
+	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_ENHE)) {
+		if (CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE))
 			vty_out(vty,
 				" no neighbor %s capability extended-nexthop\n",
 				addr);
-		}
-	}
-
-	if (!peer->ifp && CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_CAPABILITY_ENHE)) {
+		else
 			vty_out(vty,
 				" neighbor %s capability extended-nexthop\n",
 				addr);
-		}
 	}
 
 	/* dont-capability-negotiation */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_DONT_CAPABILITY)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_DONT_CAPABILITY)) {
-			vty_out(vty, " neighbor %s dont-capability-negotiate\n",
-				addr);
-		}
-	}
+	if (peergroup_flag_check(peer, PEER_FLAG_DONT_CAPABILITY))
+		vty_out(vty, " neighbor %s dont-capability-negotiate\n", addr);
 
 	/* override-capability */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_OVERRIDE_CAPABILITY)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags,
-				   PEER_FLAG_OVERRIDE_CAPABILITY)) {
-			vty_out(vty, " neighbor %s override-capability\n",
-				addr);
-		}
-	}
+	if (peergroup_flag_check(peer, PEER_FLAG_OVERRIDE_CAPABILITY))
+		vty_out(vty, " neighbor %s override-capability\n", addr);
 
 	/* strict-capability-match */
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_STRICT_CAP_MATCH)) {
-		if (!peer_group_active(peer)
-		    || !CHECK_FLAG(g_peer->flags, PEER_FLAG_STRICT_CAP_MATCH)) {
-			vty_out(vty, " neighbor %s strict-capability-match\n",
-				addr);
-		}
-	}
+	if (peergroup_flag_check(peer, PEER_FLAG_STRICT_CAP_MATCH))
+		vty_out(vty, " neighbor %s strict-capability-match\n", addr);
 }
 
 /* BGP peer configuration display function. */
