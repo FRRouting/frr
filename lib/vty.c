@@ -120,9 +120,11 @@ bool vty_set_include(struct vty *vty, const char *regexp)
 	bool ret = true;
 	char errbuf[256];
 
-	if (!regexp && vty->filter) {
-		regfree(&vty->include);
-		vty->filter = false;
+	if (!regexp) {
+		if (vty->filter) {
+			regfree(&vty->include);
+			vty->filter = false;
+		}
 		return true;
 	}
 
