@@ -6962,22 +6962,22 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 						inet_ntop(
 							AF_INET6,
 							&attr->mp_nexthop_global,
-							buf_a, BUFSIZ));
+							buf_a, sizeof(buf_a)));
 				else
 					vty_out(vty, "%s",
 						inet_ntop(
 							AF_INET6,
 							&attr->mp_nexthop_global,
-							buf_a, BUFSIZ));
+							buf_a, sizeof(buf_a)));
 			} else if (attr->mp_nexthop_len
 				   == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 				if (json) {
 					inet_ntop(AF_INET6,
 						  &attr->mp_nexthop_global,
-						  buf_a, BUFSIZ);
+						  buf_a, sizeof(buf_a));
 					inet_ntop(AF_INET6,
 						  &attr->mp_nexthop_local,
-						  buf_b, BUFSIZ);
+						  buf_b, sizeof(buf_b));
 					sprintf(buf_c, "%s(%s)", buf_a, buf_b);
 					json_object_string_add(
 						json_out,
@@ -6987,11 +6987,11 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 						inet_ntop(
 							AF_INET6,
 							&attr->mp_nexthop_global,
-							buf_a, BUFSIZ),
+							buf_a, sizeof(buf_a)),
 						inet_ntop(
 							AF_INET6,
 							&attr->mp_nexthop_local,
-							buf_b, BUFSIZ));
+							buf_b, sizeof(buf_b)));
 			}
 		}
 	}
