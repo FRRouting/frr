@@ -1184,7 +1184,7 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 			      char **cmd_out)
 {
 	/* look for `|` */
-	char *orig, *working, *token;
+	char *orig, *working, *token, *u;
 	char *pipe = strstr(cmd_in, "| ");
 
 	if (!pipe)
@@ -1213,7 +1213,8 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 			goto fail;
 		}
 		*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
-		*(strstr(*cmd_out, "|")) = '\0';
+		u = *cmd_out;
+		strsep(&u, "|");
 	} else {
 		vty_out(vty, "%% Unknown action '%s'\n", token);
 		goto fail;
