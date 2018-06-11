@@ -548,8 +548,10 @@ static int vtysh_execute_func(const char *line, int pager)
 				line = "end";
 				vline = cmd_make_strvec(line);
 
-				if (vline == NULL && vty->is_paged) {
-					vty_close_pager(vty);
+
+				if (vline == NULL) {
+					if (vty->is_paged)
+						vty_close_pager(vty);
 					return CMD_SUCCESS;
 				}
 
