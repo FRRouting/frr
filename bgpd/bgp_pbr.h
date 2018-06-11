@@ -185,6 +185,9 @@ struct bgp_pbr_match {
 #define MATCH_PORT_DST_RANGE_SET	(1 << 5)
 	uint32_t flags;
 
+	uint16_t pkt_len_min;
+	uint16_t pkt_len_max;
+
 	vrf_id_t vrf_id;
 
 	/* unique identifier for ipset create transaction
