@@ -2906,6 +2906,8 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 	STREAM_GETL(s, zpi.action);
 	STREAM_GETL(s, zpi.fwmark);
 	STREAM_GET(&zpi.ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
+	STREAM_GETW(s, zpi.pkt_len_min);
+	STREAM_GETW(s, zpi.pkt_len_max);
 	STREAM_GETL(s, zpi.nb_interface);
 	zebra_pbr_iptable_update_interfacelist(s, &zpi);
 
