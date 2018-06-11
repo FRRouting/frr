@@ -2849,8 +2849,11 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 			bgp_session_reset(peer);
 	}
 
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
-		peer_flag_set(peer, PEER_FLAG_CAPABILITY_ENHE);
+	if (!CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE)) {
+		SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
+		SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE);
+		UNSET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
+	}
 
 	if (peer_group_name) {
 		group = peer_group_lookup(bgp, peer_group_name);
@@ -4967,26 +4970,28 @@ DEFUN (no_neighbor_override_capability,
 
 DEFUN (neighbor_strict_capability,
        neighbor_strict_capability_cmd,
-       "neighbor <A.B.C.D|X:X::X:X> strict-capability-match",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Strict capability negotiation match\n")
 {
-	int idx_ip = 1;
-	return peer_flag_set_vty(vty, argv[idx_ip]->arg,
+	int idx_peer = 1;
+
+	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
 				 PEER_FLAG_STRICT_CAP_MATCH);
 }
 
 DEFUN (no_neighbor_strict_capability,
        no_neighbor_strict_capability_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X> strict-capability-match",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Strict capability negotiation match\n")
 {
-	int idx_ip = 2;
-	return peer_flag_unset_vty(vty, argv[idx_ip]->arg,
+	int idx_peer = 2;
+
+	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
 				   PEER_FLAG_STRICT_CAP_MATCH);
 }
 

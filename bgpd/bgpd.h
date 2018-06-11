@@ -815,6 +815,61 @@ struct peer {
 #define PEER_CAP_ENHE_AF_NEGO               (1 << 14) /* Extended nexthop afi/safi negotiated */
 
 	/* Global configuration flags. */
+	/*
+	 * Parallel array to flags that indicates whether each flag originates
+	 * from a peer-group or if it is config that is specific to this
+	 * individual peer. If a flag is set independent of the peer-group, the
+	 * same bit should be set here. If this peer is a peer-group, this
+	 * memory region should be all zeros.
+	 *
+	 * The assumption is that the default state for all flags is unset,
+	 * so if a flag is unset, the corresponding override flag is unset too.
+	 * However if a flag is set, the corresponding override flag is set.
+	 */
+	uint32_t flags_override;
+	/*
+	 * Parallel array to flags that indicates whether the default behavior
+	 * of *flags_override* should be inverted. If a flag is unset and the
+	 * corresponding invert flag is set, the corresponding override flag
+	 * would be set. However if a flag is set and the corresponding invert
+	 * flag is unset, the corresponding override flag would be unset.
+	 *
+	 * This can be used for attributes like *send-community*, which are
+	 * implicitely enabled and have to be disabled explicitely, compared to
+	 * 'normal' attributes like *next-hop-self* which are implicitely set.
+	 *
+	 * All operations dealing with flags should apply the following boolean
+	 * logic to keep the internal flag system in a sane state:
+	 *
+	 * value=0 invert=0	Inherit flag if member, otherwise unset flag
+	 * value=0 invert=1	Unset flag unconditionally
+	 * value=1 invert=0	Set flag unconditionally
+	 * value=1 invert=1	Inherit flag if member, otherwise set flag
+	 *
+	 * Contrary to the implementation of *flags_override*, the flag
+	 * inversion state can be set either on the peer OR the peer *and* the
+	 * peer-group. This was done on purpose, as the inversion state of a
+	 * flag can be determined on either the peer or the peer-group.
+	 *
+	 * Example: Enabling the cisco configuration mode inverts all flags
+	 * related to *send-community* unconditionally for both peer-groups and
+	 * peers.
+	 *
+	 * This behavior is different for interface peers though, which enable
+	 * the *extended-nexthop* flag by default, which regular peers do not.
+	 * As the peer-group can contain both regular and interface peers, the
+	 * flag inversion state must be set on the peer only.
+	 *
+	 * When a peer inherits the configuration from a peer-group and the
+	 * inversion state of the flag differs between peer and peer-group, the
+	 * newly set value must equal to the inverted state of the peer-group.
+	 */
+	uint32_t flags_invert;
+	/*
+	 * Effective array for storing the peer/peer-group flags. In case of a
+	 * peer-group, the peer-specific overrides (see flags_override and
+	 * flags_invert) must be respected.
+	 */
 	uint32_t flags;
 #define PEER_FLAG_PASSIVE                   (1 << 0) /* passive mode */
 #define PEER_FLAG_SHUTDOWN                  (1 << 1) /* shutdown */
@@ -842,37 +897,13 @@ struct peer {
 
 	/* Peer Per AF flags */
 	/*
-	 * Parallel array to af_flags that indicates whether each flag
-	 * originates from a peer-group or if it is config that is specific to
-	 * this individual peer. If a flag is set independent of the
-	 * peer-group the same bit should be set here. If this peer is a
-	 * peer-group, this memory region should be all zeros. The assumption
-	 * is that the default state for all flags is unset.
-	 *
-	 * Notes:
-	 * - if a flag for an individual peer is unset, the corresponding
-	 *   override flag is unset and the peer is considered to be back in
-	 *   sync with the peer-group.
-	 * - This does *not* contain the flag values, rather it contains
-	 *   whether the flag at the same position in af_flags is
-	 *   *peer-specific*.
+	 * Please consult the comments for *flags_override*, *flags_invert* and
+	 * *flags* to understand what these three arrays do. The address-family
+	 * specific attributes are being treated the exact same way as global
+	 * peer attributes.
 	 */
 	uint32_t af_flags_override[AFI_MAX][SAFI_MAX];
-	/*
-	 * Parallel array to af_flags that indicates whether each flag should
-	 * be treated as regular (defaults to 0) or inverted (defaults to 1).
-	 * If a flag is set to 1 by default, the same bit should be set here.
-	 *
-	 * Notes:
-	 * - This does *not* contain the flag values, rather it contains
-	 *   whether the flag at the same position in af_flags is *regular* or
-	 *   *inverted*.
-	 */
 	uint32_t af_flags_invert[AFI_MAX][SAFI_MAX];
-	/*
-	 * Effective flags, computed by applying peer-group flags and then
-	 * overriding with individual flags
-	 */
 	uint32_t af_flags[AFI_MAX][SAFI_MAX];
 #define PEER_FLAG_SEND_COMMUNITY            (1 << 0) /* send-community */
 #define PEER_FLAG_SEND_EXT_COMMUNITY        (1 << 1) /* send-community ext. */
@@ -1551,6 +1582,7 @@ extern int peer_group_unbind(struct bgp *, struct peer *, struct peer_group *);
 
 extern int peer_flag_set(struct peer *, uint32_t);
 extern int peer_flag_unset(struct peer *, uint32_t);
+extern void peer_flag_inherit(struct peer *peer, uint32_t flag);
 
 extern int peer_af_flag_set(struct peer *, afi_t, safi_t, uint32_t);
 extern int peer_af_flag_unset(struct peer *, afi_t, safi_t, uint32_t);

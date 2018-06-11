@@ -486,6 +486,7 @@ typedef enum {
 #define SET_FLAG(V,F)        (V) |= (F)
 #define UNSET_FLAG(V,F)      (V) &= ~(F)
 #define RESET_FLAG(V)        (V) = 0
+#define COND_FLAG(V, F, C)   ((C) ? (SET_FLAG(V, F)) : (UNSET_FLAG(V, F)))
 
 /* Atomic flag manipulation macros. */
 #define CHECK_FLAG_ATOMIC(PV, F)                                               \
