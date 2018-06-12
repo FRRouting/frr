@@ -191,7 +191,6 @@ EXTRA_DIST = frr-sphinx.mk \
 	developer/ospf-sr.rst \
 	developer/workflow.rst \
 	developer/zebra.rst \
-	user/appendix.rst \
 	user/babeld.rst \
 	user/basic.rst \
 	user/bgp.rst \
@@ -199,7 +198,6 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/conf.py \
 	user/eigrpd.rst \
 	user/filter.rst \
-	user/getting-started.rst \
 	user/glossary.rst \
 	user/index.rst \
 	user/installation.rst \
@@ -212,6 +210,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/ospfd.rst \
 	user/ospf_fundamentals.rst \
 	user/overview.rst \
+	user/packet-dumps.rst \
 	user/pim.rst \
 	user/ripd.rst \
 	user/pbr.rst \

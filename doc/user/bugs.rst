@@ -1,4 +1,7 @@
-.. _bugs:
+.. index:: Bug Reports
+.. index:: Reporting bugs
+
+.. _bug-reports:
 
 **************
 Reporting Bugs

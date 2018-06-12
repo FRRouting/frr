@@ -1,23 +1,10 @@
 .. _basic-commands:
 
 **************
-Basic commands
+Basic Commands
 **************
 
-There are five routing daemons in use, and there is one manager daemon.
-These daemons may be located on separate machines from the manager
-daemon. Each of these daemons will listen on a particular port for
-incoming VTY connections. The routing daemons are:
-
-- *ripd*
-- *ripngd*
-- *ospfd*
-- *ospf6d*
-- *bgpd*
-- *zebra*
-
-The following sections discuss commands common to all the routing
-daemons.
+The following sections discuss commands common to all the routing daemons.
 
 .. _config-commands:
 
@@ -33,9 +20,8 @@ Config Commands
 .. index:: Getting the herd running
 
 In a config file, you can write the debugging options, a vty's password,
-routing daemon configurations, a log file name, and so forth. This
-information forms the initial command set for a routing beast as it is
-starting.
+routing daemon configurations, a log file name, and so forth. This information
+forms the initial command set for a routing beast as it is starting.
 
 Config files are generally found in |INSTALL_PREFIX_ETC|.
 
@@ -50,7 +36,6 @@ Basic Config Commands
 ---------------------
 
 .. index:: hostname HOSTNAME
-
 .. clicmd:: hostname HOSTNAME
 
    Set hostname of the router.
@@ -83,9 +68,9 @@ Basic Config Commands
    compatibility. The log trap command sets the current logging level for all
    enabled logging destinations, and it sets the default for all future logging
    commands that do not specify a level. The normal default logging level is
-   debugging. The ``no`` form of the command resets the default level for future
-   logging commands to debugging, but it does not change the logging level of
-   existing logging destinations.
+   debugging. The ``no`` form of the command resets the default level for
+   future logging commands to debugging, but it does not change the logging
+   level of existing logging destinations.
 
 .. index::
    single: no log stdout [LEVEL]
@@ -95,12 +80,11 @@ Basic Config Commands
 
    Enable logging output to stdout. If the optional second argument specifying
    the logging level is not present, the default logging level (typically
-   debugging, but can be changed using the deprecated ``log trap`` command) will
-   be used. The ``no`` form of the command disables logging to stdout. The
-   ``LEVEL`` argument must have one of these values: emergencies, alerts,
-   critical, errors, warnings, notifications, informational, or debugging. Note
-   that the existing code logs its most important messages with severity
-   ``errors``.
+   debugging) will be used. The ``no`` form of the command disables logging to
+   stdout. The ``LEVEL`` argument must have one of these values: emergencies,
+   alerts, critical, errors, warnings, notifications, informational, or
+   debugging. Note that the existing code logs its most important messages with
+   severity ``errors``.
 
 .. index::
    single: no log file [FILENAME [LEVEL]]
@@ -109,19 +93,24 @@ Basic Config Commands
 .. clicmd:: [no] log file [FILENAME [LEVEL]]
 
    If you want to log into a file, please specify ``filename`` as
-   in this example: ::
+   in this example:
 
-     log file /var/log/frr/bgpd.log informational
+   ::
+
+      log file /var/log/frr/bgpd.log informational
 
    If the optional second argument specifying the logging level is not present,
    the default logging level (typically debugging, but can be changed using the
    deprecated ``log trap`` command) will be used. The ``no`` form of the command
-   disables logging to a file. *Note:* if you do not configure any file logging,
-   and a daemon crashes due to a signal or an assertion failure, it will attempt
-   to save the crash information in a file named /var/tmp/frr.<daemon
-   name>.crashlog. For security reasons, this will not happen if the file exists
-   already, so it is important to delete the file after reporting the crash
-   information.
+   disables logging to a file.
+
+   .. note::
+
+      If you do not configure any file logging, and a daemon crashes due to a
+      signal or an assertion failure, it will attempt to save the crash
+      information in a file named :file:`/var/tmp/frr.<daemon name>.crashlog`.
+      For security reasons, this will not happen if the file exists already, so
+      it is important to delete the file after reporting the crash information.
 
 .. index::
    single: no log syslog [LEVEL]
@@ -142,12 +131,11 @@ Basic Config Commands
 
    Enable logging output to vty terminals that have enabled logging using the
    ``terminal monitor`` command. By default, monitor logging is enabled at the
-   debugging level, but this command (or the deprecated ``log trap`` command) can
-   be used to change the monitor logging level. If the optional second argument
-   specifying the logging level is not present, the default logging level
-   (typically debugging, but can be changed using the deprecated ``log trap``
-   command) will be used. The ``no`` form of the command disables logging to
-   terminal monitors.
+   debugging level, but this command (or the deprecated ``log trap`` command)
+   can be used to change the monitor logging level. If the optional second
+   argument specifying the logging level is not present, the default logging
+   level (typically debugging) will be used. The ``no`` form of the command
+   disables logging to terminal monitors.
 
 .. index::
    single: no log facility [FACILITY]
@@ -156,8 +144,8 @@ Basic Config Commands
 .. clicmd:: [no] log facility [FACILITY]
 
    This command changes the facility used in syslog messages. The default
-   facility is ``daemon``. The ``no`` form of the command resets
-   the facility to the default ``daemon`` facility.
+   facility is ``daemon``. The ``no`` form of the command resets the facility
+   to the default ``daemon`` facility.
 
 .. index::
    single: no log record-priority
@@ -179,67 +167,59 @@ Basic Config Commands
 
 .. clicmd:: [no] log timestamp precision [(0-6)]
 
-   This command sets the precision of log message timestamps to the given number
-   of digits after the decimal point. Currently, the value must be in the range
-   0 to 6 (i.e. the maximum precision is microseconds). To restore the default
-   behavior (1-second accuracy), use the ``no`` form of the command, or set the
-   precision explicitly to 0.
+   This command sets the precision of log message timestamps to the given
+   number of digits after the decimal point. Currently, the value must be in
+   the range 0 to 6 (i.e. the maximum precision is microseconds). To restore
+   the default behavior (1-second accuracy), use the ``no`` form of the
+   command, or set the precision explicitly to 0.
 
-::
+   ::
 
-     log timestamp precision 3
+      log timestamp precision 3
 
    In this example, the precision is set to provide timestamps with
    millisecond accuracy.
 
 .. index:: log commands
-
 .. clicmd:: log commands
 
-   This command enables the logging of all commands typed by a user to
-   all enabled log destinations. The note that logging includes full
-   command lines, including passwords. Once set, command logging can only
-   be turned off by restarting the daemon.
+   This command enables the logging of all commands typed by a user to all
+   enabled log destinations. The note that logging includes full command lines,
+   including passwords. Once set, command logging can only be turned off by
+   restarting the daemon.
 
 .. index:: service password-encryption
-
 .. clicmd:: service password-encryption
 
    Encrypt password.
 
 .. index:: service advanced-vty
-
 .. clicmd:: service advanced-vty
 
    Enable advanced mode VTY.
 
 .. index:: service terminal-length (0-512)
-
 .. clicmd:: service terminal-length (0-512)
 
-   Set system wide line configuration. This configuration command applies
-   to all VTY interfaces.
+   Set system wide line configuration. This configuration command applies to
+   all VTY interfaces.
 
 .. index:: line vty
-
 .. clicmd:: line vty
 
    Enter vty configuration mode.
 
 .. index:: banner motd default
-
 .. clicmd:: banner motd default
 
    Set default motd string.
 
 .. index:: no banner motd
-
 .. clicmd:: no banner motd
 
    No motd banner string will be printed.
 
 .. index:: exec-timeout MINUTE [SECOND]
-
 .. clicmd:: exec-timeout MINUTE [SECOND]
 
    Set VTY connection timeout value. When only one argument is specified
@@ -248,16 +228,16 @@ Basic Config Commands
    When timeout value is zero, it means no timeout.
 
 .. index:: no exec-timeout
-
 .. clicmd:: no exec-timeout
 
-   Do not perform timeout at all. This command is as same as *exec-timeout 0 0*.
+   Do not perform timeout at all. This command is as same as
+   ``exec-timeout 0 0``.
 
 .. index:: access-class ACCESS-LIST
-
 .. clicmd:: access-class ACCESS-LIST
 
    Restrict vty connections with an access list.
+
 
 .. _sample-config-file:
 
@@ -280,17 +260,17 @@ Below is a sample configuration file for the zebra daemon.
    !
 
 
-'!' and '#' are comment characters. If the first character of the word
-is one of the comment characters then from the rest of the line forward
-will be ignored as a comment.
+``!`` and ``#`` are comment characters. If the first character of the word is
+one of the comment characters then from the rest of the line forward will be
+ignored as a comment.
 
 .. code-block:: frr
 
    password zebra!password
 
-If a comment character is not the first character of the word, it's a
-normal character. So in the above example '!' will not be regarded as a
-comment and the password is set to 'zebra!password'.
+If a comment character is not the first character of the word, it's a normal
+character. So in the above example ``!`` will not be regarded as a comment and
+the password is set to ``zebra!password``.
 
 .. _terminal-mode-commands:
 
@@ -298,62 +278,81 @@ Terminal Mode Commands
 ======================
 
 .. index:: write terminal
-
 .. clicmd:: write terminal
 
    Displays the current configuration to the vty interface.
 
 .. index:: write file
-
 .. clicmd:: write file
 
    Write current configuration to configuration file.
 
 .. index:: configure terminal
-
 .. clicmd:: configure terminal
 
    Change to configuration mode. This command is the first step to
    configuration.
 
 .. index:: terminal length (0-512)
-
 .. clicmd:: terminal length (0-512)
 
-   Set terminal display length to ``(0-512)``. If length is 0, no
-   display control is performed.
+   Set terminal display length to ``(0-512)``. If length is 0, no display
+   control is performed.
 
 .. index:: who
-
 .. clicmd:: who
 
    Show a list of currently connected vty sessions.
 
 .. index:: list
-
 .. clicmd:: list
 
    List all available commands.
 
 .. index:: show version
-
 .. clicmd:: show version
 
    Show the current version of |PACKAGE_NAME| and its build host information.
 
 .. index:: show logging
-
 .. clicmd:: show logging
 
-   Shows the current configuration of the logging system. This includes
-   the status of all logging destinations.
+   Shows the current configuration of the logging system. This includes the
+   status of all logging destinations.
 
 .. index:: logmsg LEVEL MESSAGE
-
 .. clicmd:: logmsg LEVEL MESSAGE
 
-   Send a message to all logging destinations that are enabled for messages
-   of the given severity.
+   Send a message to all logging destinations that are enabled for messages of
+   the given severity.
+
+.. index:: find COMMAND...
+.. clicmd:: find COMMAND...
+
+   This commmand performs a simple substring search across all defined commands
+   in all modes. As an example, suppose you're in enable mode and can't
+   remember where the command to turn OSPF segment routing on is:
+
+   ::
+
+      frr# find segment-routing on
+        (ospf)  segment-routing on
+
+   The CLI mode is displayed next to each command. In this example,
+   :clicmd:`segment-routing on` is under the `router ospf` mode.
+
+   Similarly, suppose you want a listing of all commands that contain "l2vpn":
+
+   ::
+
+      frr# find l2vpn
+        (view)  show [ip] bgp l2vpn evpn [json]
+        (view)  show [ip] bgp l2vpn evpn all <A.B.C.D|A.B.C.D/M> [json]
+        (view)  show [ip] bgp l2vpn evpn all neighbors A.B.C.D advertised-routes [json]
+        (view)  show [ip] bgp l2vpn evpn all neighbors A.B.C.D routes [json]
+        (view)  show [ip] bgp l2vpn evpn all overlay
+        ...
+
 
 .. _common-invocation-options:
 
@@ -382,16 +381,16 @@ These options apply to all |PACKAGE_NAME| daemons.
    to implement commands such as ``.../init.d/zebra status``,
    ``.../init.d/zebra restart`` or ``.../init.d/zebra stop``.
 
-   The file name is an run-time option rather than a configure-time option
-   so that multiple routing daemons can be run simultaneously. This is
-   useful when using |PACKAGE_NAME| to implement a routing looking glass. One
-   machine can be used to collect differing routing views from differing
-   points in the network.
+   The file name is an run-time option rather than a configure-time option so
+   that multiple routing daemons can be run simultaneously. This is useful when
+   using |PACKAGE_NAME| to implement a routing looking glass. One machine can
+   be used to collect differing routing views from differing points in the
+   network.
 
 .. option:: -A, --vty_addr <address>
 
-   Set the VTY local address to bind to. If set, the VTY socket will only
-   be bound to this address.
+   Set the VTY local address to bind to. If set, the VTY socket will only be
+   bound to this address.
 
 .. option:: -P, --vty_port <port>
 
@@ -428,15 +427,17 @@ the following command line option at daemon startup:
    This option is available on all daemons, though some daemons may not have
    any modules available to be loaded.
 
+
 The SNMP Module
 ---------------
 
 If SNMP is enabled during compile-time and installed as part of the package,
-the ``snmp`` module can be loaded for the *zebra*, *bgpd*, *ospfd*, *ospf6d*
+the ``snmp`` module can be loaded for the *Zebra*, *bgpd*, *ospfd*, *ospf6d*
 and *ripd* daemons.
 
-The module ignores any options passed to it. Refer to :ref:`snmp-support`
-for information on its usage.
+The module ignores any options passed to it. Refer to :ref:`snmp-support` for
+information on its usage.
+
 
 The FPM Module
 --------------
@@ -450,6 +451,7 @@ specifying the encapsulation to use. ``Netlink`` is the default, and
 ``protobuf`` may not be available if the module was built without protobuf
 support. Refer to :ref:`zebra-fib-push-interface` for more information.
 
+
 .. _virtual-terminal-interfaces:
 
 Virtual Terminal Interfaces
@@ -457,6 +459,7 @@ Virtual Terminal Interfaces
 
 VTY -- Virtual Terminal [aka TeletYpe] Interface is a command line
 interface (CLI) for user interaction with the routing daemon.
+
 
 .. _vty-overview:
 
@@ -634,33 +637,6 @@ insta-help, and VTY session management.
    You can use command line help by typing ``help`` at the beginning of the
    line.  Typing :kbd:`?` at any point in the line will show possible
    completions.
-
-.. index:: find COMMAND...
-.. clicmd:: find COMMAND...
-
-   This commmand performs a simple substring search across all defined commands
-   in all modes. As an example, suppose you're in enable mode and can't
-   remember where the command to turn OSPF segment routing on is:
-
-   ::
-
-      frr# find segment-routing on
-        (ospf)  segment-routing on
-
-   The CLI mode is displayed next to each command. In this example,
-   :clicmd:`segment-routing on` is under the `router ospf` mode.
-
-   Similarly, suppose you want a listing of all commands that contain "l2vpn":
-
-   ::
-
-      frr# find l2vpn
-        (view)  show [ip] bgp l2vpn evpn [json]
-        (view)  show [ip] bgp l2vpn evpn all <A.B.C.D|A.B.C.D/M> [json]
-        (view)  show [ip] bgp l2vpn evpn all neighbors A.B.C.D advertised-routes [json]
-        (view)  show [ip] bgp l2vpn evpn all neighbors A.B.C.D routes [json]
-        (view)  show [ip] bgp l2vpn evpn all overlay
-        ...
 
 Pipe Actions
 ^^^^^^^^^^^^
