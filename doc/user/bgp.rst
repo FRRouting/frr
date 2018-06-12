@@ -631,8 +631,7 @@ Defining Peer
 BGP Peer commands
 -----------------
 
-In a `router bgp` clause there are neighbor specific configurations
-required.
+Various options for BGP peerings.
 
 .. index:: neighbor PEER shutdown
 .. clicmd:: neighbor PEER shutdown
@@ -641,9 +640,22 @@ required.
 .. clicmd:: no neighbor PEER shutdown
 
    Shutdown the peer. We can delete the neighbor's configuration by
-   ``no neighbor PEER remote-as ASN`` but all configuration of the neighbor
+   :clicmd:`no neighbor PEER remote-as ASN` but all configuration of the neighbor
    will be deleted. When you want to preserve the configuration, but want to
    drop the BGP peer, use this syntax.
+
+.. index:: bgp default shutdown
+.. clicmd:: bgp default shutdown
+
+.. index:: no bgp default shutdown
+.. clicmd:: no bgp default shutdown
+
+   When entered from VTYSH or a Telnet session, this option will cause all
+   peers configured after it to automatically placed in administrative
+   shutdown. To prevent unintended side effects after a daemon restart, this
+   option is not saved to the config when using :clicmd:`write file`. If placed
+   in the config file manually, each peer will need to be manually enabled
+   after every daemon restart.
 
 .. index:: neighbor PEER ebgp-multihop
 .. clicmd:: neighbor PEER ebgp-multihop
@@ -654,7 +666,6 @@ required.
 
 .. index:: neighbor PEER description ...
 .. clicmd:: neighbor PEER description ...
-
 
 .. index:: no neighbor PEER description ...
 .. clicmd:: no neighbor PEER description ...

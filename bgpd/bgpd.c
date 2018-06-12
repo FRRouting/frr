@@ -7578,10 +7578,6 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp default subgroup-pkt-queue-max %u\n",
 				bgp->default_subgroup_pkt_queue_max);
 
-		/* BGP default autoshutdown neighbors */
-		if (bgp->autoshutdown)
-			vty_out(vty, " bgp default shutdown\n");
-
 		/* BGP client-to-client reflection. */
 		if (bgp_flag_check(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
 			vty_out(vty, " no bgp client-to-client reflection\n");
