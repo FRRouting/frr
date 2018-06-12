@@ -168,16 +168,31 @@ static struct bgp_info_extra *bgp_info_extra_new(void)
 
 static void bgp_info_extra_free(struct bgp_info_extra **extra)
 {
-	if (extra && *extra) {
-		if ((*extra)->damp_info)
-			bgp_damp_info_free((*extra)->damp_info, 0);
+	struct bgp_info_extra *e;
 
-		(*extra)->damp_info = NULL;
+	if (!extra || !*extra)
+		return;
 
-		XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
+	e = *extra;
+	if (e->damp_info)
+		bgp_damp_info_free(e->damp_info, 0);
 
-		*extra = NULL;
+	e->damp_info = NULL;
+	if (e->parent) {
+		struct bgp_info *bi = (struct bgp_info *)e->parent;
+
+		if (bi->net)
+			bgp_unlock_node((struct bgp_node *)bi->net);
+		bi->net = NULL;
+		bgp_info_unlock(e->parent);
+		e->parent = NULL;
 	}
+
+	if (e->bgp_orig)
+		bgp_unlock(e->bgp_orig);
+	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
+
+	*extra = NULL;
 }
 
 /* Get bgp_info extra information for the given bgp_info, lazy allocated
