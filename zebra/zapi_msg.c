@@ -3061,7 +3061,7 @@ void zserv_handle_commands(struct zserv *client, struct stream *msg)
 		return;
 	}
 
-	if (hdr.command > array_size(zserv_handlers)
+	if (hdr.command >= array_size(zserv_handlers)
 	    || zserv_handlers[hdr.command] == NULL)
 		zlog_info("Zebra received unknown command %d", hdr.command);
 	else
