@@ -815,6 +815,8 @@ int peer_af_flag_check(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
 void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 			  uint32_t flag)
 {
+	bool group_val;
+
 	/* Skip if peer is not a peer-group member. */
 	if (!peer_group_active(peer))
 		return;
@@ -822,11 +824,17 @@ void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 	/* Unset override flag to signal inheritance from peer-group. */
 	UNSET_FLAG(peer->af_flags_override[afi][safi], flag);
 
-	/* Inherit flag state from peer-group. */
-	if (CHECK_FLAG(peer->group->conf->af_flags[afi][safi], flag))
-		SET_FLAG(peer->af_flags[afi][safi], flag);
+	/*
+	 * Inherit flag state from peer-group. If the flag of the peer-group is
+	 * not being inverted, the peer must inherit the inverse of the current
+	 * peer-group flag state.
+	 */
+	group_val = CHECK_FLAG(peer->group->conf->af_flags[afi][safi], flag);
+	if (!CHECK_FLAG(peer->group->conf->af_flags_invert[afi][safi], flag)
+	    && CHECK_FLAG(peer->af_flags_invert[afi][safi], flag))
+		COND_FLAG(peer->af_flags[afi][safi], flag, !group_val);
 	else
-		UNSET_FLAG(peer->af_flags[afi][safi], flag);
+		COND_FLAG(peer->af_flags[afi][safi], flag, group_val);
 }
 
 static bool peergroup_flag_check(struct peer *peer, uint32_t flag)
@@ -1300,7 +1308,6 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 
 	/* peer flags apply */
 	peer_dst->flags = peer_src->flags;
-	peer_dst->flags_invert = peer_src->flags_invert;
 	peer_dst->cap = peer_src->cap;
 	peer_dst->config = peer_src->config;
 
@@ -1326,8 +1333,6 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	FOREACH_AFI_SAFI (afi, safi) {
 		peer_dst->afc[afi][safi] = peer_src->afc[afi][safi];
 		peer_dst->af_flags[afi][safi] = peer_src->af_flags[afi][safi];
-		peer_dst->af_flags_invert[afi][safi] =
-			peer_src->af_flags_invert[afi][safi];
 		peer_dst->allowas_in[afi][safi] =
 			peer_src->allowas_in[afi][safi];
 		peer_dst->weight[afi][safi] = peer_src->weight[afi][safi];
@@ -2430,7 +2435,6 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 					struct peer *peer)
 {
 	struct peer *conf;
-	int saved_flags = 0;
 
 	conf = group->conf;
 
@@ -2449,11 +2453,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	peer->gtsm_hops = conf->gtsm_hops;
 
 	/* These are per-peer specific flags and so we must preserve them */
-	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-	saved_flags |= peer->flags & peer->flags_override;
-
-	peer->flags = conf->flags & ~peer->flags_override;
-	peer->flags |= saved_flags;
+	peer->flags |= conf->flags & ~peer->flags_override;
 	peer->flags_invert |= conf->flags_invert;
 
 	/* peer config apply */
@@ -4064,7 +4064,9 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		if (CHECK_FLAG(member->flags_override, flag))
 			continue;
 
-		member_invert = CHECK_FLAG(member->flags_invert, flag);
+		/* Check if only member without group is inverted. */
+		member_invert =
+			CHECK_FLAG(member->flags_invert, flag) && !invert;
 
 		/* Skip peers with equivalent configuration. */
 		if (set != member_invert && CHECK_FLAG(member->flags, flag))
@@ -4100,12 +4102,11 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	int found;
 	int size;
 	int addpath_tx_used;
-	bool invert;
-	struct listnode *node, *nnode;
-	struct peer_group *group;
-	struct peer_flag_action action;
-	struct peer *tmp_peer;
+	bool invert, member_invert;
 	struct bgp *bgp;
+	struct peer *member;
+	struct listnode *node, *nnode;
+	struct peer_flag_action action;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
 	size = sizeof peer_af_flag_action_list
@@ -4115,7 +4116,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	found = peer_flag_action_set(peer_af_flag_action_list, size, &action,
 				     flag);
 
-	/* No flag action is found.  */
+	/* Abort if flag action exists. */
 	if (!found)
 		return BGP_ERR_INVALID_FLAG;
 
@@ -4133,25 +4134,17 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	if (flag & PEER_FLAG_AS_OVERRIDE && peer_sort(peer) == BGP_PEER_IBGP)
 		return BGP_ERR_AS_OVERRIDE;
 
-	/* When current flag configuration is same as requested one.  */
+	/* Handle flag updates where desired state matches current state. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (set && CHECK_FLAG(peer->af_flags[afi][safi], flag)) {
-			if (invert)
-				UNSET_FLAG(peer->af_flags_override[afi][safi],
-					   flag);
-			else
-				SET_FLAG(peer->af_flags_override[afi][safi],
-					 flag);
+			COND_FLAG(peer->af_flags_override[afi][safi], flag,
+				  !invert);
 			return 0;
 		}
 
 		if (!set && !CHECK_FLAG(peer->af_flags[afi][safi], flag)) {
-			if (invert)
-				SET_FLAG(peer->af_flags_override[afi][safi],
-					 flag);
-			else
-				UNSET_FLAG(peer->af_flags_override[afi][safi],
-					   flag);
+			COND_FLAG(peer->af_flags_override[afi][safi], flag,
+				  invert);
 			return 0;
 		}
 	}
@@ -4185,22 +4178,11 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 		}
 	}
 
-	/* Set/unset flag or inherit from peer-group if appropriate. */
-	if (invert) {
-		if (!set)
-			UNSET_FLAG(peer->af_flags[afi][safi], flag);
-		else if (peer_group_active(peer))
-			peer_af_flag_inherit(peer, afi, safi, flag);
-		else
-			SET_FLAG(peer->af_flags[afi][safi], flag);
-	} else {
-		if (set)
-			SET_FLAG(peer->af_flags[afi][safi], flag);
-		else if (peer_group_active(peer))
-			peer_af_flag_inherit(peer, afi, safi, flag);
-		else
-			UNSET_FLAG(peer->af_flags[afi][safi], flag);
-	}
+	/* Inherit from peer-group or set/unset flags accordingly. */
+	if (peer_group_active(peer) && set == invert)
+		peer_af_flag_inherit(peer, afi, safi, flag);
+	else
+		COND_FLAG(peer->af_flags[afi][safi], flag, set);
 
 	/* Execute action when peer is established.  */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
@@ -4221,57 +4203,67 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 		}
 	}
 
-	/* Peer group member updates.  */
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-			if (CHECK_FLAG(tmp_peer->af_flags_override[afi][safi],
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		COND_FLAG(peer->af_flags_override[afi][safi], flag,
+			  set != invert);
+	} else {
+		/*
+		 * Update peer-group members, unless they are explicitely
+		 * overriding peer-group configuration.
+		 */
+		for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode,
+				       member)) {
+			/* Skip peers with overridden configuration. */
+			if (CHECK_FLAG(member->af_flags_override[afi][safi],
 				       flag))
 				continue;
 
-			if (set
-			    && CHECK_FLAG(tmp_peer->af_flags[afi][safi], flag))
+			/* Check if only member without group is inverted. */
+			member_invert =
+				CHECK_FLAG(member->af_flags_invert[afi][safi],
+					   flag)
+				&& !invert;
+
+			/* Skip peers with equivalent configuration. */
+			if (set != member_invert
+			    && CHECK_FLAG(member->af_flags[afi][safi], flag))
 				continue;
 
-			if (!set
-			    && !CHECK_FLAG(tmp_peer->af_flags[afi][safi], flag))
+			if (set == member_invert
+			    && !CHECK_FLAG(member->af_flags[afi][safi], flag))
 				continue;
 
-			if (set)
-				SET_FLAG(tmp_peer->af_flags[afi][safi], flag);
-			else
-				UNSET_FLAG(tmp_peer->af_flags[afi][safi], flag);
+			/* Update flag on peer-group member. */
+			COND_FLAG(member->af_flags[afi][safi], flag,
+				  set != member_invert);
 
-			if (tmp_peer->status == Established) {
+			/* Execute flag action on peer-group member. */
+			if (member->status == Established) {
 				if (!set && flag == PEER_FLAG_SOFT_RECONFIG)
-					bgp_clear_adj_in(tmp_peer, afi, safi);
+					bgp_clear_adj_in(member, afi, safi);
 				else {
 					if (flag == PEER_FLAG_REFLECTOR_CLIENT)
-						tmp_peer->last_reset =
+						member->last_reset =
 							PEER_DOWN_RR_CLIENT_CHANGE;
 					else if (flag
 						 == PEER_FLAG_RSERVER_CLIENT)
-						tmp_peer->last_reset =
+						member->last_reset =
 							PEER_DOWN_RS_CLIENT_CHANGE;
 					else if (flag
 						 == PEER_FLAG_ORF_PREFIX_SM)
-						tmp_peer->last_reset =
+						member->last_reset =
 							PEER_DOWN_CAPABILITY_CHANGE;
 					else if (flag
 						 == PEER_FLAG_ORF_PREFIX_RM)
-						tmp_peer->last_reset =
+						member->last_reset =
 							PEER_DOWN_CAPABILITY_CHANGE;
 
-					peer_change_action(tmp_peer, afi, safi,
+					peer_change_action(member, afi, safi,
 							   action.type);
 				}
 			}
 		}
-	} else {
-		if (set != invert)
-			SET_FLAG(peer->af_flags_override[afi][safi], flag);
-		else
-			UNSET_FLAG(peer->af_flags_override[afi][safi], flag);
 	}
 
 	/* Track if addpath TX is in use */
@@ -4298,11 +4290,11 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 			}
 		} else {
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode,
-					       tmp_peer)) {
-				if (CHECK_FLAG(tmp_peer->af_flags[afi][safi],
+					       member)) {
+				if (CHECK_FLAG(member->af_flags[afi][safi],
 					       PEER_FLAG_ADDPATH_TX_ALL_PATHS)
 				    || CHECK_FLAG(
-					       tmp_peer->af_flags[afi][safi],
+					       member->af_flags[afi][safi],
 					       PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
 					addpath_tx_used = 1;
 					break;
