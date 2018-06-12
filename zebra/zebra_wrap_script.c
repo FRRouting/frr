@@ -1113,10 +1113,26 @@ static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 					 char *combi, int cmd)
 {
 	int ret = 0;
-	int len_written;
-	char complement_len[32];
+	int len_written = 0;
+	char complement_len[256];
 
 	memset(complement_len, 0, sizeof (complement_len));
+	if (iptable->tcp_flags) {
+		char tcp_flag_str[64];
+		char tcp_flag_mask_str[64];
+
+		zebra_pbr_tcpflags_snprintf(tcp_flag_str,
+					    sizeof(tcp_flag_str),
+					    iptable->tcp_flags);
+		zebra_pbr_tcpflags_snprintf(tcp_flag_mask_str,
+					    sizeof(tcp_flag_mask_str),
+					    iptable->tcp_mask_flags);
+
+		len_written += snprintf(complement_len,
+					sizeof(complement_len),
+					"-p tcp -m tcp --tcp-flags %s %s ",
+					tcp_flag_str, tcp_flag_mask_str);
+	}
 	if (iptable->pkt_len_min || iptable->pkt_len_max) {
 		len_written += snprintf(complement_len + len_written,
 					sizeof(complement_len) - len_written,
