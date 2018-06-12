@@ -74,6 +74,7 @@ void eigrp_distribute_update(struct distribute *dist)
 	/* if no interface address is present, set list to eigrp process struct
 	 */
 	e = eigrp_lookup();
+	assert(e != NULL);
 
 	/* Check if distribute-list was set for process or interface */
 	if (!dist->ifname) {
