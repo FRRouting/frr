@@ -168,7 +168,7 @@ void sigusr1(void)
 */
 static __attribute__((__noreturn__)) void bgp_exit(int status)
 {
-	struct bgp *bgp;
+	struct bgp *bgp, *bgp_default;
 	struct listnode *node, *nnode;
 
 	/* it only makes sense for this to be called on a clean exit */
@@ -180,9 +180,16 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 	bgp_close();
 
+	bgp_default = bgp_get_default();
+
 	/* reverse bgp_master_init */
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_default == bgp)
+			continue;
 		bgp_delete(bgp);
+	}
+	if (bgp_default)
+		bgp_delete(bgp_default);
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
