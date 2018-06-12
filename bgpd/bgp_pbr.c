@@ -175,9 +175,25 @@ static int sprintf_bgp_pbr_match_val(char *str, struct bgp_pbr_match_val *mval,
 		_cnt++; \
 	} while (0)
 
+/* this structure can be used for port range,
+ * but also for other values range like packet length range
+ */
 struct bgp_pbr_range_port {
 	uint16_t min_port;
 	uint16_t max_port;
+};
+
+/* this structure is used to pass instructs
+ * so that BGP can create pbr instructions to ZEBRA
+ */
+struct bgp_pbr_filter {
+	vrf_id_t vrf_id;
+	struct prefix *src;
+	struct prefix *dst;
+	uint8_t protocol;
+	struct bgp_pbr_range_port *pkt_len;
+	struct bgp_pbr_range_port *src_port;
+	struct bgp_pbr_range_port *dst_port;
 };
 
 static bool bgp_pbr_extract_enumerate(struct bgp_pbr_match_val list[],
@@ -1017,20 +1033,23 @@ static int bgp_pbr_get_remaining_entry(struct hash_backet *backet, void *arg)
 }
 
 static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
-					  struct bgp_info *binfo,
-					  vrf_id_t vrf_id,
-					  struct prefix *src,
-					  struct prefix *dst,
-					  uint8_t protocol,
-					  struct bgp_pbr_range_port *pkt_len,
-					  struct bgp_pbr_range_port *src_port,
-					  struct bgp_pbr_range_port *dst_port)
+				struct bgp_info *binfo,
+				struct bgp_pbr_filter *bpf)
 {
 	struct bgp_pbr_match temp;
 	struct bgp_pbr_match_entry temp2;
 	struct bgp_pbr_match *bpm;
 	struct bgp_pbr_match_entry *bpme;
 	struct bgp_pbr_match_entry_remain bpmer;
+	struct bgp_pbr_range_port *src_port;
+	struct bgp_pbr_range_port *dst_port;
+	struct bgp_pbr_range_port *pkt_len;
+
+	if (!bpf)
+		return;
+	src_port = bpf->src_port;
+	dst_port = bpf->dst_port;
+	pkt_len = bpf->pkt_len;
 
 	/* as we don't know information from EC
 	 * look for bpm that have the bpm
@@ -1038,14 +1057,14 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 	 */
 	memset(&temp2, 0, sizeof(temp2));
 	memset(&temp, 0, sizeof(temp));
-	if (src) {
+	if (bpf->src) {
 		temp.flags |= MATCH_IP_SRC_SET;
-		prefix_copy(&temp2.src, src);
+		prefix_copy(&temp2.src, bpf->src);
 	} else
 		temp2.src.family = AF_INET;
-	if (dst) {
+	if (bpf->dst) {
 		temp.flags |= MATCH_IP_DST_SET;
-		prefix_copy(&temp2.dst, dst);
+		prefix_copy(&temp2.dst, bpf->dst);
 	} else
 		temp2.dst.family = AF_INET;
 	if (src_port && src_port->min_port) {
@@ -1064,14 +1083,14 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 			temp2.dst_port_max = dst_port->max_port;
 		}
 	}
-	temp2.proto = protocol;
+	temp2.proto = bpf->protocol;
 
 	if (pkt_len)
 		temp.pkt_len_min = pkt_len->min_port;
 	if (pkt_len && pkt_len->max_port)
 		temp.pkt_len_max = pkt_len->max_port;
 
-	if (src == NULL || dst == NULL) {
+	if (bpf->src == NULL || bpf->dst == NULL) {
 		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
 			temp.type = IPSET_NET_PORT;
 		else
@@ -1082,10 +1101,10 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 		else
 			temp.type = IPSET_NET_NET;
 	}
-	if (vrf_id == VRF_UNKNOWN) /* XXX case BGP destroy */
+	if (bpf->vrf_id == VRF_UNKNOWN) /* XXX case BGP destroy */
 		temp.vrf_id = 0;
 	else
-		temp.vrf_id = vrf_id;
+		temp.vrf_id = bpf->vrf_id;
 	bpme = &temp2;
 	bpm = &temp;
 	bpme->backpointer = bpm;
@@ -1108,15 +1127,9 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 
 static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 				     struct bgp_info *binfo,
-				     vrf_id_t vrf_id,
-				     struct prefix *src,
-				     struct prefix *dst,
+				     struct bgp_pbr_filter *bpf,
 				     struct nexthop *nh,
-				     float *rate,
-				     uint8_t protocol,
-				     struct bgp_pbr_range_port *pkt_len,
-				     struct bgp_pbr_range_port *src_port,
-				     struct bgp_pbr_range_port *dst_port)
+				     float *rate)
 {
 	struct bgp_pbr_match temp;
 	struct bgp_pbr_match_entry temp2;
@@ -1125,6 +1138,15 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 	struct bgp_pbr_action temp3;
 	struct bgp_pbr_action *bpa = NULL;
 	struct bgp_pbr_match_entry_remain bpmer;
+	struct bgp_pbr_range_port *src_port;
+	struct bgp_pbr_range_port *dst_port;
+	struct bgp_pbr_range_port *pkt_len;
+
+	if (!bpf)
+		return;
+	src_port = bpf->src_port;
+	dst_port = bpf->dst_port;
+	pkt_len = bpf->pkt_len;
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		char bufsrc[64], bufdst[64];
@@ -1133,14 +1155,15 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		char protocol_str[16];
 
 		protocol_str[0] = '\0';
-		if (protocol)
-			snprintf(protocol_str, sizeof(protocol),
-				 "proto %d", protocol);
+		if (bpf->protocol)
+			snprintf(protocol_str, sizeof(protocol_str),
+				 "proto %d", bpf->protocol);
 		buffer[0] = '\0';
-		if (protocol == IPPROTO_ICMP && src_port && dst_port)
+		if (bpf->protocol == IPPROTO_ICMP && src_port && dst_port)
 			remaining_len += snprintf(buffer, 64, "type %d, code %d",
 				 src_port->min_port, dst_port->min_port);
-		else if ( protocol == IPPROTO_UDP || protocol == IPPROTO_TCP) {
+		else if (bpf->protocol == IPPROTO_UDP ||
+			 bpf->protocol == IPPROTO_TCP) {
 
 			if (src_port && src_port->min_port)
 				remaining_len += snprintf(buffer,
@@ -1172,8 +1195,10 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 						  pkt_len->min_port);
 		}
 		zlog_info("BGP: adding FS PBR from %s to %s, %s %s",
-			  src == NULL ? "<all>" : prefix2str(src, bufsrc, 64),
-			  dst == NULL ? "<all>" : prefix2str(dst, bufdst, 64),
+			  bpf->src == NULL ? "<all>" :
+			  prefix2str(bpf->src, bufsrc, sizeof(bufsrc)),
+			  bpf->dst == NULL ? "<all>" :
+			  prefix2str(bpf->dst, bufdst, sizeof(bufdst)),
 			  protocol_str, buffer);
 	}
 	/* look for bpa first */
@@ -1182,7 +1207,7 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		temp3.rate = *rate;
 	if (nh)
 		memcpy(&temp3.nh, nh, sizeof(struct nexthop));
-	temp3.vrf_id = vrf_id;
+	temp3.vrf_id = bpf->vrf_id;
 	bpa = hash_get(bgp->pbr_action_hash, &temp3,
 		       bgp_pbr_action_alloc_intern);
 
@@ -1204,7 +1229,7 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 
 	/* then look for bpm */
 	memset(&temp, 0, sizeof(temp));
-	if (src == NULL || dst == NULL) {
+	if (bpf->src == NULL || bpf->dst == NULL) {
 		if ((src_port && src_port->min_port) ||
 		    (dst_port && dst_port->min_port))
 			temp.type = IPSET_NET_PORT;
@@ -1217,10 +1242,10 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		else
 			temp.type = IPSET_NET_NET;
 	}
-	temp.vrf_id = vrf_id;
-	if (src)
+	temp.vrf_id = bpf->vrf_id;
+	if (bpf->src)
 		temp.flags |= MATCH_IP_SRC_SET;
-	if (dst)
+	if (bpf->dst)
 		temp.flags |= MATCH_IP_DST_SET;
 
 	if (src_port && src_port->min_port)
@@ -1259,19 +1284,19 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 	}
 
 	memset(&temp2, 0, sizeof(temp2));
-	if (src)
-		prefix_copy(&temp2.src, src);
+	if (bpf->src)
+		prefix_copy(&temp2.src, bpf->src);
 	else
 		temp2.src.family = AF_INET;
-	if (dst)
-		prefix_copy(&temp2.dst, dst);
+	if (bpf->dst)
+		prefix_copy(&temp2.dst, bpf->dst);
 	else
 		temp2.dst.family = AF_INET;
 	temp2.src_port_min = src_port ? src_port->min_port : 0;
 	temp2.dst_port_min = dst_port ? dst_port->min_port : 0;
 	temp2.src_port_max = src_port ? src_port->max_port : 0;
 	temp2.dst_port_max = dst_port ? dst_port->max_port : 0;
-	temp2.proto = protocol;
+	temp2.proto = bpf->protocol;
 	if (bpm)
 		bpme = hash_get(bpm->entry_hash, &temp2,
 				bgp_pbr_match_entry_alloc_intern);
@@ -1370,22 +1395,22 @@ static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
 				     int src_num,
 				     struct bgp_pbr_match_val dst[],
 				     int dst_num,
-				     struct prefix *src_address,
-				     struct prefix *dst_address,
-				     uint8_t proto,
-				     struct bgp_pbr_range_port *pkt_len,
+				     struct bgp_pbr_filter *bpf,
 				     struct bgp *bgp,
 				     struct bgp_info *binfo,
 				     bool add,
-				     vrf_id_t vrf_id,
 				     struct nexthop *nh,
 				     float *rate)
 {
 	int i = 0, j;
 	struct bgp_pbr_range_port srcp, dstp;
 
-	if (proto != IPPROTO_ICMP)
+	if (!bpf)
 		return;
+	if (bpf->protocol != IPPROTO_ICMP)
+		return;
+	bpf->src_port = &srcp;
+	bpf->dst_port = &dstp;
 	/* combinatory forced. ignore icmp type / code combinatory */
 	if (src_num == 1 && dst_num == 1) {
 		srcp.max_port = 0;
@@ -1394,19 +1419,10 @@ static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
 		dstp.min_port = dst[0].value;
 		if (add)
 			bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-							 vrf_id, src_address,
-							 dst_address,
-							 nh, rate, proto,
-							 pkt_len, &srcp, &dstp);
+						bpf, nh, rate);
 		else
-			bgp_pbr_policyroute_remove_from_zebra(
-							      bgp,
-							      binfo,
-							      vrf_id,
-							      src_address,
-							      dst_address,
-							      proto, pkt_len,
-							      &srcp, &dstp);
+			bgp_pbr_policyroute_remove_from_zebra(bgp,
+					      binfo, bpf);
 		return;
 	}
 	/* parse icmp type and lookup appropriate icmp code
@@ -1445,20 +1461,10 @@ static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
 					icmp_typecode_configured = true;
 					if (add)
 						bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-										 vrf_id, src_address,
-										 dst_address,
-										 nh, rate, proto,
-										 pkt_len, &srcp, &dstp);
+										 bpf, nh, rate);
 					else
 						bgp_pbr_policyroute_remove_from_zebra(
-										      bgp,
-										      binfo,
-										      vrf_id,
-										      src_address,
-										      dst_address,
-										      proto,
-										      pkt_len,
-										      &srcp, &dstp);
+							      bgp, binfo, bpf);
 				}
 			}
 			/* create a list of ICMP type/code combinatories */
@@ -1469,20 +1475,10 @@ static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
 					dstp.min_port = pnt->key;
 					if (add)
 						bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-										 vrf_id, src_address,
-										 dst_address,
-										 nh, rate, proto,
-										 pkt_len,
-										 &srcp, &dstp);
+								 bpf, nh, rate);
 					else
-						bgp_pbr_policyroute_remove_from_zebra(
-										      bgp,
-										      binfo,
-										      vrf_id,
-										      src_address,
-										      dst_address,
-										      proto, pkt_len,
-										      &srcp, &dstp);
+						bgp_pbr_policyroute_remove_from_zebra(bgp,
+								      binfo, bpf);
 				}
 
 			}
@@ -1494,19 +1490,10 @@ static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
 			dstp.min_port = 0;
 			if (add)
 				bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-								 vrf_id, src_address,
-								 dst_address,
-								 nh, rate, proto,
-								 pkt_len, &srcp, &dstp);
+								 bpf, nh, rate);
 			else
-				bgp_pbr_policyroute_remove_from_zebra(
-								      bgp,
-								      binfo,
-								      vrf_id,
-								      src_address,
-								      dst_address,
-								      proto, pkt_len,
-								      &srcp, &dstp);
+				bgp_pbr_policyroute_remove_from_zebra(bgp,
+							      binfo, bpf);
 			break;
 		}
 	}
@@ -1527,8 +1514,10 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	struct bgp_pbr_range_port range, range_icmp_code;
 	struct bgp_pbr_range_port pkt_len;
 	bool enum_icmp = false;
+	struct bgp_pbr_filter bpf;
 
 	memset(&nh, 0, sizeof(struct nexthop));
+	memset(&bpf, 0, sizeof(struct bgp_pbr_filter));
 	if (api->match_bitmask & PREFIX_SRC_PRESENT)
 		src = &api->src_prefix;
 	if (api->match_bitmask & PREFIX_DST_PRESENT)
@@ -1586,22 +1575,25 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		bgp_pbr_extract(api->packet_length,
 				api->match_packet_length_num,
 				&pkt_len);
+	bpf.vrf_id = api->vrf_id;
+	bpf.src = src;
+	bpf.dst = dst;
+	bpf.protocol = proto;
+	bpf.pkt_len = &pkt_len;
+	bpf.src_port = srcp;
+	bpf.dst_port = dstp;
 	if (!add) {
 		if (enum_icmp) {
 			return bgp_pbr_enumerate_action_src_dst(api->icmp_type,
 						api->match_icmp_type_num,
 						api->icmp_code,
 						api->match_icmp_code_num,
-						src, dst, proto, &pkt_len,
-						bgp, binfo, add,
-						api->vrf_id, NULL, NULL);
+						&bpf, bgp, binfo, add,
+						NULL, NULL);
 		}
 		return bgp_pbr_policyroute_remove_from_zebra(bgp,
 							     binfo,
-							     api->vrf_id,
-							     src, dst,
-							     proto, &pkt_len,
-							     srcp, dstp);
+							     &bpf);
 	}
 	/* no action for add = true */
 	for (i = 0; i < api->action_num; i++) {
@@ -1616,14 +1608,11 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 									 api->match_icmp_type_num,
 									 api->icmp_code,
 									 api->match_icmp_code_num,
-									 src, dst, proto, &pkt_len,
-									 bgp, binfo, add,
-									 api->vrf_id, &nh, &rate);
+									 &bpf, bgp, binfo, add,
+									 &nh, &rate);
 				else
-					bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-									 api->vrf_id, src, dst,
-									 &nh, &rate, proto,
-									 &pkt_len, srcp, dstp);
+					bgp_pbr_policyroute_add_to_zebra(bgp, binfo, &bpf,
+									 &nh, &rate);
 			} else {
 				/* update rate. can be reentrant */
 				rate = api->actions[i].u.r.rate;
@@ -1668,15 +1657,11 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 								 api->match_icmp_type_num,
 								 api->icmp_code,
 								 api->match_icmp_code_num,
-								 src, dst, proto, &pkt_len,
-								 bgp, binfo, add,
-								 api->vrf_id, &nh, &rate);
+								 &bpf, bgp, binfo, add,
+								 &nh, &rate);
 			else
-				bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-								 api->vrf_id,
-								 src, dst,
-								 &nh, &rate, proto,
-								 &pkt_len, srcp, dstp);
+				bgp_pbr_policyroute_add_to_zebra(bgp, binfo, &bpf,
+								 &nh, &rate);
 			/* XXX combination with REDIRECT_VRF
 			 * + REDIRECT_NH_IP not done
 			 */
@@ -1690,15 +1675,11 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 								 api->match_icmp_type_num,
 								 api->icmp_code,
 								 api->match_icmp_code_num,
-								 src, dst, proto, &pkt_len,
-								 bgp, binfo, add,
-								 api->vrf_id, &nh, &rate);
+								 &bpf, bgp, binfo, add,
+								 &nh, &rate);
 			else
 				bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-							 api->vrf_id,
-							 src, dst,
-							 &nh, &rate, proto,
-							 &pkt_len, srcp, dstp);
+								 &bpf, &nh, &rate);
 			continue_loop = 0;
 			break;
 		case ACTION_MARKING:
