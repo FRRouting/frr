@@ -62,7 +62,7 @@ static const struct message bgp_flowspec_display_min[] = {
 	{FLOWSPEC_SRC_PORT, "srcp"},
 	{FLOWSPEC_ICMP_TYPE, "type"},
 	{FLOWSPEC_ICMP_CODE, "code"},
-	{FLOWSPEC_TCP_FLAGS, "flags"},
+	{FLOWSPEC_TCP_FLAGS, "tcp"},
 	{FLOWSPEC_PKT_LEN, "pktlen"},
 	{FLOWSPEC_DSCP, "dscp"},
 	{FLOWSPEC_FRAGMENT, "pktfrag"},
