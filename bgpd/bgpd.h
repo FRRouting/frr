@@ -1177,13 +1177,14 @@ struct peer {
 DECLARE_QOBJ_TYPE(peer)
 
 /* Inherit peer attribute from peer-group. */
-#define PEER_ATTR_INHERIT(peer, attr) ((peer)->attr = (peer)->group->conf->attr)
-#define PEER_STR_ATTR_INHERIT(mt, peer, attr)                                  \
+#define PEER_ATTR_INHERIT(peer, group, attr)                                   \
+	((peer)->attr = (group)->conf->attr)
+#define PEER_STR_ATTR_INHERIT(peer, group, attr, mt)                           \
 	do {                                                                   \
 		if ((peer)->attr)                                              \
 			XFREE(mt, (peer)->attr);                               \
-		if ((peer)->group->conf->attr)                                 \
-			(peer)->attr = XSTRDUP(mt, (peer)->group->conf->attr); \
+		if ((group)->conf->attr)                                       \
+			(peer)->attr = XSTRDUP(mt, (group)->conf->attr);       \
 		else                                                           \
 			(peer)->attr = NULL;                                   \
 	} while (0)

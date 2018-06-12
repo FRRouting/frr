@@ -1800,141 +1800,111 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 {
 	int in = FILTER_IN;
 	int out = FILTER_OUT;
+	uint32_t pflags_ovrd;
+	uint8_t *pfilter_ovrd;
 	struct peer *conf;
-	struct bgp_filter *pfilter;
-	struct bgp_filter *gfilter;
 
 	conf = group->conf;
-	pfilter = &peer->filter[afi][safi];
-	gfilter = &conf->filter[afi][safi];
+	pflags_ovrd = peer->af_flags_override[afi][safi];
+	pfilter_ovrd = &peer->filter_override[afi][safi][in];
 
 	/* peer af_flags apply */
-	peer->af_flags[afi][safi] = conf->af_flags[afi][safi];
-	peer->af_flags_invert[afi][safi] = conf->af_flags_invert[afi][safi];
+	peer->af_flags[afi][safi] |= conf->af_flags[afi][safi] & ~pflags_ovrd;
+	peer->af_flags_invert[afi][safi] |= conf->af_flags_invert[afi][safi];
 
 	/* maximum-prefix */
-	peer->pmax[afi][safi] = conf->pmax[afi][safi];
-	peer->pmax_threshold[afi][safi] = conf->pmax_threshold[afi][safi];
-	peer->pmax_restart[afi][safi] = conf->pmax_restart[afi][safi];
+	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_MAX_PREFIX)) {
+		PEER_ATTR_INHERIT(peer, group, pmax[afi][safi]);
+		PEER_ATTR_INHERIT(peer, group, pmax_threshold[afi][safi]);
+		PEER_ATTR_INHERIT(peer, group, pmax_restart[afi][safi]);
+	}
 
 	/* allowas-in */
-	peer->allowas_in[afi][safi] = conf->allowas_in[afi][safi];
+	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_ALLOWAS_IN))
+		PEER_ATTR_INHERIT(peer, group, allowas_in[afi][safi]);
 
 	/* weight */
-	peer->weight[afi][safi] = conf->weight[afi][safi];
+	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_WEIGHT))
+		PEER_ATTR_INHERIT(peer, group, weight[afi][safi]);
 
 	/* default-originate route-map */
-	if (conf->default_rmap[afi][safi].name) {
-		if (peer->default_rmap[afi][safi].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      peer->default_rmap[afi][safi].name);
-		peer->default_rmap[afi][safi].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME,
-				conf->default_rmap[afi][safi].name);
-		peer->default_rmap[afi][safi].map =
-			conf->default_rmap[afi][safi].map;
+	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_DEFAULT_ORIGINATE)) {
+		PEER_STR_ATTR_INHERIT(peer, group, default_rmap[afi][safi].name,
+				      MTYPE_ROUTE_MAP_NAME);
+		PEER_ATTR_INHERIT(peer, group, default_rmap[afi][safi].map);
 	}
 
 	/* inbound filter apply */
-	if (gfilter->dlist[in].name && !pfilter->dlist[in].name) {
-		if (pfilter->dlist[in].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[in].name);
-		pfilter->dlist[in].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->dlist[in].name);
-		pfilter->dlist[in].alist = gfilter->dlist[in].alist;
+	if (!CHECK_FLAG(pfilter_ovrd[in], PEER_FT_DISTRIBUTE_LIST)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].dlist[in].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].dlist[in].alist);
 	}
 
-	if (gfilter->plist[in].name && !pfilter->plist[in].name) {
-		if (pfilter->plist[in].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[in].name);
-		pfilter->plist[in].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->plist[in].name);
-		pfilter->plist[in].plist = gfilter->plist[in].plist;
+	if (!CHECK_FLAG(pfilter_ovrd[in], PEER_FT_PREFIX_LIST)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].plist[in].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].plist[in].plist);
 	}
 
-	if (gfilter->aslist[in].name && !pfilter->aslist[in].name) {
-		if (pfilter->aslist[in].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[in].name);
-		pfilter->aslist[in].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						   gfilter->aslist[in].name);
-		pfilter->aslist[in].aslist = gfilter->aslist[in].aslist;
+	if (!CHECK_FLAG(pfilter_ovrd[in], PEER_FT_FILTER_LIST)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].aslist[in].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].aslist[in].aslist);
 	}
 
-	if (gfilter->map[RMAP_IN].name && !pfilter->map[RMAP_IN].name) {
-		if (pfilter->map[RMAP_IN].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      pfilter->map[RMAP_IN].name);
-		pfilter->map[RMAP_IN].name = XSTRDUP(
-			MTYPE_BGP_FILTER_NAME, gfilter->map[RMAP_IN].name);
-		pfilter->map[RMAP_IN].map = gfilter->map[RMAP_IN].map;
+	if (!CHECK_FLAG(pfilter_ovrd[RMAP_IN], PEER_FT_ROUTE_MAP)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].map[in].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].map[RMAP_IN].map);
 	}
 
 	/* outbound filter apply */
-	if (gfilter->dlist[out].name) {
-		if (pfilter->dlist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[out].name);
-		pfilter->dlist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						   gfilter->dlist[out].name);
-		pfilter->dlist[out].alist = gfilter->dlist[out].alist;
-	} else {
-		if (pfilter->dlist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[out].name);
-		pfilter->dlist[out].name = NULL;
-		pfilter->dlist[out].alist = NULL;
+	if (!CHECK_FLAG(pfilter_ovrd[out], PEER_FT_DISTRIBUTE_LIST)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].dlist[out].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].dlist[out].alist);
 	}
 
-	if (gfilter->plist[out].name) {
-		if (pfilter->plist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[out].name);
-		pfilter->plist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						   gfilter->plist[out].name);
-		pfilter->plist[out].plist = gfilter->plist[out].plist;
-	} else {
-		if (pfilter->plist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[out].name);
-		pfilter->plist[out].name = NULL;
-		pfilter->plist[out].plist = NULL;
+	if (!CHECK_FLAG(pfilter_ovrd[out], PEER_FT_PREFIX_LIST)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].plist[out].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].plist[out].plist);
 	}
 
-	if (gfilter->aslist[out].name) {
-		if (pfilter->aslist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[out].name);
-		pfilter->aslist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						    gfilter->aslist[out].name);
-		pfilter->aslist[out].aslist = gfilter->aslist[out].aslist;
-	} else {
-		if (pfilter->aslist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[out].name);
-		pfilter->aslist[out].name = NULL;
-		pfilter->aslist[out].aslist = NULL;
+	if (!CHECK_FLAG(pfilter_ovrd[out], PEER_FT_FILTER_LIST)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].aslist[out].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].aslist[out].aslist);
 	}
 
-	if (gfilter->map[RMAP_OUT].name) {
-		if (pfilter->map[RMAP_OUT].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      pfilter->map[RMAP_OUT].name);
-		pfilter->map[RMAP_OUT].name = XSTRDUP(
-			MTYPE_BGP_FILTER_NAME, gfilter->map[RMAP_OUT].name);
-		pfilter->map[RMAP_OUT].map = gfilter->map[RMAP_OUT].map;
-	} else {
-		if (pfilter->map[RMAP_OUT].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      pfilter->map[RMAP_OUT].name);
-		pfilter->map[RMAP_OUT].name = NULL;
-		pfilter->map[RMAP_OUT].map = NULL;
+	if (!CHECK_FLAG(pfilter_ovrd[RMAP_OUT], PEER_FT_ROUTE_MAP)) {
+		PEER_STR_ATTR_INHERIT(peer, group,
+				      filter[afi][safi].map[RMAP_OUT].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group,
+				  filter[afi][safi].map[RMAP_OUT].map);
 	}
 
-	if (gfilter->usmap.name) {
-		if (pfilter->usmap.name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->usmap.name);
-		pfilter->usmap.name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->usmap.name);
-		pfilter->usmap.map = gfilter->usmap.map;
-	} else {
-		if (pfilter->usmap.name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->usmap.name);
-		pfilter->usmap.name = NULL;
-		pfilter->usmap.map = NULL;
+	/* nondirectional filter apply */
+	if (!CHECK_FLAG(pfilter_ovrd[0], PEER_FT_UNSUPPRESS_MAP)) {
+		PEER_STR_ATTR_INHERIT(peer, group, filter[afi][safi].usmap.name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, group, filter[afi][safi].usmap.map);
 	}
 }
 
@@ -4702,9 +4672,11 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 	if (peer_group_active(peer)) {
 		peer_af_flag_inherit(peer, afi, safi,
 				     PEER_FLAG_DEFAULT_ORIGINATE);
-		PEER_STR_ATTR_INHERIT(MTYPE_ROUTE_MAP_NAME, peer,
-				      default_rmap[afi][safi].name);
-		PEER_ATTR_INHERIT(peer, default_rmap[afi][safi].map);
+		PEER_STR_ATTR_INHERIT(peer, peer->group,
+				      default_rmap[afi][safi].name,
+				      MTYPE_ROUTE_MAP_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group,
+				  default_rmap[afi][safi].map);
 	} else {
 		/* Otherwise remove flag and configuration from peer. */
 		peer_af_flag_unset(peer, afi, safi,
@@ -4846,7 +4818,7 @@ int peer_weight_unset(struct peer *peer, afi_t afi, safi_t safi)
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
 		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_WEIGHT);
-		PEER_ATTR_INHERIT(peer, weight[afi][safi]);
+		PEER_ATTR_INHERIT(peer, peer->group, weight[afi][safi]);
 
 		peer_on_policy_change(peer, afi, safi, 0);
 		return 0;
@@ -5192,7 +5164,7 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_ALLOWAS_IN);
 		peer_af_flag_inherit(peer, afi, safi,
 				     PEER_FLAG_ALLOWAS_IN_ORIGIN);
-		PEER_ATTR_INHERIT(peer, allowas_in[afi][safi]);
+		PEER_ATTR_INHERIT(peer, peer->group, allowas_in[afi][safi]);
 		peer_on_policy_change(peer, afi, safi, 0);
 
 		return 0;
@@ -5526,9 +5498,11 @@ int peer_distribute_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
-				      filter[afi][safi].dlist[direct].name);
-		PEER_ATTR_INHERIT(peer, filter[afi][safi].dlist[direct].alist);
+		PEER_STR_ATTR_INHERIT(peer, peer->group,
+				      filter[afi][safi].dlist[direct].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group,
+				  filter[afi][safi].dlist[direct].alist);
 	} else {
 		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
@@ -5709,9 +5683,11 @@ int peer_prefix_list_unset(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
-				      filter[afi][safi].plist[direct].name);
-		PEER_ATTR_INHERIT(peer, filter[afi][safi].plist[direct].plist);
+		PEER_STR_ATTR_INHERIT(peer, peer->group,
+				      filter[afi][safi].plist[direct].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group,
+				  filter[afi][safi].plist[direct].plist);
 	} else {
 		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
@@ -5890,9 +5866,10 @@ int peer_aslist_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
-				      filter[afi][safi].aslist[direct].name);
-		PEER_ATTR_INHERIT(peer,
+		PEER_STR_ATTR_INHERIT(peer, peer->group,
+				      filter[afi][safi].aslist[direct].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group,
 				  filter[afi][safi].aslist[direct].aslist);
 	} else {
 		/* Otherwise remove configuration from peer. */
@@ -6075,9 +6052,11 @@ int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
-				      filter[afi][safi].map[direct].name);
-		PEER_ATTR_INHERIT(peer, filter[afi][safi].map[direct].map);
+		PEER_STR_ATTR_INHERIT(peer, peer->group,
+				      filter[afi][safi].map[direct].name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group,
+				  filter[afi][safi].map[direct].map);
 	} else {
 		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
@@ -6184,9 +6163,11 @@ int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
-		PEER_STR_ATTR_INHERIT(MTYPE_BGP_FILTER_NAME, peer,
-				      filter[afi][safi].usmap.name);
-		PEER_ATTR_INHERIT(peer, filter[afi][safi].usmap.map);
+		PEER_STR_ATTR_INHERIT(peer, peer->group,
+				      filter[afi][safi].usmap.name,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group,
+				  filter[afi][safi].usmap.map);
 	} else {
 		/* Otherwise remove configuration from peer. */
 		filter = &peer->filter[afi][safi];
@@ -6297,9 +6278,9 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_MAX_PREFIX);
 		peer_af_flag_inherit(peer, afi, safi,
 				     PEER_FLAG_MAX_PREFIX_WARNING);
-		PEER_ATTR_INHERIT(peer, pmax[afi][safi]);
-		PEER_ATTR_INHERIT(peer, pmax_threshold[afi][safi]);
-		PEER_ATTR_INHERIT(peer, pmax_restart[afi][safi]);
+		PEER_ATTR_INHERIT(peer, peer->group, pmax[afi][safi]);
+		PEER_ATTR_INHERIT(peer, peer->group, pmax_threshold[afi][safi]);
+		PEER_ATTR_INHERIT(peer, peer->group, pmax_restart[afi][safi]);
 
 		return 0;
 	}
