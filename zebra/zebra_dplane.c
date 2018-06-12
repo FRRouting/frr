@@ -369,10 +369,10 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 
 	ctx->zd_type = re->type;
 
-	/* Prefixes */
+	/* Prefixes: dest, and optional source */
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
-	prefix_copy(&(ctx->zd_src), p);
+	prefix_copy(&(ctx->zd_dest), p);
 
 	if (src_p) {
 		prefix_copy(&(ctx->zd_src), src_p);
@@ -400,8 +400,14 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	zns = zvrf->zns;
 
 #if defined(HAVE_NETLINK)
-	/* Increment counter before copying to context struct */
-	zns->netlink_cmd.seq++;
+	/* Increment counter before copying to context struct - may need
+	 * two messages in some 'update' cases.
+	 */
+	if (op == DPLANE_OP_ROUTE_UPDATE) {
+		zns->netlink_cmd.seq += 2;
+	} else {
+		zns->netlink_cmd.seq++;
+	}
 #endif /* NETLINK*/
 
 	zebra_ns_info_from_ns(&(ctx->zd_ns_info), zns, true /*is_cmd*/);
