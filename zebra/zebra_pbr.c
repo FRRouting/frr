@@ -81,6 +81,17 @@ const struct message icmp_typecode_str[] = {
 	{0}
 };
 
+/* definitions */
+static const struct message tcp_value_str[] = {
+	{TCP_HEADER_FIN, "FIN"},
+	{TCP_HEADER_SYN, "SYN"},
+	{TCP_HEADER_RST, "RST"},
+	{TCP_HEADER_PSH, "PSH"},
+	{TCP_HEADER_ACK, "ACK"},
+	{TCP_HEADER_URG, "URG"},
+	{0}
+};
+
 /* static function declarations */
 DEFINE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat, (struct zebra_ns *zns,
 				    struct zebra_pbr_ipset_entry *ipset,
@@ -361,6 +372,8 @@ uint32_t zebra_pbr_iptable_hash_key(void *arg)
 	key = jhash_1word(iptable->fwmark, key);
 	key = jhash_1word(iptable->pkt_len_min, key);
 	key = jhash_1word(iptable->pkt_len_max, key);
+	key = jhash_1word(iptable->tcp_flags, key);
+	key = jhash_1word(iptable->tcp_mask_flags, key);
 	return jhash_3words(iptable->filter_bm, iptable->type,
 			    iptable->unique, key);
 }
@@ -388,6 +401,10 @@ int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
 	if (r1->pkt_len_min != r2->pkt_len_min)
 		return 0;
 	if (r1->pkt_len_max != r2->pkt_len_max)
+		return 0;
+	if (r1->tcp_flags != r2->tcp_flags)
+		return 0;
+	if (r1->tcp_mask_flags != r2->tcp_mask_flags)
 		return 0;
 	return 1;
 }
@@ -955,6 +972,26 @@ static int zebra_pbr_show_ipset_walkcb(struct hash_backet *backet, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
+size_t zebra_pbr_tcpflags_snprintf(char *buffer, size_t len,
+				   uint16_t tcp_val)
+{
+	size_t len_written = 0;
+	static struct message nt = {0};
+	const struct message *pnt;
+	int incr = 0;
+
+	for (pnt = tcp_value_str;
+	     memcmp(pnt, &nt, sizeof(struct message)); pnt++)
+		if (pnt->key & tcp_val) {
+			len_written += snprintf(buffer + len_written,
+						len - len_written,
+						"%s%s", incr ?
+						",":"", pnt->str);
+			incr++;
+		}
+	return len_written;
+}
+
 /*
  */
 void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname)
@@ -1027,6 +1064,19 @@ static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
 			vty_out(vty, "\t pkt len [%u;%u]\n",
 				iptable->pkt_len_min,
 				iptable->pkt_len_max);
+	}
+	if (iptable->tcp_flags || iptable->tcp_mask_flags) {
+		char tcp_flag_str[64];
+		char tcp_flag_mask_str[64];
+
+		zebra_pbr_tcpflags_snprintf(tcp_flag_str,
+					    sizeof(tcp_flag_str),
+					    iptable->tcp_flags);
+		zebra_pbr_tcpflags_snprintf(tcp_flag_mask_str,
+					    sizeof(tcp_flag_mask_str),
+					    iptable->tcp_mask_flags);
+		vty_out(vty, "\t tcpflags [%s/%s]\n",
+			tcp_flag_str, tcp_flag_mask_str);
 	}
 	ret = hook_call(zebra_pbr_iptable_wrap_script_get_stat,
 			zns, iptable, &pkts, &bytes);
