@@ -56,6 +56,11 @@ struct test {
 	struct bgp *bgp;
 	struct peer *peer;
 	struct peer_group *group;
+
+	struct {
+		bool use_ibgp;
+		bool use_iface_peer;
+	} o;
 };
 
 struct test_config {
@@ -255,6 +260,22 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.peer_cmd = "default-originate route-map RM-PEER",
 		.group_cmd = "default-originate route-map RM-GROUP",
 		.u.flag = PEER_FLAG_DEFAULT_ORIGINATE,
+	},
+	{
+		.cmd = "distribute-list",
+		.peer_cmd = "distribute-list FL-PEER in",
+		.group_cmd = "distribute-list FL-GROUP in",
+		.type = PEER_AT_AF_FILTER,
+		.u.filter.flag = PEER_FT_DISTRIBUTE_LIST,
+		.u.filter.direct = FILTER_IN,
+	},
+	{
+		.cmd = "distribute-list",
+		.peer_cmd = "distribute-list FL-PEER out",
+		.group_cmd = "distribute-list FL-GROUP out",
+		.type = PEER_AT_AF_FILTER,
+		.u.filter.flag = PEER_FT_DISTRIBUTE_LIST,
+		.u.filter.direct = FILTER_OUT,
 	},
 	{
 		.cmd = "filter-list",
@@ -596,20 +617,13 @@ static void test_config_absent(struct test *test, const char *fmt, ...)
 	va_end(ap);
 }
 
-static struct test *test_new(const char *desc, bool use_ibgp,
-			     bool use_iface_peer)
+static void test_initialize(struct test *test)
 {
-	struct test *test;
 	union sockunion su;
 
-	test = XCALLOC(MTYPE_TMP, sizeof(struct test));
-	test->state = TEST_SUCCESS;
-	test->desc = XSTRDUP(MTYPE_TMP, desc);
-	test->log = list_new();
-
-	test->vty = vty_new();
-	test->vty->type = VTY_TERM;
-	test->vty->node = CONFIG_NODE;
+	/* Log message about (re)-initialization */
+	test_log(test, "prepare: %sinitialize bgp test environment",
+		 test->bgp ? "re-" : "");
 
 	/* Attempt gracefully to purge previous BGP configuration. */
 	test_execute(test, "no router bgp");
@@ -619,18 +633,18 @@ static struct test *test_new(const char *desc, bool use_ibgp,
 	test_execute(test, "router bgp %d", cfg.local_asn);
 	test_execute(test, "no bgp default ipv4-unicast");
 	test_execute(test, "neighbor %s peer-group", cfg.peer_group);
-	if (use_iface_peer) {
+	if (test->o.use_iface_peer) {
 		test_execute(test, "neighbor %s interface", cfg.peer_interface);
 		test_execute(test, "neighbor %s remote-as %d",
 			     cfg.peer_interface,
-			     use_ibgp ? cfg.local_asn : cfg.peer_asn);
+			     test->o.use_ibgp ? cfg.local_asn : cfg.peer_asn);
 	} else {
 		test_execute(test, "neighbor %s remote-as %d", cfg.peer_address,
-			     use_ibgp ? cfg.local_asn : cfg.peer_asn);
+			     test->o.use_ibgp ? cfg.local_asn : cfg.peer_asn);
 	}
 
 	if (test->state != TEST_SUCCESS)
-		return test;
+		return;
 
 	/* Fetch default BGP instance. */
 	test->bgp = bgp_get_default();
@@ -638,11 +652,11 @@ static struct test *test_new(const char *desc, bool use_ibgp,
 		test->state = TEST_INTERNAL_ERROR;
 		test->error =
 			str_printf("could not retrieve default bgp instance");
-		return test;
+		return;
 	}
 
 	/* Fetch peer instance. */
-	if (use_iface_peer) {
+	if (test->o.use_iface_peer) {
 		test->peer =
 			peer_lookup_by_conf_if(test->bgp, cfg.peer_interface);
 	} else {
@@ -654,7 +668,7 @@ static struct test *test_new(const char *desc, bool use_ibgp,
 		test->error = str_printf(
 			"could not retrieve instance of bgp peer [%s]",
 			cfg.peer_address);
-		return test;
+		return;
 	}
 
 	/* Fetch peer-group instance. */
@@ -664,8 +678,27 @@ static struct test *test_new(const char *desc, bool use_ibgp,
 		test->error = str_printf(
 			"could not retrieve instance of bgp peer-group [%s]",
 			cfg.peer_group);
-		return test;
+		return;
 	}
+}
+
+static struct test *test_new(const char *desc, bool use_ibgp,
+			     bool use_iface_peer)
+{
+	struct test *test;
+
+	test = XCALLOC(MTYPE_TMP, sizeof(struct test));
+	test->state = TEST_SUCCESS;
+	test->desc = XSTRDUP(MTYPE_TMP, desc);
+	test->log = list_new();
+	test->o.use_ibgp = use_ibgp;
+	test->o.use_iface_peer = use_iface_peer;
+
+	test->vty = vty_new();
+	test->vty->type = VTY_TERM;
+	test->vty->node = CONFIG_NODE;
+
+	test_initialize(test);
 
 	return test;
 };
@@ -822,12 +855,87 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 		return;
 	}
 
-	/* Test Preparation: Switch active address-family. */
+	/* Test Preparation: Switch and activate address-family. */
 	if (pa->type == PEER_AT_AF_FLAG || pa->type == PEER_AT_AF_FILTER) {
 		test_log(test, "prepare: switch address-family to [%s]",
 			 afi_safi_print(pa->afi, pa->safi));
 		test_execute(test, "address-family %s %s",
 			     str_from_afi(pa->afi), str_from_safi(pa->safi));
+		test_execute(test, "neighbor %s activate", g->name);
+		test_execute(test, "neighbor %s activate", p->host);
+	}
+
+	/* Test Case: Set flag on BGP peer. */
+	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, peer_cmd,
+		 p->host);
+	test_execute(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
+	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
+	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
+	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
+		test_peer_flags(test, p, pa, true, true);
+		test_peer_flags(test, g->conf, pa, false, false);
+	} else if (pa->type == PEER_AT_AF_FILTER) {
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, false, false);
+	}
+
+	/* Test Case: Set flag on BGP peer-group. */
+	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, group_cmd,
+		 g->name);
+	test_execute(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
+	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
+	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
+	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
+		test_peer_flags(test, p, pa, true, true);
+		test_peer_flags(test, g->conf, pa, true, false);
+	} else if (pa->type == PEER_AT_AF_FILTER) {
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, true, false);
+	}
+
+	/* Test Case: Add BGP peer to peer-group. */
+	test_log(test, "case %02d: add peer [%s] to group [%s]", tc++, p->host,
+		 g->name);
+	test_execute(test, "neighbor %s peer-group %s", p->host, g->name);
+	test_config_present(test, "neighbor %s %speer-group %s", p->host,
+			    p->conf_if ? "interface " : "", g->name);
+	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
+	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
+	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
+		test_peer_flags(test, p, pa, true, true);
+		test_peer_flags(test, g->conf, pa, true, false);
+	} else if (pa->type == PEER_AT_AF_FILTER) {
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, true, false);
+	}
+
+	/* Test Case: Unset flag on BGP peer-group. */
+	test_log(test, "case %02d: unset %s [%s] on [%s]", tc++, type,
+		 group_cmd, g->name);
+	test_execute(test, "%sneighbor %s %s", dcg, g->name, group_cmd);
+	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
+	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
+	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
+		test_peer_flags(test, p, pa, true, true);
+		test_peer_flags(test, g->conf, pa, false, false);
+	} else if (pa->type == PEER_AT_AF_FILTER) {
+		test_af_filter(test, p, pa, true, true);
+		test_af_filter(test, g->conf, pa, false, false);
+	}
+
+	/* Test Preparation: Re-initialize test environment. */
+	test_initialize(test);
+	p = test->peer;
+	g = test->group;
+
+	/* Test Preparation: Switch and activate address-family. */
+	if (pa->type == PEER_AT_AF_FLAG || pa->type == PEER_AT_AF_FILTER) {
+		test_log(test, "prepare: switch address-family to [%s]",
+			 afi_safi_print(pa->afi, pa->safi));
+		test_execute(test, "address-family %s %s",
+			     str_from_afi(pa->afi), str_from_safi(pa->safi));
+		test_execute(test, "neighbor %s activate", g->name);
+		test_execute(test, "neighbor %s activate", p->host);
 	}
 
 	/* Test Case: Set flag on BGP peer. */
