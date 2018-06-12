@@ -134,6 +134,7 @@ struct bgp_pbr_entry_main {
 	struct bgp_pbr_match_val icmp_code[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val packet_length[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val dscp[BGP_PBR_MATCH_VAL_MAX];
+
 	struct bgp_pbr_match_val tcpflags[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_fragment_val fragment;
 
@@ -187,6 +188,8 @@ struct bgp_pbr_match {
 
 	uint16_t pkt_len_min;
 	uint16_t pkt_len_max;
+	uint16_t tcp_flags;
+	uint16_t tcp_mask_flags;
 
 	vrf_id_t vrf_id;
 
