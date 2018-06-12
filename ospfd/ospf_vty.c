@@ -8176,9 +8176,6 @@ DEFUN (ospf_redistribute_instance_source,
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
-	if (!ospf)
-		return CMD_SUCCESS;
-
 	if ((source == ZEBRA_ROUTE_OSPF) && !ospf->instance) {
 		vty_out(vty,
 			"Instance redistribution in non-instanced OSPF not allowed\n");
