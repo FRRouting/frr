@@ -26,7 +26,6 @@
 #include "nexthop.h"
 #include "nexthop_group.h"
 #include "log.h"
-#include "json.h"
 #include "debug.h"
 
 #include "pbrd/pbr_nht.h"
@@ -382,10 +381,9 @@ DEFPY (pbr_policy,
 
 DEFPY (show_pbr,
 	show_pbr_cmd,
-	"show pbr [json$json]",
+	"show pbr",
 	SHOW_STR
-	"Policy Based Routing\n"
-	JSON_STR)
+	"Policy Based Routing\n")
 {
 	pbr_nht_write_table_range(vty);
 	pbr_nht_write_rule_range(vty);
@@ -395,13 +393,12 @@ DEFPY (show_pbr,
 
 DEFPY (show_pbr_map,
 	show_pbr_map_cmd,
-	"show pbr map [NAME$name] [detail$detail] [json$json]",
+	"show pbr map [NAME$name] [detail$detail]",
 	SHOW_STR
 	"Policy Based Routing\n"
 	"PBR Map\n"
 	"PBR Map Name\n"
-	"Detailed information\n"
-	JSON_STR)
+	"Detailed information\n")
 {
 	struct pbr_map_sequence *pbrms;
 	struct pbr_map *pbrm;
@@ -477,12 +474,11 @@ DEFPY(show_pbr_nexthop_group,
 
 DEFPY (show_pbr_interface,
 	show_pbr_interface_cmd,
-	"show pbr interface [NAME$name] [json$json]",
+	"show pbr interface [NAME$name]",
 	SHOW_STR
 	"Policy Based Routing\n"
 	"PBR Interface\n"
-	"PBR Interface Name\n"
-	JSON_STR)
+	"PBR Interface Name\n")
 {
 	struct interface *ifp;
 	struct vrf *vrf;
