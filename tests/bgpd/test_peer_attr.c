@@ -40,10 +40,20 @@ struct thread_master *master;
 
 enum test_state {
 	TEST_SUCCESS,
+	TEST_SKIPPING,
 	TEST_COMMAND_ERROR,
 	TEST_CONFIG_ERROR,
 	TEST_ASSERT_ERROR,
+	TEST_CUSTOM_ERROR,
 	TEST_INTERNAL_ERROR,
+};
+
+enum test_peer_attr_type {
+	PEER_AT_AF_FLAG = 0,
+	PEER_AT_AF_FILTER = 1,
+	PEER_AT_AF_CUSTOM = 2,
+	PEER_AT_GLOBAL_FLAG = 3,
+	PEER_AT_GLOBAL_CUSTOM = 4
 };
 
 struct test {
@@ -81,9 +91,7 @@ struct test_peer_attr {
 	const char *peer_cmd;
 	const char *group_cmd;
 
-	enum { PEER_AT_AF_FLAG = 0,
-	       PEER_AT_AF_FILTER = 1,
-	       PEER_AT_GLOBAL_FLAG = 2 } type;
+	enum test_peer_attr_type type;
 	union {
 		uint32_t flag;
 		struct {
@@ -96,11 +104,16 @@ struct test_peer_attr {
 		bool invert_group;
 		bool use_ibgp;
 		bool use_iface_peer;
+		bool skip_xfer_cases;
 	} o;
 
 	afi_t afi;
 	safi_t safi;
 	struct test_peer_family families[AFI_MAX * SAFI_MAX];
+
+	void (*custom_handler)(struct test *test, struct peer *peer,
+			       struct peer *group, bool peer_set,
+			       bool group_set);
 };
 
 #define OUT_SYMBOL_INFO "\u25ba"
@@ -132,9 +145,65 @@ static struct test_peer_family test_default_families[] = {
 	{.afi = AFI_IP6, .safi = SAFI_MULTICAST},
 };
 
+static char *str_vprintf(const char *fmt, va_list ap)
+{
+	int ret;
+	int buf_size = 0;
+	char *buf = NULL;
+	va_list apc;
+
+	while (1) {
+		va_copy(apc, ap);
+		ret = vsnprintf(buf, buf_size, fmt, apc);
+		va_end(apc);
+
+		if (ret >= 0 && ret < buf_size)
+			break;
+
+		if (ret >= 0)
+			buf_size = ret + 1;
+		else
+			buf_size *= 2;
+
+		buf = XREALLOC(MTYPE_TMP, buf, buf_size);
+	}
+
+	return buf;
+}
+
+static char *str_printf(const char *fmt, ...)
+{
+	char *buf;
+	va_list ap;
+
+	va_start(ap, fmt);
+	buf = str_vprintf(fmt, ap);
+	va_end(ap);
+
+	return buf;
+}
+
+static void _test_advertisement_interval(struct test *test, struct peer *peer,
+					 struct peer *group, bool peer_set,
+					 bool group_set)
+{
+	uint32_t def = BGP_DEFAULT_EBGP_ROUTEADV;
+
+	TEST_ASSERT_EQ(test, peer->v_routeadv,
+		       (peer_set || group_set) ? 10 : def);
+	TEST_ASSERT_EQ(test, group->v_routeadv, group_set ? 20 : def);
+}
+
 /* clang-format off */
 static struct test_peer_attr test_peer_attrs[] = {
 	/* Peer Attributes */
+	{
+		.cmd = "advertisement-interval",
+		.peer_cmd = "advertisement-interval 10",
+		.group_cmd = "advertisement-interval 20",
+		.type = PEER_AT_GLOBAL_CUSTOM,
+		.custom_handler = &_test_advertisement_interval,
+	},
 	{
 		.cmd = "capability dynamic",
 		.u.flag = PEER_FLAG_DYNAMIC_CAPABILITY,
@@ -385,6 +454,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.cmd = "route-reflector-client",
 		.u.flag = PEER_FLAG_REFLECTOR_CLIENT,
 		.o.use_ibgp = true,
+		.o.skip_xfer_cases = true,
 	},
 	{
 		.cmd = "route-server-client",
@@ -430,44 +500,6 @@ static struct test_peer_attr test_peer_attrs[] = {
 };
 /* clang-format on */
 
-static char *str_vprintf(const char *fmt, va_list ap)
-{
-	int ret;
-	int buf_size = 0;
-	char *buf = NULL;
-	va_list apc;
-
-	while (1) {
-		va_copy(apc, ap);
-		ret = vsnprintf(buf, buf_size, fmt, apc);
-		va_end(apc);
-
-		if (ret >= 0 && ret < buf_size)
-			break;
-
-		if (ret >= 0)
-			buf_size = ret + 1;
-		else
-			buf_size *= 2;
-
-		buf = XREALLOC(MTYPE_TMP, buf, buf_size);
-	}
-
-	return buf;
-}
-
-static char *str_printf(const char *fmt, ...)
-{
-	char *buf;
-	va_list ap;
-
-	va_start(ap, fmt);
-	buf = str_vprintf(fmt, ap);
-	va_end(ap);
-
-	return buf;
-}
-
 static const char *str_from_afi(afi_t afi)
 {
 	switch (afi) {
@@ -489,6 +521,23 @@ static const char *str_from_safi(safi_t safi)
 		return "multicast";
 	default:
 		return "<unknown SAFI>";
+	}
+}
+
+static const char *str_from_attr_type(enum test_peer_attr_type at)
+{
+	switch (at) {
+	case PEER_AT_GLOBAL_FLAG:
+		return "peer-flag";
+	case PEER_AT_AF_FLAG:
+		return "af-flag";
+	case PEER_AT_AF_FILTER:
+		return "af-filter";
+	case PEER_AT_GLOBAL_CUSTOM:
+	case PEER_AT_AF_CUSTOM:
+		return "custom";
+	default:
+		return NULL;
 	}
 }
 
@@ -621,6 +670,10 @@ static void test_initialize(struct test *test)
 {
 	union sockunion su;
 
+	/* Skip execution if test instance has previously failed. */
+	if (test->state != TEST_SUCCESS)
+		return;
+
 	/* Log message about (re)-initialization */
 	test_log(test, "prepare: %sinitialize bgp test environment",
 		 test->bgp ? "re-" : "");
@@ -740,9 +793,8 @@ static void test_finish(struct test *test)
 	XFREE(MTYPE_TMP, test);
 }
 
-static void test_peer_flags(struct test *test, struct peer *peer,
-			    struct test_peer_attr *attr, bool exp_val,
-			    bool exp_ovrd)
+static void test_peer_flags(struct test *test, struct test_peer_attr *pa,
+			    struct peer *peer, bool exp_val, bool exp_ovrd)
 {
 	bool exp_inv, cur_val, cur_ovrd, cur_inv;
 
@@ -752,27 +804,25 @@ static void test_peer_flags(struct test *test, struct peer *peer,
 
 	/* Detect if flag is meant to be inverted. */
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		exp_inv = attr->o.invert_group;
+		exp_inv = pa->o.invert_group;
 	else
-		exp_inv = attr->o.invert_peer;
+		exp_inv = pa->o.invert_peer;
 
 	/* Flip expected value if flag is inverted. */
 	exp_val ^= exp_inv;
 
 	/* Fetch current state of value, override and invert flags. */
-	if (attr->type == PEER_AT_GLOBAL_FLAG) {
-		cur_val = !!CHECK_FLAG(peer->flags, attr->u.flag);
-		cur_ovrd = !!CHECK_FLAG(peer->flags_override, attr->u.flag);
-		cur_inv = !!CHECK_FLAG(peer->flags_invert, attr->u.flag);
-	} else /* if (attr->type == PEER_AT_AF_FLAG) */ {
-		cur_val = !!CHECK_FLAG(peer->af_flags[attr->afi][attr->safi],
-				       attr->u.flag);
+	if (pa->type == PEER_AT_GLOBAL_FLAG) {
+		cur_val = !!CHECK_FLAG(peer->flags, pa->u.flag);
+		cur_ovrd = !!CHECK_FLAG(peer->flags_override, pa->u.flag);
+		cur_inv = !!CHECK_FLAG(peer->flags_invert, pa->u.flag);
+	} else /* if (pa->type == PEER_AT_AF_FLAG) */ {
+		cur_val = !!CHECK_FLAG(peer->af_flags[pa->afi][pa->safi],
+				       pa->u.flag);
 		cur_ovrd = !!CHECK_FLAG(
-			peer->af_flags_override[attr->afi][attr->safi],
-			attr->u.flag);
-		cur_inv = !!CHECK_FLAG(
-			peer->af_flags_invert[attr->afi][attr->safi],
-			attr->u.flag);
+			peer->af_flags_override[pa->afi][pa->safi], pa->u.flag);
+		cur_inv = !!CHECK_FLAG(peer->af_flags_invert[pa->afi][pa->safi],
+				       pa->u.flag);
 	}
 
 	/* Assert expected flag states. */
@@ -781,9 +831,8 @@ static void test_peer_flags(struct test *test, struct peer *peer,
 	TEST_ASSERT_EQ(test, cur_inv, exp_inv);
 }
 
-static void test_af_filter(struct test *test, struct peer *peer,
-			   struct test_peer_attr *attr, bool exp_state,
-			   bool exp_ovrd)
+static void test_af_filter(struct test *test, struct test_peer_attr *pa,
+			   struct peer *peer, bool exp_state, bool exp_ovrd)
 {
 	bool cur_ovrd;
 	struct bgp_filter *filter;
@@ -793,34 +842,33 @@ static void test_af_filter(struct test *test, struct peer *peer,
 		return;
 
 	/* Fetch and assert current state of override flag. */
-	cur_ovrd = !!CHECK_FLAG(peer->filter_override[attr->afi][attr->safi]
-						     [attr->u.filter.direct],
-				attr->u.filter.flag);
+	cur_ovrd = !!CHECK_FLAG(
+		peer->filter_override[pa->afi][pa->safi][pa->u.filter.direct],
+		pa->u.filter.flag);
 
 	TEST_ASSERT_EQ(test, cur_ovrd, exp_ovrd);
 
 	/* Assert that map/list matches expected state (set/unset). */
-	filter = &peer->filter[attr->afi][attr->safi];
+	filter = &peer->filter[pa->afi][pa->safi];
 
-	switch (attr->u.filter.flag) {
+	switch (pa->u.filter.flag) {
 	case PEER_FT_DISTRIBUTE_LIST:
 		TEST_ASSERT_EQ(test,
-			       !!(filter->dlist[attr->u.filter.direct].name),
+			       !!(filter->dlist[pa->u.filter.direct].name),
 			       exp_state);
 		break;
 	case PEER_FT_FILTER_LIST:
 		TEST_ASSERT_EQ(test,
-			       !!(filter->aslist[attr->u.filter.direct].name),
+			       !!(filter->aslist[pa->u.filter.direct].name),
 			       exp_state);
 		break;
 	case PEER_FT_PREFIX_LIST:
 		TEST_ASSERT_EQ(test,
-			       !!(filter->plist[attr->u.filter.direct].name),
+			       !!(filter->plist[pa->u.filter.direct].name),
 			       exp_state);
 		break;
 	case PEER_FT_ROUTE_MAP:
-		TEST_ASSERT_EQ(test,
-			       !!(filter->map[attr->u.filter.direct].name),
+		TEST_ASSERT_EQ(test, !!(filter->map[pa->u.filter.direct].name),
 			       exp_state);
 		break;
 	case PEER_FT_UNSUPPRESS_MAP:
@@ -829,9 +877,74 @@ static void test_af_filter(struct test *test, struct peer *peer,
 	}
 }
 
+static void test_custom(struct test *test, struct test_peer_attr *pa,
+			struct peer *peer, struct peer *group, bool peer_set,
+			bool group_set)
+{
+	char *handler_error;
+
+	/* Skip execution if test instance has previously failed. */
+	if (test->state != TEST_SUCCESS)
+		return;
+
+	/* Skip execution if no custom handler is defined. */
+	if (!pa->custom_handler)
+		return;
+
+	/* Execute custom handler. */
+	pa->custom_handler(test, peer, group, peer_set, group_set);
+	if (test->state != TEST_SUCCESS) {
+		test->state = TEST_CUSTOM_ERROR;
+		handler_error = test->error;
+		test->error =
+			str_printf("custom handler failed: %s", handler_error);
+		XFREE(MTYPE_TMP, handler_error);
+	}
+}
+
+
+static void test_process(struct test *test, struct test_peer_attr *pa,
+			 struct peer *peer, struct peer *group, bool peer_set,
+			 bool group_set)
+{
+	switch (pa->type) {
+	case PEER_AT_GLOBAL_FLAG:
+	case PEER_AT_AF_FLAG:
+		test_peer_flags(test, pa, peer, peer_set || group_set,
+				peer_set);
+		test_peer_flags(test, pa, group, group_set, false);
+		break;
+
+	case PEER_AT_AF_FILTER:
+		test_af_filter(test, pa, peer, peer_set || group_set, peer_set);
+		test_af_filter(test, pa, group, group_set, false);
+		break;
+
+	case PEER_AT_GLOBAL_CUSTOM:
+	case PEER_AT_AF_CUSTOM:
+		/*
+		 * Do nothing here - a custom handler can be executed, but this
+		 * is not required. This will allow defining peer attributes
+		 * which shall not be checked for flag/filter/other internal
+		 * states.
+		 */
+		break;
+
+	default:
+		test->state = TEST_INTERNAL_ERROR;
+		test->error =
+			str_printf("invalid attribute type: %d", pa->type);
+		break;
+	}
+
+	/* Attempt to call a custom handler if set for further processing. */
+	test_custom(test, pa, peer, group, peer_set, group_set);
+}
+
 static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 {
 	int tc = 1;
+	bool is_address_family;
 	const char *type;
 	const char *ecp = pa->o.invert_peer ? "no " : "";
 	const char *dcp = pa->o.invert_peer ? "" : "no ";
@@ -842,21 +955,21 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	struct peer *p = test->peer;
 	struct peer_group *g = test->group;
 
-	if (pa->type == PEER_AT_GLOBAL_FLAG) {
-		type = "peer-flag";
-	} else if (pa->type == PEER_AT_AF_FLAG) {
-		type = "af-flag";
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		type = "af-filter";
-	} else {
+	/* Determine type and if test is address-family relevant */
+	type = str_from_attr_type(pa->type);
+	if (!type) {
 		test->state = TEST_INTERNAL_ERROR;
 		test->error =
 			str_printf("invalid attribute type: %d", pa->type);
 		return;
 	}
 
+	is_address_family =
+		(pa->type == PEER_AT_AF_FLAG || pa->type == PEER_AT_AF_FILTER
+		 || pa->type == PEER_AT_AF_CUSTOM);
+
 	/* Test Preparation: Switch and activate address-family. */
-	if (pa->type == PEER_AT_AF_FLAG || pa->type == PEER_AT_AF_FILTER) {
+	if (is_address_family) {
 		test_log(test, "prepare: switch address-family to [%s]",
 			 afi_safi_print(pa->afi, pa->safi));
 		test_execute(test, "address-family %s %s",
@@ -865,19 +978,17 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 		test_execute(test, "neighbor %s activate", p->host);
 	}
 
+	/* Skip peer-group to peer transfer test cases if requested. */
+	if (pa->o.skip_xfer_cases && test->state == TEST_SUCCESS)
+		test->state = TEST_SKIPPING;
+
 	/* Test Case: Set flag on BGP peer. */
 	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, peer_cmd,
 		 p->host);
 	test_execute(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, false, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, false, false);
-	}
+	test_process(test, pa, p, g->conf, true, false);
 
 	/* Test Case: Set flag on BGP peer-group. */
 	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, group_cmd,
@@ -885,13 +996,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, true, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, true, false);
-	}
+	test_process(test, pa, p, g->conf, true, true);
 
 	/* Test Case: Add BGP peer to peer-group. */
 	test_log(test, "case %02d: add peer [%s] to group [%s]", tc++, p->host,
@@ -901,13 +1006,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 			    p->conf_if ? "interface " : "", g->name);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, true, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, true, false);
-	}
+	test_process(test, pa, p, g->conf, true, true);
 
 	/* Test Case: Unset flag on BGP peer-group. */
 	test_log(test, "case %02d: unset %s [%s] on [%s]", tc++, type,
@@ -915,13 +1014,11 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", dcg, g->name, group_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, false, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, false, false);
-	}
+	test_process(test, pa, p, g->conf, true, false);
+
+	/* Stop skipping test cases if previously enabled. */
+	if (pa->o.skip_xfer_cases && test->state == TEST_SKIPPING)
+		test->state = TEST_SUCCESS;
 
 	/* Test Preparation: Re-initialize test environment. */
 	test_initialize(test);
@@ -929,7 +1026,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	g = test->group;
 
 	/* Test Preparation: Switch and activate address-family. */
-	if (pa->type == PEER_AT_AF_FLAG || pa->type == PEER_AT_AF_FILTER) {
+	if (is_address_family) {
 		test_log(test, "prepare: switch address-family to [%s]",
 			 afi_safi_print(pa->afi, pa->safi));
 		test_execute(test, "address-family %s %s",
@@ -944,13 +1041,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, false, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, false, false);
-	}
+	test_process(test, pa, p, g->conf, true, false);
 
 	/* Test Case: Add BGP peer to peer-group. */
 	test_log(test, "case %02d: add peer [%s] to group [%s]", tc++, p->host,
@@ -960,13 +1051,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 			    p->conf_if ? "interface " : "", g->name);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, false, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, false, false);
-	}
+	test_process(test, pa, p, g->conf, true, false);
 
 	/* Test Case: Re-add BGP peer to peer-group. */
 	test_log(test, "case %02d: re-add peer [%s] to group [%s]", tc++,
@@ -976,13 +1061,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 			    p->conf_if ? "interface " : "", g->name);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, false, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, false, false);
-	}
+	test_process(test, pa, p, g->conf, true, false);
 
 	/* Test Case: Set flag on BGP peer-group. */
 	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, group_cmd,
@@ -990,13 +1069,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, true, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, true, false);
-	}
+	test_process(test, pa, p, g->conf, true, true);
 
 	/* Test Case: Unset flag on BGP peer-group. */
 	test_log(test, "case %02d: unset %s [%s] on [%s]", tc++, type,
@@ -1004,13 +1077,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", dcg, g->name, group_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, false, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, false, false);
-	}
+	test_process(test, pa, p, g->conf, true, false);
 
 	/* Test Case: Set flag on BGP peer-group. */
 	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, group_cmd,
@@ -1018,13 +1085,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, true, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, true, false);
-	}
+	test_process(test, pa, p, g->conf, true, true);
 
 	/* Test Case: Re-set flag on BGP peer. */
 	test_log(test, "case %02d: re-set %s [%s] on [%s]", tc++, type,
@@ -1032,13 +1093,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, true, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, true, false);
-	}
+	test_process(test, pa, p, g->conf, true, true);
 
 	/* Test Case: Unset flag on BGP peer. */
 	test_log(test, "case %02d: unset %s [%s] on [%s]", tc++, type, peer_cmd,
@@ -1046,13 +1101,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", dcp, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", p->host, pa->cmd);
 	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, false);
-		test_peer_flags(test, g->conf, pa, true, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, false);
-		test_af_filter(test, g->conf, pa, true, false);
-	}
+	test_process(test, pa, p, g->conf, false, true);
 
 	/* Test Case: Unset flag on BGP peer-group. */
 	test_log(test, "case %02d: unset %s [%s] on [%s]", tc++, type,
@@ -1060,13 +1109,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", dcg, g->name, group_cmd);
 	test_config_absent(test, "neighbor %s %s", p->host, pa->cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, false, false);
-		test_peer_flags(test, g->conf, pa, false, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, false, false);
-		test_af_filter(test, g->conf, pa, false, false);
-	}
+	test_process(test, pa, p, g->conf, false, false);
 
 	/* Test Case: Set flag on BGP peer. */
 	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, peer_cmd,
@@ -1074,13 +1117,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_execute(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_present(test, "%sneighbor %s %s", ecp, p->host, peer_cmd);
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
-	if (pa->type == PEER_AT_GLOBAL_FLAG || pa->type == PEER_AT_AF_FLAG) {
-		test_peer_flags(test, p, pa, true, true);
-		test_peer_flags(test, g->conf, pa, false, false);
-	} else if (pa->type == PEER_AT_AF_FILTER) {
-		test_af_filter(test, p, pa, true, true);
-		test_af_filter(test, g->conf, pa, false, false);
-	}
+	test_process(test, pa, p, g->conf, true, false);
 }
 
 static void bgp_startup(void)
