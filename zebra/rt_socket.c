@@ -395,7 +395,7 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 
 	if (src_p && src_p->prefixlen) {
 		zlog_err("route add: IPv6 sourcedest routes unsupported!");
-		return;
+		return DP_REQUEST_FAILURE;
 	}
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
