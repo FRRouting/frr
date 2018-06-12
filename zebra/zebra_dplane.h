@@ -20,12 +20,14 @@
 #ifndef _ZEBRA_DPLANE_H
 #define _ZEBRA_DPLANE_H 1
 
-#include "zebra.h"
-#include "rib.h"
-#include "prefix.h"
-#include "nexthop.h"
-#include "nexthop_group.h"
-#include "zebra_ns.h"
+#include "lib/zebra.h"
+#include "lib/prefix.h"
+#include "lib/nexthop.h"
+#include "lib/nexthop_group.h"
+#include "lib/openbsd-queue.h"
+#include "zebra/zebra_ns.h"
+#include "zebra/rib.h"
+#include "zebra/zserv.h"
 
 
 /*
@@ -69,15 +71,29 @@ typedef enum {
  */
 typedef struct zebra_dplane_ctx_s * dplane_ctx_h;
 
+/* Define a tailq list type for context blocks. The list is exposed/public,
+ * but the internal linkage in the context struct is private, so there
+ * are accessor apis that support enqueue and dequeue.
+ */
+TAILQ_HEAD(dplane_ctx_q_s, zebra_dplane_ctx_s);
+
 /*
- * Allocate an opaque context block
+ * Allocate an opaque context block, currently for a route update.
  */
 dplane_ctx_h dplane_ctx_alloc(void);
 
-/* Free a dataplane results context block after use; the caller's pointer will
- * be cleared on return.
+/* Return a dataplane results context block after use; the caller's pointer will
+ * be cleared.
  */
-void dplane_ctx_free(dplane_ctx_h *pctx);
+void dplane_ctx_fini(dplane_ctx_h *pctx);
+
+/* Enqueue a context block to caller's tailq. This just exists so that the
+ * context struct can remain opaque.
+ */
+void dplane_ctx_enqueue_tail(struct dplane_ctx_q_s *q, dplane_ctx_h ctx);
+
+/* Dequeue a context block from the head of caller's tailq */
+void dplane_ctx_dequeue(struct dplane_ctx_q_s *q, dplane_ctx_h *ctxp);
 
 /*
  * Accessors for information from the context object
@@ -108,7 +124,7 @@ const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx);
 const struct zebra_ns_info *dplane_ctx_get_ns(const dplane_ctx_h ctx);
 
 /*
- * Enqueue route operations for the dataplane.
+ * Enqueue route change operations for the dataplane.
  */
 int dplane_route_add(struct route_node *rn,
 		     struct route_entry *re);
@@ -120,17 +136,21 @@ int dplane_route_delete(struct route_node *rn,
 			struct route_entry *re);
 
 /*
- * Callback function used to return status about a dataplane operation. The
- * callback must take ownership of the context block - it must free it, using
- * the 'free' api.
+ * Results returned - to zebra core - via a callback
  */
-typedef int (*dplane_route_status_fp)(dplane_ctx_h ctx);
+typedef int (*dplane_results_fp)(const dplane_ctx_h ctx);
 
 /*
- * Initialize the dataplane module;
- * register a callback that will receive status updates from the dataplane.
+ * Zebra registers a results callback with the dataplane. The callback is
+ * called in the dataplane thread context, so the expectation is that the
+ * context is queued (or that processing is very limited).
  */
-int zebra_dplane_init(dplane_route_status_fp fp);
+int dplane_results_register(dplane_results_fp fp);
+
+/*
+ * Initialize the dataplane modules at zebra startup.
+ */
+void zebra_dplane_init(void);
 
 
 #endif	/* _ZEBRA_DPLANE_H */

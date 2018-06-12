@@ -17,13 +17,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "zebra.h"
-#include "zebra_dplane.h"
+#include "lib/zebra.h"
 #include "lib/memory.h"
-#include "zebra_memory.h"
-#include "zserv.h"
-#include "frr_pthread.h"
-#include "queue.h"
+#include "lib/frr_pthread.h"
+#include "lib/queue.h"
+#include "zebra/zebra_memory.h"
+#include "zebra/zserv.h"
+#include "zebra/zebra_dplane.h"
 
 /* Memory type for context blocks */
 DEFINE_MTYPE(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
@@ -56,6 +56,7 @@ const uint32_t DPLANE_CTX_MAGIC = 0xb97a557f;
  * dataplane layer (and pthread).
  */
 struct zebra_dplane_ctx_s {
+
 	/* Operation code */
 	dplane_op_e zd_op;
 
@@ -119,6 +120,9 @@ static struct zebra_dplane_globals_s {
 	/* Mutex to control access to dataplane components */
 	pthread_mutex_t dg_mutex;
 
+	/* Results callback registered by zebra 'core' */
+	dplane_results_fp dg_results_cb;
+
 	/* Route-update context queue inbound to the dataplane */
 	TAILQ_HEAD(zdg_ctx_q, zebra_dplane_ctx_s) dg_route_ctx_q;
 
@@ -147,7 +151,6 @@ static struct zebra_dplane_globals_s {
 /*
  * Allocate an opaque context block
  */
-
 dplane_ctx_h dplane_ctx_alloc(void)
 {
 	struct zebra_dplane_ctx_s *p;
@@ -160,10 +163,10 @@ dplane_ctx_h dplane_ctx_alloc(void)
 	return (p);
 }
 
-/* Free a dataplane results context block after use; the caller's pointer will
- * be cleared on return.
+/*
+ * Free memory for a dataplane results context block.
  */
-void dplane_ctx_free(dplane_ctx_h *pctx)
+static void dplane_ctx_free(dplane_ctx_h *pctx)
 {
 	if (pctx) {
 		DPLANE_CTX_VALID(*pctx);
@@ -182,6 +185,31 @@ void dplane_ctx_free(dplane_ctx_h *pctx)
 	}
 }
 
+/*
+ * Return a context block to the dplane module after processing
+ */
+void dplane_ctx_fini(dplane_ctx_h *pctx)
+{
+	/* TODO -- enqueue for next provider */
+	dplane_ctx_free(pctx);
+}
+
+/* Enqueue a context block */
+void dplane_ctx_enqueue_tail(struct dplane_ctx_q_s *q, dplane_ctx_h ctx)
+{
+	TAILQ_INSERT_TAIL(q, ctx, zd_q_entries);
+}
+
+/* Dequeue a context block from the head of a list */
+void dplane_ctx_dequeue(struct dplane_ctx_q_s *q, dplane_ctx_h *ctxp)
+{
+	dplane_ctx_h ctx = TAILQ_FIRST(q);
+	if (ctx) {
+		TAILQ_REMOVE(q, ctx, zd_q_entries);
+	}
+
+	*ctxp = ctx;
+}
 
 /*
  * Accessors for information from the context object
@@ -446,7 +474,7 @@ static int dplane_route_update_internal(struct route_node *rn,
 	/* Init context with info from zebra data structs */
 	ret = dplane_ctx_route_init(ctx, op, rn, re);
 	if (ret == AOK) {
-		/* TODO -- Enqueue context for processing */
+		/* Enqueue context for processing */
 		ret = dplane_route_enqueue(ctx);
 	}
 
@@ -494,4 +522,39 @@ int dplane_route_delete(struct route_node *rn,
 done:
 
 	return (ret);
+}
+
+/*
+ * Zebra registers a results callback with the dataplane
+ */
+int dplane_results_register(dplane_results_fp fp)
+{
+	zdplane_g.dg_results_cb = fp;
+	return (AOK);
+}
+
+/*
+ * Initialize the dataplane module during startup, internal/private version
+ */
+static void zebra_dplane_init_internal(struct zebra_t *zebra)
+{
+	memset(&zdplane_g, 0, sizeof(zdplane_g));
+
+	pthread_mutex_init(&zdplane_g.dg_mutex, NULL);
+
+	TAILQ_INIT(&zdplane_g.dg_route_ctx_q);
+	TAILQ_INIT(&zdplane_g.dg_providers_q);
+
+	/* TODO -- using zebra core event thread temporarily */
+	zdplane_g.dg_master = zebra->master;
+
+	return;
+}
+
+/*
+ * Initialize the dataplane module at startup.
+ */
+void zebra_dplane_init(void)
+{
+	zebra_dplane_init_internal(&zebrad);
 }

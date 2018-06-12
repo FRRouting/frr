@@ -51,6 +51,15 @@
 #include "zebra/connected.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_dplane.h"
+
+/*
+ * Event, list, and mutex for delivery of dataplane results
+ */
+static pthread_mutex_t dplane_mutex;
+static struct thread *t_dplane;
+static struct dplane_ctx_q_s rib_dplane_q;
+
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason))
@@ -1749,6 +1758,13 @@ static void rib_process(struct route_node *rn)
 	rib_gc_dest(rn);
 }
 
+/*
+ * TODO - wip
+ */
+void rib_process_after(void)
+{
+}
+
 /* Take a list of route_node structs and return 1, if there was a record
  * picked from it and processed by rib_process(). Don't process more,
  * than one RN record; operate only in the specified sub-queue.
@@ -2851,10 +2867,65 @@ void rib_close_table(struct route_table *table)
 	}
 }
 
+/*
+ *
+ */
+static int rib_process_dplane_results(struct thread *thread)
+{
+	dplane_ctx_h ctx;
+
+	do {
+		/* Take lock controlling queue of results */
+		pthread_mutex_lock(&dplane_mutex);
+		{
+			/* Dequeue context block */
+			dplane_ctx_dequeue(&rib_dplane_q, &ctx);
+		}
+		pthread_mutex_unlock(&dplane_mutex);
+
+		if (ctx) {
+			dplane_ctx_fini(&ctx);
+		} else {
+			break;
+		}
+
+	} while(1);
+
+	return (0);
+}
+
+/*
+ * Results are returned from the dataplane subsystem, in the context of
+ * the dataplane thread. We enqueue the results here for processing by
+ * the main thread later.
+ */
+static int rib_dplane_results(dplane_ctx_h ctx)
+{
+	/* Take lock controlling queue of results */
+	pthread_mutex_lock(&dplane_mutex);
+	{
+		/* Enqueue context block */
+		dplane_ctx_enqueue_tail(&rib_dplane_q, ctx);
+	}
+	pthread_mutex_unlock(&dplane_mutex);
+
+	/* Ensure event is signalled to zebra main thread */
+	thread_add_event(zebrad.master, rib_process_dplane_results, NULL, 0,
+			 &t_dplane);
+
+	return (0);
+}
+
 /* Routing information base initialize. */
 void rib_init(void)
 {
 	rib_queue_init(&zebrad);
+
+	/* Init dataplane, and register for results */
+	pthread_mutex_init(&dplane_mutex, NULL);
+	TAILQ_INIT(&rib_dplane_q);
+	zebra_dplane_init();
+	dplane_results_register(rib_dplane_results);
 }
 
 /*
