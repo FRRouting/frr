@@ -20,7 +20,7 @@
 #ifndef __PBR_VTY_H__
 #define __PBR_VTY_H__
 
-#define PBR_STR "Policy based routing\n"
+#define PBR_STR "Policy Based Routing\n"
 
 extern void pbr_vty_init(void);
 #endif
