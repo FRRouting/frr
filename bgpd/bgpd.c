@@ -3300,6 +3300,7 @@ int bgp_delete(struct bgp *bgp)
 	afi_t afi;
 	int i;
 
+	assert(bgp);
 	THREAD_OFF(bgp->t_startup);
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
