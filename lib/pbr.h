@@ -89,6 +89,20 @@ struct pbr_rule {
 	uint32_t ifindex;
 };
 
+/* TCP flags value shared
+ * those are values of byte 13 of TCP header
+ * as mentioned in rfc793
+ */
+#define TCP_HEADER_FIN (0x01)
+#define TCP_HEADER_SYN (0x02)
+#define TCP_HEADER_RST (0x04)
+#define TCP_HEADER_PSH (0x08)
+#define TCP_HEADER_ACK (0x10)
+#define TCP_HEADER_URG (0x20)
+#define TCP_HEADER_ALL_FLAGS (TCP_HEADER_FIN | TCP_HEADER_SYN \
+			      | TCP_HEADER_RST | TCP_HEADER_PSH \
+			      | TCP_HEADER_ACK | TCP_HEADER_URG)
+
 extern int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s,
 				struct pbr_rule *zrule);
 

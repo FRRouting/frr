@@ -183,6 +183,15 @@ struct bgp_pbr_range_port {
 	uint16_t max_port;
 };
 
+/* this structure can be used to filter with a mask
+ * for instance it supports not instructions like for
+ * tcpflags
+ */
+struct bgp_pbr_val_mask {
+	uint16_t val;
+	uint16_t mask;
+};
+
 /* this structure is used to pass instructs
  * so that BGP can create pbr instructions to ZEBRA
  */
@@ -194,18 +203,44 @@ struct bgp_pbr_filter {
 	struct bgp_pbr_range_port *pkt_len;
 	struct bgp_pbr_range_port *src_port;
 	struct bgp_pbr_range_port *dst_port;
+	struct bgp_pbr_val_mask *tcp_flags;
 };
 
+/* TCP : FIN and SYN -> val = ALL; mask = 3
+ * TCP : not (FIN and SYN) -> val = ALL; mask = ALL & ~(FIN|RST)
+ */
 static bool bgp_pbr_extract_enumerate(struct bgp_pbr_match_val list[],
-				      int num)
+				      int num, uint8_t unary_operator,
+				      struct bgp_pbr_val_mask *valmask)
 {
 	int i = 0;
 
+	if (valmask)
+		memset(valmask, 0, sizeof(struct bgp_pbr_val_mask));
 	for (i = 0; i < num; i++) {
-		if (list[i].compare_operator !=
-		    OPERATOR_COMPARE_EQUAL_TO)
+		if (i != 0 && list[i].unary_operator !=
+		    unary_operator)
 			return false;
+		if (!(list[i].compare_operator &
+		    OPERATOR_COMPARE_EQUAL_TO) &&
+		    !(list[i].compare_operator &
+		      OPERATOR_COMPARE_EXACT_MATCH)) {
+			if ((list[i].compare_operator &
+			     OPERATOR_COMPARE_LESS_THAN) &&
+			    (list[i].compare_operator &
+			     OPERATOR_COMPARE_GREATER_THAN)) {
+				if (valmask)
+					valmask->mask |=
+						TCP_HEADER_ALL_FLAGS &
+						~(list[i].value);
+				continue;
+			}
+			return false;
+		}
+		if (valmask)
+			valmask->mask |= list[i].value;
 	}
+	valmask->mask = TCP_HEADER_ALL_FLAGS;
 	return true;
 }
 
@@ -271,7 +306,7 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	 * - combination src/dst => drop
 	 * - combination srcport + @IP
 	 */
-	if (api->match_dscp_num || api->match_tcpflags_num) {
+	if (api->match_dscp_num) {
 		if (BGP_DEBUG(pbr, PBR)) {
 			bgp_pbr_print_policy_route(api);
 			zlog_debug("BGP: some SET actions not supported by Zebra. ignoring.");
@@ -309,9 +344,18 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 				   "too complex. ignoring.");
 		return 0;
 	}
+	if (!bgp_pbr_extract_enumerate(api->tcpflags,
+				       api->match_tcpflags_num,
+				       OPERATOR_UNARY_AND, NULL)) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match tcp flags:"
+				   "too complex. ignoring.");
+		return 0;
+	}
 	if (!bgp_pbr_extract(api->icmp_type, api->match_icmp_type_num, NULL)) {
 		if (!bgp_pbr_extract_enumerate(api->icmp_type,
-					       api->match_icmp_type_num)) {
+					       api->match_icmp_type_num,
+					       OPERATOR_UNARY_OR, NULL)) {
 			if (BGP_DEBUG(pbr, PBR))
 				zlog_debug("BGP: match icmp type operations:"
 					   "too complex. ignoring.");
@@ -321,7 +365,8 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	}
 	if (!bgp_pbr_extract(api->icmp_code, api->match_icmp_code_num, NULL)) {
 		if (!bgp_pbr_extract_enumerate(api->icmp_code,
-					  api->match_icmp_code_num)) {
+					       api->match_icmp_code_num,
+					       OPERATOR_UNARY_OR, NULL)) {
 			if (BGP_DEBUG(pbr, PBR))
 				zlog_debug("BGP: match icmp code operations:"
 					   "too complex. ignoring.");
@@ -591,6 +636,8 @@ uint32_t bgp_pbr_match_hash_key(void *arg)
 	key = jhash_1word(pbm->flags, key);
 	key = jhash_1word(pbm->pkt_len_min, key);
 	key = jhash_1word(pbm->pkt_len_max, key);
+	key = jhash_1word(pbm->tcp_flags, key);
+	key = jhash_1word(pbm->tcp_mask_flags, key);
 	return jhash_1word(pbm->type, key);
 }
 
@@ -617,6 +664,12 @@ int bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 		return 0;
 
 	if (r1->pkt_len_max != r2->pkt_len_max)
+		return 0;
+
+	if (r1->tcp_flags != r2->tcp_flags)
+		return 0;
+
+	if (r1->tcp_mask_flags != r2->tcp_mask_flags)
 		return 0;
 
 	return 1;
@@ -1089,6 +1142,10 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 		temp.pkt_len_min = pkt_len->min_port;
 	if (pkt_len && pkt_len->max_port)
 		temp.pkt_len_max = pkt_len->max_port;
+	if (bpf->tcp_flags) {
+		temp.tcp_flags = bpf->tcp_flags->val;
+		temp.tcp_mask_flags = bpf->tcp_flags->mask;
+	}
 
 	if (bpf->src == NULL || bpf->dst == NULL) {
 		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
@@ -1155,12 +1212,15 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		char protocol_str[16];
 
 		protocol_str[0] = '\0';
+		if (bpf->tcp_flags && bpf->tcp_flags->mask)
+			bpf->protocol = IPPROTO_TCP;
 		if (bpf->protocol)
 			snprintf(protocol_str, sizeof(protocol_str),
 				 "proto %d", bpf->protocol);
 		buffer[0] = '\0';
 		if (bpf->protocol == IPPROTO_ICMP && src_port && dst_port)
-			remaining_len += snprintf(buffer, 64, "type %d, code %d",
+			remaining_len += snprintf(buffer, sizeof(buffer),
+						  "type %d, code %d",
 				 src_port->min_port, dst_port->min_port);
 		else if (bpf->protocol == IPPROTO_UDP ||
 			 bpf->protocol == IPPROTO_TCP) {
@@ -1193,6 +1253,14 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 						  pkt_len->max_port ?
 						  pkt_len->max_port :
 						  pkt_len->min_port);
+		}
+		if (bpf->tcp_flags) {
+			remaining_len += snprintf(buffer + remaining_len,
+						  sizeof(buffer)
+						  - remaining_len,
+						  "tcpflags %x/%x",
+						  bpf->tcp_flags->val,
+						  bpf->tcp_flags->mask);
 		}
 		zlog_info("BGP: adding FS PBR from %s to %s, %s %s",
 			  bpf->src == NULL ? "<all>" :
@@ -1260,7 +1328,10 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		temp.pkt_len_min = pkt_len->min_port;
 	if (pkt_len && pkt_len->max_port)
 		temp.pkt_len_max = pkt_len->max_port;
-
+	if (bpf->tcp_flags) {
+		temp.tcp_flags = bpf->tcp_flags->val;
+		temp.tcp_mask_flags = bpf->tcp_flags->mask;
+	}
 	temp.action = bpa;
 	bpm = hash_get(bgp->pbr_match_hash, &temp,
 		       bgp_pbr_match_alloc_intern);
@@ -1550,7 +1621,8 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	if (api->match_icmp_type_num >= 1) {
 		proto = IPPROTO_ICMP;
 		if (bgp_pbr_extract_enumerate(api->icmp_type,
-					      api->match_icmp_type_num))
+					      api->match_icmp_type_num,
+					      OPERATOR_UNARY_OR, NULL))
 			enum_icmp = true;
 		else {
 			bgp_pbr_extract(api->icmp_type,
@@ -1562,7 +1634,8 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	if (api->match_icmp_code_num >= 1) {
 		proto = IPPROTO_ICMP;
 		if (bgp_pbr_extract_enumerate(api->icmp_code,
-					      api->match_icmp_code_num))
+					      api->match_icmp_code_num,
+					      OPERATOR_UNARY_OR, NULL))
 			enum_icmp = true;
 		else {
 			bgp_pbr_extract(api->icmp_code,
@@ -1571,15 +1644,21 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 			dstp = &range_icmp_code;
 		}
 	}
-	if (api->match_packet_length_num >= 1)
+
+	if (api->match_tcpflags_num)
+		bgp_pbr_extract_enumerate(api->tcpflags,
+					  api->match_tcpflags_num,
+					  OPERATOR_UNARY_AND, bpf.tcp_flags);
+	if (api->match_packet_length_num >= 1) {
 		bgp_pbr_extract(api->packet_length,
 				api->match_packet_length_num,
 				&pkt_len);
+		bpf.pkt_len = &pkt_len;
+	}
 	bpf.vrf_id = api->vrf_id;
 	bpf.src = src;
 	bpf.dst = dst;
 	bpf.protocol = proto;
-	bpf.pkt_len = &pkt_len;
 	bpf.src_port = srcp;
 	bpf.dst_port = dstp;
 	if (!add) {
