@@ -135,6 +135,8 @@ struct zebra_pbr_iptable {
 
 	uint16_t pkt_len_min;
 	uint16_t pkt_len_max;
+	uint16_t tcp_flags;
+	uint16_t tcp_mask_flags;
 
 	uint32_t nb_interface;
 
@@ -234,6 +236,8 @@ extern void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname);
 extern void zebra_pbr_show_iptable(struct vty *vty);
 extern void zebra_pbr_iptable_update_interfacelist(struct stream *s,
 				   struct zebra_pbr_iptable *zpi);
+size_t zebra_pbr_tcpflags_snprintf(char *buffer, size_t len,
+				   uint16_t tcp_val);
 
 DECLARE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat, (struct zebra_ns *zns,
 				    struct zebra_pbr_ipset_entry *ipset,
