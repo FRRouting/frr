@@ -883,8 +883,7 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
  * common version, which is suitable for both sync and async use.
  *
  */
-int netlink_talk(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *, ns_id_t,
-			       int startup),
+int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
 		 int startup)
 {
