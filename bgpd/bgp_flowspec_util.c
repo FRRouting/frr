@@ -348,32 +348,33 @@ int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
 		case BGP_FLOWSPEC_RETURN_STRING:
 			if (op[1] == 1 && loop != 0) {
 				len_written = snprintf(ptr, len_string,
-						       ", and ");
+						       ",&");
 				len_string -= len_written;
 				ptr += len_written;
 			} else if (op[1] == 0 && loop != 0) {
 				len_written = snprintf(ptr, len_string,
-						      ", or ");
-				len_string -= len_written;
-				ptr += len_written;
-			}
-			len_written = snprintf(ptr, len_string,
-					       "tcp flags is ");
-			len_string -= len_written;
-			ptr += len_written;
-			if (op[6] == 1) {
-				ptr += snprintf(ptr, len_string,
-					       "not ");
+						      ",|");
 				len_string -= len_written;
 				ptr += len_written;
 			}
 			if (op[7] == 1) {
-				ptr += snprintf(ptr, len_string,
-					       "exactly match ");
+				len_written = snprintf(ptr, len_string,
+					       "= ");
+				len_string -= len_written;
+				ptr += len_written;
+			} else {
+				len_written = snprintf(ptr, len_string,
+						       "∋ ");
 				len_string -= len_written;
 				ptr += len_written;
 			}
-			ptr += snprintf(ptr, len_string,
+			if (op[6] == 1) {
+				len_written = snprintf(ptr, len_string,
+					       "! ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			len_written = snprintf(ptr, len_string,
 				       "%d", value);
 			len_string -= len_written;
 			ptr += len_written;
