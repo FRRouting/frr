@@ -2819,7 +2819,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		}
 
 		if (v6only)
-			SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+			peer_flag_set(peer, PEER_FLAG_IFPEER_V6ONLY);
 
 		/* Request zebra to initiate IPv6 RAs on this interface. We do
 		 * this
@@ -2836,9 +2836,9 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 	if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
 	    || (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))) {
 		if (v6only)
-			SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+			peer_flag_set(peer, PEER_FLAG_IFPEER_V6ONLY);
 		else
-			UNSET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+			peer_flag_unset(peer, PEER_FLAG_IFPEER_V6ONLY);
 
 		/* v6only flag changed. Reset bgp seesion */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
