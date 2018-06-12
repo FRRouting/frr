@@ -56,6 +56,11 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 	(nhop);								\
 	(nhop) = nexthop_next(nhop)
 
+#define ALL_NEXTHOPS_PTR(head, nhop)					\
+	(nhop) = ((head)->nexthop);					\
+	(nhop);								\
+	(nhop) = nexthop_next(nhop)
+
 
 struct nexthop_hold {
 	char *nhvrf_name;
