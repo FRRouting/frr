@@ -1,6 +1,0 @@
-leak:clippy
-leak:PyObject_Malloc
-leak:PyObject_Realloc
-leak:PyList_Append
-leak:malloc
-leak:PyObject_GC_Resize
