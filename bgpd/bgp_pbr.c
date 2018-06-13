@@ -206,6 +206,7 @@ struct bgp_pbr_filter {
 	struct bgp_pbr_range_port *src_port;
 	struct bgp_pbr_range_port *dst_port;
 	struct bgp_pbr_val_mask *tcp_flags;
+	struct bgp_pbr_val_mask *dscp;
 };
 
 /* this structure is used to contain OR instructions
@@ -394,15 +395,6 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	 * - combination src/dst => drop
 	 * - combination srcport + @IP
 	 */
-	if (api->match_dscp_num) {
-		if (BGP_DEBUG(pbr, PBR)) {
-			bgp_pbr_print_policy_route(api);
-			zlog_debug("BGP: some SET actions not supported by Zebra. ignoring.");
-			zlog_debug("BGP: case icmp or length or dscp or tcp flags");
-		}
-		return 0;
-	}
-
 	if (api->match_protocol_num > 1) {
 		if (BGP_DEBUG(pbr, PBR))
 			zlog_debug("BGP: match protocol operations:"
@@ -478,6 +470,15 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	if (!bgp_pbr_extract(api->packet_length, api->match_packet_length_num, NULL)) {
 		if (BGP_DEBUG(pbr, PBR))
 			zlog_debug("BGP: match packet length operations:"
+				   "too complex. ignoring.");
+		return 0;
+	}
+	if (api->match_dscp_num > 1 ||
+	    !bgp_pbr_extract_enumerate(api->dscp,
+				       api->match_dscp_num,
+				       OPERATOR_UNARY_OR, NULL)) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: match DSCP operations:"
 				   "too complex. ignoring.");
 		return 0;
 	}
@@ -727,6 +728,7 @@ uint32_t bgp_pbr_match_hash_key(void *arg)
 	key = jhash_1word(pbm->pkt_len_max, key);
 	key = jhash_1word(pbm->tcp_flags, key);
 	key = jhash_1word(pbm->tcp_mask_flags, key);
+	key = jhash_1word(pbm->dscp_value, key);
 	return jhash_1word(pbm->type, key);
 }
 
@@ -761,6 +763,8 @@ int bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 	if (r1->tcp_mask_flags != r2->tcp_mask_flags)
 		return 0;
 
+	if (r1->dscp_value != r2->dscp_value)
+		return 0;
 	return 1;
 }
 
@@ -1235,6 +1239,13 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
 		temp.tcp_flags = bpf->tcp_flags->val;
 		temp.tcp_mask_flags = bpf->tcp_flags->mask;
 	}
+	if (bpf->dscp) {
+		if (bpf->dscp->mask)
+			temp.flags |= MATCH_DSCP_INVERSE_SET;
+		else
+			temp.flags |= MATCH_DSCP_SET;
+		temp.dscp_value = bpf->dscp->val;
+	}
 
 	if (bpf->src == NULL || bpf->dst == NULL) {
 		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
@@ -1372,6 +1383,15 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 						  bpf->tcp_flags->val,
 						  bpf->tcp_flags->mask);
 		}
+		if (bpf->dscp) {
+			snprintf(buffer + remaining_len,
+				 sizeof(buffer)
+				 - remaining_len,
+				 "%s dscp %d",
+				 bpf->dscp->mask
+				 ? "!" : "",
+				 bpf->dscp->val);
+		}
 		zlog_info("BGP: adding FS PBR from %s to %s, %s %s",
 			  bpf->src == NULL ? "<all>" :
 			  prefix2str(bpf->src, bufsrc, sizeof(bufsrc)),
@@ -1441,6 +1461,13 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	if (bpf->tcp_flags) {
 		temp.tcp_flags = bpf->tcp_flags->val;
 		temp.tcp_mask_flags = bpf->tcp_flags->mask;
+	}
+	if (bpf->dscp) {
+		if (bpf->dscp->mask)
+			temp.flags |= MATCH_DSCP_INVERSE_SET;
+		else
+			temp.flags |= MATCH_DSCP_SET;
+		temp.dscp_value = bpf->dscp->val;
 	}
 	temp.action = bpa;
 	bpm = hash_get(bgp->pbr_match_hash, &temp,
@@ -1804,6 +1831,11 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 				api->match_packet_length_num,
 				&pkt_len);
 		bpf.pkt_len = &pkt_len;
+	}
+	if (api->match_dscp_num >= 1) {
+		bpf.dscp_presence = true;
+		bpf.dscp_value = api->dscp[0].value;
+
 	}
 	bpf.vrf_id = api->vrf_id;
 	bpf.src = src;

@@ -137,6 +137,7 @@ struct zebra_pbr_iptable {
 	uint16_t pkt_len_max;
 	uint16_t tcp_flags;
 	uint16_t tcp_mask_flags;
+	uint8_t dscp_value;
 
 	uint32_t nb_interface;
 
