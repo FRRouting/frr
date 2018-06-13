@@ -97,12 +97,13 @@ DEFPY(pbr_set_table_range,
 {
 	/* upper bound is 2^32 - 2^10 */
 	int ret = CMD_WARNING;
+	const int minrange = 1000;
 
 	/* validate given bounds */
 	if (lb > ub)
 		vty_out(vty, "%% Lower bound must be less than upper bound\n");
-	else if (ub - lb < 10)
-		vty_out(vty, "%% Range breadth must be at least 10\n");
+	else if (ub - lb < minrange)
+		vty_out(vty, "%% Range breadth must be at least %d\n", minrange);
 	else {
 		ret = CMD_SUCCESS;
 		pbr_nht_set_tableid_range((uint32_t) lb, (uint32_t) ub);
