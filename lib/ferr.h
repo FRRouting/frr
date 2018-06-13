@@ -25,6 +25,8 @@
 #include <limits.h>
 #include <errno.h>
 
+#include "vty.h"
+
 /* return type when this error indication stuff is used.
  *
  * guaranteed to have boolean evaluation to "false" when OK, "true" when error
@@ -92,6 +94,34 @@ struct ferr {
 	/* valid if pathname[0] != '\0' */
 	char pathname[PATH_MAX];
 };
+
+/* Numeric ranges assigned to daemons for use as error codes. */
+#define LIB_FERR_START 0x01000001
+#define LIB_FERR_END 0x01FFFFFF
+#define BGP_FERR_START 0x02000000
+#define BGP_FERR_END 0x02FFFFFF
+#define OSPF_FERR_START 0x03000001
+#define OSPF_FERR_END 0x03FFFFFF
+#define ZEBRA_FERR_START 0x04000001
+#define ZEBRA_FERR_END 0x04FFFFFF
+
+struct ferr_ref {
+	/* Unique error code displayed to end user as a reference. -1 means
+	 * this is an uncoded error that does not have reference material. */
+	uint32_t code;
+	/* Ultra brief title */
+	const char *title;
+	/* Brief description of error */
+	const char *description;
+	/* Remedial suggestion */
+	const char *suggestion;
+};
+
+void ferr_ref_add(struct ferr_ref *ref);
+struct ferr_ref *ferr_ref_get(uint32_t code);
+void ferr_ref_display(struct vty *, uint32_t code);
+void ferr_ref_init(void);
+void ferr_ref_fini(void);
 
 /* get error details.
  *
