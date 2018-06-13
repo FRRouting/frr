@@ -642,15 +642,11 @@ struct community *community_str2com(const char *str)
 			community_add_val(com, val);
 			break;
 		case community_token_unknown:
-		default:
 			if (com)
 				community_free(com);
 			return NULL;
 		}
 	} while (str);
-
-	if (!com)
-		return NULL;
 
 	com_sort = community_uniq_sort(com);
 	community_free(com);
