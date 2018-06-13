@@ -374,6 +374,7 @@ uint32_t zebra_pbr_iptable_hash_key(void *arg)
 	key = jhash_1word(iptable->pkt_len_max, key);
 	key = jhash_1word(iptable->tcp_flags, key);
 	key = jhash_1word(iptable->tcp_mask_flags, key);
+	key = jhash_1word(iptable->dscp_value, key);
 	return jhash_3words(iptable->filter_bm, iptable->type,
 			    iptable->unique, key);
 }
@@ -405,6 +406,8 @@ int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
 	if (r1->tcp_flags != r2->tcp_flags)
 		return 0;
 	if (r1->tcp_mask_flags != r2->tcp_mask_flags)
+		return 0;
+	if (r1->dscp_value != r2->dscp_value)
 		return 0;
 	return 1;
 }
