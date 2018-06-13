@@ -888,6 +888,9 @@ struct peer {
 #define PEER_FLAG_IFPEER_V6ONLY             (1 << 14) /* if-based peer is v6 only */
 #define PEER_FLAG_IS_RFAPI_HD               (1 << 15) /* attached to rfapi HD */
 #define PEER_FLAG_ENFORCE_FIRST_AS          (1 << 16) /* enforce-first-as */
+#define PEER_FLAG_ROUTEADV                  (1 << 17) /* route advertise */
+#define PEER_FLAG_TIMER                     (1 << 18) /* keepalive & holdtime */
+#define PEER_FLAG_TIMER_CONNECT             (1 << 19) /* connect timer */
 
 	/* outgoing message sent in CEASE_ADMIN_SHUTDOWN notify */
 	char *tx_shutdown_message;
@@ -961,17 +964,7 @@ struct peer {
 #define PEER_STATUS_EOR_SEND          (1 << 4) /* end-of-rib send to peer */
 #define PEER_STATUS_EOR_RECEIVED      (1 << 5) /* end-of-rib received from peer */
 
-	/* Default attribute value for the peer. */
-	uint32_t config;
-#define PEER_CONFIG_TIMER             (1 << 0) /* keepalive & holdtime */
-#define PEER_CONFIG_CONNECT           (1 << 1) /* connect */
-#define PEER_CONFIG_ROUTEADV          (1 << 2) /* route advertise */
-#define PEER_GROUP_CONFIG_TIMER       (1 << 3) /* timers from peer-group */
-
-#define PEER_OR_GROUP_TIMER_SET(peer)                                          \
-	(CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)                           \
-	 || CHECK_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER))
-
+	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
 	_Atomic uint32_t keepalive;
 	_Atomic uint32_t connect;

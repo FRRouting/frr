@@ -487,17 +487,17 @@ static int write_bgpPeerTable(int action, uint8_t *var_val,
 			return SNMP_ERR_NOSUCHNAME;
 		break;
 	case BGPPEERCONNECTRETRYINTERVAL:
-		SET_FLAG(peer->config, PEER_CONFIG_CONNECT);
+		peer_flag_set(peer, PEER_FLAG_TIMER_CONNECT);
 		peer->connect = intval;
 		peer->v_connect = intval;
 		break;
 	case BGPPEERHOLDTIMECONFIGURED:
-		SET_FLAG(peer->config, PEER_CONFIG_TIMER);
+		peer_flag_set(peer, PEER_FLAG_TIMER);
 		peer->holdtime = intval;
 		peer->v_holdtime = intval;
 		break;
 	case BGPPEERKEEPALIVECONFIGURED:
-		SET_FLAG(peer->config, PEER_CONFIG_TIMER);
+		peer_flag_set(peer, PEER_FLAG_TIMER);
 		peer->keepalive = intval;
 		peer->v_keepalive = intval;
 		break;
@@ -617,14 +617,14 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 		break;
 	case BGPPEERHOLDTIMECONFIGURED:
 		*write_method = write_bgpPeerTable;
-		if (PEER_OR_GROUP_TIMER_SET(peer))
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 			return SNMP_INTEGER(peer->holdtime);
 		else
 			return SNMP_INTEGER(peer->v_holdtime);
 		break;
 	case BGPPEERKEEPALIVECONFIGURED:
 		*write_method = write_bgpPeerTable;
-		if (PEER_OR_GROUP_TIMER_SET(peer))
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 			return SNMP_INTEGER(peer->keepalive);
 		else
 			return SNMP_INTEGER(peer->v_keepalive);

@@ -183,17 +183,6 @@ static char *str_printf(const char *fmt, ...)
 	return buf;
 }
 
-static void _test_advertisement_interval(struct test *test, struct peer *peer,
-					 struct peer *group, bool peer_set,
-					 bool group_set)
-{
-	uint32_t def = BGP_DEFAULT_EBGP_ROUTEADV;
-
-	TEST_ASSERT_EQ(test, peer->v_routeadv,
-		       (peer_set || group_set) ? 10 : def);
-	TEST_ASSERT_EQ(test, group->v_routeadv, group_set ? 20 : def);
-}
-
 /* clang-format off */
 static struct test_peer_attr test_peer_attrs[] = {
 	/* Peer Attributes */
@@ -201,8 +190,8 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.cmd = "advertisement-interval",
 		.peer_cmd = "advertisement-interval 10",
 		.group_cmd = "advertisement-interval 20",
-		.type = PEER_AT_GLOBAL_CUSTOM,
-		.custom_handler = &_test_advertisement_interval,
+		.u.flag = PEER_FLAG_ROUTEADV,
+		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
 		.cmd = "capability dynamic",
@@ -254,6 +243,20 @@ static struct test_peer_attr test_peer_attrs[] = {
 	{
 		.cmd = "strict-capability-match",
 		.u.flag = PEER_FLAG_STRICT_CAP_MATCH,
+		.type = PEER_AT_GLOBAL_FLAG,
+	},
+	{
+		.cmd = "timers",
+		.peer_cmd = "timers 10 30",
+		.group_cmd = "timers 20 60",
+		.u.flag = PEER_FLAG_TIMER,
+		.type = PEER_AT_GLOBAL_FLAG,
+	},
+	{
+		.cmd = "timers connect",
+		.peer_cmd = "timers connect 10",
+		.group_cmd = "timers connect 20",
+		.u.flag = PEER_FLAG_TIMER_CONNECT,
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 
@@ -539,6 +542,11 @@ static const char *str_from_attr_type(enum test_peer_attr_type at)
 	default:
 		return NULL;
 	}
+}
+
+static bool is_attr_type_global(enum test_peer_attr_type at)
+{
+	return at == PEER_AT_GLOBAL_FLAG || at == PEER_AT_GLOBAL_CUSTOM;
 }
 
 static void test_log(struct test *test, const char *fmt, ...)
@@ -944,7 +952,6 @@ static void test_process(struct test *test, struct test_peer_attr *pa,
 static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 {
 	int tc = 1;
-	bool is_address_family;
 	const char *type;
 	const char *ecp = pa->o.invert_peer ? "no " : "";
 	const char *dcp = pa->o.invert_peer ? "" : "no ";
@@ -964,12 +971,8 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 		return;
 	}
 
-	is_address_family =
-		(pa->type == PEER_AT_AF_FLAG || pa->type == PEER_AT_AF_FILTER
-		 || pa->type == PEER_AT_AF_CUSTOM);
-
 	/* Test Preparation: Switch and activate address-family. */
-	if (is_address_family) {
+	if (!is_attr_type_global(pa->type)) {
 		test_log(test, "prepare: switch address-family to [%s]",
 			 afi_safi_print(pa->afi, pa->safi));
 		test_execute(test, "address-family %s %s",
@@ -1026,7 +1029,7 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	g = test->group;
 
 	/* Test Preparation: Switch and activate address-family. */
-	if (is_address_family) {
+	if (!is_attr_type_global(pa->type)) {
 		test_log(test, "prepare: switch address-family to [%s]",
 			 afi_safi_print(pa->afi, pa->safi));
 		test_execute(test, "address-family %s %s",
@@ -1193,7 +1196,7 @@ int main(void)
 		pa = &test_peer_attrs[i++];
 
 		/* Just copy the peer attribute structure for global flags. */
-		if (pa->type == PEER_AT_GLOBAL_FLAG) {
+		if (is_attr_type_global(pa->type)) {
 			pac = XMALLOC(MTYPE_TMP, sizeof(struct test_peer_attr));
 			memcpy(pac, pa, sizeof(struct test_peer_attr));
 			listnode_add(pa_list, pac);
