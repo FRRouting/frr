@@ -211,6 +211,12 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.o.use_iface_peer = true,
 	},
 	{
+		.cmd = "description",
+		.peer_cmd = "description FRR Peer",
+		.group_cmd = "description FRR Group",
+		.type = PEER_AT_GLOBAL_CUSTOM,
+	},
+	{
 		.cmd = "disable-connected-check",
 		.u.flag = PEER_FLAG_DISABLE_CONNECTED_CHECK,
 		.type = PEER_AT_GLOBAL_FLAG,
@@ -226,6 +232,22 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
+		.cmd = "local-as",
+		.peer_cmd = "local-as 1",
+		.group_cmd = "local-as 2",
+		.type = PEER_AT_GLOBAL_CUSTOM,
+	},
+	{
+		.cmd = "local-as 1 no-prepend",
+		.u.flag = PEER_FLAG_LOCAL_AS_NO_PREPEND,
+		.type = PEER_AT_GLOBAL_FLAG,
+	},
+	{
+		.cmd = "local-as 1 no-prepend replace-as",
+		.u.flag = PEER_FLAG_LOCAL_AS_REPLACE_AS,
+		.type = PEER_AT_GLOBAL_FLAG,
+	},
+	{
 		.cmd = "override-capability",
 		.u.flag = PEER_FLAG_OVERRIDE_CAPABILITY,
 		.type = PEER_AT_GLOBAL_FLAG,
@@ -234,6 +256,12 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.cmd = "passive",
 		.u.flag = PEER_FLAG_PASSIVE,
 		.type = PEER_AT_GLOBAL_FLAG,
+	},
+	{
+		.cmd = "password",
+		.peer_cmd = "password FRR-Peer",
+		.group_cmd = "password FRR-Group",
+		.type = PEER_AT_GLOBAL_CUSTOM,
 	},
 	{
 		.cmd = "shutdown",
@@ -258,6 +286,18 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.group_cmd = "timers connect 20",
 		.u.flag = PEER_FLAG_TIMER_CONNECT,
 		.type = PEER_AT_GLOBAL_FLAG,
+	},
+	{
+		.cmd = "update-source",
+		.peer_cmd = "update-source 255.255.255.1",
+		.group_cmd = "update-source 255.255.255.2",
+		.type = PEER_AT_GLOBAL_CUSTOM,
+	},
+	{
+		.cmd = "update-source",
+		.peer_cmd = "update-source IFACE-PEER",
+		.group_cmd = "update-source IFACE-GROUP",
+		.type = PEER_AT_GLOBAL_CUSTOM,
 	},
 
 	/* Address Family Attributes */

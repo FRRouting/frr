@@ -4655,12 +4655,11 @@ DEFUN (neighbor_description,
 
 DEFUN (no_neighbor_description,
        no_neighbor_description_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> description [LINE]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> description",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Neighbor specific description\n"
-       "Up to 80 characters describing this neighbor\n")
+       "Neighbor specific description\n")
 {
 	int idx_peer = 2;
 	struct peer *peer;
@@ -4674,6 +4673,11 @@ DEFUN (no_neighbor_description,
 	return CMD_SUCCESS;
 }
 
+ALIAS(no_neighbor_description, no_neighbor_description_comment_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> description LINE...",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Neighbor specific description\n"
+      "Up to 80 characters describing this neighbor\n")
 
 /* Neighbor update-source. */
 static int peer_update_source_vty(struct vty *vty, const char *peer_str,
@@ -4681,6 +4685,7 @@ static int peer_update_source_vty(struct vty *vty, const char *peer_str,
 {
 	struct peer *peer;
 	struct prefix p;
+	union sockunion su;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
@@ -4690,10 +4695,7 @@ static int peer_update_source_vty(struct vty *vty, const char *peer_str,
 		return CMD_WARNING;
 
 	if (source_str) {
-		union sockunion su;
-		int ret = str2sockunion(source_str, &su);
-
-		if (ret == 0)
+		if (str2sockunion(source_str, &su) == 0)
 			peer_update_source_addr_set(peer, &su);
 		else {
 			if (str2prefix(source_str, &p)) {
@@ -13030,6 +13032,7 @@ void bgp_vty_init(void)
 	/* "neighbor description" commands. */
 	install_element(BGP_NODE, &neighbor_description_cmd);
 	install_element(BGP_NODE, &no_neighbor_description_cmd);
+	install_element(BGP_NODE, &no_neighbor_description_comment_cmd);
 
 	/* "neighbor update-source" commands. "*/
 	install_element(BGP_NODE, &neighbor_update_source_cmd);
