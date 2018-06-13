@@ -178,12 +178,6 @@ struct bgp_pbr_match {
 	 */
 	uint32_t type;
 
-#define MATCH_IP_SRC_SET		(1 << 0)
-#define MATCH_IP_DST_SET		(1 << 1)
-#define MATCH_PORT_SRC_SET		(1 << 2)
-#define MATCH_PORT_DST_SET		(1 << 3)
-#define MATCH_PORT_SRC_RANGE_SET	(1 << 4)
-#define MATCH_PORT_DST_RANGE_SET	(1 << 5)
 	uint32_t flags;
 
 	uint16_t pkt_len_min;

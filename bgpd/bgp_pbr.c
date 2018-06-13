@@ -21,6 +21,7 @@
 #include "prefix.h"
 #include "zclient.h"
 #include "jhash.h"
+#include "pbr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_pbr.h"
