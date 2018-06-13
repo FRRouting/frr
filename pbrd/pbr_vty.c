@@ -27,6 +27,7 @@
 #include "nexthop_group.h"
 #include "log.h"
 #include "debug.h"
+#include "pbr.h"
 
 #include "pbrd/pbr_nht.h"
 #include "pbrd/pbr_map.h"

@@ -20,6 +20,8 @@
 #ifndef _PBR_H
 #define _PBR_H
 
+#define PBR_STR "Policy Based Routing\n"
+
 /*
  * A PBR filter
  *
