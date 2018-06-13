@@ -1030,8 +1030,10 @@ int main(int argc, char **argv)
 		umask(022);    /* set a default for dumb programs */
 		setpgid(0, 0); /* set the process group */
 		fd = open("/dev/null", O_RDWR); /* stdin */
-		dup(fd);			/* stdout */
-		dup(fd);			/* stderr */
+		if (fd >= 0) {
+			dup(fd);		/* stdout */
+			dup(fd);		/* stderr */
+		}
 	}
 	if (nicelevel) {
 		errno = 0;
