@@ -1393,7 +1393,7 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 	 * it will be suppressed subsequently
 	 */
 	/* ip rule add */
-	if (!bpa->installed) {
+	if (!bpa->installed && !bpa->install_in_progress) {
 		bgp_send_pbr_rule_action(bpa, true);
 		bgp_zebra_announce_default(bgp, nh,
 					   AFI_IP, bpa->table_id, true);
