@@ -103,6 +103,16 @@ struct pbr_rule {
 			      | TCP_HEADER_RST | TCP_HEADER_PSH \
 			      | TCP_HEADER_ACK | TCP_HEADER_URG)
 
+/* Pbr IPTable defines
+ * those are common flags shared between BGP and Zebra
+ */
+#define MATCH_IP_SRC_SET		(1 << 0)
+#define MATCH_IP_DST_SET		(1 << 1)
+#define MATCH_PORT_SRC_SET		(1 << 2)
+#define MATCH_PORT_DST_SET		(1 << 3)
+#define MATCH_PORT_SRC_RANGE_SET	(1 << 4)
+#define MATCH_PORT_DST_RANGE_SET	(1 << 5)
+
 extern int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s,
 				struct pbr_rule *zrule);
 
