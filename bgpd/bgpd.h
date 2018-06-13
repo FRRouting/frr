@@ -1326,7 +1326,6 @@ extern struct peer_group *peer_group_lookup_dynamic_neighbor(struct bgp *,
 							     struct prefix **);
 extern struct peer *peer_lookup_dynamic_neighbor(struct bgp *,
 						 union sockunion *);
-extern void peer_drop_dynamic_neighbor(struct peer *);
 
 /*
  * Peers are incredibly easy to memory leak
