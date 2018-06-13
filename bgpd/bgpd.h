@@ -891,6 +891,9 @@ struct peer {
 #define PEER_FLAG_ROUTEADV                  (1 << 17) /* route advertise */
 #define PEER_FLAG_TIMER                     (1 << 18) /* keepalive & holdtime */
 #define PEER_FLAG_TIMER_CONNECT             (1 << 19) /* connect timer */
+#define PEER_FLAG_PASSWORD                  (1 << 20) /* password */
+#define PEER_FLAG_LOCAL_AS                  (1 << 21) /* local-as */
+#define PEER_FLAG_UPDATE_SOURCE             (1 << 22) /* update-source */
 
 	/* outgoing message sent in CEASE_ADMIN_SHUTDOWN notify */
 	char *tx_shutdown_message;
@@ -1178,6 +1181,15 @@ DECLARE_QOBJ_TYPE(peer)
 			XFREE(mt, (peer)->attr);                               \
 		if ((group)->conf->attr)                                       \
 			(peer)->attr = XSTRDUP(mt, (group)->conf->attr);       \
+		else                                                           \
+			(peer)->attr = NULL;                                   \
+	} while (0)
+#define PEER_SU_ATTR_INHERIT(peer, group, attr)                                \
+	do {                                                                   \
+		if ((peer)->attr)                                              \
+			sockunion_free((peer)->attr);                          \
+		if ((group)->conf->attr)                                       \
+			(peer)->attr = sockunion_dup((group)->conf->attr);     \
 		else                                                           \
 			(peer)->attr = NULL;                                   \
 	} while (0)

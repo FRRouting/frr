@@ -1482,10 +1482,12 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	 * needed.
 	 */
 	if (peer_addr_updated) {
-		if (peer->password && prev_family == AF_UNSPEC)
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD)
+		    && prev_family == AF_UNSPEC)
 			bgp_md5_set(peer);
 	} else {
-		if (peer->password && prev_family != AF_UNSPEC)
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD)
+		    && prev_family != AF_UNSPEC)
 			bgp_md5_unset(peer);
 		peer->su.sa.sa_family = AF_UNSPEC;
 		memset(&peer->su.sin6.sin6_addr, 0, sizeof(struct in6_addr));
@@ -1706,8 +1708,9 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 	/* local-as reset */
 	if (peer_sort(peer) != BGP_PEER_EBGP) {
 		peer->change_local_as = 0;
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS);
+		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 	}
 }
 
@@ -2217,9 +2220,8 @@ int peer_delete(struct peer *peer)
 		bgp_unlink_nexthop_by_peer(peer);
 
 	/* Password configuration */
-	if (peer->password) {
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD)) {
 		XFREE(MTYPE_PEER_PASSWORD, peer->password);
-		peer->password = NULL;
 
 		if (!accept_peer && !BGP_PEER_SU_UNSPEC(peer)
 		    && !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
@@ -2409,8 +2411,8 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	if (conf->as)
 		peer->as = conf->as;
 
-	/* remote-as */
-	if (conf->change_local_as)
+	/* local-as */
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_LOCAL_AS))
 		peer->change_local_as = conf->change_local_as;
 
 	/* TTL */
@@ -2449,30 +2451,23 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	}
 
 	/* password apply */
-	if (conf->password && !peer->password)
-		peer->password = XSTRDUP(MTYPE_PEER_PASSWORD, conf->password);
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_PASSWORD))
+		PEER_STR_ATTR_INHERIT(peer, group, password,
+				      MTYPE_PEER_PASSWORD);
 
 	if (!BGP_PEER_SU_UNSPEC(peer))
 		bgp_md5_set(peer);
 
 	/* update-source apply */
-	if (conf->update_source) {
-		if (peer->update_source)
-			sockunion_free(peer->update_source);
-		if (peer->update_if) {
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_UPDATE_SOURCE)) {
+		if (conf->update_source) {
 			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-			peer->update_if = NULL;
-		}
-		peer->update_source = sockunion_dup(conf->update_source);
-	} else if (conf->update_if) {
-		if (peer->update_if)
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		if (peer->update_source) {
+			PEER_SU_ATTR_INHERIT(peer, group, update_source);
+		} else if (conf->update_if) {
 			sockunion_free(peer->update_source);
-			peer->update_source = NULL;
+			PEER_STR_ATTR_INHERIT(peer, group, update_if,
+					      MTYPE_PEER_UPDATE_SOURCE);
 		}
-		peer->update_if =
-			XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, conf->update_if);
 	}
 
 	bgp_bfd_peer_group2peer_copy(conf, peer);
@@ -2751,10 +2746,12 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			/* local-as reset */
 			if (peer_sort(group->conf) != BGP_PEER_EBGP) {
 				group->conf->change_local_as = 0;
-				UNSET_FLAG(peer->flags,
-					   PEER_FLAG_LOCAL_AS_NO_PREPEND);
-				UNSET_FLAG(peer->flags,
-					   PEER_FLAG_LOCAL_AS_REPLACE_AS);
+				peer_flag_unset(group->conf,
+						PEER_FLAG_LOCAL_AS);
+				peer_flag_unset(group->conf,
+						PEER_FLAG_LOCAL_AS_NO_PREPEND);
+				peer_flag_unset(group->conf,
+						PEER_FLAG_LOCAL_AS_REPLACE_AS);
 			}
 		}
 
@@ -3806,6 +3803,11 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_ROUTEADV, 0, peer_change_none},
 	{PEER_FLAG_TIMER, 0, peer_change_none},
 	{PEER_FLAG_TIMER_CONNECT, 0, peer_change_none},
+	{PEER_FLAG_PASSWORD, 0, peer_change_none},
+	{PEER_FLAG_LOCAL_AS, 0, peer_change_none},
+	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_none},
+	{PEER_FLAG_LOCAL_AS_REPLACE_AS, 0, peer_change_none},
+	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -4383,183 +4385,195 @@ int peer_description_unset(struct peer *peer)
 /* Neighbor update-source. */
 int peer_update_source_if_set(struct peer *peer, const char *ifname)
 {
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
+	/* Set flag and configuration on peer. */
+	peer_flag_set(peer, PEER_FLAG_UPDATE_SOURCE);
 	if (peer->update_if) {
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-		    && strcmp(peer->update_if, ifname) == 0)
+		if (strcmp(peer->update_if, ifname) == 0)
 			return 0;
-
 		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		peer->update_if = NULL;
 	}
-
-	if (peer->update_source) {
-		sockunion_free(peer->update_source);
-		peer->update_source = NULL;
-	}
-
 	peer->update_if = XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, ifname);
+	sockunion_free(peer->update_source);
+	peer->update_source = NULL;
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
 			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
 			bgp_session_reset(peer);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (peer->update_if) {
-			if (strcmp(peer->update_if, ifname) == 0)
+	/*
+	 * Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_UPDATE_SOURCE))
+			continue;
+
+		/* Skip peers with the same configuration. */
+		if (member->update_if) {
+			if (strcmp(member->update_if, ifname) == 0)
 				continue;
-
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-			peer->update_if = NULL;
+			XFREE(MTYPE_PEER_UPDATE_SOURCE, member->update_if);
 		}
 
-		if (peer->update_source) {
-			sockunion_free(peer->update_source);
-			peer->update_source = NULL;
-		}
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_UPDATE_SOURCE);
+		member->update_if = XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, ifname);
+		sockunion_free(member->update_source);
+		member->update_source = NULL;
 
-		peer->update_if = XSTRDUP(MTYPE_PEER_UPDATE_SOURCE, ifname);
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+		/* Send notification or reset peer depending on state. */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status)) {
+			member->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
+			bgp_notify_send(member, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
-			bgp_session_reset(peer);
+			bgp_session_reset(member);
 	}
+
 	return 0;
 }
 
 int peer_update_source_addr_set(struct peer *peer, const union sockunion *su)
 {
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
+	/* Set flag and configuration on peer. */
+	peer_flag_set(peer, PEER_FLAG_UPDATE_SOURCE);
 	if (peer->update_source) {
-		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-		    && sockunion_cmp(peer->update_source, su) == 0)
+		if (sockunion_cmp(peer->update_source, su) == 0)
 			return 0;
 		sockunion_free(peer->update_source);
-		peer->update_source = NULL;
 	}
-
-	if (peer->update_if) {
-		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		peer->update_if = NULL;
-	}
-
 	peer->update_source = sockunion_dup(su);
+	XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
 			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
 			bgp_session_reset(peer);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (peer->update_source) {
-			if (sockunion_cmp(peer->update_source, su) == 0)
+	/*
+	 * Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_UPDATE_SOURCE))
+			continue;
+
+		/* Skip peers with the same configuration. */
+		if (member->update_source) {
+			if (sockunion_cmp(member->update_source, su) == 0)
 				continue;
-			sockunion_free(peer->update_source);
-			peer->update_source = NULL;
+			sockunion_free(member->update_source);
 		}
 
-		if (peer->update_if) {
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-			peer->update_if = NULL;
-		}
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_UPDATE_SOURCE);
+		member->update_source = sockunion_dup(su);
+		XFREE(MTYPE_PEER_UPDATE_SOURCE, member->update_if);
 
-		peer->update_source = sockunion_dup(su);
-
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+		/* Send notification or reset peer depending on state. */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status)) {
+			member->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
+			bgp_notify_send(member, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
-			bgp_session_reset(peer);
+			bgp_session_reset(member);
 	}
+
 	return 0;
 }
 
 int peer_update_source_unset(struct peer *peer)
 {
-	union sockunion *su;
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) && !peer->update_source
-	    && !peer->update_if)
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_UPDATE_SOURCE))
 		return 0;
 
-	if (peer->update_source) {
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_UPDATE_SOURCE);
+		PEER_SU_ATTR_INHERIT(peer, peer->group, update_source);
+		PEER_STR_ATTR_INHERIT(peer, peer->group, update_if,
+				      MTYPE_PEER_UPDATE_SOURCE);
+	} else {
+		/* Otherwise remove flag and configuration from peer. */
+		peer_flag_unset(peer, PEER_FLAG_UPDATE_SOURCE);
 		sockunion_free(peer->update_source);
 		peer->update_source = NULL;
-	}
-	if (peer->update_if) {
 		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-		peer->update_if = NULL;
 	}
 
-	if (peer_group_active(peer)) {
-		group = peer->group;
-
-		if (group->conf->update_source) {
-			su = sockunion_dup(group->conf->update_source);
-			peer->update_source = su;
-		} else if (group->conf->update_if)
-			peer->update_if = XSTRDUP(MTYPE_PEER_UPDATE_SOURCE,
-						  group->conf->update_if);
-	}
-
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
 			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
 			bgp_session_reset(peer);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (!peer->update_source && !peer->update_if)
+	/*
+	 * Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_UPDATE_SOURCE))
 			continue;
 
-		if (peer->update_source) {
-			sockunion_free(peer->update_source);
-			peer->update_source = NULL;
-		}
+		/* Skip peers with the same configuration. */
+		if (!CHECK_FLAG(member->flags, PEER_FLAG_UPDATE_SOURCE)
+		    && !member->update_source && !member->update_if)
+			continue;
 
-		if (peer->update_if) {
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-			peer->update_if = NULL;
-		}
+		/* Remove flag and configuration on peer-group member. */
+		UNSET_FLAG(member->flags, PEER_FLAG_UPDATE_SOURCE);
+		sockunion_free(member->update_source);
+		member->update_source = NULL;
+		XFREE(MTYPE_PEER_UPDATE_SOURCE, member->update_if);
 
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+		/* Send notification or reset peer depending on state. */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status)) {
+			member->last_reset = PEER_DOWN_UPDATE_SOURCE_CHANGE;
+			bgp_notify_send(member, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
-			bgp_session_reset(peer);
+			bgp_session_reset(member);
 	}
+
 	return 0;
 }
 
@@ -5246,8 +5260,9 @@ int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi)
 int peer_local_as_set(struct peer *peer, as_t as, int no_prepend,
 		      int replace_as)
 {
+	bool old_no_prepend, old_replace_as;
 	struct bgp *bgp = peer->bgp;
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
 	if (peer_sort(peer) != BGP_PEER_EBGP
@@ -5260,57 +5275,71 @@ int peer_local_as_set(struct peer *peer, as_t as, int no_prepend,
 	if (peer->as == as)
 		return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS;
 
-	if (peer->change_local_as == as
-	    && ((CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND)
-		 && no_prepend)
-		|| (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND)
-		    && !no_prepend))
-	    && ((CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)
-		 && replace_as)
-		|| (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)
-		    && !replace_as)))
+	/* Save previous flag states. */
+	old_no_prepend =
+		!!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+	old_replace_as =
+		!!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+
+	/* Set flag and configuration on peer. */
+	peer_flag_set(peer, PEER_FLAG_LOCAL_AS);
+	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND, no_prepend);
+	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS, replace_as);
+
+	if (peer->change_local_as == as && old_no_prepend == no_prepend
+	    && old_replace_as == replace_as)
 		return 0;
-
 	peer->change_local_as = as;
-	if (no_prepend)
-		SET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-	else
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 
-	if (replace_as)
-		SET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-	else
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
 			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
 			bgp_session_reset(peer);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		peer->change_local_as = as;
-		if (no_prepend)
-			SET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-		else
-			UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+	/*
+	 * Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_LOCAL_AS))
+			continue;
 
-		if (replace_as)
-			SET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
-		else
-			UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		/* Skip peers with the same configuration. */
+		old_no_prepend = CHECK_FLAG(member->flags,
+					    PEER_FLAG_LOCAL_AS_NO_PREPEND);
+		old_replace_as = CHECK_FLAG(member->flags,
+					    PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		if (member->change_local_as == as
+		    && CHECK_FLAG(member->flags, PEER_FLAG_LOCAL_AS)
+		    && old_no_prepend == no_prepend
+		    && old_replace_as == replace_as)
+			continue;
 
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_LOCAL_AS);
+		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND,
+			  no_prepend);
+		COND_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS,
+			  replace_as);
+		member->change_local_as = as;
+
+		/* Send notification or stop peer depending on state. */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status)) {
+			member->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
+			bgp_notify_send(member, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
-			BGP_EVENT_ADD(peer, BGP_Stop);
+			BGP_EVENT_ADD(member, BGP_Stop);
 	}
 
 	return 0;
@@ -5318,17 +5347,29 @@ int peer_local_as_set(struct peer *peer, as_t as, int no_prepend,
 
 int peer_local_as_unset(struct peer *peer)
 {
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
-	if (!peer->change_local_as)
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS))
 		return 0;
 
-	peer->change_local_as = 0;
-	UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-	UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS);
+		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+		peer_flag_inherit(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		PEER_ATTR_INHERIT(peer, peer->group, change_local_as);
+	} else {
+		/* Otherwise remove flag and configuration from peer. */
+		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS);
+		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+		peer_flag_unset(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		peer->change_local_as = 0;
+	}
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Send notification or stop peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
 			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
@@ -5336,77 +5377,103 @@ int peer_local_as_unset(struct peer *peer)
 		} else
 			BGP_EVENT_ADD(peer, BGP_Stop);
 
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		peer->change_local_as = 0;
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
-		UNSET_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+	/*
+	 * Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_LOCAL_AS))
+			continue;
 
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			peer->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+		/* Remove flag and configuration on peer-group member. */
+		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS);
+		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+		UNSET_FLAG(member->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+		member->change_local_as = 0;
+
+		/* Send notification or stop peer depending on state. */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status)) {
+			member->last_reset = PEER_DOWN_LOCAL_AS_CHANGE;
+			bgp_notify_send(member, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
-			bgp_session_reset(peer);
+			bgp_session_reset(member);
 	}
+
 	return 0;
 }
 
 /* Set password for authenticating with the peer. */
 int peer_password_set(struct peer *peer, const char *password)
 {
-	struct listnode *nn, *nnode;
+	struct peer *member;
+	struct listnode *node, *nnode;
 	int len = password ? strlen(password) : 0;
 	int ret = BGP_SUCCESS;
 
 	if ((len < PEER_PASSWORD_MINLEN) || (len > PEER_PASSWORD_MAXLEN))
 		return BGP_ERR_INVALID_VALUE;
 
-	if (peer->password && strcmp(peer->password, password) == 0
-	    && !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+	/* Set flag and configuration on peer. */
+	peer_flag_set(peer, PEER_FLAG_PASSWORD);
+	if (peer->password && strcmp(peer->password, password) == 0)
 		return 0;
-
-	if (peer->password)
-		XFREE(MTYPE_PEER_PASSWORD, peer->password);
-
+	XFREE(MTYPE_PEER_PASSWORD, peer->password);
 	peer->password = XSTRDUP(MTYPE_PEER_PASSWORD, password);
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
 			bgp_session_reset(peer);
 
+		/*
+		 * Attempt to install password on socket and skip peer-group
+		 * mechanics.
+		 */
 		if (BGP_PEER_SU_UNSPEC(peer))
 			return BGP_SUCCESS;
-
 		return (bgp_md5_set(peer) >= 0) ? BGP_SUCCESS
 						: BGP_ERR_TCPSIG_FAILED;
 	}
 
-	for (ALL_LIST_ELEMENTS(peer->group->peer, nn, nnode, peer)) {
-		if (peer->password && strcmp(peer->password, password) == 0)
+	/*
+	 * Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_PASSWORD))
 			continue;
 
-		if (peer->password)
-			XFREE(MTYPE_PEER_PASSWORD, peer->password);
+		/* Skip peers with the same password. */
+		if (member->password && strcmp(member->password, password) == 0)
+			continue;
 
-		peer->password = XSTRDUP(MTYPE_PEER_PASSWORD, password);
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_PASSWORD);
+		if (member->password)
+			XFREE(MTYPE_PEER_PASSWORD, member->password);
+		member->password = XSTRDUP(MTYPE_PEER_PASSWORD, password);
 
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+		/* Send notification or reset peer depending on state. */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status))
+			bgp_notify_send(member, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
-			bgp_session_reset(peer);
+			bgp_session_reset(member);
 
-		if (!BGP_PEER_SU_UNSPEC(peer)) {
-			if (bgp_md5_set(peer) < 0)
-				ret = BGP_ERR_TCPSIG_FAILED;
-		}
+		/* Attempt to install password on socket. */
+		if (!BGP_PEER_SU_UNSPEC(member) && bgp_md5_set(member) < 0)
+			ret = BGP_ERR_TCPSIG_FAILED;
 	}
 
 	return ret;
@@ -5414,47 +5481,63 @@ int peer_password_set(struct peer *peer, const char *password)
 
 int peer_password_unset(struct peer *peer)
 {
-	struct listnode *nn, *nnode;
+	struct peer *member;
+	struct listnode *node, *nnode;
 
-	if (!peer->password && !CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_PASSWORD))
 		return 0;
 
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_PASSWORD);
+		PEER_STR_ATTR_INHERIT(peer, peer->group, password,
+				      MTYPE_PEER_PASSWORD);
+	} else {
+		/* Otherwise remove flag and configuration from peer. */
+		peer_flag_unset(peer, PEER_FLAG_PASSWORD);
+		XFREE(MTYPE_PEER_PASSWORD, peer->password);
+	}
+
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Send notification or reset peer depending on state. */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
 			bgp_session_reset(peer);
 
-		if (peer->password)
-			XFREE(MTYPE_PEER_PASSWORD, peer->password);
-
-		peer->password = NULL;
-
+		/* Attempt to uninstall password on socket. */
 		if (!BGP_PEER_SU_UNSPEC(peer))
 			bgp_md5_unset(peer);
 
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	XFREE(MTYPE_PEER_PASSWORD, peer->password);
-	peer->password = NULL;
-
-	for (ALL_LIST_ELEMENTS(peer->group->peer, nn, nnode, peer)) {
-		if (!peer->password)
+	/*
+	 * Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_PASSWORD))
 			continue;
 
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
-			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+		/* Remove flag and configuration on peer-group member. */
+		UNSET_FLAG(member->flags, PEER_FLAG_PASSWORD);
+		XFREE(MTYPE_PEER_PASSWORD, member->password);
+
+		/* Send notification or reset peer depending on state. */
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(member->status))
+			bgp_notify_send(member, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		else
-			bgp_session_reset(peer);
+			bgp_session_reset(member);
 
-		XFREE(MTYPE_PEER_PASSWORD, peer->password);
-		peer->password = NULL;
-
-		if (!BGP_PEER_SU_UNSPEC(peer))
-			bgp_md5_unset(peer);
+		/* Attempt to uninstall password on socket. */
+		if (!BGP_PEER_SU_UNSPEC(member))
+			bgp_md5_unset(member);
 	}
 
 	return 0;
@@ -6865,24 +6948,14 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* local-as */
-	if (peer->change_local_as) {
-		if (!peer_group_active(peer)
-		    || peer->change_local_as != g_peer->change_local_as
-		    || peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND)
-		    || peergroup_flag_check(peer,
-					    PEER_FLAG_LOCAL_AS_REPLACE_AS)) {
-			vty_out(vty, " neighbor %s local-as %u", addr,
-				peer->change_local_as);
-
-			if (peergroup_flag_check(peer,
-						 PEER_FLAG_LOCAL_AS_NO_PREPEND))
-				vty_out(vty, " no-prepend");
-			if (peergroup_flag_check(peer,
-						 PEER_FLAG_LOCAL_AS_REPLACE_AS))
-				vty_out(vty, " replace-as");
-
-			vty_out(vty, "\n");
-		}
+	if (peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS)) {
+		vty_out(vty, " neighbor %s local-as %u", addr,
+			peer->change_local_as);
+		if (peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS_NO_PREPEND))
+			vty_out(vty, " no-prepend");
+		if (peergroup_flag_check(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS))
+			vty_out(vty, " replace-as");
+		vty_out(vty, "\n");
 	}
 
 	/* description */
@@ -6907,13 +6980,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* password */
-	if (peer->password) {
-		if (!peer_group_active(peer) || !g_peer->password
-		    || strcmp(peer->password, g_peer->password) != 0) {
-			vty_out(vty, " neighbor %s password %s\n", addr,
-				peer->password);
-		}
-	}
+	if (peergroup_flag_check(peer, PEER_FLAG_PASSWORD))
+		vty_out(vty, " neighbor %s password %s\n", addr,
+			peer->password);
 
 	/* neighbor solo */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)) {
@@ -6963,21 +7032,14 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s enforce-first-as\n", addr);
 
 	/* update-source */
-	if (peer->update_if) {
-		if (!peer_group_active(peer) || !g_peer->update_if
-		    || strcmp(g_peer->update_if, peer->update_if) != 0) {
-			vty_out(vty, " neighbor %s update-source %s\n", addr,
-				peer->update_if);
-		}
-	}
-	if (peer->update_source) {
-		if (!peer_group_active(peer) || !g_peer->update_source
-		    || sockunion_cmp(g_peer->update_source, peer->update_source)
-			       != 0) {
+	if (peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
+		if (peer->update_source)
 			vty_out(vty, " neighbor %s update-source %s\n", addr,
 				sockunion2str(peer->update_source, buf,
 					      SU_ADDRSTRLEN));
-		}
+		else if (peer->update_if)
+			vty_out(vty, " neighbor %s update-source %s\n", addr,
+				peer->update_if);
 	}
 
 	/* advertisement-interval */
