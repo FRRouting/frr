@@ -20,6 +20,10 @@
 #ifndef _PBR_H
 #define _PBR_H
 
+#include <zebra.h>
+#include "stream.h"
+#include "prefix.h"
+
 #define PBR_STR "Policy Based Routing\n"
 
 /*
