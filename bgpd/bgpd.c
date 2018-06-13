@@ -102,6 +102,7 @@ struct community_list_handler *bgp_clist;
 unsigned int multipath_num = MULTIPATH_NUM;
 
 static void bgp_if_finish(struct bgp *bgp);
+static void peer_drop_dynamic_neighbor(struct peer *peer);
 
 extern struct zclient *zclient;
 
@@ -3719,10 +3720,10 @@ struct peer *peer_lookup_dynamic_neighbor(struct bgp *bgp, union sockunion *su)
 	return peer;
 }
 
-void peer_drop_dynamic_neighbor(struct peer *peer)
+static void peer_drop_dynamic_neighbor(struct peer *peer)
 {
 	int dncount = -1;
-	if (peer->group && peer->group->bgp) {
+	if (peer->group->bgp) {
 		dncount = peer->group->bgp->dynamic_neighbors_count;
 		if (dncount)
 			peer->group->bgp->dynamic_neighbors_count = --dncount;
@@ -3731,7 +3732,6 @@ void peer_drop_dynamic_neighbor(struct peer *peer)
 		zlog_debug("%s dropped from group %s, count %d", peer->host,
 			   peer->group->name, dncount);
 }
-
 
 /* If peer is configured at least one address family return 1. */
 int peer_active(struct peer *peer)
