@@ -1173,6 +1173,7 @@ static int bgp_input_modifier(struct peer *peer, struct prefix *p,
 
 	/* Route map apply. */
 	if (rmap) {
+		memset(&info, 0, sizeof(struct bgp_info));
 		/* Duplicate current value to new strucutre for modification. */
 		info.peer = peer;
 		info.attr = attr;
@@ -1225,6 +1226,7 @@ static int bgp_output_modifier(struct peer *peer, struct prefix *p,
 	if (rmap == NULL)
 		return RMAP_DENY;
 
+	memset(&info, 0, sizeof(struct bgp_info));
 	/* Route map apply. */
 	/* Duplicate current value to new strucutre for modification. */
 	info.peer = peer;
@@ -1682,6 +1684,7 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 		struct bgp_info_extra dummy_info_extra;
 		struct attr dummy_attr;
 
+		memset(&info, 0, sizeof(struct bgp_info));
 		info.peer = peer;
 		info.attr = attr;
 
@@ -4363,6 +4366,8 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 	/* Apply route-map. */
 	if (bgp_static->rmap.name) {
 		struct attr attr_tmp = attr;
+
+		memset(&info, 0, sizeof(struct bgp_info));
 		info.peer = bgp->peer_self;
 		info.attr = &attr_tmp;
 
@@ -6082,6 +6087,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 		/* Apply route-map. */
 		if (red->rmap.name) {
+			memset(&info, 0, sizeof(struct bgp_info));
 			info.peer = bgp->peer_self;
 			info.attr = &attr_new;
 
