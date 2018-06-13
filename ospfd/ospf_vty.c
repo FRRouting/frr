@@ -8084,9 +8084,6 @@ DEFUN (ospf_redistribute_source,
 	struct ospf_redist *red;
 	int idx = 0;
 
-	if (!ospf)
-		return CMD_SUCCESS;
-
 	/* Get distribute source. */
 	source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (source < 0)
@@ -8169,15 +8166,9 @@ DEFUN (ospf_redistribute_instance_source,
 	unsigned short instance;
 	struct ospf_redist *red;
 
-	if (!ospf)
-		return CMD_SUCCESS;
-
 	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	if (!ospf)
-		return CMD_SUCCESS;
 
 	if ((source == ZEBRA_ROUTE_OSPF) && !ospf->instance) {
 		vty_out(vty,
@@ -8469,9 +8460,6 @@ DEFUN (no_ospf_distance_ospf,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx = 0;
 
-	if (!ospf)
-		return CMD_SUCCESS;
-
 	if (argv_find(argv, argc, "intra-area", &idx) || argc == 3)
 		idx = ospf->distance_intra = 0;
 	if (argv_find(argv, argc, "inter-area", &idx) || argc == 3)
@@ -8525,9 +8513,6 @@ DEFUN (ospf_distance_source,
   int idx_number = 1;
   int idx_ipv4_prefixlen = 2;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ospf_distance_set (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
 
   return CMD_SUCCESS;
@@ -8544,9 +8529,6 @@ DEFUN (no_ospf_distance_source,
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_number = 2;
   int idx_ipv4_prefixlen = 3;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf_distance_unset (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, NULL);
 
@@ -8566,9 +8548,6 @@ DEFUN (ospf_distance_source_access_list,
   int idx_ipv4_prefixlen = 2;
   int idx_word = 3;
 
-  if (!ospf)
-    return CMD_SUCCESS;
-
   ospf_distance_set (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
 
   return CMD_SUCCESS;
@@ -8587,9 +8566,6 @@ DEFUN (no_ospf_distance_source_access_list,
   int idx_number = 2;
   int idx_ipv4_prefixlen = 3;
   int idx_word = 4;
-
-  if (!ospf)
-    return CMD_SUCCESS;
 
   ospf_distance_unset (vty, ospf, argv[idx_number]->arg, argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
 
