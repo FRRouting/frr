@@ -477,7 +477,7 @@ static void prefix_list_trie_del(struct prefix_list *plist,
 				 struct prefix_list_entry *pentry)
 {
 	size_t depth, maxdepth = plist->master->trie_depth;
-	uint8_t *bytes = &pentry->prefix.u.prefix;
+	uint8_t *bytes = pentry->prefix.u.val;
 	size_t validbits = pentry->prefix.prefixlen;
 	struct pltrie_table *table, **tables[PLC_MAXLEVEL];
 
@@ -565,7 +565,7 @@ static void prefix_list_trie_add(struct prefix_list *plist,
 				 struct prefix_list_entry *pentry)
 {
 	size_t depth = plist->master->trie_depth;
-	uint8_t *bytes = &pentry->prefix.u.prefix;
+	uint8_t *bytes = pentry->prefix.u.val;
 	size_t validbits = pentry->prefix.prefixlen;
 	struct pltrie_table *table;
 
@@ -690,7 +690,7 @@ enum prefix_list_type prefix_list_apply_which_prefix(struct prefix_list *plist,
 	struct prefix_list_entry *pentry, *pbest = NULL;
 
 	struct prefix *p = (struct prefix *)object;
-	uint8_t *byte = &p->u.prefix;
+	uint8_t *byte = p->u.val;
 	size_t depth;
 	size_t validbits = p->prefixlen;
 	struct pltrie_table *table;
@@ -774,7 +774,7 @@ static void __attribute__((unused)) prefix_list_print(struct prefix_list *plist)
 
 			printf("  seq %" PRId64 " %s %s/%d", pentry->seq,
 			       prefix_list_type_str(pentry),
-			       inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
+			       inet_ntop(p->family, p->u.val, buf, BUFSIZ),
 			       p->prefixlen);
 			if (pentry->ge)
 				printf(" ge %d", pentry->ge);
@@ -790,7 +790,7 @@ static struct prefix_list_entry *
 prefix_entry_dup_check(struct prefix_list *plist, struct prefix_list_entry *new)
 {
 	size_t depth, maxdepth = plist->master->trie_depth;
-	uint8_t byte, *bytes = &new->prefix.u.prefix;
+	uint8_t byte, *bytes = new->prefix.u.val;
 	size_t validbits = new->prefix.prefixlen;
 	struct pltrie_table *table;
 	struct prefix_list_entry *pentry;
@@ -1140,7 +1140,7 @@ static void vty_show_prefix_entry(struct vty *vty, afi_t afi,
 				char buf[BUFSIZ];
 
 				vty_out(vty, "%s/%d",
-					inet_ntop(p->family, &p->u.prefix, buf,
+					inet_ntop(p->family, p->u.val, buf,
 						  BUFSIZ),
 					p->prefixlen);
 
@@ -1247,7 +1247,7 @@ static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,
 				char buf[BUFSIZ];
 
 				vty_out(vty, "%s/%d",
-					inet_ntop(p->family, &p->u.prefix, buf,
+					inet_ntop(p->family, p->u.val, buf,
 						  BUFSIZ),
 					p->prefixlen);
 
@@ -1756,7 +1756,7 @@ static int config_write_prefix_afi(afi_t afi, struct vty *vty)
 				char buf[BUFSIZ];
 
 				vty_out(vty, "%s/%d",
-					inet_ntop(p->family, &p->u.prefix, buf,
+					inet_ntop(p->family, p->u.val, buf,
 						  BUFSIZ),
 					p->prefixlen);
 
@@ -1795,7 +1795,7 @@ static int config_write_prefix_afi(afi_t afi, struct vty *vty)
 				char buf[BUFSIZ];
 
 				vty_out(vty, " %s/%d",
-					inet_ntop(p->family, &p->u.prefix, buf,
+					inet_ntop(p->family, p->u.val, buf,
 						  BUFSIZ),
 					p->prefixlen);
 
@@ -1925,7 +1925,7 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 			char buf_b[BUFSIZ];
 
 			sprintf(buf_a, "%s/%d",
-				inet_ntop(p->family, &p->u.prefix, buf_b,
+				inet_ntop(p->family, p->u.val, buf_b,
 					  BUFSIZ),
 				p->prefixlen);
 
@@ -1963,7 +1963,7 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 			vty_out(vty, "   seq %" PRId64 " %s %s/%d",
 				pentry->seq,
 				prefix_list_type_str(pentry),
-				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
+				inet_ntop(p->family, p->u.val, buf, BUFSIZ),
 				p->prefixlen);
 
 			if (pentry->ge)
