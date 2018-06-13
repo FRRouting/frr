@@ -1389,43 +1389,6 @@ DEFUN (vnc_export_mode,
 		vty_out(vty,
 			"Changing modes for zebra export not implemented yet\n");
 		return CMD_WARNING_CONFIG_FAILED;
-
-		oldmode = bgp->rfapi_cfg->flags
-			  & BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_BITS;
-		bgp->rfapi_cfg->flags &= ~BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_BITS;
-		switch (argv[4]->arg[0]) {
-		case 'g':
-			if (oldmode == BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_RH) {
-				/* TBD */
-			}
-			bgp->rfapi_cfg->flags |=
-				BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_GRP;
-			if (oldmode != BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_GRP) {
-				/* TBD */
-			}
-			break;
-		case 'n':
-			if (oldmode == BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_RH) {
-				/* TBD */
-			}
-			if (oldmode == BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_GRP) {
-				/* TBD */
-			}
-			break;
-		case 'r':
-			if (oldmode == BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_GRP) {
-				/* TBD */
-			}
-			bgp->rfapi_cfg->flags |=
-				BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_RH;
-			if (oldmode != BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_RH) {
-				/* TBD */
-			}
-			break;
-		default:
-			vty_out(vty, "Invalid mode\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 	}
 
 	return CMD_SUCCESS;
