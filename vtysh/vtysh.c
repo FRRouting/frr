@@ -2344,6 +2344,21 @@ DEFUN (vtysh_show_debugging_hashtable,
 			       "Hashtable statistics for %s:\n");
 }
 
+DEFUN (vtysh_show_error_code,
+       vtysh_show_error_code_cmd,
+       "show error (0-4294967296)",
+       SHOW_STR
+       "Information on errors\n"
+       "Error code to get info about\n")
+{
+	char cmd[256];
+
+	snprintf(cmd, sizeof(cmd), "do show error %s", argv[2]->arg);
+
+	/* FIXME: Needs to determine which daemon to send to via code ranges */
+	return show_per_daemon(cmd, "");
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -3780,6 +3795,7 @@ void vtysh_init_vty(void)
 
 	/* debugging */
 	install_element(VIEW_NODE, &vtysh_show_debugging_cmd);
+	install_element(VIEW_NODE, &vtysh_show_error_code_cmd);
 	install_element(VIEW_NODE, &vtysh_show_debugging_hashtable_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_all_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
