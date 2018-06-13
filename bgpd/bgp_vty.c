@@ -8016,16 +8016,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (count)
 			vty_out(vty, "\nTotal number of neighbors %d\n", count);
 		else {
-			if (use_json)
-				vty_out(vty,
-					"{\"error\": {\"message\": \"No %s neighbor configured\"}}\n",
-					afi_safi_print(afi, safi));
-			else
-				vty_out(vty, "No %s neighbor is configured\n",
-					afi_safi_print(afi, safi));
+			vty_out(vty, "No %s neighbor is configured\n",
+				afi_safi_print(afi, safi));
 		}
 
-		if (dn_count && !use_json) {
+		if (dn_count) {
 			vty_out(vty, "* - dynamic neighbor\n");
 			vty_out(vty, "%d dynamic neighbor(s), limit %d\n",
 				dn_count, bgp->dynamic_neighbors_limit);
