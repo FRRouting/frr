@@ -9191,8 +9191,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint8_t use_json,
 		json_object_int_add(json_neigh,
 				    "bgpTimerKeepAliveIntervalMsecs",
 				    p->v_keepalive * 1000);
-
-		if (PEER_OR_GROUP_TIMER_SET(p)) {
+		if (CHECK_FLAG(p->flags, PEER_FLAG_TIMER)) {
 			json_object_int_add(json_neigh,
 					    "bgpTimerConfiguredHoldTimeMsecs",
 					    p->holdtime * 1000);
@@ -9256,7 +9255,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint8_t use_json,
 		vty_out(vty,
 			"  Hold time is %d, keepalive interval is %d seconds\n",
 			p->v_holdtime, p->v_keepalive);
-		if (PEER_OR_GROUP_TIMER_SET(p)) {
+		if (CHECK_FLAG(p->flags, PEER_FLAG_TIMER)) {
 			vty_out(vty, "  Configured hold time is %d",
 				p->holdtime);
 			vty_out(vty, ", keepalive interval is %d seconds\n",

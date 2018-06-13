@@ -993,7 +993,6 @@ static void peer_global_config_reset(struct peer *peer)
 	peer->flags = 0;
 	SET_FLAG(peer->flags, saved_flags);
 
-	peer->config = 0;
 	peer->holdtime = 0;
 	peer->keepalive = 0;
 	peer->connect = 0;
@@ -1309,7 +1308,6 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	/* peer flags apply */
 	peer_dst->flags = peer_src->flags;
 	peer_dst->cap = peer_src->cap;
-	peer_dst->config = peer_src->config;
 
 	peer_dst->local_as = peer_src->local_as;
 	peer_dst->port = peer_src->port;
@@ -1576,10 +1574,9 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	peer->local_id = bgp->router_id;
 	peer->v_holdtime = bgp->default_holdtime;
 	peer->v_keepalive = bgp->default_keepalive;
-	if (peer_sort(peer) == BGP_PEER_IBGP)
-		peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-	else
-		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
+	peer->v_routeadv = (peer_sort(peer) == BGP_PEER_IBGP)
+				   ? BGP_DEFAULT_IBGP_ROUTEADV
+				   : BGP_DEFAULT_EBGP_ROUTEADV;
 
 	peer = peer_lock(peer); /* bgp peer list reference */
 	peer->group = group;
@@ -1655,7 +1652,6 @@ int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
 void peer_as_change(struct peer *peer, as_t as, int as_specified)
 {
 	bgp_peer_sort_t type;
-	struct peer *conf;
 
 	/* Stop peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -1678,22 +1674,12 @@ void peer_as_change(struct peer *peer, as_t as, int as_specified)
 		peer->local_as = peer->bgp->as;
 
 	/* Advertisement-interval reset */
-	conf = NULL;
-	if (peer->group)
-		conf = peer->group->conf;
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_ROUTEADV)) {
+		peer->v_routeadv = (peer_sort(peer) == BGP_PEER_IBGP)
+					   ? BGP_DEFAULT_IBGP_ROUTEADV
+					   : BGP_DEFAULT_EBGP_ROUTEADV;
+	}
 
-	if (conf && CHECK_FLAG(conf->config, PEER_CONFIG_ROUTEADV)) {
-		peer->v_routeadv = conf->routeadv;
-	}
-	/* Only go back to the default advertisement-interval if the user had
-	 * not
-	 * already configured it */
-	else if (!CHECK_FLAG(peer->config, PEER_CONFIG_ROUTEADV)) {
-		if (peer_sort(peer) == BGP_PEER_IBGP)
-			peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-		else
-			peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-	}
 	/* TTL reset */
 	if (peer_sort(peer) == BGP_PEER_IBGP)
 		peer->ttl = MAXTTL;
@@ -2419,12 +2405,6 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->conf->ttl = 1;
 	group->conf->gtsm_hops = 0;
 	group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
-	UNSET_FLAG(group->conf->config, PEER_CONFIG_TIMER);
-	UNSET_FLAG(group->conf->config, PEER_GROUP_CONFIG_TIMER);
-	UNSET_FLAG(group->conf->config, PEER_CONFIG_CONNECT);
-	group->conf->keepalive = 0;
-	group->conf->holdtime = 0;
-	group->conf->connect = 0;
 	SET_FLAG(group->conf->sflags, PEER_STATUS_GROUP);
 	listnode_add_sort(bgp->group, group);
 
@@ -2456,25 +2436,30 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	peer->flags |= conf->flags & ~peer->flags_override;
 	peer->flags_invert |= conf->flags_invert;
 
-	/* peer config apply */
-	peer->config = conf->config;
-
 	/* peer timers apply */
-	peer->holdtime = conf->holdtime;
-	peer->keepalive = conf->keepalive;
-	peer->connect = conf->connect;
-	if (CHECK_FLAG(conf->config, PEER_CONFIG_CONNECT))
-		peer->v_connect = conf->connect;
-	else
-		peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TIMER)) {
+		PEER_ATTR_INHERIT(peer, group, holdtime);
+		PEER_ATTR_INHERIT(peer, group, keepalive);
+	}
 
-	/* advertisement-interval reset */
-	if (CHECK_FLAG(conf->config, PEER_CONFIG_ROUTEADV))
-		peer->v_routeadv = conf->routeadv;
-	else if (peer_sort(peer) == BGP_PEER_IBGP)
-		peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-	else
-		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TIMER_CONNECT)) {
+		PEER_ATTR_INHERIT(peer, group, connect);
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_TIMER_CONNECT))
+			peer->v_connect = conf->connect;
+		else
+			peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+	}
+
+	/* advertisement-interval apply */
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_ROUTEADV)) {
+		PEER_ATTR_INHERIT(peer, group, routeadv);
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_ROUTEADV))
+			peer->v_routeadv = conf->routeadv;
+		else
+			peer->v_routeadv = (peer_sort(peer) == BGP_PEER_IBGP)
+						   ? BGP_DEFAULT_IBGP_ROUTEADV
+						   : BGP_DEFAULT_EBGP_ROUTEADV;
+	}
 
 	/* password apply */
 	if (conf->password && !peer->password)
@@ -2763,14 +2748,13 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 
 		if (first_member) {
 			/* Advertisement-interval reset */
-			if (!CHECK_FLAG(group->conf->config,
-					PEER_CONFIG_ROUTEADV)) {
-				if (peer_sort(group->conf) == BGP_PEER_IBGP)
-					group->conf->v_routeadv =
-						BGP_DEFAULT_IBGP_ROUTEADV;
-				else
-					group->conf->v_routeadv =
-						BGP_DEFAULT_EBGP_ROUTEADV;
+			if (!CHECK_FLAG(group->conf->flags,
+					PEER_FLAG_ROUTEADV)) {
+				group->conf->v_routeadv =
+					(peer_sort(group->conf)
+					 == BGP_PEER_IBGP)
+						? BGP_DEFAULT_IBGP_ROUTEADV
+						: BGP_DEFAULT_EBGP_ROUTEADV;
 			}
 
 			/* ebgp-multihop reset */
@@ -3854,6 +3838,9 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_DISABLE_CONNECTED_CHECK, 0, peer_change_reset},
 	{PEER_FLAG_CAPABILITY_ENHE, 0, peer_change_reset},
 	{PEER_FLAG_ENFORCE_FIRST_AS, 0, peer_change_reset_in},
+	{PEER_FLAG_ROUTEADV, 0, peer_change_none},
+	{PEER_FLAG_TIMER, 0, peer_change_none},
+	{PEER_FLAG_TIMER_CONNECT, 0, peer_change_none},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -4914,44 +4901,40 @@ int peer_weight_unset(struct peer *peer, afi_t afi, safi_t safi)
 
 int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime)
 {
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
-	/* keepalive value check.  */
 	if (keepalive > 65535)
 		return BGP_ERR_INVALID_VALUE;
 
-	/* Holdtime value check.  */
 	if (holdtime > 65535)
 		return BGP_ERR_INVALID_VALUE;
 
-	/* Holdtime value must be either 0 or greater than 3.  */
 	if (holdtime < 3 && holdtime != 0)
 		return BGP_ERR_INVALID_VALUE;
 
-	/* Set value to the configuration. */
+	/* Set flag and configuration on peer. */
+	peer_flag_set(peer, PEER_FLAG_TIMER);
 	peer->holdtime = holdtime;
 	peer->keepalive = (keepalive < holdtime / 3 ? keepalive : holdtime / 3);
 
-	/* First work on real peers with timers */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		SET_FLAG(peer->config, PEER_CONFIG_TIMER);
-		UNSET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
-	} else {
-		/* Now work on the peer-group timers */
-		SET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
+	/* Skip peer-group mechanics for regular peers. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return 0;
 
-		/* peer-group member updates. */
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			/* Skip peers that have their own timers */
-			if (CHECK_FLAG(peer->config, PEER_CONFIG_TIMER))
-				continue;
+	/*
+	 * Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TIMER))
+			continue;
 
-			SET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
-			peer->holdtime = group->conf->holdtime;
-			peer->keepalive = group->conf->keepalive;
-		}
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_TIMER);
+		PEER_ATTR_INHERIT(peer, peer->group, holdtime);
+		PEER_ATTR_INHERIT(peer, peer->group, keepalive);
 	}
 
 	return 0;
@@ -4959,35 +4942,38 @@ int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime)
 
 int peer_timers_unset(struct peer *peer)
 {
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
-	/* First work on real peers vs the peer-group */
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		UNSET_FLAG(peer->config, PEER_CONFIG_TIMER);
-		peer->keepalive = 0;
-		peer->holdtime = 0;
-
-		if (peer->group && peer->group->conf->holdtime) {
-			SET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
-			peer->keepalive = peer->group->conf->keepalive;
-			peer->holdtime = peer->group->conf->holdtime;
-		}
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_TIMER);
+		PEER_ATTR_INHERIT(peer, peer->group, holdtime);
+		PEER_ATTR_INHERIT(peer, peer->group, keepalive);
 	} else {
-		/* peer-group member updates. */
-		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			if (!CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)) {
-				UNSET_FLAG(peer->config,
-					   PEER_GROUP_CONFIG_TIMER);
-				peer->holdtime = 0;
-				peer->keepalive = 0;
-			}
-		}
+		/* Otherwise remove flag and configuration from peer. */
+		peer_flag_unset(peer, PEER_FLAG_TIMER);
+		peer->holdtime = 0;
+		peer->keepalive = 0;
+	}
 
-		UNSET_FLAG(group->conf->config, PEER_GROUP_CONFIG_TIMER);
-		group->conf->holdtime = 0;
-		group->conf->keepalive = 0;
+	/* Skip peer-group mechanics for regular peers. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		return 0;
+
+	/*
+	 * Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TIMER))
+			continue;
+
+		/* Remove flag and configuration on peer-group member. */
+		UNSET_FLAG(member->flags, PEER_FLAG_TIMER);
+		member->holdtime = 0;
+		member->keepalive = 0;
 	}
 
 	return 0;
@@ -4995,85 +4981,124 @@ int peer_timers_unset(struct peer *peer)
 
 int peer_timers_connect_set(struct peer *peer, uint32_t connect)
 {
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
 	if (connect > 65535)
 		return BGP_ERR_INVALID_VALUE;
 
-	/* Set value to the configuration. */
-	SET_FLAG(peer->config, PEER_CONFIG_CONNECT);
+	/* Set flag and configuration on peer. */
+	peer_flag_set(peer, PEER_FLAG_TIMER_CONNECT);
 	peer->connect = connect;
-
-	/* Set value to timer setting. */
 	peer->v_connect = connect;
 
+	/* Skip peer-group mechanics for regular peers. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		return 0;
 
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		SET_FLAG(peer->config, PEER_CONFIG_CONNECT);
-		peer->connect = connect;
-		peer->v_connect = connect;
+	/*
+	 * Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TIMER_CONNECT))
+			continue;
+
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_TIMER_CONNECT);
+		member->connect = connect;
+		member->v_connect = connect;
 	}
+
 	return 0;
 }
 
 int peer_timers_connect_unset(struct peer *peer)
 {
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
-	/* Clear configuration. */
-	UNSET_FLAG(peer->config, PEER_CONFIG_CONNECT);
-	peer->connect = 0;
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_TIMER_CONNECT);
+		PEER_ATTR_INHERIT(peer, peer->group, connect);
+	} else {
+		/* Otherwise remove flag and configuration from peer. */
+		peer_flag_unset(peer, PEER_FLAG_TIMER_CONNECT);
+		peer->connect = 0;
+	}
 
-	/* Set timer setting to default value. */
-	peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+	/* Set timer with fallback to default value. */
+	if (peer->connect)
+		peer->v_connect = peer->connect;
+	else
+		peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
 
+	/* Skip peer-group mechanics for regular peers. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 		return 0;
 
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		UNSET_FLAG(peer->config, PEER_CONFIG_CONNECT);
-		peer->connect = 0;
-		peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+	/*
+	 * Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_TIMER_CONNECT))
+			continue;
+
+		/* Remove flag and configuration on peer-group member. */
+		UNSET_FLAG(member->flags, PEER_FLAG_TIMER_CONNECT);
+		member->connect = 0;
+		member->v_connect = BGP_DEFAULT_CONNECT_RETRY;
 	}
+
 	return 0;
 }
 
 int peer_advertise_interval_set(struct peer *peer, uint32_t routeadv)
 {
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
 	if (routeadv > 600)
 		return BGP_ERR_INVALID_VALUE;
 
-	SET_FLAG(peer->config, PEER_CONFIG_ROUTEADV);
+	/* Set flag and configuration on peer. */
+	peer_flag_set(peer, PEER_FLAG_ROUTEADV);
 	peer->routeadv = routeadv;
 	peer->v_routeadv = routeadv;
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Update peer route announcements. */
 		update_group_adjust_peer_afs(peer);
 		if (peer->status == Established)
 			bgp_announce_route_all(peer);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		SET_FLAG(peer->config, PEER_CONFIG_ROUTEADV);
-		peer->routeadv = routeadv;
-		peer->v_routeadv = routeadv;
-		update_group_adjust_peer_afs(peer);
-		if (peer->status == Established)
-			bgp_announce_route_all(peer);
+	/*
+	 * Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_ROUTEADV))
+			continue;
+
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_ROUTEADV);
+		member->routeadv = routeadv;
+		member->v_routeadv = routeadv;
+
+		/* Update peer route announcements. */
+		update_group_adjust_peer_afs(member);
+		if (member->status == Established)
+			bgp_announce_route_all(member);
 	}
 
 	return 0;
@@ -5081,38 +5106,58 @@ int peer_advertise_interval_set(struct peer *peer, uint32_t routeadv)
 
 int peer_advertise_interval_unset(struct peer *peer)
 {
-	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 
-	UNSET_FLAG(peer->config, PEER_CONFIG_ROUTEADV);
-	peer->routeadv = 0;
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_ROUTEADV);
+		PEER_ATTR_INHERIT(peer, peer->group, routeadv);
+	} else {
+		/* Otherwise remove flag and configuration from peer. */
+		peer_flag_unset(peer, PEER_FLAG_ROUTEADV);
+		peer->routeadv = 0;
+	}
 
-	if (peer->sort == BGP_PEER_IBGP)
-		peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
+	/* Set timer with fallback to default value. */
+	if (peer->routeadv)
+		peer->v_routeadv = peer->routeadv;
 	else
-		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
+		peer->v_routeadv = (peer->sort == BGP_PEER_IBGP)
+					   ? BGP_DEFAULT_IBGP_ROUTEADV
+					   : BGP_DEFAULT_EBGP_ROUTEADV;
 
+	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Update peer route announcements. */
 		update_group_adjust_peer_afs(peer);
 		if (peer->status == Established)
 			bgp_announce_route_all(peer);
+
+		/* Skip peer-group mechanics for regular peers. */
 		return 0;
 	}
 
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		UNSET_FLAG(peer->config, PEER_CONFIG_ROUTEADV);
-		peer->routeadv = 0;
+	/*
+	 * Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override, PEER_FLAG_ROUTEADV))
+			continue;
 
-		if (peer->sort == BGP_PEER_IBGP)
-			peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
-		else
-			peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
+		/* Remove flag and configuration on peer-group member. */
+		UNSET_FLAG(member->flags, PEER_FLAG_ROUTEADV);
+		member->routeadv = 0;
+		member->v_routeadv = (member->sort == BGP_PEER_IBGP)
+					     ? BGP_DEFAULT_IBGP_ROUTEADV
+					     : BGP_DEFAULT_EBGP_ROUTEADV;
 
-		update_group_adjust_peer_afs(peer);
-		if (peer->status == Established)
-			bgp_announce_route_all(peer);
+		/* Update peer route announcements. */
+		update_group_adjust_peer_afs(member);
+		if (member->status == Established)
+			bgp_announce_route_all(member);
 	}
 
 	return 0;
@@ -7000,37 +7045,19 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* advertisement-interval */
-	if (CHECK_FLAG(peer->config, PEER_CONFIG_ROUTEADV)
-	    && ((!peer_group_active(peer)
-		 && peer->v_routeadv != BGP_DEFAULT_EBGP_ROUTEADV)
-		|| (peer_group_active(peer)
-		    && peer->v_routeadv != g_peer->v_routeadv))) {
+	if (peergroup_flag_check(peer, PEER_FLAG_ROUTEADV))
 		vty_out(vty, " neighbor %s advertisement-interval %u\n", addr,
-			peer->v_routeadv);
-	}
+			peer->routeadv);
 
 	/* timers */
-	if ((PEER_OR_GROUP_TIMER_SET(peer))
-	    && ((!peer_group_active(peer)
-		 && (peer->keepalive != BGP_DEFAULT_KEEPALIVE
-		     || peer->holdtime != BGP_DEFAULT_HOLDTIME))
-		|| (peer_group_active(peer)
-		    && (peer->keepalive != g_peer->keepalive
-			|| peer->holdtime != g_peer->holdtime)))) {
+	if (peergroup_flag_check(peer, PEER_FLAG_TIMER))
 		vty_out(vty, " neighbor %s timers %u %u\n", addr,
 			peer->keepalive, peer->holdtime);
-	}
 
-	if (CHECK_FLAG(peer->config, PEER_CONFIG_CONNECT)
-	    && ((!peer_group_active(peer)
-		 && peer->connect != BGP_DEFAULT_CONNECT_RETRY)
-		|| (peer_group_active(peer)
-		    && peer->connect != g_peer->connect)))
-
-	{
+	/* timers connect */
+	if (peergroup_flag_check(peer, PEER_FLAG_TIMER_CONNECT))
 		vty_out(vty, " neighbor %s timers connect %u\n", addr,
 			peer->connect);
-	}
 
 	/* capability dynamic */
 	if (peergroup_flag_check(peer, PEER_FLAG_DYNAMIC_CAPABILITY))
