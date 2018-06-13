@@ -2582,7 +2582,8 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 		lsdb = ospf->lsdb;
 		break;
 	default:
-		lsdb = lsa->area->lsdb;
+		if (lsa->area)
+			lsdb = lsa->area->lsdb;
 		break;
 	}
 
