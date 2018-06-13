@@ -1133,6 +1133,13 @@ static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 					"-p tcp -m tcp --tcp-flags %s %s ",
 					tcp_flag_str, tcp_flag_mask_str);
 	}
+	if (iptable->filter_bm & (MATCH_DSCP_SET | MATCH_DSCP_INVERSE_SET))
+		len_written += snprintf(complement_len + len_written,
+				       sizeof(complement_len) - len_written,
+				       "-m dscp %s --dscp %u ",
+					iptable->filter_bm &
+					MATCH_DSCP_INVERSE_SET ? "!" : "",
+					iptable->dscp_value);
 	if (iptable->pkt_len_min || iptable->pkt_len_max) {
 		len_written += snprintf(complement_len + len_written,
 					sizeof(complement_len) - len_written,
