@@ -685,7 +685,7 @@ def test_linux_mpls_routes():
     print("******************************************\n")
     failures = 0
     for i in range(1, 5):
-        refTableFile = '%s/r%s/ip_mpls_route.ref%s' % (thisDir, i, cli_version)
+        refTableFile = '%s/r%s/ip_mpls_route.ref' % (thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
