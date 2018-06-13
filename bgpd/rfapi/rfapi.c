@@ -3368,13 +3368,7 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
 {
 	struct rfapi_ip_addr vn;
 	struct rfapi_ip_addr un;
-	struct rfapi_ip_addr target;
-	rfapi_handle handle;
 	int rc;
-	struct rfapi_next_hop_entry *pNextHopEntry;
-	struct rfapi_l2address_option l2o_buf;
-	struct bgp_tea_options hopt;
-	uint8_t valbuf[14];
 
 	/*
 	 * Get VN addr
@@ -3389,69 +3383,8 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
 	if ((rc = rfapiCliGetRfapiIpAddr(vty, argv[6]->arg, &un)))
 		return rc;
 
-
-#if 0 /* there is no IP target arg here ?????? */
-  /*
-   * Get target addr
-   */
-  if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[2], &target)))
-    return rc;
-#else
 	vty_out(vty, "%% This command is broken.\n");
 	return CMD_WARNING_CONFIG_FAILED;
-#endif
-
-	if (rfapi_find_handle_vty(vty, &vn, &un, &handle)) {
-		vty_out(vty, "can't locate handle matching vn=%s, un=%s\n",
-			argv[4]->arg, argv[6]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/*
-	 * Set up L2 parameters
-	 */
-	memset(&l2o_buf, 0, sizeof(l2o_buf));
-	if (rfapiStr2EthAddr(argv[10]->arg, &l2o_buf.macaddr)) {
-		vty_out(vty, "Bad mac address \"%s\"\n", argv[10]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	l2o_buf.logical_net_id = strtoul(argv[8]->arg, NULL, 10);
-
-	/* construct option chain */
-
-	memset(valbuf, 0, sizeof(valbuf));
-	memcpy(valbuf, &l2o_buf.macaddr.octet, ETH_ALEN);
-	valbuf[11] = (l2o_buf.logical_net_id >> 16) & 0xff;
-	valbuf[12] = (l2o_buf.logical_net_id >> 8) & 0xff;
-	valbuf[13] = l2o_buf.logical_net_id & 0xff;
-
-	memset(&hopt, 0, sizeof(hopt));
-	hopt.options_count = 1;
-	hopt.options_length = sizeof(valbuf); /* is this right? */
-	hopt.type = RFAPI_VN_OPTION_TYPE_L2ADDR;
-	hopt.length = sizeof(valbuf);
-	hopt.value = valbuf;
-
-
-	/*
-	 * options parameter not used? Set to NULL for now
-	 */
-	rc = rfapi_query(handle, &target, &l2o_buf, &pNextHopEntry);
-
-	if (rc) {
-		vty_out(vty, "rfapi_query failed with rc=%d (%s)\n", rc,
-			strerror(rc));
-	} else {
-		/*
-		 * print nexthop list
-		 */
-		/* TBD enhance to print L2 information */
-		test_nexthops_callback(/*&target, */ pNextHopEntry,
-				       vty); /* frees nh list! */
-	}
-
-	return CMD_SUCCESS;
 }
 
 
