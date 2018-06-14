@@ -35,10 +35,10 @@
 #include "ns.h"
 #include "log.h"
 #include "memory.h"
-
 #include "command.h"
 #include "vty.h"
 #include "vrf.h"
+#include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context")
 DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name")
@@ -219,8 +219,9 @@ static int ns_enable_internal(struct ns *ns, void (*func)(ns_id_t, void *))
 		}
 
 		if (!ns_is_enabled(ns)) {
-			zlog_err("Can not enable NS %u: %s!", ns->ns_id,
-				 safe_strerror(errno));
+			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+				  "Can not enable NS %u: %s!", ns->ns_id,
+				  safe_strerror(errno));
 			return 0;
 		}
 

@@ -25,6 +25,8 @@
 #include "buffer.h"
 #include "log.h"
 #include "network.h"
+#include "lib_errors.h"
+
 #include <stddef.h>
 
 DEFINE_MTYPE_STATIC(LIB, BUFFER, "Buffer")
@@ -341,11 +343,11 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 					       iov_alloc * sizeof(*iov));
 			} else {
 				/* This should absolutely never occur. */
-				zlog_err(
-					"%s: corruption detected: iov_small overflowed; "
-					"head %p, tail %p, head->next %p",
-					__func__, (void *)b->head,
-					(void *)b->tail, (void *)b->head->next);
+				zlog_ferr(LIB_ERR_SYSTEM_CALL,
+					  "%s: corruption detected: iov_small overflowed; "
+					  "head %p, tail %p, head->next %p",
+					  __func__, (void *)b->head,
+					  (void *)b->tail, (void *)b->head->next);
 				iov = XMALLOC(MTYPE_TMP,
 					      iov_alloc * sizeof(*iov));
 				memcpy(iov, small_iov, sizeof(small_iov));

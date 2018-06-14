@@ -22,6 +22,7 @@
 #include <sigevent.h>
 #include <log.h>
 #include <memory.h>
+#include <lib_errors.h>
 
 #ifdef SA_SIGINFO
 #ifdef HAVE_UCONTEXT_H
@@ -83,7 +84,8 @@ int quagga_sigevent_process(void)
 	sigdelset(&newmask, SIGKILL);
 
 	if ((sigprocmask(SIG_BLOCK, &newmask, &oldmask)) < 0) {
-		zlog_err("quagga_signal_timer: couldnt block signals!");
+		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			  "quagga_signal_timer: couldnt block signals!");
 		return -1;
 	}
 #endif /* SIGEVENT_BLOCK_SIGNALS */

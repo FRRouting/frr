@@ -35,9 +35,9 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Ensure that there is sufficient memory to start processes and restart FRR",
 	},
 	{
-		.code = LIB_ERR_VRF_SOCKET,
-		.title = "VRF Socket Error",
-		.description = "When attempting to access a socket for the VRF specified, we\nwere unable to properly complete the request",
+		.code = LIB_ERR_SOCKET,
+		.title = "Socket Error",
+		.description = "When attempting to access a socket a system error has occured\nand we were unable to properly complete the request",
 		.suggestion = "Ensure that there is sufficient system resources available and\nensure that the frr user has sufficient permisions to work",
 	},
 	{
@@ -59,7 +59,13 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Restart FRR"
 	},
 	{
-		.code = END_FERR
+		.code = LIB_ERR_SYSTEM_CALL,
+		.title = "System Call Error",
+		.description = "FRR has detected a error from using a vital system call and has probably\nalready exited",
+		.suggestion = "Ensure permissions are correct for FRR and FRR user and groups are correct\nAdditionally check that system resources are still available"
+	},
+	{
+		.code = END_FERR,
 	}
 };
 
