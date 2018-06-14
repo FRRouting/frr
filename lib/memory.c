@@ -81,7 +81,7 @@ void *qrealloc(struct memtype *mt, void *ptr, size_t size)
 
 void *qstrdup(struct memtype *mt, const char *str)
 {
-	return mt_checkalloc(mt, strdup(str), strlen(str) + 1);
+	return str ? mt_checkalloc(mt, strdup(str), strlen(str) + 1) : NULL;
 }
 
 void qfree(struct memtype *mt, void *ptr)
