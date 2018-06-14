@@ -71,6 +71,12 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Ensure configuration file exists and has correct permissions for operations\nAdditionally ensure that all config lines are correct as well",
 	},
 	{
+		.code = LIB_ERR_SNMP,
+		.title = "SNMP subsystem Error",
+		.description = "FRR has detected a problem with the snmp library it uses\nA callback from this subsystem has indicated some error",
+		.suggestion = "Examine callback message and ensure snmp is properly setup and working"
+	},
+	{
 		.code = END_FERR,
 	}
 };

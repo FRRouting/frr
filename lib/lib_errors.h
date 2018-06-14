@@ -32,6 +32,7 @@ enum lib_ferr_refs {
 	LIB_ERR_ZAPI_SOCKET,
 	LIB_ERR_SYSTEM_CALL,
 	LIB_ERR_VTY,
+	LIB_ERR_SNMP,
 };
 
 extern void lib_error_init(void);
