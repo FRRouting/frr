@@ -1807,6 +1807,7 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 {
 	int in = FILTER_IN;
 	int out = FILTER_OUT;
+	uint32_t flags_tmp;
 	uint32_t pflags_ovrd;
 	uint8_t *pfilter_ovrd;
 	struct peer *conf;
@@ -1816,8 +1817,15 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 	pfilter_ovrd = &peer->filter_override[afi][safi][in];
 
 	/* peer af_flags apply */
-	peer->af_flags[afi][safi] |= conf->af_flags[afi][safi] & ~pflags_ovrd;
-	peer->af_flags_invert[afi][safi] |= conf->af_flags_invert[afi][safi];
+	flags_tmp = conf->af_flags[afi][safi] & ~pflags_ovrd;
+	flags_tmp ^= conf->af_flags_invert[afi][safi]
+		     ^ peer->af_flags_invert[afi][safi];
+	flags_tmp &= ~pflags_ovrd;
+
+	UNSET_FLAG(peer->af_flags[afi][safi], ~pflags_ovrd);
+	SET_FLAG(peer->af_flags[afi][safi], flags_tmp);
+	SET_FLAG(peer->af_flags_invert[afi][safi],
+		 conf->af_flags_invert[afi][safi]);
 
 	/* maximum-prefix */
 	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_MAX_PREFIX)) {
@@ -2416,6 +2424,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 static void peer_group2peer_config_copy(struct peer_group *group,
 					struct peer *peer)
 {
+	uint32_t flags_tmp;
 	struct peer *conf;
 
 	conf = group->conf;
@@ -2434,9 +2443,14 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	/* GTSM hops */
 	peer->gtsm_hops = conf->gtsm_hops;
 
-	/* These are per-peer specific flags and so we must preserve them */
-	peer->flags |= conf->flags & ~peer->flags_override;
-	peer->flags_invert |= conf->flags_invert;
+	/* peer flags apply */
+	flags_tmp = conf->flags & ~peer->flags_override;
+	flags_tmp ^= conf->flags_invert ^ peer->flags_invert;
+	flags_tmp &= ~peer->flags_override;
+
+	UNSET_FLAG(peer->flags, ~peer->flags_override);
+	SET_FLAG(peer->flags, flags_tmp);
+	SET_FLAG(peer->flags_invert, conf->flags_invert);
 
 	/* peer timers apply */
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TIMER)) {
@@ -2662,7 +2676,6 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	int first_member = 0;
 	afi_t afi;
 	safi_t safi;
-	int cap_enhe_preset = 0;
 
 	/* Lookup the peer.  */
 	if (!peer)
@@ -2702,18 +2715,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 				first_member = 1;
 		}
 
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
-			cap_enhe_preset = 1;
-
 		peer_group2peer_config_copy(group, peer);
-
-		/*
-		 * Capability extended-nexthop is enabled for an interface
-		 * neighbor by
-		 * default. So, fix that up here.
-		 */
-		if (peer->conf_if && cap_enhe_preset)
-			peer_flag_set(peer, PEER_FLAG_CAPABILITY_ENHE);
 
 		FOREACH_AFI_SAFI (afi, safi) {
 			if (group->conf->afc[afi][safi]) {
