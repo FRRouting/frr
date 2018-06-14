@@ -34,6 +34,84 @@
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
+#define OUT_SYMBOL_INFO "\u25ba"
+#define OUT_SYMBOL_OK "\u2714"
+#define OUT_SYMBOL_NOK "\u2716"
+
+#define TEST_ASSERT(T, C)                                                      \
+	do {                                                                   \
+		if ((T)->state != TEST_SUCCESS || (C))                         \
+			break;                                                 \
+		(T)->state = TEST_ASSERT_ERROR;                                \
+		(T)->error = str_printf("assertion failed: %s (%s:%d)", (#C),  \
+					__FILE__, __LINE__);                   \
+	} while (0)
+
+#define TEST_ASSERT_EQ(T, A, B)                                                \
+	do {                                                                   \
+		if ((T)->state != TEST_SUCCESS || ((A) == (B)))                \
+			break;                                                 \
+		(T)->state = TEST_ASSERT_ERROR;                                \
+		(T)->error = str_printf(                                       \
+			"assertion failed: %s[%d] == [%d]%s (%s:%d)", (#A),    \
+			(A), (B), (#B), __FILE__, __LINE__);                   \
+	} while (0)
+
+#define TEST_HANDLER_MAX 5
+#define TEST_HANDLER(name) _test_handler_##name
+#define TEST_HANDLER_DECL(name)                                                \
+	static void _test_handler_##name(                                      \
+		struct test *test, struct test_peer_attr *pa,                  \
+		struct peer *peer, struct peer *group, bool peer_set,          \
+		bool group_set)
+
+#define TEST_ATTR_HANDLER_DECL(name, attr, pval, gval)                         \
+	TEST_HANDLER_DECL(name)                                                \
+	{                                                                      \
+		if (peer_set)                                                  \
+			TEST_ASSERT_EQ(test, peer->attr, (pval));              \
+		else if (peer_group_active(peer) && group_set)                 \
+			TEST_ASSERT_EQ(test, peer->attr, (gval));              \
+		if (group_set)                                                 \
+			TEST_ASSERT_EQ(test, group->attr, (gval));             \
+	}                                                                      \
+	TEST_HANDLER_DECL(name)
+
+#define TEST_STR_ATTR_HANDLER_DECL(name, attr, pval, gval)                     \
+	TEST_HANDLER_DECL(name)                                                \
+	{                                                                      \
+		if (peer_set) {                                                \
+			TEST_ASSERT(test, peer->attr != NULL);                 \
+			TEST_ASSERT(test, !strcmp(peer->attr, (pval)));        \
+		} else if (peer_group_active(peer) && group_set) {             \
+			TEST_ASSERT(test, peer->attr != NULL);                 \
+			TEST_ASSERT(test, !strcmp(peer->attr, (gval)));        \
+		}                                                              \
+		if (group_set) {                                               \
+			TEST_ASSERT(test, group->attr != NULL);                \
+			TEST_ASSERT(test, !strcmp(group->attr, (gval)));       \
+		}                                                              \
+	}                                                                      \
+	TEST_HANDLER_DECL(name)
+
+#define TEST_SU_ATTR_HANDLER_DECL(name, attr, pval, gval)                      \
+	TEST_HANDLER_DECL(name)                                                \
+	{                                                                      \
+		union sockunion su;                                            \
+		if (peer_set) {                                                \
+			str2sockunion(pval, &su);                              \
+			TEST_ASSERT(test, !sockunion_cmp(peer->attr, &su));    \
+		} else if (peer_group_active(peer) && group_set) {             \
+			str2sockunion(gval, &su);                              \
+			TEST_ASSERT(test, !sockunion_cmp(group->attr, &su));   \
+		}                                                              \
+		if (group_set) {                                               \
+			str2sockunion(gval, &su);                              \
+			TEST_ASSERT(test, !sockunion_cmp(group->attr, &su));   \
+		}                                                              \
+	}                                                                      \
+	TEST_HANDLER_DECL(name)
+
 /* Required variables to link in libbgp */
 struct zebra_privs_t bgpd_privs = {0};
 struct thread_master *master;
@@ -111,24 +189,12 @@ struct test_peer_attr {
 	safi_t safi;
 	struct test_peer_family families[AFI_MAX * SAFI_MAX];
 
-	void (*custom_handler)(struct test *test, struct peer *peer,
-			       struct peer *group, bool peer_set,
-			       bool group_set);
+	void (*handlers[TEST_HANDLER_MAX])(struct test *test,
+					   struct test_peer_attr *pa,
+					   struct peer *peer,
+					   struct peer *group, bool peer_set,
+					   bool group_set);
 };
-
-#define OUT_SYMBOL_INFO "\u25ba"
-#define OUT_SYMBOL_OK "\u2714"
-#define OUT_SYMBOL_NOK "\u2716"
-
-#define TEST_ASSERT_EQ(T, A, B)                                                \
-	do {                                                                   \
-		if ((T)->state != TEST_SUCCESS || ((A) == (B)))                \
-			break;                                                 \
-		(T)->state = TEST_ASSERT_ERROR;                                \
-		(T)->error = str_printf(                                       \
-			"assertion failed: %s[%d] == [%d]%s (%s:%d)", (#A),    \
-			(A), (B), (#B), __FILE__, __LINE__);                   \
-	} while (0)
 
 static struct test_config cfg = {
 	.local_asn = 100,
@@ -183,6 +249,41 @@ static char *str_printf(const char *fmt, ...)
 	return buf;
 }
 
+TEST_ATTR_HANDLER_DECL(advertisement_interval, v_routeadv, 10, 20);
+TEST_STR_ATTR_HANDLER_DECL(password, password, "FRR-Peer", "FRR-Group");
+TEST_ATTR_HANDLER_DECL(local_as, change_local_as, 1, 2);
+TEST_ATTR_HANDLER_DECL(timers_1, keepalive, 10, 20);
+TEST_ATTR_HANDLER_DECL(timers_2, holdtime, 30, 60);
+TEST_SU_ATTR_HANDLER_DECL(update_source_su, update_source, "255.255.255.1",
+			  "255.255.255.2");
+TEST_STR_ATTR_HANDLER_DECL(update_source_if, update_if, "IF-PEER", "IF-GROUP");
+
+TEST_ATTR_HANDLER_DECL(allowas_in, allowas_in[pa->afi][pa->safi], 1, 2);
+TEST_STR_ATTR_HANDLER_DECL(default_originate_route_map,
+			   default_rmap[pa->afi][pa->safi].name, "RM-PEER",
+			   "RM-GROUP");
+TEST_STR_ATTR_HANDLER_DECL(
+	distribute_list,
+	filter[pa->afi][pa->safi].dlist[pa->u.filter.direct].name, "DL-PEER",
+	"DL-GROUP");
+TEST_STR_ATTR_HANDLER_DECL(
+	filter_list, filter[pa->afi][pa->safi].aslist[pa->u.filter.direct].name,
+	"FL-PEER", "FL-GROUP");
+TEST_ATTR_HANDLER_DECL(maximum_prefix, pmax[pa->afi][pa->safi], 10, 20);
+TEST_ATTR_HANDLER_DECL(maximum_prefix_threshold,
+		       pmax_threshold[pa->afi][pa->safi], 1, 2);
+TEST_ATTR_HANDLER_DECL(maximum_prefix_restart, pmax_restart[pa->afi][pa->safi],
+		       100, 200);
+TEST_STR_ATTR_HANDLER_DECL(
+	prefix_list, filter[pa->afi][pa->safi].plist[pa->u.filter.direct].name,
+	"PL-PEER", "PL-GROUP");
+TEST_STR_ATTR_HANDLER_DECL(
+	route_map, filter[pa->afi][pa->safi].map[pa->u.filter.direct].name,
+	"RM-PEER", "RM-GROUP");
+TEST_STR_ATTR_HANDLER_DECL(unsuppress_map, filter[pa->afi][pa->safi].usmap.name,
+			   "UM-PEER", "UM-GROUP");
+TEST_ATTR_HANDLER_DECL(weight, weight[pa->afi][pa->safi], 100, 200);
+
 /* clang-format off */
 static struct test_peer_attr test_peer_attrs[] = {
 	/* Peer Attributes */
@@ -192,6 +293,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.group_cmd = "advertisement-interval 20",
 		.u.flag = PEER_FLAG_ROUTEADV,
 		.type = PEER_AT_GLOBAL_FLAG,
+		.handlers[0] = TEST_HANDLER(advertisement_interval),
 	},
 	{
 		.cmd = "capability dynamic",
@@ -235,16 +337,18 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.cmd = "local-as",
 		.peer_cmd = "local-as 1",
 		.group_cmd = "local-as 2",
-		.type = PEER_AT_GLOBAL_CUSTOM,
+		.u.flag = PEER_FLAG_LOCAL_AS,
+		.type = PEER_AT_GLOBAL_FLAG,
+		.handlers[0] = TEST_HANDLER(local_as),
 	},
 	{
 		.cmd = "local-as 1 no-prepend",
-		.u.flag = PEER_FLAG_LOCAL_AS_NO_PREPEND,
+		.u.flag = PEER_FLAG_LOCAL_AS | PEER_FLAG_LOCAL_AS_NO_PREPEND,
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
 		.cmd = "local-as 1 no-prepend replace-as",
-		.u.flag = PEER_FLAG_LOCAL_AS_REPLACE_AS,
+		.u.flag = PEER_FLAG_LOCAL_AS | PEER_FLAG_LOCAL_AS_REPLACE_AS,
 		.type = PEER_AT_GLOBAL_FLAG,
 	},
 	{
@@ -261,7 +365,9 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.cmd = "password",
 		.peer_cmd = "password FRR-Peer",
 		.group_cmd = "password FRR-Group",
-		.type = PEER_AT_GLOBAL_CUSTOM,
+		.u.flag = PEER_FLAG_PASSWORD,
+		.type = PEER_AT_GLOBAL_FLAG,
+		.handlers[0] = TEST_HANDLER(password),
 	},
 	{
 		.cmd = "shutdown",
@@ -279,6 +385,8 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.group_cmd = "timers 20 60",
 		.u.flag = PEER_FLAG_TIMER,
 		.type = PEER_AT_GLOBAL_FLAG,
+		.handlers[0] = TEST_HANDLER(timers_1),
+		.handlers[1] = TEST_HANDLER(timers_2),
 	},
 	{
 		.cmd = "timers connect",
@@ -291,13 +399,17 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.cmd = "update-source",
 		.peer_cmd = "update-source 255.255.255.1",
 		.group_cmd = "update-source 255.255.255.2",
-		.type = PEER_AT_GLOBAL_CUSTOM,
+		.u.flag = PEER_FLAG_UPDATE_SOURCE,
+		.type = PEER_AT_GLOBAL_FLAG,
+		.handlers[0] = TEST_HANDLER(update_source_su),
 	},
 	{
 		.cmd = "update-source",
-		.peer_cmd = "update-source IFACE-PEER",
-		.group_cmd = "update-source IFACE-GROUP",
-		.type = PEER_AT_GLOBAL_CUSTOM,
+		.peer_cmd = "update-source IF-PEER",
+		.group_cmd = "update-source IF-GROUP",
+		.u.flag = PEER_FLAG_UPDATE_SOURCE,
+		.type = PEER_AT_GLOBAL_FLAG,
+		.handlers[0] = TEST_HANDLER(update_source_if),
 	},
 
 	/* Address Family Attributes */
@@ -314,6 +426,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.peer_cmd = "allowas-in 1",
 		.group_cmd = "allowas-in 2",
 		.u.flag = PEER_FLAG_ALLOWAS_IN,
+		.handlers[0] = TEST_HANDLER(allowas_in),
 	},
 	{
 		.cmd = "allowas-in origin",
@@ -372,22 +485,25 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.peer_cmd = "default-originate route-map RM-PEER",
 		.group_cmd = "default-originate route-map RM-GROUP",
 		.u.flag = PEER_FLAG_DEFAULT_ORIGINATE,
+		.handlers[0] = TEST_HANDLER(default_originate_route_map),
 	},
 	{
 		.cmd = "distribute-list",
-		.peer_cmd = "distribute-list FL-PEER in",
-		.group_cmd = "distribute-list FL-GROUP in",
+		.peer_cmd = "distribute-list DL-PEER in",
+		.group_cmd = "distribute-list DL-GROUP in",
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_DISTRIBUTE_LIST,
 		.u.filter.direct = FILTER_IN,
+		.handlers[0] = TEST_HANDLER(distribute_list),
 	},
 	{
 		.cmd = "distribute-list",
-		.peer_cmd = "distribute-list FL-PEER out",
-		.group_cmd = "distribute-list FL-GROUP out",
+		.peer_cmd = "distribute-list DL-PEER out",
+		.group_cmd = "distribute-list DL-GROUP out",
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_DISTRIBUTE_LIST,
 		.u.filter.direct = FILTER_OUT,
+		.handlers[0] = TEST_HANDLER(distribute_list),
 	},
 	{
 		.cmd = "filter-list",
@@ -396,6 +512,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_FILTER_LIST,
 		.u.filter.direct = FILTER_IN,
+		.handlers[0] = TEST_HANDLER(filter_list),
 	},
 	{
 		.cmd = "filter-list",
@@ -404,36 +521,46 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_FILTER_LIST,
 		.u.filter.direct = FILTER_OUT,
+		.handlers[0] = TEST_HANDLER(filter_list),
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10",
 		.group_cmd = "maximum-prefix 20",
 		.u.flag = PEER_FLAG_MAX_PREFIX,
+		.handlers[0] = TEST_HANDLER(maximum_prefix),
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10 restart 100",
 		.group_cmd = "maximum-prefix 20 restart 200",
 		.u.flag = PEER_FLAG_MAX_PREFIX,
+		.handlers[0] = TEST_HANDLER(maximum_prefix),
+		.handlers[1] = TEST_HANDLER(maximum_prefix_restart),
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10 1 restart 100",
 		.group_cmd = "maximum-prefix 20 2 restart 200",
 		.u.flag = PEER_FLAG_MAX_PREFIX,
+		.handlers[0] = TEST_HANDLER(maximum_prefix),
+		.handlers[1] = TEST_HANDLER(maximum_prefix_threshold),
+		.handlers[2] = TEST_HANDLER(maximum_prefix_restart),
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10 warning-only",
 		.group_cmd = "maximum-prefix 20 warning-only",
 		.u.flag = PEER_FLAG_MAX_PREFIX | PEER_FLAG_MAX_PREFIX_WARNING,
+		.handlers[0] = TEST_HANDLER(maximum_prefix),
 	},
 	{
 		.cmd = "maximum-prefix",
 		.peer_cmd = "maximum-prefix 10 1 warning-only",
 		.group_cmd = "maximum-prefix 20 2 warning-only",
 		.u.flag = PEER_FLAG_MAX_PREFIX | PEER_FLAG_MAX_PREFIX_WARNING,
+		.handlers[0] = TEST_HANDLER(maximum_prefix),
+		.handlers[1] = TEST_HANDLER(maximum_prefix_threshold),
 	},
 	{
 		.cmd = "next-hop-self",
@@ -450,6 +577,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_PREFIX_LIST,
 		.u.filter.direct = FILTER_IN,
+		.handlers[0] = TEST_HANDLER(prefix_list),
 	},
 	{
 		.cmd = "prefix-list",
@@ -458,6 +586,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_PREFIX_LIST,
 		.u.filter.direct = FILTER_OUT,
+		.handlers[0] = TEST_HANDLER(prefix_list),
 	},
 	{
 		.cmd = "remove-private-AS",
@@ -484,6 +613,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_ROUTE_MAP,
 		.u.filter.direct = FILTER_IN,
+		.handlers[0] = TEST_HANDLER(route_map),
 	},
 	{
 		.cmd = "route-map",
@@ -492,6 +622,7 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_ROUTE_MAP,
 		.u.filter.direct = FILTER_OUT,
+		.handlers[0] = TEST_HANDLER(route_map),
 	},
 	{
 		.cmd = "route-reflector-client",
@@ -532,12 +663,14 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.type = PEER_AT_AF_FILTER,
 		.u.filter.flag = PEER_FT_UNSUPPRESS_MAP,
 		.u.filter.direct = 0,
+		.handlers[0] = TEST_HANDLER(unsuppress_map),
 	},
 	{
 		.cmd = "weight",
 		.peer_cmd = "weight 100",
 		.group_cmd = "weight 200",
 		.u.flag = PEER_FLAG_WEIGHT,
+		.handlers[0] = TEST_HANDLER(weight),
 	},
 	{NULL}
 };
@@ -929,24 +1062,27 @@ static void test_custom(struct test *test, struct test_peer_attr *pa,
 			struct peer *peer, struct peer *group, bool peer_set,
 			bool group_set)
 {
+	int i;
 	char *handler_error;
 
-	/* Skip execution if test instance has previously failed. */
-	if (test->state != TEST_SUCCESS)
-		return;
+	for (i = 0; i < TEST_HANDLER_MAX; i++) {
+		/* Skip execution if test instance has previously failed. */
+		if (test->state != TEST_SUCCESS)
+			return;
 
-	/* Skip execution if no custom handler is defined. */
-	if (!pa->custom_handler)
-		return;
+		/* Skip further execution if handler is undefined. */
+		if (!pa->handlers[i])
+			return;
 
-	/* Execute custom handler. */
-	pa->custom_handler(test, peer, group, peer_set, group_set);
-	if (test->state != TEST_SUCCESS) {
-		test->state = TEST_CUSTOM_ERROR;
-		handler_error = test->error;
-		test->error =
-			str_printf("custom handler failed: %s", handler_error);
-		XFREE(MTYPE_TMP, handler_error);
+		/* Execute custom handler. */
+		pa->handlers[i](test, pa, peer, group, peer_set, group_set);
+		if (test->state != TEST_SUCCESS) {
+			test->state = TEST_CUSTOM_ERROR;
+			handler_error = test->error;
+			test->error = str_printf("custom handler failed: %s",
+						 handler_error);
+			XFREE(MTYPE_TMP, handler_error);
+		}
 	}
 }
 
@@ -958,13 +1094,18 @@ static void test_process(struct test *test, struct test_peer_attr *pa,
 	switch (pa->type) {
 	case PEER_AT_GLOBAL_FLAG:
 	case PEER_AT_AF_FLAG:
-		test_peer_flags(test, pa, peer, peer_set || group_set,
-				peer_set);
+		test_peer_flags(
+			test, pa, peer,
+			peer_set || (peer_group_active(peer) && group_set),
+			peer_set);
 		test_peer_flags(test, pa, group, group_set, false);
 		break;
 
 	case PEER_AT_AF_FILTER:
-		test_af_filter(test, pa, peer, peer_set || group_set, peer_set);
+		test_af_filter(
+			test, pa, peer,
+			peer_set || (peer_group_active(peer) && group_set),
+			peer_set);
 		test_af_filter(test, pa, group, group_set, false);
 		break;
 
@@ -1010,6 +1151,20 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 			str_printf("invalid attribute type: %d", pa->type);
 		return;
 	}
+
+	/*
+	 * =====================================================================
+	 * Test Case Suite 1: Config persistence after adding peer to group
+	 *
+	 * Example: If a peer attribute has value [1] and a group attribute has
+	 * value [2], the peer attribute value should be persisted when the peer
+	 * gets added to the peer-group.
+	 *
+	 * This test suite is meant to test the group2peer functions which can
+	 * be found inside bgpd/bgpd.c, which are related to initial peer-group
+	 * inheritance.
+	 * =====================================================================
+	 */
 
 	/* Test Preparation: Switch and activate address-family. */
 	if (!is_attr_type_global(pa->type)) {
@@ -1059,9 +1214,67 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_config_absent(test, "neighbor %s %s", g->name, pa->cmd);
 	test_process(test, pa, p, g->conf, true, false);
 
+	/*
+	 * =====================================================================
+	 * Test Case Suite 2: Config inheritance after adding peer to group
+	 *
+	 * Example: If a peer attribute has not been set and a group attribute
+	 * has a value of [2], the group attribute should be inherited to the
+	 * peer without flagging the newly set value as overridden.
+	 *
+	 * This test suite is meant to test the group2peer functions which can
+	 * be found inside bgpd/bgpd.c, which are related to initial peer-group
+	 * inheritance.
+	 * =====================================================================
+	 */
+
+	/* Test Preparation: Re-initialize test environment. */
+	test_initialize(test);
+	p = test->peer;
+	g = test->group;
+
+	/* Test Preparation: Switch and activate address-family. */
+	if (!is_attr_type_global(pa->type)) {
+		test_log(test, "prepare: switch address-family to [%s]",
+			 afi_safi_print(pa->afi, pa->safi));
+		test_execute(test, "address-family %s %s",
+			     str_from_afi(pa->afi), str_from_safi(pa->safi));
+		test_execute(test, "neighbor %s activate", g->name);
+		test_execute(test, "neighbor %s activate", p->host);
+	}
+
+	/* Test Case: Set flag on BGP peer-group. */
+	test_log(test, "case %02d: set %s [%s] on [%s]", tc++, type, group_cmd,
+		 g->name);
+	test_execute(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
+	test_config_absent(test, "neighbor %s %s", p->host, pa->cmd);
+	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
+	test_process(test, pa, p, g->conf, false, true);
+
+	/* Test Case: Add BGP peer to peer-group. */
+	test_log(test, "case %02d: add peer [%s] to group [%s]", tc++, p->host,
+		 g->name);
+	test_execute(test, "neighbor %s peer-group %s", p->host, g->name);
+	test_config_present(test, "neighbor %s %speer-group %s", p->host,
+			    p->conf_if ? "interface " : "", g->name);
+	test_config_absent(test, "neighbor %s %s", p->host, pa->cmd);
+	test_config_present(test, "%sneighbor %s %s", ecg, g->name, group_cmd);
+	test_process(test, pa, p, g->conf, false, true);
+
 	/* Stop skipping test cases if previously enabled. */
 	if (pa->o.skip_xfer_cases && test->state == TEST_SKIPPING)
 		test->state = TEST_SUCCESS;
+
+	/*
+	 * =====================================================================
+	 * Test Case Suite 3: Miscellaneous flag checks
+	 *
+	 * This test suite does not focus on initial peer-group inheritance and
+	 * instead executes various different commands to set/unset attributes
+	 * on both peer- and group-level. These checks should always be executed
+	 * and must pass.
+	 * =====================================================================
+	 */
 
 	/* Test Preparation: Re-initialize test environment. */
 	test_initialize(test);
