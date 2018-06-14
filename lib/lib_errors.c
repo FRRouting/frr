@@ -65,6 +65,12 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Ensure permissions are correct for FRR and FRR user and groups are correct\nAdditionally check that system resources are still available"
 	},
 	{
+		.code = LIB_ERR_VTY,
+		.title = "VTY subsystem Error",
+		.description = "FRR has detected a problem with the specified configuration file",
+		.suggestion = "Ensure configuration file exists and has correct permissions for operations\nAdditionally ensure that all config lines are correct as well",
+	},
+	{
 		.code = END_FERR,
 	}
 };
