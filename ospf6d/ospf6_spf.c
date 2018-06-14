@@ -1012,16 +1012,10 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 
 	/* Allocate memory for this LSA */
 	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, total_lsa_length);
-	if (!new_header)
-		return NULL;
 
 	/* LSA information structure */
 	lsa = (struct ospf6_lsa *)XCALLOC(MTYPE_OSPF6_LSA,
 					  sizeof(struct ospf6_lsa));
-	if (!lsa) {
-		free(new_header);
-		return NULL;
-	}
 
 	lsa->header = (struct ospf6_lsa_header *)new_header;
 

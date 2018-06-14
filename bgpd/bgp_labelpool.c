@@ -202,10 +202,6 @@ void bgp_lp_init(struct thread_master *master, struct labelpool *pool)
 	lp->requests = XCALLOC(MTYPE_BGP_LABEL_FIFO, sizeof(struct lp_fifo));
 	LABEL_FIFO_INIT(lp->requests);
 	lp->callback_q = work_queue_new(master, "label callbacks");
-	if (!lp->callback_q) {
-		zlog_err("%s: Failed to allocate work queue", __func__);
-		exit(1);
-	}
 
 	lp->callback_q->spec.workfunc = lp_cbq_docallback;
 	lp->callback_q->spec.del_item_data = lp_cbq_item_free;

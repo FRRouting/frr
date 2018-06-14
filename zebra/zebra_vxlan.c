@@ -2985,10 +2985,6 @@ static zebra_vtep_t *zvni_vtep_add(zebra_vni_t *zvni, struct in_addr *vtep_ip)
 	zebra_vtep_t *zvtep;
 
 	zvtep = XCALLOC(MTYPE_ZVNI_VTEP, sizeof(zebra_vtep_t));
-	if (!zvtep) {
-		zlog_err("Failed to alloc VTEP entry, VNI %u", zvni->vni);
-		return NULL;
-	}
 
 	zvtep->vtep_ip = *vtep_ip;
 

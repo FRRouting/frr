@@ -1965,7 +1965,6 @@ static struct meta_queue *meta_queue_new(void)
 	unsigned i;
 
 	new = XCALLOC(MTYPE_WORK_QUEUE, sizeof(struct meta_queue));
-	assert(new);
 
 	for (i = 0; i < MQ_SIZE; i++) {
 		new->subq[i] = list_new();

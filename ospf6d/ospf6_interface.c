@@ -180,12 +180,6 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	oi = (struct ospf6_interface *)XCALLOC(MTYPE_OSPF6_IF,
 					       sizeof(struct ospf6_interface));
 
-	if (!oi) {
-		zlog_err("Can't malloc ospf6_interface for ifindex %d",
-			 ifp->ifindex);
-		return (struct ospf6_interface *)NULL;
-	}
-
 	oi->area = (struct ospf6_area *)NULL;
 	oi->neighbor_list = list_new();
 	oi->neighbor_list->cmp = ospf6_neighbor_cmp;

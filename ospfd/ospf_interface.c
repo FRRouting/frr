@@ -523,9 +523,6 @@ static struct ospf_if_params *ospf_new_if_params(void)
 
 	oip = XCALLOC(MTYPE_OSPF_IF_PARAMS, sizeof(struct ospf_if_params));
 
-	if (!oip)
-		return NULL;
-
 	UNSET_IF_PARAM(oip, output_cost_cmd);
 	UNSET_IF_PARAM(oip, transmit_delay);
 	UNSET_IF_PARAM(oip, retransmit_interval);

@@ -2912,24 +2912,17 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
-	if ((rn = route_node_get(ospf->maxage_lsa,
-				 (struct prefix *)&lsa_prefix))
-	    != NULL) {
-		if (rn->info != NULL) {
-			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-				zlog_debug(
-					"LSA[%s]: found LSA (%p) in table for LSA %p %d",
-					dump_lsa_key(lsa), rn->info,
-					(void *)lsa, lsa_prefix.prefixlen);
-			route_unlock_node(rn);
-		} else {
-			rn->info = ospf_lsa_lock(lsa);
-			SET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
-		}
+	rn = route_node_get(ospf->maxage_lsa, (struct prefix *)&lsa_prefix);
+	if (rn->info != NULL) {
+		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+			zlog_debug(
+				   "LSA[%s]: found LSA (%p) in table for LSA %p %d",
+				   dump_lsa_key(lsa), rn->info,
+				   (void *)lsa, lsa_prefix.prefixlen);
+		route_unlock_node(rn);
 	} else {
-		zlog_err("Unable to allocate memory for maxage lsa %s\n",
-			 dump_lsa_key(lsa));
-		assert(0);
+		rn->info = ospf_lsa_lock(lsa);
+		SET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
 	}
 
 	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))

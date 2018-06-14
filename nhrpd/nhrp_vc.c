@@ -48,14 +48,13 @@ static void *nhrp_vc_alloc(void *data)
 	struct nhrp_vc *vc, *key = data;
 
 	vc = XMALLOC(MTYPE_NHRP_VC, sizeof(struct nhrp_vc));
-	if (vc) {
-		*vc = (struct nhrp_vc){
-			.local.nbma = key->local.nbma,
-			.remote.nbma = key->remote.nbma,
-			.notifier_list =
-				NOTIFIER_LIST_INITIALIZER(&vc->notifier_list),
-		};
-	}
+
+	*vc = (struct nhrp_vc){
+		.local.nbma = key->local.nbma,
+		.remote.nbma = key->remote.nbma,
+		.notifier_list =
+		NOTIFIER_LIST_INITIALIZER(&vc->notifier_list),
+	};
 
 	return vc;
 }
@@ -118,8 +117,6 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 			return 0;
 
 		sa = XMALLOC(MTYPE_NHRP_VC, sizeof(struct child_sa));
-		if (!sa)
-			return 0;
 
 		*sa = (struct child_sa){
 			.id = child_id,

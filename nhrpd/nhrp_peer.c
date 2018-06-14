@@ -165,18 +165,18 @@ static void *nhrp_peer_create(void *data)
 	struct nhrp_peer *p, *key = data;
 
 	p = XMALLOC(MTYPE_NHRP_PEER, sizeof(*p));
-	if (p) {
-		*p = (struct nhrp_peer){
-			.ref = 0,
-			.ifp = key->ifp,
-			.vc = key->vc,
-			.notifier_list =
-				NOTIFIER_LIST_INITIALIZER(&p->notifier_list),
-		};
-		nhrp_vc_notify_add(p->vc, &p->vc_notifier, nhrp_peer_vc_notify);
-		nhrp_interface_notify_add(p->ifp, &p->ifp_notifier,
-					  nhrp_peer_ifp_notify);
-	}
+
+	*p = (struct nhrp_peer){
+		.ref = 0,
+		.ifp = key->ifp,
+		.vc = key->vc,
+		.notifier_list =
+		NOTIFIER_LIST_INITIALIZER(&p->notifier_list),
+	};
+	nhrp_vc_notify_add(p->vc, &p->vc_notifier, nhrp_peer_vc_notify);
+	nhrp_interface_notify_add(p->ifp, &p->ifp_notifier,
+				  nhrp_peer_ifp_notify);
+
 	return p;
 }
 

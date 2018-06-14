@@ -324,8 +324,6 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 	}
 
 	nhs = XMALLOC(MTYPE_NHRP_NHS, sizeof(struct nhrp_nhs));
-	if (!nhs)
-		return NHRP_ERR_NO_MEMORY;
 
 	*nhs = (struct nhrp_nhs){
 		.afi = afi,

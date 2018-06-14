@@ -2459,15 +2459,9 @@ static void bgp_processq_del(struct work_queue *wq, void *data)
 
 void bgp_process_queue_init(void)
 {
-	if (!bm->process_main_queue) {
+	if (!bm->process_main_queue)
 		bm->process_main_queue =
 			work_queue_new(bm->master, "process_main_queue");
-
-		if (!bm->process_main_queue) {
-			zlog_err("%s: Failed to allocate work queue", __func__);
-			exit(1);
-		}
-	}
 
 	bm->process_main_queue->spec.workfunc = &bgp_process_wq;
 	bm->process_main_queue->spec.del_item_data = &bgp_processq_del;
@@ -3838,11 +3832,7 @@ static void bgp_clear_node_queue_init(struct peer *peer)
 	snprintf(wname, sizeof(wname), "clear %s", peer->host);
 #undef CLEAR_QUEUE_NAME_LEN
 
-	if ((peer->clear_node_queue = work_queue_new(bm->master, wname))
-	    == NULL) {
-		zlog_err("%s: Failed to allocate work queue", __func__);
-		exit(1);
-	}
+	peer->clear_node_queue = work_queue_new(bm->master, wname);
 	peer->clear_node_queue->spec.hold = 10;
 	peer->clear_node_queue->spec.workfunc = &bgp_clear_route_node;
 	peer->clear_node_queue->spec.del_item_data = &bgp_clear_node_queue_del;

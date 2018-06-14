@@ -25,8 +25,6 @@ struct zbuf *zbuf_alloc(size_t size)
 	struct zbuf *zb;
 
 	zb = XMALLOC(MTYPE_ZBUF_DATA, sizeof(*zb) + size);
-	if (!zb)
-		return NULL;
 
 	zbuf_init(zb, zb + 1, size, 0);
 	zb->allocated = 1;
