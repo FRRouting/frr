@@ -77,6 +77,8 @@ typedef struct zebra_dplane_ctx_s * dplane_ctx_h;
  */
 TAILQ_HEAD(dplane_ctx_q_s, zebra_dplane_ctx_s);
 
+#define DPLANE_PROVIDER_NAMELEN 64
+
 /*
  * Allocate an opaque context block, currently for a route update.
  */
@@ -116,6 +118,7 @@ afi_t dplane_ctx_get_afi(const dplane_ctx_h ctx);
 safi_t dplane_ctx_get_safi(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_table(const dplane_ctx_h ctx);
 route_tag_t dplane_ctx_get_tag(const dplane_ctx_h ctx);
+route_tag_t dplane_ctx_get_old_tag(const dplane_ctx_h ctx);
 uint16_t dplane_ctx_get_instance(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_metric(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_mtu(const dplane_ctx_h ctx);
@@ -130,7 +133,8 @@ int dplane_route_add(struct route_node *rn,
 		     struct route_entry *re);
 
 int dplane_route_update(struct route_node *rn,
-			struct route_entry *re);
+			struct route_entry *re,
+			struct route_entry *old_re);
 
 int dplane_route_delete(struct route_node *rn,
 			struct route_entry *re);

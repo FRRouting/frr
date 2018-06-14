@@ -1759,7 +1759,7 @@ static void rib_process(struct route_node *rn)
 }
 
 /*
- * TODO - wip
+ * TODO - WIP
  */
 void rib_process_after(void)
 {

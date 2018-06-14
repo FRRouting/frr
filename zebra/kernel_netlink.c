@@ -129,9 +129,6 @@ extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
-int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
-		      struct nlmsghdr *n, struct zebra_ns_info *zns_info,
-		      int startup);
 
 int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 {
@@ -591,8 +588,8 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
  *            the filter.
  */
 int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-		       struct nlsock *nl, struct zebra_ns_info *zns, int count,
-		       int startup)
+		       const struct nlsock *nl,
+		       const struct zebra_ns_info *zns, int count, int startup)
 {
 	int status;
 	int ret = 0;
@@ -801,20 +798,19 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 }
 
 /*
- * netlink_talk
+ * netlink_talk_info
  *
  * sendmsg() to netlink socket then recvmsg().
  * Calls netlink_parse_info to parse returned data
  *
  * filter   -> The filter to read final results from kernel
  * nlmsghdr -> The data to send to the kernel
- * nl       -> The netlink socket information
- * zns      -> The zebra namespace information
+ * zns_info -> The netlink socket information
  * startup  -> Are we reading in under startup conditions
  *             This is passed through eventually to filter.
  */
 int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
-		      struct nlmsghdr *n, struct zebra_ns_info *zns_info,
+		      struct nlmsghdr *n, const struct zebra_ns_info *zns_info,
 		      int startup)
 {
 	int status;
@@ -822,7 +818,7 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	struct iovec iov;
 	struct msghdr msg;
 	int save_errno;
-	struct nlsock *nl;
+	const struct nlsock *nl;
 
 	memset(&snl, 0, sizeof snl);
 	memset(&iov, 0, sizeof iov);

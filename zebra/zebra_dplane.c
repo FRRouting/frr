@@ -24,6 +24,7 @@
 #include "zebra/zebra_memory.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/rt.h"
 
 /* Memory type for context blocks */
 DEFINE_MTYPE(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
@@ -63,6 +64,10 @@ struct zebra_dplane_ctx_s {
 	/* Status on return */
 	dplane_status_e zd_status;
 
+	/* TODO -- internal/sub-operation status? */
+	dplane_status_e zd_remote_status;
+	dplane_status_e zd_kernel_status;
+
 	/* Dest and (optional) source prefixes */
 	struct prefix zd_dest;
 	struct prefix zd_src;
@@ -76,6 +81,7 @@ struct zebra_dplane_ctx_s {
 	safi_t zd_safi;
 
 	route_tag_t zd_tag;
+	route_tag_t zd_old_tag;
 	uint32_t zd_metric;
 	uint16_t zd_instance;
 
@@ -100,7 +106,7 @@ struct zebra_dplane_ctx_s {
  */
 struct zebra_dplane_provider_s {
 	/* Name */
-	const char *dp_name;
+	char dp_name[DPLANE_PROVIDER_NAMELEN];
 
 	/* Priority, for ordering among providers */
 	uint8_t dp_priority;
@@ -143,6 +149,9 @@ static struct zebra_dplane_globals_s {
 #define DPLANE_LOCK() pthread_mutex_lock(&zdplane_g.dg_mutex)
 
 #define DPLANE_UNLOCK() pthread_mutex_unlock(&zdplane_g.dg_mutex)
+
+/* Prototypes */
+static int dplane_route_process(struct thread *event);
 
 /*
  * Public APIs
@@ -299,6 +308,13 @@ route_tag_t dplane_ctx_get_tag(const dplane_ctx_h ctx)
 	return (ctx->zd_tag);
 }
 
+route_tag_t dplane_ctx_get_old_tag(const dplane_ctx_h ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->zd_old_tag);
+}
+
 uint16_t dplane_ctx_get_instance(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -386,6 +402,7 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	ctx->zd_nexthop_mtu = re->nexthop_mtu;
 	ctx->zd_instance = re->instance;
 	ctx->zd_tag = re->tag;
+	ctx->zd_old_tag = re->tag;
 
 	ctx->zd_table_id = re->table;
 
@@ -399,8 +416,10 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	zvrf = vrf_info_lookup(re->vrf_id);
 	zns = zvrf->zns;
 
+	zebra_ns_info_from_ns(&(ctx->zd_ns_info), zns, true /*is_cmd*/);
+
 #if defined(HAVE_NETLINK)
-	/* Increment counter before copying to context struct - may need
+	/* Increment counter after copying to context struct - may need
 	 * two messages in some 'update' cases.
 	 */
 	if (op == DPLANE_OP_ROUTE_UPDATE) {
@@ -409,8 +428,6 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 		zns->netlink_cmd.seq++;
 	}
 #endif /* NETLINK*/
-
-	zebra_ns_info_from_ns(&(ctx->zd_ns_info), zns, true /*is_cmd*/);
 
 	/* Copy nexthops; recursive info is included too */
 	copy_nexthops(&(ctx->zd_ng.nexthop), re->ng.nexthop, NULL);
@@ -425,14 +442,6 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 
 done:
 	return ret;
-}
-
-/*
- * Event handler function for routing updates
- */
-static int dplane_route_process(struct thread *event)
-{
-	return (0);
 }
 
 /*
@@ -459,12 +468,32 @@ static int dplane_route_enqueue(dplane_ctx_h ctx)
 	return (ret);
 }
 
+/*
+ * Attempt to dequeue a route-update block
+ */
+static dplane_ctx_h dplane_route_dequeue(void)
+{
+	dplane_ctx_h ctx = NULL;
+
+	DPLANE_LOCK();
+	{
+		ctx = TAILQ_FIRST(&zdplane_g.dg_route_ctx_q);
+		if (ctx) {
+			TAILQ_REMOVE(&zdplane_g.dg_route_ctx_q,
+				     ctx, zd_q_entries);
+		}
+	}
+	DPLANE_UNLOCK();
+
+	return (ctx);
+}
 
 /*
  * Utility that prepares a route update and enqueues it for processing
  */
 static int dplane_route_update_internal(struct route_node *rn,
 					struct route_entry *re,
+					struct route_entry *old_re,
 					dplane_op_e op)
 {
 	int ret = EINVAL;
@@ -480,6 +509,11 @@ static int dplane_route_update_internal(struct route_node *rn,
 	/* Init context with info from zebra data structs */
 	ret = dplane_ctx_route_init(ctx, op, rn, re);
 	if (ret == AOK) {
+		if (op == DPLANE_OP_ROUTE_UPDATE && old_re) {
+			/* Capture a little info from old route for update */
+			ctx->zd_old_tag = old_re->tag;
+		}
+
 		/* Enqueue context for processing */
 		ret = dplane_route_enqueue(ctx);
 	}
@@ -493,10 +527,10 @@ done:
 }
 
 /*
- * Enqueue a route update for the dataplane.
+ * Enqueue a route 'add' for the dataplane.
  */
-int dplane_route_update(struct route_node *rn,
-			struct route_entry *re)
+int dplane_route_add(struct route_node *rn,
+		     struct route_entry *re)
 {
 	int ret = EINVAL;
 
@@ -504,7 +538,29 @@ int dplane_route_update(struct route_node *rn,
 		goto done;
 	}
 
-	ret = dplane_route_update_internal(rn, re, DPLANE_OP_ROUTE_UPDATE);
+	ret = dplane_route_update_internal(rn, re, NULL,
+					   DPLANE_OP_ROUTE_INSTALL);
+
+done:
+
+	return (ret);
+}
+
+/*
+ * Enqueue a route update for the dataplane.
+ */
+int dplane_route_update(struct route_node *rn,
+			struct route_entry *re,
+			struct route_entry *old_re)
+{
+	int ret = EINVAL;
+
+	if (rn == NULL || re == NULL) {
+		goto done;
+	}
+
+	ret = dplane_route_update_internal(rn, re, old_re,
+					   DPLANE_OP_ROUTE_UPDATE);
 
 done:
 
@@ -523,7 +579,8 @@ int dplane_route_delete(struct route_node *rn,
 		goto done;
 	}
 
-	ret = dplane_route_update_internal(rn, re, DPLANE_OP_ROUTE_DELETE);
+	ret = dplane_route_update_internal(rn, re, NULL,
+					   DPLANE_OP_ROUTE_DELETE);
 
 done:
 
@@ -531,7 +588,36 @@ done:
 }
 
 /*
- * Zebra registers a results callback with the dataplane
+ * Event handler function for routing updates
+ */
+static int dplane_route_process(struct thread *event)
+{
+	enum dp_req_result res;
+	dplane_ctx_h ctx;
+
+	while (1) {
+		/* TODO -- limit number of updates per cycle? */
+		ctx = dplane_route_dequeue();
+		if (ctx == NULL) {
+			break;
+		}
+
+		res = kernel_route_update(ctx);
+
+		/* TODO -- support series of providers */
+		ctx->zd_status = res;
+
+		/* Enqueue result to zebra main context */
+		(*zdplane_g.dg_results_cb)(ctx);
+
+		ctx = NULL;
+	}
+
+	return (0);
+}
+
+/*
+ * Zebra registers a results callback with the dataplane system
  */
 int dplane_results_register(dplane_results_fp fp)
 {

@@ -29,6 +29,7 @@
 #include "zebra/rib.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_dplane.h"
 
 /*
  * Philosophy Note:
@@ -81,6 +82,12 @@ extern void kernel_route_rib_pass_fail(struct route_node *rn,
 				       const struct prefix *p,
 				       struct route_entry *re,
 				       enum dp_results res);
+
+/*
+ * Update or delete a prefix from the kernel,
+ * using info from a dataplane context.
+ */
+extern enum dp_req_result kernel_route_update(dplane_ctx_h ctx);
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
