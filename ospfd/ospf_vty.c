@@ -9779,7 +9779,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			}
 
 			/* bfd  print. */
-			if (params->bfd_info)
+			if (params && params->bfd_info)
 				ospf_bfd_write_config(vty, params);
 
 			/* MTU ignore print. */
