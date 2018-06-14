@@ -771,7 +771,7 @@ int prefix_common_bits(const struct prefix *p1, const struct prefix *p2)
 {
 	int pos, bit;
 	int length = 0;
-	uint8_t xor ;
+	uint8_t xor;
 
 	/* Set both prefix's head pointer. */
 	const uint8_t *pp1 = p1->u.val;
