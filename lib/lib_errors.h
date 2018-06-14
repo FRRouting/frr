@@ -27,6 +27,9 @@ enum lib_ferr_refs {
 	LIB_ERR_PRIVILEGES = LIB_FERR_START,
 	LIB_ERR_VRF_START,
 	LIB_ERR_VRF_SOCKET,
+	LIB_ERR_ZAPI_MISSMATCH,
+	LIB_ERR_ZAPI_ENCODE,
+	LIB_ERR_ZAPI_SOCKET,
 };
 
 extern void lib_error_init(void);

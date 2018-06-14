@@ -38,6 +38,7 @@
 #include "sockopt.h"
 #include "pbr.h"
 #include "nexthop_group.h"
+#include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
@@ -312,9 +313,9 @@ int zclient_read_header(struct stream *s, int sock, uint16_t *size,
 	STREAM_GETW(s, *cmd);
 
 	if (*version != ZSERV_VERSION || *marker != ZEBRA_HEADER_MARKER) {
-		zlog_err(
-			"%s: socket %d version mismatch, marker %d, version %d",
-			__func__, sock, *marker, *version);
+		zlog_ferr(LIB_ERR_ZAPI_MISSMATCH,
+			  "%s: socket %d version mismatch, marker %d, version %d",
+			  __func__, sock, *marker, *version);
 		return -1;
 	}
 
@@ -1045,12 +1046,12 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 					char buf[PREFIX2STR_BUFFER];
 					prefix2str(&api->prefix, buf,
 						   sizeof(buf));
-					zlog_err(
-						"%s: prefix %s: can't encode "
-						"%u labels (maximum is %u)",
-						__func__, buf,
-						api_nh->label_num,
-						MPLS_MAX_LABELS);
+					zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+						  "%s: prefix %s: can't encode "
+						  "%u labels (maximum is %u)",
+						  __func__, buf,
+						  api_nh->label_num,
+						  MPLS_MAX_LABELS);
 					return -1;
 				}
 
@@ -1671,10 +1672,10 @@ static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
 		for (i = 0; i < bwclassnum && i < MAX_CLASS_TYPE; i++)
 			iflp->unrsv_bw[i] = stream_getf(s);
 		if (i < bwclassnum)
-			zlog_err(
-				"%s: received %d > %d (MAX_CLASS_TYPE) bw entries"
-				" - outdated library?",
-				__func__, bwclassnum, MAX_CLASS_TYPE);
+			zlog_ferr(LIB_ERR_ZAPI_MISSMATCH,
+				  "%s: received %d > %d (MAX_CLASS_TYPE) bw entries"
+				  " - outdated library?",
+				  __func__, bwclassnum, MAX_CLASS_TYPE);
 	}
 	iflp->admin_grp = stream_getl(s);
 	iflp->rmt_as = stream_getl(s);
@@ -1703,8 +1704,9 @@ struct interface *zebra_interface_link_params_read(struct stream *s)
 	struct interface *ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 
 	if (ifp == NULL) {
-		zlog_err("%s: unknown ifindex %u, shouldn't happen", __func__,
-			 ifindex);
+		zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+			  "%s: unknown ifindex %u, shouldn't happen", __func__,
+			  ifindex);
 		return NULL;
 	}
 
@@ -2039,7 +2041,8 @@ static int zclient_read_sync_response(struct zclient *zclient,
 				   size);
 	}
 	if (ret != 0) {
-		zlog_err("%s: Invalid Sync Message Reply", __func__);
+		zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+			 "%s: Invalid Sync Message Reply", __func__);
 		return -1;
 	}
 
@@ -2081,13 +2084,13 @@ int lm_label_manager_connect(struct zclient *zclient)
 
 	ret = writen(zclient->sock, s->data, stream_get_endp(s));
 	if (ret < 0) {
-		zlog_err("Can't write to zclient sock");
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET, "Can't write to zclient sock");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
 	}
 	if (ret == 0) {
-		zlog_err("Zclient sock closed");
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET, "Zclient sock closed");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
@@ -2108,13 +2111,13 @@ int lm_label_manager_connect(struct zclient *zclient)
 
 	/* sanity */
 	if (proto != zclient->redist_default)
-		zlog_err(
-			"Wrong proto (%u) in LM connect response. Should be %u",
-			proto, zclient->redist_default);
+		zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+			  "Wrong proto (%u) in LM connect response. Should be %u",
+			  proto, zclient->redist_default);
 	if (instance != zclient->instance)
-		zlog_err(
-			"Wrong instId (%u) in LM connect response. Should be %u",
-			instance, zclient->instance);
+		zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+			  "Wrong instId (%u) in LM connect response. Should be %u",
+			  instance, zclient->instance);
 
 	/* result code */
 	result = stream_getc(s);
@@ -2203,13 +2206,15 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 
 	ret = writen(zclient->sock, s->data, stream_get_endp(s));
 	if (ret < 0) {
-		zlog_err("Can't write to zclient sock");
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET,
+			  "Can't write to zclient sock");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
 	}
 	if (ret == 0) {
-		zlog_err("Zclient sock closed");
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET,
+			  "Zclient sock closed");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
@@ -2230,11 +2235,13 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 
 	/* sanities */
 	if (proto != zclient->redist_default)
-		zlog_err("Wrong proto (%u) in get chunk response. Should be %u",
-			 proto, zclient->redist_default);
+		zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+			  "Wrong proto (%u) in get chunk response. Should be %u",
+			  proto, zclient->redist_default);
 	if (instance != zclient->instance)
-		zlog_err("Wrong instId (%u) in get chunk response Should be %u",
-			 instance, zclient->instance);
+		zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+			  "Wrong instId (%u) in get chunk response Should be %u",
+			  instance, zclient->instance);
 
 	/* keep */
 	response_keep = stream_getc(s);
@@ -2244,14 +2251,15 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 
 	/* not owning this response */
 	if (keep != response_keep) {
-		zlog_err(
-			"Invalid Label chunk: %u - %u, keeps mismatch %u != %u",
-			*start, *end, keep, response_keep);
+		zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+			  "Invalid Label chunk: %u - %u, keeps mismatch %u != %u",
+			  *start, *end, keep, response_keep);
 	}
 	/* sanity */
 	if (*start > *end || *start < MPLS_LABEL_UNRESERVED_MIN
 	    || *end > MPLS_LABEL_UNRESERVED_MAX) {
-		zlog_err("Invalid Label chunk: %u - %u", *start, *end);
+		zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+			  "Invalid Label chunk: %u - %u", *start, *end);
 		return -1;
 	}
 
@@ -2301,13 +2309,14 @@ int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 
 	ret = writen(zclient->sock, s->data, stream_get_endp(s));
 	if (ret < 0) {
-		zlog_err("Can't write to zclient sock");
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET, "Can't write to zclient sock");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
 	}
 	if (ret == 0) {
-		zlog_err("Zclient sock connection closed");
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET,
+			  "Zclient sock connection closed");
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
@@ -2410,13 +2419,15 @@ int tm_get_table_chunk(struct zclient *zclient, uint32_t chunk_size,
 
 	ret = writen(zclient->sock, s->data, stream_get_endp(s));
 	if (ret < 0) {
-		zlog_err("%s: can't write to zclient->sock", __func__);
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET,
+			  "%s: can't write to zclient->sock", __func__);
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
 	}
 	if (ret == 0) {
-		zlog_err("%s: zclient->sock connection closed", __func__);
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET,
+			  "%s: zclient->sock connection closed", __func__);
 		close(zclient->sock);
 		zclient->sock = -1;
 		return -1;
@@ -2502,7 +2513,8 @@ int zebra_send_pw(struct zclient *zclient, int command, struct zapi_pw *pw)
 		stream_write(s, (uint8_t *)&pw->nexthop.ipv6, 16);
 		break;
 	default:
-		zlog_err("%s: unknown af", __func__);
+		zlog_ferr(LIB_ERR_ZAPI_ENCODE,
+			  "%s: unknown af", __func__);
 		return -1;
 	}
 
@@ -2604,15 +2616,16 @@ static int zclient_read(struct thread *thread)
 	command = stream_getw(zclient->ibuf);
 
 	if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION) {
-		zlog_err(
-			"%s: socket %d version mismatch, marker %d, version %d",
-			__func__, zclient->sock, marker, version);
+		zlog_ferr(LIB_ERR_ZAPI_MISSMATCH,
+			  "%s: socket %d version mismatch, marker %d, version %d",
+			  __func__, zclient->sock, marker, version);
 		return zclient_failed(zclient);
 	}
 
 	if (length < ZEBRA_HEADER_SIZE) {
-		zlog_err("%s: socket %d message length %u is less than %d ",
-			 __func__, zclient->sock, length, ZEBRA_HEADER_SIZE);
+		zlog_ferr(LIB_ERR_ZAPI_MISSMATCH,
+			  "%s: socket %d message length %u is less than %d ",
+			  __func__, zclient->sock, length, ZEBRA_HEADER_SIZE);
 		return zclient_failed(zclient);
 	}
 

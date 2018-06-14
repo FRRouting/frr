@@ -41,6 +41,24 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Ensure that there is sufficient system resources available and\nensure that the frr user has sufficient permisions to work",
 	},
 	{
+		.code = LIB_ERR_ZAPI_MISSMATCH,
+		.title = "Zapi Error",
+		.description = "A version miss-match has been detected between zebra and client protocol",
+		.suggestion = "Two different versions of FRR have been installed and the install is\nnot properly setup.  Completely stop FRR, remove it from the system and\nreinstall.  Typically only developers should see this issue"
+	},
+	{
+		.code = LIB_ERR_ZAPI_ENCODE,
+		.title = "Zapi Error",
+		.description = "The Zapi subsystem has detected an encoding issue, between zebra and a client protocol",
+		.suggestion = "Restart FRR"
+	},
+	{
+		.code = LIB_ERR_ZAPI_SOCKET,
+		.title = "Zapi Error",
+		.description = "The Zapi subsystem has detected a socket error between zebra and a client",
+		.suggestion = "Restart FRR"
+	},
+	{
 		.code = END_FERR
 	}
 };
