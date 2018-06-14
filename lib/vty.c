@@ -511,7 +511,7 @@ static int vty_command(struct vty *vty, char *buf)
 			 vty_str);
 
 		/* now log the command */
-		zlog_err("%s%s", prompt_str, buf);
+		zlog_notice("%s%s", prompt_str, buf);
 	}
 
 #ifdef CONSUMED_TIME_CHECK
