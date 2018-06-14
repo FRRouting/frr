@@ -53,6 +53,5 @@ extern void ospf_vty_init(void);
 extern void ospf_vty_show_init(void);
 extern void ospf_vty_clear_init(void);
 extern int str2area_id(const char *, struct in_addr *, int *);
-extern void area_id2str(char *, int, struct in_addr *, int);
 
 #endif /* _QUAGGA_OSPF_VTY_H */
