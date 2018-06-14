@@ -186,7 +186,7 @@ What do I submit my changes against?
 
 We've documented where we would like to have the different fixes applied
 at
-https://github.com/FRR/frr/wiki/Where-Do-I-create-a-Pull-Request-against%3F
+https://github.com/FRRouting/frr/wiki/Where-Do-I-create-a-Pull-Request-against%3F
 If you are unsure where your submission goes, look at that document or
 ask a project maintainer.
 
