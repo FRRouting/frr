@@ -1,13 +1,17 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
-  * New Enabled: PIM draft Unnumbered
+  * PIM: Add a Multicast Trace Command draft-ietf-idmr-traceroute-ipm-05
+  * IS-IS: Implement Three-Way Handshake as per RFC5303
+  * BGPD: Implement VPN-VRF route leaking per RFC4364.
+  * BGPD : Implement VRF with NETNS backend
+  * PBRD: Add a new Policy Based Routing Daemon.
 
- -- FRRouting-Dev <dev@lists.frrouting.org>  Wed, 18 Oct 2017 17:01:42 -0700
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 14 Jun 2018 12:55:32 -0500
 
 frr (3.0-1) RELEASED; urgency=medium
 
   * Added Debian 9 Backport
- 
+
  -- FRRouting-Dev <dev@lists.frrouting.org>  Mon, 16 Oct 2017 03:28:00 -0700
 
 frr (3.0-0) RELEASED; urgency=medium
