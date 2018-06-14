@@ -318,11 +318,12 @@ static int zserv_read(struct thread *thread)
 		if (already < ZEBRA_HEADER_SIZE) {
 			nb = stream_read_try(client->ibuf_work, sock,
 					     ZEBRA_HEADER_SIZE - already);
-			if ((nb == 0 || nb == -1) && IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("connection closed socket [%d]",
-					   sock);
-			if ((nb == 0 || nb == -1))
+			if ((nb == 0 || nb == -1)) {
+				if (IS_ZEBRA_DEBUG_EVENT)
+					zlog_debug("connection closed socket [%d]",
+						   sock);
 				goto zread_fail;
+			}
 			if (nb != (ssize_t)(ZEBRA_HEADER_SIZE - already)) {
 				/* Try again later. */
 				break;
@@ -375,12 +376,13 @@ static int zserv_read(struct thread *thread)
 		if (already < hdr.length) {
 			nb = stream_read_try(client->ibuf_work, sock,
 					     hdr.length - already);
-			if ((nb == 0 || nb == -1) && IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug(
-					"connection closed [%d] when reading zebra data",
-					sock);
-			if ((nb == 0 || nb == -1))
+			if ((nb == 0 || nb == -1)) {
+				if (IS_ZEBRA_DEBUG_EVENT)
+					zlog_debug(
+						   "connection closed [%d] when reading zebra data",
+						   sock);
 				goto zread_fail;
+			}
 			if (nb != (ssize_t)(hdr.length - already)) {
 				/* Try again later. */
 				break;
