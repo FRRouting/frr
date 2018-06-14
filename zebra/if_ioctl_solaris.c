@@ -34,6 +34,7 @@
 #include "privs.h"
 #include "vrf.h"
 #include "vty.h"
+#include "lib_errors.h"
 
 #include "zebra/interface.h"
 #include "zebra/ioctl_solaris.h"
@@ -59,7 +60,7 @@ static int interface_list_ioctl(int af)
 	char *buf = NULL;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 
 	sock = socket(af, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -68,7 +69,7 @@ static int interface_list_ioctl(int af)
 			  safe_strerror(errno));
 
 		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
+			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 		return -1;
 	}
@@ -80,7 +81,7 @@ calculate_lifc_len: /* must hold privileges to enter here */
 	save_errno = errno;
 
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	if (ret < 0) {
 		zlog_warn("interface_list_ioctl: SIOCGLIFNUM failed %s",
@@ -110,7 +111,7 @@ calculate_lifc_len: /* must hold privileges to enter here */
 	lifconf.lifc_buf = buf;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 
 	ret = ioctl(sock, SIOCGLIFCONF, &lifconf);
 
@@ -122,13 +123,13 @@ calculate_lifc_len: /* must hold privileges to enter here */
 		zlog_warn("SIOCGLIFCONF: %s", safe_strerror(errno));
 
 		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
+			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 		goto end;
 	}
 
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	/* Allocate interface. */
 	lifreq = lifconf.lifc_req;

@@ -52,6 +52,7 @@
 #include "vrf.h"
 #include "vrf_int.h"
 #include "mpls.h"
+#include "lib_errors.h"
 
 #include "vty.h"
 #include "zebra/zserv.h"
@@ -374,7 +375,7 @@ static int get_iflink_speed(struct interface *interface)
 
 	/* use ioctl to get IP address of an interface */
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP, interface->vrf_id,
 			NULL);
 	if (sd < 0) {
@@ -386,7 +387,7 @@ static int get_iflink_speed(struct interface *interface)
 	/* Get the current link state for the interface */
 	rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL, (char *)&ifdata);
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 	if (rc < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(

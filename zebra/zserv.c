@@ -54,6 +54,7 @@
 #include "lib/zclient.h"          /* for zmsghdr, ZEBRA_HEADER_SIZE, ZEBRA... */
 #include "lib/frr_pthread.h"      /* for frr_pthread_new, frr_pthread_stop... */
 #include "lib/frratomic.h"        /* for atomic_load_explicit, atomic_stor... */
+#include "lib/lib_errors.h"       /* for generic ferr ids */
 
 #include "zebra/debug.h"          /* for various debugging macros */
 #include "zebra/rib.h"            /* for rib_score_proto */
@@ -792,7 +793,7 @@ void zserv_start(char *path)
 	zserv_privs.change(ZPRIVS_LOWER);
 
 	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 
 	ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
 	if (ret < 0) {
@@ -805,7 +806,7 @@ void zserv_start(char *path)
 		return;
 	}
 	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	ret = listen(zebrad.sock, 5);
 	if (ret < 0) {

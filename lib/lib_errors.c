@@ -25,7 +25,7 @@ static struct ferr_ref ferr_lib_err[] = {
 	{
 		.code = LIB_ERR_PRIVILEGES,
 		.title = "Failure to raise or lower privileges",
-		.description = "FRR attempted to raise or lower it's privileges and was unable to do so",
+		.description = "FRR attempted to raise or lower its privileges and was unable to do so",
 		.suggestion = "Ensure that you are running FRR as the frr user and that the user has\nSufficient privileges to properly access root privileges"
 	},
 	{
@@ -38,41 +38,41 @@ static struct ferr_ref ferr_lib_err[] = {
 		.code = LIB_ERR_SOCKET,
 		.title = "Socket Error",
 		.description = "When attempting to access a socket a system error has occured\nand we were unable to properly complete the request",
-		.suggestion = "Ensure that there is sufficient system resources available and\nensure that the frr user has sufficient permisions to work",
+		.suggestion = "Ensure that there are sufficient system resources available and\nensure that the frr user has sufficient permisions to work",
 	},
 	{
 		.code = LIB_ERR_ZAPI_MISSMATCH,
-		.title = "Zapi Error",
+		.title = "ZAPI Error",
 		.description = "A version miss-match has been detected between zebra and client protocol",
-		.suggestion = "Two different versions of FRR have been installed and the install is\nnot properly setup.  Completely stop FRR, remove it from the system and\nreinstall.  Typically only developers should see this issue"
+		.suggestion = "Two different versions of FRR have been installed and the install is\nnot properly setup.  Completely stop FRR, remove it from the system and\nreinstall.  Typically only developers should see this issue."
 	},
 	{
 		.code = LIB_ERR_ZAPI_ENCODE,
-		.title = "Zapi Error",
-		.description = "The Zapi subsystem has detected an encoding issue, between zebra and a client protocol",
+		.title = "ZAPI Error",
+		.description = "The ZAPI subsystem has detected an encoding issue, between zebra and a client protocol",
 		.suggestion = "Restart FRR"
 	},
 	{
 		.code = LIB_ERR_ZAPI_SOCKET,
-		.title = "Zapi Error",
-		.description = "The Zapi subsystem has detected a socket error between zebra and a client",
+		.title = "ZAPI Error",
+		.description = "The ZAPI subsystem has detected a socket error between zebra and a client",
 		.suggestion = "Restart FRR"
 	},
 	{
 		.code = LIB_ERR_SYSTEM_CALL,
 		.title = "System Call Error",
 		.description = "FRR has detected a error from using a vital system call and has probably\nalready exited",
-		.suggestion = "Ensure permissions are correct for FRR and FRR user and groups are correct\nAdditionally check that system resources are still available"
+		.suggestion = "Ensure permissions are correct for FRR files, users and groups are correct.\nAdditionally check that sufficient system resources are available."
 	},
 	{
 		.code = LIB_ERR_VTY,
-		.title = "VTY subsystem Error",
+		.title = "VTY Subsystem Error",
 		.description = "FRR has detected a problem with the specified configuration file",
 		.suggestion = "Ensure configuration file exists and has correct permissions for operations\nAdditionally ensure that all config lines are correct as well",
 	},
 	{
 		.code = LIB_ERR_SNMP,
-		.title = "SNMP subsystem Error",
+		.title = "SNMP Subsystem Error",
 		.description = "FRR has detected a problem with the snmp library it uses\nA callback from this subsystem has indicated some error",
 		.suggestion = "Examine callback message and ensure snmp is properly setup and working"
 	},

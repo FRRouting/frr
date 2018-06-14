@@ -35,6 +35,7 @@
 #include "hash.h"
 #include "filter.h"
 #include "ns.h"
+#include "lib_errors.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_open.h"
@@ -544,12 +545,12 @@ int bgp_connect(struct peer *peer)
 		return 0;
 	}
 	if (bgpd_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 	/* Make socket for the peer. */
 	peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
 					bgp_get_bound_name(peer));
 	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 	if (peer->fd < 0)
 		return -1;
 
@@ -703,11 +704,11 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 	port_str[sizeof(port_str) - 1] = '\0';
 
 	if (bgpd_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 	ret = vrf_getaddrinfo(address, port_str, &req, &ainfo_save,
 			      bgp->vrf_id);
 	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 	if (ret != 0) {
 		zlog_err("getaddrinfo: %s", gai_strerror(ret));
 		return -1;
@@ -721,13 +722,13 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 			continue;
 
 		if (bgpd_privs.change(ZPRIVS_RAISE))
-			zlog_err("Can't raise privileges");
+			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 		sock = vrf_socket(ainfo->ai_family, ainfo->ai_socktype,
 				  ainfo->ai_protocol, bgp->vrf_id,
 				  (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ?
 				   bgp->name : NULL));
 		if (bgpd_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
+			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 		if (sock < 0) {
 			zlog_err("socket: %s", safe_strerror(errno));
 			continue;

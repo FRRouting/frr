@@ -31,6 +31,7 @@
 #include "prefix.h"
 #include "interface.h"
 #include "log.h"
+#include "lib_errors.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -117,10 +118,10 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	}
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 	ret = writev(kr_state.fd, iov, iovcnt);
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	if (ret == -1)
 		zlog_err("%s: %s", __func__, safe_strerror(errno));
@@ -225,10 +226,10 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	}
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 	ret = writev(kr_state.fd, iov, iovcnt);
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	if (ret == -1)
 		zlog_err("%s: %s", __func__, safe_strerror(errno));

@@ -31,6 +31,7 @@
 #include "privs.h"
 #include "vty.h"
 #include "vrf.h"
+#include "lib_errors.h"
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
@@ -58,13 +59,13 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	int err;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		int save_errno = errno;
 		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
+			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 		zlog_err("Cannot create UDP socket: %s",
 			 safe_strerror(save_errno));
 		exit(1);
@@ -74,7 +75,7 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 		err = errno;
 
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	close(sock);
 
@@ -93,13 +94,13 @@ int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	int err;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 
 	sock = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		int save_errno = errno;
 		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
+			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 		zlog_err("Cannot create IPv6 datagram socket: %s",
 			 safe_strerror(save_errno));
 		exit(1);
@@ -109,7 +110,7 @@ int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 		err = errno;
 
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	close(sock);
 
