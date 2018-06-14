@@ -74,9 +74,14 @@ static inline unsigned int ferr_hash_key(void *a)
 
 void ferr_ref_add(struct ferr_ref *ref)
 {
+	uint32_t i = 0;
+
 	pthread_mutex_lock(&refs_mtx);
 	{
-		hash_get(refs, ref, hash_alloc_intern);
+		while (ref[i].code != END_FERR) {
+			hash_get(refs, &ref[i], hash_alloc_intern);
+			i++;
+		}
 	}
 	pthread_mutex_unlock(&refs_mtx);
 }

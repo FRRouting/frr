@@ -104,6 +104,7 @@ struct ferr {
 #define OSPF_FERR_END 0x03FFFFFF
 #define ZEBRA_FERR_START 0x04000001
 #define ZEBRA_FERR_END 0x04FFFFFF
+#define END_FERR 0xFFFFFFFF
 
 struct ferr_ref {
 	/* Unique error code displayed to end user as a reference. -1 means
