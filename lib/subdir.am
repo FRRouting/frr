@@ -35,6 +35,7 @@ lib_libfrr_la_SOURCES = \
 	lib/jhash.c \
 	lib/json.c \
 	lib/keychain.c \
+	lib/lib_errors.c \
 	lib/libfrr.c \
 	lib/linklist.c \
 	lib/log.c \
@@ -118,6 +119,7 @@ pkginclude_HEADERS += \
 	lib/jhash.h \
 	lib/json.h \
 	lib/keychain.h \
+	lib/lib_errors.h \
 	lib/libfrr.h \
 	lib/libospf.h \
 	lib/linklist.h \

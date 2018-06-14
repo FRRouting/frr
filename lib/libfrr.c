@@ -35,6 +35,7 @@
 #include "log_int.h"
 #include "module.h"
 #include "network.h"
+#include "lib_errors.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
@@ -597,6 +598,8 @@ struct thread_master *frr_init(void)
 		cmd_init(1);
 	vty_init(master);
 	memory_init();
+
+	lib_error_init();
 
 	return master;
 }
