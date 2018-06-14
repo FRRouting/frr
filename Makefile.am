@@ -115,3 +115,23 @@ noinst_HEADERS += defaults.h
 
 indent:
 	tools/indent.py `find sharpd bgpd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
+
+if HAVE_GCOV
+
+coverage: check
+	@ find . -name '*.o' -exec gcov {} \;
+
+yorn:
+	@ echo "OK to upload coverage to https://coverage.io [y/N]:"
+	@ read yn; test "$$yn" = "y"
+
+upload-check-coverage:
+	@ if [ "x${COMMIT}" = "x" ]; then echo "COMMIT required"; exit 1; fi
+	@ if [ "x${TOKEN}" = "x" ]; then echo "TOKEN required"; exit 1; fi
+	curl -s https://codecov.io/bash | bash -s - -C ${COMMIT} -t ${TOKEN}
+
+force-check-coverage: coverage upload-check-coverage
+
+check-coverage: coverage yorn upload-check-coverage
+
+endif

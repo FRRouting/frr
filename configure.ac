@@ -226,7 +226,14 @@ AC_ARG_ENABLE([memory-sanitizer], AS_HELP_STRING([--enable-memory-sanitizer], \
               ])
 
 dnl if the user has specified any CFLAGS, override our settings
-if test "x${enable_dev_build}" = "xyes"; then
+if test "x${enable_gcov}" = "xyes"; then
+   if test "z$orig_cflags" = "z"; then
+      AC_C_FLAG([-coverage])
+      AC_C_FLAG([-O0])
+   fi
+
+   LDFLAGS="${LDFLAGS} -lgcov"
+elif test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)
    if test "z$orig_cflags" = "z"; then
       AC_C_FLAG([-g3])
@@ -441,6 +448,8 @@ AC_ARG_ENABLE([clippy-only],
   AS_HELP_STRING([--enable-clippy-only], [Only build clippy]))
 AC_ARG_ENABLE([numeric_version],
   AS_HELP_STRING([--enable-numeric-version], [Only numeric digits allowed in version (for Alpine)]))
+AC_ARG_ENABLE([gcov],
+  AS_HELP_STRING([--enable-gcov], [Add code coverage information]))
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
@@ -691,6 +700,11 @@ esac
 AC_DEFINE_UNQUOTED(MULTIPATH_NUM, $MPATH_NUM, Maximum number of paths for a route)
 
 AC_DEFINE_UNQUOTED(VTYSH_PAGER, "$VTYSH_PAGER", [What pager to use])
+
+dnl --------------------
+dnl Enable code coverage
+dnl --------------------
+AM_CONDITIONAL([HAVE_GCOV],[test '!' "$enable_gcov" = no])
 
 dnl ------------------------------------
 dnl Alpine only accepts numeric versions
