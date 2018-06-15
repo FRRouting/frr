@@ -63,13 +63,12 @@ void sbuf_push(struct sbuf *buf, int indent, const char *format, ...)
 	int written;
 
 	if (!buf->fixed) {
-		char dummy;
 		int written1, written2;
 		size_t new_size;
 
-		written1 = snprintf(&dummy, 0, "%*s", indent, "");
+		written1 = indent;
 		va_start(args, format);
-		written2 = vsnprintf(&dummy, 0, format, args);
+		written2 = vsnprintf(NULL, 0, format, args);
 		va_end(args);
 
 		new_size = buf->size;
