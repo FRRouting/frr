@@ -20,6 +20,7 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     patch pax-utils pcre perl pkgconf python2 python2-dev readline
     readline-dev sqlite-libs squashfs-tools sudo tar texinfo xorriso xz-libs
     py-sphinx"
+checkdepends="pytest py-setuptools"
 install="$pkgname.pre-install $pkgname.pre-deinstall $pkgname.post-deinstall"
 subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
 source="$pkgname-$pkgver.tar.gz docker-start daemons daemons.conf"
@@ -45,13 +46,19 @@ build() {
 		--enable-multipath=64 \
 		--enable-vty-group=frrvty \
 		--enable-user=$_user \
-		--enable-group=$_user || return 1
-	make || return 1
+		--enable-group=$_user
+	make
+}
+
+check() {
+	cd "$builddir"
+
+	make -j 1 check
 }
 
 package() {
 	cd "$builddir"
-	make DESTDIR="$pkgdir" install || return 1
+	make DESTDIR="$pkgdir" install
 
 	install -Dm755 "$srcdir"/docker-start "$pkgdir"$_sbindir
 	install -Dm644 "$srcdir"/daemons "$pkgdir"$_sysconfdir
