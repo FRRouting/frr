@@ -471,7 +471,7 @@ void bgp_info_mpath_update(struct bgp_node *rn, struct bgp_info *new_best,
 		zlog_debug(
 			"%s: starting mpath update, newbest %s num candidates %d old-mpath-count %d",
 			pfx_buf, new_best ? new_best->peer->host : "NONE",
-			listcount(mp_list), old_mpath_count);
+			mp_list ? listcount(mp_list) : 0, old_mpath_count);
 
 	/*
 	 * We perform an ordered walk through both lists in parallel.
