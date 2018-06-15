@@ -236,7 +236,7 @@ lib_grammar_sandbox_LDADD = \
 	lib/libfrr.la
 
 lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY @SAN_CLIPPY_FLAGS@
-lib_clippy_CFLAGS = $(PYTHON_CFLAGS) $(AM_CFLAGS) @SAN_CLIPPY_FLAGS@
+lib_clippy_CFLAGS = $(PYTHON_CFLAGS) @SAN_CLIPPY_FLAGS@
 lib_clippy_LDADD = $(PYTHON_LIBS)
 lib_clippy_SOURCES = \
 	lib/clippy.c \
