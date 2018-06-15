@@ -471,7 +471,8 @@ int main(int argc, char **argv, char **env)
 	}
 
 	if (dryrun && cmd && cmd->line) {
-		vtysh_execute("enable");
+		if (!user_mode)
+			vtysh_execute("enable");
 		while (cmd) {
 			struct cmd_rec *cr;
 			char *cmdnow = cmd->line, *next;
@@ -527,6 +528,14 @@ int main(int argc, char **argv, char **env)
 	suid_off();
 
 	if (writeconfig) {
+		if (user_mode) {
+			fprintf(stderr,
+				"writeconfig cannot be used when running as an unprivileged user.\n");
+			if (no_error)
+				exit(0);
+			else
+				exit(1);
+		}
 		vtysh_execute("enable");
 		return vtysh_write_config_integrated();
 	}
@@ -573,7 +582,8 @@ int main(int argc, char **argv, char **env)
 	/* If eval mode. */
 	if (cmd && cmd->line) {
 		/* Enter into enable node. */
-		vtysh_execute("enable");
+		if (!user_mode)
+			vtysh_execute("enable");
 
 		while (cmd != NULL) {
 			int ret;
@@ -663,7 +673,8 @@ int main(int argc, char **argv, char **env)
 	vty_hello(vty);
 
 	/* Enter into enable node. */
-	vtysh_execute("enable");
+	if (!user_mode)
+		vtysh_execute("enable");
 
 	/* Preparation for longjmp() in sigtstp(). */
 	sigsetjmp(jmpbuf, 1);
