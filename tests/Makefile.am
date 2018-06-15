@@ -21,7 +21,8 @@ TESTS_BGPD = \
 	bgpd/test_peer_attr \
 	bgpd/test_ecommunity \
 	bgpd/test_mp_attr \
-	bgpd/test_mpath
+	bgpd/test_mpath \
+	bgpd/test_bgp_table
 else
 TESTS_BGPD =
 endif
@@ -143,6 +144,7 @@ bgpd_test_peer_attr_SOURCES = bgpd/test_peer_attr.c
 bgpd_test_ecommunity_SOURCES = bgpd/test_ecommunity.c
 bgpd_test_mp_attr_SOURCES = bgpd/test_mp_attr.c
 bgpd_test_mpath_SOURCES = bgpd/test_mpath.c
+bgpd_test_bgp_table_SOURCES = bgpd/test_bgp_table.c
 isisd_test_fuzz_isis_tlv_SOURCES = isisd/test_fuzz_isis_tlv.c
 nodist_isisd_test_fuzz_isis_tlv_SOURCES = isisd/test_fuzz_isis_tlv_tests.h
 BUILT_SOURCES=isisd/test_fuzz_isis_tlv_tests.h
@@ -186,6 +188,7 @@ bgpd_test_peer_attr_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_ecommunity_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mp_attr_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mpath_LDADD = $(BGP_TEST_LDADD)
+bgpd_test_bgp_table_LDADD = $(BGP_TEST_LDADD)
 isisd_test_fuzz_isis_tlv_LDADD = $(ISISD_TEST_LDADD)
 isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
 ospf6d_test_lsdb_LDADD = $(OSPF6_TEST_LDADD)
