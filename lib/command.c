@@ -2429,7 +2429,8 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 		XFREE(MTYPE_TMP, p);
 
 	if (!ret) {
-		vty_out(vty, "can't open logfile %s\n", fname);
+		if (vty)
+			vty_out(vty, "can't open logfile %s\n", fname);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -2443,6 +2444,26 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 		zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
 #endif
 	return CMD_SUCCESS;
+}
+
+void command_setup_early_logging(const char *option)
+{
+	char *token;
+
+	if (strcmp(option, "stdout") == 0) {
+		zlog_set_level(ZLOG_DEST_STDOUT, zlog_default->default_lvl);
+		return;
+	}
+
+	if (strcmp(option, "syslog") == 0) {
+		zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
+		return;
+	}
+
+	token = strstr(option, ":");
+	token++;
+
+	set_log_file(NULL, token, zlog_default->default_lvl);
 }
 
 DEFUN (config_log_file,
