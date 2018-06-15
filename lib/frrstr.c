@@ -78,6 +78,9 @@ char *frrstr_join(const char **parts, int argc, const char *join)
 	size_t len = 0;
 	size_t joinlen = join ? strlen(join) : 0;
 
+	if (!argc)
+		return NULL;
+
 	for (i = 0; i < argc; i++)
 		len += strlen(parts[i]);
 	len += argc * joinlen + 1;
