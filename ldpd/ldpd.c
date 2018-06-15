@@ -187,6 +187,22 @@ FRR_DAEMON_INFO(ldpd, LDP,
 	.privs = &ldpd_privs,
 )
 
+static int ldp_config_fork_apply(struct thread *t)
+{
+	/*
+	 * So the frr_config_fork() function schedules
+	 * the read of the vty config( if there is a
+	 * non-integrated config ) to be after the
+	 * end of startup and we are starting the
+	 * main process loop.  We need to schedule
+	 * the application of this if necessary
+	 * after the read in of the config.
+	 */
+	ldp_config_apply(NULL, vty_conf);
+
+	return 0;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -195,6 +211,7 @@ main(int argc, char *argv[])
 	int			 pipe_parent2ldpe[2], pipe_parent2ldpe_sync[2];
 	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
 	char			*ctl_sock_name;
+	struct thread           *thread = NULL;
 
 	ldpd_process = PROC_MAIN;
 	log_procname = log_procnames[ldpd_process];
@@ -331,7 +348,7 @@ main(int argc, char *argv[])
 	frr_config_fork();
 
 	/* apply configuration */
-	ldp_config_apply(NULL, vty_conf);
+	thread_add_event(master, ldp_config_fork_apply, NULL, 0, &thread);
 
 	/* setup pipes to children */
 	if ((iev_ldpe = calloc(1, sizeof(struct imsgev))) == NULL ||
