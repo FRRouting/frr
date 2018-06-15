@@ -662,7 +662,8 @@ static int rfapi_str2route_type(const char *l3str, const char *pstr, afi_t *afi,
 			vnc_import_bgp_exterior_redist_enable((bgp), (afi));   \
 			break;                                                 \
 		default:                                                       \
-			vnc_redistribute_set((bgp), (afi), (type));            \
+			if ((type) < ZEBRA_ROUTE_MAX)			       \
+				vnc_redistribute_set((bgp), (afi), (type));    \
 			break;                                                 \
 		}                                                              \
 	} while (0)
@@ -677,7 +678,8 @@ static int rfapi_str2route_type(const char *l3str, const char *pstr, afi_t *afi,
 			vnc_import_bgp_exterior_redist_disable((bgp), (afi));  \
 			break;                                                 \
 		default:                                                       \
-			vnc_redistribute_unset((bgp), (afi), (type));          \
+			if ((type) < ZEBRA_ROUTE_MAX)			       \
+				vnc_redistribute_unset((bgp), (afi), (type));  \
 			break;                                                 \
 		}                                                              \
 	} while (0)
