@@ -47,6 +47,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_packet.h"
@@ -1630,8 +1631,9 @@ void update_group_adjust_peer(struct peer_af *paf)
 	if (!updgrp) {
 		updgrp = update_group_create(paf);
 		if (!updgrp) {
-			zlog_err("couldn't create update group for peer %s",
-				 paf->peer->host);
+			zlog_ferr(BGP_ERR_UPDGRP_CREATE,
+				  "couldn't create update group for peer %s",
+				  paf->peer->host);
 			return;
 		}
 	}

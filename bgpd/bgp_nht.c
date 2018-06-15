@@ -38,6 +38,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_zebra.h"
@@ -343,7 +344,8 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp) {
-		zlog_err(
+		zlog_ferr(
+			BGP_ERR_NH_UPD,
 			"parse nexthop update: instance not found for vrf_id %u",
 			vrf_id);
 		return;

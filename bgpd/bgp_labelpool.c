@@ -34,6 +34,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_errors.h"
 
 /*
  * Definitions and external declarations.
@@ -126,7 +127,8 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 
 	if (lcbq->label == MPLS_LABEL_NONE) {
 		/* shouldn't happen */
-		zlog_err("%s: error: label==MPLS_LABEL_NONE", __func__);
+		zlog_ferr(BGP_ERR_LABEL, "%s: error: label==MPLS_LABEL_NONE",
+			  __func__);
 		return WQ_SUCCESS;
 	}
 
@@ -336,8 +338,9 @@ void bgp_lp_get(
 
 		if (rc) {
 			/* shouldn't happen */
-			zlog_err("%s: can't insert new LCB into ledger list",
-				__func__);
+			zlog_ferr(BGP_ERR_LABEL,
+				  "%s: can't insert new LCB into ledger list",
+				  __func__);
 			XFREE(MTYPE_BGP_LABEL_CB, lcb);
 			return;
 		}
@@ -424,8 +427,9 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 	struct lp_fifo *lf;
 
 	if (last < first) {
-		zlog_err("%s: zebra label chunk invalid: first=%u, last=%u",
-			__func__, first, last);
+		zlog_ferr(BGP_ERR_LABEL,
+			  "%s: zebra label chunk invalid: first=%u, last=%u",
+			  __func__, first, last);
 		return;
 	}
 

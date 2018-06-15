@@ -45,6 +45,7 @@
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_open.h"
@@ -10754,7 +10755,8 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		if (use_json) {
 			if (!(json = json_object_new_object())) {
-				zlog_err(
+				zlog_ferr(
+					BGP_ERR_JSON_MEM_ERROR,
 					"Unable to allocate memory for JSON object");
 				vty_out(vty,
 					"{\"error\": {\"message:\": \"Unable to allocate memory for JSON object\"}}}\n");

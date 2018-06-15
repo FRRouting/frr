@@ -38,6 +38,7 @@
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_errors.h"
 
 extern struct zclient *zclient;
 
@@ -244,7 +245,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		/* sanity check against packet data */
 		if ((pnt + psize) > lim) {
-			zlog_err(
+			zlog_ferr(
+				BGP_ERR_UPDATE_RCV,
 				"%s [Error] Update packet error / L-U (prefix length %d exceeds packet size %u)",
 				peer->host, prefixlen, (uint)(lim - pnt));
 			return -1;
@@ -256,10 +258,10 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		/* There needs to be at least one label */
 		if (prefixlen < 24) {
-			zlog_err(
-				"%s [Error] Update packet error"
-				" (wrong label length %d)",
-				peer->host, prefixlen);
+			zlog_ferr(BGP_ERR_UPDATE_RCV,
+				  "%s [Error] Update packet error"
+				  " (wrong label length %d)",
+				  peer->host, prefixlen);
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_INVAL_NETWORK);
 			return -1;
@@ -284,7 +286,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				 * be logged locally, and the prefix SHOULD be
 				 * ignored.
 				  */
-				zlog_err(
+				zlog_ferr(
+					BGP_ERR_UPDATE_RCV,
 					"%s: IPv4 labeled-unicast NLRI is multicast address %s, ignoring",
 					peer->host, inet_ntoa(p.u.prefix4));
 				continue;
@@ -296,7 +299,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
 				char buf[BUFSIZ];
 
-				zlog_err(
+				zlog_ferr(
+					BGP_ERR_UPDATE_RCV,
 					"%s: IPv6 labeled-unicast NLRI is link-local address %s, ignoring",
 					peer->host,
 					inet_ntop(AF_INET6, &p.u.prefix6, buf,
@@ -308,7 +312,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			if (IN6_IS_ADDR_MULTICAST(&p.u.prefix6)) {
 				char buf[BUFSIZ];
 
-				zlog_err(
+				zlog_ferr(
+					BGP_ERR_UPDATE_RCV,
 					"%s: IPv6 unicast NLRI is multicast address %s, ignoring",
 					peer->host,
 					inet_ntop(AF_INET6, &p.u.prefix6, buf,
@@ -331,7 +336,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 	/* Packet length consistency check. */
 	if (pnt != lim) {
-		zlog_err(
+		zlog_ferr(
+			BGP_ERR_UPDATE_RCV,
 			"%s [Error] Update packet error / L-U (%zu data remaining after parsing)",
 			peer->host, lim - pnt);
 		return -1;
