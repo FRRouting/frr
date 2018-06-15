@@ -405,6 +405,13 @@ These options apply to all |PACKAGE_NAME| daemons.
 
    Print program version.
 
+.. option:: --log <stdout|syslog|file:/path/to/log/file>
+
+   When initializing the daemon, setup the log to go to either stdout,
+   syslog or to a file.  These values will be displayed as part of
+   a show run.  Additionally they can be overridden at runtime if
+   desired via the normal log commands.
+
 .. _loadable-module-support:
 
 Loadable Module Support
