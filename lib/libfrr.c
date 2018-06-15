@@ -552,9 +552,6 @@ struct thread_master *frr_init(void)
 
 	if (di->early_logging)
 		command_setup_early_logging(di->early_logging);
-#if defined(HAVE_CUMULUS)
-	zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
-#endif
 
 	if (!frr_zclient_addr(&zclient_addr, &zclient_addr_len,
 			      frr_zclientpath)) {
