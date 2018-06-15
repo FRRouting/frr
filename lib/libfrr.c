@@ -78,6 +78,7 @@ static void opt_extend(const struct optspec *os)
 
 #define OPTION_VTYSOCK   1000
 #define OPTION_MODULEDIR 1002
+#define OPTION_LOG 1003
 
 static const struct option lo_always[] = {
 	{"help", no_argument, NULL, 'h'},
@@ -86,6 +87,7 @@ static const struct option lo_always[] = {
 	{"module", no_argument, NULL, 'M'},
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
+	{"log", required_argument, NULL, OPTION_LOG},
 	{NULL}};
 static const struct optspec os_always = {
 	"hvdM:",
@@ -94,7 +96,8 @@ static const struct optspec os_always = {
 	"  -d, --daemon       Runs in daemon mode\n"
 	"  -M, --module       Load specified module\n"
 	"      --vty_socket   Override vty socket path\n"
-	"      --moduledir    Override modules directory\n",
+	"      --moduledir    Override modules directory\n"
+	"      --log          Set Logging to stdout, syslog, or file:<name>\n",
 	lo_always};
 
 
@@ -444,6 +447,9 @@ static int frr_opt(int opt)
 			return 1;
 		di->privs->group = optarg;
 		break;
+	case OPTION_LOG:
+		di->early_logging = optarg;
+		break;
 	default:
 		return 1;
 	}
@@ -543,6 +549,9 @@ struct thread_master *frr_init(void)
 
 	openzlog(di->progname, di->logname, di->instance,
 		 LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
+
+	if (di->early_logging)
+		command_setup_early_logging(di->early_logging);
 #if defined(HAVE_CUMULUS)
 	zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
 #endif
