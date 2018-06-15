@@ -3,7 +3,7 @@ include ../common.am
 PYTHON ?= python
 
 AUTOMAKE_OPTIONS = subdir-objects
-AM_CPPFLAGS = \
+AM_CPPFLAGS += \
 	-I.. \
 	-I$(top_srcdir) \
 	-I$(top_srcdir)/lib \
