@@ -864,7 +864,6 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 	struct prefix *p;
 	struct listnode *i;
 	char strbuf[PREFIX2STR_BUFFER], drouter[32], bdrouter[32];
-	const char *updown[3] = {"down", "up", NULL};
 	const char *type;
 	struct timeval res, now;
 	char duration[32];
@@ -881,7 +880,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp)
 		type = "UNKNOWN";
 
 	vty_out(vty, "%s is %s, type %s\n", ifp->name,
-		updown[if_is_operative(ifp)], type);
+		(if_is_operative(ifp) ? "up" : "down"), type);
 	vty_out(vty, "  Interface ID: %d\n", ifp->ifindex);
 
 	if (ifp->info == NULL) {
