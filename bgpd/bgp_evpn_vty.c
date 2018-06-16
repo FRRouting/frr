@@ -1829,6 +1829,7 @@ static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 
 	/* fall back to default RD */
 	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
+	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
 
 	/* We have a new RD for VRF.
 	 * Advertise all type-5 routes again with the new RD
