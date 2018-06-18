@@ -120,7 +120,7 @@ update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
     int rc = 0;
 
     if(hello < 0) {
-        if(neigh->hello_interval <= 0)
+        if(neigh->hello_interval == 0)
             return rc;
         missed_hellos =
             ((int)timeval_minus_msec(&babel_now, &neigh->hello_time) -
