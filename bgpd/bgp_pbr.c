@@ -208,6 +208,14 @@ struct bgp_pbr_filter {
 	struct bgp_pbr_val_mask *tcp_flags;
 };
 
+/* this structure is used to contain OR instructions
+ * so that BGP can create multiple pbr instructions
+ * to ZEBRA
+ */
+struct bgp_pbr_or_filter {
+	struct list *tcpflags;
+};
+
 /* TCP : FIN and SYN -> val = ALL; mask = 3
  * TCP : not (FIN and SYN) -> val = ALL; mask = ALL & ~(FIN|RST)
  */
@@ -426,7 +434,8 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	}
 	if (!bgp_pbr_extract_enumerate(api->tcpflags,
 				       api->match_tcpflags_num,
-				       OPERATOR_UNARY_AND, NULL)) {
+				       OPERATOR_UNARY_AND |
+				       OPERATOR_UNARY_OR, NULL)) {
 		if (BGP_DEBUG(pbr, PBR))
 			zlog_debug("BGP: match tcp flags:"
 				   "too complex. ignoring.");
@@ -1666,9 +1675,12 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	struct bgp_pbr_range_port pkt_len;
 	bool enum_icmp = false;
 	struct bgp_pbr_filter bpf;
+	uint8_t kind_enum;
+	struct bgp_pbr_or_filter bpof;
 
 	memset(&nh, 0, sizeof(struct nexthop));
 	memset(&bpf, 0, sizeof(struct bgp_pbr_filter));
+	memset(&bpof, 0, sizeof(struct bgp_pbr_or_filter));
 	if (api->match_bitmask & PREFIX_SRC_PRESENT)
 		src = &api->src_prefix;
 	if (api->match_bitmask & PREFIX_DST_PRESENT)
@@ -1725,10 +1737,20 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		}
 	}
 
-	if (api->match_tcpflags_num)
-		bgp_pbr_extract_enumerate(api->tcpflags,
-					  api->match_tcpflags_num,
-					  OPERATOR_UNARY_AND, bpf.tcp_flags);
+	if (api->match_tcpflags_num) {
+		kind_enum = bgp_pbr_match_val_get_operator(api->tcpflags,
+						   api->match_tcpflags_num);
+		if (kind_enum == OPERATOR_UNARY_AND) {
+			bgp_pbr_extract_enumerate(api->tcpflags,
+						  api->match_tcpflags_num,
+						  OPERATOR_UNARY_AND, bpf.tcp_flags);
+		} else if (kind_enum == OPERATOR_UNARY_OR) {
+			bpof.tcpflags = list_new();
+			bgp_pbr_extract_enumerate(api->tcpflags,
+						  api->match_tcpflags_num,
+						  OPERATOR_UNARY_OR, bpof.tcpflags);
+		}
+	}
 	if (api->match_packet_length_num >= 1) {
 		bgp_pbr_extract(api->packet_length,
 				api->match_packet_length_num,
