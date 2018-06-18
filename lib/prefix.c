@@ -1197,6 +1197,9 @@ int str2prefix(const char *str, struct prefix *p)
 {
 	int ret;
 
+	if (!str || !p)
+		return 0;
+
 	/* First we try to convert string to struct prefix_ipv4. */
 	ret = str2prefix_ipv4(str, (struct prefix_ipv4 *)p);
 	if (ret)
