@@ -28,6 +28,7 @@
 #include "zclient.h"
 #include "memory.h"
 #include "lib/bfd.h"
+#include "lib_errors.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_top.h"
@@ -362,9 +363,10 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 		ret = zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
 	if (ret < 0)
-		zlog_err("zclient_route_send() %s failed: %s",
-			 (type == REM ? "delete" : "add"),
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET,
+			  "zclient_route_send() %s failed: %s",
+			  (type == REM ? "delete" : "add"),
+			  safe_strerror(errno));
 
 	return;
 }
