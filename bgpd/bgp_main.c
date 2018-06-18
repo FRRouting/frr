@@ -60,6 +60,7 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_errors.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -419,6 +420,7 @@ int main(int argc, char **argv)
 	if (no_fib_flag)
 		bgp_option_set(BGP_OPT_NO_FIB);
 
+	bgp_error_init();
 	/* Initializations. */
 	bgp_vrf_init();
 

@@ -21,7 +21,7 @@
 #include <zebra.h>
 #include <bgp_errors.h>
 
-static struct ferr_ref ferr_lib_err[] = {
+static struct ferr_ref ferr_bgp_err[] = {
 	{
 		.code = BGP_ERR_ATTR_FLAG,
 		.title = "BGP attribute flag is incorrect",
@@ -63,12 +63,6 @@ static struct ferr_ref ferr_lib_err[] = {
 		.title = "BGP PMSI tunnel attribute length is invalid",
 		.description = "BGP update has invalid length for PMSI tunnel",
 		.suggestion = "Determine the soure of the update and determine why the PMSI tunnel\nattribute length has been set incorrectly"
-	},
-	{
-		.code = BGP_ERR_NH_SEND_LEN,
-		.title = "BGP nethop length is invalid sending to peer",
-		.description = "BGP update has invalid length for nexthop sending to peer",
-		.suggestion = "Determine why the nexthop length has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_PEER_GROUP,
@@ -227,7 +221,7 @@ static struct ferr_ref ferr_lib_err[] = {
 	},
 	{
 		.code = BGP_ERR_VNI,
-		title = "BGP VNI creation issue",
+		.title = "BGP VNI creation issue",
 		.description = "BGP could not create a new VNI",
 		.suggestion = "Most likely a bug. If the problem persists, report the problem for troubleshooting"
 	},
@@ -297,13 +291,12 @@ static struct ferr_ref ferr_lib_err[] = {
 		.description = "BGP configuration has AS and process name mismatch",
 		.suggestion = "Correct the configuration so that the BGP AS number and instance\nname are consistent"
 	},
-{
-	.code = END_FERR,
-}
-}
-;
+	{
+		.code = END_FERR,
+	}
+};
 
-void BGP_error_init(void)
+void bgp_error_init(void)
 {
 	ferr_ref_init();
 
