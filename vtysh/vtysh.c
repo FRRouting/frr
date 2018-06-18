@@ -2556,8 +2556,12 @@ int vtysh_write_config_integrated(void)
 	char line[] = "do write terminal\n";
 	FILE *fp;
 	int fd;
+#ifdef FRR_USER
 	struct passwd *pwentry;
+#endif
+#ifdef FRR_GROUP
 	struct group *grentry;
+#endif
 	uid_t uid = -1;
 	gid_t gid = -1;
 	struct stat st;

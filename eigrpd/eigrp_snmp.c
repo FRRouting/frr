@@ -514,7 +514,6 @@ eigrp_snmp_nbr_lookup_next(struct in_addr *nbr_addr, unsigned int *ifindex,
 	struct listnode *node, *nnode, *node2, *nnode2;
 	struct eigrp_interface *ei;
 	struct eigrp_neighbor *nbr;
-	struct route_node *rn;
 	struct eigrp_neighbor *min = NULL;
 	struct eigrp *eigrp;
 
@@ -918,8 +917,6 @@ static u_char *eigrpTopologyEntry(struct variable *v, oid *name, size_t *length,
 				  WriteMethod **write_method)
 {
 	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node, *nnode;
 
 	eigrp = eigrp_lookup();
 
@@ -1067,7 +1064,6 @@ static u_char *eigrpPeerEntry(struct variable *v, oid *name, size_t *length,
 {
 	struct eigrp *eigrp;
 	struct eigrp_interface *ei;
-	struct listnode *node, *nnode;
 	struct eigrp_neighbor *nbr;
 	struct in_addr nbr_addr;
 	unsigned int ifindex;
@@ -1199,11 +1195,9 @@ static u_char *eigrpInterfaceEntry(struct variable *v, oid *name,
 				   WriteMethod **write_method)
 {
 	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
 	struct listnode *node, *nnode;
 	struct keychain *keychain;
 	struct list *keylist;
-	int counter;
 
 	eigrp = eigrp_lookup();
 

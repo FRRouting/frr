@@ -119,8 +119,6 @@ int quagga_sigevent_process(void)
 int quagga_signal_timer(struct thread *t)
 {
 	struct quagga_sigevent_master_t *sigm;
-	struct quagga_signal_t *sig;
-	int i;
 
 	sigm = THREAD_ARG(t);
 	sigm->t = NULL;
