@@ -228,15 +228,13 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 							  use_json, json_array);
 				}
 			}
-			if (use_json) {
-				struct prefix *p;
+			if (use_json && rm) {
 				char buf_a[BUFSIZ];
 				char buf_b[BUFSIZ];
-				p = &rm->p;
 				sprintf(buf_a, "%s/%d",
-					inet_ntop(p->family, &p->u.prefix,
+					inet_ntop(rm->p.family, rm->p.u.val,
 						  buf_b, BUFSIZ),
-					p->prefixlen);
+					rm->p.prefixlen);
 				json_object_object_add(json_routes, buf_a,
 						       json_array);
 			}
