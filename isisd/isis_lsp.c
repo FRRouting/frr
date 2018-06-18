@@ -1244,8 +1244,9 @@ static int lsp_regenerate(struct isis_area *area, int level)
 	lsp = lsp_search(lspid, lspdb);
 
 	if (!lsp) {
-		zlog_err("ISIS-Upd (%s): lsp_regenerate: no L%d LSP found!",
-			 area->area_tag, level);
+		zlog_ferr(LIB_ERR_DEVELOPMENT,
+			  "ISIS-Upd (%s): lsp_regenerate: no L%d LSP found!",
+			  area->area_tag, level);
 		return ISIS_ERROR;
 	}
 
@@ -1612,8 +1613,9 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 	lsp = lsp_search(lsp_id, lspdb);
 
 	if (!lsp) {
-		zlog_err("lsp_regenerate_pseudo: no l%d LSP %s found!", level,
-			 rawlspid_print(lsp_id));
+		zlog_ferr(LIB_ERR_DEVELOPMENT,
+			  "lsp_regenerate_pseudo: no l%d LSP %s found!", level,
+			  rawlspid_print(lsp_id));
 		return ISIS_ERROR;
 	}
 

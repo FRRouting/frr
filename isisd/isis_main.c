@@ -53,6 +53,7 @@
 #include "isisd/isis_routemap.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_te.h"
+#include "isisd/isis_errors.h"
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -189,6 +190,7 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 *  initializations
 	 */
+	isis_error_init();
 	access_list_init();
 	vrf_init(NULL, NULL, NULL, NULL);
 	prefix_list_init();

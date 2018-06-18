@@ -55,6 +55,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
+#include "isisd/isis_errors.h"
 
 static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 		   int level)
@@ -87,9 +88,10 @@ static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 
 	retval = circuit->tx(circuit, level);
 	if (retval != ISIS_OK)
-		zlog_err("ISIS-Upd (%s): Send L%d LSP PSNP on %s failed",
-			 circuit->area->area_tag, level,
-			 circuit->interface->name);
+		zlog_ferr(ISIS_ERR_PACKET,
+			  "ISIS-Upd (%s): Send L%d LSP PSNP on %s failed",
+			  circuit->area->area_tag, level,
+			  circuit->interface->name);
 
 	return retval;
 }
@@ -615,8 +617,9 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	}
 
 	if (!p2p_hello && !(level & iih.circ_type)) {
-		zlog_err("Level %d LAN Hello with Circuit Type %d", level,
-			 iih.circ_type);
+		zlog_ferr(ISIS_ERR_PACKET,
+			  "Level %d LAN Hello with Circuit Type %d", level,
+			  iih.circ_type);
 		return ISIS_ERROR;
 	}
 
@@ -1351,7 +1354,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 	/* Verify that at least the 8 bytes fixed header have been received */
 	if (stream_get_endp(circuit->rcv_stream) < ISIS_FIXED_HDR_LEN) {
-		zlog_err("PDU is too short to be IS-IS.");
+		zlog_ferr(ISIS_ERR_PACKET, "PDU is too short to be IS-IS.");
 		return ISIS_ERROR;
 	}
 
@@ -1372,7 +1375,8 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	}
 
 	if (idrp != ISO10589_ISIS) {
-		zlog_err("Not an IS-IS packet IDRP=%" PRIx8, idrp);
+		zlog_ferr(ISIS_ERR_PACKET, "Not an IS-IS packet IDRP=%" PRIx8,
+			  idrp);
 		return ISIS_ERROR;
 	}
 
@@ -1382,7 +1386,8 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	}
 
 	if (id_len != 0 && id_len != ISIS_SYS_ID_LEN) {
-		zlog_err(
+		zlog_ferr(
+			ISIS_ERR_PACKET,
 			"IDFieldLengthMismatch: ID Length field in a received PDU  %" PRIu8
 			", while the parameter for this IS is %u",
 			id_len, ISIS_SYS_ID_LEN);
@@ -1396,14 +1401,16 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	}
 
 	if (length != expected_length) {
-		zlog_err("Exepected fixed header length = %" PRIu8
-			 " but got %" PRIu8,
-			 expected_length, length);
+		zlog_ferr(ISIS_ERR_PACKET,
+			  "Exepected fixed header length = %" PRIu8
+			  " but got %" PRIu8,
+			  expected_length, length);
 		return ISIS_ERROR;
 	}
 
 	if (stream_get_endp(circuit->rcv_stream) < length) {
-		zlog_err(
+		zlog_ferr(
+			ISIS_ERR_PACKET,
 			"PDU is too short to contain fixed header of given PDU type.");
 		return ISIS_ERROR;
 	}
@@ -1421,7 +1428,8 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 	/* either 3 or 0 */
 	if (max_area_addrs != 0 && max_area_addrs != isis->max_area_addrs) {
-		zlog_err(
+		zlog_ferr(
+			ISIS_ERR_PACKET,
 			"maximumAreaAddressesMismatch: maximumAreaAdresses in a received PDU %" PRIu8
 			" while the parameter for this IS is %u",
 			max_area_addrs, isis->max_area_addrs);
@@ -1645,9 +1653,10 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	retval = circuit->tx(circuit, level);
 	if (retval != ISIS_OK)
-		zlog_err("ISIS-Adj (%s): Send L%d IIH on %s failed",
-			 circuit->area->area_tag, level,
-			 circuit->interface->name);
+		zlog_ferr(ISIS_ERR_PACKET,
+			  "ISIS-Adj (%s): Send L%d IIH on %s failed",
+			  circuit->area->area_tag, level,
+			  circuit->interface->name);
 
 	return retval;
 }
@@ -1842,9 +1851,10 @@ int send_csnp(struct isis_circuit *circuit, int level)
 
 		int retval = circuit->tx(circuit, level);
 		if (retval != ISIS_OK) {
-			zlog_err("ISIS-Snp (%s): Send L%d CSNP on %s failed",
-				 circuit->area->area_tag, level,
-				 circuit->interface->name);
+			zlog_ferr(ISIS_ERR_PACKET,
+				  "ISIS-Snp (%s): Send L%d CSNP on %s failed",
+				  circuit->area->area_tag, level,
+				  circuit->interface->name);
 			isis_free_tlvs(tlvs);
 			return retval;
 		}
@@ -2006,9 +2016,10 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 
 		int retval = circuit->tx(circuit, level);
 		if (retval != ISIS_OK) {
-			zlog_err("ISIS-Snp (%s): Send L%d PSNP on %s failed",
-				 circuit->area->area_tag, level,
-				 circuit->interface->name);
+			zlog_ferr(ISIS_ERR_PACKET,
+				  "ISIS-Snp (%s): Send L%d PSNP on %s failed",
+				  circuit->area->area_tag, level,
+				  circuit->interface->name);
 			isis_free_tlvs(tlvs);
 			return retval;
 		}
@@ -2113,7 +2124,8 @@ int send_lsp(struct thread *thread)
 	 * than
 	 * the circuit's MTU. So handle and log this case here. */
 	if (stream_get_endp(lsp->pdu) > stream_get_size(circuit->snd_stream)) {
-		zlog_err(
+		zlog_ferr(
+			ISIS_ERR_PACKET,
 			"ISIS-Upd (%s): Can't send L%d LSP %s, seq 0x%08" PRIx32
 			", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
 			"s on %s. LSP Size is %zu while interface stream size is %zu.",
@@ -2148,11 +2160,12 @@ int send_lsp(struct thread *thread)
 	clear_srm = 0;
 	retval = circuit->tx(circuit, lsp->level);
 	if (retval != ISIS_OK) {
-		zlog_err("ISIS-Upd (%s): Send L%d LSP on %s failed %s",
-			 circuit->area->area_tag, lsp->level,
-			 circuit->interface->name,
-			 (retval == ISIS_WARNING) ? "temporarily"
-						  : "permanently");
+		zlog_ferr(ISIS_ERR_PACKET,
+			  "ISIS-Upd (%s): Send L%d LSP on %s failed %s",
+			  circuit->area->area_tag, lsp->level,
+			  circuit->interface->name,
+			  (retval == ISIS_WARNING) ? "temporarily"
+						   : "permanently");
 	}
 
 out:

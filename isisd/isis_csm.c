@@ -47,6 +47,7 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_errors.h"
 
 extern struct isis *isis;
 
@@ -137,10 +138,12 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 		case IF_UP_FROM_Z:
 			isis_circuit_if_add(circuit, (struct interface *)arg);
 			if (isis_circuit_up(circuit) != ISIS_OK) {
-				zlog_err(
+				zlog_ferr(
+					ISIS_ERR_CONFIG,
 					"Could not bring up %s because of invalid config.",
 					circuit->interface->name);
-				zlog_err(
+				zlog_ferr(
+					ISIS_ERR_CONFIG,
 					"Clearing config for %s. Please re-examine it.",
 					circuit->interface->name);
 				if (circuit->ip_router) {
