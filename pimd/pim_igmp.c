@@ -24,6 +24,7 @@
 #include "if.h"
 #include "hash.h"
 #include "jhash.h"
+#include "lib_errors.h"
 
 #include "pimd.h"
 #include "pim_igmp.h"
@@ -96,9 +97,9 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 	}
 
 	if (!join) {
-		zlog_err(
-			"IGMP socket fd=%d could not join any group on interface address %s",
-			fd, inet_ntoa(ifaddr));
+		zlog_ferr(LIB_ERR_SOCKET,
+			  "IGMP socket fd=%d could not join any group on interface address %s",
+			  fd, inet_ntoa(ifaddr));
 		close(fd);
 		fd = -1;
 	}
@@ -697,7 +698,8 @@ static void sock_close(struct igmp_sock *igmp)
 	THREAD_OFF(igmp->t_igmp_read);
 
 	if (close(igmp->fd)) {
-		zlog_err(
+		zlog_ferr(
+			LIB_ERR_SOCKET,
 			"Failure closing IGMP socket %s fd=%d on interface %s: errno=%d: %s",
 			inet_ntoa(igmp->ifaddr), igmp->fd,
 			igmp->interface->name, errno, safe_strerror(errno));
@@ -960,12 +962,6 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	}
 
 	igmp = igmp_sock_new(fd, ifaddr, ifp, mtrace_only);
-	if (!igmp) {
-		zlog_err("%s %s: igmp_sock_new() failure", __FILE__,
-			 __PRETTY_FUNCTION__);
-		close(fd);
-		return 0;
-	}
 
 	igmp_read_on(igmp);
 

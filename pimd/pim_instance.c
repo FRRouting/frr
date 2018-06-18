@@ -22,6 +22,7 @@
 
 #include "hash.h"
 #include "vrf.h"
+#include "lib_errors.h"
 
 #include "pimd.h"
 #include "pim_ssm.h"
@@ -94,10 +95,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 		zlog_debug("%s: NHT rpf hash init ", __PRETTY_FUNCTION__);
 
 	pim->ssm_info = pim_ssm_init();
-	if (!pim->ssm_info) {
-		pim_instance_terminate(pim);
-		return NULL;
-	}
 
 	pim->static_routes = list_new();
 	pim->static_routes->del = (void (*)(void *))pim_static_route_free;
@@ -132,14 +129,6 @@ static int pim_vrf_new(struct vrf *vrf)
 	struct pim_instance *pim = pim_instance_init(vrf);
 
 	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
-	if (pim == NULL) {
-		zlog_err("%s %s: pim class init failure ", __FILE__,
-			 __PRETTY_FUNCTION__);
-		/*
-		 * We will crash and burn otherwise
-		 */
-		exit(1);
-	}
 
 	vrf->info = (void *)pim;
 

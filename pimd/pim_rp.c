@@ -31,6 +31,7 @@
 #include "plist.h"
 #include "nexthop.h"
 #include "table.h"
+#include "lib_errors.h"
 
 #include "pimd.h"
 #include "pim_vty.h"
@@ -231,7 +232,8 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 
 	rn = route_node_match(pim->rp_table, group);
 	if (!rn) {
-		zlog_err(
+		zlog_ferr(
+			LIB_ERR_DEVELOPMENT,
 			"%s: BUG We should have found default group information\n",
 			__PRETTY_FUNCTION__);
 		return best;
@@ -619,7 +621,9 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 		rn = route_node_get(pim->rp_table, &rp_info->group);
 		if (rn) {
 			if (rn->info != rp_info)
-				zlog_err("WTF matey");
+				zlog_ferr(
+					LIB_ERR_DEVELOPMENT,
+					"Expected rn->info to be equal to rp_info");
 
 			if (PIM_DEBUG_TRACE) {
 				char buf[PREFIX_STRLEN];

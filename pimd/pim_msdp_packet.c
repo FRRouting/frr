@@ -23,6 +23,7 @@
 #include <lib/stream.h>
 #include <lib/thread.h>
 #include <lib/vty.h>
+#include <lib/lib_errors.h>
 
 #include "pimd.h"
 #include "pim_str.h"
@@ -145,7 +146,8 @@ static void pim_msdp_connect_check(struct pim_msdp_peer *mp)
 
 	/* If getsockopt is fail, this is fatal error. */
 	if (ret < 0) {
-		zlog_err("can't get sockopt for nonblocking connect");
+		zlog_ferr(LIB_ERR_SOCKET,
+			  "can't get sockopt for nonblocking connect");
 		pim_msdp_peer_reset_tcp_conn(mp, "connect-failed");
 		return;
 	}

@@ -25,6 +25,7 @@
 
 #include "log.h"
 #include "thread.h"
+#include "lib_errors.h"
 
 #include "pim_time.h"
 
@@ -34,8 +35,9 @@ static int gettime_monotonic(struct timeval *tv)
 
 	result = gettimeofday(tv, 0);
 	if (result) {
-		zlog_err("%s: gettimeofday() failure: errno=%d: %s",
-			 __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			  "%s: gettimeofday() failure: errno=%d: %s",
+			  __PRETTY_FUNCTION__, errno, safe_strerror(errno));
 	}
 
 	return result;
@@ -50,8 +52,9 @@ int64_t pim_time_monotonic_sec()
 	struct timeval now_tv;
 
 	if (gettime_monotonic(&now_tv)) {
-		zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
-			 __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			  "%s: gettime_monotonic() failure: errno=%d: %s",
+			  __PRETTY_FUNCTION__, errno, safe_strerror(errno));
 		return -1;
 	}
 
@@ -68,8 +71,9 @@ int64_t pim_time_monotonic_dsec()
 	int64_t now_dsec;
 
 	if (gettime_monotonic(&now_tv)) {
-		zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
-			 __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			  "%s: gettime_monotonic() failure: errno=%d: %s",
+			  __PRETTY_FUNCTION__, errno, safe_strerror(errno));
 		return -1;
 	}
 
@@ -85,8 +89,9 @@ int64_t pim_time_monotonic_usec(void)
 	int64_t now_dsec;
 
 	if (gettime_monotonic(&now_tv)) {
-		zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
-			 __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			  "%s: gettime_monotonic() failure: errno=%d: %s",
+			  __PRETTY_FUNCTION__, errno, safe_strerror(errno));
 		return -1;
 	}
 

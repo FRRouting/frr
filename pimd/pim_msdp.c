@@ -28,6 +28,7 @@
 #include <lib/thread.h>
 #include <lib/vty.h>
 #include <lib/plist.h>
+#include <lib/lib_errors.h>
 
 #include "pimd.h"
 #include "pim_cmd.h"
@@ -517,7 +518,8 @@ static void pim_msdp_sa_local_del_on_up_del(struct pim_instance *pim,
 			 * the flow. Accounting for such cases requires lot of
 			 * changes; perhaps
 			 * address this in the next release? - XXX  */
-			zlog_err(
+			zlog_ferr(
+				  LIB_ERR_DEVELOPMENT,
 				"MSDP sa %s SPT teardown is causing the local entry to be removed",
 				sa->sg_str);
 			return;

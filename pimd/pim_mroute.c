@@ -25,6 +25,7 @@
 #include "vty.h"
 #include "plist.h"
 #include "sockopt.h"
+#include "lib_errors.h"
 
 #include "pimd.h"
 #include "pim_rpf.h"
@@ -56,7 +57,8 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	 */
 	if (pim->vrf_id != VRF_DEFAULT) {
 		if (pimd_privs.change(ZPRIVS_RAISE))
-			zlog_err(
+			zlog_ferr(
+				LIB_ERR_PRIVILEGES,
 				"pim_mroute_socket_enable: could not raise privs, %s",
 				safe_strerror(errno));
 
@@ -73,7 +75,8 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 		}
 
 		if (pimd_privs.change(ZPRIVS_LOWER))
-			zlog_err(
+			zlog_ferr(
+				LIB_ERR_PRIVILEGES,
 				"pim_mroute_socket_enable: could not lower privs, %s",
 				safe_strerror(errno));
 	}
@@ -709,8 +712,9 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 	int fd;
 
 	if (pimd_privs.change(ZPRIVS_RAISE))
-		zlog_err("pim_mroute_socket_enable: could not raise privs, %s",
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "pim_mroute_socket_enable: could not raise privs, %s",
+			  safe_strerror(errno));
 
 	fd = socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
 
@@ -732,8 +736,9 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 #endif
 
 	if (pimd_privs.change(ZPRIVS_LOWER))
-		zlog_err("pim_mroute_socket_enable: could not lower privs, %s",
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "pim_mroute_socket_enable: could not lower privs, %s",
+			  safe_strerror(errno));
 
 	pim->mroute_socket = fd;
 	if (pim_mroute_set(pim, 1)) {
