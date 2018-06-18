@@ -35,6 +35,7 @@
 #include "routemap.h"
 #include "if_rmap.h"
 #include "privs.h"
+#include "lib_errors.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_route.h"
@@ -94,7 +95,7 @@ static int ripng_make_socket(void)
 
 	sock = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (sock < 0) {
-		zlog_err("Can't make ripng socket");
+		zlog_ferr(LIB_ERR_SOCKET, "Can't make ripng socket");
 		return sock;
 	}
 
@@ -125,17 +126,21 @@ static int ripng_make_socket(void)
 	ripaddr.sin6_port = htons(RIPNG_PORT_DEFAULT);
 
 	if (ripngd_privs.change(ZPRIVS_RAISE))
-		zlog_err("ripng_make_socket: could not raise privs");
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "ripng_make_socket: could not raise privs");
 
 	ret = bind(sock, (struct sockaddr *)&ripaddr, sizeof(ripaddr));
 	if (ret < 0) {
-		zlog_err("Can't bind ripng socket: %s.", safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SOCKET, "Can't bind ripng socket: %s.",
+			  safe_strerror(errno));
 		if (ripngd_privs.change(ZPRIVS_LOWER))
-			zlog_err("ripng_make_socket: could not lower privs");
+			zlog_ferr(LIB_ERR_PRIVILEGES,
+				  "ripng_make_socket: could not lower privs");
 		goto error;
 	}
 	if (ripngd_privs.change(ZPRIVS_LOWER))
-		zlog_err("ripng_make_socket: could not lower privs");
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "ripng_make_socket: could not lower privs");
 	return sock;
 
 error:
@@ -202,12 +207,13 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 
 	if (ret < 0) {
 		if (to)
-			zlog_err("RIPng send fail on %s to %s: %s", ifp->name,
-				 inet6_ntoa(to->sin6_addr),
-				 safe_strerror(errno));
+			zlog_ferr(LIB_ERR_SOCKET,
+				  "RIPng send fail on %s to %s: %s", ifp->name,
+				  inet6_ntoa(to->sin6_addr),
+				  safe_strerror(errno));
 		else
-			zlog_err("RIPng send fail on %s: %s", ifp->name,
-				 safe_strerror(errno));
+			zlog_ferr(LIB_ERR_SOCKET, "RIPng send fail on %s: %s",
+				  ifp->name, safe_strerror(errno));
 	}
 
 	return ret;

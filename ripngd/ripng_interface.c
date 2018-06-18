@@ -35,6 +35,7 @@
 #include "thread.h"
 #include "privs.h"
 #include "vrf.h"
+#include "lib_errors.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_debug.h"
@@ -72,14 +73,18 @@ static int ripng_multicast_join(struct interface *ifp)
 		 * for this call as a workaround.
 		 */
 		if (ripngd_privs.change(ZPRIVS_RAISE))
-			zlog_err("ripng_multicast_join: could not raise privs");
+			zlog_ferr(
+				LIB_ERR_PRIVILEGES,
+				"ripng_multicast_join: could not raise privs");
 
 		ret = setsockopt(ripng->sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 				 (char *)&mreq, sizeof(mreq));
 		save_errno = errno;
 
 		if (ripngd_privs.change(ZPRIVS_LOWER))
-			zlog_err("ripng_multicast_join: could not lower privs");
+			zlog_ferr(
+				LIB_ERR_PRIVILEGES,
+				"ripng_multicast_join: could not lower privs");
 
 		if (ret < 0 && save_errno == EADDRINUSE) {
 			/*
@@ -642,8 +647,9 @@ static int ripng_interface_wakeup(struct thread *t)
 
 	/* Join to multicast group. */
 	if (ripng_multicast_join(ifp) < 0) {
-		zlog_err("multicast join failed, interface %s not running",
-			 ifp->name);
+		zlog_ferr(LIB_ERR_SOCKET,
+			  "multicast join failed, interface %s not running",
+			  ifp->name);
 		return 0;
 	}
 
