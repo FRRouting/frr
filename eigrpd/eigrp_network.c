@@ -55,7 +55,10 @@ static void eigrp_network_run_interface(struct eigrp *, struct prefix *,
 int eigrp_sock_init(void)
 {
 	int eigrp_sock;
-	int ret, hincl = 1;
+	int ret;
+#ifdef IP_HDRINCL
+	int hincl = 1;
+#endif
 
 	if (eigrpd_privs.change(ZPRIVS_RAISE))
 		zlog_err("eigrp_sock_init: could not raise privs, %s",
