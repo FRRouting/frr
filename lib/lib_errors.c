@@ -89,6 +89,12 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Open an Issue with all relevant log files and restart FRR"
 	},
 	{
+		.code = LIB_ERR_DEVELOPMENT,
+		.title = "Developmental Escape Error",
+		.description = "FRR has detected an issue where new development has not properly\nupdated all code paths.",
+		.suggestion = "Open an Issue with all relevant log files"
+	},
+	{
 		.code = END_FERR,
 	}
 };
