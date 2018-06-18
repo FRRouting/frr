@@ -144,7 +144,7 @@ disc_recv_packet(struct thread *thread)
 
 	/* reschedule read */
 	*threadp = NULL;
-	thread_add_read(master, disc_recv_packet, threadp, fd, &*threadp);
+	thread_add_read(master, disc_recv_packet, threadp, fd, threadp);
 
 	/* setup buffer */
 	memset(&m, 0, sizeof(m));
