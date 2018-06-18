@@ -662,7 +662,7 @@ static int
 check_bucket(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
-    if(babel_ifp->bucket <= 0) {
+    if(babel_ifp->bucket == 0) {
         int seconds = babel_now.tv_sec - babel_ifp->bucket_time;
         if(seconds > 0) {
             babel_ifp->bucket = MIN(BUCKET_TOKENS_MAX,

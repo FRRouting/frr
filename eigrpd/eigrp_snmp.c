@@ -573,7 +573,7 @@ static struct eigrp_neighbor *eigrpNbrLookup(struct variable *v, oid *name,
 		first = 0;
 		len = *length - v->namelen;
 
-		if (len <= 0)
+		if (len == 0)
 			first = 1;
 
 		if (len > IN_ADDR_SIZE)
