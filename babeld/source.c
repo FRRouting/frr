@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include "source.h"
 #include "babel_interface.h"
 #include "route.h"
+#include "babel_errors.h"
 
 struct source *srcs = NULL;
 
@@ -58,7 +59,7 @@ find_source(const unsigned char *id, const unsigned char *p, unsigned char plen,
 
     src = malloc(sizeof(struct source));
     if(src == NULL) {
-        zlog_err("malloc(source): %s", safe_strerror(errno));
+        zlog_ferr(BABEL_ERR_MEMORY, "malloc(source): %s", safe_strerror(errno));
         return NULL;
     }
 

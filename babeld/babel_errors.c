@@ -30,6 +30,24 @@ static struct ferr_ref ferr_babel_err[] = {
 		.suggestion = "Find the process that is causing memory shortages and remediate that process\nRestart FRR"
 	},
 	{
+		.code = BABEL_ERR_PACKET,
+		.title = "BABEL Packet Error",
+		.description = "Babel has detected a packet encode/decode problem",
+		.suggestion = "Collect relevant log files and file an Issue"
+	},
+	{
+		.code = BABEL_ERR_CONFIG,
+		.title = "BABEL Configuration Error",
+		.description = "Babel has detected a configuration error of some sort",
+		.suggestion = "Ensure that the configuration is correct"
+	},
+	{
+		.code = BABEL_ERR_ROUTE,
+		.title = "BABEL Route Error",
+		.description = "Babel has detected a routing error and has an inconsistent state",
+		.suggestion = "Gather data for filing an Issue and then restart FRR"
+	},
+	{
 		.code = END_FERR,
 	}
 };
