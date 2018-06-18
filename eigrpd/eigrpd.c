@@ -170,12 +170,7 @@ static struct eigrp *eigrp_new(const char *AS)
 	eigrp->fd = eigrp_socket;
 	eigrp->maxsndbuflen = getsockopt_so_sendbuf(eigrp->fd);
 
-	if ((eigrp->ibuf = stream_new(EIGRP_PACKET_MAX_LEN + 1)) == NULL) {
-		zlog_err(
-			"eigrp_new: fatal error: stream_new (%u) failed allocating ibuf",
-			EIGRP_PACKET_MAX_LEN + 1);
-		exit(1);
-	}
+	eigrp->ibuf = stream_new(EIGRP_PACKET_MAX_LEN + 1);
 
 	eigrp->t_read = NULL;
 	thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);

@@ -37,6 +37,7 @@
 #include "log.h"
 #include "linklist.h"
 #include "vty.h"
+#include "lib_errors.h"
 
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
@@ -410,7 +411,8 @@ enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_messag
 		}
 		break;
 	default:
-		zlog_err("%s: Please implement handler", __PRETTY_FUNCTION__);
+		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: Please implement handler",
+			  __PRETTY_FUNCTION__);
 		break;
 	}
  distance_done:
