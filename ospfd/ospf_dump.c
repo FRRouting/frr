@@ -201,17 +201,17 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 	}
 
 	if (w > 99)
-		snprintf(buf, size, "%ldw%1ldd", w, d);
+		snprintf(buf, size, "%luw%1lud", w, d);
 	else if (w)
-		snprintf(buf, size, "%ldw%1ldd%02ldh", w, d, h);
+		snprintf(buf, size, "%luw%1lud%02luh", w, d, h);
 	else if (d)
-		snprintf(buf, size, "%1ldd%02ldh%02ldm", d, h, m);
+		snprintf(buf, size, "%1lud%02luh%02lum", d, h, m);
 	else if (h)
-		snprintf(buf, size, "%ldh%02ldm%02lds", h, m, (long)t->tv_sec);
+		snprintf(buf, size, "%luh%02lum%02lds", h, m, (long)t->tv_sec);
 	else if (m)
-		snprintf(buf, size, "%ldm%02lds", m, (long)t->tv_sec);
+		snprintf(buf, size, "%lum%02lds", m, (long)t->tv_sec);
 	else if (ms)
-		snprintf(buf, size, "%ld.%03lds", (long)t->tv_sec, ms);
+		snprintf(buf, size, "%ld.%03lus", (long)t->tv_sec, ms);
 	else
 		snprintf(buf, size, "%ld usecs", (long)t->tv_usec);
 
@@ -1689,7 +1689,7 @@ static int config_write_debug(struct vty *vty)
 		return CMD_SUCCESS;
 
 	if (ospf->instance)
-		sprintf(str, " %d", ospf->instance);
+		sprintf(str, " %u", ospf->instance);
 
 	/* debug ospf ism (status|events|timers). */
 	if (IS_CONF_DEBUG_OSPF(ism, ISM) == OSPF_DEBUG_ISM)

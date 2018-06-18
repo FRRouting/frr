@@ -857,7 +857,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 			"ospf_vl_new(): creating pseudo zebra interface vrf id %u",
 			ospf->vrf_id);
 
-	snprintf(ifname, sizeof(ifname), "VLINK%d", vlink_count);
+	snprintf(ifname, sizeof(ifname), "VLINK%u", vlink_count);
 	vi = if_create(ifname, ospf->vrf_id);
 	/*
 	 * if_create sets ZEBRA_INTERFACE_LINKDETECTION

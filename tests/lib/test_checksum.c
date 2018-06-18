@@ -506,7 +506,7 @@ int main(int argc, char **argv)
 			printf("verify: lib failed\n");
 
 		if (ospfd != lib) {
-			printf("Mismatch in values at size %u\n"
+			printf("Mismatch in values at size %d\n"
 			       "ospfd: 0x%04x\tc0: %d\tc1: %d\tx: %d\ty: %d\n"
 			       "isisd: 0x%04x\tc0: %d\tc1: %d\tx: %d\ty: %d\n"
 			       "lib: 0x%04x\n",
