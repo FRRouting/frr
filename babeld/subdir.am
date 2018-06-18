@@ -9,6 +9,7 @@ dist_examples_DATA += babeld/babeld.conf.sample
 endif
 
 babeld_libbabel_a_SOURCES = \
+	babeld/babel_errors.c \
 	babeld/babel_filter.c \
 	babeld/babel_interface.c \
 	babeld/babel_memory.c \
@@ -26,6 +27,7 @@ babeld_libbabel_a_SOURCES = \
 	# end
 
 noinst_HEADERS += \
+	babeld/babel_errors.h \
 	babeld/babel_filter.h \
 	babeld/babel_interface.h \
 	babeld/babel_main.h \
