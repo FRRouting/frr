@@ -34,6 +34,7 @@ enum lib_ferr_refs {
 	LIB_ERR_VTY,
 	LIB_ERR_SNMP,
 	LIB_ERR_INTERFACE,
+	LIB_ERR_NS,
 };
 
 extern void lib_error_init(void);

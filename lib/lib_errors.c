@@ -83,6 +83,12 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Open an Issue with all relevant log files and restart FRR"
 	},
 	{
+		.code = LIB_ERR_NS,
+		.title = "NameSpace Subsystem Error",
+		.description = "FRR has detected a problem with NameSpace data from the kernel as it deviates\nfrom what we would expect to happen via normal kernel messaging",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
 		.code = END_FERR,
 	}
 };
