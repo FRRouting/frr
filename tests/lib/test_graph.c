@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 
 	/* create vertices */
 	for (unsigned int i = 0; i < NUMNODES; i++) {
-		snprintf(names[i], sizeof(names[i]), "%d", i);
+		snprintf(names[i], sizeof(names[i]), "%u", i);
 		gn[i] = graph_new_node(g, names[i], NULL);
 	}
 

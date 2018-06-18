@@ -92,9 +92,9 @@ int main(int argc, char **argv)
 	t_remove = 1000 * (tv_stop.tv_sec - tv_lap.tv_sec);
 	t_remove += (tv_stop.tv_usec - tv_lap.tv_usec) / 1000;
 
-	printf("Scheduling %d random timers took %ld.%03ld seconds.\n",
+	printf("Scheduling %d random timers took %lu.%03lu seconds.\n",
 	       SCHEDULE_TIMERS, t_schedule / 1000, t_schedule % 1000);
-	printf("Removing %d random timers took %ld.%03ld seconds.\n",
+	printf("Removing %d random timers took %lu.%03lu seconds.\n",
 	       REMOVE_TIMERS, t_remove / 1000, t_remove % 1000);
 	fflush(stdout);
 

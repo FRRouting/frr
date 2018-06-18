@@ -1001,7 +1001,7 @@ show_babel_routes_sub(struct babel_route *route, struct vty *vty,
                 break;
             if(k > 0)
                 channels[j++] = ',';
-            snprintf(channels + j, 100 - j, "%d", route->channels[k]);
+            snprintf(channels + j, 100 - j, "%u", route->channels[k]);
             j = strlen(channels);
         }
         snprintf(channels + j, 100 - j, ")");
