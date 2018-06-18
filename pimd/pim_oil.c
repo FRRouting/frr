@@ -40,7 +40,6 @@ char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
 	struct prefix_sg sg;
 	int i;
 
-	memset(buf, 0, size);
 	sg.src = c_oil->oil.mfcc_origin;
 	sg.grp = c_oil->oil.mfcc_mcastgrp;
 	sprintf(buf, "%s IIF: %d, OIFS: ", pim_str_sg_dump(&sg),
