@@ -95,6 +95,12 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Open an Issue with all relevant log files"
 	},
 	{
+		.code = LIB_ERR_ZMQ,
+		.title = "ZMQ Subsystem Error",
+		.description = "FRR has detected an issue with the Zero MQ subsystem and ZeroMQ\nis not working properly now",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
 		.code = END_FERR,
 	}
 };

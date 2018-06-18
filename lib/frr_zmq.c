@@ -24,6 +24,7 @@
 #include "memory.h"
 #include "frr_zmq.h"
 #include "log.h"
+#include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZEROMQ_CB, "ZeroMQ callback")
 
@@ -140,7 +141,8 @@ static int frrzmq_read_msg(struct thread *t)
 	return 0;
 
 out_err:
-	zlog_err("ZeroMQ read error: %s(%d)", strerror(errno), errno);
+	zlog_ferr(LIB_ERR_ZMQ, "ZeroMQ read error: %s(%d)", strerror(errno),
+		  errno);
 	if (cb->read.cb_error)
 		cb->read.cb_error(cb->read.arg, cb->zmqsock);
 	return 1;
@@ -253,7 +255,8 @@ static int frrzmq_write_msg(struct thread *t)
 	return 0;
 
 out_err:
-	zlog_err("ZeroMQ write error: %s(%d)", strerror(errno), errno);
+	zlog_ferr(LIB_ERR_ZMQ, "ZeroMQ write error: %s(%d)", strerror(errno),
+		  errno);
 	if (cb->write.cb_error)
 		cb->write.cb_error(cb->write.arg, cb->zmqsock);
 	return 1;
