@@ -31,6 +31,7 @@
 #include "network.h"
 #include "stream.h"
 #include "if.h"
+#include "lib_errors.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -185,8 +186,8 @@ int isis_sock_init(struct isis_circuit *circuit)
 	int retval = ISIS_OK;
 
 	if (isisd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs, %s", __func__,
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_PRIVILEGES, "%s: could not raise privs, %s",
+			  __func__, safe_strerror(errno));
 
 	retval = open_packet_socket(circuit);
 
@@ -210,8 +211,8 @@ int isis_sock_init(struct isis_circuit *circuit)
 
 end:
 	if (isisd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs, %s", __func__,
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_PRIVILEGES, "%s: could not lower privs, %s",
+			  __func__, safe_strerror(errno));
 
 	return retval;
 }

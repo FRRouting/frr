@@ -103,7 +103,7 @@ static __attribute__((__noreturn__)) void terminate(int i)
 
 void sighup(void)
 {
-	zlog_err("SIGHUP/reload is not implemented for isisd");
+	zlog_notice("SIGHUP/reload is not implemented for isisd");
 	return;
 }
 

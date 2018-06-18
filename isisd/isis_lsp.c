@@ -38,6 +38,7 @@
 #include "md5.h"
 #include "table.h"
 #include "srcdest_table.h"
+#include "lib_errors.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -453,7 +454,8 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		struct isis_area *area, int level, bool confusion)
 {
 	if (lsp->own_lsp) {
-		zlog_err(
+		zlog_ferr(
+			LIB_ERR_DEVELOPMENT,
 			"ISIS-Upd (%s): BUG updating LSP %s still marked as own LSP",
 			area->area_tag, rawlspid_print(lsp->hdr.lsp_id));
 		lsp_clear_data(lsp);
