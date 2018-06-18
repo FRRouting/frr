@@ -146,8 +146,6 @@ void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
 	else
 		state = ISM_DROther;
 
-	memset(buf, 0, size);
-
 	snprintf(buf, size, "%s/%s",
 		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
 		 lookup_msg(ospf_ism_state_msg, state, NULL));
@@ -254,8 +252,6 @@ static void ospf_packet_hello_dump(struct stream *s, uint16_t length)
 
 static char *ospf_dd_flags_dump(uint8_t flags, char *buf, size_t size)
 {
-	memset(buf, 0, size);
-
 	snprintf(buf, size, "%s|%s|%s", (flags & OSPF_DD_FLAG_I) ? "I" : "-",
 		 (flags & OSPF_DD_FLAG_M) ? "M" : "-",
 		 (flags & OSPF_DD_FLAG_MS) ? "MS" : "-");
@@ -265,8 +261,6 @@ static char *ospf_dd_flags_dump(uint8_t flags, char *buf, size_t size)
 
 static char *ospf_router_lsa_flags_dump(uint8_t flags, char *buf, size_t size)
 {
-	memset(buf, 0, size);
-
 	snprintf(buf, size, "%s|%s|%s",
 		 (flags & ROUTER_LSA_VIRTUAL) ? "V" : "-",
 		 (flags & ROUTER_LSA_EXTERNAL) ? "E" : "-",
