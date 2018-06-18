@@ -15,6 +15,7 @@ isisd_libisis_a_SOURCES = \
 	isisd/isis_csm.c \
 	isisd/isis_dr.c \
 	isisd/isis_dynhn.c \
+	isisd/isis_errors.c \
 	isisd/isis_events.c \
 	isisd/isis_flags.c \
 	isisd/isis_lsp.c \
@@ -44,6 +45,7 @@ noinst_HEADERS += \
 	isisd/isis_csm.h \
 	isisd/isis_dr.h \
 	isisd/isis_dynhn.h \
+	isisd/isis_errors.h \
 	isisd/isis_events.h \
 	isisd/isis_flags.h \
 	isisd/isis_lsp.h \

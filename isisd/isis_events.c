@@ -48,6 +48,7 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
 #include "isisd/isis_spf.h"
+#include "isisd/isis_errors.h"
 
 /* debug isis-spf spf-events
  4w4d: ISIS-Spf (tlt): L2 SPF needed, new adjacency, from 0x609229F4
@@ -156,9 +157,9 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
 		return; /* No change */
 
 	if (!(newtype & circuit->area->is_type)) {
-		zlog_err(
-			"ISIS-Evt (%s) circuit type change - invalid level %s because"
-			" area is %s",
+		zlog_ferr(
+			ISIS_ERR_CONFIG,
+			"ISIS-Evt (%s) circuit type change - invalid level %s because area is %s",
 			circuit->area->area_tag, circuit_t2string(newtype),
 			circuit_t2string(circuit->area->is_type));
 		return;
