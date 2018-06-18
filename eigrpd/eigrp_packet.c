@@ -42,6 +42,7 @@
 #include "checksum.h"
 #include "md5.h"
 #include "sha256.h"
+#include "lib_errors.h"
 
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
@@ -1210,8 +1211,9 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 		stream_putw(s, length);
 		break;
 	default:
-		zlog_err("%s: Unexpected prefix length: %d",
-			 __PRETTY_FUNCTION__, pe->destination->prefixlen);
+		zlog_ferr(LIB_ERR_DEVELOPMENT,
+			  "%s: Unexpected prefix length: %d",
+			  __PRETTY_FUNCTION__, pe->destination->prefixlen);
 		return 0;
 	}
 	stream_putl(s, 0x00000000);
