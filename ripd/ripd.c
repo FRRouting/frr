@@ -40,6 +40,7 @@
 #include "md5.h"
 #include "keychain.h"
 #include "privs.h"
+#include "lib_errors.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
@@ -1340,7 +1341,8 @@ static int rip_create_socket(void)
 	/* Make datagram socket. */
 	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock < 0) {
-		zlog_err("Cannot create UDP socket: %s", safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+			  safe_strerror(errno));
 		exit(1);
 	}
 
@@ -1356,25 +1358,29 @@ static int rip_create_socket(void)
 #endif
 
 	if (ripd_privs.change(ZPRIVS_RAISE))
-		zlog_err("rip_create_socket: could not raise privs");
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "rip_create_socket: could not raise privs");
 	setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
 	if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr))) < 0)
 
 	{
 		int save_errno = errno;
 		if (ripd_privs.change(ZPRIVS_LOWER))
-			zlog_err("rip_create_socket: could not lower privs");
+			zlog_ferr(LIB_ERR_PRIVILEGES,
+				  "rip_create_socket: could not lower privs");
 
-		zlog_err("%s: Can't bind socket %d to %s port %d: %s", __func__,
-			 sock, inet_ntoa(addr.sin_addr),
-			 (int)ntohs(addr.sin_port), safe_strerror(save_errno));
+		zlog_ferr(LIB_ERR_SOCKET,
+			  "%s: Can't bind socket %d to %s port %d: %s",
+			  __func__, sock, inet_ntoa(addr.sin_addr),
+			  (int)ntohs(addr.sin_port), safe_strerror(save_errno));
 
 		close(sock);
 		return ret;
 	}
 
 	if (ripd_privs.change(ZPRIVS_LOWER))
-		zlog_err("rip_create_socket: could not lower privs");
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "rip_create_socket: could not lower privs");
 
 	return sock;
 }
