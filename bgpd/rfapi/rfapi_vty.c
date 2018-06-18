@@ -1733,7 +1733,8 @@ void rfapiPrintMatchingDescriptors(struct vty *vty, struct prefix *vn_prefix,
 int rfapiCliGetPrefixAddr(struct vty *vty, const char *str, struct prefix *p)
 {
 	if (!str2prefix(str, p)) {
-		vty_out(vty, "Malformed address \"%s\"%s", str, HVTYNL);
+		vty_out(vty, "Malformed address \"%s\"%s", str ? str : "null",
+			HVTYNL);
 		return CMD_WARNING;
 	}
 	switch (p->family) {
