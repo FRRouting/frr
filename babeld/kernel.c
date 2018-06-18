@@ -73,9 +73,9 @@ kernel_interface_wireless(struct interface *interface)
 }
 
 int
-kernel_route(int operation, const unsigned char *pref, unsigned short plen,
-             const unsigned char *gate, int ifindex, unsigned int metric,
-             const unsigned char *newgate, int newifindex,
+kernel_route(enum babel_kernel_routes operation, const unsigned char *pref,
+	     unsigned short plen, const unsigned char *gate, int ifindex,
+	     unsigned int metric, const unsigned char *newgate, int newifindex,
              unsigned int newmetric)
 {
     int rc;
@@ -116,12 +116,9 @@ kernel_route(int operation, const unsigned char *pref, unsigned short plen,
                              newmetric);
             return rc;
             break;
-        default:
-            zlog_err("this should never happen (false value - kernel_route)");
-            assert(0);
-            exit(1);
-            break;
     }
+
+    return 0;
 }
 
 static int
