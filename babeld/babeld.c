@@ -29,6 +29,7 @@ THE SOFTWARE.
 #include "prefix.h"
 #include "filter.h"
 #include "plist.h"
+#include "lib_errors.h"
 
 #include "babel_main.h"
 #include "babeld.h"
@@ -43,6 +44,7 @@ THE SOFTWARE.
 #include "babel_filter.h"
 #include "babel_zebra.h"
 #include "babel_memory.h"
+#include "babel_errors.h"
 
 static int babel_init_routing_process(struct thread *thread);
 static void babel_get_myid(void);
@@ -143,7 +145,8 @@ babel_create_routing_process (void)
     /* Make socket for Babel protocol. */
     protocol_socket = babel_socket(protocol_port);
     if (protocol_socket < 0) {
-        zlog_err("Couldn't create link local socket: %s", safe_strerror(errno));
+        zlog_ferr(LIB_ERR_SOCKET, "Couldn't create link local socket: %s",
+		  safe_strerror(errno));
         goto fail;
     }
 
@@ -176,7 +179,7 @@ babel_read_protocol (struct thread *thread)
                     (struct sockaddr*)&sin6, sizeof(sin6));
     if(rc < 0) {
         if(errno != EAGAIN && errno != EINTR) {
-            zlog_err("recv: %s", safe_strerror(errno));
+            zlog_ferr(LIB_ERR_SOCKET, "recv: %s", safe_strerror(errno));
         }
     } else {
         FOR_ALL_INTERFACES(vrf, ifp) {
@@ -514,7 +517,8 @@ resize_receive_buffer(int size)
     if(receive_buffer == NULL) {
         receive_buffer = malloc(size);
         if(receive_buffer == NULL) {
-            zlog_err("malloc(receive_buffer): %s", safe_strerror(errno));
+            zlog_ferr(BABEL_ERR_MEMORY, "malloc(receive_buffer): %s",
+		      safe_strerror(errno));
             return -1;
         }
         receive_buffer_size = size;
@@ -522,7 +526,8 @@ resize_receive_buffer(int size)
         unsigned char *new;
         new = realloc(receive_buffer, size);
         if(new == NULL) {
-            zlog_err("realloc(receive_buffer): %s", safe_strerror(errno));
+            zlog_ferr(BABEL_ERR_MEMORY, "realloc(receive_buffer): %s",
+		      safe_strerror(errno));
             return -1;
         }
         receive_buffer = new;
