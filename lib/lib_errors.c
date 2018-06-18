@@ -77,6 +77,12 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Examine callback message and ensure snmp is properly setup and working"
 	},
 	{
+		.code = LIB_ERR_INTERFACE,
+		.title = "Interface Subsystem Error",
+		.description = "FRR has detected a problem with interface data from the kernel as it deviates\nfrom what we would expect to happen via normal netlink messaging",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
 		.code = END_FERR,
 	}
 };

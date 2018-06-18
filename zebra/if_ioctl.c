@@ -181,7 +181,8 @@ static int if_getaddrs(void)
 
 	for (ifapfree = ifap; ifap; ifap = ifap->ifa_next) {
 		if (ifap->ifa_addr == NULL) {
-			zlog_err(
+			zlog_ferr(
+				LIB_ERR_INTERFACE,
 				"%s: nonsensical ifaddr with NULL ifa_addr, ifname %s",
 				__func__,
 				(ifap->ifa_name ? ifap->ifa_name : "(null)"));
@@ -190,8 +191,9 @@ static int if_getaddrs(void)
 
 		ifp = if_lookup_by_name(ifap->ifa_name, VRF_DEFAULT);
 		if (ifp == NULL) {
-			zlog_err("if_getaddrs(): Can't lookup interface %s\n",
-				 ifap->ifa_name);
+			zlog_ferr(LIB_ERR_INTERFACE,
+				  "if_getaddrs(): Can't lookup interface %s\n",
+				  ifap->ifa_name);
 			continue;
 		}
 

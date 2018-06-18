@@ -297,28 +297,32 @@ DECLARE_QOBJ_TYPE(interface)
 
 #define IFNAME_RB_INSERT(vrf, ifp)                                             \
 	if (RB_INSERT(if_name_head, &vrf->ifaces_by_name, (ifp)))              \
-		zlog_err(                                                      \
+		zlog_ferr(                                                     \
+			LIB_ERR_INTERFACE,                                     \
 			"%s(%s): corruption detected -- interface with this "  \
 			"name exists already in VRF %u!",                      \
 			__func__, (ifp)->name, (ifp)->vrf_id);
 
 #define IFNAME_RB_REMOVE(vrf, ifp)                                             \
 	if (RB_REMOVE(if_name_head, &vrf->ifaces_by_name, (ifp)) == NULL)      \
-		zlog_err(                                                      \
+		zlog_ferr(                                                     \
+			LIB_ERR_INTERFACE,                                     \
 			"%s(%s): corruption detected -- interface with this "  \
 			"name doesn't exist in VRF %u!",                       \
 			__func__, (ifp)->name, (ifp)->vrf_id);
 
 #define IFINDEX_RB_INSERT(vrf, ifp)                                            \
 	if (RB_INSERT(if_index_head, &vrf->ifaces_by_index, (ifp)))            \
-		zlog_err(                                                      \
+		zlog_ferr(                                                     \
+			LIB_ERR_INTERFACE,                                     \
 			"%s(%u): corruption detected -- interface with this "  \
 			"ifindex exists already in VRF %u!",                   \
 			__func__, (ifp)->ifindex, (ifp)->vrf_id);
 
 #define IFINDEX_RB_REMOVE(vrf, ifp)                                            \
 	if (RB_REMOVE(if_index_head, &vrf->ifaces_by_index, (ifp)) == NULL)    \
-		zlog_err(                                                      \
+		zlog_ferr(                                                     \
+			LIB_ERR_INTERFACE,                                     \
 			"%s(%u): corruption detected -- interface with this "  \
 			"ifindex doesn't exist in VRF %u!",                    \
 			__func__, (ifp)->ifindex, (ifp)->vrf_id);
