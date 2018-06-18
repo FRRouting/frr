@@ -315,14 +315,15 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 
 	/* Check socket. */
 	if (zlookup->sock < 0) {
-		zlog_err("%s: zclient lookup socket is not connected",
-			 __PRETTY_FUNCTION__);
+		zlog_ferr(LIB_ERR_ZAPI_SOCKET,
+			  "%s: zclient lookup socket is not connected",
+			  __PRETTY_FUNCTION__);
 		zclient_lookup_failed(zlookup);
 		return -1;
 	}
 
 	if (pim->vrf->vrf_id == VRF_UNKNOWN) {
-		zlog_err(
+		zlog_notice(
 			"%s: VRF: %s does not fully exist yet, delaying lookup",
 			__PRETTY_FUNCTION__, pim->vrf->name);
 		return -1;

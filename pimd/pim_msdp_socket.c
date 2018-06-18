@@ -30,6 +30,7 @@
 
 #include "pimd.h"
 #include "pim_sock.h"
+#include "pim_errors.h"
 
 #include "pim_msdp.h"
 #include "pim_msdp_socket.h"
@@ -93,8 +94,9 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	if (!mp || !PIM_MSDP_PEER_IS_LISTENER(mp)) {
 		++pim->msdp.rejected_accepts;
 		if (PIM_DEBUG_MSDP_EVENTS) {
-			zlog_err("msdp peer connection refused from %s",
-				 sockunion2str(&su, buf, SU_ADDRSTRLEN));
+			zlog_ferr(PIM_ERR_MSDP_PACKET,
+				  "msdp peer connection refused from %s",
+				  sockunion2str(&su, buf, SU_ADDRSTRLEN));
 		}
 		close(msdp_sock);
 		return -1;

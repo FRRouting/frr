@@ -24,6 +24,7 @@
 #include <lib/vty.h>
 #include <lib/vrf.h>
 #include <lib/plist.h>
+#include <lib/lib_errors.h>
 
 #include "pimd.h"
 #include "pim_ssm.h"
@@ -72,8 +73,9 @@ static int pim_is_grp_standard_ssm(struct prefix *group)
 
 	if (first) {
 		if (!str2prefix(PIM_SSM_STANDARD_RANGE, &group_ssm))
-			zlog_err("%s: Failure to Read Group Address: %s",
-				 __PRETTY_FUNCTION__, PIM_SSM_STANDARD_RANGE);
+			zlog_ferr(LIB_ERR_DEVELOPMENT,
+				  "%s: Failure to Read Group Address: %s",
+				  __PRETTY_FUNCTION__, PIM_SSM_STANDARD_RANGE);
 
 		first = 0;
 	}

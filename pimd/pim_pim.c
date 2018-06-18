@@ -38,6 +38,7 @@
 #include "pim_assert.h"
 #include "pim_msg.h"
 #include "pim_register.h"
+#include "pim_errors.h"
 
 static int on_pim_hello_send(struct thread *t);
 static int pim_hello_send(struct interface *ifp, uint16_t holdtime);
@@ -115,8 +116,9 @@ void pim_sock_delete(struct interface *ifp, const char *delete_message)
 		  delete_message);
 
 	if (!ifp->info) {
-		zlog_err("%s: %s: but PIM not enabled on interface %s (!)",
-			 __PRETTY_FUNCTION__, delete_message, ifp->name);
+		zlog_ferr(PIM_ERR_CONFIG,
+			  "%s: %s: but PIM not enabled on interface %s (!)",
+			  __PRETTY_FUNCTION__, delete_message, ifp->name);
 		return;
 	}
 

@@ -111,7 +111,8 @@ void pim_rp_init(struct pim_instance *pim)
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
 	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
-		zlog_err("Unable to convert 224.0.0.0/4 to prefix");
+		zlog_ferr(LIB_ERR_DEVELOPMENT,
+			  "Unable to convert 224.0.0.0/4 to prefix");
 		list_delete_and_null(&pim->rp_list);
 		route_table_finish(pim->rp_table);
 		XFREE(MTYPE_PIM_RP, rp_info);
