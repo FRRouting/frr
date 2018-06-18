@@ -29,17 +29,19 @@ THE SOFTWARE.
 
 #define KERNEL_INFINITY 0xFFFF
 
-#define ROUTE_FLUSH 0
-#define ROUTE_ADD 1
-#define ROUTE_MODIFY 2
+enum babel_kernel_routes {
+    ROUTE_FLUSH,
+    ROUTE_ADD,
+    ROUTE_MODIFY,
+};
 
 int kernel_interface_operational(struct interface *interface);
 int kernel_interface_mtu(struct interface *interface);
 int kernel_interface_wireless(struct interface *interface);
-int kernel_route(int operation, const unsigned char *dest, unsigned short plen,
-                 const unsigned char *gate, int ifindex, unsigned int metric,
-                 const unsigned char *newgate, int newifindex,
-                 unsigned int newmetric);
+int kernel_route(enum babel_kernel_routes operation, const unsigned char *dest,
+		 unsigned short plen, const unsigned char *gate, int ifindex,
+		 unsigned int metric, const unsigned char *newgate,
+		 int newifindex, unsigned int newmetric);
 int if_eui64(int ifindex, unsigned char *eui);
 int gettime(struct timeval *tv);
 int read_random_bytes(void *buf, size_t len);
