@@ -357,14 +357,14 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
 						  ip6)) {
 				prefix2str((struct prefix *)ip6, (char *)buf,
-					   BUFSIZ);
+					   sizeof(buf));
 				zlog_warn("  %s", buf);
 			}
 			zlog_warn(" -----");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node,
 						  ip6)) {
 				prefix2str((struct prefix *)ip6, (char *)buf,
-					   BUFSIZ);
+					   sizeof(buf));
 				zlog_warn("  %s", buf);
 			}
 			zlog_warn("End of addresses");
