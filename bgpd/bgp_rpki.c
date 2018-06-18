@@ -384,7 +384,7 @@ static int reset(bool force)
 
 static struct rtr_mgr_group *get_connected_group(void)
 {
-	if (list_isempty(cache_list))
+	if (!cache_list || list_isempty(cache_list))
 		return NULL;
 
 	return rtr_mgr_get_first_group(rtr_config);
