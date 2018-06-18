@@ -37,6 +37,7 @@ DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH_ENTRY, "PBR match entry")
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH, "PBR match")
 DEFINE_MTYPE_STATIC(BGPD, PBR_ACTION, "PBR action")
 DEFINE_MTYPE_STATIC(BGPD, PBR, "BGP PBR Context")
+DEFINE_MTYPE_STATIC(BGPD, PBR_VALMASK, "BGP PBR Val Mask Value")
 
 RB_GENERATE(bgp_pbr_interface_head, bgp_pbr_interface,
 	    id_entry, bgp_pbr_interface_compare);
@@ -210,14 +211,22 @@ struct bgp_pbr_filter {
 /* TCP : FIN and SYN -> val = ALL; mask = 3
  * TCP : not (FIN and SYN) -> val = ALL; mask = ALL & ~(FIN|RST)
  */
-static bool bgp_pbr_extract_enumerate(struct bgp_pbr_match_val list[],
-				      int num, uint8_t unary_operator,
-				      struct bgp_pbr_val_mask *valmask)
+static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
+					    int num, uint8_t unary_operator,
+					    void *valmask)
 {
 	int i = 0;
+	struct bgp_pbr_val_mask *and_valmask = NULL;
+	struct list *or_valmask = NULL;
 
-	if (valmask)
-		memset(valmask, 0, sizeof(struct bgp_pbr_val_mask));
+	if (valmask) {
+		if (unary_operator == OPERATOR_UNARY_AND) {
+			and_valmask = (struct bgp_pbr_val_mask *)valmask;
+			memset(and_valmask, 0, sizeof(struct bgp_pbr_val_mask));
+		} else if (unary_operator == OPERATOR_UNARY_OR) {
+			or_valmask = (struct list *)valmask;
+		}
+	}
 	for (i = 0; i < num; i++) {
 		if (i != 0 && list[i].unary_operator !=
 		    unary_operator)
@@ -230,20 +239,90 @@ static bool bgp_pbr_extract_enumerate(struct bgp_pbr_match_val list[],
 			     OPERATOR_COMPARE_LESS_THAN) &&
 			    (list[i].compare_operator &
 			     OPERATOR_COMPARE_GREATER_THAN)) {
-				if (valmask)
-					valmask->mask |=
+				if (unary_operator == OPERATOR_UNARY_AND && and_valmask)
+					and_valmask->mask |=
 						TCP_HEADER_ALL_FLAGS &
 						~(list[i].value);
+				else if (unary_operator == OPERATOR_UNARY_OR && or_valmask) {
+					and_valmask = XCALLOC(MTYPE_PBR_VALMASK,
+							      sizeof(struct bgp_pbr_val_mask));
+					and_valmask->val = TCP_HEADER_ALL_FLAGS;
+					and_valmask->mask |=
+						TCP_HEADER_ALL_FLAGS &
+						~(list[i].value);
+					listnode_add (or_valmask, and_valmask);
+				}
 				continue;
 			}
 			return false;
 		}
-		if (valmask)
-			valmask->mask |= list[i].value;
+		if (unary_operator == OPERATOR_UNARY_AND && and_valmask)
+			and_valmask->mask |=
+				TCP_HEADER_ALL_FLAGS & list[i].value;
+		else if (unary_operator == OPERATOR_UNARY_OR && or_valmask) {
+			and_valmask = XCALLOC(MTYPE_PBR_VALMASK,
+					      sizeof(struct bgp_pbr_val_mask));
+			and_valmask->val = TCP_HEADER_ALL_FLAGS;
+			and_valmask->mask |=
+				TCP_HEADER_ALL_FLAGS & list[i].value;
+			listnode_add(or_valmask, and_valmask);
+		}
 	}
-	valmask->mask = TCP_HEADER_ALL_FLAGS;
+	if (unary_operator == OPERATOR_UNARY_AND && and_valmask)
+		and_valmask->mask = TCP_HEADER_ALL_FLAGS;
 	return true;
 }
+
+/* if unary operator can either be UNARY_OR/AND/OR-AND.
+ * in the latter case, combinationf of both is not handled
+ */
+static bool bgp_pbr_extract_enumerate(struct bgp_pbr_match_val list[],
+				      int num, uint8_t unary_operator,
+				      void *valmask)
+{
+	bool ret;
+	uint8_t unary_operator_val;
+	bool double_check = false;
+
+	if ((unary_operator & OPERATOR_UNARY_OR) &&
+	    (unary_operator & OPERATOR_UNARY_AND)) {
+		unary_operator_val = OPERATOR_UNARY_AND;
+		double_check = true;
+	} else
+		unary_operator_val = unary_operator;
+	ret = bgp_pbr_extract_enumerate_unary(list, num, unary_operator_val,
+					      valmask);
+	if (!ret && double_check)
+		ret = bgp_pbr_extract_enumerate_unary(list, num,
+						      OPERATOR_UNARY_OR,
+						      valmask);
+	return ret;
+}
+
+/* returns the unary operator that is in the list
+ * return 0 if both operators are used
+ */
+static uint8_t bgp_pbr_match_val_get_operator(struct bgp_pbr_match_val list[],
+					      int num)
+
+{
+	int i;
+	uint8_t unary_operator = OPERATOR_UNARY_AND;
+
+	for (i = 0; i < num; i++) {
+		if (i == 0)
+			continue;
+		if (list[i].unary_operator & OPERATOR_UNARY_OR)
+			unary_operator = OPERATOR_UNARY_OR;
+		if ((list[i].unary_operator & OPERATOR_UNARY_AND
+		     && unary_operator == OPERATOR_UNARY_OR) ||
+		    (list[i].unary_operator & OPERATOR_UNARY_OR
+		     && unary_operator == OPERATOR_UNARY_AND))
+			return 0;
+	}
+	return unary_operator;
+}
+
 
 /* return true if extraction ok
  */
