@@ -1335,6 +1335,9 @@ void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, /* to */
 	struct bgp_node *prn;
 	safi_t safi = SAFI_MPLS_VPN;
 
+	if (!bgp_vpn)
+		return;
+
 	/*
 	 * Walk vpn table
 	 */
