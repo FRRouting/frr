@@ -47,6 +47,7 @@
 #include "pim_msdp.h"
 #include "pim_iface.h"
 #include "pim_bfd.h"
+#include "pim_errors.h"
 
 extern struct host host;
 
@@ -108,6 +109,7 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 * Initializations
 	 */
+	pim_error_init();
 	pim_vrf_init();
 	access_list_init();
 	prefix_list_init();
