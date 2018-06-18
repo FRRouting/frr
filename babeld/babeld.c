@@ -255,11 +255,13 @@ babel_get_myid(void)
         return;
     }
 
-    zlog_err("Warning: couldn't find router id -- using random value.");
+    zlog_ferr(BABEL_ERR_CONFIG,
+	      "Warning: couldn't find router id -- using random value.");
 
     rc = read_random_bytes(myid, 8);
     if(rc < 0) {
-        zlog_err("read(random): %s (cannot assign an ID)",safe_strerror(errno));
+        zlog_ferr(BABEL_ERR_CONFIG, "read(random): %s (cannot assign an ID)",
+		  safe_strerror(errno));
         exit(1);
     }
     /* Clear group and global bits */

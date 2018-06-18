@@ -27,10 +27,12 @@ THE SOFTWARE.
 #include "babel_interface.h"
 #include "source.h"
 
-#define DIVERSITY_NONE 0
-#define DIVERSITY_INTERFACE_1 1
-#define DIVERSITY_CHANNEL_1 2
-#define DIVERSITY_CHANNEL 3
+enum babel_diversity {
+    DIVERSITY_NONE,
+    DIVERSITY_INTERFACE_1,
+    DIVERSITY_CHANNEL_1,
+    DIVERSITY_CHANNEL,
+};
 
 #define DIVERSITY_HOPS 8
 
@@ -55,7 +57,8 @@ struct route_stream;
 
 extern struct babel_route **routes;
 extern int kernel_metric;
-extern int diversity_kind, diversity_factor;
+extern enum babel_diversity diversity_kind;
+extern int diversity_factor;
 extern int keep_unfeasible;
 extern int smoothing_half_life;
 

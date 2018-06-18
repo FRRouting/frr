@@ -38,6 +38,7 @@ THE SOFTWARE.
 #include "route.h"
 #include "message.h"
 #include "resend.h"
+#include "babel_errors.h"
 
 struct neighbour *neighs = NULL;
 
@@ -89,7 +90,8 @@ find_neighbour(const unsigned char *address, struct interface *ifp)
 
     neigh = malloc(sizeof(struct neighbour));
     if(neigh == NULL) {
-        zlog_err("malloc(neighbour): %s", safe_strerror(errno));
+        zlog_ferr(BABEL_ERR_MEMORY, "malloc(neighbour): %s",
+		  safe_strerror(errno));
         return NULL;
     }
 

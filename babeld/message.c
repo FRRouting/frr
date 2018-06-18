@@ -35,6 +35,7 @@ THE SOFTWARE.
 #include "message.h"
 #include "kernel.h"
 #include "babel_main.h"
+#include "babel_errors.h"
 
 static unsigned char packet_header[4] = {42, 2};
 
@@ -140,12 +141,12 @@ parse_update_subtlv(const unsigned char *a, int alen,
         }
 
         if(i + 1 > alen) {
-            zlog_err("Received truncated attributes.");
+            zlog_ferr(BABEL_ERR_PACKET, "Received truncated attributes.");
             return;
         }
         len = a[i + 1];
         if(i + len > alen) {
-            zlog_err("Received truncated attributes.");
+            zlog_ferr(BABEL_ERR_PACKET, "Received truncated attributes.");
             return;
         }
 
@@ -153,13 +154,14 @@ parse_update_subtlv(const unsigned char *a, int alen,
             /* Nothing. */
         } else if(type == SUBTLV_DIVERSITY) {
             if(len > DIVERSITY_HOPS) {
-                zlog_err("Received overlong channel information (%d > %d).n",
-                         len, DIVERSITY_HOPS);
+                zlog_ferr(BABEL_ERR_PACKET,
+			  "Received overlong channel information (%d > %d).n",
+                          len, DIVERSITY_HOPS);
                 len = DIVERSITY_HOPS;
             }
             if(memchr(a + i + 2, 0, len) != NULL) {
                 /* 0 is reserved. */
-                zlog_err("Channel information contains 0!");
+                zlog_ferr(BABEL_ERR_PACKET, "Channel information contains 0!");
                 return;
             }
             memset(channels, 0, DIVERSITY_HOPS);
@@ -187,12 +189,14 @@ parse_hello_subtlv(const unsigned char *a, int alen,
         }
 
         if(i + 1 > alen) {
-            zlog_err("Received truncated sub-TLV on Hello message.");
+            zlog_ferr(BABEL_ERR_PACKET,
+		      "Received truncated sub-TLV on Hello message.");
             return -1;
         }
         len = a[i + 1];
         if(i + len > alen) {
-            zlog_err("Received truncated sub-TLV on Hello message.");
+            zlog_ferr(BABEL_ERR_PACKET,
+		      "Received truncated sub-TLV on Hello message.");
             return -1;
         }
 
@@ -203,7 +207,8 @@ parse_hello_subtlv(const unsigned char *a, int alen,
                 DO_NTOHL(*hello_send_us, a + i + 2);
                 ret = 1;
             } else {
-                zlog_err("Received incorrect RTT sub-TLV on Hello message.");
+                zlog_ferr(BABEL_ERR_PACKET,
+			  "Received incorrect RTT sub-TLV on Hello message.");
             }
         } else {
             debugf(BABEL_DEBUG_COMMON,
@@ -230,12 +235,14 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
         }
 
         if(i + 1 > alen) {
-            zlog_err("Received truncated sub-TLV on IHU message.");
+            zlog_ferr(BABEL_ERR_PACKET,
+		      "Received truncated sub-TLV on IHU message.");
             return -1;
         }
         len = a[i + 1];
         if(i + len > alen) {
-            zlog_err("Received truncated sub-TLV on IHU message.");
+            zlog_ferr(BABEL_ERR_PACKET,
+		      "Received truncated sub-TLV on IHU message.");
             return -1;
         }
 
@@ -248,7 +255,8 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
                 ret = 1;
             }
             else {
-                zlog_err("Received incorrect RTT sub-TLV on IHU message.");
+                zlog_ferr(BABEL_ERR_PACKET,
+			  "Received incorrect RTT sub-TLV on IHU message.");
             }
         } else {
             debugf(BABEL_DEBUG_COMMON,
@@ -337,27 +345,29 @@ parse_packet(const unsigned char *from, struct interface *ifp,
     }
 
     if(!linklocal(from)) {
-        zlog_err("Received packet from non-local address %s.",
-                 format_address(from));
+        zlog_ferr(BABEL_ERR_PACKET,
+		  "Received packet from non-local address %s.",
+                  format_address(from));
         return;
     }
 
     if (babel_packet_examin (packet, packetlen)) {
-        zlog_err("Received malformed packet on %s from %s.",
-                 ifp->name, format_address(from));
+        zlog_ferr(BABEL_ERR_PACKET,
+		  "Received malformed packet on %s from %s.",
+                  ifp->name, format_address(from));
         return;
     }
 
     neigh = find_neighbour(from, ifp);
     if(neigh == NULL) {
-        zlog_err("Couldn't allocate neighbour.");
+        zlog_ferr(BABEL_ERR_PACKET, "Couldn't allocate neighbour.");
         return;
     }
 
     DO_NTOHS(bodylen, packet + 2);
 
     if(bodylen + 4 > packetlen) {
-        zlog_err("Received truncated packet (%d + 4 > %d).",
+        zlog_ferr(BABEL_ERR_PACKET, "Received truncated packet (%d + 4 > %d).",
                  bodylen, packetlen);
         bodylen = packetlen - 4;
     }
@@ -506,7 +516,8 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 have_router_id = 1;
             }
             if(!have_router_id && message[2] != 0) {
-                zlog_err("Received prefix with no router id.");
+                zlog_ferr(BABEL_ERR_PACKET,
+			  "Received prefix with no router id.");
                 goto fail;
             }
             debugf(BABEL_DEBUG_COMMON,"Received update%s%s for %s from %s on %s.",
@@ -517,7 +528,8 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 
             if(message[2] == 0) {
                 if(metric < 0xFFFF) {
-                    zlog_err("Received wildcard update with finite metric.");
+                    zlog_ferr(BABEL_ERR_PACKET,
+			      "Received wildcard update with finite metric.");
                     goto done;
                 }
                 retract_neighbour_routes(neigh);
@@ -609,8 +621,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         continue;
 
     fail:
-        zlog_err("Couldn't parse packet (%d, %d) from %s on %s.",
-                 message[0], message[1], format_address(from), ifp->name);
+        zlog_ferr(BABEL_ERR_PACKET,
+		  "Couldn't parse packet (%d, %d) from %s on %s.",
+                  message[0], message[1], format_address(from), ifp->name);
         goto done;
     }
 
@@ -697,7 +710,7 @@ fill_rtt_message(struct interface *ifp)
             DO_HTONL(babel_ifp->sendbuf + babel_ifp->buffered_hello + 10, time);
             return 1;
         } else {
-            zlog_err("No space left for timestamp sub-TLV "
+            zlog_ferr(BABEL_ERR_PACKET, "No space left for timestamp sub-TLV "
                      "(this shouldn't happen)");
             return -1;
         }
@@ -732,10 +745,11 @@ flushbuf(struct interface *ifp)
                             babel_ifp->sendbuf, babel_ifp->buffered,
                             (struct sockaddr*)&sin6, sizeof(sin6));
             if(rc < 0)
-                zlog_err("send: %s", safe_strerror(errno));
+                zlog_ferr(BABEL_ERR_PACKET, "send: %s", safe_strerror(errno));
         } else {
-            zlog_err("Warning: bucket full, dropping packet to %s.",
-                     ifp->name);
+            zlog_ferr(BABEL_ERR_PACKET,
+		      "Warning: bucket full, dropping packet to %s.",
+                      ifp->name);
         }
     }
     VALGRIND_MAKE_MEM_UNDEFINED(babel_ifp->sendbuf, babel_ifp->bufsize);
@@ -856,7 +870,8 @@ start_unicast_message(struct neighbour *neigh, int type, int len)
     if(!unicast_buffer)
         unicast_buffer = malloc(UNICAST_BUFSIZE);
     if(!unicast_buffer) {
-        zlog_err("malloc(unicast_buffer): %s", safe_strerror(errno));
+        zlog_ferr(BABEL_ERR_MEMORY, "malloc(unicast_buffer): %s",
+		  safe_strerror(errno));
         return -1;
     }
 
@@ -992,11 +1007,13 @@ flush_unicast(int dofree)
                         unicast_buffer, unicast_buffered,
                         (struct sockaddr*)&sin6, sizeof(sin6));
         if(rc < 0)
-            zlog_err("send(unicast): %s", safe_strerror(errno));
+            zlog_ferr(BABEL_ERR_PACKET, "send(unicast): %s",
+		      safe_strerror(errno));
     } else {
-        zlog_err("Warning: bucket full, dropping unicast packet to %s if %s.",
-                 format_address(unicast_neighbour->address),
-                 unicast_neighbour->ifp->name);
+        zlog_ferr(BABEL_ERR_PACKET,
+		  "Warning: bucket full, dropping unicast packet to %s if %s.",
+                  format_address(unicast_neighbour->address),
+                  unicast_neighbour->ifp->name);
     }
 
  done:
@@ -1301,7 +1318,8 @@ buffer_update(struct interface *ifp,
     again:
         babel_ifp->buffered_updates = malloc(n *sizeof(struct buffered_update));
         if(babel_ifp->buffered_updates == NULL) {
-            zlog_err("malloc(buffered_updates): %s", safe_strerror(errno));
+            zlog_ferr(BABEL_ERR_MEMORY, "malloc(buffered_updates): %s",
+		      safe_strerror(errno));
             if(n > 4) {
                 /* Try again with a tiny buffer. */
                 n = 4;
@@ -1364,7 +1382,7 @@ send_update(struct interface *ifp, int urgent,
             }
             route_stream_done(routes);
         } else {
-            zlog_err("Couldn't allocate route stream.");
+            zlog_ferr(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
         }
         set_timeout(&babel_ifp->update_timeout, babel_ifp->update_interval);
         babel_ifp->last_update_time = babel_now.tv_sec;
@@ -1442,7 +1460,7 @@ send_self_update(struct interface *ifp)
         }
         xroute_stream_done(xroutes);
     } else {
-        zlog_err("Couldn't allocate xroute stream.");
+        zlog_ferr(BABEL_ERR_MEMORY, "Couldn't allocate xroute stream.");
     }
 }
 

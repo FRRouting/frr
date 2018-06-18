@@ -25,6 +25,9 @@
 
 enum babel_ferr_refs {
 	BABEL_ERR_MEMORY = BABEL_FERR_START,
+	BABEL_ERR_PACKET,
+	BABEL_ERR_CONFIG,
+	BABEL_ERR_ROUTE,
 };
 
 extern void babel_error_init(void);
