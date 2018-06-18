@@ -1174,7 +1174,7 @@ static int bgp_pbr_get_remaining_entry(struct hash_backet *backet, void *arg)
 	return HASHWALK_ABORT;
 }
 
-static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
+static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
 				struct bgp_info *binfo,
 				struct bgp_pbr_filter *bpf)
 {
@@ -1271,7 +1271,28 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 	}
 }
 
-static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
+static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
+				struct bgp_info *binfo,
+				struct bgp_pbr_filter *bpf,
+				struct bgp_pbr_or_filter *bpof)
+{
+	if (bpof && bpof->tcpflags) {
+		struct listnode *node, *nnode;
+		struct bgp_pbr_val_mask *valmask;
+
+		for (ALL_LIST_ELEMENTS(bpof->tcpflags, node, nnode, valmask)) {
+			bpf->tcp_flags = valmask;
+			bgp_pbr_policyroute_remove_from_zebra_unit(bgp, binfo, bpf);
+			XFREE(MTYPE_PBR_VALMASK, valmask);
+			listnode_delete(bpof->tcpflags, node);
+		}
+		list_delete_all_node(bpof->tcpflags);
+		bpof->tcpflags = NULL;
+	} else
+		bgp_pbr_policyroute_remove_from_zebra_unit(bgp, binfo, bpf);
+}
+
+static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 				     struct bgp_info *binfo,
 				     struct bgp_pbr_filter *bpf,
 				     struct nexthop *nh,
@@ -1517,6 +1538,30 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 
 }
 
+static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
+				     struct bgp_info *binfo,
+				     struct bgp_pbr_filter *bpf,
+				     struct bgp_pbr_or_filter *bpof,
+				     struct nexthop *nh,
+				     float *rate)
+{
+	if (bpof && bpof->tcpflags) {
+		struct listnode *node, *nnode;
+		struct bgp_pbr_val_mask *valmask;
+
+		for (ALL_LIST_ELEMENTS(bpof->tcpflags, node, nnode, valmask)) {
+			bpf->tcp_flags = valmask;
+			bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo, bpf, nh, rate);
+			XFREE(MTYPE_PBR_VALMASK, valmask);
+			listnode_delete(bpof->tcpflags, node);
+		}
+		list_delete_all_node(bpof->tcpflags);
+		bpof->tcpflags = NULL;
+	} else
+		return bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo,
+							     bpf, nh, rate);
+}
+
 static const struct message icmp_code_unreach_str[] = {
 	{ 9, "communication-prohibited-by-filtering"},
 	{ 10, "destination-host-prohibited"},
@@ -1579,10 +1624,10 @@ static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
 		dstp.min_port = dst[0].value;
 		if (add)
 			bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-						bpf, nh, rate);
+						 bpf, NULL, nh, rate);
 		else
 			bgp_pbr_policyroute_remove_from_zebra(bgp,
-					      binfo, bpf);
+						      binfo, bpf, NULL);
 		return;
 	}
 	/* parse icmp type and lookup appropriate icmp code
@@ -1621,10 +1666,11 @@ static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
 					icmp_typecode_configured = true;
 					if (add)
 						bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-										 bpf, nh, rate);
+										 bpf, NULL,
+										 nh, rate);
 					else
 						bgp_pbr_policyroute_remove_from_zebra(
-							      bgp, binfo, bpf);
+								      bgp, binfo, bpf, NULL);
 				}
 			}
 			/* create a list of ICMP type/code combinatories */
@@ -1635,10 +1681,10 @@ static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
 					dstp.min_port = pnt->key;
 					if (add)
 						bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-								 bpf, nh, rate);
+								 bpf, NULL, nh, rate);
 					else
 						bgp_pbr_policyroute_remove_from_zebra(bgp,
-								      binfo, bpf);
+							      binfo, bpf, NULL);
 				}
 
 			}
@@ -1650,10 +1696,10 @@ static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
 			dstp.min_port = 0;
 			if (add)
 				bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-								 bpf, nh, rate);
+								 bpf, NULL, nh, rate);
 			else
 				bgp_pbr_policyroute_remove_from_zebra(bgp,
-							      binfo, bpf);
+							      binfo, bpf, NULL);
 			break;
 		}
 	}
@@ -1677,6 +1723,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	struct bgp_pbr_filter bpf;
 	uint8_t kind_enum;
 	struct bgp_pbr_or_filter bpof;
+	struct bgp_pbr_val_mask bpvm;
 
 	memset(&nh, 0, sizeof(struct nexthop));
 	memset(&bpf, 0, sizeof(struct bgp_pbr_filter));
@@ -1741,6 +1788,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		kind_enum = bgp_pbr_match_val_get_operator(api->tcpflags,
 						   api->match_tcpflags_num);
 		if (kind_enum == OPERATOR_UNARY_AND) {
+			bpf.tcp_flags = &bpvm;
 			bgp_pbr_extract_enumerate(api->tcpflags,
 						  api->match_tcpflags_num,
 						  OPERATOR_UNARY_AND, bpf.tcp_flags);
@@ -1774,7 +1822,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		}
 		return bgp_pbr_policyroute_remove_from_zebra(bgp,
 							     binfo,
-							     &bpf);
+							     &bpf, &bpof);
 	}
 	/* no action for add = true */
 	for (i = 0; i < api->action_num; i++) {
@@ -1793,7 +1841,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 									 &nh, &rate);
 				else
 					bgp_pbr_policyroute_add_to_zebra(bgp, binfo, &bpf,
-									 &nh, &rate);
+									 &bpof, &nh, &rate);
 			} else {
 				/* update rate. can be reentrant */
 				rate = api->actions[i].u.r.rate;
@@ -1841,7 +1889,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 								 &bpf, bgp, binfo, add,
 								 &nh, &rate);
 			else
-				bgp_pbr_policyroute_add_to_zebra(bgp, binfo, &bpf,
+				bgp_pbr_policyroute_add_to_zebra(bgp, binfo, &bpf, &bpof,
 								 &nh, &rate);
 			/* XXX combination with REDIRECT_VRF
 			 * + REDIRECT_NH_IP not done
@@ -1860,7 +1908,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 								 &nh, &rate);
 			else
 				bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-								 &bpf, &nh, &rate);
+								 &bpf, &bpof, &nh, &rate);
 			continue_loop = 0;
 			break;
 		case ACTION_MARKING:
