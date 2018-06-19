@@ -216,6 +216,7 @@ struct bgp_pbr_filter {
  */
 struct bgp_pbr_or_filter {
 	struct list *tcpflags;
+	struct list *dscp;
 };
 
 /* TCP : FIN and SYN -> val = ALL; mask = 3
@@ -1303,25 +1304,65 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
 	}
 }
 
+static void bgp_pbr_policyroute_remove_from_zebra_recursive(struct bgp *bgp,
+			struct bgp_info *binfo,
+			struct bgp_pbr_filter *bpf,
+			struct bgp_pbr_or_filter *bpof,
+			uint8_t type_entry)
+{
+	struct listnode *node, *nnode;
+	struct bgp_pbr_val_mask *valmask;
+	uint8_t next_type_entry;
+	struct list *orig_list;
+	struct bgp_pbr_val_mask **target_val;
+
+	if (type_entry == 0)
+		return bgp_pbr_policyroute_remove_from_zebra_unit(bgp,
+							binfo, bpf);
+	if (type_entry == FLOWSPEC_TCP_FLAGS && bpof->tcpflags) {
+		next_type_entry = FLOWSPEC_DSCP;
+		orig_list = bpof->tcpflags;
+		target_val = &bpf->tcp_flags;
+	} else if (type_entry == FLOWSPEC_DSCP && bpof->dscp) {
+		next_type_entry = 0;
+		orig_list = bpof->dscp;
+		target_val = &bpf->dscp;
+	} else {
+		return bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
+								       bpf, bpof, 0);
+	}
+	for (ALL_LIST_ELEMENTS(orig_list, node, nnode, valmask)) {
+		*target_val = valmask;
+		bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
+							bpf, bpof,
+							next_type_entry);
+	}
+}
+
 static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 				struct bgp_info *binfo,
 				struct bgp_pbr_filter *bpf,
 				struct bgp_pbr_or_filter *bpof)
 {
-	if (bpof && bpof->tcpflags) {
-		struct listnode *node, *nnode;
-		struct bgp_pbr_val_mask *valmask;
-
-		for (ALL_LIST_ELEMENTS(bpof->tcpflags, node, nnode, valmask)) {
-			bpf->tcp_flags = valmask;
-			bgp_pbr_policyroute_remove_from_zebra_unit(bgp, binfo, bpf);
-			XFREE(MTYPE_PBR_VALMASK, valmask);
-			listnode_delete(bpof->tcpflags, node);
-		}
-		list_delete_all_node(bpof->tcpflags);
-		bpof->tcpflags = NULL;
-	} else
+	if (!bpof)
+		return bgp_pbr_policyroute_remove_from_zebra_unit(bgp,
+								  binfo,
+								  bpf);
+	if (bpof->tcpflags)
+		bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
+							bpf, bpof,
+							FLOWSPEC_TCP_FLAGS);
+	else if (bpof->dscp)
+		bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
+							bpf, bpof,
+							FLOWSPEC_DSCP);
+	else
 		bgp_pbr_policyroute_remove_from_zebra_unit(bgp, binfo, bpf);
+	/* flush bpof */
+	if (bpof->tcpflags)
+		list_delete_all_node(bpof->tcpflags);
+	if (bpof->dscp)
+		list_delete_all_node(bpof->dscp);
 }
 
 static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
@@ -1586,6 +1627,44 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 
 }
 
+static void bgp_pbr_policyroute_add_to_zebra_recursive(struct bgp *bgp,
+			struct bgp_info *binfo,
+			struct bgp_pbr_filter *bpf,
+			struct bgp_pbr_or_filter *bpof,
+			struct nexthop *nh,
+			float *rate,
+			uint8_t type_entry)
+{
+	struct listnode *node, *nnode;
+	struct bgp_pbr_val_mask *valmask;
+	uint8_t next_type_entry;
+	struct list *orig_list;
+	struct bgp_pbr_val_mask **target_val;
+
+	if (type_entry == 0)
+		return bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo, bpf,
+							     nh, rate);
+	if (type_entry == FLOWSPEC_TCP_FLAGS && bpof->tcpflags) {
+		next_type_entry = FLOWSPEC_DSCP;
+		orig_list = bpof->tcpflags;
+		target_val = &bpf->tcp_flags;
+	} else if (type_entry == FLOWSPEC_DSCP && bpof->dscp) {
+		next_type_entry = 0;
+		orig_list = bpof->dscp;
+		target_val = &bpf->dscp;
+	} else {
+		return bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
+						  bpf, bpof, nh, rate, 0);
+	}
+	for (ALL_LIST_ELEMENTS(orig_list, node, nnode, valmask)) {
+		*target_val = valmask;
+		bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
+							bpf, bpof,
+							nh, rate,
+							next_type_entry);
+	}
+}
+
 static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 				     struct bgp_info *binfo,
 				     struct bgp_pbr_filter *bpf,
@@ -1593,21 +1672,27 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 				     struct nexthop *nh,
 				     float *rate)
 {
-	if (bpof && bpof->tcpflags) {
-		struct listnode *node, *nnode;
-		struct bgp_pbr_val_mask *valmask;
-
-		for (ALL_LIST_ELEMENTS(bpof->tcpflags, node, nnode, valmask)) {
-			bpf->tcp_flags = valmask;
-			bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo, bpf, nh, rate);
-			XFREE(MTYPE_PBR_VALMASK, valmask);
-			listnode_delete(bpof->tcpflags, node);
-		}
-		list_delete_all_node(bpof->tcpflags);
-		bpof->tcpflags = NULL;
-	} else
+	if (!bpof)
 		return bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo,
 							     bpf, nh, rate);
+	if (bpof->tcpflags)
+		bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
+							   bpf, bpof,
+							   nh, rate,
+							   FLOWSPEC_TCP_FLAGS);
+	else if (bpof->dscp)
+		bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
+							   bpf, bpof,
+							   nh, rate,
+							   FLOWSPEC_DSCP);
+	else
+		bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo, bpf,
+						      nh, rate);
+	/* flush bpof */
+	if (bpof->tcpflags)
+		list_delete_all_node(bpof->tcpflags);
+	if (bpof->dscp)
+		list_delete_all_node(bpof->dscp);
 }
 
 static const struct message icmp_code_unreach_str[] = {
