@@ -17,10 +17,11 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
 #ifndef __LIB_ERRORS_H__
 #define __LIB_ERRORS_H__
 
-#include "ferr.h"
+#include "lib/ferr.h"
 
 enum lib_ferr_refs {
 	LIB_ERR_PRIVILEGES = LIB_FERR_START,

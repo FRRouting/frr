@@ -19,8 +19,9 @@
  */
 
 #include <zebra.h>
+
+#include "lib/ferr.h"
 #include "zebra_errors.h"
-#include "ferr.h"
 
 /* clang-format off */
 static struct ferr_ref ferr_zebra_err[] = {

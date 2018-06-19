@@ -21,8 +21,7 @@
 #ifndef __ZEBRA_ERRORS_H__
 #define __ZEBRA_ERRORS_H__
 
-#include <zebra.h>
-#include "ferr.h"
+#include "lib/ferr.h"
 
 enum zebra_ferr_refs {
 	ZEBRA_ERR_LM_RESPONSE,
