@@ -816,7 +816,7 @@ int vtysh_mark_file(const char *filename)
 			vty_out(vty, "%s", vty->buf);
 			break;
 		case CMD_SUCCESS_DAEMON: {
-			int cmd_stat = CMD_SUCCESS;
+			int cmd_stat;
 
 			vty_out(vty, "%s", vty->buf);
 			cmd_stat = vtysh_client_execute(&vtysh_client[0],

@@ -174,9 +174,10 @@ int funcname_frrzmq_thread_add_read(struct thread_master *master,
 		cb = *cbp;
 	else {
 		cb = XCALLOC(MTYPE_ZEROMQ_CB, sizeof(struct frrzmq_cb));
-		cb->write.cancelled = 1;
 		if (!cb)
 			return -1;
+
+		cb->write.cancelled = 1;
 		*cbp = cb;
 	}
 
@@ -282,9 +283,10 @@ int funcname_frrzmq_thread_add_write(struct thread_master *master,
 		cb = *cbp;
 	else {
 		cb = XCALLOC(MTYPE_ZEROMQ_CB, sizeof(struct frrzmq_cb));
-		cb->read.cancelled = 1;
 		if (!cb)
 			return -1;
+
+		cb->read.cancelled = 1;
 		*cbp = cb;
 	}
 
