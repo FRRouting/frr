@@ -944,8 +944,6 @@ void eigrp_packet_free(struct eigrp_packet *ep)
 	THREAD_OFF(ep->t_retrans_timer);
 
 	XFREE(MTYPE_EIGRP_PACKET, ep);
-
-	ep = NULL;
 }
 
 /* EIGRP Header verification. */
