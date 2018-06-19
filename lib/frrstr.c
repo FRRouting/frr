@@ -158,3 +158,11 @@ bool begins_with(const char *str, const char *prefix)
 
 	return strncmp(str, prefix, lenprefix) == 0;
 }
+
+int all_digit(const char *str)
+{
+	for (; *str != '\0'; str++)
+		if (!isdigit((int)*str))
+			return 0;
+	return 1;
+}

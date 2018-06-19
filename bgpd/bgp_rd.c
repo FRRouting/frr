@@ -27,6 +27,7 @@
 #include "memory.h"
 #include "stream.h"
 #include "filter.h"
+#include "frrstr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_rd.h"

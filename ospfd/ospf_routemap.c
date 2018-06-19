@@ -32,6 +32,7 @@
 #include "log.h"
 #include "plist.h"
 #include "vrf.h"
+#include "frrstr.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
