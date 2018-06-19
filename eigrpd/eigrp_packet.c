@@ -57,6 +57,7 @@
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
 #include "eigrpd/eigrp_memory.h"
+#include "eigrpd/eigrp_errors.h"
 
 /* Packet Type String. */
 const struct message eigrp_packet_type_str[] = {
@@ -347,12 +348,14 @@ int eigrp_write(struct thread *thread)
 	/* Get one packet from queue. */
 	ep = eigrp_fifo_next(ei->obuf);
 	if (!ep) {
-		zlog_err("%s: Interface %s no packet on queue?",
-			 __PRETTY_FUNCTION__, ei->ifp->name);
+		zlog_ferr(LIB_ERR_DEVELOPMENT,
+			  "%s: Interface %s no packet on queue?",
+			  __PRETTY_FUNCTION__, ei->ifp->name);
 		goto out;
 	}
 	if (ep->length < EIGRP_HEADER_LEN) {
-		zlog_err("%s: Packet just has a header?", __PRETTY_FUNCTION__);
+		zlog_ferr(EIGRP_ERR_PACKET,
+			  "%s: Packet just has a header?", __PRETTY_FUNCTION__);
 		eigrp_header_dump((struct eigrp_header *)ep->s->data);
 		eigrp_packet_delete(ei);
 		goto out;

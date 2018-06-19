@@ -59,6 +59,7 @@
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
 #include "eigrpd/eigrp_memory.h"
+#include "eigrpd/eigrp_errors.h"
 
 void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 {
@@ -169,10 +170,10 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 		if (!dest) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_err(
-				"%s: Received prefix %s which we do not know about",
-				__PRETTY_FUNCTION__,
-				prefix2str(&dest_addr, buf, sizeof(buf)));
+			zlog_ferr(EIGRP_ERR_PACKET,
+				  "%s: Received prefix %s which we do not know about",
+				  __PRETTY_FUNCTION__,
+				  prefix2str(&dest_addr, buf, sizeof(buf)));
 			eigrp_IPv4_InternalTLV_free(tlv);
 			continue;
 		}

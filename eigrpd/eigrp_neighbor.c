@@ -53,6 +53,7 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_memory.h"
+#include "eigrpd/eigrp_errors.h"
 
 struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *ei)
 {
@@ -335,7 +336,8 @@ int eigrp_nbr_count_get(void)
 void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 {
 	if (nbr == NULL) {
-		zlog_err("Nbr Hard restart: Neighbor not specified.");
+		zlog_ferr(EIGRP_ERR_CONFIG,
+			  "Nbr Hard restart: Neighbor not specified.");
 		return;
 	}
 
