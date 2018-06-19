@@ -44,6 +44,7 @@
 
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
+#include "ripd/rip_errors.h"
 
 DEFINE_QOBJ_TYPE(rip)
 
@@ -1058,9 +1059,9 @@ static void rip_auth_md5_set(struct stream *s, struct rip_interface *ri,
 
 	/* Check packet length. */
 	if (len < (RIP_HEADER_SIZE + RIP_RTE_SIZE)) {
-		zlog_err(
-			"rip_auth_md5_set(): packet length %ld is less than minimum length.",
-			len);
+		zlog_ferr(RIP_ERR_PACKET,
+			  "rip_auth_md5_set(): packet length %ld is less than minimum length.",
+			  len);
 		return;
 	}
 
