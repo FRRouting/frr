@@ -55,26 +55,22 @@
 
 #### Check for systemd or init.d (upstart)
 # Check for init.d (upstart) as used in CentOS 6 or systemd (ie CentOS 7)
-%if 0%{?fedora} >= 15 || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1210
+%if 0%{?fedora} || 0%{?rhel} >= 7 || 0%{?suse_version} >= 1210
     %global initsystem systemd
 %else
-%if (0%{?fedora} && 0%{?fedora} < 15) || (0%{?rhel} && 0%{?rhel} < 7)
+%if 0%{?rhel} && 0%{?rhel} < 7
     %global initsystem upstart
 %else
     %{expand: %%global initsystem %(if [[ `/sbin/init --version 2> /dev/null` =~ upstart ]]; then echo upstart; elif [[ `readlink -f /sbin/init` = /usr/lib/systemd/systemd ]]; then echo systemd; elif [[ `systemctl` =~ -\.mount ]]; then echo systemd; fi)}
 %endif
 %endif
-#
-# If init system is systemd, then always disable watchfrr
-#
+
+# If init system is systemd, then always enable watchfrr
 %if "%{initsystem}" == "systemd"
-    # Note: For systems with systemd, watchfrr will NOT be built. Systemd
-    # takes over the role of restarting crashed processes. Value will
-    # be overwritten with 0 below for systemd independent on the setting here
     %global with_watchfrr 1
 %endif
 
-#### Check for RedHat 6.x or CentOS 6.x - they are too old to support PIM. 
+#### Check for RedHat 6.x or CentOS 6.x - they are too old to support PIM.
 ####   Always disable it on these old systems unconditionally
 #
 # if CentOS / RedHat and version < 7, then disable PIMd (too old, won't work)
@@ -90,48 +86,48 @@
 %define     daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd
 
 %if %{with_ldpd}
-%define     daemon_ldpd ldpd
+%define daemon_ldpd ldpd
 %else
-%define     daemon_ldpd ""
+%define daemon_ldpd ""
 %endif
 
 %if %{with_pimd}
-%define     daemon_pimd pimd
+%define daemon_pimd pimd
 %else
-%define     daemon_pimd ""
+%define daemon_pimd ""
 %endif
 
 %if %{with_pbrd}
-%define     daemon_pbrd pbrd
+%define daemon_pbrd pbrd
 %else
-%define     daemon_pbrd ""
+%define daemon_pbrd ""
 %endif
 
 %if %{with_nhrpd}
-%define         daemon_nhrpd	nhrpd
+%define daemon_nhrpd nhrpd
 %else
-%define		daemon_nhrpd	""
+%define daemon_nhrpd ""
 %endif
 
 %if %{with_eigrpd}
-%define         daemon_eigrpd	eigrpd
+%define daemon_eigrpd eigrpd
 %else
-%define		daemon_eigrpd	""
+%define daemon_eigrpd ""
 %endif
 
 %if %{with_babeld}
-%define         daemon_babeld	babeld
+%define daemon_babeld babeld
 %else
-%define		daemon_babeld	""
+%define daemon_babeld ""
 %endif
 
 %if %{with_watchfrr}
-%define     daemon_watchfrr watchfrr
+%define daemon_watchfrr watchfrr
 %else
-%define     daemon_watchfrr ""
+%define daemon_watchfrr ""
 %endif
 
-%define     all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd}
+%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd}
 
 # allow build dir to be kept
 %{!?keep_build:         %global  keep_build         0 }
@@ -145,13 +141,12 @@ Version:        %{rpmversion}
 Release:        @CONFDATE@%{release_rev}%{?dist}
 License:        GPLv2+
 Group:          System Environment/Daemons
-Source0:        http://www.frrouting.org/releases/frr/%{name}-%{frrversion}.tar.gz
-URL:            http://www.frrouting.org
-Requires(pre):  /sbin/install-info
-Requires(preun): /sbin/install-info
-Requires(post): /sbin/install-info
+Source0:        https://github.com/FRRouting/frr/archive/%{name}-%{frrversion}.tar.gz
+URL:            https://www.frrouting.org
+Requires(preun): info
+Requires(post): info
 BuildRequires:  gcc patch libcap-devel
-BuildRequires:  readline readline-devel ncurses ncurses-devel
+BuildRequires:  readline-devel ncurses-devel
 BuildRequires:  json-c-devel bison >= 2.7 flex make
 BuildRequires:  c-ares-devel texinfo
 %if 0%{?rhel} && 0%{?rhel} < 7
@@ -160,14 +155,12 @@ BuildRequires:  python27-devel python27-sphinx
 %else
 BuildRequires:  python-devel >= 2.7 python-sphinx
 %endif
-Requires:       ncurses json-c initscripts
+Requires:       json-c initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
-Requires:       pam
 %endif
 %if %{with_rpki}
 BuildRequires:  librtr-devel >= 0.5
-Requires:       librtr >= 0.5
 %endif
 %if "%{initsystem}" == "systemd"
 BuildRequires:      systemd systemd-devel
@@ -175,6 +168,8 @@ Requires(post):     systemd
 Requires(preun):    systemd
 Requires(postun):   systemd
 %else
+Requires(post):     chkconfig
+Requires(preun):    chkconfig
 # Initscripts > 5.60 is required for IPv6 support
 Requires(pre):      initscripts >= 5.60
 %endif
@@ -203,7 +198,7 @@ Contributed/3rd party tools which may be of use with frr.
 %package pythontools
 Summary: python tools for frr
 BuildRequires: python
-Requires: python python-ipaddr
+Requires: python-ipaddr
 Group: System Environment/Daemons
 
 %description pythontools
@@ -254,14 +249,14 @@ developing OSPF-API and frr applications.
     --disable-ospfclient\
 %endif
 %if %{with_ospfapi}
-    --enable-ospfapi=yes \
+    --enable-ospfapi \
 %else
-    --enable-ospfapi=no \
+    --disable-ospfapi \
 %endif
 %if %{with_rtadv}
-    --enable-rtadv=yes \
+    --enable-rtadv \
 %else
-    --enable-rtadv=no \
+    --disable-rtadv \
 %endif
 %if %{with_ldpd}
     --enable-ldpd \
@@ -279,19 +274,19 @@ developing OSPF-API and frr applications.
     --disable-pbrd \
 %endif
 %if %{with_nhrpd}
-	--enable-nhrpd \
+    --enable-nhrpd \
 %else
-	--disable-nhrpd \
+    --disable-nhrpd \
 %endif
 %if %{with_eigrpd}
-	--enable-eigrpd \
+    --enable-eigrpd \
 %else
-	--disable-eigrpd \
+    --disable-eigrpd \
 %endif
 %if %{with_babeld}
-	--enable-babeld \
+    --enable-babeld \
 %else
-	--disable-babeld \
+    --disable-babeld \
 %endif
 %if %{with_pam}
     --with-libpam \
@@ -318,14 +313,14 @@ developing OSPF-API and frr applications.
 %else
     --disable-bgp-vnc \
 %endif
-    --enable-isisd=yes \
+    --enable-isisd \
 %if "%{initsystem}" == "systemd"
-    --enable-systemd=yes \
+    --enable-systemd \
 %endif
 %if %{with_rpki}
     --enable-rpki \
 %endif
-    --enable-poll=yes
+    --enable-poll
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split" SPHINXBUILD=%{sphinx}
 
@@ -399,7 +394,7 @@ fi
 
 zebra_spec_add_service ()
 {
-    # Add port /etc/services entry if it isn't already there 
+    # Add port /etc/services entry if it isn't already there
     if [ -f /etc/services ] && \
         ! %__sed -e 's/#.*$//' /etc/services | %__grep -wq $1 ; then
         echo "$1        $2          # $3"  >> /etc/services
@@ -543,7 +538,7 @@ rm -rf %{buildroot}
 %doc ChangeLog NEWS README
 %if 0%{?frr_user:1}
 %dir %attr(751,%frr_user,%frr_user) %{_sysconfdir}
-%dir %attr(750,%frr_user,%frr_user) /var/log/frr 
+%dir %attr(750,%frr_user,%frr_user) /var/log/frr
 %dir %attr(751,%frr_user,%frr_user) /var/run/frr
 %else
 %dir %attr(750,root,root) %{_sysconfdir}
@@ -600,14 +595,13 @@ rm -rf %{buildroot}
 %config(noreplace) /etc/frr/[!v]*.conf*
 %config(noreplace) %attr(750,%frr_user,%frr_user) /etc/frr/daemons
 %if "%{initsystem}" == "systemd"
-    %attr(644,root,root) %{_unitdir}/frr.service
-    %{_sbindir}/frr
+    %{_unitdir}/frr.service
 %else
     /etc/rc.d/init.d/frr
-    %{_sbindir}/frr
 %endif
+%{_sbindir}/frr
 %config(noreplace) /etc/pam.d/frr
-%config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
+%config(noreplace) /etc/logrotate.d/frr
 %{_sbindir}/frr-reload
 
 %files contrib
@@ -661,13 +655,13 @@ rm -rf %{buildroot}
 - new subpackage frr-pythontools with python 2.7 restart script
 - remove PIMd from CentOS/RedHat 6 RPM packages (won't work - too old)
 - converted to single frr init script (not per daemon) based on debian init script
-- created systemd service file for systemd based systems (which uses init script) 
+- created systemd service file for systemd based systems (which uses init script)
 - Various other RPM package fixes for FRR 2.0
 
 * Fri Jan  6 2017 Martin Winter <mwinter@opensourcerouting.org>
 - Renamed to frr for FRRouting fork of Quagga
 
-* Thu Feb 11 2016 Paul Jakma <paul@jakma.org> 
+* Thu Feb 11 2016 Paul Jakma <paul@jakma.org>
 - remove with_ipv6 conditionals, always build v6
 - Fix UTF-8 char in spec changelog
 - remove quagga.pam.stack, long deprecated.
@@ -678,7 +672,7 @@ rm -rf %{buildroot}
 - Remove support for old fedora 4/5
 - Fix for package nameing
 - Fix Weekdays of previous changelogs (bogus dates)
-- Add conditional logic to only build tex footnotes with supported texi2html 
+- Add conditional logic to only build tex footnotes with supported texi2html
 - Added pimd to files section and fix double listing of /var/lib*/quagga
 - Numerous fixes to unify upstart/systemd startup into same spec file
 - Only allow use of watchfrr for non-systemd systems. no need with systemd
@@ -771,7 +765,7 @@ rm -rf %{buildroot}
 - walk up tree - 17218
 - ospfd NSSA fixes - 16681
 - ospfd nsm fixes - 16824
-- ospfd OLSA fixes and new feature - 16823 
+- ospfd OLSA fixes and new feature - 16823
 - KAME and ifindex fixes - 16525
 - spec file changes to allow redhat files to be in tree
 
@@ -829,7 +823,7 @@ rm -rf %{buildroot}
 * Tue Feb  6 2001 Tim Powers <timp@redhat.com>
 - built for Powertools
 
-* Sun Feb  4 2001 Pekka Savola <pekkas@netcore.fi> 
+* Sun Feb  4 2001 Pekka Savola <pekkas@netcore.fi>
 - Hacked up from PLD Linux 0.90-1, Mandrake 0.90-1mdk and one from zebra.org.
 - Update to 0.91a
 - Very heavy modifications to init.d/*, .spec, pam, i18n, logrotate, etc.
