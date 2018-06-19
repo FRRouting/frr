@@ -296,6 +296,47 @@ DEFUN (show_thread_cpu,
 	return CMD_SUCCESS;
 }
 
+static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
+{
+	const char *name = m->name ? m->name : "main";
+	char underline[strlen(name) + 1];
+	uint32_t i;
+
+	memset(underline, '-', sizeof(underline));
+	underline[sizeof(underline) - 1] = '\0';
+
+	vty_out(vty, "\nShowing poll FD's for %s\n", name);
+	vty_out(vty, "----------------------%s\n", underline);
+	vty_out(vty, "Count: %u\n", (uint32_t)m->handler.pfdcount);
+	for (i = 0; i < m->handler.pfdcount; i++)
+		vty_out(vty, "\t%6d fd:%6d events:%2d revents:%2d\n", i,
+			m->handler.pfds[i].fd,
+			m->handler.pfds[i].events,
+			m->handler.pfds[i].revents);
+}
+
+DEFUN (show_thread_poll,
+       show_thread_poll_cmd,
+       "show thread poll",
+       SHOW_STR
+       "Thread information\n"
+       "Show poll FD's and information\n")
+{
+	struct listnode *node;
+	struct thread_master *m;
+
+	pthread_mutex_lock(&masters_mtx);
+	{
+		for (ALL_LIST_ELEMENTS_RO(masters, node, m)) {
+			show_thread_poll_helper(vty, m);
+		}
+	}
+	pthread_mutex_unlock(&masters_mtx);
+
+	return CMD_SUCCESS;
+}
+
+
 DEFUN (clear_thread_cpu,
        clear_thread_cpu_cmd,
        "clear thread cpu [FILTER]",
@@ -325,6 +366,7 @@ DEFUN (clear_thread_cpu,
 void thread_cmd_init(void)
 {
 	install_element(VIEW_NODE, &show_thread_cpu_cmd);
+	install_element(VIEW_NODE, &show_thread_poll_cmd);
 	install_element(ENABLE_NODE, &clear_thread_cpu_cmd);
 }
 /* CLI end ------------------------------------------------------------------ */
