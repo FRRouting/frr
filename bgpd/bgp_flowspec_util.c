@@ -21,6 +21,7 @@
 #include "zebra.h"
 
 #include "prefix.h"
+#include "lib_errors.h"
 
 #include "bgp_table.h"
 #include "bgp_flowspec_util.h"
@@ -559,7 +560,8 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 			offset += ret;
 			break;
 		default:
-			zlog_err("%s: unknown type %d\n", __func__, type);
+			zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: unknown type %d\n",
+				  __func__, type);
 		}
 	}
 	return error;

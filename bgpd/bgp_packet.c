@@ -36,6 +36,7 @@
 #include "plist.h"
 #include "queue.h"
 #include "filter.h"
+#include "lib_errors.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -1303,7 +1304,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 
 	/* Get sockname. */
 	if ((ret = bgp_getsockname(peer)) < 0) {
-		zlog_ferr(BGP_ERR_SOCKET,
+		zlog_ferr(LIB_ERR_SOCKET,
 			  "%s: bgp_getsockname() failed for peer: %s",
 			  __FUNCTION__, peer->host);
 		return BGP_Stop;

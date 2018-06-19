@@ -32,6 +32,7 @@
 #include "lib/linklist.h"
 #include "lib/plist.h"
 #include "lib/routemap.h"
+#include "lib/lib_errors.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -602,7 +603,8 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 	 */
 
 	if (!afi) {
-		zlog_err("%s: can't get afi of prefix", __func__);
+		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: can't get afi of prefix",
+			  __func__);
 		return;
 	}
 
@@ -718,7 +720,8 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	}
 
 	if (!afi) {
-		zlog_err("%s: can't get afi of prefix", __func__);
+		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: can't get afi of prefix",
+			  __func__);
 		return;
 	}
 
@@ -905,7 +908,8 @@ vnc_import_bgp_add_route_mode_nvegroup(struct bgp *bgp, struct prefix *prefix,
 	assert(rfg);
 
 	if (!afi) {
-		zlog_err("%s: can't get afi of prefix", __func__);
+		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: can't get afi of prefix",
+			  __func__);
 		return;
 	}
 
@@ -2628,7 +2632,8 @@ void vnc_import_bgp_add_route(struct bgp *bgp, struct prefix *prefix,
 	VNC_RHNCK(enter);
 
 	if (!afi) {
-		zlog_err("%s: can't get afi of prefix", __func__);
+		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: can't get afi of prefix",
+			  __func__);
 		return;
 	}
 

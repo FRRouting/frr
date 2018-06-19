@@ -34,6 +34,7 @@
 #include "lib/skiplist.h"
 #include "lib/thread.h"
 #include "lib/stream.h"
+#include "lib/lib_errors.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -3028,7 +3029,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 		break;
 
 	default:
-		zlog_err("%s: bad afi %d", __func__, afi);
+		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
 	}
 
@@ -3485,7 +3486,7 @@ void rfapiBgpInfoFilteredImportVPN(
 		break;
 
 	default:
-		zlog_err("%s: bad afi %d", __func__, afi);
+		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
 	}
 
@@ -3890,7 +3891,8 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 
 	default:
 		/* not expected */
-		zlog_err("%s: bad safi %d", __func__, safi);
+		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: bad safi %d", __func__,
+			  safi);
 		return rfapiBgpInfoFilteredImportBadSafi;
 	}
 }

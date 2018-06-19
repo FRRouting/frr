@@ -34,6 +34,7 @@
 #include "queue.h"
 #include "filter.h"
 #include "command.h"
+#include "lib_errors.h"
 
 #include "lib/json.h"
 #include "bgpd/bgpd.h"
@@ -245,7 +246,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 	if (bgp_getsockname(peer) < 0) {
 		zlog_ferr(
-			BGP_ERR_SOCKET,
+			LIB_ERR_SOCKET,
 			"%%bgp_getsockname() failed for %s peer %s fd %d (from_peer fd %d)",
 			(CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER)
 				 ? "accept"
@@ -258,7 +259,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	if (from_peer->status > Active) {
 		if (bgp_getsockname(from_peer) < 0) {
 			zlog_ferr(
-				BGP_ERR_SOCKET,
+				LIB_ERR_SOCKET,
 				"%%bgp_getsockname() failed for %s from_peer %s fd %d (peer fd %d)",
 
 				(CHECK_FLAG(from_peer->sflags,
@@ -1293,7 +1294,7 @@ static int bgp_connect_success(struct peer *peer)
 	}
 
 	if (bgp_getsockname(peer) < 0) {
-		zlog_ferr(BGP_ERR_SOCKET,
+		zlog_ferr(LIB_ERR_SOCKET,
 			  "%s: bgp_getsockname(): failed for peer %s, fd %d",
 			  __FUNCTION__, peer->host, peer->fd);
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,

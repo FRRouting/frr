@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 #include "prefix.h"
+#include "lib_errors.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -102,7 +103,8 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 
 	if (afi == AFI_IP6) {
-		zlog_err("BGP flowspec IPv6 not supported");
+		zlog_ferr(LIB_ERR_DEVELOPMENT,
+			  "BGP flowspec IPv6 not supported");
 		return -1;
 	}
 
