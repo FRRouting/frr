@@ -13,6 +13,7 @@ endif
 
 ripd_librip_a_SOURCES = \
 	ripd/rip_debug.c \
+	ripd/rip_errors.c \
 	ripd/rip_interface.c \
 	ripd/rip_memory.c \
 	ripd/rip_offset.c \
@@ -24,6 +25,7 @@ ripd_librip_a_SOURCES = \
 
 noinst_HEADERS += \
 	ripd/rip_debug.h \
+	ripd/rip_errors.h \
 	ripd/rip_interface.h \
 	ripd/rip_memory.h \
 	ripd/ripd.h \
