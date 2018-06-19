@@ -269,7 +269,6 @@ static int fpt_halt(struct frr_pthread *fpt, void **res)
 {
 	thread_add_event(fpt->master, &fpt_finish, fpt, 0, NULL);
 	pthread_join(fpt->thread, res);
-	fpt = NULL;
 
 	return 0;
 }
