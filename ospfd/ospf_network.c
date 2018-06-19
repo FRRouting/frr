@@ -29,6 +29,7 @@
 #include "log.h"
 #include "sockopt.h"
 #include "privs.h"
+#include "lib_errors.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -185,10 +186,10 @@ int ospf_sock_init(struct ospf *ospf)
 		/* silently return since VRF is not ready */
 		return -1;
 	}
-	if (ospfd_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("ospf_sock_init: could not raise privs, %s",
-			 safe_strerror(errno));
-	}
+	if (ospfd_privs.change(ZPRIVS_RAISE))
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "ospf_sock_init: could not raise privs, %s",
+			  safe_strerror(errno));
 
 	ospf_sock = vrf_socket(AF_INET, SOCK_RAW, IPPROTO_OSPFIGP, ospf->vrf_id,
 			       ospf->name);
@@ -196,10 +197,10 @@ int ospf_sock_init(struct ospf *ospf)
 		int save_errno = errno;
 
 		if (ospfd_privs.change(ZPRIVS_LOWER))
-			zlog_err("ospf_sock_init: could not lower privs, %s",
-				 safe_strerror(errno));
-		zlog_err("ospf_read_sock_init: socket: %s",
-			 safe_strerror(save_errno));
+			zlog_ferr(LIB_ERR_PRIVILEGES,
+				  "ospf_sock_init: could not lower privs, %s",
+				  safe_strerror(save_errno));
+
 		exit(1);
 	}
 
@@ -242,9 +243,10 @@ int ospf_sock_init(struct ospf *ospf)
 
 	ospf->fd = ospf_sock;
 out:
-	if (ospfd_privs.change(ZPRIVS_LOWER)) {
-		zlog_err("ospf_sock_init: could not lower privs, %s",
-			 safe_strerror(errno));
-	}
+	if (ospfd_privs.change(ZPRIVS_LOWER))
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "ospf_sock_init: could not lower privs, %s",
+			  safe_strerror(errno));
+
 	return ret;
 }

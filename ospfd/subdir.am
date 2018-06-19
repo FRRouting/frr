@@ -20,6 +20,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_bfd.c \
 	ospfd/ospf_dump.c \
 	ospfd/ospf_dump_api.c \
+	ospfd/ospf_errors.c \
 	ospfd/ospf_ext.c \
 	ospfd/ospf_flood.c \
 	ospfd/ospf_ia.c \
@@ -68,6 +69,7 @@ noinst_HEADERS += \
 	ospfd/ospf_apiserver.h \
 	ospfd/ospf_ase.h \
 	ospfd/ospf_bfd.h \
+	ospfd/ospf_errors.h \
 	ospfd/ospf_ext.h \
 	ospfd/ospf_flood.h \
 	ospfd/ospf_ia.h \

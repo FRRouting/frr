@@ -85,12 +85,12 @@ int ospf6_serv_sock(void)
 		zlog_warn("Network: can't create OSPF6 socket.");
 		if (ospf6d_privs.change(ZPRIVS_LOWER))
 			zlog_ferr(LIB_ERR_PRIVILEGES,
-				  "ospf_sock_init: could not lower privs");
+				  "ospf6_sock_init: could not lower privs");
 		return -1;
 	}
 	if (ospf6d_privs.change(ZPRIVS_LOWER))
 		zlog_ferr(LIB_ERR_PRIVILEGES,
-			  "ospf_sock_init: could not lower privs");
+			  "ospf6_sock_init: could not lower privs");
 
 /* set socket options */
 #if 1

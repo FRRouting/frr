@@ -38,6 +38,7 @@
 #include "bfd.h"
 #include "libfrr.h"
 #include "defaults.h"
+#include "lib_errors.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -2087,11 +2088,10 @@ static int ospf_vrf_enable(struct vrf *vrf)
 				old_vrf_id);
 
 		if (old_vrf_id != ospf->vrf_id) {
-			if (ospfd_privs.change(ZPRIVS_RAISE)) {
-				zlog_err(
-					"ospf_sock_init: could not raise privs, %s",
-					safe_strerror(errno));
-			}
+			if (ospfd_privs.change(ZPRIVS_RAISE))
+				zlog_ferr(
+					LIB_ERR_PRIVILEGES,
+					"ospf_vrf_link: could not raise privs");
 
 			/* stop zebra redist to us for old vrf */
 			zclient_send_dereg_requests(zclient, old_vrf_id);
@@ -2102,11 +2102,11 @@ static int ospf_vrf_enable(struct vrf *vrf)
 			ospf_zebra_vrf_register(ospf);
 
 			ret = ospf_sock_init(ospf);
-			if (ospfd_privs.change(ZPRIVS_LOWER)) {
-				zlog_err(
-					"ospf_sock_init: could not lower privs, %s",
-					safe_strerror(errno));
-			}
+			if (ospfd_privs.change(ZPRIVS_LOWER))
+				zlog_ferr(
+					LIB_ERR_PRIVILEGES,
+					"ospf_sock_init: could not lower privs");
+
 			if (ret < 0 || ospf->fd <= 0)
 				return 0;
 			thread_add_read(master, ospf_read, ospf, ospf->fd,
