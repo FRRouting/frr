@@ -194,7 +194,6 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	peer->as = from_peer->as;
 	peer->v_holdtime = from_peer->v_holdtime;
 	peer->v_keepalive = from_peer->v_keepalive;
-	peer->routeadv = from_peer->routeadv;
 	peer->v_routeadv = from_peer->v_routeadv;
 	peer->v_gr_restart = from_peer->v_gr_restart;
 	peer->cap = from_peer->cap;
@@ -1144,7 +1143,7 @@ int bgp_stop(struct peer *peer)
 	}
 
 	/* Reset keepalive and holdtime */
-	if (PEER_OR_GROUP_TIMER_SET(peer)) {
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER)) {
 		peer->v_keepalive = peer->keepalive;
 		peer->v_holdtime = peer->holdtime;
 	} else {
