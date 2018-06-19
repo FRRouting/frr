@@ -2542,12 +2542,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 						rn, vrf_id,
 						"via %s ifindex %d type %d "
 						"doesn't exist in rib",
-						inet_ntop(
-							family2afi(afi),
-							&nh->gate, buf2,
-							INET_ADDRSTRLEN), /* FIXME
-									     */
-						nh->ifindex, type);
+						inet_ntop(afi2family(afi),
+							  &nh->gate, buf2,
+							  sizeof(buf2)),
+							  nh->ifindex, type);
 				else
 					rnode_debug(
 						rn, vrf_id,

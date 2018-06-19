@@ -55,9 +55,6 @@
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
 
-/* staticly assigned vars for printing purposes */
-char lsp_bits_string[200]; /* FIXME: enough ? */
-
 static int lsp_l1_refresh(struct thread *thread);
 static int lsp_l2_refresh(struct thread *thread);
 static int lsp_l1_refresh_pseudo(struct thread *thread);
@@ -608,12 +605,15 @@ static void lspid_print(uint8_t *lsp_id, uint8_t *trg, char dynhost, char frag)
 }
 
 /* Convert the lsp attribute bits to attribute string */
-static const char *lsp_bits2string(uint8_t lsp_bits)
+static const char *lsp_bits2string(uint8_t lsp_bits, char *buf, size_t buf_size)
 {
-	char *pos = lsp_bits_string;
+	char *pos = buf;
 
 	if (!lsp_bits)
 		return " none";
+
+	if (buf_size < 2 * 3)
+		return " error";
 
 	/* we only focus on the default metric */
 	pos += sprintf(pos, "%d/",
@@ -624,9 +624,7 @@ static const char *lsp_bits2string(uint8_t lsp_bits)
 
 	pos += sprintf(pos, "%d", ISIS_MASK_LSP_OL_BIT(lsp_bits) ? 1 : 0);
 
-	*(pos) = '\0';
-
-	return lsp_bits_string;
+	return buf;
 }
 
 /* this function prints the lsp on show isis database */
@@ -634,6 +632,7 @@ void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost)
 {
 	uint8_t LSPid[255];
 	char age_out[8];
+	char b[200];
 
 	lspid_print(lsp->hdr.lsp_id, LSPid, dynhost, 1);
 	vty_out(vty, "%-21s%c  ", LSPid, lsp->own_lsp ? '*' : ' ');
@@ -646,7 +645,7 @@ void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost)
 		vty_out(vty, "%7s   ", age_out);
 	} else
 		vty_out(vty, " %5" PRIu16 "    ", lsp->hdr.rem_lifetime);
-	vty_out(vty, "%s\n", lsp_bits2string(lsp->hdr.lsp_bits));
+	vty_out(vty, "%s\n", lsp_bits2string(lsp->hdr.lsp_bits, b, sizeof(b)));
 }
 
 void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost)
