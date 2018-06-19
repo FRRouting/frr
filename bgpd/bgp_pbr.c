@@ -32,6 +32,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_flowspec_private.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH_ENTRY, "PBR match entry")
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH, "PBR match")
@@ -222,7 +223,7 @@ struct bgp_pbr_or_filter {
  */
 static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 					    int num, uint8_t unary_operator,
-					    void *valmask)
+					    void *valmask, uint8_t type_entry)
 {
 	int i = 0;
 	struct bgp_pbr_val_mask *and_valmask = NULL;
@@ -248,37 +249,52 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 			     OPERATOR_COMPARE_LESS_THAN) &&
 			    (list[i].compare_operator &
 			     OPERATOR_COMPARE_GREATER_THAN)) {
-				if (unary_operator == OPERATOR_UNARY_AND && and_valmask)
-					and_valmask->mask |=
-						TCP_HEADER_ALL_FLAGS &
-						~(list[i].value);
-				else if (unary_operator == OPERATOR_UNARY_OR && or_valmask) {
+				if (unary_operator == OPERATOR_UNARY_AND && and_valmask) {
+					if (type_entry == FLOWSPEC_TCP_FLAGS) {
+						and_valmask->mask |=
+							TCP_HEADER_ALL_FLAGS &
+							~(list[i].value);
+					} else if (type_entry == FLOWSPEC_DSCP) {
+						and_valmask->val = list[i].value;
+						and_valmask->mask = 1; /* inverse */
+					}
+				} else if (unary_operator == OPERATOR_UNARY_OR && or_valmask) {
 					and_valmask = XCALLOC(MTYPE_PBR_VALMASK,
 							      sizeof(struct bgp_pbr_val_mask));
-					and_valmask->val = TCP_HEADER_ALL_FLAGS;
-					and_valmask->mask |=
-						TCP_HEADER_ALL_FLAGS &
-						~(list[i].value);
+					if (type_entry == FLOWSPEC_TCP_FLAGS) {
+						and_valmask->val = TCP_HEADER_ALL_FLAGS;
+						and_valmask->mask |=
+							TCP_HEADER_ALL_FLAGS &
+							~(list[i].value);
+					} else if (type_entry == FLOWSPEC_DSCP) {
+						and_valmask->val = list[i].value;
+						and_valmask->mask = 1; /* inverse */
+					}
 					listnode_add (or_valmask, and_valmask);
 				}
 				continue;
 			}
 			return false;
 		}
-		if (unary_operator == OPERATOR_UNARY_AND && and_valmask)
-			and_valmask->mask |=
-				TCP_HEADER_ALL_FLAGS & list[i].value;
-		else if (unary_operator == OPERATOR_UNARY_OR && or_valmask) {
+		if (unary_operator == OPERATOR_UNARY_AND && and_valmask) {
+			if (type_entry == FLOWSPEC_TCP_FLAGS)
+				and_valmask->mask |=
+					TCP_HEADER_ALL_FLAGS & list[i].value;
+		} else if (unary_operator == OPERATOR_UNARY_OR && or_valmask) {
 			and_valmask = XCALLOC(MTYPE_PBR_VALMASK,
 					      sizeof(struct bgp_pbr_val_mask));
-			and_valmask->val = TCP_HEADER_ALL_FLAGS;
-			and_valmask->mask |=
-				TCP_HEADER_ALL_FLAGS & list[i].value;
+			if (type_entry == FLOWSPEC_TCP_FLAGS) {
+				and_valmask->val = TCP_HEADER_ALL_FLAGS;
+				and_valmask->mask |=
+					TCP_HEADER_ALL_FLAGS & list[i].value;
+			} else if (type_entry == FLOWSPEC_DSCP)
+				and_valmask->val = list[i].value;
 			listnode_add(or_valmask, and_valmask);
 		}
 	}
-	if (unary_operator == OPERATOR_UNARY_AND && and_valmask)
-		and_valmask->mask = TCP_HEADER_ALL_FLAGS;
+	if (unary_operator == OPERATOR_UNARY_AND && and_valmask
+	    && type_entry == FLOWSPEC_TCP_FLAGS)
+		and_valmask->val = TCP_HEADER_ALL_FLAGS;
 	return true;
 }
 
@@ -287,10 +303,10 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
  */
 static bool bgp_pbr_extract_enumerate(struct bgp_pbr_match_val list[],
 				      int num, uint8_t unary_operator,
-				      void *valmask)
+				      void *valmask, uint8_t type_entry)
 {
 	bool ret;
-	uint8_t unary_operator_val;
+	uint8_t unary_operator_val = unary_operator;
 	bool double_check = false;
 
 	if ((unary_operator & OPERATOR_UNARY_OR) &&
@@ -300,11 +316,12 @@ static bool bgp_pbr_extract_enumerate(struct bgp_pbr_match_val list[],
 	} else
 		unary_operator_val = unary_operator;
 	ret = bgp_pbr_extract_enumerate_unary(list, num, unary_operator_val,
-					      valmask);
+					      valmask, type_entry);
 	if (!ret && double_check)
 		ret = bgp_pbr_extract_enumerate_unary(list, num,
 						      OPERATOR_UNARY_OR,
-						      valmask);
+						      valmask,
+						      type_entry);
 	return ret;
 }
 
@@ -427,7 +444,8 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	if (!bgp_pbr_extract_enumerate(api->tcpflags,
 				       api->match_tcpflags_num,
 				       OPERATOR_UNARY_AND |
-				       OPERATOR_UNARY_OR, NULL)) {
+				       OPERATOR_UNARY_OR, NULL,
+				       FLOWSPEC_TCP_FLAGS)) {
 		if (BGP_DEBUG(pbr, PBR))
 			zlog_debug("BGP: match tcp flags:"
 				   "too complex. ignoring.");
@@ -436,7 +454,8 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	if (!bgp_pbr_extract(api->icmp_type, api->match_icmp_type_num, NULL)) {
 		if (!bgp_pbr_extract_enumerate(api->icmp_type,
 					       api->match_icmp_type_num,
-					       OPERATOR_UNARY_OR, NULL)) {
+					       OPERATOR_UNARY_OR, NULL,
+					       FLOWSPEC_ICMP_TYPE)) {
 			if (BGP_DEBUG(pbr, PBR))
 				zlog_debug("BGP: match icmp type operations:"
 					   "too complex. ignoring.");
@@ -447,7 +466,8 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 	if (!bgp_pbr_extract(api->icmp_code, api->match_icmp_code_num, NULL)) {
 		if (!bgp_pbr_extract_enumerate(api->icmp_code,
 					       api->match_icmp_code_num,
-					       OPERATOR_UNARY_OR, NULL)) {
+					       OPERATOR_UNARY_OR, NULL,
+					       FLOWSPEC_ICMP_CODE)) {
 			if (BGP_DEBUG(pbr, PBR))
 				zlog_debug("BGP: match icmp code operations:"
 					   "too complex. ignoring.");
@@ -473,14 +493,15 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 				   "too complex. ignoring.");
 		return 0;
 	}
-	if (api->match_dscp_num > 1 ||
-	    !bgp_pbr_extract_enumerate(api->dscp,
-				       api->match_dscp_num,
-				       OPERATOR_UNARY_OR, NULL)) {
-		if (BGP_DEBUG(pbr, PBR))
-			zlog_debug("BGP: match DSCP operations:"
-				   "too complex. ignoring.");
-		return 0;
+	if (api->match_dscp_num) {
+		if (!bgp_pbr_extract_enumerate(api->dscp, api->match_dscp_num,
+				OPERATOR_UNARY_OR | OPERATOR_UNARY_AND,
+					       NULL, FLOWSPEC_DSCP)) {
+			if (BGP_DEBUG(pbr, PBR))
+				zlog_debug("BGP: match DSCP operations:"
+					   "too complex. ignoring.");
+			return 0;
+		}
 	}
 	/* no combinations with both src_port and dst_port
 	 * or port with src_port and dst_port
@@ -1788,7 +1809,8 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		proto = IPPROTO_ICMP;
 		if (bgp_pbr_extract_enumerate(api->icmp_type,
 					      api->match_icmp_type_num,
-					      OPERATOR_UNARY_OR, NULL))
+					      OPERATOR_UNARY_OR, NULL,
+					      FLOWSPEC_ICMP_TYPE))
 			enum_icmp = true;
 		else {
 			bgp_pbr_extract(api->icmp_type,
@@ -1801,7 +1823,8 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		proto = IPPROTO_ICMP;
 		if (bgp_pbr_extract_enumerate(api->icmp_code,
 					      api->match_icmp_code_num,
-					      OPERATOR_UNARY_OR, NULL))
+					      OPERATOR_UNARY_OR, NULL,
+					      FLOWSPEC_ICMP_CODE))
 			enum_icmp = true;
 		else {
 			bgp_pbr_extract(api->icmp_code,
@@ -1818,12 +1841,16 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 			bpf.tcp_flags = &bpvm;
 			bgp_pbr_extract_enumerate(api->tcpflags,
 						  api->match_tcpflags_num,
-						  OPERATOR_UNARY_AND, bpf.tcp_flags);
+						  OPERATOR_UNARY_AND,
+						  bpf.tcp_flags,
+						  FLOWSPEC_TCP_FLAGS);
 		} else if (kind_enum == OPERATOR_UNARY_OR) {
 			bpof.tcpflags = list_new();
 			bgp_pbr_extract_enumerate(api->tcpflags,
 						  api->match_tcpflags_num,
-						  OPERATOR_UNARY_OR, bpof.tcpflags);
+						  OPERATOR_UNARY_OR,
+						  bpof.tcpflags,
+						  FLOWSPEC_TCP_FLAGS);
 		}
 	}
 	if (api->match_packet_length_num >= 1) {
@@ -1833,9 +1860,10 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		bpf.pkt_len = &pkt_len;
 	}
 	if (api->match_dscp_num >= 1) {
-		bpf.dscp_presence = true;
-		bpf.dscp_value = api->dscp[0].value;
-
+		bpof.dscp = list_new();
+		bgp_pbr_extract_enumerate(api->dscp, api->match_dscp_num,
+					  OPERATOR_UNARY_OR,
+					  bpof.dscp, FLOWSPEC_DSCP);
 	}
 	bpf.vrf_id = api->vrf_id;
 	bpf.src = src;
