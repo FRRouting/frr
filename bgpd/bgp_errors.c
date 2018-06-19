@@ -280,6 +280,18 @@ static struct ferr_ref ferr_bgp_err[] = {
 		.suggestion = "Correct the configuration so that the BGP AS number and instance\nname are consistent"
 	},
 	{
+		.code = BGP_ERR_FLOWSPEC_PACKET,
+		.title = "BGP Flowspec packet processing error",
+		.description = "The BGP flowspec subsystem has detected a error in the send or receive of a packet",
+		.suggestion = "Gather log files from both sides of the peering relationship and open an issue"
+	},
+	{
+		.code = BGP_ERR_FLOWSPEC_INSTALLATION,
+		.title = "BGP Flowspec Installation/removal Error",
+		.description = "The BGP flowspec subsystem has detected that there was a failure for installation/removal/modification of Flowspec from the dataplane",
+		.suggestion = "Gather log files from the router and open an issue, Restart FRR"
+	},
+	{
 		.code = END_FERR,
 	}
 };

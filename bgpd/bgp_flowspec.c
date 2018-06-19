@@ -31,6 +31,7 @@
 #include "bgpd/bgp_flowspec_private.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_errors.h"
 
 static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len)
 {
@@ -109,8 +110,9 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	}
 
 	if (packet->length >= FLOWSPEC_NLRI_SIZELIMIT) {
-		zlog_err("BGP flowspec nlri length maximum reached (%u)",
-			 packet->length);
+		zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+			  "BGP flowspec nlri length maximum reached (%u)",
+			  packet->length);
 		return -1;
 	}
 
@@ -126,12 +128,14 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 
 		/* When packet overflow occur return immediately. */
 		if (pnt + psize > lim) {
-			zlog_err("Flowspec NLRI length inconsistent ( size %u seen)",
-				 psize);
+			zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+				  "Flowspec NLRI length inconsistent ( size %u seen)",
+				  psize);
 			return -1;
 		}
 		if (bgp_fs_nlri_validate(pnt, psize) < 0) {
-			zlog_err("Bad flowspec format or NLRI options not supported");
+			zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+				  "Bad flowspec format or NLRI options not supported");
 			return -1;
 		}
 		p.family = AF_FLOWSPEC;
@@ -184,8 +188,9 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 					   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 					   NULL, NULL, 0, NULL);
 		if (ret) {
-			zlog_err("Flowspec NLRI failed to be %s.",
-				 attr ? "added" : "withdrawn");
+			zlog_ferr(BGP_ERR_FLOWSPEC_INSTALLATION,
+				  "Flowspec NLRI failed to be %s.",
+				  attr ? "added" : "withdrawn");
 			return -1;
 		}
 	}

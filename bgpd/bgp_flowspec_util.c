@@ -27,6 +27,7 @@
 #include "bgp_flowspec_util.h"
 #include "bgp_flowspec_private.h"
 #include "bgp_pbr.h"
+#include "bgp_errors.h"
 
 static void hex2bin(uint8_t *hex, int *bin)
 {
@@ -67,8 +68,9 @@ static int bgp_flowspec_call_non_opaque_decode(uint8_t *nlri_content, int len,
 			     len,
 			     mval, error);
 	if (*error < 0)
-		zlog_err("%s: flowspec_op_decode error %d",
-			 __func__, *error);
+		zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+			  "%s: flowspec_op_decode error %d",
+			  __func__, *error);
 	else
 		*match_num = *error;
 	return ret;
@@ -445,8 +447,9 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					len - offset,
 					prefix, &error);
 			if (error < 0)
-				zlog_err("%s: flowspec_ip_address error %d",
-					 __func__, error);
+				zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+					  "%s: flowspec_ip_address error %d",
+					  __func__, error);
 			else
 				bpem->match_bitmask |= bitmask;
 			offset += ret;
@@ -539,8 +542,9 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					len - offset,
 					&bpem->tcpflags, &error);
 			if (error < 0)
-				zlog_err("%s: flowspec_tcpflags_decode error %d",
-					 __func__, error);
+				zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+					  "%s: flowspec_tcpflags_decode error %d",
+					  __func__, error);
 			else
 				bpem->match_tcpflags_num = error;
 			/* contains the number of slots used */
@@ -553,8 +557,9 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					len - offset, &bpem->fragment,
 					&error);
 			if (error < 0)
-				zlog_err("%s: flowspec_fragment_type_decode error %d",
-					 __func__, error);
+				zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+					  "%s: flowspec_fragment_type_decode error %d",
+					  __func__, error);
 			else
 				bpem->match_fragment_num = error;
 			offset += ret;
