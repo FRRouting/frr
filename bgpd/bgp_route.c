@@ -1185,12 +1185,8 @@ static int bgp_input_modifier(struct peer *peer, struct prefix *p,
 
 		peer->rmap_type = 0;
 
-		if (ret == RMAP_DENYMATCH) {
-			/* Free newly generated AS path and community by
-			 * route-map. */
-			bgp_attr_flush(attr);
+		if (ret == RMAP_DENYMATCH)
 			return RMAP_DENY;
-		}
 	}
 	return RMAP_PERMIT;
 }
