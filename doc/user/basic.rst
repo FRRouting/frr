@@ -412,6 +412,11 @@ These options apply to all |PACKAGE_NAME| daemons.
    a show run.  Additionally they can be overridden at runtime if
    desired via the normal log commands.
 
+.. option:: --log-level <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>
+
+   When initializing the daemon, allow the specification of a default
+   log level at startup from one of the specified levels.
+
 .. _loadable-module-support:
 
 Loadable Module Support
