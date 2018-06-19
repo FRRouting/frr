@@ -1388,7 +1388,7 @@ static void bgp_startup(void)
 	bgp_master_init(master);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL);
-	bgp_init();
+	bgp_init(0);
 	bgp_pthreads_run();
 }
 
