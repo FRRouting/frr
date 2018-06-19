@@ -223,20 +223,26 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 						}
 						rd_header = 0;
 					}
-					route_vty_out_tmp(vty, &rm->p, attr,
-							  SAFI_MPLS_VPN,
-							  use_json, json_array);
+					if (use_json) {
+						char buf_a[BUFSIZ];
+						char buf_b[BUFSIZ];
+
+						sprintf(buf_a, "%s/%d",
+							inet_ntop(rm->p.family,
+								  rm->p.u.val,
+								  buf_b,
+								  BUFSIZ),
+							rm->p.prefixlen);
+						json_object_object_add(
+							json_routes, buf_a,
+							json_array);
+					} else {
+						route_vty_out_tmp(
+							vty, &rm->p, attr,
+							SAFI_MPLS_VPN, use_json,
+							json_array);
+					}
 				}
-			}
-			if (use_json && rm) {
-				char buf_a[BUFSIZ];
-				char buf_b[BUFSIZ];
-				sprintf(buf_a, "%s/%d",
-					inet_ntop(rm->p.family, rm->p.u.val,
-						  buf_b, BUFSIZ),
-					rm->p.prefixlen);
-				json_object_object_add(json_routes, buf_a,
-						       json_array);
 			}
 		}
 	}
