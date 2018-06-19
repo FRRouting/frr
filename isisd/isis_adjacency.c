@@ -288,7 +288,6 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 		if (del)
 			isis_delete_adj(adj);
 
-		adj = NULL;
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		del = false;
 		for (level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
@@ -326,8 +325,6 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 
 		if (del)
 			isis_delete_adj(adj);
-
-		adj = NULL;
 	}
 
 	return;
