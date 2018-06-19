@@ -22,6 +22,7 @@
 #include "ns.h"
 #include "vrf.h"
 #include "log.h"
+#include "lib_errors.h"
 
 #if defined(HAVE_NETLINK)
 
@@ -34,7 +35,8 @@
 #include "kernel_netlink.h"
 #endif /* defined(HAVE_NETLINK) */
 
-#include "zebra_netns_id.h"
+#include "zebra/zebra_netns_id.h"
+#include "zebra/zebra_errors.h"
 
 /* default NS ID value used when VRF backend is not NETNS */
 #define NS_DEFAULT_INTERNAL 0
@@ -86,8 +88,8 @@ static int send_receive(int sock, struct nlmsghdr *nlh, unsigned int seq,
 	ret = sendto(sock, (const void *)nlh, (size_t)nlh->nlmsg_len, 0,
 		     (struct sockaddr *)&snl, (socklen_t)sizeof(snl));
 	if (ret < 0) {
-		zlog_err("netlink( %u) sendmsg() error: %s", sock,
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SOCKET, "netlink( %u) sendmsg() error: %s",
+			  sock, safe_strerror(errno));
 		return -1;
 	}
 
@@ -107,16 +109,19 @@ static int send_receive(int sock, struct nlmsghdr *nlh, unsigned int seq,
 	};
 	ret = recvmsg(sock, &msg, 0);
 	if (ret < 0) {
-		zlog_err("netlink recvmsg: error %d (errno %u)", ret, errno);
+		zlog_ferr(LIB_ERR_SOCKET,
+			  "netlink recvmsg: error %d (errno %u)", ret, errno);
 		return -1;
 	}
 	if (msg.msg_flags & MSG_TRUNC) {
-		zlog_err("netlink recvmsg : error message truncated");
+		zlog_ferr(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+			  "netlink recvmsg : error message truncated");
 		return -1;
 	}
 	/* nlh already points to buf */
 	if (nlh->nlmsg_seq != seq) {
-		zlog_err(
+		zlog_ferr(
+			ZEBRA_ERR_NETLINK_BAD_SEQUENCE,
 			"netlink recvmsg: bad sequence number %x (expected %x)",
 			seq, nlh->nlmsg_seq);
 		return -1;
@@ -170,8 +175,8 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 	/* netlink socket */
 	sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (sock < 0) {
-		zlog_err("netlink( %u) socket() error: %s", sock,
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SOCKET, "netlink( %u) socket() error: %s",
+			  sock, safe_strerror(errno));
 		close(fd);
 		return NS_UNKNOWN;
 	}
@@ -181,8 +186,9 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 	snl.nl_pid = 0; /* AUTO PID */
 	ret = bind(sock, (struct sockaddr *)&snl, sizeof(snl));
 	if (ret < 0) {
-		zlog_err("netlink( %u) socket() bind error: %s", sock,
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SOCKET,
+			  "netlink( %u) socket() bind error: %s", sock,
+			  safe_strerror(errno));
 		close(sock);
 		close(fd);
 		return NS_UNKNOWN;
@@ -255,7 +261,8 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 
 	if (ret <= 0) {
 		if (errno != EEXIST && ret != 0) {
-			zlog_err(
+			zlog_ferr(
+				LIB_ERR_SOCKET,
 				"netlink( %u) recvfrom() error 2 when reading: %s",
 				fd, safe_strerror(errno));
 			close(sock);

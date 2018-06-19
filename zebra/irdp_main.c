@@ -28,7 +28,7 @@
  */
 
 /*
- * Thanks to Jens Låås at Swedish University of Agricultural Sciences
+ * Thanks to Jens Laas at Swedish University of Agricultural Sciences
  * for reviewing and tests.
  */
 
@@ -51,6 +51,7 @@
 #include "thread.h"
 #include "privs.h"
 #include "libfrr.h"
+#include "lib_errors.h"
 #include "version.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
@@ -81,15 +82,17 @@ int irdp_sock_init(void)
 	int sock;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("irdp_sock_init: could not raise privs, %s",
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "irdp_sock_init: could not raise privs, %s",
+			  safe_strerror(errno));
 
 	sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	save_errno = errno;
 
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("irdp_sock_init: could not lower privs, %s",
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_PRIVILEGES,
+			  "irdp_sock_init: could not lower privs, %s",
+			  safe_strerror(errno));
 
 	if (sock < 0) {
 		zlog_warn("IRDP: can't create irdp socket %s",

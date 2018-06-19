@@ -43,13 +43,15 @@
 
 enum dp_req_result kernel_add_pbr_rule(struct zebra_pbr_rule *rule)
 {
-	zlog_err("%s not Implemented for this platform", __PRETTY_FUNCTION__);
+	zlog_ferr(LIB_ERR_UNAVAILABLE, "%s not Implemented for this platform",
+		  __PRETTY_FUNCTION__);
 	return DP_REQUEST_FAILURE;
 }
 
 enum dp_req_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
 {
-	zlog_err("%s not Implemented for this platform", __PRETTY_FUNCTION__);
+	zlog_ferr(LIB_ERR_UNAVAILABLE, "%s not Implemented for this platform",
+		  __PRETTY_FUNCTION__);
 	return DP_REQUEST_FAILURE;
 }
 

@@ -212,7 +212,8 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 			 */
 			case ZEBRA_ERR_RTEXIST:
 				if (cmd != RTM_ADD)
-					zlog_err(
+					zlog_ferr(
+						LIB_ERR_SYSTEM_CALL,
 						"%s: rtm_write() returned %d for command %d",
 						__func__, error, cmd);
 				continue;
@@ -225,7 +226,8 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 			case ZEBRA_ERR_RTNOEXIST:
 			case ZEBRA_ERR_RTUNREACH:
 			default:
-				zlog_err(
+				zlog_ferr(
+					LIB_ERR_SYSTEM_CALL,
 					"%s: %s: rtm_write() unexpectedly returned %d for command %s",
 					__func__,
 					prefix2str(p, prefix_buf,
@@ -397,7 +399,7 @@ enum dp_req_result kernel_route_rib(struct route_node *rn,
 	int route = 0;
 
 	if (src_p && src_p->prefixlen) {
-		zlog_err("route add: IPv6 sourcedest routes unsupported!");
+		zlog_warn("%s: IPv6 sourcedest routes unsupported!", __func__);
 		return DP_REQUEST_FAILURE;
 	}
 

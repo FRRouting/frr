@@ -63,8 +63,8 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 
 		if (zserv_privs.change(ZPRIVS_LOWER))
 			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
-		zlog_err("Cannot create UDP socket: %s",
-			 safe_strerror(save_errno));
+		zlog_ferr(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+			  safe_strerror(save_errno));
 		exit(1);
 	}
 	if ((ret = ioctl(sock, request, buffer)) < 0)
@@ -95,8 +95,8 @@ int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
 
 		if (zserv_privs.change(ZPRIVS_LOWER))
 			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
-		zlog_err("Cannot create UDP socket: %s",
-			 safe_strerror(save_errno));
+		zlog_ferr(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+			  safe_strerror(save_errno));
 		exit(1);
 	}
 	ret = vrf_ioctl(vrf_id, sock, request, buffer);
@@ -128,8 +128,9 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 
 		if (zserv_privs.change(ZPRIVS_LOWER))
 			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
-		zlog_err("Cannot create IPv6 datagram socket: %s",
-			 safe_strerror(save_errno));
+		zlog_ferr(LIB_ERR_SOCKET,
+			  "Cannot create IPv6 datagram socket: %s",
+			  safe_strerror(save_errno));
 		exit(1);
 	}
 
@@ -414,8 +415,9 @@ void if_get_flags(struct interface *ifp)
 
 	ret = vrf_if_ioctl(SIOCGIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
 	if (ret < 0) {
-		zlog_err("vrf_if_ioctl(SIOCGIFFLAGS) failed: %s",
-			 safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			  "vrf_if_ioctl(SIOCGIFFLAGS) failed: %s",
+			  safe_strerror(errno));
 		return;
 	}
 #ifdef HAVE_BSD_LINK_DETECT /* Detect BSD link-state at start-up */
@@ -432,8 +434,9 @@ void if_get_flags(struct interface *ifp)
 
 		/* Seems not all interfaces implement this ioctl */
 		if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
-			zlog_err("if_ioctl(SIOCGIFMEDIA) failed: %s",
-				 safe_strerror(errno));
+			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+				  "if_ioctl(SIOCGIFMEDIA) failed: %s",
+				  safe_strerror(errno));
 		else if (ifmr.ifm_status & IFM_AVALID) /* Link state is valid */
 		{
 			if (ifmr.ifm_status & IFM_ACTIVE)

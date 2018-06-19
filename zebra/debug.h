@@ -22,6 +22,8 @@
 #ifndef _ZEBRA_DEBUG_H
 #define _ZEBRA_DEBUG_H
 
+#include "lib/vty.h"
+
 /* Debug flags. */
 #define ZEBRA_DEBUG_EVENT   0x01
 

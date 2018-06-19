@@ -20,37 +20,38 @@
 
 #include <zebra.h>
 
-#include "if.h"
-#include "prefix.h"
-#include "table.h"
-#include "memory.h"
-#include "zebra_memory.h"
 #include "command.h"
+#include "if.h"
+#include "linklist.h"
 #include "log.h"
 #include "log_int.h"
-#include "sockunion.h"
-#include "linklist.h"
-#include "thread.h"
-#include "workqueue.h"
+#include "memory.h"
+#include "mpls.h"
+#include "nexthop.h"
+#include "prefix.h"
 #include "prefix.h"
 #include "routemap.h"
-#include "nexthop.h"
-#include "vrf.h"
-#include "mpls.h"
+#include "sockunion.h"
 #include "srcdest_table.h"
+#include "table.h"
+#include "thread.h"
+#include "vrf.h"
+#include "workqueue.h"
 
+#include "zebra/connected.h"
+#include "zebra/debug.h"
+#include "zebra/interface.h"
+#include "zebra/redistribute.h"
 #include "zebra/rib.h"
 #include "zebra/rt.h"
-#include "zebra/zebra_ns.h"
-#include "zebra/zebra_vrf.h"
-#include "zebra/redistribute.h"
-#include "zebra/zebra_routemap.h"
-#include "zebra/debug.h"
-#include "zebra/zebra_rnh.h"
-#include "zebra/interface.h"
-#include "zebra/connected.h"
-#include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_errors.h"
+#include "zebra/zebra_memory.h"
+#include "zebra/zebra_ns.h"
+#include "zebra/zebra_rnh.h"
+#include "zebra/zebra_routemap.h"
+#include "zebra/zebra_vrf.h"
+#include "zebra/zebra_vxlan.h"
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason))
@@ -1125,10 +1126,14 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	hook_call(rib_update, rn, "installing in kernel");
 	switch (kernel_route_rib(rn, p, src_p, old, re)) {
 	case DP_REQUEST_QUEUED:
-		zlog_err("No current known DataPlane interfaces can return this, please fix");
+		zlog_ferr(
+			ZEBRA_ERR_DP_INVALID_RC,
+			"No current known DataPlane interfaces can return this, please fix");
 		break;
 	case DP_REQUEST_FAILURE:
-		zlog_err("No current known Rib Install Failure cases, please fix");
+		zlog_ferr(
+			ZEBRA_ERR_DP_INSTALL_FAIL,
+			"No current known Rib Install Failure cases, please fix");
 		break;
 	case DP_REQUEST_SUCCESS:
 		zvrf->installs++;
@@ -1161,10 +1166,14 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	hook_call(rib_update, rn, "uninstalling from kernel");
 	switch (kernel_route_rib(rn, p, src_p, re, NULL)) {
 	case DP_REQUEST_QUEUED:
-		zlog_err("No current known DataPlane interfaces can return this, please fix");
+		zlog_ferr(
+			ZEBRA_ERR_DP_INVALID_RC,
+			"No current known DataPlane interfaces can return this, please fix");
 		break;
 	case DP_REQUEST_FAILURE:
-		zlog_err("No current known RIB Install Failure cases, please fix");
+		zlog_ferr(
+			ZEBRA_ERR_DP_INSTALL_FAIL,
+			"No current known RIB Install Failure cases, please fix");
 		break;
 	case DP_REQUEST_SUCCESS:
 		if (zvrf)
@@ -1936,7 +1945,8 @@ void rib_queue_add(struct route_node *rn)
 	}
 
 	if (zebrad.ribq == NULL) {
-		zlog_err("%s: work_queue does not exist!", __func__);
+		zlog_ferr(ZEBRA_ERR_WQ_NONEXISTENT,
+			  "%s: work_queue does not exist!", __func__);
 		return;
 	}
 
@@ -1991,7 +2001,8 @@ static void rib_queue_init(struct zebra_t *zebra)
 
 	if (!(zebra->ribq =
 		      work_queue_new(zebra->master, "route_node processing"))) {
-		zlog_err("%s: could not initialise work queue!", __func__);
+		zlog_ferr(ZEBRA_ERR_WQ_NONEXISTENT,
+			  "%s: could not initialise work queue!", __func__);
 		return;
 	}
 
@@ -2004,7 +2015,8 @@ static void rib_queue_init(struct zebra_t *zebra)
 	zebra->ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
 
 	if (!(zebra->mq = meta_queue_new())) {
-		zlog_err("%s: could not initialise meta queue!", __func__);
+		zlog_ferr(ZEBRA_ERR_WQ_NONEXISTENT,
+			  "%s: could not initialise meta queue!", __func__);
 		return;
 	}
 	return;
@@ -2231,8 +2243,9 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	/* Lookup table.  */
 	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
 	if (!table) {
-		zlog_err("%s:%u zebra_vrf_table() returned NULL",
-			 __func__, vrf_id);
+		zlog_ferr(ZEBRA_ERR_TABLE_LOOKUP_FAILED,
+			  "%s:%u zebra_vrf_table() returned NULL", __func__,
+			  vrf_id);
 		return;
 	}
 
@@ -2278,8 +2291,9 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	rib_dest_t *dest;
 
 	if (NULL == (table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id))) {
-		zlog_err("%s:%u zebra_vrf_table() returned NULL",
-			 __func__, vrf_id);
+		zlog_ferr(ZEBRA_ERR_TABLE_LOOKUP_FAILED,
+			  "%s:%u zebra_vrf_table() returned NULL", __func__,
+			  vrf_id);
 		return;
 	}
 

@@ -408,8 +408,9 @@ int ifm_read(struct if_msghdr *ifm)
 
 	/* paranoia: sanity check structure */
 	if (ifm->ifm_msglen < sizeof(struct if_msghdr)) {
-		zlog_err("ifm_read: ifm->ifm_msglen %d too short\n",
-			 ifm->ifm_msglen);
+		zlog_ferr(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+			  "ifm_read: ifm->ifm_msglen %d too short\n",
+			  ifm->ifm_msglen);
 		return -1;
 	}
 

@@ -24,6 +24,7 @@
 #define _ZEBRA_BFD_H
 
 #include "lib/json.h"
+#include "lib/zclient.h"
 
 #define BFD_DEF_MIN_RX 300
 #define BFD_MIN_MIN_RX 50

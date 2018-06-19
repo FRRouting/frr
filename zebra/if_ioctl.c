@@ -33,6 +33,7 @@
 #include "log.h"
 #include "vrf.h"
 #include "vty.h"
+#include "lib_errors.h"
 
 #include "zebra/interface.h"
 #include "zebra/rib.h"
@@ -175,7 +176,8 @@ static int if_getaddrs(void)
 
 	ret = getifaddrs(&ifap);
 	if (ret != 0) {
-		zlog_err("getifaddrs(): %s", safe_strerror(errno));
+		zlog_ferr(LIB_ERR_SYSTEM_CALL, "getifaddrs(): %s",
+			  safe_strerror(errno));
 		return -1;
 	}
 

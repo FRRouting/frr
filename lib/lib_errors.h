@@ -36,6 +36,7 @@ enum lib_ferr_refs {
 	LIB_ERR_NS,
 	LIB_ERR_DEVELOPMENT,
 	LIB_ERR_ZMQ,
+	LIB_ERR_UNAVAILABLE,
 };
 
 extern void lib_error_init(void);

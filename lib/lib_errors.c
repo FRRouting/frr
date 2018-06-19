@@ -21,6 +21,7 @@
 #include <zebra.h>
 #include <lib_errors.h>
 
+/* clang-format off */
 static struct ferr_ref ferr_lib_err[] = {
 	{
 		.code = LIB_ERR_PRIVILEGES,
@@ -101,9 +102,16 @@ static struct ferr_ref ferr_lib_err[] = {
 		.suggestion = "Open an Issue with all relevant log files and restart FRR"
 	},
 	{
+		.code = LIB_ERR_UNAVAILABLE,
+		.title = "Feature or system unavailable",
+		.description = "FRR was not compiled with support for a particular feature, or it is not available on the current platform",
+		.suggestion = "Recompile FRR with the feature enabled, or find out what platforms support the feature"
+	},
+	{
 		.code = END_FERR,
 	}
 };
+/* clang-format on */
 
 void lib_error_init(void)
 {

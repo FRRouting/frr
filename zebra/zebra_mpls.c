@@ -45,6 +45,7 @@
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_errors.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, LSP, "MPLS LSP object")
 DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object")
@@ -917,7 +918,9 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 			UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 			switch (kernel_add_lsp(lsp)) {
 			case DP_REQUEST_QUEUED:
-				zlog_err("No current DataPlane interfaces can return this, please fix");
+				zlog_ferr(
+					ZEBRA_ERR_DP_INVALID_RC,
+					"No current DataPlane interfaces can return this, please fix");
 				break;
 			case DP_REQUEST_FAILURE:
 				break;
@@ -932,7 +935,9 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 
 			switch (kernel_del_lsp(lsp)) {
 			case DP_REQUEST_QUEUED:
-				zlog_err("No current DataPlane interfaces can return this, please fix");
+				zlog_ferr(
+					ZEBRA_ERR_DP_INVALID_RC,
+					"No current DataPlane interfaces can return this, please fix");
 				break;
 			case DP_REQUEST_FAILURE:
 				break;
@@ -970,7 +975,9 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 
 			switch (kernel_upd_lsp(lsp)) {
 			case DP_REQUEST_QUEUED:
-				zlog_err("No current DataPlane interfaces can return this, please fix");
+				zlog_ferr(
+					ZEBRA_ERR_DP_INVALID_RC,
+					"No current DataPlane interfaces can return this, please fix");
 				break;
 			case DP_REQUEST_FAILURE:
 				break;
@@ -1048,7 +1055,8 @@ static int lsp_processq_add(zebra_lsp_t *lsp)
 		return 0;
 
 	if (zebrad.lsp_process_q == NULL) {
-		zlog_err("%s: work_queue does not exist!", __func__);
+		zlog_ferr(ZEBRA_ERR_WQ_NONEXISTENT,
+			  "%s: work_queue does not exist!", __func__);
 		return -1;
 	}
 
@@ -1690,7 +1698,8 @@ static int mpls_processq_init(struct zebra_t *zebra)
 {
 	zebra->lsp_process_q = work_queue_new(zebra->master, "LSP processing");
 	if (!zebra->lsp_process_q) {
-		zlog_err("%s: could not initialise work queue!", __func__);
+		zlog_ferr(ZEBRA_ERR_WQ_NONEXISTENT,
+			  "%s: could not initialise work queue!", __func__);
 		return -1;
 	}
 
@@ -1825,7 +1834,8 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 		fec = fec_add(table, p, MPLS_INVALID_LABEL, 0, label_index);
 		if (!fec) {
 			prefix2str(p, buf, BUFSIZ);
-			zlog_err(
+			zlog_ferr(
+				ZEBRA_ERR_FEC_ADD_FAILED,
 				"Failed to add FEC %s upon register, client %s",
 				buf, zebra_route_string(client->proto));
 			return -1;
@@ -1905,8 +1915,9 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 	fec = fec_find(table, p);
 	if (!fec) {
 		prefix2str(p, buf, BUFSIZ);
-		zlog_err("Failed to find FEC %s upon unregister, client %s",
-			 buf, zebra_route_string(client->proto));
+		zlog_ferr(ZEBRA_ERR_FEC_RM_FAILED,
+			  "Failed to find FEC %s upon unregister, client %s",
+			  buf, zebra_route_string(client->proto));
 		return -1;
 	}
 
@@ -2036,7 +2047,8 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 			      MPLS_INVALID_LABEL_INDEX);
 		if (!fec) {
 			prefix2str(p, buf, BUFSIZ);
-			zlog_err("Failed to add FEC %s upon config", buf);
+			zlog_ferr(ZEBRA_ERR_FEC_ADD_FAILED,
+				  "Failed to add FEC %s upon config", buf);
 			return -1;
 		}
 
@@ -2083,7 +2095,8 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	fec = fec_find(table, p);
 	if (!fec) {
 		prefix2str(p, buf, BUFSIZ);
-		zlog_err("Failed to find FEC %s upon delete", buf);
+		zlog_ferr(ZEBRA_ERR_FEC_RM_FAILED,
+			  "Failed to find FEC %s upon delete", buf);
 		return -1;
 	}
 
