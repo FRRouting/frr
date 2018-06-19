@@ -78,7 +78,8 @@ static void opt_extend(const struct optspec *os)
 
 #define OPTION_VTYSOCK   1000
 #define OPTION_MODULEDIR 1002
-#define OPTION_LOG 1003
+#define OPTION_LOG       1003
+#define OPTION_LOGLEVEL  1004
 
 static const struct option lo_always[] = {
 	{"help", no_argument, NULL, 'h'},
@@ -88,6 +89,7 @@ static const struct option lo_always[] = {
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
 	{"log", required_argument, NULL, OPTION_LOG},
+	{"log-level", required_argument, NULL, OPTION_LOGLEVEL},
 	{NULL}};
 static const struct optspec os_always = {
 	"hvdM:",
@@ -97,7 +99,8 @@ static const struct optspec os_always = {
 	"  -M, --module       Load specified module\n"
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
-	"      --log          Set Logging to stdout, syslog, or file:<name>\n",
+	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
+	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n",
 	lo_always};
 
 
@@ -450,6 +453,9 @@ static int frr_opt(int opt)
 	case OPTION_LOG:
 		di->early_logging = optarg;
 		break;
+	case OPTION_LOGLEVEL:
+		di->early_loglevel = optarg;
+		break;
 	default:
 		return 1;
 	}
@@ -550,8 +556,7 @@ struct thread_master *frr_init(void)
 	openzlog(di->progname, di->logname, di->instance,
 		 LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
-	if (di->early_logging)
-		command_setup_early_logging(di->early_logging);
+	command_setup_early_logging(di->early_logging, di->early_loglevel);
 
 	if (!frr_zclient_addr(&zclient_addr, &zclient_addr_len,
 			      frr_zclientpath)) {

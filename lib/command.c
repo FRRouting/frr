@@ -2446,21 +2446,31 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 	return CMD_SUCCESS;
 }
 
-void command_setup_early_logging(const char *option)
+void command_setup_early_logging(const char *dest, const char *level)
 {
 	char *token;
 
-	if (strcmp(option, "stdout") == 0) {
+	if (level) {
+		int nlevel = level_match(level);
+
+		if (nlevel != ZLOG_DISABLED)
+			zlog_default->default_lvl = nlevel;
+	}
+
+	if (!dest)
+		return;
+
+	if (strcmp(dest, "stdout") == 0) {
 		zlog_set_level(ZLOG_DEST_STDOUT, zlog_default->default_lvl);
 		return;
 	}
 
-	if (strcmp(option, "syslog") == 0) {
+	if (strcmp(dest, "syslog") == 0) {
 		zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
 		return;
 	}
 
-	token = strstr(option, ":");
+	token = strstr(dest, ":");
 	token++;
 
 	set_log_file(NULL, token, zlog_default->default_lvl);

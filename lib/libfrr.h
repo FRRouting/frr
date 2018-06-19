@@ -59,6 +59,7 @@ struct frr_daemon_info {
 	const char *module_path;
 	const char *pathspace;
 	const char *early_logging;
+	const char *early_loglevel;
 
 	const char *proghelp;
 	void (*printhelp)(FILE *target);
