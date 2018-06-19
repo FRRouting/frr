@@ -114,6 +114,7 @@ struct pbr_rule {
 #define MATCH_PORT_DST_RANGE_SET	(1 << 5)
 #define MATCH_DSCP_SET			(1 << 6)
 #define MATCH_DSCP_INVERSE_SET		(1 << 7)
+#define MATCH_PKT_LEN_INVERSE_SET	(1 << 8)
 
 extern int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s,
 				struct pbr_rule *zrule);

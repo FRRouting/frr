@@ -208,6 +208,7 @@ struct bgp_pbr_filter {
 	struct bgp_pbr_range_port *dst_port;
 	struct bgp_pbr_val_mask *tcp_flags;
 	struct bgp_pbr_val_mask *dscp;
+	struct bgp_pbr_val_mask *pkt_len_val;
 };
 
 /* this structure is used to contain OR instructions
@@ -217,6 +218,7 @@ struct bgp_pbr_filter {
 struct bgp_pbr_or_filter {
 	struct list *tcpflags;
 	struct list *dscp;
+	struct list *pkt_len;
 };
 
 /* TCP : FIN and SYN -> val = ALL; mask = 3
@@ -255,7 +257,8 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 						and_valmask->mask |=
 							TCP_HEADER_ALL_FLAGS &
 							~(list[i].value);
-					} else if (type_entry == FLOWSPEC_DSCP) {
+					} else if (type_entry == FLOWSPEC_DSCP ||
+						   type_entry == FLOWSPEC_PKT_LEN) {
 						and_valmask->val = list[i].value;
 						and_valmask->mask = 1; /* inverse */
 					}
@@ -267,7 +270,8 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 						and_valmask->mask |=
 							TCP_HEADER_ALL_FLAGS &
 							~(list[i].value);
-					} else if (type_entry == FLOWSPEC_DSCP) {
+					} else if (type_entry == FLOWSPEC_DSCP ||
+						   type_entry == FLOWSPEC_PKT_LEN) {
 						and_valmask->val = list[i].value;
 						and_valmask->mask = 1; /* inverse */
 					}
@@ -288,7 +292,8 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 				and_valmask->val = TCP_HEADER_ALL_FLAGS;
 				and_valmask->mask |=
 					TCP_HEADER_ALL_FLAGS & list[i].value;
-			} else if (type_entry == FLOWSPEC_DSCP)
+			} else if (type_entry == FLOWSPEC_DSCP ||
+				   type_entry == FLOWSPEC_PKT_LEN)
 				and_valmask->val = list[i].value;
 			listnode_add(or_valmask, and_valmask);
 		}
@@ -488,11 +493,23 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 				 "too complex. ignoring.");
 		return 0;
 	}
-	if (!bgp_pbr_extract(api->packet_length, api->match_packet_length_num, NULL)) {
-		if (BGP_DEBUG(pbr, PBR))
-			zlog_debug("BGP: match packet length operations:"
+	if (api->match_packet_length_num) {
+		bool ret;
+
+		ret = bgp_pbr_extract(api->packet_length,
+				      api->match_packet_length_num, NULL);
+		if (!ret)
+			ret = bgp_pbr_extract_enumerate(api->packet_length,
+						api->match_packet_length_num,
+						OPERATOR_UNARY_OR
+						| OPERATOR_UNARY_AND,
+						NULL, FLOWSPEC_PKT_LEN);
+		if (!ret) {
+			if (BGP_DEBUG(pbr, PBR))
+				zlog_debug("BGP: match packet length operations:"
 				   "too complex. ignoring.");
-		return 0;
+			return 0;
+		}
 	}
 	if (api->match_dscp_num) {
 		if (!bgp_pbr_extract_enumerate(api->dscp, api->match_dscp_num,
@@ -1253,10 +1270,15 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
 	}
 	temp2.proto = bpf->protocol;
 
-	if (pkt_len)
+	if (pkt_len) {
 		temp.pkt_len_min = pkt_len->min_port;
-	if (pkt_len && pkt_len->max_port)
-		temp.pkt_len_max = pkt_len->max_port;
+		if (pkt_len->max_port)
+			temp.pkt_len_max = pkt_len->max_port;
+	} else if (bpf->pkt_len_val) {
+		if (bpf->pkt_len_val->mask)
+			temp.flags |= MATCH_PKT_LEN_INVERSE_SET;
+		temp.pkt_len_min = bpf->pkt_len_val->val;
+	}
 	if (bpf->tcp_flags) {
 		temp.tcp_flags = bpf->tcp_flags->val;
 		temp.tcp_mask_flags = bpf->tcp_flags->mask;
@@ -1324,9 +1346,13 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(struct bgp *bgp,
 		orig_list = bpof->tcpflags;
 		target_val = &bpf->tcp_flags;
 	} else if (type_entry == FLOWSPEC_DSCP && bpof->dscp) {
-		next_type_entry = 0;
+		next_type_entry = FLOWSPEC_PKT_LEN;
 		orig_list = bpof->dscp;
 		target_val = &bpf->dscp;
+	} else if (type_entry == FLOWSPEC_PKT_LEN && bpof->pkt_len) {
+		next_type_entry = 0;
+		orig_list = bpof->pkt_len;
+		target_val = &bpf->pkt_len_val;
 	} else {
 		return bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
 								       bpf, bpof, 0);
@@ -1356,6 +1382,10 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 		bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
 							bpf, bpof,
 							FLOWSPEC_DSCP);
+	else if (bpof->pkt_len)
+		bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
+							bpf, bpof,
+							FLOWSPEC_PKT_LEN);
 	else
 		bgp_pbr_policyroute_remove_from_zebra_unit(bgp, binfo, bpf);
 	/* flush bpof */
@@ -1363,6 +1393,8 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 		list_delete_all_node(bpof->tcpflags);
 	if (bpof->dscp)
 		list_delete_all_node(bpof->dscp);
+	if (bpof->pkt_len)
+		list_delete_all_node(bpof->pkt_len);
 }
 
 static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
@@ -1436,6 +1468,14 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 						  pkt_len->max_port ?
 						  pkt_len->max_port :
 						  pkt_len->min_port);
+		} else if (bpf->pkt_len_val) {
+			remaining_len += snprintf(buffer + remaining_len,
+						  sizeof(buffer)
+						  - remaining_len,
+						  " %s len %u",
+						  bpf->pkt_len_val->mask
+						  ? "!" : "",
+						  bpf->pkt_len_val->val);
 		}
 		if (bpf->tcp_flags) {
 			remaining_len += snprintf(buffer + remaining_len,
@@ -1516,10 +1556,15 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		temp.flags |= MATCH_PORT_SRC_RANGE_SET;
 	if (dst_port && dst_port->max_port)
 		temp.flags |= MATCH_PORT_DST_RANGE_SET;
-	if (pkt_len)
+	if (pkt_len) {
 		temp.pkt_len_min = pkt_len->min_port;
-	if (pkt_len && pkt_len->max_port)
-		temp.pkt_len_max = pkt_len->max_port;
+		if (pkt_len->max_port)
+			temp.pkt_len_max = pkt_len->max_port;
+	} else if (bpf->pkt_len_val) {
+		if (bpf->pkt_len_val->mask)
+			temp.flags |= MATCH_PKT_LEN_INVERSE_SET;
+		temp.pkt_len_min = bpf->pkt_len_val->val;
+	}
 	if (bpf->tcp_flags) {
 		temp.tcp_flags = bpf->tcp_flags->val;
 		temp.tcp_mask_flags = bpf->tcp_flags->mask;
@@ -1649,9 +1694,13 @@ static void bgp_pbr_policyroute_add_to_zebra_recursive(struct bgp *bgp,
 		orig_list = bpof->tcpflags;
 		target_val = &bpf->tcp_flags;
 	} else if (type_entry == FLOWSPEC_DSCP && bpof->dscp) {
-		next_type_entry = 0;
+		next_type_entry = FLOWSPEC_PKT_LEN;
 		orig_list = bpof->dscp;
 		target_val = &bpf->dscp;
+	} else if (type_entry == FLOWSPEC_PKT_LEN && bpof->pkt_len) {
+		next_type_entry = 0;
+		orig_list = bpof->pkt_len;
+		target_val = &bpf->pkt_len_val;
 	} else {
 		return bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
 						  bpf, bpof, nh, rate, 0);
@@ -1685,6 +1734,11 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 							   bpf, bpof,
 							   nh, rate,
 							   FLOWSPEC_DSCP);
+	else if (bpof->pkt_len)
+		bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
+							   bpf, bpof,
+							   nh, rate,
+							   FLOWSPEC_PKT_LEN);
 	else
 		bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo, bpf,
 						      nh, rate);
@@ -1693,6 +1747,8 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		list_delete_all_node(bpof->tcpflags);
 	if (bpof->dscp)
 		list_delete_all_node(bpof->dscp);
+	if (bpof->pkt_len)
+		list_delete_all_node(bpof->pkt_len);
 }
 
 static const struct message icmp_code_unreach_str[] = {
@@ -1938,11 +1994,22 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 						  FLOWSPEC_TCP_FLAGS);
 		}
 	}
-	if (api->match_packet_length_num >= 1) {
-		bgp_pbr_extract(api->packet_length,
-				api->match_packet_length_num,
-				&pkt_len);
-		bpf.pkt_len = &pkt_len;
+	if (api->match_packet_length_num) {
+		bool ret;
+
+		ret = bgp_pbr_extract(api->packet_length,
+				      api->match_packet_length_num,
+				      &pkt_len);
+		if (ret)
+			bpf.pkt_len = &pkt_len;
+		else {
+			bpof.pkt_len = list_new();
+			bgp_pbr_extract_enumerate(api->packet_length,
+						  api->match_packet_length_num,
+						  OPERATOR_UNARY_OR,
+						  bpof.pkt_len,
+						  FLOWSPEC_PKT_LEN);
+		}
 	}
 	if (api->match_dscp_num >= 1) {
 		bpof.dscp = list_new();
