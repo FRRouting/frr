@@ -4,6 +4,8 @@
 Process & Workflow
 *******************
 
+.. highlight:: none
+
 FRR is a large project developed by many different groups. This section
 documents standards for code style & quality, commit messages, pull requests
 and best practices that all contributors are asked to follow.
@@ -35,43 +37,66 @@ community. Italicized lists are private.
 +----------------------------------+--------------------------------+
 
 The Development list is used to discuss and document general issues related to
-project development and governance. The public Slack instance,
-frrouting.slack.com, and weekly technical meetings provide a higher bandwidth
-channel for discussions.  The results of such discussions must be reflected in
-updates, as appropriate, to code (i.e., merges), `Github issues`_, and for
-governance or process changes, updates to the Development list and either this
-file or information posted at https://frrouting.org/.
+project development and governance. The public
+`Slack instance <https://frrouting.slack.com>`_ and weekly technical meetings
+provide a higher bandwidth channel for discussions.  The results of such
+discussions must be reflected in updates, as appropriate, to code (i.e.,
+merges), `GitHub issues`_, and for governance or process changes, updates to
+the Development list and either this file or information posted at
+https://frrouting.org/.
 
-Release Process & Schedule
-==========================
+Development & Release Cycle
+===========================
 
-FRR employs a <MAJOR>.<MINOR>.<BUGFIX> versioning scheme.
+Development
+-----------
 
-MAJOR
+.. figure:: ../figures/git_branches.png
+   :align: center
+   :scale: 55%
+   :alt: Merging Git branches into a central trunk
+
+   Rough outline of FRR development workflow
+
+The master Git for FRR resides on `GitHub`_.
+
+There is one main branch for development, ``master``. For each major release
+(2.0, 3.0 etc) a new release branch is created based on the master. Significant
+bugfixes should be backported to upcoming and existing release branches no more
+than 1 year old. As a general rule new features are not backported to release
+branches.
+
+Subsequent point releases based on a major branch are handled with git tags.
+
+Releases
+--------
+FRR employs a ``<MAJOR>.<MINOR>.<BUGFIX>`` versioning scheme.
+
+``MAJOR``
    Significant new features or multiple minor features. The addition of a new
    routing protocol or daemon would fall under this class.
 
-MINOR
+``MINOR``
    Small features, e.g. options for automatic BGP shutdown.
 
-BUGFIX
+``BUGFIX``
    Fixes for actual bugs and/or security issues.
 
 We will pull a new development branch for the next release every 4 months.  The
-current schedule is Feb/June/October 1. The decision for a MAJOR/MINOR release
-is made at the time of branch pull based on what has been received the previous
-4 months. The branch name will be dev/MAJOR.MINOR. At this point in time the
-master branch, :file:`configure.ac`, documentation and packaging systems will
-be updated to reflect the next possible release name to allow for easy
-distinguishing. Additionally the new dev branch will have these files updated
-too.
+current schedule is Feb/June/October 1. The decision for a ``MAJOR/MINOR``
+release is made at the time of branch pull based on what has been received the
+previous 4 months. The branch name will be ``dev/MAJOR.MINOR``. At this point
+in time the master branch and this new branch, :file:`configure.ac`,
+documentation and packaging systems will be updated to reflect the next
+possible release name to allow for easy distinguishing.
 
-After one month the development branch will be renamed to stable/MAJOR.MINOR.
-This process is not held up unless a crash or security issue has been found and
-needs to be addressed. Issues being fixed will not cause a delay.
+After one month the development branch will be renamed to
+``stable/MAJOR.MINOR``.  This process is not held up unless a crash or security
+issue has been found and needs to be addressed. Issues being fixed will not
+cause a delay.
 
 Bugfix releases are made as needed at 1 month intervals until the next
-MAJOR.MINOR relese branch is pulled. Depending on the severity of the bugs,
+``MAJOR.MINOR`` relese branch is pulled. Depending on the severity of the bugs,
 bugfix releases may occur sooner.
 
 Bugfixes are applied to the two most recent releases. Security fixes are
@@ -79,8 +104,7 @@ backported to all releases less than or equal to one year old. Security fixes
 may also be backported to older releases depending on severity.
 
 Changelog
-=========
-
+---------
 The changelog will be the base for the release notes. A changelog entry for
 your changes is usually not required and will be added based on your commit
 messages by the maintainers. However, you are free to include an update to the
@@ -92,24 +116,61 @@ Submitting Patches and Enhancements
 FRR accepts patches from two sources:
 
 - Email (git format-patch)
-- Github pull request
+- GitHub pull request
 
-Contributors are highly encouraged to use Github's fork-and-pr workflow. It is
-easier for us to review it, test it, try it and discuss it on Github than it is
-via email, thus your patch will get more attention more quickly on Github.
+Contributors are highly encouraged to use GitHub's fork-and-PR workflow. It is
+easier for us to review it, test it, try it and discuss it on GitHub than it is
+via email, thus your patch will get more attention more quickly on GitHub.
 
 The base branch for new contributions and non-critical bug fixes should be
 ``master``. Please ensure your pull request is based on this branch when you
 submit it.
 
+GitHub Pull Requests
+--------------------
+
+The preferred method of submitting changes is a GitHub pull request.  Code
+submitted by pull request will be automatically tested by one or more CI
+systems. Once the automated tests succeed, other developers will review your
+code for quality and correctness. After any concerns are resolved, your code
+will be merged into the branch it was submitted against.
+
+Patch Submission via Mailing List
+---------------------------------
+
+As an alternative submission method, a patch can be mailed to the
+development mailing list. Patches received on the mailing list will be
+picked up by Patchwork and tested against the latest development branch.
+
+The recommended way to send the patch (or series of NN patches) to the
+list is by using ``git send-email`` as follows (assuming they are the N
+most recent commit(s) in your git history)::
+
+    git send-email -NN --annotate --to=dev@lists.frrouting.org
+
+If your commits do not already contain a ``Signed-off-by`` line, then
+use the following command to add it (after making sure you agree to the
+Developer Certificate of Origin as outlined above)::
+
+    git send-email -NN --annotate --signoff --to=dev@lists.frrouting.org
+
+Submitting multi-commit patches as a GitHub pull request is **strongly
+encouraged** and increases the probability of your patch getting reviewed and
+merged in a timely manner.
+
+.. _license-for-contributions:
+
+License for Contributions
+-------------------------
+FRR is under a “GPLv2 or later” license. Any code submitted must be released
+under the same license (preferred) or any license which allows redistribution
+under this GPLv2 license (eg MIT License).
+
 Pre-submission Checklist
 ------------------------
-
 -  Format code (see `Code Formatting <#code-formatting>`__)
--  Verify and acknowledge license (see `License for
-   contributions <#license-for-contributions>`__)
--  Ensure you have properly signed off (see `Signing
-   Off <#signing-off>`__)
+-  Verify and acknowledge license (see :ref:`license-for-contributions`)
+-  Ensure you have properly signed off (see :ref:`signing-off`)
 -  Test building with various configurations:
 
    -  ``buildtest.sh``
@@ -122,119 +183,66 @@ Pre-submission Checklist
 
    -  ``make test``
 
--  Document Regression Runs and plans for continued maintenance of the
-   feature
+- In the case of a major new feature or other significant change, document
+  plans for continued maintenance of the feature
 
-License for contributions
--------------------------
-
-FRR is under a “GPLv2 or later” license. Any code submitted must
-be released under the same license (preferred) or any license which
-allows redistribution under this GPLv2 license (eg MIT License).
+.. _signing-off:
 
 Signing Off
 -----------
+Code submitted to FRR must be signed off. We have the same requirements for
+using the signed-off-by process as the Linux kernel. In short, you must include
+a ``Signed-off-by`` tag in every patch.
 
-Code submitted to FRR must be signed off. We have the same
-requirements for using the signed-off-by process as the Linux kernel. In
-short, you must include a signed-off-by tag in every patch.
+``Signed-off-by`` is a developer's certification that they have the right to
+submit the patch for inclusion into the project. It is an agreement to the
+:ref:`Developer's Certificate of Origin <developers-certificate-of-origin>`.
+Code without a proper ``Signed-off-by`` line cannot and will not be merged.
 
-``Signed-off-by:`` this is a developer's certification that he or she
-has the right to submit the patch for inclusion into the project. It is
-an agreement to the Developer's Certificate of Origin (below). Code
-without a proper signoff can not and will not be merged.
+If you are unfamiliar with this process, you should read the
+`official policy at kernel.org <https://www.kernel.org/doc/html/latest/process/submitting-patches.html>`_.
+You might also find
+`this article <http://www.linuxfoundation.org/content/how-participate-linux-community-0>`_
+about participating in the Linux community on the Linux Foundation website to
+be a helpful resource.
 
-If you are unfamiliar with this process, you should read the `official
-policy at
-kernel.org <https://www.kernel.org/doc/html/latest/process/submitting-patches.html>`__
-and you might find this article about `participating in the Linux
-community on the Linux Foundation
-website <http://www.linuxfoundation.org/content/how-participate-linux-community-0>`__
-to be a helpful resource.
+.. _developers-certificate-of-origin:
 
-In short, when you sign off on a commit, you assert your agreement to
-all of the following:
+In short, when you sign off on a commit, you assert your agreement to all of
+the following::
 
-::
+   Developer's Certificate of Origin 1.1
 
-    Developer's Certificate of Origin 1.1
+   By making a contribution to this project, I certify that:
 
-    By making a contribution to this project, I certify that:
+   (a) The contribution was created in whole or in part by me and I
+       have the right to submit it under the open source license
+       indicated in the file; or
 
-    (a) The contribution was created in whole or in part by me and I
-        have the right to submit it under the open source license
-        indicated in the file; or
+   (b) The contribution is based upon previous work that, to the best
+       of my knowledge, is covered under an appropriate open source
+       license and I have the right under that license to submit that
+       work with modifications, whether created in whole or in part by
+       me, under the same open source license (unless I am permitted to
+       submit under a different license), as indicated in the file; or
 
-    (b) The contribution is based upon previous work that, to the best
-        of my knowledge, is covered under an appropriate open source
-        license and I have the right under that license to submit that
-        work with modifications, whether created in whole or in part by
-        me, under the same open source license (unless I am permitted to
-        submit under a different license), as indicated in the file; or
+   (c) The contribution was provided directly to me by some other
+       person who certified (a), (b) or (c) and I have not modified it.
 
-    (c) The contribution was provided directly to me by some other
-        person who certified (a), (b) or (c) and I have not modified it.
+   (d) I understand and agree that this project and the contribution
+       are public and that a record of the contribution (including all
+       personal information I submit with it, including my sign-off) is
+       maintained indefinitely and may be redistributed consistent with
+       this project or the open source license(s) involved.
 
-    (d) I understand and agree that this project and the contribution
-        are public and that a record of the contribution (including all
-        personal information I submit with it, including my sign-off) is
-        maintained indefinitely and may be redistributed consistent with
-        this project or the open source license(s) involved.
-
-What do I submit my changes against?
-------------------------------------
-
-We've documented where we would like to have the different fixes applied
-at
-https://github.com/FRRouting/frr/wiki/Where-Do-I-create-a-Pull-Request-against%3F
-If you are unsure where your submission goes, look at that document or
-ask a project maintainer.
-
-Github pull requests
---------------------
-
-The preferred method of submitting changes is a Github pull request.
-Code submitted by pull request will be automatically tested by one or
-more CI systems. Once the automated tests succeed, other developers will
-review your code for quality and correctness. After any concerns are
-resolved, your code will be merged into the branch it was submitted
-against.
-
-Patch submission via mailing list
----------------------------------
-
-As an alternative submission method, a patch can be mailed to the
-development mailing list. Patches received on the mailing list will be
-picked up by Patchwork and tested against the latest development branch.
-
-The recommended way to send the patch (or series of NN patches) to the
-list is by using ``git send-email`` as follows (assuming they are the N
-most recent commit(s) in your git history:
-
-::
-
-    git send-email -NN --annotate --to=dev@lists.frrouting.org
-
-If your commits do not already contain a ``Signed-off-by`` line, then
-use the following command to add it (after making sure you agree to the
-Developer Certificate of Origin as outlined above):
-
-::
-
-    git send-email -NN --annotate --signoff --to=dev@lists.frrouting.org
-
-Submitting multi-commit patches as a Github pull request is **strongly
-encouraged** and increases the probability of your patch getting
-reviewed and merged in a timely manner.
-
-After submitting your changes
+After Submitting Your Changes
 -----------------------------
 
--  Watch for Continuous Integration (CI) Test results
+-  Watch for Continuous Integration (CI) test results
 
    -  You should automatically receive an email with the test results
       within less than 2 hrs of the submission. If you don’t get the
-      email, then check status on the Github pull request.
+      email, then check status on the GitHub pull request.
    -  Please notify the development mailing list if you think something
       doesn't work.
 
@@ -273,22 +281,6 @@ After submitting your changes
    community members.
 -  Your submission is done once it is merged to the master branch.
 
-Git Structure
-=============
-
-.. figure:: ../figures/git_branches.png
-   :align: center
-   :scale: 55%
-   :alt: Merging Git branches into a central trunk
-
-   Rough outline of FRR development workflow
-
-The master Git for FRR resides on `GitHub`_.
-
-There is one main branch for development, ``master``. For each major release
-(2.0, 3.0 etc) a new release branch is created based on the master. Subsequent
-point releases based on a major branch are marked by tagging.
-
 Programming Languages, Tools and Libraries
 ==========================================
 
@@ -308,7 +300,6 @@ Documentation should be written in reStructuredText. Sphinx extensions may be
 utilized but pure ReST is preferred where possible. See
 :ref:`documentation`.
 
-
 Coding Practices & Style
 ========================
 
@@ -316,30 +307,33 @@ Commit messages
 ---------------
 
 Commit messages should be formatted in the same way as Linux kernel
-commit messages. The format is roughly
-
-::
+commit messages. The format is roughly::
 
     dir: short summary
 
     extended summary
 
-``dir`` should be the top level source directory under which the change
-was made. For example, a change in bgpd/rfapi would be formatted as:::
+``dir`` should be the top level source directory under which the change was
+made. For example, a change in :file:`bgpd/rfapi` would be formatted as::
 
    bgpd: short summary
 
-The first line should be no longer than 50 characters. Subsequent lines
-should be wrapped to 72 characters.
+   ...
 
-Source file header
+The first line should be no longer than 50 characters. Subsequent lines should
+be wrapped to 72 characters.
+
+You must also sign off on your commit.
+
+.. seealso:: :ref:`signing-off`
+
+Source File Header
 ------------------
 
-New files need to have a Copyright header (see `License for
-contributions <#license-for-contributions>`__ above) added to the file.
-Preferred form of the header is as follows:
+New files must have a copyright header (see :ref:`license-for-contributions`
+above) added to the file. The header should be:
 
-::
+.. code-block:: c
 
     /*
      * Title/Function of file
@@ -362,25 +356,34 @@ Preferred form of the header is as follows:
 
     #include <zebra.h>
 
-Adding copyright claims to existing files
+Please copy-paste this header verbatim. In particular:
+
+- Do not replace "This program" with "FRR"
+- Do not change the address of the FSF
+
+Adding Copyright Claims to Existing Files
 -----------------------------------------
 
-When adding copyright claims for modifications to an existing file,
-please preface the claim with "Portions: " on a line before it and
-indent the "Copyright ..." string. If such a case already exists, add
-your indented claim immediately after. E.g.:
+When adding copyright claims for modifications to an existing file, please
+add a ``Portions:`` section as shown below. If this section already exists, add
+your new claim at the end of the list.
 
-::
+.. code-block:: c
 
-    Portions:
-      Copyright (C) 2010 Entity A ....
-      Copyright (C) 2016 Your name [optional brief change description]
+    /*
+     * Title/Function of file
+     * Copyright (C) YEAR  Author’s Name
+     * Portions:
+     *     Copyright (C) 2010 Entity A ....
+     *     Copyright (C) 2016 Your name [optional brief change description]
+     * ...
+     */
 
 Code Formatting
 ---------------
 
-FRR uses Linux kernel style except where noted below. Code which does
-not comply with these style guidelines will not be accepted.
+FRR uses Linux kernel style except where noted below. Code which does not
+comply with these style guidelines will not be accepted.
 
 The project provides multiple tools to allow you to correctly style your code
 as painlessly as possible, primarily built around ``clang-format``.
@@ -451,11 +454,9 @@ checkpatch.sh
    submission is highly recommended. The CI system runs this script as well and
    will comment on the PR with the results if style errors are found.
 
-   It is run like this:
+   It is run like this::
 
-   ::
-
-      checkpatch.sh <patch> <tree>
+      ./checkpatch.sh <patch> <tree>
 
    Reports are generated on ``stderr`` and the exit code indicates whether
    issues were found (2, 1) or not (0).
@@ -635,20 +636,19 @@ is preferred to
     frobnicate ();
     #endif /* SOME_SYMBOL */
 
-Note that the former approach requires ensuring that ``SOME_SYMBOL``
-will be defined (watch your ``AC_DEFINE``\ s).
+Note that the former approach requires ensuring that ``SOME_SYMBOL`` will be
+defined (watch your ``AC_DEFINE``\ s).
 
 Debug-guards in code
 --------------------
 
-Debugging statements are an important methodology to allow developers to
-fix issues found in the code after it has been released. The caveat here
-is that the developer must remember that people will be using the code
-at scale and in ways that can be unexpected for the original
-implementor. As such debugs **MUST** be guarded in such a way that they
-can be turned off. FRR has the ability to turn on/off debugs from the
-CLI and it is expected that the developer will use this convention to
-allow control of their debugs.
+Debugging statements are an important methodology to allow developers to fix
+issues found in the code after it has been released. The caveat here is that
+the developer must remember that people will be using the code at scale and in
+ways that can be unexpected for the original implementor. As such debugs
+**MUST** be guarded in such a way that they can be turned off. FRR has the
+ability to turn on/off debugs from the CLI and it is expected that the
+developer will use this convention to allow control of their debugs.
 
 Static Analysis and Sanitizers
 ------------------------------
@@ -704,53 +704,50 @@ members with Coverity access of newly introduced defects.
 CLI changes
 -----------
 
-CLI's are a complicated ugly beast. Additions or changes to the CLI
-should use a DEFUN to encapsulate one setting as much as is possible.
-Additionally as new DEFUN's are added to the system, documentation
-should be provided for the new commands.
+CLI's are a complicated ugly beast. Additions or changes to the CLI should use
+a DEFUN to encapsulate one setting as much as is possible.  Additionally as new
+DEFUN's are added to the system, documentation should be provided for the new
+commands.
 
 Backwards Compatibility
 -----------------------
 
-As a general principle, changes to CLI and code in the lib/ directory
-should be made in a backwards compatible fashion. This means that
-changes that are purely stylistic in nature should be avoided, e.g.,
-renaming an existing macro or library function name without any
-functional change. When adding new parameters to common functions, it is
-also good to consider if this too should be done in a backward
-compatible fashion, e.g., by preserving the old form in addition to
+As a general principle, changes to CLI and code in the lib/ directory should be
+made in a backwards compatible fashion. This means that changes that are purely
+stylistic in nature should be avoided, e.g., renaming an existing macro or
+library function name without any functional change. When adding new parameters
+to common functions, it is also good to consider if this too should be done in
+a backward compatible fashion, e.g., by preserving the old form in addition to
 adding the new form.
 
-This is not to say that minor or even major functional changes to CLI
-and common code should be avoided, but rather that the benefit gained
-from a change should be weighed against the added cost/complexity to
-existing code. Also, that when making such changes, it is good to
-preserve compatibility when possible to do so without introducing
-maintenance overhead/cost. It is also important to keep in mind,
-existing code includes code that may reside in private repositories (and
-is yet to be submitted) or code that has yet to be migrated from Quagga
-to FRR.
+This is not to say that minor or even major functional changes to CLI and
+common code should be avoided, but rather that the benefit gained from a change
+should be weighed against the added cost/complexity to existing code. Also,
+that when making such changes, it is good to preserve compatibility when
+possible to do so without introducing maintenance overhead/cost. It is also
+important to keep in mind, existing code includes code that may reside in
+private repositories (and is yet to be submitted) or code that has yet to be
+migrated from Quagga to FRR.
 
-That said, compatibility measures can (and should) be removed when
-either:
+That said, compatibility measures can (and should) be removed when either:
 
--  they become a significant burden, e.g. when data structures change
-   and the compatibility measure would need a complex adaptation layer
-   or becomes flat-out impossible
--  some measure of time (dependent on the specific case) has passed, so
-   that the compatibility grace period is considered expired.
+-  they become a significant burden, e.g. when data structures change and the
+   compatibility measure would need a complex adaptation layer or becomes
+   flat-out impossible
+-  some measure of time (dependent on the specific case) has passed, so that
+   the compatibility grace period is considered expired.
 
-In all cases, compatibility pieces should be marked with
-compiler/preprocessor annotations to print warnings at compile time,
-pointing to the appropriate update path. A ``-Werror`` build should fail
-if compatibility bits are used. To avoid compilation issues in released
-code, such compiler/preprocessor annotations must be ignored
-non-development branches. For example:
+In all cases, compatibility pieces should be marked with compiler/preprocessor
+annotations to print warnings at compile time, pointing to the appropriate
+update path. A ``-Werror`` build should fail if compatibility bits are used. To
+avoid compilation issues in released code, such compiler/preprocessor
+annotations must be ignored non-development branches. For example:
 
-    #if defined(VERSION_TYPE_DEV) && CONFDATE > 20180403
-    CPP_NOTICE("Use of <XYZ> is deprecated, please use <ABC>")
-    #endif
+.. code-block:: c
 
+   #if defined(VERSION_TYPE_DEV) && CONFDATE > 20180403
+   CPP_NOTICE("Use of <XYZ> is deprecated, please use <ABC>")
+   #endif
 
 Preferably, the shell script :file:`tools/fixup-deprecated.py` will be
 updated along with making non-backwards compatible code changes, or an
@@ -762,8 +759,8 @@ changes, just internal code, macros and libraries.
 Miscellaneous
 -------------
 
-When in doubt, follow the guidelines in the Linux kernel style guide, or
-ask on the development mailing list / public Slack instance.
+When in doubt, follow the guidelines in the Linux kernel style guide, or ask on
+the development mailing list / public Slack instance.
 
 
 .. _documentation:
@@ -859,14 +856,19 @@ Some specific guidelines that contributors should follow are:
      /*
       * Determines whether or not a string is cool.
       *
-      * @param text - the string to check for coolness
-      * @param is_clccfc - whether capslock is cruise control for cool
-      * @return 7 if the text is cool, 0 otherwise
+      * text
+      *    the string to check for coolness
+      *
+      * is_clccfc
+      *    whether capslock is cruise control for cool
+      *
+      * Returns:
+      *    7 if the text is cool, 0 otherwise
       */
      int check_coolness(const char *text, bool is_clccfc);
 
-  The Javadoc-style annotations are not required, but you should still strive
-  to make it equally clear what parameters and return values are used for.
+  Function comments should make it clear what parameters and return values are
+  used for.
 
 - Static functions should have descriptive comments in the same form as above
   if what they do is not immediately obvious. Use good engineering judgement
