@@ -12,7 +12,10 @@
 
 #include "vector.h"
 #include "thread.h"
+#include "lib_errors.h"
+
 #include "nhrpd.h"
+#include "nhrp_errors.h"
 
 struct resolver_state {
 	ares_channel channel;
@@ -191,9 +194,9 @@ void resolver_resolve(struct resolver_query *query, int af,
 				       union sockunion *))
 {
 	if (query->callback != NULL) {
-		zlog_err(
-			"Trying to resolve '%s', but previous query was not finished yet",
-			hostname);
+		zlog_ferr(NHRP_ERR_RESOLVER,
+			  "Trying to resolve '%s', but previous query was not finished yet",
+			  hostname);
 		return;
 	}
 
