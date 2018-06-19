@@ -6282,7 +6282,6 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 		prefix2str(p, buf, PREFIX_STRLEN);
 		len = vty_out(vty, "%s", buf);
 	} else if (p->family == AF_EVPN) {
-#if defined(HAVE_CUMULUS)
 		if (!json)
 			len = vty_out(
 				vty, "%s",
@@ -6290,10 +6289,6 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 						   BUFSIZ));
 		else
 			bgp_evpn_route2json((struct prefix_evpn *)p, json);
-#else
-		prefix2str(p, buf, PREFIX_STRLEN);
-		len = vty_out(vty, "%s", buf);
-#endif
 	} else if (p->family == AF_FLOWSPEC) {
 		route_vty_out_flowspec(vty, p, NULL,
 			       json ?
@@ -7301,9 +7296,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 {
 	char buf[INET6_ADDRSTRLEN];
 	char buf1[BUFSIZ];
-#if defined(HAVE_CUMULUS)
 	char buf2[EVPN_ROUTE_STRLEN];
-#endif
 	struct attr *attr;
 	int sockunion_vty_out(struct vty *, union sockunion *);
 	time_t tbuf;
@@ -7336,7 +7329,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		json_nexthop_global = json_object_new_object();
 	}
 
-#if defined(HAVE_CUMULUS)
 	if (!json_paths && safi == SAFI_EVPN) {
 		char tag_buf[30];
 
@@ -7366,7 +7358,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			}
 		}
 	}
-#endif
 
 	attr = binfo->attr;
 
@@ -8020,12 +8011,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			bgp_damp_info_vty(vty, binfo, json_path);
 
 /* Remote Label */
-#if defined(HAVE_CUMULUS)
 		if (binfo->extra && bgp_is_valid_label(&binfo->extra->label[0])
 		    && safi != SAFI_EVPN)
-#else
-		if (binfo->extra && bgp_is_valid_label(&binfo->extra->label[0]))
-#endif
 		{
 			mpls_label_t label =
 				label_pton(&binfo->extra->label[0]);
@@ -8597,9 +8584,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	struct listnode *node, *nnode;
 	char buf1[RD_ADDRSTRLEN];
 	char buf2[INET6_ADDRSTRLEN];
-#if defined(HAVE_CUMULUS)
 	char buf3[EVPN_ROUTE_STRLEN];
-#endif
 	char prefix_str[BUFSIZ];
 	int count = 0;
 	int best = 0;
@@ -8626,7 +8611,6 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			json, "prefix",
 			prefix2str(p, prefix_str, sizeof(prefix_str)));
 	} else {
-#if defined(HAVE_CUMULUS)
 		if (safi == SAFI_EVPN)
 			vty_out(vty, "BGP routing table entry for %s%s%s\n",
 				prd ? prefix_rd2str(prd, buf1, sizeof(buf1))
@@ -8644,29 +8628,10 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				inet_ntop(p->family, &p->u.prefix, buf2,
 					  INET6_ADDRSTRLEN),
 				p->prefixlen);
-#else
-		if (p->family == AF_ETHERNET)
-			prefix2str(p, buf2, INET6_ADDRSTRLEN);
-		else
-			inet_ntop(p->family, &p->u.prefix, buf2,
-				  INET6_ADDRSTRLEN);
-		vty_out(vty, "BGP routing table entry for %s%s%s/%d\n",
-			((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
-			  || safi == SAFI_EVPN)
-				 ? prefix_rd2str(prd, buf1, sizeof(buf1))
-				 : ""),
-			((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN)) ? ":"
-									 : "",
-			buf2, p->prefixlen);
-#endif
 
 		if (has_valid_label)
 			vty_out(vty, "Local label: %d\n", label);
-#if defined(HAVE_CUMULUS)
 		if (bgp_labeled_safi(safi) && safi != SAFI_EVPN)
-#else
-		if (bgp_labeled_safi(safi))
-#endif
 			vty_out(vty, "not allocated\n");
 	}
 

@@ -52,7 +52,6 @@ struct vni_walk_ctx {
 	json_object *json;
 };
 
-#if defined(HAVE_CUMULUS)
 static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
 				  json_object *json)
 {
@@ -980,7 +979,6 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 		vty_out(vty, "\n");
 	}
 }
-#endif /* HAVE_CUMULUS */
 
 static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 				 enum bgp_show_type type, void *output_arg,
@@ -1635,8 +1633,6 @@ DEFUN(no_evpnrt5_network,
 		BGP_EVPN_IP_PREFIX_ROUTE, argv[idx_esi]->arg,
 		argv[idx_gwip]->arg, argv[idx_ethtag]->arg);
 }
-
-#if defined(HAVE_CUMULUS)
 
 static void evpn_import_rt_delete_auto(struct bgp *bgp, struct bgpevpn *vpn)
 {
@@ -2752,7 +2748,6 @@ static void evpn_unset_advertise_autort_rfc8365(struct bgp *bgp)
 	bgp->advertise_autort_rfc8365 = 0;
 	bgp_evpn_handle_autort_change(bgp);
 }
-#endif /* HAVE_CUMULUS */
 
 static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 {
@@ -2799,7 +2794,6 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 	}
 }
 
-#if defined(HAVE_CUMULUS)
 DEFUN (bgp_evpn_advertise_default_gw_vni,
        bgp_evpn_advertise_default_gw_vni_cmd,
        "advertise-default-gw",
@@ -3904,7 +3898,6 @@ DEFUN(show_bgp_l2vpn_evpn_import_rt,
 	return CMD_SUCCESS;
 }
 
-#if defined(HAVE_CUMULUS)
 DEFUN(test_adv_evpn_type4_route,
       test_adv_evpn_type4_route_cmd,
       "advertise es ESI",
@@ -4064,7 +4057,6 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_all, show_bgp_evpn_route_vni_all_cmd,
 ALIAS_HIDDEN(show_bgp_l2vpn_evpn_import_rt, show_bgp_evpn_import_rt_cmd,
 	     "show bgp evpn import-rt",
 	     SHOW_STR BGP_STR EVPN_HELP_STR "Show import route target\n")
-#endif
 
 DEFUN_NOSH (bgp_evpn_vni,
             bgp_evpn_vni_cmd,
@@ -4841,7 +4833,6 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
 		evpn_unconfigure_export_rt(bgp, vpn, NULL);
 	return CMD_SUCCESS;
 }
-#endif
 
 static int vni_cmp(const void **a, const void **b)
 {
@@ -4961,7 +4952,6 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_overlay_cmd);
 	install_element(BGP_EVPN_NODE, &no_evpnrt5_network_cmd);
 	install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
-#if defined(HAVE_CUMULUS)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_all_vni_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_autort_rfc8365_cmd);
@@ -5027,5 +5017,4 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_advertise_vni_subnet_cmd);
 	install_element(BGP_EVPN_VNI_NODE,
 			&no_bgp_evpn_advertise_vni_subnet_cmd);
-#endif
 }
