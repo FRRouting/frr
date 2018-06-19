@@ -757,7 +757,6 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	prefixes = nbr->nbr_gr_prefixes_send;
 
 	send_prefixes = 0;
-	length = EIGRP_HEADER_LEN;
 
 	/* if there already were last packet chunk, we won't continue */
 	if (nbr->nbr_gr_packet_type == EIGRP_PACKET_PART_LAST)
