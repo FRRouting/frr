@@ -1081,6 +1081,11 @@ static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
 		vty_out(vty, "\t tcpflags [%s/%s]\n",
 			tcp_flag_str, tcp_flag_mask_str);
 	}
+	if (iptable->filter_bm & (MATCH_DSCP_SET | MATCH_DSCP_INVERSE_SET)) {
+		vty_out(vty, "\t dscp %s %d\n",
+			iptable->filter_bm & MATCH_DSCP_INVERSE_SET ?
+			"not" : "", iptable->dscp_value);
+	}
 	ret = hook_call(zebra_pbr_iptable_wrap_script_get_stat,
 			zns, iptable, &pkts, &bytes);
 	if (ret && pkts > 0)
