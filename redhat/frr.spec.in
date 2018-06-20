@@ -569,7 +569,6 @@ fi
 %if %{with_babeld}
     %{_sbindir}/babeld
 %endif
-%{_libdir}/lib*.so
 %{_libdir}/lib*.so.0
 %attr(755,root,root) %{_libdir}/lib*.so.0.*
 %if %{with_fpm}
@@ -601,6 +600,7 @@ fi
 %{_sbindir}/frr-reload.pyo
 
 %files devel
+%{_libdir}/lib*.so
 %if %{with_ospfclient}
     %{_sbindir}/ospfclient
 %endif
