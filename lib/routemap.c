@@ -781,7 +781,7 @@ int route_map_mark_updated(const char *name)
 	return (ret);
 }
 
-int route_map_clear_updated(struct route_map *map)
+static int route_map_clear_updated(struct route_map *map)
 {
 	int ret = -1;
 
