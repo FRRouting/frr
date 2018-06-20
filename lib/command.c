@@ -261,8 +261,11 @@ void print_version(const char *progname)
 
 char *argv_concat(struct cmd_token **argv, int argc, int shift)
 {
-	int cnt = argc - shift;
-	const char *argstr[cnt];
+	int cnt = MAX(argc - shift, 0);
+	const char *argstr[cnt + 1];
+
+	if (!cnt)
+		return NULL;
 
 	for (int i = 0; i < cnt; i++)
 		argstr[i] = argv[i + shift]->arg;
