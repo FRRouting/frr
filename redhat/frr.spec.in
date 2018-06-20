@@ -184,6 +184,7 @@ Provides:           routingdaemon = %{version}-%{release}
 Obsoletes:          gated mrt zebra frr-sysvinit
 Conflicts:          bird
 
+
 %description
 FRRouting is a free software that manages TCP/IP based routing
 protocol. It takes multi-server and multi-thread approach to resolve
@@ -194,12 +195,14 @@ NHRP, Babel, PBR and EIGRP.
 
 FRRouting is a fork of Quagga.
 
+
 %package contrib
 Summary: contrib tools for frr
 Group: System Environment/Daemons
 
 %description contrib
 Contributed/3rd party tools which may be of use with frr.
+
 
 %package pythontools
 Summary: python tools for frr
@@ -210,6 +213,7 @@ Group: System Environment/Daemons
 %description pythontools
 Contributed python 2.7 tools which may be of use with frr.
 
+
 %package devel
 Summary: Header and object files for frr development
 Group: System Environment/Daemons
@@ -219,8 +223,10 @@ Requires: %{name} = %{version}-%{release}
 The frr-devel package contains the header and object files neccessary for
 developing OSPF-API and frr applications.
 
+
 %prep
 %setup -q -n frr-%{frrversion}
+
 
 %build
 
@@ -331,6 +337,7 @@ pushd doc
 make SPHINXBUILD=%{sphinx} info
 popd
 
+
 %install
 mkdir -p %{buildroot}%{_sysconfdir}/{frr,sysconfig,logrotate.d,pam.d,default} \
          %{buildroot}/var/log/frr %{buildroot}%{_infodir}
@@ -361,6 +368,7 @@ install %{zeb_rh_src}/daemons %{buildroot}%{_sysconfdir}/frr
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
+
 
 %pre
 # add vty_group
@@ -486,6 +494,7 @@ if [ ! -e %{configdir}/vtysh.conf ]; then
 %endif
 fi
 
+
 %postun
 if [ "$1" -ge 1 ]; then
     #
@@ -505,6 +514,7 @@ if [ "$1" -ge 1 ]; then
     :
 fi
 
+
 %preun
 %if "%{initsystem}" == "systemd"
     ##
@@ -523,6 +533,7 @@ fi
     fi
 %endif
 /sbin/install-info --delete %{_infodir}/frr.info.gz %{_infodir}/dir
+
 
 %files
 %doc */*.sample* AUTHORS COPYING
@@ -593,13 +604,16 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/frr
 %{_sbindir}/frr-reload
 
+
 %files contrib
 %doc tools
+
 
 %files pythontools
 %{_sbindir}/frr-reload.py
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
+
 
 %files devel
 %{_libdir}/lib*.so
@@ -618,6 +632,7 @@ fi
     %dir %attr(755,root,root) %{_includedir}/%{name}/eigrpd
     %{_includedir}/%name/eigrpd/*.h
 %endif
+
 
 %changelog
 * Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
