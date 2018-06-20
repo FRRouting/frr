@@ -501,7 +501,7 @@ if [ "$1" -ge 1 ]; then
         ##
         ## init.d Version
         ##
-        /etc/rc.d/init.d/frr restart >/dev/null 2>&1
+        service frr restart >/dev/null 2>&1
     %endif
     :
 fi
@@ -519,7 +519,7 @@ fi
     ## init.d Version
     ##
     if [ $1 -eq 0 ] ; then
-        /etc/rc.d/init.d/frr stop  >/dev/null 2>&1
+        service frr stop  >/dev/null 2>&1
         /sbin/chkconfig --del frr
     fi
 %endif
