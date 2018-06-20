@@ -516,12 +516,13 @@ static void unset_sr_node_msd(void)
 	TLV_LEN(OspfRI.sr_info.msd) = htons(0);
 }
 
-static void unset_param(struct tlv_header *tlv)
+static void unset_param(void *tlv_buffer)
 {
+	struct tlv_header *tlv = (struct tlv_header *)tlv_buffer;
 
 	tlv->type = 0;
 	/* Fill the Value to 0 */
-	memset(TLV_DATA(tlv), 0, TLV_BODY_SIZE(tlv));
+	memset(TLV_DATA(tlv_buffer), 0, TLV_BODY_SIZE(tlv));
 	tlv->length = 0;
 
 	return;
@@ -1571,7 +1572,7 @@ DEFUN (no_pce_address,
        "PCE address in IPv4 address format\n")
 {
 
-	unset_param(&OspfRI.pce_info.pce_address.header);
+	unset_param(&OspfRI.pce_info.pce_address);
 
 	/* Refresh RI LSA if already engaged */
 	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
@@ -1621,7 +1622,7 @@ DEFUN (no_pce_path_scope,
        "32-bit Hexadecimal value\n")
 {
 
-	unset_param(&OspfRI.pce_info.pce_address.header);
+	unset_param(&OspfRI.pce_info.pce_address);
 
 	/* Refresh RI LSA if already engaged */
 	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
@@ -1810,7 +1811,7 @@ DEFUN (no_pce_cap_flag,
        "Disable PCE capabilities\n")
 {
 
-	unset_param(&OspfRI.pce_info.pce_cap_flag.header);
+	unset_param(&OspfRI.pce_info.pce_cap_flag);
 
 	/* Refresh RI LSA if already engaged */
 	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
