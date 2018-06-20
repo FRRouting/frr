@@ -83,48 +83,48 @@
 %{!?frr_gid:            %global  frr_gid            92 }
 %{!?vty_gid:            %global  vty_gid            85 }
 
-%define     daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd
+%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd
 
 %if %{with_ldpd}
-%define daemon_ldpd ldpd
+    %define daemon_ldpd ldpd
 %else
-%define daemon_ldpd ""
+    %define daemon_ldpd ""
 %endif
 
 %if %{with_pimd}
-%define daemon_pimd pimd
+    %define daemon_pimd pimd
 %else
-%define daemon_pimd ""
+    %define daemon_pimd ""
 %endif
 
 %if %{with_pbrd}
-%define daemon_pbrd pbrd
+    %define daemon_pbrd pbrd
 %else
-%define daemon_pbrd ""
+    %define daemon_pbrd ""
 %endif
 
 %if %{with_nhrpd}
-%define daemon_nhrpd nhrpd
+    %define daemon_nhrpd nhrpd
 %else
-%define daemon_nhrpd ""
+    %define daemon_nhrpd ""
 %endif
 
 %if %{with_eigrpd}
-%define daemon_eigrpd eigrpd
+    %define daemon_eigrpd eigrpd
 %else
-%define daemon_eigrpd ""
+    %define daemon_eigrpd ""
 %endif
 
 %if %{with_babeld}
-%define daemon_babeld babeld
+    %define daemon_babeld babeld
 %else
-%define daemon_babeld ""
+    %define daemon_babeld ""
 %endif
 
 %if %{with_watchfrr}
-%define daemon_watchfrr watchfrr
+    %define daemon_watchfrr watchfrr
 %else
-%define daemon_watchfrr ""
+    %define daemon_watchfrr ""
 %endif
 
 %define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd}
@@ -214,7 +214,7 @@ The frr-devel package contains the header and object files neccessary for
 developing OSPF-API and frr applications.
 
 %prep
-%setup  -q -n frr-%{frrversion}
+%setup -q -n frr-%{frrversion}
 
 %build
 
@@ -344,45 +344,39 @@ rm -f %{buildroot}%{_libdir}/frr/modules/*.la
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
-install -m644 %{zeb_rh_src}/frr.service \
-    %{buildroot}%{_unitdir}/frr.service
-install %{zeb_rh_src}/frr.init \
-    %{buildroot}%{_sbindir}/frr
+install -m644 %{zeb_rh_src}/frr.service %{buildroot}%{_unitdir}/frr.service
+install %{zeb_rh_src}/frr.init %{buildroot}%{_sbindir}/frr
 %else
 mkdir -p %{buildroot}%{_initddir}
-install %{zeb_rh_src}/frr.init \
-    %{buildroot}%{_sbindir}/frr
-ln -s %{_sbindir}/frr \
-    %{buildroot}%{_initddir}/frr
+install %{zeb_rh_src}/frr.init %{buildroot}%{_sbindir}/frr
+ln -s %{_sbindir}/frr %{buildroot}%{_initddir}/frr
 %endif
 
 install %{zeb_rh_src}/daemons %{buildroot}%{_sysconfdir}/frr
-install -m644 %{zeb_rh_src}/frr.pam \
-    %{buildroot}%{_sysconfdir}/pam.d/frr
-install -m644 %{zeb_rh_src}/frr.logrotate \
-    %{buildroot}%{_sysconfdir}/logrotate.d/frr
-install -d -m750  %{buildroot}%{rundir}
+install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
+install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
+install -d -m750 %{buildroot}%{rundir}
 
 %pre
 # add vty_group
 %if 0%{?vty_group:1}
 if getent group %vty_group > /dev/null ; then : ; else \
- /usr/sbin/groupadd -r -g %vty_gid %vty_group > /dev/null || : ; fi
+    /usr/sbin/groupadd -r -g %vty_gid %vty_group > /dev/null || : ; fi
 %endif
 
 # add frr user and group
 %if 0%{?frr_user:1}
 # Ensure that frr_gid gets correctly allocated
 if getent group %frr_user >/dev/null; then : ; else \
- /usr/sbin/groupadd -g %frr_gid %frr_user > /dev/null || : ; \
+    /usr/sbin/groupadd -g %frr_gid %frr_user > /dev/null || : ; \
 fi
 if getent passwd %frr_user >/dev/null ; then : ; else \
- /usr/sbin/useradd  -u %frr_uid -g %frr_gid \
-  -M -r -s /sbin/nologin -c "FRRouting suite" \
-  -d %{rundir} %frr_user 2> /dev/null || : ; \
+    /usr/sbin/useradd  -u %frr_uid -g %frr_gid \
+        -M -r -s /sbin/nologin -c "FRRouting suite" \
+        -d %{rundir} %frr_user 2> /dev/null || : ; \
 fi
 %if 0%{?vty_group:1}
-/usr/sbin/usermod -a -G %vty_group %frr_user
+    /usr/sbin/usermod -a -G %vty_group %frr_user
 %endif
 %endif
 
@@ -407,35 +401,35 @@ zebra_spec_add_service ripngd   2603/tcp "RIPngd vty"
 zebra_spec_add_service ospfd    2604/tcp "OSPFd vty"
 zebra_spec_add_service bgpd     2605/tcp "BGPd vty"
 zebra_spec_add_service ospf6d   2606/tcp "OSPF6d vty"
-%if %{with_ospfapi}
-zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
-%endif
 zebra_spec_add_service isisd    2608/tcp "ISISd vty"
+%if %{with_ospfapi}
+    zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
+%endif
 %if %{with_babeld}
-zebra_spec_add_service babeld   2609/tcp "BABELd vty"
+    zebra_spec_add_service babeld   2609/tcp "BABELd vty"
 %endif
 %if %{with_nhrpd}
-zebra_spec_add_service nhrpd    2610/tcp "NHRPd vty"
+    zebra_spec_add_service nhrpd    2610/tcp "NHRPd vty"
 %endif
 %if %{with_pimd}
-zebra_spec_add_service pimd     2611/tcp "PIMd vty"
+    zebra_spec_add_service pimd     2611/tcp "PIMd vty"
 %endif
 %if %{with_pbrd}
-zebra_spec_add_service pbrd     2615/tcp "PBRd vty"
+    zebra_spec_add_service pbrd     2615/tcp "PBRd vty"
 %endif
 %if %{with_ldpd}
-zebra_spec_add_service ldpd     2612/tcp "LDPd vty"
+    zebra_spec_add_service ldpd     2612/tcp "LDPd vty"
 %endif
 %if %{with_eigrpd}
-zebra_spec_add_service eigrpd   2613/tcp "EIGRPd vty"
+    zebra_spec_add_service eigrpd   2613/tcp "EIGRPd vty"
 %endif
 
 %if "%{initsystem}" == "systemd"
-for daemon in %all_daemons ; do
-    %systemd_post frr.service
-done
+    for daemon in %all_daemons ; do
+        %systemd_post frr.service
+    done
 %else
-/sbin/chkconfig --add frr
+    /sbin/chkconfig --add frr
 %endif
 
 # Fix bad path in previous config files
@@ -481,9 +475,9 @@ if [ ! -e %{configdir}/vtysh.conf ]; then
     touch %{configdir}/vtysh.conf
     chmod 640 %{configdir}/vtysh.conf
 %if 0%{?frr_user:1}
-%if 0%{?vty_group:1}
-    chown %{frr_user}:%{vty_group} %{configdir}/vtysh.conf*
-%endif
+    %if 0%{?vty_group:1}
+        chown %{frr_user}:%{vty_group} %{configdir}/vtysh.conf*
+    %endif
 %endif
 fi
 
@@ -527,7 +521,7 @@ fi
 
 %clean
 %if !0%{?keep_build:1}
-rm -rf %{buildroot}
+    rm -rf %{buildroot}
 %endif
 
 %files
@@ -536,16 +530,16 @@ rm -rf %{buildroot}
 %doc doc/mpls
 %doc ChangeLog NEWS README
 %if 0%{?frr_user:1}
-%dir %attr(751,%frr_user,%frr_user) %{configdir}
-%dir %attr(750,%frr_user,%frr_user) /var/log/frr
-%dir %attr(751,%frr_user,%frr_user) %{rundir}
+    %dir %attr(751,%frr_user,%frr_user) %{configdir}
+    %dir %attr(750,%frr_user,%frr_user) /var/log/frr
+    %dir %attr(751,%frr_user,%frr_user) %{rundir}
 %else
-%dir %attr(750,root,root) %{configdir}
-%dir %attr(750,root,root) /var/log/frr
-%dir %attr(750,root,root) %{rundir}
+    %dir %attr(750,root,root) %{configdir}
+    %dir %attr(750,root,root) /var/log/frr
+    %dir %attr(750,root,root) %{rundir}
 %endif
 %if 0%{?vty_group:1}
-%attr(750,%frr_user,%vty_group) %{configdir}/vtysh.conf.sample
+    %attr(750,%frr_user,%vty_group) %{configdir}/vtysh.conf.sample
 %endif
 %{_infodir}/frr.info.gz
 %{_mandir}/man*/*
@@ -579,15 +573,15 @@ rm -rf %{buildroot}
     %{_sbindir}/babeld
 %endif
 %if %{with_shared}
-%{_libdir}/lib*.so
-%{_libdir}/lib*.so.0
-%attr(755,root,root) %{_libdir}/lib*.so.0.*
+    %{_libdir}/lib*.so
+    %{_libdir}/lib*.so.0
+    %attr(755,root,root) %{_libdir}/lib*.so.0.*
 %endif
 %if %{with_fpm}
-%attr(755,root,root) %{_libdir}/frr/modules/zebra_fpm.so
+    %attr(755,root,root) %{_libdir}/frr/modules/zebra_fpm.so
 %endif
 %if %{with_rpki}
-%attr(755,root,root) %{_libdir}/frr/modules/bgpd_rpki.so
+    %attr(755,root,root) %{_libdir}/frr/modules/bgpd_rpki.so
 %endif
 %attr(755,root,root) %{_libdir}/frr/modules/zebra_irdp.so
 %{_bindir}/*
@@ -616,7 +610,7 @@ rm -rf %{buildroot}
 %files devel
 %defattr(-,root,root)
 %if %{with_ospfclient}
-%{_sbindir}/ospfclient
+    %{_sbindir}/ospfclient
 %endif
 %{_libdir}/*.a
 %{_libdir}/*.la
@@ -625,12 +619,12 @@ rm -rf %{buildroot}
 %dir %attr(755,root,root) %{_includedir}/%{name}/ospfd
 %{_includedir}/%name/ospfd/*.h
 %if %{with_ospfapi}
-%dir %attr(755,root,root) %{_includedir}/%{name}/ospfapi
-%{_includedir}/%name/ospfapi/*.h
+    %dir %attr(755,root,root) %{_includedir}/%{name}/ospfapi
+    %{_includedir}/%name/ospfapi/*.h
 %endif
 %if %{with_eigrpd}
-%dir %attr(755,root,root) %{_includedir}/%{name}/eigrpd
-%{_includedir}/%name/eigrpd/*.h
+    %dir %attr(755,root,root) %{_includedir}/%{name}/eigrpd
+    %{_includedir}/%name/eigrpd/*.h
 %endif
 
 %changelog
