@@ -609,6 +609,7 @@ static struct list *disambiguate(struct list *first, struct list *second,
 				 vector vline, unsigned int n)
 {
 	// doesn't make sense for these to be inequal length
+	assert(first && second);
 	assert(first->count == second->count);
 	assert(first->count == vector_active(vline) - n + 1);
 
