@@ -1741,6 +1741,8 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 	struct ospf_lsa *new = NULL;
 	struct ospf *ospf;
 
+	assert(lsa);
+
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	assert(ospf);
 
