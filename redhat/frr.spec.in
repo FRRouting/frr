@@ -583,14 +583,14 @@ fi
     %{_sbindir}/babeld
 %endif
 %{_libdir}/lib*.so.0
-%attr(755,root,root) %{_libdir}/lib*.so.0.*
+%{_libdir}/lib*.so.0.*
 %if %{with_fpm}
-    %attr(755,root,root) %{_libdir}/frr/modules/zebra_fpm.so
+    %{_libdir}/frr/modules/zebra_fpm.so
 %endif
 %if %{with_rpki}
-    %attr(755,root,root) %{_libdir}/frr/modules/bgpd_rpki.so
+    %{_libdir}/frr/modules/bgpd_rpki.so
 %endif
-%attr(755,root,root) %{_libdir}/frr/modules/zebra_irdp.so
+%{_libdir}/frr/modules/zebra_irdp.so
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
@@ -620,16 +620,16 @@ fi
 %if %{with_ospfclient}
     %{_sbindir}/ospfclient
 %endif
-%dir %attr(755,root,root) %{_includedir}/%{name}
+%dir %{_includedir}/%{name}
 %{_includedir}/%name/*.h
-%dir %attr(755,root,root) %{_includedir}/%{name}/ospfd
+%dir %{_includedir}/%{name}/ospfd
 %{_includedir}/%name/ospfd/*.h
 %if %{with_ospfapi}
-    %dir %attr(755,root,root) %{_includedir}/%{name}/ospfapi
+    %dir %{_includedir}/%{name}/ospfapi
     %{_includedir}/%name/ospfapi/*.h
 %endif
 %if %{with_eigrpd}
-    %dir %attr(755,root,root) %{_includedir}/%{name}/eigrpd
+    %dir %{_includedir}/%{name}/eigrpd
     %{_includedir}/%name/eigrpd/*.h
 %endif
 
