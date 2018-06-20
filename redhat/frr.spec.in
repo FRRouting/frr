@@ -142,6 +142,7 @@ License:        GPLv2+
 Group:          System Environment/Daemons
 Source0:        https://github.com/FRRouting/frr/archive/%{name}-%{frrversion}.tar.gz
 URL:            https://www.frrouting.org
+Requires(pre):  shadow-utils
 Requires(preun): info
 Requires(post): info
 BuildRequires:  bison >= 2.7
@@ -377,25 +378,23 @@ install -d -m750 %{buildroot}%{rundir}
 %pre
 # add vty_group
 %if 0%{?vty_group:1}
-if getent group %{vty_group} > /dev/null ; then : ; else \
-    /usr/sbin/groupadd -r -g %vty_gid %{vty_group} > /dev/null || : ; fi
+    getent group %{vty_group} >/dev/null || groupadd -r -g %{vty_gid} %{vty_group}
 %endif
 
 # add frr user and group
 %if 0%{?frr_user:1}
-# Ensure that frr_gid gets correctly allocated
-if getent group %{frr_user} >/dev/null; then : ; else \
-    /usr/sbin/groupadd -g %frr_gid %{frr_user} > /dev/null || : ; \
-fi
-if getent passwd %{frr_user} >/dev/null ; then : ; else \
-    /usr/sbin/useradd  -u %frr_uid -g %frr_gid \
-        -M -r -s /sbin/nologin -c "FRRouting suite" \
-        -d %{rundir} %{frr_user} 2> /dev/null || : ; \
-fi
-%if 0%{?vty_group:1}
-    /usr/sbin/usermod -a -G %{vty_group} %{frr_user}
+    # Ensure that frr_gid gets correctly allocated
+    getent group %{frr_user} >/dev/null || groupadd -g %{frr_gid} %{frr_user}
+    getent passwd %{frr_user} >/dev/null || \
+    useradd -r -u %{frr_uid} -g %{frr_user} \
+        -s /sbin/nologin -c "FRRouting suite" \
+        -d %{rundir} %{frr_user}
+
+    %if 0%{?vty_group:1}
+        usermod -a -G %{vty_group} %{frr_user}
+    %endif
 %endif
-%endif
+exit 0
 
 
 %post
