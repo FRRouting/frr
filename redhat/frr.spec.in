@@ -340,7 +340,7 @@ popd
 
 %install
 mkdir -p %{buildroot}%{_sysconfdir}/{frr,sysconfig,logrotate.d,pam.d,default} \
-         %{buildroot}/var/log/frr %{buildroot}%{_infodir}
+         %{buildroot}%{_localstatedir}/log/frr %{buildroot}%{_infodir}
 make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" SPHINXBUILD=%{sphinx} install
 
 # Remove this file, as it is uninstalled and causes errors when building on RH9
@@ -541,11 +541,11 @@ fi
 %doc ChangeLog NEWS README
 %if 0%{?frr_user:1}
     %dir %attr(751,%{frr_user},%{frr_user}) %{configdir}
-    %dir %attr(750,%{frr_user},%{frr_user}) /var/log/frr
+    %dir %attr(750,%{frr_user},%{frr_user}) %{_localstatedir}/log/frr
     %dir %attr(751,%{frr_user},%{frr_user}) %{rundir}
 %else
     %dir %attr(750,root,root) %{configdir}
-    %dir %attr(750,root,root) /var/log/frr
+    %dir %attr(750,root,root) %{_localstatedir}/log/frr
     %dir %attr(750,root,root) %{rundir}
 %endif
 %if 0%{?vty_group:1}
