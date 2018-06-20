@@ -525,7 +525,6 @@ fi
 /sbin/install-info --delete %{_infodir}/frr.info.gz %{_infodir}/dir
 
 %files
-%defattr(-,root,root)
 %doc */*.sample* AUTHORS COPYING
 %doc doc/mpls
 %doc ChangeLog NEWS README
@@ -598,17 +597,14 @@ fi
 %{_sbindir}/frr-reload
 
 %files contrib
-%defattr(-,root,root)
 %doc tools
 
 %files pythontools
-%defattr(-,root,root)
 %{_sbindir}/frr-reload.py
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
 
 %files devel
-%defattr(-,root,root)
 %if %{with_ospfclient}
     %{_sbindir}/ospfclient
 %endif
