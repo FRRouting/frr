@@ -2943,6 +2943,7 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 	STREAM_GETW(s, zpi.tcp_flags);
 	STREAM_GETW(s, zpi.tcp_mask_flags);
 	STREAM_GETC(s, zpi.dscp_value);
+	STREAM_GETC(s, zpi.fragment);
 	STREAM_GETL(s, zpi.nb_interface);
 	zebra_pbr_iptable_update_interfacelist(s, &zpi);
 

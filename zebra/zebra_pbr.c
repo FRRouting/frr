@@ -93,6 +93,14 @@ static const struct message tcp_value_str[] = {
 	{0}
 };
 
+static const struct message fragment_value_str[] = {
+	{1, "dont-fragment"},
+	{2, "is-fragment"},
+	{4, "first-fragment"},
+	{8, "last-fragment"},
+	{0}
+};
+
 /* static function declarations */
 DEFINE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat, (struct zebra_ns *zns,
 				    struct zebra_pbr_ipset_entry *ipset,
@@ -376,6 +384,7 @@ uint32_t zebra_pbr_iptable_hash_key(void *arg)
 	key = jhash_1word(iptable->tcp_flags, key);
 	key = jhash_1word(iptable->tcp_mask_flags, key);
 	key = jhash_1word(iptable->dscp_value, key);
+	key = jhash_1word(iptable->fragment, key);
 	return jhash_3words(iptable->filter_bm, iptable->type,
 			    iptable->unique, key);
 }
@@ -409,6 +418,8 @@ int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
 	if (r1->tcp_mask_flags != r2->tcp_mask_flags)
 		return 0;
 	if (r1->dscp_value != r2->dscp_value)
+		return 0;
+	if (r1->fragment != r2->fragment)
 		return 0;
 	return 1;
 }
@@ -1088,6 +1099,15 @@ static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
 		vty_out(vty, "\t dscp %s %d\n",
 			iptable->filter_bm & MATCH_DSCP_INVERSE_SET ?
 			"not" : "", iptable->dscp_value);
+	}
+	if (iptable->fragment) {
+		char val_str[10];
+
+		sprintf(val_str, "%d", iptable->fragment);
+		vty_out(vty, "\t fragment%s %s\n",
+			iptable->filter_bm & MATCH_FRAGMENT_INVERSE_SET ?
+			" not" : "", lookup_msg(fragment_value_str,
+					       iptable->fragment, val_str));
 	}
 	ret = hook_call(zebra_pbr_iptable_wrap_script_get_stat,
 			zns, iptable, &pkts, &bytes);
