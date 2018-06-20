@@ -189,8 +189,8 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Tell pim to receive IGMP reports and Query on this interface. The default
    version is v3. This command is useful on the LHR.
 
-.. index:: ip igmp join
-.. clicmd:: ip igmp join
+.. index:: ip igmp join A.B.C.D A.B.C.D
+.. clicmd:: ip igmp join A.B.C.D A.B.C.D
 
    Join multicast source-group on an interface.
 
@@ -404,10 +404,10 @@ cause great confusion.
 
    Display the multicast RIB created in zebra.
 
-.. index:: mtrace
-.. clicmd:: mtrace
+.. index:: mtrace A.B.C.D [A.B.C.D]
+.. clicmd:: mtrace A.B.C.D [A.B.C.D]
 
-   Display multicast traceroute towards source.
+   Display multicast traceroute towards source, optionally for particular group.
 
 PIM Debug Commands
 ==================
