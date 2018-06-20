@@ -1426,7 +1426,8 @@ DEFUN (vnc_export_nvegroup,
 	if (rfg_new == NULL) {
 		rfg_new = bgp_rfapi_cfg_match_byname(bgp, argv[5]->arg,
 						     RFAPI_GROUP_CFG_VRF);
-		vnc_add_vrf_opener(bgp, rfg_new);
+		if (rfg_new)
+			vnc_add_vrf_opener(bgp, rfg_new);
 	}
 
 	if (rfg_new == NULL) {
