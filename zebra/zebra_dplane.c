@@ -72,10 +72,15 @@ struct zebra_dplane_ctx_s {
 	struct prefix zd_dest;
 	struct prefix zd_src;
 
+	bool zd_is_update;
+
 	uint32_t zd_seq;
+	uint32_t zd_old_seq;
 	vrf_id_t zd_vrf_id;
 	uint32_t zd_table_id;
+
 	int zd_type;
+	int zd_old_type;
 
 	afi_t zd_afi;
 	safi_t zd_safi;
@@ -84,6 +89,10 @@ struct zebra_dplane_ctx_s {
 	route_tag_t zd_old_tag;
 	uint32_t zd_metric;
 	uint16_t zd_instance;
+	uint16_t zd_old_instance;
+
+	uint8_t zd_distance;
+	uint8_t zd_old_distance;
 
 	uint32_t zd_mtu;
 	uint32_t zd_nexthop_mtu;
@@ -106,10 +115,13 @@ struct zebra_dplane_ctx_s {
  */
 struct zebra_dplane_provider_s {
 	/* Name */
-	char dp_name[DPLANE_PROVIDER_NAMELEN];
+	char dp_name[DPLANE_PROVIDER_NAMELEN + 1];
 
 	/* Priority, for ordering among providers */
 	uint8_t dp_priority;
+
+	/* Id value */
+	uint32_t dp_id;
 
 	/* Event pointer for use by the dplane thread */
 	struct thread *dp_t_event;
@@ -199,7 +211,7 @@ static void dplane_ctx_free(dplane_ctx_h *pctx)
  */
 void dplane_ctx_fini(dplane_ctx_h *pctx)
 {
-	/* TODO -- enqueue for next provider */
+	/* TODO -- enqueue for next provider; for now, just free */
 	dplane_ctx_free(pctx);
 }
 
@@ -259,11 +271,25 @@ const struct prefix *dplane_ctx_get_src(const dplane_ctx_h ctx)
 	}
 }
 
+bool dplane_ctx_is_update(const dplane_ctx_h ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->zd_is_update);
+}
+
 uint32_t dplane_ctx_get_seq(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return (ctx->zd_seq);
+}
+
+uint32_t dplane_ctx_get_old_seq(const dplane_ctx_h ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->zd_old_seq);
 }
 
 vrf_id_t dplane_ctx_get_vrf(const dplane_ctx_h ctx)
@@ -278,6 +304,13 @@ int dplane_ctx_get_type(const dplane_ctx_h ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return (ctx->zd_type);
+}
+
+int dplane_ctx_get_old_type(const dplane_ctx_h ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->zd_old_type);
 }
 
 afi_t dplane_ctx_get_afi(const dplane_ctx_h ctx)
@@ -322,6 +355,13 @@ uint16_t dplane_ctx_get_instance(const dplane_ctx_h ctx)
 	return (ctx->zd_instance);
 }
 
+uint16_t dplane_ctx_get_old_instance(const dplane_ctx_h ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->zd_instance);
+}
+
 uint32_t dplane_ctx_get_metric(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -341,6 +381,20 @@ uint32_t dplane_ctx_get_nh_mtu(const dplane_ctx_h ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return (ctx->zd_nexthop_mtu);
+}
+
+uint8_t dplane_ctx_get_distance(const dplane_ctx_h ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->zd_distance);
+}
+
+uint8_t dplane_ctx_get_old_distance(const dplane_ctx_h ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->zd_old_distance);
 }
 
 const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx)
@@ -396,15 +450,15 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 		memset(&(ctx->zd_src), 0, sizeof(ctx->zd_src));
 	}
 
+	ctx->zd_table_id = re->table;
+
 	ctx->zd_metric = re->metric;
 	ctx->zd_vrf_id = re->vrf_id;
 	ctx->zd_mtu = re->mtu;
 	ctx->zd_nexthop_mtu = re->nexthop_mtu;
 	ctx->zd_instance = re->instance;
 	ctx->zd_tag = re->tag;
-	ctx->zd_old_tag = re->tag;
-
-	ctx->zd_table_id = re->table;
+	ctx->zd_distance = re->distance;
 
 	table = srcdest_rnode_table(rn);
 	info = table->info;
@@ -509,9 +563,19 @@ static int dplane_route_update_internal(struct route_node *rn,
 	/* Init context with info from zebra data structs */
 	ret = dplane_ctx_route_init(ctx, op, rn, re);
 	if (ret == AOK) {
-		if (op == DPLANE_OP_ROUTE_UPDATE && old_re) {
-			/* Capture a little info from old route for update */
+		/* Capture some extra info for update case
+		 * where there's a different 'old' route.
+		 */
+		if ((op == DPLANE_OP_ROUTE_UPDATE) && old_re && (old_re != re)) {
+			ctx->zd_is_update = true;
+
+			old_re->dplane_sequence++;
+			ctx->zd_old_seq = old_re->dplane_sequence;
+
 			ctx->zd_old_tag = old_re->tag;
+			ctx->zd_old_type = old_re->type;
+			ctx->zd_old_instance = old_re->instance;
+			ctx->zd_old_distance = old_re->distance;
 		}
 
 		/* Enqueue context for processing */

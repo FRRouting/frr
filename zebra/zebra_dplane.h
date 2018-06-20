@@ -111,18 +111,25 @@ const struct prefix *dplane_ctx_get_dest(const dplane_ctx_h ctx);
  */
 const struct prefix *dplane_ctx_get_src(const dplane_ctx_h ctx);
 
+bool dplane_ctx_is_update(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_seq(const dplane_ctx_h ctx);
+uint32_t dplane_ctx_get_old_seq(const dplane_ctx_h ctx);
 vrf_id_t dplane_ctx_get_vrf(const dplane_ctx_h ctx);
 int dplane_ctx_get_type(const dplane_ctx_h ctx);
+int dplane_ctx_get_old_type(const dplane_ctx_h ctx);
 afi_t dplane_ctx_get_afi(const dplane_ctx_h ctx);
 safi_t dplane_ctx_get_safi(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_table(const dplane_ctx_h ctx);
 route_tag_t dplane_ctx_get_tag(const dplane_ctx_h ctx);
 route_tag_t dplane_ctx_get_old_tag(const dplane_ctx_h ctx);
 uint16_t dplane_ctx_get_instance(const dplane_ctx_h ctx);
+uint16_t dplane_ctx_get_old_instance(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_metric(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_mtu(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_nh_mtu(const dplane_ctx_h ctx);
+uint8_t dplane_ctx_get_distance(const dplane_ctx_h ctx);
+uint8_t dplane_ctx_get_old_distance(const dplane_ctx_h ctx);
+
 const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx);
 const struct zebra_ns_info *dplane_ctx_get_ns(const dplane_ctx_h ctx);
 
@@ -139,8 +146,31 @@ int dplane_route_update(struct route_node *rn,
 int dplane_route_delete(struct route_node *rn,
 			struct route_entry *re);
 
+/* Opaque handle to a dataplane provider plugin */
+typedef struct zebra_dplane_provider_s *dplane_provider_h;
+
+/* Priority or ordering values for providers. The idea is that there may be
+ * some pre-processing, followed by an external or remote dataplane,
+ * followed by the kernel, followed by some post-processing step (such as
+ * the fpm output stream.)
+ */
+typedef enum {
+	DPLANE_PRIO_NONE = 0,
+	DPLANE_PRIO_PREPROCESS,
+	DPLANE_PRIO_PRE_KERNEL,
+	DPLANE_PRIO_KERNEL,
+	DPLANE_PRIO_POSTPROCESS,
+}  dplane_provider_prio_e;
+
+/* Provider's entry-point to process a context block */
+typedef int (*dplane_provider_process_fp)(dplane_ctx_h ctx);
+
+/* Provider registration */
+int dplane_provider_register(dplane_provider_prio_e prio,
+			     dplane_provider_process_fp fp);
+
 /*
- * Results returned - to zebra core - via a callback
+ * Results are returned to zebra core via a callback
  */
 typedef int (*dplane_results_fp)(const dplane_ctx_h ctx);
 
