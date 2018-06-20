@@ -122,7 +122,7 @@ static int attr_parse(struct stream *s, uint16_t len)
 int main(int argc, char **argv)
 {
 	int ret;
-	FILE *fp;
+	int fd;
 	struct stream *s;
 	time_t now;
 	int type;
@@ -143,8 +143,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Usage: %s FILENAME\n", argv[0]);
 		exit(1);
 	}
-	fp = fopen(argv[1], "r");
-	if (!fp) {
+	fd = open(argv[1], O_RDONLY);
+	if (fd < 0) {
 		fprintf(stdout,
 			"%% Can't open configuration file %s due to '%s'.\n",
 			argv[1], safe_strerror(errno));
@@ -154,13 +154,14 @@ int main(int argc, char **argv)
 	while (1) {
 		stream_reset(s);
 
-		ret = fread(s->data, 12, 1, fp);
-		if (!ret || feof(fp)) {
-			printf("END OF FILE\n");
-			break;
-		}
-		if (ferror(fp)) {
-			printf("ERROR OF FREAD\n");
+		ret = stream_read(s, fd, 12);
+		if (ret != 12) {
+			if (!ret)
+				printf("END OF FILE\n");
+			else if (ret < 0)
+				printf("ERROR OF READ\n");
+			else
+				printf("UNDERFLOW\n");
 			break;
 		}
 
@@ -217,13 +218,14 @@ int main(int argc, char **argv)
 
 		printf("len: %zd\n", len);
 
-		fread(s->data + 12, len, 1, fp);
-		if (feof(fp)) {
-			printf("ENDOF FILE 2\n");
-			break;
-		}
-		if (ferror(fp)) {
-			printf("ERROR OF FREAD 2\n");
+		ret = stream_read(s, fd, len);
+		if (ret != (int)len) {
+			if (!ret)
+				printf("END OF FILE 2\n");
+			else if (ret < 0)
+				printf("ERROR OF READ 2\n");
+			else
+				printf("UNDERFLOW 2\n");
 			break;
 		}
 
@@ -284,6 +286,6 @@ int main(int argc, char **argv)
 			printf("\n");
 		}
 	}
-	fclose(fp);
+	close(fd);
 	return 0;
 }
