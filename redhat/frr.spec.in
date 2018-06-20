@@ -532,6 +532,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so.0
 %attr(755,root,root) %{_libdir}/lib*.so.0.*
 %endif
+%if %{with_fpm}
+%attr(755,root,root) %{_libdir}/frr/modules/zebra_fpm.so
+%endif
 %{_bindir}/*
 %config(noreplace) /etc/frr/[!v]*.conf*
 %config(noreplace) %attr(750,%frr_user,%frr_user) /etc/frr/daemons
