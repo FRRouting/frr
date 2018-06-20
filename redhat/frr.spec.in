@@ -145,7 +145,7 @@ Source0:        https://github.com/FRRouting/frr/archive/%{name}-%{frrversion}.t
 URL:            https://www.frrouting.org
 Requires(preun): info
 Requires(post): info
-BuildRequires:  gcc patch libcap-devel
+BuildRequires:  gcc libcap-devel
 BuildRequires:  readline-devel ncurses-devel
 BuildRequires:  json-c-devel bison >= 2.7 flex make
 BuildRequires:  c-ares-devel texinfo
