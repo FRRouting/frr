@@ -18,7 +18,6 @@
 %{!?with_nhrpd:         %global  with_nhrpd         1 }
 %{!?with_eigrpd:        %global  with_eigrpd        1 }
 %{!?with_babeld:        %global  with_babeld        1 }
-%{!?with_shared:        %global  with_shared        1 }
 %{!?with_multipath:     %global  with_multipath     256 }
 %{!?frr_user:           %global  frr_user           frr }
 %{!?vty_group:          %global  vty_group          frrvty }
@@ -237,11 +236,9 @@ developing OSPF-API and frr applications.
     --sbindir=%{_sbindir} \
     --sysconfdir=%{configdir} \
     --localstatedir=%{rundir} \
+    --disable-static \
     --disable-werror \
     --enable-irdp \
-%if !%{with_shared}
-    --disable-shared \
-%endif
 %if %{with_multipath}
     --enable-multipath=%{with_multipath} \
 %endif
@@ -343,8 +340,9 @@ rm -rf %{buildroot}/usr/share/info/dir
 # Remove debian init script if it was installed
 rm -f %{buildroot}%{_sbindir}/frr
 
-# kill bogus libtool files for modules
-rm -f %{buildroot}%{_libdir}/frr/modules/*.la
+# kill bogus libtool files
+rm -vf %{buildroot}%{_libdir}/frr/modules/*.la
+rm -vf %{buildroot}%{_libdir}/*.la
 
 # install /etc sources
 %if "%{initsystem}" == "systemd"
@@ -571,11 +569,9 @@ fi
 %if %{with_babeld}
     %{_sbindir}/babeld
 %endif
-%if %{with_shared}
-    %{_libdir}/lib*.so
-    %{_libdir}/lib*.so.0
-    %attr(755,root,root) %{_libdir}/lib*.so.0.*
-%endif
+%{_libdir}/lib*.so
+%{_libdir}/lib*.so.0
+%attr(755,root,root) %{_libdir}/lib*.so.0.*
 %if %{with_fpm}
     %attr(755,root,root) %{_libdir}/frr/modules/zebra_fpm.so
 %endif
@@ -608,8 +604,6 @@ fi
 %if %{with_ospfclient}
     %{_sbindir}/ospfclient
 %endif
-%{_libdir}/*.a
-%{_libdir}/*.la
 %dir %attr(755,root,root) %{_includedir}/%{name}
 %{_includedir}/%name/*.h
 %dir %attr(755,root,root) %{_includedir}/%{name}/ospfd
