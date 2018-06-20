@@ -146,7 +146,7 @@ struct ferr_ref {
 
 void ferr_ref_add(struct ferr_ref *ref);
 struct ferr_ref *ferr_ref_get(uint32_t code);
-void ferr_ref_display(struct vty *, uint32_t code);
+void ferr_ref_display(struct vty *, uint32_t code, bool json);
 
 /*
  * This function should be called by the

@@ -19,6 +19,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <signal.h>
+#include <inttypes.h>
 
 #include "ferr.h"
 #include "vty.h"
@@ -26,6 +27,8 @@
 #include "memory.h"
 #include "hash.h"
 #include "command.h"
+#include "json.h"
+#include "linklist.h"
 
 DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information")
 
@@ -101,31 +104,81 @@ struct ferr_ref *ferr_ref_get(uint32_t code)
 	return ref;
 }
 
-void ferr_ref_display(struct vty *vty, uint32_t code)
+void ferr_ref_display(struct vty *vty, uint32_t code, bool json)
 {
-	struct ferr_ref *ref = ferr_ref_get(code);
+	struct ferr_ref *ref;
+	struct json_object *top, *obj;
+	struct list *errlist;
+	struct listnode *ln;
 
-	if (!ref) {
-		vty_out(vty, "Code %d - Unknown\n", code);
-		return;
+	if (json)
+		top = json_object_new_object();
+
+	pthread_mutex_lock(&refs_mtx);
+	{
+		errlist = code ? list_new() : hash_to_list(refs);
+	}
+	pthread_mutex_unlock(&refs_mtx);
+
+	if (code) {
+		ref = ferr_ref_get(code);
+		if (!ref) {
+			vty_out(vty, "Code %"PRIu32" - Unknown\n", code);
+			return;
+		}
+		listnode_add(errlist, ref);
 	}
 
-	vty_out(vty, "Error Code %d - %s\n", code, ref->title);
-	vty_out(vty, "--------------------------------------\n");
-	vty_out(vty, "\nDescription:\n%s\n\nRecommendation:\n%s\n\n",
-		ref->description, ref->suggestion);
+	for (ALL_LIST_ELEMENTS_RO(errlist, ln, ref)) {
+		if (json) {
+			char key[11];
+			snprintf(key, sizeof(key), "%"PRIu32, ref->code);
+			obj = json_object_new_object();
+			json_object_string_add(obj, "title", ref->title);
+			json_object_string_add(obj, "description",
+					       ref->description);
+			json_object_string_add(obj, "suggestion",
+					       ref->suggestion);
+			json_object_object_add(top, key, obj);
+		} else {
+			char pbuf[256];
+			char ubuf[256];
+			snprintf(pbuf, sizeof(pbuf), "\nError %"PRIu32" - %s",
+				 code, ref->title);
+			memset(ubuf, '=', strlen(pbuf));
+			ubuf[sizeof(ubuf) - 1] = '\0';
+
+			vty_out(vty, "%s\n%s\n", pbuf, ubuf);
+			vty_out(vty, "Description:\n%s\n\nRecommendation:\n%s\n",
+				ref->description, ref->suggestion);
+		}
+	}
+
+	if (json) {
+		const char *str = json_object_to_json_string_ext(
+			top, JSON_C_TO_STRING_PRETTY);
+		vty_out(vty, "%s\n", str);
+		json_object_free(top);
+	}
+
+	list_delete_and_null(&errlist);
 }
 
 DEFUN_NOSH(show_error_code,
 	   show_error_code_cmd,
-	   "show error (0-4294967296)",
+	   "show error <(1-4294967296)|all> [json]",
 	   SHOW_STR
 	   "Information on errors\n"
-	   "Error code to get info about\n")
+	   "Error code to get info about\n"
+	   "Information on all errors\n"
+	   JSON_STR)
 {
-	uint32_t arg = strtoul(argv[2]->arg, NULL, 10);
+	bool json = strmatch(argv[argc-1]->text, "json");
+	uint32_t arg = 0;
+	if (!strmatch(argv[2]->text, "all"))
+		arg = strtoul(argv[2]->arg, NULL, 10);
 
-	ferr_ref_display(vty, arg);
+	ferr_ref_display(vty, arg, json);
 	return CMD_SUCCESS;
 }
 

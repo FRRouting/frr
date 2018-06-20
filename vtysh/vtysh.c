@@ -45,6 +45,7 @@
 #include "libfrr.h"
 #include "command_graph.h"
 #include "frrstr.h"
+#include "json.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
 
@@ -2346,17 +2347,23 @@ DEFUN (vtysh_show_debugging_hashtable,
 
 DEFUN (vtysh_show_error_code,
        vtysh_show_error_code_cmd,
-       "show error (0-4294967296)",
+       "show error <(1-4294967296)|all> [json]",
        SHOW_STR
        "Information on errors\n"
-       "Error code to get info about\n")
+       "Error code to get info about\n"
+       "Information on all errors\n"
+       JSON_STR)
 {
 	char cmd[256];
-
-	snprintf(cmd, sizeof(cmd), "do show error %s", argv[2]->arg);
+	int rv;
+	char *fcmd = argv_concat(argv, argc, 0);
+	snprintf(cmd, sizeof(cmd), "do %s", fcmd);
 
 	/* FIXME: Needs to determine which daemon to send to via code ranges */
-	return show_per_daemon(cmd, "");
+	rv = show_per_daemon(cmd, "");
+
+	XFREE(MTYPE_TMP, fcmd);
+	return rv;
 }
 
 /* Memory */
