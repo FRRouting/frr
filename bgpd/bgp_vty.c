@@ -1991,7 +1991,11 @@ DEFUN (no_bgp_fast_external_failover,
 }
 
 /* "bgp enforce-first-as" configuration. */
-DEFUN (bgp_enforce_first_as,
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20180517
+CPP_NOTICE("bgpd: remove deprecated '[no] bgp enforce-first-as' commands")
+#endif
+
+DEFUN_DEPRECATED (bgp_enforce_first_as,
        bgp_enforce_first_as_cmd,
        "bgp enforce-first-as",
        BGP_STR
@@ -1999,12 +2003,11 @@ DEFUN (bgp_enforce_first_as,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	bgp_flag_set(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
-	bgp_clear_star_soft_in(vty, bgp->name);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_enforce_first_as,
+DEFUN_DEPRECATED (no_bgp_enforce_first_as,
        no_bgp_enforce_first_as_cmd,
        "no bgp enforce-first-as",
        NO_STR
@@ -2013,7 +2016,6 @@ DEFUN (no_bgp_enforce_first_as,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	bgp_flag_unset(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
-	bgp_clear_star_soft_in(vty, bgp->name);
 
 	return CMD_SUCCESS;
 }
@@ -2817,7 +2819,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		}
 
 		if (v6only)
-			SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+			peer_flag_set(peer, PEER_FLAG_IFPEER_V6ONLY);
 
 		/* Request zebra to initiate IPv6 RAs on this interface. We do
 		 * this
@@ -2834,9 +2836,9 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 	if ((v6only && !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))
 	    || (!v6only && CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY))) {
 		if (v6only)
-			SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+			peer_flag_set(peer, PEER_FLAG_IFPEER_V6ONLY);
 		else
-			UNSET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+			peer_flag_unset(peer, PEER_FLAG_IFPEER_V6ONLY);
 
 		/* v6only flag changed. Reset bgp seesion */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
@@ -2847,8 +2849,11 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 			bgp_session_reset(peer);
 	}
 
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
-		peer_flag_set(peer, PEER_FLAG_CAPABILITY_ENHE);
+	if (!CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE)) {
+		SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
+		SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE);
+		UNSET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
+	}
 
 	if (peer_group_name) {
 		group = peer_group_lookup(bgp, peer_group_name);
@@ -3449,7 +3454,7 @@ ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
 	     "Peer-group name\n")
 
 static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
-				uint16_t flag, int set)
+				uint32_t flag, int set)
 {
 	int ret;
 	struct peer *peer;
@@ -3481,13 +3486,13 @@ static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
 	return bgp_vty_return(vty, ret);
 }
 
-static int peer_flag_set_vty(struct vty *vty, const char *ip_str, uint16_t flag)
+static int peer_flag_set_vty(struct vty *vty, const char *ip_str, uint32_t flag)
 {
 	return peer_flag_modify_vty(vty, ip_str, flag, 1);
 }
 
 static int peer_flag_unset_vty(struct vty *vty, const char *ip_str,
-			       uint16_t flag)
+			       uint32_t flag)
 {
 	return peer_flag_modify_vty(vty, ip_str, flag, 0);
 }
@@ -4073,6 +4078,7 @@ DEFUN (neighbor_send_community,
        "Send Community attribute to this neighbor\n")
 {
 	int idx_peer = 1;
+
 	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
 				    bgp_node_safi(vty),
 				    PEER_FLAG_SEND_COMMUNITY);
@@ -4092,6 +4098,7 @@ DEFUN (no_neighbor_send_community,
        "Send Community attribute to this neighbor\n")
 {
 	int idx_peer = 2;
+
 	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
 				      bgp_node_afi(vty), bgp_node_safi(vty),
 				      PEER_FLAG_SEND_COMMUNITY);
@@ -4115,27 +4122,26 @@ DEFUN (neighbor_send_community_type,
        "Send Standard Community attributes\n"
        "Send Large Community attributes\n")
 {
-	int idx = 0;
+	int idx_peer = 1;
 	uint32_t flag = 0;
+	const char *type = argv[argc - 1]->text;
 
-	char *peer = argv[1]->arg;
-
-	if (argv_find(argv, argc, "standard", &idx))
+	if (strmatch(type, "standard")) {
 		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
-	else if (argv_find(argv, argc, "extended", &idx))
+	} else if (strmatch(type, "extended")) {
 		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-	else if (argv_find(argv, argc, "large", &idx))
+	} else if (strmatch(type, "large")) {
 		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
-	else if (argv_find(argv, argc, "both", &idx)) {
+	} else if (strmatch(type, "both")) {
 		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
 		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
-	} else {
+	} else { /* if (strmatch(type, "all")) */
 		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
 		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
 		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
 	}
 
-	return peer_af_flag_set_vty(vty, peer, bgp_node_afi(vty),
+	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
 				    bgp_node_safi(vty), flag);
 }
 
@@ -4164,33 +4170,27 @@ DEFUN (no_neighbor_send_community_type,
        "Send Large Community attributes\n")
 {
 	int idx_peer = 2;
-
+	uint32_t flag = 0;
 	const char *type = argv[argc - 1]->text;
 
-	if (strmatch(type, "standard"))
-		return peer_af_flag_unset_vty(
-			vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-			bgp_node_safi(vty), PEER_FLAG_SEND_COMMUNITY);
-	if (strmatch(type, "extended"))
-		return peer_af_flag_unset_vty(
-			vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-			bgp_node_safi(vty), PEER_FLAG_SEND_EXT_COMMUNITY);
-	if (strmatch(type, "large"))
-		return peer_af_flag_unset_vty(
-			vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-			bgp_node_safi(vty), PEER_FLAG_SEND_LARGE_COMMUNITY);
-	if (strmatch(type, "both"))
-		return peer_af_flag_unset_vty(
-			vty, argv[idx_peer]->arg, bgp_node_afi(vty),
-			bgp_node_safi(vty),
-			PEER_FLAG_SEND_COMMUNITY
-				| PEER_FLAG_SEND_EXT_COMMUNITY);
+	if (strmatch(type, "standard")) {
+		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
+	} else if (strmatch(type, "extended")) {
+		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
+	} else if (strmatch(type, "large")) {
+		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
+	} else if (strmatch(type, "both")) {
+		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
+		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
+	} else { /* if (strmatch(type, "all")) */
+		SET_FLAG(flag, PEER_FLAG_SEND_COMMUNITY);
+		SET_FLAG(flag, PEER_FLAG_SEND_EXT_COMMUNITY);
+		SET_FLAG(flag, PEER_FLAG_SEND_LARGE_COMMUNITY);
+	}
 
-	/* if (strmatch (type, "all")) */
-	return peer_af_flag_unset_vty(
-		vty, argv[idx_peer]->arg, bgp_node_afi(vty), bgp_node_safi(vty),
-		(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY
-		 | PEER_FLAG_SEND_LARGE_COMMUNITY));
+	return peer_af_flag_unset_vty(vty, argv[idx_peer]->arg,
+				      bgp_node_afi(vty), bgp_node_safi(vty),
+				      flag);
 }
 
 ALIAS_HIDDEN(
@@ -4584,6 +4584,36 @@ DEFUN (no_neighbor_disable_connected_check,
 				   PEER_FLAG_DISABLE_CONNECTED_CHECK);
 }
 
+
+/* enforce-first-as */
+DEFUN (neighbor_enforce_first_as,
+       neighbor_enforce_first_as_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> enforce-first-as",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Enforce the first AS for EBGP routes\n")
+{
+	int idx_peer = 1;
+
+	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
+				 PEER_FLAG_ENFORCE_FIRST_AS);
+}
+
+DEFUN (no_neighbor_enforce_first_as,
+       no_neighbor_enforce_first_as_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> enforce-first-as",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Enforce the first AS for EBGP routes\n")
+{
+	int idx_peer = 2;
+
+	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
+				   PEER_FLAG_ENFORCE_FIRST_AS);
+}
+
+
 DEFUN (neighbor_description,
        neighbor_description_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> description LINE...",
@@ -4612,12 +4642,11 @@ DEFUN (neighbor_description,
 
 DEFUN (no_neighbor_description,
        no_neighbor_description_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> description [LINE]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> description",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Neighbor specific description\n"
-       "Up to 80 characters describing this neighbor\n")
+       "Neighbor specific description\n")
 {
 	int idx_peer = 2;
 	struct peer *peer;
@@ -4631,6 +4660,11 @@ DEFUN (no_neighbor_description,
 	return CMD_SUCCESS;
 }
 
+ALIAS(no_neighbor_description, no_neighbor_description_comment_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> description LINE...",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Neighbor specific description\n"
+      "Up to 80 characters describing this neighbor\n")
 
 /* Neighbor update-source. */
 static int peer_update_source_vty(struct vty *vty, const char *peer_str,
@@ -4638,6 +4672,7 @@ static int peer_update_source_vty(struct vty *vty, const char *peer_str,
 {
 	struct peer *peer;
 	struct prefix p;
+	union sockunion su;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
@@ -4647,10 +4682,7 @@ static int peer_update_source_vty(struct vty *vty, const char *peer_str,
 		return CMD_WARNING;
 
 	if (source_str) {
-		union sockunion su;
-		int ret = str2sockunion(source_str, &su);
-
-		if (ret == 0)
+		if (str2sockunion(source_str, &su) == 0)
 			peer_update_source_addr_set(peer, &su);
 		else {
 			if (str2prefix(source_str, &p)) {
@@ -4940,26 +4972,28 @@ DEFUN (no_neighbor_override_capability,
 
 DEFUN (neighbor_strict_capability,
        neighbor_strict_capability_cmd,
-       "neighbor <A.B.C.D|X:X::X:X> strict-capability-match",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Strict capability negotiation match\n")
 {
-	int idx_ip = 1;
-	return peer_flag_set_vty(vty, argv[idx_ip]->arg,
+	int idx_peer = 1;
+
+	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
 				 PEER_FLAG_STRICT_CAP_MATCH);
 }
 
 DEFUN (no_neighbor_strict_capability,
        no_neighbor_strict_capability_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X> strict-capability-match",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> strict-capability-match",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
+       NEIGHBOR_ADDR_STR2
        "Strict capability negotiation match\n")
 {
-	int idx_ip = 2;
-	return peer_flag_unset_vty(vty, argv[idx_ip]->arg,
+	int idx_peer = 2;
+
+	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
 				   PEER_FLAG_STRICT_CAP_MATCH);
 }
 
@@ -5330,8 +5364,8 @@ static int peer_prefix_list_set_vty(struct vty *vty, const char *ip_str,
 				    const char *direct_str)
 {
 	int ret;
-	struct peer *peer;
 	int direct = FILTER_IN;
+	struct peer *peer;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
@@ -9147,8 +9181,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint8_t use_json,
 		json_object_int_add(json_neigh,
 				    "bgpTimerKeepAliveIntervalMsecs",
 				    p->v_keepalive * 1000);
-
-		if (PEER_OR_GROUP_TIMER_SET(p)) {
+		if (CHECK_FLAG(p->flags, PEER_FLAG_TIMER)) {
 			json_object_int_add(json_neigh,
 					    "bgpTimerConfiguredHoldTimeMsecs",
 					    p->holdtime * 1000);
@@ -9212,7 +9245,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint8_t use_json,
 		vty_out(vty,
 			"  Hold time is %d, keepalive interval is %d seconds\n",
 			p->v_holdtime, p->v_keepalive);
-		if (PEER_OR_GROUP_TIMER_SET(p)) {
+		if (CHECK_FLAG(p->flags, PEER_FLAG_TIMER)) {
 			vty_out(vty, "  Configured hold time is %d",
 				p->holdtime);
 			vty_out(vty, ", keepalive interval is %d seconds\n",
@@ -12966,9 +12999,14 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_disable_connected_check_cmd);
 	install_element(BGP_NODE, &no_neighbor_disable_connected_check_cmd);
 
+	/* "neighbor enforce-first-as" commands. */
+	install_element(BGP_NODE, &neighbor_enforce_first_as_cmd);
+	install_element(BGP_NODE, &no_neighbor_enforce_first_as_cmd);
+
 	/* "neighbor description" commands. */
 	install_element(BGP_NODE, &neighbor_description_cmd);
 	install_element(BGP_NODE, &no_neighbor_description_cmd);
+	install_element(BGP_NODE, &no_neighbor_description_comment_cmd);
 
 	/* "neighbor update-source" commands. "*/
 	install_element(BGP_NODE, &neighbor_update_source_cmd);

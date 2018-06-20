@@ -503,7 +503,7 @@ void bgp_open_send(struct peer *peer)
 	uint16_t send_holdtime;
 	as_t local_as;
 
-	if (PEER_OR_GROUP_TIMER_SET(peer))
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 		send_holdtime = peer->holdtime;
 	else
 		send_holdtime = peer->bgp->default_holdtime;
@@ -1237,7 +1237,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	   implementation MAY adjust the rate at which it sends KEEPALIVE
 	   messages as a function of the Hold Time interval. */
 
-	if (PEER_OR_GROUP_TIMER_SET(peer))
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 		send_holdtime = peer->holdtime;
 	else
 		send_holdtime = peer->bgp->default_holdtime;
@@ -1247,7 +1247,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	else
 		peer->v_holdtime = send_holdtime;
 
-	if ((PEER_OR_GROUP_TIMER_SET(peer))
+	if ((CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 	    && (peer->keepalive < peer->v_holdtime / 3))
 		peer->v_keepalive = peer->keepalive;
 	else
