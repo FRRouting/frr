@@ -1107,6 +1107,46 @@ static int netlink_iptable_add_user_action(struct zebra_pbr_iptable *iptable,
 	return ret;
 }
 
+static size_t netlink_iptable_fragment_snprintf(char *str, size_t len,
+					  uint8_t value,
+					  bool inverse)
+{
+	size_t len_written = 0;
+	if (value) {
+		len_written += snprintf(str + len_written,
+					len - len_written,
+					"-m u32 %s --u32 \"4&",
+					inverse ? "!" : "");
+	}
+	/* dont-fragment */
+	if (value == 1) {
+		len_written += snprintf(str + len_written,
+					len - len_written,
+					"0xc000=0x4000");
+	} else if (value == 2) {
+		/* is fragment */
+		len_written += snprintf(str + len_written,
+					len - len_written,
+					"0x2000=0x2000");
+	} else if (value == 4) {
+		/* first fragment */
+		len_written += snprintf(str + len_written,
+					len - len_written,
+					"0xffff=0x2000");
+	} else if (value == 8) {
+		/* last fragment */
+		len_written += snprintf(str + len_written,
+					len - len_written,
+					"0xffff=0x1:0x1fff");
+	}
+	if (value) {
+		len_written += snprintf(str + len_written,
+					len - len_written,
+					"\" ");
+	}
+	return len_written;
+}
+
 static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 					 int *remaining_len,
 					 struct zebra_pbr_iptable *iptable,
@@ -1132,6 +1172,13 @@ static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 					sizeof(complement_len),
 					"-p tcp -m tcp --tcp-flags %s %s ",
 					tcp_flag_str, tcp_flag_mask_str);
+	}
+	if (iptable->fragment) {
+		len_written += netlink_iptable_fragment_snprintf(complement_len + len_written,
+							   sizeof(complement_len) - len_written,
+							   iptable->fragment,
+							   iptable->filter_bm & MATCH_FRAGMENT_INVERSE_SET ?
+							   true : false);
 	}
 	if (iptable->filter_bm & (MATCH_DSCP_SET | MATCH_DSCP_INVERSE_SET))
 		len_written += snprintf(complement_len + len_written,
