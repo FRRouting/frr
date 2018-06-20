@@ -35,6 +35,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/zebra_errors.h"
 
 #include "fpm/fpm.h"
 #include "zebra_fpm_private.h"

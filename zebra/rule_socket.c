@@ -29,6 +29,7 @@
 #include "if.h"
 #include "prefix.h"
 #include "vrf.h"
+#include "lib_errors.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
