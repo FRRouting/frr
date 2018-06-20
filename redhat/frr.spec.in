@@ -318,9 +318,10 @@ developing OSPF-API and frr applications.
     --enable-systemd \
 %endif
 %if %{with_rpki}
-    --enable-rpki \
+    --enable-rpki
+%else
+    --disable-rpki
 %endif
-    --enable-poll
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split" SPHINXBUILD=%{sphinx}
 
