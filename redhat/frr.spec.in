@@ -621,16 +621,16 @@ fi
     %{_sbindir}/ospfclient
 %endif
 %dir %{_includedir}/%{name}
-%{_includedir}/%name/*.h
+%{_includedir}/%{name}/*.h
 %dir %{_includedir}/%{name}/ospfd
-%{_includedir}/%name/ospfd/*.h
+%{_includedir}/%{name}/ospfd/*.h
 %if %{with_ospfapi}
     %dir %{_includedir}/%{name}/ospfapi
-    %{_includedir}/%name/ospfapi/*.h
+    %{_includedir}/%{name}/ospfapi/*.h
 %endif
 %if %{with_eigrpd}
     %dir %{_includedir}/%{name}/eigrpd
-    %{_includedir}/%name/eigrpd/*.h
+    %{_includedir}/%{name}/eigrpd/*.h
 %endif
 
 
