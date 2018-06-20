@@ -52,6 +52,7 @@ Protocols
    ripd
    ripngd
    sharp
+   static
    vnc
 
 ########
