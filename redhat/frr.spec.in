@@ -30,7 +30,7 @@
 %{!?with_pbrd:          %global  with_pbrd          1 }
 
 # path defines
-%define     _sysconfdir   /etc/frr
+%define     configdir     %{_sysconfdir}/%{name}
 %define     _sbindir      /usr/lib/frr
 %define     zeb_src       %{_builddir}/%{name}-%{frrversion}
 %define     zeb_rh_src    %{zeb_src}/redhat
@@ -230,7 +230,7 @@ developing OSPF-API and frr applications.
 
 %configure \
     --sbindir=%{_sbindir} \
-    --sysconfdir=%{_sysconfdir} \
+    --sysconfdir=%{configdir} \
     --libdir=%{_libdir} \
     --libexecdir=%{_libexecdir} \
     --localstatedir=%{_localstatedir} \
@@ -442,49 +442,49 @@ done
 
 # Fix bad path in previous config files
 #  Config files won't get replaced by default, so we do this ugly hack to fix it
-%__sed -i 's|/etc/init.d/|%{_sbindir}/|g' %{_sysconfdir}/daemons 2> /dev/null || true
+%__sed -i 's|/etc/init.d/|%{_sbindir}/|g' %{configdir}/daemons 2> /dev/null || true
 
 # With systemd, watchfrr is mandatory. Fix config to make sure it's enabled if
 # we install or upgrade to a frr built with systemd
 %if "%{initsystem}" == "systemd"
-    %__sed -i 's|watchfrr_enable=no|watchfrr_enable=yes|g' %{_sysconfdir}/daemons 2> /dev/null || true
+    %__sed -i 's|watchfrr_enable=no|watchfrr_enable=yes|g' %{configdir}/daemons 2> /dev/null || true
 %endif
 
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
 
 # Create dummy files if they don't exist so basic functions can be used.
-if [ ! -e %{_sysconfdir}/zebra.conf ]; then
-    echo "hostname `hostname`" > %{_sysconfdir}/zebra.conf
+if [ ! -e %{configdir}/zebra.conf ]; then
+    echo "hostname `hostname`" > %{configdir}/zebra.conf
 %if 0%{?frr_user:1}
-    chown %frr_user:%frr_user %{_sysconfdir}/zebra.conf*
+    chown %frr_user:%frr_user %{configdir}/zebra.conf*
 %endif
-    chmod 640 %{_sysconfdir}/zebra.conf*
+    chmod 640 %{configdir}/zebra.conf*
 fi
 for daemon in %{all_daemons} ; do
     if [ x"${daemon}" != x"" ] ; then
-        if [ ! -e %{_sysconfdir}/${daemon}.conf ]; then
-            touch %{_sysconfdir}/${daemon}.conf
+        if [ ! -e %{configdir}/${daemon}.conf ]; then
+            touch %{configdir}/${daemon}.conf
             %if 0%{?frr_user:1}
-                chown %frr_user:%frr_user %{_sysconfdir}/${daemon}.conf*
+                chown %frr_user:%frr_user %{configdir}/${daemon}.conf*
             %endif
         fi
     fi
 done
 %if 0%{?frr_user:1}
-    chown %frr_user:%frr_user %{_sysconfdir}/daemons
+    chown %frr_user:%frr_user %{configdir}/daemons
 %endif
 
 %if %{with_watchfrr}
     # No config for watchfrr - this is part of /etc/sysconfig/frr
-    rm -f %{_sysconfdir}/watchfrr.*
+    rm -f %{configdir}/watchfrr.*
 %endif
 
-if [ ! -e %{_sysconfdir}/vtysh.conf ]; then
-    touch %{_sysconfdir}/vtysh.conf
-    chmod 640 %{_sysconfdir}/vtysh.conf
+if [ ! -e %{configdir}/vtysh.conf ]; then
+    touch %{configdir}/vtysh.conf
+    chmod 640 %{configdir}/vtysh.conf
 %if 0%{?frr_user:1}
 %if 0%{?vty_group:1}
-    chown %{frr_user}:%{vty_group} %{_sysconfdir}/vtysh.conf*
+    chown %{frr_user}:%{vty_group} %{configdir}/vtysh.conf*
 %endif
 %endif
 fi
@@ -538,16 +538,16 @@ rm -rf %{buildroot}
 %doc doc/mpls
 %doc ChangeLog NEWS README
 %if 0%{?frr_user:1}
-%dir %attr(751,%frr_user,%frr_user) %{_sysconfdir}
+%dir %attr(751,%frr_user,%frr_user) %{configdir}
 %dir %attr(750,%frr_user,%frr_user) /var/log/frr
 %dir %attr(751,%frr_user,%frr_user) /var/run/frr
 %else
-%dir %attr(750,root,root) %{_sysconfdir}
+%dir %attr(750,root,root) %{configdir}
 %dir %attr(750,root,root) /var/log/frr
 %dir %attr(750,root,root) /var/run/frr
 %endif
 %if 0%{?vty_group:1}
-%attr(750,%frr_user,%vty_group) %{_sysconfdir}/vtysh.conf.sample
+%attr(750,%frr_user,%vty_group) %{configdir}/vtysh.conf.sample
 %endif
 %{_infodir}/frr.info.gz
 %{_mandir}/man*/*
