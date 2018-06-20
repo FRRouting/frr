@@ -145,15 +145,23 @@ Source0:        https://github.com/FRRouting/frr/archive/%{name}-%{frrversion}.t
 URL:            https://www.frrouting.org
 Requires(preun): info
 Requires(post): info
-BuildRequires:  gcc libcap-devel
-BuildRequires:  readline-devel ncurses-devel
-BuildRequires:  json-c-devel bison >= 2.7 flex make
-BuildRequires:  c-ares-devel texinfo
+BuildRequires:  bison >= 2.7
+BuildRequires:  c-ares-devel
+BuildRequires:  flex
+BuildRequires:  gcc
+BuildRequires:  json-c-devel
+BuildRequires:  libcap-devel
+BuildRequires:  make
+BuildRequires:  ncurses-devel
+BuildRequires:  readline-devel
+BuildRequires:  texinfo
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
-BuildRequires:  python27-devel python27-sphinx
+BuildRequires:  python27-devel
+BuildRequires:  python27-sphinx
 %else
-BuildRequires:  python-devel >= 2.7 python-sphinx
+BuildRequires:  python-devel >= 2.7
+BuildRequires:  python-sphinx
 %endif
 %if %{with_pam}
 BuildRequires:  pam-devel
@@ -162,7 +170,8 @@ BuildRequires:  pam-devel
 BuildRequires:  librtr-devel >= 0.5
 %endif
 %if "%{initsystem}" == "systemd"
-BuildRequires:      systemd systemd-devel
+BuildRequires:      systemd
+BuildRequires:      systemd-devel
 Requires(post):     systemd
 Requires(preun):    systemd
 Requires(postun):   systemd
