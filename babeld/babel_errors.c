@@ -29,7 +29,7 @@ static struct ferr_ref ferr_babel_err[] = {
 		.code = BABEL_ERR_MEMORY,
 		.title = "BABEL Memory Errors",
 		.description = "Babel has failed to allocate memory, the system is about to run out of memory",
-		.suggestion = "Find the process that is causing memory shortages and remediate that process\nRestart FRR"
+		.suggestion = "Find the process that is causing memory shortages and remediate that process Restart FRR"
 	},
 	{
 		.code = BABEL_ERR_PACKET,

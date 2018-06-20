@@ -29,43 +29,43 @@ static struct ferr_ref ferr_bgp_err[] = {
 		.code = BGP_ERR_ATTR_FLAG,
 		.title = "BGP attribute flag is incorrect",
 		.description = "BGP attribute flag is set to the wrong value (Optional/Transitive/Partial)",
-		.suggestion = "Determine the soure of the attribute and determine why the attribute\n flag has been set incorrectly"
+		.suggestion = "Determine the soure of the attribute and determine why the attribute flag has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_LEN,
 		.title = "BGP attribute length is incorrect",
-		.description = "BGP attribute length is incorrect)",
-		.suggestion = "Determine the soure of the attribute and determine why the attribute\nlength has been set incorrectly"
+		.description = "BGP attribute length is incorrect",
+		.suggestion = "Determine the soure of the attribute and determine why the attribute length has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_ORIGIN,
 		.title = "BGP attribute origin value invalid",
 		.description = "BGP attribute origin value is invalid",
-		.suggestion = "Determine the soure of the attribute and determine why the origin\nattribute has been set incorrectly"
+		.suggestion = "Determine the soure of the attribute and determine why the origin attribute has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_MAL_AS_PATH,
 		.title = "BGP as path is invalid",
 		.description = "BGP as path has been malformed",
-		.suggestion = "Determine the soure of the update and determine why the as path has\nbeen set incorrectly"
+		.suggestion = "Determine the soure of the update and determine why the as path has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_FIRST_AS,
 		.title = "BGP as path first as is invalid",
 		.description = "BGP update has invalid first as in as path",
-		.suggestion = "Determine the soure of the update and determine why the as path first\nas value has been set incorrectly"
+		.suggestion = "Determine the soure of the update and determine why the as path first as value has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_PMSI_TYPE,
 		.title = "BGP PMSI tunnel attribute type is invalid",
 		.description = "BGP update has invalid type for PMSI tunnel",
-		.suggestion = "Determine the soure of the update and determine why the PMSI tunnel\nattribute type has been set incorrectly"
+		.suggestion = "Determine the soure of the update and determine why the PMSI tunnel attribute type has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_PMSI_LEN,
 		.title = "BGP PMSI tunnel attribute length is invalid",
 		.description = "BGP update has invalid length for PMSI tunnel",
-		.suggestion = "Determine the soure of the update and determine why the PMSI tunnel\nattribute length has been set incorrectly"
+		.suggestion = "Determine the soure of the update and determine why the PMSI tunnel attribute length has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_PEER_GROUP,
@@ -77,13 +77,13 @@ static struct ferr_ref ferr_bgp_err[] = {
 		.code = BGP_ERR_PEER_DELETE,
 		.title = "BGP failed to delete peer structure",
 		.description = "BGP was unable to delete peer structure when address-family removed",
-		.suggestion = "Determine if all expected peers are removed and restart FRR if not.\nMost likely a bug"
+		.suggestion = "Determine if all expected peers are removed and restart FRR if not. Most likely a bug"
 	},
 	{
 		.code = BGP_ERR_TABLE_CHUNK,
 		.title = "BGP failed to get table chunk memory",
 		.description = "BGP unable to get chunk memory for table manager",
-		.suggestion = "Ensure there is adequate memory on the device to support the table\nrequirements"
+		.suggestion = "Ensure there is adequate memory on the device to support the table requirements"
 	},
 	{
 		.code = BGP_ERR_MACIP_LEN,
@@ -95,12 +95,12 @@ static struct ferr_ref ferr_bgp_err[] = {
 		.code = BGP_ERR_LM_ERROR,
 		.title = "BGP received invalid label manager message",
 		.description = "BGP received nvalid label manager message from label manager",
-		.suggestion = "Label manager sent invalid essage to BGP for wrong protocol, instance, etc.\nMost likely a bug"
+		.suggestion = "Label manager sent invalid essage to BGP for wrong protocol, instance, etc. Most likely a bug"
 	},
 	{
 		.code = BGP_ERR_JSON_MEM_ERROR,
 		.title = "BGP unable to allocate memory for JSON output",
-		.description = "BGP attempted to generate JSON output and was unable to allocate\nthe memory required",
+		.description = "BGP attempted to generate JSON output and was unable to allocate the memory required",
 		.suggestion = "Ensure that the device has adequate memory to suport the required functions"
 	},
 	{
@@ -131,7 +131,7 @@ static struct ferr_ref ferr_bgp_err[] = {
 		.code = BGP_ERR_SND_FAIL,
 		.title = "BGP error sending to peer",
 		.description = "BGP attempted to respond to open from a peer and failed",
-		.suggestion = "BGP attempted to respond to an open and could not sene the packet.\nCheck local IP address for source"
+		.suggestion = "BGP attempted to respond to an open and could not sene the packet. Check local IP address for source"
 	},
 	{
 		.code = BGP_ERR_INVALID_STATUS,
@@ -155,30 +155,30 @@ static struct ferr_ref ferr_bgp_err[] = {
 		.code = BGP_ERR_NOTIFY_RCV,
 		.title = "BGP error receiving notify message",
 		.description = "BGP unable to process notification message",
-		.suggestion = "BGP notify received while in stopped state. If the problem persists,\nreport for troubleshooting"
+		.suggestion = "BGP notify received while in stopped state. If the problem persists, report for troubleshooting"
 	},
 	{
 		.code = BGP_ERR_KEEP_RCV,
 		.title = "BGP error receiving keepalive packet",
 		.description = "BGP unable to process keepalive packet",
-		.suggestion = "BGP keepalive received while in stopped state. If the problem persists,\nreport for troubleshooting"
+		.suggestion = "BGP keepalive received while in stopped state. If the problem persists, report for troubleshooting"
 	},
 	{
 		.code = BGP_ERR_RFSH_RCV,
 		.title = "BGP error receiving route refresh message",
 		.description = "BGP unable to process route refresh message",
-		.suggestion = "BGP route refresh received while in stopped state. If the problem persists,\nreport for troubleshooting"},
+		.suggestion = "BGP route refresh received while in stopped state. If the problem persists, report for troubleshooting"},
 	{
 		.code = BGP_ERR_CAP_RCV,
 		.title = "BGP error capability message",
 		.description = "BGP unable to process received capability",
-		 .suggestion = "BGP capability message received while in stopped state. If the problem\npersists, report for troubleshooting"
+		 .suggestion = "BGP capability message received while in stopped state. If the problem persists, report for troubleshooting"
 	},
 	{
 		.code = BGP_ERR_NH_UPD,
 		.title = "BGP error with nexthopo update",
 		.description = "BGP unable to process nexthop update",
-		.suggestion = "BGP received nexthop update but nexthop is not reachable in this bgp\ninstance. Report for troubleshooting"
+		.suggestion = "BGP received nexthop update but nexthop is not reachable in this bgp instance. Report for troubleshooting"
 	},
 	{
 		.code = BGP_ERR_LABEL,
@@ -250,7 +250,7 @@ static struct ferr_ref ferr_bgp_err[] = {
 		.code = BGP_ERR_EVPN_ROUTE_INVALID,
 		.title = "BGP EVPN route received with invalid contents",
 		.description = "BGP received an EVPN route with invalid contents",
-		.suggestion = "Determine the source of the EVPN route and resolve whatever is causing\ninvalid contents"
+		.suggestion = "Determine the source of the EVPN route and resolve whatever is causing invalid contents"
 	},
 	{
 		.code = BGP_ERR_EVPN_ROUTE_CREATE,
@@ -280,7 +280,7 @@ static struct ferr_ref ferr_bgp_err[] = {
 		.code = BGP_ERR_EVPN_INSTANCE_MISMATCH,
 		.title = "BGP EVPN AS and process name mismatch",
 		.description = "BGP configuration has AS and process name mismatch",
-		.suggestion = "Correct the configuration so that the BGP AS number and instance\nname are consistent"
+		.suggestion = "Correct the configuration so that the BGP AS number and instance name are consistent"
 	},
 	{
 		.code = BGP_ERR_FLOWSPEC_PACKET,
