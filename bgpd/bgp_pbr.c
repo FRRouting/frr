@@ -209,6 +209,7 @@ struct bgp_pbr_filter {
 	struct bgp_pbr_val_mask *tcp_flags;
 	struct bgp_pbr_val_mask *dscp;
 	struct bgp_pbr_val_mask *pkt_len_val;
+	struct bgp_pbr_val_mask *fragment;
 };
 
 /* this structure is used to contain OR instructions
@@ -219,10 +220,14 @@ struct bgp_pbr_or_filter {
 	struct list *tcpflags;
 	struct list *dscp;
 	struct list *pkt_len;
+	struct list *fragment;
 };
 
 /* TCP : FIN and SYN -> val = ALL; mask = 3
  * TCP : not (FIN and SYN) -> val = ALL; mask = ALL & ~(FIN|RST)
+ * other variables type: dscp, pkt len, fragment
+ * - value is copied in bgp_pbr_val_mask->val value
+ * - if negate form is identifierd, bgp_pbr_val_mask->mask set to 1
  */
 static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 					    int num, uint8_t unary_operator,
@@ -258,7 +263,8 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 							TCP_HEADER_ALL_FLAGS &
 							~(list[i].value);
 					} else if (type_entry == FLOWSPEC_DSCP ||
-						   type_entry == FLOWSPEC_PKT_LEN) {
+						   type_entry == FLOWSPEC_PKT_LEN ||
+						   type_entry == FLOWSPEC_FRAGMENT) {
 						and_valmask->val = list[i].value;
 						and_valmask->mask = 1; /* inverse */
 					}
@@ -271,6 +277,7 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 							TCP_HEADER_ALL_FLAGS &
 							~(list[i].value);
 					} else if (type_entry == FLOWSPEC_DSCP ||
+						   type_entry == FLOWSPEC_FRAGMENT ||
 						   type_entry == FLOWSPEC_PKT_LEN) {
 						and_valmask->val = list[i].value;
 						and_valmask->mask = 1; /* inverse */
@@ -293,6 +300,7 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 				and_valmask->mask |=
 					TCP_HEADER_ALL_FLAGS & list[i].value;
 			} else if (type_entry == FLOWSPEC_DSCP ||
+				   type_entry == FLOWSPEC_FRAGMENT ||
 				   type_entry == FLOWSPEC_PKT_LEN)
 				and_valmask->val = list[i].value;
 			listnode_add(or_valmask, and_valmask);
@@ -521,6 +529,40 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 			return 0;
 		}
 	}
+	if (api->match_fragment_num) {
+		char fail_str[64];
+		bool success;
+
+		success = bgp_pbr_extract_enumerate(api->fragment,
+						    api->match_fragment_num,
+						    OPERATOR_UNARY_OR
+						    | OPERATOR_UNARY_AND,
+						    NULL, FLOWSPEC_FRAGMENT);
+		if (success) {
+			int i;
+
+			for (i = 0; i < api->match_fragment_num; i++) {
+				if (api->fragment[i].value != 1 &&
+				    api->fragment[i].value != 2 &&
+				    api->fragment[i].value != 4 &&
+				    api->fragment[i].value != 8) {
+					success = false;
+					sprintf(fail_str,
+						"Value not valid (%d) for this implementation",
+						api->fragment[i].value);
+				}
+			}
+		} else
+			sprintf(fail_str, "too complex. ignoring");
+		if (!success) {
+			if (BGP_DEBUG(pbr, PBR))
+				zlog_debug("BGP: match fragment operation (%d) %s",
+					   api->match_fragment_num,
+					   fail_str);
+			return 0;
+		}
+	}
+
 	/* no combinations with both src_port and dst_port
 	 * or port with src_port and dst_port
 	 */
@@ -768,6 +810,7 @@ uint32_t bgp_pbr_match_hash_key(void *arg)
 	key = jhash_1word(pbm->tcp_flags, key);
 	key = jhash_1word(pbm->tcp_mask_flags, key);
 	key = jhash_1word(pbm->dscp_value, key);
+	key = jhash_1word(pbm->fragment, key);
 	return jhash_1word(pbm->type, key);
 }
 
@@ -803,6 +846,9 @@ int bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 		return 0;
 
 	if (r1->dscp_value != r2->dscp_value)
+		return 0;
+
+	if (r1->fragment != r2->fragment)
 		return 0;
 	return 1;
 }
@@ -1291,6 +1337,11 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
 			temp.flags |= MATCH_DSCP_SET;
 		temp.dscp_value = bpf->dscp->val;
 	}
+	if (bpf->fragment) {
+		if (bpf->fragment->mask)
+			temp.flags |= MATCH_FRAGMENT_INVERSE_SET;
+		temp.fragment = bpf->fragment->val;
+	}
 
 	if (bpf->src == NULL || bpf->dst == NULL) {
 		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
@@ -1351,9 +1402,13 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(struct bgp *bgp,
 		orig_list = bpof->dscp;
 		target_val = &bpf->dscp;
 	} else if (type_entry == FLOWSPEC_PKT_LEN && bpof->pkt_len) {
-		next_type_entry = 0;
+		next_type_entry = FLOWSPEC_FRAGMENT;
 		orig_list = bpof->pkt_len;
 		target_val = &bpf->pkt_len_val;
+	} else if (type_entry == FLOWSPEC_FRAGMENT && bpof->fragment) {
+		next_type_entry = 0;
+		orig_list = bpof->fragment;
+		target_val = &bpf->fragment;
 	} else {
 		return bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
 								       bpf, bpof, 0);
@@ -1387,6 +1442,10 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 		bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
 							bpf, bpof,
 							FLOWSPEC_PKT_LEN);
+	else if (bpof->fragment)
+		bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
+							bpf, bpof,
+							FLOWSPEC_FRAGMENT);
 	else
 		bgp_pbr_policyroute_remove_from_zebra_unit(bgp, binfo, bpf);
 	/* flush bpof */
@@ -1396,6 +1455,8 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 		list_delete_all_node(bpof->dscp);
 	if (bpof->pkt_len)
 		list_delete_all_node(bpof->pkt_len);
+	if (bpof->fragment)
+		list_delete_all_node(bpof->fragment);
 }
 
 static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
@@ -1577,6 +1638,11 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 			temp.flags |= MATCH_DSCP_SET;
 		temp.dscp_value = bpf->dscp->val;
 	}
+	if (bpf->fragment) {
+		if (bpf->fragment->mask)
+			temp.flags |= MATCH_FRAGMENT_INVERSE_SET;
+		temp.fragment = bpf->fragment->val;
+	}
 	temp.action = bpa;
 	bpm = hash_get(bgp->pbr_match_hash, &temp,
 		       bgp_pbr_match_alloc_intern);
@@ -1699,9 +1765,13 @@ static void bgp_pbr_policyroute_add_to_zebra_recursive(struct bgp *bgp,
 		orig_list = bpof->dscp;
 		target_val = &bpf->dscp;
 	} else if (type_entry == FLOWSPEC_PKT_LEN && bpof->pkt_len) {
-		next_type_entry = 0;
+		next_type_entry = FLOWSPEC_FRAGMENT;
 		orig_list = bpof->pkt_len;
 		target_val = &bpf->pkt_len_val;
+	} else if (type_entry == FLOWSPEC_FRAGMENT && bpof->fragment) {
+		next_type_entry = 0;
+		orig_list = bpof->fragment;
+		target_val = &bpf->fragment;
 	} else {
 		return bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
 						  bpf, bpof, nh, rate, 0);
@@ -1740,6 +1810,11 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 							   bpf, bpof,
 							   nh, rate,
 							   FLOWSPEC_PKT_LEN);
+	else if (bpof->fragment)
+		bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
+							   bpf, bpof,
+							   nh, rate,
+							   FLOWSPEC_FRAGMENT);
 	else
 		bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo, bpf,
 						      nh, rate);
@@ -1750,6 +1825,8 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		list_delete_all_node(bpof->dscp);
 	if (bpof->pkt_len)
 		list_delete_all_node(bpof->pkt_len);
+	if (bpof->fragment)
+		list_delete_all_node(bpof->fragment);
 }
 
 static const struct message icmp_code_unreach_str[] = {
@@ -2017,6 +2094,14 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		bgp_pbr_extract_enumerate(api->dscp, api->match_dscp_num,
 					  OPERATOR_UNARY_OR,
 					  bpof.dscp, FLOWSPEC_DSCP);
+	}
+	if (api->match_fragment_num) {
+		bpof.fragment = list_new();
+		bgp_pbr_extract_enumerate(api->fragment,
+					  api->match_fragment_num,
+					  OPERATOR_UNARY_OR,
+					  bpof.fragment,
+					  FLOWSPEC_FRAGMENT);
 	}
 	bpf.vrf_id = api->vrf_id;
 	bpf.src = src;

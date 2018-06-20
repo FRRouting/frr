@@ -185,6 +185,7 @@ struct bgp_pbr_match {
 	uint16_t tcp_flags;
 	uint16_t tcp_mask_flags;
 	uint8_t dscp_value;
+	uint8_t fragment;
 
 	vrf_id_t vrf_id;
 
