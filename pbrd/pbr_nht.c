@@ -192,7 +192,7 @@ static void *pbr_nhgc_alloc(void *p)
 	new = XCALLOC(MTYPE_PBR_NHG, sizeof(*new));
 
 	strcpy(new->name, pnhgc->name);
-	new->table_id = pbr_nht_get_next_tableid();
+	new->table_id = pbr_nht_get_next_tableid(false);
 
 	DEBUGD(&pbr_dbg_nht, "%s: NHT: %s assigned Table ID: %u",
 	       __PRETTY_FUNCTION__, new->name, new->table_id);
@@ -218,6 +218,9 @@ void pbr_nhgroup_add_cb(const char *name)
 
 	pnhgc = pbr_nht_add_group(name);
 
+	if (!pnhgc)
+		return;
+
 	DEBUGD(&pbr_dbg_nht, "%s: Added nexthop-group %s", __PRETTY_FUNCTION__,
 	       name);
 
@@ -233,6 +236,13 @@ void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_cache pnhc_find = {};
 	struct pbr_nexthop_cache *pnhc;
+
+	if (!pbr_nht_get_next_tableid(true)) {
+		zlog_warn(
+			"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
+			__PRETTY_FUNCTION__, nhgc->name);
+		return;
+	}
 
 	/* find pnhgc by name */
 	strlcpy(pnhgc_find.name, nhgc->name, sizeof(pnhgc_find.name));
@@ -268,7 +278,7 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 
 	/* find pnhgc by name */
 	strlcpy(pnhgc_find.name, nhgc->name, sizeof(pnhgc_find.name));
-	pnhgc = hash_get(pbr_nhg_hash, &pnhgc_find, pbr_nhgc_alloc);
+	pnhgc = hash_lookup(pbr_nhg_hash, &pnhgc_find);
 
 	/* delete pnhc from pnhgc->nhh */
 	pnhc_find.nexthop = (struct nexthop *)nhop;
@@ -487,6 +497,14 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms)
 	memset(&find, 0, sizeof(find));
 	pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
 				  pbrms->seqno, find.name);
+
+	if (!pbr_nht_get_next_tableid(true)) {
+		zlog_warn(
+			"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
+			__PRETTY_FUNCTION__, find.name);
+		return;
+	}
+
 	if (!pbrms->internal_nhg_name)
 		pbrms->internal_nhg_name = XSTRDUP(MTYPE_TMP, find.name);
 
@@ -547,11 +565,18 @@ struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache lookup;
 
+	if (!pbr_nht_get_next_tableid(true)) {
+		zlog_warn(
+			"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
+			__PRETTY_FUNCTION__, name);
+		return NULL;
+	}
+
 	nhgc = nhgc_find(name);
 
 	if (!nhgc) {
-		zlog_warn("%s: Could not find group %s to add",
-			  __PRETTY_FUNCTION__, name);
+		DEBUGD(&pbr_dbg_nht, "%s: Could not find nhgc with name: %s\n",
+		       __PRETTY_FUNCTION__, name);
 		return NULL;
 	}
 
@@ -709,8 +734,7 @@ static int pbr_nhg_hash_equal(const void *arg1, const void *arg2)
 	return !strcmp(nhgc1->name, nhgc2->name);
 }
 
-
-uint32_t pbr_nht_get_next_tableid(void)
+uint32_t pbr_nht_get_next_tableid(bool peek)
 {
 	uint32_t i;
 	bool found = false;
@@ -723,7 +747,7 @@ uint32_t pbr_nht_get_next_tableid(void)
 	}
 
 	if (found) {
-		nhg_tableid[i] = true;
+		nhg_tableid[i] = !peek;
 		return i;
 	} else
 		return 0;

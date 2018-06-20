@@ -56,9 +56,13 @@ extern void pbr_nht_write_table_range(struct vty *vty);
 extern void pbr_nht_set_tableid_range(uint32_t low, uint32_t high);
 
 /*
- * Get the next tableid to use for installation
+ * Get the next tableid to use for installation.
+ *
+ * peek
+ *    If set to true, retrieves the next ID without marking it used. The next
+ *    call will return the same ID.
  */
-extern uint32_t pbr_nht_get_next_tableid(void);
+extern uint32_t pbr_nht_get_next_tableid(bool peek);
 /*
  * Get the next rule number to use for installation
  */

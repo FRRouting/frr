@@ -33,7 +33,6 @@ Nexthop Groups
 Nexthop groups are a way to encapsulate ECMP information together.  It's a
 listing of ECMP nexthops used to forward packets for when a pbr-map is matched.
 
-.. index:: nexthop-group
 .. clicmd:: nexthop-group NAME
 
    Create a nexthop-group with an associated NAME.  This will put you into a
@@ -46,24 +45,38 @@ listing of ECMP nexthops used to forward packets for when a pbr-map is matched.
    are used to are allowed here.  The syntax was intentionally kept the same as
    creating nexthops as you would for static routes.
 
+.. clicmd:: [no] pbr table range (10000-4294966272) (10000-4294966272)
+
+   Set or unset the range used to assign numeric table ID's to new
+   nexthop-group tables. Existing tables will not be modified to fit in this
+   range, so it is recommended to configure this before adding nexthop groups.
+
+   .. seealso:: :ref:`pbr-details`
+
+Showing Nexthop Group Information
+---------------------------------
+
+.. clicmd:: show pbr nexthop-groups [NAME]
+
+   Display information on a PBR nexthop-group. If ``NAME`` is omitted, all
+   nexthop groups are shown.
+
 .. _pbr-maps:
 
 PBR Maps
 ========
 
-PBR maps are a way to group policies that we would like to apply
-to individual interfaces.  These policies when applied are matched
-against incoming packets.  If matched the nexthop-group or nexthop
-is used to forward the packets to the end destination
+PBR maps are a way to group policies that we would like to apply to individual
+interfaces. These policies when applied are matched against incoming packets.
+If matched the nexthop-group or nexthop is used to forward the packets to the
+end destination.
 
-.. index:: pbr-map
 .. clicmd:: pbr-map NAME seq (1-700)
 
    Create a pbr-map with NAME and sequence number specified.  This command puts
    you into a new submode for pbr-map specification.  To exit this mode type
    exit or end as per normal conventions for leaving a sub-mode.
 
-.. index:: match
 .. clicmd:: match src-ip PREFIX
 
    When a incoming packet matches the source prefix specified, take the packet
