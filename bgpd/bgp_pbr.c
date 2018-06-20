@@ -1071,10 +1071,11 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 		ptr += sprintf_bgp_pbr_match_val(ptr, &api->tcpflags[i],
 					 i > 0 ? NULL : "@tcpflags ");
 
-	if (api->match_bitmask & FRAGMENT_PRESENT) {
+	if (api->match_fragment_num)
 		INCREMENT_DISPLAY(ptr, nb_items);
-		ptr += sprintf(ptr, "@fragment %u", api->fragment.bitmask);
-	}
+	for (i = 0; i < api->match_fragment_num; i++)
+		ptr += sprintf_bgp_pbr_match_val(ptr, &api->fragment[i],
+					 i > 0 ? NULL : "@fragment ");
 	if (!nb_items)
 		ptr = return_string;
 	else

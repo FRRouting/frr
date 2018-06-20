@@ -173,7 +173,7 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 			ptr += len_written;
 			break;
 		case FLOWSPEC_TCP_FLAGS:
-			ret = bgp_flowspec_tcpflags_decode(
+			ret = bgp_flowspec_bitmask_decode(
 					      type_util,
 					      nlri_content+offset,
 					      len - offset,
@@ -221,11 +221,11 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 			ptr += len_written;
 			break;
 		case FLOWSPEC_FRAGMENT:
-			ret = bgp_flowspec_fragment_type_decode(
-						type_util,
-						nlri_content + offset,
-						len - offset, local_string,
-						&error);
+			ret = bgp_flowspec_bitmask_decode(
+					      type_util,
+					      nlri_content+offset,
+					      len - offset,
+					      local_string, &error);
 			if (ret <= 0)
 				break;
 			if (json_path) {
