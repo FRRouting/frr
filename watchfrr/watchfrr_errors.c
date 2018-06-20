@@ -39,7 +39,5 @@ static struct ferr_ref ferr_watchfrr_err[] = {
 
 void watchfrr_error_init(void)
 {
-	ferr_ref_init();
-
 	ferr_ref_add(ferr_watchfrr_err);
 }

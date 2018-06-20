@@ -302,7 +302,5 @@ static struct ferr_ref ferr_bgp_err[] = {
 
 void bgp_error_init(void)
 {
-	ferr_ref_init();
-
 	ferr_ref_add(ferr_bgp_err);
 }

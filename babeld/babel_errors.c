@@ -57,7 +57,5 @@ static struct ferr_ref ferr_babel_err[] = {
 
 void babel_error_init(void)
 {
-	ferr_ref_init();
-
 	ferr_ref_add(ferr_babel_err);
 }

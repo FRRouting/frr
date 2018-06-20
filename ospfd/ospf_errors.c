@@ -80,7 +80,5 @@ static struct ferr_ref ferr_ospf_err[] = {
 
 void ospf_error_init(void)
 {
-	ferr_ref_init();
-
 	ferr_ref_add(ferr_ospf_err);
 }

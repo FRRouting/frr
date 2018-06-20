@@ -265,13 +265,14 @@ static struct ferr_ref ferr_zebra_err[] = {
 		.description = "Zebra attempted to add a VNI hash to an interface and failed",
 		.suggestion = "Notify a developer.",
 	},
+	{
+		.code = END_FERR,
+	}
 };
 /* clang-format on */
 
 
 void zebra_error_init(void)
 {
-	ferr_ref_init();
-
 	ferr_ref_add(ferr_zebra_err);
 }

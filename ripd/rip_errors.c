@@ -37,7 +37,5 @@ static struct ferr_ref ferr_rip_err[] = {
 
 void rip_error_init(void)
 {
-	ferr_ref_init();
-
 	ferr_ref_add(ferr_rip_err);
 }

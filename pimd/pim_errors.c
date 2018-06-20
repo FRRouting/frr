@@ -45,7 +45,5 @@ static struct ferr_ref ferr_pim_err[] = {
 
 void pim_error_init(void)
 {
-	ferr_ref_init();
-
 	ferr_ref_add(ferr_pim_err);
 }

@@ -45,7 +45,5 @@ static struct ferr_ref ferr_nhrp_err[] = {
 
 void nhrp_error_init(void)
 {
-	ferr_ref_init();
-
 	ferr_ref_add(ferr_nhrp_err);
 }
