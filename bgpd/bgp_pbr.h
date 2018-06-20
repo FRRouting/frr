@@ -107,7 +107,6 @@ struct bgp_pbr_entry_main {
 
 #define PREFIX_SRC_PRESENT (1 << 0)
 #define PREFIX_DST_PRESENT (1 << 1)
-#define FRAGMENT_PRESENT   (1 << 2)
 	uint8_t match_bitmask;
 
 	uint8_t match_src_port_num;
@@ -119,6 +118,7 @@ struct bgp_pbr_entry_main {
 	uint8_t match_packet_length_num;
 	uint8_t match_dscp_num;
 	uint8_t match_tcpflags_num;
+	uint8_t match_fragment_num;
 
 	struct prefix src_prefix;
 	struct prefix dst_prefix;
@@ -136,7 +136,7 @@ struct bgp_pbr_entry_main {
 	struct bgp_pbr_match_val dscp[BGP_PBR_MATCH_VAL_MAX];
 
 	struct bgp_pbr_match_val tcpflags[BGP_PBR_MATCH_VAL_MAX];
-	struct bgp_pbr_fragment_val fragment;
+	struct bgp_pbr_match_val fragment[BGP_PBR_MATCH_VAL_MAX];
 
 	uint16_t action_num;
 	struct bgp_pbr_entry_action actions[ACTIONS_MAX_NUM];
