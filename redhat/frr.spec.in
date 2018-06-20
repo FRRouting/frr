@@ -183,7 +183,6 @@ Requires(pre):      initscripts >= 5.60
 Requires:           initscripts
 %endif
 Provides:           routingdaemon = %{version}-%{release}
-BuildRoot:          %{_tmppath}/%{name}-%{version}-root
 Obsoletes:          gated mrt zebra frr-sysvinit
 Conflicts:          bird
 
