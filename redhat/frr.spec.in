@@ -38,7 +38,7 @@
 %define     frr_tools     %{zeb_src}/tools
 
 # defines for configure
-%define     _localstatedir  /var/run/frr
+%define     rundir  %{_localstatedir}/run/%{name}
 
 # define for sphinx-build binary
 %if 0%{?rhel} && 0%{?rhel} < 7
@@ -231,7 +231,7 @@ developing OSPF-API and frr applications.
 %configure \
     --sbindir=%{_sbindir} \
     --sysconfdir=%{configdir} \
-    --localstatedir=%{_localstatedir} \
+    --localstatedir=%{rundir} \
     --disable-werror \
     --enable-irdp \
 %if !%{with_shared}
@@ -379,7 +379,7 @@ fi
 if getent passwd %frr_user >/dev/null ; then : ; else \
  /usr/sbin/useradd  -u %frr_uid -g %frr_gid \
   -M -r -s /sbin/nologin -c "FRRouting suite" \
-  -d %_localstatedir %frr_user 2> /dev/null || : ; \
+  -d %{rundir} %frr_user 2> /dev/null || : ; \
 fi
 %if 0%{?vty_group:1}
 /usr/sbin/usermod -a -G %vty_group %frr_user
