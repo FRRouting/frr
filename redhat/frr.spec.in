@@ -231,8 +231,6 @@ developing OSPF-API and frr applications.
 %configure \
     --sbindir=%{_sbindir} \
     --sysconfdir=%{configdir} \
-    --libdir=%{_libdir} \
-    --libexecdir=%{_libexecdir} \
     --localstatedir=%{_localstatedir} \
     --disable-werror \
     --enable-irdp \
