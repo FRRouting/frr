@@ -129,9 +129,6 @@
 
 %define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd}
 
-# allow build dir to be kept
-%{!?keep_build:         %global  keep_build         0 }
-
 #release sub-revision (the two digits after the CONFDATE)
 %{!?release_rev:        %global  release_rev        01 }
 
@@ -526,11 +523,6 @@ fi
     fi
 %endif
 /sbin/install-info --delete %{_infodir}/frr.info.gz %{_infodir}/dir
-
-%clean
-%if !0%{?keep_build:1}
-    rm -rf %{buildroot}
-%endif
 
 %files
 %defattr(-,root,root)
