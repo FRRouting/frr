@@ -1378,6 +1378,17 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
 	}
 }
 
+static uint8_t bgp_pbr_next_type_entry(uint8_t type_entry)
+{
+	if (type_entry == FLOWSPEC_TCP_FLAGS)
+		return FLOWSPEC_DSCP;
+	if (type_entry == FLOWSPEC_DSCP)
+		return FLOWSPEC_PKT_LEN;
+	if (type_entry == FLOWSPEC_PKT_LEN)
+		return FLOWSPEC_FRAGMENT;
+	return 0;
+}
+
 static void bgp_pbr_policyroute_remove_from_zebra_recursive(struct bgp *bgp,
 			struct bgp_info *binfo,
 			struct bgp_pbr_filter *bpf,
@@ -1393,25 +1404,24 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(struct bgp *bgp,
 	if (type_entry == 0)
 		return bgp_pbr_policyroute_remove_from_zebra_unit(bgp,
 							binfo, bpf);
+	next_type_entry = bgp_pbr_next_type_entry(type_entry);
 	if (type_entry == FLOWSPEC_TCP_FLAGS && bpof->tcpflags) {
-		next_type_entry = FLOWSPEC_DSCP;
 		orig_list = bpof->tcpflags;
 		target_val = &bpf->tcp_flags;
 	} else if (type_entry == FLOWSPEC_DSCP && bpof->dscp) {
-		next_type_entry = FLOWSPEC_PKT_LEN;
 		orig_list = bpof->dscp;
 		target_val = &bpf->dscp;
 	} else if (type_entry == FLOWSPEC_PKT_LEN && bpof->pkt_len) {
-		next_type_entry = FLOWSPEC_FRAGMENT;
 		orig_list = bpof->pkt_len;
 		target_val = &bpf->pkt_len_val;
 	} else if (type_entry == FLOWSPEC_FRAGMENT && bpof->fragment) {
-		next_type_entry = 0;
 		orig_list = bpof->fragment;
 		target_val = &bpf->fragment;
 	} else {
-		return bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
-								       bpf, bpof, 0);
+		return bgp_pbr_policyroute_remove_from_zebra_recursive(bgp,
+							binfo,
+							bpf, bpof,
+							next_type_entry);
 	}
 	for (ALL_LIST_ELEMENTS(orig_list, node, nnode, valmask)) {
 		*target_val = valmask;
@@ -1756,25 +1766,23 @@ static void bgp_pbr_policyroute_add_to_zebra_recursive(struct bgp *bgp,
 	if (type_entry == 0)
 		return bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo, bpf,
 							     nh, rate);
+	next_type_entry = bgp_pbr_next_type_entry(type_entry);
 	if (type_entry == FLOWSPEC_TCP_FLAGS && bpof->tcpflags) {
-		next_type_entry = FLOWSPEC_DSCP;
 		orig_list = bpof->tcpflags;
 		target_val = &bpf->tcp_flags;
 	} else if (type_entry == FLOWSPEC_DSCP && bpof->dscp) {
-		next_type_entry = FLOWSPEC_PKT_LEN;
 		orig_list = bpof->dscp;
 		target_val = &bpf->dscp;
 	} else if (type_entry == FLOWSPEC_PKT_LEN && bpof->pkt_len) {
-		next_type_entry = FLOWSPEC_FRAGMENT;
 		orig_list = bpof->pkt_len;
 		target_val = &bpf->pkt_len_val;
 	} else if (type_entry == FLOWSPEC_FRAGMENT && bpof->fragment) {
-		next_type_entry = 0;
 		orig_list = bpof->fragment;
 		target_val = &bpf->fragment;
 	} else {
 		return bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
-						  bpf, bpof, nh, rate, 0);
+						bpf, bpof, nh, rate,
+						next_type_entry);
 	}
 	for (ALL_LIST_ELEMENTS(orig_list, node, nnode, valmask)) {
 		*target_val = valmask;
