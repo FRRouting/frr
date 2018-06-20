@@ -406,16 +406,32 @@ ldpd_shutdown(void)
 	free(vty_conf);
 
 	log_debug("waiting for children to terminate");
-	do {
+
+	while (true) {
+		/* Wait for child process. */
 		pid = wait(&status);
 		if (pid == -1) {
-			if (errno != EINTR && errno != ECHILD)
-				fatal("wait");
-		} else if (WIFSIGNALED(status))
+			/* We got interrupted, try again. */
+			if (errno == EINTR)
+				continue;
+			/* No more processes were found. */
+			if (errno != ECHILD)
+				break;
+
+			/* Unhandled errno condition. */
+			fatal("wait");
+			/* UNREACHABLE */
+		}
+
+		/* We found something, lets announce it. */
+		if (WIFSIGNALED(status))
 			log_warnx("%s terminated; signal %d",
-			    (pid == lde_pid) ? "label decision engine" :
-			    "ldp engine", WTERMSIG(status));
-	} while (pid != -1 || (pid == -1 && errno == EINTR));
+				  (pid == lde_pid ? "label decision engine"
+						  : "ldp engine"),
+				  WTERMSIG(status));
+
+		/* Repeat until there are no more child processes. */
+	}
 
 	free(iev_ldpe);
 	free(iev_lde);
