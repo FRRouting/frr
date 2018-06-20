@@ -43,9 +43,9 @@
 
 # define for sphinx-build binary
 %if 0%{?rhel} && 0%{?rhel} < 7
-%define     sphinx sphinx-build2.7
+    %define sphinx sphinx-build2.7
 %else
-%define     sphinx sphinx-build
+    %define sphinx sphinx-build
 %endif
 ############################################################################
 
