@@ -34,6 +34,7 @@
 #include "hash.h"
 #include "queue.h"
 #include "filter.h"
+#include "frrstr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_advertise.h"

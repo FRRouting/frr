@@ -31,6 +31,7 @@
 #include "plist.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "frrstr.h"
 
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"

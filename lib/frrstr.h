@@ -97,4 +97,15 @@ void frrstr_strvec_free(vector v);
  */
 bool begins_with(const char *str, const char *prefix);
 
+/*
+ * Check the string only contains digit characters.
+ *
+ * str
+ *    string to check for digits
+ *
+ * Returns:
+ *    1 str only contains digit characters, 0 otherwise
+ */
+int all_digit(const char *str);
+
 #endif /* _FRRSTR_H_ */

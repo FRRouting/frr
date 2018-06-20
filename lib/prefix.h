@@ -458,7 +458,6 @@ static inline int ipv6_martian(struct in6_addr *addr)
 	return 0;
 }
 
-extern int all_digit(const char *);
 extern int macstr2prefix_evpn(const char *str, struct prefix_evpn *p);
 
 /* NOTE: This routine expects the address argument in network byte order. */

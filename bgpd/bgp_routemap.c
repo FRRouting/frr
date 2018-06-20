@@ -37,6 +37,7 @@
 #include "sockunion.h"
 #include "hash.h"
 #include "queue.h"
+#include "frrstr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
