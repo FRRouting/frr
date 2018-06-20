@@ -174,7 +174,6 @@ static int bgp_process_reads(struct thread *thread)
 	bool more = true;		// whether we got more data
 	bool fatal = false;		// whether fatal error occurred
 	bool added_pkt = false;		// whether we pushed onto ->ibuf
-	bool header_valid = true;	// whether header is valid
 	/* clang-format on */
 
 	peer = THREAD_ARG(thread);
@@ -214,10 +213,8 @@ static int bgp_process_reads(struct thread *thread)
 		if (ringbuf_remain(ibw) < BGP_HEADER_SIZE)
 			break;
 
-		/* validate header */
-		header_valid = validate_header(peer);
-
-		if (!header_valid) {
+		/* check that header is valid */
+		if (!validate_header(peer)) {
 			fatal = true;
 			break;
 		}

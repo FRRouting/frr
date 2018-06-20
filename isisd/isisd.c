@@ -1373,7 +1373,7 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 	struct isis_area *area;
 	struct isis_lsp *lsp;
 	struct isis_dynhn *dynhn;
-	const char *pos = argv;
+	const char *pos;
 	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
 	char sysid[255];
 	uint8_t number[3];
