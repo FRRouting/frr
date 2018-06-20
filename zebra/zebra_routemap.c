@@ -1282,13 +1282,11 @@ static struct route_map_rule_cmd route_set_src_cmd = {
 	"src", route_set_src, route_set_src_compile, route_set_src_free,
 };
 
-static int zebra_route_map_process_update_cb(char *rmap_name)
+static void zebra_route_map_process_update_cb(char *rmap_name)
 {
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Event handler for route-map: %s",
 			   rmap_name);
-
-	return 0;
 }
 
 static int zebra_route_map_update_timer(struct thread *thread)

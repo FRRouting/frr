@@ -807,7 +807,7 @@ static struct route_map *route_map_get(const char *name)
 	return map;
 }
 
-void route_map_walk_update_list(int (*route_map_update_fn)(char *name))
+void route_map_walk_update_list(void (*route_map_update_fn)(char *name))
 {
 	struct route_map *node;
 	struct route_map *nnode = NULL;

@@ -3112,7 +3112,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 	}
 }
 
-static int bgp_route_map_process_update_cb(char *rmap_name)
+static void bgp_route_map_process_update_cb(char *rmap_name)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -3127,8 +3127,6 @@ static int bgp_route_map_process_update_cb(char *rmap_name)
 	}
 
 	vpn_policy_routemap_event(rmap_name);
-
-	return 0;
 }
 
 int bgp_route_map_update_timer(struct thread *thread)
