@@ -292,11 +292,11 @@ developing OSPF-API and frr applications.
     --with-libpam \
 %endif
 %if 0%{?frr_user:1}
-    --enable-user=%frr_user \
-    --enable-group=%frr_user \
+    --enable-user=%{frr_user} \
+    --enable-group=%{frr_user} \
 %endif
 %if 0%{?vty_group:1}
-    --enable-vty-group=%vty_group \
+    --enable-vty-group=%{vty_group} \
 %endif
 %if %{with_fpm}
     --enable-fpm \
@@ -363,23 +363,23 @@ install -d -m750 %{buildroot}%{rundir}
 %pre
 # add vty_group
 %if 0%{?vty_group:1}
-if getent group %vty_group > /dev/null ; then : ; else \
-    /usr/sbin/groupadd -r -g %vty_gid %vty_group > /dev/null || : ; fi
+if getent group %{vty_group} > /dev/null ; then : ; else \
+    /usr/sbin/groupadd -r -g %vty_gid %{vty_group} > /dev/null || : ; fi
 %endif
 
 # add frr user and group
 %if 0%{?frr_user:1}
 # Ensure that frr_gid gets correctly allocated
-if getent group %frr_user >/dev/null; then : ; else \
-    /usr/sbin/groupadd -g %frr_gid %frr_user > /dev/null || : ; \
+if getent group %{frr_user} >/dev/null; then : ; else \
+    /usr/sbin/groupadd -g %frr_gid %{frr_user} > /dev/null || : ; \
 fi
-if getent passwd %frr_user >/dev/null ; then : ; else \
+if getent passwd %{frr_user} >/dev/null ; then : ; else \
     /usr/sbin/useradd  -u %frr_uid -g %frr_gid \
         -M -r -s /sbin/nologin -c "FRRouting suite" \
-        -d %{rundir} %frr_user 2> /dev/null || : ; \
+        -d %{rundir} %{frr_user} 2> /dev/null || : ; \
 fi
 %if 0%{?vty_group:1}
-    /usr/sbin/usermod -a -G %vty_group %frr_user
+    /usr/sbin/usermod -a -G %{vty_group} %{frr_user}
 %endif
 %endif
 
@@ -451,7 +451,7 @@ zebra_spec_add_service isisd    2608/tcp "ISISd vty"
 if [ ! -e %{configdir}/zebra.conf ]; then
     echo "hostname `hostname`" > %{configdir}/zebra.conf
 %if 0%{?frr_user:1}
-    chown %frr_user:%frr_user %{configdir}/zebra.conf*
+    chown %{frr_user}:%{frr_user} %{configdir}/zebra.conf*
 %endif
     chmod 640 %{configdir}/zebra.conf*
 fi
@@ -460,13 +460,13 @@ for daemon in %{all_daemons} ; do
         if [ ! -e %{configdir}/${daemon}.conf ]; then
             touch %{configdir}/${daemon}.conf
             %if 0%{?frr_user:1}
-                chown %frr_user:%frr_user %{configdir}/${daemon}.conf*
+                chown %{frr_user}:%{frr_user} %{configdir}/${daemon}.conf*
             %endif
         fi
     fi
 done
 %if 0%{?frr_user:1}
-    chown %frr_user:%frr_user %{configdir}/daemons
+    chown %{frr_user}:%{frr_user} %{configdir}/daemons
 %endif
 
 %if %{with_watchfrr}
@@ -527,16 +527,16 @@ fi
 %doc doc/mpls
 %doc ChangeLog NEWS README
 %if 0%{?frr_user:1}
-    %dir %attr(751,%frr_user,%frr_user) %{configdir}
-    %dir %attr(750,%frr_user,%frr_user) /var/log/frr
-    %dir %attr(751,%frr_user,%frr_user) %{rundir}
+    %dir %attr(751,%{frr_user},%{frr_user}) %{configdir}
+    %dir %attr(750,%{frr_user},%{frr_user}) /var/log/frr
+    %dir %attr(751,%{frr_user},%{frr_user}) %{rundir}
 %else
     %dir %attr(750,root,root) %{configdir}
     %dir %attr(750,root,root) /var/log/frr
     %dir %attr(750,root,root) %{rundir}
 %endif
 %if 0%{?vty_group:1}
-    %attr(750,%frr_user,%vty_group) %{configdir}/vtysh.conf.sample
+    %attr(750,%{frr_user},%{vty_group}) %{configdir}/vtysh.conf.sample
 %endif
 %{_infodir}/frr.info.gz
 %{_mandir}/man*/*
@@ -580,7 +580,7 @@ fi
 %attr(755,root,root) %{_libdir}/frr/modules/zebra_irdp.so
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
-%config(noreplace) %attr(750,%frr_user,%frr_user) %{configdir}/daemons
+%config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
 %if "%{initsystem}" == "systemd"
     %{_unitdir}/frr.service
 %else
