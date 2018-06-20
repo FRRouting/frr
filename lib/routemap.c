@@ -751,7 +751,7 @@ struct route_map *route_map_lookup_by_name(const char *name)
 	return map;
 }
 
-int route_map_mark_updated(const char *name, int del_later)
+int route_map_mark_updated(const char *name)
 {
 	struct route_map *map;
 	int ret = -1;

@@ -35,7 +35,7 @@ static void pim_route_map_mark_update(const char *rmap_name)
 
 static void pim_route_map_add(const char *rmap_name)
 {
-	if (route_map_mark_updated(rmap_name, 0) == 0)
+	if (route_map_mark_updated(rmap_name) == 0)
 		pim_route_map_mark_update(rmap_name);
 
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
@@ -43,7 +43,7 @@ static void pim_route_map_add(const char *rmap_name)
 
 static void pim_route_map_delete(const char *rmap_name)
 {
-	if (route_map_mark_updated(rmap_name, 1) == 0)
+	if (route_map_mark_updated(rmap_name) == 0)
 		pim_route_map_mark_update(rmap_name);
 
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_DELETED);
@@ -51,7 +51,7 @@ static void pim_route_map_delete(const char *rmap_name)
 
 static void pim_route_map_event(route_map_event_t event, const char *rmap_name)
 {
-	if (route_map_mark_updated(rmap_name, 0) == 0)
+	if (route_map_mark_updated(rmap_name) == 0)
 		pim_route_map_mark_update(rmap_name);
 
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);

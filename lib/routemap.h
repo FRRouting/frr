@@ -215,7 +215,7 @@ extern route_map_result_t route_map_apply(struct route_map *map,
 extern void route_map_add_hook(void (*func)(const char *));
 extern void route_map_delete_hook(void (*func)(const char *));
 extern void route_map_event_hook(void (*func)(route_map_event_t, const char *));
-extern int route_map_mark_updated(const char *name, int deleted);
+extern int route_map_mark_updated(const char *name);
 extern int route_map_clear_updated(struct route_map *rmap);
 extern void route_map_walk_update_list(int (*update_fn)(char *name));
 extern void route_map_upd8_dependency(route_map_event_t type, const char *arg,
