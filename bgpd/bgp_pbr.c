@@ -221,8 +221,15 @@ struct bgp_pbr_or_filter {
 	struct list *dscp;
 	struct list *pkt_len;
 	struct list *fragment;
+	struct list *icmp_type;
+	struct list *icmp_code;
 };
 
+static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
+						  struct bgp_info *binfo,
+						  struct bgp_pbr_filter *bpf,
+						  struct nexthop *nh,
+						  float *rate);
 /* TCP : FIN and SYN -> val = ALL; mask = 3
  * TCP : not (FIN and SYN) -> val = ALL; mask = ALL & ~(FIN|RST)
  * other variables type: dscp, pkt len, fragment
@@ -283,7 +290,9 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 						and_valmask->mask = 1; /* inverse */
 					}
 					listnode_add (or_valmask, and_valmask);
-				}
+				} else if (type_entry == FLOWSPEC_ICMP_CODE ||
+					   type_entry == FLOWSPEC_ICMP_TYPE)
+					return false;
 				continue;
 			}
 			return false;
@@ -300,6 +309,8 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 				and_valmask->mask |=
 					TCP_HEADER_ALL_FLAGS & list[i].value;
 			} else if (type_entry == FLOWSPEC_DSCP ||
+				   type_entry == FLOWSPEC_ICMP_TYPE ||
+				   type_entry == FLOWSPEC_ICMP_CODE ||
 				   type_entry == FLOWSPEC_FRAGMENT ||
 				   type_entry == FLOWSPEC_PKT_LEN)
 				and_valmask->val = list[i].value;
@@ -1386,7 +1397,78 @@ static uint8_t bgp_pbr_next_type_entry(uint8_t type_entry)
 		return FLOWSPEC_PKT_LEN;
 	if (type_entry == FLOWSPEC_PKT_LEN)
 		return FLOWSPEC_FRAGMENT;
+	if (type_entry == FLOWSPEC_FRAGMENT)
+		return FLOWSPEC_ICMP_TYPE;
 	return 0;
+}
+
+static void  bgp_pbr_icmp_action(struct bgp *bgp,
+				 struct bgp_info *binfo,
+				 struct bgp_pbr_filter *bpf,
+				 struct bgp_pbr_or_filter *bpof,
+				 bool add,
+				 struct nexthop *nh,
+				 float *rate)
+{
+	struct bgp_pbr_range_port srcp, dstp;
+	struct bgp_pbr_val_mask *icmp_type, *icmp_code;
+	struct listnode *tnode, *cnode;
+
+	if (!bpf)
+		return;
+	if (bpf->protocol != IPPROTO_ICMP)
+		return;
+	bpf->src_port = &srcp;
+	bpf->dst_port = &dstp;
+	/* parse icmp type and lookup appropriate icmp code
+	 * if no icmp code found, create as many entryes as
+	 * there are listed icmp codes for that icmp type
+	 */
+	if (!bpof->icmp_type) {
+		srcp.min_port = 0;
+		srcp.max_port = 255;
+		for (ALL_LIST_ELEMENTS_RO(bpof->icmp_code, cnode, icmp_code)) {
+			dstp.min_port = icmp_code->val;
+			if (add)
+				bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo,
+							bpf, nh, rate);
+			else
+				bgp_pbr_policyroute_remove_from_zebra_unit(
+							bgp, binfo, bpf);
+		}
+		return;
+	}
+	for (ALL_LIST_ELEMENTS_RO(bpof->icmp_type, tnode, icmp_type)) {
+		srcp.min_port = icmp_type->val;
+		srcp.max_port = 0;
+		dstp.max_port = 0;
+		/* only icmp type. create an entry only with icmp type */
+		if (!bpof->icmp_code) {
+			/* icmp type is not one of the above
+			 * forge an entry only based on the icmp type
+			 */
+			dstp.min_port = 0;
+			dstp.max_port = 255;
+			if (add)
+				bgp_pbr_policyroute_add_to_zebra_unit(
+							bgp, binfo,
+							bpf, nh, rate);
+			else
+				bgp_pbr_policyroute_remove_from_zebra_unit(bgp,
+							      binfo, bpf);
+			continue;
+		}
+		for (ALL_LIST_ELEMENTS_RO(bpof->icmp_code, cnode, icmp_code)) {
+			dstp.min_port = icmp_code->val;
+			if (add)
+				bgp_pbr_policyroute_add_to_zebra_unit(
+							bgp, binfo,
+							bpf, nh, rate);
+			else
+				bgp_pbr_policyroute_remove_from_zebra_unit(
+							   bgp, binfo, bpf);
+		}
+	}
 }
 
 static void bgp_pbr_policyroute_remove_from_zebra_recursive(struct bgp *bgp,
@@ -1417,6 +1499,11 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(struct bgp *bgp,
 	} else if (type_entry == FLOWSPEC_FRAGMENT && bpof->fragment) {
 		orig_list = bpof->fragment;
 		target_val = &bpf->fragment;
+	} else if (type_entry == FLOWSPEC_ICMP_TYPE &&
+		   (bpof->icmp_type || bpof->icmp_code)) {
+		/* enumerate list for icmp - must be last one  */
+		bgp_pbr_icmp_action(bgp, binfo, bpf, bpof, false, NULL, NULL);
+		return;
 	} else {
 		return bgp_pbr_policyroute_remove_from_zebra_recursive(bgp,
 							binfo,
@@ -1456,6 +1543,10 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 		bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
 							bpf, bpof,
 							FLOWSPEC_FRAGMENT);
+	else if (bpof->icmp_type || bpof->icmp_code)
+		bgp_pbr_policyroute_remove_from_zebra_recursive(bgp, binfo,
+							bpf, bpof,
+							FLOWSPEC_ICMP_TYPE);
 	else
 		bgp_pbr_policyroute_remove_from_zebra_unit(bgp, binfo, bpf);
 	/* flush bpof */
@@ -1779,6 +1870,11 @@ static void bgp_pbr_policyroute_add_to_zebra_recursive(struct bgp *bgp,
 	} else if (type_entry == FLOWSPEC_FRAGMENT && bpof->fragment) {
 		orig_list = bpof->fragment;
 		target_val = &bpf->fragment;
+	} else if (type_entry == FLOWSPEC_ICMP_TYPE &&
+		   (bpof->icmp_type || bpof->icmp_code)) {
+		/* enumerate list for icmp - must be last one  */
+		bgp_pbr_icmp_action(bgp, binfo, bpf, bpof, true, nh, rate);
+		return;
 	} else {
 		return bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
 						bpf, bpof, nh, rate,
@@ -1823,6 +1919,10 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 							   bpf, bpof,
 							   nh, rate,
 							   FLOWSPEC_FRAGMENT);
+	else if (bpof->icmp_type || bpof->icmp_code)
+		bgp_pbr_policyroute_add_to_zebra_recursive(bgp, binfo,
+						   bpf, bpof, nh, rate,
+						   FLOWSPEC_ICMP_TYPE);
 	else
 		bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo, bpf,
 						      nh, rate);
@@ -1835,149 +1935,10 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		list_delete_all_node(bpof->pkt_len);
 	if (bpof->fragment)
 		list_delete_all_node(bpof->fragment);
-}
-
-static const struct message icmp_code_unreach_str[] = {
-	{ 9, "communication-prohibited-by-filtering"},
-	{ 10, "destination-host-prohibited"},
-	{ 7, "destination-host-unknown"},
-	{ 6, "destination-network-unknown"},
-	{ 4, "fragmentation-needed"},
-	{ 14, "host-precedence-violation"},
-	{ 0, "network-unreachable"},
-	{ 12, "network-unreachable-for-tos"},
-	{ 3, "port-unreachable"},
-	{ 8, "source-host-isolated"},
-	{ 5, "source-route-failed"},
-	{0}
-};
-
-static const struct message icmp_code_redirect_str[] = {
-	{ 1, "redirect-for-host"},
-	{ 0, "redirect-for-network"},
-	{ 3, "redirect-for-tos-and-host"},
-	{ 2, "redirect-for-tos-and-net"},
-	{0}
-};
-
-static const struct message icmp_code_exceed_str[] = {
-	{ 1, "ttl-eq-zero-during-reassembly"},
-	{ 0, "ttl-eq-zero-during-transit"},
-	{0}
-};
-
-static const struct message icmp_code_problem_str[] = {
-	{ 1, "required-option-missing"},
-	{ 2, "ip-header-bad"},
-	{0}
-};
-static void  bgp_pbr_enumerate_action_src_dst(struct bgp_pbr_match_val src[],
-				     int src_num,
-				     struct bgp_pbr_match_val dst[],
-				     int dst_num,
-				     struct bgp_pbr_filter *bpf,
-				     struct bgp *bgp,
-				     struct bgp_info *binfo,
-				     bool add,
-				     struct nexthop *nh,
-				     float *rate)
-{
-	int i = 0, j;
-	struct bgp_pbr_range_port srcp, dstp;
-
-	if (!bpf)
-		return;
-	if (bpf->protocol != IPPROTO_ICMP)
-		return;
-	bpf->src_port = &srcp;
-	bpf->dst_port = &dstp;
-	/* combinatory forced. ignore icmp type / code combinatory */
-	if (src_num == 1 && dst_num == 1) {
-		srcp.max_port = 0;
-		dstp.max_port = 0;
-		srcp.min_port = src[0].value;
-		dstp.min_port = dst[0].value;
-		if (add)
-			bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-						 bpf, NULL, nh, rate);
-		else
-			bgp_pbr_policyroute_remove_from_zebra(bgp,
-						      binfo, bpf, NULL);
-		return;
-	}
-	/* parse icmp type and lookup appropriate icmp code
-	 * if no icmp code found, create as many entryes as
-	 * there are listed icmp codes for that icmp type
-	 */
-	for (i = 0; i < src_num; i++) {
-		const struct message *pnt;
-		const struct message *pnt_code = NULL;
-		static struct message nt = {0};
-		bool icmp_typecode_configured = false;
-
-		srcp.min_port = src[i].value;
-		srcp.max_port = 0;
-		dstp.max_port = 0;
-		if (src[i].value == 3)
-			pnt_code = icmp_code_unreach_str;
-		else if (src[i].value == 5)
-			pnt_code = icmp_code_redirect_str;
-		else if (src[i].value == 11)
-			pnt_code = icmp_code_exceed_str;
-		else if (src[i].value == 12)
-			pnt_code = icmp_code_problem_str;
-		switch (src[i].value) {
-		case 3:
-		case 5:
-		case 11:
-		case 12:
-			for (j = 0; j < dst_num; j++) {
-				for (pnt = pnt_code;
-				     pnt && memcmp(pnt, &nt, sizeof(struct message));
-				     pnt++) {
-					if (dst[i].value != pnt->key)
-						continue;
-					dstp.min_port = dst[i].value;
-					icmp_typecode_configured = true;
-					if (add)
-						bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-										 bpf, NULL,
-										 nh, rate);
-					else
-						bgp_pbr_policyroute_remove_from_zebra(
-								      bgp, binfo, bpf, NULL);
-				}
-			}
-			/* create a list of ICMP type/code combinatories */
-			if (!icmp_typecode_configured) {
-				for (pnt = pnt_code;
-				     pnt && memcmp(pnt, &nt, sizeof(struct message));
-				     pnt++) {
-					dstp.min_port = pnt->key;
-					if (add)
-						bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-								 bpf, NULL, nh, rate);
-					else
-						bgp_pbr_policyroute_remove_from_zebra(bgp,
-							      binfo, bpf, NULL);
-				}
-
-			}
-			break;
-		default:
-			/* icmp type is not one of the above
-			 * forge an entry only based on the icmp type
-			 */
-			dstp.min_port = 0;
-			if (add)
-				bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-								 bpf, NULL, nh, rate);
-			else
-				bgp_pbr_policyroute_remove_from_zebra(bgp,
-							      binfo, bpf, NULL);
-			break;
-		}
-	}
+	if (bpof->icmp_type)
+		list_delete_all_node(bpof->icmp_type);
+	if (bpof->icmp_code)
+		list_delete_all_node(bpof->icmp_code);
 }
 
 static void bgp_pbr_handle_entry(struct bgp *bgp,
@@ -1994,7 +1955,6 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	struct bgp_pbr_range_port *srcp = NULL, *dstp = NULL;
 	struct bgp_pbr_range_port range, range_icmp_code;
 	struct bgp_pbr_range_port pkt_len;
-	bool enum_icmp = false;
 	struct bgp_pbr_filter bpf;
 	uint8_t kind_enum;
 	struct bgp_pbr_or_filter bpof;
@@ -2034,30 +1994,32 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	}
 	if (api->match_icmp_type_num >= 1) {
 		proto = IPPROTO_ICMP;
-		if (bgp_pbr_extract_enumerate(api->icmp_type,
-					      api->match_icmp_type_num,
-					      OPERATOR_UNARY_OR, NULL,
-					      FLOWSPEC_ICMP_TYPE))
-			enum_icmp = true;
-		else {
-			bgp_pbr_extract(api->icmp_type,
-					api->match_icmp_type_num,
-					&range);
+		if (bgp_pbr_extract(api->icmp_type,
+				    api->match_icmp_type_num,
+				    &range))
 			srcp = &range;
+		else {
+			bpof.icmp_type = list_new();
+			bgp_pbr_extract_enumerate(api->icmp_type,
+						  api->match_icmp_type_num,
+						  OPERATOR_UNARY_OR,
+						  bpof.icmp_type,
+						  FLOWSPEC_ICMP_TYPE);
 		}
 	}
 	if (api->match_icmp_code_num >= 1) {
 		proto = IPPROTO_ICMP;
-		if (bgp_pbr_extract_enumerate(api->icmp_code,
-					      api->match_icmp_code_num,
-					      OPERATOR_UNARY_OR, NULL,
-					      FLOWSPEC_ICMP_CODE))
-			enum_icmp = true;
-		else {
-			bgp_pbr_extract(api->icmp_code,
-					api->match_icmp_code_num,
-					&range_icmp_code);
+		if (bgp_pbr_extract(api->icmp_code,
+				    api->match_icmp_code_num,
+				    &range_icmp_code))
 			dstp = &range_icmp_code;
+		else {
+			bpof.icmp_code = list_new();
+			bgp_pbr_extract_enumerate(api->icmp_code,
+						  api->match_icmp_code_num,
+						  OPERATOR_UNARY_OR,
+						  bpof.icmp_code,
+						  FLOWSPEC_ICMP_CODE);
 		}
 	}
 
@@ -2117,19 +2079,10 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 	bpf.protocol = proto;
 	bpf.src_port = srcp;
 	bpf.dst_port = dstp;
-	if (!add) {
-		if (enum_icmp) {
-			return bgp_pbr_enumerate_action_src_dst(api->icmp_type,
-						api->match_icmp_type_num,
-						api->icmp_code,
-						api->match_icmp_code_num,
-						&bpf, bgp, binfo, add,
-						NULL, NULL);
-		}
+	if (!add)
 		return bgp_pbr_policyroute_remove_from_zebra(bgp,
 							     binfo,
 							     &bpf, &bpof);
-	}
 	/* no action for add = true */
 	for (i = 0; i < api->action_num; i++) {
 		switch (api->actions[i].action) {
@@ -2138,16 +2091,9 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 			if (api->actions[i].u.r.rate == 0) {
 				nh.vrf_id = api->vrf_id;
 				nh.type = NEXTHOP_TYPE_BLACKHOLE;
-				if (enum_icmp)
-					bgp_pbr_enumerate_action_src_dst(api->icmp_type,
-									 api->match_icmp_type_num,
-									 api->icmp_code,
-									 api->match_icmp_code_num,
-									 &bpf, bgp, binfo, add,
-									 &nh, &rate);
-				else
-					bgp_pbr_policyroute_add_to_zebra(bgp, binfo, &bpf,
-									 &bpof, &nh, &rate);
+				bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
+								 &bpf, &bpof,
+								 &nh, &rate);
 			} else {
 				/* update rate. can be reentrant */
 				rate = api->actions[i].u.r.rate;
@@ -2187,16 +2133,9 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 			nh.gate.ipv4.s_addr =
 				api->actions[i].u.zr.redirect_ip_v4.s_addr;
 			nh.vrf_id = api->vrf_id;
-			if (enum_icmp)
-				bgp_pbr_enumerate_action_src_dst(api->icmp_type,
-								 api->match_icmp_type_num,
-								 api->icmp_code,
-								 api->match_icmp_code_num,
-								 &bpf, bgp, binfo, add,
-								 &nh, &rate);
-			else
-				bgp_pbr_policyroute_add_to_zebra(bgp, binfo, &bpf, &bpof,
-								 &nh, &rate);
+			bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
+							 &bpf, &bpof,
+							 &nh, &rate);
 			/* XXX combination with REDIRECT_VRF
 			 * + REDIRECT_NH_IP not done
 			 */
@@ -2205,16 +2144,9 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 		case ACTION_REDIRECT:
 			nh.vrf_id = api->actions[i].u.redirect_vrf;
 			nh.type = NEXTHOP_TYPE_IPV4;
-			if (enum_icmp)
-				bgp_pbr_enumerate_action_src_dst(api->icmp_type,
-								 api->match_icmp_type_num,
-								 api->icmp_code,
-								 api->match_icmp_code_num,
-								 &bpf, bgp, binfo, add,
-								 &nh, &rate);
-			else
-				bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
-								 &bpf, &bpof, &nh, &rate);
+			bgp_pbr_policyroute_add_to_zebra(bgp, binfo,
+							 &bpf, &bpof,
+							 &nh, &rate);
 			continue_loop = 0;
 			break;
 		case ACTION_MARKING:
