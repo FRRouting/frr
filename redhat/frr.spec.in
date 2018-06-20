@@ -638,7 +638,7 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org>
 - Fixed RPKI RPM build
 
 * Sun Mar  4 2018 Martin Winter <mwinter@opensourcerouting.org>
