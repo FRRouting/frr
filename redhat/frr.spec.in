@@ -361,7 +361,7 @@ install -m644 %{zeb_rh_src}/frr.pam \
     %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate \
     %{buildroot}%{_sysconfdir}/logrotate.d/frr
-install -d -m750  %{buildroot}/var/run/frr
+install -d -m750  %{buildroot}%{rundir}
 
 %pre
 # add vty_group
@@ -538,11 +538,11 @@ rm -rf %{buildroot}
 %if 0%{?frr_user:1}
 %dir %attr(751,%frr_user,%frr_user) %{configdir}
 %dir %attr(750,%frr_user,%frr_user) /var/log/frr
-%dir %attr(751,%frr_user,%frr_user) /var/run/frr
+%dir %attr(751,%frr_user,%frr_user) %{rundir}
 %else
 %dir %attr(750,root,root) %{configdir}
 %dir %attr(750,root,root) /var/log/frr
-%dir %attr(750,root,root) /var/run/frr
+%dir %attr(750,root,root) %{rundir}
 %endif
 %if 0%{?vty_group:1}
 %attr(750,%frr_user,%vty_group) %{configdir}/vtysh.conf.sample
