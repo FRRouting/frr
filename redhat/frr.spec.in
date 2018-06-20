@@ -155,7 +155,7 @@ BuildRequires:  python27-devel python27-sphinx
 %else
 BuildRequires:  python-devel >= 2.7 python-sphinx
 %endif
-Requires:       json-c initscripts
+Requires:       initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 %endif
