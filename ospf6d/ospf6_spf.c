@@ -677,6 +677,10 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 {
 	unsigned long delay, elapsed, ht;
 
+	/* OSPF instance does not exist. */
+	if (ospf6 == NULL)
+		return;
+
 	ospf6_set_spf_reason(ospf6, reason);
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME)) {
@@ -685,10 +689,6 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 		zlog_debug("SPF: calculation timer scheduled (reason %s)",
 			   rbuf);
 	}
-
-	/* OSPF instance does not exist. */
-	if (ospf6 == NULL)
-		return;
 
 	/* SPF calculation timer is already scheduled. */
 	if (ospf6->t_spf_calc) {
