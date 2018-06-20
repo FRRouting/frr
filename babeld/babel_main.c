@@ -184,9 +184,6 @@ main(int argc, char **argv)
 
     /* Library inits. */
     babel_error_init();
-    zprivs_init (&babeld_privs);
-    cmd_init (1);
-    vty_init (master);
 
     resend_delay = BABEL_DEFAULT_RESEND_DELAY;
     change_smoothing_half_life(BABEL_DEFAULT_SMOOTHING_HALF_LIFE);
