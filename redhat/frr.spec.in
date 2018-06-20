@@ -328,7 +328,7 @@ make SPHINXBUILD=%{sphinx} info
 popd
 
 %install
-mkdir -p %{buildroot}/etc/{frr,sysconfig,logrotate.d,pam.d,default} \
+mkdir -p %{buildroot}%{_sysconfdir}/{frr,sysconfig,logrotate.d,pam.d,default} \
          %{buildroot}/var/log/frr %{buildroot}%{_infodir}
 make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" SPHINXBUILD=%{sphinx} install
 
@@ -349,18 +349,18 @@ install -m644 %{zeb_rh_src}/frr.service \
 install %{zeb_rh_src}/frr.init \
     %{buildroot}%{_sbindir}/frr
 %else
-mkdir -p %{buildroot}/etc/rc.d/init.d
+mkdir -p %{buildroot}%{_initddir}
 install %{zeb_rh_src}/frr.init \
     %{buildroot}%{_sbindir}/frr
 ln -s %{_sbindir}/frr \
-    %{buildroot}/etc/rc.d/init.d/frr
+    %{buildroot}%{_initddir}/frr
 %endif
 
-install %{zeb_rh_src}/daemons %{buildroot}/etc/frr
+install %{zeb_rh_src}/daemons %{buildroot}%{_sysconfdir}/frr
 install -m644 %{zeb_rh_src}/frr.pam \
-    %{buildroot}/etc/pam.d/frr
+    %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate \
-    %{buildroot}/etc/logrotate.d/frr
+    %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750  %{buildroot}/var/run/frr
 
 %pre
@@ -394,9 +394,9 @@ fi
 zebra_spec_add_service ()
 {
     # Add port /etc/services entry if it isn't already there
-    if [ -f /etc/services ] && \
-        ! %__sed -e 's/#.*$//' /etc/services | %__grep -wq $1 ; then
-        echo "$1        $2          # $3"  >> /etc/services
+    if [ -f %{_sysconfdir}/services ] && \
+        ! %__sed -e 's/#.*$//' %{_sysconfdir}/services | %__grep -wq $1 ; then
+        echo "$1        $2          # $3"  >> %{_sysconfdir}/services
     fi
 }
 
@@ -591,16 +591,16 @@ rm -rf %{buildroot}
 %endif
 %attr(755,root,root) %{_libdir}/frr/modules/zebra_irdp.so
 %{_bindir}/*
-%config(noreplace) /etc/frr/[!v]*.conf*
-%config(noreplace) %attr(750,%frr_user,%frr_user) /etc/frr/daemons
+%config(noreplace) %{configdir}/[!v]*.conf*
+%config(noreplace) %attr(750,%frr_user,%frr_user) %{configdir}/daemons
 %if "%{initsystem}" == "systemd"
     %{_unitdir}/frr.service
 %else
-    /etc/rc.d/init.d/frr
+    %{_initddir}/frr
 %endif
 %{_sbindir}/frr
-%config(noreplace) /etc/pam.d/frr
-%config(noreplace) /etc/logrotate.d/frr
+%config(noreplace) %{_sysconfdir}/pam.d/frr
+%config(noreplace) %{_sysconfdir}/logrotate.d/frr
 %{_sbindir}/frr-reload
 
 %files contrib
