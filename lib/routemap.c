@@ -751,7 +751,7 @@ struct route_map *route_map_lookup_by_name(const char *name)
 	return map;
 }
 
-int route_map_mark_updated(const char *name, int del_later)
+int route_map_mark_updated(const char *name)
 {
 	struct route_map *map;
 	int ret = -1;
@@ -781,7 +781,7 @@ int route_map_mark_updated(const char *name, int del_later)
 	return (ret);
 }
 
-int route_map_clear_updated(struct route_map *map)
+static int route_map_clear_updated(struct route_map *map)
 {
 	int ret = -1;
 
@@ -807,7 +807,7 @@ static struct route_map *route_map_get(const char *name)
 	return map;
 }
 
-void route_map_walk_update_list(int (*route_map_update_fn)(char *name))
+void route_map_walk_update_list(void (*route_map_update_fn)(char *name))
 {
 	struct route_map *node;
 	struct route_map *nnode = NULL;

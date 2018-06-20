@@ -1282,6 +1282,13 @@ static struct route_map_rule_cmd route_set_src_cmd = {
 	"src", route_set_src, route_set_src_compile, route_set_src_free,
 };
 
+static void zebra_route_map_process_update_cb(char *rmap_name)
+{
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("Event handler for route-map: %s",
+			   rmap_name);
+}
+
 static int zebra_route_map_update_timer(struct thread *thread)
 {
 	zebra_t_rmap_update = NULL;
@@ -1294,6 +1301,13 @@ static int zebra_route_map_update_timer(struct thread *thread)
 			"%u: Routemap update-timer fired, scheduling RIB processing",
 			VRF_DEFAULT);
 
+	route_map_walk_update_list(zebra_route_map_process_update_cb);
+
+	/*
+	 * This code needs to be updated to be:
+	 * 1) VRF Aware <sigh>
+	 * 2) Route-map aware
+	 */
 	zebra_import_table_rm_update();
 	rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
 	zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
@@ -1433,20 +1447,26 @@ static void zebra_route_map_mark_update(const char *rmap_name)
 
 static void zebra_route_map_add(const char *rmap_name)
 {
-	zebra_route_map_mark_update(rmap_name);
+	if (route_map_mark_updated(rmap_name) == 0)
+		zebra_route_map_mark_update(rmap_name);
+
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
 }
 
 static void zebra_route_map_delete(const char *rmap_name)
 {
-	zebra_route_map_mark_update(rmap_name);
+	if (route_map_mark_updated(rmap_name) == 0)
+		zebra_route_map_mark_update(rmap_name);
+
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_DELETED);
 }
 
 static void zebra_route_map_event(route_map_event_t event,
 				  const char *rmap_name)
 {
-	zebra_route_map_mark_update(rmap_name);
+	if (route_map_mark_updated(rmap_name) == 0)
+		zebra_route_map_mark_update(rmap_name);
+
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
 }
 

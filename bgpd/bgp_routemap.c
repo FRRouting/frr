@@ -3112,7 +3112,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 	}
 }
 
-static int bgp_route_map_process_update_cb(char *rmap_name)
+static void bgp_route_map_process_update_cb(char *rmap_name)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -3127,8 +3127,6 @@ static int bgp_route_map_process_update_cb(char *rmap_name)
 	}
 
 	vpn_policy_routemap_event(rmap_name);
-
-	return 0;
 }
 
 int bgp_route_map_update_timer(struct thread *thread)
@@ -3172,7 +3170,7 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 
 static void bgp_route_map_add(const char *rmap_name)
 {
-	if (route_map_mark_updated(rmap_name, 0) == 0)
+	if (route_map_mark_updated(rmap_name) == 0)
 		bgp_route_map_mark_update(rmap_name);
 
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
@@ -3180,7 +3178,7 @@ static void bgp_route_map_add(const char *rmap_name)
 
 static void bgp_route_map_delete(const char *rmap_name)
 {
-	if (route_map_mark_updated(rmap_name, 1) == 0)
+	if (route_map_mark_updated(rmap_name) == 0)
 		bgp_route_map_mark_update(rmap_name);
 
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_DELETED);
@@ -3188,7 +3186,7 @@ static void bgp_route_map_delete(const char *rmap_name)
 
 static void bgp_route_map_event(route_map_event_t event, const char *rmap_name)
 {
-	if (route_map_mark_updated(rmap_name, 0) == 0)
+	if (route_map_mark_updated(rmap_name) == 0)
 		bgp_route_map_mark_update(rmap_name);
 
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
