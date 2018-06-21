@@ -824,6 +824,19 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 
 #ifdef HAVE_CAPABILITIES
 	zprivs_caps_init(zprivs);
+
+	/*
+	 * If we have initialized the system with no requested
+	 * capabilities, change will not have been set
+	 * to anything by zprivs_caps_init, As such
+	 * we should make sure that when we attempt
+	 * to raize privileges that we actually have
+	 * a do nothing function to call instead of a
+	 * crash :).
+	 */
+	if (!zprivs->change)
+		zprivs->change = zprivs_change_null;
+
 #else  /* !HAVE_CAPABILITIES */
 	/* we dont have caps. we'll need to maintain rid and saved uid
 	 * and change euid back to saved uid (who we presume has all neccessary
