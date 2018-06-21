@@ -498,6 +498,76 @@ const char *nl_rttype_to_str(uint8_t rttype)
 	return lookup_msg(rttype_str, rttype, "");
 }
 
+#define NL_OK(nla, len)                                                        \
+	((len) >= (int)sizeof(struct nlattr)                                   \
+	 && (nla)->nla_len >= sizeof(struct nlattr)                            \
+	 && (nla)->nla_len <= (len))
+#define NL_NEXT(nla, attrlen)                                                  \
+	((attrlen) -= RTA_ALIGN((nla)->nla_len),                               \
+	 (struct nlattr *)(((char *)(nla)) + RTA_ALIGN((nla)->nla_len)))
+#define NL_RTA(r)                                                              \
+	((struct nlattr *)(((char *)(r))                                       \
+			   + NLMSG_ALIGN(sizeof(struct nlmsgerr))))
+
+static void netlink_parse_nlattr(struct nlattr **tb, int max,
+				 struct nlattr *nla, int len)
+{
+	while (NL_OK(nla, len)) {
+		if (nla->nla_type <= max)
+			tb[nla->nla_type] = nla;
+		nla = NL_NEXT(nla, len);
+	}
+}
+
+static void netlink_parse_extended_ack(struct nlmsghdr *h)
+{
+	struct nlattr *tb[NLMSGERR_ATTR_MAX + 1];
+	const struct nlmsgerr *err =
+		(const struct nlmsgerr *)((uint8_t *)h
+					  + NLMSG_ALIGN(
+						    sizeof(struct nlmsghdr)));
+	const struct nlmsghdr *err_nlh = NULL;
+	uint32_t hlen = sizeof(*err);
+	const char *msg = NULL;
+	uint32_t off = 0;
+
+	if (!(h->nlmsg_flags & NLM_F_CAPPED))
+		hlen += h->nlmsg_len - NLMSG_ALIGN(sizeof(struct nlmsghdr));
+
+	memset(tb, 0, sizeof(tb));
+	netlink_parse_nlattr(tb, NLMSGERR_ATTR_MAX, NL_RTA(h), hlen);
+
+	if (tb[NLMSGERR_ATTR_MSG])
+		msg = (const char *)RTA_DATA(tb[NLMSGERR_ATTR_MSG]);
+
+	if (tb[NLMSGERR_ATTR_OFFS]) {
+		off = *(uint32_t *)RTA_DATA(tb[NLMSGERR_ATTR_OFFS]);
+
+		if (off > h->nlmsg_len) {
+			zlog_err("Invalid offset for NLMSGERR_ATTR_OFFS\n");
+			off = 0;
+		} else if (!(h->nlmsg_flags & NLM_F_CAPPED)) {
+			/*
+			 * Header of failed message
+			 * we are not doing anything currently with it
+			 * but noticing it for later.
+			 */
+			err_nlh = &err->msg;
+			zlog_warn("%s: Received %d extended Ack",
+				  __PRETTY_FUNCTION__, err_nlh->nlmsg_type);
+		}
+	}
+
+	if (msg && *msg != '\0') {
+		bool is_err = !!err->error;
+
+		if (is_err)
+			zlog_err("Extended Error: %s", msg);
+		else
+			zlog_warn("Extended Warning: %s", msg);
+	}
+}
+
 /*
  * netlink_parse_info
  *
@@ -582,6 +652,23 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 				int errnum = err->error;
 				int msg_type = err->msg.nlmsg_type;
 
+				if (h->nlmsg_len
+				    < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+					zlog_err("%s error: message truncated",
+						 nl->name);
+					return -1;
+				}
+
+				/*
+				 * Parse the extended information before
+				 * we actually handle it.
+				 * At this point in time we do not
+				 * do anything other than report the
+				 * issue.
+				 */
+				if (h->nlmsg_flags & NLM_F_ACK_TLVS)
+					netlink_parse_extended_ack(h);
+
 				/* If the error field is zero, then this is an
 				 * ACK */
 				if (err->error == 0) {
@@ -601,13 +688,6 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 					if (!(h->nlmsg_flags & NLM_F_MULTI))
 						return 0;
 					continue;
-				}
-
-				if (h->nlmsg_len
-				    < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
-					zlog_err("%s error: message truncated",
-						 nl->name);
-					return -1;
 				}
 
 				/* Deal with errors that occur because of races
@@ -836,6 +916,9 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 void kernel_init(struct zebra_ns *zns)
 {
 	unsigned long groups;
+#if defined SOL_NETLINK
+	int one, ret;
+#endif
 
 	/*
 	 * Initialize netlink sockets
@@ -866,6 +949,25 @@ void kernel_init(struct zebra_ns *zns)
 	zns->netlink_cmd.sock = -1;
 	netlink_socket(&zns->netlink_cmd, 0, zns->ns_id);
 
+	/*
+	 * SOL_NETLINK is not available on all platforms yet
+	 * apparently.  It's in bits/socket.h which I am not
+	 * sure that we want to pull into our build system.
+	 */
+#if defined SOL_NETLINK
+	/*
+	 * Let's tell the kernel that we want to receive extended
+	 * ACKS over our command socket
+	 */
+	one = 1;
+	ret = setsockopt(zns->netlink_cmd.sock, SOL_NETLINK, NETLINK_EXT_ACK,
+			 &one, sizeof(one));
+
+	if (ret < 0)
+		zlog_notice("Registration for extended ACK failed : %d %s",
+			    errno, safe_strerror(errno));
+#endif
+
 	/* Register kernel socket. */
 	if (zns->netlink.sock > 0) {
 		/* Only want non-blocking on the netlink event socket */
@@ -880,6 +982,7 @@ void kernel_init(struct zebra_ns *zns)
 		netlink_install_filter(zns->netlink.sock,
 				       zns->netlink_cmd.snl.nl_pid);
 		zns->t_netlink = NULL;
+
 		thread_add_read(zebrad.master, kernel_read, zns,
 				zns->netlink.sock, &zns->t_netlink);
 	}
