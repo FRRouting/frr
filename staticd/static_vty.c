@@ -3,15 +3,15 @@
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
  *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
  * You should have received a copy of the GNU General Public License along
  * with this program; see the file COPYING; if not, write to the Free Software
@@ -325,7 +325,7 @@ static int static_route_leak(
 						"%% Malformed source address\n");
 				else
 					zlog_warn(
-						"%s: Malformed Source address: %s",
+						"%s: Malformed source address: %s",
 						__PRETTY_FUNCTION__, src_str);
 				return CMD_WARNING_CONFIG_FAILED;
 			}
