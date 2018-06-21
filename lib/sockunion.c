@@ -46,6 +46,9 @@ int str2sockunion(const char *str, union sockunion *su)
 {
 	int ret;
 
+	if (str == NULL)
+		return -1;
+
 	memset(su, 0, sizeof(union sockunion));
 
 	ret = inet_pton(AF_INET, str, &su->sin.sin_addr);
