@@ -51,7 +51,6 @@ uint32_t installed_routes = 0;
 uint32_t removed_routes = 0;
 
 zebra_capabilities_t _caps_p[] = {
-	ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
 };
 
 struct zebra_privs_t sharp_privs = {
