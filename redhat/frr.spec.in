@@ -641,8 +641,29 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Thu Jun  7 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- PIM: Add a Multicast Trace Command draft-ietf-idmr-traceroute-ipm-05
+- IS-IS: Implement Three-Way Handshake as per RFC5303
+- BGPD: Implement VPN-VRF route leaking per RFC4364.
+- BGPD: Implement VRF with NETNS backend
+- BGPD: Flowspec
+- PBRD: Add a new Policy Based Routing Daemon
+
+* Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org> - 4.0.1
 - Fixed RPKI RPM build
+
+* Sun Mar 11 2018 Martin Winter <mwinter@opensourcerouting.org> - 4.0
+- ISIS-MT - https://tools.ietf.org/html/rfc5120
+- BGP - RPKI (RFC 6810)
+- BGP - v4 labeled unicast as per RFC 3107
+- BGP/Zebra - Type 2 and 3 EVPN with symmetric and asymmetric routing
+- EIGRP - https://tools.ietf.org/html/rfc7868
+- FRR - Tab completion for iface names, prefix-lists, route-maps, BGP peers
+- BABEL - https://tools.ietf.org/html/rfc6126
+- PIM VRF - Added the ability to work with VRF’s to PIM
+- OSPFv2 VRF - Added the ability to work with VRF’s to OSPFv2
+- OSPFv2 Experimental SR - draft-ietf-ospf-segment-routing-extensions-24
+- ZEBRA - Add ability to create a static route that leaks across VRF’s.
 
 * Sun Mar  4 2018 Martin Winter <mwinter@opensourcerouting.org>
 - Add option to build with RPKI (default: disabled)
