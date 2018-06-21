@@ -1310,7 +1310,9 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
 		prefix_copy(&temp2.dst, bpf->dst);
 	} else
 		temp2.dst.family = AF_INET;
-	if (src_port && src_port->min_port) {
+	if (src_port && (src_port->min_port || bpf->protocol == IPPROTO_ICMP)) {
+		if (bpf->protocol == IPPROTO_ICMP)
+			temp.flags |= MATCH_ICMP_SET;
 		temp.flags |= MATCH_PORT_SRC_SET;
 		temp2.src_port_min = src_port->min_port;
 		if (src_port->max_port) {
@@ -1318,7 +1320,9 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
 			temp2.src_port_max = src_port->max_port;
 		}
 	}
-	if (dst_port && dst_port->min_port) {
+	if (dst_port && (dst_port->min_port || bpf->protocol == IPPROTO_ICMP)) {
+		if (bpf->protocol == IPPROTO_ICMP)
+			temp.flags |= MATCH_ICMP_SET;
 		temp.flags |= MATCH_PORT_DST_SET;
 		temp2.dst_port_min = dst_port->min_port;
 		if (dst_port->max_port) {
@@ -1692,33 +1696,38 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 
 	/* then look for bpm */
 	memset(&temp, 0, sizeof(temp));
-	if (bpf->src == NULL || bpf->dst == NULL) {
-		if ((src_port && src_port->min_port) ||
-		    (dst_port && dst_port->min_port))
-			temp.type = IPSET_NET_PORT;
-		else
-			temp.type = IPSET_NET;
-	} else {
-		if ((src_port && src_port->min_port) ||
-		    (dst_port && dst_port->min_port))
-			temp.type = IPSET_NET_PORT_NET;
-		else
-			temp.type = IPSET_NET_NET;
-	}
 	temp.vrf_id = bpf->vrf_id;
 	if (bpf->src)
 		temp.flags |= MATCH_IP_SRC_SET;
 	if (bpf->dst)
 		temp.flags |= MATCH_IP_DST_SET;
 
-	if (src_port && src_port->min_port)
+	if (src_port && (src_port->min_port || bpf->protocol == IPPROTO_ICMP)) {
+		if (bpf->protocol == IPPROTO_ICMP)
+			temp.flags |= MATCH_ICMP_SET;
 		temp.flags |= MATCH_PORT_SRC_SET;
-	if (dst_port && dst_port->min_port)
+	}
+	if (dst_port && (dst_port->min_port || bpf->protocol == IPPROTO_ICMP)) {
+		if (bpf->protocol == IPPROTO_ICMP)
+			temp.flags |= MATCH_ICMP_SET;
 		temp.flags |= MATCH_PORT_DST_SET;
+	}
 	if (src_port && src_port->max_port)
 		temp.flags |= MATCH_PORT_SRC_RANGE_SET;
 	if (dst_port && dst_port->max_port)
 		temp.flags |= MATCH_PORT_DST_RANGE_SET;
+
+	if (bpf->src == NULL || bpf->dst == NULL) {
+		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
+			temp.type = IPSET_NET_PORT;
+		else
+			temp.type = IPSET_NET;
+	} else {
+		if (temp.flags & (MATCH_PORT_DST_SET | MATCH_PORT_SRC_SET))
+			temp.type = IPSET_NET_PORT_NET;
+		else
+			temp.type = IPSET_NET_NET;
+	}
 	if (pkt_len) {
 		temp.pkt_len_min = pkt_len->min_port;
 		if (pkt_len->max_port)
