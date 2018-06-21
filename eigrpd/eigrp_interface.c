@@ -336,6 +336,9 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 	struct eigrp_prefix_entry *pe;
 	struct eigrp *eigrp = eigrp_lookup();
 
+	if (!eigrp)
+		return;
+
 	if (source == INTERFACE_DOWN_BY_VTY) {
 		THREAD_OFF(ei->t_hello);
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
