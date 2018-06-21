@@ -1318,6 +1318,8 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 	old = attr->community;
 	gshut = community_str2com("graceful-shutdown");
 
+	assert(gshut);
+
 	if (old) {
 		merge = community_merge(community_dup(old), gshut);
 
