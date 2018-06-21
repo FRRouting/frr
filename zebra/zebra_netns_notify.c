@@ -216,7 +216,6 @@ static int zebra_ns_notify_read(struct thread *t)
 			zlog_err("NS notify read: buffer underflow");
 			break;
 		}
-		event->name[event->len] = 0;
 		netnspath = ns_netns_pathname(NULL, event->name);
 		if (!netnspath)
 			continue;
