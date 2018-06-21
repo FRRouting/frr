@@ -11409,7 +11409,6 @@ DEFUN (show_ip_bgp_peer_groups,
        "Peer group name\n")
 {
 	char *vrf, *pg;
-	vrf = pg = NULL;
 	int idx = 0;
 
 	vrf = argv_find(argv, argc, "VIEWVRFNAME", &idx) ? argv[idx]->arg

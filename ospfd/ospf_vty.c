@@ -2412,8 +2412,8 @@ DEFUN (ospf_neighbor_poll_interval,
 	int idx_poll = 3;
 	int idx_pri = 5;
 	struct in_addr nbr_addr;
-	unsigned int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
-	unsigned int interval = OSPF_POLL_INTERVAL_DEFAULT;
+	unsigned int priority;
+	unsigned int interval;
 
 	if (!inet_aton(argv[idx_ipv4]->arg, &nbr_addr)) {
 		vty_out(vty, "Please specify Neighbor ID by A.B.C.D\n");
@@ -2422,8 +2422,8 @@ DEFUN (ospf_neighbor_poll_interval,
 
 	interval = strtoul(argv[idx_poll]->arg, NULL, 10);
 
-	if (argc > 4)
-		priority = strtoul(argv[idx_pri]->arg, NULL, 10);
+	priority = argc > 4 ? strtoul(argv[idx_pri]->arg, NULL, 10)
+			    : OSPF_NEIGHBOR_PRIORITY_DEFAULT;
 
 	ospf_nbr_nbma_set(ospf, nbr_addr);
 	ospf_nbr_nbma_poll_interval_set(ospf, nbr_addr, interval);

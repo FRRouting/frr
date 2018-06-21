@@ -521,7 +521,7 @@ int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
 	socklen_t tolen;
 	unsigned char buffer[10000];
 	unsigned char *msg_start;
-	uint8_t ttl = MAXTTL;
+	uint8_t ttl;
 	struct pim_msg_header *header;
 	struct ip *ip;
 

@@ -4504,8 +4504,8 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
 	json_object *json_source = NULL;
 	json_object *json_oil = NULL;
 	json_object *json_ifp_out = NULL;
-	int found_oif = 0;
-	int first = 1;
+	int found_oif;
+	int first;
 	char grp_str[INET_ADDRSTRLEN];
 	char src_str[INET_ADDRSTRLEN];
 	char in_ifname[INTERFACE_NAMSIZ + 1];

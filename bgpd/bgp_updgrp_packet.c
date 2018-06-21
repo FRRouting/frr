@@ -397,7 +397,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	vec = &pkt->arr.entries[BGP_ATTR_VEC_NH];
 	if (CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_UPDATED)) {
 		uint8_t nhlen;
-		afi_t nhafi = AFI_MAX; /* NH AFI is based on nhlen! */
+		afi_t nhafi;
 		int route_map_sets_nh;
 		nhlen = stream_getc_from(s, vec->offset);
 		if (peer_cap_enhe(peer, paf->afi, paf->safi))

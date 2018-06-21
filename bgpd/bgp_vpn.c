@@ -125,7 +125,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 
 					if (rd_header) {
 						uint16_t type;
-						struct rd_as rd_as;
+						struct rd_as rd_as = {0};
 						struct rd_ip rd_ip = {0};
 #if ENABLE_BGP_VNC
 						struct rd_vnc_eth rd_vnc_eth = {

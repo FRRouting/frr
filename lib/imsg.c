@@ -77,7 +77,7 @@ ssize_t imsg_read(struct imsgbuf *ibuf)
 		char buf[CMSG_SPACE(sizeof(int) * 1)];
 	} cmsgbuf;
 	struct iovec iov;
-	ssize_t n = -1;
+	ssize_t n;
 	int fd;
 	struct imsg_fd *ifd;
 
@@ -110,7 +110,8 @@ again:
 		return (-1);
 	}
 
-	if ((n = recvmsg(ibuf->fd, &msg, 0)) == -1) {
+	n = recvmsg(ibuf->fd, &msg, 0);
+	if (n == -1) {
 		if (errno == EINTR)
 			goto again;
 		goto fail;

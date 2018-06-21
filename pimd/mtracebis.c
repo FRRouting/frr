@@ -336,7 +336,7 @@ static int wait_for_response(int fd, int *hops, struct igmp_mtrace *mtrace,
 {
 	fd_set readfds;
 	struct timeval timeout;
-	int ret = -1;
+	int ret;
 	long msec, rmsec, tmsec;
 
 	FD_ZERO(&readfds);

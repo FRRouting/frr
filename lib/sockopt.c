@@ -457,8 +457,7 @@ int setsockopt_ifindex(int af, int sock, ifindex_t val)
  */
 static ifindex_t getsockopt_ipv4_ifindex(struct msghdr *msgh)
 {
-	/* XXX: initialize to zero?  (Always overwritten, so just cosmetic.) */
-	ifindex_t ifindex = -1;
+	ifindex_t ifindex;
 
 #if defined(IP_PKTINFO)
 	/* Linux pktinfo based ifindex retrieval */
@@ -466,7 +465,11 @@ static ifindex_t getsockopt_ipv4_ifindex(struct msghdr *msgh)
 
 	pktinfo = (struct in_pktinfo *)getsockopt_cmsg_data(msgh, IPPROTO_IP,
 							    IP_PKTINFO);
-	/* XXX Can pktinfo be NULL?  Clean up post 0.98. */
+
+	/* getsockopt_ifindex() will forward this, being 0 "not found" */
+	if (pktinfo == NULL)
+		return 0;
+
 	ifindex = pktinfo->ipi_ifindex;
 
 #elif defined(IP_RECVIF)

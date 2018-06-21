@@ -884,7 +884,7 @@ static uint8_t print_subtlv_use_bw(struct sbuf *buf, int indent,
 static uint8_t print_unknown_tlv(struct sbuf *buf, int indent,
 				 struct subtlv_header *tlvh)
 {
-	int i, rtn = 1;
+	int i, rtn;
 	uint8_t *v = (uint8_t *)tlvh;
 
 	if (tlvh->length != 0) {

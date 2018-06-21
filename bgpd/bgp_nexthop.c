@@ -438,7 +438,7 @@ int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 	struct bgp_node *rn1, *rn2;
 	struct peer_af *paf;
 	struct prefix p, np;
-	struct bgp *bgp = NULL;
+	struct bgp *bgp;
 
 	np.family = AF_INET;
 	np.prefixlen = IPV4_MAX_BITLEN;
@@ -447,7 +447,7 @@ int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 
-	rn1 = rn2 = NULL;
+	rn2 = NULL;
 
 	bgp = SUBGRP_INST(subgrp);
 	rn1 = bgp_node_match(bgp->connected_table[AFI_IP], &np);
