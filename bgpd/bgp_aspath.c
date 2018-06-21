@@ -1632,7 +1632,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 	struct aspath *newpath = NULL, *mergedpath;
 	int hops, cpasns = 0;
 
-	if (!aspath)
+	if (!aspath || !as4path)
 		return NULL;
 
 	seg = aspath->segments;
