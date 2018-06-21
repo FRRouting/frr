@@ -6566,14 +6566,8 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 		} else {
 			char buf[BUFSIZ];
 
-			if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN))
-				snprintf(buf, sizeof(buf), "%s%s",
-					inet_ntoa(attr->mp_nexthop_global_in),
-					vrf_id_str);
-			else
-				snprintf(buf, sizeof(buf), "%s%s",
-					inet_ntoa(attr->nexthop),
-					vrf_id_str);
+			snprintf(buf, sizeof(buf), "%s%s",
+				inet_ntoa(attr->nexthop), vrf_id_str);
 			vty_out(vty, "%-16s", buf);
 		}
 	}
