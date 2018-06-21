@@ -41,6 +41,9 @@ int
 ldp_vty_debug(struct vty *vty, const char *negate, const char *type_str,
     const char *dir_str, const char *all)
 {
+	if (type_str == NULL)
+		return (CMD_WARNING_CONFIG_FAILED);
+
 	if (strcmp(type_str, "discovery") == 0) {
 		if (dir_str == NULL)
 			return (CMD_WARNING_CONFIG_FAILED);

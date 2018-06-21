@@ -428,6 +428,9 @@ ldp_vty_address_family(struct vty *vty, const char *negate, const char *af_str)
 	struct ldpd_af_conf	*af_conf;
 	int			 af;
 
+	if (af_str == NULL)
+		return (CMD_WARNING_CONFIG_FAILED);
+
 	if (strcmp(af_str, "ipv4") == 0) {
 		af = AF_INET;
 		af_conf = &vty_conf->ipv4;
@@ -709,6 +712,11 @@ ldp_vty_interface(struct vty *vty, const char *negate, const char *ifname)
 	struct iface		*iface;
 	struct iface_af		*ia;
 
+	if (ifname == NULL) {
+		vty_out (vty, "%% Missing IF name\n");
+		return (CMD_WARNING_CONFIG_FAILED);
+	}
+
 	af = ldp_vty_get_af(vty);
 	iface = if_lookup_name(vty_conf, ifname);
 
@@ -776,8 +784,9 @@ ldp_vty_trans_addr(struct vty *vty, const char *negate, const char *addr_str)
 	if (negate)
 		memset(&af_conf->trans_addr, 0, sizeof(af_conf->trans_addr));
 	else {
-		if (inet_pton(af, addr_str, &af_conf->trans_addr) != 1 ||
-		    bad_addr(af, &af_conf->trans_addr)) {
+		if (addr_str == NULL
+		    || inet_pton(af, addr_str, &af_conf->trans_addr) != 1
+		    || bad_addr(af, &af_conf->trans_addr)) {
 			vty_out (vty, "%% Malformed address\n");
 			return (CMD_SUCCESS);
 		}
@@ -797,7 +806,7 @@ ldp_vty_neighbor_targeted(struct vty *vty, const char *negate, const char *addr_
 
 	af = ldp_vty_get_af(vty);
 
-	if (inet_pton(af, addr_str, &addr) != 1 ||
+	if (addr_str == NULL || inet_pton(af, addr_str, &addr) != 1 ||
 	    bad_addr(af, &addr)) {
 		vty_out (vty, "%% Malformed address\n");
 		return (CMD_WARNING_CONFIG_FAILED);
@@ -1018,6 +1027,11 @@ ldp_vty_neighbor_password(struct vty *vty, const char *negate, struct in_addr ls
 	size_t			 password_len;
 	struct nbr_params	*nbrp;
 
+	if (password_str == NULL) {
+		vty_out (vty, "%% Missing password\n");
+		return (CMD_WARNING_CONFIG_FAILED);
+	}
+
 	if (bad_addr_v4(lsr_id)) {
 		vty_out (vty, "%% Malformed address\n");
 		return (CMD_WARNING_CONFIG_FAILED);
@@ -1113,6 +1127,11 @@ ldp_vty_l2vpn(struct vty *vty, const char *negate, const char *name_str)
 	struct l2vpn_if		*lif;
 	struct l2vpn_pw		*pw;
 
+	if (name_str == NULL) {
+		vty_out (vty, "%% Missing name\n");
+		return (CMD_WARNING_CONFIG_FAILED);
+	}
+
 	l2vpn = l2vpn_find(vty_conf, name_str);
 
 	if (negate) {
@@ -1158,8 +1177,13 @@ ldp_vty_l2vpn_bridge(struct vty *vty, const char *negate, const char *ifname)
 
 	if (negate)
 		memset(l2vpn->br_ifname, 0, sizeof(l2vpn->br_ifname));
-	else
+	else {
+		if (ifname == NULL) {
+			vty_out (vty, "%% Missing IF name\n");
+			return (CMD_WARNING_CONFIG_FAILED);
+		}
 		strlcpy(l2vpn->br_ifname, ifname, sizeof(l2vpn->br_ifname));
+	}
 
 	ldp_config_apply(vty, vty_conf);
 
@@ -1187,6 +1211,11 @@ ldp_vty_l2vpn_pwtype(struct vty *vty, const char *negate, const char *type_str)
 	VTY_DECLVAR_CONTEXT(l2vpn, l2vpn);
 	int			 pw_type;
 
+	if (type_str == NULL) {
+		vty_out (vty, "%% Missing type\n");
+		return (CMD_WARNING_CONFIG_FAILED);
+	}
+
 	if (strcmp(type_str, "ethernet") == 0)
 		pw_type = PW_TYPE_ETHERNET;
 	else
@@ -1207,6 +1236,11 @@ ldp_vty_l2vpn_interface(struct vty *vty, const char *negate, const char *ifname)
 {
 	VTY_DECLVAR_CONTEXT(l2vpn, l2vpn);
 	struct l2vpn_if		*lif;
+
+	if (ifname == NULL) {
+		vty_out (vty, "%% Missing IF name\n");
+		return (CMD_WARNING_CONFIG_FAILED);
+	}
 
 	lif = l2vpn_if_find(l2vpn, ifname);
 
@@ -1245,6 +1279,11 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, const char *negate, const char *ifname
 {
 	VTY_DECLVAR_CONTEXT(l2vpn, l2vpn);
 	struct l2vpn_pw		*pw;
+
+	if (ifname == NULL) {
+		vty_out (vty, "%% Missing IF name\n");
+		return (CMD_WARNING_CONFIG_FAILED);
+	}
 
 	pw = l2vpn_pw_find(l2vpn, ifname);
 
@@ -1294,6 +1333,10 @@ ldp_vty_l2vpn_pw_cword(struct vty *vty, const char *negate, const char *preferen
 	if (negate)
 		pw->flags |= F_PW_CWORD_CONF;
 	else {
+		if (!preference_str) {
+			vty_out (vty, "%% Missing preference\n");
+			return (CMD_WARNING_CONFIG_FAILED);
+		}
 		if (preference_str[0] == 'e')
 			pw->flags &= ~F_PW_CWORD_CONF;
 		else
