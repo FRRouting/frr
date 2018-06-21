@@ -850,6 +850,11 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 	int lenum = 0;
 	int genum = 0;
 
+	if (name == NULL || prefix == NULL || typestr == NULL) {
+		vty_out(vty, "%% Missing prefix or type\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/* Sequential number. */
 	if (seq)
 		seqnum = (int64_t)atol(seq);
