@@ -302,6 +302,9 @@ rm -rf %{buildroot}/usr/share/info/dir
 # Remove debian init script if it was installed
 rm -f %{buildroot}%{_sbindir}/frr
 
+# kill bogus libtool files for modules
+rm -f %{buildroot}%{_libdir}/frr/modules/*.la
+
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
@@ -531,6 +534,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 %{_libdir}/lib*.so.0
 %attr(755,root,root) %{_libdir}/lib*.so.0.*
+%endif
+%if %{with_fpm}
+%attr(755,root,root) %{_libdir}/frr/modules/zebra_fpm.so
 %endif
 %{_bindir}/*
 %config(noreplace) /etc/frr/[!v]*.conf*
