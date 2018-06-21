@@ -1054,6 +1054,9 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
 	struct ecommunity *ecom = NULL;
 	regex_t *regex = NULL;
 
+	if (str == NULL)
+		return COMMUNITY_LIST_ERR_MALFORMED_VAL;
+
 	entry = NULL;
 
 	/* Get community list. */
@@ -1089,7 +1092,7 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
 	entry = community_entry_new();
 	entry->direct = direct;
 	entry->style = style;
-	entry->any = (str ? 0 : 1);
+	entry->any = 0;
 	if (ecom)
 		entry->config = ecommunity_ecom2str(
 			ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
