@@ -1513,6 +1513,9 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 	if (!ignore_as4_path
 	    && (attr->flag & (ATTR_FLAG_BIT(BGP_ATTR_AS4_PATH)))) {
 		newpath = aspath_reconcile_as4(attr->aspath, as4_path);
+		if (!newpath)
+			return BGP_ATTR_PARSE_ERROR;
+
 		aspath_unintern(&attr->aspath);
 		attr->aspath = aspath_intern(newpath);
 	}
