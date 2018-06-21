@@ -1024,8 +1024,10 @@ int main(int argc, char **argv)
 			close(i);
 		/* change tty */
 		fd = open("/dev/tty", O_RDWR);
-		ioctl(fd, TIOCNOTTY, 0);
-		close(fd);
+		if (fd >= 0) {
+			ioctl(fd, TIOCNOTTY, 0);
+			close(fd);
+		}
 		chdir("/");
 		umask(022);    /* set a default for dumb programs */
 		setpgid(0, 0); /* set the process group */
