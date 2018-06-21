@@ -515,7 +515,7 @@ struct pbr_ipset_name_lookup {
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 
-static const char *zebra_pbr_ipset_type2str(uint32_t type)
+const char *zebra_pbr_ipset_type2str(uint32_t type)
 {
 	return lookup_msg(ipset_type_msg, type,
 			  "Unrecognized IPset Type");
