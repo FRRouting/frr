@@ -7735,10 +7735,8 @@ static void bgp_viewvrf_autocomplete(vector comps, struct cmd_token *token)
 	struct listnode *next;
 	struct bgp *bgp;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, vrf->name));
-	}
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, vrf->name));
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 		if (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
