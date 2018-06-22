@@ -78,6 +78,8 @@ static void opt_extend(const struct optspec *os)
 
 #define OPTION_VTYSOCK   1000
 #define OPTION_MODULEDIR 1002
+#define OPTION_LOG       1003
+#define OPTION_LOGLEVEL  1004
 
 static const struct option lo_always[] = {
 	{"help", no_argument, NULL, 'h'},
@@ -86,6 +88,8 @@ static const struct option lo_always[] = {
 	{"module", no_argument, NULL, 'M'},
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
+	{"log", required_argument, NULL, OPTION_LOG},
+	{"log-level", required_argument, NULL, OPTION_LOGLEVEL},
 	{NULL}};
 static const struct optspec os_always = {
 	"hvdM:",
@@ -94,7 +98,9 @@ static const struct optspec os_always = {
 	"  -d, --daemon       Runs in daemon mode\n"
 	"  -M, --module       Load specified module\n"
 	"      --vty_socket   Override vty socket path\n"
-	"      --moduledir    Override modules directory\n",
+	"      --moduledir    Override modules directory\n"
+	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
+	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n",
 	lo_always};
 
 
@@ -444,6 +450,12 @@ static int frr_opt(int opt)
 			return 1;
 		di->privs->group = optarg;
 		break;
+	case OPTION_LOG:
+		di->early_logging = optarg;
+		break;
+	case OPTION_LOGLEVEL:
+		di->early_loglevel = optarg;
+		break;
 	default:
 		return 1;
 	}
@@ -543,9 +555,8 @@ struct thread_master *frr_init(void)
 
 	openzlog(di->progname, di->logname, di->instance,
 		 LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-#if defined(HAVE_CUMULUS)
-	zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
-#endif
+
+	command_setup_early_logging(di->early_logging, di->early_loglevel);
 
 	if (!frr_zclient_addr(&zclient_addr, &zclient_addr_len,
 			      frr_zclientpath)) {
@@ -721,15 +732,37 @@ static void frr_daemonize(void)
 	frr_daemon_wait(fds[0]);
 }
 
+/*
+ * Why is this a thread?
+ *
+ * The read in of config for integrated config happens *after*
+ * thread execution starts( because it is passed in via a vtysh -b -n )
+ * While if you are not using integrated config we want the ability
+ * to read the config in after thread execution starts, so that
+ * we can match this behavior.
+ */
+static int frr_config_read_in(struct thread *t)
+{
+	if (!vty_read_config(di->config_file, config_default) &&
+	    di->backup_config_file) {
+		zlog_info("Attempting to read backup config file: %s specified",
+			  di->backup_config_file);
+		vty_read_config(di->backup_config_file, config_default);
+	}
+	return 0;
+}
+
 void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
 
-	vty_read_config(di->config_file, config_default);
-
 	/* Don't start execution if we are in dry-run mode */
-	if (di->dryrun)
+	if (di->dryrun) {
+		frr_config_read_in(NULL);
 		exit(0);
+	}
+
+	thread_add_event(master, frr_config_read_in, NULL, 0, &di->read_in);
 
 	if (di->daemon_mode || di->terminal)
 		frr_daemonize();

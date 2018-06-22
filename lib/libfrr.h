@@ -50,11 +50,16 @@ struct frr_daemon_info {
 	bool dryrun;
 	bool daemon_mode;
 	bool terminal;
+
+	struct thread *read_in;
 	const char *config_file;
+	const char *backup_config_file;
 	const char *pid_file;
 	const char *vty_path;
 	const char *module_path;
 	const char *pathspace;
+	const char *early_logging;
+	const char *early_loglevel;
 
 	const char *proghelp;
 	void (*printhelp)(FILE *target);

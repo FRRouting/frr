@@ -2415,10 +2415,11 @@ DEFUNSH(VTYSH_ALL, vtysh_log_syslog, vtysh_log_syslog_cmd,
 }
 
 DEFUNSH(VTYSH_ALL, no_vtysh_log_syslog, no_vtysh_log_syslog_cmd,
-	"no log syslog [LEVEL]", NO_STR
+	"no log syslog [<emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>]",
+	NO_STR
 	"Logging control\n"
 	"Cancel logging to syslog\n"
-	"Logging level\n")
+	LOG_LEVEL_DESC)
 {
 	return CMD_SUCCESS;
 }
