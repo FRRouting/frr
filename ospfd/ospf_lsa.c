@@ -1033,6 +1033,20 @@ void ospf_network_lsa_update(struct ospf_interface *oi)
 {
 	struct ospf_lsa *new;
 
+	/*
+	 * The Designated Router originates the LSA only if it is fully
+	 * adjacent to at least one other router on the network.
+	 * -- RFC2328 ss. 12.4.2
+	 */
+	if (oi->full_nbrs == 0) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
+			zlog_debug(
+				"Interface '%s': Skipping network-LSA origination since full adjacency count is zero",
+				ospf_if_name_string(oi));
+		}
+		return;
+	}
+
 	if (oi->network_lsa_self != NULL) {
 		ospf_lsa_refresh(oi->ospf, oi->network_lsa_self);
 		return;
@@ -1041,6 +1055,9 @@ void ospf_network_lsa_update(struct ospf_interface *oi)
 	/* Create new network-LSA instance. */
 	new = ospf_network_lsa_new(oi);
 	if (new == NULL)
+		return;
+
+	if (!new)
 		return;
 
 	/* Install LSA to LSDB. */
