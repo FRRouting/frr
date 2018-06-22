@@ -70,8 +70,12 @@ void static_nht_update(struct prefix *p, uint32_t nh_num,
 
 			if (orig != si->nh_valid)
 				reinstall = true;
+
+			if (reinstall) {
+				static_zebra_route_add(rn, si, vrf_id,
+						       SAFI_UNICAST, true);
+				reinstall = false;
+			}
 		}
-		if (reinstall)
-			static_zebra_route_add(rn, vrf_id, SAFI_UNICAST, true);
 	}
 }

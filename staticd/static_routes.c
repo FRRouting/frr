@@ -33,7 +33,8 @@
 #include "static_zebra.h"
 
 /* Install static route into rib. */
-static void static_install_route(struct route_node *rn, safi_t safi)
+static void static_install_route(struct route_node *rn,
+				 struct static_route *si_changed, safi_t safi)
 {
 	struct static_route *si;
 
@@ -42,19 +43,20 @@ static void static_install_route(struct route_node *rn, safi_t safi)
 
 	si = rn->info;
 	if (si)
-		static_zebra_route_add(rn, si->vrf_id, safi, true);
+		static_zebra_route_add(rn, si_changed, si->vrf_id, safi, true);
 
 }
 
 /* Uninstall static route from RIB. */
 static void static_uninstall_route(vrf_id_t vrf_id, safi_t safi,
-				   struct route_node *rn)
+				   struct route_node *rn,
+				   struct static_route *si_changed)
 {
 
 	if (rn->info)
-		static_zebra_route_add(rn, vrf_id, safi, true);
+		static_zebra_route_add(rn, si_changed, vrf_id, safi, true);
 	else
-		static_zebra_route_add(rn, vrf_id, safi, false);
+		static_zebra_route_add(rn, si_changed, vrf_id, safi, false);
 }
 
 int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
@@ -180,14 +182,14 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 
 	/* check whether interface exists in system & install if it does */
 	if (!ifname)
-		static_install_route(rn, safi);
+		static_install_route(rn, si, safi);
 	else {
 		struct interface *ifp;
 
 		ifp = if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
 			si->ifindex = ifp->ifindex;
-			static_install_route(rn, safi);
+			static_install_route(rn, si, safi);
 		} else
 			zlog_warn("Static Route using %s interface not installed because the interface does not exist in specified vrf",
 				  ifname);
@@ -253,7 +255,7 @@ int static_delete_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	 * If we have other si nodes then route replace
 	 * else delete the route
 	 */
-	static_uninstall_route(si->vrf_id, safi, rn);
+	static_uninstall_route(si->vrf_id, safi, rn, si);
 	route_unlock_node(rn);
 
 	/* Free static route configuration. */
@@ -296,7 +298,7 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 				}
 			}
 
-			static_install_route(rn, safi);
+			static_install_route(rn, si, safi);
 		}
 	}
 }
@@ -340,7 +342,7 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 		}
 
 		if (install)
-			static_install_route(rn, safi);
+			static_install_route(rn, si, safi);
 	}
 }
 
@@ -379,7 +381,7 @@ static void static_enable_vrf(struct static_vrf *svrf,
 		}
 
 		if (install)
-			static_install_route(rn, safi);
+			static_install_route(rn, si, safi);
 	}
 }
 
@@ -441,7 +443,7 @@ static void static_cleanup_vrf(struct static_vrf *svrf,
 			if (strcmp(svrf->vrf->name, si->nh_vrfname) != 0)
 				continue;
 
-			static_uninstall_route(si->vrf_id, safi, rn);
+			static_uninstall_route(si->vrf_id, safi, rn, si);
 		}
 	}
 }
@@ -462,7 +464,7 @@ static void static_disable_vrf(struct route_table *stable,
 
 	for (rn = route_top(stable); rn; rn = route_next(rn))
 		for (si = rn->info; si; si = si->next)
-			static_uninstall_route(si->vrf_id, safi, rn);
+			static_uninstall_route(si->vrf_id, safi, rn, si);
 }
 
 /*

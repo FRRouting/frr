@@ -240,8 +240,9 @@ void static_zebra_nht_register(struct static_route *si, bool reg)
 	si->nh_registered = reg;
 }
 
-extern void static_zebra_route_add(struct route_node *rn, vrf_id_t vrf_id,
-				   safi_t safi, bool install)
+extern void static_zebra_route_add(struct route_node *rn,
+				   struct static_route *si_changed,
+				   vrf_id_t vrf_id, safi_t safi, bool install)
 {
 	struct static_route *si = rn->info;
 	const struct prefix *p, *src_pp;
@@ -262,29 +263,26 @@ extern void static_zebra_route_add(struct route_node *rn, vrf_id_t vrf_id,
 		SET_FLAG(api.message, ZAPI_MESSAGE_SRCPFX);
 		memcpy(&api.src_prefix, src_pp, sizeof(api.src_prefix));
 	}
-
+	SET_FLAG(api.flags, ZEBRA_FLAG_RR_USE_DISTANCE);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	if (si_changed->distance) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+		api.distance = si_changed->distance;
+	}
+	if (si_changed->tag) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
+		api.tag = si_changed->tag;
+	}
+	api.tableid = si_changed->table_id;
 
+	zlog_debug("Distance sent down: %d %d", si_changed->distance, install);
 	for (/*loaded above*/; si; si = si->next) {
 		api_nh = &api.nexthops[nh_num];
 		if (si->nh_vrf_id == VRF_UNKNOWN)
 			continue;
 
-		/*
-		 * If we create a ecmp static route the
-		 * last distance and tag entered wins.  Why because
-		 * this cli choosen sucks
-		 */
-		if (si->distance) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
-			api.distance = si->distance;
-		}
-		if (si->tag) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
-			api.tag = si->tag;
-		}
-
-		api.tableid = si->table_id;
+		if (si->distance != si_changed->distance)
+			continue;
 
 		api_nh->vrf_id = si->nh_vrf_id;
 		switch (si->type) {
