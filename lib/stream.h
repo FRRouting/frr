@@ -115,6 +115,9 @@ struct stream_fifo {
 
 	/* number of streams in this fifo */
 	_Atomic size_t count;
+#if defined DEV_BUILD
+	_Atomic size_t max_count;
+#endif
 
 	struct stream *head;
 	struct stream *tail;
