@@ -39,7 +39,7 @@
 
 /* default VRF ID value used when VRF backend is not NETNS */
 #define VRF_DEFAULT_INTERNAL 0
-#define VRF_DEFAULT_NAME_INTERNAL "Default-IP-Routing-Table"
+#define VRF_DEFAULT_NAME_INTERNAL "default"
 
 DEFINE_MTYPE_STATIC(LIB, VRF, "VRF")
 DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
@@ -168,6 +168,13 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	 */
 	if (name)
 		vrf = vrf_lookup_by_name(name);
+	if (vrf && vrf_id != VRF_UNKNOWN
+	    && vrf->vrf_id != VRF_UNKNOWN
+	    && vrf->vrf_id != vrf_id) {
+		zlog_debug("VRF_GET: avoid %s creation(%u), same name exists (%u)",
+			   name, vrf_id, vrf->vrf_id);
+		return NULL;
+	}
 	/* Try to find VRF both by ID and name */
 	if (!vrf && vrf_id != VRF_UNKNOWN)
 		vrf = vrf_lookup_by_id(vrf_id);
@@ -888,6 +895,7 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty),
 void vrf_set_default_name(const char *default_name)
 {
 	struct vrf *def_vrf;
+	struct vrf *vrf_with_default_name = NULL;
 
 	def_vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	assert(default_name);
