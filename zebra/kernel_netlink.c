@@ -772,6 +772,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 			error = (*filter)(h, zns->ns_id, startup);
 			if (error < 0) {
 				zlog_err("%s filter function error", nl->name);
+				zlog_backtrace(LOG_ERR);
 				ret = error;
 			}
 		}
