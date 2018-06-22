@@ -1565,7 +1565,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, table_id, api.metric,
-		   false);
+		   api.distance, false);
 
 	/* Stats */
 	switch (api.prefix.family) {
@@ -1767,7 +1767,7 @@ static void zread_ipv4_delete(ZAPI_HANDLER_ARGS)
 	table_id = zvrf->table_id;
 
 	rib_delete(AFI_IP, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, NULL, NULL, table_id, 0, false);
+		   api.flags, &p, NULL, NULL, table_id, 0, 0, false);
 	client->v4_route_del_cnt++;
 
 stream_failure:
@@ -2191,7 +2191,7 @@ static void zread_ipv6_delete(ZAPI_HANDLER_ARGS)
 		src_pp = NULL;
 
 	rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, src_pp, NULL, client->rtm_table, 0, false);
+		   api.flags, &p, src_pp, NULL, client->rtm_table, 0, 0, false);
 
 	client->v6_route_del_cnt++;
 
