@@ -34,14 +34,14 @@ extern void zebra_del_import_table_route_map(afi_t afi, uint32_t table);
 extern void zebra_route_map_write_delay_timer(struct vty *);
 
 extern route_map_result_t
-zebra_import_table_route_map_check(int family, int rib_type, struct prefix *p,
-				   struct nexthop *nexthop, vrf_id_t vrf_id,
-				   route_tag_t tag, const char *rmap_name);
-extern route_map_result_t zebra_route_map_check(int family, int rib_type,
-						struct prefix *p,
-						struct nexthop *nexthop,
-						vrf_id_t vrf_id,
-						route_tag_t tag);
+zebra_import_table_route_map_check(int family, int rib_type, uint8_t instance,
+				   struct prefix *p, struct nexthop *nexthop,
+				   vrf_id_t vrf_id, route_tag_t tag,
+				   const char *rmap_name);
+extern route_map_result_t
+zebra_route_map_check(int family, int rib_type, uint8_t instance,
+		      struct prefix *p, struct nexthop *nexthop,
+		      vrf_id_t vrf_id, route_tag_t tag);
 extern route_map_result_t
 zebra_nht_route_map_check(int family, int client_proto, struct prefix *p,
 			  struct route_entry *, struct nexthop *nexthop);
