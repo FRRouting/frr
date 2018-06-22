@@ -295,8 +295,12 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	}
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
-	if (len < 0)
+	if (len < 0) {
+		zlog_err("%s: Message received from netlink is of a broken size %d %zu",
+			 __PRETTY_FUNCTION__, h->nlmsg_len,
+			 (size_t)NLMSG_LENGTH(sizeof(struct rtmsg)));
 		return -1;
+	}
 
 	memset(tb, 0, sizeof tb);
 	netlink_parse_rtattr(tb, RTA_MAX, RTM_RTA(rtm), len);
@@ -747,8 +751,13 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
-	if (len < 0)
+	if (len < 0) {
+		zlog_err("%s: Message received from netlink is of a broken size: %d %zu",
+			 __PRETTY_FUNCTION__,
+			 h->nlmsg_len,
+			 (size_t)NLMSG_LENGTH(sizeof(struct rtmsg)));
 		return -1;
+	}
 
 	if (rtm->rtm_type == RTN_MULTICAST)
 		netlink_route_change_read_multicast(h, ns_id, startup);
@@ -2356,8 +2365,12 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 
 	/* Length validity. */
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ndmsg));
-	if (len < 0)
+	if (len < 0) {
+		zlog_err("%s: Message received from netlink is of a broken size %d %zu",
+			 __PRETTY_FUNCTION__, h->nlmsg_len,
+			 (size_t)NLMSG_LENGTH(sizeof(struct ndmsg)));
 		return -1;
+	}
 
 	/* Is this a notification for the MAC FDB or IP neighbor table? */
 	ndm = NLMSG_DATA(h);
