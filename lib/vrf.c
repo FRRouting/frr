@@ -447,10 +447,8 @@ static void vrf_autocomplete(vector comps, struct cmd_token *token)
 {
 	struct vrf *vrf = NULL;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, vrf->name));
-	}
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, vrf->name));
 }
 
 static const struct cmd_variable_handler vrf_var_handlers[] = {
