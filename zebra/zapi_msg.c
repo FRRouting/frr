@@ -521,12 +521,31 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nexthop;
 	int count = 0;
+	afi_t afi;
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = re->vrf_id;
 	api.type = re->type;
 	api.instance = re->instance;
 	api.flags = re->flags;
+
+	afi = family2afi(p->family);
+	switch (afi) {
+	case AFI_IP:
+		if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
+			client->redist_v4_add_cnt++;
+		else
+			client->redist_v4_del_cnt++;
+		break;
+	case AFI_IP6:
+		if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
+			client->redist_v6_add_cnt++;
+		else
+			client->redist_v6_del_cnt++;
+		break;
+	default:
+		break;
+	}
 
 	/* Prefix. */
 	api.prefix = *p;
