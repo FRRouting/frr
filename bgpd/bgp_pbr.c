@@ -230,6 +230,45 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 						  struct bgp_pbr_filter *bpf,
 						  struct nexthop *nh,
 						  float *rate);
+
+static bool bgp_pbr_extract_enumerate_unary_opposite(
+				 uint8_t unary_operator,
+				 struct bgp_pbr_val_mask *and_valmask,
+				 struct list *or_valmask, uint32_t value,
+				 uint8_t type_entry)
+{
+	if (unary_operator == OPERATOR_UNARY_AND && and_valmask) {
+		if (type_entry == FLOWSPEC_TCP_FLAGS) {
+			and_valmask->mask |=
+				TCP_HEADER_ALL_FLAGS &
+				~(value);
+		} else if (type_entry == FLOWSPEC_DSCP ||
+			   type_entry == FLOWSPEC_PKT_LEN ||
+			   type_entry == FLOWSPEC_FRAGMENT) {
+			and_valmask->val = value;
+			and_valmask->mask = 1; /* inverse */
+		}
+	} else if (unary_operator == OPERATOR_UNARY_OR && or_valmask) {
+		and_valmask = XCALLOC(MTYPE_PBR_VALMASK,
+				      sizeof(struct bgp_pbr_val_mask));
+		if (type_entry == FLOWSPEC_TCP_FLAGS) {
+			and_valmask->val = TCP_HEADER_ALL_FLAGS;
+			and_valmask->mask |=
+				TCP_HEADER_ALL_FLAGS &
+				~(value);
+		} else if (type_entry == FLOWSPEC_DSCP ||
+			   type_entry == FLOWSPEC_FRAGMENT ||
+			   type_entry == FLOWSPEC_PKT_LEN) {
+			and_valmask->val = value;
+			and_valmask->mask = 1; /* inverse */
+		}
+		listnode_add(or_valmask, and_valmask);
+	} else if (type_entry == FLOWSPEC_ICMP_CODE ||
+		   type_entry == FLOWSPEC_ICMP_TYPE)
+		return false;
+	return true;
+}
+
 /* TCP : FIN and SYN -> val = ALL; mask = 3
  * TCP : not (FIN and SYN) -> val = ALL; mask = ALL & ~(FIN|RST)
  * other variables type: dscp, pkt len, fragment
@@ -243,6 +282,7 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 	int i = 0;
 	struct bgp_pbr_val_mask *and_valmask = NULL;
 	struct list *or_valmask = NULL;
+	bool ret;
 
 	if (valmask) {
 		if (unary_operator == OPERATOR_UNARY_AND) {
@@ -264,35 +304,12 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 			     OPERATOR_COMPARE_LESS_THAN) &&
 			    (list[i].compare_operator &
 			     OPERATOR_COMPARE_GREATER_THAN)) {
-				if (unary_operator == OPERATOR_UNARY_AND && and_valmask) {
-					if (type_entry == FLOWSPEC_TCP_FLAGS) {
-						and_valmask->mask |=
-							TCP_HEADER_ALL_FLAGS &
-							~(list[i].value);
-					} else if (type_entry == FLOWSPEC_DSCP ||
-						   type_entry == FLOWSPEC_PKT_LEN ||
-						   type_entry == FLOWSPEC_FRAGMENT) {
-						and_valmask->val = list[i].value;
-						and_valmask->mask = 1; /* inverse */
-					}
-				} else if (unary_operator == OPERATOR_UNARY_OR && or_valmask) {
-					and_valmask = XCALLOC(MTYPE_PBR_VALMASK,
-							      sizeof(struct bgp_pbr_val_mask));
-					if (type_entry == FLOWSPEC_TCP_FLAGS) {
-						and_valmask->val = TCP_HEADER_ALL_FLAGS;
-						and_valmask->mask |=
-							TCP_HEADER_ALL_FLAGS &
-							~(list[i].value);
-					} else if (type_entry == FLOWSPEC_DSCP ||
-						   type_entry == FLOWSPEC_FRAGMENT ||
-						   type_entry == FLOWSPEC_PKT_LEN) {
-						and_valmask->val = list[i].value;
-						and_valmask->mask = 1; /* inverse */
-					}
-					listnode_add (or_valmask, and_valmask);
-				} else if (type_entry == FLOWSPEC_ICMP_CODE ||
-					   type_entry == FLOWSPEC_ICMP_TYPE)
-					return false;
+				ret = bgp_pbr_extract_enumerate_unary_opposite(
+						 unary_operator, and_valmask,
+						 or_valmask, list[i].value,
+						 type_entry);
+				if (ret == false)
+					return ret;
 				continue;
 			}
 			return false;
