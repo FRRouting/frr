@@ -2635,8 +2635,13 @@ static void backup_config_file(const char *fbackup)
 	strcat(integrate_sav, CONF_BACKUP_EXT);
 
 	/* Move current configuration file to backup config file. */
-	unlink(integrate_sav);
-	rename(fbackup, integrate_sav);
+	if (unlink(integrate_sav) != 0) {
+		vty_out(vty, "Warning: %s unlink failed\n", integrate_sav);
+	}
+	if (rename(fbackup, integrate_sav) != 0) {
+		vty_out(vty, "Error renaming %s to %s\n", fbackup,
+			integrate_sav);
+	}
 	free(integrate_sav);
 }
 
