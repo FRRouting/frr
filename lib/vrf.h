@@ -41,8 +41,6 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #define VRF_NAMSIZ      36
 #define NS_NAMSIZ       16
 
-#define VRF_DEFAULT_NAME    "Default-IP-Routing-Table"
-
 /*
  * The command strings
  */
@@ -235,6 +233,10 @@ extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
 extern vrf_id_t vrf_get_default_id(void);
 /* The default VRF ID */
 #define VRF_DEFAULT vrf_get_default_id()
+
+extern void vrf_set_default_name(const char *default_name);
+extern const char *vrf_get_default_name(void);
+#define VRF_DEFAULT_NAME    vrf_get_default_name()
 
 /* VRF is mapped on netns or not ? */
 int vrf_is_mapped_on_netns(struct vrf *vrf);
