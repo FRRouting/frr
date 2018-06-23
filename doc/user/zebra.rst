@@ -46,7 +46,7 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    ZEBRA will create an associated VRF. The other daemons will operate on the VRF
    VRF defined by *Zebra*, as usual.
 
-   .. seealso:: :ref:`vrf`
+   .. seealso:: :ref:`zebra-vrf`
 
 .. option:: --v6-rr-semantics
 
@@ -396,7 +396,7 @@ default) should the specified gateways not be reachable. E.g.:
    After setting TABLENO with this command, static routes defined after this
    are added to the specified table.
 
-.. _vrf:
+.. _zebra-vrf:
 
 Virtual Routing and Forwarding
 ==============================

@@ -60,11 +60,11 @@ Address Families
 ----------------
 
 Multiprotocol BGP enables BGP to carry routing information for multiple Network
-Layer protocols. BGP supports multiple Address Family Identifier (AFI), namely
-IPv4 and IPv6. Support is also provided for multiple sets of per-AFI
-information via Subsequent Address Family Identifiers (SAFI). In addition to
-unicast information, VPN information :rfc:`4364` and :rfc:`4659`, and
-Encapsulation attribute :rfc:`5512` is supported.
+Layer protocols. BGP supports an Address Family Identifier (AFI) for IPv4 and
+IPv6. Support is also provided for multiple sets of per-AFI information via the
+BGP Subsequent Address Family Identifier (SAFI). FRR supports SAFIs for unicast
+information, labeled information :rfc:`3107` and :rfc:`8277`, and Layer 3 VPN
+information :rfc:`4364` and :rfc:`4659`.
 
 .. _bgp-route-selection:
 
@@ -174,6 +174,19 @@ will establish the connection with unicast only capability. When there are no
 common capabilities, FRR sends Unsupported Capability error and then resets the
 connection.
 
+.. _bgp-concepts-vrfs:
+
+VRFs: Virtual Routing and Forwarding
+------------------------------------
+
+*bgpd* supports :abbr:`L3VPN (Layer 3 Virtual Private Networks)` :abbr:`VRFs
+(Virtual Routing and Forwarding tables)` for IPv4 :rfc:`4364` and IPv6
+:rfc:`4659`.  L3VPN routes, and their associated VRF MPLS labels, can be
+distributed to VPN SAFI neighbors in the *default*, i.e., non VRF, BGP
+instance. VRF MPLS labels are reached using *core* MPLS labels which are
+distributed using LDP or BGP labeled unicast.  *bgpd* also supports inter-VRF
+route leaking.  General information on FRR's VRF support can be found in
+:ref:`zebra-vrf`.
 
 .. _bgp-router-configuration:
 
@@ -1550,10 +1563,11 @@ VRF Route Leaking
 ^^^^^^^^^^^^^^^^^
 
 BGP routes may be leaked (i.e. copied) between a unicast VRF RIB and the VPN
-SAFI RIB of the default VRF (leaking is also permitted between the unicast RIB
-of the default VRF and VPN). A shortcut syntax is also available for specifying
-leaking from one vrf to another vrf using the VPN RIB as the intemediary. A
-common application of the VPN-VRF feature is to connect a customer's private
+SAFI RIB of the default VRF for use in MPLS-based L3VPNs. Unicast routes may
+also be leaked between any VRFs (including the unicast RIB of the default BGP
+instanced). A shortcut syntax is also available for specifying leaking from one
+VRF to another VRF using the default instance's VPN RIB as the intemediary. A
+common application of the VRF-VRF feature is to connect a customer's private
 routing domain to a provider's VPN service. Leaking is configured from the
 point of view of an individual VRF: ``import`` refers to routes leaked from VPN
 to a unicast VRF, whereas ``export`` refers to routes leaked from a unicast VRF
@@ -1596,7 +1610,7 @@ auto-derived.
 General configuration
 """""""""""""""""""""
 
-Configuration of route leaking between a unicast VRF RIB and the VPN safi RIB
+Configuration of route leaking between a unicast VRF RIB and the VPN SAFI RIB
 of the default VRF is accomplished via commands in the context of a VRF
 address-family:
 
