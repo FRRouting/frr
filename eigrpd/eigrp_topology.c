@@ -448,6 +448,8 @@ void eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
 	struct eigrp_nexthop_entry *entry;
 	struct eigrp *eigrp = eigrp_lookup();
 
+	assert(eigrp);
+
 	for (ALL_LIST_ELEMENTS_RO(dest->entries, node, entry)) {
 		if (entry->reported_distance < dest->fdistance) {
 			// is feasible successor, can be successor

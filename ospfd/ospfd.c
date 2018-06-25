@@ -243,13 +243,14 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 			zlog_debug(
 				"%s: Create new ospf instance with vrf_name %s vrf_id %u",
 				__PRETTY_FUNCTION__, name, new->vrf_id);
-		if (vrf)
-			ospf_vrf_link(new, vrf);
 	} else {
 		new->vrf_id = VRF_DEFAULT;
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-		ospf_vrf_link(new, vrf);
 	}
+
+	if (vrf)
+		ospf_vrf_link(new, vrf);
+
 	ospf_zebra_vrf_register(new);
 
 	new->abr_type = OSPF_ABR_DEFAULT;
