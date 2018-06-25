@@ -670,6 +670,16 @@ int ospf_redistribute_set(struct ospf *ospf, int type, unsigned short instance,
 	struct ospf_redist *red;
 
 	red = ospf_redist_lookup(ospf, type, instance);
+
+	if (red == NULL) {
+		zlog_err(
+			 "Redistribute[%s][%d]: Lookup failed  Type[%d] , Metric[%d]",
+			 ospf_redist_string(type), instance,
+			 metric_type(ospf, type, instance),
+			 metric_value(ospf, type, instance));
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (ospf_is_type_redistributed(ospf, type, instance)) {
 		if (mtype != red->dmetric.type) {
 			red->dmetric.type = mtype;
