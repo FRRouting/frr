@@ -8166,6 +8166,11 @@ DEFUN (ospf_redistribute_instance_source,
 
 	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
+	if (source < 0) {
+		vty_out(vty, "Unknown instance redistribution\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	if ((source == ZEBRA_ROUTE_OSPF) && !ospf->instance) {
