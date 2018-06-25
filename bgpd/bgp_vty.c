@@ -2009,27 +2009,18 @@ DEFUN (no_bgp_fast_external_failover,
 CPP_NOTICE("bgpd: remove deprecated '[no] bgp enforce-first-as' commands")
 #endif
 
-DEFUN_DEPRECATED (bgp_enforce_first_as,
-       bgp_enforce_first_as_cmd,
-       "bgp enforce-first-as",
-       BGP_STR
-       "Enforce the first AS for EBGP routes\n")
+DEFUN_HIDDEN (bgp_enforce_first_as,
+	      bgp_enforce_first_as_cmd,
+	      "[no] bgp enforce-first-as",
+	      BGP_STR
+	      "Enforce the first AS for EBGP routes\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_set(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
 
-	return CMD_SUCCESS;
-}
-
-DEFUN_DEPRECATED (no_bgp_enforce_first_as,
-       no_bgp_enforce_first_as_cmd,
-       "no bgp enforce-first-as",
-       NO_STR
-       BGP_STR
-       "Enforce the first AS for EBGP routes\n")
-{
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_flag_unset(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
+	if (strmatch(argv[0]->text, "no"))
+		bgp_flag_unset(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
+	else
+		bgp_flag_set(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
 
 	return CMD_SUCCESS;
 }
@@ -12439,7 +12430,6 @@ void bgp_vty_init(void)
 
 	/* "bgp enforce-first-as" commands */
 	install_element(BGP_NODE, &bgp_enforce_first_as_cmd);
-	install_element(BGP_NODE, &no_bgp_enforce_first_as_cmd);
 
 	/* "bgp bestpath compare-routerid" commands */
 	install_element(BGP_NODE, &bgp_bestpath_compare_router_id_cmd);
