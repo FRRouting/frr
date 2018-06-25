@@ -6745,6 +6745,11 @@ DEFPY (bgp_imexport_vrf,
 	safi_t safi;
 	afi_t afi;
 
+	if (import_name == NULL) {
+		vty_out(vty, "%% Missing import name\n");
+		return CMD_WARNING;
+	}
+
 	if (argv_find(argv, argc, "no", &idx))
 		remove = true;
 
