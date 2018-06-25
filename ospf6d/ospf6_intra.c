@@ -1323,6 +1323,8 @@ static void ospf6_intra_prefix_update_route_origin(struct ospf6_route *oa_route)
 	g_route = ospf6_route_lookup(&oa_route->prefix,
 				     ospf6->route_table);
 
+	assert(g_route);
+
 	for (ospf6_route_lock(g_route); g_route &&
 	     ospf6_route_is_prefix(&oa_route->prefix, g_route);
 	     g_route = nroute) {
