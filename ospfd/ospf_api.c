@@ -510,17 +510,18 @@ struct msg *new_msg_originate_request(uint32_t seqnum, struct in_addr ifaddr,
 	struct msg_originate_request *omsg;
 	unsigned int omsglen;
 	char buf[OSPF_API_MAX_MSG_SIZE];
+	size_t off_data = offsetof(struct msg_originate_request, data);
+	size_t data_maxs = sizeof(buf) - off_data;
+	struct lsa_header *omsg_data = (struct lsa_header *)&buf[off_data];
 
 	omsg = (struct msg_originate_request *)buf;
 	omsg->ifaddr = ifaddr;
 	omsg->area_id = area_id;
 
 	omsglen = ntohs(data->length);
-	if (omsglen
-	    > sizeof(buf) - offsetof(struct msg_originate_request, data))
-		omsglen = sizeof(buf)
-			  - offsetof(struct msg_originate_request, data);
-	memcpy(&omsg->data, data, omsglen);
+	if (omsglen > data_maxs)
+		omsglen = data_maxs;
+	memcpy(omsg_data, data, omsglen);
 	omsglen += sizeof(struct msg_originate_request)
 		   - sizeof(struct lsa_header);
 
@@ -630,6 +631,9 @@ struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
 	uint8_t buf[OSPF_API_MAX_MSG_SIZE];
 	struct msg_lsa_change_notify *nmsg;
 	unsigned int len;
+	size_t off_data = offsetof(struct msg_lsa_change_notify, data);
+	size_t data_maxs = sizeof(buf) - off_data;
+	struct lsa_header *nmsg_data = (struct lsa_header *)&buf[off_data];
 
 	assert(data);
 
@@ -640,10 +644,9 @@ struct msg *new_msg_lsa_change_notify(uint8_t msgtype, uint32_t seqnum,
 	memset(&nmsg->pad, 0, sizeof(nmsg->pad));
 
 	len = ntohs(data->length);
-	if (len > sizeof(buf) - offsetof(struct msg_lsa_change_notify, data))
-		len = sizeof(buf)
-		      - offsetof(struct msg_lsa_change_notify, data);
-	memcpy(&nmsg->data, data, len);
+	if (len > data_maxs)
+		len = data_maxs;
+	memcpy(nmsg_data, data, len);
 	len += sizeof(struct msg_lsa_change_notify) - sizeof(struct lsa_header);
 
 	return msg_new(msgtype, nmsg, seqnum, len);
