@@ -2471,6 +2471,9 @@ void command_setup_early_logging(const char *dest, const char *level)
 	}
 
 	token = strstr(dest, ":");
+	if (token == NULL)
+		return;
+
 	token++;
 
 	set_log_file(NULL, token, zlog_default->default_lvl);
