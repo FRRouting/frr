@@ -846,7 +846,9 @@ static int frr_daemon_ctl(struct thread *t)
 	switch (buf[0]) {
 	case 'S': /* SIGTSTP */
 		vty_stdio_suspend();
-		send(daemon_ctl_sock, "s", 1, 0);
+		if (send(daemon_ctl_sock, "s", 1, 0) < 0)
+			zlog_err("%s send(\"s\") error (SIGTSTP propagation)",
+				 (di && di->name ? di->name : ""));
 		break;
 	case 'R': /* SIGTCNT [implicit] */
 		vty_stdio_resume();
