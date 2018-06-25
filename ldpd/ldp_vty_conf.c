@@ -89,6 +89,9 @@ struct cmd_node ldp_pseudowire_node =
 int
 ldp_get_address(const char *str, int *af, union ldpd_addr *addr)
 {
+	if (!str || !af || !addr)
+		return (-1);
+
 	memset(addr, 0, sizeof(*addr));
 
 	if (inet_pton(AF_INET, str, &addr->v4) == 1) {
