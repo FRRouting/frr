@@ -303,6 +303,9 @@ static int recv_response(int fd, int *hops, struct igmp_mtrace *mtracer)
 	if (mtrace_len < (int)MTRACE_HDR_SIZE)
 		return -1;
 
+	if (mtrace_len > (int)MTRACE_BUF_LEN)
+		return -1;
+
 	sum = mtrace->checksum;
 	mtrace->checksum = 0;
 	if (sum != in_cksum(mtrace, mtrace_len)) {
