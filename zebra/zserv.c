@@ -257,6 +257,7 @@ static int zserv_flush_data(struct thread *thread)
 static int zserv_write(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
+	bool pending = false;
 	struct stream *msg;
 	int writerv;
 
@@ -267,37 +268,45 @@ static int zserv_write(struct thread *thread)
 		return 0;
 
 	msg = stream_fifo_pop(client->obuf_fifo);
-	stream_set_getp(msg, 0);
-	client->last_write_cmd = stream_getw_from(msg, 6);
+	while (msg) {
+		stream_set_getp(msg, 0);
+		client->last_write_cmd = stream_getw_from(msg, 6);
 
-	writerv = buffer_write(client->wb, client->sock, STREAM_DATA(msg),
-			       stream_get_endp(msg));
+		writerv = buffer_write(client->wb, client->sock,
+				       STREAM_DATA(msg), stream_get_endp(msg));
 
-	stream_free(msg);
+		stream_free(msg);
+		msg = NULL;
+		switch (writerv) {
+		case BUFFER_ERROR:
+			zlog_warn(
+				"%s: buffer_write failed to zserv client fd %d, closing",
+				__func__, client->sock);
+			/*
+			 * Schedule a delayed close since many of the
+			 * functions that call this one do not check the
+			 * return code. They do not allow for the possibility
+			 * that an I/O error may have caused the client to
+			 * be deleted.
+			 */
+			client->t_suicide = NULL;
+			thread_add_event(zebrad.master, zserv_delayed_close,
+					 client, 0, &client->t_suicide);
+			return -1;
+		case BUFFER_PENDING:
+			pending = true;
+			/* Intentional Fall-Through */
+		case BUFFER_EMPTY:
+			msg = stream_fifo_pop(client->obuf_fifo);
+			break;
+			break;
+		}
+	}
 
-	switch (writerv) {
-	case BUFFER_ERROR:
-		zlog_warn(
-			"%s: buffer_write failed to zserv client fd %d, closing",
-			__func__, client->sock);
-		/*
-		 * Schedule a delayed close since many of the functions that
-		 * call this one do not check the return code. They do not
-		 * allow for the possibility that an I/O error may have caused
-		 * the client to be deleted.
-		 */
-		client->t_suicide = NULL;
-		thread_add_event(zebrad.master, zserv_delayed_close, client, 0,
-				 &client->t_suicide);
-		return -1;
-	case BUFFER_EMPTY:
-		THREAD_OFF(client->t_write);
-		break;
-	case BUFFER_PENDING:
+	if (pending)
 		thread_add_write(zebrad.master, zserv_flush_data, client,
 				 client->sock, &client->t_write);
-		break;
-	}
+
 
 	if (client->obuf_fifo->count)
 		zebra_event(client, ZEBRA_WRITE);
