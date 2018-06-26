@@ -1666,8 +1666,9 @@ skip:
 			    0);
 }
 
-/* Routing table change via netlink interface. */
-/* Update flag indicates whether this is a "replace" or not. */
+/*
+ * Routing table change via netlink interface, using a dataplane context object
+ */
 static int netlink_route_multipath_ctx(int cmd, dplane_ctx_h ctx)
 {
 	int bytelen;
@@ -1711,8 +1712,13 @@ static int netlink_route_multipath_ctx(int cmd, dplane_ctx_h ctx)
 	req.r.rtm_family = family;
 	req.r.rtm_dst_len = p->prefixlen;
 	req.r.rtm_src_len = src_p ? src_p->prefixlen : 0;
-	req.r.rtm_protocol = zebra2proto(dplane_ctx_get_type(ctx));
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
+
+	if (cmd == RTM_DELROUTE) {
+		req.r.rtm_protocol = zebra2proto(dplane_ctx_get_old_type(ctx));
+	} else {
+		req.r.rtm_protocol = zebra2proto(dplane_ctx_get_type(ctx));
+	}
 
 	/*
 	 * blackhole routes are not RTN_UNICAST, they are
