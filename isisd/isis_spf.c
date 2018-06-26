@@ -77,14 +77,13 @@ enum vertextype {
 /*
  * Triple <N, d(N), {Adj(N)}>
  */
+union isis_N {
+	uint8_t id[ISIS_SYS_ID_LEN + 1];
+	struct prefix prefix;
+};
 struct isis_vertex {
 	enum vertextype type;
-
-	union {
-		uint8_t id[ISIS_SYS_ID_LEN + 1];
-		struct prefix prefix;
-	} N;
-
+	union isis_N N;
 	uint32_t d_N;	  /* d(N) Distance from this IS      */
 	uint16_t depth;	/* The depth in the imaginary tree */
 	struct list *Adj_N;    /* {Adj(N)} next hop or neighbor list */
@@ -407,28 +406,28 @@ static const char *vid2string(struct isis_vertex *vertex, char *buff, int size)
 	return "UNKNOWN";
 }
 
-static void isis_vertex_id_init(struct isis_vertex *vertex, void *id,
+static void isis_vertex_id_init(struct isis_vertex *vertex, union isis_N *n,
 				enum vertextype vtype)
 {
 	vertex->type = vtype;
 
 	if (VTYPE_IS(vtype) || VTYPE_ES(vtype)) {
-		memcpy(vertex->N.id, (uint8_t *)id, ISIS_SYS_ID_LEN + 1);
+		memcpy(vertex->N.id, n->id, ISIS_SYS_ID_LEN + 1);
 	} else if (VTYPE_IP(vtype)) {
-		memcpy(&vertex->N.prefix, (struct prefix *)id,
-		       sizeof(struct prefix));
+		memcpy(&vertex->N.prefix, &n->prefix, sizeof(struct prefix));
 	} else {
 		zlog_err("WTF!");
 	}
 }
 
-static struct isis_vertex *isis_vertex_new(void *id, enum vertextype vtype)
+static struct isis_vertex *isis_vertex_new(union isis_N *n,
+					   enum vertextype vtype)
 {
 	struct isis_vertex *vertex;
 
 	vertex = XCALLOC(MTYPE_ISIS_VERTEX, sizeof(struct isis_vertex));
 
-	isis_vertex_id_init(vertex, id, vtype);
+	isis_vertex_id_init(vertex, n, vtype);
 
 	vertex->Adj_N = list_new();
 	vertex->parents = list_new();
@@ -598,17 +597,17 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 #ifdef EXTREME_DEBUG
 	char buff[PREFIX2STR_BUFFER];
 #endif /* EXTREME_DEBUG */
-	uint8_t id[ISIS_SYS_ID_LEN + 1];
+	union isis_N n;
 
-	memcpy(id, sysid, ISIS_SYS_ID_LEN);
-	LSP_PSEUDO_ID(id) = 0;
+	memcpy(n.id, sysid, ISIS_SYS_ID_LEN);
+	LSP_PSEUDO_ID(n.id) = 0;
 
 	lsp = isis_root_system_lsp(spftree->area, spftree->level, sysid);
 	if (lsp == NULL)
 		zlog_warn("ISIS-Spf: could not find own l%d LSP!",
 			  spftree->level);
 
-	vertex = isis_vertex_new(id,
+	vertex = isis_vertex_new(&n,
 				 spftree->area->oldmetric
 					 ? VTYPE_NONPSEUDO_IS
 					 : VTYPE_NONPSEUDO_TE_IS);
@@ -625,11 +624,12 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 }
 
 static struct isis_vertex *isis_find_vertex(struct isis_vertex_queue *queue,
-					    void *id, enum vertextype vtype)
+					    union isis_N *n,
+					    enum vertextype vtype)
 {
 	struct isis_vertex querier;
 
-	isis_vertex_id_init(&querier, id, vtype);
+	isis_vertex_id_init(&querier, n, vtype);
 	return hash_lookup(queue->hash, &querier);
 }
 
@@ -1212,7 +1212,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 {
 	char buff[PREFIX2STR_BUFFER];
 
-	if (isis_find_vertex(&spftree->paths, vertex->N.id, vertex->type))
+	if (isis_find_vertex(&spftree->paths, &vertex->N, vertex->type))
 		return;
 	isis_vertex_queue_append(&spftree->paths, vertex);
 
