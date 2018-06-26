@@ -170,8 +170,8 @@ int ospf_route_match_same(struct route_table *rt, struct prefix_ipv4 *prefix,
 			/* Check each path. */
 			for (n1 = listhead(or->paths),
 			    n2 = listhead(newor->paths);
-			     n1 && n2;
-			     n1 = listnextnode(n1), n2 = listnextnode(n2)) {
+			     n1 && n2; n1 = listnextnode_unchecked(n1),
+			    n2 = listnextnode_unchecked(n2)) {
 				op = listgetdata(n1);
 				newop = listgetdata(n2);
 
