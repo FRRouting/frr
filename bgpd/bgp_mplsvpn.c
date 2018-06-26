@@ -466,6 +466,7 @@ leak_update(
 {
 	struct prefix *p = &bn->p;
 	struct bgp_info *bi;
+	struct bgp_info *bi_ultimate;
 	struct bgp_info *new;
 	char buf_prefix[PREFIX_STRLEN];
 
@@ -475,6 +476,26 @@ leak_update(
 			__func__, bgp->name_pretty, buf_prefix,
 			source_bi->type, source_bi->sub_type);
 	}
+
+	/*
+	 * Routes that are redistributed into BGP from zebra do not get
+	 * nexthop tracking. However, if those routes are subsequently
+	 * imported to other RIBs within BGP, the leaked routes do not
+	 * carry the original BGP_ROUTE_REDISTRIBUTE sub_type. Therefore,
+	 * in order to determine if the route we are currently leaking
+	 * should have nexthop tracking, we must find the ultimate
+	 * parent so we can check its sub_type.
+	 *
+	 * As of now, source_bi may at most be a second-generation route
+	 * (only one hop back to ultimate parent for vrf-vpn-vrf scheme).
+	 * Using a loop here supports more complex intra-bgp import-export
+	 * schemes that could be implemented in the future.
+	 * 
+	 */
+	for (bi_ultimate = source_bi;
+		bi_ultimate->extra && bi_ultimate->extra->parent;
+		bi_ultimate = bi_ultimate->extra->parent)
+			;
 
 	/*
 	 * match parent
@@ -528,7 +549,7 @@ leak_update(
 			bgp_nexthop = bi->extra->bgp_orig;
 
 		/* No nexthop tracking for redistributed routes */
-		if (source_bi->sub_type == BGP_ROUTE_REDISTRIBUTE)
+		if (bi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE)
 			nh_valid = 1;
 		else
 			/*
@@ -591,7 +612,7 @@ leak_update(
 	 * their originating protocols will do the tracking and
 	 * withdraw those routes if the nexthops become unreachable
 	 */
-	if (source_bi->sub_type == BGP_ROUTE_REDISTRIBUTE)
+	if (bi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE)
 		nh_valid = 1;
 	else
 		/*
