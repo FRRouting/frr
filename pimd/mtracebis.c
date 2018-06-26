@@ -266,6 +266,8 @@ static int recv_response(int fd, int *hops, struct igmp_mtrace *mtracer)
 	int mtrace_len;
 	int responses;
 	unsigned short sum;
+	size_t mtrace_off;
+	size_t ip_len;
 
 	recvd = recvfrom(fd, mtrace_buf, IP_AND_MTRACE_BUF_LEN, 0, NULL, 0);
 
@@ -292,19 +294,19 @@ static int recv_response(int fd, int *hops, struct igmp_mtrace *mtracer)
 	if (sum != in_cksum(ip, ip->ip_hl * 4))
 		return -1;
 
-	mtrace = (struct igmp_mtrace *)(mtrace_buf + (4 * ip->ip_hl));
-
-	mtrace_len = ntohs(ip->ip_len) - ip->ip_hl * 4;
-
-	if ((char *)mtrace + mtrace_len
-	    > (char *)mtrace_buf + IP_AND_MTRACE_BUF_LEN)
+	/* Header overflow check */
+	mtrace_off = 4 * ip->ip_hl;
+	if (mtrace_off > MTRACE_BUF_LEN)
 		return -1;
 
-	if (mtrace_len < (int)MTRACE_HDR_SIZE)
+	/* Underflow/overflow check */
+	ip_len = ntohs(ip->ip_len);
+	if (ip_len < mtrace_off || ip_len < MTRACE_HDR_SIZE
+	    || ip_len > MTRACE_BUF_LEN)
 		return -1;
 
-	if (mtrace_len > (int)MTRACE_BUF_LEN)
-		return -1;
+	mtrace_len = ip_len - mtrace_off;
+	mtrace = (struct igmp_mtrace *)(mtrace_buf + mtrace_off);
 
 	sum = mtrace->checksum;
 	mtrace->checksum = 0;
