@@ -2051,12 +2051,11 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 					      struct tlv_header *tlvh0,
 					      uint16_t subtotal, uint16_t total)
 {
-	struct tlv_header *tlvh, *next;
+	struct tlv_header *tlvh;
 	uint16_t sum = subtotal;
 
 	for (tlvh = tlvh0; sum < total;
-	     tlvh = (next ? next : TLV_HDR_NEXT(tlvh))) {
-		next = NULL;
+	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case TE_LINK_SUBTLV_LINK_TYPE:
 			sum += show_vty_link_subtlv_link_type(vty, tlvh);
