@@ -570,11 +570,13 @@ static dplane_ctx_h dplane_route_dequeue(void)
 /*
  * Utility that prepares a route update and enqueues it for processing
  */
-static int dplane_route_update_internal(struct route_node *rn,
-					struct route_entry *re,
-					struct route_entry *old_re,
-					dplane_op_e op)
+static enum zebra_dplane_result
+dplane_route_update_internal(struct route_node *rn,
+			     struct route_entry *re,
+			     struct route_entry *old_re,
+			     dplane_op_e op)
 {
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret = EINVAL;
 	dplane_ctx_h ctx = NULL;
 
@@ -608,20 +610,22 @@ static int dplane_route_update_internal(struct route_node *rn,
 	}
 
 done:
-	if (ret != AOK && ctx) {
+	if (ret == AOK) {
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	} else if (ctx) {
 		dplane_ctx_free(&ctx);
-	}
+    	}
 
-	return (ret);
+	return (result);
 }
 
 /*
  * Enqueue a route 'add' for the dataplane.
  */
-int dplane_route_add(struct route_node *rn,
-		     struct route_entry *re)
+enum zebra_dplane_result dplane_route_add(struct route_node *rn,
+					  struct route_entry *re)
 {
-	int ret = EINVAL;
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
 
 	if (rn == NULL || re == NULL) {
 		goto done;
@@ -631,18 +635,17 @@ int dplane_route_add(struct route_node *rn,
 					   DPLANE_OP_ROUTE_INSTALL);
 
 done:
-
 	return (ret);
 }
 
 /*
  * Enqueue a route update for the dataplane.
  */
-int dplane_route_update(struct route_node *rn,
-			struct route_entry *re,
-			struct route_entry *old_re)
+enum zebra_dplane_result dplane_route_update(struct route_node *rn,
+					     struct route_entry *re,
+					     struct route_entry *old_re)
 {
-	int ret = EINVAL;
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
 
 	if (rn == NULL || re == NULL) {
 		goto done;
@@ -650,19 +653,17 @@ int dplane_route_update(struct route_node *rn,
 
 	ret = dplane_route_update_internal(rn, re, old_re,
 					   DPLANE_OP_ROUTE_UPDATE);
-
 done:
-
 	return (ret);
 }
 
 /*
  * Enqueue a route removal for the dataplane.
  */
-int dplane_route_delete(struct route_node *rn,
-			struct route_entry *re)
+enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
+					     struct route_entry *re)
 {
-	int ret = EINVAL;
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
 
 	if (rn == NULL || re == NULL) {
 		goto done;
@@ -672,7 +673,6 @@ int dplane_route_delete(struct route_node *rn,
 					   DPLANE_OP_ROUTE_DELETE);
 
 done:
-
 	return (ret);
 }
 

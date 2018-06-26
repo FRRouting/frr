@@ -105,10 +105,6 @@ typedef enum {
 } dplane_op_e;
 
 /*
- * Enqueue a route removal for the dataplane.
- */
-
-/*
  * Opaque context block used to exchange info between the main zebra
  * context and the dataplane module(s). If these are two independent pthreads,
  * they cannot share existing global data structures safely.
@@ -179,15 +175,15 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(const dplane_ctx_h ctx);
 /*
  * Enqueue route change operations for the dataplane.
  */
-int dplane_route_add(struct route_node *rn,
-		     struct route_entry *re);
+enum zebra_dplane_result dplane_route_add(struct route_node *rn,
+					  struct route_entry *re);
 
-int dplane_route_update(struct route_node *rn,
-			struct route_entry *re,
-			struct route_entry *old_re);
+enum zebra_dplane_result dplane_route_update(struct route_node *rn,
+					     struct route_entry *re,
+					     struct route_entry *old_re);
 
-int dplane_route_delete(struct route_node *rn,
-			struct route_entry *re);
+enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
+					     struct route_entry *re);
 
 /* Opaque handle to a dataplane provider plugin */
 typedef struct zebra_dplane_provider_s *dplane_provider_h;
