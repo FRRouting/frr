@@ -817,7 +817,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 		 * Previous-hop router not known,
 		 * packet is sent to an appropriate multicast address
 		 */
-		inet_aton(MCAST_ALL_ROUTERS, &nh_addr);
+		(void)inet_aton(MCAST_ALL_ROUTERS, &nh_addr);
 	}
 
 	/* 6.2.2 8. If this router is the Rendez-vous Point */
