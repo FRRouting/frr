@@ -1760,10 +1760,249 @@ static void rib_process(struct route_node *rn)
 }
 
 /*
+ * Utility to match route with dplane context data
+ */
+static bool rib_route_match_ctx(const struct route_entry *re,
+				const dplane_ctx_h ctx, bool is_update)
+{
+	bool result = false;
+
+	if (is_update) {
+		/*
+		 * In 'update' case, we test info about the 'previous' or
+		 * 'old' route
+		 */
+		if ((re->type == dplane_ctx_get_old_type(ctx)) &&
+		    (re->instance == dplane_ctx_get_old_instance(ctx))) {
+			result = true;
+
+			/* TODO -- we're using this extra test, but it's not
+			 * exactly clear why.
+			 */
+			if (re->type == ZEBRA_ROUTE_STATIC &&
+			    (re->distance != dplane_ctx_get_old_distance(ctx) ||
+			     re->tag != dplane_ctx_get_old_tag(ctx))) {
+				result = false;
+			}
+		}
+
+	} else {
+		/*
+		 * Ordinary, single-route case using primary context info
+		 */
+		if ((dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE) &&
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
+			/* Skip route that's been deleted */
+			goto done;
+		}
+
+		if ((re->type == dplane_ctx_get_type(ctx)) &&
+		    (re->instance == dplane_ctx_get_instance(ctx))) {
+			result = true;
+
+			/* TODO -- we're using this extra test, but it's not
+			 * exactly clear why.
+			 */
+			if (re->type == ZEBRA_ROUTE_STATIC &&
+			    (re->distance != dplane_ctx_get_distance(ctx) ||
+			     re->tag != dplane_ctx_get_tag(ctx))) {
+				result = false;
+			}
+		}
+	}
+
+done:
+
+	return (result);
+}
+
+/*
  * TODO - WIP
  */
-void rib_process_after(void)
+static void rib_process_after(dplane_ctx_h ctx)
 {
+	struct route_table *table = NULL;
+	struct route_node *rn = NULL;
+	struct route_entry *re = NULL, *old_re = NULL, *rib;
+	bool is_update = false;
+	struct nexthop *nexthop;
+	char dest_str[PREFIX_STRLEN];
+	dplane_op_e op;
+	enum dp_req_result status;
+	const struct prefix *dest_pfx, *src_pfx;
+
+	/* Locate rn and re(s) from ctx */
+
+	table = zebra_vrf_table_with_table_id(dplane_ctx_get_afi(ctx),
+					      dplane_ctx_get_safi(ctx),
+					      dplane_ctx_get_vrf(ctx),
+					      dplane_ctx_get_table(ctx));
+	if (table == NULL) {
+		if (IS_ZEBRA_DEBUG_DPLANE) {
+			zlog_debug("Failed to process dplane results: no table "
+				   "for afi %d, safi %d, vrf %u",
+				   dplane_ctx_get_afi(ctx),
+				   dplane_ctx_get_safi(ctx),
+				   dplane_ctx_get_vrf(ctx));
+		}
+		goto done;
+	}
+
+	dest_pfx = dplane_ctx_get_dest(ctx);
+
+	/* Note well: only capturing the prefix string if debug is enabled here;
+	 * unconditional log messages will have to generate the string.
+	 */
+	if (IS_ZEBRA_DEBUG_DPLANE) {
+		prefix2str(dest_pfx, dest_str, sizeof(dest_str));
+	}
+
+	src_pfx = dplane_ctx_get_src(ctx);
+	rn = srcdest_rnode_get(table, dplane_ctx_get_dest(ctx),
+			       src_pfx ? (struct prefix_ipv6 * )src_pfx : NULL);
+	if (rn == NULL) {
+		if (IS_ZEBRA_DEBUG_DPLANE) {
+			zlog_debug("Failed to process dplane results: no "
+				   "route for %u:%s",
+				   dplane_ctx_get_vrf(ctx), dest_str);
+		}
+		goto done;
+	}
+
+	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
+
+	op = dplane_ctx_get_op(ctx);
+	status = dplane_ctx_get_status(ctx);
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug("%u:%s Processing dplane ctx %p, op %s result %d",
+			   dplane_ctx_get_vrf(ctx), dest_str, ctx,
+			   dplane_op2str(op), status);
+	}
+
+	if (op == DPLANE_OP_ROUTE_DELETE) {
+		/*
+		 * In the delete case, the zebra core datastructs were
+		 * updated (or removed) at the time the delete was issued,
+		 * so we're just notifying the route owner.
+		 */
+		if (status == DP_REQUEST_SUCCESS) {
+			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
+		} else {
+			zsend_route_notify_owner_ctx(ctx,
+						     ZAPI_ROUTE_FAIL_INSTALL);
+
+			zlog_warn("%u:%s: Route Deletion failure",
+				  dplane_ctx_get_vrf(ctx),
+				  prefix2str(dest_pfx,
+					     dest_str, sizeof(dest_str)));
+		}
+
+		/* Nothing more to do in delete case */
+		goto done;
+	}
+
+	/*
+	 * Update is a bit of a special case, where we may have both old and new
+	 * routes to post-process.
+	 */
+	is_update = dplane_ctx_is_update(ctx);
+
+	/*
+	 * Take a pass through the routes, look for matches with the context
+	 * info.
+	 */
+	RNODE_FOREACH_RE(rn, rib) {
+
+		if (re == NULL) {
+			if (rib_route_match_ctx(rib, ctx, false)) {
+				re = rib;
+			}
+		}
+
+		/* Check for old route match */
+		if (is_update && (old_re == NULL)) {
+			if (rib_route_match_ctx(rib, ctx, true /*is_update*/)) {
+				old_re = rib;
+			}
+		}
+
+		/* Have we found the routes we need to work on? */
+		if (re && ((!is_update || old_re))) {
+			break;
+		}
+	}
+
+	/*
+	 * Check sequence number(s) to detect stale results before continuing
+	 */
+	if (re && (re->dplane_sequence != dplane_ctx_get_seq(ctx))) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+			zlog_debug("%u:%s Stale dplane result for re %p",
+				   dplane_ctx_get_vrf(ctx), dest_str, re);
+		}
+		re = NULL;
+	}
+
+	if (old_re &&
+	    (old_re->dplane_sequence != dplane_ctx_get_old_seq(ctx))) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+			zlog_debug("%u:%s Stale dplane result for old_re %p",
+				   dplane_ctx_get_vrf(ctx), dest_str, old_re);
+		}
+		old_re = NULL;
+	}
+
+	/*
+	 * Here's sort of a tough one: the route update result is stale.
+	 * Is it better to use the context block info to generate
+	 * redist and owner notification, or is it better to wait
+	 * for the up-to-date result to arrive?
+	 */
+	if (re == NULL) {
+		/* TODO -- for now, only expose up-to-date results */
+		goto done;
+	}
+
+	if (status == DP_REQUEST_SUCCESS) {
+		/* Set nexthop FIB flags */
+		for (ALL_NEXTHOPS(re->ng, nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			else
+				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		}
+
+		/* Redistribute */
+		/* TODO -- still calling the redist api using the route_entries,
+		 * and there's a corner-case here: if there's no client
+		 * for the 'new' route, a redist deleting the 'old' route
+		 * will be sent. But if the 'old' context info was stale,
+		 * 'old_re' will be NULL here and that delete will not be sent.
+		 */
+		redistribute_update(dest_pfx, src_pfx, re, old_re);
+
+		/* Notify route owner */
+		zsend_route_notify_owner(re,
+					 dest_pfx, ZAPI_ROUTE_INSTALLED);
+
+	} else {
+		zsend_route_notify_owner(re, dest_pfx,
+					 ZAPI_ROUTE_FAIL_INSTALL);
+
+		zlog_warn("%u:%s: Route install failed",
+			  dplane_ctx_get_vrf(ctx),
+			  prefix2str(dest_pfx,
+				     dest_str, sizeof(dest_str)));
+	}
+
+done:
+
+	/* Return context to dataplane module */
+	dplane_ctx_fini(&ctx);
 }
 
 /* Take a list of route_node structs and return 1, if there was a record
@@ -2885,7 +3124,7 @@ static int rib_process_dplane_results(struct thread *thread)
 		pthread_mutex_unlock(&dplane_mutex);
 
 		if (ctx) {
-			dplane_ctx_fini(&ctx);
+			rib_process_after(ctx);
 		} else {
 			break;
 		}
