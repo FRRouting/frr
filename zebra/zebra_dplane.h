@@ -46,10 +46,6 @@ typedef enum {
 	DPLANE_OP_ROUTE_UPDATE,
 	DPLANE_OP_ROUTE_DELETE,
 
-	/* Interface address update */
-	DPLANE_OP_INTF_ADDR,
-	DPLANE_OP_INTF_ADDR_DELETE,
-
 } dplane_op_e;
 
 /*
@@ -57,10 +53,8 @@ typedef enum {
  */
 typedef enum {
 	DPLANE_STATUS_NONE = 0,
-	DPLANE_INSTALL_SUCCESS,
-	DPLANE_INSTALL_FAILURE,
-	DPLANE_DELETE_SUCCESS,
-	DPLANE_DELETE_FAILURE,
+	DPLANE_STATUS_SUCCESS,
+	DPLANE_STATUS_FAILURE,
 
 } dplane_status_e;
 
@@ -76,8 +70,6 @@ typedef struct zebra_dplane_ctx_s * dplane_ctx_h;
  * are accessor apis that support enqueue and dequeue.
  */
 TAILQ_HEAD(dplane_ctx_q_s, zebra_dplane_ctx_s);
-
-#define DPLANE_PROVIDER_NAMELEN 64
 
 /*
  * Allocate an opaque context block, currently for a route update.
@@ -100,9 +92,10 @@ void dplane_ctx_dequeue(struct dplane_ctx_q_s *q, dplane_ctx_h *ctxp);
 /*
  * Accessors for information from the context object
  */
-dplane_status_e dplane_ctx_get_status(const dplane_ctx_h ctx);
+enum dp_req_result dplane_ctx_get_status(const dplane_ctx_h ctx);
 
 dplane_op_e dplane_ctx_get_op(const dplane_ctx_h ctx);
+const char *dplane_op2str(dplane_op_e op);
 
 const struct prefix *dplane_ctx_get_dest(const dplane_ctx_h ctx);
 
@@ -149,6 +142,8 @@ int dplane_route_delete(struct route_node *rn,
 /* Opaque handle to a dataplane provider plugin */
 typedef struct zebra_dplane_provider_s *dplane_provider_h;
 
+#define DPLANE_PROVIDER_NAMELEN 64
+
 /* Priority or ordering values for providers. The idea is that there may be
  * some pre-processing, followed by an external or remote dataplane,
  * followed by the kernel, followed by some post-processing step (such as
@@ -166,7 +161,8 @@ typedef enum {
 typedef int (*dplane_provider_process_fp)(dplane_ctx_h ctx);
 
 /* Provider registration */
-int dplane_provider_register(dplane_provider_prio_e prio,
+int dplane_provider_register(const char *name,
+			     dplane_provider_prio_e prio,
 			     dplane_provider_process_fp fp);
 
 /*

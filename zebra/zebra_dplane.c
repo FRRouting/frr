@@ -25,6 +25,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/rt.h"
+#include "zebra/debug.h"
 
 /* Memory type for context blocks */
 DEFINE_MTYPE(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
@@ -62,7 +63,7 @@ struct zebra_dplane_ctx_s {
 	dplane_op_e zd_op;
 
 	/* Status on return */
-	dplane_status_e zd_status;
+	enum dp_req_result zd_status;
 
 	/* TODO -- internal/sub-operation status? */
 	dplane_status_e zd_remote_status;
@@ -235,7 +236,7 @@ void dplane_ctx_dequeue(struct dplane_ctx_q_s *q, dplane_ctx_h *ctxp)
 /*
  * Accessors for information from the context object
  */
-dplane_status_e dplane_ctx_get_status(const dplane_ctx_h ctx)
+enum dp_req_result dplane_ctx_get_status(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
@@ -247,6 +248,31 @@ dplane_op_e dplane_ctx_get_op(const dplane_ctx_h ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return (ctx->zd_op);
+}
+
+const char *dplane_op2str(dplane_op_e op)
+{
+	const char *ret = "UNKNOWN";
+
+	switch(op) {
+	case DPLANE_OP_NONE:
+		ret = "NONE";
+		break;
+
+	/* Route update */
+	case DPLANE_OP_ROUTE_INSTALL:
+		ret = "ROUTE_INSTALL";
+		break;
+	case DPLANE_OP_ROUTE_UPDATE:
+		ret = "ROUTE_UPDATE";
+		break;
+	case DPLANE_OP_ROUTE_DELETE:
+		ret = "ROUTE_DELETE";
+		break;
+
+	};
+
+	return (ret);
 }
 
 const struct prefix *dplane_ctx_get_dest(const dplane_ctx_h ctx)
@@ -426,7 +452,7 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	int ret = EINVAL;
 	const struct route_table *table = NULL;
 	const rib_table_info_t *info;
-	struct prefix *p, *src_p;
+	const struct prefix *p, *src_p;
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 
@@ -435,7 +461,6 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	}
 
 	ctx->zd_op = op;
-	ctx->zd_status = DPLANE_STATUS_NONE;
 
 	ctx->zd_type = re->type;
 
@@ -466,14 +491,14 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	ctx->zd_afi = info->afi;
 	ctx->zd_safi = info->safi;
 
-	/* ns info - can't use pointers to 'core' structs */
+	/* Extract ns info - can't use pointers to 'core' structs */
 	zvrf = vrf_info_lookup(re->vrf_id);
 	zns = zvrf->zns;
 
 	zebra_ns_info_from_ns(&(ctx->zd_ns_info), zns, true /*is_cmd*/);
 
 #if defined(HAVE_NETLINK)
-	/* Increment counter after copying to context struct - may need
+	/* Increment message counter after copying to context struct - may need
 	 * two messages in some 'update' cases.
 	 */
 	if (op == DPLANE_OP_ROUTE_UPDATE) {
@@ -486,7 +511,7 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	/* Copy nexthops; recursive info is included too */
 	copy_nexthops(&(ctx->zd_ng.nexthop), re->ng.nexthop, NULL);
 
-	/* Trying out the sequence number idea, so we can at least detect
+	/* Trying out the sequence number idea, so we can try to detect
 	 * when a result is stale.
 	 */
 	re->dplane_sequence++;
@@ -666,10 +691,22 @@ static int dplane_route_process(struct thread *event)
 			break;
 		}
 
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+			char dest_str[PREFIX_STRLEN];
+
+			prefix2str(dplane_ctx_get_dest(ctx),
+				   dest_str, sizeof(dest_str));
+
+			zlog_debug("%u:%s Dplane update ctx %p op %s",
+				   dplane_ctx_get_vrf(ctx), dest_str,
+				   ctx, dplane_op2str(dplane_ctx_get_op(ctx)));
+		}
+
 		res = kernel_route_update(ctx);
 
-		/* TODO -- support series of providers */
 		ctx->zd_status = res;
+
+		/* TODO -- support series of providers */
 
 		/* Enqueue result to zebra main context */
 		(*zdplane_g.dg_results_cb)(ctx);
