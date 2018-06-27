@@ -509,9 +509,13 @@ void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
 	bfd_info = (struct bfd_info *)peer->bfd_info;
 
 	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
+#if HAVE_BFDD > 0
+		vty_out(vty, " neighbor %s bfd\n", addr);
+#else
 		vty_out(vty, " neighbor %s bfd %d %d %d\n", addr,
 			bfd_info->detect_mult, bfd_info->required_min_rx,
 			bfd_info->desired_min_tx);
+#endif /* HAVE_BFDD */
 
 	if (bfd_info->type != BFD_TYPE_NOT_CONFIGURED)
 		vty_out(vty, " neighbor %s bfd %s\n", addr,
