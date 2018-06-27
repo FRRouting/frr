@@ -82,6 +82,9 @@ static void sigterm_handler(void)
 	/* Signalize shutdown. */
 	frr_early_fini();
 
+	/* Stop receiving message from zebra. */
+	bfdd_zclient_stop();
+
 	/* Shutdown controller to avoid receiving anymore commands. */
 	control_shutdown();
 
@@ -205,6 +208,9 @@ int main(int argc, char *argv[])
 
 	/* Initialize BFD data structures. */
 	bfd_initialize();
+
+	/* Initialize zebra connection. */
+	bfdd_zclient_init(&bfdd_privs);
 
 	/* Add descriptors to the event loop. */
 	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_shop,

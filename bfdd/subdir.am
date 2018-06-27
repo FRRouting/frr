@@ -18,6 +18,7 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/event.c \
 	bfdd/linux.c \
 	bfdd/log.c \
+	bfdd/ptm_adapter.c \
 	# end
 
 bfdd/bfdd_vty_clippy.c: $(CLIPPY_DEPS)

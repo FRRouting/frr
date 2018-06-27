@@ -808,6 +808,9 @@ int control_notify(struct bfd_session *bs)
 	struct bfd_control_socket *bcs;
 	struct bfd_notify_peer *bnp;
 
+	/* Notify zebra listeners as well. */
+	ptm_bfd_notify(bs);
+
 	/*
 	 * PERFORMANCE: reuse the bfd_control_msg allocated data for
 	 * all control sockets to avoid wasting memory.

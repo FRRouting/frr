@@ -591,6 +591,15 @@ void bfdd_vty_init(void);
 
 
 /*
+ * ptm_adapter.c
+ */
+void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv);
+void bfdd_zclient_stop(void);
+
+int ptm_bfd_notify(struct bfd_session *bs);
+
+
+/*
  * OS compatibility functions.
  */
 struct udp_psuedo_header {

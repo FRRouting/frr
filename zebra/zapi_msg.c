@@ -3015,6 +3015,9 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_BFD_DEST_UPDATE] = zebra_ptm_bfd_dst_register,
 	[ZEBRA_BFD_DEST_REGISTER] = zebra_ptm_bfd_dst_register,
 	[ZEBRA_BFD_DEST_DEREGISTER] = zebra_ptm_bfd_dst_deregister,
+#if HAVE_BFDD > 0
+	[ZEBRA_BFD_DEST_REPLAY] = zebra_ptm_bfd_dst_replay,
+#endif /* HAVE_BFDD */
 	[ZEBRA_VRF_UNREGISTER] = zread_vrf_unregister,
 	[ZEBRA_VRF_LABEL] = zread_vrf_label,
 	[ZEBRA_BFD_CLIENT_REGISTER] = zebra_ptm_bfd_client_register,
