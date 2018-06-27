@@ -54,6 +54,7 @@ struct list {
 #define listnextnode(X) ((X) ? ((X)->next) : NULL)
 #define listnextnode_unchecked(X) ((X)->next)
 #define listhead(X) ((X) ? ((X)->head) : NULL)
+#define listhead_unchecked(X) ((X)->head)
 #define listtail(X) ((X) ? ((X)->tail) : NULL)
 #define listcount(X) ((X)->count)
 #define list_isempty(X) ((X)->head == NULL && (X)->tail == NULL)
