@@ -1095,8 +1095,11 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 {
 	struct nexthop *nexthop;
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
-	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
+	const struct prefix *p, *src_p;
+	enum dp_req_result ret;
+
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
@@ -1128,20 +1131,39 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	if (old && (old != re) && (old->type != re->type))
 		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON);
 
+	/* Update fib selection */
+	dest->selected_fib = re;
+
 	/*
 	 * Make sure we update the FPM any time we send new information to
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "installing in kernel");
-	switch (kernel_route_rib(rn, p, src_p, old, re)) {
+
+	/* Send add or update */
+	if (old && (old != re)) {
+		ret = dplane_route_update(rn, re, old);
+	} else {
+		ret = dplane_route_add(rn, re);
+	}
+
+	switch (ret) {
 	case DP_REQUEST_QUEUED:
-		zlog_err("No current known DataPlane interfaces can return this, please fix");
+		if (zvrf)
+			zvrf->installs_queued++;
 		break;
 	case DP_REQUEST_FAILURE:
-		zlog_err("No current known Rib Install Failure cases, please fix");
+	{
+		char str[SRCDEST2STR_BUFFER];
+
+		srcdest_rnode2str(rn, str, sizeof(str));
+		zlog_err("%u:%s: Failed to enqueue dataplane install",
+			 re->vrf_id, str);
 		break;
+	}
 	case DP_REQUEST_SUCCESS:
-		zvrf->installs++;
+		if (zvrf)
+			zvrf->installs++;
 		break;
 	}
 
@@ -1153,10 +1175,7 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
 	struct nexthop *nexthop;
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
-	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
-
-	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	if (info->safi != SAFI_UNICAST) {
 		for (ALL_NEXTHOPS(re->ng, nexthop))
@@ -1166,16 +1185,23 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 
 	/*
 	 * Make sure we update the FPM any time we send new information to
-	 * the kernel.
+	 * the dataplane.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
-	switch (kernel_route_rib(rn, p, src_p, re, NULL)) {
+	switch (dplane_route_delete(rn, re)) {
 	case DP_REQUEST_QUEUED:
-		zlog_err("No current known DataPlane interfaces can return this, please fix");
+		if (zvrf)
+			zvrf->removals_queued++;
 		break;
 	case DP_REQUEST_FAILURE:
-		zlog_err("No current known RIB Install Failure cases, please fix");
+	{
+		char str[SRCDEST2STR_BUFFER];
+		srcdest_rnode2str(rn, str, sizeof(str));
+
+		zlog_err("%u:%s: Failed to enqueue dataplane uninstall",
+			 re->vrf_id, str);
 		break;
+	}
 	case DP_REQUEST_SUCCESS:
 		if (zvrf)
 			zvrf->removals++;
@@ -1190,6 +1216,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 {
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
+	struct nexthop *nexthop;
 
 	if (dest && dest->selected_fib == re) {
 		if (info->safi == SAFI_UNICAST)
@@ -1201,6 +1228,11 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 
 		if (!RIB_SYSTEM_ROUTE(re))
 			rib_uninstall_kernel(rn, re);
+
+		dest->selected_fib = NULL;
+
+		for (ALL_NEXTHOPS(re->ng, nexthop))
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 	}
 
 	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
@@ -1817,16 +1849,18 @@ done:
 }
 
 /*
- * TODO - WIP
+ * TODO - WIP version of route-update processing after async dataplane
+ * update.
  */
 static void rib_process_after(dplane_ctx_h ctx)
 {
 	struct route_table *table = NULL;
+	struct zebra_vrf *zvrf = NULL;
 	struct route_node *rn = NULL;
 	struct route_entry *re = NULL, *old_re = NULL, *rib;
 	bool is_update = false;
 	struct nexthop *nexthop;
-	char dest_str[PREFIX_STRLEN];
+	char dest_str[PREFIX_STRLEN] = "";
 	dplane_op_e op;
 	enum dp_req_result status;
 	const struct prefix *dest_pfx, *src_pfx;
@@ -1847,6 +1881,8 @@ static void rib_process_after(dplane_ctx_h ctx)
 		}
 		goto done;
 	}
+
+	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
 
 	dest_pfx = dplane_ctx_get_dest(ctx);
 
@@ -1888,6 +1924,10 @@ static void rib_process_after(dplane_ctx_h ctx)
 		 */
 		if (status == DP_REQUEST_SUCCESS) {
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
+
+			if (zvrf) {
+				zvrf->removals++;
+			}
 		} else {
 			zsend_route_notify_owner_ctx(ctx,
 						     ZAPI_ROUTE_FAIL_INSTALL);
@@ -1974,6 +2014,10 @@ static void rib_process_after(dplane_ctx_h ctx)
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		}
+
+		if (zvrf) {
+			zvrf->installs++;
 		}
 
 		/* Redistribute */
