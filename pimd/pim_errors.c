@@ -34,7 +34,7 @@ static struct ferr_ref ferr_pim_err[] = {
 	{
 		.code = PIM_ERR_CONFIG,
 		.title = "PIM Configuration Error",
-		.description = "Pim has detected a configuration error",
+		.description = "PIM has detected a configuration error",
 		.suggestion = "Ensure the configuration is correct and apply correct configuration"
 	},
 	{

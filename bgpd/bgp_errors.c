@@ -94,7 +94,7 @@ static struct ferr_ref ferr_bgp_err[] = {
 	{
 		.code = BGP_ERR_LM_ERROR,
 		.title = "BGP received invalid label manager message",
-		.description = "BGP received nvalid label manager message from label manager",
+		.description = "BGP received invalid label manager message from label manager",
 		.suggestion = "Label manager sent invalid essage to BGP for wrong protocol, instance, etc. Most likely a bug"
 	},
 	{

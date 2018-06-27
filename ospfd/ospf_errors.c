@@ -33,19 +33,19 @@ static struct ferr_ref ferr_ospf_err[] = {
 	{
 		.code = OSPF_ERR_ROUTER_LSA_MISMATCH,
 		.title = "Failure to process Router LSA",
-		.description = "OSPF attempted to process a Router LSA but Advertising ID mismtach with link id",
+		.description = "OSPF attempted to process a Router LSA but Advertising ID mismatch with link id",
 		.suggestion = "Check OSPF network config for any config issue, If the problem persists, report the problem for troubleshooting"
 	},
 	{
 		.code = OSPF_ERR_DOMAIN_CORRUPT,
 		.title = "OSPF Domain Corruption",
-		.description = "OSPF attempted to process a Router LSA but Advertising ID mismtach with link id",
-		.suggestion = "Check OSPF network Database for corrupted LSA, If the problem persists, shutdown ospf domain and report the problem for troubleshooting"
+		.description = "OSPF attempted to process a Router LSA but Advertising ID mismatch with link id",
+		.suggestion = "Check OSPF network Database for corrupted LSA, If the problem persists, shutdown OSPF domain and report the problem for troubleshooting"
 	},
 	{
 		.code = OSPF_ERR_INIT_FAIL,
 		.title = "OSPF Initialization failure",
-		.description = "OSPF failed to initialized ospf default insance",
+		.description = "OSPF failed to initialized OSPF default insance",
 		.suggestion = "Ensure there is adequate memory on the device. If the problem persists, report the problem for troubleshooting"
 	},
 	{
@@ -62,9 +62,9 @@ static struct ferr_ref ferr_ospf_err[] = {
 	},
 	{
 		.code = OSPF_ERR_SR_INVALID_LSA_ID,
-		.title = "OSPF SR Invalid lsa id",
+		.title = "OSPF SR Invalid LSA ID",
 		.description = "OSPF Segment Routing invalid lsa id",
-		.suggestion = "Restart ospf instance, If the problem persists, report the problem for troubleshooting"
+		.suggestion = "Restart OSPF instance, If the problem persists, report the problem for troubleshooting"
 	},
 	{
 		.code = OSPF_ERR_SR_INVALID_ALGORITHM,
