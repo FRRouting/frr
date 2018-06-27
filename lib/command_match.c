@@ -608,12 +608,14 @@ static struct cmd_token *disambiguate_tokens(struct cmd_token *first,
 static struct list *disambiguate(struct list *first, struct list *second,
 				 vector vline, unsigned int n)
 {
+	assert(first != NULL);
+	assert(second != NULL);
 	// doesn't make sense for these to be inequal length
-	assert(first && second);
 	assert(first->count == second->count);
 	assert(first->count == vector_active(vline) - n + 1);
 
-	struct listnode *fnode = listhead(first), *snode = listhead(second);
+	struct listnode *fnode = listhead_unchecked(first),
+			*snode = listhead_unchecked(second);
 	struct cmd_token *ftok = listgetdata(fnode), *stok = listgetdata(snode),
 			 *best = NULL;
 
