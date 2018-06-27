@@ -84,13 +84,8 @@ struct ospf6_prefix {
 #define OSPF6_PREFIX_NEXT(x)                                                   \
 	((struct ospf6_prefix *)((caddr_t)(x) + OSPF6_PREFIX_SIZE(x)))
 
-#define ospf6_prefix_in6_addr(in6, op)                                         \
-	do {                                                                   \
-		memset(in6, 0, sizeof(struct in6_addr));                       \
-		memcpy(in6, (caddr_t)(op) + sizeof(struct ospf6_prefix),       \
-		       OSPF6_PREFIX_SPACE((op)->prefix_length));               \
-	} while (0)
-
+extern void ospf6_prefix_in6_addr(struct in6_addr *in6, const void *prefix_buf,
+				  const struct ospf6_prefix *p);
 extern void ospf6_prefix_apply_mask(struct ospf6_prefix *op);
 extern void ospf6_prefix_options_printbuf(uint8_t prefix_options, char *buf,
 					  int size);

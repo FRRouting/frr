@@ -497,7 +497,8 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	route->type = OSPF6_DEST_TYPE_NETWORK;
 	route->prefix.family = AF_INET6;
 	route->prefix.prefixlen = external->prefix.prefix_length;
-	ospf6_prefix_in6_addr(&route->prefix.u.prefix6, &external->prefix);
+	ospf6_prefix_in6_addr(&route->prefix.u.prefix6, external,
+			      &external->prefix);
 
 	route->path.area_id = asbr_entry->path.area_id;
 	route->path.origin.type = lsa->header->type;
@@ -576,7 +577,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	route_to_del->type = OSPF6_DEST_TYPE_NETWORK;
 	route_to_del->prefix.family = AF_INET6;
 	route_to_del->prefix.prefixlen = external->prefix.prefix_length;
-	ospf6_prefix_in6_addr(&route_to_del->prefix.u.prefix6,
+	ospf6_prefix_in6_addr(&route_to_del->prefix.u.prefix6, external,
 			      &external->prefix);
 
 	route_to_del->path.origin.type = lsa->header->type;
@@ -603,7 +604,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 	memset(&prefix, 0, sizeof(struct prefix));
 	prefix.family = AF_INET6;
 	prefix.prefixlen = external->prefix.prefix_length;
-	ospf6_prefix_in6_addr(&prefix.u.prefix6, &external->prefix);
+	ospf6_prefix_in6_addr(&prefix.u.prefix6, external, &external->prefix);
 
 	route = ospf6_route_lookup(&prefix, ospf6->route_table);
 	if (route == NULL) {
@@ -1705,7 +1706,8 @@ static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 			lsa->header);
 
 		if (pos == 0) {
-			ospf6_prefix_in6_addr(&in6, &external->prefix);
+			ospf6_prefix_in6_addr(&in6, external,
+					      &external->prefix);
 			prefix_length = external->prefix.prefix_length;
 		} else {
 			in6 = *((struct in6_addr
