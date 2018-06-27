@@ -56,6 +56,7 @@ include sharpd/subdir.am
 include pimd/subdir.am
 include pbrd/subdir.am
 include staticd/subdir.am
+include bfdd/subdir.am
 
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
 	 @BGPD@ \

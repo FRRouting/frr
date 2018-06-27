@@ -134,6 +134,7 @@ override_dh_auto_configure:
 		--enable-poll=yes \
 		$(USE_CUMULUS) \
 		$(USE_PIM) \
+		--disable-bfdd \
 		--enable-dependency-tracking \
 		$(USE_BGP_VNC) \
 		$(shell dpkg-buildflags --export=configure); \

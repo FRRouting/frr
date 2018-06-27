@@ -16,6 +16,7 @@ WANT_CUMULUS_MODE ?= 0
 WANT_MULTIPATH ?= 1
 WANT_SNMP ?= 0
 WANT_RPKI ?= 0
+WANT_BFD ?= 1
 
 # NOTES:
 #
@@ -108,6 +109,12 @@ else
   USE_RPKI=--disable-rpki
 endif
 
+ifeq ($(WANT_BFD), 1)
+  USE_BFD=--enable-bfdd
+else
+  USE_BFD=--disable-bfdd
+endif
+
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
   DEBIAN_JOBS := $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
 endif
@@ -160,6 +167,7 @@ override_dh_auto_configure:
 		--enable-dependency-tracking \
 		$(USE_BGP_VNC) \
 		$(USE_RPKI) \
+		$(USE_BFD) \
 		$(shell dpkg-buildflags --export=configure); \
 	fi
 

@@ -11,6 +11,7 @@
 #################### FRRouting (FRR) configure options #####################
 # with-feature options
 %{!?with_babeld:        %global  with_babeld        1 }
+%{!?with_bfdd:          %global  with_bfdd          1 }
 %{!?with_bgp_vnc:       %global  with_bgp_vnc       0 }
 %{!?with_cumulus:       %global  with_cumulus       0 }
 %{!?with_eigrpd:        %global  with_eigrpd        1 }
@@ -85,7 +86,7 @@
 %{!?frr_gid:            %global  frr_gid            92 }
 %{!?vty_gid:            %global  vty_gid            85 }
 
-%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd staticd
+%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd staticd bfdd
 
 %if %{with_ldpd}
     %define daemon_ldpd ldpd
@@ -129,7 +130,13 @@
     %define daemon_watchfrr ""
 %endif
 
-%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd}
+%if %{with_bfdd}
+    %define daemon_bfdd bfdd
+%else
+    %define daemon_bfdd ""
+%endif
+
+%define all_daemons %{daemon_list} %{daemon_ldpd} %{daemon_pimd} %{daemon_nhrpd} %{daemon_eigrpd} %{daemon_babeld} %{daemon_watchfrr} %{daemon_pbrd} %{daemon_bfdd}
 
 #release sub-revision (the two digits after the CONFDATE)
 %{!?release_rev:        %global  release_rev        01 }
@@ -193,7 +200,7 @@ protocol. It takes multi-server and multi-thread approach to resolve
 the current complexity of the Internet.
 
 FRRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM, LDP
-NHRP, Babel, PBR and EIGRP.
+NHRP, Babel, PBR, EIGRP and BFD.
 
 FRRouting is a fork of Quagga.
 
@@ -331,9 +338,14 @@ developing OSPF-API and frr applications.
     --enable-systemd \
 %endif
 %if %{with_rpki}
-    --enable-rpki
+    --enable-rpki \
 %else
-    --disable-rpki
+    --disable-rpki \
+%endif
+%if %{with_bfdd}
+    --enable-bfdd
+%else
+    --disable-bfdd
 %endif
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split" SPHINXBUILD=%{sphinx}
@@ -443,6 +455,9 @@ zebra_spec_add_service isisd    2608/tcp "ISISd vty"
 %endif
 %if %{with_eigrpd}
     zebra_spec_add_service eigrpd   2613/tcp "EIGRPd vty"
+%endif
+%if %{with_bfdd}
+    zebra_spec_add_service bfdd     2617/tcp "BFDd vty"
 %endif
 
 %if "%{initsystem}" == "systemd"
@@ -591,6 +606,9 @@ fi
 %if %{with_babeld}
     %{_sbindir}/babeld
 %endif
+%if %{with_bfdd}
+    %{_sbindir}/bfdd
+%endif
 %{_libdir}/lib*.so.0
 %{_libdir}/lib*.so.0.*
 %if %{with_fpm}
@@ -644,6 +662,9 @@ fi
 
 
 %changelog
+* Sun May 28 2018 Rafael Zalamena <rzalamena@opensourcerouting.org> - %{version}
+- Add BFDd support
+
 * Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org>
 - Fixed RPKI RPM build
 

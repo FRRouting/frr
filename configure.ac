@@ -452,6 +452,8 @@ AC_ARG_ENABLE([numeric_version],
   AS_HELP_STRING([--enable-numeric-version], [Only numeric digits allowed in version (for Alpine)]))
 AC_ARG_ENABLE([gcov],
   AS_HELP_STRING([--enable-gcov], [Add code coverage information]))
+AC_ARG_ENABLE(bfdd,
+  AS_HELP_STRING([--disable-bfdd], [do not build bfdd]))
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
@@ -1368,6 +1370,30 @@ AS_IF([test "${enable_ldpd}" != "no"], [
   AC_DEFINE(HAVE_LDPD, 1, ldpd)
 ])
 
+if test "$enable_bfdd" = "no"; then
+  AC_DEFINE(HAVE_BFDD, 0, bfdd)
+  BFDD=""
+else
+  AC_DEFINE(HAVE_BFDD, 1, bfdd)
+  BFDD="bfdd"
+
+  case $host_os in
+    linux*)
+      AC_DEFINE(BFD_LINUX, 1, bfdd)
+      ;;
+
+    *)
+      AC_DEFINE(BFD_BSD, 1, bfdd)
+      ;;
+  esac
+fi
+
+AM_CONDITIONAL(BFDD, [test "x$BFDD" = "xbfdd"])
+
+if test $ac_cv_lib_json_c_json_object_get = no -a "x$BFDD" = "xbfdd"; then
+  AC_MSG_ERROR(["you must use json-c library to use bfdd"])
+fi
+
 NHRPD=""
 case "$host_os" in
   linux*)
@@ -1880,6 +1906,7 @@ AC_SUBST(frr_statedir)
 
 AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$frr_statedir/ldpd.sock",ldpd control socket)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$frr_statedir/zserv.api",zebra api socket)
+AC_DEFINE_UNQUOTED(BFDD_CONTROL_SOCKET, "$frr_statedir/bfdd.sock", bfdd control socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$frr_statedir",daemon vty directory)
 
 dnl autoconf does this, but it does it too late...
