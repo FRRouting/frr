@@ -290,17 +290,21 @@ void ospf_bfd_info_nbr_create(struct ospf_interface *oi,
 void ospf_bfd_write_config(struct vty *vty, struct ospf_if_params *params)
 
 {
+#if HAVE_BFDD == 0
 	struct bfd_info *bfd_info;
+#endif /* ! HAVE_BFDD */
 
 	if (!params->bfd_info)
 		return;
 
+#if HAVE_BFDD == 0
 	bfd_info = (struct bfd_info *)params->bfd_info;
 
 	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
 		vty_out(vty, " ip ospf bfd %d %d %d\n", bfd_info->detect_mult,
 			bfd_info->required_min_rx, bfd_info->desired_min_tx);
 	else
+#endif /* ! HAVE_BFDD */
 		vty_out(vty, " ip ospf bfd\n");
 }
 
