@@ -103,6 +103,10 @@ options from the list below.
 
    Do not build bgpd.
 
+.. option:: --disable-bfdd
+
+   Do not build bfdd.
+
 .. option:: --disable-bgp-announce
 
    Make *bgpd* which does not make bgp announcements at all.  This

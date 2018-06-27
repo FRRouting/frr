@@ -245,6 +245,14 @@ FRR implements the following RFCs:
 - :rfc:`7552`
   :t:`Updates to LDP for IPv6, R. Asati, C. Pignataro, K. Raza, V. Manral,
   and R. Papneja. June 2015.`
+- :rfc:`5880`
+  :t:`Bidirectional Forwarding Detection (BFD), D. Katz, D. Ward. June 2010`
+- :rfc:`5881`
+  :t:`Bidirectional Forwarding Detection (BFD) for IPv4 and IPv6 (Single Hop),
+  D. Katz, D. Ward. June 2010`
+- :rfc:`5883`
+  :t:`Bidirectional Forwarding Detection (BFD) for Multihop Paths, D. Katz,
+  D. Ward. June 2010`
 
 **When SNMP support is enabled, the following RFCs are also supported:**
 

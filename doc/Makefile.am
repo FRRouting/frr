@@ -90,6 +90,10 @@ if STATICD
 man_MANS += $(MANPAGE_BUILDDIR)/staticd.8
 endif
 
+if BFDD
+man_MANS += $(MANPAGE_BUILDDIR)/bfdd.8
+endif
+
 # Automake is particular about manpages. It is aware of them and has some
 # special facilities for handling them, but it assumes that manpages are always
 # given in groff source and so these facilities are limited to simply
@@ -159,6 +163,8 @@ EXTRA_DIST = frr-sphinx.mk \
 	manpages/vtysh.rst \
 	manpages/watchfrr.rst \
 	manpages/zebra.rst \
+	manpages/bfdd.rst \
+	manpages/bfd-options.rst \
 	developer/bgpd.rst \
 	developer/bgp-typecodes.rst \
 	developer/building-frr-on-alpine.rst \
@@ -234,6 +240,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/vnc.rst \
 	user/vtysh.rst \
 	user/zebra.rst \
+	user/bfd.rst \
 	mpls/ChangeLog.opaque.txt \
 	mpls/ospfd.conf \
 	mpls/cli_summary.txt \
