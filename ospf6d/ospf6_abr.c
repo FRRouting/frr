@@ -641,6 +641,11 @@ void ospf6_abr_originate_summary(struct ospf6_route *route)
 
 	if (route->type == OSPF6_DEST_TYPE_NETWORK) {
 		oa = ospf6_area_lookup(route->path.area_id, ospf6);
+		if (!oa) {
+			zlog_err("OSPFv6 area lookup failed");
+			return;
+		}
+
 		range = ospf6_route_lookup_bestmatch(&route->prefix,
 						     oa->range_table);
 		if (range) {
