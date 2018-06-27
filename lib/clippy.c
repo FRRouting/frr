@@ -31,9 +31,11 @@
 #define pychar wchar_t
 static wchar_t *wconv(const char *s)
 {
-	size_t outlen = mbstowcs(NULL, s, 0);
+	size_t outlen = s ? mbstowcs(NULL, s, 0) : 0;
 	wchar_t *out = malloc((outlen + 1) * sizeof(wchar_t));
-	mbstowcs(out, s, outlen + 1);
+
+	if (outlen > 0)
+		mbstowcs(out, s, outlen);
 	out[outlen] = 0;
 	return out;
 }
