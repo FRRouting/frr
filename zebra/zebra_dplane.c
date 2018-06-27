@@ -463,6 +463,7 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	ctx->zd_op = op;
 
 	ctx->zd_type = re->type;
+	ctx->zd_old_type = re->type;
 
 	/* Prefixes: dest, and optional source */
 	srcdest_rnode_prefixes(rn, &p, &src_p);
@@ -483,6 +484,7 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	ctx->zd_nexthop_mtu = re->nexthop_mtu;
 	ctx->zd_instance = re->instance;
 	ctx->zd_tag = re->tag;
+	ctx->zd_old_tag = re->tag;
 	ctx->zd_distance = re->distance;
 
 	table = srcdest_rnode_table(rn);
