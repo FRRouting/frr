@@ -1735,22 +1735,12 @@ static void rib_process(struct route_node *rn)
 	else if (old_fib)
 		rib_process_del_fib(zvrf, rn, old_fib);
 
-	/* Redistribute SELECTED entry */
+	/* Update SELECTED entry */
 	if (old_selected != new_selected || selected_changed) {
-		struct nexthop *nexthop = NULL;
 
-		/* Check if we have a FIB route for the destination, otherwise,
-		 * don't redistribute it */
-		if (new_fib) {
-			for (ALL_NEXTHOPS(new_fib->ng, nexthop)) {
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_FIB)) {
-					break;
-				}
-			}
+		if (new_selected) {
+			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
 		}
-		if (!nexthop)
-			new_selected = NULL;
 
 		if (new_selected && new_selected != new_fib) {
 			nexthop_active_update(rn, new_selected, 1);
@@ -1763,14 +1753,6 @@ static void rib_process(struct route_node *rn)
 			if (old_selected != new_selected)
 				UNSET_FLAG(old_selected->flags,
 					   ZEBRA_FLAG_SELECTED);
-		}
-
-		if (new_selected) {
-			/* Install new or replace existing redistributed entry
-			 */
-			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
-			redistribute_update(p, src_p, new_selected,
-					    old_selected);
 		}
 	}
 
