@@ -10,6 +10,7 @@ endif
 
 bfdd_libbfd_a_SOURCES = \
 	bfdd/bfd.c \
+	bfdd/bfdd_vty.c \
 	bfdd/bfd_packet.c \
 	bfdd/bsd.c \
 	bfdd/config.c \
@@ -18,6 +19,9 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/linux.c \
 	bfdd/log.c \
 	# end
+
+bfdd/bfdd_vty_clippy.c: $(CLIPPY_DEPS)
+bfdd/bfdd_vty.$(OBJEXT): bfdd/bfdd_vty_clippy.c
 
 noinst_HEADERS += \
 	bfdd/bfdctl.h \

@@ -583,6 +583,14 @@ int bfd_echo_xmt_cb(struct thread *t);
 
 
 /*
+ * bfdd_vty.c
+ *
+ * BFD daemon vty shell commands.
+ */
+void bfdd_vty_init(void);
+
+
+/*
  * OS compatibility functions.
  */
 struct udp_psuedo_header {

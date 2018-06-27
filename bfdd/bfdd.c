@@ -224,6 +224,9 @@ int main(int argc, char *argv[])
 	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
 			&bglobal.bg_csockev);
 
+	/* Install commands. */
+	bfdd_vty_init();
+
 	/* read configuration file and daemonize  */
 	frr_config_fork();
 
