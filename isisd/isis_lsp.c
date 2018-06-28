@@ -1052,6 +1052,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					uint8_t subtlv_len;
 
 					if (IS_MPLS_TE(isisMplsTE)
+					    && circuit->interface != NULL
 					    && HAS_LINK_PARAMS(
 						       circuit->interface))
 						/* Update Local and Remote IP
