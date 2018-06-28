@@ -309,9 +309,9 @@ int isis_recv_pdu_p2p(struct isis_circuit *circuit, uint8_t *ssnpa)
 	addr_len = sizeof(s_addr);
 
 	/* we can read directly to the stream */
-	stream_recvfrom(circuit->rcv_stream, circuit->fd,
-			circuit->interface->mtu, 0, (struct sockaddr *)&s_addr,
-			(socklen_t *)&addr_len);
+	(void)stream_recvfrom(
+		circuit->rcv_stream, circuit->fd, circuit->interface->mtu, 0,
+		(struct sockaddr *)&s_addr, (socklen_t *)&addr_len);
 
 	if (s_addr.sll_pkttype == PACKET_OUTGOING) {
 		/*  Read the packet into discard buff */
