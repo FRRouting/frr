@@ -1225,7 +1225,8 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 			/* unlink bgp_info to bpme */
 			bgp_info = (struct bgp_info *)bpme->bgp_info;
 			extra = bgp_info_extra_get(bgp_info);
-			extra->bgp_fs_pbr = NULL;
+			if (extra->bgp_fs_pbr)
+				listnode_delete(extra->bgp_fs_pbr, bpme);
 			bpme->bgp_info = NULL;
 		}
 	}
@@ -1597,6 +1598,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	struct bgp_pbr_range_port *src_port;
 	struct bgp_pbr_range_port *dst_port;
 	struct bgp_pbr_range_port *pkt_len;
+	bool bpme_found = false;
 
 	if (!bpf)
 		return;
@@ -1817,8 +1819,21 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		bpme->install_in_progress = false;
 		/* link bgp info to bpme */
 		bpme->bgp_info = (void *)binfo;
-	}
+	} else
+		bpme_found = true;
 
+	/* already installed */
+	if (bpme_found && bpme) {
+		struct bgp_info_extra *extra = bgp_info_extra_get(binfo);
+
+		if (extra && extra->bgp_fs_pbr &&
+		    listnode_lookup(extra->bgp_fs_pbr, bpme)) {
+			if (BGP_DEBUG(pbr, PBR_ERROR))
+				zlog_err("%s: entry %p/%p already installed in bgp pbr",
+					 __func__, binfo, bpme);
+			return;
+		}
+	}
 	/* BGP FS: append entry to zebra
 	 * - policies are not routing entries and as such
 	 * route replace semantics don't necessarily follow
@@ -2195,7 +2210,6 @@ void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
 			 bool nlri_update)
 {
 	struct bgp_pbr_entry_main api;
-	struct bgp_info_extra *extra = bgp_info_extra_get(info);
 
 	if (afi == AFI_IP6)
 		return; /* IPv6 not supported */
@@ -2210,13 +2224,6 @@ void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
 		if (BGP_DEBUG(pbr, PBR_ERROR))
 			zlog_err("%s: table chunk not obtained yet",
 				 __func__);
-		return;
-	}
-	/* already installed */
-	if (nlri_update && extra->bgp_fs_pbr) {
-		if (BGP_DEBUG(pbr, PBR_ERROR))
-			zlog_err("%s: entry %p already installed in bgp pbr",
-				 __func__, info);
 		return;
 	}
 
