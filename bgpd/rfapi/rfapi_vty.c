@@ -388,15 +388,11 @@ int rfapiStream2Vty(void *stream,			   /* input */
 		return 1;
 	}
 
-	if (stream) {
-		*vty = stream; /* VTYNL requires vty to be legit */
-		*fp = (int (*)(void *, const char *, ...))vty_out;
-		*outstream = stream;
-		*vty_newline = str_vty_newline(*vty);
-		return 1;
-	}
-
-	return 0;
+	*vty = stream; /* VTYNL requires vty to be legit */
+	*fp = (int (*)(void *, const char *, ...))vty_out;
+	*outstream = stream;
+	*vty_newline = str_vty_newline(*vty);
+	return 1;
 }
 
 /* called from bgpd/bgp_vty.c'route_vty_out() */
