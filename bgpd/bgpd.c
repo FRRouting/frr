@@ -2733,9 +2733,8 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		if (peer->group) {
 			assert(group && peer->group == group);
 		} else {
-			struct listnode *pn;
-			pn = listnode_lookup(bgp->peer, peer);
-			list_delete_node(bgp->peer, pn);
+			listnode_delete(bgp->peer, peer);
+
 			peer->group = group;
 			listnode_add_sort(bgp->peer, peer);
 

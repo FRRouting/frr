@@ -186,26 +186,10 @@ void listnode_move_to_tail(struct list *l, struct listnode *n)
 
 void listnode_delete(struct list *list, void *val)
 {
-	struct listnode *node;
+	struct listnode *node = listnode_lookup(list, val);
 
-	assert(list);
-	for (node = list->head; node; node = node->next) {
-		if (node->data == val) {
-			if (node->prev)
-				node->prev->next = node->next;
-			else
-				list->head = node->next;
-
-			if (node->next)
-				node->next->prev = node->prev;
-			else
-				list->tail = node->prev;
-
-			list->count--;
-			listnode_free(node);
-			return;
-		}
-	}
+	if (node)
+		list_delete_node(list, node);
 }
 
 void *listnode_head(struct list *list)
