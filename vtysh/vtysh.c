@@ -3357,9 +3357,12 @@ static void vtysh_autocomplete(vector comps, struct cmd_token *token)
 	snprintf(accmd, sizeof(accmd), "autocomplete %d %s %s", token->type,
 		 token->text, token->varname ? token->varname : "-");
 
+	vty->of_saved = vty->of;
+	vty->of = NULL;
 	for (i = 0; i < array_size(vtysh_client); i++)
 		vtysh_client_run_all(&vtysh_client[i], accmd, 1, vtysh_ac_line,
 				     comps);
+	vty->of = vty->of_saved;
 }
 
 static const struct cmd_variable_handler vtysh_var_handler[] = {
