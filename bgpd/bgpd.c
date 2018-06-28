@@ -1032,6 +1032,8 @@ static inline bgp_peer_sort_t peer_calc_sort(struct peer *peer)
 
 		else {
 			struct peer *peer1;
+
+			assert(peer->group);
 			peer1 = listnode_head(peer->group->peer);
 
 			if (peer1)
