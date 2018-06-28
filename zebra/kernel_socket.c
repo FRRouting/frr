@@ -47,6 +47,7 @@
 #include "zebra/debug.h"
 #include "zebra/kernel_socket.h"
 #include "zebra/rib.h"
+#include "zebra/zebra_errors.h"
 
 extern struct zebra_privs_t zserv_privs;
 
