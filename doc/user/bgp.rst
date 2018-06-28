@@ -1864,22 +1864,22 @@ Debugging
 
    Show all enabled debugs.
 
-.. index:: [no] debug neighbor-events
-.. clicmd:: [no] debug neighbor-events
+.. index:: [no] debug bgp neighbor-events
+.. clicmd:: [no] debug bgp neighbor-events
 
    Enable or disable debugging for neighbor events. This provides general
    information on BGP events such as peer connection / disconnection, session
    establishment / teardown, and capability negotiation.
 
-.. index:: [no] debug updates
-.. clicmd:: [no] debug updates
+.. index:: [no] debug bgp updates
+.. clicmd:: [no] debug bgp updates
 
    Enable or disable debugging for BGP updates. This provides information on
    BGP UPDATE messages transmitted and received between local and remote
    instances.
 
-.. index:: [no] debug keepalives
-.. clicmd:: [no] debug keepalives
+.. index:: [no] debug bgp keepalives
+.. clicmd:: [no] debug bgp keepalives
 
    Enable or disable debugging for BGP keepalives. This provides information on
    BGP KEEPALIVE messages transmitted and received between local and remote
