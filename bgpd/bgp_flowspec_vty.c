@@ -332,16 +332,32 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 		struct bgp_info_extra *extra = bgp_info_extra_get(binfo);
 
 		if (extra->bgp_fs_pbr) {
+			struct listnode *node;
 			struct bgp_pbr_match_entry *bpme;
 			struct bgp_pbr_match *bpm;
+			int unit = 0;
+			struct list *list_bpm;
 
-			bpme = (struct bgp_pbr_match_entry *)extra->bgp_fs_pbr;
-			bpm = bpme->backpointer;
-			vty_out(vty, "\tinstalled in PBR");
-			if (bpm)
-				vty_out(vty, " (%s)\n", bpm->ipset_name);
-			else
-				vty_out(vty, "\n");
+			list_bpm = list_new();
+			if (listcount(extra->bgp_fs_pbr))
+				vty_out(vty, "\tinstalled in PBR");
+			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_pbr,
+						  node, bpme)) {
+				bpm = bpme->backpointer;
+				if (listnode_lookup(list_bpm, bpm))
+					continue;
+				listnode_add(list_bpm, bpm);
+				if (unit == 0)
+					vty_out(vty, " (");
+				else
+					vty_out(vty, ", ");
+				vty_out(vty, "%s", bpm->ipset_name);
+				unit++;
+			}
+			if (unit)
+				vty_out(vty, ")");
+			vty_out(vty, "\n");
+			list_delete_all_node(list_bpm);
 		} else
 			vty_out(vty, "\tnot installed in PBR\n");
 	}

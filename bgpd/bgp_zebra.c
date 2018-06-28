@@ -2088,7 +2088,9 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 			/* link bgp_info to bpme */
 			bgp_info = (struct bgp_info *)bgp_pbime->bgp_info;
 			extra = bgp_info_extra_get(bgp_info);
-			extra->bgp_fs_pbr = (void *)bgp_pbime;
+			if (extra->bgp_fs_pbr == NULL)
+				extra->bgp_fs_pbr = list_new();
+			listnode_add(extra->bgp_fs_pbr, bgp_pbime);
 		}
 		break;
 	case ZAPI_IPSET_ENTRY_FAIL_REMOVE:
