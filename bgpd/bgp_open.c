@@ -80,8 +80,9 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
 			afi_t afi;
 			safi_t safi;
 
-			bgp_map_afi_safi_iana2int(ntohs(mpc.afi), mpc.safi,
-						  &afi, &safi);
+			(void)bgp_map_afi_safi_iana2int(ntohs(mpc.afi),
+							mpc.safi, &afi, &safi);
+
 			if (use_json) {
 				switch (afi) {
 				case AFI_IP:
