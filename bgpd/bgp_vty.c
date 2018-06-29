@@ -7072,7 +7072,7 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 				    != NULL) {
 					if (rm->p.prefixlen
 					    == match.prefixlen) {
-						SET_FLAG(rn->flags,
+						SET_FLAG(rm->flags,
 							 BGP_NODE_USER_CLEAR);
 						bgp_process(bgp, rm, afi, safi);
 					}
