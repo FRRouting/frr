@@ -3017,9 +3017,9 @@ static int rfapiDeleteLocalPrefixesByRFD(struct rfapi_local_reg_delete_arg *cda,
 		 * match un, vn addresses of NVEs
 		 */
 		if (pUn && (rfapi_ip_addr_cmp(pUn, &rfd->un_addr)))
-			continue;
+			break;
 		if (pVn && (rfapi_ip_addr_cmp(pVn, &rfd->vn_addr)))
-			continue;
+			break;
 
 #if DEBUG_L2_EXTRA
 		vnc_zlog_debug_verbose("%s: un, vn match", __func__);
