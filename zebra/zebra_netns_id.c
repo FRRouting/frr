@@ -307,7 +307,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 			nlh = (struct nlmsghdr *)((char *)nlh
 						  + NETLINK_ALIGN(
 							    nlh->nlmsg_len));
-		} while (len != 0 && return_nsid != NS_UNKNOWN && ret == 0);
+		} while (len != 0 && ret == 0);
 	}
 
 	close(fd);
