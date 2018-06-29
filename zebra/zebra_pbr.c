@@ -44,6 +44,63 @@ static const struct message ipset_type_msg[] = {
 	{0}
 };
 
+const struct message icmp_typecode_str[] = {
+	{ 0 << 8, "echo-reply"},
+	{ 0 << 8, "pong"},
+	{ 3 << 8, "network-unreachable"},
+	{ (3 << 8) + 1, "host-unreachable"},
+	{ (3 << 8) + 2, "protocol-unreachable"},
+	{ (3 << 8) + 3, "port-unreachable"},
+	{ (3 << 8) + 4, "fragmentation-needed"},
+	{ (3 << 8) + 5, "source-route-failed"},
+	{ (3 << 8) + 6, "network-unknown"},
+	{ (3 << 8) + 7, "host-unknown"},
+	{ (3 << 8) + 9, "network-prohibited"},
+	{ (3 << 8) + 10, "host-prohibited"},
+	{ (3 << 8) + 11, "TOS-network-unreachable"},
+	{ (3 << 8) + 12, "TOS-host-unreachable"},
+	{ (3 << 8) + 13, "communication-prohibited"},
+	{ (3 << 8) + 14, "host-precedence-violation"},
+	{ (3 << 8) + 15, "precedence-cutoff"},
+	{ 4 << 8, "source-quench"},
+	{ 5 << 8, "network-redirect"},
+	{ (5 << 8) +  1, "host-redirect"},
+	{ (5 << 8) +  2, "TOS-network-redirect"},
+	{ (5 << 8) +  3, "TOS-host-redirect"},
+	{ 8 << 8, "echo-request"},
+	{ 8 << 8, "ping"},
+	{ 9 << 8, "router-advertisement"},
+	{ 10 << 8, "router-solicitation"},
+	{ 11 << 8, "ttl-zero-during-transit"},
+	{ (11 << 8) + 1, "ttl-zero-during-reassembly"},
+	{ 12 << 8, "ip-header-bad"},
+	{ (12 << 8) + 1, "required-option-missing"},
+	{ 13 << 8, "timestamp-request"},
+	{ 14 << 8, "timestamp-reply"},
+	{ 17 << 8, "address-mask-request"},
+	{ 18 << 8, "address-mask-reply"},
+	{0}
+};
+
+/* definitions */
+static const struct message tcp_value_str[] = {
+	{TCP_HEADER_FIN, "FIN"},
+	{TCP_HEADER_SYN, "SYN"},
+	{TCP_HEADER_RST, "RST"},
+	{TCP_HEADER_PSH, "PSH"},
+	{TCP_HEADER_ACK, "ACK"},
+	{TCP_HEADER_URG, "URG"},
+	{0}
+};
+
+static const struct message fragment_value_str[] = {
+	{1, "dont-fragment"},
+	{2, "is-fragment"},
+	{4, "first-fragment"},
+	{8, "last-fragment"},
+	{0}
+};
+
 /* static function declarations */
 DEFINE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat, (struct zebra_ns *zns,
 				    struct zebra_pbr_ipset_entry *ipset,
@@ -322,6 +379,12 @@ uint32_t zebra_pbr_iptable_hash_key(void *arg)
 	key = jhash2(pnt, ZEBRA_IPSET_NAME_HASH_SIZE,
 		     0x63ab42de);
 	key = jhash_1word(iptable->fwmark, key);
+	key = jhash_1word(iptable->pkt_len_min, key);
+	key = jhash_1word(iptable->pkt_len_max, key);
+	key = jhash_1word(iptable->tcp_flags, key);
+	key = jhash_1word(iptable->tcp_mask_flags, key);
+	key = jhash_1word(iptable->dscp_value, key);
+	key = jhash_1word(iptable->fragment, key);
 	return jhash_3words(iptable->filter_bm, iptable->type,
 			    iptable->unique, key);
 }
@@ -345,6 +408,18 @@ int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
 		return 0;
 	if (strncmp(r1->ipset_name, r2->ipset_name,
 		    ZEBRA_IPSET_NAME_SIZE))
+		return 0;
+	if (r1->pkt_len_min != r2->pkt_len_min)
+		return 0;
+	if (r1->pkt_len_max != r2->pkt_len_max)
+		return 0;
+	if (r1->tcp_flags != r2->tcp_flags)
+		return 0;
+	if (r1->tcp_mask_flags != r2->tcp_mask_flags)
+		return 0;
+	if (r1->dscp_value != r2->dscp_value)
+		return 0;
+	if (r1->fragment != r2->fragment)
 		return 0;
 	return 1;
 }
@@ -515,7 +590,7 @@ struct pbr_ipset_name_lookup {
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 
-static const char *zebra_pbr_ipset_type2str(uint32_t type)
+const char *zebra_pbr_ipset_type2str(uint32_t type)
 {
 	return lookup_msg(ipset_type_msg, type,
 			  "Unrecognized IPset Type");
@@ -773,6 +848,30 @@ static const char *zebra_pbr_prefix2str(union prefixconstptr pu,
 	return prefix2str(pu, str, size);
 }
 
+static void zebra_pbr_display_icmp(struct vty *vty,
+				   struct zebra_pbr_ipset_entry *zpie)
+{
+	char decoded_str[20];
+	uint16_t port;
+
+	/* range icmp type */
+	if (zpie->src_port_max || zpie->dst_port_max) {
+		vty_out(vty, ":icmp:[type <%d:%d>;code <%d:%d>",
+			zpie->src_port_min, zpie->src_port_max,
+			zpie->dst_port_min, zpie->dst_port_max);
+	} else {
+		port = ((zpie->src_port_min << 8) & 0xff00) +
+			(zpie->dst_port_min & 0xff);
+		memset(decoded_str, 0, sizeof(decoded_str));
+		sprintf(decoded_str, "%d/%d",
+			zpie->src_port_min,
+			zpie->dst_port_min);
+		vty_out(vty, ":icmp:%s",
+			lookup_msg(icmp_typecode_str,
+				   port, decoded_str));
+	}
+}
+
 static void zebra_pbr_display_port(struct vty *vty, uint32_t filter_bm,
 			    uint16_t port_min, uint16_t port_max,
 			    uint8_t proto)
@@ -816,7 +915,8 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 
 		zebra_pbr_prefix2str(&(zpie->src), buf, sizeof(buf));
 		vty_out(vty, "\tfrom %s", buf);
-		if (zpie->filter_bm & PBR_FILTER_SRC_PORT)
+		if (zpie->filter_bm & PBR_FILTER_SRC_PORT &&
+		    zpie->proto != IPPROTO_ICMP)
 			zebra_pbr_display_port(vty, zpie->filter_bm,
 					       zpie->src_port_min,
 					       zpie->src_port_max,
@@ -824,11 +924,14 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 		vty_out(vty, " to ");
 		zebra_pbr_prefix2str(&(zpie->dst), buf, sizeof(buf));
 		vty_out(vty, "%s", buf);
-		if (zpie->filter_bm & PBR_FILTER_DST_PORT)
+		if (zpie->filter_bm & PBR_FILTER_DST_PORT &&
+		    zpie->proto != IPPROTO_ICMP)
 			zebra_pbr_display_port(vty, zpie->filter_bm,
 					       zpie->dst_port_min,
 					       zpie->dst_port_max,
 					       zpie->proto);
+		if (zpie->proto == IPPROTO_ICMP)
+			zebra_pbr_display_icmp(vty, zpie);
 	} else if ((zpi->type == IPSET_NET) ||
 		   (zpi->type == IPSET_NET_PORT)) {
 		char buf[PREFIX_STRLEN];
@@ -837,7 +940,8 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 			zebra_pbr_prefix2str(&(zpie->src), buf, sizeof(buf));
 			vty_out(vty, "\tfrom %s", buf);
 		}
-		if (zpie->filter_bm & PBR_FILTER_SRC_PORT)
+		if (zpie->filter_bm & PBR_FILTER_SRC_PORT &&
+		    zpie->proto != IPPROTO_ICMP)
 			zebra_pbr_display_port(vty, zpie->filter_bm,
 					       zpie->src_port_min,
 					       zpie->src_port_max,
@@ -846,11 +950,14 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 			zebra_pbr_prefix2str(&(zpie->dst), buf, sizeof(buf));
 			vty_out(vty, "\tto %s", buf);
 		}
-		if (zpie->filter_bm & PBR_FILTER_DST_PORT)
+		if (zpie->filter_bm & PBR_FILTER_DST_PORT &&
+		    zpie->proto != IPPROTO_ICMP)
 			zebra_pbr_display_port(vty, zpie->filter_bm,
 					       zpie->dst_port_min,
 					       zpie->dst_port_max,
 					       zpie->proto);
+		if (zpie->proto == IPPROTO_ICMP)
+			zebra_pbr_display_icmp(vty, zpie);
 	}
 	vty_out(vty, " (%u)\n", zpie->unique);
 
@@ -880,6 +987,26 @@ static int zebra_pbr_show_ipset_walkcb(struct hash_backet *backet, void *arg)
 		  &unique);
 	vty_out(vty, "\n");
 	return HASHWALK_CONTINUE;
+}
+
+size_t zebra_pbr_tcpflags_snprintf(char *buffer, size_t len,
+				   uint16_t tcp_val)
+{
+	size_t len_written = 0;
+	static struct message nt = {0};
+	const struct message *pnt;
+	int incr = 0;
+
+	for (pnt = tcp_value_str;
+	     memcmp(pnt, &nt, sizeof(struct message)); pnt++)
+		if (pnt->key & tcp_val) {
+			len_written += snprintf(buffer + len_written,
+						len - len_written,
+						"%s%s", incr ?
+						",":"", pnt->str);
+			incr++;
+		}
+	return len_written;
 }
 
 /*
@@ -946,7 +1073,42 @@ static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
 	vty_out(vty, "IPtable %s action %s (%u)\n", iptable->ipset_name,
 		iptable->action == ZEBRA_IPTABLES_DROP ? "drop" : "redirect",
 		iptable->unique);
+	if (iptable->pkt_len_min || iptable->pkt_len_max) {
+		if (!iptable->pkt_len_max)
+			vty_out(vty, "\t pkt len %u\n",
+				iptable->pkt_len_min);
+		else
+			vty_out(vty, "\t pkt len [%u;%u]\n",
+				iptable->pkt_len_min,
+				iptable->pkt_len_max);
+	}
+	if (iptable->tcp_flags || iptable->tcp_mask_flags) {
+		char tcp_flag_str[64];
+		char tcp_flag_mask_str[64];
 
+		zebra_pbr_tcpflags_snprintf(tcp_flag_str,
+					    sizeof(tcp_flag_str),
+					    iptable->tcp_flags);
+		zebra_pbr_tcpflags_snprintf(tcp_flag_mask_str,
+					    sizeof(tcp_flag_mask_str),
+					    iptable->tcp_mask_flags);
+		vty_out(vty, "\t tcpflags [%s/%s]\n",
+			tcp_flag_str, tcp_flag_mask_str);
+	}
+	if (iptable->filter_bm & (MATCH_DSCP_SET | MATCH_DSCP_INVERSE_SET)) {
+		vty_out(vty, "\t dscp %s %d\n",
+			iptable->filter_bm & MATCH_DSCP_INVERSE_SET ?
+			"not" : "", iptable->dscp_value);
+	}
+	if (iptable->fragment) {
+		char val_str[10];
+
+		sprintf(val_str, "%d", iptable->fragment);
+		vty_out(vty, "\t fragment%s %s\n",
+			iptable->filter_bm & MATCH_FRAGMENT_INVERSE_SET ?
+			" not" : "", lookup_msg(fragment_value_str,
+					       iptable->fragment, val_str));
+	}
 	ret = hook_call(zebra_pbr_iptable_wrap_script_get_stat,
 			zns, iptable, &pkts, &bytes);
 	if (ret && pkts > 0)

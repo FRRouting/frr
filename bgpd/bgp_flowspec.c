@@ -59,7 +59,8 @@ static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len)
 						   len - offset, NULL, &error);
 			break;
 		case FLOWSPEC_TCP_FLAGS:
-			ret = bgp_flowspec_tcpflags_decode(
+		case FLOWSPEC_FRAGMENT:
+			ret = bgp_flowspec_bitmask_decode(
 						   BGP_FLOWSPEC_VALIDATE_ONLY,
 						   nlri_content + offset,
 						   len - offset, NULL, &error);
@@ -67,12 +68,6 @@ static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len)
 		case FLOWSPEC_PKT_LEN:
 		case FLOWSPEC_DSCP:
 			ret = bgp_flowspec_op_decode(
-						BGP_FLOWSPEC_VALIDATE_ONLY,
-						nlri_content + offset,
-						len - offset, NULL, &error);
-			break;
-		case FLOWSPEC_FRAGMENT:
-			ret = bgp_flowspec_fragment_type_decode(
 						BGP_FLOWSPEC_VALIDATE_ONLY,
 						nlri_content + offset,
 						len - offset, NULL, &error);

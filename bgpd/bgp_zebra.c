@@ -2219,6 +2219,12 @@ static void bgp_encode_pbr_iptable_match(struct stream *s,
 	stream_putl(s, bpa->fwmark);
 	stream_put(s, pbm->ipset_name,
 		   ZEBRA_IPSET_NAME_SIZE);
+	stream_putw(s, pbm->pkt_len_min);
+	stream_putw(s, pbm->pkt_len_max);
+	stream_putw(s, pbm->tcp_flags);
+	stream_putw(s, pbm->tcp_mask_flags);
+	stream_putc(s, pbm->dscp_value);
+	stream_putc(s, pbm->fragment);
 }
 
 /* BGP has established connection with Zebra. */

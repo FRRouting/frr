@@ -124,8 +124,9 @@ static bool bgp_flowspec_contains_prefix(struct prefix *pfs,
 						     len - offset,
 						     NULL, &error);
 			break;
+		case FLOWSPEC_FRAGMENT:
 		case FLOWSPEC_TCP_FLAGS:
-			ret = bgp_flowspec_tcpflags_decode(
+			ret = bgp_flowspec_bitmask_decode(
 						BGP_FLOWSPEC_VALIDATE_ONLY,
 						nlri_content+offset,
 						len - offset,
@@ -134,13 +135,6 @@ static bool bgp_flowspec_contains_prefix(struct prefix *pfs,
 		case FLOWSPEC_PKT_LEN:
 		case FLOWSPEC_DSCP:
 			ret = bgp_flowspec_op_decode(
-						BGP_FLOWSPEC_VALIDATE_ONLY,
-						nlri_content + offset,
-						len - offset, NULL,
-						&error);
-			break;
-		case FLOWSPEC_FRAGMENT:
-			ret = bgp_flowspec_fragment_type_decode(
 						BGP_FLOWSPEC_VALIDATE_ONLY,
 						nlri_content + offset,
 						len - offset, NULL,
@@ -312,14 +306,14 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 
 
 /*
- * handle the flowspec tcpflags field
+ * handle the flowspec tcpflags or fragment field
  * return number of bytes analysed
  * if there is an error, the passed error param is used to give error:
  * -1 if decoding error,
  * if result is a string, its assumed length
  *  is BGP_FLOWSPEC_STRING_DISPLAY_MAX
  */
-int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
+int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 				 uint8_t *nlri_ptr,
 				 uint32_t max_len,
 				 void *result, int *error)
@@ -348,32 +342,33 @@ int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
 		case BGP_FLOWSPEC_RETURN_STRING:
 			if (op[1] == 1 && loop != 0) {
 				len_written = snprintf(ptr, len_string,
-						       ", and ");
+						       ",&");
 				len_string -= len_written;
 				ptr += len_written;
 			} else if (op[1] == 0 && loop != 0) {
 				len_written = snprintf(ptr, len_string,
-						      ", or ");
-				len_string -= len_written;
-				ptr += len_written;
-			}
-			len_written = snprintf(ptr, len_string,
-					       "tcp flags is ");
-			len_string -= len_written;
-			ptr += len_written;
-			if (op[6] == 1) {
-				ptr += snprintf(ptr, len_string,
-					       "not ");
+						      ",|");
 				len_string -= len_written;
 				ptr += len_written;
 			}
 			if (op[7] == 1) {
-				ptr += snprintf(ptr, len_string,
-					       "exactly match ");
+				len_written = snprintf(ptr, len_string,
+					       "= ");
+				len_string -= len_written;
+				ptr += len_written;
+			} else {
+				len_written = snprintf(ptr, len_string,
+						       "∋ ");
 				len_string -= len_written;
 				ptr += len_written;
 			}
-			ptr += snprintf(ptr, len_string,
+			if (op[6] == 1) {
+				len_written = snprintf(ptr, len_string,
+					       "! ");
+				len_string -= len_written;
+				ptr += len_written;
+			}
+			len_written = snprintf(ptr, len_string,
 				       "%d", value);
 			len_string -= len_written;
 			ptr += len_written;
@@ -416,92 +411,6 @@ int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
 	/* use error parameter to count the number of entries */
 	if (*error == 0)
 		*error = loop;
-	return offset;
-}
-
-/*
- * handle the flowspec fragment type field
- * return error (returned values are invalid) or number of bytes analysed
- * -1 if error in decoding
- * >= 0 : number of bytes analysed (ok).
- */
-int bgp_flowspec_fragment_type_decode(enum bgp_flowspec_util_nlri_t type,
-				      uint8_t *nlri_ptr,
-				      uint32_t max_len,
-				      void *result, int *error)
-{
-	int op[8];
-	int len, value, value_size, loop = 0;
-	char *ptr = (char *)result; /* for return_string */
-	struct bgp_pbr_fragment_val *mval =
-		(struct bgp_pbr_fragment_val *)result;
-	uint32_t offset = 0;
-	int len_string = BGP_FLOWSPEC_STRING_DISPLAY_MAX;
-	int len_written;
-
-	*error = 0;
-	do {
-		hex2bin(&nlri_ptr[offset], op);
-		offset++;
-		len = 2 * op[2] + op[3];
-		value_size = 1 << len;
-		value = hexstr2num(&nlri_ptr[offset], value_size);
-		if (value != 1 && value != 2 && value != 4 && value != 8)
-			*error = -1;
-		offset += value_size;
-		/* TODO : as per RFC5574 : first Fragment bits are Reserved
-		 * does that mean that it is not possible
-		 * to handle multiple occurences ?
-		 * as of today, we only grab the first TCP fragment
-		 */
-		if (loop) {
-			*error = -2;
-			loop++;
-			continue;
-		}
-		switch (type) {
-		case BGP_FLOWSPEC_RETURN_STRING:
-			switch (value) {
-			case 1:
-				len_written = snprintf(ptr, len_string,
-						       "dont-fragment");
-				len_string -= len_written;
-				ptr += len_written;
-				break;
-			case 2:
-				len_written = snprintf(ptr, len_string,
-						      "is-fragment");
-				len_string -= len_written;
-				ptr += len_written;
-				break;
-			case 4:
-				len_written = snprintf(ptr, len_string,
-						       "first-fragment");
-				len_string -= len_written;
-				ptr += len_written;
-				break;
-			case 8:
-				len_written = snprintf(ptr, len_string,
-						       "last-fragment");
-				len_string -= len_written;
-				ptr += len_written;
-				break;
-			default:
-				{}
-			}
-			break;
-		case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
-			mval->bitmask = (uint8_t)value;
-			break;
-		case BGP_FLOWSPEC_VALIDATE_ONLY:
-		default:
-			/* no action */
-			break;
-		}
-		loop++;
-	} while (op[0] == 0 && offset < max_len - 1);
-	if (offset > max_len)
-		*error = -1;
 	return offset;
 }
 
@@ -623,7 +532,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 							&error);
 			break;
 		case FLOWSPEC_TCP_FLAGS:
-			ret = bgp_flowspec_tcpflags_decode(
+			ret = bgp_flowspec_bitmask_decode(
 					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
 					nlri_content + offset,
 					len - offset,
@@ -637,7 +546,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 			offset += ret;
 			break;
 		case FLOWSPEC_FRAGMENT:
-			ret = bgp_flowspec_fragment_type_decode(
+			ret = bgp_flowspec_bitmask_decode(
 					BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE,
 					nlri_content + offset,
 					len - offset, &bpem->fragment,
@@ -646,7 +555,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 				zlog_err("%s: flowspec_fragment_type_decode error %d",
 					 __func__, error);
 			else
-				bpem->match_bitmask |= FRAGMENT_PRESENT;
+				bpem->match_fragment_num = error;
 			offset += ret;
 			break;
 		default:
