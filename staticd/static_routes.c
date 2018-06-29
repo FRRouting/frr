@@ -296,9 +296,9 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 						continue;
 					si->ifindex = IFINDEX_INTERNAL;
 				}
-			}
 
-			static_install_route(rn, si, safi);
+				static_install_route(rn, si, safi);
+			}
 		}
 	}
 }
@@ -321,16 +321,13 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 	struct route_node *rn;
 	struct static_route *si;
 	struct interface *ifp;
-	bool install;
 
 	for (rn = route_top(stable); rn; rn = route_next(rn)) {
-		install = false;
 		for (si = rn->info; si; si = si->next) {
 			if (strcmp(svrf->vrf->name, si->nh_vrfname) != 0)
 				continue;
 
 			si->nh_vrf_id = svrf->vrf->vrf_id;
-			install = true;
 			if (si->ifindex) {
 				ifp = if_lookup_by_name(si->ifname,
 							si->nh_vrf_id);
@@ -339,10 +336,9 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 				else
 					continue;
 			}
-		}
 
-		if (install)
 			static_install_route(rn, si, safi);
+		}
 	}
 }
 
@@ -363,10 +359,8 @@ static void static_enable_vrf(struct static_vrf *svrf,
 	struct static_route *si;
 	struct interface *ifp;
 	struct vrf *vrf = svrf->vrf;
-	bool install;
 
 	for (rn = route_top(stable); rn; rn = route_next(rn)) {
-		install = false;
 		for (si = rn->info; si; si = si->next) {
 			si->vrf_id = vrf->vrf_id;
 			if (si->ifindex) {
@@ -377,11 +371,8 @@ static void static_enable_vrf(struct static_vrf *svrf,
 				else
 					continue;
 			}
-			install = true;
-		}
-
-		if (install)
 			static_install_route(rn, si, safi);
+		}
 	}
 }
 
