@@ -198,7 +198,7 @@ static int zserv_write(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
-	uint32_t wcmd;
+	uint32_t wcmd = 0;
 	struct stream_fifo *cache;
 
 	/* If we have any data pending, try to flush it first */
