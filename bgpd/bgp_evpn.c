@@ -4243,7 +4243,7 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 		list_delete_node(bgp_vrf->vrf_import_rtl, node_to_del);
 
 	/* fallback to auto import rt, if this was the last RT */
-	if (list_isempty(bgp_vrf->vrf_import_rtl)) {
+	if (bgp_vrf->vrf_import_rtl && list_isempty(bgp_vrf->vrf_import_rtl)) {
 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
 		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
 	}

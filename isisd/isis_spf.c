@@ -1473,8 +1473,9 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 		vty_out(vty, "%-20s %-12s %-6u ",
 			vid2string(vertex, buff, sizeof(buff)),
 			vtype2string(vertex->type), vertex->d_N);
-		for (unsigned int i = 0; i < MAX(listcount(vertex->Adj_N),
-						 listcount(vertex->parents));
+		for (unsigned int i = 0;
+		     i < MAX(vertex->Adj_N ? listcount(vertex->Adj_N) : 0,
+			     vertex->parents ? listcount(vertex->parents) : 0);
 		     i++) {
 			if (anode) {
 				adj = listgetdata(anode);
