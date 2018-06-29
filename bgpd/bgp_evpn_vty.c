@@ -3256,10 +3256,11 @@ DEFUN(show_bgp_l2vpn_evpn_es,
 {
 	int idx = 0;
 	uint8_t uj = 0;
-	esi_t esi = {0};
+	esi_t esi;
 	json_object *json = NULL;
 	struct bgp *bgp = NULL;
 
+	memset(&esi, 0, sizeof(esi));
 	uj = use_json(argc, argv);
 
 	bgp = bgp_get_default();
@@ -3541,10 +3542,11 @@ DEFUN(show_bgp_l2vpn_evpn_route_esi,
       JSON_STR)
 {
 	int uj = 0;
-	esi_t esi = {0};
+	esi_t esi;
 	struct bgp *bgp = NULL;
 	json_object *json = NULL;
 
+	memset(&esi, 0, sizeof(esi));
 	bgp = bgp_get_default();
 	if (!bgp)
 		return CMD_WARNING;

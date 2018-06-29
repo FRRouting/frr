@@ -8010,10 +8010,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		if (binfo->extra && binfo->extra->damp_info)
 			bgp_damp_info_vty(vty, binfo, json_path);
 
-/* Remote Label */
+		/* Remote Label */
 		if (binfo->extra && bgp_is_valid_label(&binfo->extra->label[0])
-		    && safi != SAFI_EVPN)
-		{
+		    && safi != SAFI_EVPN) {
 			mpls_label_t label =
 				label_pton(&binfo->extra->label[0]);
 			if (json_paths)
