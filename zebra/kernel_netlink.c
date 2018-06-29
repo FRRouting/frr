@@ -545,7 +545,6 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 
 		if (off > h->nlmsg_len) {
 			zlog_err("Invalid offset for NLMSGERR_ATTR_OFFS\n");
-			off = 0;
 		} else if (!(h->nlmsg_flags & NLM_F_CAPPED)) {
 			/*
 			 * Header of failed message
