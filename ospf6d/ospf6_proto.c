@@ -24,6 +24,16 @@
 
 #include "ospf6_proto.h"
 
+void ospf6_prefix_in6_addr(struct in6_addr *in6, const void *prefix_buf,
+			   const struct ospf6_prefix *p)
+{
+	ptrdiff_t in6_off = (caddr_t)p->addr - (caddr_t)prefix_buf;
+
+	memset(in6, 0, sizeof(struct in6_addr));
+	memcpy(in6, (uint8_t *)prefix_buf + in6_off,
+	       OSPF6_PREFIX_SPACE(p->prefix_length));
+}
+
 void ospf6_prefix_apply_mask(struct ospf6_prefix *op)
 {
 	uint8_t *pnt, mask;
