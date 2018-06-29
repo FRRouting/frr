@@ -829,9 +829,6 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	n->nlmsg_seq = ++nl->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
 
-	/* Request an acknowledgement by setting NLM_F_ACK */
-	n->nlmsg_flags |= NLM_F_ACK;
-
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
 			"netlink_talk: %s type %s(%u), len=%d seq=%u flags 0x%x",
@@ -978,8 +975,12 @@ void kernel_init(struct zebra_ns *zns)
 
 	/* Register kernel socket. */
 	if (fcntl(zns->netlink.sock, F_SETFL, O_NONBLOCK) < 0)
-		zlog_err("Can't set %s socket flags: %s",
-			 zns->netlink.name, safe_strerror(errno));
+		zlog_err("Can't set %s socket error: %s(%d)",
+			 zns->netlink.name, safe_strerror(errno), errno);
+
+	if (fcntl(zns->netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
+		zlog_err("Can't set %s socket error: %s(%d)",
+			 zns->netlink_cmd.name, safe_strerror(errno), errno);
 
 	/* Set receive buffer size if it's set from command line */
 	if (nl_rcvbufsize)
