@@ -52,7 +52,6 @@ struct vni_walk_ctx {
 	json_object *json;
 };
 
-#if defined(HAVE_CUMULUS)
 static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
 				  json_object *json)
 {
@@ -245,7 +244,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 	for (ALL_LIST_ELEMENTS(irt->vnis, node, nnode, tmp_vpn)) {
 		if (json)
 			json_object_array_add(
-				json_vnis, json_object_new_int64(tmp_vpn->vni));
+				json_vnis, json_object_new_int(tmp_vpn->vni));
 		else
 			vty_out(vty, "  %u\n", tmp_vpn->vni);
 	}
@@ -980,7 +979,6 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 		vty_out(vty, "\n");
 	}
 }
-#endif /* HAVE_CUMULUS */
 
 static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 				 enum bgp_show_type type, void *output_arg,
@@ -1636,8 +1634,6 @@ DEFUN(no_evpnrt5_network,
 		argv[idx_gwip]->arg, argv[idx_ethtag]->arg);
 }
 
-#if defined(HAVE_CUMULUS)
-
 static void evpn_import_rt_delete_auto(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	evpn_rt_delete_auto(bgp, vpn->vni, vpn->import_rtl);
@@ -1721,6 +1717,7 @@ static void evpn_unconfigure_import_rt(struct bgp *bgp, struct bgpevpn *vpn,
 			list_delete_node(vpn->import_rtl, node_to_del);
 	}
 
+	assert(vpn->import_rtl);
 	/* Reset to auto RT - this also rebuilds the RT to VNI mapping */
 	if (list_isempty(vpn->import_rtl)) {
 		UNSET_FLAG(vpn->flags, VNI_FLAG_IMPRT_CFGD);
@@ -1788,6 +1785,7 @@ static void evpn_unconfigure_export_rt(struct bgp *bgp, struct bgpevpn *vpn,
 			list_delete_node(vpn->export_rtl, node_to_del);
 	}
 
+	assert(vpn->export_rtl);
 	if (list_isempty(vpn->export_rtl)) {
 		UNSET_FLAG(vpn->flags, VNI_FLAG_EXPRT_CFGD);
 		bgp_evpn_derive_auto_rt_export(bgp, vpn);
@@ -2752,7 +2750,6 @@ static void evpn_unset_advertise_autort_rfc8365(struct bgp *bgp)
 	bgp->advertise_autort_rfc8365 = 0;
 	bgp_evpn_handle_autort_change(bgp);
 }
-#endif /* HAVE_CUMULUS */
 
 static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 {
@@ -2799,7 +2796,6 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 	}
 }
 
-#if defined(HAVE_CUMULUS)
 DEFUN (bgp_evpn_advertise_default_gw_vni,
        bgp_evpn_advertise_default_gw_vni_cmd,
        "advertise-default-gw",
@@ -3262,10 +3258,11 @@ DEFUN(show_bgp_l2vpn_evpn_es,
 {
 	int idx = 0;
 	uint8_t uj = 0;
-	esi_t esi = {0};
+	esi_t esi;
 	json_object *json = NULL;
 	struct bgp *bgp = NULL;
 
+	memset(&esi, 0, sizeof(esi));
 	uj = use_json(argc, argv);
 
 	bgp = bgp_get_default();
@@ -3547,10 +3544,11 @@ DEFUN(show_bgp_l2vpn_evpn_route_esi,
       JSON_STR)
 {
 	int uj = 0;
-	esi_t esi = {0};
+	esi_t esi;
 	struct bgp *bgp = NULL;
 	json_object *json = NULL;
 
+	memset(&esi, 0, sizeof(esi));
 	bgp = bgp_get_default();
 	if (!bgp)
 		return CMD_WARNING;
@@ -3904,7 +3902,6 @@ DEFUN(show_bgp_l2vpn_evpn_import_rt,
 	return CMD_SUCCESS;
 }
 
-#if defined(HAVE_CUMULUS)
 DEFUN(test_adv_evpn_type4_route,
       test_adv_evpn_type4_route_cmd,
       "advertise es ESI",
@@ -4064,7 +4061,6 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_all, show_bgp_evpn_route_vni_all_cmd,
 ALIAS_HIDDEN(show_bgp_l2vpn_evpn_import_rt, show_bgp_evpn_import_rt_cmd,
 	     "show bgp evpn import-rt",
 	     SHOW_STR BGP_STR EVPN_HELP_STR "Show import route target\n")
-#endif
 
 DEFUN_NOSH (bgp_evpn_vni,
             bgp_evpn_vni_cmd,
@@ -4841,7 +4837,6 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
 		evpn_unconfigure_export_rt(bgp, vpn, NULL);
 	return CMD_SUCCESS;
 }
-#endif
 
 static int vni_cmp(const void **a, const void **b)
 {
@@ -4961,7 +4956,6 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_overlay_cmd);
 	install_element(BGP_EVPN_NODE, &no_evpnrt5_network_cmd);
 	install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
-#if defined(HAVE_CUMULUS)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_all_vni_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_autort_rfc8365_cmd);
@@ -5027,5 +5021,4 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_advertise_vni_subnet_cmd);
 	install_element(BGP_EVPN_VNI_NODE,
 			&no_bgp_evpn_advertise_vni_subnet_cmd);
-#endif
 }

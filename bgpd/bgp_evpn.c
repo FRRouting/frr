@@ -4242,6 +4242,7 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	if (node_to_del)
 		list_delete_node(bgp_vrf->vrf_import_rtl, node_to_del);
 
+	assert(bgp_vrf->vrf_import_rtl);
 	/* fallback to auto import rt, if this was the last RT */
 	if (bgp_vrf->vrf_import_rtl && list_isempty(bgp_vrf->vrf_import_rtl)) {
 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
