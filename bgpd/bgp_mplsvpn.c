@@ -490,7 +490,7 @@ leak_update(
 	 * (only one hop back to ultimate parent for vrf-vpn-vrf scheme).
 	 * Using a loop here supports more complex intra-bgp import-export
 	 * schemes that could be implemented in the future.
-	 * 
+	 *
 	 */
 	for (bi_ultimate = source_bi;
 		bi_ultimate->extra && bi_ultimate->extra->parent;
@@ -1356,8 +1356,7 @@ void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, /* to */
 	struct bgp_node *prn;
 	safi_t safi = SAFI_MPLS_VPN;
 
-	if (!bgp_vpn)
-		return;
+	assert(bgp_vpn);
 
 	/*
 	 * Walk vpn table
@@ -2252,4 +2251,67 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
 			return bgp->vrf_id;
 	}
 	return VRF_UNKNOWN;
+}
+
+/*
+ * The purpose of this function is to process leaks that were deferred
+ * from earlier per-vrf configuration due to not-yet-existing default
+ * vrf, in other words, configuration such as:
+ *
+ *     router bgp MMM vrf FOO
+ *       address-family ipv4 unicast
+ *         rd vpn export 1:1
+ *       exit-address-family
+ *
+ *     router bgp NNN
+ *       ...
+ *
+ * This function gets called when the default instance ("router bgp NNN")
+ * is created.
+ */
+void vpn_leak_postchange_all(void)
+{
+	struct listnode *next;
+	struct bgp *bgp;
+	struct bgp *bgp_default = bgp_get_default();
+
+	assert(bgp_default);
+
+	/* First, do any exporting from VRFs to the single VPN RIB */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
+
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		vpn_leak_postchange(
+			BGP_VPN_POLICY_DIR_TOVPN,
+			AFI_IP,
+			bgp_default,
+			bgp);
+
+		vpn_leak_postchange(
+			BGP_VPN_POLICY_DIR_TOVPN,
+			AFI_IP6,
+			bgp_default,
+			bgp);
+	}
+
+	/* Now, do any importing to VRFs from the single VPN RIB */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
+
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		vpn_leak_postchange(
+			BGP_VPN_POLICY_DIR_FROMVPN,
+			AFI_IP,
+			bgp_default,
+			bgp);
+
+		vpn_leak_postchange(
+			BGP_VPN_POLICY_DIR_FROMVPN,
+			AFI_IP6,
+			bgp_default,
+			bgp);
+	}
 }
