@@ -737,8 +737,6 @@ static void pim_zebra_connected(struct zclient *zclient)
 
 void pim_zebra_init(void)
 {
-	int i;
-
 	/* Socket for receiving updates from Zebra daemon */
 	zclient = zclient_new_notify(master, &zclient_options_default);
 
@@ -754,31 +752,7 @@ void pim_zebra_init(void)
 
 	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_info("zclient_init cleared redistribution request");
-	}
-
-	/* Request all redistribution */
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (i == zclient->redist_default)
-			continue;
-		vrf_bitmap_set(zclient->redist[AFI_IP][i], pimg->vrf_id);
-		;
-		if (PIM_DEBUG_PIM_TRACE) {
-			zlog_debug("%s: requesting redistribution for %s (%i)",
-				   __PRETTY_FUNCTION__, zebra_route_string(i),
-				   i);
-		}
-	}
-
-	/* Request default information */
-	zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient,
-				     pimg->vrf_id);
-
-	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_info("%s: requesting default information redistribution",
-			  __PRETTY_FUNCTION__);
-
-		zlog_notice("%s: zclient update socket initialized",
+		zlog_notice("%s: zclient socket initialized",
 			    __PRETTY_FUNCTION__);
 	}
 
