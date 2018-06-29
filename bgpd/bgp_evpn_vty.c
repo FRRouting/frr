@@ -244,7 +244,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 	for (ALL_LIST_ELEMENTS(irt->vnis, node, nnode, tmp_vpn)) {
 		if (json)
 			json_object_array_add(
-				json_vnis, json_object_new_int64(tmp_vpn->vni));
+				json_vnis, json_object_new_int(tmp_vpn->vni));
 		else
 			vty_out(vty, "  %u\n", tmp_vpn->vni);
 	}
