@@ -622,7 +622,7 @@ static const char *lsp_bits2string(uint8_t lsp_bits, char *buf, size_t buf_size)
 	pos += sprintf(pos, "%d/",
 		       ISIS_MASK_LSP_PARTITION_BIT(lsp_bits) ? 1 : 0);
 
-	pos += sprintf(pos, "%d", ISIS_MASK_LSP_OL_BIT(lsp_bits) ? 1 : 0);
+	sprintf(pos, "%d", ISIS_MASK_LSP_OL_BIT(lsp_bits) ? 1 : 0);
 
 	return buf;
 }
