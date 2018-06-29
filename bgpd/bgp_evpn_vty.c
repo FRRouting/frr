@@ -1717,6 +1717,7 @@ static void evpn_unconfigure_import_rt(struct bgp *bgp, struct bgpevpn *vpn,
 			list_delete_node(vpn->import_rtl, node_to_del);
 	}
 
+	assert(vpn->import_rtl);
 	/* Reset to auto RT - this also rebuilds the RT to VNI mapping */
 	if (list_isempty(vpn->import_rtl)) {
 		UNSET_FLAG(vpn->flags, VNI_FLAG_IMPRT_CFGD);
@@ -1784,6 +1785,7 @@ static void evpn_unconfigure_export_rt(struct bgp *bgp, struct bgpevpn *vpn,
 			list_delete_node(vpn->export_rtl, node_to_del);
 	}
 
+	assert(vpn->export_rtl);
 	if (list_isempty(vpn->export_rtl)) {
 		UNSET_FLAG(vpn->flags, VNI_FLAG_EXPRT_CFGD);
 		bgp_evpn_derive_auto_rt_export(bgp, vpn);
