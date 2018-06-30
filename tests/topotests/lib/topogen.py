@@ -321,11 +321,13 @@ class Topogen(object):
         killed and try with a different signal.
         """
         logger.info('stopping topology: {}'.format(self.modname))
-
+        errors = ""
         for gear in self.gears.values():
-            gear.stop(False)
+            gear.stop(False, False)
         for gear in self.gears.values():
-            gear.stop(True)
+            errors += gear.stop(True, False)
+        if len(errors) > 0:
+            assert "Errors found post shutdown - details follow:" == 0, errors
 
         self.net.stop()
 
@@ -426,9 +428,10 @@ class TopoGear(object):
         "Basic start function that just reports equipment start"
         logger.info('starting "{}"'.format(self.name))
 
-    def stop(self, wait=True):
+    def stop(self, wait=True, assertOnError=True):
         "Basic start function that just reports equipment stop"
         logger.info('stopping "{}"'.format(self.name))
+        return ""
 
     def run(self, command):
         """
@@ -662,13 +665,13 @@ class TopoRouter(TopoGear):
 
         return result
 
-    def stop(self, wait=True):
+    def stop(self, wait=True, assertOnError=True):
         """
         Stop router:
         * Kill daemons
         """
         self.logger.debug('stopping')
-        return self.tgen.net[self.name].stopRouter(wait)
+        return self.tgen.net[self.name].stopRouter(wait, assertOnError)
 
     def vtysh_cmd(self, command, isjson=False, daemon=None):
         """
@@ -902,9 +905,10 @@ class TopoExaBGP(TopoHost):
             output = '<none>'
         logger.info('{} exabgp started, output={}'.format(self.name, output))
 
-    def stop(self, wait=True):
+    def stop(self, wait=True, assertOnError=True):
         "Stop ExaBGP peer and kill the daemon"
         self.run('kill `cat /var/run/exabgp/exabgp.pid`')
+        return ""
 
 
 #
