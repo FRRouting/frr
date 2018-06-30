@@ -7935,6 +7935,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 				json_object_string_add(json_peer, "state",
 						       "Idle (Admin)");
+			else if (peer->afc_recv[afi][safi])
+				json_object_string_add(
+					json_peer, "state",
+					lookup_msg(bgp_status_msg, peer->status,
+						   NULL));
 			else if (CHECK_FLAG(peer->sflags,
 					    PEER_STATUS_PREFIX_OVERFLOW))
 				json_object_string_add(json_peer, "state",
