@@ -560,11 +560,12 @@ class Router(Node):
         super(Router, self).terminate()
         os.system('chmod -R go+rw /tmp/topotests')
 
-    def stopRouter(self, wait=True):
+    def stopRouter(self, wait=True, assertOnError=True):
         # Stop Running Quagga or FRR Daemons
         rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
+        errors = ""
         if re.search(r"No such file or directory", rundaemons):
-            return
+            return errors
         if rundaemons is not None:
             numRunning = 0
             for d in StringIO.StringIO(rundaemons):
@@ -592,7 +593,10 @@ class Router(Node):
                         self.waitOutput()
                     self.cmd('rm -- {}'.format(d.rstrip()))
         if wait:
-                self.checkRouterCores(reportOnce=True)
+                errors = self.checkRouterCores(reportOnce=True)
+                if assertOnError and len(errors) > 0:
+                    assert "Errors found - details follow:" == 0, errors
+        return errors
 
     def removeIPs(self):
         for interface in self.intfNames():
@@ -720,6 +724,7 @@ class Router(Node):
         if reportOnce and not self.reportCores:
             return
         reportMade = False
+        traces = ""
         for daemon in self.daemons:
             if (self.daemons[daemon] == 1):
                 # Look for core file
@@ -732,11 +737,13 @@ class Router(Node):
                     ], shell=True)
                     sys.stderr.write("\n%s: %s crashed. Core file found - Backtrace follows:\n" % (self.name, daemon))
                     sys.stderr.write("%s" % backtrace)
+                    traces = traces + "\n%s: %s crashed. Core file found - Backtrace follows:\n%s" % (self.name, daemon, backtrace)
                     reportMade = True
                 elif reportLeaks:
                     log = self.getStdErr(daemon)
                     if "memstats" in log:
                         sys.stderr.write("%s: %s has memory leaks:\n" % (self.name, daemon))
+                        traces = traces + "\n%s: %s has memory leaks:\n" % (self.name, daemon)
                         log = re.sub("core_handler: ", "", log)
                         log = re.sub(r"(showing active allocations in memory group [a-zA-Z0-9]+)", r"\n  ## \1", log)
                         log = re.sub("memstats:  ", "    ", log)
@@ -745,9 +752,11 @@ class Router(Node):
                 # Look for AddressSanitizer Errors and append to /tmp/AddressSanitzer.txt if found
                 if checkAddressSanitizerError(self.getStdErr(daemon), self.name, daemon):
                     sys.stderr.write("%s: Daemon %s killed by AddressSanitizer" % (self.name, daemon))
+                    traces = traces + "\n%s: Daemon %s killed by AddressSanitizer" % (self.name, daemon)
                     reportMade = True
         if reportMade:
             self.reportCores = False
+        return traces
 
     def checkRouterRunning(self):
         "Check if router daemons are running and collect crashinfo they don't run"
