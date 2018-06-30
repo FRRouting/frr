@@ -776,23 +776,7 @@ class TopoRouter(TopoGear):
 
         Usage example: router.has_version('>', '1.0')
         """
-        rversion = self.version_info()['version']
-        if rversion is None:
-            return False
-
-        result = topotest.version_cmp(rversion, version)
-        if cmpop == '>=':
-            return result >= 0
-        if cmpop == '>':
-            return result > 0
-        if cmpop == '=':
-            return result == 0
-        if cmpop == '<':
-            return result < 0
-        if cmpop == '<':
-            return result < 0
-        if cmpop == '<=':
-            return result <= 0
+        return self.tgen.net[self.name].checkRouterVersion(cmpop, version)
 
     def has_type(self, rtype):
         """

@@ -489,6 +489,7 @@ class Router(Node):
                         'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0}
         self.daemons_options = {'zebra': ''}
         self.reportCores = True
+        self.version = None
 
     def _config_frr(self, **params):
         "Configure FRR binaries"
@@ -688,6 +689,9 @@ class Router(Node):
         self.cmd('umask 000')
         #Re-enable to allow for report per run
         self.reportCores = True
+        if self.version == None:
+            self.version = self.cmd(os.path.join(self.daemondir, 'bgpd')+' -v').split()[2]
+            logger.info('{}: running version: {}'.format(self.name,self.version))
         # Start Zebra first
         if self.daemons['zebra'] == 1:
             zebra_path = os.path.join(self.daemondir, 'zebra')
@@ -797,6 +801,37 @@ class Router(Node):
 
                 return "%s: Daemon %s not running" % (self.name, daemon)
         return ""
+
+    def checkRouterVersion(self, cmpop, version):
+        """
+        Compares router version using operation `cmpop` with `version`.
+        Valid `cmpop` values:
+        * `>=`: has the same version or greater
+        * '>': has greater version
+        * '=': has the same version
+        * '<': has a lesser version
+        * '<=': has the same version or lesser
+
+        Usage example: router.checkRouterVersion('>', '1.0')
+        """
+        rversion = self.version
+        if rversion is None:
+            return False
+
+        result = version_cmp(rversion, version)
+        if cmpop == '>=':
+            return result >= 0
+        if cmpop == '>':
+            return result > 0
+        if cmpop == '=':
+            return result == 0
+        if cmpop == '<':
+            return result < 0
+        if cmpop == '<':
+            return result < 0
+        if cmpop == '<=':
+            return result <= 0
+
     def get_ipv6_linklocal(self):
         "Get LinkLocal Addresses from interfaces"
 
