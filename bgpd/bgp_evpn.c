@@ -5216,7 +5216,7 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 	struct bgpevpn *vpn = NULL;
 	as_t as = 0;
 
-	/* get the default instamce - required to get the AS number for VRF
+	/* get the default instance - required to get the AS number for VRF
 	 * auto-creatio
 	 */
 	bgp_def = bgp_get_default();
@@ -5319,11 +5319,12 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 		return -1;
 	}
 
-	/* unimport remote routes from VRF, if it is AUTO vrf bgp_delete will
-	 * take care of uninstalling the routes from zebra
+	/* Remove remote routes from BGT VRF even if BGP_VRF_AUTO is configured,
+	 * bgp_delete would not remove/decrement bgp_info of the ip_prefix
+	 * routes. This will uninstalling the routes from zebra and decremnt the
+	 * bgp info count.
 	 */
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO))
-		uninstall_routes_for_vrf(bgp_vrf);
+	uninstall_routes_for_vrf(bgp_vrf);
 
 	/* delete/withdraw all type-5 routes */
 	delete_withdraw_vrf_routes(bgp_vrf);
