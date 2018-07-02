@@ -272,7 +272,7 @@ void zebra_redistribute_add(int command, struct zserv *client, int length,
 			__func__, zebra_route_string(client->proto), afi,
 			zebra_route_string(type), zvrf_id(zvrf), instance);
 
-	if (afi == 0 || afi > AFI_MAX) {
+	if (afi == 0 || afi >= AFI_MAX) {
 		zlog_warn("%s: Specified afi %d does not exist",
 			  __PRETTY_FUNCTION__, afi);
 		return;
@@ -319,7 +319,7 @@ void zebra_redistribute_delete(int command, struct zserv *client, int length,
 	STREAM_GETC(client->ibuf, type);
 	STREAM_GETW(client->ibuf, instance);
 
-	if (afi == 0 || afi > AFI_MAX) {
+	if (afi == 0 || afi >= AFI_MAX) {
 		zlog_warn("%s: Specified afi %d does not exist",
 			  __PRETTY_FUNCTION__, afi);
 		return;
