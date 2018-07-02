@@ -306,7 +306,7 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 	uint32_t msglen;
 	uint8_t msgtype;
 	struct blob name;
-	struct vici_message_ctx ctx;
+	struct vici_message_ctx ctx = { .nsections = 0 };
 
 	msglen = zbuf_get_be32(msg);
 	msgtype = zbuf_get8(msg);
