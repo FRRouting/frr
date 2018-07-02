@@ -1649,7 +1649,7 @@ DEFUN (pce_domain,
 	if (!ospf_ri_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (sscanf(argv[idx_number]->arg, "%d", &as) != 1) {
+	if (sscanf(argv[idx_number]->arg, "%" SCNu32, &as) != 1) {
 		vty_out(vty, "pce_domain: fscanf: %s\n", safe_strerror(errno));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -1684,7 +1684,7 @@ DEFUN (no_pce_domain,
 	uint32_t as;
 	struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-	if (sscanf(argv[idx_number]->arg, "%d", &as) != 1) {
+	if (sscanf(argv[idx_number]->arg, "%" SCNu32, &as) != 1) {
 		vty_out(vty, "no_pce_domain: fscanf: %s\n",
 			safe_strerror(errno));
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1718,7 +1718,7 @@ DEFUN (pce_neigbhor,
 	if (!ospf_ri_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (sscanf(argv[idx_number]->arg, "%d", &as) != 1) {
+	if (sscanf(argv[idx_number]->arg, "%" SCNu32, &as) != 1) {
 		vty_out(vty, "pce_neighbor: fscanf: %s\n",
 			safe_strerror(errno));
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1754,7 +1754,7 @@ DEFUN (no_pce_neighbor,
 	uint32_t as;
 	struct ospf_pce_info *pce = &OspfRI.pce_info;
 
-	if (sscanf(argv[idx_number]->arg, "%d", &as) != 1) {
+	if (sscanf(argv[idx_number]->arg, "%" SCNu32, &as) != 1) {
 		vty_out(vty, "no_pce_neighbor: fscanf: %s\n",
 			safe_strerror(errno));
 		return CMD_WARNING_CONFIG_FAILED;
