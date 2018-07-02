@@ -835,12 +835,12 @@ uint32_t bgp_pbr_match_hash_key(void *arg)
 
 	key = jhash_1word(pbm->vrf_id, 0x4312abde);
 	key = jhash_1word(pbm->flags, key);
-	key = jhash_1word(pbm->pkt_len_min, key);
-	key = jhash_1word(pbm->pkt_len_max, key);
-	key = jhash_1word(pbm->tcp_flags, key);
-	key = jhash_1word(pbm->tcp_mask_flags, key);
-	key = jhash_1word(pbm->dscp_value, key);
-	key = jhash_1word(pbm->fragment, key);
+	key = jhash(&pbm->pkt_len_min, 2, key);
+	key = jhash(&pbm->pkt_len_max, 2, key);
+	key = jhash(&pbm->tcp_flags, 2, key);
+	key = jhash(&pbm->tcp_mask_flags, 2, key);
+	key = jhash(&pbm->dscp_value, 1, key);
+	key = jhash(&pbm->fragment, 1, key);
 	return jhash_1word(pbm->type, key);
 }
 
