@@ -196,9 +196,6 @@ main(int argc, char **argv)
     /* this replace kernel_setup && kernel_setup_socket */
     babelz_zebra_init ();
 
-    /* Get zebra configuration file. */
-    vty_read_config (babeld_di.config_file, babel_config_default);
-
     /* init buffer */
     rc = resize_receive_buffer(1500);
     if(rc < 0)
