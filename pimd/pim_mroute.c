@@ -158,7 +158,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	 * the Interface type is SSM we don't need to
 	 * do anything here
 	 */
-	if ((pim_rpf_addr_is_inaddr_none(rpg)) || (!pim_ifp)
+	if (!rpg || (pim_rpf_addr_is_inaddr_none(rpg))
 	    || (!(PIM_I_am_DR(pim_ifp)))) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug(
