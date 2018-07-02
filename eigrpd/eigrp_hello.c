@@ -417,7 +417,8 @@ void eigrp_sw_version_initialize(void)
 	if (dash)
 		dash[0] = '\0';
 
-	ret = sscanf(ver_string, "%d.%d", &FRR_MAJOR, &FRR_MINOR);
+	ret = sscanf(ver_string, "%" SCNu32 ".%" SCNu32, &FRR_MAJOR,
+		     &FRR_MINOR);
 	if (ret != 2)
 		zlog_err("Did not Properly parse %s, please fix VERSION string",
 			 VERSION);

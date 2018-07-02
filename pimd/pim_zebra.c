@@ -202,7 +202,7 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 	 * If we have a pimreg device callback and it's for a specific
 	 * table set the master appropriately
 	 */
-	if (sscanf(ifp->name, "pimreg%d", &table_id) == 1) {
+	if (sscanf(ifp->name, "pimreg%" SCNu32, &table_id) == 1) {
 		struct vrf *vrf;
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
