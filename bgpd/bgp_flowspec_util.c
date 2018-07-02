@@ -73,9 +73,9 @@ static int bgp_flowspec_call_non_opaque_decode(uint8_t *nlri_content, int len,
 	return ret;
 }
 
-static bool bgp_flowspec_contains_prefix(struct prefix *pfs,
-					 struct prefix *input,
-					 int prefix_check)
+bool bgp_flowspec_contains_prefix(struct prefix *pfs,
+				 struct prefix *input,
+				 int prefix_check)
 {
 	uint32_t offset = 0;
 	int type;
@@ -563,25 +563,4 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 		}
 	}
 	return error;
-}
-
-
-struct bgp_node *bgp_flowspec_get_match_per_ip(afi_t afi,
-					       struct bgp_table *rib,
-					       struct prefix *match,
-					       int prefix_check)
-{
-	struct bgp_node *rn;
-	struct prefix *prefix;
-
-	for (rn = bgp_table_top(rib); rn; rn = bgp_route_next(rn)) {
-		prefix = &rn->p;
-
-		if (prefix->family != AF_FLOWSPEC)
-			continue;
-
-		if (bgp_flowspec_contains_prefix(prefix, match, prefix_check))
-			return rn;
-	}
-	return NULL;
 }

@@ -8898,17 +8898,11 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 			bgp_unlock_node(rm);
 		}
 	} else if (safi == SAFI_FLOWSPEC) {
-		rn = bgp_flowspec_get_match_per_ip(afi, rib,
-						   &match, prefix_check);
-		if (rn != NULL) {
-			route_vty_out_flowspec(vty, &rn->p,
-					       rn->info, use_json ?
-					       NLRI_STRING_FORMAT_JSON :
-					       NLRI_STRING_FORMAT_LARGE,
-					       json_paths);
-			display++;
-			bgp_unlock_node(rn);
-		}
+		display = bgp_flowspec_display_match_per_ip(afi, rib,
+					   &match, prefix_check,
+					   vty,
+					   use_json,
+					   json_paths);
 	} else {
 		header = 1;
 
