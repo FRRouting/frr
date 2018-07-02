@@ -745,7 +745,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 			close(sock);
 	}
 	freeaddrinfo(ainfo_save);
-	if (count == 0) {
+	if (count == 0 && bgp->inst_type != BGP_INSTANCE_TYPE_VRF) {
 		zlog_err(
 			"%s: no usable addresses please check other programs usage of specified port %d",
 			__func__, port);
