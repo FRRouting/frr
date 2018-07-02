@@ -566,7 +566,7 @@ int eigrp_read(struct thread *thread)
 	//    return -1;
 
 	/* If incoming interface is passive one, ignore it. */
-	if (ei && eigrp_if_is_passive(ei)) {
+	if (eigrp_if_is_passive(ei)) {
 		char buf[3][INET_ADDRSTRLEN];
 
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))

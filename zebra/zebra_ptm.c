@@ -615,7 +615,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 
 int zebra_ptm_sock_read(struct thread *thread)
 {
-	int sock, done = 0;
+	int sock;
 	int rc;
 
 	errno = 0;
@@ -625,28 +625,24 @@ int zebra_ptm_sock_read(struct thread *thread)
 		return -1;
 
 	/* PTM communicates in CSV format */
-	while (!done) {
+	do {
 		rc = ptm_lib_process_msg(ptm_hdl, sock, ptm_cb.in_data,
 					 ZEBRA_PTM_MAX_SOCKBUF, NULL);
-		if (rc <= 0)
-			break;
-	}
+	} while (rc > 0);
 
-	if (rc <= 0) {
-		if (((rc == 0) && !errno)
-		    || (errno && (errno != EWOULDBLOCK) && (errno != EAGAIN))) {
-			zlog_warn("%s routing socket error: %s(%d) bytes %d",
-				  __func__, safe_strerror(errno), errno, rc);
+	if (((rc == 0) && !errno)
+	    || (errno && (errno != EWOULDBLOCK) && (errno != EAGAIN))) {
+		zlog_warn("%s routing socket error: %s(%d) bytes %d",
+			  __func__, safe_strerror(errno), errno, rc);
 
-			close(ptm_cb.ptm_sock);
-			ptm_cb.ptm_sock = -1;
-			zebra_ptm_reset_status(0);
-			ptm_cb.t_timer = NULL;
-			thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
-					 ptm_cb.reconnect_time,
-					 &ptm_cb.t_timer);
-			return (-1);
-		}
+		close(ptm_cb.ptm_sock);
+		ptm_cb.ptm_sock = -1;
+		zebra_ptm_reset_status(0);
+		ptm_cb.t_timer = NULL;
+		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
+				 ptm_cb.reconnect_time,
+				 &ptm_cb.t_timer);
+		return (-1);
 	}
 
 	ptm_cb.t_read = NULL;

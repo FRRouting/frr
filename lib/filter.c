@@ -549,8 +549,7 @@ static int vty_access_list_remark_unset(struct vty *vty, afi_t afi,
 		access->remark = NULL;
 	}
 
-	if (access->head == NULL && access->tail == NULL
-	    && access->remark == NULL)
+	if (access->head == NULL && access->tail == NULL)
 		access_list_delete(access);
 
 	return CMD_SUCCESS;
