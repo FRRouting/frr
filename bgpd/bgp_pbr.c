@@ -231,6 +231,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 						  struct nexthop *nh,
 						  float *rate);
 
+static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add);
+
 static bool bgp_pbr_extract_enumerate_unary_opposite(
 				 uint8_t unary_operator,
 				 struct bgp_pbr_val_mask *and_valmask,
@@ -1312,6 +1314,9 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
 	dst_port = bpf->dst_port;
 	pkt_len = bpf->pkt_len;
 
+	if (BGP_DEBUG(zebra, ZEBRA))
+		bgp_pbr_dump_entry(bpf, false);
+
 	/* as we don't know information from EC
 	 * look for bpm that have the bpm
 	 * with vrf_id characteristics
@@ -1582,6 +1587,101 @@ static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
 		list_delete_all_node(bpof->fragment);
 }
 
+static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add)
+{
+	struct bgp_pbr_range_port *src_port;
+	struct bgp_pbr_range_port *dst_port;
+	struct bgp_pbr_range_port *pkt_len;
+	char bufsrc[64], bufdst[64];
+	char buffer[64];
+	int remaining_len = 0;
+	char protocol_str[16];
+
+	if (!bpf)
+		return;
+	src_port = bpf->src_port;
+	dst_port = bpf->dst_port;
+	pkt_len = bpf->pkt_len;
+
+	protocol_str[0] = '\0';
+	if (bpf->tcp_flags && bpf->tcp_flags->mask)
+		bpf->protocol = IPPROTO_TCP;
+	if (bpf->protocol)
+		snprintf(protocol_str, sizeof(protocol_str),
+			 "proto %d", bpf->protocol);
+	buffer[0] = '\0';
+	if (bpf->protocol == IPPROTO_ICMP && src_port && dst_port)
+		remaining_len += snprintf(buffer, sizeof(buffer),
+					  "type %d, code %d",
+					  src_port->min_port,
+					  dst_port->min_port);
+	else if (bpf->protocol == IPPROTO_UDP ||
+		 bpf->protocol == IPPROTO_TCP) {
+
+		if (src_port && src_port->min_port)
+			remaining_len += snprintf(buffer,
+						  sizeof(buffer),
+						  "from [%u:%u]",
+						  src_port->min_port,
+						  src_port->max_port ?
+						  src_port->max_port :
+						  src_port->min_port);
+		if (dst_port && dst_port->min_port)
+			remaining_len += snprintf(buffer +
+						  remaining_len,
+						  sizeof(buffer)
+						  - remaining_len,
+						  "to [%u:%u]",
+						  dst_port->min_port,
+						  dst_port->max_port ?
+						  dst_port->max_port :
+						  dst_port->min_port);
+	}
+	if (pkt_len && (pkt_len->min_port || pkt_len->max_port)) {
+		remaining_len += snprintf(buffer + remaining_len,
+					  sizeof(buffer)
+					  - remaining_len,
+					  " len [%u:%u]",
+					  pkt_len->min_port,
+					  pkt_len->max_port ?
+					  pkt_len->max_port :
+					  pkt_len->min_port);
+	} else if (bpf->pkt_len_val) {
+		remaining_len += snprintf(buffer + remaining_len,
+					  sizeof(buffer)
+					  - remaining_len,
+					  " %s len %u",
+					  bpf->pkt_len_val->mask
+					  ? "!" : "",
+					  bpf->pkt_len_val->val);
+	}
+	if (bpf->tcp_flags) {
+		remaining_len += snprintf(buffer + remaining_len,
+					  sizeof(buffer)
+					  - remaining_len,
+					  "tcpflags %x/%x",
+					  bpf->tcp_flags->val,
+					  bpf->tcp_flags->mask);
+	}
+	if (bpf->dscp) {
+		snprintf(buffer + remaining_len,
+			 sizeof(buffer)
+			 - remaining_len,
+			 "%s dscp %d",
+			 bpf->dscp->mask
+			 ? "!" : "",
+			 bpf->dscp->val);
+	}
+	zlog_info("BGP: %s FS PBR from %s to %s, %s %s",
+		  add ? "adding" : "removing",
+		  bpf->src == NULL ? "<all>" :
+		  prefix2str(bpf->src, bufsrc, sizeof(bufsrc)),
+		  bpf->dst == NULL ? "<all>" :
+		  prefix2str(bpf->dst, bufdst, sizeof(bufdst)),
+		  protocol_str, buffer);
+
+}
+
 static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 				     struct bgp_info *binfo,
 				     struct bgp_pbr_filter *bpf,
@@ -1606,87 +1706,9 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	dst_port = bpf->dst_port;
 	pkt_len = bpf->pkt_len;
 
-	if (BGP_DEBUG(zebra, ZEBRA)) {
-		char bufsrc[64], bufdst[64];
-		char buffer[64];
-		int remaining_len = 0;
-		char protocol_str[16];
+	if (BGP_DEBUG(zebra, ZEBRA))
+		bgp_pbr_dump_entry(bpf, true);
 
-		protocol_str[0] = '\0';
-		if (bpf->tcp_flags && bpf->tcp_flags->mask)
-			bpf->protocol = IPPROTO_TCP;
-		if (bpf->protocol)
-			snprintf(protocol_str, sizeof(protocol_str),
-				 "proto %d", bpf->protocol);
-		buffer[0] = '\0';
-		if (bpf->protocol == IPPROTO_ICMP && src_port && dst_port)
-			remaining_len += snprintf(buffer, sizeof(buffer),
-						  "type %d, code %d",
-				 src_port->min_port, dst_port->min_port);
-		else if (bpf->protocol == IPPROTO_UDP ||
-			 bpf->protocol == IPPROTO_TCP) {
-
-			if (src_port && src_port->min_port)
-				remaining_len += snprintf(buffer,
-							  sizeof(buffer),
-							  "from [%u:%u]",
-							  src_port->min_port,
-							  src_port->max_port ?
-							  src_port->max_port :
-							  src_port->min_port);
-			if (dst_port && dst_port->min_port)
-				remaining_len += snprintf(buffer +
-							  remaining_len,
-							  sizeof(buffer)
-							  - remaining_len,
-							  "to [%u:%u]",
-							  dst_port->min_port,
-							  dst_port->max_port ?
-							  dst_port->max_port :
-							  dst_port->min_port);
-		}
-		if (pkt_len && (pkt_len->min_port || pkt_len->max_port)) {
-			remaining_len += snprintf(buffer + remaining_len,
-						  sizeof(buffer)
-						  - remaining_len,
-						  " len [%u:%u]",
-						  pkt_len->min_port,
-						  pkt_len->max_port ?
-						  pkt_len->max_port :
-						  pkt_len->min_port);
-		} else if (bpf->pkt_len_val) {
-			remaining_len += snprintf(buffer + remaining_len,
-						  sizeof(buffer)
-						  - remaining_len,
-						  " %s len %u",
-						  bpf->pkt_len_val->mask
-						  ? "!" : "",
-						  bpf->pkt_len_val->val);
-		}
-		if (bpf->tcp_flags) {
-			remaining_len += snprintf(buffer + remaining_len,
-						  sizeof(buffer)
-						  - remaining_len,
-						  "tcpflags %x/%x",
-						  bpf->tcp_flags->val,
-						  bpf->tcp_flags->mask);
-		}
-		if (bpf->dscp) {
-			snprintf(buffer + remaining_len,
-				 sizeof(buffer)
-				 - remaining_len,
-				 "%s dscp %d",
-				 bpf->dscp->mask
-				 ? "!" : "",
-				 bpf->dscp->val);
-		}
-		zlog_info("BGP: adding FS PBR from %s to %s, %s %s",
-			  bpf->src == NULL ? "<all>" :
-			  prefix2str(bpf->src, bufsrc, sizeof(bufsrc)),
-			  bpf->dst == NULL ? "<all>" :
-			  prefix2str(bpf->dst, bufdst, sizeof(bufdst)),
-			  protocol_str, buffer);
-	}
 	/* look for bpa first */
 	memset(&temp3, 0, sizeof(temp3));
 	if (rate)
