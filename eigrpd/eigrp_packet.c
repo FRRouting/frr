@@ -566,7 +566,7 @@ int eigrp_read(struct thread *thread)
 	//    return -1;
 
 	/* If incoming interface is passive one, ignore it. */
-	if (ei && eigrp_if_is_passive(ei)) {
+	if (eigrp_if_is_passive(ei)) {
 		char buf[3][INET_ADDRSTRLEN];
 
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
@@ -725,12 +725,12 @@ static struct stream *eigrp_recv_packet(int fd, struct interface **ifp,
 		zlog_warn("stream_recvmsg failed: %s", safe_strerror(errno));
 		return NULL;
 	}
-	if ((unsigned int)ret < sizeof(iph)) /* ret must be > 0 now */
+	if ((unsigned int)ret < sizeof(*iph)) /* ret must be > 0 now */
 	{
 		zlog_warn(
 			"eigrp_recv_packet: discarding runt packet of length %d "
 			"(ip header size is %u)",
-			ret, (unsigned int)sizeof(iph));
+			ret, (unsigned int)sizeof(*iph));
 		return NULL;
 	}
 
