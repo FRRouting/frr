@@ -1285,7 +1285,13 @@ static int bgp_pbr_get_remaining_entry(struct hash_backet *backet, void *arg)
 	bpm_temp = bpme->backpointer;
 	if (bpm_temp->vrf_id != bpm->vrf_id ||
 	    bpm_temp->type != bpm->type ||
-	    bpm_temp->flags != bpm->flags)
+	    bpm_temp->flags != bpm->flags ||
+	    bpm_temp->tcp_flags != bpm->tcp_flags ||
+	    bpm_temp->tcp_mask_flags != bpm->tcp_mask_flags ||
+	    bpm_temp->pkt_len_min != bpm->pkt_len_min ||
+	    bpm_temp->pkt_len_max != bpm->pkt_len_max ||
+	    bpm_temp->dscp_value != bpm->dscp_value ||
+	    bpm_temp->fragment != bpm->fragment)
 		return HASHWALK_CONTINUE;
 
 	/* look for remaining bpme */
