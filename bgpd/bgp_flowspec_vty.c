@@ -542,6 +542,36 @@ DEFUN (bgp_fs_local_install_any,
 	return bgp_fs_local_install_interface(bgp, no, NULL);
 }
 
+extern int bgp_flowspec_display_match_per_ip(afi_t afi,
+			struct bgp_table *rib,
+			struct prefix *match,
+			int prefix_check,
+			struct vty *vty,
+			uint8_t use_json,
+			json_object *json_paths)
+{
+	struct bgp_node *rn;
+	struct prefix *prefix;
+	int display = 0;
+
+	for (rn = bgp_table_top(rib); rn; rn = bgp_route_next(rn)) {
+		prefix = &rn->p;
+
+		if (prefix->family != AF_FLOWSPEC)
+			continue;
+
+		if (bgp_flowspec_contains_prefix(prefix, match, prefix_check)) {
+			route_vty_out_flowspec(vty, &rn->p,
+					       rn->info, use_json ?
+					       NLRI_STRING_FORMAT_JSON :
+					       NLRI_STRING_FORMAT_LARGE,
+					       json_paths);
+			display++;
+		}
+	}
+	return display;
+}
+
 void bgp_flowspec_vty_init(void)
 {
 	install_element(ENABLE_NODE, &debug_bgp_flowspec_cmd);
