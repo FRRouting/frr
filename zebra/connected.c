@@ -564,7 +564,7 @@ void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,
 	if (broad) {
 		memset(&d, 0, sizeof(struct prefix));
 		d.family = AF_INET6;
-		IPV6_ADDR_COPY(&d.u.prefix, broad);
+		IPV6_ADDR_COPY(&d.u.prefix6, broad);
 		d.prefixlen = prefixlen;
 		ifc = connected_check_ptp(ifp, &p, &d);
 	} else
