@@ -5,7 +5,7 @@
  * Berlin
  * Copyright (C) 2016-2017 Colin Sames (colin.sames@haw-hamburg.de), for HAW
  * Hamburg
- * Copyright (C) 2017 Marcel Röthke (marcel.roethke@haw-hamburg.de), for HAW
+ * Copyright (C) 2017-2018 Marcel Röthke (marcel.roethke@haw-hamburg.de), for HAW
  * Hamburg
  *
  * This file is part of FRRouting.
@@ -158,8 +158,39 @@ static void free_wrapper(void *ptr)
 	XFREE(MTYPE_BGP_RPKI_CACHE, ptr);
 }
 
+static void init_tr_socket(struct cache *cache)
+{
+	if (cache->type == TCP)
+		tr_tcp_init(cache->tr_config.tcp_config,
+			    cache->tr_socket);
+#if defined(FOUND_SSH)
+	else
+		tr_ssh_init(cache->tr_config.ssh_config,
+			    cache->tr_socket);
+#endif
+}
+
+static void free_tr_socket(struct cache *cache)
+{
+	if (cache->type == TCP)
+		tr_tcp_init(cache->tr_config.tcp_config,
+			    cache->tr_socket);
+#if defined(FOUND_SSH)
+	else
+		tr_ssh_init(cache->tr_config.ssh_config,
+			    cache->tr_socket);
+#endif
+}
+
 static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 				struct prefix *prefix);
+
+static void ipv6_addr_to_host_byte_order(const uint32_t *src, uint32_t *dest)
+{
+	int i;
+	for (i = 0; i < 4; i++)
+		dest[i] = ntohl(src[i]);
+}
 
 static route_map_result_t route_match(void *rule, struct prefix *prefix,
 				      route_map_object_t type, void *object)
@@ -253,14 +284,7 @@ static struct rtr_mgr_group *get_groups(void)
 		rtr_mgr_groups[i].sockets_len = 1;
 		rtr_mgr_groups[i].preference = cache->preference;
 
-		if (cache->type == TCP)
-			tr_tcp_init(cache->tr_config.tcp_config,
-				    cache->tr_socket);
-#if defined(FOUND_SSH)
-		else
-			tr_ssh_init(cache->tr_config.ssh_config,
-				    cache->tr_socket);
-#endif
+		init_tr_socket(cache);
 
 		i++;
 	}
@@ -462,13 +486,11 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 		ip_addr_prefix.u.addr4.addr = ntohl(prefix->u.prefix4.s_addr);
 		break;
 
-#ifdef HAVE_IPV6
 	case AF_INET6:
 		ip_addr_prefix.ver = LRTR_IPV6;
 		ipv6_addr_to_host_byte_order(prefix->u.prefix6.s6_addr32,
 					     ip_addr_prefix.u.addr6.addr);
 		break;
-#endif /* HAVE_IPV6 */
 
 	default:
 		return 0;
@@ -517,9 +539,13 @@ static int add_cache(struct cache *cache)
 
 	listnode_add(cache_list, cache);
 
-	if (rtr_is_running
-	    && rtr_mgr_add_group(rtr_config, &group) != RTR_SUCCESS) {
-		return ERROR;
+	if (rtr_is_running) {
+		init_tr_socket(cache);
+
+		if (rtr_mgr_add_group(rtr_config, &group) != RTR_SUCCESS) {
+			free_tr_socket(cache);
+			return ERROR;
+		}
 	}
 
 	return SUCCESS;
