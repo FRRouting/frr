@@ -3374,30 +3374,6 @@ void rip_clean(void)
 	rip_redistribute_clean();
 }
 
-/* Reset all values to the default settings. */
-void rip_reset(void)
-{
-	/* Reset global counters. */
-	rip_global_route_changes = 0;
-	rip_global_queries = 0;
-
-	/* Call ripd related reset functions. */
-	rip_debug_reset();
-	rip_route_map_reset();
-
-	/* Call library reset functions. */
-	vty_reset();
-	access_list_reset();
-	prefix_list_reset();
-
-	distribute_list_reset();
-
-	rip_interfaces_reset();
-	rip_distance_reset();
-
-	rip_zclient_reset();
-}
-
 static void rip_if_rmap_update(struct if_rmap *if_rmap)
 {
 	struct interface *ifp;

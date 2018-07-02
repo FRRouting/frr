@@ -373,7 +373,6 @@ struct rip_offset_list {
 
 /* Prototypes. */
 extern void rip_init(void);
-extern void rip_reset(void);
 extern void rip_clean(void);
 extern void rip_clean_network(void);
 extern void rip_interfaces_clean(void);

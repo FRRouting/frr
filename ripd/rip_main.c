@@ -71,14 +71,9 @@ static struct frr_daemon_info ripd_di;
 static void sighup(void)
 {
 	zlog_info("SIGHUP received");
-	rip_clean();
-	rip_reset();
-	zlog_info("ripd restarting!");
 
 	/* Reload config file. */
 	vty_read_config(NULL, ripd_di.config_file, config_default);
-
-	/* Try to return to normal operation. */
 }
 
 /* SIGINT handler. */
