@@ -158,34 +158,32 @@ static void rip_request_interface_send(struct interface *ifp, uint8_t version)
 
 		for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode,
 				       connected)) {
-			if (connected->address->family == AF_INET) {
-				memset(&to, 0, sizeof(struct sockaddr_in));
-				to.sin_port = htons(RIP_PORT_DEFAULT);
-				if (connected->destination)
-					/* use specified broadcast or peer
-					 * destination addr */
-					to.sin_addr = connected->destination->u
-							      .prefix4;
-				else if (connected->address->prefixlen
-					 < IPV4_MAX_PREFIXLEN)
-					/* calculate the appropriate broadcast
-					 * address */
-					to.sin_addr
-						.s_addr = ipv4_broadcast_addr(
-						connected->address->u.prefix4
-							.s_addr,
-						connected->address->prefixlen);
-				else
-					/* do not know where to send the packet
-					 */
-					continue;
+			if (connected->address->family != AF_INET)
+				continue;
 
-				if (IS_RIP_DEBUG_EVENT)
-					zlog_debug("SEND request to %s",
-						   inet_ntoa(to.sin_addr));
+			memset(&to, 0, sizeof(struct sockaddr_in));
+			to.sin_port = htons(RIP_PORT_DEFAULT);
+			if (connected->destination)
+				/* use specified broadcast or peer
+				 * destination addr */
+				to.sin_addr = connected->destination->u.prefix4;
+			else if (connected->address->prefixlen
+				 < IPV4_MAX_PREFIXLEN)
+				/* calculate the appropriate broadcast
+				 * address */
+				to.sin_addr.s_addr = ipv4_broadcast_addr(
+					connected->address->u.prefix4.s_addr,
+					connected->address->prefixlen);
+			else
+				/* do not know where to send the packet
+				 */
+				continue;
 
-				rip_request_send(&to, ifp, version, connected);
-			}
+			if (IS_RIP_DEBUG_EVENT)
+				zlog_debug("SEND request to %s",
+					   inet_ntoa(to.sin_addr));
+
+			rip_request_send(&to, ifp, version, connected);
 		}
 	}
 }
@@ -194,6 +192,7 @@ static void rip_request_interface_send(struct interface *ifp, uint8_t version)
 static void rip_request_interface(struct interface *ifp)
 {
 	struct rip_interface *ri;
+	int vsend;
 
 	/* In default ripd doesn't send RIP_REQUEST to the loopback interface.
 	 */
@@ -209,14 +208,12 @@ static void rip_request_interface(struct interface *ifp)
 
 	/* If there is no version configuration in the interface,
 	   use rip's version setting. */
-	{
-		int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ? rip->version_send
-							    : ri->ri_send);
-		if (vsend & RIPv1)
-			rip_request_interface_send(ifp, RIPv1);
-		if (vsend & RIPv2)
-			rip_request_interface_send(ifp, RIPv2);
-	}
+	vsend = ((ri->ri_send == RI_RIP_UNSPEC) ? rip->version_send
+						: ri->ri_send);
+	if (vsend & RIPv1)
+		rip_request_interface_send(ifp, RIPv1);
+	if (vsend & RIPv2)
+		rip_request_interface_send(ifp, RIPv2);
 }
 
 #if 0
@@ -957,25 +954,21 @@ void rip_enable_apply(struct interface *ifp)
 
 	/* Update running status of the interface. */
 	if (ri->enable_network || ri->enable_interface) {
-		{
-			if (IS_RIP_DEBUG_EVENT)
-				zlog_debug("turn on %s", ifp->name);
+		if (IS_RIP_DEBUG_EVENT)
+			zlog_debug("turn on %s", ifp->name);
 
-			/* Add interface wake up thread. */
-			thread_add_timer(master, rip_interface_wakeup, ifp, 1,
-					 &ri->t_wakeup);
-			rip_connect_set(ifp, 1);
-		}
-	} else {
-		if (ri->running) {
-			/* Might as well clean up the route table as well
-			 * rip_if_down sets to 0 ri->running, and displays "turn
-			 *off %s"
-			 **/
-			rip_if_down(ifp);
+		/* Add interface wake up thread. */
+		thread_add_timer(master, rip_interface_wakeup, ifp, 1,
+				 &ri->t_wakeup);
+		rip_connect_set(ifp, 1);
+	} else if (ri->running) {
+		/* Might as well clean up the route table as well
+		 * rip_if_down sets to 0 ri->running, and displays "turn
+		 *off %s"
+		 **/
+		rip_if_down(ifp);
 
-			rip_connect_set(ifp, 0);
-		}
+		rip_connect_set(ifp, 0);
 	}
 }
 
