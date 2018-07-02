@@ -483,7 +483,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 				memcpy(&nh.gate, gate, sz);
 
 			if (index) {
-				ifp = if_lookup_by_index(index, VRF_UNKNOWN);
+				ifp = if_lookup_by_index_per_ns(
+						zebra_ns_lookup(ns_id),
+						index);
 				if (ifp)
 					nh_vrf_id = ifp->vrf_id;
 			}
@@ -526,8 +528,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					 * using the last one looked
 					 * up right now
 					 */
-					ifp = if_lookup_by_index(index,
-								 VRF_UNKNOWN);
+					ifp = if_lookup_by_index_per_ns(
+							zebra_ns_lookup(ns_id),
+							index);
 					if (ifp)
 						nh_vrf_id = ifp->vrf_id;
 					else {
