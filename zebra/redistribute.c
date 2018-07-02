@@ -274,7 +274,7 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 			__func__, zebra_route_string(client->proto), afi,
 			zebra_route_string(type), zvrf_id(zvrf), instance);
 
-	if (afi == 0 || afi > AFI_MAX) {
+	if (afi == 0 || afi >= AFI_MAX) {
 		zlog_warn("%s: Specified afi %d does not exist",
 			  __PRETTY_FUNCTION__, afi);
 		return;
@@ -320,7 +320,7 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 	STREAM_GETC(msg, type);
 	STREAM_GETW(msg, instance);
 
-	if (afi == 0 || afi > AFI_MAX) {
+	if (afi == 0 || afi >= AFI_MAX) {
 		zlog_warn("%s: Specified afi %d does not exist",
 			  __PRETTY_FUNCTION__, afi);
 		return;
