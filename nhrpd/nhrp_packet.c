@@ -164,7 +164,7 @@ struct nhrp_cie_header *nhrp_cie_pull(struct zbuf *zb,
 	if (!cie)
 		return NULL;
 
-	if (cie->nbma_address_len + cie->nbma_subaddress_len) {
+	if (cie->nbma_address_len + cie->nbma_subaddress_len > 0) {
 		sockunion_set(nbma, afi2family(htons(hdr->afnum)),
 			      zbuf_pulln(zb,
 					 cie->nbma_address_len
