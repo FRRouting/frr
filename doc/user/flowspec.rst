@@ -16,10 +16,10 @@ more or less complex combination of the following:
 
 
 - Network source/destination (can be one or the other, or both).
-- Layer 4 information for UDP/TCP : source port, destination port, or any port.
+- Layer 4 information for UDP/TCP: source port, destination port, or any port.
 - Layer 4 information for ICMP type and ICMP code.
 - Layer 4 information for TCP Flags.
-- Layer 3 information : DSCP value, Protocol type, packet length, fragmentation.
+- Layer 3 information: DSCP value, Protocol type, packet length, fragmentation.
 - Misc layer 4 TCP flags.
 
 A combination of the above rules is applied for traffic filtering. This is
@@ -30,7 +30,7 @@ discard.
 The following IETF drafts and RFCs have been used to implement FRR Flowspec:
 
 - :rfc:`5575`
-- [Draft IETF IDR Flowspec redirect IP]_
+- [Draft-IETF-IDR-Flowspec-redirect-IP]_
 
 .. _design-principles-flowspec:
 
@@ -70,13 +70,13 @@ system:
 
 For handling an incoming Flowspec entry, the following workflow is applied:
 
-- incoming Flowspec entries are handled by *bgpd*, stored in the BGP RIB.
+- Incoming Flowspec entries are handled by *bgpd*, stored in the BGP RIB.
 - Flowspec entry is installed according to its complexity.
 
-It will be installed if one of the following filtering action is seen on the BGP
-extended community: either redirect IP, or redirect VRF, in conjunction with
-rate option, for redirecting traffic. Or rate option set to 0, for discarding
-traffic.
+It will be installed if one of the following filtering action is seen on the
+BGP extended community: either redirect IP, or redirect VRF, in conjunction
+with rate option, for redirecting traffic. Or rate option set to 0, for
+discarding traffic.
 
 According to the degree of complexity of the Flowspec entry, it will be
 installed in *zebra* RIB. For more information about what is supported in the
@@ -88,17 +88,17 @@ entry is split in several parts before being sent to *zebra*.
 Policy Based Routing entities necessary to policy route the traffic in the
 underlying system, are received by *zebra*. Two filtering contexts will be
 created or appended in ``Netfilter``: ``ipset`` and ``iptable`` context. The
-former is used to define an IP filter based on multiple criterium. For instance,
-an ipset ``net:net`` is based on two ip addresses, while ``net,port,net`` is
-based on two ip addresses and one port ( for ICMP, UDP, or TCP). The way the
-filtering is used ( for example, is src port or dst port used ?) is defined by
-the latter filtering context. ``iptable`` command will reference the ``ipset``
-context and will tell how to filter and what to do. In our case, a marker will
-be set to indicate ``iproute2`` where to forward the traffic to. Sometimes, for
-dropping action, there is no need to add a marker; the ``iptable`` will tell to
-drop all packets matching the ``ipset`` entry.
+former is used to define an IP filter based on multiple criterium. For
+instance, an ipset ``net:net`` is based on two ip addresses, while
+``net,port,net`` is based on two ip addresses and one port (for ICMP, UDP, or
+TCP). The way the filtering is used (for example, is src port or dst port
+used?) is defined by the latter filtering context. ``iptable`` command will
+reference the ``ipset`` context and will tell how to filter and what to do. In
+our case, a marker will be set to indicate ``iproute2`` where to forward the
+traffic to. Sometimes, for dropping action, there is no need to add a marker;
+the ``iptable`` will tell to drop all packets matching the ``ipset`` entry.
 
-Configuration guide
+Configuration Guide
 -------------------
 
 In order to configure an IPv4 Flowspec engine, use the following configuration.
@@ -119,16 +119,16 @@ You can see Flowspec entries, by using one of the following show commands:
 .. clicmd:: show bgp ipv4 flowspec [detail | A.B.C.D]
 
 
-Per-Interface Configuration
+Per-interface configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 One nice feature to use is the ability to apply Flowspec to a specific
 interface, instead of applying it to the whole machine. Despite the following
-IETF draft [Draft IETF IDR Flowspec Interface Set]_ is not implemented, it is
+IETF draft [Draft-IETF-IDR-Flowspec-Interface-Set]_ is not implemented, it is
 possible to manually limit Flowspec application to some incoming interfaces.
 Actually, not using it can result to some unexpected behaviour like accounting
-twice the traffic, or slow down the traffic (filtering costs). To limit Flowspec
-to one specific interface, use the following command, under
+twice the traffic, or slow down the traffic (filtering costs). To limit
+Flowspec to one specific interface, use the following command, under
 `flowspec address-family` node.
 
 .. index:: [no] local-install <IFNAME | any>
@@ -142,9 +142,9 @@ VRF redirection
 ^^^^^^^^^^^^^^^
 
 Another nice feature to configure is the ability to redirect traffic to a
-separate VRF. This feature does not go against the ability to configure Flowspec
-only on default VRF. Actually, when you receive incoming BGP flowspec entries on
-that default VRF, you can redirect traffic to an other VRF.
+separate VRF. This feature does not go against the ability to configure
+Flowspec only on default VRF. Actually, when you receive incoming BGP flowspec
+entries on that default VRF, you can redirect traffic to an other VRF.
 
 As a reminder, BGP flowspec entries have a BGP extended community that contains
 a Route Target. Finding out a local VRF based on Route Target consists in the
@@ -162,12 +162,12 @@ following:
 .. clicmd:: [no] rt redirect import RTLIST...
 
 In order to illustrate, if the Route Target configured in the Flowspec entry is
-E.F.G.H:II, then a BGP VRF instance with the same Route Target will be set set.
-That VRF will then be selected. The below full configuration example depicts how
-Route Targets are configured and how VRFs and cross VRF configuration is done.
-Note that the VRF are mapped on Linux Network Namespaces. For data traffic to
-cross VRF boundaries, virtual ethernet interfaces are created with private IP
-adressing scheme.
+``E.F.G.H:II``, then a BGP VRF instance with the same Route Target will be set
+set.  That VRF will then be selected. The below full configuration example
+depicts how Route Targets are configured and how VRFs and cross VRF
+configuration is done.  Note that the VRF are mapped on Linux Network
+Namespaces. For data traffic to cross VRF boundaries, virtual ethernet
+interfaces are created with private IP adressing scheme.
 
 .. code-block:: frr
 
@@ -183,8 +183,8 @@ adressing scheme.
     exit
    exit
 
-Flowspec Monitor and troubleshooting
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Flowspec monitoring & troubleshooting
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can monitor policy-routing objects by using one of the following commands.
 Those command rely on the filtering contexts configured from BGP, and get the
@@ -194,38 +194,40 @@ those statistics are retrieved from ``Netfilter``.
 .. index:: show pbr ipset IPSETNAME | iptable
 .. clicmd:: show pbr ipset IPSETNAME | iptable
 
-``IPSETNAME`` is the policy routing object name created by ``ipset``.
-About rule contexts, it is possible to know which rule has been configured to
+``IPSETNAME`` is the policy routing object name created by ``ipset``.  About
+rule contexts, it is possible to know which rule has been configured to
 policy-route some specific traffic. The :clicmd:`show pbr iptable` command
-displays for forwarded traffic, which table is used. Then it is easy to use that
-table identifier to dump the routing table that the forwarded traffic will
+displays for forwarded traffic, which table is used. Then it is easy to use
+that table identifier to dump the routing table that the forwarded traffic will
 match.
 
 .. code-block:: frr
 
-   show ip route table TABLEID
+.. index:: show ip route table TABLEID
+.. clicmd:: show ip route table TABLEID
 
-``TABLEID`` is the table number identifier referencing the non standard routing
-table used in this example.
-You can troubleshoot Flowspec, or BGP policy based routing. For instance, if you
-encounter some issues when decoding a Flowspec entry, you should enable
-:clicmd:`debug bgp flowspec`.
+   ``TABLEID`` is the table number identifier referencing the non standard
+   routing table used in this example.
 
 .. index:: [no] debug bgp flowspec
 .. clicmd:: [no] debug bgp flowspec
 
-If you fail to apply the flowspec entry into *zebra*, there should be some
-relationship with policy routing mechanism. Here, :clicmd:`debug bgp pbr error`
-could help.
+   You can troubleshoot Flowspec, or BGP policy based routing. For instance, if
+   you encounter some issues when decoding a Flowspec entry, you should enable
+   :clicmd:`debug bgp flowspec`.
 
 .. index:: [no] debug bgp pbr [error]
 .. clicmd:: [no] debug bgp pbr [error]
 
-To get information about policy routing contexts created/removed, only use
-:clicmd:`debug bgp pbr` command.
+   If you fail to apply the flowspec entry into *zebra*, there should be some
+   relationship with policy routing mechanism. Here,
+   :clicmd:`debug bgp pbr error` could help.
+
+   To get information about policy routing contexts created/removed, only use
+   :clicmd:`debug bgp pbr` command.
 
 Ensuring that a Flowspec entry has been correctly installed and that incoming
-traffic is policy-routed correctly can be checked like illustrated below. First
+traffic is policy-routed correctly can be checked as demonstrated below. First
 of all, you must check whether the Flowspec entry has been installed or not.
 
 .. code-block:: frr
@@ -239,10 +241,10 @@ of all, you must check whether the Flowspec entry has been installed or not.
       received for 18:41:37
       installed in PBR (match0x271ce00)
 
-This means that the Flowspec entry has been installed in a `iptable`
-named `match0x271ce00`. Once you have confirmation it is installed, you can
-check whether you find the associate entry by executing following command. You
-can also check whether incoming traffic has been matched by looking at counter
+This means that the Flowspec entry has been installed in an ``iptable`` named
+``match0x271ce00``. Once you have confirmation it is installed, you can check
+whether you find the associate entry by executing following command. You can
+also check whether incoming traffic has been matched by looking at counter
 line.
 
 .. code-block:: frr
@@ -254,15 +256,15 @@ line.
         to 5.5.5.2:proto 17:50-90 (5)
            pkts 1692918, bytes 157441374
 
-As you can see, the entry is present. note that an `iptable` entry can be used
-to host several Flowspec entries. In order to know where the matching traffic is
-redirected to, you have to look at the policy routing rules. The policy-routing
-is done by forwarding traffic to a routing table number. That routing table
-number is reached by using a `iptable`. The relationship between the routing
-table number and the incoming traffic is a MARKER that is set by the IPtable
-referencing the IPSet. In Flowspec case, `iptable` referencing the `ipset`
-context have the same name. So it is easy to know which routing table is used by
-issuing following command:
+As you can see, the entry is present. note that an ``iptable`` entry can be
+used to host several Flowspec entries. In order to know where the matching
+traffic is redirected to, you have to look at the policy routing rules. The
+policy-routing is done by forwarding traffic to a routing table number. That
+routing table number is reached by using a ``iptable``. The relationship
+between the routing table number and the incoming traffic is a ``MARKER`` that
+is set by the IPtable referencing the IPSet. In Flowspec case, ``iptable``
+referencing the ``ipset`` context have the same name. So it is easy to know
+which routing table is used by issuing following command:
 
 .. code-block:: frr
 
@@ -272,8 +274,8 @@ issuing following command:
         table 257, fwmark 257
    ...
 
-As you can see, by using following Linux commands, the MARKER `0x101` is present
-in both ``iptable`` and ``ip rule`` contexts.
+As you can see, by using following Linux commands, the MARKER ``0x101`` is
+present in both ``iptable`` and ``ip rule`` contexts.
 
 .. code-block:: shell
 
@@ -294,15 +296,15 @@ This allows us to see where the traffic is forwarded to.
 
 .. _flowspec-known-issues:
 
-Limitations / Known issues
+Limitations / Known Issues
 --------------------------
 
-As you can see, Flowspec is rich and can be very complex.
-As of today, not all Flowspec rules will be able to be converted into Policy
-Based Routing actions.
+As you can see, Flowspec is rich and can be very complex. As of today, not all
+Flowspec rules will be able to be converted into Policy Based Routing actions.
 
-- The ``Netfilter`` driver is not integrated into FRR yet. Not having this piece
-  of code prevents from injecting flowspec entries into the underlying system.
+- The ``Netfilter`` driver is not integrated into FRR yet. Not having this
+  piece of code prevents from injecting flowspec entries into the underlying
+  system.
 
 - There are some limitations around filtering contexts
 
@@ -329,7 +331,8 @@ There are some other known issues:
   It is recommended to configure Quality of Service if needed, more globally on
   a per interface basis.
 
-- upon crash or unknown event, *zebra* may not have time to flush pbr contexts.
+- Upon an unexpected crash or other event, *zebra* may not have time to flush
+  PBR contexts.
 
   That is to say ``ipset``, ``iptable`` and ``ip rule`` contexts. This is also a
   consequence due to the fact that ip rule / ipset / iptables are not discovered
@@ -343,6 +346,6 @@ inside FRRouting.
 
 [Presentation]_
 
-.. [Draft IETF IDR Flowspec redirect IP] <https://tools.ietf.org/id/draft-ietf-idr-flowspec-redirect-ip-02.txt>
-.. [Draft IETF IDR Flowspec Interface Set] <https://tools.ietf.org/id/draft-ietf-idr-flowspec-interfaceset-03.txt>
+.. [Draft-IETF-IDR-Flowspec-redirect-IP] <https://tools.ietf.org/id/draft-ietf-idr-flowspec-redirect-ip-02.txt>
+.. [Draft-IETF-IDR-Flowspec-Interface-Set] <https://tools.ietf.org/id/draft-ietf-idr-flowspec-interfaceset-03.txt>
 .. [Presentation] <https://docs.google.com/presentation/d/1ekQygUAG5yvQ3wWUyrw4Wcag0LgmbW1kV02IWcU4iUg/edit#slide=id.g378f0e1b5e_1_44>
