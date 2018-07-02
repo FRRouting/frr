@@ -492,7 +492,7 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
 		struct prefix *p;
-		struct route_node *node;
+		struct route_node *n;
 
 		p = connected->address;
 
@@ -501,10 +501,10 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 			address.prefix = p->u.prefix6;
 			address.prefixlen = IPV6_MAX_BITLEN;
 
-			node = route_node_match(ripng_enable_network,
-						(struct prefix *)&address);
-			if (node) {
-				route_unlock_node(node);
+			n = route_node_match(ripng_enable_network,
+					     (struct prefix *)&address);
+			if (n) {
+				route_unlock_node(n);
 				return 1;
 			}
 		}
