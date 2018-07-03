@@ -305,14 +305,13 @@ clearscope(struct in6_addr *in6)
 	}
 }
 
-struct sockaddr *
-addr2sa(int af, union ldpd_addr *addr, uint16_t port)
+void
+addr2sa(int af, const union ldpd_addr *addr, uint16_t port, union sockunion *su)
 {
-	static struct sockaddr_storage	 ss;
-	struct sockaddr_in		*sa_in = (struct sockaddr_in *)&ss;
-	struct sockaddr_in6		*sa_in6 = (struct sockaddr_in6 *)&ss;
+	struct sockaddr_in		*sa_in = &su->sin;
+	struct sockaddr_in6		*sa_in6 = &su->sin6;
 
-	memset(&ss, 0, sizeof(ss));
+	memset(su, 0, sizeof(*su));
 	switch (af) {
 	case AF_INET:
 		sa_in->sin_family = AF_INET;
@@ -333,8 +332,6 @@ addr2sa(int af, union ldpd_addr *addr, uint16_t port)
 	default:
 		fatalx("addr2sa: unknown af");
 	}
-
-	return ((struct sockaddr *)&ss);
 }
 
 void

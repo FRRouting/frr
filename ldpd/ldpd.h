@@ -691,7 +691,8 @@ void		 embedscope(struct sockaddr_in6 *);
 void		 recoverscope(struct sockaddr_in6 *);
 void		 addscope(struct sockaddr_in6 *, uint32_t);
 void		 clearscope(struct in6_addr *);
-struct sockaddr	*addr2sa(int af, union ldpd_addr *, uint16_t);
+void		 addr2sa(int af, const union ldpd_addr *, uint16_t,
+		    union sockunion *su);
 void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *,
 		    in_port_t *);
 socklen_t	 sockaddr_len(struct sockaddr *);
