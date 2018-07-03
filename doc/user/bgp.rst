@@ -2076,8 +2076,8 @@ Displaying Routes by AS Path
 .. index:: show ip bgp ipv4 vpn
 .. clicmd:: show ip bgp ipv4 vpn
 
-.. index:: show ipv6 bgp ipv6 vpn
-.. clicmd:: show ipv6 bgp ipv6 vpn
+.. index:: show ip bgp ipv6 vpn
+.. clicmd:: show ip bgp ipv6 vpn
 
    Print active IPV4 or IPV6 routes advertised via the VPN SAFI.
 
