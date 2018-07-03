@@ -64,17 +64,17 @@ pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir,
 	ssize_t			n;
 	int			len = 0;
 	int			iov_cnt;
-	struct sockaddr_storage	ssrc, sdst, smask, dmask;
-	struct sockaddr		*saptr;
+	struct sockaddr_storage	smask, dmask;
+	union sockunion		su_src, su_dst;
 
 	if (!pid)
 		pid = getpid();
 
 	/* we need clean sockaddr... no ports set */
-	memset(&ssrc, 0, sizeof(ssrc));
 	memset(&smask, 0, sizeof(smask));
-	if ((saptr = addr2sa(af, src, 0)))
-		memcpy(&ssrc, saptr, sizeof(ssrc));
+
+	addr2sa(af, src, 0, &su_src);
+
 	switch (af) {
 	case AF_INET:
 		memset(&((struct sockaddr_in *)&smask)->sin_addr, 0xff, 32/8);
@@ -86,13 +86,13 @@ pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir,
 	default:
 		return (-1);
 	}
-	smask.ss_family = ssrc.ss_family;
-	smask.ss_len = ssrc.ss_len;
+	smask.ss_family = su_src.sa.sa_family;
+	smask.ss_len = sockaddr_len(&su_src.sa);
 
-	memset(&sdst, 0, sizeof(sdst));
 	memset(&dmask, 0, sizeof(dmask));
-	if ((saptr = addr2sa(af, dst, 0)))
-		memcpy(&sdst, saptr, sizeof(sdst));
+
+	addr2sa(af, dst, 0, &su_dst);
+
 	switch (af) {
 	case AF_INET:
 		memset(&((struct sockaddr_in *)&dmask)->sin_addr, 0xff, 32/8);
@@ -104,8 +104,8 @@ pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir,
 	default:
 		return (-1);
 	}
-	dmask.ss_family = sdst.ss_family;
-	dmask.ss_len = sdst.ss_len;
+	dmask.ss_family = su_dst.sa.sa_family;
+	dmask.ss_len = sockaddr_len(&su_dst.sa);
 
 	memset(&smsg, 0, sizeof(smsg));
 	smsg.sadb_msg_version = PF_KEY_V2;
@@ -138,11 +138,13 @@ pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir,
 
 	memset(&sa_src, 0, sizeof(sa_src));
 	sa_src.sadb_address_exttype = SADB_EXT_ADDRESS_SRC;
-	sa_src.sadb_address_len = (sizeof(sa_src) + ROUNDUP(ssrc.ss_len)) / 8;
+	sa_src.sadb_address_len =
+		(sizeof(sa_src) + ROUNDUP(sockaddr_len(&su_src.sa))) / 8;
 
 	memset(&sa_dst, 0, sizeof(sa_dst));
 	sa_dst.sadb_address_exttype = SADB_EXT_ADDRESS_DST;
-	sa_dst.sadb_address_len = (sizeof(sa_dst) + ROUNDUP(sdst.ss_len)) / 8;
+	sa_dst.sadb_address_len =
+		(sizeof(sa_dst) + ROUNDUP(sockaddr_len(&su_dst.sa))) / 8;
 
 	sa.sadb_sa_auth = aalg;
 	sa.sadb_sa_encrypt = SADB_X_EALG_AES; /* XXX */
@@ -195,8 +197,8 @@ pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir,
 	iov[iov_cnt].iov_base = &sa_dst;
 	iov[iov_cnt].iov_len = sizeof(sa_dst);
 	iov_cnt++;
-	iov[iov_cnt].iov_base = &sdst;
-	iov[iov_cnt].iov_len = ROUNDUP(sdst.ss_len);
+	iov[iov_cnt].iov_base = &su_dst;
+	iov[iov_cnt].iov_len = ROUNDUP(sockaddr_len(&su_dst.sa));
 	smsg.sadb_msg_len += sa_dst.sadb_address_len;
 	iov_cnt++;
 
@@ -204,8 +206,8 @@ pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir,
 	iov[iov_cnt].iov_base = &sa_src;
 	iov[iov_cnt].iov_len = sizeof(sa_src);
 	iov_cnt++;
-	iov[iov_cnt].iov_base = &ssrc;
-	iov[iov_cnt].iov_len = ROUNDUP(ssrc.ss_len);
+	iov[iov_cnt].iov_base = &su_src;
+	iov[iov_cnt].iov_len = ROUNDUP(sockaddr_len(&su_src.sa));
 	smsg.sadb_msg_len += sa_src.sadb_address_len;
 	iov_cnt++;
 
