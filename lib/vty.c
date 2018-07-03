@@ -479,6 +479,8 @@ static int vty_command(struct vty *vty, char *buf)
 	const char *protocolname;
 	char *cp = NULL;
 
+	assert(vty);
+
 	/*
 	 * Log non empty command lines
 	 */
@@ -496,13 +498,13 @@ static int vty_command(struct vty *vty, char *buf)
 
 		/* format the base vty info */
 		snprintf(vty_str, sizeof(vty_str), "vty[??]@%s", vty->address);
-		if (vty)
-			for (i = 0; i < vector_active(vtyvec); i++)
-				if (vty == vector_slot(vtyvec, i)) {
-					snprintf(vty_str, sizeof(vty_str),
-						 "vty[%d]@%s", i, vty->address);
-					break;
-				}
+
+		for (i = 0; i < vector_active(vtyvec); i++)
+			if (vty == vector_slot(vtyvec, i)) {
+				snprintf(vty_str, sizeof(vty_str), "vty[%d]@%s",
+					 i, vty->address);
+				break;
+			}
 
 		/* format the prompt */
 		snprintf(prompt_str, sizeof(prompt_str), cmd_prompt(vty->node),

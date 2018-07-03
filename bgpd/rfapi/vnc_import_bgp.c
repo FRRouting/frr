@@ -2904,6 +2904,8 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 						struct rfapi_descriptor *rfd;
 						vncHDBgpDirect.peer = bi->peer;
 
+						assert(bi->extra);
+
 						rfd = bi->extra->vnc.export
 							      .rfapi_handle;
 

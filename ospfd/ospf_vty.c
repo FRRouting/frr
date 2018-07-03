@@ -4809,16 +4809,19 @@ static void show_ip_ospf_nbr_nbma_detail_sub(struct vty *vty,
 		vty_out(vty, "    Poll interval %d\n", nbr_nbma->v_poll);
 
 	/* Show poll-interval timer. */
-	if (use_json) {
-		long time_store;
-		time_store = monotime_until(&nbr_nbma->t_poll->u.sands, NULL)
-			     / 1000LL;
-		json_object_int_add(json_sub, "pollIntervalTimerDueMsec",
-				    time_store);
-	} else
-		vty_out(vty, "    Poll timer due in %s\n",
-			ospf_timer_dump(nbr_nbma->t_poll, timebuf,
-					sizeof(timebuf)));
+	if (nbr_nbma->t_poll) {
+		if (use_json) {
+			long time_store;
+			time_store = monotime_until(&nbr_nbma->t_poll->u.sands,
+						    NULL) / 1000LL;
+			json_object_int_add(json_sub,
+					    "pollIntervalTimerDueMsec",
+					    time_store);
+		} else
+			vty_out(vty, "    Poll timer due in %s\n",
+				ospf_timer_dump(nbr_nbma->t_poll, timebuf,
+						sizeof(timebuf)));
+	}
 
 	/* Show poll-interval timer thread. */
 	if (use_json) {

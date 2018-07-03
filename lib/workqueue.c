@@ -245,9 +245,10 @@ int work_queue_run(struct thread *thread)
 	char yielded = 0;
 
 	wq = THREAD_ARG(thread);
-	wq->thread = NULL;
 
 	assert(wq);
+
+	wq->thread = NULL;
 
 	/* calculate cycle granularity:
 	 * list iteration == 1 run

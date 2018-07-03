@@ -2336,7 +2336,7 @@ int rfapi_reopen(struct rfapi_descriptor *rfd, struct bgp *bgp)
 
 		h = bgp->rfapi;
 
-		assert(!CHECK_FLAG(h->flags, RFAPI_INCALLBACK));
+		assert(h != NULL && !CHECK_FLAG(h->flags, RFAPI_INCALLBACK));
 
 		if (CHECK_FLAG(rfd->flags,
 			       RFAPI_HD_FLAG_CLOSING_ADMINISTRATIVELY)

@@ -152,7 +152,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	struct pim_rpf *rpg;
 	struct prefix_sg sg;
 
-	rpg = RP(pim_ifp->pim, msg->im_dst);
+	rpg = pim_ifp ? RP(pim_ifp->pim, msg->im_dst) : NULL;
 	/*
 	 * If the incoming interface is unknown OR
 	 * the Interface type is SSM we don't need to
@@ -278,7 +278,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 
 	pim_ifp = up->rpf.source_nexthop.interface->info;
 
-	rpg = RP(pim_ifp->pim, sg.grp);
+	rpg = pim_ifp ? RP(pim_ifp->pim, sg.grp) : NULL;
 
 	if ((pim_rpf_addr_is_inaddr_none(rpg)) || (!pim_ifp)
 	    || (!(PIM_I_am_DR(pim_ifp)))) {

@@ -1516,9 +1516,10 @@ int ripng_write_rte(int num, struct stream *s, struct prefix_ipv6 *p,
 	}
 
 	/* Write routing table entry. */
-	if (!nexthop)
+	if (!nexthop) {
+		assert(p);
 		stream_write(s, (uint8_t *)&p->prefix, sizeof(struct in6_addr));
-	else
+	} else
 		stream_write(s, (uint8_t *)nexthop, sizeof(struct in6_addr));
 	stream_putw(s, tag);
 	if (p)

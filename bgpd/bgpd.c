@@ -1026,9 +1026,11 @@ static inline bgp_peer_sort_t peer_calc_sort(struct peer *peer)
 		else if (peer->as_type == AS_EXTERNAL)
 			return BGP_PEER_EBGP;
 
-		else if (peer->as_type == AS_SPECIFIED && peer->as)
+		else if (peer->as_type == AS_SPECIFIED && peer->as) {
+			assert(bgp);
 			return (bgp->as == peer->as ? BGP_PEER_IBGP
 						    : BGP_PEER_EBGP);
+		}
 
 		else {
 			struct peer *peer1;
