@@ -618,14 +618,6 @@ static int zserv_handle_client_close(struct thread *thread)
 {
 	struct zserv *client = THREAD_ARG(thread);
 
-	/*
-	 * Ensure these have been nulled. This does not equate to the
-	 * associated task(s) being scheduled or unscheduled on the client
-	 * pthread's threadmaster.
-	 */
-	assert(!client->t_read);
-	assert(!client->t_write);
-
 	/* synchronously stop thread */
 	frr_pthread_stop(client->pthread, NULL);
 
