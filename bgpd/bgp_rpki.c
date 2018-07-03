@@ -158,6 +158,30 @@ static void free_wrapper(void *ptr)
 	XFREE(MTYPE_BGP_RPKI_CACHE, ptr);
 }
 
+static void init_tr_socket(struct cache *cache)
+{
+	if (cache->type == TCP)
+		tr_tcp_init(cache->tr_config.tcp_config,
+			    cache->tr_socket);
+#if defined(FOUND_SSH)
+	else
+		tr_ssh_init(cache->tr_config.ssh_config,
+			    cache->tr_socket);
+#endif
+}
+
+static void free_tr_socket(struct cache *cache)
+{
+	if (cache->type == TCP)
+		tr_tcp_init(cache->tr_config.tcp_config,
+			    cache->tr_socket);
+#if defined(FOUND_SSH)
+	else
+		tr_ssh_init(cache->tr_config.ssh_config,
+			    cache->tr_socket);
+#endif
+}
+
 static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 				struct prefix *prefix);
 
@@ -261,14 +285,7 @@ static struct rtr_mgr_group *get_groups(void)
 		rtr_mgr_groups[i].sockets_len = 1;
 		rtr_mgr_groups[i].preference = cache->preference;
 
-		if (cache->type == TCP)
-			tr_tcp_init(cache->tr_config.tcp_config,
-				    cache->tr_socket);
-#if defined(FOUND_SSH)
-		else
-			tr_ssh_init(cache->tr_config.ssh_config,
-				    cache->tr_socket);
-#endif
+		init_tr_socket(cache);
 
 		i++;
 	}
@@ -525,9 +542,13 @@ static int add_cache(struct cache *cache)
 
 	listnode_add(cache_list, cache);
 
-	if (rtr_is_running &&
-	    rtr_mgr_add_group(rtr_config, &group) != RTR_SUCCESS) {
-		return ERROR;
+	if (rtr_is_running) {
+		init_tr_socket(cache);
+
+		if (rtr_mgr_add_group(rtr_config, &group) != RTR_SUCCESS) {
+			free_tr_socket(cache);
+			return ERROR;
+		}
 	}
 
 	return SUCCESS;
