@@ -41,15 +41,11 @@ extern int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 				   uint32_t max_len,
 				   void *result, int *error);
 
-extern int bgp_flowspec_tcpflags_decode(enum bgp_flowspec_util_nlri_t type,
+extern int bgp_flowspec_bitmask_decode(enum bgp_flowspec_util_nlri_t type,
 					uint8_t *nlri_ptr,
 					uint32_t max_len,
 					void *result, int *error);
 
-extern int bgp_flowspec_fragment_type_decode(enum bgp_flowspec_util_nlri_t type,
-					     uint8_t *nlri_ptr,
-					     uint32_t max_len,
-					     void *result, int *error);
 struct bgp_pbr_entry_main;
 extern int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					 struct bgp_pbr_entry_main *bpem);

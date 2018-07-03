@@ -91,8 +91,10 @@ struct zebra_pbr_ipset_entry {
 	struct prefix src;
 	struct prefix dst;
 
+	/* udp/tcp src port or icmp type */
 	uint16_t src_port_min;
 	uint16_t src_port_max;
+	/* udp/tcp dst port or icmp code */
 	uint16_t dst_port_min;
 	uint16_t dst_port_max;
 
@@ -131,12 +133,23 @@ struct zebra_pbr_iptable {
 
 	uint32_t action;
 
+	uint16_t pkt_len_min;
+	uint16_t pkt_len_max;
+	uint16_t tcp_flags;
+	uint16_t tcp_mask_flags;
+	uint8_t dscp_value;
+	uint8_t fragment;
+
 	uint32_t nb_interface;
 
 	struct list *interface_name_list;
 
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
+
+extern const struct message icmp_typecode_str[];
+
+const char *zebra_pbr_ipset_type2str(uint32_t type);
 
 void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
 void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
@@ -225,6 +238,8 @@ extern void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname);
 extern void zebra_pbr_show_iptable(struct vty *vty);
 extern void zebra_pbr_iptable_update_interfacelist(struct stream *s,
 				   struct zebra_pbr_iptable *zpi);
+size_t zebra_pbr_tcpflags_snprintf(char *buffer, size_t len,
+				   uint16_t tcp_val);
 
 DECLARE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat, (struct zebra_ns *zns,
 				    struct zebra_pbr_ipset_entry *ipset,

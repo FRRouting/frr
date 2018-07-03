@@ -2864,9 +2864,9 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 
 		if (!is_default_prefix(&zpi.dst))
 			zpi.filter_bm |= PBR_FILTER_DST_IP;
-		if (zpi.dst_port_min != 0)
+		if (zpi.dst_port_min != 0 || zpi.proto == IPPROTO_ICMP)
 			zpi.filter_bm |= PBR_FILTER_DST_PORT;
-		if (zpi.src_port_min != 0)
+		if (zpi.src_port_min != 0 || zpi.proto == IPPROTO_ICMP)
 			zpi.filter_bm |= PBR_FILTER_SRC_PORT;
 		if (zpi.dst_port_max != 0)
 			zpi.filter_bm |= PBR_FILTER_DST_PORT_RANGE;
@@ -2906,6 +2906,12 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 	STREAM_GETL(s, zpi.action);
 	STREAM_GETL(s, zpi.fwmark);
 	STREAM_GET(&zpi.ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
+	STREAM_GETW(s, zpi.pkt_len_min);
+	STREAM_GETW(s, zpi.pkt_len_max);
+	STREAM_GETW(s, zpi.tcp_flags);
+	STREAM_GETW(s, zpi.tcp_mask_flags);
+	STREAM_GETC(s, zpi.dscp_value);
+	STREAM_GETC(s, zpi.fragment);
 	STREAM_GETL(s, zpi.nb_interface);
 	zebra_pbr_iptable_update_interfacelist(s, &zpi);
 

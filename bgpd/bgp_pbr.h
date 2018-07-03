@@ -107,7 +107,6 @@ struct bgp_pbr_entry_main {
 
 #define PREFIX_SRC_PRESENT (1 << 0)
 #define PREFIX_DST_PRESENT (1 << 1)
-#define FRAGMENT_PRESENT   (1 << 2)
 	uint8_t match_bitmask;
 
 	uint8_t match_src_port_num;
@@ -119,12 +118,14 @@ struct bgp_pbr_entry_main {
 	uint8_t match_packet_length_num;
 	uint8_t match_dscp_num;
 	uint8_t match_tcpflags_num;
+	uint8_t match_fragment_num;
 
 	struct prefix src_prefix;
 	struct prefix dst_prefix;
 
 #define PROTOCOL_UDP 17
 #define PROTOCOL_TCP 6
+#define PROTOCOL_ICMP 1
 	struct bgp_pbr_match_val protocol[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val src_port[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val dst_port[BGP_PBR_MATCH_VAL_MAX];
@@ -133,8 +134,9 @@ struct bgp_pbr_entry_main {
 	struct bgp_pbr_match_val icmp_code[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val packet_length[BGP_PBR_MATCH_VAL_MAX];
 	struct bgp_pbr_match_val dscp[BGP_PBR_MATCH_VAL_MAX];
+
 	struct bgp_pbr_match_val tcpflags[BGP_PBR_MATCH_VAL_MAX];
-	struct bgp_pbr_fragment_val fragment;
+	struct bgp_pbr_match_val fragment[BGP_PBR_MATCH_VAL_MAX];
 
 	uint16_t action_num;
 	struct bgp_pbr_entry_action actions[ACTIONS_MAX_NUM];
@@ -176,13 +178,14 @@ struct bgp_pbr_match {
 	 */
 	uint32_t type;
 
-#define MATCH_IP_SRC_SET		(1 << 0)
-#define MATCH_IP_DST_SET		(1 << 1)
-#define MATCH_PORT_SRC_SET		(1 << 2)
-#define MATCH_PORT_DST_SET		(1 << 3)
-#define MATCH_PORT_SRC_RANGE_SET	(1 << 4)
-#define MATCH_PORT_DST_RANGE_SET	(1 << 5)
 	uint32_t flags;
+
+	uint16_t pkt_len_min;
+	uint16_t pkt_len_max;
+	uint16_t tcp_flags;
+	uint16_t tcp_mask_flags;
+	uint8_t dscp_value;
+	uint8_t fragment;
 
 	vrf_id_t vrf_id;
 
