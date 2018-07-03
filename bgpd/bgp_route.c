@@ -2168,7 +2168,6 @@ struct bgp_process_queue {
 static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 				 afi_t afi, safi_t safi)
 {
-	struct prefix *p = &rn->p;
 	struct bgp_info *new_select;
 	struct bgp_info *old_select;
 	struct bgp_info_pair old_and_new;
@@ -2190,6 +2189,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 		bgp_start_routeadv(bgp);
 		return;
 	}
+
+	struct prefix *p = &rn->p;
 
 	debug = bgp_debug_bestpath(&rn->p);
 	if (debug) {

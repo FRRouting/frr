@@ -1889,7 +1889,7 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 			zlog_debug(
 				"ospf_translated_nssa_refresh(): no Type-7 found for "
 				"Type-5 LSA Id %s",
-				inet_ntoa(type5->data->id));
+				type5 ? inet_ntoa(type5->data->id) : "(null)");
 		return NULL;
 	}
 
@@ -1899,7 +1899,7 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 			zlog_debug(
 				"ospf_translated_nssa_refresh(): No translated Type-5 "
 				"found for Type-7 with Id %s",
-				inet_ntoa(type7->data->id));
+				type7 ? inet_ntoa(type7->data->id) : "(null)");
 		return NULL;
 	}
 
@@ -1912,7 +1912,7 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 			zlog_debug(
 				"ospf_translated_nssa_refresh(): Could not translate "
 				"Type-7 for %s to Type-5",
-				inet_ntoa(type7->data->id));
+				type7 ? inet_ntoa(type7->data->id) : "(null)");
 		return NULL;
 	}
 
@@ -1921,7 +1921,7 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 			zlog_debug(
 				"ospf_translated_nssa_refresh(): Could not install "
 				"translated LSA, Id %s",
-				inet_ntoa(type7->data->id));
+				type7 ? inet_ntoa(type7->data->id) : "(null)");
 		return NULL;
 	}
 

@@ -274,7 +274,7 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			else
 				json_nlri_path = json_paths;
 		}
-		if (display == NLRI_STRING_FORMAT_LARGE)
+		if (display == NLRI_STRING_FORMAT_LARGE && binfo)
 			vty_out(vty, "BGP flowspec entry: (flags 0x%x)\n",
 				binfo->flags);
 		bgp_fs_nlri_get_string((unsigned char *)
