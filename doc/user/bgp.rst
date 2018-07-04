@@ -1783,8 +1783,8 @@ kernel routing tables.
        neighbor 10.0.0.3 remote-as 4
        neighbor 10.0.0.4 remote-as 5
 
-.. index:: show ip bgp view NAME
-.. clicmd:: show ip bgp view NAME
+.. index:: show [ip] bgp view NAME
+.. clicmd:: show [ip] bgp view NAME
 
    Display the routing table of BGP view ``NAME``.
 
@@ -1981,17 +1981,27 @@ Other BGP Commands
 Displaying BGP Information
 ==========================
 
+The following four commands display the IPv6 and IPv4 routing tables, depending
+on whether or not the ``ip`` keyword is used.
+Actually, :clicmd:`show ip bgp` command was used on older `Quagga` routing
+daemon project, while :clicmd:`show bgp` command is the new format. The choice
+has been done to keep old format with IPv4 routing table, while new format
+displays IPv6 routing table.
+
 .. index:: show ip bgp
 .. clicmd:: show ip bgp
 
 .. index:: show ip bgp A.B.C.D
 .. clicmd:: show ip bgp A.B.C.D
 
-.. index:: show ip bgp X:X::X:X
-.. clicmd:: show ip bgp X:X::X:X
+.. index:: show bgp
+.. clicmd:: show bgp
+
+.. index:: show bgp X:X::X:X
+.. clicmd:: show bgp X:X::X:X
 
    These commands display BGP routes. When no route is specified, the default
-   is to display all IPv4 BGP routes.
+   is to display all BGP routes.
 
    ::
 
@@ -2004,31 +2014,56 @@ Displaying BGP Information
 
          Total number of prefixes 1
 
-.. index:: show ip bgp regexp LINE
-.. clicmd:: show ip bgp regexp LINE
+Some other commands provide additional options for filtering the output.
+
+.. index:: show [ip] bgp regexp LINE
+.. clicmd:: show [ip] bgp regexp LINE
 
    This command displays BGP routes using AS path regular expression
    (:ref:`bgp-regular-expressions`).
 
-.. index:: show bgp <ipv4|ipv6> summary
-.. clicmd:: show bgp <ipv4|ipv6> summary
+.. index:: show [ip] bgp summary
+.. clicmd:: show [ip] bgp summary
 
    Show a bgp peer summary for the specified address family.
 
-.. index:: show bgp <ipv4|ipv6> neighbor [PEER]
-.. clicmd:: show bgp <ipv4|ipv6> neighbor [PEER]
+The old command structure :clicmd:`show ip bgp` may be removed in the future
+and should no longer be used. In order to reach the other BGP routing tables
+other than the IPv6 routing table given by :clicmd:`show bgp`, the new command
+structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
-   This command shows information on a specific BGP `peer`.
+.. index:: show bgp [afi] [safi]
+.. clicmd:: show bgp [afi] [safi]
 
-.. index:: show bgp <ipv4|ipv6> dampening dampened-paths
-.. clicmd:: show bgp <ipv4|ipv6> dampening dampened-paths
+.. index:: show bgp <ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast>
+.. clicmd:: show bgp <ipv4|ipv6> <unicast|multicast|vpn|labeled-unicast>
 
-   Display paths suppressed due to dampening.
+   These commands display BGP routes for the specific routing table indicated by
+   the selected afi and the selected safi. If no afi and no safi value is given,
+   the command falls back to the default IPv6 routing table
 
-.. index:: show bgp <ipv4|ipv6> dampening flap-statistics
-.. clicmd:: show bgp <ipv4|ipv6> dampening flap-statistics
+.. index:: show bgp [afi] [safi] summary
+.. clicmd:: show bgp [afi] [safi] summary
 
-   Display flap statistics of routes.
+   Show a bgp peer summary for the specified address family, and subsequent
+   address-family.
+
+.. index:: show bgp [afi] [safi] neighbor [PEER]
+.. clicmd:: show bgp [afi] [safi] neighbor [PEER]
+
+   This command shows information on a specific BGP peer of the relevant
+   afi and safi selected.
+
+.. index:: show bgp [afi] [safi] dampening dampened-paths
+.. clicmd:: show bgp [afi] [safi] dampening dampened-paths
+
+   Display paths suppressed due to dampening of the selected afi and safi
+   selected.
+
+.. index:: show bgp [afi] [safi] dampening flap-statistics
+.. clicmd:: show bgp [afi] [safi] dampening flap-statistics
+
+   Display flap statistics of routes of the selected afi and safi selected.
 
 .. _bgp-display-routes-by-community:
 
@@ -2073,11 +2108,11 @@ Displaying Routes by AS Path
    This commands displays BGP routes that matches a regular
    expression `line` (:ref:`bgp-regular-expressions`).
 
-.. index:: show ip bgp ipv4 vpn
-.. clicmd:: show ip bgp ipv4 vpn
+.. index:: show [ip] bgp ipv4 vpn
+.. clicmd:: show [ip] bgp ipv4 vpn
 
-.. index:: show ip bgp ipv6 vpn
-.. clicmd:: show ip bgp ipv6 vpn
+.. index:: show [ip] bgp ipv6 vpn
+.. clicmd:: show [ip] bgp ipv6 vpn
 
    Print active IPV4 or IPV6 routes advertised via the VPN SAFI.
 
