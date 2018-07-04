@@ -2038,7 +2038,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		} else {
 			vty_out(vty, "%-9d %-15s  %-15s  %-7s  ",
 				c_oil->installed, src_str, grp_str,
-				ifp_in->name);
+				in_ifname);
 		}
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
