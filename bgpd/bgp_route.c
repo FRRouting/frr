@@ -4238,7 +4238,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		}
 
 		/* Fetch prefix from NLRI packet. */
-		memcpy(&p.u.prefix, pnt, psize);
+		memcpy(p.u.val, pnt, psize);
 
 		/* Check address. */
 		if (afi == AFI_IP && safi == SAFI_UNICAST) {

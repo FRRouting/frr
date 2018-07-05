@@ -220,7 +220,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 		p.prefixlen =
 			prefixlen
 			- VPN_PREFIXLEN_MIN_BYTES * 8; /* exclude label & RD */
-		memcpy(&p.u.prefix, pnt + VPN_PREFIXLEN_MIN_BYTES,
+		memcpy(p.u.val, pnt + VPN_PREFIXLEN_MIN_BYTES,
 		       psize - VPN_PREFIXLEN_MIN_BYTES);
 
 		if (attr) {

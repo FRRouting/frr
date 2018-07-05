@@ -448,7 +448,7 @@ void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 	struct prefix p;
 
 	p.family = AF_INET6;
-	IPV6_ADDR_COPY(&p.u.prefix, address);
+	IPV6_ADDR_COPY(&p.u.prefix6, address);
 	p.prefixlen = IPV6_MAX_PREFIXLEN;
 
 	ifc = listnode_head(ifp->nbr_connected);
@@ -473,7 +473,7 @@ void nbr_connected_delete_ipv6(struct interface *ifp, struct in6_addr *address)
 	struct prefix p;
 
 	p.family = AF_INET6;
-	IPV6_ADDR_COPY(&p.u.prefix, address);
+	IPV6_ADDR_COPY(&p.u.prefix6, address);
 	p.prefixlen = IPV6_MAX_PREFIXLEN;
 
 	ifc = nbr_connected_check(ifp, &p);

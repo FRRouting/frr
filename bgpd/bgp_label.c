@@ -57,7 +57,7 @@ int bgp_parse_fec_update(void)
 	memset(&p, 0, sizeof(struct prefix));
 	p.family = stream_getw(s);
 	p.prefixlen = stream_getc(s);
-	stream_get(&p.u.prefix, s, PSIZE(p.prefixlen));
+	stream_get(p.u.val, s, PSIZE(p.prefixlen));
 	label = stream_getl(s);
 
 	/* hack for the bgp instance & SAFI = have to send/receive it */
