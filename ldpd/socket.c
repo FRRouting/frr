@@ -37,7 +37,7 @@ ldp_create_socket(int af, enum socket_type type)
 {
 	int			 fd, domain, proto;
 	union ldpd_addr		 addr;
-	struct sockaddr_storage	 local_sa;
+	union sockunion		 local_su;
 #ifdef __OpenBSD__
 	int			 opt;
 #endif
@@ -70,14 +70,12 @@ ldp_create_socket(int af, enum socket_type type)
 	case LDP_SOCKET_DISC:
 		/* listen on all addresses */
 		memset(&addr, 0, sizeof(addr));
-		memcpy(&local_sa, addr2sa(af, &addr, LDP_PORT),
-		    sizeof(local_sa));
+		addr2sa(af, &addr, LDP_PORT, &local_su);
 		break;
 	case LDP_SOCKET_EDISC:
 	case LDP_SOCKET_SESSION:
 		addr = (ldp_af_conf_get(ldpd_conf, af))->trans_addr;
-		memcpy(&local_sa, addr2sa(af, &addr, LDP_PORT),
-		    sizeof(local_sa));
+		addr2sa(af, &addr, LDP_PORT, &local_su);
 		/* ignore any possible error */
 		sock_set_bindany(fd, 1);
 		break;
@@ -90,8 +88,7 @@ ldp_create_socket(int af, enum socket_type type)
 		close(fd);
 		return (-1);
 	}
-	if (bind(fd, (struct sockaddr *)&local_sa,
-	    sockaddr_len((struct sockaddr *)&local_sa)) == -1) {
+	if (bind(fd, &local_su.sa, sockaddr_len(&local_su.sa)) == -1) {
 		save_errno = errno;
 		if (ldpd_privs.change(ZPRIVS_LOWER))
 			log_warn("%s: could not lower privs", __func__);
@@ -307,7 +304,7 @@ sock_set_md5sig(int fd, int af, union ldpd_addr *addr, const char *password)
 	if (fd == -1)
 		return (0);
 #if HAVE_DECL_TCP_MD5SIG
-	memcpy(&su, addr2sa(af, addr, 0), sizeof(su));
+	addr2sa(af, addr, 0, &su);
 
 	if (ldpe_privs.change(ZPRIVS_RAISE)) {
 		log_warn("%s: could not raise privs", __func__);
