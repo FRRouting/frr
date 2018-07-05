@@ -1,5 +1,22 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
+  * Support Automake 1.16.1
+  * BGPd: Support for flowspec ICMP, DSCP, packet length, fragment and tcp flags
+  * BGPd: fix rpki validation for ipv6
+  * VRF: Workaround for kernel bug on Linux 4.14 and newer
+  * Zebra: Fix interface based routes from zebra not marked up
+  * Zebra: Fix large zebra memory usage when redistribute between protocols
+  * Zebra: Allow route-maps to match on source instance
+  * BGPd: Backport peer-attr overrides, peer-level enforce-first-as and filtered-routes fix
+  * BGPd: fix for crash during display of filtered-routes
+  * BGPd: Actually display labeled unicast routes received
+  * Label Manager: Fix to work correctly behind a label manager proxy
+  * Debian Pkg: Fix build dependency for install-info
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Thu,  5 Jul 2018 00:38:00 -0700
+
+frr (5.0-0) RELEASED; urgency=medium
+
   * PIM: Add a Multicast Trace Command draft-ietf-idmr-traceroute-ipm-05
   * IS-IS: Implement Three-Way Handshake as per RFC5303
   * BGPD: Implement VPN-VRF route leaking per RFC4364.
