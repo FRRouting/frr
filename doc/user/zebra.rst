@@ -521,6 +521,94 @@ entered within the VRF context the static routes are created in the VRF.
    show ip table vrf r1-cust1 table 43
 
 
+.. _zebra-mpls:
+
+MPLS Commands
+=============
+
+You can configure static mpls entries in zebra. Basically, handling MPLS
+consists of popping, swapping or pushing labels to IP packets.
+
+MPLS Acronyms
+-------------
+
+:abbr:`LSR (Labeled Switch Router)`
+   Networking devices handling labels used to forward traffic between and through
+   them.
+
+:abbr:`LER (Labeled Edge Router)`
+   A Labeled edge router is located at the edge of an MPLS network, generally
+   between an IP network and an MPLS network.
+
+MPLS Push Action
+----------------
+
+The push action is generally used for LER devices, which want to encapsulate
+all traffic for a wished destination into an MPLS label. This action is stored
+in routing entry, and can be configured like a route:
+
+.. index:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
+.. clicmd:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
+
+   NETWORK ans MASK stand for the IP prefix entry to be added as static
+   route entry.
+   GATEWAY is the gateway IP address to reach, in order to reach the prefix.
+   INTERFACE is the interface behind which the prefix is located.
+   LABEL is the MPLS label to use to reach the prefix abovementioned.
+
+   You can check that the static entry is stored in the zebra RIB database, by
+   looking at the presence of the entry.
+
+   ::
+
+      zebra(configure)# ip route 1.1.1.1/32 10.0.1.1 label 777
+      zebra# show ip route
+      Codes: K - kernel route, C - connected, S - static, R - RIP,
+      O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+      T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
+      F - PBR,
+      > - selected route, * - FIB route
+
+      S>* 1.1.1.1/32 [1/0] via 10.0.1.1, r2-eth0, label 777, 00:39:42
+
+MPLS Swap and Pop Action
+------------------------
+
+The swap action is generally used for LSR devices, which swap a packet with a
+label, with an other label. The Pop action is used on LER devices, at the
+termination of the MPLS traffic; this is used to remove MPLS header.
+
+.. index:: [no] mpls lsp INCOMING_LABEL GATEWAY OUTGOING_LABEL|explicit-null|implicit-null
+.. clicmd:: [no] mpls lsp INCOMING_LABEL GATEWAY OUTGOING_LABEL|explicit-null|implicit-null
+
+   INCOMING_LABEL and OUTGOING_LABEL are MPLS labels with values ranging from 16
+   to 1048575.
+   GATEWAY is the gateway IP address where to send MPLS packet.
+   The outgoing label can either be a value or have an explicit-null label header. This
+   specific header can be read by IP devices. The incoming label can also be removed; in
+   that case the implicit-null keyword is used, and the outgoing packet emitted is an IP
+   packet without MPLS header.
+
+You can check that the MPLS actions are stored in the zebra MPLS table, by looking at the
+presence of the entry.
+
+.. index:: show mpls table
+.. clicmd:: show mpls table
+
+::
+
+   zebra(configure)# mpls lsp 18 10.125.0.2 implicit-null
+   zebra(configure)# mpls lsp 19 10.125.0.2 20
+   zebra(configure)# mpls lsp 21 10.125.0.2 explicit-null
+   zebra# show mpls table
+   Inbound                            Outbound
+   Label     Type          Nexthop     Label
+   --------  -------  ---------------  --------
+   18     Static       10.125.0.2  implicit-null
+   19     Static       10.125.0.2  20
+   21     Static       10.125.0.2  IPv4 Explicit Null
+
+
 .. _multicast-rib-commands:
 
 Multicast RIB Commands
