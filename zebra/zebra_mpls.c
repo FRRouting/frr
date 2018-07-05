@@ -38,6 +38,7 @@
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+#include "zebra/interface.h"
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
@@ -704,6 +705,7 @@ static int nhlfe_nexthop_active(zebra_nhlfe_t *nhlfe)
 {
 	struct nexthop *nexthop;
 	struct interface *ifp;
+	struct zebra_ns *zns;
 
 	nexthop = nhlfe->nexthop;
 	if (!nexthop) // unexpected
@@ -721,7 +723,8 @@ static int nhlfe_nexthop_active(zebra_nhlfe_t *nhlfe)
 		 * which will not be in the default
 		 * VRF.  So let's look in all of them
 		 */
-		ifp = if_lookup_by_index(nexthop->ifindex, VRF_UNKNOWN);
+		zns = zebra_ns_lookup(NS_DEFAULT);
+		ifp = if_lookup_by_index_per_ns(zns, nexthop->ifindex);
 		if (ifp && if_is_operative(ifp))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
@@ -2752,10 +2755,13 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 
 				switch (nexthop->type) {
 				case NEXTHOP_TYPE_IFINDEX: {
+					struct zebra_ns *zns;
 					struct interface *ifp;
 
-					ifp = if_lookup_by_index(
-						nexthop->ifindex, VRF_UNKNOWN);
+					zns = zebra_ns_lookup(NS_DEFAULT);
+					ifp = if_lookup_by_index_per_ns(
+							zns,
+							nexthop->ifindex);
 					vty_out(vty, "%15s", ifp->name);
 					break;
 				}
