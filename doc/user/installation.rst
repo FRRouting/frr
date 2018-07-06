@@ -176,6 +176,14 @@ customize the build to include or exclude specific features and dependencies.
    With this option, we provide a way to strip out these characters for APK dev
    package builds.
 
+.. option:: --enable-multipath=X
+
+   Compile FRR with up to X way ECMP supported.  This number can be from 0-999.
+   For backwards compatability with older configure options when setting X = 0,
+   we will build FRR with 64 way ECMP.  This is needed because there are
+   hardcoded arrays that FRR builds towards, so we need to know how big to
+   make these arrays at build time.
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`

@@ -1547,6 +1547,15 @@ BPGD supports multiple VRF instances via the *router bgp* command:
 VRFNAME is matched against VRFs configured in the kernel. When no *vrf VRFNAME*
 is specified, the BGP protocol process belongs to the default VRF.
 
+With VRF, you can isolate networking information. Having BGP VRF allows you to
+have several BGP instances on the same system process. This solution solves
+scalabiliy issues where the network administrator had previously to run separately
+several BGP processes on each namespace. Now, not only BGP VRF solves this, but
+also this method applies to both kind of VRFs backend: default VRF from Linux kernel
+or network namespaces. Also, having separate BGP instances does not imply that the
+AS number has to be different. For internal purposes, it is possible to do iBGP
+peering from two differents network namespaces.
+
 BGP routes may be leaked (i.e., copied) between a unicast VRF RIB and the VPN
 safi RIB of the default VRF (leaking is also permitted between the unicast RIB
 of the default VRF and VPN).  A shortcut syntax is also available for
@@ -2452,6 +2461,7 @@ mistakes, if not serious flaws.
 
 .. include:: rpki.rst
 
+.. include:: flowspec.rst
 
 .. [#med-transitivity-rant] For some set of objects to have an order, there *must* be some binary ordering relation that is defined for *every* combination of those objects, and that relation *must* be transitive. I.e.:, if the relation operator is <, and if a < b and b < c then that relation must carry over and it *must* be that a < c for the objects to have an order. The ordering relation may allow for equality, i.e. a < b and b < a may both be true and imply that a and b are equal in the order and not distinguished by it, in which case the set has a partial order. Otherwise, if there is an order, all the objects have a distinct place in the order and the set has a total order)
 .. [bgp-route-osci-cond] McPherson, D. and Gill, V. and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation Condition", IETF RFC3345
