@@ -430,12 +430,14 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			    struct pim_nexthop *nexthop, struct prefix *src,
 			    struct prefix *grp, int neighbor_needed)
 {
-	struct pim_neighbor *nbr = NULL;
+	struct pim_neighbor *nbrs[MULTIPATH_NUM], *nbr;
+	struct interface *ifps[MULTIPATH_NUM];
 	struct nexthop *nh_node = NULL;
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
 	uint32_t hash_val = 0, mod_val = 0;
 	uint8_t nh_iter = 0, found = 0;
+	uint32_t i, num_nbrs = 0;
 
 	if (!pnc || !pnc->nexthop_num || !nexthop)
 		return 0;
@@ -499,16 +501,40 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			}
 		}
 	}
+
+	/*
+	 * Look up all interfaces and neighbors,
+	 * store for later usage
+	 */
+	for (nh_node = pnc->nexthop, i = 0; nh_node;
+	     nh_node = nh_node->next, i++) {
+		ifps[i] = if_lookup_by_index(nh_node->ifindex, pim->vrf_id);
+		if (ifps[i]) {
+			nbrs[i] = pim_neighbor_find(ifps[i],
+						    nh_node->gate.ipv4);
+			if (nbrs[i] || pim_if_connected_to_source(ifps[i],
+								  src->u.prefix4))
+				num_nbrs++;
+		}
+	}
 	if (pim->ecmp_enable) {
+		uint32_t consider = pnc->nexthop_num;
+
+		if (neighbor_needed && num_nbrs < consider)
+			consider = num_nbrs;
+
+		if (consider == 0)
+			return 0;
+
 		// PIM ECMP flag is enable then choose ECMP path.
 		hash_val = pim_compute_ecmp_hash(src, grp);
-		mod_val = hash_val % pnc->nexthop_num;
+		mod_val = hash_val % consider;
 	}
 
 	for (nh_node = pnc->nexthop; nh_node && (found == 0);
 	     nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
+		ifp = ifps[nh_iter];
 		if (!ifp) {
 			if (PIM_DEBUG_PIM_NHT) {
 				char addr_str[INET_ADDRSTRLEN];
@@ -544,7 +570,7 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 
 		if (neighbor_needed
 		    && !pim_if_connected_to_source(ifp, src->u.prefix4)) {
-			nbr = pim_neighbor_find(ifp, nh_node->gate.ipv4);
+			nbr = nbrs[nh_iter];
 			if (!nbr && !if_is_loopback(ifp)) {
 				if (PIM_DEBUG_PIM_NHT)
 					zlog_debug(
@@ -784,13 +810,14 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			    int neighbor_needed)
 {
 	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
-	struct pim_neighbor *nbr = NULL;
+	struct pim_neighbor *nbrs[MULTIPATH_NUM], *nbr = NULL;
 	int num_ifindex;
-	struct interface *ifp;
+	struct interface *ifps[MULTIPATH_NUM], *ifp;
 	int first_ifindex;
 	int found = 0;
 	uint8_t i = 0;
 	uint32_t hash_val = 0, mod_val = 0;
+	uint32_t num_nbrs = 0;
 
 	if (PIM_DEBUG_PIM_NHT) {
 		char addr_str[INET_ADDRSTRLEN];
@@ -816,19 +843,44 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		return 0;
 	}
 
+	/*
+	 * Look up all interfaces and neighbors,
+	 * store for later usage
+	 */
+	for (i = 0; i < num_ifindex; i++) {
+		ifps[i] = if_lookup_by_index(nexthop_tab[i].ifindex,
+					     pim->vrf_id);
+		if (ifps[i]) {
+			nbrs[i] = pim_neighbor_find(
+				ifps[i], nexthop_tab[i].nexthop_addr.u.prefix4);
+			if (nbrs[i] || pim_if_connected_to_source(ifps[i],
+								  addr))
+				num_nbrs++;
+		}
+	}
+
 	// If PIM ECMP enable then choose ECMP path.
 	if (pim->ecmp_enable) {
+		uint32_t consider = num_ifindex;
+
+		if (neighbor_needed && num_nbrs < consider)
+			consider = num_nbrs;
+
+		if (consider == 0)
+			return 0;
+
 		hash_val = pim_compute_ecmp_hash(src, grp);
-		mod_val = hash_val % num_ifindex;
+		mod_val = hash_val % consider;
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
 			zlog_debug("%s: hash_val %u mod_val %u",
 				   __PRETTY_FUNCTION__, hash_val, mod_val);
 	}
 
+	i = 0;
 	while (!found && (i < num_ifindex)) {
 		first_ifindex = nexthop_tab[i].ifindex;
 
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
+		ifp = ifps[i];
 		if (!ifp) {
 			if (PIM_DEBUG_PIM_NHT) {
 				char addr_str[INET_ADDRSTRLEN];
@@ -863,8 +915,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			continue;
 		}
 		if (neighbor_needed && !pim_if_connected_to_source(ifp, addr)) {
-			nbr = pim_neighbor_find(
-				ifp, nexthop_tab[i].nexthop_addr.u.prefix4);
+			nbr = nbrs[i];
 			if (PIM_DEBUG_PIM_NHT_DETAIL)
 				zlog_debug("ifp name: %s(%s), pim nbr: %p",
 					   ifp->name, pim->vrf->name, nbr);
