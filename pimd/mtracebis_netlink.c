@@ -489,7 +489,6 @@ int rtnl_listen(struct rtnl_handle *rtnl, rtnl_filter_t handler, void *jarg)
 
 int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler, void *jarg)
 {
-	int status;
 	struct sockaddr_nl nladdr;
 	char buf[8192];
 	struct nlmsghdr *h = (void *)buf;
@@ -500,37 +499,43 @@ int rtnl_from_file(FILE *rtnl, rtnl_filter_t handler, void *jarg)
 	nladdr.nl_groups = 0;
 
 	while (1) {
-		int err, len;
-		int l;
+		int err;
+		size_t l, rl, arl;
 
-		status = fread(&buf, 1, sizeof(*h), rtnl);
+		rl = sizeof(*h);
+		arl = fread(&buf, 1, rl, rtnl);
 
-		if (status < 0) {
-			if (errno == EINTR)
-				continue;
-			perror("rtnl_from_file: fread");
-			return -1;
-		}
-		if (status == 0)
-			return 0;
+		if (arl != rl) {
+			if (arl == 0)
+				return 0;
 
-		len = h->nlmsg_len;
-		l = len - sizeof(*h);
-
-		if (l < 0 || len > (int)sizeof(buf)) {
-			fprintf(stderr, "!!!malformed message: len=%d @%lu\n",
-				len, ftell(rtnl));
+			if (ferror(rtnl))
+				fprintf(stderr, "%s: header read failed\n",
+					__func__);
+			else
+				fprintf(stderr, "%s: truncated header\n",
+					__func__);
 			return -1;
 		}
 
-		status = fread(NLMSG_DATA(h), 1, NLMSG_ALIGN(l), rtnl);
+		l = h->nlmsg_len > rl ? h->nlmsg_len - rl : 0;
 
-		if (status < 0) {
-			perror("rtnl_from_file: fread");
+		if (l == 0 || (l + (size_t)NLMSG_HDRLEN) > sizeof(buf)) {
+			fprintf(stderr, "%s: malformed message: len=%zu @%lu\n",
+				__func__, (size_t)h->nlmsg_len, ftell(rtnl));
 			return -1;
 		}
-		if (status < l) {
-			fprintf(stderr, "rtnl-from_file: truncated message\n");
+
+		rl = NLMSG_ALIGN(l);
+		arl = fread(NLMSG_DATA(h), 1, rl, rtnl);
+
+		if (arl != rl) {
+			if (ferror(rtnl))
+				fprintf(stderr, "%s: msg read failed\n",
+					__func__);
+			else
+				fprintf(stderr, "%s: truncated message\n",
+					__func__);
 			return -1;
 		}
 
