@@ -1069,6 +1069,15 @@ static void zebra_pbr_show_iptable_unit(struct zebra_pbr_iptable *iptable,
 	vty_out(vty, "IPtable %s action %s (%u)\n", iptable->ipset_name,
 		iptable->action == ZEBRA_IPTABLES_DROP ? "drop" : "redirect",
 		iptable->unique);
+	if (iptable->type == IPSET_NET_PORT ||
+	    iptable->type == IPSET_NET_PORT_NET) {
+		if (!(iptable->filter_bm & MATCH_ICMP_SET)) {
+			if (iptable->filter_bm & PBR_FILTER_DST_PORT)
+				vty_out(vty, "\t lookup dst port\n");
+			else if (iptable->filter_bm & PBR_FILTER_SRC_PORT)
+				vty_out(vty, "\t lookup src port\n");
+		}
+	}
 	if (iptable->pkt_len_min || iptable->pkt_len_max) {
 		if (!iptable->pkt_len_max)
 			vty_out(vty, "\t pkt len %u\n",
