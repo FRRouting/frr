@@ -2144,6 +2144,7 @@ DEFUN (vtysh_show_poll,
        "Thread Poll Information\n")
 {
 	unsigned int i;
+	int idx = 0;
 	int ret = CMD_SUCCESS;
 	char line[100];
 
