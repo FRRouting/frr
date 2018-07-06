@@ -255,21 +255,15 @@ void hash_iterate(struct hash *hash, void (*func)(struct hash_backet *, void *),
 	unsigned int i;
 	struct hash_backet *hb;
 	struct hash_backet *hbnext;
-	uint32_t count = 0;
 
-	for (i = 0; i < hash->size; i++) {
+	for (i = 0; i < hash->size; i++)
 		for (hb = hash->index[i]; hb; hb = hbnext) {
 			/* get pointer to next hash backet here, in case (*func)
 			 * decides to delete hb by calling hash_release
 			 */
 			hbnext = hb->next;
 			(*func)(hb, arg);
-			count++;
-
 		}
-		if (count == hash->count)
-			return;
-	}
 }
 
 /* Iterator function for hash.  */
@@ -280,7 +274,6 @@ void hash_walk(struct hash *hash, int (*func)(struct hash_backet *, void *),
 	struct hash_backet *hb;
 	struct hash_backet *hbnext;
 	int ret = HASHWALK_CONTINUE;
-	uint32_t count = 0;
 
 	for (i = 0; i < hash->size; i++) {
 		for (hb = hash->index[i]; hb; hb = hbnext) {
@@ -291,10 +284,7 @@ void hash_walk(struct hash *hash, int (*func)(struct hash_backet *, void *),
 			ret = (*func)(hb, arg);
 			if (ret == HASHWALK_ABORT)
 				return;
-			count++;
 		}
-		if (count == hash->count)
-			return;
 	}
 }
 
