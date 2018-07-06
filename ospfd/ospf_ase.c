@@ -543,7 +543,7 @@ static int ospf_ase_route_match_same(struct route_table *rt,
 				     struct ospf_route *newor)
 {
 	struct route_node *rn;
-	struct ospf_route * or ;
+	struct ospf_route *or;
 	struct ospf_path *op;
 	struct ospf_path *newop;
 	struct listnode *n1;
@@ -559,6 +559,9 @@ static int ospf_ase_route_match_same(struct route_table *rt,
 	route_unlock_node(rn);
 
 	or = rn->info;
+
+	assert(or);
+
 	if (or->path_type != newor->path_type)
 		return 0;
 
@@ -576,6 +579,8 @@ static int ospf_ase_route_match_same(struct route_table *rt,
 		assert(0);
 		return 0;
 	}
+
+	assert(or->paths);
 
 	if (or->paths->count != newor->paths->count)
 		return 0;
