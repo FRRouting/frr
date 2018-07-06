@@ -435,10 +435,13 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 
 	if (!result) {
 		if (vty)
-			vty_out(vty, "Invalid pathname: %s\n",
+			vty_out(vty, "Invalid pathname for %s: %s\n",
+				pathname,
 				safe_strerror(errno));
 		else
-			zlog_warn("Invalid pathname: %s", safe_strerror(errno));
+			zlog_warn("Invalid pathname for %s: %s",
+				  pathname,
+				  safe_strerror(errno));
 		return NULL;
 	}
 	check_base = basename(pathname);
