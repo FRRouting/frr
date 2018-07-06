@@ -146,7 +146,7 @@ struct ferr_ref {
 
 void ferr_ref_add(struct ferr_ref *ref);
 struct ferr_ref *ferr_ref_get(uint32_t code);
-void ferr_ref_display(struct vty *, uint32_t code, bool json);
+void ferr_ref_display(struct vty *vty, uint32_t code, bool json);
 
 /*
  * This function should be called by the
@@ -163,8 +163,10 @@ void ferr_ref_fini(void);
  */
 const struct ferr *ferr_get_last(ferr_r errval);
 
-/* can optionally be called at strategic locations.
- * always returns 0. */
+/*
+ * Can optionally be called at strategic locations.
+ * Always returns 0.
+ */
 ferr_r ferr_clear(void);
 
 /* do NOT call these functions directly.  only for macro use! */

@@ -132,6 +132,7 @@ void ferr_ref_display(struct vty *vty, uint32_t code, bool json)
 	for (ALL_LIST_ELEMENTS_RO(errlist, ln, ref)) {
 		if (json) {
 			char key[11];
+
 			snprintf(key, sizeof(key), "%"PRIu32, ref->code);
 			obj = json_object_new_object();
 			json_object_string_add(obj, "title", ref->title);
@@ -143,14 +144,15 @@ void ferr_ref_display(struct vty *vty, uint32_t code, bool json)
 		} else {
 			char pbuf[256];
 			char ubuf[256];
+
 			snprintf(pbuf, sizeof(pbuf), "\nError %"PRIu32" - %s",
 				 code, ref->title);
 			memset(ubuf, '=', strlen(pbuf));
 			ubuf[sizeof(ubuf) - 1] = '\0';
 
 			vty_out(vty, "%s\n%s\n", pbuf, ubuf);
-			vty_out(vty, "Description:\n%s\n\nRecommendation:\n%s\n",
-				ref->description, ref->suggestion);
+			vty_out(vty, "Description:\n%s\n\n", ref->description);
+			vty_out(vty, "Recommendation:\n%s\n", ref->suggestion);
 		}
 	}
 
@@ -175,6 +177,7 @@ DEFUN_NOSH(show_error_code,
 {
 	bool json = strmatch(argv[argc-1]->text, "json");
 	uint32_t arg = 0;
+
 	if (!strmatch(argv[2]->text, "all"))
 		arg = strtoul(argv[2]->arg, NULL, 10);
 

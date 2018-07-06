@@ -2354,9 +2354,10 @@ DEFUN (vtysh_show_error_code,
        "Information on all errors\n"
        JSON_STR)
 {
+	char *fcmd = argv_concat(argv, argc, 0);
 	char cmd[256];
 	int rv;
-	char *fcmd = argv_concat(argv, argc, 0);
+
 	snprintf(cmd, sizeof(cmd), "do %s", fcmd);
 
 	/* FIXME: Needs to determine which daemon to send to via code ranges */
