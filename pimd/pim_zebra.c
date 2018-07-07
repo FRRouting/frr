@@ -561,7 +561,7 @@ void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
 				__PRETTY_FUNCTION__, source_str, group_str);
 		}
 		input_iface_vif_index = pim_ecmp_fib_lookup_if_vif_index(
-			c_oil->pim, vif_source, &src, &grp);
+			c_oil->pim, &src, &grp);
 	}
 
 	if (input_iface_vif_index < 1) {
@@ -953,8 +953,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 			}
 		} else
 			input_iface_vif_index =
-				pim_ecmp_fib_lookup_if_vif_index(
-					pim, vif_source, &src, &grp);
+				pim_ecmp_fib_lookup_if_vif_index(pim, &src,
+								 &grp);
 
 		if (PIM_DEBUG_ZEBRA) {
 			char buf2[INET_ADDRSTRLEN];
@@ -1153,7 +1153,7 @@ void pim_forward_start(struct pim_ifchannel *ch)
 		/* Register addr with Zebra NHT */
 		nht_p.family = AF_INET;
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
+		nht_p.u.prefix4 = up->upstream_addr;
 		grp.family = AF_INET;
 		grp.prefixlen = IPV4_MAX_BITLEN;
 		grp.u.prefix4 = up->sg.grp;
@@ -1204,8 +1204,8 @@ void pim_forward_start(struct pim_ifchannel *ch)
 			}
 		} else
 			input_iface_vif_index =
-				pim_ecmp_fib_lookup_if_vif_index(
-					pim, up->upstream_addr, &src, &grp);
+				pim_ecmp_fib_lookup_if_vif_index(pim, &src,
+								 &grp);
 
 		if (input_iface_vif_index < 1) {
 			if (PIM_DEBUG_PIM_TRACE) {

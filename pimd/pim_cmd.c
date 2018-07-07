@@ -4320,8 +4320,8 @@ DEFUN (show_ip_pim_nexthop_lookup,
 		result = pim_ecmp_nexthop_search(vrf->info, pnc, &nexthop,
 						 &nht_p, &grp, 0);
 	else
-		result = pim_ecmp_nexthop_lookup(vrf->info, &nexthop,
-						 vif_source, &nht_p, &grp, 0);
+		result = pim_ecmp_nexthop_lookup(vrf->info, &nexthop, &nht_p,
+						 &grp, 0);
 
 	if (!result) {
 		vty_out(vty,

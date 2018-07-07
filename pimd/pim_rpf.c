@@ -239,8 +239,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 				return PIM_RPF_FAILURE;
 		}
 	} else {
-		if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop,
-					     up->upstream_addr, &src,
+		if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop, &src,
 					     &grp, neigh_needed))
 			return PIM_RPF_FAILURE;
 	}
