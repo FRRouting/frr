@@ -513,6 +513,7 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			nbrs[i] = pim_neighbor_find(ifps[i],
 						    nh_node->gate.ipv4);
 			if (nbrs[i] || pim_if_connected_to_source(ifps[i],
+
 								  src->u.prefix4))
 				num_nbrs++;
 		}
