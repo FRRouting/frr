@@ -34,19 +34,10 @@ struct capability_mp_data {
 	uint8_t safi; /* iana_safi_t */
 };
 
-struct capability_as4 {
-	uint32_t as4;
-};
-
 struct graceful_restart_af {
 	afi_t afi;
 	safi_t safi;
 	uint8_t flag;
-};
-
-struct capability_gr {
-	uint16_t restart_flag_time;
-	struct graceful_restart_af gr[];
 };
 
 /* Capability Code */

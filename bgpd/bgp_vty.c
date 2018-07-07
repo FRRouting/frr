@@ -3372,8 +3372,6 @@ DEFUN (neighbor_set_peer_group,
 	struct peer *peer;
 	struct peer_group *group;
 
-	peer = NULL;
-
 	ret = str2sockunion(argv[idx_peer]->arg, &su);
 	if (ret < 0) {
 		peer = peer_lookup_by_conf_if(bgp, argv[idx_peer]->arg);

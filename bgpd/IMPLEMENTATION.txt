@@ -131,7 +131,6 @@ bgpd.h
   struct peer_group
   struct bgp_notify: (in-core representation of wire format?)
   struct bgp_nexthop: (v4 and v6 addresses, *ifp)
-  struct bgp_rd: router distinguisher: 8 octects
   struct bgp_filter: distribute, prefix, aslist, route_maps
   struct peer: neighbor structure (very rich/complex)
   struct bgp_nlri: reference to wire format

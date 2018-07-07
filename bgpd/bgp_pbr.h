@@ -57,16 +57,12 @@ struct bgp_pbr_match_val {
 	uint16_t value;
 	uint8_t compare_operator;
 	uint8_t unary_operator;
-} bgp_pbr_value_t;
+};
 
 #define FRAGMENT_DONT  1
 #define FRAGMENT_IS    2
 #define FRAGMENT_FIRST 4
 #define FRAGMENT_LAST  8
-
-struct bgp_pbr_fragment_val {
-	uint8_t bitmask;
-};
 
 struct bgp_pbr_entry_action {
 	/* used to store enum bgp_pbr_action_enum enumerate */

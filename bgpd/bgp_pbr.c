@@ -348,7 +348,7 @@ static bool bgp_pbr_extract_enumerate(struct bgp_pbr_match_val list[],
 				      void *valmask, uint8_t type_entry)
 {
 	bool ret;
-	uint8_t unary_operator_val = unary_operator;
+	uint8_t unary_operator_val;
 	bool double_check = false;
 
 	if ((unary_operator & OPERATOR_UNARY_OR) &&

@@ -2673,14 +2673,12 @@ static void bgp_rib_withdraw(struct bgp_node *rn, struct bgp_info *ri,
 			     struct peer *peer, afi_t afi, safi_t safi,
 			     struct prefix_rd *prd)
 {
-	int status = BGP_DAMP_NONE;
-
 	/* apply dampening, if result is suppressed, we'll be retaining
 	 * the bgp_info in the RIB for historical reference.
 	 */
 	if (CHECK_FLAG(peer->bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
 	    && peer->sort == BGP_PEER_EBGP)
-		if ((status = bgp_damp_withdraw(ri, rn, afi, safi, 0))
+		if ((bgp_damp_withdraw(ri, rn, afi, safi, 0))
 		    == BGP_DAMP_SUPPRESSED) {
 			bgp_aggregate_decrement(peer->bgp, &rn->p, ri, afi,
 						safi);

@@ -91,7 +91,6 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	afi_t afi;
 	safi_t safi;
 	int psize = 0;
-	uint8_t rlen;
 	struct prefix p;
 	int ret;
 	void *temp;
@@ -121,7 +120,7 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 		if (pnt + 1 > lim)
 			return -1;
 
-		psize = rlen = *pnt++;
+		psize = *pnt++;
 
 		/* When packet overflow occur return immediately. */
 		if (pnt + psize > lim) {

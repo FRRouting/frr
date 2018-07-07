@@ -25,16 +25,5 @@ typedef enum {
 	BGP_VNC_SUBTLV_TYPE_RFPOPTION = 2, /* deprecated */
 } bgp_vnc_subtlv_types;
 
-/*
- * VNC Attribute subtlvs
- */
-struct bgp_vnc_subtlv_lifetime {
-	uint32_t lifetime;
-};
-
-struct bgp_vnc_subtlv_unaddr {
-	struct prefix un_address; /* IPv4 or IPv6; pfx length ignored */
-};
-
 #endif /* ENABLE_BGP_VNC */
 #endif /* _QUAGGA_BGP_VNC_TYPES_H */
