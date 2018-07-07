@@ -460,7 +460,7 @@ int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
 }
 
 int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
-		     struct ethaddr *mac)
+		     struct ethaddr *mac, uint8_t flags)
 {
 	return 0;
 }

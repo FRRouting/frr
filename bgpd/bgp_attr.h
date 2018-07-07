@@ -185,6 +185,9 @@ struct attr {
 	/* Flag for default gateway extended community in EVPN */
 	uint8_t default_gw;
 
+	/* NA router flag (R-bit) support in EVPN */
+	uint8_t router_flag;
+
 	/* route tag */
 	route_tag_t tag;
 

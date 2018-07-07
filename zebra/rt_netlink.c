@@ -2151,6 +2151,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	char buf2[INET6_ADDRSTRLEN];
 	int mac_present = 0;
 	uint8_t ext_learned;
+	uint8_t router_flag;
 
 	ndm = NLMSG_DATA(h);
 
@@ -2241,6 +2242,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		}
 
 		ext_learned = (ndm->ndm_flags & NTF_EXT_LEARNED) ? 1 : 0;
+		router_flag = (ndm->ndm_flags & NTF_ROUTER) ? 1 : 0;
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -2263,7 +2265,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		if (ndm->ndm_state & NUD_VALID)
 			return zebra_vxlan_handle_kernel_neigh_update(
 				ifp, link_if, &ip, &mac, ndm->ndm_state,
-				ext_learned);
+				ext_learned, router_flag);
 
 		return zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 	}
@@ -2391,7 +2393,8 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 }
 
 static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
-				 struct ethaddr *mac, uint32_t flags, int cmd)
+				 struct ethaddr *mac, uint8_t flags,
+				 uint16_t state, int cmd)
 {
 	struct {
 		struct nlmsghdr n;
@@ -2414,11 +2417,10 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 		req.n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
 	req.n.nlmsg_type = cmd; // RTM_NEWNEIGH or RTM_DELNEIGH
 	req.ndm.ndm_family = IS_IPADDR_V4(ip) ? AF_INET : AF_INET6;
-	req.ndm.ndm_state = flags;
+	req.ndm.ndm_state = state;
 	req.ndm.ndm_ifindex = ifp->ifindex;
 	req.ndm.ndm_type = RTN_UNICAST;
-	req.ndm.ndm_flags = NTF_EXT_LEARNED;
-
+	req.ndm.ndm_flags = flags;
 
 	ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
 	addattr_l(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len);
@@ -2426,12 +2428,12 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 		addattr_l(&req.n, sizeof(req), NDA_LLADDR, mac, 6);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Tx %s family %s IF %s(%u) Neigh %s MAC %s",
+		zlog_debug("Tx %s family %s IF %s(%u) Neigh %s MAC %s flags 0x%x",
 			   nl_msg_type_to_str(cmd),
 			   nl_family_to_str(req.ndm.ndm_family), ifp->name,
 			   ifp->ifindex, ipaddr2str(ip, buf, sizeof(buf)),
 			   mac ? prefix_mac2str(mac, buf2, sizeof(buf2))
-			       : "null");
+			       : "null", flags);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);
@@ -2452,14 +2454,15 @@ int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
 }
 
 int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
-		     struct ethaddr *mac)
+		     struct ethaddr *mac, uint8_t flags)
 {
-	return netlink_neigh_update2(ifp, ip, mac, NUD_NOARP, RTM_NEWNEIGH);
+	return netlink_neigh_update2(ifp, ip, mac, flags,
+				     NUD_NOARP, RTM_NEWNEIGH);
 }
 
 int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip)
 {
-	return netlink_neigh_update2(ifp, ip, NULL, 0, RTM_DELNEIGH);
+	return netlink_neigh_update2(ifp, ip, NULL, 0, 0, RTM_DELNEIGH);
 }
 
 /*

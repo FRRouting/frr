@@ -329,6 +329,7 @@ struct zebra_neigh_t_ {
 #define ZEBRA_NEIGH_REMOTE    0x02
 #define ZEBRA_NEIGH_REMOTE_NH    0x04 /* neigh entry for remote vtep */
 #define ZEBRA_NEIGH_DEF_GW    0x08
+#define ZEBRA_NEIGH_ROUTER_FLAG 0x10
 
 	enum zebra_neigh_state state;
 
