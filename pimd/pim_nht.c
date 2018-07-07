@@ -979,17 +979,11 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 				     struct in_addr addr, struct prefix *src,
 				     struct prefix *grp)
 {
-	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
-	int num_ifindex;
+	struct pim_nexthop nhop;
 	int vif_index;
-	ifindex_t first_ifindex;
-	uint32_t hash_val = 0, mod_val = 0;
+	ifindex_t ifindex;
 
-	memset(nexthop_tab, 0,
-	       sizeof(struct pim_zlookup_nexthop) * MULTIPATH_NUM);
-	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, MULTIPATH_NUM,
-					     addr, PIM_NEXTHOP_LOOKUP_MAX);
-	if (num_ifindex < 1) {
+	if (!pim_ecmp_nexthop_lookup(pim, &nhop, addr, src, grp, 0)) {
 		if (PIM_DEBUG_PIM_NHT) {
 			char addr_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<addr?>", addr, addr_str,
@@ -1001,28 +995,18 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 		return -1;
 	}
 
-	// If PIM ECMP enable then choose ECMP path.
-	if (pim->ecmp_enable) {
-		hash_val = pim_compute_ecmp_hash(src, grp);
-		mod_val = hash_val % num_ifindex;
-		if (PIM_DEBUG_PIM_NHT_DETAIL)
-			zlog_debug("%s: hash_val %u mod_val %u",
-				   __PRETTY_FUNCTION__, hash_val, mod_val);
-	}
-
-	first_ifindex = nexthop_tab[mod_val].ifindex;
-
+	ifindex = nhop.interface->ifindex;
 	if (PIM_DEBUG_PIM_NHT) {
 		char addr_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<ifaddr?>", addr, addr_str, sizeof(addr_str));
 		zlog_debug(
 			"%s: found nexthop ifindex=%d (interface %s(%s)) for address %s",
-			__PRETTY_FUNCTION__, first_ifindex,
-			ifindex2ifname(first_ifindex, pim->vrf_id),
+			__PRETTY_FUNCTION__, ifindex,
+			ifindex2ifname(ifindex, pim->vrf_id),
 			pim->vrf->name, addr_str);
 	}
 
-	vif_index = pim_if_find_vifindex_by_ifindex(pim, first_ifindex);
+	vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
 
 	if (vif_index < 0) {
 		if (PIM_DEBUG_PIM_NHT) {
