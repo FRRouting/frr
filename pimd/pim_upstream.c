@@ -603,11 +603,6 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	struct pim_upstream *up;
 
 	up = XCALLOC(MTYPE_PIM_UPSTREAM, sizeof(*up));
-	if (!up) {
-		zlog_err("%s: PIM XCALLOC(%zu) failure", __PRETTY_FUNCTION__,
-			 sizeof(*up));
-		return NULL;
-	}
 
 	up->sg = *sg;
 	pim_str_sg_set(sg, up->sg_str);

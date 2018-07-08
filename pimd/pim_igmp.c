@@ -860,18 +860,8 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	}
 
 	igmp = XCALLOC(MTYPE_PIM_IGMP_SOCKET, sizeof(*igmp));
-	if (!igmp) {
-		zlog_warn("%s %s: XCALLOC() failure", __FILE__,
-			  __PRETTY_FUNCTION__);
-		return 0;
-	}
 
 	igmp->igmp_group_list = list_new();
-	if (!igmp->igmp_group_list) {
-		zlog_err("%s %s: failure: igmp_group_list = list_new()",
-			 __FILE__, __PRETTY_FUNCTION__);
-		return 0;
-	}
 	igmp->igmp_group_list->del = (void (*)(void *))igmp_group_free;
 
 	snprintf(hash_name, 64, "IGMP %s hash", ifp->name);
@@ -1130,19 +1120,8 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	*/
 
 	group = XCALLOC(MTYPE_PIM_IGMP_GROUP, sizeof(*group));
-	if (!group) {
-		zlog_warn("%s %s: XCALLOC() failure", __FILE__,
-			  __PRETTY_FUNCTION__);
-		return NULL; /* error, not found, could not create */
-	}
 
 	group->group_source_list = list_new();
-	if (!group->group_source_list) {
-		zlog_warn("%s %s: list_new() failure", __FILE__,
-			  __PRETTY_FUNCTION__);
-		XFREE(MTYPE_PIM_IGMP_GROUP, group); /* discard group */
-		return NULL; /* error, not found, could not initialize */
-	}
 	group->group_source_list->del = (void (*)(void *))igmp_source_free;
 
 	group->t_group_timer = NULL;

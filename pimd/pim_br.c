@@ -64,10 +64,6 @@ void pim_br_set_pmbr(struct prefix_sg *sg, struct in_addr br)
 
 	if (!pim_br) {
 		pim_br = XCALLOC(MTYPE_PIM_BR, sizeof(*pim_br));
-		if (!pim_br) {
-			zlog_err("PIM XCALLOC(%zu) failure", sizeof(*pim_br));
-			return;
-		}
 
 		pim_br->sg = *sg;
 
@@ -100,9 +96,4 @@ void pim_br_clear_pmbr(struct prefix_sg *sg)
 void pim_br_init(void)
 {
 	pim_br_list = list_new();
-	if (!pim_br_list) {
-		zlog_err("%s: Failure to create pim_br_list",
-			 __PRETTY_FUNCTION__);
-		return;
-	}
 }

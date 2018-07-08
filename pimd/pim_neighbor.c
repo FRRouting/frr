@@ -305,11 +305,6 @@ pim_neighbor_new(struct interface *ifp, struct in_addr source_addr,
 	zassert(pim_ifp);
 
 	neigh = XCALLOC(MTYPE_PIM_NEIGHBOR, sizeof(*neigh));
-	if (!neigh) {
-		zlog_err("%s: PIM XCALLOC(%zu) failure", __PRETTY_FUNCTION__,
-			 sizeof(*neigh));
-		return 0;
-	}
 
 	neigh->creation = pim_time_monotonic_sec();
 	neigh->source_addr = source_addr;

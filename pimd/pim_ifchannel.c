@@ -520,12 +520,6 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	pim_ifp = ifp->info;
 
 	ch = XCALLOC(MTYPE_PIM_IFCHANNEL, sizeof(*ch));
-	if (!ch) {
-		zlog_warn(
-			"%s: pim_ifchannel_new() failure for (S,G)=%s on interface %s",
-			__PRETTY_FUNCTION__, pim_str_sg_dump(sg), ifp->name);
-		return NULL;
-	}
 
 	ch->flags = 0;
 	if ((source_flags & PIM_ENCODE_RPT_BIT)

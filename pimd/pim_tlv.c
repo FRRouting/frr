@@ -757,12 +757,6 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 		 */
 		if (!*hello_option_addr_list) {
 			*hello_option_addr_list = list_new();
-			if (!*hello_option_addr_list) {
-				zlog_err(
-					"%s %s: failure: hello_option_addr_list=list_new()",
-					__FILE__, __PRETTY_FUNCTION__);
-				return -2;
-			}
 			(*hello_option_addr_list)->del =
 				(void (*)(void *))prefix_free;
 		}

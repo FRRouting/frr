@@ -92,10 +92,6 @@ static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
 
 	pnc = XCALLOC(MTYPE_PIM_NEXTHOP_CACHE,
 		      sizeof(struct pim_nexthop_cache));
-	if (!pnc) {
-		zlog_err("%s: NHT PIM XCALLOC failure ", __PRETTY_FUNCTION__);
-		return NULL;
-	}
 	pnc->rpf.rpf_addr.family = rpf_addr->rpf_addr.family;
 	pnc->rpf.rpf_addr.prefixlen = rpf_addr->rpf_addr.prefixlen;
 	pnc->rpf.rpf_addr.u.prefix4.s_addr =
@@ -140,14 +136,6 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	pnc = pim_nexthop_cache_find(pim, &rpf);
 	if (!pnc) {
 		pnc = pim_nexthop_cache_add(pim, &rpf);
-		if (!pnc) {
-			char rpf_str[PREFIX_STRLEN];
-			pim_addr_dump("<nht-pnc?>", addr, rpf_str,
-				      sizeof(rpf_str));
-			zlog_warn("%s: pnc node allocation failed. addr %s ",
-				  __PRETTY_FUNCTION__, rpf_str);
-			return 0;
-		}
 		pim_sendmsg_zebra_rnh(pim, zclient, pnc,
 				      ZEBRA_NEXTHOP_REGISTER);
 		if (PIM_DEBUG_PIM_NHT) {
@@ -168,7 +156,7 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	if (up != NULL)
 		hash_get(pnc->upstream_hash, up, hash_alloc_intern);
 
-	if (pnc && CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID)) {
+	if (CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID)) {
 		memcpy(out_pnc, pnc, sizeof(struct pim_nexthop_cache));
 		return 1;
 	}

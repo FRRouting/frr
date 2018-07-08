@@ -115,13 +115,6 @@ void pim_rp_init(struct pim_instance *pim)
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
-	if (!rp_info) {
-		zlog_err("Unable to alloc rp_info");
-		route_table_finish(pim->rp_table);
-		list_delete_and_null(&pim->rp_list);
-		return;
-	}
-
 	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
 		zlog_err("Unable to convert 224.0.0.0/4 to prefix");
 		list_delete_and_null(&pim->rp_list);
@@ -365,8 +358,6 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 	struct route_node *rn;
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
-	if (!rp_info)
-		return PIM_MALLOC_FAIL;
 
 	if (group_range == NULL)
 		result = str2prefix("224.0.0.0/4", &rp_info->group);
@@ -534,12 +525,6 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 
 	listnode_add_sort(pim->rp_list, rp_info);
 	rn = route_node_get(pim->rp_table, &rp_info->group);
-	if (!rn) {
-		char buf[PREFIX_STRLEN];
-		zlog_err("Failure to get route node for pim->rp_table: %s",
-			 prefix2str(&rp_info->group, buf, sizeof(buf)));
-		return PIM_MALLOC_FAIL;
-	}
 	rn->info = rp_info;
 
 	if (PIM_DEBUG_TRACE) {

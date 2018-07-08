@@ -69,8 +69,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	char hash_name[64];
 
 	pim = XCALLOC(MTYPE_PIM_PIM_INSTANCE, sizeof(struct pim_instance));
-	if (!pim)
-		return NULL;
 
 	pim_if_init(pim);
 
@@ -102,12 +100,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	}
 
 	pim->static_routes = list_new();
-	if (!pim->static_routes) {
-		zlog_err("%s %s: failure: static_routes=list_new()", __FILE__,
-			 __PRETTY_FUNCTION__);
-		pim_instance_terminate(pim);
-		return NULL;
-	}
 	pim->static_routes->del = (void (*)(void *))pim_static_route_free;
 
 	pim->send_v6_secondary = 1;
