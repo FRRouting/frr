@@ -131,6 +131,7 @@ struct quagga_signal_t eigrp_signals[] = {
 };
 
 static const struct frr_yang_module_info *eigrpd_yang_modules[] = {
+	&frr_interface_info,
 };
 
 FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,

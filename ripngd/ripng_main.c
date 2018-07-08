@@ -119,6 +119,7 @@ struct quagga_signal_t ripng_signals[] = {
 };
 
 static const struct frr_yang_module_info *ripngd_yang_modules[] = {
+	&frr_interface_info,
 };
 
 FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,

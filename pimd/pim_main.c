@@ -72,6 +72,7 @@ struct zebra_privs_t pimd_privs = {
 	.cap_num_i = 0};
 
 static const struct frr_yang_module_info *pimd_yang_modules[] = {
+	&frr_interface_info,
 };
 
 FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,

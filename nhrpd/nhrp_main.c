@@ -117,6 +117,7 @@ static struct quagga_signal_t sighandlers[] = {
 };
 
 static const struct frr_yang_module_info *nhrpd_yang_modules[] = {
+	&frr_interface_info,
 };
 
 FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,

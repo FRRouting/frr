@@ -124,6 +124,7 @@ struct quagga_signal_t ospf_signals[] = {
 };
 
 static const struct frr_yang_module_info *ospfd_yang_modules[] = {
+	&frr_interface_info,
 };
 
 FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,

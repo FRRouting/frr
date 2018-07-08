@@ -1211,3 +1211,61 @@ void if_link_params_free(struct interface *ifp)
 	XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
 	ifp->link_params = NULL;
 }
+
+/* ------- Northbound callbacks ------- */
+
+/*
+ * XPath: /frr-interface:lib/interface
+ */
+static int lib_interface_create(enum nb_event event,
+				const struct lyd_node *dnode,
+				union nb_resource *resource)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+static int lib_interface_delete(enum nb_event event,
+				const struct lyd_node *dnode)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/description
+ */
+static int lib_interface_description_modify(enum nb_event event,
+					    const struct lyd_node *dnode,
+					    union nb_resource *resource)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+static int lib_interface_description_delete(enum nb_event event,
+					    const struct lyd_node *dnode)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+/* clang-format off */
+const struct frr_yang_module_info frr_interface_info = {
+	.name = "frr-interface",
+	.nodes = {
+		{
+			.xpath = "/frr-interface:lib/interface",
+			.cbs.create = lib_interface_create,
+			.cbs.delete = lib_interface_delete,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/description",
+			.cbs.modify = lib_interface_description_modify,
+			.cbs.delete = lib_interface_description_delete,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};

@@ -138,6 +138,7 @@ struct option longopts[] =
 
 static const struct frr_yang_module_info *babeld_yang_modules[] =
   {
+    &frr_interface_info,
   };
 
 FRR_DAEMON_INFO(babeld, BABELD,

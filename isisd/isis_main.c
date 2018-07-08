@@ -151,6 +151,7 @@ struct quagga_signal_t isisd_signals[] = {
 };
 
 static const struct frr_yang_module_info *isisd_yang_modules[] = {
+	&frr_interface_info,
 };
 
 #ifdef FABRICD

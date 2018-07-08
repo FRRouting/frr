@@ -1,1 +1,2 @@
 dist_yangmodels_DATA += yang/frr-module-translator.yang
+dist_yangmodels_DATA += yang/frr-interface.yang
