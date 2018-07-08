@@ -220,6 +220,9 @@ struct cmd_node {
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)            \
 	funcdecl_##funcname
 
+#define DEFPY_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
+	DEFPY(funcname, cmdname, cmdstr, helpstr)
+
 #define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)         \
 	funcdecl_##funcname
@@ -301,6 +304,9 @@ struct cmd_node {
 #else /* VTYSH_EXTRACT_PL */
 #define DEFPY(funcname, cmdname, cmdstr, helpstr)                              \
 	DEFUN(funcname, cmdname, cmdstr, helpstr)
+
+#define DEFPY_NOSH(funcname, cmdname, cmdstr, helpstr)                         \
+	DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr)
 
 #define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)
