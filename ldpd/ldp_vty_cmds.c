@@ -29,7 +29,7 @@
 #include "ldpd/ldp_vty_cmds_clippy.c"
 #endif
 
-DEFUN_NOSH(ldp_mpls_ldp,
+DEFPY_NOSH(ldp_mpls_ldp,
 	ldp_mpls_ldp_cmd,
 	"mpls ldp",
 	"Global MPLS configuration subcommands\n"
@@ -48,21 +48,15 @@ DEFPY  (no_ldp_mpls_ldp,
 	return (ldp_vty_mpls_ldp(vty, "no"));
 }
 
-DEFUN_NOSH(ldp_l2vpn,
+DEFPY_NOSH(ldp_l2vpn,
 	ldp_l2vpn_cmd,
-	"l2vpn WORD type vpls",
+	"l2vpn WORD$l2vpn_name type vpls",
 	"Configure l2vpn commands\n"
 	"L2VPN name\n"
 	"L2VPN type\n"
 	"Virtual Private LAN Service\n")
 {
-	int		 idx = 0;
-	const char	*name;
-
-	argv_find(argv, argc, "WORD", &idx);
-	name = argv[idx]->arg;
-
-	return (ldp_vty_l2vpn(vty, 0, name));
+	return (ldp_vty_l2vpn(vty, NULL, l2vpn_name));
 }
 
 DEFPY  (no_ldp_l2vpn,
@@ -77,20 +71,14 @@ DEFPY  (no_ldp_l2vpn,
 	return (ldp_vty_l2vpn(vty, "no", l2vpn_name));
 }
 
-DEFUN_NOSH(ldp_address_family,
+DEFPY_NOSH(ldp_address_family,
 	ldp_address_family_cmd,
-	"address-family <ipv4|ipv6>",
+	"address-family <ipv4|ipv6>$af",
 	"Configure Address Family and its parameters\n"
 	"IPv4\n"
 	"IPv6\n")
 {
-	int		 idx = 0;
-	const char	*af;
-
-	argv_find(argv, argc, "address-family", &idx);
-	af = argv[idx + 1]->text;
-
-	return (ldp_vty_address_family(vty, 0, af));
+	return (ldp_vty_address_family(vty, NULL, af));
 }
 
 DEFPY  (no_ldp_address_family,
@@ -104,7 +92,7 @@ DEFPY  (no_ldp_address_family,
 	return (ldp_vty_address_family(vty, "no", af));
 }
 
-DEFUN_NOSH(ldp_exit_address_family,
+DEFPY_NOSH(ldp_exit_address_family,
        ldp_exit_address_family_cmd,
        "exit-address-family",
        "Exit from Address Family configuration mode\n")
@@ -361,19 +349,13 @@ DEFPY  (ldp_session_holdtime,
 	return (ldp_vty_af_session_holdtime(vty, no, holdtime));
 }
 
-DEFUN_NOSH(ldp_interface,
+DEFPY_NOSH(ldp_interface,
 	ldp_interface_cmd,
-	"interface IFNAME",
+	"interface IFNAME$ifname",
 	"Enable LDP on an interface and enter interface submode\n"
 	"Interface's name\n")
 {
-	int		 idx = 0;
-	const char	*ifname;
-
-	argv_find(argv, argc, "IFNAME", &idx);
-	ifname = argv[idx]->arg;
-
-	return (ldp_vty_interface(vty, 0, ifname));
+	return (ldp_vty_interface(vty, NULL, ifname));
 }
 
 DEFPY  (no_ldp_interface,
@@ -439,20 +421,14 @@ DEFPY  (ldp_member_interface,
 	return (ldp_vty_l2vpn_interface(vty, no, ifname));
 }
 
-DEFUN_NOSH(ldp_member_pseudowire,
+DEFPY_NOSH(ldp_member_pseudowire,
 	ldp_member_pseudowire_cmd,
-	"member pseudowire IFNAME",
+	"member pseudowire IFNAME$ifname",
 	"L2VPN member configuration\n"
 	"Pseudowire interface\n"
 	"Interface's name\n")
 {
-	int		 idx = 0;
-	const char	*ifname;
-
-	argv_find(argv, argc, "IFNAME", &idx);
-	ifname = argv[idx]->arg;
-
-	return (ldp_vty_l2vpn_pseudowire(vty, 0, ifname));
+	return (ldp_vty_l2vpn_pseudowire(vty, NULL, ifname));
 }
 
 DEFPY  (no_ldp_member_pseudowire,
@@ -759,7 +735,7 @@ DEFPY  (ldp_show_l2vpn_atom_vc,
 	return (ldp_vty_show_atom_vc(vty, peer_str, ifname, vcid_str, json));
 }
 
-DEFUN_NOSH (ldp_show_debugging_mpls_ldp,
+DEFPY_NOSH (ldp_show_debugging_mpls_ldp,
 	    ldp_show_debugging_mpls_ldp_cmd,
 	    "show debugging [mpls ldp]",
 	    "Show running system information\n"
