@@ -87,6 +87,9 @@ foreach (@ARGV) {
         elsif ($file =~ /lib\/vrf\.c$/) {
             $protocol = "VTYSH_VRF";
         }
+        elsif ($file =~ /lib\/if\.c$/) {
+            $protocol = "VTYSH_INTERFACE";
+        }
         elsif ($file =~ /lib\/logicalrouter\.c$/) {
             $protocol = "VTYSH_ALL";
         }

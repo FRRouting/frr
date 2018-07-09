@@ -2018,18 +2018,6 @@ DEFUNSH(VTYSH_ZEBRA, vtysh_pseudowire, vtysh_pseudowire_cmd,
 	return CMD_SUCCESS;
 }
 
-/* TODO Implement "no interface command in isisd. */
-DEFSH(VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D
-	      | VTYSH_EIGRPD,
-      vtysh_no_interface_cmd, "no interface IFNAME", NO_STR
-      "Delete a pseudo interface's configuration\n"
-      "Interface's name\n")
-
-DEFSH(VTYSH_ZEBRA, vtysh_no_interface_vrf_cmd, "no interface IFNAME vrf NAME",
-      NO_STR
-      "Delete a pseudo interface's configuration\n"
-      "Interface's name\n" VRF_CMD_HELP_STR)
-
 DEFUNSH(VTYSH_ZEBRA, vtysh_logicalrouter, vtysh_logicalrouter_cmd,
 	"logical-router (1-65535) ns NAME",
 	"Enable a logical-router\n"
@@ -2118,19 +2106,6 @@ DEFUNSH(VTYSH_VRF, vtysh_quit_nexthop_group, vtysh_quit_nexthop_group_cmd,
 {
 	return vtysh_exit_nexthop_group(self, vty, argc, argv);
 }
-
-/*
- * TODO Implement interface description commands in ripngd, ospf6d
- * and isisd.
- */
-DEFSH(VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_OSPFD | VTYSH_EIGRPD,
-      vtysh_interface_desc_cmd, "description LINE...",
-      "Interface specific description\n"
-      "Characters describing this interface\n")
-
-DEFSH(VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_OSPFD | VTYSH_EIGRPD,
-      vtysh_no_interface_desc_cmd, "no description",
-      NO_STR "Interface specific description\n")
 
 DEFUNSH(VTYSH_INTERFACE, vtysh_exit_interface, vtysh_exit_interface_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
@@ -3584,8 +3559,6 @@ void vtysh_init_vty(void)
 	install_element(PBRMAP_NODE, &vtysh_end_all_cmd);
 	install_element(VTY_NODE, &vtysh_end_all_cmd);
 
-	install_element(INTERFACE_NODE, &vtysh_interface_desc_cmd);
-	install_element(INTERFACE_NODE, &vtysh_no_interface_desc_cmd);
 	install_element(INTERFACE_NODE, &vtysh_end_all_cmd);
 	install_element(INTERFACE_NODE, &vtysh_exit_interface_cmd);
 	install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
@@ -3689,8 +3662,6 @@ void vtysh_init_vty(void)
 	install_element(KEYCHAIN_NODE, &key_chain_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &key_chain_cmd);
 	install_element(CONFIG_NODE, &vtysh_interface_cmd);
-	install_element(CONFIG_NODE, &vtysh_no_interface_cmd);
-	install_element(CONFIG_NODE, &vtysh_no_interface_vrf_cmd);
 	install_element(CONFIG_NODE, &vtysh_pseudowire_cmd);
 	install_element(INTERFACE_NODE, &vtysh_link_params_cmd);
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);

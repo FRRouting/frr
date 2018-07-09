@@ -258,6 +258,11 @@ int pim_interface_config_write(struct vty *vty)
 					  ifp->name, vrf->name);
 			++writes;
 
+			if (ifp->desc) {
+				vty_out(vty, " description %s\n", ifp->desc);
+				++writes;
+			}
+
 			if (ifp->info) {
 				struct pim_interface *pim_ifp = ifp->info;
 
