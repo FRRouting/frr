@@ -2336,27 +2336,6 @@ DEFUN (no_ospf_timers_lsa_min_arrival,
 	return CMD_SUCCESS;
 }
 
-#if defined(VERSION_TYPE_DEV) && CONFDATE > 20180708
-CPP_NOTICE("ospf: `timers lsa arrival (0-1000)` deprecated 2017/07/08")
-#endif
-ALIAS_HIDDEN(ospf_timers_lsa_min_arrival, ospf_timers_lsa_arrival_cmd,
-	     "timers lsa arrival (0-1000)",
-	     "adjust routing timers\n"
-	     "throttling link state advertisement delays\n"
-	     "ospf minimum arrival interval delay\n"
-	     "delay (msec) between accepted lsas\n");
-
-#if defined(VERSION_TYPE_DEV) && CONFDATE > 20180708
-CPP_NOTICE("ospf: `no timers lsa arrival (0-1000)` deprecated 2017/07/08")
-#endif
-ALIAS_HIDDEN(no_ospf_timers_lsa_min_arrival, no_ospf_timers_lsa_arrival_cmd,
-	     "no timers lsa arrival (0-1000)", NO_STR
-	     "adjust routing timers\n"
-	     "throttling link state advertisement delays\n"
-	     "ospf minimum arrival interval delay\n"
-	     "delay (msec) between accepted lsas\n");
-
-
 DEFUN (ospf_neighbor,
        ospf_neighbor_cmd,
        "neighbor A.B.C.D [priority (0-255) [poll-interval (1-65535)]]",
@@ -10661,8 +10640,6 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &no_ospf_timers_min_ls_interval_cmd);
 	install_element(OSPF_NODE, &ospf_timers_lsa_min_arrival_cmd);
 	install_element(OSPF_NODE, &no_ospf_timers_lsa_min_arrival_cmd);
-	install_element(OSPF_NODE, &ospf_timers_lsa_arrival_cmd);
-	install_element(OSPF_NODE, &no_ospf_timers_lsa_arrival_cmd);
 
 	/* refresh timer commands */
 	install_element(OSPF_NODE, &ospf_refresh_timer_cmd);
