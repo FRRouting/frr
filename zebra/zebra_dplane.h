@@ -145,6 +145,7 @@ typedef enum {
 	DPLANE_PRIO_PRE_KERNEL,
 	DPLANE_PRIO_KERNEL,
 	DPLANE_PRIO_POSTPROCESS,
+	DPLANE_PRIO_LAST
 }  dplane_provider_prio_e;
 
 /* Provider's entry-point to process a context block */
