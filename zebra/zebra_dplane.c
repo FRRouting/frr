@@ -29,6 +29,7 @@
 
 /* Memory type for context blocks */
 DEFINE_MTYPE(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
+DEFINE_MTYPE(ZEBRA, DP_PROV, "Zebra DPlane Provider")
 
 #ifndef AOK
 #  define AOK 0
@@ -104,6 +105,8 @@ struct zebra_dplane_ctx_s {
 	/* Nexthops */
 	struct nexthop_group zd_ng;
 
+	/* TODO -- use fixed array of nexthops, to avoid mallocs? */
+
 	/* Embedded list linkage */
 	TAILQ_ENTRY(zebra_dplane_ctx_s) zd_q_entries;
 
@@ -125,10 +128,12 @@ struct zebra_dplane_provider_s {
 	uint32_t dp_id;
 
 	/* Event pointer for use by the dplane thread */
-	struct thread *dp_t_event;
+//	struct thread *dp_t_event;
+
+	dplane_provider_process_fp dp_fp;
 
 	/* Embedded list linkage */
-	TAILQ_ENTRY(zebra_dplane_dest_s) dp_q_providers;
+	TAILQ_ENTRY(zebra_dplane_provider_s) dp_q_providers;
 
 };
 
@@ -147,6 +152,9 @@ static struct zebra_dplane_globals_s {
 
 	/* Ordered list of providers */
 	TAILQ_HEAD(zdg_prov_q, zebra_dplane_provider_s) dg_providers_q;
+
+	/* Counter used to assign ids to providers */
+	uint32_t dg_provider_id;
 
 	/* Event-delivery context 'master' for the dplane */
 	struct thread_master *dg_master;
@@ -171,11 +179,15 @@ static int dplane_route_process(struct thread *event);
  */
 
 /*
- * Allocate an opaque context block
+ * Allocate a dataplane update context
  */
 dplane_ctx_h dplane_ctx_alloc(void)
 {
 	struct zebra_dplane_ctx_s *p;
+
+	/* TODO -- just alloc'ing memory, but would like to maintain
+	 * a pool
+	 */
 
 	p = XCALLOC(MTYPE_DP_CTX, sizeof(struct zebra_dplane_ctx_s));
 	if (p) {
@@ -186,12 +198,16 @@ dplane_ctx_h dplane_ctx_alloc(void)
 }
 
 /*
- * Free memory for a dataplane results context block.
+ * Free a dataplane results context.
  */
 static void dplane_ctx_free(dplane_ctx_h *pctx)
 {
 	if (pctx) {
 		DPLANE_CTX_VALID(*pctx);
+
+		/* TODO -- just freeing memory, but would like to maintain
+		 * a pool
+		 */
 
 		/* Free embedded nexthops */
 		if ((*pctx)->zd_ng.nexthop) {
@@ -513,6 +529,8 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	/* Copy nexthops; recursive info is included too */
 	copy_nexthops(&(ctx->zd_ng.nexthop), re->ng.nexthop, NULL);
 
+	/* TODO -- maybe use array of nexthops to avoid allocs? */
+
 	/* Trying out the sequence number idea, so we can try to detect
 	 * when a result is stale.
 	 */
@@ -595,7 +613,8 @@ dplane_route_update_internal(struct route_node *rn,
 		/* Capture some extra info for update case
 		 * where there's a different 'old' route.
 		 */
-		if ((op == DPLANE_OP_ROUTE_UPDATE) && old_re && (old_re != re)) {
+		if ((op == DPLANE_OP_ROUTE_UPDATE) &&
+		    old_re && (old_re != re)) {
 			ctx->zd_is_update = true;
 
 			old_re->dplane_sequence++;
@@ -693,6 +712,8 @@ static int dplane_route_process(struct thread *event)
 			break;
 		}
 
+		/* TODO -- support series of providers */
+
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
 			char dest_str[PREFIX_STRLEN];
 
@@ -704,11 +725,10 @@ static int dplane_route_process(struct thread *event)
 				   ctx, dplane_op2str(dplane_ctx_get_op(ctx)));
 		}
 
+		/* Initially, just doing kernel-facing update here */
 		res = kernel_route_update(ctx);
 
 		ctx->zd_status = res;
-
-		/* TODO -- support series of providers */
 
 		/* Enqueue result to zebra main context */
 		(*zdplane_g.dg_results_cb)(ctx);
@@ -717,6 +737,60 @@ static int dplane_route_process(struct thread *event)
 	}
 
 	return (0);
+}
+
+/*
+ * Provider registration
+ */
+int dplane_provider_register(const char *name,
+			     dplane_provider_prio_e prio,
+			     dplane_provider_process_fp fp)
+{
+	int ret = 0;
+	struct zebra_dplane_provider_s *p, *last;
+
+	/* Validate */
+	if (fp == NULL) {
+		ret = EINVAL;
+		goto done;
+	}
+
+	if (prio <= DPLANE_PRIO_NONE ||
+	    prio >= DPLANE_PRIO_LAST) {
+		ret = EINVAL;
+		goto done;
+	}
+
+	/* Allocate and init new provider struct */
+	p = XCALLOC(MTYPE_DP_PROV, sizeof(struct zebra_dplane_provider_s));
+	if (p == NULL) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	strncpy(p->dp_name, name, DPLANE_PROVIDER_NAMELEN);
+	p->dp_name[DPLANE_PROVIDER_NAMELEN] = '\0';
+
+	p->dp_priority = prio;
+	p->dp_fp = fp;
+
+	p->dp_id = ++zdplane_g.dg_provider_id;
+
+	/* Insert into list ordered by priority */
+	TAILQ_FOREACH(last, &zdplane_g.dg_providers_q, dp_q_providers) {
+		if (last->dp_priority > p->dp_priority) {
+			break;
+		}
+	}
+
+	if (last) {
+		TAILQ_INSERT_BEFORE(last, p, dp_q_providers);
+	} else {
+		TAILQ_INSERT_TAIL(&zdplane_g.dg_providers_q, p, dp_q_providers);
+	}
+
+done:
+	return (ret);
 }
 
 /*
@@ -740,6 +814,8 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 	TAILQ_INIT(&zdplane_g.dg_route_ctx_q);
 	TAILQ_INIT(&zdplane_g.dg_providers_q);
 
+	/* TODO -- register kernel 'provider' during init */
+
 	/* TODO -- using zebra core event thread temporarily */
 	zdplane_g.dg_master = zebra->master;
 
@@ -747,7 +823,7 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 }
 
 /*
- * Initialize the dataplane module at startup.
+ * Initialize the dataplane module at startup; called by zebra rib_init()
  */
 void zebra_dplane_init(void)
 {
