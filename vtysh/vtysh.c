@@ -2070,9 +2070,16 @@ DEFUNSH(VTYSH_VRF, vtysh_vrf, vtysh_vrf_cmd, "vrf NAME",
 	return CMD_SUCCESS;
 }
 
-DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_cmd, "no vrf NAME", NO_STR
-      "Delete a pseudo vrf's configuration\n"
-      "VRF's name\n")
+DEFSH(VTYSH_ZEBRA, vtysh_vrf_netns_cmd,
+      "netns NAME",
+      "Attach VRF to a Namespace\n"
+      "The file name in " NS_RUN_DIR ", or a full pathname\n")
+
+DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_netns_cmd,
+      "no netns [NAME]",
+      NO_STR
+      "Detach VRF from a Namespace\n"
+      "The file name in " NS_RUN_DIR ", or a full pathname\n")
 
 DEFUNSH(VTYSH_NS, vtysh_exit_logicalrouter,
 	vtysh_exit_logicalrouter_cmd, "exit",
@@ -3689,10 +3696,11 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
 
+	install_element(CONFIG_NODE, &vtysh_vrf_cmd);
+	install_element(VRF_NODE, &vtysh_vrf_netns_cmd);
+	install_element(VRF_NODE, &vtysh_no_vrf_netns_cmd);
 	install_element(VRF_NODE, &exit_vrf_config_cmd);
 
-	install_element(CONFIG_NODE, &vtysh_vrf_cmd);
-	install_element(CONFIG_NODE, &vtysh_no_vrf_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_nexthop_group_cmd);
 
 	/* "write terminal" command. */
