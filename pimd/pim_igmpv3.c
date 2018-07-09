@@ -457,11 +457,6 @@ struct igmp_source *source_new(struct igmp_group *group,
 	}
 
 	src = XCALLOC(MTYPE_PIM_IGMP_GROUP_SOURCE, sizeof(*src));
-	if (!src) {
-		zlog_warn("%s %s: XCALLOC() failure", __FILE__,
-			  __PRETTY_FUNCTION__);
-		return 0; /* error, not found, could not create */
-	}
 
 	src->t_source_timer = NULL;
 	src->source_group = group; /* back pointer */

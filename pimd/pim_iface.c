@@ -75,36 +75,6 @@ void pim_if_terminate(struct pim_instance *pim)
 	return;
 }
 
-static void *if_list_clean(struct pim_interface *pim_ifp)
-{
-	struct pim_ifchannel *ch;
-
-	if (pim_ifp->igmp_join_list)
-		list_delete_and_null(&pim_ifp->igmp_join_list);
-
-	if (pim_ifp->igmp_socket_list)
-		list_delete_and_null(&pim_ifp->igmp_socket_list);
-
-	if (pim_ifp->pim_neighbor_list)
-		list_delete_and_null(&pim_ifp->pim_neighbor_list);
-
-	if (pim_ifp->upstream_switch_list)
-		list_delete_and_null(&pim_ifp->upstream_switch_list);
-
-	if (pim_ifp->sec_addr_list)
-		list_delete_and_null(&pim_ifp->sec_addr_list);
-
-	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
-		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
-
-		pim_ifchannel_delete(ch);
-	}
-
-	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
-
-	return 0;
-}
-
 static void pim_sec_addr_free(struct pim_secondary_addr *sec_addr)
 {
 	XFREE(MTYPE_PIM_SEC_ADDR, sec_addr);
@@ -145,10 +115,6 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 	zassert(!ifp->info);
 
 	pim_ifp = XCALLOC(MTYPE_PIM_INTERFACE, sizeof(*pim_ifp));
-	if (!pim_ifp) {
-		zlog_err("PIM XCALLOC(%zu) failure", sizeof(*pim_ifp));
-		return 0;
-	}
 
 	pim_ifp->options = 0;
 	pim_ifp->pim = pim_get_pim_instance(ifp->vrf_id);
@@ -186,38 +152,18 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 
 	/* list of struct igmp_sock */
 	pim_ifp->igmp_socket_list = list_new();
-	if (!pim_ifp->igmp_socket_list) {
-		zlog_err("%s: failure: igmp_socket_list=list_new()",
-			 __PRETTY_FUNCTION__);
-		return if_list_clean(pim_ifp);
-	}
 	pim_ifp->igmp_socket_list->del = (void (*)(void *))igmp_sock_free;
 
 	/* list of struct pim_neighbor */
 	pim_ifp->pim_neighbor_list = list_new();
-	if (!pim_ifp->pim_neighbor_list) {
-		zlog_err("%s: failure: pim_neighbor_list=list_new()",
-			 __PRETTY_FUNCTION__);
-		return if_list_clean(pim_ifp);
-	}
 	pim_ifp->pim_neighbor_list->del = (void (*)(void *))pim_neighbor_free;
 
 	pim_ifp->upstream_switch_list = list_new();
-	if (!pim_ifp->upstream_switch_list) {
-		zlog_err("%s: failure: upstream_switch_list=list_new()",
-			 __PRETTY_FUNCTION__);
-		return if_list_clean(pim_ifp);
-	}
 	pim_ifp->upstream_switch_list->del =
 		(void (*)(void *))pim_jp_agg_group_list_free;
 	pim_ifp->upstream_switch_list->cmp = pim_jp_agg_group_list_cmp;
 
 	pim_ifp->sec_addr_list = list_new();
-	if (!pim_ifp->sec_addr_list) {
-		zlog_err("%s: failure: secondary addresslist",
-			 __PRETTY_FUNCTION__);
-		return if_list_clean(pim_ifp);
-	}
 	pim_ifp->sec_addr_list->del = (void (*)(void *))pim_sec_addr_free;
 	pim_ifp->sec_addr_list->cmp =
 		(int (*)(void *, void *))pim_sec_addr_comp;
@@ -404,8 +350,6 @@ static int pim_sec_addr_add(struct pim_interface *pim_ifp, struct prefix *addr)
 	}
 
 	sec_addr = XCALLOC(MTYPE_PIM_SEC_ADDR, sizeof(*sec_addr));
-	if (!sec_addr)
-		return changed;
 
 	changed = 1;
 	sec_addr->addr = *addr;
@@ -1286,20 +1230,6 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 	}
 
 	ij = XCALLOC(MTYPE_PIM_IGMP_JOIN, sizeof(*ij));
-	if (!ij) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
-		zlog_err(
-			"%s: XCALLOC(%zu) failure for IGMP group %s source %s on interface %s",
-			__PRETTY_FUNCTION__, sizeof(*ij), group_str, source_str,
-			ifp->name);
-		close(join_fd);
-		return 0;
-	}
 
 	ij->sock_fd = join_fd;
 	ij->group_addr = group_addr;
@@ -1325,9 +1255,6 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 
 	if (!pim_ifp->igmp_join_list) {
 		pim_ifp->igmp_join_list = list_new();
-		if (!pim_ifp->igmp_join_list) {
-			return ferr_cfg_invalid("Insufficient memory");
-		}
 		pim_ifp->igmp_join_list->del = (void (*)(void *))igmp_join_free;
 	}
 

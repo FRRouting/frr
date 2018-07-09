@@ -107,11 +107,6 @@ void pim_oil_init(struct pim_instance *pim)
 						 pim_oil_equal, hash_name);
 
 	pim->channel_oil_list = list_new();
-	if (!pim->channel_oil_list) {
-		zlog_err("%s %s: failure: channel_oil_list=list_new()",
-			 __FILE__, __PRETTY_FUNCTION__);
-		return;
-	}
 	pim->channel_oil_list->del = (void (*)(void *))pim_channel_oil_free;
 	pim->channel_oil_list->cmp =
 		(int (*)(void *, void *))pim_channel_oil_compare;
@@ -182,10 +177,6 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	}
 
 	c_oil = XCALLOC(MTYPE_PIM_CHANNEL_OIL, sizeof(*c_oil));
-	if (!c_oil) {
-		zlog_err("PIM XCALLOC(%zu) failure", sizeof(*c_oil));
-		return NULL;
-	}
 
 	c_oil->oil.mfcc_mcastgrp = sg->grp;
 	c_oil->oil.mfcc_origin = sg->src;

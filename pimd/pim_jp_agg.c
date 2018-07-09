@@ -329,7 +329,6 @@ void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
 
 	if (first) {
 		groups = list_new();
-
 		jag.sources = list_new();
 
 		listnode_add(groups, &jag);

@@ -39,14 +39,7 @@ void pim_static_route_free(struct static_route *s_route)
 
 static struct static_route *static_route_alloc()
 {
-	struct static_route *s_route;
-
-	s_route = XCALLOC(MTYPE_PIM_STATIC_ROUTE, sizeof(*s_route));
-	if (!s_route) {
-		zlog_err("PIM XCALLOC(%zu) failure", sizeof(*s_route));
-		return 0;
-	}
-	return s_route;
+	return XCALLOC(MTYPE_PIM_STATIC_ROUTE, sizeof(struct static_route));
 }
 
 static struct static_route *static_route_new(unsigned int iif, unsigned int oif,
@@ -55,9 +48,6 @@ static struct static_route *static_route_new(unsigned int iif, unsigned int oif,
 {
 	struct static_route *s_route;
 	s_route = static_route_alloc();
-	if (!s_route) {
-		return 0;
-	}
 
 	s_route->group = group;
 	s_route->source = source;
