@@ -1225,6 +1225,7 @@ static int rip_interface_new_hook(struct interface *ifp)
 /* Called when interface structure deleted. */
 static int rip_interface_delete_hook(struct interface *ifp)
 {
+	rip_interface_reset(ifp->info);
 	XFREE(MTYPE_RIP_INTERFACE, ifp->info);
 	ifp->info = NULL;
 	return 0;
