@@ -65,7 +65,6 @@ void ecommunity_free(struct ecommunity **ecom)
 	if ((*ecom)->str)
 		XFREE(MTYPE_ECOMMUNITY_STR, (*ecom)->str);
 	XFREE(MTYPE_ECOMMUNITY, *ecom);
-	ecom = NULL;
 }
 
 static void ecommunity_hash_free(struct ecommunity *ecom)

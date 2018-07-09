@@ -402,7 +402,6 @@ void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct route_node *rn,
 
 static void vnc_direct_bgp_vpn_enable_ce(struct bgp *bgp, afi_t afi)
 {
-	struct rfapi_cfg *hc;
 	struct route_node *rn;
 	struct bgp_info *ri;
 
@@ -411,7 +410,7 @@ static void vnc_direct_bgp_vpn_enable_ce(struct bgp *bgp, afi_t afi)
 	if (!bgp)
 		return;
 
-	if (!(hc = bgp->rfapi_cfg))
+	if (!(bgp->rfapi_cfg))
 		return;
 
 	if (!VNC_EXPORT_BGP_CE_ENABLED(bgp->rfapi_cfg)) {

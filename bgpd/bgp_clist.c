@@ -274,8 +274,7 @@ static void community_list_entry_add(struct community_list *list,
 
 /* Delete community-list entry from the list.  */
 static void community_list_entry_delete(struct community_list *list,
-					struct community_entry *entry,
-					int style)
+					struct community_entry *entry)
 {
 	if (entry->next)
 		entry->next->prev = entry->prev;
@@ -882,7 +881,7 @@ int community_list_unset(struct community_list_handler *ch, const char *name,
 	if (!entry)
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
-	community_list_entry_delete(list, entry, style);
+	community_list_entry_delete(list, entry);
 	route_map_notify_dependencies(name, RMAP_EVENT_CLIST_DELETED);
 
 	return 0;
@@ -1040,7 +1039,7 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	if (!entry)
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
-	community_list_entry_delete(list, entry, style);
+	community_list_entry_delete(list, entry);
 
 	return 0;
 }
@@ -1056,8 +1055,6 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
 
 	if (str == NULL)
 		return COMMUNITY_LIST_ERR_MALFORMED_VAL;
-
-	entry = NULL;
 
 	/* Get community list. */
 	list = community_list_get(ch, name, EXTCOMMUNITY_LIST_MASTER);
@@ -1149,7 +1146,7 @@ int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	if (!entry)
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
-	community_list_entry_delete(list, entry, style);
+	community_list_entry_delete(list, entry);
 	route_map_notify_dependencies(name, RMAP_EVENT_ECLIST_DELETED);
 
 	return 0;

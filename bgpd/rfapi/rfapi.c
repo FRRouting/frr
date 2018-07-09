@@ -3197,8 +3197,8 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
 	memset(optary, 0, sizeof(optary));
 	optary[opt_next].v.l2addr.logical_net_id =
 		strtoul(argv[14]->arg, NULL, 10);
-	if ((rc = rfapiStr2EthAddr(argv[12]->arg,
-				   &optary[opt_next].v.l2addr.macaddr))) {
+	if (rfapiStr2EthAddr(argv[12]->arg,
+			     &optary[opt_next].v.l2addr.macaddr)) {
 		vty_out(vty, "Bad mac address \"%s\"\n", argv[12]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}

@@ -50,7 +50,6 @@ void lcommunity_free(struct lcommunity **lcom)
 	if ((*lcom)->str)
 		XFREE(MTYPE_LCOMMUNITY_STR, (*lcom)->str);
 	XFREE(MTYPE_LCOMMUNITY, *lcom);
-	lcom = NULL;
 }
 
 static void lcommunity_hash_free(struct lcommunity *lcom)

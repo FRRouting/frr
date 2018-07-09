@@ -2099,7 +2099,6 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			nhp->vn_options = NULL;
 
 			XFREE(MTYPE_RFAPI_NEXTHOP, nhp);
-			nhp = NULL;
 		}
 	}
 

@@ -590,13 +590,7 @@ struct bgp_nexthop {
 
 #define BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE 1
 
-/* BGP router distinguisher value.  */
-#define BGP_RD_SIZE                8
-
-struct bgp_rd {
-	uint8_t val[BGP_RD_SIZE];
-};
-
+/* Route map direction */
 #define RMAP_IN  0
 #define RMAP_OUT 1
 #define RMAP_MAX 2
@@ -1590,7 +1584,6 @@ extern int peer_afc_set(struct peer *, afi_t, safi_t, int);
 
 extern int peer_group_bind(struct bgp *, union sockunion *, struct peer *,
 			   struct peer_group *, as_t *);
-extern int peer_group_unbind(struct bgp *, struct peer *, struct peer_group *);
 
 extern int peer_flag_set(struct peer *, uint32_t);
 extern int peer_flag_unset(struct peer *, uint32_t);

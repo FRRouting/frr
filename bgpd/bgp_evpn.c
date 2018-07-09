@@ -4639,7 +4639,6 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 	int addpath_encoded;
 	int psize = 0;
 	uint8_t rtype;
-	uint8_t rlen;
 	struct prefix p;
 
 	/* Start processing the NLRI - there may be multiple in the MP_REACH */
@@ -4673,7 +4672,7 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			return -1;
 
 		rtype = *pnt++;
-		psize = rlen = *pnt++;
+		psize = *pnt++;
 
 		/* When packet overflow occur return immediately. */
 		if (pnt + psize > lim)

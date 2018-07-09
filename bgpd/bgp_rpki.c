@@ -864,7 +864,7 @@ DEFPY (rpki_cache,
        "Preference of the cache server\n"
        "Preference value\n")
 {
-	int return_value = SUCCESS;
+	int return_value;
 
 	// use ssh connection
 	if (ssh_uname) {
@@ -873,6 +873,7 @@ DEFPY (rpki_cache,
 			add_ssh_cache(cache, sshport, ssh_uname, ssh_privkey,
 				      ssh_pubkey, server_pubkey, preference);
 #else
+		return_value = SUCCESS;
 		vty_out(vty,
 			"ssh sockets are not supported. "
 			"Please recompile rtrlib and frr with ssh support. "

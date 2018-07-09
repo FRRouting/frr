@@ -1190,7 +1190,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	mpls_label_t label;
 	int nh_othervrf = 0;
 	char buf_prefix[PREFIX_STRLEN];	/* filled in if we are debugging */
-	bool is_evpn = false;
+	bool is_evpn;
 	int nh_updated;
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't

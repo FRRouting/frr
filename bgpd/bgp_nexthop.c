@@ -447,8 +447,6 @@ int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 
-	rn2 = NULL;
-
 	bgp = SUBGRP_INST(subgrp);
 	rn1 = bgp_node_match(bgp->connected_table[AFI_IP], &np);
 	if (!rn1)
