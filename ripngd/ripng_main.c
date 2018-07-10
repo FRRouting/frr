@@ -40,7 +40,7 @@
 #include "ripngd/ripngd.h"
 
 /* RIPngd options. */
-#if CONFDATE > 20190521
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20190521
 	CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
 #endif
 struct option longopts[] = {{"retain", no_argument, NULL, 'r'}, {0}};
@@ -127,7 +127,7 @@ FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
 
 		.privs = &ripngd_privs, )
 
-#if CONFDATE > 20190521
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20190521
 CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
 #endif
 #define DEPRECATED_OPTIONS "r"
