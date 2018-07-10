@@ -154,7 +154,7 @@ extern struct work_queue *work_queue_new(struct thread_master *, const char *);
  * The usage of work_queue_free is being transitioned to pass
  * in the double pointer to remove use after free's.
  */
-#if defined(VERSION_TYPE_DEV) && CONFDATE > 20190205
+#if CONFDATE > 20190205
 CPP_NOTICE("work_queue_free without double pointer is deprecated, please fixup")
 #endif
 extern void work_queue_free_and_null(struct work_queue **);

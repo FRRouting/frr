@@ -133,7 +133,7 @@ struct stream_fifo {
 #define STREAM_CONCAT_REMAIN(S1, S2, size) ((size) - (S1)->endp - (S2)->endp)
 
 /* deprecated macros - do not use in new code */
-#if defined(VERSION_TYPE_DEV) && CONFDATE > 20181128
+#if CONFDATE > 20181128
 CPP_NOTICE("lib: time to remove deprecated stream.h macros")
 #endif
 #define STREAM_PNT(S)   stream_pnt((S))
