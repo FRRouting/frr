@@ -396,8 +396,13 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\t\tLocal timers:\n");
 	vty_out(vty, "\t\t\tReceive interval: %" PRIu32 "ms\n",
 		bs->timers.required_min_rx / 1000);
-	vty_out(vty, "\t\t\tTransmission interval: %" PRIu32 "ms\n",
+	vty_out(vty, "\t\t\tTransmission interval: %" PRIu32 "ms",
 		bs->timers.desired_min_tx / 1000);
+	if (bs->up_min_tx != bs->timers.desired_min_tx)
+		vty_out(vty,  " (configured %" PRIu32 "ms)\n",
+			bs->up_min_tx / 1000);
+	else
+		vty_out(vty, "\n");
 
 	vty_out(vty, "\t\t\tEcho transmission interval: ");
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
@@ -783,9 +788,9 @@ static void _bfdd_peer_write_config(struct hash_backet *hb, void *arg)
 	if (bs->timers.required_min_rx != (BPC_DEF_RECEIVEINTERVAL * 1000))
 		vty_out(vty, "  receive-interval %" PRIu32 "\n",
 			bs->timers.required_min_rx / 1000);
-	if (bs->timers.desired_min_tx != (BPC_DEF_TRANSMITINTERVAL * 1000))
+	if (bs->up_min_tx != (BPC_DEF_TRANSMITINTERVAL * 1000))
 		vty_out(vty, "  transmit-interval %" PRIu32 "\n",
-			bs->timers.desired_min_tx / 1000);
+			bs->up_min_tx / 1000);
 	if (bs->timers.required_min_echo != (BPC_DEF_ECHOINTERVAL * 1000))
 		vty_out(vty, "  echo-interval %" PRIu32 "\n",
 			bs->timers.required_min_echo / 1000);
