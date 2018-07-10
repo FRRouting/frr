@@ -68,7 +68,7 @@
 static const struct option longopts[] = {
 	{"bgp_port", required_argument, NULL, 'p'},
 	{"listenon", required_argument, NULL, 'l'},
-#if CONFDATE > 20190521
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20190521
 	CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
 #endif
 	{"retain", no_argument, NULL, 'r'},
@@ -330,7 +330,7 @@ FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
 
 		.privs = &bgpd_privs, )
 
-#if CONFDATE > 20190521
+#if defined(VERSION_TYPE_DEV) && CONFDATE > 20190521
 CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
 #endif
 #define DEPRECATED_OPTIONS "r"
