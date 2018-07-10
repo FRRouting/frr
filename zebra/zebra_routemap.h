@@ -40,7 +40,7 @@ zebra_import_table_route_map_check(int family, int rib_type, uint8_t instance,
 				   const char *rmap_name);
 extern route_map_result_t
 zebra_route_map_check(int family, int rib_type, uint8_t instance,
-		      struct prefix *p, struct nexthop *nexthop,
+		      const struct prefix *p, struct nexthop *nexthop,
 		      vrf_id_t vrf_id, route_tag_t tag);
 extern route_map_result_t
 zebra_nht_route_map_check(int family, int client_proto, struct prefix *p,

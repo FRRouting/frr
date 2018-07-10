@@ -514,8 +514,9 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 	return zserv_send_message(client, s);
 }
 
-int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
-			     struct prefix *src_p, struct route_entry *re)
+int zsend_redistribute_route(int cmd, struct zserv *client,
+			     const struct prefix *p,
+			     const struct prefix *src_p, struct route_entry *re)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -677,22 +678,28 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	return zserv_send_message(client, s);
 }
 
-int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
-			     enum zapi_route_notify_owner note)
+/*
+ * Common utility send route notification, called from a path using a
+ * route_entry and from a path using a dataplane context.
+ */
+static int route_notify_internal(const struct prefix *p, int type,
+				 uint16_t instance, vrf_id_t vrf_id,
+				 uint32_t table_id,
+				 enum zapi_route_notify_owner note)
 {
 	struct zserv *client;
 	struct stream *s;
 	uint8_t blen;
 
-	client = zserv_find_client(re->type, re->instance);
+	client = zserv_find_client(type, instance);
 	if (!client || !client->notify_owner) {
 		if (IS_ZEBRA_DEBUG_PACKET) {
 			char buff[PREFIX_STRLEN];
 
 			zlog_debug(
 				"Not Notifying Owner: %u about prefix %s(%u) %d vrf: %u",
-				re->type, prefix2str(p, buff, sizeof(buff)),
-				re->table, note, re->vrf_id);
+				type, prefix2str(p, buff, sizeof(buff)),
+				table_id, note, vrf_id);
 		}
 		return 0;
 	}
@@ -701,14 +708,14 @@ int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 		char buff[PREFIX_STRLEN];
 
 		zlog_debug("Notifying Owner: %u about prefix %s(%u) %d vrf: %u",
-			   re->type, prefix2str(p, buff, sizeof(buff)),
-			   re->table, note, re->vrf_id);
+			   type, prefix2str(p, buff, sizeof(buff)),
+			   table_id, note, vrf_id);
 	}
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, re->vrf_id);
+	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);
 
 	stream_put(s, &note, sizeof(note));
 
@@ -718,11 +725,18 @@ int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 	stream_putc(s, p->prefixlen);
 	stream_put(s, &p->u.prefix, blen);
 
-	stream_putl(s, re->table);
+	stream_putl(s, table_id);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zserv_send_message(client, s);
+}
+
+int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
+			     enum zapi_route_notify_owner note)
+{
+	return (route_notify_internal(p, re->type, re->instance, re->vrf_id,
+				      re->table, note));
 }
 
 void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,

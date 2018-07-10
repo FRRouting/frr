@@ -289,7 +289,7 @@ extern int rib_lookup_ipv4_route(struct prefix_ipv4 *p, union sockunion *qgate,
 
 extern int is_zebra_valid_kernel_table(uint32_t table_id);
 extern int is_zebra_main_routing_table(uint32_t table_id);
-extern int zebra_check_addr(struct prefix *p);
+extern int zebra_check_addr(const struct prefix *p);
 
 extern void rib_addnode(struct route_node *rn, struct route_entry *re,
 			int process);

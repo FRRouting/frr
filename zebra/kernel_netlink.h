@@ -29,9 +29,9 @@
 extern void netlink_parse_rtattr(struct rtattr **tb, int max,
 				 struct rtattr *rta, int len);
 extern int addattr_l(struct nlmsghdr *n, unsigned int maxlen, int type,
-		     void *data, unsigned int alen);
+		     const void *data, unsigned int alen);
 extern int rta_addattr_l(struct rtattr *rta, unsigned int maxlen, int type,
-			 void *data, unsigned int alen);
+			 const void *data, unsigned int alen);
 extern int addattr16(struct nlmsghdr *n, unsigned int maxlen, int type,
 		     uint16_t data);
 extern int addattr32(struct nlmsghdr *n, unsigned int maxlen, int type,

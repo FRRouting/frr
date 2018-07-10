@@ -67,8 +67,8 @@ enum dp_req_result {
  * a re-add.
  */
 extern enum dp_req_result kernel_route_rib(struct route_node *rn,
-					   struct prefix *p,
-					   struct prefix *src_p,
+					   const struct prefix *p,
+					   const struct prefix *src_p,
 					   struct route_entry *old,
 					   struct route_entry *new);
 
@@ -77,7 +77,8 @@ extern enum dp_req_result kernel_route_rib(struct route_node *rn,
  * so let's separate it out and allow the result to
  * be passed back up.
  */
-extern void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
+extern void kernel_route_rib_pass_fail(struct route_node *rn,
+				       const struct prefix *p,
 				       struct route_entry *re,
 				       enum dp_results res);
 
