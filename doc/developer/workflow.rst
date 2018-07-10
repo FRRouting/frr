@@ -300,6 +300,37 @@ Documentation should be written in reStructuredText. Sphinx extensions may be
 utilized but pure ReST is preferred where possible. See
 :ref:`documentation`.
 
+Code Reviews
+============
+
+Code quality is paramount for any large program. Consequently we require
+reviews of all submitted patches by at least one person other than the
+submitter before the patch is merged.
+
+Because of the nature of the software, FRR's maintainer list (i.e. those with
+commit permissions) tends to contain employees / members of various
+organizations. In order to prevent conflicts of interest, we use an honor
+system in which submissions from an individual representing one company should
+be merged by someone unaffiliated with that company.
+
+Guidelines for code review
+""""""""""""""""""""""""""
+
+- As a rule of thumb, the depth of the review should be proportional to the
+  scope and / or impact of the patch.
+
+- Anyone may review a patch.
+
+- When using GitHub reviews, marking "Approve" on a code review indicates
+  willingness to merge the PR.
+
+- For individuals with merge rights, marking "Changes requested" is equivalent
+  to a NAK.
+
+- For a PR you marked with "Changes requested", please respond to updates in a
+  timely manner to avoid impeding the flow of development.
+
+
 Coding Practices & Style
 ========================
 
