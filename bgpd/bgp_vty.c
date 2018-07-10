@@ -928,6 +928,14 @@ DEFUN_NOSH (router_bgp,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
+		/*
+		 * If we just instantiated the default instance, complete
+		 * any pending VRF-VPN leaking that was configured via
+		 * earlier "router bgp X vrf FOO" blocks.
+		 */
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			vpn_leak_postchange_all();
+
 		/* Pending: handle when user tries to change a view to vrf n vv.
 		 */
 	}
