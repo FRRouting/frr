@@ -838,6 +838,14 @@ int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc)
 	return 0;
 }
 
+void bfd_set_polling(struct bfd_session *bs)
+{
+	bs->new_timers.desired_min_tx = bs->up_min_tx;
+	bs->new_timers.required_min_rx = bs->timers.required_min_rx;
+	bs->new_timers.required_min_echo = bs->timers.required_min_echo;
+	bs->polling = 1;
+}
+
 
 /*
  * Helper functions.

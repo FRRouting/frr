@@ -154,7 +154,11 @@ DEFPY(bfd_peer_detectmultiplier, bfd_peer_detectmultiplier_cmd,
 	struct bfd_session *bs;
 
 	bs = VTY_GET_CONTEXT(bfd_session);
+	if (bs->detect_mult == multiplier)
+		return CMD_SUCCESS;
+
 	bs->detect_mult = multiplier;
+	bfd_set_polling(bs);
 
 	return CMD_SUCCESS;
 }
@@ -167,7 +171,11 @@ DEFPY(bfd_peer_recvinterval, bfd_peer_recvinterval_cmd,
 	struct bfd_session *bs;
 
 	bs = VTY_GET_CONTEXT(bfd_session);
+	if (bs->timers.required_min_rx == (uint32_t)(interval * 1000))
+		return CMD_SUCCESS;
+
 	bs->timers.required_min_rx = interval * 1000;
+	bfd_set_polling(bs);
 
 	return CMD_SUCCESS;
 }
@@ -180,7 +188,11 @@ DEFPY(bfd_peer_txinterval, bfd_peer_txinterval_cmd,
 	struct bfd_session *bs;
 
 	bs = VTY_GET_CONTEXT(bfd_session);
+	if (bs->up_min_tx == (uint32_t)(interval * 1000))
+		return CMD_SUCCESS;
+
 	bs->up_min_tx = interval * 1000;
+	bfd_set_polling(bs);
 
 	return CMD_SUCCESS;
 }
@@ -193,7 +205,11 @@ DEFPY(bfd_peer_echointerval, bfd_peer_echointerval_cmd,
 	struct bfd_session *bs;
 
 	bs = VTY_GET_CONTEXT(bfd_session);
+	if (bs->timers.required_min_echo == (uint32_t)(interval * 1000))
+		return CMD_SUCCESS;
+
 	bs->timers.required_min_echo = interval * 1000;
+	bfd_set_polling(bs);
 
 	return CMD_SUCCESS;
 }
