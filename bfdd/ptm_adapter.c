@@ -180,6 +180,9 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	/* TODO: VRF handling */
 	zclient_create_header(msg, ZEBRA_BFD_DEST_REPLAY, VRF_DEFAULT);
 
+	/* This header will be handled by `zebra_ptm.c`. */
+	stream_putl(msg, ZEBRA_INTERFACE_BFD_DEST_UPDATE);
+
 	/* NOTE: Interface is a shortcut to avoid comparing source address. */
 	stream_putl(msg, bs->ifindex);
 
@@ -515,6 +518,22 @@ stream_failure:
 	return -1;
 }
 
+static void bfdd_zebra_connected(struct zclient *zc)
+{
+	struct stream *msg = zc->obuf;
+
+	/*
+	 * The replay is an empty message just to trigger client daemons
+	 * configuration replay.
+	 */
+	stream_reset(msg);
+	zclient_create_header(msg, ZEBRA_BFD_DEST_REPLAY, VRF_DEFAULT);
+	stream_putl(msg, ZEBRA_BFD_DEST_REPLAY);
+	stream_putw_at(msg, 0, stream_get_endp(msg));
+
+	zclient_send_message(zclient);
+}
+
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
 	zclient = zclient_new_notify(master, &zclient_options_default);
@@ -527,6 +546,9 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 	 * avoid having to create too many handlers.
 	 */
 	zclient->bfd_dest_replay = bfdd_replay;
+
+	/* Send replay request on zebra connect. */
+	zclient->zebra_connected = bfdd_zebra_connected;
 }
 
 void bfdd_zclient_stop(void)

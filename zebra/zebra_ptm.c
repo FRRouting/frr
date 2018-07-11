@@ -1468,6 +1468,7 @@ void zebra_ptm_bfd_dst_replay(ZAPI_HANDLER_ARGS)
 {
 	struct stream *msgc;
 	size_t zmsglen, zhdrlen;
+	uint32_t cmd;
 
 	/*
 	 * NOTE:
@@ -1478,6 +1479,21 @@ void zebra_ptm_bfd_dst_replay(ZAPI_HANDLER_ARGS)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("bfd_dst_update msg from client %s: length=%d",
 			   zebra_route_string(client->proto), hdr->length);
+
+	/*
+	 * Client messages must be re-routed, otherwise do the `bfdd`
+	 * special treatment.
+	 */
+	if (client->proto != ZEBRA_ROUTE_BFD) {
+		_zebra_ptm_reroute(client, msg, ZEBRA_BFD_DEST_REPLAY);
+		return;
+	}
+
+	/* Figure out if this is an DEST_UPDATE or DEST_REPLAY. */
+	if (stream_getl2(msg, &cmd) == false) {
+		zlog_err("%s: expected at least 4 bytes (command)", __func__);
+		return;
+	}
 
 	/*
 	 * Don't modify message in the zebra API. In order to do that we
@@ -1491,16 +1507,19 @@ void zebra_ptm_bfd_dst_replay(ZAPI_HANDLER_ARGS)
 	}
 
 	/* Calculate our header size plus the message contents. */
-	zhdrlen = ZEBRA_HEADER_SIZE;
-	zmsglen = msg->endp - msg->getp;
-	memcpy(msgc->data + zhdrlen, msg->data + msg->getp, zmsglen);
+	if (cmd != ZEBRA_BFD_DEST_REPLAY) {
+		zhdrlen = ZEBRA_HEADER_SIZE;
+		zmsglen = msg->endp - msg->getp;
+		memcpy(msgc->data + zhdrlen, msg->data + msg->getp, zmsglen);
 
-	zclient_create_header(msgc, ZEBRA_INTERFACE_BFD_DEST_UPDATE,
-			      zvrf_id(zvrf));
+		zclient_create_header(msgc, cmd, zvrf_id(zvrf));
+
+		msgc->getp = 0;
+		msgc->endp = zhdrlen + zmsglen;
+	} else
+		zclient_create_header(msgc, cmd, zvrf_id(zvrf));
 
 	/* Update the data pointers. */
-	msgc->getp = 0;
-	msgc->endp = zhdrlen + zmsglen;
 	stream_putw_at(msgc, 0, stream_get_endp(msgc));
 
 	zebra_ptm_send_clients(msgc);
