@@ -71,15 +71,16 @@ class BgpRib:
 
     def RequireVpnRoutes(self, target, title, wantroutes, debug=0):
 	import json
+        logstr = "RequireVpnRoutes " + str(wantroutes)
         #non json form for humans
 	luCommand(target,'vtysh -c "show bgp ipv4 vpn"','.','None','Get VPN RIB (non-json)')
 	ret = luCommand(target,'vtysh -c "show bgp ipv4 vpn json"','.*','None','Get VPN RIB (json)')
         if re.search(r'^\s*$', ret):
             # degenerate case: empty json means no routes
             if len(wantroutes) > 0:
-                luResult(target, False, title)
+                luResult(target, False, title, logstr)
                 return
-            luResult(target, True, title)
+            luResult(target, True, title, logstr)
 	rib = json.loads(ret)
 	rds = rib['routes']['routeDistinguishers']
 	for want in wantroutes:
@@ -96,12 +97,12 @@ class BgpRib:
 		    found = 1
 		    break
 	    if not found:
-		luResult(target, False, title)
+		luResult(target, False, title, logstr)
 		return
-	luResult(target, True, title)
+	luResult(target, True, title, logstr)
 
     def RequireUnicastRoutes(self,target,afi,vrf,title,wantroutes,debug=0):
-
+        logstr = "RequireVpnRoutes " + str(wantroutes)
 	vrfstr = ''
 	if vrf != '':
 	    vrfstr = 'vrf %s' % (vrf)
@@ -109,25 +110,25 @@ class BgpRib:
 	if (afi != 'ipv4') and (afi != 'ipv6'):
 	    print "ERROR invalid afi";
 
-	str = 'show bgp %s %s unicast' % (vrfstr, afi)
+	cmdstr = 'show bgp %s %s unicast' % (vrfstr, afi)
         #non json form for humans
-	cmd = 'vtysh -c "%s"' % str
+	cmd = 'vtysh -c "%s"' % cmdstr
 	luCommand(target,cmd,'.','None','Get %s %s RIB (non-json)' % (vrfstr, afi))
-        cmd = 'vtysh -c "%s json"' % str
+        cmd = 'vtysh -c "%s json"' % cmdstr
 	ret = luCommand(target,cmd,'.*','None','Get %s %s RIB (json)' % (vrfstr, afi))
         if re.search(r'^\s*$', ret):
             # degenerate case: empty json means no routes
             if len(wantroutes) > 0:
-                luResult(target, False, title)
+                luResult(target, False, title, logstr)
                 return
-            luResult(target, True, title)
+            luResult(target, True, title, logstr)
 	rib = json.loads(ret)
 	table = rib['routes']
 	for want in wantroutes:
 	    if not self.routes_include_wanted(table,want,debug):
-		luResult(target, False, title)
+		luResult(target, False, title, logstr)
 		return
-	luResult(target, True, title)
+	luResult(target, True, title, logstr)
 
 
 BgpRib=BgpRib()

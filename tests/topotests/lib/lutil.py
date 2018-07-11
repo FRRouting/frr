@@ -72,16 +72,20 @@ Test Target Summary                                                  Pass Fail\n
 ******************************************************************************\n')
         self.fsum.write(str+'\n')
 
-    def result(self, target, success, str):
+    def result(self, target, success, str, logstr=None):
         if success:
             p = 1
             f = 0
             self.l_pass += 1
+            sstr = "PASS"
         else:
             f = 1
             p = 0
             self.l_fail += 1
+            sstr = "FAIL"
         self.l_total += 1
+        if logstr != None:
+            self.log("R:%d %s: %s" % (self.l_total, sstr, logstr))
         res = "%-4d %-6s %-56s %-4d %d" % (self.l_total, target, str, p, f)
         self.log ('R:'+res)
         self.summary(res)
@@ -320,8 +324,8 @@ def luNumFail():
 def luNumPass():
     return LUtil.l_pass
 
-def luResult(target, success, str):
-    return LUtil.result(target, success, str)
+def luResult(target, success, str, logstr=None):
+    return LUtil.result(target, success, str, logstr)
 
 def luShowFail():
     printed = 0
