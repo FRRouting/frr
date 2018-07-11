@@ -205,6 +205,15 @@ options from the list below.
    hardcoded arrays that FRR builds towards, so we need to know how big to
    make these arrays at build time.
 
+.. option:: --enable-gcov
+
+   Code coverage reports from gcov require adjustments to the C and LD flags.
+   With this option, gcov instrumentation is added to the build and coverage
+   reports are created during execution.  The check-coverage make target is
+   also created to ease report uploading to codecov.io.  The upload requires
+   the COMMIT (git hash) and TOKEN (codecov upload token) environment variables
+   be set.
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
