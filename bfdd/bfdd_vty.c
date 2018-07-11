@@ -366,7 +366,10 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 			vty_out(vty, " vrf %s", bs->mhop.vrf_name);
 		vty_out(vty, "\n");
 	} else {
-		vty_out(vty, "\tpeer %s", satostr(&bs->mhop.peer));
+		vty_out(vty, "\tpeer %s", satostr(&bs->shop.peer));
+		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
+			vty_out(vty, " local-address %s",
+				satostr(&bs->local_address));
 		if (bs->shop.port_name[0])
 			vty_out(vty, " interface %s", bs->shop.port_name);
 		vty_out(vty, "\n");
@@ -451,6 +454,9 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	} else {
 		json_object_boolean_false_add(jo, "multihop");
 		json_object_string_add(jo, "peer", satostr(&bs->shop.peer));
+		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
+			json_object_string_add(jo, "local",
+					       satostr(&bs->local_address));
 		if (bs->shop.port_name[0])
 			json_object_string_add(jo, "interface",
 					       bs->shop.port_name);
