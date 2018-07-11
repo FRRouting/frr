@@ -268,10 +268,11 @@ DEFUN (debug_zebra_fpm,
 
 DEFUN (debug_zebra_dplane,
        debug_zebra_dplane_cmd,
-       "debug zebra dataplane [detailed]",
+       "debug zebra dplane [detailed]",
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug zebra dataplane events\n")
+       "Debug zebra dataplane events\n"
+       "Detailed debug information\n")
 {
 	int idx = 0;
 
