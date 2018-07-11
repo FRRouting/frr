@@ -37,8 +37,9 @@
 #include "zebra/zebra_memory.h"
 
 /* Install static route into rib. */
-void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
-			  struct prefix_ipv6 *src_p, struct static_route *si)
+void static_install_route(afi_t afi, safi_t safi, const struct prefix *p,
+			  const struct prefix_ipv6 *src_p,
+			  struct static_route *si)
 {
 	struct route_entry *re;
 	struct route_node *rn;
@@ -292,8 +293,9 @@ static int static_nexthop_same(struct nexthop *nexthop, struct static_route *si)
 }
 
 /* Uninstall static route from RIB. */
-void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
-			    struct prefix_ipv6 *src_p, struct static_route *si)
+void static_uninstall_route(afi_t afi, safi_t safi, const struct prefix *p,
+			    const struct prefix_ipv6 *src_p,
+			    struct static_route *si)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -610,7 +612,7 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 	struct route_table *stable;
 	struct route_node *rn;
 	struct static_route *si;
-	struct prefix *p, *src_pp;
+	const struct prefix *p, *src_pp;
 	struct prefix_ipv6 *src_p;
 	struct vrf *vrf;
 

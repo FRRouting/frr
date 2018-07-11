@@ -1337,7 +1337,8 @@ void zebra_route_map_write_delay_timer(struct vty *vty)
 }
 
 route_map_result_t zebra_route_map_check(int family, int rib_type,
-					 uint8_t instance, struct prefix *p,
+					 uint8_t instance,
+					 const struct prefix *p,
 					 struct nexthop *nexthop,
 					 vrf_id_t vrf_id, route_tag_t tag)
 {
@@ -1358,7 +1359,8 @@ route_map_result_t zebra_route_map_check(int family, int rib_type,
 		rmap = route_map_lookup_by_name(
 			proto_rm[family][ZEBRA_ROUTE_MAX]);
 	if (rmap) {
-		ret = route_map_apply(rmap, p, RMAP_ZEBRA, &nh_obj);
+		ret = route_map_apply(rmap, (struct prefix *)p,
+				      RMAP_ZEBRA, &nh_obj);
 	}
 
 	return (ret);

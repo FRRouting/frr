@@ -82,11 +82,12 @@ struct static_route {
 	uint32_t table_id;
 };
 
-extern void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
-				 struct prefix_ipv6 *src_p,
+extern void static_install_route(afi_t afi, safi_t safi, const struct prefix *p,
+				 const struct prefix_ipv6 *src_p,
 				 struct static_route *si);
-extern void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
-				   struct prefix_ipv6 *src_p,
+extern void static_uninstall_route(afi_t afi, safi_t safi,
+				   const struct prefix *p,
+				   const struct prefix_ipv6 *src_p,
 				   struct static_route *si);
 
 extern int static_add_route(afi_t, safi_t safi, uint8_t type, struct prefix *p,

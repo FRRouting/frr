@@ -156,7 +156,7 @@ int is_zebra_main_routing_table(uint32_t table_id)
 	return 0;
 }
 
-int zebra_check_addr(struct prefix *p)
+int zebra_check_addr(const struct prefix *p)
 {
 	if (p->family == AF_INET) {
 		uint32_t addr;
@@ -325,7 +325,7 @@ struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *re,
 	return nexthop;
 }
 
-static void nexthop_set_resolved(afi_t afi, struct nexthop *newhop,
+static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 				 struct nexthop *nexthop)
 {
 	struct nexthop *resolved_hop;
@@ -843,7 +843,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	route_map_result_t ret = RMAP_MATCH;
 	int family;
 	char buf[SRCDEST2STR_BUFFER];
-	struct prefix *p, *src_p;
+	const struct prefix *p, *src_p;
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	if (rn->p.family == AF_INET)
@@ -1012,7 +1012,7 @@ int zebra_rib_labeled_unicast(struct route_entry *re)
 	return 1;
 }
 
-void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
+void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 				struct route_entry *re,
 				enum dp_results res)
 {
@@ -1085,7 +1085,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 {
 	struct nexthop *nexthop;
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
-	struct prefix *p, *src_p;
+	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
@@ -1143,7 +1143,7 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
 	struct nexthop *nexthop;
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
-	struct prefix *p, *src_p;
+	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
@@ -1194,7 +1194,8 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 	}
 
 	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
-		struct prefix *p, *src_p;
+		const struct prefix *p, *src_p;
+
 		srcdest_rnode_prefixes(rn, &p, &src_p);
 
 		redistribute_delete(p, src_p, re);
@@ -1536,7 +1537,8 @@ static void rib_process(struct route_node *rn)
 	char buf[SRCDEST2STR_BUFFER];
 	rib_dest_t *dest;
 	struct zebra_vrf *zvrf = NULL;
-	struct prefix *p, *src_p;
+	const struct prefix *p, *src_p;
+
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 	vrf_id_t vrf_id = VRF_UNKNOWN;
 

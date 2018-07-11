@@ -1287,8 +1287,8 @@ _netlink_mpls_build_multipath(const char *routedesc, zebra_nhlfe_t *nhlfe,
  * @param zvrf: The vrf we are in
  * @param tableid: The table we are working on
  */
-static void _netlink_route_debug(int cmd, struct prefix *p,
-				 int family, struct zebra_vrf *zvrf,
+static void _netlink_route_debug(int cmd, const struct prefix *p,
+				 int family, vrf_id_t vrfid,
 				 uint32_t tableid)
 {
 	if (IS_ZEBRA_DEBUG_KERNEL) {
@@ -1297,7 +1297,7 @@ static void _netlink_route_debug(int cmd, struct prefix *p,
 			"netlink_route_multipath(): %s %s vrf %u(%u)",
 			nl_msg_type_to_str(cmd),
 			prefix2str(p, buf, sizeof(buf)),
-			zvrf_id(zvrf), tableid);
+			vrfid, tableid);
 	}
 }
 
@@ -1340,8 +1340,9 @@ static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 
 /* Routing table change via netlink interface. */
 /* Update flag indicates whether this is a "replace" or not. */
-static int netlink_route_multipath(int cmd, struct prefix *p,
-				   struct prefix *src_p, struct route_entry *re,
+static int netlink_route_multipath(int cmd, const struct prefix *p,
+				   const struct prefix *src_p,
+				   struct route_entry *re,
 				   int update)
 {
 	int bytelen;
@@ -1416,7 +1417,7 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 		addattr32(&req.n, sizeof req, RTA_TABLE, re->table);
 	}
 
-	_netlink_route_debug(cmd, p, family, zvrf, re->table);
+	_netlink_route_debug(cmd, p, family, zvrf_id(zvrf), re->table);
 
 	/*
 	 * If we are not updating the route and we have received
@@ -1699,8 +1700,8 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 }
 
 enum dp_req_result kernel_route_rib(struct route_node *rn,
-				    struct prefix *p,
-				    struct prefix *src_p,
+				    const struct prefix *p,
+				    const struct prefix *src_p,
 				    struct route_entry *old,
 				    struct route_entry *new)
 {

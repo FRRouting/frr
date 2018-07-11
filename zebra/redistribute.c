@@ -113,7 +113,7 @@ static void zebra_redistribute(struct zserv *client, int type,
 
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
 		RNODE_FOREACH_RE (rn, newre) {
-			struct prefix *dst_p, *src_p;
+			const struct prefix *dst_p, *src_p;
 			char buf[PREFIX_STRLEN];
 
 			srcdest_rnode_prefixes(rn, &dst_p, &src_p);
@@ -147,7 +147,7 @@ static void zebra_redistribute(struct zserv *client, int type,
 
 /* Either advertise a route for redistribution to registered clients or */
 /* withdraw redistribution if add cannot be done for client */
-void redistribute_update(struct prefix *p, struct prefix *src_p,
+void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 			 struct route_entry *re, struct route_entry *prev_re)
 {
 	struct listnode *node, *nnode;
@@ -216,7 +216,7 @@ void redistribute_update(struct prefix *p, struct prefix *src_p,
 	}
 }
 
-void redistribute_delete(struct prefix *p, struct prefix *src_p,
+void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 			 struct route_entry *re)
 {
 	struct listnode *node, *nnode;

@@ -56,13 +56,14 @@ extern route_table_delegate_t _srcdest_srcnode_delegate;
 
 extern struct route_table *srcdest_table_init(void);
 extern struct route_node *srcdest_rnode_get(struct route_table *table,
-					    union prefixptr dst_pu,
-					    struct prefix_ipv6 *src_p);
+					    union prefixconstptr dst_pu,
+					    const struct prefix_ipv6 *src_p);
 extern struct route_node *srcdest_rnode_lookup(struct route_table *table,
-					       union prefixptr dst_pu,
-					       struct prefix_ipv6 *src_p);
-extern void srcdest_rnode_prefixes(struct route_node *rn, struct prefix **p,
-				   struct prefix **src_p);
+					       union prefixconstptr dst_pu,
+					       const struct prefix_ipv6 *src_p);
+extern void srcdest_rnode_prefixes(struct route_node *rn,
+				   const struct prefix **p,
+				   const struct prefix **src_p);
 extern const char *srcdest_rnode2str(struct route_node *rn, char *str,
 				     int size);
 extern struct route_node *srcdest_route_next(struct route_node *rn);
