@@ -270,6 +270,7 @@ bgpribRequireUnicastRoutes('r4','ipv4','r4-cust2','Customer 2 routes in r4 vrf',
 # r1 vtysh -c "show bgp vrf r1-cust1 ipv4"
 # r1 vtysh -c "show bgp vrf r1-cust1 ipv4 5.1.2.0/24"
 
+luCommand('ce1','vtysh -c "show bgp ipv4 uni"','10 routes and 10','wait','Local and remote routes', 10)
 want = [
     {'p':'5.1.2.0/24', 'n':'192.168.1.1'},
     {'p':'5.1.3.0/24', 'n':'192.168.1.1'},
@@ -278,6 +279,7 @@ want = [
 ]
 bgpribRequireUnicastRoutes('ce1','ipv4','','Cust 1 routes from remote',want)
 
+luCommand('ce2','vtysh -c "show bgp ipv4 uni"','10 routes and 12','wait','Local and remote routes', 10)
 want = [
     {'p':'5.1.0.0/24', 'n':'192.168.1.1'},
     {'p':'5.1.1.0/24', 'n':'192.168.1.1'},
@@ -295,7 +297,7 @@ luCommand('r4','vtysh -c "show bgp ipv4 vpn"')
 luCommand('r4','vtysh -c "show ip route vrf r4-cust1"')
 luCommand('r4','vtysh -c "show ip route vrf r4-cust2"')
 
-
+luCommand('ce3','vtysh -c "show bgp ipv4 uni"','10 routes and 10','wait','Local and remote routes', 10)
 # Requires bvl-bug-degenerate-no-label fix (FRR PR #2053)
 want = [
     {'p':'5.1.0.0/24', 'n':'192.168.1.1'},
@@ -305,6 +307,7 @@ want = [
 ]
 bgpribRequireUnicastRoutes('ce3','ipv4','','Cust 1 routes from remote',want)
 
+luCommand('ce4','vtysh -c "show bgp ipv4 uni"','10 routes and 10','wait','Local and remote routes', 10)
 want = [
     {'p':'5.1.0.0/24', 'n':'192.168.2.1'},
     {'p':'5.1.1.0/24', 'n':'192.168.2.1'},
