@@ -114,11 +114,10 @@ static inline void zebra_ns_info_from_ns(struct zebra_ns_info *zns_info,
 	 */
 	zns_info->is_cmd = is_cmd;
 	zns_info->nl_cmd_pid = zns->netlink_cmd.snl.nl_pid;
-	if (is_cmd) {
+	if (is_cmd)
 		zns_info->nls = zns->netlink_cmd;
-	} else {
+	else
 		zns_info->nls = zns->netlink;
-	}
 #endif	/* NETLINK */
 }
 
