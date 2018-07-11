@@ -63,6 +63,7 @@ static int _ptm_msg_read(struct stream *msg, int command,
 
 static struct ptm_client *pc_lookup(uint32_t pid);
 static struct ptm_client *pc_new(uint32_t pid);
+static void pc_free(struct ptm_client *pc);
 static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
 					       struct bfd_session *bs);
 static struct ptm_client_notification *pcn_lookup(struct ptm_client *pc,
@@ -73,6 +74,7 @@ static void pcn_free(struct ptm_client_notification *pcn);
 static void bfdd_dest_register(struct stream *msg);
 static void bfdd_dest_deregister(struct stream *msg);
 static void bfdd_client_register(struct stream *msg);
+static void bfdd_client_deregister(struct stream *msg);
 
 /*
  * Functions
@@ -487,6 +489,32 @@ stream_failure:
 	log_error("%s: failed to register client", __func__);
 }
 
+/*
+ * header: command, VRF
+ * l: pid
+ */
+static void bfdd_client_deregister(struct stream *msg)
+{
+	struct ptm_client *pc;
+	uint32_t pid;
+
+	/* Find or allocate process context data. */
+	STREAM_GETL(msg, pid);
+
+	pc = pc_lookup(pid);
+	if (pc == NULL) {
+		log_debug("%s: failed to find client: %u", __func__, pid);
+		return;
+	}
+
+	pc_free(pc);
+
+	return;
+
+stream_failure:
+	log_error("%s: failed to deregister client", __func__);
+}
+
 static int bfdd_replay(int cmd, struct zclient *zc, uint16_t len, vrf_id_t vid)
 {
 	struct stream *msg = zc->ibuf;
@@ -504,6 +532,9 @@ static int bfdd_replay(int cmd, struct zclient *zc, uint16_t len, vrf_id_t vid)
 		break;
 	case ZEBRA_BFD_CLIENT_REGISTER:
 		bfdd_client_register(msg);
+		break;
+	case ZEBRA_BFD_CLIENT_DEREGISTER:
+		bfdd_client_deregister(msg);
 		break;
 
 	default:
@@ -591,6 +622,23 @@ static struct ptm_client *pc_new(uint32_t pid)
 	pc->pc_pid = pid;
 	TAILQ_INSERT_HEAD(&pcqueue, pc, pc_entry);
 	return pc;
+}
+
+static void pc_free(struct ptm_client *pc)
+{
+	struct ptm_client_notification *pcn;
+
+	if (pc == NULL)
+		return;
+
+	TAILQ_REMOVE(&pcqueue, pc, pc_entry);
+
+	while (!TAILQ_EMPTY(&pc->pc_pcnqueue)) {
+		pcn = TAILQ_FIRST(&pc->pc_pcnqueue);
+		pcn_free(pcn);
+	}
+
+	XFREE(MTYPE_BFDD_CONTROL, pc);
 }
 
 static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
