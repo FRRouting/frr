@@ -561,7 +561,7 @@ class Router(Node):
         super(Router, self).terminate()
         os.system('chmod -R go+rw /tmp/topotests')
 
-    def stopRouter(self, wait=True, assertOnError=True, minErrorVersion='5.0'):
+    def stopRouter(self, wait=True, assertOnError=True, minErrorVersion='5.1'):
         # Stop Running Quagga or FRR Daemons
         rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
         errors = ""
