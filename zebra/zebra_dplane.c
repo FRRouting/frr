@@ -43,13 +43,12 @@ const uint32_t DPLANE_CTX_MAGIC = 0xb97a557f;
 
 #ifdef DPLANE_DEBUG
 
-#  define DPLANE_CTX_VALID(p) \
-    (assert((p) && ((p)->zd_magic == DPLANE_CTX_MAGIC)))
+#  define DPLANE_CTX_VALID(p)						\
+		assert((p) && ((p)->zd_magic == DPLANE_CTX_MAGIC))
 
 #else
 
-#  define DPLANE_CTX_VALID(p) \
-    if ((p) && ((p)->zd_magic == DPLANE_CTX_MAGIC)) { ; }
+#  define DPLANE_CTX_VALID(p)
 
 #endif	/* DPLANE_DEBUG */
 
@@ -61,7 +60,7 @@ const uint32_t DPLANE_CTX_MAGIC = 0xb97a557f;
 struct zebra_dplane_ctx_s {
 
 	/* Operation code */
-	dplane_op_e zd_op;
+	enum dplane_op_e zd_op;
 
 	/* Status on return */
 	enum dp_req_result zd_status;
@@ -127,9 +126,6 @@ struct zebra_dplane_provider_s {
 	/* Id value */
 	uint32_t dp_id;
 
-	/* Event pointer for use by the dplane thread */
-//	struct thread *dp_t_event;
-
 	dplane_provider_process_fp dp_fp;
 
 	/* Embedded list linkage */
@@ -181,20 +177,18 @@ static int dplane_route_process(struct thread *event);
 /*
  * Allocate a dataplane update context
  */
-dplane_ctx_h dplane_ctx_alloc(void)
+static dplane_ctx_h dplane_ctx_alloc(void)
 {
 	struct zebra_dplane_ctx_s *p;
 
 	/* TODO -- just alloc'ing memory, but would like to maintain
 	 * a pool
 	 */
-
 	p = XCALLOC(MTYPE_DP_CTX, sizeof(struct zebra_dplane_ctx_s));
-	if (p) {
+	if (p)
 		p->zd_magic = DPLANE_CTX_MAGIC;
-	}
 
-	return (p);
+	return p;
 }
 
 /*
@@ -242,9 +236,9 @@ void dplane_ctx_enqueue_tail(struct dplane_ctx_q_s *q, dplane_ctx_h ctx)
 void dplane_ctx_dequeue(struct dplane_ctx_q_s *q, dplane_ctx_h *ctxp)
 {
 	dplane_ctx_h ctx = TAILQ_FIRST(q);
-	if (ctx) {
+
+	if (ctx)
 		TAILQ_REMOVE(q, ctx, zd_q_entries);
-	}
 
 	*ctxp = ctx;
 }
@@ -256,21 +250,21 @@ enum dp_req_result dplane_ctx_get_status(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_status);
+	return ctx->zd_status;
 }
 
-dplane_op_e dplane_ctx_get_op(const dplane_ctx_h ctx)
+enum dplane_op_e dplane_ctx_get_op(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_op);
+	return ctx->zd_op;
 }
 
-const char *dplane_op2str(dplane_op_e op)
+const char *dplane_op2str(enum dplane_op_e op)
 {
 	const char *ret = "UNKNOWN";
 
-	switch(op) {
+	switch (op) {
 	case DPLANE_OP_NONE:
 		ret = "NONE";
 		break;
@@ -288,28 +282,26 @@ const char *dplane_op2str(dplane_op_e op)
 
 	};
 
-	return (ret);
+	return ret;
 }
 
 const struct prefix *dplane_ctx_get_dest(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (&(ctx->zd_dest));
+	return &(ctx->zd_dest);
 }
 
-/* Source prefix is a little special - use convention like prefix-len of zero
- * and all-zeroes address means "no src prefix"? or ... return NULL in that case?
- */
+/* Source prefix is a little special - return NULL for "no src prefix" */
 const struct prefix *dplane_ctx_get_src(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	if (ctx->zd_src.prefixlen == 0 &&
 	    IN6_IS_ADDR_UNSPECIFIED(&(ctx->zd_src.u.prefix6))) {
-		return (NULL);
+		return NULL;
 	} else {
-		return (&(ctx->zd_src));
+		return &(ctx->zd_src);
 	}
 }
 
@@ -317,140 +309,140 @@ bool dplane_ctx_is_update(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_is_update);
+	return ctx->zd_is_update;
 }
 
 uint32_t dplane_ctx_get_seq(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_seq);
+	return ctx->zd_seq;
 }
 
 uint32_t dplane_ctx_get_old_seq(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_old_seq);
+	return ctx->zd_old_seq;
 }
 
 vrf_id_t dplane_ctx_get_vrf(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_vrf_id);
+	return ctx->zd_vrf_id;
 }
 
 int dplane_ctx_get_type(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_type);
+	return ctx->zd_type;
 }
 
 int dplane_ctx_get_old_type(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_old_type);
+	return ctx->zd_old_type;
 }
 
 afi_t dplane_ctx_get_afi(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_afi);
+	return ctx->zd_afi;
 }
 
 safi_t dplane_ctx_get_safi(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_safi);
+	return ctx->zd_safi;
 }
 
 uint32_t dplane_ctx_get_table(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_table_id);
+	return ctx->zd_table_id;
 }
 
 route_tag_t dplane_ctx_get_tag(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_tag);
+	return ctx->zd_tag;
 }
 
 route_tag_t dplane_ctx_get_old_tag(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_old_tag);
+	return ctx->zd_old_tag;
 }
 
 uint16_t dplane_ctx_get_instance(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_instance);
+	return ctx->zd_instance;
 }
 
 uint16_t dplane_ctx_get_old_instance(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_instance);
+	return ctx->zd_instance;
 }
 
 uint32_t dplane_ctx_get_metric(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_metric);
+	return ctx->zd_metric;
 }
 
 uint32_t dplane_ctx_get_mtu(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_mtu);
+	return ctx->zd_mtu;
 }
 
 uint32_t dplane_ctx_get_nh_mtu(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_nexthop_mtu);
+	return ctx->zd_nexthop_mtu;
 }
 
 uint8_t dplane_ctx_get_distance(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_distance);
+	return ctx->zd_distance;
 }
 
 uint8_t dplane_ctx_get_old_distance(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (ctx->zd_old_distance);
+	return ctx->zd_old_distance;
 }
 
 const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (&(ctx->zd_ng));
+	return &(ctx->zd_ng);
 }
 
 const struct zebra_ns_info *dplane_ctx_get_ns(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return (&(ctx->zd_ns_info));
+	return &(ctx->zd_ns_info);
 }
 
 /*
@@ -461,7 +453,7 @@ const struct zebra_ns_info *dplane_ctx_get_ns(const dplane_ctx_h ctx)
  * Initialize a context block for a route update from zebra data structs.
  */
 static int dplane_ctx_route_init(dplane_ctx_h ctx,
-				 dplane_op_e op,
+				 enum dplane_op_e op,
 				 struct route_node *rn,
 				 struct route_entry *re)
 {
@@ -472,9 +464,8 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 
-	if (!ctx || !rn || !re) {
+	if (!ctx || !rn || !re)
 		goto done;
-	}
 
 	ctx->zd_op = op;
 
@@ -486,11 +477,10 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 
 	prefix_copy(&(ctx->zd_dest), p);
 
-	if (src_p) {
+	if (src_p)
 		prefix_copy(&(ctx->zd_src), src_p);
-	} else {
+	else
 		memset(&(ctx->zd_src), 0, sizeof(ctx->zd_src));
-	}
 
 	ctx->zd_table_id = re->table;
 
@@ -519,11 +509,10 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	/* Increment message counter after copying to context struct - may need
 	 * two messages in some 'update' cases.
 	 */
-	if (op == DPLANE_OP_ROUTE_UPDATE) {
+	if (op == DPLANE_OP_ROUTE_UPDATE)
 		zns->netlink_cmd.seq += 2;
-	} else {
+	else
 		zns->netlink_cmd.seq++;
-	}
 #endif /* NETLINK*/
 
 	/* Copy nexthops; recursive info is included too */
@@ -564,7 +553,7 @@ static int dplane_route_enqueue(dplane_ctx_h ctx)
 
 	ret = AOK;
 
-	return (ret);
+	return ret;
 }
 
 /*
@@ -584,7 +573,7 @@ static dplane_ctx_h dplane_route_dequeue(void)
 	}
 	DPLANE_UNLOCK();
 
-	return (ctx);
+	return ctx;
 }
 
 /*
@@ -594,7 +583,7 @@ static enum dp_req_result
 dplane_route_update_internal(struct route_node *rn,
 			     struct route_entry *re,
 			     struct route_entry *old_re,
-			     dplane_op_e op)
+			     enum dplane_op_e op)
 {
 	enum dp_req_result result = DP_REQUEST_FAILURE;
 	int ret = EINVAL;
@@ -631,13 +620,12 @@ dplane_route_update_internal(struct route_node *rn,
 	}
 
 done:
-	if (ret == AOK) {
+	if (ret == AOK)
 		result = DP_REQUEST_QUEUED;
-	} else if (ctx) {
+	else if (ctx)
 		dplane_ctx_free(&ctx);
-    	}
 
-	return (result);
+	return result;
 }
 
 /*
@@ -648,15 +636,14 @@ enum dp_req_result dplane_route_add(struct route_node *rn,
 {
 	enum dp_req_result ret = DP_REQUEST_FAILURE;
 
-	if (rn == NULL || re == NULL) {
+	if (rn == NULL || re == NULL)
 		goto done;
-	}
 
 	ret = dplane_route_update_internal(rn, re, NULL,
 					   DPLANE_OP_ROUTE_INSTALL);
 
 done:
-	return (ret);
+	return ret;
 }
 
 /*
@@ -668,14 +655,13 @@ enum dp_req_result dplane_route_update(struct route_node *rn,
 {
 	enum dp_req_result ret = DP_REQUEST_FAILURE;
 
-	if (rn == NULL || re == NULL) {
+	if (rn == NULL || re == NULL)
 		goto done;
-	}
 
 	ret = dplane_route_update_internal(rn, re, old_re,
 					   DPLANE_OP_ROUTE_UPDATE);
 done:
-	return (ret);
+	return ret;
 }
 
 /*
@@ -686,15 +672,14 @@ enum dp_req_result dplane_route_delete(struct route_node *rn,
 {
 	enum dp_req_result ret = DP_REQUEST_FAILURE;
 
-	if (rn == NULL || re == NULL) {
+	if (rn == NULL || re == NULL)
 		goto done;
-	}
 
 	ret = dplane_route_update_internal(rn, re, NULL,
 					   DPLANE_OP_ROUTE_DELETE);
 
 done:
-	return (ret);
+	return ret;
 }
 
 /*
@@ -708,9 +693,8 @@ static int dplane_route_process(struct thread *event)
 	while (1) {
 		/* TODO -- limit number of updates per cycle? */
 		ctx = dplane_route_dequeue();
-		if (ctx == NULL) {
+		if (ctx == NULL)
 			break;
-		}
 
 		/* TODO -- support series of providers */
 
@@ -736,14 +720,14 @@ static int dplane_route_process(struct thread *event)
 		ctx = NULL;
 	}
 
-	return (0);
+	return 0;
 }
 
 /*
  * Provider registration
  */
 int dplane_provider_register(const char *name,
-			     dplane_provider_prio_e prio,
+			     enum dplane_provider_prio_e prio,
 			     dplane_provider_process_fp fp)
 {
 	int ret = 0;
@@ -778,19 +762,17 @@ int dplane_provider_register(const char *name,
 
 	/* Insert into list ordered by priority */
 	TAILQ_FOREACH(last, &zdplane_g.dg_providers_q, dp_q_providers) {
-		if (last->dp_priority > p->dp_priority) {
+		if (last->dp_priority > p->dp_priority)
 			break;
-		}
 	}
 
-	if (last) {
+	if (last)
 		TAILQ_INSERT_BEFORE(last, p, dp_q_providers);
-	} else {
+	else
 		TAILQ_INSERT_TAIL(&zdplane_g.dg_providers_q, p, dp_q_providers);
-	}
 
 done:
-	return (ret);
+	return ret;
 }
 
 /*
@@ -799,7 +781,7 @@ done:
 int dplane_results_register(dplane_results_fp fp)
 {
 	zdplane_g.dg_results_cb = fp;
-	return (AOK);
+	return AOK;
 }
 
 /*
@@ -818,8 +800,6 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 
 	/* TODO -- using zebra core event thread temporarily */
 	zdplane_g.dg_master = zebra->master;
-
-	return;
 }
 
 /*

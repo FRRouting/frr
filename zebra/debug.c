@@ -274,11 +274,11 @@ DEFUN (debug_zebra_dplane,
        "Debug zebra dataplane events\n")
 {
 	int idx = 0;
+
 	SET_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE);
 
-	if (argv_find(argv, argc, "detailed", &idx)) {
+	if (argv_find(argv, argc, "detailed", &idx))
 		SET_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE_DETAILED);
-	}
 
 	return CMD_SUCCESS;
 }

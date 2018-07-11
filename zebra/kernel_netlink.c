@@ -893,7 +893,7 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	/* Capture info in intermediate info struct */
 	zebra_ns_info_from_ns(&zns_info, zns, (nl == &(zns->netlink_cmd)));
 
-	return (netlink_talk_info(filter, n, &zns_info, startup));
+	return netlink_talk_info(filter, n, &zns_info, startup);
 }
 
 /* Issue request message to kernel via netlink socket. GET messages

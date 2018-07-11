@@ -934,7 +934,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
 	/* It'll get set if required inside */
 	ret = zebra_route_map_check(family, re->type, re->instance,
-				    (struct prefix * )p, nexthop,
+				    (struct prefix *)p, nexthop,
 				    nexthop->vrf_id, re->tag);
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
@@ -1141,11 +1141,10 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	hook_call(rib_update, rn, "installing in kernel");
 
 	/* Send add or update */
-	if (old && (old != re)) {
+	if (old && (old != re))
 		ret = dplane_route_update(rn, re, old);
-	} else {
+	else
 		ret = dplane_route_add(rn, re);
-	}
 
 	switch (ret) {
 	case DP_REQUEST_QUEUED:
@@ -1196,6 +1195,7 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	case DP_REQUEST_FAILURE:
 	{
 		char str[SRCDEST2STR_BUFFER];
+
 		srcdest_rnode2str(rn, str, sizeof(str));
 
 		zlog_err("%u:%s: Failed to enqueue dataplane uninstall",
@@ -1738,9 +1738,8 @@ static void rib_process(struct route_node *rn)
 	/* Update SELECTED entry */
 	if (old_selected != new_selected || selected_changed) {
 
-		if (new_selected) {
+		if (new_selected)
 			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
-		}
 
 		if (new_selected && new_selected != new_fib) {
 			nexthop_active_update(rn, new_selected, 1);
@@ -1843,7 +1842,7 @@ static void rib_process_after(dplane_ctx_h ctx)
 	bool is_update = false;
 	struct nexthop *nexthop;
 	char dest_str[PREFIX_STRLEN] = "";
-	dplane_op_e op;
+	enum dplane_op_e op;
 	enum dp_req_result status;
 	const struct prefix *dest_pfx, *src_pfx;
 
@@ -1871,13 +1870,12 @@ static void rib_process_after(dplane_ctx_h ctx)
 	/* Note well: only capturing the prefix string if debug is enabled here;
 	 * unconditional log messages will have to generate the string.
 	 */
-	if (IS_ZEBRA_DEBUG_DPLANE) {
+	if (IS_ZEBRA_DEBUG_DPLANE)
 		prefix2str(dest_pfx, dest_str, sizeof(dest_str));
-	}
 
 	src_pfx = dplane_ctx_get_src(ctx);
 	rn = srcdest_rnode_get(table, dplane_ctx_get_dest(ctx),
-			       src_pfx ? (struct prefix_ipv6 * )src_pfx : NULL);
+			       src_pfx ? (struct prefix_ipv6 *)src_pfx : NULL);
 	if (rn == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
 			zlog_debug("Failed to process dplane results: no "
@@ -1907,9 +1905,8 @@ static void rib_process_after(dplane_ctx_h ctx)
 		if (status == DP_REQUEST_SUCCESS) {
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
 
-			if (zvrf) {
+			if (zvrf)
 				zvrf->removals++;
-			}
 		} else {
 			zsend_route_notify_owner_ctx(ctx,
 						     ZAPI_ROUTE_FAIL_INSTALL);
@@ -1937,22 +1934,19 @@ static void rib_process_after(dplane_ctx_h ctx)
 	RNODE_FOREACH_RE(rn, rib) {
 
 		if (re == NULL) {
-			if (rib_route_match_ctx(rib, ctx, false)) {
+			if (rib_route_match_ctx(rib, ctx, false))
 				re = rib;
-			}
 		}
 
 		/* Check for old route match */
 		if (is_update && (old_re == NULL)) {
-			if (rib_route_match_ctx(rib, ctx, true /*is_update*/)) {
+			if (rib_route_match_ctx(rib, ctx, true /*is_update*/))
 				old_re = rib;
-			}
 		}
 
 		/* Have we found the routes we need to work on? */
-		if (re && ((!is_update || old_re))) {
+		if (re && ((!is_update || old_re)))
 			break;
-		}
 	}
 
 	/*
@@ -1998,9 +1992,8 @@ static void rib_process_after(dplane_ctx_h ctx)
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
 
-		if (zvrf) {
+		if (zvrf)
 			zvrf->installs++;
-		}
 
 		/* Redistribute */
 		/* TODO -- still calling the redist api using the route_entries,
@@ -3149,15 +3142,14 @@ static int rib_process_dplane_results(struct thread *thread)
 		}
 		pthread_mutex_unlock(&dplane_mutex);
 
-		if (ctx) {
+		if (ctx)
 			rib_process_after(ctx);
-		} else {
+		else
 			break;
-		}
 
-	} while(1);
+	} while (1);
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -3179,7 +3171,7 @@ static int rib_dplane_results(dplane_ctx_h ctx)
 	thread_add_event(zebrad.master, rib_process_dplane_results, NULL, 0,
 			 &t_dplane);
 
-	return (0);
+	return 0;
 }
 
 /* Routing information base initialize. */

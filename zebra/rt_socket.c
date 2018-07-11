@@ -394,7 +394,7 @@ static int kernel_rtm(int cmd, const struct prefix *p, struct route_entry *re)
 enum dp_req_result kernel_route_update(dplane_ctx_h ctx)
 {
 	/* TODO -- socket version */
-	return (DP_REQUEST_FAILURE);
+	return DP_REQUEST_FAILURE;
 }
 
 enum dp_req_result kernel_route_rib(struct route_node *rn,

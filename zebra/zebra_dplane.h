@@ -38,7 +38,7 @@
 /*
  * Operation codes used when returning status back to the main zebra context.
  */
-typedef enum {
+enum dplane_op_e {
 	DPLANE_OP_NONE = 0,
 
 	/* Route update */
@@ -46,25 +46,20 @@ typedef enum {
 	DPLANE_OP_ROUTE_UPDATE,
 	DPLANE_OP_ROUTE_DELETE,
 
-} dplane_op_e;
+};
 
 /*
  * Opaque context block used to exchange info between the main zebra
  * context and the dataplane module(s). If these are two independent pthreads,
  * they cannot share existing global data structures safely.
  */
-typedef struct zebra_dplane_ctx_s * dplane_ctx_h;
+typedef struct zebra_dplane_ctx_s *dplane_ctx_h;
 
 /* Define a tailq list type for context blocks. The list is exposed/public,
  * but the internal linkage in the context struct is private, so there
  * are accessor apis that support enqueue and dequeue.
  */
 TAILQ_HEAD(dplane_ctx_q_s, zebra_dplane_ctx_s);
-
-/*
- * Allocate an opaque context block, currently for a route update.
- */
-dplane_ctx_h dplane_ctx_alloc(void);
 
 /* Return a dataplane results context block after use; the caller's pointer will
  * be cleared.
@@ -84,13 +79,13 @@ void dplane_ctx_dequeue(struct dplane_ctx_q_s *q, dplane_ctx_h *ctxp);
  */
 enum dp_req_result dplane_ctx_get_status(const dplane_ctx_h ctx);
 
-dplane_op_e dplane_ctx_get_op(const dplane_ctx_h ctx);
-const char *dplane_op2str(dplane_op_e op);
+enum dplane_op_e dplane_ctx_get_op(const dplane_ctx_h ctx);
+const char *dplane_op2str(enum dplane_op_e op);
 
 const struct prefix *dplane_ctx_get_dest(const dplane_ctx_h ctx);
 
-/* Source prefix is a little special - use convention like prefix-len of zero
- * and all-zeroes address means "no src prefix"? or ... return NULL in that case?
+/* Source prefix is a little special - use convention to return NULL
+ * to mean "no src prefix"
  */
 const struct prefix *dplane_ctx_get_src(const dplane_ctx_h ctx);
 
@@ -130,7 +125,6 @@ enum dp_req_result dplane_route_delete(struct route_node *rn,
 				       struct route_entry *re);
 
 /* Opaque handle to a dataplane provider plugin */
-typedef struct zebra_dplane_provider_s *dplane_provider_h;
 
 #define DPLANE_PROVIDER_NAMELEN 64
 
@@ -139,21 +133,21 @@ typedef struct zebra_dplane_provider_s *dplane_provider_h;
  * followed by the kernel, followed by some post-processing step (such as
  * the fpm output stream.)
  */
-typedef enum {
+enum dplane_provider_prio_e {
 	DPLANE_PRIO_NONE = 0,
 	DPLANE_PRIO_PREPROCESS,
 	DPLANE_PRIO_PRE_KERNEL,
 	DPLANE_PRIO_KERNEL,
 	DPLANE_PRIO_POSTPROCESS,
 	DPLANE_PRIO_LAST
-}  dplane_provider_prio_e;
+};
 
 /* Provider's entry-point to process a context block */
 typedef int (*dplane_provider_process_fp)(dplane_ctx_h ctx);
 
 /* Provider registration */
 int dplane_provider_register(const char *name,
-			     dplane_provider_prio_e prio,
+			     enum dplane_provider_prio_e prio,
 			     dplane_provider_process_fp fp);
 
 /*
