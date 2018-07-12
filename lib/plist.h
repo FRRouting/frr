@@ -61,8 +61,9 @@ extern struct prefix_list *prefix_list_lookup(afi_t, const char *);
  * If it is a empty plist return a NULL pointer.
  */
 extern enum prefix_list_type
-prefix_list_apply_which_prefix(struct prefix_list *plist, struct prefix **which,
-			       void *object);
+prefix_list_apply_which_prefix(struct prefix_list *plist,
+			       const struct prefix **which,
+			       const void *object);
 #define prefix_list_apply(A, B) prefix_list_apply_which_prefix((A), NULL, (B))
 
 extern struct prefix_list *prefix_bgp_orf_lookup(afi_t, const char *);

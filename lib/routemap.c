@@ -1387,7 +1387,7 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 
 static route_map_result_t
 route_map_apply_match(struct route_map_rule_list *match_list,
-		      struct prefix *prefix, route_map_object_t type,
+		      const struct prefix *prefix, route_map_object_t type,
 		      void *object)
 {
 	route_map_result_t ret = RMAP_NOMATCH;
@@ -1417,7 +1417,8 @@ route_map_apply_match(struct route_map_rule_list *match_list,
 }
 
 /* Apply route map to the object. */
-route_map_result_t route_map_apply(struct route_map *map, struct prefix *prefix,
+route_map_result_t route_map_apply(struct route_map *map,
+				   const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
 	static int recursion = 0;

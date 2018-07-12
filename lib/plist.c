@@ -656,7 +656,7 @@ static const char *prefix_list_type_str(struct prefix_list_entry *pentry)
 }
 
 static int prefix_list_entry_match(struct prefix_list_entry *pentry,
-				   struct prefix *p)
+				   const struct prefix *p)
 {
 	int ret;
 
@@ -683,14 +683,15 @@ static int prefix_list_entry_match(struct prefix_list_entry *pentry,
 	return 1;
 }
 
-enum prefix_list_type prefix_list_apply_which_prefix(struct prefix_list *plist,
-						     struct prefix **which,
-						     void *object)
+enum prefix_list_type prefix_list_apply_which_prefix(
+	struct prefix_list *plist,
+	const struct prefix **which,
+	const void *object)
 {
 	struct prefix_list_entry *pentry, *pbest = NULL;
 
-	struct prefix *p = (struct prefix *)object;
-	uint8_t *byte = p->u.val;
+	const struct prefix *p = (const struct prefix *)object;
+	const uint8_t *byte = p->u.val;
 	size_t depth;
 	size_t validbits = p->prefixlen;
 	struct pltrie_table *table;
