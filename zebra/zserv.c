@@ -69,7 +69,7 @@ extern struct zebra_privs_t zserv_privs;
  * Client thread events.
  *
  * These are used almost exclusively by client threads to drive their own event
- * loops. The only exception is in zebra_client_create(), which pushes an
+ * loops. The only exception is in zserv_client_create(), which pushes an
  * initial ZSERV_CLIENT_READ event to start the API handler loop.
  */
 enum zserv_client_event {
@@ -1025,7 +1025,7 @@ void zserv_read_file(char *input)
 	struct zserv *client = NULL;
 	struct thread t;
 
-	zebra_client_create(-1);
+	zserv_client_create(-1);
 
 	frr_pthread_stop(client->pthread, NULL);
 	frr_pthread_destroy(client->pthread);
