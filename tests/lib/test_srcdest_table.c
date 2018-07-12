@@ -230,7 +230,8 @@ static void test_dump(struct test_state *test)
 }
 
 static void test_failed(struct test_state *test, const char *message,
-			struct prefix_ipv6 *dst_p, struct prefix_ipv6 *src_p)
+			const struct prefix_ipv6 *dst_p,
+			const struct prefix_ipv6 *src_p)
 {
 	char *route_id = format_srcdest(dst_p, src_p);
 
@@ -252,7 +253,7 @@ static void test_state_verify(struct test_state *test)
 	/* Verify that there are no elements in the table which have never
 	 * been added */
 	for (rn = route_top(test->table); rn; rn = srcdest_route_next(rn)) {
-		struct prefix_ipv6 *dst_p, *src_p;
+		const struct prefix_ipv6 *dst_p, *src_p;
 
 		/* While we are iterating, we hold a lock on the current
 		 * route_node,
@@ -290,10 +291,10 @@ static void test_state_verify(struct test_state *test)
 				expected_lock++;
 
 			if (rn->lock != expected_lock) {
-				struct prefix_ipv6 *dst_p, *src_p;
+				const struct prefix_ipv6 *dst_p, *src_p;
 				srcdest_rnode_prefixes(
-					rn, (struct prefix **)&dst_p,
-					(struct prefix **)&src_p);
+					rn, (const struct prefix **)&dst_p,
+					(const struct prefix **)&src_p);
 
 				test_failed(
 					test,
@@ -307,8 +308,8 @@ static void test_state_verify(struct test_state *test)
 
 		assert(rn->info == (void *)0xdeadbeef);
 
-		srcdest_rnode_prefixes(rn, (struct prefix **)&dst_p,
-				       (struct prefix **)&src_p);
+		srcdest_rnode_prefixes(rn, (const struct prefix **)&dst_p,
+				       (const struct prefix **)&src_p);
 		memcpy(&hash_entry[0], dst_p, sizeof(*dst_p));
 		if (src_p)
 			memcpy(&hash_entry[1], src_p, sizeof(*src_p));
@@ -379,7 +380,7 @@ static void test_state_del_one_route(struct test_state *test, struct prng *prng)
 	which_route = prng_rand(prng) % test->log->count;
 
 	struct route_node *rn;
-	struct prefix *dst_p, *src_p;
+	const struct prefix *dst_p, *src_p;
 	struct prefix_ipv6 dst6_p, src6_p;
 
 	for (rn = route_top(test->table); rn; rn = srcdest_route_next(rn)) {
