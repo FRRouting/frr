@@ -157,6 +157,9 @@ struct rip {
 		uint32_t metric;
 	} route_map[ZEBRA_ROUTE_MAX];
 
+	vrf_id_t vrf_id; /* VRF Id */
+	char *name;      /* VRF name */
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(rip)
@@ -364,8 +367,10 @@ enum rip_event {
 
 /* Prototypes. */
 extern void rip_init(void);
+extern void rip_vrf_terminate(void);
+extern void rip_vrf_init(void);
 extern void rip_reset(void);
-extern void rip_clean(void);
+extern void rip_clean(struct rip *rip, bool remove);
 extern void rip_clean_network(void);
 extern void rip_interfaces_clean(void);
 extern void rip_interfaces_reset(void);
@@ -421,6 +426,9 @@ extern void rip_redistribute_clean(void);
 extern struct rip_info *rip_ecmp_add(struct rip_info *);
 extern struct rip_info *rip_ecmp_replace(struct rip_info *);
 extern struct rip_info *rip_ecmp_delete(struct rip_info *);
+
+extern void rip_zebra_vrf_register(struct rip *rip);
+extern void rip_zebra_vrf_deregister(struct rip *rip);
 
 /* There is only one rip strucutre. */
 extern struct rip *rip_global;
