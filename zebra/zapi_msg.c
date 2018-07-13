@@ -2834,7 +2834,9 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETL(s, ifindex);
 
 		if (ifindex) {
-			zpr.ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
+			zpr.ifp = if_lookup_by_index_per_ns(
+						zvrf->zns,
+						ifindex);
 			if (!zpr.ifp) {
 				zlog_debug("Failed to lookup ifindex: %u",
 					   ifindex);
