@@ -3667,15 +3667,17 @@ static const char *rip_route_type_print(int sub_type)
 
 DEFUN (show_ip_rip,
        show_ip_rip_cmd,
-       "show ip rip",
+       "show ip rip [vrf NAME]",
        SHOW_STR
        IP_STR
-       "Show RIP routes\n")
+       "Show RIP routes\n"
+       VRF_CMD_HELP_STR)
 {
 	struct route_node *np;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
+	struct rip *rip = rip_cmd_lookup_rip(vty, argv, argc, 0);
 
 	if (!rip)
 		return CMD_SUCCESS;
@@ -3768,15 +3770,9 @@ DEFUN (show_ip_rip,
 }
 
 /* Vincent: formerly, it was show_ip_protocols_rip: "show ip protocols" */
-DEFUN (show_ip_rip_status,
-       show_ip_rip_status_cmd,
-       "show ip rip status",
-       SHOW_STR
-       IP_STR
-       "Show RIP routes\n"
-       "IP routing protocol process parameters and statistics\n")
+static int show_ip_rip_status_command(struct vty *vty, struct rip *rip)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct interface *ifp;
 	struct rip_interface *ri;
 	extern const struct message ri_version_msg[];
@@ -3785,7 +3781,7 @@ DEFUN (show_ip_rip_status,
 
 	if (!rip)
 		return CMD_SUCCESS;
-
+	vrf =  vrf_lookup_by_id(rip->vrf_id);
 	vty_out(vty, "Routing Protocol is \"rip\"\n");
 	vty_out(vty, "  Sending updates every %ld seconds with +/-50%%,",
 		rip->update_time);
@@ -3873,6 +3869,22 @@ DEFUN (show_ip_rip_status,
 	rip_distance_show(vty, rip);
 
 	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_rip_status,
+       show_ip_rip_status_cmd,
+       "show ip rip [vrf NAME] status",
+       SHOW_STR
+       IP_STR
+       "Show RIP routes\n"
+       VRF_CMD_HELP_STR
+       "IP routing protocol process parameters and statistics\n")
+{
+	struct rip *rip = rip_cmd_lookup_rip(vty, argv, argc, 0);
+
+	if (!rip)
+		return CMD_SUCCESS;
+	return show_ip_rip_status_command(vty, rip);
 }
 
 /* RIP configuration write function. */
