@@ -1737,9 +1737,8 @@ DEFUN (no_rip_passive_interface,
 }
 
 /* Write rip configuration of each interface. */
-static int rip_interface_config_write(struct vty *vty)
+static int rip_interface_config_write_vrf(struct vty *vty, struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -1759,8 +1758,11 @@ static int rip_interface_config_write(struct vty *vty)
 		    && (!ri->auth_str) && (!ri->key_chain))
 			continue;
 
-		vty_frame(vty, "interface %s\n", ifp->name);
-
+		vrf = vrf_lookup_by_id(ifp->vrf_id);
+		vty_frame(vty, "interface %s", ifp->name);
+		if (vrf && ifp->vrf_id != VRF_DEFAULT)
+			vty_frame(vty, " vrf %s", vrf->name);
+		vty_frame(vty, "\n");
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
@@ -1817,6 +1819,15 @@ static int rip_interface_config_write(struct vty *vty)
 
 		vty_endframe(vty, "!\n");
 	}
+	return 0;
+}
+
+static int rip_interface_config_write(struct vty *vty)
+{
+	struct vrf *vrf = NULL;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		rip_interface_config_write_vrf(vty, vrf);
 	return 0;
 }
 
