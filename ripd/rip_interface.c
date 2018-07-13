@@ -592,9 +592,12 @@ int rip_if_down(struct interface *ifp)
 /* Needed for stop RIP process. */
 void rip_if_down_all()
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct interface *ifp;
 
+	if (!rip_global)
+		return;
+	vrf = vrf_lookup_by_id(rip_global->vrf_id);
 	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_if_down(ifp);
 }
