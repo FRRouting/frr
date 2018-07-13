@@ -4202,31 +4202,31 @@ static void rip_if_rmap_update(struct if_rmap *if_rmap)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
-	struct route_map *rmap;
+	struct route_map *rmap_in = NULL, *rmap_out = NULL;
+	struct vrf *vrf = NULL;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, VRF_DEFAULT);
-	if (ifp == NULL)
-		return;
+	if (if_rmap->routemap[IF_RMAP_IN])
+		rmap_in = route_map_lookup_by_name(
+				   if_rmap->routemap[IF_RMAP_IN]);
 
-	ri = ifp->info;
+	if (if_rmap->routemap[IF_RMAP_OUT])
+		rmap_out = route_map_lookup_by_name(
+				    if_rmap->routemap[IF_RMAP_OUT]);
 
-	if (if_rmap->routemap[IF_RMAP_IN]) {
-		rmap = route_map_lookup_by_name(if_rmap->routemap[IF_RMAP_IN]);
-		if (rmap)
-			ri->routemap[IF_RMAP_IN] = rmap;
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
+		if (ifp == NULL)
+			continue;
+		ri = ifp->info;
+		if (rmap_in)
+			ri->routemap[IF_RMAP_IN] = rmap_in;
 		else
 			ri->routemap[IF_RMAP_IN] = NULL;
-	} else
-		ri->routemap[RIP_FILTER_IN] = NULL;
-
-	if (if_rmap->routemap[IF_RMAP_OUT]) {
-		rmap = route_map_lookup_by_name(if_rmap->routemap[IF_RMAP_OUT]);
-		if (rmap)
-			ri->routemap[IF_RMAP_OUT] = rmap;
+		if (rmap_out)
+			ri->routemap[IF_RMAP_OUT] = rmap_out;
 		else
 			ri->routemap[IF_RMAP_OUT] = NULL;
-	} else
-		ri->routemap[RIP_FILTER_OUT] = NULL;
+	}
 }
 
 void rip_if_rmap_update_interface(struct interface *ifp)
@@ -4254,15 +4254,19 @@ static void rip_routemap_update_redistribute(void)
 }
 
 /* ARGSUSED */
-static void rip_routemap_update(const char *notused)
+static void rip_routemap_update_vrf(struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_if_rmap_update_interface(ifp);
 
 	rip_routemap_update_redistribute();
+}
+
+static void rip_routemap_update(const char *notused)
+{
+	vrf_list_walk(rip_routemap_update_vrf);
 }
 
 /* Allocate new rip structure and set default value. */
