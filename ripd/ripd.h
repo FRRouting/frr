@@ -235,6 +235,7 @@ struct rip_info {
 	struct rip_info *next;
 	struct rip_info *prev;
 #endif /* NEW_RIP_TABLE */
+	vrf_id_t vrf_id;
 };
 
 typedef enum {
@@ -395,8 +396,8 @@ extern void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 				 unsigned char distance, route_tag_t tag);
 extern void rip_redistribute_delete(int, int, struct prefix_ipv4 *, ifindex_t);
 extern void rip_redistribute_withdraw(int type, struct rip *rip);
-extern void rip_zebra_ipv4_add(struct route_node *);
-extern void rip_zebra_ipv4_delete(struct route_node *);
+extern void rip_zebra_ipv4_add(struct route_node *rn, vrf_id_t vrf_id);
+extern void rip_zebra_ipv4_delete(struct route_node *rn, vrf_id_t vrf_id);
 extern void rip_interface_multicast_set(int, struct connected *);
 extern void rip_distribute_update_interface(struct interface *ifp);
 extern void rip_if_rmap_update_interface(struct interface *);
