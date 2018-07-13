@@ -1118,7 +1118,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 	   whether the datagram is from a valid neighbor; the source of the
 	   datagram must be on a directly connected network (RFC2453 - Sec.
 	   3.9.2) */
-	if (if_lookup_address((void *)&from->sin_addr, AF_INET, VRF_DEFAULT)
+	if (if_lookup_address((void *)&from->sin_addr, AF_INET, rip->vrf_id)
 	    == NULL) {
 		zlog_info(
 			"This datagram doesn't came from a valid neighbor: %s",
@@ -1201,7 +1201,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			}
 
 			if (!if_lookup_address((void *)&rte->nexthop, AF_INET,
-					       VRF_DEFAULT)) {
+					       rip->vrf_id)) {
 				struct route_node *rn;
 				struct rip_info *rinfo;
 
@@ -1572,7 +1572,7 @@ void rip_redistribute_delete(int type, int sub_type, struct prefix_ipv4 *p,
 						inet_ntoa(p->prefix),
 						p->prefixlen,
 						ifindex2ifname(ifindex,
-							       VRF_DEFAULT));
+							       rip->vrf_id));
 
 				rip_event(RIP_TRIGGERED_UPDATE, 0);
 			}
@@ -1779,7 +1779,7 @@ static int rip_read(struct thread *t)
 	}
 
 	/* Which interface is this packet comes from. */
-	ifc = if_lookup_address((void *)&from.sin_addr, AF_INET, VRF_DEFAULT);
+	ifc = if_lookup_address((void *)&from.sin_addr, AF_INET, rip->vrf_id);
 	if (ifc)
 		ifp = ifc->ifp;
 
@@ -2468,7 +2468,7 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 /* Update send to all interface and neighbor. */
 static void rip_update_process(int route_type)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct listnode *ifnode, *ifnnode;
 	struct connected *connected;
 	struct interface *ifp;
@@ -2477,6 +2477,10 @@ static void rip_update_process(int route_type)
 	struct sockaddr_in to;
 	struct prefix *p;
 	struct rip *rip = rip_global;
+
+	if (!rip)
+		return;
+	vrf = vrf_lookup_by_id(rip->vrf_id);
 
 	/* Send RIP update to each interface. */
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -2532,7 +2536,7 @@ static void rip_update_process(int route_type)
 			p = &rp->p;
 
 			connected = if_lookup_address(&p->u.prefix4, AF_INET,
-						      VRF_DEFAULT);
+						      rip->vrf_id);
 			if (!connected) {
 				zlog_warn(
 					"Neighbor %s doesnt have connected interface!",

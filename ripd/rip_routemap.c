@@ -122,7 +122,9 @@ static route_map_result_t route_match_interface(void *rule,
 
 	if (type == RMAP_RIP) {
 		ifname = rule;
-		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+		if (!rip_global)
+			return RMAP_NOMATCH;
+		ifp = if_lookup_by_name(ifname, rip_global->vrf_id);
 
 		if (!ifp)
 			return RMAP_NOMATCH;
