@@ -210,8 +210,9 @@ static void rip_request_interface(struct interface *ifp)
 	/* If there is no version configuration in the interface,
 	   use rip's version setting. */
 	{
-		int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ? rip->version_send
-							    : ri->ri_send);
+		int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ?
+			     rip_global->version_send
+			     : ri->ri_send);
 		if (vsend & RIPv1)
 			rip_request_interface_send(ifp, RIPv1);
 		if (vsend & RIPv2)
@@ -554,8 +555,9 @@ int rip_if_down(struct interface *ifp)
 	struct rip_interface *ri = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL, *nextnode = NULL;
-	if (rip) {
-		for (rp = route_top(rip->table); rp; rp = route_next(rp))
+
+	if (rip_global) {
+		for (rp = route_top(rip_global->table); rp; rp = route_next(rp))
 			if ((list = rp->info) != NULL)
 				for (ALL_LIST_ELEMENTS(list, listnode, nextnode,
 						       rinfo))
@@ -569,7 +571,7 @@ int rip_if_down(struct interface *ifp)
 				zlog_debug("turn off %s", ifp->name);
 
 			/* Leave from multicast group. */
-			rip_multicast_leave(ifp, rip->sock);
+			rip_multicast_leave(ifp, rip_global->sock);
 
 			ri->running = 0;
 		}
@@ -594,7 +596,7 @@ static void rip_apply_address_add(struct connected *ifc)
 	struct nexthop nh;
 	struct prefix *p;
 
-	if (!rip)
+	if (!rip_global)
 		return;
 
 	if (!if_is_up(ifc->ifp))
@@ -655,7 +657,7 @@ static void rip_apply_address_del(struct connected *ifc)
 	struct prefix_ipv4 address;
 	struct prefix *p;
 
-	if (!rip)
+	if (!rip_global)
 		return;
 
 	if (!if_is_up(ifc->ifp))
@@ -864,7 +866,7 @@ static int rip_interface_wakeup(struct thread *t)
 	ri->t_wakeup = NULL;
 
 	/* Join to multicast group. */
-	if (rip_multicast_join(ifp, rip->sock) < 0) {
+	if (rip_multicast_join(ifp, rip_global->sock) < 0) {
 		zlog_err("multicast join failed, interface %s not running",
 			 ifp->name);
 		return 0;
@@ -1001,7 +1003,7 @@ int rip_neighbor_lookup(struct sockaddr_in *from)
 	p.prefix = from->sin_addr;
 	p.prefixlen = IPV4_MAX_BITLEN;
 
-	node = route_node_lookup(rip->neighbor, (struct prefix *)&p);
+	node = route_node_lookup(rip_global->neighbor, (struct prefix *)&p);
 	if (node) {
 		route_unlock_node(node);
 		return 1;
@@ -1014,12 +1016,12 @@ static int rip_neighbor_add(struct prefix_ipv4 *p)
 {
 	struct route_node *node;
 
-	node = route_node_get(rip->neighbor, (struct prefix *)p);
+	node = route_node_get(rip_global->neighbor, (struct prefix *)p);
 
 	if (node->info)
 		return -1;
 
-	node->info = rip->neighbor;
+	node->info = rip_global->neighbor;
 
 	return 0;
 }
@@ -1030,7 +1032,7 @@ static int rip_neighbor_delete(struct prefix_ipv4 *p)
 	struct route_node *node;
 
 	/* Lock for look up. */
-	node = route_node_lookup(rip->neighbor, (struct prefix *)p);
+	node = route_node_lookup(rip_global->neighbor, (struct prefix *)p);
 	if (!node)
 		return -1;
 
@@ -1837,7 +1839,8 @@ int config_write_rip_network(struct vty *vty, int config_mode)
 				config_mode ? " network " : "    ", ifname);
 
 	/* RIP neighbors listing. */
-	for (node = route_top(rip->neighbor); node; node = route_next(node))
+	for (node = route_top(rip_global->neighbor); node;
+	     node = route_next(node))
 		if (node->info)
 			vty_out(vty, "%s%s\n",
 				config_mode ? " neighbor " : "    ",

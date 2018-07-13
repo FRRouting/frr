@@ -423,7 +423,7 @@ extern struct rip_info *rip_ecmp_replace(struct rip_info *);
 extern struct rip_info *rip_ecmp_delete(struct rip_info *);
 
 /* There is only one rip strucutre. */
-extern struct rip *rip;
+extern struct rip *rip_global;
 
 extern struct zebra_privs_t ripd_privs;
 
