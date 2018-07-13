@@ -215,48 +215,52 @@ static struct {
 		   {ZEBRA_ROUTE_VNC, 1, "vnc"},
 		   {0, 0, NULL}};
 
-static int rip_redistribute_unset(int type)
+static int rip_redistribute_unset(int type, struct rip *rip)
 {
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP][type], VRF_DEFAULT))
+	if (!vrf_bitmap_check(zclient->redist[AFI_IP][type], rip->vrf_id))
 		return CMD_SUCCESS;
 
-	vrf_bitmap_unset(zclient->redist[AFI_IP][type], VRF_DEFAULT);
+	vrf_bitmap_unset(zclient->redist[AFI_IP][type], rip->vrf_id);
 
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
-					AFI_IP, type, 0, VRF_DEFAULT);
+					AFI_IP, type, 0, rip->vrf_id);
 
 	/* Remove the routes from RIP table. */
-	rip_redistribute_withdraw(type);
+	rip_redistribute_withdraw(type, rip);
 
 	return CMD_SUCCESS;
 }
 
-int rip_redistribute_check(int type)
+int rip_redistribute_check(int type, struct rip *rip)
 {
-	return vrf_bitmap_check(zclient->redist[AFI_IP][type], VRF_DEFAULT);
+	return vrf_bitmap_check(zclient->redist[AFI_IP][type], rip->vrf_id);
 }
 
-void rip_redistribute_clean(void)
+void rip_redistribute_clean(vrf_id_t vrf_id)
 {
 	int i;
+
+	if (vrf_id == VRF_UNKNOWN)
+		return;
 
 	for (i = 0; redist_type[i].str; i++) {
 		if (vrf_bitmap_check(
 			    zclient->redist[AFI_IP][redist_type[i].type],
-			    VRF_DEFAULT)) {
+			    vrf_id)) {
 			if (zclient->sock > 0)
 				zebra_redistribute_send(
 					ZEBRA_REDISTRIBUTE_DELETE, zclient,
 					AFI_IP, redist_type[i].type, 0,
-					VRF_DEFAULT);
+					vrf_id);
 
 			vrf_bitmap_unset(
 				zclient->redist[AFI_IP][redist_type[i].type],
-				VRF_DEFAULT);
+				vrf_id);
 
 			/* Remove the routes from RIP table. */
-			rip_redistribute_withdraw(redist_type[i].type);
+			rip_redistribute_withdraw(redist_type[i].type,
+						  rip_global);
 		}
 	}
 }
@@ -268,6 +272,7 @@ DEFUN (rip_redistribute_type,
        FRR_REDIST_HELP_STR_RIPD)
 {
 	int i;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
 		if (strncmp(redist_type[i].str, argv[1]->arg,
@@ -275,7 +280,7 @@ DEFUN (rip_redistribute_type,
 		    == 0) {
 			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
 					     AFI_IP, redist_type[i].type, 0,
-					     VRF_DEFAULT);
+					     rip->vrf_id);
 			return CMD_SUCCESS;
 		}
 	}
@@ -293,6 +298,7 @@ DEFUN (no_rip_redistribute_type,
        FRR_REDIST_HELP_STR_RIPD)
 {
 	int i;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
 		if (strncmp(redist_type[i].str, argv[2]->arg,
@@ -301,7 +307,7 @@ DEFUN (no_rip_redistribute_type,
 			rip_metric_unset(redist_type[i].type,
 					 DONT_CARE_METRIC_RIP);
 			rip_routemap_unset(redist_type[i].type, NULL);
-			rip_redistribute_unset(redist_type[i].type);
+			rip_redistribute_unset(redist_type[i].type, rip);
 			return CMD_SUCCESS;
 		}
 	}
@@ -322,6 +328,7 @@ DEFUN (rip_redistribute_type_routemap,
 	int idx_protocol = 1;
 	int idx_word = 3;
 	int i;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
 		if (strmatch(redist_type[i].str, argv[idx_protocol]->text)) {
@@ -329,7 +336,7 @@ DEFUN (rip_redistribute_type_routemap,
 					 argv[idx_word]->arg);
 			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
 					     AFI_IP, redist_type[i].type, 0,
-					     VRF_DEFAULT);
+					     rip->vrf_id);
 			return CMD_SUCCESS;
 		}
 	}
@@ -351,13 +358,14 @@ DEFUN (no_rip_redistribute_type_routemap,
 	int idx_protocol = 2;
 	int idx_word = 4;
 	int i;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
 		if (strmatch(redist_type[i].str, argv[idx_protocol]->text)) {
 			if (rip_routemap_unset(redist_type[i].type,
 					       argv[idx_word]->arg))
 				return CMD_WARNING_CONFIG_FAILED;
-			rip_redistribute_unset(redist_type[i].type);
+			rip_redistribute_unset(redist_type[i].type, rip);
 			return CMD_SUCCESS;
 		}
 	}
@@ -379,6 +387,7 @@ DEFUN (rip_redistribute_type_metric,
 	int idx_number = 3;
 	int i;
 	int metric;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	metric = atoi(argv[idx_number]->arg);
 
@@ -388,7 +397,7 @@ DEFUN (rip_redistribute_type_metric,
 						    metric);
 			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
 					     AFI_IP, redist_type[i].type, 0,
-					     VRF_DEFAULT);
+					     rip->vrf_id);
 			return CMD_SUCCESS;
 		}
 	}
@@ -410,13 +419,14 @@ DEFUN (no_rip_redistribute_type_metric,
 	int idx_protocol = 2;
 	int idx_number = 4;
 	int i;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
 		if (strmatch(redist_type[i].str, argv[idx_protocol]->text)) {
 			if (rip_metric_unset(redist_type[i].type,
 					     atoi(argv[idx_number]->arg)))
 				return CMD_WARNING_CONFIG_FAILED;
-			rip_redistribute_unset(redist_type[i].type);
+			rip_redistribute_unset(redist_type[i].type, rip);
 			return CMD_SUCCESS;
 		}
 	}
@@ -441,6 +451,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
 	int idx_word = 5;
 	int i;
 	int metric;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	metric = atoi(argv[idx_number]->arg);
 
@@ -452,7 +463,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
 					 argv[idx_word]->arg);
 			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
 					     AFI_IP, redist_type[i].type, 0,
-					     VRF_DEFAULT);
+					     rip->vrf_id);
 			return CMD_SUCCESS;
 		}
 	}
@@ -478,6 +489,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
 	int idx_number = 4;
 	int idx_word = 6;
 	int i;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
 		if (strmatch(redist_type[i].str, argv[idx_protocol]->text)) {
@@ -491,7 +503,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
 					atoi(argv[idx_number]->arg));
 				return CMD_WARNING_CONFIG_FAILED;
 			}
-			rip_redistribute_unset(redist_type[i].type);
+			rip_redistribute_unset(redist_type[i].type, rip);
 			return CMD_SUCCESS;
 		}
 	}
@@ -560,7 +572,7 @@ int config_write_rip_redistribute(struct vty *vty, int config_mode)
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (i == zclient->redist_default
 		    || !vrf_bitmap_check(zclient->redist[AFI_IP][i],
-					 VRF_DEFAULT))
+					 rip->vrf_id))
 			continue;
 
 		if (!config_mode) {

@@ -2647,12 +2647,11 @@ static int rip_triggered_update(struct thread *t)
 }
 
 /* Withdraw redistributed route. */
-void rip_redistribute_withdraw(int type)
+void rip_redistribute_withdraw(int type, struct rip *rip)
 {
 	struct route_node *rp;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
-	struct rip *rip = rip_global;
 
 	if (!rip)
 		return;
@@ -2680,7 +2679,7 @@ void rip_redistribute_withdraw(int type)
 						p->prefixlen,
 						ifindex2ifname(
 							rinfo->nh.ifindex,
-							VRF_DEFAULT));
+							rip->vrf_id));
 				}
 
 				rip_event(RIP_TRIGGERED_UPDATE, 0);
@@ -3971,18 +3970,14 @@ static int config_write_rip(struct vty *vty)
 static struct cmd_node rip_node = {RIP_NODE, "%s(config-router)# ", 1};
 
 /* Distribute-list update functions. */
-static void rip_distribute_update(struct distribute *dist)
+static void rip_distribute_update_ifp(struct distribute *dist,
+				      struct interface *ifp)
 {
-	struct interface *ifp;
 	struct rip_interface *ri;
 	struct access_list *alist;
 	struct prefix_list *plist;
 
 	if (!dist->ifname)
-		return;
-
-	ifp = if_lookup_by_name(dist->ifname, VRF_DEFAULT);
-	if (ifp == NULL)
 		return;
 
 	ri = ifp->info;
@@ -4028,25 +4023,45 @@ static void rip_distribute_update(struct distribute *dist)
 		ri->prefix[RIP_FILTER_OUT] = NULL;
 }
 
+static void rip_distribute_update(struct distribute *dist)
+{
+	struct interface *ifp;
+	struct vrf *vrf;
+
+	if (!dist->ifname)
+		return;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name(dist->ifname, vrf->vrf_id);
+		if (ifp)
+			rip_distribute_update_ifp(dist, ifp);
+	}
+}
+
 void rip_distribute_update_interface(struct interface *ifp)
 {
 	struct distribute *dist;
 
 	dist = distribute_lookup(ifp->name);
 	if (dist)
-		rip_distribute_update(dist);
+		rip_distribute_update_ifp(dist, ifp);
 }
 
 /* Update all interface's distribute list. */
 /* ARGSUSED */
-static void rip_distribute_update_all(struct prefix_list *notused)
+static void rip_distribute_update_all_vrf(struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_distribute_update_interface(ifp);
 }
+
+static void rip_distribute_update_all(struct prefix_list *notused)
+{
+	vrf_list_walk(rip_distribute_update_all_vrf);
+}
+
 /* ARGSUSED */
 static void rip_distribute_update_all_wrapper(struct access_list *notused)
 {
