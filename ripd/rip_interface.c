@@ -50,7 +50,7 @@ static void rip_passive_interface_apply(struct interface *);
 static int rip_if_down(struct interface *ifp);
 static int rip_enable_if_lookup(const char *ifname);
 static int rip_enable_network_lookup2(struct connected *connected);
-static void rip_enable_apply_all(void);
+static void rip_enable_apply_all(struct rip *rip);
 
 const struct message ri_version_msg[] = {{RI_RIP_VERSION_1, "1"},
 					 {RI_RIP_VERSION_2, "2"},
@@ -773,7 +773,7 @@ int rip_enable_network_lookup2(struct connected *connected)
 	return -1;
 }
 /* Add RIP enable network. */
-static int rip_enable_network_add(struct prefix *p)
+static int rip_enable_network_add(struct prefix *p, struct rip *rip)
 {
 	struct route_node *node;
 
@@ -786,13 +786,13 @@ static int rip_enable_network_add(struct prefix *p)
 		node->info = (void *)1;
 
 	/* XXX: One should find a better solution than a generic one */
-	rip_enable_apply_all();
+	rip_enable_apply_all(rip);
 
 	return 1;
 }
 
 /* Delete RIP enable network. */
-static int rip_enable_network_delete(struct prefix *p)
+static int rip_enable_network_delete(struct prefix *p, struct rip *rip)
 {
 	struct route_node *node;
 
@@ -807,7 +807,7 @@ static int rip_enable_network_delete(struct prefix *p)
 		route_unlock_node(node);
 
 		/* XXX: One should find a better solution than a generic one */
-		rip_enable_apply_all();
+		rip_enable_apply_all(rip);
 
 		return 1;
 	}
@@ -828,7 +828,7 @@ static int rip_enable_if_lookup(const char *ifname)
 }
 
 /* Add interface to rip_enable_if. */
-static int rip_enable_if_add(const char *ifname)
+static int rip_enable_if_add(const char *ifname, struct rip *rip)
 {
 	int ret;
 
@@ -838,13 +838,13 @@ static int rip_enable_if_add(const char *ifname)
 
 	vector_set(rip_enable_interface, strdup(ifname));
 
-	rip_enable_apply_all(); /* TODOVJ */
+	rip_enable_apply_all(rip); /* TODOVJ */
 
 	return 1;
 }
 
 /* Delete interface from rip_enable_if. */
-static int rip_enable_if_delete(const char *ifname)
+static int rip_enable_if_delete(const char *ifname, struct rip *rip)
 {
 	int index;
 	char *str;
@@ -857,7 +857,7 @@ static int rip_enable_if_delete(const char *ifname)
 	free(str);
 	vector_unset(rip_enable_interface, index);
 
-	rip_enable_apply_all(); /* TODOVJ */
+	rip_enable_apply_all(rip); /* TODOVJ */
 
 	return 1;
 }
@@ -993,9 +993,9 @@ void rip_enable_apply(struct interface *ifp)
 }
 
 /* Apply network configuration to all interface. */
-void rip_enable_apply_all()
+void rip_enable_apply_all(struct rip *rip)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(rip->vrf_id);
 	struct interface *ifp;
 
 	/* Check each interface. */
@@ -1181,9 +1181,9 @@ DEFUN (rip_network,
 	ret = str2prefix_ipv4(argv[idx_ipv4_word]->arg, &p);
 
 	if (ret)
-		ret = rip_enable_network_add((struct prefix *)&p);
+		ret = rip_enable_network_add((struct prefix *)&p, rip);
 	else
-		ret = rip_enable_if_add(argv[idx_ipv4_word]->arg);
+		ret = rip_enable_if_add(argv[idx_ipv4_word]->arg, rip);
 
 	if (ret < 0) {
 		vty_out(vty, "There is a same network configuration %s\n",
@@ -1211,9 +1211,9 @@ DEFUN (no_rip_network,
 	ret = str2prefix_ipv4(argv[idx_ipv4_word]->arg, &p);
 
 	if (ret)
-		ret = rip_enable_network_delete((struct prefix *)&p);
+		ret = rip_enable_network_delete((struct prefix *)&p, rip);
 	else
-		ret = rip_enable_if_delete(argv[idx_ipv4_word]->arg);
+		ret = rip_enable_if_delete(argv[idx_ipv4_word]->arg, rip);
 
 	if (ret < 0) {
 		vty_out(vty, "Can't find network configuration %s\n",
