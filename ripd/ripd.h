@@ -389,16 +389,16 @@ extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
 			    struct connected *);
 extern int rip_neighbor_lookup(struct sockaddr_in *);
 
-extern int rip_redistribute_check(int);
+extern int rip_redistribute_check(int type, struct rip *rip);
 extern void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 				 struct nexthop *nh, unsigned int metric,
 				 unsigned char distance, route_tag_t tag);
 extern void rip_redistribute_delete(int, int, struct prefix_ipv4 *, ifindex_t);
-extern void rip_redistribute_withdraw(int);
+extern void rip_redistribute_withdraw(int type, struct rip *rip);
 extern void rip_zebra_ipv4_add(struct route_node *);
 extern void rip_zebra_ipv4_delete(struct route_node *);
 extern void rip_interface_multicast_set(int, struct connected *);
-extern void rip_distribute_update_interface(struct interface *);
+extern void rip_distribute_update_interface(struct interface *ifp);
 extern void rip_if_rmap_update_interface(struct interface *);
 
 extern int config_write_rip_network(struct vty *, int);
@@ -421,7 +421,7 @@ extern void rip_offset_clean(void);
 
 extern void rip_info_free(struct rip_info *);
 extern uint8_t rip_distance_apply(struct rip_info *);
-extern void rip_redistribute_clean(void);
+extern void rip_redistribute_clean(vrf_id_t vrf_id);
 
 extern struct rip_info *rip_ecmp_add(struct rip_info *);
 extern struct rip_info *rip_ecmp_replace(struct rip_info *);

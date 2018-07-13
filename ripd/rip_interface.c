@@ -916,7 +916,8 @@ static void rip_connect_set(struct interface *ifp, int set)
 			rip_redistribute_delete(ZEBRA_ROUTE_CONNECT,
 						RIP_ROUTE_INTERFACE, &address,
 						connected->ifp->ifindex);
-			if (rip_redistribute_check(ZEBRA_ROUTE_CONNECT))
+			if (rip_redistribute_check(ZEBRA_ROUTE_CONNECT,
+						   rip_global))
 				rip_redistribute_add(ZEBRA_ROUTE_CONNECT,
 						     RIP_ROUTE_REDISTRIBUTE,
 						     &address, &nh, 0, 0, 0);
