@@ -488,13 +488,18 @@ static void rip_interface_clean(struct rip_interface *ri)
 	}
 }
 
-void rip_interfaces_clean(void)
+static void  rip_interfaces_clean_vrf(struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_interface_clean(ifp->info);
+
+}
+
+void rip_interfaces_clean(void)
+{
+	vrf_list_walk(rip_interfaces_clean_vrf);
 }
 
 static void rip_interface_reset(struct rip_interface *ri)
@@ -538,13 +543,17 @@ static void rip_interface_reset(struct rip_interface *ri)
 	rip_interface_clean(ri);
 }
 
-void rip_interfaces_reset(void)
+static void rip_interfaces_reset_vrf(struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_interface_reset(ifp->info);
+}
+
+void rip_interfaces_reset(void)
+{
+	vrf_list_walk(rip_interfaces_reset_vrf);
 }
 
 int rip_if_down(struct interface *ifp)
@@ -1099,13 +1108,17 @@ void rip_passive_interface_apply(struct interface *ifp)
 			   ri->passive);
 }
 
-static void rip_passive_interface_apply_all(void)
+static void rip_passive_interface_apply_all_vrf(struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_passive_interface_apply(ifp);
+}
+
+static void rip_passive_interface_apply_all(void)
+{
+	vrf_list_walk(rip_passive_interface_apply_all_vrf);
 }
 
 /* Passive interface. */
