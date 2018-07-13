@@ -3791,8 +3791,11 @@ static int show_ip_rip_status_command(struct vty *vty, struct rip *rip)
 	vty_out(vty, "Routing Protocol is \"rip\"\n");
 	vty_out(vty, "  Sending updates every %ld seconds with +/-50%%,",
 		rip->update_time);
-	vty_out(vty, " next due in %lu seconds\n",
-		thread_timer_remain_second(rip->t_update));
+	if (rip->t_update)
+		vty_out(vty, " next due in %lu seconds\n",
+			thread_timer_remain_second(rip->t_update));
+	else
+		vty_out(vty, "\n");
 	vty_out(vty, "  Timeout after %ld seconds,", rip->timeout_time);
 	vty_out(vty, " garbage collect after %ld seconds\n", rip->garbage_time);
 
