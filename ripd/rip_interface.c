@@ -1162,6 +1162,7 @@ DEFUN (rip_network,
 	int idx_ipv4_word = 1;
 	int ret;
 	struct prefix_ipv4 p;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	ret = str2prefix_ipv4(argv[idx_ipv4_word]->arg, &p);
 
@@ -1191,6 +1192,7 @@ DEFUN (no_rip_network,
 	int idx_ipv4_word = 2;
 	int ret;
 	struct prefix_ipv4 p;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	ret = str2prefix_ipv4(argv[idx_ipv4_word]->arg, &p);
 

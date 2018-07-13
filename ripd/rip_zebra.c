@@ -598,6 +598,40 @@ static void rip_zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
+void rip_zebra_vrf_register(struct rip *rip_param)
+{
+	if (!zclient || zclient->sock < 0 || !rip_param)
+		return;
+
+	if (rip_param->vrf_id != VRF_UNKNOWN) {
+		if (IS_RIP_DEBUG_EVENT)
+			zlog_debug("%s: Register VRF %s id %u",
+				   __PRETTY_FUNCTION__,
+				   vrf_id_to_name(rip_param->vrf_id),
+				   rip_param->vrf_id);
+		zclient_send_reg_requests(zclient, rip_param->vrf_id);
+	}
+}
+
+void rip_zebra_vrf_deregister(struct rip *rip_param)
+{
+	if (!zclient || zclient->sock < 0 || !rip_param)
+		return;
+
+	if (rip_param->vrf_id != VRF_DEFAULT &&
+	    rip_param->vrf_id != VRF_UNKNOWN) {
+		if (IS_RIP_DEBUG_EVENT)
+			zlog_debug("%s: De-Register VRF %s id %u to Zebra.",
+				   __PRETTY_FUNCTION__,
+				   vrf_id_to_name(rip_param->vrf_id),
+				   rip_param->vrf_id);
+		/* Deregister for router-id, interfaces,
+		 * redistributed routes.
+		 */
+		zclient_send_dereg_requests(zclient, rip_param->vrf_id);
+	}
+}
+
 void rip_zclient_init(struct thread_master *master)
 {
 	/* Set default value to the zebra client structure. */

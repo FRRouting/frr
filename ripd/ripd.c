@@ -1327,7 +1327,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 }
 
 /* Make socket for RIP protocol. */
-static int rip_create_socket(void)
+static int rip_create_socket(struct rip *rip_param)
 {
 	int ret;
 	int sock;
@@ -1343,11 +1343,17 @@ static int rip_create_socket(void)
 	addr.sin_port = htons(RIP_PORT_DEFAULT);
 
 	/* Make datagram socket. */
-	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (ripd_privs.change(ZPRIVS_RAISE))
+		zlog_err("%s: could not raise privs", __func__);
+	sock = vrf_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP,
+			  rip_param->vrf_id,
+			  rip_param->name);
 	if (sock < 0) {
 		zlog_err("Cannot create UDP socket: %s", safe_strerror(errno));
-		exit(1);
+		return -1;
 	}
+	if (ripd_privs.change(ZPRIVS_LOWER))
+		zlog_err("%s: could not lower privs", __func__);
 
 	sockopt_broadcast(sock);
 	sockopt_reuseaddr(sock);
@@ -1368,7 +1374,7 @@ static int rip_create_socket(void)
 	{
 		int save_errno = errno;
 		if (ripd_privs.change(ZPRIVS_LOWER))
-			zlog_err("rip_create_socket: could not lower privs");
+			zlog_err("%s: could not lower privs", __func__);
 
 		zlog_err("%s: Can't bind socket %d to %s port %d: %s", __func__,
 			 sock, inet_ntoa(addr.sin_addr),
@@ -1379,8 +1385,8 @@ static int rip_create_socket(void)
 	}
 
 	if (ripd_privs.change(ZPRIVS_LOWER))
-		zlog_err("rip_create_socket: could not lower privs");
-
+		zlog_err("%s: could not lower privs", __func__);
+	rip_param->sock = sock;
 	return sock;
 }
 
@@ -2685,8 +2691,11 @@ void rip_redistribute_withdraw(int type)
 }
 
 /* Create new RIP instance and set it to global variable. */
-static int rip_create(void)
+static int rip_create(char *vrfname)
 {
+	int ret;
+	struct rip *rip;
+
 	rip = XCALLOC(MTYPE_RIP, sizeof(struct rip));
 
 	/* Set initial value. */
@@ -2705,16 +2714,28 @@ static int rip_create(void)
 	/* Make output stream. */
 	rip->obuf = stream_new(1500);
 
+	if (vrfname) {
+		struct vrf *vrf = vrf_lookup_by_name(vrfname);
+
+		if (vrf)
+			rip->vrf_id = vrf->vrf_id;
+		else
+			rip->vrf_id = VRF_UNKNOWN;
+		if ((vrf && vrf->vrf_id != VRF_DEFAULT) ||
+		    !vrf) {
+			rip->name = XSTRDUP(MTYPE_TMP, vrfname);
+		}
+	}
+	QOBJ_REG(rip, rip);
+	rip_global = rip;
 	/* Make socket. */
-	rip->sock = rip_create_socket();
-	if (rip->sock < 0)
-		return rip->sock;
+	ret = rip_create_socket(rip);
+	if (ret < 0)
+		return ret;
 
 	/* Create read and timer thread. */
 	rip_event(RIP_READ, rip->sock);
 	rip_event(RIP_UPDATE_EVENT, 1);
-
-	QOBJ_REG(rip, rip);
 
 	return 0;
 }
@@ -2810,6 +2831,10 @@ static struct rip *rip_cmd_lookup_rip(struct vty *vty,
 	if (argv_find(argv, argc, "vrf", &idx_vrf))
 		vrf_name = argv[idx_vrf + 1]->arg;
 	if (rip_global) {
+		if (rip_global->name == NULL && vrf_name == NULL)
+			return rip_global;
+		if (vrf_name == NULL || rip_global->name == NULL)
+			return NULL;
 		if (0 == strcmp(rip_global->name, vrf_name))
 			return rip_global;
 		/* could not create RIP instance since there is already one
@@ -2855,36 +2880,164 @@ void rip_event(enum rip_event event, int sock)
 	}
 }
 
-DEFUN_NOSH (router_rip,
-       router_rip_cmd,
-       "router rip",
-       "Enable a routing process\n"
-       "Routing Information Protocol (RIP)\n")
+/* Link RIP instance to VRF. */
+static void rip_vrf_link(struct rip *rip, struct vrf *vrf)
 {
-	int ret;
+	rip->vrf_id = vrf->vrf_id;
+	if (vrf->info != (void *)rip)
+		vrf->info = (void *)rip;
+}
 
-	/* If rip is not enabled before. */
-	if (!rip) {
-		ret = rip_create();
-		if (ret < 0) {
-			zlog_info("Can't create RIP");
-			return CMD_WARNING_CONFIG_FAILED;
+/* Unlink RIP instance from VRF. */
+static void rip_vrf_unlink(struct rip *rip, struct vrf *vrf)
+{
+	if (vrf->info == (void *)rip)
+		vrf->info = NULL;
+	rip->vrf_id = VRF_UNKNOWN;
+}
+
+/* This is hook function for vrf create called as part of vrf_init */
+static int rip_vrf_new(struct vrf *vrf)
+{
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF Created: %s(%u)", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
+
+	return 0;
+}
+
+/* This is hook function for vrf delete call as part of vrf_init */
+static int rip_vrf_delete(struct vrf *vrf)
+{
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF Deletion: %s(%u)", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
+
+	return 0;
+}
+
+/* Enable RIP VRF instance */
+static int rip_vrf_enable(struct vrf *vrf)
+{
+	vrf_id_t old_vrf_id;
+	int ret = 0;
+	struct rip *rip;
+
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF %s id %u enabled", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
+
+	rip = rip_lookup_by_name(vrf->name);
+	if (rip) {
+		old_vrf_id = rip->vrf_id;
+		/* We have instance configured, link to VRF and make it "up". */
+		rip_vrf_link(rip, vrf);
+		if (IS_RIP_DEBUG_EVENT)
+			zlog_debug(
+				"%s: rip linked to vrf %s vrf_id %u (old id %u)",
+				__PRETTY_FUNCTION__, vrf->name, rip->vrf_id,
+				old_vrf_id);
+
+		if (old_vrf_id != rip->vrf_id) {
+			if (ripd_privs.change(ZPRIVS_RAISE)) {
+				zlog_err(
+					"rip_sock_init: could not raise privs, %s",
+					safe_strerror(errno));
+			}
+			/* start zebra redist to us for new vrf */
+			rip_zebra_vrf_register(rip);
+			if (ripd_privs.change(ZPRIVS_LOWER)) {
+				zlog_err(
+					"ospf_sock_init: could not lower privs, %s",
+					safe_strerror(errno));
+			}
+
+			ret = rip_create_socket(rip);
+			if (ret < 0 || rip->sock <= 0)
+				return 0;
+			/* Create read and timer thread. */
+			rip_event(RIP_READ, rip->sock);
+			rip_event(RIP_UPDATE_EVENT, 1);
 		}
 	}
-	VTY_PUSH_CONTEXT(RIP_NODE, rip);
 
+	return 0;
+}
+
+/* Disable RIP VRF instance */
+static int rip_vrf_disable(struct vrf *vrf)
+{
+	struct rip *rip = NULL;
+	vrf_id_t old_vrf_id = VRF_UNKNOWN;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF %s id %d disabled.", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
+
+	rip = rip_lookup_by_name(vrf->name);
+	if (rip) {
+		old_vrf_id = rip->vrf_id;
+
+		/* We have instance configured, unlink
+		 * from VRF and make it "down".
+		 */
+		rip_vrf_unlink(rip, vrf);
+		if (IS_RIP_DEBUG_EVENT)
+			zlog_debug("%s: rip old_vrf_id %d unlinked",
+				   __PRETTY_FUNCTION__, old_vrf_id);
+		rip_clean(rip, false);
+	}
+
+	/* Note: This is a callback, the VRF will be deleted by the caller. */
+	return 0;
+}
+
+void rip_vrf_init(void)
+{
+	vrf_init(rip_vrf_new, rip_vrf_enable, rip_vrf_disable,
+		 rip_vrf_delete);
+}
+
+void rip_vrf_terminate(void)
+{
+	vrf_terminate();
+}
+
+
+DEFUN_NOSH (router_rip,
+       router_rip_cmd,
+       "router rip [vrf NAME]",
+       "Enable a routing process\n"
+       "Routing Information Protocol (RIP)\n"
+       VRF_CMD_HELP_STR)
+{
+	struct rip *rip_local;
+
+	rip_local = rip_cmd_lookup_rip(vty, argv, argc, 1);
+	/* If rip is not enabled before. */
+	if (!rip_local) {
+		zlog_info("Can't create RIP");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	VTY_PUSH_CONTEXT(RIP_NODE, rip_local);
 	return CMD_SUCCESS;
 }
 
 DEFUN (no_router_rip,
        no_router_rip_cmd,
-       "no router rip",
+       "no router rip [vrf NAME]",
        NO_STR
        "Enable a routing process\n"
-       "Routing Information Protocol (RIP)\n")
+       "Routing Information Protocol (RIP)\n"
+       VRF_CMD_HELP_STR)
 {
-	if (rip)
-		rip_clean();
+	struct rip *rip_local = rip_cmd_lookup_rip(vty, argv, argc, 0);
+
+	if (rip_local)
+		rip_clean(rip_local, true);
 	return CMD_SUCCESS;
 }
 
@@ -2896,6 +3049,7 @@ DEFUN (rip_version,
 {
 	int idx_number = 1;
 	int version;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	version = atoi(argv[idx_number]->arg);
 	if (version != RIPv1 && version != RIPv2) {
@@ -2915,6 +3069,8 @@ DEFUN (no_rip_version,
        "Set routing protocol version\n"
        "Version\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	/* Set RIP version to the default. */
 	rip->version_send = RI_RIP_VERSION_2;
 	rip->version_recv = RI_RIP_VERSION_1_AND_2;
@@ -2934,6 +3090,7 @@ DEFUN (rip_route,
 	struct nexthop nh;
 	struct prefix_ipv4 p;
 	struct route_node *node;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	memset(&nh, 0, sizeof(nh));
 	nh.type = NEXTHOP_TYPE_IPV4;
@@ -2973,6 +3130,7 @@ DEFUN (no_rip_route,
 	int ret;
 	struct prefix_ipv4 p;
 	struct route_node *node;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	ret = str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 	if (ret < 0) {
@@ -3022,6 +3180,8 @@ DEFUN (rip_default_metric,
        "Default metric\n")
 {
 	int idx_number = 1;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	if (rip) {
 		rip->default_metric = atoi(argv[idx_number]->arg);
 		/* rip_update_default_metric (); */
@@ -3036,6 +3196,8 @@ DEFUN (no_rip_default_metric,
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	if (rip) {
 		rip->default_metric = RIP_DEFAULT_METRIC_DEFAULT;
 		/* rip_update_default_metric (); */
@@ -3062,6 +3224,7 @@ DEFUN (rip_timers,
 	char *endptr = NULL;
 	unsigned long RIP_TIMER_MAX = 2147483647;
 	unsigned long RIP_TIMER_MIN = 5;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	update = strtoul(argv[idx_number]->arg, &endptr, 10);
 	if (update > RIP_TIMER_MAX || update < RIP_TIMER_MIN
@@ -3105,6 +3268,8 @@ DEFUN (no_rip_timers,
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	/* Set each timer value to the default. */
 	rip->update_time = RIP_UPDATE_TIMER_DEFAULT;
 	rip->timeout_time = RIP_TIMEOUT_TIMER_DEFAULT;
@@ -3302,6 +3467,8 @@ DEFUN (rip_distance,
        "Distance value\n")
 {
 	int idx_number = 1;
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	rip->distance = atoi(argv[idx_number]->arg);
 	return CMD_SUCCESS;
 }
@@ -3313,6 +3480,8 @@ DEFUN (no_rip_distance,
        "Administrative distance\n"
        "Distance value\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	rip->distance = 0;
 	return CMD_SUCCESS;
 }
@@ -3426,6 +3595,8 @@ DEFUN (rip_allow_ecmp,
        "allow-ecmp",
        "Allow Equal Cost MultiPath\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	if (rip->ecmp) {
 		vty_out(vty, "ECMP is already enabled.\n");
 		return CMD_WARNING;
@@ -3442,6 +3613,8 @@ DEFUN (no_rip_allow_ecmp,
        NO_STR
        "Allow Equal Cost MultiPath\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	if (!rip->ecmp) {
 		vty_out(vty, "ECMP is already disabled.\n");
 		return CMD_WARNING;
@@ -3713,7 +3886,11 @@ static int config_write_rip(struct vty *vty)
 
 	if (rip) {
 		/* Router RIP statement. */
-		vty_out(vty, "router rip\n");
+		vty_out(vty, "router rip");
+		if (rip->vrf_id == VRF_DEFAULT)
+			vty_out(vty, "\n");
+		else if (rip->name)
+			vty_out(vty, " vrf %s\n", rip->name);
 		write++;
 
 		/* RIP version statement.  Default is RIP version 2. */
@@ -3877,16 +4054,22 @@ static void rip_distribute_update_all_wrapper(struct access_list *notused)
 }
 
 /* Delete all added rip route. */
-void rip_clean(void)
+void rip_clean(struct rip *rip, bool unregister)
 {
 	int i;
 	struct route_node *rp;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
+	vrf_id_t vrf_id = VRF_UNKNOWN;
 
+	/* should not happen */
+	if (rip != rip_global)
+		return;
 	if (rip) {
-		QOBJ_UNREG(rip);
+		vrf_id = rip->vrf_id;
+		if (unregister)
+			QOBJ_UNREG(rip);
 
 		/* Clear RIP routes */
 		for (rp = route_top(rip->table); rp; rp = route_next(rp))
@@ -3947,8 +4130,10 @@ void rip_clean(void)
 		XFREE(MTYPE_ROUTE_TABLE, rip->route);
 		XFREE(MTYPE_ROUTE_TABLE, rip->neighbor);
 
-		XFREE(MTYPE_RIP, rip);
-		rip = NULL;
+		if (unregister) {
+			XFREE(MTYPE_RIP, rip);
+			rip_global = NULL;
+		}
 	}
 
 	rip_clean_network();
@@ -3956,7 +4141,7 @@ void rip_clean(void)
 	rip_offset_clean();
 	rip_interfaces_clean();
 	rip_distance_reset();
-	rip_redistribute_clean();
+	rip_redistribute_clean(vrf_id);
 }
 
 /* Reset all values to the default settings. */
