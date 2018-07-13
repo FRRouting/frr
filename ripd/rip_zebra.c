@@ -87,7 +87,7 @@ static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
 	zclient_route_send(cmd, zclient, &api);
 
 	if (IS_RIP_DEBUG_ZEBRA) {
-		if (rip->ecmp)
+		if (rip_global->ecmp)
 			zlog_debug("%s: %s/%d nexthops %d",
 				   (cmd == ZEBRA_ROUTE_ADD)
 					   ? "Install into zebra"
@@ -124,7 +124,7 @@ static int rip_zebra_read_route(int command, struct zclient *zclient,
 	struct zapi_route api;
 	struct nexthop nh;
 
-	if (!rip)
+	if (!rip_global)
 		return 0;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
@@ -156,6 +156,8 @@ void rip_zclient_reset(void)
 /* RIP route-map set for redistribution */
 static void rip_routemap_set(int type, const char *name)
 {
+	struct rip *rip = rip_global;
+
 	if (rip->route_map[type].name)
 		free(rip->route_map[type].name);
 
@@ -165,13 +167,17 @@ static void rip_routemap_set(int type, const char *name)
 
 static void rip_redistribute_metric_set(int type, unsigned int metric)
 {
+	struct rip *rip = rip_global;
+
 	rip->route_map[type].metric_config = 1;
 	rip->route_map[type].metric = metric;
 }
 
 static int rip_metric_unset(int type, unsigned int metric)
 {
-#define DONT_CARE_METRIC_RIP 17  
+	struct rip *rip = rip_global;
+
+#define DONT_CARE_METRIC_RIP 17
 	if (metric != DONT_CARE_METRIC_RIP
 	    && rip->route_map[type].metric != metric)
 		return 1;
@@ -183,6 +189,8 @@ static int rip_metric_unset(int type, unsigned int metric)
 /* RIP route-map unset for redistribution */
 static int rip_routemap_unset(int type, const char *name)
 {
+	struct rip *rip = rip_global;
+
 	if (!rip->route_map[type].name
 	    || (name != NULL && strcmp(rip->route_map[type].name, name)))
 		return 1;
@@ -503,6 +511,7 @@ DEFUN (rip_default_information_originate,
 {
 	struct prefix_ipv4 p;
 	struct nexthop nh;
+	struct rip *rip = rip_global;
 
 	if (!rip->default_information) {
 		memset(&p, 0, sizeof(struct prefix_ipv4));
@@ -528,6 +537,7 @@ DEFUN (no_rip_default_information_originate,
        "Distribute a default route\n")
 {
 	struct prefix_ipv4 p;
+	struct rip *rip = rip_global;
 
 	if (rip->default_information) {
 		memset(&p, 0, sizeof(struct prefix_ipv4));
@@ -545,6 +555,7 @@ DEFUN (no_rip_default_information_originate,
 int config_write_rip_redistribute(struct vty *vty, int config_mode)
 {
 	int i;
+	struct rip *rip = rip_global;
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (i == zclient->redist_default

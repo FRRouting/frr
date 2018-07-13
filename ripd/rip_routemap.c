@@ -46,12 +46,12 @@ static void rip_route_map_update(const char *notused)
 {
 	int i;
 
-	if (rip) {
+	if (rip_global) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (rip->route_map[i].name)
-				rip->route_map[i].map =
+			if (rip_global->route_map[i].name)
+				rip_global->route_map[i].map =
 					route_map_lookup_by_name(
-						rip->route_map[i].name);
+						rip_global->route_map[i].name);
 		}
 	}
 }
