@@ -334,9 +334,9 @@ static int rip_if_ipv4_address_check(struct interface *ifp)
 
 
 /* Does this address belongs to me ? */
-int if_check_address(struct in_addr addr)
+int if_check_address(struct in_addr addr, vrf_id_t vrf_id)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
