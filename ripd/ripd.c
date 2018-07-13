@@ -169,7 +169,7 @@ struct rip_info *rip_ecmp_add(struct rip_info *rinfo_new)
 
 	if (rip_route_rte(rinfo)) {
 		rip_timeout_update(rinfo);
-		rip_zebra_ipv4_add(rp);
+		rip_zebra_ipv4_add(rp, rinfo_new->vrf_id);
 	}
 
 	/* Set the route change flag on the first entry. */
@@ -201,7 +201,7 @@ struct rip_info *rip_ecmp_replace(struct rip_info *rinfo_new)
 	/* Learnt route replaced by a local one. Delete it from zebra. */
 	if (rip_route_rte(rinfo) && !rip_route_rte(rinfo_new))
 		if (CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
-			rip_zebra_ipv4_delete(rp);
+			rip_zebra_ipv4_delete(rp, rinfo->vrf_id);
 
 	/* Re-use the first entry, and delete the others. */
 	for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo))
@@ -219,7 +219,7 @@ struct rip_info *rip_ecmp_replace(struct rip_info *rinfo_new)
 	if (rip_route_rte(rinfo)) {
 		rip_timeout_update(rinfo);
 		/* The ADD message implies an update. */
-		rip_zebra_ipv4_add(rp);
+		rip_zebra_ipv4_add(rp, rinfo_new->vrf_id);
 	}
 
 	/* Set the route change flag. */
@@ -253,7 +253,7 @@ struct rip_info *rip_ecmp_delete(struct rip_info *rinfo)
 		if (rip_route_rte(rinfo)
 		    && CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
 			/* The ADD message implies the update. */
-			rip_zebra_ipv4_add(rp);
+			rip_zebra_ipv4_add(rp, rinfo->vrf_id);
 		rip_info_free(rinfo);
 		rinfo = NULL;
 	} else {
@@ -269,7 +269,7 @@ struct rip_info *rip_ecmp_delete(struct rip_info *rinfo)
 
 		if (rip_route_rte(rinfo)
 		    && CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
-			rip_zebra_ipv4_delete(rp);
+			rip_zebra_ipv4_delete(rp, rinfo->vrf_id);
 	}
 
 	/* Set the route change flag on the first entry. */
@@ -438,6 +438,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	newinfo.metric = rte->metric;
 	newinfo.metric_out = rte->metric; /* XXX */
 	newinfo.tag = ntohs(rte->tag);    /* XXX */
+	newinfo.vrf_id = ifp->vrf_id;
 
 	/* Modify entry according to the interface routemap. */
 	if (ri->routemap[RIP_FILTER_IN]) {
@@ -657,7 +658,8 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 					rip_timeout_update(rinfo);
 
 					if (update)
-						rip_zebra_ipv4_add(rp);
+						rip_zebra_ipv4_add(rp,
+								   ifp->vrf_id);
 
 					/* - Set the route change flag on the
 					 * first entry. */
@@ -3579,7 +3581,7 @@ static void rip_ecmp_disable(struct rip *rip)
 				}
 
 			/* Update zebra. */
-			rip_zebra_ipv4_add(rp);
+			rip_zebra_ipv4_add(rp, rip->vrf_id);
 
 			/* Set the route change flag. */
 			SET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
@@ -4103,7 +4105,8 @@ void rip_clean(struct rip *rip, bool unregister)
 			if ((list = rp->info) != NULL) {
 				rinfo = listgetdata(listhead(list));
 				if (rip_route_rte(rinfo))
-					rip_zebra_ipv4_delete(rp);
+					rip_zebra_ipv4_delete(rp,
+							      rinfo->vrf_id);
 
 				for (ALL_LIST_ELEMENTS_RO(list, listnode,
 							  rinfo)) {

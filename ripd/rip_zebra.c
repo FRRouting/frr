@@ -37,7 +37,8 @@
 struct zclient *zclient = NULL;
 
 /* Send ECMP routes to zebra. */
-static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
+static void rip_zebra_ipv4_send(struct route_node *rp,
+				uint8_t cmd, vrf_id_t vrf_id)
 {
 	struct list *list = (struct list *)rp->info;
 	struct zapi_route api;
@@ -47,7 +48,7 @@ static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
 	int count = 0;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id = vrf_id;
 	api.type = ZEBRA_ROUTE_RIP;
 	api.safi = SAFI_UNICAST;
 
@@ -56,7 +57,7 @@ static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
 		if (count >= MULTIPATH_NUM)
 			break;
 		api_nh = &api.nexthops[count];
-		api_nh->vrf_id = VRF_DEFAULT;
+		api_nh->vrf_id = vrf_id;
 		api_nh->gate = rinfo->nh.gate;
 		api_nh->type = NEXTHOP_TYPE_IPV4;
 		if (cmd == ZEBRA_ROUTE_ADD)
@@ -106,15 +107,15 @@ static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
 }
 
 /* Add/update ECMP routes to zebra. */
-void rip_zebra_ipv4_add(struct route_node *rp)
+void rip_zebra_ipv4_add(struct route_node *rp, vrf_id_t vrf_id)
 {
-	rip_zebra_ipv4_send(rp, ZEBRA_ROUTE_ADD);
+	rip_zebra_ipv4_send(rp, ZEBRA_ROUTE_ADD, vrf_id);
 }
 
 /* Delete ECMP routes from zebra. */
-void rip_zebra_ipv4_delete(struct route_node *rp)
+void rip_zebra_ipv4_delete(struct route_node *rp, vrf_id_t vrf_id)
 {
-	rip_zebra_ipv4_send(rp, ZEBRA_ROUTE_DELETE);
+	rip_zebra_ipv4_send(rp, ZEBRA_ROUTE_DELETE, vrf_id);
 }
 
 /* Zebra route add and delete treatment. */
