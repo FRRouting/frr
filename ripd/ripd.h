@@ -383,7 +383,7 @@ extern void rip_zclient_init(struct thread_master *);
 extern void rip_zclient_stop(void);
 extern void rip_zclient_reset(void);
 extern void rip_offset_init(void);
-extern int if_check_address(struct in_addr addr);
+extern int if_check_address(struct in_addr addr, vrf_id_t vrf_id);
 
 extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
 			    struct connected *);

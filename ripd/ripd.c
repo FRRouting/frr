@@ -371,9 +371,9 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 }
 
 /* Check nexthop address validity. */
-static int rip_nexthop_check(struct in_addr *addr)
+static int rip_nexthop_check(struct in_addr *addr, vrf_id_t vrf_id)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 	struct listnode *cnode;
 	struct connected *ifc;
@@ -482,7 +482,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 		nexthop = &rte->nexthop;
 
 	/* Check if nexthop address is myself, then do nothing. */
-	if (rip_nexthop_check(nexthop) < 0) {
+	if (rip_nexthop_check(nexthop, rip_global->vrf_id) < 0) {
 		if (IS_RIP_DEBUG_PACKET)
 			zlog_debug("Nexthop address %s is myself",
 				   inet_ntoa(*nexthop));
@@ -1774,7 +1774,7 @@ static int rip_read(struct thread *t)
 	}
 
 	/* Check is this packet comming from myself? */
-	if (if_check_address(from.sin_addr)) {
+	if (if_check_address(from.sin_addr, rip_global->vrf_id)) {
 		if (IS_RIP_DEBUG_PACKET)
 			zlog_debug("ignore packet comes from myself");
 		return -1;
