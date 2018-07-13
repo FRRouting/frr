@@ -243,6 +243,9 @@ int vrf_is_mapped_on_netns(vrf_id_t vrf_id);
 extern int vrf_switch_to_netns(vrf_id_t vrf_id);
 extern int vrf_switchback_to_initial(void);
 
+/* VRF walk */
+extern void vrf_list_walk(void (*exec_for_each_vrf)(struct vrf *));
+
 /*
  * VRF backend routines
  * should be called from zebra only
