@@ -21,6 +21,7 @@ TAGS
 __pycache__
 .pytest_cache
 /bgpd/test_aspath
+/bgpd/test_bgp_table
 /bgpd/test_capability
 /bgpd/test_ecommunity
 /bgpd/test_mp_attr
