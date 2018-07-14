@@ -829,9 +829,6 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	n->nlmsg_seq = ++nl->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
 
-	/* Request an acknowledgement by setting NLM_F_ACK */
-	n->nlmsg_flags |= NLM_F_ACK;
-
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
 			"netlink_talk: %s type %s(%u), len=%d seq=%u flags 0x%x",
@@ -942,12 +939,20 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
 	zns->netlink.sock = -1;
-	netlink_socket(&zns->netlink, groups, zns->ns_id);
+	if (netlink_socket(&zns->netlink, groups, zns->ns_id) < 0) {
+		zlog_err("Failure to create %s socket",
+			 zns->netlink.name);
+		exit(-1);
+	}
 
 	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
 		 "netlink-cmd (NS %u)", zns->ns_id);
 	zns->netlink_cmd.sock = -1;
-	netlink_socket(&zns->netlink_cmd, 0, zns->ns_id);
+	if (netlink_socket(&zns->netlink_cmd, 0, zns->ns_id) < 0) {
+		zlog_err("Failure to create %s socket",
+			 zns->netlink_cmd.name);
+		exit(-1);
+	}
 
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
@@ -969,23 +974,24 @@ void kernel_init(struct zebra_ns *zns)
 #endif
 
 	/* Register kernel socket. */
-	if (zns->netlink.sock > 0) {
-		/* Only want non-blocking on the netlink event socket */
-		if (fcntl(zns->netlink.sock, F_SETFL, O_NONBLOCK) < 0)
-			zlog_err("Can't set %s socket flags: %s",
-				 zns->netlink.name, safe_strerror(errno));
+	if (fcntl(zns->netlink.sock, F_SETFL, O_NONBLOCK) < 0)
+		zlog_err("Can't set %s socket error: %s(%d)",
+			 zns->netlink.name, safe_strerror(errno), errno);
 
-		/* Set receive buffer size if it's set from command line */
-		if (nl_rcvbufsize)
-			netlink_recvbuf(&zns->netlink, nl_rcvbufsize);
+	if (fcntl(zns->netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
+		zlog_err("Can't set %s socket error: %s(%d)",
+			 zns->netlink_cmd.name, safe_strerror(errno), errno);
 
-		netlink_install_filter(zns->netlink.sock,
-				       zns->netlink_cmd.snl.nl_pid);
-		zns->t_netlink = NULL;
+	/* Set receive buffer size if it's set from command line */
+	if (nl_rcvbufsize)
+		netlink_recvbuf(&zns->netlink, nl_rcvbufsize);
 
-		thread_add_read(zebrad.master, kernel_read, zns,
-				zns->netlink.sock, &zns->t_netlink);
-	}
+	netlink_install_filter(zns->netlink.sock,
+			       zns->netlink_cmd.snl.nl_pid);
+	zns->t_netlink = NULL;
+
+	thread_add_read(zebrad.master, kernel_read, zns,
+			zns->netlink.sock, &zns->t_netlink);
 
 	rt_netlink_init();
 }
