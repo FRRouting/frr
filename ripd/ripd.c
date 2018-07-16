@@ -3054,6 +3054,7 @@ DEFUN (rip_version,
 {
 	int idx_number = 1;
 	int version;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	version = atoi(argv[idx_number]->arg);
@@ -3095,6 +3096,7 @@ DEFUN (rip_route,
 	struct nexthop nh;
 	struct prefix_ipv4 p;
 	struct route_node *node;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	memset(&nh, 0, sizeof(nh));
@@ -3135,6 +3137,7 @@ DEFUN (no_rip_route,
 	int ret;
 	struct prefix_ipv4 p;
 	struct route_node *node;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	ret = str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
@@ -3185,6 +3188,7 @@ DEFUN (rip_default_metric,
        "Default metric\n")
 {
 	int idx_number = 1;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	if (rip) {
@@ -3229,6 +3233,7 @@ DEFUN (rip_timers,
 	char *endptr = NULL;
 	unsigned long RIP_TIMER_MAX = 2147483647;
 	unsigned long RIP_TIMER_MIN = 5;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	update = strtoul(argv[idx_number]->arg, &endptr, 10);
@@ -3472,6 +3477,7 @@ DEFUN (rip_distance,
        "Distance value\n")
 {
 	int idx_number = 1;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	rip->distance = atoi(argv[idx_number]->arg);
