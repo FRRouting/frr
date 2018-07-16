@@ -1179,6 +1179,7 @@ DEFUN (rip_network,
 	int idx_ipv4_word = 1;
 	int ret;
 	struct prefix_ipv4 p;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	ret = str2prefix_ipv4(argv[idx_ipv4_word]->arg, &p);
@@ -1209,6 +1210,7 @@ DEFUN (no_rip_network,
 	int idx_ipv4_word = 2;
 	int ret;
 	struct prefix_ipv4 p;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	ret = str2prefix_ipv4(argv[idx_ipv4_word]->arg, &p);
@@ -1284,9 +1286,10 @@ DEFUN (ip_rip_receive_version,
        "RIP version\n"
        "None\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_type = 4;
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1319,8 +1322,9 @@ DEFUN (ip_rip_receive_version_1,
        "RIP version 2\n"
        "RIP version 1\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1339,8 +1343,9 @@ DEFUN (no_ip_rip_receive_version,
        "Version control\n"
        "RIP version\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1358,9 +1363,10 @@ DEFUN (ip_rip_send_version,
        "Version control\n"
        "RIP version\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_type = 4;
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1388,8 +1394,9 @@ DEFUN (ip_rip_send_version_1,
        "RIP version 2\n"
        "RIP version 1\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1408,8 +1415,9 @@ DEFUN (no_ip_rip_send_version,
        "Version control\n"
        "RIP version\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1425,8 +1433,9 @@ DEFUN (ip_rip_v2_broadcast,
        "Routing Information Protocol\n"
        "Send ip broadcast v2 update\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1442,8 +1451,9 @@ DEFUN (no_ip_rip_v2_broadcast,
        "Routing Information Protocol\n"
        "Send ip broadcast v2 update\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1464,11 +1474,12 @@ DEFUN (ip_rip_authentication_mode,
        "RFC compatible\n"
        "Old ripd compatible\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	char *cryptmode = argv[4]->text;
 	char *authlen = (argc > 5) ? argv[6]->text : NULL;
 	struct rip_interface *ri;
 	int auth_type;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1512,8 +1523,9 @@ DEFUN (no_ip_rip_authentication_mode,
        "RFC compatible\n"
        "Old ripd compatible\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1532,9 +1544,10 @@ DEFUN (ip_rip_authentication_string,
        "Authentication string\n"
        "Authentication string\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_line = 4;
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1567,8 +1580,9 @@ DEFUN (no_ip_rip_authentication_string,
        "Authentication string\n"
        "Authentication string\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1590,9 +1604,10 @@ DEFUN (ip_rip_authentication_key_chain,
        "Authentication key-chain\n"
        "name of key-chain\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_line = 4;
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1619,8 +1634,9 @@ DEFUN (no_ip_rip_authentication_key_chain,
        "Authentication key-chain\n"
        "name of key-chain\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1644,8 +1660,9 @@ DEFUN (ip_rip_split_horizon,
        "Routing Information Protocol\n"
        "Perform split horizon\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1661,8 +1678,9 @@ DEFUN (ip_rip_split_horizon_poisoned_reverse,
        "Perform split horizon\n"
        "With poisoned-reverse\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1682,8 +1700,9 @@ DEFUN (no_ip_rip_split_horizon,
        "Routing Information Protocol\n"
        "Perform split horizon\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 
@@ -1700,8 +1719,9 @@ DEFUN (no_ip_rip_split_horizon_poisoned_reverse,
        "Perform split horizon\n"
        "With poisoned-reverse\n")
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct rip_interface *ri;
+
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ri = ifp->info;
 

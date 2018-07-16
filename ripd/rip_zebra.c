@@ -273,6 +273,7 @@ DEFUN (rip_redistribute_type,
        FRR_REDIST_HELP_STR_RIPD)
 {
 	int i;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
@@ -299,6 +300,7 @@ DEFUN (no_rip_redistribute_type,
        FRR_REDIST_HELP_STR_RIPD)
 {
 	int i;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
@@ -329,6 +331,7 @@ DEFUN (rip_redistribute_type_routemap,
 	int idx_protocol = 1;
 	int idx_word = 3;
 	int i;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
@@ -359,6 +362,7 @@ DEFUN (no_rip_redistribute_type_routemap,
 	int idx_protocol = 2;
 	int idx_word = 4;
 	int i;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
@@ -388,6 +392,7 @@ DEFUN (rip_redistribute_type_metric,
 	int idx_number = 3;
 	int i;
 	int metric;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	metric = atoi(argv[idx_number]->arg);
@@ -420,6 +425,7 @@ DEFUN (no_rip_redistribute_type_metric,
 	int idx_protocol = 2;
 	int idx_number = 4;
 	int i;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
@@ -452,6 +458,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
 	int idx_word = 5;
 	int i;
 	int metric;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	metric = atoi(argv[idx_number]->arg);
@@ -490,6 +497,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
 	int idx_number = 4;
 	int idx_word = 6;
 	int i;
+
 	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	for (i = 0; redist_type[i].str; i++) {
