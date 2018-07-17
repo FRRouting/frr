@@ -638,7 +638,7 @@ int isis_circuit_up(struct isis_circuit *circuit)
 			thread_add_timer(master, isis_run_dr_l2, circuit,
 					 2 * circuit->hello_interval[1],
 					 &circuit->u.bc.t_run_dr[1]);
-	} else {
+	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		/* initializing the hello send threads
 		 * for a ptp IF
 		 */
@@ -682,9 +682,6 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 void isis_circuit_down(struct isis_circuit *circuit)
 {
-	if (circuit->state != C_STATE_UP)
-		return;
-
 	/* Clear the flags for all the lsps of the circuit. */
 	isis_circuit_update_all_srmflags(circuit, 0);
 
@@ -756,10 +753,12 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	}
 
 	/* send one gratuitous hello to spead up convergence */
-	if (circuit->is_type & IS_LEVEL_1)
-		send_hello(circuit, IS_LEVEL_1);
-	if (circuit->is_type & IS_LEVEL_2)
-		send_hello(circuit, IS_LEVEL_2);
+	if (circuit->state == C_STATE_UP) {
+		if (circuit->is_type & IS_LEVEL_1)
+			send_hello(circuit, IS_LEVEL_1);
+		if (circuit->is_type & IS_LEVEL_2)
+			send_hello(circuit, IS_LEVEL_2);
+	}
 
 	circuit->upadjcount[0] = 0;
 	circuit->upadjcount[1] = 0;
