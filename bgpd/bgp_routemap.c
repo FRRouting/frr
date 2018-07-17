@@ -1298,6 +1298,9 @@ static route_map_result_t route_set_ip_nexthop(void *rule,
 			bgp_info->attr->nexthop = *rins->address;
 			SET_FLAG(bgp_info->attr->rmap_change_flags,
 				 BATTR_RMAP_IPV4_NHOP_CHANGED);
+			/* case for MP-BGP : MPLS VPN */
+			bgp_info->attr->mp_nexthop_global_in = *rins->address;
+			bgp_info->attr->mp_nexthop_len = sizeof(*rins->address);
 		}
 	}
 
