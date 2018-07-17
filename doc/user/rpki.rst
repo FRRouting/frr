@@ -68,6 +68,32 @@ Enabling RPKI
 
 .. _configuring-rpki-rtr-cache-servers:
 
+.. index:: daemons.conf
+
+   When first installing FRR with RPKI support from the pre-packaged binaries. Remember
+   to append '-M rpki' in the /etc/frr/daemons.conf file to the bgpd_options.
+   
+   bgpd_options="   --daemon -A 127.0.0.1 -M rpki"
+   instead of the default setting
+   bgpd_options="   --daemon -A 127.0.0.1"
+   
+
+   Else you will encounter an error when trying to enter RPKI configuration mode. Because
+   the rpki module is not loaded when the BGP daemon is initialized.
+
+   Examples of the error:
+
+   router(config)# debug rpki
+   % [BGP] Unknown command: debug rpki
+   
+   router(config)# rpki
+   % [BGP] Unknown command: rpki
+   
+   Note that the rpki commands will be available in vtysh when running 'find rpki'.
+   Even if the RPKI module is NOT loaded.
+   The RPKI commands will be unavailable if you try running the same command in the
+   cli specific to the BGP daemon.
+
 Configuring RPKI/RTR Cache Servers
 ----------------------------------
 
