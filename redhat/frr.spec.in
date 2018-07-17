@@ -370,6 +370,10 @@ ln -s %{_sbindir}/frr %{buildroot}%{_initddir}/frr
 %endif
 
 install %{zeb_rh_src}/daemons %{buildroot}%{_sysconfdir}/frr
+# add rpki module to daemon
+%if %{with_rpki}
+    sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{buildroot}%{_sysconfdir}/frr/daemons
+%endif
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
