@@ -1199,7 +1199,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			}
 
 			if ((re->vrf_id != nexthop->vrf_id)
-			     && !NEXTHOP_TYPE_BLACKHOLE) {
+			     && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)) {
 				struct vrf *vrf =
 					vrf_lookup_by_id(nexthop->vrf_id);
 
@@ -1417,7 +1417,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			}
 
 			if ((nexthop->vrf_id != re->vrf_id)
-			     && !NEXTHOP_TYPE_BLACKHOLE) {
+			     && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)) {
 				struct vrf *vrf =
 					vrf_lookup_by_id(nexthop->vrf_id);
 
@@ -1572,7 +1572,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		}
 
 		if ((nexthop->vrf_id != re->vrf_id)
-		     && !NEXTHOP_TYPE_BLACKHOLE) {
+		     && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)) {
 			struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
 			if (vrf)
