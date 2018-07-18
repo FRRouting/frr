@@ -80,6 +80,8 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	ns_id = zebra_ns_id_get(netnspath);
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
+	if (ns_id == NS_UNKNOWN)
+		return;
 	ns_id_external = ns_map_nsid_with_external(ns_id, true);
 	/* if VRF with NS ID already present */
 	vrf = vrf_lookup_by_id((vrf_id_t)ns_id_external);
