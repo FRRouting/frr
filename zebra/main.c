@@ -236,15 +236,15 @@ int main(int argc, char **argv)
 		"  -z, --socket          Set path of zebra socket\n"
 		"  -e, --ecmp            Specify ECMP to use.\n"
 		"  -l, --label_socket    Socket to external label manager\n"
-		"  -k, --keep_kernel     Don't delete old routes which installed by zebra.\n"
+		"  -k, --keep_kernel     Don't delete old routes which were installed by zebra.\n"
 		"  -r, --retain          When program terminates, retain added route by zebra.\n"
 #ifdef HAVE_NETLINK
-		"  -n, --vrfwnetns       Set VRF with NetNS\n"
+		"  -n, --vrfwnetns       Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize      Set netlink receive buffer size\n"
 		"      --v6-rr-semantics Use v6 RR semantics\n"
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)
-		"  -c <file>             Bypass normal startup use this file for tetsting of zapi"
+		"  -c <file>             Bypass normal startup and use this file for testing of zapi"
 #endif
 	);
 
