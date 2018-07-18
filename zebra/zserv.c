@@ -640,7 +640,7 @@ static int zserv_handle_client_close(struct thread *thread)
  * sock
  *    client's socket file descriptor
  */
-static void zserv_client_create(int sock)
+static struct zserv *zserv_client_create(int sock)
 {
 	struct zserv *client;
 	int i;
@@ -696,6 +696,8 @@ static void zserv_client_create(int sock)
 
 	/* start pthread */
 	frr_pthread_run(client->pthread, NULL);
+
+	return client;
 }
 
 /*
@@ -1025,20 +1027,10 @@ void zserv_read_file(char *input)
 	struct zserv *client = NULL;
 	struct thread t;
 
-	zserv_client_create(-1);
-
-	frr_pthread_stop(client->pthread, NULL);
-	frr_pthread_destroy(client->pthread);
-	client->pthread = NULL;
-
-	t.arg = client;
-
 	fd = open(input, O_RDONLY | O_NONBLOCK);
 	t.u.fd = fd;
 
-	zserv_read(&t);
-
-	close(fd);
+	zserv_client_create(fd);
 }
 #endif
 

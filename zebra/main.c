@@ -349,13 +349,6 @@ int main(int argc, char **argv)
 /* For debug purpose. */
 /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
-#if defined(HANDLE_ZAPI_FUZZING)
-	if (fuzzing) {
-		zserv_read_file(fuzzing);
-		exit(0);
-	}
-#endif
-
 	/* Process the configuration file. Among other configuration
 	*  directives we can meet those installing static routes. Such
 	*  requests will not be executed immediately, but queued in
@@ -390,6 +383,14 @@ int main(int argc, char **argv)
 
 	/* RNH init */
 	zebra_rnh_init();
+
+#if defined(HANDLE_ZAPI_FUZZING)
+	if (fuzzing) {
+		zserv_read_file(fuzzing);
+		exit(0);
+	}
+#endif
+
 
 	frr_run(zebrad.master);
 
