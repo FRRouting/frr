@@ -43,6 +43,7 @@
 
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
+#include "ripd/rip_interface.h"
 
 DEFINE_QOBJ_TYPE(rip)
 
@@ -2963,6 +2964,8 @@ static int rip_vrf_enable(struct vrf *vrf)
 			/* Create read and timer thread. */
 			rip_event(RIP_READ, rip->sock);
 			rip_event(RIP_UPDATE_EVENT, 1);
+
+			rip_start_network_emission(rip);
 		}
 	}
 
