@@ -997,7 +997,7 @@ void rip_enable_apply(struct interface *ifp)
 }
 
 /* Apply network configuration to all interface. */
-void rip_enable_apply_all(struct rip *rip)
+static void rip_enable_apply_all(struct rip *rip)
 {
 	struct vrf *vrf = vrf_lookup_by_id(rip->vrf_id);
 	struct interface *ifp;
@@ -1926,6 +1926,22 @@ static int rip_interface_delete_hook(struct interface *ifp)
 	XFREE(MTYPE_RIP_INTERFACE, ifp->info);
 	ifp->info = NULL;
 	return 0;
+}
+
+/* return number of network/interface contexts configured */
+static int rip_if_get_network_count(struct rip *rip)
+{
+	int ret;
+
+	ret = vector_count(rip_enable_interface);
+	ret += route_table_count(rip_enable_network);
+	return ret;
+}
+
+void rip_start_network_emission(struct rip *rip)
+{
+	if (rip_if_get_network_count(rip))
+		rip_enable_apply_all(rip);
 }
 
 /* Allocate and initialize interface vector. */
