@@ -391,7 +391,7 @@ void route_node_delete(struct route_node *node)
 struct route_node *route_top(struct route_table *table)
 {
 	/* If there is no node in the routing table return NULL. */
-	if (table->top == NULL)
+	if (table == NULL || table->top == NULL)
 		return NULL;
 
 	/* Lock the top node and return it. */
