@@ -2802,10 +2802,17 @@ DEFUN_NOSH (router_rip,
        "Enable a routing process\n"
        "Routing Information Protocol (RIP)\n")
 {
+	int ret;
+
 	/* If rip is not enabled before. */
 	if (!rip) {
-		rip_create();
+		ret = rip_create();
+		if (ret < 0) {
+			zlog_info("Can't create RIP");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
+
 	VTY_PUSH_CONTEXT(RIP_NODE, rip);
 
 	return CMD_SUCCESS;
