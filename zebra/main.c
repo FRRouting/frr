@@ -54,6 +54,10 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_pbr.h"
 
+#if defined(HANDLE_ZAPI_FUZZING)
+#include "zebra/kernel_netlink.h"
+#endif
+
 #define ZEBRA_PTM_SUPPORT
 
 /* Zebra instance */
@@ -213,7 +217,8 @@ int main(int argc, char **argv)
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
 #if defined(HANDLE_ZAPI_FUZZING)
-	char *fuzzing = NULL;
+	char *zapi_fuzzing = NULL;
+	char *netlink_fuzzing = NULL;
 #endif
 
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
@@ -227,7 +232,7 @@ int main(int argc, char **argv)
 		"s:n"
 #endif
 #if defined(HANDLE_ZAPI_FUZZING)
-		"c:"
+		"c:w:"
 #endif
 		,
 		longopts,
@@ -244,7 +249,8 @@ int main(int argc, char **argv)
 		"      --v6-rr-semantics Use v6 RR semantics\n"
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)
-		"  -c <file>             Bypass normal startup and use this file for testing of zapi"
+		"  -c <file>             Bypass normal startup and use this file for testing of zapi\n"
+		"  -w <file>             Bypass normal startup and use this file for testing of netlink input"
 #endif
 	);
 
@@ -306,7 +312,16 @@ int main(int argc, char **argv)
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)
 		case 'c':
-			fuzzing = optarg;
+			zapi_fuzzing = optarg;
+			set_netlink_read(1);
+			break;
+		case 'w':
+			netlink_fuzzing = optarg;
+			/* This ensures we are aren't writing any of the
+			 * startup netlink messages that happen when we
+			 * just want to read.
+			 */
+			set_netlink_read(1);
 			break;
 #endif
 		default:
@@ -349,6 +364,7 @@ int main(int argc, char **argv)
 /* For debug purpose. */
 /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
+
 	/* Process the configuration file. Among other configuration
 	*  directives we can meet those installing static routes. Such
 	*  requests will not be executed immediately, but queued in
@@ -385,8 +401,11 @@ int main(int argc, char **argv)
 	zebra_rnh_init();
 
 #if defined(HANDLE_ZAPI_FUZZING)
-	if (fuzzing) {
-		zserv_read_file(fuzzing);
+	if (zapi_fuzzing) {
+		zserv_read_file(zapi_fuzzing);
+		exit(0);
+	} else if (netlink_fuzzing) {
+		netlink_read_init(netlink_fuzzing);
 		exit(0);
 	}
 #endif
