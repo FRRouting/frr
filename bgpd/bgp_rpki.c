@@ -232,7 +232,7 @@ static void *route_match_compile(const char *arg)
 {
 	int *rpki_status;
 
-	rpki_status = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint8_t));
+	rpki_status = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(int));
 
 	if (strcmp(arg, "valid") == 0)
 		*rpki_status = RPKI_VALID;
