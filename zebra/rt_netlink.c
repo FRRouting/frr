@@ -740,6 +740,16 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 	}
 
+	if (!(rtm->rtm_family == AF_INET || rtm->rtm_family == AF_INET6
+	      || rtm->rtm_family == AF_ETHERNET || rtm->rtm_family == AF_EVPN
+	      || rtm->rtm_family == AF_UNSPEC
+	      || rtm->rtm_family == AF_FLOWSPEC)) {
+		zlog_warn(
+			"Invalid address family: %d recieved from kernel route change: %d",
+			rtm->rtm_family, h->nlmsg_type);
+		return 0;
+	}
+
 	/* Connected route. */
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s %s %s proto %s NS %u",
@@ -2386,6 +2396,12 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 
 	if (ndm->ndm_family == AF_INET || ndm->ndm_family == AF_INET6)
 		return netlink_ipneigh_change(h, len, ns_id);
+	else {
+		zlog_warn(
+			"Invalid address family: %d recieved from kernel neighbor change: %d",
+			ndm->ndm_family, h->nlmsg_type);
+		return 0;
+	}
 
 	return 0;
 }
