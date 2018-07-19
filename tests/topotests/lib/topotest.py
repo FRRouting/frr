@@ -632,18 +632,13 @@ class Router(Node):
             self.waitOutput()
             self.cmd('chown %s:%s /etc/%s/%s.conf' % (self.routertype, self.routertype, self.routertype, daemon))
             self.waitOutput()
-            if daemon == 'zebra':
+            if (daemon == 'zebra') and (self.daemons['staticd'] == 0):
                 # Add staticd with zebra - if it exists
                 staticd_path = os.path.join(self.daemondir, 'staticd')
                 if os.path.isfile(staticd_path):
                     self.daemons['staticd'] = 1
-                    self.daemons_options['staticd'] = None
-                    self.cmd('touch /etc/%s/%s.conf' % (self.routertype, 'staticd'))
-                    self.waitOutput()
-                    self.cmd('chmod 640 /etc/%s/%s.conf' % (self.routertype, 'staticd'))
-                    self.waitOutput()
-                    self.cmd('chown %s:%s /etc/%s/%s.conf' % (self.routertype, self.routertype, self.routertype, 'staticd'))
-                    self.waitOutput()                    
+                    self.daemons_options['staticd'] = ''
+                    # Auto-Started staticd has no config, so it will read from zebra config
         else:
             logger.info('No daemon {} known'.format(daemon))
         # print "Daemons after:", self.daemons
