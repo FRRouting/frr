@@ -43,12 +43,22 @@ struct community {
 };
 
 /* Well-known communities value.  */
-#define COMMUNITY_INTERNET              0x0
-#define COMMUNITY_NO_EXPORT             0xFFFFFF01
-#define COMMUNITY_NO_ADVERTISE          0xFFFFFF02
-#define COMMUNITY_NO_EXPORT_SUBCONFED   0xFFFFFF03
-#define COMMUNITY_LOCAL_AS              0xFFFFFF03
-#define COMMUNITY_GSHUT                 0xFFFF0000
+#define COMMUNITY_INTERNET                      0x0
+#define COMMUNITY_GSHUT                         0xFFFF0000
+#define COMMUNITY_ACCEPT_OWN                    0xFFFF0001
+#define COMMUNITY_ROUTE_FILTER_TRANSLATED_v4    0xFFFF0002
+#define COMMUNITY_ROUTE_FILTER_v4               0xFFFF0003
+#define COMMUNITY_ROUTE_FILTER_TRANSLATED_v6    0xFFFF0004
+#define COMMUNITY_ROUTE_FILTER_v6               0xFFFF0005
+#define COMMUNITY_LLGR_STALE                    0xFFFF0006
+#define COMMUNITY_NO_LLGR                       0xFFFF0007
+#define COMMUNITY_ACCEPT_OWN_NEXTHOP            0xFFFF0008
+#define COMMUNITY_BLACKHOLE                     0xFFFF029A
+#define COMMUNITY_NO_EXPORT                     0xFFFFFF01
+#define COMMUNITY_NO_ADVERTISE                  0xFFFFFF02
+#define COMMUNITY_NO_EXPORT_SUBCONFED           0xFFFFFF03
+#define COMMUNITY_LOCAL_AS                      0xFFFFFF03
+#define COMMUNITY_NO_PEER                       0xFFFFFF04
 
 /* Macros of community attribute.  */
 #define com_length(X)    ((X)->size * 4)
