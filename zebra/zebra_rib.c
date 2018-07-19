@@ -1738,12 +1738,21 @@ static void rib_process(struct route_node *rn)
 	/* Update SELECTED entry */
 	if (old_selected != new_selected || selected_changed) {
 
-		if (new_selected)
-			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
-
 		if (new_selected && new_selected != new_fib) {
 			nexthop_active_update(rn, new_selected, 1);
 			UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
+		}
+
+		if (new_selected) {
+			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
+
+			/* Special case: new route is system route, so
+			 * dataplane update will not be done - ensure we
+			 * redistribute the route.
+			 */
+			if (RIB_SYSTEM_ROUTE(new_selected))
+				redistribute_update(p, src_p, new_selected,
+						    old_selected);
 		}
 
 		if (old_selected) {
