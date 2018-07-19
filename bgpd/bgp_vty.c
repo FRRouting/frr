@@ -9115,6 +9115,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint8_t use_json,
 		json_object_string_add(
 			json_neigh, "remoteRouterId",
 			inet_ntop(AF_INET, &p->remote_id, buf1, sizeof(buf1)));
+		json_object_string_add(
+			json_neigh, "localRouterId",
+			inet_ntop(AF_INET, &bgp->router_id, buf1,
+					sizeof(buf1)));
 
 		/* Confederation */
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)
