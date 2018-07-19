@@ -372,26 +372,36 @@ static int bgpd_sync_callback(struct thread *thread)
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		safi_t safi;
+		struct peer *peer;
+		struct listnode *peer_listnode;
 
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			if (!bgp->rib[afi][safi])
-				continue;
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
+			safi_t safi;
 
-			struct list *matches = list_new();
+			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+				if (!peer->bgp->rib[afi][safi])
+					continue;
 
-			matches->del = (void (*)(void *))bgp_unlock_node;
+				struct list *matches = list_new();
 
-			bgp_table_range_lookup(bgp->rib[afi][safi], prefix,
-					       rec.max_len, matches);
+				matches->del =
+					(void (*)(void *))bgp_unlock_node;
+
+				bgp_table_range_lookup(
+					peer->bgp->rib[afi][safi], prefix,
+					rec.max_len, matches);
 
 
-			struct bgp_node *bgp_node;
+				struct bgp_node *bgp_node;
+				struct listnode *bgp_listnode;
 
-			for (ALL_LIST_ELEMENTS_RO(matches, node, bgp_node))
-				revalidate_bgp_node(bgp_node, afi, safi);
+				for (ALL_LIST_ELEMENTS_RO(matches, bgp_listnode,
+							  bgp_node))
+					revalidate_bgp_node(bgp_node, afi,
+							    safi);
 
-			list_delete_and_null(&matches);
+				list_delete_and_null(&matches);
+			}
 		}
 	}
 
@@ -414,14 +424,13 @@ static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
 			label = bgp_info->extra->label;
 			num_labels = bgp_info->extra->num_labels;
 		}
-		ret = bgp_update(ain->peer, &bgp_node->p, 0, ain->attr, afi,
-				 safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				 label, num_labels, 1, NULL);
+		ret = bgp_update(ain->peer, &bgp_node->p, ain->addpath_rx_id,
+				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP,
+				 BGP_ROUTE_NORMAL, NULL, label, num_labels, 1,
+				 NULL);
 
-		if (ret < 0) {
-			bgp_unlock_node(bgp_node);
+		if (ret < 0)
 			return;
-		}
 	}
 }
 
@@ -429,25 +438,23 @@ static void revalidate_all_routes(void)
 {
 	struct bgp *bgp;
 	struct listnode *node;
-	struct bgp_node *bgp_node;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		for (size_t i = 0; i < 2; i++) {
-			safi_t safi;
-			afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
+		struct peer *peer;
+		struct listnode *peer_listnode;
 
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				if (!bgp->rib[afi][safi])
-					continue;
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
 
-				for (bgp_node =
-					     bgp_table_top(bgp->rib[afi][safi]);
-				     bgp_node;
-				     bgp_node = bgp_route_next(bgp_node)) {
-					if (bgp_node->info != NULL) {
-						revalidate_bgp_node(bgp_node,
-								    afi, safi);
-					}
+			for (size_t i = 0; i < 2; i++) {
+				safi_t safi;
+				afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
+
+				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
+				     safi++) {
+					if (!peer->bgp->rib[afi][safi])
+						continue;
+
+					bgp_soft_reconfig_in(peer, afi, safi);
 				}
 			}
 		}
