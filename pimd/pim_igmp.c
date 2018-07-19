@@ -909,10 +909,9 @@ static int pim_igmp_read(struct thread *t)
 	socklen_t fromlen = sizeof(from);
 	socklen_t tolen = sizeof(to);
 	ifindex_t ifindex = -1;
-	int cont = 1;
 	int len;
 
-	while (cont) {
+	while (1) {
 		len = pim_socket_recvfromto(igmp->fd, buf, sizeof(buf), &from,
 					    &fromlen, &to, &tolen, &ifindex);
 		if (len < 0) {

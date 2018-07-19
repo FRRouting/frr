@@ -136,9 +136,8 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 			mask = PIM_OIF_FLAG_PROTO_IGMP;
 
 		/* SGRpt entry could have empty oil */
-		if (ch->upstream->channel_oil)
-			pim_channel_del_oif(ch->upstream->channel_oil,
-					    ch->interface, mask);
+		pim_channel_del_oif(ch->upstream->channel_oil, ch->interface,
+				    mask);
 		/*
 		 * Do we have any S,G's that are inheriting?
 		 * Nuke from on high too.

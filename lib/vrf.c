@@ -628,7 +628,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	}
 	if (vrf->ns_ctxt != NULL) {
 		ns = (struct ns *)vrf->ns_ctxt;
-		if (ns && 0 != strcmp(ns->name, pathname)) {
+		if (!strcmp(ns->name, pathname)) {
 			if (vty)
 				vty_out(vty,
 					"VRF %u already configured with NETNS %s\n",
@@ -661,8 +661,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	ns->vrf_ctxt = (void *)vrf;
 	vrf->ns_ctxt = (void *)ns;
 	/* update VRF netns NAME */
-	if (vrf)
-		strlcpy(vrf->data.l.netns_name, basename(pathname), NS_NAMSIZ);
+	strlcpy(vrf->data.l.netns_name, basename(pathname), NS_NAMSIZ);
 
 	if (!ns_enable(ns, vrf_update_vrf_id)) {
 		if (vty)

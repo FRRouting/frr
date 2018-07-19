@@ -986,7 +986,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[IFA_LABEL])
 		label = (char *)RTA_DATA(tb[IFA_LABEL]);
 
-	if (ifp && label && strcmp(ifp->name, label) == 0)
+	if (label && strcmp(ifp->name, label) == 0)
 		label = NULL;
 
 	/* Register interface address to the interface. */
