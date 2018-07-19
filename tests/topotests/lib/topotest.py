@@ -486,7 +486,7 @@ class Router(Node):
         self.routertype = 'frr'
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0,
-                        'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0}
+                        'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0, 'staticd': 0}
         self.daemons_options = {'zebra': ''}
         self.reportCores = True
         self.version = None
@@ -632,6 +632,18 @@ class Router(Node):
             self.waitOutput()
             self.cmd('chown %s:%s /etc/%s/%s.conf' % (self.routertype, self.routertype, self.routertype, daemon))
             self.waitOutput()
+            if daemon == 'zebra':
+                # Add staticd with zebra - if it exists
+                staticd_path = os.path.join(self.daemondir, 'staticd')
+                if os.path.isfile(staticd_path):
+                    self.daemons['staticd'] = 1
+                    self.daemons_options['staticd'] = None
+                    self.cmd('touch /etc/%s/%s.conf' % (self.routertype, 'staticd'))
+                    self.waitOutput()
+                    self.cmd('chmod 640 /etc/%s/%s.conf' % (self.routertype, 'staticd'))
+                    self.waitOutput()
+                    self.cmd('chown %s:%s /etc/%s/%s.conf' % (self.routertype, self.routertype, self.routertype, 'staticd'))
+                    self.waitOutput()                    
         else:
             logger.info('No daemon {} known'.format(daemon))
         # print "Daemons after:", self.daemons
@@ -705,15 +717,24 @@ class Router(Node):
             self.waitOutput()
             logger.debug('{}: {} zebra started'.format(self, self.routertype))
             sleep(1, '{}: waiting for zebra to start'.format(self.name))
-        # Fix Link-Local Addresses
+        # Start staticd next if required
+        if self.daemons['staticd'] == 1:
+            staticd_path = os.path.join(self.daemondir, 'staticd')
+            staticd_option = self.daemons_options['staticd']
+            self.cmd('{0} {1} > staticd.out 2> staticd.err &'.format(
+                 staticd_path, staticd_option, self.logdir, self.name
+            ))
+            self.waitOutput()
+            logger.debug('{}: {} staticd started'.format(self, self.routertype))
+            sleep(1, '{}: waiting for staticd to start'.format(self.name))
+       # Fix Link-Local Addresses
         # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
         self.cmd('for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; IFS=\':\'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done')
         # Now start all the other daemons
         for daemon in self.daemons:
             # Skip disabled daemons and zebra
-            if self.daemons[daemon] == 0 or daemon == 'zebra':
+            if self.daemons[daemon] == 0 or daemon == 'zebra' or daemon == 'staticd':
                 continue
-
             daemon_path = os.path.join(self.daemondir, daemon)
             self.cmd('{0} > {3}.out 2> {3}.err &'.format(
                 daemon_path, self.logdir, self.name, daemon
