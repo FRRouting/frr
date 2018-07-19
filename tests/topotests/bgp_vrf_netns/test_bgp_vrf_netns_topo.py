@@ -142,8 +142,8 @@ def teardown_module(module):
     tgen = get_topogen()
     # move back r1-eth0 to default VRF
     # delete VRF r1-cust1
-    cmds = ['ip netns delete {0}-cust1',
-            'ip netns exec {0}-cust1 ip link set {0}-eth0 netns 1']
+    cmds = ['ip netns exec {0}-cust1 ip link set {0}-eth0 netns 1',
+            'ip netns delete {0}-cust1']
     for cmd in cmds:
         tgen.net['r1'].cmd(cmd.format('r1'))
 
