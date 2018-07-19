@@ -332,6 +332,14 @@ static int rip_if_ipv4_address_check(struct interface *ifp)
 	return count;
 }
 
+static struct rip *rip_lookup_by_vrfid(vrf_id_t vrf_id)
+{
+	if (vrf_id == VRF_UNKNOWN)
+		return NULL;
+	if (rip_global && rip_global->vrf_id == vrf_id)
+		return rip_global;
+	return NULL;
+}
 
 /* Does this address belongs to me ? */
 int if_check_address(struct in_addr addr, vrf_id_t vrf_id)
@@ -364,6 +372,7 @@ int rip_interface_down(int command, struct zclient *zclient,
 {
 	struct interface *ifp;
 	struct stream *s;
+	struct rip *rip = rip_lookup_by_vrfid(vrf_id);
 
 	s = zclient->ibuf;
 
@@ -372,6 +381,9 @@ int rip_interface_down(int command, struct zclient *zclient,
 	ifp = zebra_interface_state_read(s, vrf_id);
 
 	if (ifp == NULL)
+		return 0;
+
+	if (!rip)
 		return 0;
 
 	rip_if_down(ifp);
@@ -390,12 +402,16 @@ int rip_interface_up(int command, struct zclient *zclient, zebra_size_t length,
 		     vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	struct rip *rip = rip_lookup_by_vrfid(vrf_id);
 
 	/* zebra_interface_state_read () updates interface structure in
 	   iflist. */
 	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
 
 	if (ifp == NULL)
+		return 0;
+
+	if (!rip)
 		return 0;
 
 	if (IS_RIP_DEBUG_ZEBRA)
@@ -421,8 +437,12 @@ int rip_interface_add(int command, struct zclient *zclient, zebra_size_t length,
 		      vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	struct rip *rip = rip_lookup_by_vrfid(vrf_id);
 
 	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
+
+	if (!rip)
+		return 0;
 
 	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
@@ -452,13 +472,16 @@ int rip_interface_delete(int command, struct zclient *zclient,
 {
 	struct interface *ifp;
 	struct stream *s;
-
+	struct rip *rip = rip_lookup_by_vrfid(vrf_id);
 
 	s = zclient->ibuf;
 	/* zebra_interface_state_read() updates interface structure in iflist */
 	ifp = zebra_interface_state_read(s, vrf_id);
 
 	if (ifp == NULL)
+		return 0;
+
+	if (!rip)
 		return 0;
 
 	if (if_is_up(ifp)) {
@@ -639,11 +662,15 @@ int rip_interface_address_add(int command, struct zclient *zclient,
 {
 	struct connected *ifc;
 	struct prefix *p;
+	struct rip *rip = rip_lookup_by_vrfid(vrf_id);
 
 	ifc = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					   zclient->ibuf, vrf_id);
 
 	if (ifc == NULL)
+		return 0;
+
+	if (!rip)
 		return 0;
 
 	p = ifc->address;
