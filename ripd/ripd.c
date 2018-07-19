@@ -1336,6 +1336,11 @@ static int rip_create_socket(struct rip *rip_param)
 	int sock;
 	struct sockaddr_in addr;
 
+	if (rip_param->vrf_id == VRF_UNKNOWN) {
+		zlog_err("VRF %s uninitialised", rip_param->name);
+		rip_param->sock = -1;
+		return -1;
+	}
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
@@ -1353,6 +1358,7 @@ static int rip_create_socket(struct rip *rip_param)
 			  rip_param->name);
 	if (sock < 0) {
 		zlog_err("Cannot create UDP socket: %s", safe_strerror(errno));
+		rip_param->sock = -1;
 		return -1;
 	}
 	if (ripd_privs.change(ZPRIVS_LOWER))
