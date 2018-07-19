@@ -2080,6 +2080,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
 	struct rip *rip = rip_global;
+	struct rip_redist *red;
 
 	/* Logging output event. */
 	if (IS_RIP_DEBUG_EVENT) {
@@ -2275,10 +2276,11 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			}
 
 			/* Apply redistribute route map - continue, if deny */
-			if (rip->route_map[rinfo->type].name
+			red = rip_redist_lookup(rip, rinfo->type);
+			if (red && red->route_map.name && red->route_map.map
 			    && rinfo->sub_type != RIP_ROUTE_INTERFACE) {
 				ret = route_map_apply(
-					rip->route_map[rinfo->type].map,
+						      red->route_map.map,
 					(struct prefix *)p, RMAP_RIP, rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
@@ -2294,11 +2296,10 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			/* When route-map does not set metric. */
 			if (!rinfo->metric_set) {
 				/* If redistribute metric is set. */
-				if (rip->route_map[rinfo->type].metric_config
+				if (red && red->dmetric.metric_config
 				    && rinfo->metric != RIP_METRIC_INFINITY) {
 					rinfo->metric_out =
-						rip->route_map[rinfo->type]
-							.metric;
+						red->dmetric.metric;
 				} else {
 					/* If the route is not connected or
 					   localy generated
@@ -2736,6 +2737,7 @@ static int rip_create(char *vrfname)
 			rip->name = XSTRDUP(MTYPE_TMP, vrfname);
 		}
 	}
+
 	QOBJ_REG(rip, rip);
 	rip_global = rip;
 	/* Make socket. */
@@ -2926,6 +2928,21 @@ static int rip_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
+static void rip_redistribute_update(struct rip *rip)
+{
+	int i;
+	struct rip_redist *red;
+
+	if (!rip)
+		return;
+	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		red = rip_redist_lookup(rip, i);
+		if (!red)
+			continue;
+		rip_redistribute_set(rip, i, red);
+	}
+}
+
 /* Enable RIP VRF instance */
 static int rip_vrf_enable(struct vrf *vrf)
 {
@@ -2969,6 +2986,7 @@ static int rip_vrf_enable(struct vrf *vrf)
 			rip_event(RIP_READ, rip->sock);
 			rip_event(RIP_UPDATE_EVENT, 1);
 
+			rip_redistribute_update(rip);
 			rip_start_network_emission(rip);
 		}
 	}
@@ -4113,6 +4131,7 @@ void rip_clean(struct rip *rip, bool unregister)
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
 	vrf_id_t vrf_id = VRF_UNKNOWN;
+	struct rip_redist *red;
 
 	/* should not happen */
 	if (rip != rip_global)
@@ -4174,10 +4193,12 @@ void rip_clean(struct rip *rip, bool unregister)
 		if (rip->default_information_route_map)
 			free(rip->default_information_route_map);
 
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (rip->route_map[i].name)
-				free(rip->route_map[i].name);
-
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+			red = rip_redist_lookup(rip, i);
+			if (red && red->route_map.name)
+				rip_routemap_unset(red, red->route_map.name);
+			rip_redist_del(rip, i);
+		}
 		XFREE(MTYPE_ROUTE_TABLE, rip->table);
 		XFREE(MTYPE_ROUTE_TABLE, rip->route);
 		XFREE(MTYPE_ROUTE_TABLE, rip->neighbor);
@@ -4264,13 +4285,15 @@ static void rip_routemap_update_redistribute(void)
 {
 	int i;
 	struct rip *rip = rip_global;
+	struct rip_redist *red;
 
 	if (rip) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (rip->route_map[i].name)
-				rip->route_map[i].map =
+			red = rip_redist_lookup(rip, i);
+			if (red && red->route_map.name)
+				red->route_map.map =
 					route_map_lookup_by_name(
-						rip->route_map[i].name);
+						red->route_map.name);
 		}
 	}
 }
