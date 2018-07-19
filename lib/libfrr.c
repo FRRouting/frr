@@ -745,9 +745,14 @@ static int frr_config_read_in(struct thread *t)
 {
 	if (!vty_read_config(di->config_file, config_default) &&
 	    di->backup_config_file) {
+		char *orig = XSTRDUP(MTYPE_TMP, host_config_get());
+
 		zlog_info("Attempting to read backup config file: %s specified",
 			  di->backup_config_file);
 		vty_read_config(di->backup_config_file, config_default);
+
+		host_config_set(orig);
+		XFREE(MTYPE_TMP, orig);
 	}
 	return 0;
 }
