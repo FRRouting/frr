@@ -236,15 +236,15 @@ int main(int argc, char **argv)
 		"  -z, --socket          Set path of zebra socket\n"
 		"  -e, --ecmp            Specify ECMP to use.\n"
 		"  -l, --label_socket    Socket to external label manager\n"
-		"  -k, --keep_kernel     Don't delete old routes which installed by zebra.\n"
+		"  -k, --keep_kernel     Don't delete old routes which were installed by zebra.\n"
 		"  -r, --retain          When program terminates, retain added route by zebra.\n"
 #ifdef HAVE_NETLINK
-		"  -n, --vrfwnetns       Set VRF with NetNS\n"
+		"  -n, --vrfwnetns       Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize      Set netlink receive buffer size\n"
 		"      --v6-rr-semantics Use v6 RR semantics\n"
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)
-		"  -c <file>             Bypass normal startup use this file for tetsting of zapi"
+		"  -c <file>             Bypass normal startup and use this file for testing of zapi"
 #endif
 	);
 
@@ -349,13 +349,6 @@ int main(int argc, char **argv)
 /* For debug purpose. */
 /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
-#if defined(HANDLE_ZAPI_FUZZING)
-	if (fuzzing) {
-		zserv_read_file(fuzzing);
-		exit(0);
-	}
-#endif
-
 	/* Process the configuration file. Among other configuration
 	*  directives we can meet those installing static routes. Such
 	*  requests will not be executed immediately, but queued in
@@ -390,6 +383,14 @@ int main(int argc, char **argv)
 
 	/* RNH init */
 	zebra_rnh_init();
+
+#if defined(HANDLE_ZAPI_FUZZING)
+	if (fuzzing) {
+		zserv_read_file(fuzzing);
+		exit(0);
+	}
+#endif
+
 
 	frr_run(zebrad.master);
 
