@@ -98,6 +98,23 @@
 #define RIP_AUTH_MD5_SIZE               16
 #define RIP_AUTH_MD5_COMPAT_SIZE        RIP_RTE_SIZE
 
+
+struct rip_redist {
+	/* Redistribute metric info. */
+	struct {
+		int metric_config;
+		uint32_t metric;
+	} dmetric;
+
+	/* For redistribute route map. */
+	struct {
+		char *name;
+		struct route_map *map;
+	} route_map; /* +1 is for default-information */
+#define ROUTEMAP_NAME(R)   (R->route_map.name)
+#define ROUTEMAP(R)        (R->route_map.map)
+};
+
 /* RIP structure. */
 struct rip {
 	/* RIP socket. */
@@ -150,12 +167,7 @@ struct rip {
 	unsigned int ecmp;
 
 	/* For redistribute route map. */
-	struct {
-		char *name;
-		struct route_map *map;
-		int metric_config;
-		uint32_t metric;
-	} route_map[ZEBRA_ROUTE_MAX];
+	struct list *redist[ZEBRA_ROUTE_MAX + 1];
 
 	vrf_id_t vrf_id; /* VRF Id */
 	char *name;      /* VRF name */
@@ -423,6 +435,11 @@ extern void rip_offset_clean(void);
 extern void rip_info_free(struct rip_info *);
 extern uint8_t rip_distance_apply(struct rip_info *);
 extern void rip_redistribute_clean(vrf_id_t vrf_id);
+extern struct rip_redist *rip_redist_lookup(struct rip *rip, uint8_t type);
+extern int rip_routemap_unset(struct rip_redist *red, const char *name);
+extern void rip_redist_del(struct rip *rip, uint8_t type);
+extern int rip_redistribute_set(struct rip *rip, int type,
+				struct rip_redist *red);
 
 extern struct rip_info *rip_ecmp_add(struct rip_info *);
 extern struct rip_info *rip_ecmp_replace(struct rip_info *);
