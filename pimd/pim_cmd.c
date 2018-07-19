@@ -4252,7 +4252,7 @@ DEFUN (show_ip_pim_nexthop_lookup,
        "Source/RP address\n"
        "Multicast Group address\n")
 {
-	struct pim_nexthop_cache pnc;
+	struct pim_nexthop_cache *pnc = NULL;
 	struct prefix nht_p;
 	int result = 0;
 	struct in_addr src_addr, grp_addr;
@@ -4264,6 +4264,7 @@ DEFUN (show_ip_pim_nexthop_lookup,
 	char grp_str[PREFIX_STRLEN];
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct pim_rpf rpf;
 
 	if (!vrf)
 		return CMD_WARNING;
@@ -4301,7 +4302,6 @@ DEFUN (show_ip_pim_nexthop_lookup,
 				      grp_addr))
 		return CMD_SUCCESS;
 
-	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
 	nht_p.family = AF_INET;
 	nht_p.prefixlen = IPV4_MAX_BITLEN;
 	nht_p.u.prefix4 = vif_source;
@@ -4310,12 +4310,18 @@ DEFUN (show_ip_pim_nexthop_lookup,
 	grp.u.prefix4 = grp_addr;
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	if (pim_find_or_track_nexthop(vrf->info, &nht_p, NULL, NULL, &pnc))
-		result = pim_ecmp_nexthop_search(vrf->info, &pnc, &nexthop,
+	memset(&rpf, 0, sizeof(struct pim_rpf));
+	rpf.rpf_addr.family = AF_INET;
+	rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
+	rpf.rpf_addr.u.prefix4 = vif_source;
+
+	pnc = pim_nexthop_cache_find(vrf->info, &rpf);
+	if (pnc)
+		result = pim_ecmp_nexthop_search(vrf->info, pnc, &nexthop,
 						 &nht_p, &grp, 0);
 	else
-		result = pim_ecmp_nexthop_lookup(vrf->info, &nexthop,
-						 vif_source, &nht_p, &grp, 0);
+		result = pim_ecmp_nexthop_lookup(vrf->info, &nexthop, &nht_p,
+						 &grp, 0);
 
 	if (!result) {
 		vty_out(vty,

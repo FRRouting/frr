@@ -61,13 +61,11 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			    struct pim_nexthop *nexthop, struct prefix *src,
 			    struct prefix *grp, int neighbor_needed);
 int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
-			    struct pim_nexthop *nexthop, struct in_addr addr,
-			    struct prefix *src, struct prefix *grp,
-			    int neighbor_needed);
+			    struct pim_nexthop *nexthop, struct prefix *src,
+			    struct prefix *grp, int neighbor_needed);
 void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 			   struct pim_nexthop_cache *pnc, int command);
 void pim_resolve_upstream_nh(struct pim_instance *pim, struct prefix *nht_p);
 int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
-				     struct in_addr addr, struct prefix *src,
-				     struct prefix *grp);
+				     struct prefix *src, struct prefix *grp);
 #endif
