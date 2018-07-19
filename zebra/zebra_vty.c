@@ -1270,7 +1270,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 		json = json_object_new_object();
 
 	/* Show all routes. */
-	for (rn = route_top(table); rn; rn = route_next(rn)) {
+	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);
 
 		RNODE_FOREACH_RE (rn, re) {
