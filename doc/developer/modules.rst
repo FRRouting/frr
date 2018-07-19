@@ -100,6 +100,15 @@ a function that removes all of a module's installed hooks.
 There's also the ``frr_module`` symbol in modules, pretty much a
 standard entry point for loadable modules.
 
+Command line parameters
+-----------------------
+
+Command line parameters can be passed directly to a module by appending a 
+colon to the module name when loading it, e.g. ``-M mymodule:myparameter``. 
+The text after the colon will be accessible in the module's code through 
+``THIS_MODULE->load_args``. For example, see how the format parameter is
+configured in the ``zfpm_init()`` function inside ``zebra_fpm.c``.
+
 Hooks
 -----
 
