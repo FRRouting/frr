@@ -76,6 +76,7 @@
 
 #else
 #define CPP_WARN(text)
+#define CPP_NOTICE(text)
 #endif
 
 #endif /* _FRR_COMPILER_H */
