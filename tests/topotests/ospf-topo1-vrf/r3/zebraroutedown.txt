@@ -1,0 +1,11 @@
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
+       F - PBR,
+       > - selected route, * - FIB route
+
+
+VRF r3-cust1:
+O   10.0.10.0/24 [110/10] is directly connected, r3-eth1, XX:XX:XX
+C>* 10.0.10.0/24 is directly connected, r3-eth1, XX:XX:XX
+

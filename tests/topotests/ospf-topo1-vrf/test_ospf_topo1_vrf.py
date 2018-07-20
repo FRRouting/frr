@@ -150,6 +150,21 @@ def compare_show_ip_ospf_vrf(rname, expected):
                               title1="Current output",
                               title2="Expected output")
 
+def compare_show_ip_route_vrf(rname, expected):
+    """
+    Calls 'show ip ospf vrf [rname]-cust1 route' for router `rname` and compare the obtained
+    result with the expected output.
+    """
+    tgen = get_topogen()
+    if tgen.gears[rname].has_version('<', '4.0') == True:
+        return
+    vrf_name = '{0}-cust1'.format(rname)
+    current = topotest.ip4_route_zebra(tgen.gears[rname], vrf_name)
+    ret = topotest.difflines(current, expected,
+                             title1="Current output",
+                             title2="Expected output")
+    return ret
+
 def test_ospf_convergence():
     "Test OSPF daemon convergence"
     tgen = get_topogen()
@@ -190,15 +205,13 @@ def test_ospf_kernel_route():
     for router in rlist:
         logger.info('Checking OSPF IPv4 kernel routes in "%s"', router.name)
         str='{0}-cust1'.format(router.name)
-        routes = topotest.ip4_route(router,str)
-        expected = {
-            '10.0.1.0/24': {},
-            '10.0.2.0/24': {},
-            '10.0.3.0/24': {},
-            '10.0.10.0/24': {},
-        }
-        assertmsg = 'OSPF IPv4 route mismatch in router "{}"'.format(router.name)
-        assert topotest.json_cmp(routes, expected) is None, assertmsg
+        reffile = os.path.join(CWD, '{}/zebraroute.txt'.format(router.name))
+        expected = open(reffile).read()
+        # Run test function until we get an result. Wait at most 60 seconds.
+        test_func = partial(compare_show_ip_route_vrf, router.name, expected)
+        result, diff = topotest.run_and_expect(test_func, '',
+                                               count=25, wait=3)
+        assert result, 'OSPF IPv4 route mismatch in router "{}"'.format(router.name, diff)
 
 def test_ospf_json():
     "Test 'show ip ospf json' output for coherency."
@@ -290,27 +303,13 @@ def test_ospf_link_down_kernel_route():
         logger.info('Checking OSPF IPv4 kernel routes in "%s" after link down', router.name)
 
         str='{0}-cust1'.format(router.name)
-        routes = topotest.ip4_route(router, str)
-        expected = {
-            '10.0.1.0/24': {},
-            '10.0.2.0/24': {},
-            '10.0.3.0/24': {},
-            '10.0.10.0/24': {},
-        }
-        if router.name == 'r1' or router.name == 'r2':
-            expected.update({
-                '10.0.10.0/24': None,
-                '172.16.0.0/24': None,
-                '172.16.1.0/24': None,
-            })
-        elif router.name == 'r3':
-            expected.update({
-                '10.0.1.0/24': None,
-                '10.0.2.0/24': None,
-            })
-        # Route '10.0.3.0' is no longer available for r4 since it is down.
-        assertmsg = 'OSPF IPv4 route mismatch in router "{}" after link down'.format(router.name)
-        assert topotest.json_cmp(routes, expected) is None, assertmsg
+        reffile = os.path.join(CWD, '{}/zebraroutedown.txt'.format(router.name))
+        expected = open(reffile).read()
+        # Run test function until we get an result. Wait at most 60 seconds.
+        test_func = partial(compare_show_ip_route_vrf, router.name, expected)
+        result, diff = topotest.run_and_expect(test_func, '',
+                                               count=25, wait=3)
+        assert result, 'OSPF IPv4 route mismatch in router "{}" after link down'.format(router.name, diff)
 
 def test_memory_leak():
     "Run the memory leak test and report results."
