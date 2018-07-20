@@ -124,8 +124,7 @@ enum dp_req_result dplane_route_update(struct route_node *rn,
 enum dp_req_result dplane_route_delete(struct route_node *rn,
 				       struct route_entry *re);
 
-/* Opaque handle to a dataplane provider plugin */
-
+/* Support string name for a dataplane provider */
 #define DPLANE_PROVIDER_NAMELEN 64
 
 /* Priority or ordering values for providers. The idea is that there may be

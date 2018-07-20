@@ -1716,8 +1716,7 @@ static void rib_process(struct route_node *rn)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		zlog_debug(
-			"%u:%s: After processing: old_selected %p "
-			"new_selected %p old_fib %p new_fib %p",
+			"%u:%s: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
 			vrf_id, buf, (void *)old_selected, (void *)new_selected,
 			(void *)old_fib, (void *)new_fib);
 	}
@@ -1863,8 +1862,7 @@ static void rib_process_after(dplane_ctx_h ctx)
 					      dplane_ctx_get_table(ctx));
 	if (table == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug("Failed to process dplane results: no table "
-				   "for afi %d, safi %d, vrf %u",
+			zlog_debug("Failed to process dplane results: no table for afi %d, safi %d, vrf %u",
 				   dplane_ctx_get_afi(ctx),
 				   dplane_ctx_get_safi(ctx),
 				   dplane_ctx_get_vrf(ctx));
@@ -1887,8 +1885,7 @@ static void rib_process_after(dplane_ctx_h ctx)
 			       src_pfx ? (struct prefix_ipv6 *)src_pfx : NULL);
 	if (rn == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug("Failed to process dplane results: no "
-				   "route for %u:%s",
+			zlog_debug("Failed to process dplane results: no route for %u:%s",
 				   dplane_ctx_get_vrf(ctx), dest_str);
 		}
 		goto done;

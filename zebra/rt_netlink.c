@@ -2109,7 +2109,7 @@ enum dp_req_result kernel_route_update(dplane_ctx_h ctx)
 			 * of the route delete.  If that happens yeah we're
 			 * screwed.
 			 */
-			(void )netlink_route_multipath_ctx(RTM_DELROUTE, ctx);
+			(void)netlink_route_multipath_ctx(RTM_DELROUTE, ctx);
 			cmd = RTM_NEWROUTE;
 		}
 
