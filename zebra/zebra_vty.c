@@ -1651,7 +1651,7 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 	/* Show all routes. */
-	for (rn = route_top(table); rn; rn = route_next(rn)) {
+	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);
 
 		RNODE_FOREACH_RE (rn, re) {
