@@ -6784,7 +6784,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 	safi = bgp_node_safi(vty);
 
 	if (((BGP_INSTANCE_TYPE_DEFAULT == bgp->inst_type)
-	     && (strcmp(import_name, BGP_DEFAULT_NAME) == 0))
+	     && (strcmp(import_name, VRF_DEFAULT_NAME) == 0))
 	    || (bgp->name && (strcmp(import_name, bgp->name) == 0))) {
 		vty_out(vty, "%% Cannot %s vrf %s into itself\n",
 			remove ? "unimport" : "import", import_name);
@@ -6806,7 +6806,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 
 	vrf_bgp = bgp_lookup_by_name(import_name);
 	if (!vrf_bgp) {
-		if (strcmp(import_name, BGP_DEFAULT_NAME) == 0)
+		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
 			vrf_bgp = bgp_default;
 		else
 			/* Auto-create assuming the same AS */
@@ -7403,7 +7403,7 @@ DEFUN (show_bgp_vrfs,
 		}
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-			name = "Default";
+			name = VRF_DEFAULT_NAME;
 			type = "DFLT";
 		} else {
 			name = bgp->name;
@@ -7770,7 +7770,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					json, "vrfName",
 					(bgp->inst_type
 					 == BGP_INSTANCE_TYPE_DEFAULT)
-						? "Default"
+						? VRF_DEFAULT_NAME
 						: bgp->name);
 			} else {
 				vty_out(vty,
@@ -8188,12 +8188,12 @@ static void bgp_show_all_instances_summary_vty(struct vty *vty, afi_t afi,
 
 			vty_out(vty, "\"%s\":",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? "Default"
+					? VRF_DEFAULT_NAME
 					: bgp->name);
 		} else {
 			vty_out(vty, "\nInstance %s:\n",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? "Default"
+					? VRF_DEFAULT_NAME
 					: bgp->name);
 		}
 		bgp_show_summary_afi_safi(vty, bgp, afi, safi, use_json, json);
@@ -10843,7 +10843,7 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 			json_object_string_add(
 				json, "vrfName",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? "Default"
+					? VRF_DEFAULT_NAME
 					: bgp->name);
 
 			if (!is_first)
@@ -10853,12 +10853,12 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 
 			vty_out(vty, "\"%s\":",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? "Default"
+					? VRF_DEFAULT_NAME
 					: bgp->name);
 		} else {
 			vty_out(vty, "\nInstance %s:\n",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? "Default"
+					? VRF_DEFAULT_NAME
 					: bgp->name);
 		}
 
@@ -11292,7 +11292,7 @@ static void bgp_show_all_instances_updgrps_vty(struct vty *vty, afi_t afi,
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		vty_out(vty, "\nInstance %s:\n",
 			(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-				? "Default"
+				? VRF_DEFAULT_NAME
 				: bgp->name);
 		update_group_show(bgp, afi, safi, vty, 0);
 	}
