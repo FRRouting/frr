@@ -404,6 +404,18 @@ def version_cmp(v1, v2):
             return -1
     return 0
 
+def ip4_route_zebra(node, vrf_name=None):
+    """
+    Gets an output of 'show ip route' command. It can be used
+    with comparing the output to a reference
+    """
+    if vrf_name == None:
+        tmp = node.vtysh_cmd('show ip route')
+    else:
+        tmp = node.vtysh_cmd('show ip route vrf {0}'.format(vrf_name))
+    output = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", tmp)
+    return output
+
 def ip4_route(node):
     """
     Gets a structured return of the command 'ip route'. It can be used in
