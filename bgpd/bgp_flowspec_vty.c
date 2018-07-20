@@ -460,8 +460,6 @@ int bgp_fs_config_write_pbr(struct vty *vty, struct bgp *bgp,
 	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
 		vty_out(vty, "  local-install %s\n", pbr_if->name);
 	}
-	if (!bgp_pbr_interface_any)
-		vty_out(vty, "  no local-install any\n");
 	return declare_node ? 1 : 0;
 }
 
@@ -529,19 +527,6 @@ DEFUN (bgp_fs_local_install_ifname,
 	return bgp_fs_local_install_interface(bgp, no, ifname);
 }
 
-DEFUN (bgp_fs_local_install_any,
-	bgp_fs_local_install_any_cmd,
-	"[no] local-install any",
-	NO_STR
-	"Apply local policy routing\n"
-	"Any Interface\n")
-{
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	const char *no = strmatch(argv[0]->text, (char *)"no") ? "no" : NULL;
-
-	return bgp_fs_local_install_interface(bgp, no, NULL);
-}
-
 extern int bgp_flowspec_display_match_per_ip(afi_t afi,
 			struct bgp_table *rib,
 			struct prefix *match,
@@ -578,6 +563,5 @@ void bgp_flowspec_vty_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_flowspec_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_flowspec_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_flowspec_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_any_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_ifname_cmd);
 }
