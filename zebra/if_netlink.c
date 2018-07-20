@@ -1218,6 +1218,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Update interface information. */
 			set_ifindex(ifp, ifi->ifi_index, zns);
 			ifp->flags = ifi->ifi_flags & 0x0000fffff;
+			if (!tb[IFLA_MTU]) {
+				zlog_warn(
+					"RTM_NEWLINK for interface %s(%u) without MTU set",
+					name, ifi->ifi_index);
+				return 0;
+			}
 			ifp->mtu6 = ifp->mtu = *(int *)RTA_DATA(tb[IFLA_MTU]);
 			ifp->metric = 0;
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
@@ -1267,6 +1273,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					bridge_ifindex, ifi->ifi_flags);
 
 			set_ifindex(ifp, ifi->ifi_index, zns);
+			if (!tb[IFLA_MTU]) {
+				zlog_warn(
+					"RTM_NEWLINK for interface %s(%u) without MTU set",
+					name, ifi->ifi_index);
+				return 0;
+			}
 			ifp->mtu6 = ifp->mtu = *(int *)RTA_DATA(tb[IFLA_MTU]);
 			ifp->metric = 0;
 
