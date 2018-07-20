@@ -105,6 +105,7 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	if (ret != CMD_SUCCESS) {
 		zlog_warn("NS notify : failed to create NS %s", netnspath);
 		ns_map_nsid_with_external(ns_id, false);
+		vrf_delete(vrf);
 		return;
 	}
 	zlog_info("NS notify : created VRF %s NS %s", name, netnspath);
