@@ -184,6 +184,7 @@ safi_t bgp_node_safi(struct vty *vty)
  * @param afi string, one of
  *  - "ipv4"
  *  - "ipv6"
+ *  - "l2vpn"
  * @return the corresponding afi_t
  */
 afi_t bgp_vty_afi_from_str(const char *afi_str)
@@ -193,6 +194,8 @@ afi_t bgp_vty_afi_from_str(const char *afi_str)
 		afi = AFI_IP;
 	else if (strmatch(afi_str, "ipv6"))
 		afi = AFI_IP6;
+	else if (strmatch(afi_str, "l2vpn"))
+		afi = AFI_L2VPN;
 	return afi;
 }
 
@@ -222,6 +225,8 @@ safi_t bgp_vty_safi_from_str(const char *safi_str)
 		safi = SAFI_UNICAST;
 	else if (strmatch(safi_str, "vpn"))
 		safi = SAFI_MPLS_VPN;
+	else if (strmatch(safi_str, "evpn"))
+		safi = SAFI_EVPN;
 	else if (strmatch(safi_str, "labeled-unicast"))
 		safi = SAFI_LABELED_UNICAST;
 	else if (strmatch(safi_str, "flowspec"))
