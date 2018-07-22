@@ -673,8 +673,15 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	iih.v6_usable = (circuit->ipv6_link && listcount(circuit->ipv6_link)
 			 && iih.tlvs->ipv6_address.count);
 
-	if (!iih.v4_usable && !iih.v6_usable)
+	if (!iih.v4_usable && !iih.v6_usable) {
+		if (isis->debugs & DEBUG_ADJ_PACKETS) {
+			zlog_warn(
+				"ISIS-Adj (%s): Neither IPv4 nor IPv6 considered usable. Ignoring IIH",
+				circuit->area->area_tag);
+		}
+
 		goto out;
+	}
 
 	retval = p2p_hello ? process_p2p_hello(&iih) : process_lan_hello(&iih);
 out:
