@@ -359,24 +359,23 @@ static int isis_zebra_read(int command, struct zclient *zclient,
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
 		return -1;
 
-	/* we completely ignore srcdest routes for now. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
-		return 0;
-
 	/*
 	 * Avoid advertising a false default reachability. (A default
 	 * route installed by IS-IS gets redistributed from zebra back
 	 * into IS-IS causing us to start advertising default reachabity
 	 * without this check)
 	 */
-	if (api.prefix.prefixlen == 0 && api.type == ZEBRA_ROUTE_ISIS)
+	if (api.prefix.prefixlen == 0
+	    && api.src_prefix.prefixlen == 0
+	    && api.type == ZEBRA_ROUTE_ISIS) {
 		command = ZEBRA_REDISTRIBUTE_ROUTE_DEL;
+	}
 
 	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
-		isis_redist_add(api.type, &api.prefix, api.distance,
-				api.metric);
+		isis_redist_add(api.type, &api.prefix, &api.src_prefix,
+				api.distance, api.metric);
 	else
-		isis_redist_delete(api.type, &api.prefix);
+		isis_redist_delete(api.type, &api.prefix, &api.src_prefix);
 
 	return 0;
 }

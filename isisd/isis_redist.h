@@ -42,13 +42,14 @@ struct isis_redist {
 
 struct isis_area;
 struct prefix;
+struct prefix_ipv6;
 struct vty;
 
 struct route_table *get_ext_reach(struct isis_area *area, int family,
 				  int level);
-void isis_redist_add(int type, struct prefix *p, uint8_t distance,
-		     uint32_t metric);
-void isis_redist_delete(int type, struct prefix *p);
+void isis_redist_add(int type, struct prefix *p, struct prefix_ipv6 *src_p,
+		     uint8_t distance, uint32_t metric);
+void isis_redist_delete(int type, struct prefix *p, struct prefix_ipv6 *src_p);
 int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 			     int family);
 void isis_redist_init(void);

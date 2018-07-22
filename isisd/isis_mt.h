@@ -32,6 +32,7 @@
 #define ISIS_MT_IPV4_MULTICAST 3
 #define ISIS_MT_IPV6_MULTICAST 4
 #define ISIS_MT_IPV6_MGMT      5
+#define ISIS_MT_IPV6_DSTSRC    3996 /* FIXME: IANA */
 
 #define ISIS_MT_NAMES                                                          \
 	"<ipv4-unicast"                                                        \
@@ -40,6 +41,7 @@
 	"|ipv4-multicast"                                                      \
 	"|ipv6-multicast"                                                      \
 	"|ipv6-mgmt"                                                           \
+	"|ipv6-dstsrc"                                                         \
 	">"
 
 #define ISIS_MT_DESCRIPTIONS                                                   \
@@ -48,7 +50,9 @@
 	"IPv6 unicast topology\n"                                              \
 	"IPv4 multicast topology\n"                                            \
 	"IPv6 multicast topology\n"                                            \
-	"IPv6 management topology\n"
+	"IPv6 management topology\n"                                           \
+	"IPv6 dst-src topology\n"                                              \
+	""
 
 #define ISIS_MT_INFO_FIELDS uint16_t mtid;
 
@@ -74,6 +78,8 @@ struct isis_circuit;
 struct tlvs;
 struct te_is_neigh;
 struct isis_tlvs;
+
+bool isis_area_ipv6_dstsrc_enabled(struct isis_area *area);
 
 uint16_t isis_area_ipv6_topology(struct isis_area *area);
 
