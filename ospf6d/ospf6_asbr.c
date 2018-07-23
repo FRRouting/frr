@@ -1345,7 +1345,8 @@ static void ospf6_redistribute_show_config(struct vty *vty)
 
 /* Routemap Functions */
 static route_map_result_t
-ospf6_routemap_rule_match_address_prefixlist(void *rule, struct prefix *prefix,
+ospf6_routemap_rule_match_address_prefixlist(void *rule,
+					     const struct prefix *prefix,
 					     route_map_object_t type,
 					     void *object)
 {
@@ -1384,7 +1385,7 @@ struct route_map_rule_cmd ospf6_routemap_rule_match_address_prefixlist_cmd = {
 /* Match function should return 1 if match is success else return
    zero. */
 static route_map_result_t
-ospf6_routemap_rule_match_interface(void *rule, struct prefix *prefix,
+ospf6_routemap_rule_match_interface(void *rule, const struct prefix *prefix,
 				    route_map_object_t type, void *object)
 {
 	struct interface *ifp;
@@ -1422,7 +1423,7 @@ struct route_map_rule_cmd ospf6_routemap_rule_match_interface_cmd = {
 
 /* Match function for matching route tags */
 static route_map_result_t ospf6_routemap_rule_match_tag(void *rule,
-							struct prefix *prefix,
+							const struct prefix *p,
 							route_map_object_t type,
 							void *object)
 {
@@ -1442,7 +1443,7 @@ static struct route_map_rule_cmd ospf6_routemap_rule_match_tag_cmd = {
 };
 
 static route_map_result_t
-ospf6_routemap_rule_set_metric_type(void *rule, struct prefix *prefix,
+ospf6_routemap_rule_set_metric_type(void *rule, const struct prefix *prefix,
 				    route_map_object_t type, void *object)
 {
 	char *metric_type = rule;
@@ -1478,7 +1479,7 @@ struct route_map_rule_cmd ospf6_routemap_rule_set_metric_type_cmd = {
 };
 
 static route_map_result_t
-ospf6_routemap_rule_set_metric(void *rule, struct prefix *prefix,
+ospf6_routemap_rule_set_metric(void *rule, const struct prefix *prefix,
 			       route_map_object_t type, void *object)
 {
 	char *metric = rule;
@@ -1513,7 +1514,7 @@ struct route_map_rule_cmd ospf6_routemap_rule_set_metric_cmd = {
 };
 
 static route_map_result_t
-ospf6_routemap_rule_set_forwarding(void *rule, struct prefix *prefix,
+ospf6_routemap_rule_set_forwarding(void *rule, const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
 	char *forwarding = rule;
@@ -1551,7 +1552,7 @@ struct route_map_rule_cmd ospf6_routemap_rule_set_forwarding_cmd = {
 };
 
 static route_map_result_t ospf6_routemap_rule_set_tag(void *rule,
-						      struct prefix *prefix,
+						      const struct prefix *p,
 						      route_map_object_t type,
 						      void *object)
 {

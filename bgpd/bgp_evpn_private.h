@@ -328,7 +328,7 @@ static inline void ip_prefix_from_type5_prefix(struct prefix_evpn *evp,
 	}
 }
 
-static inline int is_evpn_prefix_default(struct prefix *evp)
+static inline int is_evpn_prefix_default(const struct prefix *evp)
 {
 	if (evp->family != AF_EVPN)
 		return 0;

@@ -157,7 +157,7 @@ static const char *filter_type_str(struct filter *filter)
 }
 
 /* If filter match to the prefix then return 1. */
-static int filter_match_cisco(struct filter *mfilter, struct prefix *p)
+static int filter_match_cisco(struct filter *mfilter, const struct prefix *p)
 {
 	struct filter_cisco *filter;
 	struct in_addr mask;
@@ -181,7 +181,7 @@ static int filter_match_cisco(struct filter *mfilter, struct prefix *p)
 }
 
 /* If filter match to the prefix then return 1. */
-static int filter_match_zebra(struct filter *mfilter, struct prefix *p)
+static int filter_match_zebra(struct filter *mfilter, const struct prefix *p)
 {
 	struct filter_zebra *filter = NULL;
 
@@ -372,10 +372,11 @@ static struct access_list *access_list_get(afi_t afi, const char *name)
 }
 
 /* Apply access list to object (which should be struct prefix *). */
-enum filter_type access_list_apply(struct access_list *access, void *object)
+enum filter_type access_list_apply(struct access_list *access,
+				   const void *object)
 {
 	struct filter *filter;
-	struct prefix *p = (struct prefix *)object;
+	const struct prefix *p = (const struct prefix *)object;
 
 	if (access == NULL)
 		return FILTER_DENY;

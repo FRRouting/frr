@@ -50,7 +50,7 @@
 #include "isis_routemap.h"
 
 static route_map_result_t route_match_ip_address(void *rule,
-						 struct prefix *prefix,
+						 const struct prefix *prefix,
 						 route_map_object_t type,
 						 void *object)
 {
@@ -83,7 +83,7 @@ static struct route_map_rule_cmd route_match_ip_address_cmd = {
 /* ------------------------------------------------------------*/
 
 static route_map_result_t
-route_match_ip_address_prefix_list(void *rule, struct prefix *prefix,
+route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
 	struct prefix_list *plist;
@@ -116,7 +116,7 @@ struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd = {
 /* ------------------------------------------------------------*/
 
 static route_map_result_t route_match_ipv6_address(void *rule,
-						   struct prefix *prefix,
+						   const struct prefix *prefix,
 						   route_map_object_t type,
 						   void *object)
 {
@@ -149,7 +149,7 @@ static struct route_map_rule_cmd route_match_ipv6_address_cmd = {
 /* ------------------------------------------------------------*/
 
 static route_map_result_t
-route_match_ipv6_address_prefix_list(void *rule, struct prefix *prefix,
+route_match_ipv6_address_prefix_list(void *rule, const struct prefix *prefix,
 				     route_map_object_t type, void *object)
 {
 	struct prefix_list *plist;
@@ -181,7 +181,8 @@ struct route_map_rule_cmd route_match_ipv6_address_prefix_list_cmd = {
 
 /* ------------------------------------------------------------*/
 
-static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
+static route_map_result_t route_set_metric(void *rule,
+					   const struct prefix *prefix,
 					   route_map_object_t type,
 					   void *object)
 {

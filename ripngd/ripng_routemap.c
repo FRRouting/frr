@@ -38,7 +38,8 @@ struct rip_metric_modifier {
 
 /* `match metric METRIC' */
 /* Match function return 1 if match is success else return zero. */
-static route_map_result_t route_match_metric(void *rule, struct prefix *prefix,
+static route_map_result_t route_match_metric(void *rule,
+					     const struct prefix *prefix,
 					     route_map_object_t type,
 					     void *object)
 {
@@ -86,7 +87,7 @@ static struct route_map_rule_cmd route_match_metric_cmd = {
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t route_match_interface(void *rule,
-						struct prefix *prefix,
+						const struct prefix *prefix,
 						route_map_object_t type,
 						void *object)
 {
@@ -128,7 +129,8 @@ static struct route_map_rule_cmd route_match_interface_cmd = {
 
 /* `match tag TAG' */
 /* Match function return 1 if match is success else return zero. */
-static route_map_result_t route_match_tag(void *rule, struct prefix *prefix,
+static route_map_result_t route_match_tag(void *rule,
+					  const struct prefix *prefix,
 					  route_map_object_t type, void *object)
 {
 	route_tag_t *tag;
@@ -157,7 +159,8 @@ static struct route_map_rule_cmd route_match_tag_cmd = {
 /* `set metric METRIC' */
 
 /* Set metric to attribute. */
-static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
+static route_map_result_t route_set_metric(void *rule,
+					   const struct prefix *prefix,
 					   route_map_object_t type,
 					   void *object)
 {
@@ -254,7 +257,7 @@ static struct route_map_rule_cmd route_set_metric_cmd = {
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
 static route_map_result_t route_set_ipv6_nexthop_local(void *rule,
-						       struct prefix *prefix,
+						       const struct prefix *p,
 						       route_map_object_t type,
 						       void *object)
 {
@@ -307,7 +310,8 @@ static struct route_map_rule_cmd route_set_ipv6_nexthop_local_cmd = {
 /* `set tag TAG' */
 
 /* Set tag to object.  ojbect must be pointer to struct attr. */
-static route_map_result_t route_set_tag(void *rule, struct prefix *prefix,
+static route_map_result_t route_set_tag(void *rule,
+					const struct prefix *prefix,
 					route_map_object_t type, void *object)
 {
 	route_tag_t *tag;
