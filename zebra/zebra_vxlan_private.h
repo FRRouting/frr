@@ -247,6 +247,8 @@ struct zebra_mac_t_ {
 #define ZEBRA_MAC_STICKY  0x08  /* Static MAC */
 #define ZEBRA_MAC_REMOTE_RMAC  0x10  /* remote router mac */
 #define ZEBRA_MAC_DEF_GW  0x20
+/* remote VTEP advertised MAC as default GW */
+#define ZEBRA_MAC_REMOTE_DEF_GW	0x40
 
 	/* Local or remote info. */
 	union {
