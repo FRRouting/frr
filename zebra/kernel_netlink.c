@@ -308,7 +308,7 @@ static unsigned int netlink_file_counter = 1;
 static char netlink_fuzz_file[MAXPATHLEN] = "";
 
 /* Flag for whether to read from file or not */
-static int netlink_read = 0;
+int netlink_read;
 
 /**
  * netlink_set_read() - Sets the read flag
@@ -374,6 +374,7 @@ static long netlink_read_file(char *buf, const char *fname)
 {
 	FILE *f;
 	long file_bytes = -1;
+
 	zserv_privs.change(ZPRIVS_RAISE);
 	f = fopen(fname, "r");
 	if (f) {
