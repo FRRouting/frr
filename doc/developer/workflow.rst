@@ -776,7 +776,7 @@ annotations must be ignored non-development branches. For example:
 
 .. code-block:: c
 
-   #if defined(VERSION_TYPE_DEV) && CONFDATE > 20180403
+   #if CONFDATE > 20180403
    CPP_NOTICE("Use of <XYZ> is deprecated, please use <ABC>")
    #endif
 

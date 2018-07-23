@@ -425,13 +425,13 @@ DEFUN(no_ospf6_router_id,
 	return CMD_SUCCESS;
 }
 
-#if defined(VERSION_TYPE_DEV) && CONFDATE > 20180828
+#if CONFDATE > 20180828
 CPP_NOTICE("ospf6: `router-id A.B.C.D` deprecated 2017/08/28")
 #endif
 ALIAS_HIDDEN(ospf6_router_id, ospf6_router_id_hdn_cmd, "router-id A.B.C.D",
 	     "Configure OSPF6 Router-ID\n" V4NOTATION_STR)
 
-#if defined(VERSION_TYPE_DEV) && CONFDATE > 20180828
+#if CONFDATE > 20180828
 CPP_NOTICE("ospf6: `no router-id A.B.C.D` deprecated 2017/08/28")
 #endif
 ALIAS_HIDDEN(no_ospf6_router_id, no_ospf6_router_id_hdn_cmd,

@@ -232,7 +232,7 @@ extern void list_sort(struct list *list,
  * and remove list_delete_original and the list_delete #define
  * Additionally remove list_free entirely
  */
-#if defined(VERSION_TYPE_DEV) && CONFDATE > 20181001
+#if CONFDATE > 20181001
 CPP_NOTICE("list_delete without double pointer is deprecated, please fixup")
 #endif
 

@@ -1832,7 +1832,13 @@ AM_CONDITIONAL([ZEROMQ], test "x$ZEROMQ" = "xtrue")
 dnl ----------
 dnl configure date
 dnl ----------
-CONFDATE=`date '+%Y%m%d'`
+dev_version=`echo $VERSION | grep dev`
+#don't expire deprecated code in non 'dev' branch
+if test "${dev_version}" = ""; then
+   CONFDATE=0
+else
+   CONFDATE=`date '+%Y%m%d'`
+fi
 AC_SUBST(CONFDATE)
 
 dnl ------------------------------
