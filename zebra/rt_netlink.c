@@ -581,6 +581,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					route_entry_nexthop_ifindex_add(
 						re, index, nh_vrf_id);
 
+				if (rtnh->rtnh_len == 0)
+					break;
+
 				len -= NLMSG_ALIGN(rtnh->rtnh_len);
 				rtnh = RTNH_NEXT(rtnh);
 			}
@@ -700,6 +703,9 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 
 			oif[oif_count] = rtnh->rtnh_ifindex;
 			oif_count++;
+
+			if (rtnh->rtnh_len == 0)
+				break;
 
 			len -= NLMSG_ALIGN(rtnh->rtnh_len);
 			rtnh = RTNH_NEXT(rtnh);
