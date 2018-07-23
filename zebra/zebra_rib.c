@@ -2331,7 +2331,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	if (!re)
 		return 0;
 
-	assert(!src_p || afi == AFI_IP6);
+	assert(!src_p || !src_p->prefixlen || afi == AFI_IP6);
 
 	/* Lookup table.  */
 	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id, re->table);
@@ -2421,7 +2421,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	char buf2[INET6_ADDRSTRLEN];
 	rib_dest_t *dest;
 
-	assert(!src_p || afi == AFI_IP6);
+	assert(!src_p || !src_p->prefixlen || afi == AFI_IP6);
 
 	/* Lookup table.  */
 	table = zebra_vrf_table_with_table_id(afi, safi, vrf_id, table_id);
