@@ -690,7 +690,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	aspath = attr.aspath;
 
 	attr.local_pref = bgp->default_local_pref;
-	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
@@ -724,8 +723,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 				ret = route_map_apply(
 					peer->default_rmap[afi][safi].map,
 					&rn->p, RMAP_BGP, &info);
-
-				attr.med = info.attr->med;
 
 				/* The route map might have set attributes. If
 				 * we don't flush them
