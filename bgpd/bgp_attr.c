@@ -1890,6 +1890,16 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	/* Check if this is a Gateway MAC-IP advertisement */
 	attr->default_gw = bgp_attr_default_gw(attr);
 
+	/* Handle scenario where router flag ecommunity is not
+	 * set but default gw ext community is present.
+	 * Use default gateway, set and propogate R-bit.
+	 */
+	if (attr->default_gw)
+		attr->router_flag = 1;
+
+	/* Check EVPN Neighbor advertisement flags, R-bit */
+	bgp_attr_evpn_na_flag(attr, &attr->router_flag);
+
 	/* Extract the Rmac, if any */
 	bgp_attr_rmac(attr, &attr->rmac);
 
