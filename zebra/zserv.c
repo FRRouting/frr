@@ -3289,7 +3289,6 @@ DEFUN (show_zebra_client_summary,
 void zserv_read_file(char *input)
 {
 	int fd;
-	struct zserv *client = NULL;
 	struct thread t;
 
 	zebra_client_create(-1);
