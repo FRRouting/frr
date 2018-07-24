@@ -447,6 +447,9 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	if (!pnc || !pnc->nexthop_num || !nexthop)
 		return 0;
 
+	memset(&nbrs, 0, sizeof(nbrs));
+	memset(&ifps, 0, sizeof(ifps));
+
 	// Current Nexthop is VALID, check to stay on the current path.
 	if (nexthop->interface && nexthop->interface->info
 	    && nexthop->mrib_nexthop_addr.u.prefix4.s_addr
@@ -848,6 +851,9 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		}
 		return 0;
 	}
+
+	memset(&nbrs, 0, sizeof(nbrs));
+	memset(&ifps, 0, sizeof(ifps));
 
 	/*
 	 * Look up all interfaces and neighbors,
