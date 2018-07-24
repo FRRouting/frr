@@ -275,6 +275,7 @@ static void isis_vertex_queue_delete(struct isis_vertex_queue *queue,
 struct isis_spftree {
 	struct isis_vertex_queue paths; /* the SPT */
 	struct isis_vertex_queue tents; /* TENT */
+	struct route_table *route_table;
 	struct isis_area *area;    /* back pointer to area */
 	unsigned int runcount;     /* number of runs since uptime */
 	time_t last_run_timestamp; /* last run timestamp as wall time for display */
@@ -472,6 +473,7 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area)
 
 	isis_vertex_queue_init(&tree->tents, "IS-IS SPF tents", true);
 	isis_vertex_queue_init(&tree->paths, "IS-IS SPF paths", false);
+	tree->route_table = route_table_init();
 	tree->area = area;
 	tree->last_run_timestamp = 0;
 	tree->last_run_monotime = 0;
@@ -484,8 +486,10 @@ void isis_spftree_del(struct isis_spftree *spftree)
 {
 	isis_vertex_queue_free(&spftree->tents);
 	isis_vertex_queue_free(&spftree->paths);
-	XFREE(MTYPE_ISIS_SPFTREE, spftree);
+	route_table_finish(spftree->route_table);
+	spftree->route_table = NULL;
 
+	XFREE(MTYPE_ISIS_SPFTREE, spftree);
 	return;
 }
 
@@ -1228,7 +1232,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 			isis_route_create((struct prefix *)&vertex->N.prefix,
 					  vertex->d_N, vertex->depth,
 					  vertex->Adj_N, spftree->area,
-					  spftree->level);
+					  spftree->route_table);
 		else if (isis->debugs & DEBUG_SPF_EVENTS)
 			zlog_debug(
 				"ISIS-Spf: no adjacencies do not install route for "
@@ -1261,7 +1265,6 @@ static int isis_run_spf(struct isis_area *area, int level, int family,
 	struct isis_spftree *spftree = NULL;
 	uint8_t lsp_id[ISIS_SYS_ID_LEN + 2];
 	struct isis_lsp *lsp;
-	struct route_table *table = NULL;
 	struct timeval time_now;
 	unsigned long long start_time, end_time;
 	uint16_t mtid;
@@ -1276,14 +1279,6 @@ static int isis_run_spf(struct isis_area *area, int level, int family,
 		spftree = area->spftree6[level - 1];
 	assert(spftree);
 	assert(sysid);
-
-	/* Make all routes in current route table inactive. */
-	if (family == AF_INET)
-		table = area->route_table[level - 1];
-	else if (family == AF_INET6)
-		table = area->route_table6[level - 1];
-
-	isis_route_invalidate_table(area, table);
 
 	/* We only support ipv4-unicast and ipv6-unicast as topologies for now
 	 */
@@ -1342,7 +1337,6 @@ static int isis_run_spf(struct isis_area *area, int level, int family,
 	}
 
 out:
-	isis_route_validate(area);
 	spftree->runcount++;
 	spftree->last_run_timestamp = time(NULL);
 	spftree->last_run_monotime = monotime(&time_now);
@@ -1351,6 +1345,23 @@ out:
 	spftree->last_run_duration = end_time - start_time;
 
 	return retval;
+}
+
+void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees)
+{
+	if (area->is_type == IS_LEVEL_1) {
+		isis_route_verify_table(area, trees[0]->route_table);
+	} else if (area->is_type == IS_LEVEL_2) {
+		isis_route_verify_table(area, trees[1]->route_table);
+	} else {
+		isis_route_verify_merge(area, trees[0]->route_table,
+					trees[1]->route_table);
+	}
+}
+
+void isis_spf_invalidate_routes(struct isis_spftree *tree)
+{
+	isis_route_invalidate_table(tree->area, tree->route_table);
 }
 
 static int isis_run_spf_cb(struct thread *thread)
@@ -1370,6 +1381,8 @@ static int isis_run_spf_cb(struct thread *thread)
 		return ISIS_WARNING;
 	}
 
+	isis_area_invalidate_routes(area, level);
+
 	if (isis->debugs & DEBUG_SPF_EVENTS)
 		zlog_debug("ISIS-Spf (%s) L%d SPF needed, periodic SPF",
 			   area->area_tag, level);
@@ -1380,6 +1393,14 @@ static int isis_run_spf_cb(struct thread *thread)
 	if (area->ipv6_circuits)
 		retval = isis_run_spf(area, level, AF_INET6, isis->sysid,
 				      &thread->real);
+
+	isis_area_verify_routes(area);
+
+	/* walk all circuits and reset any spf specific flags */
+	struct listnode *node;
+	struct isis_circuit *circuit;
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+		UNSET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
 
 	return retval;
 }

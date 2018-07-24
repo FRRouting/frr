@@ -67,9 +67,7 @@ struct isis_area {
 	struct isis *isis;			       /* back pointer */
 	dict_t *lspdb[ISIS_LEVELS];		       /* link-state dbs */
 	struct isis_spftree *spftree[ISIS_LEVELS];     /* The v4 SPTs */
-	struct route_table *route_table[ISIS_LEVELS];  /* IPv4 routes */
 	struct isis_spftree *spftree6[ISIS_LEVELS];    /* The v6 SPTs */
-	struct route_table *route_table6[ISIS_LEVELS]; /* IPv6 routes */
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
 	struct list *circuit_list; /* IS-IS circuits */
@@ -143,6 +141,9 @@ struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup(const char *);
 int isis_area_get(struct vty *vty, const char *area_tag);
 void print_debug(struct vty *, int, int);
+
+void isis_area_invalidate_routes(struct isis_area *area, int levels);
+void isis_area_verify_routes(struct isis_area *area);
 
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit);
 void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit);

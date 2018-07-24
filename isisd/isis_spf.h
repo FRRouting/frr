@@ -27,6 +27,9 @@
 struct isis_spftree;
 
 struct isis_spftree *isis_spftree_new(struct isis_area *area);
+void isis_spf_invalidate_routes(struct isis_spftree *tree);
+void isis_spf_verify_routes(struct isis_area *area,
+			    struct isis_spftree **trees);
 void isis_spftree_del(struct isis_spftree *spftree);
 void spftree_area_init(struct isis_area *area);
 void spftree_area_del(struct isis_area *area);
