@@ -273,7 +273,7 @@ def test_ospf_link_down():
 
     # Simulate a network down event on router3 switch3 interface.
     router3 = tgen.gears['r3']
-    router3.peer_link_enable('r3-eth0', False)
+    topotest.interface_set_status(router3, 'r3-eth0', ifaceaction=False, vrf_name='r3-cust1')
 
     # Expect convergence on all routers
     for rnum in range(1, 4):
