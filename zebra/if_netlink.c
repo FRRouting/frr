@@ -993,7 +993,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (ifa->ifa_family == AF_INET) {
 		if (ifa->ifa_prefixlen > IPV4_MAX_BITLEN) {
 			zlog_warn(
-				"Invalid prefix length: %d received from kernel interface addr change: %d",
+				"Invalid prefix length: %u received from kernel interface addr change: %u",
 				ifa->ifa_prefixlen, h->nlmsg_type);
 			return 0;
 		}
@@ -1009,7 +1009,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (ifa->ifa_family == AF_INET6) {
 		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
 			zlog_warn(
-				"Invalid prefix length: %d received from kernel interface addr change: %d",
+				"Invalid prefix length: %u received from kernel interface addr change: %u",
 				ifa->ifa_prefixlen, h->nlmsg_type);
 			return 0;
 		}

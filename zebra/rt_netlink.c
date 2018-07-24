@@ -386,7 +386,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		p.family = AF_INET;
 		if (rtm->rtm_dst_len > IPV4_MAX_BITLEN) {
 			zlog_warn(
-				"Invalid destination prefix length: %d received from kernel route change",
+				"Invalid destination prefix length: %u received from kernel route change",
 				rtm->rtm_dst_len);
 			return 0;
 		}
@@ -400,7 +400,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		p.family = AF_INET6;
 		if (rtm->rtm_dst_len > IPV6_MAX_BITLEN) {
 			zlog_warn(
-				"Invalid destination prefix length: %d received from kernel route change",
+				"Invalid destination prefix length: %u received from kernel route change",
 				rtm->rtm_dst_len);
 			return 0;
 		}
@@ -410,7 +410,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		src_p.family = AF_INET6;
 		if (rtm->rtm_src_len > IPV6_MAX_BITLEN) {
 			zlog_warn(
-				"Invalid source prefix length: %d received from kernel route change",
+				"Invalid source prefix length: %u received from kernel route change",
 				rtm->rtm_src_len);
 			return 0;
 		}
