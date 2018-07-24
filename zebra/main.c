@@ -364,7 +364,6 @@ int main(int argc, char **argv)
 /* For debug purpose. */
 /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
-
 	/* Process the configuration file. Among other configuration
 	*  directives we can meet those installing static routes. Such
 	*  requests will not be executed immediately, but queued in
