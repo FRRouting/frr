@@ -662,8 +662,7 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 {
 	struct bgp *bgp;
-	struct attr attr;
-	struct aspath *aspath;
+	struct bgp_info *info, init_info;
 	struct prefix p;
 	struct peer *from;
 	struct bgp_node *rn;
@@ -686,48 +685,50 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	bgp = peer->bgp;
 	from = bgp->peer_self;
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
-	aspath = attr.aspath;
-
-	attr.local_pref = bgp->default_local_pref;
+	init_info.attr = NULL;
+	info = &init_info;
 
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
 	p.prefixlen = 0;
-
-	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
-		/* IPv6 global nexthop must be included. */
-		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-
-		/* If the peer is on shared nextwork and we have link-local
-		   nexthop set it. */
-		if (peer->shared_network
-		    && !IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_local))
-			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-	}
 
 	if (peer->default_rmap[afi][safi].name) {
 		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_DEFAULT);
 		for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 		     rn = bgp_route_next(rn)) {
 			for (ri = rn->info; ri; ri = ri->next) {
-				struct attr dummy_attr;
-				struct bgp_info info;
+				struct bgp_info tmp_info;
 
-				/* Provide dummy so the route-map can't modify
-				 * the attributes */
-				bgp_attr_dup(&dummy_attr, ri->attr);
-				info.peer = ri->peer;
-				info.attr = &dummy_attr;
+				tmp_info.peer = ri->peer;
+				tmp_info.attr = ri->attr;
+
+				/* Reset attributes every time to avoid \
+				 * unexpected as-path prepends */
+				bgp_attr_default_set(tmp_info.attr,
+						     BGP_ORIGIN_IGP);
+
+				if ((afi == AFI_IP6)
+				    || peer_cap_enhe(peer, afi, safi)) {
+					/* IPv6 global nexthop must be included.
+					 */
+					tmp_info.attr->mp_nexthop_len =
+						BGP_ATTR_NHLEN_IPV6_GLOBAL;
+
+					/* If the peer is on shared nextwork and
+					 * we have link-local nexthop set it. */
+					if (peer->shared_network
+					    && !IN6_IS_ADDR_UNSPECIFIED(
+						       &peer->nexthop.v6_local))
+						tmp_info.attr->mp_nexthop_len =
+							BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
+				}
 
 				ret = route_map_apply(
 					peer->default_rmap[afi][safi].map,
-					&rn->p, RMAP_BGP, &info);
+					&rn->p, RMAP_BGP, &tmp_info);
 
-				/* The route map might have set attributes. If
-				 * we don't flush them
-				 * here, they will be leaked. */
-				bgp_attr_flush(&dummy_attr);
+				info = &tmp_info;
+
 				if (ret != RMAP_DENYMATCH)
 					break;
 			}
@@ -749,12 +750,13 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 				SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
 
 			if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
-				bgp_attr_add_gshut_community(&attr);
+				bgp_attr_add_gshut_community(info->attr);
 			}
 
 			SET_FLAG(subgrp->sflags,
 				 SUBGRP_STATUS_DEFAULT_ORIGINATE);
-			subgroup_default_update_packet(subgrp, &attr, from);
+			subgroup_default_update_packet(subgrp, info->attr,
+						       from);
 
 			/* The 'neighbor x.x.x.x default-originate' default will
 			 * act as an
@@ -774,8 +776,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 				BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
 		}
 	}
-
-	aspath_unintern(&aspath);
 }
 
 /*
