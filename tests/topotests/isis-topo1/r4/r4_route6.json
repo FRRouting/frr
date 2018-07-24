@@ -2,7 +2,7 @@
   "2001:db8:1:1::/64": [
     {
       "distance": 115,
-      "metric": 10,
+      "metric": 20,
       "nexthops": [
         {
           "active": true,
@@ -18,20 +18,6 @@
     }
   ],
   "2001:db8:1:2::/64": [
-    {
-      "distance": 115,
-      "metric": 10,
-      "nexthops": [
-        {
-          "active": true,
-          "afi": "ipv6",
-          "interfaceIndex": 3,
-          "interfaceName": "r4-eth1"
-        }
-      ],
-      "prefix": "2001:db8:1:2::/64",
-      "protocol": "isis"
-    },
     {
       "nexthops": [
         {
@@ -50,7 +36,7 @@
   "2001:db8:2:1::/64": [
     {
       "distance": 115,
-      "metric": 20,
+      "metric": 10,
       "nexthops": [
         {
           "active": true,

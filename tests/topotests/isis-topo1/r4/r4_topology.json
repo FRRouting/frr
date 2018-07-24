@@ -108,15 +108,7 @@
           "next-hop": "10",
           "parent": "r4-eth1",
           "type": "IP6",
-          "vertex": "2001:db8:1:1::/64"
-        },
-        {
-          "interface": "r5",
-          "metric": "internal",
-          "next-hop": "10",
-          "parent": "r4-eth1",
-          "type": "IP6",
-          "vertex": "2001:db8:1:2::/64"
+          "vertex": "2001:db8:2:1::/64"
         },
         {
           "interface": "r5",

@@ -1,55 +1,55 @@
 {
-  "2001:db8:1:1::/64": [
-    {
-      "nexthops": [
-        {
-          "active": true,
-          "directlyConnected": true,
-          "fib": true,
-          "interfaceIndex": 2,
-          "interfaceName": "r5-eth0"
-        }
-      ],
-      "prefix": "2001:db8:1:1::/64",
-      "protocol": "connected",
-      "selected": true
-    }
-  ],
-  "2001:db8:1:2::/64": [
-    {
-      "nexthops": [
-        {
-          "active": true,
-          "directlyConnected": true,
-          "fib": true,
-          "interfaceIndex": 3,
-          "interfaceName": "r5-eth1"
-        }
-      ],
-      "prefix": "2001:db8:1:2::/64",
-      "protocol": "connected",
-      "selected": true
-    }
-  ],
   "2001:db8:2:1::/64": [
     {
-      "distance": 115,
-      "metric": 10,
       "nexthops": [
         {
           "active": true,
-          "afi": "ipv6",
+          "directlyConnected": true,
           "fib": true,
           "interfaceIndex": 2,
           "interfaceName": "r5-eth0"
         }
       ],
       "prefix": "2001:db8:2:1::/64",
-      "protocol": "isis",
+      "protocol": "connected",
       "selected": true
     }
   ],
   "2001:db8:2:2::/64": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "fib": true,
+          "interfaceIndex": 3,
+          "interfaceName": "r5-eth1"
+        }
+      ],
+      "prefix": "2001:db8:2:2::/64",
+      "protocol": "connected",
+      "selected": true
+    }
+  ],
+  "2001:db8:1:1::/64": [
+    {
+      "distance": 115,
+      "metric": 10,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceIndex": 2,
+          "interfaceName": "r5-eth0"
+        }
+      ],
+      "prefix": "2001:db8:1:1::/64",
+      "protocol": "isis",
+      "selected": true
+    }
+  ],
+  "2001:db8:1:2::/64": [
     {
       "distance": 115,
       "metric": 10,
@@ -62,7 +62,7 @@
           "interfaceName": "r5-eth1"
         }
       ],
-      "prefix": "2001:db8:2:2::/64",
+      "prefix": "2001:db8:1:2::/64",
       "protocol": "isis",
       "selected": true
     }
