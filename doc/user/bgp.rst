@@ -31,9 +31,9 @@ be specified (:ref:`common-invocation-options`).
 
 .. option:: -l, --listenon
 
-   Specify a specific IP address for bgpd to listen on, rather than its
-   default of INADDR_ANY / IN6ADDR_ANY. This can be useful to constrain bgpd
-   to an internal address, or to run multiple bgpd processes on one host.
+   Specify a specific IP address for bgpd to listen on, rather than its default
+   of ``0.0.0.0`` / ``::``. This can be useful to constrain bgpd to an internal
+   address, or to run multiple bgpd processes on one host.
 
 .. _bgp-basic-concepts:
 
@@ -45,26 +45,33 @@ Basic Concepts
 Autonomous Systems
 ------------------
 
-The :abbr:`AS (Autonomous System)` number is one of the essential element of
-BGP. BGP is a distance vector routing protocol, and the AS-Path framework
-provides distance vector metric and loop detection to BGP. :rfc:`1930` provides
-some background on the concepts of an AS.
+From :rfc:`1930`:
 
-The AS number is a two octet value, ranging in value from 1 to 65535. The AS
-numbers 64512 through 65535 are defined as private AS numbers. Private AS
-numbers must not to be advertised in the global Internet.
+   An AS is a connected group of one or more IP prefixes run by one or more
+   network operators which has a SINGLE and CLEARLY DEFINED routing policy.
+
+Each AS has an identifying number associated with it called an :abbr:`ASN
+(Autonomous System Number)`. This is a two octet value ranging in value from 1
+to 65535. The AS numbers 64512 through 65535 are defined as private AS numbers.
+Private AS numbers must not be advertised on the global Internet.
+
+The :abbr:`ASN (Autonomous System Number)` is one of the essential elements of
+BGP. BGP is a distance vector routing protocol, and the AS-Path framework
+provides distance vector metric and loop detection to BGP.
+
+.. seealso:: :rfc:`1930`
 
 .. _bgp-address-families:
 
 Address Families
 ----------------
 
-Multiprotocol BGP enables BGP to carry routing information for multiple Network
-Layer protocols. BGP supports an Address Family Identifier (AFI) for IPv4 and
-IPv6. Support is also provided for multiple sets of per-AFI information via the
-BGP Subsequent Address Family Identifier (SAFI). FRR supports SAFIs for unicast
-information, labeled information :rfc:`3107` and :rfc:`8277`, and Layer 3 VPN
-information :rfc:`4364` and :rfc:`4659`.
+Multiprotocol extensions enable BGP to carry routing information for multiple
+network layer protocols. BGP supports an Address Family Identifier (AFI) for
+IPv4 and IPv6. Support is also provided for multiple sets of per-AFI
+information via the BGP Subsequent Address Family Identifier (SAFI). FRR
+supports SAFIs for unicast information, labeled information (:rfc:`3107` and
+:rfc:`8277`), and Layer 3 VPN information (:rfc:`4364` and :rfc:`4659`).
 
 .. _bgp-route-selection:
 
@@ -718,35 +725,30 @@ Defining Peers
 Configuring Peers
 ^^^^^^^^^^^^^^^^^
 
-.. index:: neighbor PEER shutdown
-.. clicmd:: neighbor PEER shutdown
-
-.. index:: no neighbor PEER shutdown
-.. clicmd:: no neighbor PEER shutdown
+.. index:: [no] neighbor PEER shutdown
+.. clicmd:: [no] neighbor PEER shutdown
 
    Shutdown the peer. We can delete the neighbor's configuration by
    ``no neighbor PEER remote-as ASN`` but all configuration of the neighbor
    will be deleted. When you want to preserve the configuration, but want to
    drop the BGP peer, use this syntax.
 
-.. index:: neighbor PEER ebgp-multihop
-.. clicmd:: neighbor PEER ebgp-multihop
+.. index:: [no] neighbor PEER disable-connected-check
+.. clicmd:: [no] neighbor PEER disable-connected-check
 
-.. index:: no neighbor PEER ebgp-multihop
-.. clicmd:: no neighbor PEER ebgp-multihop
+   Allow peerings between directly connected eBGP peers using loopback
+   addresses.
 
+.. index:: [no] neighbor PEER ebgp-multihop
+.. clicmd:: [no] neighbor PEER ebgp-multihop
 
-.. index:: neighbor PEER description ...
-.. clicmd:: neighbor PEER description ...
-
-
-.. index:: no neighbor PEER description ...
-.. clicmd:: no neighbor PEER description ...
+.. index:: [no] neighbor PEER description ...
+.. clicmd:: [no] neighbor PEER description ...
 
    Set description of the peer.
 
-.. index:: neighbor PEER version VERSION
-.. clicmd:: neighbor PEER version VERSION
+.. index:: [no] neighbor PEER version VERSION
+.. clicmd:: [no] neighbor PEER version VERSION
 
    Set up the neighbor's BGP version. `version` can be `4`, `4+` or `4-`. BGP
    version `4` is the default value used for BGP peering. BGP version `4+`
@@ -755,12 +757,8 @@ Configuring Peers
    revision 00's Multiprotocol Extensions for BGP-4. Some routing software is
    still using this version.
 
-.. index:: neighbor PEER interface IFNAME
-.. clicmd:: neighbor PEER interface IFNAME
-
-
-.. index:: no neighbor PEER interface IFNAME
-.. clicmd:: no neighbor PEER interface IFNAME
+.. index:: [no] neighbor PEER interface IFNAME
+.. clicmd:: [no] neighbor PEER interface IFNAME
 
    When you connect to a BGP peer over an IPv6 link-local address, you have to
    specify the IFNAME of the interface used for the connection. To specify
@@ -770,24 +768,16 @@ Configuring Peers
    This command is deprecated and may be removed in a future release. Its use
    should be avoided.
 
-.. index:: neighbor PEER next-hop-self [all]
-.. clicmd:: neighbor PEER next-hop-self [all]
-
-
-.. index:: no neighbor PEER next-hop-self [all]
-.. clicmd:: no neighbor PEER next-hop-self [all]
+.. index:: [no] neighbor PEER next-hop-self [all]
+.. clicmd:: [no] neighbor PEER next-hop-self [all]
 
    This command specifies an announced route's nexthop as being equivalent to
    the address of the bgp router if it is learned via eBGP.  If the optional
    keyword `all` is specified the modification is done also for routes learned
    via iBGP.
 
-.. index:: neighbor PEER update-source <IFNAME|ADDRESS>
-.. clicmd:: neighbor PEER update-source <IFNAME|ADDRESS>
-
-
-.. index:: no neighbor PEER update-source
-.. clicmd:: no neighbor PEER update-source
+.. index:: [no] neighbor PEER update-source <IFNAME|ADDRESS>
+.. clicmd:: [no] neighbor PEER update-source <IFNAME|ADDRESS>
 
    Specify the IPv4 source address to use for the :abbr:`BGP` session to this
    neighbour, may be specified as either an IPv4 address directly or as an
@@ -801,11 +791,8 @@ Configuring Peers
        neighbor bar update-source lo0
 
 
-.. index:: neighbor PEER default-originate
-.. clicmd:: neighbor PEER default-originate
-
-.. index:: no neighbor PEER default-originate
-.. clicmd:: no neighbor PEER default-originate
+.. index:: [no] neighbor PEER default-originate
+.. clicmd:: [no] neighbor PEER default-originate
 
    *bgpd*'s default is to not announce the default route (0.0.0.0/0) even if it
    is in routing table. When you want to announce default routes to the peer,
@@ -817,37 +804,22 @@ Configuring Peers
 .. index:: neighbor PEER send-community
 .. clicmd:: neighbor PEER send-community
 
-.. index:: neighbor PEER weight WEIGHT
-.. clicmd:: neighbor PEER weight WEIGHT
-
-
-.. index:: no neighbor PEER weight WEIGHT
-.. clicmd:: no neighbor PEER weight WEIGHT
+.. index:: [no] neighbor PEER weight WEIGHT
+.. clicmd:: [no] neighbor PEER weight WEIGHT
 
    This command specifies a default `weight` value for the neighbor's routes.
 
-.. index:: neighbor PEER maximum-prefix NUMBER
-.. clicmd:: neighbor PEER maximum-prefix NUMBER
+.. index:: [no] neighbor PEER maximum-prefix NUMBER
+.. clicmd:: [no] neighbor PEER maximum-prefix NUMBER
 
+.. index:: [no] neighbor PEER local-as AS-NUMBER no-prepend
+.. clicmd:: [no] neighbor PEER local-as AS-NUMBER no-prepend
 
-.. index:: no neighbor PEER maximum-prefix NUMBER
-.. clicmd:: no neighbor PEER maximum-prefix NUMBER
+.. index:: [no] neighbor PEER local-as AS-NUMBER no-prepend replace-as
+.. clicmd:: [no] neighbor PEER local-as AS-NUMBER no-prepend replace-as
 
-
-.. index:: neighbor PEER local-as AS-NUMBER
-.. clicmd:: neighbor PEER local-as AS-NUMBER
-
-
-.. index:: neighbor PEER local-as AS-NUMBER no-prepend
-.. clicmd:: neighbor PEER local-as AS-NUMBER no-prepend
-
-
-.. index:: neighbor PEER local-as AS-NUMBER no-prepend replace-as
-.. clicmd:: neighbor PEER local-as AS-NUMBER no-prepend replace-as
-
-
-.. index:: no neighbor PEER local-as
-.. clicmd:: no neighbor PEER local-as
+.. index:: [no] neighbor PEER local-as AS-NUMBER
+.. clicmd:: [no] neighbor PEER local-as AS-NUMBER
 
    Specify an alternate AS for this BGP process when interacting with the
    specified peer. With no modifiers, the specified local-as is prepended to
@@ -865,12 +837,8 @@ Configuring Peers
 
    This command is only allowed for eBGP peers.
 
-.. index:: neighbor PEER ttl-security hops NUMBER
-.. clicmd:: neighbor PEER ttl-security hops NUMBER
-
-
-.. index:: no neighbor PEER ttl-security hops NUMBER
-.. clicmd:: no neighbor PEER ttl-security hops NUMBER
+.. index:: [no] neighbor PEER ttl-security hops NUMBER
+.. clicmd:: [no] neighbor PEER ttl-security hops NUMBER
 
    This command enforces Generalized TTL Security Mechanism (GTSM), as
    specified in RFC 5082. With this command, only neighbors that are the
