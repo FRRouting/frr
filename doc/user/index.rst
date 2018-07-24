@@ -41,6 +41,7 @@ Protocols
    zebra
    bgp
    babeld
+   ldpd
    eigrpd
    isisd
    nhrpd

@@ -193,6 +193,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	developer/workflow.rst \
 	developer/zebra.rst \
 	user/babeld.rst \
+	user/ldpd.rst \
 	user/basic.rst \
 	user/bgp.rst \
 	user/bugs.rst \
