@@ -67,8 +67,6 @@ Enabling RPKI
    to configure at least one reachable cache server. See section
    :ref:`configuring-rpki-rtr-cache-servers` for configuring a cache server.
 
-.. _configuring-rpki-rtr-cache-servers:
-
 .. index:: daemons.conf
 
    When first installing FRR with RPKI support from the pre-packaged binaries.
@@ -95,6 +93,8 @@ Enabling RPKI
 
    Note that the RPKI commands will be available in vtysh when running ``find
    rpki`` regardless of whether the module is loaded.
+
+.. _configuring-rpki-rtr-cache-servers:
 
 Configuring RPKI/RTR Cache Servers
 ----------------------------------
