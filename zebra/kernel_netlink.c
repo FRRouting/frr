@@ -20,10 +20,10 @@
 
 #include <zebra.h>
 
-#if defined(HANDLE_ZAPI_FUZZING)
+#if defined(HANDLE_NETLINK_FUZZING)
 #include <stdio.h>
 #include <string.h>
-#endif
+#endif /* HANDLE_NETLINK_FUZZING */
 
 #ifdef HAVE_NETLINK
 
@@ -298,7 +298,7 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	return 0;
 }
 
-#if defined(HANDLE_ZAPI_FUZZING)
+#if defined(HANDLE_NETLINK_FUZZING)
 /* Using globals here to avoid adding function parameters */
 
 /* Keep distinct filenames for netlink fuzzy collection */
@@ -308,17 +308,7 @@ static unsigned int netlink_file_counter = 1;
 static char netlink_fuzz_file[MAXPATHLEN] = "";
 
 /* Flag for whether to read from file or not */
-int netlink_read;
-
-/**
- * netlink_set_read() - Sets the read flag
- * @flag:      Flag value.
- *
- */
-void set_netlink_read(int flag)
-{
-	netlink_read = flag;
-}
+bool netlink_read = false;
 
 /**
  * netlink_read_init() - Starts the message parser
@@ -388,7 +378,7 @@ static long netlink_read_file(char *buf, const char *fname)
 	return file_bytes;
 }
 
-#endif
+#endif /* HANDLE_NETLINK_FUZZING */
 
 static int kernel_read(struct thread *thread)
 {
@@ -699,7 +689,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 		if (count && read_in >= count)
 			return 0;
 
-#if defined(HANDLE_ZAPI_FUZZING)
+#if defined(HANDLE_NETLINK_FUZZING)
 		/* Check if reading and filename is set */
 		if (netlink_read && '\0' != netlink_fuzz_file[0]) {
 			zlog_debug("Reading netlink fuzz file");
@@ -710,7 +700,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 		}
 #else
 		status = recvmsg(nl->sock, &msg, 0);
-#endif
+#endif /* HANDLE_NETLINK_FUZZING */
 		if (status < 0) {
 			if (errno == EINTR)
 				continue;
@@ -744,13 +734,13 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 			zlog_hexdump(buf, status);
 		}
 
-#if defined(HANDLE_ZAPI_FUZZING)
+#if defined(HANDLE_NETLINK_FUZZING)
 		if (!netlink_read) {
 			zlog_debug("Writing incoming netlink message");
 			netlink_write_incoming(buf, status,
 					       netlink_file_counter++);
 		}
-#endif
+#endif /* HANDLE_NETLINK_FUZZING */
 
 		read_in++;
 		for (h = (struct nlmsghdr *)buf;

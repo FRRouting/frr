@@ -54,9 +54,9 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_pbr.h"
 
-#if defined(HANDLE_ZAPI_FUZZING)
+#if defined(HANDLE_NETLINK_FUZZING)
 #include "zebra/kernel_netlink.h"
-#endif
+#endif /* HANDLE_NETLINK_FUZZING */
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -218,8 +218,10 @@ int main(int argc, char **argv)
 	socklen_t dummylen;
 #if defined(HANDLE_ZAPI_FUZZING)
 	char *zapi_fuzzing = NULL;
+#endif /* HANDLE_ZAPI_FUZZING */
+#if defined(HANDLE_NETLINK_FUZZING)
 	char *netlink_fuzzing = NULL;
-#endif
+#endif /* HANDLE_NETLINK_FUZZING */
 
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
 	logicalrouter_configure_backend(LOGICALROUTER_BACKEND_NETNS);
@@ -232,8 +234,11 @@ int main(int argc, char **argv)
 		"s:n"
 #endif
 #if defined(HANDLE_ZAPI_FUZZING)
-		"c:w:"
-#endif
+		"c:"
+#endif /* HANDLE_ZAPI_FUZZING */
+#if defined(HANDLE_NETLINK_FUZZING)
+		"w:"
+#endif /* HANDLE_NETLINK_FUZZING */
 		,
 		longopts,
 		"  -b, --batch           Runs in batch mode\n"
@@ -250,8 +255,10 @@ int main(int argc, char **argv)
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)
 		"  -c <file>             Bypass normal startup and use this file for testing of zapi\n"
-		"  -w <file>             Bypass normal startup and use this file for testing of netlink input"
-#endif
+#endif /* HANDLE_ZAPI_FUZZING */
+#if defined(HANDLE_NETLINK_FUZZING)
+		"  -w <file>             Bypass normal startup and use this file for testing of netlink input\n"
+#endif /* HANDLE_NETLINK_FUZZING */
 	);
 
 	while (1) {
@@ -313,17 +320,18 @@ int main(int argc, char **argv)
 #if defined(HANDLE_ZAPI_FUZZING)
 		case 'c':
 			zapi_fuzzing = optarg;
-			set_netlink_read(1);
 			break;
+#endif /* HANDLE_ZAPI_FUZZING */
+#if defined(HANDLE_NETLINK_FUZZING)
 		case 'w':
 			netlink_fuzzing = optarg;
 			/* This ensures we are aren't writing any of the
 			 * startup netlink messages that happen when we
 			 * just want to read.
 			 */
-			set_netlink_read(1);
+			netlink_read = true;
 			break;
-#endif
+#endif /* HANDLE_NETLINK_FUZZING */
 		default:
 			frr_help_exit(1);
 			break;
@@ -403,11 +411,14 @@ int main(int argc, char **argv)
 	if (zapi_fuzzing) {
 		zserv_read_file(zapi_fuzzing);
 		exit(0);
-	} else if (netlink_fuzzing) {
+	}
+#endif /* HANDLE_ZAPI_FUZZING */
+#if defined(HANDLE_NETLINK_FUZZING)
+	if (netlink_fuzzing) {
 		netlink_read_init(netlink_fuzzing);
 		exit(0);
 	}
-#endif
+#endif /* HANDLE_NETLINK_FUZZING */
 
 
 	frr_run(zebrad.master);
