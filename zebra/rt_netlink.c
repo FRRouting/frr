@@ -387,8 +387,15 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		memcpy(&p.u.prefix4, dest, 4);
 		p.prefixlen = rtm->rtm_dst_len;
 
-		src_p.prefixlen =
-			0; // Forces debug below to not display anything
+		if (rtm->rtm_src_len != 0) {
+			char buf[PREFIX_STRLEN];
+			zlog_warn("unsupported IPv4 sourcedest route (dest %s vrf %u)",
+				  prefix2str(&p, buf, sizeof(buf)), vrf_id);
+			return 0;
+		}
+
+		/* Force debug below to not display anything for source */
+		src_p.prefixlen = 0;
 	} else if (rtm->rtm_family == AF_INET6) {
 		p.family = AF_INET6;
 		memcpy(&p.u.prefix6, dest, 16);
@@ -397,14 +404,6 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		src_p.family = AF_INET6;
 		memcpy(&src_p.prefix, src, 16);
 		src_p.prefixlen = rtm->rtm_src_len;
-	}
-
-	if (rtm->rtm_src_len != 0) {
-		char buf[PREFIX_STRLEN];
-		zlog_warn(
-			"unsupported IPv[4|6] sourcedest route (dest %s vrf %u)",
-			prefix2str(&p, buf, sizeof(buf)), vrf_id);
-		return 0;
 	}
 
 	/*
@@ -492,7 +491,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			nh.vrf_id = nh_vrf_id;
 
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
-				NULL, &nh, table, metric, mtu, distance, tag);
+				&src_p, &nh, table, metric, mtu, distance, tag);
 		} else {
 			/* This is a multipath route */
 
@@ -591,8 +590,8 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			if (re->nexthop_num == 0)
 				XFREE(MTYPE_RE, re);
 			else
-				rib_add_multipath(afi, SAFI_UNICAST, &p, NULL,
-						  re);
+				rib_add_multipath(afi, SAFI_UNICAST, &p,
+						  &src_p, re);
 		}
 	} else {
 		if (!tb[RTA_MULTIPATH]) {
@@ -624,12 +623,12 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
 			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
-				   &p, NULL, &nh, table, metric, true);
+				   &p, &src_p, &nh, table, metric, true);
 		} else {
 			/* XXX: need to compare the entire list of nexthops
 			 * here for NLM_F_APPEND stupidity */
 			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
-				   &p, NULL, NULL, table, metric, true);
+				   &p, &src_p, NULL, table, metric, true);
 		}
 	}
 
