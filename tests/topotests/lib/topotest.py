@@ -404,6 +404,17 @@ def version_cmp(v1, v2):
             return -1
     return 0
 
+def interface_set_status(node, ifacename, ifaceaction=False, vrf_name=None):
+    if ifaceaction:
+        str_ifaceaction = 'no shutdown'
+    else:
+        str_ifaceaction = 'shutdown'
+    if vrf_name == None:
+        cmd = 'vtysh -c \"configure terminal\" -c \"interface {0}\" -c \"{1}\"'.format(ifacename, str_ifaceaction)
+    else:
+        cmd = 'vtysh -c \"configure terminal\" -c \"interface {0} vrf {1}\" -c \"{2}\"'.format(ifacename, vrf_name, str_ifaceaction)
+    node.run(cmd)
+
 def ip4_route_zebra(node, vrf_name=None):
     """
     Gets an output of 'show ip route' command. It can be used
