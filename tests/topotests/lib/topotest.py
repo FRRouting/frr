@@ -703,6 +703,60 @@ def ip6_route_zebra(node, vrf_name=None):
 
     return "\n".join(lines)
 
+def flowspec_get_iptable(output, pattern=None):
+    """
+    Gets the iptable name from a single block of bgp flowspec entry
+    Return Example from following single block : match0x46283b0
+    BGP flowspec entry: (flags 0x418)
+       Destination Address 3.3.3.3/32
+       Source Address 1.1.1.2/32
+       FS:rate 0.000000
+       received for 00:08:42
+       installed in PBR (match0x46283b0)
+    """
+    output = output.splitlines()
+    for line in output:
+        if 'installed in PBR' in line:
+            group = line.split()
+            for word in group:
+                if '(' in word:
+                    word = word.replace("(","")
+                    word = word.replace(")","")
+                    return word
+    return None
+
+def flowspec_get(output, pattern=None):
+    """
+    Gets an output from a flowspec block (eg: show bgp ipv4 flowspec)
+    Return Example, a single block is returned upon pattern 'FS:rate 0.000000'
+    BGP flowspec entry: (flags 0x418)
+       Destination Address 3.3.3.3/32
+       Source Address 1.1.1.2/32
+       FS:rate 0.000000
+       received for 00:08:42
+       installed in PBR (match0x46283b0)
+    """
+    if pattern == None:
+        return output
+    if pattern not in output:
+        return None
+    found = False
+    record = ''
+    output = output.splitlines()
+    for line in output:
+        if 'BGP flowspec entry' in line:
+            record = line
+        else:
+            record += '\n'
+            record += line
+        if pattern in line:
+            found = True
+        if 'installed in PBR' in line:
+            if found:
+                return record
+            record = ''
+    print 'flowspec_get : Error when processing output. None is returned'
+    return None
 
 def proto_name_to_number(protocol):
     return {
