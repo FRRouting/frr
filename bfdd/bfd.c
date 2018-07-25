@@ -27,25 +27,6 @@
 
 #include <zebra.h>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/uio.h>
-#include <netinet/in.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-#include <sys/ioctl.h>
-
-#include <err.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <time.h>
-#include <signal.h>
-
-#include "lib/hash.h"
 #include "lib/jhash.h"
 
 #include "bfd.h"

@@ -20,16 +20,9 @@
 
 #include <zebra.h>
 
-#include <err.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
 #include "bfd.h"
 #include "lib/version.h"
-#include "lib/libfrr.h"
+
 
 /*
  * FRR related code.

@@ -25,16 +25,7 @@
 
 #include <zebra.h>
 
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/un.h>
-
-#include <err.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 
 #include "bfd.h"
 
