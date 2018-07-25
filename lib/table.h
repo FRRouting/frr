@@ -178,35 +178,37 @@ struct route_table_iter_t_ {
 extern struct route_table *route_table_init(void);
 
 extern struct route_table *
-route_table_init_with_delegate(route_table_delegate_t *);
+route_table_init_with_delegate(route_table_delegate_t *delegate);
 
 extern route_table_delegate_t *route_table_get_default_delegate(void);
 
-extern void route_table_finish(struct route_table *);
-extern struct route_node *route_top(struct route_table *);
-extern struct route_node *route_next(struct route_node *);
-extern struct route_node *route_next_until(struct route_node *,
-					   const struct route_node *);
-extern struct route_node *route_node_get(struct route_table *const,
-					 union prefixconstptr);
-extern struct route_node *route_node_lookup(const struct route_table *,
-					    union prefixconstptr);
-extern struct route_node *route_node_lookup_maynull(const struct route_table *,
-						    union prefixconstptr);
-extern struct route_node *route_node_match(const struct route_table *,
-					   union prefixconstptr);
-extern struct route_node *route_node_match_ipv4(const struct route_table *,
-						const struct in_addr *);
-extern struct route_node *route_node_match_ipv6(const struct route_table *,
-						const struct in6_addr *);
+extern void route_table_finish(struct route_table *table);
+extern struct route_node *route_top(struct route_table *table);
+extern struct route_node *route_next(struct route_node *node);
+extern struct route_node *route_next_until(struct route_node *node,
+					   const struct route_node *limit);
+extern struct route_node *route_node_get(struct route_table *const table,
+					 union prefixconstptr pu);
+extern struct route_node *route_node_lookup(const struct route_table *table,
+					    union prefixconstptr pu);
+extern struct route_node *
+route_node_lookup_maynull(const struct route_table *table,
+			  union prefixconstptr pu);
+extern struct route_node *route_node_match(const struct route_table *table,
+					   union prefixconstptr pu);
+extern struct route_node *route_node_match_ipv4(const struct route_table *table,
+						const struct in_addr *addr);
+extern struct route_node *route_node_match_ipv6(const struct route_table *table,
+						const struct in6_addr *addr);
 
-extern unsigned long route_table_count(const struct route_table *);
+extern unsigned long route_table_count(const struct route_table *table);
 
-extern struct route_node *route_node_create(route_table_delegate_t *,
-					    struct route_table *);
-extern void route_node_delete(struct route_node *);
-extern void route_node_destroy(route_table_delegate_t *, struct route_table *,
-			       struct route_node *);
+extern struct route_node *route_node_create(route_table_delegate_t *delegate,
+					    struct route_table *table);
+extern void route_node_delete(struct route_node *node);
+extern void route_node_destroy(route_table_delegate_t *delegate,
+			       struct route_table *table,
+			       struct route_node *node);
 
 extern struct route_node *route_table_get_next(const struct route_table *table,
 					       union prefixconstptr pu);
