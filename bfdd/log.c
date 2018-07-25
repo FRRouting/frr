@@ -25,10 +25,6 @@
 
 #include <zebra.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-
 #include "bfd.h"
 
 #include "lib/log_int.h"

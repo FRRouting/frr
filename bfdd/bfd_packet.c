@@ -30,18 +30,8 @@
 #include <linux/if_packet.h>
 #endif /* BFD_LINUX */
 
-#include <arpa/inet.h>
 #include <netinet/if_ether.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
 #include <netinet/udp.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-
-#include <err.h>
-#include <errno.h>
-#include <stdint.h>
-#include <unistd.h>
 
 #include "lib/sockopt.h"
 
