@@ -285,114 +285,37 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp, char *port_name,
 	struct bfd_session *l_bfd = NULL;
 	struct bfd_mhop_key mhop;
 	struct bfd_shop_key shop;
-	char peer_addr[64];
-	char local_addr[64];
-	char vrf_name_buf[MAXNAMELEN + 1];
+	char vrf_buf[MAXNAMELEN];
 
-	/* peer, local are in network-byte order */
-	strlcpy(peer_addr, satostr(peer), sizeof(peer_addr));
-	strlcpy(local_addr, satostr(local), sizeof(local_addr));
+	/* Find our session using the ID signaled by the remote end. */
+	if (cp->discrs.remote_discr)
+		return bfd_find_disc(peer, ntohl(cp->discrs.remote_discr));
 
-	if (cp) {
-		if (cp->discrs.remote_discr) {
-			uint32_t ldisc = ntohl(cp->discrs.remote_discr);
-			/* Your discriminator not zero - use it to find session
-			 */
-			l_bfd = bfd_find_disc(peer, ldisc);
-
-			if (l_bfd)
-				return l_bfd;
-
-			DLOG("Can't find session for yourDisc 0x%x from %s",
-			     ldisc, peer_addr);
-		} else if (BFD_GETSTATE(cp->flags) == PTM_BFD_DOWN
-			   || BFD_GETSTATE(cp->flags) == PTM_BFD_ADM_DOWN) {
-
-			if (is_mhop) {
-				memset(&mhop, 0, sizeof(mhop));
-				mhop.peer = *peer;
-				mhop.local = *local;
-				if (vrf_name && strlen(vrf_name)) {
-					strlcpy(mhop.vrf_name, vrf_name,
-						sizeof(mhop.vrf_name));
-				} else if (port_name) {
-					memset(vrf_name_buf, 0,
-					       sizeof(vrf_name_buf));
-					if (ptm_bfd_get_vrf_name(port_name,
-								 vrf_name_buf)
-					    != -1) {
-						strlcpy(mhop.vrf_name,
-							vrf_name_buf,
-							sizeof(mhop.vrf_name));
-					}
-				}
-
-				/* Your discriminator zero -
-				 *     use peer address and local address to
-				 * find session
-				 */
-				l_bfd = bfd_mhop_lookup(mhop);
-			} else {
-				memset(&shop, 0, sizeof(shop));
-				shop.peer = *peer;
-				if (strlen(port_name))
-					strlcpy(shop.port_name, port_name,
-						sizeof(shop.port_name));
-				/* Your discriminator zero -
-				 *      use peer address and port to find
-				 * session
-				 */
-				l_bfd = bfd_shop_lookup(shop);
-			}
-			if (l_bfd) {
-				/* XXX maybe remoteDiscr should be checked for
-				 * remoteHeard cases
-				 */
-				return l_bfd;
-			}
-		}
-		if (is_mhop)
-			DLOG("Can't find multi hop session peer/local %s/%s in vrf %s port %s",
-			     peer_addr, local_addr,
-			     strlen(mhop.vrf_name) ? mhop.vrf_name : "N/A",
-			     port_name ? port_name : "N/A");
-		else
-			DLOG("Can't find single hop session for peer/port %s/%s",
-			     peer_addr, port_name);
-	} else if (peer->sa_sin.sin_addr.s_addr
-		   || !IN6_IS_ADDR_UNSPECIFIED(&peer->sa_sin6.sin6_addr)) {
-
-		if (is_mhop) {
-			memset(&mhop, 0, sizeof(mhop));
-			mhop.peer = *peer;
-			mhop.local = *local;
-			if (vrf_name && strlen(vrf_name))
-				strlcpy(mhop.vrf_name, vrf_name,
-					sizeof(mhop.vrf_name));
-
-			l_bfd = bfd_mhop_lookup(mhop);
-		} else {
-			memset(&shop, 0, sizeof(shop));
-			shop.peer = *peer;
-			if (strlen(port_name)) {
-				strlcpy(shop.port_name, port_name,
-					sizeof(shop.port_name));
-			}
-
-			l_bfd = bfd_shop_lookup(shop);
+	/* Search for session without using discriminator. */
+	if (is_mhop) {
+		memset(&mhop, 0, sizeof(mhop));
+		mhop.peer = *peer;
+		mhop.local = *local;
+		if (vrf_name && vrf_name[0]) {
+			strlcpy(mhop.vrf_name, vrf_name, sizeof(mhop.vrf_name));
+		} else if (port_name && port_name[0]) {
+			memset(vrf_buf, 0, sizeof(vrf_buf));
+			if (ptm_bfd_get_vrf_name(port_name, vrf_buf) != -1)
+				strlcpy(mhop.vrf_name, vrf_buf, sizeof(mhop.vrf_name));
 		}
 
-		if (l_bfd) {
-			/* XXX maybe remoteDiscr should be checked for
-			 * remoteHeard cases
-			 */
-			return l_bfd;
-		}
+		l_bfd = bfd_mhop_lookup(mhop);
+	} else {
+		memset(&shop, 0, sizeof(shop));
+		shop.peer = *peer;
+		if (port_name && port_name[0])
+			strlcpy(shop.port_name, port_name, sizeof(shop.port_name));
 
-		DLOG("Can't find session for peer %s", peer_addr);
+		l_bfd = bfd_shop_lookup(shop);
 	}
 
-	return (NULL);
+	/* XXX maybe remoteDiscr should be checked for remoteHeard cases. */
+	return l_bfd;
 }
 
 #if 0  /* TODO VxLAN Support */
