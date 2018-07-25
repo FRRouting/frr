@@ -114,7 +114,7 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 	size += sizeof(struct pim_encoded_source_ipv4) * sources->count;
 
 	js = listgetdata(listhead(sources));
-	if (js && js->up->sg.src.s_addr == INADDR_ANY) {
+	if (js && js->up->sg.src.s_addr == INADDR_ANY && js->is_join) {
 		struct pim_upstream *child, *up;
 		struct listnode *up_node;
 
