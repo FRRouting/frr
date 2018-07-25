@@ -747,7 +747,7 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	if (!(rtm->rtm_family == AF_INET || rtm->rtm_family == AF_INET6)) {
 		zlog_warn(
-			"Invalid address family: %d received from kernel route change: %d",
+			"Invalid address family: %u received from kernel route change: %u",
 			rtm->rtm_family, h->nlmsg_type);
 		return 0;
 	}
@@ -2398,7 +2398,7 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 		return netlink_ipneigh_change(h, len, ns_id);
 	else {
 		zlog_warn(
-			"Invalid address family: %d received from kernel neighbor change: %d",
+			"Invalid address family: %u received from kernel neighbor change: %u",
 			ndm->ndm_family, h->nlmsg_type);
 		return 0;
 	}
