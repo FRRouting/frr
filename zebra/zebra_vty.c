@@ -1071,7 +1071,7 @@ DEFPY(ip_route_vrf,
 	return zebra_static_route_leak(
 		vty, zvrf, nh_zvrf, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
 		NULL, gate_str, ifname, flag, tag_str, distance_str, label,
-		NULL);
+		table_str);
 }
 
 /* New RIB.  Detailed information for IPv4 route. */
