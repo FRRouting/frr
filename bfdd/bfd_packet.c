@@ -186,7 +186,7 @@ static int _ptm_bfd_send(struct bfd_session *bs, bool use_layer2,
 		 * TODO: implement layer 2 send for *BSDs. This is
 		 * needed for VxLAN.
 		 */
-		log_warning("%s: not implemented");
+		log_warning("packet-send: not implemented");
 		return -1;
 #endif
 	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
@@ -222,14 +222,11 @@ static int _ptm_bfd_send(struct bfd_session *bs, bool use_layer2,
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	rv = sendto(sd, data, datalen, 0, sa, slen);
 	if (rv <= 0) {
-		log_debug("%s:%d: sendto: (%d) %s", __func__, __LINE__, errno,
-			  strerror(errno));
+		log_debug("packet-send: send failure: %s", strerror(errno));
 		return -1;
 	}
-	if (rv < (ssize_t)datalen) {
-		log_debug("%s:%d: sendto: sent partial data", __func__,
-			  __LINE__);
-	}
+	if (rv < (ssize_t)datalen)
+		log_debug("packet-send: send partial", strerror(errno));
 
 	return 0;
 }
@@ -349,7 +346,7 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 	}
 
 	if (_ptm_bfd_send(bfd, use_layer2, &port, pkt, pktlen) != 0) {
-		ERRLOG("%s: _ptm_bfd_send: %s", __func__, strerror(errno));
+		log_debug("echo-packet: send failure: %s", strerror(errno));
 		return;
 	}
 
@@ -408,7 +405,7 @@ static int ptm_bfd_echo_loopback(uint8_t *pkt, int pkt_len, struct sockaddr *ss,
 #endif /* BFD_BSD_FILTER */
 
 	if (sendto(bglobal.bg_echo, pkt, pkt_len, 0, ss, sslen) < 0) {
-		ERRLOG("%s: sendto: %s", __func__, strerror(errno));
+		log_debug("echo-loopback: send failure: %s", strerror(errno));
 		return -1;
 	}
 
@@ -515,13 +512,16 @@ static int ptm_bfd_process_echo_pkt(int s)
 			   (struct sockaddr *)&ss, &sslen);
 	if (pkt_len <= 0) {
 		if (errno != EAGAIN)
-			ERRLOG("%s: recvfrom: %s", __func__, strerror(errno));
+			log_error("echo-packet: read failure: %s",
+				  strerror(errno));
+
 		return -1;
 	}
 
 	/* Check if we have at least the basic headers to send back. */
-	if (pkt_len < HEADERS_MIN_LEN) {
-		INFOLOG("Received short echo packet");
+	if (pkt_len < BFD_ECHO_PKT_TOT_LEN) {
+		log_debug("echo-packet: too short (got %ld, expected %d)",
+			  pkt_len, BFD_ECHO_PKT_TOT_LEN);
 		return -1;
 	}
 
@@ -534,16 +534,9 @@ static int ptm_bfd_process_echo_pkt(int s)
 					     (struct sockaddr *)&ss,
 					     sizeof(struct sockaddr_ll));
 
-	/* Packet is too small for us to process */
-	if (pkt_len < BFD_ECHO_PKT_TOT_LEN) {
-		INFOLOG("Received short echo packet");
-		return -1;
-	}
-
 	my_discr = ntohl(ep->data.my_discr);
 	if (ep->data.my_discr == 0) {
-		INFOLOG("My discriminator is zero in echo pkt from 0x%x",
-			ntohl(ep->ip.saddr));
+		log_debug("echo-packet: 'my discriminator' is zero");
 		return -1;
 	}
 #endif /* BFD_LINUX */
@@ -568,12 +561,13 @@ static int ptm_bfd_process_echo_pkt(int s)
 	/* Your discriminator not zero - use it to find session */
 	bfd = bfd_id_lookup(my_discr);
 	if (bfd == NULL) {
-		INFOLOG("Failed to extract session from echo packet");
+		log_debug("echo-packet: no matching session (id:%u)", my_discr);
 		return -1;
 	}
 
 	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
-		INFOLOG("BFD echo not active - ignore echo packet");
+		log_debug("echo-packet: echo disabled [%s]", my_discr,
+			  bs_to_string(bfd));
 		return -1;
 	}
 
@@ -623,10 +617,8 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	}
 	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
 
-	if (_ptm_bfd_send(bfd, false, NULL, &cp, BFD_PKT_LEN) != 0) {
-		ERRLOG("Error sending control pkt: %s", strerror(errno));
+	if (_ptm_bfd_send(bfd, false, NULL, &cp, BFD_PKT_LEN) != 0)
 		return;
-	}
 
 	bfd->stats.tx_ctrl_pkt++;
 }
@@ -686,27 +678,27 @@ ptm_bfd_validate_vxlan_pkt(struct bfd_session *bfd,
 			   struct bfd_session_vxlan_info *vxlan_info)
 {
 	if (bfd->vxlan_info.check_tnl_key && (vxlan_info->vnid != 0)) {
-		ERRLOG("Error Rx BFD Vxlan pkt with non-zero vnid %d",
-		       vxlan_info->vnid);
+		log_error("vxlan-packet: vnid not zero: %d", vxlan_info->vnid);
 		return false;
 	}
 
 	if (bfd->vxlan_info.local_dst_ip.s_addr
 	    != vxlan_info->local_dst_ip.s_addr) {
-		ERRLOG("Error Rx BFD Vxlan pkt with wrong inner dst IP %s",
-		       inet_ntoa(vxlan_info->local_dst_ip));
+		log_error("vxlan-packet: wrong inner destination",
+			  inet_ntoa(vxlan_info->local_dst_ip));
 		return false;
 	}
 
 	if (memcmp(bfd->vxlan_info.local_dst_mac, vxlan_info->local_dst_mac,
 		   ETHERNET_ADDRESS_LENGTH)) {
-		ERRLOG("Error Rx BFD Vxlan pkt with wrong inner dst MAC %02x:%02x:%02x:%02x:%02x:%02x",
-		       vxlan_info->local_dst_mac[0],
-		       vxlan_info->local_dst_mac[1],
-		       vxlan_info->local_dst_mac[2],
-		       vxlan_info->local_dst_mac[3],
-		       vxlan_info->local_dst_mac[4],
-		       vxlan_info->local_dst_mac[5]);
+		log_error(
+			"vxlan-packet: wrong inner mac: %02x:%02x:%02x:%02x:%02x:%02x",
+			vxlan_info->local_dst_mac[0],
+			vxlan_info->local_dst_mac[1],
+			vxlan_info->local_dst_mac[2],
+			vxlan_info->local_dst_mac[3],
+			vxlan_info->local_dst_mac[4],
+			vxlan_info->local_dst_mac[5]);
 		return false;
 	}
 
@@ -729,10 +721,10 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 
 	mlen = recvmsg(sd, &msghdr, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN) {
-			ERRLOG("Error receiving from BFD socket: %s",
-			       strerror(errno));
-		}
+		if (errno != EAGAIN)
+			log_error("ipv4-recv: recv failed: %s",
+				  strerror(errno));
+
 		return -1;
 	}
 
@@ -752,8 +744,10 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 
 			memcpy(&ttl, CMSG_DATA(cm), sizeof(ttl));
 			if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
-				INFOLOG("Received pkt with invalid TTL %u from %s flags: %d",
-					ttl, satostr(peer), msghdr.msg_flags);
+				log_debug(
+					"ipv4-recv: invalid TTL from %s (expected %d, got %d flags %d)",
+					satostr(peer), ttl, BFD_TTL_VAL,
+					msghdr.msg_flags);
 				return -1;
 			}
 			break;
@@ -779,8 +773,10 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 
 			memcpy(&ttl, CMSG_DATA(cm), sizeof(ttl));
 			if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
-				INFOLOG("Received pkt with invalid TTL %u from %s flags: %d",
-					ttl, satostr(peer), msghdr.msg_flags);
+				log_debug(
+					"ipv4-recv: invalid TTL from %s (expected %d, got %d flags %d)",
+					satostr(peer), ttl, BFD_TTL_VAL,
+					msghdr.msg_flags);
 				return -1;
 			}
 			break;
@@ -832,10 +828,10 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 
 	mlen = recvmsg(sd, &msghdr6, MSG_DONTWAIT);
 	if (mlen == -1) {
-		if (errno != EAGAIN) {
-			ERRLOG("Error receiving from BFD socket: %s",
-			       strerror(errno));
-		}
+		if (errno != EAGAIN)
+			log_error("ipv4-recv: recv failed: %s",
+				  strerror(errno));
+
 		return -1;
 	}
 
@@ -851,8 +847,9 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 		if (cm->cmsg_type == IPV6_HOPLIMIT) {
 			memcpy(&ttlval, CMSG_DATA(cm), 4);
 			if ((is_mhop == false) && (ttlval != BFD_TTL_VAL)) {
-				INFOLOG("Received pkt with invalid TTL %u from %s flags: %d",
-					ttlval, satostr(peer),
+				log_debug(
+					"ipv6-recv: invalid TTL from %s (expected %d, got %d flags %d)",
+					satostr(peer), ttlval, BFD_TTL_VAL,
 					msghdr.msg_flags);
 				return -1;
 			}
@@ -899,6 +896,42 @@ static void bfd_sd_reschedule(int sd)
 	}
 }
 
+static void cp_debug(bool mhop, struct sockaddr_any *peer,
+		     struct sockaddr_any *local, const char *port,
+		     const char *vrf, const char *fmt, ...)
+{
+	char buf[512], peerstr[128], localstr[128], portstr[64], vrfstr[64];
+	va_list vl;
+
+	if (peer->sa_sin.sin_family)
+		snprintf(peerstr, sizeof(peerstr), " peer:%s", satostr(peer));
+	else
+		peerstr[0] = 0;
+
+	if (local->sa_sin.sin_family)
+		snprintf(localstr, sizeof(localstr), " local:%s",
+			 satostr(local));
+	else
+		localstr[0] = 0;
+
+	if (port[0])
+		snprintf(portstr, sizeof(portstr), " port:%s", port);
+	else
+		portstr[0] = 0;
+
+	if (vrf[0])
+		snprintf(vrfstr, sizeof(vrfstr), " vrf:%s", port);
+	else
+		vrfstr[0] = 0;
+
+	va_start(vl, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, vl);
+	va_end(vl);
+
+	log_debug("control-packet: %s [mhop:%s%s%s%s%s]", buf,
+		  mhop ? "yes" : "no", peerstr, localstr, portstr, vrfstr);
+}
+
 int bfd_recv_cb(struct thread *t)
 {
 	int sd = THREAD_FD(t);
@@ -906,7 +939,6 @@ int bfd_recv_cb(struct thread *t)
 	struct bfd_pkt *cp;
 	bool is_mhop, is_vxlan;
 	ssize_t mlen = 0;
-	uint8_t old_state;
 	uint32_t oldEchoXmt_TO, oldXmtTime;
 	struct sockaddr_any local, peer;
 	char port[MAXNAMELEN + 1], vrfname[MAXNAMELEN + 1];
@@ -915,11 +947,13 @@ int bfd_recv_cb(struct thread *t)
 	/* Schedule next read. */
 	bfd_sd_reschedule(sd);
 
+	/* Handle echo packets. */
 	if (sd == bglobal.bg_echo) {
 		ptm_bfd_process_echo_pkt(sd);
 		return 0;
 	}
 
+	/* Handle control packets. */
 	is_mhop = is_vxlan = false;
 	if (sd == bglobal.bg_shop || sd == bglobal.bg_mhop) {
 		is_mhop = sd == bglobal.bg_mhop;
@@ -945,48 +979,65 @@ int bfd_recv_cb(struct thread *t)
 
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
-		INFOLOG("Received short packet from %s", satostr(&peer));
+		cp_debug(is_mhop, &peer, &local, port, vrfname,
+			 "too small (%ld bytes)", mlen);
 		return 0;
 	}
 
+	/*
+	 * Parse the control header for inconsistencies:
+	 * - Invalid version;
+	 * - Bad multiplier configuration;
+	 * - Short packets;
+	 * - Invalid discriminator;
+	 */
 	cp = (struct bfd_pkt *)(msghdr.msg_iov->iov_base);
 	if (BFD_GETVER(cp->diag) != BFD_VERSION) {
-		INFOLOG("Received bad version %d from %s", BFD_GETVER(cp->diag),
-			satostr(&peer));
+		cp_debug(is_mhop, &peer, &local, port, vrfname,
+			 "bad version %d", BFD_GETVER(cp->diag));
 		return 0;
 	}
 
 	if (cp->detect_mult == 0) {
-		INFOLOG("Detect Mult is zero in pkt from %s", satostr(&peer));
+		cp_debug(is_mhop, &peer, &local, port, vrfname,
+			 "detect multiplier set to zero");
 		return 0;
 	}
 
 	if ((cp->len < BFD_PKT_LEN) || (cp->len > mlen)) {
-		INFOLOG("Invalid length %d in control pkt from %s", cp->len,
-			satostr(&peer));
+		cp_debug(is_mhop, &peer, &local, port, vrfname, "too small");
 		return 0;
 	}
 
 	if (cp->discrs.my_discr == 0) {
-		INFOLOG("My discriminator is zero in pkt from %s",
-			satostr(&peer));
+		cp_debug(is_mhop, &peer, &local, port, vrfname,
+			 "'my discriminator' is zero");
 		return 0;
 	}
 
+	/* Find the session that this packet belongs. */
 	bfd = ptm_bfd_sess_find(cp, port, &peer, &local, vrfname, is_mhop);
 	if (bfd == NULL) {
-		DLOG("Failed to generate session from remote packet");
+		cp_debug(is_mhop, &peer, &local, port, vrfname,
+			 "no session found");
 		return 0;
 	}
 
+	/* Handle VxLAN cases. */
 	if (is_vxlan && !ptm_bfd_validate_vxlan_pkt(bfd, &vxlan_info))
 		return 0;
 
 	bfd->stats.rx_ctrl_pkt++;
+
+	/*
+	 * Multi hop: validate packet TTL.
+	 * Single hop: set local address that received the packet.
+	 */
 	if (is_mhop) {
 		if ((BFD_TTL_VAL - bfd->mh_ttl) > ttlval) {
-			DLOG("Exceeded max hop count of %d, dropped pkt from %s with TTL %d",
-			     bfd->mh_ttl, satostr(&peer), ttlval);
+			cp_debug(is_mhop, &peer, &local, port, vrfname,
+				 "exceeded max hop count (expected %d, got %d)",
+				 bfd->mh_ttl, ttlval);
 			return 0;
 		}
 	} else if (bfd->local_ip.sa_sin.sin_family == AF_UNSPEC) {
@@ -1000,12 +1051,12 @@ int bfd_recv_cb(struct thread *t)
 	if (bfd->ifindex == 0)
 		bfd->ifindex = ptm_bfd_fetch_ifindex(port);
 
+	/* Log remote discriminator changes. */
 	if ((bfd->discrs.remote_discr != 0)
-	    && (bfd->discrs.remote_discr != ntohl(cp->discrs.my_discr))) {
-		DLOG("My Discriminator mismatch in pkt from %s, Expected %d Got %d",
-		     satostr(&peer), bfd->discrs.remote_discr,
-		     ntohl(cp->discrs.my_discr));
-	}
+	    && (bfd->discrs.remote_discr != ntohl(cp->discrs.my_discr)))
+		cp_debug(is_mhop, &peer, &local, port, vrfname,
+			 "remote discriminator mismatch (expected %d, got %d)",
+			 bfd->discrs.remote_discr, ntohl(cp->discrs.my_discr));
 
 	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
 
@@ -1026,15 +1077,14 @@ int bfd_recv_cb(struct thread *t)
 					    ? bfd->timers.required_min_rx
 					    : ntohl(cp->timers.desired_min_tx));
 		bfd->remote_detect_mult = cp->detect_mult;
-	} else {
-		ERRLOG("Unsupport BFD mode detected");
-	}
+	} else
+		cp_debug(is_mhop, &peer, &local, port, vrfname,
+			 "unsupported demand mode");
 
 	/* Save remote diagnostics before state switch. */
 	bfd->remote_diag = cp->diag & BFD_DIAGMASK;
 
 	/* State switch from section 6.8.6 */
-	old_state = bfd->ses_state;
 	if (BFD_GETSTATE(cp->flags) == PTM_BFD_ADM_DOWN) {
 		if (bfd->ses_state != PTM_BFD_DOWN)
 			ptm_bfd_ses_dn(bfd, BFD_DIAGNEIGHDOWN);
@@ -1058,12 +1108,13 @@ int bfd_recv_cb(struct thread *t)
 		}
 	}
 
-	if (old_state != bfd->ses_state) {
-		DLOG("BFD Sess %d [%s] Old State [%s] : New State [%s]",
-		     bfd->discrs.my_discr, satostr(&peer),
-		     state_list[old_state].str, state_list[bfd->ses_state].str);
-	}
-
+	/*
+	 * Handle echo packet status:
+	 * - Start echo packets if configured and permitted
+	 *   (required_min_echo > 0);
+	 * - Stop echo packets if not allowed (required_min_echo == 0);
+	 * - Recalculate echo packet interval;
+	 */
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO)) {
 		if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
 			if (!ntohl(cp->timers.required_min_echo)) {
@@ -1112,12 +1163,9 @@ int bfd_recv_cb(struct thread *t)
 		ptm_bfd_start_xmt_timer(bfd, false);
 	}
 
-	if (!bfd->demand_mode) {
-		/* Restart detection timer (packet received) */
+	/* Restart detection timer (packet received) */
+	if (!bfd->demand_mode)
 		bfd_recvtimer_update(bfd);
-	} else {
-		ERRLOG("Unsupport BFD mode detected");
-	}
 
 	/*
 	 * Save the timers and state sent by the remote end
@@ -1248,8 +1296,11 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 	static int srcPort = BFD_SRCPORTINIT;
 
 	sd = socket(AF_INET, SOCK_DGRAM, PF_UNSPEC);
-	if (sd == -1)
+	if (sd == -1) {
+		log_error("ipv4-new: failed to create socket: %s",
+			  strerror(errno));
 		return -1;
+	}
 
 	if (!bpc->bpc_has_vxlan) {
 		/* Set TTL to 255 for all transmitted packets */
@@ -1294,8 +1345,8 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 	do {
 		if ((++pcount) > (BFD_SRCPORTMAX - BFD_SRCPORTINIT)) {
 			/* Searched all ports, none available */
-			ERRLOG("Can't find source port for new session: %s",
-			       strerror(errno));
+			log_error("ipv4-new: failed to bind port: %s",
+				  strerror(errno));
 			close(sd);
 			return -1;
 		}
@@ -1319,8 +1370,11 @@ int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 	static int srcPort = BFD_SRCPORTINIT;
 
 	sd = socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC);
-	if (sd == -1)
+	if (sd == -1) {
+		log_error("ipv6-new: failed to create socket: %s",
+			  strerror(errno));
 		return -1;
+	}
 
 	if (!bpc->bpc_has_vxlan) {
 		/* Set TTL to 255 for all transmitted packets */
@@ -1370,8 +1424,8 @@ int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 	do {
 		if ((++pcount) > (BFD_SRCPORTMAX - BFD_SRCPORTINIT)) {
 			/* Searched all ports, none available */
-			ERRLOG("Can't find source port for new session: %s",
-			       strerror(errno));
+			log_error("ipv6-new: failed to bind port: %s",
+				  strerror(errno));
 			close(sd);
 			return -1;
 		}

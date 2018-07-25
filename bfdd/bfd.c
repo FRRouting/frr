@@ -167,6 +167,8 @@ void ptm_bfd_echo_start(struct bfd_session *bfd)
 
 void ptm_bfd_ses_up(struct bfd_session *bfd)
 {
+	int old_state = bfd->ses_state;
+
 	bfd->local_diag = 0;
 	bfd->ses_state = PTM_BFD_UP;
 	bfd->polling = 1;
@@ -183,8 +185,10 @@ void ptm_bfd_ses_up(struct bfd_session *bfd)
 
 	control_notify(bfd);
 
-	INFOLOG("Session 0x%x up peer %s", bfd->discrs.my_discr,
-		satostr(&bfd->shop.peer));
+	if (old_state != bfd->ses_state)
+		log_info("state-change: [%s] %s -> %s", bs_to_string(bfd),
+			 state_list[old_state].str,
+			 state_list[bfd->ses_state].str);
 }
 
 void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag)
@@ -204,13 +208,15 @@ void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag)
 	if (old_state == PTM_BFD_UP)
 		control_notify(bfd);
 
-	INFOLOG("Session 0x%x down peer %s Rsn %s prev st %s",
-		bfd->discrs.my_discr, satostr(&bfd->shop.peer),
-		get_diag_str(bfd->local_diag), state_list[old_state].str);
-
 	/* Stop echo packet transmission if they are active */
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
 		ptm_bfd_echo_stop(bfd, 0);
+
+	if (old_state != bfd->ses_state)
+		log_info("state-change: [%s] %s -> %s reason:%s",
+			 bs_to_string(bfd), state_list[old_state].str,
+			 state_list[bfd->ses_state].str,
+			 get_diag_str(bfd->local_diag));
 }
 
 static int ptm_bfd_get_vrf_name(char *port_name, char *vrf_name)
@@ -282,7 +288,8 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp, char *port_name,
 		} else if (port_name && port_name[0]) {
 			memset(vrf_buf, 0, sizeof(vrf_buf));
 			if (ptm_bfd_get_vrf_name(port_name, vrf_buf) != -1)
-				strlcpy(mhop.vrf_name, vrf_buf, sizeof(mhop.vrf_name));
+				strlcpy(mhop.vrf_name, vrf_buf,
+					sizeof(mhop.vrf_name));
 		}
 
 		l_bfd = bfd_mhop_lookup(mhop);
@@ -290,7 +297,8 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp, char *port_name,
 		memset(&shop, 0, sizeof(shop));
 		shop.peer = *peer;
 		if (port_name && port_name[0])
-			strlcpy(shop.port_name, port_name, sizeof(shop.port_name));
+			strlcpy(shop.port_name, port_name,
+				sizeof(shop.port_name));
 
 		l_bfd = bfd_shop_lookup(shop);
 	}
@@ -348,17 +356,11 @@ int bfd_echo_xmt_cb(struct thread *t)
 int bfd_recvtimer_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
-	uint8_t old_state;
-
-	old_state = bs->ses_state;
 
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
 		ptm_bfd_ses_dn(bs, BFD_DIAGDETECTTIME);
-		INFOLOG("%s Detect timeout on session 0x%x with peer %s, in state %d",
-			__func__, bs->discrs.my_discr, satostr(&bs->shop.peer),
-			bs->ses_state);
 		bfd_recvtimer_update(bs);
 		break;
 
@@ -370,12 +372,6 @@ int bfd_recvtimer_cb(struct thread *t)
 		break;
 	}
 
-	if (old_state != bs->ses_state) {
-		DLOG("BFD Sess %d [%s] Old State [%s] : New State [%s]",
-		     bs->discrs.my_discr, satostr(&bs->shop.peer),
-		     state_list[old_state].str, state_list[bs->ses_state].str);
-	}
-
 	return 0;
 }
 
@@ -383,24 +379,12 @@ int bfd_recvtimer_cb(struct thread *t)
 int bfd_echo_recvtimer_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
-	uint8_t old_state;
-
-	old_state = bs->ses_state;
 
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
 		ptm_bfd_ses_dn(bs, BFD_DIAGDETECTTIME);
-		INFOLOG("%s Detect timeout on session 0x%x with peer %s, in state %d",
-			__func__, bs->discrs.my_discr, satostr(&bs->shop.peer),
-			bs->ses_state);
 		break;
-	}
-
-	if (old_state != bs->ses_state) {
-		DLOG("BFD Sess %d [%s] Old State [%s] : New State [%s]",
-		     bs->discrs.my_discr, satostr(&bs->shop.peer),
-		     state_list[old_state].str, state_list[bs->ses_state].str);
 	}
 
 	return 0;
@@ -598,25 +582,18 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	 */
 	if (bpc->bpc_ipv4) {
 		psock = bp_peer_socket(bpc);
-		if (psock == -1) {
-			ERRLOG("Can't get socket for new session: %s",
-			       strerror(errno));
+		if (psock == -1)
 			return NULL;
-		}
 	} else {
 		psock = bp_peer_socketv6(bpc);
-		if (psock == -1) {
-			ERRLOG("Can't get IPv6 socket for new session: %s",
-			       strerror(errno));
+		if (psock == -1)
 			return NULL;
-		}
 	}
 
 	/* Get memory */
 	bfd = bfd_session_new(psock);
 	if (bfd == NULL) {
-		ERRLOG("Can't malloc memory for new session: %s",
-		       strerror(errno));
+		log_error("session-new: allocation failed");
 		return NULL;
 	}
 
@@ -691,16 +668,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 
 	ptm_bfd_xmt_TO(bfd, 0);
 
-	if (bpc->bpc_mhop) {
-		INFOLOG("Created new session 0x%x with vrf %s peer %s local %s",
-			bfd->discrs.my_discr,
-			(bpc->bpc_has_vrfname) ? bfd->mhop.vrf_name : "N/A",
-			satostr(&bfd->mhop.peer), satostr(&bfd->mhop.local));
-	} else {
-		INFOLOG("Created new session 0x%x with peer %s port %s",
-			bfd->discrs.my_discr, satostr(&bfd->shop.peer),
-			bfd->shop.port_name[0] ? bfd->shop.port_name : "N/A");
-	}
+	log_info("session-new: %s", bs_to_string(bfd));
 
 	control_notify_config(BCM_NOTIFY_CONFIG_ADD, bfd);
 
@@ -718,22 +686,13 @@ int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc)
 
 	/* This pointer is being referenced, don't let it be deleted. */
 	if (bs->refcount > 0) {
-		zlog_debug("%s: trying to free in-use session: %" PRIu64
-			   " references",
-			   __func__, bs->refcount);
+		log_error("session-delete: refcount failure: %" PRIu64
+			  " references",
+			  bs->refcount);
 		return -1;
 	}
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		INFOLOG("Deleting session 0x%x with vrf %s peer %s local %s",
-			bs->discrs.my_discr,
-			bpc->bpc_has_vrfname ? bpc->bpc_vrfname : "N/A",
-			satostr(&bs->mhop.peer), satostr(&bs->mhop.local));
-	} else {
-		INFOLOG("Deleting session 0x%x with peer %s port %s",
-			bs->discrs.my_discr, satostr(&bs->shop.peer),
-			bs->shop.port_name);
-	}
+	log_info("session-delete: %s", bs_to_string(bs));
 
 	control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);
 
@@ -895,6 +854,38 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 	snprintf(buf, buflen, "%u second(s)", second);
 }
 
+const char *bs_to_string(struct bfd_session *bs)
+{
+	static char buf[256];
+	int pos;
+	bool is_mhop = BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH);
+
+	pos = snprintf(buf, sizeof(buf), "mhop:%s", is_mhop ? "yes" : "no");
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
+		pos += snprintf(buf + pos, sizeof(buf) - pos,
+				" peer:%s local:%s", satostr(&bs->mhop.peer),
+				satostr(&bs->mhop.local));
+
+		if (bs->mhop.vrf_name[0])
+			snprintf(buf + pos, sizeof(buf) - pos, " vrf:%s",
+				 bs->mhop.vrf_name);
+	} else {
+		pos += snprintf(buf + pos, sizeof(buf) - pos, " peer:%s",
+				satostr(&bs->shop.peer));
+
+		if (bs->local_address.sa_sin.sin_family)
+			pos += snprintf(buf + pos, sizeof(buf) - pos,
+					" local:%s",
+					satostr(&bs->local_address));
+
+		if (bs->shop.port_name[0])
+			snprintf(buf + pos, sizeof(buf) - pos, " interface:%s",
+				 bs->shop.port_name);
+	}
+
+	return buf;
+}
+
 
 /*
  * BFD hash data structures to find sessions.
@@ -1050,7 +1041,6 @@ static int _iface_key(struct bfd_iface *iface, const char *ifname)
 
 	return 0;
 }
-
 
 /*
  * Hash public interface / exported functions.

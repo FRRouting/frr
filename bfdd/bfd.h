@@ -464,11 +464,6 @@ void log_warning(const char *fmt, ...);
 void log_error(const char *fmt, ...);
 void log_fatal(const char *fmt, ...);
 
-/* Compatibility code: code to avoid touching ported code debug messages. */
-#define DLOG(fmt, args...) log_debug(fmt, ##args)
-#define INFOLOG(fmt, args...) log_info(fmt, ##args)
-#define ERRLOG(fmt, args...) log_error(fmt, ##args)
-#define CRITLOG(fmt, args...) log_fatal(fmt, ##args)
 
 /*
  * bfd_packet.c
@@ -545,6 +540,7 @@ const char *satostr(struct sockaddr_any *sa);
 const char *diag2str(uint8_t diag);
 int strtosa(const char *addr, struct sockaddr_any *sa);
 void integer2timestr(uint64_t time, char *buf, size_t buflen);
+const char *bs_to_string(struct bfd_session *bs);
 
 /* BFD hash data structures interface */
 void bfd_initialize(void);

@@ -136,7 +136,7 @@ int ptm_bfd_echo_sock_init(void)
 
 	s = socket(AF_INET, SOCK_DGRAM, PF_UNSPEC);
 	if (s == -1) {
-		ERRLOG("%s: socket: %s", __func__, strerror(errno));
+		log_error("echo-socket: creation failed: %s", strerror(errno));
 		return -1;
 	}
 
@@ -148,13 +148,13 @@ int ptm_bfd_echo_sock_init(void)
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(3785);
 	if (bind(s, (struct sockaddr *)&sin, sizeof(sin)) == -1) {
-		log_error("%s: bind: %s", __func__, strerror(errno));
+		log_error("echo-socket: bind failure: %s", strerror(errno));
 		close(s);
 		return -1;
 	}
 
 	if (setsockopt(s, IPPROTO_IP, IP_RECVTTL, &yes, sizeof(yes)) == -1) {
-		log_error("%s: setsockopt(IP_RECVTTL): %s", __func__,
+		log_error("echo-socket: setsockopt(IP_RECVTTL): %s",
 			  strerror(errno));
 		close(s);
 		return -1;
@@ -162,7 +162,7 @@ int ptm_bfd_echo_sock_init(void)
 
 	ttl = BFD_TTL_VAL;
 	if (setsockopt(s, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == -1) {
-		log_error("%s: setsockopt(IP_TTL): %s", __func__,
+		log_error("echo-socket: setsockopt(IP_TTL): %s",
 			  strerror(errno));
 		close(s);
 		return -1;
