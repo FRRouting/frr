@@ -75,13 +75,13 @@ int ptm_bfd_fetch_ifindex(const char *ifname)
 	struct ifreq ifr;
 
 	if (strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name))
-	    > sizeof(ifr.ifr_name)) {
-		CRITLOG("Interface name %s truncated", ifr.ifr_name);
-	}
+	    > sizeof(ifr.ifr_name))
+		log_error("interface-to-index: name truncated ('%s' -> '%s')",
+			  ifr.ifr_name, ifname);
 
 	if (ioctl(bglobal.bg_shop, SIOCGIFINDEX, &ifr) == -1) {
-		CRITLOG("Getting ifindex for %s failed: %s", ifname,
-			strerror(errno));
+		log_error("interface-to-index: %s translation failed: %s",
+			  ifname, strerror(errno));
 		return -1;
 	}
 
@@ -93,13 +93,13 @@ void ptm_bfd_fetch_local_mac(const char *ifname, uint8_t *mac)
 	struct ifreq ifr;
 
 	if (strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name))
-	    > sizeof(ifr.ifr_name)) {
-		CRITLOG("Interface name %s truncated", ifr.ifr_name);
-	}
+	    > sizeof(ifr.ifr_name))
+		log_error("interface-mac: name truncated ('%s' -> '%s')",
+			  ifr.ifr_name, ifname);
 
 	if (ioctl(bglobal.bg_shop, SIOCGIFHWADDR, &ifr) == -1) {
-		CRITLOG("Getting mac address for %s failed: %s", ifname,
-			strerror(errno));
+		log_error("interface-mac: %s MAC retrieval failed: %s", ifname,
+			  strerror(errno));
 		return;
 	}
 
@@ -118,12 +118,14 @@ void fetch_portname_from_ifindex(int ifindex, char *ifname, size_t ifnamelen)
 	ifr.ifr_ifindex = ifindex;
 
 	if (ioctl(bglobal.bg_shop, SIOCGIFNAME, &ifr) == -1) {
-		CRITLOG("Getting ifname for ifindex %d failed: %s", ifindex,
-			strerror(errno));
+		log_error("index-to-interface: index %d failure: %s", ifindex,
+			  strerror(errno));
 		return;
 	}
 
-	strlcpy(ifname, ifr.ifr_name, ifnamelen);
+	if (strlcpy(ifname, ifr.ifr_name, ifnamelen) >= ifnamelen)
+		log_debug("index-to-interface: name truncated '%s' -> '%s'",
+			  ifr.ifr_name, ifname);
 }
 
 int ptm_bfd_echo_sock_init(void)
@@ -135,14 +137,14 @@ int ptm_bfd_echo_sock_init(void)
 
 	s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
 	if (s == -1) {
-		ERRLOG("%s: socket: %s", __func__, strerror(errno));
+		log_error("echo-socket: creation failure: %s", strerror(errno));
 		return -1;
 	}
 
 	if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))
 	    == -1) {
-		ERRLOG("%s: setsockopt(SO_ATTACH_FILTER): %s", __func__,
-		       strerror(errno));
+		log_error("echo-socket: setsockopt(SO_ATTACH_FILTER): %s",
+			  strerror(errno));
 		close(s);
 		return -1;
 	}
@@ -159,14 +161,15 @@ int ptm_bfd_vxlan_sock_init(void)
 
 	s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
 	if (s == -1) {
-		ERRLOG("%s: socket: %s", __func__, strerror(errno));
+		log_error("vxlan-socket: creation failure: %s",
+			  strerror(errno));
 		return -1;
 	}
 
 	if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))
 	    == -1) {
-		ERRLOG("%s: setsockopt(SO_ATTACH_FILTER): %s", __func__,
-		       strerror(errno));
+		log_error("vxlan-socket: setsockopt(SO_ATTACH_FILTER): %s",
+			  strerror(errno));
 		close(s);
 		return -1;
 	}
