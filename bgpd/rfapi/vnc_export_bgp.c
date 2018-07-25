@@ -53,7 +53,7 @@
 
 static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 				       struct rfapi_nve_group_cfg *rfg,
-				       struct route_node *rn, struct attr *attr,
+				       struct rfapi_node *rn, struct attr *attr,
 				       afi_t afi,
 				       struct rfapi_descriptor *irfd);
 
@@ -171,7 +171,7 @@ static int getce(struct bgp *bgp, struct attr *attr, struct prefix *pfx_ce)
 }
 
 
-void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct route_node *rn,
+void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct rfapi_node *rn,
 				 struct bgp_info *bi)
 {
 	struct attr *attr = bi->attr;
@@ -325,7 +325,7 @@ void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct route_node *rn,
 /*
  * "Withdrawing a Route" export process
  */
-void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct route_node *rn,
+void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct rfapi_node *rn,
 				 struct bgp_info *bi)
 {
 	afi_t afi = family2afi(rn->p.family);
@@ -402,7 +402,7 @@ void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct route_node *rn,
 
 static void vnc_direct_bgp_vpn_enable_ce(struct bgp *bgp, afi_t afi)
 {
-	struct route_node *rn;
+	struct rfapi_node *rn;
 	struct bgp_info *ri;
 
 	vnc_zlog_debug_verbose("%s: entry, afi=%d", __func__, afi);
@@ -428,8 +428,8 @@ static void vnc_direct_bgp_vpn_enable_ce(struct bgp *bgp, afi_t afi)
 	/*
 	 * Go through entire ce import table and export to BGP unicast.
 	 */
-	for (rn = route_top(bgp->rfapi->it_ce->imported_vpn[afi]); rn;
-	     rn = route_next(rn)) {
+	for (rn = rfapi_route_top(bgp->rfapi->it_ce->imported_vpn[afi]); rn;
+	     rn = rfapi_route_next(rn)) {
 
 		if (!rn->info)
 			continue;
@@ -511,7 +511,7 @@ static void vnc_direct_bgp_vpn_disable_ce(struct bgp *bgp, afi_t afi)
  * Export methods that proxy nexthop BEGIN
  ***********************************************************************/
 
-static struct ecommunity *vnc_route_origin_ecom(struct route_node *rn)
+static struct ecommunity *vnc_route_origin_ecom(struct rfapi_node *rn)
 {
 	struct ecommunity *new;
 	struct bgp_info *bi;
@@ -584,7 +584,7 @@ static struct ecommunity *vnc_route_origin_ecom_single(struct in_addr *origin)
 static int
 encap_attr_export(struct attr *new, struct attr *orig,
 		  struct prefix *new_nexthop,
-		  struct route_node *rn) /* for VN addrs for ecom list */
+		  struct rfapi_node *rn) /* for VN addrs for ecom list */
 					 /* if rn is 0, use route's nexthop */
 {
 	struct prefix orig_nexthop;
@@ -690,7 +690,7 @@ encap_attr_export(struct attr *new, struct attr *orig,
  */
 void vnc_direct_bgp_add_prefix(struct bgp *bgp,
 			       struct rfapi_import_table *import_table,
-			       struct route_node *rn)
+			       struct rfapi_node *rn)
 {
 	struct attr attr = {0};
 	struct listnode *node, *nnode;
@@ -800,7 +800,7 @@ void vnc_direct_bgp_add_prefix(struct bgp *bgp,
  */
 void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 			       struct rfapi_import_table *import_table,
-			       struct route_node *rn)
+			       struct rfapi_node *rn)
 {
 	struct listnode *node, *nnode;
 	struct rfapi_rfg_name *rfgn;
@@ -961,7 +961,7 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 		if (rfgn->rfg == rfg) {
 
 			struct route_table *rt = NULL;
-			struct route_node *rn;
+			struct rfapi_node *rn;
 			struct attr attr = {0};
 			struct rfapi_import_table *import_table;
 
@@ -981,7 +981,8 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 			/*
 			 * Walk the NVE-Group's VNC Import table
 			 */
-			for (rn = route_top(rt); rn; rn = route_next(rn)) {
+			for (rn = rfapi_route_top(rt); rn;
+			     rn = rfapi_route_next(rn)) {
 
 				if (rn->info) {
 
@@ -1105,7 +1106,7 @@ void vnc_direct_bgp_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 		if (rfg && rfgn->rfg == rfg) {
 
 			struct route_table *rt = NULL;
-			struct route_node *rn;
+			struct rfapi_node *rn;
 			struct rfapi_import_table *import_table;
 
 			import_table = rfg->rfapi_import_table;
@@ -1120,7 +1121,8 @@ void vnc_direct_bgp_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 			/*
 			 * Walk the NVE-Group's VNC Import table
 			 */
-			for (rn = route_top(rt); rn; rn = route_next(rn)) {
+			for (rn = rfapi_route_top(rt); rn;
+			     rn = rfapi_route_next(rn)) {
 
 				if (rn->info) {
 
@@ -1151,7 +1153,7 @@ void vnc_direct_bgp_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 
 static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 				       struct rfapi_nve_group_cfg *rfg,
-				       struct route_node *rn, struct attr *attr,
+				       struct rfapi_node *rn, struct attr *attr,
 				       afi_t afi, struct rfapi_descriptor *irfd)
 {
 	struct prefix nhp;
@@ -1272,7 +1274,7 @@ static void vnc_direct_bgp_add_group_afi(struct bgp *bgp,
 					 afi_t afi)
 {
 	struct route_table *rt = NULL;
-	struct route_node *rn;
+	struct rfapi_node *rn;
 	struct attr attr = {0};
 	struct rfapi_import_table *import_table;
 
@@ -1303,7 +1305,7 @@ static void vnc_direct_bgp_add_group_afi(struct bgp *bgp,
 	/*
 	 * Walk the NVE-Group's VNC Import table
 	 */
-	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+	for (rn = rfapi_route_top(rt); rn; rn = rfapi_route_next(rn)) {
 
 		if (rn->info) {
 
@@ -1358,7 +1360,7 @@ void vnc_direct_bgp_add_group(struct bgp *bgp, struct rfapi_nve_group_cfg *rfg)
 
 static void vnc_direct_del_rn_group_rd(struct bgp *bgp,
 				       struct rfapi_nve_group_cfg *rfg,
-				       struct route_node *rn, afi_t afi,
+				       struct rfapi_node *rn, afi_t afi,
 				       struct rfapi_descriptor *irfd)
 {
 	if (irfd == NULL)
@@ -1381,7 +1383,7 @@ static void vnc_direct_bgp_del_group_afi(struct bgp *bgp,
 					 afi_t afi)
 {
 	struct route_table *rt = NULL;
-	struct route_node *rn;
+	struct rfapi_node *rn;
 	struct rfapi_import_table *import_table;
 
 	vnc_zlog_debug_verbose("%s: entry", __func__);
@@ -1404,7 +1406,7 @@ static void vnc_direct_bgp_del_group_afi(struct bgp *bgp,
 	/*
 	 * Walk the NVE-Group's VNC Import table
 	 */
-	for (rn = route_top(rt); rn; rn = route_next(rn))
+	for (rn = rfapi_route_top(rt); rn; rn = rfapi_route_next(rn))
 		if (rn->info) {
 			if (rfg->type == RFAPI_GROUP_CFG_VRF)
 				vnc_direct_del_rn_group_rd(bgp, rfg, rn, afi,
@@ -1470,9 +1472,9 @@ static void vnc_direct_bgp_unexport_table(afi_t afi, struct route_table *rt,
 {
 	if (nve_list) {
 
-		struct route_node *rn;
+		struct rfapi_node *rn;
 
-		for (rn = route_top(rt); rn; rn = route_next(rn)) {
+		for (rn = rfapi_route_top(rt); rn; rn = rfapi_route_next(rn)) {
 
 			if (rn->info) {
 

@@ -1734,8 +1734,8 @@ static void vnc_import_bgp_exterior_add_route_it(
 
 	for (it = h->imports; it; it = it->next) {
 		struct route_table *table;
-		struct route_node *rn;
-		struct route_node *par;
+		struct rfapi_node *rn;
+		struct rfapi_node *par;
 		struct bgp_info *bi_interior;
 		int have_usable_route;
 
@@ -1749,7 +1749,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 
 		table = it->imported_vpn[afi];
 
-		for (rn = route_node_match(table, &pfx_orig_nexthop),
+		for (rn = rfapi_route_node_match(table, &pfx_orig_nexthop),
 		    have_usable_route = 0;
 		     (!have_usable_route) && rn;) {
 
@@ -1817,9 +1817,9 @@ static void vnc_import_bgp_exterior_add_route_it(
 							0, NULL,
 							(void (*)(void *))
 								prefix_free);
-					route_lock_node(rn); /* for skiplist */
+					rfapi_lock_node(rn); /* for skiplist */
 				}
-				route_lock_node(rn); /* for skiplist entry */
+				rfapi_lock_node(rn); /* for skiplist entry */
 				prefix_copy(pfx_mon, prefix);
 				if (!skiplist_insert(
 					    RFAPI_MONITOR_EXTERIOR(rn)->source,
@@ -1828,14 +1828,14 @@ static void vnc_import_bgp_exterior_add_route_it(
 					bgp_info_lock(info);
 				}
 			}
-			par = rn->parent;
+			par = (struct rfapi_node *)rn->parent;
 			if (par)
-				route_lock_node(par);
-			route_unlock_node(rn);
+				rfapi_lock_node(par);
+			rfapi_unlock_node(rn);
 			rn = par;
 		}
 		if (rn)
-			route_unlock_node(rn);
+			rfapi_unlock_node(rn);
 
 		if (!have_usable_route) {
 			struct prefix *pfx_mon = prefix_new();
@@ -1925,14 +1925,14 @@ void vnc_import_bgp_exterior_del_route(
 
 	for (it = h->imports; it; it = it->next) {
 		struct route_table *table;
-		struct route_node *rn;
-		struct route_node *par;
+		struct rfapi_node *rn;
+		struct rfapi_node *par;
 		struct bgp_info *bi_interior;
 		int have_usable_route;
 
 		table = it->imported_vpn[afi];
 
-		for (rn = route_node_match(table, &pfx_orig_nexthop),
+		for (rn = rfapi_route_node_match(table, &pfx_orig_nexthop),
 		    have_usable_route = 0;
 		     (!have_usable_route) && rn;) {
 
@@ -1983,9 +1983,8 @@ void vnc_import_bgp_exterior_del_route(
 							    info, NULL)) {
 
 							bgp_info_unlock(info);
-							route_unlock_node(
-								rn); /* sl entry
-									*/
+							/* sl entry */
+							rfapi_unlock_node(rn);
 						}
 						if (skiplist_empty(
 							    RFAPI_MONITOR_EXTERIOR(
@@ -1998,22 +1997,20 @@ void vnc_import_bgp_exterior_del_route(
 							RFAPI_MONITOR_EXTERIOR(
 								rn)
 								->source = NULL;
-							route_unlock_node(
-								rn); /* skiplist
-									itself
-									*/
+							/* skiplist itself */
+							rfapi_unlock_node(rn);
 						}
 					}
 				}
 			}
-			par = rn->parent;
+			par = (struct rfapi_node *)rn->parent;
 			if (par)
-				route_lock_node(par);
-			route_unlock_node(rn);
+				rfapi_lock_node(par);
+			rfapi_unlock_node(rn);
 			rn = par;
 		}
 		if (rn)
-			route_unlock_node(rn);
+			rfapi_unlock_node(rn);
 
 		if (!have_usable_route) {
 			if (!skiplist_delete(it->monitor_exterior_orphans, info,
@@ -2034,11 +2031,11 @@ void vnc_import_bgp_exterior_del_route(
  */
 void vnc_import_bgp_exterior_add_route_interior(
 	struct bgp *bgp, struct rfapi_import_table *it,
-	struct route_node *rn_interior, /* VPN IT node */
+	struct rfapi_node *rn_interior, /* VPN IT node */
 	struct bgp_info *bi_interior)   /* VPN IT route */
 {
 	afi_t afi = family2afi(rn_interior->p.family);
-	struct route_node *par;
+	struct rfapi_node *par;
 	struct bgp_info *bi_exterior;
 	struct prefix *pfx_exterior; /* exterior pfx */
 	void *cursor;
@@ -2157,7 +2154,8 @@ void vnc_import_bgp_exterior_add_route_interior(
 	 * Look up the tree for possible pulldown candidates.
 	 * Find nearest parent with an exterior route monitor
 	 */
-	for (par = rn_interior->parent; par; par = par->parent) {
+	for (par = (struct rfapi_node *)rn_interior->parent; par;
+	     par = (struct rfapi_node *)par->parent) {
 		if (RFAPI_HAS_MONITOR_EXTERIOR(par))
 			break;
 	}
@@ -2207,13 +2205,13 @@ void vnc_import_bgp_exterior_add_route_interior(
 						->source = skiplist_new(
 						0, NULL,
 						(void (*)(void *))prefix_free);
-					route_lock_node(rn_interior);
+					rfapi_lock_node(rn_interior);
 				}
 				skiplist_insert(
 					RFAPI_MONITOR_EXTERIOR(rn_interior)
 						->source,
 					bi_exterior, pfx_mon);
-				route_lock_node(rn_interior);
+				rfapi_lock_node(rn_interior);
 
 				/*
 				 * Delete constructed exterior routes based on
@@ -2287,12 +2285,12 @@ void vnc_import_bgp_exterior_add_route_interior(
 
 			skiplist_delete(RFAPI_MONITOR_EXTERIOR(par)->source,
 					bi_exterior, NULL);
-			route_unlock_node(par); /* sl entry */
+			rfapi_unlock_node(par); /* sl entry */
 		}
 		if (skiplist_empty(RFAPI_MONITOR_EXTERIOR(par)->source)) {
 			skiplist_free(RFAPI_MONITOR_EXTERIOR(par)->source);
 			RFAPI_MONITOR_EXTERIOR(par)->source = NULL;
-			route_unlock_node(par); /* sl itself */
+			rfapi_unlock_node(par); /* sl itself */
 		}
 	}
 
@@ -2349,12 +2347,12 @@ void vnc_import_bgp_exterior_add_route_interior(
 					skiplist_new(
 						0, NULL,
 						(void (*)(void *))prefix_free);
-				route_lock_node(rn_interior); /* sl */
+				rfapi_lock_node(rn_interior); /* sl */
 			}
 			skiplist_insert(
 				RFAPI_MONITOR_EXTERIOR(rn_interior)->source,
 				bi_exterior, pfx_mon);
-			route_lock_node(rn_interior); /* sl entry */
+			rfapi_lock_node(rn_interior); /* sl entry */
 			if (!list_adopted) {
 				list_adopted = list_new();
 			}
@@ -2393,7 +2391,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 	}
 	if (list_adopted) {
 		struct listnode *node;
-		struct route_node *bi_exterior;
+		struct rfapi_node *bi_exterior;
 
 		for (ALL_LIST_ELEMENTS_RO(list_adopted, node, bi_exterior)) {
 			skiplist_delete(it->monitor_exterior_orphans,
@@ -2415,11 +2413,11 @@ void vnc_import_bgp_exterior_add_route_interior(
  */
 void vnc_import_bgp_exterior_del_route_interior(
 	struct bgp *bgp, struct rfapi_import_table *it,
-	struct route_node *rn_interior, /* VPN IT node */
+	struct rfapi_node *rn_interior, /* VPN IT node */
 	struct bgp_info *bi_interior)   /* VPN IT route */
 {
 	afi_t afi = family2afi(rn_interior->p.family);
-	struct route_node *par;
+	struct rfapi_node *par;
 	struct bgp_info *bi_exterior;
 	struct prefix *pfx_exterior; /* exterior pfx */
 	void *cursor;
@@ -2505,7 +2503,8 @@ void vnc_import_bgp_exterior_del_route_interior(
 	 * If none is found, par will end up NULL, and we will move
 	 * the monitors to the orphan list for this import table
 	 */
-	for (par = rn_interior->parent; par; par = par->parent) {
+	for (par = (struct rfapi_node *)rn_interior->parent; par;
+	     par = (struct rfapi_node *)par->parent) {
 		if (RFAPI_MONITOR_EXTERIOR(par)->valid_interior_count)
 			break;
 	}
@@ -2536,11 +2535,11 @@ void vnc_import_bgp_exterior_del_route_interior(
 					skiplist_new(
 						0, NULL,
 						(void (*)(void *))prefix_free);
-				route_lock_node(par); /* sl */
+				rfapi_lock_node(par); /* sl */
 			}
 			skiplist_insert(RFAPI_MONITOR_EXTERIOR(par)->source,
 					bi_exterior, pfx_mon);
-			route_lock_node(par); /* sl entry */
+			rfapi_lock_node(par); /* sl entry */
 
 			/* Add constructed exterior routes based on parent */
 			for (bi = par->info; bi; bi = bi->next) {
@@ -2592,12 +2591,12 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 		skiplist_delete_first(
 			RFAPI_MONITOR_EXTERIOR(rn_interior)->source);
-		route_unlock_node(rn_interior); /* sl entry */
+		rfapi_unlock_node(rn_interior); /* sl entry */
 	}
 	if (skiplist_empty(RFAPI_MONITOR_EXTERIOR(rn_interior)->source)) {
 		skiplist_free(RFAPI_MONITOR_EXTERIOR(rn_interior)->source);
 		RFAPI_MONITOR_EXTERIOR(rn_interior)->source = NULL;
-		route_unlock_node(rn_interior); /* sl itself */
+		rfapi_unlock_node(rn_interior); /* sl itself */
 	}
 }
 

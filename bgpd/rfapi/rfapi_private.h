@@ -47,7 +47,7 @@ struct rfapi_advertised_prefixes {
 };
 
 struct rfapi_descriptor {
-	struct route_node *un_node; /* backref to un table */
+	struct rfapi_node *un_node; /* backref to un table */
 
 	struct rfapi_descriptor *next; /* next vn_addr */
 

@@ -31,13 +31,14 @@
 #include "log.h"
 
 #include "ripngd/ripngd.h"
+#include "ripngd/ripng_route.h"
 #include "ripngd/ripng_debug.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 
 /* Send ECMP routes to zebra. */
-static void ripng_zebra_ipv6_send(struct route_node *rp, uint8_t cmd)
+static void ripng_zebra_ipv6_send(struct ripng_node *rp, uint8_t cmd)
 {
 	struct list *list = (struct list *)rp->info;
 	struct zapi_route api;
@@ -100,13 +101,13 @@ static void ripng_zebra_ipv6_send(struct route_node *rp, uint8_t cmd)
 }
 
 /* Add/update ECMP routes to zebra. */
-void ripng_zebra_ipv6_add(struct route_node *rp)
+void ripng_zebra_ipv6_add(struct ripng_node *rp)
 {
 	ripng_zebra_ipv6_send(rp, ZEBRA_ROUTE_ADD);
 }
 
 /* Delete ECMP routes from zebra. */
-void ripng_zebra_ipv6_delete(struct route_node *rp)
+void ripng_zebra_ipv6_delete(struct ripng_node *rp)
 {
 	ripng_zebra_ipv6_send(rp, ZEBRA_ROUTE_DELETE);
 }

@@ -41,6 +41,7 @@ BGP_VNC_RFAPI_HD=rfapi/bgp_rfapi_cfg.h \
 	rfapi/rfapi_monitor.h \
 	rfapi/rfapi_private.h \
 	rfapi/rfapi_rib.h \
+	rfapi/rfapi_table.h \
 	rfapi/rfapi_vty.h \
 	rfapi/vnc_debug.h \
 	rfapi/vnc_export_bgp.h \

@@ -742,7 +742,7 @@ static void rfapiDebugPrintMonitorEncap(void *stream,
 	   m->bi, HVTYNL);
 }
 
-void rfapiShowItNode(void *stream, struct route_node *rn)
+void rfapiShowItNode(void *stream, struct rfapi_node *rn)
 {
 	struct bgp_info *bi;
 	char buf[BUFSIZ];
@@ -769,7 +769,7 @@ void rfapiShowItNode(void *stream, struct route_node *rn)
 void rfapiShowImportTable(void *stream, const char *label,
 			  struct route_table *rt, int isvpn)
 {
-	struct route_node *rn;
+	struct rfapi_node *rn;
 	char buf[BUFSIZ];
 
 	int (*fp)(void *, const char *, ...);
@@ -782,7 +782,7 @@ void rfapiShowImportTable(void *stream, const char *label,
 
 	fp(out, "Import Table [%s]%s", label, HVTYNL);
 
-	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+	for (rn = rfapi_route_top(rt); rn; rn = rfapi_route_next(rn)) {
 		struct bgp_info *bi;
 
 		if (rn->p.family == AF_ETHERNET) {
@@ -851,7 +851,7 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 
 	for (ALL_LIST_ELEMENTS_RO(&h->descriptors, node, rfd)) {
 
-		struct route_node *rn;
+		struct rfapi_node *rn;
 		int printedquerier = 0;
 
 
@@ -868,8 +868,8 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 		 * IP Queries
 		 */
 		if (rfd->mon) {
-			for (rn = route_top(rfd->mon); rn;
-			     rn = route_next(rn)) {
+			for (rn = rfapi_route_top(rfd->mon); rn;
+			     rn = rfapi_route_next(rn)) {
 				struct rfapi_monitor_vpn *m;
 				char buf_remain[BUFSIZ];
 				char buf_pfx[BUFSIZ];
@@ -1012,7 +1012,7 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 }
 
 static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
-				 struct route_node *rn, struct bgp_info *bi)
+				 struct rfapi_node *rn, struct bgp_info *bi)
 {
 	int (*fp)(void *, const char *, ...);
 	struct vty *vty;
@@ -1218,13 +1218,13 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 
 	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
-		struct route_node *rn;
+		struct rfapi_node *rn;
 
 		if (!it->imported_vpn[afi])
 			continue;
 
-		for (rn = route_top(it->imported_vpn[afi]); rn;
-		     rn = route_next(rn)) {
+		for (rn = rfapi_route_top(it->imported_vpn[afi]); rn;
+		     rn = rfapi_route_next(rn)) {
 
 			struct bgp_info *bi;
 			int count_only;

@@ -93,17 +93,17 @@ extern void rfapiRibFree(struct rfapi_descriptor *rfd);
 extern void rfapiRibUpdatePendingNode(struct bgp *bgp,
 				      struct rfapi_descriptor *rfd,
 				      struct rfapi_import_table *it,
-				      struct route_node *it_node,
+				      struct rfapi_node *it_node,
 				      uint32_t lifetime);
 
 extern void rfapiRibUpdatePendingNodeSubtree(struct bgp *bgp,
 					     struct rfapi_descriptor *rfd,
 					     struct rfapi_import_table *it,
-					     struct route_node *it_node,
-					     struct route_node *omit_subtree,
+					     struct rfapi_node *it_node,
+					     struct rfapi_node *omit_subtree,
 					     uint32_t lifetime);
 
-extern int rfapiRibPreloadBi(struct route_node *rfd_rib_node,
+extern int rfapiRibPreloadBi(struct rfapi_node *rfd_rib_node,
 			     struct prefix *pfx_vn, struct prefix *pfx_un,
 			     uint32_t lifetime, struct bgp_info *bi);
 
@@ -113,7 +113,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 
 extern void rfapiRibPendingDeleteRoute(struct bgp *bgp,
 				       struct rfapi_import_table *it, afi_t afi,
-				       struct route_node *it_node);
+				       struct rfapi_node *it_node);
 
 extern void rfapiRibShowResponsesSummary(void *stream);
 
@@ -124,7 +124,7 @@ extern void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 
 extern int rfapiRibFTDFilterRecentPrefix(
 	struct rfapi_descriptor *rfd,
-	struct route_node *it_rn,	    /* import table node */
+	struct rfapi_node *it_rn,	    /* import table node */
 	struct prefix *pfx_target_original); /* query target */
 
 extern void rfapiFreeRfapiUnOptionChain(struct rfapi_un_option *p);
