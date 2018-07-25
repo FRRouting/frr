@@ -162,8 +162,7 @@ static const char *vtype2string(enum vertextype vtype)
 	return NULL; /* Not reached */
 }
 
-#define VID2STR_BUFFER SRCDEST2STR_BUFFER
-static const char *vid2string(struct isis_vertex *vertex, char *buff, int size)
+const char *vid2string(struct isis_vertex *vertex, char *buff, int size)
 {
 	if (VTYPE_IS(vertex->type) || VTYPE_ES(vertex->type)) {
 		return print_sys_hostname(vertex->N.id);

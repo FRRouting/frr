@@ -209,6 +209,7 @@ extern struct thread_master *master;
 #define DEBUG_PACKET_DUMP                (1<<12)
 #define DEBUG_LSP_GEN                    (1<<13)
 #define DEBUG_LSP_SCHED                  (1<<14)
+#define DEBUG_FABRICD_FLOODING           (1<<15)
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \

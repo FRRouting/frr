@@ -744,6 +744,8 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS LSP generation debugging is %s\n", onoffs);
 	if (flags & DEBUG_LSP_SCHED)
 		vty_out(vty, "IS-IS LSP scheduling debugging is %s\n", onoffs);
+	if (flags & DEBUG_FABRICD_FLOODING)
+		vty_out(vty, "OpenFabric Flooding debugging is %s\n", onoffs);
 }
 
 DEFUN_NOSH (show_debugging,
@@ -823,6 +825,10 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (flags & DEBUG_LSP_SCHED) {
 		vty_out(vty, "debug " PROTO_NAME " lsp-sched\n");
+		write++;
+	}
+	if (flags & DEBUG_FABRICD_FLOODING) {
+		vty_out(vty, "debug " PROTO_NAME " flooding\n");
 		write++;
 	}
 	write += spf_backoff_write_config(vty);

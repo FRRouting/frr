@@ -354,4 +354,7 @@ static struct isis_lsp *lsp_for_vertex(struct isis_spftree *spftree,
 	return NULL;
 }
 
+#define VID2STR_BUFFER SRCDEST2STR_BUFFER
+const char *vid2string(struct isis_vertex *vertex, char *buff, int size);
+
 #endif

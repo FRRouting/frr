@@ -55,8 +55,40 @@ DEFUN (no_fabric_tier,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_fabric_flooding,
+       debug_fabric_flooding_cmd,
+       "debug openfabric flooding",
+       DEBUG_STR
+       PROTO_HELP
+       "Flooding optimization algorithm\n")
+{
+	isis->debugs |= DEBUG_FABRICD_FLOODING;
+	print_debug(vty, DEBUG_FABRICD_FLOODING, 1);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_fabric_flooding,
+       no_debug_fabric_flooding_cmd,
+       "no debug openfabric flooding",
+       NO_STR
+       UNDEBUG_STR
+       PROTO_HELP
+       "Flooding optimization algorithm\n")
+{
+	isis->debugs &= ~DEBUG_FABRICD_FLOODING;
+	print_debug(vty, DEBUG_FABRICD_FLOODING, 0);
+
+	return CMD_SUCCESS;
+}
+
+
 void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
 	install_element(ROUTER_NODE, &no_fabric_tier_cmd);
+	install_element(ENABLE_NODE, &debug_fabric_flooding_cmd);
+	install_element(ENABLE_NODE, &no_debug_fabric_flooding_cmd);
+	install_element(CONFIG_NODE, &debug_fabric_flooding_cmd);
+	install_element(CONFIG_NODE, &no_debug_fabric_flooding_cmd);
 }

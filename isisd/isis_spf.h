@@ -40,5 +40,4 @@ void isis_spf_print(struct isis_spftree *spftree, struct vty *vty);
 struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 					   uint8_t *sysid,
 					   struct isis_spftree *spftree);
-
 #endif /* _ZEBRA_ISIS_SPF_H */
