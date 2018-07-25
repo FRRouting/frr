@@ -48,6 +48,13 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    .. seealso:: :ref:`zebra-vrf`
 
+.. option:: -o, --vrfdefaultname
+
+   When *Zebra* starts with this option, the default VRF name is changed to the
+   parameter.
+
+   .. seealso:: :ref:`zebra-vrf`
+
 .. option:: --v6-rr-semantics
 
    The linux kernel is receiving the ability to use the same route
