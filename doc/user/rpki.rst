@@ -60,39 +60,41 @@ Enabling RPKI
    This command enables the RPKI configuration mode. Most commands that start
    with *rpki* can only be used in this mode.
 
-   When it is used in a telnet session, leaving of this mode cause rpki to be initialized.
+   When it is used in a telnet session, leaving of this mode cause rpki to be
+   initialized.
 
    Executing this command alone does not activate prefix validation. You need
    to configure at least one reachable cache server. See section
    :ref:`configuring-rpki-rtr-cache-servers` for configuring a cache server.
 
-.. _configuring-rpki-rtr-cache-servers:
-
 .. index:: daemons.conf
 
-   When first installing FRR with RPKI support from the pre-packaged binaries. Remember
-   to append '-M rpki' in the /etc/frr/daemons.conf file to the bgpd_options.
-   
-   bgpd_options="   --daemon -A 127.0.0.1 -M rpki"
-   instead of the default setting
-   bgpd_options="   --daemon -A 127.0.0.1"
-   
+   When first installing FRR with RPKI support from the pre-packaged binaries.
+   Remember to append :option:`-M rpki` in the :file:`/etc/frr/daemons.conf`
+   file to ``bgpd_options``, like so::
 
-   Else you will encounter an error when trying to enter RPKI configuration mode. Because
-   the rpki module is not loaded when the BGP daemon is initialized.
+      bgpd_options="   --daemon -A 127.0.0.1 -M rpki"
 
-   Examples of the error:
+   instead of the default setting::
 
-   router(config)# debug rpki
-   % [BGP] Unknown command: debug rpki
-   
-   router(config)# rpki
-   % [BGP] Unknown command: rpki
-   
-   Note that the rpki commands will be available in vtysh when running 'find rpki'.
-   Even if the RPKI module is NOT loaded.
-   The RPKI commands will be unavailable if you try running the same command in the
-   cli specific to the BGP daemon.
+      bgpd_options="   --daemon -A 127.0.0.1"
+
+   Otherwise you will encounter an error when trying to enter RPKI
+   configuration mode due to the ``rpki`` module not being loaded when the BGP
+   daemon is initialized.
+
+   Examples of the error::
+
+      router(config)# debug rpki
+      % [BGP] Unknown command: debug rpki
+
+      router(config)# rpki
+      % [BGP] Unknown command: rpki
+
+   Note that the RPKI commands will be available in vtysh when running ``find
+   rpki`` regardless of whether the module is loaded.
+
+.. _configuring-rpki-rtr-cache-servers:
 
 Configuring RPKI/RTR Cache Servers
 ----------------------------------
