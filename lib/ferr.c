@@ -201,6 +201,7 @@ void ferr_ref_fini(void)
 {
 	pthread_mutex_lock(&refs_mtx);
 	{
+		hash_clean(refs, NULL);
 		hash_free(refs);
 		refs = NULL;
 	}

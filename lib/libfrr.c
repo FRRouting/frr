@@ -941,6 +941,7 @@ void frr_fini(void)
 	/* memory_init -> nothing needed */
 	vty_terminate();
 	cmd_terminate();
+	ferr_ref_fini();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
 	thread_master_free(master);
