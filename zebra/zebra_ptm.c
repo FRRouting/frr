@@ -1175,6 +1175,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_PTM_BFD_PROCESS,
 static struct ptm_process *pp_new(pid_t pid, struct zserv *zs);
 static struct ptm_process *pp_lookup_byzs(struct zserv *zs);
 static void pp_free(struct ptm_process *pp);
+static void pp_free_all(void);
 
 static void zebra_ptm_send_bfdd(struct stream *msg);
 static void zebra_ptm_send_clients(struct stream *msg);
@@ -1237,6 +1238,16 @@ static void pp_free(struct ptm_process *pp)
 
 	TAILQ_REMOVE(&ppqueue, pp, pp_entry);
 	XFREE(MTYPE_ZEBRA_PTM_BFD_PROCESS, pp);
+}
+
+static void pp_free_all(void)
+{
+	struct ptm_process *pp;
+
+	while (!TAILQ_EMPTY(&ppqueue)) {
+		pp = TAILQ_FIRST(&ppqueue);
+		pp_free(pp);
+	}
 }
 
 
@@ -1385,6 +1396,13 @@ void zebra_ptm_init(void)
 	hook_register(zserv_client_close, _zebra_ptm_bfd_client_deregister);
 }
 
+void zebra_ptm_finish(void)
+{
+	/* Remove the client disconnect hook and free all memory. */
+	hook_unregister(zserv_client_close, _zebra_ptm_bfd_client_deregister);
+	pp_free_all();
+}
+
 
 /*
  * Message handling.
@@ -1528,10 +1546,6 @@ void zebra_ptm_bfd_dst_replay(ZAPI_HANDLER_ARGS)
 /*
  * Unused functions.
  */
-void zebra_ptm_finish(void)
-{
-	/* NOTHING */
-}
 void zebra_ptm_if_init(struct zebra_if *zifp __attribute__((__unused__)))
 {
 	/* NOTHING */

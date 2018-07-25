@@ -64,6 +64,7 @@ static int _ptm_msg_read(struct stream *msg, int command,
 static struct ptm_client *pc_lookup(uint32_t pid);
 static struct ptm_client *pc_new(uint32_t pid);
 static void pc_free(struct ptm_client *pc);
+static void pc_free_all(void);
 static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
 					       struct bfd_session *bs);
 static struct ptm_client_notification *pcn_lookup(struct ptm_client *pc,
@@ -553,6 +554,9 @@ static void bfdd_zebra_connected(struct zclient *zc)
 {
 	struct stream *msg = zc->obuf;
 
+	/* Clean-up and free ptm clients data memory. */
+	pc_free_all();
+
 	/*
 	 * The replay is an empty message just to trigger client daemons
 	 * configuration replay.
@@ -585,6 +589,9 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 void bfdd_zclient_stop(void)
 {
 	zclient_stop(zclient);
+
+	/* Clean-up and free ptm clients data memory. */
+	pc_free_all();
 }
 
 
@@ -639,6 +646,16 @@ static void pc_free(struct ptm_client *pc)
 	}
 
 	XFREE(MTYPE_BFDD_CONTROL, pc);
+}
+
+static void pc_free_all(void)
+{
+	struct ptm_client *pc;
+
+	while (!TAILQ_EMPTY(&pcqueue)) {
+		pc = TAILQ_FIRST(&pcqueue);
+		pc_free(pc);
+	}
 }
 
 static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
