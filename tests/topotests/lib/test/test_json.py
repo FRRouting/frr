@@ -329,5 +329,128 @@ def test_json_with_list_failure():
     assert json_cmp(dcomplete, dsub2) is not None
     assert json_cmp(dcomplete, dsub3) is not None
 
+
+def test_json_list_start_success():
+    "Test JSON encoded data that starts with a list that should succeed."
+
+    dcomplete = [
+        {
+            "id": 100,
+            "value": "abc",
+        },
+        {
+            "id": 200,
+            "value": "abcd",
+        },
+        {
+            "id": 300,
+            "value": "abcde",
+        },
+    ]
+
+    dsub1 = [
+        {
+            "id": 100,
+            "value": "abc",
+        }
+    ]
+
+    dsub2 = [
+        {
+            "id": 100,
+            "value": "abc",
+        },
+        {
+            "id": 200,
+            "value": "abcd",
+        }
+    ]
+
+    dsub3 = [
+        {
+            "id": 300,
+            "value": "abcde",
+        }
+    ]
+
+    dsub4 = [
+    ]
+
+    dsub5 = [
+        {
+            "id": 100,
+        }
+    ]
+
+    assert json_cmp(dcomplete, dsub1) is None
+    assert json_cmp(dcomplete, dsub2) is None
+    assert json_cmp(dcomplete, dsub3) is None
+    assert json_cmp(dcomplete, dsub4) is None
+    assert json_cmp(dcomplete, dsub5) is None
+
+
+def test_json_list_start_failure():
+    "Test JSON encoded data that starts with a list that should fail."
+
+    dcomplete = [
+        {
+            "id": 100,
+            "value": "abc"
+        },
+        {
+            "id": 200,
+            "value": "abcd"
+        },
+        {
+            "id": 300,
+            "value": "abcde"
+        },
+    ]
+
+    dsub1 = [
+        {
+            "id": 100,
+            "value": "abcd",
+        }
+    ]
+
+    dsub2 = [
+        {
+            "id": 100,
+            "value": "abc",
+        },
+        {
+            "id": 200,
+            "value": "abc",
+        }
+    ]
+
+    dsub3 = [
+        {
+            "id": 100,
+            "value": "abc",
+        },
+        {
+            "id": 350,
+            "value": "abcde",
+        }
+    ]
+
+    dsub4 = [
+        {
+            "value": "abcx",
+        },
+        {
+            "id": 300,
+            "value": "abcde",
+        }
+    ]
+
+    assert json_cmp(dcomplete, dsub1) is not None
+    assert json_cmp(dcomplete, dsub2) is not None
+    assert json_cmp(dcomplete, dsub3) is not None
+    assert json_cmp(dcomplete, dsub4) is not None
+
+
 if __name__ == '__main__':
     sys.exit(pytest.main())

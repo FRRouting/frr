@@ -118,8 +118,6 @@ def _json_list_cmp(list1, list2, parent, result):
                 matched = True
                 break
 
-        if matched:
-            break
         if not matched:
             unmatched.append(expected)
 
