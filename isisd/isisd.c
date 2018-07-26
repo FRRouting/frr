@@ -1325,6 +1325,10 @@ DEFUN (show_isis_summary,
 			vty_out(vty, "    IPv6 route computation:\n");
 			isis_spf_print(area->spftree[SPFTREE_IPV6][level - 1],
 				       vty);
+
+			vty_out(vty, "    IPv6 dst-src route computation:\n");
+			isis_spf_print(area->spftree[SPFTREE_DSTSRC][level-1],
+				       vty);
 		}
 	}
 	vty_out(vty, "\n");

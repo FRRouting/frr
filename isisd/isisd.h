@@ -66,6 +66,7 @@ DECLARE_QOBJ_TYPE(isis_area)
 enum spf_tree_id {
 	SPFTREE_IPV4 = 0,
 	SPFTREE_IPV6,
+	SPFTREE_DSTSRC,
 	SPFTREE_COUNT
 };
 

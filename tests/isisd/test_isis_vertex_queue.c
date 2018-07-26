@@ -17,21 +17,21 @@ static size_t vertex_count;
 static void setup_test_vertices(void)
 {
 	union isis_N nid, nip = {
-		.prefix.family = AF_UNSPEC
+		.ip.dest.family = AF_UNSPEC
 	};
 
 	vertices = XMALLOC(MTYPE_TMP, sizeof(*vertices) * 16);
 
-	nip.prefix.family = AF_INET;
-	nip.prefix.prefixlen = 24;
-	inet_pton(AF_INET, "192.168.1.0", &nip.prefix.u.prefix4);
+	nip.ip.dest.family = AF_INET;
+	nip.ip.dest.prefixlen = 24;
+	inet_pton(AF_INET, "192.168.1.0", &nip.ip.dest.u.prefix4);
 	vertices[vertex_count] = isis_vertex_new(&nip, VTYPE_IPREACH_TE);
 	vertices[vertex_count]->d_N = 20;
 	vertex_count++;
 
-	nip.prefix.family = AF_INET;
-	nip.prefix.prefixlen = 24;
-	inet_pton(AF_INET, "192.168.2.0", &nip.prefix.u.prefix4);
+	nip.ip.dest.family = AF_INET;
+	nip.ip.dest.prefixlen = 24;
+	inet_pton(AF_INET, "192.168.2.0", &nip.ip.dest.u.prefix4);
 	vertices[vertex_count] = isis_vertex_new(&nip, VTYPE_IPREACH_TE);
 	vertices[vertex_count]->d_N = 20;
 	vertex_count++;
@@ -48,9 +48,9 @@ static void setup_test_vertices(void)
 	vertices[vertex_count]->d_N = 15;
 	vertex_count++;
 
-	nip.prefix.family = AF_INET;
-	nip.prefix.prefixlen = 24;
-	inet_pton(AF_INET, "192.168.3.0", &nip.prefix.u.prefix4);
+	nip.ip.dest.family = AF_INET;
+	nip.ip.dest.prefixlen = 24;
+	inet_pton(AF_INET, "192.168.3.0", &nip.ip.dest.u.prefix4);
 	vertices[vertex_count] = isis_vertex_new(&nip, VTYPE_IPREACH_TE);
 	vertices[vertex_count]->d_N = 20;
 	vertex_count++;

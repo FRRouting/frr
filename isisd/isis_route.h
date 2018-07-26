@@ -50,7 +50,9 @@ struct isis_route_info {
 	struct list *nexthops6;
 };
 
-struct isis_route_info *isis_route_create(struct prefix *prefix, uint32_t cost,
+struct isis_route_info *isis_route_create(struct prefix *prefix,
+					  struct prefix_ipv6 *src_p,
+					  uint32_t cost,
 					  uint32_t depth,
 					  struct list *adjacencies,
 					  struct isis_area *area,

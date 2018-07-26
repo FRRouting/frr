@@ -64,6 +64,9 @@ extern struct route_node *srcdest_rnode_lookup(struct route_table *table,
 extern void srcdest_rnode_prefixes(struct route_node *rn,
 				   const struct prefix **p,
 				   const struct prefix **src_p);
+extern const char *srcdest2str(const struct prefix *dst_p,
+			       const struct prefix_ipv6 *src_p,
+			       char *str, int size);
 extern const char *srcdest_rnode2str(struct route_node *rn, char *str,
 				     int size);
 extern struct route_node *srcdest_route_next(struct route_node *rn);

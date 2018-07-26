@@ -247,6 +247,7 @@ static int isis_zebra_link_params(int command, struct zclient *zclient,
 }
 
 static void isis_zebra_route_add_route(struct prefix *prefix,
+				       struct prefix_ipv6 *src_p,
 				       struct isis_route_info *route_info)
 {
 	struct zapi_route api;
@@ -264,6 +265,10 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 	api.type = ZEBRA_ROUTE_ISIS;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
+	if (src_p && src_p->prefixlen) {
+		api.src_prefix = *src_p;
+		SET_FLAG(api.message, ZAPI_MESSAGE_SRCPFX);
+	}
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = route_info->cost;
@@ -322,6 +327,7 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 }
 
 static void isis_zebra_route_del_route(struct prefix *prefix,
+				       struct prefix_ipv6 *src_p,
 				       struct isis_route_info *route_info)
 {
 	struct zapi_route api;
@@ -334,21 +340,26 @@ static void isis_zebra_route_del_route(struct prefix *prefix,
 	api.type = ZEBRA_ROUTE_ISIS;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
+	if (src_p && src_p->prefixlen) {
+		api.src_prefix = *src_p;
+		SET_FLAG(api.message, ZAPI_MESSAGE_SRCPFX);
+	}
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 }
 
 void isis_zebra_route_update(struct prefix *prefix,
+			     struct prefix_ipv6 *src_p,
 			     struct isis_route_info *route_info)
 {
 	if (zclient->sock < 0)
 		return;
 
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ACTIVE))
-		isis_zebra_route_add_route(prefix, route_info);
+		isis_zebra_route_add_route(prefix, src_p, route_info);
 	else
-		isis_zebra_route_del_route(prefix, route_info);
+		isis_zebra_route_del_route(prefix, src_p, route_info);
 }
 
 static int isis_zebra_read(int command, struct zclient *zclient,

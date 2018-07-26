@@ -33,6 +33,7 @@
 #include "hash.h"
 #include "if.h"
 #include "table.h"
+#include "srcdest_table.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -199,6 +200,7 @@ static void adjinfo2nexthop6(struct list *nexthops6, struct isis_adjacency *adj)
 }
 
 static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
+						   struct prefix_ipv6 *src_p,
 						   uint32_t cost,
 						   uint32_t depth,
 						   struct list *adjacencies)
@@ -232,8 +234,10 @@ static struct isis_route_info *isis_route_info_new(struct prefix *prefix,
 				SET_FLAG(rinfo->flag,
 					 ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 			/* update neighbor router address */
-			if (depth == 2 && prefix->prefixlen == 128)
+			if (depth == 2 && prefix->prefixlen == 128
+			    && (!src_p || !src_p->prefixlen)) {
 				adj->router_address6 = prefix->u.prefix6;
+			}
 			adjinfo2nexthop6(rinfo->nexthops6, adj);
 		}
 	}
@@ -317,7 +321,9 @@ static int isis_route_info_same(struct isis_route_info *new,
 	return 1;
 }
 
-struct isis_route_info *isis_route_create(struct prefix *prefix, uint32_t cost,
+struct isis_route_info *isis_route_create(struct prefix *prefix,
+					  struct prefix_ipv6 *src_p,
+					  uint32_t cost,
 					  uint32_t depth,
 					  struct list *adjacencies,
 					  struct isis_area *area,
@@ -335,8 +341,9 @@ struct isis_route_info *isis_route_create(struct prefix *prefix, uint32_t cost,
 	if (!table)
 		return NULL;
 
-	rinfo_new = isis_route_info_new(prefix, cost, depth, adjacencies);
-	route_node = route_node_get(table, prefix);
+	rinfo_new = isis_route_info_new(prefix, src_p, cost,
+					depth, adjacencies);
+	route_node = srcdest_rnode_get(table, prefix, src_p);
 
 	rinfo_old = route_node->info;
 	if (!rinfo_old) {
@@ -372,17 +379,18 @@ struct isis_route_info *isis_route_create(struct prefix *prefix, uint32_t cost,
 	return route_info;
 }
 
-static void isis_route_delete(struct prefix *prefix, struct route_table *table)
+static void isis_route_delete(struct prefix *prefix,
+			      struct prefix_ipv6 *src_p,
+			      struct route_table *table)
 {
 	struct route_node *rode;
 	struct isis_route_info *rinfo;
-	char buff[PREFIX2STR_BUFFER];
+	char buff[SRCDEST2STR_BUFFER];
 
 	/* for log */
-	prefix2str(prefix, buff, sizeof(buff));
+	srcdest2str(prefix, src_p, buff, sizeof(buff));
 
-
-	rode = route_node_get(table, prefix);
+	rode = srcdest_rnode_get(table, prefix, src_p);
 	rinfo = rode->info;
 
 	if (rinfo == NULL) {
@@ -397,7 +405,7 @@ static void isis_route_delete(struct prefix *prefix, struct route_table *table)
 		UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
 		if (isis->debugs & DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Rte: route delete  %s", buff);
-		isis_zebra_route_update(prefix, rinfo);
+		isis_zebra_route_update(prefix, src_p, rinfo);
 	}
 	isis_route_info_delete(rinfo);
 	rode->info = NULL;
@@ -411,15 +419,23 @@ static void _isis_route_verify_table(struct isis_area *area,
 {
 	struct route_node *rnode, *drnode;
 	struct isis_route_info *rinfo;
-	char buff[PREFIX2STR_BUFFER];
+	char buff[SRCDEST2STR_BUFFER];
 
-	for (rnode = route_top(table); rnode; rnode = route_next(rnode)) {
+	for (rnode = route_top(table); rnode;
+	     rnode = srcdest_route_next(rnode)) {
 		if (rnode->info == NULL)
 			continue;
 		rinfo = rnode->info;
 
+		struct prefix *dst_p;
+		struct prefix_ipv6 *src_p;
+
+		srcdest_rnode_prefixes(rnode,
+				       (const struct prefix **)&dst_p,
+				       (const struct prefix **)&src_p);
+
 		if (isis->debugs & DEBUG_RTE_EVENTS) {
-			prefix2str(&rnode->p, buff, sizeof(buff));
+			srcdest2str(dst_p, src_p, buff, sizeof(buff));
 			zlog_debug(
 				"ISIS-Rte (%s): route validate: %s %s %s %s",
 				area->area_tag,
@@ -437,13 +453,13 @@ static void _isis_route_verify_table(struct isis_area *area,
 				buff);
 		}
 
-		isis_zebra_route_update(&rnode->p, rinfo);
+		isis_zebra_route_update(dst_p, src_p, rinfo);
 		if (!CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
 			/* Area is either L1 or L2 => we use level route tables
 			 * directly for
 			 * validating => no problems with deleting routes. */
 			if (!tables) {
-				isis_route_delete(&rnode->p, table);
+				isis_route_delete(dst_p, src_p, table);
 				continue;
 			}
 
@@ -452,12 +468,13 @@ static void _isis_route_verify_table(struct isis_area *area,
 			 * delete node from level tables as well before deleting
 			 * route info. */
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
-				drnode = route_node_get(tables[level - 1], &rnode->p);
+				drnode = srcdest_rnode_get(tables[level - 1],
+							   dst_p, src_p);
 				if (drnode->info == rnode->info)
 					drnode->info = NULL;
 			}
 
-			isis_route_delete(&rnode->p, table);
+			isis_route_delete(dst_p, src_p, table);
 		}
 	}
 }
@@ -485,16 +502,22 @@ void isis_route_verify_merge(struct isis_area *area,
 	struct route_table *merge;
 	struct route_node *rnode, *mrnode;
 
-	merge = route_table_init();
+	merge = srcdest_table_init();
 
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 		for (rnode = route_top(tables[level - 1]); rnode;
-		     rnode = route_next(rnode)) {
+		     rnode = srcdest_route_next(rnode)) {
 			struct isis_route_info *rinfo = rnode->info;
 			if (!rinfo)
 				continue;
 
-			mrnode = route_node_get(merge, &rnode->p);
+			struct prefix *prefix;
+			struct prefix_ipv6 *src_p;
+
+			srcdest_rnode_prefixes(rnode,
+					       (const struct prefix **)&prefix,
+					       (const struct prefix **)&src_p);
+			mrnode = srcdest_rnode_get(merge, prefix, src_p);
 			struct isis_route_info *mrinfo = mrnode->info;
 			if (mrinfo) {
 				route_unlock_node(mrnode);
@@ -535,7 +558,7 @@ void isis_route_invalidate_table(struct isis_area *area,
 {
 	struct route_node *rode;
 	struct isis_route_info *rinfo;
-	for (rode = route_top(table); rode; rode = route_next(rode)) {
+	for (rode = route_top(table); rode; rode = srcdest_route_next(rode)) {
 		if (rode->info == NULL)
 			continue;
 		rinfo = rode->info;
