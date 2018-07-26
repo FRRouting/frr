@@ -605,8 +605,15 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	if (bpc->bpc_has_vxlan)
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_VXLAN);
 
-	if (bpc->bpc_ipv4 == false)
+	if (bpc->bpc_ipv4 == false) {
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6);
+
+		/* Set the IPv6 scope id for link-local addresses. */
+		if (IN6_IS_ADDR_LINKLOCAL(&bpc->bpc_local.sa_sin6.sin6_addr))
+			bpc->bpc_local.sa_sin6.sin6_scope_id = bfd->ifindex;
+		if (IN6_IS_ADDR_LINKLOCAL(&bpc->bpc_peer.sa_sin6.sin6_addr))
+			bpc->bpc_peer.sa_sin6.sin6_scope_id = bfd->ifindex;
+	}
 
 	/* Initialize the session */
 	bfd->ses_state = PTM_BFD_DOWN;
