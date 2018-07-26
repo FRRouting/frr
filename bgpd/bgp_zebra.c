@@ -1998,7 +1998,7 @@ static int ipset_notify_owner(int command, struct zclient *zclient,
 	bgp_pbim = bgp_pbr_match_ipset_lookup(vrf_id, unique);
 	if (!bgp_pbim) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP match ( %u %u)",
+			zlog_debug("%s: Fail to look BGP match ( %u, ID %u)",
 				   __PRETTY_FUNCTION__, note, unique);
 		return 0;
 	}
@@ -2048,7 +2048,7 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 						     unique);
 	if (!bgp_pbime) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP match entry (%u %u)",
+			zlog_debug("%s: Fail to look BGP match entry (%u, ID %u)",
 				   __PRETTY_FUNCTION__, note, unique);
 		return 0;
 	}
@@ -2074,7 +2074,9 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 			/* link bgp_info to bpme */
 			bgp_info = (struct bgp_info *)bgp_pbime->bgp_info;
 			extra = bgp_info_extra_get(bgp_info);
-			extra->bgp_fs_pbr = (void *)bgp_pbime;
+			if (extra->bgp_fs_pbr == NULL)
+				extra->bgp_fs_pbr = list_new();
+			listnode_add(extra->bgp_fs_pbr, bgp_pbime);
 		}
 		break;
 	case ZAPI_IPSET_ENTRY_FAIL_REMOVE:
@@ -2587,9 +2589,10 @@ void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim, bool install)
 	if (pbrim->install_in_progress)
 		return;
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: name %s type %d %d",
+		zlog_debug("%s: name %s type %d %d, ID %u",
 			   __PRETTY_FUNCTION__,
-			   pbrim->ipset_name, pbrim->type, install);
+			   pbrim->ipset_name, pbrim->type,
+			   install, pbrim->unique);
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2615,9 +2618,9 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 	if (pbrime->install_in_progress)
 		return;
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: name %s %d %d", __PRETTY_FUNCTION__,
+		zlog_debug("%s: name %s %d %d, ID %u", __PRETTY_FUNCTION__,
 			   pbrime->backpointer->ipset_name,
-			   pbrime->unique, install);
+			   pbrime->unique, install, pbrime->unique);
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2682,9 +2685,10 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 	if (pbm->install_iptable_in_progress)
 		return;
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: name %s type %d mark %d %d",
+		zlog_debug("%s: name %s type %d mark %d %d, ID %u",
 			   __PRETTY_FUNCTION__, pbm->ipset_name,
-			   pbm->type, pba->fwmark, install);
+			   pbm->type, pba->fwmark, install,
+			   pbm->unique2);
 	s = zclient->obuf;
 	stream_reset(s);
 

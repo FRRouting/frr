@@ -332,16 +332,32 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 		struct bgp_info_extra *extra = bgp_info_extra_get(binfo);
 
 		if (extra->bgp_fs_pbr) {
+			struct listnode *node;
 			struct bgp_pbr_match_entry *bpme;
 			struct bgp_pbr_match *bpm;
+			int unit = 0;
+			struct list *list_bpm;
 
-			bpme = (struct bgp_pbr_match_entry *)extra->bgp_fs_pbr;
-			bpm = bpme->backpointer;
-			vty_out(vty, "\tinstalled in PBR");
-			if (bpm)
-				vty_out(vty, " (%s)\n", bpm->ipset_name);
-			else
-				vty_out(vty, "\n");
+			list_bpm = list_new();
+			if (listcount(extra->bgp_fs_pbr))
+				vty_out(vty, "\tinstalled in PBR");
+			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_pbr,
+						  node, bpme)) {
+				bpm = bpme->backpointer;
+				if (listnode_lookup(list_bpm, bpm))
+					continue;
+				listnode_add(list_bpm, bpm);
+				if (unit == 0)
+					vty_out(vty, " (");
+				else
+					vty_out(vty, ", ");
+				vty_out(vty, "%s", bpm->ipset_name);
+				unit++;
+			}
+			if (unit)
+				vty_out(vty, ")");
+			vty_out(vty, "\n");
+			list_delete_all_node(list_bpm);
 		} else
 			vty_out(vty, "\tnot installed in PBR\n");
 	}
@@ -444,8 +460,6 @@ int bgp_fs_config_write_pbr(struct vty *vty, struct bgp *bgp,
 	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
 		vty_out(vty, "  local-install %s\n", pbr_if->name);
 	}
-	if (!bgp_pbr_interface_any)
-		vty_out(vty, "  no local-install any\n");
 	return declare_node ? 1 : 0;
 }
 
@@ -513,17 +527,34 @@ DEFUN (bgp_fs_local_install_ifname,
 	return bgp_fs_local_install_interface(bgp, no, ifname);
 }
 
-DEFUN (bgp_fs_local_install_any,
-	bgp_fs_local_install_any_cmd,
-	"[no] local-install any",
-	NO_STR
-	"Apply local policy routing\n"
-	"Any Interface\n")
+extern int bgp_flowspec_display_match_per_ip(afi_t afi,
+			struct bgp_table *rib,
+			struct prefix *match,
+			int prefix_check,
+			struct vty *vty,
+			uint8_t use_json,
+			json_object *json_paths)
 {
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	const char *no = strmatch(argv[0]->text, (char *)"no") ? "no" : NULL;
+	struct bgp_node *rn;
+	struct prefix *prefix;
+	int display = 0;
 
-	return bgp_fs_local_install_interface(bgp, no, NULL);
+	for (rn = bgp_table_top(rib); rn; rn = bgp_route_next(rn)) {
+		prefix = &rn->p;
+
+		if (prefix->family != AF_FLOWSPEC)
+			continue;
+
+		if (bgp_flowspec_contains_prefix(prefix, match, prefix_check)) {
+			route_vty_out_flowspec(vty, &rn->p,
+					       rn->info, use_json ?
+					       NLRI_STRING_FORMAT_JSON :
+					       NLRI_STRING_FORMAT_LARGE,
+					       json_paths);
+			display++;
+		}
+	}
+	return display;
 }
 
 void bgp_flowspec_vty_init(void)
@@ -532,6 +563,5 @@ void bgp_flowspec_vty_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_flowspec_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_flowspec_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_flowspec_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_any_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_ifname_cmd);
 }

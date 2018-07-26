@@ -3474,12 +3474,20 @@ DEFUN (show_pbr_ipset,
 /* policy routing contexts */
 DEFUN (show_pbr_iptable,
        show_pbr_iptable_cmd,
-       "show pbr iptable",
+       "show pbr iptable [WORD]",
        SHOW_STR
        "Policy-Based Routing\n"
-       "IPtable Context information\n")
+       "IPtable Context information\n"
+       "IPtable Name information\n")
 {
-	zebra_pbr_show_iptable(vty);
+	int idx = 0;
+	int found = 0;
+
+	found = argv_find(argv, argc, "WORD", &idx);
+	if (!found)
+		zebra_pbr_show_iptable(vty, NULL);
+	else
+		zebra_pbr_show_iptable(vty, argv[idx]->arg);
 	return CMD_SUCCESS;
 }
 
