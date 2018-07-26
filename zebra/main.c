@@ -134,10 +134,17 @@ static void sigint(void)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
+	struct listnode *ln;
+	struct frr_pthread *fpt;
 
 	zlog_notice("Terminating on signal");
 
 	frr_early_fini();
+
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, ln, fpt)) {
+		pthread_cancel(fpt->thread);
+		pthread_join(fpt->thread, NULL);
+	}
 
 	list_delete_all_node(zebrad.client_list);
 	zebra_ptm_finish();
