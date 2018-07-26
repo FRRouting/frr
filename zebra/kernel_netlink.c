@@ -638,7 +638,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 
 		read_in++;
 		for (h = (struct nlmsghdr *)buf;
-		     NLMSG_OK(h, (unsigned int)status);
+		     (status >= 0 && NLMSG_OK(h, (unsigned int)status));
 		     h = NLMSG_NEXT(h, status)) {
 			/* Finish of reading. */
 			if (h->nlmsg_type == NLMSG_DONE)
