@@ -1037,7 +1037,6 @@ void zserv_init(void)
 {
 	/* Client list init. */
 	zebrad.client_list = list_new();
-	zebrad.client_list->del = (void (*)(void *)) zserv_client_free;
 
 	/* Misc init. */
 	zebrad.sock = -1;
