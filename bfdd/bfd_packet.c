@@ -819,6 +819,7 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 {
 	struct cmsghdr *cm;
 	struct in6_pktinfo *pi6 = NULL;
+	int ifindex = 0;
 	ssize_t mlen;
 
 	memset(port, 0, portlen);
@@ -860,9 +861,16 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 				local->sa_sin6.sin6_addr = pi6->ipi6_addr;
 				fetch_portname_from_ifindex(pi6->ipi6_ifindex,
 							    port, portlen);
+				ifindex = pi6->ipi6_ifindex;
 			}
 		}
 	}
+
+	/* Set scope ID for link local addresses. */
+	if (IN6_IS_ADDR_LINKLOCAL(&peer->sa_sin6.sin6_addr))
+		peer->sa_sin6.sin6_scope_id = ifindex;
+	if (IN6_IS_ADDR_LINKLOCAL(&local->sa_sin6.sin6_addr))
+		local->sa_sin6.sin6_scope_id = ifindex;
 
 	return mlen;
 }
@@ -1397,16 +1405,9 @@ int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 	sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	sin6 = bpc->bpc_local.sa_sin6;
-	if (sin6.sin6_family != AF_INET6) {
-#if 0 /* XXX what is this? */
-		ifindex = ptm_bfd_fetch_ifindex(bpc->bpc_localif);
-		if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
-			sin6.sin6_scope_id = ifindex;
-#endif
-	} else if (bpc->bpc_has_localif) {
-		ifindex = ptm_bfd_fetch_ifindex(bpc->bpc_localif);
+	ifindex = ptm_bfd_fetch_ifindex(bpc->bpc_localif);
+	if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
 		sin6.sin6_scope_id = ifindex;
-	}
 
 	if (bpc->bpc_has_localif) {
 		if (bp_bind_dev(sd, bpc->bpc_localif) != 0) {
