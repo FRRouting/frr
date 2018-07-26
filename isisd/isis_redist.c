@@ -334,7 +334,7 @@ void isis_redist_delete(int type, struct prefix *p)
 	route_unlock_node(ei_node);
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
-		for (level = 1; level < ISIS_LEVELS; level++) {
+		for (level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 			redist = get_redist_settings(area, family, type, level);
 			if (!redist->redist)
 				continue;
