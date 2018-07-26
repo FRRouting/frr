@@ -341,6 +341,15 @@ def parse_topology(lines, level):
         item_match = re.match(
             r"([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+)", line)
         if item_match is not None:
+            # Skip header
+            if (item_match.group(1) == 'Vertex' and
+                item_match.group(2) == 'Type' and
+                item_match.group(3) == 'Metric' and
+                item_match.group(4) == 'Next-Hop' and
+                item_match.group(5) == 'Interface' and
+                item_match.group(6) == 'Parent'):
+                continue
+
             areas[area][level][ipv].append({
                 'vertex': item_match.group(1),
                 'type': item_match.group(2),
