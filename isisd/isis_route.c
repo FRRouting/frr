@@ -490,12 +490,37 @@ void isis_route_verify_merge(struct isis_area *area,
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 		for (rnode = route_top(tables[level - 1]); rnode;
 		     rnode = route_next(rnode)) {
-			if (rnode->info == NULL)
+			struct isis_route_info *rinfo = rnode->info;
+			if (!rinfo)
 				continue;
+
 			mrnode = route_node_get(merge, &rnode->p);
-			if (mrnode->info != NULL) {
+			struct isis_route_info *mrinfo = mrnode->info;
+			if (mrinfo) {
 				route_unlock_node(mrnode);
-				continue;
+				if (CHECK_FLAG(mrinfo->flag,
+					       ISIS_ROUTE_FLAG_ACTIVE)) {
+					/* Clear the ZEBRA_SYNCED flag on the
+					 * L2 route when L1 wins, otherwise L2
+					 * won't get reinstalled when L1
+					 * disappears.
+					 */
+					UNSET_FLAG(
+						rinfo->flag,
+						ISIS_ROUTE_FLAG_ZEBRA_SYNCED
+					);
+					continue;
+				} else {
+					/* Clear the ZEBRA_SYNCED flag on the L1
+					 * route when L2 wins, otherwise L1
+					 * won't get reinstalled when it
+					 * reappears.
+					 */
+					UNSET_FLAG(
+						mrinfo->flag,
+						ISIS_ROUTE_FLAG_ZEBRA_SYNCED
+					);
+				}
 			}
 			mrnode->info = rnode->info;
 		}
