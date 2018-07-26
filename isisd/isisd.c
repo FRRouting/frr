@@ -1319,10 +1319,12 @@ DEFUN (show_isis_summary,
 			vty_out(vty, "\n");
 
 			vty_out(vty, "    IPv4 route computation:\n");
-			isis_spf_print(area->spftree[level - 1], vty);
+			isis_spf_print(area->spftree[SPFTREE_IPV4][level - 1],
+				       vty);
 
 			vty_out(vty, "    IPv6 route computation:\n");
-			isis_spf_print(area->spftree6[level - 1], vty);
+			isis_spf_print(area->spftree[SPFTREE_IPV6][level - 1],
+				       vty);
 		}
 	}
 	vty_out(vty, "\n");
@@ -1664,15 +1666,17 @@ void isis_area_invalidate_routes(struct isis_area *area, int levels)
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 		if (!(level & levels))
 			continue;
-		isis_spf_invalidate_routes(area->spftree[level - 1]);
-		isis_spf_invalidate_routes(area->spftree6[level - 1]);
+		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+			isis_spf_invalidate_routes(
+					area->spftree[tree][level - 1]);
+		}
 	}
 }
 
 void isis_area_verify_routes(struct isis_area *area)
 {
-	isis_spf_verify_routes(area, area->spftree);
-	isis_spf_verify_routes(area, area->spftree6);
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++)
+		isis_spf_verify_routes(area, area->spftree[tree]);
 }
 
 static void area_resign_level(struct isis_area *area, int level)
@@ -1684,14 +1688,14 @@ static void area_resign_level(struct isis_area *area, int level)
 		lsp_db_destroy(area->lspdb[level - 1]);
 		area->lspdb[level - 1] = NULL;
 	}
-	if (area->spftree[level - 1]) {
-		isis_spftree_del(area->spftree[level - 1]);
-		area->spftree[level - 1] = NULL;
+
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		if (area->spftree[tree][level - 1]) {
+			isis_spftree_del(area->spftree[tree][level - 1]);
+			area->spftree[tree][level - 1] = NULL;
+		}
 	}
-	if (area->spftree6[level - 1]) {
-		isis_spftree_del(area->spftree6[level - 1]);
-		area->spftree6[level - 1] = NULL;
-	}
+
 	THREAD_TIMER_OFF(area->spf_timer[level - 1]);
 
 	sched_debug(

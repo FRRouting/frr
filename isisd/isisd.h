@@ -63,11 +63,16 @@ struct isis {
 extern struct isis *isis;
 DECLARE_QOBJ_TYPE(isis_area)
 
+enum spf_tree_id {
+	SPFTREE_IPV4 = 0,
+	SPFTREE_IPV6,
+	SPFTREE_COUNT
+};
+
 struct isis_area {
 	struct isis *isis;			       /* back pointer */
 	dict_t *lspdb[ISIS_LEVELS];		       /* link-state dbs */
-	struct isis_spftree *spftree[ISIS_LEVELS];     /* The v4 SPTs */
-	struct isis_spftree *spftree6[ISIS_LEVELS];    /* The v6 SPTs */
+	struct isis_spftree *spftree[SPFTREE_COUNT][ISIS_LEVELS];
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
 	struct list *circuit_list; /* IS-IS circuits */

@@ -508,67 +508,44 @@ static void isis_spftree_adj_del(struct isis_spftree *spftree,
 
 void spftree_area_init(struct isis_area *area)
 {
-	if (area->is_type & IS_LEVEL_1) {
-		if (area->spftree[0] == NULL)
-			area->spftree[0] = isis_spftree_new(area);
-		if (area->spftree6[0] == NULL)
-			area->spftree6[0] = isis_spftree_new(area);
-	}
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			if (!(area->is_type & level))
+				continue;
+			if (area->spftree[tree][level - 1])
+				continue;
 
-	if (area->is_type & IS_LEVEL_2) {
-		if (area->spftree[1] == NULL)
-			area->spftree[1] = isis_spftree_new(area);
-		if (area->spftree6[1] == NULL)
-			area->spftree6[1] = isis_spftree_new(area);
+			area->spftree[tree][level - 1] = isis_spftree_new(area);
+		}
 	}
-
-	return;
 }
 
 void spftree_area_del(struct isis_area *area)
 {
-	if (area->is_type & IS_LEVEL_1) {
-		if (area->spftree[0] != NULL) {
-			isis_spftree_del(area->spftree[0]);
-			area->spftree[0] = NULL;
-		}
-		if (area->spftree6[0]) {
-			isis_spftree_del(area->spftree6[0]);
-			area->spftree6[0] = NULL;
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			if (!(area->is_type & level))
+				continue;
+			if (!area->spftree[tree][level - 1])
+				continue;
+
+			isis_spftree_del(area->spftree[tree][level - 1]);
 		}
 	}
-
-	if (area->is_type & IS_LEVEL_2) {
-		if (area->spftree[1] != NULL) {
-			isis_spftree_del(area->spftree[1]);
-			area->spftree[1] = NULL;
-		}
-		if (area->spftree6[1] != NULL) {
-			isis_spftree_del(area->spftree6[1]);
-			area->spftree6[1] = NULL;
-		}
-	}
-
-	return;
 }
 
 void spftree_area_adj_del(struct isis_area *area, struct isis_adjacency *adj)
 {
-	if (area->is_type & IS_LEVEL_1) {
-		if (area->spftree[0] != NULL)
-			isis_spftree_adj_del(area->spftree[0], adj);
-		if (area->spftree6[0] != NULL)
-			isis_spftree_adj_del(area->spftree6[0], adj);
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			if (!(area->is_type & level))
+				continue;
+			if (!area->spftree[tree][level - 1])
+				continue;
+			isis_spftree_adj_del(area->spftree[tree][level - 1],
+					     adj);
+		}
 	}
-
-	if (area->is_type & IS_LEVEL_2) {
-		if (area->spftree[1] != NULL)
-			isis_spftree_adj_del(area->spftree[1], adj);
-		if (area->spftree6[1] != NULL)
-			isis_spftree_adj_del(area->spftree6[1], adj);
-	}
-
-	return;
 }
 
 /*
@@ -1274,9 +1251,9 @@ static int isis_run_spf(struct isis_area *area, int level, int family,
 	start_time = (start_time * 1000000) + nowtv->tv_usec;
 
 	if (family == AF_INET)
-		spftree = area->spftree[level - 1];
+		spftree = area->spftree[SPFTREE_IPV4][level - 1];
 	else if (family == AF_INET6)
-		spftree = area->spftree6[level - 1];
+		spftree = area->spftree[SPFTREE_IPV6][level - 1];
 	assert(spftree);
 	assert(sysid);
 
@@ -1417,7 +1394,7 @@ static struct isis_spf_run *isis_run_spf_arg(struct isis_area *area, int level)
 
 int isis_spf_schedule(struct isis_area *area, int level)
 {
-	struct isis_spftree *spftree = area->spftree[level - 1];
+	struct isis_spftree *spftree = area->spftree[SPFTREE_IPV4][level - 1];
 	time_t now = monotime(NULL);
 	int diff = now - spftree->last_run_monotime;
 
@@ -1569,23 +1546,23 @@ DEFUN (show_isis_topology,
 			if ((level & levels) == 0)
 				continue;
 
-			if (area->ip_circuits > 0 && area->spftree[level - 1]
-			    && isis_vertex_queue_count(&area->spftree[level - 1]->paths) > 0) {
+			if (area->ip_circuits > 0 && area->spftree[SPFTREE_IPV4][level - 1]
+			    && isis_vertex_queue_count(&area->spftree[SPFTREE_IPV4][level - 1]->paths) > 0) {
 				vty_out(vty,
 					"IS-IS paths to level-%d routers that speak IP\n",
 					level);
 				isis_print_paths(
-					vty, &area->spftree[level - 1]->paths,
+					vty, &area->spftree[SPFTREE_IPV4][level - 1]->paths,
 					isis->sysid);
 				vty_out(vty, "\n");
 			}
-			if (area->ipv6_circuits > 0 && area->spftree6[level - 1]
-			    && isis_vertex_queue_count(&area->spftree6[level - 1]->paths) > 0) {
+			if (area->ipv6_circuits > 0 && area->spftree[SPFTREE_IPV6][level - 1]
+			    && isis_vertex_queue_count(&area->spftree[SPFTREE_IPV6][level - 1]->paths) > 0) {
 				vty_out(vty,
 					"IS-IS paths to level-%d routers that speak IPv6\n",
 					level);
 				isis_print_paths(
-					vty, &area->spftree6[level - 1]->paths,
+					vty, &area->spftree[SPFTREE_IPV6][level - 1]->paths,
 					isis->sysid);
 				vty_out(vty, "\n");
 			}
