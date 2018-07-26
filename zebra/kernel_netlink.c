@@ -308,7 +308,7 @@ static unsigned int netlink_file_counter = 1;
 static char netlink_fuzz_file[MAXPATHLEN] = "";
 
 /* Flag for whether to read from file or not */
-bool netlink_read = false;
+bool netlink_read;
 
 /**
  * netlink_read_init() - Starts the message parser
