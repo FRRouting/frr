@@ -135,7 +135,7 @@ void zebra_pbr_rules_free(void *arg)
 
 	rule = (struct zebra_pbr_rule *)arg;
 
-	kernel_del_pbr_rule(rule);
+	(void)kernel_del_pbr_rule(rule);
 	XFREE(MTYPE_TMP, rule);
 }
 
