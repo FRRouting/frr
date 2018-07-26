@@ -118,7 +118,7 @@ static void ospf_route_map_event(route_map_event_t event, const char *name)
 /* `match ip netxthop ' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t route_match_ip_nexthop(void *rule,
-						 struct prefix *prefix,
+						 const struct prefix *prefix,
 						 route_map_object_t type,
 						 void *object)
 {
@@ -163,7 +163,7 @@ struct route_map_rule_cmd route_match_ip_nexthop_cmd = {
 /* `match ip next-hop prefix-list PREFIX_LIST' */
 
 static route_map_result_t
-route_match_ip_next_hop_prefix_list(void *rule, struct prefix *prefix,
+route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 				    route_map_object_t type, void *object)
 {
 	struct prefix_list *plist;
@@ -205,7 +205,7 @@ struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd = {
 /* Match function should return 1 if match is success else return
    zero. */
 static route_map_result_t route_match_ip_address(void *rule,
-						 struct prefix *prefix,
+						 const struct prefix *prefix,
 						 route_map_object_t type,
 						 void *object)
 {
@@ -244,7 +244,7 @@ struct route_map_rule_cmd route_match_ip_address_cmd = {
 
 /* `match ip address prefix-list PREFIX_LIST' */
 static route_map_result_t
-route_match_ip_address_prefix_list(void *rule, struct prefix *prefix,
+route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
 	struct prefix_list *plist;
@@ -280,7 +280,7 @@ struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd = {
 /* Match function should return 1 if match is success else return
    zero. */
 static route_map_result_t route_match_interface(void *rule,
-						struct prefix *prefix,
+						const struct prefix *prefix,
 						route_map_object_t type,
 						void *object)
 {
@@ -318,7 +318,8 @@ struct route_map_rule_cmd route_match_interface_cmd = {
 	route_match_interface_free};
 
 /* Match function return 1 if match is success else return zero. */
-static route_map_result_t route_match_tag(void *rule, struct prefix *prefix,
+static route_map_result_t route_match_tag(void *rule,
+					  const struct prefix *prefix,
 					  route_map_object_t type, void *object)
 {
 	route_tag_t *tag;
@@ -348,7 +349,8 @@ struct ospf_metric {
 
 /* `set metric METRIC' */
 /* Set metric to attribute. */
-static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
+static route_map_result_t route_set_metric(void *rule,
+					   const struct prefix *prefix,
 					   route_map_object_t type,
 					   void *object)
 {
@@ -427,7 +429,7 @@ struct route_map_rule_cmd route_set_metric_cmd = {
 /* `set metric-type TYPE' */
 /* Set metric-type to attribute. */
 static route_map_result_t route_set_metric_type(void *rule,
-						struct prefix *prefix,
+						const struct prefix *prefix,
 						route_map_object_t type,
 						void *object)
 {
@@ -476,7 +478,7 @@ struct route_map_rule_cmd route_set_metric_type_cmd = {
 	route_set_metric_type_free,
 };
 
-static route_map_result_t route_set_tag(void *rule, struct prefix *prefix,
+static route_map_result_t route_set_tag(void *rule, const struct prefix *prefix,
 					route_map_object_t type, void *object)
 {
 	route_tag_t *tag;

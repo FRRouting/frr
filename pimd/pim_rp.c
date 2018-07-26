@@ -194,7 +194,7 @@ static int pim_rp_prefix_list_used(struct pim_instance *pim, const char *plist)
  */
 static struct rp_info *pim_rp_find_exact(struct pim_instance *pim,
 					 struct in_addr rp,
-					 struct prefix *group)
+					 const struct prefix *group)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
@@ -212,13 +212,13 @@ static struct rp_info *pim_rp_find_exact(struct pim_instance *pim,
  * Given a group, return the rp_info for that group
  */
 static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
-					       struct prefix *group)
+					       const struct prefix *group)
 {
 	struct listnode *node;
 	struct rp_info *best = NULL;
 	struct rp_info *rp_info;
 	struct prefix_list *plist;
-	struct prefix *p, *bp;
+	const struct prefix *p, *bp;
 	struct route_node *rn;
 
 	bp = NULL;

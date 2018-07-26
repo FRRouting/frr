@@ -730,10 +730,13 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	struct ecommunity ecom_sticky;
 	struct ecommunity ecom_default_gw;
 	struct ecommunity ecom_rmac;
+	struct ecommunity ecom_na;
 	struct ecommunity_val eval;
 	struct ecommunity_val eval_sticky;
 	struct ecommunity_val eval_default_gw;
 	struct ecommunity_val eval_rmac;
+	struct ecommunity_val eval_na;
+
 	bgp_encap_types tnl_type;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
@@ -796,6 +799,15 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		ecom_default_gw.val = (uint8_t *)eval_default_gw.val;
 		attr->ecommunity =
 			ecommunity_merge(attr->ecommunity, &ecom_default_gw);
+	}
+
+	if (attr->router_flag) {
+		memset(&ecom_na, 0, sizeof(ecom_na));
+		encode_na_flag_extcomm(&eval_na, attr->router_flag);
+		ecom_na.size = 1;
+		ecom_na.val = (uint8_t *)eval_na.val;
+		attr->ecommunity = ecommunity_merge(attr->ecommunity,
+						   &ecom_na);
 	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
@@ -1089,6 +1101,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	struct bgp_info *old_select, *new_select;
 	struct bgp_info_pair old_and_new;
+	struct prefix_evpn *evp;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 	int ret = 0;
@@ -1100,6 +1113,7 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
+	evp = (struct prefix_evpn *)&rn->p;
 	/* If the best path hasn't changed - see if there is still something to
 	 * update
 	 * to zebra RIB.
@@ -1115,6 +1129,10 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
 			if (old_select->attr->default_gw)
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
+			if (is_evpn_prefix_ipaddr_v6(evp) &&
+			    old_select->attr->router_flag)
+				SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+
 			ret = evpn_zebra_install(
 				bgp, vpn, (struct prefix_evpn *)&rn->p,
 				old_select->attr->nexthop, flags);
@@ -1148,6 +1166,10 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 			SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
 		if (new_select->attr->default_gw)
 			SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
+		if (is_evpn_prefix_ipaddr_v6(evp) &&
+		    new_select->attr->router_flag)
+			SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+
 		ret = evpn_zebra_install(bgp, vpn, (struct prefix_evpn *)&rn->p,
 					 new_select->attr->nexthop, flags);
 		/* If an old best existed and it was a "local" route, the only
@@ -1695,6 +1717,8 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 	attr.sticky = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY) ? 1 : 0;
 	attr.default_gw = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW) ? 1 : 0;
+	attr.router_flag = CHECK_FLAG(flags,
+				      ZEBRA_MACIP_TYPE_ROUTER_FLAG) ? 1 : 0;
 
 	/* PMSI is only needed for type-3 routes */
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE)
@@ -1993,11 +2017,13 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 				update_evpn_route_entry(bgp, vpn, afi, safi, rn,
 							&attr_sticky, 0, 1, &ri,
 							0);
-			else if (evpn_route_is_def_gw(bgp, rn))
+			else if (evpn_route_is_def_gw(bgp, rn)) {
+				if (is_evpn_prefix_ipaddr_v6(evp))
+					attr_def_gw.router_flag = 1;
 				update_evpn_route_entry(bgp, vpn, afi, safi, rn,
 							&attr_def_gw, 0, 1, &ri,
 							0);
-			else
+			} else
 				update_evpn_route_entry(bgp, vpn, afi, safi, rn,
 							&attr, 0, 1, &ri, 0);
 		}

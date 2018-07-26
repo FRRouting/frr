@@ -116,8 +116,8 @@ static void check_lookup_result(struct list *list, va_list arglist)
 	assert(prefix_count == listcount(list));
 }
 
-static void do_test(struct bgp_table *table, const char *prefix, uint8_t maxlen,
-		    ...)
+static void do_test(struct bgp_table *table, const char *prefix,
+		    uint32_t maxlen, ...)
 {
 	va_list arglist;
 	struct list *list = list_new();

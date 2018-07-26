@@ -88,7 +88,8 @@ static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 #endif
 
 /* Interface between zebra message and rtm message. */
-static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
+static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
+			   struct route_entry *re)
 
 {
 	struct sockaddr_in *mask = NULL;
@@ -272,7 +273,8 @@ static int sin6_masklen(struct in6_addr mask)
 #endif /* SIN6_LEN */
 
 /* Interface between zebra message and rtm message. */
-static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
+static int kernel_rtm_ipv6(int cmd, const struct prefix *p,
+			   struct route_entry *re)
 {
 	struct sockaddr_in6 *mask;
 	struct sockaddr_in6 sin_dest, sin_mask, sin_gate;
@@ -374,7 +376,7 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 	return 0; /*XXX*/
 }
 
-static int kernel_rtm(int cmd, struct prefix *p, struct route_entry *re)
+static int kernel_rtm(int cmd, const struct prefix *p, struct route_entry *re)
 {
 	switch (PREFIX_FAMILY(p)) {
 	case AF_INET:
@@ -460,7 +462,7 @@ int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
 }
 
 int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
-		     struct ethaddr *mac)
+		     struct ethaddr *mac, uint8_t flags)
 {
 	return 0;
 }

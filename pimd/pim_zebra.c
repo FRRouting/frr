@@ -868,6 +868,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 void igmp_source_forward_start(struct pim_instance *pim,
 			       struct igmp_source *source)
 {
+	struct pim_interface *pim_oif;
 	struct igmp_group *group;
 	struct prefix_sg sg;
 	int result;
@@ -893,10 +894,20 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	}
 
 	group = source->source_group;
+	pim_oif = group->group_igmp_sock->interface->info;
+	if (!pim_oif) {
+		if (PIM_DEBUG_IGMP_TRACE) {
+			zlog_debug(
+				   "%s: multicast not enabled on oif=%s ?",
+				   __PRETTY_FUNCTION__,
+				   source->source_group->group_igmp_sock
+				   ->interface->name);
+		}
+		return;
+	}
 
 	if (!source->source_channel_oil) {
 		struct in_addr vif_source;
-		struct pim_interface *pim_oif;
 		struct prefix nht_p, src, grp;
 		struct pim_nexthop_cache out_pnc;
 		struct pim_nexthop nexthop;
@@ -983,19 +994,6 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		  source and receiver attached to the same interface. See TODO
 		  T22.
 		*/
-		pim_oif =
-			source->source_group->group_igmp_sock->interface->info;
-		if (!pim_oif) {
-			if (PIM_DEBUG_IGMP_TRACE) {
-				zlog_debug(
-					"%s: multicast not enabled on oif=%s ?",
-					__PRETTY_FUNCTION__,
-					source->source_group->group_igmp_sock
-						->interface->name);
-			}
-			return;
-		}
-
 		if (input_iface_vif_index == pim_oif->mroute_vif_index) {
 			/* ignore request for looped MFC entry */
 			if (PIM_DEBUG_IGMP_TRACE) {
@@ -1036,12 +1034,15 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		return;
 	}
 
+	if (!(PIM_I_am_DR(pim_oif)))
+		return;
+
 	/*
 	  Feed IGMPv3-gathered local membership information into PIM
 	  per-interface (S,G) state.
 	 */
 	if (!pim_ifchannel_local_membership_add(
-		    group->group_igmp_sock->interface, &sg)) {
+						group->group_igmp_sock->interface, &sg)) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_warn("%s: Failure to add local membership for %s",
 				  __PRETTY_FUNCTION__, pim_str_sg_dump(&sg));

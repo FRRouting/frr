@@ -87,8 +87,10 @@ struct route_map_rule_cmd {
 	const char *str;
 
 	/* Function for value set or match. */
-	route_map_result_t (*func_apply)(void *, struct prefix *,
-					 route_map_object_t, void *);
+	route_map_result_t (*func_apply)(void *rule,
+					 const struct prefix *prefix,
+					 route_map_object_t type,
+					 void *object);
 
 	/* Compile argument and return result as void *. */
 	void *(*func_compile)(const char *);
@@ -208,7 +210,7 @@ extern struct route_map *route_map_lookup_by_name(const char *name);
 
 /* Apply route map to the object. */
 extern route_map_result_t route_map_apply(struct route_map *map,
-					  struct prefix *,
+					  const struct prefix *prefix,
 					  route_map_object_t object_type,
 					  void *object);
 

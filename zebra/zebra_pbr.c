@@ -832,6 +832,7 @@ struct zebra_pbr_ipset_entry_unique_display {
 struct zebra_pbr_env_display {
 	struct zebra_ns *zns;
 	struct vty *vty;
+	char *name;
 };
 
 static const char *zebra_pbr_prefix2str(union prefixconstptr pu,
@@ -1037,6 +1038,7 @@ void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname)
 	}
 	uniqueipset.zns = zns;
 	uniqueipset.vty = vty;
+	uniqueipset.name = NULL;
 	hash_walk(zns->ipset_hash, zebra_pbr_show_ipset_walkcb,
 		  &uniqueipset);
 }
@@ -1060,19 +1062,25 @@ static int zebra_pbr_rule_lookup_fwmark_walkcb(struct hash_backet *backet,
 	return HASHWALK_CONTINUE;
 }
 
-static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
+static void zebra_pbr_show_iptable_unit(struct zebra_pbr_iptable *iptable,
+				       struct vty *vty,
+				       struct zebra_ns *zns)
 {
-	struct zebra_pbr_iptable *iptable =
-		(struct zebra_pbr_iptable *)backet->data;
-	struct zebra_pbr_env_display *env = (struct zebra_pbr_env_display *)arg;
-	struct vty *vty = env->vty;
-	struct zebra_ns *zns = env->zns;
 	int ret;
 	uint64_t pkts = 0, bytes = 0;
 
 	vty_out(vty, "IPtable %s action %s (%u)\n", iptable->ipset_name,
 		iptable->action == ZEBRA_IPTABLES_DROP ? "drop" : "redirect",
 		iptable->unique);
+	if (iptable->type == IPSET_NET_PORT ||
+	    iptable->type == IPSET_NET_PORT_NET) {
+		if (!(iptable->filter_bm & MATCH_ICMP_SET)) {
+			if (iptable->filter_bm & PBR_FILTER_DST_PORT)
+				vty_out(vty, "\t lookup dst port\n");
+			else if (iptable->filter_bm & PBR_FILTER_SRC_PORT)
+				vty_out(vty, "\t lookup src port\n");
+		}
+	}
 	if (iptable->pkt_len_min || iptable->pkt_len_max) {
 		if (!iptable->pkt_len_max)
 			vty_out(vty, "\t pkt len %u\n",
@@ -1129,17 +1137,34 @@ static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
 				prfl.fwmark);
 		}
 	}
+}
+
+static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct zebra_pbr_iptable *iptable =
+		(struct zebra_pbr_iptable *)backet->data;
+	struct zebra_pbr_env_display *env = (struct zebra_pbr_env_display *)arg;
+	struct vty *vty = env->vty;
+	struct zebra_ns *zns = env->zns;
+	char *iptable_name = env->name;
+
+	if (!iptable_name)
+		zebra_pbr_show_iptable_unit(iptable, vty, zns);
+	else if (!strncmp(iptable_name,
+			  iptable->ipset_name,
+			  ZEBRA_IPSET_NAME_SIZE))
+		zebra_pbr_show_iptable_unit(iptable, vty, zns);
 	return HASHWALK_CONTINUE;
 }
 
-void zebra_pbr_show_iptable(struct vty *vty)
+void zebra_pbr_show_iptable(struct vty *vty, char *iptable_name)
 {
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 	struct zebra_pbr_env_display env;
 
 	env.vty = vty;
 	env.zns = zns;
-
+	env.name = iptable_name;
 	hash_walk(zns->iptable_hash, zebra_pbr_show_iptable_walkcb,
 		  &env);
 }

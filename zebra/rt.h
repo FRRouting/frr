@@ -122,7 +122,7 @@ extern int kernel_del_mac(struct interface *ifp, vlanid_t vid,
 			  int local);
 
 extern int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
-			    struct ethaddr *mac);
+			    struct ethaddr *mac, uint8_t flags);
 extern int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip);
 
 /*

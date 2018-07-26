@@ -891,8 +891,12 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	zns = zebra_ns_lookup(ns_id);
 	ifa = NLMSG_DATA(h);
 
-	if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6)
+	if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6) {
+		zlog_warn(
+			"Invalid address family: %d received from kernel interface addr change: %d",
+			ifa->ifa_family, h->nlmsg_type);
 		return 0;
+	}
 
 	if (h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR)
 		return 0;
@@ -1126,6 +1130,14 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 	}
 
+	if (!(ifi->ifi_family == AF_UNSPEC || ifi->ifi_family == AF_BRIDGE
+	      || ifi->ifi_family == AF_INET6)) {
+		zlog_warn(
+			"Invalid address family: %d received from kernel link change: %d",
+			ifi->ifi_family, h->nlmsg_type);
+		return 0;
+	}
+
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	if (len < 0) {
 		zlog_err("%s: Message received from netlink is of a broken size %d %zu",
@@ -1230,6 +1242,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Update interface information. */
 			set_ifindex(ifp, ifi->ifi_index, zns);
 			ifp->flags = ifi->ifi_flags & 0x0000fffff;
+			if (!tb[IFLA_MTU]) {
+				zlog_warn(
+					"RTM_NEWLINK for interface %s(%u) without MTU set",
+					name, ifi->ifi_index);
+				return 0;
+			}
 			ifp->mtu6 = ifp->mtu = *(int *)RTA_DATA(tb[IFLA_MTU]);
 			ifp->metric = 0;
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
@@ -1279,6 +1297,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					bridge_ifindex, ifi->ifi_flags);
 
 			set_ifindex(ifp, ifi->ifi_index, zns);
+			if (!tb[IFLA_MTU]) {
+				zlog_warn(
+					"RTM_NEWLINK for interface %s(%u) without MTU set",
+					name, ifi->ifi_index);
+				return 0;
+			}
 			ifp->mtu6 = ifp->mtu = *(int *)RTA_DATA(tb[IFLA_MTU]);
 			ifp->metric = 0;
 

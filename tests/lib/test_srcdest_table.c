@@ -392,7 +392,8 @@ static void test_state_del_one_route(struct test_state *test, struct prng *prng)
 	}
 
 	assert(rn);
-	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
+	srcdest_rnode_prefixes(rn, (const struct prefix **)&dst_p,
+			       (const struct prefix **)&src_p);
 	memcpy(&dst6_p, dst_p, sizeof(dst6_p));
 	if (src_p)
 		memcpy(&src6_p, src_p, sizeof(src6_p));

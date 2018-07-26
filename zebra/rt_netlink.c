@@ -393,9 +393,15 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		memcpy(&p.u.prefix4, dest, 4);
 		p.prefixlen = rtm->rtm_dst_len;
 
-		src_p.prefixlen =
-			0; // Forces debug below to not display anything
+		if (rtm->rtm_src_len != 0) {
+			char buf[PREFIX_STRLEN];
+			zlog_warn("unsupported IPv4 sourcedest route (dest %s vrf %u)",
+				  prefix2str(&p, buf, sizeof(buf)), vrf_id);
+			return 0;
+		}
 
+		/* Force debug below to not display anything for source */
+		src_p.prefixlen = 0;
 	} else if (rtm->rtm_family == AF_INET6) {
 		p.family = AF_INET6;
 		if (rtm->rtm_dst_len > IPV6_MAX_BITLEN) {
@@ -416,14 +422,6 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		}
 		memcpy(&src_p.prefix, src, 16);
 		src_p.prefixlen = rtm->rtm_src_len;
-	}
-
-	if (rtm->rtm_src_len != 0) {
-		char buf[PREFIX_STRLEN];
-		zlog_warn(
-			"unsupported IPv[4|6] sourcedest route (dest %s vrf %u)",
-			prefix2str(&p, buf, sizeof(buf)), vrf_id);
-		return 0;
 	}
 
 	/*
@@ -511,7 +509,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			nh.vrf_id = nh_vrf_id;
 
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
-				NULL, &nh, table, metric, mtu, distance, tag);
+				&src_p, &nh, table, metric, mtu, distance, tag);
 		} else {
 			/* This is a multipath route */
 
@@ -600,6 +598,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					route_entry_nexthop_ifindex_add(
 						re, index, nh_vrf_id);
 
+				if (rtnh->rtnh_len == 0)
+					break;
+
 				len -= NLMSG_ALIGN(rtnh->rtnh_len);
 				rtnh = RTNH_NEXT(rtnh);
 			}
@@ -610,8 +611,8 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			if (re->nexthop_num == 0)
 				XFREE(MTYPE_RE, re);
 			else
-				rib_add_multipath(afi, SAFI_UNICAST, &p, NULL,
-						  re);
+				rib_add_multipath(afi, SAFI_UNICAST, &p,
+						  &src_p, re);
 		}
 	} else {
 		if (!tb[RTA_MULTIPATH]) {
@@ -643,12 +644,12 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
 			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
-				   &p, NULL, &nh, table, metric, true);
+				   &p, &src_p, &nh, table, metric, true);
 		} else {
 			/* XXX: need to compare the entire list of nexthops
 			 * here for NLM_F_APPEND stupidity */
 			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
-				   &p, NULL, NULL, table, metric, true);
+				   &p, &src_p, NULL, table, metric, true);
 		}
 	}
 
@@ -720,6 +721,9 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 			oif[oif_count] = rtnh->rtnh_ifindex;
 			oif_count++;
 
+			if (rtnh->rtnh_len == 0)
+				break;
+
 			len -= NLMSG_ALIGN(rtnh->rtnh_len);
 			rtnh = RTNH_NEXT(rtnh);
 		}
@@ -756,6 +760,15 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (!(h->nlmsg_type == RTM_NEWROUTE || h->nlmsg_type == RTM_DELROUTE)) {
 		/* If this is not route add/delete message print warning. */
 		zlog_warn("Kernel message: %d NS %u\n", h->nlmsg_type, ns_id);
+		return 0;
+	}
+
+	if (!(rtm->rtm_family == AF_INET || rtm->rtm_family == AF_INET6
+	      || rtm->rtm_family == AF_ETHERNET
+	      || rtm->rtm_family == AF_MPLS)) {
+		zlog_warn(
+			"Invalid address family: %d received from kernel route change: %d",
+			rtm->rtm_family, h->nlmsg_type);
 		return 0;
 	}
 
@@ -2170,6 +2183,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	char buf2[INET6_ADDRSTRLEN];
 	int mac_present = 0;
 	uint8_t ext_learned;
+	uint8_t router_flag;
 
 	ndm = NLMSG_DATA(h);
 
@@ -2260,6 +2274,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		}
 
 		ext_learned = (ndm->ndm_flags & NTF_EXT_LEARNED) ? 1 : 0;
+		router_flag = (ndm->ndm_flags & NTF_ROUTER) ? 1 : 0;
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -2282,7 +2297,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		if (ndm->ndm_state & NUD_VALID)
 			return zebra_vxlan_handle_kernel_neigh_update(
 				ifp, link_if, &ip, &mac, ndm->ndm_state,
-				ext_learned);
+				ext_learned, router_flag);
 
 		return zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 	}
@@ -2405,12 +2420,19 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 
 	if (ndm->ndm_family == AF_INET || ndm->ndm_family == AF_INET6)
 		return netlink_ipneigh_change(h, len, ns_id);
+	else {
+		zlog_warn(
+			"Invalid address family: %d received from kernel neighbor change: %d",
+			ndm->ndm_family, h->nlmsg_type);
+		return 0;
+	}
 
 	return 0;
 }
 
 static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
-				 struct ethaddr *mac, uint32_t flags, int cmd)
+				 struct ethaddr *mac, uint8_t flags,
+				 uint16_t state, int cmd)
 {
 	struct {
 		struct nlmsghdr n;
@@ -2433,11 +2455,10 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 		req.n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
 	req.n.nlmsg_type = cmd; // RTM_NEWNEIGH or RTM_DELNEIGH
 	req.ndm.ndm_family = IS_IPADDR_V4(ip) ? AF_INET : AF_INET6;
-	req.ndm.ndm_state = flags;
+	req.ndm.ndm_state = state;
 	req.ndm.ndm_ifindex = ifp->ifindex;
 	req.ndm.ndm_type = RTN_UNICAST;
-	req.ndm.ndm_flags = NTF_EXT_LEARNED;
-
+	req.ndm.ndm_flags = flags;
 
 	ipa_len = IS_IPADDR_V4(ip) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
 	addattr_l(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len);
@@ -2445,12 +2466,12 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 		addattr_l(&req.n, sizeof(req), NDA_LLADDR, mac, 6);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Tx %s family %s IF %s(%u) Neigh %s MAC %s",
+		zlog_debug("Tx %s family %s IF %s(%u) Neigh %s MAC %s flags 0x%x",
 			   nl_msg_type_to_str(cmd),
 			   nl_family_to_str(req.ndm.ndm_family), ifp->name,
 			   ifp->ifindex, ipaddr2str(ip, buf, sizeof(buf)),
 			   mac ? prefix_mac2str(mac, buf2, sizeof(buf2))
-			       : "null");
+			       : "null", flags);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);
@@ -2471,14 +2492,15 @@ int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
 }
 
 int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
-		     struct ethaddr *mac)
+		     struct ethaddr *mac, uint8_t flags)
 {
-	return netlink_neigh_update2(ifp, ip, mac, NUD_NOARP, RTM_NEWNEIGH);
+	return netlink_neigh_update2(ifp, ip, mac, flags,
+				     NUD_NOARP, RTM_NEWNEIGH);
 }
 
 int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip)
 {
-	return netlink_neigh_update2(ifp, ip, NULL, 0, RTM_DELNEIGH);
+	return netlink_neigh_update2(ifp, ip, NULL, 0, 0, RTM_DELNEIGH);
 }
 
 /*

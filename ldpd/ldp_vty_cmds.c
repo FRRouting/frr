@@ -861,6 +861,7 @@ ldp_vty_init (void)
 	install_element(LDP_IPV6_NODE, &ldp_label_remote_accept_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_ttl_security_disable_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_interface_cmd);
+	install_element(LDP_IPV6_NODE, &no_ldp_interface_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_session_holdtime_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_neighbor_ipv6_targeted_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_exit_address_family_cmd);
