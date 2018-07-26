@@ -285,6 +285,7 @@ struct isis_spftree {
 	uint16_t mtid;
 	int family;
 	int level;
+	enum spf_tree_id tree_id;
 };
 
 
@@ -1222,7 +1223,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 }
 
 static void init_spt(struct isis_spftree *spftree, int mtid, int level,
-		     int family)
+		     int family, enum spf_tree_id tree_id)
 {
 	isis_vertex_queue_clear(&spftree->tents);
 	isis_vertex_queue_clear(&spftree->paths);
@@ -1230,44 +1231,50 @@ static void init_spt(struct isis_spftree *spftree, int mtid, int level,
 	spftree->mtid = mtid;
 	spftree->level = level;
 	spftree->family = family;
+	spftree->tree_id = tree_id;
 	return;
 }
 
-static int isis_run_spf(struct isis_area *area, int level, int family,
+static int isis_run_spf(struct isis_area *area, int level,
+			enum spf_tree_id tree_id,
 			uint8_t *sysid, struct timeval *nowtv)
 {
 	int retval = ISIS_OK;
 	struct isis_vertex *vertex;
 	struct isis_vertex *root_vertex;
-	struct isis_spftree *spftree = NULL;
+	struct isis_spftree *spftree = area->spftree[tree_id][level - 1];
 	uint8_t lsp_id[ISIS_SYS_ID_LEN + 2];
 	struct isis_lsp *lsp;
 	struct timeval time_now;
 	unsigned long long start_time, end_time;
-	uint16_t mtid;
+	uint16_t mtid = 0;
 
 	/* Get time that can't roll backwards. */
 	start_time = nowtv->tv_sec;
 	start_time = (start_time * 1000000) + nowtv->tv_usec;
 
-	if (family == AF_INET)
-		spftree = area->spftree[SPFTREE_IPV4][level - 1];
-	else if (family == AF_INET6)
-		spftree = area->spftree[SPFTREE_IPV6][level - 1];
+	int family = -1;
+	switch (tree_id) {
+	case SPFTREE_IPV4:
+		family = AF_INET;
+		mtid = ISIS_MT_IPV4_UNICAST;
+		break;
+	case SPFTREE_IPV6:
+		family = AF_INET6;
+		mtid = isis_area_ipv6_topology(area);
+		break;
+	case SPFTREE_COUNT:
+		assert(!"isis_run_spf should never be called with SPFTREE_COUNT as argument!");
+		return ISIS_WARNING;
+	}
+
 	assert(spftree);
 	assert(sysid);
-
-	/* We only support ipv4-unicast and ipv6-unicast as topologies for now
-	 */
-	if (family == AF_INET6)
-		mtid = isis_area_ipv6_topology(area);
-	else
-		mtid = ISIS_MT_IPV4_UNICAST;
 
 	/*
 	 * C.2.5 Step 0
 	 */
-	init_spt(spftree, mtid, level, family);
+	init_spt(spftree, mtid, level, family, tree_id);
 	/*              a) */
 	root_vertex = isis_spf_add_root(spftree, sysid);
 	/*              b) */
@@ -1365,10 +1372,10 @@ static int isis_run_spf_cb(struct thread *thread)
 			   area->area_tag, level);
 
 	if (area->ip_circuits)
-		retval = isis_run_spf(area, level, AF_INET, isis->sysid,
+		retval = isis_run_spf(area, level, SPFTREE_IPV4, isis->sysid,
 				      &thread->real);
 	if (area->ipv6_circuits)
-		retval = isis_run_spf(area, level, AF_INET6, isis->sysid,
+		retval = isis_run_spf(area, level, SPFTREE_IPV6, isis->sysid,
 				      &thread->real);
 
 	isis_area_verify_routes(area);
