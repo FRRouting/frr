@@ -73,6 +73,9 @@ struct zserv {
 	struct thread *t_read;
 	struct thread *t_write;
 
+	/* Threads for the main pthread */
+	struct thread *t_cleanup;
+
 	/* default routing table this client munges */
 	int rtm_table;
 
@@ -231,6 +234,18 @@ extern int zserv_send_message(struct zserv *client, struct stream *msg);
  *    The Zebra API client.
  */
 extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
+
+
+/*
+ * Close a client.
+ *
+ * Kills a client's thread, removes the client from the client list and cleans
+ * up its resources.
+ *
+ * client
+ *    the client to close
+ */
+extern void zserv_close_client(struct zserv *client);
 
 #if defined(HANDLE_ZAPI_FUZZING)
 extern void zserv_read_file(char *input);
