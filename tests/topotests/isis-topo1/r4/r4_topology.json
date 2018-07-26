@@ -47,23 +47,6 @@
           "interface": "r4-eth1",
           "metric": "20",
           "next-hop": "r5",
-          "parent": "r5(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r3"
-        },
-        {
-          "interface": "r4-eth1",
-          "metric": "20",
-          "next-hop": "r5",
-          "parent": "r5(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r5"
-        },
-        {
-          "interface": "r4-eth1",
-          "metric": "20",
-          "next-hop": "r5",
-          "parent": "r3(2)",
           "type": "TE-IS",
           "vertex": "r3"
         },
@@ -122,23 +105,6 @@
           "interface": "r4-eth1",
           "metric": "20",
           "next-hop": "r5",
-          "parent": "r5(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r3"
-        },
-        {
-          "interface": "r4-eth1",
-          "metric": "20",
-          "next-hop": "r5",
-          "parent": "r5(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r5"
-        },
-        {
-          "interface": "r4-eth1",
-          "metric": "20",
-          "next-hop": "r5",
-          "parent": "r3(2)",
           "type": "TE-IS",
           "vertex": "r3"
         },
@@ -194,14 +160,6 @@
           "parent": "r4-eth0",
           "type": "IP",
           "vertex": "10.254.0.2/32"
-        },
-        {
-          "interface": "r4-eth0",
-          "metric": "20",
-          "next-hop": "r2",
-          "parent": "r2(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r2"
         }
       ],
       "ipv6": [
@@ -229,14 +187,6 @@
           "parent": "r4-eth0",
           "type": "IP6",
           "vertex": "2001:db8:f::2/128"
-        },
-        {
-          "interface": "r4-eth0",
-          "metric": "20",
-          "next-hop": "r2",
-          "parent": "r2(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r2"
         }
       ]
     }

@@ -80,14 +80,6 @@
           "parent": "r5-eth1",
           "type": "IP",
           "vertex": "10.254.0.4/32"
-        },
-        {
-          "interface": "r5-eth0",
-          "metric": "20",
-          "next-hop": "r3",
-          "parent": "r3(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r3"
         }
       ],
       "ipv6": [
@@ -153,14 +145,6 @@
           "parent": "r5-eth1",
           "type": "IP6",
           "vertex": "2001:db8:f::4/128"
-        },
-        {
-          "interface": "r5-eth0",
-          "metric": "20",
-          "next-hop": "r3",
-          "parent": "r3(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r3"
         }
       ]
     },

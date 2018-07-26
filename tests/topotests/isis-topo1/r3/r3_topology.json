@@ -47,15 +47,6 @@
           "interface": "r3-eth1",
           "metric": "20",
           "next-hop": "r5",
-          "parent": "r5(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r5"
-        },
-        {
-          "interface": "r3-eth1",
-          "metric": "20",
-          "next-hop": "r5",
-          "parent": "r5(2)",
           "type": "TE-IS",
           "vertex": "r4"
         },
@@ -114,15 +105,6 @@
           "interface": "r3-eth1",
           "metric": "20",
           "next-hop": "r5",
-          "parent": "r5(4)",
-          "type": "pseudo_TE-IS",
-          "vertex": "r5"
-        },
-        {
-          "interface": "r3-eth1",
-          "metric": "20",
-          "next-hop": "r5",
-          "parent": "r5(2)",
           "type": "TE-IS",
           "vertex": "r4"
         },
