@@ -273,7 +273,33 @@ static int fpt_halt(struct frr_pthread *fpt, void **res)
 	return 0;
 }
 
-/* entry pthread function & main event loop */
+/*
+ * Entry pthread function & main event loop.
+ *
+ * Upon thread start the following actions occur:
+ *
+ * - frr_pthread's owner field is set to pthread ID.
+ * - All signals are blocked (except for unblockable signals).
+ * - Pthread's threadmaster is set to never handle pending signals
+ * - Poker pipe for poll() is created and queued as I/O source
+ * - The frr_pthread->running_cond condition variable is signalled to indicate
+ *   that the previous actions have completed. It is not safe to assume any of
+ *   the above have occurred before receiving this signal.
+ *
+ * After initialization is completed, the event loop begins running. Each tick,
+ * the following actions are performed before running the usual event system
+ * tick function:
+ *
+ * - Verify that the running boolean is set
+ * - Verify that there are no pending cancellation requests
+ * - Verify that there are tasks scheduled
+ *
+ * So long as the conditions are met, the event loop tick is run and the
+ * returned task is executed.
+ *
+ * If any of these conditions are not met, the event loop exits, closes the
+ * pipes and dies without running any cleanup functions.
+ */
 static void *fpt_run(void *arg)
 {
 	struct frr_pthread *fpt = arg;
@@ -289,6 +315,7 @@ static void *fpt_run(void *arg)
 
 	struct thread task;
 	while (atomic_load_explicit(&fpt->running, memory_order_relaxed)) {
+		pthread_testcancel();
 		if (thread_fetch(fpt->master, &task)) {
 			thread_call(&task);
 		}
