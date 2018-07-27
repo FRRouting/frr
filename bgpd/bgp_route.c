@@ -10234,19 +10234,17 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					route_filtered = true;
 
 				/* Filter prefix using route-map */
-				if ((bgp_input_modifier(peer, &rn->p, &attr,
-							afi, safi, rmap_name))
-					== RMAP_DENY)
-					route_filtered = true;
+				ret = bgp_input_modifier(peer, &rn->p, &attr,
+							afi, safi, rmap_name);
 
-				if (type == bgp_show_adj_route_filtered
-				    && !route_filtered) {
+				if (type == bgp_show_adj_route_filtered &&
+					!route_filtered && ret != RMAP_DENY) {
 					bgp_attr_undup(&attr, ain->attr);
 					continue;
 				}
 
-				if (type == bgp_show_adj_route_received
-				    && route_filtered)
+				if (type == bgp_show_adj_route_received &&
+					(route_filtered || ret == RMAP_DENY))
 					filtered_count++;
 
 				route_vty_out_tmp(vty, &rn->p, &attr, safi,
