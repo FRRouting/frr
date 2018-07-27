@@ -1417,7 +1417,7 @@ DEFUN (show_interface,
 	interface_update_stats();
 
 	if (argc > 2)
-		VRF_GET_ID(vrf_id, argv[3]->arg);
+		VRF_GET_ID(vrf_id, argv[3]->arg, false);
 
 	/* All interface print. */
 	vrf = vrf_lookup_by_id(vrf_id);
@@ -1466,7 +1466,7 @@ DEFUN (show_interface_name_vrf,
 
 	interface_update_stats();
 
-	VRF_GET_ID(vrf_id, argv[idx_name]->arg);
+	VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
 
 	/* Specified interface print. */
 	ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
@@ -1560,7 +1560,7 @@ DEFUN (show_interface_desc,
 	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	if (argc > 3)
-		VRF_GET_ID(vrf_id, argv[4]->arg);
+		VRF_GET_ID(vrf_id, argv[4]->arg, false);
 
 	if_show_description(vty, vrf_id);
 

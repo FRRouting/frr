@@ -226,7 +226,7 @@ DEFUN (router_id,
 	rid.family = AF_INET;
 
 	if (argc > 2)
-		VRF_GET_ID(vrf_id, argv[idx_name]->arg);
+		VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
 
 	router_id_set(&rid, vrf_id);
 
@@ -251,7 +251,7 @@ DEFUN (no_router_id,
 	rid.family = AF_INET;
 
 	if (argc > 3)
-		VRF_GET_ID(vrf_id, argv[idx_name]->arg);
+		VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
 
 	router_id_set(&rid, vrf_id);
 

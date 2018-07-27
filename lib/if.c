@@ -652,7 +652,7 @@ DEFUN (interface,
 	/*Pending: need proper vrf name based lookup/(possible creation of VRF)
 	 Imagine forward reference of a vrf by name in this interface config */
 	if (vrfname)
-		VRF_GET_ID(vrf_id, vrfname);
+		VRF_GET_ID(vrf_id, vrfname, false);
 
 #ifdef SUNOS_5
 	ifp = if_sunwzebra_get(ifname, vrf_id);
@@ -686,7 +686,7 @@ DEFUN_NOSH (no_interface,
 	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	if (argc > 3)
-		VRF_GET_ID(vrf_id, vrfname);
+		VRF_GET_ID(vrf_id, vrfname, false);
 
 	ifp = if_lookup_by_name(ifname, vrf_id);
 
