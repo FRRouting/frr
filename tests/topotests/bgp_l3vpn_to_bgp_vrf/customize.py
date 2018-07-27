@@ -146,6 +146,11 @@ def ltemplatePreRouterStartHook():
     krel = platform.release()
     tgen = get_topogen()
     logger.info('pre router-start hook, kernel=' + krel)
+    if topotest.version_cmp(krel, '4.15') == 0:
+        l3mdev_accept = 1
+    else:
+        l3mdev_accept = 0
+    logger.info('setting net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept))
     #check for mpls
     if tgen.hasmpls != True:
         logger.info('MPLS not available, skipping setup')
@@ -166,7 +171,8 @@ def ltemplatePreRouterStartHook():
     cmds = ['ip link add {0}-cust1 type vrf table 10',
             'ip ru add oif {0}-cust1 table 10',
             'ip ru add iif {0}-cust1 table 10',
-            'ip link set dev {0}-cust1 up']
+            'ip link set dev {0}-cust1 up',
+            'sysctl -w net.ipv4.udp_l3mdev_accept={}'.format(l3mdev_accept)]
     for rtr in rtrs:
         router = tgen.gears[rtr]
         for cmd in cmds:
