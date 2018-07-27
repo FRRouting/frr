@@ -188,7 +188,7 @@ static void bgp_info_extra_free(struct bgp_info_extra **extra)
 		struct bgp_info *bi = (struct bgp_info *)e->parent;
 
 		if (bi->net)
-			bgp_unlock_node((struct bgp_node *)bi->net);
+			bi->net = bgp_unlock_node((struct bgp_node *)bi->net);
 		bgp_info_unlock(e->parent);
 		e->parent = NULL;
 	}
