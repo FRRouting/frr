@@ -76,7 +76,6 @@
         },
         {
           "interface": "r3",
-          "metric": "internal",
           "next-hop": "10",
           "parent": "r1-eth0",
           "type": "IP6",
@@ -84,7 +83,6 @@
         },
         {
           "interface": "r3",
-          "metric": "internal",
           "next-hop": "10",
           "parent": "r1-eth0",
           "type": "IP6",

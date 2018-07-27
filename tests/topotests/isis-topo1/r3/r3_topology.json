@@ -75,7 +75,7 @@
           "metric": "internal",
           "parent": "0",
           "type": "IP6",
-          "vertex": "2001:db8:1:1::/64"
+          "vertex": "2001:db8:2:1::/64"
         },
         {
           "interface": "r3-eth1",
@@ -87,15 +87,13 @@
         },
         {
           "interface": "r5",
-          "metric": "internal",
           "next-hop": "10",
           "parent": "r3-eth1",
           "type": "IP6",
-          "vertex": "2001:db8:1:2::/64"
+          "vertex": "2001:db8:2:2::/64"
         },
         {
           "interface": "r5",
-          "metric": "internal",
           "next-hop": "10",
           "parent": "r3-eth1",
           "type": "IP6",
@@ -110,15 +108,13 @@
         },
         {
           "interface": "r5",
-          "metric": "internal",
           "next-hop": "20",
           "parent": "r3-eth1",
           "type": "IP6",
-          "vertex": "2001:db8:2:2::/64"
+          "vertex": "2001:db8:1:2::/64"
         },
         {
           "interface": "r5",
-          "metric": "internal",
           "next-hop": "20",
           "parent": "r3-eth1",
           "type": "IP6",
@@ -170,7 +166,7 @@
           "metric": "internal",
           "parent": "0",
           "type": "IP6",
-          "vertex": "2001:db8:2:1::/64"
+          "vertex": "2001:db8:1:1::/64"
         },
         {
           "interface": "r3-eth0",
@@ -182,15 +178,6 @@
         },
         {
           "interface": "r1",
-          "metric": "internal",
-          "next-hop": "10",
-          "parent": "r3-eth0",
-          "type": "IP6",
-          "vertex": "2001:db8:1:1::/64"
-        },
-        {
-          "interface": "r1",
-          "metric": "internal",
           "next-hop": "10",
           "parent": "r3-eth0",
           "type": "IP6",
