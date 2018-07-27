@@ -11476,6 +11476,7 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 	int idx_word = 3;
 	int type;
 	struct bgp_redist *red;
+    int changed;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (type < 0) {
@@ -11484,7 +11485,11 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed =  bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+    //If the redistribute configuration is modified, unregister with zebra
+    // to remove the redistributed routes
+    if(changed)
+        bgp_redistribute_unreg(bgp, AFI_IP, type, 0);
 	return bgp_redistribute_set(bgp, AFI_IP, type, 0);
 }
 
@@ -11932,6 +11937,7 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 	int idx_word = 3;
 	int type;
 	struct bgp_redist *red;
+    int changed;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
 	if (type < 0) {
@@ -11940,7 +11946,11 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed = bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+    //If the redistribute configuration is modified, unregister with zebra
+    // to remove the redistributed routes
+    if(changed)
+        bgp_redistribute_unreg(bgp, AFI_IP6, type, 0);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0);
 }
 
