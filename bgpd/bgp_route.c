@@ -10098,6 +10098,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 	json_object *json_ocode = NULL;
 	json_object *json_ar = NULL;
 	struct peer_af *paf;
+	bool route_filtered;
 
 	if (use_json) {
 		json_scode = json_object_new_object();
@@ -10220,17 +10221,27 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				}
 
 				bgp_attr_dup(&attr, ain->attr);
-				ret = bgp_input_modifier(peer, &rn->p, &attr,
-							 afi, safi, rmap_name);
+				route_filtered = false;
 
-				if (type == bgp_show_adj_route_filtered
-				    && ret != RMAP_DENY) {
+				/* Filter prefix using distribute list,
+				 * filter list or prefix list
+				 */
+				if ((bgp_input_filter(peer, &rn->p, &attr, afi,
+						safi)) == FILTER_DENY)
+					route_filtered = true;
+
+				/* Filter prefix using route-map */
+				ret = bgp_input_modifier(peer, &rn->p, &attr,
+							afi, safi, rmap_name);
+
+				if (type == bgp_show_adj_route_filtered &&
+					!route_filtered && ret != RMAP_DENY) {
 					bgp_attr_undup(&attr, ain->attr);
 					continue;
 				}
 
-				if (type == bgp_show_adj_route_received
-				    && ret == RMAP_DENY)
+				if (type == bgp_show_adj_route_received &&
+					(route_filtered || ret == RMAP_DENY))
 					filtered_count++;
 
 				route_vty_out_tmp(vty, &rn->p, &attr, safi,
