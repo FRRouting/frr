@@ -463,7 +463,7 @@ commands in relationship to VRF. Here is an extract of some of those commands:
 .. clicmd:: vrf VRF
 
    This command is available on configuration mode. By default, above command
-   permits accessing the vrf configuration mode. This mode is available for
+   permits accessing the VRF configuration mode. This mode is available for
    both VRFs. It is to be noted that *Zebra* does not create Linux VRF.
    The network administrator can however decide to provision this command in
    configuration file to provide more clarity about the intended configuration.
@@ -493,7 +493,10 @@ commands in relationship to VRF. Here is an extract of some of those commands:
 
    This command is based on configuration mode. There, for default VRF, this
    command is available for all modes. The ``TABLENO`` configured is one of the
-   tables from Default *Linux network namespace*.
+   tables from Default *Linux network namespace*. This command is also available
+   on vrf configuration mode, provided that *Zebra* is run with :option:`-n`
+   option. In that case, this command configures a network route in the given
+   ``TABLENO`` of the *Linux network namespace* of the relevant VRF.
 
 .. index:: show ip route vrf VRF
 .. clicmd:: show ip route vrf VRF
