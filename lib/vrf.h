@@ -111,15 +111,24 @@ extern struct vrf *vrf_get(vrf_id_t, const char *);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 extern vrf_id_t vrf_name_to_id(const char *);
 
-#define VRF_GET_ID(V, NAME)                                                    \
+#define VRF_GET_ID(V, NAME, USE_JSON)                                          \
 	do {                                                                   \
 		struct vrf *vrf;                                               \
 		if (!(vrf = vrf_lookup_by_name(NAME))) {                       \
+			if (USE_JSON) {                                        \
+				vty_out(vty, "{}\n");                          \
+			} else {                                               \
+				vty_out(vty, "%% VRF %s not found\n", NAME);   \
+			}                                                      \
 			vty_out(vty, "%% VRF %s not found\n", NAME);           \
 			return CMD_WARNING;                                    \
 		}                                                              \
 		if (vrf->vrf_id == VRF_UNKNOWN) {                              \
-			vty_out(vty, "%% VRF %s not active\n", NAME);          \
+			if (USE_JSON) {                                        \
+				vty_out(vty, "{}\n");                          \
+			} else {                                               \
+				vty_out(vty, "%% VRF %s not active\n", NAME);  \
+			}                                                      \
 			return CMD_WARNING;                                    \
 		}                                                              \
 		(V) = vrf->vrf_id;                                             \
