@@ -1047,7 +1047,7 @@ DEFPY(ip_route_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
 	struct static_vrf *nh_svrf;
-        const char *flag = NULL;
+	const char *flag = NULL;
 
 	if (table_str && !vrf_is_backend_netns()) {
 		vty_out(vty,

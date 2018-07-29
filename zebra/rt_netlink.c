@@ -644,12 +644,14 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
 			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
-				   &p, &src_p, &nh, table, metric, distance, true);
+				   &p, &src_p, &nh, table, metric, distance,
+				   true);
 		} else {
 			/* XXX: need to compare the entire list of nexthops
 			 * here for NLM_F_APPEND stupidity */
 			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
-				   &p, &src_p, NULL, table, metric, distance, true);
+				   &p, &src_p, NULL, table, metric, distance,
+				   true);
 		}
 	}
 
