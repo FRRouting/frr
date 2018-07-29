@@ -138,10 +138,15 @@ static void sigint(void)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
+	struct listnode *ln, *nn;
+	struct zserv *client;
 
 	zlog_notice("Terminating on signal");
 
 	frr_early_fini();
+
+	for (ALL_LIST_ELEMENTS(zebrad.client_list, ln, nn, client))
+		zserv_close_client(client);
 
 	list_delete_all_node(zebrad.client_list);
 	zebra_ptm_finish();

@@ -91,7 +91,7 @@ enum zserv_event {
 	/* The calling client has packets on its input buffer */
 	ZSERV_PROCESS_MESSAGES,
 	/* The calling client wishes to be killed */
-	ZSERV_HANDLE_CLOSE,
+	ZSERV_HANDLE_CLIENT_FAIL,
 };
 
 /*
@@ -160,18 +160,25 @@ static void zserv_log_message(const char *errmsg, struct stream *msg,
 /*
  * Gracefully shut down a client connection.
  *
- * Cancel any pending tasks for the client's thread. Then schedule a task on the
- * main thread to shut down the calling thread.
+ * Cancel any pending tasks for the client's thread. Then schedule a task on
+ * the main thread to shut down the calling thread.
  *
  * Must be called from the client pthread, never the main thread.
  */
-static void zserv_client_close(struct zserv *client)
+static void zserv_client_fail(struct zserv *client)
 {
+	zlog_warn("Client '%s' encountered an error and is shutting down.",
+		  zebra_route_string(client->proto));
+
 	atomic_store_explicit(&client->pthread->running, false,
-			      memory_order_seq_cst);
+			      memory_order_relaxed);
+	if (client->sock > 0) {
+		close(client->sock);
+		client->sock = -1;
+	}
 	THREAD_OFF(client->t_read);
 	THREAD_OFF(client->t_write);
-	zserv_event(client, ZSERV_HANDLE_CLOSE);
+	zserv_event(client, ZSERV_HANDLE_CLIENT_FAIL);
 }
 
 /*
@@ -264,7 +271,7 @@ static int zserv_write(struct thread *thread)
 zwrite_fail:
 	zlog_warn("%s: could not write to %s [fd = %d], closing.", __func__,
 		  zebra_route_string(client->proto), client->sock);
-	zserv_client_close(client);
+	zserv_client_fail(client);
 	return 0;
 }
 
@@ -438,7 +445,7 @@ static int zserv_read(struct thread *thread)
 
 zread_fail:
 	stream_fifo_free(cache);
-	zserv_client_close(client);
+	zserv_client_fail(client);
 	return -1;
 }
 
@@ -605,28 +612,43 @@ static void zserv_client_free(struct zserv *client)
 	XFREE(MTYPE_TMP, client);
 }
 
-/*
- * Finish closing a client.
- *
- * This task is scheduled by a ZAPI client pthread on the main pthread when it
- * wants to stop itself. When this executes, the client connection should
- * already have been closed. This task's responsibility is to gracefully
- * terminate the client thread, update relevant internal datastructures and
- * free any resources allocated by the main thread.
- */
-static int zserv_handle_client_close(struct thread *thread)
+void zserv_close_client(struct zserv *client)
 {
-	struct zserv *client = THREAD_ARG(thread);
-
-	/* synchronously stop thread */
+	/* synchronously stop and join pthread */
 	frr_pthread_stop(client->pthread, NULL);
 
-	/* destroy frr_pthread */
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("Closing client '%s'",
+			   zebra_route_string(client->proto));
+
+	/* if file descriptor is still open, close it */
+	if (client->sock > 0) {
+		close(client->sock);
+		client->sock = -1;
+	}
+
+	/* destroy pthread */
 	frr_pthread_destroy(client->pthread);
 	client->pthread = NULL;
 
+	/* remove from client list */
 	listnode_delete(zebrad.client_list, client);
+
+	/* delete client */
 	zserv_client_free(client);
+}
+
+/*
+ * This task is scheduled by a ZAPI client pthread on the main pthread when it
+ * wants to stop itself. When this executes, the client connection should
+ * already have been closed and the thread will most likely have died, but its
+ * resources still need to be cleaned up.
+ */
+static int zserv_handle_client_fail(struct thread *thread)
+{
+	struct zserv *client = THREAD_ARG(thread);
+
+	zserv_close_client(client);
 	return 0;
 }
 
@@ -814,8 +836,8 @@ void zserv_event(struct zserv *client, enum zserv_event event)
 		thread_add_event(zebrad.master, zserv_process_messages, client,
 				 0, NULL);
 		break;
-	case ZSERV_HANDLE_CLOSE:
-		thread_add_event(zebrad.master, zserv_handle_client_close,
+	case ZSERV_HANDLE_CLIENT_FAIL:
+		thread_add_event(zebrad.master, zserv_handle_client_fail,
 				 client, 0, NULL);
 	}
 }
@@ -1037,7 +1059,6 @@ void zserv_init(void)
 {
 	/* Client list init. */
 	zebrad.client_list = list_new();
-	zebrad.client_list->del = (void (*)(void *)) zserv_client_free;
 
 	/* Misc init. */
 	zebrad.sock = -1;
