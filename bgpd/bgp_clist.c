@@ -457,7 +457,7 @@ static char *community_str_get(struct community *com, int i)
 		strcpy(pnt, "no-peer");
 		pnt += strlen("no-peer");
 		break;
-    default:
+	default:
 		as = (comval >> 16) & 0xFFFF;
 		val = comval & 0xFFFF;
 		sprintf(pnt, "%u:%d", as, val);
