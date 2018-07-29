@@ -995,6 +995,12 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* Register interface address to the interface. */
 	if (ifa->ifa_family == AF_INET) {
+		if (ifa->ifa_prefixlen > IPV4_MAX_BITLEN) {
+			zlog_err(
+				"Invalid prefix length: %u received from kernel interface addr change: %u",
+				ifa->ifa_prefixlen, h->nlmsg_type);
+			return -1;
+		}
 		if (h->nlmsg_type == RTM_NEWADDR)
 			connected_add_ipv4(ifp, flags, (struct in_addr *)addr,
 					   ifa->ifa_prefixlen,
@@ -1005,6 +1011,12 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				ifa->ifa_prefixlen, (struct in_addr *)broad);
 	}
 	if (ifa->ifa_family == AF_INET6) {
+		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
+			zlog_err(
+				"Invalid prefix length: %u received from kernel interface addr change: %u",
+				ifa->ifa_prefixlen, h->nlmsg_type);
+			return -1;
+		}
 		if (h->nlmsg_type == RTM_NEWADDR) {
 			/* Only consider valid addresses; we'll not get a
 			 * notification from
