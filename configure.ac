@@ -436,6 +436,8 @@ AC_ARG_ENABLE(datacenter,
   AS_HELP_STRING([--enable-datacenter], [enable Compilation for Data Center Extensions]))
 AC_ARG_ENABLE(fuzzing,
   AS_HELP_STRING([--enable-fuzzing], [enable ability to fuzz various parts of FRR]))
+AC_ARG_ENABLE(netlink_fuzzing,
+  AS_HELP_STRING([--enable-netlink-fuzzing], [enable ability to fuzz netlink listening socket in zebra]))
 AC_ARG_ENABLE(rr-semantics,
   AS_HELP_STRING([--disable-rr-semantics], [disable the v6 Route Replace semantics]))
 AC_ARG_ENABLE([protobuf],
@@ -499,6 +501,10 @@ fi
 
 if test "${enable_fuzzing}" = "yes" ; then
   AC_DEFINE(HANDLE_ZAPI_FUZZING,,Compile extensions to use with a fuzzer)
+fi
+
+if test "${enable_netlink_fuzzing}" = "yes" ; then
+  AC_DEFINE(HANDLE_NETLINK_FUZZING,,Compile extensions to use with a fuzzer for netlink)
 fi
 
 if test "${enable_cumulus}" = "yes" ; then
