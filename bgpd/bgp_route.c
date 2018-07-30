@@ -4845,7 +4845,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		bgp_static = rn->info;
+		bgp_static = bgp_static_get_node_info(rn);
 
 		if ((label_index != BGP_INVALID_LABEL_INDEX)
 		    && (label_index != bgp_static->label_index)) {
@@ -4867,7 +4867,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 
 		/* Clear configuration. */
 		bgp_static_free(bgp_static);
-		rn->info = NULL;
+		bgp_static_set_node_info(rn, NULL);
 		bgp_unlock_node(rn);
 		bgp_unlock_node(rn);
 	} else {
@@ -4875,10 +4875,9 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 		/* Set BGP static route configuration. */
 		rn = bgp_node_get(bgp->route[afi][safi], &p);
 
-		if (rn->info) {
+		bgp_static = bgp_static_get_node_info(rn);
+		if (bgp_static) {
 			/* Configuration change. */
-			bgp_static = rn->info;
-
 			/* Label index cannot be changed. */
 			if (bgp_static->label_index != label_index) {
 				vty_out(vty, "%% cannot change label-index\n");
@@ -4927,7 +4926,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 				bgp_static->rmap.map =
 					route_map_lookup_by_name(rmap);
 			}
-			rn->info = bgp_static;
+			bgp_static_set_node_info(rn, bgp_static);
 		}
 
 		bgp_static->valid = 1;
@@ -4962,14 +4961,16 @@ void bgp_static_add(struct bgp *bgp)
 
 				for (rm = bgp_table_top(table); rm;
 				     rm = bgp_route_next(rm)) {
-					bgp_static = rm->info;
+					bgp_static =
+						bgp_static_get_node_info(rm);
 					bgp_static_update_safi(bgp, &rm->p,
 							       bgp_static, afi,
 							       safi);
 				}
 			} else {
-				bgp_static_update(bgp, &rn->p, rn->info, afi,
-						  safi);
+				bgp_static_update(bgp, &rn->p,
+						  bgp_static_get_node_info(rn),
+						  afi, safi);
 			}
 		}
 }
@@ -4997,19 +4998,20 @@ void bgp_static_delete(struct bgp *bgp)
 
 				for (rm = bgp_table_top(table); rm;
 				     rm = bgp_route_next(rm)) {
-					bgp_static = rm->info;
+					bgp_static =
+						bgp_static_get_node_info(rm);
 					bgp_static_withdraw_safi(
 						bgp, &rm->p, AFI_IP, safi,
 						(struct prefix_rd *)&rn->p);
 					bgp_static_free(bgp_static);
-					rn->info = NULL;
+					bgp_static_set_node_info(rn, NULL);
 					bgp_unlock_node(rn);
 				}
 			} else {
-				bgp_static = rn->info;
+				bgp_static = bgp_static_get_node_info(rn);
 				bgp_static_withdraw(bgp, &rn->p, afi, safi);
 				bgp_static_free(bgp_static);
-				rn->info = NULL;
+				bgp_static_set_node_info(rn, NULL);
 				bgp_unlock_node(rn);
 			}
 		}
@@ -5038,13 +5040,14 @@ void bgp_static_redo_import_check(struct bgp *bgp)
 
 				for (rm = bgp_table_top(table); rm;
 				     rm = bgp_route_next(rm)) {
-					bgp_static = rm->info;
+					bgp_static =
+						bgp_static_get_node_info(rm);
 					bgp_static_update_safi(bgp, &rm->p,
 							       bgp_static, afi,
 							       safi);
 				}
 			} else {
-				bgp_static = rn->info;
+				bgp_static = bgp_static_get_node_info(rn);
 				bgp_static_update(bgp, &rn->p, bgp_static, afi,
 						  safi);
 			}
@@ -5216,7 +5219,7 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 			if (gwip)
 				prefix_copy(&bgp_static->gatewayIp, &gw_ip);
 		}
-		rn->info = bgp_static;
+		bgp_static_set_node_info(rn, bgp_static);
 
 		bgp_static->valid = 1;
 		bgp_static_update_safi(bgp, &p, bgp_static, afi, safi);
@@ -5278,9 +5281,9 @@ int bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty,
 	if (rn) {
 		bgp_static_withdraw_safi(bgp, &p, afi, safi, &prd);
 
-		bgp_static = rn->info;
+		bgp_static = bgp_static_get_node_info(rn);
 		bgp_static_free(bgp_static);
-		rn->info = NULL;
+		bgp_static_set_node_info(rn, NULL);
 		bgp_unlock_node(rn);
 		bgp_unlock_node(rn);
 	} else
@@ -10776,7 +10779,7 @@ static int bgp_distance_set(struct vty *vty, const char *distance_str,
 		bgp_unlock_node(rn);
 	else {
 		bdistance = bgp_distance_new();
-		bgp_distance_set_node(rn, bdistance);
+		bgp_distance_set_node_info(rn, bdistance);
 	}
 
 	/* Set distance value. */
@@ -10875,7 +10878,7 @@ uint8_t bgp_distance_apply(struct prefix *p, struct bgp_info *rinfo, afi_t afi,
 	/* Backdoor check. */
 	rn = bgp_node_lookup(bgp->route[afi][safi], p);
 	if (rn) {
-		bgp_static = rn->info;
+		bgp_static = bgp_static_get_node_info(rn);
 		bgp_unlock_node(rn);
 
 		if (bgp_static->backdoor) {
@@ -11290,7 +11293,8 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 			continue;
 
 		for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-			if ((bgp_static = rn->info) == NULL)
+			bgp_static = bgp_static_get_node_info(rn);
+			if (bgp_static == NULL)
 				continue;
 
 			p = &rn->p;
@@ -11339,7 +11343,8 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 			continue;
 
 		for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-			if ((bgp_static = rn->info) == NULL)
+			bgp_static = bgp_static_get_node_info(rn);
+			if (bgp_static == NULL)
 				continue;
 
 			char *macrouter = NULL;
@@ -11414,7 +11419,8 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 	/* Network configuration. */
 	for (rn = bgp_table_top(bgp->route[afi][safi]); rn;
 	     rn = bgp_route_next(rn)) {
-		if ((bgp_static = rn->info) == NULL)
+		bgp_static = bgp_static_get_node_info(rn);
+		if (bgp_static == NULL)
 			continue;
 
 		p = &rn->p;
