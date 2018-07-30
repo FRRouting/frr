@@ -152,7 +152,7 @@ struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
 		if (!prn)
 			return NULL;
 
-		if (prn->info == NULL) {
+		if (!bgp_node_has_bgp_path_info_data(prn)) {
 			bgp_unlock_node(prn);
 			return NULL;
 		}
@@ -291,13 +291,13 @@ void bgp_path_info_add(struct bgp_node *rn, struct bgp_path_info *pi)
 {
 	struct bgp_path_info *top;
 
-	top = rn->info;
+	top = bgp_node_get_bgp_path_info(rn);
 
-	pi->next = rn->info;
+	pi->next = top;
 	pi->prev = NULL;
 	if (top)
 		top->prev = pi;
-	rn->info = pi;
+	bgp_node_set_bgp_path_info(rn, pi);
 
 	bgp_path_info_lock(pi);
 	bgp_lock_node(rn);
@@ -313,7 +313,7 @@ void bgp_path_info_reap(struct bgp_node *rn, struct bgp_path_info *pi)
 	if (pi->prev)
 		pi->prev->next = pi->next;
 	else
-		rn->info = pi->next;
+		bgp_node_set_bgp_path_info(rn, pi->next);
 
 	bgp_path_info_mpath_dequeue(pi);
 	bgp_path_info_unlock(pi);
@@ -1895,11 +1895,13 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	if (bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)) {
 
 		/* Clear BGP_PATH_DMED_SELECTED for all paths */
-		for (pi1 = rn->info; pi1; pi1 = pi1->next)
+		for (pi1 = bgp_node_get_bgp_path_info(rn); pi1;
+		     pi1 = pi1->next)
 			bgp_path_info_unset_flag(rn, pi1,
 						 BGP_PATH_DMED_SELECTED);
 
-		for (pi1 = rn->info; pi1; pi1 = pi1->next) {
+		for (pi1 = bgp_node_get_bgp_path_info(rn); pi1;
+		     pi1 = pi1->next) {
 			if (CHECK_FLAG(pi1->flags, BGP_PATH_DMED_CHECK))
 				continue;
 			if (BGP_PATH_HOLDDOWN(pi1))
@@ -1965,8 +1967,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	/* Check old selected route and new selected route. */
 	old_select = NULL;
 	new_select = NULL;
-	for (pi = rn->info; (pi != NULL) && (nextpi = pi->next, 1);
-	     pi = nextpi) {
+	for (pi = bgp_node_get_bgp_path_info(rn);
+	     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			old_select = pi;
 
@@ -2030,8 +2032,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	}
 
 	if (do_mpath && new_select) {
-		for (pi = rn->info; (pi != NULL) && (nextpi = pi->next, 1);
-		     pi = nextpi) {
+		for (pi = bgp_node_get_bgp_path_info(rn);
+		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 
 			if (debug)
 				bgp_path_info_path_with_addpath_rx_str(
@@ -2151,7 +2153,7 @@ void bgp_zebra_clear_route_change_flags(struct bgp_node *rn)
 {
 	struct bgp_path_info *pi;
 
-	for (pi = rn->info; pi; pi = pi->next) {
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 		if (BGP_PATH_HOLDDOWN(pi))
 			continue;
 		UNSET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
@@ -2948,7 +2950,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		bgp_adj_in_set(rn, peer, attr, addpath_id);
 
 	/* Check previously received route. */
-	for (pi = rn->info; pi; pi = pi->next)
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 		if (pi->peer == peer && pi->type == type
 		    && pi->sub_type == sub_type
 		    && pi->addpath_rx_id == addpath_id)
@@ -3611,7 +3613,7 @@ int bgp_withdraw(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		}
 
 	/* Lookup withdrawn route. */
-	for (pi = rn->info; pi; pi = pi->next)
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 		if (pi->peer == peer && pi->type == type
 		    && pi->sub_type == sub_type
 		    && pi->addpath_rx_id == addpath_id)
@@ -3765,7 +3767,8 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (ain->peer != peer)
 				continue;
 
-			struct bgp_path_info *pi = rn->info;
+			struct bgp_path_info *pi =
+				bgp_node_get_bgp_path_info(rn);
 			uint32_t num_labels = 0;
 			mpls_label_t *label_pnt = NULL;
 
@@ -3832,7 +3835,7 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 	/* It is possible that we have multiple paths for a prefix from a peer
 	 * if that peer is using AddPath.
 	 */
-	for (pi = rn->info; pi; pi = pi->next) {
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 		if (pi->peer != peer)
 			continue;
 
@@ -3971,7 +3974,7 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 			ain = ain_next;
 		}
 
-		for (pi = rn->info; pi; pi = next) {
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = next) {
 			next = pi->next;
 			if (pi->peer != peer)
 				continue;
@@ -4095,7 +4098,8 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 
 			for (rm = bgp_table_top(table); rm;
 			     rm = bgp_route_next(rm))
-				for (pi = rm->info; pi; pi = pi->next) {
+				for (pi = bgp_node_get_bgp_path_info(rm); pi;
+				     pi = pi->next) {
 					if (pi->peer != peer)
 						continue;
 					if (!CHECK_FLAG(pi->flags,
@@ -4109,7 +4113,8 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 	} else {
 		for (rn = bgp_table_top(peer->bgp->rib[afi][safi]); rn;
 		     rn = bgp_route_next(rn))
-			for (pi = rn->info; pi; pi = pi->next) {
+			for (pi = bgp_node_get_bgp_path_info(rn); pi;
+			     pi = pi->next) {
 				if (pi->peer != peer)
 					continue;
 				if (!CHECK_FLAG(pi->flags, BGP_PATH_STALE))
@@ -4128,7 +4133,7 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 	struct bgp_path_info *next;
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		for (pi = rn->info; pi; pi = next) {
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = next) {
 			next = pi->next;
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
 			    && pi->type == ZEBRA_ROUTE_BGP
@@ -4458,7 +4463,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 		attr_new = bgp_attr_intern(&attr);
 	}
 
-	for (pi = rn->info; pi; pi = pi->next)
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP
 		    && pi->sub_type == BGP_ROUTE_STATIC)
 			break;
@@ -4626,7 +4631,7 @@ void bgp_static_withdraw(struct bgp *bgp, struct prefix *p, afi_t afi,
 	rn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, NULL);
 
 	/* Check selected route and self inserted route. */
-	for (pi = rn->info; pi; pi = pi->next)
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP
 		    && pi->sub_type == BGP_ROUTE_STATIC)
 			break;
@@ -4661,7 +4666,7 @@ static void bgp_static_withdraw_safi(struct bgp *bgp, struct prefix *p,
 	rn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 
 	/* Check selected route and self inserted route. */
-	for (pi = rn->info; pi; pi = pi->next)
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP
 		    && pi->sub_type == BGP_ROUTE_STATIC)
 			break;
@@ -4771,7 +4776,7 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 		attr_new = bgp_attr_intern(&attr);
 	}
 
-	for (pi = rn->info; pi; pi = pi->next)
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP
 		    && pi->sub_type == BGP_ROUTE_STATIC)
 			break;
@@ -5115,7 +5120,7 @@ static void bgp_purge_af_static_redist_routes(struct bgp *bgp, afi_t afi,
 
 	table = bgp->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		for (pi = rn->info; pi; pi = pi->next) {
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			if (pi->peer == bgp->peer_self
 			    && ((pi->type == ZEBRA_ROUTE_BGP
 				 && pi->sub_type == BGP_ROUTE_STATIC)
@@ -5553,13 +5558,13 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 {
 	struct bgp_node *rn;
 	struct bgp_table *table;
-	struct bgp_path_info *pi, *new;
+	struct bgp_path_info *pi, *orig, *new;
 
 	table = bgp->rib[afi][safi];
 
 	rn = bgp_node_get(table, p);
 
-	for (pi = rn->info; pi; pi = pi->next)
+	for (orig = pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP
 		    && pi->sub_type == BGP_ROUTE_AGGREGATE)
 			break;
@@ -5569,7 +5574,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 		 * If the aggregate information has not changed
 		 * no need to re-install it again.
 		 */
-		if (bgp_aggregate_info_same(rn->info, origin, aspath, community,
+		if (bgp_aggregate_info_same(orig, origin, aspath, community,
 					    ecommunity, lcommunity)) {
 			bgp_unlock_node(rn);
 
@@ -5604,7 +5609,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 		bgp_path_info_add(rn, new);
 		bgp_process(bgp, rn, afi, safi);
 	} else {
-		for (pi = rn->info; pi; pi = pi->next)
+		for (pi = orig; pi; pi = pi->next)
 			if (pi->peer == bgp->peer_self
 			    && pi->type == ZEBRA_ROUTE_BGP
 			    && pi->sub_type == BGP_ROUTE_AGGREGATE)
@@ -5662,7 +5667,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 
 		match = 0;
 
-		for (pi = rn->info; pi; pi = pi->next) {
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			if (BGP_PATH_HOLDDOWN(pi))
 				continue;
 
@@ -5854,7 +5859,7 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 			continue;
 		match = 0;
 
-		for (pi = rn->info; pi; pi = pi->next) {
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			if (BGP_PATH_HOLDDOWN(pi))
 				continue;
 
@@ -6269,7 +6274,8 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 		new_attr = bgp_attr_intern(&attr_new);
 
-		for (bpi = bn->info; bpi; bpi = bpi->next)
+		for (bpi = bgp_node_get_bgp_path_info(bn); bpi;
+		     bpi = bpi->next)
 			if (bpi->peer == bgp->peer_self
 			    && bpi->sub_type == BGP_ROUTE_REDISTRIBUTE)
 				break;
@@ -6351,7 +6357,7 @@ void bgp_redistribute_delete(struct bgp *bgp, struct prefix *p, uint8_t type,
 		rn = bgp_afi_node_get(bgp->rib[afi][SAFI_UNICAST], afi,
 				      SAFI_UNICAST, p, NULL);
 
-		for (pi = rn->info; pi; pi = pi->next)
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 			if (pi->peer == bgp->peer_self && pi->type == type)
 				break;
 
@@ -6381,7 +6387,7 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 	table = bgp->rib[afi][SAFI_UNICAST];
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		for (pi = rn->info; pi; pi = pi->next)
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 			if (pi->peer == bgp->peer_self && pi->type == type
 			    && pi->instance == instance)
 				break;
@@ -8446,7 +8452,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 
 	/* Start processing of routes. */
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		if (rn->info == NULL)
+		pi = bgp_node_get_bgp_path_info(rn);
+		if (pi == NULL)
 			continue;
 
 		display = 0;
@@ -8455,7 +8462,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 		else
 			json_paths = NULL;
 
-		for (pi = rn->info; pi; pi = pi->next) {
+		for (; pi; pi = pi->next) {
 			total_count++;
 			if (type == bgp_show_type_flap_statistics
 			    || type == bgp_show_type_flap_neighbor
@@ -8897,7 +8904,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "not allocated\n");
 	}
 
-	for (pi = rn->info; pi; pi = pi->next) {
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 		count++;
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
 			best = count;
@@ -9076,7 +9083,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 				continue;
 			}
 
-			for (pi = rm->info; pi; pi = pi->next) {
+			for (pi = bgp_node_get_bgp_path_info(rm); pi;
+			     pi = pi->next) {
 				if (header) {
 					route_vty_out_detail_header(
 						vty, bgp, rm,
@@ -9114,7 +9122,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 		if ((rn = bgp_node_match(rib, &match)) != NULL) {
 			if (!prefix_check
 			    || rn->p.prefixlen == match.prefixlen) {
-				for (pi = rn->info; pi; pi = pi->next) {
+				for (pi = bgp_node_get_bgp_path_info(rn); pi;
+				     pi = pi->next) {
 					if (header) {
 						route_vty_out_detail_header(
 							vty, bgp, rn, NULL, afi,
@@ -9923,7 +9932,7 @@ static int bgp_table_stats_walker(struct thread *t)
 		if (rn == top)
 			continue;
 
-		if (!rn->info)
+		if (!bgp_node_has_bgp_path_info_data(rn))
 			continue;
 
 		ts->counts[BGP_STATS_PREFIXES]++;
@@ -9937,7 +9946,7 @@ static int bgp_table_stats_walker(struct thread *t)
 #endif
 
 		/* check if the prefix is included by any other announcements */
-		while (prn && !prn->info)
+		while (prn && !bgp_node_has_bgp_path_info_data(prn))
 			prn = bgp_node_parent_nolock(prn);
 
 		if (prn == NULL || prn == top) {
@@ -9946,10 +9955,10 @@ static int bgp_table_stats_walker(struct thread *t)
 			if (space)
 				ts->total_space +=
 					pow(2.0, space - rn->p.prefixlen);
-		} else if (prn->info)
+		} else if (bgp_node_has_bgp_path_info_data(prn))
 			ts->counts[BGP_STATS_MAX_AGGREGATEABLE]++;
 
-		for (pi = rn->info; pi; pi = pi->next) {
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			pinum++;
 			ts->counts[BGP_STATS_RIB]++;
 
@@ -10132,7 +10141,8 @@ static int bgp_peer_count_walker(struct thread *t)
 			if (ain->peer == peer)
 				pc->count[PCOUNT_ADJ_IN]++;
 
-		for (pi = rn->info; pi; pi = pi->next) {
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
+
 			if (pi->peer != peer)
 				continue;
 
@@ -11095,7 +11105,7 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 		XFREE(MTYPE_AS_LIST, bdistance->access_list);
 	bgp_distance_free(bdistance);
 
-	rn->info = NULL;
+	bgp_node_set_bgp_path_info(rn, NULL);
 	bgp_unlock_node(rn);
 	bgp_unlock_node(rn);
 
@@ -11425,7 +11435,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 
 			if (!prefix_check
 			    || rm->p.prefixlen == match.prefixlen) {
-				pi = rm->info;
+				pi = bgp_node_get_bgp_path_info(rm);
 				while (pi) {
 					if (pi->extra && pi->extra->damp_info) {
 						pi_temp = pi->next;
@@ -11445,7 +11455,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 		    != NULL) {
 			if (!prefix_check
 			    || rn->p.prefixlen == match.prefixlen) {
-				pi = rn->info;
+				pi = bgp_node_get_bgp_path_info(rn);
 				while (pi) {
 					if (pi->extra && pi->extra->damp_info) {
 						pi_temp = pi->next;

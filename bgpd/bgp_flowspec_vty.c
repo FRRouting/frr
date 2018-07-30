@@ -379,13 +379,14 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 		return CMD_SUCCESS;
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		if (rn->info == NULL)
+		pi = bgp_node_get_bgp_path_info(rn);
+		if (pi == NULL)
 			continue;
 		if (use_json) {
 			json_paths = json_object_new_array();
 			display = NLRI_STRING_FORMAT_JSON;
 		}
-		for (pi = rn->info; pi; pi = pi->next) {
+		for (; pi; pi = pi->next) {
 			total_count++;
 			route_vty_out_flowspec(vty, &rn->p, pi, display,
 					       json_paths);
@@ -542,11 +543,11 @@ extern int bgp_flowspec_display_match_per_ip(afi_t afi, struct bgp_table *rib,
 			continue;
 
 		if (bgp_flowspec_contains_prefix(prefix, match, prefix_check)) {
-			route_vty_out_flowspec(vty, &rn->p,
-					       rn->info, use_json ?
-					       NLRI_STRING_FORMAT_JSON :
-					       NLRI_STRING_FORMAT_LARGE,
-					       json_paths);
+			route_vty_out_flowspec(
+				vty, &rn->p, bgp_node_get_bgp_path_info(rn),
+				use_json ? NLRI_STRING_FORMAT_JSON
+					 : NLRI_STRING_FORMAT_LARGE,
+				json_paths);
 			display++;
 		}
 	}

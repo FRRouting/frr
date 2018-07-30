@@ -1570,7 +1570,7 @@ void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 
 	vty_out(vty, "  bn=%p%s", bn, HVTYNL);
 
-	for (bpi = bn->info; bpi; bpi = bpi->next) {
+	for (bpi = bgp_node_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
 		if (bpi->peer == rfd->peer && bpi->type == type
 		    && bpi->sub_type == BGP_ROUTE_RFP && bpi->extra
 		    && bpi->extra->vnc.export.rfapi_handle == (void *)rfd) {

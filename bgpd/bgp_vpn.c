@@ -38,7 +38,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	struct bgp_table *table;
 	struct bgp_node *rn;
 	struct bgp_node *rm;
-	struct attr *attr;
+	struct bgp_path_info *path;
 	int rd_header;
 	int header = 1;
 	json_object *json = NULL;
@@ -89,7 +89,8 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 
 			for (rm = bgp_table_top(table); rm;
 			     rm = bgp_route_next(rm)) {
-				if ((attr = rm->info) != NULL) {
+				path = bgp_node_get_bgp_path_info(rm);
+				if (path != NULL) {
 					if (header) {
 						if (use_json) {
 							json_object_int_add(
@@ -238,7 +239,7 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 							json_array);
 					} else {
 						route_vty_out_tmp(
-							vty, &rm->p, attr,
+							vty, &rm->p, path->attr,
 							SAFI_MPLS_VPN, use_json,
 							json_array);
 					}

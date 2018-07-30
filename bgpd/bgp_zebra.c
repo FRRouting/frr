@@ -1480,7 +1480,7 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 		return;
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		for (pi = rn->info; pi; pi = pi->next)
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next)
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
 
 			    (pi->type == ZEBRA_ROUTE_BGP
@@ -1692,7 +1692,7 @@ int bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 
 	for (rn = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); rn;
 	     rn = bgp_route_next(rn)) {
-		for (pi = rn->info; pi; pi = pi->next) {
+		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			if (pi->sub_type == BGP_ROUTE_REDISTRIBUTE
 			    && pi->type == type
 			    && pi->instance == red->instance) {
