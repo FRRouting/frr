@@ -7765,8 +7765,8 @@ static void bgp_pthreads_init()
 		.start = bgp_keepalives_start,
 		.stop = bgp_keepalives_stop,
 	};
-	frr_pthread_new(&io, "BGP I/O thread");
-	frr_pthread_new(&ka, "BGP Keepalives thread");
+	frr_pthread_new(&io, "BGP I/O thread", "bgpd_io");
+	frr_pthread_new(&ka, "BGP Keepalives thread", "bgpd_ka");
 }
 
 void bgp_pthreads_run()

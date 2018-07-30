@@ -180,11 +180,7 @@ void *bgp_keepalives_start(void *arg)
 	pthread_cond_init(peerhash_cond, &attrs);
 	pthread_condattr_destroy(&attrs);
 
-#ifdef GNU_LINUX
-	pthread_setname_np(fpt->thread, "bgpd_ka");
-#elif defined(OPEN_BSD)
-	pthread_set_name_np(fpt->thread, "bgpd_ka");
-#endif
+	frr_pthread_set_name(fpt, NULL, "bgpd_ka");
 
 	/* initialize peer hashtable */
 	peerhash = hash_create_size(2048, peer_hash_key, peer_hash_cmp, NULL);
