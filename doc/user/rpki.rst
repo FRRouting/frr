@@ -70,8 +70,8 @@ Enabling RPKI
 .. index:: RPKI and daemons.conf
 
 When first installing FRR with RPKI support from the pre-packaged binaries.
-Remember to append :option:`-M rpki` in the :file:`/etc/frr/daemons.conf`
-file to ``bgpd_options``, like so::
+Remember to add ``-M rpki`` to the variable ``bgpd_options`` in
+:file:`/etc/frr/daemons.conf` , like so::
 
    bgpd_options="   --daemon -A 127.0.0.1 -M rpki"
 
@@ -91,8 +91,8 @@ Examples of the error::
    router(config)# rpki
    % [BGP] Unknown command: rpki
 
-Note that the RPKI commands will be available in vtysh when running ``find
-rpki`` regardless of whether the module is loaded.
+Note that the RPKI commands will be available in vtysh when running
+``find rpki`` regardless of whether the module is loaded.
 
 .. _configuring-rpki-rtr-cache-servers:
 
