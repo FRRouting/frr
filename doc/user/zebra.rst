@@ -42,11 +42,10 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    When *Zebra* starts with this option, the VRF backend is based on Linux
    network namespaces. That implies that all network namespaces discovered by
-   ZEBRA will create an associated VRF. The other daemons will operate on the VRF
-   VRF defined by *Zebra*, as usual. More information in the :ref:`VRF Commands`
-   chapter.
+   ZEBRA will create an associated VRF. The other daemons will operate on the
+   VRF defined by *Zebra*, as usual.
 
-.. program:: configure
+   .. seealso:: :ref:`zebra-vrf`
 
 .. _interface-commands:
 
@@ -388,7 +387,7 @@ default) should the specified gateways not be reachable. E.g.:
    and later). After setting TABLENO with this command,
    static routes defined after this are added to the specified table.
 
-.. _multicast-rib-commands:
+.. _zebra-vrf:
 
 VRF (Virtual Routing and Forwarding)
 ====================================
@@ -476,7 +475,7 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    on configuration mode, this applies to default VRF. Otherwise, this command
    applies to the VRF of the vrf configuration mode. This command is used to
    configure a vrf route leak across 2 VRFs. This command is only available when
-    *Zebra* is launched without :option:`-n` option.
+   *Zebra* is launched without :option:`-n` option.
 
 .. index:: ip route NETWORK NETMASK GATEWAY table TABLENO
 .. clicmd:: ip route NETWORK NETMASK GATEWAY table TABLENO
@@ -514,6 +513,7 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    ip route 10.0.0.0 255.255.255.0 10.0.0.2 vrf r1-cust1 table 43
    show ip table vrf r1-cust1 table 43
 
+.. _multicast-rib-commands:
 
 Multicast RIB Commands
 ======================
@@ -682,6 +682,8 @@ as well. We refer to the component that programs the forwarding plane
 The FIB push interface comprises of a TCP connection between zebra and
 the FPM. The connection is initiated by zebra -- that is, the FPM acts
 as the TCP server.
+
+.. program:: configure
 
 The relevant zebra code kicks in when zebra is configured with the
 :option:`--enable-fpm` flag. Zebra periodically attempts to connect to
