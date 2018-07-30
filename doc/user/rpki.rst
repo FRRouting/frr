@@ -67,32 +67,32 @@ Enabling RPKI
    to configure at least one reachable cache server. See section
    :ref:`configuring-rpki-rtr-cache-servers` for configuring a cache server.
 
-.. index:: daemons.conf
+.. index:: RPKI and daemons.conf
 
-   When first installing FRR with RPKI support from the pre-packaged binaries.
-   Remember to append :option:`-M rpki` in the :file:`/etc/frr/daemons.conf`
-   file to ``bgpd_options``, like so::
+When first installing FRR with RPKI support from the pre-packaged binaries.
+Remember to append :option:`-M rpki` in the :file:`/etc/frr/daemons.conf`
+file to ``bgpd_options``, like so::
 
-      bgpd_options="   --daemon -A 127.0.0.1 -M rpki"
+   bgpd_options="   --daemon -A 127.0.0.1 -M rpki"
 
-   instead of the default setting::
+instead of the default setting::
 
-      bgpd_options="   --daemon -A 127.0.0.1"
+   bgpd_options="   --daemon -A 127.0.0.1"
 
-   Otherwise you will encounter an error when trying to enter RPKI
-   configuration mode due to the ``rpki`` module not being loaded when the BGP
-   daemon is initialized.
+Otherwise you will encounter an error when trying to enter RPKI
+configuration mode due to the ``rpki`` module not being loaded when the BGP
+daemon is initialized.
 
-   Examples of the error::
+Examples of the error::
 
-      router(config)# debug rpki
-      % [BGP] Unknown command: debug rpki
+   router(config)# debug rpki
+   % [BGP] Unknown command: debug rpki
 
-      router(config)# rpki
-      % [BGP] Unknown command: rpki
+   router(config)# rpki
+   % [BGP] Unknown command: rpki
 
-   Note that the RPKI commands will be available in vtysh when running ``find
-   rpki`` regardless of whether the module is loaded.
+Note that the RPKI commands will be available in vtysh when running ``find
+rpki`` regardless of whether the module is loaded.
 
 .. _configuring-rpki-rtr-cache-servers:
 
