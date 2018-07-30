@@ -10771,12 +10771,12 @@ static int bgp_distance_set(struct vty *vty, const char *distance_str,
 
 	/* Get BGP distance node. */
 	rn = bgp_node_get(bgp_distance_table[afi][safi], (struct prefix *)&p);
-	if (rn->info) {
-		bdistance = rn->info;
+	bdistance = bgp_distance_get_node(rn);
+	if (bdistance)
 		bgp_unlock_node(rn);
-	} else {
+	else {
 		bdistance = bgp_distance_new();
-		rn->info = bdistance;
+		bgp_distance_set_node(rn, bdistance);
 	}
 
 	/* Set distance value. */
@@ -10821,7 +10821,7 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bdistance = rn->info;
+	bdistance = bgp_distance_get_node(rn);
 	distance = atoi(distance_str);
 
 	if (bdistance->distance != distance) {
@@ -10860,7 +10860,7 @@ uint8_t bgp_distance_apply(struct prefix *p, struct bgp_info *rinfo, afi_t afi,
 	sockunion2hostprefix(&peer->su, &q);
 	rn = bgp_node_match(bgp_distance_table[afi][safi], &q);
 	if (rn) {
-		bdistance = rn->info;
+		bdistance = bgp_distance_get_node(rn);
 		bgp_unlock_node(rn);
 
 		if (bdistance->access_list) {
@@ -11511,8 +11511,9 @@ void bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi,
 	}
 
 	for (rn = bgp_table_top(bgp_distance_table[afi][safi]); rn;
-	     rn = bgp_route_next(rn))
-		if ((bdistance = rn->info) != NULL) {
+	     rn = bgp_route_next(rn)) {
+		bdistance = bgp_distance_get_node(rn);
+		if (bdistance != NULL) {
 			char buf[PREFIX_STRLEN];
 
 			vty_out(vty, "  distance %d %s %s\n",
@@ -11521,6 +11522,7 @@ void bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi,
 				bdistance->access_list ? bdistance->access_list
 						       : "");
 		}
+	}
 }
 
 /* Allocate routing table structure and install commands. */

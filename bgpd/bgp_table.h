@@ -326,4 +326,15 @@ static inline void bgp_aggregate_set_node_info(struct bgp_node *node,
 	node->info = aggregate;
 }
 
+static inline struct bgp_distance *bgp_distance_get_node(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_distance_set_node(struct bgp_node *node,
+					 struct bgp_distance *distance)
+{
+	node->info = distance;
+}
+
 #endif /* _QUAGGA_BGP_TABLE_H */
