@@ -5769,13 +5769,14 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 	child = bgp_node_get(table, p);
 
 	/* Aggregate address configuration check. */
-	for (rn = child; rn; rn = bgp_node_parent_nolock(rn))
-		if ((aggregate = rn->info) != NULL
-		    && rn->p.prefixlen < p->prefixlen) {
+	for (rn = child; rn; rn = bgp_node_parent_nolock(rn)) {
+		aggregate = bgp_aggregate_get_node_info(rn);
+		if (aggregate != NULL && rn->p.prefixlen < p->prefixlen) {
 			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
 			bgp_aggregate_route(bgp, &rn->p, ri, afi, safi, NULL,
 					    aggregate);
 		}
+	}
 	bgp_unlock_node(child);
 }
 
@@ -5799,13 +5800,14 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 	child = bgp_node_get(table, p);
 
 	/* Aggregate address configuration check. */
-	for (rn = child; rn; rn = bgp_node_parent_nolock(rn))
-		if ((aggregate = rn->info) != NULL
-		    && rn->p.prefixlen < p->prefixlen) {
+	for (rn = child; rn; rn = bgp_node_parent_nolock(rn)) {
+		aggregate = bgp_aggregate_get_node_info(rn);
+		if (aggregate != NULL && rn->p.prefixlen < p->prefixlen) {
 			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
 			bgp_aggregate_route(bgp, &rn->p, NULL, afi, safi, del,
 					    aggregate);
 		}
+	}
 	bgp_unlock_node(child);
 }
 
@@ -5838,12 +5840,12 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	aggregate = rn->info;
+	aggregate = bgp_aggregate_get_node_info(rn);
 	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
 	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL, 0, aggregate);
 
 	/* Unlock aggregate address configuration. */
-	rn->info = NULL;
+	bgp_aggregate_set_node_info(rn, NULL);
 	bgp_aggregate_free(aggregate);
 	bgp_unlock_node(rn);
 	bgp_unlock_node(rn);
@@ -5894,7 +5896,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	aggregate->summary_only = summary_only;
 	aggregate->as_set = as_set;
 	aggregate->safi = safi;
-	rn->info = aggregate;
+	bgp_aggregate_set_node_info(rn, aggregate);
 
 	/* Aggregate address insert into BGP routing table. */
 	bgp_aggregate_route(bgp, &p, NULL, afi, safi, NULL, aggregate);
@@ -11458,7 +11460,8 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 	/* Aggregate-address configuration. */
 	for (rn = bgp_table_top(bgp->aggregate[afi][safi]); rn;
 	     rn = bgp_route_next(rn)) {
-		if ((bgp_aggregate = rn->info) == NULL)
+		bgp_aggregate = bgp_aggregate_get_node_info(rn);
+		if (bgp_aggregate == NULL)
 			continue;
 
 		p = &rn->p;

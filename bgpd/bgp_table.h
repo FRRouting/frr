@@ -313,4 +313,17 @@ static inline uint64_t bgp_table_version(struct bgp_table *table)
 void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
 			    uint8_t maxlen, struct list *matches);
 
+
+static inline struct bgp_aggregate *
+bgp_aggregate_get_node_info(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_aggregate_set_node_info(struct bgp_node *node,
+					       struct bgp_aggregate *aggregate)
+{
+	node->info = aggregate;
+}
+
 #endif /* _QUAGGA_BGP_TABLE_H */
