@@ -278,14 +278,14 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		rn = bgp_node_get(bgp->connected_table[AFI_IP],
 				  (struct prefix *)&p);
-		if (rn->info) {
-			bc = rn->info;
+		bc = bgp_connected_get_node_info(rn);
+		if (bc)
 			bc->refcnt++;
-		} else {
+		else {
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
-			rn->info = bc;
+			bgp_connected_set_node_info(rn, bc);
 		}
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
@@ -310,14 +310,15 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		rn = bgp_node_get(bgp->connected_table[AFI_IP6],
 				  (struct prefix *)&p);
-		if (rn->info) {
-			bc = rn->info;
+
+		bc = bgp_connected_get_node_info(rn);
+		if (bc)
 			bc->refcnt++;
-		} else {
+		else {
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
-			rn->info = bc;
+			bgp_connected_set_node_info(rn, bc);
 		}
 	}
 }
@@ -354,11 +355,11 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 	if (!rn)
 		return;
 
-	bc = rn->info;
+	bc = bgp_connected_get_node_info(rn);
 	bc->refcnt--;
 	if (bc->refcnt == 0) {
 		XFREE(MTYPE_BGP_CONN, bc);
-		rn->info = NULL;
+		bgp_connected_set_node_info(rn, NULL);
 	}
 	bgp_unlock_node(rn);
 	bgp_unlock_node(rn);
@@ -368,15 +369,16 @@ static void bgp_connected_cleanup(struct route_table *table,
 				  struct route_node *rn)
 {
 	struct bgp_connected_ref *bc;
+	struct bgp_node *bn = bgp_node_from_rnode(rn);
 
-	bc = rn->info;
+	bc = bgp_connected_get_node_info(bn);
 	if (!bc)
 		return;
 
 	bc->refcnt--;
 	if (bc->refcnt == 0) {
 		XFREE(MTYPE_BGP_CONN, bc);
-		rn->info = NULL;
+		bgp_connected_set_node_info(bn, NULL);
 	}
 }
 

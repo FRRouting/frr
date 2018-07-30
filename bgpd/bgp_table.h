@@ -347,4 +347,17 @@ static inline void bgp_static_set_node_info(struct bgp_node *node,
 {
 	node->info = bgp_static;
 }
+
+static inline struct bgp_connected_ref *
+bgp_connected_get_node_info(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_connected_set_node_info(struct bgp_node *node,
+					       struct bgp_connected_ref *bc)
+{
+	node->info = bc;
+}
+
 #endif /* _QUAGGA_BGP_TABLE_H */
