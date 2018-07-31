@@ -120,7 +120,6 @@ extern vrf_id_t vrf_name_to_id(const char *);
 			} else {                                               \
 				vty_out(vty, "%% VRF %s not found\n", NAME);   \
 			}                                                      \
-			vty_out(vty, "%% VRF %s not found\n", NAME);           \
 			return CMD_WARNING;                                    \
 		}                                                              \
 		if (vrf->vrf_id == VRF_UNKNOWN) {                              \
