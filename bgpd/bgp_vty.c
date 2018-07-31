@@ -7914,9 +7914,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (use_json) {
 			json_peer = json_object_new_object();
 
-			if (peer_dynamic_neighbor(peer))
+			if (peer_dynamic_neighbor(peer)) {
+				dn_count++;
 				json_object_boolean_true_add(json_peer,
 							     "dynamicPeer");
+			}
 
 			if (peer->hostname)
 				json_object_string_add(json_peer, "hostname",
