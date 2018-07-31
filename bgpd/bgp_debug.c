@@ -43,6 +43,7 @@
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_flowspec.h"
 
@@ -607,44 +608,32 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 
 	argv_p = *argv_pp;
 
-	if (argv_find(argv, argc, "type", &type_idx) == 0)
-		return CMD_WARNING;
-
-	if (strncmp(argv[type_idx + 1]->arg, "ma", 2) == 0)
+	if (argv_find(argv, argc, "macip", &type_idx))
 		evpn_type = BGP_EVPN_MAC_IP_ROUTE;
-	else if (strncmp(argv[type_idx + 1]->arg, "mu", 2) == 0)
+	else if (argv_find(argv, argc, "multicast", &type_idx))
 		evpn_type = BGP_EVPN_IMET_ROUTE;
-	else if (strncmp(argv[type_idx + 1]->arg, "pr", 2) == 0)
+	else if (argv_find(argv, argc, "prefix", &type_idx))
 		evpn_type = BGP_EVPN_IP_PREFIX_ROUTE;
 	else
 		evpn_type = 0;
 
 	if (evpn_type == BGP_EVPN_MAC_IP_ROUTE) {
 		memset(&ip, 0, sizeof(struct ipaddr));
-		/* get the ip if specified */
-		if (argv_find(argv, argc, "ip", &ip_idx)) {
-			if (str2ipaddr(argv[ip_idx + 1]->arg, &ip) != 0) {
-				vty_out(vty, "%% Malformed IP address\n");
-				return CMD_WARNING;
-			}
-		}
+
 		argv_find(argv, argc, "mac", &mac_idx);
-		if (!prefix_str2mac(argv[mac_idx + 1]->arg, &mac)) {
-			vty_out(vty, "%% Malformed MAC address\n");
-			return CMD_WARNING;
-		}
+		prefix_str2mac(argv[mac_idx + 1]->arg, &mac);
+
+		argv_find(argv, argc, "ip", &ip_idx);
+		str2ipaddr(argv[ip_idx + 1]->arg, &ip);
 
 		build_evpn_type2_prefix((struct prefix_evpn *)argv_p,
 					&mac, &ip);
 	} else if (evpn_type == BGP_EVPN_IMET_ROUTE) {
 		memset(&ip, 0, sizeof(struct ipaddr));
-		/* get the ip if specified */
-		if (argv_find(argv, argc, "ip", &ip_idx)) {
-			if (str2ipaddr(argv[ip_idx + 1]->arg, &ip) != 0) {
-				vty_out(vty, "%% Malformed IP address\n");
-				return CMD_WARNING;
-			}
-		}
+
+		argv_find(argv, argc, "ip", &ip_idx);
+		str2ipaddr(argv[ip_idx + 1]->arg, &ip);
+
 		build_evpn_type3_prefix((struct prefix_evpn *)argv_p,
 					ip.ipaddr_v4);
 	} else if (evpn_type == BGP_EVPN_IP_PREFIX_ROUTE) {
@@ -1391,55 +1380,51 @@ DEFUN (no_debug_bgp_update_direct_peer,
 
 DEFPY (debug_bgp_update_prefix_afi_safi,
        debug_bgp_update_prefix_afi_safi_cmd,
-       "debug bgp updates prefix <l2vpn>$afi <evpn>$safi type <macip mac WORD [ip WORD]|multicast ip WORD |prefix ip WORD>",
+       "debug bgp updates prefix l2vpn$afi evpn$safi type <macip mac <M:A:C|M:A:C/M> [ip <A.B.C.D|X:X::X:X>]|multicast ip <A.B.C.D|X:X::X:X>|prefix ip <A.B.C.D/M|X:X::X:X/M>>",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
        "Specify a prefix to debug\n"
-       "l2vpn\n"
-       "evpn\n"
+       L2VPN_HELP_STR
+       EVPN_HELP_STR
        "Specify EVPN Route type\n"
        "MAC-IP (Type-2) route\n"
-       "MAC\n"
-       "MAC address (e.g., 00:e0:ec:20:12:62)\n"
-       "IP\n"
-       "IP address (IPv4 or IPv6)\n"
+       MAC_STR MAC_STR MAC_STR
+       IP_STR
+       "IPv4 address\n"
+       "IPv6 address\n"
        "Multicast (Type-3) route\n"
-       "IP\n"
-       "IP address (IPv4 or IPv6)\n"
+       IP_STR
+       "IPv4 address\n"
+       "IPv6 address\n"
        "Prefix (Type-5) route\n"
-       "IP\n"
-       "Prefix route\n")
+       IP_STR
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 {
-	int idx_ipv4_ipv6_prefixlen = 4;
 	struct prefix *argv_p;
 	int ret = CMD_SUCCESS;
-	afi_t afiz;
-	safi_t safiz;
+	char buf[PREFIX2STR_BUFFER];
 
 	argv_p = prefix_new();
 
-	afiz = bgp_vty_afi_from_str(afi);
-	safiz = safi ? bgp_vty_safi_from_str(safi) : SAFI_UNICAST;
-
-	/* check for evpn route type */
-	if (afiz == AFI_L2VPN && safiz == SAFI_EVPN) {
-		ret = bgp_debug_parse_evpn_prefix(vty, argv, argc, &argv_p);
-		if (ret != CMD_SUCCESS)
-			goto cleanup;
-	} else {
-		(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
-		apply_mask(argv_p);
+	ret = bgp_debug_parse_evpn_prefix(vty, argv, argc, &argv_p);
+	if (ret != CMD_SUCCESS) {
+		prefix_free(argv_p);
+		return ret;
 	}
 
 	if (!bgp_debug_update_prefixes)
 		bgp_debug_update_prefixes = list_new();
 
+	prefix2str(argv_p, buf, sizeof(buf));
+
 	if (bgp_debug_list_has_entry(bgp_debug_update_prefixes, NULL, argv_p)) {
 		vty_out(vty,
 			"BGP updates debugging is already enabled for %s\n",
-			argv[idx_ipv4_ipv6_prefixlen]->arg);
-		goto cleanup;
+			buf);
+		prefix_free(argv_p);
+		return CMD_SUCCESS;
 	}
 
 	bgp_debug_list_add_entry(bgp_debug_update_prefixes, NULL, argv_p);
@@ -1448,59 +1433,50 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 		DEBUG_ON(update, UPDATE_PREFIX);
 	} else {
 		TERM_DEBUG_ON(update, UPDATE_PREFIX);
-		vty_out(vty, "BGP updates debugging is on for %s\n",
-			argv[idx_ipv4_ipv6_prefixlen]->arg);
+		vty_out(vty, "BGP updates debugging is on for %s\n", buf);
 	}
 
-cleanup:
 	prefix_free(argv_p);
 
-	return ret;
+	return CMD_SUCCESS;
 }
 
 DEFPY (no_debug_bgp_update_prefix_afi_safi,
        no_debug_bgp_update_prefix_afi_safi_cmd,
-       "no debug bgp updates prefix <l2vpn>$afi <evpn>$safi type <macip mac WORD [ip WORD]|multicast ip WORD |prefix ip WORD>",
+       "no debug bgp updates prefix l2vpn$afi evpn$safi type <macip mac <M:A:C|M:A:C/M> [ip <A.B.C.D|X:X::X:X>]|multicast ip <A.B.C.D|X:X::X:X>|prefix ip <A.B.C.D/M|X:X::X:X/M>>",
        NO_STR
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
        "Specify a prefix to debug\n"
-       "l2vpn\n"
-       "evpn\n"
+       L2VPN_HELP_STR
+       EVPN_HELP_STR
        "Specify EVPN Route type\n"
        "MAC-IP (Type-2) route\n"
-       "MAC\n"
-       "MAC address (e.g., 00:e0:ec:20:12:62)\n"
-       "IP\n"
-       "IP address (IPv4 or IPv6)\n"
+       MAC_STR MAC_STR MAC_STR
+       IP_STR
+       "IPv4 address\n"
+       "IPv6 address\n"
        "Multicast (Type-3) route\n"
-       "IP\n"
-       "IP address (IPv4 or IPv6)\n"
+       IP_STR
+       "IPv4 address\n"
+       "IPv6 address\n"
        "Prefix (Type-5) route\n"
-       "IP\n"
-       "Prefix route\n")
+       IP_STR
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
 {
-	int idx_ipv4_ipv6_prefixlen = 5;
 	struct prefix *argv_p;
-	int found_prefix = 0;
+	bool found_prefix = false;
 	int ret = CMD_SUCCESS;
-	afi_t afiz;
-	safi_t safiz;
+	char buf[PREFIX2STR_BUFFER];
 
 	argv_p = prefix_new();
 
-	afiz = bgp_vty_afi_from_str(afi);
-	safiz = safi ? bgp_vty_safi_from_str(safi) : SAFI_UNICAST;
-
-	/* check for evpn route type */
-	if (afiz == AFI_L2VPN && safiz == SAFI_EVPN) {
-		ret = bgp_debug_parse_evpn_prefix(vty, argv, argc, &argv_p);
-		if (ret != CMD_SUCCESS)
-			goto cleanup;
-	} else {
-		(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
-		apply_mask(argv_p);
+	ret = bgp_debug_parse_evpn_prefix(vty, argv, argc, &argv_p);
+	if (ret != CMD_SUCCESS) {
+		prefix_free(argv_p);
+		return ret;
 	}
 
 	if (bgp_debug_update_prefixes
@@ -1519,14 +1495,14 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
 		}
 	}
 
+	prefix2str(argv_p, buf, sizeof(buf));
+
 	if (found_prefix)
-		vty_out(vty, "BGP updates debugging is off for %s\n",
-			argv[idx_ipv4_ipv6_prefixlen]->arg);
+		vty_out(vty, "BGP updates debugging is off for %s\n", buf);
 	else
 		vty_out(vty, "BGP updates debugging was not enabled for %s\n",
-			argv[idx_ipv4_ipv6_prefixlen]->arg);
+			buf);
 
-cleanup:
 	prefix_free(argv_p);
 
 	return ret;
