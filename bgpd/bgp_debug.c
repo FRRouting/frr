@@ -217,10 +217,12 @@ static void bgp_debug_list_free(struct list *list)
 		}
 }
 
-/* Print the desc along with a list of peers/prefixes this debug is
- * enabled for */
+/*
+ * Print the desc along with a list of peers/prefixes this debug is
+ * enabled for
+ */
 static void bgp_debug_list_print(struct vty *vty, const char *desc,
-				 struct list *list, uint8_t evpn_dbg)
+				 struct list *list)
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
@@ -234,16 +236,11 @@ static void bgp_debug_list_print(struct vty *vty, const char *desc,
 			if (filter->host)
 				vty_out(vty, " %s", filter->host);
 
-			if (filter->p) {
-				if (!evpn_dbg) {
-					vty_out(vty, " %s",
-						prefix2str(filter->p, buf,
-							   sizeof(buf)));
-				} else {
-					if (filter->p->family == AF_EVPN)
-						bgp_debug_print_evpn_prefix(vty,
-							"", filter->p);
-				}
+			if (filter->p && filter->p->family == AF_EVPN)
+				bgp_debug_print_evpn_prefix(vty, "", filter->p);
+			else if (filter->p) {
+				prefix2str(filter->p, buf, sizeof(buf));
+				vty_out(vty, " %s", buf);
 			}
 		}
 	}
@@ -251,11 +248,12 @@ static void bgp_debug_list_print(struct vty *vty, const char *desc,
 	vty_out(vty, "\n");
 }
 
-/* Print the command to enable the debug for each peer/prefix this debug is
+/*
+ * Print the command to enable the debug for each peer/prefix this debug is
  * enabled for
  */
 static int bgp_debug_list_conf_print(struct vty *vty, const char *desc,
-				     struct list *list, uint8_t evpn_dbg)
+				     struct list *list)
 {
 	struct bgp_debug_filter *filter;
 	struct listnode *node, *nnode;
@@ -269,19 +267,14 @@ static int bgp_debug_list_conf_print(struct vty *vty, const char *desc,
 				write++;
 			}
 
-
-			if (filter->p) {
-				if (!evpn_dbg) {
-					vty_out(vty, "%s %s\n", desc,
-						prefix2str(filter->p, buf,
-							   sizeof(buf)));
-					write++;
-				} else {
-					if (filter->p->family == AF_EVPN)
-						bgp_debug_print_evpn_prefix(vty,
-							desc, filter->p);
-					write++;
-				}
+			if (filter->p && filter->p->family == AF_EVPN) {
+				bgp_debug_print_evpn_prefix(vty, desc,
+							    filter->p);
+				write++;
+			} else if (filter->p) {
+				prefix2str(filter->p, buf, sizeof(buf));
+				vty_out(vty, "%s %s\n", desc, buf);
+				write++;
 			}
 		}
 	}
@@ -2090,16 +2083,16 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	if (BGP_DEBUG(bestpath, BESTPATH))
 		bgp_debug_list_print(vty, "  BGP bestpath debugging is on",
-				     bgp_debug_bestpath_prefixes, 0);
+				     bgp_debug_bestpath_prefixes);
 
 	if (BGP_DEBUG(keepalive, KEEPALIVE))
 		bgp_debug_list_print(vty, "  BGP keepalives debugging is on",
-				     bgp_debug_keepalive_peers, 0);
+				     bgp_debug_keepalive_peers);
 
 	if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS))
 		bgp_debug_list_print(vty,
 				     "  BGP neighbor-events debugging is on",
-				     bgp_debug_neighbor_events_peers, 0);
+				     bgp_debug_neighbor_events_peers);
 
 	if (BGP_DEBUG(nht, NHT))
 		vty_out(vty, "  BGP next-hop tracking debugging is on\n");
@@ -2109,21 +2102,21 @@ DEFUN_NOSH (show_debugging_bgp,
 
 	if (BGP_DEBUG(update, UPDATE_PREFIX))
 		bgp_debug_list_print(vty, "  BGP updates debugging is on",
-				     bgp_debug_update_prefixes, 1);
+				     bgp_debug_update_prefixes);
 
 	if (BGP_DEBUG(update, UPDATE_IN))
 		bgp_debug_list_print(vty,
 				     "  BGP updates debugging is on (inbound)",
-				     bgp_debug_update_in_peers, 0);
+				     bgp_debug_update_in_peers);
 
 	if (BGP_DEBUG(update, UPDATE_OUT))
 		bgp_debug_list_print(vty,
 				     "  BGP updates debugging is on (outbound)",
-				     bgp_debug_update_out_peers, 0);
+				     bgp_debug_update_out_peers);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		bgp_debug_list_print(vty, "  BGP zebra debugging is on",
-				     bgp_debug_zebra_prefixes, 0);
+				     bgp_debug_zebra_prefixes);
 
 	if (BGP_DEBUG(allow_martians, ALLOW_MARTIANS))
 		vty_out(vty, "  BGP allow martian next hop debugging is on\n");
@@ -2229,20 +2222,18 @@ static int bgp_config_write_debug(struct vty *vty)
 
 	if (CONF_BGP_DEBUG(bestpath, BESTPATH)) {
 		write += bgp_debug_list_conf_print(vty, "debug bgp bestpath",
-						   bgp_debug_bestpath_prefixes,
-						   0);
+						   bgp_debug_bestpath_prefixes);
 	}
 
 	if (CONF_BGP_DEBUG(keepalive, KEEPALIVE)) {
 		write += bgp_debug_list_conf_print(vty, "debug bgp keepalives",
-						   bgp_debug_keepalive_peers,
-						   0);
+						   bgp_debug_keepalive_peers);
 	}
 
 	if (CONF_BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS)) {
 		write += bgp_debug_list_conf_print(
 			vty, "debug bgp neighbor-events",
-			bgp_debug_neighbor_events_peers, 0);
+			bgp_debug_neighbor_events_peers);
 	}
 
 	if (CONF_BGP_DEBUG(nht, NHT)) {
@@ -2258,20 +2249,17 @@ static int bgp_config_write_debug(struct vty *vty)
 	if (CONF_BGP_DEBUG(update, UPDATE_PREFIX)) {
 		write += bgp_debug_list_conf_print(vty,
 						   "debug bgp updates prefix",
-						   bgp_debug_update_prefixes,
-						   1);
+						   bgp_debug_update_prefixes);
 	}
 
 	if (CONF_BGP_DEBUG(update, UPDATE_IN)) {
 		write += bgp_debug_list_conf_print(vty, "debug bgp updates in",
-						   bgp_debug_update_in_peers,
-						   0);
+						   bgp_debug_update_in_peers);
 	}
 
 	if (CONF_BGP_DEBUG(update, UPDATE_OUT)) {
 		write += bgp_debug_list_conf_print(vty, "debug bgp updates out",
-						   bgp_debug_update_out_peers,
-						   0);
+						   bgp_debug_update_out_peers);
 	}
 
 	if (CONF_BGP_DEBUG(zebra, ZEBRA)) {
@@ -2282,7 +2270,7 @@ static int bgp_config_write_debug(struct vty *vty)
 		} else {
 			write += bgp_debug_list_conf_print(
 				vty, "debug bgp zebra prefix",
-				bgp_debug_zebra_prefixes, 0);
+				bgp_debug_zebra_prefixes);
 		}
 	}
 
