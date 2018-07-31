@@ -425,13 +425,35 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 	return 0;
 }
 
+void pim_zebra_update_all_interfaces(struct pim_instance *pim)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+		struct pim_iface_upstream_switch *us;
+		struct listnode *node;
+
+		if (!pim_ifp)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->upstream_switch_list, node,
+					  us)) {
+			struct pim_rpf rpf;
+
+			rpf.source_nexthop.interface = ifp;
+			rpf.rpf_addr.u.prefix4 = us->address;
+			pim_joinprune_send(&rpf, us->us);
+			pim_jp_agg_clear_group(us->us);
+		}
+	}
+}
+
 static void scan_upstream_rpf_cache(struct pim_instance *pim)
 {
 	struct listnode *up_node;
 	struct listnode *up_nextnode;
-	struct listnode *node;
 	struct pim_upstream *up;
-	struct interface *ifp;
 
 	for (ALL_LIST_ELEMENTS(pim->upstream_list, up_node, up_nextnode, up)) {
 		enum pim_rpf_result rpf_result;
@@ -509,21 +531,7 @@ static void scan_upstream_rpf_cache(struct pim_instance *pim)
 
 	} /* for (qpim_upstream_list) */
 
-	FOR_ALL_INTERFACES (pim->vrf, ifp)
-		if (ifp->info) {
-			struct pim_interface *pim_ifp = ifp->info;
-			struct pim_iface_upstream_switch *us;
-
-			for (ALL_LIST_ELEMENTS_RO(pim_ifp->upstream_switch_list,
-						  node, us)) {
-				struct pim_rpf rpf;
-
-				rpf.source_nexthop.interface = ifp;
-				rpf.rpf_addr.u.prefix4 = us->address;
-				pim_joinprune_send(&rpf, us->us);
-				pim_jp_agg_clear_group(us->us);
-			}
-		}
+	pim_zebra_update_all_interfaces(pim);
 }
 
 void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)

@@ -46,4 +46,6 @@ void pim_forward_stop(struct pim_ifchannel *ch, bool install_it);
 
 void sched_rpf_cache_refresh(struct pim_instance *pim);
 struct zclient *pim_zebra_zclient_get(void);
+
+void pim_zebra_update_all_interfaces(struct pim_instance *pim);
 #endif /* PIM_ZEBRA_H */

@@ -367,25 +367,9 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 static int pim_update_upstream_nh(struct pim_instance *pim,
 				  struct pim_nexthop_cache *pnc)
 {
-	struct listnode *node;
-	struct interface *ifp;
-
 	hash_walk(pnc->upstream_hash, pim_update_upstream_nh_helper, pim);
 
-	FOR_ALL_INTERFACES (pim->vrf, ifp)
-		if (ifp->info) {
-			struct pim_interface *pim_ifp = ifp->info;
-			struct pim_iface_upstream_switch *us;
-
-			for (ALL_LIST_ELEMENTS_RO(pim_ifp->upstream_switch_list,
-						  node, us)) {
-				struct pim_rpf rpf;
-				rpf.source_nexthop.interface = ifp;
-				rpf.rpf_addr.u.prefix4 = us->address;
-				pim_joinprune_send(&rpf, us->us);
-				pim_jp_agg_clear_group(us->us);
-			}
-		}
+	pim_zebra_update_all_interfaces(pim);
 
 	return 0;
 }
