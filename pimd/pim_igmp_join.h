@@ -60,8 +60,6 @@ static int pim_igmp_join_source(int fd, ifindex_t ifindex,
 
 	return setsockopt(fd, SOL_IP, MCAST_JOIN_SOURCE_GROUP, &req,
 			  sizeof(req));
-
-	return 0;
 }
 
 #endif /* PIM_IGMP_JOIN_H */
