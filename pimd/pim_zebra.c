@@ -449,6 +449,62 @@ void pim_zebra_update_all_interfaces(struct pim_instance *pim)
 	}
 }
 
+void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
+				    struct pim_upstream *up,
+				    struct pim_rpf *old)
+{
+	struct pim_neighbor *nbr;
+
+	nbr = pim_neighbor_find(old->source_nexthop.interface,
+				old->rpf_addr.u.prefix4);
+	if (nbr)
+		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up);
+
+	/*
+	 * We have detected a case where we might need
+	 * to rescan the inherited o_list so do it.
+	 */
+	if (up->channel_oil->oil_inherited_rescan) {
+		pim_upstream_inherited_olist_decide(pim, up);
+		up->channel_oil->oil_inherited_rescan = 0;
+	}
+
+	if (up->join_state == PIM_UPSTREAM_JOINED) {
+		/*
+		 * If we come up real fast we can be here
+		 * where the mroute has not been installed
+		 * so install it.
+		 */
+		if (!up->channel_oil->installed)
+			pim_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
+
+		/*
+		 * RFC 4601: 4.5.7.  Sending (S,G)
+		 * Join/Prune Messages
+		 *
+		 * Transitions from Joined State
+		 *
+		 * RPF'(S,G) changes not due to an Assert
+		 *
+		 * The upstream (S,G) state machine remains
+		 * in Joined state. Send Join(S,G) to the new
+		 * upstream neighbor, which is the new value
+		 * of RPF'(S,G).  Send Prune(S,G) to the old
+		 * upstream neighbor, which is the old value
+		 * of RPF'(S,G).  Set the Join Timer (JT) to
+		 * expire after t_periodic seconds.
+		 */
+		pim_jp_agg_switch_interface(old, &up->rpf, up);
+
+		pim_upstream_join_timer_restart(up, old);
+	} /* up->join_state == PIM_UPSTREAM_JOINED */
+
+	/* FIXME can join_desired actually be changed by
+	   pim_rpf_update()
+	   returning PIM_RPF_CHANGED ? */
+	pim_upstream_update_join_desired(pim, up);
+}
+
 static void scan_upstream_rpf_cache(struct pim_instance *pim)
 {
 	struct listnode *up_node;
@@ -472,62 +528,8 @@ static void scan_upstream_rpf_cache(struct pim_instance *pim)
 		if (rpf_result == PIM_RPF_FAILURE)
 			continue;
 
-		if (rpf_result == PIM_RPF_CHANGED) {
-			struct pim_neighbor *nbr;
-
-			nbr = pim_neighbor_find(old.source_nexthop.interface,
-						old.rpf_addr.u.prefix4);
-			if (nbr)
-				pim_jp_agg_remove_group(nbr->upstream_jp_agg,
-							up);
-
-			/*
-			 * We have detected a case where we might need
-			 * to rescan
-			 * the inherited o_list so do it.
-			 */
-			if (up->channel_oil->oil_inherited_rescan) {
-				pim_upstream_inherited_olist_decide(pim, up);
-				up->channel_oil->oil_inherited_rescan = 0;
-			}
-
-			if (up->join_state == PIM_UPSTREAM_JOINED) {
-				/*
-				 * If we come up real fast we can be here
-				 * where the mroute has not been installed
-				 * so install it.
-				 */
-				if (!up->channel_oil->installed)
-					pim_mroute_add(up->channel_oil,
-						       __PRETTY_FUNCTION__);
-
-				/*
-				 * RFC 4601: 4.5.7.  Sending (S,G)
-				 * Join/Prune Messages
-				 *
-				 * Transitions from Joined State
-				 *
-				 * RPF'(S,G) changes not due to an Assert
-				 *
-				 * The upstream (S,G) state machine remains
-				 * in Joined state. Send Join(S,G) to the new
-				 * upstream neighbor, which is the new value
-				 * of RPF'(S,G).  Send Prune(S,G) to the old
-				 * upstream neighbor, which is the old value
-				 * of RPF'(S,G).  Set the Join Timer (JT) to
-				 * expire after t_periodic seconds.
-				 */
-				pim_jp_agg_switch_interface(&old, &up->rpf, up);
-
-				pim_upstream_join_timer_restart(up, &old);
-			} /* up->join_state == PIM_UPSTREAM_JOINED */
-
-			/* FIXME can join_desired actually be changed by
-			   pim_rpf_update()
-			   returning PIM_RPF_CHANGED ? */
-			pim_upstream_update_join_desired(pim, up);
-
-		} /* PIM_RPF_CHANGED */
+		if (rpf_result == PIM_RPF_CHANGED)
+			pim_zebra_upstream_rpf_changed(pim, up, &old);
 
 	} /* for (qpim_upstream_list) */
 
