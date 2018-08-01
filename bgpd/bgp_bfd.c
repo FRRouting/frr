@@ -560,7 +560,12 @@ DEFUN (neighbor_bfd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (neighbor_bfd_param,
+#if HAVE_BFDD > 0
+DEFUN_HIDDEN(
+#else
+DEFUN(
+#endif /* HAVE_BFDD */
+       neighbor_bfd_param,
        neighbor_bfd_param_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
        NEIGHBOR_STR
@@ -632,14 +637,21 @@ DEFUN_HIDDEN (neighbor_bfd_type,
 
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
+#if HAVE_BFDD > 0
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
+#else
        "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd [(2-255) (50-60000) (50-60000)]",
+#endif /* HAVE_BFDD */
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Disables BFD support\n"
+#if HAVE_BFDD == 0
        "Detect Multiplier\n"
        "Required min receive interval\n"
-       "Desired min transmit interval\n")
+       "Desired min transmit interval\n"
+#endif /* !HAVE_BFDD */
+)
 {
 	int idx_peer = 2;
 	struct peer *peer;

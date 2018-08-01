@@ -333,7 +333,12 @@ DEFUN (ipv6_ospf6_bfd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_ospf6_bfd_param,
+#if HAVE_BFDD > 0
+DEFUN_HIDDEN(
+#else
+DEFUN(
+#endif /* HAVE_BFDD */
+       ipv6_ospf6_bfd_param,
        ipv6_ospf6_bfd_param_cmd,
        "ipv6 ospf6 bfd (2-255) (50-60000) (50-60000)",
        IP6_STR
