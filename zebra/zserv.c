@@ -576,6 +576,7 @@ static void zserv_client_free(struct zserv *client)
 		unsigned long nroutes;
 
 		close(client->sock);
+
 		nroutes = rib_score_proto(client->proto, client->instance);
 		zlog_notice(
 			"client %d disconnected. %lu %s routes removed from the rib",
@@ -620,12 +621,6 @@ void zserv_close_client(struct zserv *client)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Closing client '%s'",
 			   zebra_route_string(client->proto));
-
-	/* if file descriptor is still open, close it */
-	if (client->sock > 0) {
-		close(client->sock);
-		client->sock = -1;
-	}
 
 	thread_cancel_event(zebrad.master, client);
 	THREAD_OFF(client->t_cleanup);
