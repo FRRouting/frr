@@ -163,6 +163,9 @@ static void zserv_log_message(const char *errmsg, struct stream *msg,
  * Cancel any pending tasks for the client's thread. Then schedule a task on
  * the main thread to shut down the calling thread.
  *
+ * It is not safe to close the client socket in this function. The socket is
+ * owned by the main thread.
+ *
  * Must be called from the client pthread, never the main thread.
  */
 static void zserv_client_fail(struct zserv *client)
@@ -172,10 +175,7 @@ static void zserv_client_fail(struct zserv *client)
 
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
-	if (client->sock > 0) {
-		close(client->sock);
-		client->sock = -1;
-	}
+
 	THREAD_OFF(client->t_read);
 	THREAD_OFF(client->t_write);
 	zserv_event(client, ZSERV_HANDLE_CLIENT_FAIL);

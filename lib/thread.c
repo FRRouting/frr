@@ -782,6 +782,7 @@ struct thread *funcname_thread_add_read_write(int dir, struct thread_master *m,
 {
 	struct thread *thread = NULL;
 
+	assert(fd >= 0 && fd < m->fd_limit);
 	pthread_mutex_lock(&m->mtx);
 	{
 		if (t_ptr
