@@ -172,7 +172,7 @@ struct key *key_match_for_accept(const struct keychain *keychain,
 		if (key->accept.start == 0
 		    || (key->accept.start <= now
 			&& (key->accept.end >= now || key->accept.end == -1)))
-			if (strncmp(key->string, auth_str, 16) == 0)
+			if (key->string && (strncmp(key->string, auth_str, 16) == 0))
 				return key;
 	}
 	return NULL;

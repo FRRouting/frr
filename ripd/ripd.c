@@ -828,7 +828,7 @@ static int rip_auth_simple_password(struct rte *rte, struct sockaddr_in *from,
 		struct key *key;
 
 		keychain = keychain_lookup(ri->key_chain);
-		if (keychain == NULL)
+		if (keychain == NULL || keychain->key == NULL)
 			return 0;
 
 		key = key_match_for_accept(keychain, auth_str);
