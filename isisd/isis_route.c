@@ -353,6 +353,7 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 		route_info = rinfo_new;
 		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 	} else {
+		route_unlock_node(route_node);
 		if (isis->debugs & DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Rte (%s) route already exists: %s",
 				   area->area_tag, buff);
@@ -379,20 +380,21 @@ struct isis_route_info *isis_route_create(struct prefix *prefix,
 	return route_info;
 }
 
-static void isis_route_delete(struct prefix *prefix,
-			      struct prefix_ipv6 *src_p,
+static void isis_route_delete(struct route_node *rode,
 			      struct route_table *table)
 {
-	struct route_node *rode;
 	struct isis_route_info *rinfo;
 	char buff[SRCDEST2STR_BUFFER];
+	struct prefix *prefix;
+	struct prefix_ipv6 *src_p;
 
 	/* for log */
-	srcdest2str(prefix, src_p, buff, sizeof(buff));
+	srcdest_rnode2str(rode, buff, sizeof(buff));
 
-	rode = srcdest_rnode_get(table, prefix, src_p);
+	srcdest_rnode_prefixes(rode, (const struct prefix **)&prefix,
+			       (const struct prefix **)&src_p);
+
 	rinfo = rode->info;
-
 	if (rinfo == NULL) {
 		if (isis->debugs & DEBUG_RTE_EVENTS)
 			zlog_debug(
@@ -409,8 +411,7 @@ static void isis_route_delete(struct prefix *prefix,
 	}
 	isis_route_info_delete(rinfo);
 	rode->info = NULL;
-
-	return;
+	route_unlock_node(rode);
 }
 
 static void _isis_route_verify_table(struct isis_area *area,
@@ -454,28 +455,38 @@ static void _isis_route_verify_table(struct isis_area *area,
 		}
 
 		isis_zebra_route_update(dst_p, src_p, rinfo);
-		if (!CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
-			/* Area is either L1 or L2 => we use level route tables
-			 * directly for
-			 * validating => no problems with deleting routes. */
-			if (!tables) {
-				isis_route_delete(dst_p, src_p, table);
-				continue;
-			}
 
-			/* If area is L1L2, we work with merge table and
-			 * therefore must
-			 * delete node from level tables as well before deleting
-			 * route info. */
-			for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
-				drnode = srcdest_rnode_get(tables[level - 1],
-							   dst_p, src_p);
-				if (drnode->info == rnode->info)
-					drnode->info = NULL;
-			}
+		if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE))
+			continue;
 
-			isis_route_delete(dst_p, src_p, table);
+		/* Area is either L1 or L2 => we use level route tables
+		 * directly for
+		 * validating => no problems with deleting routes. */
+		if (!tables) {
+			isis_route_delete(rnode, table);
+			continue;
 		}
+
+		/* If area is L1L2, we work with merge table and
+		 * therefore must
+		 * delete node from level tables as well before deleting
+		 * route info. */
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			drnode = srcdest_rnode_lookup(tables[level - 1],
+						      dst_p, src_p);
+			if (!drnode)
+				continue;
+
+			route_unlock_node(drnode);
+
+			if (drnode->info != rnode->info)
+				continue;
+
+			drnode->info = NULL;
+			route_unlock_node(drnode);
+		}
+
+		isis_route_delete(rnode, table);
 	}
 }
 
