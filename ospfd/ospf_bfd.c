@@ -377,7 +377,12 @@ DEFUN (ip_ospf_bfd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_ospf_bfd_param,
+#if HAVE_BFDD > 0
+DEFUN_HIDDEN(
+#else
+DEFUN(
+#endif /* HAVE_BFDD */
+       ip_ospf_bfd_param,
        ip_ospf_bfd_param_cmd,
        "ip ospf bfd (2-255) (50-60000) (50-60000)",
        "IP Information\n"
@@ -411,14 +416,21 @@ DEFUN (ip_ospf_bfd_param,
 
 DEFUN (no_ip_ospf_bfd,
        no_ip_ospf_bfd_cmd,
+#if HAVE_BFDD > 0
+       "no ip ospf bfd",
+#else
        "no ip ospf bfd [(2-255) (50-60000) (50-60000)]",
+#endif /* HAVE_BFDD */
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
        "Disables BFD support\n"
+#if HAVE_BFDD == 0
        "Detect Multiplier\n"
        "Required min receive interval\n"
-       "Desired min transmit interval\n")
+       "Desired min transmit interval\n"
+#endif /* !HAVE_BFDD */
+)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf_if_params *params;
