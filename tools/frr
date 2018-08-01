@@ -574,7 +574,11 @@ case "$1" in
 
     reload)
        # Just apply the commands that have changed, no restart necessary
-       [ ! -x "$RELOAD_SCRIPT" ] && echo "frr-reload script not available" && exit 0
+       if [ ! -x "$RELOAD_SCRIPT" ]; then
+          echo "Please install frr-pythontools package. Required for reload"
+          exit 0
+       fi
+
        NEW_CONFIG_FILE="${2:-$C_PATH/frr.conf}"
        [ ! -r $NEW_CONFIG_FILE ] && echo "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1
        echo "Applying only incremental changes to running configuration from frr.conf"
