@@ -27,6 +27,7 @@ import os
 import errno
 import re
 import sys
+import functools
 import glob
 import StringIO
 import subprocess
@@ -207,13 +208,32 @@ def run_and_expect(func, what, count=20, wait=3):
     Returns (True, func-return) on success or
     (False, func-return) on failure.
     """
+    start_time = time.time()
+    func_name = "<unknown>"
+    if func.__class__ == functools.partial:
+        func_name = func.func.__name__
+    else:
+        func_name = func.__name__
+
+    logger.info(
+        "'{}' polling started (interval {} secs, maximum wait {} secs)".format(
+            func_name, wait, int(wait * count)))
+
     while count > 0:
         result = func()
         if result != what:
             time.sleep(wait)
             count -= 1
             continue
+
+        end_time = time.time()
+        logger.info("'{}' succeeded after {:.2f} seconds".format(
+            func_name, end_time - start_time))
         return (True, result)
+
+    end_time = time.time()
+    logger.error("'{}' failed after {:.2f} seconds".format(
+        func_name, end_time - start_time))
     return (False, result)
 
 
