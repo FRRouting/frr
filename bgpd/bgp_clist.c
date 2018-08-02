@@ -332,140 +332,69 @@ community_list_entry_lookup(struct community_list *list, const void *arg,
 
 static char *community_str_get(struct community *com, int i)
 {
-	int len;
 	uint32_t comval;
 	uint16_t as;
 	uint16_t val;
 	char *str;
-	char *pnt;
 
 	memcpy(&comval, com_nthval(com, i), sizeof(uint32_t));
 	comval = ntohl(comval);
 
 	switch (comval) {
 	case COMMUNITY_INTERNET:
-		len = strlen(" internet");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "internet");
 		break;
 	case COMMUNITY_GSHUT:
-		len = strlen(" graceful-shutdown");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "graceful-shutdown");
 		break;
 	case COMMUNITY_ACCEPT_OWN:
-		len = strlen(" accept-own");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "accept-own");
 		break;
 	case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
-		len = strlen(" route-filter-translated-v4");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR,
+			      "route-filter-translated-v4");
 		break;
 	case COMMUNITY_ROUTE_FILTER_v4:
-		len = strlen(" route-filter-v4");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "route-filter-v4");
 		break;
 	case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
-		len = strlen(" route-filter-translated-v6");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR,
+			      "route-filter-translated-v6");
 		break;
 	case COMMUNITY_ROUTE_FILTER_v6:
-		len = strlen(" route-filter-v6");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "route-filter-v6");
 		break;
 	case COMMUNITY_LLGR_STALE:
-		len = strlen(" llgr-stale");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "llgr-stale");
 		break;
 	case COMMUNITY_NO_LLGR:
-		len = strlen(" no-llgr");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "no-llgr");
 		break;
 	case COMMUNITY_ACCEPT_OWN_NEXTHOP:
-		len = strlen(" accept-own-nexthop");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "accept-own-nexthop");
 		break;
 	case COMMUNITY_BLACKHOLE:
-		len = strlen(" blackhole");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "blackhole");
 		break;
 	case COMMUNITY_NO_EXPORT:
-		len = strlen(" no-export");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "no-export");
 		break;
 	case COMMUNITY_NO_ADVERTISE:
-		len = strlen(" no-advertise");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "no-advertise");
 		break;
 	case COMMUNITY_LOCAL_AS:
-		len = strlen(" local-AS");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "local-AS");
 		break;
 	case COMMUNITY_NO_PEER:
-		len = strlen(" no-peer");
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "no-peer");
 		break;
 	default:
-		len = strlen(" 65536:65535");
-		break;
-	}
-
-	/* Allocate memory.  */
-	str = pnt = XMALLOC(MTYPE_COMMUNITY_STR, len);
-
-	switch (comval) {
-	case COMMUNITY_INTERNET:
-		strcpy(pnt, "internet");
-		pnt += strlen("internet");
-		break;
-	case COMMUNITY_GSHUT:
-		strcpy(pnt, "graceful-shutdown");
-		pnt += strlen("graceful-shutdown");
-		break;
-	case COMMUNITY_ACCEPT_OWN:
-		strcpy(pnt, "accept-own");
-		pnt += strlen("accept-own");
-		break;
-	case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
-		strcpy(pnt, "route-filter-translated-v4");
-		pnt += strlen("route-filter-translated-v4");
-		break;
-	case COMMUNITY_ROUTE_FILTER_v4:
-		strcpy(pnt, "route-filter-v4");
-		pnt += strlen("route-filter-v4");
-		break;
-	case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
-		strcpy(pnt, "route-filter-translated-v6");
-		pnt += strlen("route-filter-translated-v6");
-		break;
-	case COMMUNITY_ROUTE_FILTER_v6:
-		strcpy(pnt, "route-filter-v6");
-		pnt += strlen("route-filter-v6");
-		break;
-	case COMMUNITY_LLGR_STALE:
-		strcpy(pnt, "llgr-stale");
-		pnt += strlen("llgr-stale");
-		break;
-	case COMMUNITY_NO_LLGR:
-		strcpy(pnt, "no-llgr");
-		pnt += strlen("no-llgr");
-		break;
-	case COMMUNITY_ACCEPT_OWN_NEXTHOP:
-		strcpy(pnt, "accept-own-nexthop");
-		pnt += strlen("accept-own-nexthop");
-		break;
-	case COMMUNITY_BLACKHOLE:
-		strcpy(pnt, "blackhole");
-		pnt += strlen("blackhole");
-		break;
-	case COMMUNITY_NO_EXPORT:
-		strcpy(pnt, "no-export");
-		pnt += strlen("no-export");
-		break;
-	case COMMUNITY_NO_ADVERTISE:
-		strcpy(pnt, "no-advertise");
-		pnt += strlen("no-advertise");
-		break;
-	case COMMUNITY_LOCAL_AS:
-		strcpy(pnt, "local-AS");
-		pnt += strlen("local-AS");
-		break;
-	case COMMUNITY_NO_PEER:
-		strcpy(pnt, "no-peer");
-		pnt += strlen("no-peer");
-		break;
-	default:
+		str = XSTRDUP(MTYPE_COMMUNITY_STR, "65536:65535");
 		as = (comval >> 16) & 0xFFFF;
 		val = comval & 0xFFFF;
-		sprintf(pnt, "%u:%d", as, val);
-		pnt += strlen(pnt);
+		snprintf(str, strlen(str), "%u:%d", as, val);
 		break;
 	}
-
-	*pnt = '\0';
 
 	return str;
 }
