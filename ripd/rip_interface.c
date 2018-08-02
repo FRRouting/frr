@@ -514,14 +514,12 @@ static void rip_interface_reset(struct rip_interface *ri)
 
 	ri->v2_broadcast = 0;
 
-	if (ri->auth_str) {
-		free(ri->auth_str);
-		ri->auth_str = NULL;
-	}
-	if (ri->key_chain) {
-		free(ri->key_chain);
-		ri->key_chain = NULL;
-	}
+	if (ri->auth_str)
+		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
+
+	if (ri->key_chain)
+		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
+
 
 	ri->list[RIP_FILTER_IN] = NULL;
 	ri->list[RIP_FILTER_OUT] = NULL;
@@ -825,7 +823,8 @@ static int rip_enable_if_add(const char *ifname)
 	if (ret >= 0)
 		return -1;
 
-	vector_set(rip_enable_interface, strdup(ifname));
+	vector_set(rip_enable_interface,
+		   XSTRDUP(MTYPE_RIP_INTERFACE_STRING, ifname));
 
 	rip_enable_apply_all(); /* TODOVJ */
 
@@ -843,7 +842,7 @@ static int rip_enable_if_delete(const char *ifname)
 		return -1;
 
 	str = vector_slot(rip_enable_interface, index);
-	free(str);
+	XFREE(MTYPE_RIP_INTERFACE_STRING, str);
 	vector_unset(rip_enable_interface, index);
 
 	rip_enable_apply_all(); /* TODOVJ */
@@ -1062,7 +1061,7 @@ void rip_clean_network()
 	/* rip_enable_interface. */
 	for (i = 0; i < vector_active(rip_enable_interface); i++)
 		if ((str = vector_slot(rip_enable_interface, i)) != NULL) {
-			free(str);
+			XFREE(MTYPE_RIP_INTERFACE_STRING, str);
 			vector_slot(rip_enable_interface, i) = NULL;
 		}
 }
@@ -1110,7 +1109,8 @@ static int rip_passive_nondefault_set(struct vty *vty, const char *ifname)
 	if (rip_passive_nondefault_lookup(ifname) >= 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	vector_set(Vrip_passive_nondefault, strdup(ifname));
+	vector_set(Vrip_passive_nondefault,
+		   XSTRDUP(MTYPE_RIP_INTERFACE_STRING, ifname));
 
 	rip_passive_interface_apply_all();
 
@@ -1127,7 +1127,7 @@ static int rip_passive_nondefault_unset(struct vty *vty, const char *ifname)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	str = vector_slot(Vrip_passive_nondefault, i);
-	free(str);
+	XFREE(MTYPE_RIP_INTERFACE_STRING, str);
 	vector_unset(Vrip_passive_nondefault, i);
 
 	rip_passive_interface_apply_all();
@@ -1143,7 +1143,7 @@ void rip_passive_nondefault_clean(void)
 
 	for (i = 0; i < vector_active(Vrip_passive_nondefault); i++)
 		if ((str = vector_slot(Vrip_passive_nondefault, i)) != NULL) {
-			free(str);
+			XFREE(MTYPE_RIP_INTERFACE_STRING, str);
 			vector_slot(Vrip_passive_nondefault, i) = NULL;
 		}
 	rip_passive_interface_apply_all();
@@ -1529,9 +1529,9 @@ DEFUN (ip_rip_authentication_string,
 	}
 
 	if (ri->auth_str)
-		free(ri->auth_str);
+		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
 
-	ri->auth_str = strdup(argv[idx_line]->arg);
+	ri->auth_str = XSTRDUP(MTYPE_RIP_INTERFACE_STRING, argv[idx_line]->arg);
 
 	return CMD_SUCCESS;
 }
@@ -1552,9 +1552,7 @@ DEFUN (no_ip_rip_authentication_string,
 	ri = ifp->info;
 
 	if (ri->auth_str)
-		free(ri->auth_str);
-
-	ri->auth_str = NULL;
+		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
 
 	return CMD_SUCCESS;
 }
@@ -1581,9 +1579,10 @@ DEFUN (ip_rip_authentication_key_chain,
 	}
 
 	if (ri->key_chain)
-		free(ri->key_chain);
+		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
 
-	ri->key_chain = strdup(argv[idx_line]->arg);
+	ri->key_chain =
+		XSTRDUP(MTYPE_RIP_INTERFACE_STRING, argv[idx_line]->arg);
 
 	return CMD_SUCCESS;
 }
@@ -1604,9 +1603,7 @@ DEFUN (no_ip_rip_authentication_key_chain,
 	ri = ifp->info;
 
 	if (ri->key_chain)
-		free(ri->key_chain);
-
-	ri->key_chain = NULL;
+		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
 
 	return CMD_SUCCESS;
 }
