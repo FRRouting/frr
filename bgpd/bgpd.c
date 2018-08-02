@@ -3120,6 +3120,9 @@ int bgp_delete(struct bgp *bgp)
 
 	assert(bgp);
 	THREAD_OFF(bgp->t_startup);
+	THREAD_OFF(bgp->t_maxmed_onstartup);
+	THREAD_OFF(bgp->t_update_delay);
+	THREAD_OFF(bgp->t_establish_wait);
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
