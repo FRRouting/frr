@@ -72,12 +72,13 @@ else
   echo "Done."
   for file in ${tmp1}/*_cp; do
     if [ -a ${tmp2}/$(basename $file) ]; then
-      result=$(diff $file ${tmp2}/$(basename $file) | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 "${tmp1}")
+      result=$(diff $file ${tmp2}/$(basename $file) | awk '/< ERROR|< WARNING/,/^< $|^< #|^<[^ ]/ { print $0; ++n }; END { exit n }')
     else
-      result=$(cat $file | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 "${tmp1}")
+      result=$(cat $file | awk '/ERROR|WARNING/,/^$/ { print $0; ++n }; END { exit n }')
     fi
-    if [ "$?" -eq "0" ]; then
-      echo "Report for $(basename $file _cp)" 1>&2
+    ni="$?"
+    if [ "$ni" -ne "0" ]; then
+      echo "Report for $(basename $file _cp) | $ni issues" 1>&2
       echo "===============================================" 1>&2
       echo "$result" 1>&2
       if echo $result | grep -q "ERROR"; then
