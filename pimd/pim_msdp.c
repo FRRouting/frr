@@ -1621,6 +1621,7 @@ void pim_msdp_exit(struct pim_instance *pim)
 	/* XXX: stop listener and delete all peer sessions */
 
 	if (pim->msdp.peer_hash) {
+		hash_clean(pim->msdp.peer_hash, NULL);
 		hash_free(pim->msdp.peer_hash);
 		pim->msdp.peer_hash = NULL;
 	}
@@ -1630,6 +1631,7 @@ void pim_msdp_exit(struct pim_instance *pim)
 	}
 
 	if (pim->msdp.sa_hash) {
+		hash_clean(pim->msdp.sa_hash, NULL);
 		hash_free(pim->msdp.sa_hash);
 		pim->msdp.sa_hash = NULL;
 	}
@@ -1637,4 +1639,8 @@ void pim_msdp_exit(struct pim_instance *pim)
 	if (pim->msdp.sa_list) {
 		list_delete_and_null(&pim->msdp.sa_list);
 	}
+
+	if (pim->msdp.work_obuf)
+		stream_free(pim->msdp.work_obuf);
+	pim->msdp.work_obuf = NULL;
 }
