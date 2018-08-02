@@ -79,8 +79,6 @@ static void pim_free()
 	pim_route_map_terminate();
 
 	zclient_lookup_free();
-
-	zprivs_terminate(&pimd_privs);
 }
 
 void pim_init()
