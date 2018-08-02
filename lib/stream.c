@@ -100,16 +100,12 @@ struct stream *stream_new(size_t size)
 
 	assert(size > 0);
 
-	s = XCALLOC(MTYPE_STREAM, sizeof(struct stream));
+	s = XMALLOC(MTYPE_STREAM, sizeof(struct stream));
 
-	if (s == NULL)
-		return s;
+	s->data = XMALLOC(MTYPE_STREAM_DATA, size);
 
-	if ((s->data = XMALLOC(MTYPE_STREAM_DATA, size)) == NULL) {
-		XFREE(MTYPE_STREAM, s);
-		return NULL;
-	}
-
+	s->getp = s->endp = 0;
+	s->next = NULL;
 	s->size = size;
 	return s;
 }
