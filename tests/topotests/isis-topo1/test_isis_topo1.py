@@ -27,6 +27,7 @@ test_isis_topo1.py: Test ISIS topology.
 """
 
 import collections
+import functools
 import json
 import os
 import re
@@ -133,26 +134,21 @@ def test_isis_convergence():
     #     open('/tmp/{}_topology.json'.format(rname), 'w').write(
     #         json.dumps(show_isis_topology(router), indent=2, sort_keys=True)
     #     )
-    wait = 90
-    startt = time.time()
-    loop = True
-    done = False
-    while loop and not done:
-        delta = time.time() - startt
-        loop = delta < wait
-        done = True
-        for rname, router in tgen.routers().iteritems():
-            filename = '{0}/{1}/{1}_topology.json'.format(CWD, rname)
-            expected = json.loads(open(filename, 'r').read())
+
+    for rname, router in tgen.routers().iteritems():
+        filename = '{0}/{1}/{1}_topology.json'.format(CWD, rname)
+        expected = json.loads(open(filename).read())
+
+        def compare_isis_topology(router, expected):
+            "Helper function to test ISIS topology convergence."
             actual = show_isis_topology(router)
-            if topotest.json_cmp(actual, expected) != None:
-                done = False
-                if loop == False:
-                    assertmsg = "Router '%s' topology mismatch after +%4.2f secs" % (rname, delta)
-                    assert topotest.json_cmp(actual, expected) is None, assertmsg
-        if loop and not done:
-            time.sleep (0.5)
-    logger.info("ISIS protocol converged after +%4.2f secs" % (delta))
+            return topotest.json_cmp(actual, expected)
+
+        test_func = functools.partial(compare_isis_topology, router, expected)
+        (result, diff) = topotest.run_and_expect(test_func, None,
+                                                 wait=0.5, count=120)
+        assert result, 'ISIS did not converge on {}:\n{}'.format(rname, diff)
+
 
 def test_isis_route_installation():
     "Check whether all expected routes are present"
