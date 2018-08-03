@@ -6,6 +6,7 @@ lib_libfrr_la_LDFLAGS = -version-info 0:0:0
 lib_libfrr_la_LIBADD = @LIBCAP@
 
 lib_libfrr_la_SOURCES = \
+	lib/agg_table.c \
 	lib/bfd.c \
 	lib/buffer.c \
 	lib/checksum.c \
@@ -82,6 +83,7 @@ lib/plist_clippy.c: $(CLIPPY_DEPS)
 lib/plist.lo: lib/plist_clippy.c
 
 pkginclude_HEADERS += \
+	lib/agg_table.h \
 	lib/bfd.h \
 	lib/bitfield.h \
 	lib/buffer.h \
