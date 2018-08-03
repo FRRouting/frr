@@ -16,6 +16,7 @@ lib_libfrr_la_SOURCES = \
 	lib/command_parse.y \
 	lib/csv.c \
 	lib/debug.c \
+	lib/debug_wrapper.c \
 	lib/distribute.c \
 	lib/event_counter.c \
 	lib/ferr.c \
@@ -98,6 +99,7 @@ pkginclude_HEADERS += \
 	lib/compiler.h \
 	lib/csv.h \
 	lib/debug.h \
+  lib/debug_wrapper.h \
 	lib/distribute.h \
 	lib/event_counter.h \
 	lib/ferr.h \
