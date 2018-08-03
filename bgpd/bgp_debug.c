@@ -1433,7 +1433,7 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 	if (afiz == AFI_L2VPN && safiz == SAFI_EVPN) {
 		ret = bgp_debug_parse_evpn_prefix(vty, argv, argc, &argv_p);
 		if (ret != CMD_SUCCESS)
-			return ret;
+			goto cleanup;
 	} else {
 		(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
 		apply_mask(argv_p);
@@ -1446,7 +1446,7 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 		vty_out(vty,
 			"BGP updates debugging is already enabled for %s\n",
 			argv[idx_ipv4_ipv6_prefixlen]->arg);
-		return CMD_SUCCESS;
+		goto cleanup;
 	}
 
 	bgp_debug_list_add_entry(bgp_debug_update_prefixes, NULL, argv_p);
@@ -1459,7 +1459,10 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 			argv[idx_ipv4_ipv6_prefixlen]->arg);
 	}
 
-	return CMD_SUCCESS;
+cleanup:
+	prefix_free(argv_p);
+
+	return ret;
 }
 
 DEFPY (no_debug_bgp_update_prefix_afi_safi,
@@ -1501,7 +1504,7 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
 	if (afiz == AFI_L2VPN && safiz == SAFI_EVPN) {
 		ret = bgp_debug_parse_evpn_prefix(vty, argv, argc, &argv_p);
 		if (ret != CMD_SUCCESS)
-			return ret;
+			goto cleanup;
 	} else {
 		(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
 		apply_mask(argv_p);
@@ -1530,7 +1533,10 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
 		vty_out(vty, "BGP updates debugging was not enabled for %s\n",
 			argv[idx_ipv4_ipv6_prefixlen]->arg);
 
-	return CMD_SUCCESS;
+cleanup:
+	prefix_free(argv_p);
+
+	return ret;
 }
 
 
