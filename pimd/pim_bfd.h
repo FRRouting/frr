@@ -36,5 +36,5 @@ void pim_bfd_trigger_event(struct pim_interface *pim_ifp,
 			   struct pim_neighbor *nbr, uint8_t nbr_up);
 void pim_bfd_info_nbr_create(struct pim_interface *pim_ifp,
 			     struct pim_neighbor *neigh);
-void pim_bfd_info_free(void **bfd_info);
+void pim_bfd_info_free(struct bfd_info **bfd_info);
 #endif /* _PIM_BFD_H */
