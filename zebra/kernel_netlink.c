@@ -985,6 +985,7 @@ void kernel_init(struct zebra_ns *zns)
 	if (nl_rcvbufsize)
 		netlink_recvbuf(&zns->netlink, nl_rcvbufsize);
 
+	assert(zns->netlink.sock >= 0);
 	netlink_install_filter(zns->netlink.sock,
 			       zns->netlink_cmd.snl.nl_pid);
 	zns->t_netlink = NULL;
