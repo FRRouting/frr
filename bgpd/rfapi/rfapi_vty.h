@@ -124,7 +124,7 @@ extern char *rfapiMonitorVpn2Str(struct rfapi_monitor_vpn *m, char *buf,
 extern const char *rfapiRfapiIpPrefix2Str(struct rfapi_ip_prefix *p, char *buf,
 					  int bufsize);
 
-extern void rfapiShowItNode(void *stream, struct route_node *rn);
+extern void rfapiShowItNode(void *stream, struct agg_node *rn);
 
 extern char *rfapiEthAddr2Str(const struct ethaddr *ea, char *buf, int bufsize);
 

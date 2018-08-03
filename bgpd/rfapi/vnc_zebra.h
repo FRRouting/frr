@@ -29,11 +29,11 @@
 
 extern void vnc_zebra_add_prefix(struct bgp *bgp,
 				 struct rfapi_import_table *import_table,
-				 struct route_node *rn);
+				 struct agg_node *rn);
 
 extern void vnc_zebra_del_prefix(struct bgp *bgp,
 				 struct rfapi_import_table *import_table,
-				 struct route_node *rn);
+				 struct agg_node *rn);
 
 extern void vnc_zebra_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd);
 
