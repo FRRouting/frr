@@ -386,7 +386,8 @@ extern int prefix_match_network_statement(const struct prefix *,
 extern int prefix_same(const struct prefix *, const struct prefix *);
 extern int prefix_cmp(const struct prefix *, const struct prefix *);
 extern int prefix_common_bits(const struct prefix *, const struct prefix *);
-extern void prefix_copy(struct prefix *dest, const struct prefix *src);
+#define prefix_copy(d,s)	prefix_copy_cf(d,s,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern void prefix_copy_cf(struct prefix *dest, const struct prefix *src, const char *, const char *, int);
 extern void apply_mask(struct prefix *);
 
 extern struct prefix *sockunion2prefix(const union sockunion *dest,

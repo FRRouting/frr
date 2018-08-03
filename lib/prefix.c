@@ -625,7 +625,7 @@ int prefix_match_network_statement(const struct prefix *n,
 	return 1;
 }
 
-void prefix_copy(struct prefix *dest, const struct prefix *src)
+void prefix_copy_cf(struct prefix *dest, const struct prefix *src, const char *file, const char *func, int line)
 {
 	dest->family = src->family;
 	dest->prefixlen = src->prefixlen;
@@ -656,8 +656,8 @@ void prefix_copy(struct prefix *dest, const struct prefix *src)
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
 	} else {
-		zlog_err("prefix_copy(): Unknown address family %d",
-			 src->family);
+		zlog_err("prefix_copy(): Unknown address family %d CF[%s:%s:%d]",
+			 src->family, file, func, line);
 		assert(0);
 	}
 }
@@ -982,8 +982,12 @@ uint8_t ip_masklen(struct in_addr netmask)
 void apply_mask_ipv4(struct prefix_ipv4 *p)
 {
 	struct in_addr mask;
-	masklen2ip(p->prefixlen, &mask);
-	p->prefix.s_addr &= mask.s_addr;
+	if (p->prefixlen != IPV4_MAX_PREFIXLEN && p->prefixlen != 0) {
+		masklen2ip(p->prefixlen, &mask);
+		p->prefix.s_addr &= mask.s_addr;
+	} else if (p->prefixlen == 0) {
+		p->prefix.s_addr = 0;
+	}
 }
 
 /* If prefix is 0.0.0.0/0 then return 1 else return 0. */
@@ -1381,10 +1385,9 @@ void apply_classful_mask_ipv4(struct prefix_ipv4 *p)
 
 	destination = ntohl(p->prefix.s_addr);
 
-	if (p->prefixlen == IPV4_MAX_PREFIXLEN)
-		;
-	/* do nothing for host routes */
-	else if (IN_CLASSC(destination)) {
+	if (p->prefixlen == IPV4_MAX_PREFIXLEN){
+		/* do nothing for host routes */
+	} else if (IN_CLASSC(destination)) {
 		p->prefixlen = 24;
 		apply_mask_ipv4(p);
 	} else if (IN_CLASSB(destination)) {
@@ -1408,7 +1411,13 @@ in_addr_t ipv4_broadcast_addr(in_addr_t hostaddr, int masklen)
 {
 	struct in_addr mask;
 
+	if (masklen == IPV4_MAX_PREFIXLEN) {
+		/* PtP interface using 255.255.255.255 address */
+		return 0xFFFFFFFF;
+	}
+
 	masklen2ip(masklen, &mask);
+
 	return (masklen != IPV4_MAX_PREFIXLEN - 1) ?
 						   /* normal case */
 		       (hostaddr | ~mask.s_addr)
