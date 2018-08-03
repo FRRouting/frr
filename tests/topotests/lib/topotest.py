@@ -297,10 +297,16 @@ def get_file(content):
 
 def normalize_text(text):
     """
-    Strips formating spaces/tabs and carriage returns.
+    Strips formating spaces/tabs, carriage returns and trailing whitespace.
     """
     text = re.sub(r'[ \t]+', ' ', text)
     text = re.sub(r'\r', '', text)
+
+    # Remove whitespace in the middle of text.
+    text = re.sub(r'[ \t]+\n', '\n', text)
+    # Remove whitespace at the end of the text.
+    text = text.rstrip()
+
     return text
 
 def module_present(module, load=True):
