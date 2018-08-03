@@ -7737,13 +7737,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			else
 				vty_out(vty, ", localpref %u",
 					attr->local_pref);
-		} else {
-			if (json_paths)
-				json_object_int_add(json_path, "localpref",
-						    bgp->default_local_pref);
-			else
-				vty_out(vty, ", localpref %u",
-					bgp->default_local_pref);
 		}
 
 		if (attr->weight != 0) {
