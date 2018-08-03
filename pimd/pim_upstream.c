@@ -192,7 +192,8 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	up->rpf.source_nexthop.interface = NULL;
 
 	if (up->sg.src.s_addr != INADDR_ANY) {
-		wheel_remove_item(pim->upstream_sg_wheel, up);
+		if (pim->upstream_sg_wheel)
+			wheel_remove_item(pim->upstream_sg_wheel, up);
 		notify_msdp = true;
 	}
 
