@@ -199,6 +199,24 @@ def json_cmp(d1, d2):
     return None
 
 
+def router_output_cmp(router, cmd, expected):
+    """
+    Runs `cmd` in router and compares the output with `expected`.
+    """
+    return difflines(normalize_text(router.vtysh_cmd(cmd)),
+                     normalize_text(expected),
+                     title1="Current output",
+                     title2="Expected output")
+
+
+def router_json_cmp(router, cmd, data):
+    """
+    Runs `cmd` that returns JSON data (normally the command ends with 'json')
+    and compare with `data` contents.
+    """
+    return json_cmp(router.vtysh_cmd(cmd, isjson=True), data)
+
+
 def run_and_expect(func, what, count=20, wait=3):
     """
     Run `func` and compare the result with `what`. Do it for `count` times
@@ -207,6 +225,12 @@ def run_and_expect(func, what, count=20, wait=3):
 
     Returns (True, func-return) on success or
     (False, func-return) on failure.
+
+    ---
+
+    Helper functions to use with this function:
+    - router_output_cmp
+    - router_json_cmp
     """
     start_time = time.time()
     func_name = "<unknown>"
