@@ -24,7 +24,7 @@
 #include "isis_errors.h"
 
 /* clang-format off */
-static struct ferr_ref ferr_isis_err[] = {
+static struct log_ref ferr_isis_err[] = {
 	{
 		.code = ISIS_ERR_PACKET,
 		.title = "ISIS Packet Error",
@@ -45,5 +45,5 @@ static struct ferr_ref ferr_isis_err[] = {
 
 void isis_error_init(void)
 {
-	ferr_ref_add(ferr_isis_err);
+	log_ref_add(ferr_isis_err);
 }

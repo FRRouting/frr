@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum lib_ferr_refs {
+enum lib_log_refs {
 	LIB_ERR_PRIVILEGES = LIB_FERR_START,
 	LIB_ERR_VRF_START,
 	LIB_ERR_SOCKET,

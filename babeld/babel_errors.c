@@ -24,7 +24,7 @@
 #include "babel_errors.h"
 
 /* clang-format off */
-static struct ferr_ref ferr_babel_err[] = {
+static struct log_ref ferr_babel_err[] = {
 	{
 		.code = BABEL_ERR_MEMORY,
 		.title = "BABEL Memory Errors",
@@ -57,5 +57,5 @@ static struct ferr_ref ferr_babel_err[] = {
 
 void babel_error_init(void)
 {
-	ferr_ref_add(ferr_babel_err);
+	log_ref_add(ferr_babel_err);
 }

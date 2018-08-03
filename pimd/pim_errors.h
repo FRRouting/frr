@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum pim_ferr_refs {
+enum pim_log_refs {
 	PIM_ERR_MSDP_PACKET = PIM_FERR_START,
 	PIM_ERR_CONFIG,
 };

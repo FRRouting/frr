@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum bgp_ferr_refs {
+enum bgp_log_refs {
 
 	BGP_ERR_ATTR_FLAG = BGP_FERR_START,
 	BGP_ERR_ATTR_LEN,

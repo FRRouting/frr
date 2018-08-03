@@ -62,20 +62,20 @@ struct hash *refs;
 
 static int ferr_hash_cmp(const void *a, const void *b)
 {
-	const struct ferr_ref *f_a = a;
-	const struct ferr_ref *f_b = b;
+	const struct log_ref *f_a = a;
+	const struct log_ref *f_b = b;
 
 	return f_a->code == f_b->code;
 }
 
 static inline unsigned int ferr_hash_key(void *a)
 {
-	struct ferr_ref *f = a;
+	struct log_ref *f = a;
 
 	return f->code;
 }
 
-void ferr_ref_add(struct ferr_ref *ref)
+void log_ref_add(struct log_ref *ref)
 {
 	uint32_t i = 0;
 
@@ -89,10 +89,10 @@ void ferr_ref_add(struct ferr_ref *ref)
 	pthread_mutex_unlock(&refs_mtx);
 }
 
-struct ferr_ref *ferr_ref_get(uint32_t code)
+struct log_ref *log_ref_get(uint32_t code)
 {
-	struct ferr_ref holder;
-	struct ferr_ref *ref;
+	struct log_ref holder;
+	struct log_ref *ref;
 
 	holder.code = code;
 	pthread_mutex_lock(&refs_mtx);
@@ -104,9 +104,9 @@ struct ferr_ref *ferr_ref_get(uint32_t code)
 	return ref;
 }
 
-void ferr_ref_display(struct vty *vty, uint32_t code, bool json)
+void log_ref_display(struct vty *vty, uint32_t code, bool json)
 {
-	struct ferr_ref *ref;
+	struct log_ref *ref;
 	struct json_object *top, *obj;
 	struct list *errlist;
 	struct listnode *ln;
@@ -121,7 +121,7 @@ void ferr_ref_display(struct vty *vty, uint32_t code, bool json)
 	pthread_mutex_unlock(&refs_mtx);
 
 	if (code) {
-		ref = ferr_ref_get(code);
+		ref = log_ref_get(code);
 		if (!ref) {
 			vty_out(vty, "Code %"PRIu32" - Unknown\n", code);
 			return;
@@ -181,11 +181,11 @@ DEFUN_NOSH(show_error_code,
 	if (!strmatch(argv[2]->text, "all"))
 		arg = strtoul(argv[2]->arg, NULL, 10);
 
-	ferr_ref_display(vty, arg, json);
+	log_ref_display(vty, arg, json);
 	return CMD_SUCCESS;
 }
 
-void ferr_ref_init(void)
+void log_ref_init(void)
 {
 	pthread_mutex_lock(&refs_mtx);
 	{
@@ -197,7 +197,7 @@ void ferr_ref_init(void)
 	install_element(VIEW_NODE, &show_error_code_cmd);
 }
 
-void ferr_ref_fini(void)
+void log_ref_fini(void)
 {
 	pthread_mutex_lock(&refs_mtx);
 	{

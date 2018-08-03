@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum isis_ferr_refs {
+enum isis_log_refs {
 	ISIS_ERR_PACKET = ISIS_FERR_START,
 	ISIS_ERR_CONFIG,
 };

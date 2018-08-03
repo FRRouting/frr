@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum zebra_ferr_refs {
+enum zebra_log_refs {
 	ZEBRA_ERR_LM_RESPONSE = ZEBRA_FERR_START,
 	ZEBRA_ERR_LM_NO_SUCH_CLIENT,
 	ZEBRA_ERR_LM_RELAY_FAILED,

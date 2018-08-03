@@ -24,7 +24,7 @@
 #include "bgp_errors.h"
 
 /* clang-format off */
-static struct ferr_ref ferr_bgp_err[] = {
+static struct log_ref ferr_bgp_err[] = {
 	{
 		.code = BGP_ERR_ATTR_FLAG,
 		.title = "BGP attribute flag is incorrect",
@@ -302,5 +302,5 @@ static struct ferr_ref ferr_bgp_err[] = {
 
 void bgp_error_init(void)
 {
-	ferr_ref_add(ferr_bgp_err);
+	log_ref_add(ferr_bgp_err);
 }

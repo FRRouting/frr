@@ -24,7 +24,7 @@
 #include "eigrp_errors.h"
 
 /* clang-format off */
-static struct ferr_ref ferr_eigrp_err[] = {
+static struct log_ref ferr_eigrp_err[] = {
 	{
 		.code = EIGRP_ERR_PACKET,
 		.title = "EIGRP Packet Error",
@@ -45,5 +45,5 @@ static struct ferr_ref ferr_eigrp_err[] = {
 
 void eigrp_error_init(void)
 {
-	ferr_ref_add(ferr_eigrp_err);
+	log_ref_add(ferr_eigrp_err);
 }

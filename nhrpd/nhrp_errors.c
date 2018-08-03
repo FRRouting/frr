@@ -24,7 +24,7 @@
 #include "nhrp_errors.h"
 
 /* clang-format off */
-static struct ferr_ref ferr_nhrp_err[] = {
+static struct log_ref ferr_nhrp_err[] = {
 	{
 		.code = NHRP_ERR_SWAN,
 		.title = "NHRP Strong Swan Error",
@@ -45,5 +45,5 @@ static struct ferr_ref ferr_nhrp_err[] = {
 
 void nhrp_error_init(void)
 {
-	ferr_ref_add(ferr_nhrp_err);
+	log_ref_add(ferr_nhrp_err);
 }

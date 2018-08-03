@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum nhrp_ferr_refs {
+enum nhrp_log_refs {
 	NHRP_ERR_SWAN = NHRP_FERR_START,
 	NHRP_ERR_RESOLVER,
 };

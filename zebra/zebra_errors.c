@@ -24,7 +24,7 @@
 #include "zebra_errors.h"
 
 /* clang-format off */
-static struct ferr_ref ferr_zebra_err[] = {
+static struct log_ref ferr_zebra_err[] = {
 	{
 		.code = ZEBRA_ERR_LM_RESPONSE,
 		.title = "Error reading response from label manager",
@@ -274,5 +274,5 @@ static struct ferr_ref ferr_zebra_err[] = {
 
 void zebra_error_init(void)
 {
-	ferr_ref_add(ferr_zebra_err);
+	log_ref_add(ferr_zebra_err);
 }

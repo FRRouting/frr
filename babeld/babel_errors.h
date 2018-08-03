@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum babel_ferr_refs {
+enum babel_log_refs {
 	BABEL_ERR_MEMORY = BABEL_FERR_START,
 	BABEL_ERR_PACKET,
 	BABEL_ERR_CONFIG,

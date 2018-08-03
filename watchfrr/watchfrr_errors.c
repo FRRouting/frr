@@ -24,7 +24,7 @@
 #include "watchfrr_errors.h"
 
 /* clang-format off */
-static struct ferr_ref ferr_watchfrr_err[] = {
+static struct log_ref ferr_watchfrr_err[] = {
 	{
 		.code = WATCHFRR_ERR_CONNECTION,
 		.title = "WATCHFRR Connection Error",
@@ -39,5 +39,5 @@ static struct ferr_ref ferr_watchfrr_err[] = {
 
 void watchfrr_error_init(void)
 {
-	ferr_ref_add(ferr_watchfrr_err);
+	log_ref_add(ferr_watchfrr_err);
 }

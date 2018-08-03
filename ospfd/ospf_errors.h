@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum ospf_ferr_refs {
+enum ospf_log_refs {
 	OSPF_ERR_PKT_PROCESS = OSPF_FERR_START,
 	OSPF_ERR_ROUTER_LSA_MISMATCH,
 	OSPF_ERR_DOMAIN_CORRUPT,

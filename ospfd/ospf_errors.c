@@ -23,7 +23,7 @@
 #include "lib/ferr.h"
 #include "ospf_errors.h"
 
-static struct ferr_ref ferr_ospf_err[] = {
+static struct log_ref ferr_ospf_err[] = {
 	{
 		.code = OSPF_ERR_PKT_PROCESS,
 		.title = "Failure to process a packet",
@@ -80,5 +80,5 @@ static struct ferr_ref ferr_ospf_err[] = {
 
 void ospf_error_init(void)
 {
-	ferr_ref_add(ferr_ospf_err);
+	log_ref_add(ferr_ospf_err);
 }

@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum eigrp_ferr_refs {
+enum eigrp_log_refs {
 	EIGRP_ERR_PACKET = EIGRP_FERR_START,
 	EIGRP_ERR_CONFIG,
 };

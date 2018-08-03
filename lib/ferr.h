@@ -132,7 +132,7 @@ struct ferr {
 #define ZEBRA_FERR_END      0xF1FFFFFF
 #define END_FERR            0xFFFFFFFF
 
-struct ferr_ref {
+struct log_ref {
 	/* Unique error code displayed to end user as a reference. -1 means
 	 * this is an uncoded error that does not have reference material. */
 	uint32_t code;
@@ -144,16 +144,16 @@ struct ferr_ref {
 	const char *suggestion;
 };
 
-void ferr_ref_add(struct ferr_ref *ref);
-struct ferr_ref *ferr_ref_get(uint32_t code);
-void ferr_ref_display(struct vty *vty, uint32_t code, bool json);
+void log_ref_add(struct log_ref *ref);
+struct log_ref *log_ref_get(uint32_t code);
+void log_ref_display(struct vty *vty, uint32_t code, bool json);
 
 /*
  * This function should be called by the
  * code in libfrr.c
  */
-void ferr_ref_init(void);
-void ferr_ref_fini(void);
+void log_ref_init(void);
+void log_ref_fini(void);
 
 /* get error details.
  *

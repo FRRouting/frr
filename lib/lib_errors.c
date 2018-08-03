@@ -21,7 +21,7 @@
 #include "lib_errors.h"
 
 /* clang-format off */
-static struct ferr_ref ferr_lib_err[] = {
+static struct log_ref ferr_lib_err[] = {
 	{
 		.code = LIB_ERR_PRIVILEGES,
 		.title = "Failure to raise or lower privileges",
@@ -114,5 +114,5 @@ static struct ferr_ref ferr_lib_err[] = {
 
 void lib_error_init(void)
 {
-	ferr_ref_add(ferr_lib_err);
+	log_ref_add(ferr_lib_err);
 }

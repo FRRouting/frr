@@ -23,7 +23,7 @@
 
 #include "lib/ferr.h"
 
-enum watchfrr_ferr_refs {
+enum watchfrr_log_refs {
 	WATCHFRR_ERR_CONNECTION = WATCHFRR_FERR_START,
 };
 

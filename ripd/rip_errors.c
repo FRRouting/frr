@@ -23,7 +23,7 @@
 #include "lib/ferr.h"
 #include "rip_errors.h"
 
-static struct ferr_ref ferr_rip_err[] = {
+static struct log_ref ferr_rip_err[] = {
 	{
 		.code = RIP_ERR_PACKET,
 		.title = "RIP Packet Error",
@@ -37,5 +37,5 @@ static struct ferr_ref ferr_rip_err[] = {
 
 void rip_error_init(void)
 {
-	ferr_ref_add(ferr_rip_err);
+	log_ref_add(ferr_rip_err);
 }
