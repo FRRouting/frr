@@ -32,6 +32,9 @@ struct listnode {
 	void *data;
 };
 
+typedef enum { LIST_DEBUG_DEFAULT, LIST_DEBUG_PRE_DELETE, LIST_DEBUG_POST_DELETE, LIST_DEBUG_PRE_INSERT, LIST_DEBUG_POST_INSERT } list_debug_stage_t;
+extern const char * const list_debug_stage_s[];
+
 struct list {
 	struct listnode *head;
 	struct listnode *tail;
@@ -49,6 +52,13 @@ struct list {
 	 * this callback is very much encouraged!
 	 */
 	void (*del)(void *val);
+
+	/*
+	 * callback for debugging list inserts and deletes
+	 */
+	void (*debug)(list_debug_stage_t, struct list *, struct listnode*, void *val, const char *, const char *, int);
+
+	int debug_on;
 };
 
 #define listnextnode(X) ((X) ? ((X)->next) : NULL)
@@ -61,14 +71,24 @@ struct list {
 
 /*
  * Create a new linked list.
+ * 		_cb provides callbacks (NULL values okay)
+ * 		_cb_cf provides calling function information and debugging when callback functions are installed and debug is enabled
  *
  * Returns:
  *    the created linked list
  */
-extern struct list *list_new(void);
+#define list_new()		list_new_cb_cf(NULL,NULL,NULL,0,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+#define list_new_cb(cmp,del,dfunc,dflag)	list_new_cb_cf(cmp,del,dfunc,dflag,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern struct list *list_new_cb_cf(
+		int (*cmp)(void *val1, void *val2),
+		void (*del)(void *val),
+		void (*debug)(list_debug_stage_t, struct list *, struct listnode*, void *val, const char *, const char *, int),
+		int debug_val,
+		const char *, const char *, int);
 
 /*
  * Add a new element to the tail of a list.
+ * 		_cf provides calling function information in debug statements.
  *
  * Runtime is O(1).
  *
@@ -78,7 +98,8 @@ extern struct list *list_new(void);
  * data
  *    element to add
  */
-extern void listnode_add(struct list *list, void *data);
+#define listnode_add(list,data)		listnode_add_cf(list,data,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern void listnode_add_cf(struct list *list, void *val, const char *, const char *, int);
 
 /*
  * Insert a new element into a list with insertion sort.
@@ -86,6 +107,7 @@ extern void listnode_add(struct list *list, void *data);
  * If list->cmp is set, this function is used to determine the position to
  * insert the new element. If it is not set, this function is equivalent to
  * listnode_add.
+ * 		_cf provides calling function information in debug statements.
  *
  * Runtime is O(N).
  *
@@ -95,10 +117,12 @@ extern void listnode_add(struct list *list, void *data);
  * val
  *    element to add
  */
-extern void listnode_add_sort(struct list *list, void *val);
+#define listnode_add_sort(list,data)		listnode_add_sort_cf(list,data,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern void listnode_add_sort_cf(struct list *list, void *val, const char *, const char *, int);
 
 /*
  * Insert a new element into a list after another element.
+ * 		_cf provides calling function information in debug statements.
  *
  * Runtime is O(1).
  *
@@ -114,11 +138,13 @@ extern void listnode_add_sort(struct list *list, void *val);
  * Returns:
  *    pointer to newly created listnode that contains the inserted data
  */
-extern struct listnode *listnode_add_after(struct list *list,
-					   struct listnode *pp, void *data);
-
+#define listnode_add_after(l,p,d)		listnode_add_after_cf(l,p,d,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern struct listnode *listnode_add_after_cf(struct list *list,
+					   struct listnode *pp, void *data,
+						const char *, const char *, int);
 /*
  * Insert a new element into a list before another element.
+ * 		_cf provides calling function information in debug statements.
  *
  * Runtime is O(1).
  *
@@ -134,8 +160,10 @@ extern struct listnode *listnode_add_after(struct list *list,
  * Returns:
  *    pointer to newly created listnode that contains the inserted data
  */
-extern struct listnode *listnode_add_before(struct list *list,
-					    struct listnode *pp, void *data);
+#define listnode_add_before(l,p,d)		listnode_add_before_cf(l,p,d,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern struct listnode *listnode_add_before_cf(struct list *list,
+					    struct listnode *pp, void *data,
+						const char *, const char *, int);
 
 /*
  * Move a node to the tail of a list.
@@ -151,7 +179,8 @@ extern struct listnode *listnode_add_before(struct list *list,
 extern void listnode_move_to_tail(struct list *list, struct listnode *node);
 
 /*
- * Delete an element from a list.
+ * Delete an element from a list. List node is deleted. Data is not.
+ * 		_cf provides calling function information in debug statements.
  *
  * Runtime is O(N).
  *
@@ -161,7 +190,26 @@ extern void listnode_move_to_tail(struct list *list, struct listnode *node);
  * data
  *    data to insert into list
  */
-extern void listnode_delete(struct list *list, void *data);
+#define listnode_delete(l,d)		listnode_delete_cf(l,d,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern void listnode_delete_cf(struct list *list, void *data,
+		const char *, const char *, int);
+
+/*
+ * Destroy an element from a list. If there is a delete callback, the
+ * data is destroyed with it, otherwise it is freed with free();
+ * 		_cf provides calling function information in debug statements.
+ *
+ * Runtime is O(N).
+ *
+ * list
+ *    list to operate on
+ *
+ * data
+ *    data to insert into list
+ */
+#define listnode_destroy(l,d)		listnode_delete_cf(l,d,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern void listnode_destroy_cf(struct list *list, void *data,
+		const char *, const char *, int);
 
 /*
  * Find the listnode corresponding to an element in a list.
@@ -269,7 +317,9 @@ extern void list_delete_original(struct list *list);
  * list
  *    list to operate on
  */
-extern void list_delete_all_node(struct list *list);
+#define list_delete_all_node(l)			list_delete_all_node_cf(l,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern void list_delete_all_node_cf(struct list *list,
+		const char *, const char *, int);
 
 /*
  * Delete a node from a list.
@@ -284,7 +334,9 @@ extern void list_delete_all_node(struct list *list);
  * node
  *    the node to delete
  */
-extern void list_delete_node(struct list *list, struct listnode *node);
+#define list_delete_node(l,n)		list_delete_node_cf(l,n,__FILE__,__PRETTY_FUNCTION__,__LINE__)
+extern void list_delete_node_cf(struct list *list, struct listnode *node,
+		const char *, const char *, int);
 
 /*
  * Append a list to an existing list.
@@ -305,8 +357,7 @@ extern void list_add_list(struct list *list, struct list *add);
  */
 #define ALL_LIST_ELEMENTS(list, node, nextnode, data)                          \
 	(node) = listhead(list), ((data) = NULL);                              \
-	(node) != NULL                                                         \
-		&& ((data) = listgetdata(node), (nextnode) = node->next, 1);   \
+	(node) != NULL && ((data) = listgetdata(node), (nextnode) = node->next, 1);   \
 	(node) = (nextnode), ((data) = NULL)
 
 /* read-only list iteration macro.

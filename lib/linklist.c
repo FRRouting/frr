@@ -23,13 +23,35 @@
 
 #include "linklist.h"
 #include "memory.h"
+#include "debug.h"
 
 DEFINE_MTYPE_STATIC(LIB, LINK_LIST, "Link List")
 DEFINE_MTYPE_STATIC(LIB, LINK_NODE, "Link Node")
 
-struct list *list_new(void)
+const char * const list_debug_stage_s[] = {
+		"LIST_DEBUG_DEFAULT",
+		"LIST_DEBUG_PRE_DELETE",
+		"LIST_DEBUG_POST_DELETE",
+		"LIST_DEBUG_PRE_INSERT",
+		"LIST_DEBUG_POST_INSERT",
+		0
+};
+
+struct list *list_new_cb_cf(
+		int (*cmp)(void *val1, void *val2),
+		void (*del)(void *val),
+		void (*debug)(list_debug_stage_t, struct list *, struct listnode*, void *val, const char *, const char *, int),
+		int debug_val,
+		const char *file,const char *func,int line)
 {
-	return XCALLOC(MTYPE_LINK_LIST, sizeof(struct list));
+
+	struct list *new_list = XCALLOC(MTYPE_LINK_LIST, sizeof(struct list));
+
+	new_list->cmp = cmp;
+	new_list->del = del;
+	new_list->debug = debug;
+	new_list->debug_on = debug_val;
+	return new_list;
 }
 
 /* Free list. */
@@ -50,16 +72,23 @@ static void listnode_free(struct listnode *node)
 	XFREE(MTYPE_LINK_NODE, node);
 }
 
-void listnode_add(struct list *list, void *val)
+void listnode_add_cf(struct list *list, void *val, const char *file, const char *func, int line)
 {
 	struct listnode *node;
 
-	assert(val != NULL);
+	if (!val || !list || val == (void *)-1 || val == (void *)1) {
+		zlog_err("Invalid parameters passed to list[%lu], val[%lu] CF[%s:%s:%d]", (unsigned long)list, (unsigned long)val, file, func, line);
+		assert(list != NULL && val != NULL && val != (void *)-1 && val != (void *)1);
+	}
 
 	node = listnode_new();
 
 	node->prev = list->tail;
 	node->data = val;
+
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_PRE_INSERT, list, node, val,file,func,line);
+	}
 
 	if (list->head == NULL)
 		list->head = node;
@@ -68,17 +97,29 @@ void listnode_add(struct list *list, void *val)
 	list->tail = node;
 
 	list->count++;
+
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_POST_INSERT, list, node, val,file,func,line);
+	}
+
 }
 
-void listnode_add_sort(struct list *list, void *val)
+void listnode_add_sort_cf(struct list *list, void *val, const char *file, const char *func, int line)
 {
 	struct listnode *n;
 	struct listnode *new;
 
-	assert(val != NULL);
+	if (!val || !list || val == (void *)-1 || val == (void *)1) {
+		zlog_err("Invalid parameters passed list[%lu], val[%lu] CF[%s:%s:%d]", (unsigned long)list, (unsigned long)val, file, func, line);
+		assert(list != NULL && val != NULL && val != (void *)-1 && val != (void *)1);
+	}
 
 	new = listnode_new();
 	new->data = val;
+
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_PRE_INSERT, list, new, val,file,func,line);
+	}
 
 	if (list->cmp) {
 		for (n = list->head; n; n = n->next) {
@@ -92,10 +133,16 @@ void listnode_add_sort(struct list *list, void *val)
 					list->head = new;
 				n->prev = new;
 				list->count++;
+
+				if (list->debug_on && list->debug) {
+					list->debug(LIST_DEBUG_POST_INSERT, list, new, val,file,func,line);
+				}
 				return;
 			}
 		}
 	}
+
+	//No sort function. Add unsorted.
 
 	new->prev = list->tail;
 
@@ -106,10 +153,14 @@ void listnode_add_sort(struct list *list, void *val)
 
 	list->tail = new;
 	list->count++;
+
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_POST_INSERT, list, new, val,file,func,line);
+	}
 }
 
-struct listnode *listnode_add_after(struct list *list, struct listnode *pp,
-				    void *val)
+struct listnode *listnode_add_after_cf(struct list *list, struct listnode *pp, void *val,
+		const char *file, const char *func, int line)
 {
 	struct listnode *nn;
 
@@ -117,6 +168,10 @@ struct listnode *listnode_add_after(struct list *list, struct listnode *pp,
 
 	nn = listnode_new();
 	nn->data = val;
+
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_PRE_INSERT, list, nn, val,file,func,line);
+	}
 
 	if (pp == NULL) {
 		if (list->head)
@@ -140,11 +195,16 @@ struct listnode *listnode_add_after(struct list *list, struct listnode *pp,
 		pp->next = nn;
 	}
 	list->count++;
+
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_POST_INSERT, list, nn, val,file,func,line);
+	}
+
 	return nn;
 }
 
-struct listnode *listnode_add_before(struct list *list, struct listnode *pp,
-				     void *val)
+struct listnode *listnode_add_before_cf(struct list *list, struct listnode *pp, void *val,
+		const char *file, const char *func, int line)
 {
 	struct listnode *nn;
 
@@ -153,6 +213,9 @@ struct listnode *listnode_add_before(struct list *list, struct listnode *pp,
 	nn = listnode_new();
 	nn->data = val;
 
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_PRE_INSERT, list, nn, val,file,func,line);
+	}
 	if (pp == NULL) {
 		if (list->tail)
 			list->tail->next = nn;
@@ -175,6 +238,11 @@ struct listnode *listnode_add_before(struct list *list, struct listnode *pp,
 		pp->prev = nn;
 	}
 	list->count++;
+
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_POST_INSERT, list, nn, val,file,func,line);
+	}
+
 	return nn;
 }
 
@@ -184,13 +252,17 @@ void listnode_move_to_tail(struct list *l, struct listnode *n)
 	LISTNODE_ATTACH(l, n);
 }
 
-void listnode_delete(struct list *list, void *val)
+void listnode_delete_cf(struct list *list, void *val,
+		const char *file, const char *func, int line)
 {
 	struct listnode *node;
 
 	assert(list);
 	for (node = list->head; node; node = node->next) {
 		if (node->data == val) {
+			if (list->debug_on && list->debug) {
+				list->debug(LIST_DEBUG_PRE_DELETE, list, node, val,file,func,line);
+			}
 			if (node->prev)
 				node->prev->next = node->next;
 			else
@@ -201,7 +273,68 @@ void listnode_delete(struct list *list, void *val)
 			else
 				list->tail = node->prev;
 
+			//If list node is head or tail, adjust list -- JATF
+			if (list->head == node)
+				list->head = node->next;
+
+			if (list->tail == node)
+				list->tail = node->prev;
+
 			list->count--;
+
+			if (list->debug_on && list->debug) {
+				list->debug(LIST_DEBUG_POST_DELETE, list, node, val,file,func,line);
+			}
+
+			listnode_free(node);
+			return;
+		}
+	}
+}
+
+void listnode_destroy_cf(struct list *list, void *val,
+		const char *file, const char *func, int line)
+{
+	struct listnode *node;
+
+	assert(list);
+	for (node = list->head; node; node = node->next) {
+		if (node->data == val) {
+			if (list->debug_on && list->debug) {
+				list->debug(LIST_DEBUG_PRE_DELETE, list, node, val,file,func,line);
+			}
+			if (node->prev)
+				node->prev->next = node->next;
+			else
+				list->head = node->next;
+
+			if (node->next)
+				node->next->prev = node->prev;
+			else
+				list->tail = node->prev;
+
+			//If list node is head or tail, adjust list -- JATF
+			if (list->head == node)
+				list->head = node->next;
+
+			if (list->tail == node)
+				list->tail = node->prev;
+
+
+			//If there is a delete function for the data, use it!
+			if (list->del) {
+				list->del(node->data);
+			} else {
+				free(node->data);
+			}
+
+			node->data = NULL;
+
+			list->count--;
+
+			if (list->debug_on && list->debug) {
+				list->debug(LIST_DEBUG_POST_DELETE, list, node, val,file,func,line);
+			}
 			listnode_free(node);
 			return;
 		}
@@ -220,7 +353,8 @@ void *listnode_head(struct list *list)
 	return NULL;
 }
 
-void list_delete_all_node(struct list *list)
+void list_delete_all_node_cf(struct list *list,
+		const char *file, const char *func, int line)
 {
 	struct listnode *node;
 	struct listnode *next;
@@ -228,17 +362,32 @@ void list_delete_all_node(struct list *list)
 	assert(list);
 	for (node = list->head; node; node = next) {
 		next = node->next;
+
+		if (list->debug_on && list->debug) {
+			list->debug(LIST_DEBUG_PRE_DELETE, list, node, node->data,file,func,line);
+		}
+
 		if (*list->del)
 			(*list->del)(node->data);
+
 		listnode_free(node);
 	}
+
 	list->head = list->tail = NULL;
 	list->count = 0;
+
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_POST_DELETE, list, node, node ? node->data : NULL,file,func,line);
+	}
+
 }
 
 void list_delete_and_null(struct list **list)
 {
-	assert(*list);
+	if (! (*list)) {
+		zlog_warn("NULL passed as argument **list");
+		return;
+	}
 	list_delete_all_node(*list);
 	list_free_internal(*list);
 	*list = NULL;
@@ -260,8 +409,12 @@ struct listnode *listnode_lookup(struct list *list, void *data)
 	return NULL;
 }
 
-void list_delete_node(struct list *list, struct listnode *node)
+void list_delete_node_cf(struct list *list, struct listnode *node,
+		const char *file, const char *func, int line)
 {
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_PRE_DELETE, list, node, node->data,file,func,line);
+	}
 	if (node->prev)
 		node->prev->next = node->next;
 	else
@@ -270,7 +423,13 @@ void list_delete_node(struct list *list, struct listnode *node)
 		node->next->prev = node->prev;
 	else
 		list->tail = node->prev;
+
 	list->count--;
+
+	if (list->debug_on && list->debug) {
+		list->debug(LIST_DEBUG_POST_DELETE, list, node, node->data,file,func,line);
+	}
+
 	listnode_free(node);
 }
 
@@ -290,6 +449,8 @@ struct list *list_dup(struct list *list)
 
 	new->cmp = list->cmp;
 	new->del = list->del;
+	new->debug = list->debug;
+	new->debug_on = list->debug_on;
 
 	for (ALL_LIST_ELEMENTS_RO(list, ln, data))
 		listnode_add(new, data);
