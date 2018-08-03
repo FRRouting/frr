@@ -663,7 +663,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 {
 	struct bgp *bgp;
 	struct attr attr;
-	struct bgp_info *info, init_info;
+	struct bgp_info *info, init_info, tmp_info;
 	struct prefix p;
 	struct peer *from;
 	struct bgp_node *rn;
@@ -713,8 +713,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 		     rn = bgp_route_next(rn)) {
 			for (ri = rn->info; ri; ri = ri->next) {
-				struct bgp_info tmp_info;
-
 				tmp_info.peer = ri->peer;
 				tmp_info.attr = ri->attr;
 
