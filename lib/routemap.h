@@ -169,6 +169,12 @@ DECLARE_QOBJ_TYPE(route_map)
 
 /* Prototypes. */
 extern void route_map_init(void);
+
+/*
+ * This should only be called on shutdown
+ * Additionally this function sets the hooks to NULL
+ * before any processing is done.
+ */
 extern void route_map_finish(void);
 
 /* Add match statement to route map. */
