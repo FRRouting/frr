@@ -2528,9 +2528,6 @@ DEFUN (bgp_evpn_advertise_default_gw_vni,
 	if (!bgp)
 		return CMD_WARNING;
 
-	if (!vpn)
-		return CMD_WARNING;
-
 	evpn_set_advertise_default_gw(bgp, vpn);
 
 	return CMD_SUCCESS;
@@ -2546,9 +2543,6 @@ DEFUN (no_bgp_evpn_advertise_default_vni_gw,
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
 
 	if (!bgp)
-		return CMD_WARNING;
-
-	if (!vpn)
 		return CMD_WARNING;
 
 	evpn_unset_advertise_default_gw(bgp, vpn);
@@ -2627,9 +2621,6 @@ DEFUN_HIDDEN (bgp_evpn_advertise_vni_subnet,
 	if (!bgp)
 		return CMD_WARNING;
 
-	if (!vpn)
-		return CMD_WARNING;
-
 	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
 	if (!bgp_vrf)
 		return CMD_WARNING;
@@ -2656,9 +2647,6 @@ DEFUN_HIDDEN (no_bgp_evpn_advertise_vni_subnet,
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
 
 	if (!bgp)
-		return CMD_WARNING;
-
-	if (!vpn)
 		return CMD_WARNING;
 
 	evpn_unset_advertise_subnet(bgp, vpn);
@@ -3667,7 +3655,7 @@ DEFUN (bgp_evpn_vni_rd,
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
 	int ret;
 
-	if (!bgp || !vpn)
+	if (!bgp)
 		return CMD_WARNING;
 
 	ret = str2prefix_rd(argv[1]->arg, &prd);
@@ -3697,7 +3685,7 @@ DEFUN (no_bgp_evpn_vni_rd,
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
 	int ret;
 
-	if (!bgp || !vpn)
+	if (!bgp)
 		return CMD_WARNING;
 
 	ret = str2prefix_rd(argv[2]->arg, &prd);
@@ -3731,7 +3719,7 @@ DEFUN (no_bgp_evpn_vni_rd_without_val,
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
 
-	if (!bgp || !vpn)
+	if (!bgp)
 		return CMD_WARNING;
 
 	/* Check if we should disallow. */
@@ -4049,7 +4037,7 @@ DEFUN (bgp_evpn_vni_rt,
 	int rt_type;
 	struct ecommunity *ecomadd = NULL;
 
-	if (!bgp || !vpn)
+	if (!bgp)
 		return CMD_WARNING;
 
 	if (!strcmp(argv[1]->text, "import"))
@@ -4111,7 +4099,7 @@ DEFUN (no_bgp_evpn_vni_rt,
 	int rt_type, found_ecomdel;
 	struct ecommunity *ecomdel = NULL;
 
-	if (!bgp || !vpn)
+	if (!bgp)
 		return CMD_WARNING;
 
 	if (!strcmp(argv[2]->text, "import"))
@@ -4204,7 +4192,7 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
 	int rt_type;
 
-	if (!bgp || !vpn)
+	if (!bgp)
 		return CMD_WARNING;
 
 	if (!strcmp(argv[2]->text, "import")) {
