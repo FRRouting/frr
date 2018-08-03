@@ -1546,6 +1546,10 @@ void pim_upstream_terminate(struct pim_instance *pim)
 	if (pim->upstream_hash)
 		hash_free(pim->upstream_hash);
 	pim->upstream_hash = NULL;
+
+	if (pim->upstream_sg_wheel)
+		wheel_delete(pim->upstream_sg_wheel);
+	pim->upstream_sg_wheel = NULL;
 }
 
 int pim_upstream_equal(const void *arg1, const void *arg2)
