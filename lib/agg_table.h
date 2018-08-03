@@ -37,6 +37,8 @@ struct agg_node {
 	 */
 	ROUTE_NODE_FIELDS
 
+	/* Aggregation. */
+	void *aggregate;
 };
 
 static inline struct route_node *agg_node_to_rnode(struct agg_node *node)
