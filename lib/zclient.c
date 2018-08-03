@@ -2846,6 +2846,7 @@ static int zclient_read(struct thread *thread)
 			(*zclient->iptable_notify_owner)(command,
 						 zclient, length,
 						 vrf_id);
+		break;
 	default:
 		break;
 	}
