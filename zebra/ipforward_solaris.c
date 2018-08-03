@@ -70,7 +70,7 @@ static int solaris_nd(const int cmd, const char *parameter, const int value)
 	else if (cmd == ND_GET)
 		snprintf(nd_buf, ND_BUFFER_SIZE, "%s", parameter);
 	else {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "internal error - inappropriate command given to "
 			  "solaris_nd()%s:%d",
 			  __FILE__, __LINE__);
@@ -83,20 +83,20 @@ static int solaris_nd(const int cmd, const char *parameter, const int value)
 	strioctl.ic_dp = nd_buf;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "solaris_nd: Can't raise privileges");
 	if ((fd = open(device, O_RDWR)) < 0) {
 		zlog_warn("failed to open device %s - %s", device,
 			  safe_strerror(errno));
 		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(LIB_ERR_PRIVILEGES,
+			flog_err(LIB_ERR_PRIVILEGES,
 				  "solaris_nd: Can't lower privileges");
 		return -1;
 	}
 	if (ioctl(fd, I_STR, &strioctl) < 0) {
 		int save_errno = errno;
 		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(LIB_ERR_PRIVILEGES,
+			flog_err(LIB_ERR_PRIVILEGES,
 				  "solaris_nd: Can't lower privileges");
 		close(fd);
 		zlog_warn("ioctl I_STR failed on device %s - %s", device,
@@ -105,7 +105,7 @@ static int solaris_nd(const int cmd, const char *parameter, const int value)
 	}
 	close(fd);
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "solaris_nd: Can't lower privileges");
 
 	if (cmd == ND_GET) {

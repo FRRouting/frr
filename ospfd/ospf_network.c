@@ -187,7 +187,7 @@ int ospf_sock_init(struct ospf *ospf)
 		return -1;
 	}
 	if (ospfd_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "ospf_sock_init: could not raise privs, %s",
 			  safe_strerror(errno));
 
@@ -197,7 +197,7 @@ int ospf_sock_init(struct ospf *ospf)
 		int save_errno = errno;
 
 		if (ospfd_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(LIB_ERR_PRIVILEGES,
+			flog_err(LIB_ERR_PRIVILEGES,
 				  "ospf_sock_init: could not lower privs, %s",
 				  safe_strerror(save_errno));
 
@@ -244,7 +244,7 @@ int ospf_sock_init(struct ospf *ospf)
 	ospf->fd = ospf_sock;
 out:
 	if (ospfd_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "ospf_sock_init: could not lower privs, %s",
 			  safe_strerror(errno));
 

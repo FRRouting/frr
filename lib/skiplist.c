@@ -183,7 +183,7 @@ int skiplist_insert(register struct skiplist *l, register void *key,
 
 	/* DEBUG */
 	if (!key) {
-		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: key is 0, value is %p",
+		flog_err(LIB_ERR_DEVELOPMENT, "%s: key is 0, value is %p",
 			  __func__, value);
 	}
 

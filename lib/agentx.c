@@ -142,19 +142,19 @@ static int agentx_log_callback(int major, int minor, void *serverarg,
 		msg[strlen(msg) - 1] = '\0';
 	switch (slm->priority) {
 	case LOG_EMERG:
-		zlog_ferr(LIB_ERR_SNMP,
+		flog_err(LIB_ERR_SNMP,
 			  "snmp[emerg]: %s", msg ? msg : slm->msg);
 		break;
 	case LOG_ALERT:
-		zlog_ferr(LIB_ERR_SNMP,
+		flog_err(LIB_ERR_SNMP,
 			  "snmp[alert]: %s", msg ? msg : slm->msg);
 		break;
 	case LOG_CRIT:
-		zlog_ferr(LIB_ERR_SNMP,
+		flog_err(LIB_ERR_SNMP,
 			  "snmp[crit]: %s", msg ? msg : slm->msg);
 		break;
 	case LOG_ERR:
-		zlog_ferr(LIB_ERR_SNMP,
+		flog_err(LIB_ERR_SNMP,
 			  "snmp[err]: %s", msg ? msg : slm->msg);
 		break;
 	case LOG_WARNING:

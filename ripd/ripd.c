@@ -1058,7 +1058,7 @@ static void rip_auth_md5_set(struct stream *s, struct rip_interface *ri,
 
 	/* Check packet length. */
 	if (len < (RIP_HEADER_SIZE + RIP_RTE_SIZE)) {
-		zlog_ferr(RIP_ERR_PACKET,
+		flog_err(RIP_ERR_PACKET,
 			  "rip_auth_md5_set(): packet length %ld is less than minimum length.",
 			  len);
 		return;
@@ -1341,7 +1341,7 @@ static int rip_create_socket(void)
 	/* Make datagram socket. */
 	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock < 0) {
-		zlog_ferr(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+		flog_err(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
 			  safe_strerror(errno));
 		exit(1);
 	}
@@ -1358,7 +1358,7 @@ static int rip_create_socket(void)
 #endif
 
 	if (ripd_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "rip_create_socket: could not raise privs");
 	setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
 	if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr))) < 0)
@@ -1366,10 +1366,10 @@ static int rip_create_socket(void)
 	{
 		int save_errno = errno;
 		if (ripd_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(LIB_ERR_PRIVILEGES,
+			flog_err(LIB_ERR_PRIVILEGES,
 				  "rip_create_socket: could not lower privs");
 
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "%s: Can't bind socket %d to %s port %d: %s",
 			  __func__, sock, inet_ntoa(addr.sin_addr),
 			  (int)ntohs(addr.sin_port), safe_strerror(save_errno));
@@ -1379,7 +1379,7 @@ static int rip_create_socket(void)
 	}
 
 	if (ripd_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "rip_create_socket: could not lower privs");
 
 	return sock;

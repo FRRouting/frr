@@ -95,13 +95,13 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	src = ip->ip_src;
 
 	if (len != iplen) {
-		zlog_ferr(ZEBRA_ERR_IRDP_LEN_MISMATCH,
+		flog_err(ZEBRA_ERR_IRDP_LEN_MISMATCH,
 			  "IRDP: RX length doesnt match IP length");
 		return;
 	}
 
 	if (iplen < ICMP_MINLEN) {
-		zlog_ferr(ZEBRA_ERR_IRDP_LEN_MISMATCH,
+		flog_err(ZEBRA_ERR_IRDP_LEN_MISMATCH,
 			  "IRDP: RX ICMP packet too short from %s\n",
 			  inet_ntoa(src));
 		return;
@@ -112,7 +112,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	 +
 	 len of IP-header) 14+20 */
 	if (iplen > IRDP_RX_BUF - 34) {
-		zlog_ferr(ZEBRA_ERR_IRDP_LEN_MISMATCH,
+		flog_err(ZEBRA_ERR_IRDP_LEN_MISMATCH,
 			  "IRDP: RX ICMP packet too long from %s\n",
 			  inet_ntoa(src));
 		return;

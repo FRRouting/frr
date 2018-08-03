@@ -343,7 +343,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 					       iov_alloc * sizeof(*iov));
 			} else {
 				/* This should absolutely never occur. */
-				zlog_ferr(LIB_ERR_SYSTEM_CALL,
+				flog_err(LIB_ERR_SYSTEM_CALL,
 					  "%s: corruption detected: iov_small overflowed; "
 					  "head %p, tail %p, head->next %p",
 					  __func__, (void *)b->head,
@@ -458,7 +458,7 @@ in one shot. */
 	while (written > 0) {
 		struct buffer_data *d;
 		if (!(d = b->head)) {
-			zlog_ferr(
+			flog_err(
 				LIB_ERR_DEVELOPMENT,
 				"%s: corruption detected: buffer queue empty, but written is %lu",
 				__func__, (unsigned long)written);

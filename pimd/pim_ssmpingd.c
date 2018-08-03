@@ -83,7 +83,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 
 	fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (fd < 0) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "%s: could not create socket: errno=%d: %s",
 			  __PRETTY_FUNCTION__, errno, safe_strerror(errno));
 		return -1;
@@ -126,7 +126,7 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 				safe_strerror(errno));
 		}
 #else
-		zlog_ferr(
+		flog_err(
 			LIB_ERR_DEVELOPMENT,
 			"%s %s: missing IP_PKTINFO and IP_RECVDSTADDR: unable to get dst addr from recvmsg()",
 			__FILE__, __PRETTY_FUNCTION__);

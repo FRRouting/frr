@@ -421,7 +421,7 @@ void eigrp_sw_version_initialize(void)
 	ret = sscanf(ver_string, "%" SCNu32 ".%" SCNu32, &FRR_MAJOR,
 		     &FRR_MINOR);
 	if (ret != 2)
-		zlog_ferr(EIGRP_ERR_PACKET,
+		flog_err(EIGRP_ERR_PACKET,
 			  "Did not Properly parse %s, please fix VERSION string",
 			  VERSION);
 }

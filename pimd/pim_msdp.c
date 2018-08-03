@@ -518,7 +518,7 @@ static void pim_msdp_sa_local_del_on_up_del(struct pim_instance *pim,
 			 * the flow. Accounting for such cases requires lot of
 			 * changes; perhaps
 			 * address this in the next release? - XXX  */
-			zlog_ferr(
+			flog_err(
 				  LIB_ERR_DEVELOPMENT,
 				"MSDP sa %s SPT teardown is causing the local entry to be removed",
 				sa->sg_str);

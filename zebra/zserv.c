@@ -793,7 +793,7 @@ void zserv_start(char *path)
 	zserv_privs.change(ZPRIVS_LOWER);
 
 	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
+		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 
 	ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
 	if (ret < 0) {
@@ -806,7 +806,7 @@ void zserv_start(char *path)
 		return;
 	}
 	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	ret = listen(zebrad.sock, 5);
 	if (ret < 0) {

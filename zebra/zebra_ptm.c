@@ -504,7 +504,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 			dest_str, src_str);
 
 	if (str2prefix(dest_str, &dest_prefix) == 0) {
-		zlog_ferr(ZEBRA_ERR_PREFIX_PARSE_ERROR,
+		flog_err(ZEBRA_ERR_PREFIX_PARSE_ERROR,
 			  "%s: Peer addr %s not found", __func__, dest_str);
 		return -1;
 	}
@@ -512,7 +512,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	memset(&src_prefix, 0, sizeof(struct prefix));
 	if (strcmp(ZEBRA_PTM_INVALID_SRC_IP, src_str)) {
 		if (str2prefix(src_str, &src_prefix) == 0) {
-			zlog_ferr(ZEBRA_ERR_PREFIX_PARSE_ERROR,
+			flog_err(ZEBRA_ERR_PREFIX_PARSE_ERROR,
 				  "%s: Local addr %s not found", __func__,
 				  src_str);
 			return -1;

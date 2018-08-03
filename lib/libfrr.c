@@ -829,7 +829,7 @@ static void frr_terminal_close(int isexit)
 
 	nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
 	if (nullfd == -1) {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "%s: failed to open /dev/null: %s", __func__,
 			  safe_strerror(errno));
 	} else {
@@ -902,7 +902,7 @@ void frr_run(struct thread_master *master)
 	} else if (di->daemon_mode) {
 		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
 		if (nullfd == -1) {
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "%s: failed to open /dev/null: %s", __func__,
 				  safe_strerror(errno));
 		} else {

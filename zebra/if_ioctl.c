@@ -176,14 +176,14 @@ static int if_getaddrs(void)
 
 	ret = getifaddrs(&ifap);
 	if (ret != 0) {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL, "getifaddrs(): %s",
+		flog_err(LIB_ERR_SYSTEM_CALL, "getifaddrs(): %s",
 			  safe_strerror(errno));
 		return -1;
 	}
 
 	for (ifapfree = ifap; ifap; ifap = ifap->ifa_next) {
 		if (ifap->ifa_addr == NULL) {
-			zlog_ferr(
+			flog_err(
 				LIB_ERR_INTERFACE,
 				"%s: nonsensical ifaddr with NULL ifa_addr, ifname %s",
 				__func__,
@@ -193,7 +193,7 @@ static int if_getaddrs(void)
 
 		ifp = if_lookup_by_name(ifap->ifa_name, VRF_DEFAULT);
 		if (ifp == NULL) {
-			zlog_ferr(LIB_ERR_INTERFACE,
+			flog_err(LIB_ERR_INTERFACE,
 				  "if_getaddrs(): Can't lookup interface %s\n",
 				  ifap->ifa_name);
 			continue;

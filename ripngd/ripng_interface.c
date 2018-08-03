@@ -73,7 +73,7 @@ static int ripng_multicast_join(struct interface *ifp)
 		 * for this call as a workaround.
 		 */
 		if (ripngd_privs.change(ZPRIVS_RAISE))
-			zlog_ferr(
+			flog_err(
 				LIB_ERR_PRIVILEGES,
 				"ripng_multicast_join: could not raise privs");
 
@@ -82,7 +82,7 @@ static int ripng_multicast_join(struct interface *ifp)
 		save_errno = errno;
 
 		if (ripngd_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(
+			flog_err(
 				LIB_ERR_PRIVILEGES,
 				"ripng_multicast_join: could not lower privs");
 
@@ -647,7 +647,7 @@ static int ripng_interface_wakeup(struct thread *t)
 
 	/* Join to multicast group. */
 	if (ripng_multicast_join(ifp) < 0) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "multicast join failed, interface %s not running",
 			  ifp->name);
 		return 0;

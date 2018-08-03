@@ -141,7 +141,7 @@ static int frrzmq_read_msg(struct thread *t)
 	return 0;
 
 out_err:
-	zlog_ferr(LIB_ERR_ZMQ, "ZeroMQ read error: %s(%d)", strerror(errno),
+	flog_err(LIB_ERR_ZMQ, "ZeroMQ read error: %s(%d)", strerror(errno),
 		  errno);
 	if (cb->read.cb_error)
 		cb->read.cb_error(cb->read.arg, cb->zmqsock);
@@ -255,7 +255,7 @@ static int frrzmq_write_msg(struct thread *t)
 	return 0;
 
 out_err:
-	zlog_ferr(LIB_ERR_ZMQ, "ZeroMQ write error: %s(%d)", strerror(errno),
+	flog_err(LIB_ERR_ZMQ, "ZeroMQ write error: %s(%d)", strerror(errno),
 		  errno);
 	if (cb->write.cb_error)
 		cb->write.cb_error(cb->write.arg, cb->zmqsock);

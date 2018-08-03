@@ -57,7 +57,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	 */
 	if (pim->vrf_id != VRF_DEFAULT) {
 		if (pimd_privs.change(ZPRIVS_RAISE))
-			zlog_ferr(
+			flog_err(
 				LIB_ERR_PRIVILEGES,
 				"pim_mroute_socket_enable: could not raise privs, %s",
 				safe_strerror(errno));
@@ -75,7 +75,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 		}
 
 		if (pimd_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(
+			flog_err(
 				LIB_ERR_PRIVILEGES,
 				"pim_mroute_socket_enable: could not lower privs, %s",
 				safe_strerror(errno));
@@ -712,7 +712,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 	int fd;
 
 	if (pimd_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "pim_mroute_socket_enable: could not raise privs, %s",
 			  safe_strerror(errno));
 
@@ -736,7 +736,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 #endif
 
 	if (pimd_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "pim_mroute_socket_enable: could not lower privs, %s",
 			  safe_strerror(errno));
 

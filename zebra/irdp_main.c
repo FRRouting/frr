@@ -82,7 +82,7 @@ int irdp_sock_init(void)
 	int sock;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "irdp_sock_init: could not raise privs, %s",
 			  safe_strerror(errno));
 
@@ -90,7 +90,7 @@ int irdp_sock_init(void)
 	save_errno = errno;
 
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "irdp_sock_init: could not lower privs, %s",
 			  safe_strerror(errno));
 

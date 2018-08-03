@@ -344,7 +344,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp) {
-		zlog_ferr(
+		flog_err(
 			BGP_ERR_NH_UPD,
 			"parse nexthop update: instance not found for vrf_id %u",
 			vrf_id);

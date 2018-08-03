@@ -62,7 +62,7 @@ int getsockopt_so_sendbuf(const int sock)
 	int ret = getsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&optval,
 			     &optlen);
 	if (ret < 0) {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "fd %d: can't getsockopt SO_SNDBUF: %d (%s)", sock,
 			  errno, safe_strerror(errno));
 		return ret;
@@ -672,7 +672,7 @@ int sockopt_tcp_signature(int sock, union sockunion *su, const char *password)
 		if (ENOENT == errno)
 			ret = 0;
 		else
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "sockopt_tcp_signature: setsockopt(%d): %s",
 				  sock, safe_strerror(errno));
 	}

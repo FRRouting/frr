@@ -145,7 +145,7 @@ babel_create_routing_process (void)
     /* Make socket for Babel protocol. */
     protocol_socket = babel_socket(protocol_port);
     if (protocol_socket < 0) {
-        zlog_ferr(LIB_ERR_SOCKET, "Couldn't create link local socket: %s",
+        flog_err(LIB_ERR_SOCKET, "Couldn't create link local socket: %s",
 		  safe_strerror(errno));
         goto fail;
     }
@@ -179,7 +179,7 @@ babel_read_protocol (struct thread *thread)
                     (struct sockaddr*)&sin6, sizeof(sin6));
     if(rc < 0) {
         if(errno != EAGAIN && errno != EINTR) {
-            zlog_ferr(LIB_ERR_SOCKET, "recv: %s", safe_strerror(errno));
+            flog_err(LIB_ERR_SOCKET, "recv: %s", safe_strerror(errno));
         }
     } else {
         FOR_ALL_INTERFACES(vrf, ifp) {
@@ -255,12 +255,12 @@ babel_get_myid(void)
         return;
     }
 
-    zlog_ferr(BABEL_ERR_CONFIG,
+    flog_err(BABEL_ERR_CONFIG,
 	      "Warning: couldn't find router id -- using random value.");
 
     rc = read_random_bytes(myid, 8);
     if(rc < 0) {
-        zlog_ferr(BABEL_ERR_CONFIG, "read(random): %s (cannot assign an ID)",
+        flog_err(BABEL_ERR_CONFIG, "read(random): %s (cannot assign an ID)",
 		  safe_strerror(errno));
         exit(1);
     }
@@ -519,7 +519,7 @@ resize_receive_buffer(int size)
     if(receive_buffer == NULL) {
         receive_buffer = malloc(size);
         if(receive_buffer == NULL) {
-            zlog_ferr(BABEL_ERR_MEMORY, "malloc(receive_buffer): %s",
+            flog_err(BABEL_ERR_MEMORY, "malloc(receive_buffer): %s",
 		      safe_strerror(errno));
             return -1;
         }
@@ -528,7 +528,7 @@ resize_receive_buffer(int size)
         unsigned char *new;
         new = realloc(receive_buffer, size);
         if(new == NULL) {
-            zlog_ferr(BABEL_ERR_MEMORY, "realloc(receive_buffer): %s",
+            flog_err(BABEL_ERR_MEMORY, "realloc(receive_buffer): %s",
 		      safe_strerror(errno));
             return -1;
         }

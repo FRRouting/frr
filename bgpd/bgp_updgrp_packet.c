@@ -787,7 +787,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			 * NLRI then
 			 * return */
 			if (space_remaining < space_needed) {
-				zlog_ferr(
+				flog_err(
 					BGP_ERR_UPDGRP_ATTR_LEN,
 					"u%" PRIu64 ":s%" PRIu64
 					" attributes too long, cannot send UPDATE",

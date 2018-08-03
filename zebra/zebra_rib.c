@@ -1126,12 +1126,12 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	hook_call(rib_update, rn, "installing in kernel");
 	switch (kernel_route_rib(rn, p, src_p, old, re)) {
 	case DP_REQUEST_QUEUED:
-		zlog_ferr(
+		flog_err(
 			ZEBRA_ERR_DP_INVALID_RC,
 			"No current known DataPlane interfaces can return this, please fix");
 		break;
 	case DP_REQUEST_FAILURE:
-		zlog_ferr(
+		flog_err(
 			ZEBRA_ERR_DP_INSTALL_FAIL,
 			"No current known Rib Install Failure cases, please fix");
 		break;
@@ -1166,12 +1166,12 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	hook_call(rib_update, rn, "uninstalling from kernel");
 	switch (kernel_route_rib(rn, p, src_p, re, NULL)) {
 	case DP_REQUEST_QUEUED:
-		zlog_ferr(
+		flog_err(
 			ZEBRA_ERR_DP_INVALID_RC,
 			"No current known DataPlane interfaces can return this, please fix");
 		break;
 	case DP_REQUEST_FAILURE:
-		zlog_ferr(
+		flog_err(
 			ZEBRA_ERR_DP_INSTALL_FAIL,
 			"No current known RIB Install Failure cases, please fix");
 		break;
@@ -1945,7 +1945,7 @@ void rib_queue_add(struct route_node *rn)
 	}
 
 	if (zebrad.ribq == NULL) {
-		zlog_ferr(ZEBRA_ERR_WQ_NONEXISTENT,
+		flog_err(ZEBRA_ERR_WQ_NONEXISTENT,
 			  "%s: work_queue does not exist!", __func__);
 		return;
 	}
@@ -2001,7 +2001,7 @@ static void rib_queue_init(struct zebra_t *zebra)
 
 	if (!(zebra->ribq =
 		      work_queue_new(zebra->master, "route_node processing"))) {
-		zlog_ferr(ZEBRA_ERR_WQ_NONEXISTENT,
+		flog_err(ZEBRA_ERR_WQ_NONEXISTENT,
 			  "%s: could not initialise work queue!", __func__);
 		return;
 	}
@@ -2015,7 +2015,7 @@ static void rib_queue_init(struct zebra_t *zebra)
 	zebra->ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
 
 	if (!(zebra->mq = meta_queue_new())) {
-		zlog_ferr(ZEBRA_ERR_WQ_NONEXISTENT,
+		flog_err(ZEBRA_ERR_WQ_NONEXISTENT,
 			  "%s: could not initialise meta queue!", __func__);
 		return;
 	}
@@ -2243,7 +2243,7 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	/* Lookup table.  */
 	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
 	if (!table) {
-		zlog_ferr(ZEBRA_ERR_TABLE_LOOKUP_FAILED,
+		flog_err(ZEBRA_ERR_TABLE_LOOKUP_FAILED,
 			  "%s:%u zebra_vrf_table() returned NULL", __func__,
 			  vrf_id);
 		return;
@@ -2291,7 +2291,7 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	rib_dest_t *dest;
 
 	if (NULL == (table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id))) {
-		zlog_ferr(ZEBRA_ERR_TABLE_LOOKUP_FAILED,
+		flog_err(ZEBRA_ERR_TABLE_LOOKUP_FAILED,
 			  "%s:%u zebra_vrf_table() returned NULL", __func__,
 			  vrf_id);
 		return;

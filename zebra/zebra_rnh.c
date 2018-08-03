@@ -858,7 +858,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		stream_put(s, &rn->p.u.prefix6, IPV6_MAX_BYTELEN);
 		break;
 	default:
-		zlog_ferr(ZEBRA_ERR_RNH_UNKNOWN_FAMILY,
+		flog_err(ZEBRA_ERR_RNH_UNKNOWN_FAMILY,
 			  "%s: Unknown family (%d) notification attempted\n",
 			  __FUNCTION__, rn->p.family);
 		break;

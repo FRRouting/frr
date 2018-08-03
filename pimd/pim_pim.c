@@ -116,7 +116,7 @@ void pim_sock_delete(struct interface *ifp, const char *delete_message)
 		  delete_message);
 
 	if (!ifp->info) {
-		zlog_ferr(PIM_ERR_CONFIG,
+		flog_err(PIM_ERR_CONFIG,
 			  "%s: %s: but PIM not enabled on interface %s (!)",
 			  __PRETTY_FUNCTION__, delete_message, ifp->name);
 		return;

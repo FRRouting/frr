@@ -249,7 +249,7 @@ static pid_t run_background(char *shell_cmd)
 
 	switch (child = fork()) {
 	case -1:
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "fork failed, cannot run command [%s]: %s", shell_cmd,
 			  safe_strerror(errno));
 		return -1;
@@ -265,14 +265,14 @@ static pid_t run_background(char *shell_cmd)
 			char dashc[] = "-c";
 			char *const argv[4] = {shell, dashc, shell_cmd, NULL};
 			execv("/bin/sh", argv);
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "execv(/bin/sh -c '%s') failed: %s", shell_cmd,
 				  safe_strerror(errno));
 			_exit(127);
 		}
 	default:
 		/* Parent process: we will reap the child later. */
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "Forked background command [pid %d]: %s", (int)child,
 			  shell_cmd);
 		return child;
@@ -331,7 +331,7 @@ static void sigchild(void)
 
 	switch (child = waitpid(-1, &status, WNOHANG)) {
 	case -1:
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "waitpid failed: %s", safe_strerror(errno));
 		return;
 	case 0:
@@ -355,7 +355,7 @@ static void sigchild(void)
 		 * completed. */
 		gettimeofday(&restart->time, NULL);
 	} else {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "waitpid returned status for an unknown child process %d",
 			  (int)child);
 		name = "(unknown)";
@@ -376,7 +376,7 @@ static void sigchild(void)
 			zlog_debug("%s %s process %d exited normally", what,
 				   name, (int)child);
 	} else
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "cannot interpret %s %s process %d wait status 0x%x",
 			  what, name, (int)child, status);
 	phase_check();
@@ -488,7 +488,7 @@ static int wakeup_init(struct thread *t_wakeup)
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0) {
 		SET_WAKEUP_DOWN(dmn);
-		zlog_ferr(WATCHFRR_ERR_CONNECTION,
+		flog_err(WATCHFRR_ERR_CONNECTION,
 			  "%s state -> down : initial connection attempt failed",
 			  dmn->name);
 		dmn->state = DAEMON_DOWN;
@@ -499,7 +499,7 @@ static int wakeup_init(struct thread *t_wakeup)
 static void daemon_down(struct daemon *dmn, const char *why)
 {
 	if (IS_UP(dmn) || (dmn->state == DAEMON_INIT))
-		zlog_ferr(WATCHFRR_ERR_CONNECTION,
+		flog_err(WATCHFRR_ERR_CONNECTION,
 			  "%s state -> down : %s", dmn->name, why);
 	else if (gs.loglevel > LOG_DEBUG)
 		zlog_debug("%s still down : %s", dmn->name, why);
@@ -693,7 +693,7 @@ static int try_connect(struct daemon *dmn)
 	   of creating a socket. */
 	if (access(addr.sun_path, W_OK) < 0) {
 		if (errno != ENOENT)
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "%s: access to socket %s denied: %s",
 				  dmn->name, addr.sun_path,
 				  safe_strerror(errno));
@@ -701,14 +701,14 @@ static int try_connect(struct daemon *dmn)
 	}
 
 	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "%s(%s): cannot make socket: %s", __func__,
 			  addr.sun_path, safe_strerror(errno));
 		return -1;
 	}
 
 	if (set_nonblocking(sock) < 0 || set_cloexec(sock) < 0) {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "%s(%s): set_nonblocking/cloexec(%d) failed",
 			  __func__, addr.sun_path, sock);
 		close(sock);
@@ -747,7 +747,7 @@ static int try_connect(struct daemon *dmn)
 static int phase_hanging(struct thread *t_hanging)
 {
 	gs.t_phase_hanging = NULL;
-	zlog_ferr(WATCHFRR_ERR_CONNECTION,
+	flog_err(WATCHFRR_ERR_CONNECTION,
 		  "Phase [%s] hanging for %ld seconds, aborting phased restart",
 		  phase_str[gs.phase], PHASE_TIMEOUT);
 	gs.phase = PHASE_NONE;
@@ -863,7 +863,7 @@ static int wakeup_unresponsive(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	if (dmn->state != DAEMON_UNRESPONSIVE)
-		zlog_ferr(WATCHFRR_ERR_CONNECTION,
+		flog_err(WATCHFRR_ERR_CONNECTION,
 			  "%s: no longer unresponsive (now %s), "
 			  "wakeup should have been cancelled!",
 			  dmn->name, state_str[dmn->state]);
@@ -880,7 +880,7 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
-	zlog_ferr(WATCHFRR_ERR_CONNECTION,
+	flog_err(WATCHFRR_ERR_CONNECTION,
 		  "%s state -> unresponsive : no response yet to ping "
 		  "sent %ld seconds ago",
 		  dmn->name, gs.timeout);

@@ -214,7 +214,7 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 					if (str2sockunion(buf,
 							  &sactx->local.host)
 					    < 0)
-						zlog_ferr(NHRP_ERR_SWAN,
+						flog_err(NHRP_ERR_SWAN,
 							  "VICI: bad strongSwan local-host: %s",
 							  buf);
 			} else if (blob_equal(key, "local-id")
@@ -232,7 +232,7 @@ static void parse_sa_message(struct vici_message_ctx *ctx,
 					if (str2sockunion(buf,
 							  &sactx->remote.host)
 					    < 0)
-						zlog_ferr(NHRP_ERR_SWAN,
+						flog_err(NHRP_ERR_SWAN,
 							  "VICI: bad strongSwan remote-host: %s",
 							  buf);
 			} else if (blob_equal(key, "remote-id")
@@ -277,7 +277,7 @@ static void parse_cmd_response(struct vici_message_ctx *ctx,
 	case VICI_KEY_VALUE:
 		if (blob_equal(key, "errmsg")
 		    && blob2buf(val, buf, sizeof(buf)))
-			zlog_ferr(NHRP_ERR_SWAN, "VICI: strongSwan: %s", buf);
+			flog_err(NHRP_ERR_SWAN, "VICI: strongSwan: %s", buf);
 		break;
 	default:
 		break;
@@ -336,7 +336,7 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 		break;
 	case VICI_EVENT_UNKNOWN:
 	case VICI_CMD_UNKNOWN:
-		zlog_ferr(NHRP_ERR_SWAN,
+		flog_err(NHRP_ERR_SWAN,
 			"VICI: StrongSwan does not support mandatory events (unpatched?)");
 		break;
 	case VICI_EVENT_CONFIRM:

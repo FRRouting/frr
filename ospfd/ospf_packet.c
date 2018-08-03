@@ -231,7 +231,7 @@ void ospf_fifo_free(struct ospf_fifo *fifo)
 void ospf_packet_add(struct ospf_interface *oi, struct ospf_packet *op)
 {
 	if (!oi->obuf) {
-		zlog_ferr(
+		flog_err(
 			OSPF_ERR_PKT_PROCESS,
 			"ospf_packet_add(interface %s in state %d [%s], packet type %s, "
 			"destination %s) called with NULL obuf, ignoring "
@@ -255,7 +255,7 @@ static void ospf_packet_add_top(struct ospf_interface *oi,
 				struct ospf_packet *op)
 {
 	if (!oi->obuf) {
-		zlog_ferr(
+		flog_err(
 			OSPF_ERR_PKT_PROCESS,
 			"ospf_packet_add(interface %s in state %d [%s], packet type %s, "
 			"destination %s) called with NULL obuf, ignoring "
@@ -1918,7 +1918,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				char buf2[INET_ADDRSTRLEN];
 				char buf3[INET_ADDRSTRLEN];
 
-				zlog_ferr(OSPF_ERR_ROUTER_LSA_MISMATCH,
+				flog_err(OSPF_ERR_ROUTER_LSA_MISMATCH,
 					  "Incoming Router-LSA from %s with "
 					  "Adv-ID[%s] != LS-ID[%s]",
 					  inet_ntop(AF_INET, &ospfh->router_id,
@@ -1928,7 +1928,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 					  inet_ntop(AF_INET,
 						    &lsa->data->adv_router,
 						    buf3, INET_ADDRSTRLEN));
-				zlog_ferr(
+				flog_err(
 					OSPF_ERR_DOMAIN_CORRUPT,
 					"OSPF domain compromised by attack or corruption. "
 					"Verify correct operation of -ALL- OSPF routers.");

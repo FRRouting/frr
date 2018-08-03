@@ -374,7 +374,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 
 	ret = sendmsg(sock, &msg, 0);
 	if (ret < 0) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "%s(%u): Tx RA failed, socket %u error %d (%s)",
 			  ifp->name, ifp->ifindex, sock, errno,
 			  safe_strerror(errno));
@@ -631,14 +631,14 @@ static int rtadv_make_socket(ns_id_t ns_id)
 	struct icmp6_filter filter;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "rtadv_make_socket: could not raise privs, %s",
 			  safe_strerror(errno));
 
 	sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
 
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "rtadv_make_socket: could not lower privs, %s",
 			  safe_strerror(errno));
 

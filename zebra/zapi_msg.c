@@ -1058,7 +1058,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 			STREAM_GET(&p.u.prefix6, s, IPV6_MAX_BYTELEN);
 			l += IPV6_MAX_BYTELEN;
 		} else {
-			zlog_ferr(
+			flog_err(
 				ZEBRA_ERR_UNKNOWN_FAMILY,
 				"rnh_register: Received unknown family type %d\n",
 				p.family);
@@ -1137,7 +1137,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 			STREAM_GET(&p.u.prefix6, s, IPV6_MAX_BYTELEN);
 			l += IPV6_MAX_BYTELEN;
 		} else {
-			zlog_ferr(
+			flog_err(
 				ZEBRA_ERR_UNKNOWN_FAMILY,
 				"rnh_register: Received unknown family type %d\n",
 				p.family);
@@ -1174,7 +1174,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 	 * registration
 	 */
 	if (hdr->length < ZEBRA_MIN_FEC_LENGTH) {
-		zlog_ferr(
+		flog_err(
 			ZEBRA_ERR_IRDP_LEN_MISMATCH,
 			"fec_register: Received a fec register of hdr->length %d, it is of insufficient size to properly decode",
 			hdr->length);
@@ -1186,7 +1186,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 		memset(&p, 0, sizeof(p));
 		STREAM_GETW(s, p.family);
 		if (p.family != AF_INET && p.family != AF_INET6) {
-			zlog_ferr(
+			flog_err(
 				ZEBRA_ERR_UNKNOWN_FAMILY,
 				"fec_register: Received unknown family type %d\n",
 				p.family);
@@ -1234,7 +1234,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 	 * fec unregistration
 	 */
 	if (hdr->length < ZEBRA_MIN_FEC_LENGTH) {
-		zlog_ferr(
+		flog_err(
 			ZEBRA_ERR_IRDP_LEN_MISMATCH,
 			"fec_unregister: Received a fec unregister of hdr->length %d, it is of insufficient size to properly decode",
 			hdr->length);
@@ -1249,7 +1249,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 		memset(&p, 0, sizeof(p));
 		STREAM_GETW(s, p.family);
 		if (p.family != AF_INET && p.family != AF_INET6) {
-			zlog_ferr(
+			flog_err(
 				ZEBRA_ERR_UNKNOWN_FAMILY,
 				"fec_unregister: Received unknown family type %d\n",
 				p.family);
@@ -2382,7 +2382,7 @@ static void zread_table_manager_connect(struct zserv *client,
 
 	/* accept only dynamic routing protocols */
 	if ((proto >= ZEBRA_ROUTE_MAX) || (proto <= ZEBRA_ROUTE_STATIC)) {
-		zlog_ferr(ZEBRA_ERR_TM_WRONG_PROTO,
+		flog_err(ZEBRA_ERR_TM_WRONG_PROTO,
 			  "client %d has wrong protocol %s", client->sock,
 			  zebra_route_string(proto));
 		zsend_table_manager_connect_response(client, vrf_id, 1);
@@ -2422,7 +2422,7 @@ static void zread_label_manager_connect(struct zserv *client,
 
 	/* accept only dynamic routing protocols */
 	if ((proto >= ZEBRA_ROUTE_MAX) || (proto <= ZEBRA_ROUTE_STATIC)) {
-		zlog_ferr(ZEBRA_ERR_TM_WRONG_PROTO,
+		flog_err(ZEBRA_ERR_TM_WRONG_PROTO,
 			  "client %d has wrong protocol %s", client->sock,
 			  zebra_route_string(proto));
 		zsend_label_manager_connect_response(client, vrf_id, 1);
@@ -2452,7 +2452,7 @@ static int msg_client_id_mismatch(const char *op, struct zserv *client,
 				  uint8_t proto, unsigned int instance)
 {
 	if (proto != client->proto) {
-		zlog_ferr(ZEBRA_ERR_PROTO_OR_INSTANCE_MISMATCH,
+		flog_err(ZEBRA_ERR_PROTO_OR_INSTANCE_MISMATCH,
 			  "%s: msg vs client proto mismatch, client=%u msg=%u",
 			  op, client->proto, proto);
 		/* TODO: fail when BGP sets proto and instance */
@@ -2460,7 +2460,7 @@ static int msg_client_id_mismatch(const char *op, struct zserv *client,
 	}
 
 	if (instance != client->instance) {
-		zlog_ferr(
+		flog_err(
 			ZEBRA_ERR_PROTO_OR_INSTANCE_MISMATCH,
 			"%s: msg vs client instance mismatch, client=%u msg=%u",
 			op, client->instance, instance);
@@ -2496,7 +2496,7 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 
 	lmc = assign_label_chunk(client->proto, client->instance, keep, size);
 	if (!lmc)
-		zlog_ferr(
+		flog_err(
 			ZEBRA_ERR_LM_CANNOT_ASSIGN_CHUNK,
 			"Unable to assign Label Chunk of size %u to %s instance %u",
 			size, zebra_route_string(client->proto),
@@ -2555,7 +2555,7 @@ static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 		else {
 			/* Sanity: don't allow 'unidentified' requests */
 			if (!client->proto) {
-				zlog_ferr(
+				flog_err(
 					ZEBRA_ERR_LM_ALIENS,
 					"Got label request from an unidentified client");
 				return;
@@ -2584,7 +2584,7 @@ static void zread_get_table_chunk(struct zserv *client, struct stream *msg,
 
 	tmc = assign_table_chunk(client->proto, client->instance, size);
 	if (!tmc)
-		zlog_ferr(ZEBRA_ERR_TM_CANNOT_ASSIGN_CHUNK,
+		flog_err(ZEBRA_ERR_TM_CANNOT_ASSIGN_CHUNK,
 			  "%s: Unable to assign Table Chunk of size %u",
 			  __func__, size);
 	else
@@ -2623,7 +2623,7 @@ static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 	else {
 		/* Sanity: don't allow 'unidentified' requests */
 		if (!client->proto) {
-			zlog_ferr(
+			flog_err(
 				ZEBRA_ERR_TM_ALIENS,
 				"Got table request from an unidentified client");
 			return;

@@ -86,7 +86,7 @@ extern void zlog_notice(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_debug(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 
 /* For logs which have error codes associated with them */
-#define zlog_ferr(ferr_id, format, ...)                                        \
+#define flog_err(ferr_id, format, ...)                                        \
 	zlog_err("[EC %d] " format, ferr_id, ##__VA_ARGS__)
 
 

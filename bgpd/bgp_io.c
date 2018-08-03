@@ -402,7 +402,7 @@ static uint16_t bgp_read(struct peer *peer)
 		SET_FLAG(status, BGP_IO_TRANS_ERR);
 		/* Fatal error; tear down session */
 	} else if (nbytes < 0) {
-		zlog_ferr(BGP_ERR_UPDATE_RCV,
+		flog_err(BGP_ERR_UPDATE_RCV,
 			  "%s [Error] bgp_read_packet error: %s", peer->host,
 			  safe_strerror(errno));
 

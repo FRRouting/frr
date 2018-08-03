@@ -42,7 +42,7 @@ pid_t pid_output(const char *path)
 	oldumask = umask(0777 & ~PIDFILE_MASK);
 	fd = open(path, O_RDWR | O_CREAT, PIDFILE_MASK);
 	if (fd < 0) {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "Can't create pid lock file %s (%s), exiting", path,
 			  safe_strerror(errno));
 		umask(oldumask);
@@ -59,7 +59,7 @@ pid_t pid_output(const char *path)
 		lock.l_whence = SEEK_SET;
 
 		if (fcntl(fd, F_SETLK, &lock) < 0) {
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "Could not lock pid_file %s (%s), exiting",
 				  path, safe_strerror(errno));
 			exit(1);
@@ -68,11 +68,11 @@ pid_t pid_output(const char *path)
 		sprintf(buf, "%d\n", (int)pid);
 		pidsize = strlen(buf);
 		if ((tmp = write(fd, buf, pidsize)) != (int)pidsize)
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "Could not write pid %d to pid_file %s, rc was %d: %s",
 				  (int)pid, path, tmp, safe_strerror(errno));
 		else if (ftruncate(fd, pidsize) < 0)
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "Could not truncate pid_file %s to %u bytes: %s",
 				  path, (unsigned int)pidsize,
 				  safe_strerror(errno));

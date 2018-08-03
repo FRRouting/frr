@@ -170,7 +170,7 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 		if (!dest) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_ferr(EIGRP_ERR_PACKET,
+			flog_err(EIGRP_ERR_PACKET,
 				  "%s: Received prefix %s which we do not know about",
 				  __PRETTY_FUNCTION__,
 				  prefix2str(&dest_addr, buf, sizeof(buf)));

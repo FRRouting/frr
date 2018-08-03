@@ -336,7 +336,7 @@ int eigrp_nbr_count_get(void)
 void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 {
 	if (nbr == NULL) {
-		zlog_ferr(EIGRP_ERR_CONFIG,
+		flog_err(EIGRP_ERR_CONFIG,
 			  "Nbr Hard restart: Neighbor not specified.");
 		return;
 	}

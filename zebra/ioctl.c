@@ -56,21 +56,21 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	int err = 0;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
+		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		int save_errno = errno;
 
 		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
-		zlog_ferr(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+			flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+		flog_err(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
 			  safe_strerror(save_errno));
 		exit(1);
 	}
 	if ((ret = ioctl(sock, request, buffer)) < 0)
 		err = errno;
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 	close(sock);
 
 	if (ret < 0) {
@@ -88,14 +88,14 @@ int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
 	int err = 0;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
+		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 	sock = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf_id, NULL);
 	if (sock < 0) {
 		int save_errno = errno;
 
 		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
-		zlog_ferr(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+			flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+		flog_err(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
 			  safe_strerror(save_errno));
 		exit(1);
 	}
@@ -103,7 +103,7 @@ int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
 	if (ret < 0)
 		err = errno;
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 	close(sock);
 
 	if (ret < 0) {
@@ -121,14 +121,14 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	int err = 0;
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't raise privileges");
+		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
 	sock = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		int save_errno = errno;
 
 		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
-		zlog_ferr(LIB_ERR_SOCKET,
+			flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+		flog_err(LIB_ERR_SOCKET,
 			  "Cannot create IPv6 datagram socket: %s",
 			  safe_strerror(save_errno));
 		exit(1);
@@ -137,7 +137,7 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	if ((ret = ioctl(sock, request, buffer)) < 0)
 		err = errno;
 	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 	close(sock);
 
 	if (ret < 0) {
@@ -415,7 +415,7 @@ void if_get_flags(struct interface *ifp)
 
 	ret = vrf_if_ioctl(SIOCGIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
 	if (ret < 0) {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "vrf_if_ioctl(SIOCGIFFLAGS) failed: %s",
 			  safe_strerror(errno));
 		return;
@@ -434,7 +434,7 @@ void if_get_flags(struct interface *ifp)
 
 		/* Seems not all interfaces implement this ioctl */
 		if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "if_ioctl(SIOCGIFMEDIA) failed: %s",
 				  safe_strerror(errno));
 		else if (ifmr.ifm_status & IFM_AVALID) /* Link state is valid */

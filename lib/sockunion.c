@@ -367,13 +367,13 @@ int sockopt_mark_default(int sock, int mark, struct zebra_privs_t *cap)
 	int ret;
 
 	if (cap->change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "routing_socket: Can't raise privileges");
 
 	ret = setsockopt(sock, SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
 
 	if (cap->change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "routing_socket: Can't lower privileges");
 
 	return ret;

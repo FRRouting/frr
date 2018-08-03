@@ -289,7 +289,7 @@ int main(int argc, char **argv)
 			multipath_num = atoi(optarg);
 			if (multipath_num > MULTIPATH_NUM
 			    || multipath_num <= 0) {
-				zlog_ferr(
+				flog_err(
 					ZEBRA_ERR_BAD_MULTIPATH_NUM,
 					"Multipath Number specified must be less than %d and greater than 0",
 					MULTIPATH_NUM);

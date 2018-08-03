@@ -77,19 +77,19 @@ static void ospf6_set_checksum(void)
 int ospf6_serv_sock(void)
 {
 	if (ospf6d_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "ospf6_serv_sock: could not raise privs");
 
 	ospf6_sock = socket(AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP);
 	if (ospf6_sock < 0) {
 		zlog_warn("Network: can't create OSPF6 socket.");
 		if (ospf6d_privs.change(ZPRIVS_LOWER))
-			zlog_ferr(LIB_ERR_PRIVILEGES,
+			flog_err(LIB_ERR_PRIVILEGES,
 				  "ospf6_sock_init: could not lower privs");
 		return -1;
 	}
 	if (ospf6d_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES,
+		flog_err(LIB_ERR_PRIVILEGES,
 			  "ospf6_sock_init: could not lower privs");
 
 /* set socket options */
@@ -124,7 +124,7 @@ int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option)
 	ret = setsockopt(ospf6_sock, IPPROTO_IPV6, option, &mreq6,
 			 sizeof(mreq6));
 	if (ret < 0) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "Network: setsockopt (%d) on ifindex %d failed: %s",
 			  option, ifindex, safe_strerror(errno));
 		return ret;

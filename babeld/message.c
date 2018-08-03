@@ -141,12 +141,12 @@ parse_update_subtlv(const unsigned char *a, int alen,
         }
 
         if(i + 1 > alen) {
-            zlog_ferr(BABEL_ERR_PACKET, "Received truncated attributes.");
+            flog_err(BABEL_ERR_PACKET, "Received truncated attributes.");
             return;
         }
         len = a[i + 1];
         if(i + len > alen) {
-            zlog_ferr(BABEL_ERR_PACKET, "Received truncated attributes.");
+            flog_err(BABEL_ERR_PACKET, "Received truncated attributes.");
             return;
         }
 
@@ -154,14 +154,14 @@ parse_update_subtlv(const unsigned char *a, int alen,
             /* Nothing. */
         } else if(type == SUBTLV_DIVERSITY) {
             if(len > DIVERSITY_HOPS) {
-                zlog_ferr(BABEL_ERR_PACKET,
+                flog_err(BABEL_ERR_PACKET,
 			  "Received overlong channel information (%d > %d).n",
                           len, DIVERSITY_HOPS);
                 len = DIVERSITY_HOPS;
             }
             if(memchr(a + i + 2, 0, len) != NULL) {
                 /* 0 is reserved. */
-                zlog_ferr(BABEL_ERR_PACKET, "Channel information contains 0!");
+                flog_err(BABEL_ERR_PACKET, "Channel information contains 0!");
                 return;
             }
             memset(channels, 0, DIVERSITY_HOPS);
@@ -189,13 +189,13 @@ parse_hello_subtlv(const unsigned char *a, int alen,
         }
 
         if(i + 1 > alen) {
-            zlog_ferr(BABEL_ERR_PACKET,
+            flog_err(BABEL_ERR_PACKET,
 		      "Received truncated sub-TLV on Hello message.");
             return -1;
         }
         len = a[i + 1];
         if(i + len > alen) {
-            zlog_ferr(BABEL_ERR_PACKET,
+            flog_err(BABEL_ERR_PACKET,
 		      "Received truncated sub-TLV on Hello message.");
             return -1;
         }
@@ -207,7 +207,7 @@ parse_hello_subtlv(const unsigned char *a, int alen,
                 DO_NTOHL(*hello_send_us, a + i + 2);
                 ret = 1;
             } else {
-                zlog_ferr(BABEL_ERR_PACKET,
+                flog_err(BABEL_ERR_PACKET,
 			  "Received incorrect RTT sub-TLV on Hello message.");
             }
         } else {
@@ -235,13 +235,13 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
         }
 
         if(i + 1 > alen) {
-            zlog_ferr(BABEL_ERR_PACKET,
+            flog_err(BABEL_ERR_PACKET,
 		      "Received truncated sub-TLV on IHU message.");
             return -1;
         }
         len = a[i + 1];
         if(i + len > alen) {
-            zlog_ferr(BABEL_ERR_PACKET,
+            flog_err(BABEL_ERR_PACKET,
 		      "Received truncated sub-TLV on IHU message.");
             return -1;
         }
@@ -255,7 +255,7 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
                 ret = 1;
             }
             else {
-                zlog_ferr(BABEL_ERR_PACKET,
+                flog_err(BABEL_ERR_PACKET,
 			  "Received incorrect RTT sub-TLV on IHU message.");
             }
         } else {
@@ -345,14 +345,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
     }
 
     if(!linklocal(from)) {
-        zlog_ferr(BABEL_ERR_PACKET,
+        flog_err(BABEL_ERR_PACKET,
 		  "Received packet from non-local address %s.",
                   format_address(from));
         return;
     }
 
     if (babel_packet_examin (packet, packetlen)) {
-        zlog_ferr(BABEL_ERR_PACKET,
+        flog_err(BABEL_ERR_PACKET,
 		  "Received malformed packet on %s from %s.",
                   ifp->name, format_address(from));
         return;
@@ -360,14 +360,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 
     neigh = find_neighbour(from, ifp);
     if(neigh == NULL) {
-        zlog_ferr(BABEL_ERR_PACKET, "Couldn't allocate neighbour.");
+        flog_err(BABEL_ERR_PACKET, "Couldn't allocate neighbour.");
         return;
     }
 
     DO_NTOHS(bodylen, packet + 2);
 
     if(bodylen + 4 > packetlen) {
-        zlog_ferr(BABEL_ERR_PACKET, "Received truncated packet (%d + 4 > %d).",
+        flog_err(BABEL_ERR_PACKET, "Received truncated packet (%d + 4 > %d).",
                  bodylen, packetlen);
         bodylen = packetlen - 4;
     }
@@ -516,7 +516,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 have_router_id = 1;
             }
             if(!have_router_id && message[2] != 0) {
-                zlog_ferr(BABEL_ERR_PACKET,
+                flog_err(BABEL_ERR_PACKET,
 			  "Received prefix with no router id.");
                 goto fail;
             }
@@ -528,7 +528,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 
             if(message[2] == 0) {
                 if(metric < 0xFFFF) {
-                    zlog_ferr(BABEL_ERR_PACKET,
+                    flog_err(BABEL_ERR_PACKET,
 			      "Received wildcard update with finite metric.");
                     goto done;
                 }
@@ -621,7 +621,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         continue;
 
     fail:
-        zlog_ferr(BABEL_ERR_PACKET,
+        flog_err(BABEL_ERR_PACKET,
 		  "Couldn't parse packet (%d, %d) from %s on %s.",
                   message[0], message[1], format_address(from), ifp->name);
         goto done;
@@ -710,7 +710,7 @@ fill_rtt_message(struct interface *ifp)
             DO_HTONL(babel_ifp->sendbuf + babel_ifp->buffered_hello + 10, time);
             return 1;
         } else {
-            zlog_ferr(BABEL_ERR_PACKET, "No space left for timestamp sub-TLV "
+            flog_err(BABEL_ERR_PACKET, "No space left for timestamp sub-TLV "
                      "(this shouldn't happen)");
             return -1;
         }
@@ -745,9 +745,9 @@ flushbuf(struct interface *ifp)
                             babel_ifp->sendbuf, babel_ifp->buffered,
                             (struct sockaddr*)&sin6, sizeof(sin6));
             if(rc < 0)
-                zlog_ferr(BABEL_ERR_PACKET, "send: %s", safe_strerror(errno));
+                flog_err(BABEL_ERR_PACKET, "send: %s", safe_strerror(errno));
         } else {
-            zlog_ferr(BABEL_ERR_PACKET,
+            flog_err(BABEL_ERR_PACKET,
 		      "Warning: bucket full, dropping packet to %s.",
                       ifp->name);
         }
@@ -870,7 +870,7 @@ start_unicast_message(struct neighbour *neigh, int type, int len)
     if(!unicast_buffer)
         unicast_buffer = malloc(UNICAST_BUFSIZE);
     if(!unicast_buffer) {
-        zlog_ferr(BABEL_ERR_MEMORY, "malloc(unicast_buffer): %s",
+        flog_err(BABEL_ERR_MEMORY, "malloc(unicast_buffer): %s",
 		  safe_strerror(errno));
         return -1;
     }
@@ -1007,10 +1007,10 @@ flush_unicast(int dofree)
                         unicast_buffer, unicast_buffered,
                         (struct sockaddr*)&sin6, sizeof(sin6));
         if(rc < 0)
-            zlog_ferr(BABEL_ERR_PACKET, "send(unicast): %s",
+            flog_err(BABEL_ERR_PACKET, "send(unicast): %s",
 		      safe_strerror(errno));
     } else {
-        zlog_ferr(BABEL_ERR_PACKET,
+        flog_err(BABEL_ERR_PACKET,
 		  "Warning: bucket full, dropping unicast packet to %s if %s.",
                   format_address(unicast_neighbour->address),
                   unicast_neighbour->ifp->name);
@@ -1318,7 +1318,7 @@ buffer_update(struct interface *ifp,
     again:
         babel_ifp->buffered_updates = malloc(n *sizeof(struct buffered_update));
         if(babel_ifp->buffered_updates == NULL) {
-            zlog_ferr(BABEL_ERR_MEMORY, "malloc(buffered_updates): %s",
+            flog_err(BABEL_ERR_MEMORY, "malloc(buffered_updates): %s",
 		      safe_strerror(errno));
             if(n > 4) {
                 /* Try again with a tiny buffer. */
@@ -1382,7 +1382,7 @@ send_update(struct interface *ifp, int urgent,
             }
             route_stream_done(routes);
         } else {
-            zlog_ferr(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
+            flog_err(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
         }
         set_timeout(&babel_ifp->update_timeout, babel_ifp->update_interval);
         babel_ifp->last_update_time = babel_now.tv_sec;
@@ -1460,7 +1460,7 @@ send_self_update(struct interface *ifp)
         }
         xroute_stream_done(xroutes);
     } else {
-        zlog_ferr(BABEL_ERR_MEMORY, "Couldn't allocate xroute stream.");
+        flog_err(BABEL_ERR_MEMORY, "Couldn't allocate xroute stream.");
     }
 }
 

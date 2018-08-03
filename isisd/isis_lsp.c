@@ -454,7 +454,7 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		struct isis_area *area, int level, bool confusion)
 {
 	if (lsp->own_lsp) {
-		zlog_ferr(
+		flog_err(
 			LIB_ERR_DEVELOPMENT,
 			"ISIS-Upd (%s): BUG updating LSP %s still marked as own LSP",
 			area->area_tag, rawlspid_print(lsp->hdr.lsp_id));
@@ -1244,7 +1244,7 @@ static int lsp_regenerate(struct isis_area *area, int level)
 	lsp = lsp_search(lspid, lspdb);
 
 	if (!lsp) {
-		zlog_ferr(LIB_ERR_DEVELOPMENT,
+		flog_err(LIB_ERR_DEVELOPMENT,
 			  "ISIS-Upd (%s): lsp_regenerate: no L%d LSP found!",
 			  area->area_tag, level);
 		return ISIS_ERROR;
@@ -1613,7 +1613,7 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 	lsp = lsp_search(lsp_id, lspdb);
 
 	if (!lsp) {
-		zlog_ferr(LIB_ERR_DEVELOPMENT,
+		flog_err(LIB_ERR_DEVELOPMENT,
 			  "lsp_regenerate_pseudo: no l%d LSP %s found!", level,
 			  rawlspid_print(lsp_id));
 		return ISIS_ERROR;

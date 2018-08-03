@@ -186,7 +186,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 	int retval = ISIS_OK;
 
 	if (isisd_privs.change(ZPRIVS_RAISE))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "%s: could not raise privs, %s",
+		flog_err(LIB_ERR_PRIVILEGES, "%s: could not raise privs, %s",
 			  __func__, safe_strerror(errno));
 
 	retval = open_packet_socket(circuit);
@@ -211,7 +211,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 
 end:
 	if (isisd_privs.change(ZPRIVS_LOWER))
-		zlog_ferr(LIB_ERR_PRIVILEGES, "%s: could not lower privs, %s",
+		flog_err(LIB_ERR_PRIVILEGES, "%s: could not lower privs, %s",
 			  __func__, safe_strerror(errno));
 
 	return retval;

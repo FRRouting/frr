@@ -85,7 +85,7 @@ static void pim_free()
 void pim_init()
 {
 	if (!inet_aton(PIM_ALL_PIM_ROUTERS, &qpim_all_pim_routers_addr)) {
-		zlog_ferr(
+		flog_err(
 			LIB_ERR_SOCKET,
 			"%s %s: could not solve %s to group address: errno=%d: %s",
 			__FILE__, __PRETTY_FUNCTION__, PIM_ALL_PIM_ROUTERS,

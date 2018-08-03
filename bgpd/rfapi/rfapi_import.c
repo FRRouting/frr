@@ -3029,7 +3029,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 		break;
 
 	default:
-		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
+		flog_err(LIB_ERR_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
 	}
 
@@ -3486,7 +3486,7 @@ void rfapiBgpInfoFilteredImportVPN(
 		break;
 
 	default:
-		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
+		flog_err(LIB_ERR_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
 	}
 
@@ -3891,7 +3891,7 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 
 	default:
 		/* not expected */
-		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: bad safi %d", __func__,
+		flog_err(LIB_ERR_DEVELOPMENT, "%s: bad safi %d", __func__,
 			  safi);
 		return rfapiBgpInfoFilteredImportBadSafi;
 	}

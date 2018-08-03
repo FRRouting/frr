@@ -2089,7 +2089,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 
 		if (old_vrf_id != ospf->vrf_id) {
 			if (ospfd_privs.change(ZPRIVS_RAISE))
-				zlog_ferr(
+				flog_err(
 					LIB_ERR_PRIVILEGES,
 					"ospf_vrf_link: could not raise privs");
 
@@ -2103,7 +2103,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 
 			ret = ospf_sock_init(ospf);
 			if (ospfd_privs.change(ZPRIVS_LOWER))
-				zlog_ferr(
+				flog_err(
 					LIB_ERR_PRIVILEGES,
 					"ospf_sock_init: could not lower privs");
 

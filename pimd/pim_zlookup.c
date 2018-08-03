@@ -123,7 +123,7 @@ void zclient_lookup_new(void)
 {
 	zlookup = zclient_new_notify(master, &zclient_options_default);
 	if (!zlookup) {
-		zlog_ferr(LIB_ERR_ZAPI_SOCKET, "%s: zclient_new() failure",
+		flog_err(LIB_ERR_ZAPI_SOCKET, "%s: zclient_new() failure",
 			  __PRETTY_FUNCTION__);
 		return;
 	}
@@ -170,7 +170,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 		err = zclient_read_header(s, zlookup->sock, &length, &marker,
 					  &version, &vrf_id, &command);
 		if (err < 0) {
-			zlog_ferr(LIB_ERR_ZAPI_MISSMATCH,
+			flog_err(LIB_ERR_ZAPI_MISSMATCH,
 				  "%s: zclient_read_header() failed",
 				  __PRETTY_FUNCTION__);
 			zclient_lookup_failed(zlookup);
@@ -315,7 +315,7 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 
 	/* Check socket. */
 	if (zlookup->sock < 0) {
-		zlog_ferr(LIB_ERR_ZAPI_SOCKET,
+		flog_err(LIB_ERR_ZAPI_SOCKET,
 			  "%s: zclient lookup socket is not connected",
 			  __PRETTY_FUNCTION__);
 		zclient_lookup_failed(zlookup);
@@ -337,7 +337,7 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 
 	ret = writen(zlookup->sock, s->data, stream_get_endp(s));
 	if (ret < 0) {
-		zlog_ferr(
+		flog_err(
 			LIB_ERR_SOCKET,
 			"%s: writen() failure: %d writing to zclient lookup socket",
 			__PRETTY_FUNCTION__, errno);
@@ -345,7 +345,7 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 		return -2;
 	}
 	if (ret == 0) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "%s: connection closed on zclient lookup socket",
 			  __PRETTY_FUNCTION__);
 		zclient_lookup_failed(zlookup);
@@ -515,7 +515,7 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	count = stream_get_endp(s);
 	ret = writen(zlookup->sock, s->data, count);
 	if (ret <= 0) {
-		zlog_ferr(
+		flog_err(
 			LIB_ERR_SOCKET,
 			"%s: writen() failure: %d writing to zclient lookup socket",
 			__PRETTY_FUNCTION__, errno);
@@ -535,7 +535,7 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 		err = zclient_read_header(s, zlookup->sock, &length, &marker,
 					  &version, &vrf_id, &command);
 		if (err < 0) {
-			zlog_ferr(LIB_ERR_ZAPI_MISSMATCH,
+			flog_err(LIB_ERR_ZAPI_MISSMATCH,
 				  "%s: zclient_read_header() failed",
 				  __PRETTY_FUNCTION__);
 			zclient_lookup_failed(zlookup);
@@ -552,7 +552,7 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 
 			more.src = c_oil->oil.mfcc_origin;
 			more.grp = c_oil->oil.mfcc_mcastgrp;
-			zlog_ferr(
+			flog_err(
 				LIB_ERR_ZAPI_MISSMATCH,
 				"%s: Received wrong %s(%s) information requested",
 				__PRETTY_FUNCTION__, pim_str_sg_dump(&more),

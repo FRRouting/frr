@@ -412,7 +412,7 @@ eigrp_topology_update_distance(struct eigrp_fsm_action_message *msg)
 		}
 		break;
 	default:
-		zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: Please implement handler",
+		flog_err(LIB_ERR_DEVELOPMENT, "%s: Please implement handler",
 			  __PRETTY_FUNCTION__);
 		break;
 	}

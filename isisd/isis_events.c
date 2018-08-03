@@ -157,7 +157,7 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
 		return; /* No change */
 
 	if (!(newtype & circuit->area->is_type)) {
-		zlog_ferr(
+		flog_err(
 			ISIS_ERR_CONFIG,
 			"ISIS-Evt (%s) circuit type change - invalid level %s because area is %s",
 			circuit->area->area_tag, circuit_t2string(newtype),

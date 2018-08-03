@@ -68,7 +68,7 @@ static int bgp_flowspec_call_non_opaque_decode(uint8_t *nlri_content, int len,
 			     len,
 			     mval, error);
 	if (*error < 0)
-		zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+		flog_err(BGP_ERR_FLOWSPEC_PACKET,
 			  "%s: flowspec_op_decode error %d",
 			  __func__, *error);
 	else
@@ -447,7 +447,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					len - offset,
 					prefix, &error);
 			if (error < 0)
-				zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+				flog_err(BGP_ERR_FLOWSPEC_PACKET,
 					  "%s: flowspec_ip_address error %d",
 					  __func__, error);
 			else
@@ -542,7 +542,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					len - offset,
 					&bpem->tcpflags, &error);
 			if (error < 0)
-				zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+				flog_err(BGP_ERR_FLOWSPEC_PACKET,
 					  "%s: flowspec_tcpflags_decode error %d",
 					  __func__, error);
 			else
@@ -557,7 +557,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					len - offset, &bpem->fragment,
 					&error);
 			if (error < 0)
-				zlog_ferr(BGP_ERR_FLOWSPEC_PACKET,
+				flog_err(BGP_ERR_FLOWSPEC_PACKET,
 					  "%s: flowspec_fragment_type_decode error %d",
 					  __func__, error);
 			else
@@ -565,7 +565,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 			offset += ret;
 			break;
 		default:
-			zlog_ferr(LIB_ERR_DEVELOPMENT, "%s: unknown type %d\n",
+			flog_err(LIB_ERR_DEVELOPMENT, "%s: unknown type %d\n",
 				  __func__, type);
 		}
 	}

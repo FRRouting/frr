@@ -438,7 +438,7 @@ static void isis_vertex_id_init(struct isis_vertex *vertex, union isis_N *n,
 	} else if (VTYPE_IP(vtype)) {
 		memcpy(&vertex->N.ip, &n->ip, sizeof(n->ip));
 	} else {
-		zlog_ferr(LIB_ERR_DEVELOPMENT, "Unknown Vertex Type");
+		flog_err(LIB_ERR_DEVELOPMENT, "Unknown Vertex Type");
 	}
 }
 

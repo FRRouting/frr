@@ -97,7 +97,7 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 	}
 
 	if (!join) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "IGMP socket fd=%d could not join any group on interface address %s",
 			  fd, inet_ntoa(ifaddr));
 		close(fd);
@@ -698,7 +698,7 @@ static void sock_close(struct igmp_sock *igmp)
 	THREAD_OFF(igmp->t_igmp_read);
 
 	if (close(igmp->fd)) {
-		zlog_ferr(
+		flog_err(
 			LIB_ERR_SOCKET,
 			"Failure closing IGMP socket %s fd=%d on interface %s: errno=%d: %s",
 			inet_ntoa(igmp->ifaddr), igmp->fd,

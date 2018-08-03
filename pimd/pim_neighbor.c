@@ -800,7 +800,7 @@ void pim_neighbor_update(struct pim_neighbor *neigh,
 
 	if (neigh->prefix_list == addr_list) {
 		if (addr_list) {
-			zlog_ferr(
+			flog_err(
 				LIB_ERR_DEVELOPMENT,
 				"%s: internal error: trying to replace same prefix list=%p",
 				__PRETTY_FUNCTION__, (void *)addr_list);

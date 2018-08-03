@@ -633,7 +633,7 @@ void zlog_backtrace(int priority)
 
 	size = backtrace(array, array_size(array));
 	if (size <= 0 || (size_t)size > array_size(array)) {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "Cannot get backtrace, returned invalid # of frames %d "
 			  "(valid range is between 1 and %lu)",
 			  size, (unsigned long)(array_size(array)));
@@ -641,7 +641,7 @@ void zlog_backtrace(int priority)
 	}
 	zlog(priority, "Backtrace for %d stack frames:", size);
 	if (!(strings = backtrace_symbols(array, size))) {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "Cannot get backtrace symbols (out of memory?)");
 		for (i = 0; i < size; i++)
 			zlog(priority, "[bt %d] %p", i, array[i]);
@@ -715,7 +715,7 @@ void _zlog_assert_failed(const char *assertion, const char *file,
 
 void memory_oom(size_t size, const char *name)
 {
-	zlog_ferr(LIB_ERR_SYSTEM_CALL,
+	flog_err(LIB_ERR_SYSTEM_CALL,
 		  "out of memory: failed to allocate %zu bytes for %s"
 		  "object",
 		  size, name);
@@ -867,7 +867,7 @@ int zlog_rotate(void)
 		save_errno = errno;
 		umask(oldumask);
 		if (zl->fp == NULL) {
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "Log rotate failed: cannot open file %s for append: %s",
 				  zl->filename, safe_strerror(save_errno));
 			ret = -1;
@@ -987,7 +987,7 @@ static const struct zebra_desc_table *zroute_lookup(unsigned int zroute)
 	unsigned int i;
 
 	if (zroute >= array_size(route_types)) {
-		zlog_ferr(LIB_ERR_DEVELOPMENT, "unknown zebra route type: %u",
+		flog_err(LIB_ERR_DEVELOPMENT, "unknown zebra route type: %u",
 			  zroute);
 		return &unknown;
 	}
@@ -1002,7 +1002,7 @@ static const struct zebra_desc_table *zroute_lookup(unsigned int zroute)
 			return &route_types[i];
 		}
 	}
-	zlog_ferr(LIB_ERR_DEVELOPMENT,
+	flog_err(LIB_ERR_DEVELOPMENT,
 		  "internal error: cannot find route type %u in table!",
 		  zroute);
 	return &unknown;
@@ -1021,7 +1021,7 @@ char zebra_route_char(unsigned int zroute)
 const char *zserv_command_string(unsigned int command)
 {
 	if (command >= array_size(command_types)) {
-		zlog_ferr(LIB_ERR_DEVELOPMENT, "unknown zserv command type: %u",
+		flog_err(LIB_ERR_DEVELOPMENT, "unknown zserv command type: %u",
 			  command);
 		return unknown.string;
 	}

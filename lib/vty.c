@@ -1330,7 +1330,7 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 					TELNET_NAWS_SB_LEN,
 					(unsigned long)vty->sb_len);
 			else if (sizeof(vty->sb_buf) < TELNET_NAWS_SB_LEN)
-				zlog_ferr(
+				flog_err(
 					LIB_ERR_DEVELOPMENT,
 					"Bug detected: sizeof(vty->sb_buf) %lu < %d, too small to handle the telnet NAWS option",
 					(unsigned long)sizeof(vty->sb_buf),
@@ -1973,7 +1973,7 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 	ret = getaddrinfo(hostname, port_str, &req, &ainfo);
 
 	if (ret != 0) {
-		zlog_ferr(LIB_ERR_SYSTEM_CALL,
+		flog_err(LIB_ERR_SYSTEM_CALL,
 			  "getaddrinfo failed: %s", gai_strerror(ret));
 		exit(1);
 	}
@@ -2034,7 +2034,7 @@ static void vty_serv_un(const char *path)
 	/* Make UNIX domain socket. */
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock < 0) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "Cannot create unix stream socket: %s",
 			 safe_strerror(errno));
 		return;
@@ -2054,7 +2054,7 @@ static void vty_serv_un(const char *path)
 
 	ret = bind(sock, (struct sockaddr *)&serv, len);
 	if (ret < 0) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "Cannot bind path %s: %s",
 			  path, safe_strerror(errno));
 		close(sock); /* Avoid sd leak. */
@@ -2063,7 +2063,7 @@ static void vty_serv_un(const char *path)
 
 	ret = listen(sock, 5);
 	if (ret < 0) {
-		zlog_ferr(LIB_ERR_SOCKET,
+		flog_err(LIB_ERR_SOCKET,
 			  "listen(fd %d) failed: %s", sock,
 			  safe_strerror(errno));
 		close(sock); /* Avoid sd leak. */
@@ -2080,7 +2080,7 @@ static void vty_serv_un(const char *path)
 	if ((int)ids.gid_vty > 0) {
 		/* set group of socket */
 		if (chown(path, -1, ids.gid_vty)) {
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "vty_serv_un: could chown socket, %s",
 				  safe_strerror(errno));
 		}
@@ -2413,7 +2413,7 @@ static void vty_read_file(FILE *confp)
 		nl = strchr(vty->error_buf, '\n');
 		if (nl)
 			*nl = '\0';
-		zlog_ferr(LIB_ERR_VTY,
+		flog_err(LIB_ERR_VTY,
 			  "ERROR: %s on config line %u: %s", message, line_num,
 			  vty->error_buf);
 	}
@@ -2488,7 +2488,7 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 	if (config_file != NULL) {
 		if (!IS_DIRECTORY_SEP(config_file[0])) {
 			if (getcwd(cwd, MAXPATHLEN) == NULL) {
-				zlog_ferr(LIB_ERR_SYSTEM_CALL,
+				flog_err(LIB_ERR_SYSTEM_CALL,
 					  "Failure to determine Current Working Directory %d!",
 					  errno);
 				exit(1);
@@ -2511,7 +2511,7 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 				zlog_warn(
 					"WARNING: using backup configuration file!");
 			else {
-				zlog_ferr(LIB_ERR_VTY,
+				flog_err(LIB_ERR_VTY,
 					  "can't open configuration file [%s]",
 					  config_file);
 				exit(1);
@@ -2559,7 +2559,7 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 					"WARNING: using backup configuration file!");
 				fullpath = config_default_dir;
 			} else {
-				zlog_ferr(LIB_ERR_VTY,
+				flog_err(LIB_ERR_VTY,
 					  "can't open configuration file [%s]",
 					  config_default_dir);
 				goto tmp_free_and_out;
@@ -3074,13 +3074,13 @@ static void vty_save_cwd(void)
 		 * Hence not worrying about it too much.
 		 */
 		if (!chdir(SYSCONFDIR)) {
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "Failure to chdir to %s, errno: %d",
 				  SYSCONFDIR, errno);
 			exit(-1);
 		}
 		if (getcwd(cwd, MAXPATHLEN) == NULL) {
-			zlog_ferr(LIB_ERR_SYSTEM_CALL,
+			flog_err(LIB_ERR_SYSTEM_CALL,
 				  "Failure to getcwd, errno: %d", errno);
 			exit(-1);
 		}

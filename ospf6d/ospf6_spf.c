@@ -273,7 +273,7 @@ static void ospf6_nexthop_calc(struct ospf6_vertex *w, struct ospf6_vertex *v,
 	ifindex = (VERTEX_IS_TYPE(NETWORK, v) ? ospf6_spf_get_ifindex_from_nh(v)
 					      : ROUTER_LSDESC_GET_IFID(lsdesc));
 	if (ifindex == 0) {
-		zlog_ferr(LIB_ERR_DEVELOPMENT,
+		flog_err(LIB_ERR_DEVELOPMENT,
 			  "No nexthop ifindex at vertex %s", v->name);
 		return;
 	}
