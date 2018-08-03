@@ -28,6 +28,7 @@
 #include "vty.h"
 #include "command.h"
 #include "libfrr.h"
+#include "lib/frratomic.h"
 
 DEFINE_MTYPE(LIB, HASH, "Hash")
 DEFINE_MTYPE(LIB, HASH_BACKET, "Hash Bucket")
