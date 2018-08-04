@@ -110,17 +110,6 @@ def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
-# Shared test function to validate expected output.
-def compare_show_ip_ospf(rname, expected):
-    """
-    Calls 'show ip ospf route' for router `rname` and compare the obtained
-    result with the expected output.
-    """
-    tgen = get_topogen()
-    current = tgen.gears[rname].vtysh_cmd('show ip ospf route')
-    return topotest.difflines(current, expected,
-                              title1="Current output",
-                              title2="Expected output")
 
 def compare_show_ipv6_ospf6(rname, expected):
     """
@@ -130,11 +119,6 @@ def compare_show_ipv6_ospf6(rname, expected):
     tgen = get_topogen()
     current = tgen.gears[rname].vtysh_cmd('show ipv6 ospf6 route')
 
-    # This output has space formating and random IPv6 link addresses, we have to
-    # remove them first before testing.
-    current = topotest.normalize_text(current)
-    expected = topotest.normalize_text(expected)
-
     # Remove the link addresses
     current = re.sub(r'fe80::[^ ]+', 'fe80::xxxx:xxxx:xxxx:xxxx', current)
     expected = re.sub(r'fe80::[^ ]+', 'fe80::xxxx:xxxx:xxxx:xxxx', expected)
@@ -143,7 +127,8 @@ def compare_show_ipv6_ospf6(rname, expected):
     current = re.sub(r'\d+:\d{2}:\d{2}', '', current)
     expected = re.sub(r'\d+:\d{2}:\d{2}', '', expected)
 
-    return topotest.difflines(current, expected,
+    return topotest.difflines(topotest.normalize_text(current),
+                              topotest.normalize_text(expected),
                               title1="Current output",
                               title2="Expected output")
 
@@ -153,19 +138,18 @@ def test_ospf_convergence():
     if tgen.routers_have_failure():
         pytest.skip('skipped because of router(s) failure')
 
-    for rnum in range(1, 5):
-        router = 'r{}'.format(rnum)
-
+    for router, rnode in tgen.routers().iteritems():
         logger.info('Waiting for router "%s" convergence', router)
 
         # Load expected results from the command
         reffile = os.path.join(CWD, '{}/ospfroute.txt'.format(router))
         expected = open(reffile).read()
 
-        # Run test function until we get an result. Wait at most 60 seconds.
-        test_func = partial(compare_show_ip_ospf, router, expected)
+        # Run test function until we get an result. Wait at most 80 seconds.
+        test_func = partial(
+            topotest.router_output_cmp, rnode, 'show ip ospf route', expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=25, wait=3)
+                                               count=160, wait=0.5)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
 
 def test_ospf_kernel_route():
@@ -340,17 +324,17 @@ def test_ospf_link_down():
     router3.peer_link_enable('r3-eth0', False)
 
     # Expect convergence on all routers
-    for rnum in range(1, 5):
-        router = 'r{}'.format(rnum)
+    for router, rnode in tgen.routers().iteritems():
         logger.info('Waiting for router "%s" convergence after link failure', router)
         # Load expected results from the command
         reffile = os.path.join(CWD, '{}/ospfroute_down.txt'.format(router))
         expected = open(reffile).read()
 
-        # Run test function until we get an result. Wait at most 60 seconds.
-        test_func = partial(compare_show_ip_ospf, router, expected)
+        # Run test function until we get an result. Wait at most 80 seconds.
+        test_func = partial(
+            topotest.router_output_cmp, rnode, 'show ip ospf route', expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=25, wait=3)
+                                               count=160, wait=0.5)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
 
 def test_ospf_link_down_kernel_route():
