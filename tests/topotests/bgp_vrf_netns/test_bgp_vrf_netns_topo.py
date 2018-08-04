@@ -28,8 +28,8 @@ test_bgp_vrf_netns_topo1.py: Test BGP topology with EBGP on NETNS VRF
 import json
 import os
 import sys
+import functools
 import pytest
-import getopt
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -164,7 +164,7 @@ def test_bgp_vrf_learn():
     output = tgen.gears['r1'].vtysh_cmd("show bgp vrfs", isjson=False)
     logger.info('output is: {}'.format(output))
 
-    
+
 def test_bgp_convergence():
     "Test for BGP topology convergence"
     tgen = get_topogen()
@@ -186,12 +186,9 @@ def test_bgp_convergence():
 
     expected = json.loads(open(reffile).read())
 
-    # Define test function and call it
-    def _convergence_test():
-        output = router.vtysh_cmd('show bgp vrf r1-cust1 summary json', isjson=True)
-        return topotest.json_cmp(output, expected)
-
-    _, res = topotest.run_and_expect(_convergence_test, None, count=90, wait=1)
+    test_func = functools.partial(topotest.router_json_cmp,
+        router, 'show bgp vrf r1-cust1 summary json', expected)
+    _, res = topotest.run_and_expect(test_func, None, count=90, wait=0.5)
     assertmsg = 'BGP router network did not converge'
     assert res is None, assertmsg
 
@@ -214,11 +211,9 @@ def test_bgp_vrf_netns():
         peer = {'valid': True}
         expect['routes'][netkey].append(peer)
 
-    def _output_cmp():
-        output = tgen.gears['r1'].vtysh_cmd('show ip bgp vrf r1-cust1 ipv4 json', isjson=True)
-        return topotest.json_cmp(output, expect)
-
-    _, res = topotest.run_and_expect(_output_cmp, None, count=1, wait=3)
+    test_func = functools.partial(topotest.router_json_cmp,
+        tgen.gears['r1'], 'show ip bgp vrf r1-cust1 ipv4 json', expect)
+    _, res = topotest.run_and_expect(test_func, None, count=12, wait=0.5)
     assertmsg = 'expected routes in "show ip bgp vrf r1-cust1 ipv4" output'
     assert res is None, assertmsg
 
