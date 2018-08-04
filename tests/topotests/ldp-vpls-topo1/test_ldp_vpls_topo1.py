@@ -155,20 +155,20 @@ def teardown_module(mod):
     # This function tears down the whole topology.
     tgen.stop_topology()
 
-def router_compare_json_output_cb(rname, command, reference):
-    tgen = get_topogen()
-    router = tgen.gears[rname]
-    output = router.vtysh_cmd(command, isjson=True)
-    refTableFile = '{}/{}/{}'.format(CWD, router.name, reference)
-    expected = json.loads(open(refTableFile).read())
-    return topotest.json_cmp(output, expected)
 
 def router_compare_json_output(rname, command, reference):
+    "Compare router JSON output"
+
     logger.info('Comparing router "%s" "%s" output', rname, command)
 
-    # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = partial(router_compare_json_output_cb, rname, command, reference)
-    _, diff = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    tgen = get_topogen()
+    filename = '{}/{}/{}'.format(CWD, rname, reference)
+    expected = json.loads(open(filename).read())
+
+    # Run test function until we get an result. Wait at most 80 seconds.
+    test_func = partial(topotest.router_json_cmp,
+        tgen.gears[rname], command, expected)
+    _, diff = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
@@ -282,9 +282,6 @@ def test_ldp_pseudowires_after_link_down():
     # Shut down r1-r2 link */
     tgen = get_topogen()
     tgen.gears['r1'].peer_link_enable('r1-eth1', False)
-
-    # Wait 15 seconds for the r1-r2 LDP link adjacencies to time out
-    sleep(15)
 
     # check if the pseudowire is still up (using an alternate path for nexthop resolution)
     for rname in ['r1', 'r2', 'r3']:
