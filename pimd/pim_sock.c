@@ -38,7 +38,6 @@
 #include "pim_mroute.h"
 #include "pim_sock.h"
 #include "pim_str.h"
-#include "pim_igmp_join.h"
 
 /* GLOBAL VARS */
 
@@ -320,26 +319,6 @@ int pim_socket_join(int fd, struct in_addr group, struct in_addr ifaddr,
 	}
 
 	return ret;
-}
-
-int pim_socket_join_source(int fd, ifindex_t ifindex, struct in_addr group_addr,
-			   struct in_addr source_addr, const char *ifname)
-{
-	if (pim_igmp_join_source(fd, ifindex, group_addr, source_addr)) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
-		zlog_warn(
-			"%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, group_str, source_str, ifindex,
-			ifname, errno, safe_strerror(errno));
-		return -1;
-	}
-
-	return 0;
 }
 
 int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,

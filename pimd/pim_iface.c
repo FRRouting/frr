@@ -46,6 +46,7 @@
 #include "pim_rp.h"
 #include "pim_nht.h"
 #include "pim_jp_agg.h"
+#include "pim_igmp_join.h"
 
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
@@ -1194,8 +1195,18 @@ static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 		return -1;
 	}
 
-	if (pim_socket_join_source(join_fd, ifindex, group_addr, source_addr,
-				   ifname)) {
+	if (pim_igmp_join_source(join_fd, ifindex, group_addr, source_addr)) {
+		char group_str[INET_ADDRSTRLEN];
+		char source_str[INET_ADDRSTRLEN];
+		pim_inet4_dump("<grp?>", group_addr, group_str,
+			       sizeof(group_str));
+		pim_inet4_dump("<src?>", source_addr, source_str,
+			       sizeof(source_str));
+		zlog_warn(
+			"%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s",
+			__PRETTY_FUNCTION__, join_fd, group_str, source_str,
+			ifindex, ifname, errno, safe_strerror(errno));
+
 		close(join_fd);
 		return -2;
 	}
@@ -1219,6 +1230,7 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 	if (join_fd < 0) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
+
 		pim_inet4_dump("<grp?>", group_addr, group_str,
 			       sizeof(group_str));
 		pim_inet4_dump("<src?>", source_addr, source_str,
