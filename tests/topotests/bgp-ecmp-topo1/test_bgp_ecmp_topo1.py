@@ -27,6 +27,7 @@ test_bgp_ecmp_topo1.py: Test BGP topology with ECMP (Equal Cost MultiPath).
 """
 
 import json
+import functools
 import os
 import sys
 import pytest
@@ -123,8 +124,6 @@ def test_bgp_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    topotest.sleep(20, 'waiting for bgp convergence')
-
     # Expected result
     router = tgen.gears['r1']
     if router.has_version('<', '3.0'):
@@ -134,12 +133,9 @@ def test_bgp_convergence():
 
     expected = json.loads(open(reffile).read())
 
-    # Define test function and call it
-    def _convergence_test():
-        output = router.vtysh_cmd('show ip bgp summary json', isjson=True)
-        return topotest.json_cmp(output, expected)
-
-    _, res = topotest.run_and_expect(_convergence_test, None, count=10, wait=1)
+    test_func = functools.partial(
+        topotest.router_json_cmp, router, 'show ip bgp summary json', expected)
+    _, res = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assertmsg = 'BGP router network did not converge'
     assert res is None, assertmsg
 
@@ -164,11 +160,9 @@ def test_bgp_ecmp():
                 peer = {'multipath': True, 'valid': True}
                 expect['routes'][netkey].append(peer)
 
-    def _output_cmp():
-        output = tgen.gears['r1'].vtysh_cmd('show ip bgp json', isjson=True)
-        return topotest.json_cmp(output, expect)
-
-    _, res = topotest.run_and_expect(_output_cmp, None, count=20, wait=3)
+    test_func = functools.partial(topotest.router_json_cmp,
+        tgen.gears['r1'], 'show ip bgp json', expect)
+    _, res = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assertmsg = 'expected multipath routes in "show ip bgp" output'
     assert res is None, assertmsg
 
