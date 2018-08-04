@@ -188,10 +188,20 @@ struct community *community_uniq_sort(struct community *com)
    For Well-known communities value, below keyword is used.
 
    0x0             "internet"
+   0xFFFF0000      "graceful-shutdown"
+   0xFFFF0001      "accept-own"
+   0xFFFF0002      "route-filter-translated-v4"
+   0xFFFF0003      "route-filter-v4"
+   0xFFFF0004      "route-filter-translated-v6"
+   0xFFFF0005      "route-filter-v6"
+   0xFFFF0006      "llgr-stale"
+   0xFFFF0007      "no-llgr"
+   0xFFFF0008      "accept-own-nexthop"
+   0xFFFF029A      "blackhole"
    0xFFFFFF01      "no-export"
    0xFFFFFF02      "no-advertise"
    0xFFFFFF03      "local-AS"
-   0xFFFF0000      "graceful-shutdown"
+   0xFFFFFF04      "no-peer"
 
    For other values, "AS:VAL" format is used.  */
 static void set_community_string(struct community *com, bool make_json)
@@ -241,6 +251,36 @@ static void set_community_string(struct community *com, bool make_json)
 		case COMMUNITY_INTERNET:
 			len += strlen(" internet");
 			break;
+		case COMMUNITY_GSHUT:
+			len += strlen(" graceful-shutdown");
+			break;
+		case COMMUNITY_ACCEPT_OWN:
+			len += strlen(" accept-own");
+			break;
+		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
+			len += strlen(" route-filter-translated-v4");
+			break;
+		case COMMUNITY_ROUTE_FILTER_v4:
+			len += strlen(" route-filter-v4");
+			break;
+		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
+			len += strlen(" route-filter-translated-v6");
+			break;
+		case COMMUNITY_ROUTE_FILTER_v6:
+			len += strlen(" route-filter-v6");
+			break;
+		case COMMUNITY_LLGR_STALE:
+			len += strlen(" llgr-stale");
+			break;
+		case COMMUNITY_NO_LLGR:
+			len += strlen(" no-llgr");
+			break;
+		case COMMUNITY_ACCEPT_OWN_NEXTHOP:
+			len += strlen(" accept-own-nexthop");
+			break;
+		case COMMUNITY_BLACKHOLE:
+			len += strlen(" blackhole");
+			break;
 		case COMMUNITY_NO_EXPORT:
 			len += strlen(" no-export");
 			break;
@@ -250,8 +290,8 @@ static void set_community_string(struct community *com, bool make_json)
 		case COMMUNITY_LOCAL_AS:
 			len += strlen(" local-AS");
 			break;
-		case COMMUNITY_GSHUT:
-			len += strlen(" graceful-shutdown");
+		case COMMUNITY_NO_PEER:
+			len += strlen(" no-peer");
 			break;
 		default:
 			len += strlen(" 65536:65535");
@@ -280,6 +320,106 @@ static void set_community_string(struct community *com, bool make_json)
 			if (make_json) {
 				json_string =
 					json_object_new_string("internet");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_GSHUT:
+			strcpy(pnt, "graceful-shutdown");
+			pnt += strlen("graceful-shutdown");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"gracefulShutdown");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ACCEPT_OWN:
+			strcpy(pnt, "accept-own");
+			pnt += strlen("accept-own");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"acceptown");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
+			strcpy(pnt, "route-filter-translated-v4");
+			pnt += strlen("route-filter-translated-v4");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"routeFilterTranslatedV4");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ROUTE_FILTER_v4:
+			strcpy(pnt, "route-filter-v4");
+			pnt += strlen("route-filter-v4");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"routeFilterV4");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
+			strcpy(pnt, "route-filter-translated-v6");
+			pnt += strlen("route-filter-translated-v6");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"routeFilterTranslatedV6");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ROUTE_FILTER_v6:
+			strcpy(pnt, "route-filter-v6");
+			pnt += strlen("route-filter-v6");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"routeFilterV6");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_LLGR_STALE:
+			strcpy(pnt, "llgr-stale");
+			pnt += strlen("llgr-stale");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"llgrStale");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_NO_LLGR:
+			strcpy(pnt, "no-llgr");
+			pnt += strlen("no-llgr");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"noLlgr");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_ACCEPT_OWN_NEXTHOP:
+			strcpy(pnt, "accept-own-nexthop");
+			pnt += strlen("accept-own-nexthop");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"acceptownnexthop");
+				json_object_array_add(json_community_list,
+						      json_string);
+			}
+			break;
+		case COMMUNITY_BLACKHOLE:
+			strcpy(pnt, "blackhole");
+			pnt += strlen("blackhole");
+			if (make_json) {
+				json_string = json_object_new_string(
+					"blackhole");
 				json_object_array_add(json_community_list,
 						      json_string);
 			}
@@ -313,12 +453,11 @@ static void set_community_string(struct community *com, bool make_json)
 						      json_string);
 			}
 			break;
-		case COMMUNITY_GSHUT:
-			strcpy(pnt, "graceful-shutdown");
-			pnt += strlen("graceful-shutdown");
+		case COMMUNITY_NO_PEER:
+			strcpy(pnt, "no-peer");
+			pnt += strlen("no-peer");
 			if (make_json) {
-				json_string = json_object_new_string(
-					"gracefulShutdown");
+				json_string = json_object_new_string("noPeer");
 				json_object_array_add(json_community_list,
 						      json_string);
 			}
@@ -508,10 +647,20 @@ struct community *community_merge(struct community *com1,
 /* Community token enum. */
 enum community_token {
 	community_token_val,
+	community_token_gshut,
+	community_token_accept_own,
+	community_token_route_filter_translated_v4,
+	community_token_route_filter_v4,
+	community_token_route_filter_translated_v6,
+	community_token_route_filter_v6,
+	community_token_llgr_stale,
+	community_token_no_llgr,
+	community_token_accept_own_nexthop,
+	community_token_blackhole,
 	community_token_no_export,
 	community_token_no_advertise,
 	community_token_local_as,
-	community_token_gshut,
+	community_token_no_peer,
 	community_token_unknown
 };
 
@@ -537,6 +686,79 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 			p += strlen("internet");
 			return p;
 		}
+		if (strncmp(p, "graceful-shutdown", strlen("graceful-shutdown"))
+		    == 0) {
+			*val = COMMUNITY_GSHUT;
+			*token = community_token_gshut;
+			p += strlen("graceful-shutdown");
+			return p;
+		}
+		if (strncmp(p, "accept-own", strlen("accept-own"))
+		    == 0) {
+			*val = COMMUNITY_ACCEPT_OWN;
+			*token = community_token_accept_own;
+			p += strlen("accept-own");
+			return p;
+		}
+		if (strncmp(p, "route-filter-translated-v4",
+			strlen("route-filter-translated-v4"))
+		    == 0) {
+			*val = COMMUNITY_ROUTE_FILTER_TRANSLATED_v4;
+			*token = community_token_route_filter_translated_v4;
+			p += strlen("route-filter-translated-v4");
+			return p;
+		}
+		if (strncmp(p, "route-filter-v4", strlen("route-filter-v4"))
+		    == 0) {
+			*val = COMMUNITY_ROUTE_FILTER_v4;
+			*token = community_token_route_filter_v4;
+			p += strlen("route-filter-v4");
+			return p;
+		}
+		if (strncmp(p, "route-filter-translated-v6",
+			strlen("route-filter-translated-v6"))
+		    == 0) {
+			*val = COMMUNITY_ROUTE_FILTER_TRANSLATED_v6;
+			*token = community_token_route_filter_translated_v6;
+			p += strlen("route-filter-translated-v6");
+			return p;
+		}
+		if (strncmp(p, "route-filter-v6", strlen("route-filter-v6"))
+		    == 0) {
+			*val = COMMUNITY_ROUTE_FILTER_v6;
+			*token = community_token_route_filter_v6;
+			p += strlen("route-filter-v6");
+			return p;
+		}
+		if (strncmp(p, "llgr-stale", strlen("llgr-stale"))
+		    == 0) {
+			*val = COMMUNITY_LLGR_STALE;
+			*token = community_token_llgr_stale;
+			p += strlen("llgr-stale");
+			return p;
+		}
+		if (strncmp(p, "no-llgr", strlen("no-llgr"))
+		    == 0) {
+			*val = COMMUNITY_NO_LLGR;
+			*token = community_token_no_llgr;
+			p += strlen("no-llgr");
+			return p;
+		}
+		if (strncmp(p, "accept-own-nexthop",
+			strlen("accept-own-nexthop"))
+		    == 0) {
+			*val = COMMUNITY_ACCEPT_OWN_NEXTHOP;
+			*token = community_token_accept_own_nexthop;
+			p += strlen("accept-own-nexthop");
+			return p;
+		}
+		if (strncmp(p, "blackhole", strlen("blackhole"))
+		    == 0) {
+			*val = COMMUNITY_BLACKHOLE;
+			*token = community_token_blackhole;
+			p += strlen("blackhole");
+			return p;
+		}
 		if (strncmp(p, "no-export", strlen("no-export")) == 0) {
 			*val = COMMUNITY_NO_EXPORT;
 			*token = community_token_no_export;
@@ -555,11 +777,10 @@ community_gettoken(const char *buf, enum community_token *token, uint32_t *val)
 			p += strlen("local-AS");
 			return p;
 		}
-		if (strncmp(p, "graceful-shutdown", strlen("graceful-shutdown"))
-		    == 0) {
-			*val = COMMUNITY_GSHUT;
-			*token = community_token_gshut;
-			p += strlen("graceful-shutdown");
+		if (strncmp(p, "no-peer", strlen("no-peer")) == 0) {
+			*val = COMMUNITY_NO_PEER;
+			*token = community_token_no_peer;
+			p += strlen("no-peer");
 			return p;
 		}
 
@@ -631,10 +852,20 @@ struct community *community_str2com(const char *str)
 
 		switch (token) {
 		case community_token_val:
+		case community_token_gshut:
+		case community_token_accept_own:
+		case community_token_route_filter_translated_v4:
+		case community_token_route_filter_v4:
+		case community_token_route_filter_translated_v6:
+		case community_token_route_filter_v6:
+		case community_token_llgr_stale:
+		case community_token_no_llgr:
+		case community_token_accept_own_nexthop:
+		case community_token_blackhole:
 		case community_token_no_export:
 		case community_token_no_advertise:
 		case community_token_local_as:
-		case community_token_gshut:
+		case community_token_no_peer:
 			if (com == NULL) {
 				com = community_new();
 				com->json = NULL;

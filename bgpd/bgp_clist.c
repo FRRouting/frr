@@ -346,6 +346,36 @@ static char *community_str_get(struct community *com, int i)
 	case COMMUNITY_INTERNET:
 		len = strlen(" internet");
 		break;
+	case COMMUNITY_GSHUT:
+		len = strlen(" graceful-shutdown");
+		break;
+	case COMMUNITY_ACCEPT_OWN:
+		len = strlen(" accept-own");
+		break;
+	case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
+		len = strlen(" route-filter-translated-v4");
+		break;
+	case COMMUNITY_ROUTE_FILTER_v4:
+		len = strlen(" route-filter-v4");
+		break;
+	case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
+		len = strlen(" route-filter-translated-v6");
+		break;
+	case COMMUNITY_ROUTE_FILTER_v6:
+		len = strlen(" route-filter-v6");
+		break;
+	case COMMUNITY_LLGR_STALE:
+		len = strlen(" llgr-stale");
+		break;
+	case COMMUNITY_NO_LLGR:
+		len = strlen(" no-llgr");
+		break;
+	case COMMUNITY_ACCEPT_OWN_NEXTHOP:
+		len = strlen(" accept-own-nexthop");
+		break;
+	case COMMUNITY_BLACKHOLE:
+		len = strlen(" blackhole");
+		break;
 	case COMMUNITY_NO_EXPORT:
 		len = strlen(" no-export");
 		break;
@@ -355,8 +385,8 @@ static char *community_str_get(struct community *com, int i)
 	case COMMUNITY_LOCAL_AS:
 		len = strlen(" local-AS");
 		break;
-	case COMMUNITY_GSHUT:
-		len = strlen(" graceful-shutdown");
+	case COMMUNITY_NO_PEER:
+		len = strlen(" no-peer");
 		break;
 	default:
 		len = strlen(" 65536:65535");
@@ -371,6 +401,46 @@ static char *community_str_get(struct community *com, int i)
 		strcpy(pnt, "internet");
 		pnt += strlen("internet");
 		break;
+	case COMMUNITY_GSHUT:
+		strcpy(pnt, "graceful-shutdown");
+		pnt += strlen("graceful-shutdown");
+		break;
+	case COMMUNITY_ACCEPT_OWN:
+		strcpy(pnt, "accept-own");
+		pnt += strlen("accept-own");
+		break;
+	case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
+		strcpy(pnt, "route-filter-translated-v4");
+		pnt += strlen("route-filter-translated-v4");
+		break;
+	case COMMUNITY_ROUTE_FILTER_v4:
+		strcpy(pnt, "route-filter-v4");
+		pnt += strlen("route-filter-v4");
+		break;
+	case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
+		strcpy(pnt, "route-filter-translated-v6");
+		pnt += strlen("route-filter-translated-v6");
+		break;
+	case COMMUNITY_ROUTE_FILTER_v6:
+		strcpy(pnt, "route-filter-v6");
+		pnt += strlen("route-filter-v6");
+		break;
+	case COMMUNITY_LLGR_STALE:
+		strcpy(pnt, "llgr-stale");
+		pnt += strlen("llgr-stale");
+		break;
+	case COMMUNITY_NO_LLGR:
+		strcpy(pnt, "no-llgr");
+		pnt += strlen("no-llgr");
+		break;
+	case COMMUNITY_ACCEPT_OWN_NEXTHOP:
+		strcpy(pnt, "accept-own-nexthop");
+		pnt += strlen("accept-own-nexthop");
+		break;
+	case COMMUNITY_BLACKHOLE:
+		strcpy(pnt, "blackhole");
+		pnt += strlen("blackhole");
+		break;
 	case COMMUNITY_NO_EXPORT:
 		strcpy(pnt, "no-export");
 		pnt += strlen("no-export");
@@ -383,9 +453,9 @@ static char *community_str_get(struct community *com, int i)
 		strcpy(pnt, "local-AS");
 		pnt += strlen("local-AS");
 		break;
-	case COMMUNITY_GSHUT:
-		strcpy(pnt, "graceful-shutdown");
-		pnt += strlen("graceful-shutdown");
+	case COMMUNITY_NO_PEER:
+		strcpy(pnt, "no-peer");
+		pnt += strlen("no-peer");
 		break;
 	default:
 		as = (comval >> 16) & 0xFFFF;
@@ -547,47 +617,77 @@ static int ecommunity_regexp_match(struct ecommunity *ecom, regex_t *reg)
 static struct community *
 community_regexp_delete (struct community *com, regex_t * reg)
 {
-  int i;
-  uint32_t comval;
-  /* Maximum is "65535:65535" + '\0'. */
-  char c[12];
-  const char *str;
+	int i;
+	uint32_t comval;
+	/* Maximum is "65535:65535" + '\0'. */
+	char c[12];
+	const char *str;
 
-  if (!com)
-    return NULL;
+	if (!com)
+		return NULL;
 
-  i = 0;
-  while (i < com->size)
-    {
-      memcpy (&comval, com_nthval (com, i), sizeof (uint32_t));
-      comval = ntohl (comval);
+	i = 0;
+	while (i < com->size)
+	{
+		memcpy (&comval, com_nthval (com, i), sizeof (uint32_t));
+		comval = ntohl (comval);
 
-      switch (comval)
-        {
-        case COMMUNITY_INTERNET:
-          str = "internet";
-          break;
-        case COMMUNITY_NO_EXPORT:
-          str = "no-export";
-          break;
-        case COMMUNITY_NO_ADVERTISE:
-          str = "no-advertise";
-          break;
-        case COMMUNITY_LOCAL_AS:
-          str = "local-AS";
-          break;
-        default:
-          sprintf (c, "%d:%d", (comval >> 16) & 0xFFFF, comval & 0xFFFF);
-          str = c;
-          break;
-        }
+		switch (comval) {
+		case COMMUNITY_INTERNET:
+			str = "internet";
+			break;
+		case COMMUNITY_ACCEPT_OWN:
+			str = "accept-own";
+			break;
+		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
+			str = "route-filter-translated-v4";
+			break;
+		case COMMUNITY_ROUTE_FILTER_v4:
+			str = "route-filter-v4";
+			break;
+		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
+			str = "route-filter-translated-v6";
+			break;
+		case COMMUNITY_ROUTE_FILTER_v6:
+			str = "route-filter-v6";
+			break;
+		case COMMUNITY_LLGR_STALE:
+			str = "llgr-stale";
+			break;
+		case COMMUNITY_NO_LLGR:
+			str = "no-llgr";
+			break;
+		case COMMUNITY_ACCEPT_OWN_NEXTHOP:
+			str = "accept-own-nexthop";
+			break;
+		case COMMUNITY_BLACKHOLE:
+			str = "blackhole";
+			break;
+		case COMMUNITY_NO_EXPORT:
+			str = "no-export";
+			break;
+		case COMMUNITY_NO_ADVERTISE:
+			str = "no-advertise";
+			break;
+		case COMMUNITY_LOCAL_AS:
+			str = "local-AS";
+			break;
+		case COMMUNITY_NO_PEER:
+			str = "no-peer";
+			break;
+		default:
+			sprintf (c, "%d:%d", (comval >> 16) & 0xFFFF,
+			 comval & 0xFFFF);
+			str = c;
+			break;
+		}
 
-      if (regexec (reg, str, 0, NULL, 0) == 0)
-        community_del_val (com, com_nthval (com, i));
-      else
-        i++;
-    }
-  return com;
+		if (regexec (reg, str, 0, NULL, 0) == 0)
+			community_del_val (com, com_nthval (com, i));
+		else
+			i++;
+	}
+	return com;
 }
 #endif
 
