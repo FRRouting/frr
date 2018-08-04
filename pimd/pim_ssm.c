@@ -146,6 +146,11 @@ void *pim_ssm_init(void)
 
 void pim_ssm_terminate(struct pim_ssm *ssm)
 {
-	if (ssm && ssm->plist_name)
+	if (!ssm)
+		return;
+
+	if (ssm->plist_name)
 		XFREE(MTYPE_PIM_FILTER_NAME, ssm->plist_name);
+
+	XFREE(MTYPE_PIM_SSM_INFO, ssm);
 }

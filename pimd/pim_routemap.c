@@ -52,8 +52,5 @@ void pim_route_map_init(void)
 
 void pim_route_map_terminate(void)
 {
-	route_map_add_hook(NULL);
-	route_map_delete_hook(NULL);
-	route_map_event_hook(NULL);
 	route_map_finish();
 }

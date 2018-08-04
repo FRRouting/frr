@@ -409,6 +409,9 @@ void pim_neighbor_free(struct pim_neighbor *neigh)
 	list_delete_and_null(&neigh->upstream_jp_agg);
 	THREAD_OFF(neigh->jp_timer);
 
+	if (neigh->bfd_info)
+		pim_bfd_info_free(&neigh->bfd_info);
+
 	XFREE(MTYPE_PIM_NEIGHBOR, neigh);
 }
 

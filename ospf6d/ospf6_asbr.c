@@ -1861,9 +1861,6 @@ void ospf6_asbr_redistribute_reset(void)
 void ospf6_asbr_terminate(void)
 {
 	/* Cleanup route maps */
-	route_map_add_hook(NULL);
-	route_map_delete_hook(NULL);
-	route_map_event_hook(NULL);
 	route_map_finish();
 }
 

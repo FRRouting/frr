@@ -192,7 +192,8 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	up->rpf.source_nexthop.interface = NULL;
 
 	if (up->sg.src.s_addr != INADDR_ANY) {
-		wheel_remove_item(pim->upstream_sg_wheel, up);
+		if (pim->upstream_sg_wheel)
+			wheel_remove_item(pim->upstream_sg_wheel, up);
 		notify_msdp = true;
 	}
 
@@ -1546,6 +1547,10 @@ void pim_upstream_terminate(struct pim_instance *pim)
 	if (pim->upstream_hash)
 		hash_free(pim->upstream_hash);
 	pim->upstream_hash = NULL;
+
+	if (pim->upstream_sg_wheel)
+		wheel_delete(pim->upstream_sg_wheel);
+	pim->upstream_sg_wheel = NULL;
 }
 
 int pim_upstream_equal(const void *arg1, const void *arg2)

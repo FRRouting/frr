@@ -54,9 +54,9 @@ static void pim_instance_terminate(struct pim_instance *pim)
 		pim->rpf_hash = NULL;
 	}
 
-	pim_oil_terminate(pim);
-
 	pim_if_terminate(pim);
+
+	pim_oil_terminate(pim);
 
 	pim_msdp_exit(pim);
 

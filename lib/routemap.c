@@ -2741,6 +2741,15 @@ void route_map_finish(void)
 	vector_free(route_set_vec);
 	route_set_vec = NULL;
 
+	/*
+	 * All protocols are setting these to NULL
+	 * by default on shutdown( route_map_finish )
+	 * Why are we making them do this work?
+	 */
+	route_map_master.add_hook = NULL;
+	route_map_master.delete_hook = NULL;
+	route_map_master.event_hook = NULL;
+
 	/* cleanup route_map */
 	while (route_map_master.head) {
 		struct route_map *map = route_map_master.head;

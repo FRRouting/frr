@@ -561,9 +561,6 @@ void ospf_terminate(void)
 		ospf_finish(ospf);
 
 	/* Cleanup route maps */
-	route_map_add_hook(NULL);
-	route_map_delete_hook(NULL);
-	route_map_event_hook(NULL);
 	route_map_finish();
 
 	/* reverse prefix_list_init */

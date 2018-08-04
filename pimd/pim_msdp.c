@@ -1242,8 +1242,10 @@ static int pim_msdp_peer_comp(const void *p1, const void *p2)
 }
 
 /************************** Mesh group management **************************/
-static void pim_msdp_mg_free(struct pim_instance *pim, struct pim_msdp_mg *mg)
+static void pim_msdp_mg_free(struct pim_instance *pim)
 {
+	struct pim_msdp_mg *mg = pim->msdp.mg;
+
 	/* If the mesh-group has valid member or src_ip don't delete it */
 	if (!mg || mg->mbr_cnt || (mg->src_ip.s_addr != INADDR_ANY)) {
 		return;
@@ -1258,8 +1260,7 @@ static void pim_msdp_mg_free(struct pim_instance *pim, struct pim_msdp_mg *mg)
 	if (mg->mbr_list)
 		list_delete_and_null(&mg->mbr_list);
 
-	XFREE(MTYPE_PIM_MSDP_MG, mg);
-	pim->msdp.mg = NULL;
+	XFREE(MTYPE_PIM_MSDP_MG, pim->msdp.mg);
 }
 
 static struct pim_msdp_mg *pim_msdp_mg_new(const char *mesh_group_name)
@@ -1299,7 +1300,7 @@ enum pim_msdp_err pim_msdp_mg_del(struct pim_instance *pim,
 	mg->src_ip.s_addr = INADDR_ANY;
 
 	/* free up the mesh-group */
-	pim_msdp_mg_free(pim, mg);
+	pim_msdp_mg_free(pim);
 	return PIM_MSDP_ERR_NONE;
 }
 
@@ -1438,7 +1439,7 @@ enum pim_msdp_err pim_msdp_mg_mbr_del(struct pim_instance *pim,
 
 	pim_msdp_mg_mbr_do_del(mg, mbr);
 	/* if there are no references to the mg free it */
-	pim_msdp_mg_free(pim, mg);
+	pim_msdp_mg_free(pim);
 
 	return PIM_MSDP_ERR_NONE;
 }
@@ -1475,7 +1476,7 @@ enum pim_msdp_err pim_msdp_mg_src_del(struct pim_instance *pim,
 		mg->src_ip.s_addr = INADDR_ANY;
 		pim_msdp_mg_src_do_del(pim);
 		/* if there are no references to the mg free it */
-		pim_msdp_mg_free(pim, mg);
+		pim_msdp_mg_free(pim);
 	}
 	return PIM_MSDP_ERR_NONE;
 }
@@ -1598,7 +1599,10 @@ void pim_msdp_exit(struct pim_instance *pim)
 
 	/* XXX: stop listener and delete all peer sessions */
 
+	pim_msdp_mg_free(pim);
+
 	if (pim->msdp.peer_hash) {
+		hash_clean(pim->msdp.peer_hash, NULL);
 		hash_free(pim->msdp.peer_hash);
 		pim->msdp.peer_hash = NULL;
 	}
@@ -1608,6 +1612,7 @@ void pim_msdp_exit(struct pim_instance *pim)
 	}
 
 	if (pim->msdp.sa_hash) {
+		hash_clean(pim->msdp.sa_hash, NULL);
 		hash_free(pim->msdp.sa_hash);
 		pim->msdp.sa_hash = NULL;
 	}
@@ -1615,4 +1620,8 @@ void pim_msdp_exit(struct pim_instance *pim)
 	if (pim->msdp.sa_list) {
 		list_delete_and_null(&pim->msdp.sa_list);
 	}
+
+	if (pim->msdp.work_obuf)
+		stream_free(pim->msdp.work_obuf);
+	pim->msdp.work_obuf = NULL;
 }
