@@ -24,6 +24,7 @@
 #include "frr_pthread.h"
 #include "memory.h"
 #include "hash.h"
+#include "stream.h"
 
 DEFINE_MTYPE(LIB, FRR_PTHREAD, "FRR POSIX Thread");
 DEFINE_MTYPE(LIB, PTHREAD_PRIM, "POSIX synchronization primitives");
@@ -67,6 +68,7 @@ void frr_pthread_init()
 {
 	pthread_mutex_lock(&frr_pthread_hash_mtx);
 	{
+		stream_init_last();
 		frr_pthread_hash = hash_create(frr_pthread_hash_key,
 					       frr_pthread_hash_cmp, NULL);
 	}

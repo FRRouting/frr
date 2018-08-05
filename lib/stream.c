@@ -38,6 +38,11 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 #define PUT_AT_VALID(S,G) GETP_VALID(S,G)
 #define ENDP_VALID(S, E) ((E) <= (S)->size)
 
+/*
+ * Don't always free up the stream memory on free
+ */
+pthread_key_t stream_last;
+
 /* asserting sanity checks. Following must be true before
  * stream functions are called:
  *
@@ -96,9 +101,17 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 /* Make stream buffer. */
 struct stream *stream_new(size_t size)
 {
-	struct stream *s;
+	struct stream *s, *last;
 
 	assert(size > 0);
+
+	last = pthread_getspecific(stream_last);
+	if (last && last->size >= size) {
+		s = last;
+		pthread_setspecific(stream_last, NULL);
+
+		return s;
+	}
 
 	s = XMALLOC(MTYPE_STREAM, sizeof(struct stream));
 
@@ -110,14 +123,39 @@ struct stream *stream_new(size_t size)
 	return s;
 }
 
+static inline void stream_free_internal(struct stream *s)
+{
+	XFREE(MTYPE_STREAM_DATA, s->data);
+	XFREE(MTYPE_STREAM, s);
+}
+
 /* Free it now. */
 void stream_free(struct stream *s)
 {
+	struct stream *last;
+
 	if (!s)
 		return;
 
-	XFREE(MTYPE_STREAM_DATA, s->data);
-	XFREE(MTYPE_STREAM, s);
+	last = pthread_getspecific(stream_last);
+	if (last) {
+		/*
+		 * Keep the biggest size we have
+		 * as that when we allocate allow
+		 * the pass back of a bigger size
+		 * to the caller
+		 */
+		if (last->size > s->size) {
+			stream_free_internal(s);
+			return;
+		} else
+			stream_free_internal(last);
+	}
+
+	s->getp = s->endp = 0;
+	s->next = NULL;
+
+	pthread_setspecific(stream_last, s);
 }
 
 struct stream *stream_copy(struct stream *new, struct stream *src)
@@ -1222,4 +1260,19 @@ void stream_fifo_free(struct stream_fifo *fifo)
 	stream_fifo_clean(fifo);
 	pthread_mutex_destroy(&fifo->mtx);
 	XFREE(MTYPE_STREAM_FIFO, fifo);
+}
+
+static void stream_destructor(void *data)
+{
+	struct stream *last = data;
+
+	if (last)
+		stream_free_internal(last);
+
+	pthread_setspecific(stream_last, NULL);
+}
+
+void stream_init_last(void)
+{
+	pthread_key_create(&stream_last, stream_destructor);
 }
