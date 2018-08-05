@@ -1,0 +1,53 @@
+module frr-deviations-ietf-routing {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/frr-deviations-ietf-routing";
+  prefix frr-deviations-ietf-routing;
+
+  import ietf-routing {
+    prefix ietf-routing;
+  }
+
+  organization
+    "Free Range Routing";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "This module defines deviation statements for the ietf-routing
+     module.";
+
+  deviation "/ietf-routing:routing/ietf-routing:router-id" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:interfaces" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol" {
+    deviate add {
+      must '(type != "ietf-rip:ripv2") or (name = "main")' {
+        description
+          "ripd supports one RIP instance only";
+      }
+    }
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-routing:description" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-routing:static-routes" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:ribs" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing-state" {
+    deviate not-supported;
+  }
+}
