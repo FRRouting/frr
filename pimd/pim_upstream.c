@@ -172,6 +172,8 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	if (up->ref_count >= 1)
 		return up;
 
+        up->flags |= PIM_UPSTREAM_FLAG_DEL;
+
 	THREAD_OFF(up->t_ka_timer);
 	THREAD_OFF(up->t_rs_timer);
 	THREAD_OFF(up->t_msdp_reg_timer);
