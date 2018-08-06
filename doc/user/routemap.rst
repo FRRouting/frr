@@ -277,6 +277,11 @@ Route Map Set Command
 
    Set the BGP-4+ link local IPv6 nexthop address.
 
+.. index:: set origin ORIGIN <egp|igp|incomplete>
+.. clicmd:: set origin ORIGIN <egp|igp|incomplete>
+
+   Set BGP route origin.
+
 .. _route-map-call-command:
 
 Route Map Call Command
