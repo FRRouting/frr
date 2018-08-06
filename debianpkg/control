@@ -29,9 +29,9 @@ Depends: ${shlibs:Depends}, ${misc:Depends}, frr (= ${binary:Version})
 Priority: extra
 Section: debug
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (debug symbols)
- This package provides debugging symbols for all binary packages built 
+ This package provides debugging symbols for all binary packages built
  from frr source package. It's highly recommended to have this package
- installed before reporting any FRR crashes to either FRR developers or 
+ installed before reporting any FRR crashes to either FRR developers or
  Debian package maintainers.
 
 Package: frr-doc
