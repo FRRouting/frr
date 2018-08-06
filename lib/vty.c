@@ -1973,8 +1973,8 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 	ret = getaddrinfo(hostname, port_str, &req, &ainfo);
 
 	if (ret != 0) {
-		flog_err(LIB_ERR_SYSTEM_CALL,
-			  "getaddrinfo failed: %s", gai_strerror(ret));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "getaddrinfo failed: %s",
+			     gai_strerror(ret));
 		exit(1);
 	}
 
@@ -2034,9 +2034,9 @@ static void vty_serv_un(const char *path)
 	/* Make UNIX domain socket. */
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock < 0) {
-		flog_err(LIB_ERR_SOCKET,
-			  "Cannot create unix stream socket: %s",
-			 safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Cannot create unix stream socket: %s",
+			     safe_strerror(errno));
 		return;
 	}
 
@@ -2054,18 +2054,16 @@ static void vty_serv_un(const char *path)
 
 	ret = bind(sock, (struct sockaddr *)&serv, len);
 	if (ret < 0) {
-		flog_err(LIB_ERR_SOCKET,
-			  "Cannot bind path %s: %s",
-			  path, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Cannot bind path %s: %s", path,
+			     safe_strerror(errno));
 		close(sock); /* Avoid sd leak. */
 		return;
 	}
 
 	ret = listen(sock, 5);
 	if (ret < 0) {
-		flog_err(LIB_ERR_SOCKET,
-			  "listen(fd %d) failed: %s", sock,
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "listen(fd %d) failed: %s", sock,
+			     safe_strerror(errno));
 		close(sock); /* Avoid sd leak. */
 		return;
 	}
@@ -2080,9 +2078,9 @@ static void vty_serv_un(const char *path)
 	if ((int)ids.gid_vty > 0) {
 		/* set group of socket */
 		if (chown(path, -1, ids.gid_vty)) {
-			flog_err(LIB_ERR_SYSTEM_CALL,
-				  "vty_serv_un: could chown socket, %s",
-				  safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "vty_serv_un: could chown socket, %s",
+				     safe_strerror(errno));
 		}
 	}
 
@@ -2488,9 +2486,10 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 	if (config_file != NULL) {
 		if (!IS_DIRECTORY_SEP(config_file[0])) {
 			if (getcwd(cwd, MAXPATHLEN) == NULL) {
-				flog_err(LIB_ERR_SYSTEM_CALL,
-					  "Failure to determine Current Working Directory %d!",
-					  errno);
+				flog_err_sys(
+					LIB_ERR_SYSTEM_CALL,
+					"Failure to determine Current Working Directory %d!",
+					errno);
 				exit(1);
 			}
 			tmp = XMALLOC(MTYPE_TMP,
@@ -3074,14 +3073,14 @@ static void vty_save_cwd(void)
 		 * Hence not worrying about it too much.
 		 */
 		if (!chdir(SYSCONFDIR)) {
-			flog_err(LIB_ERR_SYSTEM_CALL,
-				  "Failure to chdir to %s, errno: %d",
-				  SYSCONFDIR, errno);
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Failure to chdir to %s, errno: %d",
+				     SYSCONFDIR, errno);
 			exit(-1);
 		}
 		if (getcwd(cwd, MAXPATHLEN) == NULL) {
-			flog_err(LIB_ERR_SYSTEM_CALL,
-				  "Failure to getcwd, errno: %d", errno);
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Failure to getcwd, errno: %d", errno);
 			exit(-1);
 		}
 	}

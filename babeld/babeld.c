@@ -145,7 +145,7 @@ babel_create_routing_process (void)
     /* Make socket for Babel protocol. */
     protocol_socket = babel_socket(protocol_port);
     if (protocol_socket < 0) {
-        flog_err(LIB_ERR_SOCKET, "Couldn't create link local socket: %s",
+        flog_err_sys(LIB_ERR_SOCKET, "Couldn't create link local socket: %s",
 		  safe_strerror(errno));
         goto fail;
     }
@@ -179,7 +179,7 @@ babel_read_protocol (struct thread *thread)
                     (struct sockaddr*)&sin6, sizeof(sin6));
     if(rc < 0) {
         if(errno != EAGAIN && errno != EINTR) {
-            flog_err(LIB_ERR_SOCKET, "recv: %s", safe_strerror(errno));
+            flog_err_sys(LIB_ERR_SOCKET, "recv: %s", safe_strerror(errno));
         }
     } else {
         FOR_ALL_INTERFACES(vrf, ifp) {

@@ -1294,9 +1294,9 @@ static int bgp_connect_success(struct peer *peer)
 	}
 
 	if (bgp_getsockname(peer) < 0) {
-		flog_err(LIB_ERR_SOCKET,
-			  "%s: bgp_getsockname(): failed for peer %s, fd %d",
-			  __FUNCTION__, peer->host, peer->fd);
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "%s: bgp_getsockname(): failed for peer %s, fd %d",
+			     __FUNCTION__, peer->host, peer->fd);
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR,
 				0); /* internal error */
 		bgp_writes_on(peer);

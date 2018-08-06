@@ -633,16 +633,17 @@ void zlog_backtrace(int priority)
 
 	size = backtrace(array, array_size(array));
 	if (size <= 0 || (size_t)size > array_size(array)) {
-		flog_err(LIB_ERR_SYSTEM_CALL,
-			  "Cannot get backtrace, returned invalid # of frames %d "
-			  "(valid range is between 1 and %lu)",
-			  size, (unsigned long)(array_size(array)));
+		flog_err_sys(
+			LIB_ERR_SYSTEM_CALL,
+			"Cannot get backtrace, returned invalid # of frames %d "
+			"(valid range is between 1 and %lu)",
+			size, (unsigned long)(array_size(array)));
 		return;
 	}
 	zlog(priority, "Backtrace for %d stack frames:", size);
 	if (!(strings = backtrace_symbols(array, size))) {
-		flog_err(LIB_ERR_SYSTEM_CALL,
-			  "Cannot get backtrace symbols (out of memory?)");
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "Cannot get backtrace symbols (out of memory?)");
 		for (i = 0; i < size; i++)
 			zlog(priority, "[bt %d] %p", i, array[i]);
 	} else {
@@ -715,10 +716,10 @@ void _zlog_assert_failed(const char *assertion, const char *file,
 
 void memory_oom(size_t size, const char *name)
 {
-	flog_err(LIB_ERR_SYSTEM_CALL,
-		  "out of memory: failed to allocate %zu bytes for %s"
-		  "object",
-		  size, name);
+	flog_err_sys(LIB_ERR_SYSTEM_CALL,
+		     "out of memory: failed to allocate %zu bytes for %s"
+		     "object",
+		     size, name);
 	zlog_backtrace(LOG_ERR);
 	abort();
 }
@@ -867,9 +868,10 @@ int zlog_rotate(void)
 		save_errno = errno;
 		umask(oldumask);
 		if (zl->fp == NULL) {
-			flog_err(LIB_ERR_SYSTEM_CALL,
-				  "Log rotate failed: cannot open file %s for append: %s",
-				  zl->filename, safe_strerror(save_errno));
+			flog_err_sys(
+				LIB_ERR_SYSTEM_CALL,
+				"Log rotate failed: cannot open file %s for append: %s",
+				zl->filename, safe_strerror(save_errno));
 			ret = -1;
 		} else {
 			logfile_fd = fileno(zl->fp);

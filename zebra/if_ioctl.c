@@ -176,8 +176,8 @@ static int if_getaddrs(void)
 
 	ret = getifaddrs(&ifap);
 	if (ret != 0) {
-		flog_err(LIB_ERR_SYSTEM_CALL, "getifaddrs(): %s",
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "getifaddrs(): %s",
+			     safe_strerror(errno));
 		return -1;
 	}
 

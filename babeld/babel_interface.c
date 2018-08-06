@@ -729,7 +729,7 @@ interface_recalculate(struct interface *ifp)
     rc = setsockopt(protocol_socket, IPPROTO_IPV6, IPV6_JOIN_GROUP,
                     (char*)&mreq, sizeof(mreq));
     if(rc < 0) {
-        flog_err(LIB_ERR_SOCKET,
+        flog_err_sys(LIB_ERR_SOCKET,
 		  "setsockopt(IPV6_JOIN_GROUP) on interface '%s': %s",
                   ifp->name, safe_strerror(errno));
         /* This is probably due to a missing link-local address,
@@ -793,7 +793,7 @@ interface_reset(struct interface *ifp)
         rc = setsockopt(protocol_socket, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
                         (char*)&mreq, sizeof(mreq));
         if(rc < 0)
-            flog_err(LIB_ERR_SOCKET,
+            flog_err_sys(LIB_ERR_SOCKET,
 		      "setsockopt(IPV6_LEAVE_GROUP) on interface '%s': %s",
                       ifp->name, safe_strerror(errno));
     }

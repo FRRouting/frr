@@ -70,10 +70,10 @@ static int solaris_nd(const int cmd, const char *parameter, const int value)
 	else if (cmd == ND_GET)
 		snprintf(nd_buf, ND_BUFFER_SIZE, "%s", parameter);
 	else {
-		flog_err(LIB_ERR_SYSTEM_CALL,
-			  "internal error - inappropriate command given to "
-			  "solaris_nd()%s:%d",
-			  __FILE__, __LINE__);
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "internal error - inappropriate command given to "
+			     "solaris_nd()%s:%d",
+			     __FILE__, __LINE__);
 		return -1;
 	}
 

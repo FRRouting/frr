@@ -76,9 +76,9 @@ void pim_socket_ip_hdr(int fd)
 			  __PRETTY_FUNCTION__, safe_strerror(errno));
 
 	if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
-		flog_err(LIB_ERR_SOCKET,
-			  "%s: Could not turn on IP_HDRINCL option: %s",
-			  __PRETTY_FUNCTION__, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "%s: Could not turn on IP_HDRINCL option: %s",
+			     __PRETTY_FUNCTION__, safe_strerror(errno));
 
 	if (pimd_privs.change(ZPRIVS_LOWER))
 		flog_err(LIB_ERR_PRIVILEGES, "%s: could not lower privs, %s",

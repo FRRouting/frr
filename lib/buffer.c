@@ -343,11 +343,12 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 					       iov_alloc * sizeof(*iov));
 			} else {
 				/* This should absolutely never occur. */
-				flog_err(LIB_ERR_SYSTEM_CALL,
-					  "%s: corruption detected: iov_small overflowed; "
-					  "head %p, tail %p, head->next %p",
-					  __func__, (void *)b->head,
-					  (void *)b->tail, (void *)b->head->next);
+				flog_err_sys(
+					LIB_ERR_SYSTEM_CALL,
+					"%s: corruption detected: iov_small overflowed; "
+					"head %p, tail %p, head->next %p",
+					__func__, (void *)b->head,
+					(void *)b->tail, (void *)b->head->next);
 				iov = XMALLOC(MTYPE_TMP,
 					      iov_alloc * sizeof(*iov));
 				memcpy(iov, small_iov, sizeof(small_iov));

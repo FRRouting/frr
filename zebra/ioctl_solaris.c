@@ -66,8 +66,8 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 		int save_errno = errno;
 		if (zserv_privs.change(ZPRIVS_LOWER))
 			flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
-		flog_err(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
-			  safe_strerror(save_errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+			     safe_strerror(save_errno));
 		exit(1);
 	}
 
@@ -101,9 +101,9 @@ int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 		int save_errno = errno;
 		if (zserv_privs.change(ZPRIVS_LOWER))
 			flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
-		flog_err(LIB_ERR_SOCKET,
-			  "Cannot create IPv6 datagram socket: %s",
-			  safe_strerror(save_errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Cannot create IPv6 datagram socket: %s",
+			     safe_strerror(save_errno));
 		exit(1);
 	}
 

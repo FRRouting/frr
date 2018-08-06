@@ -35,9 +35,9 @@ static int gettime_monotonic(struct timeval *tv)
 
 	result = gettimeofday(tv, 0);
 	if (result) {
-		flog_err(LIB_ERR_SYSTEM_CALL,
-			  "%s: gettimeofday() failure: errno=%d: %s",
-			  __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "%s: gettimeofday() failure: errno=%d: %s",
+			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
 	}
 
 	return result;
@@ -52,9 +52,9 @@ int64_t pim_time_monotonic_sec()
 	struct timeval now_tv;
 
 	if (gettime_monotonic(&now_tv)) {
-		flog_err(LIB_ERR_SYSTEM_CALL,
-			  "%s: gettime_monotonic() failure: errno=%d: %s",
-			  __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "%s: gettime_monotonic() failure: errno=%d: %s",
+			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
 		return -1;
 	}
 
@@ -71,9 +71,9 @@ int64_t pim_time_monotonic_dsec()
 	int64_t now_dsec;
 
 	if (gettime_monotonic(&now_tv)) {
-		flog_err(LIB_ERR_SYSTEM_CALL,
-			  "%s: gettime_monotonic() failure: errno=%d: %s",
-			  __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "%s: gettime_monotonic() failure: errno=%d: %s",
+			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
 		return -1;
 	}
 
@@ -89,9 +89,9 @@ int64_t pim_time_monotonic_usec(void)
 	int64_t now_dsec;
 
 	if (gettime_monotonic(&now_tv)) {
-		flog_err(LIB_ERR_SYSTEM_CALL,
-			  "%s: gettime_monotonic() failure: errno=%d: %s",
-			  __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "%s: gettime_monotonic() failure: errno=%d: %s",
+			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
 		return -1;
 	}
 

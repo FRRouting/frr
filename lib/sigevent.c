@@ -84,8 +84,8 @@ int quagga_sigevent_process(void)
 	sigdelset(&newmask, SIGKILL);
 
 	if ((sigprocmask(SIG_BLOCK, &newmask, &oldmask)) < 0) {
-		flog_err(LIB_ERR_SYSTEM_CALL,
-			  "quagga_signal_timer: couldnt block signals!");
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "quagga_signal_timer: couldnt block signals!");
 		return -1;
 	}
 #endif /* SIGEVENT_BLOCK_SIGNALS */

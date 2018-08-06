@@ -296,8 +296,8 @@ static int bgp_accept(struct thread *thread)
 	/* Register accept thread. */
 	accept_sock = THREAD_FD(thread);
 	if (accept_sock < 0) {
-		flog_err(LIB_ERR_SOCKET, "accept_sock is nevative value %d",
-			  accept_sock);
+		flog_err_sys(LIB_ERR_SOCKET, "accept_sock is nevative value %d",
+			     accept_sock);
 		return -1;
 	}
 	listener->thread = NULL;
@@ -308,9 +308,9 @@ static int bgp_accept(struct thread *thread)
 	/* Accept client connection. */
 	bgp_sock = sockunion_accept(accept_sock, &su);
 	if (bgp_sock < 0) {
-		flog_err(LIB_ERR_SOCKET,
-			  "[Error] BGP socket accept failed (%s)",
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "[Error] BGP socket accept failed (%s)",
+			     safe_strerror(errno));
 		return -1;
 	}
 	set_nonblocking(bgp_sock);
@@ -681,13 +681,14 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 			  __func__);
 
 	if (ret < 0) {
-		flog_err(LIB_ERR_SOCKET, "bind: %s", safe_strerror(en));
+		flog_err_sys(LIB_ERR_SOCKET, "bind: %s", safe_strerror(en));
 		return ret;
 	}
 
 	ret = listen(sock, SOMAXCONN);
 	if (ret < 0) {
-		flog_err(LIB_ERR_SOCKET, "listen: %s", safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "listen: %s",
+			     safe_strerror(errno));
 		return ret;
 	}
 
@@ -730,7 +731,8 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 	if (bgpd_privs.change(ZPRIVS_LOWER))
 		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 	if (ret != 0) {
-		flog_err(LIB_ERR_SOCKET, "getaddrinfo: %s", gai_strerror(ret));
+		flog_err_sys(LIB_ERR_SOCKET, "getaddrinfo: %s",
+			     gai_strerror(ret));
 		return -1;
 	}
 
@@ -750,8 +752,8 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 		if (bgpd_privs.change(ZPRIVS_LOWER))
 			flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 		if (sock < 0) {
-			flog_err(LIB_ERR_SOCKET, "socket: %s",
-				  safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SOCKET, "socket: %s",
+				     safe_strerror(errno));
 			continue;
 		}
 
@@ -772,8 +774,8 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 			LIB_ERR_SOCKET,
 			"%s: no usable addresses please check other programs usage of specified port %d",
 			__func__, port);
-		flog_err(LIB_ERR_SOCKET, "%s: Program cannot continue",
-			  __func__);
+		flog_err_sys(LIB_ERR_SOCKET, "%s: Program cannot continue",
+			     __func__);
 		exit(-1);
 	}
 

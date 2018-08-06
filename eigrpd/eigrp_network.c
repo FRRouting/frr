@@ -73,8 +73,8 @@ int eigrp_sock_init(void)
 			flog_err(LIB_ERR_PRIVILEGES,
 				  "eigrp_sock_init: could not lower privs, %s",
 				  safe_strerror(errno));
-		flog_err(LIB_ERR_SOCKET, "eigrp_read_sock_init: socket: %s",
-			  safe_strerror(save_errno));
+		flog_err_sys(LIB_ERR_SOCKET, "eigrp_read_sock_init: socket: %s",
+			     safe_strerror(save_errno));
 		exit(1);
 	}
 

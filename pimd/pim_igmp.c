@@ -97,9 +97,10 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 	}
 
 	if (!join) {
-		flog_err(LIB_ERR_SOCKET,
-			  "IGMP socket fd=%d could not join any group on interface address %s",
-			  fd, inet_ntoa(ifaddr));
+		flog_err_sys(
+			LIB_ERR_SOCKET,
+			"IGMP socket fd=%d could not join any group on interface address %s",
+			fd, inet_ntoa(ifaddr));
 		close(fd);
 		fd = -1;
 	}

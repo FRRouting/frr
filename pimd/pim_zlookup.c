@@ -345,9 +345,9 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 		return -2;
 	}
 	if (ret == 0) {
-		flog_err(LIB_ERR_SOCKET,
-			  "%s: connection closed on zclient lookup socket",
-			  __PRETTY_FUNCTION__);
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "%s: connection closed on zclient lookup socket",
+			     __PRETTY_FUNCTION__);
 		zclient_lookup_failed(zlookup);
 		return -3;
 	}

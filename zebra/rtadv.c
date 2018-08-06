@@ -374,10 +374,10 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 
 	ret = sendmsg(sock, &msg, 0);
 	if (ret < 0) {
-		flog_err(LIB_ERR_SOCKET,
-			  "%s(%u): Tx RA failed, socket %u error %d (%s)",
-			  ifp->name, ifp->ifindex, sock, errno,
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "%s(%u): Tx RA failed, socket %u error %d (%s)",
+			     ifp->name, ifp->ifindex, sock, errno,
+			     safe_strerror(errno));
 	} else
 		zif->ra_sent++;
 }

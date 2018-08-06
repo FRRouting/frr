@@ -147,8 +147,8 @@ static void pim_msdp_connect_check(struct pim_msdp_peer *mp)
 
 	/* If getsockopt is fail, this is fatal error. */
 	if (ret < 0) {
-		flog_err(LIB_ERR_SOCKET,
-			  "can't get sockopt for nonblocking connect");
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "can't get sockopt for nonblocking connect");
 		pim_msdp_peer_reset_tcp_conn(mp, "connect-failed");
 		return;
 	}

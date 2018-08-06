@@ -124,9 +124,10 @@ int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option)
 	ret = setsockopt(ospf6_sock, IPPROTO_IPV6, option, &mreq6,
 			 sizeof(mreq6));
 	if (ret < 0) {
-		flog_err(LIB_ERR_SOCKET,
-			  "Network: setsockopt (%d) on ifindex %d failed: %s",
-			  option, ifindex, safe_strerror(errno));
+		flog_err_sys(
+			LIB_ERR_SOCKET,
+			"Network: setsockopt (%d) on ifindex %d failed: %s",
+			option, ifindex, safe_strerror(errno));
 		return ret;
 	}
 

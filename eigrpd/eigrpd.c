@@ -162,8 +162,9 @@ static struct eigrp *eigrp_new(const char *AS)
 	eigrp->networks = eigrp_topology_new();
 
 	if ((eigrp_socket = eigrp_sock_init()) < 0) {
-		flog_err(LIB_ERR_SOCKET,
-			 "eigrp_new: fatal error: eigrp_sock_init was unable to open a socket");
+		flog_err_sys(
+			LIB_ERR_SOCKET,
+			"eigrp_new: fatal error: eigrp_sock_init was unable to open a socket");
 		exit(1);
 	}
 

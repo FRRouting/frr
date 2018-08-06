@@ -1341,8 +1341,8 @@ static int rip_create_socket(void)
 	/* Make datagram socket. */
 	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock < 0) {
-		flog_err(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+			     safe_strerror(errno));
 		exit(1);
 	}
 
@@ -1369,10 +1369,11 @@ static int rip_create_socket(void)
 			flog_err(LIB_ERR_PRIVILEGES,
 				  "rip_create_socket: could not lower privs");
 
-		flog_err(LIB_ERR_SOCKET,
-			  "%s: Can't bind socket %d to %s port %d: %s",
-			  __func__, sock, inet_ntoa(addr.sin_addr),
-			  (int)ntohs(addr.sin_port), safe_strerror(save_errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "%s: Can't bind socket %d to %s port %d: %s",
+			     __func__, sock, inet_ntoa(addr.sin_addr),
+			     (int)ntohs(addr.sin_port),
+			     safe_strerror(save_errno));
 
 		close(sock);
 		return ret;

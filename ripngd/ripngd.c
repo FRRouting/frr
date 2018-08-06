@@ -95,7 +95,7 @@ static int ripng_make_socket(void)
 
 	sock = socket(AF_INET6, SOCK_DGRAM, 0);
 	if (sock < 0) {
-		flog_err(LIB_ERR_SOCKET, "Can't make ripng socket");
+		flog_err_sys(LIB_ERR_SOCKET, "Can't make ripng socket");
 		return sock;
 	}
 
@@ -131,8 +131,8 @@ static int ripng_make_socket(void)
 
 	ret = bind(sock, (struct sockaddr *)&ripaddr, sizeof(ripaddr));
 	if (ret < 0) {
-		flog_err(LIB_ERR_SOCKET, "Can't bind ripng socket: %s.",
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Can't bind ripng socket: %s.",
+			     safe_strerror(errno));
 		if (ripngd_privs.change(ZPRIVS_LOWER))
 			flog_err(LIB_ERR_PRIVILEGES,
 				  "ripng_make_socket: could not lower privs");
@@ -207,13 +207,14 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 
 	if (ret < 0) {
 		if (to)
-			flog_err(LIB_ERR_SOCKET,
-				  "RIPng send fail on %s to %s: %s", ifp->name,
-				  inet6_ntoa(to->sin6_addr),
-				  safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SOCKET,
+				     "RIPng send fail on %s to %s: %s",
+				     ifp->name, inet6_ntoa(to->sin6_addr),
+				     safe_strerror(errno));
 		else
-			flog_err(LIB_ERR_SOCKET, "RIPng send fail on %s: %s",
-				  ifp->name, safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SOCKET,
+				     "RIPng send fail on %s: %s", ifp->name,
+				     safe_strerror(errno));
 	}
 
 	return ret;
