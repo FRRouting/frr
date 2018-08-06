@@ -763,11 +763,9 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 	}
 
-	if (!(rtm->rtm_family == AF_INET || rtm->rtm_family == AF_INET6
-	      || rtm->rtm_family == AF_ETHERNET
-	      || rtm->rtm_family == AF_MPLS)) {
+	if (!(rtm->rtm_family == AF_INET || rtm->rtm_family == AF_INET6)) {
 		zlog_warn(
-			"Invalid address family: %d received from kernel route change: %d",
+			"Invalid address family: %u received from kernel route change: %u",
 			rtm->rtm_family, h->nlmsg_type);
 		return 0;
 	}
@@ -780,10 +778,6 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			   nl_rttype_to_str(rtm->rtm_type),
 			   nl_rtproto_to_str(rtm->rtm_protocol), ns_id);
 
-	/* We don't care about change notifications for the MPLS table. */
-	/* TODO: Revisit this. */
-	if (rtm->rtm_family == AF_MPLS)
-		return 0;
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
 	if (len < 0) {
@@ -2422,7 +2416,7 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 		return netlink_ipneigh_change(h, len, ns_id);
 	else {
 		zlog_warn(
-			"Invalid address family: %d received from kernel neighbor change: %d",
+			"Invalid address family: %u received from kernel neighbor change: %u",
 			ndm->ndm_family, h->nlmsg_type);
 		return 0;
 	}

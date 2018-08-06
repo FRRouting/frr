@@ -206,7 +206,7 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	frh = NLMSG_DATA(h);
 	if (frh->family != AF_INET && frh->family != AF_INET6) {
 		zlog_warn(
-			"Invalid address family: %d received from kernel rule change: %d",
+			"Invalid address family: %u received from kernel rule change: %u",
 			frh->family, h->nlmsg_type);
 		return 0;
 	}
