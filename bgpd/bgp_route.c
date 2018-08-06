@@ -5201,8 +5201,8 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 			if (routermac) {
 				bgp_static->router_mac =
 					XCALLOC(MTYPE_ATTR, ETH_ALEN + 1);
-				prefix_str2mac(routermac,
-					       bgp_static->router_mac);
+				(void)prefix_str2mac(routermac,
+						     bgp_static->router_mac);
 			}
 			if (gwip)
 				prefix_copy(&bgp_static->gatewayIp, &gw_ip);

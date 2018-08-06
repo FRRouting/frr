@@ -854,9 +854,9 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
 					__PRETTY_FUNCTION__, buf, buf1);
 			}
 			pim_rpf_set_refresh_time(pim);
-			pim_ecmp_nexthop_lookup(pim,
-						&rp_info->rp.source_nexthop,
-						&nht_p, &rp_info->group, 1);
+			(void)pim_ecmp_nexthop_lookup(
+				pim, &rp_info->rp.source_nexthop, &nht_p,
+				&rp_info->group, 1);
 		}
 		return (&rp_info->rp);
 	}
