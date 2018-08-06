@@ -314,11 +314,17 @@ bool netlink_read;
  */
 void netlink_read_init(const char *fname)
 {
+	struct zebra_dplane_info dp_info;
+
 	snprintf(netlink_fuzz_file, MAXPATHLEN, "%s", fname);
 	/* Creating this fake socket for testing purposes */
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 
-	netlink_parse_info(netlink_information_fetch, &zns->netlink, zns, 1, 0);
+	/* Capture key info from zns struct */
+	zebra_dplane_info_from_zns(&dp_info, zns, false);
+
+	netlink_parse_info(netlink_information_fetch, &zns->netlink,
+			   &dp_info, 1, 0);
 }
 
 /**

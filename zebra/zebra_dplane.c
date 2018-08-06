@@ -740,7 +740,7 @@ int dplane_provider_register(const char *name,
 	}
 
 	if (prio <= DPLANE_PRIO_NONE ||
-	    prio >= DPLANE_PRIO_LAST) {
+	    prio > DPLANE_PRIO_LAST) {
 		ret = EINVAL;
 		goto done;
 	}
@@ -798,7 +798,9 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 
 	/* TODO -- register kernel 'provider' during init */
 
-	/* TODO -- using zebra core event thread temporarily */
+	/* TODO -- start dataplane pthread. We're using the zebra
+	 * core/main thread temporarily
+	 */
 	zdplane_g.dg_master = zebra->master;
 }
 

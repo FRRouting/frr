@@ -3305,7 +3305,7 @@ static int rib_process_dplane_results(struct thread *thread)
 
 /*
  * Results are returned from the dataplane subsystem, in the context of
- * the dataplane thread. We enqueue the results here for processing by
+ * the dataplane pthread. We enqueue the results here for processing by
  * the main thread later.
  */
 static int rib_dplane_results(dplane_ctx_h ctx)
