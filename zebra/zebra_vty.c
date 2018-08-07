@@ -1307,6 +1307,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			json_object_int_add(json_route, "metric", re->metric);
 		}
 
+		if (re->tag)
+			json_object_int_add(json_route, "tag", re->tag);
+
 		json_object_int_add(json_route, "internalStatus",
 				    re->status);
 		json_object_int_add(json_route, "internalFlags",
@@ -1630,6 +1633,29 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	}
 }
 
+static void vty_show_ip_route_detail_json(struct vty *vty,
+					struct route_node *rn)
+{
+	json_object *json = NULL;
+	json_object *json_prefix = NULL;
+	struct route_entry *re;
+	char buf[BUFSIZ];
+
+	json = json_object_new_object();
+
+	RNODE_FOREACH_RE (rn, re) {
+		json_prefix = json_object_new_array();
+		vty_show_ip_route(vty, rn, re, json_prefix);
+		prefix2str(&rn->p, buf, sizeof buf);
+		json_object_object_add(json, buf, json_prefix);
+		json_prefix = NULL;
+	}
+
+	vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+	json_object_free(json);
+}
+
 static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				 struct route_table *table, afi_t afi,
 				 bool use_fib, route_tag_t tag,
@@ -1711,15 +1737,15 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 		}
 
 		if (json_prefix) {
-			prefix2str(&rn->p, buf, sizeof buf);
+			prefix2str(&rn->p, buf, sizeof(buf));
 			json_object_object_add(json, buf, json_prefix);
 			json_prefix = NULL;
 		}
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
+						JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -2058,7 +2084,8 @@ DEFPY (show_route_detail,
 	   X:X::X:X$address\
 	   |X:X::X:X/M$prefix\
 	  >\
-	 >",
+	 >\
+	 [json$json]",
        SHOW_STR
        IP_STR
        "IP routing table\n"
@@ -2069,7 +2096,8 @@ DEFPY (show_route_detail,
        "IP routing table\n"
        VRF_FULL_CMD_HELP_STR
        "IPv6 Address\n"
-       "IPv6 prefix\n")
+       "IPv6 prefix\n"
+       JSON_STR)
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct route_table *table;
@@ -2100,7 +2128,10 @@ DEFPY (show_route_detail,
 				continue;
 			}
 
-			vty_show_ip_route_detail(vty, rn, 0);
+			if (json)
+				vty_show_ip_route_detail_json(vty, rn);
+			else
+				vty_show_ip_route_detail(vty, rn, 0);
 
 			route_unlock_node(rn);
 		}
@@ -2125,7 +2156,10 @@ DEFPY (show_route_detail,
 			return CMD_WARNING;
 		}
 
-		vty_show_ip_route_detail(vty, rn, 0);
+		if (json)
+			vty_show_ip_route_detail_json(vty, rn);
+		else
+			vty_show_ip_route_detail(vty, rn, 0);
 
 		route_unlock_node(rn);
 	}
