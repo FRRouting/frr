@@ -2626,8 +2626,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 }
 
 /* Schedule routes of a particular table (address-family) based on event. */
-static void rib_update_table(struct route_table *table,
-			     rib_update_event_t event)
+void rib_update_table(struct route_table *table, rib_update_event_t event)
 {
 	struct route_node *rn;
 	struct route_entry *re, *next;
@@ -2707,12 +2706,18 @@ void rib_update(vrf_id_t vrf_id, rib_update_event_t event)
 
 	/* Process routes of interested address-families. */
 	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (table)
+	if (table) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s : rib_update_table AFI_IP event %d", __FUNCTION__, event);
 		rib_update_table(table, event);
+	}
 
 	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, vrf_id);
-	if (table)
+	if (table) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s : rib_update_table AFI_IP6 event %d", __FUNCTION__, event);
 		rib_update_table(table, event);
+	}
 }
 
 /* Delete self installed routes after zebra is relaunched.  */
