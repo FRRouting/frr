@@ -9560,7 +9560,7 @@ ravg_tally (unsigned long count, unsigned long oldavg, unsigned long newval)
   unsigned long newtot = (count-1) * oldavg + (newval * TALLY_SIGFIG);
   unsigned long res = (newtot * TALLY_SIGFIG) / count;
   unsigned long ret = newtot / count;
-  
+
   if ((res % TALLY_SIGFIG) > (TALLY_SIGFIG/2))
     return ret + 1;
   else
@@ -9654,7 +9654,7 @@ static int bgp_table_stats_walker(struct thread *t)
 				ts->counts[BGP_STATS_ASPATH_TOTHOPS] += hops;
 				ts->counts[BGP_STATS_ASPATH_TOTSIZE] += size;
 #if 0
-              ts->counts[BGP_STATS_ASPATH_AVGHOPS] 
+              ts->counts[BGP_STATS_ASPATH_AVGHOPS]
                 = ravg_tally (ts->counts[BGP_STATS_ASPATH_COUNT],
                               ts->counts[BGP_STATS_ASPATH_AVGHOPS],
                               hops);
@@ -10142,9 +10142,9 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					       json_scode);
 			json_object_object_add(json, "bgpOriginCodes",
 					       json_ocode);
-			json_object_string_add(json,
-					       "bgpOriginatingDefaultNetwork",
-					       "0.0.0.0");
+			json_object_string_add(
+				json, "bgpOriginatingDefaultNetwork",
+				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
 		} else {
 			vty_out(vty, "BGP table version is %" PRIu64
 				     ", local router ID is %s, vrf id ",
@@ -10158,7 +10158,8 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 			vty_out(vty, BGP_SHOW_NCODE_HEADER);
 			vty_out(vty, BGP_SHOW_OCODE_HEADER);
 
-			vty_out(vty, "Originating default network 0.0.0.0\n\n");
+			vty_out(vty, "Originating default network %s\n\n",
+				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
 		}
 		header1 = 0;
 	}
