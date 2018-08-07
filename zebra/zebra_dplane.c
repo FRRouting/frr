@@ -18,6 +18,7 @@
  */
 
 #include "lib/zebra.h"
+#include "lib/libfrr.h"
 #include "lib/memory.h"
 #include "lib/frr_pthread.h"
 #include "lib/queue.h"
@@ -127,6 +128,8 @@ struct zebra_dplane_provider_s {
 	uint32_t dp_id;
 
 	dplane_provider_process_fp dp_fp;
+
+	dplane_provider_fini_fp dp_fini;
 
 	/* Embedded list linkage */
 	TAILQ_ENTRY(zebra_dplane_provider_s) dp_q_providers;
@@ -728,7 +731,8 @@ static int dplane_route_process(struct thread *event)
  */
 int dplane_provider_register(const char *name,
 			     enum dplane_provider_prio_e prio,
-			     dplane_provider_process_fp fp)
+			     dplane_provider_process_fp fp,
+			     dplane_provider_fini_fp fini_fp)
 {
 	int ret = 0;
 	struct zebra_dplane_provider_s *p, *last;
@@ -753,10 +757,14 @@ int dplane_provider_register(const char *name,
 	}
 
 	strncpy(p->dp_name, name, DPLANE_PROVIDER_NAMELEN);
-	p->dp_name[DPLANE_PROVIDER_NAMELEN] = '\0';
+	p->dp_name[DPLANE_PROVIDER_NAMELEN] = '\0'; /* Belt-and-suspenders */
 
 	p->dp_priority = prio;
 	p->dp_fp = fp;
+	p->dp_fini = fini_fp;
+
+	/* Lock the lock - the dplane pthread may be running */
+	DPLANE_LOCK();
 
 	p->dp_id = ++zdplane_g.dg_provider_id;
 
@@ -770,6 +778,9 @@ int dplane_provider_register(const char *name,
 		TAILQ_INSERT_BEFORE(last, p, dp_q_providers);
 	else
 		TAILQ_INSERT_TAIL(&zdplane_g.dg_providers_q, p, dp_q_providers);
+
+	/* And unlock */
+	DPLANE_UNLOCK();
 
 done:
 	return ret;
@@ -796,7 +807,7 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 	TAILQ_INIT(&zdplane_g.dg_route_ctx_q);
 	TAILQ_INIT(&zdplane_g.dg_providers_q);
 
-	/* TODO -- register kernel 'provider' during init */
+	/* TODO -- register default kernel 'provider' during init */
 
 	/* TODO -- start dataplane pthread. We're using the zebra
 	 * core/main thread temporarily
@@ -805,9 +816,22 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 }
 
 /*
+ * Shutdown, de-init hook callback. This runs pretty early during shutdown.
+ */
+static int zebra_dplane_fini(void)
+{
+	/* TODO -- stop thread, clean queues */
+
+	return 0;
+}
+
+/*
  * Initialize the dataplane module at startup; called by zebra rib_init()
  */
 void zebra_dplane_init(void)
 {
 	zebra_dplane_init_internal(&zebrad);
+
+	/* Register for shutdown/de-init */
+	hook_register(frr_early_fini, zebra_dplane_fini);
 }

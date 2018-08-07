@@ -200,10 +200,14 @@ enum dplane_provider_prio_e {
 /* Provider's entry-point to process a context block */
 typedef int (*dplane_provider_process_fp)(dplane_ctx_h ctx);
 
+/* Provider's entry-point for shutdown and cleanup */
+typedef int (*dplane_provider_fini_fp)(void);
+
 /* Provider registration */
 int dplane_provider_register(const char *name,
 			     enum dplane_provider_prio_e prio,
-			     dplane_provider_process_fp fp);
+			     dplane_provider_process_fp fp,
+			     dplane_provider_fini_fp fini_fp);
 
 /*
  * Results are returned to zebra core via a callback
