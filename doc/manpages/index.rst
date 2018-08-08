@@ -20,6 +20,7 @@
    ripd
    ripngd
    sharpd
+   staticd
    watchfrr
    zebra
    vtysh

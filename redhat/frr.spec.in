@@ -85,7 +85,7 @@
 %{!?frr_gid:            %global  frr_gid            92 }
 %{!?vty_gid:            %global  vty_gid            85 }
 
-%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd
+%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd staticd
 
 %if %{with_ldpd}
     %define daemon_ldpd ldpd
@@ -416,6 +416,7 @@ zebra_spec_add_service ()
 
 zebra_spec_add_service zebrasrv 2600/tcp "zebra service"
 zebra_spec_add_service zebra    2601/tcp "zebra vty"
+zebra_spec_add_service staticd  2616/tcp "staticd vty"
 zebra_spec_add_service ripd     2602/tcp "RIPd vty"
 zebra_spec_add_service ripngd   2603/tcp "RIPngd vty"
 zebra_spec_add_service ospfd    2604/tcp "OSPFd vty"
@@ -561,6 +562,7 @@ fi
 %{_infodir}/frr.info.gz
 %{_mandir}/man*/*
 %{_sbindir}/zebra
+%{_sbindir}/staticd
 %{_sbindir}/ospfd
 %{_sbindir}/ripd
 %{_sbindir}/bgpd

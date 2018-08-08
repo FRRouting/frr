@@ -2086,7 +2086,8 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 		rib_queue_add(rn);
 }
 
-void rib_addnode(struct route_node *rn, struct route_entry *re, int process)
+static void rib_addnode(struct route_node *rn,
+			struct route_entry *re, int process)
 {
 	/* RE node has been un-removed before route-node is processed.
 	 * route_node must hence already be on the queue for processing..
@@ -2135,10 +2136,6 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
-	/* free RE and nexthops */
-	if (re->type == ZEBRA_ROUTE_STATIC)
-		zebra_deregister_rnh_static_nexthops(re->ng.nexthop->vrf_id,
-						     re->ng.nexthop, rn);
 	nexthops_free(re->ng.nexthop);
 	XFREE(MTYPE_RE, re);
 }
@@ -2324,7 +2321,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 {
 	struct route_table *table;
 	struct route_node *rn;
-	struct route_entry *same;
+	struct route_entry *same = NULL;
 	struct nexthop *nexthop;
 	int ret = 0;
 
@@ -2358,8 +2355,13 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	/* Lookup route node.*/
 	rn = srcdest_rnode_get(table, p, src_p);
 
-	/* If same type of route are installed, treat it as a implicit
-	   withdraw. */
+	zlog_debug("Distance: %d", re->distance);
+	/*
+	 * If same type of route are installed, treat it as a implicit
+	 * withdraw.
+	 * If the user has specified the No route replace semantics
+	 * for the install don't do a route replace.
+	 */
 	RNODE_FOREACH_RE (rn, same) {
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
@@ -2371,14 +2373,21 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		if (same->type == ZEBRA_ROUTE_KERNEL
 		    && same->metric != re->metric)
 			continue;
+
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
+		    same->distance != re->distance)
+			continue;
+
 		/*
-		 * We should allow duplicate connected routes because of
-		 * IPv6 link-local routes and unnumbered interfaces on Linux.
+		 * We should allow duplicate connected routes
+		 * because of IPv6 link-local routes and unnumbered
+		 * interfaces on Linux.
 		 */
 		if (same->type != ZEBRA_ROUTE_CONNECT)
 			break;
 	}
 
+	zlog_debug("same: %p distance: %d", same, same ? same->distance : -1);
 	/* If this route is kernel route, set FIB flag to the route. */
 	if (RIB_SYSTEM_ROUTE(re))
 		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
@@ -2410,7 +2419,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		unsigned short instance, int flags, struct prefix *p,
 		struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		uint32_t table_id, uint32_t metric, bool fromkernel)
+		uint32_t table_id, uint32_t metric, uint8_t distance,
+		bool fromkernel)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2464,6 +2474,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			continue;
 		if (re->instance != instance)
 			continue;
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
+		    distance != re->distance)
+			continue;
+
 		if (re->type == ZEBRA_ROUTE_KERNEL && re->metric != metric)
 			continue;
 		if (re->type == ZEBRA_ROUTE_CONNECT && (rtnh = re->ng.nexthop)

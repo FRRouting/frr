@@ -1,0 +1,33 @@
+#
+# staticd
+#
+
+if STATICD
+noinst_LIBRARIES += staticd/libstatic.a
+sbin_PROGRAMS += staticd/staticd
+dist_examples_DATA += staticd/staticd.conf.sample
+endif
+
+staticd_libstatic_a_SOURCES = \
+	staticd/static_memory.c \
+	staticd/static_nht.c \
+	staticd/static_routes.c \
+	staticd/static_zebra.c \
+	staticd/static_vrf.c \
+	staticd/static_vty.c \
+	# end
+
+noinst_HEADERS += \
+	staticd/static_memory.h \
+	staticd/static_nht.h \
+	staticd/static_zebra.h \
+	staticd/static_routes.h \
+	staticd/static_vty.h \
+	staticd/static_vrf.h \
+	# end
+
+staticd/static_vty_clippy.c: $(CLIPPY_DEPS)
+staticd/static_vty.$(OBJEXT): staticd/static_vty_clippy.c
+
+staticd_staticd_SOURCES = staticd/static_main.c
+staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la @LIBCAP@

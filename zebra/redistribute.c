@@ -597,7 +597,7 @@ int zebra_del_import_table_entry(struct route_node *rn, struct route_entry *re)
 
 	rib_delete(afi, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_TABLE, re->table,
 		   re->flags, &p, NULL, re->ng.nexthop,
-		   zebrad.rtm_table_default, re->metric, false);
+		   zebrad.rtm_table_default, re->metric, re->distance, false);
 
 	return 0;
 }

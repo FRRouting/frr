@@ -291,8 +291,6 @@ extern int is_zebra_valid_kernel_table(uint32_t table_id);
 extern int is_zebra_main_routing_table(uint32_t table_id);
 extern int zebra_check_addr(const struct prefix *p);
 
-extern void rib_addnode(struct route_node *rn, struct route_entry *re,
-			int process);
 extern void rib_delnode(struct route_node *rn, struct route_entry *re);
 extern void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 			       struct route_entry *old);
@@ -313,7 +311,8 @@ extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       unsigned short instance, int flags, struct prefix *p,
 		       struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		       uint32_t table_id, uint32_t metric, bool fromkernel);
+		       uint32_t table_id, uint32_t metric, uint8_t distance,
+		       bool fromkernel);
 
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     union g_addr *addr,
@@ -450,9 +449,6 @@ DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 
 
 extern void zebra_vty_init(void);
-extern int static_config(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi,
-			 safi_t safi, const char *cmd);
-extern void static_config_install_delayed_routes(struct zebra_vrf *zvrf);
 
 extern pid_t pid;
 

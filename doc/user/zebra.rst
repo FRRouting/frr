@@ -269,125 +269,6 @@ Link Parameters Commands
    for InterASv2 link in OSPF (RFC5392).  Note that this option is not yet
    supported for ISIS (RFC5316).
 
-.. _static-route-commands:
-
-Static Route Commands
-=====================
-
-Static routing is a very fundamental feature of routing technology. It defines
-static prefix and gateway.
-
-.. index:: ip route NETWORK GATEWAY
-.. clicmd:: ip route NETWORK GATEWAY
-
-   NETWORK is destination prefix with format of A.B.C.D/M. GATEWAY is gateway
-   for the prefix. When GATEWAY is A.B.C.D format. It is taken as a IPv4
-   address gateway. Otherwise it is treated as an interface name. If the
-   interface name is ``null0`` then zebra installs a blackhole route.
-
-   Some example configuration:
-
-   .. code-block:: frr
-
-      ip route 10.0.0.0/8 10.0.0.2
-      ip route 10.0.0.0/8 ppp0
-      ip route 10.0.0.0/8 null0
-
-   First example defines 10.0.0.0/8 static route with gateway 10.0.0.2. Second
-   one defines the same prefix but with gateway to interface ppp0. The third
-   install a blackhole route.
-
-.. index:: ip route NETWORK NETMASK GATEWAY
-.. clicmd:: ip route NETWORK NETMASK GATEWAY
-
-   This is alternate version of above command. When NETWORK is A.B.C.D format,
-   user must define NETMASK value with A.B.C.D format. GATEWAY is same option
-   as above command.
-
-   .. code-block:: frr
-
-      ip route 10.0.0.0 255.255.255.0 10.0.0.2
-      ip route 10.0.0.0 255.255.255.0 ppp0
-      ip route 10.0.0.0 255.255.255.0 null0
-
-
-   These statements are equivalent to those in the previous example.
-
-.. index:: ip route NETWORK GATEWAY DISTANCE
-.. clicmd:: ip route NETWORK GATEWAY DISTANCE
-
-   Installs the route with the specified distance.
-
-Multiple nexthop static route:
-
-.. code-block:: frr
-
-   ip route 10.0.0.1/32 10.0.0.2
-   ip route 10.0.0.1/32 10.0.0.3
-   ip route 10.0.0.1/32 eth0
-
-
-If there is no route to 10.0.0.2 and 10.0.0.3, and interface eth0
-is reachable, then the last route is installed into the kernel.
-
-If zebra has been compiled with multipath support, and both 10.0.0.2 and
-10.0.0.3 are reachable, zebra will install a multipath route via both
-nexthops, if the platform supports this.
-
-::
-
-   zebra> show ip route
-   S>  10.0.0.1/32 [1/0] via 10.0.0.2 inactive
-       via 10.0.0.3 inactive
-     *       is directly connected, eth0
-
-
-.. code-block:: frr
-
-   ip route 10.0.0.0/8 10.0.0.2
-   ip route 10.0.0.0/8 10.0.0.3
-   ip route 10.0.0.0/8 null0 255
-
-
-This will install a multihop route via the specified next-hops if they are
-reachable, as well as a high-metric blackhole route, which can be useful to
-prevent traffic destined for a prefix to match less-specific routes (e.g.
-default) should the specified gateways not be reachable. E.g.:
-
-::
-
-   zebra> show ip route 10.0.0.0/8
-   Routing entry for 10.0.0.0/8
-     Known via "static", distance 1, metric 0
-       10.0.0.2 inactive
-       10.0.0.3 inactive
-
-   Routing entry for 10.0.0.0/8
-     Known via "static", distance 255, metric 0
-       directly connected, Null0
-
-
-.. index:: ipv6 route NETWORK GATEWAY
-.. clicmd:: ipv6 route NETWORK GATEWAY
-
-.. index:: ipv6 route NETWORK GATEWAY DISTANCE
-.. clicmd:: ipv6 route NETWORK GATEWAY DISTANCE
-
-   These behave similarly to their ipv4 counterparts.
-
-.. index:: ipv6 route NETWORK from SRCPREFIX GATEWAY
-.. clicmd:: ipv6 route NETWORK from SRCPREFIX GATEWAY
-
-.. index:: ipv6 route NETWORK from SRCPREFIX GATEWAY DISTANCE
-.. clicmd:: ipv6 route NETWORK from SRCPREFIX GATEWAY DISTANCE
-
-   Install a static source-specific route. These routes are currently supported
-   on Linux operating systems only, and perform AND matching on packet's
-   destination and source addresses in the kernel's forwarding path. Note that
-   destination longest-prefix match is "more important" than source LPM, e.g.
-   ``2001:db8:1::/64 from 2001:db8::/48`` will win over
-   ``2001:db8::/48 from 2001:db8:1::/64`` if both match.
-
 .. index:: table TABLENO
 .. clicmd:: table TABLENO
 
@@ -415,31 +296,9 @@ for each VRF.
 This conceptual view introduces the *Default VRF* case. If the user does not
 configure any specific VRF, then by default, FRR uses the *Default VRF*.
 
-In the context of *Zebra*, this is done automatically when configuring a static
-route with, for example, :clicmd:`ip route NETWORK GATEWAY`:
-
-.. code-block:: frr
-
-   # case without VRF
-   configure terminal
-    ip route 10.0.0.0 255.255.255.0 10.0.0.2
-   exit
-
 Configuring VRF networking contexts can be done in various ways on FRR. The VRF
 interfaces can be configured by entering in interface configuration mode
-:clicmd:`interface IFNAME vrf VRF`. Also, if the user wants to configure a
-static route for a specific VRF, then a specific VRF configuration mode is
-available. After entering into that mode with :clicmd:`vrf VRF` the user can
-enter the same route command as before, but this time, the route command will
-apply to the VRF.
-
-.. code-block:: frr
-
-   # case with VRF
-   configure terminal
-   vrf r1-cust1
-    ip route 10.0.0.0 255.255.255.0 10.0.0.2
-   exit-vrf
+:clicmd:`interface IFNAME vrf VRF`.
 
 A VRF backend mode is chosen when running *Zebra*.
 
@@ -479,25 +338,6 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    decide to provision this command in configuration file to provide more clarity
    about the intended configuration.
 
-.. index:: ip route NETWORK NETMASK GATEWAY NEXTHOPVRF
-.. clicmd:: ip route NETWORK NETMASK GATEWAY NEXTHOPVRF
-
-   This command is based on VRF configuration mode or in configuration mode. If
-   on configuration mode, this applies to default VRF. Otherwise, this command
-   applies to the VRF of the vrf configuration mode. This command is used to
-   configure a vrf route leak across 2 VRFs. This command is only available
-   when *Zebra* is launched without :option:`-n` option.
-
-.. index:: ip route NETWORK NETMASK GATEWAY table TABLENO
-.. clicmd:: ip route NETWORK NETMASK GATEWAY table TABLENO
-
-   This command is based on configuration mode. There, for default VRF, this
-   command is available for all modes. The ``TABLENO`` configured is one of the
-   tables from Default *Linux network namespace*. This command is also available
-   on vrf configuration mode, provided that *Zebra* is run with :option:`-n`
-   option. In that case, this command configures a network route in the given
-   ``TABLENO`` of the *Linux network namespace* of the relevant VRF.
-
 .. index:: show ip route vrf VRF
 .. clicmd:: show ip route vrf VRF
 
@@ -514,14 +354,6 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    The show command is only available with :option:`-n` option. This command
    will dump the routing table ``TABLENO`` of the *Linux network namespace*
    ``VRF``.
-
-The usual static route commands are also available in the VRF context. When
-entered within the VRF context the static routes are created in the VRF.
-
-.. code-block:: frr
-
-   ip route 10.0.0.0 255.255.255.0 10.0.0.2 vrf r1-cust1 table 43
-   show ip table vrf r1-cust1 table 43
 
 
 .. _zebra-mpls:

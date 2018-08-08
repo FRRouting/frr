@@ -37,7 +37,6 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_routemap.h"
-#include "zebra/zebra_static.h"
 
 static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 				  const char *inlabel_str, const char *gate_str,

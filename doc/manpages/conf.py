@@ -324,6 +324,7 @@ man_pages = [
     ('pimd', 'pimd', fwfrr.format("a PIM "), [], 8),
     ('pbrd', 'pbrd', fwfrr.format("a PBR "), [], 8),
     ('sharpd', 'sharpd', fwfrr.format("a SHARP "), [], 8),
+    ('staticd', 'staticd', fwfrr.format("a static route manager "), [], 8),
     ('mtracebis', 'mtracebis', "a multicast trace client", [], 8),
     ('ripd', 'ripd', fwfrr.format("a RIP "), [], 8),
     ('ripngd', 'ripngd', fwfrr.format("a RIPNG "), [], 8),
