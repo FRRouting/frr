@@ -17,6 +17,12 @@
 #include <zebra.h>
 
 #include <stdlib.h>
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+#ifdef HAVE_MALLOC_MALLOC_H
+#include <malloc/malloc.h>
+#endif
 
 #include "memory.h"
 #include "log.h"
@@ -28,7 +34,7 @@ DEFINE_MGROUP(LIB, "libfrr")
 DEFINE_MTYPE(LIB, TMP, "Temporary memory")
 DEFINE_MTYPE(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec")
 
-static inline void mt_count_alloc(struct memtype *mt, size_t size)
+static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
 {
 	size_t oldsize;
 
@@ -41,12 +47,24 @@ static inline void mt_count_alloc(struct memtype *mt, size_t size)
 	if (oldsize != 0 && oldsize != size && oldsize != SIZE_VAR)
 		atomic_store_explicit(&mt->size, SIZE_VAR,
 				      memory_order_relaxed);
+
+#ifdef HAVE_MALLOC_USABLE_SIZE
+	size_t mallocsz = malloc_usable_size(ptr);
+
+	atomic_fetch_add_explicit(&mt->total, mallocsz, memory_order_relaxed);
+#endif
 }
 
-static inline void mt_count_free(struct memtype *mt)
+static inline void mt_count_free(struct memtype *mt, void *ptr)
 {
 	assert(mt->n_alloc);
 	atomic_fetch_sub_explicit(&mt->n_alloc, 1, memory_order_relaxed);
+
+#ifdef HAVE_MALLOC_USABLE_SIZE
+	size_t mallocsz = malloc_usable_size(ptr);
+
+	atomic_fetch_sub_explicit(&mt->total, mallocsz, memory_order_relaxed);
+#endif
 }
 
 static inline void *mt_checkalloc(struct memtype *mt, void *ptr, size_t size)
@@ -58,7 +76,7 @@ static inline void *mt_checkalloc(struct memtype *mt, void *ptr, size_t size)
 		}
 		return NULL;
 	}
-	mt_count_alloc(mt, size);
+	mt_count_alloc(mt, size, ptr);
 	return ptr;
 }
 
@@ -75,7 +93,7 @@ void *qcalloc(struct memtype *mt, size_t size)
 void *qrealloc(struct memtype *mt, void *ptr, size_t size)
 {
 	if (ptr)
-		mt_count_free(mt);
+		mt_count_free(mt, ptr);
 	return mt_checkalloc(mt, ptr ? realloc(ptr, size) : malloc(size), size);
 }
 
@@ -87,7 +105,7 @@ void *qstrdup(struct memtype *mt, const char *str)
 void qfree(struct memtype *mt, void *ptr)
 {
 	if (ptr)
-		mt_count_free(mt);
+		mt_count_free(mt, ptr);
 	free(ptr);
 }
 
