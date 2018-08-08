@@ -320,6 +320,67 @@ Terminal Mode Commands
    Shows the current configuration of the logging system. This includes the
    status of all logging destinations.
 
+.. index:: show memory
+.. clicmd:: show memory
+
+   Show information on how much memory is used for which specific things in
+   |PACKAGE_NAME|.  Output may vary depending on system capabilities but will
+   generally look something like this:
+
+   ::
+
+      frr# show memory
+      System allocator statistics:
+        Total heap allocated:  1584 KiB
+        Holding block headers: 0 bytes
+        Used small blocks:     0 bytes
+        Used ordinary blocks:  1484 KiB
+        Free small blocks:     2096 bytes
+        Free ordinary blocks:  100 KiB
+        Ordinary blocks:       2
+        Small blocks:          60
+        Holding blocks:        0
+      (see system documentation for 'mallinfo' for meaning)
+      --- qmem libfrr ---
+      Buffer                        :          3      24                  72
+      Buffer data                   :          1    4120                4120
+      Host config                   :          3  (variably sized)        72
+      Command Tokens                :       3427      72              247160
+      Command Token Text            :       2555  (variably sized)     83720
+      Command Token Help            :       2555  (variably sized)     61720
+      Command Argument              :          2  (variably sized)        48
+      Command Argument Name         :        641  (variably sized)     15672
+      [...]
+      --- qmem Label Manager ---
+      --- qmem zebra ---
+      ZEBRA VRF                     :          1     912                 920
+      Route Entry                   :         11      80                 968
+      Static route                  :          1     192                 200
+      RIB destination               :          8      48                 448
+      RIB table info                :          4      16                  96
+      Nexthop tracking object       :          1     200                 200
+      Zebra Name Space              :          1     312                 312
+      --- qmem Table Manager ---
+
+   To understand system allocator statistics, refer to your system's
+   :manpage:`mallinfo(3)` man page.
+
+   Below these statistics, statistics on individual memory allocation types
+   in |PACKAGE_NAME| (so-called `MTYPEs`) is printed:
+
+   * the first column of numbers is the current count of allocations made for
+     the type (the number decreases when items are freed.)
+   * the second column is the size of each item.  This is only available if
+     allocations on a type are always made with the same size.
+   * the third column is the total amount of memory allocated for the
+     particular type, including padding applied by malloc.  This means that
+     the number may be larger than the first column multiplied by the second.
+     Overhead incurred by malloc's bookkeeping is not included in this, and
+     the column may be missing if system support is not available.
+
+   When executing this command from ``vtysh``, each of the daemons' memory
+   usage is printed sequentially.
+
 .. index:: logmsg LEVEL MESSAGE
 .. clicmd:: logmsg LEVEL MESSAGE
 
