@@ -108,7 +108,8 @@ FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 		.signals = static_signals,
 		.n_signals = array_size(static_signals),
 
-		.privs = &static_privs, )
+		.privs = &static_privs,
+)
 
 int main(int argc, char **argv, char **envp)
 {
