@@ -126,7 +126,7 @@ static void print_record(const struct pfx_record *record, void *data);
 static int is_synchronized(void);
 static int is_running(void);
 static void route_match_free(void *rule);
-static route_map_result_t route_match(void *rule, struct prefix *prefix,
+static route_map_result_t route_match(void *rule, const struct prefix *prefix,
 				      route_map_object_t type, void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
@@ -190,7 +190,7 @@ static void free_tr_socket(struct cache *cache)
 }
 
 static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
-				struct prefix *prefix);
+				const struct prefix *prefix);
 
 static void ipv6_addr_to_network_byte_order(const uint32_t *src, uint32_t *dest)
 {
@@ -208,7 +208,7 @@ static void ipv6_addr_to_host_byte_order(const uint32_t *src, uint32_t *dest)
 		dest[i] = ntohl(src[i]);
 }
 
-static route_map_result_t route_match(void *rule, struct prefix *prefix,
+static route_map_result_t route_match(void *rule, const struct prefix *prefix,
 				      route_map_object_t type, void *object)
 {
 	int *rpki_status = rule;
@@ -621,7 +621,7 @@ static void print_prefix_table(struct vty *vty)
 }
 
 static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
-				struct prefix *prefix)
+				const struct prefix *prefix)
 {
 	struct assegment *as_segment;
 	as_t as_number = 0;
