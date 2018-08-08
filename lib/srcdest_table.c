@@ -281,12 +281,11 @@ void srcdest_rnode_prefixes(struct route_node *rn, const struct prefix **p,
 	}
 }
 
-const char *srcdest_rnode2str(struct route_node *rn, char *str, int size)
+const char *srcdest2str(const struct prefix *dst_p,
+			const struct prefix_ipv6 *src_p,
+			char *str, int size)
 {
-	const struct prefix *dst_p, *src_p;
 	char dst_buf[PREFIX_STRLEN], src_buf[PREFIX_STRLEN];
-
-	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 
 	snprintf(str, size, "%s%s%s",
 		 prefix2str(dst_p, dst_buf, sizeof(dst_buf)),
@@ -295,4 +294,12 @@ const char *srcdest_rnode2str(struct route_node *rn, char *str, int size)
 			 ? prefix2str(src_p, src_buf, sizeof(src_buf))
 			 : "");
 	return str;
+}
+
+const char *srcdest_rnode2str(struct route_node *rn, char *str, int size)
+{
+	const struct prefix *dst_p, *src_p;
+
+	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
+	return srcdest2str(dst_p, (struct prefix_ipv6*)src_p, str, size);
 }

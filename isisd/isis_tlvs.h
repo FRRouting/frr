@@ -313,6 +313,10 @@ void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint32_t metric);
 void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 			      struct prefix_ipv6 *dest, uint32_t metric);
+void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
+				     struct prefix_ipv6 *dest,
+				     struct prefix_ipv6 *src,
+				     uint32_t metric);
 void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id,
 				  uint8_t metric);
 void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid,

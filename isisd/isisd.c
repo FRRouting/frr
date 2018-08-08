@@ -118,13 +118,9 @@ struct isis_area *isis_area_create(const char *area_tag)
 	 */
 	if (area->is_type & IS_LEVEL_1) {
 		area->lspdb[0] = lsp_db_init();
-		area->route_table[0] = route_table_init();
-		area->route_table6[0] = route_table_init();
 	}
 	if (area->is_type & IS_LEVEL_2) {
 		area->lspdb[1] = lsp_db_init();
-		area->route_table[1] = route_table_init();
-		area->route_table6[1] = route_table_init();
 	}
 
 	spftree_area_init(area);
@@ -232,6 +228,10 @@ int isis_area_destroy(struct vty *vty, const char *area_tag)
 		area->lspdb[1] = NULL;
 	}
 
+	/* invalidate and verify to delete all routes from zebra */
+	isis_area_invalidate_routes(area, ISIS_LEVEL1 & ISIS_LEVEL2);
+	isis_area_verify_routes(area);
+
 	spftree_area_del(area);
 
 	THREAD_TIMER_OFF(area->spf_timer[0]);
@@ -239,27 +239,6 @@ int isis_area_destroy(struct vty *vty, const char *area_tag)
 
 	spf_backoff_free(area->spf_delay_ietf[0]);
 	spf_backoff_free(area->spf_delay_ietf[1]);
-
-	/* invalidate and validate would delete all routes from zebra */
-	isis_route_invalidate(area);
-	isis_route_validate(area);
-
-	if (area->route_table[0]) {
-		route_table_finish(area->route_table[0]);
-		area->route_table[0] = NULL;
-	}
-	if (area->route_table[1]) {
-		route_table_finish(area->route_table[1]);
-		area->route_table[1] = NULL;
-	}
-	if (area->route_table6[0]) {
-		route_table_finish(area->route_table6[0]);
-		area->route_table6[0] = NULL;
-	}
-	if (area->route_table6[1]) {
-		route_table_finish(area->route_table6[1]);
-		area->route_table6[1] = NULL;
-	}
 
 	isis_redist_area_finish(area);
 
@@ -1340,10 +1319,16 @@ DEFUN (show_isis_summary,
 			vty_out(vty, "\n");
 
 			vty_out(vty, "    IPv4 route computation:\n");
-			isis_spf_print(area->spftree[level - 1], vty);
+			isis_spf_print(area->spftree[SPFTREE_IPV4][level - 1],
+				       vty);
 
 			vty_out(vty, "    IPv6 route computation:\n");
-			isis_spf_print(area->spftree6[level - 1], vty);
+			isis_spf_print(area->spftree[SPFTREE_IPV6][level - 1],
+				       vty);
+
+			vty_out(vty, "    IPv6 dst-src route computation:\n");
+			isis_spf_print(area->spftree[SPFTREE_DSTSRC][level-1],
+				       vty);
 		}
 	}
 	vty_out(vty, "\n");
@@ -1680,29 +1665,42 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				    passwd, snp_auth);
 }
 
+void isis_area_invalidate_routes(struct isis_area *area, int levels)
+{
+	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+		if (!(level & levels))
+			continue;
+		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+			isis_spf_invalidate_routes(
+					area->spftree[tree][level - 1]);
+		}
+	}
+}
+
+void isis_area_verify_routes(struct isis_area *area)
+{
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++)
+		isis_spf_verify_routes(area, area->spftree[tree]);
+}
+
 static void area_resign_level(struct isis_area *area, int level)
 {
+	isis_area_invalidate_routes(area, level);
+	isis_area_verify_routes(area);
+
 	if (area->lspdb[level - 1]) {
 		lsp_db_destroy(area->lspdb[level - 1]);
 		area->lspdb[level - 1] = NULL;
 	}
-	if (area->spftree[level - 1]) {
-		isis_spftree_del(area->spftree[level - 1]);
-		area->spftree[level - 1] = NULL;
+
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		if (area->spftree[tree][level - 1]) {
+			isis_spftree_del(area->spftree[tree][level - 1]);
+			area->spftree[tree][level - 1] = NULL;
+		}
 	}
-	if (area->spftree6[level - 1]) {
-		isis_spftree_del(area->spftree6[level - 1]);
-		area->spftree6[level - 1] = NULL;
-	}
+
 	THREAD_TIMER_OFF(area->spf_timer[level - 1]);
-	if (area->route_table[level - 1]) {
-		route_table_finish(area->route_table[level - 1]);
-		area->route_table[level - 1] = NULL;
-	}
-	if (area->route_table6[level - 1]) {
-		route_table_finish(area->route_table6[level - 1]);
-		area->route_table6[level - 1] = NULL;
-	}
 
 	sched_debug(
 		"ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
@@ -1731,10 +1729,6 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 
 		if (area->lspdb[1] == NULL)
 			area->lspdb[1] = lsp_db_init();
-		if (area->route_table[1] == NULL)
-			area->route_table[1] = route_table_init();
-		if (area->route_table6[1] == NULL)
-			area->route_table6[1] = route_table_init();
 		break;
 
 	case IS_LEVEL_1_AND_2:
@@ -1750,10 +1744,6 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 
 		if (area->lspdb[0] == NULL)
 			area->lspdb[0] = lsp_db_init();
-		if (area->route_table[0] == NULL)
-			area->route_table[0] = route_table_init();
-		if (area->route_table6[0] == NULL)
-			area->route_table6[0] = route_table_init();
 		break;
 
 	default:

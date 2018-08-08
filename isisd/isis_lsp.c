@@ -37,6 +37,7 @@
 #include "checksum.h"
 #include "md5.h"
 #include "table.h"
+#include "srcdest_table.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -765,18 +766,28 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 		return;
 
 	for (struct route_node *rn = route_top(er_table); rn;
-	     rn = route_next(rn)) {
+	     rn = srcdest_route_next(rn)) {
 		if (!rn->info)
 			continue;
-
-		struct prefix_ipv6 *ipv6 = (struct prefix_ipv6 *)&rn->p;
 		struct isis_ext_info *info = rn->info;
+
+		struct prefix_ipv6 *p, *src_p;
+		srcdest_rnode_prefixes(rn, (const struct prefix **)&p,
+				       (const struct prefix **)&src_p);
 
 		uint32_t metric = info->metric;
 		if (info->metric > MAX_WIDE_PATH_METRIC)
 			metric = MAX_WIDE_PATH_METRIC;
-		isis_tlvs_add_ipv6_reach(
-			lsp->tlvs, isis_area_ipv6_topology(area), ipv6, metric);
+
+		if (!src_p || !src_p->prefixlen) {
+			isis_tlvs_add_ipv6_reach(lsp->tlvs,
+						 isis_area_ipv6_topology(area),
+						 p, metric);
+		} else if (isis_area_ipv6_dstsrc_enabled(area)) {
+			isis_tlvs_add_ipv6_dstsrc_reach(lsp->tlvs,
+							ISIS_MT_IPV6_DSTSRC,
+							p, src_p, metric);
+		}
 	}
 }
 

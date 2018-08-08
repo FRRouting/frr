@@ -1912,6 +1912,11 @@ static void append_item(struct isis_item_list *dest, struct isis_item *item)
 	dest->count++;
 }
 
+static struct isis_item *last_item(struct isis_item_list *list)
+{
+	return container_of(list->tail, struct isis_item, next);
+}
+
 static int unpack_item(uint16_t mtid, enum isis_tlv_context context,
 		       uint8_t tlv_type, uint8_t len, struct stream *s,
 		       struct sbuf *log, void *dest, int indent)
@@ -3166,6 +3171,21 @@ void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 		    ? &tlvs->ipv6_reach
 		    : isis_get_mt_items(&tlvs->mt_ipv6_reach, mtid);
 	append_item(l, (struct isis_item *)r);
+}
+
+void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
+				     struct prefix_ipv6 *dest,
+				     struct prefix_ipv6 *src,
+				     uint32_t metric)
+{
+	isis_tlvs_add_ipv6_reach(tlvs, mtid, dest, metric);
+	struct isis_item_list *l = isis_get_mt_items(&tlvs->mt_ipv6_reach,
+						     mtid);
+
+	struct isis_ipv6_reach *r = (struct isis_ipv6_reach*)last_item(l);
+	r->subtlvs = isis_alloc_subtlvs();
+	r->subtlvs->source_prefix = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*src));
+	memcpy(r->subtlvs->source_prefix, src, sizeof(*src));
 }
 
 void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id,
