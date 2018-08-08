@@ -2101,6 +2101,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 		/* to be passed to auth functions later */
 		rip_auth_prepare_str_send(ri, key, auth_str,
 					  RIP_AUTH_SIMPLE_SIZE);
+		if (strlen(auth_str) == 0)
+			return;
 	}
 
 	if (version == RIPv1) {
