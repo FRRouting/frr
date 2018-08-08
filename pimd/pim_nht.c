@@ -352,7 +352,7 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			    struct pim_nexthop *nexthop, struct prefix *src,
 			    struct prefix *grp, int neighbor_needed)
 {
-	struct pim_neighbor *nbrs[MULTIPATH_NUM], *nbr;
+	struct pim_neighbor *nbrs[MULTIPATH_NUM], *nbr = NULL;
 	struct interface *ifps[MULTIPATH_NUM];
 	struct nexthop *nh_node = NULL;
 	ifindex_t first_ifindex;
