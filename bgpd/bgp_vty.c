@@ -9239,8 +9239,11 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint8_t use_json,
 
 		/* BGP Version. */
 		vty_out(vty, "  BGP version 4");
-		vty_out(vty, ", remote router ID %s\n",
+		vty_out(vty, ", remote router ID %s",
 			inet_ntop(AF_INET, &p->remote_id, buf1, sizeof(buf1)));
+		vty_out(vty, ", local router ID %s\n",
+			inet_ntop(AF_INET, &bgp->router_id, buf1,
+					sizeof(buf1)));
 
 		/* Confederation */
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)
