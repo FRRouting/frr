@@ -43,6 +43,7 @@
 
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
+#include "ripd/rip_interface.h"
 
 DEFINE_QOBJ_TYPE(rip)
 
@@ -50,7 +51,7 @@ DEFINE_QOBJ_TYPE(rip)
 #define RIP_UDP_RCV_BUF 41600
 
 /* RIP Structure. */
-struct rip *rip = NULL;
+struct rip *rip_global = NULL;
 
 /* RIP neighbor address table. */
 struct route_table *rip_neighbor_table;
@@ -150,6 +151,7 @@ struct rip_info *rip_ecmp_add(struct rip_info *rinfo_new)
 	struct route_node *rp = rinfo_new->rp;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
+	struct rip *rip = rip_global;
 
 	if (rp->info == NULL)
 		rp->info = list_new();
@@ -166,7 +168,7 @@ struct rip_info *rip_ecmp_add(struct rip_info *rinfo_new)
 
 	if (rip_route_rte(rinfo)) {
 		rip_timeout_update(rinfo);
-		rip_zebra_ipv4_add(rp);
+		rip_zebra_ipv4_add(rp, rinfo_new->vrf_id);
 	}
 
 	/* Set the route change flag on the first entry. */
@@ -198,7 +200,7 @@ struct rip_info *rip_ecmp_replace(struct rip_info *rinfo_new)
 	/* Learnt route replaced by a local one. Delete it from zebra. */
 	if (rip_route_rte(rinfo) && !rip_route_rte(rinfo_new))
 		if (CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
-			rip_zebra_ipv4_delete(rp);
+			rip_zebra_ipv4_delete(rp, rinfo->vrf_id);
 
 	/* Re-use the first entry, and delete the others. */
 	for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo))
@@ -216,7 +218,7 @@ struct rip_info *rip_ecmp_replace(struct rip_info *rinfo_new)
 	if (rip_route_rte(rinfo)) {
 		rip_timeout_update(rinfo);
 		/* The ADD message implies an update. */
-		rip_zebra_ipv4_add(rp);
+		rip_zebra_ipv4_add(rp, rinfo_new->vrf_id);
 	}
 
 	/* Set the route change flag. */
@@ -238,6 +240,7 @@ struct rip_info *rip_ecmp_delete(struct rip_info *rinfo)
 {
 	struct route_node *rp = rinfo->rp;
 	struct list *list = (struct list *)rp->info;
+	struct rip *rip = rip_global;
 
 	RIP_TIMER_OFF(rinfo->t_timeout);
 
@@ -249,7 +252,7 @@ struct rip_info *rip_ecmp_delete(struct rip_info *rinfo)
 		if (rip_route_rte(rinfo)
 		    && CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
 			/* The ADD message implies the update. */
-			rip_zebra_ipv4_add(rp);
+			rip_zebra_ipv4_add(rp, rinfo->vrf_id);
 		rip_info_free(rinfo);
 		rinfo = NULL;
 	} else {
@@ -265,7 +268,7 @@ struct rip_info *rip_ecmp_delete(struct rip_info *rinfo)
 
 		if (rip_route_rte(rinfo)
 		    && CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
-			rip_zebra_ipv4_delete(rp);
+			rip_zebra_ipv4_delete(rp, rinfo->vrf_id);
 	}
 
 	/* Set the route change flag on the first entry. */
@@ -287,6 +290,8 @@ static int rip_timeout(struct thread *t)
 
 static void rip_timeout_update(struct rip_info *rinfo)
 {
+	struct rip *rip = rip_global;
+
 	if (rinfo->metric != RIP_METRIC_INFINITY) {
 		RIP_TIMER_OFF(rinfo->t_timeout);
 		RIP_TIMER_ON(rinfo->t_timeout, rip_timeout, rip->timeout_time);
@@ -367,9 +372,9 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 }
 
 /* Check nexthop address validity. */
-static int rip_nexthop_check(struct in_addr *addr)
+static int rip_nexthop_check(struct in_addr *addr, vrf_id_t vrf_id)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 	struct listnode *cnode;
 	struct connected *ifc;
@@ -404,6 +409,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	unsigned char old_dist, new_dist;
 	struct list *list = NULL;
 	struct listnode *node = NULL;
+	struct rip *rip = rip_global;
 
 	/* Make prefix structure. */
 	memset(&p, 0, sizeof(struct prefix_ipv4));
@@ -431,6 +437,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	newinfo.metric = rte->metric;
 	newinfo.metric_out = rte->metric; /* XXX */
 	newinfo.tag = ntohs(rte->tag);    /* XXX */
+	newinfo.vrf_id = ifp->vrf_id;
 
 	/* Modify entry according to the interface routemap. */
 	if (ri->routemap[RIP_FILTER_IN]) {
@@ -477,7 +484,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 		nexthop = &rte->nexthop;
 
 	/* Check if nexthop address is myself, then do nothing. */
-	if (rip_nexthop_check(nexthop) < 0) {
+	if (rip_nexthop_check(nexthop, rip_global->vrf_id) < 0) {
 		if (IS_RIP_DEBUG_PACKET)
 			zlog_debug("Nexthop address %s is myself",
 				   inet_ntoa(*nexthop));
@@ -650,7 +657,8 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 					rip_timeout_update(rinfo);
 
 					if (update)
-						rip_zebra_ipv4_add(rp);
+						rip_zebra_ipv4_add(rp,
+								   ifp->vrf_id);
 
 					/* - Set the route change flag on the
 					 * first entry. */
@@ -1090,6 +1098,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 	struct prefix_ipv4 ifaddr;
 	struct prefix_ipv4 ifaddrclass;
 	int subnetted;
+	struct rip *rip = rip_global;
 
 	memset(&ifaddr, 0, sizeof(ifaddr));
 	/* We don't know yet. */
@@ -1108,7 +1117,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 	   whether the datagram is from a valid neighbor; the source of the
 	   datagram must be on a directly connected network (RFC2453 - Sec.
 	   3.9.2) */
-	if (if_lookup_address((void *)&from->sin_addr, AF_INET, VRF_DEFAULT)
+	if (if_lookup_address((void *)&from->sin_addr, AF_INET, rip->vrf_id)
 	    == NULL) {
 		zlog_info(
 			"This datagram doesn't came from a valid neighbor: %s",
@@ -1191,7 +1200,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			}
 
 			if (!if_lookup_address((void *)&rte->nexthop, AF_INET,
-					       VRF_DEFAULT)) {
+					       rip->vrf_id)) {
 				struct route_node *rn;
 				struct rip_info *rinfo;
 
@@ -1321,12 +1330,17 @@ static void rip_response_process(struct rip_packet *packet, int size,
 }
 
 /* Make socket for RIP protocol. */
-static int rip_create_socket(void)
+static int rip_create_socket(struct rip *rip_param)
 {
 	int ret;
 	int sock;
 	struct sockaddr_in addr;
 
+	if (rip_param->vrf_id == VRF_UNKNOWN) {
+		zlog_err("VRF %s uninitialised", rip_param->name);
+		rip_param->sock = -1;
+		return -1;
+	}
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
@@ -1337,11 +1351,18 @@ static int rip_create_socket(void)
 	addr.sin_port = htons(RIP_PORT_DEFAULT);
 
 	/* Make datagram socket. */
-	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (ripd_privs.change(ZPRIVS_RAISE))
+		zlog_err("%s: could not raise privs", __func__);
+	sock = vrf_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP,
+			  rip_param->vrf_id,
+			  rip_param->name);
 	if (sock < 0) {
 		zlog_err("Cannot create UDP socket: %s", safe_strerror(errno));
-		exit(1);
+		rip_param->sock = -1;
+		return -1;
 	}
+	if (ripd_privs.change(ZPRIVS_LOWER))
+		zlog_err("%s: could not lower privs", __func__);
 
 	sockopt_broadcast(sock);
 	sockopt_reuseaddr(sock);
@@ -1362,7 +1383,7 @@ static int rip_create_socket(void)
 	{
 		int save_errno = errno;
 		if (ripd_privs.change(ZPRIVS_LOWER))
-			zlog_err("rip_create_socket: could not lower privs");
+			zlog_err("%s: could not lower privs", __func__);
 
 		zlog_err("%s: Can't bind socket %d to %s port %d: %s", __func__,
 			 sock, inet_ntoa(addr.sin_addr),
@@ -1373,8 +1394,8 @@ static int rip_create_socket(void)
 	}
 
 	if (ripd_privs.change(ZPRIVS_LOWER))
-		zlog_err("rip_create_socket: could not lower privs");
-
+		zlog_err("%s: could not lower privs", __func__);
+	rip_param->sock = sock;
 	return sock;
 }
 
@@ -1387,6 +1408,7 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 {
 	int ret;
 	struct sockaddr_in sin;
+	struct rip *rip = rip_global;
 
 	assert(ifc != NULL);
 
@@ -1469,6 +1491,7 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 	struct route_node *rp = NULL;
 	struct rip_info *rinfo = NULL, newinfo;
 	struct list *list = NULL;
+	struct rip *rip = rip_global;
 
 	/* Redistribute route  */
 	ret = rip_destination_check(p->prefix);
@@ -1530,6 +1553,7 @@ void rip_redistribute_delete(int type, int sub_type, struct prefix_ipv4 *p,
 	int ret;
 	struct route_node *rp;
 	struct rip_info *rinfo;
+	struct rip *rip = rip_global;
 
 	ret = rip_destination_check(p->prefix);
 	if (!ret)
@@ -1559,7 +1583,7 @@ void rip_redistribute_delete(int type, int sub_type, struct prefix_ipv4 *p,
 						inet_ntoa(p->prefix),
 						p->prefixlen,
 						ifindex2ifname(ifindex,
-							       VRF_DEFAULT));
+							       rip->vrf_id));
 
 				rip_event(RIP_TRIGGERED_UPDATE, 0);
 			}
@@ -1578,6 +1602,7 @@ static void rip_request_process(struct rip_packet *packet, int size,
 	struct route_node *rp;
 	struct rip_info *rinfo;
 	struct rip_interface *ri;
+	struct rip *rip = rip_global;
 
 	/* Does not reponse to the requests on the loopback interfaces */
 	if (if_is_loopback(ifc->ifp))
@@ -1737,6 +1762,7 @@ static int rip_read(struct thread *t)
 	struct connected *ifc;
 	struct rip_interface *ri;
 	struct prefix p;
+	struct rip *rip = rip_global;
 
 	/* Fetch socket then register myself. */
 	sock = THREAD_FD(t);
@@ -1757,14 +1783,14 @@ static int rip_read(struct thread *t)
 	}
 
 	/* Check is this packet comming from myself? */
-	if (if_check_address(from.sin_addr)) {
+	if (if_check_address(from.sin_addr, rip_global->vrf_id)) {
 		if (IS_RIP_DEBUG_PACKET)
 			zlog_debug("ignore packet comes from myself");
 		return -1;
 	}
 
 	/* Which interface is this packet comes from. */
-	ifc = if_lookup_address((void *)&from.sin_addr, AF_INET, VRF_DEFAULT);
+	ifc = if_lookup_address((void *)&from.sin_addr, AF_INET, rip->vrf_id);
 	if (ifc)
 		ifp = ifc->ifp;
 
@@ -2057,6 +2083,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	int subnetted = 0;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
+	struct rip *rip = rip_global;
+	struct rip_redist *red;
 
 	/* Logging output event. */
 	if (IS_RIP_DEBUG_EVENT) {
@@ -2252,10 +2280,11 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			}
 
 			/* Apply redistribute route map - continue, if deny */
-			if (rip->route_map[rinfo->type].name
+			red = rip_redist_lookup(rip, rinfo->type);
+			if (red && red->route_map.name && red->route_map.map
 			    && rinfo->sub_type != RIP_ROUTE_INTERFACE) {
 				ret = route_map_apply(
-					rip->route_map[rinfo->type].map,
+						      red->route_map.map,
 					(struct prefix *)p, RMAP_RIP, rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
@@ -2271,11 +2300,10 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			/* When route-map does not set metric. */
 			if (!rinfo->metric_set) {
 				/* If redistribute metric is set. */
-				if (rip->route_map[rinfo->type].metric_config
+				if (red && red->dmetric.metric_config
 				    && rinfo->metric != RIP_METRIC_INFINITY) {
 					rinfo->metric_out =
-						rip->route_map[rinfo->type]
-							.metric;
+						red->dmetric.metric;
 				} else {
 					/* If the route is not connected or
 					   localy generated
@@ -2452,7 +2480,7 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 /* Update send to all interface and neighbor. */
 static void rip_update_process(int route_type)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct listnode *ifnode, *ifnnode;
 	struct connected *connected;
 	struct interface *ifp;
@@ -2460,6 +2488,11 @@ static void rip_update_process(int route_type)
 	struct route_node *rp;
 	struct sockaddr_in to;
 	struct prefix *p;
+	struct rip *rip = rip_global;
+
+	if (!rip)
+		return;
+	vrf = vrf_lookup_by_id(rip->vrf_id);
 
 	/* Send RIP update to each interface. */
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -2515,7 +2548,7 @@ static void rip_update_process(int route_type)
 			p = &rp->p;
 
 			connected = if_lookup_address(&p->u.prefix4, AF_INET,
-						      VRF_DEFAULT);
+						      rip->vrf_id);
 			if (!connected) {
 				zlog_warn(
 					"Neighbor %s doesnt have connected interface!",
@@ -2537,6 +2570,8 @@ static void rip_update_process(int route_type)
 /* RIP's periodical timer. */
 static int rip_update(struct thread *t)
 {
+	struct rip *rip = rip_global;
+
 	/* Clear timer pointer. */
 	rip->t_update = NULL;
 
@@ -2564,6 +2599,7 @@ static void rip_clear_changed_flag(void)
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
+	struct rip *rip = rip_global;
 
 	for (rp = route_top(rip->table); rp; rp = route_next(rp))
 		if ((list = rp->info) != NULL)
@@ -2579,6 +2615,7 @@ static void rip_clear_changed_flag(void)
 static int rip_triggered_interval(struct thread *t)
 {
 	int rip_triggered_update(struct thread *);
+	struct rip *rip = rip_global;
 
 	rip->t_triggered_interval = NULL;
 
@@ -2593,6 +2630,7 @@ static int rip_triggered_interval(struct thread *t)
 static int rip_triggered_update(struct thread *t)
 {
 	int interval;
+	struct rip *rip = rip_global;
 
 	/* Clear thred pointer. */
 	rip->t_triggered_update = NULL;
@@ -2627,7 +2665,7 @@ static int rip_triggered_update(struct thread *t)
 }
 
 /* Withdraw redistributed route. */
-void rip_redistribute_withdraw(int type)
+void rip_redistribute_withdraw(int type, struct rip *rip)
 {
 	struct route_node *rp;
 	struct rip_info *rinfo = NULL;
@@ -2659,7 +2697,7 @@ void rip_redistribute_withdraw(int type)
 						p->prefixlen,
 						ifindex2ifname(
 							rinfo->nh.ifindex,
-							VRF_DEFAULT));
+							rip->vrf_id));
 				}
 
 				rip_event(RIP_TRIGGERED_UPDATE, 0);
@@ -2668,8 +2706,11 @@ void rip_redistribute_withdraw(int type)
 }
 
 /* Create new RIP instance and set it to global variable. */
-static int rip_create(void)
+static int rip_create(char *vrfname)
 {
+	int ret;
+	struct rip *rip;
+
 	rip = XCALLOC(MTYPE_RIP, sizeof(struct rip));
 
 	/* Set initial value. */
@@ -2688,16 +2729,29 @@ static int rip_create(void)
 	/* Make output stream. */
 	rip->obuf = stream_new(1500);
 
+	if (vrfname) {
+		struct vrf *vrf = vrf_lookup_by_name(vrfname);
+
+		if (vrf)
+			rip->vrf_id = vrf->vrf_id;
+		else
+			rip->vrf_id = VRF_UNKNOWN;
+		if ((vrf && vrf->vrf_id != VRF_DEFAULT) ||
+		    !vrf) {
+			rip->name = XSTRDUP(MTYPE_TMP, vrfname);
+		}
+	}
+
+	QOBJ_REG(rip, rip);
+	rip_global = rip;
 	/* Make socket. */
-	rip->sock = rip_create_socket();
-	if (rip->sock < 0)
-		return rip->sock;
+	ret = rip_create_socket(rip);
+	if (ret < 0)
+		return ret;
 
 	/* Create read and timer thread. */
 	rip_event(RIP_READ, rip->sock);
 	rip_event(RIP_UPDATE_EVENT, 1);
-
-	QOBJ_REG(rip, rip);
 
 	return 0;
 }
@@ -2768,9 +2822,55 @@ static int rip_update_jitter(unsigned long time)
 	return jitter / JITTER_BOUND;
 }
 
+/* It should only be used when processing incoming info update from zebra.
+ * Other situations, it is not sufficient to lookup the rip instance by
+ * vrf_name only without using the instance number.
+ */
+static struct rip *rip_lookup_by_name(const char *vrf_name)
+{
+	if (vrf_name == NULL && rip_global && rip_global->vrf_id == VRF_DEFAULT)
+		return rip_global;
+	if (vrf_name && rip_global && rip_global->name &&
+	    0 == strcmp(vrf_name, rip_global->name))
+		return rip_global;
+	return NULL;
+}
+
+static struct rip *rip_cmd_lookup_rip(struct vty *vty,
+				      struct cmd_token *argv[],
+				      const int argc, int create)
+{
+	int idx_vrf = 0;
+	char *vrf_name = NULL;
+	int ret;
+
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrf_name = argv[idx_vrf + 1]->arg;
+	if (rip_global) {
+		if (rip_global->name == NULL && vrf_name == NULL)
+			return rip_global;
+		if (vrf_name == NULL || rip_global->name == NULL)
+			return NULL;
+		if (0 == strcmp(rip_global->name, vrf_name))
+			return rip_global;
+		/* could not create RIP instance since there is already one
+		 * that does not match the default one
+		 */
+		vty_out(vty, "Only one RIP instance is supported.\n");
+		return NULL;
+	}
+	if (!create)
+		return NULL;
+	ret = rip_create(vrf_name);
+	if (ret < 0)
+		zlog_info("RIP socket creation delayed");
+	return rip_global;
+}
+
 void rip_event(enum rip_event event, int sock)
 {
 	int jitter = 0;
+	struct rip *rip = rip_global;
 
 	switch (event) {
 	case RIP_READ:
@@ -2796,36 +2896,182 @@ void rip_event(enum rip_event event, int sock)
 	}
 }
 
-DEFUN_NOSH (router_rip,
-       router_rip_cmd,
-       "router rip",
-       "Enable a routing process\n"
-       "Routing Information Protocol (RIP)\n")
+/* Link RIP instance to VRF. */
+static void rip_vrf_link(struct rip *rip, struct vrf *vrf)
 {
-	int ret;
+	rip->vrf_id = vrf->vrf_id;
+	if (vrf->info != (void *)rip)
+		vrf->info = (void *)rip;
+}
 
-	/* If rip is not enabled before. */
-	if (!rip) {
-		ret = rip_create();
-		if (ret < 0) {
-			zlog_info("Can't create RIP");
-			return CMD_WARNING_CONFIG_FAILED;
+/* Unlink RIP instance from VRF. */
+static void rip_vrf_unlink(struct rip *rip, struct vrf *vrf)
+{
+	if (vrf->info == (void *)rip)
+		vrf->info = NULL;
+	rip->vrf_id = VRF_UNKNOWN;
+}
+
+/* This is hook function for vrf create called as part of vrf_init */
+static int rip_vrf_new(struct vrf *vrf)
+{
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF Created: %s(%u)", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
+
+	return 0;
+}
+
+/* This is hook function for vrf delete call as part of vrf_init */
+static int rip_vrf_delete(struct vrf *vrf)
+{
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF Deletion: %s(%u)", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
+
+	return 0;
+}
+
+static void rip_redistribute_update(struct rip *rip)
+{
+	int i;
+	struct rip_redist *red;
+
+	if (!rip)
+		return;
+	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		red = rip_redist_lookup(rip, i);
+		if (!red)
+			continue;
+		rip_redistribute_set(rip, i, red);
+	}
+}
+
+/* Enable RIP VRF instance */
+static int rip_vrf_enable(struct vrf *vrf)
+{
+	vrf_id_t old_vrf_id;
+	int ret = 0;
+	struct rip *rip;
+
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF %s id %u enabled", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
+
+	rip = rip_lookup_by_name(vrf->name);
+	if (rip) {
+		old_vrf_id = rip->vrf_id;
+		/* We have instance configured, link to VRF and make it "up". */
+		rip_vrf_link(rip, vrf);
+		if (IS_RIP_DEBUG_EVENT)
+			zlog_debug(
+				"%s: rip linked to vrf %s vrf_id %u (old id %u)",
+				__PRETTY_FUNCTION__, vrf->name, rip->vrf_id,
+				old_vrf_id);
+
+		if (old_vrf_id != rip->vrf_id) {
+			if (ripd_privs.change(ZPRIVS_RAISE)) {
+				zlog_err(
+					"rip_sock_init: could not raise privs, %s",
+					safe_strerror(errno));
+			}
+			/* start zebra redist to us for new vrf */
+			rip_zebra_vrf_register(rip);
+			if (ripd_privs.change(ZPRIVS_LOWER)) {
+				zlog_err(
+					"ospf_sock_init: could not lower privs, %s",
+					safe_strerror(errno));
+			}
+
+			ret = rip_create_socket(rip);
+			if (ret < 0 || rip->sock <= 0)
+				return 0;
+			/* Create read and timer thread. */
+			rip_event(RIP_READ, rip->sock);
+			rip_event(RIP_UPDATE_EVENT, 1);
+
+			rip_redistribute_update(rip);
+			rip_start_network_emission(rip);
 		}
 	}
-	VTY_PUSH_CONTEXT(RIP_NODE, rip);
 
+	return 0;
+}
+
+/* Disable RIP VRF instance */
+static int rip_vrf_disable(struct vrf *vrf)
+{
+	struct rip *rip = NULL;
+	vrf_id_t old_vrf_id = VRF_UNKNOWN;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF %s id %d disabled.", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
+
+	rip = rip_lookup_by_name(vrf->name);
+	if (rip) {
+		old_vrf_id = rip->vrf_id;
+
+		/* We have instance configured, unlink
+		 * from VRF and make it "down".
+		 */
+		rip_vrf_unlink(rip, vrf);
+		if (IS_RIP_DEBUG_EVENT)
+			zlog_debug("%s: rip old_vrf_id %d unlinked",
+				   __PRETTY_FUNCTION__, old_vrf_id);
+		rip_clean(rip, false);
+	}
+
+	/* Note: This is a callback, the VRF will be deleted by the caller. */
+	return 0;
+}
+
+void rip_vrf_init(void)
+{
+	vrf_init(rip_vrf_new, rip_vrf_enable, rip_vrf_disable,
+		 rip_vrf_delete);
+}
+
+void rip_vrf_terminate(void)
+{
+	vrf_terminate();
+}
+
+
+DEFUN_NOSH (router_rip,
+       router_rip_cmd,
+       "router rip [vrf NAME]",
+       "Enable a routing process\n"
+       "Routing Information Protocol (RIP)\n"
+       VRF_CMD_HELP_STR)
+{
+	struct rip *rip_local;
+
+	rip_local = rip_cmd_lookup_rip(vty, argv, argc, 1);
+	/* If rip is not enabled before. */
+	if (!rip_local) {
+		zlog_info("Can't create RIP");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	VTY_PUSH_CONTEXT(RIP_NODE, rip_local);
 	return CMD_SUCCESS;
 }
 
 DEFUN (no_router_rip,
        no_router_rip_cmd,
-       "no router rip",
+       "no router rip [vrf NAME]",
        NO_STR
        "Enable a routing process\n"
-       "Routing Information Protocol (RIP)\n")
+       "Routing Information Protocol (RIP)\n"
+       VRF_CMD_HELP_STR)
 {
-	if (rip)
-		rip_clean();
+	struct rip *rip_local = rip_cmd_lookup_rip(vty, argv, argc, 0);
+
+	if (rip_local)
+		rip_clean(rip_local, true);
 	return CMD_SUCCESS;
 }
 
@@ -2837,6 +3083,8 @@ DEFUN (rip_version,
 {
 	int idx_number = 1;
 	int version;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	version = atoi(argv[idx_number]->arg);
 	if (version != RIPv1 && version != RIPv2) {
@@ -2856,6 +3104,8 @@ DEFUN (no_rip_version,
        "Set routing protocol version\n"
        "Version\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	/* Set RIP version to the default. */
 	rip->version_send = RI_RIP_VERSION_2;
 	rip->version_recv = RI_RIP_VERSION_1_AND_2;
@@ -2875,6 +3125,8 @@ DEFUN (rip_route,
 	struct nexthop nh;
 	struct prefix_ipv4 p;
 	struct route_node *node;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	memset(&nh, 0, sizeof(nh));
 	nh.type = NEXTHOP_TYPE_IPV4;
@@ -2914,6 +3166,8 @@ DEFUN (no_rip_route,
 	int ret;
 	struct prefix_ipv4 p;
 	struct route_node *node;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	ret = str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 	if (ret < 0) {
@@ -2963,6 +3217,9 @@ DEFUN (rip_default_metric,
        "Default metric\n")
 {
 	int idx_number = 1;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	if (rip) {
 		rip->default_metric = atoi(argv[idx_number]->arg);
 		/* rip_update_default_metric (); */
@@ -2977,6 +3234,8 @@ DEFUN (no_rip_default_metric,
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	if (rip) {
 		rip->default_metric = RIP_DEFAULT_METRIC_DEFAULT;
 		/* rip_update_default_metric (); */
@@ -3003,6 +3262,8 @@ DEFUN (rip_timers,
 	char *endptr = NULL;
 	unsigned long RIP_TIMER_MAX = 2147483647;
 	unsigned long RIP_TIMER_MIN = 5;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	update = strtoul(argv[idx_number]->arg, &endptr, 10);
 	if (update > RIP_TIMER_MAX || update < RIP_TIMER_MIN
@@ -3046,6 +3307,8 @@ DEFUN (no_rip_timers,
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	/* Set each timer value to the default. */
 	rip->update_time = RIP_UPDATE_TIMER_DEFAULT;
 	rip->timeout_time = RIP_TIMEOUT_TIMER_DEFAULT;
@@ -3174,6 +3437,7 @@ uint8_t rip_distance_apply(struct rip_info *rinfo)
 	struct prefix_ipv4 p;
 	struct rip_distance *rdistance;
 	struct access_list *alist;
+	struct rip *rip = rip_global;
 
 	if (!rip)
 		return 0;
@@ -3209,7 +3473,7 @@ uint8_t rip_distance_apply(struct rip_info *rinfo)
 	return 0;
 }
 
-static void rip_distance_show(struct vty *vty)
+static void rip_distance_show(struct vty *vty, struct rip *rip)
 {
 	struct route_node *rn;
 	struct rip_distance *rdistance;
@@ -3242,6 +3506,9 @@ DEFUN (rip_distance,
        "Distance value\n")
 {
 	int idx_number = 1;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	rip->distance = atoi(argv[idx_number]->arg);
 	return CMD_SUCCESS;
 }
@@ -3253,6 +3520,8 @@ DEFUN (no_rip_distance,
        "Administrative distance\n"
        "Distance value\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	rip->distance = 0;
 	return CMD_SUCCESS;
 }
@@ -3266,6 +3535,7 @@ DEFUN (rip_distance_source,
 {
 	int idx_number = 1;
 	int idx_ipv4_prefixlen = 2;
+
 	rip_distance_set(vty, argv[idx_number]->arg,
 			 argv[idx_ipv4_prefixlen]->arg, NULL);
 	return CMD_SUCCESS;
@@ -3281,6 +3551,7 @@ DEFUN (no_rip_distance_source,
 {
 	int idx_number = 2;
 	int idx_ipv4_prefixlen = 3;
+
 	rip_distance_unset(vty, argv[idx_number]->arg,
 			   argv[idx_ipv4_prefixlen]->arg, NULL);
 	return CMD_SUCCESS;
@@ -3297,6 +3568,7 @@ DEFUN (rip_distance_source_access_list,
 	int idx_number = 1;
 	int idx_ipv4_prefixlen = 2;
 	int idx_word = 3;
+
 	rip_distance_set(vty, argv[idx_number]->arg,
 			 argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
 	return CMD_SUCCESS;
@@ -3314,13 +3586,14 @@ DEFUN (no_rip_distance_source_access_list,
 	int idx_number = 2;
 	int idx_ipv4_prefixlen = 3;
 	int idx_word = 4;
+
 	rip_distance_unset(vty, argv[idx_number]->arg,
 			   argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
 	return CMD_SUCCESS;
 }
 
 /* Update ECMP routes to zebra when ECMP is disabled. */
-static void rip_ecmp_disable(void)
+static void rip_ecmp_disable(struct rip *rip)
 {
 	struct route_node *rp;
 	struct rip_info *rinfo, *tmp_rinfo;
@@ -3347,7 +3620,7 @@ static void rip_ecmp_disable(void)
 				}
 
 			/* Update zebra. */
-			rip_zebra_ipv4_add(rp);
+			rip_zebra_ipv4_add(rp, rip->vrf_id);
 
 			/* Set the route change flag. */
 			SET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
@@ -3362,6 +3635,8 @@ DEFUN (rip_allow_ecmp,
        "allow-ecmp",
        "Allow Equal Cost MultiPath\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	if (rip->ecmp) {
 		vty_out(vty, "ECMP is already enabled.\n");
 		return CMD_WARNING;
@@ -3378,6 +3653,8 @@ DEFUN (no_rip_allow_ecmp,
        NO_STR
        "Allow Equal Cost MultiPath\n")
 {
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	if (!rip->ecmp) {
 		vty_out(vty, "ECMP is already disabled.\n");
 		return CMD_WARNING;
@@ -3385,7 +3662,7 @@ DEFUN (no_rip_allow_ecmp,
 
 	rip->ecmp = 0;
 	zlog_info("ECMP is disabled.");
-	rip_ecmp_disable();
+	rip_ecmp_disable(rip);
 	return CMD_SUCCESS;
 }
 
@@ -3431,15 +3708,17 @@ static const char *rip_route_type_print(int sub_type)
 
 DEFUN (show_ip_rip,
        show_ip_rip_cmd,
-       "show ip rip",
+       "show ip rip [vrf NAME]",
        SHOW_STR
        IP_STR
-       "Show RIP routes\n")
+       "Show RIP routes\n"
+       VRF_CMD_HELP_STR)
 {
 	struct route_node *np;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
+	struct rip *rip = rip_cmd_lookup_rip(vty, argv, argc, 0);
 
 	if (!rip)
 		return CMD_SUCCESS;
@@ -3532,15 +3811,9 @@ DEFUN (show_ip_rip,
 }
 
 /* Vincent: formerly, it was show_ip_protocols_rip: "show ip protocols" */
-DEFUN (show_ip_rip_status,
-       show_ip_rip_status_cmd,
-       "show ip rip status",
-       SHOW_STR
-       IP_STR
-       "Show RIP routes\n"
-       "IP routing protocol process parameters and statistics\n")
+static int show_ip_rip_status_command(struct vty *vty, struct rip *rip)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct interface *ifp;
 	struct rip_interface *ri;
 	extern const struct message ri_version_msg[];
@@ -3549,12 +3822,15 @@ DEFUN (show_ip_rip_status,
 
 	if (!rip)
 		return CMD_SUCCESS;
-
+	vrf =  vrf_lookup_by_id(rip->vrf_id);
 	vty_out(vty, "Routing Protocol is \"rip\"\n");
 	vty_out(vty, "  Sending updates every %ld seconds with +/-50%%,",
 		rip->update_time);
-	vty_out(vty, " next due in %lu seconds\n",
-		thread_timer_remain_second(rip->t_update));
+	if (rip->t_update)
+		vty_out(vty, " next due in %lu seconds\n",
+			thread_timer_remain_second(rip->t_update));
+	else
+		vty_out(vty, "\n");
 	vty_out(vty, "  Timeout after %ld seconds,", rip->timeout_time);
 	vty_out(vty, " garbage collect after %ld seconds\n", rip->garbage_time);
 
@@ -3634,9 +3910,25 @@ DEFUN (show_ip_rip_status,
 		"    Gateway          BadPackets BadRoutes  Distance Last Update\n");
 	rip_peer_display(vty);
 
-	rip_distance_show(vty);
+	rip_distance_show(vty, rip);
 
 	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_rip_status,
+       show_ip_rip_status_cmd,
+       "show ip rip [vrf NAME] status",
+       SHOW_STR
+       IP_STR
+       "Show RIP routes\n"
+       VRF_CMD_HELP_STR
+       "IP routing protocol process parameters and statistics\n")
+{
+	struct rip *rip = rip_cmd_lookup_rip(vty, argv, argc, 0);
+
+	if (!rip)
+		return CMD_SUCCESS;
+	return show_ip_rip_status_command(vty, rip);
 }
 
 /* RIP configuration write function. */
@@ -3645,10 +3937,15 @@ static int config_write_rip(struct vty *vty)
 	int write = 0;
 	struct route_node *rn;
 	struct rip_distance *rdistance;
+	struct rip *rip = rip_global;
 
 	if (rip) {
 		/* Router RIP statement. */
-		vty_out(vty, "router rip\n");
+		vty_out(vty, "router rip");
+		if (rip->vrf_id == VRF_DEFAULT)
+			vty_out(vty, "\n");
+		else if (rip->name)
+			vty_out(vty, " vrf %s\n", rip->name);
 		write++;
 
 		/* RIP version statement.  Default is RIP version 2. */
@@ -3729,18 +4026,14 @@ static int config_write_rip(struct vty *vty)
 static struct cmd_node rip_node = {RIP_NODE, "%s(config-router)# ", 1};
 
 /* Distribute-list update functions. */
-static void rip_distribute_update(struct distribute *dist)
+static void rip_distribute_update_ifp(struct distribute *dist,
+				      struct interface *ifp)
 {
-	struct interface *ifp;
 	struct rip_interface *ri;
 	struct access_list *alist;
 	struct prefix_list *plist;
 
 	if (!dist->ifname)
-		return;
-
-	ifp = if_lookup_by_name(dist->ifname, VRF_DEFAULT);
-	if (ifp == NULL)
 		return;
 
 	ri = ifp->info;
@@ -3786,25 +4079,45 @@ static void rip_distribute_update(struct distribute *dist)
 		ri->prefix[RIP_FILTER_OUT] = NULL;
 }
 
+static void rip_distribute_update(struct distribute *dist)
+{
+	struct interface *ifp;
+	struct vrf *vrf;
+
+	if (!dist->ifname)
+		return;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name(dist->ifname, vrf->vrf_id);
+		if (ifp)
+			rip_distribute_update_ifp(dist, ifp);
+	}
+}
+
 void rip_distribute_update_interface(struct interface *ifp)
 {
 	struct distribute *dist;
 
 	dist = distribute_lookup(ifp->name);
 	if (dist)
-		rip_distribute_update(dist);
+		rip_distribute_update_ifp(dist, ifp);
 }
 
 /* Update all interface's distribute list. */
 /* ARGSUSED */
-static void rip_distribute_update_all(struct prefix_list *notused)
+static void rip_distribute_update_all_vrf(struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_distribute_update_interface(ifp);
 }
+
+static void rip_distribute_update_all(struct prefix_list *notused)
+{
+	vrf_list_walk(rip_distribute_update_all_vrf);
+}
+
 /* ARGSUSED */
 static void rip_distribute_update_all_wrapper(struct access_list *notused)
 {
@@ -3812,23 +4125,31 @@ static void rip_distribute_update_all_wrapper(struct access_list *notused)
 }
 
 /* Delete all added rip route. */
-void rip_clean(void)
+void rip_clean(struct rip *rip, bool unregister)
 {
 	int i;
 	struct route_node *rp;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
+	vrf_id_t vrf_id = VRF_UNKNOWN;
+	struct rip_redist *red;
 
+	/* should not happen */
+	if (rip != rip_global)
+		return;
 	if (rip) {
-		QOBJ_UNREG(rip);
+		vrf_id = rip->vrf_id;
+		if (unregister)
+			QOBJ_UNREG(rip);
 
 		/* Clear RIP routes */
 		for (rp = route_top(rip->table); rp; rp = route_next(rp))
 			if ((list = rp->info) != NULL) {
 				rinfo = listgetdata(listhead(list));
 				if (rip_route_rte(rinfo))
-					rip_zebra_ipv4_delete(rp);
+					rip_zebra_ipv4_delete(rp,
+							      rinfo->vrf_id);
 
 				for (ALL_LIST_ELEMENTS_RO(list, listnode,
 							  rinfo)) {
@@ -3874,16 +4195,20 @@ void rip_clean(void)
 		if (rip->default_information_route_map)
 			free(rip->default_information_route_map);
 
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (rip->route_map[i].name)
-				free(rip->route_map[i].name);
-
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+			red = rip_redist_lookup(rip, i);
+			if (red && red->route_map.name)
+				rip_routemap_unset(red, red->route_map.name);
+			rip_redist_del(rip, i);
+		}
 		XFREE(MTYPE_ROUTE_TABLE, rip->table);
 		XFREE(MTYPE_ROUTE_TABLE, rip->route);
 		XFREE(MTYPE_ROUTE_TABLE, rip->neighbor);
 
-		XFREE(MTYPE_RIP, rip);
-		rip = NULL;
+		if (unregister) {
+			XFREE(MTYPE_RIP, rip);
+			rip_global = NULL;
+		}
 	}
 
 	rip_clean_network();
@@ -3891,7 +4216,7 @@ void rip_clean(void)
 	rip_offset_clean();
 	rip_interfaces_clean();
 	rip_distance_reset();
-	rip_redistribute_clean();
+	rip_redistribute_clean(vrf_id);
 }
 
 /* Reset all values to the default settings. */
@@ -3922,31 +4247,31 @@ static void rip_if_rmap_update(struct if_rmap *if_rmap)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
-	struct route_map *rmap;
+	struct route_map *rmap_in = NULL, *rmap_out = NULL;
+	struct vrf *vrf = NULL;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, VRF_DEFAULT);
-	if (ifp == NULL)
-		return;
+	if (if_rmap->routemap[IF_RMAP_IN])
+		rmap_in = route_map_lookup_by_name(
+				   if_rmap->routemap[IF_RMAP_IN]);
 
-	ri = ifp->info;
+	if (if_rmap->routemap[IF_RMAP_OUT])
+		rmap_out = route_map_lookup_by_name(
+				    if_rmap->routemap[IF_RMAP_OUT]);
 
-	if (if_rmap->routemap[IF_RMAP_IN]) {
-		rmap = route_map_lookup_by_name(if_rmap->routemap[IF_RMAP_IN]);
-		if (rmap)
-			ri->routemap[IF_RMAP_IN] = rmap;
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
+		if (ifp == NULL)
+			continue;
+		ri = ifp->info;
+		if (rmap_in)
+			ri->routemap[IF_RMAP_IN] = rmap_in;
 		else
 			ri->routemap[IF_RMAP_IN] = NULL;
-	} else
-		ri->routemap[RIP_FILTER_IN] = NULL;
-
-	if (if_rmap->routemap[IF_RMAP_OUT]) {
-		rmap = route_map_lookup_by_name(if_rmap->routemap[IF_RMAP_OUT]);
-		if (rmap)
-			ri->routemap[IF_RMAP_OUT] = rmap;
+		if (rmap_out)
+			ri->routemap[IF_RMAP_OUT] = rmap_out;
 		else
 			ri->routemap[IF_RMAP_OUT] = NULL;
-	} else
-		ri->routemap[RIP_FILTER_OUT] = NULL;
+	}
 }
 
 void rip_if_rmap_update_interface(struct interface *ifp)
@@ -3961,27 +4286,34 @@ void rip_if_rmap_update_interface(struct interface *ifp)
 static void rip_routemap_update_redistribute(void)
 {
 	int i;
+	struct rip *rip = rip_global;
+	struct rip_redist *red;
 
 	if (rip) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (rip->route_map[i].name)
-				rip->route_map[i].map =
+			red = rip_redist_lookup(rip, i);
+			if (red && red->route_map.name)
+				red->route_map.map =
 					route_map_lookup_by_name(
-						rip->route_map[i].name);
+						red->route_map.name);
 		}
 	}
 }
 
 /* ARGSUSED */
-static void rip_routemap_update(const char *notused)
+static void rip_routemap_update_vrf(struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_if_rmap_update_interface(ifp);
 
 	rip_routemap_update_redistribute();
+}
+
+static void rip_routemap_update(const char *notused)
+{
+	vrf_list_walk(rip_routemap_update_vrf);
 }
 
 /* Allocate new rip structure and set default value. */

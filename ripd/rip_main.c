@@ -45,7 +45,7 @@
 static struct option longopts[] = {{"retain", no_argument, NULL, 'r'}, {0}};
 
 /* ripd privileges */
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
 
 struct zebra_privs_t ripd_privs = {
 #if defined(FRR_USER)
@@ -70,7 +70,7 @@ static struct frr_daemon_info ripd_di;
 static void sighup(void)
 {
 	zlog_info("SIGHUP received");
-	rip_clean();
+	rip_clean(rip_global, true);
 	rip_reset();
 	zlog_info("ripd restarting!");
 
@@ -85,7 +85,7 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
-	rip_clean();
+	rip_clean(rip_global, true);
 
 	rip_zclient_stop();
 	frr_fini();
@@ -168,7 +168,7 @@ int main(int argc, char **argv)
 
 	/* Library initialization. */
 	keychain_init();
-	vrf_init(NULL, NULL, NULL, NULL);
+	rip_vrf_init();
 
 	/* RIP related initialization. */
 	rip_init();

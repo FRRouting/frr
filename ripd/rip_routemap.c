@@ -45,13 +45,17 @@ struct rip_metric_modifier {
 static void rip_route_map_update(const char *notused)
 {
 	int i;
+	struct rip_redist *red;
 
-	if (rip) {
+	if (rip_global) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (rip->route_map[i].name)
-				rip->route_map[i].map =
+			red = rip_redist_lookup(rip_global, i);
+			if (!red)
+				continue;
+			if (red->route_map.name)
+				red->route_map.map =
 					route_map_lookup_by_name(
-						rip->route_map[i].name);
+						 red->route_map.name);
 		}
 	}
 }
@@ -122,7 +126,9 @@ static route_map_result_t route_match_interface(void *rule,
 
 	if (type == RMAP_RIP) {
 		ifname = rule;
-		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+		if (!rip_global)
+			return RMAP_NOMATCH;
+		ifp = if_lookup_by_name(ifname, rip_global->vrf_id);
 
 		if (!ifp)
 			return RMAP_NOMATCH;

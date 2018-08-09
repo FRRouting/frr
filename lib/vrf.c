@@ -963,3 +963,11 @@ int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 	}
 	return ret;
 }
+
+void vrf_list_walk(void (*exec_for_each_vrf)(struct vrf *))
+{
+	struct vrf *vrf = NULL;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		exec_for_each_vrf(vrf);
+}
