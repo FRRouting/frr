@@ -196,9 +196,9 @@ def ltemplatePreRouterStartHook():
         for intf in intfs:
             cc.doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
         logger.info('setup {0} vrf {0}-cust2, {0}-eth5. enabled mpls input.'.format(rtr))
-    if cc.getOutput():
+    if cc.getOutput() != 3:
         InitSuccess = False
-        logger.info('VRF config failed ({}), tests will be skipped'.format(cc.getOutput()))
+        logger.info('Unexpected output seen ({} times, tests will be skipped'.format(cc.getOutput()))
     else:
         InitSuccess = True
         logger.info('VRF config successful!')
