@@ -74,6 +74,9 @@ class LTemplate():
         except AttributeError:
             #not defined
             logger.debug("ltemplatePreRouterStartHook() not defined")
+        if self.prestarthooksuccess != True:
+            logger.info('ltemplatePreRouterStartHook() failed, skipping test')
+            return
 
         # This is a sample of configuration loading.
         router_list = tgen.routers()
@@ -137,7 +140,7 @@ def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
 
-    if _lt != None and _lt.scriptdir != None:
+    if _lt != None and _lt.scriptdir != None and _lt.prestarthooksuccess == True:
         print(luFinish())
 
     # This function tears down the whole topology.
@@ -145,6 +148,10 @@ def teardown_module(mod):
     _lt = None
 
 def ltemplateTest(script, SkipIfFailed=True, CallOnFail=None, CheckFuncStr=None, KeepGoing=False):
+    global _lt
+    if _lt == None or _lt.prestarthooksuccess != True:
+        return
+
     tgen = get_topogen()
     if not os.path.isfile(script):
         if not os.path.isfile(os.path.join(_lt.scriptdir, script)):
