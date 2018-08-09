@@ -410,7 +410,7 @@ lib_grammar_sandbox_LDADD = \
 
 lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
-lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS)
+lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS) -lelf
 lib_clippy_LDFLAGS = -export-dynamic
 lib_clippy_SOURCES = \
 	lib/jhash.c \
@@ -420,9 +420,11 @@ lib_clippy_SOURCES = \
 	lib/command_parse.y \
 	lib/command_py.c \
 	lib/defun_lex.l \
+	lib/elf_py.c \
 	lib/graph.c \
 	lib/libfrr_trace.c \
 	lib/memory.c \
+	lib/typesafe.c \
 	lib/vector.c \
 	# end
 
