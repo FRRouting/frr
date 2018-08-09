@@ -99,6 +99,7 @@ lib_libfrr_la_SOURCES = \
 	lib/vty.c \
 	lib/wheel.c \
 	lib/workqueue.c \
+	lib/xref.c \
 	lib/yang.c \
 	lib/yang_translator.c \
 	lib/yang_wrappers.c \
@@ -257,6 +258,7 @@ pkginclude_HEADERS += \
 	lib/vxlan.h \
 	lib/wheel.h \
 	lib/workqueue.h \
+	lib/xref.h \
 	lib/yang.h \
 	lib/yang_translator.h \
 	lib/yang_wrappers.h \
@@ -399,6 +401,7 @@ lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
 lib_clippy_LDADD = $(PYTHON_LIBS)
 lib_clippy_LDFLAGS = -export-dynamic
 lib_clippy_SOURCES = \
+	lib/jhash.c \
 	lib/clippy.c \
 	lib/command_graph.c \
 	lib/command_lex.l \
