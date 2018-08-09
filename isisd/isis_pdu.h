@@ -127,6 +127,8 @@ struct isis_p2p_hello_hdr {
 
 #define L1_LINK_STATE        18
 #define L2_LINK_STATE        20
+#define FS_LINK_STATE        10
+#define L2_CIRCUIT_FLOODING_SCOPE 2
 struct isis_lsp_hdr {
 	uint16_t pdu_len;
 	uint16_t rem_lifetime;
