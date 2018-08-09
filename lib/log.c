@@ -197,21 +197,27 @@ static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
 }
 
 /* va_list version of zlog. */
-void vzlog(int priority, const char *format, va_list args)
+static void vzlog_ref(struct log_ref *lr, int priority, const char *format,
+		      va_list args)
 {
 	pthread_mutex_lock(&loglock);
 
-	char proto_str[32];
+	char proto_str[64], prefix[16] = "";
 	int original_errno = errno;
 	struct timestamp_control tsctl;
 	tsctl.already_rendered = 0;
 	struct zlog *zl = zlog_default;
+
+	if (lr)
+		lr->count++;
 
 	/* When zlog_default is also NULL, use stderr for logging. */
 	if (zl == NULL) {
 		tsctl.precision = 0;
 		time_print(stderr, &tsctl);
 		fprintf(stderr, "%s: ", "unknown");
+		if (lr)
+			fprintf(stderr, "[%s] ", lr->prefix);
 		vfprintf(stderr, format, args);
 		fprintf(stderr, "\n");
 		fflush(stderr);
@@ -231,10 +237,12 @@ void vzlog(int priority, const char *format, va_list args)
 		va_end(ac);
 	}
 
+	if (lr)
+		sprintf(prefix, " [%s]", lr->prefix);
 	if (zl->instance)
-		sprintf(proto_str, "%s[%d]: ", zl->protoname, zl->instance);
+		sprintf(proto_str, "%s[%d]%s: ", zl->protoname, zl->instance, prefix);
 	else
-		sprintf(proto_str, "%s: ", zl->protoname);
+		sprintf(proto_str, "%s%s: ", zl->protoname, prefix);
 
 	/* File output. */
 	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
@@ -260,6 +268,12 @@ void vzlog(int priority, const char *format, va_list args)
 
 	errno = original_errno;
 	pthread_mutex_unlock(&loglock);
+}
+
+/* va_list version of zlog. */
+void vzlog(int priority, const char *format, va_list args)
+{
+	vzlog_ref(NULL, priority, format, args);
 }
 
 int vzlog_test(int priority)
@@ -663,26 +677,14 @@ void zlog(int priority, const char *format, ...)
 	va_end(args);
 }
 
-#define ZLOG_FUNC(FUNCNAME, PRIORITY)                                          \
-	void FUNCNAME(const char *format, ...)                                 \
-	{                                                                      \
-		va_list args;                                                  \
-		va_start(args, format);                                        \
-		vzlog(PRIORITY, format, args);                                 \
-		va_end(args);                                                  \
-	}
+void zlog_ref(struct log_ref *ref, const char *format, ...)
+{
+	va_list args;
 
-ZLOG_FUNC(zlog_err, LOG_ERR)
-
-ZLOG_FUNC(zlog_warn, LOG_WARNING)
-
-ZLOG_FUNC(zlog_info, LOG_INFO)
-
-ZLOG_FUNC(zlog_notice, LOG_NOTICE)
-
-ZLOG_FUNC(zlog_debug, LOG_DEBUG)
-
-#undef ZLOG_FUNC
+	va_start(args, format);
+	vzlog_ref(ref, ref->priority, format, args);
+	va_end(args);
+}
 
 void zlog_thread_info(int log_level)
 {

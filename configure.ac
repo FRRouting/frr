@@ -297,6 +297,21 @@ AC_LINK_IFELSE(
 	])
 AC_LANG_POP(C)
 
+AC_MSG_CHECKING([whether linker supports __start/stop_section symbols])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdio.h>
+int __attribute__((section("secttest"))) var = 1;
+extern int __start_secttest, __stop_secttest;
+]], [[
+  void *a = &var, *b = &__start_secttest, *c = &__stop_secttest;
+  printf("%p %p %p\n", a, b, c);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_SECTION_SYMS, 1, [have __start/stop_section symbols])
+], [
+  AC_MSG_RESULT(no)
+])
+
 dnl ----------
 dnl Essentials
 dnl ----------

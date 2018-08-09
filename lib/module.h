@@ -86,7 +86,9 @@ extern union _frrmod_runtime_u _frrmod_this_module;
 	static const struct frrmod_info _frrmod_info = {__VA_ARGS__};          \
 	DSO_LOCAL union _frrmod_runtime_u _frrmod_this_module = {              \
 		.r.info = &_frrmod_info,                                       \
-	};
+	}; \
+	LOG_REF_INIT()
+
 #define FRR_MODULE_SETUP(...)                                                  \
 	FRR_COREMOD_SETUP(__VA_ARGS__)                                         \
 	DSO_SELF struct frrmod_runtime *frr_module = &_frrmod_this_module.r;
@@ -100,5 +102,11 @@ extern struct frrmod_runtime *frrmod_load(const char *spec, const char *dir,
 /* not implemented yet */
 extern void frrmod_unload(struct frrmod_runtime *module);
 #endif
+
+/* leave this here, it's intentionally placed after all the declarations to
+ * avoid a dependency loop.  It's only included to get the definition of
+ * LOG_REF_INIT().
+ */
+#include "ferr.h"
 
 #endif /* _FRR_MODULE_H */

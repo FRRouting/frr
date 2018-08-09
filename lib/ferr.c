@@ -22,10 +22,67 @@
 
 #include "ferr.h"
 #include "vty.h"
-#include "jhash.h"
+#include "sha256.h"
 #include "memory.h"
 
 DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information")
+
+struct log_ref_block *log_ref_blocks = NULL;
+struct log_ref_block **log_ref_block_last = &log_ref_blocks;
+
+static void base32(uint8_t **inpos, int *bitpos,
+		   char *out, size_t n_chars)
+{
+	static const char base32ch[] = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+	char *opos = out;
+	uint8_t *in = *inpos;
+	int bp = *bitpos;
+
+	while (opos < out + n_chars) {
+		uint32_t bits = in[0] | (in[1] << 8);
+		if (bp == -1) {
+			bits |= 0x10;
+		} else
+			bits >>= bp;
+
+		*opos++ = base32ch[bits & 0x1f];
+
+		bp += 5;
+		if (bp >= 8)
+			in++, bp -= 8;
+	}
+	*opos = '\0';
+	*inpos = in;
+	*bitpos = bp;
+}
+
+void log_ref_block_add(struct log_ref_block *block)
+{
+	struct log_ref * const *lrp;
+	SHA256_CTX sha;
+
+	*log_ref_block_last = block;
+	log_ref_block_last = &block->next;
+
+	for (lrp = block->start; lrp < block->stop; lrp++) {
+		struct log_ref *lr = *lrp;
+		uint8_t hash[32], *h = hash;
+		int bitpos = -1;
+
+		if (!lr)
+			continue;
+
+		SHA256_Init(&sha);
+		SHA256_Update(&sha, lr->file, strlen(lr->file));
+		SHA256_Update(&sha, lr->fmtstring, strlen(lr->fmtstring));
+		SHA256_Final(hash, &sha);
+
+		base32(&h, &bitpos, &lr->prefix[0], 5);
+		lr->prefix[5] = '-';
+		base32(&h, &bitpos, &lr->prefix[6], 5);
+	}
+}
 
 /*
  * Thread-specific key for temporary storage of allocated ferr.

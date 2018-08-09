@@ -27,6 +27,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "ferr.h"
+
 /* Here is some guidance on logging levels to use:
  *
  * LOG_DEBUG	- For all messages that are enabled by optional debugging
@@ -78,12 +80,28 @@ extern void closezlog(void);
 #define PRINTF_ATTRIBUTE(a,b)
 #endif /* __GNUC__ */
 
-/* Handy zlog functions. */
-extern void zlog_err(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_warn(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_info(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_notice(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_debug(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_ref(struct log_ref *ref, const char *format, ...)
+	PRINTF_ATTRIBUTE(2, 3);
+
+#define _zlog_makeref(prio, msg) \
+		static struct log_ref log_ref __attribute__((used, \
+					section(".data.logrefs"))) = { \
+			.file = __FILE__, .line = __LINE__, .func = __func__, \
+			.fmtstring = msg, .priority = prio, \
+		}; \
+		static struct log_ref * const log_ref_p __attribute__((used, \
+					section("logref_array"))) = &log_ref
+
+#define _zlog_ref(prio, msg, ...) do { \
+		_zlog_makeref(prio, msg); \
+		zlog_ref(&log_ref, msg, ## __VA_ARGS__); \
+	} while (0)
+
+#define zlog_err(msg, ...)    _zlog_ref(LOG_ERR,     msg, ## __VA_ARGS__)
+#define zlog_warn(msg, ...)   _zlog_ref(LOG_WARNING, msg, ## __VA_ARGS__)
+#define zlog_info(msg, ...)   _zlog_ref(LOG_INFO,    msg, ## __VA_ARGS__)
+#define zlog_notice(msg, ...) _zlog_ref(LOG_NOTICE,  msg, ## __VA_ARGS__)
+#define zlog_debug(msg, ...)  _zlog_ref(LOG_DEBUG,   msg, ## __VA_ARGS__)
 
 extern void zlog_thread_info(int log_level);
 
