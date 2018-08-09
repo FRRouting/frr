@@ -18,44 +18,44 @@ static void setup_test_vertices(void)
 {
 	struct isis_spftree t = {
 	};
-	union isis_N nid, nip = {
-		.ip.dest.family = AF_UNSPEC
+	struct prefix_pair p = {
 	};
+	uint8_t node_id[7];
 
 	vertices = XMALLOC(MTYPE_TMP, sizeof(*vertices) * 16);
 
-	nip.ip.dest.family = AF_INET;
-	nip.ip.dest.prefixlen = 24;
-	inet_pton(AF_INET, "192.168.1.0", &nip.ip.dest.u.prefix4);
-	vertices[vertex_count] = isis_vertex_new(&t, &nip, VTYPE_IPREACH_TE);
+	p.dest.family = AF_INET;
+	p.dest.prefixlen = 24;
+	inet_pton(AF_INET, "192.168.1.0", &p.dest.u.prefix4);
+	vertices[vertex_count] = isis_vertex_new(&t, &p, VTYPE_IPREACH_TE);
 	vertices[vertex_count]->d_N = 20;
 	vertex_count++;
 
-	nip.ip.dest.family = AF_INET;
-	nip.ip.dest.prefixlen = 24;
-	inet_pton(AF_INET, "192.168.2.0", &nip.ip.dest.u.prefix4);
-	vertices[vertex_count] = isis_vertex_new(&t, &nip, VTYPE_IPREACH_TE);
+	p.dest.family = AF_INET;
+	p.dest.prefixlen = 24;
+	inet_pton(AF_INET, "192.168.2.0", &p.dest.u.prefix4);
+	vertices[vertex_count] = isis_vertex_new(&t, &p, VTYPE_IPREACH_TE);
 	vertices[vertex_count]->d_N = 20;
 	vertex_count++;
 
-	memset(nid.id, 0, sizeof(nid.id));
-	nid.id[6] = 1;
-	vertices[vertex_count] = isis_vertex_new(&t, &nid,
+	memset(node_id, 0, sizeof(node_id));
+	node_id[6] = 1;
+	vertices[vertex_count] = isis_vertex_new(&t, node_id,
 						 VTYPE_PSEUDO_TE_IS);
 	vertices[vertex_count]->d_N = 15;
 	vertex_count++;
 
-	memset(nid.id, 0, sizeof(nid.id));
-	nid.id[5] = 2;
-	vertices[vertex_count] = isis_vertex_new(&t, &nid,
+	memset(node_id, 0, sizeof(node_id));
+	node_id[5] = 2;
+	vertices[vertex_count] = isis_vertex_new(&t, node_id,
 						 VTYPE_NONPSEUDO_TE_IS);
 	vertices[vertex_count]->d_N = 15;
 	vertex_count++;
 
-	nip.ip.dest.family = AF_INET;
-	nip.ip.dest.prefixlen = 24;
-	inet_pton(AF_INET, "192.168.3.0", &nip.ip.dest.u.prefix4);
-	vertices[vertex_count] = isis_vertex_new(&t, &nip, VTYPE_IPREACH_TE);
+	p.dest.family = AF_INET;
+	p.dest.prefixlen = 24;
+	inet_pton(AF_INET, "192.168.3.0", &p.dest.u.prefix4);
+	vertices[vertex_count] = isis_vertex_new(&t, &p, VTYPE_IPREACH_TE);
 	vertices[vertex_count]->d_N = 20;
 	vertex_count++;
 };

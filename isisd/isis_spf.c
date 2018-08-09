@@ -179,14 +179,14 @@ const char *vid2string(struct isis_vertex *vertex, char *buff, int size)
 }
 
 static struct isis_vertex *isis_vertex_new(struct isis_spftree *spftree,
-					   union isis_N *n,
+					   void *id,
 					   enum vertextype vtype)
 {
 	struct isis_vertex *vertex;
 
 	vertex = XCALLOC(MTYPE_ISIS_VERTEX, sizeof(struct isis_vertex));
 
-	isis_vertex_id_init(vertex, n, vtype);
+	isis_vertex_id_init(vertex, id, vtype);
 
 	vertex->Adj_N = list_new();
 	vertex->parents = list_new();
@@ -330,17 +330,13 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 #ifdef EXTREME_DEBUG
 	char buff[VID2STR_BUFFER];
 #endif /* EXTREME_DEBUG */
-	union isis_N n;
-
-	memcpy(n.id, sysid, ISIS_SYS_ID_LEN);
-	LSP_PSEUDO_ID(n.id) = 0;
 
 	lsp = isis_root_system_lsp(spftree->area, spftree->level, sysid);
 	if (lsp == NULL)
 		zlog_warn("ISIS-Spf: could not find own l%d LSP!",
 			  spftree->level);
 
-	vertex = isis_vertex_new(spftree, &n,
+	vertex = isis_vertex_new(spftree, sysid,
 				 spftree->area->oldmetric
 					 ? VTYPE_NONPSEUDO_IS
 					 : VTYPE_NONPSEUDO_TE_IS);

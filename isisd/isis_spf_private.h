@@ -53,13 +53,12 @@ struct prefix_pair {
 /*
  * Triple <N, d(N), {Adj(N)}>
  */
-union isis_N {
-	uint8_t id[ISIS_SYS_ID_LEN + 1];
-	struct prefix_pair ip;
-};
 struct isis_vertex {
 	enum vertextype type;
-	union isis_N N;
+	union {
+		uint8_t id[ISIS_SYS_ID_LEN + 1];
+		struct prefix_pair ip;
+	} N;
 	uint32_t d_N;	  /* d(N) Distance from this IS      */
 	uint16_t depth;	/* The depth in the imaginary tree */
 	struct list *Adj_N;    /* {Adj(N)} next hop or neighbor list */
@@ -309,15 +308,15 @@ struct isis_spftree {
 };
 
 __attribute__((__unused__))
-static void isis_vertex_id_init(struct isis_vertex *vertex, const union isis_N *n,
+static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,
 				enum vertextype vtype)
 {
 	vertex->type = vtype;
 
 	if (VTYPE_IS(vtype) || VTYPE_ES(vtype)) {
-		memcpy(vertex->N.id, n->id, ISIS_SYS_ID_LEN + 1);
+		memcpy(vertex->N.id, id, ISIS_SYS_ID_LEN + 1);
 	} else if (VTYPE_IP(vtype)) {
-		memcpy(&vertex->N.ip, &n->ip, sizeof(n->ip));
+		memcpy(&vertex->N.ip, id, sizeof(vertex->N.ip));
 	} else {
 		flog_err(LIB_ERR_DEVELOPMENT, "Unknown Vertex Type");
 	}
@@ -325,12 +324,12 @@ static void isis_vertex_id_init(struct isis_vertex *vertex, const union isis_N *
 
 __attribute__((__unused__))
 static struct isis_vertex *isis_find_vertex(struct isis_vertex_queue *queue,
-					    union isis_N *n,
+					    const void *id,
 					    enum vertextype vtype)
 {
 	struct isis_vertex querier;
 
-	isis_vertex_id_init(&querier, n, vtype);
+	isis_vertex_id_init(&querier, id, vtype);
 	return hash_lookup(queue->hash, &querier);
 }
 
