@@ -37,6 +37,7 @@
 #define PIM_UPSTREAM_FLAG_MASK_SRC_MSDP                (1 << 6)
 #define PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE       (1 << 7)
 #define PIM_UPSTREAM_FLAG_MASK_SRC_LHR                 (1 << 8)
+#define PIM_UPSTREAM_FLAG_DEL                          (1 << 9)
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)

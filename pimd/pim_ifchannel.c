@@ -174,8 +174,11 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	   ifchannel list is empty before deleting upstream_del
 	   ref count will take care of it.
 	*/
-	pim_upstream_del(pim_ifp->pim, ch->upstream, __PRETTY_FUNCTION__);
-	ch->upstream = NULL;
+
+        if (!(ch->upstream->flags & PIM_UPSTREAM_FLAG_DEL)) {
+	        pim_upstream_del(pim_ifp->pim, ch->upstream, __PRETTY_FUNCTION__);
+	        ch->upstream = NULL;
+        }
 
 	THREAD_OFF(ch->t_ifjoin_expiry_timer);
 	THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
