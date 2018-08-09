@@ -267,7 +267,7 @@ static uint32_t query_arrival_time(void)
 	struct timeval tv;
 	uint32_t qat;
 
-	char m_qat[] = "Query arrival time lookup failed: errno=%d: %s";
+	static char m_qat[] = "Query arrival time lookup failed: errno=%d: %s";
 
 	if (gettimeofday(&tv, NULL) < 0) {
 		if (PIM_DEBUG_MTRACE)

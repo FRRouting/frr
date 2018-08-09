@@ -27,6 +27,42 @@
 
 DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information")
 
+struct log_ref_block *log_ref_blocks = NULL;
+struct log_ref_block **log_ref_block_last = &log_ref_blocks;
+
+void log_ref_block_add(struct log_ref_block *block)
+{
+	struct log_ref * const *lrp;
+	static const char _lrid[] = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+	*log_ref_block_last = block;
+	log_ref_block_last = &block->next;
+
+	for (lrp = block->start; lrp < block->stop; lrp++) {
+		struct log_ref *lr = *lrp;
+		char *p;
+		uint32_t id;
+
+		if (!lr)
+			continue;
+
+		id = jhash(lr->fmtstring, strlen(lr->fmtstring),
+			 jhash(lr->file, strlen(lr->file), 0xd4ed0298));
+		lr->unique_id = id;
+
+		p = lr->prefix + 8;
+		*--p = '\0';
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[(id & 0x3) | 0x10 |
+			((__builtin_popcount(lr->unique_id) << 2) & 0x0c)];
+	}
+}
+
 /*
  * Thread-specific key for temporary storage of allocated ferr.
  */

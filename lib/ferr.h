@@ -22,8 +22,57 @@
  ***********************************************************/
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <limits.h>
 #include <errno.h>
+#include "module.h"
+
+struct log_ref {
+	/* message core properties */
+	const char *fmtstring;
+	int priority;
+
+	/* code location */
+	int line;
+	const char *file;
+	const char *func;
+
+	size_t count;
+
+	uint32_t unique_id;
+	/* base32(crockford) of unique ID */
+	char prefix[8];
+};
+
+struct log_ref_block {
+	struct log_ref_block *next;
+	struct log_ref * const * start;
+	struct log_ref * const * stop;
+};
+
+extern struct log_ref_block *log_ref_blocks, **log_ref_block_last;
+extern void log_ref_block_add(struct log_ref_block *block);
+
+extern struct log_ref * const __start_logref_array DSO_LOCAL;
+extern struct log_ref * const __stop_logref_array DSO_LOCAL;
+
+#define LOG_REF_INIT() \
+	static struct log_ref _dummy_log_ref \
+				__attribute((section(".data.logrefs"))) = { \
+			.file = __FILE__, .line = __LINE__, .func = "dummy", \
+			.fmtstring = "dummy", .category = &_lc_ROOT, \
+	} ; \
+	static struct log_ref * const _dummy_log_ref_p __attribute__((used, \
+				section("logref_array"))) = &_dummy_log_ref; \
+	static void __attribute__((used, _CONSTRUCTOR(1100))) \
+			_log_ref_init(void) { \
+		static struct log_ref_block _log_ref_block = { \
+			.start = &__start_logref_array, \
+			.stop = &__stop_logref_array, \
+		}; \
+		log_ref_block_add(&_log_ref_block); \
+	}
+
 
 /* return type when this error indication stuff is used.
  *
@@ -150,7 +199,8 @@ ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
 	ferr_set_internal_ext(__FILE__, __LINE__, __func__, FERR_SYSTEM, path, \
 			      errno, __VA_ARGS__)
 
-#include "vty.h"
+struct vty;
+
 /* print error message to vty;  $ERR is replaced by the error's message */
 void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...);
 
