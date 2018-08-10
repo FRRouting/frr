@@ -916,11 +916,11 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
 		 int startup)
 {
-	int status;
+	int status = 0;
 	struct sockaddr_nl snl;
 	struct iovec iov;
 	struct msghdr msg;
-	int save_errno;
+	int save_errno = 0;
 
 	memset(&snl, 0, sizeof snl);
 	memset(&iov, 0, sizeof iov);
