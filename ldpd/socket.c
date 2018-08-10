@@ -262,17 +262,13 @@ int
 sock_set_bindany(int fd, int enable)
 {
 #ifdef HAVE_SO_BINDANY
-	if (ldpd_privs.change(ZPRIVS_RAISE))
-		log_warn("%s: could not raise privs", __func__);
-	if (setsockopt(fd, SOL_SOCKET, SO_BINDANY, &enable,
-	    sizeof(int)) < 0) {
-		if (ldpd_privs.change(ZPRIVS_LOWER))
-			log_warn("%s: could not lower privs", __func__);
-		log_warn("%s: error setting SO_BINDANY", __func__);
-		return (-1);
+	frr_elevate_privs(&ldpd_privs) {
+		if (setsockopt(fd, SOL_SOCKET, SO_BINDANY, &enable,
+			       sizeof(int)) < 0) {
+			log_warn("%s: error setting SO_BINDANY", __func__);
+			return (-1);
+		}
 	}
-	if (ldpd_privs.change(ZPRIVS_LOWER))
-		log_warn("%s: could not lower privs", __func__);
 	return (0);
 #elif defined(HAVE_IP_FREEBIND)
 	if (setsockopt(fd, IPPROTO_IP, IP_FREEBIND, &enable, sizeof(int)) < 0) {

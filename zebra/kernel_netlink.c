@@ -168,12 +168,11 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 	}
 
 	/* Try force option (linux >= 2.6.14) and fall back to normal set */
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("routing_socket: Can't raise privileges");
-	ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUFFORCE, &nl_rcvbufsize,
-			 sizeof(nl_rcvbufsize));
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("routing_socket: Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUFFORCE,
+				 &nl_rcvbufsize,
+				 sizeof(nl_rcvbufsize));
+	}
 	if (ret < 0)
 		ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF,
 				 &nl_rcvbufsize, sizeof(nl_rcvbufsize));
@@ -936,12 +935,10 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			n->nlmsg_flags);
 
 	/* Send message to netlink interface. */
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-	status = sendmsg(nl->sock, &msg, 0);
-	save_errno = errno;
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		status = sendmsg(nl->sock, &msg, 0);
+		save_errno = errno;
+	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
 		zlog_debug("%s: >> netlink message dump [sent]", __func__);

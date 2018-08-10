@@ -373,20 +373,19 @@ static int get_iflink_speed(struct interface *interface)
 	ifdata.ifr_data = (caddr_t)&ecmd;
 
 	/* use ioctl to get IP address of an interface */
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP, interface->vrf_id,
-			NULL);
-	if (sd < 0) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Failure to read interface %s speed: %d %s",
-				   ifname, errno, safe_strerror(errno));
-		return 0;
-	}
+	frr_elevate_privs(&zserv_privs) {
+		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
+				interface->vrf_id,
+				NULL);
+		if (sd < 0) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("Failure to read interface %s speed: %d %s",
+					   ifname, errno, safe_strerror(errno));
+			return 0;
+		}
 	/* Get the current link state for the interface */
-	rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL, (char *)&ifdata);
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL, (char *)&ifdata);
+	}
 	if (rc < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(

@@ -124,18 +124,14 @@ static int ripng_make_socket(void)
 #endif /* SIN6_LEN */
 	ripaddr.sin6_port = htons(RIPNG_PORT_DEFAULT);
 
-	if (ripngd_privs.change(ZPRIVS_RAISE))
-		zlog_err("ripng_make_socket: could not raise privs");
+	frr_elevate_privs(&ripngd_privs) {
 
-	ret = bind(sock, (struct sockaddr *)&ripaddr, sizeof(ripaddr));
-	if (ret < 0) {
-		zlog_err("Can't bind ripng socket: %s.", safe_strerror(errno));
-		if (ripngd_privs.change(ZPRIVS_LOWER))
-			zlog_err("ripng_make_socket: could not lower privs");
-		goto error;
+		ret = bind(sock, (struct sockaddr *)&ripaddr, sizeof(ripaddr));
+		if (ret < 0) {
+			zlog_err("Can't bind ripng socket: %s.", safe_strerror(errno));
+			goto error;
+		}
 	}
-	if (ripngd_privs.change(ZPRIVS_LOWER))
-		zlog_err("ripng_make_socket: could not lower privs");
 	return sock;
 
 error:
