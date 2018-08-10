@@ -212,9 +212,9 @@ int zclient_socket_connect(struct zclient *zclient)
 
 	set_cloexec(sock);
 
-	zclient->privs->change(ZPRIVS_RAISE);
-	setsockopt_so_sendbuf(sock, 1048576);
-	zclient->privs->change(ZPRIVS_LOWER);
+	frr_elevate_privs(zclient->privs) {
+		setsockopt_so_sendbuf(sock, 1048576);
+	}
 
 	/* Connect to zebra. */
 	ret = connect(sock, (struct sockaddr *)&zclient_addr, zclient_addr_len);

@@ -95,15 +95,9 @@ static int bgp_md5_set_connect(int socket, union sockunion *su,
 	int ret = -1;
 
 #if HAVE_DECL_TCP_MD5SIG
-	if (bgpd_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("%s: could not raise privs", __func__);
-		return ret;
+	frr_elevate_privs(&bgpd_privs) {
+		ret = bgp_md5_set_socket(socket, su, password);
 	}
-
-	ret = bgp_md5_set_socket(socket, su, password);
-
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs", __func__);
 #endif /* HAVE_TCP_MD5SIG */
 
 	return ret;
@@ -115,25 +109,18 @@ static int bgp_md5_set_password(struct peer *peer, const char *password)
 	int ret = 0;
 	struct bgp_listener *listener;
 
-	if (bgpd_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("%s: could not raise privs", __func__);
-		return -1;
-	}
-
+	frr_elevate_privs(&bgpd_privs) {
 	/* Set or unset the password on the listen socket(s). Outbound
-	 * connections
-	 * are taken care of in bgp_connect() below.
+	 * connections are taken care of in bgp_connect() below.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
-		if (listener->su.sa.sa_family == peer->su.sa.sa_family) {
-			ret = bgp_md5_set_socket(listener->fd, &peer->su,
-						 password);
-			break;
-		}
-
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs", __func__);
-
+		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
+			if (listener->su.sa.sa_family
+			    == peer->su.sa.sa_family) {
+				ret = bgp_md5_set_socket(listener->fd,
+							 &peer->su, password);
+				break;
+			}
+	}
 	return ret;
 }
 

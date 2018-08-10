@@ -202,33 +202,26 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	struct sockaddr_nl snl;
 	int sock;
 	int namelen;
-	int save_errno;
 
-	if (zserv_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("Can't raise privileges");
-		return -1;
+	frr_elevate_privs(&zserv_privs) {
+		sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
+		if (sock < 0) {
+			zlog_err("Can't open %s socket: %s", nl->name,
+				 safe_strerror(errno));
+			return -1;
+		}
+
+		memset(&snl, 0, sizeof snl);
+		snl.nl_family = AF_NETLINK;
+		snl.nl_groups = groups;
+
+		/* Bind the socket to the netlink structure for anything. */
+		ret = bind(sock, (struct sockaddr *)&snl, sizeof snl);
 	}
-
-	sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
-	if (sock < 0) {
-		zlog_err("Can't open %s socket: %s", nl->name,
-			 safe_strerror(errno));
-		return -1;
-	}
-
-	memset(&snl, 0, sizeof snl);
-	snl.nl_family = AF_NETLINK;
-	snl.nl_groups = groups;
-
-	/* Bind the socket to the netlink structure for anything. */
-	ret = bind(sock, (struct sockaddr *)&snl, sizeof snl);
-	save_errno = errno;
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
 
 	if (ret < 0) {
 		zlog_err("Can't bind %s socket to group 0x%x: %s", nl->name,
-			 snl.nl_groups, safe_strerror(save_errno));
+			 snl.nl_groups, safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
@@ -334,15 +327,15 @@ static void netlink_write_incoming(const char *buf, const unsigned int size,
 	char fname[MAXPATHLEN];
 	FILE *f;
 
-	zserv_privs.change(ZPRIVS_RAISE);
 	snprintf(fname, MAXPATHLEN, "%s/%s_%u", DAEMON_VTY_DIR, "netlink",
 		 counter);
-	f = fopen(fname, "w");
+	frr_elevate_privs(&zserv_privs) {
+		f = fopen(fname, "w");
+	}
 	if (f) {
 		fwrite(buf, 1, size, f);
 		fclose(f);
 	}
-	zserv_privs.change(ZPRIVS_LOWER);
 }
 
 /**
@@ -357,8 +350,9 @@ static long netlink_read_file(char *buf, const char *fname)
 	FILE *f;
 	long file_bytes = -1;
 
-	zserv_privs.change(ZPRIVS_RAISE);
-	f = fopen(fname, "r");
+	frr_elevate_privs(&zserv_privs) {
+		f = fopen(fname, "r");
+	}
 	if (f) {
 		fseek(f, 0, SEEK_END);
 		file_bytes = ftell(f);
@@ -366,7 +360,6 @@ static long netlink_read_file(char *buf, const char *fname)
 		fread(buf, NL_RCV_PKT_BUF_SIZE, 1, f);
 		fclose(f);
 	}
-	zserv_privs.change(ZPRIVS_LOWER);
 	return file_bytes;
 }
 
@@ -966,7 +959,6 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 {
 	int ret;
 	struct sockaddr_nl snl;
-	int save_errno;
 
 	/* Check netlink socket. */
 	if (nl->sock < 0) {
@@ -983,21 +975,14 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 	snl.nl_family = AF_NETLINK;
 
 	/* Raise capabilities and send message, then lower capabilities. */
-	if (zserv_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("Can't raise privileges");
-		return -1;
+	frr_elevate_privs(&zserv_privs) {
+		ret = sendto(nl->sock, (void *)n, n->nlmsg_len, 0,
+			     (struct sockaddr *)&snl, sizeof snl);
 	}
-
-	ret = sendto(nl->sock, (void *)n, n->nlmsg_len, 0,
-		     (struct sockaddr *)&snl, sizeof snl);
-	save_errno = errno;
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
 
 	if (ret < 0) {
 		zlog_err("%s sendto failed: %s", nl->name,
-			 safe_strerror(save_errno));
+			 safe_strerror(errno));
 		return -1;
 	}
 

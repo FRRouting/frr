@@ -185,66 +185,51 @@ int ospf_sock_init(struct ospf *ospf)
 		/* silently return since VRF is not ready */
 		return -1;
 	}
-	if (ospfd_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("ospf_sock_init: could not raise privs, %s",
-			 safe_strerror(errno));
-	}
-
-	ospf_sock = vrf_socket(AF_INET, SOCK_RAW, IPPROTO_OSPFIGP, ospf->vrf_id,
-			       ospf->name);
-	if (ospf_sock < 0) {
-		int save_errno = errno;
-
-		if (ospfd_privs.change(ZPRIVS_LOWER))
-			zlog_err("ospf_sock_init: could not lower privs, %s",
+	frr_elevate_privs(&ospfd_privs) {
+		ospf_sock = vrf_socket(AF_INET, SOCK_RAW, IPPROTO_OSPFIGP,
+				       ospf->vrf_id, ospf->name);
+		if (ospf_sock < 0) {
+			zlog_err("ospf_read_sock_init: socket: %s",
 				 safe_strerror(errno));
-		zlog_err("ospf_read_sock_init: socket: %s",
-			 safe_strerror(save_errno));
-		exit(1);
-	}
+			exit(1);
+		}
 
 #ifdef IP_HDRINCL
-	/* we will include IP header with packet */
-	ret = setsockopt(ospf_sock, IPPROTO_IP, IP_HDRINCL, &hincl,
-			 sizeof(hincl));
-	if (ret < 0) {
-		int save_errno = errno;
-
-		zlog_warn("Can't set IP_HDRINCL option for fd %d: %s",
-			  ospf_sock, safe_strerror(save_errno));
-		close(ospf_sock);
-		goto out;
-	}
+		/* we will include IP header with packet */
+		ret = setsockopt(ospf_sock, IPPROTO_IP, IP_HDRINCL, &hincl,
+				 sizeof(hincl));
+		if (ret < 0) {
+			zlog_warn("Can't set IP_HDRINCL option for fd %d: %s",
+				  ospf_sock, safe_strerror(errno));
+			close(ospf_sock);
+			break;
+		}
 #elif defined(IPTOS_PREC_INTERNETCONTROL)
 #warning "IP_HDRINCL not available on this system"
 #warning "using IPTOS_PREC_INTERNETCONTROL"
-	ret = setsockopt_ipv4_tos(ospf_sock, IPTOS_PREC_INTERNETCONTROL);
-	if (ret < 0) {
-		int save_errno = errno;
-
-		zlog_warn("can't set sockopt IP_TOS %d to socket %d: %s", tos,
-			  ospf_sock, safe_strerror(save_errno));
-		close(ospf_sock); /* Prevent sd leak. */
-		goto out;
-	}
+		ret = setsockopt_ipv4_tos(ospf_sock,
+					  IPTOS_PREC_INTERNETCONTROL);
+		if (ret < 0) {
+			zlog_warn("can't set sockopt IP_TOS %d to socket %d: %s",
+				  tos, ospf_sock, safe_strerror(errno));
+			close(ospf_sock); /* Prevent sd leak. */
+			break;
+		}
 #else /* !IPTOS_PREC_INTERNETCONTROL */
 #warning "IP_HDRINCL not available, nor is IPTOS_PREC_INTERNETCONTROL"
-	zlog_warn("IP_HDRINCL option not available");
+		zlog_warn("IP_HDRINCL option not available");
 #endif /* IP_HDRINCL */
 
-	ret = setsockopt_ifindex(AF_INET, ospf_sock, 1);
+		ret = setsockopt_ifindex(AF_INET, ospf_sock, 1);
 
-	if (ret < 0)
-		zlog_warn("Can't set pktinfo option for fd %d", ospf_sock);
+		if (ret < 0)
+			zlog_warn("Can't set pktinfo option for fd %d",
+				  ospf_sock);
 
-	setsockopt_so_sendbuf(ospf_sock, bufsize);
-	setsockopt_so_recvbuf(ospf_sock, bufsize);
+		setsockopt_so_sendbuf(ospf_sock, bufsize);
+		setsockopt_so_recvbuf(ospf_sock, bufsize);
+	}
 
 	ospf->fd = ospf_sock;
-out:
-	if (ospfd_privs.change(ZPRIVS_LOWER)) {
-		zlog_err("ospf_sock_init: could not lower privs, %s",
-			 safe_strerror(errno));
-	}
 	return ret;
 }

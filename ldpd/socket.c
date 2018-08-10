@@ -41,7 +41,6 @@ ldp_create_socket(int af, enum socket_type type)
 #ifdef __OpenBSD__
 	int			 opt;
 #endif
-	int			 save_errno;
 
 	/* create socket */
 	switch (type) {
@@ -80,25 +79,18 @@ ldp_create_socket(int af, enum socket_type type)
 		sock_set_bindany(fd, 1);
 		break;
 	}
-	if (ldpd_privs.change(ZPRIVS_RAISE))
-		log_warn("%s: could not raise privs", __func__);
-	if (sock_set_reuse(fd, 1) == -1) {
-		if (ldpd_privs.change(ZPRIVS_LOWER))
-			log_warn("%s: could not lower privs", __func__);
-		close(fd);
-		return (-1);
+	frr_elevate_privs(&ldpd_privs) {
+		if (sock_set_reuse(fd, 1) == -1) {
+			close(fd);
+			return (-1);
+		}
+		if (bind(fd, &local_su.sa, sockaddr_len(&local_su.sa)) == -1) {
+			log_warnx("%s: error binding socket: %s", __func__,
+			    safe_strerror(errno));
+			close(fd);
+			return (-1);
+		}
 	}
-	if (bind(fd, &local_su.sa, sockaddr_len(&local_su.sa)) == -1) {
-		save_errno = errno;
-		if (ldpd_privs.change(ZPRIVS_LOWER))
-			log_warn("%s: could not lower privs", __func__);
-		log_warnx("%s: error binding socket: %s", __func__,
-		    safe_strerror(save_errno));
-		close(fd);
-		return (-1);
-	}
-	if (ldpd_privs.change(ZPRIVS_LOWER))
-		log_warn("%s: could not lower privs", __func__);
 
 	/* set options */
 	switch (af) {
@@ -302,14 +294,10 @@ sock_set_md5sig(int fd, int af, union ldpd_addr *addr, const char *password)
 #if HAVE_DECL_TCP_MD5SIG
 	addr2sa(af, addr, 0, &su);
 
-	if (ldpe_privs.change(ZPRIVS_RAISE)) {
-		log_warn("%s: could not raise privs", __func__);
-		return (-1);
+	frr_elevate_privs(&ldpe_privs) {
+		ret = sockopt_tcp_signature(fd, &su, password);
+		save_errno = errno;
 	}
-	ret = sockopt_tcp_signature(fd, &su, password);
-	save_errno = errno;
-	if (ldpe_privs.change(ZPRIVS_LOWER))
-		log_warn("%s: could not lower privs", __func__);
 #endif /* HAVE_TCP_MD5SIG */
 	if (ret < 0)
 		log_warnx("%s: can't set TCP_MD5SIG option on fd %d: %s",

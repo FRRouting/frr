@@ -1382,15 +1382,11 @@ static int kernel_read(struct thread *thread)
 /* Make routing socket. */
 static void routing_socket(struct zebra_ns *zns)
 {
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("routing_socket: Can't raise privileges");
-
-	routing_sock =
-		ns_socket(AF_ROUTE, SOCK_RAW, 0, zns->ns_id);
+	frr_elevate_privs(&zserv_privs) {
+		routing_sock = ns_socket(AF_ROUTE, SOCK_RAW, 0, zns->ns_id);
+	}
 
 	if (routing_sock < 0) {
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("routing_socket: Can't lower privileges");
 		zlog_warn("Can't init kernel routing socket");
 		return;
 	}
@@ -1401,9 +1397,6 @@ static void routing_socket(struct zebra_ns *zns)
 	 */
 	/*if (fcntl (routing_sock, F_SETFL, O_NONBLOCK) < 0)
 	  zlog_warn ("Can't set O_NONBLOCK to routing socket");*/
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("routing_socket: Can't lower privileges");
 
 	/* kernel_read needs rewrite. */
 	thread_add_read(zebrad.master, kernel_read, NULL, routing_sock, NULL);
