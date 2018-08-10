@@ -176,19 +176,9 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 		}
 	}
 
-	if (pimd_privs.change(ZPRIVS_RAISE)) {
-		flog_err(LIB_ERR_PRIVILEGES,
-			  "pim_msdp_socket: could not raise privs, %s",
-			  safe_strerror(errno));
-	}
-
-	/* bind to well known TCP port */
-	rc = bind(sock, (struct sockaddr *)&sin, socklen);
-
-	if (pimd_privs.change(ZPRIVS_LOWER)) {
-		flog_err(LIB_ERR_PRIVILEGES,
-			  "pim_msdp_socket: could not lower privs, %s",
-			  safe_strerror(errno));
+	frr_elevate_privs(&pimd_privs) {
+		/* bind to well known TCP port */
+		rc = bind(sock, (struct sockaddr *)&sin, socklen);
 	}
 
 	if (rc < 0) {

@@ -2088,25 +2088,18 @@ static int ospf_vrf_enable(struct vrf *vrf)
 				old_vrf_id);
 
 		if (old_vrf_id != ospf->vrf_id) {
-			if (ospfd_privs.change(ZPRIVS_RAISE))
-				flog_err(
-					LIB_ERR_PRIVILEGES,
-					"ospf_vrf_link: could not raise privs");
+			frr_elevate_privs(&ospfd_privs) {
+				/* stop zebra redist to us for old vrf */
+				zclient_send_dereg_requests(zclient,
+							    old_vrf_id);
 
-			/* stop zebra redist to us for old vrf */
-			zclient_send_dereg_requests(zclient, old_vrf_id);
+				ospf_set_redist_vrf_bitmaps(ospf);
 
-			ospf_set_redist_vrf_bitmaps(ospf);
+				/* start zebra redist to us for new vrf */
+				ospf_zebra_vrf_register(ospf);
 
-			/* start zebra redist to us for new vrf */
-			ospf_zebra_vrf_register(ospf);
-
-			ret = ospf_sock_init(ospf);
-			if (ospfd_privs.change(ZPRIVS_LOWER))
-				flog_err(
-					LIB_ERR_PRIVILEGES,
-					"ospf_sock_init: could not lower privs");
-
+				ret = ospf_sock_init(ospf);
+			}
 			if (ret < 0 || ospf->fd <= 0)
 				return 0;
 			thread_add_read(master, ospf_read, ospf, ospf->fd,

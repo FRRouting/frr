@@ -787,15 +787,14 @@ void zserv_start(char *path)
 			unlink(suna->sun_path);
 	}
 
-	zserv_privs.change(ZPRIVS_RAISE);
-	setsockopt_so_recvbuf(zebrad.sock, 1048576);
-	setsockopt_so_sendbuf(zebrad.sock, 1048576);
-	zserv_privs.change(ZPRIVS_LOWER);
+	frr_elevate_privs(&zserv_privs) {
+		setsockopt_so_recvbuf(zebrad.sock, 1048576);
+		setsockopt_so_sendbuf(zebrad.sock, 1048576);
+	}
 
-	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-
-	ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
+	frr_elevate_privs((sa.ss_family != AF_UNIX) ? &zserv_privs : NULL) {
+		ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
+	}
 	if (ret < 0) {
 		zlog_warn("Can't bind zserv socket on %s: %s", path,
 			  safe_strerror(errno));
@@ -805,8 +804,6 @@ void zserv_start(char *path)
 		zebrad.sock = -1;
 		return;
 	}
-	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	ret = listen(zebrad.sock, 5);
 	if (ret < 0) {

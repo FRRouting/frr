@@ -60,19 +60,21 @@ static int interface_list_ioctl(int af)
 	char *buf = NULL;
 
 	frr_elevate_privs(&zserv_privs) {
-
 		sock = socket(af, SOCK_DGRAM, 0);
-		if (sock < 0) {
-			zlog_warn("Can't make %s socket stream: %s",
-				  (af == AF_INET ? "AF_INET" : "AF_INET6"),
-				  safe_strerror(errno));
+	}
 
-			return -1;
-		}
+	if (sock < 0) {
+		zlog_warn("Can't make %s socket stream: %s",
+			  (af == AF_INET ? "AF_INET" : "AF_INET6"),
+			  safe_strerror(errno));
+		return -1;
+	}
 
-calculate_lifc_len: /* must hold privileges to enter here */
+calculate_lifc_len:
+	frr_elevate_privs(&zserv_privs) {
 		lifn.lifn_family = af;
-		lifn.lifn_flags = LIFC_NOXMIT; /* we want NOXMIT interfaces too */
+		lifn.lifn_flags = LIFC_NOXMIT;
+		/* we want NOXMIT interfaces too */
 		ret = ioctl(sock, SIOCGLIFNUM, &lifn);
 		save_errno = errno;
 
@@ -105,26 +107,17 @@ calculate_lifc_len: /* must hold privileges to enter here */
 	lifconf.lifc_len = needed;
 	lifconf.lifc_buf = buf;
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-
-	ret = ioctl(sock, SIOCGLIFCONF, &lifconf);
+	frr_elevate_privs(&zserv_privs) {
+		ret = ioctl(sock, SIOCGLIFCONF, &lifconf);
+	}
 
 	if (ret < 0) {
 		if (errno == EINVAL)
-			goto calculate_lifc_len; /* deliberately hold privileges
-						    */
+			goto calculate_lifc_len;
 
 		zlog_warn("SIOCGLIFCONF: %s", safe_strerror(errno));
-
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
-
 		goto end;
 	}
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
 
 	/* Allocate interface. */
 	lifreq = lifconf.lifc_req;
