@@ -117,11 +117,9 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 			hdr.rtm_mpls = MPLS_OP_SWAP;
 	}
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-	ret = writev(kr_state.fd, iov, iovcnt);
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		ret = writev(kr_state.fd, iov, iovcnt);
+	}
 
 	if (ret == -1)
 		flog_err_sys(LIB_ERR_SOCKET, "%s: %s", __func__,
@@ -226,11 +224,9 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 			hdr.rtm_mpls = MPLS_OP_SWAP;
 	}
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-	ret = writev(kr_state.fd, iov, iovcnt);
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		ret = writev(kr_state.fd, iov, iovcnt);
+	}
 
 	if (ret == -1)
 		flog_err_sys(LIB_ERR_SOCKET, "%s: %s", __func__,

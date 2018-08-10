@@ -77,27 +77,19 @@ int ipforward_on(void)
 {
 	FILE *fp;
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges, %s",
-			  safe_strerror(errno));
+	frr_elevate_privs(&zserv_privs) {
 
-	fp = fopen(proc_ipv4_forwarding, "w");
+		fp = fopen(proc_ipv4_forwarding, "w");
 
-	if (fp == NULL) {
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			flog_err(LIB_ERR_PRIVILEGES,
-				  "Can't lower privileges, %s",
-				  safe_strerror(errno));
-		return -1;
+		if (fp == NULL) {
+			return -1;
+		}
+
+		fprintf(fp, "1\n");
+
+		fclose(fp);
+
 	}
-
-	fprintf(fp, "1\n");
-
-	fclose(fp);
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges, %s",
-			  safe_strerror(errno));
 
 	return ipforward();
 }
@@ -106,27 +98,19 @@ int ipforward_off(void)
 {
 	FILE *fp;
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges, %s",
-			  safe_strerror(errno));
+	frr_elevate_privs(&zserv_privs) {
 
-	fp = fopen(proc_ipv4_forwarding, "w");
+		fp = fopen(proc_ipv4_forwarding, "w");
 
-	if (fp == NULL) {
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			flog_err(LIB_ERR_PRIVILEGES,
-				  "Can't lower privileges, %s",
-				  safe_strerror(errno));
-		return -1;
+		if (fp == NULL) {
+			return -1;
+		}
+
+		fprintf(fp, "0\n");
+
+		fclose(fp);
+
 	}
-
-	fprintf(fp, "0\n");
-
-	fclose(fp);
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges, %s",
-			  safe_strerror(errno));
 
 	return ipforward();
 }
@@ -160,27 +144,19 @@ int ipforward_ipv6_on(void)
 {
 	FILE *fp;
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges, %s",
-			  safe_strerror(errno));
+	frr_elevate_privs(&zserv_privs) {
 
-	fp = fopen(proc_ipv6_forwarding, "w");
+		fp = fopen(proc_ipv6_forwarding, "w");
 
-	if (fp == NULL) {
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			flog_err(LIB_ERR_PRIVILEGES,
-				  "Can't lower privileges, %s",
-				  safe_strerror(errno));
-		return -1;
+		if (fp == NULL) {
+			return -1;
+		}
+
+		fprintf(fp, "1\n");
+
+		fclose(fp);
+
 	}
-
-	fprintf(fp, "1\n");
-
-	fclose(fp);
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges, %s",
-			  safe_strerror(errno));
 
 	return ipforward_ipv6();
 }
@@ -190,27 +166,19 @@ int ipforward_ipv6_off(void)
 {
 	FILE *fp;
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges, %s",
-			  safe_strerror(errno));
+	frr_elevate_privs(&zserv_privs) {
 
-	fp = fopen(proc_ipv6_forwarding, "w");
+		fp = fopen(proc_ipv6_forwarding, "w");
 
-	if (fp == NULL) {
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			flog_err(LIB_ERR_PRIVILEGES,
-				  "Can't lower privileges, %s",
-				  safe_strerror(errno));
-		return -1;
+		if (fp == NULL) {
+			return -1;
+		}
+
+		fprintf(fp, "0\n");
+
+		fclose(fp);
+
 	}
-
-	fprintf(fp, "0\n");
-
-	fclose(fp);
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges, %s",
-			  safe_strerror(errno));
 
 	return ipforward_ipv6();
 }

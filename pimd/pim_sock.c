@@ -46,17 +46,11 @@ int pim_socket_raw(int protocol)
 {
 	int fd;
 
-	if (pimd_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES,
-			  "pim_sockek_raw: could not raise privs, %s",
-			  safe_strerror(errno));
+	frr_elevate_privs(&pimd_privs) {
 
-	fd = socket(AF_INET, SOCK_RAW, protocol);
+		fd = socket(AF_INET, SOCK_RAW, protocol);
 
-	if (pimd_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES,
-			  "pim_socket_raw: could not lower privs, %s",
-			  safe_strerror(errno));
+	}
 
 	if (fd < 0) {
 		zlog_warn("Could not create raw socket: errno=%d: %s", errno,
@@ -71,18 +65,13 @@ void pim_socket_ip_hdr(int fd)
 {
 	const int on = 1;
 
-	if (pimd_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "%s: could not raise privs, %s",
-			  __PRETTY_FUNCTION__, safe_strerror(errno));
+	frr_elevate_privs(&pimd_privs) {
 
-	if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
-		flog_err_sys(LIB_ERR_SOCKET,
-			     "%s: Could not turn on IP_HDRINCL option: %s",
-			     __PRETTY_FUNCTION__, safe_strerror(errno));
+		if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
+			zlog_err("%s: Could not turn on IP_HDRINCL option: %s",
+				 __PRETTY_FUNCTION__, safe_strerror(errno));
 
-	if (pimd_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "%s: could not lower privs, %s",
-			  __PRETTY_FUNCTION__, safe_strerror(errno));
+	}
 }
 
 /*
@@ -94,16 +83,12 @@ int pim_socket_bind(int fd, struct interface *ifp)
 	int ret = 0;
 #ifdef SO_BINDTODEVICE
 
-	if (pimd_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "%s: could not raise privs, %s",
-			  __PRETTY_FUNCTION__, safe_strerror(errno));
+	frr_elevate_privs(&pimd_privs) {
 
-	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifp->name,
-			 strlen(ifp->name));
+		ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifp->name,
+				 strlen(ifp->name));
 
-	if (pimd_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "%s: could not lower privs, %s",
-			  __PRETTY_FUNCTION__, safe_strerror(errno));
+	}
 
 #endif
 	return ret;

@@ -76,11 +76,9 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	if (netnspath == NULL)
 		return;
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-	ns_id = zebra_ns_id_get(netnspath);
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		ns_id = zebra_ns_id_get(netnspath);
+	}
 	if (ns_id == NS_UNKNOWN)
 		return;
 	ns_id_external = ns_map_nsid_with_external(ns_id, true);
@@ -97,12 +95,10 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 		ns_map_nsid_with_external(ns_id, false);
 		return;
 	}
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-	ret = vrf_netns_handler_create(NULL, vrf, netnspath,
-				       ns_id_external, ns_id);
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		ret = vrf_netns_handler_create(NULL, vrf, netnspath,
+					       ns_id_external, ns_id);
+	}
 	if (ret != CMD_SUCCESS) {
 		zlog_warn("NS notify : failed to create NS %s", netnspath);
 		ns_map_nsid_with_external(ns_id, false);
@@ -169,20 +165,16 @@ static int zebra_ns_ready_read(struct thread *t)
 	netnspath = zns_info->netnspath;
 	if (--zns_info->retries == 0)
 		stop_retry = 1;
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-	err = ns_switch_to_netns(netnspath);
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		err = ns_switch_to_netns(netnspath);
+	}
 	if (err < 0)
 		return zebra_ns_continue_read(zns_info, stop_retry);
 
 	/* go back to default ns */
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-	err = ns_switchback_to_initial();
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		err = ns_switchback_to_initial();
+	}
 	if (err < 0)
 		return zebra_ns_continue_read(zns_info, stop_retry);
 

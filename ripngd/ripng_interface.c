@@ -72,19 +72,14 @@ static int ripng_multicast_join(struct interface *ifp)
 		 * While this is bogus, privs are available and easy to use
 		 * for this call as a workaround.
 		 */
-		if (ripngd_privs.change(ZPRIVS_RAISE))
-			flog_err(
-				LIB_ERR_PRIVILEGES,
-				"ripng_multicast_join: could not raise privs");
+		frr_elevate_privs(&ripngd_privs) {
 
-		ret = setsockopt(ripng->sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-				 (char *)&mreq, sizeof(mreq));
-		save_errno = errno;
+			ret = setsockopt(ripng->sock, IPPROTO_IPV6,
+					 IPV6_JOIN_GROUP,
+					 (char *)&mreq, sizeof(mreq));
+			save_errno = errno;
 
-		if (ripngd_privs.change(ZPRIVS_LOWER))
-			flog_err(
-				LIB_ERR_PRIVILEGES,
-				"ripng_multicast_join: could not lower privs");
+		}
 
 		if (ret < 0 && save_errno == EADDRINUSE) {
 			/*

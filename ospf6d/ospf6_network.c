@@ -76,21 +76,14 @@ static void ospf6_set_checksum(void)
 /* Make ospf6d's server socket. */
 int ospf6_serv_sock(void)
 {
-	if (ospf6d_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES,
-			  "ospf6_serv_sock: could not raise privs");
+	frr_elevate_privs(&ospf6d_privs) {
 
-	ospf6_sock = socket(AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP);
-	if (ospf6_sock < 0) {
-		zlog_warn("Network: can't create OSPF6 socket.");
-		if (ospf6d_privs.change(ZPRIVS_LOWER))
-			flog_err(LIB_ERR_PRIVILEGES,
-				  "ospf6_sock_init: could not lower privs");
-		return -1;
+		ospf6_sock = socket(AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP);
+		if (ospf6_sock < 0) {
+			zlog_warn("Network: can't create OSPF6 socket.");
+			return -1;
+		}
 	}
-	if (ospf6d_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES,
-			  "ospf6_sock_init: could not lower privs");
 
 /* set socket options */
 #if 1

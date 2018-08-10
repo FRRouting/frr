@@ -559,13 +559,11 @@ int bgp_connect(struct peer *peer)
 		zlog_debug("Peer address not learnt: Returning from connect");
 		return 0;
 	}
-	if (bgpd_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
+	frr_elevate_privs(&bgpd_privs) {
 	/* Make socket for the peer. */
-	peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
-					bgp_get_bound_name(peer));
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+		peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
+						bgp_get_bound_name(peer));
+	}
 	if (peer->fd < 0)
 		return -1;
 
@@ -584,16 +582,12 @@ int bgp_connect(struct peer *peer)
 			  peer->host, safe_strerror(errno));
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
-	if (bgpd_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "%s: could not raise privs",
-			  __func__);
-	if (sockunion_family(&peer->su) == AF_INET)
-		setsockopt_ipv4_tos(peer->fd, IPTOS_PREC_INTERNETCONTROL);
-	else if (sockunion_family(&peer->su) == AF_INET6)
-		setsockopt_ipv6_tclass(peer->fd, IPTOS_PREC_INTERNETCONTROL);
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "%s: could not lower privs",
-			  __func__);
+	frr_elevate_privs(&bgpd_privs) {
+		if (sockunion_family(&peer->su) == AF_INET)
+			setsockopt_ipv4_tos(peer->fd, IPTOS_PREC_INTERNETCONTROL);
+		else if (sockunion_family(&peer->su) == AF_INET6)
+			setsockopt_ipv6_tclass(peer->fd, IPTOS_PREC_INTERNETCONTROL);
+	}
 #endif
 
 	if (peer->password)
@@ -661,24 +655,20 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	sockopt_reuseaddr(sock);
 	sockopt_reuseport(sock);
 
-	if (bgpd_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "%s: could not raise privs",
-			  __func__);
+	frr_elevate_privs(&bgpd_privs) {
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
-	if (sa->sa_family == AF_INET)
-		setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
-	else if (sa->sa_family == AF_INET6)
-		setsockopt_ipv6_tclass(sock, IPTOS_PREC_INTERNETCONTROL);
+		if (sa->sa_family == AF_INET)
+			setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
+		else if (sa->sa_family == AF_INET6)
+			setsockopt_ipv6_tclass(sock, IPTOS_PREC_INTERNETCONTROL);
 #endif
 
-	sockopt_v6only(sa->sa_family, sock);
+		sockopt_v6only(sa->sa_family, sock);
 
-	ret = bind(sock, sa, salen);
-	en = errno;
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "%s: could not lower privs",
-			  __func__);
+		ret = bind(sock, sa, salen);
+		en = errno;
+	}
 
 	if (ret < 0) {
 		flog_err_sys(LIB_ERR_SOCKET, "bind: %s", safe_strerror(en));
@@ -724,12 +714,10 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 	snprintf(port_str, sizeof(port_str), "%d", port);
 	port_str[sizeof(port_str) - 1] = '\0';
 
-	if (bgpd_privs.change(ZPRIVS_RAISE))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-	ret = vrf_getaddrinfo(address, port_str, &req, &ainfo_save,
-			      bgp->vrf_id);
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+	frr_elevate_privs(&bgpd_privs) {
+		ret = vrf_getaddrinfo(address, port_str, &req, &ainfo_save,
+				      bgp->vrf_id);
+	}
 	if (ret != 0) {
 		flog_err_sys(LIB_ERR_SOCKET, "getaddrinfo: %s",
 			     gai_strerror(ret));
@@ -743,14 +731,13 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 		if (ainfo->ai_family != AF_INET && ainfo->ai_family != AF_INET6)
 			continue;
 
-		if (bgpd_privs.change(ZPRIVS_RAISE))
-			flog_err(LIB_ERR_PRIVILEGES, "Can't raise privileges");
-		sock = vrf_socket(ainfo->ai_family, ainfo->ai_socktype,
-				  ainfo->ai_protocol, bgp->vrf_id,
-				  (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ?
-				   bgp->name : NULL));
-		if (bgpd_privs.change(ZPRIVS_LOWER))
-			flog_err(LIB_ERR_PRIVILEGES, "Can't lower privileges");
+		frr_elevate_privs(&bgpd_privs) {
+			sock = vrf_socket(ainfo->ai_family,
+					  ainfo->ai_socktype,
+					  ainfo->ai_protocol, bgp->vrf_id,
+					  (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ?
+					   bgp->name : NULL));
+		}
 		if (sock < 0) {
 			flog_err_sys(LIB_ERR_SOCKET, "socket: %s",
 				     safe_strerror(errno));
