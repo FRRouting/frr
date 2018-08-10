@@ -624,7 +624,7 @@ static int rtadv_read(struct thread *thread)
 
 static int rtadv_make_socket(ns_id_t ns_id)
 {
-	int sock;
+	int sock = -1;
 	int ret = 0;
 	struct icmp6_filter filter;
 
