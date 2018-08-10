@@ -83,25 +83,34 @@ extern void closezlog(void);
 extern void zlog_ref(struct log_ref *ref, const char *format, ...)
 	PRINTF_ATTRIBUTE(2, 3);
 
-#define _zlog_makeref(prio, msg) \
+#define _zlog_makeref(cat, prio, msg) \
 		static struct log_ref log_ref __attribute__((used, \
 					section(".data.logrefs"))) = { \
 			.file = __FILE__, .line = __LINE__, .func = __func__, \
-			.fmtstring = msg, .priority = prio, \
+			.fmtstring = msg, .priority = prio, .category = cat, \
 		}; \
 		static struct log_ref * const log_ref_p __attribute__((used, \
 					section("logref_array"))) = &log_ref
 
-#define _zlog_ref(prio, msg, ...) do { \
-		_zlog_makeref(prio, msg); \
+#define _zlog_ref(cat, prio, msg, ...) do { \
+		_zlog_makeref(cat, prio, msg); \
 		zlog_ref(&log_ref, msg, ## __VA_ARGS__); \
 	} while (0)
 
-#define zlog_err(msg, ...)    _zlog_ref(LOG_ERR,     msg, ## __VA_ARGS__)
-#define zlog_warn(msg, ...)   _zlog_ref(LOG_WARNING, msg, ## __VA_ARGS__)
-#define zlog_info(msg, ...)   _zlog_ref(LOG_INFO,    msg, ## __VA_ARGS__)
-#define zlog_notice(msg, ...) _zlog_ref(LOG_NOTICE,  msg, ## __VA_ARGS__)
-#define zlog_debug(msg, ...)  _zlog_ref(LOG_DEBUG,   msg, ## __VA_ARGS__)
+#define zlog_err(msg, ...)    _zlog_ref(NULL, LOG_ERR,     msg, ## __VA_ARGS__)
+#define zlog_warn(msg, ...)   _zlog_ref(NULL, LOG_WARNING, msg, ## __VA_ARGS__)
+#define zlog_info(msg, ...)   _zlog_ref(NULL, LOG_INFO,    msg, ## __VA_ARGS__)
+#define zlog_notice(msg, ...) _zlog_ref(NULL, LOG_NOTICE,  msg, ## __VA_ARGS__)
+#define zlog_debug(msg, ...)  _zlog_ref(NULL, LOG_DEBUG,   msg, ## __VA_ARGS__)
+
+#define flog_err(cat, msg, ...)    _zlog_ref(&_lc_##cat, LOG_ERR,     msg, ## __VA_ARGS__)
+#define flog_warn(cat, msg, ...)   _zlog_ref(&_lc_##cat, LOG_WARNING, msg, ## __VA_ARGS__)
+#define flog_info(cat, msg, ...)   _zlog_ref(&_lc_##cat, LOG_INFO,    msg, ## __VA_ARGS__)
+#define flog_notice(cat, msg, ...) _zlog_ref(&_lc_##cat, LOG_NOTICE,  msg, ## __VA_ARGS__)
+#define flog_debug(cat, msg, ...)  _zlog_ref(&_lc_##cat, LOG_DEBUG,   msg, ## __VA_ARGS__)
+
+#define flog_err_sys(cat, msg, ...)    _zlog_ref(&_lc_##cat, LOG_ERR,     msg, ## __VA_ARGS__)
+#define flog_warn_sys(cat, msg, ...)   _zlog_ref(&_lc_##cat, LOG_WARNING, msg, ## __VA_ARGS__)
 
 extern void zlog_thread_info(int log_level);
 

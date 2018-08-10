@@ -27,6 +27,20 @@
 
 DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information")
 
+struct log_cat _lc_ROOT __attribute__((section(".data.logcats"))) = {
+	.name = "ROOT"
+};
+
+DEFINE_LOGCAT(OK,                ROOT, "No error")
+DEFINE_LOGCAT(CODE_BUG,          ROOT, "Code bug / internal inconsistency")
+DEFINE_LOGCAT(CONFIG_INVALID,    ROOT, "Invalid configuration")
+DEFINE_LOGCAT(CONFIG_REALITY,    ROOT, "Configuration mismatch against operational state")
+DEFINE_LOGCAT(RESOURCE,          ROOT, "Out of resource/memory")
+DEFINE_LOGCAT(SYSTEM,            ROOT, "System error")
+DEFINE_LOGCAT(LIBRARY,           ROOT, "External library error")
+DEFINE_LOGCAT(NET_INVALID_INPUT, ROOT, "Invalid input from network")
+DEFINE_LOGCAT(SYS_INVALID_INPUT, ROOT, "Invalid local/system input")
+
 struct log_ref_block *log_ref_blocks = NULL;
 struct log_ref_block **log_ref_block_last = &log_ref_blocks;
 
