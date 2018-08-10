@@ -28,6 +28,44 @@
 #include "compiler.h"
 #include "module.h"
 
+struct log_cat {
+	struct log_cat *parent;
+
+	const char *name;
+	const char *title;
+	const char *description;
+	const char *suggestion;
+};
+
+#define DECLARE_LOGCAT(name)                                                   \
+	extern struct log_cat _lc_##name;
+
+#define DEFINE_LOGCAT_ATTR(cname, attr, cparent, ctitle, ...)                  \
+	attr struct log_cat _lc_##cname                                        \
+		__attribute__((section(".data.logcats"))) = {                  \
+			.name = #cname,                                        \
+			.parent = &_lc_ ## cparent,                            \
+			.title = ctitle, ## __VA_ARGS__                        \
+	};                                                                     \
+
+#define DEFINE_LOGCAT(name, parent, title, ...)                                \
+	DEFINE_LOGCAT_ATTR(name, , parent, title,## __VA_ARGS__)
+#define DEFINE_LOGCAT_STATIC(name, parent, title, ...)                         \
+	DEFINE_LOGCAT_ATTR(name, static, parent, title,## __VA_ARGS__)
+
+#define _lc_NOPARENT NULL
+
+extern struct log_cat _lc_ROOT;
+DECLARE_LOGCAT(OK)
+DECLARE_LOGCAT(CODE_BUG)
+DECLARE_LOGCAT(CONFIG_INVALID)
+DECLARE_LOGCAT(CONFIG_REALITY)
+DECLARE_LOGCAT(RESOURCE)
+DECLARE_LOGCAT(SYSTEM)
+DECLARE_LOGCAT(LIBRARY)
+DECLARE_LOGCAT(NET_INVALID_INPUT)
+DECLARE_LOGCAT(SYS_INVALID_INPUT)
+
 struct log_ref {
 	/* message core properties */
 	const char *fmtstring;
@@ -38,6 +76,7 @@ struct log_ref {
 	const char *file;
 	const char *func;
 
+	struct log_cat *category;
 	size_t count;
 
 	/* base32(crockford) of unique ID */

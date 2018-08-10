@@ -2289,6 +2289,21 @@ DEFUN (config_logmsg,
 	return CMD_SUCCESS;
 }
 
+static void vty_print_fcat(struct vty *vty, struct log_cat *lc)
+{
+	if (!lc) {
+		vty_out(vty, "\tNo further information available.\n");
+		return;
+	}
+	for (; lc; lc = lc->parent) {
+		vty_out(vty, "    Category: %s [%s]\n", lc->title, lc->name);
+		if (lc->description)
+			vty_out(vty, "%s\n\n", lc->description);
+		if (lc->suggestion)
+			vty_out(vty, "%s\n\n", lc->suggestion);
+	}
+}
+
 DEFUN (show_refcode,
        show_refcode_cmd,
        "show reference-code WORD",
@@ -2312,6 +2327,7 @@ DEFUN (show_refcode,
 				vty_out(vty, "[%s]: \"%s\"\n\tPriority: %s\n",
 					lr->prefix, lr->fmtstring,
 					zlog_priority[lr->priority]);
+				vty_print_fcat(vty, lr->category);
 			}
 			vty_out(vty, "    %s() %s:%d: %zu\n",
 				(*lrp)->func, (*lrp)->file, (*lrp)->line,
