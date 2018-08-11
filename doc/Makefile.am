@@ -241,7 +241,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	user/vtysh.rst \
 	user/zebra.rst \
 	user/bfd.rst \
-  user/flowspec.rst \
+	user/flowspec.rst \
 	mpls/ChangeLog.opaque.txt \
 	mpls/ospfd.conf \
 	mpls/cli_summary.txt \
