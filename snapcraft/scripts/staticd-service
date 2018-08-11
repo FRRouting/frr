@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/staticd.conf ]; then
+    if [ -e $SNAP_DATA/zebra.conf ]; then
+        # if we have a zebra.conf, but no staticd conf, then we use
+        # this file as the default config for staticd
+        cp $SNAP_DATA/zebra.conf $SNAP_DATA/staticd.conf
+    else
+        # new config, start with template
+        cp $SNAP/etc/frr/staticd.conf $SNAP_DATA/staticd.conf
+    fi
+fi
+exec $SNAP/sbin/staticd \
+    -f $SNAP_DATA/staticd.conf \
+    --pid_file $SNAP_DATA/staticd.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+
