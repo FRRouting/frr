@@ -246,6 +246,41 @@ static vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 	return VRF_DEFAULT;
 }
 
+/**
+ * @parse_encap_mpls() - Parses encapsulated mpls attributes
+ * @tb:		Pointer to rtattr to look for nested items in.
+ * @labels	Pointer to store labels in.
+ *
+ * Return:	Number of mpls labels found.
+ */
+static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
+{
+	struct rtattr *tb_encap[MPLS_IPTUNNEL_MAX + 1];
+	int num_labels = 0;
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
+	mpls_label_t label = 0;
+
+	netlink_parse_rtattr_nested(tb_encap, MPLS_IPTUNNEL_MAX, tb);
+	while (!bos) {
+		mpls_lse_t lse =
+			*(mpls_label_t *)RTA_DATA(tb_encap[MPLS_IPTUNNEL_DST]);
+		mpls_lse_decode(lse, &label, &ttl, &exp, &bos);
+		/* Encapped mpls messages come with a ttl associated with them
+		 * If there isn't one alread present in the label itself, we
+		 * re-encode it here with the one from the encap command.
+		 */
+		if (!ttl && tb_encap[MPLS_IPTUNNEL_TTL])
+			ttl = *(uint32_t *)RTA_DATA(
+				tb_encap[MPLS_IPTUNNEL_TTL]);
+		mpls_lse_decode(mpls_lse_encode(label, ttl, exp, bos), &label,
+				&ttl, &exp, &bos);
+		labels[num_labels++] = label;
+	}
+	return num_labels;
+}
+
 /* Looking up routing table by netlink interface. */
 static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					     int startup)
@@ -273,6 +308,10 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	void *prefsrc = NULL; /* IPv4 preferred source host address */
 	void *src = NULL;     /* IPv6 srcdest   source prefix */
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
+
+	/* MPLS labels */
+	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
+	int num_labels = 0;
 
 	rtm = NLMSG_DATA(h);
 
@@ -508,6 +547,17 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			}
 			nh.vrf_id = nh_vrf_id;
 
+			if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
+			    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
+				       == LWTUNNEL_ENCAP_MPLS) {
+				num_labels =
+					parse_encap_mpls(tb[RTA_ENCAP], labels);
+			}
+
+			if (num_labels)
+				nexthop_add_labels(&nh, ZEBRA_LSP_STATIC,
+						   num_labels, labels);
+
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
 				&src_p, &nh, table, metric, mtu, distance, tag);
 		} else {
@@ -532,6 +582,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			re->tag = tag;
 
 			for (;;) {
+				struct nexthop *nh = NULL;
 				vrf_id_t nh_vrf_id;
 				if (len < (int)sizeof(*rtnh)
 				    || rtnh->rtnh_len > len)
@@ -569,34 +620,45 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					if (tb[RTA_GATEWAY])
 						gate = RTA_DATA(
 							tb[RTA_GATEWAY]);
+					if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
+					    && *(uint16_t *)RTA_DATA(
+						       tb[RTA_ENCAP_TYPE])
+						       == LWTUNNEL_ENCAP_MPLS) {
+						num_labels = parse_encap_mpls(
+							tb[RTA_ENCAP], labels);
+					}
 				}
 
 				if (gate) {
 					if (rtm->rtm_family == AF_INET) {
 						if (index)
-							route_entry_nexthop_ipv4_ifindex_add(
+							nh = route_entry_nexthop_ipv4_ifindex_add(
 								re, gate,
 								prefsrc, index,
 								nh_vrf_id);
 						else
-							route_entry_nexthop_ipv4_add(
+							nh = route_entry_nexthop_ipv4_add(
 								re, gate,
 								prefsrc,
 								nh_vrf_id);
 					} else if (rtm->rtm_family
 						   == AF_INET6) {
 						if (index)
-							route_entry_nexthop_ipv6_ifindex_add(
+							nh = route_entry_nexthop_ipv6_ifindex_add(
 								re, gate, index,
 								nh_vrf_id);
 						else
-							route_entry_nexthop_ipv6_add(
+							nh = route_entry_nexthop_ipv6_add(
 								re, gate,
 								nh_vrf_id);
 					}
 				} else
-					route_entry_nexthop_ifindex_add(
+					nh = route_entry_nexthop_ifindex_add(
 						re, index, nh_vrf_id);
+
+				if (nh && num_labels)
+					nexthop_add_labels(nh, ZEBRA_LSP_STATIC,
+							   num_labels, labels);
 
 				if (rtnh->rtnh_len == 0)
 					break;
