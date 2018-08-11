@@ -5,9 +5,16 @@ set -e -x
 if ! [ -e $SNAP_DATA/bgpd.conf ]; then
     cp $SNAP/etc/frr/bgpd.conf.default $SNAP_DATA/bgpd.conf
 fi
+# If no RPKI option is specified, then we create a default
+# with RPKI enabled
+if ! [ -e $SNAP_DATA/rpki.conf ]; then
+    echo "-M rpki" > $SNAP_DATA/rpki.conf
+fi
+EXTRA_OPTIONS="`cat $SNAP_DATA/rpki.conf`"
 exec $SNAP/sbin/bgpd \
     -f $SNAP_DATA/bgpd.conf \
     --pid_file $SNAP_DATA/bgpd.pid \
     --socket $SNAP_DATA/zsock \
-    --vty_socket $SNAP_DATA
+    --vty_socket $SNAP_DATA \
+    --moduledir $SNAP/lib/frr/modules $EXTRA_OPTIONS
 

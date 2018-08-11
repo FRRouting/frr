@@ -136,7 +136,7 @@ apps:
             - network-bind
             - network-control
     bgpd-debug:
-        command: sbin/bgpd -f $SNAP_DATA/bgpd.conf --pid_file $SNAP_DATA/bgpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        command: sbin/bgpd -f $SNAP_DATA/bgpd.conf --pid_file $SNAP_DATA/bgpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --moduledir $SNAP/lib/frr/modules `cat $SNAP_DATA/rpki.conf 2> /dev/null`
         plugs:
             - network
             - network-bind
@@ -221,8 +221,27 @@ apps:
             - network-control
 
 parts:
+    rtrlib:
+        build-packages:
+           - cmake
+           - make
+           - gcc
+           - libssh-dev
+        stage-packages:
+           - libssh-4
+        prime:
+           - lib/x86_64-linux-gnu/librtr.so*
+           - usr/lib/x86_64-linux-gnu/libssh.so*
+        source: https://github.com/rtrlib/rtrlib.git
+        source-type: git
+        source-tag: v0.5.0
+        plugin: cmake
+        configflags:
+           - -DCMAKE_BUILD_TYPE=Release
     frr: 
-        build-packages: 
+        after: [rtrlib]
+        build-packages:
+           - gcc
            - autoconf
            - automake
            - libtool
@@ -247,6 +266,7 @@ parts:
            - flex
            - python3-dev
            - protobuf-c-compiler
+           - python3-sphinx
         stage-packages:
            - coreutils
            - iproute2
@@ -276,6 +296,7 @@ parts:
             - --enable-ldpd
             - --enable-fpm
             - --enable-protobuf
+            - --enable-rpki
             - --enable-configfile-mask=0640
             - --enable-logfile-mask=0640 
             - --localstatedir=/var/run

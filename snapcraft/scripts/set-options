@@ -28,11 +28,34 @@ case $1 in
                 ;;
         esac
         ;;
+    rpki)
+        case $2 in
+            disable)
+                echo "" > $SNAP_DATA/rpki.conf
+                echo "RPKI module disabled. Please restart FRR"
+                ;;
+            enable)
+                echo "-M rpki" > $SNAP_DATA/rpki.conf
+                echo "RPKI module enabled. Please restart FRR"
+                ;;
+            *)
+                echo "Usage:"
+                echo "    ${SNAP_NAME}.set rpki {disable|enable}"
+                echo ""
+                echo "    Disables BGP RPKI module or enables it (default: enabled)"
+                echo "    Mode will be saved for next restart of bgpd, but bgpd"
+                echo "    is not automatically restarted"
+                exit 1
+                ;;
+        esac
+        ;;
     *)
         echo "Usage:"
         echo "    ${SNAP_NAME}.set fpm {disable|protobuf|netlink}"
+        echo "    ${SNAP_NAME}.set rpki {disable|enable}"
         echo ""
-        echo "    Disables FPM or enables FPM with selected mode"
+        echo "    fpm: Disables FPM or enables FPM with selected mode"
+        echo "    rpki: Disables BGP RPKI or enables it (default: enabled)"
         exit 1
         ;;
 esac
