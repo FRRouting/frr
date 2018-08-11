@@ -113,6 +113,13 @@ apps:
             - network
             - network-bind
             - network-control
+    staticd:
+        command: bin/staticd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
     set:
         command: bin/set-options
     zebra-debug:
@@ -193,6 +200,8 @@ apps:
             - network
             - network-bind
             - network-control
+    staticd-debug:
+        command: sbin/staticd -f $SNAP_DATA/staticd.conf --pid_file $SNAP_DATA/staticd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
 
 parts:
     frr: 
