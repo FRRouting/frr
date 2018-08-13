@@ -248,10 +248,10 @@ static vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 
 /**
  * @parse_encap_mpls() - Parses encapsulated mpls attributes
- * @tb:		Pointer to rtattr to look for nested items in.
- * @labels	Pointer to store labels in.
+ * @tb:         Pointer to rtattr to look for nested items in.
+ * @labels:     Pointer to store labels in.
  *
- * Return:	Number of mpls labels found.
+ * Return:      Number of mpls labels found.
  */
 static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
 {
@@ -271,11 +271,12 @@ static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
 		 * If there isn't one alread present in the label itself, we
 		 * re-encode it here with the one from the encap command.
 		 */
-		if (!ttl && tb_encap[MPLS_IPTUNNEL_TTL])
+		if (!ttl && tb_encap[MPLS_IPTUNNEL_TTL]) {
 			ttl = *(uint32_t *)RTA_DATA(
 				tb_encap[MPLS_IPTUNNEL_TTL]);
-		mpls_lse_decode(mpls_lse_encode(label, ttl, exp, bos), &label,
-				&ttl, &exp, &bos);
+			mpls_lse_decode(mpls_lse_encode(label, ttl, exp, bos),
+					&label, &ttl, &exp, &bos);
+		}
 		labels[num_labels++] = label;
 	}
 	return num_labels;

@@ -472,9 +472,9 @@ void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 
 /**
  * netlink_parse_rtattr_nested() - Parses a nested route attribute
- * @tb:		Pointer to array for storing rtattr in.
- * @max:	Max number to store.
- * @rta:	Pointer to rtattr to look for nested items in.
+ * @tb:         Pointer to array for storing rtattr in.
+ * @max:        Max number to store.
+ * @rta:        Pointer to rtattr to look for nested items in.
  */
 void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
 				 struct rtattr *rta)
