@@ -191,7 +191,8 @@ int isis_sock_init(struct isis_circuit *circuit)
 		retval = open_bpf_dev(circuit);
 
 		if (retval != ISIS_OK) {
-			zlog_warn("%s: could not initialize the socket", __func__);
+			zlog_warn("%s: could not initialize the socket",
+				  __func__);
 			break;
 		}
 
@@ -203,8 +204,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 			retval = ISIS_WARNING;
 			break;
 		}
-
-}
+	}
 
 	return retval;
 }

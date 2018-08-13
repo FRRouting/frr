@@ -1356,20 +1356,16 @@ static int rip_create_socket(void)
 
 	frr_elevate_privs(&ripd_privs) {
 		setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
-		if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr))) < 0)
-
-		{
-			int save_errno = errno;
-
+		if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr)))
+		    < 0) {
 			zlog_err("%s: Can't bind socket %d to %s port %d: %s",
-				 __func__,
-				 sock, inet_ntoa(addr.sin_addr),
-				 (int)ntohs(addr.sin_port), safe_strerror(save_errno));
+				 __func__, sock, inet_ntoa(addr.sin_addr),
+				 (int)ntohs(addr.sin_port),
+				 safe_strerror(errno));
 
 			close(sock);
 			return ret;
 		}
-
 	}
 
 	return sock;

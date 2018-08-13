@@ -108,7 +108,8 @@ int ipforward_ipv6_on(void)
 
 	len = sizeof ip6forwarding;
 	frr_elevate_privs(&zserv_privs) {
-		if (sysctl(mib_ipv6, MIB_SIZ, NULL, NULL, &ip6forwarding, len) < 0) {
+		if (sysctl(mib_ipv6, MIB_SIZ, NULL, NULL, &ip6forwarding, len)
+		    < 0) {
 			zlog_warn("can't get ip6forwarding value");
 			return -1;
 		}
@@ -123,7 +124,8 @@ int ipforward_ipv6_off(void)
 
 	len = sizeof ip6forwarding;
 	frr_elevate_privs(&zserv_privs) {
-		if (sysctl(mib_ipv6, MIB_SIZ, NULL, NULL, &ip6forwarding, len) < 0) {
+		if (sysctl(mib_ipv6, MIB_SIZ, NULL, NULL, &ip6forwarding, len)
+		    < 0) {
 			zlog_warn("can't get ip6forwarding value");
 			return -1;
 		}

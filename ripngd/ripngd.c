@@ -125,10 +125,10 @@ static int ripng_make_socket(void)
 	ripaddr.sin6_port = htons(RIPNG_PORT_DEFAULT);
 
 	frr_elevate_privs(&ripngd_privs) {
-
 		ret = bind(sock, (struct sockaddr *)&ripaddr, sizeof(ripaddr));
 		if (ret < 0) {
-			zlog_err("Can't bind ripng socket: %s.", safe_strerror(errno));
+			zlog_err("Can't bind ripng socket: %s.",
+				 safe_strerror(errno));
 			goto error;
 		}
 	}
