@@ -331,9 +331,11 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 							"Requesting the same, remove it, next neighbor");
 					if (req == on->last_ls_req) {
 						ospf6_lsa_unlock(req);
+						req = NULL;
 						on->last_ls_req = NULL;
 					}
-					ospf6_lsdb_remove(req,
+					if (req)
+						ospf6_lsdb_remove(req,
 							  on->request_list);
 					ospf6_check_nbr_loading(on);
 					continue;
