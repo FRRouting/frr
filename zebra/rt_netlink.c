@@ -255,7 +255,8 @@ static vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
  */
 static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
 {
-	struct rtattr *tb_encap[MPLS_IPTUNNEL_MAX + 1];
+	struct rtattr *tb_encap[MPLS_IPTUNNEL_MAX + 1] = {0};
+	mpls_lse_t *lses = NULL;
 	int num_labels = 0;
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
@@ -263,10 +264,9 @@ static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
 	mpls_label_t label = 0;
 
 	netlink_parse_rtattr_nested(tb_encap, MPLS_IPTUNNEL_MAX, tb);
-	while (!bos) {
-		mpls_lse_t lse =
-			*(mpls_label_t *)RTA_DATA(tb_encap[MPLS_IPTUNNEL_DST]);
-		mpls_lse_decode(lse, &label, &ttl, &exp, &bos);
+	lses = (mpls_lse_t *)RTA_DATA(tb_encap[MPLS_IPTUNNEL_DST]);
+	while (!bos && num_labels < MPLS_MAX_LABELS) {
+		mpls_lse_decode(lses[num_labels], &label, &ttl, &exp, &bos);
 		/* Encapped mpls messages come with a ttl associated with them
 		 * If there isn't one alread present in the label itself, we
 		 * re-encode it here with the one from the encap command.
