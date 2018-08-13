@@ -349,7 +349,6 @@ void ospf6_flood_interface(struct ospf6_neighbor *from,
 							"Received is newer, remove requesting");
 					if (req == on->last_ls_req) {
 						ospf6_lsa_unlock(req);
-						req = NULL;
 						on->last_ls_req = NULL;
 					}
 					if (req)
