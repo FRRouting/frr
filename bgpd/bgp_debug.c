@@ -621,7 +621,7 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 		memset(&ip, 0, sizeof(struct ipaddr));
 
 		argv_find(argv, argc, "mac", &mac_idx);
-		prefix_str2mac(argv[mac_idx + 1]->arg, &mac);
+		(void)prefix_str2mac(argv[mac_idx + 1]->arg, &mac);
 
 		argv_find(argv, argc, "ip", &ip_idx);
 		str2ipaddr(argv[ip_idx + 1]->arg, &ip);
