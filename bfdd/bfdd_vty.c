@@ -58,12 +58,19 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 			      const char *ifname, const char *vrfname,
 			      char *ebuf, size_t ebuflen);
 
+static void _display_peer_header(struct vty *vty, struct bfd_session *bs);
 static struct json_object *__display_peer_json(struct bfd_session *bs);
+static struct json_object *_peer_json_header(struct bfd_session *bs);
 static void _display_peer_json(struct vty *vty, struct bfd_session *bs);
 static void _display_peer(struct vty *vty, struct bfd_session *bs);
 static void _display_all_peers(struct vty *vty, bool use_json);
 static void _display_peer_iter(struct hash_backet *hb, void *arg);
 static void _display_peer_json_iter(struct hash_backet *hb, void *arg);
+static struct bfd_session *
+_find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
+		    const char *label, const char *peer_str,
+		    const char *local_str, const char *ifname,
+		    const char *vrfname);
 
 
 /*
@@ -353,11 +360,8 @@ DEFPY(bfd_no_peer, bfd_no_peer_cmd,
 /*
  * Show commands helper functions
  */
-static void _display_peer(struct vty *vty, struct bfd_session *bs)
+static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 {
-	char buf[256];
-	time_t now;
-
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
 		vty_out(vty, "\tpeer %s", satostr(&bs->mhop.peer));
 		vty_out(vty, " multihop");
@@ -377,6 +381,14 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 
 	if (bs->pl)
 		vty_out(vty, "\t\tlabel: %s\n", bs->pl->pl_label);
+}
+
+static void _display_peer(struct vty *vty, struct bfd_session *bs)
+{
+	char buf[256];
+	time_t now;
+
+	_display_peer_header(vty, bs);
 
 	vty_out(vty, "\t\tID: %u\n", bs->discrs.my_discr);
 	vty_out(vty, "\t\tRemote ID: %u\n", bs->discrs.remote_discr);
@@ -418,7 +430,7 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\t\t\tTransmission interval: %" PRIu32 "ms",
 		bs->timers.desired_min_tx / 1000);
 	if (bs->up_min_tx != bs->timers.desired_min_tx)
-		vty_out(vty,  " (configured %" PRIu32 "ms)\n",
+		vty_out(vty, " (configured %" PRIu32 "ms)\n",
 			bs->up_min_tx / 1000);
 	else
 		vty_out(vty, "\n");
@@ -441,7 +453,7 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\n");
 }
 
-static struct json_object *__display_peer_json(struct bfd_session *bs)
+static struct json_object *_peer_json_header(struct bfd_session *bs)
 {
 	struct json_object *jo = json_object_new_object();
 
@@ -464,6 +476,13 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 
 	if (bs->pl)
 		json_object_string_add(jo, "label", bs->pl->pl_label);
+
+	return jo;
+}
+
+static struct json_object *__display_peer_json(struct bfd_session *bs)
+{
+	struct json_object *jo = _peer_json_header(bs);
 
 	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
@@ -550,6 +569,7 @@ static void _display_all_peers(struct vty *vty, bool use_json)
 	struct json_object *jo;
 
 	if (use_json == false) {
+		vty_out(vty, "BFD Peers:\n");
 		bfd_id_iterate(_display_peer_iter, vty);
 		return;
 	}
@@ -561,37 +581,11 @@ static void _display_all_peers(struct vty *vty, bool use_json)
 	json_object_free(jo);
 }
 
-DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd peers [json]",
-      SHOW_STR
-      "Bidirection Forwarding Detection\n"
-      "BFD peers status\n"
-      JSON_STR)
-{
-	bool json = use_json(argc, argv);
-
-	if (json) {
-		_display_all_peers(vty, true);
-	} else {
-		vty_out(vty, "BFD Peers:\n");
-		_display_all_peers(vty, false);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFPY(bfd_show_peer, bfd_show_peer_cmd,
-      "show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> [json]",
-      SHOW_STR
-      "Bidirection Forwarding Detection\n"
-      "BFD peers status\n"
-      "Peer label\n"
-      PEER_IPV4_STR PEER_IPV6_STR
-      MHOP_STR
-      LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
-      INTERFACE_STR
-      LOCAL_INTF_STR
-      VRF_STR VRF_NAME_STR
-      JSON_STR)
+static struct bfd_session *
+_find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
+		    const char *label, const char *peer_str,
+		    const char *local_str, const char *ifname,
+		    const char *vrfname)
 {
 	int idx;
 	bool mhop;
@@ -608,7 +602,7 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 			bs = pl->pl_bs;
 	} else {
 		strtosa(peer_str, &psa);
-		if (local) {
+		if (local_str) {
 			strtosa(local_str, &lsa);
 			lsap = &lsa;
 		} else
@@ -622,7 +616,7 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 		    != 0) {
 			vty_out(vty, "%% Invalid peer configuration: %s\n",
 				errormsg);
-			return CMD_WARNING_CONFIG_FAILED;
+			return NULL;
 		}
 
 		bs = bs_peer_find(&bpc);
@@ -634,14 +628,48 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 			label ? label : peer_str);
 		if (ifname)
 			vty_out(vty, " interface %s", ifname);
-		if (local)
+		if (local_str)
 			vty_out(vty, " local-address %s", local_str);
 		if (vrfname)
 			vty_out(vty, " vrf %s", vrfname);
 		vty_out(vty, "'\n");
 
-		return CMD_WARNING_CONFIG_FAILED;
+		return NULL;
 	}
+
+	return bs;
+}
+
+
+/*
+ * Show commands.
+ */
+DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd peers [json]",
+      SHOW_STR
+      "Bidirection Forwarding Detection\n"
+      "BFD peers status\n" JSON_STR)
+{
+	_display_all_peers(vty, use_json(argc, argv));
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(bfd_show_peer, bfd_show_peer_cmd,
+      "show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> [json]",
+      SHOW_STR
+      "Bidirection Forwarding Detection\n"
+      "BFD peers status\n"
+      "Peer label\n" PEER_IPV4_STR PEER_IPV6_STR MHOP_STR LOCAL_STR
+	      LOCAL_IPV4_STR LOCAL_IPV6_STR INTERFACE_STR LOCAL_INTF_STR VRF_STR
+		      VRF_NAME_STR JSON_STR)
+{
+	struct bfd_session *bs;
+
+	/* Look up the BFD peer. */
+	bs = _find_peer_or_error(vty, argc, argv, label, peer_str, local_str,
+				 ifname, vrfname);
+	if (bs == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (use_json(argc, argv)) {
 		_display_peer_json(vty, bs);
