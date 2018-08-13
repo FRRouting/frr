@@ -386,7 +386,8 @@ static int get_iflink_speed(struct interface *interface)
 			return 0;
 		}
 	/* Get the current link state for the interface */
-		rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL, (char *)&ifdata);
+		rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL,
+			       (char *)&ifdata);
 	}
 	if (rc < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)

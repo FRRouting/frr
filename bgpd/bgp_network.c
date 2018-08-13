@@ -567,9 +567,11 @@ int bgp_connect(struct peer *peer)
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	frr_elevate_privs(&bgpd_privs) {
 		if (sockunion_family(&peer->su) == AF_INET)
-			setsockopt_ipv4_tos(peer->fd, IPTOS_PREC_INTERNETCONTROL);
+			setsockopt_ipv4_tos(peer->fd,
+					    IPTOS_PREC_INTERNETCONTROL);
 		else if (sockunion_family(&peer->su) == AF_INET6)
-			setsockopt_ipv6_tclass(peer->fd, IPTOS_PREC_INTERNETCONTROL);
+			setsockopt_ipv6_tclass(peer->fd,
+					       IPTOS_PREC_INTERNETCONTROL);
 	}
 #endif
 
@@ -644,7 +646,8 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 		if (sa->sa_family == AF_INET)
 			setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
 		else if (sa->sa_family == AF_INET6)
-			setsockopt_ipv6_tclass(sock, IPTOS_PREC_INTERNETCONTROL);
+			setsockopt_ipv6_tclass(sock,
+					       IPTOS_PREC_INTERNETCONTROL);
 #endif
 
 		sockopt_v6only(sa->sa_family, sock);
@@ -718,8 +721,9 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 			sock = vrf_socket(ainfo->ai_family,
 					  ainfo->ai_socktype,
 					  ainfo->ai_protocol, bgp->vrf_id,
-					  (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ?
-					   bgp->name : NULL));
+					  (bgp->inst_type
+					   == BGP_INSTANCE_TYPE_VRF
+					   ? bgp->name : NULL));
 		}
 		if (sock < 0) {
 			flog_err_sys(LIB_ERR_SOCKET, "socket: %s",
