@@ -390,7 +390,7 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, "down\n");
 
 		now = monotime(NULL);
-		integer2timestr(now - bs->uptime.tv_sec, buf, sizeof(buf));
+		integer2timestr(now - bs->downtime.tv_sec, buf, sizeof(buf));
 		vty_out(vty, "\t\tDowntime: %s\n", buf);
 		break;
 	case PTM_BFD_INIT:
@@ -475,7 +475,7 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	case PTM_BFD_DOWN:
 		json_object_string_add(jo, "status", "down");
 		json_object_int_add(jo, "downtime",
-				    monotime(NULL) - bs->uptime.tv_sec);
+				    monotime(NULL) - bs->downtime.tv_sec);
 		break;
 	case PTM_BFD_INIT:
 		json_object_string_add(jo, "status", "init");
