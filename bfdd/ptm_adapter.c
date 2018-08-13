@@ -155,6 +155,8 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	struct stream *msg;
 	struct sockaddr_any sac;
 
+	bs->stats.znotification++;
+
 	/*
 	 * Message format:
 	 * - header: command, vrf

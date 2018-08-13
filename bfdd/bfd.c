@@ -185,10 +185,12 @@ void ptm_bfd_ses_up(struct bfd_session *bfd)
 
 	control_notify(bfd);
 
-	if (old_state != bfd->ses_state)
+	if (old_state != bfd->ses_state) {
+		bfd->stats.session_up++;
 		log_info("state-change: [%s] %s -> %s", bs_to_string(bfd),
 			 state_list[old_state].str,
 			 state_list[bfd->ses_state].str);
+	}
 }
 
 void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag)
@@ -212,11 +214,13 @@ void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag)
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
 		ptm_bfd_echo_stop(bfd, 0);
 
-	if (old_state != bfd->ses_state)
+	if (old_state != bfd->ses_state) {
+		bfd->stats.session_down++;
 		log_info("state-change: [%s] %s -> %s reason:%s",
 			 bs_to_string(bfd), state_list[old_state].str,
 			 state_list[bfd->ses_state].str,
 			 get_diag_str(bfd->local_diag));
+	}
 }
 
 static int ptm_bfd_get_vrf_name(char *port_name, char *vrf_name)
