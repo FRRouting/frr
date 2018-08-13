@@ -73,10 +73,6 @@ struct isis_circuit *isis_circuit_new()
 	int i;
 
 	circuit = XCALLOC(MTYPE_ISIS_CIRCUIT, sizeof(struct isis_circuit));
-	if (circuit == NULL) {
-		zlog_err("Can't malloc isis circuit");
-		return NULL;
-	}
 
 	/*
 	 * Default values

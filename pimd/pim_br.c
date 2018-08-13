@@ -64,7 +64,6 @@ void pim_br_set_pmbr(struct prefix_sg *sg, struct in_addr br)
 
 	if (!pim_br) {
 		pim_br = XCALLOC(MTYPE_PIM_BR, sizeof(*pim_br));
-
 		pim_br->sg = *sg;
 
 		listnode_add(pim_br_list, pim_br);

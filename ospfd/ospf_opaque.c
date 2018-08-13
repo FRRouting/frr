@@ -399,13 +399,8 @@ int ospf_register_opaque_functab(
 			}
 	}
 
-	if ((new = XCALLOC(MTYPE_OSPF_OPAQUE_FUNCTAB,
-			   sizeof(struct ospf_opaque_functab)))
-	    == NULL) {
-		zlog_warn("ospf_register_opaque_functab: XMALLOC: %s",
-			  safe_strerror(errno));
-		goto out;
-	}
+	new = XCALLOC(MTYPE_OSPF_OPAQUE_FUNCTAB,
+		      sizeof(struct ospf_opaque_functab));
 
 	new->opaque_type = opaque_type;
 	new->oipt = NULL;
@@ -554,13 +549,8 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 	struct ospf *top;
 	struct opaque_info_per_type *oipt;
 
-	if ((oipt = XCALLOC(MTYPE_OPAQUE_INFO_PER_TYPE,
-			    sizeof(struct opaque_info_per_type)))
-	    == NULL) {
-		zlog_warn("register_opaque_info_per_type: XMALLOC: %s",
-			  safe_strerror(errno));
-		goto out;
-	}
+	oipt = XCALLOC(MTYPE_OPAQUE_INFO_PER_TYPE,
+		       sizeof(struct opaque_info_per_type));
 
 	switch (new->data->type) {
 	case OSPF_OPAQUE_LINK_LSA:
@@ -711,13 +701,9 @@ register_opaque_info_per_id(struct opaque_info_per_type *oipt,
 {
 	struct opaque_info_per_id *oipi;
 
-	if ((oipi = XCALLOC(MTYPE_OPAQUE_INFO_PER_ID,
-			    sizeof(struct opaque_info_per_id)))
-	    == NULL) {
-		zlog_warn("register_opaque_info_per_id: XMALLOC: %s",
-			  safe_strerror(errno));
-		goto out;
-	}
+	oipi = XCALLOC(MTYPE_OPAQUE_INFO_PER_ID,
+		       sizeof(struct opaque_info_per_id));
+
 	oipi->opaque_id = GET_OPAQUE_ID(ntohl(new->data->id.s_addr));
 	oipi->t_opaque_lsa_self = NULL;
 	oipi->opqctl_type = oipt;
@@ -725,7 +711,6 @@ register_opaque_info_per_id(struct opaque_info_per_type *oipt,
 
 	listnode_add(oipt->id_list, oipi);
 
-out:
 	return oipi;
 }
 

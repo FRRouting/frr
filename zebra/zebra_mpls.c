@@ -550,8 +550,6 @@ static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
 
 	if (!fec) {
 		fec = XCALLOC(MTYPE_FEC, sizeof(zebra_fec_t));
-		if (!fec)
-			return NULL;
 
 		rn->info = fec;
 		fec->rn = rn;
@@ -1181,8 +1179,6 @@ static zebra_nhlfe_t *nhlfe_add(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 		return NULL;
 
 	nhlfe = XCALLOC(MTYPE_NHLFE, sizeof(zebra_nhlfe_t));
-	if (!nhlfe)
-		return NULL;
 
 	nhlfe->lsp = lsp;
 	nhlfe->type = lsp_type;

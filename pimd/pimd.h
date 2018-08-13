@@ -117,7 +117,6 @@
 
 /* PIM error codes */
 #define PIM_SUCCESS                0
-#define PIM_MALLOC_FAIL           -1
 #define PIM_GROUP_BAD_ADDRESS     -2
 #define PIM_GROUP_OVERLAP         -3
 #define PIM_GROUP_PFXLIST_OVERLAP -4

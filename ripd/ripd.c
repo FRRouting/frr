@@ -2812,6 +2812,7 @@ DEFUN_NOSH (router_rip,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
+
 	VTY_PUSH_CONTEXT(RIP_NODE, rip);
 
 	return CMD_SUCCESS;

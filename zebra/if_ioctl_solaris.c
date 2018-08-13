@@ -100,11 +100,7 @@ calculate_lifc_len: /* must hold privileges to enter here */
 	if (needed > lastneeded || needed < lastneeded / 2) {
 		if (buf != NULL)
 			XFREE(MTYPE_TMP, buf);
-		if ((buf = XMALLOC(MTYPE_TMP, needed)) == NULL) {
-			zlog_warn("interface_list_ioctl: malloc failed");
-			close(sock);
-			return -1;
-		}
+		buf = XMALLOC(MTYPE_TMP, needed);
 	}
 	lastneeded = needed;
 

@@ -54,12 +54,6 @@ struct pbr_interface *pbr_if_new(struct interface *ifp)
 
 	pbr_ifp = XCALLOC(MTYPE_PBR_INTERFACE, sizeof(*pbr_ifp));
 
-	if (!pbr_ifp) {
-		zlog_err("%s: PBR XCALLOC(%zu) failure", __PRETTY_FUNCTION__,
-			 sizeof(*pbr_ifp));
-		return 0;
-	}
-
 	ifp->info = pbr_ifp;
 	return pbr_ifp;
 }
