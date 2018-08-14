@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/bfdd.conf ]; then
+    cp $SNAP/etc/frr/bfdd.conf.default $SNAP_DATA/bfdd.conf
+fi
+exec $SNAP/sbin/bfdd \
+    -f $SNAP_DATA/bfdd.conf \
+    --pid_file $SNAP_DATA/bfdd.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA \
+    --bfdctl $SNAP_DATA/bfdd.sock
+
