@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 #include "log.h"
 #include "zassert.h"
 
-void zlog_ref(struct log_ref *ref, const char *format, ...)
+void zlog_ref(struct log_ref *ref, int ret, const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);

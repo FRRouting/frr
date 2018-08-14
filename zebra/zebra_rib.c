@@ -117,7 +117,7 @@ _rnode_zlog(struct log_ref *ref, vrf_id_t vrf_id, struct route_node *rn,
 		snprintf(buf, sizeof(buf), "{(route_node *) NULL}");
 	}
 
-	zlog_ref(ref, "%s: %d:%s: %s", ref->func, vrf_id, buf, msgbuf);
+	zlog_ref(ref, 0, "%s: %d:%s: %s", ref->func, vrf_id, buf, msgbuf);
 }
 
 #define rnode_debug(node, vrf_id, msg, ...) do {                               \
