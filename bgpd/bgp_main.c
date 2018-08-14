@@ -275,6 +275,10 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		bgp_instance_up(bgp);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
+		vpn_leak_to_vrf_update_all(bgp, bgp_get_default(), AFI_IP);
+		vpn_leak_from_vrf_update_all(bgp, bgp_get_default(), AFI_IP);
+		vpn_leak_to_vrf_update_all(bgp, bgp_get_default(), AFI_IP6);
+		vpn_leak_from_vrf_update_all(bgp, bgp_get_default(), AFI_IP6);
 	}
 
 	return 0;
@@ -296,6 +300,10 @@ static int bgp_vrf_disable(struct vrf *vrf)
 
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
+		vpn_leak_to_vrf_withdraw_all(bgp, AFI_IP);
+		vpn_leak_to_vrf_withdraw_all(bgp, AFI_IP6);
+		vpn_leak_from_vrf_withdraw_all(bgp_get_default(), bgp, AFI_IP);
+		vpn_leak_from_vrf_withdraw_all(bgp_get_default(), bgp, AFI_IP6);
 
 		old_vrf_id = bgp->vrf_id;
 		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
