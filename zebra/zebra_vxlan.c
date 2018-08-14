@@ -2060,6 +2060,12 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 		n->ifindex = ifp->ifindex;
 	}
 
+	/*Mark Router flag (R-bit) */
+	if (router_flag)
+		SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+	else
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+
 	/* Before we program this in BGP, we need to check if MAC is locally
 	 * learnt as well
 	 */
@@ -2073,10 +2079,6 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 
 		return 0;
 	}
-
-	/*Set router flag (R-bit) */
-	if (router_flag)
-		SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
 
 	/* Inform BGP. */
 	if (IS_ZEBRA_DEBUG_VXLAN)
@@ -4965,10 +4967,11 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"Add/Update neighbor %s MAC %s intf %s(%u) state 0x%x %s-> L2-VNI %u",
+			"Add/Update neighbor %s MAC %s intf %s(%u) state 0x%x %s %s-> L2-VNI %u",
 			ipaddr2str(ip, buf2, sizeof(buf2)),
 			prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
 			ifp->ifindex, state, ext_learned ? "ext-learned " : "",
+			router_flag ? "router " : "",
 			zvni->vni);
 
 	/* Is this about a local neighbor or a remote one? */
