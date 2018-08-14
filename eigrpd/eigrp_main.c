@@ -169,7 +169,6 @@ int main(int argc, char **argv, char **envp)
 	eigrp_om->master = frr_init();
 	master = eigrp_om->master;
 
-	eigrp_error_init();
 	vrf_init(NULL, NULL, NULL, NULL);
 
 	/*EIGRPd init*/

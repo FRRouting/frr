@@ -1163,7 +1163,6 @@ int main(int argc, char **argv)
 	gs.restart.interval = gs.min_restart_interval;
 
 	master = frr_init();
-	watchfrr_error_init();
 
 	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 	if (watchfrr_di.daemon_mode) {

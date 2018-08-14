@@ -85,13 +85,6 @@ extern void zlog_info(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_notice(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_debug(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 
-/* For logs which have error codes associated with them */
-#define flog_err(ferr_id, format, ...)                                        \
-	zlog_err("[EC %"PRIu32"] " format, ferr_id, ##__VA_ARGS__)
-#define flog_err_sys(ferr_id, format, ...)                                     \
-	flog_err(ferr_id, format, ##__VA_ARGS__)
-
-
 extern void zlog_thread_info(int log_level);
 
 /* Set logging level for the given destination.  If the log_level
