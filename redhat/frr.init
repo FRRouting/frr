@@ -7,7 +7,7 @@
 #
 # chkconfig: 2345 15 85
 #
-# description: FRRouting (FRR) is a routing suite for IP routing protocols 
+# description: FRRouting (FRR) is a routing suite for IP routing protocols
 #              like BGP, OSPF, RIP and others. This script contols the main
 #              daemon "frr" as well as the individual protocol daemons.
 #
@@ -20,7 +20,7 @@
 # Default-Start: 2 3 4 5
 # Default-Stop: 0 1 6
 # Short-Description: Start/Stop the FRR Routing daemons
-# Description: FRRouting (FRR) is a routing suite for IP routing protocols 
+# Description: FRRouting (FRR) is a routing suite for IP routing protocols
 #              like BGP, OSPF, RIP and others. This script contols the main
 #              daemon "frr" as well as the individual protocol daemons.
 ### END INIT INFO
@@ -33,7 +33,7 @@ V_PATH=/var/run/frr
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd pimd pbrd ldpd nhrpd eigrpd babeld staticd sharpd"
+DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd pimd pbrd ldpd nhrpd eigrpd babeld staticd sharpd bfdd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT=/usr/lib/frr/frr-reload.py
 

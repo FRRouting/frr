@@ -51,10 +51,12 @@ void pim_bfd_write_config(struct vty *vty, struct interface *ifp)
 	if (!bfd_info)
 		return;
 
+#if HAVE_BFDD == 0
 	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
 		vty_out(vty, " ip pim bfd %d %d %d\n", bfd_info->detect_mult,
 			bfd_info->required_min_rx, bfd_info->desired_min_tx);
 	else
+#endif /* ! HAVE_BFDD */
 		vty_out(vty, " ip pim bfd\n");
 }
 

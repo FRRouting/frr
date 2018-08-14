@@ -134,6 +134,7 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
 	{.fd = -1, .name = "pbrd", .flag = VTYSH_PBRD, .next = NULL},
 	{.fd = -1, .name = "staticd", .flag = VTYSH_STATICD, .next = NULL},
+	{.fd = -1, .name = "bfdd", .flag = VTYSH_BFDD, .next = NULL},
 };
 
 enum vtysh_write_integrated vtysh_write_integrated =
@@ -1254,6 +1255,18 @@ struct cmd_node link_params_node = {
 static struct cmd_node rpki_node = {RPKI_NODE, "%s(config-rpki)# ", 1};
 #endif
 
+#if HAVE_BFDD > 0
+static struct cmd_node bfd_node = {
+	BFD_NODE,
+	"%s(config-bfd)# ",
+};
+
+static struct cmd_node bfd_peer_node = {
+	BFD_PEER_NODE,
+	"%s(config-bfd-peer)# ",
+};
+#endif /* HAVE_BFDD */
+
 /* Defined in lib/vty.c */
 extern struct cmd_node vty_node;
 
@@ -1680,6 +1693,32 @@ DEFUNSH(VTYSH_PBRD, vtysh_pbr_map, vtysh_pbr_map_cmd,
 	return CMD_SUCCESS;
 }
 
+#if HAVE_BFDD > 0
+DEFUNSH(VTYSH_BFDD, bfd_enter, bfd_enter_cmd, "bfd", "Configure BFD peers\n")
+{
+	vty->node = BFD_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
+	"peer <A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	"Configure peer\n"
+	"IPv4 peer address\n"
+	"IPv6 peer address\n"
+	"Configure multihop\n"
+	"Configure local address\n"
+	"IPv4 local address\n"
+	"IPv6 local address\n"
+	INTERFACE_STR
+	"Configure interface name to use\n"
+	"Configure VRF\n"
+	"Configure VRF name\n")
+{
+	vty->node = BFD_PEER_NODE;
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_BFDD */
+
 DEFSH(VTYSH_PBRD, vtysh_no_pbr_map_cmd, "no pbr-map WORD [seq (1-700)]",
 	NO_STR
 	"Delete pbr-map\n"
@@ -1749,6 +1788,7 @@ static int vtysh_exit(struct vty *vty)
 	case PBRMAP_NODE:
 	case VTY_NODE:
 	case KEYCHAIN_NODE:
+	case BFD_NODE:
 		vtysh_execute("end");
 		vtysh_execute("configure terminal");
 		vty->node = CONFIG_NODE;
@@ -1791,6 +1831,9 @@ static int vtysh_exit(struct vty *vty)
 		break;
 	case LINK_PARAMS_NODE:
 		vty->node = INTERFACE_NODE;
+		break;
+	case BFD_PEER_NODE:
+		vty->node = BFD_NODE;
 		break;
 	default:
 		break;
@@ -1987,6 +2030,17 @@ DEFUNSH(VTYSH_ISISD, vtysh_quit_isisd, vtysh_quit_isisd_cmd, "quit",
 {
 	return vtysh_exit_isisd(self, vty, argc, argv);
 }
+
+#if HAVE_BFDD > 0
+DEFUNSH(VTYSH_BFDD, vtysh_exit_bfdd, vtysh_exit_bfdd_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+ALIAS(vtysh_exit_bfdd, vtysh_quit_bfdd_cmd, "quit",
+      "Exit current mode and down to previous mode\n")
+#endif
 
 DEFUNSH(VTYSH_ALL, vtysh_exit_line_vty, vtysh_exit_line_vty_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
@@ -3422,6 +3476,10 @@ void vtysh_init_vty(void)
 #if defined(HAVE_RPKI)
 	install_node(&rpki_node, NULL);
 #endif
+#if HAVE_BFDD > 0
+	install_node(&bfd_node, NULL);
+	install_node(&bfd_peer_node, NULL);
+#endif /* HAVE_BFDD */
 
 	struct cmd_node *node;
 	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
@@ -3516,6 +3574,21 @@ void vtysh_init_vty(void)
 	install_element(RMAP_NODE, &vtysh_quit_rmap_cmd);
 	install_element(PBRMAP_NODE, &vtysh_exit_pbr_map_cmd);
 	install_element(PBRMAP_NODE, &vtysh_quit_pbr_map_cmd);
+#if HAVE_BFDD > 0
+	/* Enter node. */
+	install_element(CONFIG_NODE, &bfd_enter_cmd);
+	install_element(BFD_NODE, &bfd_peer_enter_cmd);
+
+	/* Exit/quit node. */
+	install_element(BFD_NODE, &vtysh_exit_bfdd_cmd);
+	install_element(BFD_NODE, &vtysh_quit_bfdd_cmd);
+	install_element(BFD_PEER_NODE, &vtysh_exit_bfdd_cmd);
+	install_element(BFD_PEER_NODE, &vtysh_quit_bfdd_cmd);
+
+	/* End/exit all. */
+	install_element(BFD_NODE, &vtysh_end_all_cmd);
+	install_element(BFD_PEER_NODE, &vtysh_end_all_cmd);
+#endif /* HAVE_BFDD */
 	install_element(VTY_NODE, &vtysh_exit_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_quit_line_vty_cmd);
 

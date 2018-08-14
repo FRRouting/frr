@@ -290,17 +290,21 @@ void ospf_bfd_info_nbr_create(struct ospf_interface *oi,
 void ospf_bfd_write_config(struct vty *vty, struct ospf_if_params *params)
 
 {
+#if HAVE_BFDD == 0
 	struct bfd_info *bfd_info;
+#endif /* ! HAVE_BFDD */
 
 	if (!params->bfd_info)
 		return;
 
+#if HAVE_BFDD == 0
 	bfd_info = (struct bfd_info *)params->bfd_info;
 
 	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
 		vty_out(vty, " ip ospf bfd %d %d %d\n", bfd_info->detect_mult,
 			bfd_info->required_min_rx, bfd_info->desired_min_tx);
 	else
+#endif /* ! HAVE_BFDD */
 		vty_out(vty, " ip ospf bfd\n");
 }
 
@@ -373,7 +377,12 @@ DEFUN (ip_ospf_bfd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_ospf_bfd_param,
+#if HAVE_BFDD > 0
+DEFUN_HIDDEN(
+#else
+DEFUN(
+#endif /* HAVE_BFDD */
+       ip_ospf_bfd_param,
        ip_ospf_bfd_param_cmd,
        "ip ospf bfd (2-255) (50-60000) (50-60000)",
        "IP Information\n"
@@ -407,14 +416,21 @@ DEFUN (ip_ospf_bfd_param,
 
 DEFUN (no_ip_ospf_bfd,
        no_ip_ospf_bfd_cmd,
+#if HAVE_BFDD > 0
+       "no ip ospf bfd",
+#else
        "no ip ospf bfd [(2-255) (50-60000) (50-60000)]",
+#endif /* HAVE_BFDD */
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
        "Disables BFD support\n"
+#if HAVE_BFDD == 0
        "Detect Multiplier\n"
        "Required min receive interval\n"
-       "Desired min transmit interval\n")
+       "Desired min transmit interval\n"
+#endif /* !HAVE_BFDD */
+)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf_if_params *params;

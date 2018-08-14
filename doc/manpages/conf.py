@@ -332,6 +332,7 @@ man_pages = [
     ('watchfrr', 'watchfrr', 'a program to monitor the status of FRRouting daemons', [], 8),
     ('vtysh', 'vtysh', 'an integrated shell for FRRouting.', [], 1),
     ('frr', 'frr', 'a systemd interaction script', [], 1),
+    ('bfdd', 'bfdd', fwfrr.format("a bfd"), [], 8),
 ]
 
 # -- Options for Texinfo output -------------------------------------------

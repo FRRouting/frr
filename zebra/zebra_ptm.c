@@ -39,6 +39,15 @@
 #include "zebra_vrf.h"
 #include "version.h"
 
+/*
+ * Choose the BFD implementation that we'll use.
+ *
+ * There are two implementations:
+ * - PTM BFD: which uses an external daemon;
+ * - bfdd: FRR's own BFD daemon;
+ */
+#if HAVE_BFDD == 0
+
 #define ZEBRA_PTM_RECONNECT_TIME_INITIAL 1 /* initial reconnect is 1s */
 #define ZEBRA_PTM_RECONNECT_TIME_MAX     300
 
@@ -1141,3 +1150,432 @@ void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp)
 	if (zebra_ifp->ptm_enable == ZEBRA_IF_PTM_ENABLE_OFF)
 		vty_out(vty, " no ptm-enable\n");
 }
+
+#else /* HAVE_BFDD */
+
+#include "zebra/zebra_memory.h"
+
+/*
+ * Data structures.
+ */
+struct ptm_process {
+	struct zserv *pp_zs;
+	pid_t pp_pid;
+
+	TAILQ_ENTRY(ptm_process) pp_entry;
+};
+TAILQ_HEAD(ppqueue, ptm_process) ppqueue;
+
+DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_PTM_BFD_PROCESS,
+		    "PTM BFD process registration table.");
+
+/*
+ * Prototypes.
+ */
+static struct ptm_process *pp_new(pid_t pid, struct zserv *zs);
+static struct ptm_process *pp_lookup_byzs(struct zserv *zs);
+static void pp_free(struct ptm_process *pp);
+static void pp_free_all(void);
+
+static void zebra_ptm_send_bfdd(struct stream *msg);
+static void zebra_ptm_send_clients(struct stream *msg);
+static int _zebra_ptm_bfd_client_deregister(struct zserv *zs);
+static void _zebra_ptm_reroute(struct zserv *zs, struct stream *msg,
+			       uint32_t command);
+
+
+/*
+ * Process PID registration.
+ */
+static struct ptm_process *pp_new(pid_t pid, struct zserv *zs)
+{
+	struct ptm_process *pp;
+
+#ifdef PTM_DEBUG
+	/* Sanity check: more than one client can't have the same PID. */
+	TAILQ_FOREACH(pp, &ppqueue, pp_entry) {
+		if (pp->pp_pid == pid && pp->pp_zs != zs)
+			zlog_err("%s:%d pid and client pointer doesn't match",
+				 __FILE__, __LINE__);
+	}
+#endif /* PTM_DEBUG */
+
+	/* Lookup for duplicates. */
+	pp = pp_lookup_byzs(zs);
+	if (pp != NULL)
+		return pp;
+
+	/* Allocate and register new process. */
+	pp = XCALLOC(MTYPE_ZEBRA_PTM_BFD_PROCESS, sizeof(*pp));
+	if (pp == NULL)
+		return NULL;
+
+	pp->pp_pid = pid;
+	pp->pp_zs = zs;
+	TAILQ_INSERT_HEAD(&ppqueue, pp, pp_entry);
+
+	return pp;
+}
+
+static struct ptm_process *pp_lookup_byzs(struct zserv *zs)
+{
+	struct ptm_process *pp;
+
+	TAILQ_FOREACH(pp, &ppqueue, pp_entry) {
+		if (pp->pp_zs != zs)
+			continue;
+
+		break;
+	}
+
+	return pp;
+}
+
+static void pp_free(struct ptm_process *pp)
+{
+	if (pp == NULL)
+		return;
+
+	TAILQ_REMOVE(&ppqueue, pp, pp_entry);
+	XFREE(MTYPE_ZEBRA_PTM_BFD_PROCESS, pp);
+}
+
+static void pp_free_all(void)
+{
+	struct ptm_process *pp;
+
+	while (!TAILQ_EMPTY(&ppqueue)) {
+		pp = TAILQ_FIRST(&ppqueue);
+		pp_free(pp);
+	}
+}
+
+
+/*
+ * Use the FRR's internal daemon implementation.
+ */
+static void zebra_ptm_send_bfdd(struct stream *msg)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *msgc;
+
+	/* Create copy for replication. */
+	msgc = stream_dup(msg);
+	if (msgc == NULL) {
+		zlog_warn("%s: not enough memory", __func__);
+		return;
+	}
+
+	/* Send message to all running BFDd daemons. */
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		if (client->proto != ZEBRA_ROUTE_BFD)
+			continue;
+
+		zserv_send_message(client, msg);
+
+		/* Allocate more messages. */
+		msg = stream_dup(msgc);
+		if (msg == NULL) {
+			zlog_warn("%s: not enough memory", __func__);
+			return;
+		}
+	}
+
+	stream_free(msgc);
+}
+
+static void zebra_ptm_send_clients(struct stream *msg)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *msgc;
+
+	/* Create copy for replication. */
+	msgc = stream_dup(msg);
+	if (msgc == NULL) {
+		zlog_warn("%s: not enough memory", __func__);
+		return;
+	}
+
+	/* Send message to all running client daemons. */
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		switch (client->proto) {
+		case ZEBRA_ROUTE_BGP:
+		case ZEBRA_ROUTE_OSPF:
+		case ZEBRA_ROUTE_OSPF6:
+		case ZEBRA_ROUTE_PIM:
+			break;
+
+		default:
+			/* NOTHING: skip this daemon. */
+			continue;
+		}
+
+		zserv_send_message(client, msg);
+
+		/* Allocate more messages. */
+		msg = stream_dup(msgc);
+		if (msg == NULL) {
+			zlog_warn("%s: not enough memory", __func__);
+			return;
+		}
+	}
+
+	stream_free(msgc);
+}
+
+static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
+{
+	struct stream *msg;
+	struct ptm_process *pp;
+
+	/* Filter daemons that must receive this treatment. */
+	switch (zs->proto) {
+	case ZEBRA_ROUTE_BGP:
+	case ZEBRA_ROUTE_OSPF:
+	case ZEBRA_ROUTE_OSPF6:
+	case ZEBRA_ROUTE_PIM:
+		break;
+
+	case ZEBRA_ROUTE_BFD:
+		/* Don't try to send BFDd messages to itself. */
+		return 0;
+
+	default:
+		/* Unsupported daemon. */
+		return 0;
+	}
+
+	/* Find daemon pid by zebra connection pointer. */
+	pp = pp_lookup_byzs(zs);
+	if (pp == NULL) {
+		zlog_err("%s:%d failed to find process pid registration",
+			 __FILE__, __LINE__);
+		return -1;
+	}
+
+	/* Generate, send message and free() daemon related data. */
+	msg = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	if (msg == NULL) {
+		zlog_warn("%s: not enough memory", __func__);
+		return 0;
+	}
+
+	/*
+	 * The message type will be BFD_DEST_REPLY so we can use only
+	 * one callback at the `bfdd` side, however the real command
+	 * number will be included right after the zebra header.
+	 */
+	zclient_create_header(msg, ZEBRA_BFD_DEST_REPLAY, 0);
+	stream_putl(msg, ZEBRA_BFD_CLIENT_DEREGISTER);
+
+	/* Put process PID. */
+	stream_putl(msg, pp->pp_pid);
+
+	/* Update the data pointers. */
+	stream_putw_at(msg, 0, stream_get_endp(msg));
+
+	zebra_ptm_send_bfdd(msg);
+
+	pp_free(pp);
+
+	return 0;
+}
+
+void zebra_ptm_init(void)
+{
+	/* Initialize the ptm process information list. */
+	TAILQ_INIT(&ppqueue);
+
+	/*
+	 * Send deregistration messages to BFD daemon when some other
+	 * daemon closes. This will help avoid sending daemons
+	 * unnecessary notification messages.
+	 */
+	hook_register(zserv_client_close, _zebra_ptm_bfd_client_deregister);
+}
+
+void zebra_ptm_finish(void)
+{
+	/* Remove the client disconnect hook and free all memory. */
+	hook_unregister(zserv_client_close, _zebra_ptm_bfd_client_deregister);
+	pp_free_all();
+}
+
+
+/*
+ * Message handling.
+ */
+static void _zebra_ptm_reroute(struct zserv *zs, struct stream *msg,
+			       uint32_t command)
+{
+	struct stream *msgc;
+	size_t zmsglen, zhdrlen;
+	pid_t ppid;
+
+	/*
+	 * Don't modify message in the zebra API. In order to do that we
+	 * need to allocate a new message stream and copy the message
+	 * provided by zebra.
+	 */
+	msgc = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	if (msgc == NULL) {
+		zlog_warn("%s: not enough memory", __func__);
+		return;
+	}
+
+	/* Calculate our header size plus the message contents. */
+	zhdrlen = ZEBRA_HEADER_SIZE + sizeof(uint32_t);
+	zmsglen = msg->endp - msg->getp;
+	memcpy(msgc->data + zhdrlen, msg->data + msg->getp, zmsglen);
+
+	/*
+	 * The message type will be BFD_DEST_REPLY so we can use only
+	 * one callback at the `bfdd` side, however the real command
+	 * number will be included right after the zebra header.
+	 */
+	zclient_create_header(msgc, ZEBRA_BFD_DEST_REPLAY, 0);
+	stream_putl(msgc, command);
+
+	/* Update the data pointers. */
+	msgc->getp = 0;
+	msgc->endp = zhdrlen + zmsglen;
+	stream_putw_at(msgc, 0, stream_get_endp(msgc));
+
+	zebra_ptm_send_bfdd(msgc);
+
+	/* Registrate process PID for shutdown hook. */
+	STREAM_GETL(msg, ppid);
+	pp_new(ppid, zs);
+
+	return;
+
+stream_failure:
+	zlog_err("%s:%d failed to registrate client pid", __FILE__, __LINE__);
+}
+
+void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("bfd_dst_register msg from client %s: length=%d",
+			   zebra_route_string(client->proto), hdr->length);
+
+	_zebra_ptm_reroute(client, msg, ZEBRA_BFD_DEST_REGISTER);
+}
+
+void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("bfd_dst_deregister msg from client %s: length=%d",
+			   zebra_route_string(client->proto), hdr->length);
+
+	_zebra_ptm_reroute(client, msg, ZEBRA_BFD_DEST_DEREGISTER);
+}
+
+void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("bfd_client_register msg from client %s: length=%d",
+			   zebra_route_string(client->proto), hdr->length);
+
+	_zebra_ptm_reroute(client, msg, ZEBRA_BFD_CLIENT_REGISTER);
+}
+
+void zebra_ptm_bfd_dst_replay(ZAPI_HANDLER_ARGS)
+{
+	struct stream *msgc;
+	size_t zmsglen, zhdrlen;
+	uint32_t cmd;
+
+	/*
+	 * NOTE:
+	 * Replay messages with HAVE_BFDD are meant to be replayed to
+	 * the client daemons. These messages are composed and
+	 * originated from the `bfdd` daemon.
+	 */
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("bfd_dst_update msg from client %s: length=%d",
+			   zebra_route_string(client->proto), hdr->length);
+
+	/*
+	 * Client messages must be re-routed, otherwise do the `bfdd`
+	 * special treatment.
+	 */
+	if (client->proto != ZEBRA_ROUTE_BFD) {
+		_zebra_ptm_reroute(client, msg, ZEBRA_BFD_DEST_REPLAY);
+		return;
+	}
+
+	/* Figure out if this is an DEST_UPDATE or DEST_REPLAY. */
+	if (stream_getl2(msg, &cmd) == false) {
+		zlog_err("%s: expected at least 4 bytes (command)", __func__);
+		return;
+	}
+
+	/*
+	 * Don't modify message in the zebra API. In order to do that we
+	 * need to allocate a new message stream and copy the message
+	 * provided by zebra.
+	 */
+	msgc = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	if (msgc == NULL) {
+		zlog_warn("%s: not enough memory", __func__);
+		return;
+	}
+
+	/* Calculate our header size plus the message contents. */
+	if (cmd != ZEBRA_BFD_DEST_REPLAY) {
+		zhdrlen = ZEBRA_HEADER_SIZE;
+		zmsglen = msg->endp - msg->getp;
+		memcpy(msgc->data + zhdrlen, msg->data + msg->getp, zmsglen);
+
+		zclient_create_header(msgc, cmd, zvrf_id(zvrf));
+
+		msgc->getp = 0;
+		msgc->endp = zhdrlen + zmsglen;
+	} else
+		zclient_create_header(msgc, cmd, zvrf_id(zvrf));
+
+	/* Update the data pointers. */
+	stream_putw_at(msgc, 0, stream_get_endp(msgc));
+
+	zebra_ptm_send_clients(msgc);
+}
+
+/*
+ * Unused functions.
+ */
+void zebra_ptm_if_init(struct zebra_if *zifp __attribute__((__unused__)))
+{
+	/* NOTHING */
+}
+
+int zebra_ptm_get_enable_state(void)
+{
+	return 1;
+}
+
+void zebra_ptm_show_status(struct vty *vty __attribute__((__unused__)),
+			   struct interface *ifp __attribute__((__unused__)))
+{
+	/* NOTHING */
+}
+
+void zebra_ptm_write(struct vty *vty __attribute__((__unused__)))
+{
+	/* NOTHING */
+}
+
+void zebra_ptm_if_write(struct vty *vty __attribute__((__unused__)),
+			struct zebra_if *zifp __attribute__((__unused__)))
+{
+	/* NOTHING */
+}
+void zebra_ptm_if_set_ptm_state(struct interface *i __attribute__((__unused__)),
+				struct zebra_if *zi __attribute__((__unused__)))
+{
+	/* NOTHING */
+}
+
+#endif /* HAVE_BFDD */
