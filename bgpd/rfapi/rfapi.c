@@ -202,11 +202,11 @@ int rfapi_ip_addr_cmp(struct rfapi_ip_addr *a1, struct rfapi_ip_addr *a2)
 
 static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 			   struct rfapi_ip_addr *un_addr,
-			   struct route_node **node)
+			   struct rfapi_node **node)
 {
 	struct rfapi *h;
 	struct prefix p;
-	struct route_node *rn;
+	struct rfapi_node *rn;
 	int rc;
 	afi_t afi;
 
@@ -227,12 +227,12 @@ static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 	if ((rc = rfapiRaddr2Qprefix(un_addr, &p)))
 		return rc;
 
-	rn = route_node_lookup(h->un[afi], &p);
+	rn = rfapi_route_node_lookup(h->un[afi], &p);
 
 	if (!rn)
 		return ENOENT;
 
-	route_unlock_node(rn);
+	rfapi_unlock_node(rn);
 
 	*node = rn;
 
@@ -243,7 +243,7 @@ static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 int rfapi_find_rfd(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 		   struct rfapi_ip_addr *un_addr, struct rfapi_descriptor **rfd)
 {
-	struct route_node *rn;
+	struct rfapi_node *rn;
 	int rc;
 
 	rc = rfapi_find_node(bgp, vn_addr, un_addr, &rn);
@@ -1393,7 +1393,7 @@ int rfapi_init_and_open(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	char buf_un[BUFSIZ];
 	afi_t afi_vn, afi_un;
 	struct prefix pfx_un;
-	struct route_node *rn;
+	struct rfapi_node *rn;
 
 
 	rfapi_time(&rfd->open_time);
@@ -1422,7 +1422,7 @@ int rfapi_init_and_open(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		assert(afi_vn && afi_un);
 		assert(!rfapiRaddr2Qprefix(&rfd->un_addr, &pfx_un));
 
-		rn = route_node_get(h->un[afi_un], &pfx_un);
+		rn = rfapi_route_node_get(h->un[afi_un], &pfx_un);
 		assert(rn);
 		rfd->next = rn->info;
 		rn->info = rfd;
@@ -1534,7 +1534,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 	afi_t afi;
 	struct prefix p;
 	struct prefix p_original;
-	struct route_node *rn;
+	struct rfapi_node *rn;
 	struct rfapi_descriptor *rfd = (struct rfapi_descriptor *)handle;
 	struct bgp *bgp = rfd->bgp;
 	struct rfapi_next_hop_entry *pNHE = NULL;
@@ -1703,7 +1703,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 		}
 
 		if (rn) {
-			route_lock_node(rn); /* so we can unlock below */
+			rfapi_lock_node(rn); /* so we can unlock below */
 		} else {
 			/*
 			 * returns locked node. Don't unlock yet because the
@@ -1720,7 +1720,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 
 	assert(rn);
 	if (!rn->info) {
-		route_unlock_node(rn);
+		rfapi_unlock_node(rn);
 		vnc_zlog_debug_verbose(
 			"%s: VPN route not found, returning ENOENT", __func__);
 		return ENOENT;
@@ -1757,7 +1757,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 						  &p_original);
 	}
 
-	route_unlock_node(rn);
+	rfapi_unlock_node(rn);
 
 done:
 	if (ppNextHopEntry) {
@@ -2169,7 +2169,7 @@ int rfapi_close(void *handle)
 {
 	struct rfapi_descriptor *rfd = (struct rfapi_descriptor *)handle;
 	int rc;
-	struct route_node *node;
+	struct rfapi_node *node;
 	struct bgp *bgp;
 	struct rfapi *h;
 
@@ -2275,7 +2275,7 @@ int rfapi_close(void *handle)
 				}
 			}
 		}
-		route_unlock_node(node);
+		rfapi_unlock_node(node);
 	}
 
 	/*

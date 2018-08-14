@@ -44,13 +44,13 @@ void ripng_aggregate_free(struct ripng_aggregate *aggregate)
 }
 
 /* Aggregate count increment check. */
-void ripng_aggregate_increment(struct route_node *child,
+void ripng_aggregate_increment(struct ripng_node *child,
 			       struct ripng_info *rinfo)
 {
-	struct route_node *np;
+	struct ripng_node *np;
 	struct ripng_aggregate *aggregate;
 
-	for (np = child; np; np = np->parent)
+	for (np = child; np; np = (struct ripng_node *)np->parent)
 		if ((aggregate = np->aggregate) != NULL) {
 			aggregate->count++;
 			rinfo->suppress++;
@@ -58,13 +58,13 @@ void ripng_aggregate_increment(struct route_node *child,
 }
 
 /* Aggregate count decrement check. */
-void ripng_aggregate_decrement(struct route_node *child,
+void ripng_aggregate_decrement(struct ripng_node *child,
 			       struct ripng_info *rinfo)
 {
-	struct route_node *np;
+	struct ripng_node *np;
 	struct ripng_aggregate *aggregate;
 
-	for (np = child; np; np = np->parent)
+	for (np = child; np; np = (struct ripng_node *)np->parent)
 		if ((aggregate = np->aggregate) != NULL) {
 			aggregate->count--;
 			rinfo->suppress--;
@@ -72,14 +72,14 @@ void ripng_aggregate_decrement(struct route_node *child,
 }
 
 /* Aggregate count decrement check for a list. */
-void ripng_aggregate_decrement_list(struct route_node *child, struct list *list)
+void ripng_aggregate_decrement_list(struct ripng_node *child, struct list *list)
 {
-	struct route_node *np;
+	struct ripng_node *np;
 	struct ripng_aggregate *aggregate;
 	struct ripng_info *rinfo = NULL;
 	struct listnode *node = NULL;
 
-	for (np = child; np; np = np->parent)
+	for (np = child; np; np = (struct ripng_node *)np->parent)
 		if ((aggregate = np->aggregate) != NULL)
 			aggregate->count -= listcount(list);
 
@@ -90,8 +90,8 @@ void ripng_aggregate_decrement_list(struct route_node *child, struct list *list)
 /* RIPng routes treatment. */
 int ripng_aggregate_add(struct prefix *p)
 {
-	struct route_node *top;
-	struct route_node *rp;
+	struct ripng_node *top;
+	struct ripng_node *rp;
 	struct ripng_info *rinfo;
 	struct ripng_aggregate *aggregate;
 	struct ripng_aggregate *sub;
@@ -99,7 +99,7 @@ int ripng_aggregate_add(struct prefix *p)
 	struct listnode *node = NULL;
 
 	/* Get top node for aggregation. */
-	top = route_node_get(ripng->table, p);
+	top = (struct ripng_node *)route_node_get(ripng->table, p);
 
 	/* Allocate new aggregate. */
 	aggregate = ripng_aggregate_new();
@@ -108,7 +108,8 @@ int ripng_aggregate_add(struct prefix *p)
 	top->aggregate = aggregate;
 
 	/* Suppress routes match to the aggregate. */
-	for (rp = route_lock_node(top); rp; rp = route_next_until(rp, top)) {
+	for (rp = ripng_lock_node(top); rp;
+	     rp = ripng_route_next_until(rp, top)) {
 		/* Suppress normal route. */
 		if ((list = rp->info) != NULL)
 			for (ALL_LIST_ELEMENTS_RO(list, node, rinfo)) {
@@ -128,8 +129,8 @@ int ripng_aggregate_add(struct prefix *p)
 /* Delete RIPng static route. */
 int ripng_aggregate_delete(struct prefix *p)
 {
-	struct route_node *top;
-	struct route_node *rp;
+	struct ripng_node *top;
+	struct ripng_node *rp;
 	struct ripng_info *rinfo;
 	struct ripng_aggregate *aggregate;
 	struct ripng_aggregate *sub;
@@ -137,13 +138,14 @@ int ripng_aggregate_delete(struct prefix *p)
 	struct listnode *node = NULL;
 
 	/* Get top node for aggregation. */
-	top = route_node_get(ripng->table, p);
+	top = (struct ripng_node *)route_node_get(ripng->table, p);
 
 	/* Allocate new aggregate. */
 	aggregate = top->aggregate;
 
 	/* Suppress routes match to the aggregate. */
-	for (rp = route_lock_node(top); rp; rp = route_next_until(rp, top)) {
+	for (rp = ripng_lock_node(top); rp;
+	     rp = ripng_route_next_until(rp, top)) {
 		/* Suppress normal route. */
 		if ((list = rp->info) != NULL)
 			for (ALL_LIST_ELEMENTS_RO(list, node, rinfo)) {
@@ -160,8 +162,8 @@ int ripng_aggregate_delete(struct prefix *p)
 	top->aggregate = NULL;
 	ripng_aggregate_free(aggregate);
 
-	route_unlock_node(top);
-	route_unlock_node(top);
+	ripng_unlock_node(top);
+	ripng_unlock_node(top);
 
 	return 0;
 }

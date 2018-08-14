@@ -37,14 +37,15 @@
 #include "vrf.h"
 
 #include "ripngd/ripngd.h"
+#include "ripngd/ripng_route.h"
 #include "ripngd/ripng_debug.h"
 
 /* If RFC2133 definition is used. */
 #ifndef IPV6_JOIN_GROUP
-#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP 
+#define IPV6_JOIN_GROUP IPV6_ADD_MEMBERSHIP
 #endif
 #ifndef IPV6_LEAVE_GROUP
-#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP 
+#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
 #endif
 
 /* Static utility function. */
@@ -159,14 +160,15 @@ static int ripng_if_ipv6_lladdress_check(struct interface *ifp)
 
 static int ripng_if_down(struct interface *ifp)
 {
-	struct route_node *rp;
+	struct ripng_node *rp;
 	struct ripng_info *rinfo;
 	struct ripng_interface *ri;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL, *nextnode = NULL;
 
 	if (ripng)
-		for (rp = route_top(ripng->table); rp; rp = route_next(rp))
+		for (rp = ripng_route_top(ripng->table); rp;
+		     rp = ripng_route_next(rp))
 			if ((list = rp->info) != NULL)
 				for (ALL_LIST_ELEMENTS(list, listnode, nextnode,
 						       rinfo))
@@ -492,7 +494,7 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
 		struct prefix *p;
-		struct route_node *n;
+		struct ripng_node *n;
 
 		p = connected->address;
 
@@ -501,10 +503,10 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 			address.prefix = p->u.prefix6;
 			address.prefixlen = IPV6_MAX_BITLEN;
 
-			n = route_node_match(ripng_enable_network,
-					     (struct prefix *)&address);
+			n = ripng_route_node_match(ripng_enable_network,
+						   (struct prefix *)&address);
 			if (n) {
-				route_unlock_node(n);
+				ripng_unlock_node(n);
 				return 1;
 			}
 		}
@@ -521,7 +523,7 @@ static int ripng_enable_network_lookup2(struct connected *connected)
 	p = connected->address;
 
 	if (p->family == AF_INET6) {
-		struct route_node *node;
+		struct ripng_node *node;
 
 		address.family = p->family;
 		address.prefix = p->u.prefix6;
@@ -529,11 +531,11 @@ static int ripng_enable_network_lookup2(struct connected *connected)
 
 		/* LPM on p->family, p->u.prefix6/IPV6_MAX_BITLEN within
 		 * ripng_enable_network */
-		node = route_node_match(ripng_enable_network,
-					(struct prefix *)&address);
+		node = ripng_route_node_match(ripng_enable_network,
+					      (struct prefix *)&address);
 
 		if (node) {
-			route_unlock_node(node);
+			ripng_unlock_node(node);
 			return 1;
 		}
 	}
@@ -544,12 +546,12 @@ static int ripng_enable_network_lookup2(struct connected *connected)
 /* Add RIPng enable network. */
 static int ripng_enable_network_add(struct prefix *p)
 {
-	struct route_node *node;
+	struct ripng_node *node;
 
-	node = route_node_get(ripng_enable_network, p);
+	node = ripng_route_node_get(ripng_enable_network, p);
 
 	if (node->info) {
-		route_unlock_node(node);
+		ripng_unlock_node(node);
 		return -1;
 	} else
 		node->info = (void *)1;
@@ -563,17 +565,17 @@ static int ripng_enable_network_add(struct prefix *p)
 /* Delete RIPng enable network. */
 static int ripng_enable_network_delete(struct prefix *p)
 {
-	struct route_node *node;
+	struct ripng_node *node;
 
-	node = route_node_lookup(ripng_enable_network, p);
+	node = ripng_route_node_lookup(ripng_enable_network, p);
 	if (node) {
 		node->info = NULL;
 
 		/* Unlock info lock. */
-		route_unlock_node(node);
+		ripng_unlock_node(node);
 
 		/* Unlock lookup lock. */
-		route_unlock_node(node);
+		ripng_unlock_node(node);
 
 		return 1;
 	}
@@ -770,13 +772,14 @@ void ripng_clean_network()
 {
 	unsigned int i;
 	char *str;
-	struct route_node *rn;
+	struct ripng_node *rn;
 
 	/* ripng_enable_network */
-	for (rn = route_top(ripng_enable_network); rn; rn = route_next(rn))
+	for (rn = ripng_route_top(ripng_enable_network); rn;
+	     rn = ripng_route_next(rn))
 		if (rn->info) {
 			rn->info = NULL;
-			route_unlock_node(rn);
+			ripng_unlock_node(rn);
 		}
 
 	/* ripng_enable_if */
@@ -876,12 +879,12 @@ int ripng_network_write(struct vty *vty, int config_mode)
 {
 	unsigned int i;
 	const char *ifname;
-	struct route_node *node;
+	struct ripng_node *node;
 	char buf[BUFSIZ];
 
 	/* Write enable network. */
-	for (node = route_top(ripng_enable_network); node;
-	     node = route_next(node))
+	for (node = ripng_route_top(ripng_enable_network); node;
+	     node = ripng_route_next(node))
 		if (node->info) {
 			struct prefix *p = &node->p;
 			vty_out(vty, "%s%s/%d\n",

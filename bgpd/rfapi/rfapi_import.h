@@ -28,6 +28,8 @@
 
 #include "lib/thread.h"
 
+#include "bgpd/rfapi/rfapi_table.h"
+
 /*
  * These are per-rt-import-list
  *
@@ -100,7 +102,7 @@ extern void rfapiImportTableRefDelByIt(struct bgp *bgp,
  * next less-specific node (i.e., this node's parent) at the end.
  */
 extern struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
-	struct route_node *rn, uint32_t lifetime, /* put into nexthop entries */
+	struct rfapi_node *rn, uint32_t lifetime, /* put into nexthop entries */
 	struct rfapi_ip_addr *exclude_vnaddr,     /* omit routes to same NVE */
 	struct route_table *rfd_rib_table,   /* preload this NVE rib table */
 	struct prefix *pfx_target_original); /* query target */
@@ -122,10 +124,10 @@ extern struct rfapi_next_hop_entry *rfapiEthRouteTable2NextHopList(
 extern int rfapiEcommunitiesIntersect(struct ecommunity *e1,
 				      struct ecommunity *e2);
 
-extern void rfapiCheckRefcount(struct route_node *rn, safi_t safi,
+extern void rfapiCheckRefcount(struct rfapi_node *rn, safi_t safi,
 			       int lockoffset);
 
-extern int rfapiHasNonRemovedRoutes(struct route_node *rn);
+extern int rfapiHasNonRemovedRoutes(struct rfapi_node *rn);
 
 extern int rfapiProcessDeferredClose(struct thread *t);
 
@@ -153,7 +155,7 @@ extern void rfapiBgpInfoFilteredImportVPN(
 	uint32_t *label);  /* part of bgp_info */
 
 extern struct rfapi_next_hop_entry *rfapiEthRouteNode2NextHopList(
-	struct route_node *rn, struct rfapi_ip_prefix *rprefix,
+	struct rfapi_node *rn, struct rfapi_ip_prefix *rprefix,
 	uint32_t lifetime,		      /* put into nexthop entries */
 	struct rfapi_ip_addr *exclude_vnaddr, /* omit routes to same NVE */
 	struct route_table *rib_route_table,  /* preload NVE rib table */

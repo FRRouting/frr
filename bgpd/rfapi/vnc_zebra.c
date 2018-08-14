@@ -555,7 +555,7 @@ static void import_table_to_nve_list_zebra(struct bgp *bgp,
 
 static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 				     struct rfapi_import_table *import_table,
-				     struct route_node *rn,
+				     struct rfapi_node *rn,
 				     int add) /* !0 = add, 0 = del */
 {
 	struct list *nves;
@@ -609,14 +609,14 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 
 void vnc_zebra_add_prefix(struct bgp *bgp,
 			  struct rfapi_import_table *import_table,
-			  struct route_node *rn)
+			  struct rfapi_node *rn)
 {
 	vnc_zebra_add_del_prefix(bgp, import_table, rn, 1);
 }
 
 void vnc_zebra_del_prefix(struct bgp *bgp,
 			  struct rfapi_import_table *import_table,
-			  struct route_node *rn)
+			  struct rfapi_node *rn)
 {
 	vnc_zebra_add_del_prefix(bgp, import_table, rn, 0);
 }
@@ -676,7 +676,7 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		if (rfgn->rfg == rfg) {
 
 			struct route_table *rt = NULL;
-			struct route_node *rn;
+			struct rfapi_node *rn;
 			struct rfapi_import_table *import_table;
 			import_table = rfg->rfapi_import_table;
 
@@ -689,7 +689,8 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			/*
 			 * Walk the NVE-Group's VNC Import table
 			 */
-			for (rn = route_top(rt); rn; rn = route_next(rn)) {
+			for (rn = rfapi_route_top(rt); rn;
+			     rn = rfapi_route_next(rn)) {
 
 				if (rn->info) {
 
@@ -719,7 +720,7 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 					afi_t afi, int add)
 {
 	struct route_table *rt = NULL;
-	struct route_node *rn;
+	struct rfapi_node *rn;
 	struct rfapi_import_table *import_table;
 	uint8_t family = afi2family(afi);
 
@@ -769,7 +770,8 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 			/*
 			 * Walk the NVE-Group's VNC Import table
 			 */
-			for (rn = route_top(rt); rn; rn = route_next(rn)) {
+			for (rn = rfapi_route_top(rt); rn;
+			     rn = rfapi_route_next(rn)) {
 				if (rn->info) {
 					vnc_zebra_route_msg(&rn->p,
 							    nexthop_count,

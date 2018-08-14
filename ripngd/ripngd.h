@@ -198,7 +198,7 @@ struct ripng_info {
 	uint8_t metric_out;
 	uint16_t tag_out;
 
-	struct route_node *rp;
+	struct ripng_node *rp;
 };
 
 #ifdef notyet
@@ -377,8 +377,8 @@ extern void ripng_redistribute_withdraw(int type);
 extern void ripng_distribute_update_interface(struct interface *);
 extern void ripng_if_rmap_update_interface(struct interface *);
 
-extern void ripng_zebra_ipv6_add(struct route_node *);
-extern void ripng_zebra_ipv6_delete(struct route_node *);
+extern void ripng_zebra_ipv6_add(struct ripng_node *);
+extern void ripng_zebra_ipv6_delete(struct ripng_node *);
 
 extern void ripng_redistribute_clean(void);
 extern int ripng_redistribute_check(int);
