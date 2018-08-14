@@ -18,7 +18,7 @@ ie for `ospf6d` (OSPFv3):
     systemctl enable snap.frr.ospf6d.service
 
 The daemons are: `ripd`, `ripngd`, `ospfd`, `ospf6d`, `isisd`, `bgpd`, 
-`pimd`, `zebra`
+`pimd`, `ldpd`, `eigrpd`, `babeld`, `nhrpd`, `bfdd`, `zebra`
 
 Commands defined by this snap
 -----------------------------
@@ -53,7 +53,19 @@ depend on them). These are mainly intended to debug the Snap
 - `frr.pimd-debug`:
 	Starts pimd daemon in foreground
 - `frr.ldpd-debug`:
-    Starts ldpd daemon in foreground
+        Starts ldpd daemon in foreground
+- `frr.nhrpd-debug`:
+        Starts nhrpd daemon in foreground
+- `frr.babeld-debug`:
+        Starts babeld daemon in foreground
+- `frr.eigrpd-debug`:
+        Starts eigrpd daemon in foreground
+- `frr.pbrd-debug`:
+        Starts pbrd daemon in foreground
+- `frr.staticd-debug`:
+        Starts staticd daemon in foreground
+- `frr.bfdd-debug`:
+        Starts bfdd daemon in foreground
 
 MPLS (LDP)
 ----------
@@ -108,7 +120,7 @@ FAQ
     - Define `VTYSH_PAGER` to `cat` (default is `more`). (Ie add 
       `export VTYSH_PAGER=cat` to the end of your `.profile`)
 
-- ospfd / ospf6d are not running after installation
+- bfdd / ospfd / ospf6d / nhrpd are not running after installation
     - Installing a new snap starts the daemons, but at this time they
       may not have the required privileged access. Make sure you 
       issue the `snap connect` command as given above (can be verified
