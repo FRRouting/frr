@@ -4181,7 +4181,9 @@ sub process {
 				} elsif ($op eq ',') {
 					my $rtrim_before = 0;
 					my $space_after = 0;
-					if ($ctx =~ /Wx./) {
+					if ($line=~/\#\s*define/) {
+						# ignore , spacing in macros
+					} elsif ($ctx =~ /Wx./) {
 						if (ERROR("SPACING",
 							  "space prohibited before that '$op' $at\n" . $hereptr)) {
 							$line_fixed = 1;
@@ -4847,6 +4849,7 @@ sub process {
 			my $ctx = '';
 			my $has_flow_statement = 0;
 			my $has_arg_concat = 0;
+			my $complex = 0;
 			($dstat, $dcond, $ln, $cnt, $off) =
 				ctx_statement_block($linenr, $realcnt, 0);
 			$ctx = $dstat;
@@ -4865,6 +4868,7 @@ sub process {
 				$define_args = substr($define_args, 1, length($define_args) - 2);
 				$define_args =~ s/\s*//g;
 				@def_args = split(",", $define_args);
+				$complex = 1;
 			}
 
 			$dstat =~ s/$;//g;
@@ -4932,7 +4936,7 @@ sub process {
 				} elsif ($dstat =~ /;/) {
 					ERROR("MULTISTATEMENT_MACRO_USE_DO_WHILE",
 					      "Macros with multiple statements should be enclosed in a do - while loop\n" . "$herectx");
-				} else {
+				} elsif ($complex) {
 					ERROR("COMPLEX_MACRO",
 					      "Macros with complex values should be enclosed in parentheses\n" . "$herectx");
 				}

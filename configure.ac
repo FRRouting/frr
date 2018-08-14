@@ -1839,15 +1839,58 @@ dnl order to check no alternative allocator
 dnl has been specified, which might not provide
 dnl mallinfo, e.g. such as Umem on Solaris.
 dnl -----------------------------------------
-AC_CHECK_HEADER([malloc.h],
- [AC_MSG_CHECKING(whether mallinfo is available)
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <malloc.h>]],
-                        [[struct mallinfo ac_x; ac_x = mallinfo ();]])],
-      [AC_MSG_RESULT(yes)
-       AC_DEFINE(HAVE_MALLINFO,,mallinfo)],
-       AC_MSG_RESULT(no)
-  )
- ], [], FRR_INCLUDES)
+AC_CHECK_HEADERS([malloc.h malloc/malloc.h],,, [FRR_INCLUDES])
+
+AC_MSG_CHECKING(whether mallinfo is available)
+AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+#ifdef HAVE_MALLOC_MALLOC_H
+#include <malloc/malloc.h>
+#endif
+]], [[
+struct mallinfo ac_x; ac_x = mallinfo ();
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_MALLINFO,,mallinfo)
+], [
+  AC_MSG_RESULT(no)
+])
+
+AC_MSG_CHECKING(whether malloc_usable_size is available)
+AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+#ifdef HAVE_MALLOC_MALLOC_H
+#include <malloc/malloc.h>
+#endif
+]], [[
+size_t ac_x; ac_x = malloc_usable_size(NULL);
+]])], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_MALLOC_USABLE_SIZE,,malloc_usable_size)
+], [
+  AC_MSG_RESULT(no)
+
+  AC_MSG_CHECKING(whether malloc_size is available)
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+#ifdef HAVE_MALLOC_MALLOC_H
+#include <malloc/malloc.h>
+#endif
+]], [[
+size_t ac_x; ac_x = malloc_size(NULL);
+]])], [
+    AC_MSG_RESULT(yes)
+    AC_DEFINE(HAVE_MALLOC_SIZE,,malloc_size)
+  ], [
+    AC_MSG_RESULT(no)
+  ])
+])
 
 dnl ------
 dnl ZeroMQ
