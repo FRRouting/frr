@@ -123,7 +123,7 @@ static void err_key_fini(void)
 const struct ferr *ferr_get_last(ferr_r errval)
 {
 	struct ferr *last_error = pthread_getspecific(errkey);
-	if (!last_error || last_error->kind == 0)
+	if (!last_error || !last_error->ref)
 		return NULL;
 	return last_error;
 }
@@ -132,12 +132,11 @@ ferr_r ferr_clear(void)
 {
 	struct ferr *last_error = pthread_getspecific(errkey);
 	if (last_error)
-		last_error->kind = 0;
+		last_error->ref = NULL;
 	return ferr_ok();
 }
 
-static ferr_r ferr_set_va(const char *file, int line, const char *func,
-			  enum ferr_kind kind, const char *pathname,
+static ferr_r ferr_set_va(struct log_ref *ref, const char *pathname,
 			  int errno_val, const char *text, va_list va)
 {
 	struct ferr *error = pthread_getspecific(errkey);
@@ -148,13 +147,7 @@ static ferr_r ferr_set_va(const char *file, int line, const char *func,
 		pthread_setspecific(errkey, error);
 	}
 
-	error->file = file;
-	error->line = line;
-	error->func = func;
-	error->kind = kind;
-
-	error->unique_id = jhash(text, strlen(text),
-				 jhash(file, strlen(file), 0xd4ed0298));
+	error->ref = ref;
 
 	error->errno_val = errno_val;
 	if (pathname)
@@ -167,25 +160,23 @@ static ferr_r ferr_set_va(const char *file, int line, const char *func,
 	return -1;
 }
 
-ferr_r ferr_set_internal(const char *file, int line, const char *func,
-			 enum ferr_kind kind, const char *text, ...)
+ferr_r ferr_set_internal(struct log_ref *ref, ...)
 {
 	ferr_r rv;
 	va_list va;
-	va_start(va, text);
-	rv = ferr_set_va(file, line, func, kind, NULL, 0, text, va);
+	va_start(va, ref);
+	rv = ferr_set_va(ref, NULL, 0, ref->fmtstring, va);
 	va_end(va);
 	return rv;
 }
 
-ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
-			     enum ferr_kind kind, const char *pathname,
-			     int errno_val, const char *text, ...)
+ferr_r ferr_set_internal_ext(struct log_ref *ref, const char *pathname,
+			     int errno_val, ...)
 {
 	ferr_r rv;
 	va_list va;
-	va_start(va, text);
-	rv = ferr_set_va(file, line, func, kind, pathname, errno_val, text, va);
+	va_start(va, errno_val);
+	rv = ferr_set_va(ref, pathname, errno_val, ref->fmtstring, va);
 	va_end(va);
 	return rv;
 }
