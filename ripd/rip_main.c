@@ -168,7 +168,6 @@ int main(int argc, char **argv)
 	master = frr_init();
 
 	/* Library initialization. */
-	rip_error_init();
 	keychain_init();
 	vrf_init(NULL, NULL, NULL, NULL);
 

@@ -183,7 +183,6 @@ main(int argc, char **argv)
     master = frr_init ();
 
     /* Library inits. */
-    babel_error_init();
 
     resend_delay = BABEL_DEFAULT_RESEND_DELAY;
     change_smoothing_half_life(BABEL_DEFAULT_SMOOTHING_HALF_LIFE);

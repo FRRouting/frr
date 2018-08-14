@@ -413,9 +413,6 @@ int main(int argc, char **argv)
 
 	/* RNH init */
 	zebra_rnh_init();
-	
-	/* Error init */
-	zebra_error_init();
 
 #if defined(HANDLE_ZAPI_FUZZING)
 	if (zapi_fuzzing) {

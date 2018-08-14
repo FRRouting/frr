@@ -599,9 +599,6 @@ struct thread_master *frr_init(void)
 	vty_init(master);
 	memory_init();
 
-	log_ref_init();
-	lib_error_init();
-
 	return master;
 }
 
@@ -941,7 +938,6 @@ void frr_fini(void)
 	/* memory_init -> nothing needed */
 	vty_terminate();
 	cmd_terminate();
-	log_ref_fini();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
 	thread_master_free(master);

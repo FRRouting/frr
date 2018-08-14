@@ -420,7 +420,6 @@ int main(int argc, char **argv)
 	if (no_fib_flag)
 		bgp_option_set(BGP_OPT_NO_FIB);
 
-	bgp_error_init();
 	/* Initializations. */
 	bgp_vrf_init();
 
