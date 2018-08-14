@@ -83,6 +83,19 @@ extern struct list *list_new(void);
 extern void listnode_add(struct list *list, void *data);
 
 /*
+ * Add a new element to the beginning of a list.
+ *
+ * Runtime is O(1).
+ *
+ * list
+ *    list to operate on
+ *
+ * data
+ *    element to add
+ */
+extern void listnode_add_head(struct list *list, void *data);
+
+/*
  * Insert a new element into a list with insertion sort.
  *
  * If list->cmp is set, this function is used to determine the position to

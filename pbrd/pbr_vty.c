@@ -580,6 +580,9 @@ static int pbr_interface_config_write(struct vty *vty)
 				vty_frame(vty, "interface %s vrf %s\n",
 					  ifp->name, vrf->name);
 
+			if (ifp->desc)
+				vty_out(vty, " description %s\n", ifp->desc);
+
 			pbr_map_write_interfaces(vty, ifp);
 
 			vty_endframe(vty, "!\n");
