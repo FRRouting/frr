@@ -66,10 +66,15 @@ DECLARE_LOGCAT(LIBRARY)
 DECLARE_LOGCAT(NET_INVALID_INPUT)
 DECLARE_LOGCAT(SYS_INVALID_INPUT)
 
+#define LOG_REF_PRIORITY(p)		((p) & 0xf)
+#define LOG_REF_ERRNO_VALID		(1 << 4)
+#define LOG_REF_GAI_ERROR_VALID		(1 << 5)
+
 struct log_ref {
 	/* message core properties */
 	const char *fmtstring;
-	int priority;
+	/* priority value in the lower 4 bits, remainder for flags */
+	uint32_t priority;
 
 	/* code location */
 	int line;

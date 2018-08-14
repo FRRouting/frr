@@ -272,8 +272,7 @@ done:
 }
 
 static int vty_log_out(struct vty *vty, const char *level,
-		       const char *proto_str, const char *format,
-		       struct timestamp_control *ctl, va_list va)
+		       struct timestamp_control *ctl, const char *text)
 {
 	int ret;
 	int len;
@@ -291,15 +290,11 @@ static int vty_log_out(struct vty *vty, const char *level,
 	buf[len] = '\0';
 
 	if (level)
-		ret = snprintf(buf + len, sizeof(buf) - len, "%s: %s: ", level,
-			       proto_str);
+		ret = snprintf(buf + len, sizeof(buf) - len, "%s: %s", level,
+			       text);
 	else
-		ret = snprintf(buf + len, sizeof(buf) - len, "%s: ", proto_str);
-	if ((ret < 0) || ((size_t)(len += ret) >= sizeof(buf)))
-		return -1;
-
-	if (((ret = vsnprintf(buf + len, sizeof(buf) - len, format, va)) < 0)
-	    || ((size_t)((len += ret) + 2) > sizeof(buf)))
+		ret = snprintf(buf + len, sizeof(buf) - len, "%s", text);
+	if ((ret < 0) || ((size_t)(len += ret) >= sizeof(buf) - 2))
 		return -1;
 
 	buf[len++] = '\r';
@@ -2582,8 +2577,8 @@ tmp_free_and_out:
 }
 
 /* Small utility function which output log to the VTY. */
-void vty_log(const char *level, const char *proto_str, const char *format,
-	     struct timestamp_control *ctl, va_list va)
+void vty_log(const char *level, struct timestamp_control *ctl,
+	     const char *text)
 {
 	unsigned int i;
 	struct vty *vty;
@@ -2593,13 +2588,8 @@ void vty_log(const char *level, const char *proto_str, const char *format,
 
 	for (i = 0; i < vector_active(vtyvec); i++)
 		if ((vty = vector_slot(vtyvec, i)) != NULL)
-			if (vty->monitor) {
-				va_list ac;
-				va_copy(ac, va);
-				vty_log_out(vty, level, proto_str, format, ctl,
-					    ac);
-				va_end(ac);
-			}
+			if (vty->monitor)
+				vty_log_out(vty, level, ctl, text);
 }
 
 /* Async-signal-safe version of vty_log for fixed strings. */

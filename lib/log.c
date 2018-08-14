@@ -179,47 +179,65 @@ static void time_print(FILE *fp, struct timestamp_control *ctl)
 
 
 static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
-		       const char *proto_str, int record_priority, int priority,
-		       FILE *fp, const char *format, va_list args)
+		       int record_priority, int priority,
+		       FILE *fp, const char *text)
 {
-	va_list ac;
-
 	time_print(fp, tsctl);
 	if (record_priority)
 		fprintf(fp, "%s: ", zlog_priority[priority]);
 
-	fprintf(fp, "%s", proto_str);
-	va_copy(ac, args);
-	vfprintf(fp, format, ac);
-	va_end(ac);
-	fprintf(fp, "\n");
+	fprintf(fp, "%s\n", text);
 	fflush(fp);
 }
 
 /* va_list version of zlog. */
-static void vzlog_ref(struct log_ref *lr, int priority, const char *format,
-		      va_list args)
+static void vzlog_ref(struct log_ref *lr, int priority, int ret,
+		      const char *format, va_list args)
 {
 	pthread_mutex_lock(&loglock);
 
-	char proto_str[64], prefix[16] = "";
+	char msgbuf[1024], *msg = msgbuf, *eom = msg + sizeof(msgbuf);
 	int original_errno = errno;
 	struct timestamp_control tsctl;
 	tsctl.already_rendered = 0;
 	struct zlog *zl = zlog_default;
 
-	if (lr)
+	if (lr) {
 		lr->count++;
+		snprintf(msg, eom - msg, "[%s] ", lr->prefix);
+		msg += strlen(msg);
+	}
+
+	if (zl && zl->instance)
+		snprintf(msg, eom - msg, "%s[%d]: ", zl->protoname,
+			 zl->instance);
+	else if (zl)
+		snprintf(msg, eom - msg, "%s: ", zl->protoname);
+	else
+		snprintf(msg, eom - msg, "unknown: ");
+	msg += strlen(msg);
+
+	vsnprintf(msg, eom - msg, format, args);
+	msg += strlen(msg);
+
+	if (lr && (lr->priority & LOG_REF_ERRNO_VALID))
+		snprintf(msg, eom - msg, " (%s [%d])",
+			 safe_strerror(original_errno), original_errno);
+	else if (lr && (lr->priority & LOG_REF_GAI_ERROR_VALID)) {
+		if (ret == EAI_SYSTEM)
+			snprintf(msg, eom - msg, " (%s [%d])",
+				 safe_strerror(original_errno),
+				 original_errno);
+		else {
+			snprintf(msg, eom - msg, " (%s)", gai_strerror(ret));
+		}
+	}
 
 	/* When zlog_default is also NULL, use stderr for logging. */
 	if (zl == NULL) {
 		tsctl.precision = 0;
 		time_print(stderr, &tsctl);
-		fprintf(stderr, "%s: ", "unknown");
-		if (lr)
-			fprintf(stderr, "[%s] ", lr->prefix);
-		vfprintf(stderr, format, args);
-		fprintf(stderr, "\n");
+		fprintf(stderr, "%s\n", msgbuf);
 		fflush(stderr);
 
 		/* In this case we return at here. */
@@ -230,24 +248,13 @@ static void vzlog_ref(struct log_ref *lr, int priority, const char *format,
 	tsctl.precision = zl->timestamp_precision;
 
 	/* Syslog output */
-	if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG]) {
-		va_list ac;
-		va_copy(ac, args);
-		vsyslog(priority | zlog_default->facility, format, ac);
-		va_end(ac);
-	}
-
-	if (lr)
-		sprintf(prefix, " [%s]", lr->prefix);
-	if (zl->instance)
-		sprintf(proto_str, "%s[%d]%s: ", zl->protoname, zl->instance, prefix);
-	else
-		sprintf(proto_str, "%s%s: ", zl->protoname, prefix);
+	if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG])
+		syslog(priority | zlog_default->facility, "%s", msgbuf);
 
 	/* File output. */
 	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
-		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
-			   zl->fp, format, args);
+		vzlog_file(zl, &tsctl, zl->record_priority, priority,
+			   zl->fp, msgbuf);
 
 	/* fixed-config logging to stderr while we're stating up & haven't
 	 * daemonized / reached mainloop yet
@@ -255,16 +262,15 @@ static void vzlog_ref(struct log_ref *lr, int priority, const char *format,
 	 * note the "else" on stdout output -- we don't want to print the same
 	 * message to both stderr and stdout. */
 	if (zlog_startup_stderr && priority <= LOG_WARNING)
-		vzlog_file(zl, &tsctl, proto_str, 1, priority, stderr, format,
-			   args);
+		vzlog_file(zl, &tsctl, zl->record_priority, priority, stderr, msgbuf);
 	else if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
-		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
-			   stdout, format, args);
+		vzlog_file(zl, &tsctl, zl->record_priority, priority,
+			   stdout, msgbuf);
 
 	/* Terminal monitor. */
 	if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
 		vty_log((zl->record_priority ? zlog_priority[priority] : NULL),
-			proto_str, format, &tsctl, args);
+			&tsctl, msgbuf);
 
 	errno = original_errno;
 	pthread_mutex_unlock(&loglock);
@@ -273,7 +279,7 @@ static void vzlog_ref(struct log_ref *lr, int priority, const char *format,
 /* va_list version of zlog. */
 void vzlog(int priority, const char *format, va_list args)
 {
-	vzlog_ref(NULL, priority, format, args);
+	vzlog_ref(NULL, priority, 0, format, args);
 }
 
 int vzlog_test(int priority)
@@ -677,12 +683,12 @@ void zlog(int priority, const char *format, ...)
 	va_end(args);
 }
 
-void zlog_ref(struct log_ref *ref, const char *format, ...)
+void zlog_ref(struct log_ref *ref, int ret, const char *format, ...)
 {
 	va_list args;
 
 	va_start(args, format);
-	vzlog_ref(ref, ref->priority, format, args);
+	vzlog_ref(ref, LOG_REF_PRIORITY(ref->priority), ret, format, args);
 	va_end(args);
 }
 

@@ -80,8 +80,8 @@ extern void closezlog(void);
 #define PRINTF_ATTRIBUTE(a,b)
 #endif /* __GNUC__ */
 
-extern void zlog_ref(struct log_ref *ref, const char *format, ...)
-	PRINTF_ATTRIBUTE(2, 3);
+extern void zlog_ref(struct log_ref *ref, int ret, const char *format, ...)
+	PRINTF_ATTRIBUTE(3, 4);
 
 #define _zlog_makeref(cat, prio, msg) \
 		static struct log_ref log_ref __attribute__((used, \
@@ -94,7 +94,11 @@ extern void zlog_ref(struct log_ref *ref, const char *format, ...)
 
 #define _zlog_ref(cat, prio, msg, ...) do { \
 		_zlog_makeref(cat, prio, msg); \
-		zlog_ref(&log_ref, msg, ## __VA_ARGS__); \
+		zlog_ref(&log_ref, 0, msg, ## __VA_ARGS__); \
+	} while (0)
+#define _zlog_gai(cat, prio, ret, msg, ...) do { \
+		_zlog_makeref(cat, prio, msg); \
+		zlog_ref(&log_ref, ret, msg, ## __VA_ARGS__); \
 	} while (0)
 
 #define zlog_err(msg, ...)    _zlog_ref(NULL, LOG_ERR,     msg, ## __VA_ARGS__)
@@ -109,8 +113,15 @@ extern void zlog_ref(struct log_ref *ref, const char *format, ...)
 #define flog_notice(cat, msg, ...) _zlog_ref(&_lc_##cat, LOG_NOTICE,  msg, ## __VA_ARGS__)
 #define flog_debug(cat, msg, ...)  _zlog_ref(&_lc_##cat, LOG_DEBUG,   msg, ## __VA_ARGS__)
 
-#define flog_err_sys(cat, msg, ...)    _zlog_ref(&_lc_##cat, LOG_ERR,     msg, ## __VA_ARGS__)
-#define flog_warn_sys(cat, msg, ...)   _zlog_ref(&_lc_##cat, LOG_WARNING, msg, ## __VA_ARGS__)
+#define flog_err_sys(cat, msg, ...)    _zlog_ref(&_lc_##cat, \
+		LOG_REF_ERRNO_VALID | LOG_ERR,     msg, ## __VA_ARGS__)
+#define flog_warn_sys(cat, msg, ...)   _zlog_ref(&_lc_##cat, \
+		LOG_REF_ERRNO_VALID | LOG_WARNING, msg, ## __VA_ARGS__)
+
+#define flog_err_gai(cat, ret, msg, ...)    _zlog_gai(&_lc_##cat, \
+		LOG_REF_GAI_ERROR_VALID | LOG_ERR,     ret, msg, ## __VA_ARGS__)
+#define flog_warn_gai(cat, ret, msg, ...)   _zlog_gai(&_lc_##cat, \
+		LOG_REF_GAI_ERROR_VALID | LOG_WARNING, ret, msg, ## __VA_ARGS__)
 
 extern void zlog_thread_info(int log_level);
 

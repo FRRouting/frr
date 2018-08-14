@@ -2295,7 +2295,7 @@ static void vty_print_fcat(struct vty *vty, struct log_cat *lc)
 		vty_out(vty, "\tNo further information available.\n");
 		return;
 	}
-	for (; lc; lc = lc->parent) {
+	for (; lc && lc != &_lc_ROOT; lc = lc->parent) {
 		vty_out(vty, "    Category: %s [%s]\n", lc->title, lc->name);
 		if (lc->description)
 			vty_out(vty, "%s\n\n", lc->description);
@@ -2326,7 +2326,9 @@ DEFUN (show_refcode,
 				lr = *lrp;
 				vty_out(vty, "[%s]: \"%s\"\n\tPriority: %s\n",
 					lr->prefix, lr->fmtstring,
-					zlog_priority[lr->priority]);
+					zlog_priority[LOG_REF_PRIORITY(lr->priority)]);
+				if (lr->priority & LOG_REF_ERRNO_VALID)
+					vty_out(vty, "\terrno is valid for this message.\n");
 				vty_print_fcat(vty, lr->category);
 			}
 			vty_out(vty, "    %s() %s:%d: %zu\n",
