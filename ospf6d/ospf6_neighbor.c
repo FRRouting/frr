@@ -84,10 +84,6 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 
 	on = (struct ospf6_neighbor *)XMALLOC(MTYPE_OSPF6_NEIGHBOR,
 					      sizeof(struct ospf6_neighbor));
-	if (on == NULL) {
-		zlog_warn("neighbor: malloc failed");
-		return NULL;
-	}
 
 	memset(on, 0, sizeof(struct ospf6_neighbor));
 	inet_ntop(AF_INET, &router_id, buf, sizeof(buf));

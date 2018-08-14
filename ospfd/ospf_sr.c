@@ -128,12 +128,6 @@ static struct sr_node *sr_node_new(struct in_addr *rid)
 	/* Allocate Segment Routing node memory */
 	new = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_node));
 
-	/* Sanity Check */
-	if (new == NULL) {
-		zlog_err("SR (%s): Abort! can't create new SR node", __func__);
-		return NULL;
-	}
-
 	/* Default Algorithm, SRGB and MSD */
 	for (int i = 0; i < ALGORITHM_COUNT; i++)
 		new->algo[i] = SR_ALGORITHM_UNSET;
@@ -735,9 +729,6 @@ static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh)
 
 	srl = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_link));
 
-	if (srl == NULL)
-		return NULL;
-
 	/* Initialize TLV browsing */
 	length = ntohs(tlvh->length) - EXT_TLV_LINK_SIZE;
 	sub_tlvh = (struct tlv_header *)((char *)(tlvh) + TLV_HDR_SIZE
@@ -819,9 +810,6 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh)
 	uint16_t length = 0, sum = 0;
 
 	srp = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
-
-	if (srp == NULL)
-		return NULL;
 
 	/* Initialize TLV browsing */
 	length = ntohs(tlvh->length) - EXT_TLV_PREFIX_SIZE;

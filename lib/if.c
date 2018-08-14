@@ -626,7 +626,7 @@ static struct interface *if_sunwzebra_get(char *name, vrf_id_t vrf_id)
 }
 #endif /* SUNOS_5 */
 
-DEFUN (interface,
+DEFUN_NOSH (interface,
        interface_cmd,
        "interface IFNAME [vrf NAME]",
        "Select an interface to configure\n"
@@ -669,13 +669,13 @@ DEFUN (interface,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (no_interface,
-           no_interface_cmd,
-           "no interface IFNAME [vrf NAME]",
-           NO_STR
-           "Delete a pseudo interface's configuration\n"
-           "Interface's name\n"
-           VRF_CMD_HELP_STR)
+DEFUN (no_interface,
+       no_interface_cmd,
+       "no interface IFNAME [vrf NAME]",
+       NO_STR
+       "Delete a pseudo interface's configuration\n"
+       "Interface's name\n"
+       VRF_CMD_HELP_STR)
 {
 	int idx_vrf = 4;
 	const char *ifname = argv[2]->arg;

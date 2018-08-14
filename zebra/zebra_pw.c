@@ -308,15 +308,14 @@ void zebra_pw_exit(struct zebra_vrf *zvrf)
 
 DEFUN_NOSH (pseudowire_if,
 	    pseudowire_if_cmd,
-	    "[no] pseudowire IFNAME",
-	    NO_STR
+	    "pseudowire IFNAME",
 	    "Static pseudowire configuration\n"
 	    "Pseudowire name\n")
 {
 	struct zebra_vrf *zvrf;
 	struct zebra_pw *pw;
-	int idx = 0;
 	const char *ifname;
+	int idx = 0;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (!zvrf)
@@ -324,22 +323,47 @@ DEFUN_NOSH (pseudowire_if,
 
 	argv_find(argv, argc, "IFNAME", &idx);
 	ifname = argv[idx]->arg;
+
 	pw = zebra_pw_find(zvrf, ifname);
 	if (pw && pw->protocol != ZEBRA_ROUTE_STATIC) {
 		vty_out(vty, "%% Pseudowire is not static\n");
 		return CMD_WARNING;
 	}
 
-	if (argv_find(argv, argc, "no", &idx)) {
-		if (!pw)
-			return CMD_SUCCESS;
-		zebra_pw_del(zvrf, pw);
-		return CMD_SUCCESS;
-	}
-
 	if (!pw)
 		pw = zebra_pw_add(zvrf, ifname, ZEBRA_ROUTE_STATIC, NULL);
 	VTY_PUSH_CONTEXT(PW_NODE, pw);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_pseudowire_if,
+       no_pseudowire_if_cmd,
+       "no pseudowire IFNAME",
+       NO_STR
+       "Static pseudowire configuration\n"
+       "Pseudowire name\n")
+{
+	struct zebra_vrf *zvrf;
+	struct zebra_pw *pw;
+	const char *ifname;
+	int idx = 0;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return CMD_WARNING;
+
+	argv_find(argv, argc, "IFNAME", &idx);
+	ifname = argv[idx]->arg;
+
+	pw = zebra_pw_find(zvrf, ifname);
+	if (pw) {
+		if (pw->protocol != ZEBRA_ROUTE_STATIC) {
+			vty_out(vty, "%% Pseudowire is not static\n");
+			return CMD_WARNING;
+		}
+		zebra_pw_del(zvrf, pw);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -531,6 +555,7 @@ void zebra_pw_vty_init(void)
 	install_default(PW_NODE);
 
 	install_element(CONFIG_NODE, &pseudowire_if_cmd);
+	install_element(CONFIG_NODE, &no_pseudowire_if_cmd);
 	install_element(PW_NODE, &pseudowire_labels_cmd);
 	install_element(PW_NODE, &pseudowire_neighbor_cmd);
 	install_element(PW_NODE, &pseudowire_control_word_cmd);

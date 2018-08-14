@@ -384,8 +384,6 @@ struct label_manager_chunk *assign_label_chunk(uint8_t proto,
 	}
 	/* otherwise create a new one */
 	lmc = XCALLOC(MTYPE_LM_CHUNK, sizeof(struct label_manager_chunk));
-	if (!lmc)
-		return NULL;
 
 	if (list_isempty(lbl_mgr.lc_list))
 		lmc->start = MPLS_LABEL_UNRESERVED_MIN;

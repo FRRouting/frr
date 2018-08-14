@@ -711,12 +711,12 @@ DEFUN_NOSH (vrf,
 	return vrf_handler_create(vty, vrfname, NULL);
 }
 
-DEFUN_NOSH (no_vrf,
-           no_vrf_cmd,
-           "no vrf NAME",
-           NO_STR
-           "Delete a pseudo VRF's configuration\n"
-           "VRF's name\n")
+DEFUN (no_vrf,
+       no_vrf_cmd,
+       "no vrf NAME",
+       NO_STR
+       "Delete a pseudo VRF's configuration\n"
+       "VRF's name\n")
 {
 	const char *vrfname = argv[2]->arg;
 
@@ -744,7 +744,7 @@ DEFUN_NOSH (no_vrf,
 
 struct cmd_node vrf_node = {VRF_NODE, "%s(config-vrf)# ", 1};
 
-DEFUN (vrf_netns,
+DEFUN_NOSH (vrf_netns,
        vrf_netns_cmd,
        "netns NAME",
        "Attach VRF to a Namespace\n"
@@ -771,7 +771,7 @@ DEFUN (vrf_netns,
 	return ret;
 }
 
-DEFUN (no_vrf_netns,
+DEFUN_NOSH (no_vrf_netns,
 	no_vrf_netns_cmd,
 	"no netns [NAME]",
 	NO_STR

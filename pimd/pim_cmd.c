@@ -5106,11 +5106,6 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 
 	result = pim_rp_new(pim, rp, group, plist);
 
-	if (result == PIM_MALLOC_FAIL) {
-		vty_out(vty, "%% Out of memory\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	if (result == PIM_GROUP_BAD_ADDRESS) {
 		vty_out(vty, "%% Bad group address specified: %s\n", group);
 		return CMD_WARNING_CONFIG_FAILED;

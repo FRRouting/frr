@@ -158,7 +158,7 @@ vtysh_cmd_FILES = $(vtysh_scan) \
 		  $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c \
 		  $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c \
 		  $(top_srcdir)/lib/distribute.c $(top_srcdir)/lib/if_rmap.c \
-		  $(top_srcdir)/lib/vrf.c \
+		  $(top_srcdir)/lib/vrf.c $(top_srcdir)/lib/if.c \
 		  $(top_srcdir)/lib/vty.c $(top_srcdir)/zebra/debug.c \
 		  $(top_srcdir)/lib/logicalrouter.c \
 		  $(top_srcdir)/lib/nexthop_group.c \

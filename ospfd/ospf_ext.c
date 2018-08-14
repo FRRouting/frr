@@ -545,11 +545,6 @@ static int ospf_ext_link_new_if(struct interface *ifp)
 	}
 
 	new = XCALLOC(MTYPE_OSPF_EXT_PARAMS, sizeof(struct ext_itf));
-	if (new == NULL) {
-		zlog_warn("EXT (%s): XCALLOC: %s", __func__,
-			  safe_strerror(errno));
-		return rc;
-	}
 
 	/* initialize new information and link back the interface */
 	new->ifp = ifp;

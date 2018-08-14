@@ -857,11 +857,6 @@ static int ospf_mpls_te_new_if(struct interface *ifp)
 	}
 
 	new = XCALLOC(MTYPE_OSPF_MPLS_TE, sizeof(struct mpls_te_link));
-	if (new == NULL) {
-		zlog_warn("ospf_mpls_te_new_if: XMALLOC: %s",
-			  safe_strerror(errno));
-		return rc;
-	}
 
 	new->instance = get_mpls_te_instance_value();
 	new->ifp = ifp;

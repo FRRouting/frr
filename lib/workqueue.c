@@ -81,9 +81,6 @@ struct work_queue *work_queue_new(struct thread_master *m,
 
 	new = XCALLOC(MTYPE_WORK_QUEUE, sizeof(struct work_queue));
 
-	if (new == NULL)
-		return new;
-
 	new->name = XSTRDUP(MTYPE_WORK_QUEUE_NAME, queue_name);
 	new->master = m;
 	SET_FLAG(new->flags, WQ_UNPLUGGED);
@@ -152,10 +149,7 @@ void work_queue_add(struct work_queue *wq, void *data)
 
 	assert(wq);
 
-	if (!(item = work_queue_item_new(wq))) {
-		zlog_err("%s: unable to get new queue item", __func__);
-		return;
-	}
+	item = work_queue_item_new(wq);
 
 	item->data = data;
 	work_queue_item_enqueue(wq, item);

@@ -154,9 +154,6 @@ static struct vertex_parent *vertex_parent_new(struct vertex *v, int backlink,
 
 	new = XMALLOC(MTYPE_OSPF_VERTEX_PARENT, sizeof(struct vertex_parent));
 
-	if (new == NULL)
-		return NULL;
-
 	new->parent = v;
 	new->backlink = backlink;
 	new->nexthop = hop;

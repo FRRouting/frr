@@ -356,7 +356,7 @@ int main(int argc, char **argv, char **env)
 			break;
 		case OPTION_CONFDIR:
 			ditch_suid = 1; /* option disables SUID */
-			strlcpy(sysconfdir, optarg, sizeof(sysconfdir));
+			snprintf(sysconfdir, sizeof(sysconfdir), "%s/", optarg);
 			break;
 		case 'N':
 			if (strchr(optarg, '/') || strchr(optarg, '.')) {

@@ -356,7 +356,7 @@ AC_ARG_ENABLE(ospfd,
 AC_ARG_ENABLE(ospf6d,
   AS_HELP_STRING([--disable-ospf6d], [do not build ospf6d]))
 AC_ARG_ENABLE(ldpd,
-  AS_HELP_STRING([--enable-ldpd], [build ldpd]))
+  AS_HELP_STRING([--disable-ldpd], [do not build ldpd]))
 AC_ARG_ENABLE(nhrpd,
   AS_HELP_STRING([--disable-nhrpd], [do not build nhrpd]))
 AC_ARG_ENABLE(eigrpd,
@@ -372,7 +372,9 @@ AC_ARG_ENABLE(pimd,
 AC_ARG_ENABLE(pbrd,
   AS_HELP_STRING([--disable-pbrd], [do not build pbrd]))
 AC_ARG_ENABLE(sharpd,
-  AS_HELP_STRING([--enable-sharpd], [do not build sharpd]))
+  AS_HELP_STRING([--enable-sharpd], [build sharpd]))
+AC_ARG_ENABLE(staticd,
+  AS_HELP_STRING([--disable-staticd], [do not build staticd]))
 AC_ARG_ENABLE(bgp-announce,
   AS_HELP_STRING([--disable-bgp-announce,], [turn off BGP route announcement]))
 AC_ARG_ENABLE(bgp-vnc,

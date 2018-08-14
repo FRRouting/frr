@@ -25,8 +25,6 @@ static int nhrp_if_new_hook(struct interface *ifp)
 	afi_t afi;
 
 	nifp = XCALLOC(MTYPE_NHRP_IF, sizeof(struct nhrp_interface));
-	if (!nifp)
-		return 0;
 
 	ifp->info = nifp;
 	nifp->ifp = ifp;

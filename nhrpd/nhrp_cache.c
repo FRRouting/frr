@@ -48,17 +48,16 @@ static void *nhrp_cache_alloc(void *data)
 	struct nhrp_cache *p, *key = data;
 
 	p = XMALLOC(MTYPE_NHRP_CACHE, sizeof(struct nhrp_cache));
-	if (p) {
-		*p = (struct nhrp_cache){
-			.cur.type = NHRP_CACHE_INVALID,
-			.new.type = NHRP_CACHE_INVALID,
-			.remote_addr = key->remote_addr,
-			.ifp = key->ifp,
-			.notifier_list =
-				NOTIFIER_LIST_INITIALIZER(&p->notifier_list),
-		};
-		nhrp_cache_counts[p->cur.type]++;
-	}
+
+	*p = (struct nhrp_cache){
+		.cur.type = NHRP_CACHE_INVALID,
+		.new.type = NHRP_CACHE_INVALID,
+		.remote_addr = key->remote_addr,
+		.ifp = key->ifp,
+		.notifier_list =
+		NOTIFIER_LIST_INITIALIZER(&p->notifier_list),
+	};
+	nhrp_cache_counts[p->cur.type]++;
 
 	return p;
 }

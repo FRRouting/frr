@@ -486,10 +486,6 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area)
 	struct isis_spftree *tree;
 
 	tree = XCALLOC(MTYPE_ISIS_SPFTREE, sizeof(struct isis_spftree));
-	if (tree == NULL) {
-		zlog_err("ISIS-Spf: isis_spftree_new Out of memory!");
-		return NULL;
-	}
 
 	isis_vertex_queue_init(&tree->tents, "IS-IS SPF tents", true);
 	isis_vertex_queue_init(&tree->paths, "IS-IS SPF paths", false);

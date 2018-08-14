@@ -102,19 +102,10 @@ void pim_rp_init(struct pim_instance *pim)
 	struct route_node *rn;
 
 	pim->rp_list = list_new();
-	if (!pim->rp_list) {
-		zlog_err("Unable to alloc rp_list");
-		return;
-	}
 	pim->rp_list->del = (void (*)(void *))pim_rp_info_free;
 	pim->rp_list->cmp = pim_rp_list_cmp;
 
 	pim->rp_table = route_table_init();
-	if (!pim->rp_table) {
-		zlog_err("Unable to alloc rp_table");
-		list_delete_and_null(&pim->rp_list);
-		return;
-	}
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
@@ -133,14 +124,6 @@ void pim_rp_init(struct pim_instance *pim)
 	listnode_add(pim->rp_list, rp_info);
 
 	rn = route_node_get(pim->rp_table, &rp_info->group);
-	if (!rn) {
-		zlog_err("Failure to get route node for pim->rp_table");
-		list_delete_and_null(&pim->rp_list);
-		route_table_finish(pim->rp_table);
-		XFREE(MTYPE_PIM_RP, rp_info);
-		return;
-	}
-
 	rn->info = rp_info;
 	if (PIM_DEBUG_TRACE)
 		zlog_debug(

@@ -2420,11 +2420,7 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		if ((p = XMALLOC(MTYPE_TMP, strlen(cwd) + strlen(fname) + 2))
-		    == NULL) {
-			zlog_err("config_log_file: Unable to alloc mem!");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+		p = XMALLOC(MTYPE_TMP, strlen(cwd) + strlen(fname) + 2);
 		sprintf(p, "%s/%s", cwd, fname);
 		fullpath = p;
 	} else

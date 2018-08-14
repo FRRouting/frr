@@ -413,7 +413,7 @@ end
                 ctx_keys = []
                 current_context_lines = []
 
-            elif line in ["exit-address-family", "exit", "exit-vnc", "exit-vni"]:
+            elif line in ["exit-address-family", "exit", "exit-vnc"]:
                 # if this exit is for address-family ipv4 unicast, ignore the pop
                 if main_ctx_key:
                     self.save_contexts(ctx_keys, current_context_lines)
@@ -422,6 +422,15 @@ end
                     ctx_keys = copy.deepcopy(main_ctx_key)
                     current_context_lines = []
                     log.debug('LINE %-50s: popping from subcontext to ctx%-50s', line, ctx_keys)
+
+            elif line == "exit-vni":
+                if sub_main_ctx_key:
+                    self.save_contexts(ctx_keys, current_context_lines)
+
+                    # Start a new context
+                    ctx_keys = copy.deepcopy(sub_main_ctx_key)
+                    current_context_lines = []
+                    log.debug('LINE %-50s: popping from sub-subcontext to ctx%-50s', line, ctx_keys)
 
             elif new_ctx is True:
                 if not main_ctx_key:
@@ -436,11 +445,7 @@ end
             elif (line.startswith("address-family ") or
                   line.startswith("vnc defaults") or
                   line.startswith("vnc l2-group") or
-                  line.startswith("vnc nve-group") or
-                  (line.startswith("vni ") and
-                   len(ctx_keys) == 2 and
-                   ctx_keys[0].startswith('router bgp') and
-                   ctx_keys[1] == 'address-family l2vpn evpn')):
+                  line.startswith("vnc nve-group")):
                 main_ctx_key = []
 
                 # Save old context first
@@ -457,6 +462,18 @@ end
                     ctx_keys.append("address-family l2vpn evpn")
                 else:
                     ctx_keys.append(line)
+
+            elif ((line.startswith("vni ") and
+                   len(ctx_keys) == 2 and
+                   ctx_keys[0].startswith('router bgp') and
+                   ctx_keys[1] == 'address-family l2vpn evpn')):
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                sub_main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug('LINE %-50s: entering sub-sub-context, append to ctx_keys', line)
+                ctx_keys.append(line)
 
             else:
                 # Continuing in an existing context, add non-commented lines to it

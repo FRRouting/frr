@@ -1176,13 +1176,11 @@ int ospf_apiserver_handle_register_event(struct ospf_apiserver *apiserv,
 
 	apiserv->filter =
 		XMALLOC(MTYPE_OSPF_APISERVER_MSGFILTER, ntohs(msg->hdr.msglen));
-	if (apiserv->filter) {
-		/* copy it over. */
-		memcpy(apiserv->filter, &rmsg->filter, ntohs(msg->hdr.msglen));
-		rc = OSPF_API_OK;
-	} else {
-		rc = OSPF_API_NOMEMORY;
-	}
+
+	/* copy it over. */
+	memcpy(apiserv->filter, &rmsg->filter, ntohs(msg->hdr.msglen));
+	rc = OSPF_API_OK;
+
 	/* Send a reply back to client with return code */
 	rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
 	return rc;

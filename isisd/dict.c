@@ -244,19 +244,18 @@ dict_t *dict_create(dictcount_t maxcount, dict_comp_t comp)
 {
 	dict_t *new = XCALLOC(MTYPE_ISIS_DICT, sizeof(dict_t));
 
-	if (new) {
-		new->compare = comp;
-		new->allocnode = dnode_alloc;
-		new->freenode = dnode_free;
-		new->context = NULL;
-		new->nodecount = 0;
-		new->maxcount = maxcount;
-		new->nilnode.left = &new->nilnode;
-		new->nilnode.right = &new->nilnode;
-		new->nilnode.parent = &new->nilnode;
-		new->nilnode.color = dnode_black;
-		new->dupes = 0;
-	}
+	new->compare = comp;
+	new->allocnode = dnode_alloc;
+	new->freenode = dnode_free;
+	new->context = NULL;
+	new->nodecount = 0;
+	new->maxcount = maxcount;
+	new->nilnode.left = &new->nilnode;
+	new->nilnode.right = &new->nilnode;
+	new->nilnode.parent = &new->nilnode;
+	new->nilnode.color = dnode_black;
+	new->dupes = 0;
+
 	return new;
 }
 
@@ -974,12 +973,12 @@ static void dnode_free(dnode_t *node, void *context)
 dnode_t *dnode_create(void *data)
 {
 	dnode_t *new = XCALLOC(MTYPE_ISIS_DICT_NODE, sizeof(dnode_t));
-	if (new) {
-		new->data = data;
-		new->parent = NULL;
-		new->left = NULL;
-		new->right = NULL;
-	}
+
+	new->data = data;
+	new->parent = NULL;
+	new->left = NULL;
+	new->right = NULL;
+
 	return new;
 }
 
@@ -1250,8 +1249,8 @@ static char *dupstring(char *str)
 {
 	int sz = strlen(str) + 1;
 	char *new = XCALLOC(MTYPE_ISIS_TMP, sz);
-	if (new)
-		memcpy(new, str, sz);
+
+	memcpy(new, str, sz);
 	return new;
 }
 

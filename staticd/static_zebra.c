@@ -119,7 +119,7 @@ static int interface_state_up(int command, struct zclient *zclient,
 
 	ifp = zebra_interface_if_lookup(zclient->ibuf);
 
-	if (if_is_vrf(ifp)) {
+	if (ifp && if_is_vrf(ifp)) {
 		struct static_vrf *svrf = static_vrf_lookup_by_id(vrf_id);
 
 		static_fixup_vrf_ids(svrf);

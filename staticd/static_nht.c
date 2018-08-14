@@ -42,7 +42,7 @@ void static_nht_update(struct prefix *p, uint32_t nh_num,
 
 	vrf = vrf_lookup_by_id(vrf_id);
 
-	if (!vrf->info)
+	if (!vrf || !vrf->info)
 		return;
 
 	svrf = vrf->info;
