@@ -8,7 +8,7 @@
 # derived variables.
 pkg_names = daemons dev doc libs smf
 pkg_frr_daemons = zebra bgpd ospfd ospf6d ripd ripngd
-pkg_name_rev = @PACKAGE_VERSION@-@CONFDATE@-@target_os@-@target_cpu@
+pkg_name_rev = @PACKAGE_VERSION@-@CONFDATE@-@host_os@-@host_cpu@
 pkg_depends = $(pkg_names:%=depend.%)
 pkg_packages = $(pkg_names:%=@PACKAGE_TARNAME@-%-$(pkg_name_rev).pkg)
 pkg_pkginfos = $(pkg_names:%=pkginfo.%.full)
@@ -37,13 +37,12 @@ edit = $(SED) \
 	-e 's,@enable_vty_group\@,$(enable_vty_group),g' \
 	-e 's,@frr_statedir\@,$(frr_statedir),g' \
 	-e 's,[@]PACKAGE_NAME[@],@PACKAGE_NAME@,g' \
- 	-e 's,[@]PACKAGE_TARNAME[@],@PACKAGE_TARNAME@,g' \
- 	-e 's,[@]PACKAGE_VERSION[@],@PACKAGE_VERSION@,g' \
- 	-e 's,[@]PACKAGE_BUGREPORT[@],@PACKAGE_BUGREPORT@,g' \
-  	-e 's,[@]CONFDATE[@],@CONFDATE@,g' \
- 	-e 's,[@]target_cpu[@],$(target_cpu),g' \
- 	-e 's,[@]target_host[@],$(target_host),g' \
- 	-e 's,[@]target_os[@],$(target_os),g'
+	-e 's,[@]PACKAGE_TARNAME[@],@PACKAGE_TARNAME@,g' \
+	-e 's,[@]PACKAGE_VERSION[@],@PACKAGE_VERSION@,g' \
+	-e 's,[@]PACKAGE_BUGREPORT[@],@PACKAGE_BUGREPORT@,g' \
+	-e 's,[@]CONFDATE[@],@CONFDATE@,g' \
+	-e 's,[@]host_cpu[@],$(host_cpu),g' \
+	-e 's,[@]host_os[@],$(host_os),g'
 
 # common options for pkgmk
 pkg_make_vars = exec_prefix=@exec_prefix@ prefix=@prefix@ \
