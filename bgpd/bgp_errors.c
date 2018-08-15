@@ -98,6 +98,24 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Ensure BGP has permissions to write the specified file",
 	},
 	{
+		.code = BGP_WARN_UPDATE_PACKET_SHORT,
+		.title = "BGP Update Packet is to Small",
+		.description = "The update packet received from a peer is to small",
+		.suggestion = "Determine the source of the update packet and examine that peer for what has gone wrong",
+	},
+	{
+		.code = BGP_WARN_UPDATE_PACKET_LONG,
+		.title = "BGP Update Packet is to large",
+		.description = "The update packet received from a peer is to large",
+		.suggestion = "Determine the source of the update packet and examine that peer for what has gone wrong",
+	},
+	{
+		.code = BGP_WARN_UNRECOGNIZED_CAPABILITY,
+		.title = "Unknown BGP Capability Received",
+		.description = "The negotiation of capabilities has received a capability that we do not know what to do with",
+		.suggestion = "Determine the source of the capability and remove the capability from what is sent",
+	},
+	{
 		.code = END_FERR,
 	}
 };
@@ -382,4 +400,5 @@ void bgp_error_init(void)
 {
 	log_ref_add(ferr_bgp_warn);
 	log_ref_add(ferr_bgp_err);
+	log_ref_add(ferr_bgp_warn);
 }
