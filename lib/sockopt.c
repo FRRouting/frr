@@ -73,7 +73,7 @@ static void *getsockopt_cmsg_data(struct msghdr *msgh, int level, int type)
 	struct cmsghdr *cmsg;
 	void *ptr = NULL;
 
-	for (cmsg = ZCMSG_FIRSTHDR(msgh); cmsg != NULL;
+	for (cmsg = CMSG_FIRSTHDR(msgh); cmsg != NULL;
 	     cmsg = CMSG_NXTHDR(msgh, cmsg))
 		if (cmsg->cmsg_level == level && cmsg->cmsg_type == type)
 			return (ptr = CMSG_DATA(cmsg));

@@ -246,7 +246,7 @@ static int ripng_recv_packet(int sock, uint8_t *buf, int bufsize,
 	if (ret < 0)
 		return ret;
 
-	for (cmsgptr = ZCMSG_FIRSTHDR(&msg); cmsgptr != NULL;
+	for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL;
 	     cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) {
 		/* I want interface index which this packet comes from. */
 		if (cmsgptr->cmsg_level == IPPROTO_IPV6
