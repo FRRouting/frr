@@ -227,8 +227,8 @@ static void ssmpingd_sendto(struct ssmpingd_sock *ss, const uint8_t *buf,
 		pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
 		if (sent < 0) {
 			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
-				      "%s: sendto() failure to %s,
-				      %d: fd=%d len=%d: errno=%d: %s",
+				      "%s: sendto() failure to %s, "
+				      "%d: fd=%d len=%d: errno=%d: %s",
 				      __PRETTY_FUNCTION__, to_str,
 				      ntohs(to.sin_port),
 				      ss->sock_fd, len, errno,
