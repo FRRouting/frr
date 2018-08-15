@@ -160,10 +160,8 @@ int eigrp_if_ipmulticast(struct eigrp *top, struct prefix *p,
 	ret = setsockopt_ipv4_multicast_if(top->fd, p->u.prefix4, ifindex);
 	if (ret < 0)
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
-			      "can't setsockopt IP_MULTICAST_IF (fd %d, addr %s, "
-			      "ifindex %u): %s",
-			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			      safe_strerror(errno));
+			      "can't setsockopt IP_MULTICAST_IF (fd %d, addr %s, ifindex %u)",
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex);
 
 	return ret;
 }
@@ -180,10 +178,9 @@ int eigrp_if_add_allspfrouters(struct eigrp *top, struct prefix *p,
 	if (ret < 0)
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
 			      "can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
-			      "ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
+			      "ifindex %u, AllSPFRouters); perhaps a kernel limit "
 			      "on # of multicast group memberships has been exceeded?",
-			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			      safe_strerror(errno));
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex);
 	else
 		zlog_debug("interface %s [%u] join EIGRP Multicast group.",
 			   inet_ntoa(p->u.prefix4), ifindex);
@@ -202,9 +199,8 @@ int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
 	if (ret < 0)
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
 			      "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
-			      "ifindex %u, AllSPFRouters): %s",
-			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			      safe_strerror(errno));
+			      "ifindex %u, AllSPFRouters)",
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex);
 	else
 		zlog_debug("interface %s [%u] leave EIGRP Multicast group.",
 			   inet_ntoa(p->u.prefix4), ifindex);

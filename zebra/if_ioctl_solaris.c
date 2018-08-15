@@ -81,8 +81,8 @@ calculate_lifc_len:
 	}
 
 	if (ret < 0) {
-		zlog_warn("interface_list_ioctl: SIOCGLIFNUM failed %s",
-			  safe_strerror(save_errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "interface_list_ioctl: SIOCGLIFNUM failed");
 		close(sock);
 		return -1;
 	}

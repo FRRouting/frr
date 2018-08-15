@@ -448,10 +448,9 @@ int eigrp_write(struct thread *thread)
 	if (ret < 0)
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
 			      "*** sendmsg in eigrp_write failed to %s, "
-			      "id %d, off %d, len %d, interface %s, mtu %u: %s",
+			      "id %d, off %d, len %d, interface %s, mtu %u",
 			      inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
-			      iph.ip_len, ei->ifp->name, ei->ifp->mtu,
-			      safe_strerror(errno));
+			      iph.ip_len, ei->ifp->name, ei->ifp->mtu);
 
 	/* Now delete packet from queue. */
 	eigrp_packet_delete(ei);

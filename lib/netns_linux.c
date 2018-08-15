@@ -220,8 +220,7 @@ static int ns_enable_internal(struct ns *ns, void (*func)(ns_id_t, void *))
 
 		if (!ns_is_enabled(ns)) {
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				     "Can not enable NS %u: %s!", ns->ns_id,
-				     safe_strerror(errno));
+				     "Can not enable NS %u!", ns->ns_id);
 			return 0;
 		}
 

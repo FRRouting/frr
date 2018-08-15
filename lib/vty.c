@@ -1969,8 +1969,7 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 	ret = getaddrinfo(hostname, port_str, &req, &ainfo);
 
 	if (ret != 0) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "getaddrinfo failed: %s",
-			     gai_strerror(ret));
+		flog_err_gai(LIB_ERR_SYSTEM_CALL, ret, "getaddrinfo failed");
 		exit(1);
 	}
 
@@ -2107,8 +2106,8 @@ static int vtysh_accept(struct thread *thread)
 	if (set_nonblocking(sock) < 0) {
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
 			      "vtysh_accept: could not set vty socket %d to non-blocking,"
-			      " %s, closing",
-			      sock, safe_strerror(errno));
+			      " closing",
+			      sock);
 		close(sock);
 		return -1;
 	}
@@ -2495,9 +2494,8 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 
 		if (confp == NULL) {
 			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
-				      "%s: failed to open configuration file %s: %s, checking backup",
-				      __func__, fullpath,
-				      safe_strerror(errno));
+				      "%s: failed to open configuration file %s, checking backup",
+				      __func__, fullpath);
 
 			confp = vty_use_backup_config(fullpath);
 			if (confp)
@@ -2543,9 +2541,8 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 		confp = fopen(config_default_dir, "r");
 		if (confp == NULL) {
 			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
-				      "%s: failed to open configuration file %s: %s, checking backup",
-				      __func__, config_default_dir,
-				      safe_strerror(errno));
+				      "%s: failed to open configuration file %s, checking backup",
+				      __func__, config_default_dir);
 
 			confp = vty_use_backup_config(config_default_dir);
 			if (confp) {

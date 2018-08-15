@@ -647,8 +647,8 @@ int zebra_ptm_sock_read(struct thread *thread)
 
 	if (((rc == 0) && !errno)
 	    || (errno && (errno != EWOULDBLOCK) && (errno != EAGAIN))) {
-		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "%s routing socket error: %s(%d) bytes %d",
-										__func__, safe_strerror(errno), errno, rc);
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "%s routing socket error: bytes %d",
+			      __func__, rc);
 
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;

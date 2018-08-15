@@ -43,8 +43,7 @@ pid_t pid_output(const char *path)
 	fd = open(path, O_RDWR | O_CREAT, PIDFILE_MASK);
 	if (fd < 0) {
 		flog_err_sys(LIB_ERR_SYSTEM_CALL,
-			     "Can't create pid lock file %s (%s), exiting",
-			     path, safe_strerror(errno));
+			     "Can't create pid lock file %s, exiting", path);
 		umask(oldumask);
 		exit(1);
 	} else {
@@ -60,8 +59,8 @@ pid_t pid_output(const char *path)
 
 		if (fcntl(fd, F_SETLK, &lock) < 0) {
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				     "Could not lock pid_file %s (%s), exiting",
-				     path, safe_strerror(errno));
+				     "Could not lock pid_file %s, exiting",
+				     path);
 			exit(1);
 		}
 
