@@ -6245,24 +6245,14 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 				json_object *json)
 {
 	int len = 0;
-	uint32_t destination;
 	char buf[BUFSIZ];
 
 	if (p->family == AF_INET) {
 		if (!json) {
-			len = vty_out(vty, "%s",
-				      inet_ntop(p->family, &p->u.prefix, buf,
-						BUFSIZ));
-			destination = ntohl(p->u.prefix4.s_addr);
-
-			if ((IN_CLASSC(destination) && p->prefixlen == 24)
-			    || (IN_CLASSB(destination) && p->prefixlen == 16)
-			    || (IN_CLASSA(destination) && p->prefixlen == 8)
-			    || p->u.prefix4.s_addr == 0) {
-				/* When mask is natural,
-				   mask is not displayed. */
-			} else
-				len += vty_out(vty, "/%d", p->prefixlen);
+			len = vty_out(
+				vty, "%s/%d",
+				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
+				p->prefixlen);
 		} else {
 			json_object_string_add(json, "prefix",
 					       inet_ntop(p->family,
