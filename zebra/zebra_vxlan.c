@@ -1961,6 +1961,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 	char buf2[INET6_ADDRSTRLEN];
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *zmac = NULL, *old_zmac = NULL;
+	bool check_rbit = false;
 
 	/* create a dummy MAC if the MAC is not already present */
 	zmac = zvni_mac_lookup(zvni, macaddr);
@@ -1990,34 +1991,40 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 	n = zvni_neigh_lookup(zvni, ip);
 	if (n) {
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
+
+			if (router_flag !=
+			    (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG)
+					? 1 : 0))
+				check_rbit = true;
+
 			if (memcmp(n->emac.octet, macaddr->octet,
 				   ETH_ALEN) == 0) {
 				/* Update any params and return - client doesn't
 				 * care about a purely local change.
 				 */
 				n->ifindex = ifp->ifindex;
-				return 0;
-			}
+			} else {
 
-			/* If the MAC has changed,
-			 * need to issue a delete first
-			 * as this means a different MACIP route.
-			 * Also, need to do some unlinking/relinking.
-			 */
-			zvni_neigh_send_del_to_client(zvni->vni, &n->ip,
+				/* If the MAC has changed,
+				 * need to issue a delete first
+				 * as this means a different MACIP route.
+				 * Also, need to do some unlinking/relinking.
+				 */
+				zvni_neigh_send_del_to_client(zvni->vni, &n->ip,
 						      &n->emac, 0);
-			old_zmac = zvni_mac_lookup(zvni, &n->emac);
-			if (old_zmac) {
-				listnode_delete(old_zmac->neigh_list, n);
-				zvni_deref_ip2mac(zvni, old_zmac, 0);
+				old_zmac = zvni_mac_lookup(zvni, &n->emac);
+				if (old_zmac) {
+					listnode_delete(old_zmac->neigh_list, n);
+					zvni_deref_ip2mac(zvni, old_zmac, 0);
+				}
+
+				/* Update the forwarding info. */
+				n->ifindex = ifp->ifindex;
+				memcpy(&n->emac, macaddr, ETH_ALEN);
+
+				/* Link to new MAC */
+				listnode_add_sort(zmac->neigh_list, n);
 			}
-
-			/* Update the forwarding info. */
-			n->ifindex = ifp->ifindex;
-			memcpy(&n->emac, macaddr, ETH_ALEN);
-
-			/* Link to new MAC */
-			listnode_add_sort(zmac->neigh_list, n);
 
 		} else
 		/* Neighbor has moved from remote to local. */
@@ -2042,6 +2049,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 			n->r_vtep_ip.s_addr = 0;
 			SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 			n->ifindex = ifp->ifindex;
+			check_rbit = true;
 		}
 	} else {
 		/* New neighbor - create */
@@ -2058,6 +2066,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 		/* Set "local" forwarding info. */
 		SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 		n->ifindex = ifp->ifindex;
+		check_rbit = true;
 	}
 
 	/*Mark Router flag (R-bit) */
@@ -2072,11 +2081,21 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 	if (!CHECK_FLAG(zmac->flags, ZEBRA_MAC_LOCAL)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"Skipping neigh %s add to client as MAC %s is not local on VNI %u",
+				"Skipping neigh %s add to client as MAC %s is not local on VNI %u with flags 0x%x",
+				ipaddr2str(ip, buf2, sizeof(buf2)),
+				prefix_mac2str(macaddr, buf, sizeof(buf)),
+				zvni->vni, n->flags);
+
+		return 0;
+	}
+
+	if (!check_rbit) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"Skipping neigh %s with MAC %s on VNI %u add to client as router flag is not set.",
 				ipaddr2str(ip, buf2, sizeof(buf2)),
 				prefix_mac2str(macaddr, buf, sizeof(buf)),
 				zvni->vni);
-
 		return 0;
 	}
 
