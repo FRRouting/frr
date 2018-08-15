@@ -20,11 +20,13 @@ sbin_SCRIPTS =
 noinst_PROGRAMS =
 noinst_HEADERS =
 noinst_LIBRARIES =
+nodist_noinst_DATA =
 lib_LTLIBRARIES =
 module_LTLIBRARIES =
 pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_examples_DATA =
+man_MANS =
 
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking
@@ -34,6 +36,10 @@ $(AUTOMAKE_DUMMY)install-moduleLTLIBRARIES: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-binPROGRAMS: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
 
+include doc/subdir.am
+include doc/user/subdir.am
+include doc/manpages/subdir.am
+include doc/developer/subdir.am
 include include/subdir.am
 include lib/subdir.am
 include zebra/subdir.am
@@ -60,11 +66,11 @@ include bfdd/subdir.am
 
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
 	 @BGPD@ \
-	 @VTYSH@ @DOC@ \
+	 @VTYSH@ \
          @SOLARIS@ tests
 
 DIST_SUBDIRS = . bgpd \
-	  vtysh doc tests \
+	  vtysh tests \
 	  solaris bgpd/rfp-example/librfp \
 	  bgpd/rfp-example/rfptest \
 	  debianpkg \
@@ -108,6 +114,11 @@ EXTRA_DIST += \
 	\
 	vtysh/Makefile.am \
 	vtysh/Makefile.in \
+	\
+	doc/Makefile \
+	doc/developer/Makefile \
+	doc/manpages/Makefile \
+	doc/user/Makefile \
 	# end
 
 ACLOCAL_AMFLAGS = -I m4
