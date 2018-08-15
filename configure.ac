@@ -120,6 +120,32 @@ CFLAGS="$orig_cflags"
 AC_PROG_CC_C99
 dnl NB: see C11 below
 
+case "$host_os" in
+  sunos* | solaris2*)
+    AC_PATH_TOOL([GLD], [gld], [
+      AC_MSG_ERROR([Building on Solaris requires GNU ld to be available.])
+    ])
+
+    # Yes.  Solaris.  Where even using GNU tools involves a magic rain dance
+    # and a copious amount of sacrificial goats.
+    #
+    # GNU gcc uses Solaris LD for some stupid reason, and that doesn't
+    # support section start/end symbols.  Use GNU LD, you say?  Well...
+    # GNU gcc doesn't expect that and passes "-M" to read Solaris-specific
+    # map files.  GNU LD has no support for these.  Surely there would be an
+    # option to ditch the -M? ... Nope.  Well, now we get a shell script to
+    # eat up the -M option and its parameter...
+
+    abssrc="`cd \"${srcdir}\"; pwd`"
+    LD_ALTEXEC="${abssrc}/solaris/ldwrap"
+
+    # use GNU ld during configure so checks work correctly
+    export GLD LD_ALTEXEC
+    ;;
+esac
+AC_SUBST(LD_ALTEXEC)
+AC_SUBST(GLD)
+
 AC_PROG_EGREP
 PKG_PROG_PKG_CONFIG
 

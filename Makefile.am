@@ -8,6 +8,10 @@ AM_CPPFLAGS += -I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
 
+if SOLARIS
+export LD_ALTEXEC GLD
+endif
+
 EXTRA_DIST =
 BUILT_SOURCES =
 CLEANFILES =

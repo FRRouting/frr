@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# wrapper to get rid of -M <mapfile> for Solaris LD <> GNU LD translation.
+# 2018 by David Lamparter, placed in public domain.
+
+if [ -z "$GLD" ]; then
+	echo "GLD variable needs to be set." >&2
+	exit 1
+fi
+
+i=0
+j=$#
+while [ "$i" -lt "$j" ]; do
+	arg="$1"
+	if [ "$arg" = "-M" ]; then
+		# ditch "-M <mapfile>" option
+		shift 2
+		i=$(( i + 2 ))
+	elif [ "$arg" = "-z" -a \( "$2" = "record" -o "$2" = "ignore" \) ]; then
+		# ditch "-z {record,ignore}"
+		shift 2
+		i=$(( i + 2 ))
+	else
+		# rotate through $@ so we don't get into arg
+		# expansion / escaping problems
+		shift 1
+		set -- "$@" "$arg"
+		i=$(( i + 1 ))
+	fi
+done
+
+exec $GLD "$@"
