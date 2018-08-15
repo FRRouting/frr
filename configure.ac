@@ -1937,7 +1937,6 @@ AC_CONFIG_FILES([Makefile
 	  doc/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
 	  redhat/frr.spec
-	  debianpkg/Makefile
 	  debianpkg/changelog
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
