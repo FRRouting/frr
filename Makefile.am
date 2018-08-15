@@ -106,6 +106,9 @@ include tools/subdir.am
 include debianpkg/subdir.am
 include solaris/subdir.am
 
+include bgpd/subdir.am
+include bgpd/rfp-example/librfp/subdir.am
+include bgpd/rfp-example/rfptest/subdir.am
 include ripd/subdir.am
 include ripngd/subdir.am
 include ospfd/subdir.am
@@ -122,15 +125,12 @@ include pbrd/subdir.am
 include staticd/subdir.am
 include bfdd/subdir.am
 
-SUBDIRS = . @LIBRFP@ @RFPTEST@ \
-	 @BGPD@ \
+SUBDIRS = . \
 	 @VTYSH@ \
          tests
 
-DIST_SUBDIRS = . bgpd \
+DIST_SUBDIRS = . \
 	  vtysh tests \
-	  bgpd/rfp-example/librfp \
-	  bgpd/rfp-example/rfptest \
 	  # end
 
 if PKGSRC

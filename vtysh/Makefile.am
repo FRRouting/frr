@@ -2,21 +2,6 @@
 
 include ../common.am
 
-if ENABLE_BGP_VNC
-BGP_VNC_RFP_SRCDIR   = @top_srcdir@/@LIBRFP@
-BGP_VNC_RFP_INCDIR   = -I$(BGP_VNC_RFP_SRCDIR)
-BGP_VNC_RFP_SRC      = $(BGP_VNC_RFP_SRCDIR)/*.c
-BGP_VNC_RFAPI_SRCDIR = @top_srcdir@/bgpd/rfapi
-BGP_VNC_RFAPI_INCDIR = -I$(BGP_VNC_RFAPI_SRCDIR) -I$(top_srcdir)/bgpd
-BGP_VNC_RFAPI_SRC    = $(BGP_VNC_RFAPI_SRCDIR)/*.c
-else
-BGP_VNC_RFP_INCDIR   =
-BGP_VNC_RFP_SRCDIR   =
-BGP_VNC_RFP_SRC      =
-BGP_VNC_RFAPI_INCDIR =
-BGP_VNC_RFAPI_SRCDIR =
-BGP_VNC_RFAPI_SRC    =
-endif
 AM_CPPFLAGS += -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
 	$(BGP_VNC_RFAPI_INCDIR) $(BGP_VNC_RFP_INCDIR)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
@@ -54,6 +39,12 @@ vtysh_scan += $(top_srcdir)/bgpd/bgp_route.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_routemap.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_vty.c
 vtysh_scan += $(top_srcdir)/bgpd/bgp_flowspec_vty.c
+if ENABLE_BGP_VNC
+vtysh_scan += $(top_srcdir)/bgpd/rfapi/bgp_rfapi_cfg.c
+vtysh_scan += $(top_srcdir)/bgpd/rfapi/rfapi.c
+vtysh_scan += $(top_srcdir)/bgpd/rfapi/rfapi_vty.c
+vtysh_scan += $(top_srcdir)/bgpd/rfapi/vnc_debug.c
+endif
 endif
 
 if RPKI
@@ -172,7 +163,7 @@ vtysh_cmd_FILES = $(vtysh_scan) \
 		  $(top_srcdir)/zebra/zebra_mpls_vty.c \
 		  $(top_srcdir)/zebra/zebra_pw.c \
 		  $(top_srcdir)/watchfrr/watchfrr_vty.c \
-	          $(BGP_VNC_RFAPI_SRC) $(BGP_VNC_RFP_SRC)
+		  # end
 
 vtysh_cmd.c: $(vtysh_cmd_FILES) extract.pl
 	./extract.pl $(vtysh_cmd_FILES) > vtysh_cmd.c
