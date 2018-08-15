@@ -125,12 +125,13 @@ include pbrd/subdir.am
 include staticd/subdir.am
 include bfdd/subdir.am
 
+include vtysh/subdir.am
+
 SUBDIRS = . \
-	 @VTYSH@ \
          tests
 
 DIST_SUBDIRS = . \
-	  vtysh tests \
+	  tests \
 	  # end
 
 if PKGSRC
@@ -168,9 +169,6 @@ EXTRA_DIST += \
 	snapcraft/defaults \
 	snapcraft/helpers \
 	snapcraft/snap \
-	\
-	vtysh/Makefile.am \
-	vtysh/Makefile.in \
 	\
 	doc/Makefile \
 	doc/developer/Makefile \

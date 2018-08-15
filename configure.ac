@@ -1455,7 +1455,6 @@ fi
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
 AC_SUBST(SOLARIS)
-AC_SUBST(VTYSH)
 AC_SUBST(CURSES)
 AC_CHECK_LIB(crypt, crypt, [],
 		    [AC_CHECK_LIB(crypto, DES_crypt)])
@@ -2009,7 +2008,6 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
 AC_CONFIG_FILES([
-	  vtysh/Makefile
 	  tests/Makefile
 	  redhat/frr.spec
 	  solaris/Makefile
