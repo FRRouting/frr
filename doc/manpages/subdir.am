@@ -1,0 +1,139 @@
+#
+# doc/manpages
+#
+
+man_RSTFILES = \
+	doc/manpages/bgpd.rst \
+	doc/manpages/common-options.rst \
+	doc/manpages/conf.py \
+	doc/manpages/defines.rst \
+	doc/manpages/eigrpd.rst \
+	doc/manpages/epilogue.rst \
+	doc/manpages/frr.rst \
+	doc/manpages/index.rst \
+	doc/manpages/isisd.rst \
+	doc/manpages/ldpd.rst \
+	doc/manpages/mtracebis.rst \
+	doc/manpages/nhrpd.rst \
+	doc/manpages/ospf6d.rst \
+	doc/manpages/ospfclient.rst \
+	doc/manpages/ospfd.rst \
+	doc/manpages/pimd.rst \
+	doc/manpages/ripd.rst \
+	doc/manpages/pbrd.rst \
+	doc/manpages/ripngd.rst \
+	doc/manpages/sharpd.rst \
+	doc/manpages/staticd.rst \
+	doc/manpages/vtysh.rst \
+	doc/manpages/watchfrr.rst \
+	doc/manpages/zebra.rst \
+	doc/manpages/bfdd.rst \
+	doc/manpages/bfd-options.rst \
+	# end
+
+EXTRA_DIST += $(man_RSTFILES)
+
+MANBUILD = doc/manpages/_build/man
+doc/manpages/_build/.doctrees/environment.pickle: $(man_RSTFILES)
+
+#
+# automake integration
+#
+
+rstman1dir = $(mandir)/man1
+rstman8dir = $(mandir)/man8
+
+rstman1_DATA =
+rstman8_DATA =
+
+rstman1_DATA += $(MANBUILD)/frr.1
+
+if PIMD
+rstman8_DATA += $(MANBUILD)/pimd.8
+rstman8_DATA += $(MANBUILD)/mtracebis.8
+endif
+
+if PBRD
+rstman8_DATA += $(MANBUILD)/pbrd.8
+endif
+
+if BGPD
+rstman8_DATA += $(MANBUILD)/bgpd.8
+endif
+
+if ISISD
+rstman8_DATA += $(MANBUILD)/isisd.8
+endif
+
+if OSPF6D
+rstman8_DATA += $(MANBUILD)/ospf6d.8
+endif
+
+if OSPFCLIENT
+rstman8_DATA += $(MANBUILD)/ospfclient.8
+endif
+
+if OSPFD
+rstman8_DATA += $(MANBUILD)/ospfd.8
+endif
+
+if LDPD
+rstman8_DATA += $(MANBUILD)/ldpd.8
+endif
+
+if RIPD
+rstman8_DATA += $(MANBUILD)/ripd.8
+endif
+
+if RIPNGD
+rstman8_DATA += $(MANBUILD)/ripngd.8
+endif
+
+if NHRPD
+rstman8_DATA += $(MANBUILD)/nhrpd.8
+endif
+
+if VTYSH
+rstman1_DATA += $(MANBUILD)/vtysh.1
+endif
+
+if WATCHFRR
+rstman8_DATA += $(MANBUILD)/watchfrr.8
+endif
+
+if ZEBRA
+rstman8_DATA += $(MANBUILD)/zebra.8
+endif
+
+if EIGRPD
+rstman8_DATA += $(MANBUILD)/eigrpd.8
+endif
+
+if SHARPD
+rstman8_DATA += $(MANBUILD)/sharpd.8
+endif
+
+if STATICD
+rstman8_DATA += $(MANBUILD)/staticd.8
+endif
+
+if BFDD
+rstman8_DATA += $(MANBUILD)/bfdd.8
+endif
+
+# dependency
+$(rstman8_DATA) $(rstman1_DATA): $(MANBUILD)/man.stamp
+
+#
+# hook-ins for clean / doc
+# (install is handled by automake _DATA)
+#
+
+clean-local: clean-manpages
+.PHONY: clean-manpages
+clean-manpages:
+	-rm -rf $(MANBUILD)
+
+doc: doc-man
+.PHONY: doc-man
+doc-man: $(rstman8_DATA) $(rstman1_DATA)

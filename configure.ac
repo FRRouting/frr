@@ -343,6 +343,8 @@ AC_ARG_ENABLE(vtysh,
   AS_HELP_STRING([--disable-vtysh], [do not build integrated vty shell for FRR]))
 AC_ARG_ENABLE(doc,
   AS_HELP_STRING([--disable-doc], [do not build docs]))
+AC_ARG_ENABLE(doc-html,
+  AS_HELP_STRING([--disable-doc-html], [do not build HTML docs]))
 AC_ARG_ENABLE(zebra,
   AS_HELP_STRING([--disable-zebra], [do not build zebra daemon]))
 AC_ARG_ENABLE(bgpd,
@@ -1313,12 +1315,9 @@ FRR_INCLUDES
 ])dnl
 
 dnl disable doc check
-if test "${enable_doc}" = "no";then
-  DOC=""
-else
-  AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [no])
-  DOC="doc"
-fi
+AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [no])
+AM_CONDITIONAL(DOC, test "${enable_doc}" != "no")
+AM_CONDITIONAL(DOC_HTML, test "${enable_doc_html}" != "no")
 
 dnl --------------------
 dnl Daemon disable check
@@ -1434,7 +1433,6 @@ fi
 # set 
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
-AC_SUBST(DOC)
 AC_SUBST(RFPTEST)
 AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
@@ -1986,10 +1984,6 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 AC_CONFIG_FILES([Makefile
 	  bgpd/Makefile
 	  vtysh/Makefile
-	  doc/Makefile
-	  doc/user/Makefile
-	  doc/manpages/Makefile
-	  doc/developer/Makefile
 	  tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile
 	  bgpd/rfp-example/librfp/Makefile

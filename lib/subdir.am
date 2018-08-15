@@ -291,7 +291,7 @@ if GIT_VERSION
 # (even if gitversion.h's file timestamp doesn't change, make will think it
 # did, because of .PHONY...)
 
-.PHONY: lib/gitversion.h.tmp
+PHONY_GITVERSION=lib/gitversion.h.tmp
 .SILENT: lib/gitversion.h lib/gitversion.h.tmp
 GITH=lib/gitversion.h
 lib/gitversion.h.tmp: $(top_srcdir)/.git
@@ -300,7 +300,8 @@ lib/gitversion.h: lib/gitversion.h.tmp
 	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp ${GITH}.tmp ${GITH}
 
 else
-.PHONY: lib/gitversion.h
+PHONY_GITVERSION=lib/gitversion.h
 lib/gitversion.h:
 	true
 endif
+.PHONY: $(PHONY_GITVERSION)

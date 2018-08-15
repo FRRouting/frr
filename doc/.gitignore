@@ -1,5 +1,4 @@
-Makefile
-Makefile.in
+!Makefile
 mdate-sh
 draft-zebra-00.txt
 *.pdf
