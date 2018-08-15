@@ -242,23 +242,6 @@ size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
 #endif
 
-#ifdef HAVE_BROKEN_CMSG_FIRSTHDR
-/* This bug is present in Solaris 8 and pre-patch Solaris 9 <sys/socket.h>;
-   please refer to http://bugzilla.quagga.net/show_bug.cgi?id=142 */
-
-/* Check that msg_controllen is large enough. */
-#define ZCMSG_FIRSTHDR(mhdr)                                                   \
-	(((size_t)((mhdr)->msg_controllen) >= sizeof(struct cmsghdr))          \
-		 ? CMSG_FIRSTHDR(mhdr)                                         \
-		 : (struct cmsghdr *)NULL)
-
-#warning "CMSG_FIRSTHDR is broken on this platform, using a workaround"
-
-#else  /* HAVE_BROKEN_CMSG_FIRSTHDR */
-#define ZCMSG_FIRSTHDR(M) CMSG_FIRSTHDR(M)
-#endif /* HAVE_BROKEN_CMSG_FIRSTHDR */
-
-
 /* GCC have printf type attribute check.  */
 #ifdef __GNUC__
 #define PRINTF_ATTRIBUTE(a,b) __attribute__ ((__format__ (__printf__, a, b)))
