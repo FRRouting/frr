@@ -3526,14 +3526,7 @@ static int delete_withdraw_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
  */
 static void update_router_id_vni(struct hash_backet *backet, struct bgp *bgp)
 {
-	struct bgpevpn *vpn;
-
-	vpn = (struct bgpevpn *)backet->data;
-
-	if (!vpn) {
-		zlog_warn("%s: VNI hash entry for VNI not found", __FUNCTION__);
-		return;
-	}
+	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
 
 	/* Skip VNIs with configured RD. */
 	if (is_rd_configured(vpn))
@@ -3551,14 +3544,7 @@ static void update_router_id_vni(struct hash_backet *backet, struct bgp *bgp)
  */
 static void withdraw_router_id_vni(struct hash_backet *backet, struct bgp *bgp)
 {
-	struct bgpevpn *vpn;
-
-	vpn = (struct bgpevpn *)backet->data;
-
-	if (!vpn) {
-		zlog_warn("%s: VNI hash entry for VNI not found", __FUNCTION__);
-		return;
-	}
+	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
 
 	/* Skip VNIs with configured RD. */
 	if (is_rd_configured(vpn))
@@ -3993,9 +3979,8 @@ static void cleanup_vni_on_disable(struct hash_backet *backet, struct bgp *bgp)
  */
 static void free_vni_entry(struct hash_backet *backet, struct bgp *bgp)
 {
-	struct bgpevpn *vpn;
+	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
 
-	vpn = (struct bgpevpn *)backet->data;
 	delete_all_vni_routes(bgp, vpn);
 	bgp_evpn_free(bgp, vpn);
 }
@@ -4066,11 +4051,6 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 static void update_autort_vni(struct hash_backet *backet, struct bgp *bgp)
 {
 	struct bgpevpn *vpn = backet->data;
-
-	if (!vpn) {
-		zlog_warn("%s: VNI hash entry for VNI not found", __PRETTY_FUNCTION__);
-		return;
-	}
 
 	if (!is_import_rt_configured(vpn)) {
 		if (is_vni_live(vpn))
@@ -5221,13 +5201,12 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 static void link_l2vni_hash_to_l3vni(struct hash_backet *backet,
 				     struct bgp *bgp_vrf)
 {
-	struct bgpevpn *vpn = NULL;
+	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
 	struct bgp *bgp_def = NULL;
 
 	bgp_def = bgp_get_default();
 	assert(bgp_def);
 
-	vpn = (struct bgpevpn *)backet->data;
 	if (vpn->tenant_vrf_id == bgp_vrf->vrf_id)
 		bgpevpn_link_to_l3vni(vpn);
 }
