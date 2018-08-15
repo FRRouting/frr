@@ -56,8 +56,8 @@ static int interface_list_ioctl(void)
 	/* Normally SIOCGIFCONF works with AF_INET socket. */
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
-		zlog_warn("Can't make AF_INET socket stream: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't make AF_INET socket stream");
 		return -1;
 	}
 
@@ -85,7 +85,7 @@ static int interface_list_ioctl(void)
 		ret = ioctl(sock, SIOCGIFCONF, &ifconf);
 
 		if (ret < 0) {
-			zlog_warn("SIOCGIFCONF: %s", safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL, "SIOCGIFCONF");
 			goto end;
 		}
 		/* Repeatedly get info til buffer fails to grow. */
@@ -176,8 +176,7 @@ static int if_getaddrs(void)
 
 	ret = getifaddrs(&ifap);
 	if (ret != 0) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "getifaddrs(): %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "getifaddrs()");
 		return -1;
 	}
 

@@ -4389,11 +4389,10 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty)
 		vreq.vifi = pim_ifp->mroute_vif_index;
 
 		if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
-			zlog_warn(
-				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
-				(unsigned long)SIOCGETVIFCNT, ifp->name,
-				pim_ifp->mroute_vif_index, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d",
+				      (unsigned long)SIOCGETVIFCNT, ifp->name,
+				      pim_ifp->mroute_vif_index);
 		}
 
 		ifaddr = pim_ifp->primary_address;

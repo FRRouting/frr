@@ -877,10 +877,10 @@ int zlog_rotate(void)
 		umask(oldumask);
 		if (zl->fp == NULL) {
 			pthread_mutex_unlock(&loglock);
-			flog_err_sys(
-				LIB_ERR_SYSTEM_CALL,
-				"Log rotate failed: cannot open file %s for append: %s",
-				zl->filename, safe_strerror(save_errno));
+			errno = save_errno;
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Log rotate failed: cannot open file %s for append",
+				     zl->filename);
 			ret = -1;
 		} else {
 			logfile_fd = fileno(zl->fp);

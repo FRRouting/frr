@@ -90,8 +90,8 @@ static int open_bpf_dev(struct isis_circuit *circuit)
 	} while (fd < 0 && errno == EBUSY);
 
 	if (fd < 0) {
-		zlog_warn("open_bpf_dev(): failed to create bpf socket: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "open_bpf_dev(): failed to create bpf socket");
 		return ISIS_WARNING;
 	}
 
@@ -99,8 +99,8 @@ static int open_bpf_dev(struct isis_circuit *circuit)
 
 	memcpy(ifr.ifr_name, circuit->interface->name, sizeof(ifr.ifr_name));
 	if (ioctl(fd, BIOCSETIF, (caddr_t)&ifr) < 0) {
-		zlog_warn("open_bpf_dev(): failed to bind to interface: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "open_bpf_dev(): failed to bind to interface");
 		return ISIS_WARNING;
 	}
 
@@ -168,8 +168,8 @@ static int open_bpf_dev(struct isis_circuit *circuit)
 	bpf_prog.bf_len = 8;
 	bpf_prog.bf_insns = &(llcfilter[0]);
 	if (ioctl(fd, BIOCSETF, (caddr_t)&bpf_prog) < 0) {
-		zlog_warn("open_bpf_dev(): failed to install filter: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "open_bpf_dev(): failed to install filter");
 		return ISIS_WARNING;
 	}
 
@@ -219,15 +219,15 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 	assert(circuit->fd > 0);
 
 	if (ioctl(circuit->fd, FIONREAD, (caddr_t)&bytestoread) < 0) {
-		zlog_warn("ioctl() FIONREAD failed: %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "ioctl() FIONREAD failed");
 	}
 
 	if (bytestoread) {
 		bytesread = read(circuit->fd, readbuff, readblen);
 	}
 	if (bytesread < 0) {
-		zlog_warn("isis_recv_pdu_bcast(): read() failed: %s",
-				safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "isis_recv_pdu_bcast(): read() failed");
 		return ISIS_WARNING;
 	}
 
@@ -256,7 +256,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 
 	if (ioctl(circuit->fd, BIOCFLUSH, &one) < 0)
-		zlog_warn("Flushing failed: %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "Flushing failed");
 
 	return ISIS_OK;
 }
@@ -304,8 +304,9 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	/* now we can send this */
 	written = write(circuit->fd, sock_buff, buflen);
 	if (written < 0) {
-		zlog_warn("IS-IS bpf: could not transmit packet on %s: %s",
-			  circuit->interface->name, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "IS-IS bpf: could not transmit packet on %s",
+			      circuit->interface->name);
 		if (ERRNO_IO_RETRY(errno))
 			return ISIS_WARNING;
 		return ISIS_ERROR;

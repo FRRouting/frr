@@ -33,8 +33,9 @@ void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 	int save_errno = errno;
 
 	if (!inet_ntop(p->family, &p->u.prefix, buf, buf_size)) {
-		zlog_warn("pim_addr_dump: inet_ntop(buf_size=%d): errno=%d: %s",
-			  buf_size, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "pim_addr_dump: inet_ntop(buf_size=%d)",
+			      buf_size);
 		if (onfail)
 			snprintf(buf, buf_size, "%s", onfail);
 	}
@@ -51,9 +52,9 @@ void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
 		strcpy(buf, "*");
 	else {
 		if (!inet_ntop(AF_INET, &addr, buf, buf_size)) {
-			zlog_warn(
-				"pim_inet4_dump: inet_ntop(AF_INET,buf_size=%d): errno=%d: %s",
-				buf_size, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "pim_inet4_dump: inet_ntop(AF_INET,buf_size=%d)",
+				      buf_size);
 			if (onfail)
 				snprintf(buf, buf_size, "%s", onfail);
 		}

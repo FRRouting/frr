@@ -145,8 +145,7 @@ babel_create_routing_process (void)
     /* Make socket for Babel protocol. */
     protocol_socket = babel_socket(protocol_port);
     if (protocol_socket < 0) {
-        flog_err_sys(LIB_ERR_SOCKET, "Couldn't create link local socket: %s",
-		  safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SOCKET, "Couldn't create link local socket");
         goto fail;
     }
 
@@ -179,7 +178,7 @@ babel_read_protocol (struct thread *thread)
                     (struct sockaddr*)&sin6, sizeof(sin6));
     if(rc < 0) {
         if(errno != EAGAIN && errno != EINTR) {
-            flog_err_sys(LIB_ERR_SOCKET, "recv: %s", safe_strerror(errno));
+            flog_err_sys(LIB_ERR_SOCKET, "recv");
         }
     } else {
         FOR_ALL_INTERFACES(vrf, ifp) {
@@ -260,7 +259,7 @@ babel_get_myid(void)
 
     rc = read_random_bytes(myid, 8);
     if(rc < 0) {
-        flog_err(BABEL_ERR_CONFIG, "read(random): %s (cannot assign an ID)",
+        flog_err_sys(BABEL_ERR_CONFIG, "read(random): %s (cannot assign an ID)",
 		  safe_strerror(errno));
         exit(1);
     }
@@ -519,8 +518,7 @@ resize_receive_buffer(int size)
     if(receive_buffer == NULL) {
         receive_buffer = malloc(size);
         if(receive_buffer == NULL) {
-            flog_err(BABEL_ERR_MEMORY, "malloc(receive_buffer): %s",
-		      safe_strerror(errno));
+            flog_err_sys(BABEL_ERR_MEMORY, "malloc(receive_buffer)");
             return -1;
         }
         receive_buffer_size = size;
@@ -528,8 +526,7 @@ resize_receive_buffer(int size)
         unsigned char *new;
         new = realloc(receive_buffer, size);
         if(new == NULL) {
-            flog_err(BABEL_ERR_MEMORY, "realloc(receive_buffer): %s",
-		      safe_strerror(errno));
+            flog_err_sys(BABEL_ERR_MEMORY, "realloc(receive_buffer)");
             return -1;
         }
         receive_buffer = new;

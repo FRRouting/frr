@@ -1202,10 +1202,10 @@ static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 			       sizeof(group_str));
 		pim_inet4_dump("<src?>", source_addr, source_str,
 			       sizeof(source_str));
-		zlog_warn(
-			"%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s",
-			__PRETTY_FUNCTION__, join_fd, group_str, source_str,
-			ifindex, ifname, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s",
+			      __PRETTY_FUNCTION__, join_fd, group_str,
+			      source_str, ifindex, ifname);
 
 		close(join_fd);
 		return -2;
@@ -1340,10 +1340,10 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 			       sizeof(group_str));
 		pim_inet4_dump("<src?>", source_addr, source_str,
 			       sizeof(source_str));
-		zlog_warn(
-			"%s: failure closing sock_fd=%d for IGMP group %s source %s on interface %s: errno=%d: %s",
-			__PRETTY_FUNCTION__, ij->sock_fd, group_str, source_str,
-			ifp->name, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: failure closing sock_fd=%d for IGMP group %s source %s on interface %s",
+			      __PRETTY_FUNCTION__, ij->sock_fd, group_str,
+			      source_str, ifp->name);
 		/* warning only */
 	}
 	listnode_delete(pim_ifp->igmp_join_list, ij);

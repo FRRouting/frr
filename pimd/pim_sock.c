@@ -53,8 +53,8 @@ int pim_socket_raw(int protocol)
 	}
 
 	if (fd < 0) {
-		zlog_warn("Could not create raw socket: errno=%d: %s", errno,
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not create raw socket");
 		return PIM_SOCK_ERR_SOCKET;
 	}
 
@@ -68,8 +68,9 @@ void pim_socket_ip_hdr(int fd)
 	frr_elevate_privs(&pimd_privs) {
 
 		if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
-			zlog_err("%s: Could not turn on IP_HDRINCL option: %s",
-				 __PRETTY_FUNCTION__, safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "%s: Could not turn on IP_HDRINCL option",
+				     __PRETTY_FUNCTION__);
 
 	}
 }
@@ -107,8 +108,8 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 
 	fd = pim_socket_raw(protocol);
 	if (fd < 0) {
-		zlog_warn("Could not create multicast socket: errno=%d: %s",
-			  errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not create multicast socket");
 		return PIM_SOCK_ERR_SOCKET;
 	}
 
@@ -136,18 +137,18 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 		/* Linux and Solaris IP_PKTINFO */
 		int opt = 1;
 		if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt, sizeof(opt))) {
-			zlog_warn(
-				"Could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not set IP_PKTINFO on socket fd=%d",
+				      fd);
 		}
 #elif defined(HAVE_IP_RECVDSTADDR)
 		/* BSD IP_RECVDSTADDR */
 		int opt = 1;
 		if (setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, &opt,
 			       sizeof(opt))) {
-			zlog_warn(
-				"Could not set IP_RECVDSTADDR on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not set IP_RECVDSTADDR on socket fd=%d",
+				      fd);
 		}
 #else
 		flog_err(
@@ -169,9 +170,9 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 		ra[2] = 0;
 		ra[3] = 0;
 		if (setsockopt(fd, IPPROTO_IP, IP_OPTIONS, ra, 4)) {
-			zlog_warn(
-				"Could not set Router Alert Option on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not set Router Alert Option on socket fd=%d",
+				      fd);
 			close(fd);
 			return PIM_SOCK_ERR_RA;
 		}
@@ -181,9 +182,9 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 		int reuse = 1;
 		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *)&reuse,
 			       sizeof(reuse))) {
-			zlog_warn(
-				"Could not set Reuse Address Option on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not set Reuse Address Option on socket fd=%d",
+				      fd);
 			close(fd);
 			return PIM_SOCK_ERR_REUSE;
 		}
@@ -194,19 +195,18 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 		int ttl = MTTL;
 		if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&ttl,
 			       sizeof(ttl))) {
-			zlog_warn(
-				"Could not set multicast TTL=%d on socket fd=%d: errno=%d: %s",
-				MTTL, fd, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not set multicast TTL=%d on socket fd=%d",
+				      MTTL, fd);
 			close(fd);
 			return PIM_SOCK_ERR_TTL;
 		}
 	}
 
 	if (setsockopt_ipv4_multicast_loop(fd, loop)) {
-		zlog_warn(
-			"Could not %s Multicast Loopback Option on socket fd=%d: errno=%d: %s",
-			loop ? "enable" : "disable", fd, errno,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not %s Multicast Loopback Option on socket fd=%d",
+			      loop ? "enable" : "disable", fd);
 		close(fd);
 		return PIM_SOCK_ERR_LOOP;
 	}
@@ -223,9 +223,9 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 
 	if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, (void *)&mreq,
 		       sizeof(mreq))) {
-		zlog_warn(
-			"Could not set Outgoing Interface Option on socket fd=%d: errno=%d: %s",
-			fd, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not set Outgoing Interface Option on socket fd=%d",
+			      fd);
 		close(fd);
 		return PIM_SOCK_ERR_IFACE;
 	}
@@ -239,17 +239,17 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 
 		flags = fcntl(fd, F_GETFL, 0);
 		if (flags < 0) {
-			zlog_warn(
-				"Could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d",
+				      fd);
 			close(fd);
 			return PIM_SOCK_ERR_NONBLOCK_GETFL;
 		}
 
 		if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
-			zlog_warn(
-				"Could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-				fd, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d",
+				      fd);
 			close(fd);
 			return PIM_SOCK_ERR_NONBLOCK_SETFL;
 		}
@@ -288,10 +288,9 @@ int pim_socket_join(int fd, struct in_addr group, struct in_addr ifaddr,
 			       sizeof(ifaddr_str)))
 			sprintf(ifaddr_str, "<ifaddr?>");
 
-		flog_err(
-			LIB_ERR_SOCKET,
-			"Failure socket joining fd=%d group %s on interface address %s: errno=%d: %s",
-			fd, group_str, ifaddr_str, errno, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Failure socket joining fd=%d group %s on interface address %s",
+			     fd, group_str, ifaddr_str);
 		return ret;
 	}
 
@@ -412,9 +411,9 @@ int pim_socket_mcastloop_get(int fd)
 
 	if (getsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, &loop_len)) {
 		int e = errno;
-		zlog_warn(
-			"Could not get Multicast Loopback Option on socket fd=%d: errno=%d: %s",
-			fd, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not get Multicast Loopback Option on socket fd=%d",
+			      fd);
 		errno = e;
 		return PIM_SOCK_ERR_LOOP;
 	}
@@ -426,9 +425,9 @@ int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen)
 {
 	if (getsockname(fd, name, namelen)) {
 		int e = errno;
-		zlog_warn(
-			"Could not get Socket Name for socket fd=%d: errno=%d: %s",
-			fd, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not get Socket Name for socket fd=%d",
+			      fd);
 		errno = e;
 		return PIM_SOCK_ERR_NAME;
 	}

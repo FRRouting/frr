@@ -68,16 +68,13 @@ pid_t pid_output(const char *path)
 		sprintf(buf, "%d\n", (int)pid);
 		pidsize = strlen(buf);
 		if ((tmp = write(fd, buf, pidsize)) != (int)pidsize)
-			flog_err_sys(
-				LIB_ERR_SYSTEM_CALL,
-				"Could not write pid %d to pid_file %s, rc was %d: %s",
-				(int)pid, path, tmp, safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Could not write pid %d to pid_file %s, rc was %d",
+				     (int)pid, path, tmp);
 		else if (ftruncate(fd, pidsize) < 0)
-			flog_err_sys(
-				LIB_ERR_SYSTEM_CALL,
-				"Could not truncate pid_file %s to %u bytes: %s",
-				path, (unsigned int)pidsize,
-				safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Could not truncate pid_file %s to %u bytes",
+				     path, (unsigned int)pidsize);
 	}
 	return pid;
 }

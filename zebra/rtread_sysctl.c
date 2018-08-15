@@ -47,7 +47,7 @@ void route_read(struct zebra_ns *zns)
 
 	/* Get buffer size. */
 	if (sysctl(mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl fail: %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "sysctl fail");
 		return;
 	}
 
@@ -56,7 +56,7 @@ void route_read(struct zebra_ns *zns)
 
 	/* Read routing table information by calling sysctl(). */
 	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl() fail by %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "sysctl() fail by");
 		XFREE(MTYPE_TMP, ref);
 		return;
 	}

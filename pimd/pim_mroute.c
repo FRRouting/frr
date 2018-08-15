@@ -63,11 +63,10 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 					 MRT_TABLE,
 					 &opt, opt_len);
 			if (err) {
-				zlog_warn(
-					  "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP, MRT_TABLE=%d): errno=%d: %s",
-					  __FILE__, __PRETTY_FUNCTION__,
-					  pim->mroute_socket, opt, errno,
-					  safe_strerror(errno));
+				flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+					      "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP, MRT_TABLE=%d)",
+					      __FILE__, __PRETTY_FUNCTION__,
+					      pim->mroute_socket, opt);
 				return -1;
 			}
 
@@ -77,11 +76,11 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	opt = enable ? MRT_INIT : MRT_DONE;
 	err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &opt, opt_len);
 	if (err) {
-		zlog_warn(
-			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
-			enable ? "MRT_INIT" : "MRT_DONE", opt, errno,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d)",
+			      __FILE__, __PRETTY_FUNCTION__,
+			      pim->mroute_socket,
+			      enable ? "MRT_INIT" : "MRT_DONE", opt);
 		return -1;
 	}
 
@@ -91,10 +90,9 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 		opt = 1;
 		if (setsockopt(pim->mroute_socket, IPPROTO_IP, IP_PKTINFO, &opt,
 			       sizeof(opt))) {
-			zlog_warn(
-				"Could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
-				pim->mroute_socket, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not set IP_PKTINFO on socket fd=%d",
+				      pim->mroute_socket);
 		}
 	}
 #endif
@@ -103,14 +101,16 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 
 	flags = fcntl(pim->mroute_socket, F_GETFL, 0);
 	if (flags < 0) {
-		zlog_warn("Could not get flags on socket fd:%d %d %s",
-			  pim->mroute_socket, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not get flags on socket fd:%d",
+			      pim->mroute_socket);
 		close(pim->mroute_socket);
 		return -1;
 	}
 	if (fcntl(pim->mroute_socket, F_SETFL, flags | O_NONBLOCK)) {
-		zlog_warn("Could not set O_NONBLOCK on socket fd:%d %d %s",
-			  pim->mroute_socket, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not set O_NONBLOCK on socket fd:%d",
+			      pim->mroute_socket);
 		close(pim->mroute_socket);
 		return -1;
 	}
@@ -123,9 +123,8 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 		err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &upcalls,
 				 sizeof(upcalls));
 		if (err) {
-			zlog_warn(
-				"Failure to register for VIFWHOLE and WRONGVIF upcalls %d %s",
-				errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Failure to register for VIFWHOLE and WRONGVIF upcalls");
 			return -1;
 		}
 #else
@@ -668,11 +667,10 @@ static int mroute_read(struct thread *t)
 				break;
 
 			if (PIM_DEBUG_MROUTE)
-				zlog_warn(
-					"%s: failure reading rd=%d: fd=%d: errno=%d: %s",
-					__PRETTY_FUNCTION__, rd,
-					pim->mroute_socket, errno,
-					safe_strerror(errno));
+				flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+					      "%s: failure reading rd=%d: fd=%d",
+					      __PRETTY_FUNCTION__, rd,
+					      pim->mroute_socket);
 			goto done;
 		}
 
@@ -709,9 +707,8 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 		fd = socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
 
 		if (fd < 0) {
-			zlog_warn("Could not create mroute socket: errno=%d: %s",
-				  errno,
-				  safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not create mroute socket");
 			return -2;
 		}
 
@@ -719,8 +716,8 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 		if (pim->vrf->vrf_id != VRF_DEFAULT
 		    && setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE,
 				  pim->vrf->name, strlen(pim->vrf->name))) {
-			zlog_warn("Could not setsockopt SO_BINDTODEVICE: %s",
-				  safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Could not setsockopt SO_BINDTODEVICE");
 			close(fd);
 			return -3;
 		}
@@ -730,9 +727,8 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 
 	pim->mroute_socket = fd;
 	if (pim_mroute_set(pim, 1)) {
-		zlog_warn(
-			"Could not enable mroute on socket fd=%d: errno=%d: %s",
-			fd, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not enable mroute on socket fd=%d", fd);
 		close(fd);
 		pim->mroute_socket = -1;
 		return -3;
@@ -748,15 +744,16 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 int pim_mroute_socket_disable(struct pim_instance *pim)
 {
 	if (pim_mroute_set(pim, 0)) {
-		zlog_warn(
-			"Could not disable mroute on socket fd=%d: errno=%d: %s",
-			pim->mroute_socket, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Could not disable mroute on socket fd=%d",
+			      pim->mroute_socket);
 		return -2;
 	}
 
 	if (close(pim->mroute_socket)) {
-		zlog_warn("Failure closing mroute socket: fd=%d errno=%d: %s",
-			  pim->mroute_socket, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Failure closing mroute socket: fd=%d",
+			      pim->mroute_socket);
 		return -3;
 	}
 
@@ -815,11 +812,11 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 		pim_inet4_dump("<ifaddr?>", ifaddr, ifaddr_str,
 			       sizeof(ifaddr_str));
 
-		zlog_warn(
-			"%s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
-			__PRETTY_FUNCTION__, pim_ifp->pim->mroute_socket,
-			ifp->ifindex, ifaddr_str, flags, errno,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d)",
+			      __PRETTY_FUNCTION__,
+			      pim_ifp->pim->mroute_socket, ifp->ifindex,
+			      ifaddr_str, flags);
 		return -2;
 	}
 
@@ -843,11 +840,11 @@ int pim_mroute_del_vif(struct interface *ifp)
 	err = setsockopt(pim_ifp->pim->mroute_socket, IPPROTO_IP, MRT_DEL_VIF,
 			 (void *)&vc, sizeof(vc));
 	if (err) {
-		zlog_warn(
-			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_VIF,vif_index=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__,
-			pim_ifp->pim->mroute_socket, pim_ifp->mroute_vif_index,
-			errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_VIF,vif_index=%d)",
+			      __FILE__, __PRETTY_FUNCTION__,
+			      pim_ifp->pim->mroute_socket,
+			      pim_ifp->mroute_vif_index);
 		return -2;
 	}
 
@@ -912,10 +909,10 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 		c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent] = orig;
 
 	if (err) {
-		zlog_warn(
-			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_MFC): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
-			errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_MFC)",
+			      __FILE__, __PRETTY_FUNCTION__,
+			      pim->mroute_socket);
 		return -2;
 	}
 
@@ -954,11 +951,10 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 			 &c_oil->oil, sizeof(c_oil->oil));
 	if (err) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_warn(
-				"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_MFC): errno=%d: %s",
-				__FILE__, __PRETTY_FUNCTION__,
-				pim->mroute_socket, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_MFC)",
+				      __FILE__, __PRETTY_FUNCTION__,
+				      pim->mroute_socket);
 		return -2;
 	}
 
@@ -1011,11 +1007,10 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 			sg.src = c_oil->oil.mfcc_origin;
 			sg.grp = c_oil->oil.mfcc_mcastgrp;
 
-			zlog_warn(
-				"ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s): errno=%d: %s",
-				(unsigned long)SIOCGETSGCNT,
-				pim_str_sg_dump(&sg), errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s)",
+				      (unsigned long)SIOCGETSGCNT,
+				      pim_str_sg_dump(&sg));
 		}
 		return;
 	}

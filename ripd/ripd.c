@@ -1341,8 +1341,7 @@ static int rip_create_socket(void)
 	/* Make datagram socket. */
 	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Cannot create UDP socket");
 		exit(1);
 	}
 
@@ -1361,10 +1360,10 @@ static int rip_create_socket(void)
 		setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
 		if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr)))
 		    < 0) {
-			zlog_err("%s: Can't bind socket %d to %s port %d: %s",
-				 __func__, sock, inet_ntoa(addr.sin_addr),
-				 (int)ntohs(addr.sin_port),
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "%s: Can't bind socket %d to %s port %d",
+				     __func__, sock, inet_ntoa(addr.sin_addr),
+				     (int)ntohs(addr.sin_port));
 
 			close(sock);
 			return ret;
@@ -1451,7 +1450,7 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 			   ntohs(sin.sin_port));
 
 	if (ret < 0)
-		zlog_warn("can't send packet : %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "can't send packet ");
 
 	return ret;
 }
@@ -1651,8 +1650,8 @@ static int setsockopt_pktinfo(int sock)
 
 	ret = setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof(val));
 	if (ret < 0)
-		zlog_warn("Can't setsockopt IP_PKTINFO : %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't setsockopt IP_PKTINFO ");
 	return ret;
 }
 
@@ -1709,7 +1708,7 @@ int rip_read_new(struct thread *t)
 	/* Read RIP packet. */
 	ret = rip_recvmsg(sock, buf, RIP_PACKET_MAXSIZ, &from, (int *)&ifindex);
 	if (ret < 0) {
-		zlog_warn("Can't read RIP packet: %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "Can't read RIP packet");
 		return ret;
 	}
 

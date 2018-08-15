@@ -62,11 +62,10 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 			if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex))
 				++join;
 		} else {
-			zlog_warn(
-				"%s %s: IGMP socket fd=%d interface %s: could not solve %s to group address: errno=%d: %s",
-				__FILE__, __PRETTY_FUNCTION__, fd,
-				inet_ntoa(ifaddr), PIM_ALL_ROUTERS, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s %s: IGMP socket fd=%d interface %s: could not solve %s to group address",
+				      __FILE__, __PRETTY_FUNCTION__, fd,
+				      inet_ntoa(ifaddr), PIM_ALL_ROUTERS);
 		}
 	}
 
@@ -79,10 +78,10 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex))
 			++join;
 	} else {
-		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %s: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, fd, inet_ntoa(ifaddr),
-			PIM_ALL_SYSTEMS, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s %s: IGMP socket fd=%d interface %s: could not solve %s to group address",
+			      __FILE__, __PRETTY_FUNCTION__, fd,
+			      inet_ntoa(ifaddr), PIM_ALL_SYSTEMS);
 	}
 
 	if (inet_aton(PIM_ALL_IGMP_ROUTERS, &group)) {
@@ -90,10 +89,10 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp,
 			++join;
 		}
 	} else {
-		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %s: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, fd, inet_ntoa(ifaddr),
-			PIM_ALL_IGMP_ROUTERS, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s %s: IGMP socket fd=%d interface %s: could not solve %s to group address",
+			      __FILE__, __PRETTY_FUNCTION__, fd,
+			      inet_ntoa(ifaddr), PIM_ALL_IGMP_ROUTERS);
 	}
 
 	if (!join) {
@@ -699,11 +698,10 @@ static void sock_close(struct igmp_sock *igmp)
 	THREAD_OFF(igmp->t_igmp_read);
 
 	if (close(igmp->fd)) {
-		flog_err(
-			LIB_ERR_SOCKET,
-			"Failure closing IGMP socket %s fd=%d on interface %s: errno=%d: %s",
-			inet_ntoa(igmp->ifaddr), igmp->fd,
-			igmp->interface->name, errno, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Failure closing IGMP socket %s fd=%d on interface %s",
+			     inet_ntoa(igmp->ifaddr), igmp->fd,
+			     igmp->interface->name);
 	}
 
 	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {

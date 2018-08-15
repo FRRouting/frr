@@ -1479,7 +1479,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 			}
 
 			/* else die */
-			zlog_warn("poll() error: %s", safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL, "poll() error");
 			pthread_mutex_unlock(&m->mtx);
 			fetch = NULL;
 			break;

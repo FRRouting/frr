@@ -402,9 +402,8 @@ static uint16_t bgp_read(struct peer *peer)
 		SET_FLAG(status, BGP_IO_TRANS_ERR);
 		/* Fatal error; tear down session */
 	} else if (nbytes < 0) {
-		flog_err(BGP_ERR_UPDATE_RCV,
-			  "%s [Error] bgp_read_packet error: %s", peer->host,
-			  safe_strerror(errno));
+		flog_err_sys(BGP_ERR_UPDATE_RCV,
+			     "%s [Error] bgp_read_packet error", peer->host);
 
 		if (peer->status == Established) {
 			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {

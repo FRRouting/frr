@@ -59,7 +59,7 @@ find_source(const unsigned char *id, const unsigned char *p, unsigned char plen,
 
     src = malloc(sizeof(struct source));
     if(src == NULL) {
-        flog_err(BABEL_ERR_MEMORY, "malloc(source): %s", safe_strerror(errno));
+        flog_err_sys(BABEL_ERR_MEMORY, "malloc(source)");
         return NULL;
     }
 

@@ -730,8 +730,8 @@ interface_recalculate(struct interface *ifp)
                     (char*)&mreq, sizeof(mreq));
     if(rc < 0) {
         flog_err_sys(LIB_ERR_SOCKET,
-		  "setsockopt(IPV6_JOIN_GROUP) on interface '%s': %s",
-                  ifp->name, safe_strerror(errno));
+                     "setsockopt(IPV6_JOIN_GROUP) on interface '%s'",
+                     ifp->name);
         /* This is probably due to a missing link-local address,
          so down this interface, and wait until the main loop
          tries to up it again. */
@@ -794,8 +794,8 @@ interface_reset(struct interface *ifp)
                         (char*)&mreq, sizeof(mreq));
         if(rc < 0)
             flog_err_sys(LIB_ERR_SOCKET,
-		      "setsockopt(IPV6_LEAVE_GROUP) on interface '%s': %s",
-                      ifp->name, safe_strerror(errno));
+                         "setsockopt(IPV6_LEAVE_GROUP) on interface '%s'",
+                         ifp->name);
     }
 
     update_interface_metric(ifp);

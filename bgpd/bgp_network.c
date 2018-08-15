@@ -292,8 +292,7 @@ static int bgp_accept(struct thread *thread)
 	bgp_sock = sockunion_accept(accept_sock, &su);
 	if (bgp_sock < 0) {
 		flog_err_sys(LIB_ERR_SOCKET,
-			     "[Error] BGP socket accept failed (%s)",
-			     safe_strerror(errno));
+			     "[Error] BGP socket accept failed");
 		return -1;
 	}
 	set_nonblocking(bgp_sock);
@@ -561,8 +560,9 @@ int bgp_connect(struct peer *peer)
 	sockopt_reuseaddr(peer->fd);
 	sockopt_reuseport(peer->fd);
 	if (sockopt_mark_default(peer->fd, DATAPLANE_MARK, &bgpd_privs) < 0)
-		zlog_warn("Unable to set mark on FD for peer %s, err=%s",
-			  peer->host, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Unable to set mark on FD for peer %s",
+			      peer->host);
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	frr_elevate_privs(&bgpd_privs) {
@@ -657,14 +657,14 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	}
 
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "bind: %s", safe_strerror(en));
+		errno = en;
+		flog_err_sys(LIB_ERR_SOCKET, "bind");
 		return ret;
 	}
 
 	ret = listen(sock, SOMAXCONN);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "listen: %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "listen");
 		return ret;
 	}
 
@@ -726,8 +726,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 					   ? bgp->name : NULL));
 		}
 		if (sock < 0) {
-			flog_err_sys(LIB_ERR_SOCKET, "socket: %s",
-				     safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SOCKET, "socket");
 			continue;
 		}
 

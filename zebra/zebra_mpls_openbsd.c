@@ -122,8 +122,7 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	}
 
 	if (ret == -1)
-		flog_err_sys(LIB_ERR_SOCKET, "%s: %s", __func__,
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "%s", __func__);
 
 	return ret;
 }
@@ -229,8 +228,7 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	}
 
 	if (ret == -1)
-		flog_err_sys(LIB_ERR_SOCKET, "%s: %s", __func__,
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "%s", __func__);
 
 	return ret;
 }
@@ -397,8 +395,7 @@ static int kmpw_install(struct zebra_pw *pw)
 	strlcpy(ifr.ifr_name, pw->ifname, sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "ioctl SIOCSETMPWCFG: %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "ioctl SIOCSETMPWCFG");
 		return -1;
 	}
 
@@ -415,8 +412,7 @@ static int kmpw_uninstall(struct zebra_pw *pw)
 	strlcpy(ifr.ifr_name, pw->ifname, sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "ioctl SIOCSETMPWCFG: %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "ioctl SIOCSETMPWCFG");
 		return -1;
 	}
 

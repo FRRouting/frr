@@ -376,7 +376,7 @@ struct msg *msg_read(int fd)
 	rlen = readn(fd, (uint8_t *)&hdr, sizeof(struct apimsghdr));
 
 	if (rlen < 0) {
-		zlog_warn("msg_read: readn %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "msg_read: readn");
 		return NULL;
 	} else if (rlen == 0) {
 		zlog_warn("msg_read: Connection closed by peer");
@@ -399,7 +399,7 @@ struct msg *msg_read(int fd)
 		/* Read message body */
 		rlen = readn(fd, buf, bodylen);
 		if (rlen < 0) {
-			zlog_warn("msg_read: readn %s", safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL, "msg_read: readn");
 			return NULL;
 		} else if (rlen == 0) {
 			zlog_warn("msg_read: Connection closed by peer");
@@ -435,7 +435,7 @@ int msg_write(int fd, struct msg *msg)
 
 	wlen = writen(fd, buf, l);
 	if (wlen < 0) {
-		zlog_warn("msg_write: writen %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "msg_write: writen");
 		return -1;
 	} else if (wlen == 0) {
 		zlog_warn("msg_write: Connection closed by peer");

@@ -963,8 +963,8 @@ ssize_t stream_read_try(struct stream *s, int fd, size_t size)
 	/* Error: was it transient (return -2) or fatal (return -1)? */
 	if (ERRNO_IO_RETRY(errno))
 		return -2;
-	zlog_warn("%s: read failed on fd %d: %s", __func__, fd,
-		  safe_strerror(errno));
+	flog_warn_sys(LIB_ERR_SYSTEM_CALL, "%s: read failed on fd %d",
+		      __func__, fd);
 	return -1;
 }
 
@@ -994,8 +994,8 @@ ssize_t stream_recvfrom(struct stream *s, int fd, size_t size, int flags,
 	/* Error: was it transient (return -2) or fatal (return -1)? */
 	if (ERRNO_IO_RETRY(errno))
 		return -2;
-	zlog_warn("%s: read failed on fd %d: %s", __func__, fd,
-		  safe_strerror(errno));
+	flog_warn_sys(LIB_ERR_SYSTEM_CALL, "%s: read failed on fd %d",
+		      __func__, fd);
 	return -1;
 }
 

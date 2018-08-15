@@ -64,9 +64,9 @@ static int interface_list_ioctl(int af)
 	}
 
 	if (sock < 0) {
-		zlog_warn("Can't make %s socket stream: %s",
-			  (af == AF_INET ? "AF_INET" : "AF_INET6"),
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't make %s socket stream",
+			      (af == AF_INET ? "AF_INET" : "AF_INET6"));
 		return -1;
 	}
 
@@ -115,7 +115,7 @@ calculate_lifc_len:
 		if (errno == EINVAL)
 			goto calculate_lifc_len;
 
-		zlog_warn("SIOCGLIFCONF: %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "SIOCGLIFCONF");
 		goto end;
 	}
 
@@ -268,8 +268,9 @@ static int if_get_addr(struct interface *ifp, struct sockaddr *addr,
 
 		if (ret < 0) {
 			if (errno != EADDRNOTAVAIL) {
-				zlog_warn("SIOCGLIFNETMASK (%s) fail: %s",
-					  ifp->name, safe_strerror(errno));
+				flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+					      "SIOCGLIFNETMASK (%s) fail",
+					      ifp->name);
 				return ret;
 			}
 			return 0;
@@ -288,8 +289,9 @@ static int if_get_addr(struct interface *ifp, struct sockaddr *addr,
 			if (ifp->flags & IFF_POINTOPOINT)
 				prefixlen = IPV6_MAX_BITLEN;
 			else
-				zlog_warn("SIOCGLIFSUBNET (%s) fail: %s",
-					  ifp->name, safe_strerror(errno));
+				flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+					      "SIOCGLIFSUBNET (%s) fail",
+					      ifp->name);
 		} else {
 			prefixlen = lifreq.lifr_addrlen;
 		}

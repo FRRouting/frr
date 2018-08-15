@@ -83,9 +83,8 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 
 	fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (fd < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
-			     "%s: could not create socket: errno=%d: %s",
-			     __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "%s: could not create socket",
+			     __PRETTY_FUNCTION__);
 		return -1;
 	}
 
@@ -96,10 +95,10 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 	if (bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr))) {
 		char addr_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-		zlog_warn(
-			"%s: bind(fd=%d,addr=%s,port=%d,len=%zu) failure: errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, addr_str, port,
-			sizeof(sockaddr), errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: bind(fd=%d,addr=%s,port=%d,len=%zu) failure",
+			      __PRETTY_FUNCTION__, fd, addr_str, port,
+			      sizeof(sockaddr));
 		close(fd);
 		return -1;
 	}
@@ -110,20 +109,18 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 		/* Linux and Solaris IP_PKTINFO */
 		int opt = 1;
 		if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt, sizeof(opt))) {
-			zlog_warn(
-				"%s: could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: could not set IP_PKTINFO on socket fd=%d",
+				      __PRETTY_FUNCTION__, fd);
 		}
 #elif defined(HAVE_IP_RECVDSTADDR)
 		/* BSD IP_RECVDSTADDR */
 		int opt = 1;
 		if (setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, &opt,
 			       sizeof(opt))) {
-			zlog_warn(
-				"%s: could not set IP_RECVDSTADDR on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: could not set IP_RECVDSTADDR on socket fd=%d",
+				      __PRETTY_FUNCTION__, fd);
 		}
 #else
 		flog_err(
@@ -139,10 +136,9 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 		int reuse = 1;
 		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (void *)&reuse,
 			       sizeof(reuse))) {
-			zlog_warn(
-				"%s: could not set Reuse Address Option on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: could not set Reuse Address Option on socket fd=%d",
+				      __PRETTY_FUNCTION__, fd);
 			close(fd);
 			return -1;
 		}
@@ -150,27 +146,26 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 
 	if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&mttl,
 		       sizeof(mttl))) {
-		zlog_warn(
-			"%s: could not set multicast TTL=%d on socket fd=%d: errno=%d: %s",
-			__PRETTY_FUNCTION__, mttl, fd, errno,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: could not set multicast TTL=%d on socket fd=%d",
+			      __PRETTY_FUNCTION__, mttl, fd);
 		close(fd);
 		return -1;
 	}
 
 	if (setsockopt_ipv4_multicast_loop(fd, 0)) {
-		zlog_warn(
-			"%s: could not disable Multicast Loopback Option on socket fd=%d: errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: could not disable Multicast Loopback Option on socket fd=%d",
+			      __PRETTY_FUNCTION__, fd);
 		close(fd);
 		return PIM_SOCK_ERR_LOOP;
 	}
 
 	if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, (void *)&addr,
 		       sizeof(addr))) {
-		zlog_warn(
-			"%s: could not set Outgoing Interface Option on socket fd=%d: errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, errno, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: could not set Outgoing Interface Option on socket fd=%d",
+			      __PRETTY_FUNCTION__, fd);
 		close(fd);
 		return -1;
 	}
@@ -180,19 +175,17 @@ static int ssmpingd_socket(struct in_addr addr, int port, int mttl)
 
 		flags = fcntl(fd, F_GETFL, 0);
 		if (flags < 0) {
-			zlog_warn(
-				"%s: could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: could not get fcntl(F_GETFL,O_NONBLOCK) on socket fd=%d",
+				      __PRETTY_FUNCTION__, fd);
 			close(fd);
 			return -1;
 		}
 
 		if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
-			zlog_warn(
-				"%s: could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, fd, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: could not set fcntl(F_SETFL,O_NONBLOCK) on socket fd=%d",
+				      __PRETTY_FUNCTION__, fd);
 			close(fd);
 			return -1;
 		}
@@ -211,10 +204,9 @@ static void ssmpingd_delete(struct ssmpingd_sock *ss)
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", ss->source_addr, source_str,
 			       sizeof(source_str));
-		zlog_warn(
-			"%s: failure closing ssmpingd sock_fd=%d for source %s: errno=%d: %s",
-			__PRETTY_FUNCTION__, ss->sock_fd, source_str, errno,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: failure closing ssmpingd sock_fd=%d for source %s",
+			      __PRETTY_FUNCTION__, ss->sock_fd, source_str);
 		/* warning only */
 	}
 
@@ -234,10 +226,13 @@ static void ssmpingd_sendto(struct ssmpingd_sock *ss, const uint8_t *buf,
 		char to_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<to?>", to.sin_addr, to_str, sizeof(to_str));
 		if (sent < 0) {
-			zlog_warn(
-				"%s: sendto() failure to %s,%d: fd=%d len=%d: errno=%d: %s",
-				__PRETTY_FUNCTION__, to_str, ntohs(to.sin_port),
-				ss->sock_fd, len, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: sendto() failure to %s,
+				      %d: fd=%d len=%d: errno=%d: %s",
+				      __PRETTY_FUNCTION__, to_str,
+				      ntohs(to.sin_port),
+				      ss->sock_fd, len, errno,
+				      safe_strerror(errno));
 		} else {
 			zlog_warn(
 				"%s: sendto() partial to %s,%d: fd=%d len=%d: sent=%d",
@@ -266,10 +261,9 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", ss->source_addr, source_str,
 			       sizeof(source_str));
-		zlog_warn(
-			"%s: failure receiving ssmping for source %s on fd=%d: errno=%d: %s",
-			__PRETTY_FUNCTION__, source_str, ss->sock_fd, errno,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: failure receiving ssmping for source %s on fd=%d",
+			      __PRETTY_FUNCTION__, source_str, ss->sock_fd);
 		return -1;
 	}
 

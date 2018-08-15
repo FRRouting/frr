@@ -64,8 +64,8 @@ int eigrp_sock_init(void)
 	frr_elevate_privs(&eigrpd_privs) {
 		eigrp_sock = socket(AF_INET, SOCK_RAW, IPPROTO_EIGRPIGP);
 		if (eigrp_sock < 0) {
-			zlog_err("eigrp_read_sock_init: socket: %s",
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "eigrp_read_sock_init: socket");
 			exit(1);
 		}
 
@@ -74,8 +74,9 @@ int eigrp_sock_init(void)
 		ret = setsockopt(eigrp_sock, IPPROTO_IP, IP_HDRINCL, &hincl,
 				 sizeof(hincl));
 		if (ret < 0) {
-			zlog_warn("Can't set IP_HDRINCL option for fd %d: %s",
-				  eigrp_sock, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Can't set IP_HDRINCL option for fd %d",
+				      eigrp_sock);
 		}
 #elif defined(IPTOS_PREC_INTERNETCONTROL)
 #warning "IP_HDRINCL not available on this system"
@@ -83,8 +84,9 @@ int eigrp_sock_init(void)
 		ret = setsockopt_ipv4_tos(eigrp_sock,
 					  IPTOS_PREC_INTERNETCONTROL);
 		if (ret < 0) {
-			zlog_warn("can't set sockopt IP_TOS %d to socket %d: %s",
-				  tos, eigrp_sock, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "can't set sockopt IP_TOS %d to socket %d",
+				      tos, eigrp_sock);
 			close(eigrp_sock); /* Prevent sd leak. */
 			return ret;
 		}
@@ -142,25 +144,26 @@ int eigrp_if_ipmulticast(struct eigrp *top, struct prefix *p,
 	ret = setsockopt(top->fd, IPPROTO_IP, IP_MULTICAST_LOOP, (void *)&val,
 			 len);
 	if (ret < 0)
-		zlog_warn(
-			"can't setsockopt IP_MULTICAST_LOOP (0) for fd %d: %s",
-			top->fd, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "can't setsockopt IP_MULTICAST_LOOP (0) for fd %d",
+			      top->fd);
 
 	/* Explicitly set multicast ttl to 1 -- endo. */
 	val = 1;
 	ret = setsockopt(top->fd, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&val,
 			 len);
 	if (ret < 0)
-		zlog_warn("can't setsockopt IP_MULTICAST_TTL (1) for fd %d: %s",
-			  top->fd, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "can't setsockopt IP_MULTICAST_TTL (1) for fd %d",
+			      top->fd);
 
 	ret = setsockopt_ipv4_multicast_if(top->fd, p->u.prefix4, ifindex);
 	if (ret < 0)
-		zlog_warn(
-			"can't setsockopt IP_MULTICAST_IF (fd %d, addr %s, "
-			"ifindex %u): %s",
-			top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "can't setsockopt IP_MULTICAST_IF (fd %d, addr %s, "
+			      "ifindex %u): %s",
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
+			      safe_strerror(errno));
 
 	return ret;
 }
@@ -175,12 +178,12 @@ int eigrp_if_add_allspfrouters(struct eigrp *top, struct prefix *p,
 		top->fd, IP_ADD_MEMBERSHIP, p->u.prefix4,
 		htonl(EIGRP_MULTICAST_ADDRESS), ifindex);
 	if (ret < 0)
-		zlog_warn(
-			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
-			"ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
-			"on # of multicast group memberships has been exceeded?",
-			top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
+			      "ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
+			      "on # of multicast group memberships has been exceeded?",
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
+			      safe_strerror(errno));
 	else
 		zlog_debug("interface %s [%u] join EIGRP Multicast group.",
 			   inet_ntoa(p->u.prefix4), ifindex);
@@ -197,11 +200,11 @@ int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
 		top->fd, IP_DROP_MEMBERSHIP, p->u.prefix4,
 		htonl(EIGRP_MULTICAST_ADDRESS), ifindex);
 	if (ret < 0)
-		zlog_warn(
-			"can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
-			"ifindex %u, AllSPFRouters): %s",
-			top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
+			      "ifindex %u, AllSPFRouters): %s",
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
+			      safe_strerror(errno));
 	else
 		zlog_debug("interface %s [%u] leave EIGRP Multicast group.",
 			   inet_ntoa(p->u.prefix4), ifindex);
