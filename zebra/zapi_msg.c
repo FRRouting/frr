@@ -739,6 +739,20 @@ int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
 				      re->table, note));
 }
 
+/*
+ * Route-owner notification using info from dataplane update context.
+ */
+int zsend_route_notify_owner_ctx(dplane_ctx_h ctx,
+				 enum zapi_route_notify_owner note)
+{
+	return (route_notify_internal(dplane_ctx_get_dest(ctx),
+				      dplane_ctx_get_type(ctx),
+				      dplane_ctx_get_instance(ctx),
+				      dplane_ctx_get_vrf(ctx),
+				      dplane_ctx_get_table(ctx),
+				      note));
+}
+
 void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 			     enum zapi_rule_notify_owner note)
 {

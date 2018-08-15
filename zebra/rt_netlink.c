@@ -819,13 +819,16 @@ static int netlink_request_route(struct zebra_ns *zns, int family, int type)
 int netlink_route_read(struct zebra_ns *zns)
 {
 	int ret;
+	struct zebra_ns_info zns_info;
+
+	zebra_ns_info_from_ns(&zns_info, zns, true /*is_cmd*/);
 
 	/* Get IPv4 routing table. */
 	ret = netlink_request_route(zns, AF_INET, RTM_GETROUTE);
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_route_change_read_unicast,
-				 &zns->netlink_cmd, zns, 0, 1);
+				 &zns->netlink_cmd, &zns_info, 0, 1);
 	if (ret < 0)
 		return ret;
 
@@ -834,7 +837,7 @@ int netlink_route_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_route_change_read_unicast,
-				 &zns->netlink_cmd, zns, 0, 1);
+				 &zns->netlink_cmd, &zns_info, 0, 1);
 	if (ret < 0)
 		return ret;
 
@@ -1577,7 +1580,7 @@ static int netlink_route_multipath(int cmd, const struct prefix *p,
 				addattr_l(&req.n, sizeof req, RTA_PREFSRC,
 					  &src.ipv6, bytelen);
 		}
-	} else {
+	} else {    /* Multipath case */
 		char buf[NL_PKT_BUF_SIZE];
 		struct rtattr *rta = (void *)buf;
 		struct rtnexthop *rtnh;
@@ -1694,6 +1697,332 @@ skip:
 			    0);
 }
 
+/*
+ * Routing table change via netlink interface, using a dataplane context object
+ */
+static int netlink_route_multipath_ctx(int cmd, dplane_ctx_h ctx)
+{
+	int bytelen;
+	struct sockaddr_nl snl;
+	struct nexthop *nexthop = NULL;
+	unsigned int nexthop_num;
+	int family;
+	const char *routedesc;
+	int setsrc = 0;
+	union g_addr src;
+	const struct prefix *p, *src_p;
+	uint32_t table_id;
+
+	struct {
+		struct nlmsghdr n;
+		struct rtmsg r;
+		char buf[NL_PKT_BUF_SIZE];
+	} req;
+
+	p = dplane_ctx_get_dest(ctx);
+	src_p = dplane_ctx_get_src(ctx);
+
+	family = PREFIX_FAMILY(p);
+
+	memset(&req, 0, sizeof(req) - NL_PKT_BUF_SIZE);
+
+	bytelen = (family == AF_INET ? 4 : 16);
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
+
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
+		if ((p->family == AF_INET) || v6_rr_semantics)
+			req.n.nlmsg_flags |= NLM_F_REPLACE;
+	}
+
+	req.n.nlmsg_type = cmd;
+
+	req.n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
+
+	req.r.rtm_family = family;
+	req.r.rtm_dst_len = p->prefixlen;
+	req.r.rtm_src_len = src_p ? src_p->prefixlen : 0;
+	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
+
+	if (cmd == RTM_DELROUTE)
+		req.r.rtm_protocol = zebra2proto(dplane_ctx_get_old_type(ctx));
+	else
+		req.r.rtm_protocol = zebra2proto(dplane_ctx_get_type(ctx));
+
+	/*
+	 * blackhole routes are not RTN_UNICAST, they are
+	 * RTN_ BLACKHOLE|UNREACHABLE|PROHIBIT
+	 * so setting this value as a RTN_UNICAST would
+	 * cause the route lookup of just the prefix
+	 * to fail.  So no need to specify this for
+	 * the RTM_DELROUTE case
+	 */
+	if (cmd != RTM_DELROUTE)
+		req.r.rtm_type = RTN_UNICAST;
+
+	addattr_l(&req.n, sizeof(req), RTA_DST, &p->u.prefix, bytelen);
+	if (src_p)
+		addattr_l(&req.n, sizeof(req), RTA_SRC, &src_p->u.prefix,
+			  bytelen);
+
+	/* Metric. */
+	/* Hardcode the metric for all routes coming from zebra. Metric isn't
+	 * used
+	 * either by the kernel or by zebra. Its purely for calculating best
+	 * path(s)
+	 * by the routing protocol and for communicating with protocol peers.
+	 */
+	addattr32(&req.n, sizeof(req), RTA_PRIORITY, NL_DEFAULT_ROUTE_METRIC);
+
+#if defined(SUPPORT_REALMS)
+	{
+		route_tag_t tag;
+
+		if (cmd == RTM_DELROUTE)
+			tag = dplane_ctx_get_old_tag(ctx);
+		else
+			tag = dplane_ctx_get_tag(ctx);
+
+		if (tag > 0 && tag <= 255)
+			addattr32(&req.n, sizeof(req), RTA_FLOW, tag);
+	}
+#endif
+	/* Table corresponding to this route. */
+	table_id = dplane_ctx_get_table(ctx);
+	if (table_id < 256)
+		req.r.rtm_table = table_id;
+	else {
+		req.r.rtm_table = RT_TABLE_UNSPEC;
+		addattr32(&req.n, sizeof(req), RTA_TABLE, table_id);
+	}
+
+	_netlink_route_debug(cmd, p, family, dplane_ctx_get_vrf(ctx), table_id);
+
+	/*
+	 * If we are not updating the route and we have received
+	 * a route delete, then all we need to fill in is the
+	 * prefix information to tell the kernel to schwack
+	 * it.
+	 */
+	if (cmd == RTM_DELROUTE)
+		goto skip;
+
+	if (dplane_ctx_get_mtu(ctx) || dplane_ctx_get_nh_mtu(ctx)) {
+		char buf[NL_PKT_BUF_SIZE];
+		struct rtattr *rta = (void *)buf;
+		uint32_t mtu = dplane_ctx_get_mtu(ctx);
+		uint32_t nexthop_mtu = dplane_ctx_get_nh_mtu(ctx);
+
+		if (!mtu || (nexthop_mtu && nexthop_mtu < mtu))
+			mtu = nexthop_mtu;
+		rta->rta_type = RTA_METRICS;
+		rta->rta_len = RTA_LENGTH(0);
+		rta_addattr_l(rta, NL_PKT_BUF_SIZE,
+			      RTAX_MTU, &mtu, sizeof(mtu));
+		addattr_l(&req.n, NL_PKT_BUF_SIZE, RTA_METRICS, RTA_DATA(rta),
+			  RTA_PAYLOAD(rta));
+	}
+
+	/* Count overall nexthops so we can decide whether to use singlepath
+	 * or multipath case.
+	 */
+	nexthop_num = 0;
+	for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+		if (cmd == RTM_NEWROUTE && !NEXTHOP_IS_ACTIVE(nexthop->flags))
+			continue;
+
+		nexthop_num++;
+	}
+
+	/* Singlepath case. */
+	if (nexthop_num == 1 || multipath_num == 1) {
+		nexthop_num = 0;
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			/*
+			 * So we want to cover 2 types of blackhole
+			 * routes here:
+			 * 1) A normal blackhole route( ala from a static
+			 *    install.
+			 * 2) A recursively resolved blackhole route
+			 */
+			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+				switch (nexthop->bh_type) {
+				case BLACKHOLE_ADMINPROHIB:
+					req.r.rtm_type = RTN_PROHIBIT;
+					break;
+				case BLACKHOLE_REJECT:
+					req.r.rtm_type = RTN_UNREACHABLE;
+					break;
+				default:
+					req.r.rtm_type = RTN_BLACKHOLE;
+					break;
+				}
+				goto skip;
+			}
+			if (CHECK_FLAG(nexthop->flags,
+				       NEXTHOP_FLAG_RECURSIVE)) {
+
+				if (setsrc)
+					continue;
+
+				if (family == AF_INET) {
+					if (nexthop->rmap_src.ipv4.s_addr
+					    != 0) {
+						src.ipv4 =
+							nexthop->rmap_src.ipv4;
+						setsrc = 1;
+					} else if (nexthop->src.ipv4.s_addr
+						   != 0) {
+						src.ipv4 =
+							nexthop->src.ipv4;
+						setsrc = 1;
+					}
+				} else if (family == AF_INET6) {
+					if (!IN6_IS_ADDR_UNSPECIFIED(
+						    &nexthop->rmap_src.ipv6)) {
+						src.ipv6 =
+							nexthop->rmap_src.ipv6;
+						setsrc = 1;
+					} else if (
+						!IN6_IS_ADDR_UNSPECIFIED(
+							&nexthop->src.ipv6)) {
+						src.ipv6 =
+							nexthop->src.ipv6;
+						setsrc = 1;
+					}
+				}
+			}
+
+			if ((cmd == RTM_NEWROUTE
+			     && NEXTHOP_IS_ACTIVE(nexthop->flags))) {
+				routedesc = nexthop->rparent
+						    ? "recursive, single-path"
+						    : "single-path";
+
+				_netlink_route_build_singlepath(
+					routedesc, bytelen, nexthop, &req.n,
+					&req.r, sizeof(req), cmd);
+				nexthop_num++;
+				break;
+			}
+		}
+		if (setsrc && (cmd == RTM_NEWROUTE)) {
+			if (family == AF_INET)
+				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
+					  &src.ipv4, bytelen);
+			else if (family == AF_INET6)
+				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
+					  &src.ipv6, bytelen);
+		}
+	} else {    /* Multipath case */
+		char buf[NL_PKT_BUF_SIZE];
+		struct rtattr *rta = (void *)buf;
+		struct rtnexthop *rtnh;
+		union g_addr *src1 = NULL;
+
+		rta->rta_type = RTA_MULTIPATH;
+		rta->rta_len = RTA_LENGTH(0);
+		rtnh = RTA_DATA(rta);
+
+		nexthop_num = 0;
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			if (nexthop_num >= multipath_num)
+				break;
+
+			if (CHECK_FLAG(nexthop->flags,
+				       NEXTHOP_FLAG_RECURSIVE)) {
+				/* This only works for IPv4 now */
+				if (setsrc)
+					continue;
+
+				if (family == AF_INET) {
+					if (nexthop->rmap_src.ipv4.s_addr
+					    != 0) {
+						src.ipv4 =
+							nexthop->rmap_src.ipv4;
+						setsrc = 1;
+					} else if (nexthop->src.ipv4.s_addr
+						   != 0) {
+						src.ipv4 =
+							nexthop->src.ipv4;
+						setsrc = 1;
+					}
+				} else if (family == AF_INET6) {
+					if (!IN6_IS_ADDR_UNSPECIFIED(
+						    &nexthop->rmap_src.ipv6)) {
+						src.ipv6 =
+							nexthop->rmap_src.ipv6;
+						setsrc = 1;
+					} else if (
+						!IN6_IS_ADDR_UNSPECIFIED(
+							&nexthop->src.ipv6)) {
+						src.ipv6 =
+							nexthop->src.ipv6;
+						setsrc = 1;
+					}
+				}
+			}
+
+			if ((cmd == RTM_NEWROUTE
+			     && NEXTHOP_IS_ACTIVE(nexthop->flags))) {
+				routedesc = nexthop->rparent
+						    ? "recursive, multipath"
+						    : "multipath";
+				nexthop_num++;
+
+				_netlink_route_build_multipath(
+					routedesc, bytelen, nexthop, rta, rtnh,
+					&req.r, &src1);
+				rtnh = RTNH_NEXT(rtnh);
+
+				if (!setsrc && src1) {
+					if (family == AF_INET)
+						src.ipv4 = src1->ipv4;
+					else if (family == AF_INET6)
+						src.ipv6 = src1->ipv6;
+
+					setsrc = 1;
+				}
+			}
+		}
+		if (setsrc && (cmd == RTM_NEWROUTE)) {
+			if (family == AF_INET)
+				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
+					  &src.ipv4, bytelen);
+			else if (family == AF_INET6)
+				addattr_l(&req.n, sizeof(req), RTA_PREFSRC,
+					  &src.ipv6, bytelen);
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("Setting source");
+		}
+
+		if (rta->rta_len > RTA_LENGTH(0))
+			addattr_l(&req.n, NL_PKT_BUF_SIZE, RTA_MULTIPATH,
+				  RTA_DATA(rta), RTA_PAYLOAD(rta));
+	}
+
+	/* If there is no useful nexthop then return. */
+	if (nexthop_num == 0) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"netlink_route_multipath(): No useful nexthop.");
+		return 0;
+	}
+
+skip:
+
+	/* Destination netlink address. */
+	memset(&snl, 0, sizeof(snl));
+	snl.nl_family = AF_NETLINK;
+
+	/* Talk to netlink socket. */
+	return netlink_talk_info(netlink_talk_filter, &req.n,
+				 dplane_ctx_get_ns(ctx), 0);
+}
+
 int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 {
 	int suc = 0;
@@ -1778,6 +2107,50 @@ enum dp_req_result kernel_route_rib(struct route_node *rn,
 	}
 
 	return DP_REQUEST_SUCCESS;
+}
+
+/*
+ * Update or delete a prefix from the kernel,
+ * using info from a dataplane context.
+ */
+enum dp_req_result kernel_route_update(dplane_ctx_h ctx)
+{
+	int cmd, ret;
+	const struct prefix *p = dplane_ctx_get_dest(ctx);
+
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
+		cmd = RTM_DELROUTE;
+	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL) {
+		cmd = RTM_NEWROUTE;
+	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
+
+		if (p->family == AF_INET || v6_rr_semantics) {
+			/* Single 'replace' operation */
+			cmd = RTM_NEWROUTE;
+		} else {
+			/*
+			 * So v6 route replace semantics are not in
+			 * the kernel at this point as I understand it.
+			 * so let's do a delete then an add.
+			 * In the future once v6 route replace semantics
+			 * are in we can figure out what to do here to
+			 * allow working with old and new kernels.
+			 *
+			 * I'm also intentionally ignoring the failure case
+			 * of the route delete.  If that happens yeah we're
+			 * screwed.
+			 */
+			(void)netlink_route_multipath_ctx(RTM_DELROUTE, ctx);
+			cmd = RTM_NEWROUTE;
+		}
+
+	} else {
+		return DP_REQUEST_FAILURE;
+	}
+
+	ret = netlink_route_multipath_ctx(cmd, ctx);
+
+	return (ret == 0 ? DP_REQUEST_SUCCESS : DP_REQUEST_FAILURE);
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
@@ -2014,8 +2387,8 @@ static int netlink_macfdb_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 }
 
 /* Request for MAC FDB information from the kernel */
-static int netlink_request_macs(struct zebra_ns *zns, int family, int type,
-				ifindex_t master_ifindex)
+static int netlink_request_macs(struct nlsock *netlink_cmd, int family,
+				int type, ifindex_t master_ifindex)
 {
 	struct {
 		struct nlmsghdr n;
@@ -2031,7 +2404,7 @@ static int netlink_request_macs(struct zebra_ns *zns, int family, int type,
 	if (master_ifindex)
 		addattr32(&req.n, sizeof(req), IFLA_MASTER, master_ifindex);
 
-	return netlink_request(&zns->netlink_cmd, &req.n);
+	return netlink_request(netlink_cmd, &req.n);
 }
 
 /*
@@ -2041,15 +2414,19 @@ static int netlink_request_macs(struct zebra_ns *zns, int family, int type,
 int netlink_macfdb_read(struct zebra_ns *zns)
 {
 	int ret;
+	struct zebra_ns_info zns_info;
+
+	zebra_ns_info_from_ns(&zns_info, zns, true /*is_cmd*/);
 
 	/* Get bridge FDB table. */
-	ret = netlink_request_macs(zns, AF_BRIDGE, RTM_GETNEIGH, 0);
+	ret = netlink_request_macs(&zns->netlink_cmd, AF_BRIDGE, RTM_GETNEIGH,
+				   0);
 	if (ret < 0)
 		return ret;
 	/* We are reading entire table. */
 	filter_vlan = 0;
-	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd, zns,
-				 0, 1);
+	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
+				 &zns_info, 0, 1);
 
 	return ret;
 }
@@ -2064,8 +2441,10 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 	struct zebra_if *br_zif;
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl;
+	struct zebra_ns_info zns_info;
 	int ret = 0;
 
+	zebra_ns_info_from_ns(&zns_info, zns, true /*is_cmd*/);
 
 	/* Save VLAN we're filtering on, if needed. */
 	br_zif = (struct zebra_if *)br_if->info;
@@ -2076,12 +2455,12 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 
 	/* Get bridge FDB table for specific bridge - we do the VLAN filtering.
 	 */
-	ret = netlink_request_macs(zns, AF_BRIDGE, RTM_GETNEIGH,
+	ret = netlink_request_macs(&zns->netlink_cmd, AF_BRIDGE, RTM_GETNEIGH,
 				   br_if->ifindex);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd, zns,
-				 0, 0);
+	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
+				 &zns_info, 0, 0);
 
 	/* Reset VLAN filter. */
 	filter_vlan = 0;
@@ -2333,8 +2712,8 @@ static int netlink_neigh_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 }
 
 /* Request for IP neighbor information from the kernel */
-static int netlink_request_neigh(struct zebra_ns *zns, int family, int type,
-				 ifindex_t ifindex)
+static int netlink_request_neigh(struct nlsock *netlink_cmd, int family,
+				 int type, ifindex_t ifindex)
 {
 	struct {
 		struct nlmsghdr n;
@@ -2350,7 +2729,7 @@ static int netlink_request_neigh(struct zebra_ns *zns, int family, int type,
 	if (ifindex)
 		addattr32(&req.n, sizeof(req), NDA_IFINDEX, ifindex);
 
-	return netlink_request(&zns->netlink_cmd, &req.n);
+	return netlink_request(netlink_cmd, &req.n);
 }
 
 /*
@@ -2360,13 +2739,17 @@ static int netlink_request_neigh(struct zebra_ns *zns, int family, int type,
 int netlink_neigh_read(struct zebra_ns *zns)
 {
 	int ret;
+	struct zebra_ns_info zns_info;
+
+	zebra_ns_info_from_ns(&zns_info, zns, true /*is_cmd*/);
 
 	/* Get IP neighbor table. */
-	ret = netlink_request_neigh(zns, AF_UNSPEC, RTM_GETNEIGH, 0);
+	ret = netlink_request_neigh(&zns->netlink_cmd, AF_UNSPEC, RTM_GETNEIGH,
+				    0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd, zns, 0,
-				 1);
+	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
+				 &zns_info, 0, 1);
 
 	return ret;
 }
@@ -2378,13 +2761,16 @@ int netlink_neigh_read(struct zebra_ns *zns)
 int netlink_neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 {
 	int ret = 0;
+	struct zebra_ns_info zns_info;
 
-	ret = netlink_request_neigh(zns, AF_UNSPEC, RTM_GETNEIGH,
+	zebra_ns_info_from_ns(&zns_info, zns, true /*is_cmd*/);
+
+	ret = netlink_request_neigh(&zns->netlink_cmd, AF_UNSPEC, RTM_GETNEIGH,
 				    vlan_if->ifindex);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd, zns, 0,
-				 0);
+	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
+				 &zns_info, 0, 0);
 
 	return ret;
 }

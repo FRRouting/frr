@@ -1,7 +1,7 @@
 /*
  * Zebra Vrf Header
  * Copyright (C) 2016 Cumulus Networks
- *                    Donald Sahrp
+ *                    Donald Sharp
  *
  * This file is part of Quagga.
  *
@@ -118,6 +118,8 @@ struct zebra_vrf {
 	/* Route Installs */
 	uint64_t installs;
 	uint64_t removals;
+	uint64_t installs_queued;
+	uint64_t removals_queued;
 	uint64_t neigh_updates;
 	uint64_t lsp_installs;
 	uint64_t lsp_removals;

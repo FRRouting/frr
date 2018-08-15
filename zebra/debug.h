@@ -46,6 +46,9 @@
 
 #define ZEBRA_DEBUG_PW      0x01
 
+#define ZEBRA_DEBUG_DPLANE           0x01
+#define ZEBRA_DEBUG_DPLANE_DETAILED  0x02
+
 /* Debug related macro. */
 #define IS_ZEBRA_DEBUG_EVENT  (zebra_debug_event & ZEBRA_DEBUG_EVENT)
 
@@ -70,6 +73,10 @@
 #define IS_ZEBRA_DEBUG_VXLAN (zebra_debug_vxlan & ZEBRA_DEBUG_VXLAN)
 #define IS_ZEBRA_DEBUG_PW  (zebra_debug_pw & ZEBRA_DEBUG_PW)
 
+#define IS_ZEBRA_DEBUG_DPLANE (zebra_debug_dplane & ZEBRA_DEBUG_DPLANE)
+#define IS_ZEBRA_DEBUG_DPLANE_DETAIL \
+	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DETAILED)
+
 extern unsigned long zebra_debug_event;
 extern unsigned long zebra_debug_packet;
 extern unsigned long zebra_debug_kernel;
@@ -79,6 +86,7 @@ extern unsigned long zebra_debug_nht;
 extern unsigned long zebra_debug_mpls;
 extern unsigned long zebra_debug_vxlan;
 extern unsigned long zebra_debug_pw;
+extern unsigned long zebra_debug_dplane;
 
 extern void zebra_debug_init(void);
 

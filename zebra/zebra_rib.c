@@ -51,6 +51,15 @@
 #include "zebra/connected.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_dplane.h"
+
+/*
+ * Event, list, and mutex for delivery of dataplane results
+ */
+static pthread_mutex_t dplane_mutex;
+static struct thread *t_dplane;
+static struct dplane_ctx_q_s rib_dplane_q;
+
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason))
@@ -924,7 +933,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
 	/* It'll get set if required inside */
-	ret = zebra_route_map_check(family, re->type, re->instance, p, nexthop,
+	ret = zebra_route_map_check(family, re->type, re->instance,
+				    (struct prefix *)p, nexthop,
 				    nexthop->vrf_id, re->tag);
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
@@ -1085,8 +1095,11 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 {
 	struct nexthop *nexthop;
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
-	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
+	const struct prefix *p, *src_p;
+	enum dp_req_result ret;
+
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
@@ -1118,20 +1131,38 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	if (old && (old != re) && (old->type != re->type))
 		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON);
 
+	/* Update fib selection */
+	dest->selected_fib = re;
+
 	/*
 	 * Make sure we update the FPM any time we send new information to
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "installing in kernel");
-	switch (kernel_route_rib(rn, p, src_p, old, re)) {
+
+	/* Send add or update */
+	if (old && (old != re))
+		ret = dplane_route_update(rn, re, old);
+	else
+		ret = dplane_route_add(rn, re);
+
+	switch (ret) {
 	case DP_REQUEST_QUEUED:
-		zlog_err("No current known DataPlane interfaces can return this, please fix");
+		if (zvrf)
+			zvrf->installs_queued++;
 		break;
 	case DP_REQUEST_FAILURE:
-		zlog_err("No current known Rib Install Failure cases, please fix");
+	{
+		char str[SRCDEST2STR_BUFFER];
+
+		srcdest_rnode2str(rn, str, sizeof(str));
+		zlog_err("%u:%s: Failed to enqueue dataplane install",
+			 re->vrf_id, str);
 		break;
+	}
 	case DP_REQUEST_SUCCESS:
-		zvrf->installs++;
+		if (zvrf)
+			zvrf->installs++;
 		break;
 	}
 
@@ -1143,10 +1174,7 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
 	struct nexthop *nexthop;
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
-	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
-
-	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	if (info->safi != SAFI_UNICAST) {
 		for (ALL_NEXTHOPS(re->ng, nexthop))
@@ -1156,16 +1184,24 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 
 	/*
 	 * Make sure we update the FPM any time we send new information to
-	 * the kernel.
+	 * the dataplane.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
-	switch (kernel_route_rib(rn, p, src_p, re, NULL)) {
+	switch (dplane_route_delete(rn, re)) {
 	case DP_REQUEST_QUEUED:
-		zlog_err("No current known DataPlane interfaces can return this, please fix");
+		if (zvrf)
+			zvrf->removals_queued++;
 		break;
 	case DP_REQUEST_FAILURE:
-		zlog_err("No current known RIB Install Failure cases, please fix");
+	{
+		char str[SRCDEST2STR_BUFFER];
+
+		srcdest_rnode2str(rn, str, sizeof(str));
+
+		zlog_err("%u:%s: Failed to enqueue dataplane uninstall",
+			 re->vrf_id, str);
 		break;
+	}
 	case DP_REQUEST_SUCCESS:
 		if (zvrf)
 			zvrf->removals++;
@@ -1180,17 +1216,23 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 {
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
+	struct nexthop *nexthop;
 
 	if (dest && dest->selected_fib == re) {
 		if (info->safi == SAFI_UNICAST)
 			hook_call(rib_update, rn, "rib_uninstall");
 
-		if (!RIB_SYSTEM_ROUTE(re))
-			rib_uninstall_kernel(rn, re);
-
 		/* If labeled-unicast route, uninstall transit LSP. */
 		if (zebra_rib_labeled_unicast(re))
 			zebra_mpls_lsp_uninstall(info->zvrf, rn, re);
+
+		if (!RIB_SYSTEM_ROUTE(re))
+			rib_uninstall_kernel(rn, re);
+
+		dest->selected_fib = NULL;
+
+		for (ALL_NEXTHOPS(re->ng, nexthop))
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 	}
 
 	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
@@ -1692,26 +1734,24 @@ static void rib_process(struct route_node *rn)
 	else if (old_fib)
 		rib_process_del_fib(zvrf, rn, old_fib);
 
-	/* Redistribute SELECTED entry */
+	/* Update SELECTED entry */
 	if (old_selected != new_selected || selected_changed) {
-		struct nexthop *nexthop = NULL;
-
-		/* Check if we have a FIB route for the destination, otherwise,
-		 * don't redistribute it */
-		if (new_fib) {
-			for (ALL_NEXTHOPS(new_fib->ng, nexthop)) {
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_FIB)) {
-					break;
-				}
-			}
-		}
-		if (!nexthop)
-			new_selected = NULL;
 
 		if (new_selected && new_selected != new_fib) {
 			nexthop_active_update(rn, new_selected, 1);
 			UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
+		}
+
+		if (new_selected) {
+			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
+
+			/* Special case: new route is system route, so
+			 * dataplane update will not be done - ensure we
+			 * redistribute the route.
+			 */
+			if (RIB_SYSTEM_ROUTE(new_selected))
+				redistribute_update(p, src_p, new_selected,
+						    old_selected);
 		}
 
 		if (old_selected) {
@@ -1720,14 +1760,6 @@ static void rib_process(struct route_node *rn)
 			if (old_selected != new_selected)
 				UNSET_FLAG(old_selected->flags,
 					   ZEBRA_FLAG_SELECTED);
-		}
-
-		if (new_selected) {
-			/* Install new or replace existing redistributed entry
-			 */
-			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
-			redistribute_update(p, src_p, new_selected,
-					    old_selected);
 		}
 	}
 
@@ -1746,6 +1778,256 @@ static void rib_process(struct route_node *rn)
 	 * Check if the dest can be deleted now.
 	 */
 	rib_gc_dest(rn);
+}
+
+/*
+ * Utility to match route with dplane context data
+ */
+static bool rib_route_match_ctx(const struct route_entry *re,
+				const dplane_ctx_h ctx, bool is_update)
+{
+	bool result = false;
+
+	if (is_update) {
+		/*
+		 * In 'update' case, we test info about the 'previous' or
+		 * 'old' route
+		 */
+		if ((re->type == dplane_ctx_get_old_type(ctx)) &&
+		    (re->instance == dplane_ctx_get_old_instance(ctx))) {
+			result = true;
+
+			/* TODO -- we're using this extra test, but it's not
+			 * exactly clear why.
+			 */
+			if (re->type == ZEBRA_ROUTE_STATIC &&
+			    (re->distance != dplane_ctx_get_old_distance(ctx) ||
+			     re->tag != dplane_ctx_get_old_tag(ctx))) {
+				result = false;
+			}
+		}
+
+	} else {
+		/*
+		 * Ordinary, single-route case using primary context info
+		 */
+		if ((dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE) &&
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
+			/* Skip route that's been deleted */
+			goto done;
+		}
+
+		if ((re->type == dplane_ctx_get_type(ctx)) &&
+		    (re->instance == dplane_ctx_get_instance(ctx))) {
+			result = true;
+
+			/* TODO -- we're using this extra test, but it's not
+			 * exactly clear why.
+			 */
+			if (re->type == ZEBRA_ROUTE_STATIC &&
+			    (re->distance != dplane_ctx_get_distance(ctx) ||
+			     re->tag != dplane_ctx_get_tag(ctx))) {
+				result = false;
+			}
+		}
+	}
+
+done:
+
+	return (result);
+}
+
+/*
+ * TODO - WIP version of route-update processing after async dataplane
+ * update.
+ */
+static void rib_process_after(dplane_ctx_h ctx)
+{
+	struct route_table *table = NULL;
+	struct zebra_vrf *zvrf = NULL;
+	struct route_node *rn = NULL;
+	struct route_entry *re = NULL, *old_re = NULL, *rib;
+	bool is_update = false;
+	struct nexthop *nexthop;
+	char dest_str[PREFIX_STRLEN] = "";
+	enum dplane_op_e op;
+	enum dp_req_result status;
+	const struct prefix *dest_pfx, *src_pfx;
+
+	/* Locate rn and re(s) from ctx */
+
+	table = zebra_vrf_table_with_table_id(dplane_ctx_get_afi(ctx),
+					      dplane_ctx_get_safi(ctx),
+					      dplane_ctx_get_vrf(ctx),
+					      dplane_ctx_get_table(ctx));
+	if (table == NULL) {
+		if (IS_ZEBRA_DEBUG_DPLANE) {
+			zlog_debug("Failed to process dplane results: no table for afi %d, safi %d, vrf %u",
+				   dplane_ctx_get_afi(ctx),
+				   dplane_ctx_get_safi(ctx),
+				   dplane_ctx_get_vrf(ctx));
+		}
+		goto done;
+	}
+
+	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
+
+	dest_pfx = dplane_ctx_get_dest(ctx);
+
+	/* Note well: only capturing the prefix string if debug is enabled here;
+	 * unconditional log messages will have to generate the string.
+	 */
+	if (IS_ZEBRA_DEBUG_DPLANE)
+		prefix2str(dest_pfx, dest_str, sizeof(dest_str));
+
+	src_pfx = dplane_ctx_get_src(ctx);
+	rn = srcdest_rnode_get(table, dplane_ctx_get_dest(ctx),
+			       src_pfx ? (struct prefix_ipv6 *)src_pfx : NULL);
+	if (rn == NULL) {
+		if (IS_ZEBRA_DEBUG_DPLANE) {
+			zlog_debug("Failed to process dplane results: no route for %u:%s",
+				   dplane_ctx_get_vrf(ctx), dest_str);
+		}
+		goto done;
+	}
+
+	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
+
+	op = dplane_ctx_get_op(ctx);
+	status = dplane_ctx_get_status(ctx);
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug("%u:%s Processing dplane ctx %p, op %s result %d",
+			   dplane_ctx_get_vrf(ctx), dest_str, ctx,
+			   dplane_op2str(op), status);
+	}
+
+	if (op == DPLANE_OP_ROUTE_DELETE) {
+		/*
+		 * In the delete case, the zebra core datastructs were
+		 * updated (or removed) at the time the delete was issued,
+		 * so we're just notifying the route owner.
+		 */
+		if (status == DP_REQUEST_SUCCESS) {
+			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
+
+			if (zvrf)
+				zvrf->removals++;
+		} else {
+			zsend_route_notify_owner_ctx(ctx,
+						     ZAPI_ROUTE_FAIL_INSTALL);
+
+			zlog_warn("%u:%s: Route Deletion failure",
+				  dplane_ctx_get_vrf(ctx),
+				  prefix2str(dest_pfx,
+					     dest_str, sizeof(dest_str)));
+		}
+
+		/* Nothing more to do in delete case */
+		goto done;
+	}
+
+	/*
+	 * Update is a bit of a special case, where we may have both old and new
+	 * routes to post-process.
+	 */
+	is_update = dplane_ctx_is_update(ctx);
+
+	/*
+	 * Take a pass through the routes, look for matches with the context
+	 * info.
+	 */
+	RNODE_FOREACH_RE(rn, rib) {
+
+		if (re == NULL) {
+			if (rib_route_match_ctx(rib, ctx, false))
+				re = rib;
+		}
+
+		/* Check for old route match */
+		if (is_update && (old_re == NULL)) {
+			if (rib_route_match_ctx(rib, ctx, true /*is_update*/))
+				old_re = rib;
+		}
+
+		/* Have we found the routes we need to work on? */
+		if (re && ((!is_update || old_re)))
+			break;
+	}
+
+	/*
+	 * Check sequence number(s) to detect stale results before continuing
+	 */
+	if (re && (re->dplane_sequence != dplane_ctx_get_seq(ctx))) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+			zlog_debug("%u:%s Stale dplane result for re %p",
+				   dplane_ctx_get_vrf(ctx), dest_str, re);
+		}
+		re = NULL;
+	}
+
+	if (old_re &&
+	    (old_re->dplane_sequence != dplane_ctx_get_old_seq(ctx))) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+			zlog_debug("%u:%s Stale dplane result for old_re %p",
+				   dplane_ctx_get_vrf(ctx), dest_str, old_re);
+		}
+		old_re = NULL;
+	}
+
+	/*
+	 * Here's sort of a tough one: the route update result is stale.
+	 * Is it better to use the context block info to generate
+	 * redist and owner notification, or is it better to wait
+	 * for the up-to-date result to arrive?
+	 */
+	if (re == NULL) {
+		/* TODO -- for now, only expose up-to-date results */
+		goto done;
+	}
+
+	if (status == DP_REQUEST_SUCCESS) {
+		/* Set nexthop FIB flags */
+		for (ALL_NEXTHOPS(re->ng, nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			else
+				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		}
+
+		if (zvrf)
+			zvrf->installs++;
+
+		/* Redistribute */
+		/* TODO -- still calling the redist api using the route_entries,
+		 * and there's a corner-case here: if there's no client
+		 * for the 'new' route, a redist deleting the 'old' route
+		 * will be sent. But if the 'old' context info was stale,
+		 * 'old_re' will be NULL here and that delete will not be sent.
+		 */
+		redistribute_update(dest_pfx, src_pfx, re, old_re);
+
+		/* Notify route owner */
+		zsend_route_notify_owner(re,
+					 dest_pfx, ZAPI_ROUTE_INSTALLED);
+
+	} else {
+		zsend_route_notify_owner(re, dest_pfx,
+					 ZAPI_ROUTE_FAIL_INSTALL);
+
+		zlog_warn("%u:%s: Route install failed",
+			  dplane_ctx_get_vrf(ctx),
+			  prefix2str(dest_pfx,
+				     dest_str, sizeof(dest_str)));
+	}
+
+done:
+
+	/* Return context to dataplane module */
+	dplane_ctx_fini(&ctx);
 }
 
 /* Take a list of route_node structs and return 1, if there was a record
@@ -2861,10 +3143,64 @@ void rib_close_table(struct route_table *table)
 	}
 }
 
+/*
+ *
+ */
+static int rib_process_dplane_results(struct thread *thread)
+{
+	dplane_ctx_h ctx;
+
+	do {
+		/* Take lock controlling queue of results */
+		pthread_mutex_lock(&dplane_mutex);
+		{
+			/* Dequeue context block */
+			dplane_ctx_dequeue(&rib_dplane_q, &ctx);
+		}
+		pthread_mutex_unlock(&dplane_mutex);
+
+		if (ctx)
+			rib_process_after(ctx);
+		else
+			break;
+
+	} while (1);
+
+	return 0;
+}
+
+/*
+ * Results are returned from the dataplane subsystem, in the context of
+ * the dataplane thread. We enqueue the results here for processing by
+ * the main thread later.
+ */
+static int rib_dplane_results(dplane_ctx_h ctx)
+{
+	/* Take lock controlling queue of results */
+	pthread_mutex_lock(&dplane_mutex);
+	{
+		/* Enqueue context block */
+		dplane_ctx_enqueue_tail(&rib_dplane_q, ctx);
+	}
+	pthread_mutex_unlock(&dplane_mutex);
+
+	/* Ensure event is signalled to zebra main thread */
+	thread_add_event(zebrad.master, rib_process_dplane_results, NULL, 0,
+			 &t_dplane);
+
+	return 0;
+}
+
 /* Routing information base initialize. */
 void rib_init(void)
 {
 	rib_queue_init(&zebrad);
+
+	/* Init dataplane, and register for results */
+	pthread_mutex_init(&dplane_mutex, NULL);
+	TAILQ_INIT(&rib_dplane_q);
+	zebra_dplane_init();
+	dplane_results_register(rib_dplane_results);
 }
 
 /*
