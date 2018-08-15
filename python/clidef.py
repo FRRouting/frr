@@ -277,4 +277,4 @@ if __name__ == '__main__':
     process_file(args.cfile, ofd, dumpfd, args.all_defun)
 
     if args.o is not None:
-        clippy.wrdiff(args.o, ofd, [args.cfile, os.path.realpath(__file__)])
+        clippy.wrdiff(args.o, ofd, [args.cfile, os.path.realpath(__file__), sys.executable])
