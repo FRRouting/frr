@@ -718,12 +718,6 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 	msghdr.msg_control = cmsgbuf;
 	msghdr.msg_controllen = sizeof(cmsgbuf);
 
-	/* Sanitize input/output. */
-	memset(port, 0, portlen);
-	memset(vrfname, 0, vrfnamelen);
-	memset(local, 0, sizeof(*local));
-	memset(peer, 0, sizeof(*peer));
-
 	mlen = recvmsg(sd, &msghdr, MSG_DONTWAIT);
 	if (mlen == -1) {
 		if (errno != EAGAIN)
@@ -842,12 +836,6 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 	msghdr6.msg_iovlen = 1;
 	msghdr6.msg_control = cmsgbuf6;
 	msghdr6.msg_controllen = sizeof(cmsgbuf6);
-
-	/* Sanitize input/output. */
-	memset(port, 0, portlen);
-	memset(vrfname, 0, vrfnamelen);
-	memset(local, 0, sizeof(*local));
-	memset(peer, 0, sizeof(*peer));
 
 	mlen = recvmsg(sd, &msghdr6, MSG_DONTWAIT);
 	if (mlen == -1) {
@@ -982,6 +970,12 @@ int bfd_recv_cb(struct thread *t)
 		ptm_bfd_process_echo_pkt(sd);
 		return 0;
 	}
+
+	/* Sanitize input/output. */
+	memset(port, 0, sizeof(port));
+	memset(vrfname, 0, sizeof(vrfname));
+	memset(&local, 0, sizeof(local));
+	memset(&peer, 0, sizeof(peer));
 
 	/* Handle control packets. */
 	is_mhop = is_vxlan = false;
