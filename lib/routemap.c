@@ -1545,7 +1545,7 @@ static void route_map_clear_reference(struct hash_backet *backet, void *arg)
 	struct route_map_dep *dep = (struct route_map_dep *)backet->data;
 	char *rmap_name;
 
-	if (dep && arg) {
+	if (arg) {
 		rmap_name =
 			(char *)hash_release(dep->dep_rmap_hash, (void *)arg);
 		if (rmap_name) {
@@ -1601,9 +1601,8 @@ static void route_map_print_dependency(struct hash_backet *backet, void *data)
 	char *rmap_name = (char *)backet->data;
 	char *dep_name = (char *)data;
 
-	if (rmap_name)
-		zlog_debug("%s: Dependency for %s: %s", __FUNCTION__, dep_name,
-			   rmap_name);
+	zlog_debug("%s: Dependency for %s: %s", __FUNCTION__, dep_name,
+		   rmap_name);
 }
 
 static int route_map_dep_update(struct hash *dephash, const char *dep_name,
@@ -1725,18 +1724,14 @@ static struct hash *route_map_get_dep_hash(route_map_event_t event)
 
 static void route_map_process_dependency(struct hash_backet *backet, void *data)
 {
-	char *rmap_name;
+	char *rmap_name = (char *)backet->data;
 	route_map_event_t type = (route_map_event_t)(ptrdiff_t)data;
 
-	rmap_name = (char *)backet->data;
-
-	if (rmap_name) {
-		if (rmap_debug)
-			zlog_debug("%s: Notifying %s of dependency",
-				   __FUNCTION__, rmap_name);
-		if (route_map_master.event_hook)
-			(*route_map_master.event_hook)(type, rmap_name);
-	}
+	if (rmap_debug)
+		zlog_debug("%s: Notifying %s of dependency",
+			   __FUNCTION__, rmap_name);
+	if (route_map_master.event_hook)
+		(*route_map_master.event_hook)(type, rmap_name);
 }
 
 void route_map_upd8_dependency(route_map_event_t type, const char *arg,
