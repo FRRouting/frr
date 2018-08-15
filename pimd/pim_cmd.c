@@ -2795,9 +2795,6 @@ static int pim_print_pnc_cache_walkcb(struct hash_backet *backet, void *arg)
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
 
-	if (!pnc)
-		return CMD_SUCCESS;
-
 	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
