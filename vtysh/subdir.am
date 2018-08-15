@@ -1,25 +1,31 @@
-## Process this file with Automake to create Makefile.in
+#
+# vtysh
+#
 
-include ../common.am
+if VTYSH
+bin_PROGRAMS += vtysh/vtysh
+dist_examples_DATA += vtysh/vtysh.conf.sample
+endif
 
-AM_CPPFLAGS += -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib \
-	$(BGP_VNC_RFAPI_INCDIR) $(BGP_VNC_RFP_INCDIR)
-DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
+vtysh_vtysh_SOURCES = \
+	vtysh/vtysh_main.c \
+	vtysh/vtysh.c \
+	vtysh/vtysh_user.c \
+	vtysh/vtysh_config.c \
+	# end
+nodist_vtysh_vtysh_SOURCES = \
+	vtysh/vtysh_cmd.c \
+	# end
+CLEANFILES += vtysh/vtysh_cmd.c
 
-LIBS = @LIBS@ @CURSES@ @LIBPAM@
+noinst_HEADERS += \
+	vtysh/vtysh.h \
+	vtysh/vtysh_user.h \
+	# end
 
-bin_PROGRAMS = vtysh
+vtysh_vtysh_LDADD = lib/libfrr.la @LIBCAP@ @LIBREADLINE@ @LIBS@ @CURSES@ @LIBPAM@
 
-vtysh_SOURCES = vtysh_main.c vtysh.c vtysh_user.c vtysh_config.c
-nodist_vtysh_SOURCES = vtysh_cmd.c
-CLEANFILES = vtysh_cmd.c
-noinst_HEADERS = vtysh.h vtysh_user.h
-vtysh_LDADD = ../lib/libfrr.la @LIBCAP@ @LIBREADLINE@
-
-examplesdir = $(exampledir)
-dist_examples_DATA = vtysh.conf.sample
-
-EXTRA_DIST = extract.pl
+EXTRA_DIST += vtysh/extract.pl
 
 vtysh_scan =
 
@@ -145,7 +151,7 @@ if BFDD
 vtysh_scan += $(top_srcdir)/bfdd/bfdd_vty.c
 endif
 
-vtysh_cmd_FILES = $(vtysh_scan) \
+vtysh_vtysh_cmd_FILES = $(vtysh_scan) \
 		  $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c \
 		  $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c \
 		  $(top_srcdir)/lib/distribute.c $(top_srcdir)/lib/if_rmap.c \
@@ -165,5 +171,10 @@ vtysh_cmd_FILES = $(vtysh_scan) \
 		  $(top_srcdir)/watchfrr/watchfrr_vty.c \
 		  # end
 
-vtysh_cmd.c: $(vtysh_cmd_FILES) extract.pl
-	./extract.pl $(vtysh_cmd_FILES) > vtysh_cmd.c
+AM_V_EXTRACT = $(am__v_EXTRACT_$(V))
+am__v_EXTRACT_ = $(am__v_EXTRACT_$(AM_DEFAULT_VERBOSITY))
+am__v_EXTRACT_0 = @echo "  EXTRACT " $@;
+am__v_EXTRACT_1 =
+
+vtysh/vtysh_cmd.c: $(vtysh_vtysh_cmd_FILES) vtysh/extract.pl
+	$(AM_V_EXTRACT) vtysh/extract.pl $(vtysh_vtysh_cmd_FILES) > vtysh/vtysh_cmd.c

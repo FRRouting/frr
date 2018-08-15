@@ -29,7 +29,7 @@ print <<EOF;
 #include "command.h"
 #include "linklist.h"
 
-#include "vtysh.h"
+#include "vtysh/vtysh.h"
 
 EOF
 
@@ -38,7 +38,7 @@ my $cli_stomp = 0;
 foreach (@ARGV) {
     $file = $_;
 
-    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -I@top_builddir@ -I@srcdir@/ -I@srcdir@/.. -I@top_srcdir@/lib -I@top_builddir@/lib -I@top_srcdir@/bgpd -I@top_srcdir@/@LIBRFP@ -I@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $file |");
+    open (FH, "@CPP@ -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @CPPFLAGS@ $file |");
     local $/; undef $/;
     $line = <FH>;
     close (FH);
